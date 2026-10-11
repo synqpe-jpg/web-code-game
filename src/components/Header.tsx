@@ -124,8 +124,17 @@ export const Header: React.FC<HeaderProps> = ({
         <div className="flex items-center justify-between h-14 sm:h-18 gap-2 sm:gap-4">
           {/* 1. Brand Logo */}
           <div
+            role="button"
+            tabIndex={0}
             onClick={() => onSelectTab('catalog')}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault();
+                onSelectTab('catalog');
+              }
+            }}
             className="flex items-center gap-2.5 group shrink-0 cursor-pointer select-none"
+            aria-label="Về trang chủ tra cứu code"
           >
             <div className="w-9 h-9 sm:w-11 sm:h-11 rounded-xl bg-gradient-to-br from-primary via-primary-hover to-accent flex items-center justify-center shadow-glow-primary group-hover:scale-105 transition-transform overflow-hidden">
               {branding?.logoUrl ? (
@@ -170,6 +179,7 @@ export const Header: React.FC<HeaderProps> = ({
           {/* 2. Desktop Navigation Tabs - Always visible on PC / Tablet (md+) and pinned on scroll */}
           <nav className="hidden md:flex items-center gap-1 bg-muted/60 p-1.5 rounded-2xl border border-border/80 flex-nowrap whitespace-nowrap shrink-0 shadow-sm">
             <button
+              type="button"
               onClick={() => onSelectTab('catalog')}
               className={`flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
                 currentTab === 'catalog'
@@ -182,6 +192,7 @@ export const Header: React.FC<HeaderProps> = ({
             </button>
 
             <button
+              type="button"
               onClick={() => onSelectTab('giveaways')}
               className={`flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
                 currentTab === 'giveaways'
@@ -194,6 +205,7 @@ export const Header: React.FC<HeaderProps> = ({
             </button>
 
             <button
+              type="button"
               onClick={() => onSelectTab('store')}
               className={`flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
                 currentTab === 'store'
@@ -206,6 +218,7 @@ export const Header: React.FC<HeaderProps> = ({
             </button>
 
             <button
+              type="button"
               onClick={() => onSelectTab('utilities')}
               className={`flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
                 currentTab === 'utilities'

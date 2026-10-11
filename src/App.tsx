@@ -75,9 +75,9 @@ export const App: React.FC = () => {
         return 'admin';
       }
 
-      if (hash.includes('giveaways') || hash.includes('gw=')) return 'giveaways';
-      if (hash.includes('store') || hash.includes('product=') || hash.includes('prod=')) return 'store';
-      if (hash.includes('utilities') || hash.includes('utility=') || hash.includes('ut=')) return 'utilities';
+      if (hash.includes('giveaways') || hash.includes('gw=') || path === '/giveaways' || path.startsWith('/giveaways/')) return 'giveaways';
+      if (hash.includes('store') || hash.includes('product=') || hash.includes('prod=') || path === '/store' || path.startsWith('/store/')) return 'store';
+      if (hash.includes('utilities') || hash.includes('utility=') || hash.includes('ut=') || path === '/utilities' || path.startsWith('/utilities/')) return 'utilities';
     }
     return 'catalog';
   });
@@ -360,29 +360,7 @@ export const App: React.FC = () => {
           return;
         }
 
-        // 3. Pathname Routes (/game/:slug, /giveaways, /store, /utilities) from Google or Shared Links
-        const pathname = window.location.pathname.toLowerCase();
-        if (pathname.startsWith('/game/')) {
-          const pathSlug = window.location.pathname.replace(/^\/game\//i, '').replace(/\/$/, '').trim();
-          if (pathSlug) {
-            setCurrentTab('catalog');
-            const game = await dataService.getGameBySlug(pathSlug);
-            if (game) {
-              setSelectedGame(game);
-              return;
-            }
-          }
-        } else if (pathname === '/giveaways' || pathname.startsWith('/giveaways/')) {
-          setCurrentTab('giveaways');
-          return;
-        } else if (pathname === '/store' || pathname.startsWith('/store/')) {
-          setCurrentTab('store');
-          return;
-        } else if (pathname === '/utilities' || pathname.startsWith('/utilities/')) {
-          setCurrentTab('utilities');
-          return;
-        }
-
+        // 3. Deep link hashes / query params have top priority over static pathname
         const prodId =
           urlParams.get('product') ||
           urlParams.get('prod') ||
@@ -410,49 +388,94 @@ export const App: React.FC = () => {
           if (found) {
             setSelectedProduct(found);
           }
+          return;
         } else if (utilityId) {
           setCurrentTab('utilities');
           setSelectedUtilityId(utilityId);
+          return;
         } else if (gwId) {
           setCurrentTab('giveaways');
+          return;
         } else if (hashLower === '#giveaways' || hashLower.startsWith('#giveaways')) {
           setCurrentTab('giveaways');
+          return;
         } else if (hashLower === '#store' || hashLower.startsWith('#store')) {
           setCurrentTab('store');
+          return;
         } else if (hashLower === '#utilities' || hashLower.startsWith('#utilities')) {
           setCurrentTab('utilities');
+          return;
+        } else if (hashLower === '#catalog' || hashLower.startsWith('#catalog')) {
+          setCurrentTab('catalog');
+          return;
         } else if (hashLower.includes('g=') || urlParams.get('g') || urlParams.get('game')) {
           const slug = urlParams.get('g') || urlParams.get('game') || hash.split(/g=/i)[1]?.split('&')[0];
           if (slug) {
             const game = await dataService.getGameBySlug(slug);
-            if (game) setSelectedGame(game);
+            if (game) {
+              setSelectedGame(game);
+              setCurrentTab('catalog');
+              return;
+            }
           }
+        }
+
+        // 4. Pathname Routes (/game/:slug, /giveaways, /store, /utilities) from Google or Shared Links
+        const pathname = window.location.pathname.toLowerCase();
+        if (pathname.startsWith('/game/')) {
+          const pathSlug = window.location.pathname.replace(/^\/game\//i, '').replace(/\/$/, '').trim();
+          if (pathSlug) {
+            setCurrentTab('catalog');
+            const game = await dataService.getGameBySlug(pathSlug);
+            if (game) {
+              setSelectedGame(game);
+              return;
+            }
+          }
+        } else if (pathname === '/giveaways' || pathname.startsWith('/giveaways/')) {
+          setCurrentTab('giveaways');
+          return;
+        } else if (pathname === '/store' || pathname.startsWith('/store/')) {
+          setCurrentTab('store');
+          return;
+        } else if (pathname === '/utilities' || pathname.startsWith('/utilities/')) {
+          setCurrentTab('utilities');
+          return;
         } else if (!hash || hash === '#' || hash === '#catalog') {
           setCurrentTab('catalog');
         }
       };
 
       await parseHash();
-
-      // Listen to browser Back/Forward / Hash navigation
-      window.addEventListener('hashchange', parseHash);
-
-      // Listen to cross-origin snapshot messages from admin panel
-      const handleCrossMessage = (event: MessageEvent) => {
-        if (event.data?.type === 'WCG_TRANSFER_FULL_STATE' && event.data.payload) {
-          dataService.applyFullStateSnapshot(event.data.payload);
-          showToast('Đã đồng bộ tức thì toàn bộ dữ liệu từ Admin!', undefined, 'success');
-        }
-      };
-      window.addEventListener('message', handleCrossMessage);
     };
 
     loadInitialData();
 
-    return () => {
-      window.removeEventListener('hashchange', () => {});
-      window.removeEventListener('message', () => {});
+    // Listen to cross-origin snapshot messages from admin panel
+    const handleCrossMessage = (event: MessageEvent) => {
+      if (event.data?.type === 'WCG_TRANSFER_FULL_STATE' && event.data.payload) {
+        dataService.applyFullStateSnapshot(event.data.payload);
+        showToast('Đã đồng bộ tức thì toàn bộ dữ liệu từ Admin!', undefined, 'success');
+      }
     };
+    window.addEventListener('message', handleCrossMessage);
+
+    return () => {
+      window.removeEventListener('message', handleCrossMessage);
+    };
+  }, []);
+
+  // Unified Single-Click Tab Switcher (History pushState routing without hash conflicts)
+  const handleSelectTab = useCallback((tab: 'catalog' | 'giveaways' | 'store' | 'utilities') => {
+    setSelectedGame(null);
+    setSelectedProduct(null);
+    setSelectedUtilityId(null);
+    setCurrentTab(tab);
+
+    const targetPath = tab === 'catalog' ? '/' : `/${tab}`;
+    if (window.location.pathname !== targetPath || window.location.hash) {
+      window.history.pushState(null, '', targetPath);
+    }
   }, []);
 
   // Sync Dynamic Document Title & Clean URL bar
@@ -473,46 +496,69 @@ export const App: React.FC = () => {
 
       if (currentTab === 'giveaways') {
         document.title = 'Sự Kiện Giveaway Game Miễn Phí 2026 | CodeGame.shop';
-        if (window.location.pathname !== '/giveaways') {
+        if (window.location.pathname !== '/giveaways' || window.location.hash) {
           window.history.replaceState(null, '', '/giveaways');
         }
       } else if (currentTab === 'store') {
         document.title = 'Cửa Hàng Thẻ Game & Robux Giá Rẻ | CodeGame.shop';
-        if (window.location.pathname !== '/store') {
+        if (window.location.pathname !== '/store' || window.location.hash) {
           window.history.replaceState(null, '', '/store');
         }
       } else if (currentTab === 'utilities') {
         document.title = 'Tiện Ích Nạp Game & Key Bản Quyền | CodeGame.shop';
-        if (window.location.pathname !== '/utilities') {
+        if (window.location.pathname !== '/utilities' || window.location.hash) {
           window.history.replaceState(null, '', '/utilities');
         }
       } else {
         document.title = 'CodeGame.shop - Cổng Tra Cứu Giftcode & Game Bản Quyền Hàng Đầu';
-        if (window.location.pathname === '/giveaways' || window.location.pathname === '/store' || window.location.pathname === '/utilities') {
+        if (window.location.pathname !== '/' || window.location.hash) {
           window.history.replaceState(null, '', '/');
         }
       }
     }
   }, [selectedGame, currentTab]);
 
-  // Handle browser popstate navigation (Back / Forward buttons)
+  // Handle browser popstate and hashchange navigation (Back / Forward buttons & anchors)
   useEffect(() => {
     const handlePopState = () => {
       const path = window.location.pathname.toLowerCase();
+      const hash = window.location.hash.toLowerCase();
+
+      // 1. Explicit hash deep links precedence
+      if (hash === '#giveaways' || hash.startsWith('#giveaways') || hash.includes('gw=')) {
+        setSelectedGame(null);
+        setCurrentTab('giveaways');
+        return;
+      }
+      if (hash === '#store' || hash.startsWith('#store') || hash.includes('product=')) {
+        setSelectedGame(null);
+        setCurrentTab('store');
+        return;
+      }
+      if (hash === '#utilities' || hash.startsWith('#utilities') || hash.includes('utility=')) {
+        setSelectedGame(null);
+        setCurrentTab('utilities');
+        return;
+      }
+
+      // 2. Pathname routes
       if (path.startsWith('/game/')) {
         const pathSlug = window.location.pathname.replace(/^\/game\//i, '').replace(/\/$/, '').trim();
         if (pathSlug) {
           dataService.getGameBySlug(pathSlug).then((g) => {
-            if (g) setSelectedGame(g);
+            if (g) {
+              setSelectedGame(g);
+              setCurrentTab('catalog');
+            }
           });
         }
-      } else if (path === '/giveaways') {
+      } else if (path === '/giveaways' || path.startsWith('/giveaways/')) {
         setSelectedGame(null);
         setCurrentTab('giveaways');
-      } else if (path === '/store') {
+      } else if (path === '/store' || path.startsWith('/store/')) {
         setSelectedGame(null);
         setCurrentTab('store');
-      } else if (path === '/utilities') {
+      } else if (path === '/utilities' || path.startsWith('/utilities/')) {
         setSelectedGame(null);
         setCurrentTab('utilities');
       } else if (path === '/' || path === '') {
@@ -520,14 +566,21 @@ export const App: React.FC = () => {
         setCurrentTab('catalog');
       }
     };
+
     window.addEventListener('popstate', handlePopState);
-    return () => window.removeEventListener('popstate', handlePopState);
+    window.addEventListener('hashchange', handlePopState);
+    return () => {
+      window.removeEventListener('popstate', handlePopState);
+      window.removeEventListener('hashchange', handlePopState);
+    };
   }, []);
 
   // Sync Search Query with Filter
   const handleSearchChange = (q: string) => {
     setSearchQuery(q);
-    if (currentTab !== 'catalog') setCurrentTab('catalog');
+    if (currentTab !== 'catalog') {
+      handleSelectTab('catalog');
+    }
     startTransition(() => {
       setFilter((prev) => ({ ...prev, search: q }));
       setCurrentPage(1);
@@ -880,10 +933,9 @@ export const App: React.FC = () => {
               }
             } else {
               if (window.location.pathname.toLowerCase().startsWith('/admin')) {
-                window.location.href = '/#store';
+                window.location.href = '/store';
               } else {
-                setCurrentTab('store');
-                window.location.hash = '#store';
+                handleSelectTab('store');
               }
             }
           }}
@@ -930,10 +982,7 @@ export const App: React.FC = () => {
         {/* Top Navigation Bar */}
         <Header
           currentTab={currentTab}
-          onSelectTab={(tab) => {
-            setCurrentTab(tab);
-            window.location.hash = tab === 'catalog' ? '' : `#${tab}`;
-          }}
+          onSelectTab={handleSelectTab}
           searchQuery={searchQuery}
           onSearchChange={handleSearchChange}
           allGames={allGamesList}
@@ -1049,7 +1098,7 @@ export const App: React.FC = () => {
         <Footer
           categories={categories}
           onSelectCategory={(cat) => {
-            setCurrentTab('catalog');
+            handleSelectTab('catalog');
             handleFilterChange({ category: cat });
             const gridElem = document.getElementById('game-catalog-section');
             gridElem?.scrollIntoView({ behavior: 'smooth' });
@@ -1059,10 +1108,7 @@ export const App: React.FC = () => {
         {/* Mobile Sticky Bottom Navigation Dock */}
         <MobileBottomNav
           currentTab={currentTab}
-          onSelectTab={(tab) => {
-            setCurrentTab(tab);
-            window.location.hash = tab === 'catalog' ? '' : `#${tab}`;
-          }}
+          onSelectTab={handleSelectTab}
           onOpenReceivedCodes={() => setIsReceivedCodesOpen(true)}
           onOpenAuth={() => setIsAuthModalOpen(true)}
           onOpenWallet={() => setIsWalletModalOpen(true)}
@@ -1198,17 +1244,17 @@ export const App: React.FC = () => {
         onSelectGameSlug={handleSelectGameSlug}
         onSelectProduct={handleSelectProductById}
         onSelectUtility={(utilityId) => {
-          setCurrentTab('utilities');
+          handleSelectTab('utilities');
           setSelectedUtilityId(utilityId);
           window.location.hash = `#utility=${utilityId}`;
         }}
         onSelectGiveaway={(giveawayId) => {
-          setCurrentTab('giveaways');
+          handleSelectTab('giveaways');
           window.location.hash = `#gw=${giveawayId}`;
         }}
         onOpenWallet={() => setIsWalletModalOpen(true)}
         onExploreClick={() => {
-          setCurrentTab('catalog');
+          handleSelectTab('catalog');
           const target = document.getElementById('game-catalog-section');
           if (target) {
             target.scrollIntoView({ behavior: 'smooth' });
@@ -1218,7 +1264,7 @@ export const App: React.FC = () => {
 
       {/* Floating Announcement (Configured via Admin) */}
       {currentTab !== 'admin' && (
-        <FloatingAnnouncement onNavigateTab={(tab) => setCurrentTab(tab as any)} />
+        <FloatingAnnouncement onNavigateTab={(tab) => handleSelectTab(tab as any)} />
       )}
 
       {/* Toast Notifications */}
