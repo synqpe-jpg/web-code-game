@@ -329,7 +329,7 @@
     "id": "src_fb_pirate-legends",
     "name": "Fanpage Chính Thức - Pirate Legends: Huyền Thoại Hải Tặc",
     "type": "official_fb",
-    "url": "https://facebook.com/haitacdaichien.vn",
+    "url": "https://www.facebook.com/haitacdaichiengosu",
     "targetGameSlug": "pirate-legends",
     "isEnabled": true,
     "description": "Fanpage Facebook chính thức của tựa game Pirate Legends: Huyền Thoại Hải Tặc."
@@ -354,12 +354,12 @@
   },
   {
     "id": "src_fb_di-gioi-sinh-ton-oeg",
-    "name": "Fanpage NPH OEG Esports Game - Dị Giới Sinh Tồn OEG",
+    "name": "Fanpage Chính Thức - Dị Giới Sinh Tồn OEG",
     "type": "official_fb",
-    "url": "https://facebook.com/oeg.vn",
+    "url": "https://www.facebook.com/digioisinhtonoeg",
     "targetGameSlug": "di-gioi-sinh-ton-oeg",
     "isEnabled": true,
-    "description": "Kênh Fanpage Facebook chính thức của NPH OEG Esports Game quản lý và phát code cho Dị Giới Sinh Tồn OEG."
+    "description": "Fanpage Facebook chính thức của tựa game Dị Giới Sinh Tồn OEG."
   },
   {
     "id": "src_codemoi_yen-van-thap-luc-thanh",
@@ -381,12 +381,12 @@
   },
   {
     "id": "src_fb_yen-van-thap-luc-thanh",
-    "name": "Fanpage NPH Funtap Games - Yến Vân Thập Lục Thanh (Where Winds Meet)",
+    "name": "Fanpage Chính Thức - Yến Vân Thập Lục Thanh (Where Winds Meet)",
     "type": "official_fb",
-    "url": "https://facebook.com/funtap.vn",
+    "url": "https://www.facebook.com/yenvanthaplucthanh.funtapgames/",
     "targetGameSlug": "yen-van-thap-luc-thanh",
     "isEnabled": true,
-    "description": "Kênh Fanpage Facebook chính thức của NPH Funtap Games quản lý và phát code cho Yến Vân Thập Lục Thanh (Where Winds Meet)."
+    "description": "Fanpage Facebook chính thức của tựa game Yến Vân Thập Lục Thanh (Where Winds Meet)."
   },
   {
     "id": "src_codemoi_3q-dao-dao-dao",
@@ -408,12 +408,12 @@
   },
   {
     "id": "src_fb_3q-dao-dao-dao",
-    "name": "Fanpage NPH JoyGames - 3Q Đào Đào Đào",
+    "name": "Fanpage Chính Thức - 3Q Đào Đào Đào",
     "type": "official_fb",
-    "url": "https://facebook.com/joygames.vn",
+    "url": "https://www.facebook.com/3qdaodaodao/",
     "targetGameSlug": "3q-dao-dao-dao",
     "isEnabled": true,
-    "description": "Kênh Fanpage Facebook chính thức của NPH JoyGames quản lý và phát code cho 3Q Đào Đào Đào."
+    "description": "Fanpage Facebook chính thức của tựa game 3Q Đào Đào Đào."
   },
   {
     "id": "src_codemoi_long-tuong-tam-quoc",
@@ -435,12 +435,12 @@
   },
   {
     "id": "src_fb_long-tuong-tam-quoc",
-    "name": "Fanpage NPH VGP Games - Long Tướng Tam Quốc",
+    "name": "Fanpage Chính Thức - Long Tướng Tam Quốc",
     "type": "official_fb",
-    "url": "https://facebook.com/vgp.vn",
+    "url": "https://www.facebook.com/LongTuongVGP/",
     "targetGameSlug": "long-tuong-tam-quoc",
     "isEnabled": true,
-    "description": "Kênh Fanpage Facebook chính thức của NPH VGP Games quản lý và phát code cho Long Tướng Tam Quốc."
+    "description": "Fanpage Facebook chính thức của tựa game Long Tướng Tam Quốc."
   },
   {
     "id": "src_codemoi_ta-la-hac-ngo-khong",
@@ -461,6 +461,15 @@
     "description": "Hướng dẫn nhận và nhập mã code TA LÀ HẮC NGỘ KHÔNG trên chuyên trang Sforum."
   },
   {
+    "id": "src_fb_ta-la-hac-ngo-khong",
+    "name": "Fanpage Chính Thức - TA LÀ HẮC NGỘ KHÔNG",
+    "type": "official_fb",
+    "url": "https://www.facebook.com/talahacngokhong/",
+    "targetGameSlug": "ta-la-hac-ngo-khong",
+    "isEnabled": true,
+    "description": "Fanpage Facebook chính thức của tựa game TA LÀ HẮC NGỘ KHÔNG."
+  },
+  {
     "id": "src_codemoi_thuong-lam-canh-gioi",
     "name": "CodeMoi - Thương Lam Cảnh Giới",
     "type": "reputable_web",
@@ -477,6 +486,15 @@
     "targetGameSlug": "thuong-lam-canh-gioi",
     "isEnabled": true,
     "description": "Hướng dẫn nhận và nhập mã code Thương Lam Cảnh Giới trên chuyên trang Sforum."
+  },
+  {
+    "id": "src_fb_thuong-lam-canh-gioi",
+    "name": "Fanpage Chính Thức - Thương Lam Cảnh Giới",
+    "type": "official_fb",
+    "url": "https://www.facebook.com/thuonglam.canhgioi.vlg/",
+    "targetGameSlug": "thuong-lam-canh-gioi",
+    "isEnabled": true,
+    "description": "Fanpage Facebook chính thức của tựa game Thương Lam Cảnh Giới."
   },
   {
     "id": "src_codemoi_soul-strike",
@@ -498,12 +516,12 @@
   },
   {
     "id": "src_fb_soul-strike",
-    "name": "Fanpage NPH Funtap Games - Soul Strike",
+    "name": "Fanpage Chính Thức - Soul Strike",
     "type": "official_fb",
-    "url": "https://facebook.com/funtap.vn",
+    "url": "https://www.facebook.com/SoulStrikeVN/",
     "targetGameSlug": "soul-strike",
     "isEnabled": true,
-    "description": "Kênh Fanpage Facebook chính thức của NPH Funtap Games quản lý và phát code cho Soul Strike."
+    "description": "Fanpage Facebook chính thức của tựa game Soul Strike."
   },
   {
     "id": "src_codemoi_skyblock-ba-chu-luc-dia",
@@ -543,12 +561,12 @@
   },
   {
     "id": "src_fb_tien-nghich-tan-tinh-kiem",
-    "name": "Fanpage NPH OEG Esports Game - Tiên Nghịch: Tân Tình Kiếm",
+    "name": "Fanpage Chính Thức - Tiên Nghịch: Tân Tình Kiếm",
     "type": "official_fb",
-    "url": "https://facebook.com/oeg.vn",
+    "url": "https://www.facebook.com/tiennghichtantinhkiem/",
     "targetGameSlug": "tien-nghich-tan-tinh-kiem",
     "isEnabled": true,
-    "description": "Kênh Fanpage Facebook chính thức của NPH OEG Esports Game quản lý và phát code cho Tiên Nghịch: Tân Tình Kiếm."
+    "description": "Fanpage Facebook chính thức của tựa game Tiên Nghịch: Tân Tình Kiếm."
   },
   {
     "id": "src_codemoi_gun-x-mobile",
@@ -570,12 +588,12 @@
   },
   {
     "id": "src_fb_gun-x-mobile",
-    "name": "Fanpage NPH SohaGame - Gun X Mobile",
+    "name": "Fanpage Chính Thức - Gun X Mobile",
     "type": "official_fb",
-    "url": "https://facebook.com/sohagame.vn",
+    "url": "https://www.facebook.com/gunxmobile.vn/",
     "targetGameSlug": "gun-x-mobile",
     "isEnabled": true,
-    "description": "Kênh Fanpage Facebook chính thức của NPH SohaGame quản lý và phát code cho Gun X Mobile."
+    "description": "Fanpage Facebook chính thức của tựa game Gun X Mobile."
   },
   {
     "id": "src_codemoi_cau-ca-van-can",
@@ -594,6 +612,15 @@
     "targetGameSlug": "cau-ca-van-can",
     "isEnabled": true,
     "description": "Hướng dẫn nhận và nhập mã code Câu Cá Vạn Cân trên chuyên trang Sforum."
+  },
+  {
+    "id": "src_fb_cau-ca-van-can",
+    "name": "Fanpage Chính Thức - Câu Cá Vạn Cân",
+    "type": "official_fb",
+    "url": "https://www.facebook.com/caucavancan.1/",
+    "targetGameSlug": "cau-ca-van-can",
+    "isEnabled": true,
+    "description": "Fanpage Facebook chính thức của tựa game Câu Cá Vạn Cân."
   },
   {
     "id": "src_codemoi_tam-quoc-tu-thoi-ca",
@@ -615,12 +642,12 @@
   },
   {
     "id": "src_fb_tam-quoc-tu-thoi-ca",
-    "name": "Fanpage NPH SohaGame - Tam Quốc Tứ Thời Ca",
+    "name": "Fanpage Chính Thức - Tam Quốc Tứ Thời Ca",
     "type": "official_fb",
-    "url": "https://facebook.com/sohagame.vn",
+    "url": "https://www.facebook.com/TamQuocTuThoiCa.shg/",
     "targetGameSlug": "tam-quoc-tu-thoi-ca",
     "isEnabled": true,
-    "description": "Kênh Fanpage Facebook chính thức của NPH SohaGame quản lý và phát code cho Tam Quốc Tứ Thời Ca."
+    "description": "Fanpage Facebook chính thức của tựa game Tam Quốc Tứ Thời Ca."
   },
   {
     "id": "src_codemoi_apex-girls",
@@ -668,6 +695,15 @@
     "description": "Hướng dẫn nhận và nhập mã code Nam Quốc Sơn Hà trên chuyên trang Sforum."
   },
   {
+    "id": "src_fb_nam-quoc-son-ha",
+    "name": "Fanpage Chính Thức - Nam Quốc Sơn Hà",
+    "type": "official_fb",
+    "url": "https://www.facebook.com/namquocsonha.imba/",
+    "targetGameSlug": "nam-quoc-son-ha",
+    "isEnabled": true,
+    "description": "Fanpage Facebook chính thức của tựa game Nam Quốc Sơn Hà."
+  },
+  {
     "id": "src_codemoi_loan-chien-3q",
     "name": "CodeMoi - Loạn Chiến 3Q",
     "type": "reputable_web",
@@ -684,6 +720,15 @@
     "targetGameSlug": "loan-chien-3q",
     "isEnabled": true,
     "description": "Hướng dẫn nhận và nhập mã code Loạn Chiến 3Q trên chuyên trang Sforum."
+  },
+  {
+    "id": "src_fb_loan-chien-3q",
+    "name": "Fanpage Chính Thức - Loạn Chiến 3Q",
+    "type": "official_fb",
+    "url": "https://www.facebook.com/loanchien3q",
+    "targetGameSlug": "loan-chien-3q",
+    "isEnabled": true,
+    "description": "Fanpage Facebook chính thức của tựa game Loạn Chiến 3Q."
   },
   {
     "id": "src_codemoi_kiem-khach-truyen-ky",
@@ -704,6 +749,15 @@
     "description": "Hướng dẫn nhận và nhập mã code Kiếm Khách Truyền Kỳ trên chuyên trang Sforum."
   },
   {
+    "id": "src_fb_kiem-khach-truyen-ky",
+    "name": "Fanpage Chính Thức - Kiếm Khách Truyền Kỳ",
+    "type": "official_fb",
+    "url": "https://www.facebook.com/kiemkhach.truyenky.vlgplay/",
+    "targetGameSlug": "kiem-khach-truyen-ky",
+    "isEnabled": true,
+    "description": "Fanpage Facebook chính thức của tựa game Kiếm Khách Truyền Kỳ."
+  },
+  {
     "id": "src_codemoi_pixel-defenders-merge-td-game",
     "name": "CodeMoi - Pixel Defenders: Merge TD",
     "type": "reputable_web",
@@ -720,6 +774,15 @@
     "targetGameSlug": "pixel-defenders-merge-td-game",
     "isEnabled": true,
     "description": "Hướng dẫn nhận và nhập mã code Pixel Defenders: Merge TD trên chuyên trang Sforum."
+  },
+  {
+    "id": "src_fb_pixel-defenders-merge-td-game",
+    "name": "Fanpage Chính Thức - Pixel Defenders: Merge TD",
+    "type": "official_fb",
+    "url": "https://www.facebook.com/pixel.defenders.rpg",
+    "targetGameSlug": "pixel-defenders-merge-td-game",
+    "isEnabled": true,
+    "description": "Fanpage Facebook chính thức của tựa game Pixel Defenders: Merge TD."
   },
   {
     "id": "src_codemoi_loan-xi-ngau-3q-oeg",
@@ -741,12 +804,12 @@
   },
   {
     "id": "src_fb_loan-xi-ngau-3q-oeg",
-    "name": "Fanpage NPH OEG Esports Game - Loạn Xì Ngầu 3Q – OEG",
+    "name": "Fanpage Chính Thức - Loạn Xì Ngầu 3Q – OEG",
     "type": "official_fb",
-    "url": "https://facebook.com/oeg.vn",
+    "url": "https://www.facebook.com/loanxingau3q/",
     "targetGameSlug": "loan-xi-ngau-3q-oeg",
     "isEnabled": true,
-    "description": "Kênh Fanpage Facebook chính thức của NPH OEG Esports Game quản lý và phát code cho Loạn Xì Ngầu 3Q – OEG."
+    "description": "Fanpage Facebook chính thức của tựa game Loạn Xì Ngầu 3Q – OEG."
   },
   {
     "id": "src_codemoi_tam-quoc-tranh-ba-thien-ha",
@@ -765,6 +828,15 @@
     "targetGameSlug": "tam-quoc-tranh-ba-thien-ha",
     "isEnabled": true,
     "description": "Hướng dẫn nhận và nhập mã code Tam Quốc: Tranh Bá Thiên Hạ trên chuyên trang Sforum."
+  },
+  {
+    "id": "src_fb_tam-quoc-tranh-ba-thien-ha",
+    "name": "Fanpage Chính Thức - Tam Quốc: Tranh Bá Thiên Hạ",
+    "type": "official_fb",
+    "url": "https://www.facebook.com/3QTranhBaThienHa.Vi/",
+    "targetGameSlug": "tam-quoc-tranh-ba-thien-ha",
+    "isEnabled": true,
+    "description": "Fanpage Facebook chính thức của tựa game Tam Quốc: Tranh Bá Thiên Hạ."
   },
   {
     "id": "src_codemoi_titan-rush-chien-than-thuc-tinh",
@@ -786,12 +858,12 @@
   },
   {
     "id": "src_fb_titan-rush-chien-than-thuc-tinh",
-    "name": "Fanpage NPH Funtap Games - TITAN RUSH: CHIẾN THẦN THỨC TỈNH",
+    "name": "Fanpage Chính Thức - TITAN RUSH: CHIẾN THẦN THỨC TỈNH",
     "type": "official_fb",
-    "url": "https://facebook.com/funtap.vn",
+    "url": "https://www.facebook.com/playfun.vn",
     "targetGameSlug": "titan-rush-chien-than-thuc-tinh",
     "isEnabled": true,
-    "description": "Kênh Fanpage Facebook chính thức của NPH Funtap Games quản lý và phát code cho TITAN RUSH: CHIẾN THẦN THỨC TỈNH."
+    "description": "Fanpage Facebook chính thức của tựa game TITAN RUSH: CHIẾN THẦN THỨC TỈNH."
   },
   {
     "id": "src_codemoi_girls-frontline-2-luu-day",
@@ -812,6 +884,15 @@
     "description": "Hướng dẫn nhận và nhập mã code Girls&#x27; Frontline 2: Lưu Đày trên chuyên trang Sforum."
   },
   {
+    "id": "src_fb_girls-frontline-2-luu-day",
+    "name": "Fanpage Chính Thức - Girls&#x27; Frontline 2: Lưu Đày",
+    "type": "official_fb",
+    "url": "https://www.facebook.com/gfl2.vn/",
+    "targetGameSlug": "girls-frontline-2-luu-day",
+    "isEnabled": true,
+    "description": "Fanpage Facebook chính thức của tựa game Girls&#x27; Frontline 2: Lưu Đày."
+  },
+  {
     "id": "src_codemoi_quan-nhi-ca",
     "name": "CodeMoi - Quan Nhị Ca",
     "type": "reputable_web",
@@ -830,6 +911,15 @@
     "description": "Hướng dẫn nhận và nhập mã code Quan Nhị Ca trên chuyên trang Sforum."
   },
   {
+    "id": "src_fb_quan-nhi-ca",
+    "name": "Fanpage Chính Thức - Quan Nhị Ca",
+    "type": "official_fb",
+    "url": "https://www.facebook.com/quannhica.zalogames/",
+    "targetGameSlug": "quan-nhi-ca",
+    "isEnabled": true,
+    "description": "Fanpage Facebook chính thức của tựa game Quan Nhị Ca."
+  },
+  {
     "id": "src_codemoi_doi-tuong-nhi-nho",
     "name": "CodeMoi - Đội Tướng Nhí Nhố",
     "type": "reputable_web",
@@ -846,6 +936,15 @@
     "targetGameSlug": "doi-tuong-nhi-nho",
     "isEnabled": true,
     "description": "Hướng dẫn nhận và nhập mã code Đội Tướng Nhí Nhố trên chuyên trang Sforum."
+  },
+  {
+    "id": "src_fb_doi-tuong-nhi-nho",
+    "name": "Fanpage Chính Thức - Đội Tướng Nhí Nhố",
+    "type": "official_fb",
+    "url": "https://www.facebook.com/doituongnhinho/",
+    "targetGameSlug": "doi-tuong-nhi-nho",
+    "isEnabled": true,
+    "description": "Fanpage Facebook chính thức của tựa game Đội Tướng Nhí Nhố."
   },
   {
     "id": "src_codemoi_hac-tay-du-chuong-cam",
@@ -867,12 +966,12 @@
   },
   {
     "id": "src_fb_hac-tay-du-chuong-cam",
-    "name": "Fanpage NPH Funtap Games - Hắc Tây Du: Chương Cấm",
+    "name": "Fanpage Chính Thức - Hắc Tây Du: Chương Cấm",
     "type": "official_fb",
-    "url": "https://facebook.com/funtap.vn",
+    "url": "https://www.facebook.com/hactaydufuntap/",
     "targetGameSlug": "hac-tay-du-chuong-cam",
     "isEnabled": true,
-    "description": "Kênh Fanpage Facebook chính thức của NPH Funtap Games quản lý và phát code cho Hắc Tây Du: Chương Cấm."
+    "description": "Fanpage Facebook chính thức của tựa game Hắc Tây Du: Chương Cấm."
   },
   {
     "id": "src_codemoi_huyen-thoai-huong-cang",
@@ -891,6 +990,15 @@
     "targetGameSlug": "huyen-thoai-huong-cang",
     "isEnabled": true,
     "description": "Hướng dẫn nhận và nhập mã code Huyền Thoại Hương Cảng trên chuyên trang Sforum."
+  },
+  {
+    "id": "src_fb_huyen-thoai-huong-cang",
+    "name": "Fanpage Chính Thức - Huyền Thoại Hương Cảng",
+    "type": "official_fb",
+    "url": "https://www.facebook.com/hthcvn/",
+    "targetGameSlug": "huyen-thoai-huong-cang",
+    "isEnabled": true,
+    "description": "Fanpage Facebook chính thức của tựa game Huyền Thoại Hương Cảng."
   },
   {
     "id": "src_codemoi_giang-ho-trong-tay",
@@ -927,6 +1035,15 @@
     "targetGameSlug": "diet-quy-origin",
     "isEnabled": true,
     "description": "Hướng dẫn nhận và nhập mã code Diệt Quỷ Origin trên chuyên trang Sforum."
+  },
+  {
+    "id": "src_fb_diet-quy-origin",
+    "name": "Fanpage Chính Thức - Diệt Quỷ Origin",
+    "type": "official_fb",
+    "url": "https://www.facebook.com/dietquyhnx/",
+    "targetGameSlug": "diet-quy-origin",
+    "isEnabled": true,
+    "description": "Fanpage Facebook chính thức của tựa game Diệt Quỷ Origin."
   },
   {
     "id": "src_codemoi_co-lau-loan-the",
@@ -966,12 +1083,12 @@
   },
   {
     "id": "src_fb_loan-the-3q-than-ma-lenh-oeg",
-    "name": "Fanpage NPH OEG Esports Game - Loạn Thế 3Q: Thần Ma Lệnh - OEG",
+    "name": "Fanpage Chính Thức - Loạn Thế 3Q: Thần Ma Lệnh - OEG",
     "type": "official_fb",
-    "url": "https://facebook.com/oeg.vn",
+    "url": "https://www.facebook.com/loanthe3qoeg/",
     "targetGameSlug": "loan-the-3q-than-ma-lenh-oeg",
     "isEnabled": true,
-    "description": "Kênh Fanpage Facebook chính thức của NPH OEG Esports Game quản lý và phát code cho Loạn Thế 3Q: Thần Ma Lệnh - OEG."
+    "description": "Fanpage Facebook chính thức của tựa game Loạn Thế 3Q: Thần Ma Lệnh - OEG."
   },
   {
     "id": "src_codemoi_shenzhou-m",
@@ -993,12 +1110,12 @@
   },
   {
     "id": "src_fb_shenzhou-m",
-    "name": "Fanpage NPH VTC Mobile - ShenZhou M – Thần Châu",
+    "name": "Fanpage Chính Thức - ShenZhou M – Thần Châu",
     "type": "official_fb",
-    "url": "https://facebook.com/vtcmobile.vn",
+    "url": "https://www.facebook.com/61594329329126/",
     "targetGameSlug": "shenzhou-m",
     "isEnabled": true,
-    "description": "Kênh Fanpage Facebook chính thức của NPH VTC Mobile quản lý và phát code cho ShenZhou M – Thần Châu."
+    "description": "Fanpage Facebook chính thức của tựa game ShenZhou M – Thần Châu."
   },
   {
     "id": "src_codemoi_phi-kiem-tru-thien-ma",
@@ -1017,6 +1134,15 @@
     "targetGameSlug": "phi-kiem-tru-thien-ma",
     "isEnabled": true,
     "description": "Hướng dẫn nhận và nhập mã code Phi Kiếm Trừ Thiên Ma trên chuyên trang Sforum."
+  },
+  {
+    "id": "src_fb_phi-kiem-tru-thien-ma",
+    "name": "Fanpage Chính Thức - Phi Kiếm Trừ Thiên Ma",
+    "type": "official_fb",
+    "url": "https://www.facebook.com/people/Phi-Ki%E1%BA%BFm-Tr%E1%BB%AB-Thi%E1%BA%A7n-Ma/61590605638051/",
+    "targetGameSlug": "phi-kiem-tru-thien-ma",
+    "isEnabled": true,
+    "description": "Fanpage Facebook chính thức của tựa game Phi Kiếm Trừ Thiên Ma."
   },
   {
     "id": "src_codemoi_afk-three-kingdoms",
@@ -1056,12 +1182,12 @@
   },
   {
     "id": "src_fb_khe-uoc-rong",
-    "name": "Fanpage NPH VGP Games - Khế Ước Rồng",
+    "name": "Fanpage Chính Thức - Khế Ước Rồng",
     "type": "official_fb",
-    "url": "https://facebook.com/vgp.vn",
+    "url": "https://www.facebook.com/KheUocRong/",
     "targetGameSlug": "khe-uoc-rong",
     "isEnabled": true,
-    "description": "Kênh Fanpage Facebook chính thức của NPH VGP Games quản lý và phát code cho Khế Ước Rồng."
+    "description": "Fanpage Facebook chính thức của tựa game Khế Ước Rồng."
   },
   {
     "id": "src_codemoi_tuyet-dinh-chien-gioi-vplay",
@@ -1080,6 +1206,15 @@
     "targetGameSlug": "tuyet-dinh-chien-gioi-vplay",
     "isEnabled": true,
     "description": "Hướng dẫn nhận và nhập mã code Tuyệt Đỉnh Chiến Giới trên chuyên trang Sforum."
+  },
+  {
+    "id": "src_fb_tuyet-dinh-chien-gioi-vplay",
+    "name": "Fanpage Chính Thức - Tuyệt Đỉnh Chiến Giới",
+    "type": "official_fb",
+    "url": "https://www.facebook.com/tuyetdinhchiengioi.vplay.vn/",
+    "targetGameSlug": "tuyet-dinh-chien-gioi-vplay",
+    "isEnabled": true,
+    "description": "Fanpage Facebook chính thức của tựa game Tuyệt Đỉnh Chiến Giới."
   },
   {
     "id": "src_codemoi_dao-huu-tu-tien",
@@ -1101,12 +1236,12 @@
   },
   {
     "id": "src_fb_dao-huu-tu-tien",
-    "name": "Fanpage NPH JoyGames - Đạo Hữu Xin Dừng Bước",
+    "name": "Fanpage Chính Thức - Đạo Hữu Xin Dừng Bước",
     "type": "official_fb",
-    "url": "https://facebook.com/joygames.vn",
+    "url": "https://www.facebook.com/daohuuxindungbuoc.vn/",
     "targetGameSlug": "dao-huu-tu-tien",
     "isEnabled": true,
-    "description": "Kênh Fanpage Facebook chính thức của NPH JoyGames quản lý và phát code cho Đạo Hữu Xin Dừng Bước."
+    "description": "Fanpage Facebook chính thức của tựa game Đạo Hữu Xin Dừng Bước."
   },
   {
     "id": "src_codemoi_anime-fighting-simulator-endless",
@@ -1163,6 +1298,15 @@
     "description": "Hướng dẫn nhận và nhập mã code 3Q Gọi Tướng Đi trên chuyên trang Sforum."
   },
   {
+    "id": "src_fb_3q-goi-tuong-di",
+    "name": "Fanpage Chính Thức - 3Q Gọi Tướng Đi",
+    "type": "official_fb",
+    "url": "https://www.facebook.com/3qgoituongdi/",
+    "targetGameSlug": "3q-goi-tuong-di",
+    "isEnabled": true,
+    "description": "Fanpage Facebook chính thức của tựa game 3Q Gọi Tướng Đi."
+  },
+  {
     "id": "src_codemoi_blade-ball",
     "name": "CodeMoi - Blade Ball",
     "type": "reputable_web",
@@ -1209,12 +1353,12 @@
   },
   {
     "id": "src_fb_tam-quoc-chi-vuong-chien",
-    "name": "Fanpage NPH VTC Mobile - Tam Quốc Chí Vương Chiến",
+    "name": "Fanpage Chính Thức - Tam Quốc Chí Vương Chiến",
     "type": "official_fb",
-    "url": "https://facebook.com/vtcmobile.vn",
+    "url": "https://www.facebook.com/61594329329126/",
     "targetGameSlug": "tam-quoc-chi-vuong-chien",
     "isEnabled": true,
-    "description": "Kênh Fanpage Facebook chính thức của NPH VTC Mobile quản lý và phát code cho Tam Quốc Chí Vương Chiến."
+    "description": "Fanpage Facebook chính thức của tựa game Tam Quốc Chí Vương Chiến."
   },
   {
     "id": "src_codemoi_nhat-luan-kiem",
@@ -1233,6 +1377,15 @@
     "targetGameSlug": "nhat-luan-kiem",
     "isEnabled": true,
     "description": "Hướng dẫn nhận và nhập mã code Nhật Luân Kiếm trên chuyên trang Sforum."
+  },
+  {
+    "id": "src_fb_nhat-luan-kiem",
+    "name": "Fanpage Chính Thức - Nhật Luân Kiếm",
+    "type": "official_fb",
+    "url": "https://www.facebook.com/nhatluankiem/",
+    "targetGameSlug": "nhat-luan-kiem",
+    "isEnabled": true,
+    "description": "Fanpage Facebook chính thức của tựa game Nhật Luân Kiếm."
   },
   {
     "id": "src_codemoi_ark-recode",
@@ -1290,12 +1443,12 @@
   },
   {
     "id": "src_fb_tieu-tien-ta-vo-dich",
-    "name": "Fanpage NPH OEG Esports Game - Tiểu Tiên Ta Vô Địch",
+    "name": "Fanpage Chính Thức - Tiểu Tiên Ta Vô Địch",
     "type": "official_fb",
-    "url": "https://facebook.com/oeg.vn",
+    "url": "https://www.facebook.com/tieutientavodichoeg",
     "targetGameSlug": "tieu-tien-ta-vo-dich",
     "isEnabled": true,
-    "description": "Kênh Fanpage Facebook chính thức của NPH OEG Esports Game quản lý và phát code cho Tiểu Tiên Ta Vô Địch."
+    "description": "Fanpage Facebook chính thức của tựa game Tiểu Tiên Ta Vô Địch."
   },
   {
     "id": "src_codemoi_giac-ngo-thuat-chu",
@@ -1353,12 +1506,12 @@
   },
   {
     "id": "src_fb_hoi-tho-hai-tac",
-    "name": "Fanpage NPH GOSU Corp - Hơi Thở Hải Tặc",
+    "name": "Fanpage Chính Thức - Hơi Thở Hải Tặc",
     "type": "official_fb",
-    "url": "https://facebook.com/gosu.corp",
+    "url": "https://www.facebook.com/hoithohaitac/",
     "targetGameSlug": "hoi-tho-hai-tac",
     "isEnabled": true,
-    "description": "Kênh Fanpage Facebook chính thức của NPH GOSU Corp quản lý và phát code cho Hơi Thở Hải Tặc."
+    "description": "Fanpage Facebook chính thức của tựa game Hơi Thở Hải Tặc."
   },
   {
     "id": "src_codemoi_capybara-go",
@@ -1593,6 +1746,15 @@
     "targetGameSlug": "kiem-vu-son-ha",
     "isEnabled": true,
     "description": "Hướng dẫn nhận và nhập mã code Kiếm Vũ Sơn Hà trên chuyên trang Sforum."
+  },
+  {
+    "id": "src_fb_kiem-vu-son-ha",
+    "name": "Fanpage Chính Thức - Kiếm Vũ Sơn Hà",
+    "type": "official_fb",
+    "url": "https://www.facebook.com/kiemvusonha3d/",
+    "targetGameSlug": "kiem-vu-son-ha",
+    "isEnabled": true,
+    "description": "Fanpage Facebook chính thức của tựa game Kiếm Vũ Sơn Hà."
   },
   {
     "id": "src_codemoi_greedy-cave-rebirth",
@@ -6321,12 +6483,12 @@
   },
   {
     "id": "src_fb_tay-du-vng",
-    "name": "Fanpage NPH VNGGames Vietnam - Tây Du VNG: Đại Náo Tam Giới",
+    "name": "Fanpage Chính Thức - Tây Du VNG: Đại Náo Tam Giới",
     "type": "official_fb",
-    "url": "https://facebook.com/vnggames",
+    "url": "https://facebook.com/taydu.vnggames",
     "targetGameSlug": "tay-du-vng",
     "isEnabled": true,
-    "description": "Kênh Fanpage Facebook chính thức của NPH VNGGames Vietnam quản lý và phát code cho Tây Du VNG: Đại Náo Tam Giới."
+    "description": "Fanpage Facebook chính thức của tựa game Tây Du VNG: Đại Náo Tam Giới."
   },
   {
     "id": "src_codemoi_tieu-yeu-tam-dao",
@@ -6921,6 +7083,15 @@
     "targetGameSlug": "chien-gioi-4d",
     "isEnabled": true,
     "description": "Hướng dẫn nhận và nhập mã code Chiến Giới 4D trên chuyên trang Sforum."
+  },
+  {
+    "id": "src_fb_chien-gioi-4d",
+    "name": "Fanpage Chính Thức - Chiến Giới 4D",
+    "type": "official_fb",
+    "url": "https://facebook.com/chiengioi4d.vplay.vn",
+    "targetGameSlug": "chien-gioi-4d",
+    "isEnabled": true,
+    "description": "Fanpage Facebook chính thức của tựa game Chiến Giới 4D."
   },
   {
     "id": "src_codemoi_rise-of-kingdoms",
@@ -9984,12 +10155,12 @@
   },
   {
     "id": "src_fb_tru-tien-3d",
-    "name": "Fanpage NPH NPH Gamota - Tru Tiên 3D - Thanh Vân Chí",
+    "name": "Fanpage Chính Thức - Tru Tiên 3D - Thanh Vân Chí",
     "type": "official_fb",
-    "url": "https://facebook.com/nph.gamota",
+    "url": "https://facebook.com/trutien.gamota",
     "targetGameSlug": "tru-tien-3d",
     "isEnabled": true,
-    "description": "Kênh Fanpage Facebook chính thức của NPH NPH Gamota quản lý và phát code cho Tru Tiên 3D - Thanh Vân Chí."
+    "description": "Fanpage Facebook chính thức của tựa game Tru Tiên 3D - Thanh Vân Chí."
   },
   {
     "id": "src_codemoi_bo-lac-dau-phong",
