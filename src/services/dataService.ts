@@ -183,11 +183,9 @@ class DataService {
     if (this.reloadTimeout) clearTimeout(this.reloadTimeout);
     this.reloadTimeout = setTimeout(async () => {
       this.isLoaded = false;
-      this.codesMap.clear();
-      this.cachedServerGames.clear();
       await this.processData();
       this.notifyListeners();
-    }, 150);
+    }, 250);
   }
 
   private setupSyncListeners(): void {
@@ -254,13 +252,36 @@ class DataService {
       try {
         const bc = new BroadcastChannel('wcg_data_sync');
         bc.onmessage = (event) => {
-          const type = event.data?.type || event.data?.key || '';
-          if (typeof type === 'string' && (type.includes('content') || type.includes('branding'))) {
+          const type = String(event.data?.type || event.data?.key || '');
+          if (!type) return;
+
+          // Ignore ephemeral operational events (analytics, stats, copy, marketing, pings)
+          if (
+            type.startsWith('COPY_') ||
+            type.startsWith('STATS_') ||
+            type.startsWith('REAL_EVENT') ||
+            type.startsWith('MEMBER_') ||
+            type.startsWith('SEPAY_') ||
+            type === 'PING' ||
+            type === 'PONG'
+          ) {
+            return;
+          }
+
+          if (type.includes('content') || type.includes('branding')) {
             this.syncWithCloudflareKV(true).then(() => {
               this.reload();
               window.dispatchEvent(new CustomEvent('wcg_admin_content_updated'));
             });
-          } else {
+          } else if (
+            type.includes('games') ||
+            type.includes('codes') ||
+            type.includes('products') ||
+            type.includes('utilities') ||
+            type.includes('giveaways') ||
+            type === 'ADMIN_DATA_UPDATED' ||
+            type === 'wcg_admin_data_updated'
+          ) {
             this.reload();
           }
         };

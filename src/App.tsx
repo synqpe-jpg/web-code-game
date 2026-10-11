@@ -668,8 +668,14 @@ export const App: React.FC = () => {
     let isCancelled = false;
 
     const executeQuery = async () => {
-      setIsLoading(true);
-      setCurrentPage(1);
+      // Only show CyberLoader on initial blank state to prevent full-screen unmount flicker
+      setGames((prev) => {
+        if (prev.length === 0) {
+          setIsLoading(true);
+        }
+        return prev;
+      });
+
       const res = await dataService.queryGames(filter, 1, paginationConfig.pageSize, bookmarks);
       if (!isCancelled) {
         setGames(res.items);
@@ -688,7 +694,7 @@ export const App: React.FC = () => {
     return () => {
       isCancelled = true;
     };
-  }, [filter, currentTab, paginationConfig]);
+  }, [filter, currentTab, paginationConfig.mode, paginationConfig.pageSize]);
 
   // Infinite Scroll: Load Next Page
   const handleLoadMore = useCallback(async () => {
@@ -714,7 +720,6 @@ export const App: React.FC = () => {
 
   // Manual Page Change (Classic numbered pagination / jump)
   const handlePageChange = useCallback(async (p: number) => {
-    setIsLoading(true);
     setCurrentPage(p);
     const res = await dataService.queryGames(filter, p, paginationConfig.pageSize, bookmarks);
     setGames(res.items);
@@ -722,19 +727,41 @@ export const App: React.FC = () => {
     setTotalPages(res.totalPages);
     setTotalResults(res.total);
     setHasMore(res.hasMore);
-    setIsLoading(false);
     const section = document.getElementById('game-catalog-section');
     if (section) section.scrollIntoView({ behavior: 'smooth' });
     else window.scrollTo({ top: 400, behavior: 'smooth' });
-  }, [filter, bookmarks, paginationConfig]);
+  }, [filter, bookmarks, paginationConfig.pageSize]);
 
   // Real-time Data Sync Subscription (Reflect Admin updates instantly without CPU loops)
   useEffect(() => {
     const unsubscribe = dataService.subscribe(async () => {
       const cats = await dataService.getCategories();
-      setCategories(cats);
-      setBranding(dataService.getWebsiteBranding());
-      setPaginationConfig(dataService.getPaginationConfig());
+      setCategories((prev) => {
+        if (prev.length === cats.length && prev.every((c, i) => c.id === cats[i]?.id)) return prev;
+        return cats;
+      });
+
+      const newBranding = dataService.getWebsiteBranding();
+      setBranding((prev) => {
+        if (
+          prev.logoUrl === newBranding.logoUrl &&
+          prev.avatarUrl === newBranding.avatarUrl &&
+          prev.siteTitle === newBranding.siteTitle &&
+          prev.backgroundUrl === newBranding.backgroundUrl
+        ) {
+          return prev;
+        }
+        return newBranding;
+      });
+
+      const newPagination = dataService.getPaginationConfig();
+      setPaginationConfig((prev) => {
+        if (prev.mode === newPagination.mode && prev.pageSize === newPagination.pageSize) {
+          return prev;
+        }
+        return newPagination;
+      });
+
       const u = dataService.getCurrentUser();
       setCurrentUser((prev) => {
         if (!prev && !u) return null;
@@ -755,16 +782,15 @@ export const App: React.FC = () => {
       });
 
       if (currentTab === 'catalog') {
-        const res = await dataService.queryGames(filter, 1, 24, bookmarks);
+        const res = await dataService.queryGames(filter, currentPage, paginationConfig.pageSize, bookmarks);
         setGames(res.items);
-        setCurrentPage(1);
         setTotalPages(res.totalPages);
         setTotalResults(res.total);
         setHasMore(res.hasMore);
       }
     });
     return () => unsubscribe();
-  }, [filter, bookmarks, currentTab]);
+  }, [filter, bookmarks, currentTab, currentPage, paginationConfig.pageSize]);
 
   // Gentle Event-Driven User Balance Refresh
   useEffect(() => {
