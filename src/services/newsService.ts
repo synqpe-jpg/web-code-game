@@ -109,13 +109,33 @@ class NewsService {
     }
 
     // Sắp xếp: Tin tiêu điểm lên đầu, sau đó theo ngày phát hành mới nhất
-    return result.sort((a, b) => {
-      if (a.is_featured && !b.is_featured) return -1;
-      if (!a.is_featured && b.is_featured) return 1;
-      const dateA = new Date(a.published_at || 0).getTime();
-      const dateB = new Date(b.published_at || 0).getTime();
-      return dateB - dateA;
-    });
+    return result
+      .map((a) => ({ ...a, views: this.getDisplayViews(a) }))
+      .sort((a, b) => {
+        if (a.is_featured && !b.is_featured) return -1;
+        if (!a.is_featured && b.is_featured) return 1;
+        const dateA = new Date(a.published_at || 0).getTime();
+        const dateB = new Date(b.published_at || 0).getTime();
+        return dateB - dateA;
+      });
+  }
+
+  /**
+   * Tính toán số lượt xem hiển thị tự nhiên dựa trên lượt xem thực + lượt xem ban đầu + hệ số tăng trưởng theo giờ
+   */
+  public getDisplayViews(article: NewsArticle | Partial<NewsArticle>): number {
+    const realViews = Number(article.views) || 0;
+    const baseViews = Number(article.virtual_views) || 0;
+    const growthRate = typeof article.views_growth_rate === 'number' && !isNaN(article.views_growth_rate)
+      ? article.views_growth_rate
+      : 1.0;
+
+    const pubTime = article.published_at ? new Date(article.published_at).getTime() : Date.now();
+    const hoursElapsed = Math.max(0, (Date.now() - pubTime) / (1000 * 60 * 60));
+
+    // Hệ số 1.0 tương đương ~6 lượt xem tự tăng mỗi giờ
+    const timeGrowth = Math.floor(hoursElapsed * growthRate * 6);
+    return Math.max(realViews, realViews + baseViews + timeGrowth);
   }
 
   /**
@@ -126,11 +146,13 @@ class NewsService {
   }
 
   public getAllArticlesForAdmin(): NewsArticle[] {
-    return [...this.articles].sort((a, b) => {
-      const dateA = new Date(a.published_at || a.updated_at || 0).getTime();
-      const dateB = new Date(b.published_at || b.updated_at || 0).getTime();
-      return dateB - dateA;
-    });
+    return [...this.articles]
+      .map((a) => ({ ...a, views: this.getDisplayViews(a) }))
+      .sort((a, b) => {
+        const dateA = new Date(a.published_at || a.updated_at || 0).getTime();
+        const dateB = new Date(b.published_at || b.updated_at || 0).getTime();
+        return dateB - dateA;
+      });
   }
 
   /**
@@ -139,13 +161,12 @@ class NewsService {
   public getArticleBySlug(slugOrId: string): NewsArticle | null {
     if (!slugOrId) return null;
     const clean = slugOrId.toLowerCase().trim();
-    return (
-      this.articles.find(
-        (a) =>
-          a.slug?.toLowerCase() === clean ||
-          a.id?.toLowerCase() === clean
-      ) || null
+    const found = this.articles.find(
+      (a) =>
+        a.slug?.toLowerCase() === clean ||
+        a.id?.toLowerCase() === clean
     );
+    return found ? { ...found, views: this.getDisplayViews(found) } : null;
   }
 
   /**
@@ -186,6 +207,9 @@ class NewsService {
       savedItem = {
         ...this.articles[existingIndex],
         ...articleData,
+        gallery_urls: articleData.gallery_urls || this.articles[existingIndex].gallery_urls || [],
+        virtual_views: typeof articleData.virtual_views === 'number' ? articleData.virtual_views : this.articles[existingIndex].virtual_views || 0,
+        views_growth_rate: typeof articleData.views_growth_rate === 'number' ? articleData.views_growth_rate : (this.articles[existingIndex].views_growth_rate !== undefined ? this.articles[existingIndex].views_growth_rate : 1.0),
         slug,
         updated_at: now,
       };
@@ -198,6 +222,9 @@ class NewsService {
         excerpt: articleData.excerpt || '',
         content: articleData.content || '',
         cover_url: articleData.cover_url || 'https://images.unsplash.com/photo-1542751371-adc38448a05e?auto=format&fit=crop&w=1200&q=80',
+        gallery_urls: articleData.gallery_urls || [],
+        virtual_views: typeof articleData.virtual_views === 'number' ? articleData.virtual_views : 0,
+        views_growth_rate: typeof articleData.views_growth_rate === 'number' ? articleData.views_growth_rate : 1.0,
         game_id: articleData.game_id,
         game_slug: articleData.game_slug,
         game_name: articleData.game_name,
@@ -398,6 +425,9 @@ Nhanh tay sao chép ngay danh sách mã quà tặng bên dưới để không b�
       game_slug: params.game.slug,
       game_name: gameName,
       cover_url: params.game.banner_url || params.game.icon_url || 'https://images.unsplash.com/photo-1542751371-adc38448a05e?auto=format&fit=crop&w=1200&q=80',
+      gallery_urls: [],
+      virtual_views: Math.floor(Math.random() * 150) + 120,
+      views_growth_rate: 1.0,
       author: 'CodeGame Editorial',
       status: 'PUBLISHED',
       is_featured: false,

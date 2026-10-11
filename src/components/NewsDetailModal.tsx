@@ -282,9 +282,62 @@ export const NewsDetailModal: React.FC<NewsDetailModalProps> = ({
                   </ol>
                 );
               }
+              // Check image markdown syntax ![caption](url)
+              const imgMatch = trimmed.match(/^!\[(.*?)\]\((.*?)\)$/);
+              if (imgMatch) {
+                const alt = imgMatch[1];
+                const src = imgMatch[2];
+                return (
+                  <figure key={index} className="my-5 text-center">
+                    <img
+                      src={src}
+                      alt={alt}
+                      className="w-full max-h-[520px] object-cover rounded-2xl border border-border/80 shadow-lg mx-auto"
+                      loading="lazy"
+                    />
+                    {alt && (
+                      <figcaption className="text-xs text-muted-foreground italic mt-2">
+                        {alt}
+                      </figcaption>
+                    )}
+                  </figure>
+                );
+              }
+
               return <p key={index}>{trimmed}</p>;
             })}
           </div>
+
+          {/* Gallery Images Collection */}
+          {article.gallery_urls && article.gallery_urls.length > 0 && (
+            <div className="pt-4 border-t border-border/60 space-y-3">
+              <h3 className="text-sm sm:text-base font-bold text-foreground flex items-center gap-2">
+                <Sparkles className="w-4 h-4 text-primary" />
+                <span>Thư Viện Hình Ảnh Bản Cập Nhật ({article.gallery_urls.length})</span>
+              </h3>
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                {article.gallery_urls.map((imgUrl, idx) => (
+                  <a
+                    key={idx}
+                    href={imgUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="group relative aspect-video rounded-xl overflow-hidden border border-border/80 hover:border-primary/60 transition-all shadow-sm"
+                  >
+                    <img
+                      src={imgUrl}
+                      alt={`Ảnh ${idx + 1}`}
+                      className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                      loading="lazy"
+                    />
+                    <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center text-white text-xs font-bold">
+                      Xem ảnh ↗
+                    </div>
+                  </a>
+                ))}
+              </div>
+            </div>
+          )}
 
           {/* Tags list */}
           {article.tags && article.tags.length > 0 && (

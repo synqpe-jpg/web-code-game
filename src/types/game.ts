@@ -225,6 +225,7 @@ export interface NewsArticle {
   excerpt: string;
   content: string; // Markdown or rich formatted text
   cover_url?: string;
+  gallery_urls?: string[]; // Multiple images for article gallery / inline insertion
   game_id?: string;
   game_slug?: string;
   game_name?: string;
@@ -233,6 +234,8 @@ export interface NewsArticle {
   codes?: string[]; // Embedded gift codes for this article
   author?: string;
   views?: number;
+  virtual_views?: number; // Base views (Lượt xem ban đầu)
+  views_growth_rate?: number; // Growth rate multiplier (1.0x, 1.5x, 2.0x...)
   read_time_minutes?: number;
   is_featured?: boolean;
   is_hot?: boolean;
