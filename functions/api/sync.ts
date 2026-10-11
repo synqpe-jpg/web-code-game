@@ -171,6 +171,7 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
       'wcg_admin_custom_free_codes_v1', // Public custom giftcodes added/edited by admin
       'wcg_deleted_free_codes',      // Public deleted giftcodes tombstones
       'wcg_crawler_sources_v1',      // Public/crawler sources configuration
+      'wcg_news_articles_v1',        // Public game news articles
     ]);
 
     // 1. Specific key query
@@ -256,6 +257,7 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
             'wcg_crawler_pending_codes_v1',
             'wcg_crawler_sources_v1',
             'wcg_crawler_logs_v1',
+            'wcg_news_articles_v1',
           ]),
         ]);
 
@@ -561,6 +563,7 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
       utilityCategories: d1Settings['wcg_admin_utility_categories_v1'] || masterState.utilityCategories || [],
       storeCategories: d1Settings['wcg_admin_store_categories_v1'] || masterState.storeCategories || [],
       crawlerSources: d1Settings['wcg_crawler_sources_v1'] || masterState.crawlerSources || [],
+      newsArticles: d1Settings['wcg_news_articles_v1'] || masterState.newsArticles || [],
     };
 
     if (authorized) {
@@ -1478,6 +1481,7 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
       else if (vKey === 'wcg_growth_config_v1') currentMaster.growthConfig = body.data;
       else if (vKey === 'wcg_admin_utility_categories_v1') currentMaster.utilityCategories = body.data;
       else if (vKey === 'wcg_admin_store_categories_v1') currentMaster.storeCategories = body.data;
+      else if (vKey === 'wcg_news_articles_v1') currentMaster.newsArticles = body.data;
     }
 
     if (body.deletedStoreProducts !== undefined) currentMaster.deletedStoreProducts = body.deletedStoreProducts;
@@ -1520,6 +1524,7 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
     if (body.crawlerPendingCodes !== undefined) currentMaster.crawlerPendingCodes = body.crawlerPendingCodes;
     if (body.crawlerSources !== undefined) currentMaster.crawlerSources = body.crawlerSources;
     if (body.crawlerLogs !== undefined) currentMaster.crawlerLogs = body.crawlerLogs;
+    if (body.newsArticles !== undefined) currentMaster.newsArticles = body.newsArticles;
 
     // D1 Quota Optimization: NEVER store huge monolithic inventory, orders or crawled freeCodes arrays in KV/Settings master state
     currentMaster.inventory = [];
@@ -1738,6 +1743,7 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
         if (body.crawlerPendingCodes !== undefined) await setSettingD1(env.DB, 'wcg_crawler_pending_codes_v1', body.crawlerPendingCodes);
         if (body.crawlerSources !== undefined) await setSettingD1(env.DB, 'wcg_crawler_sources_v1', body.crawlerSources);
         if (body.crawlerLogs !== undefined) await setSettingD1(env.DB, 'wcg_crawler_logs_v1', body.crawlerLogs);
+        if (body.newsArticles !== undefined) await setSettingD1(env.DB, 'wcg_news_articles_v1', body.newsArticles);
 
         // Consolidated Master State Snapshot in D1 system_settings
         await setSettingD1(env.DB, 'wcg_master_state_v4', currentMaster);

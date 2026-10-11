@@ -5,14 +5,15 @@ import {
   ShoppingBag,
   User,
   Wrench,
+  Newspaper,
 } from 'lucide-react';
 import type { UserProfile } from '../types/game';
 import { formatCore } from '../utils/textUtils';
 import { useLanguage } from '../context/LanguageContext';
 
 interface MobileBottomNavProps {
-  currentTab: 'catalog' | 'giveaways' | 'store' | 'utilities';
-  onSelectTab: (tab: 'catalog' | 'giveaways' | 'store' | 'utilities') => void;
+  currentTab: 'catalog' | 'news' | 'giveaways' | 'store' | 'utilities';
+  onSelectTab: (tab: 'catalog' | 'news' | 'giveaways' | 'store' | 'utilities') => void;
   onOpenReceivedCodes: () => void;
   onOpenAuth: () => void;
   onOpenWallet: () => void;
@@ -78,7 +79,34 @@ export const MobileBottomNav: React.FC<MobileBottomNavProps> = ({
           </span>
         </button>
 
-        {/* Tab 2: Săn Giveaway */}
+        {/* Tab 2: Tin Tức (News) */}
+        <button
+          type="button"
+          onClick={() => onSelectTab('news')}
+          className={`flex-1 flex flex-col items-center justify-center py-1 px-0.5 rounded-xl transition-all duration-200 cursor-pointer relative group active:scale-95 min-w-0 ${
+            currentTab === 'news'
+              ? 'text-primary'
+              : 'text-muted-foreground hover:text-foreground'
+          }`}
+        >
+          {currentTab === 'news' && (
+            <span className="absolute top-0 w-8 h-[2.5px] bg-primary rounded-full shadow-glow-primary animate-fade-in" />
+          )}
+          <div
+            className={`w-7 h-7 rounded-xl flex items-center justify-center transition-all ${
+              currentTab === 'news'
+                ? 'bg-primary/20 text-primary-light shadow-sm'
+                : 'group-hover:bg-muted/60'
+            }`}
+          >
+            <Newspaper className="w-4 h-4 transition-transform group-hover:scale-110" />
+          </div>
+          <span className="text-[10px] font-bold mt-0.5 tracking-tight whitespace-nowrap">
+            Tin Tức
+          </span>
+        </button>
+
+        {/* Tab 3: Săn Giveaway */}
         <button
           type="button"
           onClick={() => onSelectTab('giveaways')}

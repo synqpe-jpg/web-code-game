@@ -3,6 +3,7 @@ export type Language = 'vi' | 'en' | 'zh' | 'th';
 export interface TranslationSchema {
   nav: {
     catalog: string;
+    news: string;
     giveaways: string;
     store: string;
     utilities: string;
@@ -164,6 +165,7 @@ export const translations: Record<Language, TranslationSchema> = {
   vi: {
     nav: {
       catalog: 'Tra Cứu Code',
+      news: 'Tin Tức',
       giveaways: 'Săn Giveaway',
       store: 'Cửa Hàng Code',
       utilities: 'Tiện Ích',
@@ -324,6 +326,7 @@ export const translations: Record<Language, TranslationSchema> = {
   en: {
     nav: {
       catalog: 'Gift Codes',
+      news: 'Game News',
       giveaways: 'Giveaways',
       store: 'Code Store',
       utilities: 'Utilities',
@@ -484,6 +487,7 @@ export const translations: Record<Language, TranslationSchema> = {
   zh: {
     nav: {
       catalog: '礼包码查询',
+      news: '游戏资讯',
       giveaways: '免费抽奖',
       store: '游戏商城',
       utilities: '实用工具',
@@ -644,6 +648,7 @@ export const translations: Record<Language, TranslationSchema> = {
   th: {
     nav: {
       catalog: 'ค้นหาโค้ด',
+      news: 'ข่าวเกม',
       giveaways: 'แจกโค้ดฟรี',
       store: 'ร้านค้าโค้ด',
       utilities: 'เครื่องมือ',

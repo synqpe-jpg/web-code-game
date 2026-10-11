@@ -217,3 +217,27 @@ export interface UserProfile {
   last_login?: string;
 }
 
+// News Article Model (Tin Tức Cập Nhật Game)
+export interface NewsArticle {
+  id: string;
+  slug: string;
+  title: string;
+  excerpt: string;
+  content: string; // Markdown or rich formatted text
+  cover_url?: string;
+  game_id?: string;
+  game_slug?: string;
+  game_name?: string;
+  game_icon?: string;
+  tags?: string[];
+  codes?: string[]; // Embedded gift codes for this article
+  author?: string;
+  views?: number;
+  read_time_minutes?: number;
+  is_featured?: boolean;
+  is_hot?: boolean;
+  status: 'PUBLISHED' | 'DRAFT';
+  published_at: string;
+  updated_at?: string;
+}
+

@@ -10,6 +10,7 @@ import { BookmarkDrawer } from './components/BookmarkDrawer';
 import { CodePlaygroundModal } from './components/CodePlaygroundModal';
 import { GrowthCenterModal } from './components/GrowthCenterModal';
 import { ShareModal } from './components/ShareModal';
+import { NewsView } from './components/NewsView';
 import { GiveawaysView } from './components/GiveawaysView';
 import { StoreView } from './components/StoreView';
 import { UtilitiesView } from './components/UtilitiesView';
@@ -63,7 +64,7 @@ export const App: React.FC = () => {
   const [, startTransition] = useTransition();
 
   // Navigation Tab State (Decoupled Frontends Domain Detection & Hash Routing)
-  const [currentTab, setCurrentTab] = useState<'catalog' | 'giveaways' | 'store' | 'utilities' | 'admin'>(() => {
+  const [currentTab, setCurrentTab] = useState<'catalog' | 'news' | 'giveaways' | 'store' | 'utilities' | 'admin'>(() => {
     if (typeof window !== 'undefined') {
       const host = window.location.hostname;
       const hash = window.location.hash.toLowerCase();
@@ -75,12 +76,15 @@ export const App: React.FC = () => {
         return 'admin';
       }
 
+      if (hash.includes('news') || hash.includes('tintuc') || path === '/news' || path.startsWith('/news/')) return 'news';
       if (hash.includes('giveaways') || hash.includes('gw=') || path === '/giveaways' || path.startsWith('/giveaways/')) return 'giveaways';
       if (hash.includes('store') || hash.includes('product=') || hash.includes('prod=') || path === '/store' || path.startsWith('/store/')) return 'store';
       if (hash.includes('utilities') || hash.includes('utility=') || hash.includes('ut=') || path === '/utilities' || path.startsWith('/utilities/')) return 'utilities';
     }
     return 'catalog';
   });
+
+  const [initialNewsSlug, setInitialNewsSlug] = useState<string | null>(null);
 
   // Search & Filter State
   const [searchQuery, setSearchQuery] = useState('');
@@ -396,6 +400,11 @@ export const App: React.FC = () => {
         } else if (gwId) {
           setCurrentTab('giveaways');
           return;
+        } else if (hashLower === '#news' || hashLower.startsWith('#news')) {
+          setCurrentTab('news');
+          const nSlug = hash.includes('news/') ? hash.split(/news\//i)[1]?.split('&')[0] : null;
+          if (nSlug) setInitialNewsSlug(nSlug);
+          return;
         } else if (hashLower === '#giveaways' || hashLower.startsWith('#giveaways')) {
           setCurrentTab('giveaways');
           return;
@@ -420,7 +429,7 @@ export const App: React.FC = () => {
           }
         }
 
-        // 4. Pathname Routes (/game/:slug, /giveaways, /store, /utilities) from Google or Shared Links
+        // 4. Pathname Routes (/game/:slug, /news, /giveaways, /store, /utilities) from Google or Shared Links
         const pathname = window.location.pathname.toLowerCase();
         if (pathname.startsWith('/game/')) {
           const pathSlug = window.location.pathname.replace(/^\/game\//i, '').replace(/\/$/, '').trim();
@@ -432,6 +441,11 @@ export const App: React.FC = () => {
               return;
             }
           }
+        } else if (pathname === '/news' || pathname.startsWith('/news/')) {
+          setCurrentTab('news');
+          const nSlug = window.location.pathname.replace(/^\/news\//i, '').replace(/\/$/, '').trim();
+          if (nSlug) setInitialNewsSlug(nSlug);
+          return;
         } else if (pathname === '/giveaways' || pathname.startsWith('/giveaways/')) {
           setCurrentTab('giveaways');
           return;
@@ -466,7 +480,7 @@ export const App: React.FC = () => {
   }, []);
 
   // Unified Single-Click Tab Switcher (History pushState routing without hash conflicts)
-  const handleSelectTab = useCallback((tab: 'catalog' | 'giveaways' | 'store' | 'utilities') => {
+  const handleSelectTab = useCallback((tab: 'catalog' | 'news' | 'giveaways' | 'store' | 'utilities') => {
     setSelectedGame(null);
     setSelectedProduct(null);
     setSelectedUtilityId(null);
@@ -494,7 +508,12 @@ export const App: React.FC = () => {
         window.history.replaceState(null, '', '/');
       }
 
-      if (currentTab === 'giveaways') {
+      if (currentTab === 'news') {
+        document.title = 'Tin Tức Game & Sự Kiện Giftcode Mới Nhất 2026 | CodeGame.shop';
+        if (window.location.pathname !== '/news' || window.location.hash) {
+          window.history.replaceState(null, '', '/news');
+        }
+      } else if (currentTab === 'giveaways') {
         document.title = 'Sự Kiện Giveaway Game Miễn Phí 2026 | CodeGame.shop';
         if (window.location.pathname !== '/giveaways' || window.location.hash) {
           window.history.replaceState(null, '', '/giveaways');
@@ -525,6 +544,11 @@ export const App: React.FC = () => {
       const hash = window.location.hash.toLowerCase();
 
       // 1. Explicit hash deep links precedence
+      if (hash === '#news' || hash.startsWith('#news')) {
+        setSelectedGame(null);
+        setCurrentTab('news');
+        return;
+      }
       if (hash === '#giveaways' || hash.startsWith('#giveaways') || hash.includes('gw=')) {
         setSelectedGame(null);
         setCurrentTab('giveaways');
@@ -552,6 +576,9 @@ export const App: React.FC = () => {
             }
           });
         }
+      } else if (path === '/news' || path.startsWith('/news/')) {
+        setSelectedGame(null);
+        setCurrentTab('news');
       } else if (path === '/giveaways' || path.startsWith('/giveaways/')) {
         setSelectedGame(null);
         setCurrentTab('giveaways');
@@ -1059,6 +1086,14 @@ export const App: React.FC = () => {
                 )}
               </div>
             </>
+          )}
+
+          {currentTab === 'news' && (
+            <NewsView
+              onShowToast={showToast}
+              onSelectGameSlug={handleSelectGameSlug}
+              initialArticleSlug={initialNewsSlug}
+            />
           )}
 
           {currentTab === 'giveaways' && (

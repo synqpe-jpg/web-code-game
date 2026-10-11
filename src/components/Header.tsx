@@ -13,6 +13,7 @@ import {
   User,
   LogOut,
   Wrench,
+  Newspaper,
 } from 'lucide-react';
 import type { GameItem, UserProfile } from '../types/game';
 import { formatCore } from '../utils/textUtils';
@@ -21,8 +22,8 @@ import { LanguageSelector } from './LanguageSelector';
 import { growthService } from '../services/growthService';
 
 interface HeaderProps {
-  currentTab: 'catalog' | 'giveaways' | 'store' | 'utilities';
-  onSelectTab: (tab: 'catalog' | 'giveaways' | 'store' | 'utilities') => void;
+  currentTab: 'catalog' | 'news' | 'giveaways' | 'store' | 'utilities';
+  onSelectTab: (tab: 'catalog' | 'news' | 'giveaways' | 'store' | 'utilities') => void;
   searchQuery?: string;
   onSearchChange?: (q: string) => void;
   bookmarkCount: number;
@@ -189,6 +190,19 @@ export const Header: React.FC<HeaderProps> = ({
             >
               <Gift className="w-4 h-4" />
               <span>{t.nav.catalog}</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => onSelectTab('news')}
+              className={`flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+                currentTab === 'news'
+                  ? 'bg-primary text-white shadow-glow-primary'
+                  : 'text-slate-300 hover:text-white hover:bg-card'
+              }`}
+            >
+              <Newspaper className="w-4 h-4" />
+              <span>{t.nav.news || 'Tin Tức'}</span>
             </button>
 
             <button

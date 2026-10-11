@@ -23,6 +23,7 @@ import {
   X,
   Search,
   Bot,
+  Newspaper,
 } from 'lucide-react';
 import { AdminUser } from '../types/adminTypes';
 import { normalizeVietnamese } from '../../utils/textUtils';
@@ -30,6 +31,7 @@ import { normalizeVietnamese } from '../../utils/textUtils';
 export type AdminModuleTab =
   | 'dashboard'
   | 'games'
+  | 'news'
   | 'free-codes'
   | 'giftcodes'
   | 'crawler'
@@ -100,6 +102,11 @@ export const AdminSidebar: React.FC<AdminSidebarProps> = ({
           id: 'games',
           label: 'Quản lý Game',
           icon: Gamepad2,
+        },
+        {
+          id: 'news',
+          label: 'Tin Tức Game & Code',
+          icon: Newspaper,
         },
         {
           id: 'free-codes',

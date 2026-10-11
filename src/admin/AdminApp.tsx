@@ -10,6 +10,7 @@ import { ErrorBoundary } from './components/ErrorBoundary';
 // Import all modules
 import { DashboardModule } from './modules/DashboardModule';
 import { GamesModule } from './modules/GamesModule';
+import { NewsModule } from './modules/NewsModule';
 import { FreeCodesModule } from './modules/FreeCodesModule';
 import { GiftcodesModerationModule } from './modules/GiftcodesModerationModule';
 import { MembersModule } from './modules/MembersModule';
@@ -38,6 +39,7 @@ export const AdminApp: React.FC<AdminAppProps> = ({ onBackToClient }) => {
     const validTabs: AdminModuleTab[] = [
       'dashboard',
       'games',
+      'news',
       'free-codes',
       'giftcodes',
       'crawler',
@@ -229,6 +231,7 @@ export const AdminApp: React.FC<AdminAppProps> = ({ onBackToClient }) => {
       const validTabs: AdminModuleTab[] = [
         'dashboard',
         'games',
+        'news',
         'free-codes',
         'giftcodes',
         'members',
@@ -397,6 +400,10 @@ export const AdminApp: React.FC<AdminAppProps> = ({ onBackToClient }) => {
               setCurrentTab('free-codes');
             }}
           />
+        )}
+
+        {currentTab === 'news' && (
+          <NewsModule onShowToast={showToast} />
         )}
 
         {currentTab === 'free-codes' && (

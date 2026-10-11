@@ -715,6 +715,14 @@ class DataService {
                 this.pushToCloudflareKV('wcg_growth_config_v1', localGrowth);
               }
             }
+            if (json.newsArticles && Array.isArray(json.newsArticles)) {
+              const currentNews = localStorage.getItem('wcg_news_articles_v1');
+              const newNews = JSON.stringify(json.newsArticles);
+              if (currentNews !== newNews) {
+                localStorage.setItem('wcg_news_articles_v1', newNews);
+                window.dispatchEvent(new CustomEvent('wcg_news_updated', { detail: json.newsArticles }));
+              }
+            }
             if (hasChanges) {
               console.log('[DataSync] Applied new updates from Cloudflare KV');
               this.reload();
@@ -3040,6 +3048,10 @@ class DataService {
       }
       if (Array.isArray(snapshot.utilityCategories)) {
         localStorage.setItem('wcg_admin_utility_categories_v1', JSON.stringify(snapshot.utilityCategories));
+      }
+      if (Array.isArray(snapshot.newsArticles)) {
+        localStorage.setItem('wcg_news_articles_v1', JSON.stringify(snapshot.newsArticles));
+        window.dispatchEvent(new CustomEvent('wcg_news_updated', { detail: snapshot.newsArticles }));
       }
 
       localStorage.setItem('wcg_store_initialized', 'true');

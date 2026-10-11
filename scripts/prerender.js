@@ -277,7 +277,65 @@ async function runPrerender() {
   fs.writeFileSync(templatePath, homeHtml, 'utf8');
   console.log(`[Prerender] Đã xuất bản dist/index.html (Trang chủ hoàn chỉnh)`);
 
-  // 2. Prerender Giveaways Page (dist/giveaways/index.html)
+  // 2. Prerender News Page (dist/news/index.html)
+  const newsDir = path.join(distDir, 'news');
+  if (!fs.existsSync(newsDir)) fs.mkdirSync(newsDir, { recursive: true });
+
+  const newsHtml = buildPageHtml({
+    title: 'Tin Tức Game & Sự Kiện Giftcode Mới Nhất 2026 | CodeGame.shop',
+    description: 'Tổng hợp tin tức làng game Việt, bản cập nhật mới nhất, sự kiện phát quà và danh sách giftcode game mobile, PC hot nhất 2026 cập nhật 24/7.',
+    canonicalPath: '/news',
+    ogType: 'website',
+    jsonLd: [
+      {
+        '@context': 'https://schema.org',
+        '@type': 'NewsMediaOrganization',
+        name: 'CodeGame.shop - Chuyên Mục Tin Tức',
+        url: `${BASE_URL}/news`,
+      },
+      {
+        '@context': 'https://schema.org',
+        '@type': 'BreadcrumbList',
+        itemListElement: [
+          { '@type': 'ListItem', position: 1, name: 'Trang chủ', item: 'https://codegame.shop/' },
+          { '@type': 'ListItem', position: 2, name: 'Tin Tức Game', item: 'https://codegame.shop/news' },
+        ],
+      },
+    ],
+    bodyContent: `
+      <div class="min-h-screen flex flex-col bg-slate-950 text-slate-100">
+        <header class="sticky top-0 z-40 w-full border-b border-slate-800 bg-slate-900/90 backdrop-blur-md px-4 sm:px-8 py-3.5 flex items-center justify-between">
+          <a href="/" class="flex items-center space-x-2.5 text-blue-500 font-extrabold text-lg sm:text-xl">
+            <span>🎮 CodeGame.shop</span>
+          </a>
+          <nav class="flex items-center space-x-3 sm:space-x-6 text-xs sm:text-sm font-bold text-slate-300">
+            <a href="/" class="hover:text-blue-400 transition-colors">Tra Cứu Code</a>
+            <a href="/news" class="text-blue-400 font-black">Tin Tức Game</a>
+            <a href="/giveaways" class="hover:text-blue-400 transition-colors">Săn Giveaway</a>
+            <a href="/store" class="hover:text-blue-400 transition-colors">Cửa Hàng</a>
+          </nav>
+        </header>
+        <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-6">
+          <div class="rounded-3xl border border-slate-800 p-6 sm:p-10 shadow-md bg-slate-900 text-center">
+            <div class="inline-block px-3.5 py-1 rounded-full bg-blue-500/10 text-blue-400 text-xs font-bold border border-blue-500/30 mb-3">
+              📰 Tin Tức & Sự Kiện Quà Tặng 24/7
+            </div>
+            <h1 class="text-2xl sm:text-4xl font-black text-white tracking-tight">
+              Điểm Tin Game & Danh Sách Giftcode Mới Nhất
+            </h1>
+            <p class="text-xs sm:text-sm text-slate-400 leading-relaxed font-medium mt-2 max-w-2xl mx-auto">
+              Cập nhật thông tin các tựa game hot nhất, bản cập nhật mới, sự kiện khai mở máy chủ và mã quà tặng kèm theo độc quyền mỗi ngày.
+            </p>
+          </div>
+        </main>
+      </div>
+    `,
+  });
+
+  fs.writeFileSync(path.join(newsDir, 'index.html'), newsHtml, 'utf8');
+  console.log(`[Prerender] Đã xuất bản dist/news/index.html`);
+
+  // 3. Prerender Giveaways Page (dist/giveaways/index.html)
   const giveawaysDir = path.join(distDir, 'giveaways');
   if (!fs.existsSync(giveawaysDir)) fs.mkdirSync(giveawaysDir, { recursive: true });
 
