@@ -121,6 +121,10 @@ class NewsService {
   /**
    * Lấy toàn bộ bài viết (Bao gồm cả bản nháp cho Admin)
    */
+  public getAllArticles(): NewsArticle[] {
+    return this.getAllArticlesForAdmin();
+  }
+
   public getAllArticlesForAdmin(): NewsArticle[] {
     return [...this.articles].sort((a, b) => {
       const dateA = new Date(a.published_at || a.updated_at || 0).getTime();
@@ -233,15 +237,19 @@ class NewsService {
   /**
    * Gửi dữ liệu bài viết lên máy chủ Cloudflare D1
    */
-  private async syncToCloudflareServer() {
-    if (typeof window === 'undefined') return;
+  public async syncArticlesToCloudflare(): Promise<boolean> {
+    return this.syncToCloudflareServer();
+  }
+
+  public async syncToCloudflareServer(): Promise<boolean> {
+    if (typeof window === 'undefined') return false;
     try {
       const syncKey =
         localStorage.getItem('wcg_admin_sync_key') ||
         sessionStorage.getItem('wcg_admin_sync_key') ||
         'b4e08494bf1c3fd6a0c965dd2411780c60513f7f87001bc955d7496331b2faef';
 
-      await fetch('/api/sync', {
+      const res = await fetch('/api/sync', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -251,8 +259,10 @@ class NewsService {
           newsArticles: this.articles,
         }),
       });
+      return res.ok;
     } catch (e) {
       console.warn('[NewsService] Không thể sync bài viết lên Cloudflare D1:', e);
+      return false;
     }
   }
 
@@ -261,7 +271,7 @@ class NewsService {
    */
   public generateAiArticleDraft(params: {
     game: Partial<GameItem>;
-    topicType: 'update' | 'new_server' | 'event' | 'guide';
+    topicType: 'codes' | 'update' | 'new_server' | 'event' | 'guide';
     availableCodes?: string[];
   }): Partial<NewsArticle> {
     const gameName = params.game.name || 'Tựa Game';
@@ -278,6 +288,24 @@ class NewsService {
     let tags: string[] = [];
 
     switch (params.topicType) {
+      case 'codes':
+        title = `Tổng Hợp Trọn Bộ Giftcode ${gameName} Mới Nhất ${monthYear} - Còn Hạn 100%`;
+        excerpt = `Tổng hợp toàn bộ mã quà tặng giftcode ${gameName} (${publisher}) mới nhất còn hạn sử dụng. Hướng dẫn chi tiết cách nhập code nhận quà VIP.`;
+        tags = ['Giftcode Mới', 'Mã Quà Tặng', gameName, 'Code Tân Thủ'];
+        content = `## Danh Sách Mã Giftcode ${gameName} Mới Nhất Hôm Nay
+
+Ban biên tập **CodeGame.shop** gửi tặng cộng đồng game thủ danh sách các mã quà tặng giftcode mới nhất dành cho tựa game **${gameName}** phát hành bởi **${publisher}**.
+
+### 1. Danh Sách Mã Code Còn Hạn Sử Dụng
+Toàn bộ mã bên dưới đã được đối chiếu kiểm tra thực tế trong game. Hãy nhanh tay sao chép và nhập ngay trước khi hết hạn sử dụng!
+
+### 2. Hướng Dẫn Cách Nhập Giftcode Trong ${gameName}
+1. Đăng nhập vào trò chơi **${gameName}**.
+2. Nhấn vào **Avatar** nhân vật ở góc trên màn hình.
+3. Chọn mục **Cài Đặt** hoặc **Phúc Lợi** -> **Đổi Giftcode**.
+4. Dán mã quà tặng bên dưới và nhấn **Xác Nhận** để nhận quà qua Hòm Thư.`;
+        break;
+
       case 'update':
         title = `${gameName}: Chi Tiết Bản Cập Nhật Mới & Bộ Giftcode Quà Tặng ${monthYear}`;
         excerpt = `Khám phá các điểm mới trong bản cập nhật lớn của ${gameName} (${publisher}), tinh chỉnh cân bằng môn phái/tướng và nhận ngay danh sách mã code độc quyền.`;
