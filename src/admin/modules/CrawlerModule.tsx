@@ -32,6 +32,7 @@ import { ConfirmModal } from '../components/ui/ConfirmModal';
 import { SearchableGameSelect } from '../components/ui/SearchableGameSelect';
 import { adminDataService } from '../services/adminDataService';
 import { GameAdminRecord } from '../types/adminTypes';
+import { smartVietnameseMatch } from '../../utils/textUtils';
 import defaultSources from '../../data/crawler_sources.json';
 
 interface PendingCrawlerCode {
@@ -144,6 +145,9 @@ export const CrawlerModule: React.FC<CrawlerModuleProps> = ({ onShowToast }) => 
       if (res.ok) {
         const data = await res.json();
         if (data && data.success) {
+          if (Array.isArray(data.games) && data.games.length > 0) {
+            setGames(data.games);
+          }
           if (Array.isArray(data.crawlerPendingCodes)) {
             setPendingCodes(data.crawlerPendingCodes);
           }
@@ -201,12 +205,11 @@ export const CrawlerModule: React.FC<CrawlerModuleProps> = ({ onShowToast }) => 
       if (sourceStatusFilter === 'ENABLED' && !s.isEnabled) return false;
       if (sourceStatusFilter === 'DISABLED' && s.isEnabled) return false;
       if (sourceSearch.trim()) {
-        const q = sourceSearch.toLowerCase();
         const matchedGame = games.find((g) => g.slug === s.targetGameSlug);
-        const matchName = s.name.toLowerCase().includes(q);
-        const matchUrl = s.url.toLowerCase().includes(q);
-        const matchGame = matchedGame ? matchedGame.name.toLowerCase().includes(q) : false;
-        return matchName || matchUrl || matchGame;
+        return smartVietnameseMatch(
+          [s.name, s.url, s.description, matchedGame?.name, s.targetGameSlug],
+          sourceSearch
+        );
       }
       return true;
     });
@@ -1286,7 +1289,7 @@ export const CrawlerModule: React.FC<CrawlerModuleProps> = ({ onShowToast }) => 
             />
           </div>
 
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
               <label className="block text-xs font-semibold text-slate-300 mb-1">Loại Nguồn</label>
               <select
@@ -1302,19 +1305,16 @@ export const CrawlerModule: React.FC<CrawlerModuleProps> = ({ onShowToast }) => 
             </div>
 
             <div>
-              <label className="block text-xs font-semibold text-slate-300 mb-1">Game Mục Tiêu (Tùy chọn)</label>
-              <select
-                value={newSourceGameSlug}
-                onChange={(e) => setNewSourceGameSlug(e.target.value)}
-                className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-sm text-slate-200 focus:outline-none focus:border-indigo-500"
-              >
-                <option value="">Tự động nhận diện (Fuzzy match)</option>
-                {games.slice(0, 150).map((g) => (
-                  <option key={g.slug || g.id} value={g.slug || g.id}>
-                    {g.name}
-                  </option>
-                ))}
-              </select>
+              <SearchableGameSelect
+                games={games}
+                selectedGameSlug={newSourceGameSlug}
+                onSelectGame={(g) => setNewSourceGameSlug(g ? (g.slug || g.id) : '')}
+                label="Game Mục Tiêu (Tùy chọn)"
+                placeholder="Tự động nhận diện (Fuzzy match)..."
+                allowClear
+                clearLabel="Tự động nhận diện (Fuzzy match)"
+                dropdownAlign="right"
+              />
             </div>
           </div>
 
