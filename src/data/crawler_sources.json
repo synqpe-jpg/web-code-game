@@ -1,0 +1,58 @@
+[
+  {
+    "id": "src_codemoi_delta",
+    "name": "CodeMoi - Delta Force",
+    "type": "reputable_web",
+    "url": "https://codemoi.net/games/delta-force/",
+    "targetGameSlug": "delta-force",
+    "isEnabled": true
+  },
+  {
+    "id": "src_codemoi_pirate",
+    "name": "CodeMoi - Huyền Thoại Hải Tặc",
+    "type": "reputable_web",
+    "url": "https://codemoi.net/games/pirate-legends/",
+    "targetGameSlug": "pirate-legends",
+    "isEnabled": true
+  },
+  {
+    "id": "src_codemoi_genshin",
+    "name": "CodeMoi - Genshin Impact",
+    "type": "reputable_web",
+    "url": "https://codemoi.net/games/genshin-impact/",
+    "targetGameSlug": "genshin-impact",
+    "isEnabled": true
+  },
+  {
+    "id": "src_codemoi_hsr",
+    "name": "CodeMoi - Honkai: Star Rail",
+    "type": "reputable_web",
+    "url": "https://codemoi.net/games/honkai-star-rail/",
+    "targetGameSlug": "honkai-star-rail",
+    "isEnabled": true
+  },
+  {
+    "id": "src_codemoi_tamquocx",
+    "name": "CodeMoi - Tam Quốc X",
+    "type": "reputable_web",
+    "url": "https://codemoi.net/games/tam-quoc-x/",
+    "targetGameSlug": "tam-quoc-x",
+    "isEnabled": true
+  },
+  {
+    "id": "src_fb_delta_vn",
+    "name": "Fanpage Delta Force Vietnam",
+    "type": "official_fb",
+    "url": "https://facebook.com/DeltaForceGameVN",
+    "targetGameSlug": "delta-force",
+    "isEnabled": true
+  },
+  {
+    "id": "src_discord_genshin_ann",
+    "name": "Discord Official Genshin Impact",
+    "type": "community_discord",
+    "url": "https://discord.gg/genshinimpact",
+    "targetGameSlug": "genshin-impact",
+    "isEnabled": true
+  }
+]

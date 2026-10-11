@@ -1,0 +1,38 @@
+{
+  "name": "CodeGame.shop - Cổng Tra Cứu Giftcode Bản Quyền G1",
+  "short_name": "CodeGame.shop",
+  "description": "Kho tổng hợp mã giftcode game mobile & PC miễn phí mới nhất 2026. Đối chiếu giấy phép G1 ABEI Bộ TT&TT.",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait-primary",
+  "background_color": "#0B0D19",
+  "theme_color": "#0B0D19",
+  "categories": ["games", "entertainment", "utilities"],
+  "icons": [
+    {
+      "src": "/favicon.png",
+      "sizes": "64x64",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/apple-touch-icon.png",
+      "sizes": "180x180",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/logo.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/logo.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}

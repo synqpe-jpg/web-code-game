@@ -1,0 +1,30 @@
+name: Auto Giftcode Crawler & Sync
+
+on:
+  schedule:
+    # Chạy tự động mỗi 2 tiếng (hoàn toàn miễn phí trên GitHub Actions)
+    - cron: '0 */2 * * *'
+  workflow_dispatch:
+    # Cho phép kích hoạt thủ công bất kỳ lúc nào từ giao diện GitHub
+
+jobs:
+  crawl-and-sync:
+    name: Crawl, Score & Auto-Sync Codes
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout Codebase
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js Runtime
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: ''
+
+      - name: Run Crawler & 4-Tier Scorer Engine
+        run: node scripts/crawler/run_crawler.cjs
+        env:
+          SYNC_URL: ${{ secrets.SYNC_URL || 'https://web-code-game.pages.dev/api/sync' }}
+          ADMIN_SYNC_SECRET: ${{ secrets.ADMIN_SYNC_SECRET }}

@@ -1,0 +1,219 @@
+export interface GiftCode {
+  code: string;
+  rewards: string;
+  status: 'active' | 'expired' | 'verified';
+  expiry?: string;
+  source?: string;
+  added_at?: string;
+  votes_up?: number;
+  votes_down?: number;
+}
+
+export interface GameItem {
+  id: string;
+  name: string;
+  slug: string;
+  publisher?: string;
+  category?: string;
+  rating?: number;
+  icon_url?: string;
+  banner_url?: string;
+  description?: string;
+  instructions?: string;
+  platform?: string;
+  so_giay_phep?: string;
+  ngay_cap_phep?: string;
+  license_number?: string;
+  license_date?: string;
+  trang_thai_gp?: string;
+  release_date?: string;
+  download_android?: string;
+  download_ios?: string;
+  download_pc?: string;
+  redeem_url?: string;
+  is_featured?: boolean | number;
+  is_hot?: boolean | number;
+  is_new?: boolean | number;
+  is_active?: boolean | number;
+  codes_count?: number;
+  codes?: GiftCode[];
+}
+
+export interface FilterState {
+  search: string;
+  category: string;
+  tag: 'all' | 'hot' | 'new' | 'has_codes' | 'bookmarked';
+  sortBy: 'updated' | 'popular' | 'codes_count' | 'release_date' | 'name' | 'rating' | 'license_date';
+  sortOrder: 'asc' | 'desc';
+}
+
+export interface StatsOverview {
+  totalGames: number;
+  totalCodes: number;
+  totalCategories: number;
+  totalPublishers: number;
+}
+
+// Giveaway Campaign Model
+export interface GiveawayCampaign {
+  id: string;
+  game_id?: string;
+  game_slug: string;
+  game_name: string;
+  game_icon_url?: string;
+  title: string;
+  description: string;
+  rewards: string;
+  total_codes: number;
+  claimed_codes: number;
+  start_time: string;
+  end_time: string;
+  is_active: boolean;
+  cover_image_url?: string;
+  requires_auth?: boolean;
+  min_account_age_days?: number;
+  max_per_user?: number;
+  max_per_ip?: number;
+  cooldown_hours?: number;
+  show_claimed_count?: boolean;
+  virtual_claimed_offset?: number;
+  codes_pool?: string[];
+  remaining_codes?: number;
+  claim_history?: Array<{
+    id: string;
+    user?: string;
+    userId?: string;
+    userName?: string;
+    email?: string;
+    code: string;
+    ip: string;
+    claimedAt: string;
+  }>;
+}
+
+export interface GuideLinkItem {
+  id?: string;
+  text: string;
+  url: string;
+}
+
+// Store Product / Paid Code Model
+export interface StoreProduct {
+  id: string;
+  sku?: string;
+  title: string;
+  game_slug: string;
+  game_name: string;
+  game_icon_url?: string;
+  cover_image_url?: string;
+  product_images?: string[];
+  description: string;
+  original_price: number;
+  discount_percent: number;
+  current_price: number;
+  stock_quantity: number;
+  sold_count?: number;
+  show_sold_count?: boolean;
+  virtual_sold_count?: number;
+  is_active: boolean;
+  package_type: 'pack' | 'monthly' | 'gift' | 'account' | string;
+  category?: string;
+  category_label?: string;
+  badge?: string;
+  guide_url?: string;
+  guide_text?: string;
+  guide_links?: GuideLinkItem[];
+  show_guide_link?: boolean;
+  show_warranty?: boolean;
+  warranty_text?: string;
+}
+
+// Store Category Model (Danh Mục Gói Code / Cửa Hàng)
+export interface StoreCategory {
+  id: string;
+  label: string;
+  icon?: string;
+  isSystem?: boolean;
+}
+
+// Order & Received Code
+export interface OrderRecord {
+  id: string;
+  product_id: string;
+  product_title: string;
+  game_name: string;
+  amount: number;
+  quantity?: number;
+  unit_price?: number;
+  code_content: string;
+  code_items?: string[];
+  status: 'completed' | 'pending' | 'failed';
+  created_at: string;
+  payment_method: 'wallet' | 'vietqr';
+}
+
+export interface ClaimedCodeRecord {
+  id: string;
+  campaign_id: string;
+  game_name: string;
+  game_slug: string;
+  game_icon_url?: string;
+  code_value: string;
+  rewards: string;
+  claimed_at: string;
+}
+
+// Utility Product Model (Tiện Ích & Dịch Vụ Ngoài Lề)
+export interface UtilityProduct {
+  id: string;
+  sku?: string;
+  title: string;
+  category: 'account' | 'tool' | 'service' | 'key' | 'other' | string;
+  category_label?: string;
+  icon_url?: string;
+  cover_image_url?: string;
+  product_images?: string[];
+  description: string;
+  original_price: number;
+  discount_percent: number;
+  current_price: number;
+  stock_quantity: number;
+  sold_count?: number;
+  show_sold_count?: boolean;
+  virtual_sold_count?: number;
+  is_active: boolean;
+  badge?: string;
+  instructions?: string;
+  guide_url?: string;
+  guide_text?: string;
+  guide_links?: GuideLinkItem[];
+  show_guide_link?: boolean;
+  show_warranty?: boolean;
+  warranty_text?: string;
+}
+
+// Utility Category Model (Danh Mục Tiện Ích)
+export interface UtilityCategory {
+  id: string;
+  label: string;
+  icon?: string;
+  isSystem?: boolean;
+}
+
+// User Profile
+export interface UserProfile {
+  id: string;
+  username: string;
+  displayName?: string;
+  full_name?: string;
+  email: string;
+  phone?: string;
+  role: 'user' | 'admin' | 'VIP' | 'SUPER_ADMIN' | 'MEMBER' | 'guest';
+  wallet_balance: number;
+  avatar_url?: string;
+  session_token?: string;
+  registered_ip?: string;
+  created_at?: string;
+  last_login?: string;
+}
+

@@ -1,0 +1,43 @@
+{
+  "name": "web-code-game",
+  "private": true,
+  "version": "1.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "node scripts/build.cjs",
+    "preview": "vite preview",
+    "crawl:all": "node scripts/crawl_codemoi_and_enrich_all.cjs",
+    "crawl:abei": "node scripts/fetch_abei_database.cjs",
+    "sync:codes": "node scripts/sync_source_codes.cjs",
+    "crawler:run": "node scripts/crawler/run_crawler.cjs",
+    "deploy": "wrangler pages deploy dist --project-name=web-code-game",
+    "deploy:admin": "wrangler pages deploy dist --project-name=admin-code-game-shop",
+    "deploy:all": "wrangler pages deploy dist --project-name=web-code-game && wrangler pages deploy dist --project-name=admin-code-game-shop",
+    "backup": "node scripts/export_full_database_backup.cjs"
+  },
+  "dependencies": {
+    "canvas-confetti": "^1.9.4",
+    "clsx": "^2.1.1",
+    "fuse.js": "^7.1.0",
+    "lucide-react": "^1.16.0",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "tailwind-merge": "^3.5.0"
+  },
+  "devDependencies": {
+    "@types/canvas-confetti": "^1.9.0",
+    "@types/node": "^22.8.1",
+    "@types/react": "^18.3.12",
+    "@types/react-dom": "^18.3.1",
+    "@vitejs/plugin-react": "^4.3.3",
+    "autoprefixer": "^10.4.20",
+    "dotenv": "^18.0.6",
+    "pngjs": "^7.0.0",
+    "postcss": "^8.4.47",
+    "tailwindcss": "^3.4.14",
+    "typescript": "^5.6.3",
+    "vite": "^5.4.10",
+    "wrangler": "^4.141.0"
+  }
+}
