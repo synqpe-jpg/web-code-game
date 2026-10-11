@@ -133,13 +133,17 @@ async function main() {
   }
 
   // Tải cấu hình các nguồn cào
-  if (serverState && Array.isArray(serverState.crawlerSources) && serverState.crawlerSources.length > 0) {
+  let localSources = [];
+  try {
+    const p = path.resolve(__dirname, '../../src/data/crawler_sources.json');
+    if (fs.existsSync(p)) localSources = JSON.parse(fs.readFileSync(p, 'utf8'));
+  } catch {}
+
+  if (serverState && Array.isArray(serverState.crawlerSources) && serverState.crawlerSources.length >= localSources.length) {
     sources = serverState.crawlerSources;
   } else {
-    try {
-      const p = path.resolve(__dirname, '../../src/data/crawler_sources.json');
-      if (fs.existsSync(p)) sources = JSON.parse(fs.readFileSync(p, 'utf8'));
-    } catch {}
+    const serverMap = new Map((serverState?.crawlerSources || []).map((s) => [s.id, s]));
+    sources = localSources.map((ls) => (serverMap.has(ls.id) ? { ...ls, ...serverMap.get(ls.id) } : ls));
   }
 
   console.log(`[Crawler] 📊 Thông số khởi động:`);
@@ -167,40 +171,43 @@ async function main() {
   const discordScraper = new DiscordScraper();
   const facebookScraper = new FacebookScraper();
 
-  const enabledSources = sources.filter((s) => s && s.isEnabled !== false);
-  console.log(`\n🚀 Đang quét qua ${enabledSources.length} nguồn đang bật...`);
+  const limitArg = process.argv.find((a) => a.startsWith('--limit='));
+  const maxSources = limitArg ? parseInt(limitArg.split('=')[1], 10) : null;
+  const targetSourcesList = maxSources ? sources.slice(0, maxSources) : sources;
+
+  const enabledSources = targetSourcesList.filter((s) => s && s.isEnabled !== false);
+  const CONCURRENCY = 15;
+  console.log(`\n🚀 Đang quét song song ${enabledSources.length} nguồn (Độ song song: ${CONCURRENCY} luồng đồng thời)...`);
 
   const autoApprovedList = [];
   const newPendingList = [];
   let totalCodesScanned = 0;
   let duplicatesCount = 0;
   let lowScoreCount = 0;
+  let completedSources = 0;
 
-  for (const src of enabledSources) {
-    console.log(`\n🔍 Đang quét nguồn: [${src.type}] "${src.name}" -> ${src.url}`);
+  async function processSingleSource(src, index) {
     let scrapedResult = null;
-
     try {
       if (src.type === 'reputable_web' || src.type === 'official_site') {
         scrapedResult = await webScraper.scrapeSource(src.url);
       } else if (src.type === 'community_discord') {
-        // Hỗ trợ parse mô tả hoặc feed discord
         scrapedResult = discordScraper.parseMessage(src.description || src.name, src.name, src.name);
       } else if (src.type === 'official_fb') {
-        // Hỗ trợ parse fanpage post
         scrapedResult = facebookScraper.parsePost(src.description || src.name, src.name);
       }
     } catch (err) {
-      console.warn(`   ⚠️ Lỗi cào nguồn ${src.name}: ${err.message}`);
-      continue;
+      console.warn(`   ⚠️ [${index + 1}/${enabledSources.length}] Lỗi cào nguồn "${src.name}": ${err.message}`);
+      return;
+    } finally {
+      completedSources++;
     }
 
     if (!scrapedResult || !Array.isArray(scrapedResult.codes) || scrapedResult.codes.length === 0) {
-      console.log(`   ℹ️ Không phát hiện mã code mới trong đợt quét này.`);
-      continue;
+      return;
     }
 
-    console.log(`   ✨ Trích xuất được ${scrapedResult.codes.length} mã tiềm năng từ trang.`);
+    console.log(`   ✨ [${index + 1}/${enabledSources.length}] "${src.name}": Trích xuất được ${scrapedResult.codes.length} mã tiềm năng.`);
 
     // Xác định tựa game
     let matchedGame = null;
@@ -247,7 +254,7 @@ async function main() {
         contextText: scrapedResult.title || src.name,
       });
 
-      console.log(`   -> [${scoreResult.score}đ] Mã "${cleanCode}" | Game: ${gameName} | ${scoreResult.tierLabel}`);
+      console.log(`   -> [${scoreResult.score}đ] Mã "${cleanCode}" | Game: ${gameName} | ${scoreResult.tierLabel} (từ: ${src.name})`);
 
       // Phân luồng:
       // - BẬC 1 (90 - 100 điểm): TỰ ĐỘNG ĐĂNG THẲNG LÊN WEB
@@ -304,6 +311,22 @@ async function main() {
     }
   }
 
+  // Chạy pool công việc song song
+  let sourceCursor = 0;
+  async function workerPool() {
+    while (sourceCursor < enabledSources.length) {
+      const currentIndex = sourceCursor++;
+      const currentSource = enabledSources[currentIndex];
+      await processSingleSource(currentSource, currentIndex);
+    }
+  }
+
+  const poolWorkers = Array.from(
+    { length: Math.min(CONCURRENCY, enabledSources.length) },
+    () => workerPool()
+  );
+  await Promise.all(poolWorkers);
+
   console.log('\n' + '='.repeat(65));
   console.log('📈 TỔNG KẾT KẾT QUẢ QUÉT:');
   console.log(`   - Tổng mã phát hiện: ${totalCodesScanned}`);
@@ -339,6 +362,10 @@ async function main() {
 
   if (newPendingList.length > 0) {
     syncPayload.crawlerPendingCodes = [...newPendingList, ...existingPendingCodes].slice(0, 500);
+  }
+
+  if (!serverState?.crawlerSources || serverState.crawlerSources.length < sources.length) {
+    syncPayload.crawlerSources = sources;
   }
 
   try {

@@ -24,6 +24,7 @@ import {
   CheckCheck,
   Layers,
   ChevronRight,
+  ChevronLeft,
   HelpCircle,
 } from 'lucide-react';
 import { FormModal } from '../components/ui/FormModal';
@@ -86,10 +87,17 @@ export const CrawlerModule: React.FC<CrawlerModuleProps> = ({ onShowToast }) => 
   const [logs, setLogs] = useState<CrawlerLog[]>([]);
   const [games, setGames] = useState<GameAdminRecord[]>([]);
 
-  // Search & Filters
+  // Search & Filters (Pending Codes)
   const [searchQuery, setSearchQuery] = useState('');
   const [tierFilter, setTierFilter] = useState<'ALL' | 'TIER_2' | 'TIER_3' | 'TIER_4'>('ALL');
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
+
+  // Source Search, Filter & Pagination (Scale up to 1,000+ sources)
+  const [sourceSearch, setSourceSearch] = useState('');
+  const [sourceTypeFilter, setSourceTypeFilter] = useState<'ALL' | 'reputable_web' | 'official_fb' | 'community_discord' | 'official_site'>('ALL');
+  const [sourceStatusFilter, setSourceStatusFilter] = useState<'ALL' | 'ENABLED' | 'DISABLED'>('ALL');
+  const [sourcePage, setSourcePage] = useState(1);
+  const sourcesPerPage = 18;
 
   // Modal States
   const [isAddSourceOpen, setIsAddSourceOpen] = useState(false);
@@ -139,10 +147,12 @@ export const CrawlerModule: React.FC<CrawlerModuleProps> = ({ onShowToast }) => 
           if (Array.isArray(data.crawlerPendingCodes)) {
             setPendingCodes(data.crawlerPendingCodes);
           }
-          if (Array.isArray(data.crawlerSources) && data.crawlerSources.length > 0) {
+          if (Array.isArray(data.crawlerSources) && data.crawlerSources.length >= (defaultSources as CrawlerSource[]).length) {
             setSources(data.crawlerSources);
           } else {
-            setSources(defaultSources as CrawlerSource[]);
+            const d1Map = new Map(((data.crawlerSources || []) as CrawlerSource[]).map((s) => [s.id, s]));
+            const merged = (defaultSources as CrawlerSource[]).map((ds) => (d1Map.has(ds.id) ? { ...ds, ...d1Map.get(ds.id) } : ds));
+            setSources(merged);
           }
           if (Array.isArray(data.crawlerLogs)) {
             setLogs(data.crawlerLogs);
@@ -183,6 +193,50 @@ export const CrawlerModule: React.FC<CrawlerModuleProps> = ({ onShowToast }) => 
       return true;
     });
   }, [pendingCodes, tierFilter, searchQuery]);
+
+  // Filtered & Paginated Sources (Scale gracefully to 1,000+ sources)
+  const filteredSources = useMemo(() => {
+    return sources.filter((s) => {
+      if (sourceTypeFilter !== 'ALL' && s.type !== sourceTypeFilter) return false;
+      if (sourceStatusFilter === 'ENABLED' && !s.isEnabled) return false;
+      if (sourceStatusFilter === 'DISABLED' && s.isEnabled) return false;
+      if (sourceSearch.trim()) {
+        const q = sourceSearch.toLowerCase();
+        const matchedGame = games.find((g) => g.slug === s.targetGameSlug);
+        const matchName = s.name.toLowerCase().includes(q);
+        const matchUrl = s.url.toLowerCase().includes(q);
+        const matchGame = matchedGame ? matchedGame.name.toLowerCase().includes(q) : false;
+        return matchName || matchUrl || matchGame;
+      }
+      return true;
+    });
+  }, [sources, sourceTypeFilter, sourceStatusFilter, sourceSearch, games]);
+
+  useEffect(() => {
+    setSourcePage(1);
+  }, [sourceSearch, sourceTypeFilter, sourceStatusFilter]);
+
+  const totalSourcePages = Math.max(1, Math.ceil(filteredSources.length / sourcesPerPage));
+  const paginatedSources = useMemo(() => {
+    const start = (sourcePage - 1) * sourcesPerPage;
+    return filteredSources.slice(start, start + sourcesPerPage);
+  }, [filteredSources, sourcePage, sourcesPerPage]);
+
+  const handleToggleAllFilteredSources = async (enable: boolean) => {
+    const targetIds = new Set(filteredSources.map((s) => s.id));
+    const updated = sources.map((s) => (targetIds.has(s.id) ? { ...s, isEnabled: enable } : s));
+    setSources(updated);
+    try {
+      await fetch('/api/sync', {
+        method: 'POST',
+        headers: getSyncHeaders(),
+        body: JSON.stringify({ crawlerSources: updated }),
+      });
+      onShowToast('Cập nhật hàng loạt', `Đã ${enable ? 'bật' : 'tắt'} ${targetIds.size} nguồn thành công.`, 'success');
+    } catch {
+      onShowToast('Lỗi lưu', 'Không thể lưu thay đổi.', 'error');
+    }
+  };
 
   // Statistics
   const stats = useMemo(() => {
@@ -809,87 +863,261 @@ export const CrawlerModule: React.FC<CrawlerModuleProps> = ({ onShowToast }) => 
             <div>
               <h2 className="text-base font-semibold text-white">Danh Mục Nguồn Cào Giftcode Tự Động</h2>
               <p className="text-slate-400 text-xs mt-0.5">
-                Khi thêm game mới hoặc nguồn mới, bot GitHub Actions sẽ tự động nạp và cào dữ liệu mà không cần chỉnh sửa code.
+                Quản lý thư viện nguồn thu thập giftcode ({sources.length} nguồn). Bot GitHub Actions sẽ tự động nạp và cào dữ liệu định kỳ.
               </p>
             </div>
             <button
               onClick={() => setIsAddSourceOpen(true)}
-              className="px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-medium text-sm flex items-center gap-2 transition-all self-start md:self-auto"
+              className="px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-medium text-sm flex items-center gap-2 transition-all self-start md:self-auto shadow-lg shadow-indigo-600/20"
             >
               <Plus className="w-4 h-4" />
               Thêm Nguồn Mới
             </button>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {sources.map((src) => {
-              const matchedGame = games.find((g) => g.slug === src.targetGameSlug);
-              return (
-                <div
-                  key={src.id}
-                  className={`bg-slate-900 border rounded-2xl p-5 flex flex-col justify-between transition-all ${
-                    src.isEnabled ? 'border-slate-800 hover:border-slate-700' : 'border-slate-800/40 opacity-60'
-                  }`}
+          {/* Search, Filter & Bulk Actions Bar */}
+          <div className="bg-slate-900/90 border border-slate-800 rounded-xl p-4 flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+            <div className="flex flex-1 flex-col sm:flex-row items-stretch sm:items-center gap-3">
+              <div className="relative flex-1">
+                <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
+                <input
+                  type="text"
+                  placeholder="Tìm nguồn theo tên, URL hoặc tựa game..."
+                  value={sourceSearch}
+                  onChange={(e) => setSourceSearch(e.target.value)}
+                  className="w-full pl-10 pr-4 py-2 bg-slate-950 border border-slate-800 rounded-xl text-sm text-white placeholder-slate-500 focus:outline-none focus:border-indigo-500 transition-colors"
+                />
+                {sourceSearch && (
+                  <button
+                    onClick={() => setSourceSearch('')}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-white"
+                  >
+                    <X className="w-3.5 h-3.5" />
+                  </button>
+                )}
+              </div>
+
+              <div className="flex items-center gap-2">
+                <select
+                  value={sourceTypeFilter}
+                  onChange={(e) => setSourceTypeFilter(e.target.value as any)}
+                  className="bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-slate-300 focus:outline-none focus:border-indigo-500 cursor-pointer"
                 >
-                  <div>
-                    <div className="flex items-start justify-between gap-2">
-                      <div className="flex items-center gap-2">
-                        <div className="p-2 rounded-xl bg-slate-800 border border-slate-700 text-slate-300">
-                          {getSourceIcon(src.type)}
+                  <option value="ALL">Tất cả loại nguồn</option>
+                  <option value="reputable_web">🌐 Báo & Web Game</option>
+                  <option value="official_site">🏢 Trang Chủ NPH</option>
+                  <option value="official_fb">📘 Fanpage / Group FB</option>
+                  <option value="community_discord">💬 Discord Server</option>
+                </select>
+
+                <select
+                  value={sourceStatusFilter}
+                  onChange={(e) => setSourceStatusFilter(e.target.value as any)}
+                  className="bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-slate-300 focus:outline-none focus:border-indigo-500 cursor-pointer"
+                >
+                  <option value="ALL">Tất cả trạng thái</option>
+                  <option value="ENABLED">🟢 Đang quét ({sources.filter((s) => s.isEnabled).length})</option>
+                  <option value="DISABLED">⚪ Tạm ngưng ({sources.filter((s) => !s.isEnabled).length})</option>
+                </select>
+              </div>
+            </div>
+
+            <div className="flex items-center justify-between lg:justify-end gap-3 pt-2 lg:pt-0 border-t lg:border-t-0 border-slate-800">
+              <span className="text-xs text-slate-400 font-medium">
+                Khớp: <strong className="text-white">{filteredSources.length}</strong> / {sources.length} nguồn
+              </span>
+
+              <div className="flex items-center gap-1.5">
+                <button
+                  onClick={() => handleToggleAllFilteredSources(true)}
+                  className="px-2.5 py-1.5 rounded-lg bg-emerald-500/10 text-emerald-400 hover:bg-emerald-500/20 text-xs font-medium border border-emerald-500/20 transition-colors"
+                  title="Bật tất cả nguồn trong danh sách lọc"
+                >
+                  Bật tất cả
+                </button>
+                <button
+                  onClick={() => handleToggleAllFilteredSources(false)}
+                  className="px-2.5 py-1.5 rounded-lg bg-slate-800 text-slate-400 hover:bg-slate-700 hover:text-white text-xs font-medium border border-slate-700 transition-colors"
+                  title="Tắt tất cả nguồn trong danh sách lọc"
+                >
+                  Tắt tất cả
+                </button>
+              </div>
+            </div>
+          </div>
+
+          {/* Sources Grid or Empty State */}
+          {paginatedSources.length === 0 ? (
+            <div className="bg-slate-900 border border-slate-800 rounded-2xl p-12 text-center">
+              <Globe className="w-12 h-12 text-slate-600 mx-auto mb-3" />
+              <h3 className="text-base font-semibold text-white">Không tìm thấy nguồn phù hợp</h3>
+              <p className="text-slate-400 text-sm mt-1 max-w-md mx-auto">
+                Không có nguồn nào khớp với điều kiện lọc hiện tại. Thử xóa từ khóa tìm kiếm hoặc đổi bộ lọc.
+              </p>
+              {(sourceSearch || sourceTypeFilter !== 'ALL' || sourceStatusFilter !== 'ALL') && (
+                <button
+                  onClick={() => {
+                    setSourceSearch('');
+                    setSourceTypeFilter('ALL');
+                    setSourceStatusFilter('ALL');
+                  }}
+                  className="mt-4 px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl text-xs font-medium transition-colors"
+                >
+                  Xóa bộ lọc
+                </button>
+              )}
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {paginatedSources.map((src) => {
+                const matchedGame = games.find((g) => g.slug === src.targetGameSlug);
+                return (
+                  <div
+                    key={src.id}
+                    className={`bg-slate-900 border rounded-2xl p-5 flex flex-col justify-between transition-all ${
+                      src.isEnabled ? 'border-slate-800 hover:border-slate-700' : 'border-slate-800/40 opacity-60'
+                    }`}
+                  >
+                    <div>
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="flex items-center gap-2 min-w-0">
+                          <div className="p-2 rounded-xl bg-slate-800 border border-slate-700 text-slate-300 shrink-0">
+                            {getSourceIcon(src.type)}
+                          </div>
+                          <div className="min-w-0">
+                            <h3 className="font-semibold text-white text-sm truncate" title={src.name}>
+                              {src.name}
+                            </h3>
+                            <span className="text-[11px] text-slate-400 uppercase tracking-wider font-mono">
+                              {src.type}
+                            </span>
+                          </div>
                         </div>
-                        <div>
-                          <h3 className="font-semibold text-white text-sm line-clamp-1">{src.name}</h3>
-                          <span className="text-[11px] text-slate-400 uppercase tracking-wider font-mono">
-                            {src.type}
-                          </span>
-                        </div>
+
+                        {/* On/Off Switch */}
+                        <button
+                          onClick={() => handleToggleSource(src.id)}
+                          className={`w-11 h-6 flex items-center rounded-full p-1 cursor-pointer transition-colors shrink-0 ${
+                            src.isEnabled ? 'bg-emerald-600 justify-end' : 'bg-slate-700 justify-start'
+                          }`}
+                          title={src.isEnabled ? 'Nguồn đang bật' : 'Nguồn đang tắt'}
+                        >
+                          <div className="bg-white w-4 h-4 rounded-full shadow-md" />
+                        </button>
                       </div>
 
-                      {/* On/Off Switch */}
+                      <div className="mt-4 space-y-2">
+                        <div className="text-xs text-slate-300">
+                          <span className="text-slate-500">Mục tiêu: </span>
+                          {matchedGame ? (
+                            <span className="font-semibold text-indigo-400">{matchedGame.name}</span>
+                          ) : (
+                            <span className="text-slate-400 italic">Tự động nhận diện tựa game</span>
+                          )}
+                        </div>
+
+                        {src.description && (
+                          <p className="text-xs text-slate-400 line-clamp-1 italic" title={src.description}>
+                            {src.description}
+                          </p>
+                        )}
+
+                        <div className="text-xs text-slate-400 bg-slate-950 p-2 rounded-lg border border-slate-800 font-mono truncate">
+                          <a
+                            href={src.url}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="hover:text-indigo-400 flex items-center gap-1"
+                          >
+                            <ExternalLink className="w-3 h-3 shrink-0" />
+                            <span className="truncate">{src.url}</span>
+                          </a>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="mt-4 pt-3 border-t border-slate-800/80 flex items-center justify-between text-xs text-slate-500">
+                      <span>Trạng thái: {src.isEnabled ? '🟢 Đang quét' : '⚪ Tạm ngưng'}</span>
                       <button
-                        onClick={() => handleToggleSource(src.id)}
-                        className={`w-11 h-6 flex items-center rounded-full p-1 cursor-pointer transition-colors ${
-                          src.isEnabled ? 'bg-emerald-600 justify-end' : 'bg-slate-700 justify-start'
-                        }`}
-                        title={src.isEnabled ? 'Nguồn đang bật' : 'Nguồn đang tắt'}
+                        onClick={() => setDeletingSourceId(src.id)}
+                        className="text-rose-400 hover:text-rose-300 p-1 rounded hover:bg-rose-500/10 transition-colors"
+                        title="Xóa nguồn này"
                       >
-                        <div className="bg-white w-4 h-4 rounded-full shadow-md" />
+                        <Trash2 className="w-4 h-4" />
                       </button>
                     </div>
-
-                    <div className="mt-4 space-y-2">
-                      <div className="text-xs text-slate-300">
-                        <span className="text-slate-500">Mục tiêu: </span>
-                        {matchedGame ? (
-                          <span className="font-semibold text-indigo-400">{matchedGame.name}</span>
-                        ) : (
-                          <span className="text-slate-400 italic">Tự động nhận diện tựa game</span>
-                        )}
-                      </div>
-
-                      <div className="text-xs text-slate-400 bg-slate-950 p-2 rounded-lg border border-slate-800 font-mono truncate">
-                        <a href={src.url} target="_blank" rel="noreferrer" className="hover:text-indigo-400 flex items-center gap-1">
-                          <ExternalLink className="w-3 h-3 shrink-0" />
-                          <span className="truncate">{src.url}</span>
-                        </a>
-                      </div>
-                    </div>
                   </div>
+                );
+              })}
+            </div>
+          )}
 
-                  <div className="mt-4 pt-3 border-t border-slate-800/80 flex items-center justify-between text-xs text-slate-500">
-                    <span>Trạng thái: {src.isEnabled ? '🟢 Đang quét' : '⚪ Tạm ngưng'}</span>
-                    <button
-                      onClick={() => setDeletingSourceId(src.id)}
-                      className="text-rose-400 hover:text-rose-300 p-1 rounded hover:bg-rose-500/10 transition-colors"
-                      title="Xóa nguồn này"
-                    >
-                      <Trash2 className="w-4 h-4" />
-                    </button>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
+          {/* Pagination Controls */}
+          {totalSourcePages > 1 && (
+            <div className="bg-slate-900 border border-slate-800 rounded-xl p-3 flex flex-col sm:flex-row items-center justify-between gap-3">
+              <span className="text-xs text-slate-400">
+                Hiển thị trang <strong className="text-white">{sourcePage}</strong> / {totalSourcePages} (
+                {(sourcePage - 1) * sourcesPerPage + 1} -{' '}
+                {Math.min(sourcePage * sourcesPerPage, filteredSources.length)} trên {filteredSources.length} nguồn)
+              </span>
+
+              <div className="flex items-center gap-1">
+                <button
+                  onClick={() => setSourcePage(1)}
+                  disabled={sourcePage === 1}
+                  className="px-2.5 py-1.5 rounded-lg bg-slate-800 text-slate-300 text-xs font-medium hover:bg-slate-700 disabled:opacity-40 disabled:pointer-events-none transition-colors"
+                >
+                  Đầu
+                </button>
+                <button
+                  onClick={() => setSourcePage((p) => Math.max(1, p - 1))}
+                  disabled={sourcePage === 1}
+                  className="p-1.5 rounded-lg bg-slate-800 text-slate-300 hover:bg-slate-700 disabled:opacity-40 disabled:pointer-events-none transition-colors"
+                  title="Trang trước"
+                >
+                  <ChevronLeft className="w-4 h-4" />
+                </button>
+
+                {Array.from({ length: totalSourcePages }, (_, i) => i + 1)
+                  .filter((p) => p === 1 || p === totalSourcePages || Math.abs(p - sourcePage) <= 2)
+                  .map((p, idx, arr) => {
+                    const prev = arr[idx - 1];
+                    const showEllipsis = prev && p - prev > 1;
+                    return (
+                      <React.Fragment key={p}>
+                        {showEllipsis && <span className="text-slate-600 px-1 text-xs">...</span>}
+                        <button
+                          onClick={() => setSourcePage(p)}
+                          className={`w-7 h-7 rounded-lg text-xs font-medium transition-colors ${
+                            sourcePage === p
+                              ? 'bg-indigo-600 text-white font-bold'
+                              : 'bg-slate-800 text-slate-400 hover:text-white hover:bg-slate-700'
+                          }`}
+                        >
+                          {p}
+                        </button>
+                      </React.Fragment>
+                    );
+                  })}
+
+                <button
+                  onClick={() => setSourcePage((p) => Math.min(totalSourcePages, p + 1))}
+                  disabled={sourcePage === totalSourcePages}
+                  className="p-1.5 rounded-lg bg-slate-800 text-slate-300 hover:bg-slate-700 disabled:opacity-40 disabled:pointer-events-none transition-colors"
+                  title="Trang sau"
+                >
+                  <ChevronRight className="w-4 h-4" />
+                </button>
+                <button
+                  onClick={() => setSourcePage(totalSourcePages)}
+                  disabled={sourcePage === totalSourcePages}
+                  className="px-2.5 py-1.5 rounded-lg bg-slate-800 text-slate-300 text-xs font-medium hover:bg-slate-700 disabled:opacity-40 disabled:pointer-events-none transition-colors"
+                >
+                  Cuối
+                </button>
+              </div>
+            </div>
+          )}
         </div>
       )}
 

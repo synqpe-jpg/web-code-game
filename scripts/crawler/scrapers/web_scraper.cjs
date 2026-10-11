@@ -5,8 +5,9 @@
 const https = require('https');
 const http = require('http');
 
-function fetchUrl(url) {
+function fetchUrl(url, maxRedirects = 3) {
   return new Promise((resolve, reject) => {
+    if (maxRedirects < 0) return reject(new Error('Too many redirects'));
     const client = url.startsWith('https') ? https : http;
     const req = client.get(url, {
       headers: {
@@ -14,10 +15,14 @@ function fetchUrl(url) {
         'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
         'Accept-Language': 'vi,en-US;q=0.9,en;q=0.8',
       },
-      timeout: 10000,
+      timeout: 8000,
     }, (res) => {
       if (res.statusCode >= 300 && res.statusCode < 400 && res.headers.location) {
-        return fetchUrl(res.headers.location).then(resolve).catch(reject);
+        let redirectTarget = res.headers.location;
+        if (!redirectTarget.startsWith('http')) {
+          redirectTarget = new URL(redirectTarget, url).href;
+        }
+        return fetchUrl(redirectTarget, maxRedirects - 1).then(resolve).catch(reject);
       }
       let data = '';
       res.on('data', (chunk) => data += chunk);
