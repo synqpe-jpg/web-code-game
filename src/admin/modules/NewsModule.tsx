@@ -33,6 +33,9 @@ import {
   Upload,
   Check,
   Zap,
+  ClipboardPaste,
+  AlertCircle,
+  Info,
 } from 'lucide-react';
 import { NewsArticle } from '../../types/game';
 import { newsService } from '../../services/newsService';
@@ -311,24 +314,43 @@ export const NewsModule: React.FC<NewsModuleProps> = ({ onShowToast }) => {
     const textarea = contentTextareaRef.current;
     const start = textarea?.selectionStart || 0;
     const end = textarea?.selectionEnd || 0;
-    const selected = (editingArticle.content || '').substring(start, end);
+    const selected = (editingArticle.content || '').substring(start, end).trim();
 
     switch (type) {
-      case 'bold':
-        insertTextAtCursor(`**${selected || 'Văn bản in đậm'}**`);
+      case 'bold': {
+        const text = selected || prompt('Nhập nội dung cần in đậm:')?.trim() || '';
+        if (text) insertTextAtCursor(`**${text}**`);
         break;
-      case 'h2':
-        insertTextAtCursor(`\n\n## ${selected || 'Tiêu đề mục lớn'}\n`);
+      }
+      case 'h2': {
+        const text = selected || prompt('Nhập tiêu đề mục lớn (H2):')?.trim() || '';
+        if (text) insertTextAtCursor(`\n\n## ${text}\n\n`);
         break;
-      case 'h3':
-        insertTextAtCursor(`\n\n### ${selected || 'Tiêu đề mục nhỏ'}\n`);
+      }
+      case 'h3': {
+        const text = selected || prompt('Nhập tiêu đề mục nhỏ (H3):')?.trim() || '';
+        if (text) insertTextAtCursor(`\n\n### ${text}\n\n`);
         break;
-      case 'list':
-        insertTextAtCursor(`\n- ${selected || 'Ý thứ nhất'}\n- Ý thứ hai\n`);
+      }
+      case 'list': {
+        if (selected) {
+          const listText = selected
+            .split('\n')
+            .map((l) => `- ${l.replace(/^[-*•]\s*/, '').trim()}`)
+            .filter((l) => l.length > 2)
+            .join('\n');
+          insertTextAtCursor(`\n\n${listText}\n\n`);
+        } else {
+          const item = prompt('Nhập nội dung gạch đầu dòng:')?.trim() || '';
+          if (item) insertTextAtCursor(`\n- ${item}\n`);
+        }
         break;
-      case 'quote':
-        insertTextAtCursor(`\n> 💡 **Lưu ý:** ${selected || 'Nội dung nhắc nhở game thủ...'}\n`);
+      }
+      case 'quote': {
+        const text = selected || prompt('Nhập nội dung hộp lưu ý / mẹo:')?.trim() || '';
+        if (text) insertTextAtCursor(`\n\n> 💡 **Lưu ý:** ${text}\n\n`);
         break;
+      }
       case 'image': {
         const url = prompt('Nhập URL hình ảnh muốn chèn:');
         if (url?.trim()) {
@@ -485,8 +507,18 @@ export const NewsModule: React.FC<NewsModuleProps> = ({ onShowToast }) => {
         availableCodes: gameCodes,
       });
 
+      const slug =
+        draft.slug ||
+        (draft.title || '')
+          .toLowerCase()
+          .normalize('NFD')
+          .replace(/[\u0300-\u036f]/g, '')
+          .replace(/[đĐ]/g, 'd')
+          .replace(/[^a-z0-9]+/g, '-')
+          .replace(/^-+|-+$/g, '');
+
       // Populate into editor
-      setEditingArticle(draft);
+      setEditingArticle({ ...draft, slug });
       setCodeInputValue('');
       setTagInputValue(draft.tags?.join(', ') || '');
       setIsAiModalOpen(false);
@@ -522,7 +554,11 @@ export const NewsModule: React.FC<NewsModuleProps> = ({ onShowToast }) => {
 
       const data = await res.json();
       if (!data.success) {
-        onShowToast('Thông báo', data.error || 'Không thể cào link do trang web bảo mật. Bạn có thể dán trực tiếp nội dung bài báo vào ô dưới.', 'info');
+        onShowToast(
+          data.isSocial ? 'Mẹo Facebook / Mạng xã hội' : 'Thông báo',
+          data.error || 'Không thể cào link do trang web bảo mật. Bạn có thể dán trực tiếp nội dung bài báo vào ô dưới.',
+          data.isSocial ? 'info' : 'error'
+        );
         return;
       }
 
@@ -565,6 +601,42 @@ export const NewsModule: React.FC<NewsModuleProps> = ({ onShowToast }) => {
     }
   };
 
+  // AI Generator: Dán nội dung trực tiếp từ bộ nhớ tạm Clipboard (cho Facebook/Mạng xã hội)
+  const handlePasteFromClipboard = async () => {
+    try {
+      const text = await navigator.clipboard.readText();
+      if (text && text.trim()) {
+        const clean = text
+          .replace(/[\u200B-\u200D\uFEFF\u200E\u200F\u00A0]/g, ' ')
+          .replace(/[»«►◄▲▼■◆●★☆❖✓✔✕✖]/g, ' ')
+          .trim();
+        setCrawlRawContent(clean);
+
+        // Auto-detect game if matches
+        const norm = normalizeVietnamese(clean);
+        const candidates = games
+          .map((g) => {
+            const normName = normalizeVietnamese(g.name);
+            let score = 0;
+            if (norm.includes(normName)) score = normName.length * 100;
+            return { game: g, score };
+          })
+          .filter((c) => c.score > 0)
+          .sort((a, b) => b.score - a.score);
+
+        if (candidates.length > 0) {
+          setAiSelectedGame(candidates[0].game);
+        }
+
+        onShowToast('Đã dán thành công 📋', `Đã nhận ${clean.length} ký tự từ bộ nhớ tạm!`, 'success');
+      } else {
+        onShowToast('Bộ nhớ tạm trống', 'Vui lòng sao chép bài viết trên Facebook trước khi dán.', 'info');
+      }
+    } catch {
+      onShowToast('Thông báo', 'Trình duyệt chặn truy cập Clipboard, vui lòng nhấn Ctrl+V trực tiếp vào ô.', 'info');
+    }
+  };
+
   // AI Generator: Viết lại bài viết từ nội dung / link bài báo
   const handleRunAiRewrite = () => {
     const rawText = crawlRawContent.trim();
@@ -592,8 +664,18 @@ export const NewsModule: React.FC<NewsModuleProps> = ({ onShowToast }) => {
         foundImages: crawledData?.images || [],
       });
 
+      const slug =
+        rewritten.slug ||
+        (rewritten.title || '')
+          .toLowerCase()
+          .normalize('NFD')
+          .replace(/[\u0300-\u036f]/g, '')
+          .replace(/[đĐ]/g, 'd')
+          .replace(/[^a-z0-9]+/g, '-')
+          .replace(/^-+|-+$/g, '');
+
       // Populate into editor
-      setEditingArticle(rewritten);
+      setEditingArticle({ ...rewritten, slug });
       setCodeInputValue('');
       setTagInputValue(rewritten.tags?.join(', ') || '');
       setIsAiModalOpen(false);
@@ -1029,7 +1111,7 @@ export const NewsModule: React.FC<NewsModuleProps> = ({ onShowToast }) => {
                         type="url"
                         value={crawlUrlInput}
                         onChange={(e) => setCrawlUrlInput(e.target.value)}
-                        placeholder="Dán link bài viết (https://...)..."
+                        placeholder="Dán link bài viết (Thegioididong, Sforum, Kenh14...)..."
                         className="flex-1 px-3.5 py-2.5 rounded-xl bg-slate-800/90 border border-slate-700 text-xs text-white outline-none focus:border-indigo-500 font-mono"
                       />
                       <button
@@ -1042,6 +1124,19 @@ export const NewsModule: React.FC<NewsModuleProps> = ({ onShowToast }) => {
                         <span>{isCrawlingUrl ? 'Đang quét...' : '⚡ Quét Link'}</span>
                       </button>
                     </div>
+
+                    {/* Social Media Hint */}
+                    {/facebook\.com|fb\.com|fb\.watch|instagram\.com|tiktok\.com|threads\.net|twitter\.com|x\.com/i.test(crawlUrlInput) && (
+                      <div className="p-3 rounded-2xl bg-amber-500/10 border border-amber-500/30 flex items-start gap-2.5 text-xs text-amber-200 mt-2">
+                        <AlertCircle className="w-4 h-4 text-amber-400 shrink-0 mt-0.5" />
+                        <div className="space-y-1">
+                          <p className="font-bold text-amber-300">💡 Lưu ý bài viết từ Facebook / Mạng xã hội:</p>
+                          <p className="text-[11px] text-slate-300 leading-relaxed">
+                            Facebook yêu cầu đăng nhập tài khoản nên máy chủ bị chặn quét link trực tiếp. Để viết bài nhanh nhất: Bạn chỉ cần <b>Copy (sao chép) bài viết trên Facebook</b> rồi bấm nút <b>"📋 Dán Từ Clipboard"</b> ở mục số 2 bên dưới ➔ AI sẽ viết lại bài và lọc mã code ngay lập tức!
+                          </p>
+                        </div>
+                      </div>
+                    )}
                   </div>
 
                   {/* Thông tin quét được nếu có */}
@@ -1063,22 +1158,40 @@ export const NewsModule: React.FC<NewsModuleProps> = ({ onShowToast }) => {
 
                   {/* Nội dung bài viết thô (có thể paste trực tiếp) */}
                   <div className="space-y-1.5">
-                    <label className="text-xs font-bold text-slate-200 flex items-center justify-between">
-                      <span className="flex items-center gap-1.5">
+                    <div className="flex items-center justify-between">
+                      <label className="text-xs font-bold text-slate-200 flex items-center gap-1.5">
                         <FileText className="w-4 h-4 text-indigo-400" />
-                        <span>2. Nội dung bài viết gốc (Tự động điền hoặc bạn dán trực tiếp vào)</span>
-                      </span>
-                      <span className="text-[10px] text-slate-400">
-                        {crawlRawContent.length} ký tự
-                      </span>
-                    </label>
+                        <span>2. Nội dung bài viết gốc (Dán bài Facebook/Web vào)</span>
+                      </label>
+                      <button
+                        type="button"
+                        onClick={handlePasteFromClipboard}
+                        className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-indigo-600/30 hover:bg-indigo-600/50 text-indigo-200 border border-indigo-500/40 text-[11px] font-bold transition-all cursor-pointer shadow-sm active:scale-95"
+                        title="Dán nhanh văn bản đã sao chép từ Facebook hoặc trang web"
+                      >
+                        <ClipboardPaste className="w-3.5 h-3.5 text-indigo-300" />
+                        <span>📋 Dán Từ Clipboard</span>
+                      </button>
+                    </div>
                     <textarea
                       rows={5}
                       value={crawlRawContent}
                       onChange={(e) => setCrawlRawContent(e.target.value)}
-                      placeholder="Dán nội dung bài báo, bài viết facebook hoặc thông báo game vào đây nếu không dùng link..."
+                      placeholder="Dán nội dung bài báo, bài viết Facebook hoặc thông báo game vào đây..."
                       className="w-full p-3 rounded-xl bg-slate-800/80 border border-slate-700 text-xs text-white font-mono leading-relaxed outline-none focus:border-indigo-500 resize-y"
                     />
+                    {crawlRawContent.length > 0 && (
+                      <div className="flex justify-between items-center text-[10px] text-slate-400 px-1">
+                        <span>Độ dài: {crawlRawContent.length} ký tự</span>
+                        <button
+                          type="button"
+                          onClick={() => setCrawlRawContent('')}
+                          className="text-rose-400 hover:underline cursor-pointer"
+                        >
+                          Xóa nội dung
+                        </button>
+                      </div>
+                    )}
                   </div>
 
                   {/* Chọn Game liên kết */}
@@ -1263,10 +1376,22 @@ export const NewsModule: React.FC<NewsModuleProps> = ({ onShowToast }) => {
                     <input
                       type="text"
                       value={editingArticle.title || ''}
-                      onChange={(e) =>
-                        setEditingArticle({ ...editingArticle, title: e.target.value })
-                      }
-                      placeholder="Ví dụ: Tổng Hợp Giftcode Delta Force Mới Nhất 2026..."
+                      onChange={(e) => {
+                        const newTitle = e.target.value;
+                        const autoSlug = newTitle
+                          .toLowerCase()
+                          .normalize('NFD')
+                          .replace(/[\u0300-\u036f]/g, '')
+                          .replace(/[đĐ]/g, 'd')
+                          .replace(/[^a-z0-9]+/g, '-')
+                          .replace(/^-+|-+$/g, '');
+                        setEditingArticle({
+                          ...editingArticle,
+                          title: newTitle,
+                          slug: editingArticle.slug && editingArticle.id ? editingArticle.slug : autoSlug,
+                        });
+                      }}
+                      placeholder="Nhập tiêu đề bài viết chuẩn SEO..."
                       className="w-full px-3.5 py-2.5 rounded-xl bg-slate-800/80 border border-slate-700 text-xs text-white outline-none focus:border-indigo-500 font-medium"
                     />
                   </div>
@@ -1299,7 +1424,7 @@ export const NewsModule: React.FC<NewsModuleProps> = ({ onShowToast }) => {
                       onChange={(e) =>
                         setEditingArticle({ ...editingArticle, slug: e.target.value })
                       }
-                      placeholder="delta-force-giftcode-2026"
+                      placeholder="duong-dan-bai-viet-chuan-seo"
                       className="w-full px-3 py-2 rounded-xl bg-slate-800/80 border border-slate-700 text-xs text-white font-mono outline-none focus:border-indigo-500"
                     />
                   </div>

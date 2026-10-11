@@ -42,11 +42,14 @@ export async function onRequest(context: { request: Request; env: Env }): Promis
       );
     }
 
-    // Fetch the target webpage with realistic browser User-Agent
+    const isSocialMedia = /facebook\.com|fb\.com|fb\.watch|instagram\.com|tiktok\.com|threads\.net|twitter\.com|x\.com/i.test(rawUrl);
+
+    // Fetch the target webpage with realistic browser User-Agent (or social crawler UA)
     const response = await fetch(rawUrl, {
       headers: {
-        'User-Agent':
-          'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
+        'User-Agent': isSocialMedia
+          ? 'facebookexternalhit/1.1 (+http://www.facebook.com/externalhit_uatext.php)'
+          : 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
         Accept: 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8',
         'Accept-Language': 'vi,en-US;q=0.9,en;q=0.8',
       },
@@ -54,6 +57,16 @@ export async function onRequest(context: { request: Request; env: Env }): Promis
     });
 
     if (!response.ok) {
+      if (isSocialMedia) {
+        return new Response(
+          JSON.stringify({
+            success: false,
+            isSocial: true,
+            error: 'Bài viết trên Facebook / Mạng xã hội được bảo mật riêng tư và yêu cầu đăng nhập. Bạn chỉ cần Copy (sao chép) nội dung bài viết trên Facebook rồi Dán vào ô "Nội dung bài viết gốc" bên dưới, AI sẽ viết lại và lọc sạch mã quà tặng ngay lập tức!',
+          }),
+          { status: 200, headers }
+        );
+      }
       return new Response(
         JSON.stringify({
           success: false,
@@ -64,6 +77,18 @@ export async function onRequest(context: { request: Request; env: Env }): Promis
     }
 
     const html = await response.text();
+
+    // Check if social media login wall was served
+    if (isSocialMedia && (html.includes('id="login_form"') || html.includes('login.php') || html.includes('Facebook – log in') || html.includes('Đăng nhập hoặc đăng ký'))) {
+      return new Response(
+        JSON.stringify({
+          success: false,
+          isSocial: true,
+          error: 'Bài viết Facebook này nằm trong nhóm hoặc trang yêu cầu đăng nhập tài khoản. Bạn chỉ cần Copy (sao chép) nội dung bài viết trên Facebook và Dán vào ô "Nội dung bài viết gốc" bên dưới, AI sẽ tự động phân tích và viết lại bài chuẩn SEO ngay!',
+        }),
+        { status: 200, headers }
+      );
+    }
 
     // 1. Extract Title
     let title = '';
@@ -97,13 +122,14 @@ export async function onRequest(context: { request: Request; env: Env }): Promis
     }
 
     // 4. Extract Article text content
-    // Remove scripts, styles, iframes, nav, footer, header
+    // Remove scripts, styles, iframes, nav, footer, header, aside
     let cleanHtml = html
       .replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '')
       .replace(/<style\b[^<]*(?:(?!<\/style>)<[^<]*)*<\/style>/gi, '')
       .replace(/<nav\b[^<]*(?:(?!<\/nav>)<[^<]*)*<\/nav>/gi, '')
       .replace(/<header\b[^<]*(?:(?!<\/header>)<[^<]*)*<\/header>/gi, '')
-      .replace(/<footer\b[^<]*(?:(?!<\/footer>)<[^<]*)*<\/footer>/gi, '');
+      .replace(/<footer\b[^<]*(?:(?!<\/footer>)<[^<]*)*<\/footer>/gi, '')
+      .replace(/<aside\b[^<]*(?:(?!<\/aside>)<[^<]*)*<\/aside>/gi, '');
 
     // Extract images from article body
     const imageMatches = [...cleanHtml.matchAll(/<img[^>]+src=["']([^"']+)["']/gi)];
@@ -129,7 +155,7 @@ export async function onRequest(context: { request: Request; env: Env }): Promis
     let content = cleanHtmlEntities(cleanHtml)
       .split('\n')
       .map((l) => l.trim())
-      .filter((l) => l.length > 0)
+      .filter((l) => l.length > 0 && !isBoilerplateLine(l))
       .join('\n\n');
 
     // Limit text length to avoid token blowups
@@ -164,11 +190,44 @@ export async function onRequest(context: { request: Request; env: Env }): Promis
 }
 
 /**
- * Clean common HTML entities
+ * Filter out website navigation, breadcrumbs, ads and boilerplate lines
+ */
+function isBoilerplateLine(line: string): boolean {
+  const lower = line.toLowerCase().trim();
+  if (lower.length < 3) return true;
+  if (/^(skip to content|chuyển đến nội dung|trang chủ\s*[»>|]|home\s*[»>|]|mục lục|table of contents)/i.test(lower)) return true;
+  if (/^(chia sẻ\s*[:|]|bình luận\s*[:|]|đọc thêm\s*[:|]|xem thêm\s*[:|]|bài viết liên quan|theo dõi|follow us|quảng cáo|nguồn ảnh|nguồn\s*:)/i.test(lower)) return true;
+  if (/^(like|share|comment|subscribe|đăng ký kênh|tham gia nhóm|facebook group|fanpage)/i.test(lower)) return true;
+  if (/^(bản quyền thuộc về|all rights reserved|chính sách bảo mật|điều khoản sử dụng)/i.test(lower)) return true;
+  return false;
+}
+
+/**
+ * Clean common HTML entities, zero-width characters, and decorative wingdings
  */
 function cleanHtmlEntities(str: string): string {
   if (!str) return '';
   return str
+    // Strip zero-width and invisible characters
+    .replace(/[\u200B-\u200D\uFEFF\u200E\u200F\u00A0]/g, ' ')
+    // Strip decorative wingdings and arrows that clutter text
+    .replace(/[»«►◄▲▼■◆●★☆❖✓✔✕✖]/g, ' ')
+    // Numeric character references
+    .replace(/&#(\d+);/g, (_, dec) => {
+      try {
+        return String.fromCharCode(Number(dec));
+      } catch {
+        return '';
+      }
+    })
+    .replace(/&#x([a-fA-F0-9]+);/g, (_, hex) => {
+      try {
+        return String.fromCharCode(parseInt(hex, 16));
+      } catch {
+        return '';
+      }
+    })
+    // Named entities
     .replace(/&nbsp;/g, ' ')
     .replace(/&amp;/g, '&')
     .replace(/&quot;/g, '"')
@@ -181,7 +240,9 @@ function cleanHtmlEntities(str: string): string {
     .replace(/&ldquo;/g, '"')
     .replace(/&hellip;/g, '...')
     .replace(/&ndash;/g, '-')
-    .replace(/&mdash;/g, '--');
+    .replace(/&mdash;/g, '--')
+    .replace(/&bull;/g, '-')
+    .replace(/\s+/g, ' ');
 }
 
 /**

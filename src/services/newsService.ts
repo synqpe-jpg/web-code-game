@@ -302,7 +302,8 @@ class NewsService {
     availableCodes?: string[];
   }): Partial<NewsArticle> {
     const gameName = params.game.name || 'Tựa Game';
-    const publisher = params.game.publisher || 'Nhà phát hành chính thức';
+    const hasPublisher = params.game.publisher && params.game.publisher !== 'Nhà phát hành chính thức';
+    const pubPhrase = hasPublisher ? `phát hành bởi **${params.game.publisher}**` : 'phát hành chính thức tại Việt Nam';
     const codes = params.availableCodes && params.availableCodes.length > 0
       ? params.availableCodes.slice(0, 6)
       : ['CODEVIP2026', 'TANTHU999', 'QUATRIAN888'];
@@ -317,11 +318,11 @@ class NewsService {
     switch (params.topicType) {
       case 'codes':
         title = `Tổng Hợp Trọn Bộ Giftcode ${gameName} Mới Nhất ${monthYear} - Còn Hạn 100%`;
-        excerpt = `Tổng hợp toàn bộ mã quà tặng giftcode ${gameName} (${publisher}) mới nhất còn hạn sử dụng. Hướng dẫn chi tiết cách nhập code nhận quà VIP.`;
+        excerpt = `Tổng hợp toàn bộ mã quà tặng giftcode ${gameName} (${hasPublisher ? params.game.publisher : 'Việt Nam'}) mới nhất còn hạn sử dụng. Hướng dẫn chi tiết cách nhập code nhận quà VIP.`;
         tags = ['Giftcode Mới', 'Mã Quà Tặng', gameName, 'Code Tân Thủ'];
         content = `## Danh Sách Mã Giftcode ${gameName} Mới Nhất Hôm Nay
 
-Ban biên tập **CodeGame.shop** gửi tặng cộng đồng game thủ danh sách các mã quà tặng giftcode mới nhất dành cho tựa game **${gameName}** phát hành bởi **${publisher}**.
+Ban biên tập **CodeGame.store** gửi tặng cộng đồng game thủ danh sách các mã quà tặng giftcode mới nhất dành cho tựa game **${gameName}** ${pubPhrase}.
 
 ### 1. Danh Sách Mã Code Còn Hạn Sử Dụng
 Toàn bộ mã bên dưới đã được đối chiếu kiểm tra thực tế trong game. Hãy nhanh tay sao chép và nhập ngay trước khi hết hạn sử dụng!
@@ -335,11 +336,11 @@ Toàn bộ mã bên dưới đã được đối chiếu kiểm tra thực tế 
 
       case 'update':
         title = `${gameName}: Chi Tiết Bản Cập Nhật Mới & Bộ Giftcode Quà Tặng ${monthYear}`;
-        excerpt = `Khám phá các điểm mới trong bản cập nhật lớn của ${gameName} (${publisher}), tinh chỉnh cân bằng môn phái/tướng và nhận ngay danh sách mã code độc quyền.`;
+        excerpt = `Khám phá các điểm mới trong bản cập nhật lớn của ${gameName}, tinh chỉnh cân bằng chiến đấu và nhận ngay danh sách mã code độc quyền.`;
         tags = ['Bản Cập Nhật', 'Giftcode Mới', gameName, 'Tin Nóng'];
         content = `## Tổng Quan Bản Cập Nhật Mới ${gameName}
 
-Tựa game **${gameName}** đến từ nhà phát hành **${publisher}** vừa chính thức phát hành phiên bản cập nhật lớn với hàng loạt nâng cấp đáng giá về đồ họa, tối ưu hiệu năng và bổ sung các tính năng chiến đấu mới.
+Tựa game **${gameName}** (${pubPhrase}) vừa chính thức phát hành phiên bản cập nhật lớn với hàng loạt nâng cấp đáng giá về đồ họa, tối ưu hiệu năng và bổ sung các tính năng chiến đấu mới.
 
 ### 1. Các Tính Năng & Hoạt Động Mới
 - **Hệ Thống Phụ Bản Mới**: Mở rộng các tầng thí luyện liên server với độ khó nâng cao, mang lại phần thưởng trang bị quý hiếm cho người chơi.
@@ -347,7 +348,7 @@ Tựa game **${gameName}** đến từ nhà phát hành **${publisher}** vừa c
 - **Sự Kiện Đăng Nhập 7 Ngày**: Đăng nhập liên tục trong tuần đầu phát hành bản cập nhật để nhận miễn phí rương bảo thạch và vàng khóa.
 
 ### 2. Danh Sách Giftcode Áp Dụng Cho Phiên Bản Này
-Ban quản trị **CodeGame.shop** đã tổng hợp và kiểm tra tính hợp lệ của toàn bộ mã giftcode mới nhất dành cho ${gameName}. Hãy sử dụng danh sách mã code bên dưới để nhận ngay quà tặng khởi đầu thuận lợi!
+Ban quản trị **CodeGame.store** đã tổng hợp và kiểm tra tính hợp lệ của toàn bộ mã giftcode mới nhất dành cho ${gameName}. Hãy sử dụng danh sách mã code bên dưới để nhận ngay quà tặng khởi đầu thuận lợi!
 
 ### 3. Hướng Dẫn Cách Nhập Code Nhận Quà
 1. Mở trò chơi **${gameName}** trên thiết bị của bạn.
@@ -362,7 +363,7 @@ Ban quản trị **CodeGame.shop** đã tổng hợp và kiểm tra tính hợp 
         tags = ['Máy Chủ Mới', 'Tân Thủ', gameName, 'Đua Top'];
         content = `## Khai Mở Máy Chủ Mới Cùng ${gameName}
 
-Nhằm đáp ứng sự ủng hộ nhiệt tình từ cộng đồng game thủ, nhà phát hành **${publisher}** chính thức khai mở cụm máy chủ mới dành cho **${gameName}**.
+Nhằm đáp ứng sự ủng hộ nhiệt tình từ cộng đồng game thủ, ${pubPhrase} chính thức khai mở cụm máy chủ mới dành cho **${gameName}**.
 
 ### 1. Chuỗi Sự Kiện Khởi Động Máy Chủ
 - **Đua Top Lực Chiến 7 Ngày**: Nhận ngay danh hiệu độc quyền, thời trang giới hạn và thú cưỡi Thần Thoại.
@@ -379,7 +380,7 @@ Dưới đây là các mã quà tặng được kích hoạt riêng cho người
         tags = ['Hướng Dẫn', 'Mẹo Chơi', gameName, 'Tân Thủ'];
         content = `## Cẩm Nang Toàn Tập Dành Cho Tân Thủ ${gameName}
 
-Bước chân vào thế giới của **${gameName}** (${publisher}), việc tận dụng tối đa các tài nguyên miễn phí từ giftcode là chìa khóa giúp bạn thăng tiến lực chiến nhanh chóng mà không cần tốn kém.
+Bước chân vào thế giới của **${gameName}** (${pubPhrase}), việc tận dụng tối đa các tài nguyên miễn phí từ giftcode là chìa khóa giúp bạn thăng tiến lực chiến nhanh chóng mà không cần tốn kém.
 
 ### 1. Hướng Dẫn Từng Bước Nhập Mã Quà Tặng
 Nhiều người chơi mới thường bối rối không tìm thấy nơi nhập code. Hãy làm theo hướng dẫn chuẩn xác sau:
@@ -393,7 +394,7 @@ Nhiều người chơi mới thường bối rối không tìm thấy nơi nhậ
 - Mỗi mã code chỉ có thể sử dụng 1 lần cho 1 nhân vật.
 
 ### 3. Danh Sách Mã Đang Hoạt Động 100%
-Dưới đây là bộ mã đã được hệ thống CodeGame.shop xác thực kiểm duyệt thành công!`;
+Dưới đây là bộ mã đã được hệ thống CodeGame.store xác thực kiểm duyệt thành công!`;
         break;
 
       case 'event':
@@ -403,7 +404,7 @@ Dưới đây là bộ mã đã được hệ thống CodeGame.shop xác thực 
         tags = ['Sự Kiện', 'Tri Ân', gameName, 'Quà Tặng'];
         content = `## Đại Tiệc Sự Kiện Mừng Mùa Lễ Hội ${gameName}
 
-Cộng đồng game thủ **${gameName}** đang sôi sục với chuỗi sự kiện quy mô lớn được **${publisher}** tổ chức nhằm tri ân các game thủ đã gắn bó cùng tựa game.
+Cộng đồng game thủ **${gameName}** đang sôi sục với chuỗi sự kiện quy mô lớn ${pubPhrase} nhằm tri ân các game thủ đã gắn bó cùng tựa game.
 
 ### 1. Nội Dung Sự Kiện Tiêu Điểm
 - Vòng quay may mắn nhận trang bị Cam và Kim Cương miễn phí mỗi ngày.
@@ -415,8 +416,17 @@ Nhanh tay sao chép ngay danh sách mã quà tặng bên dưới để không b�
         break;
     }
 
+    const slug = title
+      .toLowerCase()
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .replace(/[đĐ]/g, 'd')
+      .replace(/[^a-z0-9]+/g, '-')
+      .replace(/^-+|-+$/g, '');
+
     return {
       title,
+      slug,
       excerpt,
       content,
       tags,
@@ -453,7 +463,16 @@ Nhanh tay sao chép ngay danh sách mã quà tặng bên dưới để không b�
     foundImages?: string[];
   }): Partial<NewsArticle> {
     const gameName = params.game?.name || 'Tựa Game';
-    const cleanRaw = (params.rawContent || '').trim();
+    
+    // Clean raw text thoroughly
+    let cleanRaw = (params.rawContent || '')
+      .replace(/[\u200B-\u200D\uFEFF\u200E\u200F\u00A0]/g, ' ')
+      .replace(/[»«►◄▲▼■◆●★☆❖✓✔✕✖]/g, ' ')
+      .replace(/###?\s*Tiêu đề mục (?:lớn|nhỏ)\n*/gi, '')
+      .replace(/\*\*Văn bản in đậm\*\*\n*/gi, '')
+      .replace(/>\s*💡\s*\*\*Lưu ý:\*\*\s*Nội dung nhắc nhở game thủ\.\.\.\n*/gi, '')
+      .replace(/CodeGame\.shop/gi, 'CodeGame.store')
+      .trim();
 
     // 1. Quét thêm mã giftcode từ nội dung
     const extractedCodes = new Set<string>(params.foundCodes || []);
@@ -475,9 +494,12 @@ Nhanh tay sao chép ngay danh sách mã quà tặng bên dưới để không b�
     let title = params.rawTitle ? params.rawTitle.trim() : '';
     const currentYear = new Date().getFullYear();
     if (!title || title.length < 10) {
-      title = `${gameName}: Tổng Hợp Giftcode Mới Nhất & Hướng Dẫn Nhập Quà ${currentYear}`;
+      title = `${gameName}: Tổng Hợp Giftcode Mới Nhất & Hướng Dẫn Nhập Quà (${currentYear})`;
     } else {
-      const stripped = title.replace(/\b(2023|2024|2025)\b/g, currentYear.toString());
+      let stripped = title
+        .replace(/^[»>|\-\s]+/, '')
+        .replace(/\b(2023|2024|2025)\b/g, currentYear.toString())
+        .trim();
       if (!stripped.toLowerCase().includes(gameName.toLowerCase())) {
         title = `${gameName}: ${stripped}`;
       } else {
@@ -488,23 +510,36 @@ Nhanh tay sao chép ngay danh sách mã quà tặng bên dưới để không b�
       }
     }
 
-    // 3. Viết lại tóm tắt
+    // 3. Viết lại tóm tắt tự nhiên
     let excerpt = `Cập nhật toàn bộ thông tin mới nhất và danh sách mã giftcode độc quyền dành cho game thủ ${gameName}. Nhận ngay gói quà tân thủ, vật phẩm giới hạn và hướng dẫn kích hoạt code chi tiết.`;
-    if (params.rawContent && params.rawContent.length > 50) {
-      const firstLines = cleanRaw.split('\n').filter((l) => l.length > 30).slice(0, 2).join(' ');
+    if (cleanRaw.length > 50) {
+      const firstLines = cleanRaw
+        .split('\n')
+        .map((l) => l.trim())
+        .filter((l) => l.length > 30 && !l.startsWith('#') && !/^(skip to|trang chủ|home)/i.test(l))
+        .slice(0, 2)
+        .join(' ');
       if (firstLines.length > 40) {
         excerpt = firstLines.slice(0, 200).replace(/[#*`_]/g, '') + '...';
       }
     }
 
-    // 4. Viết lại nội dung bài viết theo cấu trúc chuyên nghiệp
+    // 4. Lọc bỏ các đoạn rác boilerplate và định dạng đoạn văn tự nhiên
     const paragraphs = cleanRaw
       .split('\n\n')
       .map((p) => p.trim())
-      .filter((p) => p.length > 20 && !p.startsWith('#') && !p.toLowerCase().includes('nguồn:') && !p.toLowerCase().includes('theo dõi'));
+      .filter((p) => {
+        if (p.length < 25) return false;
+        if (p.startsWith('#')) return false;
+        const low = p.toLowerCase();
+        if (/^(skip to content|trang chủ|home|mục lục|table of contents)/i.test(low)) return false;
+        if (/^(nguồn|nguồn ảnh|theo dõi|bình luận|chia sẻ|đọc thêm|xem thêm|bài viết cùng)/i.test(low)) return false;
+        if (/^(like|share|subscribe|đăng ký kênh|tham gia nhóm)/i.test(low)) return false;
+        return true;
+      });
 
     let bodySection = '';
-    if (paragraphs.length >= 3) {
+    if (paragraphs.length >= 2) {
       bodySection = paragraphs.slice(0, 4).join('\n\n');
     } else {
       bodySection = `Bản cập nhật mới nhất của **${gameName}** đã chính thức ra mắt cộng đồng game thủ với hàng loạt tính năng hấp dẫn, tối ưu hóa trải nghiệm chiến đấu và mở rộng chuỗi sự kiện đặc sắc.\n\nĐể tri ân người chơi và hỗ trợ các tân thủ có khởi đầu thuận lợi, ban điều hành đã phát hành bộ mã quà tặng độc quyền với nhiều phần thưởng giá trị.`;
@@ -532,7 +567,7 @@ ${finalCodes.length > 0 ? finalCodes.map((c) => `- **${c}**: Gói quà tri ân &
 
 ## 4. Mẹo Chơi Game & Cách Nhận Thêm Code Mới
 - Theo dõi Fanpage và Group cộng đồng chính thức của ${gameName} để tham gia các minigame săn code độc quyền.
-- Thường xuyên ghé thăm **CodeGame.shop** để cập nhật nhanh nhất các mã giftcode máy chủ mới và sự kiện đua TOP.`;
+- Thường xuyên ghé thăm **CodeGame.store** để cập nhật nhanh nhất các mã giftcode máy chủ mới và sự kiện đua TOP.`;
 
     const cover_url =
       (params.foundImages && params.foundImages[0]) ||
@@ -542,8 +577,17 @@ ${finalCodes.length > 0 ? finalCodes.map((c) => `- **${c}**: Gói quà tri ân &
 
     const gallery_urls = (params.foundImages || []).slice(1, 6);
 
+    const slug = title
+      .toLowerCase()
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .replace(/[đĐ]/g, 'd')
+      .replace(/[^a-z0-9]+/g, '-')
+      .replace(/^-+|-+$/g, '');
+
     return {
       title,
+      slug,
       excerpt,
       content,
       codes: finalCodes,
