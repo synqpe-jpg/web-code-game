@@ -14,6 +14,7 @@ import * as adminSepayCreditApi from './api/admin/sepay-credit';
 import * as realtimeEventsApi from './api/realtime-events';
 import * as metricsSyncedApi from './api/metrics/synced';
 import * as gamesApi from './api/games';
+import * as crawlArticleApi from './api/crawl-article';
 import { invalidateCatalogEdgeCache } from './services/cache_service';
 
 interface Env {
@@ -350,6 +351,11 @@ export default {
       if (pathname === '/api/admin/sepay-credit') {
         if (method === 'POST') return await adminSepayCreditApi.onRequestPost(context);
         if (method === 'OPTIONS') return await adminSepayCreditApi.onRequestOptions(context);
+      }
+
+      // 8d. /api/crawl-article (AI Article Crawler & Extractor)
+      if (pathname === '/api/crawl-article') {
+        return await crawlArticleApi.onRequest(context);
       }
 
       // Fallback for any unknown /api route

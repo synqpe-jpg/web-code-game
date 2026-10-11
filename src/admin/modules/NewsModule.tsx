@@ -69,9 +69,23 @@ export const NewsModule: React.FC<NewsModuleProps> = ({ onShowToast }) => {
 
   // AI Generator Modal state
   const [isAiModalOpen, setIsAiModalOpen] = useState(false);
+  const [aiMode, setAiMode] = useState<'rewrite' | 'template'>('rewrite');
   const [aiSelectedGame, setAiSelectedGame] = useState<GameAdminRecord | null>(null);
   const [aiTopicType, setAiTopicType] = useState<'codes' | 'update' | 'guide' | 'event'>('codes');
   const [isGeneratingAi, setIsGeneratingAi] = useState(false);
+
+  // AI Rewrite from Link/Content state
+  const [crawlUrlInput, setCrawlUrlInput] = useState('');
+  const [crawlRawContent, setCrawlRawContent] = useState('');
+  const [isCrawlingUrl, setIsCrawlingUrl] = useState(false);
+  const [crawledData, setCrawledData] = useState<{
+    title?: string;
+    excerpt?: string;
+    cover_url?: string;
+    content?: string;
+    codes?: string[];
+    images?: string[];
+  } | null>(null);
 
   // Load initial data
   const loadData = () => {
@@ -434,7 +448,7 @@ export const NewsModule: React.FC<NewsModuleProps> = ({ onShowToast }) => {
     }
   };
 
-  // AI Generator: Run draft generation
+  // AI Generator: Run draft generation (Chế độ 1: Theo game)
   const handleRunAiGenerator = () => {
     if (!aiSelectedGame) {
       onShowToast('Vui lòng chọn game', 'Hãy chọn tựa game bạn muốn AI viết bài!', 'error');
@@ -444,11 +458,21 @@ export const NewsModule: React.FC<NewsModuleProps> = ({ onShowToast }) => {
     setIsGeneratingAi(true);
 
     try {
-      // Find codes for this game from catalog
-      const allCodes = dataService.getAllCodes();
-      const gameCodes = allCodes
-        .filter((c) => c.game_id === aiSelectedGame.id || c.game_slug === aiSelectedGame.slug)
-        .map((c) => c.code);
+      // Find codes for this game safely from catalog
+      let gameCodes: string[] = [];
+      try {
+        const found = dataService.getCodesForGame(aiSelectedGame as any);
+        if (Array.isArray(found) && found.length > 0) {
+          gameCodes = found.map((c) => c.code);
+        } else {
+          const adminFound = adminDataService.getFreeCodes({ gameSlug: aiSelectedGame.slug });
+          if (Array.isArray(adminFound) && adminFound.length > 0) {
+            gameCodes = adminFound.map((c) => c.code);
+          }
+        }
+      } catch (err) {
+        console.warn('Cannot fetch codes for game:', err);
+      }
 
       const draft = newsService.generateAiArticleDraft({
         game: {
@@ -474,7 +498,100 @@ export const NewsModule: React.FC<NewsModuleProps> = ({ onShowToast }) => {
         'success'
       );
     } catch (err: any) {
-      onShowToast('Lỗi AI Generator', err?.message, 'error');
+      onShowToast('Lỗi AI Generator', err?.message || 'Có lỗi xảy ra', 'error');
+    } finally {
+      setIsGeneratingAi(false);
+    }
+  };
+
+  // AI Generator: Bóc tách bài viết từ link URL
+  const handleCrawlUrl = async () => {
+    const url = crawlUrlInput.trim();
+    if (!url || !url.startsWith('http')) {
+      onShowToast('Link không hợp lệ', 'Vui lòng nhập đường link bài viết đầy đủ (bắt đầu bằng https://)', 'error');
+      return;
+    }
+
+    setIsCrawlingUrl(true);
+    try {
+      const res = await fetch('/api/crawl-article', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ url }),
+      });
+
+      const data = await res.json();
+      if (!data.success) {
+        onShowToast('Thông báo', data.error || 'Không thể cào link do trang web bảo mật. Bạn có thể dán trực tiếp nội dung bài báo vào ô dưới.', 'info');
+        return;
+      }
+
+      setCrawledData(data);
+      if (data.content) {
+        setCrawlRawContent(data.content);
+      }
+
+      // Tự động tìm game phù hợp từ tiêu đề bài viết
+      if (!aiSelectedGame && data.title) {
+        const matched = games.find((g) =>
+          smartVietnameseMatch([data.title, data.content || ''], g.name)
+        );
+        if (matched) setAiSelectedGame(matched);
+      }
+
+      onShowToast(
+        'Bóc tách thành công! ⚡',
+        `Đã đọc nội dung bài viết | Tìm thấy ${data.codes?.length || 0} mã code | ${data.images?.length || 0} ảnh`,
+        'success'
+      );
+    } catch (err: any) {
+      onShowToast('Lỗi kết nối', 'Không thể kết nối máy chủ bóc tách. Bạn hãy dán trực tiếp nội dung bài báo vào ô.', 'error');
+    } finally {
+      setIsCrawlingUrl(false);
+    }
+  };
+
+  // AI Generator: Viết lại bài viết từ nội dung / link bài báo
+  const handleRunAiRewrite = () => {
+    const rawText = crawlRawContent.trim();
+    if (!rawText) {
+      onShowToast('Thiếu nội dung', 'Vui lòng nhập link bài viết và bấm "Quét Link", hoặc dán nội dung bài báo vào ô.', 'error');
+      return;
+    }
+
+    setIsGeneratingAi(true);
+    try {
+      const rewritten = newsService.rewriteArticleWithAi({
+        rawTitle: crawledData?.title,
+        rawContent: rawText,
+        sourceUrl: crawlUrlInput.trim(),
+        game: aiSelectedGame
+          ? {
+              id: aiSelectedGame.id,
+              name: aiSelectedGame.name,
+              slug: aiSelectedGame.slug,
+              banner_url: aiSelectedGame.bannerUrl,
+              icon_url: aiSelectedGame.iconUrl,
+            }
+          : null,
+        foundCodes: crawledData?.codes || [],
+        foundImages: crawledData?.images || [],
+      });
+
+      // Populate into editor
+      setEditingArticle(rewritten);
+      setCodeInputValue('');
+      setTagInputValue(rewritten.tags?.join(', ') || '');
+      setIsAiModalOpen(false);
+      setIsEditorOpen(true);
+
+      onShowToast(
+        'AI Viết lại thành công! ✨',
+        `Đã tạo bài viết độc quyền chuẩn SEO và bóc tách ${rewritten.codes?.length || 0} mã code.`,
+        'success'
+      );
+    } catch (err: any) {
+      onShowToast('Lỗi viết lại', err?.message || 'Có lỗi xảy ra khi viết lại bài', 'error');
     } finally {
       setIsGeneratingAi(false);
     }
@@ -821,11 +938,12 @@ export const NewsModule: React.FC<NewsModuleProps> = ({ onShowToast }) => {
         </div>
       </div>
 
-      {/* 5. Modal: AI Tự Động Viết Bài */}
+      {/* 5. Modal: AI Tự Động Viết Bài & Viết Lại Từ Link */}
       {isAiModalOpen &&
         createPortal(
-          <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-black/85 backdrop-blur-md animate-fade-in">
-            <div className="relative w-full max-w-xl bg-slate-900 border border-slate-700/80 rounded-3xl p-6 sm:p-8 shadow-2xl space-y-6 text-slate-100">
+          <div className="fixed inset-0 z-[9999] flex items-center justify-center p-3 sm:p-5 bg-black/85 backdrop-blur-md animate-fade-in">
+            <div className="relative w-full max-w-2xl bg-slate-900 border border-slate-700/80 rounded-3xl p-6 sm:p-8 shadow-2xl space-y-5 text-slate-100 max-h-[92vh] overflow-y-auto custom-scrollbar">
+              {/* Header */}
               <div className="flex items-center justify-between pb-4 border-b border-slate-800">
                 <div className="flex items-center gap-2.5">
                   <div className="w-10 h-10 rounded-2xl bg-gradient-to-tr from-amber-500 to-rose-500 flex items-center justify-center text-white shadow-md">
@@ -833,10 +951,10 @@ export const NewsModule: React.FC<NewsModuleProps> = ({ onShowToast }) => {
                   </div>
                   <div>
                     <h3 className="text-lg font-black text-white">
-                      ✨ AI Tự Động Viết Bài Chuẩn SEO
+                      ✨ AI Tự Động Sáng Tạo Nội Dung
                     </h3>
                     <p className="text-xs text-slate-400">
-                      Chọn game từ 486 game có sẵn, AI sẽ tự động sinh bài viết và nhúng mã code (Hoàn toàn miễn phí).
+                      Tự động viết bài chuẩn SEO hoặc bóc tách và viết lại độc quyền từ link bài báo (Miễn phí 100%).
                     </p>
                   </div>
                 </div>
@@ -849,85 +967,224 @@ export const NewsModule: React.FC<NewsModuleProps> = ({ onShowToast }) => {
                 </button>
               </div>
 
-              {/* Step 1: Chọn Game */}
-              <div className="space-y-2">
-                <label className="text-xs font-bold text-slate-200 flex items-center gap-1.5">
-                  <Gamepad2 className="w-4 h-4 text-indigo-400" />
-                  <span>1. Chọn Tựa Game</span>
-                </label>
-                <SearchableGameSelect
-                  games={games}
-                  selectedGameSlug={aiSelectedGame?.slug || ''}
-                  onSelectGame={(g) => setAiSelectedGame(g)}
-                  placeholder="Tìm tên game tiếng Việt / tiếng Anh..."
-                />
-              </div>
-
-              {/* Step 2: Chọn Chủ Đề */}
-              <div className="space-y-2">
-                <label className="text-xs font-bold text-slate-200 flex items-center gap-1.5">
-                  <FileText className="w-4 h-4 text-indigo-400" />
-                  <span>2. Chọn Chủ Đề Bài Viết</span>
-                </label>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                  {[
-                    {
-                      id: 'codes',
-                      label: '🎁 Giftcode mới nhất & Cách nhập',
-                      desc: 'Nhúng mã quà tặng hoạt động 100% kèm hướng dẫn',
-                    },
-                    {
-                      id: 'update',
-                      label: '🚀 Cập nhật phiên bản & Máy chủ',
-                      desc: 'Thông báo update, bảo trì và sự kiện ra mắt',
-                    },
-                    {
-                      id: 'guide',
-                      label: '⚔️ Hướng dẫn tân thủ & Đội hình',
-                      desc: 'Cẩm nang cày cấp, build tướng và bí kíp',
-                    },
-                    {
-                      id: 'event',
-                      label: '🏆 Sự kiện đua TOP & Ưu đãi',
-                      desc: 'Phúc lợi sự kiện, mốc quà tặng hấp dẫn',
-                    },
-                  ].map((t) => (
-                    <button
-                      key={t.id}
-                      type="button"
-                      onClick={() => setAiTopicType(t.id as any)}
-                      className={`p-3 rounded-2xl border text-left transition-all cursor-pointer ${
-                        aiTopicType === t.id
-                          ? 'border-indigo-500 bg-indigo-500/15 shadow-sm'
-                          : 'border-slate-800 bg-slate-800/40 hover:bg-slate-800'
-                      }`}
-                    >
-                      <div className="text-xs font-bold text-white">{t.label}</div>
-                      <div className="text-[10px] text-slate-400 mt-0.5">{t.desc}</div>
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              {/* Actions */}
-              <div className="pt-4 border-t border-slate-800 flex items-center justify-end gap-3">
+              {/* Mode Switch Tabs */}
+              <div className="grid grid-cols-2 p-1 rounded-2xl bg-slate-800 border border-slate-700 shadow-inner">
                 <button
                   type="button"
-                  onClick={() => setIsAiModalOpen(false)}
-                  className="px-4 py-2 rounded-xl text-xs font-semibold text-slate-400 hover:text-white"
+                  onClick={() => setAiMode('rewrite')}
+                  className={`flex items-center justify-center gap-2 py-2.5 rounded-xl text-xs font-black transition-all cursor-pointer ${
+                    aiMode === 'rewrite'
+                      ? 'bg-gradient-to-r from-indigo-600 to-purple-600 text-white shadow-md'
+                      : 'text-slate-400 hover:text-white'
+                  }`}
                 >
-                  Hủy bỏ
+                  <Globe className="w-4 h-4" />
+                  <span>🔗 Viết Lại Từ Link Bài Báo</span>
                 </button>
                 <button
                   type="button"
-                  disabled={isGeneratingAi || !aiSelectedGame}
-                  onClick={handleRunAiGenerator}
-                  className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-gradient-to-r from-amber-500 to-rose-500 text-white font-bold text-xs shadow-lg hover:shadow-amber-500/25 transition-all disabled:opacity-50 cursor-pointer"
+                  onClick={() => setAiMode('template')}
+                  className={`flex items-center justify-center gap-2 py-2.5 rounded-xl text-xs font-black transition-all cursor-pointer ${
+                    aiMode === 'template'
+                      ? 'bg-gradient-to-r from-amber-500 to-rose-500 text-white shadow-md'
+                      : 'text-slate-400 hover:text-white'
+                  }`}
                 >
                   <Sparkles className="w-4 h-4" />
-                  <span>{isGeneratingAi ? 'Đang tạo bài...' : 'Tạo Bài Viết Ngay'}</span>
+                  <span>⚡ Tạo Theo Tựa Game Có Sẵn</span>
                 </button>
               </div>
+
+              {/* MODE 1: REWRITE TỪ LINK HOẶC NỘI DUNG GỐC */}
+              {aiMode === 'rewrite' && (
+                <div className="space-y-4 animate-fade-in">
+                  {/* Nhập link bài viết */}
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-bold text-slate-200 flex items-center justify-between">
+                      <span className="flex items-center gap-1.5">
+                        <Globe className="w-4 h-4 text-indigo-400" />
+                        <span>1. Link bài viết nguồn (Báo chí, GameK, Sforum, Fanpage...)</span>
+                      </span>
+                      <span className="text-[11px] text-indigo-400">Tự động cào & quét code</span>
+                    </label>
+                    <div className="flex gap-2">
+                      <input
+                        type="url"
+                        value={crawlUrlInput}
+                        onChange={(e) => setCrawlUrlInput(e.target.value)}
+                        placeholder="Dán link bài viết (https://...)..."
+                        className="flex-1 px-3.5 py-2.5 rounded-xl bg-slate-800/90 border border-slate-700 text-xs text-white outline-none focus:border-indigo-500 font-mono"
+                      />
+                      <button
+                        type="button"
+                        disabled={isCrawlingUrl}
+                        onClick={handleCrawlUrl}
+                        className="flex items-center gap-1.5 px-4 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs shadow-md transition-all disabled:opacity-50 cursor-pointer whitespace-nowrap"
+                      >
+                        <RefreshCw className={`w-3.5 h-3.5 ${isCrawlingUrl ? 'animate-spin' : ''}`} />
+                        <span>{isCrawlingUrl ? 'Đang quét...' : '⚡ Quét Link'}</span>
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Thông tin quét được nếu có */}
+                  {crawledData && (
+                    <div className="p-3 rounded-2xl bg-indigo-950/40 border border-indigo-700/50 space-y-1.5 text-xs">
+                      <div className="font-bold text-indigo-300 truncate">
+                        📰 {crawledData.title || 'Đã đọc nội dung thành công'}
+                      </div>
+                      <div className="flex flex-wrap items-center gap-2 text-[11px] text-slate-300">
+                        <span className="px-2 py-0.5 rounded-md bg-amber-500/20 text-amber-300 font-bold font-mono">
+                          🎁 {crawledData.codes?.length || 0} mã code tìm thấy
+                        </span>
+                        <span className="px-2 py-0.5 rounded-md bg-emerald-500/20 text-emerald-300 font-bold">
+                          🖼️ {crawledData.images?.length || 0} ảnh trích xuất
+                        </span>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Nội dung bài viết thô (có thể paste trực tiếp) */}
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-bold text-slate-200 flex items-center justify-between">
+                      <span className="flex items-center gap-1.5">
+                        <FileText className="w-4 h-4 text-indigo-400" />
+                        <span>2. Nội dung bài viết gốc (Tự động điền hoặc bạn dán trực tiếp vào)</span>
+                      </span>
+                      <span className="text-[10px] text-slate-400">
+                        {crawlRawContent.length} ký tự
+                      </span>
+                    </label>
+                    <textarea
+                      rows={5}
+                      value={crawlRawContent}
+                      onChange={(e) => setCrawlRawContent(e.target.value)}
+                      placeholder="Dán nội dung bài báo, bài viết facebook hoặc thông báo game vào đây nếu không dùng link..."
+                      className="w-full p-3 rounded-xl bg-slate-800/80 border border-slate-700 text-xs text-white font-mono leading-relaxed outline-none focus:border-indigo-500 resize-y"
+                    />
+                  </div>
+
+                  {/* Chọn Game liên kết */}
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-bold text-slate-200 flex items-center gap-1.5">
+                      <Gamepad2 className="w-4 h-4 text-indigo-400" />
+                      <span>3. Tựa Game liên kết (Gắn nhãn và huy hiệu game)</span>
+                    </label>
+                    <SearchableGameSelect
+                      games={games}
+                      selectedGameSlug={aiSelectedGame?.slug || ''}
+                      onSelectGame={(g) => setAiSelectedGame(g)}
+                      placeholder="Tìm tên game tiếng Việt / tiếng Anh..."
+                      allowClear
+                    />
+                  </div>
+
+                  {/* Action buttons */}
+                  <div className="pt-3 border-t border-slate-800 flex items-center justify-end gap-3">
+                    <button
+                      type="button"
+                      onClick={() => setIsAiModalOpen(false)}
+                      className="px-4 py-2 rounded-xl text-xs font-semibold text-slate-400 hover:text-white"
+                    >
+                      Hủy bỏ
+                    </button>
+                    <button
+                      type="button"
+                      disabled={isGeneratingAi || !crawlRawContent.trim()}
+                      onClick={handleRunAiRewrite}
+                      className="flex items-center gap-2 px-6 py-2.5 rounded-xl bg-gradient-to-r from-indigo-600 via-purple-600 to-pink-600 text-white font-black text-xs shadow-lg hover:shadow-indigo-500/25 transition-all disabled:opacity-50 cursor-pointer active:scale-95"
+                    >
+                      <Sparkles className="w-4 h-4" />
+                      <span>{isGeneratingAi ? 'Đang viết lại...' : '✨ AI Viết Lại Bài Viết Ngay'}</span>
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {/* MODE 2: TẠO BÀI THEO TỰA GAME CÓ SẴN */}
+              {aiMode === 'template' && (
+                <div className="space-y-4 animate-fade-in">
+                  {/* Step 1: Chọn Game */}
+                  <div className="space-y-2">
+                    <label className="text-xs font-bold text-slate-200 flex items-center gap-1.5">
+                      <Gamepad2 className="w-4 h-4 text-amber-400" />
+                      <span>1. Chọn Tựa Game Trong Danh Sách</span>
+                    </label>
+                    <SearchableGameSelect
+                      games={games}
+                      selectedGameSlug={aiSelectedGame?.slug || ''}
+                      onSelectGame={(g) => setAiSelectedGame(g)}
+                      placeholder="Tìm tên game tiếng Việt / tiếng Anh..."
+                    />
+                  </div>
+
+                  {/* Step 2: Chọn Chủ Đề */}
+                  <div className="space-y-2">
+                    <label className="text-xs font-bold text-slate-200 flex items-center gap-1.5">
+                      <FileText className="w-4 h-4 text-amber-400" />
+                      <span>2. Chọn Chủ Đề Bài Viết</span>
+                    </label>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                      {[
+                        {
+                          id: 'codes',
+                          label: '🎁 Giftcode mới nhất & Cách nhập',
+                          desc: 'Nhúng mã quà tặng hoạt động 100% kèm hướng dẫn',
+                        },
+                        {
+                          id: 'update',
+                          label: '🚀 Cập nhật phiên bản & Máy chủ',
+                          desc: 'Thông báo update, bảo trì và sự kiện ra mắt',
+                        },
+                        {
+                          id: 'guide',
+                          label: '⚔️ Hướng dẫn tân thủ & Đội hình',
+                          desc: 'Cẩm nang cày cấp, build tướng và bí kíp',
+                        },
+                        {
+                          id: 'event',
+                          label: '🏆 Sự kiện đua TOP & Ưu đãi',
+                          desc: 'Phúc lợi sự kiện, mốc quà tặng hấp dẫn',
+                        },
+                      ].map((t) => (
+                        <button
+                          key={t.id}
+                          type="button"
+                          onClick={() => setAiTopicType(t.id as any)}
+                          className={`p-3 rounded-2xl border text-left transition-all cursor-pointer ${
+                            aiTopicType === t.id
+                              ? 'border-amber-500 bg-amber-500/15 shadow-sm'
+                              : 'border-slate-800 bg-slate-800/40 hover:bg-slate-800'
+                          }`}
+                        >
+                          <div className="text-xs font-bold text-white">{t.label}</div>
+                          <div className="text-[10px] text-slate-400 mt-0.5">{t.desc}</div>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Actions */}
+                  <div className="pt-3 border-t border-slate-800 flex items-center justify-end gap-3">
+                    <button
+                      type="button"
+                      onClick={() => setIsAiModalOpen(false)}
+                      className="px-4 py-2 rounded-xl text-xs font-semibold text-slate-400 hover:text-white"
+                    >
+                      Hủy bỏ
+                    </button>
+                    <button
+                      type="button"
+                      disabled={isGeneratingAi || !aiSelectedGame}
+                      onClick={handleRunAiGenerator}
+                      className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-gradient-to-r from-amber-500 to-rose-500 text-white font-bold text-xs shadow-lg hover:shadow-amber-500/25 transition-all disabled:opacity-50 cursor-pointer"
+                    >
+                      <Sparkles className="w-4 h-4" />
+                      <span>{isGeneratingAi ? 'Đang tạo bài...' : 'Tạo Bài Viết Ngay'}</span>
+                    </button>
+                  </div>
+                </div>
+              )}
             </div>
           </div>,
           document.body

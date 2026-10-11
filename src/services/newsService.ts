@@ -435,6 +435,133 @@ Nhanh tay sao chép ngay danh sách mã quà tặng bên dưới để không b�
       read_time_minutes: 3,
     };
   }
+
+  /**
+   * AI Viết lại bài viết từ URL hoặc nội dung bài báo nguồn:
+   * - Viết lại tiêu đề chuẩn SEO cuốn hút, không trùng lặp
+   * - Viết lại mở bài (excerpt)
+   * - Cấu trúc lại bài viết theo định dạng Markdown chuyên nghiệp (H2, H3, Mẹo, Hướng dẫn)
+   * - Bóc tách và gộp toàn bộ mã Giftcode tìm thấy
+   * - Bóc tách hình ảnh đưa vào thư viện
+   */
+  public rewriteArticleWithAi(params: {
+    rawTitle?: string;
+    rawContent: string;
+    sourceUrl?: string;
+    game?: { id?: string; name?: string; slug?: string; banner_url?: string; icon_url?: string } | null;
+    foundCodes?: string[];
+    foundImages?: string[];
+  }): Partial<NewsArticle> {
+    const gameName = params.game?.name || 'Tựa Game';
+    const cleanRaw = (params.rawContent || '').trim();
+
+    // 1. Quét thêm mã giftcode từ nội dung
+    const extractedCodes = new Set<string>(params.foundCodes || []);
+    const codeMatches = cleanRaw.matchAll(/(?:code|giftcode|mã quà tặng|mã code)\s*[:=\-–]\s*([a-zA-Z0-9_\-]+)/gi);
+    for (const m of codeMatches) {
+      const c = m[1].trim().toUpperCase();
+      if (c.length >= 4 && c.length <= 25) extractedCodes.add(c);
+    }
+    const words = cleanRaw.match(/\b[A-Z0-9_]{5,20}\b/g) || [];
+    for (const w of words) {
+      const upper = w.toUpperCase();
+      if (/[0-9]/.test(upper) && /[A-Z]/.test(upper)) {
+        extractedCodes.add(upper);
+      }
+    }
+    const finalCodes = Array.from(extractedCodes).slice(0, 15);
+
+    // 2. Viết lại tiêu đề chuẩn SEO
+    let title = params.rawTitle ? params.rawTitle.trim() : '';
+    const currentYear = new Date().getFullYear();
+    if (!title || title.length < 10) {
+      title = `${gameName}: Tổng Hợp Giftcode Mới Nhất & Hướng Dẫn Nhập Quà ${currentYear}`;
+    } else {
+      const stripped = title.replace(/\b(2023|2024|2025)\b/g, currentYear.toString());
+      if (!stripped.toLowerCase().includes(gameName.toLowerCase())) {
+        title = `${gameName}: ${stripped}`;
+      } else {
+        title = stripped;
+      }
+      if (!title.includes(currentYear.toString())) {
+        title += ` (${currentYear})`;
+      }
+    }
+
+    // 3. Viết lại tóm tắt
+    let excerpt = `Cập nhật toàn bộ thông tin mới nhất và danh sách mã giftcode độc quyền dành cho game thủ ${gameName}. Nhận ngay gói quà tân thủ, vật phẩm giới hạn và hướng dẫn kích hoạt code chi tiết.`;
+    if (params.rawContent && params.rawContent.length > 50) {
+      const firstLines = cleanRaw.split('\n').filter((l) => l.length > 30).slice(0, 2).join(' ');
+      if (firstLines.length > 40) {
+        excerpt = firstLines.slice(0, 200).replace(/[#*`_]/g, '') + '...';
+      }
+    }
+
+    // 4. Viết lại nội dung bài viết theo cấu trúc chuyên nghiệp
+    const paragraphs = cleanRaw
+      .split('\n\n')
+      .map((p) => p.trim())
+      .filter((p) => p.length > 20 && !p.startsWith('#') && !p.toLowerCase().includes('nguồn:') && !p.toLowerCase().includes('theo dõi'));
+
+    let bodySection = '';
+    if (paragraphs.length >= 3) {
+      bodySection = paragraphs.slice(0, 4).join('\n\n');
+    } else {
+      bodySection = `Bản cập nhật mới nhất của **${gameName}** đã chính thức ra mắt cộng đồng game thủ với hàng loạt tính năng hấp dẫn, tối ưu hóa trải nghiệm chiến đấu và mở rộng chuỗi sự kiện đặc sắc.\n\nĐể tri ân người chơi và hỗ trợ các tân thủ có khởi đầu thuận lợi, ban điều hành đã phát hành bộ mã quà tặng độc quyền với nhiều phần thưởng giá trị.`;
+    }
+
+    const content = `## 1. Điểm Nhấn Bản Tin & Sự Kiện ${gameName}
+
+${bodySection}
+
+## 2. Trọn Bộ Mã Giftcode ${gameName} Đang Hoạt Động (Cập Nhật Hôm Nay)
+
+Dưới đây là danh sách toàn bộ các mã giftcode hợp lệ đã được kiểm duyệt. Độc giả có thể bấm sao chép trực tiếp các mã hiển thị trên bài viết để sử dụng ngay:
+
+${finalCodes.length > 0 ? finalCodes.map((c) => `- **${c}**: Gói quà tri ân & tài nguyên tân thủ`).join('\n') : `- Danh sách mã code đang hoạt động được đính kèm ở khung quà tặng bên dưới.`}
+
+> 💡 **Lưu ý quan trọng:** Mỗi mã quà tặng đều có hạn sử dụng và số lượng kích hoạt nhất định. Bạn nên nhập code ngay khi nhận được để tránh hết hạn!
+
+## 3. Hướng Dẫn Từng Bước Cách Nhập Code Nhận Quà Trong ${gameName}
+
+1. Khởi động trò chơi **${gameName}** trên thiết bị của bạn và đăng nhập tài khoản.
+2. Tại giao diện chính, bấm vào **Avatar nhân vật** hoặc biểu tượng **Cài Đặt / Phúc Lợi**.
+3. Chọn mục **Đổi Mã Quà Tặng (Giftcode)**.
+4. Sao chép mã code ở trên, dán vào ô nhập liệu và bấm **Xác Nhận**.
+5. Phần thưởng sẽ được gửi trực tiếp vào **Hòm Thư** trong game trong vòng vài phút.
+
+## 4. Mẹo Chơi Game & Cách Nhận Thêm Code Mới
+- Theo dõi Fanpage và Group cộng đồng chính thức của ${gameName} để tham gia các minigame săn code độc quyền.
+- Thường xuyên ghé thăm **CodeGame.shop** để cập nhật nhanh nhất các mã giftcode máy chủ mới và sự kiện đua TOP.`;
+
+    const cover_url =
+      (params.foundImages && params.foundImages[0]) ||
+      params.game?.banner_url ||
+      params.game?.icon_url ||
+      'https://images.unsplash.com/photo-1542751371-adc38448a05e?auto=format&fit=crop&w=1200&q=80';
+
+    const gallery_urls = (params.foundImages || []).slice(1, 6);
+
+    return {
+      title,
+      excerpt,
+      content,
+      codes: finalCodes,
+      cover_url,
+      gallery_urls,
+      game_id: params.game?.id,
+      game_slug: params.game?.slug,
+      game_name: gameName,
+      tags: ['Giftcode', gameName, 'TinTucGame', 'CapNhat'],
+      author: 'CodeGame Editorial',
+      status: 'PUBLISHED',
+      is_featured: false,
+      is_hot: true,
+      virtual_views: Math.floor(Math.random() * 200) + 180,
+      views_growth_rate: 1.0,
+      read_time_minutes: 3,
+    };
+  }
 }
 
 export const newsService = new NewsService();
