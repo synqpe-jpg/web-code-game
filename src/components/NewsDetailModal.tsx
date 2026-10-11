@@ -15,6 +15,7 @@ import {
 } from 'lucide-react';
 import type { NewsArticle, GameItem } from '../types/game';
 import { newsService } from '../services/newsService';
+import { optimizeImageUrl } from '../utils/imageCompressor';
 
 interface NewsDetailModalProps {
   article: NewsArticle | null;
@@ -133,9 +134,11 @@ export const NewsDetailModal: React.FC<NewsDetailModalProps> = ({
             {article.cover_url && (
               <div className="relative w-full aspect-video sm:aspect-[21/9] rounded-2xl overflow-hidden border border-border/80 shadow-md">
                 <img
-                  src={article.cover_url}
+                  src={optimizeImageUrl(article.cover_url, 1200)}
                   alt={article.title}
                   className="w-full h-full object-cover"
+                  loading="eager"
+                  decoding="async"
                 />
                 <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent pointer-events-none" />
               </div>
@@ -290,10 +293,11 @@ export const NewsDetailModal: React.FC<NewsDetailModalProps> = ({
                 return (
                   <figure key={index} className="my-5 text-center">
                     <img
-                      src={src}
+                      src={optimizeImageUrl(src, 900)}
                       alt={alt}
                       className="w-full max-h-[520px] object-cover rounded-2xl border border-border/80 shadow-lg mx-auto"
                       loading="lazy"
+                      decoding="async"
                     />
                     {alt && (
                       <figcaption className="text-xs text-muted-foreground italic mt-2">
@@ -325,10 +329,11 @@ export const NewsDetailModal: React.FC<NewsDetailModalProps> = ({
                     className="group relative aspect-video rounded-xl overflow-hidden border border-border/80 hover:border-primary/60 transition-all shadow-sm"
                   >
                     <img
-                      src={imgUrl}
+                      src={optimizeImageUrl(imgUrl, 600)}
                       alt={`Ảnh ${idx + 1}`}
                       className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
                       loading="lazy"
+                      decoding="async"
                     />
                     <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center text-white text-xs font-bold">
                       Xem ảnh ↗

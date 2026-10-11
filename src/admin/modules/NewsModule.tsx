@@ -1,4 +1,5 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import {
   Newspaper,
   Plus,
@@ -29,6 +30,9 @@ import {
   Heading3,
   List,
   Quote,
+  Upload,
+  Check,
+  Zap,
 } from 'lucide-react';
 import { NewsArticle } from '../../types/game';
 import { newsService } from '../../services/newsService';
@@ -37,6 +41,7 @@ import { dataService } from '../../services/dataService';
 import { SearchableGameSelect } from '../components/ui/SearchableGameSelect';
 import { GameAdminRecord } from '../types/adminTypes';
 import { smartVietnameseMatch } from '../../utils/textUtils';
+import { compressImageFile, optimizeImageUrl, formatBytes } from '../../utils/imageCompressor';
 
 interface NewsModuleProps {
   onShowToast: (title: string, message?: string, type?: 'success' | 'error' | 'info') => void;
@@ -56,7 +61,11 @@ export const NewsModule: React.FC<NewsModuleProps> = ({ onShowToast }) => {
   const [tagInputValue, setTagInputValue] = useState('');
   const [galleryInputValue, setGalleryInputValue] = useState('');
   const [activeEditorTab, setActiveEditorTab] = useState<'edit' | 'preview'>('edit');
-  const contentTextareaRef = React.useRef<HTMLTextAreaElement>(null);
+  const [isCompressingCover, setIsCompressingCover] = useState(false);
+  const [isCompressingGallery, setIsCompressingGallery] = useState(false);
+  const contentTextareaRef = useRef<HTMLTextAreaElement>(null);
+  const coverFileInputRef = useRef<HTMLInputElement>(null);
+  const galleryFileInputRef = useRef<HTMLInputElement>(null);
 
   // AI Generator Modal state
   const [isAiModalOpen, setIsAiModalOpen] = useState(false);
@@ -168,21 +177,103 @@ export const NewsModule: React.FC<NewsModuleProps> = ({ onShowToast }) => {
     }, 0);
   };
 
+  // Tải & Nén ảnh bìa từ máy tính
+  const handleCoverFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (!file.type.startsWith('image/')) {
+      onShowToast('Định dạng không hợp lệ', 'Vui lòng chọn file hình ảnh (PNG, JPG, WebP)!', 'error');
+      return;
+    }
+
+    setIsCompressingCover(true);
+    try {
+      const res = await compressImageFile(file, {
+        maxWidth: 1400,
+        maxHeight: 900,
+        quality: 0.82,
+        format: 'image/webp',
+      });
+
+      setEditingArticle((prev) => ({
+        ...prev,
+        cover_url: res.dataUrl,
+      }));
+
+      onShowToast(
+        'Nén ảnh bìa thành công! ⚡',
+        `Dung lượng: ${formatBytes(res.originalSize)} ➔ ${formatBytes(res.compressedSize)} (Giảm ${res.savedPercent}%, WebP siêu nhẹ)`,
+        'success'
+      );
+    } catch (err: any) {
+      onShowToast('Lỗi nén ảnh', err?.message || 'Không thể nén file ảnh', 'error');
+    } finally {
+      setIsCompressingCover(false);
+      if (coverFileInputRef.current) coverFileInputRef.current.value = '';
+    }
+  };
+
+  // Tải & Nén ảnh phụ/thư viện từ máy tính
+  const handleGalleryFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (!file.type.startsWith('image/')) {
+      onShowToast('Định dạng không hợp lệ', 'Vui lòng chọn file hình ảnh!', 'error');
+      return;
+    }
+
+    setIsCompressingGallery(true);
+    try {
+      const res = await compressImageFile(file, {
+        maxWidth: 1200,
+        maxHeight: 1200,
+        quality: 0.80,
+        format: 'image/webp',
+      });
+
+      const currentGallery = editingArticle.gallery_urls || [];
+      setEditingArticle((prev) => ({
+        ...prev,
+        gallery_urls: [...currentGallery, res.dataUrl],
+      }));
+
+      onShowToast(
+        'Đã nén & thêm ảnh vào bài! ⚡',
+        `Dung lượng: ${formatBytes(res.originalSize)} ➔ ${formatBytes(res.compressedSize)} (Giảm ${res.savedPercent}%, WebP)`,
+        'success'
+      );
+    } catch (err: any) {
+      onShowToast('Lỗi nén ảnh', err?.message || 'Không thể nén file ảnh', 'error');
+    } finally {
+      setIsCompressingGallery(false);
+      if (galleryFileInputRef.current) galleryFileInputRef.current.value = '';
+    }
+  };
+
+  // Đặt ảnh trong thư viện làm ảnh bìa
+  const handleSetGalleryAsCover = (url: string) => {
+    setEditingArticle((prev) => ({ ...prev, cover_url: url }));
+    onShowToast('Đã đổi ảnh bìa', 'Đã đặt hình ảnh này làm ảnh bìa chính của bài viết!', 'info');
+  };
+
   // Add gallery image
   const handleAddGalleryImage = () => {
     const trimmed = galleryInputValue.trim();
     if (!trimmed) return;
+    const optimized = optimizeImageUrl(trimmed, 1000);
     const currentList = editingArticle.gallery_urls || [];
-    if (currentList.includes(trimmed)) {
+    if (currentList.includes(optimized)) {
       onShowToast('Ảnh đã tồn tại', 'Hình ảnh này đã có trong bộ sưu tập!', 'info');
       return;
     }
     setEditingArticle({
       ...editingArticle,
-      gallery_urls: [...currentList, trimmed],
+      gallery_urls: [...currentList, optimized],
     });
     setGalleryInputValue('');
-    onShowToast('Đã thêm ảnh', 'Đã thêm ảnh vào bộ sưu tập bài viết.', 'success');
+    onShowToast('Đã thêm ảnh', 'Đã tối ưu hóa và thêm ảnh vào bộ sưu tập.', 'success');
   };
 
   // Remove gallery image
@@ -731,726 +822,819 @@ export const NewsModule: React.FC<NewsModuleProps> = ({ onShowToast }) => {
       </div>
 
       {/* 5. Modal: AI Tự Động Viết Bài */}
-      {isAiModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md animate-fade-in">
-          <div className="relative w-full max-w-xl bg-card border border-border/80 rounded-3xl p-6 sm:p-8 shadow-2xl space-y-6">
-            <div className="flex items-center justify-between pb-4 border-b border-border/60">
-              <div className="flex items-center gap-2.5">
-                <div className="w-10 h-10 rounded-2xl bg-gradient-to-tr from-amber-500 to-rose-500 flex items-center justify-center text-white shadow-md">
-                  <Sparkles className="w-5 h-5 animate-spin" />
-                </div>
-                <div>
-                  <h3 className="text-lg font-black text-foreground">
-                    ✨ AI Tự Động Viết Bài Chuẩn SEO
-                  </h3>
-                  <p className="text-xs text-muted-foreground">
-                    Chọn game từ 486 game có sẵn, AI sẽ tự động sinh bài viết và nhúng mã code.
-                  </p>
-                </div>
-              </div>
-              <button
-                type="button"
-                onClick={() => setIsAiModalOpen(false)}
-                className="p-2 rounded-xl text-muted-foreground hover:text-foreground hover:bg-muted transition-all"
-              >
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-
-            {/* Step 1: Chọn Game */}
-            <div className="space-y-2">
-              <label className="text-xs font-bold text-foreground flex items-center gap-1.5">
-                <Gamepad2 className="w-4 h-4 text-primary" />
-                <span>1. Chọn Tựa Game</span>
-              </label>
-              <SearchableGameSelect
-                games={games}
-                selectedGameSlug={aiSelectedGame?.slug || ''}
-                onSelectGame={(g) => setAiSelectedGame(g)}
-                placeholder="Tìm tên game tiếng Việt / tiếng Anh..."
-              />
-            </div>
-
-            {/* Step 2: Chọn Chủ Đề */}
-            <div className="space-y-2">
-              <label className="text-xs font-bold text-foreground flex items-center gap-1.5">
-                <FileText className="w-4 h-4 text-primary" />
-                <span>2. Chọn Chủ Đề Bài Viết</span>
-              </label>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                {[
-                  {
-                    id: 'codes',
-                    label: '🎁 Giftcode mới nhất & Cách nhập',
-                    desc: 'Nhúng mã quà tặng hoạt động 100% kèm hướng dẫn',
-                  },
-                  {
-                    id: 'update',
-                    label: '🚀 Cập nhật phiên bản & Máy chủ',
-                    desc: 'Thông báo update, bảo trì và sự kiện ra mắt',
-                  },
-                  {
-                    id: 'guide',
-                    label: '⚔️ Hướng dẫn tân thủ & Đội hình',
-                    desc: 'Cẩm nang cày cấp, build tướng và bí kíp',
-                  },
-                  {
-                    id: 'event',
-                    label: '🏆 Sự kiện đua TOP & Ưu đãi',
-                    desc: 'Phúc lợi sự kiện, mốc quà tặng hấp dẫn',
-                  },
-                ].map((t) => (
-                  <button
-                    key={t.id}
-                    type="button"
-                    onClick={() => setAiTopicType(t.id as any)}
-                    className={`p-3 rounded-2xl border text-left transition-all cursor-pointer ${
-                      aiTopicType === t.id
-                        ? 'border-primary bg-primary/10 shadow-sm'
-                        : 'border-border/80 bg-muted/40 hover:bg-muted'
-                    }`}
-                  >
-                    <div className="text-xs font-bold text-foreground">{t.label}</div>
-                    <div className="text-[10px] text-muted-foreground mt-0.5">{t.desc}</div>
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            {/* Actions */}
-            <div className="pt-4 border-t border-border/60 flex items-center justify-end gap-3">
-              <button
-                type="button"
-                onClick={() => setIsAiModalOpen(false)}
-                className="px-4 py-2 rounded-xl text-xs font-semibold text-muted-foreground hover:text-foreground"
-              >
-                Hủy bỏ
-              </button>
-              <button
-                type="button"
-                disabled={isGeneratingAi || !aiSelectedGame}
-                onClick={handleRunAiGenerator}
-                className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-gradient-to-r from-amber-500 to-rose-500 text-white font-bold text-xs shadow-lg hover:shadow-amber-500/25 transition-all disabled:opacity-50 cursor-pointer"
-              >
-                <Sparkles className="w-4 h-4" />
-                <span>{isGeneratingAi ? 'Đang tạo bài...' : 'Tạo Bài Viết Ngay'}</span>
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* 6. Modal: Biên Tập / Tạo Mới Bài Viết (Layout 2 cột chống tràn màn hình) */}
-      {isEditorOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 md:p-6 bg-black/85 backdrop-blur-md animate-fade-in">
-          <div className="relative w-full max-w-6xl h-[94vh] max-h-[920px] bg-card border border-border/80 rounded-3xl shadow-2xl flex flex-col overflow-hidden">
-            {/* Header: Cố định trên cùng */}
-            <div className="flex items-center justify-between px-5 py-4 border-b border-border/70 shrink-0 bg-card/95">
-              <div className="flex items-center gap-3">
-                <div className="w-9 h-9 rounded-xl bg-primary/10 text-primary flex items-center justify-center font-bold">
-                  <Newspaper className="w-5 h-5" />
-                </div>
-                <div>
-                  <h3 className="text-base sm:text-lg font-black text-foreground">
-                    {editingArticle.id ? 'Biên Tập Bài Viết' : 'Tạo Bài Viết Mới'}
-                  </h3>
-                  <p className="text-[11px] text-muted-foreground hidden sm:block">
-                    Cài đặt ảnh, số lượt xem, hệ số tăng trưởng và soạn thảo nội dung markdown.
-                  </p>
-                </div>
-              </div>
-              <button
-                type="button"
-                onClick={() => setIsEditorOpen(false)}
-                className="p-2 rounded-xl text-muted-foreground hover:text-foreground hover:bg-muted transition-all cursor-pointer"
-                title="Đóng (Hủy bỏ)"
-              >
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-
-            {/* Body: 2 Cột (Cột Trái 5 / Cột Phải 7) */}
-            <div className="flex-1 min-h-0 grid grid-cols-1 lg:grid-cols-12 overflow-hidden">
-              {/* CỘT TRÁI: Thông tin, Ảnh, Views & Cấu hình (Cuộn độc lập) */}
-              <div className="lg:col-span-5 h-full overflow-y-auto p-4 sm:p-5 space-y-4 border-b lg:border-b-0 lg:border-r border-border/70 custom-scrollbar">
-                {/* Tiêu đề */}
-                <div className="space-y-1">
-                  <label className="text-xs font-bold text-foreground">Tiêu đề bài viết *</label>
-                  <input
-                    type="text"
-                    value={editingArticle.title || ''}
-                    onChange={(e) => setEditingArticle({ ...editingArticle, title: e.target.value })}
-                    placeholder="Ví dụ: Tổng Hợp Giftcode Delta Force Mới Nhất 2026..."
-                    className="w-full px-3.5 py-2.5 rounded-xl bg-muted/50 border border-border/80 text-xs text-foreground outline-none focus:border-primary font-medium"
-                  />
-                </div>
-
-                {/* Game liên kết */}
-                <div className="space-y-1">
-                  <label className="text-xs font-bold text-foreground">Tựa Game liên kết</label>
-                  <SearchableGameSelect
-                    games={games}
-                    selectedGameSlug={editingArticle.game_slug || ''}
-                    onSelectGame={(g) => {
-                      setEditingArticle({
-                        ...editingArticle,
-                        game_id: g?.id,
-                        game_slug: g?.slug,
-                        game_name: g?.name,
-                      });
-                    }}
-                    placeholder="Chọn game để gắn nhãn & đồng bộ..."
-                    allowClear
-                  />
-                </div>
-
-                {/* URL Slug & Ảnh bìa URL */}
-                <div className="space-y-3">
-                  <div className="space-y-1">
-                    <label className="text-xs font-bold text-foreground">URL Slug</label>
-                    <input
-                      type="text"
-                      value={editingArticle.slug || ''}
-                      onChange={(e) => setEditingArticle({ ...editingArticle, slug: e.target.value })}
-                      placeholder="delta-force-giftcode-2026"
-                      className="w-full px-3 py-2 rounded-xl bg-muted/50 border border-border/80 text-xs text-foreground font-mono outline-none focus:border-primary"
-                    />
+      {isAiModalOpen &&
+        createPortal(
+          <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-black/85 backdrop-blur-md animate-fade-in">
+            <div className="relative w-full max-w-xl bg-slate-900 border border-slate-700/80 rounded-3xl p-6 sm:p-8 shadow-2xl space-y-6 text-slate-100">
+              <div className="flex items-center justify-between pb-4 border-b border-slate-800">
+                <div className="flex items-center gap-2.5">
+                  <div className="w-10 h-10 rounded-2xl bg-gradient-to-tr from-amber-500 to-rose-500 flex items-center justify-center text-white shadow-md">
+                    <Sparkles className="w-5 h-5 animate-spin" />
                   </div>
-
-                  <div className="space-y-1.5">
-                    <label className="text-xs font-bold text-foreground flex items-center justify-between">
-                      <span>Ảnh bìa chính (Cover URL)</span>
-                      {editingArticle.cover_url && (
-                        <span className="text-[10px] text-emerald-400 font-normal">Đã có ảnh bìa</span>
-                      )}
-                    </label>
-                    <div className="flex gap-2">
-                      <input
-                        type="text"
-                        value={editingArticle.cover_url || ''}
-                        onChange={(e) =>
-                          setEditingArticle({ ...editingArticle, cover_url: e.target.value })
-                        }
-                        placeholder="https://images.unsplash.com/..."
-                        className="flex-1 px-3 py-2 rounded-xl bg-muted/50 border border-border/80 text-xs text-foreground outline-none focus:border-primary"
-                      />
-                      {editingArticle.cover_url && (
-                        <img
-                          src={editingArticle.cover_url}
-                          alt="Cover preview"
-                          className="w-9 h-9 rounded-lg object-cover border border-border/80 shrink-0"
-                          onError={(e) => {
-                            (e.target as HTMLImageElement).style.display = 'none';
-                          }}
-                        />
-                      )}
-                    </div>
-                  </div>
-                </div>
-
-                {/* THƯ VIỆN HÌNH ẢNH (Ảnh Minh Họa / Phụ) */}
-                <div className="p-3.5 rounded-2xl bg-muted/40 border border-border/80 space-y-3">
-                  <div className="flex items-center justify-between">
-                    <label className="text-xs font-bold text-foreground flex items-center gap-1.5">
-                      <ImageIcon className="w-4 h-4 text-primary" />
-                      <span>Thư Viện Ảnh Bổ Sung ({editingArticle.gallery_urls?.length || 0})</span>
-                    </label>
-                    <span className="text-[10px] text-muted-foreground">Chèn giữa bài</span>
-                  </div>
-
-                  <div className="flex gap-2">
-                    <input
-                      type="text"
-                      value={galleryInputValue}
-                      onChange={(e) => setGalleryInputValue(e.target.value)}
-                      onKeyDown={(e) => {
-                        if (e.key === 'Enter') {
-                          e.preventDefault();
-                          handleAddGalleryImage();
-                        }
-                      }}
-                      placeholder="Dán link ảnh (https://...)..."
-                      className="flex-1 px-3 py-2 rounded-xl bg-card border border-border/80 text-xs text-foreground outline-none focus:border-primary"
-                    />
-                    <button
-                      type="button"
-                      onClick={handleAddGalleryImage}
-                      className="px-3 py-2 rounded-xl bg-primary text-white font-bold text-xs hover:bg-primary-dark transition-all cursor-pointer whitespace-nowrap"
-                    >
-                      + Thêm Ảnh
-                    </button>
-                  </div>
-
-                  {/* Danh sách ảnh trong Gallery */}
-                  {editingArticle.gallery_urls && editingArticle.gallery_urls.length > 0 ? (
-                    <div className="grid grid-cols-2 gap-2 pt-1">
-                      {editingArticle.gallery_urls.map((imgUrl, idx) => (
-                        <div
-                          key={idx}
-                          className="relative group rounded-xl overflow-hidden border border-border/80 bg-card p-1.5 flex flex-col gap-1.5"
-                        >
-                          <div className="aspect-video w-full rounded-lg overflow-hidden bg-black/20">
-                            <img
-                              src={imgUrl}
-                              alt={`Gallery ${idx + 1}`}
-                              className="w-full h-full object-cover"
-                              onError={(e) => {
-                                (e.target as HTMLImageElement).src =
-                                  'https://images.unsplash.com/photo-1542751371-adc38448a05e?auto=format&fit=crop&w=300&q=80';
-                              }}
-                            />
-                          </div>
-                          <div className="flex items-center justify-between gap-1">
-                            <button
-                              type="button"
-                              onClick={() => handleInsertGalleryImageIntoText(imgUrl, `Ảnh minh họa ${idx + 1}`)}
-                              className="flex-1 px-1.5 py-1 rounded-md bg-primary/10 hover:bg-primary text-primary-light hover:text-white font-bold text-[10px] transition-all cursor-pointer truncate"
-                              title="Chèn ảnh này vào vị trí con trỏ bài viết"
-                            >
-                              📥 Chèn vào bài
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => handleRemoveGalleryImage(imgUrl)}
-                              className="p-1 rounded-md text-muted-foreground hover:text-rose-400 hover:bg-rose-500/10 transition-all cursor-pointer"
-                              title="Xóa ảnh khỏi thư viện"
-                            >
-                              <Trash2 className="w-3.5 h-3.5" />
-                            </button>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  ) : (
-                    <p className="text-[11px] text-muted-foreground italic">
-                      Chưa có ảnh phụ nào. Thêm ảnh để độc giả chiêm ngưỡng và chèn vào giữa các đoạn văn bản.
+                  <div>
+                    <h3 className="text-lg font-black text-white">
+                      ✨ AI Tự Động Viết Bài Chuẩn SEO
+                    </h3>
+                    <p className="text-xs text-slate-400">
+                      Chọn game từ 486 game có sẵn, AI sẽ tự động sinh bài viết và nhúng mã code (Hoàn toàn miễn phí).
                     </p>
-                  )}
-                </div>
-
-                {/* CÀI ĐẶT LƯỢT XEM & TĂNG TRƯỞNG */}
-                <div className="p-3.5 rounded-2xl bg-indigo-500/10 border border-indigo-500/25 space-y-3">
-                  <div className="flex items-center justify-between">
-                    <label className="text-xs font-bold text-indigo-300 flex items-center gap-1.5">
-                      <TrendingUp className="w-4 h-4 text-indigo-400" />
-                      <span>Cài Đặt Lượt Xem & Tăng Trưởng</span>
-                    </label>
-                    <span className="text-[10px] px-2 py-0.5 rounded-full bg-indigo-500/20 text-indigo-300 font-mono font-bold">
-                      ~{newsService.getDisplayViews(editingArticle)} views hiện tại
-                    </span>
-                  </div>
-
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                    <div className="space-y-1">
-                      <label className="text-[11px] font-semibold text-foreground flex items-center gap-1">
-                        <Eye className="w-3 h-3 text-muted-foreground" />
-                        <span>Lượt xem ban đầu (Cơ sở)</span>
-                      </label>
-                      <input
-                        type="number"
-                        min={0}
-                        step={10}
-                        value={editingArticle.virtual_views !== undefined ? editingArticle.virtual_views : 120}
-                        onChange={(e) =>
-                          setEditingArticle({
-                            ...editingArticle,
-                            virtual_views: Math.max(0, Number(e.target.value) || 0),
-                          })
-                        }
-                        placeholder="Ví dụ: 150"
-                        className="w-full px-3 py-2 rounded-xl bg-card border border-border/80 text-xs font-mono font-bold text-foreground outline-none focus:border-indigo-400"
-                      />
-                    </div>
-
-                    <div className="space-y-1">
-                      <label className="text-[11px] font-semibold text-foreground flex items-center gap-1">
-                        <TrendingUp className="w-3 h-3 text-muted-foreground" />
-                        <span>Hệ số tăng trưởng / giờ</span>
-                      </label>
-                      <select
-                        value={editingArticle.views_growth_rate !== undefined ? editingArticle.views_growth_rate : 1.0}
-                        onChange={(e) =>
-                          setEditingArticle({
-                            ...editingArticle,
-                            views_growth_rate: Number(e.target.value),
-                          })
-                        }
-                        className="w-full px-3 py-2 rounded-xl bg-card border border-border/80 text-xs font-bold text-foreground outline-none focus:border-indigo-400"
-                      >
-                        <option value={0}>0x (Tắt tự tăng)</option>
-                        <option value={0.5}>0.5x (Chậm ~3 lượt/giờ)</option>
-                        <option value={1.0}>1.0x (Chuẩn ~6 lượt/giờ)</option>
-                        <option value={1.5}>1.5x (Khá nhanh ~9 lượt/giờ)</option>
-                        <option value={2.0}>2.0x (Nhanh ~12 lượt/giờ)</option>
-                        <option value={3.0}>3.0x (Rất nhanh ~18 lượt/giờ)</option>
-                      </select>
-                    </div>
-                  </div>
-                  <p className="text-[10px] text-muted-foreground">
-                    💡 Lượt xem hiển thị = Lượt xem thực + Lượt xem cơ sở + (Số giờ đã qua × Hệ số × 6). Tự nhiên và không gây giật lag.
-                  </p>
-                </div>
-
-                {/* Tóm tắt ngắn (Excerpt) */}
-                <div className="space-y-1">
-                  <label className="text-xs font-bold text-foreground">Tóm tắt ngắn (Excerpt)</label>
-                  <textarea
-                    rows={2}
-                    value={editingArticle.excerpt || ''}
-                    onChange={(e) =>
-                      setEditingArticle({ ...editingArticle, excerpt: e.target.value })
-                    }
-                    placeholder="Mô tả ngắn hiển thị trên thẻ bài viết và meta SEO..."
-                    className="w-full px-3.5 py-2 rounded-xl bg-muted/50 border border-border/80 text-xs text-foreground outline-none focus:border-primary resize-none"
-                  />
-                </div>
-
-                {/* Danh sách Giftcode đính kèm */}
-                <div className="space-y-2 p-3.5 rounded-2xl bg-amber-500/5 border border-amber-500/20">
-                  <label className="text-xs font-bold text-amber-300 flex items-center justify-between">
-                    <span className="flex items-center gap-1.5">
-                      <Gift className="w-4 h-4 text-amber-400" />
-                      <span>Giftcode đính kèm</span>
-                    </span>
-                    <span className="text-[10px] text-muted-foreground">Copy 1 chạm</span>
-                  </label>
-
-                  <div className="flex gap-2">
-                    <input
-                      type="text"
-                      value={codeInputValue}
-                      onChange={(e) => setCodeInputValue(e.target.value)}
-                      onKeyDown={(e) => {
-                        if (e.key === 'Enter') {
-                          e.preventDefault();
-                          handleAddCodeToArticle();
-                        }
-                      }}
-                      placeholder="Nhập mã code (Ví dụ: DELTA2026)..."
-                      className="flex-1 px-3 py-2 rounded-xl bg-card border border-border/80 text-xs font-mono uppercase text-foreground outline-none focus:border-amber-400"
-                    />
-                    <button
-                      type="button"
-                      onClick={handleAddCodeToArticle}
-                      className="px-3 py-2 rounded-xl bg-amber-500 text-black font-bold text-xs hover:bg-amber-400 transition-all cursor-pointer whitespace-nowrap"
-                    >
-                      Thêm Code
-                    </button>
-                  </div>
-
-                  {editingArticle.codes && editingArticle.codes.length > 0 && (
-                    <div className="flex flex-wrap gap-1.5 pt-1">
-                      {editingArticle.codes.map((c) => (
-                        <span
-                          key={c}
-                          className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-card border border-amber-500/30 font-mono font-bold text-[11px] text-amber-300"
-                        >
-                          {c}
-                          <button
-                            type="button"
-                            onClick={() => handleRemoveCodeFromArticle(c)}
-                            className="text-muted-foreground hover:text-rose-400 cursor-pointer"
-                          >
-                            <X className="w-3 h-3" />
-                          </button>
-                        </span>
-                      ))}
-                    </div>
-                  )}
-                </div>
-
-                {/* Tags & Thời gian đọc */}
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  <div className="space-y-1">
-                    <label className="text-xs font-bold text-foreground">Tags (phẩy)</label>
-                    <input
-                      type="text"
-                      value={tagInputValue}
-                      onChange={(e) => setTagInputValue(e.target.value)}
-                      placeholder="Giftcode, HuongDan..."
-                      className="w-full px-3 py-2 rounded-xl bg-muted/50 border border-border/80 text-xs text-foreground outline-none focus:border-primary"
-                    />
-                  </div>
-                  <div className="space-y-1">
-                    <label className="text-xs font-bold text-foreground">Thời gian đọc (phút)</label>
-                    <input
-                      type="number"
-                      min={1}
-                      max={60}
-                      value={editingArticle.read_time_minutes || 3}
-                      onChange={(e) =>
-                        setEditingArticle({
-                          ...editingArticle,
-                          read_time_minutes: Number(e.target.value) || 3,
-                        })
-                      }
-                      className="w-full px-3 py-2 rounded-xl bg-muted/50 border border-border/80 text-xs text-foreground outline-none focus:border-primary"
-                    />
                   </div>
                 </div>
-
-                {/* Trạng thái & Ghim */}
-                <div className="flex flex-wrap items-center gap-3 p-3 rounded-2xl bg-muted/40 border border-border/60">
-                  <label className="flex items-center gap-2 cursor-pointer text-xs font-semibold text-foreground">
-                    <input
-                      type="checkbox"
-                      checked={editingArticle.is_featured || false}
-                      onChange={(e) =>
-                        setEditingArticle({ ...editingArticle, is_featured: e.target.checked })
-                      }
-                      className="rounded text-primary focus:ring-primary"
-                    />
-                    <span>Ghim Tiêu Điểm</span>
-                  </label>
-
-                  <label className="flex items-center gap-2 cursor-pointer text-xs font-semibold text-foreground">
-                    <input
-                      type="checkbox"
-                      checked={editingArticle.is_hot || false}
-                      onChange={(e) =>
-                        setEditingArticle({ ...editingArticle, is_hot: e.target.checked })
-                      }
-                      className="rounded text-rose-500 focus:ring-rose-500"
-                    />
-                    <span>HOT</span>
-                  </label>
-
-                  <div className="ml-auto flex items-center gap-2">
-                    <select
-                      value={editingArticle.status || 'PUBLISHED'}
-                      onChange={(e) =>
-                        setEditingArticle({
-                          ...editingArticle,
-                          status: e.target.value as 'PUBLISHED' | 'DRAFT',
-                        })
-                      }
-                      className="px-2.5 py-1 rounded-lg bg-card border border-border/80 text-xs font-bold text-foreground outline-none cursor-pointer"
-                    >
-                      <option value="PUBLISHED">Xuất bản</option>
-                      <option value="DRAFT">Bản nháp</option>
-                    </select>
-                  </div>
-                </div>
-              </div>
-
-              {/* CỘT PHẢI: Khung Soạn Thảo & Xem Trước Live Preview */}
-              <div className="lg:col-span-7 h-full flex flex-col p-4 sm:p-5 min-h-0 bg-muted/15">
-                {/* Header Cột Phải & Toolbar */}
-                <div className="flex flex-wrap items-center justify-between gap-2 pb-3 border-b border-border/70 shrink-0">
-                  <div className="flex items-center gap-2">
-                    <span className="text-xs font-black text-foreground uppercase tracking-wider">
-                      Nội Dung Bài Viết
-                    </span>
-                    <span className="text-[11px] text-muted-foreground font-mono">
-                      ({editingArticle.content?.length || 0} ký tự)
-                    </span>
-                  </div>
-
-                  {/* Tab Switch: Soạn Thảo vs Xem Trước */}
-                  <div className="inline-flex p-1 rounded-xl bg-card border border-border/80 shadow-inner">
-                    <button
-                      type="button"
-                      onClick={() => setActiveEditorTab('edit')}
-                      className={`px-3 py-1 rounded-lg text-xs font-bold transition-all cursor-pointer ${
-                        activeEditorTab === 'edit'
-                          ? 'bg-primary text-white shadow-sm'
-                          : 'text-muted-foreground hover:text-foreground'
-                      }`}
-                    >
-                      ✏️ Soạn Thảo
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setActiveEditorTab('preview')}
-                      className={`px-3 py-1 rounded-lg text-xs font-bold transition-all cursor-pointer ${
-                        activeEditorTab === 'preview'
-                          ? 'bg-primary text-white shadow-sm'
-                          : 'text-muted-foreground hover:text-foreground'
-                      }`}
-                    >
-                      👁️ Xem Trước
-                    </button>
-                  </div>
-                </div>
-
-                {/* Toolbar các nút định dạng nhanh khi ở Tab Soạn Thảo */}
-                {activeEditorTab === 'edit' && (
-                  <div className="flex flex-wrap items-center gap-1.5 py-2.5 shrink-0">
-                    <button
-                      type="button"
-                      onClick={() => handleToolbarAction('bold')}
-                      className="px-2.5 py-1 rounded-lg bg-card border border-border/80 hover:bg-muted text-foreground text-xs font-bold flex items-center gap-1 cursor-pointer"
-                      title="In đậm chữ (**text**)"
-                    >
-                      <Bold className="w-3.5 h-3.5" />
-                      <span>Đậm</span>
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => handleToolbarAction('h2')}
-                      className="px-2.5 py-1 rounded-lg bg-card border border-border/80 hover:bg-muted text-foreground text-xs font-bold flex items-center gap-1 cursor-pointer"
-                      title="Tiêu đề mục lớn (## Title)"
-                    >
-                      <Heading2 className="w-3.5 h-3.5" />
-                      <span>H2</span>
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => handleToolbarAction('h3')}
-                      className="px-2.5 py-1 rounded-lg bg-card border border-border/80 hover:bg-muted text-foreground text-xs font-bold flex items-center gap-1 cursor-pointer"
-                      title="Tiêu đề mục nhỏ (### Subtitle)"
-                    >
-                      <Heading3 className="w-3.5 h-3.5" />
-                      <span>H3</span>
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => handleToolbarAction('list')}
-                      className="px-2.5 py-1 rounded-lg bg-card border border-border/80 hover:bg-muted text-foreground text-xs font-bold flex items-center gap-1 cursor-pointer"
-                      title="Danh sách gạch đầu dòng (- Item)"
-                    >
-                      <List className="w-3.5 h-3.5" />
-                      <span>Danh sách</span>
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => handleToolbarAction('quote')}
-                      className="px-2.5 py-1 rounded-lg bg-card border border-border/80 hover:bg-muted text-foreground text-xs font-bold flex items-center gap-1 cursor-pointer"
-                      title="Hộp lưu ý/mẹo (> 💡 Tip)"
-                    >
-                      <Quote className="w-3.5 h-3.5" />
-                      <span>Lưu ý</span>
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => handleToolbarAction('image')}
-                      className="px-2.5 py-1 rounded-lg bg-primary/10 border border-primary/30 hover:bg-primary/20 text-primary-light text-xs font-bold flex items-center gap-1 cursor-pointer ml-auto"
-                      title="Chèn ảnh theo link (![Alt](URL))"
-                    >
-                      <Image className="w-3.5 h-3.5" />
-                      <span>🖼️ Chèn link ảnh</span>
-                    </button>
-                  </div>
-                )}
-
-                {/* Khu Vực Soạn Thảo hoặc Live Preview */}
-                <div className="flex-1 min-h-0 relative flex flex-col pt-1">
-                  {activeEditorTab === 'edit' ? (
-                    <div className="flex-1 min-h-0 flex flex-col">
-                      <textarea
-                        ref={contentTextareaRef}
-                        value={editingArticle.content || ''}
-                        onChange={(e) =>
-                          setEditingArticle({ ...editingArticle, content: e.target.value })
-                        }
-                        placeholder="## 1. Giới thiệu tổng quan...&#10;&#10;Dán nội dung hoặc chọn ảnh từ cột trái bấm '📥 Chèn vào bài' để đặt ảnh giữa bài viết..."
-                        className="flex-1 min-h-[300px] w-full p-4 rounded-2xl bg-card border border-border/80 text-xs text-foreground font-mono leading-relaxed outline-none focus:border-primary resize-none overflow-y-auto"
-                      />
-                      <div className="pt-2 text-[11px] text-muted-foreground flex items-center justify-between">
-                        <span>💡 Để chèn ảnh giữa các đoạn: Bấm <b>📥 Chèn vào bài</b> ở cột trái hoặc dùng nút <b>🖼️ Chèn link ảnh</b>.</span>
-                      </div>
-                    </div>
-                  ) : (
-                    <div className="flex-1 min-h-[300px] w-full p-5 rounded-2xl bg-card border border-border/80 overflow-y-auto space-y-3.5 text-xs text-foreground leading-relaxed custom-scrollbar">
-                      {editingArticle.cover_url && (
-                        <div className="mb-4 rounded-2xl overflow-hidden border border-border/80">
-                          <img
-                            src={editingArticle.cover_url}
-                            alt="Cover"
-                            className="w-full max-h-56 object-cover"
-                          />
-                        </div>
-                      )}
-                      <h2 className="text-base sm:text-lg font-black text-foreground">
-                        {editingArticle.title || 'Chưa có tiêu đề'}
-                      </h2>
-                      {editingArticle.excerpt && (
-                        <p className="text-xs text-muted-foreground italic border-l-2 border-primary pl-3 py-1 bg-muted/30 rounded-r-lg">
-                          {editingArticle.excerpt}
-                        </p>
-                      )}
-                      <div className="space-y-3 pt-2">
-                        {(editingArticle.content || 'Chưa có nội dung...').split('\n\n').map((block, idx) => {
-                          const trimmed = block.trim();
-                          if (!trimmed) return null;
-                          if (trimmed.startsWith('## ')) {
-                            return (
-                              <h3 key={idx} className="text-sm font-black text-foreground pt-2 border-b border-border/40 pb-1">
-                                {trimmed.replace(/^##\s+/, '')}
-                              </h3>
-                            );
-                          }
-                          if (trimmed.startsWith('### ')) {
-                            return (
-                              <h4 key={idx} className="text-xs font-bold text-foreground text-primary-light pt-1">
-                                {trimmed.replace(/^###\s+/, '')}
-                              </h4>
-                            );
-                          }
-                          if (trimmed.startsWith('> ')) {
-                            return (
-                              <blockquote key={idx} className="p-3 rounded-xl bg-amber-500/10 border-l-4 border-amber-400 text-amber-200 text-xs">
-                                {trimmed.replace(/^>\s+/, '')}
-                              </blockquote>
-                            );
-                          }
-                          const imgMatch = trimmed.match(/^!\[(.*?)\]\((.*?)\)$/);
-                          if (imgMatch) {
-                            return (
-                              <figure key={idx} className="my-3 text-center">
-                                <img
-                                  src={imgMatch[2]}
-                                  alt={imgMatch[1]}
-                                  className="w-full max-h-72 object-cover rounded-xl border border-border/80 shadow-md mx-auto"
-                                />
-                                {imgMatch[1] && (
-                                  <figcaption className="text-[11px] text-muted-foreground italic mt-1">
-                                    {imgMatch[1]}
-                                  </figcaption>
-                                )}
-                              </figure>
-                            );
-                          }
-                          return <p key={idx} className="text-xs text-muted-foreground leading-relaxed">{trimmed}</p>;
-                        })}
-                      </div>
-                    </div>
-                  )}
-                </div>
-              </div>
-            </div>
-
-            {/* Footer: Cố định dưới đáy */}
-            <div className="px-5 py-3.5 border-t border-border/70 shrink-0 bg-card/95 flex items-center justify-between">
-              <div className="text-[11px] text-muted-foreground hidden sm:flex items-center gap-2">
-                <span className="font-mono">/news/{editingArticle.slug || 'slug'}</span>
-                <span>•</span>
-                <span className={editingArticle.status === 'PUBLISHED' ? 'text-emerald-400 font-bold' : 'text-amber-400 font-bold'}>
-                  {editingArticle.status === 'PUBLISHED' ? 'Xuất bản công khai' : 'Lưu bản nháp'}
-                </span>
-              </div>
-
-              <div className="flex items-center gap-3 ml-auto">
                 <button
                   type="button"
-                  onClick={() => setIsEditorOpen(false)}
-                  className="px-4 py-2 rounded-xl text-xs font-semibold text-muted-foreground hover:text-foreground hover:bg-muted transition-all cursor-pointer"
+                  onClick={() => setIsAiModalOpen(false)}
+                  className="p-2 rounded-xl text-slate-400 hover:text-white hover:bg-slate-800 transition-all cursor-pointer"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+
+              {/* Step 1: Chọn Game */}
+              <div className="space-y-2">
+                <label className="text-xs font-bold text-slate-200 flex items-center gap-1.5">
+                  <Gamepad2 className="w-4 h-4 text-indigo-400" />
+                  <span>1. Chọn Tựa Game</span>
+                </label>
+                <SearchableGameSelect
+                  games={games}
+                  selectedGameSlug={aiSelectedGame?.slug || ''}
+                  onSelectGame={(g) => setAiSelectedGame(g)}
+                  placeholder="Tìm tên game tiếng Việt / tiếng Anh..."
+                />
+              </div>
+
+              {/* Step 2: Chọn Chủ Đề */}
+              <div className="space-y-2">
+                <label className="text-xs font-bold text-slate-200 flex items-center gap-1.5">
+                  <FileText className="w-4 h-4 text-indigo-400" />
+                  <span>2. Chọn Chủ Đề Bài Viết</span>
+                </label>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                  {[
+                    {
+                      id: 'codes',
+                      label: '🎁 Giftcode mới nhất & Cách nhập',
+                      desc: 'Nhúng mã quà tặng hoạt động 100% kèm hướng dẫn',
+                    },
+                    {
+                      id: 'update',
+                      label: '🚀 Cập nhật phiên bản & Máy chủ',
+                      desc: 'Thông báo update, bảo trì và sự kiện ra mắt',
+                    },
+                    {
+                      id: 'guide',
+                      label: '⚔️ Hướng dẫn tân thủ & Đội hình',
+                      desc: 'Cẩm nang cày cấp, build tướng và bí kíp',
+                    },
+                    {
+                      id: 'event',
+                      label: '🏆 Sự kiện đua TOP & Ưu đãi',
+                      desc: 'Phúc lợi sự kiện, mốc quà tặng hấp dẫn',
+                    },
+                  ].map((t) => (
+                    <button
+                      key={t.id}
+                      type="button"
+                      onClick={() => setAiTopicType(t.id as any)}
+                      className={`p-3 rounded-2xl border text-left transition-all cursor-pointer ${
+                        aiTopicType === t.id
+                          ? 'border-indigo-500 bg-indigo-500/15 shadow-sm'
+                          : 'border-slate-800 bg-slate-800/40 hover:bg-slate-800'
+                      }`}
+                    >
+                      <div className="text-xs font-bold text-white">{t.label}</div>
+                      <div className="text-[10px] text-slate-400 mt-0.5">{t.desc}</div>
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Actions */}
+              <div className="pt-4 border-t border-slate-800 flex items-center justify-end gap-3">
+                <button
+                  type="button"
+                  onClick={() => setIsAiModalOpen(false)}
+                  className="px-4 py-2 rounded-xl text-xs font-semibold text-slate-400 hover:text-white"
                 >
                   Hủy bỏ
                 </button>
                 <button
                   type="button"
-                  onClick={handleSaveArticle}
-                  className="flex items-center gap-1.5 px-6 py-2.5 rounded-xl bg-primary text-white font-black text-xs hover:bg-primary-dark transition-all shadow-md active:scale-95 cursor-pointer"
+                  disabled={isGeneratingAi || !aiSelectedGame}
+                  onClick={handleRunAiGenerator}
+                  className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-gradient-to-r from-amber-500 to-rose-500 text-white font-bold text-xs shadow-lg hover:shadow-amber-500/25 transition-all disabled:opacity-50 cursor-pointer"
                 >
-                  <Save className="w-4 h-4" />
-                  <span>Lưu & Xuất Bản</span>
+                  <Sparkles className="w-4 h-4" />
+                  <span>{isGeneratingAi ? 'Đang tạo bài...' : 'Tạo Bài Viết Ngay'}</span>
                 </button>
               </div>
             </div>
-          </div>
-        </div>
-      )}
+          </div>,
+          document.body
+        )}
+
+      {/* 6. Modal: Biên Tập / Tạo Mới Bài Viết (Portal ra document.body chống bị đè sidebar & layout 2 cột tối ưu) */}
+      {isEditorOpen &&
+        createPortal(
+          <div className="fixed inset-0 z-[9999] flex items-center justify-center p-3 sm:p-5 md:p-6 bg-black/85 backdrop-blur-md animate-fade-in">
+            {/* Hidden file inputs for auto-compression upload */}
+            <input
+              type="file"
+              ref={coverFileInputRef}
+              onChange={handleCoverFileUpload}
+              accept="image/*"
+              className="hidden"
+            />
+            <input
+              type="file"
+              ref={galleryFileInputRef}
+              onChange={handleGalleryFileUpload}
+              accept="image/*"
+              className="hidden"
+            />
+
+            <div className="relative w-full max-w-6xl h-[92vh] max-h-[890px] bg-slate-900 border border-slate-700/80 rounded-3xl shadow-2xl flex flex-col overflow-hidden text-slate-100">
+              {/* Header: Cố định trên cùng */}
+              <div className="flex items-center justify-between px-5 py-4 border-b border-slate-800 shrink-0 bg-slate-900/95">
+                <div className="flex items-center gap-3">
+                  <div className="w-9 h-9 rounded-xl bg-indigo-500/20 text-indigo-400 flex items-center justify-center font-bold">
+                    <Newspaper className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <h3 className="text-base sm:text-lg font-black text-white">
+                      {editingArticle.id ? 'Biên Tập Bài Viết' : 'Tạo Bài Viết Mới'}
+                    </h3>
+                    <p className="text-[11px] text-slate-400 hidden sm:block">
+                      Tự động nén WebP siêu nhẹ, cài đặt số lượt xem & hệ số tăng trưởng, soạn thảo markdown.
+                    </p>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setIsEditorOpen(false)}
+                  className="p-2 rounded-xl text-slate-400 hover:text-white hover:bg-slate-800 transition-all cursor-pointer"
+                  title="Đóng (Hủy bỏ)"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+
+              {/* Body: 2 Cột (Cột Trái 5 / Cột Phải 7) */}
+              <div className="flex-1 min-h-0 grid grid-cols-1 lg:grid-cols-12 overflow-hidden">
+                {/* CỘT TRÁI: Thông tin, Ảnh, Views & Cấu hình (Cuộn độc lập) */}
+                <div className="lg:col-span-5 h-full overflow-y-auto p-4 sm:p-5 space-y-4 border-b lg:border-b-0 lg:border-r border-slate-800 custom-scrollbar">
+                  {/* Tiêu đề */}
+                  <div className="space-y-1">
+                    <label className="text-xs font-bold text-slate-200">Tiêu đề bài viết *</label>
+                    <input
+                      type="text"
+                      value={editingArticle.title || ''}
+                      onChange={(e) =>
+                        setEditingArticle({ ...editingArticle, title: e.target.value })
+                      }
+                      placeholder="Ví dụ: Tổng Hợp Giftcode Delta Force Mới Nhất 2026..."
+                      className="w-full px-3.5 py-2.5 rounded-xl bg-slate-800/80 border border-slate-700 text-xs text-white outline-none focus:border-indigo-500 font-medium"
+                    />
+                  </div>
+
+                  {/* Game liên kết */}
+                  <div className="space-y-1">
+                    <label className="text-xs font-bold text-slate-200">Tựa Game liên kết</label>
+                    <SearchableGameSelect
+                      games={games}
+                      selectedGameSlug={editingArticle.game_slug || ''}
+                      onSelectGame={(g) => {
+                        setEditingArticle({
+                          ...editingArticle,
+                          game_id: g?.id,
+                          game_slug: g?.slug,
+                          game_name: g?.name,
+                        });
+                      }}
+                      placeholder="Chọn game để gắn nhãn & đồng bộ..."
+                      allowClear
+                    />
+                  </div>
+
+                  {/* URL Slug */}
+                  <div className="space-y-1">
+                    <label className="text-xs font-bold text-slate-200">URL Slug</label>
+                    <input
+                      type="text"
+                      value={editingArticle.slug || ''}
+                      onChange={(e) =>
+                        setEditingArticle({ ...editingArticle, slug: e.target.value })
+                      }
+                      placeholder="delta-force-giftcode-2026"
+                      className="w-full px-3 py-2 rounded-xl bg-slate-800/80 border border-slate-700 text-xs text-white font-mono outline-none focus:border-indigo-500"
+                    />
+                  </div>
+
+                  {/* Ảnh bìa chính (Cover URL) kèm nút Nén tự động */}
+                  <div className="p-3.5 rounded-2xl bg-slate-800/50 border border-slate-700/80 space-y-2.5">
+                    <div className="flex items-center justify-between">
+                      <label className="text-xs font-bold text-slate-200 flex items-center gap-1.5">
+                        <Image className="w-4 h-4 text-indigo-400" />
+                        <span>Ảnh bìa chính (Cover Banner)</span>
+                      </label>
+                      <button
+                        type="button"
+                        disabled={isCompressingCover}
+                        onClick={() => coverFileInputRef.current?.click()}
+                        className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-indigo-600/20 text-indigo-300 border border-indigo-500/30 hover:bg-indigo-600/30 text-[11px] font-bold cursor-pointer disabled:opacity-50 transition-all"
+                        title="Chọn ảnh từ máy tính (Tự động nén WebP siêu nhẹ)"
+                      >
+                        <Upload className="w-3 h-3" />
+                        <span>{isCompressingCover ? 'Đang nén...' : '📁 Tải ảnh từ máy'}</span>
+                      </button>
+                    </div>
+
+                    <div className="flex gap-2 items-center">
+                      <input
+                        type="text"
+                        value={editingArticle.cover_url || ''}
+                        onChange={(e) =>
+                          setEditingArticle({
+                            ...editingArticle,
+                            cover_url: optimizeImageUrl(e.target.value, 1200),
+                          })
+                        }
+                        placeholder="https://... hoặc tải ảnh từ máy tính"
+                        className="flex-1 px-3 py-2 rounded-xl bg-slate-900 border border-slate-700 text-xs text-white outline-none focus:border-indigo-500 font-mono"
+                      />
+                      {editingArticle.cover_url && (
+                        <div className="relative w-12 h-9 rounded-lg overflow-hidden border border-slate-600 shrink-0 bg-black/40">
+                          <img
+                            src={editingArticle.cover_url}
+                            alt="Cover"
+                            className="w-full h-full object-cover"
+                            onError={(e) => {
+                              (e.target as HTMLImageElement).style.display = 'none';
+                            }}
+                          />
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* THƯ VIỆN HÌNH ẢNH (Ảnh Minh Họa / Phụ) KÈM NÉN TỰ ĐỘNG */}
+                  <div className="p-3.5 rounded-2xl bg-slate-800/50 border border-slate-700/80 space-y-3">
+                    <div className="flex items-center justify-between">
+                      <label className="text-xs font-bold text-slate-200 flex items-center gap-1.5">
+                        <ImageIcon className="w-4 h-4 text-emerald-400" />
+                        <span>Thư Viện Ảnh Bổ Sung ({editingArticle.gallery_urls?.length || 0})</span>
+                      </label>
+                      <button
+                        type="button"
+                        disabled={isCompressingGallery}
+                        onClick={() => galleryFileInputRef.current?.click()}
+                        className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 hover:bg-emerald-500/30 text-[11px] font-bold cursor-pointer disabled:opacity-50 transition-all"
+                        title="Tải ảnh từ máy (Tự động nén WebP giảm 90% dung lượng)"
+                      >
+                        <Upload className="w-3 h-3" />
+                        <span>{isCompressingGallery ? 'Đang nén...' : '📁 Tải ảnh & Nén'}</span>
+                      </button>
+                    </div>
+
+                    <div className="flex gap-2">
+                      <input
+                        type="text"
+                        value={galleryInputValue}
+                        onChange={(e) => setGalleryInputValue(e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') {
+                            e.preventDefault();
+                            handleAddGalleryImage();
+                          }
+                        }}
+                        placeholder="Dán link ảnh (https://...)..."
+                        className="flex-1 px-3 py-2 rounded-xl bg-slate-900 border border-slate-700 text-xs text-white outline-none focus:border-emerald-500"
+                      />
+                      <button
+                        type="button"
+                        onClick={handleAddGalleryImage}
+                        className="px-3 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs transition-all cursor-pointer whitespace-nowrap"
+                      >
+                        + Thêm Link
+                      </button>
+                    </div>
+
+                    {/* Danh sách ảnh trong Gallery */}
+                    {editingArticle.gallery_urls && editingArticle.gallery_urls.length > 0 ? (
+                      <div className="grid grid-cols-2 gap-2 pt-1 max-h-56 overflow-y-auto pr-1 custom-scrollbar">
+                        {editingArticle.gallery_urls.map((imgUrl, idx) => (
+                          <div
+                            key={idx}
+                            className="relative group rounded-xl overflow-hidden border border-slate-700 bg-slate-900 p-1.5 flex flex-col gap-1.5 shadow-sm"
+                          >
+                            <div className="aspect-video w-full rounded-lg overflow-hidden bg-black/40">
+                              <img
+                                src={imgUrl}
+                                alt={`Gallery ${idx + 1}`}
+                                className="w-full h-full object-cover"
+                                loading="lazy"
+                                onError={(e) => {
+                                  (e.target as HTMLImageElement).src =
+                                    'https://images.unsplash.com/photo-1542751371-adc38448a05e?auto=format&fit=crop&w=300&q=80';
+                                }}
+                              />
+                            </div>
+                            <div className="flex items-center justify-between gap-1">
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  handleInsertGalleryImageIntoText(imgUrl, `Ảnh minh họa ${idx + 1}`)
+                                }
+                                className="flex-1 px-1.5 py-1 rounded-md bg-indigo-500/20 hover:bg-indigo-600 text-indigo-300 hover:text-white font-bold text-[10px] transition-all cursor-pointer truncate"
+                                title="Chèn ảnh này vào vị trí con trỏ trong bài viết"
+                              >
+                                📥 Chèn vào bài
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => handleSetGalleryAsCover(imgUrl)}
+                                className="px-1.5 py-1 rounded-md bg-amber-500/20 hover:bg-amber-600 text-amber-300 hover:text-white font-bold text-[10px] transition-all cursor-pointer"
+                                title="Đặt ảnh này làm ảnh bìa chính"
+                              >
+                                Làm bìa
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => handleRemoveGalleryImage(imgUrl)}
+                                className="p-1 rounded-md text-slate-400 hover:text-rose-400 hover:bg-rose-500/20 transition-all cursor-pointer"
+                                title="Xóa ảnh khỏi thư viện"
+                              >
+                                <Trash2 className="w-3.5 h-3.5" />
+                              </button>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <p className="text-[11px] text-slate-400 italic">
+                        Chưa có ảnh phụ nào. Bấm <b>📁 Tải ảnh & Nén</b> từ máy tính hoặc dán link ảnh để độc giả chiêm ngưỡng.
+                      </p>
+                    )}
+                  </div>
+
+                  {/* CÀI ĐẶT LƯỢT XEM & TĂNG TRƯỞNG */}
+                  <div className="p-3.5 rounded-2xl bg-indigo-950/40 border border-indigo-700/50 space-y-3">
+                    <div className="flex items-center justify-between">
+                      <label className="text-xs font-bold text-indigo-300 flex items-center gap-1.5">
+                        <TrendingUp className="w-4 h-4 text-indigo-400" />
+                        <span>Cài Đặt Lượt Xem & Tăng Trưởng</span>
+                      </label>
+                      <span className="text-[10px] px-2 py-0.5 rounded-full bg-indigo-500/20 text-indigo-300 font-mono font-bold">
+                        ~{newsService.getDisplayViews(editingArticle)} views hiện tại
+                      </span>
+                    </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      <div className="space-y-1">
+                        <label className="text-[11px] font-semibold text-slate-300 flex items-center gap-1">
+                          <Eye className="w-3 h-3 text-slate-400" />
+                          <span>Lượt xem ban đầu (Cơ sở)</span>
+                        </label>
+                        <input
+                          type="number"
+                          min={0}
+                          step={10}
+                          value={
+                            editingArticle.virtual_views !== undefined
+                              ? editingArticle.virtual_views
+                              : 120
+                          }
+                          onChange={(e) =>
+                            setEditingArticle({
+                              ...editingArticle,
+                              virtual_views: Math.max(0, Number(e.target.value) || 0),
+                            })
+                          }
+                          placeholder="Ví dụ: 150"
+                          className="w-full px-3 py-2 rounded-xl bg-slate-900 border border-slate-700 text-xs font-mono font-bold text-white outline-none focus:border-indigo-400"
+                        />
+                      </div>
+
+                      <div className="space-y-1">
+                        <label className="text-[11px] font-semibold text-slate-300 flex items-center gap-1">
+                          <TrendingUp className="w-3 h-3 text-slate-400" />
+                          <span>Hệ số tăng trưởng / giờ</span>
+                        </label>
+                        <select
+                          value={
+                            editingArticle.views_growth_rate !== undefined
+                              ? editingArticle.views_growth_rate
+                              : 1.0
+                          }
+                          onChange={(e) =>
+                            setEditingArticle({
+                              ...editingArticle,
+                              views_growth_rate: Number(e.target.value),
+                            })
+                          }
+                          className="w-full px-3 py-2 rounded-xl bg-slate-900 border border-slate-700 text-xs font-bold text-white outline-none focus:border-indigo-400"
+                        >
+                          <option value={0}>0x (Tắt tự tăng)</option>
+                          <option value={0.5}>0.5x (Chậm ~3 lượt/giờ)</option>
+                          <option value={1.0}>1.0x (Chuẩn ~6 lượt/giờ)</option>
+                          <option value={1.5}>1.5x (Khá nhanh ~9 lượt/giờ)</option>
+                          <option value={2.0}>2.0x (Nhanh ~12 lượt/giờ)</option>
+                          <option value={3.0}>3.0x (Rất nhanh ~18 lượt/giờ)</option>
+                        </select>
+                      </div>
+                    </div>
+                    <p className="text-[10px] text-slate-400">
+                      💡 Lượt xem tự động tăng theo thời gian trôi qua, hoàn toàn tự nhiên và không gây lag web.
+                    </p>
+                  </div>
+
+                  {/* Tóm tắt ngắn (Excerpt) */}
+                  <div className="space-y-1">
+                    <label className="text-xs font-bold text-slate-200">Tóm tắt ngắn (Excerpt)</label>
+                    <textarea
+                      rows={2}
+                      value={editingArticle.excerpt || ''}
+                      onChange={(e) =>
+                        setEditingArticle({ ...editingArticle, excerpt: e.target.value })
+                      }
+                      placeholder="Mô tả ngắn hiển thị trên thẻ bài viết và meta SEO..."
+                      className="w-full px-3.5 py-2 rounded-xl bg-slate-800/80 border border-slate-700 text-xs text-white outline-none focus:border-indigo-500 resize-none"
+                    />
+                  </div>
+
+                  {/* Danh sách Giftcode đính kèm */}
+                  <div className="space-y-2 p-3.5 rounded-2xl bg-amber-500/10 border border-amber-500/25">
+                    <label className="text-xs font-bold text-amber-300 flex items-center justify-between">
+                      <span className="flex items-center gap-1.5">
+                        <Gift className="w-4 h-4 text-amber-400" />
+                        <span>Giftcode đính kèm</span>
+                      </span>
+                      <span className="text-[10px] text-slate-400">Copy 1 chạm</span>
+                    </label>
+
+                    <div className="flex gap-2">
+                      <input
+                        type="text"
+                        value={codeInputValue}
+                        onChange={(e) => setCodeInputValue(e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') {
+                            e.preventDefault();
+                            handleAddCodeToArticle();
+                          }
+                        }}
+                        placeholder="Nhập mã code (Ví dụ: DELTA2026)..."
+                        className="flex-1 px-3 py-2 rounded-xl bg-slate-900 border border-slate-700 text-xs font-mono uppercase text-white outline-none focus:border-amber-400"
+                      />
+                      <button
+                        type="button"
+                        onClick={handleAddCodeToArticle}
+                        className="px-3 py-2 rounded-xl bg-amber-500 text-black font-bold text-xs hover:bg-amber-400 transition-all cursor-pointer whitespace-nowrap"
+                      >
+                        Thêm Code
+                      </button>
+                    </div>
+
+                    {editingArticle.codes && editingArticle.codes.length > 0 && (
+                      <div className="flex flex-wrap gap-1.5 pt-1">
+                        {editingArticle.codes.map((c) => (
+                          <span
+                            key={c}
+                            className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-slate-900 border border-amber-500/40 font-mono font-bold text-[11px] text-amber-300"
+                          >
+                            {c}
+                            <button
+                              type="button"
+                              onClick={() => handleRemoveCodeFromArticle(c)}
+                              className="text-slate-400 hover:text-rose-400 cursor-pointer"
+                            >
+                              <X className="w-3 h-3" />
+                            </button>
+                          </span>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Tags & Thời gian đọc */}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div className="space-y-1">
+                      <label className="text-xs font-bold text-slate-200">Tags (phẩy)</label>
+                      <input
+                        type="text"
+                        value={tagInputValue}
+                        onChange={(e) => setTagInputValue(e.target.value)}
+                        placeholder="Giftcode, HuongDan..."
+                        className="w-full px-3 py-2 rounded-xl bg-slate-800/80 border border-slate-700 text-xs text-white outline-none focus:border-indigo-500"
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <label className="text-xs font-bold text-slate-200">Thời gian đọc (phút)</label>
+                      <input
+                        type="number"
+                        min={1}
+                        max={60}
+                        value={editingArticle.read_time_minutes || 3}
+                        onChange={(e) =>
+                          setEditingArticle({
+                            ...editingArticle,
+                            read_time_minutes: Number(e.target.value) || 3,
+                          })
+                        }
+                        className="w-full px-3 py-2 rounded-xl bg-slate-800/80 border border-slate-700 text-xs text-white outline-none focus:border-indigo-500"
+                      />
+                    </div>
+                  </div>
+
+                  {/* Trạng thái & Ghim */}
+                  <div className="flex flex-wrap items-center gap-3 p-3 rounded-2xl bg-slate-800/50 border border-slate-700/60">
+                    <label className="flex items-center gap-2 cursor-pointer text-xs font-semibold text-slate-200">
+                      <input
+                        type="checkbox"
+                        checked={editingArticle.is_featured || false}
+                        onChange={(e) =>
+                          setEditingArticle({
+                            ...editingArticle,
+                            is_featured: e.target.checked,
+                          })
+                        }
+                        className="rounded text-indigo-500 focus:ring-indigo-500"
+                      />
+                      <span>Ghim Tiêu Điểm</span>
+                    </label>
+
+                    <label className="flex items-center gap-2 cursor-pointer text-xs font-semibold text-slate-200">
+                      <input
+                        type="checkbox"
+                        checked={editingArticle.is_hot || false}
+                        onChange={(e) =>
+                          setEditingArticle({ ...editingArticle, is_hot: e.target.checked })
+                        }
+                        className="rounded text-rose-500 focus:ring-rose-500"
+                      />
+                      <span>HOT</span>
+                    </label>
+
+                    <div className="ml-auto flex items-center gap-2">
+                      <select
+                        value={editingArticle.status || 'PUBLISHED'}
+                        onChange={(e) =>
+                          setEditingArticle({
+                            ...editingArticle,
+                            status: e.target.value as 'PUBLISHED' | 'DRAFT',
+                          })
+                        }
+                        className="px-2.5 py-1 rounded-lg bg-slate-900 border border-slate-700 text-xs font-bold text-white outline-none cursor-pointer"
+                      >
+                        <option value="PUBLISHED">Xuất bản</option>
+                        <option value="DRAFT">Bản nháp</option>
+                      </select>
+                    </div>
+                  </div>
+                </div>
+
+                {/* CỘT PHẢI: Khung Soạn Thảo & Xem Trước Live Preview */}
+                <div className="lg:col-span-7 h-full flex flex-col p-4 sm:p-5 min-h-0 bg-slate-950/40">
+                  {/* Header Cột Phải & Toolbar */}
+                  <div className="flex flex-wrap items-center justify-between gap-2 pb-3 border-b border-slate-800 shrink-0">
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs font-black text-white uppercase tracking-wider">
+                        Nội Dung Bài Viết
+                      </span>
+                      <span className="text-[11px] text-slate-400 font-mono">
+                        ({editingArticle.content?.length || 0} ký tự)
+                      </span>
+                    </div>
+
+                    {/* Tab Switch: Soạn Thảo vs Xem Trước */}
+                    <div className="inline-flex p-1 rounded-xl bg-slate-800 border border-slate-700 shadow-inner">
+                      <button
+                        type="button"
+                        onClick={() => setActiveEditorTab('edit')}
+                        className={`px-3 py-1 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                          activeEditorTab === 'edit'
+                            ? 'bg-indigo-600 text-white shadow-sm'
+                            : 'text-slate-400 hover:text-white'
+                        }`}
+                      >
+                        ✏️ Soạn Thảo
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setActiveEditorTab('preview')}
+                        className={`px-3 py-1 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                          activeEditorTab === 'preview'
+                            ? 'bg-indigo-600 text-white shadow-sm'
+                            : 'text-slate-400 hover:text-white'
+                        }`}
+                      >
+                        👁️ Xem Trước
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Toolbar các nút định dạng nhanh khi ở Tab Soạn Thảo */}
+                  {activeEditorTab === 'edit' && (
+                    <div className="flex flex-wrap items-center gap-1.5 py-2.5 shrink-0">
+                      <button
+                        type="button"
+                        onClick={() => handleToolbarAction('bold')}
+                        className="px-2.5 py-1 rounded-lg bg-slate-800 border border-slate-700 hover:bg-slate-700 text-slate-200 text-xs font-bold flex items-center gap-1 cursor-pointer"
+                        title="In đậm chữ (**text**)"
+                      >
+                        <Bold className="w-3.5 h-3.5" />
+                        <span>Đậm</span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleToolbarAction('h2')}
+                        className="px-2.5 py-1 rounded-lg bg-slate-800 border border-slate-700 hover:bg-slate-700 text-slate-200 text-xs font-bold flex items-center gap-1 cursor-pointer"
+                        title="Tiêu đề mục lớn (## Title)"
+                      >
+                        <Heading2 className="w-3.5 h-3.5" />
+                        <span>H2</span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleToolbarAction('h3')}
+                        className="px-2.5 py-1 rounded-lg bg-slate-800 border border-slate-700 hover:bg-slate-700 text-slate-200 text-xs font-bold flex items-center gap-1 cursor-pointer"
+                        title="Tiêu đề mục nhỏ (### Subtitle)"
+                      >
+                        <Heading3 className="w-3.5 h-3.5" />
+                        <span>H3</span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleToolbarAction('list')}
+                        className="px-2.5 py-1 rounded-lg bg-slate-800 border border-slate-700 hover:bg-slate-700 text-slate-200 text-xs font-bold flex items-center gap-1 cursor-pointer"
+                        title="Danh sách gạch đầu dòng (- Item)"
+                      >
+                        <List className="w-3.5 h-3.5" />
+                        <span>Danh sách</span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleToolbarAction('quote')}
+                        className="px-2.5 py-1 rounded-lg bg-slate-800 border border-slate-700 hover:bg-slate-700 text-slate-200 text-xs font-bold flex items-center gap-1 cursor-pointer"
+                        title="Hộp lưu ý/mẹo (> 💡 Tip)"
+                      >
+                        <Quote className="w-3.5 h-3.5" />
+                        <span>Lưu ý</span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleToolbarAction('image')}
+                        className="px-2.5 py-1 rounded-lg bg-indigo-500/20 border border-indigo-500/40 hover:bg-indigo-500/30 text-indigo-300 text-xs font-bold flex items-center gap-1 cursor-pointer ml-auto"
+                        title="Chèn ảnh theo link (![Alt](URL))"
+                      >
+                        <Image className="w-3.5 h-3.5" />
+                        <span>🖼️ Chèn link ảnh</span>
+                      </button>
+                    </div>
+                  )}
+
+                  {/* Khu Vực Soạn Thảo hoặc Live Preview */}
+                  <div className="flex-1 min-h-0 relative flex flex-col pt-1">
+                    {activeEditorTab === 'edit' ? (
+                      <div className="flex-1 min-h-0 flex flex-col">
+                        <textarea
+                          ref={contentTextareaRef}
+                          value={editingArticle.content || ''}
+                          onChange={(e) =>
+                            setEditingArticle({ ...editingArticle, content: e.target.value })
+                          }
+                          placeholder="## 1. Giới thiệu tổng quan...&#10;&#10;Dán nội dung hoặc chọn ảnh từ cột trái bấm '📥 Chèn vào bài' để đặt ảnh giữa bài viết..."
+                          className="flex-1 min-h-[300px] w-full p-4 rounded-2xl bg-slate-900 border border-slate-700 text-xs text-slate-100 font-mono leading-relaxed outline-none focus:border-indigo-500 resize-none overflow-y-auto"
+                        />
+                        <div className="pt-2 text-[11px] text-slate-400 flex items-center justify-between">
+                          <span>
+                            💡 Để chèn ảnh giữa các đoạn: Bấm <b>📥 Chèn vào bài</b> ở cột trái hoặc dùng nút <b>🖼️ Chèn link ảnh</b>.
+                          </span>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="flex-1 min-h-[300px] w-full p-5 rounded-2xl bg-slate-900 border border-slate-700 overflow-y-auto space-y-3.5 text-xs text-slate-200 leading-relaxed custom-scrollbar">
+                        {editingArticle.cover_url && (
+                          <div className="mb-4 rounded-2xl overflow-hidden border border-slate-700 bg-black/40">
+                            <img
+                              src={editingArticle.cover_url}
+                              alt="Cover"
+                              className="w-full max-h-56 object-cover"
+                              loading="lazy"
+                            />
+                          </div>
+                        )}
+                        <h2 className="text-base sm:text-lg font-black text-white">
+                          {editingArticle.title || 'Chưa có tiêu đề'}
+                        </h2>
+                        {editingArticle.excerpt && (
+                          <p className="text-xs text-slate-400 italic border-l-2 border-indigo-500 pl-3 py-1 bg-slate-800/40 rounded-r-lg">
+                            {editingArticle.excerpt}
+                          </p>
+                        )}
+                        <div className="space-y-3 pt-2">
+                          {(editingArticle.content || 'Chưa có nội dung...').split('\n\n').map((block, idx) => {
+                            const trimmed = block.trim();
+                            if (!trimmed) return null;
+                            if (trimmed.startsWith('## ')) {
+                              return (
+                                <h3
+                                  key={idx}
+                                  className="text-sm font-black text-white pt-2 border-b border-slate-800 pb-1"
+                                >
+                                  {trimmed.replace(/^##\s+/, '')}
+                                </h3>
+                              );
+                            }
+                            if (trimmed.startsWith('### ')) {
+                              return (
+                                <h4
+                                  key={idx}
+                                  className="text-xs font-bold text-indigo-400 pt-1"
+                                >
+                                  {trimmed.replace(/^###\s+/, '')}
+                                </h4>
+                              );
+                            }
+                            if (trimmed.startsWith('> ')) {
+                              return (
+                                <blockquote
+                                  key={idx}
+                                  className="p-3 rounded-xl bg-amber-500/10 border-l-4 border-amber-400 text-amber-200 text-xs"
+                                >
+                                  {trimmed.replace(/^>\s+/, '')}
+                                </blockquote>
+                              );
+                            }
+                            const imgMatch = trimmed.match(/^!\[(.*?)\]\((.*?)\)$/);
+                            if (imgMatch) {
+                              return (
+                                <figure key={idx} className="my-3 text-center">
+                                  <img
+                                    src={imgMatch[2]}
+                                    alt={imgMatch[1]}
+                                    className="w-full max-h-72 object-cover rounded-xl border border-slate-700 shadow-md mx-auto"
+                                    loading="lazy"
+                                  />
+                                  {imgMatch[1] && (
+                                    <figcaption className="text-[11px] text-slate-400 italic mt-1">
+                                      {imgMatch[1]}
+                                    </figcaption>
+                                  )}
+                                </figure>
+                              );
+                            }
+                            return (
+                              <p key={idx} className="text-xs text-slate-300 leading-relaxed">
+                                {trimmed}
+                              </p>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              {/* Footer: Cố định dưới đáy */}
+              <div className="px-5 py-3.5 border-t border-slate-800 shrink-0 bg-slate-900/95 flex items-center justify-between">
+                <div className="text-[11px] text-slate-400 hidden sm:flex items-center gap-2">
+                  <span className="font-mono">/news/{editingArticle.slug || 'slug'}</span>
+                  <span>•</span>
+                  <span
+                    className={
+                      editingArticle.status === 'PUBLISHED'
+                        ? 'text-emerald-400 font-bold'
+                        : 'text-amber-400 font-bold'
+                    }
+                  >
+                    {editingArticle.status === 'PUBLISHED' ? 'Xuất bản công khai' : 'Lưu bản nháp'}
+                  </span>
+                </div>
+
+                <div className="flex items-center gap-3 ml-auto">
+                  <button
+                    type="button"
+                    onClick={() => setIsEditorOpen(false)}
+                    className="px-4 py-2 rounded-xl text-xs font-semibold text-slate-400 hover:text-white hover:bg-slate-800 transition-all cursor-pointer"
+                  >
+                    Hủy bỏ
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleSaveArticle}
+                    className="flex items-center gap-1.5 px-6 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-black text-xs transition-all shadow-md active:scale-95 cursor-pointer"
+                  >
+                    <Save className="w-4 h-4" />
+                    <span>Lưu & Xuất Bản</span>
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>,
+          document.body
+        )}
     </div>
   );
 };
