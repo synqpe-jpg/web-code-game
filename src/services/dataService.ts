@@ -12,7 +12,7 @@ import type {
   UtilityCategory,
   StoreCategory,
 } from '../types/game';
-import { smartVietnameseMatch } from '../utils/textUtils';
+import { smartVietnameseMatch, calculateGameSearchScore } from '../utils/textUtils';
 
 import { DEFAULT_STORE_PRODUCTS, DEFAULT_UTILITY_PRODUCTS, DEFAULT_GIVEAWAYS } from '../data/seedData';
 import { marketingService } from './marketingService';
@@ -1115,18 +1115,23 @@ class DataService {
 
     let list = this.games;
 
-    // 1. Smart Vietnamese Non-accent / Diacritic Search + Fuse.js
+    // 1. Smart Vietnamese Non-accent / Diacritic Search + Relevance Engine + Fuse.js
+    const searchScores = new Map<string, number>();
     if (filter.search.trim()) {
       const q = filter.search.trim();
-      const exactFiltered = list.filter((g) => {
-        return smartVietnameseMatch(
-          [g.name, g.publisher, g.slug, g.category, g.description, g.so_giay_phep],
-          q
-        );
-      });
+      const scored = list
+        .map((g) => {
+          const scoreRes = calculateGameSearchScore(g, q);
+          if (scoreRes.score > 0) {
+            searchScores.set(g.slug, scoreRes.score);
+          }
+          return { game: g, score: scoreRes.score };
+        })
+        .filter((item) => item.score > 0)
+        .sort((a, b) => b.score - a.score);
 
-      if (exactFiltered.length > 0) {
-        list = exactFiltered;
+      if (scored.length > 0) {
+        list = scored.map((item) => item.game);
       } else if (this.fuseInstance) {
         const searchResults = this.fuseInstance.search(q);
         list = searchResults.map((r) => r.item);
@@ -1150,17 +1155,28 @@ class DataService {
       list = list.filter((g) => bookmarkedSet.has(g.id) || bookmarkedSet.has(g.slug));
     }
 
-    // 4. Sorting
-    list = [...list].sort((a, b) => {
-      let valA: number | string = 0;
-      let valB: number | string = 0;
+    // 4. Sorting (If searching, keep high-relevance rank first unless explicit non-updated sort was requested)
+    if (filter.search.trim() && searchScores.size > 0 && filter.sortBy === 'updated') {
+      list = [...list].sort((a, b) => {
+        const sA = searchScores.get(a.slug) || 0;
+        const sB = searchScores.get(b.slug) || 0;
+        if (sB !== sA) return sB - sA;
+        const codesA = a.codes_count || 0;
+        const codesB = b.codes_count || 0;
+        if (codesB !== codesA) return codesB - codesA;
+        return a.name.localeCompare(b.name);
+      });
+    } else {
+      list = [...list].sort((a, b) => {
+        let valA: number | string = 0;
+        let valB: number | string = 0;
 
-      if (filter.sortBy === 'updated') {
-        const dateA = a.codes?.[0]?.added_at || a.release_date || '1970-01-01';
-        const dateB = b.codes?.[0]?.added_at || b.release_date || '1970-01-01';
-        valA = dateA;
-        valB = dateB;
-      } else if (filter.sortBy === 'popular') {
+        if (filter.sortBy === 'updated') {
+          const dateA = a.codes?.[0]?.added_at || a.release_date || '1970-01-01';
+          const dateB = b.codes?.[0]?.added_at || b.release_date || '1970-01-01';
+          valA = dateA;
+          valB = dateB;
+        } else if (filter.sortBy === 'popular') {
         const scoreA =
           (a.is_hot ? 1000 : 0) +
           (a.is_featured ? 500 : 0) +
@@ -1198,6 +1214,7 @@ class DataService {
       }
       return valA > valB ? 1 : valA < valB ? -1 : 0;
     });
+    }
 
     const total = list.length;
     const totalPages = Math.max(1, Math.ceil(total / pageSize));

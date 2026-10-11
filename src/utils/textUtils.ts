@@ -54,8 +54,270 @@ export const GAME_ACRONYM_MAP: Record<string, string[]> = {
   zzz: ['zenless zone zero'],
   ww: ['wuthering waves'],
   mc: ['minecraft'],
-  roblox: ['roblox'],
+  roblox: ['roblox', 'roblox viet nam', 'roblox vng'],
+  bf: ['blox fruits', 'roblox blox fruits'],
+  blox: ['blox fruits', 'roblox blox fruits', 'roblox'],
+  dldl: ['dau la dai luc', 'dau la dai luc hon su doi quyet', 'dau la vng'],
+  dla: ['dau la dai luc'],
+  bb: ['blade ball'],
+  kl: ['king legacy'],
+  afk: ['afk journey', 'afk arena'],
+  slg: ['chien thuat'],
+  tcg: ['the bai'],
+  vng: ['vnggames', 'vng'],
+  gosu: ['truc tuyen gosu', 'gosu'],
+  soha: ['sohagame', 'soha'],
+  funtap: ['funtap'],
+  gamota: ['gamota'],
+  vtc: ['vtc game', 'vtc mobile'],
+  garena: ['garena'],
 };
+
+export interface GameSearchScoreResult {
+  score: number;
+  matchType:
+    | 'exact_name'
+    | 'name_prefix'
+    | 'name_word'
+    | 'name_sub'
+    | 'exact_slug'
+    | 'slug_match'
+    | 'acronym'
+    | 'publisher'
+    | 'category'
+    | 'description'
+    | 'none';
+  matchDetail?: string;
+}
+
+/**
+ * Intelligent game search scoring & relevance engine:
+ * Ranks games so that direct name matches appear first, followed by prefixes,
+ * acronyms, word-matches, publisher matches, and lastly category/description matches.
+ */
+export function calculateGameSearchScore(
+  game: {
+    name?: string;
+    slug?: string;
+    publisher?: string;
+    category?: string;
+    description?: string;
+    is_hot?: boolean;
+    is_featured?: boolean;
+    codes_count?: number;
+  },
+  searchQuery: string
+): GameSearchScoreResult {
+  if (!searchQuery || !searchQuery.trim()) {
+    return { score: 0, matchType: 'none' };
+  }
+
+  const rawQuery = searchQuery.trim().toLowerCase();
+  const queryNorm = normalizeVietnamese(rawQuery);
+  const queryCompact = queryNorm.replace(/\s+/g, '');
+  if (!queryNorm && !queryCompact) return { score: 0, matchType: 'none' };
+
+  const nameRaw = (game.name || '').trim().toLowerCase();
+  const nameNorm = normalizeVietnamese(game.name || '');
+  const nameCompact = nameNorm.replace(/\s+/g, '');
+
+  const slugRaw = (game.slug || '').trim().toLowerCase();
+  const slugNorm = normalizeVietnamese(slugRaw);
+
+  const publisherRaw = (game.publisher || '').trim().toLowerCase();
+  const publisherNorm = normalizeVietnamese(game.publisher || '');
+
+  const categoryRaw = (game.category || '').trim().toLowerCase();
+  const categoryNorm = normalizeVietnamese(game.category || '');
+
+  let score = 0;
+  let matchType: GameSearchScoreResult['matchType'] = 'none';
+  let matchDetail = '';
+
+  // 1. Exact match with game name (Raw or Normalized)
+  if (nameRaw === rawQuery || nameNorm === queryNorm || nameCompact === queryCompact) {
+    score = 10000;
+    matchType = 'exact_name';
+  }
+  // 2. Exact match with slug
+  else if (slugRaw === rawQuery || slugNorm === queryNorm) {
+    score = 9000;
+    matchType = 'exact_slug';
+  }
+  // 3. Name starts with query (Prefix)
+  else if (nameNorm.startsWith(queryNorm) || nameRaw.startsWith(rawQuery) || nameCompact.startsWith(queryCompact)) {
+    score = 8000;
+    matchType = 'name_prefix';
+  }
+  // 4. Gaming Acronym / Abbreviation Match (e.g. "lq", "vltk", "bf", "dldl", "ff", "hsr")
+  else if (queryCompact.length >= 2 && queryCompact.length <= 6) {
+    const mapped = GAME_ACRONYM_MAP[queryCompact];
+    if (mapped) {
+      for (const phrase of mapped) {
+        const normPhrase = normalizeVietnamese(phrase);
+        if (nameNorm.includes(normPhrase) || slugNorm.includes(normPhrase)) {
+          score = 7500;
+          matchType = 'acronym';
+          break;
+        }
+      }
+    }
+  }
+
+  // 5. Word boundary match in name (a distinct word in the title starts with or equals query)
+  if (score === 0) {
+    const words = nameNorm.split(/[\s\-:_]+/).filter(Boolean);
+    const rawWords = nameRaw.split(/[\s\-:_]+/).filter(Boolean);
+    if (words.some((w) => w === queryNorm) || rawWords.some((w) => w === rawQuery)) {
+      score = 7000;
+      matchType = 'name_word';
+    } else if (words.some((w) => w.startsWith(queryNorm)) || rawWords.some((w) => w.startsWith(rawQuery))) {
+      score = 6500;
+      matchType = 'name_word';
+    }
+  }
+
+  // 6. Name contains query substring
+  if (score === 0) {
+    if (queryNorm.length >= 3 && (nameNorm.includes(queryNorm) || nameRaw.includes(rawQuery) || nameCompact.includes(queryCompact))) {
+      score = 5500;
+      matchType = 'name_sub';
+    } else if (queryNorm.length < 3 && (nameNorm.includes(` ${queryNorm}`) || nameRaw.includes(` ${rawQuery}`))) {
+      // Short queries only match after a space to avoid false positives (e.g. "ff" in "Offline")
+      score = 5000;
+      matchType = 'name_sub';
+    }
+  }
+
+  // 7. Slug starts with or contains query
+  if (score === 0) {
+    if (slugNorm.startsWith(queryNorm) || slugRaw.startsWith(rawQuery)) {
+      score = 4800;
+      matchType = 'slug_match';
+    } else if (slugNorm.includes(queryNorm) || slugRaw.includes(rawQuery)) {
+      score = 4200;
+      matchType = 'slug_match';
+    }
+  }
+
+  // 8. Initials of words in name match query (e.g. "vltkm", "dldl")
+  if (score === 0 && queryCompact.length >= 2 && queryCompact.length <= 6) {
+    const initials = nameNorm.split(' ').filter(Boolean).map((w) => w[0]).join('');
+    if (initials === queryCompact) {
+      score = 4000;
+      matchType = 'acronym';
+    } else if (initials.includes(queryCompact)) {
+      score = 3500;
+      matchType = 'acronym';
+    }
+  }
+
+  // 9. Multi-token match: all typed words present in name/slug
+  if (score === 0) {
+    const tokens = queryNorm.split(' ').filter(Boolean);
+    if (tokens.length > 1) {
+      const allText = `${nameNorm} ${slugNorm}`;
+      if (tokens.every((tok) => allText.includes(tok))) {
+        score = 5200;
+        matchType = 'name_sub';
+      }
+    }
+  }
+
+  // 10. Publisher match
+  if (score === 0) {
+    if (publisherRaw === rawQuery || publisherNorm === queryNorm) {
+      score = 2500;
+      matchType = 'publisher';
+      matchDetail = `NPH: ${game.publisher}`;
+    } else if (publisherNorm.startsWith(queryNorm) || publisherRaw.startsWith(rawQuery)) {
+      score = 2000;
+      matchType = 'publisher';
+      matchDetail = `NPH: ${game.publisher}`;
+    } else if (publisherNorm.includes(queryNorm) || publisherRaw.includes(rawQuery)) {
+      score = 1500;
+      matchType = 'publisher';
+      matchDetail = `NPH: ${game.publisher}`;
+    }
+  }
+
+  // 11. Category match (e.g. "Roblox / Mini Game")
+  if (score === 0) {
+    if (categoryRaw === rawQuery || categoryNorm === queryNorm) {
+      score = 1000;
+      matchType = 'category';
+      matchDetail = `Thể loại: ${game.category}`;
+    } else if (categoryNorm.includes(queryNorm) || categoryRaw.includes(rawQuery)) {
+      score = 800;
+      matchType = 'category';
+      matchDetail = `Thể loại: ${game.category}`;
+    }
+  }
+
+  // 12. Description match
+  if (score === 0 && game.description) {
+    const descNorm = normalizeVietnamese(game.description);
+    if (descNorm.includes(queryNorm)) {
+      score = 400;
+      matchType = 'description';
+      matchDetail = 'Khớp trong mô tả';
+    }
+  }
+
+  // Quality bonuses
+  if (score > 0) {
+    if (game.is_hot) score += 30;
+    if (game.is_featured) score += 20;
+    if ((game.codes_count || 0) > 0) score += 50;
+  }
+
+  return { score, matchType, matchDetail };
+}
+
+/**
+ * Split text into chunks highlighting matches for clean React rendering
+ */
+export function splitMatchHighlight(
+  text: string,
+  query: string
+): Array<{ text: string; isMatch: boolean }> {
+  if (!text || !query || !query.trim()) {
+    return [{ text: text || '', isMatch: false }];
+  }
+  const cleanQ = query.trim();
+  const qNorm = stripAccents(cleanQ);
+  if (!qNorm) return [{ text, isMatch: false }];
+
+  const textNorm = stripAccents(text);
+  const idx = textNorm.indexOf(qNorm);
+  if (idx === -1) {
+    return [{ text, isMatch: false }];
+  }
+
+  const parts: Array<{ text: string; isMatch: boolean }> = [];
+  let lastIdx = 0;
+  let searchFrom = 0;
+
+  while (searchFrom < text.length) {
+    const curIdx = textNorm.indexOf(qNorm, searchFrom);
+    if (curIdx === -1) break;
+
+    if (curIdx > lastIdx) {
+      parts.push({ text: text.slice(lastIdx, curIdx), isMatch: false });
+    }
+    const matchLen = Math.min(cleanQ.length, text.length - curIdx);
+    parts.push({ text: text.slice(curIdx, curIdx + matchLen), isMatch: true });
+    lastIdx = curIdx + matchLen;
+    searchFrom = lastIdx;
+  }
+
+  if (lastIdx < text.length) {
+    parts.push({ text: text.slice(lastIdx), isMatch: false });
+  }
+
+  return parts;
+}
+
 
 /**
  * Smart Vietnamese search matcher that handles:

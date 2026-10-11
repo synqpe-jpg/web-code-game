@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect, useMemo } from 'react';
-import { Search, ChevronDown, Check, X, Gamepad2, Sparkles } from 'lucide-react';
+import { Search, ChevronDown, Check, X, Gamepad2, Sparkles, Flame, Tag } from 'lucide-react';
 import { GameAdminRecord } from '../../types/adminTypes';
-import { smartVietnameseMatch } from '../../../utils/textUtils';
+import { calculateGameSearchScore, splitMatchHighlight } from '../../../utils/textUtils';
 
 export interface SearchableGameSelectProps {
   games: GameAdminRecord[];
@@ -32,8 +32,10 @@ export const SearchableGameSelect: React.FC<SearchableGameSelectProps> = ({
 }) => {
   const [isOpen, setIsOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
+  const [highlightedIndex, setHighlightedIndex] = useState(0);
   const containerRef = useRef<HTMLDivElement>(null);
   const searchInputRef = useRef<HTMLInputElement>(null);
+  const listContainerRef = useRef<HTMLDivElement>(null);
 
   // Find currently selected game by slug or id
   const selectedGame = useMemo(() => {
@@ -41,12 +43,33 @@ export const SearchableGameSelect: React.FC<SearchableGameSelectProps> = ({
     return games.find((g) => g.slug === selectedGameSlug || g.id === selectedGameSlug) || null;
   }, [games, selectedGameSlug]);
 
-  // Filter games with smart Vietnamese search (supports diacritics, non-diacritics & acronyms)
-  const filteredGames = useMemo(() => {
-    if (!searchQuery.trim()) return games;
-    return games.filter((g) =>
-      smartVietnameseMatch([g.name, g.slug, g.publisher, g.category], searchQuery)
-    );
+  // Score & sort games with intelligent relevance engine
+  const scoredGames = useMemo(() => {
+    if (!searchQuery.trim()) {
+      return games.map((g) => ({
+        game: g,
+        scoreRes: { score: 0, matchType: 'none' as const, matchDetail: '' },
+      }));
+    }
+
+    return games
+      .map((g) => ({
+        game: g,
+        scoreRes: calculateGameSearchScore(g, searchQuery),
+      }))
+      .filter((item) => item.scoreRes.score > 0)
+      .sort((a, b) => {
+        // 1. Highest relevance score first (direct name > prefix > acronym > publisher > category)
+        if (b.scoreRes.score !== a.scoreRes.score) {
+          return b.scoreRes.score - a.scoreRes.score;
+        }
+        // 2. Games with available giftcodes first
+        const codesA = a.game.codes_count || 0;
+        const codesB = b.game.codes_count || 0;
+        if (codesB !== codesA) return codesB - codesA;
+        // 3. Alphabetical tie-breaker
+        return (a.game.name || '').localeCompare(b.game.name || '');
+      });
   }, [games, searchQuery]);
 
   // Click outside listener
@@ -64,21 +87,49 @@ export const SearchableGameSelect: React.FC<SearchableGameSelectProps> = ({
     };
   }, [isOpen]);
 
-  // Autofocus input when opened
+  // Autofocus input when opened & reset highlighted item
   useEffect(() => {
     if (isOpen) {
+      setHighlightedIndex(0);
       setTimeout(() => {
         searchInputRef.current?.focus();
       }, 50);
     } else {
       setSearchQuery('');
+      setHighlightedIndex(0);
     }
   }, [isOpen]);
 
-  // Keyboard navigation: Escape closes
+  // Reset highlight index when query changes
+  useEffect(() => {
+    setHighlightedIndex(0);
+  }, [searchQuery]);
+
+  // Keyboard navigation
   const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (!isOpen) {
+      if (e.key === 'Enter' || e.key === ' ' || e.key === 'ArrowDown') {
+        e.preventDefault();
+        setIsOpen(true);
+      }
+      return;
+    }
+
     if (e.key === 'Escape') {
+      e.preventDefault();
       setIsOpen(false);
+    } else if (e.key === 'ArrowDown') {
+      e.preventDefault();
+      setHighlightedIndex((prev) => Math.min(prev + 1, scoredGames.length - 1));
+    } else if (e.key === 'ArrowUp') {
+      e.preventDefault();
+      setHighlightedIndex((prev) => Math.max(prev - 1, 0));
+    } else if (e.key === 'Enter') {
+      e.preventDefault();
+      if (scoredGames[highlightedIndex]) {
+        onSelectGame(scoredGames[highlightedIndex].game);
+        setIsOpen(false);
+      }
     }
   };
 
@@ -95,15 +146,9 @@ export const SearchableGameSelect: React.FC<SearchableGameSelectProps> = ({
         role="button"
         tabIndex={disabled ? -1 : 0}
         onClick={() => !disabled && setIsOpen(!isOpen)}
-        onKeyDown={(e) => {
-          if ((e.key === 'Enter' || e.key === ' ') && !disabled) {
-            e.preventDefault();
-            setIsOpen(!isOpen);
-          }
-        }}
         className={`w-full rounded-xl border p-2 text-xs flex items-center justify-between gap-2 transition-all cursor-pointer text-left ${
           isOpen
-            ? 'border-indigo-500 ring-2 ring-indigo-500/20 bg-slate-900 text-white'
+            ? 'border-indigo-500 ring-2 ring-indigo-500/20 bg-slate-900 text-white shadow-lg'
             : 'border-slate-800 bg-slate-950 hover:border-slate-700 text-slate-200'
         } ${disabled ? 'opacity-60 cursor-not-allowed' : ''}`}
       >
@@ -166,40 +211,62 @@ export const SearchableGameSelect: React.FC<SearchableGameSelectProps> = ({
       {/* Dropdown panel */}
       {isOpen && (
         <div
-          className={`absolute top-full mt-1.5 z-50 rounded-2xl border border-slate-800 bg-slate-900 shadow-2xl overflow-hidden animate-in fade-in slide-in-from-top-2 duration-150 flex flex-col max-h-80 ${
+          className={`absolute top-full mt-1.5 z-50 rounded-2xl border border-slate-700/80 bg-slate-900 shadow-2xl overflow-hidden animate-in fade-in slide-in-from-top-2 duration-150 flex flex-col ${
             dropdownAlign === 'right'
-              ? 'right-0 sm:left-auto sm:right-0 sm:w-[360px] min-w-full'
-              : 'left-0 sm:right-auto sm:left-0 sm:w-[360px] min-w-full'
+              ? 'right-0 sm:left-auto sm:right-0 sm:w-[420px] min-w-full'
+              : 'left-0 sm:right-auto sm:left-0 sm:w-[420px] min-w-full'
           }`}
         >
           {/* Search box input header */}
-          <div className="p-2.5 border-b border-slate-800 bg-slate-950/90 flex items-center gap-2">
-            <Search className="w-4 h-4 text-indigo-400 shrink-0" />
-            <input
-              ref={searchInputRef}
-              type="text"
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Gõ tên game (VD: Đấu La, Liên Quân, Võ Lâm, dldl, lq...)..."
-              className="w-full bg-transparent text-xs text-white focus:outline-none placeholder:text-slate-500 font-medium"
-            />
-            {searchQuery && (
-              <button
-                type="button"
-                onClick={() => setSearchQuery('')}
-                className="p-1 rounded-md text-slate-400 hover:text-white cursor-pointer"
-                title="Xóa tìm kiếm"
-              >
-                <X className="w-3.5 h-3.5" />
-              </button>
+          <div className="p-3 border-b border-slate-800 bg-slate-950/95 flex flex-col gap-2">
+            <div className="flex items-center gap-2 px-2.5 py-1.5 rounded-xl bg-slate-900 border border-slate-700/80 focus-within:border-indigo-500 focus-within:ring-1 focus-within:ring-indigo-500">
+              <Search className="w-4 h-4 text-indigo-400 shrink-0" />
+              <input
+                ref={searchInputRef}
+                type="text"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="Nhập tên game (VD: Roblox, Liên Quân, Võ Lâm, lq, ff...)..."
+                className="w-full bg-transparent text-xs text-white focus:outline-none placeholder:text-slate-500 font-medium"
+              />
+              {searchQuery && (
+                <button
+                  type="button"
+                  onClick={() => setSearchQuery('')}
+                  className="p-1 rounded-md text-slate-400 hover:text-white cursor-pointer"
+                  title="Xóa tìm kiếm"
+                >
+                  <X className="w-3.5 h-3.5" />
+                </button>
+              )}
+              <span className="text-[10px] font-mono text-indigo-300 font-bold shrink-0 bg-indigo-950/80 px-2 py-0.5 rounded-lg border border-indigo-500/30">
+                {scoredGames.length}
+              </span>
+            </div>
+
+            {/* Quick Keyword Suggestions if empty */}
+            {!searchQuery.trim() && (
+              <div className="flex flex-wrap items-center gap-1 text-[11px] text-slate-400 pt-0.5">
+                <span className="text-[10px] text-slate-500">Gợi ý nhanh:</span>
+                {['Roblox', 'Liên Quân', 'Genshin', 'Free Fire', 'Võ Lâm', 'Honkai'].map((kw) => (
+                  <button
+                    key={kw}
+                    type="button"
+                    onClick={() => setSearchQuery(kw)}
+                    className="px-2 py-0.5 rounded-md bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white transition-colors cursor-pointer text-[10px]"
+                  >
+                    {kw}
+                  </button>
+                ))}
+              </div>
             )}
-            <span className="text-[10px] font-mono text-slate-400 font-semibold shrink-0 bg-slate-800 px-1.5 py-0.5 rounded border border-slate-700">
-              {filteredGames.length}
-            </span>
           </div>
 
           {/* List of games */}
-          <div className="overflow-y-auto p-1.5 space-y-0.5 max-h-60 divide-y divide-slate-800/40">
+          <div
+            ref={listContainerRef}
+            className="overflow-y-auto p-1.5 space-y-0.5 max-h-[380px] divide-y divide-slate-800/40 custom-scrollbar"
+          >
             {/* Clear / Auto-detect option at top */}
             {allowClear && (
               <button
@@ -208,7 +275,7 @@ export const SearchableGameSelect: React.FC<SearchableGameSelectProps> = ({
                   onSelectGame(null);
                   setIsOpen(false);
                 }}
-                className={`w-full p-2 rounded-xl text-left text-xs flex items-center justify-between gap-2.5 transition-colors cursor-pointer mb-1 border border-dashed ${
+                className={`w-full p-2.5 rounded-xl text-left text-xs flex items-center justify-between gap-2.5 transition-colors cursor-pointer mb-1 border border-dashed ${
                   !selectedGame
                     ? 'bg-indigo-950/60 border-indigo-500/50 text-indigo-200 font-bold'
                     : 'border-slate-800 hover:bg-slate-800/60 text-slate-400 hover:text-slate-200'
@@ -233,20 +300,23 @@ export const SearchableGameSelect: React.FC<SearchableGameSelectProps> = ({
               </button>
             )}
 
-            {filteredGames.length === 0 ? (
-              <div className="py-6 px-4 text-center text-xs text-slate-400 space-y-1">
-                <Gamepad2 className="w-6 h-6 mx-auto text-slate-600 mb-1" />
+            {scoredGames.length === 0 ? (
+              <div className="py-8 px-4 text-center text-xs text-slate-400 space-y-1.5">
+                <Gamepad2 className="w-7 h-7 mx-auto text-slate-600 mb-1" />
                 <p>Không tìm thấy game nào khớp với</p>
-                <p className="font-semibold text-slate-200 font-mono">
+                <p className="font-bold text-amber-300 font-mono text-sm">
                   "{searchQuery}"
                 </p>
-                <p className="text-[10px] text-slate-500 mt-1">
-                  Hỗ trợ tìm tiếng Việt có dấu, không dấu hoặc viết tắt (VD: vltk, lq, ff...)
+                <p className="text-[10px] text-slate-500 mt-1 max-w-xs mx-auto">
+                  💡 Hỗ trợ gõ tiếng Việt có dấu, không dấu, tên NPH hoặc viết tắt (VD: vltk, lq, ff, roblox, dldl...)
                 </p>
               </div>
             ) : (
-              filteredGames.map((game) => {
+              scoredGames.map(({ game, scoreRes }, index) => {
                 const isSelected = game.slug === selectedGameSlug || game.id === selectedGameSlug;
+                const isHighlighted = index === highlightedIndex;
+                const nameParts = splitMatchHighlight(game.name || '', searchQuery);
+
                 return (
                   <button
                     key={game.id || game.slug}
@@ -255,14 +325,17 @@ export const SearchableGameSelect: React.FC<SearchableGameSelectProps> = ({
                       onSelectGame(game);
                       setIsOpen(false);
                     }}
-                    className={`w-full p-2 rounded-xl text-left text-xs flex items-center justify-between gap-2.5 transition-colors cursor-pointer ${
+                    onMouseEnter={() => setHighlightedIndex(index)}
+                    className={`w-full p-2.5 rounded-xl text-left text-xs flex items-center justify-between gap-2.5 transition-all cursor-pointer ${
                       isSelected
-                        ? 'bg-indigo-950/60 text-indigo-200 font-bold border border-indigo-500/40'
-                        : 'hover:bg-slate-800/70 text-slate-300'
+                        ? 'bg-indigo-950/70 text-indigo-200 font-bold border border-indigo-500/50 shadow-sm'
+                        : isHighlighted
+                        ? 'bg-slate-800 text-white'
+                        : 'hover:bg-slate-800/60 text-slate-300'
                     }`}
                   >
                     <div className="flex items-center gap-2.5 min-w-0 flex-1">
-                      <div className="w-7 h-7 rounded-lg bg-slate-800 overflow-hidden border border-slate-700 shrink-0 flex items-center justify-center">
+                      <div className="w-8 h-8 rounded-xl bg-slate-800 overflow-hidden border border-slate-700 shrink-0 flex items-center justify-center">
                         <img
                           src={game.icon_url || `/game_icons/${game.slug}.webp`}
                           alt={game.name}
@@ -276,20 +349,60 @@ export const SearchableGameSelect: React.FC<SearchableGameSelectProps> = ({
                         />
                       </div>
                       <div className="min-w-0 flex-1">
-                        <span className="font-bold text-white block truncate">
-                          {game.name}
-                        </span>
-                        {game.publisher && (
-                          <span className="text-[10px] text-slate-400 block truncate">
-                            {game.publisher}
+                        {/* Game name with highlighted search match */}
+                        <div className="flex items-center gap-1.5 min-w-0">
+                          <span className="font-bold text-white block truncate text-[13px]">
+                            {nameParts.map((part, pIdx) =>
+                              part.isMatch ? (
+                                <mark
+                                  key={pIdx}
+                                  className="bg-amber-400/30 text-amber-300 font-black px-0.5 rounded not-italic"
+                                >
+                                  {part.text}
+                                </mark>
+                              ) : (
+                                <React.Fragment key={pIdx}>{part.text}</React.Fragment>
+                              )
+                            )}
                           </span>
-                        )}
+                          {game.is_hot && (
+                            <span className="shrink-0 flex items-center text-[10px] text-rose-400 font-semibold" title="Game HOT">
+                              <Flame className="w-3 h-3 fill-rose-500 text-rose-500" />
+                            </span>
+                          )}
+                        </div>
+
+                        {/* Publisher / Match Detail */}
+                        <div className="flex items-center gap-2 text-[10px] text-slate-400 truncate mt-0.5">
+                          {scoreRes.matchDetail ? (
+                            <span className="inline-flex items-center gap-1 px-1.5 py-0.2 rounded bg-indigo-950/80 text-indigo-300 border border-indigo-500/30 font-semibold truncate max-w-full">
+                              <Tag className="w-2.5 h-2.5 shrink-0" />
+                              <span className="truncate">{scoreRes.matchDetail}</span>
+                            </span>
+                          ) : (
+                            game.publisher && (
+                              <span className="truncate">{game.publisher}</span>
+                            )
+                          )}
+                          {game.category && !scoreRes.matchDetail?.includes(game.category) && (
+                            <span className="text-slate-500 hidden sm:inline truncate">
+                              • {game.category}
+                            </span>
+                          )}
+                        </div>
                       </div>
                     </div>
 
-                    {isSelected && (
-                      <Check className="w-4 h-4 text-indigo-400 shrink-0" />
-                    )}
+                    <div className="flex items-center gap-2 shrink-0">
+                      {(game.codes_count || 0) > 0 && (
+                        <span className="text-[10px] text-amber-300 font-mono font-bold px-1.5 py-0.5 rounded bg-amber-500/15 border border-amber-500/30">
+                          {game.codes_count} code
+                        </span>
+                      )}
+                      {isSelected && (
+                        <Check className="w-4 h-4 text-indigo-400 shrink-0" />
+                      )}
+                    </div>
                   </button>
                 );
               })
@@ -300,3 +413,4 @@ export const SearchableGameSelect: React.FC<SearchableGameSelectProps> = ({
     </div>
   );
 };
+
