@@ -245,24 +245,27 @@ export const FreeCodesModule: React.FC<FreeCodesModuleProps> = ({
       key: 'codeValue',
       header: 'Mã Giftcode',
       sortable: true,
-      render: (item) => (
-        <div className="flex items-center gap-2">
-          <span className="font-mono text-xs font-bold text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-950/40 px-2 py-1 rounded-md border border-indigo-200 dark:border-indigo-800">
-            {item.codeValue}
-          </span>
-          <button
-            onClick={() => handleCopyCode(item.codeValue, item.id)}
-            title="Sao chép mã"
-            className="rounded p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-600 dark:hover:bg-slate-800"
-          >
+      render: (item) => {
+        const displayCode = item.codeValue || (item as any).code || '';
+        return (
+          <div className="flex items-center gap-2">
+            <span className="font-mono text-xs font-bold text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-950/40 px-2 py-1 rounded-md border border-indigo-200 dark:border-indigo-800">
+              {displayCode}
+            </span>
+            <button
+              onClick={() => handleCopyCode(displayCode, item.id)}
+              title="Sao chép mã"
+              className="rounded p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-600 dark:hover:bg-slate-800"
+            >
             {copiedId === item.id ? (
               <Check className="h-3.5 w-3.5 text-emerald-500" />
             ) : (
               <Copy className="h-3.5 w-3.5" />
             )}
-          </button>
-        </div>
-      ),
+            </button>
+          </div>
+        );
+      },
     },
     {
       key: 'gameSlug',

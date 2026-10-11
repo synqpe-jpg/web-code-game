@@ -258,6 +258,7 @@ async function main() {
           gameSlug: gameSlug,
           gameName: gameName,
           code: cleanCode,
+          codeValue: cleanCode,
           rewards: codeItem.rewards || 'Quà tân thủ & vật phẩm ingame',
           status: 'ACTIVE',
           type: 'EVENT',

@@ -294,7 +294,14 @@ class AdminDataService {
       if (savedCustomFc) {
         try {
           const parsed = JSON.parse(savedCustomFc);
-          if (Array.isArray(parsed)) this.customFreeCodes = parsed;
+          if (Array.isArray(parsed)) {
+            this.customFreeCodes = parsed.map((c: any) => ({
+              ...c,
+              codeValue: c.codeValue || c.code || '',
+              code: c.code || c.codeValue || '',
+              gameSlug: c.gameSlug || c.gameId || '',
+            }));
+          }
         } catch {}
       }
 
@@ -427,9 +434,16 @@ class AdminDataService {
       }
       // Ensure customFreeCodes are prepended to this.freeCodes and deleted ones are removed
       const customCodeMap = new Map<string, FreeCodeRecord>();
-      this.customFreeCodes.forEach((c) => {
+      this.customFreeCodes.forEach((c: any) => {
         if (c && c.id && !this.deletedFreeCodeIds.has(c.id)) {
-          customCodeMap.set(c.id, c);
+          const codeVal = c.codeValue || c.code || '';
+          const norm: FreeCodeRecord = {
+            ...c,
+            codeValue: codeVal,
+            code: codeVal,
+            gameSlug: c.gameSlug || c.gameId || '',
+          };
+          customCodeMap.set(c.id, norm);
         }
       });
       this.freeCodes = [
@@ -1153,8 +1167,15 @@ class AdminDataService {
               let customUpdated = false;
               json.customFreeCodes.forEach((c: any) => {
                 if (c && c.id && !this.deletedFreeCodeIds.has(c.id) && !currentCustomMap.has(c.id)) {
-                  this.customFreeCodes.push(c);
-                  currentCustomMap.set(c.id, c);
+                  const codeVal = c.codeValue || c.code || '';
+                  const norm: FreeCodeRecord = {
+                    ...c,
+                    codeValue: codeVal,
+                    code: codeVal,
+                    gameSlug: c.gameSlug || c.gameId || '',
+                  };
+                  this.customFreeCodes.push(norm);
+                  currentCustomMap.set(c.id, norm);
                   customUpdated = true;
                 }
               });
