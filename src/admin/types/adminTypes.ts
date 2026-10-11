@@ -63,6 +63,7 @@ export interface FreeCodeRecord {
   id: string;
   gameSlug: string;
   codeValue: string;
+  code?: string;
   rewards: string;
   status: 'ACTIVE' | 'EXPIRED';
   expiresAt: string;
@@ -70,6 +71,7 @@ export interface FreeCodeRecord {
   copyCount?: number;
   notes?: string;
   createdAt?: string;
+  updatedAt?: string;
 }
 
 export interface GiftcodeSubmission {
