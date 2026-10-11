@@ -72,16 +72,22 @@ export default {
       return Response.redirect(redirectUrl.toString(), 301);
     }
 
-    // Dedicated Admin Domain & Route: serve /admin/index.html instead of customer homepage
+    // Dedicated Admin Domain & Route: redirect root to /admin, and serve /admin/index.html
+    const isAdminHost = url.hostname.includes('admin-code-game-shop') || url.hostname.startsWith('admin.');
+    if (isAdminHost && (pathname === '/' || pathname === '')) {
+      const adminRedirect = new URL('/admin', request.url);
+      return Response.redirect(adminRedirect.toString(), 302);
+    }
+
     if (
-      (url.hostname.includes('admin-code-game-shop') || url.hostname.startsWith('admin.') || pathname === '/admin' || pathname.startsWith('/admin/')) &&
+      (isAdminHost || pathname === '/admin' || pathname.startsWith('/admin/')) &&
       method === 'GET' &&
       !pathname.startsWith('/api') &&
       !pathname.startsWith('/sync-bridge') &&
       !pathname.match(/\.(js|css|json|webp|png|jpg|jpeg|svg|ico|txt|xml|woff2?|map)$/i)
     ) {
       const adminUrl = new URL('/admin/index.html', request.url);
-      const res = await env.ASSETS.fetch(new Request(adminUrl, request));
+      const res = await env.ASSETS.fetch(new Request(adminUrl.toString()));
       if (res.status === 200) {
         return res;
       }

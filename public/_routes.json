@@ -1,0 +1,18 @@
+{
+  "version": 1,
+  "include": [
+    "/*"
+  ],
+  "exclude": [
+    "/assets/*",
+    "/game_icons/*",
+    "/game_banners/*",
+    "/data/*",
+    "/favicon.ico",
+    "/favicon.png",
+    "/logo.png",
+    "/manifest.json",
+    "/robots.txt",
+    "/sitemap.xml"
+  ]
+}

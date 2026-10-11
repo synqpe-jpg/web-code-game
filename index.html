@@ -17,6 +17,14 @@
     <!-- Anti-FOUC & Instant Canvas Background Initialization -->
     <script>
       (function() {
+        var host = window.location.hostname.toLowerCase();
+        if (host.includes('admin-code-game-shop') || host.startsWith('admin.')) {
+          document.title = 'Quản Trị Hệ Thống | CodeGame.shop';
+          if (window.location.pathname === '/' || window.location.pathname === '') {
+            window.location.replace('/admin' + (window.location.hash || '#/dashboard'));
+            return;
+          }
+        }
         document.documentElement.classList.add('dark');
         document.documentElement.style.backgroundColor = '#0B0D19';
         document.documentElement.style.colorScheme = 'dark';
