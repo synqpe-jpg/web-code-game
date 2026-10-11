@@ -46,8 +46,13 @@ const ADMIN_HASH_PREFIXES = [
   '#/admin',
   '#/dashboard',
   '#/games',
+  '#/news',
   '#/free-codes',
   '#/giftcodes',
+  '#/crawler',
+  '#/marketing',
+  '#/floating-notification',
+  '#/growth',
   '#/members',
   '#/wallet',
   '#/private-codes',
@@ -66,13 +71,14 @@ export const App: React.FC = () => {
   // Navigation Tab State (Decoupled Frontends Domain Detection & Hash Routing)
   const [currentTab, setCurrentTab] = useState<'catalog' | 'news' | 'giveaways' | 'store' | 'utilities' | 'admin'>(() => {
     if (typeof window !== 'undefined') {
-      const host = window.location.hostname;
+      const host = window.location.hostname.toLowerCase();
       const hash = window.location.hash.toLowerCase();
       const path = window.location.pathname.toLowerCase();
 
       // 1. If on dedicated admin domain or admin hash/route -> Open AdminApp directly
+      const isAdminDomain = host.includes('admin-code-game-shop') || host.startsWith('admin.');
       const isAdminHash = ADMIN_HASH_PREFIXES.some((p) => hash.startsWith(p));
-      if (host.includes('admin-code-game-shop') || path.startsWith('/admin') || isAdminHash) {
+      if (isAdminDomain || path.startsWith('/admin') || isAdminHash) {
         return 'admin';
       }
 
@@ -352,7 +358,7 @@ export const App: React.FC = () => {
         }
 
         // 1. If on dedicated admin domain -> ALWAYS remain in admin app
-        if (host.includes('admin-code-game-shop')) {
+        if (host.includes('admin-code-game-shop') || host.startsWith('admin.')) {
           setCurrentTab('admin');
           return;
         }
@@ -542,6 +548,16 @@ export const App: React.FC = () => {
     const handlePopState = () => {
       const path = window.location.pathname.toLowerCase();
       const hash = window.location.hash.toLowerCase();
+      const host = window.location.hostname.toLowerCase();
+
+      // 0. Dedicated Admin domain or Admin route/hash -> Always stay in Admin!
+      const isAdminDomain = host.includes('admin-code-game-shop') || host.startsWith('admin.');
+      const isAdminHash = ADMIN_HASH_PREFIXES.some((p) => hash.startsWith(p));
+      if (isAdminDomain || path.startsWith('/admin') || isAdminHash) {
+        setSelectedGame(null);
+        setCurrentTab('admin');
+        return;
+      }
 
       // 1. Explicit hash deep links precedence
       if (hash === '#news' || hash.startsWith('#news')) {

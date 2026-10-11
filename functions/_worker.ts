@@ -74,7 +74,7 @@ export default {
 
     // Dedicated Admin Domain & Route: serve /admin/index.html instead of customer homepage
     if (
-      (url.hostname.includes('admin-code-game-shop') || pathname === '/admin' || pathname.startsWith('/admin/')) &&
+      (url.hostname.includes('admin-code-game-shop') || url.hostname.startsWith('admin.') || pathname === '/admin' || pathname.startsWith('/admin/')) &&
       method === 'GET' &&
       !pathname.startsWith('/api') &&
       !pathname.startsWith('/sync-bridge') &&
