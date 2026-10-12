@@ -1,0 +1,301 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <title>CodeGame.Shop Scanner</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      width: 390px;
+      min-height: 520px;
+      background: #020617;
+      color: #f8fafc;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      font-size: 13px;
+    }
+    .header {
+      padding: 14px 16px;
+      background: linear-gradient(135deg, #1e1b4b 0%, #0f172a 100%);
+      border-bottom: 1px solid #1e293b;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .header-brand {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .header-logo {
+      width: 28px;
+      height: 28px;
+      border-radius: 8px;
+      background: #4f46e5;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      box-shadow: 0 0 10px rgba(79, 70, 229, 0.5);
+    }
+    .header-logo svg { width: 16px; height: 16px; fill: none; stroke: #fde047; stroke-width: 2; }
+    .header-title { font-size: 14px; font-weight: 700; color: #ffffff; }
+    .header-sub { font-size: 11px; color: #818cf8; }
+    .btn-icon {
+      background: #1e293b;
+      border: 1px solid #334155;
+      color: #94a3b8;
+      width: 30px;
+      height: 30px;
+      border-radius: 8px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    .btn-icon:hover { color: #ffffff; background: #334155; }
+
+    .content { padding: 14px 16px; }
+
+    .card {
+      background: #0f172a;
+      border: 1px solid #1e293b;
+      border-radius: 12px;
+      padding: 12px;
+      margin-bottom: 12px;
+    }
+    .card-title {
+      font-size: 11px;
+      font-weight: 600;
+      color: #94a3b8;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      margin-bottom: 6px;
+    }
+    .page-name {
+      font-size: 14px;
+      font-weight: 700;
+      color: #ffffff;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .page-url {
+      font-size: 11px;
+      color: #64748b;
+      font-family: monospace;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      margin-top: 2px;
+    }
+
+    .form-group { margin-bottom: 12px; }
+    .form-label { display: block; font-size: 11px; font-weight: 600; color: #94a3b8; margin-bottom: 4px; }
+    .form-select, .form-input {
+      width: 100%;
+      background: #020617;
+      border: 1px solid #334155;
+      color: #f8fafc;
+      padding: 8px 10px;
+      border-radius: 8px;
+      font-size: 12px;
+      outline: none;
+      transition: border-color 0.2s;
+    }
+    .form-select:focus, .form-input:focus { border-color: #6366f1; }
+
+    .btn-scan {
+      width: 100%;
+      background: linear-gradient(135deg, #4f46e5 0%, #6366f1 100%);
+      color: #ffffff;
+      border: none;
+      padding: 11px;
+      border-radius: 10px;
+      font-size: 13px;
+      font-weight: 700;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      box-shadow: 0 4px 14px rgba(79, 70, 229, 0.4);
+      transition: all 0.2s;
+    }
+    .btn-scan:hover { background: linear-gradient(135deg, #4338ca 0%, #4f46e5 100%); transform: translateY(-1px); }
+    .btn-scan:active { transform: translateY(0); }
+
+    .results-section { margin-top: 14px; }
+    .results-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 8px;
+    }
+    .results-count {
+      font-size: 12px;
+      font-weight: 700;
+      color: #34d399;
+      display: flex;
+      align-items: center;
+      gap: 4px;
+    }
+    .code-list {
+      max-height: 180px;
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      margin-bottom: 12px;
+    }
+    .code-row {
+      background: #090d16;
+      border: 1px solid #1e293b;
+      border-radius: 8px;
+      padding: 8px 10px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .code-badge {
+      font-family: monospace;
+      font-weight: 700;
+      color: #fde047;
+      font-size: 13px;
+      background: rgba(253, 224, 71, 0.1);
+      padding: 2px 6px;
+      border-radius: 4px;
+    }
+    .code-reward {
+      font-size: 11px;
+      color: #94a3b8;
+      max-width: 180px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .btn-push {
+      width: 100%;
+      background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+      color: #ffffff;
+      border: none;
+      padding: 11px;
+      border-radius: 10px;
+      font-size: 13px;
+      font-weight: 700;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      box-shadow: 0 4px 14px rgba(16, 185, 129, 0.4);
+      transition: all 0.2s;
+    }
+    .btn-push:hover { background: linear-gradient(135deg, #059669 0%, #047857 100%); }
+    .btn-push:disabled { opacity: 0.5; cursor: not-allowed; }
+
+    .status-alert {
+      padding: 10px;
+      border-radius: 8px;
+      font-size: 12px;
+      margin-top: 10px;
+      display: none;
+      line-height: 1.4;
+    }
+    .status-success { background: rgba(16, 185, 129, 0.15); border: 1px solid rgba(16, 185, 129, 0.3); color: #34d399; }
+    .status-error { background: rgba(244, 63, 94, 0.15); border: 1px solid rgba(244, 63, 94, 0.3); color: #fb7185; }
+
+    /* Settings Panel */
+    #settings-panel { display: none; }
+    .settings-title { font-size: 13px; font-weight: 700; margin-bottom: 10px; color: #ffffff; }
+    .btn-save-settings {
+      width: 100%;
+      background: #334155;
+      color: #ffffff;
+      border: none;
+      padding: 8px;
+      border-radius: 8px;
+      font-weight: 600;
+      cursor: pointer;
+      margin-top: 8px;
+    }
+    .btn-save-settings:hover { background: #475569; }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <div class="header-brand">
+      <div class="header-logo">
+        <svg viewBox="0 0 24 24"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon></svg>
+      </div>
+      <div>
+        <div class="header-title">CodeGame.Shop</div>
+        <div class="header-sub">Facebook Scanner 1-Click</div>
+      </div>
+    </div>
+    <button id="btn-toggle-settings" class="btn-icon" title="Cài đặt kết nối">
+      <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2">
+        <circle cx="12" cy="12" r="3"></circle>
+        <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
+      </svg>
+    </button>
+  </div>
+
+  <div class="content">
+    <!-- Main Scanner Panel -->
+    <div id="main-panel">
+      <div class="card">
+        <div class="card-title">Fanpage Đang Mở</div>
+        <div id="page-name" class="page-name">Đang nhận diện trang...</div>
+        <div id="page-url" class="page-url">-</div>
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">Tựa Game Áp Dụng (486+ Game):</label>
+        <input type="text" id="game-search" class="form-input" placeholder="🔍 Gõ để tìm nhanh tên game..." style="margin-bottom: 6px;">
+        <select id="game-select" class="form-select">
+          <option value="">-- Đang nạp danh mục game --</option>
+        </select>
+      </div>
+
+      <button id="btn-scan" class="btn-scan">
+        <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2">
+          <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon>
+        </svg>
+        <span>⚡ Quét Code Bài Viết Trên Trang</span>
+      </button>
+
+      <div id="results-section" class="results-section" style="display: none;">
+        <div class="results-header">
+          <div id="results-count" class="results-count">Tìm thấy 0 mã</div>
+          <button id="btn-clear" style="background: none; border: none; color: #64748b; font-size: 11px; cursor: pointer;">Xóa</button>
+        </div>
+        <div id="code-list" class="code-list"></div>
+
+        <button id="btn-push" class="btn-push">
+          <span>🚀 BẮN THẲNG LÊN WEB CODEGAME.SHOP</span>
+        </button>
+      </div>
+
+      <div id="status-alert" class="status-alert"></div>
+    </div>
+
+    <!-- Settings Panel -->
+    <div id="settings-panel">
+      <div class="settings-title">⚙️ Cấu Hình Kết Nối API</div>
+      <div class="form-group">
+        <label class="form-label">API Sync Endpoint:</label>
+        <input type="text" id="setting-api-url" class="form-input">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Admin Sync Key:</label>
+        <input type="password" id="setting-sync-key" class="form-input">
+      </div>
+      <button id="btn-save-settings" class="btn-save-settings">Lưu Cấu Hình</button>
+      <button id="btn-back-main" class="btn-save-settings" style="background: #1e293b; margin-top: 6px;">Quay Lại</button>
+    </div>
+  </div>
+
+  <script src="popup.js"></script>
+</body>
+</html>
