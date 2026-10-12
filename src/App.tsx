@@ -914,12 +914,15 @@ export const App: React.FC = () => {
 
   // Handle Game Selection
   const handleSelectGame = async (game: GameItem) => {
-    const fullGame = await dataService.getGameBySlug(game.slug);
-    setSelectedGame(fullGame || game);
+    setSelectedGame(game);
+    const fullGame = await dataService.getGameBySlug(game.slug, true);
+    if (fullGame) {
+      setSelectedGame(fullGame);
+    }
   };
 
   const handleSelectGameSlug = async (slug: string) => {
-    const fullGame = await dataService.getGameBySlug(slug);
+    const fullGame = await dataService.getGameBySlug(slug, true);
     if (fullGame) setSelectedGame(fullGame);
   };
 

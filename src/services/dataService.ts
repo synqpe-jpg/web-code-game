@@ -446,6 +446,27 @@ class DataService {
                 }
               } catch {}
             }
+            if (json.deletedFreeCodes && Array.isArray(json.deletedFreeCodes)) {
+              try {
+                const currentDel = localStorage.getItem('wcg_deleted_free_codes');
+                const newDel = JSON.stringify(json.deletedFreeCodes);
+                if (currentDel !== newDel) {
+                  localStorage.setItem('wcg_deleted_free_codes', newDel);
+                  hasChanges = true;
+                }
+              } catch {}
+            }
+            if (json.customFreeCodes && Array.isArray(json.customFreeCodes)) {
+              try {
+                const currentCustom = localStorage.getItem('wcg_admin_custom_free_codes_v1');
+                const newCustom = JSON.stringify(json.customFreeCodes);
+                if (currentCustom !== newCustom) {
+                  localStorage.setItem('wcg_admin_custom_free_codes_v1', newCustom);
+                  hasChanges = true;
+                  window.dispatchEvent(new CustomEvent('wcg_admin_custom_codes_updated', { detail: json.customFreeCodes }));
+                }
+              } catch {}
+            }
             if (json.content && Array.isArray(json.content) && json.content.length > 0) {
               try {
                 const currentContent = localStorage.getItem('wcg_admin_content_v4');
@@ -799,6 +820,10 @@ class DataService {
     if (this.isLoaded) return;
 
     try {
+      this.codesMap.clear();
+      this.cachedServerGames.clear();
+      this.cachedGameFetchTime.clear();
+
       // 1. Load Free Codes (Combine Admin Storage with Bundled Master Codes)
       let freeCodesList: Array<{ id?: string; gameSlug?: string; codeValue?: string; rewards?: string; status?: string; expiresAt?: string; createdAt?: string }> = [];
       const savedCodes = localStorage.getItem('wcg_admin_free_codes_v5');
@@ -875,8 +900,23 @@ class DataService {
       // Merge custom codes at the top (highest priority) and filter out deleted codes
       const customKeyMap = new Map<string, any>();
       customList.forEach((c) => {
-        if (c && c.id && !deletedIds.has(c.id)) {
-          customKeyMap.set(c.id, c);
+        if (!c) return;
+        const cId = c.id || `${c.gameSlug || c.gameId || c.slug}_${c.codeValue || c.code || c.gift_code}`;
+        if (!deletedIds.has(cId)) {
+          const itemSlug = c.gameSlug || c.gameId || c.game_slug || c.slug;
+          const itemCodeVal = c.codeValue || c.code || c.code_value || c.gift_code;
+          if (itemSlug && itemCodeVal) {
+            customKeyMap.set(cId, {
+              ...c,
+              id: cId,
+              gameSlug: itemSlug,
+              codeValue: itemCodeVal,
+              rewards: c.rewards || c.description,
+              status: c.status,
+              expiresAt: c.expiresAt || c.expires_at || c.expiry,
+              createdAt: c.createdAt || c.created_at || c.updatedAt,
+            });
+          }
         }
       });
       freeCodesList = [
@@ -885,8 +925,8 @@ class DataService {
       ];
 
       for (const item of freeCodesList) {
-        const slug = item.gameSlug;
-        const codeValue = item.codeValue;
+        const slug = item.gameSlug || (item as any).game_slug || (item as any).gameId || (item as any).slug;
+        const codeValue = item.codeValue || (item as any).code_value || (item as any).code || (item as any).gift_code;
         if (!slug || !codeValue) continue;
 
         const normalizedCode = codeValue.trim().toUpperCase();
@@ -3098,6 +3138,12 @@ class DataService {
             localStorage.setItem('wcg_admin_free_codes_v5', codesStr);
           }
         } catch {}
+      }
+      if (Array.isArray(snapshot.customFreeCodes)) {
+        localStorage.setItem('wcg_admin_custom_free_codes_v1', JSON.stringify(snapshot.customFreeCodes));
+      }
+      if (Array.isArray(snapshot.deletedFreeCodes)) {
+        localStorage.setItem('wcg_deleted_free_codes', JSON.stringify(snapshot.deletedFreeCodes));
       }
       if (Array.isArray(snapshot.giveaways)) {
         localStorage.setItem(this.GIVEAWAYS_KEY, JSON.stringify(snapshot.giveaways));

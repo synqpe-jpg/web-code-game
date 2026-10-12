@@ -7,7 +7,33 @@ Mỗi mục sửa lỗi đều ghi nhận **Nguyên nhân gốc rễ (Root Cause
 
 ## [2026-10-12]
 
-### 1. Khắc Phục Lỗi Match Slug Game Tiên Nghịch Mobile & Tối Ưu Bảng Quản Lý Code Miễn Phí (Sticky Actions & No Overflow)
+### 1. Đồng Bộ Giftcode Quét Từ Extension/Facebook Lên Web Khách & Cập Nhật Tức Thì Modal Chi Tiết Game
+- **Mô tả**:
+  1. Khắc phục lỗi khi người dùng dùng Chrome Extension quét giftcode từ Facebook Fanpage đẩy lên web, mã code đã duyệt xuất hiện trong bảng Quản trị Admin (`/admin#/free-codes`) nhưng khi khách truy cập web hoặc ấn vào game Tiên Nghịch Mobile ở trang khách lại không thấy mã mới.
+  2. Đồng bộ toàn bộ 31 giftcode của Tiên Nghịch Mobile (kèm 5 mã mới quét từ Facebook: `TNM20B`, `TSVDKPI0910`, `GIFTCODE`, `LLDKPIB18`, `1210TTMEVY`) ra cả thẻ game ngoài Catalog, Modal chi tiết game, và file HTML prerender tĩnh.
+- **Nguyên nhân gốc rễ (Root Cause)**:
+  1. **Bỏ quên `customFreeCodes` trong `syncWithCloudflareKV()`**: Endpoint `/api/sync` trả về `customFreeCodes` và `deletedFreeCodes` từ Cloudflare D1/KV. Nhưng trong `dataService.ts`, hàm `syncWithCloudflareKV()` chỉ kiểm tra `json.freeCodes` (chỉ dành cho tài khoản Admin authorized). Với khách vãng lai, `json.freeCodes` là `undefined`, và hàm bỏ quên hoàn toàn `json.customFreeCodes`. Do đó `localStorage.getItem('wcg_admin_custom_free_codes_v1')` trên máy khách không bao giờ được cập nhật.
+  2. **GameDetailModal hiển thị prop tĩnh**: `GameDetailModal` chỉ render danh sách code từ prop tĩnh `game.codes`. Khi thẻ game ngoài catalog mang danh sách 26 code cũ, modal mở ra không tự động nạp fresh codes từ server.
+  3. **File tĩnh `crawled_codes_188.json` thiếu 5 mã mới**: Khi build prerender, `scripts/prerender.js` chỉ đọc từ bundle tĩnh nên file `dist/game/tien-nghich-mobile/index.html` chỉ có 26 mã cũ.
+- **Giải pháp thành công (Solution Applied)**:
+  1. **Bổ sung đồng bộ `customFreeCodes` & `deletedFreeCodes` trong `dataService.ts`**:
+     - `syncWithCloudflareKV()` tự động lưu `wcg_admin_custom_free_codes_v1` và `wcg_deleted_free_codes` vào `localStorage`, đồng thời kích hoạt `this.reload()` và `notifyListeners()`.
+     - `applyFullStateSnapshot()` bổ sung lưu `customFreeCodes` và `deletedFreeCodes`.
+     - `processData()` xóa `codesMap` và cache cũ trước khi nạp lại, chuẩn hóa các trường `gameSlug` và `codeValue`.
+  2. **Trang bị `liveGame` State & Background Enrich trong `GameDetailModal.tsx`**:
+     - Thêm hook `liveGame` và `useEffect` tự động gọi `dataService.getGameBySlug(game.slug, true)` khi mở modal.
+     - Cập nhật số đếm tab, nút "Sao chép tất cả", và danh sách mã ngay lập tức khi server trả về 31 codes.
+  3. **Mở Modal tức thì 0ms trong `App.tsx`**:
+     - `handleSelectGame` mở modal ngay lập tức với `selectedGame = game`, sau đó bất đồng bộ enrich với `getGameBySlug(game.slug, true)`.
+  4. **Hợp nhất 5 mã mới vào file bundle tĩnh**:
+     - Cập nhật 5 mã mới vào `src/data/crawled_codes_188.json` và `public/data/crawled_codes_188.json`.
+     - Prerender HTML `dist/game/tien-nghich-mobile/index.html` sinh ra chứa trọn vẹn 31 codes chuẩn SEO ngay từ tầng server.
+- **Giải pháp thất bại đã thử (Failed Attempts - KHÔNG ĐƯỢC LẶP LẠI)**:
+  - *Thử nghiệm 1*: Chỉ trông chờ vào `json.freeCodes` trong `syncWithCloudflareKV()` $\rightarrow$ *Thất bại*: Payload `json.freeCodes` chỉ gửi cho Admin vì kích thước lớn; khách vãng lai chỉ nhận được `json.customFreeCodes`.
+
+---
+
+### 2. Khắc Phục Lỗi Match Slug Game Tiên Nghịch Mobile & Tối Ưu Bảng Quản Lý Code Miễn Phí (Sticky Actions & No Overflow)
 - **Mô tả**:
   1. Khắc phục triệt để lỗi khi người dùng click thẻ game "Tiên Nghịch Mobile" (JoyGames) ngoài trang chủ lại nhảy sang URL `/game/tien-nghich-tan-tinh-kiem` và mở modal của "Tiên Nghịch: Tân Tình Kiếm" (Alo).
   2. Khắc phục lỗi bảng quản lý Code Miễn Phí (`/admin#/free-codes`) bị tràn ngang màn hình, tiêu đề "Thời Gian Cập Nhật" bị cắt chữ thành "THỜI...", và cột "Thao Tác" (nút Sửa, Xóa) bị trôi mất ra ngoài màn hình.

@@ -48,10 +48,29 @@ export const GameDetailModal: React.FC<GameDetailModalProps> = ({
 }) => {
   const { t } = useLanguage();
   const activeUser = currentUser || (typeof window !== 'undefined' ? dataService.getCurrentUser() : null);
+  const [liveGame, setLiveGame] = useState<GameItem | null>(game);
   const [copiedCode, setCopiedCode] = useState<string | null>(null);
   const [copiedType, setCopiedType] = useState<string | null>(null);
   const [votes, setVotes] = useState<Record<string, { up: number; down: number }>>({});
   const [selectedCodeTab, setSelectedCodeTab] = useState<'all' | 'active' | 'expired'>('all');
+
+  useEffect(() => {
+    setLiveGame(game);
+  }, [game]);
+
+  // Dynamically fetch and enrich with latest giftcodes from Cloudflare serverless D1 API
+  useEffect(() => {
+    if (!game?.slug) return;
+    let isCancelled = false;
+    dataService.getGameBySlug(game.slug, true).then((fresh) => {
+      if (!isCancelled && fresh && fresh.codes && fresh.codes.length >= (game.codes?.length || 0)) {
+        setLiveGame(fresh);
+      }
+    });
+    return () => {
+      isCancelled = true;
+    };
+  }, [game?.slug]);
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -66,20 +85,22 @@ export const GameDetailModal: React.FC<GameDetailModalProps> = ({
     c.code.toUpperCase() === 'ATNGAY1' ||
     c.code.toUpperCase() === 'ATNGAY2';
 
+  const currentGame = liveGame || game;
+
   useEffect(() => {
-    if (!game || !game.codes) return;
+    if (!currentGame || !currentGame.codes) return;
     const initialVotes: Record<string, { up: number; down: number }> = {};
-    for (const c of game.codes) {
+    for (const c of currentGame.codes) {
       initialVotes[c.code] = dataService.getCodeVotes(c.code, isExpired(c));
     }
     setVotes(initialVotes);
-  }, [game]);
+  }, [currentGame]);
 
   const [modalImageError, setModalImageError] = useState(false);
 
-  if (!game) return null;
+  if (!currentGame) return null;
 
-  const allCodes = game.codes || [];
+  const allCodes = currentGame.codes || [];
   const activeCodes = allCodes.filter((c) => !isExpired(c));
   const expiredCodes = allCodes.filter((c) => isExpired(c));
 
@@ -173,7 +194,7 @@ export const GameDetailModal: React.FC<GameDetailModalProps> = ({
   };
 
   const handleVote = (code: string, type: 'up' | 'down') => {
-    const codeObj = game.codes?.find((c) => c.code === code);
+    const codeObj = allCodes.find((c) => c.code === code);
     const expiredStatus = codeObj ? isExpired(codeObj) : false;
     const res = dataService.voteCode(code, type, expiredStatus);
     setVotes((prev) => ({ ...prev, [code]: res }));
