@@ -14,12 +14,17 @@ import {
   PowerOff,
   Play,
   CheckCircle2,
+  Sparkles,
+  RotateCcw,
+  Zap,
 } from 'lucide-react';
 import { FormModal } from '../components/ui/FormModal';
 import { ConfirmModal } from '../components/ui/ConfirmModal';
 import { ImageUploadInput } from '../components/ui/ImageUploadInput';
 import { SearchableGameSelect } from '../components/ui/SearchableGameSelect';
+import { QuickFomoAdjustModal } from '../components/ui/QuickFomoAdjustModal';
 import { adminDataService } from '../services/adminDataService';
+import { marketingService } from '../../services/marketingService';
 import { GameAdminRecord } from '../types/adminTypes';
 import { formatFullDateTime, smartVietnameseMatch } from '../../utils/textUtils';
 import type { GiveawayCampaign } from '../../types/game';
@@ -35,6 +40,10 @@ export const PrivateCodesModule: React.FC<PrivateCodesModuleProps> = ({ onShowTo
   const [statusFilter, setStatusFilter] = useState<'ALL' | 'ACTIVE' | 'INACTIVE'>('ALL');
   const [searchQuery, setSearchQuery] = useState('');
   const [copiedId, setCopiedId] = useState<string | null>(null);
+
+  // --- QUICK FOMO ADJUST MODAL STATE ---
+  const [fomoAdjustCampaign, setFomoAdjustCampaign] = useState<GiveawayCampaign | null>(null);
+  const [isResettingAllFomo, setIsResettingAllFomo] = useState(false);
 
   // --- CREATE / EDIT GIVEAWAY MODAL STATE ---
   const [isFormOpen, setIsFormOpen] = useState(false);
@@ -332,6 +341,34 @@ export const PrivateCodesModule: React.FC<PrivateCodesModuleProps> = ({ onShowTo
     loadData();
   };
 
+  const handleResetAllFomoToReal = async () => {
+    if (!window.confirm('Bạn có chắc muốn Reset toàn bộ số ảo của tất cả các đợt phát Giveaway về đúng dữ liệu thật 100% (0 ảo)? Web khách sẽ hiển thị chuẩn xác số lượng thật.')) {
+      return;
+    }
+    setIsResettingAllFomo(true);
+    try {
+      const giveawayItems = giveaways.map((gw) => {
+        const poolCount = Array.isArray(gw.codes_pool) ? gw.codes_pool.length : 0;
+        return {
+          id: gw.id,
+          claimed_codes: gw.claimed_codes || 0,
+          remaining_codes: poolCount,
+        };
+      });
+      await marketingService.resetAllGiveawaysToReal(giveawayItems);
+      loadData();
+      onShowToast(
+        'Đã reset toàn bộ số ảo Giveaway!',
+        'Tất cả các đợt phát Giveaway đã được đưa về đúng số lượng thật 100% ngoài web.',
+        'success'
+      );
+    } catch (err: any) {
+      onShowToast('Lỗi reset số ảo', err?.message || 'Có lỗi xảy ra', 'error');
+    } finally {
+      setIsResettingAllFomo(false);
+    }
+  };
+
   const activeCount = giveaways.filter((g) => g.is_active !== false).length;
   const inactiveCount = giveaways.filter((g) => g.is_active === false).length;
 
@@ -364,6 +401,18 @@ export const PrivateCodesModule: React.FC<PrivateCodesModuleProps> = ({ onShowTo
           </div>
 
           <div className="flex flex-wrap items-center gap-2">
+            {/* Nút Reset Toàn Bộ Số Ảo Về Thật */}
+            <button
+              type="button"
+              disabled={isResettingAllFomo}
+              onClick={handleResetAllFomoToReal}
+              className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold bg-amber-500/10 hover:bg-amber-500/20 text-amber-600 dark:text-amber-400 border border-amber-500/30 transition-all cursor-pointer shadow-sm active:scale-95 disabled:opacity-50"
+              title="Xóa sạch toàn bộ số ảo của các giveaway, đưa số đã giật và tồn kho ngoài web về chuẩn 100% thực tế"
+            >
+              <RotateCcw className={`h-3.5 w-3.5 ${isResettingAllFomo ? 'animate-spin' : ''}`} />
+              <span>Reset Tất Cả Về Số Thật</span>
+            </button>
+
             {/* Nút Mở tất cả */}
             <button
               type="button"
@@ -531,30 +580,54 @@ export const PrivateCodesModule: React.FC<PrivateCodesModuleProps> = ({ onShowTo
                       </div>
                     </td>
 
-                    {/* Col 2: KHO MÃ */}
+                    {/* Col 2: KHO MÃ & SỐ LIỆU WEB */}
                     <td className="px-4 py-4 whitespace-nowrap">
-                      <div className="font-mono">
-                        <span className={`font-bold text-xs ${remaining > 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-500 dark:text-rose-400'}`}>
-                          {remaining}
-                        </span>
-                        <span className="text-slate-400 text-[11px]"> / {totalCount} mã</span>
-                        {remaining === 0 && (
-                          <span className="ml-2 inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold bg-rose-500/10 text-rose-500 border border-rose-500/20">
-                            Hết mã
-                          </span>
-                        )}
-                        <p className="text-[10px] text-slate-400 mt-0.5">
-                          Đã giật: <strong className="text-amber-500 font-bold">{(gw.claimed_codes || 0) + (gw.virtual_claimed_offset || 0)} lượt</strong>
-                          <span className="text-[9px] text-slate-400 ml-1">
-                            (Thật: {gw.claimed_codes || 0}, Ảo: {gw.virtual_claimed_offset || 0})
-                          </span>
-                          {gw.show_claimed_count !== false ? (
-                            <span className="text-emerald-500 ml-1 font-semibold">(Hiện)</span>
-                          ) : (
-                            <span className="text-slate-400 ml-1 font-semibold">(Ẩn)</span>
-                          )}
-                        </p>
-                      </div>
+                      {(() => {
+                        const webStock = marketingService.getDisplayStock(gw.id, remaining);
+                        const webClaimed = marketingService.getClaimedDisplay(gw);
+                        const isStockFomoDiff = webStock !== remaining;
+                        const isClaimedFomoDiff = webClaimed !== claimedCount;
+
+                        return (
+                          <div className="space-y-1.5">
+                            {/* Tầng 1: Kho thật trong DB */}
+                            <div className="flex items-center gap-1.5 font-mono text-[11px]">
+                              <span className="text-slate-400 font-sans text-[10px] font-semibold">Kho thật:</span>
+                              <span className={`font-bold ${remaining > 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-500 dark:text-rose-400'}`}>
+                                {remaining}
+                              </span>
+                              <span className="text-slate-400">/{totalCount}</span>
+                              <span className="text-slate-400 font-sans text-[10px] ml-1">Đã phát:</span>
+                              <span className="font-bold text-slate-700 dark:text-slate-300">{claimedCount}</span>
+                              {remaining === 0 && (
+                                <span className="ml-1 inline-flex items-center px-1.5 py-0.5 rounded text-[9px] font-bold bg-rose-500/10 text-rose-500 border border-rose-500/20">
+                                  Hết mã
+                                </span>
+                              )}
+                            </div>
+
+                            {/* Tầng 2: Web FOMO */}
+                            <div className="flex items-center gap-1.5 font-mono text-[11px] bg-slate-50 dark:bg-slate-800/60 px-2 py-1 rounded-lg border border-slate-200/60 dark:border-slate-700/60">
+                              <span className="text-amber-500 dark:text-amber-400 font-sans text-[10px] font-bold flex items-center gap-0.5">
+                                <Sparkles className="w-2.5 h-2.5" />
+                                Web:
+                              </span>
+                              <span className={`font-bold ${webStock > 0 ? 'text-indigo-600 dark:text-indigo-400' : 'text-rose-500'}`}>
+                                Còn {webStock}
+                              </span>
+                              <span className="text-slate-300 dark:text-slate-600">|</span>
+                              <span className="text-amber-600 dark:text-amber-400 font-bold">
+                                Giật {webClaimed}
+                              </span>
+                              {(isStockFomoDiff || isClaimedFomoDiff) && (
+                                <span className="ml-auto inline-flex items-center px-1 rounded text-[9px] font-bold bg-purple-500/10 text-purple-600 dark:text-purple-400 border border-purple-500/20" title="Đang có cấu hình số ảo FOMO">
+                                  Ảo
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                        );
+                      })()}
                     </td>
 
                     {/* Col 3: 3 ĐIỀU KIỆN NHẬN */}
@@ -578,7 +651,7 @@ export const PrivateCodesModule: React.FC<PrivateCodesModuleProps> = ({ onShowTo
                       <button
                         type="button"
                         onClick={(e) => {
-                          e.stopPropagation();
+                           e.stopPropagation();
                           handleToggleActive(gw);
                         }}
                         className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-[11px] font-bold border transition-all cursor-pointer select-none active:scale-95 shadow-xs ${
@@ -632,6 +705,17 @@ export const PrivateCodesModule: React.FC<PrivateCodesModuleProps> = ({ onShowTo
                             <span>Mở</span>
                           </button>
                         )}
+
+                        {/* NÚT CHỈNH SỐ ẢO */}
+                        <button
+                          type="button"
+                          onClick={() => setFomoAdjustCampaign(gw)}
+                          className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-amber-500/10 hover:bg-amber-500/20 text-amber-600 dark:text-amber-400 text-xs font-bold transition-colors cursor-pointer border border-amber-500/25 shadow-xs"
+                          title="Điều chỉnh số ảo & FOMO hiển thị ngoài web cho đợt phát này"
+                        >
+                          <Sparkles className="h-3.5 w-3.5 text-amber-500" />
+                          <span>Số ảo</span>
+                        </button>
 
                         <button
                           onClick={() => handleOpenPoolModal(gw)}
@@ -1200,6 +1284,22 @@ export const PrivateCodesModule: React.FC<PrivateCodesModuleProps> = ({ onShowTo
         confirmText="Xóa Đợt Phát"
         variant="danger"
       />
+
+      {/* Quick FOMO Adjust Modal */}
+      {fomoAdjustCampaign && (
+        <QuickFomoAdjustModal
+          isOpen={!!fomoAdjustCampaign}
+          onClose={() => setFomoAdjustCampaign(null)}
+          itemType="giveaway"
+          itemId={fomoAdjustCampaign.id}
+          itemTitle={fomoAdjustCampaign.title}
+          gameName={fomoAdjustCampaign.game_name}
+          realStock={Array.isArray(fomoAdjustCampaign.codes_pool) ? fomoAdjustCampaign.codes_pool.length : 0}
+          realSoldOrClaimed={fomoAdjustCampaign.claimed_codes || 0}
+          onSuccess={() => loadData()}
+          onShowToast={onShowToast}
+        />
+      )}
     </div>
   );
 };

@@ -17,6 +17,7 @@ import {
   Link2,
   ExternalLink,
   ShieldCheck,
+  Sparkles,
 } from 'lucide-react';
 import { FormModal } from '../components/ui/FormModal';
 import { ConfirmModal } from '../components/ui/ConfirmModal';
@@ -24,7 +25,9 @@ import { DuplicateCodesModal, DuplicateCodeItem } from '../components/ui/Duplica
 import { ImageUploadInput } from '../components/ui/ImageUploadInput';
 import { ProductGalleryUpload } from '../components/ui/ProductGalleryUpload';
 import { SearchableGameSelect } from '../components/ui/SearchableGameSelect';
+import { QuickFomoAdjustModal } from '../components/ui/QuickFomoAdjustModal';
 import { adminDataService } from '../services/adminDataService';
+import { marketingService } from '../../services/marketingService';
 import { InventoryItem, GameAdminRecord } from '../types/adminTypes';
 import { formatCore, formatCurrencyVND, smartVietnameseMatch } from '../../utils/textUtils';
 import type { StoreProduct, StoreCategory } from '../../types/game';
@@ -42,6 +45,9 @@ export const CodeInventoryModule: React.FC<CodeInventoryModuleProps> = ({ onShow
   const [categoryFilter, setCategoryFilter] = useState<string>('ALL');
   const [sortFilter, setSortFilter] = useState<'NEWEST' | 'PRICE_ASC' | 'PRICE_DESC' | 'STOCK'>('NEWEST');
   const [copiedId, setCopiedId] = useState<string | null>(null);
+
+  // --- QUICK FOMO ADJUST MODAL STATE ---
+  const [fomoAdjustProduct, setFomoAdjustProduct] = useState<StoreProduct | null>(null);
 
   // --- CATEGORIES MANAGEMENT STATE ---
   const [categoriesList, setCategoriesList] = useState<StoreCategory[]>([]);
@@ -853,19 +859,45 @@ export const CodeInventoryModule: React.FC<CodeInventoryModuleProps> = ({ onShow
                     </span>
                   </div>
 
-                  <div className="text-right">
-                    <span className="text-[11px] text-slate-400 block">Tồn kho khả dụng:</span>
-                    <strong className={`font-mono text-sm block ${displayStock > 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-400 font-bold'}`}>
-                      {displayStock > 0 ? `${displayStock} mã` : 'Hết hàng'}
-                    </strong>
-                    <div className="text-[10px] text-slate-500 font-mono mt-0.5">
-                      Đã bán: <strong className="text-amber-500 font-bold">{(prod.sold_count || 0) + (prod.virtual_sold_count || 0)}</strong>
-                      {prod.show_sold_count !== false ? (
-                        <span className="text-emerald-500 ml-1 font-semibold">(Hiện)</span>
-                      ) : (
-                        <span className="text-slate-400 ml-1 font-semibold">(Ẩn)</span>
-                      )}
+                  <div className="text-right space-y-1">
+                    {/* Tầng 1: Kho Thật */}
+                    <div className="text-[11px] font-mono">
+                      <span className="text-slate-400 font-sans text-[10px]">Kho thật: </span>
+                      <strong className={`text-xs ${displayStock > 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-400'}`}>
+                        {displayStock > 0 ? `${displayStock} mã` : 'Hết hàng'}
+                      </strong>
+                      <span className="text-slate-400 font-sans text-[10px] ml-1">| Bán: </span>
+                      <strong className="text-slate-700 dark:text-slate-300 text-xs">{prod.sold_count || 0}</strong>
                     </div>
+
+                    {/* Tầng 2: Web FOMO */}
+                    {(() => {
+                      const webStock = marketingService.getDisplayStock(prod.id, displayStock);
+                      const webSold = marketingService.getSoldDisplay(prod);
+                      const isStockFomoDiff = webStock !== displayStock;
+                      const isSoldFomoDiff = webSold !== (prod.sold_count || 0);
+
+                      return (
+                        <div className="flex items-center justify-end gap-1 font-mono text-[11px] bg-slate-50 dark:bg-slate-800/60 px-2 py-0.5 rounded-lg border border-slate-200/60 dark:border-slate-700/60">
+                          <span className="text-amber-500 font-sans text-[10px] font-bold flex items-center gap-0.5">
+                            <Sparkles className="w-2.5 h-2.5" />
+                            Web:
+                          </span>
+                          <span className={`font-bold ${webStock > 0 ? 'text-indigo-600 dark:text-indigo-400' : 'text-rose-500'}`}>
+                            Còn {webStock}
+                          </span>
+                          <span className="text-slate-300 dark:text-slate-600">|</span>
+                          <span className="text-amber-600 dark:text-amber-400 font-bold">
+                            Bán {webSold}
+                          </span>
+                          {(isStockFomoDiff || isSoldFomoDiff) && (
+                            <span className="inline-flex items-center px-1 rounded text-[9px] font-bold bg-purple-500/10 text-purple-600 dark:text-purple-400 border border-purple-500/20" title="Đang có số ảo FOMO">
+                              Ảo
+                            </span>
+                          )}
+                        </div>
+                      );
+                    })()}
                   </div>
                 </div>
               </div>
@@ -887,6 +919,17 @@ export const CodeInventoryModule: React.FC<CodeInventoryModuleProps> = ({ onShow
                   >
                     <Boxes className="h-3.5 w-3.5 text-teal-600 dark:text-teal-400" />
                     <span>Kho chi tiết</span>
+                  </button>
+
+                  {/* NÚT CHỈNH SỐ ẢO */}
+                  <button
+                    type="button"
+                    onClick={() => setFomoAdjustProduct(prod)}
+                    className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-xl bg-amber-500/10 hover:bg-amber-500/20 text-amber-600 dark:text-amber-400 text-xs font-bold transition-colors cursor-pointer border border-amber-500/25 shadow-xs"
+                    title="Điều chỉnh số ảo & FOMO hiển thị ngoài web cho gói bán này"
+                  >
+                    <Sparkles className="h-3.5 w-3.5 text-amber-500" />
+                    <span>Số ảo</span>
                   </button>
 
                   {/* Nút Chọn Hết Hàng / Còn Hàng */}
@@ -1739,6 +1782,27 @@ export const CodeInventoryModule: React.FC<CodeInventoryModuleProps> = ({ onShow
         confirmText="Xóa Danh Mục"
         variant="danger"
       />
+
+      {/* Quick FOMO Adjust Modal */}
+      {fomoAdjustProduct && (
+        <QuickFomoAdjustModal
+          isOpen={!!fomoAdjustProduct}
+          onClose={() => setFomoAdjustProduct(null)}
+          itemType="store_product"
+          itemId={fomoAdjustProduct.id}
+          itemTitle={fomoAdjustProduct.title}
+          gameName={fomoAdjustProduct.game_name}
+          realStock={inventory.filter(
+            (i) => (i.sku === fomoAdjustProduct.id || ((fomoAdjustProduct as any).sku && i.sku === (fomoAdjustProduct as any).sku) || (i.productName && i.productName.trim().toLowerCase() === fomoAdjustProduct.title.trim().toLowerCase())) && i.status === 'AVAILABLE'
+          ).length}
+          realSoldOrClaimed={fomoAdjustProduct.sold_count || 0}
+          onSuccess={() => {
+            setStoreProducts(adminDataService.getStoreProducts());
+            setInventory(adminDataService.getInventory());
+          }}
+          onShowToast={onShowToast}
+        />
+      )}
     </div>
   );
 };

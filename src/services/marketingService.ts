@@ -2229,7 +2229,7 @@ class MarketingService {
     return finalDisplay;
   }
 
-  public syncProductVirtualSold(productId: string, virtualCount: number, forceReset: boolean = true): void {
+  public syncProductVirtualSold(productId: string, virtualCount: number, forceReset: boolean = true, exactTargetDisplay?: number): void {
     if (!productId) return;
     const count = Math.max(0, Number(virtualCount) || 0);
     this.liveFomoSoldCountMap.set(productId, count);
@@ -2245,7 +2245,9 @@ class MarketingService {
 
     const calculatedBase = Math.max(0, effectiveRealSold + count + hourlyGrowth + inHourProg);
     const currentHigh = this.highWaterSoldCountMap.get(productId) || 0;
-    const targetDisplay = forceReset ? calculatedBase : Math.max(calculatedBase, currentHigh);
+    const targetDisplay = exactTargetDisplay !== undefined
+      ? Math.max(0, exactTargetDisplay)
+      : (forceReset ? calculatedBase : Math.max(calculatedBase, currentHigh));
 
     this.highWaterSoldCountMap.set(productId, targetDisplay);
     this.saveHighWaterCounts();
@@ -2281,7 +2283,7 @@ class MarketingService {
     this.notifySoldCountChanged(productId, targetDisplay);
   }
 
-  public syncGiveawayVirtualClaimed(campaignId: string, virtualCount: number, forceReset: boolean = true): void {
+  public syncGiveawayVirtualClaimed(campaignId: string, virtualCount: number, forceReset: boolean = true, exactTargetDisplay?: number): void {
     if (!campaignId) return;
     const count = Math.max(0, Number(virtualCount) || 0);
     this.liveFomoClaimedCountMap.set(campaignId, count);
@@ -2297,7 +2299,9 @@ class MarketingService {
 
     const calculatedBase = Math.max(0, effectiveRealClaimed + count + hourlyGrowth + inHourProg);
     const currentHigh = this.highWaterClaimedCountMap.get(campaignId) || 0;
-    const targetDisplay = forceReset ? calculatedBase : Math.max(calculatedBase, currentHigh);
+    const targetDisplay = exactTargetDisplay !== undefined
+      ? Math.max(0, exactTargetDisplay)
+      : (forceReset ? calculatedBase : Math.max(calculatedBase, currentHigh));
 
     this.highWaterClaimedCountMap.set(campaignId, targetDisplay);
     this.saveHighWaterCounts();
@@ -2331,6 +2335,128 @@ class MarketingService {
     }
 
     this.notifySoldCountChanged(campaignId, targetDisplay);
+  }
+
+  public async updateItemVirtualSettings(
+    id: string,
+    options: {
+      targetDisplaySoldOrClaimed?: number;
+      virtualStockBonus?: number;
+      priority?: ProductPriority;
+      forceReset?: boolean;
+    }
+  ): Promise<void> {
+    if (!id) return;
+
+    if (!this.config.productWeights) this.config.productWeights = {};
+    const curPw = this.config.productWeights[id] || {
+      priority: 'normal',
+      virtualStockBonus: 20,
+      autoRestockThreshold: 1,
+      autoRestockAmount: 20,
+    };
+
+    const nextPriority = options.priority !== undefined ? options.priority : curPw.priority;
+    const nextBonus = options.virtualStockBonus !== undefined ? Math.max(0, Number(options.virtualStockBonus) || 0) : curPw.virtualStockBonus;
+
+    this.config.productWeights[id] = {
+      ...curPw,
+      priority: nextPriority,
+      virtualStockBonus: nextBonus,
+    };
+
+    const forceReset = options.forceReset !== false;
+    if (options.targetDisplaySoldOrClaimed !== undefined) {
+      if (id.startsWith('gw_')) {
+        this.syncGiveawayVirtualClaimed(id, 0, forceReset, options.targetDisplaySoldOrClaimed);
+      } else {
+        this.syncProductVirtualSold(id, 0, forceReset, options.targetDisplaySoldOrClaimed);
+      }
+    }
+
+    const realStock = this.getRealStockFor(id);
+    if (realStock <= 0) {
+      this.liveVirtualStockMap.set(id, 0);
+    } else if (nextPriority === 'off' || nextBonus <= 0) {
+      this.liveVirtualStockMap.set(id, realStock);
+    } else {
+      this.liveVirtualStockMap.set(id, realStock + nextBonus);
+    }
+    this.saveLiveVirtualStock();
+
+    if (forceReset && typeof window !== 'undefined') {
+      const targetStockVal = realStock <= 0 ? 0 : (nextBonus <= 0 ? realStock : realStock + nextBonus);
+      const isGw = id.startsWith('gw_');
+      fetch('/api/sync', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          type: 'report_peak_metrics',
+          forceResetStock: true,
+          lowestStock: !isGw ? { [id]: targetStockVal } : undefined,
+          lowestRemaining: isGw ? { [id]: targetStockVal } : undefined,
+        }),
+      }).catch(() => null);
+    }
+
+    await this.saveConfig(this.config);
+    this.notifyStockChanged(id, this.getDisplayStock(id, realStock));
+    this.notifySoldCountChanged(id, id.startsWith('gw_') ? this.getClaimedDisplay({ id }) : this.getSoldDisplay({ id }));
+  }
+
+  public async resetAllGiveawaysToReal(giveaways: Array<{ id: string; claimed_codes?: number; remaining_codes?: number }>): Promise<void> {
+    if (!Array.isArray(giveaways) || giveaways.length === 0) return;
+    if (!this.config.productWeights) this.config.productWeights = {};
+
+    const peakClaimedUpdates: Record<string, number> = {};
+    const lowestRemainingUpdates: Record<string, number> = {};
+
+    giveaways.forEach((gw) => {
+      const realClaimed = Math.max(0, Number(gw.claimed_codes) || 0);
+      const realRemaining = Math.max(0, Number(gw.remaining_codes) || 0);
+
+      this.config.productWeights[gw.id] = {
+        priority: 'off',
+        virtualStockBonus: 0,
+        autoRestockThreshold: 1,
+        autoRestockAmount: 0,
+      };
+
+      this.highWaterClaimedCountMap.set(gw.id, realClaimed);
+      this.liveFomoClaimedCountMap.set(gw.id, 0);
+      this.liveVirtualStockMap.set(gw.id, realRemaining);
+      this.sessionAnchorMap.set(gw.id, { lastCount: realClaimed, lastTimestamp: Date.now() });
+
+      peakClaimedUpdates[gw.id] = realClaimed;
+      lowestRemainingUpdates[gw.id] = realRemaining;
+    });
+
+    this.saveHighWaterCounts();
+    this.saveLiveFomoCounts();
+    this.saveLiveVirtualStock();
+    this.saveSessionAnchors();
+
+    if (typeof window !== 'undefined') {
+      try {
+        await fetch('/api/sync', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            type: 'report_peak_metrics',
+            forceResetClaimed: true,
+            forceResetStock: true,
+            peakClaimed: peakClaimedUpdates,
+            lowestRemaining: lowestRemainingUpdates,
+          }),
+        });
+      } catch {}
+    }
+
+    await this.saveConfig(this.config);
+    giveaways.forEach((gw) => {
+      this.notifyStockChanged(gw.id, Number(gw.remaining_codes) || 0);
+      this.notifySoldCountChanged(gw.id, Number(gw.claimed_codes) || 0);
+    });
   }
 
   public incrementLiveSoldCount(productId: string, amount: number = 1, notifId?: string): number {

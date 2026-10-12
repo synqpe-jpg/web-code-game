@@ -5,6 +5,31 @@ Mỗi mục sửa lỗi đều ghi nhận **Nguyên nhân gốc rễ (Root Cause
 
 ---
 
+## [2026-10-13]
+
+### 4. Thống Kê Số Ảo Ngoài Web & Cho Phép Điều Chỉnh Số Ảo Tự Do Trong Quản Trị Admin (Giveaway, Tiện Ích, Kho Code)
+- **Mô tả**:
+  1. Đáp ứng trọn vẹn yêu cầu: "Trong mục phát Giveaway trong admin, cùng các mục còn lại, thêm thống kê số ảo ngoài web và có thể điều chỉnh số ảo tự do."
+  2. Bổ sung modal điều chỉnh nhanh số ảo `QuickFomoAdjustModal`:
+     - Đối chiếu trực quan 2 tầng giữa **Dữ Liệu Thật Trong DB** vs **Đang Hiển Thị Ngoài Web**.
+     - Cho phép Admin nhập tự do bất kỳ số lượng đã bán/đã giật nào mong muốn hoặc chọn các nút mẫu nhanh (+10, +50, +100).
+     - Cho phép điều chỉnh số tồn kho ảo bonus cộng thêm (+0, +10, +20, +50) và tốc độ tăng trưởng theo giờ.
+     - Nút 1-chạm "🔄 Chuẩn Thực Tế 100% (Xóa Số Ảo)".
+  3. Tích hợp thống kê số ảo và nút "Số ảo" trên cả 3 phân hệ quản trị chính:
+     - **Quản lý phát Giveaway (`PrivateCodesModule.tsx`)**: Hiển thị rõ ràng Kho Thật (còn/tổng, thật đã phát) vs Web FOMO (còn web, đã giật web); nút "Số ảo" trên từng sự kiện; nút Toolbar 1-chạm "⚡ Reset Toàn Bộ Số Ảo Giveaway Về Thật".
+     - **Quản lý Tiện Ích (`UtilitiesModule.tsx`)**: Hiển thị đối chiếu Kho Thật vs Web FOMO trên từng thẻ tiện ích; nút "Số ảo".
+     - **Quản lý Kho Code & Gói Bán (`CodeInventoryModule.tsx`)**: Hiển thị đối chiếu Kho Thật vs Web FOMO trên từng thẻ gói bán; nút "Số ảo".
+  4. Nâng cấp `marketingService.ts`:
+     - Hỗ trợ tham số `exactTargetDisplay` trong `syncProductVirtualSold` và `syncGiveawayVirtualClaimed`.
+     - Bổ sung `updateItemVirtualSettings`: đồng bộ tức thì lên Cloudflare D1 Hub (`report_peak_metrics` với `forceResetClaimed` / `forceResetStock`), phát `BroadcastChannel` và cập nhật snapshot.
+     - Bổ sung `resetAllGiveawaysToReal`: đưa sạch 32 sự kiện giveaway về số thật tế 100%.
+- **Nguyên nhân gốc rễ (Root Cause)**:
+  - Trước đây số lượng ngoài web được tính tự động lũy kế từ engine FOMO và lưu vào Hub D1, trong khi trang Admin chỉ hiển thị số liệu tĩnh của database mà không đối chiếu trực tiếp với số liệu Web Khách đang hiển thị. Admin thiếu công cụ điều chỉnh trực tiếp số lượng hiển thị theo ý muốn hoặc reset về thực tế khi cần.
+- **Giải pháp thành công (Solution Applied)**:
+  - Xây dựng component `QuickFomoAdjustModal` và tích hợp sâu vào toàn bộ hệ thống quản trị, liên kết với Cloudflare D1 Hub qua `/api/sync` để số ảo được áp dụng tức thì ngoài web mà không cần chờ reload.
+
+---
+
 ## [2026-10-12]
 
 ### 3. Khắc Phục Triệt Để Lỗi Số Đã Bán Tiện Ích Bị Kéo Giật Về Mốc Cũ & Không Tăng Theo Thông Báo Toast
