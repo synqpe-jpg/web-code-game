@@ -7,7 +7,20 @@ Mỗi mục sửa lỗi đều ghi nhận **Nguyên nhân gốc rễ (Root Cause
 
 ## [2026-10-12]
 
-### 1. Đồng Bộ Tồn Kho & Thông Báo Marketing Ảo (Atomic 1-1 Sync & Restock Guard)
+### 1. Thiết Lập Hệ Thống Ghi Nhớ Dài Hạn & Quy Trình Quản Lý Git Chuyên Nghiệp
+- **Commit**: `8d11cfb`
+- **Mô tả**: Thiết lập toàn diện hệ thống ghi nhớ dài hạn (`PROJECT_MEMORY.md`, `CHANGELOG.md`, `KNOWN_ISSUES.md`, `GIT_WORKFLOW.md`, `GEMINI.md`, `AGENTS.md`) và củng cố bảo mật `.gitignore`. Tích hợp quy chuẩn 6 bước quản lý phiên bản Git không phá hủy và cơ chế đồng bộ nguyên tử 1 - 1 cho marketing.
+- **Nguyên nhân gốc rễ (Root Cause)**:
+  - Cần cơ chế lưu trữ tri thức bền vững để AI Agent và nhà phát triển không lặp lại các giải pháp đã thất bại, luôn kiểm tra nguyên nhân gốc trước khi sửa và kiểm thử hồi quy đầy đủ.
+- **Giải pháp thành công (Solution Applied)**:
+  - Tạo các tài liệu ghi nhớ chuẩn mực, tích hợp vào luật hệ thống bắt buộc của Antigravity (`GEMINI.md`, `AGENTS.md`, `PROJECT_RULES.md`).
+  - Thiết lập quy trình Git 6 bước nghiêm ngặt: Pre-flight, In-flight, Post-flight, Rollback an toàn (Zero destructive commands), và chuẩn báo cáo 6 thành phần.
+- **Giải pháp thất bại đã thử (Failed Attempts - KHÔNG ĐƯỢC LẶP LẠI)**:
+  - *Thử nghiệm*: Để các quy tắc nằm rải rác trong lịch sử chat $\rightarrow$ *Thất bại*: Khi bị nén ngữ cảnh (compaction) hoặc mở phiên mới, agent dễ mất thông tin bẫy lỗi và có thể lặp lại cách sửa sai.
+
+---
+
+### 2. Đồng Bộ Tồn Kho & Thông Báo Marketing Ảo (Atomic 1-1 Sync & Restock Guard)
 - **Commit**: `b75df18`, `9eca2c0`
 - **Mô tả**: Sửa lỗi sản phẩm đã chuyển trạng thái hết hàng hoặc xóa hết trong kho Admin nhưng ngoài web khách vẫn báo còn hàng và tự bật lại trạng thái mở bán; đồng bộ 1 - 1 giữa thông báo marketing và các con số hiển thị.
 - **Nguyên nhân gốc rễ (Root Cause)**:
