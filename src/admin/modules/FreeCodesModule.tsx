@@ -257,20 +257,23 @@ export const FreeCodesModule: React.FC<FreeCodesModuleProps> = ({
       render: (item) => {
         const displayCode = item.codeValue || (item as any).code || '';
         return (
-          <div className="flex items-center gap-2">
-            <span className="font-mono text-xs font-bold text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-950/40 px-2 py-1 rounded-md border border-indigo-200 dark:border-indigo-800">
+          <div className="flex items-center gap-1.5">
+            <span
+              className="font-mono text-xs font-bold text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-950/40 px-2 py-0.5 rounded-md border border-indigo-200 dark:border-indigo-800 max-w-[120px] truncate"
+              title={displayCode}
+            >
               {displayCode}
             </span>
             <button
               onClick={() => handleCopyCode(displayCode, item.id)}
               title="Sao chép mã"
-              className="rounded p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-600 dark:hover:bg-slate-800"
+              className="rounded p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-600 dark:hover:bg-slate-800 shrink-0"
             >
-            {copiedId === item.id ? (
-              <Check className="h-3.5 w-3.5 text-emerald-500" />
-            ) : (
-              <Copy className="h-3.5 w-3.5" />
-            )}
+              {copiedId === item.id ? (
+                <Check className="h-3.5 w-3.5 text-emerald-500" />
+              ) : (
+                <Copy className="h-3.5 w-3.5" />
+              )}
             </button>
           </div>
         );
@@ -278,16 +281,23 @@ export const FreeCodesModule: React.FC<FreeCodesModuleProps> = ({
     },
     {
       key: 'gameSlug',
-      header: 'Tên Game (Slug)',
+      header: 'Game',
       sortable: true,
       render: (item) => {
         const game = gamesMap.get(item.gameSlug?.toLowerCase());
+        const gameName = game?.name || item.gameSlug;
         return (
-          <div className="flex flex-col max-w-[220px]">
-            <span className="text-xs font-bold text-slate-800 dark:text-slate-200 truncate" title={game?.name || item.gameSlug}>
-              {game?.name || item.gameSlug}
+          <div className="flex flex-col max-w-[130px] lg:max-w-[160px]">
+            <span
+              className="text-xs font-bold text-slate-800 dark:text-slate-200 truncate"
+              title={gameName}
+            >
+              {gameName}
             </span>
-            <span className="font-mono text-[11px] text-slate-400 dark:text-slate-500 truncate" title={item.gameSlug}>
+            <span
+              className="font-mono text-[10px] text-slate-400 dark:text-slate-500 truncate"
+              title={item.gameSlug}
+            >
               {item.gameSlug}
             </span>
           </div>
@@ -296,9 +306,12 @@ export const FreeCodesModule: React.FC<FreeCodesModuleProps> = ({
     },
     {
       key: 'rewards',
-      header: 'Phần Thưởng Đính Kèm',
+      header: 'Phần Thưởng',
       render: (item) => (
-        <span className="text-xs text-slate-600 dark:text-slate-400 max-w-xs truncate block">
+        <span
+          className="text-xs text-slate-600 dark:text-slate-400 max-w-[130px] lg:max-w-[170px] xl:max-w-[210px] truncate block"
+          title={item.rewards}
+        >
           {item.rewards}
         </span>
       ),
@@ -311,9 +324,9 @@ export const FreeCodesModule: React.FC<FreeCodesModuleProps> = ({
     },
     {
       key: 'expiresAt',
-      header: 'Hạn Dùng / Lượt Copy',
+      header: 'Hạn Dùng',
       render: (item) => (
-        <div className="text-xs">
+        <div className="text-xs whitespace-nowrap">
           <p className="font-mono text-slate-600 dark:text-slate-300">
             {item.expiresAt || 'Vĩnh viễn'}
           </p>
@@ -325,14 +338,14 @@ export const FreeCodesModule: React.FC<FreeCodesModuleProps> = ({
     },
     {
       key: 'updatedAt',
-      header: 'Thời Gian Cập Nhật',
+      header: 'Cập Nhật',
       sortable: true,
       render: (item) => {
         const timeStr = item.updatedAt || item.createdAt;
         if (!timeStr) {
           return (
             <span className="text-[11px] text-slate-400 dark:text-slate-500 font-mono">
-              Hệ thống gốc
+              Gốc
             </span>
           );
         }
@@ -342,12 +355,12 @@ export const FreeCodesModule: React.FC<FreeCodesModuleProps> = ({
             return <span className="text-[11px] text-slate-400 font-mono">{timeStr}</span>;
           }
           return (
-            <div className="flex flex-col text-xs min-w-[110px]">
+            <div className="flex flex-col text-xs leading-tight whitespace-nowrap">
               <span className="font-semibold text-slate-700 dark:text-slate-200">
                 {d.toLocaleDateString('vi-VN')}
               </span>
-              <span className="text-[11px] text-slate-500 dark:text-slate-400 font-mono flex items-center gap-1 mt-0.5">
-                <Clock className="w-3 h-3 text-indigo-400 shrink-0 inline" />
+              <span className="text-[10px] text-slate-500 dark:text-slate-400 font-mono flex items-center gap-1 mt-0.5">
+                <Clock className="w-2.5 h-2.5 text-indigo-400 shrink-0 inline" />
                 {d.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })}
               </span>
             </div>
@@ -361,8 +374,9 @@ export const FreeCodesModule: React.FC<FreeCodesModuleProps> = ({
       key: 'actions',
       header: 'Thao Tác',
       align: 'right',
+      sticky: 'right',
       render: (item) => (
-        <div className="flex items-center justify-end gap-1.5" onClick={(e) => e.stopPropagation()}>
+        <div className="flex items-center justify-end gap-1" onClick={(e) => e.stopPropagation()}>
           <a
             href={`https://codegame.shop/game/${item.gameSlug}`}
             target="_blank"
@@ -370,14 +384,14 @@ export const FreeCodesModule: React.FC<FreeCodesModuleProps> = ({
             title="Mở xem trên Web Khách (codegame.shop)"
             className="rounded-lg p-1.5 text-slate-400 hover:bg-emerald-50 hover:text-emerald-600 dark:hover:bg-emerald-950/40 dark:hover:text-emerald-400"
           >
-            <Globe className="h-4 w-4" />
+            <Globe className="h-3.5 w-3.5" />
           </a>
           <button
             onClick={() => handleEdit(item)}
             title="Sửa code"
             className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 hover:text-indigo-600 dark:hover:bg-slate-800 dark:hover:text-indigo-400"
           >
-            <Edit2 className="h-4 w-4" />
+            <Edit2 className="h-3.5 w-3.5" />
           </button>
           <button
             onClick={() => {
@@ -387,7 +401,7 @@ export const FreeCodesModule: React.FC<FreeCodesModuleProps> = ({
             title="Xóa code"
             className="rounded-lg p-1.5 text-slate-400 hover:bg-rose-50 hover:text-rose-600 dark:hover:bg-rose-950/40 dark:hover:text-rose-400"
           >
-            <Trash2 className="h-4 w-4" />
+            <Trash2 className="h-3.5 w-3.5" />
           </button>
         </div>
       ),

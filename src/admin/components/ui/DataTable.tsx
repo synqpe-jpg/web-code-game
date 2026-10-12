@@ -22,6 +22,7 @@ export interface Column<T> {
   sortable?: boolean;
   width?: string;
   align?: 'left' | 'center' | 'right';
+  sticky?: 'left' | 'right';
 }
 
 export interface DataTableProps<T> {
@@ -322,11 +323,18 @@ export function DataTable<T extends Record<string, any>>({
                       ? 'text-right'
                       : 'text-left';
 
+                  const stickyClass =
+                    col.sticky === 'right'
+                      ? 'sticky right-0 z-20 bg-slate-50/95 dark:bg-slate-800/95 backdrop-blur-sm shadow-[-4px_0_8px_rgba(0,0,0,0.06)] dark:shadow-[-4px_0_8px_rgba(0,0,0,0.3)]'
+                      : col.sticky === 'left'
+                      ? 'sticky left-0 z-20 bg-slate-50/95 dark:bg-slate-800/95 backdrop-blur-sm shadow-[4px_0_8px_rgba(0,0,0,0.06)] dark:shadow-[4px_0_8px_rgba(0,0,0,0.3)]'
+                      : '';
+
                   return (
                     <th
                       key={col.key}
                       style={{ width: col.width }}
-                      className={`px-3 py-2.5 sm:px-4 sm:py-3.5 whitespace-nowrap ${alignClass} ${
+                      className={`px-2.5 py-2 sm:px-3.5 sm:py-3 whitespace-nowrap ${alignClass} ${stickyClass} ${
                         col.sortable ? 'cursor-pointer select-none hover:text-slate-900 dark:hover:text-white' : ''
                       }`}
                       onClick={() => col.sortable && handleSort(col.key)}
@@ -356,12 +364,15 @@ export function DataTable<T extends Record<string, any>>({
               {isLoading ? (
                 Array.from({ length: 5 }).map((_, i) => (
                   <tr key={i} className="animate-pulse">
-                    {selectable && <td className="px-4 py-4"><div className="h-4 w-4 rounded bg-slate-200 dark:bg-slate-800" /></td>}
-                    {columns.map((_c, j) => (
-                      <td key={j} className="px-4 py-4">
-                        <div className="h-4 w-3/4 rounded bg-slate-200 dark:bg-slate-800" />
-                      </td>
-                    ))}
+                    {selectable && <td className="px-3 py-3 sm:px-4 sm:py-3.5"><div className="h-4 w-4 rounded bg-slate-200 dark:bg-slate-800" /></td>}
+                    {columns.map((col, j) => {
+                      const stickySkeletonClass = col.sticky === 'right' ? 'sticky right-0 z-10 bg-white dark:bg-slate-900' : '';
+                      return (
+                        <td key={j} className={`px-2.5 py-3 sm:px-3.5 sm:py-3.5 ${stickySkeletonClass}`}>
+                          <div className="h-4 w-3/4 rounded bg-slate-200 dark:bg-slate-800" />
+                        </td>
+                      );
+                    })}
                   </tr>
                 ))
               ) : paginatedData.length === 0 ? (
@@ -385,7 +396,7 @@ export function DataTable<T extends Record<string, any>>({
                     <tr
                       key={key}
                       onClick={() => onRowClick?.(item)}
-                      className={`transition-colors ${
+                      className={`group transition-colors ${
                         onRowClick ? 'cursor-pointer' : ''
                       } ${
                         isSelected
@@ -394,7 +405,7 @@ export function DataTable<T extends Record<string, any>>({
                       }`}
                     >
                       {selectable && (
-                        <td className="px-3 py-2.5 sm:px-4 sm:py-3.5 text-center" onClick={(e) => e.stopPropagation()}>
+                        <td className="px-2.5 py-2.5 sm:px-3.5 sm:py-3 text-center" onClick={(e) => e.stopPropagation()}>
                           <input
                             type="checkbox"
                             checked={isSelected}
@@ -411,8 +422,23 @@ export function DataTable<T extends Record<string, any>>({
                             ? 'text-right'
                             : 'text-left';
 
+                        const stickyTdClass =
+                          col.sticky === 'right'
+                            ? `sticky right-0 z-10 ${
+                                isSelected
+                                  ? 'bg-indigo-50/90 dark:bg-slate-900'
+                                  : 'bg-white group-hover:bg-slate-50 dark:bg-slate-900 dark:group-hover:bg-slate-850'
+                              } shadow-[-4px_0_8px_rgba(0,0,0,0.06)] dark:shadow-[-4px_0_8px_rgba(0,0,0,0.3)]`
+                            : col.sticky === 'left'
+                            ? `sticky left-0 z-10 ${
+                                isSelected
+                                  ? 'bg-indigo-50/90 dark:bg-slate-900'
+                                  : 'bg-white group-hover:bg-slate-50 dark:bg-slate-900 dark:group-hover:bg-slate-850'
+                              } shadow-[4px_0_8px_rgba(0,0,0,0.06)] dark:shadow-[4px_0_8px_rgba(0,0,0,0.3)]`
+                            : '';
+
                         return (
-                          <td key={col.key} className={`px-3 py-2.5 sm:px-4 sm:py-3.5 ${alignClass}`}>
+                          <td key={col.key} className={`px-2.5 py-2.5 sm:px-3.5 sm:py-3 ${alignClass} ${stickyTdClass}`}>
                             {col.render ? col.render(item) : item[col.key]}
                           </td>
                         );

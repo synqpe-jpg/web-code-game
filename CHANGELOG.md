@@ -7,6 +7,33 @@ Mỗi mục sửa lỗi đều ghi nhận **Nguyên nhân gốc rễ (Root Cause
 
 ## [2026-10-12]
 
+### 1. Khắc Phục Lỗi Match Slug Game Tiên Nghịch Mobile & Tối Ưu Bảng Quản Lý Code Miễn Phí (Sticky Actions & No Overflow)
+- **Mô tả**:
+  1. Khắc phục triệt để lỗi khi người dùng click thẻ game "Tiên Nghịch Mobile" (JoyGames) ngoài trang chủ lại nhảy sang URL `/game/tien-nghich-tan-tinh-kiem` và mở modal của "Tiên Nghịch: Tân Tình Kiếm" (Alo).
+  2. Khắc phục lỗi bảng quản lý Code Miễn Phí (`/admin#/free-codes`) bị tràn ngang màn hình, tiêu đề "Thời Gian Cập Nhật" bị cắt chữ thành "THỜI...", và cột "Thao Tác" (nút Sửa, Xóa) bị trôi mất ra ngoài màn hình.
+- **Nguyên nhân gốc rễ (Root Cause)**:
+  1. **Lỗi Match Game Slug (Array Order Trap & Loose Suffix Matching)**: Trong `functions/api/games.ts` và `src/services/dataService.ts`, câu lệnh `catalog.games.find(...)` kết hợp lỏng lẻo điều kiện `parts.includes(cleanWithoutMobile)` trong cùng một vòng lặp không phân cấp ưu tiên. Khi query `slug=tien-nghich-mobile`, `cleanWithoutMobile` là `'tien-nghich'`. Game đầu tiên duyệt trúng là "Tiên Nghịch: Tân Tình Kiếm" có tên phân tách `parts = ['tien-nghich', 'tan-tinh-kiem']`, dẫn đến `parts.includes('tien-nghich')` trả về `true` ngay lập tức, trả sai game thay vì khớp chính xác `g.slug === 'tien-nghich-mobile'`.
+  2. **Tràn màn hình Admin Table**: Tổng độ rộng các cột của `FreeCodesModule.tsx` lên tới ~1200px (riêng `rewards` là `max-w-xs` 320px, `updatedAt` min 140px, `gameSlug` 220px) trong khi không gian hiển thị trên màn hình laptop có sidebar chỉ ~960px. Cột "Thao Tác" thiếu thuộc tính `sticky: 'right'` nên bị đẩy trôi ra ngoài mép màn hình.
+- **Giải pháp thành công (Solution Applied)**:
+  1. **Phân Tầng Ưu Tiên Tuyệt Đối Khi Tìm Game (Tiered Priority Matching)**:
+     - Tier 1: Khớp chính xác 100% slug hoặc id (`g.slug === cleanSlug || g.id === cleanSlug`). Nếu có, trả về ngay lập tức!
+     - Tier 2: Khớp chính xác `nameSlug === cleanSlug`.
+     - Tier 3: Khớp alias đặc biệt đã cấu hình (`pirate-legends` $\leftrightarrow$ `huyen-thoai-hai-tac`).
+     - Tier 4: Khớp không có đuôi `-mobile` (chỉ chạy khi không có game nào khớp Tiers 1-3).
+     - Tier 5: Khớp cụm từ trong tên game (phương án dự phòng cuối cùng).
+     - Đã đồng bộ phân tầng này lên cả `functions/api/games.ts`, `functions/_worker.ts` và `src/services/dataService.ts`.
+  2. **Trang Bị Cột Cố Định (Sticky Right Column) Cho `DataTable.tsx`**:
+     - Thêm thuộc tính `sticky?: 'left' | 'right'` cho interface `Column<T>`.
+     - Cột Thao Tác được cố định sát mép phải (`sticky right-0 z-10`) kèm hiệu ứng bóng đổ (`shadow-[-4px_0_8px_rgba(0,0,0,0.06)]`) và nền đồng bộ khi hover dòng, đảm bảo nút Sửa và Xóa luôn nằm trong tầm mắt 100% người dùng trên mọi kích thước màn hình.
+  3. **Co Gọn & Tối Ưu Hiển Thị Bảng Code Miễn Phí (`FreeCodesModule.tsx`)**:
+     - Co gọn tiêu đề "Game", "Phần Thưởng", "Hạn Dùng", "Cập Nhật" (2 dòng ngày/giờ nhỏ gọn).
+     - Thiết lập độ rộng và `truncate` thông minh kèm thuộc tính `title` để hiển thị tooltip đầy đủ khi hover chuột.
+     - Tổng chiều rộng bảng giảm từ 1200px xuống còn ~836px, hiển thị vừa vặn 100% trên mọi màn hình máy tính từ 1280px trở lên mà không cần cuộn ngang.
+- **Giải pháp thất bại đã thử (Failed Attempts - KHÔNG ĐƯỢC LẶP LẠI)**:
+  - *Thử nghiệm 1*: Gộp tất cả điều kiện khớp slug, id, alias, name parts vào 1 câu lệnh `.find(...)` duy nhất $\rightarrow$ *Thất bại*: Game đứng trước trong danh mục có tên chứa từ khóa sẽ cướp lượt của game đứng sau có slug trùng khớp chính xác 100%.
+
+---
+
 ### 1. Nâng Cấp Extension Chrome v1.3.0: Tích Lũy Bài Viết Không Giới Hạn, Lọc Sạch 100% Rác Tiếng Việt (THAM, NGHEN...), Thống Kê & Nút Xóa/Dừng Quét
 - **Mô tả**: Giải quyết triệt để vấn đề người dùng chọn quét 40-50 bài nhưng thực tế chỉ đếm được 15 bài (do cơ chế unmount của Facebook Virtual DOM). Bổ sung bộ lọc âm tiết tiếng Việt loại bỏ 100% từ ngữ viết hoa bị bắt nhầm (`THAM`, `NGHEN`...), sửa nhận diện tên Fanpage chuẩn xác (không bị đè bởi "Thông báo"), thêm nút Dừng Quét, nút Lọc Mã Rác, nút Xóa Tất Cả Code và bảng thống kê thời gian thực.
 - **Nguyên nhân gốc rễ (Root Cause)**:

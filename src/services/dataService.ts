@@ -1385,12 +1385,13 @@ class DataService {
 
   async getGameBySlug(slug: string, forceFresh: boolean = false): Promise<GameItem | null> {
     if (!slug) return null;
-    const cleanSlug = slug.toLowerCase().replace(/-mobile$/i, '').trim();
+    const normSlug = slug.toLowerCase().trim();
+    const cleanWithoutMobile = normSlug.replace(/-mobile$/i, '');
 
     // 1. Check if cached game has full codes list (> 3 codes or verified complete) AND was fetched within last 5s
-    const lastFetch = this.cachedGameFetchTime.get(slug) || this.cachedGameFetchTime.get(cleanSlug) || 0;
+    const lastFetch = this.cachedGameFetchTime.get(normSlug) || 0;
     const isFresh = Date.now() - lastFetch < 5000;
-    const memCached = this.cachedServerGames.get(slug) || this.cachedServerGames.get(cleanSlug);
+    const memCached = this.cachedServerGames.get(normSlug);
     if (!forceFresh && isFresh && memCached && memCached.codes && memCached.codes.length > 3) {
       return memCached;
     }
@@ -1402,10 +1403,10 @@ class DataService {
         const json = await res.json();
         if (json && json.success && json.game) {
           const game = json.game;
-          this.cachedServerGames.set(game.slug, game);
-          if (game.id) this.cachedServerGames.set(game.id, game);
-          this.cachedGameFetchTime.set(game.slug, Date.now());
-          if (game.id) this.cachedGameFetchTime.set(game.id, Date.now());
+          this.cachedServerGames.set(game.slug.toLowerCase(), game);
+          if (game.id) this.cachedServerGames.set(game.id.toLowerCase(), game);
+          this.cachedGameFetchTime.set(game.slug.toLowerCase(), Date.now());
+          if (game.id) this.cachedGameFetchTime.set(game.id.toLowerCase(), Date.now());
           return game;
         }
       }
@@ -1413,18 +1414,42 @@ class DataService {
       // Fallback to local
     }
 
-    // 3. Fallback to local memory / bundled dataset
+    // 3. Fallback to local memory / bundled dataset with tiered priority lookup
     await this.init();
-    const game = this.games.find(
-      (g) =>
-        g.slug === slug ||
-        g.id === slug ||
-        g.slug.toLowerCase().replace(/-mobile$/i, '').trim() === cleanSlug ||
-        (g.id && g.id.toLowerCase().replace(/-mobile$/i, '').trim() === cleanSlug) ||
-        g.name.toLowerCase().replace(/[^a-z0-9]+/g, '-') === cleanSlug ||
-        ((slug === 'huyen-thoai-hai-tac' || slug === 'pirate-legends') &&
-          (g.slug === 'huyen-thoai-hai-tac' || g.slug === 'pirate-legends' || g.id === 'huyen-thoai-hai-tac' || g.id === 'pirate-legends'))
+
+    // Tier 1: Exact Match on slug or id
+    let game = this.games.find(
+      (g) => (g.slug && g.slug.toLowerCase() === normSlug) || (g.id && g.id.toLowerCase() === normSlug)
     );
+
+    // Tier 2: Exact Match on generated nameSlug
+    if (!game) {
+      game = this.games.find(
+        (g) => g.name && g.name.toLowerCase().replace(/[^a-z0-9]+/g, '-') === normSlug
+      );
+    }
+
+    // Tier 3: Known Specific Aliases
+    if (!game) {
+      if (normSlug === 'huyen-thoai-hai-tac' || normSlug === 'pirate-legends') {
+        game = this.games.find(
+          (g) =>
+            g.slug === 'huyen-thoai-hai-tac' ||
+            g.slug === 'pirate-legends' ||
+            g.id === 'huyen-thoai-hai-tac' ||
+            g.id === 'pirate-legends'
+        );
+      }
+    }
+
+    // Tier 4: Match without -mobile suffix (Only if no exact match found above)
+    if (!game) {
+      game = this.games.find(
+        (g) =>
+          (g.slug && g.slug.toLowerCase().replace(/-mobile$/i, '').trim() === cleanWithoutMobile) ||
+          (g.id && g.id.toLowerCase().replace(/-mobile$/i, '').trim() === cleanWithoutMobile)
+      );
+    }
     if (!game) return null;
 
     const codes = this.getCodesForGame(game);

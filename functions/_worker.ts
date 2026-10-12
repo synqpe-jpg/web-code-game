@@ -457,11 +457,9 @@ async function renderSeoHtml(
     if (env.DB) {
       try {
         const catalog = await gamesApi.getLoadedCatalog(env.DB);
-        game = catalog.games.find((g) =>
-          g.slug.toLowerCase() === slug ||
-          g.id.toLowerCase() === slug ||
-          g.slug.toLowerCase().replace(/-mobile$/i, '') === slug.replace(/-mobile$/i, '')
-        );
+        // Prioritize exact match on slug or id first
+        game = catalog.games.find((g) => g.slug.toLowerCase() === slug || g.id.toLowerCase() === slug) ||
+               catalog.games.find((g) => g.slug.toLowerCase().replace(/-mobile$/i, '') === slug.replace(/-mobile$/i, ''));
       } catch {}
     }
 

@@ -407,22 +407,51 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
       const cleanSlug = requestedSlug.trim().toLowerCase();
       const cleanWithoutMobile = cleanSlug.replace(/-mobile$/i, '');
 
-      const foundGame = catalog.games.find((g) => {
-        const gSlug = g.slug.toLowerCase();
-        const gId = g.id.toLowerCase();
-        const nameSlug = stripAccents(g.name || '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
-        const parts = (g.name || '').split(/[:\-–]/).map((p: string) => stripAccents(p).toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '')).filter(Boolean);
-        return (
-          gSlug === cleanSlug ||
-          gId === cleanSlug ||
-          gSlug.replace(/-mobile$/i, '') === cleanWithoutMobile ||
-          gId.replace(/-mobile$/i, '') === cleanWithoutMobile ||
-          nameSlug === cleanSlug ||
-          parts.includes(cleanSlug) ||
-          parts.includes(cleanWithoutMobile) ||
-          ((cleanSlug === 'huyen-thoai-hai-tac' || cleanSlug === 'pirate-legends') && (gSlug === 'pirate-legends' || gSlug === 'huyen-thoai-hai-tac'))
-        );
+      // Tier 1: Exact Match on slug or id (Highest Priority)
+      let foundGame = catalog.games.find((g) => {
+        const gSlug = (g.slug || '').toLowerCase();
+        const gId = (g.id || '').toLowerCase();
+        return gSlug === cleanSlug || gId === cleanSlug;
       });
+
+      // Tier 2: Exact Match on generated nameSlug
+      if (!foundGame) {
+        foundGame = catalog.games.find((g) => {
+          const nameSlug = stripAccents(g.name || '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+          return nameSlug === cleanSlug;
+        });
+      }
+
+      // Tier 3: Known Specific Aliases
+      if (!foundGame) {
+        if (cleanSlug === 'huyen-thoai-hai-tac' || cleanSlug === 'pirate-legends') {
+          foundGame = catalog.games.find((g) => {
+            const gSlug = (g.slug || '').toLowerCase();
+            const gId = (g.id || '').toLowerCase();
+            return gSlug === 'pirate-legends' || gSlug === 'huyen-thoai-hai-tac' || gId === 'pirate-legends' || gId === 'huyen-thoai-hai-tac';
+          });
+        }
+      }
+
+      // Tier 4: Exact Match without -mobile suffix (Only if no exact match found above)
+      if (!foundGame) {
+        foundGame = catalog.games.find((g) => {
+          const gSlug = (g.slug || '').toLowerCase();
+          const gId = (g.id || '').toLowerCase();
+          return (
+            gSlug.replace(/-mobile$/i, '') === cleanWithoutMobile ||
+            gId.replace(/-mobile$/i, '') === cleanWithoutMobile
+          );
+        });
+      }
+
+      // Tier 5: Sub-parts of game title (Last resort fallback)
+      if (!foundGame) {
+        foundGame = catalog.games.find((g) => {
+          const parts = (g.name || '').split(/[:\-–]/).map((p: string) => stripAccents(p).toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '')).filter(Boolean);
+          return parts.includes(cleanSlug) || parts.includes(cleanWithoutMobile);
+        });
+      }
 
       if (!foundGame) {
         return new Response(
