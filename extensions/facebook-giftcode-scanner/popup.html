@@ -6,8 +6,8 @@
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
     body {
-      width: 410px;
-      min-height: 550px;
+      width: 420px;
+      min-height: 570px;
       background: #020617;
       color: #f8fafc;
       font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
@@ -104,7 +104,30 @@
     }
     .form-select:focus, .form-input:focus { border-color: #6366f1; }
 
-    /* Buttons Group */
+    /* Scan Controls */
+    .scroll-depth-wrap {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      background: #090d16;
+      border: 1px solid #1e293b;
+      padding: 6px 10px;
+      border-radius: 8px;
+      margin-bottom: 10px;
+      font-size: 11px;
+      color: #94a3b8;
+    }
+    .depth-select {
+      background: #020617;
+      border: 1px solid #334155;
+      color: #f8fafc;
+      padding: 3px 6px;
+      border-radius: 6px;
+      font-size: 11px;
+      outline: none;
+      max-width: 220px;
+    }
+
     .scan-buttons {
       display: grid;
       grid-template-columns: 1fr 1.3fr;
@@ -146,29 +169,43 @@
     }
     .btn-scan-deep:hover { background: linear-gradient(135deg, #4338ca 0%, #4f46e5 100%); }
 
-    .scroll-depth-wrap {
+    .btn-stop-scan {
+      width: 100%;
+      background: #ef4444;
+      color: #ffffff;
+      border: none;
+      padding: 8px;
+      border-radius: 8px;
+      font-size: 12px;
+      font-weight: 700;
+      cursor: pointer;
+      margin-bottom: 10px;
+      animation: pulse 1.5s infinite;
+    }
+    .btn-stop-scan:hover { background: #dc2626; }
+
+    /* Stats Card */
+    .stats-card {
+      background: #090d16;
+      border: 1px solid #1e293b;
+      border-radius: 8px;
+      padding: 6px 10px;
       display: flex;
       align-items: center;
       justify-content: space-between;
-      background: #090d16;
-      border: 1px solid #1e293b;
-      padding: 6px 10px;
-      border-radius: 8px;
       margin-bottom: 10px;
       font-size: 11px;
-      color: #94a3b8;
     }
-    .depth-select {
-      background: #020617;
-      border: 1px solid #334155;
-      color: #f8fafc;
-      padding: 3px 6px;
-      border-radius: 6px;
-      font-size: 11px;
-      outline: none;
+    .stat-item {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 1px;
     }
+    .stat-label { color: #64748b; font-size: 10px; }
+    .stat-item strong { color: #f8fafc; font-size: 12px; }
 
-    /* Progress bar */
+    /* Progress Box */
     .progress-box {
       background: #090d16;
       border: 1px solid #6366f1;
@@ -199,7 +236,7 @@
       transition: width 0.3s;
     }
 
-    /* Tabs */
+    /* Tabs Bar */
     .tabs-bar {
       display: flex;
       background: #0f172a;
@@ -245,6 +282,26 @@
     /* Tab Panes */
     .tab-content { display: none; }
     .tab-content.active { display: block; }
+
+    /* Action Toolbar in Tabs */
+    .tab-toolbar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 6px;
+    }
+    .btn-tool-sm {
+      background: #1e293b;
+      border: 1px solid #334155;
+      color: #cbd5e1;
+      font-size: 10px;
+      font-weight: 600;
+      padding: 3px 7px;
+      border-radius: 6px;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    .btn-tool-sm:hover { background: #334155; color: #ffffff; }
 
     /* Code List */
     .code-list {
@@ -434,11 +491,13 @@
 
       <!-- Scroll depth selector -->
       <div class="scroll-depth-wrap">
-        <span>Độ sâu quét cuộn trang:</span>
+        <span>Độ sâu quét bài viết:</span>
         <select id="scroll-depth" class="depth-select">
-          <option value="5">5 lượt (~10-15 bài)</option>
-          <option value="8" selected>8 lượt (~20-25 bài)</option>
-          <option value="15">15 lượt (~40-50 bài)</option>
+          <option value="15">15 bài viết (~8-10 lượt)</option>
+          <option value="35" selected>35 bài viết (~15-20 lượt)</option>
+          <option value="60">60 bài viết (~30-40 lượt)</option>
+          <option value="100">100 bài viết (~50-60 lượt)</option>
+          <option value="9999">♾️ Quét Toàn Bộ Fanpage (Không giới hạn)</option>
         </select>
       </div>
 
@@ -450,6 +509,29 @@
         <button id="btn-scan-deep" class="btn-scan-deep" title="Tự động cuộn trang và mở toàn bộ bài viết">
           <span>🌀 Quét Sâu Toàn Trang</span>
         </button>
+      </div>
+
+      <!-- Stop Button (Hiển thị khi đang quét sâu) -->
+      <button id="btn-stop-scan" class="btn-stop-scan">⏹️ DỪNG QUÉT NGAY</button>
+
+      <!-- Stats Card -->
+      <div class="stats-card">
+        <div class="stat-item">
+          <span class="stat-label">Bài đã duyệt</span>
+          <strong id="stat-posts">0</strong>
+        </div>
+        <div class="stat-item">
+          <span class="stat-label">Tổng code</span>
+          <strong id="stat-codes">0</strong>
+        </div>
+        <div class="stat-item">
+          <span class="stat-label">⭐ Mã chuẩn</span>
+          <strong id="stat-high-codes" style="color: #34d399;">0</strong>
+        </div>
+        <div class="stat-item">
+          <span class="stat-label">Liên kết</span>
+          <strong id="stat-links">0</strong>
+        </div>
       </div>
 
       <!-- Progress Box -->
@@ -477,6 +559,13 @@
 
         <!-- Tab 1: Codes -->
         <div id="pane-codes" class="tab-content active">
+          <div class="tab-toolbar">
+            <span style="font-size: 11px; color: #94a3b8;">Danh sách mã lọc sạch:</span>
+            <div style="display: flex; gap: 6px;">
+              <button id="btn-purify-codes" class="btn-tool-sm" title="Lọc bỏ các mã rác, từ ngữ tiếng Việt">🧹 Lọc Mã Rác</button>
+              <button id="btn-clear-codes" class="btn-tool-sm" style="color: #fb7185;" title="Xóa toàn bộ mã đã quét">🗑️ Xóa Tất Cả</button>
+            </div>
+          </div>
           <div id="code-list" class="code-list"></div>
           <button id="btn-push" class="btn-push">
             <span>🚀 BẮN THẲNG LÊN WEB CODEGAME.SHOP</span>
@@ -485,9 +574,9 @@
 
         <!-- Tab 2: Links -->
         <div id="pane-links" class="tab-content">
-          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+          <div class="tab-toolbar">
             <span style="font-size: 11px; color: #94a3b8;">Link bài viết, sự kiện & Web NPH:</span>
-            <button id="btn-copy-all-links" style="background: none; border: none; color: #6366f1; font-size: 11px; cursor: pointer; font-weight: 600;">📋 Chép hết link</button>
+            <button id="btn-copy-all-links" class="btn-tool-sm">📋 Chép hết link</button>
           </div>
           <div id="link-list" class="link-list"></div>
         </div>

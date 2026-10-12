@@ -1,12 +1,12 @@
 /**
- * Popup Script - CodeGame.Shop Facebook Scanner Extension v1.2.0
+ * Popup Script - CodeGame.Shop Facebook Scanner Extension v1.3.0
  */
 
 let allGames = [];
 let currentTabId = null;
 let currentCodes = [];
 let currentLinks = [];
-let currentPageInfo = { pageName: '', pageUrl: '' };
+let currentPageInfo = { pageName: '', pageUrl: '', postsCount: 0 };
 
 const DEFAULT_SETTINGS = {
   apiUrl: 'https://web-code-game.pages.dev/api/sync',
@@ -131,48 +131,56 @@ function triggerDeepScan() {
   if (!currentTabId) return;
 
   const depthSelect = document.getElementById('scroll-depth');
-  const rounds = parseInt(depthSelect.value, 10) || 8;
+  const targetPosts = parseInt(depthSelect.value, 10) || 35;
 
   const btnDeep = document.getElementById('btn-scan-deep');
   const btnQuick = document.getElementById('btn-scan-quick');
+  const btnStop = document.getElementById('btn-stop-scan');
   const progressBox = document.getElementById('progress-box');
   const progressMsg = document.getElementById('progress-msg');
   const progressBarFill = document.getElementById('progress-bar-fill');
 
   btnDeep.disabled = true;
   btnQuick.disabled = true;
+  btnStop.style.display = 'block';
   progressBox.style.display = 'block';
-  progressMsg.innerHTML = `<span>🌀 Đang cuộn trang ${rounds} lượt & mở bung bài viết...</span>`;
-  progressBarFill.style.width = '15%';
+  progressMsg.innerHTML = `<span>🌀 Đang bắt đầu quét sâu...</span>`;
+  progressBarFill.style.width = '10%';
 
-  let currentPercent = 15;
+  let currentPercent = 10;
   const interval = setInterval(() => {
     if (currentPercent < 90) {
-      currentPercent += 8;
+      currentPercent += 5;
       progressBarFill.style.width = `${currentPercent}%`;
     }
   }, 1000);
 
-  chrome.tabs.sendMessage(currentTabId, { action: 'DEEP_SCAN_PAGE', rounds }, (response) => {
+  chrome.tabs.sendMessage(currentTabId, { action: 'DEEP_SCAN_PAGE', targetPosts }, (response) => {
     clearInterval(interval);
     progressBarFill.style.width = '100%';
     setTimeout(() => { progressBox.style.display = 'none'; }, 800);
 
     btnDeep.disabled = false;
     btnQuick.disabled = false;
+    btnStop.style.display = 'none';
 
     if (chrome.runtime.lastError || !response) {
-      showAlert('Không thể thực hiện quét sâu. Vui lòng thử lại hoặc tải lại trang.', false);
+      showAlert('Không thể thực hiện quét sâu. Vui lòng thử lại hoặc tải lại trang Facebook.', false);
       return;
     }
 
     handleScanResponse(response);
-    showAlert(`Đã quét sâu hoàn tất! Tìm thấy ${response.codes?.length || 0} mã code và ${response.links?.length || 0} đường link.`, true);
+    showAlert(`Quét sâu hoàn tất! Đã duyệt thực tế ${response.postsCount || 0} bài viết. Tìm thấy ${response.codes?.length || 0} mã code và ${response.links?.length || 0} đường link.`, true);
   });
 }
 
 function handleScanResponse(response) {
-  currentPageInfo = { pageName: response.pageName, pageUrl: response.pageUrl };
+  currentPageInfo = {
+    pageName: response.pageName,
+    pageUrl: response.pageUrl,
+    postsCount: response.postsCount || 0
+  };
+
   document.getElementById('page-name').innerText = response.pageName;
   document.getElementById('page-name').title = response.pageName;
 
@@ -185,7 +193,22 @@ function handleScanResponse(response) {
   currentCodes = response.codes || [];
   currentLinks = response.links || [];
 
+  updateStats(response.postsCount || 0, currentCodes, currentLinks);
   renderResults(currentCodes, currentLinks);
+}
+
+function updateStats(postsCount, codes = [], links = []) {
+  const statPosts = document.getElementById('stat-posts');
+  const statCodes = document.getElementById('stat-codes');
+  const statHighCodes = document.getElementById('stat-high-codes');
+  const statLinks = document.getElementById('stat-links');
+
+  statPosts.innerText = postsCount;
+  statCodes.innerText = codes.length;
+
+  const highCount = codes.filter(c => c.isHighConfidence || (/\d/.test(c.code) && /[A-Z]/.test(c.code))).length;
+  statHighCodes.innerText = highCount;
+  statLinks.innerText = links.length;
 }
 
 function renderResults(codes = [], links = []) {
@@ -205,7 +228,7 @@ function renderResults(codes = [], links = []) {
   if (codes.length === 0) {
     codeListEl.innerHTML = `
       <div style="text-align: center; padding: 14px; color: #64748b; font-size: 11px;">
-        Chưa tìm thấy mã trong các bài viết. Hãy thử bấm <strong>🌀 Quét Sâu Toàn Trang</strong> để cuộn lấy thêm bài cũ nhé!
+        Chưa có mã nào trong danh sách. Hãy chọn số lượng bài và bấm <strong>🌀 Quét Sâu Toàn Trang</strong> nhé!
       </div>
     `;
     document.getElementById('btn-push').style.display = 'none';
@@ -214,20 +237,25 @@ function renderResults(codes = [], links = []) {
     document.getElementById('btn-push').disabled = false;
     document.getElementById('btn-push').innerHTML = `<span>🚀 BẮN ${codes.length} MÃ LÊN WEB CODEGAME.SHOP</span>`;
 
-    codeListEl.innerHTML = codes.map((c, index) => `
-      <div class="code-row">
-        <div style="display: flex; align-items: center; gap: 6px;">
-          <span class="code-badge">${c.code}</span>
-          <span class="code-reward" title="${c.rewards}">${c.rewards}</span>
+    codeListEl.innerHTML = codes.map((c, index) => {
+      const isHigh = c.isHighConfidence || (/\d/.test(c.code) && /[A-Z]/.test(c.code));
+      return `
+        <div class="code-row">
+          <div style="display: flex; align-items: center; gap: 6px;">
+            <span class="code-badge">${c.code}</span>
+            ${isHigh ? `<span style="font-size: 9px; background: rgba(16, 185, 129, 0.2); color: #34d399; padding: 1px 4px; border-radius: 4px;">⭐ Chuẩn</span>` : ''}
+            <span class="code-reward" title="${c.rewards}">${c.rewards}</span>
+          </div>
+          <button class="btn-remove-code" data-index="${index}" style="background: none; border: none; color: #64748b; cursor: pointer; padding: 2px 4px; font-size: 14px;">&times;</button>
         </div>
-        <button class="btn-remove-code" data-index="${index}" style="background: none; border: none; color: #64748b; cursor: pointer; padding: 2px 4px;">&times;</button>
-      </div>
-    `).join('');
+      `;
+    }).join('');
 
     document.querySelectorAll('.btn-remove-code').forEach(btn => {
       btn.addEventListener('click', (e) => {
         const idx = parseInt(e.target.dataset.index, 10);
         currentCodes.splice(idx, 1);
+        updateStats(currentPageInfo.postsCount, currentCodes, currentLinks);
         renderResults(currentCodes, currentLinks);
       });
     });
@@ -319,6 +347,44 @@ function bindEvents() {
   document.getElementById('btn-scan-quick').addEventListener('click', triggerQuickScan);
   document.getElementById('btn-scan-deep').addEventListener('click', triggerDeepScan);
   document.getElementById('btn-push').addEventListener('click', pushCodesToServer);
+
+  // Nút Dừng Quét
+  document.getElementById('btn-stop-scan').addEventListener('click', () => {
+    chrome.tabs.sendMessage(currentTabId, { action: 'STOP_DEEP_SCAN' }, () => {
+      showAlert('Đã gửi yêu cầu dừng quét!', true);
+      document.getElementById('btn-stop-scan').style.display = 'none';
+      document.getElementById('btn-scan-deep').disabled = false;
+      document.getElementById('btn-scan-quick').disabled = false;
+      document.getElementById('progress-box').style.display = 'none';
+    });
+  });
+
+  // Nút Lọc Mã Rác
+  document.getElementById('btn-purify-codes').addEventListener('click', () => {
+    const originalCount = currentCodes.length;
+    // Giữ lại các mã có số và chữ, hoặc độ dài >= 6 không phải từ ngữ thông thường
+    currentCodes = currentCodes.filter(c => {
+      const clean = c.code.trim().toUpperCase();
+      const hasDigit = /\d/.test(clean);
+      const hasLetter = /[A-Z]/.test(clean);
+      if (hasDigit && hasLetter) return true;
+      if (clean.length >= 6 && c.isHighConfidence) return true;
+      return false;
+    });
+
+    const removed = originalCount - currentCodes.length;
+    updateStats(currentPageInfo.postsCount, currentCodes, currentLinks);
+    renderResults(currentCodes, currentLinks);
+    showAlert(`🧹 Đã lọc sạch! Đã loại bỏ ${removed} mã nghi vấn / từ tiếng Việt, giữ lại ${currentCodes.length} mã chuẩn.`, true);
+  });
+
+  // Nút Xóa Tất Cả Code
+  document.getElementById('btn-clear-codes').addEventListener('click', () => {
+    currentCodes = [];
+    updateStats(currentPageInfo.postsCount, currentCodes, currentLinks);
+    renderResults(currentCodes, currentLinks);
+    showAlert('Đã xóa toàn bộ mã code đã quét.', true);
+  });
 
   // Tab switching
   const tabCodes = document.getElementById('tab-btn-codes');

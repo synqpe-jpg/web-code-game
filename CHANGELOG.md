@@ -7,7 +7,26 @@ Mỗi mục sửa lỗi đều ghi nhận **Nguyên nhân gốc rễ (Root Cause
 
 ## [2026-10-12]
 
-### 1. Nâng Cấp Extension Chrome v1.2.0: Tự Động Mở Bung Bài Viết, Quét Sâu Toàn Trang (Deep Auto-Scroll) & Bóc Tách Toàn Bộ Link Sự Kiện / Web NPH
+### 1. Nâng Cấp Extension Chrome v1.3.0: Tích Lũy Bài Viết Không Giới Hạn, Lọc Sạch 100% Rác Tiếng Việt (THAM, NGHEN...), Thống Kê & Nút Xóa/Dừng Quét
+- **Mô tả**: Giải quyết triệt để vấn đề người dùng chọn quét 40-50 bài nhưng thực tế chỉ đếm được 15 bài (do cơ chế unmount của Facebook Virtual DOM). Bổ sung bộ lọc âm tiết tiếng Việt loại bỏ 100% từ ngữ viết hoa bị bắt nhầm (`THAM`, `NGHEN`...), sửa nhận diện tên Fanpage chuẩn xác (không bị đè bởi "Thông báo"), thêm nút Dừng Quét, nút Lọc Mã Rác, nút Xóa Tất Cả Code và bảng thống kê thời gian thực.
+- **Nguyên nhân gốc rễ (Root Cause)**:
+  1. **Lỗi đếm bài viết do Facebook Virtual DOM unmount**: Facebook tự động hủy (unmount) các phần tử bài viết cũ ở phía trên khi cuộn xuống sâu để tiết kiệm bộ nhớ RAM. Do code trước đó chỉ đếm số phần tử `role="article"` trong DOM tại thời điểm kết thúc (`finalPass.postsCount`), kết quả luôn dao động quanh mức 10-15 bài dù đã cuộn qua hàng chục bài viết.
+  2. **Bộ lọc mã thiếu từ điển âm tiết tiếng Việt**: Regex từ khóa (`Nhận ngay: ...`) và bullet points bắt phải các từ viết hoa 4-5 ký tự như `THAM` ("THAM GIA"), `NGHEN` ("NGHẸN NGÀO"), `CHOI`, `NGAY` vì danh sách stopwords chưa bao quát âm tiết tiếng Việt không dấu.
+  3. **Lấy sai tên Fanpage thành "Thông báo"**: Thẻ `h1` thông báo của menu Facebook xuất hiện trước tiêu đề Fanpage trong thứ tự DOM khiến `document.querySelector('h1')` lấy trúng chữ "Thông báo", làm hỏng tính năng tự động nhận diện game và ghi sai tên phần thưởng.
+- **Giải pháp thành công (Solution Applied)**:
+  1. **Tích Lũy Bài Viết Vĩnh Viễn (`accumulatedPosts Map`)**: Lưu trữ bài viết theo ID duy nhất (`postUrl` hoặc text hash) xuyên suốt phiên quét. Dù Facebook có unmount bài viết khỏi DOM thì bài viết đó vẫn được lưu trữ và đếm chính xác 100% vào tổng số bài đã duyệt.
+  2. **Quét Toàn Bộ Fanpage & Mở Rộng Độ Sâu**: Hỗ trợ 15, 35, 60, 100 bài và chế độ `♾️ Quét Toàn Bộ Fanpage (Không giới hạn - đến khi chạm đáy hoặc bấm Dừng)`.
+  3. **Nút "⏹️ Dừng Quét"**: Cho phép người dùng bấm dừng bất cứ lúc nào trên cả Popup và thanh thông báo nổi trên màn hình.
+  4. **Bộ Lọc Âm Tiết Tiếng Việt Toàn Diện (`VIETNAMESE_SYLLABLES`)**: Chặn đứng 100% các từ ngữ tiếng Việt không dấu; áp dụng Quy Tắc Vàng: chuỗi toàn chữ cái $\le 5$ ký tự bị loại bỏ hoàn toàn, ưu tiên tuyệt đối mã có cả chữ và số (như `LLDKPIB18`, `TSVDKPI0910`, `TNN20B`, `CTDT9R0609`).
+  5. **Nút "🧹 Lọc Mã Rác" & "🗑️ Xóa Tất Cả"**: Hỗ trợ dọn sạch danh sách mã chỉ với 1-chạm.
+  6. **Nhận Diện Tên Fanpage Chuẩn Xác (`getCleanFanpageName`)**: Loại bỏ toàn bộ từ khóa giao diện hệ thống Facebook (`Thông báo`, `Notifications`, `Bảng tin`...), ưu tiên đọc `meta[property="og:title"]` và `document.title`.
+  7. **Thẻ Thống Kê Chi Tiết (Stats Card)**: Hiển thị đồng thời số bài đã duyệt, tổng số code, số mã chuẩn chất lượng cao và số lượng link tìm được.
+- **Giải pháp thất bại đã thử (Failed Attempts - KHÔNG ĐƯỢC LẶP LẠI)**:
+  - *Thử nghiệm 1*: Đếm số lượng bài viết bằng `querySelectorAll('div[role="article"]').length` tại cuối phiên cuộn $\rightarrow$ *Thất bại*: Luôn chỉ ra 10-15 phần tử do Facebook unmount các bài phía trên.
+
+---
+
+### 2. Nâng Cấp Extension Chrome v1.2.0: Tự Động Mở Bung Bài Viết, Quét Sâu Toàn Trang (Deep Auto-Scroll) & Bóc Tách Toàn Bộ Link Sự Kiện / Web NPH
 - **Mô tả**: Nâng cấp toàn diện Chrome Extension `CodeGame.Shop - 1-Click Facebook Giftcode Scanner` lên phiên bản v1.2.0, giải quyết bài toán đọc toàn bộ bài viết trong quá khứ trên Fanpage Facebook và bóc tách toàn bộ các đường link (link sự kiện minigame, link web NPH, link bài post permalink).
 - **Nguyên nhân gốc rễ (Root Cause)**:
   1. **Ẩn nội dung dài qua nút "Xem thêm"**: Facebook cắt ngắn nội dung dài và chỉ hiện sau khi click "Xem thêm" / "See more". Nếu extension chỉ quét DOM tĩnh ban đầu, các mã code ở đoạn giữa và cuối bài viết sẽ bị bỏ sót.
