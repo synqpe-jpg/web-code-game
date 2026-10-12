@@ -263,7 +263,11 @@ class MarketingService {
               if (info) {
                 if (typeof info.sold === 'number') {
                   const curSold = this.highWaterSoldCountMap.get(pId) || 0;
-                  this.highWaterSoldCountMap.set(pId, Math.max(curSold, info.sold));
+                  if (curSold > info.sold + 2 || curSold < info.sold) {
+                    this.highWaterSoldCountMap.set(pId, info.sold);
+                  } else {
+                    this.highWaterSoldCountMap.set(pId, Math.max(curSold, info.sold));
+                  }
                 }
                 if (typeof info.real_stock === 'number') {
                   this.productRealStockMap.set(pId, info.real_stock);
@@ -279,7 +283,11 @@ class MarketingService {
               if (info) {
                 if (typeof info.claimed === 'number') {
                   const curClaimed = this.highWaterClaimedCountMap.get(gId) || 0;
-                  this.highWaterClaimedCountMap.set(gId, Math.max(curClaimed, info.claimed));
+                  if (curClaimed > info.claimed + 2 || curClaimed < info.claimed) {
+                    this.highWaterClaimedCountMap.set(gId, info.claimed);
+                  } else {
+                    this.highWaterClaimedCountMap.set(gId, Math.max(curClaimed, info.claimed));
+                  }
                 }
                 if (typeof info.real_remaining === 'number') {
                   this.productRealStockMap.set(gId, info.real_remaining);
@@ -393,9 +401,17 @@ class MarketingService {
                 }
                 if (typeof info.sold === 'number') {
                   const curSold = this.highWaterSoldCountMap.get(pId) || 0;
-                  this.highWaterSoldCountMap.set(pId, Math.max(curSold, info.sold));
+                  if (curSold > info.sold + 2 || curSold < info.sold) {
+                    this.highWaterSoldCountMap.set(pId, info.sold);
+                  } else {
+                    this.highWaterSoldCountMap.set(pId, Math.max(curSold, info.sold));
+                  }
                   const curFomo = this.liveFomoSoldCountMap.get(pId) || 0;
-                  this.liveFomoSoldCountMap.set(pId, Math.max(curFomo, info.sold));
+                  if (curFomo > info.sold + 2 || curFomo < info.sold) {
+                    this.liveFomoSoldCountMap.set(pId, info.sold);
+                  } else {
+                    this.liveFomoSoldCountMap.set(pId, Math.max(curFomo, info.sold));
+                  }
                 }
                 if (typeof info.stock === 'number') {
                   const realStock = typeof info.real_stock === 'number'
@@ -453,9 +469,17 @@ class MarketingService {
                 }
                 if (typeof info.claimed === 'number') {
                   const curClaimed = this.highWaterClaimedCountMap.get(gId) || 0;
-                  this.highWaterClaimedCountMap.set(gId, Math.max(curClaimed, info.claimed));
+                  if (curClaimed > info.claimed + 2 || curClaimed < info.claimed) {
+                    this.highWaterClaimedCountMap.set(gId, info.claimed);
+                  } else {
+                    this.highWaterClaimedCountMap.set(gId, Math.max(curClaimed, info.claimed));
+                  }
                   const curFomo = this.liveFomoClaimedCountMap.get(gId) || 0;
-                  this.liveFomoClaimedCountMap.set(gId, Math.max(curFomo, info.claimed));
+                  if (curFomo > info.claimed + 2 || curFomo < info.claimed) {
+                    this.liveFomoClaimedCountMap.set(gId, info.claimed);
+                  } else {
+                    this.liveFomoClaimedCountMap.set(gId, Math.max(curFomo, info.claimed));
+                  }
                 }
                 if (typeof info.remaining === 'number') {
                   const realRemaining = typeof info.real_remaining === 'number'
@@ -832,6 +856,24 @@ class MarketingService {
               this.saveHighWaterCounts();
             }
             this.notifySoldCountChanged(payload.campaignId, this.getClaimedDisplay({ id: payload.campaignId }));
+          }
+        } else if (type === 'FOMO_SOLD_RESET' && payload) {
+          if (payload.productId && typeof payload.targetDisplay === 'number') {
+            this.highWaterSoldCountMap.set(payload.productId, payload.targetDisplay);
+            this.liveFomoSoldCountMap.set(payload.productId, Math.max(0, payload.virtualCount || 0));
+            this.saveHighWaterCounts();
+            this.saveLiveFomoCounts();
+            this.sessionAnchorMap.set(payload.productId, { lastCount: payload.targetDisplay, lastTimestamp: Date.now() });
+            this.notifySoldCountChanged(payload.productId, payload.targetDisplay);
+          }
+        } else if (type === 'FOMO_CLAIMED_RESET' && payload) {
+          if (payload.campaignId && typeof payload.targetDisplay === 'number') {
+            this.highWaterClaimedCountMap.set(payload.campaignId, payload.targetDisplay);
+            this.liveFomoClaimedCountMap.set(payload.campaignId, Math.max(0, payload.virtualCount || 0));
+            this.saveHighWaterCounts();
+            this.saveLiveFomoCounts();
+            this.sessionAnchorMap.set(payload.campaignId, { lastCount: payload.targetDisplay, lastTimestamp: Date.now() });
+            this.notifySoldCountChanged(payload.campaignId, payload.targetDisplay);
           }
         }
       };
@@ -2195,6 +2237,35 @@ class MarketingService {
 
     this.highWaterSoldCountMap.set(productId, targetDisplay);
     this.saveHighWaterCounts();
+
+    if (forceReset) {
+      const now = Date.now();
+      this.sessionAnchorMap.set(productId, { lastCount: targetDisplay, lastTimestamp: now });
+      this.saveSessionAnchors();
+      this.lastReportedPeaks.sold[productId] = targetDisplay;
+
+      if (this.broadcastChannel) {
+        try {
+          this.broadcastChannel.postMessage({
+            type: 'FOMO_SOLD_RESET',
+            payload: { productId, targetDisplay, virtualCount: count },
+          });
+        } catch {}
+      }
+
+      if (typeof window !== 'undefined') {
+        fetch('/api/sync', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            type: 'report_peak_metrics',
+            forceResetSold: true,
+            peakSold: { [productId]: targetDisplay },
+          }),
+        }).catch(() => null);
+      }
+    }
+
     this.notifySoldCountChanged(productId, targetDisplay);
   }
 
@@ -2218,6 +2289,35 @@ class MarketingService {
 
     this.highWaterClaimedCountMap.set(campaignId, targetDisplay);
     this.saveHighWaterCounts();
+
+    if (forceReset) {
+      const now = Date.now();
+      this.sessionAnchorMap.set(campaignId, { lastCount: targetDisplay, lastTimestamp: now });
+      this.saveSessionAnchors();
+      this.lastReportedPeaks.claimed[campaignId] = targetDisplay;
+
+      if (this.broadcastChannel) {
+        try {
+          this.broadcastChannel.postMessage({
+            type: 'FOMO_CLAIMED_RESET',
+            payload: { campaignId, targetDisplay, virtualCount: count },
+          });
+        } catch {}
+      }
+
+      if (typeof window !== 'undefined') {
+        fetch('/api/sync', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            type: 'report_peak_metrics',
+            forceResetClaimed: true,
+            peakClaimed: { [campaignId]: targetDisplay },
+          }),
+        }).catch(() => null);
+      }
+    }
+
     this.notifySoldCountChanged(campaignId, targetDisplay);
   }
 

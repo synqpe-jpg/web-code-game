@@ -311,7 +311,7 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
               : (Array.isArray(meta.product_images) && meta.product_images.length > 0 ? meta.product_images : undefined),
             badge: p.badge || meta.badge || '',
             description: p.description || meta.description || '',
-            virtual_sold_count: (typeof p.virtual_sold_count === 'number' && p.virtual_sold_count > 0 ? p.virtual_sold_count : meta.virtual_sold_count) || 0,
+            virtual_sold_count: p.virtual_sold_count !== undefined ? Number(p.virtual_sold_count) : Number(meta.virtual_sold_count ?? 0),
             show_sold_count: p.show_sold_count !== undefined ? Boolean(p.show_sold_count) : (meta.show_sold_count !== false),
             show_warranty: p.show_warranty !== undefined ? Boolean(p.show_warranty) : Boolean(meta.show_warranty),
             warranty_text: p.warranty_text || meta.warranty_text || '',
@@ -372,7 +372,7 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
             badge: u.badge || meta.badge || '',
             description: u.description || meta.description || '',
             instructions: u.instructions || meta.instructions || '',
-            virtual_sold_count: (typeof u.virtual_sold_count === 'number' && u.virtual_sold_count > 0 ? u.virtual_sold_count : meta.virtual_sold_count) || 0,
+            virtual_sold_count: u.virtual_sold_count !== undefined ? Number(u.virtual_sold_count) : Number(meta.virtual_sold_count ?? 0),
             show_sold_count: u.show_sold_count !== undefined ? Boolean(u.show_sold_count) : (meta.show_sold_count !== false),
             show_warranty: u.show_warranty !== undefined ? Boolean(u.show_warranty) : Boolean(meta.show_warranty),
             warranty_text: u.warranty_text || meta.warranty_text || '',
@@ -1002,14 +1002,15 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
         if (!hub.lowestGiveawayRemaining || typeof hub.lowestGiveawayRemaining !== 'object') hub.lowestGiveawayRemaining = {};
 
         let changed = false;
+        const isForceReset = Boolean(body.forceReset || body.forceResetSold || body.forceResetClaimed || body.forceResetStock);
 
-        // Peak sold: Keep max, but auto-heal if server peak was abnormally inflated
+        // Peak sold: Keep max, but auto-heal or force-reset if admin explicitly updated
         if (body.peakSold && typeof body.peakSold === 'object') {
           for (const [pId, val] of Object.entries(body.peakSold)) {
             const num = Number(val);
-            if (num > 0 && num < 1000000) {
+            if (!isNaN(num) && num >= 0 && num < 1000000) {
               const cur = hub.peakProductSoldCounts[pId] || 0;
-              if (num > cur || (cur > num + 50)) {
+              if (body.forceResetSold || body.forceReset || num > cur || (cur > num + 50)) {
                 hub.peakProductSoldCounts[pId] = num;
                 changed = true;
               }
@@ -1017,13 +1018,13 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
           }
         }
 
-        // Peak claimed: Keep max, but auto-heal if server peak was abnormally inflated
+        // Peak claimed: Keep max, but auto-heal or force-reset if admin explicitly updated
         if (body.peakClaimed && typeof body.peakClaimed === 'object') {
           for (const [gId, val] of Object.entries(body.peakClaimed)) {
             const num = Number(val);
-            if (num > 0 && num < 1000000) {
+            if (!isNaN(num) && num >= 0 && num < 1000000) {
               const cur = hub.peakGiveawayClaimedCounts[gId] || 0;
-              if (num > cur || (cur > num + 50)) {
+              if (body.forceResetClaimed || body.forceReset || num > cur || (cur > num + 50)) {
                 hub.peakGiveawayClaimedCounts[gId] = num;
                 changed = true;
               }
@@ -1083,15 +1084,19 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
           }
         }
 
-        if (changed) {
+        if (changed || isForceReset) {
           hub.updatedAt = new Date().toISOString();
-          await saveRealEventsHub(env, hub);
+          await saveRealEventsHub(env, hub, isForceReset);
 
           // Invalidate/refresh memory isolate snapshot cache so subsequent GETs immediately reflect the new peak
           const gScope = globalThis as any;
           gScope.__wcg_metrics_snapshot = null;
 
-          // Invalidate edge cache for /api/metrics/synced and /api/realtime-events
+          if (isForceReset && env && env.DB) {
+            await setSettingD1(env.DB, 'wcg_hourly_fomo_stats', null).catch(() => {});
+          }
+
+          // Invalidate edge cache for /api/metrics/synced, /api/stats, and /api/realtime-events
           try {
             if (typeof caches !== 'undefined' && (caches as any).default) {
               const cache = (caches as any).default;
@@ -1099,6 +1104,11 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
               cacheUrl.pathname = '/api/metrics/synced';
               cacheUrl.search = '';
               await cache.delete(new Request(cacheUrl.toString(), { method: 'GET' }));
+
+              const statsUrl = new URL(request.url);
+              statsUrl.pathname = '/api/stats';
+              statsUrl.search = '';
+              await cache.delete(new Request(statsUrl.toString(), { method: 'GET' }));
 
               const eventsUrl = new URL(request.url);
               eventsUrl.pathname = '/api/realtime-events';

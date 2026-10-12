@@ -2863,11 +2863,14 @@ class AdminDataService {
         this.deletedGiveawayIds.delete(existing.id);
         this.saveDeletedGiveawayIds();
       }
-      const safeClaimed = Math.max(Number(existing.claimed_codes) || 0, Number(item.claimed_codes) || 0);
+      const safeClaimed = item.claimed_codes !== undefined
+        ? Math.max(0, Number(item.claimed_codes) || 0)
+        : (Number(existing.claimed_codes) || 0);
       const safeCreatedAt = existing.created_at || (existing as any).createdAt || item.created_at || (item as any).createdAt || new Date().toISOString();
       const poolLen = Array.isArray(item.codes_pool) ? item.codes_pool.length : (Array.isArray(existing.codes_pool) ? existing.codes_pool.length : 0);
       const isVirtualClaimedChanged = item.virtual_claimed_offset !== undefined &&
         Number(item.virtual_claimed_offset) !== Number(existing.virtual_claimed_offset);
+      const isClaimedChanged = isVirtualClaimedChanged || (item.claimed_codes !== undefined && Number(item.claimed_codes) !== Number(existing.claimed_codes));
       Object.assign(existing, item, {
         claimed_codes: safeClaimed,
         remaining_codes: poolLen,
@@ -2875,8 +2878,8 @@ class AdminDataService {
         created_at: safeCreatedAt,
         createdAt: safeCreatedAt,
       });
-      if (item.virtual_claimed_offset !== undefined) {
-        marketingService.syncGiveawayVirtualClaimed(existing.id, Number(existing.virtual_claimed_offset) || 0, isVirtualClaimedChanged);
+      if (item.virtual_claimed_offset !== undefined || isClaimedChanged) {
+        marketingService.syncGiveawayVirtualClaimed(existing.id, Number(existing.virtual_claimed_offset) || 0, true);
       }
       this.saveGiveaways();
       this.pushFullStateToKV();
@@ -3003,17 +3006,20 @@ class AdminDataService {
         this.deletedStoreProductIds.delete(existing.id);
         this.saveDeletedStoreProductIds();
       }
-      const safeSoldCount = Math.max(Number(existing.sold_count) || 0, Number(item.sold_count) || 0);
+      const safeSoldCount = item.sold_count !== undefined
+        ? Math.max(0, Number(item.sold_count) || 0)
+        : (Number(existing.sold_count) || 0);
       const safeCreatedAt = existing.created_at || (existing as any).createdAt || item.created_at || (item as any).createdAt || new Date().toISOString();
       const isVirtualSoldChanged = item.virtual_sold_count !== undefined &&
         Number(item.virtual_sold_count) !== Number(existing.virtual_sold_count);
+      const isSoldChanged = isVirtualSoldChanged || (item.sold_count !== undefined && Number(item.sold_count) !== Number(existing.sold_count));
       Object.assign(existing, item, {
         sold_count: safeSoldCount,
         created_at: safeCreatedAt,
         createdAt: safeCreatedAt,
       });
-      if (item.virtual_sold_count !== undefined) {
-        marketingService.syncProductVirtualSold(existing.id, Number(existing.virtual_sold_count) || 0, isVirtualSoldChanged);
+      if (item.virtual_sold_count !== undefined || isSoldChanged) {
+        marketingService.syncProductVirtualSold(existing.id, Number(existing.virtual_sold_count) || 0, true);
       }
       this.saveStoreProducts();
       this.pushFullStateToKV();
@@ -3132,17 +3138,20 @@ class AdminDataService {
         this.deletedUtilityIds.delete(existing.id);
         this.saveDeletedUtilityIds();
       }
-      const safeSoldCount = Math.max(Number(existing.sold_count) || 0, Number(item.sold_count) || 0);
+      const safeSoldCount = item.sold_count !== undefined
+        ? Math.max(0, Number(item.sold_count) || 0)
+        : (Number(existing.sold_count) || 0);
       const safeCreatedAt = existing.created_at || (existing as any).createdAt || item.created_at || (item as any).createdAt || new Date().toISOString();
       const isVirtualSoldChanged = item.virtual_sold_count !== undefined &&
         Number(item.virtual_sold_count) !== Number(existing.virtual_sold_count);
+      const isSoldChanged = isVirtualSoldChanged || (item.sold_count !== undefined && Number(item.sold_count) !== Number(existing.sold_count));
       Object.assign(existing, item, {
         sold_count: safeSoldCount,
         created_at: safeCreatedAt,
         createdAt: safeCreatedAt,
       });
-      if (item.virtual_sold_count !== undefined) {
-        marketingService.syncProductVirtualSold(existing.id, Number(existing.virtual_sold_count) || 0, isVirtualSoldChanged);
+      if (item.virtual_sold_count !== undefined || isSoldChanged) {
+        marketingService.syncProductVirtualSold(existing.id, Number(existing.virtual_sold_count) || 0, true);
       }
       this.saveUtilities();
       this.pushFullStateToKV();

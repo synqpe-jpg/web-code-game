@@ -7,7 +7,27 @@ Mỗi mục sửa lỗi đều ghi nhận **Nguyên nhân gốc rễ (Root Cause
 
 ## [2026-10-12]
 
-### 1. Đồng Bộ Trừ Tồn Kho Ảo Khi Bù Đơn Ngoại Tuyến (Offline Catch-Up Atomic Stock Decrement)
+### 1. Đồng Bộ Đặt Lại / Hạ Số Đã Bán & Số Đã Săn Ảo Cho Admin (Force Reset Sold & Claimed Counts)
+- **Mô tả**: Cho phép Admin chỉnh sửa, hạ thấp hoặc đặt lại về 0 số lượng đã bán ảo và số lượng đã săn ảo cho cả 3 mục: Tiện ích (`Utilities`), Chợ code (`Store Products`) và Săn Giveaway (`Giveaways`). Ngăn chặn triệt để tình trạng máy chủ Cloudflare hay client poller tự động khôi phục (revert/resurrect) con số đỉnh cũ (high-water mark).
+- **Nguyên nhân gốc rễ (Root Cause)**:
+  1. Trong `src/admin/services/adminDataService.ts`, hàm `saveStoreProductItem` và `saveUtilityItem` ép lấy `Math.max(existing.sold_count, item.sold_count)` khiến Admin không thể hạ con số đã bán thật/ảo về mốc thấp hơn.
+  2. Phía backend Cloudflare (`functions/api/sync.ts` tại endpoint `report_peak_metrics`), server chỉ ghi nhận khi `num > cur || (cur > num + 50)` và `num > 0`. Nếu Admin hạ số bán/săn hoặc đặt về `0`, server từ chối cập nhật và giữ nguyên đỉnh cũ trong `hub.peakProductSoldCounts` và `hub.peakGiveawayClaimedCounts`.
+  3. Khi server lưu, hàm `saveRealEventsHub(env, hub)` không có cờ `forceReset` nên tiếp tục bị gộp đơn điệu (`mergeCountsMonotonic`) với bộ nhớ isolate cũ `memHub`.
+  4. Phía client poller (`src/services/marketingService.ts`), hàm `fetchMetricsSnapshot()` cứ mỗi 10s lại gọi `/api/metrics/synced` và chạy `Math.max(curSold, info.sold)` kéo đỉnh cũ từ server đè lại vào client.
+  5. Đồng thời, `marketingService.syncProductVirtualSold` và `syncGiveawayVirtualClaimed` trước đó không xóa session anchor, không cập nhật `lastReportedPeaks` và không gửi ngay tín hiệu `forceReset` lên Cloudflare `/api/sync`.
+- **Giải pháp thành công (Solution Applied)**:
+  1. Sửa `adminDataService.ts`: Sử dụng giá trị mới khi Admin nhập `item.sold_count !== undefined` và `item.claimed_codes !== undefined` thay vì ép `Math.max`.
+  2. Sửa `marketingService.ts`: Bổ sung cơ chế `forceReset` trong `syncProductVirtualSold` và `syncGiveawayVirtualClaimed`, cập nhật `sessionAnchorMap`, xóa `lastReportedPeaks`, phát broadcast `FOMO_SOLD_RESET` / `FOMO_CLAIMED_RESET`, và gửi ngay POST `/api/sync` với cờ `forceResetSold: true` / `forceResetClaimed: true`.
+  3. Cập nhật `fetchMetricsSnapshot()` và `initFastCachedSnapshot`: Cho phép ghi đè hạ số khi server snapshot cung cấp con số thấp hơn đã được reset (`curSold > info.sold + 2`).
+  4. Sửa `functions/api/sync.ts`: Cho phép cập nhật khi `num >= 0` và có cờ `forceResetSold` / `forceResetClaimed`; gọi `saveRealEventsHub(env, hub, isForceReset)` để bỏ qua monotonic merge; xóa cache `wcg_hourly_fomo_stats` trong D1 và hủy cache Edge cho `/api/metrics/synced`, `/api/stats`, `/api/realtime-events`.
+  5. Giải thích cơ chế tự động bù kho (+20): Khi số lượng tồn kho ảo tụt về $\le$ ngưỡng kích hoạt (`effectiveThreshold`, bằng $\max(\text{rawThreshold}, \text{realStock})$), hệ thống tự động nhảy kho lên mức mới để duy trì độ khan hiếm theo đúng thiết kế (ví dụ từ `Còn: 9` nhảy lên `Còn: 25`).
+- **Giải pháp thất bại đã thử (Failed Attempts - KHÔNG ĐƯỢC LẶP LẠI)**:
+  - *Thử nghiệm 1*: Chỉ sửa `highWaterSoldCountMap` ở client $\rightarrow$ *Thất bại*: 10s sau poller nhận snapshot từ Cloudflare D1/KV đè lại con số đỉnh cũ.
+  - *Thử nghiệm 2*: Chỉ cập nhật D1 mà không vô hiệu hóa `memHub` (isolate memory) trong `saveRealEventsHub` $\rightarrow$ *Thất bại*: Isolate memory vẫn chứa đỉnh cũ và tiếp tục merge đè lên D1.
+
+---
+
+### 2. Đồng Bộ Trừ Tồn Kho Ảo Khi Bù Đơn Ngoại Tuyến (Offline Catch-Up Atomic Stock Decrement)
 - **Mô tả**: Tự động trừ số lượng còn lại trong kho ảo (`Còn: X`) tương ứng 1 - 1 với số đơn hàng được bù ngoại tuyến (`unitsToAdd`) khi người dùng mở lại trình duyệt sau một khoảng thời gian offline; tự động bù kho (+20) nếu số lượng sau khi trừ chạm ngưỡng kích hoạt ($\le 1$).
 - **Nguyên nhân gốc rễ (Root Cause)**:
   - Trong `applyOfflineCatchUp()`, hệ thống chỉ mới cập nhật tăng số lượng đã bán (`highWaterSoldCountMap`) và đã nhận (`highWaterClaimedCountMap`), nhưng chưa gọi `decrementProductStock()` để trừ kho ảo tương ứng cho các đơn hàng phát sinh trong lúc offline.
