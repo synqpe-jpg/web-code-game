@@ -291,12 +291,16 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
           });
         }
 
-        rawStoreProducts = (spList || []).filter((p: any) => p && p.id && p.is_active !== 0 && !deletedStoreSet.has(p.id)).map((p: any) => {
+        rawStoreProducts = (spList || []).filter((p: any) => p && p.id && (authorized || p.is_active !== 0) && !deletedStoreSet.has(p.id)).map((p: any) => {
           const meta = savedStoreMap.get(p.id);
           if (!meta) return p;
+          const finalStock = (meta.stock_quantity !== undefined && Number(meta.stock_quantity) === 0)
+            ? 0
+            : (p.stock_quantity !== undefined ? Math.max(0, Number(p.stock_quantity) || 0) : Math.max(0, Number(meta.stock_quantity) || 0));
           return {
             ...meta,
             ...p,
+            stock_quantity: finalStock,
             package_type: (p.package_type && p.package_type !== 'pack') ? p.package_type : (meta.package_type || p.package_type || 'pack'),
             category: (p.category && p.category !== 'pack') ? p.category : (meta.category || p.category || meta.package_type || 'pack'),
             category_label: p.category_label || meta.category_label || '',
@@ -348,12 +352,16 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
           });
         }
 
-        rawUtilities = (utList || []).filter((u: any) => u && u.id && u.is_active !== 0 && !deletedUtilSet.has(u.id)).map((u: any) => {
+        rawUtilities = (utList || []).filter((u: any) => u && u.id && (authorized || u.is_active !== 0) && !deletedUtilSet.has(u.id)).map((u: any) => {
           const meta = savedUtilsMap.get(u.id);
           if (!meta) return u;
+          const finalStock = (meta.stock_quantity !== undefined && Number(meta.stock_quantity) === 0)
+            ? 0
+            : (u.stock_quantity !== undefined ? Math.max(0, Number(u.stock_quantity) || 0) : Math.max(0, Number(meta.stock_quantity) || 0));
           return {
             ...meta,
             ...u,
+            stock_quantity: finalStock,
             category: (u.category && u.category !== 'other') ? u.category : (meta.category || u.category || 'other'),
             category_label: u.category_label || meta.category_label || '',
             cover_image_url: u.cover_image_url || meta.cover_image_url || meta.icon_url || '',
@@ -1530,9 +1538,9 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
     if (body.sepay !== undefined) currentMaster.sepay = body.sepay;
     if (body.sepayLogs !== undefined) currentMaster.sepayLogs = body.sepayLogs;
     if (body.securityLogs !== undefined) currentMaster.securityLogs = body.securityLogs;
-    if (body.giveaways !== undefined && body.key === 'wcg_admin_giveaways_v4') currentMaster.giveaways = body.giveaways;
+    if (body.giveaways !== undefined) currentMaster.giveaways = body.giveaways;
     if (body.storeProducts !== undefined) currentMaster.storeProducts = body.storeProducts;
-    if (body.utilities !== undefined && body.key === 'wcg_admin_utilities_v4') currentMaster.utilities = body.utilities;
+    if (body.utilities !== undefined) currentMaster.utilities = body.utilities;
     if (body.utilityCategories !== undefined) currentMaster.utilityCategories = body.utilityCategories;
     if (body.storeCategories !== undefined) currentMaster.storeCategories = body.storeCategories;
     if (body.marketingConfig !== undefined) currentMaster.marketingConfig = body.marketingConfig;
@@ -1569,12 +1577,13 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
           : (body.key === 'wcg_admin_store_products_v4' && Array.isArray(body.data) ? body.data : null);
         if (Array.isArray(incomingProducts) && incomingProducts.length > 0) {
           await syncProductsToD1(env.DB, incomingProducts);
+          await setSettingD1(env.DB, 'wcg_admin_store_products_v4', incomingProducts);
         }
 
-        // Utilities sync: ONLY sync to D1 when key is explicitly 'wcg_admin_utilities_v4' (prevents incidental full-state push corruption)
+        // Utilities sync: support both key-specific sync and full snapshot sync
         const incomingUtilities = (body.key === 'wcg_admin_utilities_v4')
           ? (Array.isArray(body.data) ? body.data : (Array.isArray(body.utilities) ? body.utilities : null))
-          : null;
+          : (Array.isArray(body.utilities) ? body.utilities : null);
         if (Array.isArray(incomingUtilities) && incomingUtilities.length > 0) {
           await syncUtilitiesToD1(env.DB, incomingUtilities);
           await setSettingD1(env.DB, 'wcg_admin_utilities_v4', incomingUtilities);

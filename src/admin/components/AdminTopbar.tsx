@@ -191,10 +191,10 @@ export const AdminTopbar: React.FC<AdminTopbarProps> = ({
           onClick={async () => {
             setIsSyncing(true);
             try {
-              // 1. Pull latest authoritative data from Cloudflare D1
-              await adminDataService.fetchFromCloudflareKV();
-              // 2. Push local state
+              // 1. Push local admin edits & stock status to Cloudflare D1 first
               await adminDataService.pushFullStateToKV(true);
+              // 2. Pull latest server data (members, transactions, new orders)
+              await adminDataService.fetchFromCloudflareKV();
               const count = adminDataService.getMembers().length;
               setSyncFeedback(`Đã đồng bộ (${count} TV)`);
               window.dispatchEvent(new CustomEvent('wcg_admin_data_updated', { detail: { type: 'KV_DATA_PULLED' } }));

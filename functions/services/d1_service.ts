@@ -1768,8 +1768,8 @@ export async function syncInventoryToD1(db: D1Database, inventory: any[]): Promi
       const pId = item.sku || item.productId || item.product_id;
       const codeContent = item.codeValue || item.code_content || item.code || '';
       if (!pId || !codeContent) continue;
-      const itemId = item.id || `inv_${Math.random().toString(36).slice(2, 10)}`;
-      const status = (item.status === 'SOLD' || item.status === 'sold') ? 'SOLD' : 'AVAILABLE';
+      const rawStatus = String(item.status || '').toUpperCase();
+      const status = (rawStatus === 'SOLD') ? 'SOLD' : (rawStatus === 'HOLD' ? 'HOLD' : 'AVAILABLE');
       stmts.push(
         db.prepare(`
           INSERT INTO inventory_codes (id, product_id, code_content, status, order_id, sold_at, created_at)
@@ -2043,8 +2043,8 @@ export async function loadAllUtilitiesD1(db: D1Database): Promise<any[]> {
 export async function deleteStoreProductD1(db: D1Database, productId: string): Promise<void> {
   if (!productId) return;
   await ensureSchemaUpgrades(db);
-  // 1. Delete all unsold inventory codes
-  await db.prepare("DELETE FROM inventory_codes WHERE product_id = ? AND status = 'AVAILABLE'").bind(productId).run().catch(() => {});
+  // 1. Delete all unsold inventory codes (both AVAILABLE and HOLD)
+  await db.prepare("DELETE FROM inventory_codes WHERE product_id = ? AND status != 'SOLD'").bind(productId).run().catch(() => {});
   // 2. Try hard delete of the product
   const res = await db.prepare("DELETE FROM store_products WHERE id = ?").bind(productId).run().catch(() => null);
   // 3. Fallback to soft delete if referenced by foreign key in orders
@@ -2055,13 +2055,13 @@ export async function deleteStoreProductD1(db: D1Database, productId: string): P
 
 /**
  * Delete a Utility Product from D1:
- * - Deletes all available inventory codes
+ * - Deletes all available and hold inventory codes
  * - Hard deletes from utilities and store_products (fallback to is_active = 0)
  */
 export async function deleteUtilityD1(db: D1Database, utilityId: string): Promise<void> {
   if (!utilityId) return;
   await ensureSchemaUpgrades(db);
-  await db.prepare("DELETE FROM inventory_codes WHERE product_id = ? AND status = 'AVAILABLE'").bind(utilityId).run().catch(() => {});
+  await db.prepare("DELETE FROM inventory_codes WHERE product_id = ? AND status != 'SOLD'").bind(utilityId).run().catch(() => {});
   const res = await db.prepare("DELETE FROM utilities WHERE id = ?").bind(utilityId).run().catch(() => null);
   if (!res || !res.success) {
     await db.prepare("UPDATE utilities SET is_active = 0, stock_quantity = 0 WHERE id = ?").bind(utilityId).run().catch(() => {});
@@ -2081,7 +2081,7 @@ export async function deleteInventoryCodesD1(db: D1Database, codeIds: string[]):
   for (let i = 0; i < codeIds.length; i += BATCH_SIZE) {
     const slice = codeIds.slice(i, i + BATCH_SIZE);
     const placeholders = slice.map(() => '?').join(',');
-    await db.prepare(`DELETE FROM inventory_codes WHERE id IN (${placeholders}) AND status = 'AVAILABLE'`).bind(...slice).run().catch(() => {});
+    await db.prepare(`DELETE FROM inventory_codes WHERE id IN (${placeholders}) AND status != 'SOLD'`).bind(...slice).run().catch(() => {});
   }
   await syncProductStockCounter(db);
 }

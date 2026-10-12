@@ -1130,6 +1130,8 @@ class AdminDataService {
                     const incoming = mergedMap.get(uniqueKey)!;
                     if (localItem.status === 'SOLD' && incoming.status !== 'SOLD') {
                       mergedMap.set(uniqueKey, localItem);
+                    } else if (localItem.status === 'HOLD' && incoming.status === 'AVAILABLE') {
+                      mergedMap.set(uniqueKey, localItem);
                     }
                   }
                 }
@@ -2262,10 +2264,14 @@ class AdminDataService {
     if (!item) return false;
 
     this.deletedInventoryItemIds.add(id);
+    if (item.codeValue && item.sku) {
+      this.deletedInventoryItemIds.add(`${item.sku}_${item.codeValue.trim()}`);
+    }
     this.saveDeletedInventoryItemIds();
 
     this.inventory = this.inventory.filter((i) => i.id !== id);
     this.saveInventory();
+    this.pushFullStateToKV(true);
     this.logAction('DELETE_INVENTORY_ITEM', id, 'INFO', { code: item.codeValue });
     return true;
   }
@@ -2275,12 +2281,19 @@ class AdminDataService {
     const idSet = new Set(ids);
     const initialCount = this.inventory.length;
 
-    ids.forEach((id) => this.deletedInventoryItemIds.add(id));
+    ids.forEach((id) => {
+      this.deletedInventoryItemIds.add(id);
+      const found = this.inventory.find((i) => i.id === id);
+      if (found && found.codeValue && found.sku) {
+        this.deletedInventoryItemIds.add(`${found.sku}_${found.codeValue.trim()}`);
+      }
+    });
     this.saveDeletedInventoryItemIds();
 
     this.inventory = this.inventory.filter((i) => !idSet.has(i.id));
     const deletedCount = initialCount - this.inventory.length;
     this.saveInventory();
+    this.pushFullStateToKV(true);
     this.logAction('DELETE_INVENTORY_ITEMS_BULK', `COUNT_${deletedCount}`, 'INFO', { count: deletedCount, ids });
     return deletedCount;
   }
@@ -3465,7 +3478,7 @@ class AdminDataService {
     } else {
       this.saveUtilities();
     }
-    this.pushFullStateToKV();
+    this.pushFullStateToKV(true);
 
     this.logAction(
       isNowInStock ? 'PRODUCT_RESTOCKED' : 'PRODUCT_MARKED_OUT_OF_STOCK',
