@@ -48,7 +48,10 @@ export const NewsDetailModal: React.FC<NewsDetailModalProps> = ({
   };
 
   const handleShare = () => {
-    const url = `${window.location.origin}/news/${article.slug}`;
+    const origin = (typeof window !== 'undefined' && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'))
+      ? window.location.origin
+      : 'https://codegame.shop';
+    const url = `${origin}/news/${article.slug}`;
     navigator.clipboard.writeText(url);
     onShowToast('Đã sao chép liên kết bài viết!', url, 'success');
   };

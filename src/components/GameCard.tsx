@@ -99,8 +99,10 @@ export const GameCard: React.FC<GameCardProps> = ({
   // Instant Copy Share Link to clipboard & trigger floating toast
   const handleCopyShareLink = (e: React.MouseEvent) => {
     e.stopPropagation();
-    const origin = typeof window !== 'undefined' ? window.location.origin : '';
-    const shareUrl = `${origin}/#g=${game.slug}`;
+    const origin = typeof window !== 'undefined' && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')
+      ? window.location.origin
+      : 'https://codegame.shop';
+    const shareUrl = `${origin}/game/${game.slug}`;
 
     // 1. Copy to clipboard
     if (typeof navigator !== 'undefined' && navigator.clipboard) {

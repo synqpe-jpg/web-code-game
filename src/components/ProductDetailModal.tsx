@@ -73,7 +73,10 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
     if (onOpenShare) {
       onOpenShare(product);
     } else {
-      const shareUrl = `${window.location.origin}/#product=${product.id}`;
+      const origin = (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')
+        ? window.location.origin
+        : 'https://codegame.shop';
+      const shareUrl = `${origin}/store#product=${product.id}`;
       if (navigator.clipboard) {
         navigator.clipboard.writeText(shareUrl);
         if (onShowToast) {

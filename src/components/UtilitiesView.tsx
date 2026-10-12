@@ -178,7 +178,10 @@ export const UtilitiesView: React.FC<UtilitiesViewProps> = ({
     if (onOpenShare) {
       onOpenShare(item);
     } else {
-      const shareUrl = `${window.location.origin}/#utility=${item.id}`;
+      const origin = (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')
+        ? window.location.origin
+        : 'https://codegame.shop';
+      const shareUrl = `${origin}/utilities#utility=${item.id}`;
       if (navigator.clipboard) {
         navigator.clipboard.writeText(shareUrl);
         onShowToast('Đã sao chép link tiện ích!', `Đường dẫn: ${shareUrl}`, 'success');

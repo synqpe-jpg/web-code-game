@@ -72,6 +72,10 @@ async function runPrerender() {
     <meta property="og:description" content="${escapeHtml(description)}">
     <meta property="og:url" content="${escapeHtml(canonicalUrl)}">
     <meta property="og:image" content="${escapeHtml(fullOgImage)}">
+    <meta property="og:image:type" content="image/jpeg">
+    <meta property="og:image:width" content="512">
+    <meta property="og:image:height" content="512">
+    <meta property="og:image:alt" content="${escapeHtml(title)}">
     <meta property="og:locale" content="vi_VN">
 
     <!-- Twitter Card -->
@@ -502,6 +506,9 @@ async function runPrerender() {
     const activeCodes = gameCodes.filter((c) => (c.status || 'approved') !== 'expired' && c.status !== 'rejected');
     const displayCodes = activeCodes.length > 0 ? activeCodes : gameCodes.slice(0, 10);
 
+    const rawImg = game.cover_image_url || game.icon_url || `/game_icons/${slug}.jpg`;
+    const jpgImg = rawImg.replace(/\.webp$/i, '.jpg');
+    const ogCoverImg = jpgImg.startsWith('http') ? jpgImg : `${BASE_URL}${jpgImg.startsWith('/') ? jpgImg : `/${jpgImg}`}`;
     const coverImg = game.cover_image_url || game.icon_url || `${BASE_URL}/game_icons/${slug}.webp`;
     const title = `Giftcode ${game.name} Mới Nhất 2026 - Hướng Dẫn Nhập & Nhận Quà | CodeGame.shop`;
     const description = `Tổng hợp trọn bộ giftcode ${game.name} còn hạn mới nhất 2026. Hướng dẫn chi tiết cách nhập code nhận Kim Cương, KNB và quà VIP từ ${game.publisher || 'Nhà phát hành'}.`;
@@ -518,7 +525,7 @@ async function runPrerender() {
       title,
       description,
       canonicalPath: `/game/${encodeURIComponent(slug)}`,
-      ogImage: coverImg,
+      ogImage: ogCoverImg,
       ogType: 'article',
       jsonLd: [
         {

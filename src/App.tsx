@@ -435,10 +435,10 @@ export const App: React.FC = () => {
           }
         }
 
-        // 4. Pathname Routes (/game/:slug, /news, /giveaways, /store, /utilities) from Google or Shared Links
+        // 4. Pathname Routes (/game/:slug, /g/:slug, /news, /giveaways, /store, /utilities) from Google or Shared Links
         const pathname = window.location.pathname.toLowerCase();
-        if (pathname.startsWith('/game/')) {
-          const pathSlug = window.location.pathname.replace(/^\/game\//i, '').replace(/\/$/, '').trim();
+        if (pathname.startsWith('/game/') || pathname.startsWith('/g/')) {
+          const pathSlug = window.location.pathname.replace(/^\/(?:game|g)\//i, '').replace(/\/$/, '').trim();
           if (pathSlug) {
             setCurrentTab('catalog');
             const game = await dataService.getGameBySlug(pathSlug);
@@ -582,8 +582,8 @@ export const App: React.FC = () => {
       }
 
       // 2. Pathname routes
-      if (path.startsWith('/game/')) {
-        const pathSlug = window.location.pathname.replace(/^\/game\//i, '').replace(/\/$/, '').trim();
+      if (path.startsWith('/game/') || path.startsWith('/g/')) {
+        const pathSlug = window.location.pathname.replace(/^\/(?:game|g)\//i, '').replace(/\/$/, '').trim();
         if (pathSlug) {
           dataService.getGameBySlug(pathSlug).then((g) => {
             if (g) {
@@ -932,46 +932,55 @@ export const App: React.FC = () => {
   };
 
   // Share Handlers for Universal Share Modal
+  // Share Handlers for Universal Share Modal
+  const getShareOrigin = () => {
+    if (typeof window === 'undefined') return 'https://codegame.shop';
+    if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
+      return window.location.origin;
+    }
+    return 'https://codegame.shop';
+  };
+
   const handleOpenShareGame = (game: GameItem, e?: React.MouseEvent) => {
     if (e) e.stopPropagation();
-    const origin = window.location.origin;
+    const origin = getShareOrigin();
     setSharePayload({
       title: `Giftcode ${game.name}`,
       subtitle: game.publisher || 'Nhà phát hành chính thức',
-      shareUrl: `${origin}/#g=${game.slug}`,
+      shareUrl: `${origin}/game/${game.slug}`,
       itemType: 'game',
     });
   };
 
   const handleOpenShareGiveaway = (campaign: GiveawayCampaign, e?: React.MouseEvent) => {
     if (e) e.stopPropagation();
-    const origin = window.location.origin;
+    const origin = getShareOrigin();
     setSharePayload({
       title: campaign.title,
       subtitle: `Sự kiện săn mã ${campaign.game_name}`,
-      shareUrl: `${origin}/#gw=${campaign.id}`,
+      shareUrl: `${origin}/giveaways#gw=${campaign.id}`,
       itemType: 'giveaway',
     });
   };
 
   const handleOpenShareProduct = (product: StoreProduct, e?: React.MouseEvent) => {
     if (e) e.stopPropagation();
-    const origin = window.location.origin;
+    const origin = getShareOrigin();
     setSharePayload({
       title: product.title,
       subtitle: `${product.game_name} • Giảm ${product.discount_percent}%`,
-      shareUrl: `${origin}/#product=${product.id}`,
+      shareUrl: `${origin}/store#product=${product.id}`,
       itemType: 'product',
     });
   };
 
   const handleOpenShareUtility = (utility: UtilityProduct, e?: React.MouseEvent) => {
     if (e) e.stopPropagation();
-    const origin = window.location.origin;
+    const origin = getShareOrigin();
     setSharePayload({
       title: utility.title,
       subtitle: `${utility.category_label || utility.category} • Giảm ${utility.discount_percent}%`,
-      shareUrl: `${origin}/#utility=${utility.id}`,
+      shareUrl: `${origin}/utilities#utility=${utility.id}`,
       itemType: 'utility',
     });
   };

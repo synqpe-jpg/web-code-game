@@ -436,7 +436,7 @@ async function renderSeoHtml(
     html = html.replace(/<meta property="og:title" content=".*?" \/>/i, `<meta property="og:title" content="${title}" />`);
     html = html.replace(/<meta property="og:description" content=".*?" \/>/i, `<meta property="og:description" content="${description}" />`);
     html = html.replace(/<meta property="og:url" content=".*?" \/>/i, `<meta property="og:url" content="${fullCanonical}" />`);
-    html = html.replace(/<meta property="og:image" content=".*?" \/>/i, `<meta property="og:image" content="${fullOgImage}" />`);
+    html = html.replace(/<meta property="og:image" content=".*?" \/>/i, `<meta property="og:image" content="${fullOgImage}" />\n    <meta property="og:image:type" content="image/jpeg" />\n    <meta property="og:image:width" content="512" />\n    <meta property="og:image:height" content="512" />`);
 
     // 5. Twitter tags
     html = html.replace(/<meta name="twitter:title" content=".*?" \/>/i, `<meta name="twitter:title" content="${title}" />`);
@@ -451,8 +451,8 @@ async function renderSeoHtml(
     }
   };
 
-  if (pathname.startsWith('/game/')) {
-    const slug = pathname.replace(/^\/game\//i, '').replace(/\/$/, '').trim().toLowerCase();
+  if (pathname.startsWith('/game/') || pathname.startsWith('/g/')) {
+    const slug = pathname.replace(/^\/(?:game|g)\//i, '').replace(/\/$/, '').trim().toLowerCase();
     let game: any = null;
     if (env.DB) {
       try {
@@ -470,14 +470,16 @@ async function renderSeoHtml(
       const countSuffix = codeCount > 0 ? `Nhận ${codeCount} Mã Code ` : '';
       const title = `Giftcode ${game.name} Mới Nhất 2026 - ${countSuffix}| CodeGame.shop`;
       const description = `Tổng hợp ${codeCount > 0 ? codeCount + ' ' : ''}mã giftcode ${game.name} còn hạn mới nhất 2026. Hướng dẫn nhập code chi tiết và phần thưởng tân thủ bản quyền G1.`;
-      const iconUrl = game.icon_url || `/game_icons/${game.slug}.webp`;
+      const rawIcon = game.icon_url || `/game_icons/${game.slug}.jpg`;
+      const jpgIcon = rawIcon.replace(/\.webp$/i, '.jpg');
+      const iconUrl = jpgIcon.startsWith('http') ? jpgIcon : `${origin}${jpgIcon.startsWith('/') ? jpgIcon : `/${jpgIcon}`}`;
 
       const gameSchema = {
         "@context": "https://schema.org",
         "@type": "VideoGame",
         "name": game.name,
         "url": `${origin}/game/${game.slug}`,
-        "image": iconUrl.startsWith('http') ? iconUrl : `${origin}${iconUrl}`,
+        "image": iconUrl,
         "description": game.description || description,
         "gamePlatform": game.platform || "Mobile / PC",
         "applicationCategory": "Game",
@@ -500,6 +502,30 @@ async function renderSeoHtml(
       };
 
       replaceTitleAndMeta(title, description, `/game/${game.slug}`, iconUrl, gameSchema);
+    }
+  } else if (pathname === '/news' || pathname.startsWith('/news/')) {
+    const newsSlug = pathname.replace(/^\/news\//i, '').replace(/\/$/, '').trim().toLowerCase();
+    let article: any = null;
+    if (newsSlug && env.DB) {
+      try {
+        const stmt = env.DB.prepare("SELECT value FROM settings WHERE key = 'wcg_news_articles_v1' LIMIT 1");
+        const row: any = await stmt.first();
+        if (row?.value) {
+          const list = JSON.parse(row.value);
+          article = list.find((a: any) => a.slug?.toLowerCase() === newsSlug || a.id?.toLowerCase() === newsSlug);
+        }
+      } catch {}
+    }
+
+    if (article) {
+      const title = `${article.title} | CodeGame.shop`;
+      const description = article.summary || article.content?.slice(0, 160) || 'Tin tức game và sự kiện giftcode mới nhất.';
+      const thumb = article.thumbnail_url || '/og-image.jpg';
+      replaceTitleAndMeta(title, description, `/news/${article.slug}`, thumb);
+    } else {
+      const title = 'Tin Tức Game & Sự Kiện Giftcode Mới Nhất 2026 | CodeGame.shop';
+      const description = 'Cập nhật tin tức game mobile, giftcode tân thủ và sự kiện nhận quà hot nhất 2026 tại CodeGame.shop.';
+      replaceTitleAndMeta(title, description, '/news', '/og-image.jpg');
     }
   } else if (pathname === '/giveaways' || pathname.startsWith('/giveaways/')) {
     const title = 'Sự Kiện Giveaway Nhận Giftcode Game Miễn Phí 2026 | CodeGame.shop';
