@@ -224,6 +224,7 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
     const deletedStoreSet = new Set<string>(legacySeedStoreIds);
     const deletedUtilSet = new Set<string>(legacySeedUtilIds);
     const deletedGwSet = new Set<string>(legacySeedGwIds);
+    const deletedNewsSet = new Set<string>();
 
     if (env.DB) {
       try {
@@ -275,7 +276,6 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
         const delGw = d1Settings['wcg_deleted_giveaways'];
         if (Array.isArray(delGw)) delGw.forEach((id: string) => deletedGwSet.add(id));
         const delNews = d1Settings['wcg_deleted_news_articles_v1'];
-        const deletedNewsSet = new Set<string>();
         if (Array.isArray(delNews)) delNews.forEach((id: string) => deletedNewsSet.add(id));
 
         // Smart merge store products: prioritize authoritative D1 stock/sold, preserve rich metadata & category
