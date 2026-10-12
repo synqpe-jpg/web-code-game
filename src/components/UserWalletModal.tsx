@@ -52,6 +52,7 @@ export const UserWalletModal: React.FC<UserWalletModalProps> = ({
 }) => {
   const [activeTab, setActiveTab] = useState<'TOPUP' | 'HISTORY'>('TOPUP');
   const [customInput, setCustomInput] = useState<string>('10000');
+  const [isInputFocused, setIsInputFocused] = useState<boolean>(false);
   const [copiedKey, setCopiedKey] = useState<string | null>(null);
   const [sepayConfig, setSepayConfig] = useState(() => dataService.getSePayConfig());
   const [depositHistory, setDepositHistory] = useState<any[]>([]);
@@ -533,20 +534,67 @@ export const UserWalletModal: React.FC<UserWalletModalProps> = ({
                             <SlidersHorizontal className="w-3 h-3 text-amber-400/80" title="Bấm để nhập số tiền tùy ý" />
                           </label>
                           <div className="flex items-center gap-1 min-w-0 flex-1 justify-end">
-                            <div className="relative flex items-center min-w-0 max-w-[130px] sm:max-w-[155px]">
+                            <div className="relative flex items-center min-w-0 max-w-[140px] sm:max-w-[165px]">
                               <input
                                 id="topup-amount-input"
                                 type="text"
                                 inputMode="numeric"
-                                value={customInput ? Number(customInput).toLocaleString('vi-VN') : ''}
+                                pattern="[0-9]*"
+                                autoComplete="off"
+                                autoCorrect="off"
+                                autoCapitalize="off"
+                                spellCheck={false}
+                                data-gramm="false"
+                                value={
+                                  isInputFocused
+                                    ? customInput
+                                    : (customInput ? Number(customInput).toLocaleString('vi-VN') : '')
+                                }
                                 onChange={handleCustomInputChange}
-                                onFocus={(e) => e.target.select()}
+                                onFocus={(e) => {
+                                  setIsInputFocused(true);
+                                  const target = e.currentTarget;
+                                  setTimeout(() => target.select(), 20);
+                                }}
+                                onClick={(e) => {
+                                  const target = e.currentTarget;
+                                  if (customInput) {
+                                    setTimeout(() => target.select(), 20);
+                                  }
+                                }}
+                                onBlur={() => {
+                                  setIsInputFocused(false);
+                                  if (!customInput || parseInt(customInput, 10) < 1) {
+                                    setCustomInput(MIN_TOPUP.toString());
+                                  }
+                                }}
                                 placeholder="10.000"
-                                className={`w-full text-right font-mono font-black text-sm bg-transparent border-0 focus:outline-none focus:ring-0 pr-4 p-0 ${
+                                className={`w-full text-right font-mono font-black text-sm bg-transparent border-0 focus:outline-none focus:ring-0 ${
+                                  customInput ? 'pr-8' : 'pr-4'
+                                } p-0 ${
                                   !isValidAmount ? 'text-rose-400' : 'text-emerald-400'
                                 }`}
                                 title="Bấm để nhập số tiền tùy ý"
                               />
+
+                              {/* Nút xóa nhanh số tiền để nhập mới không lo bị đúp số */}
+                              {customInput && (
+                                <button
+                                  type="button"
+                                  onMouseDown={(e) => e.preventDefault()}
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    setCustomInput('');
+                                    const el = document.getElementById('topup-amount-input');
+                                    el?.focus();
+                                  }}
+                                  className="absolute right-4 p-0.5 rounded-full text-slate-400 hover:text-white hover:bg-slate-700/60 transition-all cursor-pointer"
+                                  title="Xóa số tiền để nhập lại"
+                                >
+                                  <X className="w-3 h-3" />
+                                </button>
+                              )}
+
                               <span className="absolute right-0 text-[11px] font-bold text-muted-foreground select-none pointer-events-none">
                                 đ
                               </span>
@@ -633,7 +681,10 @@ export const UserWalletModal: React.FC<UserWalletModalProps> = ({
                           <button
                             key={amt.core}
                             type="button"
-                            onClick={() => setCustomInput(amt.core.toString())}
+                            onClick={() => {
+                              setCustomInput(amt.core.toString());
+                              setIsInputFocused(false);
+                            }}
                             className={`py-2 px-1 rounded-xl text-center border transition-all cursor-pointer ${
                               isSelected
                                 ? 'bg-primary text-white border-primary shadow-sm font-bold scale-[1.02]'
