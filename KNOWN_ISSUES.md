@@ -101,14 +101,28 @@
   - Phía Cloudflare API `report_peak_metrics` chỉ nhận cập nhật nếu `num > cur || (cur > num + 50)` và `num > 0`, từ chối cập nhật khi Admin giảm nhẹ hoặc về 0.
   - Hàm `saveRealEventsHub` tự động monotonic merge với bộ nhớ isolate cũ `memHub`.
   - Client poller chạy định kỳ 10s lấy snapshot từ Cloudflare và ép `Math.max(curSold, info.sold)` kéo số cũ đè lại LocalStorage.
-- **Giải pháp chuẩn đã kiểm chứng**:
   - Cho phép Admin ghi đè trực tiếp giá trị mới không qua `Math.max`.
   - Bổ sung cờ `forceResetSold: true` và `forceResetClaimed: true` trong API `/api/sync`.
   - Vô hiệu hóa `memHub` monotonic merge khi có cờ `forceReset` trong `saveRealEventsHub(env, hub, true)`.
-  - Cho phép client poller cập nhật hạ số khi server snapshot cung cấp giá trị đã reset (`curSold > info.sold + 2`).
 - ⛔ **CÁCH SỬA ĐÃ THẤT BẠI - TUYỆT ĐỐI KHÔNG LẶP LẠI**:
   - ❌ *Không chỉ sửa LocalStorage ở client mà không cập nhật Cloudflare KV/D1 Hub*: Poller 10s sẽ kéo đỉnh cũ về ghi đè lại.
   - ❌ *Không chỉ sửa D1 mà quên vô hiệu hóa isolate memory `memHub`*: Bộ nhớ in-memory của Cloudflare Worker sẽ merge đè lại đỉnh cũ vào D1 trong các request tiếp theo.
+
+---
+
+### ISSUE-008: Xung đột Poller Snapshot kéo tụt số lượng đã bán của Live Toasts
+- **Triệu chứng**:
+  - Khách đang xem web, thông báo toast nổ ra "vừa mua thành công..." nhưng số đã bán trên thẻ sản phẩm (đặc biệt là Tiện ích) không tăng lên hoặc cứ nhảy lên được 1-2 đơn lại bị giật lùi về con số cũ cố định.
+- **Nguyên nhân gốc rễ**:
+  - Thuật toán `calculateHourlyGrowth` trên Edge Server và `getHourlyGrowth` trên Client lệch hệ số (`rate 0.5/30` vs `rate 1.2/70`), khiến snapshot của server luôn trả về số thấp hơn nhiều so với client.
+  - Client poller 10s dùng điều kiện `curSold > info.sold + 2` để hạ số, vô tình nhận diện nhầm tiến trình bán thật/ảo của phiên hiện tại là reset của Admin $\rightarrow$ kéo tụt số về mốc server snapshot.
+  - Edge Server xóa sạch `peakProductSoldCounts` nếu `realStock <= 0`, bỏ qua sản phẩm có `virtual_sold_count > 0`.
+- **Giải pháp chuẩn đã kiểm chứng**:
+  - Đồng bộ 100% hệ số tính toán giữa `src/shared/deterministicEngine.ts` và `src/services/marketingService.ts`.
+  - Client poller luôn tuân thủ nguyên tắc Monotonic Peak Guarantee (`Math.max(curSold, info.sold)`), chỉ auto-heal nếu vượt quá trần tối đa hợp lệ `maxAllowedCap`.
+  - Khi có live toast nổ ra trên UI (`recordVirtualSale`), `incrementLiveSoldCount` bắt buộc tăng số lượng hiển thị trên thẻ ngay lập tức theo nguyên tắc đồng bộ 1 - 1.
+- ⛔ **CÁCH SỬA ĐÃ THẤT BẠI - TUYỆT ĐỐI KHÔNG LẶP LẠI**:
+  - ❌ *Không được dùng điều kiện `curSold > info.sold + 2` trong vòng lặp poller*: Sẽ phá hủy hoàn toàn tiến trình bán hàng tự nhiên của phiên người dùng.
 
 ---
 

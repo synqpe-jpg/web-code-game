@@ -263,11 +263,7 @@ class MarketingService {
               if (info) {
                 if (typeof info.sold === 'number') {
                   const curSold = this.highWaterSoldCountMap.get(pId) || 0;
-                  if (curSold > info.sold + 2 || curSold < info.sold) {
-                    this.highWaterSoldCountMap.set(pId, info.sold);
-                  } else {
-                    this.highWaterSoldCountMap.set(pId, Math.max(curSold, info.sold));
-                  }
+                  this.highWaterSoldCountMap.set(pId, Math.max(curSold, info.sold));
                 }
                 if (typeof info.real_stock === 'number') {
                   this.productRealStockMap.set(pId, info.real_stock);
@@ -283,11 +279,7 @@ class MarketingService {
               if (info) {
                 if (typeof info.claimed === 'number') {
                   const curClaimed = this.highWaterClaimedCountMap.get(gId) || 0;
-                  if (curClaimed > info.claimed + 2 || curClaimed < info.claimed) {
-                    this.highWaterClaimedCountMap.set(gId, info.claimed);
-                  } else {
-                    this.highWaterClaimedCountMap.set(gId, Math.max(curClaimed, info.claimed));
-                  }
+                  this.highWaterClaimedCountMap.set(gId, Math.max(curClaimed, info.claimed));
                 }
                 if (typeof info.real_remaining === 'number') {
                   this.productRealStockMap.set(gId, info.real_remaining);
@@ -401,16 +393,34 @@ class MarketingService {
                 }
                 if (typeof info.sold === 'number') {
                   const curSold = this.highWaterSoldCountMap.get(pId) || 0;
-                  if (curSold > info.sold + 2 || curSold < info.sold) {
-                    this.highWaterSoldCountMap.set(pId, info.sold);
-                  } else {
-                    this.highWaterSoldCountMap.set(pId, Math.max(curSold, info.sold));
-                  }
                   const curFomo = this.liveFomoSoldCountMap.get(pId) || 0;
-                  if (curFomo > info.sold + 2 || curFomo < info.sold) {
-                    this.liveFomoSoldCountMap.set(pId, info.sold);
-                  } else {
-                    this.liveFomoSoldCountMap.set(pId, Math.max(curFomo, info.sold));
+                  const nextSold = Math.max(curSold, info.sold);
+                  const nextFomo = Math.max(curFomo, info.sold);
+
+                  // Auto-heal nếu vượt trần tối đa hợp lệ (maxAllowedCap)
+                  const realStock = typeof info.real_stock === 'number'
+                    ? info.real_stock
+                    : (this.productRealStockMap.get(pId) || 0);
+                  const catchUp = this.config.offlineCatchUp || DEFAULT_OFFLINE_CATCHUP_CONFIG;
+                  const oosEnabled = Boolean(catchUp.outOfStockEnabled);
+                  const oosMax = Math.max(1, Number(catchUp.outOfStockMaxUnits) || 10);
+                  const maxCatchUp = Math.max(30, Number(catchUp.maxCatchUpUnits) || 70);
+                  const realSold = typeof info.real_sold === 'number' ? info.real_sold : 0;
+                  const details = this.findItemDetails(pId);
+                  const virtualBase = Number(details?.virtual_sold_count || 0);
+                  const maxCap = realStock <= 0 && oosEnabled
+                    ? realSold + virtualBase + oosMax + 5
+                    : realSold + virtualBase + maxCatchUp + 15;
+
+                  const healedSold = nextSold > maxCap ? info.sold : nextSold;
+                  const healedFomo = nextFomo > maxCap ? info.sold : nextFomo;
+
+                  this.highWaterSoldCountMap.set(pId, healedSold);
+                  this.liveFomoSoldCountMap.set(pId, healedFomo);
+
+                  // Nếu client có đỉnh cao hơn (do live sales vừa nổ), sync peak lên Edge server
+                  if (curSold > info.sold && curSold <= maxCap) {
+                    this.schedulePeakReport();
                   }
                 }
                 if (typeof info.stock === 'number') {
@@ -424,6 +434,8 @@ class MarketingService {
                     this.liveVirtualStockTimestampsMap.set(pId, now);
                   } else {
                     const pw = this.getProductConfig(pId);
+                    const currentLive = this.liveVirtualStockMap.get(pId);
+                    const hasAutoRestock = pw.priority !== 'off' && Boolean(pw.virtualStockBonus) && Number(pw.virtualStockBonus) > 0;
                     const rawThreshold = Math.max(1, Number(pw.autoRestockThreshold) || 1);
                     const effectiveThreshold = (realStock > 0 && rawThreshold < realStock)
                       ? realStock
@@ -469,16 +481,32 @@ class MarketingService {
                 }
                 if (typeof info.claimed === 'number') {
                   const curClaimed = this.highWaterClaimedCountMap.get(gId) || 0;
-                  if (curClaimed > info.claimed + 2 || curClaimed < info.claimed) {
-                    this.highWaterClaimedCountMap.set(gId, info.claimed);
-                  } else {
-                    this.highWaterClaimedCountMap.set(gId, Math.max(curClaimed, info.claimed));
-                  }
                   const curFomo = this.liveFomoClaimedCountMap.get(gId) || 0;
-                  if (curFomo > info.claimed + 2 || curFomo < info.claimed) {
-                    this.liveFomoClaimedCountMap.set(gId, info.claimed);
-                  } else {
-                    this.liveFomoClaimedCountMap.set(gId, Math.max(curFomo, info.claimed));
+                  const nextClaimed = Math.max(curClaimed, info.claimed);
+                  const nextFomo = Math.max(curFomo, info.claimed);
+
+                  const realRemaining = typeof info.real_remaining === 'number'
+                    ? info.real_remaining
+                    : (this.productRealStockMap.get(gId) || 0);
+                  const catchUp = this.config.offlineCatchUp || DEFAULT_OFFLINE_CATCHUP_CONFIG;
+                  const oosEnabled = Boolean(catchUp.outOfStockEnabled);
+                  const oosMax = Math.max(1, Number(catchUp.outOfStockMaxUnits) || 10);
+                  const maxCatchUp = Math.max(30, Number(catchUp.maxCatchUpUnits) || 70);
+                  const realClaimed = typeof info.real_claimed === 'number' ? info.real_claimed : 0;
+                  const details = this.findGiveawayDetails(gId);
+                  const virtualBase = Number(details?.virtual_claimed_offset || 0);
+                  const maxCap = realRemaining <= 0 && oosEnabled
+                    ? realClaimed + virtualBase + oosMax + 5
+                    : realClaimed + virtualBase + maxCatchUp + 15;
+
+                  const healedClaimed = nextClaimed > maxCap ? info.claimed : nextClaimed;
+                  const healedFomo = nextFomo > maxCap ? info.claimed : nextFomo;
+
+                  this.highWaterClaimedCountMap.set(gId, healedClaimed);
+                  this.liveFomoClaimedCountMap.set(gId, healedFomo);
+
+                  if (curClaimed > info.claimed && curClaimed <= maxCap) {
+                    this.schedulePeakReport();
                   }
                 }
                 if (typeof info.remaining === 'number') {
@@ -597,7 +625,9 @@ class MarketingService {
       const oosEnabled = Boolean(this.config.offlineCatchUp?.outOfStockEnabled);
       // 1. Check local sold peaks from highWaterSoldCountMap
       this.highWaterSoldCountMap.forEach((val, id) => {
-        if (this.getRealStockFor(id) <= 0 && !oosEnabled) return;
+        const details = this.findItemDetails(id);
+        const hasVirtual = Number(details?.virtual_sold_count || 0) > 0;
+        if (this.getRealStockFor(id) <= 0 && !oosEnabled && !hasVirtual) return;
         const last = this.lastReportedPeaks.sold[id] || 0;
         if (val > last) {
           peakSold[id] = val;
@@ -607,7 +637,9 @@ class MarketingService {
 
       // 2. Check local claimed peaks from highWaterClaimedCountMap
       this.highWaterClaimedCountMap.forEach((val, id) => {
-        if (this.getRealStockFor(id) <= 0 && !oosEnabled) return;
+        const details = this.findGiveawayDetails(id);
+        const hasVirtual = Number(details?.virtual_claimed_offset || 0) > 0;
+        if (this.getRealStockFor(id) <= 0 && !oosEnabled && !hasVirtual) return;
         const last = this.lastReportedPeaks.claimed[id] || 0;
         if (val > last) {
           peakClaimed[id] = val;
@@ -2324,9 +2356,14 @@ class MarketingService {
   public incrementLiveSoldCount(productId: string, amount: number = 1, notifId?: string): number {
     if (!productId) return 0;
 
-    // Check hàng thật: Nếu hết hàng thật thì KHÔNG tăng đơn ảo
+    const pw = this.getProductConfig(productId);
+    if (pw.priority === 'off') {
+      return this.getSoldDisplay({ id: productId });
+    }
+
+    // Check hàng thật: Nếu hết hàng thật và không phải do thông báo toast kích hoạt, ngắt tăng đơn ảo
     const realStock = this.getRealStockFor(productId);
-    if (realStock <= 0) {
+    if (!notifId && realStock <= 0) {
       return this.getSoldDisplay({ id: productId });
     }
 
@@ -2363,9 +2400,14 @@ class MarketingService {
   public incrementLiveClaimedCount(campaignId: string, amount: number = 1, notifId?: string): number {
     if (!campaignId) return 0;
 
-    // Check mã thật: Nếu hết mã thật thì KHÔNG tăng đơn ảo
+    const pw = this.getProductConfig(campaignId);
+    if (pw.priority === 'off') {
+      return this.getClaimedDisplay({ id: campaignId });
+    }
+
+    // Check mã thật: Nếu hết mã thật và không phải do thông báo toast kích hoạt, ngắt tăng đơn ảo
     const realRemaining = this.getRealStockFor(campaignId);
-    if (realRemaining <= 0) {
+    if (!notifId && realRemaining <= 0) {
       return this.getClaimedDisplay({ id: campaignId });
     }
 
@@ -2883,7 +2925,9 @@ class MarketingService {
       Object.entries(peakProductSoldCounts).forEach(([k, v]) => {
         if (typeof v === 'number' && !isNaN(v) && v > 0) {
           const realStock = this.getRealStockFor(k);
-          if (realStock <= 0 && !oosEnabled) return;
+          const details = this.findItemDetails(k);
+          const hasVirtual = Number(details?.virtual_sold_count || 0) > 0;
+          if (realStock <= 0 && !oosEnabled && !hasVirtual) return;
           const cur = this.highWaterSoldCountMap.get(k) || 0;
           if (v > cur) {
             this.highWaterSoldCountMap.set(k, v);
@@ -2906,7 +2950,9 @@ class MarketingService {
       Object.entries(peakGiveawayClaimedCounts).forEach(([k, v]) => {
         if (typeof v === 'number' && !isNaN(v) && v > 0) {
           const realRemaining = this.getRealStockFor(k);
-          if (realRemaining <= 0 && !oosEnabled) return;
+          const details = this.findGiveawayDetails(k);
+          const hasVirtual = Number(details?.virtual_claimed_offset || 0) > 0;
+          if (realRemaining <= 0 && !oosEnabled && !hasVirtual) return;
           const cur = this.highWaterClaimedCountMap.get(k) || 0;
           if (v > cur) {
             this.highWaterClaimedCountMap.set(k, v);

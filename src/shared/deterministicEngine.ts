@@ -21,6 +21,7 @@ export interface GiveawayInput {
   remaining_codes?: number;
   claimed_codes?: number;
   total_codes?: number;
+  codes_pool?: any[];
   virtual_claimed_offset?: number;
   created_at?: string;
   createdAt?: string;
@@ -188,7 +189,7 @@ export function calculateHourlyGrowth(
   createdAt?: string,
   timestampMs: number = Date.now(),
   priority: string = 'normal',
-  customConfig?: { enabled?: boolean; mode?: string; intervalMinutes?: number; incrementStep?: number }
+  customConfig?: { enabled?: boolean; mode?: string; intervalMinutes?: number; incrementStep?: number; maxCatchUpUnits?: number }
 ): number {
   if (!id || priority === 'off') return 0;
   const defaultAnchor = timestampMs;
@@ -219,15 +220,15 @@ export function calculateHourlyGrowth(
   const elapsedHours = Math.max(0, Math.floor((timestampMs - safeStart) / ONE_HOUR_MS));
   if (elapsedHours <= 0) return 0;
 
-  let rate = priority === 'high' ? 1.0 : priority === 'low' ? 0.25 : 0.5;
+  let rate = priority === 'high' ? 2.5 : priority === 'low' ? 0.6 : 1.2;
   if (customConfig?.enabled && customConfig?.mode === 'custom') {
     const interval = Math.max(1, Number(customConfig.intervalMinutes) || 15);
     const step = Math.max(1, Number(customConfig.incrementStep) || 1);
     rate = (60 / interval) * step;
   }
   let baseGrowth = Math.floor(elapsedHours * rate);
-  // Cap baseGrowth to maxCatchUpUnits (default 30) so offline catch-up never runs away indefinitely
-  const maxCap = Math.max(1, Number(customConfig?.maxCatchUpUnits) || 30);
+  // Cap baseGrowth to maxCatchUpUnits (default 70) so offline catch-up matches client calculations
+  const maxCap = Math.max(1, Number(customConfig?.maxCatchUpUnits) || 70);
   baseGrowth = Math.min(baseGrowth, maxCap);
 
   const jitter = stringHash(id) % 3;
@@ -421,13 +422,17 @@ export function calculateGlobalSnapshot(
           realStock
         );
 
-    // Khi hết hàng thật (realStock <= 0):
+    // Khi còn hàng thật (realStock > 0) hoặc sản phẩm có cấu hình số ảo / bù ngoại tuyến:
     const oosEnabled = Boolean(data.offlineCatchUp?.outOfStockEnabled);
     const oosMax = Math.max(1, Number(data.offlineCatchUp?.outOfStockMaxUnits) || 10);
-    const peakSold = (realStock > 0 || oosEnabled) ? (Number(data.peakProductSoldCounts?.[prod.id]) || 0) : 0;
-    const maxAllowedPeak = realStock <= 0 && oosEnabled ? effectiveRealSold + (prod.virtual_sold_count || 0) + oosMax : Infinity;
+    const hasVirtualSold = (prod.virtual_sold_count || 0) > 0;
+    const canAcceptPeak = realStock > 0 || oosEnabled || hasVirtualSold;
+    const peakSold = canAcceptPeak ? (Number(data.peakProductSoldCounts?.[prod.id]) || 0) : 0;
+    const maxAllowedPeak = realStock <= 0 && oosEnabled
+      ? effectiveRealSold + (prod.virtual_sold_count || 0) + oosMax
+      : effectiveRealSold + (prod.virtual_sold_count || 0) + (Number(data.offlineCatchUp?.maxCatchUpUnits) || 70) + 15;
     const effectivePeakSold = Math.min(peakSold, maxAllowedPeak);
-    const displaySold = (realStock > 0 || oosEnabled) ? Math.max(rawDisplaySold, effectivePeakSold) : rawDisplaySold;
+    const displaySold = canAcceptPeak ? Math.max(rawDisplaySold, effectivePeakSold) : rawDisplaySold;
 
     productSnapshots[prod.id] = {
       stock: displayStock,
@@ -515,13 +520,17 @@ export function calculateGlobalSnapshot(
           realRemaining
         );
 
-    // Khi hết mã thật (realRemaining <= 0):
+    // Khi còn mã thật (realRemaining > 0) hoặc giveaway có cấu hình số ảo / bù ngoại tuyến:
     const gwOosEnabled = Boolean(data.offlineCatchUp?.outOfStockEnabled);
     const gwOosMax = Math.max(1, Number(data.offlineCatchUp?.outOfStockMaxUnits) || 10);
-    const peakClaimed = (realRemaining > 0 || gwOosEnabled) ? (Number(data.peakGiveawayClaimedCounts?.[gw.id]) || 0) : 0;
-    const maxAllowedGwPeak = realRemaining <= 0 && gwOosEnabled ? effectiveRealClaimed + (gw.virtual_claimed_offset || 0) + gwOosMax : Infinity;
+    const hasVirtualClaimed = (gw.virtual_claimed_offset || 0) > 0;
+    const canAcceptGwPeak = realRemaining > 0 || gwOosEnabled || hasVirtualClaimed;
+    const peakClaimed = canAcceptGwPeak ? (Number(data.peakGiveawayClaimedCounts?.[gw.id]) || 0) : 0;
+    const maxAllowedGwPeak = realRemaining <= 0 && gwOosEnabled
+      ? effectiveRealClaimed + (gw.virtual_claimed_offset || 0) + gwOosMax
+      : effectiveRealClaimed + (gw.virtual_claimed_offset || 0) + (Number(data.offlineCatchUp?.maxCatchUpUnits) || 70) + 15;
     const effectivePeakClaimed = Math.min(peakClaimed, maxAllowedGwPeak);
-    const displayClaimed = (realRemaining > 0 || gwOosEnabled) ? Math.max(rawDisplayClaimed, effectivePeakClaimed) : rawDisplayClaimed;
+    const displayClaimed = canAcceptGwPeak ? Math.max(rawDisplayClaimed, effectivePeakClaimed) : rawDisplayClaimed;
 
     const displayTotal = displayRemaining + displayClaimed;
     const percentClaimed = displayTotal > 0

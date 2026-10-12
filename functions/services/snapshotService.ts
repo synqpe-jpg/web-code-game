@@ -216,8 +216,8 @@ export async function generateAndPersistSnapshot(env: any): Promise<GlobalMetric
       const realSold = Number(prod?.sold_count) || 0;
       const maxAllowed = realStock <= 0 && oosEnabled
         ? realSold + virtualBase + oosMax
-        : realSold + virtualBase + (Number(marketingConfig?.offlineCatchUp?.maxCatchUpUnits) || 70) + 10;
-      if ((realStock <= 0 && !oosEnabled) || val > maxAllowed) {
+        : realSold + virtualBase + (Number(marketingConfig?.offlineCatchUp?.maxCatchUpUnits) || 70) + 15;
+      if ((realStock <= 0 && !oosEnabled && virtualBase <= 0) || val > maxAllowed) {
         delete hub.peakProductSoldCounts[pId];
         hubModified = true;
       }
@@ -233,8 +233,8 @@ export async function generateAndPersistSnapshot(env: any): Promise<GlobalMetric
       const realClaimed = Number(gw?.claimed_codes) || 0;
       const maxAllowed = realRemaining <= 0 && oosEnabled
         ? realClaimed + virtualBase + oosMax
-        : realClaimed + virtualBase + (Number(marketingConfig?.offlineCatchUp?.maxCatchUpUnits) || 70) + 10;
-      if ((realRemaining <= 0 && !oosEnabled) || val > maxAllowed) {
+        : realClaimed + virtualBase + (Number(marketingConfig?.offlineCatchUp?.maxCatchUpUnits) || 70) + 15;
+      if ((realRemaining <= 0 && !oosEnabled && virtualBase <= 0) || val > maxAllowed) {
         delete hub.peakGiveawayClaimedCounts[gId];
         hubModified = true;
       }

@@ -7,7 +7,24 @@ Mỗi mục sửa lỗi đều ghi nhận **Nguyên nhân gốc rễ (Root Cause
 
 ## [2026-10-12]
 
-### 1. Đồng Bộ Đặt Lại / Hạ Số Đã Bán & Số Đã Săn Ảo Cho Admin (Force Reset Sold & Claimed Counts)
+### 1. Khắc Phục Lỗi Kéo Tụt Số Đã Bán Về Mức Cũ & Đồng Bộ Tiến Trình Tăng Đơn Khi Toast Nổ (Atomic Live Sales & Monotonic Peak Sync)
+- **Mô tả**: Khắc phục dứt điểm hiện tượng số lượng "Đã bán" của sản phẩm tiện ích (như gói VIP 7 Days VS Phone) cứ sau một khoảng thời gian lại bị kéo tụt về một con số cố định (138) mà không tăng tiếp khi thông báo toast nổ ra trên màn hình. Đảm bảo mỗi khi thông báo toast mua hàng nổ ra, số đã bán trên thẻ sản phẩm tăng ngay lập tức và duy trì tiến trình tăng lũy kế tự nhiên, không bao giờ bị server snapshot hay poller kéo giật lùi về lại mốc cũ.
+- **Nguyên nhân gốc rễ (Root Cause)**:
+  1. **Lệch pha thuật toán tính tăng trưởng**: Trong `src/shared/deterministicEngine.ts`, hàm `calculateHourlyGrowth` tính với hệ số `rate = 0.5` và trần `maxCap = 30` (tính ra 73 đơn cho gói VIP 7 ngày), trong khi ở frontend `marketingService.ts` hàm `getHourlyGrowth` tính với `rate = 1.2` và trần `maxCap = 70` (tính ra 138 đơn).
+  2. **Bẫy so sánh tụt số trong Poller**: Trong `fetchMetricsSnapshot` và `applyActiveSnapshot`, đoạn code `curSold > info.sold + 2` dùng để nhận diện reset từ Admin đã vô tình nhận diện nhầm các live sales của client (139, 140, 141...) so với snapshot 73 của server, dẫn đến cứ sau mỗi 10 giây poller lại ép số đã bán của client tụt về 73, rồi hàm hiển thị thẻ `getSoldDisplay` lại lấy `Math.max(138, 73) = 138`, khiến số hiển thị bị khóa chết ở 138!
+  3. **Xóa peak hợp lệ trên Server**: Trong `functions/services/snapshotService.ts`, server tự động xóa peak trong `hub.peakProductSoldCounts` nếu `realStock <= 0`, trong khi các sản phẩm tiện ích hoặc dịch vụ ảo có `virtual_sold_count > 0` cần duy trì tiến trình bán ảo.
+  4. **Chặn hàm tăng đơn ảo**: Trong `incrementLiveSoldCount`, điều kiện `if (realStock <= 0)` chặn đứng việc tăng đơn ảo ngay cả khi toast mua hàng ảo đã nổ ra trên giao diện.
+- **Giải pháp thành công (Solution Applied)**:
+  1. **Đồng bộ 100% thuật toán**: Cập nhật `calculateHourlyGrowth` trong `src/shared/deterministicEngine.ts` dùng chung hệ số (`2.5 / 1.2 / 0.6` và trần `70`), đảm bảo cả Server Edge và Client tính ra cùng một giá trị cơ sở thống nhất (138 = 138).
+  2. **Monotonic Peak Guarantee trong Poller**: Loại bỏ hoàn toàn điều kiện thô thiển `curSold > info.sold + 2` trong `fetchMetricsSnapshot` và `applyActiveSnapshot`. Luôn bảo toàn đỉnh cao nhất `Math.max(curSold, info.sold)`, chỉ auto-heal nếu vượt quá trần tối đa hợp lý (`maxCap`), và tự động đẩy peak mới lên Edge Server qua `schedulePeakReport()`.
+  3. **Bảo toàn peak cho sản phẩm có virtual counts**: Cho phép Edge Server và snapshot engine tiếp nhận và duy trì đỉnh `peakSold` / `peakClaimed` cho các sản phẩm có cấu hình số ảo (`virtual_sold_count > 0` hoặc `virtual_claimed_offset > 0`).
+  4. **Đồng bộ nguyên tử 1 - 1 khi toast nổ**: Cho phép `incrementLiveSoldCount` và `incrementLiveClaimedCount` tăng đơn khi có `notifId` từ toast nổ trên UI, phát sự kiện cập nhật tức thì 0ms cho các thẻ sản phẩm Tiện ích, Chợ code và Giveaway.
+- **Giải pháp thất bại đã thử (Failed Attempts - KHÔNG ĐƯỢC LẶP LẠI)**:
+  - *Thử nghiệm 1*: Dùng điều kiện `curSold > info.sold + 2` để phát hiện Admin reset $\rightarrow$ *Thất bại*: Khi client nổ 3 toast mua hàng liên tiếp, `curSold` tăng +3 và bị poller coi là Admin reset, kéo tụt số về mốc server snapshot.
+
+---
+
+### 2. Đồng Bộ Đặt Lại / Hạ Số Đã Bán & Số Đã Săn Ảo Cho Admin (Force Reset Sold & Claimed Counts)
 - **Mô tả**: Cho phép Admin chỉnh sửa, hạ thấp hoặc đặt lại về 0 số lượng đã bán ảo và số lượng đã săn ảo cho cả 3 mục: Tiện ích (`Utilities`), Chợ code (`Store Products`) và Săn Giveaway (`Giveaways`). Ngăn chặn triệt để tình trạng máy chủ Cloudflare hay client poller tự động khôi phục (revert/resurrect) con số đỉnh cũ (high-water mark).
 - **Nguyên nhân gốc rễ (Root Cause)**:
   1. Trong `src/admin/services/adminDataService.ts`, hàm `saveStoreProductItem` và `saveUtilityItem` ép lấy `Math.max(existing.sold_count, item.sold_count)` khiến Admin không thể hạ con số đã bán thật/ảo về mốc thấp hơn.
