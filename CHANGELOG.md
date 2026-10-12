@@ -7,6 +7,22 @@ Mỗi mục sửa lỗi đều ghi nhận **Nguyên nhân gốc rễ (Root Cause
 
 ## [2026-10-13]
 
+### 5. Khắc Phục Lỗi `saveSessionAnchors`, Bổ Sung Công Tắc Ẩn/Hiện Số Ảo & Tối Ưu Thẻ Sản Phẩm Vừa Khít Màn Hình
+- **Mô tả**:
+  1. **Khắc phục lỗi runtime khi sửa số ảo**: Lỗi `this.saveSessionAnchors is not a function` xuất hiện khi người dùng bấm "Áp Dụng & Đồng Bộ Tức Thì" trong modal điều chỉnh số ảo. Đã chuẩn hóa tên hàm thành `this.saveSessionAnchor()` và bổ sung alias an toàn `saveSessionAnchors()`.
+  2. **Bổ sung công tắc Ẩn / Hiện Số Ảo**: Thêm nút chuyển đổi trực quan `Số Ảo: Đang Hiện / Đang Ẩn` trên Toolbar của cả 3 phân hệ (Giveaway, Tiện ích, Kho Code & Gói bán), lưu trạng thái vào LocalStorage (`wcg_admin_show_virtual_stats`). Khi Admin chọn Ẩn, chỉ hiển thị số liệu thực tế của kho hàng, giảm tải thị giác và tiết kiệm diện tích.
+  3. **Tối ưu hiển thị vừa khít trọn vẹn màn hình (Compact & Snug Layout)**:
+     - Tối ưu thẻ sản phẩm trong Tiện ích và Kho Code: Thu gọn padding (`p-3.5`), kích thước ảnh (`h-11 w-11`), tiêu đề và mô tả 1 dòng (`line-clamp-1`), khối giá và tồn kho font-mono tinh tế, hàng nút thao tác ôm sát đáy thẻ. Đảm bảo toàn bộ thông tin của 1 sản phẩm hiển thị 100% trọn vẹn trong khung nhìn màn hình máy tính mà không bị tràn hay phải cuộn.
+     - Tối ưu modal `QuickFomoAdjustModal`: Loại bỏ padding kép thừa, thu gọn khoảng cách các trường nhập để toàn bộ modal fit trọn vẹn trong màn hình laptop.
+- **Nguyên nhân gốc rễ (Root Cause)**:
+  - Hàm lưu session anchor trong `MarketingService` có tên gốc là `saveSessionAnchor()` (số ít), trong khi logic reset số ảo mới gọi nhầm `this.saveSessionAnchors()` (số nhiều) dẫn đến `TypeError`.
+  - Thẻ sản phẩm trước đó có padding và khoảng cách quá lớn (`p-5`, mô tả 2 dòng, nhiều tầng badge) khiến chiều cao thẻ vượt quá tầm nhìn màn hình của laptop phổ thông.
+- **Giải pháp thành công (Solution Applied)**:
+  - Bổ sung alias `saveSessionAnchors()` và thay thế toàn bộ lệnh gọi chuẩn xác.
+  - Tích hợp công tắc toggle `showVirtualStats` và thiết kế lại thẻ sản phẩm gọn gàng, thanh thoát.
+
+---
+
 ### 4. Thống Kê Số Ảo Ngoài Web & Cho Phép Điều Chỉnh Số Ảo Tự Do Trong Quản Trị Admin (Giveaway, Tiện Ích, Kho Code)
 - **Mô tả**:
   1. Đáp ứng trọn vẹn yêu cầu: "Trong mục phát Giveaway trong admin, cùng các mục còn lại, thêm thống kê số ảo ngoài web và có thể điều chỉnh số ảo tự do."

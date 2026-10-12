@@ -129,18 +129,18 @@ export const QuickFomoAdjustModal: React.FC<QuickFomoAdjustModalProps> = ({
       onClose={onClose}
       title="⚡ Điều Chỉnh Số Ảo Hiển Thị Ngoài Web"
       subtitle={`${isGiveaway ? 'Sự Kiện Giveaway' : 'Sản Phẩm'} • ${itemTitle}${gameName ? ` (${gameName})` : ''}`}
-      maxWidth="xl"
+      maxWidth="lg"
     >
-      <div className="p-4 sm:p-6 space-y-5">
+      <div className="space-y-3.5 py-1">
         {/* SIDE-BY-SIDE STATS COMPARISON */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
           {/* Real Warehouse Data */}
-          <div className="p-3.5 rounded-2xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700/80">
-            <div className="flex items-center gap-1.5 text-xs font-bold text-slate-700 dark:text-slate-300 mb-2">
-              <Boxes className="w-4 h-4 text-emerald-500" />
+          <div className="p-2.5 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700/80">
+            <div className="flex items-center gap-1.5 text-[11px] font-bold text-slate-700 dark:text-slate-300 mb-1.5">
+              <Boxes className="w-3.5 h-3.5 text-emerald-500" />
               <span>DỮ LIỆU THẬT (DATABASE)</span>
             </div>
-            <div className="space-y-1.5 font-mono text-xs">
+            <div className="space-y-1 font-mono text-[11px]">
               <div className="flex justify-between">
                 <span className="text-slate-500 dark:text-slate-400">Kho thật còn:</span>
                 <strong className={`font-bold ${realStock > 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-500'}`}>
@@ -157,12 +157,12 @@ export const QuickFomoAdjustModal: React.FC<QuickFomoAdjustModalProps> = ({
           </div>
 
           {/* Current Live Web Display */}
-          <div className="p-3.5 rounded-2xl bg-purple-500/10 dark:bg-purple-950/30 border border-purple-500/30">
-            <div className="flex items-center gap-1.5 text-xs font-bold text-purple-700 dark:text-purple-300 mb-2">
-              <Eye className="w-4 h-4 text-purple-500" />
+          <div className="p-2.5 rounded-xl bg-purple-500/10 dark:bg-purple-950/30 border border-purple-500/30">
+            <div className="flex items-center gap-1.5 text-[11px] font-bold text-purple-700 dark:text-purple-300 mb-1.5">
+              <Eye className="w-3.5 h-3.5 text-purple-500" />
               <span>ĐANG HIỂN THỊ NGOÀI WEB</span>
             </div>
-            <div className="space-y-1.5 font-mono text-xs">
+            <div className="space-y-1 font-mono text-[11px]">
               <div className="flex justify-between">
                 <span className="text-slate-500 dark:text-slate-400">Web hiện còn:</span>
                 <strong className="text-purple-600 dark:text-purple-400 font-bold">
@@ -180,45 +180,45 @@ export const QuickFomoAdjustModal: React.FC<QuickFomoAdjustModalProps> = ({
         </div>
 
         {/* 1-CLICK QUICK PRESET BUTTONS */}
-        <div className="flex flex-wrap items-center gap-2 pt-1">
-          <span className="text-xs font-bold text-slate-500 dark:text-slate-400">Mẫu chọn nhanh:</span>
+        <div className="flex flex-wrap items-center gap-1.5 pt-0.5">
+          <span className="text-[11px] font-bold text-slate-500 dark:text-slate-400">Mẫu nhanh:</span>
           <button
             type="button"
             onClick={handleResetToReal}
-            className="px-2.5 py-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 text-xs font-bold flex items-center gap-1 cursor-pointer transition-all border border-slate-300 dark:border-slate-700 active:scale-95"
+            className="px-2 py-1 rounded-lg bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 text-[11px] font-bold flex items-center gap-1 cursor-pointer transition-all border border-slate-300 dark:border-slate-700 active:scale-95"
             title="Đưa toàn bộ số liệu về đúng 100% kho thật"
           >
-            <RotateCcw className="w-3.5 h-3.5 text-rose-500" />
-            <span>Chuẩn Thực Tế 100% (Xóa Ảo)</span>
+            <RotateCcw className="w-3 h-3 text-rose-500" />
+            <span>Chuẩn Thật 100% (Xóa Ảo)</span>
           </button>
           <button
             type="button"
             onClick={handlePresetGentle}
-            className="px-2.5 py-1.5 rounded-xl bg-amber-500/10 hover:bg-amber-500/20 text-amber-700 dark:text-amber-400 text-xs font-bold flex items-center gap-1 cursor-pointer transition-all border border-amber-500/30 active:scale-95"
+            className="px-2 py-1 rounded-lg bg-amber-500/10 hover:bg-amber-500/20 text-amber-700 dark:text-amber-400 text-[11px] font-bold flex items-center gap-1 cursor-pointer transition-all border border-amber-500/30 active:scale-95"
           >
-            <Zap className="w-3.5 h-3.5 text-amber-500" />
-            <span>FOMO Nhẹ Nhàng (+25)</span>
+            <Zap className="w-3 h-3 text-amber-500" />
+            <span>FOMO Nhẹ (+25)</span>
           </button>
           <button
             type="button"
             onClick={handlePresetVibrant}
-            className="px-2.5 py-1.5 rounded-xl bg-purple-500/10 hover:bg-purple-500/20 text-purple-700 dark:text-purple-400 text-xs font-bold flex items-center gap-1 cursor-pointer transition-all border border-purple-500/30 active:scale-95"
+            className="px-2 py-1 rounded-lg bg-purple-500/10 hover:bg-purple-500/20 text-purple-700 dark:text-purple-400 text-[11px] font-bold flex items-center gap-1 cursor-pointer transition-all border border-purple-500/30 active:scale-95"
           >
-            <Flame className="w-3.5 h-3.5 text-purple-500" />
-            <span>FOMO Sôi Động (+60)</span>
+            <Flame className="w-3 h-3 text-purple-500" />
+            <span>FOMO Đậm (+60)</span>
           </button>
         </div>
 
         {/* INPUT CONTROLS */}
-        <div className="space-y-4 pt-2 border-t border-slate-200 dark:border-slate-800">
+        <div className="space-y-3 pt-2 border-t border-slate-200 dark:border-slate-800">
           {/* Target Sold / Claimed Count */}
-          <div className="space-y-1.5">
+          <div className="space-y-1">
             <div className="flex items-center justify-between">
               <label className="text-xs font-bold text-slate-800 dark:text-slate-200 flex items-center gap-1.5">
                 <Sparkles className="w-3.5 h-3.5 text-amber-500" />
                 <span>Số {labelSoldOrClaimed} hiển thị ngoài Web:</span>
               </label>
-              <span className="text-[11px] font-mono text-slate-500">
+              <span className="text-[10px] font-mono text-slate-500">
                 Thật: {realSoldOrClaimed} {soldDiff !== 0 && `(Ảo: ${soldDiff > 0 ? `+${soldDiff}` : soldDiff})`}
               </span>
             </div>
@@ -228,36 +228,36 @@ export const QuickFomoAdjustModal: React.FC<QuickFomoAdjustModalProps> = ({
               max="999999"
               value={targetSoldOrClaimed}
               onChange={(e) => setTargetSoldOrClaimed(Math.max(0, parseInt(e.target.value, 10) || 0))}
-              className="w-full px-3.5 py-2.5 rounded-xl bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 text-foreground font-mono text-sm focus:border-purple-500 focus:outline-none"
+              className="w-full px-3 py-1.5 rounded-xl bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 text-foreground font-mono text-xs focus:border-purple-500 focus:outline-none"
               placeholder={`Nhập số ${labelSoldOrClaimed.toLowerCase()} mong muốn`}
             />
-            <div className="flex flex-wrap items-center gap-1.5 pt-1 text-[11px]">
+            <div className="flex flex-wrap items-center gap-1 pt-0.5 text-[10px]">
               <span className="text-slate-400">Gợi ý mốc:</span>
               <button
                 type="button"
                 onClick={() => setTargetSoldOrClaimed(realSoldOrClaimed)}
-                className="px-2 py-0.5 rounded bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 text-slate-600 dark:text-slate-300 font-mono cursor-pointer"
+                className="px-1.5 py-0.5 rounded bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 text-slate-600 dark:text-slate-300 font-mono cursor-pointer"
               >
                 {realSoldOrClaimed} (Bằng thật)
               </button>
               <button
                 type="button"
                 onClick={() => setTargetSoldOrClaimed((prev) => prev + 10)}
-                className="px-2 py-0.5 rounded bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 text-slate-600 dark:text-slate-300 font-mono cursor-pointer"
+                className="px-1.5 py-0.5 rounded bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 text-slate-600 dark:text-slate-300 font-mono cursor-pointer"
               >
                 +10
               </button>
               <button
                 type="button"
                 onClick={() => setTargetSoldOrClaimed((prev) => prev + 50)}
-                className="px-2 py-0.5 rounded bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 text-slate-600 dark:text-slate-300 font-mono cursor-pointer"
+                className="px-1.5 py-0.5 rounded bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 text-slate-600 dark:text-slate-300 font-mono cursor-pointer"
               >
                 +50
               </button>
               <button
                 type="button"
                 onClick={() => setTargetSoldOrClaimed((prev) => prev + 100)}
-                className="px-2 py-0.5 rounded bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 text-slate-600 dark:text-slate-300 font-mono cursor-pointer"
+                className="px-1.5 py-0.5 rounded bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 text-slate-600 dark:text-slate-300 font-mono cursor-pointer"
               >
                 +100
               </button>
@@ -265,14 +265,14 @@ export const QuickFomoAdjustModal: React.FC<QuickFomoAdjustModalProps> = ({
           </div>
 
           {/* Virtual Stock Bonus */}
-          <div className="space-y-1.5">
+          <div className="space-y-1">
             <div className="flex items-center justify-between">
               <label className="text-xs font-bold text-slate-800 dark:text-slate-200 flex items-center gap-1.5">
                 <Boxes className="w-3.5 h-3.5 text-teal-500" />
-                <span>Số lượng cộng thêm vào tồn kho hiển thị (+ Bonus ảo):</span>
+                <span>Cộng thêm tồn kho (+ Bonus ảo):</span>
               </label>
-              <span className="text-[11px] font-mono text-slate-500">
-                Web sẽ hiện: {estimatedDisplayStock} mã {stockDiff > 0 && `(+${stockDiff} ảo)`}
+              <span className="text-[10px] font-mono text-slate-500">
+                Web hiện: {estimatedDisplayStock} mã {stockDiff > 0 && `(+${stockDiff} ảo)`}
               </span>
             </div>
             <input
@@ -281,42 +281,42 @@ export const QuickFomoAdjustModal: React.FC<QuickFomoAdjustModalProps> = ({
               max="500"
               value={bonusStock}
               onChange={(e) => setBonusStock(Math.max(0, parseInt(e.target.value, 10) || 0))}
-              className="w-full px-3.5 py-2.5 rounded-xl bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 text-foreground font-mono text-sm focus:border-purple-500 focus:outline-none"
+              className="w-full px-3 py-1.5 rounded-xl bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 text-foreground font-mono text-xs focus:border-purple-500 focus:outline-none"
               placeholder="0 (đúng kho thật) hoặc số lượng muốn cộng thêm"
             />
             {realStock <= 0 ? (
-              <p className="text-[11px] text-amber-500 flex items-center gap-1 mt-1">
-                <AlertCircle className="w-3.5 h-3.5 shrink-0" />
-                <span>Kho thật đang = 0. Theo Quy Tắc Vàng, ngoài Web sẽ luôn hiển thị HẾT HÀNG (0) để tránh giao dịch lỗi.</span>
+              <p className="text-[10px] text-amber-500 flex items-center gap-1 mt-0.5">
+                <AlertCircle className="w-3 h-3 shrink-0" />
+                <span>Kho thật đang = 0: Ngoài Web luôn hiển thị HẾT HÀNG (0).</span>
               </p>
             ) : (
-              <div className="flex flex-wrap items-center gap-1.5 pt-1 text-[11px]">
+              <div className="flex flex-wrap items-center gap-1 pt-0.5 text-[10px]">
                 <span className="text-slate-400">Chọn nhanh:</span>
                 <button
                   type="button"
                   onClick={() => setBonusStock(0)}
-                  className="px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 font-mono cursor-pointer font-bold"
+                  className="px-1.5 py-0.5 rounded bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 font-mono cursor-pointer font-bold"
                 >
-                  +0 (Bằng kho thật 100%)
+                  +0 (Bằng kho thật)
                 </button>
                 <button
                   type="button"
                   onClick={() => setBonusStock(10)}
-                  className="px-2 py-0.5 rounded bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 text-slate-600 dark:text-slate-300 font-mono cursor-pointer"
+                  className="px-1.5 py-0.5 rounded bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 text-slate-600 dark:text-slate-300 font-mono cursor-pointer"
                 >
                   +10
                 </button>
                 <button
                   type="button"
                   onClick={() => setBonusStock(20)}
-                  className="px-2 py-0.5 rounded bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 text-slate-600 dark:text-slate-300 font-mono cursor-pointer"
+                  className="px-1.5 py-0.5 rounded bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 text-slate-600 dark:text-slate-300 font-mono cursor-pointer"
                 >
                   +20
                 </button>
                 <button
                   type="button"
                   onClick={() => setBonusStock(50)}
-                  className="px-2 py-0.5 rounded bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 text-slate-600 dark:text-slate-300 font-mono cursor-pointer"
+                  className="px-1.5 py-0.5 rounded bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 text-slate-600 dark:text-slate-300 font-mono cursor-pointer"
                 >
                   +50
                 </button>
@@ -325,7 +325,7 @@ export const QuickFomoAdjustModal: React.FC<QuickFomoAdjustModalProps> = ({
           </div>
 
           {/* Priority / Auto Increment Mode */}
-          <div className="space-y-1.5">
+          <div className="space-y-1">
             <label className="text-xs font-bold text-slate-800 dark:text-slate-200 flex items-center gap-1.5">
               <ShieldCheck className="w-3.5 h-3.5 text-indigo-500" />
               <span>Chế độ tăng trưởng ảo theo giờ:</span>
@@ -333,10 +333,10 @@ export const QuickFomoAdjustModal: React.FC<QuickFomoAdjustModalProps> = ({
             <select
               value={priority}
               onChange={(e) => setPriority(e.target.value as ProductPriority)}
-              className="w-full px-3.5 py-2.5 rounded-xl bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 text-foreground text-xs font-bold focus:border-purple-500 focus:outline-none cursor-pointer"
+              className="w-full px-3 py-1.5 rounded-xl bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 text-foreground text-xs font-bold focus:border-purple-500 focus:outline-none cursor-pointer"
             >
               <option value="normal">⚡ Bình thường (Tự tăng nhẹ theo giờ)</option>
-              <option value="high">🔥 Ưu tiên cao (Sôi động, xuất hiện thông báo toast nhiều)</option>
+              <option value="high">🔥 Ưu tiên cao (Sôi động, nổ thông báo toast nhiều)</option>
               <option value="low">💤 Thấp (Tăng rất chậm)</option>
               <option value="off">⛔ Tắt tự tăng (Cố định chính xác số lượng đã nhập)</option>
             </select>
@@ -344,12 +344,12 @@ export const QuickFomoAdjustModal: React.FC<QuickFomoAdjustModalProps> = ({
         </div>
 
         {/* ACTIONS */}
-        <div className="flex items-center justify-end gap-2.5 pt-3 border-t border-slate-200 dark:border-slate-800">
+        <div className="flex items-center justify-end gap-2 pt-2.5 border-t border-slate-200 dark:border-slate-800">
           <button
             type="button"
             onClick={onClose}
             disabled={isSubmitting}
-            className="px-4 py-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 text-xs font-bold transition-all cursor-pointer"
+            className="px-3.5 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 text-xs font-bold transition-all cursor-pointer"
           >
             Hủy Bỏ
           </button>
@@ -357,13 +357,13 @@ export const QuickFomoAdjustModal: React.FC<QuickFomoAdjustModalProps> = ({
             type="button"
             onClick={handleApply}
             disabled={isSubmitting}
-            className="px-5 py-2.5 rounded-xl bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white text-xs font-bold shadow-md hover:shadow-lg transition-all flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
+            className="px-4 py-2 rounded-xl bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white text-xs font-bold shadow-md hover:shadow-lg transition-all flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
           >
             {isSubmitting ? (
               <span>Đang đồng bộ...</span>
             ) : (
               <>
-                <Check className="w-4 h-4" />
+                <Check className="w-3.5 h-3.5" />
                 <span>Áp Dụng & Đồng Bộ Tức Thì</span>
               </>
             )}

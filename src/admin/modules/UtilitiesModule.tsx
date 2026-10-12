@@ -22,6 +22,8 @@ import {
   Link2,
   ExternalLink,
   ShieldCheck,
+  Eye,
+  EyeOff,
 } from 'lucide-react';
 import { FormModal } from '../components/ui/FormModal';
 import { ConfirmModal } from '../components/ui/ConfirmModal';
@@ -46,6 +48,20 @@ export const UtilitiesModule: React.FC<UtilitiesModuleProps> = ({ onShowToast })
   const [categoryFilter, setCategoryFilter] = useState<string>('ALL');
   const [sortFilter, setSortFilter] = useState<'NEWEST' | 'PRICE_ASC' | 'PRICE_DESC' | 'STOCK'>('NEWEST');
   const [copiedId, setCopiedId] = useState<string | null>(null);
+
+  // --- SHOW / HIDE VIRTUAL METRICS TOGGLE ---
+  const [showVirtualStats, setShowVirtualStats] = useState<boolean>(() => {
+    if (typeof window === 'undefined') return true;
+    return localStorage.getItem('wcg_admin_show_virtual_stats') !== 'false';
+  });
+
+  const toggleVirtualStats = () => {
+    setShowVirtualStats((prev) => {
+      const next = !prev;
+      localStorage.setItem('wcg_admin_show_virtual_stats', String(next));
+      return next;
+    });
+  };
 
   // --- QUICK FOMO ADJUST MODAL STATE ---
   const [fomoAdjustProduct, setFomoAdjustProduct] = useState<UtilityProduct | null>(null);
@@ -686,6 +702,21 @@ export const UtilitiesModule: React.FC<UtilitiesModuleProps> = ({ onShowToast })
               <option value="STOCK">Tồn kho nhiều nhất</option>
             </select>
 
+            {/* Toggle Ẩn / Hiện Số Ảo Ngoài Web */}
+            <button
+              type="button"
+              onClick={toggleVirtualStats}
+              className={`inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer border shadow-xs ${
+                showVirtualStats
+                  ? 'bg-purple-500/10 hover:bg-purple-500/20 text-purple-600 dark:text-purple-400 border-purple-500/30'
+                  : 'bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-500 dark:text-slate-400 border-slate-300 dark:border-slate-700'
+              }`}
+              title={showVirtualStats ? 'Đang hiển thị số ảo web - Nhấn để ẩn' : 'Đang ẩn số ảo web - Nhấn để hiện'}
+            >
+              {showVirtualStats ? <Eye className="h-3.5 w-3.5 text-purple-500" /> : <EyeOff className="h-3.5 w-3.5 text-slate-400" />}
+              <span>{showVirtualStats ? 'Số Ảo: Đang Hiện' : 'Số Ảo: Đang Ẩn'}</span>
+            </button>
+
             {/* Create Category Button */}
             <button
               onClick={() => setIsCategoryModalOpen(true)}
@@ -760,7 +791,7 @@ export const UtilitiesModule: React.FC<UtilitiesModuleProps> = ({ onShowToast })
       </div>
 
       {/* Product Cards Grid (Matching CodeInventoryModule) */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         {filteredUtilities.map((prod) => {
           const productStockCount = inventory.filter(
             (i) => (i.sku === prod.id || (prod.sku && i.sku === prod.sku) || (i.productName && i.productName.trim().toLowerCase() === prod.title.trim().toLowerCase())) && i.status === 'AVAILABLE'
@@ -770,17 +801,17 @@ export const UtilitiesModule: React.FC<UtilitiesModuleProps> = ({ onShowToast })
           return (
             <div
               key={prod.id}
-              className="rounded-2xl border border-slate-200 bg-white p-5 dark:border-slate-800 dark:bg-slate-900 shadow-sm hover:border-indigo-500/50 transition-all flex flex-col justify-between space-y-4 group"
+              className="rounded-xl border border-slate-200 bg-white p-3.5 sm:p-4 dark:border-slate-800 dark:bg-slate-900 shadow-xs hover:border-indigo-500/50 transition-all flex flex-col justify-between space-y-2.5 group"
             >
               <div>
                 {/* Header Badge */}
                 <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <span className="text-[11px] font-bold px-2.5 py-1 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-800 dark:text-slate-200 border border-slate-200 dark:border-slate-700">
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-slate-100 dark:bg-slate-800 text-slate-800 dark:text-slate-200 border border-slate-200 dark:border-slate-700">
                       {getCategoryIcon(prod.category)} {prod.category_label || (prod.category ? prod.category.toUpperCase() : 'TIỆN ÍCH')}
                     </span>
                     {prod.badge && (
-                      <span className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-amber-50 text-amber-700 dark:bg-amber-950/40 dark:text-amber-400 border border-amber-200 dark:border-amber-800">
+                      <span className="text-[9px] font-bold px-1.5 py-0.2 rounded bg-amber-50 text-amber-700 dark:bg-amber-950/40 dark:text-amber-400 border border-amber-200 dark:border-amber-800">
                         {prod.badge}
                       </span>
                     )}
@@ -790,9 +821,9 @@ export const UtilitiesModule: React.FC<UtilitiesModuleProps> = ({ onShowToast })
                         : (prod.guide_url?.trim() ? 1 : 0);
                       if (count === 0) return null;
                       return (
-                        <span className="inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-full bg-teal-50 text-teal-600 dark:bg-teal-950/40 dark:text-teal-400 border border-teal-200 dark:border-teal-800" title={`Số link hướng dẫn: ${count}`}>
+                        <span className="inline-flex items-center gap-1 text-[9px] font-semibold px-1.5 py-0.2 rounded-full bg-teal-50 text-teal-600 dark:bg-teal-950/40 dark:text-teal-400 border border-teal-200 dark:border-teal-800" title={`Số link hướng dẫn: ${count}`}>
                           <Link2 className="w-2.5 h-2.5" />
-                          {count > 1 ? `${count} Link HD` : 'Có link HD'}
+                          {count > 1 ? `${count} HD` : 'Có HD'}
                         </span>
                       );
                     })()}
@@ -809,8 +840,8 @@ export const UtilitiesModule: React.FC<UtilitiesModuleProps> = ({ onShowToast })
                 </div>
 
                 {/* Body Content */}
-                <div className="mt-3 flex items-start gap-3.5">
-                  <div className="h-14 w-14 rounded-xl overflow-hidden bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 shrink-0">
+                <div className="mt-2.5 flex items-center gap-3">
+                  <div className="h-11 w-11 rounded-lg overflow-hidden bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 shrink-0">
                     <img
                       src={prod.cover_image_url || prod.icon_url || '/vite.svg'}
                       alt={prod.title}
@@ -824,59 +855,59 @@ export const UtilitiesModule: React.FC<UtilitiesModuleProps> = ({ onShowToast })
                   </div>
 
                   <div className="flex-1 min-w-0">
-                    <h4 className="font-bold text-sm text-slate-900 dark:text-white truncate">
+                    <h4 className="font-bold text-xs text-slate-900 dark:text-white truncate">
                       {prod.title}
                     </h4>
-                    <p className="text-xs text-slate-500 dark:text-slate-400 line-clamp-2 mt-0.5 leading-relaxed">
+                    <p className="text-[11px] text-slate-500 dark:text-slate-400 line-clamp-1 mt-0.5 leading-snug">
                       {prod.description || 'Sản phẩm tiện ích và dịch vụ số ngoài lề chính hãng.'}
                     </p>
                   </div>
                 </div>
 
                 {/* Price & Stock Display */}
-                <div className="mt-4 pt-3 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between">
+                <div className="mt-2 pt-2 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between gap-2">
                   <div>
-                    <div className="flex items-baseline gap-2">
-                      <span className="font-mono text-base font-black text-amber-500 dark:text-amber-400">
+                    <div className="flex items-baseline gap-1.5">
+                      <span className="font-mono text-sm font-black text-amber-500 dark:text-amber-400">
                         {formatCurrencyVND(prod.current_price)}
                       </span>
                       {prod.original_price > prod.current_price && (
                         <>
-                          <span className="font-mono text-xs text-slate-400 line-through">
+                          <span className="font-mono text-[10px] text-slate-400 line-through">
                             {formatCurrencyVND(prod.original_price)}
                           </span>
-                          <span className="text-[10px] font-bold text-rose-500">
+                          <span className="text-[9px] font-bold text-rose-500">
                             -{prod.discount_percent}%
                           </span>
                         </>
                       )}
                     </div>
-                    <span className="text-[10px] font-bold text-indigo-500 font-mono">
+                    <span className="text-[9px] font-bold text-indigo-500 font-mono">
                       Quy đổi: {formatCore(prod.current_price)}
                     </span>
                   </div>
 
-                  <div className="text-right space-y-1">
+                  <div className="text-right space-y-0.5">
                     {/* Tầng 1: Kho Thật */}
                     <div className="text-[11px] font-mono">
-                      <span className="text-slate-400 font-sans text-[10px]">Kho thật: </span>
-                      <strong className={`text-xs ${displayStock > 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-400'}`}>
+                      <span className="text-slate-400 font-sans text-[10px]">Kho: </span>
+                      <strong className={`text-xs ${displayStock > 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-400 font-bold'}`}>
                         {displayStock > 0 ? `${displayStock} mã` : 'Hết hàng'}
                       </strong>
                       <span className="text-slate-400 font-sans text-[10px] ml-1">| Bán: </span>
                       <strong className="text-slate-700 dark:text-slate-300 text-xs">{prod.sold_count || 0}</strong>
                     </div>
 
-                    {/* Tầng 2: Web FOMO */}
-                    {(() => {
+                    {/* Tầng 2: Web FOMO (Chỉ hiện khi bật công tắc Hiện Số Ảo) */}
+                    {showVirtualStats && (() => {
                       const webStock = marketingService.getDisplayStock(prod.id, displayStock);
                       const webSold = marketingService.getSoldDisplay(prod);
                       const isStockFomoDiff = webStock !== displayStock;
                       const isSoldFomoDiff = webSold !== (prod.sold_count || 0);
 
                       return (
-                        <div className="flex items-center justify-end gap-1 font-mono text-[11px] bg-slate-50 dark:bg-slate-800/60 px-2 py-0.5 rounded-lg border border-slate-200/60 dark:border-slate-700/60">
-                          <span className="text-amber-500 font-sans text-[10px] font-bold flex items-center gap-0.5">
+                        <div className="flex items-center justify-end gap-1 font-mono text-[10px] bg-slate-50 dark:bg-slate-800/60 px-1.5 py-0.5 rounded-md border border-slate-200/60 dark:border-slate-700/60">
+                          <span className="text-amber-500 font-sans text-[9px] font-bold flex items-center gap-0.5">
                             <Sparkles className="w-2.5 h-2.5" />
                             Web:
                           </span>
@@ -888,7 +919,7 @@ export const UtilitiesModule: React.FC<UtilitiesModuleProps> = ({ onShowToast })
                             Bán {webSold}
                           </span>
                           {(isStockFomoDiff || isSoldFomoDiff) && (
-                            <span className="inline-flex items-center px-1 rounded text-[9px] font-bold bg-purple-500/10 text-purple-600 dark:text-purple-400 border border-purple-500/20" title="Đang có số ảo FOMO">
+                            <span className="inline-flex items-center px-1 rounded text-[8px] font-bold bg-purple-500/10 text-purple-600 dark:text-purple-400 border border-purple-500/20" title="Đang có số ảo FOMO">
                               Ảo
                             </span>
                           )}
@@ -900,32 +931,32 @@ export const UtilitiesModule: React.FC<UtilitiesModuleProps> = ({ onShowToast })
               </div>
 
               {/* Action Buttons Row */}
-              <div className="pt-2 flex items-center justify-between gap-2 border-t border-slate-100 dark:border-slate-800">
-                <div className="flex flex-wrap items-center gap-1.5">
+              <div className="pt-2 flex items-center justify-between gap-1.5 border-t border-slate-100 dark:border-slate-800">
+                <div className="flex flex-wrap items-center gap-1">
                   <button
                     onClick={() => handleOpenBatchImport(prod)}
-                    className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 text-xs font-bold transition-colors cursor-pointer"
+                    className="inline-flex items-center gap-1 px-2 py-1 rounded-lg bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 text-[11px] font-bold transition-colors cursor-pointer"
                   >
-                    <Upload className="h-3.5 w-3.5 text-indigo-600 dark:text-indigo-400" />
+                    <Upload className="h-3 w-3 text-indigo-600 dark:text-indigo-400" />
                     <span>Nhập kho</span>
                   </button>
 
                   <button
                     onClick={() => handleOpenDetail(prod)}
-                    className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 text-xs font-bold transition-colors cursor-pointer"
+                    className="inline-flex items-center gap-1 px-2 py-1 rounded-lg bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 text-[11px] font-bold transition-colors cursor-pointer"
                   >
-                    <Boxes className="h-3.5 w-3.5 text-teal-600 dark:text-teal-400" />
-                    <span>Kho chi tiết</span>
+                    <Boxes className="h-3 w-3 text-teal-600 dark:text-teal-400" />
+                    <span>Chi tiết</span>
                   </button>
 
                   {/* NÚT CHỈNH SỐ ẢO */}
                   <button
                     type="button"
                     onClick={() => setFomoAdjustProduct(prod)}
-                    className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-xl bg-amber-500/10 hover:bg-amber-500/20 text-amber-600 dark:text-amber-400 text-xs font-bold transition-colors cursor-pointer border border-amber-500/25 shadow-xs"
+                    className="inline-flex items-center gap-1 px-2 py-1 rounded-lg bg-amber-500/10 hover:bg-amber-500/20 text-amber-600 dark:text-amber-400 text-[11px] font-bold transition-colors cursor-pointer border border-amber-500/25 shadow-xs"
                     title="Điều chỉnh số ảo & FOMO hiển thị ngoài web cho tiện ích này"
                   >
-                    <Sparkles className="h-3.5 w-3.5 text-amber-500" />
+                    <Sparkles className="h-3 w-3 text-amber-500" />
                     <span>Số ảo</span>
                   </button>
 
@@ -933,7 +964,7 @@ export const UtilitiesModule: React.FC<UtilitiesModuleProps> = ({ onShowToast })
                   <button
                     type="button"
                     onClick={() => handleToggleStock(prod)}
-                    className={`inline-flex items-center gap-1 px-2.5 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+                    className={`inline-flex items-center gap-1 px-2 py-1 rounded-lg text-[11px] font-bold transition-all cursor-pointer ${
                       displayStock > 0
                         ? 'bg-rose-50 hover:bg-rose-100 text-rose-700 dark:bg-rose-950/40 dark:text-rose-400 border border-rose-200 dark:border-rose-900/50'
                         : 'bg-emerald-50 hover:bg-emerald-100 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-900/50'
@@ -942,32 +973,32 @@ export const UtilitiesModule: React.FC<UtilitiesModuleProps> = ({ onShowToast })
                   >
                     {displayStock > 0 ? (
                       <>
-                        <Ban className="h-3.5 w-3.5 text-rose-600 dark:text-rose-400" />
+                        <Ban className="h-3 w-3 text-rose-600 dark:text-rose-400" />
                         <span>Hết hàng</span>
                       </>
                     ) : (
                       <>
-                        <CheckCircle2 className="h-3.5 w-3.5 text-emerald-600 dark:text-emerald-400" />
+                        <CheckCircle2 className="h-3 w-3 text-emerald-600 dark:text-emerald-400" />
                         <span>Còn hàng</span>
                       </>
                     )}
                   </button>
                 </div>
 
-                <div className="flex items-center gap-1">
+                <div className="flex items-center gap-0.5">
                   <button
                     onClick={() => handleOpenEditProduct(prod)}
-                    className="p-2 rounded-xl text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 dark:hover:bg-indigo-950/40 cursor-pointer"
+                    className="p-1.5 rounded-lg text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 dark:hover:bg-indigo-950/40 cursor-pointer"
                     title="Chỉnh sửa gói"
                   >
-                    <Edit2 className="h-4 w-4" />
+                    <Edit2 className="h-3.5 w-3.5" />
                   </button>
                   <button
                     onClick={() => setDeletingProduct(prod)}
-                    className="p-2 rounded-xl text-slate-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/40 cursor-pointer"
+                    className="p-1.5 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/40 cursor-pointer"
                     title="Xóa gói"
                   >
-                    <Trash2 className="h-4 w-4" />
+                    <Trash2 className="h-3.5 w-3.5" />
                   </button>
                 </div>
               </div>

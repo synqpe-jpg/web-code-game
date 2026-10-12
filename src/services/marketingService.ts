@@ -1086,6 +1086,10 @@ class MarketingService {
     }, 300);
   }
 
+  public saveSessionAnchors(): void {
+    this.saveSessionAnchor();
+  }
+
   public flushSessionAnchor(): void {
     if (typeof window === 'undefined') return;
     try {
@@ -2255,7 +2259,7 @@ class MarketingService {
     if (forceReset) {
       const now = Date.now();
       this.sessionAnchorMap.set(productId, { lastCount: targetDisplay, lastTimestamp: now });
-      this.saveSessionAnchors();
+      this.saveSessionAnchor();
       this.lastReportedPeaks.sold[productId] = targetDisplay;
 
       if (this.broadcastChannel) {
@@ -2309,7 +2313,7 @@ class MarketingService {
     if (forceReset) {
       const now = Date.now();
       this.sessionAnchorMap.set(campaignId, { lastCount: targetDisplay, lastTimestamp: now });
-      this.saveSessionAnchors();
+      this.saveSessionAnchor();
       this.lastReportedPeaks.claimed[campaignId] = targetDisplay;
 
       if (this.broadcastChannel) {
@@ -2434,7 +2438,7 @@ class MarketingService {
     this.saveHighWaterCounts();
     this.saveLiveFomoCounts();
     this.saveLiveVirtualStock();
-    this.saveSessionAnchors();
+    this.saveSessionAnchor();
 
     if (typeof window !== 'undefined') {
       try {

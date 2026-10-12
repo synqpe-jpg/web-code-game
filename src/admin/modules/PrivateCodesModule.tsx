@@ -17,6 +17,8 @@ import {
   Sparkles,
   RotateCcw,
   Zap,
+  Eye,
+  EyeOff,
 } from 'lucide-react';
 import { FormModal } from '../components/ui/FormModal';
 import { ConfirmModal } from '../components/ui/ConfirmModal';
@@ -40,6 +42,20 @@ export const PrivateCodesModule: React.FC<PrivateCodesModuleProps> = ({ onShowTo
   const [statusFilter, setStatusFilter] = useState<'ALL' | 'ACTIVE' | 'INACTIVE'>('ALL');
   const [searchQuery, setSearchQuery] = useState('');
   const [copiedId, setCopiedId] = useState<string | null>(null);
+
+  // --- SHOW / HIDE VIRTUAL METRICS TOGGLE ---
+  const [showVirtualStats, setShowVirtualStats] = useState<boolean>(() => {
+    if (typeof window === 'undefined') return true;
+    return localStorage.getItem('wcg_admin_show_virtual_stats') !== 'false';
+  });
+
+  const toggleVirtualStats = () => {
+    setShowVirtualStats((prev) => {
+      const next = !prev;
+      localStorage.setItem('wcg_admin_show_virtual_stats', String(next));
+      return next;
+    });
+  };
 
   // --- QUICK FOMO ADJUST MODAL STATE ---
   const [fomoAdjustCampaign, setFomoAdjustCampaign] = useState<GiveawayCampaign | null>(null);
@@ -401,6 +417,21 @@ export const PrivateCodesModule: React.FC<PrivateCodesModuleProps> = ({ onShowTo
           </div>
 
           <div className="flex flex-wrap items-center gap-2">
+            {/* Nút Ẩn / Hiện Số Ảo Ngoài Web */}
+            <button
+              type="button"
+              onClick={toggleVirtualStats}
+              className={`inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer border shadow-sm active:scale-95 ${
+                showVirtualStats
+                  ? 'bg-purple-500/10 hover:bg-purple-500/20 text-purple-600 dark:text-purple-400 border-purple-500/30'
+                  : 'bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-500 dark:text-slate-400 border-slate-300 dark:border-slate-700'
+              }`}
+              title={showVirtualStats ? 'Đang hiển thị thống kê số ảo - Nhấn để ẩn' : 'Đang ẩn số ảo - Nhấn để hiển thị'}
+            >
+              {showVirtualStats ? <Eye className="h-3.5 w-3.5 text-purple-500" /> : <EyeOff className="h-3.5 w-3.5 text-slate-400" />}
+              <span>{showVirtualStats ? 'Số Ảo: Đang Hiện' : 'Số Ảo: Đang Ẩn'}</span>
+            </button>
+
             {/* Nút Reset Toàn Bộ Số Ảo Về Thật */}
             <button
               type="button"
@@ -606,25 +637,27 @@ export const PrivateCodesModule: React.FC<PrivateCodesModuleProps> = ({ onShowTo
                               )}
                             </div>
 
-                            {/* Tầng 2: Web FOMO */}
-                            <div className="flex items-center gap-1.5 font-mono text-[11px] bg-slate-50 dark:bg-slate-800/60 px-2 py-1 rounded-lg border border-slate-200/60 dark:border-slate-700/60">
-                              <span className="text-amber-500 dark:text-amber-400 font-sans text-[10px] font-bold flex items-center gap-0.5">
-                                <Sparkles className="w-2.5 h-2.5" />
-                                Web:
-                              </span>
-                              <span className={`font-bold ${webStock > 0 ? 'text-indigo-600 dark:text-indigo-400' : 'text-rose-500'}`}>
-                                Còn {webStock}
-                              </span>
-                              <span className="text-slate-300 dark:text-slate-600">|</span>
-                              <span className="text-amber-600 dark:text-amber-400 font-bold">
-                                Giật {webClaimed}
-                              </span>
-                              {(isStockFomoDiff || isClaimedFomoDiff) && (
-                                <span className="ml-auto inline-flex items-center px-1 rounded text-[9px] font-bold bg-purple-500/10 text-purple-600 dark:text-purple-400 border border-purple-500/20" title="Đang có cấu hình số ảo FOMO">
-                                  Ảo
+                            {/* Tầng 2: Web FOMO (Chỉ hiện khi bật công tắc Hiện Số Ảo) */}
+                            {showVirtualStats && (
+                              <div className="flex items-center gap-1.5 font-mono text-[11px] bg-slate-50 dark:bg-slate-800/60 px-2 py-1 rounded-lg border border-slate-200/60 dark:border-slate-700/60">
+                                <span className="text-amber-500 dark:text-amber-400 font-sans text-[10px] font-bold flex items-center gap-0.5">
+                                  <Sparkles className="w-2.5 h-2.5" />
+                                  Web:
                                 </span>
-                              )}
-                            </div>
+                                <span className={`font-bold ${webStock > 0 ? 'text-indigo-600 dark:text-indigo-400' : 'text-rose-500'}`}>
+                                  Còn {webStock}
+                                </span>
+                                <span className="text-slate-300 dark:text-slate-600">|</span>
+                                <span className="text-amber-600 dark:text-amber-400 font-bold">
+                                  Giật {webClaimed}
+                                </span>
+                                {(isStockFomoDiff || isClaimedFomoDiff) && (
+                                  <span className="ml-auto inline-flex items-center px-1 rounded text-[9px] font-bold bg-purple-500/10 text-purple-600 dark:text-purple-400 border border-purple-500/20" title="Đang có cấu hình số ảo FOMO">
+                                    Ảo
+                                  </span>
+                                )}
+                              </div>
+                            )}
                           </div>
                         );
                       })()}
