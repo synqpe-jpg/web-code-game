@@ -212,10 +212,11 @@ class NewsService {
    * Admin: Thêm hoặc Cập nhật bài viết
    */
   public async saveArticle(
-    articleData: Partial<NewsArticle> & { title: string }
+    articleData: Partial<NewsArticle> & { title: string },
+    options?: { skipSync?: boolean }
   ): Promise<NewsArticle> {
     const now = new Date().toISOString();
-    const slug =
+    let slug =
       articleData.slug ||
       articleData.title
         .toLowerCase()
@@ -243,6 +244,11 @@ class NewsService {
       };
       this.articles[existingIndex] = savedItem;
     } else {
+      // Disambiguate slug if already exists for another article
+      if (this.articles.some((a) => a.slug === slug)) {
+        slug = `${slug}-${Date.now().toString(36).slice(-4)}`;
+      }
+
       savedItem = {
         id: articleData.id || `news_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
         slug,
@@ -274,8 +280,30 @@ class NewsService {
     }
 
     this.saveToStorage();
-    await this.syncToCloudflareServer();
+
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('wcg_news_updated', { detail: this.articles }));
+    }
+
+    if (!options?.skipSync) {
+      await this.syncToCloudflareServer();
+    }
     return savedItem;
+  }
+
+  /**
+   * Lưu hàng loạt nhiều bài viết một lần (Tối ưu hóa ghi nhớ và sync Cloudflare)
+   */
+  public async saveArticlesBatch(
+    articlesList: Array<Partial<NewsArticle> & { title: string }>
+  ): Promise<NewsArticle[]> {
+    const results: NewsArticle[] = [];
+    for (const item of articlesList) {
+      const saved = await this.saveArticle(item, { skipSync: true });
+      results.push(saved);
+    }
+    await this.syncToCloudflareServer();
+    return results;
   }
 
   /**

@@ -36,6 +36,10 @@ import {
   ClipboardPaste,
   AlertCircle,
   Info,
+  Layers,
+  StopCircle,
+  Play,
+  CheckCircle,
 } from 'lucide-react';
 import { NewsArticle } from '../../types/game';
 import { newsService } from '../../services/newsService';
@@ -72,7 +76,7 @@ export const NewsModule: React.FC<NewsModuleProps> = ({ onShowToast }) => {
 
   // AI Generator Modal state
   const [isAiModalOpen, setIsAiModalOpen] = useState(false);
-  const [aiMode, setAiMode] = useState<'rewrite' | 'template'>('rewrite');
+  const [aiMode, setAiMode] = useState<'rewrite' | 'bulk' | 'template'>('bulk');
   const [aiSelectedGame, setAiSelectedGame] = useState<GameAdminRecord | null>(null);
   const [aiTopicType, setAiTopicType] = useState<'codes' | 'update' | 'guide' | 'event'>('codes');
   const [isGeneratingAi, setIsGeneratingAi] = useState(false);
@@ -89,6 +93,35 @@ export const NewsModule: React.FC<NewsModuleProps> = ({ onShowToast }) => {
     codes?: string[];
     images?: string[];
   } | null>(null);
+
+  // Bulk Links Scanner & Batch Generator state
+  const [bulkUrlsInput, setBulkUrlsInput] = useState<string>('');
+  const [bulkPostStatus, setBulkPostStatus] = useState<'PUBLISHED' | 'DRAFT'>('PUBLISHED');
+  const [bulkAutoDetectGame, setBulkAutoDetectGame] = useState<boolean>(true);
+  const [bulkUseGameLogo, setBulkUseGameLogo] = useState<boolean>(true);
+  const [isBulkRunning, setIsBulkRunning] = useState<boolean>(false);
+  const [bulkProgress, setBulkProgress] = useState<{
+    current: number;
+    total: number;
+    successCount: number;
+    errorCount: number;
+  }>({ current: 0, total: 0, successCount: 0, errorCount: 0 });
+
+  interface BulkResultItem {
+    id: string;
+    url: string;
+    status: 'pending' | 'crawling' | 'rewriting' | 'success' | 'error';
+    title?: string;
+    gameName?: string;
+    gameSlug?: string;
+    gameIcon?: string;
+    codesCount?: number;
+    createdArticleId?: string;
+    createdArticleSlug?: string;
+    errorMsg?: string;
+  }
+  const [bulkResults, setBulkResults] = useState<BulkResultItem[]>([]);
+  const bulkAbortRef = useRef<boolean>(false);
 
   // Load initial data
   const loadData = () => {
@@ -700,6 +733,290 @@ export const NewsModule: React.FC<NewsModuleProps> = ({ onShowToast }) => {
     }
   };
 
+  // Tìm kiếm tựa game phù hợp nhất cho bài viết khi quét hàng loạt
+  const findMatchingGameForBulk = (url: string, title?: string, content?: string): GameAdminRecord | null => {
+    if (!games || games.length === 0) return null;
+    const combinedText = normalizeVietnamese(`${url} ${title || ''} ${(content || '').slice(0, 1000)}`);
+
+    const matches = games
+      .map((g) => {
+        const normName = normalizeVietnamese(g.name || '');
+        const normSlug = normalizeVietnamese(g.slug || '').replace(/-/g, ' ');
+        let score = 0;
+
+        if (normName.length >= 3 && combinedText.includes(normName)) {
+          score = normName.length * 15;
+        } else if (normSlug.length >= 4 && combinedText.includes(normSlug)) {
+          score = normSlug.length * 10;
+        }
+        return { game: g, score };
+      })
+      .filter((m) => m.score > 0)
+      .sort((a, b) => b.score - a.score);
+
+    return matches.length > 0 ? matches[0].game : null;
+  };
+
+  // Dán danh sách link từ Clipboard
+  const handlePasteBulkUrlsFromClipboard = async () => {
+    try {
+      const text = await navigator.clipboard.readText();
+      if (text && text.trim()) {
+        const clean = text.trim();
+        setBulkUrlsInput((prev) => (prev.trim() ? `${prev.trim()}\n${clean}` : clean));
+        onShowToast('Đã dán từ Clipboard 📋', 'Đã thêm các đường link vào danh sách quét!', 'success');
+      } else {
+        onShowToast('Bộ nhớ tạm trống', 'Vui lòng sao chép các đường link trước khi dán.', 'info');
+      }
+    } catch {
+      onShowToast('Thông báo', 'Vui lòng nhấn phím Ctrl+V để dán trực tiếp vào khung.', 'info');
+    }
+  };
+
+  // Chèn link mẫu để test nhanh
+  const handleInsertSampleUrls = () => {
+    const samples = [
+      'https://cellphones.com.vn/sforum/code-blox-fruit',
+      'https://vietnamnet.vn/vn/cong-nghe/tin-game',
+    ].join('\n');
+    setBulkUrlsInput(samples);
+    onShowToast('Đã thêm link mẫu 🎯', 'Bấm nút "🚀 Bắt Đầu Quét & Tạo Hàng Loạt" để thử nghiệm ngay!', 'info');
+  };
+
+  // Bắt đầu quét hàng loạt và tạo bài viết
+  const handleStartBulkGeneration = async () => {
+    const rawLines = bulkUrlsInput
+      .split('\n')
+      .map((l) => l.trim())
+      .filter((l) => l.length > 0 && /^https?:\/\//i.test(l));
+
+    // Lọc trùng lặp URL
+    const uniqueUrls = Array.from(new Set(rawLines));
+
+    if (uniqueUrls.length === 0) {
+      onShowToast(
+        'Chưa có link hợp lệ',
+        'Vui lòng nhập ít nhất 1 đường link bài viết (bắt đầu bằng http:// hoặc https://)',
+        'error'
+      );
+      return;
+    }
+
+    bulkAbortRef.current = false;
+    setIsBulkRunning(true);
+
+    const initialItems: BulkResultItem[] = uniqueUrls.map((url, idx) => ({
+      id: `bulk_${Date.now()}_${idx}`,
+      url,
+      status: 'pending',
+    }));
+
+    setBulkResults(initialItems);
+    setBulkProgress({
+      current: 0,
+      total: uniqueUrls.length,
+      successCount: 0,
+      errorCount: 0,
+    });
+
+    let success = 0;
+    let error = 0;
+
+    for (let i = 0; i < initialItems.length; i++) {
+      if (bulkAbortRef.current) {
+        onShowToast(
+          'Đã tạm dừng',
+          `Tiến trình quét đã dừng lại. Đã tạo thành công ${success}/${uniqueUrls.length} bài viết.`,
+          'info'
+        );
+        break;
+      }
+
+      const item = initialItems[i];
+
+      // Đang cào dữ liệu
+      setBulkResults((prev) =>
+        prev.map((it, idx) => (idx === i ? { ...it, status: 'crawling' } : it))
+      );
+      setBulkProgress((prev) => ({ ...prev, current: i + 1 }));
+
+      try {
+        const res = await fetch('/api/crawl-article', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ url: item.url }),
+        });
+
+        const data = await res.json();
+
+        if (!data.success) {
+          error++;
+          setBulkResults((prev) =>
+            prev.map((it, idx) =>
+              idx === i
+                ? {
+                    ...it,
+                    status: 'error',
+                    errorMsg: data.isSocial
+                      ? 'Bị chặn (Yêu cầu đăng nhập Facebook)'
+                      : data.error || 'Lỗi tải trang web (404/Bảo mật)',
+                  }
+                : it
+            )
+          );
+          setBulkProgress((prev) => ({ ...prev, errorCount: error }));
+          continue;
+        }
+
+        // Đang viết lại bài bằng AI
+        setBulkResults((prev) =>
+          prev.map((it, idx) =>
+            idx === i
+              ? {
+                  ...it,
+                  status: 'rewriting',
+                  title: data.title,
+                  codesCount: data.codes?.length || 0,
+                }
+              : it
+          )
+        );
+
+        // Tự động nhận diện Game
+        const matchedGame = bulkAutoDetectGame
+          ? findMatchingGameForBulk(item.url, data.title, data.content)
+          : null;
+
+        // Viết lại nội dung độc quyền chuẩn SEO
+        const rewritten = newsService.rewriteArticleWithAi({
+          rawTitle: data.title,
+          rawContent: data.content,
+          sourceUrl: item.url,
+          game: matchedGame
+            ? {
+                id: matchedGame.id,
+                name: matchedGame.name,
+                slug: matchedGame.slug,
+                banner_url: matchedGame.bannerUrl || matchedGame.cover_image_url,
+                icon_url: matchedGame.iconUrl || matchedGame.icon_url,
+              }
+            : null,
+          foundCodes: data.codes || [],
+          foundImages: data.images || [],
+        });
+
+        const gameLogo = matchedGame
+          ? matchedGame.cover_image_url ||
+            matchedGame.icon_url ||
+            matchedGame.bannerUrl ||
+            (matchedGame.slug ? `/game_icons/${matchedGame.slug}.webp` : '')
+          : '';
+
+        const finalCover =
+          bulkUseGameLogo && gameLogo
+            ? gameLogo
+            : rewritten.cover_url || data.cover_url || gameLogo || '';
+
+        const newArticle: NewsArticle = {
+          id: `news_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
+          slug: rewritten.slug || `tin-tuc-${Date.now().toString(36)}`,
+          title: rewritten.title || data.title || 'Tin Tức Game Mới Nhất',
+          excerpt: rewritten.excerpt || '',
+          content: rewritten.content || '',
+          cover_url: finalCover,
+          gallery_urls: rewritten.gallery_urls || [],
+          virtual_views: Math.floor(Math.random() * 200) + 150,
+          views_growth_rate: 1.0,
+          game_id: matchedGame?.id,
+          game_slug: matchedGame?.slug,
+          game_name: matchedGame?.name,
+          tags: rewritten.tags || ['Giftcode', 'GameMobile'],
+          codes: rewritten.codes || [],
+          author: 'CodeGame Editorial',
+          views: 0,
+          read_time_minutes: rewritten.read_time_minutes || 3,
+          is_featured: false,
+          is_hot: false,
+          status: bulkPostStatus,
+          published_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+        };
+
+        // Lưu bài viết (tạm hoãn sync cloud để gộp sync 1 lần cuối)
+        await newsService.saveArticle(newArticle, { skipSync: true });
+        success++;
+
+        // Cập nhật trạng thái thành công
+        setBulkResults((prev) =>
+          prev.map((it, idx) =>
+            idx === i
+              ? {
+                  ...it,
+                  status: 'success',
+                  title: newArticle.title,
+                  gameName: matchedGame?.name,
+                  gameSlug: matchedGame?.slug,
+                  gameIcon: gameLogo,
+                  codesCount: newArticle.codes?.length || 0,
+                  createdArticleId: newArticle.id,
+                  createdArticleSlug: newArticle.slug,
+                }
+              : it
+          )
+        );
+        setBulkProgress((prev) => ({ ...prev, successCount: success }));
+
+        // Nghỉ nhẹ 350ms giữa các request để đảm bảo an toàn mạng
+        await new Promise((r) => setTimeout(r, 350));
+      } catch (err: any) {
+        error++;
+        setBulkResults((prev) =>
+          prev.map((it, idx) =>
+            idx === i
+              ? {
+                  ...it,
+                  status: 'error',
+                  errorMsg: err?.message || 'Lỗi mạng hoặc kết nối timeout',
+                }
+              : it
+          )
+        );
+        setBulkProgress((prev) => ({ ...prev, errorCount: error }));
+      }
+    }
+
+    setIsBulkRunning(false);
+
+    // Đồng bộ lên Cloudflare D1 và tải lại danh sách bài viết
+    if (success > 0) {
+      await newsService.syncArticlesToCloudflare();
+      setArticles(newsService.getAllArticles());
+      onShowToast(
+        'Hoàn tất tạo hàng loạt! 🎉',
+        `Đã tạo thành công ${success}/${uniqueUrls.length} bài viết chuẩn SEO và đồng bộ lên D1!`,
+        'success'
+      );
+    }
+  };
+
+  // Dừng tiến trình quét hàng loạt
+  const handleStopBulk = () => {
+    bulkAbortRef.current = true;
+    setIsBulkRunning(false);
+    onShowToast('Đang dừng...', 'Tiến trình sẽ dừng lại sau khi xử lý xong link hiện tại.', 'info');
+  };
+
+  // Mở bài viết vừa tạo để xem/sửa
+  const handleOpenCreatedArticle = (articleId?: string) => {
+    if (!articleId) return;
+    const all = newsService.getAllArticles();
+    const found = all.find((a) => a.id === articleId || a.slug === articleId);
+    if (found) {
+      setIsAiModalOpen(false);
+      handleOpenEdit(found);
+    }
+  };
+
   // Editor: Add code pill
   const handleAddCodeToArticle = () => {
     if (!codeInputValue.trim()) return;
@@ -738,6 +1055,19 @@ export const NewsModule: React.FC<NewsModuleProps> = ({ onShowToast }) => {
         </div>
 
         <div className="flex flex-wrap items-center gap-2.5">
+          {/* Bulk Link Scanner button */}
+          <button
+            type="button"
+            onClick={() => {
+              setAiMode('bulk');
+              setIsAiModalOpen(true);
+            }}
+            className="flex items-center gap-2 px-4 py-2.5 rounded-2xl bg-gradient-to-r from-purple-600 via-pink-600 to-rose-600 text-white font-black text-xs shadow-lg hover:shadow-purple-500/25 transition-all active:scale-95 cursor-pointer"
+          >
+            <Layers className="w-4 h-4 text-pink-200" />
+            <span>📚 Quét Hàng Loạt Link</span>
+          </button>
+
           {/* AI Generator button */}
           <button
             type="button"
@@ -748,7 +1078,7 @@ export const NewsModule: React.FC<NewsModuleProps> = ({ onShowToast }) => {
             className="flex items-center gap-2 px-4 py-2.5 rounded-2xl bg-gradient-to-r from-amber-500 to-rose-500 text-white font-black text-xs shadow-lg hover:shadow-amber-500/25 transition-all active:scale-95 cursor-pointer"
           >
             <Sparkles className="w-4 h-4 text-amber-200 animate-pulse" />
-            <span>✨ AI Tự Động Viết Bài</span>
+            <span>✨ AI Viết Bài</span>
           </button>
 
           {/* Create Manual button */}
@@ -1045,11 +1375,11 @@ export const NewsModule: React.FC<NewsModuleProps> = ({ onShowToast }) => {
       {isAiModalOpen &&
         createPortal(
           <div className="fixed inset-0 z-[9999] flex items-center justify-center p-3 sm:p-5 bg-black/85 backdrop-blur-md animate-fade-in">
-            <div className="relative w-full max-w-2xl bg-slate-900 border border-slate-700/80 rounded-3xl p-6 sm:p-8 shadow-2xl space-y-5 text-slate-100 max-h-[92vh] overflow-y-auto custom-scrollbar">
+            <div className={`relative w-full ${aiMode === 'bulk' ? 'max-w-4xl' : 'max-w-2xl'} bg-slate-900 border border-slate-700/80 rounded-3xl p-5 sm:p-7 shadow-2xl space-y-4 text-slate-100 max-h-[92vh] overflow-y-auto custom-scrollbar transition-all duration-300`}>
               {/* Header */}
               <div className="flex items-center justify-between pb-4 border-b border-slate-800">
                 <div className="flex items-center gap-2.5">
-                  <div className="w-10 h-10 rounded-2xl bg-gradient-to-tr from-amber-500 to-rose-500 flex items-center justify-center text-white shadow-md">
+                  <div className="w-10 h-10 rounded-2xl bg-gradient-to-tr from-amber-500 via-pink-500 to-purple-600 flex items-center justify-center text-white shadow-md">
                     <Sparkles className="w-5 h-5 animate-spin" />
                   </div>
                   <div>
@@ -1057,7 +1387,7 @@ export const NewsModule: React.FC<NewsModuleProps> = ({ onShowToast }) => {
                       ✨ AI Tự Động Sáng Tạo Nội Dung
                     </h3>
                     <p className="text-xs text-slate-400">
-                      Tự động viết bài chuẩn SEO hoặc bóc tách và viết lại độc quyền từ link bài báo (Miễn phí 100%).
+                      Tự động quét hàng loạt link, viết bài chuẩn SEO hoặc bóc tách mã quà tặng độc quyền (Miễn phí 100%).
                     </p>
                   </div>
                 </div>
@@ -1071,18 +1401,30 @@ export const NewsModule: React.FC<NewsModuleProps> = ({ onShowToast }) => {
               </div>
 
               {/* Mode Switch Tabs */}
-              <div className="grid grid-cols-2 p-1 rounded-2xl bg-slate-800 border border-slate-700 shadow-inner">
+              <div className="grid grid-cols-3 p-1 rounded-2xl bg-slate-800 border border-slate-700 shadow-inner">
+                <button
+                  type="button"
+                  onClick={() => setAiMode('bulk')}
+                  className={`flex items-center justify-center gap-1.5 py-2.5 rounded-xl text-xs font-black transition-all cursor-pointer ${
+                    aiMode === 'bulk'
+                      ? 'bg-gradient-to-r from-purple-600 via-pink-600 to-rose-600 text-white shadow-md'
+                      : 'text-slate-400 hover:text-white'
+                  }`}
+                >
+                  <Layers className="w-4 h-4 text-pink-200" />
+                  <span>📚 Quét Hàng Loạt Link</span>
+                </button>
                 <button
                   type="button"
                   onClick={() => setAiMode('rewrite')}
-                  className={`flex items-center justify-center gap-2 py-2.5 rounded-xl text-xs font-black transition-all cursor-pointer ${
+                  className={`flex items-center justify-center gap-1.5 py-2.5 rounded-xl text-xs font-black transition-all cursor-pointer ${
                     aiMode === 'rewrite'
                       ? 'bg-gradient-to-r from-indigo-600 to-purple-600 text-white shadow-md'
                       : 'text-slate-400 hover:text-white'
                   }`}
                 >
                   <Globe className="w-4 h-4" />
-                  <span>🔗 Viết Lại Từ Link Bài Báo</span>
+                  <span>🔗 Viết Lại 1 Link</span>
                 </button>
                 <button
                   type="button"
@@ -1090,18 +1432,344 @@ export const NewsModule: React.FC<NewsModuleProps> = ({ onShowToast }) => {
                     setAiMode('template');
                     if (!aiSelectedGame) setAiSelectedGame(games[0] || null);
                   }}
-                  className={`flex items-center justify-center gap-2 py-2.5 rounded-xl text-xs font-black transition-all cursor-pointer ${
+                  className={`flex items-center justify-center gap-1.5 py-2.5 rounded-xl text-xs font-black transition-all cursor-pointer ${
                     aiMode === 'template'
                       ? 'bg-gradient-to-r from-amber-500 to-rose-500 text-white shadow-md'
                       : 'text-slate-400 hover:text-white'
                   }`}
                 >
                   <Sparkles className="w-4 h-4" />
-                  <span>⚡ Tạo Theo Tựa Game Có Sẵn</span>
+                  <span>⚡ Theo Game Có Sẵn</span>
                 </button>
               </div>
 
-              {/* MODE 1: REWRITE TỪ LINK HOẶC NỘI DUNG GỐC */}
+              {/* MODE 1: QUÉT HÀNG LOẠT LINK & TẠO HÀNG LOẠT BÀI VIẾT */}
+              {aiMode === 'bulk' && (
+                <div className="space-y-4 animate-fade-in">
+                  {/* Banner hướng dẫn */}
+                  <div className="p-3.5 rounded-2xl bg-gradient-to-r from-purple-950/50 via-slate-900 to-indigo-950/50 border border-purple-500/30 flex items-start gap-3">
+                    <div className="w-8 h-8 rounded-xl bg-purple-500/20 text-purple-300 flex items-center justify-center shrink-0 mt-0.5">
+                      <Layers className="w-4 h-4" />
+                    </div>
+                    <div className="space-y-1 text-xs">
+                      <div className="font-bold text-white flex items-center gap-2">
+                        <span>Quét & Tự Động Tạo Hàng Loạt Bài Viết Chuẩn SEO</span>
+                        <span className="px-2 py-0.5 rounded-full bg-purple-500/20 text-purple-300 text-[10px] font-mono font-bold">
+                          1 Link / 1 Dòng
+                        </span>
+                      </div>
+                      <p className="text-[11px] text-slate-300 leading-relaxed">
+                        Dán danh sách các link bài báo (GameK, Sforum, Download.vn, Fanpage...). Hệ thống sẽ tự động cào bài viết, khớp tựa game trong kho 486+ game, bóc tách toàn bộ mã Giftcode, định dạng chuẩn SEO và lưu bài viết vào hệ thống.
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Khung Nhập Danh Sách Link */}
+                  <div className="space-y-2">
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                      <label className="text-xs font-bold text-slate-200 flex items-center gap-2">
+                        <FileText className="w-4 h-4 text-purple-400" />
+                        <span>Danh sách liên kết bài viết (Mỗi link 1 dòng)</span>
+                        {(() => {
+                          const count = bulkUrlsInput
+                            .split('\n')
+                            .map((l) => l.trim())
+                            .filter((l) => /^https?:\/\//i.test(l)).length;
+                          return (
+                            <span className="px-2 py-0.5 rounded-md bg-purple-500/20 text-purple-300 text-[11px] font-mono font-bold">
+                              {count > 0 ? `Đã nhập: ${count} link hợp lệ` : 'Chưa có link'}
+                            </span>
+                          );
+                        })()}
+                      </label>
+                      <div className="flex items-center gap-1.5">
+                        <button
+                          type="button"
+                          onClick={handlePasteBulkUrlsFromClipboard}
+                          className="flex items-center gap-1 px-2.5 py-1 rounded-lg bg-purple-600/20 text-purple-300 border border-purple-500/30 hover:bg-purple-600/30 text-[11px] font-bold transition-all cursor-pointer"
+                          title="Dán link từ bộ nhớ tạm Clipboard"
+                        >
+                          <ClipboardPaste className="w-3.5 h-3.5" />
+                          <span>Dán Clipboard</span>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={handleInsertSampleUrls}
+                          className="flex items-center gap-1 px-2.5 py-1 rounded-lg bg-indigo-600/20 text-indigo-300 border border-indigo-500/30 hover:bg-indigo-600/30 text-[11px] font-bold transition-all cursor-pointer"
+                          title="Chèn các link mẫu để test thử nghiệm ngay"
+                        >
+                          <Sparkles className="w-3.5 h-3.5" />
+                          <span>Link Mẫu</span>
+                        </button>
+                        {bulkUrlsInput && (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              if (confirm('Bạn có muốn xóa toàn bộ danh sách link đang nhập?')) {
+                                setBulkUrlsInput('');
+                              }
+                            }}
+                            className="p-1 rounded-lg text-slate-400 hover:text-rose-400 transition-all cursor-pointer"
+                            title="Xóa trắng danh sách"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        )}
+                      </div>
+                    </div>
+
+                    <textarea
+                      rows={5}
+                      value={bulkUrlsInput}
+                      onChange={(e) => setBulkUrlsInput(e.target.value)}
+                      disabled={isBulkRunning}
+                      placeholder={`https://cellphones.com.vn/sforum/code-blox-fruit\nhttps://b.download.com.vn/tong-hop-code-game-pirate-legends-huyen-thoai-hai-tac-2026.html\nhttps://gamek.vn/tong-hop-giftcode-moi-nhat-2026.chn`}
+                      className="w-full p-3.5 rounded-2xl bg-slate-800/90 border border-slate-700 text-xs text-white font-mono leading-relaxed outline-none focus:border-purple-500 resize-y custom-scrollbar placeholder:text-slate-500 disabled:opacity-60"
+                    />
+                  </div>
+
+                  {/* Cấu hình tùy chọn hàng loạt (Settings) */}
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 p-3.5 rounded-2xl bg-slate-800/50 border border-slate-700/80 text-xs">
+                    <label className="flex items-center gap-2 text-slate-200 cursor-pointer select-none">
+                      <input
+                        type="checkbox"
+                        checked={bulkAutoDetectGame}
+                        disabled={isBulkRunning}
+                        onChange={(e) => setBulkAutoDetectGame(e.target.checked)}
+                        className="rounded text-purple-600 focus:ring-purple-500"
+                      />
+                      <div>
+                        <div className="font-bold flex items-center gap-1">
+                          <Gamepad2 className="w-3.5 h-3.5 text-purple-400" />
+                          <span>Tự khớp Tựa Game</span>
+                        </div>
+                        <div className="text-[10px] text-slate-400">Khớp với 486+ game có sẵn</div>
+                      </div>
+                    </label>
+
+                    <label className="flex items-center gap-2 text-slate-200 cursor-pointer select-none">
+                      <input
+                        type="checkbox"
+                        checked={bulkUseGameLogo}
+                        disabled={isBulkRunning}
+                        onChange={(e) => setBulkUseGameLogo(e.target.checked)}
+                        className="rounded text-purple-600 focus:ring-purple-500"
+                      />
+                      <div>
+                        <div className="font-bold flex items-center gap-1">
+                          <Image className="w-3.5 h-3.5 text-emerald-400" />
+                          <span>Dùng Logo làm Cover</span>
+                        </div>
+                        <div className="text-[10px] text-slate-400">Ưu tiên logo chuẩn của game</div>
+                      </div>
+                    </label>
+
+                    <div className="flex flex-col justify-center">
+                      <label className="text-[10px] font-bold text-slate-400 mb-0.5">Trạng thái bài viết</label>
+                      <select
+                        value={bulkPostStatus}
+                        disabled={isBulkRunning}
+                        onChange={(e) => setBulkPostStatus(e.target.value as any)}
+                        className="px-2.5 py-1 rounded-xl bg-slate-900 border border-slate-700 text-xs text-white font-bold outline-none focus:border-purple-500 cursor-pointer disabled:opacity-60"
+                      >
+                        <option value="PUBLISHED">🚀 Xuất bản ngay (Công khai)</option>
+                        <option value="DRAFT">📝 Lưu bản nháp (Draft)</option>
+                      </select>
+                    </div>
+                  </div>
+
+                  {/* Nút Thực Thi */}
+                  <div className="flex items-center justify-between pt-1">
+                    <div className="text-[11px] text-slate-400">
+                      {isBulkRunning ? (
+                        <span className="text-purple-300 font-bold flex items-center gap-1.5 animate-pulse">
+                          <RefreshCw className="w-3.5 h-3.5 animate-spin text-purple-400" />
+                          <span>Đang xử lý link {bulkProgress.current} / {bulkProgress.total}...</span>
+                        </span>
+                      ) : (
+                        <span>✨ Tự động bóc tách giftcode & tối ưu bài viết chuẩn SEO</span>
+                      )}
+                    </div>
+
+                    <div className="flex items-center gap-2">
+                      {isBulkRunning ? (
+                        <button
+                          type="button"
+                          onClick={handleStopBulk}
+                          className="flex items-center gap-1.5 px-4 py-2.5 rounded-xl bg-rose-600 hover:bg-rose-500 text-white font-bold text-xs shadow-lg transition-all cursor-pointer active:scale-95"
+                        >
+                          <StopCircle className="w-4 h-4" />
+                          <span>Dừng lại</span>
+                        </button>
+                      ) : (
+                        <button
+                          type="button"
+                          disabled={
+                            bulkUrlsInput
+                              .split('\n')
+                              .map((l) => l.trim())
+                              .filter((l) => /^https?:\/\//i.test(l)).length === 0
+                          }
+                          onClick={handleStartBulkGeneration}
+                          className="flex items-center gap-2 px-6 py-2.5 rounded-xl bg-gradient-to-r from-purple-600 via-pink-600 to-rose-600 text-white font-black text-xs shadow-lg hover:shadow-purple-500/25 transition-all disabled:opacity-50 cursor-pointer active:scale-95"
+                        >
+                          <Play className="w-4 h-4 fill-white" />
+                          <span>
+                            🚀 Bắt Đầu Quét & Tạo Hàng Loạt (
+                            {
+                              bulkUrlsInput
+                                .split('\n')
+                                .map((l) => l.trim())
+                                .filter((l) => /^https?:\/\//i.test(l)).length
+                            }{' '}
+                            link)
+                          </span>
+                        </button>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* TIẾN TRÌNH & BẢNG KẾT QUẢ THỜI GIAN THỰC */}
+                  {bulkResults.length > 0 && (
+                    <div className="p-4 rounded-2xl bg-slate-950/70 border border-slate-800 space-y-3 pt-3">
+                      {/* Progress summary bar */}
+                      <div className="space-y-1.5">
+                        <div className="flex items-center justify-between text-xs">
+                          <span className="font-bold text-slate-200">
+                            Tiến trình xử lý ({bulkProgress.current}/{bulkProgress.total})
+                          </span>
+                          <span className="font-mono text-purple-300 font-bold">
+                            {Math.round((bulkProgress.current / Math.max(1, bulkProgress.total)) * 100)}%
+                          </span>
+                        </div>
+                        <div className="w-full h-2 rounded-full bg-slate-800 overflow-hidden">
+                          <div
+                            className="h-full bg-gradient-to-r from-purple-500 via-pink-500 to-emerald-500 transition-all duration-300"
+                            style={{
+                              width: `${(bulkProgress.current / Math.max(1, bulkProgress.total)) * 100}%`,
+                            }}
+                          />
+                        </div>
+                        <div className="flex flex-wrap items-center gap-2 text-[11px] pt-1">
+                          <span className="px-2 py-0.5 rounded-md bg-slate-800 text-slate-300">
+                            Tổng: <b>{bulkProgress.total}</b>
+                          </span>
+                          <span className="px-2 py-0.5 rounded-md bg-emerald-500/20 text-emerald-300">
+                            ✅ Thành công: <b>{bulkProgress.successCount}</b>
+                          </span>
+                          {bulkProgress.errorCount > 0 && (
+                            <span className="px-2 py-0.5 rounded-md bg-rose-500/20 text-rose-300">
+                              ❌ Thất bại: <b>{bulkProgress.errorCount}</b>
+                            </span>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* Danh sách kết quả chi tiết */}
+                      <div className="max-h-64 overflow-y-auto space-y-2 pr-1 custom-scrollbar">
+                        {bulkResults.map((item, idx) => (
+                          <div
+                            key={item.id}
+                            className={`p-3 rounded-xl border text-xs transition-all flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 ${
+                              item.status === 'success'
+                                ? 'bg-emerald-950/20 border-emerald-700/40'
+                                : item.status === 'error'
+                                ? 'bg-rose-950/20 border-rose-700/40'
+                                : item.status === 'crawling' || item.status === 'rewriting'
+                                ? 'bg-purple-950/30 border-purple-600/50 shadow-sm'
+                                : 'bg-slate-900/60 border-slate-800 text-slate-400'
+                            }`}
+                          >
+                            <div className="flex items-start gap-2.5 min-w-0 flex-1">
+                              <span className="w-5 h-5 rounded-full bg-slate-800 text-[10px] font-mono font-bold flex items-center justify-center shrink-0 text-slate-300 mt-0.5">
+                                {idx + 1}
+                              </span>
+                              <div className="min-w-0 flex-1 space-y-1">
+                                <div className="font-bold text-white truncate text-xs flex items-center gap-2">
+                                  {item.title ? (
+                                    <span>{item.title}</span>
+                                  ) : (
+                                    <span className="font-mono text-slate-400">{item.url}</span>
+                                  )}
+                                </div>
+                                <div className="flex flex-wrap items-center gap-2 text-[10px]">
+                                  {item.gameName && (
+                                    <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-purple-500/20 text-purple-300 font-bold">
+                                      {item.gameIcon && (
+                                        <img
+                                          src={item.gameIcon}
+                                          alt=""
+                                          className="w-3.5 h-3.5 rounded object-cover"
+                                        />
+                                      )}
+                                      <span>{item.gameName}</span>
+                                    </span>
+                                  )}
+                                  {item.codesCount !== undefined && item.codesCount > 0 && (
+                                    <span className="px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-300 font-bold font-mono">
+                                      🎁 {item.codesCount} mã code
+                                    </span>
+                                  )}
+                                  <span className="font-mono text-slate-400 truncate max-w-[240px]">
+                                    {item.url}
+                                  </span>
+                                </div>
+                              </div>
+                            </div>
+
+                            {/* Status badge & action */}
+                            <div className="flex items-center gap-2 shrink-0 self-end sm:self-center">
+                              {item.status === 'pending' && (
+                                <span className="px-2 py-1 rounded-lg bg-slate-800 text-slate-400 text-[11px]">
+                                  ⏳ Chờ...
+                                </span>
+                              )}
+                              {item.status === 'crawling' && (
+                                <span className="px-2 py-1 rounded-lg bg-sky-500/20 text-sky-300 text-[11px] font-bold flex items-center gap-1 animate-pulse">
+                                  <RefreshCw className="w-3 h-3 animate-spin" />
+                                  <span>Đang cào link...</span>
+                                </span>
+                              )}
+                              {item.status === 'rewriting' && (
+                                <span className="px-2 py-1 rounded-lg bg-purple-500/20 text-purple-300 text-[11px] font-bold flex items-center gap-1 animate-pulse">
+                                  <Sparkles className="w-3 h-3 animate-spin text-purple-300" />
+                                  <span>AI viết bài...</span>
+                                </span>
+                              )}
+                              {item.status === 'success' && (
+                                <div className="flex items-center gap-1.5">
+                                  <span className="px-2 py-1 rounded-lg bg-emerald-500/20 text-emerald-300 text-[11px] font-bold flex items-center gap-1">
+                                    <Check className="w-3 h-3 text-emerald-400" />
+                                    <span>Xong</span>
+                                  </span>
+                                  <button
+                                    type="button"
+                                    onClick={() => handleOpenCreatedArticle(item.createdArticleId)}
+                                    className="px-2 py-1 rounded-lg bg-indigo-600/30 hover:bg-indigo-600/50 text-indigo-200 border border-indigo-500/30 text-[11px] font-bold transition-all cursor-pointer"
+                                    title="Mở bài viết để xem hoặc biên tập ngay"
+                                  >
+                                    ✏️ Sửa bài
+                                  </button>
+                                </div>
+                              )}
+                              {item.status === 'error' && (
+                                <span
+                                  className="px-2 py-1 rounded-lg bg-rose-500/20 text-rose-300 text-[11px] font-bold truncate max-w-[160px]"
+                                  title={item.errorMsg}
+                                >
+                                  ❌ {item.errorMsg || 'Thất bại'}
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* MODE 2: REWRITE TỪ LINK HOẶC NỘI DUNG GỐC */}
               {aiMode === 'rewrite' && (
                 <div className="space-y-4 animate-fade-in">
                   {/* Nhập link bài viết */}
