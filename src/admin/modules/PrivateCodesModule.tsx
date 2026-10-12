@@ -417,20 +417,45 @@ export const PrivateCodesModule: React.FC<PrivateCodesModuleProps> = ({ onShowTo
           </div>
 
           <div className="flex flex-wrap items-center gap-2">
-            {/* Nút Ẩn / Hiện Số Ảo Ngoài Web */}
-            <button
-              type="button"
-              onClick={toggleVirtualStats}
-              className={`inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer border shadow-sm active:scale-95 ${
-                showVirtualStats
-                  ? 'bg-purple-500/10 hover:bg-purple-500/20 text-purple-600 dark:text-purple-400 border-purple-500/30'
-                  : 'bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-500 dark:text-slate-400 border-slate-300 dark:border-slate-700'
-              }`}
-              title={showVirtualStats ? 'Đang hiển thị thống kê số ảo - Nhấn để ẩn' : 'Đang ẩn số ảo - Nhấn để hiển thị'}
-            >
-              {showVirtualStats ? <Eye className="h-3.5 w-3.5 text-purple-500" /> : <EyeOff className="h-3.5 w-3.5 text-slate-400" />}
-              <span>{showVirtualStats ? 'Số Ảo: Đang Hiện' : 'Số Ảo: Đang Ẩn'}</span>
-            </button>
+            {/* MỤC ẨN / HIỆN SỐ ẢO NGOÀI WEB (ĐÃ GIẬT, CÒN LẠI) */}
+            <div className="inline-flex items-center p-1 rounded-xl bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 shadow-2xs">
+              <span className="text-[11px] font-bold text-slate-500 dark:text-slate-400 px-2 flex items-center gap-1">
+                <Sparkles className="w-3.5 h-3.5 text-purple-500" />
+                <span>Số ảo Web:</span>
+              </span>
+              <button
+                type="button"
+                onClick={() => {
+                  setShowVirtualStats(true);
+                  localStorage.setItem('wcg_admin_show_virtual_stats', 'true');
+                }}
+                className={`px-2.5 py-1 rounded-lg text-xs font-bold transition-all flex items-center gap-1 cursor-pointer ${
+                  showVirtualStats
+                    ? 'bg-purple-600 text-white shadow-xs'
+                    : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+                }`}
+                title="Bật hiển thị thống kê số ảo (Đã giật, Còn lại ngoài Web)"
+              >
+                <Eye className="h-3.5 w-3.5" />
+                <span>👁️ Hiện số ảo</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setShowVirtualStats(false);
+                  localStorage.setItem('wcg_admin_show_virtual_stats', 'false');
+                }}
+                className={`px-2.5 py-1 rounded-lg text-xs font-bold transition-all flex items-center gap-1 cursor-pointer ${
+                  !showVirtualStats
+                    ? 'bg-rose-600 text-white shadow-xs'
+                    : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+                }`}
+                title="Ẩn số ảo - Chỉ hiển thị số lượng thật trong kho"
+              >
+                <EyeOff className="h-3.5 w-3.5" />
+                <span>👁️‍🗨️ Ẩn số ảo (Xem thật)</span>
+              </button>
+            </div>
 
             {/* Nút Reset Toàn Bộ Số Ảo Về Thật */}
             <button
@@ -566,11 +591,11 @@ export const PrivateCodesModule: React.FC<PrivateCodesModuleProps> = ({ onShowTo
           <table className="w-full text-left text-xs text-slate-600 dark:text-slate-300">
             <thead className="bg-slate-50 text-[11px] font-bold text-slate-500 uppercase tracking-wider dark:bg-slate-800/60 dark:text-slate-400 border-b border-slate-200 dark:border-slate-800">
               <tr>
-                <th className="px-5 py-3.5">ĐỢT PHÁT & TỰA GAME</th>
-                <th className="px-4 py-3.5">KHO MÃ (CÒN / TỔNG)</th>
-                <th className="px-4 py-3.5">3 ĐIỀU KIỆN NHẬN</th>
-                <th className="px-4 py-3.5">TRẠNG THÁI</th>
-                <th className="px-5 py-3.5 text-right">THAO TÁC</th>
+                <th className="px-4 py-3">ĐỢT PHÁT & TỰA GAME</th>
+                <th className="px-3.5 py-3">KHO MÃ (CÒN / TỔNG)</th>
+                <th className="px-3 py-3">3 ĐIỀU KIỆN NHẬN</th>
+                <th className="px-3 py-3">TRẠNG THÁI</th>
+                <th className="px-4 py-3 text-right sticky right-0 bg-slate-50/95 dark:bg-slate-800/95 backdrop-blur-xs shadow-[-6px_0_12px_rgba(0,0,0,0.06)] z-10">THAO TÁC</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100 dark:divide-slate-800 font-medium">
@@ -583,9 +608,9 @@ export const PrivateCodesModule: React.FC<PrivateCodesModuleProps> = ({ onShowTo
                 return (
                   <tr key={gw.id} className="hover:bg-slate-50/70 dark:hover:bg-slate-800/40 transition-colors">
                     {/* Col 1: ĐỢT PHÁT & TỰA GAME */}
-                    <td className="px-5 py-4">
-                      <div className="flex items-start gap-3">
-                        <div className="h-10 w-10 rounded-xl overflow-hidden bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 shrink-0">
+                    <td className="px-4 py-3">
+                      <div className="flex items-center gap-2.5">
+                        <div className="h-9 w-9 rounded-xl overflow-hidden bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 shrink-0">
                           <img
                             src={gw.game_icon_url || gw.cover_image_url || `/game_icons/${gw.game_slug}.webp`}
                             alt={gw.title}
@@ -597,14 +622,14 @@ export const PrivateCodesModule: React.FC<PrivateCodesModuleProps> = ({ onShowTo
                             }}
                           />
                         </div>
-                        <div className="min-w-0 max-w-sm">
-                          <span className="text-[10px] font-bold text-indigo-600 dark:text-indigo-400 block mb-0.5">
+                        <div className="min-w-0 max-w-[190px] sm:max-w-[220px]">
+                          <span className="text-[10px] font-bold text-indigo-600 dark:text-indigo-400 block truncate">
                             {gw.game_name}
                           </span>
-                          <h4 className="font-bold text-xs text-slate-900 dark:text-white truncate">
+                          <h4 className="font-bold text-xs text-slate-900 dark:text-white truncate" title={gw.title}>
                             {gw.title}
                           </h4>
-                          <p className="text-[11px] text-slate-500 dark:text-slate-400 line-clamp-1 mt-0.5">
+                          <p className="text-[10px] text-slate-500 dark:text-slate-400 truncate" title={gw.description}>
                             {gw.description}
                           </p>
                         </div>
@@ -612,7 +637,7 @@ export const PrivateCodesModule: React.FC<PrivateCodesModuleProps> = ({ onShowTo
                     </td>
 
                     {/* Col 2: KHO MÃ & SỐ LIỆU WEB */}
-                    <td className="px-4 py-4 whitespace-nowrap">
+                    <td className="px-3.5 py-3 whitespace-nowrap">
                       {(() => {
                         const webStock = marketingService.getDisplayStock(gw.id, remaining);
                         const webClaimed = marketingService.getClaimedDisplay(gw);
@@ -620,9 +645,9 @@ export const PrivateCodesModule: React.FC<PrivateCodesModuleProps> = ({ onShowTo
                         const isClaimedFomoDiff = webClaimed !== claimedCount;
 
                         return (
-                          <div className="space-y-1.5">
+                          <div className="space-y-1">
                             {/* Tầng 1: Kho thật trong DB */}
-                            <div className="flex items-center gap-1.5 font-mono text-[11px]">
+                            <div className="flex items-center gap-1 font-mono text-[11px]">
                               <span className="text-slate-400 font-sans text-[10px] font-semibold">Kho thật:</span>
                               <span className={`font-bold ${remaining > 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-500 dark:text-rose-400'}`}>
                                 {remaining}
@@ -631,16 +656,16 @@ export const PrivateCodesModule: React.FC<PrivateCodesModuleProps> = ({ onShowTo
                               <span className="text-slate-400 font-sans text-[10px] ml-1">Đã phát:</span>
                               <span className="font-bold text-slate-700 dark:text-slate-300">{claimedCount}</span>
                               {remaining === 0 && (
-                                <span className="ml-1 inline-flex items-center px-1.5 py-0.5 rounded text-[9px] font-bold bg-rose-500/10 text-rose-500 border border-rose-500/20">
+                                <span className="ml-1 inline-flex items-center px-1.5 py-0.2 rounded text-[9px] font-bold bg-rose-500/10 text-rose-500 border border-rose-500/20">
                                   Hết mã
                                 </span>
                               )}
                             </div>
 
                             {/* Tầng 2: Web FOMO (Chỉ hiện khi bật công tắc Hiện Số Ảo) */}
-                            {showVirtualStats && (
-                              <div className="flex items-center gap-1.5 font-mono text-[11px] bg-slate-50 dark:bg-slate-800/60 px-2 py-1 rounded-lg border border-slate-200/60 dark:border-slate-700/60">
-                                <span className="text-amber-500 dark:text-amber-400 font-sans text-[10px] font-bold flex items-center gap-0.5">
+                            {showVirtualStats ? (
+                              <div className="flex items-center gap-1.5 font-mono text-[10px] bg-slate-50 dark:bg-slate-800/60 px-1.5 py-0.5 rounded-lg border border-slate-200/60 dark:border-slate-700/60">
+                                <span className="text-amber-500 dark:text-amber-400 font-sans text-[9px] font-bold flex items-center gap-0.5">
                                   <Sparkles className="w-2.5 h-2.5" />
                                   Web:
                                 </span>
@@ -652,10 +677,14 @@ export const PrivateCodesModule: React.FC<PrivateCodesModuleProps> = ({ onShowTo
                                   Giật {webClaimed}
                                 </span>
                                 {(isStockFomoDiff || isClaimedFomoDiff) && (
-                                  <span className="ml-auto inline-flex items-center px-1 rounded text-[9px] font-bold bg-purple-500/10 text-purple-600 dark:text-purple-400 border border-purple-500/20" title="Đang có cấu hình số ảo FOMO">
+                                  <span className="ml-auto inline-flex items-center px-1 rounded text-[8px] font-bold bg-purple-500/10 text-purple-600 dark:text-purple-400 border border-purple-500/20" title="Đang có cấu hình số ảo FOMO">
                                     Ảo
                                   </span>
                                 )}
+                              </div>
+                            ) : (
+                              <div className="text-[10px] text-slate-400 italic">
+                                Số ảo: Đang ẩn
                               </div>
                             )}
                           </div>
@@ -664,30 +693,30 @@ export const PrivateCodesModule: React.FC<PrivateCodesModuleProps> = ({ onShowTo
                     </td>
 
                     {/* Col 3: 3 ĐIỀU KIỆN NHẬN */}
-                    <td className="px-4 py-4 text-[11px] space-y-0.5 text-slate-600 dark:text-slate-400 whitespace-nowrap">
-                      <div>
-                        Tuổi nick: <strong className="text-slate-800 dark:text-slate-200">{gw.min_account_age_days ? `${gw.min_account_age_days} ngày` : '0 (Tất cả)'}</strong>
-                      </div>
-                      <div>
-                        Max/User: <strong className="text-slate-800 dark:text-slate-200">{gw.max_per_user || 1} mã</strong>
-                      </div>
-                      <div>
-                        Max/IP: <strong className="text-slate-800 dark:text-slate-200">{gw.max_per_ip || 1} mã</strong>
-                      </div>
-                      <div>
-                        Cooldown: <strong className="text-slate-800 dark:text-slate-200">{gw.cooldown_hours ? `${gw.cooldown_hours} giờ` : '0 (Không)'}</strong>
+                    <td className="px-3 py-3 text-[10.5px] text-slate-600 dark:text-slate-400 whitespace-nowrap">
+                      <div className="space-y-0.5">
+                        <div>
+                          Nick: <strong className="text-slate-800 dark:text-slate-200">{gw.min_account_age_days ? `${gw.min_account_age_days}d` : '0d'}</strong>
+                          <span className="text-slate-300 dark:text-slate-600 mx-1">•</span>
+                          User: <strong className="text-slate-800 dark:text-slate-200">{gw.max_per_user || 1} mã</strong>
+                        </div>
+                        <div>
+                          IP: <strong className="text-slate-800 dark:text-slate-200">{gw.max_per_ip || 1} mã</strong>
+                          <span className="text-slate-300 dark:text-slate-600 mx-1">•</span>
+                          CD: <strong className="text-slate-800 dark:text-slate-200">{gw.cooldown_hours ? `${gw.cooldown_hours}h` : '0h'}</strong>
+                        </div>
                       </div>
                     </td>
 
                     {/* Col 4: TRẠNG THÁI (Nút Đóng / Mở trực quan) */}
-                    <td className="px-4 py-4 whitespace-nowrap">
+                    <td className="px-3 py-3 whitespace-nowrap">
                       <button
                         type="button"
                         onClick={(e) => {
-                           e.stopPropagation();
+                          e.stopPropagation();
                           handleToggleActive(gw);
                         }}
-                        className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-[11px] font-bold border transition-all cursor-pointer select-none active:scale-95 shadow-xs ${
+                        className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-bold border transition-all cursor-pointer select-none active:scale-95 shadow-2xs ${
                           gw.is_active !== false
                             ? 'bg-emerald-500/15 hover:bg-emerald-500/25 text-emerald-600 dark:text-emerald-400 border-emerald-500/30'
                             : 'bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-500 dark:text-slate-400 border-slate-300 dark:border-slate-700'
@@ -700,88 +729,70 @@ export const PrivateCodesModule: React.FC<PrivateCodesModuleProps> = ({ onShowTo
                           }`}
                         />
                         <span>{gw.is_active !== false ? 'Đang mở' : 'Đã đóng'}</span>
-                        {/* Mini toggle switch */}
                         <span
-                          className={`w-6 h-3.5 rounded-full flex items-center p-0.5 transition-colors ${
+                          className={`w-5 h-3 rounded-full flex items-center p-0.5 transition-colors ${
                             gw.is_active !== false
                               ? 'bg-emerald-500 justify-end'
                               : 'bg-slate-300 dark:bg-slate-600 justify-start'
                           }`}
                         >
-                          <span className="w-2.5 h-2.5 rounded-full bg-white shadow-sm" />
+                          <span className="w-2 h-2 rounded-full bg-white shadow-xs" />
                         </span>
                       </button>
                     </td>
 
-                    {/* Col 5: THAO TÁC */}
-                    <td className="px-5 py-4 text-right whitespace-nowrap">
-                      <div className="flex items-center justify-end gap-1.5" onClick={(e) => e.stopPropagation()}>
-                        {/* NÚT ĐÓNG / MỞ TRỰC QUAN */}
-                        {gw.is_active !== false ? (
-                          <button
-                            type="button"
-                            onClick={() => handleToggleActive(gw)}
-                            className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-rose-500/10 hover:bg-rose-500/20 text-rose-600 dark:text-rose-400 text-xs font-bold transition-colors cursor-pointer border border-rose-500/25 shadow-xs"
-                            title="Tạm đóng đợt phát này (khách không thể nhận code)"
-                          >
-                            <PowerOff className="h-3.5 w-3.5 text-rose-500" />
-                            <span>Đóng</span>
-                          </button>
-                        ) : (
-                          <button
-                            type="button"
-                            onClick={() => handleToggleActive(gw)}
-                            className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 text-xs font-bold transition-colors cursor-pointer border border-emerald-500/25 shadow-xs"
-                            title="Mở hoạt động lại đợt phát này"
-                          >
-                            <Play className="h-3.5 w-3.5 text-emerald-500" />
-                            <span>Mở</span>
-                          </button>
-                        )}
-
+                    {/* Col 5: THAO TÁC (Sticky Right để luôn hiển thị trọn vẹn trong tầm mắt) */}
+                    <td className="px-3.5 py-3 text-right whitespace-nowrap sticky right-0 bg-white/95 dark:bg-slate-900/95 backdrop-blur-xs shadow-[-6px_0_12px_rgba(0,0,0,0.06)] z-10">
+                      <div className="flex items-center justify-end gap-1" onClick={(e) => e.stopPropagation()}>
                         {/* NÚT CHỈNH SỐ ẢO */}
                         <button
                           type="button"
                           onClick={() => setFomoAdjustCampaign(gw)}
-                          className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-amber-500/10 hover:bg-amber-500/20 text-amber-600 dark:text-amber-400 text-xs font-bold transition-colors cursor-pointer border border-amber-500/25 shadow-xs"
+                          className="inline-flex items-center gap-1 px-2 py-1 rounded-lg bg-amber-500/10 hover:bg-amber-500/20 text-amber-600 dark:text-amber-400 text-[11px] font-bold transition-colors cursor-pointer border border-amber-500/25 shadow-2xs"
                           title="Điều chỉnh số ảo & FOMO hiển thị ngoài web cho đợt phát này"
                         >
-                          <Sparkles className="h-3.5 w-3.5 text-amber-500" />
+                          <Sparkles className="h-3 w-3 text-amber-500" />
                           <span>Số ảo</span>
                         </button>
 
+                        {/* KHO MÃ */}
                         <button
                           onClick={() => handleOpenPoolModal(gw)}
-                          className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 text-xs font-bold transition-colors cursor-pointer"
+                          className="inline-flex items-center gap-1 px-2 py-1 rounded-lg bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 text-[11px] font-bold transition-colors cursor-pointer border border-slate-200 dark:border-slate-700"
                           title="Quản lý kho mã code phát riêng"
                         >
-                          <Boxes className="h-3.5 w-3.5 text-indigo-500" />
+                          <Boxes className="h-3 w-3 text-indigo-500" />
                           <span>Kho mã</span>
                         </button>
 
+                        {/* LỊCH SỬ */}
                         <button
                           onClick={() => handleOpenHistoryModal(gw)}
-                          className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 text-xs font-bold transition-colors cursor-pointer"
+                          className="inline-flex items-center gap-1 px-2 py-1 rounded-lg bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 text-[11px] font-bold transition-colors cursor-pointer border border-slate-200 dark:border-slate-700"
                           title="Lịch sử người chơi đã nhận mã"
                         >
-                          <History className="h-3.5 w-3.5 text-teal-500" />
+                          <History className="h-3 w-3 text-teal-500" />
                           <span>Lịch sử</span>
                         </button>
 
+                        {/* NÚT SỬA */}
                         <button
                           onClick={() => handleOpenEdit(gw)}
-                          className="p-1.5 rounded-lg text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 dark:hover:bg-indigo-950/40 cursor-pointer"
-                          title="Sửa chiến dịch"
+                          className="inline-flex items-center gap-1 px-2 py-1 rounded-lg bg-indigo-50 hover:bg-indigo-100 text-indigo-600 dark:bg-indigo-950/50 dark:hover:bg-indigo-900/50 dark:text-indigo-400 border border-indigo-200 dark:border-indigo-800 text-[11px] font-bold transition-all cursor-pointer shadow-2xs"
+                          title="Sửa đợt phát giveaway"
                         >
-                          <Edit2 className="h-4 w-4" />
+                          <Edit2 className="h-3 w-3" />
+                          <span>Sửa</span>
                         </button>
 
+                        {/* NÚT XÓA */}
                         <button
                           onClick={() => setDeletingCampaign(gw)}
-                          className="p-1.5 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/40 cursor-pointer"
-                          title="Xóa chiến dịch"
+                          className="inline-flex items-center gap-1 px-2 py-1 rounded-lg bg-rose-50 hover:bg-rose-100 text-rose-600 dark:bg-rose-950/50 dark:hover:bg-rose-900/50 dark:text-rose-400 border border-rose-200 dark:border-rose-800 text-[11px] font-bold transition-all cursor-pointer shadow-2xs"
+                          title="Xóa đợt phát giveaway"
                         >
-                          <Trash2 className="h-4 w-4" />
+                          <Trash2 className="h-3 w-3" />
+                          <span>Xóa</span>
                         </button>
                       </div>
                     </td>

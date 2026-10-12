@@ -7,6 +7,26 @@ Mỗi mục sửa lỗi đều ghi nhận **Nguyên nhân gốc rễ (Root Cause
 
 ## [2026-10-13]
 
+### 6. Tối Ưu Bảng Thao Tác Xóa/Sửa Luôn Hiển Thị 100% Trong Màn Hình & Bổ Sung Khối Ẩn/Hiện Số Ảo Rõ Ràng
+- **Mô tả**:
+  1. **Hiển thị trọn vẹn thao tác Xóa, Sửa trong tầm mắt không bị tràn màn hình**:
+     - Trong bảng Giveaway (`PrivateCodesModule.tsx`), cột `THAO TÁC` được thiết lập `sticky right-0` kèm hiệu ứng bóng mờ `shadow-[-6px_0_12px_rgba(0,0,0,0.06)]` và nền `bg-white/95 dark:bg-slate-900/95 backdrop-blur-xs`, đảm bảo các nút thao tác luôn luôn hiển thị trực tiếp trong tầm mắt người dùng ở mọi độ phân giải màn hình.
+     - Loại bỏ nút `Đóng/Mở` trùng lặp trong cột Thao tác (vì cột Trạng thái đã có switch toggle trực quan).
+     - Bổ sung nút `[✏️ Sửa]` và `[🗑️ Xóa]` có nhãn chữ và màu sắc nổi bật, rõ ràng thay vì biểu tượng xám đơn điệu.
+     - Thu gọn kích thước icon (`h-9 w-9`), rút gọn 4 dòng của cột `3 ĐIỀU KIỆN NHẬN` thành 2 dòng gọn gàng (`Nick • User` / `IP • CD`).
+     - Đồng bộ nút `[Sửa]` và `[Xóa]` có nhãn chữ sang thẻ sản phẩm của `UtilitiesModule.tsx` và `CodeInventoryModule.tsx`.
+  2. **Bổ sung mục Ẩn / Hiện Số Ảo (Đã giật, Còn lại, Đã bán) cực kỳ rõ ràng**:
+     - Thay thế nút tím đơn lẻ trên Toolbar bằng khối **Segmented Control 2 nút trực quan**: `Số ảo Web: [ 👁️ Hiện số ảo ] [ 👁️‍🗨️ Ẩn số ảo (Xem thật) ]` trên cả 3 phân hệ (Giveaway, Tiện ích, Kho code).
+     - Trong modal `QuickFomoAdjustModal`: Bổ sung khối chuyển đổi lớn `MỤC ẨN / HIỆN SỐ ẢO NGOÀI WEB (ĐÃ GIẬT/ĐÃ BÁN, CÒN LẠI)`. Khi chọn "Ẩn số ảo", hệ thống tự động ẩn form FOMO và kích hoạt chế độ đưa số liệu ngoài Web khách về chuẩn 100% kho thật khi nhấn Áp dụng.
+- **Nguyên nhân gốc rễ (Root Cause)**:
+  - Bảng Giveaway có quá nhiều cột và cột Thao tác trước đó có tới 6 nút bấm xếp ngang (`Đóng` + `Số ảo` + `Kho mã` + `Lịch sử` + `Edit` + `Delete`), khiến tổng độ rộng vượt quá bề ngang màn hình laptop/máy tính phổ thông, đẩy 2 nút Sửa và Xóa ra khỏi vùng nhìn thấy.
+  - Công tắc ẩn/hiện số ảo trước đó chỉ là một nút toggle thứ cấp trên Toolbar, chưa có tiêu đề và nhãn rõ ràng khiến người dùng không tìm thấy mục Ẩn/Hiện số ảo đã giật, đã bán, còn lại.
+- **Giải pháp thành công (Solution Applied)**:
+  - Đặt cột Thao tác thành `sticky right-0`, loại bỏ nút Đóng thừa, thiết kế nút Sửa và Xóa trực quan.
+  - Thiết kế khối Segmented Control với văn bản mô tả đầy đủ "Số ảo Web: [ Hiện số ảo ] [ Ẩn số ảo (Xem thật) ]".
+
+---
+
 ### 5. Khắc Phục Lỗi `saveSessionAnchors`, Bổ Sung Công Tắc Ẩn/Hiện Số Ảo & Tối Ưu Thẻ Sản Phẩm Vừa Khít Màn Hình
 - **Mô tả**:
   1. **Khắc phục lỗi runtime khi sửa số ảo**: Lỗi `this.saveSessionAnchors is not a function` xuất hiện khi người dùng bấm "Áp Dụng & Đồng Bộ Tức Thì" trong modal điều chỉnh số ảo. Đã chuẩn hóa tên hàm thành `this.saveSessionAnchor()` và bổ sung alias an toàn `saveSessionAnchors()`.

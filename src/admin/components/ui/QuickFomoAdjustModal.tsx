@@ -51,6 +51,7 @@ export const QuickFomoAdjustModal: React.FC<QuickFomoAdjustModalProps> = ({
   const [targetSoldOrClaimed, setTargetSoldOrClaimed] = useState(0);
   const [bonusStock, setBonusStock] = useState(0);
   const [priority, setPriority] = useState<ProductPriority>('normal');
+  const [isVirtualActive, setIsVirtualActive] = useState<boolean>(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   useEffect(() => {
@@ -68,25 +69,31 @@ export const QuickFomoAdjustModal: React.FC<QuickFomoAdjustModalProps> = ({
     setTargetSoldOrClaimed(webSold);
     setBonusStock(Number(pw.virtualStockBonus) || 0);
     setPriority(pw.priority || 'normal');
+
+    const hasVirtual = pw.priority !== 'off' || Number(pw.virtualStockBonus) > 0 || webSold > realSoldOrClaimed || webStock > realStock;
+    setIsVirtualActive(hasVirtual);
   }, [isOpen, itemId, itemType, realStock, realSoldOrClaimed, isGiveaway]);
 
   const handleApply = async () => {
     if (!itemId) return;
     setIsSubmitting(true);
     try {
-      const sanitizedTargetSold = Math.max(0, Number(targetSoldOrClaimed) || 0);
-      const sanitizedBonusStock = Math.max(0, Number(bonusStock) || 0);
+      const sanitizedTargetSold = isVirtualActive ? Math.max(0, Number(targetSoldOrClaimed) || 0) : realSoldOrClaimed;
+      const sanitizedBonusStock = isVirtualActive ? Math.max(0, Number(bonusStock) || 0) : 0;
+      const effectivePriority = isVirtualActive ? priority : 'off';
 
       await marketingService.updateItemVirtualSettings(itemId, {
         targetDisplaySoldOrClaimed: sanitizedTargetSold,
         virtualStockBonus: sanitizedBonusStock,
-        priority,
+        priority: effectivePriority,
         forceReset: true,
       });
 
       onShowToast(
         'Đã cập nhật số ảo thành công!',
-        `Đã đồng bộ số hiển thị ngoài Web: ${labelSoldOrClaimed}: ${sanitizedTargetSold} | ${labelStock}: ${realStock <= 0 ? 0 : realStock + sanitizedBonusStock}.`,
+        isVirtualActive
+          ? `Đã bật số ảo ngoài Web: ${labelSoldOrClaimed}: ${sanitizedTargetSold} | ${labelStock}: ${realStock <= 0 ? 0 : realStock + sanitizedBonusStock}.`
+          : `Đã ẩn số ảo (về thật 100%): ${labelSoldOrClaimed}: ${realSoldOrClaimed} | ${labelStock}: ${realStock}.`,
         'success'
       );
 
@@ -100,18 +107,21 @@ export const QuickFomoAdjustModal: React.FC<QuickFomoAdjustModalProps> = ({
   };
 
   const handleResetToReal = () => {
+    setIsVirtualActive(false);
     setTargetSoldOrClaimed(realSoldOrClaimed);
     setBonusStock(0);
     setPriority('off');
   };
 
   const handlePresetGentle = () => {
+    setIsVirtualActive(true);
     setTargetSoldOrClaimed(Math.max(25, realSoldOrClaimed + 25));
     setBonusStock(realStock > 0 ? 10 : 0);
     setPriority('normal');
   };
 
   const handlePresetVibrant = () => {
+    setIsVirtualActive(true);
     setTargetSoldOrClaimed(Math.max(60, realSoldOrClaimed + 60));
     setBonusStock(realStock > 0 ? 20 : 0);
     setPriority('high');
@@ -179,38 +189,94 @@ export const QuickFomoAdjustModal: React.FC<QuickFomoAdjustModalProps> = ({
           </div>
         </div>
 
-        {/* 1-CLICK QUICK PRESET BUTTONS */}
-        <div className="flex flex-wrap items-center gap-1.5 pt-0.5">
-          <span className="text-[11px] font-bold text-slate-500 dark:text-slate-400">Mẫu nhanh:</span>
-          <button
-            type="button"
-            onClick={handleResetToReal}
-            className="px-2 py-1 rounded-lg bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 text-[11px] font-bold flex items-center gap-1 cursor-pointer transition-all border border-slate-300 dark:border-slate-700 active:scale-95"
-            title="Đưa toàn bộ số liệu về đúng 100% kho thật"
-          >
-            <RotateCcw className="w-3 h-3 text-rose-500" />
-            <span>Chuẩn Thật 100% (Xóa Ảo)</span>
-          </button>
-          <button
-            type="button"
-            onClick={handlePresetGentle}
-            className="px-2 py-1 rounded-lg bg-amber-500/10 hover:bg-amber-500/20 text-amber-700 dark:text-amber-400 text-[11px] font-bold flex items-center gap-1 cursor-pointer transition-all border border-amber-500/30 active:scale-95"
-          >
-            <Zap className="w-3 h-3 text-amber-500" />
-            <span>FOMO Nhẹ (+25)</span>
-          </button>
-          <button
-            type="button"
-            onClick={handlePresetVibrant}
-            className="px-2 py-1 rounded-lg bg-purple-500/10 hover:bg-purple-500/20 text-purple-700 dark:text-purple-400 text-[11px] font-bold flex items-center gap-1 cursor-pointer transition-all border border-purple-500/30 active:scale-95"
-          >
-            <Flame className="w-3 h-3 text-purple-500" />
-            <span>FOMO Đậm (+60)</span>
-          </button>
+        {/* MỤC ẨN / HIỆN SỐ ẢO NGOÀI WEB (ĐÃ GIẬT, CÒN LẠI, ĐÃ BÁN) */}
+        <div className={`p-3 rounded-xl border transition-all ${
+          isVirtualActive
+            ? 'bg-purple-500/10 dark:bg-purple-950/40 border-purple-500/30'
+            : 'bg-rose-50 dark:bg-rose-950/40 border-rose-300 dark:border-rose-800'
+        }`}>
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2.5">
+            <div>
+              <div className="flex items-center gap-1.5 text-xs font-bold text-slate-900 dark:text-white">
+                {isVirtualActive ? (
+                  <Eye className="w-4 h-4 text-purple-600 dark:text-purple-400" />
+                ) : (
+                  <AlertCircle className="w-4 h-4 text-rose-600 dark:text-rose-400" />
+                )}
+                <span>MỤC ẨN / HIỆN SỐ ẢO NGOÀI WEB ({labelSoldOrClaimed.toUpperCase()}, {labelStock.toUpperCase()})</span>
+              </div>
+              <p className="text-[11px] text-slate-600 dark:text-slate-400 mt-0.5">
+                {isVirtualActive
+                  ? `Đang BẬT số ảo ngoài Web. Khách thấy ${labelSoldOrClaimed.toLowerCase()} & ${labelStock.toLowerCase()} theo cấu hình bên dưới.`
+                  : `Đang ẨN số ảo ngoài Web. Khách chỉ thấy số liệu thật (${realStock} mã còn, ${realSoldOrClaimed} ${labelSoldOrClaimed.toLowerCase()}).`}
+              </p>
+            </div>
+
+            {/* Segmented Control 2 Nút Cực Kỳ Rõ Ràng */}
+            <div className="inline-flex items-center p-1 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 shadow-xs shrink-0">
+              <button
+                type="button"
+                onClick={() => setIsVirtualActive(true)}
+                className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1 cursor-pointer ${
+                  isVirtualActive
+                    ? 'bg-gradient-to-r from-purple-600 to-indigo-600 text-white shadow-sm'
+                    : 'text-slate-500 hover:text-slate-900 dark:hover:text-white'
+                }`}
+              >
+                <Eye className="w-3.5 h-3.5" />
+                <span>Hiện Số Ảo</span>
+              </button>
+              <button
+                type="button"
+                onClick={handleResetToReal}
+                className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1 cursor-pointer ${
+                  !isVirtualActive
+                    ? 'bg-rose-600 text-white shadow-sm'
+                    : 'text-slate-500 hover:text-slate-900 dark:hover:text-white'
+                }`}
+              >
+                <RotateCcw className="w-3.5 h-3.5" />
+                <span>Ẩn Số Ảo (Về thật)</span>
+              </button>
+            </div>
+          </div>
         </div>
 
+        {/* 1-CLICK QUICK PRESET BUTTONS (CHỈ HIỂN THỊ KHI BẬT SỐ ẢO) */}
+        {isVirtualActive && (
+          <div className="flex flex-wrap items-center gap-1.5 pt-0.5">
+            <span className="text-[11px] font-bold text-slate-500 dark:text-slate-400">Mẫu nhanh:</span>
+            <button
+              type="button"
+              onClick={handleResetToReal}
+              className="px-2 py-1 rounded-lg bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 text-[11px] font-bold flex items-center gap-1 cursor-pointer transition-all border border-slate-300 dark:border-slate-700 active:scale-95"
+              title="Đưa toàn bộ số liệu về đúng 100% kho thật"
+            >
+              <RotateCcw className="w-3 h-3 text-rose-500" />
+              <span>Về Thật 100%</span>
+            </button>
+            <button
+              type="button"
+              onClick={handlePresetGentle}
+              className="px-2 py-1 rounded-lg bg-amber-500/10 hover:bg-amber-500/20 text-amber-700 dark:text-amber-400 text-[11px] font-bold flex items-center gap-1 cursor-pointer transition-all border border-amber-500/30 active:scale-95"
+            >
+              <Zap className="w-3 h-3 text-amber-500" />
+              <span>FOMO Nhẹ (+25)</span>
+            </button>
+            <button
+              type="button"
+              onClick={handlePresetVibrant}
+              className="px-2 py-1 rounded-lg bg-purple-500/10 hover:bg-purple-500/20 text-purple-700 dark:text-purple-400 text-[11px] font-bold flex items-center gap-1 cursor-pointer transition-all border border-purple-500/30 active:scale-95"
+            >
+              <Flame className="w-3 h-3 text-purple-500" />
+              <span>FOMO Đậm (+60)</span>
+            </button>
+          </div>
+        )}
+
         {/* INPUT CONTROLS */}
-        <div className="space-y-3 pt-2 border-t border-slate-200 dark:border-slate-800">
+        {isVirtualActive ? (
+          <div className="space-y-3 pt-2 border-t border-slate-200 dark:border-slate-800">
           {/* Target Sold / Claimed Count */}
           <div className="space-y-1">
             <div className="flex items-center justify-between">
@@ -342,6 +408,19 @@ export const QuickFomoAdjustModal: React.FC<QuickFomoAdjustModalProps> = ({
             </select>
           </div>
         </div>
+      ) : (
+          <div className="p-4 rounded-xl bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 text-center space-y-2">
+            <div className="inline-flex p-2 rounded-full bg-emerald-100 dark:bg-emerald-950/60 text-emerald-600 dark:text-emerald-400">
+              <ShieldCheck className="w-6 h-6" />
+            </div>
+            <h4 className="text-xs font-bold text-slate-800 dark:text-slate-100">
+              Đang ẨN toàn bộ số ảo — Hiển thị chuẩn 100% kho thật ngoài Web
+            </h4>
+            <p className="text-[11px] text-slate-500 dark:text-slate-400 max-w-sm mx-auto">
+              Web khách sẽ chỉ hiển thị chính xác số mã còn trong kho ({realStock} mã) và số lượt thực tế ({realSoldOrClaimed} {labelSoldOrClaimed.toLowerCase()}), không tự tăng thêm.
+            </p>
+          </div>
+        )}
 
         {/* ACTIONS */}
         <div className="flex items-center justify-end gap-2 pt-2.5 border-t border-slate-200 dark:border-slate-800">

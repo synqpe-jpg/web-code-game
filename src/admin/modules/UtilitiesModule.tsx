@@ -702,20 +702,45 @@ export const UtilitiesModule: React.FC<UtilitiesModuleProps> = ({ onShowToast })
               <option value="STOCK">Tồn kho nhiều nhất</option>
             </select>
 
-            {/* Toggle Ẩn / Hiện Số Ảo Ngoài Web */}
-            <button
-              type="button"
-              onClick={toggleVirtualStats}
-              className={`inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer border shadow-xs ${
-                showVirtualStats
-                  ? 'bg-purple-500/10 hover:bg-purple-500/20 text-purple-600 dark:text-purple-400 border-purple-500/30'
-                  : 'bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-500 dark:text-slate-400 border-slate-300 dark:border-slate-700'
-              }`}
-              title={showVirtualStats ? 'Đang hiển thị số ảo web - Nhấn để ẩn' : 'Đang ẩn số ảo web - Nhấn để hiện'}
-            >
-              {showVirtualStats ? <Eye className="h-3.5 w-3.5 text-purple-500" /> : <EyeOff className="h-3.5 w-3.5 text-slate-400" />}
-              <span>{showVirtualStats ? 'Số Ảo: Đang Hiện' : 'Số Ảo: Đang Ẩn'}</span>
-            </button>
+            {/* MỤC ẨN / HIỆN SỐ ẢO NGOÀI WEB (ĐÃ BÁN, CÒN LẠI) */}
+            <div className="inline-flex items-center p-1 rounded-xl bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 shadow-2xs">
+              <span className="text-[11px] font-bold text-slate-500 dark:text-slate-400 px-2 flex items-center gap-1">
+                <Sparkles className="w-3.5 h-3.5 text-purple-500" />
+                <span>Số ảo Web:</span>
+              </span>
+              <button
+                type="button"
+                onClick={() => {
+                  setShowVirtualStats(true);
+                  localStorage.setItem('wcg_admin_show_virtual_stats', 'true');
+                }}
+                className={`px-2.5 py-1 rounded-lg text-xs font-bold transition-all flex items-center gap-1 cursor-pointer ${
+                  showVirtualStats
+                    ? 'bg-purple-600 text-white shadow-xs'
+                    : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+                }`}
+                title="Bật hiển thị thống kê số ảo (Đã bán, Tồn kho ngoài Web)"
+              >
+                <Eye className="h-3.5 w-3.5" />
+                <span>👁️ Hiện số ảo</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setShowVirtualStats(false);
+                  localStorage.setItem('wcg_admin_show_virtual_stats', 'false');
+                }}
+                className={`px-2.5 py-1 rounded-lg text-xs font-bold transition-all flex items-center gap-1 cursor-pointer ${
+                  !showVirtualStats
+                    ? 'bg-rose-600 text-white shadow-xs'
+                    : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+                }`}
+                title="Ẩn số ảo - Chỉ hiển thị số lượng thật trong kho"
+              >
+                <EyeOff className="h-3.5 w-3.5" />
+                <span>👁️‍🗨️ Ẩn số ảo (Xem thật)</span>
+              </button>
+            </div>
 
             {/* Create Category Button */}
             <button
@@ -985,20 +1010,22 @@ export const UtilitiesModule: React.FC<UtilitiesModuleProps> = ({ onShowToast })
                   </button>
                 </div>
 
-                <div className="flex items-center gap-0.5">
+                <div className="flex items-center gap-1 shrink-0">
                   <button
                     onClick={() => handleOpenEditProduct(prod)}
-                    className="p-1.5 rounded-lg text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 dark:hover:bg-indigo-950/40 cursor-pointer"
-                    title="Chỉnh sửa gói"
+                    className="inline-flex items-center gap-1 px-2 py-1 rounded-lg bg-indigo-50 hover:bg-indigo-100 text-indigo-600 dark:bg-indigo-950/50 dark:hover:bg-indigo-900/50 dark:text-indigo-400 border border-indigo-200 dark:border-indigo-800 text-[11px] font-bold transition-all cursor-pointer shadow-2xs"
+                    title="Chỉnh sửa gói tiện ích"
                   >
-                    <Edit2 className="h-3.5 w-3.5" />
+                    <Edit2 className="h-3 w-3" />
+                    <span>Sửa</span>
                   </button>
                   <button
                     onClick={() => setDeletingProduct(prod)}
-                    className="p-1.5 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/40 cursor-pointer"
-                    title="Xóa gói"
+                    className="inline-flex items-center gap-1 px-2 py-1 rounded-lg bg-rose-50 hover:bg-rose-100 text-rose-600 dark:bg-rose-950/50 dark:hover:bg-rose-900/50 dark:text-rose-400 border border-rose-200 dark:border-rose-800 text-[11px] font-bold transition-all cursor-pointer shadow-2xs"
+                    title="Xóa gói tiện ích"
                   >
-                    <Trash2 className="h-3.5 w-3.5" />
+                    <Trash2 className="h-3 w-3" />
+                    <span>Xóa</span>
                   </button>
                 </div>
               </div>
