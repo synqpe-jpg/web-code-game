@@ -172,6 +172,7 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
       'wcg_deleted_free_codes',      // Public deleted giftcodes tombstones
       'wcg_crawler_sources_v1',      // Public/crawler sources configuration
       'wcg_news_articles_v1',        // Public game news articles
+      'wcg_deleted_news_articles_v1', // Public deleted news articles tombstones
     ]);
 
     // 1. Specific key query
@@ -258,6 +259,7 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
             'wcg_crawler_sources_v1',
             'wcg_crawler_logs_v1',
             'wcg_news_articles_v1',
+            'wcg_deleted_news_articles_v1',
           ]),
         ]);
 
@@ -272,6 +274,9 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
         if (Array.isArray(delUt)) delUt.forEach((id: string) => deletedUtilSet.add(id));
         const delGw = d1Settings['wcg_deleted_giveaways'];
         if (Array.isArray(delGw)) delGw.forEach((id: string) => deletedGwSet.add(id));
+        const delNews = d1Settings['wcg_deleted_news_articles_v1'];
+        const deletedNewsSet = new Set<string>();
+        if (Array.isArray(delNews)) delNews.forEach((id: string) => deletedNewsSet.add(id));
 
         // Smart merge store products: prioritize authoritative D1 stock/sold, preserve rich metadata & category
         const savedStoreProductsRaw = d1Settings['wcg_admin_store_products_v4'] || (masterState ? masterState.storeProducts : null);
@@ -563,7 +568,12 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
       utilityCategories: d1Settings['wcg_admin_utility_categories_v1'] || masterState.utilityCategories || [],
       storeCategories: d1Settings['wcg_admin_store_categories_v1'] || masterState.storeCategories || [],
       crawlerSources: d1Settings['wcg_crawler_sources_v1'] || masterState.crawlerSources || [],
-      newsArticles: d1Settings['wcg_news_articles_v1'] || masterState.newsArticles || [],
+      newsArticles: Array.isArray(d1Settings['wcg_news_articles_v1'] || masterState.newsArticles)
+        ? (d1Settings['wcg_news_articles_v1'] || masterState.newsArticles).filter(
+            (a: any) => !deletedNewsSet.has(a.id) && !deletedNewsSet.has(a.slug)
+          )
+        : [],
+      deletedNewsArticles: Array.from(deletedNewsSet),
     };
 
     if (authorized) {
@@ -1524,6 +1534,7 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
     if (body.crawlerPendingCodes !== undefined) currentMaster.crawlerPendingCodes = body.crawlerPendingCodes;
     if (body.crawlerSources !== undefined) currentMaster.crawlerSources = body.crawlerSources;
     if (body.crawlerLogs !== undefined) currentMaster.crawlerLogs = body.crawlerLogs;
+    if (body.deletedNewsArticles !== undefined) currentMaster.deletedNewsArticles = body.deletedNewsArticles;
     if (body.newsArticles !== undefined) currentMaster.newsArticles = body.newsArticles;
 
     // D1 Quota Optimization: NEVER store huge monolithic inventory, orders or crawled freeCodes arrays in KV/Settings master state
@@ -1743,6 +1754,7 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
         if (body.crawlerPendingCodes !== undefined) await setSettingD1(env.DB, 'wcg_crawler_pending_codes_v1', body.crawlerPendingCodes);
         if (body.crawlerSources !== undefined) await setSettingD1(env.DB, 'wcg_crawler_sources_v1', body.crawlerSources);
         if (body.crawlerLogs !== undefined) await setSettingD1(env.DB, 'wcg_crawler_logs_v1', body.crawlerLogs);
+        if (body.deletedNewsArticles !== undefined) await setSettingD1(env.DB, 'wcg_deleted_news_articles_v1', body.deletedNewsArticles);
         if (body.newsArticles !== undefined) await setSettingD1(env.DB, 'wcg_news_articles_v1', body.newsArticles);
 
         // Consolidated Master State Snapshot in D1 system_settings

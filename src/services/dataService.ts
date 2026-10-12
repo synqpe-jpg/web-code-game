@@ -736,12 +736,32 @@ class DataService {
                 this.pushToCloudflareKV('wcg_growth_config_v1', localGrowth);
               }
             }
+            if (json.deletedNewsArticles && Array.isArray(json.deletedNewsArticles)) {
+              const currentDel = localStorage.getItem('wcg_deleted_news_articles_v1');
+              const newDel = JSON.stringify(json.deletedNewsArticles);
+              if (currentDel !== newDel) {
+                localStorage.setItem('wcg_deleted_news_articles_v1', newDel);
+              }
+            }
             if (json.newsArticles && Array.isArray(json.newsArticles)) {
+              let deletedSet = new Set<string>();
+              try {
+                const delRaw = localStorage.getItem('wcg_deleted_news_articles_v1');
+                if (delRaw) {
+                  const p = JSON.parse(delRaw);
+                  if (Array.isArray(p)) deletedSet = new Set(p.map(String));
+                }
+              } catch {}
+
+              const cleanArticles = json.newsArticles.filter(
+                (a: any) => !deletedSet.has(a.id) && !deletedSet.has(a.slug)
+              );
               const currentNews = localStorage.getItem('wcg_news_articles_v1');
-              const newNews = JSON.stringify(json.newsArticles);
+              const newNews = JSON.stringify(cleanArticles);
               if (currentNews !== newNews) {
                 localStorage.setItem('wcg_news_articles_v1', newNews);
-                window.dispatchEvent(new CustomEvent('wcg_news_updated', { detail: json.newsArticles }));
+                newsService.applyServerSnapshot(cleanArticles);
+                window.dispatchEvent(new CustomEvent('wcg_news_updated', { detail: cleanArticles }));
               }
             }
             if (hasChanges) {
@@ -3088,8 +3108,20 @@ class DataService {
         localStorage.setItem('wcg_admin_utility_categories_v1', JSON.stringify(snapshot.utilityCategories));
       }
       if (Array.isArray(snapshot.newsArticles)) {
-        localStorage.setItem('wcg_news_articles_v1', JSON.stringify(snapshot.newsArticles));
-        window.dispatchEvent(new CustomEvent('wcg_news_updated', { detail: snapshot.newsArticles }));
+        let deletedSet = new Set<string>();
+        try {
+          const delRaw = localStorage.getItem('wcg_deleted_news_articles_v1');
+          if (delRaw) {
+            const p = JSON.parse(delRaw);
+            if (Array.isArray(p)) deletedSet = new Set(p.map(String));
+          }
+        } catch {}
+        const cleanArticles = snapshot.newsArticles.filter(
+          (a: any) => !deletedSet.has(a.id) && !deletedSet.has(a.slug)
+        );
+        localStorage.setItem('wcg_news_articles_v1', JSON.stringify(cleanArticles));
+        newsService.applyServerSnapshot(cleanArticles);
+        window.dispatchEvent(new CustomEvent('wcg_news_updated', { detail: cleanArticles }));
       }
 
       localStorage.setItem('wcg_store_initialized', 'true');

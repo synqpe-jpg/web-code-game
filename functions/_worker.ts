@@ -510,9 +510,16 @@ async function renderSeoHtml(
       try {
         const stmt = env.DB.prepare("SELECT value FROM settings WHERE key = 'wcg_news_articles_v1' LIMIT 1");
         const row: any = await stmt.first();
+        const delStmt = env.DB.prepare("SELECT value FROM settings WHERE key = 'wcg_deleted_news_articles_v1' LIMIT 1");
+        const delRow: any = await delStmt.first();
+        const delSet = new Set(delRow?.value ? JSON.parse(delRow.value) : []);
+
         if (row?.value) {
           const list = JSON.parse(row.value);
-          article = list.find((a: any) => a.slug?.toLowerCase() === newsSlug || a.id?.toLowerCase() === newsSlug);
+          const found = list.find((a: any) => a.slug?.toLowerCase() === newsSlug || a.id?.toLowerCase() === newsSlug);
+          if (found && !delSet.has(found.id) && !delSet.has(found.slug)) {
+            article = found;
+          }
         }
       } catch {}
     }

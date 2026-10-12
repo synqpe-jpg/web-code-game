@@ -3,9 +3,11 @@ import { DEFAULT_NEWS_ARTICLES } from '../data/seedNews';
 import { smartVietnameseMatch } from '../utils/textUtils';
 
 const STORAGE_KEY = 'wcg_news_articles_v1';
+const STORAGE_DELETED_KEY = 'wcg_deleted_news_articles_v1';
 
 class NewsService {
   private articles: NewsArticle[] = [];
+  private deletedArticleIds: Set<string> = new Set();
   private listeners: Set<() => void> = new Set();
   private isLoaded = false;
 
@@ -19,15 +21,31 @@ class NewsService {
       return;
     }
 
+    // 1. Tải danh sách bài viết đã xóa (Tombstones) để ngăn chặn vĩnh viễn việc hồi sinh
+    try {
+      const delStored = localStorage.getItem(STORAGE_DELETED_KEY);
+      if (delStored) {
+        const parsedDel = JSON.parse(delStored);
+        if (Array.isArray(parsedDel)) {
+          this.deletedArticleIds = new Set(parsedDel.map(String));
+        }
+      }
+    } catch (e) {
+      console.warn('[NewsService] Lỗi đọc tombstones tin tức:', e);
+    }
+
+    // 2. Tải danh sách bài viết hiện tại
     try {
       const stored = localStorage.getItem(STORAGE_KEY);
-      if (stored) {
+      if (stored !== null) {
+        // Người dùng hoặc máy chủ đã từng lưu dữ liệu (kể cả khi mảng rỗng [] do xóa hết)
         const parsed = JSON.parse(stored);
-        if (Array.isArray(parsed) && parsed.length > 0) {
-          // Merge with default seed articles to ensure rich content
-          const existingIds = new Set(parsed.map((a: NewsArticle) => a.id || a.slug));
-          const missingSeeds = DEFAULT_NEWS_ARTICLES.filter((s) => !existingIds.has(s.id) && !existingIds.has(s.slug));
-          this.articles = [...parsed, ...missingSeeds];
+        if (Array.isArray(parsed)) {
+          this.articles = parsed.filter(
+            (a: NewsArticle) =>
+              !this.deletedArticleIds.has(a.id) &&
+              !this.deletedArticleIds.has(a.slug)
+          );
           this.isLoaded = true;
           return;
         }
@@ -36,7 +54,10 @@ class NewsService {
       console.warn('[NewsService] Lỗi đọc tin tức từ localStorage:', e);
     }
 
-    this.articles = [...DEFAULT_NEWS_ARTICLES];
+    // 3. Chỉ nạp seed mặc định cho khách truy cập lần đầu tiên khi chưa có dữ liệu nào
+    this.articles = DEFAULT_NEWS_ARTICLES.filter(
+      (s) => !this.deletedArticleIds.has(s.id) && !this.deletedArticleIds.has(s.slug)
+    );
     this.saveToStorage();
     this.isLoaded = true;
   }
@@ -68,11 +89,18 @@ class NewsService {
    * Đồng bộ dữ liệu tin tức từ máy chủ Cloudflare D1
    */
   public applyServerSnapshot(serverArticles: NewsArticle[]) {
-    if (Array.isArray(serverArticles) && serverArticles.length > 0) {
-      const serverMap = new Map(serverArticles.map((a) => [a.id || a.slug, a]));
-      const localArticles = this.articles.filter((a) => !serverMap.has(a.id) && !serverMap.has(a.slug));
-      this.articles = [...serverArticles, ...localArticles];
+    if (Array.isArray(serverArticles)) {
+      // Loại bỏ toàn bộ bài viết đã nằm trong danh sách đã xóa (tombstones)
+      const cleanServer = serverArticles.filter(
+        (a) =>
+          !this.deletedArticleIds.has(a.id) &&
+          !this.deletedArticleIds.has(a.slug)
+      );
+      this.articles = cleanServer;
       this.saveToStorage();
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new CustomEvent('wcg_news_updated', { detail: this.articles }));
+      }
     }
   }
 
@@ -221,7 +249,10 @@ class NewsService {
         title: articleData.title.trim(),
         excerpt: articleData.excerpt || '',
         content: articleData.content || '',
-        cover_url: articleData.cover_url || 'https://images.unsplash.com/photo-1542751371-adc38448a05e?auto=format&fit=crop&w=1200&q=80',
+        cover_url:
+          articleData.cover_url ||
+          (articleData.game_slug ? `/game_icons/${articleData.game_slug}.webp` : '') ||
+          '',
         gallery_urls: articleData.gallery_urls || [],
         virtual_views: typeof articleData.virtual_views === 'number' ? articleData.virtual_views : 0,
         views_growth_rate: typeof articleData.views_growth_rate === 'number' ? articleData.views_growth_rate : 1.0,
@@ -248,17 +279,35 @@ class NewsService {
   }
 
   /**
-   * Admin: Xóa bài viết
+   * Admin: Xóa vĩnh viễn bài viết (Lưu tombstones ngăn chặn hồi sinh ở mọi nơi)
    */
   public async deleteArticle(articleId: string): Promise<boolean> {
-    const initialLen = this.articles.length;
-    this.articles = this.articles.filter((a) => a.id !== articleId && a.slug !== articleId);
-    if (this.articles.length !== initialLen) {
-      this.saveToStorage();
-      await this.syncToCloudflareServer();
-      return true;
+    const found = this.articles.find((a) => a.id === articleId || a.slug === articleId);
+    const foundId = found?.id || articleId;
+    const foundSlug = found?.slug;
+
+    this.deletedArticleIds.add(foundId);
+    if (foundSlug) this.deletedArticleIds.add(foundSlug);
+
+    if (typeof window !== 'undefined') {
+      try {
+        localStorage.setItem(STORAGE_DELETED_KEY, JSON.stringify(Array.from(this.deletedArticleIds)));
+      } catch {}
     }
-    return false;
+
+    const initialLen = this.articles.length;
+    this.articles = this.articles.filter(
+      (a) => a.id !== foundId && a.slug !== foundId && (!foundSlug || (a.id !== foundSlug && a.slug !== foundSlug))
+    );
+
+    this.saveToStorage();
+
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('wcg_news_updated', { detail: this.articles }));
+    }
+
+    await this.syncToCloudflareServer();
+    return true;
   }
 
   /**
@@ -284,6 +333,7 @@ class NewsService {
         },
         body: JSON.stringify({
           newsArticles: this.articles,
+          deletedNewsArticles: Array.from(this.deletedArticleIds),
         }),
       });
       return res.ok;
@@ -434,7 +484,13 @@ Nhanh tay sao chép ngay danh sách mã quà tặng bên dưới để không b�
       game_id: params.game.id,
       game_slug: params.game.slug,
       game_name: gameName,
-      cover_url: params.game.banner_url || params.game.icon_url || 'https://images.unsplash.com/photo-1542751371-adc38448a05e?auto=format&fit=crop&w=1200&q=80',
+      cover_url:
+        params.game.cover_image_url ||
+        (params.game as any).cover_image ||
+        params.game.banner_url ||
+        params.game.icon_url ||
+        (params.game.slug ? `/game_icons/${params.game.slug}.webp` : '') ||
+        '',
       gallery_urls: [],
       virtual_views: Math.floor(Math.random() * 150) + 120,
       views_growth_rate: 1.0,
@@ -569,11 +625,15 @@ ${finalCodes.length > 0 ? finalCodes.map((c) => `- **${c}**: Gói quà tri ân &
 - Theo dõi Fanpage và Group cộng đồng chính thức của ${gameName} để tham gia các minigame săn code độc quyền.
 - Thường xuyên ghé thăm **CodeGame.store** để cập nhật nhanh nhất các mã giftcode máy chủ mới và sự kiện đua TOP.`;
 
-    const cover_url =
-      (params.foundImages && params.foundImages[0]) ||
+    const gameLogo =
       params.game?.banner_url ||
       params.game?.icon_url ||
-      'https://images.unsplash.com/photo-1542751371-adc38448a05e?auto=format&fit=crop&w=1200&q=80';
+      (params.game?.slug ? `/game_icons/${params.game.slug}.webp` : '');
+
+    const cover_url =
+      gameLogo ||
+      (params.foundImages && params.foundImages[0]) ||
+      '';
 
     const gallery_urls = (params.foundImages || []).slice(1, 6);
 

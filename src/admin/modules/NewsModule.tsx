@@ -140,7 +140,7 @@ export const NewsModule: React.FC<NewsModuleProps> = ({ onShowToast }) => {
       title: '',
       excerpt: '',
       content: '',
-      cover_url: 'https://images.unsplash.com/photo-1542751371-adc38448a05e?auto=format&fit=crop&w=1200&q=80',
+      cover_url: '',
       gallery_urls: [],
       virtual_views: 120,
       views_growth_rate: 1.0,
@@ -424,12 +424,11 @@ export const NewsModule: React.FC<NewsModuleProps> = ({ onShowToast }) => {
   };
 
   // Handle Delete article
-  const handleDeleteArticle = (articleId: string, title: string) => {
-    if (confirm(`Bạn có chắc muốn xóa bài viết "${title}"?`)) {
-      newsService.deleteArticle(articleId);
+  const handleDeleteArticle = async (articleId: string, title: string) => {
+    if (confirm(`Bạn có chắc muốn xóa vĩnh viễn bài viết "${title}"?`)) {
+      await newsService.deleteArticle(articleId);
       setArticles(newsService.getAllArticles());
-      onShowToast('Đã xóa', `Đã xóa bài viết "${title}"`, 'info');
-      newsService.syncArticlesToCloudflare();
+      onShowToast('Đã xóa vĩnh viễn', `Đã xóa bài viết "${title}"`, 'info');
     }
   };
 
@@ -496,12 +495,20 @@ export const NewsModule: React.FC<NewsModuleProps> = ({ onShowToast }) => {
         console.warn('Cannot fetch codes for game:', err);
       }
 
+      const gameLogo =
+        aiSelectedGame.cover_image_url ||
+        aiSelectedGame.icon_url ||
+        aiSelectedGame.bannerUrl ||
+        (aiSelectedGame.slug ? `/game_icons/${aiSelectedGame.slug}.webp` : '');
+
       const draft = newsService.generateAiArticleDraft({
         game: {
           id: aiSelectedGame.id,
           name: aiSelectedGame.name,
           slug: aiSelectedGame.slug,
-          cover_image: aiSelectedGame.bannerUrl || aiSelectedGame.iconUrl,
+          cover_image_url: gameLogo,
+          banner_url: gameLogo,
+          icon_url: gameLogo,
         },
         topicType: aiTopicType,
         availableCodes: gameCodes,
@@ -1403,11 +1410,17 @@ export const NewsModule: React.FC<NewsModuleProps> = ({ onShowToast }) => {
                       games={games}
                       selectedGameSlug={editingArticle.game_slug || ''}
                       onSelectGame={(g) => {
+                        const gameLogo = g ? (g.cover_image_url || g.icon_url || (g.slug ? `/game_icons/${g.slug}.webp` : '')) : '';
+                        const isDefaultOrEmptyCover = !editingArticle.cover_url || editingArticle.cover_url.includes('images.unsplash.com');
                         setEditingArticle({
                           ...editingArticle,
                           game_id: g?.id,
                           game_slug: g?.slug,
                           game_name: g?.name,
+                          cover_url: gameLogo || editingArticle.cover_url || '',
+                          slug: (!editingArticle.slug || editingArticle.slug.startsWith('tin-tuc-game-')) && g?.slug
+                            ? `${g.slug}-2026`
+                            : editingArticle.slug,
                         });
                       }}
                       placeholder="Chọn game để gắn nhãn & đồng bộ..."
@@ -1429,23 +1442,41 @@ export const NewsModule: React.FC<NewsModuleProps> = ({ onShowToast }) => {
                     />
                   </div>
 
-                  {/* Ảnh bìa chính (Cover URL) kèm nút Nén tự động */}
+                  {/* Ảnh bìa chính (Cover URL) kèm nút Nén tự động & Nút Dùng logo game */}
                   <div className="p-3.5 rounded-2xl bg-slate-800/50 border border-slate-700/80 space-y-2.5">
                     <div className="flex items-center justify-between">
                       <label className="text-xs font-bold text-slate-200 flex items-center gap-1.5">
                         <Image className="w-4 h-4 text-indigo-400" />
                         <span>Ảnh bìa chính (Cover Banner)</span>
                       </label>
-                      <button
-                        type="button"
-                        disabled={isCompressingCover}
-                        onClick={() => coverFileInputRef.current?.click()}
-                        className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-indigo-600/20 text-indigo-300 border border-indigo-500/30 hover:bg-indigo-600/30 text-[11px] font-bold cursor-pointer disabled:opacity-50 transition-all"
-                        title="Chọn ảnh từ máy tính (Tự động nén WebP siêu nhẹ)"
-                      >
-                        <Upload className="w-3 h-3" />
-                        <span>{isCompressingCover ? 'Đang nén...' : '📁 Tải ảnh từ máy'}</span>
-                      </button>
+                      <div className="flex items-center gap-2">
+                        {editingArticle.game_slug && (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const foundGame = games.find((g) => g.slug === editingArticle.game_slug || g.id === editingArticle.game_slug);
+                              const gameLogo = foundGame?.cover_image_url || foundGame?.icon_url || `/game_icons/${editingArticle.game_slug}.webp`;
+                              setEditingArticle({ ...editingArticle, cover_url: gameLogo });
+                              onShowToast('Đã đổi ảnh bìa', 'Đã đặt logo của tựa game làm ảnh bìa chính!', 'success');
+                            }}
+                            className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-emerald-600/20 text-emerald-300 border border-emerald-500/30 hover:bg-emerald-600/30 text-[11px] font-bold cursor-pointer transition-all"
+                            title="Đặt logo của tựa game liên kết làm ảnh bìa chính"
+                          >
+                            <Gamepad2 className="w-3 h-3" />
+                            <span>🎮 Dùng Logo Game</span>
+                          </button>
+                        )}
+                        <button
+                          type="button"
+                          disabled={isCompressingCover}
+                          onClick={() => coverFileInputRef.current?.click()}
+                          className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-indigo-600/20 text-indigo-300 border border-indigo-500/30 hover:bg-indigo-600/30 text-[11px] font-bold cursor-pointer disabled:opacity-50 transition-all"
+                          title="Chọn ảnh từ máy tính (Tự động nén WebP siêu nhẹ)"
+                        >
+                          <Upload className="w-3 h-3" />
+                          <span>{isCompressingCover ? 'Đang nén...' : '📁 Tải ảnh từ máy'}</span>
+                        </button>
+                      </div>
                     </div>
 
                     <div className="flex gap-2 items-center">
@@ -1458,7 +1489,7 @@ export const NewsModule: React.FC<NewsModuleProps> = ({ onShowToast }) => {
                             cover_url: optimizeImageUrl(e.target.value, 1200),
                           })
                         }
-                        placeholder="https://... hoặc tải ảnh từ máy tính"
+                        placeholder={editingArticle.game_slug ? `Mặc định: /game_icons/${editingArticle.game_slug}.webp (Logo game)` : 'https://... hoặc tải ảnh từ máy tính'}
                         className="flex-1 px-3 py-2 rounded-xl bg-slate-900 border border-slate-700 text-xs text-white outline-none focus:border-indigo-500 font-mono"
                       />
                       {editingArticle.cover_url && (
