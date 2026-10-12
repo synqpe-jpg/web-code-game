@@ -5,7 +5,7 @@
     "type": "official_site",
     "url": "https://vnggames.com",
     "isEnabled": true,
-    "description": "Cổng thông tin sự kiện & thông báo chính thức nhà phát hành VNGGames."
+    "description": "C���ng thông tin sự kiện & thông báo chính thức nhà phát hành VNGGames."
   },
   {
     "id": "src_pub_zing_pay",
@@ -3590,7 +3590,7 @@
     "url": "https://codemoi.net/games/tho-san-quy/",
     "targetGameSlug": "tho-san-quy",
     "isEnabled": true,
-    "description": "Cập nhật giftcode Thợ Săn Quỷ: Đại Chiến Dị Giới mới nhất, kiểm tra mã quà tặng hàng ngày từ CodeMoi."
+    "description": "Cập nh��t giftcode Thợ Săn Quỷ: Đại Chiến Dị Giới mới nhất, kiểm tra mã quà tặng hàng ngày từ CodeMoi."
   },
   {
     "id": "src_sforum_tho-san-quy",
@@ -10881,5 +10881,13 @@
     "targetGameSlug": "thieu-nien-tay-du-vtc",
     "isEnabled": true,
     "description": "Kênh Fanpage Facebook chính thức của NPH VTC Mobile quản lý và phát code cho Thiếu Niên Tây Du VTC."
+  },
+  {
+    "id": "src_1791727809287_8vcs",
+    "name": "Tiên Nghịch JoyGame",
+    "type": "official_fb",
+    "url": "https://www.facebook.com/tiennghich.vn",
+    "targetGameSlug": "tien-nghich-mobile",
+    "isEnabled": true
   }
 ]

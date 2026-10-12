@@ -2488,10 +2488,10 @@
     "is_hot": true,
     "is_new": false,
     "is_active": true,
-    "codes_count": 18,
-    "free_codes_count": 18,
+    "codes_count": 26,
+    "free_codes_count": 26,
     "source": "Phần thưởng từ nhà phát hành",
-    "updated_at": "2026-10-09T15:49:32.042Z"
+    "updated_at": "2026-10-12T14:55:11.000Z"
   },
   {
     "id": "ts-origin",

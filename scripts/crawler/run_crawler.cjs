@@ -139,11 +139,34 @@ async function main() {
     if (fs.existsSync(p)) localSources = JSON.parse(fs.readFileSync(p, 'utf8'));
   } catch {}
 
-  if (serverState && Array.isArray(serverState.crawlerSources) && serverState.crawlerSources.length >= localSources.length) {
-    sources = serverState.crawlerSources;
-  } else {
-    const serverMap = new Map((serverState?.crawlerSources || []).map((s) => [s.id, s]));
-    sources = localSources.map((ls) => (serverMap.has(ls.id) ? { ...ls, ...serverMap.get(ls.id) } : ls));
+  // Hợp nhất 2 chiều giữa localSources và serverState.crawlerSources
+  const sourceMap = new Map();
+  localSources.forEach((s) => {
+    if (s && s.id) sourceMap.set(s.id, s);
+  });
+  if (serverState && Array.isArray(serverState.crawlerSources)) {
+    serverState.crawlerSources.forEach((s) => {
+      if (s && s.id) {
+        const existing = sourceMap.get(s.id);
+        sourceMap.set(s.id, { ...(existing || {}), ...s });
+      }
+    });
+  }
+  sources = Array.from(sourceMap.values());
+
+  // Tự động đồng bộ các nguồn mới từ server về local JSON nếu phát hiện có thêm nguồn
+  if (sources.length > localSources.length) {
+    try {
+      const p1 = path.resolve(__dirname, '../../src/data/crawler_sources.json');
+      const p2 = path.resolve(__dirname, '../../public/data/crawler_sources.json');
+      fs.writeFileSync(p1, JSON.stringify(sources, null, 2), 'utf8');
+      if (fs.existsSync(path.dirname(p2))) {
+        fs.writeFileSync(p2, JSON.stringify(sources, null, 2), 'utf8');
+      }
+      console.log(`[Crawler] 💾 Đã tự động cập nhật ${sources.length - localSources.length} nguồn mới từ server vào file cục bộ.`);
+    } catch (saveErr) {
+      console.warn(`[Crawler] ⚠️ Không thể lưu nguồn cục bộ: ${saveErr.message}`);
+    }
   }
 
   console.log(`[Crawler] 📊 Thông số khởi động:`);
@@ -194,7 +217,10 @@ async function main() {
       } else if (src.type === 'community_discord') {
         scrapedResult = discordScraper.parseMessage(src.description || src.name, src.name, src.name);
       } else if (src.type === 'official_fb') {
-        scrapedResult = facebookScraper.parsePost(src.description || src.name, src.name);
+        scrapedResult = await facebookScraper.scrapeFacebookSource(src.url, src.name, src.targetGameSlug, games);
+        if ((!scrapedResult || !scrapedResult.codes || scrapedResult.codes.length === 0) && src.description) {
+          scrapedResult = facebookScraper.parsePost(src.description, src.name);
+        }
       }
     } catch (err) {
       console.warn(`   ⚠️ [${index + 1}/${enabledSources.length}] Lỗi cào nguồn "${src.name}": ${err.message}`);
