@@ -56,7 +56,7 @@ async function loadProducts(env: any): Promise<ProductInput[]> {
             END AS sold_count
           FROM store_products sp
           WHERE sp.is_active = 1
-        `).all().catch(() => ({ results: [] })),
+        `).all().catch((e) => { console.warn('spRes error:', e?.message); return { results: [] }; }),
         env.DB.prepare(`
           SELECT 
             u.id, 
@@ -79,7 +79,7 @@ async function loadProducts(env: any): Promise<ProductInput[]> {
             END AS sold_count
           FROM utilities u
           WHERE u.is_active = 1
-        `).all().catch(() => ({ results: [] })),
+        `).all().catch((e) => { console.warn('utRes error:', e?.message); return { results: [] }; }),
       ]);
 
       const items: ProductInput[] = [];
@@ -192,7 +192,16 @@ export async function generateAndPersistSnapshot(env: any): Promise<GlobalMetric
     })),
     env.DB ? getSettingD1(env.DB, 'wcg_marketing_config_v1') : null,
   ]);
-  const marketingConfig = safeParseJson<any>(marketingConfigRaw);
+  let marketingConfig = safeParseJson<any>(marketingConfigRaw);
+  if (!marketingConfig && env.DB) {
+    try {
+      const masterRaw = await getSettingD1(env.DB, 'wcg_master_state_v4');
+      const masterParsed = safeParseJson<any>(masterRaw);
+      if (masterParsed?.marketingConfig) {
+        marketingConfig = masterParsed.marketingConfig;
+      }
+    } catch {}
+  }
 
   // 1.5. Cleanse runaway peaks in hub if items are out of stock or peaks exceed reasonable cap
   const oosEnabled = Boolean(marketingConfig?.offlineCatchUp?.outOfStockEnabled);
@@ -227,6 +236,60 @@ export async function generateAndPersistSnapshot(env: any): Promise<GlobalMetric
         : realClaimed + virtualBase + (Number(marketingConfig?.offlineCatchUp?.maxCatchUpUnits) || 70) + 10;
       if ((realRemaining <= 0 && !oosEnabled) || val > maxAllowed) {
         delete hub.peakGiveawayClaimedCounts[gId];
+        hubModified = true;
+      }
+    }
+  }
+
+  // 1.6. Cleanse lowestProductStock in hub (prevent stale inflated cache from older configurations)
+  if (hub.lowestProductStock && typeof hub.lowestProductStock === 'object') {
+    const prodMap = new Map((products || []).map(p => [p.id, p]));
+    for (const [pId, val] of Object.entries(hub.lowestProductStock)) {
+      const prod = prodMap.get(pId);
+      const realStock = Math.max(0, Number(prod?.stock_quantity) || 0);
+      const pw = marketingConfig?.productWeights?.[pId];
+      const virtualBonus = pw?.virtualStockBonus !== undefined ? Number(pw.virtualStockBonus) : 20;
+      const threshold = pw?.autoRestockThreshold !== undefined ? Number(pw.autoRestockThreshold) : 1;
+      const restockAmount = pw?.autoRestockAmount !== undefined ? Number(pw.autoRestockAmount) : 20;
+      const priority = pw?.priority || 'normal';
+      const effectiveThreshold = (realStock > 0 && threshold < realStock) ? realStock : threshold;
+      const maxAllowedStock = (priority === 'off' || virtualBonus <= 0)
+        ? realStock
+        : Math.max(realStock + virtualBonus, effectiveThreshold + restockAmount);
+
+      const numVal = Number(val);
+      if (realStock <= 0) {
+        delete hub.lowestProductStock[pId];
+        hubModified = true;
+      } else if (numVal > maxAllowedStock || numVal <= 0) {
+        hub.lowestProductStock[pId] = maxAllowedStock;
+        hubModified = true;
+      }
+    }
+  }
+
+  // 1.7. Cleanse lowestGiveawayRemaining in hub
+  if (hub.lowestGiveawayRemaining && typeof hub.lowestGiveawayRemaining === 'object') {
+    const gwMap = new Map((giveaways || []).map(g => [g.id, g]));
+    for (const [gId, val] of Object.entries(hub.lowestGiveawayRemaining)) {
+      const gw = gwMap.get(gId);
+      const realRemaining = Math.max(0, Number(gw?.remaining_codes) || 0);
+      const pw = marketingConfig?.productWeights?.[gId];
+      const virtualBonus = pw?.virtualStockBonus !== undefined ? Number(pw.virtualStockBonus) : 20;
+      const threshold = pw?.autoRestockThreshold !== undefined ? Number(pw.autoRestockThreshold) : 1;
+      const restockAmount = pw?.autoRestockAmount !== undefined ? Number(pw.autoRestockAmount) : 20;
+      const priority = pw?.priority || 'normal';
+      const effectiveThreshold = (realRemaining > 0 && threshold < realRemaining) ? realRemaining : threshold;
+      const maxAllowedRemaining = (priority === 'off' || virtualBonus <= 0)
+        ? realRemaining
+        : Math.max(realRemaining + virtualBonus, effectiveThreshold + restockAmount);
+
+      const numVal = Number(val);
+      if (realRemaining <= 0) {
+        delete hub.lowestGiveawayRemaining[gId];
+        hubModified = true;
+      } else if (numVal > maxAllowedRemaining || numVal <= 0) {
+        hub.lowestGiveawayRemaining[gId] = maxAllowedRemaining;
         hubModified = true;
       }
     }

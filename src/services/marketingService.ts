@@ -413,15 +413,20 @@ class MarketingService {
                       ? realStock
                       : rawThreshold;
                     const restockAmount = Math.max(1, Number(pw.autoRestockAmount) || 20);
-                    const currentLive = this.liveVirtualStockMap.get(pId);
-                    const hasAutoRestock = Boolean(pw.virtualStockBonus && pw.virtualStockBonus > 0 && pw.autoRestockAmount && pw.autoRestockAmount > 0);
+                    const maxAllowedStock = (pw.priority === 'off' || !pw.virtualStockBonus || pw.virtualStockBonus <= 0)
+                      ? realStock
+                      : Math.max(realStock + Number(pw.virtualStockBonus || 0), effectiveThreshold + restockAmount);
 
-                    // 1. Chưa có live stock (hoặc <= 0), khởi tạo từ server snapshot:
-                    if (typeof currentLive !== 'number' || isNaN(currentLive) || currentLive <= 0) {
-                      const initStock = info.stock > 0 ? info.stock : this.getVirtualBonusStock(pId, now, realStock);
+                    // Auto-heal inflated client cache
+                    if (typeof currentLive === 'number' && currentLive > maxAllowedStock) {
+                      const healed = Math.min(info.stock > 0 ? info.stock : maxAllowedStock, maxAllowedStock);
+                      this.liveVirtualStockMap.set(pId, healed);
+                      this.liveVirtualStockTimestampsMap.set(pId, now);
+                    } else if (typeof currentLive !== 'number' || isNaN(currentLive) || currentLive <= 0) {
+                      const initStock = (info.stock > 0 && info.stock <= maxAllowedStock) ? info.stock : this.getVirtualBonusStock(pId, now, realStock);
                       this.liveVirtualStockMap.set(pId, initStock);
                       this.liveVirtualStockTimestampsMap.set(pId, now);
-                    } else if (info.stock > currentLive) {
+                    } else if (info.stock > currentLive && info.stock <= maxAllowedStock) {
                       // 2. Server stock lớn hơn client stock:
                       // Chỉ chấp nhận ghi đè tăng số nếu server thực sự vừa BÙ KHO (nhảy lên mốc bù kho sau đáy):
                       const isServerFreshRestock = hasAutoRestock && info.stock >= (effectiveThreshold + restockAmount - 2) && currentLive <= (effectiveThreshold + 2);
@@ -470,11 +475,19 @@ class MarketingService {
                     const currentLive = this.liveVirtualStockMap.get(gId);
                     const hasAutoRestock = Boolean(pw.virtualStockBonus && pw.virtualStockBonus > 0 && pw.autoRestockAmount && pw.autoRestockAmount > 0);
 
-                    if (typeof currentLive !== 'number' || isNaN(currentLive) || currentLive <= 0) {
-                      const initRemaining = info.remaining > 0 ? info.remaining : this.getVirtualBonusStock(gId, now, realRemaining);
+                    const maxAllowedGwStock = (pw.priority === 'off' || !pw.virtualStockBonus || pw.virtualStockBonus <= 0)
+                      ? realRemaining
+                      : Math.max(realRemaining + Number(pw.virtualStockBonus || 0), effectiveThreshold + restockAmount);
+
+                    if (typeof currentLive === 'number' && currentLive > maxAllowedGwStock) {
+                      const healed = Math.min(info.remaining > 0 ? info.remaining : maxAllowedGwStock, maxAllowedGwStock);
+                      this.liveVirtualStockMap.set(gId, healed);
+                      this.liveVirtualStockTimestampsMap.set(gId, now);
+                    } else if (typeof currentLive !== 'number' || isNaN(currentLive) || currentLive <= 0) {
+                      const initRemaining = (info.remaining > 0 && info.remaining <= maxAllowedGwStock) ? info.remaining : this.getVirtualBonusStock(gId, now, realRemaining);
                       this.liveVirtualStockMap.set(gId, initRemaining);
                       this.liveVirtualStockTimestampsMap.set(gId, now);
-                    } else if (info.remaining > currentLive) {
+                    } else if (info.remaining > currentLive && info.remaining <= maxAllowedGwStock) {
                       const isServerFreshRestock = hasAutoRestock && info.remaining >= (effectiveThreshold + restockAmount - 2) && currentLive <= (effectiveThreshold + 2);
                       if (isServerFreshRestock) {
                         this.recentRestockTimestampsMap.set(gId, now);
@@ -834,7 +847,21 @@ class MarketingService {
         if (parsed && typeof parsed === 'object') {
           Object.entries(parsed).forEach(([k, v]) => {
             if (typeof v === 'number' && !isNaN(v)) {
-              this.liveVirtualStockMap.set(k, v);
+              const pw = this.getProductConfig(k);
+              const realStock = this.getRealStockFor(k);
+              if (realStock <= 0) {
+                this.liveVirtualStockMap.set(k, 0);
+              } else if (pw.priority === 'off' || !pw.virtualStockBonus || pw.virtualStockBonus <= 0) {
+                this.liveVirtualStockMap.set(k, realStock);
+              } else {
+                const rawThreshold = Math.max(1, Number(pw.autoRestockThreshold) || 1);
+                const restockAmount = Math.max(1, Number(pw.autoRestockAmount) || 20);
+                const effectiveThreshold = (realStock > 0 && rawThreshold < realStock)
+                  ? realStock
+                  : rawThreshold;
+                const maxAllowed = Math.max(realStock + Number(pw.virtualStockBonus || 0), effectiveThreshold + restockAmount);
+                this.liveVirtualStockMap.set(k, Math.min(Math.max(realStock, v), maxAllowed));
+              }
             }
           });
         }
@@ -1536,15 +1563,6 @@ class MarketingService {
     const pw = this.getProductConfig(productId);
     if (pw.priority === 'off' || !pw.virtualStockBonus || pw.virtualStockBonus <= 0) return 0;
 
-    // 1. Ưu tiên giá trị đã lưu trong liveVirtualStockMap (được giảm liên tục khi có mua hàng hoặc thời gian trôi qua)
-    if (this.liveVirtualStockMap.has(productId)) {
-      const liveVal = this.liveVirtualStockMap.get(productId);
-      if (typeof liveVal === 'number' && !isNaN(liveVal)) {
-        return Math.max(0, liveVal);
-      }
-    }
-
-    // 2. Nếu chưa có trong live map, tính baseline ban đầu từ config admin:
     const rawThreshold = Math.max(1, Number(pw.autoRestockThreshold) || 1);
     const restockAmount = Math.max(1, Number(pw.autoRestockAmount) || 20);
 
@@ -1552,11 +1570,24 @@ class MarketingService {
       ? maybeRealStock
       : (this.productRealStockMap.get(productId) ?? this.activeSnapshot?.products?.[productId]?.real_stock ?? this.activeSnapshot?.giveaways?.[productId]?.real_remaining ?? 0);
 
+    if (realStock <= 0) return 0;
+
     const effectiveTotalThreshold = (realStock > 0 && rawThreshold < realStock)
       ? realStock
       : rawThreshold;
 
-    const initialBonus = Math.max(realStock + pw.virtualStockBonus, effectiveTotalThreshold + restockAmount);
+    const maxAllowedStock = Math.max(realStock + Number(pw.virtualStockBonus || 0), effectiveTotalThreshold + restockAmount);
+
+    // 1. Ưu tiên giá trị đã lưu trong liveVirtualStockMap (nếu hợp lệ <= maxAllowedStock)
+    if (this.liveVirtualStockMap.has(productId)) {
+      const liveVal = this.liveVirtualStockMap.get(productId);
+      if (typeof liveVal === 'number' && !isNaN(liveVal) && liveVal > 0 && liveVal <= maxAllowedStock) {
+        return liveVal;
+      }
+    }
+
+    // 2. Tính baseline ban đầu từ config admin: Tồn kho thật + Kho ảo cộng thêm
+    const initialBonus = realStock + Number(pw.virtualStockBonus || 0);
 
     this.liveVirtualStockMap.set(productId, initialBonus);
     this.liveVirtualStockTimestampsMap.set(productId, timestampMs);
@@ -1686,10 +1717,16 @@ class MarketingService {
       ? realStock
       : rawThreshold;
 
+    const maxAllowedStock = (pw.priority === 'off' || !pw.virtualStockBonus || pw.virtualStockBonus <= 0)
+      ? realStock
+      : Math.max(realStock + Number(pw.virtualStockBonus || 0), effectiveThreshold + restockAmount);
+
     // Lấy tồn kho hiện tại và trừ bớt
     let currentStock = this.liveVirtualStockMap.get(productId);
     if (typeof currentStock !== 'number' || isNaN(currentStock) || currentStock <= 0) {
       currentStock = this.getDisplayStock(productId, realStock);
+    } else if (currentStock > maxAllowedStock) {
+      currentStock = maxAllowedStock;
     }
 
     let nextStock = currentStock - dec;
@@ -1709,6 +1746,7 @@ class MarketingService {
     } else {
       nextStock = Math.max(realStock, nextStock);
     }
+    nextStock = Math.min(nextStock, maxAllowedStock);
 
     const now = this.getCalibratedNow();
     this.liveVirtualStockMap.set(productId, nextStock);
@@ -1755,36 +1793,41 @@ class MarketingService {
     this.productRealStockMap.set(productId, baseStock);
 
     const pw = this.getProductConfig(productId);
-    if (pw.priority === 'off') {
+    if (pw.priority === 'off' || !pw.virtualStockBonus || pw.virtualStockBonus <= 0) {
+      this.liveVirtualStockMap.set(productId, baseStock);
       return baseStock;
     }
 
     // Nếu tồn kho thật < minRealStock: chỉ hiển thị tồn kho thật
     if (baseStock < this.getMinRealStock(productId)) {
+      this.liveVirtualStockMap.set(productId, baseStock);
       return baseStock;
     }
 
-    // Lấy tồn kho ảo sống động:
-    let liveStock = this.liveVirtualStockMap.get(productId);
-    if (typeof liveStock !== 'number' || isNaN(liveStock) || liveStock <= 0) {
-      if (this.activeSnapshot?.products?.[productId]?.stock) {
-        liveStock = this.activeSnapshot.products[productId].stock;
-      } else if (this.activeSnapshot?.giveaways?.[productId]?.remaining) {
-        liveStock = this.activeSnapshot.giveaways[productId].remaining;
-      } else {
-        liveStock = this.getVirtualBonusStock(productId, timestampMs, baseStock);
-      }
-      this.liveVirtualStockMap.set(productId, liveStock);
-      this.saveLiveVirtualStock();
-    }
-
-    // Auto-restock check ngay khi đọc tồn kho hiển thị:
     const rawThreshold = Math.max(1, Number(pw.autoRestockThreshold) || 1);
     const restockAmount = Math.max(1, Number(pw.autoRestockAmount) || 20);
     const effectiveThreshold = (baseStock > 0 && rawThreshold < baseStock)
       ? baseStock
       : rawThreshold;
 
+    const maxAllowedStock = Math.max(baseStock + Number(pw.virtualStockBonus || 0), effectiveThreshold + restockAmount);
+
+    // Lấy tồn kho ảo sống động:
+    let liveStock = this.liveVirtualStockMap.get(productId);
+    if (typeof liveStock !== 'number' || isNaN(liveStock) || liveStock <= 0 || liveStock > maxAllowedStock) {
+      if (this.activeSnapshot?.products?.[productId]?.stock && this.activeSnapshot.products[productId].stock <= maxAllowedStock) {
+        liveStock = this.activeSnapshot.products[productId].stock;
+      } else if (this.activeSnapshot?.giveaways?.[productId]?.remaining && this.activeSnapshot.giveaways[productId].remaining <= maxAllowedStock) {
+        liveStock = this.activeSnapshot.giveaways[productId].remaining;
+      } else {
+        liveStock = baseStock + Number(pw.virtualStockBonus || 0);
+      }
+      liveStock = Math.min(liveStock, maxAllowedStock);
+      this.liveVirtualStockMap.set(productId, liveStock);
+      this.saveLiveVirtualStock();
+    }
+
+    // Auto-restock check ngay khi đọc tồn kho hiển thị:
     if (pw.virtualStockBonus && pw.virtualStockBonus > 0 && baseStock > 0 && liveStock <= effectiveThreshold) {
       liveStock = effectiveThreshold + restockAmount;
       this.recentRestockTimestampsMap.set(productId, Date.now());
@@ -1802,7 +1845,7 @@ class MarketingService {
       this.schedulePeakReport();
     }
 
-    return Math.max(1, liveStock);
+    return Math.max(baseStock, Math.min(liveStock, maxAllowedStock));
   }
 
   public getHourlyGrowth(id: string, createdAt?: string, priority?: string): number {
@@ -3839,6 +3882,36 @@ class MarketingService {
 
   public async saveConfig(newConfig: MarketingConfig): Promise<boolean> {
     this.config = { ...newConfig, lastUpdated: new Date().toISOString() };
+
+    // 1. Recalibrate & heal liveVirtualStockMap based on newly saved config weights
+    if (this.config.productWeights && typeof this.config.productWeights === 'object') {
+      Object.entries(this.config.productWeights).forEach(([id, pw]) => {
+        if (!pw) return;
+        const realStock = this.getRealStockFor(id);
+        if (realStock <= 0) {
+          this.liveVirtualStockMap.set(id, 0);
+        } else if (pw.priority === 'off' || !pw.virtualStockBonus || pw.virtualStockBonus <= 0) {
+          this.liveVirtualStockMap.set(id, realStock);
+        } else {
+          const rawThreshold = Math.max(1, Number(pw.autoRestockThreshold) || 1);
+          const restockAmount = Math.max(1, Number(pw.autoRestockAmount) || 20);
+          const effectiveThreshold = (realStock > 0 && rawThreshold < realStock)
+            ? realStock
+            : rawThreshold;
+          const maxAllowed = Math.max(realStock + Number(pw.virtualStockBonus || 0), effectiveThreshold + restockAmount);
+          const cur = this.liveVirtualStockMap.get(id);
+          if (cur === undefined || cur > maxAllowed || cur <= effectiveThreshold) {
+            this.liveVirtualStockMap.set(id, realStock + Number(pw.virtualStockBonus || 0));
+          }
+        }
+      });
+      this.saveLiveVirtualStock();
+    }
+
+    // Reset reported stock peaks so new values are immediately reported to server
+    this.lastReportedPeaks.stock = {};
+    this.lastReportedPeaks.remaining = {};
+
     this.startSnapshotPoller();
     this.notifyStockChanged('*', 0);
     if (typeof window !== 'undefined') {
@@ -3849,6 +3922,8 @@ class MarketingService {
         console.error('Failed to save marketing config to localStorage', err);
       }
     }
+
+    this.schedulePeakReport(true);
 
     try {
       const token =
@@ -3885,6 +3960,7 @@ class MarketingService {
             body: JSON.stringify({
               key: MARKETING_CONFIG_KEY,
               data: this.config,
+              marketingConfig: this.config,
             }),
           }).catch((err) => {
             console.warn(`[MarketingService] Push to ${url} failed:`, err);

@@ -184,41 +184,54 @@ export const MarketingModule: React.FC<MarketingModuleProps> = ({ onShowToast })
     });
   };
 
-  const handleApplyBatchToAll = () => {
-    const updatedWeights: Record<string, ProductMarketingConfig> = { ...config.productWeights };
-    storeProducts.forEach((p) => {
-      updatedWeights[p.id] = {
-        priority: batchPriority,
-        virtualStockBonus: batchVirtualStock,
-        autoRestockThreshold: batchThreshold,
-        autoRestockAmount: batchAmount,
-        minRealStock: batchMinRealStock,
-      };
-    });
-    utilityProducts.forEach((u) => {
-      updatedWeights[u.id] = {
-        priority: batchPriority,
-        virtualStockBonus: batchVirtualStock,
-        autoRestockThreshold: batchThreshold,
-        autoRestockAmount: batchAmount,
-        minRealStock: batchMinRealStock,
-      };
-    });
-    giveaways.forEach((gw) => {
-      updatedWeights[gw.id] = {
-        priority: batchPriority,
-        virtualStockBonus: batchVirtualStock,
-        autoRestockThreshold: batchThreshold,
-        autoRestockAmount: batchAmount,
-        minRealStock: batchMinRealStock,
-      };
-    });
-    setConfig((prev) => ({ ...prev, productWeights: updatedWeights }));
-    onShowToast(
-      'Đã áp dụng mẫu cho toàn bộ sản phẩm!',
-      `Đã cập nhật cấu hình cho ${storeProducts.length} gói Store, ${utilityProducts.length} tiện ích và ${giveaways.length} giveaway. Hãy bấm "Lưu Cấu Hình Marketing" để lưu vĩnh viễn.`,
-      'success'
-    );
+  const handleApplyBatchToAll = async () => {
+    setIsSaving(true);
+    try {
+      const updatedWeights: Record<string, ProductMarketingConfig> = { ...config.productWeights };
+      storeProducts.forEach((p) => {
+        updatedWeights[p.id] = {
+          priority: batchPriority,
+          virtualStockBonus: batchVirtualStock,
+          autoRestockThreshold: batchThreshold,
+          autoRestockAmount: batchAmount,
+          minRealStock: batchMinRealStock,
+        };
+      });
+      utilityProducts.forEach((u) => {
+        updatedWeights[u.id] = {
+          priority: batchPriority,
+          virtualStockBonus: batchVirtualStock,
+          autoRestockThreshold: batchThreshold,
+          autoRestockAmount: batchAmount,
+          minRealStock: batchMinRealStock,
+        };
+      });
+      giveaways.forEach((gw) => {
+        updatedWeights[gw.id] = {
+          priority: batchPriority,
+          virtualStockBonus: batchVirtualStock,
+          autoRestockThreshold: batchThreshold,
+          autoRestockAmount: batchAmount,
+          minRealStock: batchMinRealStock,
+        };
+      });
+      const newConfig = { ...config, productWeights: updatedWeights };
+      setConfig(newConfig);
+      await marketingService.saveConfig(newConfig);
+      onShowToast(
+        'Đã áp dụng và lưu thành công!',
+        `Đã lưu và đồng bộ cấu hình kho ảo (+${batchVirtualStock} ảo, bù +${batchAmount} khi ≤${batchThreshold}) cho toàn bộ ${storeProducts.length} Store, ${utilityProducts.length} Tiện ích và ${giveaways.length} Giveaway lên hệ thống.`,
+        'success'
+      );
+    } catch (err: any) {
+      onShowToast(
+        'Đã áp dụng mẫu (chưa lưu server)',
+        `Đã cập nhật trên giao diện cục bộ. Khi lưu server gặp sự cố: ${err?.message || 'Vui lòng bấm Lưu Cấu Hình'}.`,
+        'warning'
+      );
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   // Test notification trigger
@@ -2189,14 +2202,24 @@ export const MarketingModule: React.FC<MarketingModuleProps> = ({ onShowToast })
                   />
                 </div>
 
-                <div>
+                <div className="flex items-center gap-2">
                   <button
                     type="button"
                     onClick={handleApplyBatchToAll}
-                    className="w-full py-1.5 px-3 rounded-lg bg-primary hover:bg-primary/90 text-white font-bold text-xs shadow-sm transition-all cursor-pointer flex items-center justify-center gap-1.5 active:scale-95"
+                    disabled={isSaving}
+                    className="py-1.5 px-3 rounded-lg bg-primary hover:bg-primary/90 text-white font-bold text-xs shadow-sm transition-all cursor-pointer flex items-center justify-center gap-1.5 active:scale-95 disabled:opacity-50"
                   >
                     <Sparkles className="w-3.5 h-3.5" />
-                    <span>Áp Dụng Cho Tất Cả</span>
+                    <span>{isSaving ? 'Đang lưu...' : 'Áp Dụng Cho Tất Cả & Lưu'}</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleSaveConfig}
+                    disabled={isSaving}
+                    className="py-1.5 px-3 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs shadow-sm transition-all cursor-pointer flex items-center justify-center gap-1.5 active:scale-95 disabled:opacity-50"
+                  >
+                    <CheckCircle2 className="w-3.5 h-3.5" />
+                    <span>{isSaving ? 'Đang lưu...' : 'Lưu Cấu Hình Ngay'}</span>
                   </button>
                 </div>
               </div>

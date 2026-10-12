@@ -368,21 +368,29 @@ export function calculateGlobalSnapshot(
     const priority = pw?.priority || 'normal';
     const minRealStock = Math.max(1, Number(pw?.minRealStock) || 1);
 
-    const rawDisplayStock = (realStock < minRealStock || priority === 'off')
+    const effectiveThreshold = (realStock > 0 && threshold < realStock)
+      ? realStock
+      : threshold;
+
+    const maxAllowedStock = (priority === 'off' || virtualBonusConfig <= 0)
+      ? realStock
+      : Math.max(realStock + virtualBonusConfig, effectiveThreshold + restockAmount);
+
+    const rawDisplayStock = (realStock < minRealStock || priority === 'off' || virtualBonusConfig <= 0)
       ? realStock
       : calculateDeterministicStock(prod.id, realStock, timestampMs, virtualBonusConfig, threshold, restockAmount, priority);
 
     let displayStock = rawDisplayStock;
     if (data.lowestProductStock?.[prod.id] !== undefined) {
       const lowest = Math.max(0, Number(data.lowestProductStock[prod.id]));
-      if (lowest > 0) {
+      if (lowest > 0 && lowest <= maxAllowedStock) {
         displayStock = lowest;
+      } else if (lowest > maxAllowedStock) {
+        // Auto-heal inflated historical peak/lowest from previous config
+        displayStock = maxAllowedStock;
+        data.lowestProductStock[prod.id] = maxAllowedStock;
       }
     }
-
-    const effectiveThreshold = (realStock > 0 && threshold < realStock)
-      ? realStock
-      : threshold;
 
     if (priority !== 'off' && virtualBonusConfig > 0 && realStock > 0 && displayStock <= effectiveThreshold) {
       displayStock = effectiveThreshold + restockAmount;
@@ -390,7 +398,15 @@ export function calculateGlobalSnapshot(
         data.lowestProductStock[prod.id] = displayStock;
       }
     }
-    if (realStock <= 0) displayStock = 0;
+
+    if (realStock <= 0) {
+      displayStock = 0;
+      if (data.lowestProductStock) {
+        delete data.lowestProductStock[prod.id];
+      }
+    } else {
+      displayStock = Math.min(displayStock, maxAllowedStock);
+    }
 
     const rawDisplaySold = priority === 'off'
       ? effectiveRealSold
@@ -447,21 +463,28 @@ export function calculateGlobalSnapshot(
     const priority = pw?.priority || 'normal';
     const minRealStock = Math.max(1, Number(pw?.minRealStock) || 1);
 
-    const rawDisplayRemaining = (realRemaining < minRealStock || priority === 'off' || realRemaining <= 0)
+    const effectiveGwThreshold = (realRemaining > 0 && threshold < realRemaining)
+      ? realRemaining
+      : threshold;
+
+    const maxAllowedGwRemaining = (priority === 'off' || virtualBonusConfig <= 0)
+      ? realRemaining
+      : Math.max(realRemaining + virtualBonusConfig, effectiveGwThreshold + restockAmount);
+
+    const rawDisplayRemaining = (realRemaining < minRealStock || priority === 'off' || virtualBonusConfig <= 0 || realRemaining <= 0)
       ? realRemaining
       : Math.max(1, calculateDeterministicStock(gw.id, realRemaining, timestampMs, virtualBonusConfig, threshold, restockAmount, priority));
 
     let displayRemaining = rawDisplayRemaining;
     if (data.lowestGiveawayRemaining?.[gw.id] !== undefined) {
       const lowest = Math.max(0, Number(data.lowestGiveawayRemaining[gw.id]));
-      if (lowest > 0) {
+      if (lowest > 0 && lowest <= maxAllowedGwRemaining) {
         displayRemaining = lowest;
+      } else if (lowest > maxAllowedGwRemaining) {
+        displayRemaining = maxAllowedGwRemaining;
+        data.lowestGiveawayRemaining[gw.id] = maxAllowedGwRemaining;
       }
     }
-
-    const effectiveGwThreshold = (realRemaining > 0 && threshold < realRemaining)
-      ? realRemaining
-      : threshold;
 
     if (priority !== 'off' && virtualBonusConfig > 0 && realRemaining > 0 && displayRemaining <= effectiveGwThreshold) {
       displayRemaining = effectiveGwThreshold + restockAmount;
@@ -469,7 +492,15 @@ export function calculateGlobalSnapshot(
         data.lowestGiveawayRemaining[gw.id] = displayRemaining;
       }
     }
-    if (realRemaining <= 0) displayRemaining = 0;
+
+    if (realRemaining <= 0) {
+      displayRemaining = 0;
+      if (data.lowestGiveawayRemaining) {
+        delete data.lowestGiveawayRemaining[gw.id];
+      }
+    } else {
+      displayRemaining = Math.min(displayRemaining, maxAllowedGwRemaining);
+    }
 
     const rawDisplayClaimed = priority === 'off'
       ? effectiveRealClaimed

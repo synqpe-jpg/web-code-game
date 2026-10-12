@@ -1058,7 +1058,8 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
             if (num >= 0 && num < 1000000) {
               const cur = hub.lowestProductStock[pId];
               const isRestockJump = cur !== undefined && num > cur;
-              if (cur === undefined || num < cur || isRestockJump) {
+              const isDownwardHeal = cur !== undefined && cur > 50 && num < cur;
+              if (body.forceResetStock || cur === undefined || num < cur || isRestockJump || isDownwardHeal) {
                 hub.lowestProductStock[pId] = num;
                 changed = true;
               }
@@ -1073,7 +1074,8 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
             if (num >= 0 && num < 1000000) {
               const cur = hub.lowestGiveawayRemaining[gId];
               const isRestockJump = cur !== undefined && num > cur;
-              if (cur === undefined || num < cur || isRestockJump) {
+              const isDownwardHeal = cur !== undefined && cur > 50 && num < cur;
+              if (body.forceResetStock || cur === undefined || num < cur || isRestockJump || isDownwardHeal) {
                 hub.lowestGiveawayRemaining[gId] = num;
                 changed = true;
               }
@@ -1755,22 +1757,30 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
           const merged = await mergeContentIntoD1(env.DB, body.content);
           currentMaster.content = merged;
         }
-        if (body.sepay !== undefined) await setSettingD1(env.DB, 'wcg_admin_sepay_v4', body.sepay);
-        if (body.marketingConfig !== undefined) await setSettingD1(env.DB, 'wcg_marketing_config_v1', body.marketingConfig);
-        if (body.growthConfig !== undefined) await setSettingD1(env.DB, 'wcg_growth_config_v1', body.growthConfig);
+        if (body.sepay !== undefined || body.key === 'wcg_admin_sepay_v4') await setSettingD1(env.DB, 'wcg_admin_sepay_v4', body.sepay ?? body.data);
+        const incomingMarketing = body.marketingConfig !== undefined
+          ? body.marketingConfig
+          : (body.key === 'wcg_marketing_config_v1' ? body.data : undefined);
+        if (incomingMarketing !== undefined) {
+          await setSettingD1(env.DB, 'wcg_marketing_config_v1', incomingMarketing);
+          // Invalidate snapshot cache so it immediately recalculates with new product weights
+          const gScope = globalThis as any;
+          gScope.__wcg_metrics_snapshot = null;
+        }
+        if (body.growthConfig !== undefined || body.key === 'wcg_growth_config_v1') await setSettingD1(env.DB, 'wcg_growth_config_v1', body.growthConfig ?? body.data);
         if (body.submissions !== undefined) await setSettingD1(env.DB, 'wcg_admin_submissions_v4', body.submissions);
         if (body.transactions !== undefined) await setSettingD1(env.DB, 'wcg_admin_transactions_v4', body.transactions);
         if (body.privateCodes !== undefined) await setSettingD1(env.DB, 'wcg_admin_private_codes_v4', body.privateCodes);
         if (body.securityLogs !== undefined) await setSettingD1(env.DB, 'wcg_admin_security_logs_v4', body.securityLogs);
         if (body.sepayLogs !== undefined) await setSettingD1(env.DB, 'wcg_admin_sepay_logs_v4', body.sepayLogs);
-        if (body.utilityCategories !== undefined) await setSettingD1(env.DB, 'wcg_admin_utility_categories_v1', body.utilityCategories);
-        if (body.storeCategories !== undefined) await setSettingD1(env.DB, 'wcg_admin_store_categories_v1', body.storeCategories);
+        if (body.utilityCategories !== undefined || body.key === 'wcg_admin_utility_categories_v1') await setSettingD1(env.DB, 'wcg_admin_utility_categories_v1', body.utilityCategories ?? body.data);
+        if (body.storeCategories !== undefined || body.key === 'wcg_admin_store_categories_v1') await setSettingD1(env.DB, 'wcg_admin_store_categories_v1', body.storeCategories ?? body.data);
         if (body.giveaways !== undefined) await setSettingD1(env.DB, 'wcg_admin_giveaways_v4', body.giveaways);
         if (body.crawlerPendingCodes !== undefined) await setSettingD1(env.DB, 'wcg_crawler_pending_codes_v1', body.crawlerPendingCodes);
         if (body.crawlerSources !== undefined) await setSettingD1(env.DB, 'wcg_crawler_sources_v1', body.crawlerSources);
         if (body.crawlerLogs !== undefined) await setSettingD1(env.DB, 'wcg_crawler_logs_v1', body.crawlerLogs);
         if (body.deletedNewsArticles !== undefined) await setSettingD1(env.DB, 'wcg_deleted_news_articles_v1', body.deletedNewsArticles);
-        if (body.newsArticles !== undefined) await setSettingD1(env.DB, 'wcg_news_articles_v1', body.newsArticles);
+        if (body.newsArticles !== undefined || body.key === 'wcg_news_articles_v1') await setSettingD1(env.DB, 'wcg_news_articles_v1', body.newsArticles ?? body.data);
         if (body.newsAutoSources !== undefined) await setSettingD1(env.DB, 'wcg_news_auto_sources_v1', body.newsAutoSources);
         if (body.newsScheduleConfig !== undefined) await setSettingD1(env.DB, 'wcg_news_schedule_config_v1', body.newsScheduleConfig);
 

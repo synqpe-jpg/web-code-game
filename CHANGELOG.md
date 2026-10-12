@@ -1,0 +1,99 @@
+# CHANGELOG.md — Nhật Ký Thay Đổi & Lịch Sử Sửa Lỗi Dự Án
+
+Toàn bộ các cập nhật, tính năng mới, và lịch sử sửa lỗi được ghi lại chi tiết tại đây.
+Mỗi mục sửa lỗi đều ghi nhận **Nguyên nhân gốc rễ (Root Cause)**, **Giải pháp thành công (Solution)**, và **Giải pháp đã thất bại (Failed Attempts)** nhằm đảm bảo không bao giờ lặp lại sai lầm trong tương lai.
+
+---
+
+## [2026-10-12]
+
+### 1. Đồng Bộ Tồn Kho & Thông Báo Marketing Ảo (Atomic 1-1 Sync & Restock Guard)
+- **Commit**: `b75df18`, `9eca2c0`
+- **Mô tả**: Sửa lỗi sản phẩm đã chuyển trạng thái hết hàng hoặc xóa hết trong kho Admin nhưng ngoài web khách vẫn báo còn hàng và tự bật lại trạng thái mở bán; đồng bộ 1 - 1 giữa thông báo marketing và các con số hiển thị.
+- **Nguyên nhân gốc rễ (Root Cause)**:
+  - Hàm `getDisplayStock` trong `marketingService.ts` khi tính toán tồn kho hiển thị đã tự động cộng số lượng ảo (`virtualStockBonus`) hoặc kích hoạt auto-restock ngay cả khi hàng thật trong kho (`baseStock`) bằng 0.
+  - Khi admin xóa sản phẩm trong kho `wcg_admin_inventory_v4`, Cloudflare KV sync endpoint (`/api/sync`) không có cơ chế Tombstone nên lần tải trang sau đã kéo dữ liệu cũ trên KV về đè lại vào LocalStorage.
+  - Thông báo nổ ra trên màn hình (`BUY_PRODUCT`, `CLAIM_GIVEAWAY`) chỉ hiện toast đơn thuần mà không trừ tồn kho trực tiếp vào state của thẻ sản phẩm trên giao diện khách.
+- **Giải pháp thành công (Solution Applied)**:
+  1. Thiết lập **Quy tắc vàng**: Nếu tồn kho thật $\le 0$ $\rightarrow$ Trả về `0` ngay lập tức, ngắt toàn bộ bonus ảo, ngắt bù kho, ngắt hoàn toàn việc sinh thông báo ảo bán hàng.
+  2. Triển khai cơ chế **Đồng bộ nguyên tử 1 - 1**: Khi thông báo nổ ra $\rightarrow$ gọi `decrementProductStock(1)` và `incrementLiveSoldCount(1)`, phát sự kiện `BroadcastChannel` và Custom Event để cập nhật toàn bộ thẻ sản phẩm tức thì trong 0s.
+  3. Bổ sung Tombstone `wcg_admin_deleted_products_v4` và cập nhật `/api/sync` để xóa vĩnh viễn dữ liệu trên Cloudflare KV & D1.
+- **Giải pháp thất bại đã thử (Failed Attempts - KHÔNG ĐƯỢC LẶP LẠI)**:
+  - *Thử nghiệm 1*: Chỉ gán cờ `is_active = false` trên giao diện Admin $\rightarrow$ *Thất bại*: Khi khách truy cập trực tiếp URL hoặc do bộ đệm LocalStorage, sản phẩm vẫn hiển thị và cho phép thêm vào giỏ.
+  - *Thử nghiệm 2*: Chỉ trừ số lượng ảo trong state của component Toast $\rightarrow$ *Thất bại*: Số lượng trên thẻ sản phẩm trang Tiện ích và Cửa hàng không đổi, khách thấy thông báo mua nhưng tồn kho không giảm, gây mất uy tín.
+
+---
+
+### 2. Sửa Lỗi Thực Thi Giao Dịch Khi Mua Hàng (D1 SQL Schema Mismatch)
+- **Commit**: `2d0681b`, `795da2a`
+- **Mô tả**: Người dùng có đủ số dư ví, trong kho có hàng, nhưng khi bấm "Mua ngay" thì hệ thống báo lỗi thực thi giao dịch và không thể hoàn tất đơn hàng.
+- **Nguyên nhân gốc rễ (Root Cause)**:
+  - Trong backend Cloudflare Pages Functions (`functions/api/orders/create.ts`), hàm `purchaseOrderD1` thực hiện truy vấn SQL:
+    `SELECT id, code_data FROM inventory_items WHERE product_id = ? AND sku = ? AND status = 'available' LIMIT ?`
+  - Bảng `inventory_items` trong cơ sở dữ liệu Cloudflare D1 thực tế **KHÔNG CÓ CỘT `sku`** (chỉ có các cột `id`, `product_id`, `item_type`, `code_data`, `status`, `created_at`).
+  - Lỗi cú pháp SQL `no such column: sku` khiến toàn bộ transaction mua hàng của D1 bị hủy (rollback), giao dịch thất bại.
+- **Giải pháp thành công (Solution Applied)**:
+  - Xóa bỏ điều kiện `AND sku = ?` trong câu truy vấn SQL của `purchaseOrderD1` và `syncProductStockCounter`.
+  - Thay bằng truy vấn chuẩn theo `product_id` và `status = 'available'`.
+- **Giải pháp thất bại đã thử (Failed Attempts - KHÔNG ĐƯỢC LẶP LẠI)**:
+  - *Thử nghiệm 1*: Tưởng là lỗi thiếu số dư ví hoặc lỗi ép kiểu tiền tệ $\rightarrow$ Đã debug frontend nhưng giao dịch vẫn thất bại do lỗi nằm ở backend D1 SQL query.
+  - *Thử nghiệm 2*: Cố gắng truyền chuỗi rỗng `sku = ''` từ frontend $\rightarrow$ *Thất bại*: Bảng D1 không có cột này nên mọi truy vấn chứa tên cột `sku` đều sập.
+
+---
+
+### 3. Sửa Lỗi Đúp Số Khi Điền Số Tiền Nạp Ví (Unikey Composition & Select Bug)
+- **Commit**: `cdfb702`
+- **Mô tả**: Trong modal Nạp Core & Lịch Sử (`TopupWalletModal.tsx`), khi người dùng chọn nút số tiền mẫu rồi gõ tiếp bằng bàn phím thì bị đúp số (ví dụ bấm 50.000 rồi gõ thêm 1 thì thành 50.000.001 hoặc lặp 2 lần ký tự vừa gõ).
+- **Nguyên nhân gốc rễ (Root Cause)**:
+  - Khi người dùng click nút gợi ý nạp nhanh, input được gán giá trị đã format định dạng tiền tệ có dấu chấm phân cách hàng nghìn (ví dụ `"50.000"`).
+  - Kết hợp với việc gọi `input.select()` trên sự kiện `onFocus` và bàn phím tiếng Việt Unikey/EVKey trên Windows (bộ gõ gửi hai sự kiện compositionstart và input liên tiếp), ký tự mới bị chèn vào giữa chuỗi đã format hoặc nhân đôi ký tự.
+- **Giải pháp thành công (Solution Applied)**:
+  - Xử lý giá trị raw: Lọc bỏ toàn bộ ký tự không phải số bằng `replace(/\D/g, '')` trước khi lưu vào state số nguyên.
+  - Sử dụng cờ kiểm soát composition (`isComposingRef`) để không format hoặc ghi đè khi bộ gõ tiếng Việt đang ghép từ.
+  - Đảm bảo con trỏ chuột nhảy về cuối input sau khi cập nhật số tiền.
+- **Giải pháp thất bại đã thử (Failed Attempts - KHÔNG ĐƯỢC LẶP LẠI)**:
+  - *Thử nghiệm 1*: Chỉ dùng `e.target.select()` trên `onFocus` $\rightarrow$ *Thất bại*: Khi Unikey gõ ký tự đầu tiên, nó xóa vùng chọn rồi lập tức gửi tiếp ký tự thứ hai khiến số bị nhân đôi.
+
+---
+
+### 4. Tối Ưu Bố Cục Tin Tức Game & Thanh Tác Vụ Admin
+- **Commit**: `29174b4`, `6a45b5d`
+- **Mô tả**:
+  1. Banner hero game ghim trên đầu trang tin tức quá lớn (`min-h-[450px]`), chiếm hết màn hình và che khuất danh sách bài viết.
+  2. Bảng quản trị tin tức admin có quá nhiều cột khiến nút Sửa và Xóa bị trôi ra khỏi màn hình (horizontal scroll), khó thao tác.
+- **Nguyên nhân gốc rễ (Root Cause)**:
+  - Thiết kế CSS hero banner ưu tiên ảnh bìa dạng poster lớn không tỷ lệ nghịch với chiều cao màn hình laptop/tablet.
+  - Bảng table quản trị thiếu thuộc tính `sticky right-0` cho cột hành động (Actions).
+- **Giải pháp thành công (Solution Applied)**:
+  - Tinh chỉnh banner hero gọn gàng, giới hạn chiều cao tối đa `h-56` đến `h-64`, chia layout 2 cột cân đối giữa hình ảnh và tiêu đề bài viết.
+  - Cột Hành Động trong Admin Tin Tức được đặt `sticky right-0 bg-slate-900 shadow-xl`, co gọn kích thước padding để các nút Sửa / Xóa luôn hiển thị trong 1 khung nhìn (viewport) không cần cuộn ngang.
+- **Giải pháp thất bại đã thử (Failed Attempts - KHÔNG ĐƯỢC LẶP LẠI)**:
+  - *Thử nghiệm 1*: Ẩn bớt các cột thông tin bài viết trong Admin $\rightarrow$ *Thất bại*: Admin thiếu thông tin ngày tạo và lượt xem khi kiểm tra nhanh.
+
+---
+
+### 5. Khắc Phục Lỗi Trễ Lượt Quét Crawler & Tự Động Hóa Giftcode
+- **Commit**: `63cc246`
+- **Mô tả**: Sau gần 10 giờ thiết lập cron, crawler không chạy lượt quét tự động nào.
+- **Nguyên nhân gốc rễ (Root Cause)**:
+  - Cấu hình cron ban đầu trong `.github/workflows/auto-crawler-sync.yml` đặt vào phút 0 của mỗi giờ (`0 * * * *`).
+  - Phút 0 là khung giờ cao điểm nhất trên toàn bộ hạ tầng GitHub Actions toàn cầu (hàng triệu repo cùng xếp hàng chờ runner), dẫn đến việc job bị hoãn (delayed) từ 4 đến 10 tiếng hoặc bị hủy hàng đợi.
+- **Giải pháp thành công (Solution Applied)**:
+  - Chuyển lịch cron sang phút lẻ `15 * * * *` (Auto Crawler) và `45 * * * *` (Auto News Publisher).
+  - Tích hợp `workflow_dispatch` để kích hoạt thủ công tức thì từ xa qua GitHub API token và giao diện Admin.
+  - Hiển thị badge trạng thái thời gian thực và thời điểm chạy gần nhất trực quan trong Admin Crawler.
+- **Giải pháp thất bại đã thử (Failed Attempts - KHÔNG ĐƯỢC LẶP LẠI)**:
+  - *Thử nghiệm 1*: Giữ nguyên cron `0 * * * *` và tăng số lần retry trong file workflow $\rightarrow$ *Thất bại*: Vẫn bị nghẽn ở khâu cấp phát runner ảo của GitHub Actions.
+
+---
+
+## [2026-10-11]
+
+### 1. Đồng Bộ 486 Game Giấy Phép ABEI (G1/G234) & Chuẩn Hóa Icon 100%
+- **Commit**: `cc685f3`, `e5eadb8`
+- **Mô tả**: Tự động lọc trùng lặp tên game, đồng bộ toàn bộ 486 game có giấy phép ABEI và chuẩn hóa ảnh bìa Open Graph chuẩn 512x512 JPG chống lỗi hiển thị link preview trên Zalo và Facebook.
+- **Nguyên nhân gốc rễ (Root Cause)**:
+  - Zalo và Facebook bot khi cào link chia sẻ không đọc được định dạng ảnh WebP hoặc định dạng Base64/SVG quá dài, dẫn đến link chia sẻ không hiện ảnh thumbnail hoặc bị bể layout.
+- **Giải pháp thành công (Solution Applied)**:
+  - Tạo script xuất ảnh Open Graph tĩnh dạng `og_*.jpg` kích thước chuẩn 512x512 JPG với chất lượng 90%.
+  - Cấu hình thẻ meta Open Graph `og:image` trỏ trực tiếp đến URL ảnh JPG tĩnh.
