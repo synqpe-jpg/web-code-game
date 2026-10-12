@@ -1476,16 +1476,18 @@ export const NewsModule: React.FC<NewsModuleProps> = ({ onShowToast }) => {
       <div className="overflow-hidden rounded-3xl bg-card border border-border/80 shadow-sm">
         <div className="overflow-x-auto">
           <table className="w-full text-left text-xs">
-            <thead className="bg-muted/60 border-b border-border/80 text-muted-foreground font-semibold">
+            <thead className="bg-muted/70 border-b border-border/80 text-muted-foreground font-semibold">
               <tr>
-                <th className="py-3 px-4">Bài Viết</th>
-                <th className="py-3 px-4">Game Liên Kết</th>
-                <th className="py-3 px-4">Giftcode Kèm</th>
-                <th className="py-3 px-4">Lượt Xem</th>
-                <th className="py-3 px-4">Tiêu Điểm / HOT</th>
-                <th className="py-3 px-4">Trạng Thái</th>
-                <th className="py-3 px-4">Ngày Đăng</th>
-                <th className="py-3 px-4 text-right">Thao Tác</th>
+                <th className="py-2.5 px-3 min-w-[200px]">Bài Viết</th>
+                <th className="py-2.5 px-2.5 whitespace-nowrap">Game Liên Kết</th>
+                <th className="py-2.5 px-2 text-center whitespace-nowrap">Giftcode</th>
+                <th className="py-2.5 px-2 text-center whitespace-nowrap">Lượt Xem</th>
+                <th className="py-2.5 px-2 text-center whitespace-nowrap">Ghim / HOT</th>
+                <th className="py-2.5 px-2 text-center whitespace-nowrap">Trạng Thái</th>
+                <th className="py-2.5 px-2 text-center whitespace-nowrap">Ngày Đăng</th>
+                <th className="sticky right-0 z-20 bg-muted/95 backdrop-blur-md py-2.5 px-3 text-right font-semibold shadow-[-6px_0_12px_rgba(0,0,0,0.18)] border-l border-border/80 whitespace-nowrap">
+                  Thao Tác
+                </th>
               </tr>
             </thead>
             <tbody className="divide-y divide-border/60">
@@ -1497,22 +1499,29 @@ export const NewsModule: React.FC<NewsModuleProps> = ({ onShowToast }) => {
                 </tr>
               ) : (
                 filteredArticles.map((art) => (
-                  <tr key={art.id} className="hover:bg-muted/30 transition-colors">
+                  <tr key={art.id} className="group hover:bg-muted/30 transition-colors">
                     {/* Bài Viết */}
-                    <td className="py-3 px-4 max-w-xs">
-                      <div className="flex items-center gap-3">
+                    <td className="py-2 px-3 min-w-[200px] max-w-[260px]">
+                      <div className="flex items-center gap-2.5">
                         <img
                           src={art.cover_url}
                           alt={art.title}
-                          className="w-12 h-12 rounded-xl object-cover shrink-0 border border-border/60"
+                          className="w-10 h-10 rounded-xl object-cover shrink-0 border border-border/60 shadow-xs cursor-pointer"
+                          onClick={() => handleOpenEdit(art)}
                           onError={(e) => {
                             (e.target as HTMLImageElement).src =
                               'https://images.unsplash.com/photo-1542751371-adc38448a05e?auto=format&fit=crop&w=100&q=80';
                           }}
                         />
-                        <div className="space-y-0.5 overflow-hidden">
-                          <div className="font-bold text-foreground truncate">{art.title}</div>
-                          <div className="text-[11px] text-muted-foreground truncate font-mono">
+                        <div className="space-y-0.5 min-w-0 flex-1 overflow-hidden">
+                          <div
+                            className="font-bold text-foreground truncate text-xs hover:text-primary transition-colors cursor-pointer"
+                            title={art.title}
+                            onClick={() => handleOpenEdit(art)}
+                          >
+                            {art.title}
+                          </div>
+                          <div className="text-[10px] text-muted-foreground truncate font-mono">
                             /news/{art.slug}
                           </div>
                         </div>
@@ -1520,9 +1529,12 @@ export const NewsModule: React.FC<NewsModuleProps> = ({ onShowToast }) => {
                     </td>
 
                     {/* Game Liên Kết */}
-                    <td className="py-3 px-4">
+                    <td className="py-2 px-2.5 max-w-[140px]">
                       {art.game_name ? (
-                        <span className="px-2.5 py-1 rounded-lg bg-primary/10 text-primary-light font-bold text-[11px] border border-primary/20 whitespace-nowrap">
+                        <span
+                          className="inline-block max-w-[130px] truncate px-2 py-0.5 rounded-lg bg-primary/10 text-primary-light font-bold text-[11px] border border-primary/20 align-middle"
+                          title={art.game_name}
+                        >
                           {art.game_name}
                         </span>
                       ) : (
@@ -1531,45 +1543,44 @@ export const NewsModule: React.FC<NewsModuleProps> = ({ onShowToast }) => {
                     </td>
 
                     {/* Giftcode Kèm */}
-                    <td className="py-3 px-4">
+                    <td className="py-2 px-2 text-center whitespace-nowrap">
                       {art.codes && art.codes.length > 0 ? (
-                        <div className="flex items-center gap-1.5">
-                          <span className="px-2 py-0.5 rounded-md bg-amber-500/15 text-amber-300 font-mono font-bold text-[11px]">
-                            {art.codes.length} mã
-                          </span>
-                        </div>
+                        <span className="inline-block px-2 py-0.5 rounded-md bg-amber-500/15 text-amber-300 font-mono font-bold text-[11px]">
+                          {art.codes.length} mã
+                        </span>
                       ) : (
                         <span className="text-muted-foreground">0</span>
                       )}
                     </td>
 
                     {/* Lượt Xem */}
-                    <td className="py-3 px-4 font-mono text-muted-foreground">
-                      <div className="flex flex-col gap-0.5">
-                        <span className="flex items-center gap-1 font-bold text-foreground">
+                    <td className="py-2 px-2 font-mono text-muted-foreground text-center whitespace-nowrap">
+                      <div className="flex flex-col items-center gap-0.5">
+                        <span className="flex items-center gap-1 font-bold text-foreground text-xs">
                           <Eye className="w-3.5 h-3.5 text-primary" />
                           {newsService.getDisplayViews(art)}
                         </span>
                         {(art.virtual_views !== undefined || art.views_growth_rate !== undefined) && (
                           <span className="text-[10px] text-muted-foreground flex items-center gap-0.5">
                             <TrendingUp className="w-2.5 h-2.5 text-emerald-400" />
-                            Gốc: {art.virtual_views || 0} ({art.views_growth_rate ?? 1}x)
+                            {art.virtual_views || 0} ({art.views_growth_rate ?? 1}x)
                           </span>
                         )}
                       </div>
                     </td>
 
                     {/* Tiêu Điểm / HOT */}
-                    <td className="py-3 px-4">
-                      <div className="flex items-center gap-1.5">
+                    <td className="py-2 px-2 text-center whitespace-nowrap">
+                      <div className="inline-flex items-center gap-1 justify-center">
                         <button
                           type="button"
                           onClick={() => handleToggleFeatured(art)}
                           className={`px-2 py-0.5 rounded-lg text-[10px] font-bold cursor-pointer transition-all ${
                             art.is_featured
-                              ? 'bg-amber-500 text-black shadow-sm font-black'
+                              ? 'bg-amber-500 text-black shadow-xs font-black'
                               : 'bg-muted text-muted-foreground hover:text-foreground'
                           }`}
+                          title={art.is_featured ? 'Bỏ ghim tiêu điểm' : 'Ghim tiêu điểm'}
                         >
                           Ghim
                         </button>
@@ -1578,9 +1589,10 @@ export const NewsModule: React.FC<NewsModuleProps> = ({ onShowToast }) => {
                           onClick={() => handleToggleHot(art)}
                           className={`px-2 py-0.5 rounded-lg text-[10px] font-bold cursor-pointer transition-all ${
                             art.is_hot
-                              ? 'bg-rose-500 text-white shadow-sm font-black'
+                              ? 'bg-rose-500 text-white shadow-xs font-black'
                               : 'bg-muted text-muted-foreground hover:text-foreground'
                           }`}
+                          title={art.is_hot ? 'Bỏ nhãn HOT' : 'Bật nhãn HOT'}
                         >
                           HOT
                         </button>
@@ -1588,7 +1600,7 @@ export const NewsModule: React.FC<NewsModuleProps> = ({ onShowToast }) => {
                     </td>
 
                     {/* Trạng Thái */}
-                    <td className="py-3 px-4">
+                    <td className="py-2 px-2 text-center whitespace-nowrap">
                       {art.status === 'PUBLISHED' ? (
                         <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-emerald-500/15 text-emerald-400 font-bold text-[11px]">
                           <CheckCircle2 className="w-3 h-3" />
@@ -1603,28 +1615,30 @@ export const NewsModule: React.FC<NewsModuleProps> = ({ onShowToast }) => {
                     </td>
 
                     {/* Ngày Đăng */}
-                    <td className="py-3 px-4 text-muted-foreground whitespace-nowrap">
+                    <td className="py-2 px-2 text-muted-foreground whitespace-nowrap text-center text-[11px]">
                       {new Date(art.published_at).toLocaleDateString('vi-VN')}
                     </td>
 
-                    {/* Thao Tác */}
-                    <td className="py-3 px-4 text-right whitespace-nowrap">
-                      <div className="inline-flex items-center gap-1">
+                    {/* Thao Tác - Cố Định Luôn Trên Màn Hình */}
+                    <td className="sticky right-0 z-10 bg-card group-hover:bg-card/95 backdrop-blur-md py-2 px-3 text-right whitespace-nowrap shadow-[-6px_0_12px_rgba(0,0,0,0.18)] border-l border-border/80">
+                      <div className="inline-flex items-center gap-1.5 justify-end">
                         <button
                           type="button"
                           onClick={() => handleOpenEdit(art)}
-                          className="p-1.5 rounded-lg bg-muted hover:bg-muted/80 text-foreground cursor-pointer transition-all"
+                          className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-indigo-500/15 hover:bg-indigo-500/25 text-indigo-400 hover:text-indigo-300 font-bold text-xs cursor-pointer transition-all border border-indigo-500/30 active:scale-95"
                           title="Chỉnh sửa bài viết"
                         >
                           <Edit className="w-3.5 h-3.5" />
+                          <span className="hidden sm:inline">Sửa</span>
                         </button>
                         <button
                           type="button"
                           onClick={() => handleDeleteArticle(art.id, art.title)}
-                          className="p-1.5 rounded-lg bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 cursor-pointer transition-all"
+                          className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-rose-500/15 hover:bg-rose-500/25 text-rose-400 hover:text-rose-300 font-bold text-xs cursor-pointer transition-all border border-rose-500/30 active:scale-95"
                           title="Xóa bài viết"
                         >
                           <Trash2 className="w-3.5 h-3.5" />
+                          <span className="hidden sm:inline">Xóa</span>
                         </button>
                       </div>
                     </td>
@@ -2961,19 +2975,37 @@ export const NewsModule: React.FC<NewsModuleProps> = ({ onShowToast }) => {
               </div>
 
               {/* Footer: Cố định dưới đáy */}
-              <div className="px-5 py-3.5 border-t border-slate-800 shrink-0 bg-slate-900/95 flex items-center justify-between">
-                <div className="text-[11px] text-slate-400 hidden sm:flex items-center gap-2">
-                  <span className="font-mono">/news/{editingArticle.slug || 'slug'}</span>
-                  <span>•</span>
-                  <span
-                    className={
-                      editingArticle.status === 'PUBLISHED'
-                        ? 'text-emerald-400 font-bold'
-                        : 'text-amber-400 font-bold'
-                    }
-                  >
-                    {editingArticle.status === 'PUBLISHED' ? 'Xuất bản công khai' : 'Lưu bản nháp'}
-                  </span>
+              <div className="px-5 py-3.5 border-t border-slate-800 shrink-0 bg-slate-900/95 flex items-center justify-between gap-3">
+                <div className="flex items-center gap-3">
+                  {editingArticle.id && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (editingArticle.id) {
+                          handleDeleteArticle(editingArticle.id, editingArticle.title || 'bài viết');
+                          setIsEditorOpen(false);
+                        }
+                      }}
+                      className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-rose-500/15 hover:bg-rose-500/25 text-rose-400 hover:text-rose-300 border border-rose-500/30 font-bold text-xs transition-all active:scale-95 cursor-pointer shadow-xs"
+                      title="Xóa vĩnh viễn bài viết này"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                      <span>Xóa Bài Viết</span>
+                    </button>
+                  )}
+                  <div className="text-[11px] text-slate-400 hidden sm:flex items-center gap-2">
+                    <span className="font-mono">/news/{editingArticle.slug || 'slug'}</span>
+                    <span>•</span>
+                    <span
+                      className={
+                        editingArticle.status === 'PUBLISHED'
+                          ? 'text-emerald-400 font-bold'
+                          : 'text-amber-400 font-bold'
+                      }
+                    >
+                      {editingArticle.status === 'PUBLISHED' ? 'Xuất bản công khai' : 'Lưu bản nháp'}
+                    </span>
+                  </div>
                 </div>
 
                 <div className="flex items-center gap-3 ml-auto">
