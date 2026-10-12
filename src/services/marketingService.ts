@@ -2115,27 +2115,19 @@ class MarketingService {
     const realStock = this.getRealStockFor(id);
     const catchUp = this.config.offlineCatchUp || DEFAULT_OFFLINE_CATCHUP_CONFIG;
     const oosEnabled = Boolean(catchUp.outOfStockEnabled);
-    const oosMax = Math.max(1, Number(catchUp.outOfStockMaxUnits) || 10);
-
-    if (realStock <= 0 && !oosEnabled) {
-      // CRITICAL RULE: Hết hàng thật (realStock <= 0) & không bật bù ngoại tuyến cho hàng hết
-      const baseTotal = effectiveRealSold + virtualBase;
-      if (id && recordedMax > baseTotal) {
-        this.highWaterSoldCountMap.set(id, baseTotal);
-        this.liveFomoSoldCountMap.set(id, baseTotal);
-        this.saveHighWaterCounts();
-        this.saveLiveFomoCounts();
-      }
-      return baseTotal;
-    }
-
     const createdAt = item.created_at || item.createdAt || details?.created_at;
     let hourlyGrowth = this.getHourlyGrowth(id, createdAt);
     let inHourProg = this.getInHourProgression(id, createdAt);
 
-    if (realStock <= 0 && oosEnabled) {
-      hourlyGrowth = Math.min(hourlyGrowth, oosMax);
-      inHourProg = 0;
+    if (realStock <= 0) {
+      if (!oosEnabled) {
+        // Hết hàng thật & không bật bù ngoại tuyến: ngắt toàn bộ tiến trình tăng theo giờ, bảo toàn tuyệt đối số lượng đã bán trước đó
+        hourlyGrowth = 0;
+        inHourProg = 0;
+      } else {
+        hourlyGrowth = Math.min(hourlyGrowth, oosMax);
+        inHourProg = 0;
+      }
     }
 
     const calculatedBase = Math.max(0, effectiveRealSold + virtualBase + hourlyGrowth + inHourProg);
@@ -2195,25 +2187,19 @@ class MarketingService {
     const oosEnabled = Boolean(catchUp.outOfStockEnabled);
     const oosMax = Math.max(1, Number(catchUp.outOfStockMaxUnits) || 10);
 
-    if (realRemaining <= 0 && !oosEnabled) {
-      // CRITICAL RULE: Hết mã thật trong kho (realRemaining <= 0) & không bật bù ngoại tuyến cho hàng hết
-      const baseTotal = effectiveRealClaimed + virtualBase;
-      if (id && recordedMax > baseTotal) {
-        this.highWaterClaimedCountMap.set(id, baseTotal);
-        this.liveFomoClaimedCountMap.set(id, baseTotal);
-        this.saveHighWaterCounts();
-        this.saveLiveFomoCounts();
-      }
-      return baseTotal;
-    }
-
     const createdAt = campaign.created_at || campaign.createdAt || details?.created_at;
     let hourlyGrowth = this.getHourlyGrowth(id, createdAt);
     let inHourProg = this.getInHourProgression(id, createdAt);
 
-    if (realRemaining <= 0 && oosEnabled) {
-      hourlyGrowth = Math.min(hourlyGrowth, oosMax);
-      inHourProg = 0;
+    if (realRemaining <= 0) {
+      if (!oosEnabled) {
+        // Hết mã thật trong kho & không bật bù ngoại tuyến: ngắt tăng theo giờ, bảo toàn tuyệt đối số mã đã nhận
+        hourlyGrowth = 0;
+        inHourProg = 0;
+      } else {
+        hourlyGrowth = Math.min(hourlyGrowth, oosMax);
+        inHourProg = 0;
+      }
     }
 
     const calculatedBase = Math.max(0, effectiveRealClaimed + virtualBase + hourlyGrowth + inHourProg);

@@ -110,8 +110,7 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
           const growth = Math.floor(elapsedH * 0.5);
           const computedTotal = realSold + virtualBase + growth;
           const prevTotal = Number(prevCachedStats?.products?.[p.id]?.totalSold) || 0;
-          // Clamp inflated stat if previous total was > 20 orders beyond computedTotal
-          const totalSold = (prevTotal > computedTotal + 20) ? computedTotal : Math.max(computedTotal, prevTotal);
+          const totalSold = Math.max(computedTotal, prevTotal);
 
           computedProducts[p.id] = {
             totalSold,
@@ -142,7 +141,7 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
           const growth = Math.floor(elapsedH * 0.5);
           const computedClaimed = realClaimed + virtualBase + growth;
           const prevClaimed = Number(prevCachedStats?.giveaways?.[gw.id]?.totalClaimed) || 0;
-          const totalClaimed = (prevClaimed > computedClaimed + 20) ? computedClaimed : Math.max(computedClaimed, prevClaimed);
+          const totalClaimed = Math.max(computedClaimed, prevClaimed);
 
           computedGiveaways[gw.id] = {
             totalClaimed,

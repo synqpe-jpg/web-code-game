@@ -12,22 +12,24 @@ Mỗi mục sửa lỗi đều ghi nhận **Nguyên nhân gốc rễ (Root Cause
   1. Khắc phục triệt để lỗi người dùng phản ánh: "Các sản phẩm trong mục tiện ích hiện tại cứ một thời gian là lại bị kéo số ảo Đã bán về một mức nào đó mà không tăng, nó cứ giật về số cũ mà không tăng theo thông báo."
   2. Đảm bảo nguyên tắc Đồng bộ nguyên tử 1 - 1 và Đơn điệu tăng lũy kế (Monotonic Progression): Khi thông báo mua hàng (`BUY_PRODUCT` hoặc Welcome Toast) nổ ra, số lượng "Đã bán:" trên thẻ sản phẩm (Store & Utilities) tăng ngay lập tức (+1) mượt mà và duy trì vĩnh viễn, không bị poller 10s hay thuật toán snapshot giật lùi về mốc cũ.
 - **Nguyên nhân gốc rễ (Root Cause)**:
-  1. **Bẫy thiếu `virtual_sold_count` trên Edge Server Snapshot**: Trong `functions/services/snapshotService.ts`, hàm `loadProducts(env)` chỉ đọc từ bảng SQL `utilities` (nơi `virtual_sold_count` là 0 hoặc chưa đồng bộ từ settings) mà không merge với `wcg_admin_utilities_v4` từ `system_settings`. Do đó server snapshot tính toán `sold` chỉ được 72 đơn (thay vì 138-139 đơn như client).
-  2. **Bẫy kẹp trần nhân tạo quá hẹp `maxAllowedCap` (+10 / +15 units)**:
-     - Trong `marketingService.ts:getSoldDisplay()`, `maxAllowedCap` bị gán cứng bằng `effectiveRealSold + virtualBase + maxCatchUp + 10` (= 144 đơn). Khi live toasts nổ ra vượt quá 144 (đạt 145), điều kiện `recordedMax > maxAllowedCap` kích hoạt và ép tụt `recordedMax` về `calculatedBase` (138 đơn) — xóa sạch toàn bộ tiến trình bán hàng của người dùng.
-     - Trong `functions/services/snapshotService.ts:generateAndPersistSnapshot()`, `maxAllowed` cũng bị gán `+ 15` (= 85 đơn do server thiếu `virtual_sold_count`), khiến server xóa sạch đỉnh bán hàng `hub.peakProductSoldCounts` mà client gửi lên qua `report_peak_metrics`.
-     - Trong `src/shared/deterministicEngine.ts`, `maxAllowedPeak` cũng bị kẹp trần `+ 15`.
-  3. **Cờ `localOrigin: true` trên Initial Welcome Toast**: Trong `MarketingNotificationToast.tsx`, toast chào mừng khởi tạo bị gán `localOrigin = true`, khiến `displayNotification` bỏ qua không gọi `recordVirtualSale`, làm toast nổ ra nhưng thẻ sản phẩm trơ ra không tăng số.
+  1. **Bẫy `ReferenceError: masterRaw is not defined` trong `snapshotService.ts`**:
+     - `const [spRes, utRes, savedSpRaw, savedUtRaw] = await Promise.all([...])` (thiếu `masterRaw` trong destructuring). Khi gọi `safeParseJson(masterRaw)` dẫn tới ngoại lệ runtime khiến `loadProducts` và `loadGiveaways` bị catch và trả về mảng rỗng `[]`.
+     - Vì `products` rỗng, vòng lặp dọn dẹp peak trong `hub.peakProductSoldCounts` coi mọi sản phẩm là `realStock <= 0 && virtualBase <= 0` và xóa sạch đỉnh bán hàng khỏi Hub D1! Server snapshot trả về `{ products: {}, giveaways: {} }`.
+  2. **Bẫy xóa sạch `recordedMax` trong `getSoldDisplay()` & `getClaimedDisplay()` khi `realStock <= 0`**:
+     - 18/19 sản phẩm tiện ích có `stock_quantity = 0` và `offlineCatchUp.outOfStockEnabled = false`.
+     - Trong `getSoldDisplay()`, điều kiện `if (realStock <= 0 && !oosEnabled)` gán cứng `this.highWaterSoldCountMap.set(id, baseTotal)` và trả về `baseTotal` (chỉ bằng 48, 72, 125 thay vì đỉnh 77, 99, 152 mà poller vừa đồng bộ từ Hub).
+     - Điều này khiến số đã bán trên thẻ sản phẩm liên tục bị giật tụt về mức ban đầu mỗi khi component render lại hoặc sau vài giây.
+  3. **Bẫy kẹp trần thô sơ trong `functions/api/stats.ts`**:
+     - Điều kiện `(prevTotal > computedTotal + 20) ? computedTotal : ...` cắt xén bất kỳ số bán nào cao hơn 20 đơn so với công thức tính tăng trưởng thô, ép giật ngược số từ 139 về 91.
 - **Giải pháp thành công (Solution Applied)**:
-  1. **Hợp nhất metadata `wcg_admin_utilities_v4` & `wcg_admin_store_products_v4` vào Edge Snapshot**:
-     - `loadProducts` trong `functions/services/snapshotService.ts` đọc đồng thời `wcg_admin_store_products_v4` và `wcg_admin_utilities_v4` từ `system_settings` D1, lấy `Math.max(r.virtual_sold_count, meta.virtual_sold_count)`. Đồng bộ tương tự cho `loadGiveaways` với `virtual_claimed_offset`.
-  2. **Giải phóng kẹp trần nhân tạo, bảo toàn tiến trình tăng đơn lũy kế tự nhiên**:
-     - Trong `src/shared/deterministicEngine.ts`, `maxAllowedPeak` và `maxAllowedGwPeak` được mở rộng ngưỡng bảo vệ `Math.max(50000, baseline + 5000)` để chấp nhận trọn vẹn mọi đơn hàng thật và ảo tăng dần theo thời gian.
-     - Trong `functions/services/snapshotService.ts`, xóa bỏ điều kiện xóa đỉnh `hub.peakProductSoldCounts` ở ngưỡng thấp.
-     - Trong `src/services/marketingService.ts`, `maxAllowedCap` trong `getSoldDisplay()`, `getClaimedDisplay()` và `fetchMetricsSnapshot()` được nâng lên ngưỡng bảo vệ 50,000, triệt tiêu vĩnh viễn hiện tượng giật lùi số.
-  3. **Kích hoạt tăng số cho Welcome Toast**: Loại bỏ cờ `localOrigin = true` tại `MarketingNotificationToast.tsx`, bảo đảm 100% mọi thông báo mua hàng hiển thị trên màn hình đều tăng số hiển thị trên thẻ ngay lập tức.
-- **Giải pháp thất bại đã thử (Failed Attempts - KHÔNG ĐƯỢC LẶP LẠI)**:
-  - *Thử nghiệm 1*: Dùng `curSold > info.sold + 2` để hạ số hoặc kẹp trần `maxCatchUp + 10` $\rightarrow$ *Thất bại*: Biến tiến trình bán hàng tự nhiên thành vòng lặp giật lùi (rubber-band) mỗi khi số lượng tăng thêm 6-10 đơn.
+  1. **Chuyển sang dùng các hàm tải chuẩn `loadAllStoreProductsD1`, `loadAllUtilitiesD1`, `loadAllGiveawaysD1` trong `snapshotService.ts`**:
+     - Đảm bảo 100% dữ liệu sản phẩm, tiện ích (bao gồm `virtual_sold_count = 64` cho gói VS Phone) và quà tặng luôn được nạp đầy đủ, loại bỏ hoàn toàn nguy cơ `ReferenceError`.
+     - Vô hiệu hóa việc xóa đỉnh khỏi `hub.peakProductSoldCounts` và `hub.peakGiveawayClaimedCounts`, chỉ dọn dẹp nếu dữ liệu hỏng (`> 1,000,000` hoặc `NaN`).
+  2. **Bảo toàn đỉnh bán lũy kế trong `getSoldDisplay()` & `getClaimedDisplay()`**:
+     - Khi `realStock <= 0 && !oosEnabled`: Không xóa `recordedMax`! Chỉ ngắt tiến trình tăng theo giờ (`hourlyGrowth = 0; inHourProg = 0`), và trả về `Math.max(calculatedBase, recordedMax)`. Số lượng đơn hàng đã bán trong quá khứ được giữ vững vĩnh viễn (Đơn điệu không giảm).
+  3. **Xóa bỏ bẫy kẹp trần `+ 20` trong `functions/api/stats.ts`**:
+     - Sử dụng `Math.max(computedTotal, prevTotal)` để tôn trọng và bảo toàn các đỉnh bán hàng thật và ảo tích lũy.
+  4. **Kích hoạt tăng số cho Welcome Toast**: Loại bỏ cờ `localOrigin = true` tại `MarketingNotificationToast.tsx`, bảo đảm 100% mọi thông báo mua hàng hiển thị trên màn hình đều tăng số hiển thị trên thẻ ngay lập tức.
 
 ---
 

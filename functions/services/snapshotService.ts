@@ -4,7 +4,13 @@ import {
   ProductInput,
   GiveawayInput,
 } from '../../src/shared/deterministicEngine';
-import { ensureSchemaUpgrades, getSettingD1 } from './d1_service';
+import {
+  ensureSchemaUpgrades,
+  getSettingD1,
+  loadAllStoreProductsD1,
+  loadAllUtilitiesD1,
+  loadAllGiveawaysD1,
+} from './d1_service';
 import { getRealEventsHub, saveRealEventsHub } from './realEventsHub';
 
 const SNAPSHOT_ROW_ID = 'GLOBAL_REALTIME_SNAPSHOT';
@@ -33,142 +39,35 @@ export function safeParseJson<T = any>(val: any): T | null {
 async function loadProducts(env: any): Promise<ProductInput[]> {
   if (env && env.DB) {
     try {
-      const [spRes, utRes, savedSpRaw, savedUtRaw] = await Promise.all([
-        env.DB.prepare(`
-          SELECT 
-            sp.id, 
-            sp.title, 
-            sp.created_at, 
-            sp.is_active,
-            COALESCE(sp.virtual_sold_count, 0) AS virtual_sold_count,
-            sp.stock_quantity AS counter_stock,
-            (SELECT COUNT(*) FROM inventory_codes ic WHERE ic.product_id = sp.id AND ic.status = 'AVAILABLE') AS avail_count,
-            (SELECT COUNT(*) FROM inventory_codes ic WHERE ic.product_id = sp.id) AS total_inv_count,
-            CASE 
-              WHEN (SELECT COUNT(*) FROM inventory_codes ic WHERE ic.product_id = sp.id) > 0 
-              THEN (SELECT COUNT(*) FROM inventory_codes ic WHERE ic.product_id = sp.id AND ic.status = 'AVAILABLE')
-              ELSE sp.stock_quantity 
-            END AS stock_quantity,
-            CASE 
-              WHEN (SELECT COUNT(*) FROM inventory_codes ic WHERE ic.product_id = sp.id) > 0 
-              THEN (SELECT COUNT(*) FROM inventory_codes ic WHERE ic.product_id = sp.id AND ic.status = 'SOLD')
-              ELSE sp.sold_count 
-            END AS sold_count
-          FROM store_products sp
-          WHERE sp.is_active = 1
-        `).all().catch((e) => { console.warn('spRes error:', e?.message); return { results: [] }; }),
-        env.DB.prepare(`
-          SELECT 
-            u.id, 
-            u.title, 
-            u.created_at, 
-            u.is_active,
-            COALESCE(u.virtual_sold_count, 0) AS virtual_sold_count,
-            u.stock_quantity AS counter_stock,
-            (SELECT COUNT(*) FROM inventory_codes ic WHERE ic.product_id = u.id AND ic.status = 'AVAILABLE') AS avail_count,
-            (SELECT COUNT(*) FROM inventory_codes ic WHERE ic.product_id = u.id) AS total_inv_count,
-            CASE 
-              WHEN (SELECT COUNT(*) FROM inventory_codes ic WHERE ic.product_id = u.id) > 0 
-              THEN (SELECT COUNT(*) FROM inventory_codes ic WHERE ic.product_id = u.id AND ic.status = 'AVAILABLE')
-              ELSE u.stock_quantity 
-            END AS stock_quantity,
-            CASE 
-              WHEN (SELECT COUNT(*) FROM inventory_codes ic WHERE ic.product_id = u.id) > 0 
-              THEN (SELECT COUNT(*) FROM inventory_codes ic WHERE ic.product_id = u.id AND ic.status = 'SOLD')
-              ELSE u.sold_count 
-            END AS sold_count
-          FROM utilities u
-          WHERE u.is_active = 1
-        `).all().catch((e) => { console.warn('utRes error:', e?.message); return { results: [] }; }),
-        getSettingD1(env.DB, 'wcg_admin_store_products_v4').catch(() => null),
-        getSettingD1(env.DB, 'wcg_admin_utilities_v4').catch(() => null),
-        getSettingD1(env.DB, 'wcg_master_state_v4').catch(() => null),
+      await ensureSchemaUpgrades(env.DB);
+      const [spList, utList] = await Promise.all([
+        loadAllStoreProductsD1(env.DB).catch((e) => { console.warn('sp error:', e?.message); return []; }),
+        loadAllUtilitiesD1(env.DB).catch((e) => { console.warn('ut error:', e?.message); return []; }),
       ]);
-
-      const masterParsed = safeParseJson<any>(masterRaw);
-      const rawSp = safeParseJson<any[]>(savedSpRaw);
-      const savedSpList = (Array.isArray(rawSp) && rawSp.length > 0) ? rawSp : (masterParsed?.storeProducts || []);
-      const rawUt = safeParseJson<any[]>(savedUtRaw);
-      const savedUtList = (Array.isArray(rawUt) && rawUt.length > 0) ? rawUt : (masterParsed?.utilities || []);
-      const savedSpMap = new Map<string, any>();
-      if (Array.isArray(savedSpList)) {
-        savedSpList.forEach((p) => { if (p && p.id) savedSpMap.set(p.id, p); });
-      }
-      const savedUtMap = new Map<string, any>();
-      if (Array.isArray(savedUtList)) {
-        savedUtList.forEach((u) => { if (u && u.id) savedUtMap.set(u.id, u); });
-      }
 
       const items: ProductInput[] = [];
       const seenIds = new Set<string>();
 
-      const processRows = (rows: any[], source: string) => {
-        if (!Array.isArray(rows)) return;
-        for (const r of rows) {
+      const addItems = (list: any[]) => {
+        if (!Array.isArray(list)) return;
+        for (const r of list) {
           if (!r || !r.id || seenIds.has(r.id)) continue;
           seenIds.add(r.id);
 
-          // Cảnh báo nếu counter lệch với COUNT(inventory_codes AVAILABLE)
-          if (r.total_inv_count > 0 && r.counter_stock !== r.avail_count) {
-            console.warn(`[Stock Drift Warning] ${source} '${r.id}' counter (${r.counter_stock}) differs from COUNT available (${r.avail_count}). Prioritizing COUNT.`);
-          }
-
-          const meta = source === 'utilities' ? savedUtMap.get(r.id) : savedSpMap.get(r.id);
-          const virtualSold = Math.max(
-            Number(r.virtual_sold_count) || 0,
-            Number(meta?.virtual_sold_count) || 0
-          );
-          const createdAt = r.created_at || meta?.created_at || meta?.createdAt;
-
           items.push({
             id: r.id,
-            title: r.title || meta?.title,
+            title: r.title,
             stock_quantity: Math.max(0, Number(r.stock_quantity) || 0),
             sold_count: Math.max(0, Number(r.sold_count) || 0),
-            virtual_sold_count: virtualSold,
-            created_at: createdAt,
-            is_active: r.is_active === 1,
+            virtual_sold_count: Math.max(0, Number(r.virtual_sold_count) || 0),
+            created_at: r.created_at || r.createdAt,
+            is_active: r.is_active === 1 || r.is_active === true,
           });
         }
       };
 
-      processRows(spRes?.results || [], 'store_products');
-      processRows(utRes?.results || [], 'utilities');
-
-      // Bổ sung các sản phẩm đang active trong settings mà chưa kịp ghi vào bảng SQL
-      if (Array.isArray(savedUtList)) {
-        for (const su of savedUtList) {
-          if (su && su.id && !seenIds.has(su.id) && su.is_active !== false) {
-            seenIds.add(su.id);
-            items.push({
-              id: su.id,
-              title: su.title,
-              stock_quantity: Math.max(0, Number(su.stock_quantity) || 0),
-              sold_count: Math.max(0, Number(su.sold_count) || 0),
-              virtual_sold_count: Math.max(0, Number(su.virtual_sold_count) || 0),
-              created_at: su.created_at || su.createdAt,
-              is_active: true,
-            });
-          }
-        }
-      }
-      if (Array.isArray(savedSpList)) {
-        for (const sp of savedSpList) {
-          if (sp && sp.id && !seenIds.has(sp.id) && sp.is_active !== false) {
-            seenIds.add(sp.id);
-            items.push({
-              id: sp.id,
-              title: sp.title,
-              stock_quantity: Math.max(0, Number(sp.stock_quantity) || 0),
-              sold_count: Math.max(0, Number(sp.sold_count) || 0),
-              virtual_sold_count: Math.max(0, Number(sp.virtual_sold_count) || 0),
-              created_at: sp.created_at || sp.createdAt,
-              is_active: true,
-            });
-          }
-        }
-      }
-
+      addItems(spList);
+      addItems(utList);
       return items;
     } catch (e: any) {
       console.warn('[SnapshotService] Error reading store_products and utilities from D1:', e?.message);
@@ -185,64 +84,22 @@ async function loadGiveaways(env: any): Promise<GiveawayInput[]> {
   // Authoritative: Đọc từ Cloudflare D1
   if (env && env.DB) {
     try {
-      const [res, savedGwRaw] = await Promise.all([
-        env.DB.prepare(`
-        SELECT 
-          id, 
-          title, 
-          max_per_user, 
-          status, 
-          created_at,
-          COALESCE(virtual_claimed_offset, 0) AS virtual_claimed_offset,
-          CASE 
-            WHEN (SELECT COUNT(*) FROM giveaway_codes gc WHERE gc.giveaway_id = giveaways.id) > 0 
-            THEN (SELECT COUNT(*) FROM giveaway_codes gc WHERE gc.giveaway_id = giveaways.id AND gc.status = 'CLAIMED')
-            ELSE claimed_codes 
-          END AS claimed_codes,
-          CASE 
-            WHEN (SELECT COUNT(*) FROM giveaway_codes gc WHERE gc.giveaway_id = giveaways.id) > 0 
-            THEN (SELECT COUNT(*) FROM giveaway_codes gc WHERE gc.giveaway_id = giveaways.id AND gc.status = 'AVAILABLE')
-            ELSE 0 
-          END AS remaining_codes,
-          CASE 
-            WHEN (SELECT COUNT(*) FROM giveaway_codes gc WHERE gc.giveaway_id = giveaways.id) > 0 
-            THEN (SELECT COUNT(*) FROM giveaway_codes gc WHERE gc.giveaway_id = giveaways.id)
-            ELSE total_codes 
-          END AS total_codes
-        FROM giveaways 
-        WHERE status = 'ACTIVE'
-      `).all(),
-        getSettingD1(env.DB, 'wcg_admin_giveaways_v4').catch(() => null),
-        getSettingD1(env.DB, 'wcg_master_state_v4').catch(() => null),
-      ]);
-
-      const masterParsed = safeParseJson<any>(masterRaw);
-      const rawGw = safeParseJson<any[]>(savedGwRaw);
-      const savedGwList = (Array.isArray(rawGw) && rawGw.length > 0) ? rawGw : (masterParsed?.giveaways || []);
-      const savedGwMap = new Map<string, any>();
-      if (Array.isArray(savedGwList)) {
-        savedGwList.forEach((g) => { if (g && g.id) savedGwMap.set(g.id, g); });
-      }
-
-      if (res && Array.isArray(res.results) && res.results.length > 0) {
-        return res.results.map((r: any) => {
-          const meta = savedGwMap.get(r.id);
-          const vClaimed = Math.max(
-            Number(r.virtual_claimed_offset) || 0,
-            Number(meta?.virtual_claimed_offset) || 0
-          );
-          return {
-            id: r.id,
-            title: r.title || meta?.title,
-            remaining_codes: Math.max(0, Number(r.remaining_codes) || 0),
-            total_codes: Math.max(0, Number(r.total_codes) || 0),
-            claimed_codes: Math.max(0, Number(r.claimed_codes) || 0),
-            virtual_claimed_offset: vClaimed,
-            created_at: r.created_at || meta?.created_at || meta?.createdAt,
-            status: r.status,
-            is_active: r.status === 'ACTIVE',
-          };
-        });
+      await ensureSchemaUpgrades(env.DB);
+      const gwList = await loadAllGiveawaysD1(env.DB).catch((e) => { console.warn('gw error:', e?.message); return []; });
+      if (Array.isArray(gwList)) {
+        return gwList
+          .filter((gw: any) => gw && gw.id && (gw.status === 'ACTIVE' || gw.is_active !== false))
+          .map((gw: any) => ({
+            id: gw.id,
+            title: gw.title,
+            remaining_codes: Math.max(0, Number(gw.remaining_codes) || 0),
+            total_codes: Math.max(0, Number(gw.total_codes) || 0),
+            claimed_codes: Math.max(0, Number(gw.claimed_codes) || 0),
+            virtual_claimed_offset: Math.max(0, Number(gw.virtual_claimed_offset) || 0),
+            created_at: gw.created_at || gw.createdAt,
+            status: gw.status || 'ACTIVE',
+            is_active: gw.status === 'ACTIVE' || gw.is_active === true,
+          }));
       }
     } catch (e: any) {
       console.warn('[SnapshotService] Error reading giveaways from D1:', e?.message);
@@ -280,21 +137,12 @@ export async function generateAndPersistSnapshot(env: any): Promise<GlobalMetric
     } catch {}
   }
 
-  // 1.5. Cleanse runaway peaks in hub if items are out of stock or peaks exceed reasonable cap
-  const oosEnabled = Boolean(marketingConfig?.offlineCatchUp?.outOfStockEnabled);
-  const oosMax = Math.max(1, Number(marketingConfig?.offlineCatchUp?.outOfStockMaxUnits) || 10);
+  // 1.5. Cleanse runaway peaks in hub only if values are corrupted (> 1,000,000 or NaN)
   let hubModified = false;
   if (hub.peakProductSoldCounts && typeof hub.peakProductSoldCounts === 'object') {
-    const prodMap = new Map((products || []).map(p => [p.id, p]));
     for (const [pId, val] of Object.entries(hub.peakProductSoldCounts)) {
-      const prod = prodMap.get(pId);
-      const realStock = Math.max(0, Number(prod?.stock_quantity) || 0);
-      const virtualBase = Number(prod?.virtual_sold_count) || 0;
-      const realSold = Number(prod?.sold_count) || 0;
-      const maxAllowed = realStock <= 0 && oosEnabled
-        ? realSold + virtualBase + oosMax
-        : Math.max(50000, realSold + virtualBase + 5000);
-      if ((realStock <= 0 && !oosEnabled && virtualBase <= 0) || val > maxAllowed) {
+      const numVal = Number(val);
+      if (isNaN(numVal) || numVal < 0 || numVal > 1000000) {
         delete hub.peakProductSoldCounts[pId];
         hubModified = true;
       }
@@ -302,16 +150,9 @@ export async function generateAndPersistSnapshot(env: any): Promise<GlobalMetric
   }
 
   if (hub.peakGiveawayClaimedCounts && typeof hub.peakGiveawayClaimedCounts === 'object') {
-    const gwMap = new Map((giveaways || []).map(g => [g.id, g]));
     for (const [gId, val] of Object.entries(hub.peakGiveawayClaimedCounts)) {
-      const gw = gwMap.get(gId);
-      const realRemaining = Math.max(0, Number(gw?.remaining_codes) || 0);
-      const virtualBase = Number(gw?.virtual_claimed_offset) || 0;
-      const realClaimed = Number(gw?.claimed_codes) || 0;
-      const maxAllowed = realRemaining <= 0 && oosEnabled
-        ? realClaimed + virtualBase + oosMax
-        : Math.max(50000, realClaimed + virtualBase + 5000);
-      if ((realRemaining <= 0 && !oosEnabled && virtualBase <= 0) || val > maxAllowed) {
+      const numVal = Number(val);
+      if (isNaN(numVal) || numVal < 0 || numVal > 1000000) {
         delete hub.peakGiveawayClaimedCounts[gId];
         hubModified = true;
       }
