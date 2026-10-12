@@ -194,13 +194,24 @@ export async function getRealEventsHub(env: any): Promise<RealEventHubData> {
           }
           hub.realProductSoldCounts = mergeCountsMonotonic(hub.realProductSoldCounts, cachedJson.realProductSoldCounts);
           hub.realGiveawayClaimedCounts = mergeCountsMonotonic(hub.realGiveawayClaimedCounts, cachedJson.realGiveawayClaimedCounts);
-          hub.peakProductSoldCounts = mergeCountsMonotonic(hub.peakProductSoldCounts || {}, cachedJson.peakProductSoldCounts);
-          hub.peakGiveawayClaimedCounts = mergeCountsMonotonic(hub.peakGiveawayClaimedCounts || {}, cachedJson.peakGiveawayClaimedCounts);
-          if (typeof cachedJson.peakCopyClicks === 'number') {
-            hub.peakCopyClicks = Math.max(hub.peakCopyClicks || 0, cachedJson.peakCopyClicks);
-          }
-          // Do NOT let stale cache downgrade authoritative D1 stock
+          // Do NOT let stale cache override authoritative D1 peaks & stock
           if (hasD1Data) {
+            if (cachedJson.peakProductSoldCounts && typeof cachedJson.peakProductSoldCounts === 'object') {
+              hub.peakProductSoldCounts = hub.peakProductSoldCounts || {};
+              for (const [k, v] of Object.entries(cachedJson.peakProductSoldCounts)) {
+                if (hub.peakProductSoldCounts[k] === undefined) {
+                  hub.peakProductSoldCounts[k] = Number(v);
+                }
+              }
+            }
+            if (cachedJson.peakGiveawayClaimedCounts && typeof cachedJson.peakGiveawayClaimedCounts === 'object') {
+              hub.peakGiveawayClaimedCounts = hub.peakGiveawayClaimedCounts || {};
+              for (const [k, v] of Object.entries(cachedJson.peakGiveawayClaimedCounts)) {
+                if (hub.peakGiveawayClaimedCounts[k] === undefined) {
+                  hub.peakGiveawayClaimedCounts[k] = Number(v);
+                }
+              }
+            }
             if (cachedJson.lowestProductStock && typeof cachedJson.lowestProductStock === 'object') {
               for (const [k, v] of Object.entries(cachedJson.lowestProductStock)) {
                 if (hub.lowestProductStock[k] === undefined) {
@@ -216,6 +227,8 @@ export async function getRealEventsHub(env: any): Promise<RealEventHubData> {
               }
             }
           } else {
+            hub.peakProductSoldCounts = mergeCountsMonotonic(hub.peakProductSoldCounts || {}, cachedJson.peakProductSoldCounts);
+            hub.peakGiveawayClaimedCounts = mergeCountsMonotonic(hub.peakGiveawayClaimedCounts || {}, cachedJson.peakGiveawayClaimedCounts);
             hub.lowestProductStock = mergeStockMonotonic(hub.lowestProductStock || {}, cachedJson.lowestProductStock);
             hub.lowestGiveawayRemaining = mergeStockMonotonic(hub.lowestGiveawayRemaining || {}, cachedJson.lowestGiveawayRemaining);
           }
@@ -241,13 +254,27 @@ export async function getRealEventsHub(env: any): Promise<RealEventHubData> {
     }
     hub.realProductSoldCounts = mergeCountsMonotonic(hub.realProductSoldCounts, memHub.realProductSoldCounts);
     hub.realGiveawayClaimedCounts = mergeCountsMonotonic(hub.realGiveawayClaimedCounts, memHub.realGiveawayClaimedCounts);
-    hub.peakProductSoldCounts = mergeCountsMonotonic(hub.peakProductSoldCounts || {}, memHub.peakProductSoldCounts);
-    hub.peakGiveawayClaimedCounts = mergeCountsMonotonic(hub.peakGiveawayClaimedCounts || {}, memHub.peakGiveawayClaimedCounts);
     if (typeof memHub.peakCopyClicks === 'number') {
       hub.peakCopyClicks = Math.max(hub.peakCopyClicks || 0, memHub.peakCopyClicks);
     }
-    // Do NOT let stale memory downgrade authoritative D1 stock
+    // Do NOT let stale memory downgrade or override authoritative D1 peaks & stock
     if (hasD1Data) {
+      if (memHub.peakProductSoldCounts && typeof memHub.peakProductSoldCounts === 'object') {
+        hub.peakProductSoldCounts = hub.peakProductSoldCounts || {};
+        for (const [k, v] of Object.entries(memHub.peakProductSoldCounts)) {
+          if (hub.peakProductSoldCounts[k] === undefined) {
+            hub.peakProductSoldCounts[k] = Number(v);
+          }
+        }
+      }
+      if (memHub.peakGiveawayClaimedCounts && typeof memHub.peakGiveawayClaimedCounts === 'object') {
+        hub.peakGiveawayClaimedCounts = hub.peakGiveawayClaimedCounts || {};
+        for (const [k, v] of Object.entries(memHub.peakGiveawayClaimedCounts)) {
+          if (hub.peakGiveawayClaimedCounts[k] === undefined) {
+            hub.peakGiveawayClaimedCounts[k] = Number(v);
+          }
+        }
+      }
       if (memHub.lowestProductStock && typeof memHub.lowestProductStock === 'object') {
         for (const [k, v] of Object.entries(memHub.lowestProductStock)) {
           if (hub.lowestProductStock[k] === undefined) {
@@ -263,6 +290,8 @@ export async function getRealEventsHub(env: any): Promise<RealEventHubData> {
         }
       }
     } else {
+      hub.peakProductSoldCounts = mergeCountsMonotonic(hub.peakProductSoldCounts || {}, memHub.peakProductSoldCounts);
+      hub.peakGiveawayClaimedCounts = mergeCountsMonotonic(hub.peakGiveawayClaimedCounts || {}, memHub.peakGiveawayClaimedCounts);
       hub.lowestProductStock = mergeStockMonotonic(hub.lowestProductStock || {}, memHub.lowestProductStock);
       hub.lowestGiveawayRemaining = mergeStockMonotonic(hub.lowestGiveawayRemaining || {}, memHub.lowestGiveawayRemaining);
     }
@@ -386,6 +415,9 @@ export async function saveRealEventsHub(env: any, hub: RealEventHubData, forceRe
   try {
     if (typeof caches !== 'undefined' && (caches as any).default) {
       const cache = (caches as any).default;
+      if (forceReset) {
+        await cache.delete(CACHE_KEY_URL).catch(() => {});
+      }
       const res = new Response(JSON.stringify(hub), {
         headers: {
           'Content-Type': 'application/json',

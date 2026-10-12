@@ -7,11 +7,13 @@ import {
   ShieldCheck,
   AlertCircle,
   Eye,
+  EyeOff,
   Boxes,
   Zap,
 } from 'lucide-react';
 import { FormModal } from './FormModal';
 import { marketingService } from '../../../services/marketingService';
+import { adminDataService } from '../../services/adminDataService';
 import { ProductPriority } from '../../../types/marketing';
 
 export interface QuickFomoAdjustModalProps {
@@ -52,6 +54,8 @@ export const QuickFomoAdjustModal: React.FC<QuickFomoAdjustModalProps> = ({
   const [bonusStock, setBonusStock] = useState(0);
   const [priority, setPriority] = useState<ProductPriority>('normal');
   const [isVirtualActive, setIsVirtualActive] = useState<boolean>(true);
+  const [showSoldOrClaimed, setShowSoldOrClaimed] = useState<boolean>(true);
+  const [showStockCount, setShowStockCount] = useState<boolean>(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   useEffect(() => {
@@ -72,6 +76,21 @@ export const QuickFomoAdjustModal: React.FC<QuickFomoAdjustModalProps> = ({
 
     const hasVirtual = pw.priority !== 'off' || Number(pw.virtualStockBonus) > 0 || webSold > realSoldOrClaimed || webStock > realStock;
     setIsVirtualActive(hasVirtual);
+
+    // Load granular visibility settings from adminDataService
+    if (isGiveaway) {
+      const gw = adminDataService.getGiveaways().find((g) => g.id === itemId);
+      setShowSoldOrClaimed(gw ? gw.show_claimed_count !== false : true);
+      setShowStockCount(gw ? (gw as any).show_remaining_count !== false : true);
+    } else if (itemType === 'utility') {
+      const util = adminDataService.getUtilities().find((u) => u.id === itemId);
+      setShowSoldOrClaimed(util ? util.show_sold_count !== false : true);
+      setShowStockCount(util ? (util as any).show_stock_count !== false : true);
+    } else {
+      const prod = adminDataService.getStoreProducts().find((p) => p.id === itemId);
+      setShowSoldOrClaimed(prod ? prod.show_sold_count !== false : true);
+      setShowStockCount(prod ? (prod as any).show_stock_count !== false : true);
+    }
   }, [isOpen, itemId, itemType, realStock, realSoldOrClaimed, isGiveaway]);
 
   const handleApply = async () => {
@@ -82,6 +101,7 @@ export const QuickFomoAdjustModal: React.FC<QuickFomoAdjustModalProps> = ({
       const sanitizedBonusStock = isVirtualActive ? Math.max(0, Number(bonusStock) || 0) : 0;
       const effectivePriority = isVirtualActive ? priority : 'off';
 
+      // 1. Cập nhật marketingService (ngay lập tức tác động lên UI và Client Maps)
       await marketingService.updateItemVirtualSettings(itemId, {
         targetDisplaySoldOrClaimed: sanitizedTargetSold,
         virtualStockBonus: sanitizedBonusStock,
@@ -89,11 +109,47 @@ export const QuickFomoAdjustModal: React.FC<QuickFomoAdjustModalProps> = ({
         forceReset: true,
       });
 
+      // 2. Cập nhật đồng thời vào adminDataService để tránh bất kỳ sự phục hồi (revert bug) nào
+      if (isGiveaway) {
+        const gw = adminDataService.getGiveaways().find((g) => g.id === itemId);
+        if (gw) {
+          adminDataService.saveGiveawayItem({
+            ...gw,
+            virtual_claimed_offset: isVirtualActive ? sanitizedTargetSold : 0,
+            show_claimed_count: showSoldOrClaimed,
+            show_remaining_count: showStockCount,
+          });
+        }
+      } else if (itemType === 'utility') {
+        const util = adminDataService.getUtilities().find((u) => u.id === itemId);
+        if (util) {
+          adminDataService.saveUtilityItem({
+            ...util,
+            virtual_sold_count: isVirtualActive ? sanitizedTargetSold : 0,
+            show_sold_count: showSoldOrClaimed,
+            show_stock_count: showStockCount,
+          });
+        }
+      } else {
+        const prod = adminDataService.getStoreProducts().find((p) => p.id === itemId);
+        if (prod) {
+          adminDataService.saveStoreProductItem({
+            ...prod,
+            virtual_sold_count: isVirtualActive ? sanitizedTargetSold : 0,
+            show_sold_count: showSoldOrClaimed,
+            show_stock_count: showStockCount,
+          });
+        }
+      }
+
+      // 3. Đồng bộ KV lên Cloudflare Pages Functions
+      await adminDataService.pushFullStateToKV(true);
+
       onShowToast(
-        'Đã cập nhật số ảo thành công!',
+        'Đã cập nhật số ảo & hiển thị thành công!',
         isVirtualActive
-          ? `Đã bật số ảo ngoài Web: ${labelSoldOrClaimed}: ${sanitizedTargetSold} | ${labelStock}: ${realStock <= 0 ? 0 : realStock + sanitizedBonusStock}.`
-          : `Đã ẩn số ảo (về thật 100%): ${labelSoldOrClaimed}: ${realSoldOrClaimed} | ${labelStock}: ${realStock}.`,
+          ? `Đã bật số ảo ngoài Web: ${labelSoldOrClaimed}: ${sanitizedTargetSold} | ${labelStock}: ${realStock <= 0 ? 0 : realStock + sanitizedBonusStock} (${showSoldOrClaimed ? 'Hiện' : 'Ẩn'} ${labelSoldOrClaimed}, ${showStockCount ? 'Hiện' : 'Ẩn'} ${labelStock}).`
+          : `Đã đưa về số thật 100%: ${labelSoldOrClaimed}: ${realSoldOrClaimed} | ${labelStock}: ${realStock}.`,
         'success'
       );
 
@@ -189,55 +245,137 @@ export const QuickFomoAdjustModal: React.FC<QuickFomoAdjustModalProps> = ({
           </div>
         </div>
 
-        {/* MỤC ẨN / HIỆN SỐ ẢO NGOÀI WEB (ĐÃ GIẬT, CÒN LẠI, ĐÃ BÁN) */}
-        <div className={`p-3 rounded-xl border transition-all ${
-          isVirtualActive
-            ? 'bg-purple-500/10 dark:bg-purple-950/40 border-purple-500/30'
-            : 'bg-rose-50 dark:bg-rose-950/40 border-rose-300 dark:border-rose-800'
-        }`}>
-          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2.5">
-            <div>
-              <div className="flex items-center gap-1.5 text-xs font-bold text-slate-900 dark:text-white">
-                {isVirtualActive ? (
-                  <Eye className="w-4 h-4 text-purple-600 dark:text-purple-400" />
-                ) : (
-                  <AlertCircle className="w-4 h-4 text-rose-600 dark:text-rose-400" />
-                )}
-                <span>MỤC ẨN / HIỆN SỐ ẢO NGOÀI WEB ({labelSoldOrClaimed.toUpperCase()}, {labelStock.toUpperCase()})</span>
+        {/* TÙY CHỌN ẨN / HIỆN ĐỘC LẬP TỪNG MỤC NGOÀI WEB KHÁCH */}
+        <div className="p-3 rounded-xl border border-slate-200 dark:border-slate-700/80 bg-slate-50/70 dark:bg-slate-800/40 space-y-2.5">
+          <div className="flex items-center gap-1.5 text-xs font-bold text-slate-900 dark:text-white">
+            <Eye className="w-4 h-4 text-indigo-500" />
+            <span>TÙY CHỌN HIỂN THỊ NGOÀI WEB KHÁCH</span>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+            {/* Toggle 1: Ẩn/Hiện Mục Đã Giật / Đã Bán */}
+            <div className="p-2 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 flex items-center justify-between gap-2 shadow-2xs">
+              <div>
+                <span className="text-[11px] font-bold text-slate-800 dark:text-slate-200 flex items-center gap-1">
+                  <Sparkles className="w-3 h-3 text-amber-500" />
+                  <span>Mục {labelSoldOrClaimed}:</span>
+                </span>
+                <p className="text-[10px] text-slate-500">
+                  {showSoldOrClaimed ? 'Khách thấy số đã giật/bán' : 'Ẩn khỏi web khách'}
+                </p>
               </div>
-              <p className="text-[11px] text-slate-600 dark:text-slate-400 mt-0.5">
-                {isVirtualActive
-                  ? `Đang BẬT số ảo ngoài Web. Khách thấy ${labelSoldOrClaimed.toLowerCase()} & ${labelStock.toLowerCase()} theo cấu hình bên dưới.`
-                  : `Đang ẨN số ảo ngoài Web. Khách chỉ thấy số liệu thật (${realStock} mã còn, ${realSoldOrClaimed} ${labelSoldOrClaimed.toLowerCase()}).`}
-              </p>
+              <div className="inline-flex items-center p-0.5 rounded-lg bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 shrink-0">
+                <button
+                  type="button"
+                  onClick={() => setShowSoldOrClaimed(true)}
+                  className={`px-2 py-1 rounded-md text-[10px] font-bold transition-all cursor-pointer flex items-center gap-1 ${
+                    showSoldOrClaimed
+                      ? 'bg-amber-500 text-white shadow-xs'
+                      : 'text-slate-500 hover:text-slate-900 dark:hover:text-white'
+                  }`}
+                >
+                  <Eye className="w-3 h-3" />
+                  <span>Hiện</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setShowSoldOrClaimed(false)}
+                  className={`px-2 py-1 rounded-md text-[10px] font-bold transition-all cursor-pointer flex items-center gap-1 ${
+                    !showSoldOrClaimed
+                      ? 'bg-rose-600 text-white shadow-xs'
+                      : 'text-slate-500 hover:text-slate-900 dark:hover:text-white'
+                  }`}
+                >
+                  <EyeOff className="w-3 h-3" />
+                  <span>Ẩn</span>
+                </button>
+              </div>
             </div>
 
-            {/* Segmented Control 2 Nút Cực Kỳ Rõ Ràng */}
-            <div className="inline-flex items-center p-1 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 shadow-xs shrink-0">
-              <button
-                type="button"
-                onClick={() => setIsVirtualActive(true)}
-                className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1 cursor-pointer ${
-                  isVirtualActive
-                    ? 'bg-gradient-to-r from-purple-600 to-indigo-600 text-white shadow-sm'
-                    : 'text-slate-500 hover:text-slate-900 dark:hover:text-white'
-                }`}
-              >
-                <Eye className="w-3.5 h-3.5" />
-                <span>Hiện Số Ảo</span>
-              </button>
-              <button
-                type="button"
-                onClick={handleResetToReal}
-                className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1 cursor-pointer ${
-                  !isVirtualActive
-                    ? 'bg-rose-600 text-white shadow-sm'
-                    : 'text-slate-500 hover:text-slate-900 dark:hover:text-white'
-                }`}
-              >
-                <RotateCcw className="w-3.5 h-3.5" />
-                <span>Ẩn Số Ảo (Về thật)</span>
-              </button>
+            {/* Toggle 2: Ẩn/Hiện Mục Hàng Còn / Mã Còn Lại */}
+            <div className="p-2 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 flex items-center justify-between gap-2 shadow-2xs">
+              <div>
+                <span className="text-[11px] font-bold text-slate-800 dark:text-slate-200 flex items-center gap-1">
+                  <Boxes className="w-3 h-3 text-emerald-500" />
+                  <span>Mục {labelStock}:</span>
+                </span>
+                <p className="text-[10px] text-slate-500">
+                  {showStockCount ? 'Khách thấy số lượng còn' : 'Ẩn khỏi web khách'}
+                </p>
+              </div>
+              <div className="inline-flex items-center p-0.5 rounded-lg bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 shrink-0">
+                <button
+                  type="button"
+                  onClick={() => setShowStockCount(true)}
+                  className={`px-2 py-1 rounded-md text-[10px] font-bold transition-all cursor-pointer flex items-center gap-1 ${
+                    showStockCount
+                      ? 'bg-emerald-600 text-white shadow-xs'
+                      : 'text-slate-500 hover:text-slate-900 dark:hover:text-white'
+                  }`}
+                >
+                  <Eye className="w-3 h-3" />
+                  <span>Hiện</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setShowStockCount(false)}
+                  className={`px-2 py-1 rounded-md text-[10px] font-bold transition-all cursor-pointer flex items-center gap-1 ${
+                    !showStockCount
+                      ? 'bg-rose-600 text-white shadow-xs'
+                      : 'text-slate-500 hover:text-slate-900 dark:hover:text-white'
+                  }`}
+                >
+                  <EyeOff className="w-3 h-3" />
+                  <span>Ẩn</span>
+                </button>
+              </div>
+            </div>
+          </div>
+
+          {/* Toggle 3: Bật / Tắt Số Ảo FOMO */}
+          <div className={`p-2.5 rounded-xl border transition-all ${
+            isVirtualActive
+              ? 'bg-purple-500/10 dark:bg-purple-950/40 border-purple-500/30'
+              : 'bg-rose-50 dark:bg-rose-950/40 border-rose-300 dark:border-rose-800'
+          }`}>
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+              <div>
+                <span className="text-[11px] font-bold text-slate-900 dark:text-white flex items-center gap-1">
+                  {isVirtualActive ? <Sparkles className="w-3.5 h-3.5 text-purple-500" /> : <AlertCircle className="w-3.5 h-3.5 text-rose-500" />}
+                  <span>TẦNG SỐ ẢO FOMO (TĂNG TRƯỞNG & ĐỘN KHO)</span>
+                </span>
+                <p className="text-[10.5px] text-slate-600 dark:text-slate-400 mt-0.5">
+                  {isVirtualActive
+                    ? 'Đang BẬT số ảo. Cho phép điều chỉnh mốc mong muốn bên dưới.'
+                    : `Đang ẨN số ảo (về thật 100%): Kho ${realStock} mã, ${realSoldOrClaimed} ${labelSoldOrClaimed.toLowerCase()}.`}
+                </p>
+              </div>
+              <div className="inline-flex items-center p-0.5 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 shadow-2xs shrink-0">
+                <button
+                  type="button"
+                  onClick={() => setIsVirtualActive(true)}
+                  className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1 cursor-pointer ${
+                    isVirtualActive
+                      ? 'bg-gradient-to-r from-purple-600 to-indigo-600 text-white shadow-xs'
+                      : 'text-slate-500 hover:text-slate-900 dark:hover:text-white'
+                  }`}
+                >
+                  <Sparkles className="w-3.5 h-3.5" />
+                  <span>Bật Số Ảo</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={handleResetToReal}
+                  className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1 cursor-pointer ${
+                    !isVirtualActive
+                      ? 'bg-rose-600 text-white shadow-xs'
+                      : 'text-slate-500 hover:text-slate-900 dark:hover:text-white'
+                  }`}
+                >
+                  <RotateCcw className="w-3.5 h-3.5" />
+                  <span>Về Thật 100%</span>
+                </button>
+              </div>
             </div>
           </div>
         </div>

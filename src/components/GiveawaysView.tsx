@@ -730,9 +730,11 @@ export const GiveawaysView: React.FC<GiveawaysViewProps> = ({
                           ) : (
                             <span></span>
                           )}
-                          <span>
-                            Còn lại: <strong className="text-accent">{displayRemaining}</strong> mã
-                          </span>
+                          {(campaign as any).show_remaining_count !== false && (
+                            <span>
+                              Còn lại: <strong className="text-accent">{displayRemaining}</strong> mã
+                            </span>
+                          )}
                         </div>
                         <div className="w-full h-2 rounded-full bg-muted overflow-hidden">
                           <div
@@ -1752,12 +1754,18 @@ export const GiveawaysView: React.FC<GiveawaysViewProps> = ({
                   {/* Real-time Stock Progress */}
                   <div className="p-3.5 rounded-2xl bg-muted/50 border border-border/70 space-y-2">
                     <div className="flex items-center justify-between text-xs font-mono">
-                      <span>
-                        Đã trao: <strong className="text-amber-400">{displayClaimed} mã</strong>
-                      </span>
-                      <span>
-                        Còn lại: <strong className="text-accent">{displayRemaining} mã</strong>
-                      </span>
+                      {currentCampaign.show_claimed_count !== false ? (
+                        <span>
+                          Đã trao: <strong className="text-amber-400">{displayClaimed} mã</strong>
+                        </span>
+                      ) : (
+                        <span></span>
+                      )}
+                      {(currentCampaign as any).show_remaining_count !== false && (
+                        <span>
+                          Còn lại: <strong className="text-accent">{displayRemaining} mã</strong>
+                        </span>
+                      )}
                     </div>
                     <div className="w-full h-2.5 rounded-full bg-muted overflow-hidden border border-border/40">
                       <div

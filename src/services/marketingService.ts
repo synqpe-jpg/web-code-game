@@ -28,6 +28,8 @@ const MARKETING_HIGH_WATER_SOLD_KEY = 'wcg_high_water_sold_counts_v1';
 const MARKETING_HIGH_WATER_CLAIMED_KEY = 'wcg_high_water_claimed_counts_v1';
 const MARKETING_FOMO_SESSION_ANCHOR_KEY = 'wcg_fomo_session_anchor_v2';
 const MARKETING_SNAPSHOT_KEY = 'wcg_metrics_snapshot_cache_v2';
+const MARKETING_ADMIN_OVERRIDE_CLAIMED_KEY = 'wcg_admin_override_claimed_v2';
+const MARKETING_ADMIN_OVERRIDE_SOLD_KEY = 'wcg_admin_override_sold_v2';
 
 export const PRESET_VIRTUAL_ACCOUNTS: string[] = [
   // 1. Vietnamese Full Names (30 names)
@@ -179,6 +181,8 @@ class MarketingService {
   private liveFomoClaimedCountMap: Map<string, number> = new Map();
   private highWaterSoldCountMap: Map<string, number> = new Map();
   private highWaterClaimedCountMap: Map<string, number> = new Map();
+  private adminOverrideClaimedMap: Map<string, number> = new Map();
+  private adminOverrideSoldMap: Map<string, number> = new Map();
   private saveHighWaterTimer: any = null;
   private sessionAnchorMap: Map<string, { lastCount: number; lastTimestamp: number }> = new Map();
   private saveSessionAnchorTimer: any = null;
@@ -233,6 +237,7 @@ class MarketingService {
     this.initLiveVirtualStock();
     this.initLiveFomoCounts();
     this.initHighWaterCounts();
+    this.initAdminOverrides();
     this.initSessionAnchor();
     this.applyOfflineCatchUp();
     this.initHourlyServerStats();
@@ -392,35 +397,42 @@ class MarketingService {
                   this.productRealStockMap.set(pId, info.real_stock);
                 }
                 if (typeof info.sold === 'number') {
-                  const curSold = this.highWaterSoldCountMap.get(pId) || 0;
-                  const curFomo = this.liveFomoSoldCountMap.get(pId) || 0;
-                  const nextSold = Math.max(curSold, info.sold);
-                  const nextFomo = Math.max(curFomo, info.sold);
-
-                  // Auto-heal nếu vượt trần tối đa hợp lệ (maxAllowedCap)
-                  const realStock = typeof info.real_stock === 'number'
-                    ? info.real_stock
-                    : (this.productRealStockMap.get(pId) || 0);
-                  const catchUp = this.config.offlineCatchUp || DEFAULT_OFFLINE_CATCHUP_CONFIG;
-                  const oosEnabled = Boolean(catchUp.outOfStockEnabled);
-                  const oosMax = Math.max(1, Number(catchUp.outOfStockMaxUnits) || 10);
-                  const maxCatchUp = Math.max(30, Number(catchUp.maxCatchUpUnits) || 70);
+                  const isOverriddenSold = this.adminOverrideSoldMap.has(pId);
                   const realSold = typeof info.real_sold === 'number' ? info.real_sold : 0;
-                  const details = this.findItemDetails(pId);
-                  const virtualBase = Number(details?.virtual_sold_count || 0);
-                  const maxCap = realStock <= 0 && oosEnabled
-                    ? realSold + virtualBase + oosMax + 5
-                    : Math.max(50000, realSold + virtualBase + 5000);
+                  if (isOverriddenSold) {
+                    const targetSold = Math.max(realSold, this.adminOverrideSoldMap.get(pId)!);
+                    this.highWaterSoldCountMap.set(pId, targetSold);
+                    this.liveFomoSoldCountMap.set(pId, targetSold);
+                  } else {
+                    const curSold = this.highWaterSoldCountMap.get(pId) || 0;
+                    const curFomo = this.liveFomoSoldCountMap.get(pId) || 0;
+                    const nextSold = Math.max(curSold, info.sold);
+                    const nextFomo = Math.max(curFomo, info.sold);
 
-                  const healedSold = nextSold > maxCap ? info.sold : nextSold;
-                  const healedFomo = nextFomo > maxCap ? info.sold : nextFomo;
+                    // Auto-heal nếu vượt trần tối đa hợp lệ (maxAllowedCap)
+                    const realStock = typeof info.real_stock === 'number'
+                      ? info.real_stock
+                      : (this.productRealStockMap.get(pId) || 0);
+                    const catchUp = this.config.offlineCatchUp || DEFAULT_OFFLINE_CATCHUP_CONFIG;
+                    const oosEnabled = Boolean(catchUp.outOfStockEnabled);
+                    const oosMax = Math.max(1, Number(catchUp.outOfStockMaxUnits) || 10);
+                    const maxCatchUp = Math.max(30, Number(catchUp.maxCatchUpUnits) || 70);
+                    const details = this.findItemDetails(pId);
+                    const virtualBase = Number(details?.virtual_sold_count || 0);
+                    const maxCap = realStock <= 0 && oosEnabled
+                      ? realSold + virtualBase + oosMax + 5
+                      : Math.max(50000, realSold + virtualBase + 5000);
 
-                  this.highWaterSoldCountMap.set(pId, healedSold);
-                  this.liveFomoSoldCountMap.set(pId, healedFomo);
+                    const healedSold = nextSold > maxCap ? info.sold : nextSold;
+                    const healedFomo = nextFomo > maxCap ? info.sold : nextFomo;
 
-                  // Nếu client có đỉnh cao hơn (do live sales vừa nổ), sync peak lên Edge server
-                  if (curSold > info.sold && curSold <= maxCap) {
-                    this.schedulePeakReport();
+                    this.highWaterSoldCountMap.set(pId, healedSold);
+                    this.liveFomoSoldCountMap.set(pId, healedFomo);
+
+                    // Nếu client có đỉnh cao hơn (do live sales vừa nổ), sync peak lên Edge server
+                    if (curSold > info.sold && curSold <= maxCap) {
+                      this.schedulePeakReport();
+                    }
                   }
                 }
                 if (typeof info.stock === 'number') {
@@ -480,33 +492,40 @@ class MarketingService {
                   this.productRealStockMap.set(gId, info.real_remaining);
                 }
                 if (typeof info.claimed === 'number') {
-                  const curClaimed = this.highWaterClaimedCountMap.get(gId) || 0;
-                  const curFomo = this.liveFomoClaimedCountMap.get(gId) || 0;
-                  const nextClaimed = Math.max(curClaimed, info.claimed);
-                  const nextFomo = Math.max(curFomo, info.claimed);
-
-                  const realRemaining = typeof info.real_remaining === 'number'
-                    ? info.real_remaining
-                    : (this.productRealStockMap.get(gId) || 0);
-                  const catchUp = this.config.offlineCatchUp || DEFAULT_OFFLINE_CATCHUP_CONFIG;
-                  const oosEnabled = Boolean(catchUp.outOfStockEnabled);
-                  const oosMax = Math.max(1, Number(catchUp.outOfStockMaxUnits) || 10);
-                  const maxCatchUp = Math.max(30, Number(catchUp.maxCatchUpUnits) || 70);
+                  const isOverriddenClaimed = this.adminOverrideClaimedMap.has(gId);
                   const realClaimed = typeof info.real_claimed === 'number' ? info.real_claimed : 0;
-                  const details = this.findGiveawayDetails(gId);
-                  const virtualBase = Number(details?.virtual_claimed_offset || 0);
-                  const maxCap = realRemaining <= 0 && oosEnabled
-                    ? realClaimed + virtualBase + oosMax + 5
-                    : Math.max(50000, realClaimed + virtualBase + 5000);
+                  if (isOverriddenClaimed) {
+                    const targetClaimed = Math.max(realClaimed, this.adminOverrideClaimedMap.get(gId)!);
+                    this.highWaterClaimedCountMap.set(gId, targetClaimed);
+                    this.liveFomoClaimedCountMap.set(gId, targetClaimed);
+                  } else {
+                    const curClaimed = this.highWaterClaimedCountMap.get(gId) || 0;
+                    const curFomo = this.liveFomoClaimedCountMap.get(gId) || 0;
+                    const nextClaimed = Math.max(curClaimed, info.claimed);
+                    const nextFomo = Math.max(curFomo, info.claimed);
 
-                  const healedClaimed = nextClaimed > maxCap ? info.claimed : nextClaimed;
-                  const healedFomo = nextFomo > maxCap ? info.claimed : nextFomo;
+                    const realRemaining = typeof info.real_remaining === 'number'
+                      ? info.real_remaining
+                      : (this.productRealStockMap.get(gId) || 0);
+                    const catchUp = this.config.offlineCatchUp || DEFAULT_OFFLINE_CATCHUP_CONFIG;
+                    const oosEnabled = Boolean(catchUp.outOfStockEnabled);
+                    const oosMax = Math.max(1, Number(catchUp.outOfStockMaxUnits) || 10);
+                    const maxCatchUp = Math.max(30, Number(catchUp.maxCatchUpUnits) || 70);
+                    const details = this.findGiveawayDetails(gId);
+                    const virtualBase = Number(details?.virtual_claimed_offset || 0);
+                    const maxCap = realRemaining <= 0 && oosEnabled
+                      ? realClaimed + virtualBase + oosMax + 5
+                      : Math.max(50000, realClaimed + virtualBase + 5000);
 
-                  this.highWaterClaimedCountMap.set(gId, healedClaimed);
-                  this.liveFomoClaimedCountMap.set(gId, healedFomo);
+                    const healedClaimed = nextClaimed > maxCap ? info.claimed : nextClaimed;
+                    const healedFomo = nextFomo > maxCap ? info.claimed : nextFomo;
 
-                  if (curClaimed > info.claimed && curClaimed <= maxCap) {
-                    this.schedulePeakReport();
+                    this.highWaterClaimedCountMap.set(gId, healedClaimed);
+                    this.liveFomoClaimedCountMap.set(gId, healedFomo);
+
+                    if (curClaimed > info.claimed && curClaimed <= maxCap) {
+                      this.schedulePeakReport();
+                    }
                   }
                 }
                 if (typeof info.remaining === 'number') {
@@ -1044,6 +1063,51 @@ class MarketingService {
     }, 300);
   }
 
+  private initAdminOverrides(): void {
+    if (typeof window === 'undefined') return;
+    try {
+      const savedClaimed = localStorage.getItem(MARKETING_ADMIN_OVERRIDE_CLAIMED_KEY);
+      if (savedClaimed) {
+        const parsed = JSON.parse(savedClaimed);
+        if (parsed && typeof parsed === 'object') {
+          Object.entries(parsed).forEach(([k, v]) => {
+            if (typeof v === 'number' && !isNaN(v)) {
+              this.adminOverrideClaimedMap.set(k, v);
+            }
+          });
+        }
+      }
+      const savedSold = localStorage.getItem(MARKETING_ADMIN_OVERRIDE_SOLD_KEY);
+      if (savedSold) {
+        const parsed = JSON.parse(savedSold);
+        if (parsed && typeof parsed === 'object') {
+          Object.entries(parsed).forEach(([k, v]) => {
+            if (typeof v === 'number' && !isNaN(v)) {
+              this.adminOverrideSoldMap.set(k, v);
+            }
+          });
+        }
+      }
+    } catch {}
+  }
+
+  private saveAdminOverrides(): void {
+    if (typeof window === 'undefined') return;
+    try {
+      const claimedObj: Record<string, number> = {};
+      this.adminOverrideClaimedMap.forEach((val, key) => {
+        claimedObj[key] = val;
+      });
+      localStorage.setItem(MARKETING_ADMIN_OVERRIDE_CLAIMED_KEY, JSON.stringify(claimedObj));
+
+      const soldObj: Record<string, number> = {};
+      this.adminOverrideSoldMap.forEach((val, key) => {
+        soldObj[key] = val;
+      });
+      localStorage.setItem(MARKETING_ADMIN_OVERRIDE_SOLD_KEY, JSON.stringify(soldObj));
+    } catch {}
+  }
+
   // --- Session Anchor & Offline Catch-Up Engine ---
   private initSessionAnchor(): void {
     if (typeof window === 'undefined') return;
@@ -1315,6 +1379,10 @@ class MarketingService {
       if (data.peak_product_sold_counts && typeof data.peak_product_sold_counts === 'object') {
         let pChanged = false;
         Object.entries(data.peak_product_sold_counts).forEach(([k, v]) => {
+          if (this.adminOverrideSoldMap.has(k)) {
+            // Keep admin target intact
+            return;
+          }
           if (typeof v === 'number' && !isNaN(v) && v > 0) {
             const cur = this.highWaterSoldCountMap.get(k) || 0;
             if (v > cur) {
@@ -1328,6 +1396,10 @@ class MarketingService {
       if (data.peak_giveaway_claimed_counts && typeof data.peak_giveaway_claimed_counts === 'object') {
         let gChanged = false;
         Object.entries(data.peak_giveaway_claimed_counts).forEach(([k, v]) => {
+          if (this.adminOverrideClaimedMap.has(k)) {
+            // Keep admin target intact
+            return;
+          }
           if (typeof v === 'number' && !isNaN(v) && v > 0) {
             const cur = this.highWaterClaimedCountMap.get(k) || 0;
             if (v > cur) {
@@ -2105,6 +2177,15 @@ class MarketingService {
       return effectiveRealSold;
     }
 
+    // 0. Nếu Admin đã ghi đè mốc hiển thị cụ thể (Admin Target Override)
+    if (id && this.adminOverrideSoldMap.has(id)) {
+      const overrideVal = this.adminOverrideSoldMap.get(id)!;
+      const finalDisplay = Math.max(effectiveRealSold, overrideVal);
+      this.highWaterSoldCountMap.set(id, finalDisplay);
+      this.liveFomoSoldCountMap.set(id, finalDisplay);
+      return finalDisplay;
+    }
+
     let recordedMax = id ? (this.highWaterSoldCountMap.get(id) || 0) : 0;
     const virtualBaseRaw = item.virtual_sold_count !== undefined ? item.virtual_sold_count : (details?.virtual_sold_count ?? 0);
     const virtualBase = Number(virtualBaseRaw || 0);
@@ -2174,6 +2255,15 @@ class MarketingService {
     // If priority is 'off', strictly return real claimed
     if (pw.priority === 'off') {
       return effectiveRealClaimed;
+    }
+
+    // 0. Nếu Admin đã ghi đè mốc hiển thị cụ thể (Admin Target Override)
+    if (id && this.adminOverrideClaimedMap.has(id)) {
+      const overrideVal = this.adminOverrideClaimedMap.get(id)!;
+      const finalDisplay = Math.max(effectiveRealClaimed, overrideVal);
+      this.highWaterClaimedCountMap.set(id, finalDisplay);
+      this.liveFomoClaimedCountMap.set(id, finalDisplay);
+      return finalDisplay;
     }
 
     let recordedMax = id ? (this.highWaterClaimedCountMap.get(id) || 0) : 0;
@@ -2249,12 +2339,24 @@ class MarketingService {
 
     const calculatedBase = Math.max(0, effectiveRealSold + count + hourlyGrowth + inHourProg);
     const currentHigh = this.highWaterSoldCountMap.get(productId) || 0;
-    const targetDisplay = exactTargetDisplay !== undefined
-      ? Math.max(0, exactTargetDisplay)
-      : (forceReset ? calculatedBase : Math.max(calculatedBase, currentHigh));
+
+    let targetDisplay = 0;
+    if (exactTargetDisplay !== undefined) {
+      targetDisplay = Math.max(effectiveRealSold, exactTargetDisplay);
+      this.adminOverrideSoldMap.set(productId, targetDisplay);
+      this.saveAdminOverrides();
+    } else {
+      if (forceReset && count === 0) {
+        this.adminOverrideSoldMap.delete(productId);
+        this.saveAdminOverrides();
+      }
+      targetDisplay = forceReset ? calculatedBase : Math.max(calculatedBase, currentHigh);
+    }
 
     this.highWaterSoldCountMap.set(productId, targetDisplay);
+    this.liveFomoSoldCountMap.set(productId, targetDisplay);
     this.saveHighWaterCounts();
+    this.saveLiveFomoCounts();
 
     if (forceReset) {
       const now = Date.now();
@@ -2303,12 +2405,24 @@ class MarketingService {
 
     const calculatedBase = Math.max(0, effectiveRealClaimed + count + hourlyGrowth + inHourProg);
     const currentHigh = this.highWaterClaimedCountMap.get(campaignId) || 0;
-    const targetDisplay = exactTargetDisplay !== undefined
-      ? Math.max(0, exactTargetDisplay)
-      : (forceReset ? calculatedBase : Math.max(calculatedBase, currentHigh));
+
+    let targetDisplay = 0;
+    if (exactTargetDisplay !== undefined) {
+      targetDisplay = Math.max(effectiveRealClaimed, exactTargetDisplay);
+      this.adminOverrideClaimedMap.set(campaignId, targetDisplay);
+      this.saveAdminOverrides();
+    } else {
+      if (forceReset && count === 0) {
+        this.adminOverrideClaimedMap.delete(campaignId);
+        this.saveAdminOverrides();
+      }
+      targetDisplay = forceReset ? calculatedBase : Math.max(calculatedBase, currentHigh);
+    }
 
     this.highWaterClaimedCountMap.set(campaignId, targetDisplay);
+    this.liveFomoClaimedCountMap.set(campaignId, targetDisplay);
     this.saveHighWaterCounts();
+    this.saveLiveFomoCounts();
 
     if (forceReset) {
       const now = Date.now();
@@ -2430,11 +2544,13 @@ class MarketingService {
       this.liveFomoClaimedCountMap.set(gw.id, 0);
       this.liveVirtualStockMap.set(gw.id, realRemaining);
       this.sessionAnchorMap.set(gw.id, { lastCount: realClaimed, lastTimestamp: Date.now() });
+      this.adminOverrideClaimedMap.delete(gw.id);
 
       peakClaimedUpdates[gw.id] = realClaimed;
       lowestRemainingUpdates[gw.id] = realRemaining;
     });
 
+    this.saveAdminOverrides();
     this.saveHighWaterCounts();
     this.saveLiveFomoCounts();
     this.saveLiveVirtualStock();

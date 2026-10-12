@@ -559,12 +559,14 @@ export const UtilitiesView: React.FC<UtilitiesViewProps> = ({
                     {item.title}
                   </h3>
                   <div className="flex items-center gap-2 text-[10px] sm:text-[11px] text-muted-foreground mt-0.5">
-                    <span className={`font-mono ${displayStock <= 0 ? 'text-rose-400 font-bold' : 'text-slate-300'}`}>
-                      {displayStock <= 0 ? 'Hết hàng' : `Còn: ${displayStock}`}
-                    </span>
+                    {(item as any).show_stock_count !== false && (
+                      <span className={`font-mono ${displayStock <= 0 ? 'text-rose-400 font-bold' : 'text-slate-300'}`}>
+                        {displayStock <= 0 ? 'Hết hàng' : `Còn: ${displayStock}`}
+                      </span>
+                    )}
                     {item.show_sold_count !== false && (
                       <>
-                        <span>•</span>
+                        {(item as any).show_stock_count !== false && <span>•</span>}
                         <span className="font-mono text-amber-400/90 hidden xs:inline">
                           Đã bán: {marketingService.getSoldDisplay(item)}
                         </span>
@@ -700,16 +702,18 @@ export const UtilitiesView: React.FC<UtilitiesViewProps> = ({
                         : marketingService.getDisplayStock(item.id, item.stock_quantity);
                     return (
                       <div className="flex items-center gap-1.5 flex-wrap">
-                        <span
-                          className={`text-[9px] sm:text-[10px] font-mono ${
-                            displayStock <= 0 ? 'text-rose-400 font-bold' : 'text-slate-300'
-                          }`}
-                        >
-                          {displayStock <= 0 ? 'Hết hàng' : `Còn: ${displayStock}`}
-                        </span>
+                        {(item as any).show_stock_count !== false && (
+                          <span
+                            className={`text-[9px] sm:text-[10px] font-mono ${
+                              displayStock <= 0 ? 'text-rose-400 font-bold' : 'text-slate-300'
+                            }`}
+                          >
+                            {displayStock <= 0 ? 'Hết hàng' : `Còn: ${displayStock}`}
+                          </span>
+                        )}
                         {item.show_sold_count !== false && (
                           <span className="text-[9px] sm:text-[10px] font-mono text-amber-400/90">
-                            • Đã bán: {marketingService.getSoldDisplay(item)}
+                            {(item as any).show_stock_count !== false ? '• ' : ''}Đã bán: {marketingService.getSoldDisplay(item)}
                           </span>
                         )}
                       </div>

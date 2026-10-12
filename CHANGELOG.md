@@ -7,6 +7,33 @@ Mỗi mục sửa lỗi đều ghi nhận **Nguyên nhân gốc rễ (Root Cause
 
 ## [2026-10-13]
 
+### 7. Khắc Phục Triệt Để Lỗi Số Ảo Bị Phục Hồi (Revert Bug) & Cung Cấp Bộ 3 Công Tắc Ẩn/Hiện Tùy Chọn Độc Lập
+- **Mô tả**:
+  1. **Khắc phục triệt để lỗi số ảo bị phục hồi (Revert Bug)**:
+     - Xử lý dứt điểm hiện tượng Admin sửa số ảo thành công (ví dụ đặt 43, 54 hay 0) nhưng sau đó số lại bị giật ngược về mốc cũ (1484, 1419...).
+     - Triển khai cơ chế **Admin Target Override (`adminOverrideClaimedMap` & `adminOverrideSoldMap`)** trong `marketingService.ts` được đồng bộ vĩnh viễn vào LocalStorage (`wcg_admin_override_claimed_v2`, `wcg_admin_override_sold_v2`).
+     - Khi sản phẩm có Admin Override, `getClaimedDisplay()` và `getSoldDisplay()` lập tức trả về giá trị Override, đóng băng hoàn toàn và chặn đứng `hourlyGrowth` cộng dồn từ quá khứ đè số mới.
+     - Vô hiệu hóa Poller Snapshot (10s) và Event Hub Merging không cho ghi đè lại các mốc cũ lên các sản phẩm đã có Admin Override.
+     - Phía Edge Worker (`functions/services/realEventsHub.ts`): Khi `hasD1Data` là `true`, ngắt monotonic merge (`mergeCountsMonotonic`) từ Cache API / memory isolate kéo ngược số trong D1; đồng thời khi reset (`forceReset = true`) sẽ xóa triệt để Cache API key.
+     - Đồng bộ lưu trực tiếp cấu hình số ảo vào database `adminDataService` (`saveGiveawayItem`, `saveUtilityItem`, `saveStoreProductItem`) và đẩy thẳng lên Cloudflare KV.
+  2. **Cung cấp bộ 3 công tắc điều khiển độc lập cho cả Admin và Web Khách**:
+     - Cho phép tùy chọn độc lập:
+       - 👁️ **Mục Đã giật / Đã bán**: `[Hiện]` / `[Ẩn]` (trên Toolbar Admin và Web Khách: `show_claimed_count` / `show_sold_count`).
+       - 📦 **Mục Hàng còn (Tồn kho)**: `[Hiện]` / `[Ẩn]` (trên Toolbar Admin và Web Khách: `show_remaining_count` / `show_stock_count`).
+       - ✨ **Tầng Số ảo Web**: `[Bật Số Ảo]` / `[Về Thật 100%]`.
+     - Xuất hiện trên Toolbar của cả 3 Module Quản trị (`PrivateCodesModule.tsx`, `UtilitiesModule.tsx`, `CodeInventoryModule.tsx`) và trong modal điều chỉnh `QuickFomoAdjustModal.tsx`.
+     - Đồng bộ hiển thị ngoài Web khách: `GiveawaysView.tsx`, `UtilitiesView.tsx`, `StoreView.tsx` tôn trọng các cờ cấu hình `show_remaining_count`, `show_claimed_count`, `show_stock_count`, `show_sold_count`.
+- **Nguyên nhân gốc rễ (Root Cause)**:
+  - 1. Công thức tính `getClaimedDisplay`/`getSoldDisplay` tự cộng `hourlyGrowth` tích lũy nhiều ngày (~1400 lượt) khiến `calculatedBase` luôn vượt trội so với số mục tiêu nhỏ của Admin (43, 54), dẫn đến `Math.max()` ép nhảy lại số lớn.
+  - 2. Poller 10s snapshot liên tục đồng bộ snapshot cũ từ máy chủ và ép `Math.max(current, server)`.
+  - 3. Cloudflare Edge Hub merge monotonic bộ đếm từ Edge Cache API và Memory Isolate đè lên giá trị mới trong D1.
+  - 4. Modal `QuickFomoAdjustModal` trước đó chỉ gọi `marketingService` mà không lưu record cập nhật vào `adminDataService`, khiến KV sync đè lại offset cũ.
+- **Giải pháp thành công (Solution Applied)**:
+  - Thiết lập cơ chế Admin Target Override bảo toàn vĩnh viễn giá trị Admin chỉ định.
+  - Tách bạch 3 cờ hiển thị độc lập cho từng mục và phản ánh tức thì lên UI cả Admin lẫn Web Khách.
+
+---
+
 ### 6. Tối Ưu Bảng Thao Tác Xóa/Sửa Luôn Hiển Thị 100% Trong Màn Hình & Bổ Sung Khối Ẩn/Hiện Số Ảo Rõ Ràng
 - **Mô tả**:
   1. **Hiển thị trọn vẹn thao tác Xóa, Sửa trong tầm mắt không bị tràn màn hình**:

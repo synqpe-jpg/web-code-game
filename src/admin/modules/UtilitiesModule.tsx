@@ -55,13 +55,15 @@ export const UtilitiesModule: React.FC<UtilitiesModuleProps> = ({ onShowToast })
     return localStorage.getItem('wcg_admin_show_virtual_stats') !== 'false';
   });
 
-  const toggleVirtualStats = () => {
-    setShowVirtualStats((prev) => {
-      const next = !prev;
-      localStorage.setItem('wcg_admin_show_virtual_stats', String(next));
-      return next;
-    });
-  };
+  const [showAdminSold, setShowAdminSold] = useState<boolean>(() => {
+    if (typeof window === 'undefined') return true;
+    return localStorage.getItem('wcg_admin_show_sold_util') !== 'false';
+  });
+
+  const [showAdminStock, setShowAdminStock] = useState<boolean>(() => {
+    if (typeof window === 'undefined') return true;
+    return localStorage.getItem('wcg_admin_show_stock_util') !== 'false';
+  });
 
   // --- QUICK FOMO ADJUST MODAL STATE ---
   const [fomoAdjustProduct, setFomoAdjustProduct] = useState<UtilityProduct | null>(null);
@@ -702,43 +704,64 @@ export const UtilitiesModule: React.FC<UtilitiesModuleProps> = ({ onShowToast })
               <option value="STOCK">Tồn kho nhiều nhất</option>
             </select>
 
-            {/* MỤC ẨN / HIỆN SỐ ẢO NGOÀI WEB (ĐÃ BÁN, CÒN LẠI) */}
-            <div className="inline-flex items-center p-1 rounded-xl bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 shadow-2xs">
-              <span className="text-[11px] font-bold text-slate-500 dark:text-slate-400 px-2 flex items-center gap-1">
-                <Sparkles className="w-3.5 h-3.5 text-purple-500" />
-                <span>Số ảo Web:</span>
-              </span>
+            {/* BỘ LỌC HIỂN THỊ CỘT TRỰC QUAN (ĐÃ BÁN, HÀNG CÒN, SỐ ẢO) */}
+            <div className="inline-flex items-center gap-1 p-1 rounded-xl bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 shadow-2xs">
+              <span className="text-[10px] font-bold text-slate-400 dark:text-slate-500 px-1 uppercase tracking-wider">Hiển thị:</span>
+              {/* Nút 1: Đã bán */}
               <button
                 type="button"
                 onClick={() => {
-                  setShowVirtualStats(true);
-                  localStorage.setItem('wcg_admin_show_virtual_stats', 'true');
+                  const next = !showAdminSold;
+                  setShowAdminSold(next);
+                  localStorage.setItem('wcg_admin_show_sold_util', String(next));
                 }}
-                className={`px-2.5 py-1 rounded-lg text-xs font-bold transition-all flex items-center gap-1 cursor-pointer ${
+                className={`px-2 py-1 rounded-lg text-xs font-bold transition-all flex items-center gap-1 cursor-pointer ${
+                  showAdminSold
+                    ? 'bg-amber-500 text-white shadow-xs'
+                    : 'text-slate-500 hover:text-slate-900 dark:hover:text-white line-through opacity-70'
+                }`}
+                title={showAdminSold ? 'Đang hiện số Đã Bán (Nhấn để ẩn)' : 'Đang ẩn số Đã Bán (Nhấn để hiện)'}
+              >
+                {showAdminSold ? <Eye className="h-3 w-3" /> : <EyeOff className="h-3 w-3" />}
+                <span>Đã bán</span>
+              </button>
+
+              {/* Nút 2: Hàng còn */}
+              <button
+                type="button"
+                onClick={() => {
+                  const next = !showAdminStock;
+                  setShowAdminStock(next);
+                  localStorage.setItem('wcg_admin_show_stock_util', String(next));
+                }}
+                className={`px-2 py-1 rounded-lg text-xs font-bold transition-all flex items-center gap-1 cursor-pointer ${
+                  showAdminStock
+                    ? 'bg-emerald-600 text-white shadow-xs'
+                    : 'text-slate-500 hover:text-slate-900 dark:hover:text-white line-through opacity-70'
+                }`}
+                title={showAdminStock ? 'Đang hiện Hàng Còn (Nhấn để ẩn)' : 'Đang ẩn Hàng Còn (Nhấn để hiện)'}
+              >
+                {showAdminStock ? <Boxes className="h-3 w-3" /> : <EyeOff className="h-3 w-3" />}
+                <span>Hàng còn</span>
+              </button>
+
+              {/* Nút 3: Số ảo Web */}
+              <button
+                type="button"
+                onClick={() => {
+                  const next = !showVirtualStats;
+                  setShowVirtualStats(next);
+                  localStorage.setItem('wcg_admin_show_virtual_stats', String(next));
+                }}
+                className={`px-2 py-1 rounded-lg text-xs font-bold transition-all flex items-center gap-1 cursor-pointer ${
                   showVirtualStats
                     ? 'bg-purple-600 text-white shadow-xs'
-                    : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+                    : 'text-slate-500 hover:text-slate-900 dark:hover:text-white line-through opacity-70'
                 }`}
-                title="Bật hiển thị thống kê số ảo (Đã bán, Tồn kho ngoài Web)"
+                title={showVirtualStats ? 'Đang hiện Số Ảo Web (Nhấn để ẩn)' : 'Đang ẩn Số Ảo Web (Nhấn để hiện)'}
               >
-                <Eye className="h-3.5 w-3.5" />
-                <span>👁️ Hiện số ảo</span>
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  setShowVirtualStats(false);
-                  localStorage.setItem('wcg_admin_show_virtual_stats', 'false');
-                }}
-                className={`px-2.5 py-1 rounded-lg text-xs font-bold transition-all flex items-center gap-1 cursor-pointer ${
-                  !showVirtualStats
-                    ? 'bg-rose-600 text-white shadow-xs'
-                    : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
-                }`}
-                title="Ẩn số ảo - Chỉ hiển thị số lượng thật trong kho"
-              >
-                <EyeOff className="h-3.5 w-3.5" />
-                <span>👁️‍🗨️ Ẩn số ảo (Xem thật)</span>
+                {showVirtualStats ? <Sparkles className="h-3 w-3" /> : <EyeOff className="h-3 w-3" />}
+                <span>Số ảo Web</span>
               </button>
             </div>
 
@@ -915,12 +938,24 @@ export const UtilitiesModule: React.FC<UtilitiesModuleProps> = ({ onShowToast })
                   <div className="text-right space-y-0.5">
                     {/* Tầng 1: Kho Thật */}
                     <div className="text-[11px] font-mono">
-                      <span className="text-slate-400 font-sans text-[10px]">Kho: </span>
-                      <strong className={`text-xs ${displayStock > 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-400 font-bold'}`}>
-                        {displayStock > 0 ? `${displayStock} mã` : 'Hết hàng'}
-                      </strong>
-                      <span className="text-slate-400 font-sans text-[10px] ml-1">| Bán: </span>
-                      <strong className="text-slate-700 dark:text-slate-300 text-xs">{prod.sold_count || 0}</strong>
+                      {showAdminStock && (
+                        <>
+                          <span className="text-slate-400 font-sans text-[10px]">Kho: </span>
+                          <strong className={`text-xs ${displayStock > 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-400 font-bold'}`}>
+                            {displayStock > 0 ? `${displayStock} mã` : 'Hết hàng'}
+                          </strong>
+                        </>
+                      )}
+                      {showAdminStock && showAdminSold && <span className="text-slate-400 font-sans text-[10px] ml-1">| </span>}
+                      {showAdminSold && (
+                        <>
+                          <span className="text-slate-400 font-sans text-[10px]">Bán: </span>
+                          <strong className="text-slate-700 dark:text-slate-300 text-xs">{prod.sold_count || 0}</strong>
+                        </>
+                      )}
+                      {!showAdminStock && !showAdminSold && (
+                        <span className="text-[10px] text-slate-400 italic">Đã ẩn kho & bán</span>
+                      )}
                     </div>
 
                     {/* Tầng 2: Web FOMO (Chỉ hiện khi bật công tắc Hiện Số Ảo) */}
@@ -936,13 +971,17 @@ export const UtilitiesModule: React.FC<UtilitiesModuleProps> = ({ onShowToast })
                             <Sparkles className="w-2.5 h-2.5" />
                             Web:
                           </span>
-                          <span className={`font-bold ${webStock > 0 ? 'text-indigo-600 dark:text-indigo-400' : 'text-rose-500'}`}>
-                            Còn {webStock}
-                          </span>
-                          <span className="text-slate-300 dark:text-slate-600">|</span>
-                          <span className="text-amber-600 dark:text-amber-400 font-bold">
-                            Bán {webSold}
-                          </span>
+                          {showAdminStock && (
+                            <span className={`font-bold ${webStock > 0 ? 'text-indigo-600 dark:text-indigo-400' : 'text-rose-500'}`}>
+                              Còn {webStock}
+                            </span>
+                          )}
+                          {showAdminStock && showAdminSold && <span className="text-slate-300 dark:text-slate-600">|</span>}
+                          {showAdminSold && (
+                            <span className="text-amber-600 dark:text-amber-400 font-bold">
+                              Bán {webSold}
+                            </span>
+                          )}
                           {(isStockFomoDiff || isSoldFomoDiff) && (
                             <span className="inline-flex items-center px-1 rounded text-[8px] font-bold bg-purple-500/10 text-purple-600 dark:text-purple-400 border border-purple-500/20" title="Đang có số ảo FOMO">
                               Ảo
