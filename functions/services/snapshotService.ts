@@ -82,10 +82,14 @@ async function loadProducts(env: any): Promise<ProductInput[]> {
         `).all().catch((e) => { console.warn('utRes error:', e?.message); return { results: [] }; }),
         getSettingD1(env.DB, 'wcg_admin_store_products_v4').catch(() => null),
         getSettingD1(env.DB, 'wcg_admin_utilities_v4').catch(() => null),
+        getSettingD1(env.DB, 'wcg_master_state_v4').catch(() => null),
       ]);
 
-      const savedSpList = safeParseJson<any[]>(savedSpRaw);
-      const savedUtList = safeParseJson<any[]>(savedUtRaw);
+      const masterParsed = safeParseJson<any>(masterRaw);
+      const rawSp = safeParseJson<any[]>(savedSpRaw);
+      const savedSpList = (Array.isArray(rawSp) && rawSp.length > 0) ? rawSp : (masterParsed?.storeProducts || []);
+      const rawUt = safeParseJson<any[]>(savedUtRaw);
+      const savedUtList = (Array.isArray(rawUt) && rawUt.length > 0) ? rawUt : (masterParsed?.utilities || []);
       const savedSpMap = new Map<string, any>();
       if (Array.isArray(savedSpList)) {
         savedSpList.forEach((p) => { if (p && p.id) savedSpMap.set(p.id, p); });
@@ -209,9 +213,12 @@ async function loadGiveaways(env: any): Promise<GiveawayInput[]> {
         WHERE status = 'ACTIVE'
       `).all(),
         getSettingD1(env.DB, 'wcg_admin_giveaways_v4').catch(() => null),
+        getSettingD1(env.DB, 'wcg_master_state_v4').catch(() => null),
       ]);
 
-      const savedGwList = safeParseJson<any[]>(savedGwRaw);
+      const masterParsed = safeParseJson<any>(masterRaw);
+      const rawGw = safeParseJson<any[]>(savedGwRaw);
+      const savedGwList = (Array.isArray(rawGw) && rawGw.length > 0) ? rawGw : (masterParsed?.giveaways || []);
       const savedGwMap = new Map<string, any>();
       if (Array.isArray(savedGwList)) {
         savedGwList.forEach((g) => { if (g && g.id) savedGwMap.set(g.id, g); });
