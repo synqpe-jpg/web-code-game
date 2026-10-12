@@ -450,7 +450,6 @@ export const MarketingNotificationToast: React.FC<MarketingNotificationToastProp
             welcomeData.notif.message = welcomeData.notif.message.replace(welcomeData.notif.userName, maskedWelcomeAcc);
           }
           welcomeData.notif.userName = maskedWelcomeAcc;
-          (welcomeData.notif as any).localOrigin = true;
           displayNotification(welcomeData.notif, welcomeData.displayDurationMs);
         }
       }

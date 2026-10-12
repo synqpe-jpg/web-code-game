@@ -110,19 +110,20 @@
 
 ---
 
-### ISSUE-008: Xung đột Poller Snapshot kéo tụt số lượng đã bán của Live Toasts
+### ISSUE-008: Xung đột Poller Snapshot kéo tụt số lượng đã bán của Live Toasts & Bẫy Kẹp Trần Rubber-Band (+10 / +15)
 - **Triệu chứng**:
-  - Khách đang xem web, thông báo toast nổ ra "vừa mua thành công..." nhưng số đã bán trên thẻ sản phẩm (đặc biệt là Tiện ích) không tăng lên hoặc cứ nhảy lên được 1-2 đơn lại bị giật lùi về con số cũ cố định.
+  - Khách đang xem web, thông báo toast nổ ra "vừa mua thành công..." nhưng số đã bán trên thẻ sản phẩm (đặc biệt là Tiện ích) không tăng lên hoặc cứ nhảy lên được 1-2 đơn lại bị giật lùi về con số cũ cố định (ví dụ 138-139).
 - **Nguyên nhân gốc rễ**:
-  - Thuật toán `calculateHourlyGrowth` trên Edge Server và `getHourlyGrowth` trên Client lệch hệ số (`rate 0.5/30` vs `rate 1.2/70`), khiến snapshot của server luôn trả về số thấp hơn nhiều so với client.
-  - Client poller 10s dùng điều kiện `curSold > info.sold + 2` để hạ số, vô tình nhận diện nhầm tiến trình bán thật/ảo của phiên hiện tại là reset của Admin $\rightarrow$ kéo tụt số về mốc server snapshot.
-  - Edge Server xóa sạch `peakProductSoldCounts` nếu `realStock <= 0`, bỏ qua sản phẩm có `virtual_sold_count > 0`.
+  - `loadProducts(env)` trong `functions/services/snapshotService.ts` chỉ query bảng SQL `utilities` (nơi `virtual_sold_count` bị 0 do chưa đồng bộ từ settings) mà không merge `wcg_admin_utilities_v4` từ `system_settings`, khiến server snapshot chỉ tính ra 72 đơn (lệch với 138-139 ở client).
+  - Bẫy kẹp trần nhân tạo quá hẹp: `maxAllowedCap = maxCatchUp + 10` trong `getSoldDisplay()`, `maxCap = maxCatchUp + 15` trong poller, và `maxAllowed = maxCatchUp + 15` trong `snapshotService.ts`. Khi toasts nổ ra vượt 144 đơn, auto-heal kích hoạt ép tụt về `calculatedBase` (138) và server xóa sạch peak trong hub.
+  - Initial Welcome Toast trong `MarketingNotificationToast.tsx` bị gán nhầm `(welcomeData.notif as any).localOrigin = true;`, ngăn cản toast gọi `recordVirtualSale`.
 - **Giải pháp chuẩn đã kiểm chứng**:
-  - Đồng bộ 100% hệ số tính toán giữa `src/shared/deterministicEngine.ts` và `src/services/marketingService.ts`.
-  - Client poller luôn tuân thủ nguyên tắc Monotonic Peak Guarantee (`Math.max(curSold, info.sold)`), chỉ auto-heal nếu vượt quá trần tối đa hợp lệ `maxAllowedCap`.
-  - Khi có live toast nổ ra trên UI (`recordVirtualSale`), `incrementLiveSoldCount` bắt buộc tăng số lượng hiển thị trên thẻ ngay lập tức theo nguyên tắc đồng bộ 1 - 1.
+  - `loadProducts` và `loadGiveaways` trong `snapshotService.ts` luôn merge `virtual_sold_count` và `virtual_claimed_offset` từ `wcg_admin_utilities_v4`, `wcg_admin_store_products_v4` và `wcg_admin_giveaways_v4`.
+  - Mở rộng trần bảo vệ an toàn `Math.max(50000, baseline + 5000)` thay cho các mức hẹp `+ 10 / + 15`, cho phép tiến trình bán hàng thật và ảo tăng trưởng đơn điệu mượt mà.
+  - Bỏ cờ `localOrigin = true` tại Welcome Toast, đảm bảo 100% mọi toast nổ ra đều kích hoạt tăng số đã bán trên UI.
 - ⛔ **CÁCH SỬA ĐÃ THẤT BẠI - TUYỆT ĐỐI KHÔNG LẶP LẠI**:
   - ❌ *Không được dùng điều kiện `curSold > info.sold + 2` trong vòng lặp poller*: Sẽ phá hủy hoàn toàn tiến trình bán hàng tự nhiên của phiên người dùng.
+  - ❌ *Không được kẹp trần `maxAllowedCap` ở mức hẹp `maxCatchUp + 10` hoặc `+ 15`*: Khi số đơn bán thêm vượt quá 6-10 đơn, số lượng sẽ bị tự động giật lùi về mốc ban đầu (rubber-band trap).
 
 ### ISSUE-009: Rào cản Facebook Login Wall và lỗi Stub Facebook Scraper không lấy được code từ Fanpage
 - **Triệu chứng**:

@@ -7,6 +7,30 @@ Mỗi mục sửa lỗi đều ghi nhận **Nguyên nhân gốc rễ (Root Cause
 
 ## [2026-10-12]
 
+### 3. Khắc Phục Triệt Để Lỗi Số Đã Bán Tiện Ích Bị Kéo Giật Về Mốc Cũ & Không Tăng Theo Thông Báo Toast
+- **Mô tả**:
+  1. Khắc phục triệt để lỗi người dùng phản ánh: "Các sản phẩm trong mục tiện ích hiện tại cứ một thời gian là lại bị kéo số ảo Đã bán về một mức nào đó mà không tăng, nó cứ giật về số cũ mà không tăng theo thông báo."
+  2. Đảm bảo nguyên tắc Đồng bộ nguyên tử 1 - 1 và Đơn điệu tăng lũy kế (Monotonic Progression): Khi thông báo mua hàng (`BUY_PRODUCT` hoặc Welcome Toast) nổ ra, số lượng "Đã bán:" trên thẻ sản phẩm (Store & Utilities) tăng ngay lập tức (+1) mượt mà và duy trì vĩnh viễn, không bị poller 10s hay thuật toán snapshot giật lùi về mốc cũ.
+- **Nguyên nhân gốc rễ (Root Cause)**:
+  1. **Bẫy thiếu `virtual_sold_count` trên Edge Server Snapshot**: Trong `functions/services/snapshotService.ts`, hàm `loadProducts(env)` chỉ đọc từ bảng SQL `utilities` (nơi `virtual_sold_count` là 0 hoặc chưa đồng bộ từ settings) mà không merge với `wcg_admin_utilities_v4` từ `system_settings`. Do đó server snapshot tính toán `sold` chỉ được 72 đơn (thay vì 138-139 đơn như client).
+  2. **Bẫy kẹp trần nhân tạo quá hẹp `maxAllowedCap` (+10 / +15 units)**:
+     - Trong `marketingService.ts:getSoldDisplay()`, `maxAllowedCap` bị gán cứng bằng `effectiveRealSold + virtualBase + maxCatchUp + 10` (= 144 đơn). Khi live toasts nổ ra vượt quá 144 (đạt 145), điều kiện `recordedMax > maxAllowedCap` kích hoạt và ép tụt `recordedMax` về `calculatedBase` (138 đơn) — xóa sạch toàn bộ tiến trình bán hàng của người dùng.
+     - Trong `functions/services/snapshotService.ts:generateAndPersistSnapshot()`, `maxAllowed` cũng bị gán `+ 15` (= 85 đơn do server thiếu `virtual_sold_count`), khiến server xóa sạch đỉnh bán hàng `hub.peakProductSoldCounts` mà client gửi lên qua `report_peak_metrics`.
+     - Trong `src/shared/deterministicEngine.ts`, `maxAllowedPeak` cũng bị kẹp trần `+ 15`.
+  3. **Cờ `localOrigin: true` trên Initial Welcome Toast**: Trong `MarketingNotificationToast.tsx`, toast chào mừng khởi tạo bị gán `localOrigin = true`, khiến `displayNotification` bỏ qua không gọi `recordVirtualSale`, làm toast nổ ra nhưng thẻ sản phẩm trơ ra không tăng số.
+- **Giải pháp thành công (Solution Applied)**:
+  1. **Hợp nhất metadata `wcg_admin_utilities_v4` & `wcg_admin_store_products_v4` vào Edge Snapshot**:
+     - `loadProducts` trong `functions/services/snapshotService.ts` đọc đồng thời `wcg_admin_store_products_v4` và `wcg_admin_utilities_v4` từ `system_settings` D1, lấy `Math.max(r.virtual_sold_count, meta.virtual_sold_count)`. Đồng bộ tương tự cho `loadGiveaways` với `virtual_claimed_offset`.
+  2. **Giải phóng kẹp trần nhân tạo, bảo toàn tiến trình tăng đơn lũy kế tự nhiên**:
+     - Trong `src/shared/deterministicEngine.ts`, `maxAllowedPeak` và `maxAllowedGwPeak` được mở rộng ngưỡng bảo vệ `Math.max(50000, baseline + 5000)` để chấp nhận trọn vẹn mọi đơn hàng thật và ảo tăng dần theo thời gian.
+     - Trong `functions/services/snapshotService.ts`, xóa bỏ điều kiện xóa đỉnh `hub.peakProductSoldCounts` ở ngưỡng thấp.
+     - Trong `src/services/marketingService.ts`, `maxAllowedCap` trong `getSoldDisplay()`, `getClaimedDisplay()` và `fetchMetricsSnapshot()` được nâng lên ngưỡng bảo vệ 50,000, triệt tiêu vĩnh viễn hiện tượng giật lùi số.
+  3. **Kích hoạt tăng số cho Welcome Toast**: Loại bỏ cờ `localOrigin = true` tại `MarketingNotificationToast.tsx`, bảo đảm 100% mọi thông báo mua hàng hiển thị trên màn hình đều tăng số hiển thị trên thẻ ngay lập tức.
+- **Giải pháp thất bại đã thử (Failed Attempts - KHÔNG ĐƯỢC LẶP LẠI)**:
+  - *Thử nghiệm 1*: Dùng `curSold > info.sold + 2` để hạ số hoặc kẹp trần `maxCatchUp + 10` $\rightarrow$ *Thất bại*: Biến tiến trình bán hàng tự nhiên thành vòng lặp giật lùi (rubber-band) mỗi khi số lượng tăng thêm 6-10 đơn.
+
+---
+
 ### 1. Dọn Sạch 100% Mã Rác Trùng Tên Game/Tiếng Anh (PIRATE, ANIIMO...) & Siết Chặt Bộ Lọc Crawler Fanpage/Cross-Source
 - **Mô tả**:
   1. Loại bỏ triệt để 2 mã không chính xác `PIRATE` và `ANIIMO` trên tựa game **Pirate Legends: Huyền Thoại Hải Tặc** (`codegame.shop/game/pirate-legends`) và dọn sạch 68 mã rác dạng tên game / từ tiếng Anh tương tự trên toàn bộ hệ thống Cloudflare D1.

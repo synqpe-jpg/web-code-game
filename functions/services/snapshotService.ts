@@ -33,7 +33,7 @@ export function safeParseJson<T = any>(val: any): T | null {
 async function loadProducts(env: any): Promise<ProductInput[]> {
   if (env && env.DB) {
     try {
-      const [spRes, utRes] = await Promise.all([
+      const [spRes, utRes, savedSpRaw, savedUtRaw] = await Promise.all([
         env.DB.prepare(`
           SELECT 
             sp.id, 
@@ -80,7 +80,20 @@ async function loadProducts(env: any): Promise<ProductInput[]> {
           FROM utilities u
           WHERE u.is_active = 1
         `).all().catch((e) => { console.warn('utRes error:', e?.message); return { results: [] }; }),
+        getSettingD1(env.DB, 'wcg_admin_store_products_v4').catch(() => null),
+        getSettingD1(env.DB, 'wcg_admin_utilities_v4').catch(() => null),
       ]);
+
+      const savedSpList = safeParseJson<any[]>(savedSpRaw);
+      const savedUtList = safeParseJson<any[]>(savedUtRaw);
+      const savedSpMap = new Map<string, any>();
+      if (Array.isArray(savedSpList)) {
+        savedSpList.forEach((p) => { if (p && p.id) savedSpMap.set(p.id, p); });
+      }
+      const savedUtMap = new Map<string, any>();
+      if (Array.isArray(savedUtList)) {
+        savedUtList.forEach((u) => { if (u && u.id) savedUtMap.set(u.id, u); });
+      }
 
       const items: ProductInput[] = [];
       const seenIds = new Set<string>();
@@ -96,13 +109,20 @@ async function loadProducts(env: any): Promise<ProductInput[]> {
             console.warn(`[Stock Drift Warning] ${source} '${r.id}' counter (${r.counter_stock}) differs from COUNT available (${r.avail_count}). Prioritizing COUNT.`);
           }
 
+          const meta = source === 'utilities' ? savedUtMap.get(r.id) : savedSpMap.get(r.id);
+          const virtualSold = Math.max(
+            Number(r.virtual_sold_count) || 0,
+            Number(meta?.virtual_sold_count) || 0
+          );
+          const createdAt = r.created_at || meta?.created_at || meta?.createdAt;
+
           items.push({
             id: r.id,
-            title: r.title,
+            title: r.title || meta?.title,
             stock_quantity: Math.max(0, Number(r.stock_quantity) || 0),
             sold_count: Math.max(0, Number(r.sold_count) || 0),
-            virtual_sold_count: Math.max(0, Number(r.virtual_sold_count) || 0),
-            created_at: r.created_at,
+            virtual_sold_count: virtualSold,
+            created_at: createdAt,
             is_active: r.is_active === 1,
           });
         }
@@ -110,6 +130,40 @@ async function loadProducts(env: any): Promise<ProductInput[]> {
 
       processRows(spRes?.results || [], 'store_products');
       processRows(utRes?.results || [], 'utilities');
+
+      // Bổ sung các sản phẩm đang active trong settings mà chưa kịp ghi vào bảng SQL
+      if (Array.isArray(savedUtList)) {
+        for (const su of savedUtList) {
+          if (su && su.id && !seenIds.has(su.id) && su.is_active !== false) {
+            seenIds.add(su.id);
+            items.push({
+              id: su.id,
+              title: su.title,
+              stock_quantity: Math.max(0, Number(su.stock_quantity) || 0),
+              sold_count: Math.max(0, Number(su.sold_count) || 0),
+              virtual_sold_count: Math.max(0, Number(su.virtual_sold_count) || 0),
+              created_at: su.created_at || su.createdAt,
+              is_active: true,
+            });
+          }
+        }
+      }
+      if (Array.isArray(savedSpList)) {
+        for (const sp of savedSpList) {
+          if (sp && sp.id && !seenIds.has(sp.id) && sp.is_active !== false) {
+            seenIds.add(sp.id);
+            items.push({
+              id: sp.id,
+              title: sp.title,
+              stock_quantity: Math.max(0, Number(sp.stock_quantity) || 0),
+              sold_count: Math.max(0, Number(sp.sold_count) || 0),
+              virtual_sold_count: Math.max(0, Number(sp.virtual_sold_count) || 0),
+              created_at: sp.created_at || sp.createdAt,
+              is_active: true,
+            });
+          }
+        }
+      }
 
       return items;
     } catch (e: any) {
@@ -127,7 +181,8 @@ async function loadGiveaways(env: any): Promise<GiveawayInput[]> {
   // Authoritative: Đọc từ Cloudflare D1
   if (env && env.DB) {
     try {
-      const res = await env.DB.prepare(`
+      const [res, savedGwRaw] = await Promise.all([
+        env.DB.prepare(`
         SELECT 
           id, 
           title, 
@@ -152,20 +207,35 @@ async function loadGiveaways(env: any): Promise<GiveawayInput[]> {
           END AS total_codes
         FROM giveaways 
         WHERE status = 'ACTIVE'
-      `).all();
+      `).all(),
+        getSettingD1(env.DB, 'wcg_admin_giveaways_v4').catch(() => null),
+      ]);
+
+      const savedGwList = safeParseJson<any[]>(savedGwRaw);
+      const savedGwMap = new Map<string, any>();
+      if (Array.isArray(savedGwList)) {
+        savedGwList.forEach((g) => { if (g && g.id) savedGwMap.set(g.id, g); });
+      }
 
       if (res && Array.isArray(res.results) && res.results.length > 0) {
-        return res.results.map((r: any) => ({
-          id: r.id,
-          title: r.title,
-          remaining_codes: Math.max(0, Number(r.remaining_codes) || 0),
-          total_codes: Math.max(0, Number(r.total_codes) || 0),
-          claimed_codes: Math.max(0, Number(r.claimed_codes) || 0),
-          virtual_claimed_offset: Math.max(0, Number(r.virtual_claimed_offset) || 0),
-          created_at: r.created_at,
-          status: r.status,
-          is_active: r.status === 'ACTIVE',
-        }));
+        return res.results.map((r: any) => {
+          const meta = savedGwMap.get(r.id);
+          const vClaimed = Math.max(
+            Number(r.virtual_claimed_offset) || 0,
+            Number(meta?.virtual_claimed_offset) || 0
+          );
+          return {
+            id: r.id,
+            title: r.title || meta?.title,
+            remaining_codes: Math.max(0, Number(r.remaining_codes) || 0),
+            total_codes: Math.max(0, Number(r.total_codes) || 0),
+            claimed_codes: Math.max(0, Number(r.claimed_codes) || 0),
+            virtual_claimed_offset: vClaimed,
+            created_at: r.created_at || meta?.created_at || meta?.createdAt,
+            status: r.status,
+            is_active: r.status === 'ACTIVE',
+          };
+        });
       }
     } catch (e: any) {
       console.warn('[SnapshotService] Error reading giveaways from D1:', e?.message);
@@ -216,7 +286,7 @@ export async function generateAndPersistSnapshot(env: any): Promise<GlobalMetric
       const realSold = Number(prod?.sold_count) || 0;
       const maxAllowed = realStock <= 0 && oosEnabled
         ? realSold + virtualBase + oosMax
-        : realSold + virtualBase + (Number(marketingConfig?.offlineCatchUp?.maxCatchUpUnits) || 70) + 15;
+        : Math.max(50000, realSold + virtualBase + 5000);
       if ((realStock <= 0 && !oosEnabled && virtualBase <= 0) || val > maxAllowed) {
         delete hub.peakProductSoldCounts[pId];
         hubModified = true;
@@ -233,7 +303,7 @@ export async function generateAndPersistSnapshot(env: any): Promise<GlobalMetric
       const realClaimed = Number(gw?.claimed_codes) || 0;
       const maxAllowed = realRemaining <= 0 && oosEnabled
         ? realClaimed + virtualBase + oosMax
-        : realClaimed + virtualBase + (Number(marketingConfig?.offlineCatchUp?.maxCatchUpUnits) || 70) + 15;
+        : Math.max(50000, realClaimed + virtualBase + 5000);
       if ((realRemaining <= 0 && !oosEnabled && virtualBase <= 0) || val > maxAllowed) {
         delete hub.peakGiveawayClaimedCounts[gId];
         hubModified = true;

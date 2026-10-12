@@ -410,7 +410,7 @@ class MarketingService {
                   const virtualBase = Number(details?.virtual_sold_count || 0);
                   const maxCap = realStock <= 0 && oosEnabled
                     ? realSold + virtualBase + oosMax + 5
-                    : realSold + virtualBase + maxCatchUp + 15;
+                    : Math.max(50000, realSold + virtualBase + 5000);
 
                   const healedSold = nextSold > maxCap ? info.sold : nextSold;
                   const healedFomo = nextFomo > maxCap ? info.sold : nextFomo;
@@ -497,7 +497,7 @@ class MarketingService {
                   const virtualBase = Number(details?.virtual_claimed_offset || 0);
                   const maxCap = realRemaining <= 0 && oosEnabled
                     ? realClaimed + virtualBase + oosMax + 5
-                    : realClaimed + virtualBase + maxCatchUp + 15;
+                    : Math.max(50000, realClaimed + virtualBase + 5000);
 
                   const healedClaimed = nextClaimed > maxCap ? info.claimed : nextClaimed;
                   const healedFomo = nextFomo > maxCap ? info.claimed : nextFomo;
@@ -2143,7 +2143,7 @@ class MarketingService {
     // Auto-heal ghost inflated counts (e.g. from previous uncapped offline catchup bug)
     const maxAllowedCap = realStock <= 0 && oosEnabled
       ? effectiveRealSold + virtualBase + oosMax
-      : effectiveRealSold + virtualBase + Math.max(30, Number(catchUp.maxCatchUpUnits) || 70) + 10;
+      : Math.max(50000, effectiveRealSold + virtualBase + 5000);
     if (recordedMax > maxAllowedCap) {
       recordedMax = calculatedBase;
       if (id) {
@@ -2221,7 +2221,7 @@ class MarketingService {
     // Auto-heal ghost inflated counts (e.g. from previous uncapped offline catchup bug)
     const maxAllowedCap = realRemaining <= 0 && oosEnabled
       ? effectiveRealClaimed + virtualBase + oosMax
-      : effectiveRealClaimed + virtualBase + Math.max(30, Number(catchUp.maxCatchUpUnits) || 70) + 10;
+      : Math.max(50000, effectiveRealClaimed + virtualBase + 5000);
     if (recordedMax > maxAllowedCap) {
       recordedMax = calculatedBase;
       if (id) {

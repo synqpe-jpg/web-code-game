@@ -430,7 +430,7 @@ export function calculateGlobalSnapshot(
     const peakSold = canAcceptPeak ? (Number(data.peakProductSoldCounts?.[prod.id]) || 0) : 0;
     const maxAllowedPeak = realStock <= 0 && oosEnabled
       ? effectiveRealSold + (prod.virtual_sold_count || 0) + oosMax
-      : effectiveRealSold + (prod.virtual_sold_count || 0) + (Number(data.offlineCatchUp?.maxCatchUpUnits) || 70) + 15;
+      : Math.max(50000, effectiveRealSold + (prod.virtual_sold_count || 0) + 5000);
     const effectivePeakSold = Math.min(peakSold, maxAllowedPeak);
     const displaySold = canAcceptPeak ? Math.max(rawDisplaySold, effectivePeakSold) : rawDisplaySold;
 
@@ -528,7 +528,7 @@ export function calculateGlobalSnapshot(
     const peakClaimed = canAcceptGwPeak ? (Number(data.peakGiveawayClaimedCounts?.[gw.id]) || 0) : 0;
     const maxAllowedGwPeak = realRemaining <= 0 && gwOosEnabled
       ? effectiveRealClaimed + (gw.virtual_claimed_offset || 0) + gwOosMax
-      : effectiveRealClaimed + (gw.virtual_claimed_offset || 0) + (Number(data.offlineCatchUp?.maxCatchUpUnits) || 70) + 15;
+      : Math.max(50000, effectiveRealClaimed + (gw.virtual_claimed_offset || 0) + 5000);
     const effectivePeakClaimed = Math.min(peakClaimed, maxAllowedGwPeak);
     const displayClaimed = canAcceptGwPeak ? Math.max(rawDisplayClaimed, effectivePeakClaimed) : rawDisplayClaimed;
 
