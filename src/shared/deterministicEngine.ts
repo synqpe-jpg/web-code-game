@@ -422,17 +422,15 @@ export function calculateGlobalSnapshot(
           realStock
         );
 
-    // Khi còn hàng thật (realStock > 0) hoặc sản phẩm có cấu hình số ảo / bù ngoại tuyến:
+    // Bảo toàn đỉnh bán hàng lũy kế (Monotonic Progression): Đỉnh đã đạt được duy trì vĩnh viễn
     const oosEnabled = Boolean(data.offlineCatchUp?.outOfStockEnabled);
     const oosMax = Math.max(1, Number(data.offlineCatchUp?.outOfStockMaxUnits) || 10);
-    const hasVirtualSold = (prod.virtual_sold_count || 0) > 0;
-    const canAcceptPeak = realStock > 0 || oosEnabled || hasVirtualSold;
-    const peakSold = canAcceptPeak ? (Number(data.peakProductSoldCounts?.[prod.id]) || 0) : 0;
+    const peakSold = Number(data.peakProductSoldCounts?.[prod.id]) || 0;
     const maxAllowedPeak = realStock <= 0 && oosEnabled
       ? effectiveRealSold + (prod.virtual_sold_count || 0) + oosMax
       : Math.max(50000, effectiveRealSold + (prod.virtual_sold_count || 0) + 5000);
     const effectivePeakSold = Math.min(peakSold, maxAllowedPeak);
-    const displaySold = canAcceptPeak ? Math.max(rawDisplaySold, effectivePeakSold) : rawDisplaySold;
+    const displaySold = Math.max(rawDisplaySold, effectivePeakSold);
 
     productSnapshots[prod.id] = {
       stock: displayStock,
@@ -520,17 +518,15 @@ export function calculateGlobalSnapshot(
           realRemaining
         );
 
-    // Khi còn mã thật (realRemaining > 0) hoặc giveaway có cấu hình số ảo / bù ngoại tuyến:
+    // Bảo toàn đỉnh nhận quà lũy kế (Monotonic Progression): Đỉnh đã đạt được duy trì vĩnh viễn
     const gwOosEnabled = Boolean(data.offlineCatchUp?.outOfStockEnabled);
     const gwOosMax = Math.max(1, Number(data.offlineCatchUp?.outOfStockMaxUnits) || 10);
-    const hasVirtualClaimed = (gw.virtual_claimed_offset || 0) > 0;
-    const canAcceptGwPeak = realRemaining > 0 || gwOosEnabled || hasVirtualClaimed;
-    const peakClaimed = canAcceptGwPeak ? (Number(data.peakGiveawayClaimedCounts?.[gw.id]) || 0) : 0;
+    const peakClaimed = Number(data.peakGiveawayClaimedCounts?.[gw.id]) || 0;
     const maxAllowedGwPeak = realRemaining <= 0 && gwOosEnabled
       ? effectiveRealClaimed + (gw.virtual_claimed_offset || 0) + gwOosMax
       : Math.max(50000, effectiveRealClaimed + (gw.virtual_claimed_offset || 0) + 5000);
     const effectivePeakClaimed = Math.min(peakClaimed, maxAllowedGwPeak);
-    const displayClaimed = canAcceptGwPeak ? Math.max(rawDisplayClaimed, effectivePeakClaimed) : rawDisplayClaimed;
+    const displayClaimed = Math.max(rawDisplayClaimed, effectivePeakClaimed);
 
     const displayTotal = displayRemaining + displayClaimed;
     const percentClaimed = displayTotal > 0

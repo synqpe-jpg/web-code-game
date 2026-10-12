@@ -5,10 +5,12 @@ interface Env {
 }
 
 export const onRequestGet: PagesFunction<Env> = async (context) => {
-  const { env, waitUntil } = context;
+  const { request, env, waitUntil } = context;
 
   try {
-    const snapshot = await getOrRefreshSnapshot(env, waitUntil ? (p) => waitUntil(p) : undefined);
+    const url = new URL(request.url);
+    const force = url.searchParams.get('force') === 'true' || url.searchParams.get('refresh') === 'true';
+    const snapshot = await getOrRefreshSnapshot(env, waitUntil ? (p) => waitUntil(p) : undefined, force);
 
     return new Response(JSON.stringify({
       success: true,

@@ -622,12 +622,8 @@ class MarketingService {
       const lowestRemaining: Record<string, number> = {};
       let hasNewPeak = false;
 
-      const oosEnabled = Boolean(this.config.offlineCatchUp?.outOfStockEnabled);
-      // 1. Check local sold peaks from highWaterSoldCountMap
+      // 1. Check local sold peaks from highWaterSoldCountMap (Bảo toàn tuyệt đối số lượng đã bán lũy kế)
       this.highWaterSoldCountMap.forEach((val, id) => {
-        const details = this.findItemDetails(id);
-        const hasVirtual = Number(details?.virtual_sold_count || 0) > 0;
-        if (this.getRealStockFor(id) <= 0 && !oosEnabled && !hasVirtual) return;
         const last = this.lastReportedPeaks.sold[id] || 0;
         if (val > last) {
           peakSold[id] = val;
@@ -635,11 +631,8 @@ class MarketingService {
         }
       });
 
-      // 2. Check local claimed peaks from highWaterClaimedCountMap
+      // 2. Check local claimed peaks from highWaterClaimedCountMap (Bảo toàn tuyệt đối quà đã nhận lũy kế)
       this.highWaterClaimedCountMap.forEach((val, id) => {
-        const details = this.findGiveawayDetails(id);
-        const hasVirtual = Number(details?.virtual_claimed_offset || 0) > 0;
-        if (this.getRealStockFor(id) <= 0 && !oosEnabled && !hasVirtual) return;
         const last = this.lastReportedPeaks.claimed[id] || 0;
         if (val > last) {
           peakClaimed[id] = val;
@@ -2115,6 +2108,7 @@ class MarketingService {
     const realStock = this.getRealStockFor(id);
     const catchUp = this.config.offlineCatchUp || DEFAULT_OFFLINE_CATCHUP_CONFIG;
     const oosEnabled = Boolean(catchUp.outOfStockEnabled);
+    const oosMax = Math.max(1, Number(catchUp.outOfStockMaxUnits) || 10);
     const createdAt = item.created_at || item.createdAt || details?.created_at;
     let hourlyGrowth = this.getHourlyGrowth(id, createdAt);
     let inHourProg = this.getInHourProgression(id, createdAt);

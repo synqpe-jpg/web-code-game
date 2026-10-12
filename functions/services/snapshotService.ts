@@ -270,15 +270,16 @@ export async function generateAndPersistSnapshot(env: any): Promise<GlobalMetric
  */
 export async function getOrRefreshSnapshot(
   env: any,
-  waitUntil?: (promise: Promise<any>) => void
+  waitUntil?: (promise: Promise<any>) => void,
+  force: boolean = false
 ): Promise<GlobalMetricsSnapshot> {
   const now = Date.now();
 
   // 1. Check in-memory isolate cache
-  let cached: GlobalMetricsSnapshot | null = globalScope.__wcg_metrics_snapshot;
+  let cached: GlobalMetricsSnapshot | null = force ? null : globalScope.__wcg_metrics_snapshot;
 
   // 2. If memory cache empty, attempt to read existing snapshot from D1
-  if (!cached && env && env.DB) {
+  if (!cached && !force && env && env.DB) {
     try {
       await ensureSchemaUpgrades(env.DB);
       const row = await env.DB.prepare(
@@ -298,19 +299,21 @@ export async function getOrRefreshSnapshot(
     }
   }
 
-  // 3. Check if cached snapshot is still fresh (under 60s old)
-  if (cached && now - (cached.updated_at || 0) < SNAPSHOT_REFRESH_INTERVAL_MS) {
+  const hasValidProducts = Boolean(cached && cached.products && Object.keys(cached.products).length > 0);
+
+  // 3. Check if cached snapshot is still fresh (under 10s old) and has valid products
+  if (cached && hasValidProducts && !force && now - (cached.updated_at || 0) < SNAPSHOT_REFRESH_INTERVAL_MS) {
     return cached;
   }
 
   // 4. If stale, handle single-flight concurrency lock to prevent SQLITE_BUSY
-  if (globalScope.__wcg_metrics_snapshot_syncing) {
-    // Another request in this isolate is already revalidating -> return cached stale copy immediately
-    if (cached) return cached;
+  if (globalScope.__wcg_metrics_snapshot_syncing && !force) {
+    // Another request in this isolate is already revalidating -> return cached copy if valid
+    if (cached && hasValidProducts) return cached;
   }
 
-  // If we have a cached copy and waitUntil is available: return stale copy now and revalidate in background!
-  if (cached && waitUntil) {
+  // If we have a valid cached copy, not forced, and waitUntil is available: return stale copy now and revalidate in background!
+  if (cached && hasValidProducts && !force && waitUntil) {
     globalScope.__wcg_metrics_snapshot_syncing = true;
     const backgroundTask = (async () => {
       try {
@@ -323,7 +326,7 @@ export async function getOrRefreshSnapshot(
     return cached;
   }
 
-  // Otherwise, synchronous revalidation (e.g. first boot or cold start)
+  // Otherwise, synchronous revalidation (e.g. forced refresh, cold start, or empty cache)
   globalScope.__wcg_metrics_snapshot_syncing = true;
   try {
     return await generateAndPersistSnapshot(env);

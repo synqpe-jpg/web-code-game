@@ -30,6 +30,15 @@ Mỗi mục sửa lỗi đều ghi nhận **Nguyên nhân gốc rễ (Root Cause
   3. **Xóa bỏ bẫy kẹp trần `+ 20` trong `functions/api/stats.ts`**:
      - Sử dụng `Math.max(computedTotal, prevTotal)` để tôn trọng và bảo toàn các đỉnh bán hàng thật và ảo tích lũy.
   4. **Kích hoạt tăng số cho Welcome Toast**: Loại bỏ cờ `localOrigin = true` tại `MarketingNotificationToast.tsx`, bảo đảm 100% mọi thông báo mua hàng hiển thị trên màn hình đều tăng số hiển thị trên thẻ ngay lập tức.
+  5. **Bảo toàn đỉnh bán hàng lũy kế trong `src/shared/deterministicEngine.ts`**:
+     - Loại bỏ điều kiện `canAcceptPeak = realStock > 0 || oosEnabled || hasVirtualSold` (vốn vô tình ép `peakSold = 0` cho các sản phẩm hết hàng thật nhưng có đỉnh đã bán cao).
+     - Thay vào đó, luôn áp dụng `Math.max(rawDisplaySold, effectivePeakSold)` cho cả sản phẩm và giveaway để tuân thủ triệt để nguyên tắc Đơn điệu tăng lũy kế (Monotonic Progression).
+  6. **Đồng bộ đỉnh bán hàng không bị ngắt trong `reportPeakMetrics()`**:
+     - Loại bỏ điều kiện ngăn chặn `if (this.getRealStockFor(id) <= 0 && !oosEnabled && !hasVirtual) return;`, cho phép bất kỳ sản phẩm nào nổ đơn mới hoặc tăng số đều được gửi ngay lập tức lên Edge Hub D1.
+  7. **Khắc phục biến chưa khai báo `oosMax` trong `getSoldDisplay()`**:
+     - Bổ sung `const oosMax = Math.max(1, Number(catchUp.outOfStockMaxUnits) || 10);` ngăn chặn nguy cơ `ReferenceError` khi kích hoạt `oosEnabled`.
+  8. **Cơ chế Force Refresh & Tự Động Phục Hồi Snapshot D1**:
+     - Bổ sung tham số `?force=true` vào `/api/metrics/synced` và tự động revalidate đồng bộ trong `getOrRefreshSnapshot` khi snapshot trong D1 bị thiếu products.
 
 ---
 
