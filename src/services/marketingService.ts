@@ -1107,6 +1107,12 @@ class MarketingService {
           this.highWaterClaimedCountMap.set(id, Math.max(currentClaimed, anchor.lastCount + unitsToAdd));
         }
 
+        // TỒN KHO ẢO ĐỒNG BỘ 1 - 1 KHI OFFLINE:
+        // Cứ mỗi đơn bán bù ngoại tuyến, giảm tồn kho ảo đi đúng unitsToAdd đơn vị tương ứng (có tự động bù kho nếu chạm đáy):
+        if (realStock > 0 && pw.virtualStockBonus && pw.virtualStockBonus > 0 && pw.priority !== 'off') {
+          this.decrementProductStock(id, unitsToAdd, `offline_catchup_${id}_${now}`);
+        }
+
         this.sessionAnchorMap.set(id, {
           lastCount: newTarget,
           lastTimestamp: now,
@@ -1119,6 +1125,7 @@ class MarketingService {
       this.saveHighWaterCounts();
       this.saveSessionAnchor();
       this.notifySoldCountChanged('*', 0);
+      this.notifyStockChanged('*', 0);
       this.schedulePeakReport();
     }
   }

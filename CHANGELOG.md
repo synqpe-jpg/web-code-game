@@ -7,7 +7,19 @@ Mỗi mục sửa lỗi đều ghi nhận **Nguyên nhân gốc rễ (Root Cause
 
 ## [2026-10-12]
 
-### 1. Thiết Lập Hệ Thống Ghi Nhớ Dài Hạn & Quy Trình Quản Lý Git Chuyên Nghiệp
+### 1. Đồng Bộ Trừ Tồn Kho Ảo Khi Bù Đơn Ngoại Tuyến (Offline Catch-Up Atomic Stock Decrement)
+- **Mô tả**: Tự động trừ số lượng còn lại trong kho ảo (`Còn: X`) tương ứng 1 - 1 với số đơn hàng được bù ngoại tuyến (`unitsToAdd`) khi người dùng mở lại trình duyệt sau một khoảng thời gian offline; tự động bù kho (+20) nếu số lượng sau khi trừ chạm ngưỡng kích hoạt ($\le 1$).
+- **Nguyên nhân gốc rễ (Root Cause)**:
+  - Trong `applyOfflineCatchUp()`, hệ thống chỉ mới cập nhật tăng số lượng đã bán (`highWaterSoldCountMap`) và đã nhận (`highWaterClaimedCountMap`), nhưng chưa gọi `decrementProductStock()` để trừ kho ảo tương ứng cho các đơn hàng phát sinh trong lúc offline.
+- **Giải pháp thành công (Solution Applied)**:
+  - Bổ sung lệnh gọi `this.decrementProductStock(id, unitsToAdd)` và `this.notifyStockChanged('*', 0)` trong `applyOfflineCatchUp()` khi `realStock > 0` và có cấu hình tồn kho ảo.
+  - Tự động kích hoạt cơ chế bù kho (Auto-Restock) nếu kho ảo tụt về $\le effectiveThreshold$.
+- **Giải pháp thất bại đã thử (Failed Attempts - KHÔNG ĐƯỢC LẶP LẠI)**:
+  - *Thử nghiệm*: Chỉ dựa vào thông báo toast trực tiếp trên màn hình để trừ kho $\rightarrow$ *Thất bại*: Khi người dùng đóng trình duyệt, không có toast nào nổ nên kho ảo không giảm theo số đơn bán đã bù của thời gian offline.
+
+---
+
+### 2. Thiết Lập Hệ Thống Ghi Nhớ Dài Hạn & Quy Trình Quản Lý Git Chuyên Nghiệp
 - **Commit**: `8d11cfb`
 - **Mô tả**: Thiết lập toàn diện hệ thống ghi nhớ dài hạn (`PROJECT_MEMORY.md`, `CHANGELOG.md`, `KNOWN_ISSUES.md`, `GIT_WORKFLOW.md`, `GEMINI.md`, `AGENTS.md`) và củng cố bảo mật `.gitignore`. Tích hợp quy chuẩn 6 bước quản lý phiên bản Git không phá hủy và cơ chế đồng bộ nguyên tử 1 - 1 cho marketing.
 - **Nguyên nhân gốc rễ (Root Cause)**:
