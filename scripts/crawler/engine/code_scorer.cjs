@@ -129,10 +129,23 @@ function calculateCodeScore({
   let tierLabel = 'Bậc 4: Rủi ro / Điểm thấp (<50đ)';
   let canAutoPublish = false;
 
-  if (finalScore >= 90) {
+  // ĐIỀU KIỆN TIÊN QUYẾT ĐỂ TỰ ĐỘNG ĐĂNG (CAN AUTO PUBLISH):
+  // 1. Phải đạt điểm >= 90.
+  // 2. BẮT BUỘC: Mã phải chứa chữ và số (Alpha-numeric như TNM20B, GM999, MAPLSVMOI)
+  //    HOẶC phải có tiền tố giftcode chuẩn (VIP, SVIP, CODE, GIFT, TANTHU, TRIAN...).
+  //    Nếu mã chỉ toàn chữ cái (như PIRATE, ANIIMO, DELTA, GACHA) -> BẮT BUỘC đưa vào Bậc 2 để Admin duyệt tay, TUYỆT ĐỐI KHÔNG auto-publish!
+  const hasDigit = /\d/.test(cleanCode);
+  const hasLegitPrefix = /^(VIP|SVIP|CODE|GIFT|TANTHU|TRIAN)/i.test(cleanCode);
+  const isAlphaNumeric = hasDigit || hasLegitPrefix;
+
+  if (finalScore >= 90 && isAlphaNumeric) {
     tier = 1;
     tierLabel = 'Bậc 1: Xuất sắc (90-100đ)';
     canAutoPublish = true;
+  } else if (finalScore >= 90 && !isAlphaNumeric) {
+    tier = 2;
+    tierLabel = 'Bậc 2: Điểm cao nhưng toàn chữ cái (Cần Admin duyệt tay)';
+    canAutoPublish = false;
   } else if (finalScore >= 70) {
     tier = 2;
     tierLabel = 'Bậc 2: Tiềm năng cao (70-89đ)';

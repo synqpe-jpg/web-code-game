@@ -7,7 +7,31 @@ Mỗi mục sửa lỗi đều ghi nhận **Nguyên nhân gốc rễ (Root Cause
 
 ## [2026-10-12]
 
-### 1. Đồng Bộ Giftcode Quét Từ Extension/Facebook Lên Web Khách & Cập Nhật Tức Thì Modal Chi Tiết Game
+### 1. Dọn Sạch 100% Mã Rác Trùng Tên Game/Tiếng Anh (PIRATE, ANIIMO...) & Siết Chặt Bộ Lọc Crawler Fanpage/Cross-Source
+- **Mô tả**:
+  1. Loại bỏ triệt để 2 mã không chính xác `PIRATE` và `ANIIMO` trên tựa game **Pirate Legends: Huyền Thoại Hải Tặc** (`codegame.shop/game/pirate-legends`) và dọn sạch 68 mã rác dạng tên game / từ tiếng Anh tương tự trên toàn bộ hệ thống Cloudflare D1.
+  2. Mã đứng đầu của Pirate Legends hiện tại là mã tuần chính xác `MAPLSVMOI` kèm 39 mã quà tặng hợp lệ khác.
+  3. Nâng cấp bộ máy Crawler Facebook Scraper và Code Scorer để ngăn chặn vĩnh viễn việc bắt nhầm các từ vựng tiếng Anh trong tiêu đề bài viết hoặc tên game liên quan trên các trang web nguồn.
+- **Nguyên nhân gốc rễ (Root Cause)**:
+  1. **Bắt nhầm từ ngữ trong tiêu đề & sidebar của trang web fallback**: Khi nguồn Fanpage Facebook bị Meta chặn Login Wall, engine kích hoạt fallback quét chuyên trang (như `codemoi.net/games/pirate-legends/`). Trong `facebook_scraper.cjs`, code đã vô tình truyền toàn bộ HTML thô (120KB) vào hàm `parsePost`. Regex bắt code sau từ khóa `Giftcode:` đã bắt trúng chữ `Pirate` trong tiêu đề bài viết và chữ `Aniimo` trong mục game liên quan ở sidebar.
+  2. **Thuật toán tính điểm tự động duyệt (Auto-Approve Trap)**: Trong `code_scorer.cjs`, các nguồn official được cộng 20đ, kết hợp ngữ cảnh bài viết đạt $\ge 90$ điểm (Bậc 1), dẫn đến mã bị tự động đăng thẳng lên Web mà không qua hàng đợi kiểm duyệt của Admin.
+- **Giải pháp thành công (Solution Applied)**:
+  1. **Dọn sạch 68 mã rác trên Cloudflare D1 & Kích hoạt Tombstone**:
+     - Lọc và xóa vĩnh viễn 68 mã rác khỏi `wcg_admin_custom_free_codes_v1`.
+     - Lưu toàn bộ ID của các mã rác vào `wcg_deleted_free_codes` (Tombstone Deletion Pattern) để chống hồi sinh khi đồng bộ.
+  2. **Nâng cấp `isValidCode(code, targetGameSlug, gameName)` trong `facebook_scraper.cjs`**:
+     - Loại bỏ triệt để các mã trùng khớp với slug game, các từ phân tách của slug game, hoặc các từ cấu thành tên game.
+     - **Quy Tắc Vàng Mã Toàn Chữ Cái (All-Alpha Rule)**: Nếu mã chỉ toàn chữ cái (không có chữ số), bắt buộc phải có tiền tố quà tặng chuẩn (`VIP`, `SVIP`, `CODE`, `GIFT`, `TANTHU`, `TRIAN`...) và độ dài $> 8$ ký tự. Các từ tiếng Anh $\le 8$ ký tự không có số bị loại bỏ ngay lập tức.
+     - Loại bỏ việc truyền HTML thô vào `parsePost`, chỉ trích xuất từ bảng mã giftcode thực sự (`extractCodesFromHtml`).
+  3. **Chặn cờ `canAutoPublish` cho mã toàn chữ cái trong `code_scorer.cjs`**:
+     - Bắt buộc mã phải chứa cả chữ và số (Alpha-numeric) hoặc có tiền tố giftcode chuẩn mới được tự động đăng (Bậc 1).
+     - Mọi mã toàn chữ cái dù điểm cao cũng bị chuyển xuống Bậc 2 để Admin phê duyệt thủ công.
+- **Giải pháp thất bại đã thử (Failed Attempts - KHÔNG ĐƯỢC LẶP LẠI)**:
+  - *Thử nghiệm 1*: Chỉ xóa mã ở LocalStorage $\rightarrow$ *Thất bại*: Cloudflare D1 sẽ đồng bộ lại mã rác qua endpoint `/api/sync`. Bắt buộc phải xóa trên D1 và lưu ID vào Tombstone `wcg_deleted_free_codes`.
+
+---
+
+### 2. Đồng Bộ Giftcode Quét Từ Extension/Facebook Lên Web Khách & Cập Nhật Tức Thì Modal Chi Tiết Game
 - **Mô tả**:
   1. Khắc phục lỗi khi người dùng dùng Chrome Extension quét giftcode từ Facebook Fanpage đẩy lên web, mã code đã duyệt xuất hiện trong bảng Quản trị Admin (`/admin#/free-codes`) nhưng khi khách truy cập web hoặc ấn vào game Tiên Nghịch Mobile ở trang khách lại không thấy mã mới.
   2. Đồng bộ toàn bộ 31 giftcode của Tiên Nghịch Mobile (kèm 5 mã mới quét từ Facebook: `TNM20B`, `TSVDKPI0910`, `GIFTCODE`, `LLDKPIB18`, `1210TTMEVY`) ra cả thẻ game ngoài Catalog, Modal chi tiết game, và file HTML prerender tĩnh.

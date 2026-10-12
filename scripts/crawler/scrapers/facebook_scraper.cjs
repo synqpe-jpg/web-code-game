@@ -136,7 +136,7 @@ class FacebookScraper {
     };
   }
 
-  isValidCode(code = '') {
+  isValidCode(code = '', targetGameSlug = '', gameName = '') {
     if (!code || typeof code !== 'string') return false;
     const clean = code.trim().toUpperCase();
     if (clean.length < 4 || clean.length > 24) return false;
@@ -146,6 +146,32 @@ class FacebookScraper {
     if (!/^[A-Z0-9_-]+$/.test(clean)) return false;
     // Không nằm trong danh sách từ cấm
     if (STOP_WORDS.has(clean)) return false;
+
+    // LOẠI BỎ TRIỆT ĐỂ: Bất kỳ mã nào trùng với slug hoặc các từ trong tên game mục tiêu
+    const slugUpper = (targetGameSlug || '').toUpperCase();
+    if (slugUpper && (clean === slugUpper || clean === slugUpper.replace(/-/g, ''))) return false;
+    if (slugUpper) {
+      const slugParts = slugUpper.split('-');
+      if (slugParts.some(p => p.length >= 3 && clean === p)) return false;
+    }
+
+    if (gameName) {
+      const nameParts = gameName.toUpperCase().replace(/[^A-Z0-9\s]/g, ' ').split(/\s+/);
+      if (nameParts.some(p => p.length >= 3 && clean === p)) return false;
+    }
+
+    // QUY TẮC MÃ TOÀN CHỮ CÁI (All-Alpha Rule):
+    // Nếu mã chỉ toàn chữ cái (không có bất kỳ chữ số nào):
+    const isAllLetters = !/\d/.test(clean);
+    if (isAllLetters) {
+      // Bắt buộc phải có tiền tố quà tặng chuẩn (VIP, SVIP, CODE, GIFT, TANTHU, TRIAN...)
+      const hasCodePrefix = /^(VIP|SVIP|CODE|GIFT|TANTHU|TRIAN)/i.test(clean);
+      if (!hasCodePrefix) {
+        // Nếu không có tiền tố code và độ dài <= 8 ký tự (như PIRATE, ANIIMO, DELTA, GENSHIN, PANDA, GACHA...) -> BỎ QUA NGAY!
+        if (clean.length <= 8) return false;
+      }
+    }
+
     return true;
   }
 
@@ -167,7 +193,7 @@ class FacebookScraper {
       if (res && res.status === 200 && res.body && !res.body.includes('login_form') && !res.body.includes('checkpoint')) {
         const parsed = this.parsePost(res.body, pageName);
         if (parsed.codes && parsed.codes.length > 0) {
-          directCodes = parsed.codes;
+          directCodes = parsed.codes.filter(c => this.isValidCode(c.code, targetGameSlug, pageName));
         }
       }
     } catch {}
@@ -219,30 +245,16 @@ class FacebookScraper {
       try {
         const res = await fetchHttp(fbUrl, 5000);
         if (res && res.status === 200 && res.body && res.body.length > 500) {
-          // 1. Trích xuất dạng bảng HTML, thẻ strong, code, v.v.
+          // Chỉ trích xuất từ bảng HTML mã giftcode thực sự (extractCodesFromHtml), không parse thô toàn trang HTML
           const tableCodes = extractCodesFromHtml(res.body);
           if (Array.isArray(tableCodes)) {
             for (const c of tableCodes) {
-              if (this.isValidCode(c.code) && !seenCodes.has(c.code)) {
+              if (this.isValidCode(c.code, gameSlug, gameName) && !seenCodes.has(c.code)) {
                 seenCodes.add(c.code);
                 fallbackCodes.push({
                   code: c.code,
                   rewards: c.rewards || `Quà tặng sự kiện Fanpage ${pageName}`,
                   expiresAt: c.expiresAt || '2026-12-31',
-                });
-              }
-            }
-          }
-          // 2. Trích xuất dạng bài viết text
-          const parsed = this.parsePost(res.body, `${pageName}`);
-          if (parsed && Array.isArray(parsed.codes)) {
-            for (const c of parsed.codes) {
-              if (this.isValidCode(c.code) && !seenCodes.has(c.code)) {
-                seenCodes.add(c.code);
-                fallbackCodes.push({
-                  code: c.code,
-                  rewards: c.rewards || `Quà tặng sự kiện Fanpage ${pageName}`,
-                  expiresAt: '2026-12-31',
                 });
               }
             }
