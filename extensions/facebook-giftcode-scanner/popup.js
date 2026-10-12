@@ -1,10 +1,11 @@
 /**
- * Popup Script - CodeGame.Shop Facebook Scanner Extension
+ * Popup Script - CodeGame.Shop Facebook Scanner Extension v1.2.0
  */
 
 let allGames = [];
 let currentTabId = null;
 let currentCodes = [];
+let currentLinks = [];
 let currentPageInfo = { pageName: '', pageUrl: '' };
 
 const DEFAULT_SETTINGS = {
@@ -93,33 +94,28 @@ function initTabInfo() {
     if (!tab.url || !tab.url.includes('facebook.com')) {
       document.getElementById('page-name').innerText = 'Không phải trang Facebook';
       document.getElementById('page-url').innerText = 'Vui lòng mở một Fanpage Facebook để quét.';
-      document.getElementById('btn-scan').disabled = true;
-      document.getElementById('btn-scan').style.opacity = '0.5';
+      document.getElementById('btn-scan-quick').disabled = true;
+      document.getElementById('btn-scan-deep').disabled = true;
       return;
     }
 
     document.getElementById('page-url').innerText = tab.url;
 
-    // Gửi yêu cầu trích xuất dữ liệu ban đầu
-    triggerScan();
+    // Quét nhanh ban đầu
+    triggerQuickScan();
   });
 }
 
-function triggerScan() {
+function triggerQuickScan() {
   if (!currentTabId) return;
 
-  const btnScan = document.getElementById('btn-scan');
-  btnScan.disabled = true;
-  btnScan.innerHTML = '<span>⏳ Đang quét bài viết...</span>';
+  const btn = document.getElementById('btn-scan-quick');
+  btn.disabled = true;
+  btn.innerHTML = '<span>⏳ Đang quét...</span>';
 
   chrome.tabs.sendMessage(currentTabId, { action: 'SCAN_PAGE' }, (response) => {
-    btnScan.disabled = false;
-    btnScan.innerHTML = `
-      <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2">
-        <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon>
-      </svg>
-      <span>⚡ Quét Lại Bài Viết Trên Trang</span>
-    `;
+    btn.disabled = false;
+    btn.innerHTML = '<span>⚡ Quét Nhanh</span>';
 
     if (chrome.runtime.lastError || !response) {
       document.getElementById('page-name').innerText = 'Chưa thể kết nối tới trang';
@@ -127,67 +123,147 @@ function triggerScan() {
       return;
     }
 
-    currentPageInfo = { pageName: response.pageName, pageUrl: response.pageUrl };
-    document.getElementById('page-name').innerText = response.pageName;
-    document.getElementById('page-name').title = response.pageName;
-
-    // Tự động nhận diện tựa game
-    const matchedSlug = autoMatchGame(response.pageName, response.pageUrl);
-    if (matchedSlug) {
-      document.getElementById('game-select').value = matchedSlug;
-    }
-
-    // Hiển thị danh sách mã
-    currentCodes = response.codes || [];
-    renderResults(currentCodes);
+    handleScanResponse(response);
   });
 }
 
-function renderResults(codes = []) {
+function triggerDeepScan() {
+  if (!currentTabId) return;
+
+  const depthSelect = document.getElementById('scroll-depth');
+  const rounds = parseInt(depthSelect.value, 10) || 8;
+
+  const btnDeep = document.getElementById('btn-scan-deep');
+  const btnQuick = document.getElementById('btn-scan-quick');
+  const progressBox = document.getElementById('progress-box');
+  const progressMsg = document.getElementById('progress-msg');
+  const progressBarFill = document.getElementById('progress-bar-fill');
+
+  btnDeep.disabled = true;
+  btnQuick.disabled = true;
+  progressBox.style.display = 'block';
+  progressMsg.innerHTML = `<span>🌀 Đang cuộn trang ${rounds} lượt & mở bung bài viết...</span>`;
+  progressBarFill.style.width = '15%';
+
+  let currentPercent = 15;
+  const interval = setInterval(() => {
+    if (currentPercent < 90) {
+      currentPercent += 8;
+      progressBarFill.style.width = `${currentPercent}%`;
+    }
+  }, 1000);
+
+  chrome.tabs.sendMessage(currentTabId, { action: 'DEEP_SCAN_PAGE', rounds }, (response) => {
+    clearInterval(interval);
+    progressBarFill.style.width = '100%';
+    setTimeout(() => { progressBox.style.display = 'none'; }, 800);
+
+    btnDeep.disabled = false;
+    btnQuick.disabled = false;
+
+    if (chrome.runtime.lastError || !response) {
+      showAlert('Không thể thực hiện quét sâu. Vui lòng thử lại hoặc tải lại trang.', false);
+      return;
+    }
+
+    handleScanResponse(response);
+    showAlert(`Đã quét sâu hoàn tất! Tìm thấy ${response.codes?.length || 0} mã code và ${response.links?.length || 0} đường link.`, true);
+  });
+}
+
+function handleScanResponse(response) {
+  currentPageInfo = { pageName: response.pageName, pageUrl: response.pageUrl };
+  document.getElementById('page-name').innerText = response.pageName;
+  document.getElementById('page-name').title = response.pageName;
+
+  // Tự động nhận diện tựa game
+  const matchedSlug = autoMatchGame(response.pageName, response.pageUrl);
+  if (matchedSlug) {
+    document.getElementById('game-select').value = matchedSlug;
+  }
+
+  currentCodes = response.codes || [];
+  currentLinks = response.links || [];
+
+  renderResults(currentCodes, currentLinks);
+}
+
+function renderResults(codes = [], links = []) {
   const section = document.getElementById('results-section');
-  const countEl = document.getElementById('results-count');
-  const listEl = document.getElementById('code-list');
+  const codesBadge = document.getElementById('badge-codes-count');
+  const linksBadge = document.getElementById('badge-links-count');
+  const codeListEl = document.getElementById('code-list');
+  const linkListEl = document.getElementById('link-list');
   const alertEl = document.getElementById('status-alert');
   alertEl.style.display = 'none';
 
-  if (!codes || codes.length === 0) {
-    section.style.display = 'block';
-    countEl.innerText = 'Chưa tìm thấy mã mới (0)';
-    countEl.style.color = '#94a3b8';
-    listEl.innerHTML = `
-      <div style="text-align: center; padding: 16px; color: #64748b; font-size: 12px;">
-        Không tìm thấy giftcode nào trong các bài viết đang hiển thị. Hãy thử cuộn trang Facebook xuống để tải thêm bài viết nhé!
+  codesBadge.innerText = codes.length;
+  linksBadge.innerText = links.length;
+  section.style.display = 'block';
+
+  // 1. Render Codes
+  if (codes.length === 0) {
+    codeListEl.innerHTML = `
+      <div style="text-align: center; padding: 14px; color: #64748b; font-size: 11px;">
+        Chưa tìm thấy mã trong các bài viết. Hãy thử bấm <strong>🌀 Quét Sâu Toàn Trang</strong> để cuộn lấy thêm bài cũ nhé!
       </div>
     `;
     document.getElementById('btn-push').style.display = 'none';
-    return;
+  } else {
+    document.getElementById('btn-push').style.display = 'flex';
+    document.getElementById('btn-push').disabled = false;
+    document.getElementById('btn-push').innerHTML = `<span>🚀 BẮN ${codes.length} MÃ LÊN WEB CODEGAME.SHOP</span>`;
+
+    codeListEl.innerHTML = codes.map((c, index) => `
+      <div class="code-row">
+        <div style="display: flex; align-items: center; gap: 6px;">
+          <span class="code-badge">${c.code}</span>
+          <span class="code-reward" title="${c.rewards}">${c.rewards}</span>
+        </div>
+        <button class="btn-remove-code" data-index="${index}" style="background: none; border: none; color: #64748b; cursor: pointer; padding: 2px 4px;">&times;</button>
+      </div>
+    `).join('');
+
+    document.querySelectorAll('.btn-remove-code').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        const idx = parseInt(e.target.dataset.index, 10);
+        currentCodes.splice(idx, 1);
+        renderResults(currentCodes, currentLinks);
+      });
+    });
   }
 
-  section.style.display = 'block';
-  countEl.innerText = `Tìm thấy ${codes.length} mã giftcode!`;
-  countEl.style.color = '#34d399';
-  document.getElementById('btn-push').style.display = 'flex';
-  document.getElementById('btn-push').disabled = false;
-  document.getElementById('btn-push').innerHTML = '<span>🚀 BẮN THẲNG LÊN WEB CODEGAME.SHOP</span>';
-
-  listEl.innerHTML = codes.map((c, index) => `
-    <div class="code-row">
-      <div style="display: flex; align-items: center; gap: 8px;">
-        <span class="code-badge">${c.code}</span>
-        <span class="code-reward" title="${c.rewards}">${c.rewards}</span>
+  // 2. Render Links
+  if (links.length === 0) {
+    linkListEl.innerHTML = `
+      <div style="text-align: center; padding: 14px; color: #64748b; font-size: 11px;">
+        Không tìm thấy đường link nào trong bài viết.
       </div>
-      <button class="btn-remove-code" data-index="${index}" style="background: none; border: none; color: #64748b; cursor: pointer; padding: 2px 4px;">&times;</button>
-    </div>
-  `).join('');
+    `;
+  } else {
+    linkListEl.innerHTML = links.map(l => `
+      <div class="link-row">
+        <div class="link-details">
+          <span class="link-badge ${l.type}">${l.label}</span>
+          <span class="link-url-text" title="${l.url}">${l.url}</span>
+        </div>
+        <div class="link-actions-btn">
+          <button class="btn-sm-action btn-copy-single-link" data-url="${encodeURIComponent(l.url)}">Chép</button>
+          <a href="${l.url}" target="_blank" class="btn-sm-action">Mở</a>
+        </div>
+      </div>
+    `).join('');
 
-  // Gắn sự kiện xóa mã đơn lẻ
-  document.querySelectorAll('.btn-remove-code').forEach(btn => {
-    btn.addEventListener('click', (e) => {
-      const idx = parseInt(e.target.dataset.index, 10);
-      currentCodes.splice(idx, 1);
-      renderResults(currentCodes);
+    document.querySelectorAll('.btn-copy-single-link').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        const url = decodeURIComponent(e.target.dataset.url);
+        navigator.clipboard.writeText(url).then(() => {
+          e.target.innerText = '✓';
+          setTimeout(() => { e.target.innerText = 'Chép'; }, 1500);
+        });
+      });
     });
-  });
+  }
 }
 
 function pushCodesToServer() {
@@ -214,7 +290,8 @@ function pushCodesToServer() {
     payload: {
       codes: currentCodes,
       gameSlug: selectedSlug,
-      gameName: selectedName
+      gameName: selectedName,
+      sourceLinks: currentLinks
     }
   }, (res) => {
     btnPush.disabled = false;
@@ -239,12 +316,37 @@ function showAlert(msg, isSuccess = true) {
 }
 
 function bindEvents() {
-  document.getElementById('btn-scan').addEventListener('click', triggerScan);
+  document.getElementById('btn-scan-quick').addEventListener('click', triggerQuickScan);
+  document.getElementById('btn-scan-deep').addEventListener('click', triggerDeepScan);
   document.getElementById('btn-push').addEventListener('click', pushCodesToServer);
 
-  document.getElementById('btn-clear').addEventListener('click', () => {
-    currentCodes = [];
-    renderResults([]);
+  // Tab switching
+  const tabCodes = document.getElementById('tab-btn-codes');
+  const tabLinks = document.getElementById('tab-btn-links');
+  const paneCodes = document.getElementById('pane-codes');
+  const paneLinks = document.getElementById('pane-links');
+
+  tabCodes.addEventListener('click', () => {
+    tabCodes.classList.add('active');
+    tabLinks.classList.remove('active');
+    paneCodes.classList.add('active');
+    paneLinks.classList.remove('active');
+  });
+
+  tabLinks.addEventListener('click', () => {
+    tabLinks.classList.add('active');
+    tabCodes.classList.remove('active');
+    paneLinks.classList.add('active');
+    paneCodes.classList.remove('active');
+  });
+
+  // Chép toàn bộ link
+  document.getElementById('btn-copy-all-links').addEventListener('click', () => {
+    if (!currentLinks.length) return;
+    const text = currentLinks.map(l => `${l.label}: ${l.url}`).join('\n');
+    navigator.clipboard.writeText(text).then(() => {
+      showAlert(`Đã sao chép toàn bộ ${currentLinks.length} đường link vào bộ nhớ tạm!`, true);
+    });
   });
 
   // Tìm kiếm nhanh danh mục game
@@ -274,7 +376,7 @@ function bindEvents() {
     const syncKey = document.getElementById('setting-sync-key').value.trim();
 
     chrome.storage.local.set({ apiUrl, syncKey }, () => {
-      alert('Đã lưu cấu hình kết nối API thành công!');
+      showAlert('Đã lưu cấu hình kết nối API thành công!', true);
       document.getElementById('settings-panel').style.display = 'none';
       document.getElementById('main-panel').style.display = 'block';
     });

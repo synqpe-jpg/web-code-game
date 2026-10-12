@@ -1,46 +1,65 @@
-# ⚡ CodeGame.Shop - 1-Click Facebook Giftcode Scanner (Chrome Extension)
+# ⚡ CodeGame.Shop - 1-Click Facebook Giftcode & Link Scanner (Chrome Extension v1.2.0)
 
-Tiện ích mở rộng Google Chrome chuyên dụng giúp quét tự động bài viết trên **Facebook Fanpage / Group NPH Game**, bóc tách mã giftcode bằng AI Regex và **bắn thẳng lên trang web `codegame.shop` chỉ trong 1 chạm**.
-
----
-
-## 🚀 HƯỚNG DẪN CÀI ĐẶT VÀO CHROME (CHỈ MẤT 20 GIÂY)
-
-1. Mở trình duyệt **Google Chrome** (hoặc Cốc Cốc, Brave, Edge).
-2. Nhập vào thanh địa chỉ:
-   ```text
-   chrome://extensions/
-   ```
-3. Bật công tắc **"Developer mode" (Chế độ cho nhà phát triển)** ở góc trên bên phải màn hình.
-4. Bấm nút **"Load unpacked" (Tải tiện ích đã giải nén)** ở góc trên bên trái.
-5. Chọn thư mục:
-   ```text
-   c:\4 Antigravity all\13 web code game\extensions\facebook-giftcode-scanner
-   ```
-6. ✅ **Xong!** Biểu tượng tia sét màu vàng **CodeGame.Shop** sẽ xuất hiện trên thanh công cụ của bạn. Bạn hãy ghim (Pin 📌) nó lên thanh công cụ để tiện sử dụng.
+Tiện ích mở rộng Google Chrome chính thức dành cho Quản trị viên và CTV của **codegame.shop**, cho phép trích xuất tự động **toàn bộ mã giftcode**, **toàn bộ bài viết**, và **toàn bộ đường link liên kết sự kiện / web NPH** từ bất kỳ Fanpage Facebook nào chỉ với 1-Click.
 
 ---
 
-## 🎯 2 CÁCH SỬ DỤNG SIÊU TIỆN LỢI
+## 🌟 TÍNH NĂNG ĐỘT PHÁ MỚI (v1.2.0)
 
-### 方式 1: Nút Nổi 1-Click Trực Tiếp Trên Facebook (Khuyên Dùng)
-1. Mở Fanpage Facebook của tựa game bất kỳ (Ví dụ: `https://www.facebook.com/tiennghich.vn`).
-2. Nhìn ở góc dưới bên phải màn hình Facebook, bạn sẽ thấy một nút nổi neon:
-   > **`⚡ Quét Code Cho CodeGame.shop`**
-3. Bấm vào nút này:
-   - Hệ thống tự động đọc tất cả bài viết đang hiển thị trên màn hình.
-   - Hiện bảng danh sách toàn bộ giftcode tìm được.
-4. Bấm **"🚀 Bắn Thẳng Lên Web codegame.shop"**: Toàn bộ mã được kích hoạt ngay lập tức lên web khách cho người dùng sao chép!
+1. **🔓 Tự Động Mở Bung Toàn Bộ Bài Viết (Auto-Expand "Xem thêm" / "See more")**:
+   - Tự động nhận diện và click toàn bộ nút "Xem thêm" / "See more" trên tất cả bài viết của Fanpage.
+   - Đảm bảo 100% nội dung dài bị Facebook thu gọn đều được bung ra, không bao giờ bị bỏ sót mã code nằm ở đuôi bài viết.
 
-### 方式 2: Mở Popup Tiện Ích Trên Thanh Công Cụ
-1. Đang ở tab Facebook Fanpage, click vào icon **CodeGame.Shop Scanner** trên thanh công cụ Chrome.
-2. Tiện ích tự động nhận diện tên Fanpage và tự động so khớp với tựa game tương ứng trong danh mục 487 game.
-3. Bấm **"⚡ Quét Code Bài Viết Trên Trang"**: Xem trước danh sách mã giftcode.
-4. Bấm **"🚀 BẮN THẲNG LÊN WEB CODEGAME.SHOP"** để hoàn tất.
+2. **🌀 Quét Sâu Toàn Trang (Deep Auto-Scroll Scan)**:
+   - Cơ chế tự động cuộn trang mượt mà (chọn từ 5, 8 đến 15 lượt cuộn) để đọc bài viết từ quá khứ (vài giờ trước, hôm qua, tuần trước).
+   - Tự động tạm dừng chờ Facebook nạp bài viết mới (Virtual DOM Hydration), sau đó tiếp tục mở bung bài và gom dữ liệu.
+   - Hiển thị thanh tiến trình trực quan thời gian thực: `🌀 Đang cuộn bài viết: Lượt X/Y...`.
+
+3. **🔗 Bóc Tách & Giải Mã Toàn Bộ Đường Link (Links Extractor)**:
+   - **Giải mã Link Chuyển Tiếp Meta (`l.facebook.com/l.php?u=...`)**: Lấy đường link web gốc sạch sẽ 100%.
+   - **Phân loại thông minh**:
+     + `[🎯 Link Nhận / Đổi Code]`: Các link landing page, sự kiện minigame nhận quà.
+     + `[🌐 Website / Trang Chủ NPH]`: Cổng thông tin chính thức của game.
+     + `[💳 Cổng Nạp NPH]`: Trang nạp thẻ, đổi quà NPH.
+     + `[📌 Bài Viết Facebook]`: Link gốc permalink của từng status.
+   - **Bóc tách mã trong URL**: Tự động trích xuất giftcode ẩn trong tham số query link (`?code=...`, `?giftcode=...`).
+   - Hỗ trợ **Sao chép 1-Click** hoặc **Mở nhanh trong Tab mới**.
+
+4. **🚀 Bắn Thẳng Lên Web codegame.shop Trong 1 Chạm**:
+   - Đẩy trực tiếp các mã đã lọc sạch lên Cloudflare D1/KV.
+   - Tự động lưu kèm đường link bài viết gốc (`sourceUrl`) để hiển thị nguồn xác thực cho người chơi.
+   - Phê duyệt và kích hoạt tức thì, khách hàng vào web là thấy và copy dùng được ngay.
+
+5. **🎮 Nhận Diện Tự Động Tựa Game (486+ Game)**:
+   - Tích hợp sẵn cơ sở dữ liệu `games.json` 486 game có giấy phép G1/G234.
+   - Tự động khớp game theo URL hoặc tên Fanpage (ví dụ: Tiên Nghịch Mobile, Liên Quân Mobile, Genshin Impact...).
 
 ---
 
-## ⚙️ CẤU HÌNH BẢO MẬT (MẶC ĐỊNH SẴN SÀNG 100%)
-- **Endpoint**: `https://web-code-game.pages.dev/api/sync`
-- **Secret Token**: Đã tích hợp sẵn Admin Sync Key bảo mật của chủ sở hữu.
-- Có thể đổi URL hoặc Secret Key trong mục Bánh răng ⚙️ Cài đặt bất kỳ lúc nào.
+## 🚀 HƯỚNG DẪN CÀI ĐẶT NHANH (30 GIÂY)
+
+1. Mở trình duyệt Google Chrome, truy cập: `chrome://extensions/`
+2. Bật công tắc **"Chế độ dành cho nhà phát triển" (Developer mode)** ở góc trên bên phải.
+3. Bấm nút **"Tải tiện ích đã giải nén" (Load unpacked)**.
+4. Chọn thư mục:
+   `c:\4 Antigravity all\13 web code game\extensions\facebook-giftcode-scanner`
+5. Tiện ích biểu tượng tia sét vàng ⚡ sẽ xuất hiện trên thanh công cụ của Chrome!
+
+---
+
+## 📖 HƯỚNG DẪN SỬ DỤNG
+
+### Cách 1: Dùng Nút Nổi 1-Click Trực Tiếp Trên Facebook (Nhanh Nhất)
+1. Mở bất kỳ Fanpage Facebook game nào (ví dụ: `https://www.facebook.com/tiennghichmobile`).
+2. Nhìn góc dưới bên phải màn hình, bạn sẽ thấy nút nổi gradient tím: **`⚡ Quét Code & Link`** kèm nút con **`🌀 Quét Sâu`**.
+3. Bấm **`🌀 Quét Sâu`**: Trang web sẽ tự động cuộn trang và đọc toàn bộ bài viết.
+4. Cửa sổ Modal hiện lên với 2 Tab:
+   - **Tab 1 - Danh Sách Mã**: Kiểm tra các mã tìm được.
+   - **Tab 2 - Đường Link & Sự Kiện**: Danh sách toàn bộ link web, landing page và link bài viết gốc.
+5. Bấm **`🚀 Bắn Thẳng Lên Web codegame.shop`** $\rightarrow$ Mã được kích hoạt ngay cho khách dùng!
+
+### Cách 2: Dùng Popup Trên Thanh Công Cụ Chrome
+1. Click vào icon tiện ích trên thanh tiện ích Chrome.
+2. Chọn độ sâu cuộn (5, 8 hoặc 15 lượt).
+3. Bấm **`🌀 Quét Sâu Toàn Trang`** hoặc **`⚡ Quét Nhanh`**.
+4. Chuyển đổi giữa 2 tab **Mã Code** và **Đường Link**, bấm **Bắn thẳng lên Web** khi hoàn tất!

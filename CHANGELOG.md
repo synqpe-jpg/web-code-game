@@ -7,7 +7,24 @@ Mỗi mục sửa lỗi đều ghi nhận **Nguyên nhân gốc rễ (Root Cause
 
 ## [2026-10-12]
 
-### 1. Nâng Cấp Bộ Máy Crawler Facebook Fanpage & Tích Hợp Cross-Source Game Intelligence Engine (Issue: Facebook Login Wall & Stub Scraper)
+### 1. Nâng Cấp Extension Chrome v1.2.0: Tự Động Mở Bung Bài Viết, Quét Sâu Toàn Trang (Deep Auto-Scroll) & Bóc Tách Toàn Bộ Link Sự Kiện / Web NPH
+- **Mô tả**: Nâng cấp toàn diện Chrome Extension `CodeGame.Shop - 1-Click Facebook Giftcode Scanner` lên phiên bản v1.2.0, giải quyết bài toán đọc toàn bộ bài viết trong quá khứ trên Fanpage Facebook và bóc tách toàn bộ các đường link (link sự kiện minigame, link web NPH, link bài post permalink).
+- **Nguyên nhân gốc rễ (Root Cause)**:
+  1. **Ẩn nội dung dài qua nút "Xem thêm"**: Facebook cắt ngắn nội dung dài và chỉ hiện sau khi click "Xem thêm" / "See more". Nếu extension chỉ quét DOM tĩnh ban đầu, các mã code ở đoạn giữa và cuối bài viết sẽ bị bỏ sót.
+  2. **Cơ chế cuộn vô tận (Virtual DOM / Infinite Scroll)**: Facebook chỉ giữ 2-4 bài viết trong viewport DOM, các bài cũ hơn (vài giờ trước, hôm qua, tuần trước) chỉ được nạp khi cuộn trang.
+  3. **Rào chắn Link Shim của Meta**: Toàn bộ liên kết ngoài trong bài viết Facebook đều bị mã hóa qua `l.facebook.com/l.php?u=...`, gây khó khăn cho việc nhận diện link đích của NPH.
+- **Giải pháp thành công (Solution Applied)**:
+  1. **Tự Động Mở Bung Toàn Bộ Bài Viết (`expandAllSeeMoreButtons`)**: Quét và tự động trigger click toàn bộ nút "Xem thêm", "See more", "Xem chi tiết" để hiển thị 100% nội dung bài viết trước khi trích xuất code.
+  2. **Quét Sâu Toàn Trang (`runDeepScrollScan`)**: Cơ chế tự động cuộn trang mượt mà (tùy chọn 5, 8 hoặc 15 lượt cuộn tương ứng 15-50 bài viết), có delay nghỉ hợp lý để Facebook nạp thêm bài cũ mà không bị phát hiện spam, kèm thanh tiến trình trực quan thời gian thực.
+  3. **Bóc Tách & Giải Mã Toàn Bộ Link (`decodeFacebookShimUrl` & `classifyUrl`)**: Giải mã link chuyển tiếp Facebook thành link website NPH sạch sẽ, bóc tách link permalink của từng bài post gốc, phân loại thông minh (`Link Nhận Code`, `Website NPH`, `Cổng Nạp`, `Bài Viết Facebook`), và tự động bóc tách giftcode ẩn trong tham số query của URL (`?code=...`).
+  4. **Giao Diện 2 Tab Trực Quan**: Cả trên Popup Extension và Nút nổi FAB trên Facebook đều trang bị 2 Tab chuyển đổi mượt mà giữa **🎁 Danh Sách Mã** và **🔗 Đường Link & Sự Kiện**, hỗ trợ 1-click sao chép, mở nhanh tab mới và đẩy kèm `sourceUrl` lên Web Khách.
+- **Giải pháp thất bại đã thử (Failed Attempts - KHÔNG ĐƯỢC LẶP LẠI)**:
+  - *Thử nghiệm 1*: Chỉ đọc text thuần từ `document.body.innerText` mà không click "Xem thêm" $\rightarrow$ *Thất bại*: Bị sót toàn bộ code nằm sau dấu `... Xem thêm`.
+  - *Thử nghiệm 2*: Cuộn trang liên tục không có delay $\rightarrow$ *Thất bại*: Facebook Virtual DOM không kịp hydrate dữ liệu, DOM bị trắng hoặc bài viết mới chưa kịp tải về.
+
+---
+
+### 2. Nâng Cấp Bộ Máy Crawler Facebook Fanpage & Tích Hợp Cross-Source Game Intelligence Engine (Issue: Facebook Login Wall & Stub Scraper)
 - **Mô tả**: Khắc phục triệt để hiện tượng người dùng thêm link Facebook Fanpage NPH vào nguồn cào nhưng hệ thống không tự động cập nhật được code khi Fanpage đăng bài. Nâng cấp bộ máy tự động vượt rào cản Login Wall của Meta bằng Cross-Source Game Intelligence, đồng thời trang bị công cụ "⚡ Trích Xuất Bài Đăng Fanpage" giúp Admin bóc tách và duyệt mã trực tiếp trong 1 chạm.
 - **Nguyên nhân gốc rễ (Root Cause)**:
   1. **Lỗi Stub Scraper trong engine**: Trong `scripts/crawler/run_crawler.cjs` dòng 196-198, khi `src.type === 'official_fb'`, crawler chỉ gọi `facebookScraper.parsePost(src.description || src.name)` mà hoàn toàn không thực hiện HTTP GET tới `src.url`. Khi nguồn mới thêm không có trường `description`, text truyền vào chỉ là tên game (ví dụ "Tiên Nghịch JoyGame") nên không thể trích xuất mã code.

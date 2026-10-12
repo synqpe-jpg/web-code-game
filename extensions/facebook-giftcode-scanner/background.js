@@ -1,5 +1,5 @@
 /**
- * Background Service Worker - CodeGame.Shop Facebook Scanner Extension
+ * Background Service Worker - CodeGame.Shop Facebook Scanner Extension v1.2.0
  */
 
 const DEFAULT_SETTINGS = {
@@ -19,7 +19,7 @@ chrome.runtime.onInstalled.addListener(() => {
   });
 });
 
-// Lắng nghe yêu cầu đẩy dữ liệu trực tiếp từ Content Script (Nút nổi 1-Click trên Facebook)
+// Lắng nghe yêu cầu đẩy dữ liệu trực tiếp từ Content Script (Nút nổi 1-Click trên Facebook) hoặc Popup
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
   if (request.action === 'PUSH_CODES_TO_SERVER') {
     handlePushCodes(request.payload)
@@ -29,7 +29,7 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
   }
 });
 
-async function handlePushCodes({ codes, gameSlug, gameName }) {
+async function handlePushCodes({ codes, gameSlug, gameName, sourceLinks }) {
   const config = await new Promise(resolve => {
     chrome.storage.local.get(['apiUrl', 'syncKey'], resolve);
   });
@@ -57,6 +57,7 @@ async function handlePushCodes({ codes, gameSlug, gameName }) {
             gameName: gameName || gameSlug,
             rewards: item.rewards || `Quà tặng sự kiện Fanpage ${gameName || ''}`.trim(),
             expiresAt: item.expiresAt || '2026-12-31',
+            sourceUrl: item.sourceUrl || item.postUrl || '',
             sourceType: 'official_fb',
             score: item.score || 95,
             tier: 1

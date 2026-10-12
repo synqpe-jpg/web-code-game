@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
   "name": "CodeGame.Shop - 1-Click Facebook Giftcode Scanner",
-  "version": "1.0.0",
-  "description": "Quét và đẩy tự động toàn bộ mã giftcode từ bài viết Facebook Fanpage lên web codegame.shop trong 1 chạm.",
+  "version": "1.2.0",
+  "description": "Quét sâu toàn bộ bài viết, mở nút xem thêm, bóc tách link sự kiện và bắn mã từ Facebook lên web codegame.shop trong 1 chạm.",
   "icons": {
     "16": "icons/icon16.png",
     "48": "icons/icon48.png",
