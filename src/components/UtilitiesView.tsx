@@ -336,7 +336,7 @@ export const UtilitiesView: React.FC<UtilitiesViewProps> = ({
   // Filter & sort utilities (Mặc định ưu tiên hàng còn lên trên đầu)
   const filtered = utilities
     .filter((u) => {
-      if (u.is_active === false) return false;
+      if (u.is_active === false || u.is_active === 0 || (u as any).is_active === '0') return false;
       if (filterCategory !== 'all') {
         const uCat = (u.category || '').trim().toLowerCase();
         const fCat = filterCategory.trim().toLowerCase();

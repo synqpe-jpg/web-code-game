@@ -8,6 +8,7 @@ export interface D1PurchaseParams {
   txId: string;
   userId: string;
   productId: string;
+  productSku?: string;
   productTitle: string;
   quantity: number;
   unitPrice: number;
@@ -818,7 +819,8 @@ export async function initializeD1(db: D1Database): Promise<{ success: boolean; 
  * Counter Cache: Direct atomic decrement on store_products.stock_quantity
  */
 export async function purchaseOrderD1(db: D1Database, params: D1PurchaseParams): Promise<D1PurchaseResult> {
-  const { orderId, txId, userId, productId, productTitle, quantity, unitPrice, totalAmount, idempotencyKey } = params;
+  const { orderId, txId, userId, productId, productSku, productTitle, quantity, unitPrice, totalAmount, idempotencyKey } = params;
+  const pSku = (productSku || productId).trim();
 
   try {
     await ensureSchemaUpgrades(db);
@@ -829,9 +831,9 @@ export async function purchaseOrderD1(db: D1Database, params: D1PurchaseParams):
       VALUES (
         ?,
         (SELECT CASE WHEN balance >= ? THEN 1 ELSE NULL END FROM members WHERE id = ?),
-        (SELECT CASE WHEN (SELECT COUNT(*) FROM inventory_codes WHERE product_id = ? AND status = 'AVAILABLE') >= ? THEN 1 ELSE NULL END)
+        (SELECT CASE WHEN (SELECT COUNT(*) FROM inventory_codes WHERE (product_id = ? OR product_id = ?) AND status = 'AVAILABLE') >= ? THEN 1 ELSE NULL END)
       );
-    `).bind(orderId, totalAmount, userId, productId, quantity);
+    `).bind(orderId, totalAmount, userId, productId, pSku, quantity);
 
     // 2. Trừ số dư ví
     const stmtDeduct = db.prepare(`
@@ -849,43 +851,42 @@ export async function purchaseOrderD1(db: D1Database, params: D1PurchaseParams):
           sold_at = datetime('now')
       WHERE id IN (
         SELECT id FROM inventory_codes
-        WHERE product_id = ? AND status = 'AVAILABLE'
+        WHERE (product_id = ? OR product_id = ?) AND status = 'AVAILABLE'
         ORDER BY created_at ASC, id ASC
         LIMIT ?
       );
-    `).bind(orderId, productId, quantity);
+    `).bind(orderId, productId, pSku, quantity);
 
     // 4. Cập nhật chính xác tồn kho và số bán trực tiếp từ COUNT(inventory_codes)
-    // Tuyệt đối không dùng MAX(0, stock - qty) để che giấu lỗi lệch kho
     const stmtUpdateStock = db.prepare(`
       UPDATE store_products
       SET stock_quantity = CASE 
-        WHEN (SELECT COUNT(*) FROM inventory_codes WHERE product_id = store_products.id) > 0
-        THEN (SELECT COUNT(*) FROM inventory_codes WHERE product_id = store_products.id AND status = 'AVAILABLE')
-        ELSE (stock_quantity - ?)
+        WHEN (SELECT COUNT(*) FROM inventory_codes WHERE (product_id = store_products.id OR (store_products.sku IS NOT NULL AND store_products.sku != '' AND product_id = store_products.sku))) > 0
+        THEN (SELECT COUNT(*) FROM inventory_codes WHERE (product_id = store_products.id OR (store_products.sku IS NOT NULL AND store_products.sku != '' AND product_id = store_products.sku)) AND status = 'AVAILABLE')
+        ELSE MAX(0, stock_quantity - ?)
       END,
       sold_count = CASE
-        WHEN (SELECT COUNT(*) FROM inventory_codes WHERE product_id = store_products.id) > 0
-        THEN (SELECT COUNT(*) FROM inventory_codes WHERE product_id = store_products.id AND status = 'SOLD')
+        WHEN (SELECT COUNT(*) FROM inventory_codes WHERE (product_id = store_products.id OR (store_products.sku IS NOT NULL AND store_products.sku != '' AND product_id = store_products.sku))) > 0
+        THEN (SELECT COUNT(*) FROM inventory_codes WHERE (product_id = store_products.id OR (store_products.sku IS NOT NULL AND store_products.sku != '' AND product_id = store_products.sku)) AND status = 'SOLD')
         ELSE (sold_count + ?)
       END
-      WHERE id = ?;
-    `).bind(quantity, quantity, productId);
+      WHERE (id = ? OR sku = ?);
+    `).bind(quantity, quantity, productId, pSku);
 
     const stmtUpdateUtil = db.prepare(`
       UPDATE utilities
       SET stock_quantity = CASE 
-        WHEN (SELECT COUNT(*) FROM inventory_codes WHERE product_id = utilities.id) > 0
-        THEN (SELECT COUNT(*) FROM inventory_codes WHERE product_id = utilities.id AND status = 'AVAILABLE')
-        ELSE (stock_quantity - ?)
+        WHEN (SELECT COUNT(*) FROM inventory_codes WHERE (product_id = utilities.id OR (utilities.sku IS NOT NULL AND utilities.sku != '' AND product_id = utilities.sku))) > 0
+        THEN (SELECT COUNT(*) FROM inventory_codes WHERE (product_id = utilities.id OR (utilities.sku IS NOT NULL AND utilities.sku != '' AND product_id = utilities.sku)) AND status = 'AVAILABLE')
+        ELSE MAX(0, stock_quantity - ?)
       END,
       sold_count = CASE
-        WHEN (SELECT COUNT(*) FROM inventory_codes WHERE product_id = utilities.id) > 0
-        THEN (SELECT COUNT(*) FROM inventory_codes WHERE product_id = utilities.id AND status = 'SOLD')
+        WHEN (SELECT COUNT(*) FROM inventory_codes WHERE (product_id = utilities.id OR (utilities.sku IS NOT NULL AND utilities.sku != '' AND product_id = utilities.sku))) > 0
+        THEN (SELECT COUNT(*) FROM inventory_codes WHERE (product_id = utilities.id OR (utilities.sku IS NOT NULL AND utilities.sku != '' AND product_id = utilities.sku)) AND status = 'SOLD')
         ELSE (sold_count + ?)
       END
-      WHERE id = ?;
-    `).bind(quantity, quantity, productId);
+      WHERE (id = ? OR sku = ?);
+    `).bind(quantity, quantity, productId, pSku);
 
     // 5. Ghi Đơn hàng (Lấy delivered_codes trực tiếp từ inventory_codes trong cùng batch bằng json_group_array)
     const stmtOrder = db.prepare(`
@@ -1055,52 +1056,50 @@ export async function syncProductStockCounter(db: D1Database, productId?: string
         UPDATE store_products
         SET stock_quantity = (
           SELECT COUNT(*) FROM inventory_codes
-          WHERE inventory_codes.product_id = store_products.id AND inventory_codes.status = 'AVAILABLE'
+          WHERE (inventory_codes.product_id = store_products.id OR (store_products.sku IS NOT NULL AND store_products.sku != '' AND inventory_codes.product_id = store_products.sku)) AND inventory_codes.status = 'AVAILABLE'
         ),
         sold_count = (
           SELECT COUNT(*) FROM inventory_codes
-          WHERE inventory_codes.product_id = store_products.id AND inventory_codes.status = 'SOLD'
+          WHERE (inventory_codes.product_id = store_products.id OR (store_products.sku IS NOT NULL AND store_products.sku != '' AND inventory_codes.product_id = store_products.sku)) AND inventory_codes.status = 'SOLD'
         )
-        WHERE id = ?;
-      `).bind(productId).run().catch(() => {});
+        WHERE (id = ? OR sku = ?);
+      `).bind(productId, productId).run().catch(() => {});
 
       await db.prepare(`
         UPDATE utilities
         SET stock_quantity = (
           SELECT COUNT(*) FROM inventory_codes
-          WHERE inventory_codes.product_id = utilities.id AND inventory_codes.status = 'AVAILABLE'
+          WHERE (inventory_codes.product_id = utilities.id OR (utilities.sku IS NOT NULL AND utilities.sku != '' AND inventory_codes.product_id = utilities.sku)) AND inventory_codes.status = 'AVAILABLE'
         ),
         sold_count = (
           SELECT COUNT(*) FROM inventory_codes
-          WHERE inventory_codes.product_id = utilities.id AND inventory_codes.status = 'SOLD'
+          WHERE (inventory_codes.product_id = utilities.id OR (utilities.sku IS NOT NULL AND utilities.sku != '' AND inventory_codes.product_id = utilities.sku)) AND inventory_codes.status = 'SOLD'
         )
-        WHERE id = ?;
-      `).bind(productId).run().catch(() => {});
+        WHERE (id = ? OR sku = ?);
+      `).bind(productId, productId).run().catch(() => {});
     } else {
       await db.prepare(`
         UPDATE store_products
         SET stock_quantity = (
           SELECT COUNT(*) FROM inventory_codes
-          WHERE inventory_codes.product_id = store_products.id AND inventory_codes.status = 'AVAILABLE'
+          WHERE (inventory_codes.product_id = store_products.id OR (store_products.sku IS NOT NULL AND store_products.sku != '' AND inventory_codes.product_id = store_products.sku)) AND inventory_codes.status = 'AVAILABLE'
         ),
         sold_count = (
           SELECT COUNT(*) FROM inventory_codes
-          WHERE inventory_codes.product_id = store_products.id AND inventory_codes.status = 'SOLD'
-        )
-        WHERE (SELECT COUNT(*) FROM inventory_codes WHERE inventory_codes.product_id = store_products.id) > 0;
+          WHERE (inventory_codes.product_id = store_products.id OR (store_products.sku IS NOT NULL AND store_products.sku != '' AND inventory_codes.product_id = store_products.sku)) AND inventory_codes.status = 'SOLD'
+        );
       `).run().catch(() => {});
 
       await db.prepare(`
         UPDATE utilities
         SET stock_quantity = (
           SELECT COUNT(*) FROM inventory_codes
-          WHERE inventory_codes.product_id = utilities.id AND inventory_codes.status = 'AVAILABLE'
+          WHERE (inventory_codes.product_id = utilities.id OR (utilities.sku IS NOT NULL AND utilities.sku != '' AND inventory_codes.product_id = utilities.sku)) AND inventory_codes.status = 'AVAILABLE'
         ),
         sold_count = (
           SELECT COUNT(*) FROM inventory_codes
-          WHERE inventory_codes.product_id = utilities.id AND inventory_codes.status = 'SOLD'
-        )
-        WHERE (SELECT COUNT(*) FROM inventory_codes WHERE inventory_codes.product_id = utilities.id) > 0;
+          WHERE (inventory_codes.product_id = utilities.id OR (utilities.sku IS NOT NULL AND utilities.sku != '' AND inventory_codes.product_id = utilities.sku)) AND inventory_codes.status = 'SOLD'
+        );
       `).run().catch(() => {});
     }
   } catch (err: any) {
@@ -1765,9 +1764,10 @@ export async function syncInventoryToD1(db: D1Database, inventory: any[]): Promi
     const stmts: D1PreparedStatement[] = [];
     for (const item of slice) {
       if (!item) continue;
-      const pId = item.sku || item.productId || item.product_id;
-      const codeContent = item.codeValue || item.code_content || item.code || '';
+      const pId = String(item.sku || item.productId || item.product_id || '').trim();
+      const codeContent = String(item.codeValue || item.code_content || item.code || '').trim();
       if (!pId || !codeContent) continue;
+      const itemId = item.id || `inv_${pId}_${encodeURIComponent(codeContent)}`;
       const rawStatus = String(item.status || '').toUpperCase();
       const status = (rawStatus === 'SOLD') ? 'SOLD' : (rawStatus === 'HOLD' ? 'HOLD' : 'AVAILABLE');
       stmts.push(
@@ -1790,7 +1790,9 @@ export async function syncInventoryToD1(db: D1Database, inventory: any[]): Promi
       );
     }
     if (stmts.length > 0) {
-      await db.batch(stmts).catch(() => {});
+      await db.batch(stmts).catch((err: any) => {
+        console.error('[syncInventoryToD1 Batch Error]:', err?.message || err);
+      });
     }
   }
   await syncProductStockCounter(db);
@@ -2081,7 +2083,7 @@ export async function deleteInventoryCodesD1(db: D1Database, codeIds: string[]):
   for (let i = 0; i < codeIds.length; i += BATCH_SIZE) {
     const slice = codeIds.slice(i, i + BATCH_SIZE);
     const placeholders = slice.map(() => '?').join(',');
-    await db.prepare(`DELETE FROM inventory_codes WHERE id IN (${placeholders}) AND status != 'SOLD'`).bind(...slice).run().catch(() => {});
+    await db.prepare(`DELETE FROM inventory_codes WHERE (id IN (${placeholders}) OR code_content IN (${placeholders})) AND status != 'SOLD'`).bind(...slice, ...slice).run().catch(() => {});
   }
   await syncProductStockCounter(db);
 }
@@ -2092,12 +2094,15 @@ export async function deleteInventoryCodesD1(db: D1Database, codeIds: string[]):
 export async function purgeOrphanedInventoryCodesD1(db: D1Database): Promise<void> {
   try {
     await ensureSchemaUpgrades(db);
-    // Delete available inventory codes for products marked is_active = 0
+    // Delete unsold inventory codes for products/utilities marked is_active = 0
     await db.prepare(`
       DELETE FROM inventory_codes
-      WHERE status = 'AVAILABLE'
-      AND product_id IN (
-        SELECT id FROM store_products WHERE is_active = 0
+      WHERE status != 'SOLD'
+      AND (
+        product_id IN (SELECT id FROM store_products WHERE is_active = 0)
+        OR product_id IN (SELECT sku FROM store_products WHERE is_active = 0 AND sku IS NOT NULL AND sku != '')
+        OR product_id IN (SELECT id FROM utilities WHERE is_active = 0)
+        OR product_id IN (SELECT sku FROM utilities WHERE is_active = 0 AND sku IS NOT NULL AND sku != '')
       )
     `).run().catch(() => {});
   } catch {}

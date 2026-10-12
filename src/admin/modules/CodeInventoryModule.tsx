@@ -309,7 +309,7 @@ export const CodeInventoryModule: React.FC<CodeInventoryModuleProps> = ({ onShow
 
     const targetId = editingProduct?.id || `sp_${Date.now()}_${Math.random().toString(36).substring(2, 5)}`;
     const totalAvail = adminDataService.getInventory({ status: 'AVAILABLE' }).filter(
-      (i) => i.sku === targetId || (i.productName && productForm.title && i.productName.trim().toLowerCase() === productForm.title.trim().toLowerCase())
+      (i) => i.sku === targetId || ((editingProduct as any)?.sku && i.sku === (editingProduct as any).sku) || (i.productName && productForm.title && i.productName.trim().toLowerCase() === productForm.title.trim().toLowerCase())
     ).length;
 
     const finalStock = totalAvail;
@@ -398,6 +398,7 @@ export const CodeInventoryModule: React.FC<CodeInventoryModuleProps> = ({ onShow
     const totalAvail = adminDataService.getInventory({ status: 'AVAILABLE' }).filter(
       (i) =>
         i.sku === selectedProductForBatch.id ||
+        ((selectedProductForBatch as any).sku && i.sku === (selectedProductForBatch as any).sku) ||
         (i.productName &&
           selectedProductForBatch.title &&
           i.productName.trim().toLowerCase() === selectedProductForBatch.title.trim().toLowerCase())
@@ -532,10 +533,15 @@ export const CodeInventoryModule: React.FC<CodeInventoryModuleProps> = ({ onShow
     adminDataService.deleteInventoryItem(deletingInventoryItem.id);
 
     // Sync product stock quantity
+    const targetProd = storeProducts.find(
+      (p) =>
+        (itemSku && (p.id === itemSku || (p.sku && p.sku === itemSku))) ||
+        (itemProdName && p.title && p.title.trim().toLowerCase() === itemProdName.trim().toLowerCase())
+    );
+    const prodRealSku = targetProd?.sku;
     const remainingCount = adminDataService.getInventory({ status: 'AVAILABLE' }).filter(
-      (i) => (itemSku && i.sku === itemSku) || (itemProdName && i.productName === itemProdName)
+      (i) => (itemSku && i.sku === itemSku) || (prodRealSku && i.sku === prodRealSku) || (itemProdName && i.productName && i.productName.trim().toLowerCase() === itemProdName.trim().toLowerCase())
     ).length;
-    const targetProd = storeProducts.find((p) => (itemSku && p.id === itemSku) || (itemProdName && p.title === itemProdName));
     if (targetProd) {
       targetProd.stock_quantity = remainingCount;
       adminDataService.saveStoreProductItem(targetProd);
@@ -551,9 +557,10 @@ export const CodeInventoryModule: React.FC<CodeInventoryModuleProps> = ({ onShow
     const count = adminDataService.deleteInventoryItemsBulk(selectedDetailIds);
 
     const itemSku = detailProduct.id;
+    const itemRealSku = detailProduct.sku;
     const itemProdName = detailProduct.title;
     const remainingCount = adminDataService.getInventory({ status: 'AVAILABLE' }).filter(
-      (i) => (itemSku && i.sku === itemSku) || (itemProdName && i.productName === itemProdName)
+      (i) => (itemSku && i.sku === itemSku) || (itemRealSku && i.sku === itemRealSku) || (itemProdName && i.productName && i.productName.trim().toLowerCase() === itemProdName.trim().toLowerCase())
     ).length;
     detailProduct.stock_quantity = remainingCount;
     adminDataService.saveStoreProductItem(detailProduct);
@@ -760,7 +767,7 @@ export const CodeInventoryModule: React.FC<CodeInventoryModuleProps> = ({ onShow
       <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
         {filteredProducts.map((prod) => {
           const productStockCount = inventory.filter(
-            (i) => (i.sku === prod.id || (i.productName && i.productName.trim().toLowerCase() === prod.title.trim().toLowerCase())) && i.status === 'AVAILABLE'
+            (i) => (i.sku === prod.id || ((prod as any).sku && i.sku === (prod as any).sku) || (i.productName && i.productName.trim().toLowerCase() === prod.title.trim().toLowerCase())) && i.status === 'AVAILABLE'
           ).length;
           const displayStock = productStockCount;
 
@@ -1378,7 +1385,7 @@ export const CodeInventoryModule: React.FC<CodeInventoryModuleProps> = ({ onShow
         <div className="space-y-4">
           {detailProduct && (() => {
             const productCodes = inventory
-              .filter((i) => i.sku === detailProduct.id || i.productName === detailProduct.title)
+              .filter((i) => i.sku === detailProduct.id || ((detailProduct as any)?.sku && i.sku === (detailProduct as any).sku) || (i.productName && detailProduct.title && i.productName.trim().toLowerCase() === detailProduct.title.trim().toLowerCase()))
               .sort((a, b) => {
                 const order: Record<string, number> = { AVAILABLE: 1, HOLD: 2, SOLD: 3 };
                 const rankA = order[a.status || 'AVAILABLE'] ?? 2;

@@ -109,7 +109,7 @@ export const StoreView: React.FC<StoreViewProps> = ({
   // Filter & sort products (Mặc định ưu tiên hàng còn lên trên đầu)
   const filtered = products
     .filter((p) => {
-      if (p.is_active === false) return false;
+      if (p.is_active === false || p.is_active === 0 || (p as any).is_active === '0') return false;
       if (filterType !== 'all') {
         const target = filterType.toLowerCase().trim();
         const pkgType = (p.package_type || '').toLowerCase().trim();

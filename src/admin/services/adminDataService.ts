@@ -2981,7 +2981,7 @@ class AdminDataService {
   public getStoreProducts(): StoreProduct[] {
     return this.storeProducts.filter((p) => p && p.id && !p.id.startsWith('ut_')).map((p) => {
       const matchingCodes = this.inventory.filter(
-        (i) => (i.sku === p.id || (i.productName && p.title && String(i.productName).trim().toLowerCase() === String(p.title).trim().toLowerCase()))
+        (i) => (i.sku === p.id || ((p as any).sku && i.sku === (p as any).sku) || (i.productName && p.title && String(i.productName).trim().toLowerCase() === String(p.title).trim().toLowerCase()))
       );
       if (matchingCodes.length === 0) {
         return {
@@ -3109,7 +3109,7 @@ class AdminDataService {
   public getUtilities(): UtilityProduct[] {
     return this.utilities.filter((u) => u && u.id && !u.id.startsWith('sp_')).map((u) => {
       const matchingCodes = this.inventory.filter(
-        (i) => (i.sku === u.id || (i.productName && u.title && String(i.productName).trim().toLowerCase() === String(u.title).trim().toLowerCase()))
+        (i) => (i.sku === u.id || (u.sku && i.sku === u.sku) || (i.productName && u.title && String(i.productName).trim().toLowerCase() === String(u.title).trim().toLowerCase()))
       );
       if (matchingCodes.length === 0) {
         return {
@@ -3436,7 +3436,7 @@ class AdminDataService {
     if (!product) return { success: false, isNowInStock: false, count: 0 };
 
     const matchingCodes = this.inventory.filter(
-      (i) => i.sku === productId || (i.productName && product.title && i.productName.trim().toLowerCase() === product.title.trim().toLowerCase())
+      (i) => i.sku === productId || ((product as any).sku && i.sku === (product as any).sku) || (i.productName && product.title && i.productName.trim().toLowerCase() === product.title.trim().toLowerCase())
     );
 
     const availableCodes = matchingCodes.filter((i) => i.status === 'AVAILABLE');

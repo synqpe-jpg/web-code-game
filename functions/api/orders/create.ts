@@ -251,9 +251,10 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
     }
 
     // 4. Pre-flight Stock check
+    const prodSku = String(product.sku || product.id || '').trim();
     const stockRow = await env.DB.prepare(
-      "SELECT COUNT(*) as cnt FROM inventory_codes WHERE product_id = ? AND status = 'AVAILABLE'"
-    ).bind(product.id).first<any>();
+      "SELECT COUNT(*) as cnt FROM inventory_codes WHERE (product_id = ? OR product_id = ?) AND status = 'AVAILABLE'"
+    ).bind(product.id, prodSku).first<any>();
     const availableStock = Number(stockRow?.cnt) || 0;
 
     if (availableStock < qty) {
@@ -281,6 +282,7 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
       txId: newTxId,
       userId: member.id,
       productId: product.id,
+      productSku: prodSku,
       productTitle: product.title,
       quantity: qty,
       unitPrice,
