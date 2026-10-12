@@ -1565,38 +1565,32 @@ class MarketingService {
     return initialBonus;
   }
 
+  public clearRealStockCache(id?: string): void {
+    if (id) {
+      this.productRealStockMap.delete(id);
+    } else {
+      this.productRealStockMap.clear();
+    }
+  }
+
   public getRealStockFor(id: string): number {
     if (!id) return 0;
-    if (this.productRealStockMap.has(id)) {
-      const val = this.productRealStockMap.get(id);
-      if (typeof val === 'number') return val;
-    }
-    if (this.activeSnapshot?.products?.[id]?.real_stock !== undefined) {
-      const s = Math.max(0, Number(this.activeSnapshot.products[id].real_stock) || 0);
-      this.productRealStockMap.set(id, s);
-      return s;
-    }
-    if (this.activeSnapshot?.giveaways?.[id]?.real_remaining !== undefined) {
-      const s = Math.max(0, Number(this.activeSnapshot.giveaways[id].real_remaining) || 0);
-      this.productRealStockMap.set(id, s);
-      return s;
-    }
     if (typeof localStorage !== 'undefined') {
       try {
-        const spRaw = localStorage.getItem('wcg_admin_store_products_v4');
-        if (spRaw) {
-          const spList = JSON.parse(spRaw);
-          const found = Array.isArray(spList) ? spList.find((p: any) => p && p.id === id) : null;
+        const utRaw = localStorage.getItem('wcg_admin_utilities_v4');
+        if (utRaw) {
+          const utList = JSON.parse(utRaw);
+          const found = Array.isArray(utList) ? utList.find((u: any) => u && u.id === id) : null;
           if (found && found.stock_quantity !== undefined) {
             const s = Math.max(0, Number(found.stock_quantity) || 0);
             this.productRealStockMap.set(id, s);
             return s;
           }
         }
-        const utRaw = localStorage.getItem('wcg_admin_utilities_v4');
-        if (utRaw) {
-          const utList = JSON.parse(utRaw);
-          const found = Array.isArray(utList) ? utList.find((u: any) => u && u.id === id) : null;
+        const spRaw = localStorage.getItem('wcg_admin_store_products_v4');
+        if (spRaw) {
+          const spList = JSON.parse(spRaw);
+          const found = Array.isArray(spList) ? spList.find((p: any) => p && p.id === id) : null;
           if (found && found.stock_quantity !== undefined) {
             const s = Math.max(0, Number(found.stock_quantity) || 0);
             this.productRealStockMap.set(id, s);
@@ -1617,6 +1611,20 @@ class MarketingService {
           }
         }
       } catch {}
+    }
+    if (this.productRealStockMap.has(id)) {
+      const val = this.productRealStockMap.get(id);
+      if (typeof val === 'number') return val;
+    }
+    if (this.activeSnapshot?.products?.[id]?.real_stock !== undefined) {
+      const s = Math.max(0, Number(this.activeSnapshot.products[id].real_stock) || 0);
+      this.productRealStockMap.set(id, s);
+      return s;
+    }
+    if (this.activeSnapshot?.giveaways?.[id]?.real_remaining !== undefined) {
+      const s = Math.max(0, Number(this.activeSnapshot.giveaways[id].real_remaining) || 0);
+      this.productRealStockMap.set(id, s);
+      return s;
     }
     return 0;
   }
@@ -1737,7 +1745,11 @@ class MarketingService {
   public getDisplayStock(productId: string, realStock?: number, timestampMs: number = this.getCalibratedNow()): number {
     const baseStock = Math.max(0, Number(typeof realStock === 'number' ? realStock : this.getRealStockFor(productId)) || 0);
     // CRITICAL BUSINESS RULE: Hết hàng thật = Hết hàng hiển thị (0)
-    if (baseStock <= 0) return 0;
+    if (baseStock <= 0) {
+      this.liveVirtualStockMap.set(productId, 0);
+      this.productRealStockMap.set(productId, 0);
+      return 0;
+    }
 
     // Ghi nhớ tồn kho thật
     this.productRealStockMap.set(productId, baseStock);
@@ -3734,16 +3746,30 @@ class MarketingService {
               if (v && typeof v.lastCount === 'number' && typeof v.lastTimestamp === 'number') {
                 this.sessionAnchorMap.set(k, {
                   lastCount: Number(v.lastCount) || 0,
-                  lastTimestamp: Number(v.lastTimestamp) || 0,
                 });
               }
             });
           }
         } catch {}
       }
+      if (
+        e.key === 'wcg_admin_utilities_v4' ||
+        e.key === 'wcg_admin_store_products_v4' ||
+        e.key === 'wcg_admin_giveaways_v4' ||
+        e.key === 'wcg_admin_inventory_v4'
+      ) {
+        this.clearRealStockCache();
+        this.notifyStockChanged('*', 0);
+      }
     });
 
     if (typeof window !== 'undefined') {
+      const handleInventoryReset = () => {
+        this.clearRealStockCache();
+        this.notifyStockChanged('*', 0);
+      };
+      window.addEventListener('wcg_admin_data_updated', handleInventoryReset);
+      window.addEventListener('wcg_data_updated', handleInventoryReset);
       window.addEventListener('beforeunload', () => {
         this.flushSessionAnchor();
       });
