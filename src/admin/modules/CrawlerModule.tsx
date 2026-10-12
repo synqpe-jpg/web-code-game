@@ -26,6 +26,9 @@ import {
   ChevronRight,
   ChevronLeft,
   HelpCircle,
+  Zap,
+  Activity,
+  Radio,
 } from 'lucide-react';
 import { FormModal } from '../components/ui/FormModal';
 import { ConfirmModal } from '../components/ui/ConfirmModal';
@@ -248,6 +251,9 @@ export const CrawlerModule: React.FC<CrawlerModuleProps> = ({ onShowToast }) => 
     const tier3Count = pendingCodes.filter((c) => c.tier === 3).length;
     const tier4Count = pendingCodes.filter((c) => c.tier === 4).length;
     const activeSources = sources.filter((s) => s.isEnabled).length;
+    const latestLog = logs && logs.length > 0 ? logs[0] : null;
+    const totalAutoApproved = logs.reduce((acc, l) => acc + (l.autoApprovedCount || 0), 0);
+    const totalDuplicatesAvoided = logs.reduce((acc, l) => acc + (l.duplicatesCount || 0), 0);
     return {
       totalPending,
       tier2Count,
@@ -255,8 +261,11 @@ export const CrawlerModule: React.FC<CrawlerModuleProps> = ({ onShowToast }) => 
       tier4Count,
       activeSources,
       totalSources: sources.length,
+      latestLog,
+      totalAutoApproved,
+      totalDuplicatesAvoided,
     };
-  }, [pendingCodes, sources]);
+  }, [pendingCodes, sources, logs]);
 
   // 1-Click Approve
   const handleApprove = async (id: string) => {
@@ -566,18 +575,30 @@ export const CrawlerModule: React.FC<CrawlerModuleProps> = ({ onShowToast }) => 
             </div>
           </div>
 
-          <div className="flex items-center gap-3">
+          <div className="flex flex-wrap items-center gap-3">
+            <a
+              href="https://github.com/synqpe-jpg/web-code-game/actions/workflows/auto-crawler-sync.yml"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="px-4 py-2 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-semibold text-sm flex items-center gap-2 transition-all shadow-md active:scale-95"
+              title="Mở GitHub Actions để xem tiến trình hoặc bấm 'Run workflow' thủ công"
+            >
+              <Zap className="w-4 h-4 text-emerald-200" />
+              <span>⚡ Xem / Chạy Trên GitHub</span>
+              <ExternalLink className="w-3.5 h-3.5 opacity-70" />
+            </a>
+
             <button
               onClick={loadData}
               disabled={isLoading}
-              className="px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700/60 font-medium text-sm flex items-center gap-2 transition-all shadow-sm active:scale-95"
+              className="px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700/60 font-medium text-sm flex items-center gap-2 transition-all shadow-sm active:scale-95 cursor-pointer"
             >
               <RefreshCw className={`w-4 h-4 ${isLoading ? 'animate-spin text-indigo-400' : ''}`} />
               Làm mới dữ liệu
             </button>
             <button
               onClick={() => setIsAddSourceOpen(true)}
-              className="px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-medium text-sm flex items-center gap-2 transition-all shadow-lg shadow-indigo-600/20 active:scale-95"
+              className="px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-medium text-sm flex items-center gap-2 transition-all shadow-lg shadow-indigo-600/20 active:scale-95 cursor-pointer"
             >
               <Plus className="w-4 h-4" />
               Thêm Nguồn Cào
@@ -586,9 +607,42 @@ export const CrawlerModule: React.FC<CrawlerModuleProps> = ({ onShowToast }) => 
         </div>
 
         {/* Quick Stats Grid */}
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mt-6 pt-6 border-t border-slate-800/80">
+        <div className="grid grid-cols-2 sm:grid-cols-5 gap-3 mt-6 pt-6 border-t border-slate-800/80">
           <div className="bg-slate-900/60 border border-slate-800 rounded-xl p-3">
-            <div className="text-xs text-slate-400">Hàng Chờ Duyệt</div>
+            <div className="text-xs text-slate-400 flex items-center justify-between">
+              <span>Lần Quét Gần Nhất</span>
+              <Activity className="w-3.5 h-3.5 text-emerald-400 animate-pulse" />
+            </div>
+            <div className="text-base font-bold text-white mt-1">
+              {stats.latestLog
+                ? new Date(stats.latestLog.timestamp).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })
+                : 'Đang chờ'}
+            </div>
+            <div className="text-[11px] text-emerald-400 font-semibold truncate mt-0.5">
+              {stats.latestLog
+                ? `${new Date(stats.latestLog.timestamp).toLocaleDateString('vi-VN')} • ${stats.latestLog.sourcesCount} nguồn`
+                : 'Tự động 24/7'}
+            </div>
+          </div>
+
+          <div className="bg-slate-900/60 border border-slate-800 rounded-xl p-3">
+            <div className="text-xs text-slate-400 flex items-center justify-between">
+              <span>Tự Động Đăng (Bậc 1)</span>
+              <Zap className="w-3.5 h-3.5 text-emerald-400" />
+            </div>
+            <div className="text-xl font-bold text-emerald-400 mt-1">
+              {stats.totalAutoApproved} mã
+            </div>
+            <div className="text-[11px] text-slate-400 mt-0.5">
+              90-100đ lên web ngay
+            </div>
+          </div>
+
+          <div className="bg-slate-900/60 border border-slate-800 rounded-xl p-3">
+            <div className="text-xs text-slate-400 flex items-center justify-between">
+              <span>Hàng Chờ Duyệt</span>
+              <Clock className="w-3.5 h-3.5 text-amber-400" />
+            </div>
             <div className="text-xl font-bold text-amber-400 mt-1 flex items-center gap-1.5">
               {stats.totalPending} mã
               {stats.totalPending > 0 && (
@@ -597,20 +651,33 @@ export const CrawlerModule: React.FC<CrawlerModuleProps> = ({ onShowToast }) => 
                 </span>
               )}
             </div>
-          </div>
-          <div className="bg-slate-900/60 border border-slate-800 rounded-xl p-3">
-            <div className="text-xs text-slate-400">Bậc 2 (70-89đ)</div>
-            <div className="text-xl font-bold text-sky-400 mt-1">{stats.tier2Count} mã</div>
-          </div>
-          <div className="bg-slate-900/60 border border-slate-800 rounded-xl p-3">
-            <div className="text-xs text-slate-400">Nguồn Đang Bật</div>
-            <div className="text-xl font-bold text-emerald-400 mt-1">
-              {stats.activeSources} / {stats.totalSources}
+            <div className="text-[11px] text-slate-400 mt-0.5">
+              {stats.totalPending === 0 ? '✓ Đang sạch hàng chờ' : 'Chờ Admin duyệt'}
             </div>
           </div>
+
           <div className="bg-slate-900/60 border border-slate-800 rounded-xl p-3">
-            <div className="text-xs text-slate-400">Lịch Quét Tự Động</div>
-            <div className="text-xl font-bold text-purple-400 mt-1">Mỗi 2 tiếng</div>
+            <div className="text-xs text-slate-400 flex items-center justify-between">
+              <span>Nguồn Đang Bật</span>
+              <Radio className="w-3.5 h-3.5 text-indigo-400" />
+            </div>
+            <div className="text-xl font-bold text-indigo-400 mt-1">
+              {stats.activeSources} / {stats.totalSources}
+            </div>
+            <div className="text-[11px] text-slate-400 mt-0.5">
+              Web, Fanpage, Discord
+            </div>
+          </div>
+
+          <div className="bg-slate-900/60 border border-slate-800 rounded-xl p-3 col-span-2 sm:col-span-1">
+            <div className="text-xs text-slate-400 flex items-center justify-between">
+              <span>Lịch Quét Tự Động</span>
+              <Bot className="w-3.5 h-3.5 text-purple-400" />
+            </div>
+            <div className="text-xl font-bold text-purple-400 mt-1">Mỗi 1 tiếng</div>
+            <div className="text-[11px] text-slate-400 mt-0.5">
+              Phút 15 hàng giờ (24/7)
+            </div>
           </div>
         </div>
       </div>

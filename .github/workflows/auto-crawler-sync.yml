@@ -2,8 +2,8 @@ name: Auto Giftcode Crawler & Sync
 
 on:
   schedule:
-    # Chạy tự động mỗi 2 tiếng (hoàn toàn miễn phí trên GitHub Actions)
-    - cron: '0 */2 * * *'
+    # Chạy tự động mỗi 1 tiếng vào phút 15 (tránh giờ cao điểm phút 0, đảm bảo chạy đúng giờ 100%)
+    - cron: '15 * * * *'
   workflow_dispatch:
     # Cho phép kích hoạt thủ công bất kỳ lúc nào từ giao diện GitHub
 

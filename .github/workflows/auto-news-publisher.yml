@@ -2,8 +2,8 @@ name: Auto News Publisher Engine 24/7
 
 on:
   schedule:
-    # Tự động quét nguồn và xuất bản tin tức mỗi 2 tiếng (Hoàn toàn miễn phí trên GitHub Actions)
-    - cron: '30 */2 * * *'
+    # Tự động quét nguồn và xuất bản tin tức mỗi 1 tiếng vào phút 45 (Hoàn toàn miễn phí trên GitHub Actions)
+    - cron: '45 * * * *'
   workflow_dispatch:
     # Cho phép kích hoạt thủ công bất kỳ lúc nào từ GitHub Actions tab
 
