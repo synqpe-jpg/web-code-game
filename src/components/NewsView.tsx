@@ -448,6 +448,7 @@ export const NewsView: React.FC<NewsViewProps> = ({
           onShowToast={onShowToast}
           onSelectGameSlug={onSelectGameSlug}
           onSelectArticle={(art) => handleOpenArticle(art)}
+          allArticles={articles}
         />
       )}
     </div>

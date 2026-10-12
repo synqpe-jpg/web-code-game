@@ -1,4 +1,5 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import {
   X,
   Calendar,
@@ -36,7 +37,28 @@ export const NewsDetailModal: React.FC<NewsDetailModalProps> = ({
 }) => {
   const [copiedCode, setCopiedCode] = useState<string | null>(null);
 
-  if (!article) return null;
+  // Close on Escape key press
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        onClose();
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [onClose]);
+
+  // Prevent background scrolling while modal is open
+  useEffect(() => {
+    if (typeof document === 'undefined') return;
+    const originalOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    return () => {
+      document.body.style.overflow = originalOverflow;
+    };
+  }, []);
+
+  if (!article || typeof document === 'undefined') return null;
 
   const handleCopyCode = (code: string) => {
     navigator.clipboard.writeText(code);
@@ -66,25 +88,40 @@ export const NewsDetailModal: React.FC<NewsDetailModalProps> = ({
     year: 'numeric',
   });
 
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-2.5 sm:p-4 overflow-y-auto">
-      {/* Backdrop */}
-      <div
-        className="fixed inset-0 bg-slate-950/80 backdrop-blur-md transition-opacity"
-        onClick={onClose}
-      />
-
+  return createPortal(
+    <div
+      className="fixed inset-0 z-[100] flex items-end sm:items-center justify-center p-0 sm:p-4 md:p-6 bg-slate-950/85 backdrop-blur-md overflow-hidden animate-fade-in select-none"
+      onClick={onClose}
+    >
       {/* Modal Container */}
-      <div className="relative my-2 sm:my-8 w-full max-w-4xl max-h-[92vh] flex flex-col overflow-hidden rounded-2xl sm:rounded-3xl border border-border/80 bg-card shadow-2xl z-10 animate-scale-in">
-        {/* Sticky Header with Title & Close */}
-        <div className="flex items-center justify-between border-b border-border/80 px-4 py-3 sm:px-6 sm:py-4 bg-card/95 backdrop-blur-md shrink-0">
+      <div
+        className="relative w-full max-w-4xl h-[92dvh] sm:h-auto sm:max-h-[90vh] flex flex-col bg-card border-t sm:border border-border/90 rounded-t-[28px] sm:rounded-3xl shadow-2xl overflow-hidden animate-scale-in select-text"
+        onClick={(e) => e.stopPropagation()}
+      >
+        {/* Mobile Sheet Drag Indicator */}
+        <div className="w-12 h-1.5 bg-slate-600/60 rounded-full mx-auto my-2 sm:hidden shrink-0" />
+
+        {/* Sticky Header with Title, Share & Prominent Red/Rose Close Button */}
+        <div className="flex items-center justify-between border-b border-border/80 px-4 py-3 sm:px-6 sm:py-3.5 bg-card/95 backdrop-blur-md shrink-0 sticky top-0 z-20">
           <div className="flex items-center gap-2 min-w-0 pr-2">
             {article.game_name && (
-              <span className="px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-primary/20 text-primary-light border border-primary/30 shrink-0">
-                {article.game_name}
-              </span>
+              <div className="flex items-center gap-1.5 min-w-0">
+                {article.game_slug && (
+                  <img
+                    src={`/game_icons/${article.game_slug}.webp`}
+                    alt={article.game_name}
+                    className="w-5 h-5 rounded-md object-cover border border-border/80 shrink-0 hidden sm:block"
+                    onError={(e) => {
+                      (e.currentTarget as HTMLElement).style.display = 'none';
+                    }}
+                  />
+                )}
+                <span className="px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-primary/20 text-primary-light border border-primary/30 truncate max-w-[170px] sm:max-w-xs shrink-0">
+                  {article.game_name}
+                </span>
+              </div>
             )}
-            <span className="text-xs text-muted-foreground truncate hidden sm:inline">
+            <span className="text-xs text-muted-foreground truncate hidden md:inline">
               {article.author || 'CodeGame Editorial'} • {formattedDate}
             </span>
           </div>
@@ -92,23 +129,31 @@ export const NewsDetailModal: React.FC<NewsDetailModalProps> = ({
           <div className="flex items-center gap-2 shrink-0">
             <button
               onClick={handleShare}
-              className="p-2 rounded-xl text-slate-400 hover:text-white hover:bg-muted/60 transition-colors cursor-pointer"
-              title="Chia sẻ bài viết"
+              className="p-2 sm:px-3 sm:py-2 rounded-xl text-slate-300 hover:text-white bg-slate-800/80 hover:bg-slate-700 border border-slate-700/80 transition-all cursor-pointer flex items-center gap-1.5 text-xs font-semibold shrink-0 active:scale-95 shadow-sm"
+              title="Chia sẻ liên kết bài viết"
             >
-              <Share2 className="w-4 h-4" />
+              <Share2 className="w-4 h-4 text-primary-light" />
+              <span className="hidden sm:inline">Chia sẻ</span>
             </button>
+
+            {/* Dấu X Đóng Rõ Ràng Cho Mọi Thiết Bị */}
             <button
               onClick={onClose}
-              className="p-2 rounded-xl text-slate-400 hover:text-white hover:bg-muted/60 transition-colors cursor-pointer"
-              title="Đóng"
+              className="flex items-center gap-1.5 px-3 py-1.5 sm:px-3.5 sm:py-2 rounded-xl bg-rose-500/20 hover:bg-rose-600 text-rose-300 hover:text-white border border-rose-500/40 hover:border-rose-600 shadow-md transition-all active:scale-95 cursor-pointer font-bold text-xs shrink-0 group"
+              title="Đóng bản tin (Phím Esc hoặc bấm ra ngoài màn hình)"
+              aria-label="Đóng bản tin"
             >
-              <X className="w-5 h-5" />
+              <X className="w-4 h-4 sm:w-4.5 sm:h-4.5 text-rose-400 group-hover:text-white transition-colors stroke-[2.5]" />
+              <span className="font-black tracking-tight">Đóng</span>
+              <span className="hidden sm:inline-block px-1 py-0.2 rounded text-[10px] bg-black/40 text-rose-200 border border-rose-500/30 font-mono">
+                Esc
+              </span>
             </button>
           </div>
         </div>
 
         {/* Scrollable Content Body */}
-        <div className="flex-1 overflow-y-auto p-4 sm:p-6 sm:px-8 space-y-6">
+        <div className="flex-1 overflow-y-auto custom-scrollbar p-4 sm:p-6 sm:px-8 space-y-6">
           {/* Article Header & Cover */}
           <div className="space-y-4">
             <h1 className="text-xl sm:text-2xl md:text-3xl font-display font-extrabold text-foreground leading-tight">
@@ -402,8 +447,36 @@ export const NewsDetailModal: React.FC<NewsDetailModalProps> = ({
               </div>
             </div>
           )}
+
+          {/* Bottom Close Bar & Actions */}
+          <div className="pt-6 pb-2 border-t border-border/80 flex flex-col sm:flex-row items-center justify-between gap-3">
+            <div className="text-xs text-muted-foreground flex items-center gap-2">
+              <span>Bản quyền nội dung: CodeGame.store</span>
+              <span>•</span>
+              <span>Cập nhật: {formattedDate}</span>
+            </div>
+            <div className="flex items-center gap-2 w-full sm:w-auto">
+              <button
+                type="button"
+                onClick={handleShare}
+                className="flex-1 sm:flex-none flex items-center justify-center gap-1.5 px-4 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white text-xs font-bold border border-slate-700 transition-all cursor-pointer active:scale-95 shadow-sm"
+              >
+                <Share2 className="w-4 h-4 text-primary-light" />
+                <span>Chia sẻ link</span>
+              </button>
+              <button
+                type="button"
+                onClick={onClose}
+                className="flex-1 sm:flex-none flex items-center justify-center gap-2 px-6 py-2.5 rounded-xl bg-rose-600 hover:bg-rose-500 text-white text-xs font-black shadow-lg shadow-rose-600/25 transition-all active:scale-95 cursor-pointer"
+              >
+                <X className="w-4 h-4 stroke-[2.5]" />
+                <span>Đóng Bản Tin</span>
+              </button>
+            </div>
+          </div>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 };
