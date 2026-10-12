@@ -1,13 +1,21 @@
 import type { NewsArticle, GameItem } from '../types/game';
 import { DEFAULT_NEWS_ARTICLES } from '../data/seedNews';
 import { smartVietnameseMatch } from '../utils/textUtils';
+import type { NewsAutoSource, NewsScheduleConfig, NewsCrawlLogItem } from '../types/newsAutomation';
+import { DEFAULT_NEWS_AUTO_SOURCES, DEFAULT_NEWS_SCHEDULE_CONFIG } from '../types/newsAutomation';
 
 const STORAGE_KEY = 'wcg_news_articles_v1';
 const STORAGE_DELETED_KEY = 'wcg_deleted_news_articles_v1';
+const STORAGE_SOURCES_KEY = 'wcg_news_auto_sources_v1';
+const STORAGE_CONFIG_KEY = 'wcg_news_schedule_config_v1';
+const STORAGE_LOGS_KEY = 'wcg_news_crawl_logs_v1';
 
 class NewsService {
   private articles: NewsArticle[] = [];
   private deletedArticleIds: Set<string> = new Set();
+  private autoSources: NewsAutoSource[] = [...DEFAULT_NEWS_AUTO_SOURCES];
+  private scheduleConfig: NewsScheduleConfig = { ...DEFAULT_NEWS_SCHEDULE_CONFIG };
+  private crawlLogs: NewsCrawlLogItem[] = [];
   private listeners: Set<() => void> = new Set();
   private isLoaded = false;
 
@@ -47,18 +55,52 @@ class NewsService {
               !this.deletedArticleIds.has(a.slug)
           );
           this.isLoaded = true;
-          return;
         }
       }
     } catch (e) {
       console.warn('[NewsService] Lỗi đọc tin tức từ localStorage:', e);
     }
 
-    // 3. Chỉ nạp seed mặc định cho khách truy cập lần đầu tiên khi chưa có dữ liệu nào
-    this.articles = DEFAULT_NEWS_ARTICLES.filter(
-      (s) => !this.deletedArticleIds.has(s.id) && !this.deletedArticleIds.has(s.slug)
-    );
-    this.saveToStorage();
+    // 3. Tải cấu hình nguồn tự động
+    try {
+      const srcStored = localStorage.getItem(STORAGE_SOURCES_KEY);
+      if (srcStored) {
+        const parsedSrc = JSON.parse(srcStored);
+        if (Array.isArray(parsedSrc) && parsedSrc.length > 0) {
+          this.autoSources = parsedSrc;
+        }
+      }
+    } catch {}
+
+    // 4. Tải cấu hình lập lịch
+    try {
+      const cfgStored = localStorage.getItem(STORAGE_CONFIG_KEY);
+      if (cfgStored) {
+        const parsedCfg = JSON.parse(cfgStored);
+        if (parsedCfg && typeof parsedCfg === 'object') {
+          this.scheduleConfig = { ...DEFAULT_NEWS_SCHEDULE_CONFIG, ...parsedCfg };
+        }
+      }
+    } catch {}
+
+    // 5. Tải nhật ký cào
+    try {
+      const logStored = localStorage.getItem(STORAGE_LOGS_KEY);
+      if (logStored) {
+        const parsedLogs = JSON.parse(logStored);
+        if (Array.isArray(parsedLogs)) {
+          this.crawlLogs = parsedLogs;
+        }
+      }
+    } catch {}
+
+    if (this.articles.length === 0 && localStorage.getItem(STORAGE_KEY) === null) {
+      // Chỉ nạp seed mặc định cho khách truy cập lần đầu tiên khi chưa có dữ liệu nào
+      this.articles = DEFAULT_NEWS_ARTICLES.filter(
+        (s) => !this.deletedArticleIds.has(s.id) && !this.deletedArticleIds.has(s.slug)
+      );
+      this.saveToStorage();
+    }
     this.isLoaded = true;
   }
 
@@ -86,9 +128,78 @@ class NewsService {
   }
 
   /**
+   * Quản lý Danh sách nguồn cào tự động
+   */
+  public getAutoSources(): NewsAutoSource[] {
+    return [...this.autoSources];
+  }
+
+  public async saveAutoSources(sources: NewsAutoSource[]): Promise<boolean> {
+    this.autoSources = [...sources];
+    if (typeof window !== 'undefined') {
+      try {
+        localStorage.setItem(STORAGE_SOURCES_KEY, JSON.stringify(this.autoSources));
+      } catch {}
+    }
+    this.notifyListeners();
+    await this.syncToCloudflareServer();
+    return true;
+  }
+
+  /**
+   * Quản lý Cấu hình lập lịch & xuất bản tự động
+   */
+  public getScheduleConfig(): NewsScheduleConfig {
+    return { ...this.scheduleConfig };
+  }
+
+  public async saveScheduleConfig(config: Partial<NewsScheduleConfig>): Promise<boolean> {
+    this.scheduleConfig = { ...this.scheduleConfig, ...config };
+    if (typeof window !== 'undefined') {
+      try {
+        localStorage.setItem(STORAGE_CONFIG_KEY, JSON.stringify(this.scheduleConfig));
+      } catch {}
+    }
+    this.notifyListeners();
+    await this.syncToCloudflareServer();
+    return true;
+  }
+
+  /**
+   * Quản lý Nhật ký cào bài viết
+   */
+  public getCrawlLogs(): NewsCrawlLogItem[] {
+    return [...this.crawlLogs];
+  }
+
+  public addCrawlLog(item: NewsCrawlLogItem) {
+    this.crawlLogs = [item, ...this.crawlLogs].slice(0, 100);
+    if (typeof window !== 'undefined') {
+      try {
+        localStorage.setItem(STORAGE_LOGS_KEY, JSON.stringify(this.crawlLogs));
+      } catch {}
+    }
+    this.notifyListeners();
+  }
+
+  public clearCrawlLogs() {
+    this.crawlLogs = [];
+    if (typeof window !== 'undefined') {
+      try {
+        localStorage.removeItem(STORAGE_LOGS_KEY);
+      } catch {}
+    }
+    this.notifyListeners();
+  }
+
+  /**
    * Đồng bộ dữ liệu tin tức từ máy chủ Cloudflare D1
    */
-  public applyServerSnapshot(serverArticles: NewsArticle[]) {
+  public applyServerSnapshot(
+    serverArticles?: NewsArticle[],
+    serverSources?: NewsAutoSource[],
+    serverConfig?: NewsScheduleConfig
+  ) {
     if (Array.isArray(serverArticles)) {
       // Loại bỏ toàn bộ bài viết đã nằm trong danh sách đã xóa (tombstones)
       const cleanServer = serverArticles.filter(
@@ -98,9 +209,25 @@ class NewsService {
       );
       this.articles = cleanServer;
       this.saveToStorage();
+    }
+    if (Array.isArray(serverSources) && serverSources.length > 0) {
+      this.autoSources = serverSources;
       if (typeof window !== 'undefined') {
-        window.dispatchEvent(new CustomEvent('wcg_news_updated', { detail: this.articles }));
+        try {
+          localStorage.setItem(STORAGE_SOURCES_KEY, JSON.stringify(this.autoSources));
+        } catch {}
       }
+    }
+    if (serverConfig && typeof serverConfig === 'object') {
+      this.scheduleConfig = { ...this.scheduleConfig, ...serverConfig };
+      if (typeof window !== 'undefined') {
+        try {
+          localStorage.setItem(STORAGE_CONFIG_KEY, JSON.stringify(this.scheduleConfig));
+        } catch {}
+      }
+    }
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('wcg_news_updated', { detail: this.articles }));
     }
   }
 
@@ -362,6 +489,8 @@ class NewsService {
         body: JSON.stringify({
           newsArticles: this.articles,
           deletedNewsArticles: Array.from(this.deletedArticleIds),
+          newsAutoSources: this.autoSources,
+          newsScheduleConfig: this.scheduleConfig,
         }),
       });
       return res.ok;

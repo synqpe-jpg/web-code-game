@@ -40,9 +40,16 @@ import {
   StopCircle,
   Play,
   CheckCircle,
+  Settings,
+  Send,
+  Radio,
+  History,
+  Bell,
+  Sliders,
 } from 'lucide-react';
 import { NewsArticle } from '../../types/game';
 import { newsService } from '../../services/newsService';
+import type { NewsAutoSource, NewsScheduleConfig, NewsCrawlLogItem } from '../../types/newsAutomation';
 import { adminDataService } from '../services/adminDataService';
 import { dataService } from '../../services/dataService';
 import { SearchableGameSelect } from '../components/ui/SearchableGameSelect';
@@ -123,18 +130,45 @@ export const NewsModule: React.FC<NewsModuleProps> = ({ onShowToast }) => {
   const [bulkResults, setBulkResults] = useState<BulkResultItem[]>([]);
   const bulkAbortRef = useRef<boolean>(false);
 
+  // Automation & Scheduling Modal state
+  const [isAutomationModalOpen, setIsAutomationModalOpen] = useState(false);
+  const [automationActiveTab, setAutomationActiveTab] = useState<'sources' | 'schedule' | 'logs'>('sources');
+  const [autoSources, setAutoSources] = useState<NewsAutoSource[]>([]);
+  const [scheduleConfig, setScheduleConfig] = useState<NewsScheduleConfig>(newsService.getScheduleConfig());
+  const [crawlLogs, setCrawlLogs] = useState<NewsCrawlLogItem[]>([]);
+  const [isTriggeringAutoCrawl, setIsTriggeringAutoCrawl] = useState(false);
+
+  // New Source Form modal
+  const [isAddingSource, setIsAddingSource] = useState(false);
+  const [newSourceForm, setNewSourceForm] = useState<Partial<NewsAutoSource>>({
+    name: '',
+    url: '',
+    type: 'website',
+    crawlFrequencyMinutes: 60,
+    autoDetectGame: true,
+    useGameLogoAsCover: true,
+    status: 'ACTIVE',
+  });
+  const [newSourceKeywordsInput, setNewSourceKeywordsInput] = useState('code, giftcode, tân thủ');
+
   // Load initial data
   const loadData = () => {
     const list = newsService.getAllArticles();
     setArticles(list);
     const adminGames = adminDataService.getGames();
     setGames(adminGames);
+    setAutoSources(newsService.getAutoSources());
+    setScheduleConfig(newsService.getScheduleConfig());
+    setCrawlLogs(newsService.getCrawlLogs());
   };
 
   useEffect(() => {
     loadData();
     const handleNewsUpdate = () => {
       setArticles(newsService.getAllArticles());
+      setAutoSources(newsService.getAutoSources());
+      setScheduleConfig(newsService.getScheduleConfig());
+      setCrawlLogs(newsService.getCrawlLogs());
     };
     window.addEventListener('wcg_news_updated', handleNewsUpdate);
     return () => window.removeEventListener('wcg_news_updated', handleNewsUpdate);
@@ -1017,6 +1051,226 @@ export const NewsModule: React.FC<NewsModuleProps> = ({ onShowToast }) => {
     }
   };
 
+  // 1. Quản lý nguồn: Đổi trạng thái Bật / Tắt
+  const handleToggleSourceStatus = async (sourceId: string) => {
+    const updated = autoSources.map((s) =>
+      s.id === sourceId
+        ? { ...s, status: (s.status === 'ACTIVE' ? 'PAUSED' : 'ACTIVE') as any }
+        : s
+    );
+    setAutoSources(updated);
+    await newsService.saveAutoSources(updated);
+    onShowToast('Đã đổi trạng thái', 'Đã cập nhật trạng thái nguồn tin cào.', 'info');
+  };
+
+  // 2. Quản lý nguồn: Xóa nguồn
+  const handleDeleteSource = async (sourceId: string, name: string) => {
+    if (confirm(`Bạn có chắc muốn xóa nguồn tin "${name}"?`)) {
+      const updated = autoSources.filter((s) => s.id !== sourceId);
+      setAutoSources(updated);
+      await newsService.saveAutoSources(updated);
+      onShowToast('Đã xóa nguồn', `Đã loại bỏ nguồn "${name}".`, 'info');
+    }
+  };
+
+  // 3. Quản lý nguồn: Lưu nguồn mới
+  const handleSaveNewSource = async () => {
+    if (!newSourceForm.name?.trim()) {
+      onShowToast('Thiếu thông tin', 'Vui lòng nhập tên nguồn tin tức.', 'error');
+      return;
+    }
+    if (!newSourceForm.url?.trim() || !newSourceForm.url.startsWith('http')) {
+      onShowToast('URL không hợp lệ', 'Vui lòng nhập đường link URL đầy đủ (bắt đầu bằng http:// hoặc https://).', 'error');
+      return;
+    }
+
+    const keywords = newSourceKeywordsInput
+      .split(',')
+      .map((k) => k.trim())
+      .filter((k) => k.length > 0);
+
+    const sourceToAdd: NewsAutoSource = {
+      id: `src_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
+      name: newSourceForm.name.trim(),
+      url: newSourceForm.url.trim(),
+      type: newSourceForm.type || 'website',
+      crawlFrequencyMinutes: Number(newSourceForm.crawlFrequencyMinutes) || 60,
+      filterKeywords: keywords.length > 0 ? keywords : ['code', 'giftcode'],
+      autoDetectGame: Boolean(newSourceForm.autoDetectGame !== false),
+      useGameLogoAsCover: Boolean(newSourceForm.useGameLogoAsCover !== false),
+      status: 'ACTIVE',
+      articlesFoundCount: 0,
+    };
+
+    const updated = [...autoSources, sourceToAdd];
+    setAutoSources(updated);
+    await newsService.saveAutoSources(updated);
+    setIsAddingSource(false);
+    setNewSourceForm({
+      name: '',
+      url: '',
+      type: 'website',
+      crawlFrequencyMinutes: 60,
+      autoDetectGame: true,
+      useGameLogoAsCover: true,
+      status: 'ACTIVE',
+    });
+    setNewSourceKeywordsInput('code, giftcode, tân thủ');
+    onShowToast('Đã thêm nguồn mới 🎉', `Nguồn "${sourceToAdd.name}" đã được kích hoạt thành công!`, 'success');
+  };
+
+  // 4. Lập lịch: Cập nhật cấu hình
+  const handleSaveScheduleConfig = async (changes: Partial<NewsScheduleConfig>) => {
+    const next = { ...scheduleConfig, ...changes };
+    setScheduleConfig(next);
+    await newsService.saveScheduleConfig(next);
+    onShowToast('Đã lưu cấu hình', 'Đã cập nhật quy tắc lập lịch và tự động hóa.', 'success');
+  };
+
+  // 5. Kích hoạt quét toàn bộ nguồn ngay trên trình duyệt
+  const handleTriggerAllSourcesNow = async () => {
+    const active = autoSources.filter((s) => s.status === 'ACTIVE');
+    if (active.length === 0) {
+      onShowToast('Không có nguồn bật', 'Vui lòng bật ít nhất 1 nguồn ở trạng thái "Đang hoạt động" để quét.', 'error');
+      return;
+    }
+
+    setIsTriggeringAutoCrawl(true);
+    onShowToast('Đang quét toàn bộ nguồn ⚡', `Hệ thống đang tiến hành quét ${active.length} nguồn cố định...`, 'info');
+
+    let totalCreated = 0;
+    const nowIso = new Date().toISOString();
+    const updatedSources = [...autoSources];
+
+    try {
+      for (const source of active) {
+        try {
+          const res = await fetch('/api/crawl-article', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ url: source.url }),
+          });
+          const data = await res.json();
+
+          if (data && data.success && (data.title || data.content)) {
+            const existing = articles.some(
+              (a) =>
+                (data.title && a.title.toLowerCase().trim() === data.title.toLowerCase().trim()) ||
+                (a.source_url && a.source_url.toLowerCase().trim() === source.url.toLowerCase().trim())
+            );
+
+            if (!existing) {
+              const matchedGame = source.autoDetectGame
+                ? findMatchingGameForBulk(source.url, data.title, data.content)
+                : null;
+
+              const rewritten = newsService.rewriteArticleWithAi({
+                rawTitle: data.title,
+                rawContent: data.content,
+                sourceUrl: source.url,
+                game: matchedGame
+                  ? {
+                      id: matchedGame.id,
+                      name: matchedGame.name,
+                      slug: matchedGame.slug,
+                      banner_url: matchedGame.bannerUrl || matchedGame.cover_image_url,
+                      icon_url: matchedGame.iconUrl || matchedGame.icon_url,
+                    }
+                  : null,
+                foundCodes: data.codes || [],
+                foundImages: data.images || [],
+              });
+
+              const gameLogo = matchedGame
+                ? matchedGame.cover_image_url || matchedGame.icon_url || (matchedGame.slug ? `/game_icons/${matchedGame.slug}.webp` : '')
+                : '';
+
+              const finalCover = source.useGameLogoAsCover && gameLogo ? gameLogo : (rewritten.cover_url || data.cover_url || gameLogo || '');
+
+              const newArt: NewsArticle = {
+                id: `news_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
+                slug: rewritten.slug || `tin-tuc-${Date.now().toString(36)}`,
+                title: rewritten.title || data.title || 'Tin Tức Game Mới Nhất',
+                excerpt: rewritten.excerpt || '',
+                content: rewritten.content || '',
+                cover_url: finalCover,
+                gallery_urls: rewritten.gallery_urls || [],
+                virtual_views: Math.floor(Math.random() * 200) + 150,
+                views_growth_rate: 1.0,
+                game_id: matchedGame?.id,
+                game_slug: matchedGame?.slug,
+                game_name: matchedGame?.name,
+                tags: rewritten.tags || ['Giftcode', 'GameMobile'],
+                codes: rewritten.codes || [],
+                author: 'CodeGame Editorial',
+                views: 0,
+                read_time_minutes: 3,
+                is_featured: false,
+                is_hot: true,
+                status: scheduleConfig.defaultPublishStatus || 'PUBLISHED',
+                published_at: nowIso,
+                updated_at: nowIso,
+                source_url: source.url,
+              };
+
+              await newsService.saveArticle(newArt, { skipSync: true });
+              totalCreated++;
+
+              newsService.addCrawlLog({
+                id: `log_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
+                timestamp: nowIso,
+                sourceName: source.name,
+                sourceUrl: source.url,
+                articleTitle: newArt.title,
+                gameName: newArt.game_name,
+                codesCount: newArt.codes?.length || 0,
+                status: 'SUCCESS',
+                message: `Đã tự động tạo bài viết "${newArt.title}" (${newArt.codes?.length || 0} mã code)`,
+              });
+            } else {
+              newsService.addCrawlLog({
+                id: `log_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
+                timestamp: nowIso,
+                sourceName: source.name,
+                sourceUrl: source.url,
+                codesCount: 0,
+                status: 'SKIPPED_EXISTING',
+                message: 'Bài viết đã tồn tại trên website, tự động bỏ qua để tránh trùng lặp.',
+              });
+            }
+
+            const srcIdx = updatedSources.findIndex((s) => s.id === source.id);
+            if (srcIdx >= 0) {
+              updatedSources[srcIdx] = {
+                ...updatedSources[srcIdx],
+                lastCrawledAt: nowIso,
+                articlesFoundCount: (updatedSources[srcIdx].articlesFoundCount || 0) + (existing ? 0 : 1),
+              };
+            }
+          }
+        } catch (itemErr) {
+          console.warn('[Auto crawl error]:', itemErr);
+        }
+      }
+
+      await newsService.saveAutoSources(updatedSources);
+      setAutoSources(updatedSources);
+      setCrawlLogs(newsService.getCrawlLogs());
+
+      if (totalCreated > 0) {
+        await newsService.syncArticlesToCloudflare();
+        setArticles(newsService.getAllArticles());
+        onShowToast('Hoàn tất quét nguồn! 🎉', `Đã tự động tạo và xuất bản thành công ${totalCreated} bài viết mới!`, 'success');
+      } else {
+        onShowToast('Đã quét xong', 'Tất cả các bài viết từ các nguồn đều đã được cập nhật trước đó.', 'info');
+      }
+    } catch (err: any) {
+      onShowToast('Lỗi quét nguồn', err?.message || 'Có lỗi xảy ra', 'error');
+    } finally {
+      setIsTriggeringAutoCrawl(false);
+    }
+  };
+
   // Editor: Add code pill
   const handleAddCodeToArticle = () => {
     if (!codeInputValue.trim()) return;
@@ -1055,6 +1309,17 @@ export const NewsModule: React.FC<NewsModuleProps> = ({ onShowToast }) => {
         </div>
 
         <div className="flex flex-wrap items-center gap-2.5">
+          {/* Automation & Scheduler button */}
+          <button
+            type="button"
+            onClick={() => setIsAutomationModalOpen(true)}
+            className="flex items-center gap-2 px-4 py-2.5 rounded-2xl bg-gradient-to-r from-emerald-600 via-teal-600 to-cyan-600 text-white font-black text-xs shadow-lg hover:shadow-emerald-500/25 transition-all active:scale-95 cursor-pointer"
+            title="Quản lý nguồn cố định, hẹn giờ tự động và báo cáo Telegram"
+          >
+            <Bot className="w-4 h-4 text-emerald-200 animate-pulse" />
+            <span>⚙️ Tự Động Hóa 24/7</span>
+          </button>
+
           {/* Bulk Link Scanner button */}
           <button
             type="button"
@@ -2733,6 +2998,587 @@ export const NewsModule: React.FC<NewsModuleProps> = ({ onShowToast }) => {
           </div>,
           document.body
         )}
+
+      {/* 6. Modal: Trung Tâm Tự Động Hóa 24/7 & Lập Lịch */}
+      {isAutomationModalOpen &&
+        createPortal(
+          <div className="fixed inset-0 z-[9999] flex items-center justify-center p-3 sm:p-5 bg-black/85 backdrop-blur-md animate-fade-in">
+            <div className="relative w-full max-w-4xl bg-slate-900 border border-slate-700/80 rounded-3xl p-5 sm:p-7 shadow-2xl space-y-5 text-slate-100 max-h-[92vh] overflow-y-auto custom-scrollbar flex flex-col">
+              {/* Header */}
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-slate-800">
+                <div className="flex items-center gap-3">
+                  <div className="w-11 h-11 rounded-2xl bg-gradient-to-tr from-emerald-500 via-teal-500 to-cyan-600 flex items-center justify-center text-white shadow-lg shrink-0">
+                    <Bot className="w-6 h-6 animate-pulse" />
+                  </div>
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <h2 className="text-lg font-black text-white tracking-tight">
+                        Trung Tâm Tự Động Hóa Tin Tức 24/7
+                      </h2>
+                      <span className="px-2 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
+                        Autopilot
+                      </span>
+                    </div>
+                    <p className="text-xs text-slate-400">
+                      Tự động quét nguồn định kỳ, viết bài chuẩn SEO và xuất bản 24/7 qua GitHub Actions & Cloudflare D1
+                    </p>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-2 self-end sm:self-auto">
+                  <button
+                    type="button"
+                    disabled={isTriggeringAutoCrawl}
+                    onClick={handleTriggerAllSourcesNow}
+                    className="flex items-center gap-2 px-3.5 py-2 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-bold text-xs shadow-md transition-all active:scale-95 cursor-pointer disabled:opacity-50"
+                    title="Cào và tạo bài viết ngay lập tức trên trình duyệt"
+                  >
+                    <RefreshCw className={`w-3.5 h-3.5 ${isTriggeringAutoCrawl ? 'animate-spin' : ''}`} />
+                    <span>{isTriggeringAutoCrawl ? 'Đang quét...' : '⚡ Quét Tất Cả Nguồn Ngay'}</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setIsAutomationModalOpen(false)}
+                    className="p-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-white transition-all cursor-pointer"
+                  >
+                    <X className="w-5 h-5" />
+                  </button>
+                </div>
+              </div>
+
+              {/* Navigation Tabs */}
+              <div className="flex items-center gap-2 p-1.5 bg-slate-800/80 rounded-2xl border border-slate-700/60 shrink-0">
+                <button
+                  type="button"
+                  onClick={() => setAutomationActiveTab('sources')}
+                  className={`flex-1 flex items-center justify-center gap-2 py-2 px-3 rounded-xl text-xs font-black transition-all cursor-pointer ${
+                    automationActiveTab === 'sources'
+                      ? 'bg-gradient-to-r from-emerald-600 to-teal-600 text-white shadow-md'
+                      : 'text-slate-400 hover:text-white hover:bg-slate-700/50'
+                  }`}
+                >
+                  <Radio className="w-4 h-4" />
+                  <span>📡 Nguồn Tin Cố Định ({autoSources.length})</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setAutomationActiveTab('schedule')}
+                  className={`flex-1 flex items-center justify-center gap-2 py-2 px-3 rounded-xl text-xs font-black transition-all cursor-pointer ${
+                    automationActiveTab === 'schedule'
+                      ? 'bg-gradient-to-r from-emerald-600 to-teal-600 text-white shadow-md'
+                      : 'text-slate-400 hover:text-white hover:bg-slate-700/50'
+                  }`}
+                >
+                  <Sliders className="w-4 h-4" />
+                  <span>⏰ Lập Lịch & Quy Tắc Đăng</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setAutomationActiveTab('logs')}
+                  className={`flex-1 flex items-center justify-center gap-2 py-2 px-3 rounded-xl text-xs font-black transition-all cursor-pointer ${
+                    automationActiveTab === 'logs'
+                      ? 'bg-gradient-to-r from-emerald-600 to-teal-600 text-white shadow-md'
+                      : 'text-slate-400 hover:text-white hover:bg-slate-700/50'
+                  }`}
+                >
+                  <History className="w-4 h-4" />
+                  <span>📜 Nhật Ký Hoạt Động ({crawlLogs.length})</span>
+                </button>
+              </div>
+
+              {/* Tab 1: Nguồn Tin Cố Định */}
+              {automationActiveTab === 'sources' && (
+                <div className="space-y-4">
+                  {/* Action Bar */}
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-4 rounded-2xl bg-slate-800/50 border border-slate-700/60">
+                    <div className="text-xs text-slate-300">
+                      Hệ thống tự động theo dõi các nguồn bên dưới, quét bài mới, đối soát chống trùng lặp và tự động tạo bài viết chuẩn SEO.
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setIsAddingSource(!isAddingSource)}
+                      className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs transition-all active:scale-95 cursor-pointer shrink-0"
+                    >
+                      <Plus className="w-4 h-4" />
+                      <span>{isAddingSource ? 'Đóng Form' : '+ Thêm Nguồn Mới'}</span>
+                    </button>
+                  </div>
+
+                  {/* Form thêm nguồn mới */}
+                  {isAddingSource && (
+                    <div className="p-5 rounded-2xl bg-slate-800 border border-indigo-500/40 space-y-4 animate-fade-in shadow-xl">
+                      <div className="flex items-center justify-between">
+                        <h4 className="text-sm font-black text-indigo-300 flex items-center gap-2">
+                          <Plus className="w-4 h-4" />
+                          <span>Thêm Nguồn Theo Dõi Mới</span>
+                        </h4>
+                        <button
+                          type="button"
+                          onClick={() => setIsAddingSource(false)}
+                          className="text-slate-400 hover:text-white p-1 rounded-lg"
+                        >
+                          <X className="w-4 h-4" />
+                        </button>
+                      </div>
+
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+                        <div className="space-y-1">
+                          <label className="text-[11px] font-bold text-slate-300">Tên Nguồn / Chuyên Mục</label>
+                          <input
+                            type="text"
+                            placeholder="Ví dụ: GameK - Mục Giftcode"
+                            value={newSourceForm.name || ''}
+                            onChange={(e) => setNewSourceForm({ ...newSourceForm, name: e.target.value })}
+                            className="w-full px-3 py-2 rounded-xl bg-slate-900 border border-slate-700 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-indigo-500"
+                          />
+                        </div>
+
+                        <div className="space-y-1">
+                          <label className="text-[11px] font-bold text-slate-300">Loại Kênh</label>
+                          <select
+                            value={newSourceForm.type || 'website'}
+                            onChange={(e) => setNewSourceForm({ ...newSourceForm, type: e.target.value as any })}
+                            className="w-full px-3 py-2 rounded-xl bg-slate-900 border border-slate-700 text-xs text-white focus:outline-none focus:border-indigo-500"
+                          >
+                            <option value="website">🌐 Website Tin Tức Game</option>
+                            <option value="social">📱 Mạng Xã Hội / Fanpage Facebook</option>
+                            <option value="giftcode_hub">🎁 Cổng Tổng Hợp Giftcode</option>
+                          </select>
+                        </div>
+
+                        <div className="sm:col-span-2 space-y-1">
+                          <label className="text-[11px] font-bold text-slate-300">Đường Link URL Cố Định</label>
+                          <input
+                            type="url"
+                            placeholder="https://gamek.vn/giftcode.chn hoặc https://cellphones.com.vn/sforum/..."
+                            value={newSourceForm.url || ''}
+                            onChange={(e) => setNewSourceForm({ ...newSourceForm, url: e.target.value })}
+                            className="w-full px-3 py-2 rounded-xl bg-slate-900 border border-slate-700 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-indigo-500"
+                          />
+                        </div>
+
+                        <div className="space-y-1">
+                          <label className="text-[11px] font-bold text-slate-300">Tần Suất Quét</label>
+                          <select
+                            value={newSourceForm.crawlFrequencyMinutes || 60}
+                            onChange={(e) => setNewSourceForm({ ...newSourceForm, crawlFrequencyMinutes: Number(e.target.value) })}
+                            className="w-full px-3 py-2 rounded-xl bg-slate-900 border border-slate-700 text-xs text-white focus:outline-none focus:border-indigo-500"
+                          >
+                            <option value={30}>Mỗi 30 phút</option>
+                            <option value={60}>Mỗi 1 giờ (Khuyên dùng)</option>
+                            <option value={120}>Mỗi 2 giờ</option>
+                            <option value={360}>Mỗi 6 giờ</option>
+                            <option value={720}>Mỗi 12 giờ</option>
+                          </select>
+                        </div>
+
+                        <div className="space-y-1">
+                          <label className="text-[11px] font-bold text-slate-300">Từ Khóa Lọc (ngăn cách bởi dấu phẩy)</label>
+                          <input
+                            type="text"
+                            placeholder="code, giftcode, tân thủ, nhận quà"
+                            value={newSourceKeywordsInput}
+                            onChange={(e) => setNewSourceKeywordsInput(e.target.value)}
+                            className="w-full px-3 py-2 rounded-xl bg-slate-900 border border-slate-700 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-indigo-500"
+                          />
+                        </div>
+                      </div>
+
+                      {/* Tùy chọn khớp game */}
+                      <div className="flex flex-wrap items-center gap-4 pt-2 border-t border-slate-700/80">
+                        <label className="flex items-center gap-2 cursor-pointer text-xs text-slate-300">
+                          <input
+                            type="checkbox"
+                            checked={newSourceForm.autoDetectGame !== false}
+                            onChange={(e) => setNewSourceForm({ ...newSourceForm, autoDetectGame: e.target.checked })}
+                            className="w-4 h-4 rounded border-slate-700 text-indigo-600 focus:ring-0 cursor-pointer"
+                          />
+                          <span>Tự động nhận diện 486+ Game trong kho</span>
+                        </label>
+
+                        <label className="flex items-center gap-2 cursor-pointer text-xs text-slate-300">
+                          <input
+                            type="checkbox"
+                            checked={newSourceForm.useGameLogoAsCover !== false}
+                            onChange={(e) => setNewSourceForm({ ...newSourceForm, useGameLogoAsCover: e.target.checked })}
+                            className="w-4 h-4 rounded border-slate-700 text-indigo-600 focus:ring-0 cursor-pointer"
+                          />
+                          <span>Dùng Logo Game chính xác làm ảnh đại diện</span>
+                        </label>
+                      </div>
+
+                      <div className="flex items-center justify-end gap-2.5 pt-1">
+                        <button
+                          type="button"
+                          onClick={() => setIsAddingSource(false)}
+                          className="px-3 py-1.5 rounded-xl text-xs font-semibold text-slate-400 hover:text-white hover:bg-slate-700/50"
+                        >
+                          Hủy
+                        </button>
+                        <button
+                          type="button"
+                          onClick={handleSaveNewSource}
+                          className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs shadow-md active:scale-95 cursor-pointer"
+                        >
+                          <Check className="w-4 h-4" />
+                          <span>Lưu & Kích Hoạt Nguồn</span>
+                        </button>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Danh sách các nguồn */}
+                  <div className="space-y-3">
+                    {autoSources.length === 0 ? (
+                      <div className="p-8 text-center bg-slate-800/30 rounded-2xl border border-slate-800 text-slate-400 text-xs">
+                        Chưa có nguồn tin nào được cấu hình. Hãy bấm nút "+ Thêm Nguồn Mới" để bắt đầu.
+                      </div>
+                    ) : (
+                      autoSources.map((src) => {
+                        const isActive = src.status === 'ACTIVE';
+                        return (
+                          <div
+                            key={src.id}
+                            className={`p-4 rounded-2xl border transition-all ${
+                              isActive
+                                ? 'bg-slate-800/70 border-slate-700 hover:border-slate-600'
+                                : 'bg-slate-900/60 border-slate-800 opacity-60'
+                            }`}
+                          >
+                            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                              <div className="space-y-1.5 min-w-0 flex-1">
+                                <div className="flex flex-wrap items-center gap-2">
+                                  <span className="font-black text-sm text-white">{src.name}</span>
+                                  <span
+                                    className={`px-2 py-0.5 rounded-md text-[10px] font-bold ${
+                                      src.type === 'social'
+                                        ? 'bg-sky-500/15 text-sky-400'
+                                        : src.type === 'giftcode_hub'
+                                        ? 'bg-amber-500/15 text-amber-400'
+                                        : 'bg-indigo-500/15 text-indigo-400'
+                                    }`}
+                                  >
+                                    {src.type === 'social'
+                                      ? '📱 Mạng Xã Hội'
+                                      : src.type === 'giftcode_hub'
+                                      ? '🎁 Cổng Giftcode'
+                                      : '🌐 Website'}
+                                  </span>
+
+                                  <span
+                                    className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-bold ${
+                                      isActive
+                                        ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30'
+                                        : 'bg-slate-700/40 text-slate-400'
+                                    }`}
+                                  >
+                                    <span className={`w-1.5 h-1.5 rounded-full ${isActive ? 'bg-emerald-400 animate-ping' : 'bg-slate-500'}`} />
+                                    {isActive ? 'Đang Chạy' : 'Tạm Dừng'}
+                                  </span>
+                                </div>
+
+                                <a
+                                  href={src.url}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="text-xs text-slate-400 hover:text-emerald-400 flex items-center gap-1 font-mono truncate"
+                                >
+                                  <span className="truncate">{src.url}</span>
+                                  <ExternalLink className="w-3 h-3 shrink-0" />
+                                </a>
+
+                                <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-[11px] text-slate-400">
+                                  <span>Chu kỳ: <strong className="text-slate-200">{src.crawlFrequencyMinutes} phút</strong></span>
+                                  <span>•</span>
+                                  <span>Đã tạo: <strong className="text-emerald-400">{src.articlesFoundCount || 0} bài</strong></span>
+                                  <span>•</span>
+                                  <span>Quét gần nhất: <strong className="text-slate-300">{src.lastCrawledAt ? new Date(src.lastCrawledAt).toLocaleString('vi-VN') : 'Chưa quét'}</strong></span>
+                                </div>
+
+                                {src.filterKeywords && src.filterKeywords.length > 0 && (
+                                  <div className="flex flex-wrap items-center gap-1 pt-1">
+                                    <span className="text-[10px] text-slate-400">Từ khóa lọc:</span>
+                                    {src.filterKeywords.map((kw, idx) => (
+                                      <span key={idx} className="px-1.5 py-0.2 rounded bg-slate-700/60 text-[10px] text-slate-300 font-mono">
+                                        {kw}
+                                      </span>
+                                    ))}
+                                  </div>
+                                )}
+                              </div>
+
+                              {/* Thao tác */}
+                              <div className="flex items-center gap-2 self-end sm:self-center shrink-0">
+                                <button
+                                  type="button"
+                                  onClick={() => handleToggleSourceStatus(src.id)}
+                                  className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+                                    isActive
+                                      ? 'bg-amber-500/15 hover:bg-amber-500/25 text-amber-300'
+                                      : 'bg-emerald-500/15 hover:bg-emerald-500/25 text-emerald-300'
+                                  }`}
+                                >
+                                  {isActive ? '⏸ Tạm Dừng' : '▶ Kích Hoạt'}
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => handleDeleteSource(src.id, src.name)}
+                                  className="p-1.5 rounded-xl bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 transition-all cursor-pointer"
+                                  title="Xóa nguồn này"
+                                >
+                                  <Trash2 className="w-4 h-4" />
+                                </button>
+                              </div>
+                            </div>
+                          </div>
+                        );
+                      })
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {/* Tab 2: Lập Lịch & Quy Tắc Đăng */}
+              {automationActiveTab === 'schedule' && (
+                <div className="space-y-4">
+                  {/* Banner hướng dẫn GitHub Actions 24/7 */}
+                  <div className="p-4 rounded-2xl bg-gradient-to-r from-emerald-950/60 to-teal-950/40 border border-emerald-500/30 space-y-2">
+                    <div className="flex items-center gap-2 text-emerald-300 font-black text-sm">
+                      <Zap className="w-4 h-4 text-emerald-400" />
+                      <span>Hệ Thống Tự Động Chạy Ngầm 24/7 Qua GitHub Actions</span>
+                    </div>
+                    <p className="text-xs text-slate-300 leading-relaxed">
+                      Toàn bộ quy trình quét nguồn định kỳ, viết bài chuẩn SEO và lưu trữ vào Cloudflare D1 được vận hành tự động qua file workflow{' '}
+                      <code className="text-emerald-300 font-mono px-1 bg-black/40 rounded">.github/workflows/auto-news-publisher.yml</code>.
+                      Hệ thống tự động chạy 2 tiếng/lần trên máy chủ đám mây GitHub mà <strong>không tốn chi phí</strong> và <strong>không cần bạn mở máy tính</strong>!
+                    </p>
+                    <div className="flex flex-wrap items-center gap-3 pt-1 text-[11px] text-emerald-400 font-mono">
+                      <span>• Tần suất cron: 30 */2 * * * (2 tiếng/lần)</span>
+                      <span>• Endpoint lưu trữ: Cloudflare D1 /api/sync</span>
+                    </div>
+                  </div>
+
+                  {/* Form Cấu hình Lập Lịch */}
+                  <div className="p-5 rounded-2xl bg-slate-800/70 border border-slate-700/80 space-y-4">
+                    <h4 className="text-sm font-black text-white flex items-center gap-2">
+                      <Sliders className="w-4 h-4 text-emerald-400" />
+                      <span>Quy Tắc Biên Tập & Xuất Bản Tự Động</span>
+                    </h4>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                      {/* Bật/Tắt toàn hệ thống */}
+                      <div className="p-3.5 rounded-xl bg-slate-900 border border-slate-800 flex items-center justify-between">
+                        <div>
+                          <div className="text-xs font-bold text-white">Chế độ tự động hóa</div>
+                          <div className="text-[11px] text-slate-400">Bật/tắt việc tạo bài viết tự động</div>
+                        </div>
+                        <input
+                          type="checkbox"
+                          checked={scheduleConfig.enabled}
+                          onChange={(e) => handleSaveScheduleConfig({ enabled: e.target.checked })}
+                          className="w-5 h-5 rounded border-slate-700 text-emerald-600 focus:ring-0 cursor-pointer"
+                        />
+                      </div>
+
+                      {/* Trạng thái xuất bản mặc định */}
+                      <div className="p-3.5 rounded-xl bg-slate-900 border border-slate-800 space-y-1">
+                        <label className="text-xs font-bold text-white">Trạng thái bài viết mới tạo</label>
+                        <select
+                          value={scheduleConfig.defaultPublishStatus || 'PUBLISHED'}
+                          onChange={(e) => handleSaveScheduleConfig({ defaultPublishStatus: e.target.value as any })}
+                          className="w-full px-3 py-1.5 rounded-lg bg-slate-800 border border-slate-700 text-xs text-white focus:outline-none focus:border-emerald-500"
+                        >
+                          <option value="PUBLISHED">🚀 Xuất bản công khai ngay lập tức</option>
+                          <option value="DRAFT">📝 Lưu vào Bản nháp (chờ duyệt tay)</option>
+                        </select>
+                      </div>
+
+                      {/* Giới hạn bài mỗi lần quét */}
+                      <div className="p-3.5 rounded-xl bg-slate-900 border border-slate-800 space-y-1">
+                        <label className="text-xs font-bold text-white">Giới hạn bài mới / nguồn / lần chạy</label>
+                        <select
+                          value={scheduleConfig.maxArticlesPerRun || 2}
+                          onChange={(e) => handleSaveScheduleConfig({ maxArticlesPerRun: Number(e.target.value) })}
+                          className="w-full px-3 py-1.5 rounded-lg bg-slate-800 border border-slate-700 text-xs text-white focus:outline-none focus:border-emerald-500"
+                        >
+                          <option value={1}>Tối đa 1 bài mới</option>
+                          <option value={2}>Tối đa 2 bài mới (Khuyên dùng)</option>
+                          <option value={3}>Tối đa 3 bài mới</option>
+                          <option value={5}>Tối đa 5 bài mới</option>
+                        </select>
+                      </div>
+
+                      {/* Khoảng cách quét */}
+                      <div className="p-3.5 rounded-xl bg-slate-900 border border-slate-800 space-y-1">
+                        <label className="text-xs font-bold text-white">Tần suất quét định kỳ</label>
+                        <select
+                          value={scheduleConfig.intervalMinutes || 120}
+                          onChange={(e) => handleSaveScheduleConfig({ intervalMinutes: Number(e.target.value) })}
+                          className="w-full px-3 py-1.5 rounded-lg bg-slate-800 border border-slate-700 text-xs text-white focus:outline-none focus:border-emerald-500"
+                        >
+                          <option value={30}>Mỗi 30 phút</option>
+                          <option value={60}>Mỗi 1 giờ</option>
+                          <option value={120}>Mỗi 2 giờ (Theo lịch GitHub Actions)</option>
+                          <option value={360}>Mỗi 6 giờ</option>
+                        </select>
+                      </div>
+                    </div>
+
+                    {/* Tùy chọn nâng cao */}
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2 border-t border-slate-700">
+                      <label className="flex items-center gap-2 cursor-pointer text-xs text-slate-300">
+                        <input
+                          type="checkbox"
+                          checked={scheduleConfig.autoAttachCodes}
+                          onChange={(e) => handleSaveScheduleConfig({ autoAttachCodes: e.target.checked })}
+                          className="w-4 h-4 rounded border-slate-700 text-emerald-600 focus:ring-0 cursor-pointer"
+                        />
+                        <span>Tự động bóc tách & gắn mã Giftcode vào bài</span>
+                      </label>
+
+                      <label className="flex items-center gap-2 cursor-pointer text-xs text-slate-300">
+                        <input
+                          type="checkbox"
+                          checked={scheduleConfig.useGameLogoAsCover}
+                          onChange={(e) => handleSaveScheduleConfig({ useGameLogoAsCover: e.target.checked })}
+                          className="w-4 h-4 rounded border-slate-700 text-emerald-600 focus:ring-0 cursor-pointer"
+                        />
+                        <span>Tự động gán logo game làm ảnh bìa chính</span>
+                      </label>
+                    </div>
+                  </div>
+
+                  {/* Cấu hình Thông Báo Telegram */}
+                  <div className="p-5 rounded-2xl bg-slate-800/70 border border-slate-700/80 space-y-3.5">
+                    <div className="flex items-center justify-between">
+                      <h4 className="text-sm font-black text-white flex items-center gap-2">
+                        <Send className="w-4 h-4 text-sky-400" />
+                        <span>Thông Báo Tức Thì Qua Telegram Bot</span>
+                      </h4>
+                      <label className="flex items-center gap-2 cursor-pointer text-xs text-slate-300">
+                        <input
+                          type="checkbox"
+                          checked={scheduleConfig.notifyTelegram}
+                          onChange={(e) => handleSaveScheduleConfig({ notifyTelegram: e.target.checked })}
+                          className="w-4 h-4 rounded border-slate-700 text-sky-500 focus:ring-0 cursor-pointer"
+                        />
+                        <span className="font-bold">Bật gửi tin nhắn</span>
+                      </label>
+                    </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+                      <div className="space-y-1">
+                        <label className="text-[11px] font-bold text-slate-300">Telegram Bot Token</label>
+                        <input
+                          type="password"
+                          placeholder="123456789:ABCdefGhIJKlmNoPQRsTUVwxyZ..."
+                          value={scheduleConfig.telegramBotToken || ''}
+                          onChange={(e) => handleSaveScheduleConfig({ telegramBotToken: e.target.value })}
+                          className="w-full px-3 py-2 rounded-xl bg-slate-900 border border-slate-700 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-sky-500 font-mono"
+                        />
+                      </div>
+
+                      <div className="space-y-1">
+                        <label className="text-[11px] font-bold text-slate-300">Telegram Chat ID / Kênh</label>
+                        <input
+                          type="text"
+                          placeholder="-100123456789 hoặc @tenkenh"
+                          value={scheduleConfig.telegramChatId || ''}
+                          onChange={(e) => handleSaveScheduleConfig({ telegramChatId: e.target.value })}
+                          className="w-full px-3 py-2 rounded-xl bg-slate-900 border border-slate-700 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-sky-500 font-mono"
+                        />
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Tab 3: Nhật Ký Hoạt Động */}
+              {automationActiveTab === 'logs' && (
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between text-xs text-slate-400 pb-1">
+                    <span>Lịch sử các phiên quét bài viết tự động gần đây:</span>
+                    <span className="font-mono">{crawlLogs.length} sự kiện</span>
+                  </div>
+
+                  {crawlLogs.length === 0 ? (
+                    <div className="p-8 text-center bg-slate-800/30 rounded-2xl border border-slate-800 text-slate-400 text-xs">
+                      Chưa có nhật ký hoạt động nào. Hãy bấm "⚡ Quét Tất Cả Nguồn Ngay" để khởi tạo phiên quét đầu tiên.
+                    </div>
+                  ) : (
+                    <div className="space-y-2 max-h-[50vh] overflow-y-auto custom-scrollbar pr-1">
+                      {crawlLogs.map((log) => {
+                        const isSuccess = log.status === 'SUCCESS';
+                        const isSkipped = log.status === 'SKIPPED_EXISTING';
+                        return (
+                          <div
+                            key={log.id}
+                            className="p-3 rounded-xl bg-slate-800/60 border border-slate-700/60 text-xs space-y-1"
+                          >
+                            <div className="flex items-center justify-between gap-2">
+                              <div className="flex items-center gap-2">
+                                <span
+                                  className={`inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-bold ${
+                                    isSuccess
+                                      ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30'
+                                      : isSkipped
+                                      ? 'bg-amber-500/20 text-amber-300 border border-amber-500/30'
+                                      : 'bg-rose-500/20 text-rose-300 border border-rose-500/30'
+                                  }`}
+                                >
+                                  {isSuccess && <CheckCircle2 className="w-3 h-3 text-emerald-400" />}
+                                  {isSkipped && <Info className="w-3 h-3 text-amber-400" />}
+                                  {!isSuccess && !isSkipped && <AlertCircle className="w-3 h-3 text-rose-400" />}
+                                  <span>{isSuccess ? 'ĐÃ ĐĂNG BÀI' : isSkipped ? 'ĐÃ TỒN TẠI' : 'LỖI'}</span>
+                                </span>
+                                <span className="font-bold text-white">{log.sourceName}</span>
+                                {log.gameName && (
+                                  <span className="px-1.5 py-0.2 rounded bg-indigo-500/20 text-indigo-300 text-[10px] font-semibold">
+                                    🎮 {log.gameName}
+                                  </span>
+                                )}
+                              </div>
+                              <span className="text-[10px] font-mono text-slate-400">
+                                {new Date(log.timestamp).toLocaleTimeString('vi-VN')} {new Date(log.timestamp).toLocaleDateString('vi-VN')}
+                              </span>
+                            </div>
+
+                            {log.articleTitle && (
+                              <div className="font-semibold text-slate-200">
+                                📰 {log.articleTitle}
+                              </div>
+                            )}
+
+                            <div className="text-slate-400 text-[11px]">{log.message}</div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Footer */}
+              <div className="pt-3 border-t border-slate-800 flex items-center justify-between text-xs text-slate-400">
+                <div className="flex items-center gap-2">
+                  <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+                  <span>GitHub Actions & Cloudflare D1 Sync: Sẵn Sàng</span>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setIsAutomationModalOpen(false)}
+                  className="px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white font-bold text-xs transition-all cursor-pointer"
+                >
+                  Đóng
+                </button>
+              </div>
+            </div>
+          </div>,
+          document.body
+        )}
     </div>
   );
 };
+

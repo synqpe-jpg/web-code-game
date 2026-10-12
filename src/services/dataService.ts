@@ -758,9 +758,9 @@ class DataService {
               );
               const currentNews = localStorage.getItem('wcg_news_articles_v1');
               const newNews = JSON.stringify(cleanArticles);
-              if (currentNews !== newNews) {
+              if (currentNews !== newNews || json.newsAutoSources || json.newsScheduleConfig) {
                 localStorage.setItem('wcg_news_articles_v1', newNews);
-                newsService.applyServerSnapshot(cleanArticles);
+                newsService.applyServerSnapshot(cleanArticles, json.newsAutoSources, json.newsScheduleConfig);
                 window.dispatchEvent(new CustomEvent('wcg_news_updated', { detail: cleanArticles }));
               }
             }
@@ -3120,7 +3120,7 @@ class DataService {
           (a: any) => !deletedSet.has(a.id) && !deletedSet.has(a.slug)
         );
         localStorage.setItem('wcg_news_articles_v1', JSON.stringify(cleanArticles));
-        newsService.applyServerSnapshot(cleanArticles);
+        newsService.applyServerSnapshot(cleanArticles, snapshot.newsAutoSources, snapshot.newsScheduleConfig);
         window.dispatchEvent(new CustomEvent('wcg_news_updated', { detail: cleanArticles }));
       }
 

@@ -173,6 +173,8 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
       'wcg_crawler_sources_v1',      // Public/crawler sources configuration
       'wcg_news_articles_v1',        // Public game news articles
       'wcg_deleted_news_articles_v1', // Public deleted news articles tombstones
+      'wcg_news_auto_sources_v1',    // Public/admin auto crawler sources for news
+      'wcg_news_schedule_config_v1', // Public/admin scheduler config for news
     ]);
 
     // 1. Specific key query
@@ -261,6 +263,8 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
             'wcg_crawler_logs_v1',
             'wcg_news_articles_v1',
             'wcg_deleted_news_articles_v1',
+            'wcg_news_auto_sources_v1',
+            'wcg_news_schedule_config_v1',
           ]),
         ]);
 
@@ -574,6 +578,8 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
           )
         : [],
       deletedNewsArticles: Array.from(deletedNewsSet),
+      newsAutoSources: d1Settings['wcg_news_auto_sources_v1'] || masterState.newsAutoSources || [],
+      newsScheduleConfig: d1Settings['wcg_news_schedule_config_v1'] || masterState.newsScheduleConfig || null,
     };
 
     if (authorized) {
@@ -1756,6 +1762,8 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
         if (body.crawlerLogs !== undefined) await setSettingD1(env.DB, 'wcg_crawler_logs_v1', body.crawlerLogs);
         if (body.deletedNewsArticles !== undefined) await setSettingD1(env.DB, 'wcg_deleted_news_articles_v1', body.deletedNewsArticles);
         if (body.newsArticles !== undefined) await setSettingD1(env.DB, 'wcg_news_articles_v1', body.newsArticles);
+        if (body.newsAutoSources !== undefined) await setSettingD1(env.DB, 'wcg_news_auto_sources_v1', body.newsAutoSources);
+        if (body.newsScheduleConfig !== undefined) await setSettingD1(env.DB, 'wcg_news_schedule_config_v1', body.newsScheduleConfig);
 
         // Consolidated Master State Snapshot in D1 system_settings
         await setSettingD1(env.DB, 'wcg_master_state_v4', currentMaster);
