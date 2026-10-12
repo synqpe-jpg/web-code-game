@@ -121,19 +121,19 @@ export const NewsView: React.FC<NewsViewProps> = ({
   return (
     <div className="w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-10 animate-fade-in">
       {/* 1. Header Banner Title */}
-      <div className="relative mb-8 overflow-hidden rounded-3xl bg-gradient-to-br from-card via-card/90 to-primary/10 border border-border/80 p-6 sm:p-10 shadow-xl backdrop-blur-xl">
+      <div className="relative mb-6 overflow-hidden rounded-3xl bg-gradient-to-br from-card via-card/90 to-primary/10 border border-border/80 p-5 sm:p-7 shadow-lg backdrop-blur-xl">
         <div className="absolute top-0 right-0 w-96 h-96 bg-primary/10 rounded-full blur-3xl pointer-events-none -mr-20 -mt-20" />
-        <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-6">
-          <div className="space-y-2 max-w-2xl">
-            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-primary/15 border border-primary/30 text-primary-light text-xs font-semibold">
+        <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-5">
+          <div className="space-y-1.5 max-w-2xl">
+            <div className="inline-flex items-center gap-2 px-3 py-0.5 rounded-full bg-primary/15 border border-primary/30 text-primary-light text-xs font-semibold">
               <Sparkles className="w-3.5 h-3.5 text-amber-400" />
               <span>CẬP NHẬT 24/7 • BÀI VIẾT & GIFTCODE MỚI</span>
             </div>
-            <h1 className="text-2xl sm:text-4xl font-black text-foreground tracking-tight flex items-center gap-3">
-              <Newspaper className="w-8 h-8 sm:w-10 h-10 text-primary shrink-0" />
+            <h1 className="text-xl sm:text-3xl font-black text-foreground tracking-tight flex items-center gap-2.5">
+              <Newspaper className="w-7 h-7 sm:w-9 h-9 text-primary shrink-0" />
               <span>Tin Tức Game & Sự Kiện Giftcode</span>
             </h1>
-            <p className="text-sm sm:text-base text-muted-foreground leading-relaxed">
+            <p className="text-xs sm:text-sm text-muted-foreground leading-relaxed">
               Điểm tin làng game Việt, bản cập nhật mới nhất, sự kiện quà tặng và danh sách Giftcode độc quyền được cập nhật liên tục mỗi ngày.
             </p>
           </div>
@@ -159,49 +159,54 @@ export const NewsView: React.FC<NewsViewProps> = ({
 
       {/* 2. Hero Featured Article (Shown when no search/tag filter is active) */}
       {!searchQuery && selectedGameSlug === 'all' && selectedTag === 'all' && featuredArticle && (
-        <section className="mb-10">
-          <div className="flex items-center gap-2 mb-4">
+        <section className="mb-8">
+          <div className="flex items-center gap-2 mb-3">
             <Flame className="w-5 h-5 text-amber-500 fill-amber-500 animate-pulse" />
-            <h2 className="text-lg font-bold text-foreground uppercase tracking-wide">
+            <h2 className="text-base sm:text-lg font-bold text-foreground uppercase tracking-wide">
               Tin Nổi Bật Nhất
             </h2>
           </div>
 
           <div
             onClick={() => handleOpenArticle(featuredArticle)}
-            className="group relative cursor-pointer overflow-hidden rounded-3xl bg-card border border-border/80 hover:border-primary/50 shadow-xl transition-all duration-300 hover:shadow-2xl hover:shadow-primary/10 grid grid-cols-1 lg:grid-cols-12 gap-0"
+            className="group relative cursor-pointer overflow-hidden rounded-3xl bg-card border border-border/80 hover:border-primary/50 shadow-lg hover:shadow-xl transition-all duration-300 grid grid-cols-1 md:grid-cols-12 gap-0 md:max-h-[290px]"
           >
-            {/* Cover image (7 cols on lg) */}
-            <div className="lg:col-span-7 relative aspect-[16/9] lg:aspect-auto overflow-hidden bg-muted">
+            {/* Cover image (5 cols on md, 4 cols on lg/xl) */}
+            <div className="md:col-span-5 lg:col-span-4 xl:col-span-4 relative overflow-hidden bg-slate-950 flex items-center justify-center min-h-[190px] max-h-[240px] md:max-h-none md:h-full">
+              {/* Ambient blur backdrop */}
+              <div
+                className="absolute inset-0 bg-cover bg-center blur-2xl opacity-40 scale-125 pointer-events-none"
+                style={{ backgroundImage: `url(${featuredArticle.cover_url})` }}
+              />
               <img
                 src={featuredArticle.cover_url}
                 alt={featuredArticle.title}
-                className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105"
+                className="relative z-10 w-full h-full object-cover transition-transform duration-700 group-hover:scale-105"
                 onError={(e) => {
                   (e.target as HTMLImageElement).src =
                     'https://images.unsplash.com/photo-1542751371-adc38448a05e?auto=format&fit=crop&w=1200&q=80';
                 }}
               />
-              <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent lg:hidden" />
-              
+              <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent md:hidden z-10" />
+
               {/* Badges on image */}
-              <div className="absolute top-4 left-4 flex flex-wrap items-center gap-2">
-                <span className="px-3 py-1 rounded-full bg-amber-500 text-black text-xs font-black uppercase tracking-wider flex items-center gap-1 shadow-lg">
-                  <Flame className="w-3.5 h-3.5 fill-black" />
+              <div className="absolute top-3 left-3 z-20 flex flex-wrap items-center gap-1.5">
+                <span className="px-2.5 py-0.5 rounded-full bg-amber-500 text-black text-[11px] font-black uppercase tracking-wider flex items-center gap-1 shadow-md">
+                  <Flame className="w-3 h-3 fill-black" />
                   Tiêu Điểm
                 </span>
                 {featuredArticle.game_name && (
-                  <span className="px-3 py-1 rounded-full bg-primary/90 text-white text-xs font-bold shadow-lg backdrop-blur-sm">
+                  <span className="px-2.5 py-0.5 rounded-full bg-primary/90 text-white text-[11px] font-bold shadow-md backdrop-blur-sm">
                     {featuredArticle.game_name}
                   </span>
                 )}
               </div>
             </div>
 
-            {/* Info panel (5 cols on lg) */}
-            <div className="lg:col-span-5 p-6 sm:p-8 flex flex-col justify-between space-y-4">
-              <div className="space-y-3">
-                <div className="flex items-center gap-3 text-xs text-muted-foreground">
+            {/* Info panel (7 cols on md, 8 cols on lg/xl) */}
+            <div className="md:col-span-7 lg:col-span-8 xl:col-span-8 p-4 sm:p-5 lg:p-6 flex flex-col justify-between space-y-2 sm:space-y-3">
+              <div className="space-y-2">
+                <div className="flex items-center gap-2.5 text-xs text-muted-foreground flex-wrap">
                   <span className="flex items-center gap-1">
                     <Calendar className="w-3.5 h-3.5" />
                     {new Date(featuredArticle.published_at).toLocaleDateString('vi-VN')}
@@ -214,23 +219,23 @@ export const NewsView: React.FC<NewsViewProps> = ({
                   <span>•</span>
                   <span className="flex items-center gap-1">
                     <Eye className="w-3.5 h-3.5" />
-                    {featuredArticle.views || 0}
+                    {featuredArticle.views || 0} lượt xem
                   </span>
                 </div>
 
-                <h3 className="text-xl sm:text-2xl font-black text-foreground group-hover:text-primary transition-colors line-clamp-2 leading-snug">
+                <h3 className="text-base sm:text-lg lg:text-xl font-black text-foreground group-hover:text-primary transition-colors line-clamp-2 leading-snug">
                   {featuredArticle.title}
                 </h3>
 
-                <p className="text-sm text-muted-foreground line-clamp-3 leading-relaxed">
+                <p className="text-xs sm:text-sm text-muted-foreground line-clamp-2 leading-relaxed">
                   {featuredArticle.excerpt}
                 </p>
 
                 {/* Embedded codes sneak-peek badge */}
                 {featuredArticle.codes && featuredArticle.codes.length > 0 && (
-                  <div className="p-3 rounded-2xl bg-amber-500/10 border border-amber-500/20 flex items-center justify-between">
-                    <div className="flex items-center gap-2 text-xs font-bold text-amber-400">
-                      <Gift className="w-4 h-4" />
+                  <div className="p-2 sm:p-2.5 rounded-xl bg-amber-500/10 border border-amber-500/20 flex items-center justify-between">
+                    <div className="flex items-center gap-1.5 text-xs font-bold text-amber-400">
+                      <Gift className="w-3.5 h-3.5 shrink-0" />
                       <span>Kèm {featuredArticle.codes.length} Giftcode độc quyền</span>
                     </div>
                     <div className="flex items-center gap-1 font-mono text-[11px] text-amber-300 font-bold bg-amber-500/20 px-2 py-0.5 rounded-lg">
@@ -242,12 +247,12 @@ export const NewsView: React.FC<NewsViewProps> = ({
               </div>
 
               {/* Action row */}
-              <div className="pt-4 border-t border-border/60 flex items-center justify-between">
-                <div className="flex items-center gap-2">
+              <div className="pt-3 border-t border-border/60 flex items-center justify-between">
+                <div className="flex items-center gap-1.5">
                   {featuredArticle.tags?.slice(0, 2).map((t, i) => (
                     <span
                       key={i}
-                      className="text-[11px] px-2 py-0.5 rounded-lg bg-muted text-muted-foreground font-medium"
+                      className="text-[10px] sm:text-[11px] px-2 py-0.5 rounded-lg bg-muted text-muted-foreground font-medium"
                     >
                       #{t}
                     </span>
@@ -256,7 +261,7 @@ export const NewsView: React.FC<NewsViewProps> = ({
 
                 <button
                   type="button"
-                  className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-primary text-white text-xs font-bold group-hover:bg-primary-dark transition-all shadow-md group-hover:translate-x-1"
+                  className="inline-flex items-center gap-1.5 px-4 py-1.5 rounded-xl bg-primary text-white text-xs font-bold group-hover:bg-primary-dark transition-all shadow-sm group-hover:translate-x-0.5 cursor-pointer"
                 >
                   <span>Đọc ngay</span>
                   <ArrowRight className="w-3.5 h-3.5" />
