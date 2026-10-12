@@ -24,3 +24,6 @@ Trước mỗi lần chỉnh sửa bất kỳ file nào trong dự án, AI Agent
 ### ✅ 5. KIỂM THỬ HỒI QUY & CẬP NHẬT TÀI LIỆU
 - Sau khi sửa xong: Chạy kiểm thử hồi quy, xác nhận các chức năng liên quan vẫn hoạt động bình thường.
 - Cập nhật tài liệu: Ghi nhận đầy đủ vào `CHANGELOG.md` và `KNOWN_ISSUES.md`.
+
+### 🚀 6. TỰ ĐỘNG TRIỂN KHAI KHI KIỂM THỬ THÀNH CÔNG 100% (MỆNH LỆNH CHỦ SỞ HỮU)
+- Từ nay về sau, bất cứ khi nào tác nhân kiểm thử và build báo thành công 100%: **BẮT BUỘC TỰ ĐỘNG** chạy `npm run deploy:all` (triển khai đồng thời Web Khách `web-code-game` và Web Quản trị `admin-code-game-shop`) và `git push origin main` (đồng bộ GitHub), sau đó báo cáo kết quả và URL môi trường trực tiếp cho người dùng mà không cần dừng lại hỏi trước.

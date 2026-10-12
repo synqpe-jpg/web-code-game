@@ -17,6 +17,7 @@ Các chỉ thị hoạt động bắt buộc trong suốt quá trình xây dựn
 * **Trước khi sửa**: Chạy `git status`, xem log commit gần nhất, đọc tài liệu ghi nhớ. Tạo commit lưu trạng thái ổn định trước thay đổi lớn. Không commit code đang lỗi hoặc chưa kiểm thử với nhãn ổn định.
 * **Trong khi sửa**: Sửa từng lỗi một, thu hẹp phạm vi thay đổi. Không tự ý viết lại các module không liên quan. Sau mỗi thay đổi chạy build/lint/test kiểm tra hồi quy. Nếu phát sinh lỗi mới, phân tích và khôi phục ngay, không chồng bản sửa chưa xác minh.
 * **Sau khi sửa**: Chỉ commit khi vượt qua mọi bài kiểm tra. Đặt commit message rõ ràng (ví dụ: `fix: ...`, `feat: ...`). Cập nhật `CHANGELOG.md`, `KNOWN_ISSUES.md`. Phân biệt rõ bản ổn định với bản thử nghiệm.
+* **Tự động triển khai lên Web & GitHub (Mệnh lệnh bắt buộc từ Chủ sở hữu)**: Từ nay về sau, bất cứ khi nào kiểm thử và build báo thành công 100%, AI Agent **BẮT BUỘC TỰ ĐỘNG** chạy `npm run deploy:all` (triển khai đồng thời Web Khách `web-code-game` và Web Quản trị `admin-code-game-shop`) và `git push origin main` (đồng bộ GitHub), sau đó báo cáo kết quả và URL môi trường trực tiếp cho người dùng mà không cần dừng lại hỏi trước.
 * **Khôi phục an toàn (Zero Destructive Commands)**:
   - Ưu tiên `git revert` cho commit đã chia sẻ.
   - Với thay đổi chưa commit: Kiểm tra `git diff` và chỉ khôi phục đúng phần cần thiết.

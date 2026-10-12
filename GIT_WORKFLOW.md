@@ -53,6 +53,11 @@ Quy trình quản lý mã nguồn Git chuẩn mực bắt buộc áp dụng cho 
    - Ghi lại thay đổi vào [**`CHANGELOG.md`**](file:///c:/4%20Antigravity%20all/13%20web%20code%20game/CHANGELOG.md).
    - Nếu phát hiện bẫy mới, cập nhật ngay vào [**`KNOWN_ISSUES.md`**](file:///c:/4%20Antigravity%20all/13%20web%20code%20game/KNOWN_ISSUES.md).
    - Phân biệt rõ phiên bản ổn định (Stable) với phiên bản đang thử nghiệm (Experimental).
+4. **Tự động triển khai lên Web & đồng bộ GitHub khi kiểm thử đạt 100% (Mệnh lệnh từ Chủ sở hữu)**:
+   - Khi chạy kiểm thử / build báo thành công 100% và đã tạo commit lưu trạng thái ổn định:
+     1. Tự động chạy `cmd.exe /c npm run deploy:all` để xuất bản ngay lập tức lên Cloudflare Pages Web Khách (`web-code-game`) và Web Quản trị (`admin-code-game-shop`).
+     2. Tự động chạy `git push origin main` để đồng bộ toàn bộ lịch sử commit lên repository GitHub.
+     3. Báo cáo kết quả và URL môi trường trực tiếp cho người dùng (không cần dừng lại hỏi trước).
 
 ---
 
