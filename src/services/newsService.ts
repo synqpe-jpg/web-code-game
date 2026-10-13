@@ -100,6 +100,21 @@ class NewsService {
         (s) => !this.deletedArticleIds.has(s.id) && !this.deletedArticleIds.has(s.slug)
       );
       this.saveToStorage();
+    } else {
+      // Hợp nhất an toàn các bài viết mẫu mới nếu chưa có trong bộ nhớ và chưa bị xóa bởi Admin
+      const existingIds = new Set(this.articles.map((a) => a.id));
+      const existingSlugs = new Set(this.articles.map((a) => a.slug));
+      const newSeeds = DEFAULT_NEWS_ARTICLES.filter(
+        (s) =>
+          !existingIds.has(s.id) &&
+          !existingSlugs.has(s.slug) &&
+          !this.deletedArticleIds.has(s.id) &&
+          !this.deletedArticleIds.has(s.slug)
+      );
+      if (newSeeds.length > 0) {
+        this.articles = [...this.articles, ...newSeeds];
+        this.saveToStorage();
+      }
     }
     this.isLoaded = true;
   }

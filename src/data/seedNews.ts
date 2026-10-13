@@ -242,5 +242,172 @@ Bản cập nhật tháng này đưa Đấu La Đại Lục Funtap bước vào 
 
 ### 2. Quà Tặng Code Đặc Quyền
 Đừng bỏ lỡ bộ 6 mã giftcode được tổng hợp chi tiết bên dưới để gia tăng tu vi thần tốc!`
+  },
+  {
+    id: 'news_lien_quan_mobile_s1_2026',
+    slug: 'lien-quan-mobile-khoi-tranh-mua-giai-moi-va-phat-tang-giftcode-trang-phuc-2026',
+    title: 'Liên Quân Mobile: Khởi Tranh Mùa Giải Mới & Trọn Bộ Giftcode Trang Phục, Ruby Miễn Phí 2026',
+    excerpt: 'Chào đón mùa giải xếp hạng mới với hàng loạt điều chỉnh bản đồ Bình Nguyên Vô Tận, cân bằng tướng và phát tặng miễn phí rương trang phục bậc S cùng hàng ngàn Ruby qua giftcode độc quyền.',
+    cover_url: '/game_icons/lien-quan-mobile.webp',
+    game_id: 'lien-quan-mobile',
+    game_slug: 'lien-quan-mobile',
+    game_name: 'Liên Quân Mobile',
+    tags: ['Liên Quân', 'Garena', 'Mùa Giải Mới', 'Giftcode VIP', 'MOBA'],
+    codes: ['LQMB2026VIP', 'BINHNGUYEN888', 'TRANGPHUCS999', 'RUBYVIP666'],
+    author: 'CodeGame Editorial',
+    views: 8940,
+    read_time_minutes: 4,
+    is_featured: false,
+    is_hot: true,
+    status: 'PUBLISHED',
+    published_at: '2026-10-06T15:00:00.000Z',
+    content: `## Khởi Động Mùa Giải Xếp Hạng Mới Bình Nguyên Vô Tận
+
+Mùa giải xếp hạng mới của **Liên Quân Mobile** chính thức khai mở mang theo cơn sốt leo rank rực lửa trong cộng đồng game thủ Việt Nam.
+
+### 1. Thay Đổi Chiến Thuật & Cân Bằng Meta Tướng
+- **Khu vực Rừng & Bùa Lợi**: Quái rừng được gia tăng lượng vàng cơ bản, hỗ trợ các sát thủ đi rừng bắt nhịp trận đấu nhanh hơn.
+- **Trang bị Phụ Trợ mới**: Thêm hiệu ứng lá chắn bảo hộ cho đồng đội thấp máu, giúp tướng Trợ Thủ đóng góp nhiều hơn trong giao tranh tổng.
+
+### 2. Danh Sách Giftcode & Cách Kích Hoạt
+Sao chép các mã code bên dưới, truy cập trang đổi mã \`https://lienquan.garena.vn/giftcode/\` để nhận quà trực tiếp về hòm thư!`
+  },
+  {
+    id: 'news_free_fire_ob49_2026',
+    slug: 'free-fire-cap-nhat-phien-ban-moi-va-bo-giftcode-kim-cuong-skin-sung-huyen-thoai',
+    title: 'Free Fire: Khám Phá Bản Cập Nhật Mới & Nhận Ngay Bộ Giftcode Kim Cương, Skin Súng Huyền Thoại',
+    excerpt: 'Phiên bản mới mang đến nhân vật thức tỉnh độc quyền, cơ chế sinh tồn Đảo Quân Sự cải tiến cùng danh sách mã đổi thưởng nhận Kim Cương và Vé Quay Súng Hoàng Gia miễn phí.',
+    cover_url: '/game_icons/free-fire.webp',
+    game_id: 'free-fire',
+    game_slug: 'free-fire',
+    game_name: 'Free Fire',
+    tags: ['Free Fire', 'Garena', 'Kim Cương', 'Skin Súng', 'Sinh Tồn'],
+    codes: ['FFOB49VIP', 'KIMCUONG999', 'SKINLEGEND88', 'DAOQUANSURF'],
+    author: 'CodeGame Team',
+    views: 7650,
+    read_time_minutes: 4,
+    is_featured: false,
+    is_hot: true,
+    status: 'PUBLISHED',
+    published_at: '2026-10-05T09:30:00.000Z',
+    content: `## Sống Dai Thành Huyền Thoại Cùng Phiên Bản Mới
+
+Bản cập nhật mới của **Free Fire** mang lại trải nghiệm đấu súng sinh tồn đỉnh cao với đồ họa tối ưu và cơ chế chiến đấu nhanh nghẹt thở.
+
+### 1. Điểm Mới Nổi Bật
+- **Nhân Vật Mới Thức Tỉnh**: Gia tăng tốc độ di chuyển và giảm độ giật khi ngắm bắn.
+- **Bản Đồ Đảo Quân Sự Mới**: Thêm các điểm ẩn nấp và khu vực loot đồ quân nhu cấp cao.
+
+### 2. Hướng Dẫn Nhập Code Free Fire
+1. Vào trang đổi quà chính thức của Garena Free Fire: \`https://reward.ff.garena.com/\`.
+2. Đăng nhập tài khoản mạng xã hội liên kết.
+3. Dán mã code 12-16 ký tự và nhấn Xác nhận.`
+  },
+  {
+    id: 'news_vo_lam_truyen_ky_1_mobile_2026',
+    slug: 'vo-lam-truyen-ky-1-mobile-ra-mat-mon-phai-moi-va-phat-tang-giftcode-tuan-duong',
+    title: 'Võ Lâm Truyền Kỳ 1 Mobile: Xuất Thế Môn Phái Mới & Tặng Bộ Giftcode Tuần Dương Độc Quyền',
+    excerpt: 'Giang hồ dậy sóng trước sự xuất hiện của môn phái thứ 16 sở hữu võ công biến hóa khôn lường. Nhận ngay rương Phi Phong, Huyền Tinh và bộ mã quà tặng khởi đầu giang hồ.',
+    cover_url: '/game_icons/vo-lam-truyen-ky-1-mobile.webp',
+    game_id: 'vo-lam-truyen-ky-1-mobile',
+    game_slug: 'vo-lam-truyen-ky-1-mobile',
+    game_name: 'Võ Lâm Truyền Kỳ 1 Mobile',
+    tags: ['Võ Lâm 1', 'VNG', 'Môn Phái Mới', 'Kiếm Hiệp', 'Giftcode VIP'],
+    codes: ['VLTK1M2026', 'GIANGHO888', 'TUANDUONG999', 'HUYENTINH666'],
+    author: 'CodeGame Editorial',
+    views: 5410,
+    read_time_minutes: 4,
+    is_featured: false,
+    is_hot: false,
+    status: 'PUBLISHED',
+    published_at: '2026-10-04T11:15:00.000Z',
+    content: `## Tuyệt Thế Võ Học Xuất Thế Giữa Chốn Phong Vân
+
+Thế giới kiếm hiệp tình duyên của **Võ Lâm Truyền Kỳ 1 Mobile (VNG)** tiếp tục mở rộng chân trời phiêu bạt với sự xuất hiện của tuyệt đỉnh võ công mới.
+
+### 1. Đặc Sắc Môn Phái Mới
+- Lối đánh cơ động, kết hợp quyền cước và kiếm khí tầm trung.
+- Khắc chế mạnh mẽ hệ Kim và hệ Hỏa trong các trận Công Thành Chiến liên server.
+
+### 2. Nhận Code Tân Thủ
+Nhập mã code trong mục Cài Đặt -> Đổi Giftcode trong game để nhận Phi Phong và Bạc khóa!`
+  },
+  {
+    id: 'news_honkai_star_rail_penacony_2026',
+    slug: 'honkai-star-rail-hanh-trinh-khai-pha-moi-va-tong-hop-code-stellar-jade-ngoc-anh-sao',
+    title: 'Honkai: Star Rail: Hành Trình Khai Phá Mới & Tổng Hợp Code Stellar Jade (Ngọc Ánh Sao) 2026',
+    excerpt: 'Đoàn tàu Astral tiếp tục lăn bánh đến trạm dừng chân mới đầy kỳ ảo. Cùng CodeGame tổng hợp danh sách mã quà tặng nhận hàng trăm Ngọc Ánh Sao và Vé Tinh Cầu Đặc Biệt.',
+    cover_url: '/game_icons/honkai-star-rail.webp',
+    game_id: 'honkai-star-rail',
+    game_slug: 'honkai-star-rail',
+    game_name: 'Honkai: Star Rail',
+    tags: ['Honkai Star Rail', 'HoYoverse', 'Ngọc Ánh Sao', 'Gacha', 'Khai Phá'],
+    codes: ['STARRAIL2026', 'STELLARJADE888', 'ASTRALTRAIN99', 'HSRVERNEW'],
+    author: 'CodeGame Team',
+    views: 6320,
+    read_time_minutes: 3,
+    is_featured: false,
+    is_hot: true,
+    status: 'PUBLISHED',
+    published_at: '2026-10-03T16:45:00.000Z',
+    content: `## Hành Trình Vượt Ngàn Vì Sao Cùng Astral Express
+
+**Honkai: Star Rail** tiếp tục khẳng định vị thế đỉnh cao trong dòng game nhập vai theo lượt thế giới mở với cốt truyện giàu cảm xúc và hệ thống chiến đấu chiến thuật sâu sắc.
+
+### 1. Tối Ưu Đội Hình Khai Phá
+- Tận dụng các nhân vật Hòa Hợp để buff sát thương diện rộng.
+- Tích lũy Ngọc Ánh Sao từ giftcode để chuẩn bị cho banner nhân vật giới hạn tiếp theo.`
+  },
+  {
+    id: 'news_play_together_vng_sea_event_2026',
+    slug: 'play-together-vng-mo-hoi-cau-ca-dai-duong-tang-code-kim-cuong-tien-sao',
+    title: 'Play Together VNG: Mở Hội Câu Cá Đại Dương & Phát Tặng Hàng Ngàn Kim Cương, Tiền Sao Miễn Phí',
+    excerpt: 'Hòn đảo Kaia rực rỡ sắc màu trong lễ hội biển mùa hè. Hướng dẫn săn các loại cá hiếm khổng lồ và nhận ngay bộ quà tặng thời trang độc quyền qua giftcode tân thủ.',
+    cover_url: '/game_icons/play-together.webp',
+    game_id: 'play-together',
+    game_slug: 'play-together',
+    game_name: 'Play Together VNG',
+    tags: ['Play Together', 'VNG', 'Kim Cương', 'Tiền Sao', 'Câu Cá'],
+    codes: ['PLAYTOGETHER2026', 'KAIAISLAND888', 'CAUKAHIEM999', 'TIENSAO666'],
+    author: 'CodeGame Editorial',
+    views: 4570,
+    read_time_minutes: 3,
+    is_featured: false,
+    is_hot: false,
+    status: 'PUBLISHED',
+    published_at: '2026-10-02T13:20:00.000Z',
+    content: `## Lễ Hội Đại Dương Sôi Động Trên Đảo Kaia
+
+Tựa game phiêu lưu thế giới mở ảo **Play Together VNG** mang đến chuỗi hoạt động giao lưu vui nhộn cùng hàng loạt phần thưởng phong phú.
+
+### 1. Bí Quyết Câu Cá Bóng Lớn
+- Sử dụng cần câu vàng chuyên dụng vào khung giờ vàng từ 20h - 22h.
+- Đổi bóng cá lấy điểm kinh nghiệm và tiền sao để mua trang phục độc lạ.`
+  },
+  {
+    id: 'news_pubg_mobile_royale_pass_2026',
+    slug: 'pubg-mobile-khoi-dong-mua-royale-pass-moi-tang-code-uc-hom-do-cao-cap',
+    title: 'PUBG MOBILE: Khởi Động Mùa Royale Pass Mới & Danh Sách Giftcode Đổi Rương Cao Cấp 2026',
+    excerpt: 'Chiến trường sinh tồn trở nên kịch tính hơn bao giờ hết với chủ đề tác chiến công nghệ cao. Đổi ngay mã giftcode để nhận phiếu hòm đồ cổ điển và điểm nâng cấp trang phục.',
+    cover_url: '/game_icons/pubg-mobile.webp',
+    game_id: 'pubg-mobile',
+    game_slug: 'pubg-mobile',
+    game_name: 'PUBG MOBILE',
+    tags: ['PUBG Mobile', 'VNG', 'Royale Pass', 'Bắn Súng', 'Sinh Tồn'],
+    codes: ['PUBGMOBILE2026', 'ROYALEPASS888', 'CHIENTRUONG999', 'HOMDOCAOCAP'],
+    author: 'CodeGame Team',
+    views: 6890,
+    read_time_minutes: 4,
+    is_featured: false,
+    is_hot: true,
+    status: 'PUBLISHED',
+    published_at: '2026-10-01T08:00:00.000Z',
+    content: `## Đấu Trường Sinh Tồn Đỉnh Cao PUBG MOBILE
+
+**PUBG MOBILE** ra mắt mùa giải Royale Pass mới với hệ thống ngoại trang súng nâng cấp động cùng các vũ khí độc quyền.
+
+### 1. Hướng Dẫn Đổi Giftcode
+Truy cập trang \`https://www.pubgmobile.com/redeem/\`, nhập Character ID và Verification Code để nhận quà!`
   }
 ];
+

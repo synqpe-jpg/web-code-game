@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import {
   Newspaper,
   Search,
@@ -13,6 +13,10 @@ import {
   Share2,
   Calendar,
   Gamepad2,
+  ChevronLeft,
+  ChevronRight,
+  ChevronsLeft,
+  ChevronsRight,
 } from 'lucide-react';
 import { NewsArticle } from '../types/game';
 import { newsService } from '../services/newsService';
@@ -61,6 +65,9 @@ export const NewsView: React.FC<NewsViewProps> = ({
   const [selectedGameSlug, setSelectedGameSlug] = useState<string>('all');
   const [selectedArticle, setSelectedArticle] = useState<NewsArticle | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [currentPage, setCurrentPage] = useState<number>(1);
+  const [pageSize, setPageSize] = useState<number>(6);
+  const articlesSectionRef = useRef<HTMLDivElement>(null);
 
   // Load articles
   const loadArticles = () => {
@@ -128,6 +135,55 @@ export const NewsView: React.FC<NewsViewProps> = ({
     }
     return filteredArticles;
   }, [filteredArticles, featuredArticle, searchQuery, selectedGameSlug, selectedTag]);
+
+  // Reset to page 1 whenever search, game category, or tag filter changes
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchQuery, selectedGameSlug, selectedTag, pageSize]);
+
+  const totalArticlesCount = gridArticles.length;
+  const totalPages = Math.max(1, Math.ceil(totalArticlesCount / pageSize));
+
+  // Auto-clamp if page exceeds total available pages
+  useEffect(() => {
+    if (currentPage > totalPages && totalPages > 0) {
+      setCurrentPage(1);
+    }
+  }, [currentPage, totalPages]);
+
+  // Paginated articles: strictly slice only the active page items
+  const paginatedArticles = useMemo(() => {
+    const startIndex = (currentPage - 1) * pageSize;
+    return gridArticles.slice(startIndex, startIndex + pageSize);
+  }, [gridArticles, currentPage, pageSize]);
+
+  const handlePageChange = (newPage: number) => {
+    if (newPage < 1 || newPage > totalPages || newPage === currentPage) return;
+    setCurrentPage(newPage);
+    if (articlesSectionRef.current) {
+      articlesSectionRef.current.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+  };
+
+  const getPageNumbers = () => {
+    const pages: (number | string)[] = [];
+    const maxVisible = 5;
+
+    if (totalPages <= maxVisible) {
+      for (let i = 1; i <= totalPages; i++) pages.push(i);
+    } else {
+      pages.push(1);
+      if (currentPage > 3) pages.push('...');
+      const start = Math.max(2, currentPage - 1);
+      const end = Math.min(totalPages - 1, currentPage + 1);
+
+      for (let i = start; i <= end; i++) pages.push(i);
+
+      if (currentPage < totalPages - 2) pages.push('...');
+      pages.push(totalPages);
+    }
+    return pages;
+  };
 
   const handleOpenArticle = (art: NewsArticle) => {
     setSelectedArticle(art);
@@ -374,6 +430,9 @@ export const NewsView: React.FC<NewsViewProps> = ({
         </div>
       </div>
 
+      {/* Anchor for smooth scroll on page change */}
+      <div ref={articlesSectionRef} className="scroll-mt-28" />
+
       {/* 4. Articles Grid */}
       {gridArticles.length === 0 ? (
         <div className="text-center py-16 px-4 rounded-3xl bg-card/60 border border-border/60">
@@ -397,121 +456,250 @@ export const NewsView: React.FC<NewsViewProps> = ({
           )}
         </div>
       ) : (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-          {gridArticles.map((article) => {
-            const hasCodes = article.codes && article.codes.length > 0;
-            return (
-              <article
-                key={article.id}
-                onClick={() => handleOpenArticle(article)}
-                className="group relative cursor-pointer flex flex-col overflow-hidden rounded-2xl bg-card border border-border/80 hover:border-primary/50 shadow-sm hover:shadow-xl transition-all duration-300 hover:-translate-y-1"
-              >
-                {/* Thumbnail */}
-                {(() => {
-                  const cardCover = getSafeArticleCover(article);
-                  const isCardGameIcon = isGameIconCover(cardCover, article.game_slug);
-                  return (
-                    <div className="relative aspect-[16/10] overflow-hidden bg-slate-950 flex items-center justify-center">
-                      {/* Ambient blur backdrop */}
-                      <div
-                        className="absolute inset-0 bg-cover bg-center blur-2xl opacity-40 scale-125 pointer-events-none transition-transform duration-700 group-hover:scale-135"
-                        style={{ backgroundImage: `url(${cardCover})` }}
-                      />
-                      <div className="absolute inset-0 bg-gradient-to-t from-slate-950/85 via-slate-950/30 to-transparent pointer-events-none" />
-
-                      {isCardGameIcon ? (
-                        <div className="relative z-10 flex items-center justify-center p-4 w-full h-full">
-                          <div className="relative group-hover:scale-110 transition-transform duration-300">
-                            <img
-                              src={cardCover}
-                              alt={article.title}
-                              className="w-20 h-20 sm:w-24 sm:h-24 rounded-2xl object-cover shadow-2xl ring-2 ring-white/20 group-hover:ring-primary/80"
-                              loading="lazy"
-                              onError={(e) => handleImageFallback(e, article)}
-                            />
-                            <div className="absolute -bottom-2 inset-x-0 mx-auto w-12 h-2 bg-black/60 rounded-full blur-sm" />
-                          </div>
-                        </div>
-                      ) : (
-                        <img
-                          src={cardCover}
-                          alt={article.title}
-                          className="relative z-10 w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
-                          loading="lazy"
-                          onError={(e) => handleImageFallback(e, article)}
+        <>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+            {paginatedArticles.map((article) => {
+              const hasCodes = article.codes && article.codes.length > 0;
+              return (
+                <article
+                  key={article.id}
+                  onClick={() => handleOpenArticle(article)}
+                  className="group relative cursor-pointer flex flex-col overflow-hidden rounded-2xl bg-card border border-border/80 hover:border-primary/50 shadow-sm hover:shadow-xl transition-all duration-300 hover:-translate-y-1"
+                >
+                  {/* Thumbnail */}
+                  {(() => {
+                    const cardCover = getSafeArticleCover(article);
+                    const isCardGameIcon = isGameIconCover(cardCover, article.game_slug);
+                    return (
+                      <div className="relative aspect-[16/10] overflow-hidden bg-slate-950 flex items-center justify-center">
+                        {/* Ambient blur backdrop */}
+                        <div
+                          className="absolute inset-0 bg-cover bg-center blur-2xl opacity-40 scale-125 pointer-events-none transition-transform duration-700 group-hover:scale-135"
+                          style={{ backgroundImage: `url(${cardCover})` }}
                         />
-                      )}
+                        <div className="absolute inset-0 bg-gradient-to-t from-slate-950/85 via-slate-950/30 to-transparent pointer-events-none" />
 
-                      {/* Badges on image */}
-                      <div className="absolute top-3 left-3 z-20 flex flex-wrap gap-1.5">
-                        {article.game_name && (
-                          <span className="px-2.5 py-1 rounded-lg bg-black/70 backdrop-blur-md text-white text-[11px] font-bold border border-white/10 shadow-sm">
-                            {article.game_name}
-                          </span>
+                        {isCardGameIcon ? (
+                          <div className="relative z-10 flex items-center justify-center p-4 w-full h-full">
+                            <div className="relative group-hover:scale-110 transition-transform duration-300">
+                              <img
+                                src={cardCover}
+                                alt={article.title}
+                                className="w-20 h-20 sm:w-24 sm:h-24 rounded-2xl object-cover shadow-2xl ring-2 ring-white/20 group-hover:ring-primary/80"
+                                loading="lazy"
+                                onError={(e) => handleImageFallback(e, article)}
+                              />
+                              <div className="absolute -bottom-2 inset-x-0 mx-auto w-12 h-2 bg-black/60 rounded-full blur-sm" />
+                            </div>
+                          </div>
+                        ) : (
+                          <img
+                            src={cardCover}
+                            alt={article.title}
+                            className="relative z-10 w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
+                            loading="lazy"
+                            onError={(e) => handleImageFallback(e, article)}
+                          />
                         )}
-                        {article.is_hot && (
-                          <span className="px-2 py-0.5 rounded-lg bg-amber-500 text-black text-[10px] font-black uppercase flex items-center gap-1 shadow-sm">
-                            <Flame className="w-3 h-3 fill-black" />
-                            HOT
-                          </span>
+
+                        {/* Badges on image */}
+                        <div className="absolute top-3 left-3 z-20 flex flex-wrap gap-1.5">
+                          {article.game_name && (
+                            <span className="px-2.5 py-1 rounded-lg bg-black/70 backdrop-blur-md text-white text-[11px] font-bold border border-white/10 shadow-sm">
+                              {article.game_name}
+                            </span>
+                          )}
+                          {article.is_hot && (
+                            <span className="px-2 py-0.5 rounded-lg bg-amber-500 text-black text-[10px] font-black uppercase flex items-center gap-1 shadow-sm">
+                              <Flame className="w-3 h-3 fill-black" />
+                              HOT
+                            </span>
+                          )}
+                        </div>
+
+                        {/* Codes badge on image bottom */}
+                        {hasCodes && (
+                          <div className="absolute bottom-3 right-3 z-20 px-2.5 py-1 rounded-lg bg-amber-500/90 backdrop-blur-md text-slate-950 text-[11px] font-black flex items-center gap-1 shadow-md">
+                            <Gift className="w-3.5 h-3.5" />
+                            <span>+{article.codes!.length} Code</span>
+                          </div>
                         )}
                       </div>
+                    );
+                  })()}
 
-                      {/* Codes badge on image bottom */}
-                      {hasCodes && (
-                        <div className="absolute bottom-3 right-3 z-20 px-2.5 py-1 rounded-lg bg-amber-500/90 backdrop-blur-md text-slate-950 text-[11px] font-black flex items-center gap-1 shadow-md">
-                          <Gift className="w-3.5 h-3.5" />
-                          <span>+{article.codes!.length} Code</span>
-                        </div>
+                  {/* Article Info */}
+                  <div className="p-5 flex-1 flex flex-col justify-between space-y-3">
+                    <div className="space-y-2">
+                      {/* Meta stats */}
+                      <div className="flex items-center gap-2 text-[11px] text-muted-foreground">
+                        <span>{new Date(article.published_at).toLocaleDateString('vi-VN')}</span>
+                        <span>•</span>
+                        <span>{article.read_time_minutes || 3} phút đọc</span>
+                        <span>•</span>
+                        <span className="flex items-center gap-1">
+                          <Eye className="w-3 h-3" />
+                          {article.views || 0}
+                        </span>
+                      </div>
+
+                      {/* Title */}
+                      <h3 className="text-base font-bold text-foreground group-hover:text-primary transition-colors line-clamp-2 leading-snug">
+                        {article.title}
+                      </h3>
+
+                      {/* Excerpt */}
+                      <p className="text-xs text-muted-foreground line-clamp-2 leading-relaxed">
+                        {article.excerpt}
+                      </p>
+                    </div>
+
+                    {/* Footer tags & CTA */}
+                    <div className="pt-3 border-t border-border/50 flex items-center justify-between text-xs">
+                      <span className="text-[11px] text-primary font-semibold group-hover:underline flex items-center gap-1">
+                        Đọc chi tiết
+                        <ArrowRight className="w-3 h-3 transition-transform group-hover:translate-x-1" />
+                      </span>
+
+                      {article.tags && article.tags.length > 0 && (
+                        <span className="text-[10px] text-muted-foreground font-mono">
+                          #{article.tags[0]}
+                        </span>
                       )}
                     </div>
-                  );
-                })()}
-
-                {/* Article Info */}
-                <div className="p-5 flex-1 flex flex-col justify-between space-y-3">
-                  <div className="space-y-2">
-                    {/* Meta stats */}
-                    <div className="flex items-center gap-2 text-[11px] text-muted-foreground">
-                      <span>{new Date(article.published_at).toLocaleDateString('vi-VN')}</span>
-                      <span>•</span>
-                      <span>{article.read_time_minutes || 3} phút đọc</span>
-                      <span>•</span>
-                      <span className="flex items-center gap-1">
-                        <Eye className="w-3 h-3" />
-                        {article.views || 0}
-                      </span>
-                    </div>
-
-                    {/* Title */}
-                    <h3 className="text-base font-bold text-foreground group-hover:text-primary transition-colors line-clamp-2 leading-snug">
-                      {article.title}
-                    </h3>
-
-                    {/* Excerpt */}
-                    <p className="text-xs text-muted-foreground line-clamp-2 leading-relaxed">
-                      {article.excerpt}
-                    </p>
                   </div>
+                </article>
+              );
+            })}
+          </div>
 
-                  {/* Footer tags & CTA */}
-                  <div className="pt-3 border-t border-border/50 flex items-center justify-between text-xs">
-                    <span className="text-[11px] text-primary font-semibold group-hover:underline flex items-center gap-1">
-                      Đọc chi tiết
-                      <ArrowRight className="w-3 h-3 transition-transform group-hover:translate-x-1" />
-                    </span>
+          {/* Pagination Controls */}
+          {totalPages > 1 && (
+            <div className="mt-8 pt-6 border-t border-border/60 flex flex-col sm:flex-row items-center justify-between gap-4">
+              <div className="text-xs text-muted-foreground font-mono flex items-center gap-2">
+                <span>
+                  Hiển thị{' '}
+                  <strong className="text-foreground font-bold">
+                    {(currentPage - 1) * pageSize + 1} -{' '}
+                    {Math.min(currentPage * pageSize, totalArticlesCount)}
+                  </strong>{' '}
+                  trong tổng số{' '}
+                  <strong className="text-foreground font-bold">{totalArticlesCount}</strong> bài viết
+                </span>
+                <span>•</span>
+                <span>
+                  Trang <strong className="text-primary font-bold">{currentPage}</strong> / {totalPages}
+                </span>
+              </div>
 
-                    {article.tags && article.tags.length > 0 && (
-                      <span className="text-[10px] text-muted-foreground font-mono">
-                        #{article.tags[0]}
-                      </span>
-                    )}
-                  </div>
+              <div className="flex items-center gap-3">
+                {/* Page Size Selector */}
+                <div className="hidden sm:flex items-center gap-1 text-[11px] text-muted-foreground bg-muted/40 p-1 rounded-xl border border-border/50">
+                  <span className="px-1.5 font-medium">Hiển thị:</span>
+                  {[6, 9, 12].map((size) => (
+                    <button
+                      key={size}
+                      type="button"
+                      onClick={() => {
+                        setPageSize(size);
+                        setCurrentPage(1);
+                      }}
+                      className={`px-2 py-0.5 rounded-lg font-mono font-bold transition-all cursor-pointer ${
+                        pageSize === size
+                          ? 'bg-primary text-white shadow-sm'
+                          : 'hover:bg-muted text-muted-foreground hover:text-foreground'
+                      }`}
+                    >
+                      {size}
+                    </button>
+                  ))}
                 </div>
-              </article>
-            );
-          })}
-        </div>
+
+                {/* Page Navigation Buttons */}
+                <div className="flex items-center gap-1 sm:gap-1.5 flex-wrap justify-center">
+                  {/* First Page */}
+                  <button
+                    type="button"
+                    onClick={() => handlePageChange(1)}
+                    disabled={currentPage === 1}
+                    className="p-2 rounded-xl bg-card hover:bg-muted border border-border/80 text-muted-foreground hover:text-foreground disabled:opacity-35 disabled:cursor-not-allowed transition-all cursor-pointer shadow-sm"
+                    title="Trang đầu"
+                    aria-label="Trang đầu"
+                  >
+                    <ChevronsLeft className="w-4 h-4" />
+                  </button>
+
+                  {/* Previous Page */}
+                  <button
+                    type="button"
+                    onClick={() => handlePageChange(currentPage - 1)}
+                    disabled={currentPage === 1}
+                    className="p-2 rounded-xl bg-card hover:bg-muted border border-border/80 text-muted-foreground hover:text-foreground disabled:opacity-35 disabled:cursor-not-allowed transition-all cursor-pointer shadow-sm"
+                    title="Trang trước"
+                    aria-label="Trang trước"
+                  >
+                    <ChevronLeft className="w-4 h-4" />
+                  </button>
+
+                  {/* Page Numbers */}
+                  <div className="flex items-center gap-1">
+                    {getPageNumbers().map((p, idx) => {
+                      if (typeof p === 'string') {
+                        return (
+                          <span
+                            key={`dots-${idx}`}
+                            className="px-2 py-1 text-xs text-muted-foreground font-mono select-none"
+                          >
+                            ...
+                          </span>
+                        );
+                      }
+                      const isCurrent = p === currentPage;
+                      return (
+                        <button
+                          key={p}
+                          type="button"
+                          onClick={() => handlePageChange(p)}
+                          className={`min-w-[36px] h-9 px-3 rounded-xl text-xs font-mono font-bold transition-all cursor-pointer ${
+                            isCurrent
+                              ? 'bg-primary text-white shadow-md shadow-primary/30 scale-105'
+                              : 'bg-card hover:bg-muted border border-border/80 text-muted-foreground hover:text-foreground'
+                          }`}
+                        >
+                          {p}
+                        </button>
+                      );
+                    })}
+                  </div>
+
+                  {/* Next Page */}
+                  <button
+                    type="button"
+                    onClick={() => handlePageChange(currentPage + 1)}
+                    disabled={currentPage === totalPages}
+                    className="p-2 rounded-xl bg-card hover:bg-muted border border-border/80 text-muted-foreground hover:text-foreground disabled:opacity-35 disabled:cursor-not-allowed transition-all cursor-pointer shadow-sm"
+                    title="Trang sau"
+                    aria-label="Trang sau"
+                  >
+                    <ChevronRight className="w-4 h-4" />
+                  </button>
+
+                  {/* Last Page */}
+                  <button
+                    type="button"
+                    onClick={() => handlePageChange(totalPages)}
+                    disabled={currentPage === totalPages}
+                    className="p-2 rounded-xl bg-card hover:bg-muted border border-border/80 text-muted-foreground hover:text-foreground disabled:opacity-35 disabled:cursor-not-allowed transition-all cursor-pointer shadow-sm"
+                    title="Trang cuối"
+                    aria-label="Trang cuối"
+                  >
+                    <ChevronsRight className="w-4 h-4" />
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+        </>
       )}
 
       {/* 5. Article Detail Modal */}

@@ -7,6 +7,25 @@ Mỗi mục sửa lỗi đều ghi nhận **Nguyên nhân gốc rễ (Root Cause
 
 ## [2026-10-13]
 
+### 25. Triển Khai Phân Trang Thông Minh Cho Mục Tin Tức (News Pagination & Initial Page Load)
+- **Mô tả**:
+  1. **Nhu cầu**: Trước đây mục Tin Tức render toàn bộ danh sách bài viết (hơn 35 bài viết trong hệ thống) trên cùng một trang, gây tải nặng DOM, tiêu tốn băng thông tải ảnh và khiến trang dài vô tận. Khách hàng yêu cầu: tạo phân trang cho mục tin tức, người dùng mới vào chỉ tải trang đầu tiên.
+  2. **Giải pháp kiến trúc & Triển khai**:
+     - *Phân chia trang chính xác (`src/components/NewsView.tsx`)*:
+       + Khởi tạo `currentPage = 1` mặc định khi người dùng mới vào mục Tin Tức.
+       + Thiết lập kích thước trang chuẩn mực `pageSize = 6` (tương ứng 2 hàng $\times$ 3 cột trên Desktop, 3 hàng $\times$ 2 cột trên Tablet, và 6 thẻ cuộn nhanh trên Mobile).
+       + Chỉ cắt và render đúng các bài viết thuộc trang hiện tại vào DOM (`paginatedArticles = gridArticles.slice(startIndex, startIndex + pageSize)`), tối ưu hóa triệt để tốc độ tải ảnh bìa (`loading="lazy"`).
+     - *Thanh điều khiển phân trang hiện đại (Pagination Controls)*:
+       + Hiển thị thông tin trực quan: *"Hiển thị 1 - 6 trong tổng số X bài viết • Trang 1 / Y"*.
+       + Cung cấp tùy chọn chuyển nhanh kích thước hiển thị: 6 / 9 / 12 bài viết mỗi trang.
+       + Nút điều hướng đầy đủ: Trang đầu (`ChevronsLeft`), Trang trước (`ChevronLeft`), Số trang động (`getPageNumbers` kèm dấu `...`), Trang sau (`ChevronRight`), Trang cuối (`ChevronsRight`).
+       + Tự động cuộn mượt mà (`scrollIntoView({ behavior: 'smooth' })`) về đầu danh sách bài viết khi người dùng chuyển trang.
+       + Tự động đưa về trang 1 khi người dùng tìm kiếm (`searchQuery`), lọc theo game (`selectedGameSlug`), hoặc đổi tag (`selectedTag`).
+     - *Dữ liệu mẫu & Đồng bộ an toàn (`src/data/seedNews.ts` & `src/services/newsService.ts`)*:
+       + Bổ sung 6 bài viết gaming bản quyền chất lượng cao (Liên Quân Mobile, Free Fire, Võ Lâm Truyền Kỳ 1 Mobile, Honkai: Star Rail, Play Together VNG, PUBG MOBILE), nâng tổng số bài viết seed lên 12 bài.
+       + Cập nhật cơ chế nạp trong `newsService` để tự động tích hợp các bài viết seed mới mà không làm mất bài viết hiện có hay hồi sinh các bài đã xóa (Tombstones).
+- **Kết quả xác minh**: Toàn bộ 10/10 tiêu chí kiểm thử logic phân trang đạt 100%, biên dịch Vite và sinh HTML tĩnh cho 486 tựa game hoàn tất không lỗi.
+
 ### 24. Tích Hợp Thông Báo "Bổ Sung Tồn Kho" (RESTOCK_PRODUCT) Vào Hệ Thống Marketing FOMO
 - **Mô tả**:
   1. **Nhu cầu**: Bổ sung loại thông báo Marketing FOMO mới — "Bổ Sung Tồn Kho" (`RESTOCK_PRODUCT`) để thông báo tức thời cho khách hàng mỗi khi kho hàng được nạp thêm số lượng tài khoản/mã mới, kích thích người chơi vào mua sắm và săn quà.
