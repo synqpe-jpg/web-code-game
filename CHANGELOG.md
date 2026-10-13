@@ -7,6 +7,31 @@ Mỗi mục sửa lỗi đều ghi nhận **Nguyên nhân gốc rễ (Root Cause
 
 ## [2026-10-13]
 
+### 9. Khắc Phục Triệt Để Lỗi Màn Hình Đen Khi Đóng Modal Chi Tiết Game ([X] Button Crash) & Thêm Root ErrorBoundary
+- **Mô tả**:
+  1. **Khắc phục triệt để lỗi sập màn hình đen khi đóng Modal game**:
+     - Khi người dùng xem chi tiết tựa game (ví dụ `https://codegame.shop/game/ta-la-hac-ngo-khong`) và nhấn nút `[X]` hoặc click ra ngoài backdrop, modal đóng mượt mà, chuyển trang êm ái về danh mục game hoặc trang chủ, không còn hiện tượng giật sập hoặc đen kịt toàn màn hình.
+     - URL bar tự động cập nhật mượt mà về `/` hoặc trang trước đó ngay lập tức, không bị kẹt hay treo tiêu đề trang.
+  2. **Thống nhất luồng State & Prop trong `GameDetailModal`**:
+     - Đồng bộ hóa logic `currentGame = game ? (liveGame && (liveGame.slug === game.slug || liveGame.id === game.id) ? liveGame : game) : null`.
+     - Bổ sung chốt chặn an toàn `if (!game || !currentGame) return null;` ngay sau các hook React, ngăn chặn việc tiếp tục render khi `game` prop đã chuyển thành `null`.
+     - Thay thế 100% các truy cập trực tiếp `game.` trong JSX (initials, icon_url, name, category, giấy phép G1, publisher, release_date, link tải, hướng dẫn, mô tả) sang `currentGame.`, đảm bảo không bao giờ gặp lỗi `TypeError: Cannot read properties of null`.
+  3. **Bọc điều kiện an toàn tại `App.tsx`**:
+     - Bao bọc thẻ `<GameDetailModal>` bằng điều kiện `{selectedGame && ( ... )}` để tránh việc giữ component trên DOM khi không có game nào được chọn.
+     - Hàm `onClose` chủ động đồng bộ xóa query/path URL `replaceState(null, '', '/')` tức thời.
+  4. **Triển khai `ErrorBoundary` toàn cục cho Web Khách**:
+     - Tạo mới `src/components/ErrorBoundary.tsx` theo chuẩn giao diện CodeGame.shop (dark mode `#0B0D19`, card thông báo cao cấp kèm nút "Về Trang Chủ" và "Tải lại trang").
+     - Bọc ngoài toàn bộ `<App />` trong `src/main.tsx`, đảm bảo ứng dụng có lớp giáp bảo vệ vĩnh viễn, không bao giờ bị unmount toàn bộ DOM thành màn hình đen khi có lỗi bất ngờ từ bất kỳ component con nào.
+- **Nguyên nhân gốc rễ (Root Cause)**:
+  - 1. Khi bấm `[X]`, `App.tsx` đặt `setSelectedGame(null)`. `game` prop thành `null`, nhưng `liveGame` state trong modal vẫn giữ object game cũ từ render trước.
+  - 2. `currentGame = liveGame || game` không trả về `null`, khiến modal đi vào khối render JSX.
+  - 3. Trong JSX, hàng chục dòng code truy cập trực tiếp `game.name`, `game.icon_url`... thay vì `currentGame.`. Vì `game` là `null`, React ném lỗi `Cannot read properties of null (reading 'name')`.
+  - 4. Web Khách chưa có ErrorBoundary nên React 18 unmount toàn bộ cây ứng dụng trong `#root`, làm lộ ra nền đen `#0B0D19` của trang và đóng băng URL.
+- **Giải pháp thành công (Solution Applied)**:
+  - Thống nhất `currentGame` với kiểm tra chặt chẽ `game ? ... : null`. Guard `if (!game || !currentGame) return null;`. Thay thế toàn bộ truy cập bằng `currentGame.`.
+  - Bọc `{selectedGame && ...}` trong `App.tsx`.
+  - Trang bị `ErrorBoundary` trong `main.tsx`.
+
 ### 8. Khắc Phục Triệt Để Lỗi Bất Đồng Bộ Số Ảo Admin vs Web Khách & Kích Hoạt Tăng Đều (Steady Progression)
 - **Mô tả**:
   1. **Đồng bộ chuẩn xác số ảo giữa Admin và Web Khách**:

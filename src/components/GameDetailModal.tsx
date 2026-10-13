@@ -53,9 +53,11 @@ export const GameDetailModal: React.FC<GameDetailModalProps> = ({
   const [copiedType, setCopiedType] = useState<string | null>(null);
   const [votes, setVotes] = useState<Record<string, { up: number; down: number }>>({});
   const [selectedCodeTab, setSelectedCodeTab] = useState<'all' | 'active' | 'expired'>('all');
+  const [modalImageError, setModalImageError] = useState(false);
 
   useEffect(() => {
     setLiveGame(game);
+    setModalImageError(false);
   }, [game]);
 
   // Dynamically fetch and enrich with latest giftcodes from Cloudflare serverless D1 API
@@ -85,7 +87,10 @@ export const GameDetailModal: React.FC<GameDetailModalProps> = ({
     c.code.toUpperCase() === 'ATNGAY1' ||
     c.code.toUpperCase() === 'ATNGAY2';
 
-  const currentGame = liveGame || game;
+  // Ensure currentGame is strictly null if game is null or closed
+  const currentGame = game
+    ? (liveGame && (liveGame.slug === game.slug || liveGame.id === game.id) ? liveGame : game)
+    : null;
 
   useEffect(() => {
     if (!currentGame || !currentGame.codes) return;
@@ -96,9 +101,7 @@ export const GameDetailModal: React.FC<GameDetailModalProps> = ({
     setVotes(initialVotes);
   }, [currentGame]);
 
-  const [modalImageError, setModalImageError] = useState(false);
-
-  if (!currentGame) return null;
+  if (!game || !currentGame) return null;
 
   const allCodes = currentGame.codes || [];
   const activeCodes = allCodes.filter((c) => !isExpired(c));
@@ -138,7 +141,7 @@ export const GameDetailModal: React.FC<GameDetailModalProps> = ({
     }
 
     const codeList = targetCodes.map((c) => c.code.trim()).filter(Boolean);
-    const gameLink = `https://codegame.shop/game/${game.slug || game.id || ''}`;
+    const gameLink = `https://codegame.shop/game/${currentGame.slug || currentGame.id || ''}`;
     const watermark = `\n\n📌 Nguồn: CodeGame.shop - Cổng Tra Cứu Giftcode Bản Quyền G1\n👉 Nhận thêm mã VIP miễn phí tại: ${gameLink}`;
     const codeString = codeList.join('\n') + watermark;
 
@@ -150,9 +153,9 @@ export const GameDetailModal: React.FC<GameDetailModalProps> = ({
 
     // Ghi nhận sự kiện copy cho từng mã
     targetCodes.forEach((c) => {
-      dataService.recordCopyEvent(c.code, game.slug || game.name);
+      dataService.recordCopyEvent(c.code, currentGame.slug || currentGame.name);
     });
-    marketingService.recordRealCopy(game.name, game.slug || '', targetCodes.length, activeUser);
+    marketingService.recordRealCopy(currentGame.name, currentGame.slug || '', targetCodes.length, activeUser);
 
     setCopiedType(typeKey);
     onShowToast(
@@ -175,8 +178,8 @@ export const GameDetailModal: React.FC<GameDetailModalProps> = ({
 
   const handleCopy = (code: string, isExpired = false) => {
     navigator.clipboard.writeText(code);
-    dataService.recordCopyEvent(code, game.slug || game.name);
-    marketingService.recordRealCopy(game.name, game.slug || '', 1, activeUser);
+    dataService.recordCopyEvent(code, currentGame.slug || currentGame.name);
+    marketingService.recordRealCopy(currentGame.name, currentGame.slug || '', 1, activeUser);
     setCopiedCode(code);
     if (isExpired) {
       onShowToast(t.modal.copySuccess, `${t.modal.expiredNotice}`, 'info');
@@ -205,12 +208,15 @@ export const GameDetailModal: React.FC<GameDetailModalProps> = ({
     );
   };
 
-  const initials = game.name ? game.name.substring(0, 2).toUpperCase() : 'G';
+  const initials = currentGame.name ? currentGame.name.substring(0, 2).toUpperCase() : 'G';
 
   if (typeof document === 'undefined') return null;
 
   return createPortal(
-    <div className="fixed inset-0 z-[100] flex items-end sm:items-center justify-center p-0 sm:p-4 bg-black/80 backdrop-blur-md overflow-hidden animate-fade-in">
+    <div
+      className="fixed inset-0 z-[100] flex items-end sm:items-center justify-center p-0 sm:p-4 bg-black/80 backdrop-blur-md overflow-hidden animate-fade-in"
+      onClick={onClose}
+    >
       <div
         className="relative w-full max-w-3xl h-[88dvh] sm:h-auto sm:max-h-[88vh] flex flex-col bg-card border-t sm:border border-border/90 rounded-t-[28px] sm:rounded-3xl shadow-2xl overflow-hidden animate-scale-in"
         onClick={(e) => e.stopPropagation()}
@@ -225,8 +231,8 @@ export const GameDetailModal: React.FC<GameDetailModalProps> = ({
               <div className="w-12 h-12 sm:w-16 sm:h-16 rounded-2xl bg-muted border border-border overflow-hidden shrink-0 shadow-lg flex items-center justify-center">
                 {!modalImageError ? (
                   <img
-                    src={game.icon_url || `/game_icons/${game.slug}.webp`}
-                    alt={game.name}
+                    src={currentGame.icon_url || `/game_icons/${currentGame.slug}.webp`}
+                    alt={currentGame.name}
                     className="w-full h-full object-cover"
                     onError={() => setModalImageError(true)}
                   />
@@ -240,16 +246,16 @@ export const GameDetailModal: React.FC<GameDetailModalProps> = ({
               <div className="min-w-0 flex-1">
                 <div className="flex flex-wrap items-center gap-1.5 mb-0.5">
                   <span className="text-[10px] sm:text-xs font-semibold px-2 py-0.5 rounded-lg bg-primary/20 text-primary-light border border-primary/30 whitespace-nowrap">
-                    {game.category || 'Game'}
+                    {currentGame.category || 'Game'}
                   </span>
-                  {(game.so_giay_phep || game.license_number) ? (
+                  {(currentGame.so_giay_phep || currentGame.license_number) ? (
                     <span
                       className="inline-flex items-center gap-1 text-[9px] sm:text-[10px] font-semibold px-2 py-0.5 rounded-lg bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 shadow-sm cursor-help whitespace-nowrap"
-                      title={`${t.gameCard.licenseTooltip} (GP: ${game.so_giay_phep || game.license_number})`}
+                      title={`${t.gameCard.licenseTooltip} (GP: ${currentGame.so_giay_phep || currentGame.license_number})`}
                     >
                       <CheckCircle2 className="w-3 h-3 text-emerald-400 shrink-0" />
                       <span>{t.gameCard.licensed}</span>
-                      <span className="hidden sm:inline font-mono text-emerald-400/80">({game.so_giay_phep || game.license_number})</span>
+                      <span className="hidden sm:inline font-mono text-emerald-400/80">({currentGame.so_giay_phep || currentGame.license_number})</span>
                     </span>
                   ) : (
                     <span className="text-[9px] sm:text-[10px] font-mono px-1.5 py-0.5 rounded-lg bg-slate-800 text-slate-300 border border-slate-700/60 whitespace-nowrap">
@@ -259,18 +265,18 @@ export const GameDetailModal: React.FC<GameDetailModalProps> = ({
                 </div>
 
                 <h2 className="font-heading font-extrabold text-sm sm:text-xl text-foreground truncate">
-                  {game.name}
+                  {currentGame.name}
                 </h2>
 
                 <p className="text-[10px] sm:text-xs text-muted-foreground flex items-center gap-2 mt-0.5">
                   <span className="flex items-center gap-1 truncate">
                     <Building className="w-3 h-3 shrink-0" />
-                    <span className="truncate">{game.publisher || t.modal.publisher}</span>
+                    <span className="truncate">{currentGame.publisher || t.modal.publisher}</span>
                   </span>
-                  {game.release_date && (
+                  {currentGame.release_date && (
                     <span className="hidden xs:flex items-center gap-1 shrink-0">
                       <Calendar className="w-3 h-3" />
-                      {game.release_date}
+                      {currentGame.release_date}
                     </span>
                   )}
                 </p>
@@ -279,7 +285,7 @@ export const GameDetailModal: React.FC<GameDetailModalProps> = ({
 
             <div className="flex items-center gap-1 sm:gap-1.5 shrink-0">
               <button
-                onClick={() => onOpenShare(game)}
+                onClick={() => onOpenShare(currentGame)}
                 className="p-1.5 sm:p-2.5 rounded-xl bg-muted/60 hover:bg-muted border border-border text-muted-foreground hover:text-foreground transition-all cursor-pointer active:scale-90"
                 title={t.modal.share}
               >
@@ -287,7 +293,7 @@ export const GameDetailModal: React.FC<GameDetailModalProps> = ({
               </button>
 
               <button
-                onClick={() => onToggleBookmark(game.id)}
+                onClick={() => onToggleBookmark(currentGame.id)}
                 className={`p-1.5 sm:p-2.5 rounded-xl border transition-all cursor-pointer active:scale-90 ${
                   isBookmarked
                     ? 'bg-amber-400/20 border-amber-400/50 text-amber-400'
@@ -312,9 +318,9 @@ export const GameDetailModal: React.FC<GameDetailModalProps> = ({
 
           {/* Download & Redeem Links */}
           <div className="flex items-center gap-1.5 sm:gap-2 mt-3 pt-2.5 border-t border-border/40 overflow-x-auto scrollbar-none pb-0.5">
-            {game.redeem_url && (
+            {currentGame.redeem_url && (
               <a
-                href={game.redeem_url}
+                href={currentGame.redeem_url}
                 target="_blank"
                 rel="noreferrer"
                 className="flex items-center gap-1 px-2.5 py-1 rounded-xl text-[11px] sm:text-xs font-semibold bg-accent hover:bg-accent-hover text-white shadow-sm transition-all shrink-0 active:scale-95"
@@ -324,9 +330,9 @@ export const GameDetailModal: React.FC<GameDetailModalProps> = ({
               </a>
             )}
 
-            {game.download_android && (
+            {currentGame.download_android && (
               <a
-                href={game.download_android}
+                href={currentGame.download_android}
                 target="_blank"
                 rel="noreferrer"
                 className="flex items-center gap-1 px-2.5 py-1 rounded-xl text-[11px] sm:text-xs font-medium bg-card hover:bg-card-hover border border-border text-muted-foreground hover:text-foreground transition-all shrink-0 active:scale-95"
@@ -336,9 +342,9 @@ export const GameDetailModal: React.FC<GameDetailModalProps> = ({
               </a>
             )}
 
-            {game.download_ios && (
+            {currentGame.download_ios && (
               <a
-                href={game.download_ios}
+                href={currentGame.download_ios}
                 target="_blank"
                 rel="noreferrer"
                 className="flex items-center gap-1 px-2.5 py-1 rounded-xl text-[11px] sm:text-xs font-medium bg-card hover:bg-card-hover border border-border text-muted-foreground hover:text-foreground transition-all shrink-0 active:scale-95"
@@ -348,9 +354,9 @@ export const GameDetailModal: React.FC<GameDetailModalProps> = ({
               </a>
             )}
 
-            {game.download_pc && (
+            {currentGame.download_pc && (
               <a
-                href={game.download_pc}
+                href={currentGame.download_pc}
                 target="_blank"
                 rel="noreferrer"
                 className="flex items-center gap-1 px-2.5 py-1 rounded-xl text-[11px] sm:text-xs font-medium bg-card hover:bg-card-hover border border-border text-muted-foreground hover:text-foreground transition-all shrink-0 active:scale-95"
@@ -668,23 +674,23 @@ export const GameDetailModal: React.FC<GameDetailModalProps> = ({
           <div className="p-4 sm:p-5 rounded-2xl bg-card border border-border/80 space-y-2.5">
             <div className="flex items-center gap-2 text-foreground font-heading font-bold text-sm sm:text-base">
               <BookOpen className="w-4 h-4 text-secondary" />
-              <h4>{t.modal.instructions} - {game.name}</h4>
+              <h4>{t.modal.instructions} - {currentGame.name}</h4>
             </div>
             <p className="text-xs sm:text-sm text-muted-foreground leading-relaxed whitespace-pre-line">
-              {game.instructions ||
+              {currentGame.instructions ||
                 '1. Đăng nhập vào game và hoàn thành phần tân thủ.\n2. Vào mục Cài đặt (Settings) hoặc Avatar nhân vật.\n3. Chọn mục "Đổi Giftcode / Mã Quà Tặng".\n4. Dán mã code đã sao chép ở trên và nhấn Xác nhận để nhận quà qua Thư in-game.'}
             </p>
           </div>
 
           {/* Description */}
-          {game.description && (
+          {currentGame.description && (
             <div className="space-y-2">
               <div className="flex items-center gap-2 text-foreground font-heading font-bold text-sm sm:text-base">
                 <Info className="w-4 h-4 text-primary-light" />
                 <h4>{t.modal.gameInfo}</h4>
               </div>
               <p className="text-xs sm:text-sm text-muted-foreground leading-relaxed whitespace-pre-line">
-                {game.description}
+                {currentGame.description}
               </p>
             </div>
           )}

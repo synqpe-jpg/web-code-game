@@ -292,6 +292,27 @@
 
 ---
 
+### ISSUE-016: Lỗi Màn Hình Đen Khi Đóng Modal Chi Tiết Game (Uncaught Render Null Crash & State Desync)
+- **Triệu chứng**:
+  - Khi người dùng đang xem trang chi tiết của một game (ví dụ `https://codegame.shop/game/ta-la-hac-ngo-khong`), nhấn nút [X] hoặc bấm thoát modal thì màn hình ngay lập tức bị sập thành màu đen kịt (`#0B0D19`), giao diện web biến mất hoàn toàn, URL và tiêu đề tab bị đóng băng.
+- **Nguyên nhân gốc rễ**:
+  - 1. **Bất đồng bộ state `liveGame` vs prop `game`**: Khi nhấn nút [X], `App.tsx` gọi `setSelectedGame(null)`. `game` prop trở thành `null`. Tuy nhiên `useState(game)` trong `GameDetailModal` vẫn lưu `liveGame` từ lần render trước (do `useEffect` đồng bộ chỉ chạy sau khi render xong).
+  - 2. Biểu thức `currentGame = liveGame || game` vẫn trả về object game cũ, khiến điều kiện `if (!currentGame) return null;` không trả về `null`.
+  - 3. Trong phần render JSX, hàng chục vị trí truy cập trực tiếp `game.name`, `game.icon_url`, `game.category`, `game.slug`... thay vì dùng `currentGame`. Do `game` là `null`, JavaScript ném lỗi nghiêm trọng: `TypeError: Cannot read properties of null (reading 'name')`.
+  - 4. Web Khách ở `src/main.tsx` trước đây không có `ErrorBoundary`, khiến lỗi render unhandled của React làm sập và unmount toàn bộ cây ứng dụng React (`#root` bị làm rỗng), lộ ra màu nền đen `#0B0D19` của thẻ body.
+- **Giải pháp chuẩn đã kiểm chứng**:
+  - 1. **Kiểm tra chặt chẽ điều kiện null**: Đặt `currentGame = game ? (liveGame && (liveGame.slug === game.slug || liveGame.id === game.id) ? liveGame : game) : null`.
+  - 2. Đặt `if (!game || !currentGame) return null;` ngay sau các hook React, ngắt kết xuất ngay tức khắc khi modal đóng.
+  - 3. Thay thế toàn bộ 100% các truy cập `game.` trong JSX và handler thành `currentGame.`.
+  - 4. Trong `App.tsx`: Bọc render điều kiện `{selectedGame && <GameDetailModal ... />}` và trong `onClose` chủ động reset URL bar về `/` ngay lập tức.
+  - 5. Thêm `ErrorBoundary` bọc ngoài toàn bộ `<App />` trong `src/main.tsx` để bảo vệ chống màn hình đen vĩnh viễn trong mọi tình huống.
+- ⛔ **CÁCH SỬA ĐÃ THẤT BẠI - TUYỆT ĐỐI KHÔNG LẶP LẠI**:
+  - ❌ *Không được dùng `liveGame || game` mà không kiểm tra `game` prop*: `liveGame` sẽ giữ giá trị cũ khi `game` đã chuyển sang `null`.
+  - ❌ *Không được truy cập trực tiếp `game.prop` trong JSX của modal khi `game` có thể là `null`*: Bắt buộc phải qua `currentGame` và guard `!currentGame`.
+  - ❌ *Không được để ứng dụng React ở main.tsx không có ErrorBoundary*: Bất kỳ lỗi component nào cũng sẽ unmount toàn bộ DOM thành màn hình đen.
+
+---
+
 ## 2. QUY TRÌNH BẮT BUỘC TRƯỚC KHI SỬA CODE (PRE-FLIGHT CHECKLIST)
 
 Mọi nhà phát triển hoặc AI Agent khi nhận yêu cầu sửa đổi mã nguồn **PHẢI** thực hiện đủ 4 bước sau:

@@ -1207,19 +1207,24 @@ export const App: React.FC = () => {
       </div>
 
       {/* Modals & Drawers */}
-      <GameDetailModal
-        game={selectedGame}
-        onClose={() => setSelectedGame(null)}
-        isBookmarked={
-          selectedGame
-            ? bookmarks.includes(selectedGame.id) || bookmarks.includes(selectedGame.slug)
-            : false
-        }
-        onToggleBookmark={(id) => handleToggleBookmark(id)}
-        onOpenShare={(g) => handleOpenShareGame(g)}
-        onShowToast={showToast}
-        currentUser={currentUser}
-      />
+      {selectedGame && (
+        <GameDetailModal
+          game={selectedGame}
+          onClose={() => {
+            setSelectedGame(null);
+            if (typeof window !== 'undefined' && window.location.pathname.startsWith('/game/')) {
+              window.history.replaceState(null, '', '/');
+            }
+          }}
+          isBookmarked={
+            bookmarks.includes(selectedGame.id) || bookmarks.includes(selectedGame.slug)
+          }
+          onToggleBookmark={(id) => handleToggleBookmark(id)}
+          onOpenShare={(g) => handleOpenShareGame(g)}
+          onShowToast={showToast}
+          currentUser={currentUser}
+        />
+      )}
 
       <ShareModal
         isOpen={Boolean(sharePayload)}
