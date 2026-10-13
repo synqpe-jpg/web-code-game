@@ -11114,5 +11114,1382 @@
     "targetGameSlug": "thieu-nien-tay-du-vtc",
     "isEnabled": true,
     "description": "Kênh Fanpage Facebook chính thức của NPH VTC Mobile quản lý và phát code cho Thiếu Niên Tây Du VTC."
+  },
+  {
+    "id": "src_codemoi_blox-fruits",
+    "name": "CodeMoi - Blox Fruits",
+    "type": "reputable_web",
+    "url": "https://codemoi.net/games/blox-fruits/",
+    "targetGameSlug": "blox-fruits",
+    "isEnabled": true,
+    "description": "Cập nhật giftcode Blox Fruits mới nhất, kiểm tra mã quà tặng hàng ngày từ CodeMoi."
+  },
+  {
+    "id": "src_sforum_blox-fruits",
+    "name": "Sforum - Blox Fruits",
+    "type": "reputable_web",
+    "url": "https://cellphones.com.vn/sforum/tag/code-blox-fruits",
+    "targetGameSlug": "blox-fruits",
+    "isEnabled": true,
+    "description": "Hướng dẫn nhận và nhập mã code Blox Fruits trên chuyên trang Sforum."
+  },
+  {
+    "id": "src_intl_blox-fruits",
+    "name": "Cẩm Nang Quốc Tế - Blox Fruits",
+    "type": "reputable_web",
+    "url": "https://www.pockettactics.com/blox-fruits/codes",
+    "targetGameSlug": "blox-fruits",
+    "isEnabled": true,
+    "description": "Mã giftcode quốc tế cập nhật từ chuyên trang Pocket Tactics / Pro Game Guides / Try Hard Guides / Pocket Gamer cho Blox Fruits."
+  },
+  {
+    "id": "src_codemoi_solo-leveling-arise",
+    "name": "CodeMoi - Solo Leveling: Arise",
+    "type": "reputable_web",
+    "url": "https://codemoi.net/games/solo-leveling-arise/",
+    "targetGameSlug": "solo-leveling-arise",
+    "isEnabled": true,
+    "description": "Cập nhật giftcode Solo Leveling: Arise mới nhất, kiểm tra mã quà tặng hàng ngày từ CodeMoi."
+  },
+  {
+    "id": "src_sforum_solo-leveling-arise",
+    "name": "Sforum - Solo Leveling: Arise",
+    "type": "reputable_web",
+    "url": "https://cellphones.com.vn/sforum/tag/code-solo-leveling-arise",
+    "targetGameSlug": "solo-leveling-arise",
+    "isEnabled": true,
+    "description": "Hướng dẫn nhận và nhập mã code Solo Leveling: Arise trên chuyên trang Sforum."
+  },
+  {
+    "id": "src_intl_solo-leveling-arise",
+    "name": "Cẩm Nang Quốc Tế - Solo Leveling: Arise",
+    "type": "reputable_web",
+    "url": "https://www.pockettactics.com/solo-leveling-arise/codes",
+    "targetGameSlug": "solo-leveling-arise",
+    "isEnabled": true,
+    "description": "Mã giftcode quốc tế cập nhật từ chuyên trang Pocket Tactics / Pro Game Guides / Try Hard Guides / Pocket Gamer cho Solo Leveling: Arise."
+  },
+  {
+    "id": "src_codemoi_wuthering-waves",
+    "name": "CodeMoi - Wuthering Waves",
+    "type": "reputable_web",
+    "url": "https://codemoi.net/games/wuthering-waves/",
+    "targetGameSlug": "wuthering-waves",
+    "isEnabled": true,
+    "description": "Cập nhật giftcode Wuthering Waves mới nhất, kiểm tra mã quà tặng hàng ngày từ CodeMoi."
+  },
+  {
+    "id": "src_sforum_wuthering-waves",
+    "name": "Sforum - Wuthering Waves",
+    "type": "reputable_web",
+    "url": "https://cellphones.com.vn/sforum/tag/code-wuthering-waves",
+    "targetGameSlug": "wuthering-waves",
+    "isEnabled": true,
+    "description": "Hướng dẫn nhận và nhập mã code Wuthering Waves trên chuyên trang Sforum."
+  },
+  {
+    "id": "src_fb_wuthering-waves",
+    "name": "Fanpage Chính Thức - Wuthering Waves",
+    "type": "official_fb",
+    "url": "https://facebook.com/WutheringWaves.Official",
+    "targetGameSlug": "wuthering-waves",
+    "isEnabled": true,
+    "description": "Fanpage Facebook chính thức của tựa game Wuthering Waves."
+  },
+  {
+    "id": "src_discord_wuthering-waves",
+    "name": "Discord Official - Wuthering Waves",
+    "type": "community_discord",
+    "url": "https://discord.gg/wutheringwaves",
+    "targetGameSlug": "wuthering-waves",
+    "isEnabled": true,
+    "description": "Kênh Discord chính thức thông báo mã quà tặng và mã livestream cho Wuthering Waves."
+  },
+  {
+    "id": "src_codemoi_whiteout-survival",
+    "name": "CodeMoi - Whiteout Survival",
+    "type": "reputable_web",
+    "url": "https://codemoi.net/games/whiteout-survival/",
+    "targetGameSlug": "whiteout-survival",
+    "isEnabled": true,
+    "description": "Cập nhật giftcode Whiteout Survival mới nhất, kiểm tra mã quà tặng hàng ngày từ CodeMoi."
+  },
+  {
+    "id": "src_sforum_whiteout-survival",
+    "name": "Sforum - Whiteout Survival",
+    "type": "reputable_web",
+    "url": "https://cellphones.com.vn/sforum/tag/code-whiteout-survival",
+    "targetGameSlug": "whiteout-survival",
+    "isEnabled": true,
+    "description": "Hướng dẫn nhận và nhập mã code Whiteout Survival trên chuyên trang Sforum."
+  },
+  {
+    "id": "src_intl_whiteout-survival",
+    "name": "Cẩm Nang Quốc Tế - Whiteout Survival",
+    "type": "reputable_web",
+    "url": "https://www.pocketgamer.com/whiteout-survival/codes/",
+    "targetGameSlug": "whiteout-survival",
+    "isEnabled": true,
+    "description": "Mã giftcode quốc tế cập nhật từ chuyên trang Pocket Tactics / Pro Game Guides / Try Hard Guides / Pocket Gamer cho Whiteout Survival."
+  },
+  {
+    "id": "src_codemoi_brawl-stars",
+    "name": "CodeMoi - Brawl Stars",
+    "type": "reputable_web",
+    "url": "https://codemoi.net/games/brawl-stars/",
+    "targetGameSlug": "brawl-stars",
+    "isEnabled": true,
+    "description": "Cập nhật giftcode Brawl Stars mới nhất, kiểm tra mã quà tặng hàng ngày từ CodeMoi."
+  },
+  {
+    "id": "src_sforum_brawl-stars",
+    "name": "Sforum - Brawl Stars",
+    "type": "reputable_web",
+    "url": "https://cellphones.com.vn/sforum/tag/code-brawl-stars",
+    "targetGameSlug": "brawl-stars",
+    "isEnabled": true,
+    "description": "Hướng dẫn nhận và nhập mã code Brawl Stars trên chuyên trang Sforum."
+  },
+  {
+    "id": "src_intl_brawl-stars",
+    "name": "Cẩm Nang Quốc Tế - Brawl Stars",
+    "type": "reputable_web",
+    "url": "https://www.pocketgamer.com/brawl-stars/codes/",
+    "targetGameSlug": "brawl-stars",
+    "isEnabled": true,
+    "description": "Mã giftcode quốc tế cập nhật từ chuyên trang Pocket Tactics / Pro Game Guides / Try Hard Guides / Pocket Gamer cho Brawl Stars."
+  },
+  {
+    "id": "src_codemoi_monopoly-go",
+    "name": "CodeMoi - Monopoly GO!",
+    "type": "reputable_web",
+    "url": "https://codemoi.net/games/monopoly-go/",
+    "targetGameSlug": "monopoly-go",
+    "isEnabled": true,
+    "description": "Cập nhật giftcode Monopoly GO! mới nhất, kiểm tra mã quà tặng hàng ngày từ CodeMoi."
+  },
+  {
+    "id": "src_sforum_monopoly-go",
+    "name": "Sforum - Monopoly GO!",
+    "type": "reputable_web",
+    "url": "https://cellphones.com.vn/sforum/tag/code-monopoly-go",
+    "targetGameSlug": "monopoly-go",
+    "isEnabled": true,
+    "description": "Hướng dẫn nhận và nhập mã code Monopoly GO! trên chuyên trang Sforum."
+  },
+  {
+    "id": "src_intl_monopoly-go",
+    "name": "Cẩm Nang Quốc Tế - Monopoly GO!",
+    "type": "reputable_web",
+    "url": "https://www.pockettactics.com/monopoly-go/free-dice-rolls",
+    "targetGameSlug": "monopoly-go",
+    "isEnabled": true,
+    "description": "Mã giftcode quốc tế cập nhật từ chuyên trang Pocket Tactics / Pro Game Guides / Try Hard Guides / Pocket Gamer cho Monopoly GO!."
+  },
+  {
+    "id": "src_codemoi_pet-simulator-99",
+    "name": "CodeMoi - Pet Simulator 99",
+    "type": "reputable_web",
+    "url": "https://codemoi.net/games/pet-simulator-99/",
+    "targetGameSlug": "pet-simulator-99",
+    "isEnabled": true,
+    "description": "Cập nhật giftcode Pet Simulator 99 mới nhất, kiểm tra mã quà tặng hàng ngày từ CodeMoi."
+  },
+  {
+    "id": "src_sforum_pet-simulator-99",
+    "name": "Sforum - Pet Simulator 99",
+    "type": "reputable_web",
+    "url": "https://cellphones.com.vn/sforum/tag/code-pet-simulator-99",
+    "targetGameSlug": "pet-simulator-99",
+    "isEnabled": true,
+    "description": "Hướng dẫn nhận và nhập mã code Pet Simulator 99 trên chuyên trang Sforum."
+  },
+  {
+    "id": "src_intl_pet-simulator-99",
+    "name": "Cẩm Nang Quốc Tế - Pet Simulator 99",
+    "type": "reputable_web",
+    "url": "https://tryhardguides.com/pet-simulator-99-codes/",
+    "targetGameSlug": "pet-simulator-99",
+    "isEnabled": true,
+    "description": "Mã giftcode quốc tế cập nhật từ chuyên trang Pocket Tactics / Pro Game Guides / Try Hard Guides / Pocket Gamer cho Pet Simulator 99."
+  },
+  {
+    "id": "src_codemoi_all-star-tower-defense",
+    "name": "CodeMoi - All Star Tower Defense",
+    "type": "reputable_web",
+    "url": "https://codemoi.net/games/all-star-tower-defense/",
+    "targetGameSlug": "all-star-tower-defense",
+    "isEnabled": true,
+    "description": "Cập nhật giftcode All Star Tower Defense mới nhất, kiểm tra mã quà tặng hàng ngày từ CodeMoi."
+  },
+  {
+    "id": "src_sforum_all-star-tower-defense",
+    "name": "Sforum - All Star Tower Defense",
+    "type": "reputable_web",
+    "url": "https://cellphones.com.vn/sforum/tag/code-all-star-tower-defense",
+    "targetGameSlug": "all-star-tower-defense",
+    "isEnabled": true,
+    "description": "Hướng dẫn nhận và nhập mã code All Star Tower Defense trên chuyên trang Sforum."
+  },
+  {
+    "id": "src_intl_all-star-tower-defense",
+    "name": "Cẩm Nang Quốc Tế - All Star Tower Defense",
+    "type": "reputable_web",
+    "url": "https://progameguides.com/roblox/all-star-tower-defense-codes/",
+    "targetGameSlug": "all-star-tower-defense",
+    "isEnabled": true,
+    "description": "Mã giftcode quốc tế cập nhật từ chuyên trang Pocket Tactics / Pro Game Guides / Try Hard Guides / Pocket Gamer cho All Star Tower Defense."
+  },
+  {
+    "id": "src_codemoi_toilet-tower-defense",
+    "name": "CodeMoi - Toilet Tower Defense",
+    "type": "reputable_web",
+    "url": "https://codemoi.net/games/toilet-tower-defense/",
+    "targetGameSlug": "toilet-tower-defense",
+    "isEnabled": true,
+    "description": "Cập nhật giftcode Toilet Tower Defense mới nhất, kiểm tra mã quà tặng hàng ngày từ CodeMoi."
+  },
+  {
+    "id": "src_sforum_toilet-tower-defense",
+    "name": "Sforum - Toilet Tower Defense",
+    "type": "reputable_web",
+    "url": "https://cellphones.com.vn/sforum/tag/code-toilet-tower-defense",
+    "targetGameSlug": "toilet-tower-defense",
+    "isEnabled": true,
+    "description": "Hướng dẫn nhận và nhập mã code Toilet Tower Defense trên chuyên trang Sforum."
+  },
+  {
+    "id": "src_intl_toilet-tower-defense",
+    "name": "Cẩm Nang Quốc Tế - Toilet Tower Defense",
+    "type": "reputable_web",
+    "url": "https://tryhardguides.com/toilet-tower-defense-codes/",
+    "targetGameSlug": "toilet-tower-defense",
+    "isEnabled": true,
+    "description": "Mã giftcode quốc tế cập nhật từ chuyên trang Pocket Tactics / Pro Game Guides / Try Hard Guides / Pocket Gamer cho Toilet Tower Defense."
+  },
+  {
+    "id": "src_codemoi_adopt-me",
+    "name": "CodeMoi - Adopt Me!",
+    "type": "reputable_web",
+    "url": "https://codemoi.net/games/adopt-me/",
+    "targetGameSlug": "adopt-me",
+    "isEnabled": true,
+    "description": "Cập nhật giftcode Adopt Me! mới nhất, kiểm tra mã quà tặng hàng ngày từ CodeMoi."
+  },
+  {
+    "id": "src_sforum_adopt-me",
+    "name": "Sforum - Adopt Me!",
+    "type": "reputable_web",
+    "url": "https://cellphones.com.vn/sforum/tag/code-adopt-me",
+    "targetGameSlug": "adopt-me",
+    "isEnabled": true,
+    "description": "Hướng dẫn nhận và nhập mã code Adopt Me! trên chuyên trang Sforum."
+  },
+  {
+    "id": "src_intl_adopt-me",
+    "name": "Cẩm Nang Quốc Tế - Adopt Me!",
+    "type": "reputable_web",
+    "url": "https://www.pockettactics.com/adopt-me/codes",
+    "targetGameSlug": "adopt-me",
+    "isEnabled": true,
+    "description": "Mã giftcode quốc tế cập nhật từ chuyên trang Pocket Tactics / Pro Game Guides / Try Hard Guides / Pocket Gamer cho Adopt Me!."
+  },
+  {
+    "id": "src_codemoi_murder-mystery-2",
+    "name": "CodeMoi - Murder Mystery 2",
+    "type": "reputable_web",
+    "url": "https://codemoi.net/games/murder-mystery-2/",
+    "targetGameSlug": "murder-mystery-2",
+    "isEnabled": true,
+    "description": "Cập nhật giftcode Murder Mystery 2 mới nhất, kiểm tra mã quà tặng hàng ngày từ CodeMoi."
+  },
+  {
+    "id": "src_sforum_murder-mystery-2",
+    "name": "Sforum - Murder Mystery 2",
+    "type": "reputable_web",
+    "url": "https://cellphones.com.vn/sforum/tag/code-murder-mystery-2",
+    "targetGameSlug": "murder-mystery-2",
+    "isEnabled": true,
+    "description": "Hướng dẫn nhận và nhập mã code Murder Mystery 2 trên chuyên trang Sforum."
+  },
+  {
+    "id": "src_intl_murder-mystery-2",
+    "name": "Cẩm Nang Quốc Tế - Murder Mystery 2",
+    "type": "reputable_web",
+    "url": "https://tryhardguides.com/murder-mystery-2-codes/",
+    "targetGameSlug": "murder-mystery-2",
+    "isEnabled": true,
+    "description": "Mã giftcode quốc tế cập nhật từ chuyên trang Pocket Tactics / Pro Game Guides / Try Hard Guides / Pocket Gamer cho Murder Mystery 2."
+  },
+  {
+    "id": "src_codemoi_doors-roblox",
+    "name": "CodeMoi - DOORS (Roblox)",
+    "type": "reputable_web",
+    "url": "https://codemoi.net/games/doors-roblox/",
+    "targetGameSlug": "doors-roblox",
+    "isEnabled": true,
+    "description": "Cập nhật giftcode DOORS (Roblox) mới nhất, kiểm tra mã quà tặng hàng ngày từ CodeMoi."
+  },
+  {
+    "id": "src_sforum_doors-roblox",
+    "name": "Sforum - DOORS (Roblox)",
+    "type": "reputable_web",
+    "url": "https://cellphones.com.vn/sforum/tag/code-doors-roblox",
+    "targetGameSlug": "doors-roblox",
+    "isEnabled": true,
+    "description": "Hướng dẫn nhận và nhập mã code DOORS (Roblox) trên chuyên trang Sforum."
+  },
+  {
+    "id": "src_intl_doors-roblox",
+    "name": "Cẩm Nang Quốc Tế - DOORS (Roblox)",
+    "type": "reputable_web",
+    "url": "https://www.pockettactics.com/doors/codes",
+    "targetGameSlug": "doors-roblox",
+    "isEnabled": true,
+    "description": "Mã giftcode quốc tế cập nhật từ chuyên trang Pocket Tactics / Pro Game Guides / Try Hard Guides / Pocket Gamer cho DOORS (Roblox)."
+  },
+  {
+    "id": "src_codemoi_da-hood",
+    "name": "CodeMoi - Da Hood",
+    "type": "reputable_web",
+    "url": "https://codemoi.net/games/da-hood/",
+    "targetGameSlug": "da-hood",
+    "isEnabled": true,
+    "description": "Cập nhật giftcode Da Hood mới nhất, kiểm tra mã quà tặng hàng ngày từ CodeMoi."
+  },
+  {
+    "id": "src_sforum_da-hood",
+    "name": "Sforum - Da Hood",
+    "type": "reputable_web",
+    "url": "https://cellphones.com.vn/sforum/tag/code-da-hood",
+    "targetGameSlug": "da-hood",
+    "isEnabled": true,
+    "description": "Hướng dẫn nhận và nhập mã code Da Hood trên chuyên trang Sforum."
+  },
+  {
+    "id": "src_intl_da-hood",
+    "name": "Cẩm Nang Quốc Tế - Da Hood",
+    "type": "reputable_web",
+    "url": "https://tryhardguides.com/da-hood-codes/",
+    "targetGameSlug": "da-hood",
+    "isEnabled": true,
+    "description": "Mã giftcode quốc tế cập nhật từ chuyên trang Pocket Tactics / Pro Game Guides / Try Hard Guides / Pocket Gamer cho Da Hood."
+  },
+  {
+    "id": "src_codemoi_fruit-battlegrounds",
+    "name": "CodeMoi - Fruit Battlegrounds",
+    "type": "reputable_web",
+    "url": "https://codemoi.net/games/fruit-battlegrounds/",
+    "targetGameSlug": "fruit-battlegrounds",
+    "isEnabled": true,
+    "description": "Cập nhật giftcode Fruit Battlegrounds mới nhất, kiểm tra mã quà tặng hàng ngày từ CodeMoi."
+  },
+  {
+    "id": "src_sforum_fruit-battlegrounds",
+    "name": "Sforum - Fruit Battlegrounds",
+    "type": "reputable_web",
+    "url": "https://cellphones.com.vn/sforum/tag/code-fruit-battlegrounds",
+    "targetGameSlug": "fruit-battlegrounds",
+    "isEnabled": true,
+    "description": "Hướng dẫn nhận và nhập mã code Fruit Battlegrounds trên chuyên trang Sforum."
+  },
+  {
+    "id": "src_intl_fruit-battlegrounds",
+    "name": "Cẩm Nang Quốc Tế - Fruit Battlegrounds",
+    "type": "reputable_web",
+    "url": "https://tryhardguides.com/fruit-battlegrounds-codes/",
+    "targetGameSlug": "fruit-battlegrounds",
+    "isEnabled": true,
+    "description": "Mã giftcode quốc tế cập nhật từ chuyên trang Pocket Tactics / Pro Game Guides / Try Hard Guides / Pocket Gamer cho Fruit Battlegrounds."
+  },
+  {
+    "id": "src_codemoi_shindo-life",
+    "name": "CodeMoi - Shindo Life",
+    "type": "reputable_web",
+    "url": "https://codemoi.net/games/shindo-life/",
+    "targetGameSlug": "shindo-life",
+    "isEnabled": true,
+    "description": "Cập nhật giftcode Shindo Life mới nhất, kiểm tra mã quà tặng hàng ngày từ CodeMoi."
+  },
+  {
+    "id": "src_sforum_shindo-life",
+    "name": "Sforum - Shindo Life",
+    "type": "reputable_web",
+    "url": "https://cellphones.com.vn/sforum/tag/code-shindo-life",
+    "targetGameSlug": "shindo-life",
+    "isEnabled": true,
+    "description": "Hướng dẫn nhận và nhập mã code Shindo Life trên chuyên trang Sforum."
+  },
+  {
+    "id": "src_intl_shindo-life",
+    "name": "Cẩm Nang Quốc Tế - Shindo Life",
+    "type": "reputable_web",
+    "url": "https://tryhardguides.com/shindo-life-codes/",
+    "targetGameSlug": "shindo-life",
+    "isEnabled": true,
+    "description": "Mã giftcode quốc tế cập nhật từ chuyên trang Pocket Tactics / Pro Game Guides / Try Hard Guides / Pocket Gamer cho Shindo Life."
+  },
+  {
+    "id": "src_codemoi_fisch-roblox",
+    "name": "CodeMoi - Fisch (Roblox)",
+    "type": "reputable_web",
+    "url": "https://codemoi.net/games/fisch-roblox/",
+    "targetGameSlug": "fisch-roblox",
+    "isEnabled": true,
+    "description": "Cập nhật giftcode Fisch (Roblox) mới nhất, kiểm tra mã quà tặng hàng ngày từ CodeMoi."
+  },
+  {
+    "id": "src_sforum_fisch-roblox",
+    "name": "Sforum - Fisch (Roblox)",
+    "type": "reputable_web",
+    "url": "https://cellphones.com.vn/sforum/tag/code-fisch-roblox",
+    "targetGameSlug": "fisch-roblox",
+    "isEnabled": true,
+    "description": "Hướng dẫn nhận và nhập mã code Fisch (Roblox) trên chuyên trang Sforum."
+  },
+  {
+    "id": "src_intl_fisch-roblox",
+    "name": "Cẩm Nang Quốc Tế - Fisch (Roblox)",
+    "type": "reputable_web",
+    "url": "https://tryhardguides.com/fisch-codes/",
+    "targetGameSlug": "fisch-roblox",
+    "isEnabled": true,
+    "description": "Mã giftcode quốc tế cập nhật từ chuyên trang Pocket Tactics / Pro Game Guides / Try Hard Guides / Pocket Gamer cho Fisch (Roblox)."
+  },
+  {
+    "id": "src_codemoi_jujutsu-infinite",
+    "name": "CodeMoi - Jujutsu Infinite",
+    "type": "reputable_web",
+    "url": "https://codemoi.net/games/jujutsu-infinite/",
+    "targetGameSlug": "jujutsu-infinite",
+    "isEnabled": true,
+    "description": "Cập nhật giftcode Jujutsu Infinite mới nhất, kiểm tra mã quà tặng hàng ngày từ CodeMoi."
+  },
+  {
+    "id": "src_sforum_jujutsu-infinite",
+    "name": "Sforum - Jujutsu Infinite",
+    "type": "reputable_web",
+    "url": "https://cellphones.com.vn/sforum/tag/code-jujutsu-infinite",
+    "targetGameSlug": "jujutsu-infinite",
+    "isEnabled": true,
+    "description": "Hướng dẫn nhận và nhập mã code Jujutsu Infinite trên chuyên trang Sforum."
+  },
+  {
+    "id": "src_intl_jujutsu-infinite",
+    "name": "Cẩm Nang Quốc Tế - Jujutsu Infinite",
+    "type": "reputable_web",
+    "url": "https://tryhardguides.com/jujutsu-infinite-codes/",
+    "targetGameSlug": "jujutsu-infinite",
+    "isEnabled": true,
+    "description": "Mã giftcode quốc tế cập nhật từ chuyên trang Pocket Tactics / Pro Game Guides / Try Hard Guides / Pocket Gamer cho Jujutsu Infinite."
+  },
+  {
+    "id": "src_codemoi_tower-defense-simulator",
+    "name": "CodeMoi - Tower Defense Simulator",
+    "type": "reputable_web",
+    "url": "https://codemoi.net/games/tower-defense-simulator/",
+    "targetGameSlug": "tower-defense-simulator",
+    "isEnabled": true,
+    "description": "Cập nhật giftcode Tower Defense Simulator mới nhất, kiểm tra mã quà tặng hàng ngày từ CodeMoi."
+  },
+  {
+    "id": "src_sforum_tower-defense-simulator",
+    "name": "Sforum - Tower Defense Simulator",
+    "type": "reputable_web",
+    "url": "https://cellphones.com.vn/sforum/tag/code-tower-defense-simulator",
+    "targetGameSlug": "tower-defense-simulator",
+    "isEnabled": true,
+    "description": "Hướng dẫn nhận và nhập mã code Tower Defense Simulator trên chuyên trang Sforum."
+  },
+  {
+    "id": "src_intl_tower-defense-simulator",
+    "name": "Cẩm Nang Quốc Tế - Tower Defense Simulator",
+    "type": "reputable_web",
+    "url": "https://progameguides.com/roblox/tower-defense-simulator-codes/",
+    "targetGameSlug": "tower-defense-simulator",
+    "isEnabled": true,
+    "description": "Mã giftcode quốc tế cập nhật từ chuyên trang Pocket Tactics / Pro Game Guides / Try Hard Guides / Pocket Gamer cho Tower Defense Simulator."
+  },
+  {
+    "id": "src_codemoi_bee-swarm-simulator",
+    "name": "CodeMoi - Bee Swarm Simulator",
+    "type": "reputable_web",
+    "url": "https://codemoi.net/games/bee-swarm-simulator/",
+    "targetGameSlug": "bee-swarm-simulator",
+    "isEnabled": true,
+    "description": "Cập nhật giftcode Bee Swarm Simulator mới nhất, kiểm tra mã quà tặng hàng ngày từ CodeMoi."
+  },
+  {
+    "id": "src_sforum_bee-swarm-simulator",
+    "name": "Sforum - Bee Swarm Simulator",
+    "type": "reputable_web",
+    "url": "https://cellphones.com.vn/sforum/tag/code-bee-swarm-simulator",
+    "targetGameSlug": "bee-swarm-simulator",
+    "isEnabled": true,
+    "description": "Hướng dẫn nhận và nhập mã code Bee Swarm Simulator trên chuyên trang Sforum."
+  },
+  {
+    "id": "src_intl_bee-swarm-simulator",
+    "name": "Cẩm Nang Quốc Tế - Bee Swarm Simulator",
+    "type": "reputable_web",
+    "url": "https://progameguides.com/roblox/bee-swarm-simulator-codes/",
+    "targetGameSlug": "bee-swarm-simulator",
+    "isEnabled": true,
+    "description": "Mã giftcode quốc tế cập nhật từ chuyên trang Pocket Tactics / Pro Game Guides / Try Hard Guides / Pocket Gamer cho Bee Swarm Simulator."
+  },
+  {
+    "id": "src_codemoi_arsenal-roblox",
+    "name": "CodeMoi - Arsenal (Roblox)",
+    "type": "reputable_web",
+    "url": "https://codemoi.net/games/arsenal-roblox/",
+    "targetGameSlug": "arsenal-roblox",
+    "isEnabled": true,
+    "description": "Cập nhật giftcode Arsenal (Roblox) mới nhất, kiểm tra mã quà tặng hàng ngày từ CodeMoi."
+  },
+  {
+    "id": "src_sforum_arsenal-roblox",
+    "name": "Sforum - Arsenal (Roblox)",
+    "type": "reputable_web",
+    "url": "https://cellphones.com.vn/sforum/tag/code-arsenal-roblox",
+    "targetGameSlug": "arsenal-roblox",
+    "isEnabled": true,
+    "description": "Hướng dẫn nhận và nhập mã code Arsenal (Roblox) trên chuyên trang Sforum."
+  },
+  {
+    "id": "src_intl_arsenal-roblox",
+    "name": "Cẩm Nang Quốc Tế - Arsenal (Roblox)",
+    "type": "reputable_web",
+    "url": "https://progameguides.com/roblox/arsenal-codes/",
+    "targetGameSlug": "arsenal-roblox",
+    "isEnabled": true,
+    "description": "Mã giftcode quốc tế cập nhật từ chuyên trang Pocket Tactics / Pro Game Guides / Try Hard Guides / Pocket Gamer cho Arsenal (Roblox)."
+  },
+  {
+    "id": "src_codemoi_roblox-rivals",
+    "name": "CodeMoi - Rivals (Roblox)",
+    "type": "reputable_web",
+    "url": "https://codemoi.net/games/roblox-rivals/",
+    "targetGameSlug": "roblox-rivals",
+    "isEnabled": true,
+    "description": "Cập nhật giftcode Rivals (Roblox) mới nhất, kiểm tra mã quà tặng hàng ngày từ CodeMoi."
+  },
+  {
+    "id": "src_sforum_roblox-rivals",
+    "name": "Sforum - Rivals (Roblox)",
+    "type": "reputable_web",
+    "url": "https://cellphones.com.vn/sforum/tag/code-roblox-rivals",
+    "targetGameSlug": "roblox-rivals",
+    "isEnabled": true,
+    "description": "Hướng dẫn nhận và nhập mã code Rivals (Roblox) trên chuyên trang Sforum."
+  },
+  {
+    "id": "src_intl_roblox-rivals",
+    "name": "Cẩm Nang Quốc Tế - Rivals (Roblox)",
+    "type": "reputable_web",
+    "url": "https://tryhardguides.com/rivals-codes/",
+    "targetGameSlug": "roblox-rivals",
+    "isEnabled": true,
+    "description": "Mã giftcode quốc tế cập nhật từ chuyên trang Pocket Tactics / Pro Game Guides / Try Hard Guides / Pocket Gamer cho Rivals (Roblox)."
+  },
+  {
+    "id": "src_codemoi_nikke-goddess-of-victory",
+    "name": "CodeMoi - Goddess of Victory: NIKKE",
+    "type": "reputable_web",
+    "url": "https://codemoi.net/games/nikke-goddess-of-victory/",
+    "targetGameSlug": "nikke-goddess-of-victory",
+    "isEnabled": true,
+    "description": "Cập nhật giftcode Goddess of Victory: NIKKE mới nhất, kiểm tra mã quà tặng hàng ngày từ CodeMoi."
+  },
+  {
+    "id": "src_sforum_nikke-goddess-of-victory",
+    "name": "Sforum - Goddess of Victory: NIKKE",
+    "type": "reputable_web",
+    "url": "https://cellphones.com.vn/sforum/tag/code-nikke-goddess-of-victory",
+    "targetGameSlug": "nikke-goddess-of-victory",
+    "isEnabled": true,
+    "description": "Hướng dẫn nhận và nhập mã code Goddess of Victory: NIKKE trên chuyên trang Sforum."
+  },
+  {
+    "id": "src_intl_nikke-goddess-of-victory",
+    "name": "Cẩm Nang Quốc Tế - Goddess of Victory: NIKKE",
+    "type": "reputable_web",
+    "url": "https://www.pockettactics.com/goddess-of-victory-nikke/codes",
+    "targetGameSlug": "nikke-goddess-of-victory",
+    "isEnabled": true,
+    "description": "Mã giftcode quốc tế cập nhật từ chuyên trang Pocket Tactics / Pro Game Guides / Try Hard Guides / Pocket Gamer cho Goddess of Victory: NIKKE."
+  },
+  {
+    "id": "src_codemoi_blue-archive",
+    "name": "CodeMoi - Blue Archive",
+    "type": "reputable_web",
+    "url": "https://codemoi.net/games/blue-archive/",
+    "targetGameSlug": "blue-archive",
+    "isEnabled": true,
+    "description": "Cập nhật giftcode Blue Archive mới nhất, kiểm tra mã quà tặng hàng ngày từ CodeMoi."
+  },
+  {
+    "id": "src_sforum_blue-archive",
+    "name": "Sforum - Blue Archive",
+    "type": "reputable_web",
+    "url": "https://cellphones.com.vn/sforum/tag/code-blue-archive",
+    "targetGameSlug": "blue-archive",
+    "isEnabled": true,
+    "description": "Hướng dẫn nhận và nhập mã code Blue Archive trên chuyên trang Sforum."
+  },
+  {
+    "id": "src_intl_blue-archive",
+    "name": "Cẩm Nang Quốc Tế - Blue Archive",
+    "type": "reputable_web",
+    "url": "https://www.pockettactics.com/blue-archive/codes",
+    "targetGameSlug": "blue-archive",
+    "isEnabled": true,
+    "description": "Mã giftcode quốc tế cập nhật từ chuyên trang Pocket Tactics / Pro Game Guides / Try Hard Guides / Pocket Gamer cho Blue Archive."
+  },
+  {
+    "id": "src_codemoi_marvel-snap",
+    "name": "CodeMoi - Marvel SNAP",
+    "type": "reputable_web",
+    "url": "https://codemoi.net/games/marvel-snap/",
+    "targetGameSlug": "marvel-snap",
+    "isEnabled": true,
+    "description": "Cập nhật giftcode Marvel SNAP mới nhất, kiểm tra mã quà tặng hàng ngày từ CodeMoi."
+  },
+  {
+    "id": "src_sforum_marvel-snap",
+    "name": "Sforum - Marvel SNAP",
+    "type": "reputable_web",
+    "url": "https://cellphones.com.vn/sforum/tag/code-marvel-snap",
+    "targetGameSlug": "marvel-snap",
+    "isEnabled": true,
+    "description": "Hướng dẫn nhận và nhập mã code Marvel SNAP trên chuyên trang Sforum."
+  },
+  {
+    "id": "src_intl_marvel-snap",
+    "name": "Cẩm Nang Quốc Tế - Marvel SNAP",
+    "type": "reputable_web",
+    "url": "https://www.pockettactics.com/marvel-snap/codes",
+    "targetGameSlug": "marvel-snap",
+    "isEnabled": true,
+    "description": "Mã giftcode quốc tế cập nhật từ chuyên trang Pocket Tactics / Pro Game Guides / Try Hard Guides / Pocket Gamer cho Marvel SNAP."
+  },
+  {
+    "id": "src_codemoi_clash-of-clans",
+    "name": "CodeMoi - Clash of Clans",
+    "type": "reputable_web",
+    "url": "https://codemoi.net/games/clash-of-clans/",
+    "targetGameSlug": "clash-of-clans",
+    "isEnabled": true,
+    "description": "Cập nhật giftcode Clash of Clans mới nhất, kiểm tra mã quà tặng hàng ngày từ CodeMoi."
+  },
+  {
+    "id": "src_sforum_clash-of-clans",
+    "name": "Sforum - Clash of Clans",
+    "type": "reputable_web",
+    "url": "https://cellphones.com.vn/sforum/tag/code-clash-of-clans",
+    "targetGameSlug": "clash-of-clans",
+    "isEnabled": true,
+    "description": "Hướng dẫn nhận và nhập mã code Clash of Clans trên chuyên trang Sforum."
+  },
+  {
+    "id": "src_intl_clash-of-clans",
+    "name": "Cẩm Nang Quốc Tế - Clash of Clans",
+    "type": "reputable_web",
+    "url": "https://www.pocketgamer.com/clash-of-clans/codes/",
+    "targetGameSlug": "clash-of-clans",
+    "isEnabled": true,
+    "description": "Mã giftcode quốc tế cập nhật từ chuyên trang Pocket Tactics / Pro Game Guides / Try Hard Guides / Pocket Gamer cho Clash of Clans."
+  },
+  {
+    "id": "src_codemoi_clash-royale",
+    "name": "CodeMoi - Clash Royale",
+    "type": "reputable_web",
+    "url": "https://codemoi.net/games/clash-royale/",
+    "targetGameSlug": "clash-royale",
+    "isEnabled": true,
+    "description": "Cập nhật giftcode Clash Royale mới nhất, kiểm tra mã quà tặng hàng ngày từ CodeMoi."
+  },
+  {
+    "id": "src_sforum_clash-royale",
+    "name": "Sforum - Clash Royale",
+    "type": "reputable_web",
+    "url": "https://cellphones.com.vn/sforum/tag/code-clash-royale",
+    "targetGameSlug": "clash-royale",
+    "isEnabled": true,
+    "description": "Hướng dẫn nhận và nhập mã code Clash Royale trên chuyên trang Sforum."
+  },
+  {
+    "id": "src_intl_clash-royale",
+    "name": "Cẩm Nang Quốc Tế - Clash Royale",
+    "type": "reputable_web",
+    "url": "https://www.pocketgamer.com/clash-royale/codes/",
+    "targetGameSlug": "clash-royale",
+    "isEnabled": true,
+    "description": "Mã giftcode quốc tế cập nhật từ chuyên trang Pocket Tactics / Pro Game Guides / Try Hard Guides / Pocket Gamer cho Clash Royale."
+  },
+  {
+    "id": "src_codemoi_dragon-ball-legends",
+    "name": "CodeMoi - Dragon Ball Legends",
+    "type": "reputable_web",
+    "url": "https://codemoi.net/games/dragon-ball-legends/",
+    "targetGameSlug": "dragon-ball-legends",
+    "isEnabled": true,
+    "description": "Cập nhật giftcode Dragon Ball Legends mới nhất, kiểm tra mã quà tặng hàng ngày từ CodeMoi."
+  },
+  {
+    "id": "src_sforum_dragon-ball-legends",
+    "name": "Sforum - Dragon Ball Legends",
+    "type": "reputable_web",
+    "url": "https://cellphones.com.vn/sforum/tag/code-dragon-ball-legends",
+    "targetGameSlug": "dragon-ball-legends",
+    "isEnabled": true,
+    "description": "Hướng dẫn nhận và nhập mã code Dragon Ball Legends trên chuyên trang Sforum."
+  },
+  {
+    "id": "src_intl_dragon-ball-legends",
+    "name": "Cẩm Nang Quốc Tế - Dragon Ball Legends",
+    "type": "reputable_web",
+    "url": "https://www.pocketgamer.com/dragon-ball-legends/codes/",
+    "targetGameSlug": "dragon-ball-legends",
+    "isEnabled": true,
+    "description": "Mã giftcode quốc tế cập nhật từ chuyên trang Pocket Tactics / Pro Game Guides / Try Hard Guides / Pocket Gamer cho Dragon Ball Legends."
+  },
+  {
+    "id": "src_codemoi_seven-deadly-sins-grand-cross",
+    "name": "CodeMoi - The Seven Deadly Sins: Grand Cross",
+    "type": "reputable_web",
+    "url": "https://codemoi.net/games/seven-deadly-sins-grand-cross/",
+    "targetGameSlug": "seven-deadly-sins-grand-cross",
+    "isEnabled": true,
+    "description": "Cập nhật giftcode The Seven Deadly Sins: Grand Cross mới nhất, kiểm tra mã quà tặng hàng ngày từ CodeMoi."
+  },
+  {
+    "id": "src_sforum_seven-deadly-sins-grand-cross",
+    "name": "Sforum - The Seven Deadly Sins: Grand Cross",
+    "type": "reputable_web",
+    "url": "https://cellphones.com.vn/sforum/tag/code-seven-deadly-sins-grand-cross",
+    "targetGameSlug": "seven-deadly-sins-grand-cross",
+    "isEnabled": true,
+    "description": "Hướng dẫn nhận và nhập mã code The Seven Deadly Sins: Grand Cross trên chuyên trang Sforum."
+  },
+  {
+    "id": "src_intl_seven-deadly-sins-grand-cross",
+    "name": "Cẩm Nang Quốc Tế - The Seven Deadly Sins: Grand Cross",
+    "type": "reputable_web",
+    "url": "https://www.urgametips.com",
+    "targetGameSlug": "seven-deadly-sins-grand-cross",
+    "isEnabled": true,
+    "description": "Mã giftcode quốc tế cập nhật từ chuyên trang Pocket Tactics / Pro Game Guides / Try Hard Guides / Pocket Gamer cho The Seven Deadly Sins: Grand Cross."
+  },
+  {
+    "id": "src_codemoi_mu-dark-epoch",
+    "name": "CodeMoi - MU: Dark Epoch",
+    "type": "reputable_web",
+    "url": "https://codemoi.net/games/mu-dark-epoch/",
+    "targetGameSlug": "mu-dark-epoch",
+    "isEnabled": true,
+    "description": "Cập nhật giftcode MU: Dark Epoch mới nhất, kiểm tra mã quà tặng hàng ngày từ CodeMoi."
+  },
+  {
+    "id": "src_sforum_mu-dark-epoch",
+    "name": "Sforum - MU: Dark Epoch",
+    "type": "reputable_web",
+    "url": "https://cellphones.com.vn/sforum/tag/code-mu-dark-epoch",
+    "targetGameSlug": "mu-dark-epoch",
+    "isEnabled": true,
+    "description": "Hướng dẫn nhận và nhập mã code MU: Dark Epoch trên chuyên trang Sforum."
+  },
+  {
+    "id": "src_intl_mu-dark-epoch",
+    "name": "Cẩm Nang Quốc Tế - MU: Dark Epoch",
+    "type": "reputable_web",
+    "url": "https://www.urgametips.com",
+    "targetGameSlug": "mu-dark-epoch",
+    "isEnabled": true,
+    "description": "Mã giftcode quốc tế cập nhật từ chuyên trang Pocket Tactics / Pro Game Guides / Try Hard Guides / Pocket Gamer cho MU: Dark Epoch."
+  },
+  {
+    "id": "src_codemoi_tree-of-savior-neo",
+    "name": "CodeMoi - Tree of Savior: NEO",
+    "type": "reputable_web",
+    "url": "https://codemoi.net/games/tree-of-savior-neo/",
+    "targetGameSlug": "tree-of-savior-neo",
+    "isEnabled": true,
+    "description": "Cập nhật giftcode Tree of Savior: NEO mới nhất, kiểm tra mã quà tặng hàng ngày từ CodeMoi."
+  },
+  {
+    "id": "src_sforum_tree-of-savior-neo",
+    "name": "Sforum - Tree of Savior: NEO",
+    "type": "reputable_web",
+    "url": "https://cellphones.com.vn/sforum/tag/code-tree-of-savior-neo",
+    "targetGameSlug": "tree-of-savior-neo",
+    "isEnabled": true,
+    "description": "Hướng dẫn nhận và nhập mã code Tree of Savior: NEO trên chuyên trang Sforum."
+  },
+  {
+    "id": "src_intl_tree-of-savior-neo",
+    "name": "Cẩm Nang Quốc Tế - Tree of Savior: NEO",
+    "type": "reputable_web",
+    "url": "https://www.urgametips.com",
+    "targetGameSlug": "tree-of-savior-neo",
+    "isEnabled": true,
+    "description": "Mã giftcode quốc tế cập nhật từ chuyên trang Pocket Tactics / Pro Game Guides / Try Hard Guides / Pocket Gamer cho Tree of Savior: NEO."
+  },
+  {
+    "id": "src_codemoi_fate-war",
+    "name": "CodeMoi - Fate War",
+    "type": "reputable_web",
+    "url": "https://codemoi.net/games/fate-war/",
+    "targetGameSlug": "fate-war",
+    "isEnabled": true,
+    "description": "Cập nhật giftcode Fate War mới nhất, kiểm tra mã quà tặng hàng ngày từ CodeMoi."
+  },
+  {
+    "id": "src_sforum_fate-war",
+    "name": "Sforum - Fate War",
+    "type": "reputable_web",
+    "url": "https://cellphones.com.vn/sforum/tag/code-fate-war",
+    "targetGameSlug": "fate-war",
+    "isEnabled": true,
+    "description": "Hướng dẫn nhận và nhập mã code Fate War trên chuyên trang Sforum."
+  },
+  {
+    "id": "src_intl_fate-war",
+    "name": "Cẩm Nang Quốc Tế - Fate War",
+    "type": "reputable_web",
+    "url": "https://www.urgametips.com",
+    "targetGameSlug": "fate-war",
+    "isEnabled": true,
+    "description": "Mã giftcode quốc tế cập nhật từ chuyên trang Pocket Tactics / Pro Game Guides / Try Hard Guides / Pocket Gamer cho Fate War."
+  },
+  {
+    "id": "src_codemoi_project-entropy",
+    "name": "CodeMoi - Project Entropy",
+    "type": "reputable_web",
+    "url": "https://codemoi.net/games/project-entropy/",
+    "targetGameSlug": "project-entropy",
+    "isEnabled": true,
+    "description": "Cập nhật giftcode Project Entropy mới nhất, kiểm tra mã quà tặng hàng ngày từ CodeMoi."
+  },
+  {
+    "id": "src_sforum_project-entropy",
+    "name": "Sforum - Project Entropy",
+    "type": "reputable_web",
+    "url": "https://cellphones.com.vn/sforum/tag/code-project-entropy",
+    "targetGameSlug": "project-entropy",
+    "isEnabled": true,
+    "description": "Hướng dẫn nhận và nhập mã code Project Entropy trên chuyên trang Sforum."
+  },
+  {
+    "id": "src_intl_project-entropy",
+    "name": "Cẩm Nang Quốc Tế - Project Entropy",
+    "type": "reputable_web",
+    "url": "https://www.urgametips.com",
+    "targetGameSlug": "project-entropy",
+    "isEnabled": true,
+    "description": "Mã giftcode quốc tế cập nhật từ chuyên trang Pocket Tactics / Pro Game Guides / Try Hard Guides / Pocket Gamer cho Project Entropy."
+  },
+  {
+    "id": "src_codemoi_revelation-m",
+    "name": "CodeMoi - Revelation M",
+    "type": "reputable_web",
+    "url": "https://codemoi.net/games/revelation-m/",
+    "targetGameSlug": "revelation-m",
+    "isEnabled": true,
+    "description": "Cập nhật giftcode Revelation M mới nhất, kiểm tra mã quà tặng hàng ngày từ CodeMoi."
+  },
+  {
+    "id": "src_sforum_revelation-m",
+    "name": "Sforum - Revelation M",
+    "type": "reputable_web",
+    "url": "https://cellphones.com.vn/sforum/tag/code-revelation-m",
+    "targetGameSlug": "revelation-m",
+    "isEnabled": true,
+    "description": "Hướng dẫn nhận và nhập mã code Revelation M trên chuyên trang Sforum."
+  },
+  {
+    "id": "src_fb_revelation-m",
+    "name": "Fanpage NPH VNGGames Vietnam - Revelation M",
+    "type": "official_fb",
+    "url": "https://facebook.com/vnggames",
+    "targetGameSlug": "revelation-m",
+    "isEnabled": true,
+    "description": "Kênh Fanpage Facebook chính thức của NPH VNGGames Vietnam quản lý và phát code cho Revelation M."
+  },
+  {
+    "id": "src_intl_revelation-m",
+    "name": "Cẩm Nang Quốc Tế - Revelation M",
+    "type": "reputable_web",
+    "url": "https://www.urgametips.com",
+    "targetGameSlug": "revelation-m",
+    "isEnabled": true,
+    "description": "Mã giftcode quốc tế cập nhật từ chuyên trang Pocket Tactics / Pro Game Guides / Try Hard Guides / Pocket Gamer cho Revelation M."
+  },
+  {
+    "id": "src_codemoi_the-walking-dead-survivors",
+    "name": "CodeMoi - The Walking Dead: Survivors",
+    "type": "reputable_web",
+    "url": "https://codemoi.net/games/the-walking-dead-survivors/",
+    "targetGameSlug": "the-walking-dead-survivors",
+    "isEnabled": true,
+    "description": "Cập nhật giftcode The Walking Dead: Survivors mới nhất, kiểm tra mã quà tặng hàng ngày từ CodeMoi."
+  },
+  {
+    "id": "src_sforum_the-walking-dead-survivors",
+    "name": "Sforum - The Walking Dead: Survivors",
+    "type": "reputable_web",
+    "url": "https://cellphones.com.vn/sforum/tag/code-the-walking-dead-survivors",
+    "targetGameSlug": "the-walking-dead-survivors",
+    "isEnabled": true,
+    "description": "Hướng dẫn nhận và nhập mã code The Walking Dead: Survivors trên chuyên trang Sforum."
+  },
+  {
+    "id": "src_intl_the-walking-dead-survivors",
+    "name": "Cẩm Nang Quốc Tế - The Walking Dead: Survivors",
+    "type": "reputable_web",
+    "url": "https://www.urgametips.com",
+    "targetGameSlug": "the-walking-dead-survivors",
+    "isEnabled": true,
+    "description": "Mã giftcode quốc tế cập nhật từ chuyên trang Pocket Tactics / Pro Game Guides / Try Hard Guides / Pocket Gamer cho The Walking Dead: Survivors."
+  },
+  {
+    "id": "src_codemoi_naraka-bladepoint-mobile",
+    "name": "CodeMoi - Naraka: Bladepoint Mobile",
+    "type": "reputable_web",
+    "url": "https://codemoi.net/games/naraka-bladepoint-mobile/",
+    "targetGameSlug": "naraka-bladepoint-mobile",
+    "isEnabled": true,
+    "description": "Cập nhật giftcode Naraka: Bladepoint Mobile mới nhất, kiểm tra mã quà tặng hàng ngày từ CodeMoi."
+  },
+  {
+    "id": "src_sforum_naraka-bladepoint-mobile",
+    "name": "Sforum - Naraka: Bladepoint Mobile",
+    "type": "reputable_web",
+    "url": "https://cellphones.com.vn/sforum/tag/code-naraka-bladepoint-mobile",
+    "targetGameSlug": "naraka-bladepoint-mobile",
+    "isEnabled": true,
+    "description": "Hướng dẫn nhận và nhập mã code Naraka: Bladepoint Mobile trên chuyên trang Sforum."
+  },
+  {
+    "id": "src_intl_naraka-bladepoint-mobile",
+    "name": "Cẩm Nang Quốc Tế - Naraka: Bladepoint Mobile",
+    "type": "reputable_web",
+    "url": "https://gamerjournalist.com/naraka-bladepoint-codes/",
+    "targetGameSlug": "naraka-bladepoint-mobile",
+    "isEnabled": true,
+    "description": "Mã giftcode quốc tế cập nhật từ chuyên trang Pocket Tactics / Pro Game Guides / Try Hard Guides / Pocket Gamer cho Naraka: Bladepoint Mobile."
+  },
+  {
+    "id": "src_codemoi_black-clover-m",
+    "name": "CodeMoi - Black Clover M",
+    "type": "reputable_web",
+    "url": "https://codemoi.net/games/black-clover-m/",
+    "targetGameSlug": "black-clover-m",
+    "isEnabled": true,
+    "description": "Cập nhật giftcode Black Clover M mới nhất, kiểm tra mã quà tặng hàng ngày từ CodeMoi."
+  },
+  {
+    "id": "src_sforum_black-clover-m",
+    "name": "Sforum - Black Clover M",
+    "type": "reputable_web",
+    "url": "https://cellphones.com.vn/sforum/tag/code-black-clover-m",
+    "targetGameSlug": "black-clover-m",
+    "isEnabled": true,
+    "description": "Hướng dẫn nhận và nhập mã code Black Clover M trên chuyên trang Sforum."
+  },
+  {
+    "id": "src_fb_black-clover-m",
+    "name": "Fanpage NPH Garena Việt Nam - Black Clover M",
+    "type": "official_fb",
+    "url": "https://facebook.com/GarenaVietnam",
+    "targetGameSlug": "black-clover-m",
+    "isEnabled": true,
+    "description": "Kênh Fanpage Facebook chính thức của NPH Garena Việt Nam quản lý và phát code cho Black Clover M."
+  },
+  {
+    "id": "src_intl_black-clover-m",
+    "name": "Cẩm Nang Quốc Tế - Black Clover M",
+    "type": "reputable_web",
+    "url": "https://www.pockettactics.com/black-clover-m/codes",
+    "targetGameSlug": "black-clover-m",
+    "isEnabled": true,
+    "description": "Mã giftcode quốc tế cập nhật từ chuyên trang Pocket Tactics / Pro Game Guides / Try Hard Guides / Pocket Gamer cho Black Clover M."
+  },
+  {
+    "id": "src_codemoi_reverse-1999",
+    "name": "CodeMoi - Reverse: 1999",
+    "type": "reputable_web",
+    "url": "https://codemoi.net/games/reverse-1999/",
+    "targetGameSlug": "reverse-1999",
+    "isEnabled": true,
+    "description": "Cập nhật giftcode Reverse: 1999 mới nhất, kiểm tra mã quà tặng hàng ngày từ CodeMoi."
+  },
+  {
+    "id": "src_sforum_reverse-1999",
+    "name": "Sforum - Reverse: 1999",
+    "type": "reputable_web",
+    "url": "https://cellphones.com.vn/sforum/tag/code-reverse-1999",
+    "targetGameSlug": "reverse-1999",
+    "isEnabled": true,
+    "description": "Hướng dẫn nhận và nhập mã code Reverse: 1999 trên chuyên trang Sforum."
+  },
+  {
+    "id": "src_intl_reverse-1999",
+    "name": "Cẩm Nang Quốc Tế - Reverse: 1999",
+    "type": "reputable_web",
+    "url": "https://www.pockettactics.com/reverse-1999/codes",
+    "targetGameSlug": "reverse-1999",
+    "isEnabled": true,
+    "description": "Mã giftcode quốc tế cập nhật từ chuyên trang Pocket Tactics / Pro Game Guides / Try Hard Guides / Pocket Gamer cho Reverse: 1999."
+  },
+  {
+    "id": "src_codemoi_eversoul",
+    "name": "CodeMoi - Eversoul",
+    "type": "reputable_web",
+    "url": "https://codemoi.net/games/eversoul/",
+    "targetGameSlug": "eversoul",
+    "isEnabled": true,
+    "description": "Cập nhật giftcode Eversoul mới nhất, kiểm tra mã quà tặng hàng ngày từ CodeMoi."
+  },
+  {
+    "id": "src_sforum_eversoul",
+    "name": "Sforum - Eversoul",
+    "type": "reputable_web",
+    "url": "https://cellphones.com.vn/sforum/tag/code-eversoul",
+    "targetGameSlug": "eversoul",
+    "isEnabled": true,
+    "description": "Hướng dẫn nhận và nhập mã code Eversoul trên chuyên trang Sforum."
+  },
+  {
+    "id": "src_intl_eversoul",
+    "name": "Cẩm Nang Quốc Tế - Eversoul",
+    "type": "reputable_web",
+    "url": "https://www.pockettactics.com/eversoul/codes",
+    "targetGameSlug": "eversoul",
+    "isEnabled": true,
+    "description": "Mã giftcode quốc tế cập nhật từ chuyên trang Pocket Tactics / Pro Game Guides / Try Hard Guides / Pocket Gamer cho Eversoul."
+  },
+  {
+    "id": "src_codemoi_honkai-impact-3rd",
+    "name": "CodeMoi - Honkai Impact 3rd",
+    "type": "reputable_web",
+    "url": "https://codemoi.net/games/honkai-impact-3rd/",
+    "targetGameSlug": "honkai-impact-3rd",
+    "isEnabled": true,
+    "description": "Cập nhật giftcode Honkai Impact 3rd mới nhất, kiểm tra mã quà tặng hàng ngày từ CodeMoi."
+  },
+  {
+    "id": "src_sforum_honkai-impact-3rd",
+    "name": "Sforum - Honkai Impact 3rd",
+    "type": "reputable_web",
+    "url": "https://cellphones.com.vn/sforum/tag/code-honkai-impact-3rd",
+    "targetGameSlug": "honkai-impact-3rd",
+    "isEnabled": true,
+    "description": "Hướng dẫn nhận và nhập mã code Honkai Impact 3rd trên chuyên trang Sforum."
+  },
+  {
+    "id": "src_intl_honkai-impact-3rd",
+    "name": "Cẩm Nang Quốc Tế - Honkai Impact 3rd",
+    "type": "reputable_web",
+    "url": "https://www.pockettactics.com/honkai-impact-3rd/codes",
+    "targetGameSlug": "honkai-impact-3rd",
+    "isEnabled": true,
+    "description": "Mã giftcode quốc tế cập nhật từ chuyên trang Pocket Tactics / Pro Game Guides / Try Hard Guides / Pocket Gamer cho Honkai Impact 3rd."
+  },
+  {
+    "id": "src_codemoi_astra-knights-of-veda",
+    "name": "CodeMoi - Astra: Knights of Veda",
+    "type": "reputable_web",
+    "url": "https://codemoi.net/games/astra-knights-of-veda/",
+    "targetGameSlug": "astra-knights-of-veda",
+    "isEnabled": true,
+    "description": "Cập nhật giftcode Astra: Knights of Veda mới nhất, kiểm tra mã quà tặng hàng ngày từ CodeMoi."
+  },
+  {
+    "id": "src_sforum_astra-knights-of-veda",
+    "name": "Sforum - Astra: Knights of Veda",
+    "type": "reputable_web",
+    "url": "https://cellphones.com.vn/sforum/tag/code-astra-knights-of-veda",
+    "targetGameSlug": "astra-knights-of-veda",
+    "isEnabled": true,
+    "description": "Hướng dẫn nhận và nhập mã code Astra: Knights of Veda trên chuyên trang Sforum."
+  },
+  {
+    "id": "src_intl_astra-knights-of-veda",
+    "name": "Cẩm Nang Quốc Tế - Astra: Knights of Veda",
+    "type": "reputable_web",
+    "url": "https://www.pocketgamer.com/astra-knights-of-veda/codes/",
+    "targetGameSlug": "astra-knights-of-veda",
+    "isEnabled": true,
+    "description": "Mã giftcode quốc tế cập nhật từ chuyên trang Pocket Tactics / Pro Game Guides / Try Hard Guides / Pocket Gamer cho Astra: Knights of Veda."
+  },
+  {
+    "id": "src_codemoi_dunk-ing-simulator",
+    "name": "CodeMoi - Dunking Simulator",
+    "type": "reputable_web",
+    "url": "https://codemoi.net/games/dunk-ing-simulator/",
+    "targetGameSlug": "dunk-ing-simulator",
+    "isEnabled": true,
+    "description": "Cập nhật giftcode Dunking Simulator mới nhất, kiểm tra mã quà tặng hàng ngày từ CodeMoi."
+  },
+  {
+    "id": "src_sforum_dunk-ing-simulator",
+    "name": "Sforum - Dunking Simulator",
+    "type": "reputable_web",
+    "url": "https://cellphones.com.vn/sforum/tag/code-dunk-ing-simulator",
+    "targetGameSlug": "dunk-ing-simulator",
+    "isEnabled": true,
+    "description": "Hướng dẫn nhận và nhập mã code Dunking Simulator trên chuyên trang Sforum."
+  },
+  {
+    "id": "src_intl_dunk-ing-simulator",
+    "name": "Cẩm Nang Quốc Tế - Dunking Simulator",
+    "type": "reputable_web",
+    "url": "https://tryhardguides.com/dunking-simulator-codes/",
+    "targetGameSlug": "dunk-ing-simulator",
+    "isEnabled": true,
+    "description": "Mã giftcode quốc tế cập nhật từ chuyên trang Pocket Tactics / Pro Game Guides / Try Hard Guides / Pocket Gamer cho Dunking Simulator."
+  },
+  {
+    "id": "src_codemoi_type-soul",
+    "name": "CodeMoi - Type Soul",
+    "type": "reputable_web",
+    "url": "https://codemoi.net/games/type-soul/",
+    "targetGameSlug": "type-soul",
+    "isEnabled": true,
+    "description": "Cập nhật giftcode Type Soul mới nhất, kiểm tra mã quà tặng hàng ngày từ CodeMoi."
+  },
+  {
+    "id": "src_sforum_type-soul",
+    "name": "Sforum - Type Soul",
+    "type": "reputable_web",
+    "url": "https://cellphones.com.vn/sforum/tag/code-type-soul",
+    "targetGameSlug": "type-soul",
+    "isEnabled": true,
+    "description": "Hướng dẫn nhận và nhập mã code Type Soul trên chuyên trang Sforum."
+  },
+  {
+    "id": "src_intl_type-soul",
+    "name": "Cẩm Nang Quốc Tế - Type Soul",
+    "type": "reputable_web",
+    "url": "https://tryhardguides.com/type-soul-codes/",
+    "targetGameSlug": "type-soul",
+    "isEnabled": true,
+    "description": "Mã giftcode quốc tế cập nhật từ chuyên trang Pocket Tactics / Pro Game Guides / Try Hard Guides / Pocket Gamer cho Type Soul."
+  },
+  {
+    "id": "src_codemoi_anime-defenders",
+    "name": "CodeMoi - Anime Defenders",
+    "type": "reputable_web",
+    "url": "https://codemoi.net/games/anime-defenders/",
+    "targetGameSlug": "anime-defenders",
+    "isEnabled": true,
+    "description": "Cập nhật giftcode Anime Defenders mới nhất, kiểm tra mã quà tặng hàng ngày từ CodeMoi."
+  },
+  {
+    "id": "src_sforum_anime-defenders",
+    "name": "Sforum - Anime Defenders",
+    "type": "reputable_web",
+    "url": "https://cellphones.com.vn/sforum/tag/code-anime-defenders",
+    "targetGameSlug": "anime-defenders",
+    "isEnabled": true,
+    "description": "Hướng dẫn nhận và nhập mã code Anime Defenders trên chuyên trang Sforum."
+  },
+  {
+    "id": "src_intl_anime-defenders",
+    "name": "Cẩm Nang Quốc Tế - Anime Defenders",
+    "type": "reputable_web",
+    "url": "https://tryhardguides.com/anime-defenders-codes/",
+    "targetGameSlug": "anime-defenders",
+    "isEnabled": true,
+    "description": "Mã giftcode quốc tế cập nhật từ chuyên trang Pocket Tactics / Pro Game Guides / Try Hard Guides / Pocket Gamer cho Anime Defenders."
+  },
+  {
+    "id": "src_codemoi_deepwoken",
+    "name": "CodeMoi - Deepwoken",
+    "type": "reputable_web",
+    "url": "https://codemoi.net/games/deepwoken/",
+    "targetGameSlug": "deepwoken",
+    "isEnabled": true,
+    "description": "Cập nhật giftcode Deepwoken mới nhất, kiểm tra mã quà tặng hàng ngày từ CodeMoi."
+  },
+  {
+    "id": "src_sforum_deepwoken",
+    "name": "Sforum - Deepwoken",
+    "type": "reputable_web",
+    "url": "https://cellphones.com.vn/sforum/tag/code-deepwoken",
+    "targetGameSlug": "deepwoken",
+    "isEnabled": true,
+    "description": "Hướng dẫn nhận và nhập mã code Deepwoken trên chuyên trang Sforum."
+  },
+  {
+    "id": "src_intl_deepwoken",
+    "name": "Cẩm Nang Quốc Tế - Deepwoken",
+    "type": "reputable_web",
+    "url": "https://tryhardguides.com/deepwoken-codes/",
+    "targetGameSlug": "deepwoken",
+    "isEnabled": true,
+    "description": "Mã giftcode quốc tế cập nhật từ chuyên trang Pocket Tactics / Pro Game Guides / Try Hard Guides / Pocket Gamer cho Deepwoken."
+  },
+  {
+    "id": "src_codemoi_the-strongest-battlegrounds",
+    "name": "CodeMoi - The Strongest Battlegrounds",
+    "type": "reputable_web",
+    "url": "https://codemoi.net/games/the-strongest-battlegrounds/",
+    "targetGameSlug": "the-strongest-battlegrounds",
+    "isEnabled": true,
+    "description": "Cập nhật giftcode The Strongest Battlegrounds mới nhất, kiểm tra mã quà tặng hàng ngày từ CodeMoi."
+  },
+  {
+    "id": "src_sforum_the-strongest-battlegrounds",
+    "name": "Sforum - The Strongest Battlegrounds",
+    "type": "reputable_web",
+    "url": "https://cellphones.com.vn/sforum/tag/code-the-strongest-battlegrounds",
+    "targetGameSlug": "the-strongest-battlegrounds",
+    "isEnabled": true,
+    "description": "Hướng dẫn nhận và nhập mã code The Strongest Battlegrounds trên chuyên trang Sforum."
+  },
+  {
+    "id": "src_intl_the-strongest-battlegrounds",
+    "name": "Cẩm Nang Quốc Tế - The Strongest Battlegrounds",
+    "type": "reputable_web",
+    "url": "https://tryhardguides.com/the-strongest-battlegrounds-codes/",
+    "targetGameSlug": "the-strongest-battlegrounds",
+    "isEnabled": true,
+    "description": "Mã giftcode quốc tế cập nhật từ chuyên trang Pocket Tactics / Pro Game Guides / Try Hard Guides / Pocket Gamer cho The Strongest Battlegrounds."
+  },
+  {
+    "id": "src_codemoi_ragnarok-the-new-world",
+    "name": "CodeMoi - Ragnarok: The New World",
+    "type": "reputable_web",
+    "url": "https://codemoi.net/games/ragnarok-the-new-world/",
+    "targetGameSlug": "ragnarok-the-new-world",
+    "isEnabled": true,
+    "description": "Cập nhật giftcode Ragnarok: The New World mới nhất, kiểm tra mã quà tặng hàng ngày từ CodeMoi."
+  },
+  {
+    "id": "src_sforum_ragnarok-the-new-world",
+    "name": "Sforum - Ragnarok: The New World",
+    "type": "reputable_web",
+    "url": "https://cellphones.com.vn/sforum/tag/code-ragnarok-the-new-world",
+    "targetGameSlug": "ragnarok-the-new-world",
+    "isEnabled": true,
+    "description": "Hướng dẫn nhận và nhập mã code Ragnarok: The New World trên chuyên trang Sforum."
+  },
+  {
+    "id": "src_intl_ragnarok-the-new-world",
+    "name": "Cẩm Nang Quốc Tế - Ragnarok: The New World",
+    "type": "reputable_web",
+    "url": "https://www.urgametips.com",
+    "targetGameSlug": "ragnarok-the-new-world",
+    "isEnabled": true,
+    "description": "Mã giftcode quốc tế cập nhật từ chuyên trang Pocket Tactics / Pro Game Guides / Try Hard Guides / Pocket Gamer cho Ragnarok: The New World."
+  },
+  {
+    "id": "src_codemoi_sword-art-online-variant-showdown",
+    "name": "CodeMoi - Sword Art Online: Variant Showdown",
+    "type": "reputable_web",
+    "url": "https://codemoi.net/games/sword-art-online-variant-showdown/",
+    "targetGameSlug": "sword-art-online-variant-showdown",
+    "isEnabled": true,
+    "description": "Cập nhật giftcode Sword Art Online: Variant Showdown mới nhất, kiểm tra mã quà tặng hàng ngày từ CodeMoi."
+  },
+  {
+    "id": "src_sforum_sword-art-online-variant-showdown",
+    "name": "Sforum - Sword Art Online: Variant Showdown",
+    "type": "reputable_web",
+    "url": "https://cellphones.com.vn/sforum/tag/code-sword-art-online-variant-showdown",
+    "targetGameSlug": "sword-art-online-variant-showdown",
+    "isEnabled": true,
+    "description": "Hướng dẫn nhận và nhập mã code Sword Art Online: Variant Showdown trên chuyên trang Sforum."
+  },
+  {
+    "id": "src_intl_sword-art-online-variant-showdown",
+    "name": "Cẩm Nang Quốc Tế - Sword Art Online: Variant Showdown",
+    "type": "reputable_web",
+    "url": "https://www.pocketgamer.com/sword-art-online-variant-showdown/codes/",
+    "targetGameSlug": "sword-art-online-variant-showdown",
+    "isEnabled": true,
+    "description": "Mã giftcode quốc tế cập nhật từ chuyên trang Pocket Tactics / Pro Game Guides / Try Hard Guides / Pocket Gamer cho Sword Art Online: Variant Showdown."
+  },
+  {
+    "id": "src_codemoi_subway-surfers",
+    "name": "CodeMoi - Subway Surfers",
+    "type": "reputable_web",
+    "url": "https://codemoi.net/games/subway-surfers/",
+    "targetGameSlug": "subway-surfers",
+    "isEnabled": true,
+    "description": "Cập nhật giftcode Subway Surfers mới nhất, kiểm tra mã quà tặng hàng ngày từ CodeMoi."
+  },
+  {
+    "id": "src_sforum_subway-surfers",
+    "name": "Sforum - Subway Surfers",
+    "type": "reputable_web",
+    "url": "https://cellphones.com.vn/sforum/tag/code-subway-surfers",
+    "targetGameSlug": "subway-surfers",
+    "isEnabled": true,
+    "description": "Hướng dẫn nhận và nhập mã code Subway Surfers trên chuyên trang Sforum."
+  },
+  {
+    "id": "src_intl_subway-surfers",
+    "name": "Cẩm Nang Quốc Tế - Subway Surfers",
+    "type": "reputable_web",
+    "url": "https://www.pocketgamer.com/subway-surfers/codes/",
+    "targetGameSlug": "subway-surfers",
+    "isEnabled": true,
+    "description": "Mã giftcode quốc tế cập nhật từ chuyên trang Pocket Tactics / Pro Game Guides / Try Hard Guides / Pocket Gamer cho Subway Surfers."
+  },
+  {
+    "id": "src_codemoi_dragon-ball-sparking-zero",
+    "name": "CodeMoi - Dragon Ball: Sparking! ZERO",
+    "type": "reputable_web",
+    "url": "https://codemoi.net/games/dragon-ball-sparking-zero/",
+    "targetGameSlug": "dragon-ball-sparking-zero",
+    "isEnabled": true,
+    "description": "Cập nhật giftcode Dragon Ball: Sparking! ZERO mới nhất, kiểm tra mã quà tặng hàng ngày từ CodeMoi."
+  },
+  {
+    "id": "src_sforum_dragon-ball-sparking-zero",
+    "name": "Sforum - Dragon Ball: Sparking! ZERO",
+    "type": "reputable_web",
+    "url": "https://cellphones.com.vn/sforum/tag/code-dragon-ball-sparking-zero",
+    "targetGameSlug": "dragon-ball-sparking-zero",
+    "isEnabled": true,
+    "description": "Hướng dẫn nhận và nhập mã code Dragon Ball: Sparking! ZERO trên chuyên trang Sforum."
+  },
+  {
+    "id": "src_intl_dragon-ball-sparking-zero",
+    "name": "Cẩm Nang Quốc Tế - Dragon Ball: Sparking! ZERO",
+    "type": "reputable_web",
+    "url": "https://dotesports.com/dragon-ball-sparking-zero",
+    "targetGameSlug": "dragon-ball-sparking-zero",
+    "isEnabled": true,
+    "description": "Mã giftcode quốc tế cập nhật từ chuyên trang Pocket Tactics / Pro Game Guides / Try Hard Guides / Pocket Gamer cho Dragon Ball: Sparking! ZERO."
+  },
+  {
+    "id": "src_codemoi_warhammer-40k-tacticus",
+    "name": "CodeMoi - Warhammer 40,000: Tacticus",
+    "type": "reputable_web",
+    "url": "https://codemoi.net/games/warhammer-40k-tacticus/",
+    "targetGameSlug": "warhammer-40k-tacticus",
+    "isEnabled": true,
+    "description": "Cập nhật giftcode Warhammer 40,000: Tacticus mới nhất, kiểm tra mã quà tặng hàng ngày từ CodeMoi."
+  },
+  {
+    "id": "src_sforum_warhammer-40k-tacticus",
+    "name": "Sforum - Warhammer 40,000: Tacticus",
+    "type": "reputable_web",
+    "url": "https://cellphones.com.vn/sforum/tag/code-warhammer-40k-tacticus",
+    "targetGameSlug": "warhammer-40k-tacticus",
+    "isEnabled": true,
+    "description": "Hướng dẫn nhận và nhập mã code Warhammer 40,000: Tacticus trên chuyên trang Sforum."
+  },
+  {
+    "id": "src_intl_warhammer-40k-tacticus",
+    "name": "Cẩm Nang Quốc Tế - Warhammer 40,000: Tacticus",
+    "type": "reputable_web",
+    "url": "https://www.pocketgamer.com/warhammer-40000-tacticus/codes/",
+    "targetGameSlug": "warhammer-40k-tacticus",
+    "isEnabled": true,
+    "description": "Mã giftcode quốc tế cập nhật từ chuyên trang Pocket Tactics / Pro Game Guides / Try Hard Guides / Pocket Gamer cho Warhammer 40,000: Tacticus."
   }
 ]

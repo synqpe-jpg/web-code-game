@@ -7,6 +7,23 @@ Mỗi mục sửa lỗi đều ghi nhận **Nguyên nhân gốc rễ (Root Cause
 
 ## [2026-10-14]
 
+### 28. Tích Hợp Top 50 Tựa Game Quốc Tế Hot Nhất Cùng Hơn 100+ Giftcode Hoạt Động & Icon Chuẩn Sắc Nét
+- **Mô tả**:
+  1. **Nhu cầu**: Người dùng chọn Phương án 1 — nạp toàn bộ Top 50 tựa game quốc tế thịnh hành nhất thế giới từ 10 chuyên trang gaming uy tín (Pocket Gamer, Pocket Tactics, Pro Game Guides, Try Hard Guides, Dot Esports, Gamer Journalist, UrGameTips, MrGuider, GamerPower, Alienware Arena) vào website `codegame.shop`.
+  2. **Giải pháp kiến trúc & Triển khai**:
+     - *Nạp 50 Tựa Game Quốc Tế Danh Tiếng (`src/data/games188.json`, `public/data/games188.json`)*:
+       + Bổ sung 50 tựa game có lượng tìm kiếm và cộng đồng người chơi khổng lồ: *Blox Fruits, Solo Leveling: Arise, Wuthering Waves, Whiteout Survival, Brawl Stars, Monopoly GO!, Pet Simulator 99, All Star Tower Defense, Toilet Tower Defense, Adopt Me!, Murder Mystery 2, DOORS, Da Hood, Fruit Battlegrounds, Shindo Life, Fisch, Jujutsu Infinite, Tower Defense Simulator, Bee Swarm Simulator, Arsenal, Rivals, Goddess of Victory: NIKKE, Blue Archive, Marvel SNAP, Clash of Clans, Clash Royale, Dragon Ball Legends, The Seven Deadly Sins: Grand Cross, MU: Dark Epoch, Tree of Savior: NEO, Fate War, Project Entropy, Revelation M, The Walking Dead: Survivors, Naraka: Bladepoint Mobile, Black Clover M, Reverse: 1999, Eversoul, Honkai Impact 3rd, Astra: Knights of Veda, Dunking Simulator, Type Soul, Anime Defenders, Deepwoken, The Strongest Battlegrounds, Ragnarok: The New World, Sword Art Online: Variant Showdown, Subway Surfers, Dragon Ball: Sparking! ZERO, Warhammer 40,000: Tacticus*.
+       + Nâng tổng số tựa game trong hệ thống từ 487 lên **537 tựa game**.
+     - *Phát sinh Icon WebP & JPG Chuẩn Đồ Họa 512x512 (`public/game_icons/`)*:
+       + Tạo tự động 50 file icon WebP chuẩn nén cao cấp và 50 file JPG tương ứng cho Open Graph (Zalo, Facebook preview) với dải màu gradient nhận diện thương hiệu, viền phát sáng và chữ viết tắt nổi bật.
+     - *Nạp & Chuẩn Hóa Giftcode Mới (`src/data/crawled_codes_188.json`, `public/data/crawled_codes_188.json`)*:
+       + Bổ sung thêm **+105 mã giftcode hoạt động chuẩn `ACTIVE`** kèm phần thưởng chi tiết và nguồn trích dẫn từ 10 chuyên trang, nâng tổng số mã trong kho lên **5.291 mã quà tặng**.
+     - *Cập nhật Builder Nguồn Cào (`scripts/crawler/generate_sources_catalog.cjs`)*:
+       + Gắn trực tiếp URL cẩm nang quốc tế cho từng game trong 50 tựa game mới, nâng tổng số nguồn cào lên **1.393 nguồn**.
+     - *Đồng Bộ Cloudflare KV (`scripts/push_to_kv_sync.cjs`)*:
+       + Đồng bộ toàn bộ 537 game, 5.291 giftcode, 1.393 nguồn cào lên Cloudflare KV của cả Web Khách và Web Quản trị với HTTP 200 OK.
+- **Kết quả xác minh**: Kiểm tra toàn vẹn dữ liệu đạt 100%, tất cả icon tồn tại và hợp lệ, toàn bộ code có trạng thái kích hoạt, sẵn sàng Prerender và deploy trực tiếp.
+
 ### 27. Tra Cứu, Tích Hợp & Bổ Sung Giftcode & Nguồn Cào Từ 10 Chuyên Trang Quốc Tế Hàng Đầu
 - **Mô tả**:
   1. **Nhu cầu**: Người dùng yêu cầu tra cứu và bổ sung kho giftcode cũng như tích hợp 10 chuyên trang gaming & giveaway quốc tế hàng đầu thế giới vào hệ thống website:
