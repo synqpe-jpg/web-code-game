@@ -5,6 +5,8 @@ const config: CapacitorConfig = {
   appName: 'CodeGame',
   webDir: 'dist',
   server: {
+    url: 'https://codegame.shop',
+    cleartext: true,
     androidScheme: 'https'
   }
 };

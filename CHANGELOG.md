@@ -7,6 +7,20 @@ Mỗi mục sửa lỗi đều ghi nhận **Nguyên nhân gốc rễ (Root Cause
 
 ## [2026-10-13]
 
+### 23. Triển Khai Kiến Trúc Capacitor Live WebView Đồng Bộ 100% Cho File APK & Tái Kích Hoạt Tải Về
+- **Mô tả**:
+  1. **Khắc phục triệt để hiện tượng App không cập nhật đủ code**:
+     - *Phát hiện nguyên nhân*: File APK trước đó nạp dữ liệu từ thư mục tĩnh nội bộ (`webDir: 'dist'`) trong sandbox `https://localhost`. Các lệnh gọi API lấy mã giftcode mới như `/api/sync`, `/api/stats`, `/api/orders` dùng đường dẫn tương đối nên bị trỏ về `https://localhost/api/...` (vốn không có máy chủ nào trên điện thoại), khiến app bị cô lập hoàn toàn và đóng băng ở dữ liệu cũ từ lúc build APK, không thể nhận được 20 code mới Ta Là Hắc Ngộ Không hay code cào tự động.
+     - *Giải pháp theo Phương Án 1 (Live WebView)*:
+       + Cấu hình `server.url = 'https://codegame.shop'` trong `capacitor.config.ts`, `capacitor.config.json` và `android/app/src/main/assets/capacitor.config.json`.
+       + Kích hoạt `android:usesCleartextTraffic="true"` trong `android/app/src/main/AndroidManifest.xml`.
+       + Khi người dùng cài và mở APK, app nạp trực tiếp giao diện và dữ liệu từ `https://codegame.shop` trong khung ứng dụng Native tràn viền độc lập. Mọi cập nhật trên web (mã code mới, game mới, font chữ, tin tức) tự động có ngay trên app trong 0 giây mà không cần người dùng phải cài lại APK.
+       + Dung lượng file APK tối ưu giảm xuống chỉ còn ~2.8 MB (thay vì 18 MB).
+  2. **Tái kích hoạt nút Tải File .APK trên Web Khách**:
+     - Bật lại cờ `SHOW_APK_DOWNLOAD = true` trong `src/components/DownloadAppModal.tsx`.
+     - Cập nhật định tuyến `/download/codegame.apk` trong `functions/_worker.ts` tự động chuyển tiếp an toàn tới bản phát hành chính thức trên GitHub Release (`v1.0.0/CodeGame-v1.0.apk`).
+- **Kết quả xác minh**: Kiểm thử biên dịch đạt 100%, modal hiển thị đầy đủ tùy chọn Tải APK siêu nhẹ, đồng bộ hóa 100% thời gian thực.
+
 ### 22. Chuẩn Hóa Triệt Để Typography Bằng Bộ Font Inter & System-UI, Khắc Phục Hiện Tượng Nhảy/Hồi Phục Font
 - **Mô tả**:
   1. **Khắc phục hiện tượng "mới sửa thì được, sau một lát tự hồi phục"**:

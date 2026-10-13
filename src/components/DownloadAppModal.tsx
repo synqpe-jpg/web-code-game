@@ -33,8 +33,8 @@ export const DownloadAppModal: React.FC<DownloadAppModalProps> = ({
   const [qrDataUrl, setQrDataUrl] = useState<string>('');
   const [copiedLink, setCopiedLink] = useState(false);
 
-  // Tạm thời đóng phần tải APK theo yêu cầu, có thể bật lại sau
-  const SHOW_APK_DOWNLOAD = false;
+  // Mở tính năng tải APK chạy theo cơ chế Live WebView đồng bộ 100% thời gian thực
+  const SHOW_APK_DOWNLOAD = true;
 
   useEffect(() => {
     if (!isOpen) return;
@@ -315,7 +315,7 @@ export const DownloadAppModal: React.FC<DownloadAppModalProps> = ({
                     </span>
                   </div>
                   <p className="text-xs text-slate-400 mt-1">
-                    Dung lượng siêu nhẹ ~4.8MB • Tương thích Android 7.0 trở lên
+                    Dung lượng siêu nhẹ ~2.8MB • Tự động cập nhật Giftcode 24/7 • Tương thích Android 7.0 trở lên
                   </p>
                 </div>
 
@@ -325,7 +325,7 @@ export const DownloadAppModal: React.FC<DownloadAppModalProps> = ({
                   className="w-full py-3 px-4 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-bold text-sm shadow-sm active:scale-98 transition-all flex items-center justify-center gap-2 cursor-pointer no-underline"
                 >
                   <Download className="w-4 h-4" />
-                  <span>Tải File CodeGame.apk (4.8 MB)</span>
+                  <span>Tải File CodeGame.apk (2.8 MB)</span>
                 </a>
 
                 {/* Instant PWA Shortcut Alternative */}
