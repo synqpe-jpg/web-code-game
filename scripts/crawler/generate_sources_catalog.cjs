@@ -329,6 +329,87 @@ const reputableGeneralHubs = [
     isEnabled: true,
     description: 'Trang cập nhật giftcode chuyên biệt cho cộng đồng game thủ Việt.',
   },
+  // 10 Chuyên trang Cẩm nang Giftcode & Giveaways Quốc Tế Hàng Đầu
+  {
+    id: 'src_hub_pocketgamer',
+    name: 'Pocket Gamer - Cẩm Nang & Giftcode Game Mobile',
+    type: 'reputable_web',
+    url: 'https://www.pocketgamer.com/redeem-codes/',
+    isEnabled: true,
+    description: 'Chuyên trang game mobile số 1 thế giới cập nhật mã giftcode và promo code hàng ngày.',
+  },
+  {
+    id: 'src_hub_pockettactics',
+    name: 'Pocket Tactics - Kho Giftcode & Hướng Dẫn Quốc Tế',
+    type: 'reputable_web',
+    url: 'https://www.pockettactics.com/codes',
+    isEnabled: true,
+    description: 'Cơ sở dữ liệu giftcode Genshin, Honkai, ZZZ, Anime Vanguards, Blade Ball lớn nhất.',
+  },
+  {
+    id: 'src_hub_mrguider',
+    name: 'MrGuider - Hướng Dẫn & Giftcode Game Gacha/RPG',
+    type: 'reputable_web',
+    url: 'https://mrguider.org/codes/',
+    isEnabled: true,
+    description: 'Chuyên trang tổng hợp giftcode cho các tựa game RPG, Gacha và Idle quốc tế.',
+  },
+  {
+    id: 'src_hub_urgametips',
+    name: 'UrGameTips - Cẩm Nang Game & Mã Đổi Quà Toàn Cầu',
+    type: 'reputable_web',
+    url: 'https://www.urgametips.com',
+    isEnabled: true,
+    description: 'Kho giftcode đa dạng cho game mobile, chiến thuật và MMORPG cập nhật liên tục.',
+  },
+  {
+    id: 'src_hub_progameguides',
+    name: 'Pro Game Guides - Trung Tâm Mã Giftcode Đỉnh Cao',
+    type: 'reputable_web',
+    url: 'https://progameguides.com/codes/',
+    isEnabled: true,
+    description: 'Chuyên trang hàng đầu thế giới về Roblox codes, Genshin codes, mobile & PC gaming guides.',
+  },
+  {
+    id: 'src_hub_tryhardguides',
+    name: 'Try Hard Guides - Hệ Thống Cập Nhật Code Tức Thì',
+    type: 'reputable_web',
+    url: 'https://tryhardguides.com/codes/',
+    isEnabled: true,
+    description: 'Cập nhật nhanh nhất mã đổi thưởng cho Anime Vanguards, Blade Ball, King Legacy.',
+  },
+  {
+    id: 'src_hub_dotesports',
+    name: 'Dot Esports - Tin Tức Thể Thao Điện Tử & Code Game',
+    type: 'reputable_web',
+    url: 'https://dotesports.com/codes',
+    isEnabled: true,
+    description: 'Trang tin esports uy tín toàn cầu cập nhật mã thưởng Delta Force, LMHT, FPS & Mobile.',
+  },
+  {
+    id: 'src_hub_gamerjournalist',
+    name: 'Gamer Journalist - Thư Viện Code & Cẩm Nang Game',
+    type: 'reputable_web',
+    url: 'https://gamerjournalist.com',
+    isEnabled: true,
+    description: 'Thư viện tra cứu giftcode và hướng dẫn kích hoạt code game PC và di động.',
+  },
+  {
+    id: 'src_hub_gamerpower',
+    name: 'GamerPower - Nền Tảng Theo Dõi Giveaways & Loot Game',
+    type: 'reputable_web',
+    url: 'https://www.gamerpower.com/giveaways',
+    isEnabled: true,
+    description: 'Bộ máy tự động theo dõi và cung cấp quà tặng, Steam keys, DLC loot và in-game items.',
+  },
+  {
+    id: 'src_hub_alienwarearena',
+    name: 'Alienware Arena - Trung Tâm Quà Tặng Game Độc Quyền Dell',
+    type: 'reputable_web',
+    url: 'https://www.alienwarearena.com/rewards',
+    isEnabled: true,
+    description: 'Cổng phân phối mã code, promo packs, game keys và quà tặng bản quyền từ Alienware.',
+  },
 ];
 
 // Danh sách Fanpage Facebook ĐÃ ĐƯỢC XÁC THỰC 100% cho từng tựa game cụ thể
@@ -513,6 +594,36 @@ for (const g of games) {
       targetGameSlug: slug,
       isEnabled: true,
       description: `Kênh Discord chính thức thông báo mã quà tặng và mã livestream cho ${name}.`,
+    });
+  }
+
+  // Nguồn 5: Chuyên trang Quốc Tế Cung Cấp Code Cho Game (Pocket Tactics, Pro Game Guides, Try Hard Guides, Pocket Gamer...)
+  const intlGuideUrls = {
+    'genshin-impact': 'https://www.pockettactics.com/genshin-impact/codes',
+    'honkai-star-rail': 'https://www.pockettactics.com/honkai-star-rail/codes',
+    'zenless-zone-zero': 'https://www.pockettactics.com/zenless-zone-zero/codes',
+    'capybara-go': 'https://www.pockettactics.com/capybara-go/codes',
+    'blade-ball': 'https://www.pockettactics.com/blade-ball/codes',
+    'anime-vanguards': 'https://tryhardguides.com/anime-vanguards-codes/',
+    'king-legacy': 'https://www.pockettactics.com/king-legacy/codes',
+    'cookie-run-kingdom': 'https://www.pocketgamer.com/cookie-run-kingdom/codes/',
+    'rise-of-kingdoms': 'https://www.pocketgamer.com/rise-of-kingdoms/codes/',
+    'afk-arena': 'https://www.pockettactics.com/afk-arena/codes',
+    'lords-mobile': 'https://www.pocketgamer.com/lords-mobile/codes/',
+    'delta-force': 'https://dotesports.com/delta-force',
+    'pubg-mobile': 'https://gamerjournalist.com/pubg-mobile-codes/',
+    'free-fire': 'https://progameguides.com/free-fire-codes/',
+  };
+
+  if (intlGuideUrls[slug]) {
+    gameSpecificSources.push({
+      id: `src_intl_${slug}`,
+      name: `Cẩm Nang Quốc Tế - ${name}`,
+      type: 'reputable_web',
+      url: intlGuideUrls[slug],
+      targetGameSlug: slug,
+      isEnabled: true,
+      description: `Mã giftcode quốc tế cập nhật từ chuyên trang Pocket Tactics / Pro Game Guides / Try Hard Guides / Pocket Gamer cho ${name}.`,
     });
   }
 }

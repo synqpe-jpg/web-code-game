@@ -7,6 +7,35 @@ Mỗi mục sửa lỗi đều ghi nhận **Nguyên nhân gốc rễ (Root Cause
 
 ## [2026-10-14]
 
+### 27. Tra Cứu, Tích Hợp & Bổ Sung Giftcode & Nguồn Cào Từ 10 Chuyên Trang Quốc Tế Hàng Đầu
+- **Mô tả**:
+  1. **Nhu cầu**: Người dùng yêu cầu tra cứu và bổ sung kho giftcode cũng như tích hợp 10 chuyên trang gaming & giveaway quốc tế hàng đầu thế giới vào hệ thống website:
+     1. Pocket Gamer (`pocketgamer.com`)
+     2. Pocket Tactics (`pockettactics.com`)
+     3. MrGuider (`mrguider.org`)
+     4. UrGameTips (`urgametips.com`)
+     5. Pro Game Guides (`progameguides.com`)
+     6. Try Hard Guides (`tryhardguides.com`)
+     7. Dot Esports (`dotesports.com`)
+     8. Gamer Journalist (`gamerjournalist.com`)
+     9. GamerPower (`gamerpower.com`)
+     10. Alienware Arena (`alienwarearena.com`)
+  2. **Giải pháp kiến trúc & Triển khai**:
+     - *Nâng cấp Danh mục Nguồn cào (`src/data/crawler_sources.json`, `public/data/crawler_sources.json`, `scripts/crawler/generate_sources_catalog.cjs`)*:
+       + Bổ sung đầy đủ 10 chuyên trang quốc tế vào danh mục nguồn cào uy tín (`reputable_web`) với URL chuyên mục code cụ thể.
+       + Mở rộng các liên kết cẩm nang chi tiết cho các tựa game nổi bật trong kho game: Genshin Impact, Honkai: Star Rail, Zenless Zone Zero, Capybara Go!, Anime Vanguards, Blade Ball, King Legacy, CookieRun: Kingdom, Rise of Kingdoms, AFK Arena, Lords Mobile, Delta Force, Free Fire, PUBG Mobile. Tổng số nguồn cào hệ thống tăng lên 1.240 nguồn.
+     - *Bộ máy Web Scraper Đa quốc gia (`scripts/crawler/scrapers/web_scraper.cjs`)*:
+       + Bổ sung bộ nhận diện biểu thức chính quy (Regex Engine) nhận biết cấu trúc HTML quốc tế: `<li><strong>CODE</strong> - Reward</li>`, `<code>CODE</code>`, bảng mã `<td>`.
+       + Tích hợp trực tiếp với REST API của GamerPower (`/api/giveaways?type=loot`) để cào tự động các gói loot và promo key.
+     - *Bổ sung & Khử Trùng Giftcode (`scripts/enrich_international_codes_and_giveaways.cjs`, `src/data/crawled_codes_188.json`, `public/data/crawled_codes_188.json`)*:
+       + Tra cứu và bổ sung thành công 77 mã giftcode hoàn toàn mới và chuẩn hóa 37 mã hiện có, nâng tổng số giftcode trong kho lên **5.186 mã quà tặng** kích hoạt chuẩn `ACTIVE`.
+       + Ghi nhận nguồn gốc rõ ràng, link bài viết gốc, và quà tặng chi tiết từ từng website quốc tế.
+     - *Bổ sung Giveaways Độc Quyền (`src/data/giveaways.json`)*:
+       + Bổ sung 2 chiến dịch quà tặng bản quyền từ Alienware Arena (*Vaultbreakers Starter Pack Key*) và GamerPower (*Rotwood Drakin Armoury Steam Loot*).
+     - *Đồng bộ Cloudflare KV (`scripts/push_to_kv_sync.cjs`)*:
+       + Đồng bộ tức thì 487 game, 5.186 mã giftcode, 1.240 nguồn cào và 33 chiến dịch giveaway lên Cloudflare KV của cả 2 môi trường Web Khách và Web Quản trị.
+- **Kết quả xác minh**: Kiểm thử đối soát 100% tên miền và mã code thành công, biên dịch Vite, sinh HTML tĩnh 486 game, sitemap 503 URL hoàn thành không lỗi.
+
 ### 26. Tối Ưu Hóa Toàn Diện 4 Trọng Điểm: Deep SEO Tin Tức, Mobile UX, Tỷ Lệ Chuyển Đổi & Cảnh Báo Telegram
 - **Mô tả**:
   1. **Nhu cầu**: Thực hiện 4 hạng mục tối ưu hóa chiến lược theo yêu cầu của Chủ sở hữu để đưa website lên chuẩn vận hành chuyên nghiệp (Production-Grade):

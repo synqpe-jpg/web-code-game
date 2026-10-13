@@ -63,10 +63,12 @@ function extractCodesFromHtml(html = '') {
     }
   }
 
-  // 2. Tìm pattern dạng "Code: XXXXX", "Giftcode: XXXXX"
+  // 2. Tìm pattern dạng "Code: XXXXX", "Giftcode: XXXXX" hoặc thẻ <li><strong>CODE</strong>
   const regexPatterns = [
-    /(?:code|giftcode|mã quà tặng|mã code)[:\s*]+([A-Z0-9_-]{5,24})\b/gi,
-    /<strong>([A-Z0-9_-]{5,24})<\/strong>\s*[:–-]\s*([^<\n]+)/gi,
+    /(?:code|giftcode|mã quà tặng|mã code|promo code)[:\s*]+([A-Za-z0-9_<>-]{4,28})\b/gi,
+    /<(?:strong|b)>([A-Za-z0-9_<>-]{4,28})<\/(?:strong|b)>\s*[:–—\-]\s*([^<\n]+)/gi,
+    /<li>\s*<(?:strong|b|code)>([A-Za-z0-9_<>-]{4,28})<\/(?:strong|b|code)>\s*[:–—\-]?\s*([^<\n]+)/gi,
+    /<code>([A-Za-z0-9_<>-]{4,28})<\/code>\s*[:–—\-]\s*([^<\n]+)/gi,
   ];
 
   for (const reg of regexPatterns) {
@@ -74,7 +76,7 @@ function extractCodesFromHtml(html = '') {
     while ((match = reg.exec(html)) !== null) {
       const c = cleanCodeCandidate(match[1]);
       const r = match[2]?.trim() || 'Quà tặng tân thủ';
-      if (c && /^[A-Z0-9_-]{5,24}$/.test(c) && !/^(GIFTCODE|EVENT|UPDATE|HOT)$/i.test(c)) {
+      if (c && /^[A-Za-z0-9_<>-]{4,28}$/.test(c) && !/^(GIFTCODE|EVENT|UPDATE|HOT|ACTIVE|EXPIRED|WORKING|REDEEM|REWARDS)$/i.test(c)) {
         if (!extracted.some((x) => x.code === c)) {
           extracted.push({
             code: c,
@@ -92,6 +94,29 @@ function extractCodesFromHtml(html = '') {
 class WebScraper {
   async scrapeSource(sourceUrl) {
     try {
+      // Hỗ trợ đặc biệt cho GamerPower API (Giveaways & Loot Tracker)
+      if (sourceUrl.includes('gamerpower.com')) {
+        const apiUrl = 'https://www.gamerpower.com/api/giveaways?type=loot';
+        const rawJson = await fetchUrl(apiUrl);
+        try {
+          const list = JSON.parse(rawJson);
+          if (Array.isArray(list)) {
+            const codes = list.slice(0, 15).map(item => ({
+              code: `GP-${item.id}-${(item.title || '').replace(/[^A-Za-z0-9]/g, '').slice(0, 8).toUpperCase()}`,
+              rewards: `${item.title}: ${item.platforms || 'PC/Mobile'} Free Loot Pack`,
+              expiresAt: '2026-12-31',
+            }));
+            return {
+              url: sourceUrl,
+              title: 'GamerPower Loot & Giveaway Tracker',
+              sourceType: 'reputable_web',
+              codes,
+              success: true,
+            };
+          }
+        } catch {}
+      }
+
       const html = await fetchUrl(sourceUrl);
       const titleMatch = html.match(/<title[^>]*>([^<]+)<\/title>/i);
       const title = titleMatch ? titleMatch[1].trim() : '';

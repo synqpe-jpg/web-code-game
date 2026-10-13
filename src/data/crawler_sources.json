@@ -5,7 +5,7 @@
     "type": "official_site",
     "url": "https://vnggames.com",
     "isEnabled": true,
-    "description": "C���ng thông tin sự kiện & thông báo chính thức nhà phát hành VNGGames."
+    "description": "Cổng thông tin sự kiện & thông báo chính thức nhà phát hành VNGGames."
   },
   {
     "id": "src_pub_zing_pay",
@@ -308,6 +308,113 @@
     "description": "Trang cập nhật giftcode chuyên biệt cho cộng đồng game thủ Việt."
   },
   {
+    "id": "src_hub_pocketgamer",
+    "name": "Pocket Gamer - Cẩm Nang & Giftcode Game Mobile",
+    "type": "reputable_web",
+    "url": "https://www.pocketgamer.com/redeem-codes/",
+    "isEnabled": true,
+    "description": "Chuyên trang game mobile số 1 thế giới cập nhật mã giftcode và promo code hàng ngày."
+  },
+  {
+    "id": "src_hub_pockettactics",
+    "name": "Pocket Tactics - Kho Giftcode & Hướng Dẫn Quốc Tế",
+    "type": "reputable_web",
+    "url": "https://www.pockettactics.com/codes",
+    "isEnabled": true,
+    "description": "Cơ sở dữ liệu giftcode Genshin, Honkai, ZZZ, Anime Vanguards, Blade Ball lớn nhất."
+  },
+  {
+    "id": "src_hub_mrguider",
+    "name": "MrGuider - Hướng Dẫn & Giftcode Game Gacha/RPG",
+    "type": "reputable_web",
+    "url": "https://mrguider.org/codes/",
+    "isEnabled": true,
+    "description": "Chuyên trang tổng hợp giftcode cho các tựa game RPG, Gacha và Idle quốc tế."
+  },
+  {
+    "id": "src_hub_urgametips",
+    "name": "UrGameTips - Cẩm Nang Game & Mã Đổi Quà Toàn Cầu",
+    "type": "reputable_web",
+    "url": "https://www.urgametips.com",
+    "isEnabled": true,
+    "description": "Kho giftcode đa dạng cho game mobile, chiến thuật và MMORPG cập nhật liên tục."
+  },
+  {
+    "id": "src_hub_progameguides",
+    "name": "Pro Game Guides - Trung Tâm Mã Giftcode Đỉnh Cao",
+    "type": "reputable_web",
+    "url": "https://progameguides.com/codes/",
+    "isEnabled": true,
+    "description": "Chuyên trang hàng đầu thế giới về Roblox codes, Genshin codes, mobile & PC gaming guides."
+  },
+  {
+    "id": "src_hub_tryhardguides",
+    "name": "Try Hard Guides - Hệ Thống Cập Nhật Code Tức Thì",
+    "type": "reputable_web",
+    "url": "https://tryhardguides.com/codes/",
+    "isEnabled": true,
+    "description": "Cập nhật nhanh nhất mã đổi thưởng cho Anime Vanguards, Blade Ball, King Legacy."
+  },
+  {
+    "id": "src_hub_dotesports",
+    "name": "Dot Esports - Tin Tức Thể Thao Điện Tử & Code Game",
+    "type": "reputable_web",
+    "url": "https://dotesports.com/codes",
+    "isEnabled": true,
+    "description": "Trang tin esports uy tín toàn cầu cập nhật mã thưởng Delta Force, LMHT, FPS & Mobile."
+  },
+  {
+    "id": "src_hub_gamerjournalist",
+    "name": "Gamer Journalist - Thư Viện Code & Cẩm Nang Game",
+    "type": "reputable_web",
+    "url": "https://gamerjournalist.com",
+    "isEnabled": true,
+    "description": "Thư viện tra cứu giftcode và hướng dẫn kích hoạt code game PC và di động."
+  },
+  {
+    "id": "src_hub_gamerpower",
+    "name": "GamerPower - Nền Tảng Theo Dõi Giveaways & Loot Game",
+    "type": "reputable_web",
+    "url": "https://www.gamerpower.com/giveaways",
+    "isEnabled": true,
+    "description": "Bộ máy tự động theo dõi và cung cấp quà tặng, Steam keys, DLC loot và in-game items."
+  },
+  {
+    "id": "src_hub_alienwarearena",
+    "name": "Alienware Arena - Trung Tâm Quà Tặng Game Độc Quyền Dell",
+    "type": "reputable_web",
+    "url": "https://www.alienwarearena.com/rewards",
+    "isEnabled": true,
+    "description": "Cổng phân phối mã code, promo packs, game keys và quà tặng bản quyền từ Alienware."
+  },
+  {
+    "id": "src_codemoi_ta-la-hac-ngo-khong",
+    "name": "CodeMoi - TA LÀ HẮC NGỘ KHÔNG",
+    "type": "reputable_web",
+    "url": "https://codemoi.net/games/ta-la-hac-ngo-khong/",
+    "targetGameSlug": "ta-la-hac-ngo-khong",
+    "isEnabled": true,
+    "description": "Cập nhật giftcode TA LÀ HẮC NGỘ KHÔNG mới nhất, kiểm tra mã quà tặng hàng ngày từ CodeMoi."
+  },
+  {
+    "id": "src_sforum_ta-la-hac-ngo-khong",
+    "name": "Sforum - TA LÀ HẮC NGỘ KHÔNG",
+    "type": "reputable_web",
+    "url": "https://cellphones.com.vn/sforum/tag/code-ta-la-hac-ngo-khong",
+    "targetGameSlug": "ta-la-hac-ngo-khong",
+    "isEnabled": true,
+    "description": "Hướng dẫn nhận và nhập mã code TA LÀ HẮC NGỘ KHÔNG trên chuyên trang Sforum."
+  },
+  {
+    "id": "src_fb_ta-la-hac-ngo-khong",
+    "name": "Fanpage Chính Thức - TA LÀ HẮC NGỘ KHÔNG",
+    "type": "official_fb",
+    "url": "https://www.facebook.com/talahacngokhong/",
+    "targetGameSlug": "ta-la-hac-ngo-khong",
+    "isEnabled": true,
+    "description": "Fanpage Facebook chính thức của tựa game TA LÀ HẮC NGỘ KHÔNG."
+  },
+  {
     "id": "src_codemoi_pirate-legends",
     "name": "CodeMoi - Pirate Legends: Huyền Thoại Hải Tặc",
     "type": "reputable_web",
@@ -441,33 +548,6 @@
     "targetGameSlug": "long-tuong-tam-quoc",
     "isEnabled": true,
     "description": "Fanpage Facebook chính thức của tựa game Long Tướng Tam Quốc."
-  },
-  {
-    "id": "src_codemoi_ta-la-hac-ngo-khong",
-    "name": "CodeMoi - TA LÀ HẮC NGỘ KHÔNG",
-    "type": "reputable_web",
-    "url": "https://codemoi.net/games/ta-la-hac-ngo-khong/",
-    "targetGameSlug": "ta-la-hac-ngo-khong",
-    "isEnabled": true,
-    "description": "Cập nhật giftcode TA LÀ HẮC NGỘ KHÔNG mới nhất, kiểm tra mã quà tặng hàng ngày từ CodeMoi."
-  },
-  {
-    "id": "src_sforum_ta-la-hac-ngo-khong",
-    "name": "Sforum - TA LÀ HẮC NGỘ KHÔNG",
-    "type": "reputable_web",
-    "url": "https://cellphones.com.vn/sforum/tag/code-ta-la-hac-ngo-khong",
-    "targetGameSlug": "ta-la-hac-ngo-khong",
-    "isEnabled": true,
-    "description": "Hướng dẫn nhận và nhập mã code TA LÀ HẮC NGỘ KHÔNG trên chuyên trang Sforum."
-  },
-  {
-    "id": "src_fb_ta-la-hac-ngo-khong",
-    "name": "Fanpage Chính Thức - TA LÀ HẮC NGỘ KHÔNG",
-    "type": "official_fb",
-    "url": "https://www.facebook.com/talahacngokhong/",
-    "targetGameSlug": "ta-la-hac-ngo-khong",
-    "isEnabled": true,
-    "description": "Fanpage Facebook chính thức của tựa game TA LÀ HẮC NGỘ KHÔNG."
   },
   {
     "id": "src_codemoi_thuong-lam-canh-gioi",
@@ -1280,6 +1360,15 @@
     "description": "Hướng dẫn nhận và nhập mã code Anime Vanguards trên chuyên trang Sforum."
   },
   {
+    "id": "src_intl_anime-vanguards",
+    "name": "Cẩm Nang Quốc Tế - Anime Vanguards",
+    "type": "reputable_web",
+    "url": "https://tryhardguides.com/anime-vanguards-codes/",
+    "targetGameSlug": "anime-vanguards",
+    "isEnabled": true,
+    "description": "Mã giftcode quốc tế cập nhật từ chuyên trang Pocket Tactics / Pro Game Guides / Try Hard Guides / Pocket Gamer cho Anime Vanguards."
+  },
+  {
     "id": "src_codemoi_3q-goi-tuong-di",
     "name": "CodeMoi - 3Q Gọi Tướng Đi",
     "type": "reputable_web",
@@ -1332,6 +1421,15 @@
     "targetGameSlug": "blade-ball",
     "isEnabled": true,
     "description": "Fanpage Facebook chính thức của tựa game Blade Ball."
+  },
+  {
+    "id": "src_intl_blade-ball",
+    "name": "Cẩm Nang Quốc Tế - Blade Ball",
+    "type": "reputable_web",
+    "url": "https://www.pockettactics.com/blade-ball/codes",
+    "targetGameSlug": "blade-ball",
+    "isEnabled": true,
+    "description": "Mã giftcode quốc tế cập nhật từ chuyên trang Pocket Tactics / Pro Game Guides / Try Hard Guides / Pocket Gamer cho Blade Ball."
   },
   {
     "id": "src_codemoi_tam-quoc-chi-vuong-chien",
@@ -1541,6 +1639,15 @@
     "description": "Fanpage Facebook chính thức của tựa game Capybara Go!."
   },
   {
+    "id": "src_intl_capybara-go",
+    "name": "Cẩm Nang Quốc Tế - Capybara Go!",
+    "type": "reputable_web",
+    "url": "https://www.pockettactics.com/capybara-go/codes",
+    "targetGameSlug": "capybara-go",
+    "isEnabled": true,
+    "description": "Mã giftcode quốc tế cập nhật từ chuyên trang Pocket Tactics / Pro Game Guides / Try Hard Guides / Pocket Gamer cho Capybara Go!."
+  },
+  {
     "id": "src_codemoi_king-legacy",
     "name": "CodeMoi - King Legacy",
     "type": "reputable_web",
@@ -1566,6 +1673,15 @@
     "targetGameSlug": "king-legacy",
     "isEnabled": true,
     "description": "Fanpage Facebook chính thức của tựa game King Legacy."
+  },
+  {
+    "id": "src_intl_king-legacy",
+    "name": "Cẩm Nang Quốc Tế - King Legacy",
+    "type": "reputable_web",
+    "url": "https://www.pockettactics.com/king-legacy/codes",
+    "targetGameSlug": "king-legacy",
+    "isEnabled": true,
+    "description": "Mã giftcode quốc tế cập nhật từ chuyên trang Pocket Tactics / Pro Game Guides / Try Hard Guides / Pocket Gamer cho King Legacy."
   },
   {
     "id": "src_codemoi_chaos-zero-nightmare",
@@ -1611,6 +1727,15 @@
     "targetGameSlug": "cookie-run-kingdom",
     "isEnabled": true,
     "description": "Fanpage Facebook chính thức của tựa game CookieRun: Kingdom."
+  },
+  {
+    "id": "src_intl_cookie-run-kingdom",
+    "name": "Cẩm Nang Quốc Tế - CookieRun: Kingdom",
+    "type": "reputable_web",
+    "url": "https://www.pocketgamer.com/cookie-run-kingdom/codes/",
+    "targetGameSlug": "cookie-run-kingdom",
+    "isEnabled": true,
+    "description": "Mã giftcode quốc tế cập nhật từ chuyên trang Pocket Tactics / Pro Game Guides / Try Hard Guides / Pocket Gamer cho CookieRun: Kingdom."
   },
   {
     "id": "src_codemoi_gangstar-mirage-city-online",
@@ -3590,7 +3715,7 @@
     "url": "https://codemoi.net/games/tho-san-quy/",
     "targetGameSlug": "tho-san-quy",
     "isEnabled": true,
-    "description": "Cập nh��t giftcode Thợ Săn Quỷ: Đại Chiến Dị Giới mới nhất, kiểm tra mã quà tặng hàng ngày từ CodeMoi."
+    "description": "Cập nhật giftcode Thợ Săn Quỷ: Đại Chiến Dị Giới mới nhất, kiểm tra mã quà tặng hàng ngày từ CodeMoi."
   },
   {
     "id": "src_sforum_tho-san-quy",
@@ -5105,6 +5230,15 @@
     "description": "Kênh Discord chính thức thông báo mã quà tặng và mã livestream cho Delta Force."
   },
   {
+    "id": "src_intl_delta-force",
+    "name": "Cẩm Nang Quốc Tế - Delta Force",
+    "type": "reputable_web",
+    "url": "https://dotesports.com/delta-force",
+    "targetGameSlug": "delta-force",
+    "isEnabled": true,
+    "description": "Mã giftcode quốc tế cập nhật từ chuyên trang Pocket Tactics / Pro Game Guides / Try Hard Guides / Pocket Gamer cho Delta Force."
+  },
+  {
     "id": "src_codemoi_hoa-son-kiem-the-vtc",
     "name": "CodeMoi - Hoa Sơn Kiếm Thế - VTC",
     "type": "reputable_web",
@@ -6041,6 +6175,42 @@
     "description": "Kênh Discord chính thức thông báo mã quà tặng và mã livestream cho Zenless Zone Zero."
   },
   {
+    "id": "src_intl_zenless-zone-zero",
+    "name": "Cẩm Nang Quốc Tế - Zenless Zone Zero",
+    "type": "reputable_web",
+    "url": "https://www.pockettactics.com/zenless-zone-zero/codes",
+    "targetGameSlug": "zenless-zone-zero",
+    "isEnabled": true,
+    "description": "Mã giftcode quốc tế cập nhật từ chuyên trang Pocket Tactics / Pro Game Guides / Try Hard Guides / Pocket Gamer cho Zenless Zone Zero."
+  },
+  {
+    "id": "src_codemoi_roblox",
+    "name": "CodeMoi - Roblox",
+    "type": "reputable_web",
+    "url": "https://codemoi.net/games/roblox/",
+    "targetGameSlug": "roblox",
+    "isEnabled": true,
+    "description": "Cập nhật giftcode Roblox mới nhất, kiểm tra mã quà tặng hàng ngày từ CodeMoi."
+  },
+  {
+    "id": "src_sforum_roblox",
+    "name": "Sforum - Roblox",
+    "type": "reputable_web",
+    "url": "https://cellphones.com.vn/sforum/tag/code-roblox",
+    "targetGameSlug": "roblox",
+    "isEnabled": true,
+    "description": "Hướng dẫn nhận và nhập mã code Roblox trên chuyên trang Sforum."
+  },
+  {
+    "id": "src_fb_roblox",
+    "name": "Fanpage NPH VNGGames Vietnam - Roblox",
+    "type": "official_fb",
+    "url": "https://facebook.com/vnggames",
+    "targetGameSlug": "roblox",
+    "isEnabled": true,
+    "description": "Kênh Fanpage Facebook chính thức của NPH VNGGames Vietnam quản lý và phát code cho Roblox."
+  },
+  {
     "id": "src_codemoi_roblox-blox-fruits",
     "name": "CodeMoi - Roblox Blox Fruits",
     "type": "reputable_web",
@@ -6725,6 +6895,15 @@
     "description": "Kênh Discord chính thức thông báo mã quà tặng và mã livestream cho Genshin Impact."
   },
   {
+    "id": "src_intl_genshin-impact",
+    "name": "Cẩm Nang Quốc Tế - Genshin Impact",
+    "type": "reputable_web",
+    "url": "https://www.pockettactics.com/genshin-impact/codes",
+    "targetGameSlug": "genshin-impact",
+    "isEnabled": true,
+    "description": "Mã giftcode quốc tế cập nhật từ chuyên trang Pocket Tactics / Pro Game Guides / Try Hard Guides / Pocket Gamer cho Genshin Impact."
+  },
+  {
     "id": "src_codemoi_call-of-dragons",
     "name": "CodeMoi - Call of Dragons",
     "type": "reputable_web",
@@ -6804,6 +6983,15 @@
     "targetGameSlug": "honkai-star-rail",
     "isEnabled": true,
     "description": "Kênh Discord chính thức thông báo mã quà tặng và mã livestream cho Honkai: Star Rail."
+  },
+  {
+    "id": "src_intl_honkai-star-rail",
+    "name": "Cẩm Nang Quốc Tế - Honkai: Star Rail",
+    "type": "reputable_web",
+    "url": "https://www.pockettactics.com/honkai-star-rail/codes",
+    "targetGameSlug": "honkai-star-rail",
+    "isEnabled": true,
+    "description": "Mã giftcode quốc tế cập nhật từ chuyên trang Pocket Tactics / Pro Game Guides / Try Hard Guides / Pocket Gamer cho Honkai: Star Rail."
   },
   {
     "id": "src_codemoi_kiem-hiep-tinh-2-mobile",
@@ -7022,6 +7210,15 @@
     "description": "Kênh Fanpage Facebook chính thức của NPH Gzone Media quản lý và phát code cho AFK Arena."
   },
   {
+    "id": "src_intl_afk-arena",
+    "name": "Cẩm Nang Quốc Tế - AFK Arena",
+    "type": "reputable_web",
+    "url": "https://www.pockettactics.com/afk-arena/codes",
+    "targetGameSlug": "afk-arena",
+    "isEnabled": true,
+    "description": "Mã giftcode quốc tế cập nhật từ chuyên trang Pocket Tactics / Pro Game Guides / Try Hard Guides / Pocket Gamer cho AFK Arena."
+  },
+  {
     "id": "src_codemoi_de-quoc-quat-khoi-tan-the-ky",
     "name": "CodeMoi - ĐẾ QUỐC QUẬT KHỞI",
     "type": "reputable_web",
@@ -7119,6 +7316,15 @@
     "targetGameSlug": "rise-of-kingdoms",
     "isEnabled": true,
     "description": "Kênh Fanpage Facebook chính thức của NPH NPH Gamota quản lý và phát code cho Rise of Kingdoms."
+  },
+  {
+    "id": "src_intl_rise-of-kingdoms",
+    "name": "Cẩm Nang Quốc Tế - Rise of Kingdoms",
+    "type": "reputable_web",
+    "url": "https://www.pocketgamer.com/rise-of-kingdoms/codes/",
+    "targetGameSlug": "rise-of-kingdoms",
+    "isEnabled": true,
+    "description": "Mã giftcode quốc tế cập nhật từ chuyên trang Pocket Tactics / Pro Game Guides / Try Hard Guides / Pocket Gamer cho Rise of Kingdoms."
   },
   {
     "id": "src_codemoi_hanh-trinh-bat-tan-sinh-ton",
@@ -7490,6 +7696,15 @@
     "description": "Kênh Fanpage Facebook chính thức của NPH NPH Gamota quản lý và phát code cho Lords Mobile: Kingdom Wars."
   },
   {
+    "id": "src_intl_lords-mobile",
+    "name": "Cẩm Nang Quốc Tế - Lords Mobile: Kingdom Wars",
+    "type": "reputable_web",
+    "url": "https://www.pocketgamer.com/lords-mobile/codes/",
+    "targetGameSlug": "lords-mobile",
+    "isEnabled": true,
+    "description": "Mã giftcode quốc tế cập nhật từ chuyên trang Pocket Tactics / Pro Game Guides / Try Hard Guides / Pocket Gamer cho Lords Mobile: Kingdom Wars."
+  },
+  {
     "id": "src_codemoi_giang-ho-ngu-tuyet-mobile",
     "name": "CodeMoi - Giang Hồ Ngũ Tuyệt Mobile",
     "type": "reputable_web",
@@ -7668,6 +7883,15 @@
     "targetGameSlug": "pubg-mobile",
     "isEnabled": true,
     "description": "Kênh Fanpage Facebook chính thức của NPH VNGGames Vietnam quản lý và phát code cho PUBG MOBILE."
+  },
+  {
+    "id": "src_intl_pubg-mobile",
+    "name": "Cẩm Nang Quốc Tế - PUBG MOBILE",
+    "type": "reputable_web",
+    "url": "https://gamerjournalist.com/pubg-mobile-codes/",
+    "targetGameSlug": "pubg-mobile",
+    "isEnabled": true,
+    "description": "Mã giftcode quốc tế cập nhật từ chuyên trang Pocket Tactics / Pro Game Guides / Try Hard Guides / Pocket Gamer cho PUBG MOBILE."
   },
   {
     "id": "src_codemoi_the-seven-deadly-sins-grand-cross",
@@ -7983,6 +8207,15 @@
     "targetGameSlug": "free-fire",
     "isEnabled": true,
     "description": "Fanpage Facebook chính thức của tựa game Free Fire."
+  },
+  {
+    "id": "src_intl_free-fire",
+    "name": "Cẩm Nang Quốc Tế - Free Fire",
+    "type": "reputable_web",
+    "url": "https://progameguides.com/free-fire-codes/",
+    "targetGameSlug": "free-fire",
+    "isEnabled": true,
+    "description": "Mã giftcode quốc tế cập nhật từ chuyên trang Pocket Tactics / Pro Game Guides / Try Hard Guides / Pocket Gamer cho Free Fire."
   },
   {
     "id": "src_codemoi_gunpow",
@@ -10881,13 +11114,5 @@
     "targetGameSlug": "thieu-nien-tay-du-vtc",
     "isEnabled": true,
     "description": "Kênh Fanpage Facebook chính thức của NPH VTC Mobile quản lý và phát code cho Thiếu Niên Tây Du VTC."
-  },
-  {
-    "id": "src_1791727809287_8vcs",
-    "name": "Tiên Nghịch JoyGame",
-    "type": "official_fb",
-    "url": "https://www.facebook.com/tiennghich.vn",
-    "targetGameSlug": "tien-nghich-mobile",
-    "isEnabled": true
   }
 ]
