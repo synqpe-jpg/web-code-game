@@ -18,6 +18,9 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: write
+    env:
+      ANDROID_HOME: /usr/local/lib/android/sdk
+      ANDROID_SDK_ROOT: /usr/local/lib/android/sdk
 
     steps:
       - name: Checkout Code
@@ -42,8 +45,8 @@ jobs:
           java-version: 17
           cache: 'gradle'
 
-      - name: Sync Capacitor Android
-        run: npx cap sync android
+      - name: Copy Web Assets to Capacitor Android
+        run: npx cap copy android
 
       - name: Make Gradlew Executable
         run: chmod +x android/gradlew
