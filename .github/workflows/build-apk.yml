@@ -10,11 +10,14 @@ on:
       - 'android/**'
       - 'capacitor.config.ts'
       - 'package.json'
+      - '.github/workflows/build-apk.yml'
 
 jobs:
   build-apk:
     name: Build CodeGame Android APK
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
 
     steps:
       - name: Checkout Code
@@ -37,9 +40,7 @@ jobs:
         with:
           distribution: 'zulu'
           java-version: 17
-
-      - name: Setup Android SDK
-        uses: android-actions/setup-android@v3
+          cache: 'gradle'
 
       - name: Sync Capacitor Android
         run: npx cap sync android
@@ -63,3 +64,16 @@ jobs:
           name: CodeGame-v1.0-APK
           path: output/*.apk
           retention-days: 30
+
+      - name: Publish Public GitHub Release
+        uses: softprops/action-gh-release@v2
+        if: startsWith(github.ref, 'refs/heads/main')
+        with:
+          tag_name: v1.0.0
+          name: CodeGame Mobile App v1.0.0
+          body: "Bản phát hành ứng dụng di động CodeGame dành cho Android (.APK) và PWA."
+          files: output/CodeGame-v1.0.apk
+          draft: false
+          prerelease: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

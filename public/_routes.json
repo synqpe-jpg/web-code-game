@@ -13,6 +13,7 @@
     "/logo.png",
     "/manifest.json",
     "/robots.txt",
-    "/sitemap.xml"
+    "/sitemap.xml",
+    "/download/*"
   ]
 }

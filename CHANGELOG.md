@@ -7,6 +7,28 @@ Mỗi mục sửa lỗi đều ghi nhận **Nguyên nhân gốc rễ (Root Cause
 
 ## [2026-10-13]
 
+### 15. Tối Ưu Bố Cục Header Mobile (Hiển Thị Trọn Vẹn Thông Tin Nhân Vật) & Khắc Phục Lỗi Tải File APK
+- **Mô tả**:
+  1. **Tối ưu hóa triệt để thanh Header trên điện thoại di động (< sm screens)**:
+     - *Khắc phục lỗi khuất avatar và thông tin nhân vật*: Trên màn hình 360px - 390px, tổng độ rộng của các nút vượt quá 410px khiến nút Nhân vật/Tài khoản bị đẩy ra khỏi mép phải màn hình.
+     - *Phân bổ lại bố cục hợp lý*:
+       + Tinh gọn Brand Logo: Giảm kích thước logo (`w-8 h-8`) và cỡ chữ (`text-xs sm:text-lg`).
+       + Ẩn các nút phụ không cần thiết trên mobile header: Chuyển nút `Săn Quà`, `LanguageSelector` và `ThemeToggle` sang chế độ `hidden sm:flex` (người dùng di động vẫn truy cập dễ dàng qua thanh điều hướng đáy `MobileBottomNav` và menu thả xuống của người dùng).
+       + Giữ lại và tinh gọn các nút trọng tâm: Nút `Tải App` (`px-1.5 py-1 text-xs` kèm icon Smartphone & huy hiệu `APP`), nút `Bookmark` (`min-w-[32px] min-h-[32px] p-1.5`).
+       + Ưu tiên tối đa Thông Tin Nhân Vật / Tài Khoản (`shrink-0`): Avatar hiển thị nổi bật với viền trạng thái hoạt động; khi chưa đăng nhập hiển thị nút tài khoản gọn gàng.
+       + Bổ sung công tắc Chế độ Sáng / Tối trực tiếp ngay trong menu Tài khoản khi ở chế độ điện thoại.
+  2. **Khắc phục lỗi tải file cài đặt APK ("Không thể tải được tệp CodeGame-v1.0.apk / Báo lỗi")**:
+     - *Nguyên nhân gốc rễ*:
+       + Endpoint `/download/codegame.apk` trả về mã lỗi 404 với `Content-Type: text/html` vì file chưa tồn tại trên Cloudflare Pages và chưa có route chuyển hướng. Trình duyệt di động (Cốc Cốc, Chrome) huỷ tải và báo lỗi tệp.
+       + GitHub Actions workflow `.github/workflows/build-apk.yml` bị lỗi tại bước 7 (`android-actions/setup-android@v3`) do xung đột công cụ và giấy phép, đồng thời chưa khai báo `permissions: contents: write` để tự động xuất bản GitHub Release.
+       + File cấu hình `android/variables.gradle` đặt `compileSdkVersion = 36` (Android 16 preview) gây lỗi tải platform trên runner chuẩn.
+     - *Giải pháp đã xử lý*:
+       + Thiết lập route `/download/codegame.apk` và `/download/CodeGame-v1.0.apk` trong `functions/_worker.ts` tự động chuyển hướng HTTP 302 đến GitHub Release chính thức.
+       + Loại trừ đuôi `.apk` khỏi bộ lọc chuyển hướng SPA HTML và khai báo MIME type `application/vnd.android.package-archive` trong `public/_headers` và `public/_routes.json`.
+       + Sửa workflow `build-apk.yml`: Bỏ `setup-android` (runner `ubuntu-latest` đã có sẵn Android SDK), cấu hình `compileSdkVersion = 34` chuẩn tắc, kích hoạt quyền `contents: write` và tự động phát hành bản cài đặt qua `softprops/action-gh-release@v2`.
+       + Sửa giao diện `DownloadAppModal.tsx`: Thay thế ký hiệu toán học `$\rightarrow$` bằng mũi tên `→` chuẩn UI, bổ sung nút phím tắt "Cài Nhanh (PWA)" ngay dưới nút tải APK để người dùng có lựa chọn mở 1 chạm tức thì nếu trình duyệt chặn nguồn ngoài.
+- **Kết quả xác minh**: Build đạt 100%, Header hiển thị trọn vẹn thông tin nhân vật trên mọi kích cỡ màn hình di động, luồng tải APK và cài đặt PWA hoàn toàn thông suốt.
+
 ### 14. Triển Khai Toàn Diện Ứng Dụng Di Động (PWA + Capacitor Android) & Tích Hợp Nút "Tải App" Trên Website
 - **Mô tả**:
   1. **Tích hợp PWA (Progressive Web App) hoàn chỉnh**:

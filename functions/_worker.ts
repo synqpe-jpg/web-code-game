@@ -59,13 +59,26 @@ export default {
       });
     }
 
+    // Route handler for mobile APK download: redirect to official GitHub Release
+    if (
+      pathname === '/download/codegame.apk' ||
+      pathname === '/download/CodeGame-v1.0.apk' ||
+      lowerPath === '/download/codegame.apk' ||
+      lowerPath === '/download/codegame-v1.0.apk'
+    ) {
+      return Response.redirect(
+        'https://github.com/synqpe-jpg/web-code-game/releases/download/v1.0.0/CodeGame-v1.0.apk',
+        302
+      );
+    }
+
     // Canonical primary domain redirect: web-code-game.pages.dev & www.codegame.shop -> codegame.shop (for browser page navigation)
     if (
       (url.hostname === 'web-code-game.pages.dev' || url.hostname === 'www.codegame.shop') &&
       method === 'GET' &&
       !pathname.startsWith('/api') &&
       !pathname.startsWith('/sync-bridge') &&
-      !pathname.match(/\.(js|css|json|webp|png|jpg|jpeg|svg|ico|txt|xml|woff2?|map)$/i)
+      !pathname.match(/\.(js|css|json|webp|png|jpg|jpeg|svg|ico|txt|xml|woff2?|map|apk)$/i)
     ) {
       const redirectUrl = new URL(request.url);
       redirectUrl.hostname = 'codegame.shop';
@@ -85,7 +98,7 @@ export default {
       method === 'GET' &&
       !pathname.startsWith('/api') &&
       !pathname.startsWith('/sync-bridge') &&
-      !pathname.match(/\.(js|css|json|webp|png|jpg|jpeg|svg|ico|txt|xml|woff2?|map)$/i)
+      !pathname.match(/\.(js|css|json|webp|png|jpg|jpeg|svg|ico|txt|xml|woff2?|map|apk)$/i)
     ) {
       const adminUrl = new URL('/admin/index.html', request.url);
       const res = await env.ASSETS.fetch(new Request(adminUrl.toString()));

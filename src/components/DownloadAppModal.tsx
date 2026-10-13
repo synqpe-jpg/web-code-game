@@ -322,6 +322,18 @@ export const DownloadAppModal: React.FC<DownloadAppModalProps> = ({
                   <Download className="w-4 h-4" />
                   <span>Tải File CodeGame.apk (4.8 MB)</span>
                 </a>
+
+                {/* Instant PWA Shortcut Alternative */}
+                <div className="pt-1">
+                  <button
+                    type="button"
+                    onClick={() => setActiveTab('pwa')}
+                    className="w-full py-2.5 px-3 rounded-xl bg-primary/10 hover:bg-primary/20 text-primary-light border border-primary/30 text-xs font-semibold flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
+                  >
+                    <Zap className="w-3.5 h-3.5 text-amber-400" />
+                    <span>💡 Khuyên dùng: Cài Nhanh (PWA) — Mở 1 chạm, không cần tải APK</span>
+                  </button>
+                </div>
               </div>
 
               {/* 3 Step APK Install Guide */}
@@ -331,15 +343,15 @@ export const DownloadAppModal: React.FC<DownloadAppModalProps> = ({
                 </span>
                 <div className="space-y-1.5 text-slate-400 text-[11px]">
                   <div className="flex items-center gap-2">
-                    <span className="w-4 h-4 rounded-full bg-primary/20 text-primary-light flex items-center justify-center text-[10px] font-bold">1</span>
-                    <span>Tải file APK về máy $\rightarrow$ Nhấn "Vẫn tải xuống" nếu trình duyệt hỏi.</span>
+                    <span className="w-4 h-4 rounded-full bg-primary/20 text-primary-light flex items-center justify-center text-[10px] font-bold shrink-0">1</span>
+                    <span>Tải file APK về máy → Nhấn <strong>"Vẫn tải xuống"</strong> nếu trình duyệt hỏi.</span>
                   </div>
                   <div className="flex items-center gap-2">
-                    <span className="w-4 h-4 rounded-full bg-primary/20 text-primary-light flex items-center justify-center text-[10px] font-bold">2</span>
-                    <span>Mở file vừa tải $\rightarrow$ Cho phép "Cài đặt ứng dụng không rõ nguồn".</span>
+                    <span className="w-4 h-4 rounded-full bg-primary/20 text-primary-light flex items-center justify-center text-[10px] font-bold shrink-0">2</span>
+                    <span>Mở file vừa tải → Cho phép <strong>"Cài đặt ứng dụng không rõ nguồn"</strong>.</span>
                   </div>
                   <div className="flex items-center gap-2">
-                    <span className="w-4 h-4 rounded-full bg-primary/20 text-primary-light flex items-center justify-center text-[10px] font-bold">3</span>
+                    <span className="w-4 h-4 rounded-full bg-primary/20 text-primary-light flex items-center justify-center text-[10px] font-bold shrink-0">3</span>
                     <span>Nhấn <strong>Cài đặt</strong> và mở app CodeGame trải nghiệm!</span>
                   </div>
                 </div>

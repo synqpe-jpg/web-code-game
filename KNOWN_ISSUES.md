@@ -377,6 +377,28 @@
   - ❌ *Không bao giờ dùng `createdAt` làm fallback cho tăng trưởng FOMO*: Sản phẩm tạo từ nhiều ngày trước sẽ nhảy vọt ngay $+30$ đến $+70$ đơn.
   - ❌ *Không để ngưỡng thanh lọc đỉnh quá rộng (+100)*: Đỉnh ma từ các lần thử nghiệm trước sẽ bị kẹt lại vĩnh viễn trên Edge Hub.
 
+### ISSUE-020: Lỗi 404 Khi Tải File APK & Bị Khuất Thông Tin Nhân Vật Trên Header Điện Thoại
+- **Triệu chứng**:
+  - 1. Mở web trên điện thoại: Hàng trên cùng (Header) bị tràn chiều ngang, nút Avatar và Thông Tin Nhân Vật bị đẩy ra khỏi màn hình bên phải (khuất hoàn toàn).
+  - 2. Người dùng nhấn nút "Tải File CodeGame.apk": Trình duyệt di động báo lỗi "Không thể tải được tệp CodeGame-v1.0.apk / Báo lỗi".
+- **Nguyên nhân gốc rễ**:
+  - 1. *Tràn chiều ngang Header*: Toolbar trên header chứa đồng thời 7 thành phần (Brand Logo, Săn Quà, Tải App, Cờ Ngôn Ngữ, Bookmark, User Avatar, Theme Toggle). Tổng độ rộng vượt quá 410px, trong khi màn hình smartphone thông thường chỉ từ 360px - 390px, khiến các phần tử bên phải bị trôi khỏi viewport.
+  - 2. *Lỗi tải APK*: Endpoint `/download/codegame.apk` chưa có static file và chưa có route xử lý trong `functions/_worker.ts`, dẫn tới Cloudflare Pages trả về mã 404 (`Content-Type: text/html`). Trình duyệt phát hiện không phải định dạng APK hợp lệ nên hủy tải ngay lập tức. Đồng thời, workflow GitHub Actions `.github/workflows/build-apk.yml` bị lỗi tại bước `android-actions/setup-android@v3` do runner `ubuntu-latest` đã có sẵn Android SDK.
+- **Giải pháp chuẩn đã kiểm chứng**:
+  - 1. *Tối ưu Header mobile*:
+    - Ẩn các nút không thiết yếu trên màn hình nhỏ `< sm`: `Săn Quà`, `LanguageSelector`, `ThemeToggle` chuyển sang `hidden sm:flex` (đã có đầy đủ trong Bottom Nav và menu User).
+    - Tinh gọn Brand Logo và nút Tải App, Bookmark; khóa cứng `shrink-0` cho khối Thông Tin Nhân Vật / User Avatar để luôn xuất hiện 100% không bao giờ bị cắt cụt.
+    - Tích hợp chuyển đổi theme Sáng/Tối trực tiếp trong menu thả xuống của User trên mobile.
+  - 2. *Khắc phục triệt để tải APK*:
+    - Thiết lập route chuyển hướng HTTP 302 trong `functions/_worker.ts` dẫn trực tiếp đến GitHub Release chính thức: `https://github.com/synqpe-jpg/web-code-game/releases/download/v1.0.0/CodeGame-v1.0.apk`.
+    - Bổ sung cấu hình MIME type `application/vnd.android.package-archive` và loại trừ `/download/*` trong `public/_headers` và `public/_routes.json`.
+    - Sửa workflow `build-apk.yml`: Bỏ bước `setup-android` bị lỗi, gán `compileSdkVersion = 34` chuẩn runner, bổ sung `permissions: contents: write` và tích hợp `softprops/action-gh-release@v2` tự động phát hành bản APK v1.0.0.
+    - Sửa `DownloadAppModal.tsx`: Sửa ký tự `$\rightarrow$` thành `→`, bổ sung nút phím tắt "Cài Nhanh (PWA)" mở 1 chạm không cần quyền tải file.
+- ⛔ **CÁCH SỬA ĐÃ THẤT BẠI - TUYỆT ĐỐI KHÔNG LẶP LẠI**:
+  - ❌ *Không nhồi nhét tất cả các nút desktop lên header của mobile*: Màn hình điện thoại nhỏ hẹp bắt buộc phải ẩn bớt các nút thứ cấp vào menu và thanh đáy.
+  - ❌ *Không dùng `android-actions/setup-android@v3` trên runner `ubuntu-latest`*: Gây lỗi xung đột giấy phép Android SDK và treo tiến trình build.
+  - ❌ *Không để đường dẫn tải APK trỏ về URL chưa cấu hình MIME type hoặc route xử lý*: Trình duyệt di động sẽ nhận diện nhầm thành file HTML 404 và hủy lượt tải.
+
 ---
 
 ## 2. QUY TRÌNH BẮT BUỘC TRƯỚC KHI SỬA CODE (PRE-FLIGHT CHECKLIST)
