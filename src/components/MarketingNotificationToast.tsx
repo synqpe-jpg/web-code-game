@@ -10,6 +10,7 @@ import {
   Wrench,
   Flame,
   BellOff,
+  PackagePlus,
 } from 'lucide-react';
 import type { MarketingNotification } from '../types/marketing';
 import { marketingService } from '../services/marketingService';
@@ -173,6 +174,10 @@ export const MarketingNotificationToast: React.FC<MarketingNotificationToastProp
     } else if (notif.type === 'COPY_CODE') {
       if (!(notif as any).localOrigin) {
         marketingService.incrementLiveCounter(1, notif.id);
+      }
+    } else if (notif.type === 'RESTOCK_PRODUCT' && notif.productId) {
+      if (!(notif as any).localOrigin) {
+        marketingService.boostProductStock(notif.productId, notif.restockAmount || 20, notif.id);
       }
     }
 
@@ -563,6 +568,15 @@ export const MarketingNotificationToast: React.FC<MarketingNotificationToastProp
     } else if (notification.type === 'DEPOSIT_WALLET') {
       onOpenWallet?.();
       dismissNotification();
+    } else if (notification.type === 'RESTOCK_PRODUCT' && notification.productId) {
+      if (notification.itemType === 'utility') {
+        onSelectUtility ? onSelectUtility(notification.productId) : onSelectProduct?.(notification.productId);
+      } else if (notification.itemType === 'giveaway') {
+        onSelectGiveaway ? onSelectGiveaway(notification.productId) : onExploreClick?.();
+      } else {
+        onSelectProduct?.(notification.productId);
+      }
+      dismissNotification();
     } else if (notification.type === 'STATS_COPY') {
       onExploreClick?.();
       dismissNotification();
@@ -596,6 +610,13 @@ export const MarketingNotificationToast: React.FC<MarketingNotificationToastProp
           badgeColor: 'bg-indigo-500/15 text-indigo-400 border-indigo-500/30',
           dotColor: 'bg-indigo-400',
           hoverBorder: 'hover:border-indigo-500/50',
+        };
+      case 'RESTOCK_PRODUCT':
+        return {
+          icon: PackagePlus,
+          badgeColor: 'bg-emerald-500/15 text-emerald-400 border-emerald-500/30',
+          dotColor: 'bg-emerald-400',
+          hoverBorder: 'hover:border-emerald-500/50',
         };
       case 'CLAIM_GIVEAWAY':
         return {

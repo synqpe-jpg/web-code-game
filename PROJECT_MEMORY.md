@@ -75,6 +75,7 @@
   - Thông báo mua (`BUY_PRODUCT`): Tồn kho hiển thị (`Còn:`) **-1**, Số lượng đã bán (`Đã bán:`) **+1**.
   - Thông báo nhận quà (`CLAIM_GIVEAWAY`): Mã còn lại **-1**, Mã đã săn **+1**.
   - Thông báo copy (`COPY_CODE`): Bộ đếm tổng lượt copy toàn trang **+1**.
+  - Thông báo bổ sung kho (`RESTOCK_PRODUCT`): Tồn kho hiển thị (`Còn:`) **+{restockAmount}**.
 - Cơ chế `BroadcastChannel` và Custom Event (`wcg_virtual_stock_updated`, `wcg_sold_count_updated`) phát tín hiệu để toàn bộ các thẻ sản phẩm cập nhật tức thì trong 0 giây mà không cần F5.
 - Bộ nhớ `processedStockNotifIds` lưu ID thông báo để đảm bảo **chống trừ đúp** khi mở nhiều tab.
 

@@ -28,6 +28,7 @@ import {
   Gauge,
   BarChart3,
   PackageX,
+  PackagePlus,
 } from 'lucide-react';
 import type {
   MarketingConfig,
@@ -235,8 +236,7 @@ export const MarketingModule: React.FC<MarketingModuleProps> = ({ onShowToast })
   };
 
   // Test notification trigger
-  // Test notification trigger
-  const handleTestTrigger = (type: 'COPY_CODE' | 'BUY_PRODUCT' | 'BUY_UTILITY' | 'CLAIM_GIVEAWAY' | 'DEPOSIT_WALLET' | 'STATS_COPY') => {
+  const handleTestTrigger = (type: 'COPY_CODE' | 'BUY_PRODUCT' | 'BUY_UTILITY' | 'CLAIM_GIVEAWAY' | 'DEPOSIT_WALLET' | 'STATS_COPY' | 'RESTOCK_PRODUCT') => {
     const rawAccount = marketingService.getRandomVirtualAccount();
     const maskedAccount = marketingService.maskName(rawAccount);
 
@@ -328,6 +328,25 @@ export const MarketingModule: React.FC<MarketingModuleProps> = ({ onShowToast })
         timestamp: Date.now(),
         localOrigin: true,
       } as any, true, true);
+    } else if (type === 'RESTOCK_PRODUCT') {
+      const u = utilityProducts.find((item) => (item.stock_quantity ?? 0) > 0) || utilityProducts[0] || { id: 'util_test', title: 'Tài khoản Netflix Premium 1 Tháng' };
+      const testId = `test_restock_${Date.now()}`;
+      marketingService.boostProductStock(u.id, 20, testId);
+      marketingService.pushRealEvent({
+        id: testId,
+        type: 'RESTOCK_PRODUCT',
+        title: 'Bổ sung tồn kho',
+        message: `Kho hàng vừa bổ sung thêm +20 ${u.title}!`,
+        timeAgo: 'vừa xong',
+        userName: 'Hệ thống',
+        productId: u.id,
+        productName: u.title,
+        restockAmount: 20,
+        itemType: 'utility',
+        isRealUser: true,
+        timestamp: Date.now(),
+        localOrigin: true,
+      } as any, true, true);
     } else {
       marketingService.incrementLiveCounter(1);
       marketingService.pushRealEvent({
@@ -379,6 +398,7 @@ export const MarketingModule: React.FC<MarketingModuleProps> = ({ onShowToast })
       claimGiveaway: enable,
       depositWallet: enable,
       statsCopy: enable,
+      restockProduct: enable,
     };
     const updatedConfig: MarketingConfig = {
       ...config,
@@ -388,7 +408,7 @@ export const MarketingModule: React.FC<MarketingModuleProps> = ({ onShowToast })
     try {
       await marketingService.saveConfig(updatedConfig);
       onShowToast(
-        enable ? 'Đã bật tất cả 6 loại thông báo!' : 'Đã tắt toàn bộ loại thông báo!',
+        enable ? 'Đã bật tất cả 7 loại thông báo!' : 'Đã tắt toàn bộ loại thông báo!',
         'Cài đặt đã tự động lưu và đồng bộ tức thì lên máy chủ & web khách.',
         'success'
       );
@@ -455,16 +475,16 @@ export const MarketingModule: React.FC<MarketingModuleProps> = ({ onShowToast })
     let newWeights: NotificationTypeWeights;
     let label = '';
     if (presetType === 'gw_50') {
-      newWeights = { claimGiveaway: 50, buyStore: 20, buyUtility: 10, copyCode: 15, depositWallet: 3, statsCopy: 2, buyProduct: 30 };
+      newWeights = { claimGiveaway: 50, buyStore: 15, buyUtility: 10, copyCode: 15, depositWallet: 3, statsCopy: 2, buyProduct: 25, restockProduct: 5 };
       label = 'Tập trung Giveaway (50%)';
     } else if (presetType === 'gw_70') {
-      newWeights = { claimGiveaway: 70, buyStore: 15, buyUtility: 5, copyCode: 10, depositWallet: 0, statsCopy: 0, buyProduct: 20 };
+      newWeights = { claimGiveaway: 70, buyStore: 10, buyUtility: 5, copyCode: 10, depositWallet: 0, statsCopy: 0, buyProduct: 15, restockProduct: 5 };
       label = 'Siêu tốc Giveaway (70%)';
     } else if (presetType === 'store_60') {
-      newWeights = { buyStore: 40, buyUtility: 20, claimGiveaway: 15, copyCode: 15, depositWallet: 7, statsCopy: 3, buyProduct: 60 };
+      newWeights = { buyStore: 40, buyUtility: 20, claimGiveaway: 10, copyCode: 10, depositWallet: 5, statsCopy: 3, buyProduct: 60, restockProduct: 12 };
       label = 'Tập trung Bán hàng (Store 60%)';
     } else {
-      newWeights = { copyCode: 30, buyStore: 25, buyUtility: 10, claimGiveaway: 25, depositWallet: 7, statsCopy: 3, buyProduct: 35 };
+      newWeights = { copyCode: 25, buyStore: 20, buyUtility: 10, claimGiveaway: 20, depositWallet: 5, statsCopy: 5, buyProduct: 30, restockProduct: 15 };
       label = 'Cân bằng tự nhiên';
     }
 
@@ -488,6 +508,7 @@ export const MarketingModule: React.FC<MarketingModuleProps> = ({ onShowToast })
     config.typeToggles?.claimGiveaway ?? true,
     config.typeToggles?.depositWallet ?? true,
     config.typeToggles?.statsCopy ?? true,
+    config.typeToggles?.restockProduct ?? true,
   ].filter(Boolean).length;
 
   const renderNotificationTypesSection = () => {
@@ -538,6 +559,20 @@ export const MarketingModule: React.FC<MarketingModuleProps> = ({ onShowToast })
         testAction: () => handleTestTrigger('BUY_UTILITY'),
       },
       {
+        key: 'restockProduct' as keyof NotificationTypeToggles,
+        weightKey: 'restockProduct' as keyof NotificationTypeWeights,
+        title: 'Bổ sung tồn kho',
+        tag: 'RESTOCK_PRODUCT',
+        description: 'Nổ thông báo khi kho hàng tự động bù hoặc vừa nạp thêm số lượng mã/tài khoản mới.',
+        example: 'Kho hàng vừa bổ sung thêm +20 VIP 7 Days VS Phone!',
+        icon: PackagePlus,
+        color: 'from-emerald-500/20 to-teal-500/10 border-emerald-500/30 text-emerald-400',
+        badgeColor: 'bg-emerald-500/15 text-emerald-400 border-emerald-500/30',
+        barColor: 'bg-emerald-500',
+        dotColor: 'bg-emerald-400',
+        testAction: () => handleTestTrigger('RESTOCK_PRODUCT'),
+      },
+      {
         key: 'claimGiveaway' as keyof NotificationTypeToggles,
         weightKey: 'claimGiveaway' as keyof NotificationTypeWeights,
         title: 'Săn quà sự kiện Giveaway',
@@ -586,6 +621,7 @@ export const MarketingModule: React.FC<MarketingModuleProps> = ({ onShowToast })
       copyCode: toggles.copyCode !== false ? Math.max(0, Number(weights.copyCode) || 0) : 0,
       buyStore: toggles.buyStore !== false ? Math.max(0, Number(weights.buyStore) || 0) : 0,
       buyUtility: toggles.buyUtility !== false ? Math.max(0, Number(weights.buyUtility) || 0) : 0,
+      restockProduct: toggles.restockProduct !== false ? Math.max(0, Number(weights.restockProduct) || 0) : 0,
       claimGiveaway: toggles.claimGiveaway !== false ? Math.max(0, Number(weights.claimGiveaway) || 0) : 0,
       depositWallet: toggles.depositWallet !== false ? Math.max(0, Number(weights.depositWallet) || 0) : 0,
       statsCopy: toggles.statsCopy !== false ? Math.max(0, Number(weights.statsCopy) || 0) : 0,
@@ -2545,7 +2581,7 @@ export const MarketingModule: React.FC<MarketingModuleProps> = ({ onShowToast })
             </p>
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3 pt-2">
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-7 gap-3 pt-2">
             <button
               type="button"
               onClick={() => handleTestTrigger('COPY_CODE')}
@@ -2595,6 +2631,23 @@ export const MarketingModule: React.FC<MarketingModuleProps> = ({ onShowToast })
                 </span>
               </div>
               <p className="text-[11px] text-muted-foreground">Giả lập người dùng mua tài khoản Tiện ích.</p>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => handleTestTrigger('RESTOCK_PRODUCT')}
+              className="p-4 rounded-xl bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-500/30 text-emerald-300 text-left transition-all cursor-pointer active:scale-95 space-y-1.5"
+            >
+              <div className="flex items-center justify-between gap-1">
+                <div className="flex items-center gap-1.5 font-bold text-xs sm:text-sm">
+                  <PackagePlus className="w-4 h-4 text-emerald-400" />
+                  <span>Bổ Sung Kho</span>
+                </div>
+                <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded border ${(config.typeToggles?.restockProduct ?? true) ? 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30' : 'bg-rose-500/20 text-rose-400 border-rose-500/30'}`}>
+                  {(config.typeToggles?.restockProduct ?? true) ? 'BẬT' : 'TẮT'}
+                </span>
+              </div>
+              <p className="text-[11px] text-muted-foreground">Giả lập hệ thống vừa bổ sung thêm +20 sản phẩm vào kho.</p>
             </button>
 
             <button

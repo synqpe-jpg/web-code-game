@@ -1,4 +1,4 @@
-export type NotificationType = 'COPY_CODE' | 'BUY_PRODUCT' | 'CLAIM_GIVEAWAY' | 'STATS_COPY' | 'DEPOSIT_WALLET';
+export type NotificationType = 'COPY_CODE' | 'BUY_PRODUCT' | 'CLAIM_GIVEAWAY' | 'STATS_COPY' | 'DEPOSIT_WALLET' | 'RESTOCK_PRODUCT';
 
 export type ProductPriority = 'high' | 'normal' | 'low' | 'off';
 
@@ -59,6 +59,8 @@ export interface NotificationTypeToggles {
   depositWallet: boolean;
   /** Bật/tắt thông báo thống kê tổng số lượt sao chép trong ngày */
   statsCopy: boolean;
+  /** Bật/tắt thông báo bổ sung tồn kho / nạp thêm hàng mới */
+  restockProduct?: boolean;
 }
 
 export interface NotificationTypeWeights {
@@ -76,6 +78,8 @@ export interface NotificationTypeWeights {
   depositWallet: number;
   /** Trọng số thống kê tổng số lượt sao chép. Mặc định: 3 */
   statsCopy: number;
+  /** Trọng số thông báo bổ sung tồn kho. Mặc định: 12 */
+  restockProduct?: number;
 }
 
 export interface MarketingConfig {
@@ -116,6 +120,7 @@ export interface MarketingNotification {
   itemType?: 'store' | 'utility' | 'giveaway';
   depositAmount?: number;
   totalCopiesCount?: number;
+  restockAmount?: number;
   timestamp: number;
   scheduledFireTime?: number;
   serverTimestamp?: number;

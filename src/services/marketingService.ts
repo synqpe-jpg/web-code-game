@@ -91,6 +91,7 @@ export const DEFAULT_TYPE_TOGGLES: NotificationTypeToggles = {
   claimGiveaway: true,
   depositWallet: true,
   statsCopy: true,
+  restockProduct: true,
 };
 
 export const DEFAULT_TYPE_WEIGHTS: NotificationTypeWeights = {
@@ -100,6 +101,7 @@ export const DEFAULT_TYPE_WEIGHTS: NotificationTypeWeights = {
   claimGiveaway: 25,
   depositWallet: 7,
   statsCopy: 3,
+  restockProduct: 12,
 };
 
 export const DEFAULT_MARKETING_CONFIG: MarketingConfig = {
@@ -1706,6 +1708,7 @@ class MarketingService {
     if (type === 'DEPOSIT_WALLET') return toggles.depositWallet !== false;
     if (type === 'STATS_COPY') return toggles.statsCopy !== false;
     if (type === 'CLAIM_GIVEAWAY') return toggles.claimGiveaway !== false;
+    if (type === 'RESTOCK_PRODUCT') return toggles.restockProduct !== false;
     if (type === 'BUY_PRODUCT') {
       if (toggles.buyProduct === false) return false;
       if (itemType === 'store') return toggles.buyStore !== false;
@@ -1907,6 +1910,11 @@ class MarketingService {
           delete this.lastReportedPeaks.remaining[productId];
         }
       }
+      if (this.isTypeEnabled('RESTOCK_PRODUCT')) {
+        const itemInfo = this.findItemTitle(productId);
+        const titleStr = itemInfo?.title || 'Sản phẩm';
+        this.recordRealRestock(titleStr, productId, restockAmount, itemInfo?.itemType || 'utility');
+      }
     } else {
       nextStock = Math.max(realStock, nextStock);
     }
@@ -1929,6 +1937,95 @@ class MarketingService {
     }
 
     return nextStock;
+  }
+
+  public findItemTitle(id: string): { title: string; itemType: 'store' | 'utility' | 'giveaway' } | null {
+    if (!id) return null;
+    if (typeof localStorage !== 'undefined') {
+      try {
+        const utRaw = localStorage.getItem('wcg_admin_utilities_v4') || localStorage.getItem('wcg_utilities_v4');
+        if (utRaw) {
+          const list = JSON.parse(utRaw);
+          const found = Array.isArray(list) ? list.find((u: any) => u && u.id === id) : null;
+          if (found && found.title) return { title: found.title, itemType: 'utility' };
+        }
+        const spRaw = localStorage.getItem('wcg_admin_store_products_v4') || localStorage.getItem('wcg_store_products_v4');
+        if (spRaw) {
+          const list = JSON.parse(spRaw);
+          const found = Array.isArray(list) ? list.find((p: any) => p && p.id === id) : null;
+          if (found && found.title) return { title: found.title, itemType: 'store' };
+        }
+        const gwRaw = localStorage.getItem('wcg_admin_giveaways_v4') || localStorage.getItem('wcg_giveaways_v4');
+        if (gwRaw) {
+          const list = JSON.parse(gwRaw);
+          const found = Array.isArray(list) ? list.find((g: any) => g && g.id === id) : null;
+          if (found && found.title) return { title: found.title, itemType: 'giveaway' };
+        }
+      } catch {}
+    }
+    return null;
+  }
+
+  public boostProductStock(productId: string, amount: number = 20, notifId?: string): number {
+    if (!productId) return 0;
+    if (notifId) {
+      const restockKey = notifId.startsWith('restock_') ? notifId : `restock_${notifId}`;
+      if (this.processedStockNotifIds.has(restockKey)) {
+        return this.getDisplayStock(productId);
+      }
+      this.processedStockNotifIds.add(restockKey);
+    }
+    const realStock = this.getRealStockFor(productId);
+    if (realStock <= 0) return 0;
+    const inc = Math.max(1, amount || 20);
+    const curStock = this.getDisplayStock(productId, realStock);
+    const nextStock = curStock + inc;
+    this.liveVirtualStockMap.set(productId, nextStock);
+    this.saveLiveVirtualStock();
+    this.notifyStockChanged(productId, nextStock);
+    if (this.broadcastChannel) {
+      try {
+        this.broadcastChannel.postMessage({
+          type: 'VIRTUAL_STOCK_RESTOCK',
+          payload: { productId, newStock: nextStock, notifId },
+        });
+      } catch {}
+    }
+    return nextStock;
+  }
+
+  public recordRealRestock(
+    productTitle: string,
+    productId: string,
+    restockAmount: number = 20,
+    itemType: 'store' | 'utility' | 'giveaway' = 'utility'
+  ): void {
+    const now = this.getCalibratedNow();
+    const amt = Math.max(1, restockAmount || 20);
+    const event: MarketingNotification = {
+      id: `restock_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
+      type: 'RESTOCK_PRODUCT',
+      title: itemType === 'giveaway' ? 'Nạp thêm mã quà tặng' : 'Bổ sung tồn kho',
+      message: itemType === 'giveaway'
+        ? `Sự kiện ${productTitle} vừa được nạp thêm +${amt} mã quà tặng mới!`
+        : `Kho hàng vừa bổ sung thêm +${amt} ${productTitle}!`,
+      timeAgo: 'vừa xong',
+      userName: 'Hệ thống',
+      productId,
+      productName: productTitle,
+      giveawayId: itemType === 'giveaway' ? productId : undefined,
+      giveawayTitle: itemType === 'giveaway' ? productTitle : undefined,
+      restockAmount: amt,
+      itemType,
+      isRealUser: true,
+      timestamp: now,
+      scheduledFireTime: now,
+    };
+    (event as any).localOrigin = true;
+
+    this.boostProductStock(productId, amt, event.id);
+    this.pushRealEvent(event, true, true);
+    this.schedulePushRealEvent(event, 0);
   }
 
   private getInitialCalculatedStock(productId: string): number {
@@ -3642,6 +3739,7 @@ class MarketingService {
     const canGw = this.isTypeEnabled('CLAIM_GIVEAWAY');
     const canDep = this.isTypeEnabled('DEPOSIT_WALLET');
     const canStats = this.isTypeEnabled('STATS_COPY');
+    const canRestock = this.isTypeEnabled('RESTOCK_PRODUCT');
 
     const cfgWeights = {
       ...DEFAULT_TYPE_WEIGHTS,
@@ -3655,6 +3753,7 @@ class MarketingService {
     const gwWeight = Math.max(0, Number(cfgWeights.claimGiveaway) || 0);
     const depWeight = Math.max(0, Number(cfgWeights.depositWallet) || 0);
     const statsWeight = Math.max(0, Number(cfgWeights.statsCopy) || 0);
+    const restockWeight = Math.max(0, Number(cfgWeights.restockProduct) || 0);
 
     const candidates: { type: NotificationType; weight: number }[] = [];
     if (canCopy && copyWeight > 0) candidates.push({ type: 'COPY_CODE', weight: copyWeight });
@@ -3662,6 +3761,7 @@ class MarketingService {
     if (canGw && gwWeight > 0) candidates.push({ type: 'CLAIM_GIVEAWAY', weight: gwWeight });
     if (canDep && depWeight > 0) candidates.push({ type: 'DEPOSIT_WALLET', weight: depWeight });
     if (canStats && statsWeight > 0) candidates.push({ type: 'STATS_COPY', weight: statsWeight });
+    if (canRestock && restockWeight > 0) candidates.push({ type: 'RESTOCK_PRODUCT', weight: restockWeight });
 
     // Fallback nếu các loại đang bật nhưng vô tình bị đặt weight = 0
     if (candidates.length === 0) {
@@ -3670,6 +3770,7 @@ class MarketingService {
       if (canGw) candidates.push({ type: 'CLAIM_GIVEAWAY', weight: 1 });
       if (canDep) candidates.push({ type: 'DEPOSIT_WALLET', weight: 1 });
       if (canStats) candidates.push({ type: 'STATS_COPY', weight: 1 });
+      if (canRestock) candidates.push({ type: 'RESTOCK_PRODUCT', weight: 1 });
     }
 
     if (candidates.length === 0) {
@@ -3995,6 +4096,90 @@ class MarketingService {
           displayDurationMs,
         };
       }
+    }
+
+    // 6. RESTOCK_PRODUCT (Thông báo Bổ sung tồn kho)
+    if (chosenType === 'RESTOCK_PRODUCT') {
+      let deletedStoreSet = new Set<string>();
+      let deletedUtilSet = new Set<string>();
+      let deletedGwSet = new Set<string>();
+      try {
+        if (typeof window !== 'undefined') {
+          const rawDelSp = localStorage.getItem('wcg_deleted_store_products');
+          if (rawDelSp) deletedStoreSet = new Set(JSON.parse(rawDelSp));
+          const rawDelUt = localStorage.getItem('wcg_deleted_utilities');
+          if (rawDelUt) deletedUtilSet = new Set(JSON.parse(rawDelUt));
+          const rawDelGw = localStorage.getItem('wcg_deleted_giveaways');
+          if (rawDelGw) deletedGwSet = new Set(JSON.parse(rawDelGw));
+        }
+      } catch {}
+
+      const restockCandidates: { id: string; title: string; itemType: 'store' | 'utility' | 'giveaway' }[] = [];
+
+      (Array.isArray(storeProducts) ? storeProducts : []).forEach((p) => {
+        if (p && p.is_active !== false && !deletedStoreSet.has(p.id)) {
+          const pw = this.getProductConfig(p.id);
+          if (pw.priority !== 'off') {
+            restockCandidates.push({ id: p.id, title: p.title, itemType: 'store' });
+          }
+        }
+      });
+
+      (Array.isArray(utilityProducts) ? utilityProducts : []).forEach((u) => {
+        if (u && u.is_active !== false && !deletedUtilSet.has(u.id)) {
+          const pw = this.getProductConfig(u.id);
+          if (pw.priority !== 'off') {
+            restockCandidates.push({ id: u.id, title: u.title, itemType: 'utility' });
+          }
+        }
+      });
+
+      (Array.isArray(giveaways) ? giveaways : []).forEach((g) => {
+        if (g && g.is_active !== false && !deletedGwSet.has(g.id)) {
+          const pw = this.getProductConfig(g.id);
+          if (pw.priority !== 'off') {
+            restockCandidates.push({ id: g.id, title: g.title, itemType: 'giveaway' });
+          }
+        }
+      });
+
+      if (restockCandidates.length > 0) {
+        restockCandidates.sort((a, b) => String(a.id).localeCompare(String(b.id)));
+        const selected = restockCandidates[Math.floor(rng() * restockCandidates.length)];
+        const pw = this.getProductConfig(selected.id);
+        const restockAmount = Math.max(5, Number(pw.autoRestockAmount) || 20);
+
+        return {
+          notif: {
+            id: `slot_restock_${slotIndex}`,
+            type: 'RESTOCK_PRODUCT',
+            title: selected.itemType === 'giveaway' ? 'Nạp thêm mã quà tặng' : 'Bổ sung tồn kho',
+            message: selected.itemType === 'giveaway'
+              ? `Sự kiện ${selected.title} vừa được nạp thêm +${restockAmount} mã quà tặng mới!`
+              : `Kho hàng vừa bổ sung thêm +${restockAmount} ${selected.title}!`,
+            timeAgo,
+            userName: 'Hệ thống',
+            productId: selected.id,
+            productName: selected.title,
+            giveawayId: selected.itemType === 'giveaway' ? selected.id : undefined,
+            giveawayTitle: selected.itemType === 'giveaway' ? selected.title : undefined,
+            restockAmount,
+            itemType: selected.itemType,
+            timestamp: fireTimeMs,
+          },
+          slotIndex,
+          fireTimeMs,
+          displayDurationMs,
+        };
+      }
+
+      // Fallback nếu không có item nào
+      if (canCopy) chosenType = 'COPY_CODE';
+      else if (canBuy) chosenType = 'BUY_PRODUCT';
+      else if (canGw) chosenType = 'CLAIM_GIVEAWAY';
+      else if (canDep) chosenType = 'DEPOSIT_WALLET';
+      else if (canStats) chosenType = 'STATS_COPY';
+      else return null;
     }
 
     return null;

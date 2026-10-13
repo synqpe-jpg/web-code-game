@@ -7,7 +7,24 @@ Mỗi mục sửa lỗi đều ghi nhận **Nguyên nhân gốc rễ (Root Cause
 
 ## [2026-10-13]
 
-### 23. Triển Khai Kiến Trúc Capacitor Live WebView Đồng Bộ 100% Cho File APK & Tái Kích Hoạt Tải Về
+### 24. Tích Hợp Thông Báo "Bổ Sung Tồn Kho" (RESTOCK_PRODUCT) Vào Hệ Thống Marketing FOMO
+- **Mô tả**:
+  1. **Nhu cầu**: Bổ sung loại thông báo Marketing FOMO mới — "Bổ Sung Tồn Kho" (`RESTOCK_PRODUCT`) để thông báo tức thời cho khách hàng mỗi khi kho hàng được nạp thêm số lượng tài khoản/mã mới, kích thích người chơi vào mua sắm và săn quà.
+  2. **Triển khai kiến trúc đa tầng**:
+     - *Kiểu dữ liệu (`types/marketing.ts`)*: Thêm `RESTOCK_PRODUCT` vào `NotificationType`, bổ sung `restockProduct?: boolean` vào `NotificationTypeToggles`, `restockProduct?: number` vào `NotificationTypeWeights` (mặc định trọng số: 12), và trường `restockAmount?: number` vào `MarketingNotification`.
+     - *Động cơ Marketing (`services/marketingService.ts`)*:
+       + Bổ sung kiểm tra `isTypeEnabled('RESTOCK_PRODUCT')`.
+       + Tích hợp ứng viên `RESTOCK_PRODUCT` vào cỗ máy PRNG tất định theo thời gian vũ trụ (`getDeterministicNotification`), tự động chọn ngẫu nhiên sản phẩm/tiện ích/giveaway đang kích hoạt để sinh thông báo bắt mắt: *"Kho hàng vừa bổ sung thêm +{amount} {title}!"* hoặc *"Sự kiện {title} vừa được nạp thêm +{amount} mã quà tặng mới!"*.
+       + Kết nối tự động khi cơ chế Auto Restock kích hoạt (`decrementProductStock` khi kho tụt $\le$ ngưỡng bù) hoặc khi nạp kho qua `recordRealRestock` & `boostProductStock`.
+     - *Giao diện thông báo Toast (`components/MarketingNotificationToast.tsx`)*:
+       + Sử dụng icon Vector chuẩn mực `PackagePlus` từ Lucide React kèm dải màu Emerald (`bg-emerald-500/15 text-emerald-400 border-emerald-500/30`).
+       + Tương tác 1 chạm (`handleClickToast`): Tự động điều hướng khách đến thẳng trang chi tiết sản phẩm / tiện ích / giveaway vừa được bổ sung hàng.
+       + Tự động cộng số lượng hiển thị (`boostProductStock`) tức thì theo thời gian thực.
+     - *Mô-đun Quản Trị Admin (`admin/modules/MarketingModule.tsx`)*:
+       + Thêm tùy chọn Bật/Tắt và thanh điều chỉnh trọng số thông báo Bổ Sung Tồn Kho.
+       + Tích hợp vào các kịch bản mẫu (Presets) và bổ sung nút Bắn Thử Thông Báo Trực Tiếp trong tab Giả Lập & Xem Trước.
+     - *Đồng bộ máy chủ Cloudflare D1/KV*: Đồng bộ ngay lập tức cấu hình `restockProduct: true` lên `/api/sync` với bảo mật xác thực `X-Sync-Key`.
+- **Kết quả xác minh**: Kiểm thử biên dịch Vite thành công 100%, sinh HTML tĩnh cho toàn bộ 486+ game, kịch bản PRNG slot sinh 7/50 thông báo bổ sung kho chuẩn xác.
 - **Mô tả**:
   1. **Khắc phục triệt để hiện tượng App không cập nhật đủ code**:
      - *Phát hiện nguyên nhân*: File APK trước đó nạp dữ liệu từ thư mục tĩnh nội bộ (`webDir: 'dist'`) trong sandbox `https://localhost`. Các lệnh gọi API lấy mã giftcode mới như `/api/sync`, `/api/stats`, `/api/orders` dùng đường dẫn tương đối nên bị trỏ về `https://localhost/api/...` (vốn không có máy chủ nào trên điện thoại), khiến app bị cô lập hoàn toàn và đóng băng ở dữ liệu cũ từ lúc build APK, không thể nhận được 20 code mới Ta Là Hắc Ngộ Không hay code cào tự động.
