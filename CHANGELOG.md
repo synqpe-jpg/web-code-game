@@ -7,6 +7,27 @@ Mỗi mục sửa lỗi đều ghi nhận **Nguyên nhân gốc rễ (Root Cause
 
 ## [2026-10-13]
 
+### 8. Khắc Phục Triệt Để Lỗi Bất Đồng Bộ Số Ảo Admin vs Web Khách & Kích Hoạt Tăng Đều (Steady Progression)
+- **Mô tả**:
+  1. **Đồng bộ chuẩn xác số ảo giữa Admin và Web Khách**:
+     - Web Khách hiển thị chuẩn 100% số liệu ảo Admin đã cấu hình (ví dụ: 3Q Đào Đào Đào: 77, Anh Hùng Tiến Lên: 33, Tiên Nghịch Mobile: 31, Pirate Legends: 52), thanh lọc triệt để các mốc đỉnh ma cũ (1420, 1498, 1513, 597).
+     - Bổ sung cơ chế `fomo_anchor_time` và `virtual_claimed_updated_at` / `virtual_sold_updated_at` vào toàn bộ dữ liệu Giveaway, Utilities và Store Products.
+     - Khi Admin lưu số ảo trong `QuickFomoAdjustModal`, `fomo_anchor_time = nowIso` được ghi nhận lập tức và đồng bộ lên D1 / KV / Edge Hub.
+  2. **Cơ chế tăng đều tự nhiên theo thời gian (Steady Progression)**:
+     - Thay vì đóng băng số liệu hoặc tính lũy kế từ `created_at` trong quá khứ (khiến số bị vọt lên hàng nghìn), thuật toán `calculateHourlyGrowth` và `calculateInHourProgression` sử dụng `fomo_anchor_time` làm mốc gốc $t_0$.
+     - Tại thời điểm Admin chỉnh sửa ($t = t_0$), mức tăng là 0 $\rightarrow$ Web khách hiển thị đúng chính xác 100% số Admin nhập.
+     - Theo thời gian trôi qua ($t > t_0$), số lượng tăng đều đặn, mượt mà theo nhịp sinh học tự nhiên mà không bị gián đoạn hay nhảy cóc.
+  3. **Thanh lọc Server Snapshot & Edge Peak Hub**:
+     - Cập nhật `snapshotService.ts` load đầy đủ `metaMap` từ D1 settings để lấy `fomo_anchor_time`.
+     - Bộ lọc `maxAllowedPeak` trên Cloudflare Worker lập tức xóa bỏ và đặt lại các đỉnh cũ trên D1/Hub vượt trần cấu hình, xóa cache `system_snapshots`.
+- **Nguyên nhân gốc rễ (Root Cause)**:
+  - 1. `adminOverrideClaimedMap` nằm trong LocalStorage của Admin (`admin-code-game-shop.pages.dev`), do khác origin nên Web Khách (`codegame.shop`) không thể truy cập.
+  - 2. Máy chủ D1 / Real Events Hub lưu giữ đỉnh cũ `peakGiveawayClaimedCounts` (1420+) từ phiên bản trước; endpoint `/api/metrics/synced` lấy `Math.max(calculated, peak)` ép trả về số cũ.
+  - 3. Thiếu `fomo_anchor_time` khiến công thức tính tăng theo giờ fallback về `created_at` (nhiều ngày trước), cộng thêm lượng tăng lũy kế nhiều ngày khiến số bị phình to.
+- **Giải pháp thành công (Solution Applied)**:
+  - Đồng bộ `fomo_anchor_time` từ modal Admin qua KV, D1, và toàn bộ bộ máy `deterministicEngine.ts` / `snapshotService.ts`.
+  - Cập nhật `getClaimedDisplay` và `getSoldDisplay` thống nhất `effectiveBaseTarget = effectiveReal + virtualBase`, bắt đầu tăng đều mượt mà từ mốc chỉ định.
+
 ### 7. Khắc Phục Triệt Để Lỗi Số Ảo Bị Phục Hồi (Revert Bug) & Cung Cấp Bộ 3 Công Tắc Ẩn/Hiện Tùy Chọn Độc Lập
 - **Mô tả**:
   1. **Khắc phục triệt để lỗi số ảo bị phục hồi (Revert Bug)**:

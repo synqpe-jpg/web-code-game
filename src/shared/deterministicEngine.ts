@@ -189,23 +189,16 @@ export function calculateHourlyGrowth(
   createdAt?: string,
   timestampMs: number = Date.now(),
   priority: string = 'normal',
-  customConfig?: { enabled?: boolean; mode?: string; intervalMinutes?: number; incrementStep?: number; maxCatchUpUnits?: number }
+  customConfig?: { enabled?: boolean; mode?: string; intervalMinutes?: number; incrementStep?: number; maxCatchUpUnits?: number },
+  anchorTime?: string
 ): number {
   if (!id || priority === 'off') return 0;
   const defaultAnchor = timestampMs;
 
-  let idTimestamp: number | null = null;
-  const match = id ? id.match(/^(?:ut|sp|gw)_(\d{10,13})/i) : null;
-  if (match) {
-    const parsed = parseInt(match[1], 10);
-    if (!isNaN(parsed) && parsed > 1600000000000 && parsed <= timestampMs) {
-      idTimestamp = parsed;
-    }
-  }
-
+  const effectiveStart = anchorTime || createdAt;
   let parsedCreatedAtMs: number | null = null;
-  if (createdAt) {
-    let str = String(createdAt).trim();
+  if (effectiveStart) {
+    let str = String(effectiveStart).trim();
     if (/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/.test(str)) {
       str = str.replace(' ', 'T') + 'Z';
     }
@@ -215,11 +208,23 @@ export function calculateHourlyGrowth(
     }
   }
 
+  let idTimestamp: number | null = null;
+  if (!anchorTime) {
+    const match = id ? id.match(/^(?:ut|sp|gw)_(\d{10,13})/i) : null;
+    if (match) {
+      const parsed = parseInt(match[1], 10);
+      if (!isNaN(parsed) && parsed > 1600000000000 && parsed <= timestampMs) {
+        idTimestamp = parsed;
+      }
+    }
+  }
+
   const startMs = parsedCreatedAtMs || idTimestamp || defaultAnchor;
   const safeStart = Math.min(startMs, timestampMs);
-  const elapsedHours = Math.max(0, Math.floor((timestampMs - safeStart) / ONE_HOUR_MS));
-  if (elapsedHours <= 0) return 0;
+  const elapsedMinutes = Math.max(0, Math.floor((timestampMs - safeStart) / 60000));
+  if (elapsedMinutes <= 0) return 0;
 
+  const elapsedHours = elapsedMinutes / 60;
   let rate = priority === 'high' ? 2.5 : priority === 'low' ? 0.6 : 1.2;
   if (customConfig?.enabled && customConfig?.mode === 'custom') {
     const interval = Math.max(1, Number(customConfig.intervalMinutes) || 15);
@@ -242,28 +247,32 @@ export function calculateInHourProgression(
   id: string,
   timestampMs: number = Date.now(),
   priority: string = 'normal',
-  createdAt?: string
+  createdAt?: string,
+  anchorTime?: string
 ): number {
   if (!id || priority === 'off') return 0;
 
-  let idTimestamp: number | null = null;
-  const match = id ? id.match(/^(?:ut|sp|gw)_(\d{10,13})/i) : null;
-  if (match) {
-    const parsed = parseInt(match[1], 10);
-    if (!isNaN(parsed) && parsed > 1600000000000 && parsed <= timestampMs) {
-      idTimestamp = parsed;
-    }
-  }
-
+  const effectiveStart = anchorTime || createdAt;
   let parsedCreatedAtMs: number | null = null;
-  if (createdAt) {
-    let str = String(createdAt).trim();
+  if (effectiveStart) {
+    let str = String(effectiveStart).trim();
     if (/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/.test(str)) {
       str = str.replace(' ', 'T') + 'Z';
     }
     const t = new Date(str).getTime();
     if (!isNaN(t) && t > 0) {
       parsedCreatedAtMs = Math.min(t, timestampMs);
+    }
+  }
+
+  let idTimestamp: number | null = null;
+  if (!anchorTime) {
+    const match = id ? id.match(/^(?:ut|sp|gw)_(\d{10,13})/i) : null;
+    if (match) {
+      const parsed = parseInt(match[1], 10);
+      if (!isNaN(parsed) && parsed > 1600000000000 && parsed <= timestampMs) {
+        idTimestamp = parsed;
+      }
     }
   }
 
@@ -301,7 +310,8 @@ export function calculateDeterministicSold(
   virtualBase: number = 0,
   priority: string = 'normal',
   customConfig?: { enabled?: boolean; mode?: string; intervalMinutes?: number; incrementStep?: number; maxCatchUpUnits?: number; outOfStockEnabled?: boolean; outOfStockMaxUnits?: number },
-  realStock?: number
+  realStock?: number,
+  anchorTime?: string
 ): number {
   const real = Math.max(0, Number(realSold) || 0);
   if (priority === 'off') return real;
@@ -314,12 +324,12 @@ export function calculateDeterministicSold(
     }
     // Nếu có bật bù ngoại tuyến cho hàng hết: kẹp trần theo outOfStockMaxUnits
     const oosMax = Math.max(1, Number(customConfig.outOfStockMaxUnits) || 10);
-    const hourly = calculateHourlyGrowth(productId, createdAt, timestampMs, priority, customConfig);
+    const hourly = calculateHourlyGrowth(productId, createdAt, timestampMs, priority, customConfig, anchorTime);
     return real + base + Math.min(hourly, oosMax);
   }
 
-  const hourly = calculateHourlyGrowth(productId, createdAt, timestampMs, priority, customConfig);
-  const inHour = calculateInHourProgression(productId, timestampMs, priority, createdAt);
+  const hourly = calculateHourlyGrowth(productId, createdAt, timestampMs, priority, customConfig, anchorTime);
+  const inHour = calculateInHourProgression(productId, timestampMs, priority, createdAt, anchorTime);
   return real + base + hourly + inHour;
 }
 
@@ -409,6 +419,7 @@ export function calculateGlobalSnapshot(
       displayStock = Math.min(displayStock, maxAllowedStock);
     }
 
+    const anchorTime = (prod as any).fomo_anchor_time || (prod as any).virtual_sold_updated_at;
     const rawDisplaySold = priority === 'off'
       ? effectiveRealSold
       : calculateDeterministicSold(
@@ -419,17 +430,20 @@ export function calculateGlobalSnapshot(
           prod.virtual_sold_count !== undefined ? prod.virtual_sold_count : 0,
           priority,
           data.offlineCatchUp,
-          realStock
+          realStock,
+          anchorTime
         );
 
     // Bảo toàn đỉnh bán hàng lũy kế (Monotonic Progression): Đỉnh đã đạt được duy trì vĩnh viễn
+    // Tự động thanh lọc đỉnh rác cũ (ghost inflated peak) vượt quá trần cấu hình hiện tại
     const oosEnabled = Boolean(data.offlineCatchUp?.outOfStockEnabled);
     const oosMax = Math.max(1, Number(data.offlineCatchUp?.outOfStockMaxUnits) || 10);
     const peakSold = Number(data.peakProductSoldCounts?.[prod.id]) || 0;
+    const baseTarget = Number(prod.virtual_sold_count || 0);
     const maxAllowedPeak = realStock <= 0 && oosEnabled
-      ? effectiveRealSold + (prod.virtual_sold_count || 0) + oosMax
-      : Math.max(50000, effectiveRealSold + (prod.virtual_sold_count || 0) + 5000);
-    const effectivePeakSold = Math.min(peakSold, maxAllowedPeak);
+      ? effectiveRealSold + baseTarget + oosMax
+      : effectiveRealSold + baseTarget + 100;
+    const effectivePeakSold = (peakSold > maxAllowedPeak && peakSold > rawDisplaySold + 50) ? rawDisplaySold : peakSold;
     const displaySold = Math.max(rawDisplaySold, effectivePeakSold);
 
     productSnapshots[prod.id] = {
@@ -505,6 +519,7 @@ export function calculateGlobalSnapshot(
       displayRemaining = Math.min(displayRemaining, maxAllowedGwRemaining);
     }
 
+    const anchorTime = (gw as any).fomo_anchor_time || (gw as any).virtual_claimed_updated_at;
     const rawDisplayClaimed = priority === 'off'
       ? effectiveRealClaimed
       : calculateDeterministicSold(
@@ -515,17 +530,20 @@ export function calculateGlobalSnapshot(
           gw.virtual_claimed_offset !== undefined ? gw.virtual_claimed_offset : 0,
           priority,
           data.offlineCatchUp,
-          realRemaining
+          realRemaining,
+          anchorTime
         );
 
     // Bảo toàn đỉnh nhận quà lũy kế (Monotonic Progression): Đỉnh đã đạt được duy trì vĩnh viễn
+    // Tự động thanh lọc đỉnh rác cũ (ghost inflated peak) vượt quá trần cấu hình hiện tại
     const gwOosEnabled = Boolean(data.offlineCatchUp?.outOfStockEnabled);
     const gwOosMax = Math.max(1, Number(data.offlineCatchUp?.outOfStockMaxUnits) || 10);
     const peakClaimed = Number(data.peakGiveawayClaimedCounts?.[gw.id]) || 0;
+    const baseTargetGw = Number(gw.virtual_claimed_offset || 0);
     const maxAllowedGwPeak = realRemaining <= 0 && gwOosEnabled
-      ? effectiveRealClaimed + (gw.virtual_claimed_offset || 0) + gwOosMax
-      : Math.max(50000, effectiveRealClaimed + (gw.virtual_claimed_offset || 0) + 5000);
-    const effectivePeakClaimed = Math.min(peakClaimed, maxAllowedGwPeak);
+      ? effectiveRealClaimed + baseTargetGw + gwOosMax
+      : effectiveRealClaimed + baseTargetGw + 100;
+    const effectivePeakClaimed = (peakClaimed > maxAllowedGwPeak && peakClaimed > rawDisplayClaimed + 50) ? rawDisplayClaimed : peakClaimed;
     const displayClaimed = Math.max(rawDisplayClaimed, effectivePeakClaimed);
 
     const displayTotal = displayRemaining + displayClaimed;

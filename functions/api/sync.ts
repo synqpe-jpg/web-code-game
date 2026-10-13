@@ -313,6 +313,9 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
             description: p.description || meta.description || '',
             virtual_sold_count: p.virtual_sold_count !== undefined ? Number(p.virtual_sold_count) : Number(meta.virtual_sold_count ?? 0),
             show_sold_count: p.show_sold_count !== undefined ? Boolean(p.show_sold_count) : (meta.show_sold_count !== false),
+            show_stock_count: p.show_stock_count !== undefined ? Boolean(p.show_stock_count) : (meta.show_stock_count !== false),
+            fomo_anchor_time: meta.fomo_anchor_time || (p as any).fomo_anchor_time || null,
+            virtual_sold_updated_at: meta.virtual_sold_updated_at || (p as any).virtual_sold_updated_at || null,
             show_warranty: p.show_warranty !== undefined ? Boolean(p.show_warranty) : Boolean(meta.show_warranty),
             warranty_text: p.warranty_text || meta.warranty_text || '',
           };
@@ -374,6 +377,9 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
             instructions: u.instructions || meta.instructions || '',
             virtual_sold_count: u.virtual_sold_count !== undefined ? Number(u.virtual_sold_count) : Number(meta.virtual_sold_count ?? 0),
             show_sold_count: u.show_sold_count !== undefined ? Boolean(u.show_sold_count) : (meta.show_sold_count !== false),
+            show_stock_count: u.show_stock_count !== undefined ? Boolean(u.show_stock_count) : (meta.show_stock_count !== false),
+            fomo_anchor_time: meta.fomo_anchor_time || (u as any).fomo_anchor_time || null,
+            virtual_sold_updated_at: meta.virtual_sold_updated_at || (u as any).virtual_sold_updated_at || null,
             show_warranty: u.show_warranty !== undefined ? Boolean(u.show_warranty) : Boolean(meta.show_warranty),
             warranty_text: u.warranty_text || meta.warranty_text || '',
             guide_url: u.guide_url || meta.guide_url || '',
@@ -452,6 +458,9 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
             description: g.description || meta.description || '',
             virtual_claimed_offset: g.virtual_claimed_offset !== undefined ? Number(g.virtual_claimed_offset) : Number(meta.virtual_claimed_offset ?? 0),
             show_claimed_count: g.show_claimed_count !== undefined ? Boolean(g.show_claimed_count) : (meta.show_claimed_count !== false),
+            show_remaining_count: meta.show_remaining_count !== undefined ? Boolean(meta.show_remaining_count) : ((g as any).show_remaining_count !== false),
+            fomo_anchor_time: meta.fomo_anchor_time || (g as any).fomo_anchor_time || null,
+            virtual_claimed_updated_at: meta.virtual_claimed_updated_at || (g as any).virtual_claimed_updated_at || null,
             start_time: g.start_time || meta.start_time || null,
             end_time: g.end_time || meta.end_time || null,
             cover_image_url: g.cover_image_url || meta.cover_image_url || null,
@@ -1010,7 +1019,7 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
             const num = Number(val);
             if (!isNaN(num) && num >= 0 && num < 1000000) {
               const cur = hub.peakProductSoldCounts[pId] || 0;
-              if (body.forceResetSold || body.forceReset || num > cur || (cur > num + 50)) {
+              if (body.forceResetSold || body.forceReset || (num > cur && num <= cur + 50) || (cur > num + 50)) {
                 hub.peakProductSoldCounts[pId] = num;
                 changed = true;
               }
@@ -1024,7 +1033,7 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
             const num = Number(val);
             if (!isNaN(num) && num >= 0 && num < 1000000) {
               const cur = hub.peakGiveawayClaimedCounts[gId] || 0;
-              if (body.forceResetClaimed || body.forceReset || num > cur || (cur > num + 50)) {
+              if (body.forceResetClaimed || body.forceReset || (num > cur && num <= cur + 50) || (cur > num + 50)) {
                 hub.peakGiveawayClaimedCounts[gId] = num;
                 changed = true;
               }
@@ -1590,6 +1599,24 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
         if (Array.isArray(incomingProducts) && incomingProducts.length > 0) {
           await syncProductsToD1(env.DB, incomingProducts);
           await setSettingD1(env.DB, 'wcg_admin_store_products_v4', incomingProducts);
+          try {
+            const hub = await getRealEventsHub(env);
+            if (hub && hub.peakProductSoldCounts) {
+              let hubChanged = false;
+              for (const p of incomingProducts) {
+                if (p && p.id && p.virtual_sold_count !== undefined) {
+                  const target = Number(p.virtual_sold_count) + (Number(p.sold_count) || 0);
+                  const curPeak = hub.peakProductSoldCounts[p.id] || 0;
+                  if (curPeak > target + 50 || curPeak < target) {
+                    hub.peakProductSoldCounts[p.id] = target;
+                    hubChanged = true;
+                  }
+                }
+              }
+              if (hubChanged) await saveRealEventsHub(env, hub, true);
+            }
+            await env.DB.prepare('DELETE FROM system_snapshots').run().catch(() => {});
+          } catch {}
         }
 
         // Utilities sync: support both key-specific sync and full snapshot sync
@@ -1599,6 +1626,24 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
         if (Array.isArray(incomingUtilities) && incomingUtilities.length > 0) {
           await syncUtilitiesToD1(env.DB, incomingUtilities);
           await setSettingD1(env.DB, 'wcg_admin_utilities_v4', incomingUtilities);
+          try {
+            const hub = await getRealEventsHub(env);
+            if (hub && hub.peakProductSoldCounts) {
+              let hubChanged = false;
+              for (const u of incomingUtilities) {
+                if (u && u.id && u.virtual_sold_count !== undefined) {
+                  const target = Number(u.virtual_sold_count) + (Number(u.sold_count) || 0);
+                  const curPeak = hub.peakProductSoldCounts[u.id] || 0;
+                  if (curPeak > target + 50 || curPeak < target) {
+                    hub.peakProductSoldCounts[u.id] = target;
+                    hubChanged = true;
+                  }
+                }
+              }
+              if (hubChanged) await saveRealEventsHub(env, hub, true);
+            }
+            await env.DB.prepare('DELETE FROM system_snapshots').run().catch(() => {});
+          } catch {}
         }
 
         // Giveaways & Codes Pool sync: sync to D1 when key is explicitly 'wcg_admin_giveaways_v4' OR full state body.giveaways
@@ -1617,6 +1662,24 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
                 .run().catch(() => {});
             }
           }
+          try {
+            const hub = await getRealEventsHub(env);
+            if (hub && hub.peakGiveawayClaimedCounts) {
+              let hubChanged = false;
+              for (const gw of incomingGiveaways) {
+                if (gw && gw.id && gw.virtual_claimed_offset !== undefined) {
+                  const target = Number(gw.virtual_claimed_offset) + (Number(gw.claimed_codes) || 0);
+                  const curPeak = hub.peakGiveawayClaimedCounts[gw.id] || 0;
+                  if (curPeak > target + 50 || curPeak < target) {
+                    hub.peakGiveawayClaimedCounts[gw.id] = target;
+                    hubChanged = true;
+                  }
+                }
+              }
+              if (hubChanged) await saveRealEventsHub(env, hub, true);
+            }
+            await env.DB.prepare('DELETE FROM system_snapshots').run().catch(() => {});
+          } catch {}
         }
 
         // Inventory Codes sync

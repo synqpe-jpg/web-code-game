@@ -40,10 +40,22 @@ async function loadProducts(env: any): Promise<ProductInput[]> {
   if (env && env.DB) {
     try {
       await ensureSchemaUpgrades(env.DB);
-      const [spList, utList] = await Promise.all([
+      const [spList, utList, savedSpRaw, savedUtRaw] = await Promise.all([
         loadAllStoreProductsD1(env.DB).catch((e) => { console.warn('sp error:', e?.message); return []; }),
         loadAllUtilitiesD1(env.DB).catch((e) => { console.warn('ut error:', e?.message); return []; }),
+        getSettingD1(env.DB, 'wcg_admin_store_products_v4').catch(() => null),
+        getSettingD1(env.DB, 'wcg_admin_utilities_v4').catch(() => null),
       ]);
+
+      const savedSpList = safeParseJson<any[]>(savedSpRaw);
+      const savedUtList = safeParseJson<any[]>(savedUtRaw);
+      const metaMap = new Map<string, any>();
+      if (Array.isArray(savedSpList)) {
+        savedSpList.forEach((sp: any) => { if (sp && sp.id) metaMap.set(sp.id, sp); });
+      }
+      if (Array.isArray(savedUtList)) {
+        savedUtList.forEach((ut: any) => { if (ut && ut.id) metaMap.set(ut.id, ut); });
+      }
 
       const items: ProductInput[] = [];
       const seenIds = new Set<string>();
@@ -53,16 +65,20 @@ async function loadProducts(env: any): Promise<ProductInput[]> {
         for (const r of list) {
           if (!r || !r.id || seenIds.has(r.id)) continue;
           seenIds.add(r.id);
+          const meta = metaMap.get(r.id) || {};
+          const anchor = meta.fomo_anchor_time || r.fomo_anchor_time || meta.virtual_sold_updated_at || r.virtual_sold_updated_at;
 
           items.push({
             id: r.id,
             title: r.title,
             stock_quantity: Math.max(0, Number(r.stock_quantity) || 0),
             sold_count: Math.max(0, Number(r.sold_count) || 0),
-            virtual_sold_count: Math.max(0, Number(r.virtual_sold_count) || 0),
-            created_at: r.created_at || r.createdAt,
+            virtual_sold_count: r.virtual_sold_count !== undefined ? Math.max(0, Number(r.virtual_sold_count) || 0) : Math.max(0, Number(meta.virtual_sold_count) || 0),
+            fomo_anchor_time: anchor,
+            virtual_sold_updated_at: anchor,
+            created_at: r.created_at || r.createdAt || meta.created_at,
             is_active: r.is_active === 1 || r.is_active === true,
-          });
+          } as any);
         }
       };
 
@@ -85,21 +101,36 @@ async function loadGiveaways(env: any): Promise<GiveawayInput[]> {
   if (env && env.DB) {
     try {
       await ensureSchemaUpgrades(env.DB);
-      const gwList = await loadAllGiveawaysD1(env.DB).catch((e) => { console.warn('gw error:', e?.message); return []; });
+      const [gwList, savedGwRaw] = await Promise.all([
+        loadAllGiveawaysD1(env.DB).catch((e) => { console.warn('gw error:', e?.message); return []; }),
+        getSettingD1(env.DB, 'wcg_admin_giveaways_v4').catch(() => null),
+      ]);
+      const savedGwList = safeParseJson<any[]>(savedGwRaw);
+      const metaMap = new Map<string, any>();
+      if (Array.isArray(savedGwList)) {
+        savedGwList.forEach((sg: any) => { if (sg && sg.id) metaMap.set(sg.id, sg); });
+      }
+
       if (Array.isArray(gwList)) {
         return gwList
           .filter((gw: any) => gw && gw.id && (gw.status === 'ACTIVE' || gw.is_active !== false))
-          .map((gw: any) => ({
-            id: gw.id,
-            title: gw.title,
-            remaining_codes: Math.max(0, Number(gw.remaining_codes) || 0),
-            total_codes: Math.max(0, Number(gw.total_codes) || 0),
-            claimed_codes: Math.max(0, Number(gw.claimed_codes) || 0),
-            virtual_claimed_offset: Math.max(0, Number(gw.virtual_claimed_offset) || 0),
-            created_at: gw.created_at || gw.createdAt,
-            status: gw.status || 'ACTIVE',
-            is_active: gw.status === 'ACTIVE' || gw.is_active === true,
-          }));
+          .map((gw: any) => {
+            const meta = metaMap.get(gw.id) || {};
+            const anchor = meta.fomo_anchor_time || gw.fomo_anchor_time || meta.virtual_claimed_updated_at || gw.virtual_claimed_updated_at;
+            return {
+              id: gw.id,
+              title: gw.title,
+              remaining_codes: Math.max(0, Number(gw.remaining_codes) || 0),
+              total_codes: Math.max(0, Number(gw.total_codes) || 0),
+              claimed_codes: Math.max(0, Number(gw.claimed_codes) || 0),
+              virtual_claimed_offset: gw.virtual_claimed_offset !== undefined ? Math.max(0, Number(gw.virtual_claimed_offset) || 0) : Math.max(0, Number(meta.virtual_claimed_offset) || 0),
+              fomo_anchor_time: anchor,
+              virtual_claimed_updated_at: anchor,
+              created_at: gw.created_at || gw.createdAt || meta.created_at,
+              status: gw.status || 'ACTIVE',
+              is_active: gw.status === 'ACTIVE' || gw.is_active === true,
+            } as any;
+          });
       }
     } catch (e: any) {
       console.warn('[SnapshotService] Error reading giveaways from D1:', e?.message);
@@ -137,23 +168,39 @@ export async function generateAndPersistSnapshot(env: any): Promise<GlobalMetric
     } catch {}
   }
 
-  // 1.5. Cleanse runaway peaks in hub only if values are corrupted (> 1,000,000 or NaN)
+  // 1.5. Cleanse runaway peaks in hub if values are corrupted (> 1,000,000 or NaN) or exceed current config by > 100
   let hubModified = false;
   if (hub.peakProductSoldCounts && typeof hub.peakProductSoldCounts === 'object') {
+    const prodMap = new Map((products || []).map(p => [p.id, p]));
     for (const [pId, val] of Object.entries(hub.peakProductSoldCounts)) {
       const numVal = Number(val);
+      const prod = prodMap.get(pId);
+      const baseTarget = Number(prod?.virtual_sold_count || 0);
+      const realSold = Number(prod?.sold_count || 0);
+      const maxAllowed = realSold + baseTarget + 100;
       if (isNaN(numVal) || numVal < 0 || numVal > 1000000) {
         delete hub.peakProductSoldCounts[pId];
+        hubModified = true;
+      } else if (prod && baseTarget >= 0 && numVal > maxAllowed && numVal > 50) {
+        hub.peakProductSoldCounts[pId] = Math.max(realSold, baseTarget);
         hubModified = true;
       }
     }
   }
 
   if (hub.peakGiveawayClaimedCounts && typeof hub.peakGiveawayClaimedCounts === 'object') {
+    const gwMap = new Map((giveaways || []).map(g => [g.id, g]));
     for (const [gId, val] of Object.entries(hub.peakGiveawayClaimedCounts)) {
       const numVal = Number(val);
+      const gw = gwMap.get(gId);
+      const baseTarget = Number(gw?.virtual_claimed_offset || 0);
+      const realClaimed = Number(gw?.claimed_codes || 0);
+      const maxAllowed = realClaimed + baseTarget + 100;
       if (isNaN(numVal) || numVal < 0 || numVal > 1000000) {
         delete hub.peakGiveawayClaimedCounts[gId];
+        hubModified = true;
+      } else if (gw && baseTarget >= 0 && numVal > maxAllowed && numVal > 50) {
+        hub.peakGiveawayClaimedCounts[gId] = Math.max(realClaimed, baseTarget);
         hubModified = true;
       }
     }

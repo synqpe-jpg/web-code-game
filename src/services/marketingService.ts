@@ -421,10 +421,11 @@ class MarketingService {
                     const virtualBase = Number(details?.virtual_sold_count || 0);
                     const maxCap = realStock <= 0 && oosEnabled
                       ? realSold + virtualBase + oosMax + 5
-                      : Math.max(50000, realSold + virtualBase + 5000);
+                      : realSold + virtualBase + 100;
 
-                    const healedSold = nextSold > maxCap ? info.sold : nextSold;
-                    const healedFomo = nextFomo > maxCap ? info.sold : nextFomo;
+                    const effectiveServerSold = info.sold > maxCap ? (realSold + virtualBase) : info.sold;
+                    const healedSold = nextSold > maxCap ? effectiveServerSold : Math.min(nextSold, maxCap);
+                    const healedFomo = nextFomo > maxCap ? effectiveServerSold : Math.min(nextFomo, maxCap);
 
                     this.highWaterSoldCountMap.set(pId, healedSold);
                     this.liveFomoSoldCountMap.set(pId, healedFomo);
@@ -515,10 +516,11 @@ class MarketingService {
                     const virtualBase = Number(details?.virtual_claimed_offset || 0);
                     const maxCap = realRemaining <= 0 && oosEnabled
                       ? realClaimed + virtualBase + oosMax + 5
-                      : Math.max(50000, realClaimed + virtualBase + 5000);
+                      : realClaimed + virtualBase + 100;
 
-                    const healedClaimed = nextClaimed > maxCap ? info.claimed : nextClaimed;
-                    const healedFomo = nextFomo > maxCap ? info.claimed : nextFomo;
+                    const effectiveServerClaimed = info.claimed > maxCap ? (realClaimed + virtualBase) : info.claimed;
+                    const healedClaimed = nextClaimed > maxCap ? effectiveServerClaimed : Math.min(nextClaimed, maxCap);
+                    const healedFomo = nextFomo > maxCap ? effectiveServerClaimed : Math.min(nextFomo, maxCap);
 
                     this.highWaterClaimedCountMap.set(gId, healedClaimed);
                     this.liveFomoClaimedCountMap.set(gId, healedFomo);
@@ -644,7 +646,11 @@ class MarketingService {
       // 1. Check local sold peaks from highWaterSoldCountMap (Bảo toàn tuyệt đối số lượng đã bán lũy kế)
       this.highWaterSoldCountMap.forEach((val, id) => {
         const last = this.lastReportedPeaks.sold[id] || 0;
-        if (val > last) {
+        const details = this.findItemDetails(id);
+        const virtualBase = Number(details?.virtual_sold_count || 0);
+        const realSold = Number(details?.sold_count || 0);
+        const maxAllowed = realSold + virtualBase + 100;
+        if (val > last && val <= maxAllowed) {
           peakSold[id] = val;
           hasNewPeak = true;
         }
@@ -653,7 +659,11 @@ class MarketingService {
       // 2. Check local claimed peaks from highWaterClaimedCountMap (Bảo toàn tuyệt đối quà đã nhận lũy kế)
       this.highWaterClaimedCountMap.forEach((val, id) => {
         const last = this.lastReportedPeaks.claimed[id] || 0;
-        if (val > last) {
+        const details = this.findGiveawayDetails(id);
+        const virtualBase = Number(details?.virtual_claimed_offset || 0);
+        const realClaimed = Number(details?.claimed_codes || 0);
+        const maxAllowed = realClaimed + virtualBase + 100;
+        if (val > last && val <= maxAllowed) {
           peakClaimed[id] = val;
           hasNewPeak = true;
         }
@@ -1998,7 +2008,7 @@ class MarketingService {
     return Math.max(baseStock, Math.min(liveStock, maxAllowedStock));
   }
 
-  public getHourlyGrowth(id: string, createdAt?: string, priority?: string): number {
+  public getHourlyGrowth(id: string, createdAt?: string, priority?: string, anchorTime?: string): number {
     if (!id) return 0;
     const pw = this.getProductConfig(id);
     const p = priority || pw?.priority || 'normal';
@@ -2008,24 +2018,27 @@ class MarketingService {
     // CRITICAL FIX: defaultAnchor must be nowMs (0 elapsed time) for newly created or undated products
     const defaultAnchor = nowMs;
 
-    let idTimestamp: number | null = null;
-    const match = id ? id.match(/^(?:ut|sp|gw)_(\d{10,13})/i) : null;
-    if (match) {
-      const parsed = parseInt(match[1], 10);
-      if (!isNaN(parsed) && parsed > 1600000000000 && parsed <= nowMs) {
-        idTimestamp = parsed;
-      }
-    }
-
+    const effectiveStart = anchorTime || createdAt;
     let parsedCreatedAtMs: number | null = null;
-    if (createdAt) {
-      let str = String(createdAt).trim();
+    if (effectiveStart) {
+      let str = String(effectiveStart).trim();
       if (/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/.test(str)) {
         str = str.replace(' ', 'T') + 'Z';
       }
       const t = new Date(str).getTime();
       if (!isNaN(t) && t > 0) {
         parsedCreatedAtMs = Math.min(t, nowMs);
+      }
+    }
+
+    let idTimestamp: number | null = null;
+    if (!anchorTime) {
+      const match = id ? id.match(/^(?:ut|sp|gw)_(\d{10,13})/i) : null;
+      if (match) {
+        const parsed = parseInt(match[1], 10);
+        if (!isNaN(parsed) && parsed > 1600000000000 && parsed <= nowMs) {
+          idTimestamp = parsed;
+        }
       }
     }
 
@@ -2053,7 +2066,7 @@ class MarketingService {
     return Math.max(0, baseGrowth + jitter);
   }
 
-  public getInHourProgression(id: string, createdAt?: string, priority?: string): number {
+  public getInHourProgression(id: string, createdAt?: string, priority?: string, anchorTime?: string): number {
     if (!id) return 0;
     const pw = this.getProductConfig(id);
     const p = priority || pw?.priority || 'normal';
@@ -2061,24 +2074,27 @@ class MarketingService {
 
     const nowMs = this.getCalibratedNow();
 
-    let idTimestamp: number | null = null;
-    const match = id ? id.match(/^(?:ut|sp|gw)_(\d{10,13})/i) : null;
-    if (match) {
-      const parsed = parseInt(match[1], 10);
-      if (!isNaN(parsed) && parsed > 1600000000000 && parsed <= nowMs) {
-        idTimestamp = parsed;
-      }
-    }
-
+    const effectiveStart = anchorTime || createdAt;
     let parsedCreatedAtMs: number | null = null;
-    if (createdAt) {
-      let str = String(createdAt).trim();
+    if (effectiveStart) {
+      let str = String(effectiveStart).trim();
       if (/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/.test(str)) {
         str = str.replace(' ', 'T') + 'Z';
       }
       const t = new Date(str).getTime();
       if (!isNaN(t) && t > 0) {
         parsedCreatedAtMs = Math.min(t, nowMs);
+      }
+    }
+
+    let idTimestamp: number | null = null;
+    if (!anchorTime) {
+      const match = id ? id.match(/^(?:ut|sp|gw)_(\d{10,13})/i) : null;
+      if (match) {
+        const parsed = parseInt(match[1], 10);
+        if (!isNaN(parsed) && parsed > 1600000000000 && parsed <= nowMs) {
+          idTimestamp = parsed;
+        }
       }
     }
 
@@ -2177,26 +2193,19 @@ class MarketingService {
       return effectiveRealSold;
     }
 
-    // 0. Nếu Admin đã ghi đè mốc hiển thị cụ thể (Admin Target Override)
-    if (id && this.adminOverrideSoldMap.has(id)) {
-      const overrideVal = this.adminOverrideSoldMap.get(id)!;
-      const finalDisplay = Math.max(effectiveRealSold, overrideVal);
-      this.highWaterSoldCountMap.set(id, finalDisplay);
-      this.liveFomoSoldCountMap.set(id, finalDisplay);
-      return finalDisplay;
-    }
-
     let recordedMax = id ? (this.highWaterSoldCountMap.get(id) || 0) : 0;
     const virtualBaseRaw = item.virtual_sold_count !== undefined ? item.virtual_sold_count : (details?.virtual_sold_count ?? 0);
     const virtualBase = Number(virtualBaseRaw || 0);
+
+    const anchorTime = (item as any)?.fomo_anchor_time || (item as any)?.virtual_sold_updated_at || details?.fomo_anchor_time || details?.virtual_sold_updated_at;
+    const createdAt = item.created_at || item.createdAt || details?.created_at;
+    let hourlyGrowth = this.getHourlyGrowth(id, createdAt, pw.priority, anchorTime);
+    let inHourProg = this.getInHourProgression(id, createdAt, pw.priority, anchorTime);
 
     const realStock = this.getRealStockFor(id);
     const catchUp = this.config.offlineCatchUp || DEFAULT_OFFLINE_CATCHUP_CONFIG;
     const oosEnabled = Boolean(catchUp.outOfStockEnabled);
     const oosMax = Math.max(1, Number(catchUp.outOfStockMaxUnits) || 10);
-    const createdAt = item.created_at || item.createdAt || details?.created_at;
-    let hourlyGrowth = this.getHourlyGrowth(id, createdAt);
-    let inHourProg = this.getInHourProgression(id, createdAt);
 
     if (realStock <= 0) {
       if (!oosEnabled) {
@@ -2209,13 +2218,15 @@ class MarketingService {
       }
     }
 
-    const calculatedBase = Math.max(0, effectiveRealSold + virtualBase + hourlyGrowth + inHourProg);
+    let effectiveBaseTarget = effectiveRealSold + virtualBase;
+    if (id && this.adminOverrideSoldMap.has(id)) {
+      effectiveBaseTarget = Math.max(effectiveRealSold, this.adminOverrideSoldMap.get(id)!);
+    }
 
-    // Auto-heal ghost inflated counts (e.g. from previous uncapped offline catchup bug)
-    const maxAllowedCap = realStock <= 0 && oosEnabled
-      ? effectiveRealSold + virtualBase + oosMax
-      : Math.max(50000, effectiveRealSold + virtualBase + 5000);
-    if (recordedMax > maxAllowedCap) {
+    const calculatedBase = Math.max(0, effectiveBaseTarget + hourlyGrowth + inHourProg);
+
+    // Auto-heal ghost inflated counts (e.g. legacy bug where recordedMax > calculatedBase + 50)
+    if (recordedMax > calculatedBase + 50 || recordedMax > 50000) {
       recordedMax = calculatedBase;
       if (id) {
         this.highWaterSoldCountMap.set(id, recordedMax);
@@ -2242,7 +2253,7 @@ class MarketingService {
     return finalDisplay;
   }
 
-  public getClaimedDisplay(campaign: { id?: string; claimed_codes?: number; virtual_claimed_offset?: number; created_at?: string; createdAt?: string } | null | undefined): number {
+  public getClaimedDisplay(campaign: { id?: string; claimed_codes?: number; virtual_claimed_offset?: number; created_at?: string; createdAt?: string; fomo_anchor_time?: string; virtual_claimed_updated_at?: string } | null | undefined): number {
     if (!campaign) return 0;
     const id = campaign.id || '';
     const details = id && (campaign.claimed_codes === undefined || campaign.virtual_claimed_offset === undefined) ? this.findGiveawayDetails(id) : null;
@@ -2257,27 +2268,19 @@ class MarketingService {
       return effectiveRealClaimed;
     }
 
-    // 0. Nếu Admin đã ghi đè mốc hiển thị cụ thể (Admin Target Override)
-    if (id && this.adminOverrideClaimedMap.has(id)) {
-      const overrideVal = this.adminOverrideClaimedMap.get(id)!;
-      const finalDisplay = Math.max(effectiveRealClaimed, overrideVal);
-      this.highWaterClaimedCountMap.set(id, finalDisplay);
-      this.liveFomoClaimedCountMap.set(id, finalDisplay);
-      return finalDisplay;
-    }
-
     let recordedMax = id ? (this.highWaterClaimedCountMap.get(id) || 0) : 0;
     const virtualBaseRaw = campaign.virtual_claimed_offset !== undefined ? campaign.virtual_claimed_offset : (details?.virtual_claimed_offset ?? 0);
     const virtualBase = Number(virtualBaseRaw || 0);
+
+    const anchorTime = (campaign as any)?.fomo_anchor_time || (campaign as any)?.virtual_claimed_updated_at || details?.fomo_anchor_time || details?.virtual_claimed_updated_at;
+    const createdAt = campaign.created_at || campaign.createdAt || details?.created_at;
+    let hourlyGrowth = this.getHourlyGrowth(id, createdAt, pw.priority, anchorTime);
+    let inHourProg = this.getInHourProgression(id, createdAt, pw.priority, anchorTime);
 
     const realRemaining = this.getRealStockFor(id);
     const catchUp = this.config.offlineCatchUp || DEFAULT_OFFLINE_CATCHUP_CONFIG;
     const oosEnabled = Boolean(catchUp.outOfStockEnabled);
     const oosMax = Math.max(1, Number(catchUp.outOfStockMaxUnits) || 10);
-
-    const createdAt = campaign.created_at || campaign.createdAt || details?.created_at;
-    let hourlyGrowth = this.getHourlyGrowth(id, createdAt);
-    let inHourProg = this.getInHourProgression(id, createdAt);
 
     if (realRemaining <= 0) {
       if (!oosEnabled) {
@@ -2290,13 +2293,15 @@ class MarketingService {
       }
     }
 
-    const calculatedBase = Math.max(0, effectiveRealClaimed + virtualBase + hourlyGrowth + inHourProg);
+    let effectiveBaseTarget = effectiveRealClaimed + virtualBase;
+    if (id && this.adminOverrideClaimedMap.has(id)) {
+      effectiveBaseTarget = Math.max(effectiveRealClaimed, this.adminOverrideClaimedMap.get(id)!);
+    }
 
-    // Auto-heal ghost inflated counts (e.g. from previous uncapped offline catchup bug)
-    const maxAllowedCap = realRemaining <= 0 && oosEnabled
-      ? effectiveRealClaimed + virtualBase + oosMax
-      : Math.max(50000, effectiveRealClaimed + virtualBase + 5000);
-    if (recordedMax > maxAllowedCap) {
+    const calculatedBase = Math.max(0, effectiveBaseTarget + hourlyGrowth + inHourProg);
+
+    // Auto-heal ghost inflated counts (e.g. legacy 1420 bug where recordedMax > calculatedBase + 50)
+    if (recordedMax > calculatedBase + 50 || recordedMax > 50000) {
       recordedMax = calculatedBase;
       if (id) {
         this.highWaterClaimedCountMap.set(id, recordedMax);
@@ -2323,7 +2328,7 @@ class MarketingService {
     return finalDisplay;
   }
 
-  public syncProductVirtualSold(productId: string, virtualCount: number, forceReset: boolean = true, exactTargetDisplay?: number): void {
+  public syncProductVirtualSold(productId: string, virtualCount: number, forceReset: boolean = true, exactTargetDisplay?: number, anchorTime?: string): void {
     if (!productId) return;
     const count = Math.max(0, Number(virtualCount) || 0);
     this.liveFomoSoldCountMap.set(productId, count);
@@ -2334,8 +2339,9 @@ class MarketingService {
     const realFromHub = this.realProductSoldCountsMap.get(productId) || 0;
     const effectiveRealSold = Math.max(realSold, realFromHub);
     const createdAt = details?.created_at;
-    const hourlyGrowth = this.getHourlyGrowth(productId, createdAt);
-    const inHourProg = this.getInHourProgression(productId, createdAt);
+    const anchor = anchorTime || details?.fomo_anchor_time || details?.virtual_sold_updated_at;
+    const hourlyGrowth = this.getHourlyGrowth(productId, createdAt, undefined, anchor);
+    const inHourProg = this.getInHourProgression(productId, createdAt, undefined, anchor);
 
     const calculatedBase = Math.max(0, effectiveRealSold + count + hourlyGrowth + inHourProg);
     const currentHigh = this.highWaterSoldCountMap.get(productId) || 0;
@@ -2389,7 +2395,7 @@ class MarketingService {
     this.notifySoldCountChanged(productId, targetDisplay);
   }
 
-  public syncGiveawayVirtualClaimed(campaignId: string, virtualCount: number, forceReset: boolean = true, exactTargetDisplay?: number): void {
+  public syncGiveawayVirtualClaimed(campaignId: string, virtualCount: number, forceReset: boolean = true, exactTargetDisplay?: number, anchorTime?: string): void {
     if (!campaignId) return;
     const count = Math.max(0, Number(virtualCount) || 0);
     this.liveFomoClaimedCountMap.set(campaignId, count);
@@ -2400,8 +2406,9 @@ class MarketingService {
     const realFromHub = this.realGiveawayClaimedCountsMap.get(campaignId) || 0;
     const effectiveRealClaimed = Math.max(realClaimed, realFromHub);
     const createdAt = details?.created_at;
-    const hourlyGrowth = this.getHourlyGrowth(campaignId, createdAt);
-    const inHourProg = this.getInHourProgression(campaignId, createdAt);
+    const anchor = anchorTime || details?.fomo_anchor_time || details?.virtual_claimed_updated_at;
+    const hourlyGrowth = this.getHourlyGrowth(campaignId, createdAt, undefined, anchor);
+    const inHourProg = this.getInHourProgression(campaignId, createdAt, undefined, anchor);
 
     const calculatedBase = Math.max(0, effectiveRealClaimed + count + hourlyGrowth + inHourProg);
     const currentHigh = this.highWaterClaimedCountMap.get(campaignId) || 0;
@@ -2462,6 +2469,7 @@ class MarketingService {
       virtualStockBonus?: number;
       priority?: ProductPriority;
       forceReset?: boolean;
+      fomoAnchorTime?: string;
     }
   ): Promise<void> {
     if (!id) return;
@@ -2484,11 +2492,12 @@ class MarketingService {
     };
 
     const forceReset = options.forceReset !== false;
+    const anchorTime = options.fomoAnchorTime || new Date().toISOString();
     if (options.targetDisplaySoldOrClaimed !== undefined) {
       if (id.startsWith('gw_')) {
-        this.syncGiveawayVirtualClaimed(id, 0, forceReset, options.targetDisplaySoldOrClaimed);
+        this.syncGiveawayVirtualClaimed(id, 0, forceReset, options.targetDisplaySoldOrClaimed, anchorTime);
       } else {
-        this.syncProductVirtualSold(id, 0, forceReset, options.targetDisplaySoldOrClaimed);
+        this.syncProductVirtualSold(id, 0, forceReset, options.targetDisplaySoldOrClaimed, anchorTime);
       }
     }
 

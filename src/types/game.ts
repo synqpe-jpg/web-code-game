@@ -76,7 +76,10 @@ export interface GiveawayCampaign {
   max_per_ip?: number;
   cooldown_hours?: number;
   show_claimed_count?: boolean;
+  show_remaining_count?: boolean;
   virtual_claimed_offset?: number;
+  fomo_anchor_time?: string;
+  virtual_claimed_updated_at?: string;
   codes_pool?: string[];
   remaining_codes?: number;
   claim_history?: Array<{
@@ -114,7 +117,10 @@ export interface StoreProduct {
   stock_quantity: number;
   sold_count?: number;
   show_sold_count?: boolean;
+  show_stock_count?: boolean;
   virtual_sold_count?: number;
+  fomo_anchor_time?: string;
+  virtual_sold_updated_at?: string;
   is_active: boolean;
   package_type: 'pack' | 'monthly' | 'gift' | 'account' | string;
   category?: string;
@@ -180,7 +186,10 @@ export interface UtilityProduct {
   stock_quantity: number;
   sold_count?: number;
   show_sold_count?: boolean;
+  show_stock_count?: boolean;
   virtual_sold_count?: number;
+  fomo_anchor_time?: string;
+  virtual_sold_updated_at?: string;
   is_active: boolean;
   badge?: string;
   instructions?: string;

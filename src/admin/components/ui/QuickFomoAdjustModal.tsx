@@ -100,6 +100,7 @@ export const QuickFomoAdjustModal: React.FC<QuickFomoAdjustModalProps> = ({
       const sanitizedTargetSold = isVirtualActive ? Math.max(0, Number(targetSoldOrClaimed) || 0) : realSoldOrClaimed;
       const sanitizedBonusStock = isVirtualActive ? Math.max(0, Number(bonusStock) || 0) : 0;
       const effectivePriority = isVirtualActive ? priority : 'off';
+      const nowIso = new Date().toISOString();
 
       // 1. Cập nhật marketingService (ngay lập tức tác động lên UI và Client Maps)
       await marketingService.updateItemVirtualSettings(itemId, {
@@ -107,15 +108,20 @@ export const QuickFomoAdjustModal: React.FC<QuickFomoAdjustModalProps> = ({
         virtualStockBonus: sanitizedBonusStock,
         priority: effectivePriority,
         forceReset: true,
+        fomoAnchorTime: nowIso,
       });
 
       // 2. Cập nhật đồng thời vào adminDataService để tránh bất kỳ sự phục hồi (revert bug) nào
       if (isGiveaway) {
         const gw = adminDataService.getGiveaways().find((g) => g.id === itemId);
         if (gw) {
+          const realClaimed = Number(gw.claimed_codes) || 0;
+          const virtualOffset = isVirtualActive ? Math.max(0, sanitizedTargetSold - realClaimed) : 0;
           adminDataService.saveGiveawayItem({
             ...gw,
-            virtual_claimed_offset: isVirtualActive ? sanitizedTargetSold : 0,
+            virtual_claimed_offset: virtualOffset,
+            fomo_anchor_time: nowIso,
+            virtual_claimed_updated_at: nowIso,
             show_claimed_count: showSoldOrClaimed,
             show_remaining_count: showStockCount,
           });
@@ -123,9 +129,13 @@ export const QuickFomoAdjustModal: React.FC<QuickFomoAdjustModalProps> = ({
       } else if (itemType === 'utility') {
         const util = adminDataService.getUtilities().find((u) => u.id === itemId);
         if (util) {
+          const realSold = Number(util.sold_count) || 0;
+          const virtualSold = isVirtualActive ? Math.max(0, sanitizedTargetSold - realSold) : 0;
           adminDataService.saveUtilityItem({
             ...util,
-            virtual_sold_count: isVirtualActive ? sanitizedTargetSold : 0,
+            virtual_sold_count: virtualSold,
+            fomo_anchor_time: nowIso,
+            virtual_sold_updated_at: nowIso,
             show_sold_count: showSoldOrClaimed,
             show_stock_count: showStockCount,
           });
@@ -133,9 +143,13 @@ export const QuickFomoAdjustModal: React.FC<QuickFomoAdjustModalProps> = ({
       } else {
         const prod = adminDataService.getStoreProducts().find((p) => p.id === itemId);
         if (prod) {
+          const realSold = Number(prod.sold_count) || 0;
+          const virtualSold = isVirtualActive ? Math.max(0, sanitizedTargetSold - realSold) : 0;
           adminDataService.saveStoreProductItem({
             ...prod,
-            virtual_sold_count: isVirtualActive ? sanitizedTargetSold : 0,
+            virtual_sold_count: virtualSold,
+            fomo_anchor_time: nowIso,
+            virtual_sold_updated_at: nowIso,
             show_sold_count: showSoldOrClaimed,
             show_stock_count: showStockCount,
           });
