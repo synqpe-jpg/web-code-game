@@ -1504,13 +1504,18 @@ export const NewsModule: React.FC<NewsModuleProps> = ({ onShowToast }) => {
                     <td className="py-2 px-3 min-w-[200px] max-w-[260px]">
                       <div className="flex items-center gap-2.5">
                         <img
-                          src={art.cover_url}
+                          src={art.cover_url || (art.game_slug ? `/game_icons/${art.game_slug}.webp` : '/og-image.jpg')}
                           alt={art.title}
                           className="w-10 h-10 rounded-xl object-cover shrink-0 border border-border/60 shadow-xs cursor-pointer"
                           onClick={() => handleOpenEdit(art)}
                           onError={(e) => {
-                            (e.target as HTMLImageElement).src =
-                              'https://images.unsplash.com/photo-1542751371-adc38448a05e?auto=format&fit=crop&w=100&q=80';
+                            const el = e.currentTarget as HTMLImageElement;
+                            el.onerror = null;
+                            if (art.game_slug && !el.src.includes(`/game_icons/${art.game_slug}.webp`)) {
+                              el.src = `/game_icons/${art.game_slug}.webp`;
+                            } else {
+                              el.src = '/og-image.jpg';
+                            }
                           }}
                         />
                         <div className="space-y-0.5 min-w-0 flex-1 overflow-hidden">

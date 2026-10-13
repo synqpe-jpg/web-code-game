@@ -243,7 +243,7 @@ function generateAutonomousArticle(scraped, sourceUrl) {
     ? (matchedGame.cover_image_url || matchedGame.icon_url || (matchedGame.slug ? `/game_icons/${matchedGame.slug}.webp` : ''))
     : '';
 
-  const cover_url = gameLogo || scraped.cover_url || '';
+  const cover_url = gameLogo || (scraped.cover_url && scraped.cover_url.trim()) || '/og-image.jpg';
 
   const paragraphs = (scraped.content || '')
     .split('\n\n')

@@ -383,9 +383,9 @@ class NewsService {
         excerpt: articleData.excerpt || '',
         content: articleData.content || '',
         cover_url:
-          articleData.cover_url ||
+          (articleData.cover_url && articleData.cover_url.trim()) ||
           (articleData.game_slug ? `/game_icons/${articleData.game_slug}.webp` : '') ||
-          '',
+          '/og-image.jpg',
         gallery_urls: articleData.gallery_urls || [],
         virtual_views: typeof articleData.virtual_views === 'number' ? articleData.virtual_views : 0,
         views_growth_rate: typeof articleData.views_growth_rate === 'number' ? articleData.views_growth_rate : 1.0,
@@ -790,7 +790,7 @@ ${finalCodes.length > 0 ? finalCodes.map((c) => `- **${c}**: Gói quà tri ân &
     const cover_url =
       gameLogo ||
       (params.foundImages && params.foundImages[0]) ||
-      '';
+      '/og-image.jpg';
 
     const gallery_urls = (params.foundImages || []).slice(1, 6);
 

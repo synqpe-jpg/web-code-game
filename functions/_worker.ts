@@ -535,7 +535,7 @@ async function renderSeoHtml(
     if (article) {
       const title = `${article.title} | CodeGame.shop`;
       const description = article.summary || article.content?.slice(0, 160) || 'Tin tức game và sự kiện giftcode mới nhất.';
-      const thumb = article.thumbnail_url || '/og-image.jpg';
+      const thumb = (article.cover_url && article.cover_url.trim()) || article.thumbnail_url || (article.game_slug ? `/game_icons/${article.game_slug}.webp` : '/og-image.jpg');
       replaceTitleAndMeta(title, description, `/news/${article.slug}`, thumb);
     } else {
       const title = 'Tin Tức Game & Sự Kiện Giftcode Mới Nhất 2026 | CodeGame.shop';

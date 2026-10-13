@@ -403,6 +403,27 @@
 
 ---
 
+### ISSUE-021: Vòng Lặp Nháy Ảnh Liên Tục Trong Thẻ Tin Tức & Bẫy Cắt Cụt Logo Game (Infinite Image Flickering & Cover Ratio Trap)
+- **Triệu chứng**:
+  - 1. Mục tin tức có một số thẻ bài viết bị nhấp nháy, chớp tắt liên tục với tần số cao, gây khó chịu cho người xem.
+  - 2. Ảnh bìa đại diện của các tựa game bị cắt cụt đầu đuôi (do icon game là hình vuông 1:1 nhưng thẻ tin tức lại ép tỷ lệ ngang 16:10 hoặc 21:9 bằng `object-cover`), khiến tên và nhân vật game trong logo bị mất góc.
+- **Nguyên nhân gốc rễ**:
+  - 1. *Vòng lặp nháy ảnh vô hạn*: Các thẻ `<img>` trong `NewsView.tsx`, `NewsDetailModal.tsx` và `NewsModule.tsx` có `onError` gán URL ảnh dự phòng từ Unsplash nhưng **thiếu hoàn toàn** `e.currentTarget.onerror = null;`. Khi URL dự phòng bị chặn/chậm hoặc khi bài viết chứa `cover_url: ""` (chuỗi rỗng từ bài viết cào lỗi), trình duyệt liên tục bắn sự kiện `error` lặp đi lặp lại hàng chục lần mỗi giây. Đồng thời mỗi khi có sự kiện React re-render (như ticker marketing hay poller), chuỗi rỗng lại kích hoạt chu trình lỗi mới, gây nhấp nháy dữ dội.
+  - 2. *Tỷ lệ khung hình không tương thích*: Game icon là ảnh vuông 1:1 (`512x512`), khi hiển thị với `w-full h-full object-cover` trong khung 16:10, trình duyệt phóng to và cắt bỏ ~38% phần trên và dưới của icon.
+- **Giải pháp chuẩn đã kiểm chứng**:
+  - 1. *Ngắt triệt để đệ quy lỗi*: Luôn đặt `el.onerror = null;` ngay đầu `onError`. Fallback 100% sử dụng tài nguyên cục bộ an toàn (`/game_icons/${slug}.webp` hoặc `/og-image.jpg`), tuyệt đối không dùng link mạng ngoài bên thứ 3.
+  - 2. *Hàm lấy ảnh an toàn `getSafeArticleCover`*: Tuyệt đối không để `<img src="">`, nếu rỗng tự động fallback sang icon game hoặc `/og-image.jpg`.
+  - 3. *Bố cục chuẩn mực cho Game Cover (Crisp Game Cover Pattern)*:
+    - Nếu là icon game vuông (`/game_icons/...`): Render lớp nền mờ nghệ thuật Ambient Backdrop (`blur-2xl opacity-40 scale-125`) kết hợp chuyển màu tối góc cạnh. Ở chính giữa hiển thị icon game sắc nét, giữ nguyên tỷ lệ 1:1, bo góc (`rounded-2xl` / `rounded-3xl`), viền sáng nổi bật (`ring-2 ring-white/20`), đổ bóng 3D chân thực và hiệu ứng tương tác mượt mà khi rê chuột (`group-hover:scale-110`).
+    - Nếu là ảnh phong cảnh / banner ngang (Landscape banner): Hiển thị trọn vẹn với `object-cover`.
+  - 4. *Làm sạch dữ liệu máy chủ*: Chạy script dọn dẹp các bài viết rỗng, kích hoạt Tombstone xóa vĩnh viễn trên Cloudflare D1 và KV.
+- ⛔ **CÁCH SỬA ĐÃ THẤT BẠI - TUYỆT ĐỐI KHÔNG LẶP LẠI**:
+  - ❌ *Không gán `(e.target as HTMLImageElement).src = 'https://images.unsplash...'` mà quên `e.currentTarget.onerror = null;`*: Nếu link dự phòng gặp sự cố hoặc offline, trình duyệt sẽ rơi vào vòng lặp tử thần (infinite loop error).
+  - ❌ *Không để `<img src={article.cover_url} />` khi `cover_url` có thể là chuỗi rỗng `""`*: Trình duyệt sẽ cố tải lại chính file HTML hiện tại dưới dạng ảnh, gây lỗi liên hoàn.
+  - ❌ *Không ép `w-full h-full object-cover` lên các icon game tỷ lệ 1:1 trong khung hình ngang*: Sẽ cắt cụt logo và nhân vật của game.
+
+---
+
 ## 2. QUY TRÌNH BẮT BUỘC TRƯỚC KHI SỬA CODE (PRE-FLIGHT CHECKLIST)
 
 Mọi nhà phát triển hoặc AI Agent khi nhận yêu cầu sửa đổi mã nguồn **PHẢI** thực hiện đủ 4 bước sau:

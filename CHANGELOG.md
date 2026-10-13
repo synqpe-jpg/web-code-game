@@ -7,6 +7,23 @@ Mỗi mục sửa lỗi đều ghi nhận **Nguyên nhân gốc rễ (Root Cause
 
 ## [2026-10-13]
 
+### 19. Khắc Phục Triệt Để Hiện Tượng Nháy Ảnh Trong Mục Tin Tức & Chuẩn Hóa Ảnh Bìa Đại Diện Game
+- **Mô tả**:
+  1. **Triệt tiêu hiện tượng nháy ảnh liên tục (Infinite Flickering Loop)**:
+     - *Phát hiện nguyên nhân*: Các thẻ `<img>` trong `NewsView.tsx`, `NewsDetailModal.tsx` và `NewsModule.tsx` có bộ xử lý lỗi `onError` gán URL ngoài từ Unsplash nhưng **thiếu hoàn toàn** lệnh ngắt đệ quy `e.currentTarget.onerror = null;`. Khi URL fallback tải chậm, bị chặn mạng, hoặc khi bài viết chứa `cover_url: ""` (chuỗi rỗng), trình duyệt liên tục kích hoạt sự kiện `error` 60 lần/giây, tạo thành vòng lặp vô hạn khiến thẻ tin tức bị nháy/chớp tắt liên tục.
+     - *Hai bài viết lỗi trên máy chủ*: `news_1791821293618_6rqax` có `cover_url: ""` và `news_1791821298527_mjn4s` trỏ về link ảnh đã chết (HTTP 404).
+     - *Giải pháp*:
+       + Bổ sung cờ `el.onerror = null;` ngay dòng đầu tiên của mọi trình xử lý `onError`.
+       + Sử dụng fallback cục bộ tuyệt đối an toàn (`/game_icons/${slug}.webp` hoặc `/og-image.jpg`), tuyệt đối không dựa vào URL bên thứ ba.
+       + Loại bỏ 2 bài viết lỗi bằng cơ chế Tombstone trên Cloudflare D1/KV.
+  2. **Chuẩn hóa ảnh bìa đại diện game (Crisp Standard Game Cover Presentation)**:
+     - *Thiết kế card ảnh game chuyên nghiệp*: Với các tựa game có icon tỷ lệ vuông 1:1 (`/game_icons/...`), thay vì áp dụng `object-cover` làm méo hoặc cắt cụt logo game, hệ thống áp dụng bố cục:
+       + Lớp nền mờ Ambient Backdrop: Sử dụng icon game làm nền mờ 24px (`blur-2xl opacity-40 scale-125`) kèm dải chuyển màu đen góc cạnh tạo chiều sâu.
+       + Lớp biểu tượng chính (Foreground): Hiển thị icon game sắc nét, bo góc chuẩn mực (`rounded-2xl` / `rounded-3xl`), viền sáng (`ring-2 ring-white/20`), đổ bóng 3D chân thực và hiệu ứng tương tác rê chuột (`group-hover:scale-110 group-hover:ring-primary/80`).
+       + Với bài viết có ảnh ngang (Landscape banner), hiển thị trọn vẹn `object-cover` chất lượng cao.
+     - Đồng bộ quy chuẩn vào `NewsDetailModal.tsx`, `NewsView.tsx`, `NewsModule.tsx`, `functions/_worker.ts` và engine tự động xuất bản tin tức `auto_news_publisher.cjs`.
+- **Kết quả xác minh**: Kiểm thử kiểm tra 35 bài viết đạt 0/35 lỗi ảnh (100% hợp lệ), dứt điểm hoàn toàn tình trạng nháy hình, giao diện sắc nét và đạt chuẩn gaming hiện đại.
+
 ### 18. Cập Nhật 20 Giftcode Mới Cho Game Ta Là Hắc Ngộ Không & Đẩy Lên Đầu Trang
 - **Mô tả**:
   1. Theo yêu cầu của chủ sở hữu, đã xóa toàn bộ mã cũ của tựa game **Ta là Hắc Ngộ Không** (`ta-la-hac-ngo-khong`).

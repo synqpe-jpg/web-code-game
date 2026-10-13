@@ -178,19 +178,62 @@ export const NewsDetailModal: React.FC<NewsDetailModalProps> = ({
               )}
             </div>
 
-            {/* Cover Image */}
-            {article.cover_url && (
-              <div className="relative w-full aspect-video sm:aspect-[21/9] rounded-2xl overflow-hidden border border-border/80 shadow-md">
-                <img
-                  src={optimizeImageUrl(article.cover_url, 1200)}
-                  alt={article.title}
-                  className="w-full h-full object-cover"
-                  loading="eager"
-                  decoding="async"
-                />
-                <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent pointer-events-none" />
-              </div>
-            )}
+            {/* Cover Image Banner */}
+            {(() => {
+              const modalCover = (article.cover_url || '').trim() || (article.game_slug ? `/game_icons/${article.game_slug}.webp` : '/og-image.jpg');
+              const isGameIcon = Boolean(
+                modalCover.includes('/game_icons/') || 
+                (article.game_slug && modalCover.includes(article.game_slug))
+              );
+              return (
+                <div className="relative w-full aspect-video sm:aspect-[21/9] rounded-2xl overflow-hidden border border-border/80 shadow-md bg-slate-950 flex items-center justify-center">
+                  {/* Ambient blur backdrop */}
+                  <div
+                    className="absolute inset-0 bg-cover bg-center blur-2xl opacity-40 scale-125 pointer-events-none"
+                    style={{ backgroundImage: `url(${modalCover})` }}
+                  />
+                  <div className="absolute inset-0 bg-gradient-to-t from-slate-950/85 via-slate-950/35 to-transparent pointer-events-none" />
+
+                  {isGameIcon ? (
+                    <div className="relative z-10 flex flex-col sm:flex-row items-center justify-center p-6 gap-4 text-center sm:text-left">
+                      <img
+                        src={modalCover}
+                        alt={article.title}
+                        className="w-24 h-24 sm:w-32 sm:h-32 rounded-3xl object-cover shadow-2xl ring-4 ring-white/20 shrink-0"
+                        onError={(e) => {
+                          const el = e.currentTarget;
+                          el.onerror = null;
+                          el.src = '/og-image.jpg';
+                        }}
+                      />
+                      {article.game_name && (
+                        <div className="space-y-1">
+                          <span className="px-3 py-1 rounded-full text-xs font-black bg-primary text-white uppercase tracking-wider inline-block shadow-md">
+                            {article.game_name}
+                          </span>
+                          <p className="text-white font-bold text-sm sm:text-lg drop-shadow">
+                            Cẩm Nang & Trọn Bộ Giftcode Mới Nhất
+                          </p>
+                        </div>
+                      )}
+                    </div>
+                  ) : (
+                    <img
+                      src={optimizeImageUrl(modalCover, 1200)}
+                      alt={article.title}
+                      className="relative z-10 w-full h-full object-cover"
+                      loading="eager"
+                      decoding="async"
+                      onError={(e) => {
+                        const el = e.currentTarget;
+                        el.onerror = null;
+                        el.src = '/og-image.jpg';
+                      }}
+                    />
+                  )}
+                </div>
+              );
+            })()}
 
             {/* Excerpt Lead */}
             {article.excerpt && (
@@ -426,15 +469,44 @@ export const NewsDetailModal: React.FC<NewsDetailModalProps> = ({
                     className="group p-3 rounded-xl bg-muted/40 hover:bg-muted/80 border border-border/60 hover:border-primary/50 transition-all cursor-pointer flex flex-col justify-between"
                   >
                     <div>
-                      {rel.cover_url && (
-                        <div className="w-full aspect-video rounded-lg overflow-hidden mb-2 bg-slate-900">
-                          <img
-                            src={rel.cover_url}
-                            alt={rel.title}
-                            className="w-full h-full object-cover group-hover:scale-105 transition-transform"
-                          />
-                        </div>
-                      )}
+                      {(() => {
+                        const relCover = (rel.cover_url || '').trim() || (rel.game_slug ? `/game_icons/${rel.game_slug}.webp` : '/og-image.jpg');
+                        const isRelGameIcon = Boolean(
+                          relCover.includes('/game_icons/') || 
+                          (rel.game_slug && relCover.includes(rel.game_slug))
+                        );
+                        return (
+                          <div className="relative w-full aspect-video rounded-lg overflow-hidden mb-2 bg-slate-950 flex items-center justify-center">
+                            <div
+                              className="absolute inset-0 bg-cover bg-center blur-lg opacity-30 pointer-events-none"
+                              style={{ backgroundImage: `url(${relCover})` }}
+                            />
+                            {isRelGameIcon ? (
+                              <img
+                                src={relCover}
+                                alt={rel.title}
+                                className="relative z-10 w-12 h-12 rounded-xl object-cover shadow-md ring-1 ring-white/20 group-hover:scale-105 transition-transform"
+                                onError={(e) => {
+                                  const el = e.currentTarget;
+                                  el.onerror = null;
+                                  el.src = '/og-image.jpg';
+                                }}
+                              />
+                            ) : (
+                              <img
+                                src={relCover}
+                                alt={rel.title}
+                                className="relative z-10 w-full h-full object-cover group-hover:scale-105 transition-transform"
+                                onError={(e) => {
+                                  const el = e.currentTarget;
+                                  el.onerror = null;
+                                  el.src = '/og-image.jpg';
+                                }}
+                              />
+                            )}
+                          </div>
+                        );
+                      })()}
                       <h4 className="text-xs font-bold text-white line-clamp-2 group-hover:text-primary-light transition-colors">
                         {rel.title}
                       </h4>

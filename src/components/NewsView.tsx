@@ -19,6 +19,30 @@ import { newsService } from '../services/newsService';
 import { NewsDetailModal } from './NewsDetailModal';
 import { useLanguage } from '../context/LanguageContext';
 
+const getSafeArticleCover = (article: NewsArticle): string => {
+  const raw = (article.cover_url || '').trim();
+  if (raw) return raw;
+  if (article.game_slug) return `/game_icons/${article.game_slug}.webp`;
+  return '/og-image.jpg';
+};
+
+const isGameIconCover = (url: string, gameSlug?: string): boolean => {
+  if (!url) return false;
+  if (url.includes('/game_icons/')) return true;
+  if (gameSlug && url.includes(gameSlug)) return true;
+  return false;
+};
+
+const handleImageFallback = (e: React.SyntheticEvent<HTMLImageElement>, article: NewsArticle) => {
+  const el = e.currentTarget;
+  el.onerror = null; // Strictly prevent infinite re-render / reload loop
+  if (article.game_slug && !el.src.includes(`/game_icons/${article.game_slug}.webp`)) {
+    el.src = `/game_icons/${article.game_slug}.webp`;
+  } else {
+    el.src = '/og-image.jpg';
+  }
+};
+
 interface NewsViewProps {
   onShowToast: (title: string, message?: string, type?: 'success' | 'error' | 'info') => void;
   onSelectGameSlug?: (slug: string) => void;
@@ -172,36 +196,56 @@ export const NewsView: React.FC<NewsViewProps> = ({
             className="group relative cursor-pointer overflow-hidden rounded-3xl bg-card border border-border/80 hover:border-primary/50 shadow-lg hover:shadow-xl transition-all duration-300 grid grid-cols-1 md:grid-cols-12 gap-0 md:max-h-[290px]"
           >
             {/* Cover image (5 cols on md, 4 cols on lg/xl) */}
-            <div className="md:col-span-5 lg:col-span-4 xl:col-span-4 relative overflow-hidden bg-slate-950 flex items-center justify-center min-h-[190px] max-h-[240px] md:max-h-none md:h-full">
-              {/* Ambient blur backdrop */}
-              <div
-                className="absolute inset-0 bg-cover bg-center blur-2xl opacity-40 scale-125 pointer-events-none"
-                style={{ backgroundImage: `url(${featuredArticle.cover_url})` }}
-              />
-              <img
-                src={featuredArticle.cover_url}
-                alt={featuredArticle.title}
-                className="relative z-10 w-full h-full object-cover transition-transform duration-700 group-hover:scale-105"
-                onError={(e) => {
-                  (e.target as HTMLImageElement).src =
-                    'https://images.unsplash.com/photo-1542751371-adc38448a05e?auto=format&fit=crop&w=1200&q=80';
-                }}
-              />
-              <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent md:hidden z-10" />
+            {(() => {
+              const heroCover = getSafeArticleCover(featuredArticle);
+              const isGameIcon = isGameIconCover(heroCover, featuredArticle.game_slug);
+              return (
+                <div className="md:col-span-5 lg:col-span-4 xl:col-span-4 relative overflow-hidden bg-slate-950 flex items-center justify-center min-h-[190px] max-h-[240px] md:max-h-none md:h-full">
+                  {/* Ambient blur backdrop */}
+                  <div
+                    className="absolute inset-0 bg-cover bg-center blur-2xl opacity-45 scale-125 pointer-events-none transition-transform duration-700 group-hover:scale-135"
+                    style={{ backgroundImage: `url(${heroCover})` }}
+                  />
+                  <div className="absolute inset-0 bg-gradient-to-t from-slate-950/85 via-slate-950/30 to-transparent pointer-events-none" />
 
-              {/* Badges on image */}
-              <div className="absolute top-3 left-3 z-20 flex flex-wrap items-center gap-1.5">
-                <span className="px-2.5 py-0.5 rounded-full bg-amber-500 text-black text-[11px] font-black uppercase tracking-wider flex items-center gap-1 shadow-md">
-                  <Flame className="w-3 h-3 fill-black" />
-                  Tiêu Điểm
-                </span>
-                {featuredArticle.game_name && (
-                  <span className="px-2.5 py-0.5 rounded-full bg-primary/90 text-white text-[11px] font-bold shadow-md backdrop-blur-sm">
-                    {featuredArticle.game_name}
-                  </span>
-                )}
-              </div>
-            </div>
+                  {isGameIcon ? (
+                    <div className="relative z-10 flex items-center justify-center p-6">
+                      <div className="relative group-hover:scale-110 transition-transform duration-300">
+                        <img
+                          src={heroCover}
+                          alt={featuredArticle.title}
+                          className="w-24 h-24 sm:w-28 sm:h-28 rounded-3xl object-cover shadow-2xl ring-2 ring-white/25 group-hover:ring-primary/80"
+                          loading="eager"
+                          onError={(e) => handleImageFallback(e, featuredArticle)}
+                        />
+                        <div className="absolute -bottom-2 inset-x-0 mx-auto w-16 h-2 bg-black/60 rounded-full blur-sm" />
+                      </div>
+                    </div>
+                  ) : (
+                    <img
+                      src={heroCover}
+                      alt={featuredArticle.title}
+                      className="relative z-10 w-full h-full object-cover transition-transform duration-700 group-hover:scale-105"
+                      loading="eager"
+                      onError={(e) => handleImageFallback(e, featuredArticle)}
+                    />
+                  )}
+
+                  {/* Badges on image */}
+                  <div className="absolute top-3 left-3 z-20 flex flex-wrap items-center gap-1.5">
+                    <span className="px-2.5 py-0.5 rounded-full bg-amber-500 text-black text-[11px] font-black uppercase tracking-wider flex items-center gap-1 shadow-md">
+                      <Flame className="w-3 h-3 fill-black" />
+                      Tiêu Điểm
+                    </span>
+                    {featuredArticle.game_name && (
+                      <span className="px-2.5 py-0.5 rounded-full bg-primary/90 text-white text-[11px] font-bold shadow-md backdrop-blur-sm">
+                        {featuredArticle.game_name}
+                      </span>
+                    )}
+                  </div>
+                </div>
+              );
+            })()}
 
             {/* Info panel (7 cols on md, 8 cols on lg/xl) */}
             <div className="md:col-span-7 lg:col-span-8 xl:col-span-8 p-4 sm:p-5 lg:p-6 flex flex-col justify-between space-y-2 sm:space-y-3">
@@ -363,41 +407,66 @@ export const NewsView: React.FC<NewsViewProps> = ({
                 className="group relative cursor-pointer flex flex-col overflow-hidden rounded-2xl bg-card border border-border/80 hover:border-primary/50 shadow-sm hover:shadow-xl transition-all duration-300 hover:-translate-y-1"
               >
                 {/* Thumbnail */}
-                <div className="relative aspect-[16/10] overflow-hidden bg-muted">
-                  <img
-                    src={article.cover_url}
-                    alt={article.title}
-                    className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
-                    onError={(e) => {
-                      (e.target as HTMLImageElement).src =
-                        'https://images.unsplash.com/photo-1542751371-adc38448a05e?auto=format&fit=crop&w=600&q=80';
-                    }}
-                  />
-                  <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-60 group-hover:opacity-80 transition-opacity" />
+                {(() => {
+                  const cardCover = getSafeArticleCover(article);
+                  const isCardGameIcon = isGameIconCover(cardCover, article.game_slug);
+                  return (
+                    <div className="relative aspect-[16/10] overflow-hidden bg-slate-950 flex items-center justify-center">
+                      {/* Ambient blur backdrop */}
+                      <div
+                        className="absolute inset-0 bg-cover bg-center blur-2xl opacity-40 scale-125 pointer-events-none transition-transform duration-700 group-hover:scale-135"
+                        style={{ backgroundImage: `url(${cardCover})` }}
+                      />
+                      <div className="absolute inset-0 bg-gradient-to-t from-slate-950/85 via-slate-950/30 to-transparent pointer-events-none" />
 
-                  {/* Badges on image */}
-                  <div className="absolute top-3 left-3 flex flex-wrap gap-1.5">
-                    {article.game_name && (
-                      <span className="px-2.5 py-1 rounded-lg bg-black/60 backdrop-blur-md text-white text-[11px] font-bold border border-white/10">
-                        {article.game_name}
-                      </span>
-                    )}
-                    {article.is_hot && (
-                      <span className="px-2 py-0.5 rounded-lg bg-amber-500 text-black text-[10px] font-black uppercase flex items-center gap-1 shadow-sm">
-                        <Flame className="w-3 h-3 fill-black" />
-                        HOT
-                      </span>
-                    )}
-                  </div>
+                      {isCardGameIcon ? (
+                        <div className="relative z-10 flex items-center justify-center p-4 w-full h-full">
+                          <div className="relative group-hover:scale-110 transition-transform duration-300">
+                            <img
+                              src={cardCover}
+                              alt={article.title}
+                              className="w-20 h-20 sm:w-24 sm:h-24 rounded-2xl object-cover shadow-2xl ring-2 ring-white/20 group-hover:ring-primary/80"
+                              loading="lazy"
+                              onError={(e) => handleImageFallback(e, article)}
+                            />
+                            <div className="absolute -bottom-2 inset-x-0 mx-auto w-12 h-2 bg-black/60 rounded-full blur-sm" />
+                          </div>
+                        </div>
+                      ) : (
+                        <img
+                          src={cardCover}
+                          alt={article.title}
+                          className="relative z-10 w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
+                          loading="lazy"
+                          onError={(e) => handleImageFallback(e, article)}
+                        />
+                      )}
 
-                  {/* Codes badge on image bottom */}
-                  {hasCodes && (
-                    <div className="absolute bottom-3 right-3 px-2.5 py-1 rounded-lg bg-amber-500/90 backdrop-blur-md text-slate-950 text-[11px] font-black flex items-center gap-1 shadow-md">
-                      <Gift className="w-3.5 h-3.5" />
-                      <span>+{article.codes!.length} Code</span>
+                      {/* Badges on image */}
+                      <div className="absolute top-3 left-3 z-20 flex flex-wrap gap-1.5">
+                        {article.game_name && (
+                          <span className="px-2.5 py-1 rounded-lg bg-black/70 backdrop-blur-md text-white text-[11px] font-bold border border-white/10 shadow-sm">
+                            {article.game_name}
+                          </span>
+                        )}
+                        {article.is_hot && (
+                          <span className="px-2 py-0.5 rounded-lg bg-amber-500 text-black text-[10px] font-black uppercase flex items-center gap-1 shadow-sm">
+                            <Flame className="w-3 h-3 fill-black" />
+                            HOT
+                          </span>
+                        )}
+                      </div>
+
+                      {/* Codes badge on image bottom */}
+                      {hasCodes && (
+                        <div className="absolute bottom-3 right-3 z-20 px-2.5 py-1 rounded-lg bg-amber-500/90 backdrop-blur-md text-slate-950 text-[11px] font-black flex items-center gap-1 shadow-md">
+                          <Gift className="w-3.5 h-3.5" />
+                          <span>+{article.codes!.length} Code</span>
+                        </div>
+                      )}
                     </div>
-                  )}
-                </div>
+                  );
+                })()}
 
                 {/* Article Info */}
                 <div className="p-5 flex-1 flex flex-col justify-between space-y-3">
