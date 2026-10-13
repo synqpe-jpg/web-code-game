@@ -211,7 +211,7 @@ export const StoreView: React.FC<StoreViewProps> = ({
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               placeholder="Tìm kiếm gói code..."
-              className="w-full pl-9 pr-4 py-2 rounded-xl bg-card border border-border text-xs text-foreground placeholder-slate-400 focus:ring-2 focus:ring-secondary focus:outline-none"
+              className="w-full pl-9 pr-4 py-2 rounded-xl bg-card border border-border text-base sm:text-xs text-foreground placeholder-slate-400 focus:ring-2 focus:ring-secondary focus:outline-none"
             />
           </div>
 

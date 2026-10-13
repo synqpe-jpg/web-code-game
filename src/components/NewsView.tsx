@@ -383,7 +383,7 @@ export const NewsView: React.FC<NewsViewProps> = ({
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               placeholder="Tìm kiếm tin tức, sự kiện, giftcode game..."
-              className="w-full pl-10 pr-9 py-2.5 rounded-2xl bg-card border border-border/80 focus:border-primary focus:ring-2 focus:ring-primary/20 text-sm placeholder:text-muted-foreground text-foreground transition-all outline-none"
+              className="w-full pl-10 pr-9 py-2.5 rounded-2xl bg-card border border-border/80 focus:border-primary focus:ring-2 focus:ring-primary/20 text-base sm:text-sm placeholder:text-muted-foreground text-foreground transition-all outline-none"
             />
             {searchQuery && (
               <button

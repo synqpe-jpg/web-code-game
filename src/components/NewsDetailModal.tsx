@@ -69,13 +69,29 @@ export const NewsDetailModal: React.FC<NewsDetailModalProps> = ({
     }, 2000);
   };
 
-  const handleShare = () => {
+  const handleShare = async () => {
     const origin = (typeof window !== 'undefined' && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'))
       ? window.location.origin
       : 'https://codegame.shop';
     const url = `${origin}/news/${article.slug}`;
-    navigator.clipboard.writeText(url);
-    onShowToast('Đã sao chép liên kết bài viết!', url, 'success');
+
+    if (typeof navigator !== 'undefined' && navigator.share) {
+      try {
+        await navigator.share({
+          title: article.title,
+          text: article.excerpt || article.title,
+          url: url,
+        });
+        return;
+      } catch (err: any) {
+        if (err.name === 'AbortError') return;
+      }
+    }
+
+    if (navigator.clipboard) {
+      navigator.clipboard.writeText(url);
+      onShowToast('Đã sao chép liên kết bài viết!', url, 'success');
+    }
   };
 
   const relatedArticles = allArticles
@@ -156,6 +172,21 @@ export const NewsDetailModal: React.FC<NewsDetailModalProps> = ({
         <div className="flex-1 overflow-y-auto custom-scrollbar p-4 sm:p-6 sm:px-8 space-y-6">
           {/* Article Header & Cover */}
           <div className="space-y-4">
+            {/* Breadcrumb Navigation */}
+            <div className="flex items-center gap-1.5 text-[11px] sm:text-xs text-muted-foreground pb-1">
+              <span className="hover:text-primary transition-colors cursor-pointer" onClick={onClose}>
+                Trang Chủ
+              </span>
+              <span>/</span>
+              <span className="hover:text-primary transition-colors cursor-pointer" onClick={onClose}>
+                Tin Tức Game
+              </span>
+              <span>/</span>
+              <span className="text-foreground font-semibold truncate max-w-[200px] sm:max-w-md">
+                {article.title}
+              </span>
+            </div>
+
             <h1 className="text-xl sm:text-2xl md:text-3xl font-display font-extrabold text-foreground leading-tight">
               {article.title}
             </h1>

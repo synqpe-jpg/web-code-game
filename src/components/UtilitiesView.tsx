@@ -465,7 +465,7 @@ export const UtilitiesView: React.FC<UtilitiesViewProps> = ({
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               placeholder="Tìm kiếm tiện ích, tài khoản, key..."
-              className="w-full pl-9 pr-4 py-2 rounded-xl bg-card border border-border text-xs text-foreground placeholder-slate-400 focus:ring-2 focus:ring-teal-500 focus:outline-none"
+              className="w-full pl-9 pr-4 py-2 rounded-xl bg-card border border-border text-base sm:text-xs text-foreground placeholder-slate-400 focus:ring-2 focus:ring-teal-500 focus:outline-none"
             />
           </div>
 

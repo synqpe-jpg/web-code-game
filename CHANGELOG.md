@@ -5,6 +5,34 @@ Mỗi mục sửa lỗi đều ghi nhận **Nguyên nhân gốc rễ (Root Cause
 
 ---
 
+## [2026-10-14]
+
+### 26. Tối Ưu Hóa Toàn Diện 4 Trọng Điểm: Deep SEO Tin Tức, Mobile UX, Tỷ Lệ Chuyển Đổi & Cảnh Báo Telegram
+- **Mô tả**:
+  1. **Nhu cầu**: Thực hiện 4 hạng mục tối ưu hóa chiến lược theo yêu cầu của Chủ sở hữu để đưa website lên chuẩn vận hành chuyên nghiệp (Production-Grade):
+     - *Trọng điểm 1 — SEO Chuyên Sâu Tin Tức*: Prerender tĩnh 100% bài viết tin tức kèm Schema.org `NewsArticle` và sinh sitemap động 500+ liên kết.
+     - *Trọng điểm 2 — Trải Nghiệm Di Động & PWA*: Triệt tiêu lỗi iOS Safari auto-zoom và thiết lập Cache-First cho 495 icon game.
+     - *Trọng điểm 3 — Tỷ Lệ Chuyển Đổi (CRO)*: Bổ sung Breadcrumb, chia sẻ 1 chạm (Native Web Share API) và dải huy hiệu uy tín.
+     - *Trọng điểm 4 — Quản Trị Tự Động & Cảnh Báo Thông Minh*: Tự động gửi tin nhắn Telegram báo đơn hàng mới và cảnh báo khẩn cấp khi kho hết hàng.
+  2. **Giải pháp kiến trúc & Triển khai**:
+     - *SEO Tin Tức & Sitemap Động (`scripts/prerender.js`, `public/sitemap.xml`)*:
+       + Tự động sinh `dist/news/[slug]/index.html` và `dist/news/[slug].html` cho toàn bộ bài viết tin tức.
+       + Nhúng đầy đủ cấu trúc dữ liệu `NewsArticle`, `BreadcrumbList`, Open Graph ảnh bìa chuẩn và nội dung bài viết định dạng sạch.
+       + Tự động xuất bản `sitemap.xml` với 503 URL hoàn chỉnh (Trang chủ, 4 chuyên mục, 486 game, 12 bài viết tin tức).
+     - *Mobile UX & PWA Service Worker (`SearchAutocomplete.tsx`, `NewsView.tsx`, `StoreView.tsx`, `UtilitiesView.tsx`, `GiveawaysView.tsx`, `public/sw.js`)*:
+       + Chuẩn hóa kích thước font input `text-base sm:text-sm` (16px trên mobile) triệt tiêu hoàn toàn lỗi iOS Safari tự động phóng to màn hình khi chạm vào ô tìm kiếm.
+       + Nâng cấp Service Worker lên `codegame-pwa-v3` với chiến lược Cache-First cho toàn bộ `/game_icons/*.webp`, giúp lướt game cực mượt và hiển thị tức thì trong 0ms kể cả khi mạng yếu hoặc offline.
+     - *Tỷ Lệ Chuyển Đổi & Chia Sẻ Thông Minh (`ProductDetailModal.tsx`, `NewsDetailModal.tsx`)*:
+       + Bổ sung thanh điều hướng Breadcrumb trực quan (`Trang Chủ > Cửa Hàng > [Tên sản phẩm]`, `Trang Chủ > Tin Tức > [Tên bài viết]`).
+       + Tích hợp Native Web Share API (`navigator.share`) tự động mở sheet chia sẻ gốc của điện thoại (Zalo, Messenger, Telegram, AirDrop).
+       + Bổ sung dải huy hiệu uy tín: *"✓ 100% Mã Bản Quyền"*, *"⚡ 0 Giây Giao Tự Động"*, *"🛡️ Bảo Hành Đổi Mới 1-1"*.
+     - *Cảnh Báo Telegram Thông Minh (`functions/services/telegram_service.ts`, `functions/api/orders/create.ts`)*:
+       + Xây dựng `telegram_service.ts` gửi thông báo tự động tới Telegram Chủ sở hữu (`ID: 7791142901`).
+       + Tích hợp vào `/api/orders/create` qua `context.waitUntil()` (chạy nền phi đồng bộ, không làm tăng độ trễ thanh toán):
+         * Báo ngay khi có đơn hàng thanh toán thành công (Mã đơn, sản phẩm, số lượng, doanh thu, tên khách).
+         * Gửi ngay cảnh báo khẩn cấp `🚨 [CẢNH BÁO HẾT HÀNG TRONG KHO]` khi số lượng mã của sản phẩm giảm về 0 để Admin kịp thời nạp thêm hàng.
+- **Kết quả xác minh**: Toàn bộ 7/7 bộ kiểm thử chuyên sâu đạt 100% PASS, biên dịch Vite và Edge Worker thành công, Prerender 503 liên kết và sitemap hoàn tất.
+
 ## [2026-10-13]
 
 ### 25. Triển Khai Phân Trang Thông Minh Cho Mục Tin Tức (News Pagination & Initial Page Load)

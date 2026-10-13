@@ -476,7 +476,7 @@ export const GiveawaysView: React.FC<GiveawaysViewProps> = ({
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 placeholder="Tìm theo game, quà tặng..."
-                className="w-full pl-9 pr-3 py-2 rounded-xl bg-card border border-border text-xs text-foreground placeholder:text-muted-foreground focus:outline-none focus:border-primary transition-all"
+                className="w-full pl-9 pr-3 py-2 rounded-xl bg-card border border-border text-base sm:text-xs text-foreground placeholder:text-muted-foreground focus:outline-none focus:border-primary transition-all"
               />
               {searchQuery && (
                 <button

@@ -4,11 +4,14 @@ import {
 } from '../../services/d1_service';
 import { verifyToken } from '../../services/auth_service';
 import { getRealEventsHub, saveRealEventsHub } from '../../services/realEventsHub';
+import { sendOutOfStockAlert, sendNewOrderAlert } from '../../services/telegram_service';
 
 interface Env {
   DB: D1Database;
   ADMIN_SYNC_SECRET?: string;
   JWT_SECRET?: string;
+  TELEGRAM_BOT_TOKEN?: string;
+  TELEGRAM_CHAT_ID?: string;
 }
 
 const CORS_HEADERS = {
@@ -386,6 +389,37 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
       await saveRealEventsHub(env, hub);
     } catch (e: any) {
       console.warn('[OrdersCreate] Hub update warning:', e?.message);
+    }
+
+    // 6.1. Smart Admin Telegram Alerts (Non-blocking background execution)
+    const alertPromises: Promise<any>[] = [];
+
+    // Notify owner of new paid order
+    alertPromises.push(
+      sendNewOrderAlert(env, {
+        orderId: newOrderId,
+        productTitle: product.title,
+        quantity: qty,
+        totalAmount: totalPrice,
+        buyerName: buyerDisplayName,
+      }).catch((err) => console.warn('[OrdersCreate] Telegram new order alert error:', err?.message))
+    );
+
+    // If stock dropped to 0, trigger instant out-of-stock alert
+    if (remainingAvailCount <= 0) {
+      alertPromises.push(
+        sendOutOfStockAlert(env, {
+          productId: product.id,
+          productTitle: product.title,
+          remainingStock: 0,
+        }).catch((err) => console.warn('[OrdersCreate] Telegram out of stock alert error:', err?.message))
+      );
+    }
+
+    if (context.waitUntil) {
+      context.waitUntil(Promise.all(alertPromises));
+    } else {
+      Promise.all(alertPromises).catch(() => {});
     }
 
     // 7. Format Return Order (100% compatible with frontend contracts)

@@ -339,6 +339,153 @@ async function runPrerender() {
   fs.writeFileSync(path.join(newsDir, 'index.html'), newsHtml, 'utf8');
   console.log(`[Prerender] Đã xuất bản dist/news/index.html`);
 
+  // 2.1. Prerender Individual News Articles
+  let newsArticles = [];
+  try {
+    const seedNewsMod = await import('../src/data/seedNews.ts');
+    newsArticles = seedNewsMod.DEFAULT_NEWS_ARTICLES || [];
+  } catch (err) {
+    console.warn('[Prerender] Không thể nạp seedNews.ts:', err?.message);
+  }
+
+  console.log(`[Prerender] Bắt đầu sinh HTML tĩnh cho ${newsArticles.length} bài viết tin tức...`);
+
+  newsArticles.forEach((article) => {
+    const artSlug = (article.slug || article.id || '').trim();
+    if (!artSlug) return;
+
+    const artDir = path.join(newsDir, artSlug);
+    if (!fs.existsSync(artDir)) fs.mkdirSync(artDir, { recursive: true });
+
+    const artTitle = `${article.title} | CodeGame.shop`;
+    const artDesc = article.excerpt || (article.content || '').slice(0, 160).replace(/\n/g, ' ').trim();
+    const artCover = article.cover_url || (article.game_slug ? `/game_icons/${article.game_slug}.webp` : '/og-image.jpg');
+    const artCanonical = `/news/${artSlug}`;
+
+    const articleHtml = buildPageHtml({
+      title: artTitle,
+      description: artDesc,
+      canonicalPath: artCanonical,
+      ogImage: artCover,
+      ogType: 'article',
+      jsonLd: [
+        {
+          '@context': 'https://schema.org',
+          '@type': 'NewsArticle',
+          headline: article.title,
+          description: artDesc,
+          image: [artCover.startsWith('http') ? artCover : `${BASE_URL}${artCover}`],
+          datePublished: article.published_at || '2026-10-13T00:00:00.000Z',
+          dateModified: article.updated_at || article.published_at || '2026-10-13T00:00:00.000Z',
+          author: {
+            '@type': 'Person',
+            name: article.author || 'CodeGame Editorial',
+          },
+          publisher: {
+            '@type': 'Organization',
+            name: 'CodeGame.shop',
+            logo: {
+              '@type': 'ImageObject',
+              url: `${BASE_URL}/logo.png`,
+            },
+          },
+          mainEntityOfPage: {
+            '@type': 'WebPage',
+            '@id': `${BASE_URL}${artCanonical}`,
+          },
+        },
+        {
+          '@context': 'https://schema.org',
+          '@type': 'BreadcrumbList',
+          itemListElement: [
+            { '@type': 'ListItem', position: 1, name: 'Trang chủ', item: `${BASE_URL}/` },
+            { '@type': 'ListItem', position: 2, name: 'Tin Tức Game', item: `${BASE_URL}/news` },
+            { '@type': 'ListItem', position: 3, name: article.title, item: `${BASE_URL}${artCanonical}` },
+          ],
+        },
+      ],
+      bodyContent: `
+        <div class="min-h-screen flex flex-col bg-slate-950 text-slate-100 font-sans">
+          <header class="sticky top-0 z-40 w-full border-b border-slate-800 bg-slate-900/90 backdrop-blur-md px-4 sm:px-8 py-3.5 flex items-center justify-between">
+            <a href="/" class="flex items-center space-x-2.5 text-blue-500 font-extrabold text-lg sm:text-xl">
+              <span>🎮 CodeGame.shop</span>
+            </a>
+            <nav class="flex items-center space-x-3 sm:space-x-6 text-xs sm:text-sm font-bold text-slate-300">
+              <a href="/" class="hover:text-blue-400 transition-colors">Tra Cứu Code</a>
+              <a href="/news" class="text-blue-400 font-black">Tin Tức Game</a>
+              <a href="/giveaways" class="hover:text-blue-400 transition-colors">Săn Giveaway</a>
+              <a href="/store" class="hover:text-blue-400 transition-colors">Cửa Hàng</a>
+            </nav>
+          </header>
+
+          <main class="max-w-4xl mx-auto px-4 sm:px-6 py-8 space-y-6">
+            <nav class="flex items-center space-x-2 text-xs text-slate-400">
+              <a href="/" class="hover:text-blue-400">Trang chủ</a>
+              <span>/</span>
+              <a href="/news" class="hover:text-blue-400">Tin tức game</a>
+              <span>/</span>
+              <span class="text-slate-200 truncate max-w-xs">${escapeHtml(article.title)}</span>
+            </nav>
+
+            <article class="bg-slate-900/80 border border-slate-800 rounded-3xl p-6 sm:p-8 space-y-6">
+              <div class="space-y-3">
+                <div class="flex items-center gap-2 text-xs text-blue-400 font-bold">
+                  <span>📰 TIN TỨC GAME</span>
+                  ${article.game_name ? `<span>•</span><span>${escapeHtml(article.game_name)}</span>` : ''}
+                </div>
+                <h1 class="text-2xl sm:text-3xl font-black text-white leading-tight">
+                  ${escapeHtml(article.title)}
+                </h1>
+                <div class="flex items-center gap-3 text-xs text-slate-400 border-b border-slate-800 pb-4">
+                  <span>Đăng ngày: ${new Date(article.published_at || Date.now()).toLocaleDateString('vi-VN')}</span>
+                  <span>•</span>
+                  <span>Tác giả: ${escapeHtml(article.author || 'Ban Biên Tập CodeGame')}</span>
+                  <span>•</span>
+                  <span>${article.read_time_minutes || 3} phút đọc</span>
+                </div>
+              </div>
+
+              ${artCover ? `
+                <div class="rounded-2xl overflow-hidden bg-slate-950 aspect-[16/9] flex items-center justify-center">
+                  <img src="${artCover}" alt="${escapeHtml(article.title)}" class="w-full h-full object-cover" />
+                </div>
+              ` : ''}
+
+              <p class="text-sm sm:text-base text-slate-300 leading-relaxed font-medium italic bg-slate-950/60 p-4 rounded-xl border border-slate-800">
+                ${escapeHtml(article.excerpt || '')}
+              </p>
+
+              ${article.codes && article.codes.length > 0 ? `
+                <div class="p-5 rounded-2xl bg-amber-500/10 border border-amber-500/20 space-y-3">
+                  <div class="flex items-center gap-2 text-amber-400 font-bold text-sm">
+                    <span>🎁 Danh sách Giftcode đính kèm (${article.codes.length} mã)</span>
+                  </div>
+                  <div class="flex flex-wrap gap-2">
+                    ${article.codes.map((c) => `
+                      <span class="font-mono text-xs sm:text-sm font-bold bg-amber-500/20 text-amber-300 px-3 py-1 rounded-lg border border-amber-500/30">
+                        ${escapeHtml(c)}
+                      </span>
+                    `).join('')}
+                  </div>
+                </div>
+              ` : ''}
+
+              <div class="pt-6 border-t border-slate-800 flex justify-between items-center text-xs">
+                <a href="/news" class="text-blue-400 font-bold hover:underline">← Xem tất cả bài viết tin tức</a>
+                <a href="/" class="text-slate-400 hover:text-white">Tra cứu thêm 486+ game khác</a>
+              </div>
+            </article>
+          </main>
+        </div>
+      `,
+    });
+
+    fs.writeFileSync(path.join(artDir, 'index.html'), articleHtml, 'utf8');
+    fs.writeFileSync(path.join(newsDir, `${artSlug}.html`), articleHtml, 'utf8');
+  });
+
+  console.log(`[Prerender] Đã xuất bản thành công ${newsArticles.length} bài viết tin tức chi tiết!`);
+
   // 3. Prerender Giveaways Page (dist/giveaways/index.html)
   const giveawaysDir = path.join(distDir, 'giveaways');
   if (!fs.existsSync(giveawaysDir)) fs.mkdirSync(giveawaysDir, { recursive: true });
@@ -738,6 +885,64 @@ async function runPrerender() {
 
   fs.writeFileSync(path.join(distDir, '404.html'), notFoundHtml, 'utf8');
   console.log(`[Prerender] Đã xuất bản dist/404.html`);
+
+  // 5. Generate Dynamic Sitemap.xml with 100% Games and News Articles
+  const todayStr = new Date().toISOString().slice(0, 10);
+  const sitemapUrls = [
+    { loc: `${BASE_URL}/`, priority: '1.0', changefreq: 'daily', lastmod: todayStr },
+    { loc: `${BASE_URL}/news`, priority: '0.9', changefreq: 'daily', lastmod: todayStr },
+    { loc: `${BASE_URL}/giveaways`, priority: '0.9', changefreq: 'daily', lastmod: todayStr },
+    { loc: `${BASE_URL}/store`, priority: '0.9', changefreq: 'daily', lastmod: todayStr },
+    { loc: `${BASE_URL}/utilities`, priority: '0.9', changefreq: 'daily', lastmod: todayStr },
+  ];
+
+  // Add all games
+  games.forEach((g) => {
+    const slug = g.slug || g.id;
+    if (slug) {
+      sitemapUrls.push({
+        loc: `${BASE_URL}/game/${encodeURIComponent(slug)}`,
+        priority: '0.8',
+        changefreq: 'weekly',
+        lastmod: todayStr,
+      });
+    }
+  });
+
+  // Add all news articles
+  newsArticles.forEach((a) => {
+    const slug = a.slug || a.id;
+    if (slug) {
+      const artDate = a.published_at ? new Date(a.published_at).toISOString().slice(0, 10) : todayStr;
+      sitemapUrls.push({
+        loc: `${BASE_URL}/news/${encodeURIComponent(slug)}`,
+        priority: '0.8',
+        changefreq: 'weekly',
+        lastmod: artDate,
+      });
+    }
+  });
+
+  const sitemapXml = `<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+${sitemapUrls
+  .map(
+    (u) => `  <url>
+    <loc>${u.loc}</loc>
+    <lastmod>${u.lastmod}</lastmod>
+    <changefreq>${u.changefreq}</changefreq>
+    <priority>${u.priority}</priority>
+  </url>`
+  )
+  .join('\n')}
+</urlset>`;
+
+  fs.writeFileSync(path.join(distDir, 'sitemap.xml'), sitemapXml, 'utf8');
+  const publicDir = path.resolve(__dirname, '../public');
+  if (fs.existsSync(publicDir)) {
+    fs.writeFileSync(path.join(publicDir, 'sitemap.xml'), sitemapXml, 'utf8');
+  }
+  console.log(`[Prerender] Đã xuất bản sitemap.xml với ${sitemapUrls.length} liên kết chuẩn SEO!`);
 
   console.log('[Prerender] TẤT CẢ 100% CÁC TRANG ĐÃ ĐƯỢC PRERENDER THÀNH CÔNG!');
 }

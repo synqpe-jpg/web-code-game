@@ -225,7 +225,7 @@ export const SearchAutocomplete: React.FC<SearchAutocompleteProps> = ({
           onKeyDown={handleKeyDown}
           autoFocus={autoFocus}
           placeholder={t.hero.searchPlaceholder}
-          className="w-full pl-10 sm:pl-12 pr-20 sm:pr-24 py-3 sm:py-3.5 rounded-2xl bg-card hover:bg-card-hover border border-border focus:border-primary focus:ring-2 focus:ring-primary/40 text-foreground text-xs sm:text-sm placeholder-slate-400 shadow-xl transition-all outline-none"
+          className="w-full pl-10 sm:pl-12 pr-20 sm:pr-24 py-3 sm:py-3.5 rounded-2xl bg-card hover:bg-card-hover border border-border focus:border-primary focus:ring-2 focus:ring-primary/40 text-foreground text-base sm:text-sm placeholder-slate-400 shadow-xl transition-all outline-none"
         />
 
         {/* Right side controls: Clear / Shortcut Badge */}
