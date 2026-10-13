@@ -59,17 +59,14 @@ export default {
       });
     }
 
-    // Route handler for mobile APK download: redirect to official GitHub Release
+    // Route handler for mobile APK download: temporarily redirect to home page while APK download is paused
     if (
       pathname === '/download/codegame.apk' ||
       pathname === '/download/CodeGame-v1.0.apk' ||
       lowerPath === '/download/codegame.apk' ||
       lowerPath === '/download/codegame-v1.0.apk'
     ) {
-      return Response.redirect(
-        'https://github.com/synqpe-jpg/web-code-game/releases/download/v1.0.0/CodeGame-v1.0.apk',
-        302
-      );
+      return Response.redirect('https://codegame.shop/', 302);
     }
 
     // Canonical primary domain redirect: web-code-game.pages.dev & www.codegame.shop -> codegame.shop (for browser page navigation)

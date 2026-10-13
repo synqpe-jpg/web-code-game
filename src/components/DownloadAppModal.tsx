@@ -33,6 +33,9 @@ export const DownloadAppModal: React.FC<DownloadAppModalProps> = ({
   const [qrDataUrl, setQrDataUrl] = useState<string>('');
   const [copiedLink, setCopiedLink] = useState(false);
 
+  // Tạm thời đóng phần tải APK theo yêu cầu, có thể bật lại sau
+  const SHOW_APK_DOWNLOAD = false;
+
   useEffect(() => {
     if (!isOpen) return;
     const detected = pwaService.getPlatform();
@@ -163,18 +166,20 @@ export const DownloadAppModal: React.FC<DownloadAppModalProps> = ({
             <span>Cài Nhanh (PWA)</span>
           </button>
 
-          <button
-            type="button"
-            onClick={() => setActiveTab('apk')}
-            className={`flex-1 flex items-center justify-center gap-1.5 py-2 px-3 rounded-xl text-xs font-bold transition-all cursor-pointer ${
-              activeTab === 'apk'
-                ? 'bg-primary text-white shadow-glow-primary'
-                : 'bg-muted/50 text-slate-400 hover:text-foreground hover:bg-muted'
-            }`}
-          >
-            <Download className="w-3.5 h-3.5" />
-            <span>Tải File .APK</span>
-          </button>
+          {SHOW_APK_DOWNLOAD && (
+            <button
+              type="button"
+              onClick={() => setActiveTab('apk')}
+              className={`flex-1 flex items-center justify-center gap-1.5 py-2 px-3 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+                activeTab === 'apk'
+                  ? 'bg-primary text-white shadow-glow-primary'
+                  : 'bg-muted/50 text-slate-400 hover:text-foreground hover:bg-muted'
+              }`}
+            >
+              <Download className="w-3.5 h-3.5" />
+              <span>Tải File .APK</span>
+            </button>
+          )}
 
           <button
             type="button"
@@ -293,8 +298,8 @@ export const DownloadAppModal: React.FC<DownloadAppModalProps> = ({
             </div>
           )}
 
-          {/* TAB 2: Direct APK Download */}
-          {activeTab === 'apk' && (
+          {/* TAB 2: Direct APK Download (Tạm thời ẩn, kích hoạt lại khi bật SHOW_APK_DOWNLOAD) */}
+          {SHOW_APK_DOWNLOAD && activeTab === 'apk' && (
             <div className="space-y-4">
               <div className="p-4 rounded-2xl bg-card border border-border text-center space-y-3">
                 <div className="w-12 h-12 mx-auto rounded-2xl bg-emerald-500/20 text-emerald-400 flex items-center justify-center shadow-sm">

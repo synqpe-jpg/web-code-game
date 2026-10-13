@@ -7,6 +7,15 @@ Mỗi mục sửa lỗi đều ghi nhận **Nguyên nhân gốc rễ (Root Cause
 
 ## [2026-10-13]
 
+### 17. Tạm Thời Đóng Phần Tải File APK & Tập Trung Trải Nghiệm PWA + QR Code
+- **Mô tả**:
+  1. Theo yêu cầu của chủ sở hữu, tạm thời ẩn tùy chọn tải file `.APK` trong modal cài đặt app (`DownloadAppModal.tsx`).
+  2. Khai báo cờ `SHOW_APK_DOWNLOAD = false` ẩn tab "Tải File .APK" và các hướng dẫn tải tệp ngoài, tập trung vào 2 phương thức cài đặt ổn định và tức thì:
+     - **Cài Nhanh (PWA)**: Mở 1 chạm trên màn hình chính, không tốn dung lượng máy, không bị hệ điều hành cảnh báo tệp ngoài, tự động cập nhật giftcode 24/7.
+     - **Quét Mã QR**: Dành cho người dùng desktop quét bằng camera hoặc Zalo để mở và cài app ngay trên điện thoại.
+  3. Trong `functions/_worker.ts`, cập nhật endpoint `/download/codegame.apk` tự động chuyển hướng an toàn về trang chủ `https://codegame.shop/` trong thời gian tạm đóng phần tải APK.
+- **Kết quả xác minh**: Build đạt 100%, modal tinh gọn 2 tab trực quan, không còn bất kỳ thông báo lỗi file APK nào.
+
 ### 16. Đồng Bộ Chuẩn Capacitor 8 Android SDK 36, Sửa Lỗi Pipefail & Đính Kèm File APK Vào GitHub Release
 - **Mô tả**:
   1. **Khôi phục cấu hình tương thích Capacitor 8 & Android SDK 36**:
