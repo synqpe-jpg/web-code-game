@@ -39,11 +39,11 @@ jobs:
       - name: Build Web Production Assets
         run: npm run build
 
-      - name: Setup Java 17
+      - name: Setup Java 21
         uses: actions/setup-java@v4
         with:
           distribution: 'zulu'
-          java-version: 17
+          java-version: 21
           cache: 'gradle'
 
       - name: Copy Web Assets to Capacitor Android
@@ -60,7 +60,15 @@ jobs:
         run: |
           cd android
           yes | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --licenses || true
-          ./gradlew assembleDebug --no-daemon --stacktrace
+          ./gradlew assembleDebug --no-daemon --stacktrace 2>&1 | tee ../gradle_build.log
+
+      - name: Upload Build Log if Failed
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: gradle-build-log
+          path: gradle_build.log
+          retention-days: 7
 
       - name: Rename APK Output
         run: |
