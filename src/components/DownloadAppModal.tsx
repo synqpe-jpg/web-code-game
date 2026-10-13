@@ -14,6 +14,7 @@ import {
   ExternalLink,
 } from 'lucide-react';
 import { pwaService } from '../services/pwaService';
+import QRCode from 'qrcode';
 
 interface DownloadAppModalProps {
   isOpen: boolean;
@@ -29,6 +30,8 @@ export const DownloadAppModal: React.FC<DownloadAppModalProps> = ({
   const [isInstalled, setIsInstalled] = useState(false);
   const [installSuccess, setInstallSuccess] = useState(false);
   const [activeTab, setActiveTab] = useState<'pwa' | 'apk' | 'qr'>('pwa');
+  const [qrDataUrl, setQrDataUrl] = useState<string>('');
+  const [copiedLink, setCopiedLink] = useState(false);
 
   useEffect(() => {
     if (!isOpen) return;
@@ -42,6 +45,20 @@ export const DownloadAppModal: React.FC<DownloadAppModalProps> = ({
     } else {
       setActiveTab('pwa');
     }
+
+    // Generate local QR Code with 0 external network requests
+    const targetUrl = typeof window !== 'undefined' ? window.location.origin : 'https://codegame.store';
+    QRCode.toDataURL(targetUrl, {
+      width: 280,
+      margin: 2,
+      color: {
+        dark: '#0B0D19',
+        light: '#FFFFFF',
+      },
+      errorCorrectionLevel: 'M',
+    })
+      .then((url) => setQrDataUrl(url))
+      .catch((err) => console.error('[QRCode error]', err));
 
     const unsub = pwaService.subscribe((can) => {
       setCanPromptPwa(can);
@@ -61,9 +78,13 @@ export const DownloadAppModal: React.FC<DownloadAppModalProps> = ({
     }
   };
 
-  const qrImageUrl = `https://api.qrserver.com/v1/create-qr-code/?size=240x240&margin=10&data=${encodeURIComponent(
-    typeof window !== 'undefined' ? window.location.origin : 'https://codegame.store'
-  )}`;
+  const handleCopyLink = () => {
+    const targetUrl = typeof window !== 'undefined' ? window.location.origin : 'https://codegame.store';
+    navigator.clipboard?.writeText(targetUrl).then(() => {
+      setCopiedLink(true);
+      setTimeout(() => setCopiedLink(false), 2000);
+    });
+  };
 
   return (
     <div
@@ -329,12 +350,33 @@ export const DownloadAppModal: React.FC<DownloadAppModalProps> = ({
           {/* TAB 3: QR Code (for Desktop users) */}
           {activeTab === 'qr' && (
             <div className="text-center space-y-3">
-              <div className="p-4 bg-white rounded-2xl w-48 h-48 mx-auto flex items-center justify-center shadow-lg border-2 border-primary/40">
-                <img
-                  src={qrImageUrl}
-                  alt="QR Code Tải App CodeGame"
-                  className="w-full h-full object-contain"
-                />
+              <div className="p-3 bg-white rounded-2xl w-52 h-52 mx-auto flex items-center justify-center shadow-lg border-2 border-primary/40 relative">
+                {qrDataUrl ? (
+                  <div className="relative w-full h-full flex items-center justify-center">
+                    <img
+                      src={qrDataUrl}
+                      alt="Mã QR Cài Đặt App CodeGame"
+                      className="w-full h-full object-contain"
+                    />
+                    {/* Micro Brand Badge in center of QR */}
+                    <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                      <div className="w-10 h-10 rounded-xl bg-card p-1 shadow-md border border-border flex items-center justify-center">
+                        <img
+                          src="/logo.png"
+                          alt="Logo"
+                          className="w-full h-full object-cover rounded-lg"
+                          onError={(e) => {
+                            (e.target as HTMLElement).style.display = 'none';
+                          }}
+                        />
+                      </div>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="w-full h-full flex items-center justify-center text-slate-500 text-xs font-medium">
+                    Đang tạo mã QR...
+                  </div>
+                )}
               </div>
 
               <div>
@@ -344,6 +386,26 @@ export const DownloadAppModal: React.FC<DownloadAppModalProps> = ({
                 <p className="text-[11px] text-slate-400 mt-1 max-w-xs mx-auto">
                   Dùng camera điện thoại (hoặc Zalo) quét mã trên để mở trang và cài đặt app ngay tức thì trên điện thoại của bạn.
                 </p>
+              </div>
+
+              <div className="pt-1">
+                <button
+                  type="button"
+                  onClick={handleCopyLink}
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-muted/60 hover:bg-muted text-slate-300 hover:text-foreground text-[11px] font-semibold border border-border transition-colors cursor-pointer"
+                >
+                  {copiedLink ? (
+                    <>
+                      <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
+                      <span className="text-emerald-400">Đã sao chép liên kết!</span>
+                    </>
+                  ) : (
+                    <>
+                      <ExternalLink className="w-3.5 h-3.5" />
+                      <span>Sao chép liên kết cài đặt</span>
+                    </>
+                  )}
+                </button>
               </div>
             </div>
           )}
