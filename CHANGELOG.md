@@ -7,6 +7,17 @@ Mỗi mục sửa lỗi đều ghi nhận **Nguyên nhân gốc rễ (Root Cause
 
 ## [2026-10-13]
 
+### 20. Chuyển Đổi Hệ Thống Font Chữ Sang Be Vietnam Pro Chuẩn Mực Cho Toàn Bộ Website
+- **Mô tả**:
+  1. **Khắc phục triệt để font chữ thô cứng, lệch dấu tiếng Việt**:
+     - *Phát hiện nguyên nhân*: Dự án trước đây cấu hình font `Chakra Petch` cho toàn bộ tiêu đề (`font-display`). Đây là font khoa học viễn tưởng/cyberpunk có nét chữ vuông góc, các dấu thanh tiếng Việt (huyền, sắc, hỏi, ngã, nặng, mũ, móc) bị lệch kích thước, thô kệch và khó đọc trên văn bản tiếng Việt thực tế.
+     - *Giải pháp*:
+       + Chuyển đổi toàn diện sang **Be Vietnam Pro** (bộ font số 1 chuẩn mực quốc gia do nhà thiết kế Việt Nam phát triển và phát hành chính thức qua Google Fonts).
+       + Nhúng đầy đủ các trọng số: Light 300, Regular 400, Medium 500, SemiBold 600, Bold 700, ExtraBold 800, Black 900 cùng kiểu nghiêng (Italic).
+       + Cấu hình đồng bộ trong `tailwind.config.js` cho toàn bộ các họ font: `sans`, `display`, và `heading`, kết hợp `Inter` làm lớp dự phòng thứ cấp và `JetBrains Mono` cho mã giftcode.
+       + Bổ sung cấu hình tối ưu độ nét văn bản (`-webkit-font-smoothing: antialiased`, `-moz-osx-font-smoothing: grayscale`, `text-rendering: optimizeLegibility`) trên `html` và `body` trong `src/index.css`.
+- **Kết quả xác minh**: Kiểm thử biên dịch đạt 100%, toàn bộ giao diện từ Header, Hero Banner, Thẻ Game, Cửa Hàng, Săn Quà đến Tin Tức hiển thị sắc nét, tròn trịa, cân đối và đạt chuẩn thẩm mỹ cao cấp.
+
 ### 19. Khắc Phục Triệt Để Hiện Tượng Nháy Ảnh Trong Mục Tin Tức & Chuẩn Hóa Ảnh Bìa Đại Diện Game
 - **Mô tả**:
   1. **Triệt tiêu hiện tượng nháy ảnh liên tục (Infinite Flickering Loop)**:

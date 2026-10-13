@@ -35,9 +35,9 @@ export default {
         glow: 'var(--color-glow)',
       },
       fontFamily: {
-        display: ['"Chakra Petch"', 'sans-serif'],
-        heading: ['"Outfit"', 'sans-serif'],
-        sans: ['"Inter"', 'sans-serif'],
+        sans: ['"Be Vietnam Pro"', '"Inter"', 'system-ui', '-apple-system', 'BlinkMacSystemFont', '"Segoe UI"', 'Roboto', 'sans-serif'],
+        display: ['"Be Vietnam Pro"', '"Inter"', 'sans-serif'],
+        heading: ['"Be Vietnam Pro"', '"Inter"', 'sans-serif'],
         mono: ['"JetBrains Mono"', 'monospace'],
       },
       boxShadow: {
