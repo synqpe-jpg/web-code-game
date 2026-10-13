@@ -15,12 +15,18 @@ if (typeof window !== 'undefined') {
     notifyListeners();
   });
 
-  // Register Service Worker in production/supporting browsers
+  // Register & aggressively update Service Worker to prevent stale asset cache
   if ('serviceWorker' in navigator) {
     window.addEventListener('load', () => {
-      navigator.serviceWorker.register('/sw.js').catch((err) => {
-        console.debug('[PWA] Service worker registration bypassed:', err);
-      });
+      navigator.serviceWorker
+        .register('/sw.js')
+        .then((reg) => {
+          // Immediately check for updates
+          reg.update().catch(() => {});
+        })
+        .catch((err) => {
+          console.debug('[PWA] Service worker registration bypassed:', err);
+        });
     });
   }
 }

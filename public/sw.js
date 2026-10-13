@@ -1,4 +1,4 @@
-const CACHE_NAME = 'codegame-pwa-v1';
+const CACHE_NAME = 'codegame-pwa-v2';
 const STATIC_ASSETS = [
   '/',
   '/manifest.json',
@@ -30,8 +30,13 @@ self.addEventListener('activate', (event) => {
 self.addEventListener('fetch', (event) => {
   const url = new URL(event.request.url);
 
-  // Bypass non-GET requests and dynamic API calls
-  if (event.request.method !== 'GET' || url.pathname.startsWith('/api/')) {
+  // Bypass non-GET requests, dynamic API calls, and external font providers
+  if (
+    event.request.method !== 'GET' ||
+    url.pathname.startsWith('/api/') ||
+    url.hostname.includes('fonts.googleapis.com') ||
+    url.hostname.includes('fonts.gstatic.com')
+  ) {
     return;
   }
 

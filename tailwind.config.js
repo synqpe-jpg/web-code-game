@@ -35,10 +35,10 @@ export default {
         glow: 'var(--color-glow)',
       },
       fontFamily: {
-        sans: ['"Be Vietnam Pro"', '"Inter"', 'system-ui', '-apple-system', 'BlinkMacSystemFont', '"Segoe UI"', 'Roboto', 'sans-serif'],
-        display: ['"Be Vietnam Pro"', '"Inter"', 'sans-serif'],
-        heading: ['"Be Vietnam Pro"', '"Inter"', 'sans-serif'],
-        mono: ['"JetBrains Mono"', 'monospace'],
+        sans: ['"Inter"', '-apple-system', 'BlinkMacSystemFont', '"Segoe UI"', 'Roboto', 'sans-serif'],
+        display: ['"Inter"', '-apple-system', 'BlinkMacSystemFont', '"Segoe UI"', 'Roboto', 'sans-serif'],
+        heading: ['"Inter"', '-apple-system', 'BlinkMacSystemFont', '"Segoe UI"', 'Roboto', 'sans-serif'],
+        mono: ['"JetBrains Mono"', 'ui-monospace', 'monospace'],
       },
       boxShadow: {
         'glow-primary': '0 0 25px -5px rgba(124, 58, 237, 0.45)',

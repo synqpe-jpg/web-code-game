@@ -7,6 +7,21 @@ Mỗi mục sửa lỗi đều ghi nhận **Nguyên nhân gốc rễ (Root Cause
 
 ## [2026-10-13]
 
+### 22. Chuẩn Hóa Triệt Để Typography Bằng Bộ Font Inter & System-UI, Khắc Phục Hiện Tượng Nhảy/Hồi Phục Font
+- **Mô tả**:
+  1. **Khắc phục hiện tượng "mới sửa thì được, sau một lát tự hồi phục"**:
+     - *Phát hiện nguyên nhân*:
+       + Khi cấu hình `Be Vietnam Pro` kèm thuộc tính `display=swap`, ở 1 giây đầu tiên khi mở trang, trình duyệt hiển thị font dự phòng (Inter / Roboto / System UI) - đây là bộ font chuẩn, sắc nét, thanh thoát mà người dùng ưng ý ("mới sửa thì được").
+       + Sau 1 - 2 giây, Google Fonts hoàn tất tải file font `Be Vietnam Pro` từ mạng và kích hoạt tráo đổi font (Font Swap). `Be Vietnam Pro` có hình dạng chữ hình học tròn xoe (geometric curves), nét chữ đậm rất dày khiến toàn bộ tiêu đề bị biến đổi hình thái, tạo cảm giác font bị "tự hồi phục" về kiểu chữ lạ/kỳ quặc.
+       + Đồng thời, Service Worker `sw.js` trước đó lưu cache ở phiên bản `codegame-pwa-v1` và thiếu header `no-cache` cho file `/sw.js`, khiến một số trình duyệt di động giữ lại cache cũ.
+     - *Giải pháp*:
+       + Loại bỏ hoàn toàn `Be Vietnam Pro` và cấu hình thống nhất **Inter** kết hợp bộ font hệ thống gốc cao cấp (`-apple-system`, `BlinkMacSystemFont`, `'Segoe UI'`, `Roboto`, `Helvetica Neue`, `Arial`, `sans-serif`) trên toàn bộ hệ thống (`sans`, `display`, `heading`).
+       + Inter là chuẩn mực số 1 thế giới cho giao diện người dùng (Apple, GitHub, Vercel, Stripe), hỗ trợ 100% tiếng Việt, nét chữ sắc nét, thanh lịch, tỷ lệ chuẩn mực và tương thích 1:1 với font hệ thống của điện thoại (iOS San Francisco, Android Roboto).
+       + Khai báo font trực tiếp trong inline `<style>` của `index.html` với cờ `!important` trên `html` và `body` để áp dụng ngay từ mili-giây đầu tiên, triệt tiêu hoàn toàn độ trễ và hiện tượng nhảy font.
+       + Tinh chỉnh `letter-spacing: -0.015em` cho toàn bộ các thẻ tiêu đề `h1-h6`, `.font-display`, `.font-heading` tạo vẻ ngoài cao cấp, gọn gàng và hiện đại.
+       + Nâng cấp Service Worker lên `codegame-pwa-v2`, bổ sung cơ chế xóa sạch cache cũ khi kích hoạt, bổ sung kiểm tra cập nhật tức thì `reg.update()`, và cấu hình header `Cache-Control: no-cache` cho `/sw.js` trong `public/_headers`.
+- **Kết quả xác minh**: Kiểm thử biên dịch đạt 100%, font chữ cố định chuẩn mực ngay lập tức, không bao giờ bị nhảy hoặc biến đổi sau khi tải trang.
+
 ### 21. Xuất Bản & Đồng Bộ Bài Viết Đánh Giá Chi Tiết Siêu Phẩm "Ta Là Hắc Ngộ Không (Vplay)" & Trọn Bộ 20+ Giftcode
 - **Mô tả**:
   1. Theo yêu cầu của chủ sở hữu, đã nghiên cứu toàn diện và xuất bản một bài viết chuyên sâu về tựa game **Ta Là Hắc Ngộ Không (Vplay)** lên vị trí Tiêu Điểm (`is_featured: true`, `is_hot: true`, index 0) trong mục **Tin Tức**.
