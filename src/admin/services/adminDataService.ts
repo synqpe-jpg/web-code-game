@@ -3585,7 +3585,7 @@ class AdminDataService {
       }
       return new Promise((resolve) => {
         this.syncDebounceTimer = setTimeout(async () => {
-          const res = await this.executePushFullStateToKV();
+          const res = await this.executePushFullStateToKV(false);
           resolve(res);
         }, 1200);
       });
@@ -3595,17 +3595,22 @@ class AdminDataService {
       clearTimeout(this.syncDebounceTimer);
       this.syncDebounceTimer = null;
     }
-    return this.executePushFullStateToKV();
+    return this.executePushFullStateToKV(true);
   }
 
-  private async executePushFullStateToKV(): Promise<boolean> {
+  private async executePushFullStateToKV(forceReset: boolean = false): Promise<boolean> {
     if (this.isSyncing && this.pendingSyncPromise) {
       return this.pendingSyncPromise;
     }
 
     this.isSyncing = true;
     this.pendingSyncPromise = (async () => {
-      const snapshot = this.getFullStateSnapshot();
+      const snapshot: any = this.getFullStateSnapshot();
+      if (forceReset) {
+        snapshot.forceReset = true;
+        snapshot.forceResetSold = true;
+        snapshot.forceResetClaimed = true;
+      }
 
       // Danh sách endpoints ưu tiên tuần tự (Sequential Fallback)
       // Ưu tiên relative endpoint '/api/sync' -> nếu thành công thì DỪNG NGAY, không gọi endpoint tiếp theo!

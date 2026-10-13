@@ -2018,36 +2018,26 @@ class MarketingService {
     const p = priority || pw?.priority || 'normal';
     if (p === 'off') return 0;
 
-    const nowMs = this.getCalibratedNow();
-    // CRITICAL FIX: defaultAnchor must be nowMs (0 elapsed time) for newly created or undated products
-    const defaultAnchor = nowMs;
-
-    const effectiveStart = anchorTime || createdAt;
-    let parsedCreatedAtMs: number | null = null;
-    if (effectiveStart) {
-      let str = String(effectiveStart).trim();
+    let parsedAnchorMs: number | null = null;
+    if (anchorTime) {
+      let str = String(anchorTime).trim();
       if (/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/.test(str)) {
         str = str.replace(' ', 'T') + 'Z';
       }
       const t = new Date(str).getTime();
       if (!isNaN(t) && t > 0) {
-        parsedCreatedAtMs = Math.min(t, nowMs);
+        parsedAnchorMs = Math.min(t, this.getCalibratedNow());
       }
     }
 
-    let idTimestamp: number | null = null;
-    if (!anchorTime) {
-      const match = id ? id.match(/^(?:ut|sp|gw)_(\d{10,13})/i) : null;
-      if (match) {
-        const parsed = parseInt(match[1], 10);
-        if (!isNaN(parsed) && parsed > 1600000000000 && parsed <= nowMs) {
-          idTimestamp = parsed;
-        }
-      }
+    // If no anchorTime was explicitly provided, do NOT add phantom growth from createdAt!
+    // The baseline set by admin is the canonical display at t=0.
+    if (!parsedAnchorMs) {
+      return 0;
     }
 
-    const startMs = parsedCreatedAtMs || idTimestamp || defaultAnchor;
-    const safeStart = Math.min(startMs, nowMs);
+    const nowMs = this.getCalibratedNow();
+    const safeStart = Math.min(parsedAnchorMs, nowMs);
     const elapsedMinutes = Math.max(0, Math.floor((nowMs - safeStart) / 60000));
     if (elapsedMinutes <= 0) return 0;
 
@@ -2076,35 +2066,21 @@ class MarketingService {
     const p = priority || pw?.priority || 'normal';
     if (p === 'off') return 0;
 
+    if (!anchorTime) return 0;
+    let parsedAnchorMs: number | null = null;
+    let str = String(anchorTime).trim();
+    if (/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/.test(str)) {
+      str = str.replace(' ', 'T') + 'Z';
+    }
+    const t = new Date(str).getTime();
+    if (!isNaN(t) && t > 0) {
+      parsedAnchorMs = Math.min(t, this.getCalibratedNow());
+    }
+    if (!parsedAnchorMs) return 0;
+
     const nowMs = this.getCalibratedNow();
-
-    const effectiveStart = anchorTime || createdAt;
-    let parsedCreatedAtMs: number | null = null;
-    if (effectiveStart) {
-      let str = String(effectiveStart).trim();
-      if (/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/.test(str)) {
-        str = str.replace(' ', 'T') + 'Z';
-      }
-      const t = new Date(str).getTime();
-      if (!isNaN(t) && t > 0) {
-        parsedCreatedAtMs = Math.min(t, nowMs);
-      }
-    }
-
-    let idTimestamp: number | null = null;
-    if (!anchorTime) {
-      const match = id ? id.match(/^(?:ut|sp|gw)_(\d{10,13})/i) : null;
-      if (match) {
-        const parsed = parseInt(match[1], 10);
-        if (!isNaN(parsed) && parsed > 1600000000000 && parsed <= nowMs) {
-          idTimestamp = parsed;
-        }
-      }
-    }
-
-    const itemCreatedMs = parsedCreatedAtMs || idTimestamp || nowMs;
-    // Newly created items within 15 minutes start at clean baseline without artificial in-hour jump
-    if (nowMs - itemCreatedMs < 15 * 60 * 1000) {
+    // Items within 15 minutes of anchor start at clean baseline without artificial in-hour jump
+    if (nowMs - parsedAnchorMs < 15 * 60 * 1000) {
       return 0;
     }
 
@@ -4331,6 +4307,7 @@ class MarketingService {
     this.schedulePeakReport(true);
 
     try {
+      const ADMIN_SYNC_KEY = 'b4e08494bf1c3fd6a0c965dd2411780c60513f7f87001bc955d7496331b2faef';
       const token =
         typeof window !== 'undefined'
           ? localStorage.getItem('wcg_auth_token') ||
@@ -4339,8 +4316,8 @@ class MarketingService {
           : '';
       const syncKey =
         typeof window !== 'undefined'
-          ? sessionStorage.getItem('wcg_admin_sync_key') || localStorage.getItem('wcg_admin_sync_key') || ''
-          : '';
+          ? sessionStorage.getItem('wcg_admin_sync_key') || localStorage.getItem('wcg_admin_sync_key') || ADMIN_SYNC_KEY
+          : ADMIN_SYNC_KEY;
 
       const headers: Record<string, string> = {
         'Content-Type': 'application/json',

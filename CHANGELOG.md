@@ -7,6 +7,22 @@ Mỗi mục sửa lỗi đều ghi nhận **Nguyên nhân gốc rễ (Root Cause
 
 ## [2026-10-13]
 
+### 13. Triệt Tiêu Hoàn Toàn Tăng Trưởng Ảo Từ `createdAt` (+70 Đơn Ma) & Đồng Nhất 100% Số Liệu Giữa Điện Thoại Mobile và Trình Duyệt Máy Tính (PC Admin)
+- **Mô tả**:
+  1. **Nguyên nhân toán học chính xác gây lệch số giữa Mobile và Máy tính (ví dụ: Mobile thấy 124, 149, 105; PC Admin thấy 52, 77, 33)**:
+     - Trong `src/shared/deterministicEngine.ts` và `src/services/marketingService.ts`, hàm `calculateHourlyGrowth` và `getHourlyGrowth` sử dụng logic fallback: `const effectiveStart = anchorTime || createdAt;`.
+     - Đối với các sản phẩm được nạp từ D1 Database chưa có `anchorTime`, hệ thống tự động lùi mốc thời gian về `createdAt` hoặc timestamp trích từ ID (từ ngày hôm trước hoặc hàng chục giờ trước).
+     - Với tốc độ tăng trưởng 2.5 đơn/giờ $\times$ 24 giờ = 60 đơn, chạm trần giới hạn tối đa `maxCatchUpUnits = 70`.
+     - Phía máy tính của Admin: Có biến `adminOverrideClaimedMap` lưu số chuẩn (52, 77, 33). Đồng thời hàm `getClaimedDisplay` trên máy tính có cơ chế tự chữa lành (Auto-Heal): `if (recordedMax > calculatedBase + 50) return calculatedBase;`. Vì $124 > 52 + 50$, máy tính Admin phát hiện chênh lệch và ép con số hiển thị quay về đúng **52**!
+     - Phía điện thoại Mobile (và khách truy cập): Không có `adminOverrideClaimedMap`. Tại điện thoại, `calculatedBase` bị tính gộp cả 70 đơn ma ($52 + 70 = 122$), do đó $124 \le 122 + 50$, điều kiện Auto-Heal không được kích hoạt, khiến điện thoại bị ép nhận đỉnh ma và hiển thị **124**!
+  2. **Giải pháp chuẩn hóa triệt để**:
+     - *Bãi bỏ fallback `createdAt` trong tính toán tăng trưởng FOMO*: Nếu không có `anchorTime` được chỉ định rõ ràng, độ tăng trưởng thời gian bắt buộc bằng `0` (nguyên tắc: con số Admin cài đặt chính là giá trị chuẩn tại $t=0$).
+     - *Thắt chặt ngưỡng lọc đỉnh ma trên Cloudflare Edge Snapshot*: Hạ ngưỡng phát hiện và thanh lọc đỉnh bất thường từ `+100` xuống `+15` đơn. Mọi đỉnh quá khứ vượt quá `real + baseTarget + 15` đều bị Cloudflare Edge Hub thanh tẩy ngay lập tức về mốc cơ sở.
+     - *Bổ sung fallback xác thực `ADMIN_SYNC_KEY` cho `marketingService.saveConfig`*: Khắc phục lỗi 401 khi lưu cấu hình trọng số tiếp thị từ xa.
+     - *Đồng bộ D1 với `system_settings` trong `loadAllStoreProductsD1` và `loadAllGiveawaysD1`*: Giữ nguyên vẹn các trường metadata quan trọng (`fomo_anchor_time`, `virtual_*`, `show_*`) khi truy vấn database.
+     - *Kích hoạt cờ `forceReset` khi Admin ép đồng bộ*: Tự động xóa cache snapshot và xóa đỉnh ma trên Cloudflare KV.
+- **Kết quả xác minh**: Số liệu trên toàn bộ thiết bị (Mobile, Tablet, Máy tính Admin, Khách truy cập) đồng nhất 100% về đúng mốc Admin cấu hình (52, 77, 33, 31, 137).
+
 ### 12. Khắc Phục Triệt Để Lỗi Bất Đồng Bộ Các Chỉ Số ("Đã Bán", "Đã Giật", "Còn", "Đã Mua") Giữa Các Thiết Bị & Chuẩn Hóa Mốc Anchor Toàn Hệ Thống
 - **Mô tả**:
   1. **Xác định và xử lý nguyên nhân xung đột trong phiên sửa lỗi trước (`c74e8f8`)**:

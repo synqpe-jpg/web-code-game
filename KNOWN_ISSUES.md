@@ -356,6 +356,29 @@
 
 ---
 
+### ISSUE-019: Lỗi Tăng Trưởng Ảo Từ CreatedAt (+70 Đơn Ma) Làm Lệch Số Giữa PC Admin Và Mobile Khách
+- **Triệu chứng**:
+  - Mở trên máy tính Admin (trình duyệt web): Hiển thị số cơ sở chuẩn đã cài (ví dụ: 52, 77, 33, 31).
+  - Mở trên điện thoại Mobile (hoặc khách truy cập): Hiển thị số tăng vọt bất thường (ví dụ: 124, 149, 105, 104) — chênh lệch đúng $+70$ đơn hoặc $+72$ đơn.
+- **Nguyên nhân gốc rễ**:
+  - `calculateHourlyGrowth` trong `deterministicEngine.ts` và `marketingService.ts` có logic fallback: `anchorTime || createdAt`.
+  - Khi `anchorTime` chưa tồn tại trong D1 SQL row, hàm lùi về `createdAt` hoặc timestamp trích từ ID được tạo từ nhiều chục giờ trước.
+  - Tốc độ tăng trưởng 2.5 đơn/giờ $\times$ 24h = 60 đơn, chạm trần tối đa `maxCatchUpUnits = 70`.
+  - Trên PC Admin: Có `adminOverrideClaimedMap` lưu 52. Logic auto-heal phát hiện $124 > 52 + 50$ nên ép hiển thị quay về 52.
+  - Trên Mobile: Không có override. Con số cơ sở bị tính gộp 70 đơn ma thành $52 + 70 = 122$, nên $124 \le 122 + 50$, auto-heal KHÔNG kích hoạt, Mobile hiển thị 124!
+  - Trên Cloudflare Edge: Hub lưu đỉnh ma 124 do logic thanh lọc trước đây dùng ngưỡng `baseTarget + 100` ($124 \le 52 + 100$ nên không bị lọc).
+- **Giải pháp chuẩn đã kiểm chứng**:
+  - **Quy tắc vàng**: Bãi bỏ hoàn toàn việc fallback về `createdAt` trong tính toán tăng trưởng FOMO. Nếu không có `anchorTime` rõ ràng, độ tăng trưởng thời gian bắt buộc là 0.
+  - Thắt chặt ngưỡng lọc đỉnh ma trên Cloudflare Edge Snapshot từ `+100` xuống `+15` đơn.
+  - Đồng bộ D1 SQL rows với `system_settings` trong `loadAllStoreProductsD1` và `loadAllGiveawaysD1` để `fomo_anchor_time` và `virtual_*` không bao giờ bị thất lạc.
+  - Bổ sung `ADMIN_SYNC_KEY` fallback trong `marketingService.saveConfig`.
+  - Kích hoạt `forceReset` khi Admin ép đồng bộ để xóa sạch đỉnh ma và cache snapshot.
+- ⛔ **CÁCH SỬA ĐÃ THẤT BẠI - TUYỆT ĐỐI KHÔNG LẶP LẠI**:
+  - ❌ *Không bao giờ dùng `createdAt` làm fallback cho tăng trưởng FOMO*: Sản phẩm tạo từ nhiều ngày trước sẽ nhảy vọt ngay $+30$ đến $+70$ đơn.
+  - ❌ *Không để ngưỡng thanh lọc đỉnh quá rộng (+100)*: Đỉnh ma từ các lần thử nghiệm trước sẽ bị kẹt lại vĩnh viễn trên Edge Hub.
+
+---
+
 ## 2. QUY TRÌNH BẮT BUỘC TRƯỚC KHI SỬA CODE (PRE-FLIGHT CHECKLIST)
 
 Mọi nhà phát triển hoặc AI Agent khi nhận yêu cầu sửa đổi mã nguồn **PHẢI** thực hiện đủ 4 bước sau:

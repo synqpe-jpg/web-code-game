@@ -1875,6 +1875,14 @@ export async function resetAllWalletsAndRevenueD1(db: D1Database): Promise<void>
 export async function loadAllStoreProductsD1(db: D1Database): Promise<any[]> {
   try {
     await ensureSchemaUpgrades(db);
+    const metaSetting = await getSettingD1(db, 'wcg_admin_store_products_v4').catch(() => null);
+    const metaMap = new Map<string, any>();
+    if (Array.isArray(metaSetting)) {
+      metaSetting.forEach((m: any) => {
+        if (m && m.id) metaMap.set(m.id, m);
+      });
+    }
+
     const res = await db.prepare(`
       SELECT 
         sp.id, 
@@ -1909,7 +1917,18 @@ export async function loadAllStoreProductsD1(db: D1Database): Promise<any[]> {
       WHERE sp.is_active = 1 AND sp.id NOT LIKE 'ut_%'
       ORDER BY sp.id ASC
     `).all();
-    return (res && res.results) || [];
+    const rows = (res && res.results) || [];
+    return rows.map((r: any) => {
+      const meta = metaMap.get(r.id) || {};
+      return {
+        ...meta,
+        ...r,
+        virtual_sold_count: meta.virtual_sold_count !== undefined ? Math.max(0, Number(meta.virtual_sold_count) || 0) : Math.max(0, Number(r.virtual_sold_count) || 0),
+        fomo_anchor_time: meta.fomo_anchor_time || r.fomo_anchor_time || null,
+        show_stock_count: r.show_stock_count !== undefined ? Boolean(r.show_stock_count) : (meta.show_stock_count !== undefined ? Boolean(meta.show_stock_count) : true),
+        show_sold_count: r.show_sold_count !== undefined ? Boolean(r.show_sold_count) : (meta.show_sold_count !== undefined ? Boolean(meta.show_sold_count) : true),
+      };
+    });
   } catch {
     return [];
   }
@@ -2114,6 +2133,14 @@ export async function purgeOrphanedInventoryCodesD1(db: D1Database): Promise<voi
 export async function loadAllGiveawaysD1(db: D1Database, includeCodes: boolean = false): Promise<any[]> {
   try {
     await ensureSchemaUpgrades(db);
+    const metaSetting = await getSettingD1(db, 'wcg_admin_giveaways_v4').catch(() => null);
+    const metaMap = new Map<string, any>();
+    if (Array.isArray(metaSetting)) {
+      metaSetting.forEach((m: any) => {
+        if (m && m.id) metaMap.set(m.id, m);
+      });
+    }
+
     const res = await db.prepare(`
       SELECT 
         g.id, 
@@ -2149,7 +2176,17 @@ export async function loadAllGiveawaysD1(db: D1Database, includeCodes: boolean =
       FROM giveaways g
       ORDER BY g.created_at DESC
     `).all();
-    const list = (res && res.results) || [];
+    const rows = (res && res.results) || [];
+    const list = rows.map((gw: any) => {
+      const meta = metaMap.get(gw.id) || {};
+      return {
+        ...meta,
+        ...gw,
+        virtual_claimed_offset: meta.virtual_claimed_offset !== undefined ? Math.max(0, Number(meta.virtual_claimed_offset) || 0) : Math.max(0, Number(gw.virtual_claimed_offset) || 0),
+        fomo_anchor_time: meta.fomo_anchor_time || gw.fomo_anchor_time || null,
+        show_claimed_count: gw.show_claimed_count !== undefined ? Boolean(gw.show_claimed_count) : (meta.show_claimed_count !== undefined ? Boolean(meta.show_claimed_count) : true),
+      };
+    });
     if (!includeCodes || list.length === 0) return list;
 
     const [codesRes, claimsRes] = await Promise.all([

@@ -73,7 +73,7 @@ async function loadProducts(env: any): Promise<ProductInput[]> {
             title: r.title,
             stock_quantity: Math.max(0, Number(r.stock_quantity) || 0),
             sold_count: Math.max(0, Number(r.sold_count) || 0),
-            virtual_sold_count: r.virtual_sold_count !== undefined ? Math.max(0, Number(r.virtual_sold_count) || 0) : Math.max(0, Number(meta.virtual_sold_count) || 0),
+            virtual_sold_count: meta.virtual_sold_count !== undefined ? Math.max(0, Number(meta.virtual_sold_count) || 0) : Math.max(0, Number(r.virtual_sold_count) || 0),
             fomo_anchor_time: anchor,
             virtual_sold_updated_at: anchor,
             created_at: r.created_at || r.createdAt || meta.created_at,
@@ -131,7 +131,7 @@ async function loadGiveaways(env: any): Promise<GiveawayInput[]> {
             remaining_codes: Math.max(0, Number(gw.remaining_codes) || 0),
             total_codes: Math.max(0, Number(gw.total_codes) || 0),
             claimed_codes: Math.max(0, Number(gw.claimed_codes) || 0),
-            virtual_claimed_offset: gw.virtual_claimed_offset !== undefined ? Math.max(0, Number(gw.virtual_claimed_offset) || 0) : Math.max(0, Number(meta.virtual_claimed_offset) || 0),
+            virtual_claimed_offset: meta.virtual_claimed_offset !== undefined ? Math.max(0, Number(meta.virtual_claimed_offset) || 0) : Math.max(0, Number(gw.virtual_claimed_offset) || 0),
             fomo_anchor_time: anchor,
             virtual_claimed_updated_at: anchor,
             created_at: gw.created_at || gw.createdAt || meta.created_at,
@@ -180,7 +180,7 @@ export async function generateAndPersistSnapshot(env: any): Promise<GlobalMetric
     } catch {}
   }
 
-  // 1.5. Cleanse runaway peaks in hub if values are corrupted (> 1,000,000 or NaN) or exceed current config by > 100
+  // 1.5. Cleanse runaway peaks in hub if values are corrupted (> 1,000,000 or NaN) or exceed current config by > 15
   let hubModified = false;
   if (hub.peakProductSoldCounts && typeof hub.peakProductSoldCounts === 'object') {
     const prodMap = new Map((products || []).map(p => [p.id, p]));
@@ -189,11 +189,11 @@ export async function generateAndPersistSnapshot(env: any): Promise<GlobalMetric
       const prod = prodMap.get(pId);
       const baseTarget = Number(prod?.virtual_sold_count || 0);
       const realSold = Number(prod?.sold_count || 0);
-      const maxAllowed = realSold + baseTarget + 100;
+      const maxAllowed = realSold + baseTarget + 15;
       if (isNaN(numVal) || numVal < 0 || numVal > 1000000) {
         delete hub.peakProductSoldCounts[pId];
         hubModified = true;
-      } else if (prod && baseTarget >= 0 && numVal > maxAllowed && numVal > 50) {
+      } else if (prod && baseTarget >= 0 && numVal > maxAllowed) {
         hub.peakProductSoldCounts[pId] = Math.max(realSold, baseTarget);
         hubModified = true;
       }
@@ -207,11 +207,11 @@ export async function generateAndPersistSnapshot(env: any): Promise<GlobalMetric
       const gw = gwMap.get(gId);
       const baseTarget = Number(gw?.virtual_claimed_offset || 0);
       const realClaimed = Number(gw?.claimed_codes || 0);
-      const maxAllowed = realClaimed + baseTarget + 100;
+      const maxAllowed = realClaimed + baseTarget + 15;
       if (isNaN(numVal) || numVal < 0 || numVal > 1000000) {
         delete hub.peakGiveawayClaimedCounts[gId];
         hubModified = true;
-      } else if (gw && baseTarget >= 0 && numVal > maxAllowed && numVal > 50) {
+      } else if (gw && baseTarget >= 0 && numVal > maxAllowed) {
         hub.peakGiveawayClaimedCounts[gId] = Math.max(realClaimed, baseTarget);
         hubModified = true;
       }

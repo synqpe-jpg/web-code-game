@@ -195,32 +195,25 @@ export function calculateHourlyGrowth(
   if (!id || priority === 'off') return 0;
   const defaultAnchor = timestampMs;
 
-  const effectiveStart = anchorTime || createdAt;
-  let parsedCreatedAtMs: number | null = null;
-  if (effectiveStart) {
-    let str = String(effectiveStart).trim();
+  let parsedAnchorMs: number | null = null;
+  if (anchorTime) {
+    let str = String(anchorTime).trim();
     if (/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/.test(str)) {
       str = str.replace(' ', 'T') + 'Z';
     }
     const t = new Date(str).getTime();
     if (!isNaN(t) && t > 0) {
-      parsedCreatedAtMs = Math.min(t, timestampMs);
+      parsedAnchorMs = Math.min(t, timestampMs);
     }
   }
 
-  let idTimestamp: number | null = null;
-  if (!anchorTime) {
-    const match = id ? id.match(/^(?:ut|sp|gw)_(\d{10,13})/i) : null;
-    if (match) {
-      const parsed = parseInt(match[1], 10);
-      if (!isNaN(parsed) && parsed > 1600000000000 && parsed <= timestampMs) {
-        idTimestamp = parsed;
-      }
-    }
+  // If no anchorTime was explicitly provided, do NOT add phantom growth from createdAt!
+  // The baseline set by admin is the canonical display at t=0.
+  if (!parsedAnchorMs) {
+    return 0;
   }
 
-  const startMs = parsedCreatedAtMs || idTimestamp || defaultAnchor;
-  const safeStart = Math.min(startMs, timestampMs);
+  const safeStart = Math.min(parsedAnchorMs, timestampMs);
   const elapsedMinutes = Math.max(0, Math.floor((timestampMs - safeStart) / 60000));
   if (elapsedMinutes <= 0) return 0;
 
@@ -252,33 +245,20 @@ export function calculateInHourProgression(
 ): number {
   if (!id || priority === 'off') return 0;
 
-  const effectiveStart = anchorTime || createdAt;
-  let parsedCreatedAtMs: number | null = null;
-  if (effectiveStart) {
-    let str = String(effectiveStart).trim();
-    if (/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/.test(str)) {
-      str = str.replace(' ', 'T') + 'Z';
-    }
-    const t = new Date(str).getTime();
-    if (!isNaN(t) && t > 0) {
-      parsedCreatedAtMs = Math.min(t, timestampMs);
-    }
+  if (!anchorTime) return 0;
+  let parsedAnchorMs: number | null = null;
+  let str = String(anchorTime).trim();
+  if (/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/.test(str)) {
+    str = str.replace(' ', 'T') + 'Z';
   }
-
-  let idTimestamp: number | null = null;
-  if (!anchorTime) {
-    const match = id ? id.match(/^(?:ut|sp|gw)_(\d{10,13})/i) : null;
-    if (match) {
-      const parsed = parseInt(match[1], 10);
-      if (!isNaN(parsed) && parsed > 1600000000000 && parsed <= timestampMs) {
-        idTimestamp = parsed;
-      }
-    }
+  const t = new Date(str).getTime();
+  if (!isNaN(t) && t > 0) {
+    parsedAnchorMs = Math.min(t, timestampMs);
   }
+  if (!parsedAnchorMs) return 0;
 
-  const itemCreatedMs = parsedCreatedAtMs || idTimestamp || timestampMs;
-  // Newly created items within 15 minutes start at clean baseline without artificial in-hour jump
-  if (timestampMs - itemCreatedMs < 15 * 60 * 1000) {
+  // Items within 15 minutes of anchor start at clean baseline without artificial in-hour jump
+  if (timestampMs - parsedAnchorMs < 15 * 60 * 1000) {
     return 0;
   }
 
@@ -447,8 +427,8 @@ export function calculateGlobalSnapshot(
     const hasDisplayStock = realStock > 0 || (priority !== 'off' && virtualBonusConfig > 0);
     const maxAllowedPeak = !hasDisplayStock && oosEnabled
       ? effectiveRealSold + baseTarget + oosMax
-      : effectiveRealSold + baseTarget + 100;
-    const effectivePeakSold = (peakSold > maxAllowedPeak && peakSold > rawDisplaySold + 50) ? rawDisplaySold : peakSold;
+      : effectiveRealSold + baseTarget + 15;
+    const effectivePeakSold = (peakSold > maxAllowedPeak) ? rawDisplaySold : peakSold;
     const displaySold = Math.max(rawDisplaySold, effectivePeakSold);
 
     productSnapshots[prod.id] = {
@@ -549,8 +529,8 @@ export function calculateGlobalSnapshot(
     const hasDisplayGwStock = realRemaining > 0 || (priority !== 'off' && virtualBonusConfig > 0);
     const maxAllowedGwPeak = !hasDisplayGwStock && gwOosEnabled
       ? effectiveRealClaimed + baseTargetGw + gwOosMax
-      : effectiveRealClaimed + baseTargetGw + 100;
-    const effectivePeakClaimed = (peakClaimed > maxAllowedGwPeak && peakClaimed > rawDisplayClaimed + 50) ? rawDisplayClaimed : peakClaimed;
+      : effectiveRealClaimed + baseTargetGw + 15;
+    const effectivePeakClaimed = (peakClaimed > maxAllowedGwPeak) ? rawDisplayClaimed : peakClaimed;
     const displayClaimed = Math.max(rawDisplayClaimed, effectivePeakClaimed);
 
     const displayTotal = displayRemaining + displayClaimed;
