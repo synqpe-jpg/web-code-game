@@ -102,13 +102,18 @@ export const QuickFomoAdjustModal: React.FC<QuickFomoAdjustModalProps> = ({
       const effectivePriority = isVirtualActive ? priority : 'off';
       const nowIso = new Date().toISOString();
 
+      // Kiểm tra xem Admin có thực sự chủ động sửa số đã bán / đã nhận hay không:
+      // 1. Nếu tắt số ảo: đưa về số thật và cần forceReset.
+      // 2. Nếu bật số ảo: chỉ coi là có sửa khi giá trị nhập khác với số hiển thị hiện tại trên Web.
+      const isSoldExplicitlyEdited = !isVirtualActive || Math.abs(Number(targetSoldOrClaimed) - currentWebSold) > 0;
+
       // 1. Cập nhật marketingService (ngay lập tức tác động lên UI và Client Maps)
       await marketingService.updateItemVirtualSettings(itemId, {
-        targetDisplaySoldOrClaimed: sanitizedTargetSold,
+        targetDisplaySoldOrClaimed: isSoldExplicitlyEdited ? sanitizedTargetSold : undefined,
         virtualStockBonus: sanitizedBonusStock,
         priority: effectivePriority,
-        forceReset: true,
-        fomoAnchorTime: nowIso,
+        forceReset: isSoldExplicitlyEdited,
+        fomoAnchorTime: isSoldExplicitlyEdited ? nowIso : undefined,
       });
 
       // 2. Cập nhật đồng thời vào adminDataService để tránh bất kỳ sự phục hồi (revert bug) nào
@@ -116,12 +121,14 @@ export const QuickFomoAdjustModal: React.FC<QuickFomoAdjustModalProps> = ({
         const gw = adminDataService.getGiveaways().find((g) => g.id === itemId);
         if (gw) {
           const realClaimed = Number(gw.claimed_codes) || 0;
-          const virtualOffset = isVirtualActive ? Math.max(0, sanitizedTargetSold - realClaimed) : 0;
+          const virtualOffset = isVirtualActive
+            ? (isSoldExplicitlyEdited ? Math.max(0, sanitizedTargetSold - realClaimed) : (Number(gw.virtual_claimed_offset) || 0))
+            : 0;
           adminDataService.saveGiveawayItem({
             ...gw,
             virtual_claimed_offset: virtualOffset,
-            fomo_anchor_time: nowIso,
-            virtual_claimed_updated_at: nowIso,
+            fomo_anchor_time: isSoldExplicitlyEdited ? nowIso : (gw.fomo_anchor_time || nowIso),
+            virtual_claimed_updated_at: isSoldExplicitlyEdited ? nowIso : gw.virtual_claimed_updated_at,
             show_claimed_count: showSoldOrClaimed,
             show_remaining_count: showStockCount,
           });
@@ -130,12 +137,14 @@ export const QuickFomoAdjustModal: React.FC<QuickFomoAdjustModalProps> = ({
         const util = adminDataService.getUtilities().find((u) => u.id === itemId);
         if (util) {
           const realSold = Number(util.sold_count) || 0;
-          const virtualSold = isVirtualActive ? Math.max(0, sanitizedTargetSold - realSold) : 0;
+          const virtualSold = isVirtualActive
+            ? (isSoldExplicitlyEdited ? Math.max(0, sanitizedTargetSold - realSold) : (Number(util.virtual_sold_count) || 0))
+            : 0;
           adminDataService.saveUtilityItem({
             ...util,
             virtual_sold_count: virtualSold,
-            fomo_anchor_time: nowIso,
-            virtual_sold_updated_at: nowIso,
+            fomo_anchor_time: isSoldExplicitlyEdited ? nowIso : (util.fomo_anchor_time || nowIso),
+            virtual_sold_updated_at: isSoldExplicitlyEdited ? nowIso : util.virtual_sold_updated_at,
             show_sold_count: showSoldOrClaimed,
             show_stock_count: showStockCount,
           });
@@ -144,12 +153,14 @@ export const QuickFomoAdjustModal: React.FC<QuickFomoAdjustModalProps> = ({
         const prod = adminDataService.getStoreProducts().find((p) => p.id === itemId);
         if (prod) {
           const realSold = Number(prod.sold_count) || 0;
-          const virtualSold = isVirtualActive ? Math.max(0, sanitizedTargetSold - realSold) : 0;
+          const virtualSold = isVirtualActive
+            ? (isSoldExplicitlyEdited ? Math.max(0, sanitizedTargetSold - realSold) : (Number(prod.virtual_sold_count) || 0))
+            : 0;
           adminDataService.saveStoreProductItem({
             ...prod,
             virtual_sold_count: virtualSold,
-            fomo_anchor_time: nowIso,
-            virtual_sold_updated_at: nowIso,
+            fomo_anchor_time: isSoldExplicitlyEdited ? nowIso : (prod.fomo_anchor_time || nowIso),
+            virtual_sold_updated_at: isSoldExplicitlyEdited ? nowIso : prod.virtual_sold_updated_at,
             show_sold_count: showSoldOrClaimed,
             show_stock_count: showStockCount,
           });

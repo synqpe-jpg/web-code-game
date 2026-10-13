@@ -2878,7 +2878,7 @@ class AdminDataService {
         created_at: safeCreatedAt,
         createdAt: safeCreatedAt,
       });
-      if (item.virtual_claimed_offset !== undefined || isClaimedChanged) {
+      if (isClaimedChanged) {
         marketingService.syncGiveawayVirtualClaimed(existing.id, Number(existing.virtual_claimed_offset) || 0, true);
       }
       this.saveGiveaways();
@@ -3018,7 +3018,7 @@ class AdminDataService {
         created_at: safeCreatedAt,
         createdAt: safeCreatedAt,
       });
-      if (item.virtual_sold_count !== undefined || isSoldChanged) {
+      if (isSoldChanged) {
         marketingService.syncProductVirtualSold(existing.id, Number(existing.virtual_sold_count) || 0, true);
       }
       this.saveStoreProducts();
@@ -3150,7 +3150,7 @@ class AdminDataService {
         created_at: safeCreatedAt,
         createdAt: safeCreatedAt,
       });
-      if (item.virtual_sold_count !== undefined || isSoldChanged) {
+      if (isSoldChanged) {
         marketingService.syncProductVirtualSold(existing.id, Number(existing.virtual_sold_count) || 0, true);
       }
       this.saveUtilities();

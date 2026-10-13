@@ -7,6 +7,28 @@ Mỗi mục sửa lỗi đều ghi nhận **Nguyên nhân gốc rễ (Root Cause
 
 ## [2026-10-13]
 
+### 10. Khắc Phục Triệt Để Hiện Tượng Số Đã Bán Bị Kéo Về Số Cố Định Khi Chạy Poller Snapshot & Khi Cộng Tồn Kho Ảo
+- **Mô tả**:
+  1. **Bảo toàn lũy kế đơn điệu (Monotonic Progression) cho số Đã Bán / Đã Nhận**:
+     - Trong `marketingService.ts` (`fetchMetricsSnapshot`), loại bỏ việc gán đè `highWaterSoldCountMap.set(pId, targetSold)` làm giật ngược số lượng đã bán về baseline cấu hình mỗi chu kỳ 20-30s.
+     - Áp dụng nguyên lý lũy kế đơn điệu không thụt lùi: `nextSold = Math.max(curSold, targetSold, info.sold)`. Bất kỳ lượt bán phát sinh nào ngoài web khách đều được bảo toàn liên tục.
+  2. **Tách biệt hoàn toàn chỉnh sửa Tồn kho ảo (`virtualStockBonus`) khỏi việc reset số Đã Bán**:
+     - Trong `QuickFomoAdjustModal.tsx`: kiểm tra cờ `isSoldExplicitlyEdited`. Khi Admin chỉ cộng thêm số lượng tồn kho ảo còn hàng mà không sửa số đã bán, hệ thống không kích hoạt `forceReset` cho sold count, không gửi `forceResetSold: true` lên Cloudflare Edge Hub, và bảo toàn nguyên vẹn `fomo_anchor_time` để tiến trình tăng tự nhiên không bị ngắt quãng hoặc khởi động lại từ 0.
+     - Trong `adminDataService.ts`: tại `saveGiveawayItem`, `saveStoreProductItem`, `saveUtilityItem`, chỉ kích hoạt `marketingService.syncProductVirtualSold(..., true)` khi `isSoldChanged = true` (giá trị sold thực sự thay đổi), ngăn ngừa việc chỉnh sửa tồn kho hoặc thông tin sản phẩm khác vô tình reset chỉ số bán hàng.
+  3. **Khai thông nhịp tăng tự nhiên (FOMO Growth) cho sản phẩm Tiện ích & Store có tồn kho ảo hiển thị**:
+     - Trong `marketingService.ts` (`getSoldDisplay`) và `deterministicEngine.ts` (`calculateDeterministicSold`, `calculateGlobalSnapshot`): ghi nhận `hasActiveDisplayStock = effectiveStock > 0 || (priority !== 'off' && Number(virtualBonusStock) > 0)`.
+     - Chỉ đóng băng tiến trình tăng khi sản phẩm hoàn toàn hết hàng cả về số thật lẫn số ảo hiển thị. Khi có tồn kho ảo đang mở bán, tiến trình tăng đều tự nhiên theo giờ tiếp tục hoạt động mượt mà.
+- **Nguyên nhân gốc rễ (Root Cause)**:
+  - 1. `fetchMetricsSnapshot` mỗi 20-30s gặp sản phẩm có trong `adminOverrideSoldMap` liền gán thẳng `highWaterSoldCountMap.set(pId, targetSold)` (137), xóa sạch mọi tiến trình bán hàng đã tăng thêm.
+  - 2. `QuickFomoAdjustModal` khi submit luôn truyền `forceReset: true` kèm `fomoAnchorTime: nowIso` ngay cả khi Admin chỉ điều chỉnh `bonusStock`, khiến Cloudflare `/api/sync` xóa sạch đỉnh cũ về 137.
+  - 3. `adminDataService` kiểm tra `item.virtual_sold_count !== undefined` luôn thỏa mãn nên mỗi khi lưu sản phẩm đều gọi `syncProductVirtualSold(..., true)`.
+  - 4. `realStock <= 0` trên các gói Cloud Phone (không quản lý mã theo kho `inventory_items`) khiến `hourlyGrowth` và `inHourProg` bị ép về 0, đóng băng số hiển thị ở baseline.
+- **Giải pháp thành công (Solution Applied)**:
+  - Triển khai `Math.max(curSold, targetSold, info.sold)` trong poller snapshot.
+  - Tách bạch `isSoldExplicitlyEdited` trong modal điều chỉnh số ảo và bảo toàn `fomo_anchor_time`.
+  - Thay đổi điều kiện `isSoldChanged` trong `adminDataService`.
+  - Bổ sung `hasActiveDisplayStock` cho bộ máy FOMO deterministic.
+
 ### 9. Khắc Phục Triệt Để Lỗi Màn Hình Đen Khi Đóng Modal Chi Tiết Game ([X] Button Crash) & Thêm Root ErrorBoundary
 - **Mô tả**:
   1. **Khắc phục triệt để lỗi sập màn hình đen khi đóng Modal game**:

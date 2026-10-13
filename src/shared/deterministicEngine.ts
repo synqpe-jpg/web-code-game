@@ -311,14 +311,17 @@ export function calculateDeterministicSold(
   priority: string = 'normal',
   customConfig?: { enabled?: boolean; mode?: string; intervalMinutes?: number; incrementStep?: number; maxCatchUpUnits?: number; outOfStockEnabled?: boolean; outOfStockMaxUnits?: number },
   realStock?: number,
-  anchorTime?: string
+  anchorTime?: string,
+  virtualBonusStock?: number
 ): number {
   const real = Math.max(0, Number(realSold) || 0);
   if (priority === 'off') return real;
   const base = Math.max(0, Number(virtualBase !== undefined ? virtualBase : 0));
 
-  // NẾU HẾT HÀNG THẬT / HẾT CODE (realStock <= 0):
-  if (realStock !== undefined && realStock <= 0) {
+  const hasDisplayStock = (realStock !== undefined && realStock > 0) || (priority !== 'off' && Number(virtualBonusStock) > 0);
+
+  // NẾU HẾT HÀNG THẬT / HẾT CODE (realStock <= 0) VÀ KHÔNG CÓ TỒN KHO ẢO ĐANG BÁN:
+  if (realStock !== undefined && realStock <= 0 && !hasDisplayStock) {
     if (!customConfig?.outOfStockEnabled) {
       return real + base;
     }
@@ -431,7 +434,8 @@ export function calculateGlobalSnapshot(
           priority,
           data.offlineCatchUp,
           realStock,
-          anchorTime
+          anchorTime,
+          virtualBonusConfig
         );
 
     // Bảo toàn đỉnh bán hàng lũy kế (Monotonic Progression): Đỉnh đã đạt được duy trì vĩnh viễn
@@ -440,7 +444,8 @@ export function calculateGlobalSnapshot(
     const oosMax = Math.max(1, Number(data.offlineCatchUp?.outOfStockMaxUnits) || 10);
     const peakSold = Number(data.peakProductSoldCounts?.[prod.id]) || 0;
     const baseTarget = Number(prod.virtual_sold_count || 0);
-    const maxAllowedPeak = realStock <= 0 && oosEnabled
+    const hasDisplayStock = realStock > 0 || (priority !== 'off' && virtualBonusConfig > 0);
+    const maxAllowedPeak = !hasDisplayStock && oosEnabled
       ? effectiveRealSold + baseTarget + oosMax
       : effectiveRealSold + baseTarget + 100;
     const effectivePeakSold = (peakSold > maxAllowedPeak && peakSold > rawDisplaySold + 50) ? rawDisplaySold : peakSold;
@@ -531,7 +536,8 @@ export function calculateGlobalSnapshot(
           priority,
           data.offlineCatchUp,
           realRemaining,
-          anchorTime
+          anchorTime,
+          virtualBonusConfig
         );
 
     // Bảo toàn đỉnh nhận quà lũy kế (Monotonic Progression): Đỉnh đã đạt được duy trì vĩnh viễn
@@ -540,7 +546,8 @@ export function calculateGlobalSnapshot(
     const gwOosMax = Math.max(1, Number(data.offlineCatchUp?.outOfStockMaxUnits) || 10);
     const peakClaimed = Number(data.peakGiveawayClaimedCounts?.[gw.id]) || 0;
     const baseTargetGw = Number(gw.virtual_claimed_offset || 0);
-    const maxAllowedGwPeak = realRemaining <= 0 && gwOosEnabled
+    const hasDisplayGwStock = realRemaining > 0 || (priority !== 'off' && virtualBonusConfig > 0);
+    const maxAllowedGwPeak = !hasDisplayGwStock && gwOosEnabled
       ? effectiveRealClaimed + baseTargetGw + gwOosMax
       : effectiveRealClaimed + baseTargetGw + 100;
     const effectivePeakClaimed = (peakClaimed > maxAllowedGwPeak && peakClaimed > rawDisplayClaimed + 50) ? rawDisplayClaimed : peakClaimed;

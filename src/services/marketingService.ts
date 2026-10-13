@@ -399,16 +399,16 @@ class MarketingService {
                 if (typeof info.sold === 'number') {
                   const isOverriddenSold = this.adminOverrideSoldMap.has(pId);
                   const realSold = typeof info.real_sold === 'number' ? info.real_sold : 0;
-                  if (isOverriddenSold) {
-                    const targetSold = Math.max(realSold, this.adminOverrideSoldMap.get(pId)!);
-                    this.highWaterSoldCountMap.set(pId, targetSold);
-                    this.liveFomoSoldCountMap.set(pId, targetSold);
-                  } else {
-                    const curSold = this.highWaterSoldCountMap.get(pId) || 0;
-                    const curFomo = this.liveFomoSoldCountMap.get(pId) || 0;
-                    const nextSold = Math.max(curSold, info.sold);
-                    const nextFomo = Math.max(curFomo, info.sold);
+                  const curSold = this.highWaterSoldCountMap.get(pId) || 0;
+                  const curFomo = this.liveFomoSoldCountMap.get(pId) || 0;
+                  const targetSold = isOverriddenSold ? Math.max(realSold, this.adminOverrideSoldMap.get(pId)!) : 0;
+                  const nextSold = Math.max(curSold, targetSold, info.sold);
+                  const nextFomo = Math.max(curFomo, targetSold, info.sold);
 
+                  if (isOverriddenSold) {
+                    this.highWaterSoldCountMap.set(pId, nextSold);
+                    this.liveFomoSoldCountMap.set(pId, nextFomo);
+                  } else {
                     // Auto-heal nếu vượt trần tối đa hợp lệ (maxAllowedCap)
                     const realStock = typeof info.real_stock === 'number'
                       ? info.real_stock
@@ -419,7 +419,9 @@ class MarketingService {
                     const maxCatchUp = Math.max(30, Number(catchUp.maxCatchUpUnits) || 70);
                     const details = this.findItemDetails(pId);
                     const virtualBase = Number(details?.virtual_sold_count || 0);
-                    const maxCap = realStock <= 0 && oosEnabled
+                    const pw = this.getProductConfig(pId);
+                    const hasActiveStock = realStock > 0 || (pw.priority !== 'off' && Number(pw.virtualStockBonus) > 0);
+                    const maxCap = !hasActiveStock && oosEnabled
                       ? realSold + virtualBase + oosMax + 5
                       : realSold + virtualBase + 100;
 
@@ -495,16 +497,16 @@ class MarketingService {
                 if (typeof info.claimed === 'number') {
                   const isOverriddenClaimed = this.adminOverrideClaimedMap.has(gId);
                   const realClaimed = typeof info.real_claimed === 'number' ? info.real_claimed : 0;
-                  if (isOverriddenClaimed) {
-                    const targetClaimed = Math.max(realClaimed, this.adminOverrideClaimedMap.get(gId)!);
-                    this.highWaterClaimedCountMap.set(gId, targetClaimed);
-                    this.liveFomoClaimedCountMap.set(gId, targetClaimed);
-                  } else {
-                    const curClaimed = this.highWaterClaimedCountMap.get(gId) || 0;
-                    const curFomo = this.liveFomoClaimedCountMap.get(gId) || 0;
-                    const nextClaimed = Math.max(curClaimed, info.claimed);
-                    const nextFomo = Math.max(curFomo, info.claimed);
+                  const curClaimed = this.highWaterClaimedCountMap.get(gId) || 0;
+                  const curFomo = this.liveFomoClaimedCountMap.get(gId) || 0;
+                  const targetClaimed = isOverriddenClaimed ? Math.max(realClaimed, this.adminOverrideClaimedMap.get(gId)!) : 0;
+                  const nextClaimed = Math.max(curClaimed, targetClaimed, info.claimed);
+                  const nextFomo = Math.max(curFomo, targetClaimed, info.claimed);
 
+                  if (isOverriddenClaimed) {
+                    this.highWaterClaimedCountMap.set(gId, nextClaimed);
+                    this.liveFomoClaimedCountMap.set(gId, nextFomo);
+                  } else {
                     const realRemaining = typeof info.real_remaining === 'number'
                       ? info.real_remaining
                       : (this.productRealStockMap.get(gId) || 0);
@@ -514,7 +516,9 @@ class MarketingService {
                     const maxCatchUp = Math.max(30, Number(catchUp.maxCatchUpUnits) || 70);
                     const details = this.findGiveawayDetails(gId);
                     const virtualBase = Number(details?.virtual_claimed_offset || 0);
-                    const maxCap = realRemaining <= 0 && oosEnabled
+                    const pw = this.getProductConfig(gId);
+                    const hasActiveStock = realRemaining > 0 || (pw.priority !== 'off' && Number(pw.virtualStockBonus) > 0);
+                    const maxCap = !hasActiveStock && oosEnabled
                       ? realClaimed + virtualBase + oosMax + 5
                       : realClaimed + virtualBase + 100;
 
@@ -2207,7 +2211,12 @@ class MarketingService {
     const oosEnabled = Boolean(catchUp.outOfStockEnabled);
     const oosMax = Math.max(1, Number(catchUp.outOfStockMaxUnits) || 10);
 
-    if (realStock <= 0) {
+    const effectiveStock = typeof (item as any)?.stock_quantity === 'number'
+      ? (item as any).stock_quantity
+      : realStock;
+    const hasActiveDisplayStock = effectiveStock > 0 || (pw.priority !== 'off' && Number(pw.virtualStockBonus) > 0);
+
+    if (effectiveStock <= 0 && !hasActiveDisplayStock) {
       if (!oosEnabled) {
         // Hết hàng thật & không bật bù ngoại tuyến: ngắt toàn bộ tiến trình tăng theo giờ, bảo toàn tuyệt đối số lượng đã bán trước đó
         hourlyGrowth = 0;
@@ -2281,8 +2290,9 @@ class MarketingService {
     const catchUp = this.config.offlineCatchUp || DEFAULT_OFFLINE_CATCHUP_CONFIG;
     const oosEnabled = Boolean(catchUp.outOfStockEnabled);
     const oosMax = Math.max(1, Number(catchUp.outOfStockMaxUnits) || 10);
+    const hasActiveDisplayStock = realRemaining > 0 || (pw.priority !== 'off' && Number(pw.virtualStockBonus) > 0);
 
-    if (realRemaining <= 0) {
+    if (realRemaining <= 0 && !hasActiveDisplayStock) {
       if (!oosEnabled) {
         // Hết mã thật trong kho & không bật bù ngoại tuyến: ngắt tăng theo giờ, bảo toàn tuyệt đối số mã đã nhận
         hourlyGrowth = 0;
@@ -2491,7 +2501,7 @@ class MarketingService {
       virtualStockBonus: nextBonus,
     };
 
-    const forceReset = options.forceReset !== false;
+    const forceReset = options.forceReset === true;
     const anchorTime = options.fomoAnchorTime || new Date().toISOString();
     if (options.targetDisplaySoldOrClaimed !== undefined) {
       if (id.startsWith('gw_')) {
@@ -2511,7 +2521,8 @@ class MarketingService {
     }
     this.saveLiveVirtualStock();
 
-    if (forceReset && typeof window !== 'undefined') {
+    const shouldResetStock = options.forceReset === true || options.virtualStockBonus !== undefined;
+    if (shouldResetStock && typeof window !== 'undefined') {
       const targetStockVal = realStock <= 0 ? 0 : (nextBonus <= 0 ? realStock : realStock + nextBonus);
       const isGw = id.startsWith('gw_');
       fetch('/api/sync', {

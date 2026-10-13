@@ -313,6 +313,26 @@
 
 ---
 
+### ISSUE-017: Số Đã Bán Bị Giật Ngược Về Mốc Cố Định Do Poller Snapshot Đè Override & Chỉnh Sửa Tồn Kho Kích Hoạt Reset
+- **Triệu chứng**:
+  - Web Khách hiển thị số đã bán (ví dụ: "Đã bán: 137"), theo thời gian hoặc khi có lượt mua ảo số tăng lên, nhưng cứ sau 20-30 giây hoặc khi Admin cộng thêm tồn kho ảo còn hàng ("virtualStockBonus"), số đã bán lập tức bị kéo giật ngược về mốc 137 cố định.
+- **Nguyên nhân gốc rễ**:
+  - 1. **Snapshot Poller Regression**: Trong `marketingService.ts` (`fetchMetricsSnapshot`), khi nhận snapshot từ Edge server, khối `isOverriddenSold` thực hiện `highWaterSoldCountMap.set(pId, targetSold)` đè giá trị cố định 137 lên Map, xóa sổ số liệu tăng trưởng đã đạt được.
+  - 2. **Coupling Stock & Sold Reset**: `QuickFomoAdjustModal.tsx` khi Admin lưu cấu hình luôn gửi `forceReset: true` kèm `targetDisplaySoldOrClaimed` và cập nhật `fomoAnchorTime = now`, khiến Edge server xóa mốc đỉnh D1 và đưa số đã bán về 137 ngay cả khi Admin chỉ muốn chỉnh tồn kho còn hàng.
+  - 3. **Unconditional Sync Call in Admin Service**: Trong `adminDataService.ts`, điều kiện `if (item.virtual_sold_count !== undefined || isSoldChanged)` luôn thỏa mãn với mọi thao tác cập nhật sản phẩm, kích hoạt `syncProductVirtualSold(..., true)`.
+  - 4. **Freeze khi realStock <= 0**: Các sản phẩm dịch vụ/cloud phone không quản lý item trong bảng `inventory_items` có `realStock = 0`, khiến bộ máy FOMO coi như hết hàng thật và triệt tiêu toàn bộ `hourlyGrowth = 0; inHourProg = 0;`.
+- **Giải pháp chuẩn đã kiểm chứng**:
+  - 1. Đảm bảo nguyên lý Monotonic Progression trong `fetchMetricsSnapshot`: `nextSold = Math.max(curSold, targetSold, info.sold)`.
+  - 2. Tách biệt `isSoldExplicitlyEdited`: Chỉ gửi `forceReset` và cập nhật `fomoAnchorTime` khi Admin chủ động thay đổi giá trị số đã bán/nhận. Khi chỉ chỉnh tồn kho, giữ nguyên `fomo_anchor_time` và số đã bán.
+  - 3. Trong `adminDataService.ts`: chuyển sang điều kiện nghiêm ngặt `if (isSoldChanged)` / `if (isClaimedChanged)`.
+  - 4. Bổ sung `hasActiveDisplayStock = effectiveStock > 0 || (priority !== 'off' && Number(virtualBonusStock) > 0)` để duy trì nhịp tăng tự nhiên cho sản phẩm có tồn kho ảo hiển thị.
+- ⛔ **CÁCH SỬA ĐÃ THẤT BẠI - TUYỆT ĐỐI KHÔNG LẶP LẠI**:
+  - ❌ *Không được gán đè `highWaterSoldCountMap.set(pId, targetSold)` trong chu kỳ poller snapshot*: Phải luôn lấy `Math.max` với `curSold`.
+  - ❌ *Không được gửi `forceReset: true` cho sold count khi người dùng chỉ chỉnh sửa stock bonus*: Tách bạch hoàn toàn luồng dữ liệu của 2 trường.
+  - ❌ *Không được reset `fomo_anchor_time` về thời điểm hiện tại khi không sửa sold count*: Sẽ làm mất toàn bộ số lượng tăng tích lũy theo giờ từ trước tới nay.
+
+---
+
 ## 2. QUY TRÌNH BẮT BUỘC TRƯỚC KHI SỬA CODE (PRE-FLIGHT CHECKLIST)
 
 Mọi nhà phát triển hoặc AI Agent khi nhận yêu cầu sửa đổi mã nguồn **PHẢI** thực hiện đủ 4 bước sau:
