@@ -1,0 +1,8 @@
+{
+  "appId": "store.codegame.app",
+  "appName": "CodeGame",
+  "webDir": "dist",
+  "server": {
+    "androidScheme": "https"
+  }
+}

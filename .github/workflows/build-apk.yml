@@ -9,6 +9,7 @@ on:
       - 'public/**'
       - 'android/**'
       - 'capacitor.config.ts'
+      - 'capacitor.config.json'
       - 'package.json'
       - '.github/workflows/build-apk.yml'
 
@@ -48,7 +49,9 @@ jobs:
       - name: Copy Web Assets to Capacitor Android
         run: |
           mkdir -p android/app/src/main/assets/public
-          npx cap copy android
+          cp -r dist/* android/app/src/main/assets/public/
+          cp capacitor.config.json android/app/src/main/assets/capacitor.config.json || true
+          npx cap copy android || true
 
       - name: Make Gradlew Executable
         run: chmod +x android/gradlew
