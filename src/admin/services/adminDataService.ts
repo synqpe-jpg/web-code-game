@@ -2879,7 +2879,9 @@ class AdminDataService {
         createdAt: safeCreatedAt,
       });
       if (isClaimedChanged) {
-        marketingService.syncGiveawayVirtualClaimed(existing.id, Number(existing.virtual_claimed_offset) || 0, true);
+        const targetDisp = Number(existing.virtual_claimed_offset) + (Number(existing.claimed_codes) || 0);
+        const anchor = (existing as any).fomo_anchor_time || (existing as any).virtual_claimed_updated_at;
+        marketingService.syncGiveawayVirtualClaimed(existing.id, Number(existing.virtual_claimed_offset) || 0, true, targetDisp, anchor);
       }
       this.saveGiveaways();
       this.pushFullStateToKV();
@@ -2904,7 +2906,9 @@ class AdminDataService {
     }
     this.giveaways.unshift(newItem);
     if (newItem.virtual_claimed_offset !== undefined) {
-      marketingService.syncGiveawayVirtualClaimed(newItem.id, Number(newItem.virtual_claimed_offset) || 0, true);
+      const targetDisp = Number(newItem.virtual_claimed_offset) + (Number(newItem.claimed_codes) || 0);
+      const anchor = (newItem as any).fomo_anchor_time || (newItem as any).virtual_claimed_updated_at;
+      marketingService.syncGiveawayVirtualClaimed(newItem.id, Number(newItem.virtual_claimed_offset) || 0, true, targetDisp, anchor);
     }
     this.saveGiveaways();
     this.pushFullStateToKV();
@@ -3019,7 +3023,9 @@ class AdminDataService {
         createdAt: safeCreatedAt,
       });
       if (isSoldChanged) {
-        marketingService.syncProductVirtualSold(existing.id, Number(existing.virtual_sold_count) || 0, true);
+        const targetDisp = Number(existing.virtual_sold_count) + (Number(existing.sold_count) || 0);
+        const anchor = (existing as any).fomo_anchor_time || (existing as any).virtual_sold_updated_at;
+        marketingService.syncProductVirtualSold(existing.id, Number(existing.virtual_sold_count) || 0, true, targetDisp, anchor);
       }
       this.saveStoreProducts();
       this.pushFullStateToKV();
@@ -3039,7 +3045,9 @@ class AdminDataService {
     }
     this.storeProducts.unshift(newItem);
     if (newItem.virtual_sold_count !== undefined) {
-      marketingService.syncProductVirtualSold(newItem.id, Number(newItem.virtual_sold_count) || 0, true);
+      const targetDisp = Number(newItem.virtual_sold_count) + (Number(newItem.sold_count) || 0);
+      const anchor = (newItem as any).fomo_anchor_time || (newItem as any).virtual_sold_updated_at;
+      marketingService.syncProductVirtualSold(newItem.id, Number(newItem.virtual_sold_count) || 0, true, targetDisp, anchor);
     }
     this.saveStoreProducts();
     this.pushFullStateToKV();
@@ -3151,7 +3159,9 @@ class AdminDataService {
         createdAt: safeCreatedAt,
       });
       if (isSoldChanged) {
-        marketingService.syncProductVirtualSold(existing.id, Number(existing.virtual_sold_count) || 0, true);
+        const targetDisp = Number(existing.virtual_sold_count) + (Number(existing.sold_count) || 0);
+        const anchor = (existing as any).fomo_anchor_time || (existing as any).virtual_sold_updated_at;
+        marketingService.syncProductVirtualSold(existing.id, Number(existing.virtual_sold_count) || 0, true, targetDisp, anchor);
       }
       this.saveUtilities();
       this.pushFullStateToKV();
@@ -3171,7 +3181,9 @@ class AdminDataService {
     }
     this.utilities.unshift(newItem);
     if (newItem.virtual_sold_count !== undefined) {
-      marketingService.syncProductVirtualSold(newItem.id, Number(newItem.virtual_sold_count) || 0, true);
+      const targetDisp = Number(newItem.virtual_sold_count) + (Number(newItem.sold_count) || 0);
+      const anchor = (newItem as any).fomo_anchor_time || (newItem as any).virtual_sold_updated_at;
+      marketingService.syncProductVirtualSold(newItem.id, Number(newItem.virtual_sold_count) || 0, true, targetDisp, anchor);
     }
     this.saveUtilities();
     this.pushFullStateToKV();

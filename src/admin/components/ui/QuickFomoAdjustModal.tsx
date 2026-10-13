@@ -109,7 +109,7 @@ export const QuickFomoAdjustModal: React.FC<QuickFomoAdjustModalProps> = ({
 
       // 1. Cập nhật marketingService (ngay lập tức tác động lên UI và Client Maps)
       await marketingService.updateItemVirtualSettings(itemId, {
-        targetDisplaySoldOrClaimed: isSoldExplicitlyEdited ? sanitizedTargetSold : undefined,
+        targetDisplaySoldOrClaimed: sanitizedTargetSold,
         virtualStockBonus: sanitizedBonusStock,
         priority: effectivePriority,
         forceReset: isSoldExplicitlyEdited,
@@ -122,13 +122,13 @@ export const QuickFomoAdjustModal: React.FC<QuickFomoAdjustModalProps> = ({
         if (gw) {
           const realClaimed = Number(gw.claimed_codes) || 0;
           const virtualOffset = isVirtualActive
-            ? (isSoldExplicitlyEdited ? Math.max(0, sanitizedTargetSold - realClaimed) : (Number(gw.virtual_claimed_offset) || 0))
+            ? Math.max(0, sanitizedTargetSold - realClaimed)
             : 0;
           adminDataService.saveGiveawayItem({
             ...gw,
             virtual_claimed_offset: virtualOffset,
             fomo_anchor_time: isSoldExplicitlyEdited ? nowIso : (gw.fomo_anchor_time || nowIso),
-            virtual_claimed_updated_at: isSoldExplicitlyEdited ? nowIso : gw.virtual_claimed_updated_at,
+            virtual_claimed_updated_at: isSoldExplicitlyEdited ? nowIso : (gw.virtual_claimed_updated_at || nowIso),
             show_claimed_count: showSoldOrClaimed,
             show_remaining_count: showStockCount,
           });
@@ -138,13 +138,13 @@ export const QuickFomoAdjustModal: React.FC<QuickFomoAdjustModalProps> = ({
         if (util) {
           const realSold = Number(util.sold_count) || 0;
           const virtualSold = isVirtualActive
-            ? (isSoldExplicitlyEdited ? Math.max(0, sanitizedTargetSold - realSold) : (Number(util.virtual_sold_count) || 0))
+            ? Math.max(0, sanitizedTargetSold - realSold)
             : 0;
           adminDataService.saveUtilityItem({
             ...util,
             virtual_sold_count: virtualSold,
             fomo_anchor_time: isSoldExplicitlyEdited ? nowIso : (util.fomo_anchor_time || nowIso),
-            virtual_sold_updated_at: isSoldExplicitlyEdited ? nowIso : util.virtual_sold_updated_at,
+            virtual_sold_updated_at: isSoldExplicitlyEdited ? nowIso : (util.virtual_sold_updated_at || nowIso),
             show_sold_count: showSoldOrClaimed,
             show_stock_count: showStockCount,
           });
@@ -154,13 +154,13 @@ export const QuickFomoAdjustModal: React.FC<QuickFomoAdjustModalProps> = ({
         if (prod) {
           const realSold = Number(prod.sold_count) || 0;
           const virtualSold = isVirtualActive
-            ? (isSoldExplicitlyEdited ? Math.max(0, sanitizedTargetSold - realSold) : (Number(prod.virtual_sold_count) || 0))
+            ? Math.max(0, sanitizedTargetSold - realSold)
             : 0;
           adminDataService.saveStoreProductItem({
             ...prod,
             virtual_sold_count: virtualSold,
             fomo_anchor_time: isSoldExplicitlyEdited ? nowIso : (prod.fomo_anchor_time || nowIso),
-            virtual_sold_updated_at: isSoldExplicitlyEdited ? nowIso : prod.virtual_sold_updated_at,
+            virtual_sold_updated_at: isSoldExplicitlyEdited ? nowIso : (prod.virtual_sold_updated_at || nowIso),
             show_sold_count: showSoldOrClaimed,
             show_stock_count: showStockCount,
           });

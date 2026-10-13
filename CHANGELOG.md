@@ -7,6 +7,24 @@ Mỗi mục sửa lỗi đều ghi nhận **Nguyên nhân gốc rễ (Root Cause
 
 ## [2026-10-13]
 
+### 12. Khắc Phục Triệt Để Lỗi Bất Đồng Bộ Các Chỉ Số ("Đã Bán", "Đã Giật", "Còn", "Đã Mua") Giữa Các Thiết Bị & Chuẩn Hóa Mốc Anchor Toàn Hệ Thống
+- **Mô tả**:
+  1. **Xác định và xử lý nguyên nhân xung đột trong phiên sửa lỗi trước (`c74e8f8`)**:
+     - *Xung đột 1 (Bẫy `isSoldExplicitlyEdited`)*: Trong commit trước, khi Admin chỉnh sửa Tồn kho ("Còn hàng") hoặc Độ ưu tiên mà không chạm vào ô số đã bán, `isSoldExplicitlyEdited` trả về `false`, dẫn tới `targetDisplaySoldOrClaimed` bị gửi là `undefined`. Khi đó, Cloudflare KV và D1 giữ nguyên con số cũ (ví dụ 64) thay vì số mục tiêu mà Admin thấy (ví dụ 137). Thiết bị Admin dùng LocalStorage Override thấy 137, trong khi thiết bị mobile hoặc khách truy cập kéo snapshot từ server thấy 64.
+     - *Xung đột 2 (Lỗi Double Sync Call lạc mốc thời gian)*: Khi Admin lưu từ Modal, hàm `updateItemVirtualSettings` đã đồng bộ số chuẩn. Tuy nhiên hàm `saveStoreProductItem` / `saveUtilityItem` lại tiếp tục gọi `marketingService.syncProductVirtualSold` lần 2 mà KHÔNG truyền `exactTargetDisplay` và `anchorTime`. Hàm phụ trợ `findItemDetails` thiếu `fomo_anchor_time` nên lùi về `createdAt` từ nhiều ngày trước, cộng dồn +30 đơn lạm phát lên Cloudflare Hub ($137 + 30 = 167$). Mobile hiển thị 167, trong khi máy Admin hiển thị 137.
+  2. **Chuẩn hóa luồng đồng bộ 100% Canonical trên toàn hệ thống**:
+     - Trong `QuickFomoAdjustModal.tsx`: Luôn truyền `sanitizedTargetSold` làm `targetDisplaySoldOrClaimed` và tính toán `virtualSold = Math.max(0, sanitizedTargetSold - real)` chuẩn tắc, đảm bảo Cloudflare KV và D1 luôn ghi nhận đúng số lượng Admin đã thiết lập.
+     - Trong `adminDataService.ts`: Ở tất cả các hàm lưu `saveGiveawayItem`, `saveStoreProductItem`, `saveUtilityItem` (cả mục mới và mục cũ), luôn truyền đủ `exactTargetDisplay` và `anchor` khi đồng bộ sang `marketingService`, triệt tiêu hoàn toàn độ trôi dạt lạm phát +30.
+     - Trong `marketingService.ts`: Cập nhật `findItemDetails` và `findGiveawayDetails` đọc đầy đủ `fomo_anchor_time` và `virtual_sold_updated_at` / `virtual_claimed_updated_at`, hỗ trợ fallback cả 2 kho lưu trữ `wcg_admin_*` và `wcg_*`.
+     - Trong `functions/services/snapshotService.ts`: Bổ sung `savedSpList`, `savedUtList`, `savedGwList` vào danh sách sản phẩm nạp từ D1, đảm bảo không bỏ sót bất kỳ mặt hàng nào khi tính snapshot Edge.
+     - Trong `functions/api/sync.ts`: Thắt chặt ngưỡng cập nhật đỉnh `isForceResetPayload || curPeak > target + 15 || curPeak < target`.
+  3. **Đồng bộ hiển thị Tồn kho ("Còn") và cờ Ẩn/Hiện trên mọi giao diện**:
+     - Trong `StoreView.tsx`, `UtilitiesView.tsx`, `ProductDetailModal.tsx`, `ProductCheckoutModal.tsx`: Đồng bộ hóa việc kiểm tra cờ `show_stock_count` và `show_sold_count`. Khi Admin tắt "Hàng còn", giao diện ẩn số lượng cụ thể và hiển thị "Sẵn sàng • Giao tức thì" một cách tinh tế.
+- **Nguyên nhân gốc rễ (Root Cause)**:
+  - Commit `c74e8f8` vô tình để lọt trường hợp `targetDisplaySoldOrClaimed: undefined` khi chỉ sửa tồn kho/ưu tiên, và hàm `adminDataService` kích hoạt sync lần 2 thiếu mốc anchor dẫn tới sai lệch giữa thiết bị Admin (đọc Override) và thiết bị Mobile (đọc Snapshot Server).
+- **Giải pháp thành công (Solution Applied)**:
+  - Bãi bỏ việc truyền undefined, chuẩn hóa mốc thời gian anchor, bổ sung mốc thời gian vào các hàm tìm kiếm chi tiết, và đảm bảo nguồn dữ liệu server snapshot bao quát toàn bộ danh mục sản phẩm.
+
 ### 11. Tối Ưu Hóa Giao Diện Mobile — Tinh Gọn Bộ Lọc Thành 1 Hàng Trượt Duy Nhất (Horizontal Chips Bar) & Tăng Cường Tầm Nhìn Game
 - **Mô tả**:
   1. **Hợp nhất bộ lọc thành 1 hàng trượt ngang duy nhất (Horizontal Chips Bar)**:

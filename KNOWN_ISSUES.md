@@ -333,6 +333,29 @@
 
 ---
 
+### ISSUE-018: Bất Đồng Bộ Chỉ Số Đã Bán / Đã Giật / Còn / Đã Mua Giữa Các Thiết Bị Do Cờ Localhost & Double Sync Lạc Mốc Anchor
+- **Triệu chứng**:
+  - Các số "Đã bán", "Đã giật", "Còn", "Đã mua" hiển thị trên thiết bị của Admin (ví dụ máy tính quản trị) và thiết bị của khách (ví dụ điện thoại mobile) không đồng bộ với nhau (Admin thấy số A ví dụ 137, mobile thấy số B ví dụ 64 hoặc 167; hoặc tồn kho hiển thị khác nhau).
+- **Nguyên nhân gốc rễ**:
+  - 1. **Bẫy `adminOverrideSoldMap` / `adminOverrideClaimedMap` chỉ lưu ở LocalStorage của máy Admin**: Thiết bị máy tính của Admin có giá trị Override cục bộ, trong khi điện thoại khách hoặc thiết bị khác hoàn toàn không có Map này mà chỉ nhận snapshot từ Edge server `/api/metrics/synced`.
+  - 2. **Bẫy cờ `isSoldExplicitlyEdited` trong commit trước (`c74e8f8`)**: Khi Admin chỉ chỉnh Tồn kho ("Còn hàng") hoặc Ưu tiên mà không gõ lại ô số đã bán, `isSoldExplicitlyEdited` trả về `false`. Khi đó `targetDisplaySoldOrClaimed` bị truyền thành `undefined`, khiến D1 / KV trên Cloudflare giữ nguyên con số cũ (ví dụ 64). Máy Admin hiển thị 137 qua override cục bộ, trong khi mobile khách kéo từ server về thấy 64.
+  - 3. **Lỗi Double Sync Call lạc mốc thời gian trong `adminDataService.ts`**: Khi Admin bấm Lưu, hàm `updateItemVirtualSettings` đồng bộ số chuẩn (137). Ngay sau đó, hàm `saveStoreProductItem` / `saveUtilityItem` lại tự động kích hoạt `marketingService.syncProductVirtualSold` lần thứ 2 mà KHÔNG truyền `exactTargetDisplay` và `anchorTime`. Hàm phụ trợ `findItemDetails` thiếu trường `fomo_anchor_time`, tự động lấy lùi về `createdAt` (nhiều ngày trước) và cộng dồn +30 đơn, đẩy số đỉnh $137 + 30 = 167$ lên Cloudflare Hub. Mobile nhận snapshot 167, trong khi máy Admin bị kẹt ở số override 137.
+  - 4. **Bỏ sót sản phẩm trong D1 Settings khi tính Snapshot**: Hàm `loadProducts` và `loadGiveaways` trong `snapshotService.ts` chỉ đọc danh sách gốc mà bỏ quên các mục mới được tạo lưu trong `savedSpList`, `savedUtList`, `savedGwList`.
+  - 5. **Khóa cứng tồn kho ("Còn") ở 0 trong Views**: `UtilitiesView.tsx` và `StoreView.tsx` sử dụng biểu thức `item.stock_quantity <= 0 ? 0 : ...`, vô tình bỏ qua `virtualStockBonus` khi sản phẩm dùng mô hình hàng ảo/dịch vụ.
+- **Giải pháp chuẩn đã kiểm chứng**:
+  - 1. Luôn truyền `sanitizedTargetSold` làm `targetDisplaySoldOrClaimed` và tính toán `virtualSold = Math.max(0, sanitizedTargetSold - real)` chuẩn tắc, đảm bảo Cloudflare KV và D1 luôn nhận đúng con số canonical mà Admin nhìn thấy.
+  - 2. Trong `adminDataService.ts`: Ở các hàm lưu sản phẩm/tiện ích/giveaway, khi gọi sync bắt buộc truyền đủ `exactTargetDisplay` (tham số thứ 4) và `anchor` (tham số thứ 5) để triệt tiêu việc cộng dồn lạm phát +30 đơn.
+  - 3. Trong `marketingService.ts`: Bổ sung `fomo_anchor_time` và `virtual_sold_updated_at` vào cả `findItemDetails` và `findGiveawayDetails`, hỗ trợ cả 2 key LocalStorage `wcg_admin_*` và `wcg_*`.
+  - 4. Trong `snapshotService.ts`: Hợp nhất cả `savedSpList`, `savedUtList`, `savedGwList` vào danh sách sản phẩm snapshot server.
+  - 5. Trong `functions/api/sync.ts`: Thắt chặt ngưỡng đồng bộ đỉnh `isForceResetPayload || curPeak > target + 15 || curPeak < target`.
+  - 6. Đồng bộ toàn bộ các modal (`ProductCheckoutModal`, `ProductDetailModal`, `UtilitiesView`) hiển thị chính xác theo cờ `show_stock_count` và `show_sold_count`.
+- ⛔ **CÁCH SỬA ĐÃ THẤT BẠI - TUYỆT ĐỐI KHÔNG LẶP LẠI**:
+  - ❌ *Không được để `targetDisplaySoldOrClaimed` thành `undefined` khi Admin lưu cấu hình*: Làm KV/D1 giữ giá trị cũ khiến thiết bị khác nhận số lệch.
+  - ❌ *Không được gọi `syncProductVirtualSold` lần 2 mà thiếu mốc `exactTargetDisplay` và `anchorTime`*: Server sẽ tự tính lũy kế theo `createdAt` gây chênh lệch +30 đơn.
+  - ❌ *Không được phụ thuộc vào LocalStorage Override để đồng bộ giữa các thiết bị*: Dữ liệu đồng bộ liên thiết bị bắt buộc phải xuất phát từ KV / D1 authoritative state.
+
+---
+
 ## 2. QUY TRÌNH BẮT BUỘC TRƯỚC KHI SỬA CODE (PRE-FLIGHT CHECKLIST)
 
 Mọi nhà phát triển hoặc AI Agent khi nhận yêu cầu sửa đổi mã nguồn **PHẢI** thực hiện đủ 4 bước sau:

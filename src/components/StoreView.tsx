@@ -487,16 +487,18 @@ export const StoreView: React.FC<StoreViewProps> = ({
                     const displaySold = marketingService.getSoldDisplay(product);
                     return (
                       <div className="flex items-center gap-1.5 flex-wrap">
-                        <span
-                          className={`text-[9px] sm:text-[10px] font-mono ${
-                            displayStock <= 0 ? 'text-rose-400 font-bold' : 'text-slate-300'
-                          }`}
-                        >
-                          {displayStock <= 0 ? 'Hết hàng' : `Còn: ${displayStock}`}
-                        </span>
+                        {(product as any).show_stock_count !== false && (
+                          <span
+                            className={`text-[9px] sm:text-[10px] font-mono ${
+                              displayStock <= 0 ? 'text-rose-400 font-bold' : 'text-slate-300'
+                            }`}
+                          >
+                            {displayStock <= 0 ? 'Hết hàng' : `Còn: ${displayStock}`}
+                          </span>
+                        )}
                         {product.show_sold_count !== false && (
                           <span className="text-[9px] sm:text-[10px] font-mono text-amber-400/90">
-                            • Đã bán: {displaySold}
+                            {(product as any).show_stock_count !== false ? '• ' : ''}Đã bán: {displaySold}
                           </span>
                         )}
                       </div>

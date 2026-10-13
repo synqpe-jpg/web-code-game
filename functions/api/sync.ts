@@ -1603,11 +1603,12 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
             const hub = await getRealEventsHub(env);
             if (hub && hub.peakProductSoldCounts) {
               let hubChanged = false;
+              const isForceResetPayload = Boolean(body.forceReset || body.forceResetSold);
               for (const p of incomingProducts) {
                 if (p && p.id && p.virtual_sold_count !== undefined) {
                   const target = Number(p.virtual_sold_count) + (Number(p.sold_count) || 0);
                   const curPeak = hub.peakProductSoldCounts[p.id] || 0;
-                  if (curPeak > target + 50 || curPeak < target) {
+                  if (isForceResetPayload || curPeak > target + 15 || curPeak < target) {
                     hub.peakProductSoldCounts[p.id] = target;
                     hubChanged = true;
                   }
@@ -1630,11 +1631,12 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
             const hub = await getRealEventsHub(env);
             if (hub && hub.peakProductSoldCounts) {
               let hubChanged = false;
+              const isForceResetPayload = Boolean(body.forceReset || body.forceResetSold);
               for (const u of incomingUtilities) {
                 if (u && u.id && u.virtual_sold_count !== undefined) {
                   const target = Number(u.virtual_sold_count) + (Number(u.sold_count) || 0);
                   const curPeak = hub.peakProductSoldCounts[u.id] || 0;
-                  if (curPeak > target + 50 || curPeak < target) {
+                  if (isForceResetPayload || curPeak > target + 15 || curPeak < target) {
                     hub.peakProductSoldCounts[u.id] = target;
                     hubChanged = true;
                   }
@@ -1666,11 +1668,12 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
             const hub = await getRealEventsHub(env);
             if (hub && hub.peakGiveawayClaimedCounts) {
               let hubChanged = false;
+              const isForceResetPayload = Boolean(body.forceReset || body.forceResetClaimed);
               for (const gw of incomingGiveaways) {
                 if (gw && gw.id && gw.virtual_claimed_offset !== undefined) {
                   const target = Number(gw.virtual_claimed_offset) + (Number(gw.claimed_codes) || 0);
                   const curPeak = hub.peakGiveawayClaimedCounts[gw.id] || 0;
-                  if (curPeak > target + 50 || curPeak < target) {
+                  if (isForceResetPayload || curPeak > target + 15 || curPeak < target) {
                     hub.peakGiveawayClaimedCounts[gw.id] = target;
                     hubChanged = true;
                   }

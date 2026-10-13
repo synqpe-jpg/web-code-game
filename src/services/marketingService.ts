@@ -2128,11 +2128,11 @@ class MarketingService {
     return inc;
   }
 
-  public findItemDetails(id: string): { sold_count?: number; virtual_sold_count?: number; created_at?: string } | null {
+  public findItemDetails(id: string): { sold_count?: number; virtual_sold_count?: number; created_at?: string; fomo_anchor_time?: string; virtual_sold_updated_at?: string } | null {
     if (!id) return null;
     if (typeof localStorage !== 'undefined') {
       try {
-        const spRaw = localStorage.getItem('wcg_admin_store_products_v4');
+        const spRaw = localStorage.getItem('wcg_admin_store_products_v4') || localStorage.getItem('wcg_store_products_v4');
         if (spRaw) {
           const spList = JSON.parse(spRaw);
           const found = Array.isArray(spList) ? spList.find((p: any) => p && p.id === id) : null;
@@ -2141,10 +2141,12 @@ class MarketingService {
               sold_count: typeof found.sold_count === 'number' ? found.sold_count : Number(found.sold_count) || 0,
               virtual_sold_count: found.virtual_sold_count !== undefined ? Number(found.virtual_sold_count) : 0,
               created_at: found.created_at || found.createdAt,
+              fomo_anchor_time: found.fomo_anchor_time || found.virtual_sold_updated_at,
+              virtual_sold_updated_at: found.virtual_sold_updated_at || found.fomo_anchor_time,
             };
           }
         }
-        const utRaw = localStorage.getItem('wcg_admin_utilities_v4');
+        const utRaw = localStorage.getItem('wcg_admin_utilities_v4') || localStorage.getItem('wcg_utilities_v4');
         if (utRaw) {
           const utList = JSON.parse(utRaw);
           const found = Array.isArray(utList) ? utList.find((u: any) => u && u.id === id) : null;
@@ -2153,6 +2155,8 @@ class MarketingService {
               sold_count: typeof found.sold_count === 'number' ? found.sold_count : Number(found.sold_count) || 0,
               virtual_sold_count: found.virtual_sold_count !== undefined ? Number(found.virtual_sold_count) : 0,
               created_at: found.created_at || found.createdAt,
+              fomo_anchor_time: found.fomo_anchor_time || found.virtual_sold_updated_at,
+              virtual_sold_updated_at: found.virtual_sold_updated_at || found.fomo_anchor_time,
             };
           }
         }
@@ -2161,11 +2165,11 @@ class MarketingService {
     return null;
   }
 
-  public findGiveawayDetails(id: string): { claimed_codes?: number; virtual_claimed_offset?: number; created_at?: string } | null {
+  public findGiveawayDetails(id: string): { claimed_codes?: number; virtual_claimed_offset?: number; created_at?: string; fomo_anchor_time?: string; virtual_claimed_updated_at?: string } | null {
     if (!id) return null;
     if (typeof localStorage !== 'undefined') {
       try {
-        const gwRaw = localStorage.getItem('wcg_admin_giveaways_v4');
+        const gwRaw = localStorage.getItem('wcg_admin_giveaways_v4') || localStorage.getItem('wcg_giveaways_v4');
         if (gwRaw) {
           const gwList = JSON.parse(gwRaw);
           const found = Array.isArray(gwList) ? gwList.find((g: any) => g && g.id === id) : null;
@@ -2174,6 +2178,8 @@ class MarketingService {
               claimed_codes: typeof found.claimed_codes === 'number' ? found.claimed_codes : Number(found.claimed_codes) || 0,
               virtual_claimed_offset: found.virtual_claimed_offset !== undefined ? Number(found.virtual_claimed_offset) : 0,
               created_at: found.created_at || found.createdAt,
+              fomo_anchor_time: found.fomo_anchor_time || found.virtual_claimed_updated_at,
+              virtual_claimed_updated_at: found.virtual_claimed_updated_at || found.fomo_anchor_time,
             };
           }
         }
@@ -2182,7 +2188,7 @@ class MarketingService {
     return null;
   }
 
-  public getSoldDisplay(item: { id?: string; sold_count?: number; virtual_sold_count?: number; created_at?: string; createdAt?: string } | null | undefined): number {
+  public getSoldDisplay(item: { id?: string; sold_count?: number; virtual_sold_count?: number; created_at?: string; createdAt?: string; fomo_anchor_time?: string; virtual_sold_updated_at?: string } | null | undefined): number {
     if (!item) return 0;
     const id = item.id || '';
     const details = id && (item.sold_count === undefined || item.virtual_sold_count === undefined) ? this.findItemDetails(id) : null;

@@ -445,7 +445,9 @@ export const ProductCheckoutModal: React.FC<ProductCheckoutModalProps> = ({
                     {checkoutDisplayStock > 0 ? (
                       <>
                         <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
-                        Còn {checkoutDisplayStock} mã • Giao tức thì
+                        {(product as any).show_stock_count !== false
+                          ? `Còn ${checkoutDisplayStock} mã • Giao tức thì`
+                          : 'Sẵn sàng • Giao tức thì'}
                       </>
                     ) : (
                       'Tạm hết hàng'

@@ -84,6 +84,8 @@ async function loadProducts(env: any): Promise<ProductInput[]> {
 
       addItems(spList);
       addItems(utList);
+      addItems(savedSpList);
+      addItems(savedUtList);
       return items;
     } catch (e: any) {
       console.warn('[SnapshotService] Error reading store_products and utilities from D1:', e?.message);
@@ -111,27 +113,37 @@ async function loadGiveaways(env: any): Promise<GiveawayInput[]> {
         savedGwList.forEach((sg: any) => { if (sg && sg.id) metaMap.set(sg.id, sg); });
       }
 
-      if (Array.isArray(gwList)) {
-        return gwList
-          .filter((gw: any) => gw && gw.id && (gw.status === 'ACTIVE' || gw.is_active !== false))
-          .map((gw: any) => {
-            const meta = metaMap.get(gw.id) || {};
-            const anchor = meta.fomo_anchor_time || gw.fomo_anchor_time || meta.virtual_claimed_updated_at || gw.virtual_claimed_updated_at;
-            return {
-              id: gw.id,
-              title: gw.title,
-              remaining_codes: Math.max(0, Number(gw.remaining_codes) || 0),
-              total_codes: Math.max(0, Number(gw.total_codes) || 0),
-              claimed_codes: Math.max(0, Number(gw.claimed_codes) || 0),
-              virtual_claimed_offset: gw.virtual_claimed_offset !== undefined ? Math.max(0, Number(gw.virtual_claimed_offset) || 0) : Math.max(0, Number(meta.virtual_claimed_offset) || 0),
-              fomo_anchor_time: anchor,
-              virtual_claimed_updated_at: anchor,
-              created_at: gw.created_at || gw.createdAt || meta.created_at,
-              status: gw.status || 'ACTIVE',
-              is_active: gw.status === 'ACTIVE' || gw.is_active === true,
-            } as any;
-          });
-      }
+      const items: GiveawayInput[] = [];
+      const seenIds = new Set<string>();
+
+      const addGwItems = (list: any[]) => {
+        if (!Array.isArray(list)) return;
+        for (const gw of list) {
+          if (!gw || !gw.id || seenIds.has(gw.id)) continue;
+          if (gw.status === 'ENDED' || gw.is_active === false) continue;
+          seenIds.add(gw.id);
+          const meta = metaMap.get(gw.id) || {};
+          const anchor = meta.fomo_anchor_time || gw.fomo_anchor_time || meta.virtual_claimed_updated_at || gw.virtual_claimed_updated_at;
+
+          items.push({
+            id: gw.id,
+            title: gw.title,
+            remaining_codes: Math.max(0, Number(gw.remaining_codes) || 0),
+            total_codes: Math.max(0, Number(gw.total_codes) || 0),
+            claimed_codes: Math.max(0, Number(gw.claimed_codes) || 0),
+            virtual_claimed_offset: gw.virtual_claimed_offset !== undefined ? Math.max(0, Number(gw.virtual_claimed_offset) || 0) : Math.max(0, Number(meta.virtual_claimed_offset) || 0),
+            fomo_anchor_time: anchor,
+            virtual_claimed_updated_at: anchor,
+            created_at: gw.created_at || gw.createdAt || meta.created_at,
+            status: gw.status || 'ACTIVE',
+            is_active: gw.status === 'ACTIVE' || gw.is_active === true,
+          } as any);
+        }
+      };
+
+      addGwItems(gwList);
+      addGwItems(savedGwList);
+      return items;
     } catch (e: any) {
       console.warn('[SnapshotService] Error reading giveaways from D1:', e?.message);
     }

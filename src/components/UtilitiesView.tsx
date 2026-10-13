@@ -904,21 +904,27 @@ export const UtilitiesView: React.FC<UtilitiesViewProps> = ({
                   </div>
                 </div>
 
-                <div className="text-right sm:border-l sm:border-border/60 sm:pl-4">
-                  <span className="text-xs text-muted-foreground block">Tình trạng kho:</span>
-                  <div className="text-sm font-bold text-foreground font-mono">
-                    {selectedUtility.stock_quantity > 0 ? (
-                      <span className="text-emerald-400">Còn {marketingService.getDisplayStock(selectedUtility.id, selectedUtility.stock_quantity)} sản phẩm</span>
-                    ) : (
-                      <span className="text-accent">Tạm hết hàng</span>
+                {((selectedUtility as any).show_stock_count !== false || selectedUtility.show_sold_count !== false) && (
+                  <div className="text-right sm:border-l sm:border-border/60 sm:pl-4">
+                    {(selectedUtility as any).show_stock_count !== false && (
+                      <span className="text-xs text-muted-foreground block">Tình trạng kho:</span>
                     )}
-                    {selectedUtility.show_sold_count !== false && (
-                      <div className="text-xs font-normal text-amber-400/90 mt-0.5">
-                        Đã bán: <strong className="font-bold">{marketingService.getSoldDisplay(selectedUtility)}</strong> gói
-                      </div>
-                    )}
+                    <div className="text-sm font-bold text-foreground font-mono">
+                      {(selectedUtility as any).show_stock_count !== false && (
+                        selectedUtility.stock_quantity > 0 ? (
+                          <span className="text-emerald-400">Còn {marketingService.getDisplayStock(selectedUtility.id, selectedUtility.stock_quantity)} sản phẩm</span>
+                        ) : (
+                          <span className="text-accent">Tạm hết hàng</span>
+                        )
+                      )}
+                      {selectedUtility.show_sold_count !== false && (
+                        <div className={`text-xs font-normal text-amber-400/90 ${(selectedUtility as any).show_stock_count !== false ? 'mt-0.5' : ''}`}>
+                          Đã bán: <strong className="font-bold">{marketingService.getSoldDisplay(selectedUtility)}</strong> gói
+                        </div>
+                      )}
+                    </div>
                   </div>
-                </div>
+                )}
               </div>
 
               {/* Description */}
@@ -1276,7 +1282,9 @@ export const UtilitiesView: React.FC<UtilitiesViewProps> = ({
                         {checkoutDisplayStock > 0 ? (
                           <>
                             <span className="w-1.5 h-1.5 rounded-full bg-teal-400 animate-pulse" />
-                            Còn {checkoutDisplayStock} gói • Kích hoạt ngay
+                            {(checkoutUtility as any).show_stock_count !== false
+                              ? `Còn ${checkoutDisplayStock} gói • Kích hoạt ngay`
+                              : 'Sẵn sàng • Kích hoạt ngay'}
                           </>
                         ) : (
                           'Tạm hết hàng'

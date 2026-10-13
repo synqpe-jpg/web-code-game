@@ -264,29 +264,35 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
               </div>
             </div>
 
-            <div className="text-right sm:border-l sm:border-border/60 sm:pl-4">
-              <span className="text-xs text-muted-foreground block">Tình trạng kho:</span>
-              <div className="text-sm font-bold text-foreground font-mono">
-                {(() => {
-                  const displayStock = liveProduct.stock_quantity <= 0 ? 0 : marketingService.getDisplayStock(liveProduct.id, liveProduct.stock_quantity);
-                  const displaySold = marketingService.getSoldDisplay(liveProduct);
-                  return (
-                    <div>
-                      {liveProduct.stock_quantity > 0 && displayStock > 0 ? (
-                        <span className="text-emerald-400">Còn {displayStock} mã (Giao tự động)</span>
-                      ) : (
-                        <span className="text-accent">Tạm hết hàng</span>
-                      )}
-                      {liveProduct.show_sold_count !== false && (
-                        <div className="text-xs font-normal text-amber-400/90 mt-0.5">
-                          Đã bán: <strong className="font-bold">{displaySold}</strong> gói
-                        </div>
-                      )}
-                    </div>
-                  );
-                })()}
+            {((liveProduct as any).show_stock_count !== false || liveProduct.show_sold_count !== false) && (
+              <div className="text-right sm:border-l sm:border-border/60 sm:pl-4">
+                {(liveProduct as any).show_stock_count !== false && (
+                  <span className="text-xs text-muted-foreground block">Tình trạng kho:</span>
+                )}
+                <div className="text-sm font-bold text-foreground font-mono">
+                  {(() => {
+                    const displayStock = liveProduct.stock_quantity <= 0 ? 0 : marketingService.getDisplayStock(liveProduct.id, liveProduct.stock_quantity);
+                    const displaySold = marketingService.getSoldDisplay(liveProduct);
+                    return (
+                      <div>
+                        {(liveProduct as any).show_stock_count !== false && (
+                          liveProduct.stock_quantity > 0 && displayStock > 0 ? (
+                            <span className="text-emerald-400">Còn {displayStock} mã (Giao tự động)</span>
+                          ) : (
+                            <span className="text-accent">Tạm hết hàng</span>
+                          )
+                        )}
+                        {liveProduct.show_sold_count !== false && (
+                          <div className={`text-xs font-normal text-amber-400/90 ${(liveProduct as any).show_stock_count !== false ? 'mt-0.5' : ''}`}>
+                            Đã bán: <strong className="font-bold">{displaySold}</strong> gói
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })()}
+                </div>
               </div>
-            </div>
+            )}
           </div>
 
           {/* Description */}
