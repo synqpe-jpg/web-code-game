@@ -59,7 +59,8 @@ jobs:
       - name: Build Android Debug APK
         run: |
           cd android
-          ./gradlew assembleDebug --no-daemon
+          yes | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --licenses || true
+          ./gradlew assembleDebug --no-daemon --stacktrace
 
       - name: Rename APK Output
         run: |
