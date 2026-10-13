@@ -7,6 +7,14 @@ Mỗi mục sửa lỗi đều ghi nhận **Nguyên nhân gốc rễ (Root Cause
 
 ## [2026-10-13]
 
+### 18. Cập Nhật 20 Giftcode Mới Cho Game Ta Là Hắc Ngộ Không & Đẩy Lên Đầu Trang
+- **Mô tả**:
+  1. Theo yêu cầu của chủ sở hữu, đã xóa toàn bộ mã cũ của tựa game **Ta là Hắc Ngộ Không** (`ta-la-hac-ngo-khong`).
+  2. Bổ sung đầy đủ 20 mã giftcode mới được cung cấp: `TLHNK9999`, `NGUHANHSON88`, `HACNGOKHONGTL`, `HAUVUONGVIP`, `HNKTHINHKINH`, `DAINAOTAYDU`, `TRUBATGIOI88`, `SATANG77`, `TETHIEN99`, `SVIP9999`, `FREE8888`, `VLTK9999`, `HACNGOKHONG999`, `NGOKHONG888`, `WUKONG666`, `VIP666`, `VIP888`, `VIP999`, `SVIP666`, `SVIP888`.
+  3. Dọn dẹp các mã lưu tạm cũ trên server Cloudflare D1 / KV (bao gồm mã `DUONGTANG`), gắn tombstone chống tái lập mã cũ.
+  4. Đưa tựa game **Ta là Hắc Ngộ Không** lên vị trí đầu tiên (index 0) trên toàn bộ danh mục website và API server.
+- **Kết quả xác minh**: Kiểm thử API live và build tĩnh đạt 100%, game hiển thị ngay đầu trang với đúng 20 mã quà tặng.
+
 ### 17. Tạm Thời Đóng Phần Tải File APK & Tập Trung Trải Nghiệm PWA + QR Code
 - **Mô tả**:
   1. Theo yêu cầu của chủ sở hữu, tạm thời ẩn tùy chọn tải file `.APK` trong modal cài đặt app (`DownloadAppModal.tsx`).
