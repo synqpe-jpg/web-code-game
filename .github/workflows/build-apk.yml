@@ -58,8 +58,10 @@ jobs:
 
       - name: Build Android Debug APK
         run: |
+          set -e -o pipefail
           cd android
           yes | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --licenses || true
+          $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager "platforms;android-36" "build-tools;36.0.0" || true
           ./gradlew assembleDebug --no-daemon --stacktrace 2>&1 | tee ../gradle_build.log
 
       - name: Upload Build Log if Failed
@@ -77,14 +79,22 @@ jobs:
           find android -type f -name "*.apk" -exec cp -v {} output/CodeGame-v1.0.apk \;
           echo "=== Content of output folder ==="
           ls -la output/
-          echo "=== Last 40 lines of Gradle log ==="
-          tail -n 40 gradle_build.log || true
+          if [ ! -f output/CodeGame-v1.0.apk ]; then
+            echo "::error::CodeGame-v1.0.apk was not generated! Printing last 100 lines of gradle log..."
+            if [ -f gradle_build.log ]; then
+              tail -n 100 gradle_build.log
+            fi
+            exit 1
+          fi
+          echo "=== APK successfully generated and verified at output/CodeGame-v1.0.apk ==="
+          ls -lh output/CodeGame-v1.0.apk
 
       - name: Upload APK Artifact
         uses: actions/upload-artifact@v4
         with:
           name: CodeGame-v1.0-APK
-          path: output/*.apk
+          path: output/CodeGame-v1.0.apk
+          if-no-files-found: error
           retention-days: 30
 
       - name: Publish Public GitHub Release
@@ -95,7 +105,9 @@ jobs:
           name: CodeGame Mobile App v1.0.0
           body: "Bản phát hành ứng dụng di động CodeGame dành cho Android (.APK) và PWA."
           files: output/CodeGame-v1.0.apk
+          fail_on_unmatched_files: true
           draft: false
           prerelease: false
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+

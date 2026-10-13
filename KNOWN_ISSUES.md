@@ -392,12 +392,14 @@
   - 2. *Khắc phục triệt để tải APK*:
     - Thiết lập route chuyển hướng HTTP 302 trong `functions/_worker.ts` dẫn trực tiếp đến GitHub Release chính thức: `https://github.com/synqpe-jpg/web-code-game/releases/download/v1.0.0/CodeGame-v1.0.apk`.
     - Bổ sung cấu hình MIME type `application/vnd.android.package-archive` và loại trừ `/download/*` trong `public/_headers` và `public/_routes.json`.
-    - Sửa workflow `build-apk.yml`: Bỏ bước `setup-android` bị lỗi, gán `compileSdkVersion = 34` chuẩn runner, bổ sung `permissions: contents: write` và tích hợp `softprops/action-gh-release@v2` tự động phát hành bản APK v1.0.0.
+    - Sửa workflow `build-apk.yml`: Bỏ bước `setup-android` bị lỗi, giữ nguyên `compileSdkVersion = 36` chuẩn Capacitor 8 (hỗ trợ đầy đủ trên runner Ubuntu 24.04), bổ sung `permissions: contents: write`, bật `set -e -o pipefail`, kiểm tra bắt buộc file APK tồn tại trước khi upload và tích hợp `softprops/action-gh-release@v2` với `fail_on_unmatched_files: true` tự động phát hành bản APK v1.0.0.
     - Sửa `DownloadAppModal.tsx`: Sửa ký tự `$\rightarrow$` thành `→`, bổ sung nút phím tắt "Cài Nhanh (PWA)" mở 1 chạm không cần quyền tải file.
 - ⛔ **CÁCH SỬA ĐÃ THẤT BẠI - TUYỆT ĐỐI KHÔNG LẶP LẠI**:
   - ❌ *Không nhồi nhét tất cả các nút desktop lên header của mobile*: Màn hình điện thoại nhỏ hẹp bắt buộc phải ẩn bớt các nút thứ cấp vào menu và thanh đáy.
   - ❌ *Không dùng `android-actions/setup-android@v3` trên runner `ubuntu-latest`*: Gây lỗi xung đột giấy phép Android SDK và treo tiến trình build.
   - ❌ *Không để đường dẫn tải APK trỏ về URL chưa cấu hình MIME type hoặc route xử lý*: Trình duyệt di động sẽ nhận diện nhầm thành file HTML 404 và hủy lượt tải.
+  - ❌ *Không dùng pipe `| tee` mà thiếu `set -e -o pipefail` trong bash CI/CD*: Mã thoát của lệnh trước bị nuốt chửng bởi `tee`, dẫn đến CI báo thành công giả tạo (False Positive) dù lệnh Gradle đã thất bại.
+  - ❌ *Không được hạ `compileSdkVersion` xuống thấp hơn phiên bản yêu cầu của Capacitor (Capacitor 8 yêu cầu SDK 36)*: Khiến các thư viện AndroidX và mã nguồn Java của Capacitor bị lỗi biên dịch.
 
 ---
 

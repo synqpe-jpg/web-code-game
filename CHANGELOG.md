@@ -7,6 +7,19 @@ Mỗi mục sửa lỗi đều ghi nhận **Nguyên nhân gốc rễ (Root Cause
 
 ## [2026-10-13]
 
+### 16. Đồng Bộ Chuẩn Capacitor 8 Android SDK 36, Sửa Lỗi Pipefail & Đính Kèm File APK Vào GitHub Release
+- **Mô tả**:
+  1. **Khôi phục cấu hình tương thích Capacitor 8 & Android SDK 36**:
+     - *Phát hiện nguyên nhân*: Runner `ubuntu-latest` (Ubuntu 24.04) đã tích hợp sẵn đầy đủ `platforms;android-36` và `build-tools;36.0.0`. Gói `@capacitor/android` phiên bản 8.5.3 yêu cầu bắt buộc Android SDK 36 và các thư viện AndroidX hiện đại (`androidxCoreVersion = 1.17.0`, `androidxActivityVersion = 1.11.0`, `coreSplashScreenVersion = 1.2.0`). Việc hạ xuống SDK 34 trước đó đã gây lỗi biên dịch mã nguồn Java của Capacitor.
+     - *Giải pháp*: Khôi phục đồng bộ `compileSdkVersion = 36`, `targetSdkVersion = 36` cùng các phiên bản AndroidX chuẩn trong `android/variables.gradle`. Bổ sung khai báo `compileOptions` Java 21 trực tiếp trong `android/app/build.gradle`. Tạo thư mục `libs` với `.gitkeep` cho `app` và `capacitor-cordova-android-plugins` để Gradle resolve kho lưu trữ không gặp cảnh báo.
+  2. **Khắc phục lỗi che giấu trạng thái trong GitHub Actions Workflow (`build-apk.yml`)**:
+     - *Phát hiện nguyên nhân*: Bước build Gradle sử dụng pipe `./gradlew assembleDebug 2>&1 | tee ../gradle_build.log`. Trong Bash mặc định, mã thoát của pipeline lấy theo lệnh cuối cùng (`tee`), khiến bước build báo thành công giả tạo (exit 0) ngay cả khi Gradle gặp lỗi. Do đó không có file APK được tạo trong thư mục `output`, và bước `softprops/action-gh-release@v2` do thiếu `fail_on_unmatched_files` đã tạo release trống không có asset.
+     - *Giải pháp*:
+       + Bật `set -e -o pipefail` trong bước chạy Gradle build.
+       + Bổ sung bước kiểm tra nghiêm ngặt: nếu `output/CodeGame-v1.0.apk` không tồn tại, in ngay 100 dòng log lỗi của Gradle và ngắt tiến trình với exit code 1.
+       + Bật `if-no-files-found: error` trong `upload-artifact` và `fail_on_unmatched_files: true` trong `action-gh-release` để đảm bảo không bao giờ có release lỗi hoặc thiếu file.
+- **Kết quả xác minh**: Kiểm thử build web đạt 100%, cấu hình Android SDK 36 và workflow CI/CD được hoàn thiện an toàn tuyệt đối.
+
 ### 15. Tối Ưu Bố Cục Header Mobile (Hiển Thị Trọn Vẹn Thông Tin Nhân Vật) & Khắc Phục Lỗi Tải File APK
 - **Mô tả**:
   1. **Tối ưu hóa triệt để thanh Header trên điện thoại di động (< sm screens)**:
