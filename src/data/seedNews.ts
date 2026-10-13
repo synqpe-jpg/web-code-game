@@ -2,6 +2,94 @@ import type { NewsArticle } from '../types/game';
 
 export const DEFAULT_NEWS_ARTICLES: NewsArticle[] = [
   {
+    id: 'news_1791792818972_szpas',
+    slug: 'sieu-pham-mmo-tay-du-hac-am-ta-la-hac-ngo-khong-vplay-chinh-thuc-ra-mat-14-10-2026',
+    title: 'Ta Là Hắc Ngộ Không (Vplay): Đánh Giá Chi Tiết Siêu Phẩm Hắc Tây Du Màn Hình Dọc & Trọn Bộ 20+ Giftcode Tân Thủ 2026',
+    excerpt: 'Khám phá siêu phẩm MMORPG Hắc Tây Du màn hình dọc \'Ta Là Hắc Ngộ Không\' từ NPH Vplay ra mắt ngày 14/10/2026. Đánh giá chi tiết cốt truyện nghịch mệnh, lối chơi một tay trảm ma, dàn đại sứ khủng cùng trọn bộ 20+ mã giftcode VIP nhận Kim Cương, Gậy Như Ý và VIP 6 miễn phí.',
+    cover_url: '/game_icons/ta-la-hac-ngo-khong.webp',
+    game_id: 'ta-la-hac-ngo-khong',
+    game_slug: 'ta-la-hac-ngo-khong',
+    game_name: 'Ta Là Hắc Ngộ Không',
+    tags: ['Hắc Ngộ Không', 'Vplay', 'Giftcode VIP', 'Hắc Thần Thoại', 'MMORPG', 'Tân Thủ'],
+    codes: [
+      'TLHNK9999',
+      'NGUHANHSON88',
+      'HACNGOKHONGTL',
+      'HAUVUONGVIP',
+      'HNKTHINHKINH',
+      'DAINAOTAYDU',
+      'TRUBATGIOI88',
+      'SATANG77',
+      'TETHIEN99',
+      'SVIP9999',
+      'FREE8888',
+      'VLTK9999',
+      'HACNGOKHONG999',
+      'NGOKHONG888',
+      'WUKONG666',
+      'VIP666',
+      'VIP888',
+      'VIP999',
+      'SVIP666',
+      'SVIP888'
+    ],
+    author: 'CodeGame Editorial',
+    views: 4890,
+    virtual_views: 4890,
+    views_growth_rate: 1.5,
+    read_time_minutes: 5,
+    is_featured: true,
+    is_hot: true,
+    status: 'PUBLISHED',
+    published_at: '2026-10-13T14:40:00.000Z',
+    updated_at: '2026-10-13T14:40:00.000Z',
+    content: `## 1. Ta Là Hắc Ngộ Không (Vplay) - Làn Gió Mới Cho Dòng Game Tây Du
+Lấy cảm hứng từ làn sóng **Hắc Thần Thoại** (Dark Fantasy) đang làm mưa làm gió trong cộng đồng game thủ quốc tế, **Ta Là Hắc Ngộ Không** do nhà phát hành **Vplay** phát hành tại Việt Nam mang đến một góc nhìn hoàn toàn mới lạ, gai góc và đầy ma mị về thế giới Tây Du Ký.
+
+Khác biệt hoàn toàn so với những tựa game tiên hiệp rực rỡ truyền thống, trò chơi mở ra bối cảnh sau trận đại chiến Hoa Quả Sơn kinh thiên động địa. Người chơi sẽ vào vai một **Nguyên Thần** thức tỉnh giữa cõi hỗn mang, mang trong mình ý chí nghịch mệnh kiên cường, dấn thân vào hành trình vạch trần bộ mặt hủ bại của thiên giới và tìm lại bản ngã đích thực của Tề Thiên Đại Thánh.
+
+## 2. Điểm Nhấn Lối Chơi MMORPG Màn Hình Dọc - "Một Tay Trảm Ma"
+- **Tối ưu thao tác một tay**: Giao diện màn hình dọc thông minh cho phép người chơi dễ dàng di chuyển, tung chiêu thức, săn boss và tương tác cộng đồng chỉ với một ngón tay, cực kỳ phù hợp với nhịp sống bận rộn hiện đại.
+- **Cơ chế AFK rảnh tay thông minh**: Hệ thống tự động thu thập tài nguyên, trang bị hiếm và điểm kinh nghiệm ngay cả khi bạn offline. Bạn hoàn toàn không phải lo lắng về việc bị thọt cấp so với những người chơi khác.
+- **Đồ họa 3D tương phản ấn tượng**: Game kết hợp xuất sắc giữa tông màu nền u tối, hoang tàn của cõi U Minh cùng hiệu ứng chiêu thức chiến đấu rực rỡ, bùng nổ thị giác trong từng pha giao tranh.
+
+## 3. Hệ Thống Biến Thân Thần - Ma & Chuyển Phái Tự Do
+- **Hóa thân đa hình thái**: Người chơi không bị gò bó trong một nhân vật cố định mà có thể tự do biến thân thành Thần Tiên, Ma Tộc, hoặc Thượng Cổ Hung Thú. Mỗi hình thái biến thân sở hữu bộ kỹ năng chiến đấu độc lập với lượng sát thương bộc phát cực mạnh.
+- **Kho ngoại trang đồ sộ**: Hệ thống cánh, tọa kỵ thần thú, pháp bảo và thần binh huyền thoại được thiết kế công phu, giúp người chơi tự do khẳng định phong cách cá nhân độc nhất vô nhị.
+- **Tự do đổi phái**: Dễ dàng chuyển đổi linh hoạt giữa các môn phái mà không làm mất đi lực chiến hay thuộc tính trang bị đã dày công nâng cấp.
+
+## 4. Chiến Trường Khốc Liệt: Săn Boss Rơi Đồ Đỏ & PK Liên Server
+- **Săn Boss thế giới tranh đoạt trang bị cực phẩm**: Tỷ lệ rơi trang bị Đỏ và đồ Hoàng Kim cực cao, hỗ trợ game thủ cày cuốc dân cày vẫn có thể cạnh tranh sòng phẳng với các đại gia.
+- **Đấu trường PK liên server**: Hệ thống lôi đài 1vs1, bang chiến vạn người và chiến trường Tam Giới rực lửa, nơi các bang hội tụ họp để khẳng định ngai vàng tối cao.
+
+## 5. Dàn Đại Sứ Thương Hiệu "Khủng" Quy Tụ Nhiều Ngôi Sao
+Chiến dịch ra mắt của Ta Là Hắc Ngộ Không gây ấn tượng mạnh mẽ với sự góp mặt của dàn đại sứ tên tuổi hàng đầu:
+- **Rapper Thái VG** và võ sĩ "Độc cô cầu bại" **Nguyễn Trần Duy Nhất** cùng người mẫu **Thắm Tây** trong tạo hình chiến binh giáp trụ phong trần, truyền tải mạnh mẽ thông điệp "nghịch mệnh chuyển càn khôn".
+- Sự đồng hành đặc biệt của các nghệ sĩ kỳ cựu như **NSND Trung Anh**, **NSƯT Việt Anh** cùng hot KOL **Trần Hà Linh**, khẳng định chất lượng và sự đầu tư bài bản từ NPH Vplay.
+
+## 6. Chuỗi Phúc Lợi Tân Thủ Ngày Ra Mắt
+Ngay khi tạo nhân vật và bước chân vào thế giới Ta Là Hắc Ngộ Không, game thủ sẽ nhận được hàng loạt ưu đãi siêu khủng:
+- Tặng ngay đặc quyền **VIP 6** vĩnh viễn và bộ ngoại trang giới hạn **Thiên Mệnh Ngộ Không**.
+- Nhận ngay thần binh biểu tượng **Gậy Như Ý** truyền thuyết để khai hoang Tam Giới.
+- Hàng ngàn Kim Cương miễn phí, vé quay tướng thần và sự kiện Mèo Chiêu Tài nhân đôi phúc lợi mỗi ngày.
+
+## 7. Hướng Dẫn Chi Tiết Cách Nhập Giftcode Nhận Quà
+
+### Cách 1: Kích hoạt trực tiếp trong game (In-Game)
+1. Đăng nhập vào game Ta Là Hắc Ngộ Không và hoàn thành nhiệm vụ hướng dẫn ban đầu để nhân vật đạt **Cấp độ 51**.
+2. Tại giao diện chính của màn hình, bấm vào biểu tượng **Sảnh Phúc Lợi**.
+3. Chọn mục **Đổi Mã Quà Tặng (Giftcode)**.
+4. Sao chép một trong các mã quà tặng trong bảng phía trên, dán vào ô nhập mã và bấm nút **Nhận Thưởng**.
+5. Mở hòm **Thư (Mail)** trong game để nhận toàn bộ vật phẩm thưởng!
+
+### Cách 2: Kích hoạt qua cổng Web chính thức của NPH Vplay
+1. Truy cập vào trang nhập code chính thức của nhà phát hành: \`https://giftcode.vplay.vn/\`.
+2. Đăng nhập tài khoản Vplay ID, Google hoặc Facebook liên kết với tài khoản game.
+3. Chọn tựa game **Ta Là Hắc Ngộ Không**.
+4. Chọn đúng **Máy chủ (Server)** và **Tên nhân vật** bạn đang chơi.
+5. Nhập mã code và bấm **Xác Nhận**, sau đó vào lại game kiểm tra hòm thư.`
+  },
+  {
     id: 'news_delta_force_update_2026',
     slug: 'delta-force-cap-nhat-mua-giai-moi-va-bo-giftcode-tan-thu-2026',
     title: 'Delta Force: Chi Tiết Bản Cập Nhật Mùa Giải Mới & Bộ Giftcode Tân Thủ Độc Quyền 2026',
@@ -15,7 +103,7 @@ export const DEFAULT_NEWS_ARTICLES: NewsArticle[] = [
     author: 'CodeGame Editorial',
     views: 3420,
     read_time_minutes: 4,
-    is_featured: true,
+    is_featured: false,
     is_hot: true,
     status: 'PUBLISHED',
     published_at: '2026-10-11T12:00:00.000Z',

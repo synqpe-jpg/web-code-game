@@ -7,6 +7,21 @@ Mỗi mục sửa lỗi đều ghi nhận **Nguyên nhân gốc rễ (Root Cause
 
 ## [2026-10-13]
 
+### 21. Xuất Bản & Đồng Bộ Bài Viết Đánh Giá Chi Tiết Siêu Phẩm "Ta Là Hắc Ngộ Không (Vplay)" & Trọn Bộ 20+ Giftcode
+- **Mô tả**:
+  1. Theo yêu cầu của chủ sở hữu, đã nghiên cứu toàn diện và xuất bản một bài viết chuyên sâu về tựa game **Ta Là Hắc Ngộ Không (Vplay)** lên vị trí Tiêu Điểm (`is_featured: true`, `is_hot: true`, index 0) trong mục **Tin Tức**.
+  2. **Nội dung bài viết chi tiết, đạt chuẩn chuyên môn gaming**:
+     - Bối cảnh Dark Fantasy Hắc Tây Du đột phá sau đại chiến Hoa Quả Sơn.
+     - Lối chơi MMORPG màn hình dọc "Một tay trảm ma", tích hợp cơ chế AFK rảnh tay thông minh không lo thọt cấp.
+     - Hệ thống biến thân Thần - Ma đa hình thái và cơ chế chuyển phái tự do.
+     - Săn Boss thế giới rơi đồ Đỏ và đấu trường liên server khốc liệt.
+     - Dàn đại sứ thương hiệu "khủng": Rapper Thái VG, võ sĩ Nguyễn Trần Duy Nhất, Thắm Tây cùng các nghệ sĩ NSND Trung Anh, NSƯT Việt Anh, KOL Trần Hà Linh.
+     - Chuỗi phúc lợi tân thủ: Tặng VIP 6, Skin Thiên Mệnh Ngộ Không, Gậy Như Ý.
+     - Hướng dẫn chi tiết 2 cách nhập giftcode: Trong game tại level 51 qua Sảnh Phúc Lợi và qua cổng web `giftcode.vplay.vn`.
+  3. **Tích hợp trọn bộ 20 mã giftcode mới nhất**: Nhúng trực tiếp 20 mã giftcode vào widget quà tặng của bài viết với nút bấm sao chép 1 chạm thông minh.
+  4. **Đồng bộ đa tầng**: Cập nhật cả `src/data/seedNews.ts` và đồng bộ trực tiếp lên Cloudflare D1 Database (`/api/sync`) với Secret Authorization.
+- **Kết quả xác minh**: Bài viết hiển thị ngay đầu mục Tin Tức, mã code đầy đủ, kiểm thử biên dịch và prerender thành công 100%.
+
 ### 20. Chuyển Đổi Hệ Thống Font Chữ Sang Be Vietnam Pro Chuẩn Mực Cho Toàn Bộ Website
 - **Mô tả**:
   1. **Khắc phục triệt để font chữ thô cứng, lệch dấu tiếng Việt**:
