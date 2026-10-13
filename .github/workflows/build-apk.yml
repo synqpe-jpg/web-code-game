@@ -46,7 +46,9 @@ jobs:
           cache: 'gradle'
 
       - name: Copy Web Assets to Capacitor Android
-        run: npx cap copy android
+        run: |
+          mkdir -p android/app/src/main/assets/public
+          npx cap copy android
 
       - name: Make Gradlew Executable
         run: chmod +x android/gradlew
