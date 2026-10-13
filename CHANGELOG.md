@@ -7,6 +7,17 @@ Mỗi mục sửa lỗi đều ghi nhận **Nguyên nhân gốc rễ (Root Cause
 
 ## [2026-10-13]
 
+### 11. Tối Ưu Hóa Giao Diện Mobile — Tinh Gọn Bộ Lọc Thành 1 Hàng Trượt Duy Nhất (Horizontal Chips Bar) & Tăng Cường Tầm Nhìn Game
+- **Mô tả**:
+  1. **Hợp nhất bộ lọc thành 1 hàng trượt ngang duy nhất (Horizontal Chips Bar)**:
+     - Trong `CategoryFilter.tsx`: Trên mobile, xóa bỏ hoàn toàn tình trạng 2 hàng bộ lọc xếp chồng cồng kềnh. Toàn bộ các tag chính (`Tất cả (487)`, `Game Hot`, `Mới cập nhật`, `Có code`, `Đã lưu`), chip Thể loại dropdown (`Filter`), và chip Sắp xếp dropdown (`ArrowUpDown`) được gộp vào duy nhất 1 hàng trượt ngang mượt mà kèm vệt mờ chuyển tiếp viền phải.
+     - Tích hợp lớp phủ Native Select Overlay trên chip Thể loại và Sắp xếp, giúp người dùng chạm là mở ngay bộ chọn hệ điều hành tự nhiên (iOS wheel / Android picker) chuẩn app native.
+  2. **Giải phóng không gian hiển thị danh sách game (Instant Game Visibility Above The Fold)**:
+     - Trong `HeroBanner.tsx`: Tinh giản tiêu đề H1 trên mobile, ẩn phụ đề dài và ẩn hàng hot tags trùng lặp để tiết kiệm hơn 80px chiều cao.
+     - Trong `GameGrid.tsx`: Ẩn thanh header thống kê rườm rà (`Đang hiển thị 24/487` + 3 nút chế độ xem) trên màn hình điện thoại, vì mobile đã mặc định chạy giao diện lưới 2 cột tối ưu nhất.
+     - Trong `App.tsx`: Giảm padding dọc khu vực danh mục từ `py-5` xuống `py-2.5` trên mobile.
+  3. **Hiệu quả**: Tiết kiệm hơn 150px chiều cao màn hình, người dùng vừa mở web bằng điện thoại là lập tức nhìn thấy ngay 4–6 tựa game và giftcode mà không cần cuộn trang.
+
 ### 10. Khắc Phục Triệt Để Hiện Tượng Số Đã Bán Bị Kéo Về Số Cố Định Khi Chạy Poller Snapshot & Khi Cộng Tồn Kho Ảo
 - **Mô tả**:
   1. **Bảo toàn lũy kế đơn điệu (Monotonic Progression) cho số Đã Bán / Đã Nhận**:

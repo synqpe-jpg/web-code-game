@@ -163,8 +163,8 @@ export const GameGrid: React.FC<GameGridProps> = ({
 
   return (
     <div className="space-y-4 sm:space-y-5 w-full max-w-full overflow-hidden box-border">
-      {/* View Switcher Header Bar */}
-      <div className="flex items-center justify-between gap-2.5 pb-1">
+      {/* View Switcher Header Bar - Cleaned on mobile to prioritize instant game cards */}
+      <div className="hidden sm:flex items-center justify-between gap-2.5 pb-1">
         <div className="flex items-center gap-2 min-w-0">
           <span className="text-xs sm:text-sm text-muted-foreground truncate">
             {t.filter.showing} <strong className="text-foreground font-bold">{games.length}</strong> / {total} {t.filter.gamesFound}

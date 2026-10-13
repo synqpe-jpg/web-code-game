@@ -91,7 +91,7 @@ export const HeroBanner: React.FC<HeroBannerProps> = ({
           </div>
 
           {/* Main Title - Compact on mobile */}
-          <h1 className="text-lg sm:text-3xl lg:text-4xl font-display font-extrabold tracking-tight text-foreground leading-snug mb-1 sm:mb-2.5">
+          <h1 className="text-base sm:text-3xl lg:text-4xl font-display font-extrabold tracking-tight text-foreground leading-snug mb-1 sm:mb-2.5">
             {heroMainTitle}{' '}
             {heroHighlight && (
               <span className="bg-gradient-to-r from-purple-400 via-primary-light to-cyan-400 bg-clip-text text-transparent">
@@ -100,14 +100,14 @@ export const HeroBanner: React.FC<HeroBannerProps> = ({
             )}
           </h1>
 
-          {/* Shortened Subtitle */}
-          <p className="text-[11px] sm:text-sm text-slate-300 dark:text-slate-300 max-w-xl mx-auto leading-normal mb-2 sm:mb-3.5 font-sans px-1 line-clamp-1 sm:line-clamp-none">
+          {/* Shortened Subtitle - Hidden on mobile to prioritize instant game visibility */}
+          <p className="hidden sm:block text-[11px] sm:text-sm text-slate-300 dark:text-slate-300 max-w-xl mx-auto leading-normal mb-2 sm:mb-3.5 font-sans px-1">
             {heroDescription}
           </p>
 
           {/* Smart Autocomplete Search Bar */}
           {onSearchChange && (
-            <div className="max-w-xl mx-auto mb-2 sm:mb-3.5">
+            <div className="max-w-xl mx-auto mb-1.5 sm:mb-3.5">
               <SearchAutocomplete
                 searchQuery={searchQuery}
                 onSearchChange={onSearchChange}
@@ -124,8 +124,8 @@ export const HeroBanner: React.FC<HeroBannerProps> = ({
             </div>
           )}
 
-          {/* Quick search tags - Smooth horizontal scroll on mobile */}
-          <div className="w-full max-w-full overflow-hidden mb-1 sm:mb-4">
+          {/* Quick search tags - Hidden on mobile, shown on desktop */}
+          <div className="hidden sm:block w-full max-w-full overflow-hidden mb-1 sm:mb-4">
             <div className="flex items-center gap-1 sm:gap-1.5 overflow-x-auto whitespace-nowrap flex-nowrap scrollbar-none py-0.5 sm:flex-wrap sm:justify-center w-full max-w-full">
             <span className="text-[10px] sm:text-xs text-slate-300 font-medium flex items-center gap-1 shrink-0">
               <Flame className="w-3 h-3 text-accent" /> {t.hero.hotTags}

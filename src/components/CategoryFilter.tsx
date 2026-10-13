@@ -1,5 +1,5 @@
 import React from 'react';
-import { Flame, Sparkles, Gift, Bookmark, Layers, ArrowUpDown, Filter } from 'lucide-react';
+import { Flame, Sparkles, Gift, Bookmark, Layers, ArrowUpDown, Filter, ChevronDown } from 'lucide-react';
 import type { FilterState } from '../types/game';
 import { useLanguage } from '../context/LanguageContext';
 
@@ -26,44 +26,174 @@ export const CategoryFilter: React.FC<CategoryFilterProps> = ({
     { id: 'bookmarked', label: t.filter.bookmarked, icon: <Bookmark className="w-3.5 h-3.5 text-primary-light" /> },
   ];
 
-  return (
-    <div className="space-y-2.5 mb-4 sm:mb-6">
-      {/* Top Filter Bar */}
-      <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2">
-        {/* Main Tag Pills with Right Fade Hint */}
-        <div className="relative flex-1 min-w-0 overflow-hidden w-full max-w-full">
-          <div className="flex items-center gap-1.5 sm:gap-2 overflow-x-auto pb-1 sm:pb-0 scrollbar-none w-full max-w-full">
-            {mainTags.map((tag) => {
-              const isActive = filter.tag === tag.id;
-              return (
-                <button
-                  key={tag.id}
-                  onClick={() => onFilterChange({ tag: tag.id })}
-                  className={`flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 sm:py-2 rounded-lg sm:rounded-xl text-xs sm:text-sm font-semibold transition-all shrink-0 cursor-pointer active:scale-95 ${
-                    isActive
-                      ? 'bg-primary text-white shadow-glow-primary'
-                      : 'bg-card hover:bg-card-hover border border-border text-slate-300 hover:text-white'
-                  }`}
-                >
-                  {tag.icon}
-                  <span>{tag.label}</span>
-                </button>
-              );
-            })}
-          </div>
-          {/* Subtle Fade on mobile right edge */}
-          <div className="pointer-events-none absolute right-0 top-0 bottom-0 w-6 bg-gradient-to-l from-background to-transparent sm:hidden z-10" />
-        </div>
+  const getSortLabel = (sortBy: FilterState['sortBy'], sortOrder: FilterState['sortOrder']) => {
+    const key = `${sortBy}-${sortOrder}`;
+    switch (key) {
+      case 'updated-desc': return t.filter.sortUpdated;
+      case 'popular-desc': return t.filter.sortPopular;
+      case 'codes_count-desc': return t.filter.sortCodes;
+      case 'release_date-desc': return t.filter.sortRelease;
+      case 'name-asc': return t.filter.sortName;
+      case 'rating-desc': return t.filter.sortRating;
+      case 'license_date-desc': return t.filter.sortLicense;
+      default: return 'Sắp xếp';
+    }
+  };
 
-        {/* Controls Section: Category Dropdown + Sort + Count */}
-        <div className="flex items-center justify-between sm:justify-end gap-1.5 sm:gap-2 text-xs shrink-0">
-          {/* Category Dropdown */}
-          <div className="flex items-center gap-1 sm:gap-1.5 bg-card border border-border rounded-lg sm:rounded-xl px-2 sm:px-2.5 py-1.5 shadow-sm">
-            <Filter className="w-3 sm:w-3.5 h-3 sm:h-3.5 text-secondary shrink-0" />
+  return (
+    <div className="mb-3 sm:mb-6 w-full max-w-full">
+      {/* 1. MOBILE VIEW (< 640px): 1 HÀNG TRƯỢT NGANG DUY NHẤT (HORIZONTAL CHIPS BAR) */}
+      <div className="relative w-full max-w-full overflow-hidden sm:hidden">
+        <div className="flex items-center gap-1.5 overflow-x-auto pb-1 scrollbar-none w-full max-w-full flex-nowrap">
+          {/* Main Tag Chips */}
+          {mainTags.map((tag) => {
+            const isActive = filter.tag === tag.id;
+            return (
+              <button
+                key={tag.id}
+                type="button"
+                onClick={() => onFilterChange({ tag: tag.id })}
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold transition-all shrink-0 cursor-pointer active:scale-95 ${
+                  isActive
+                    ? 'bg-primary text-white shadow-glow-primary'
+                    : 'bg-card hover:bg-card-hover border border-border text-slate-300 hover:text-white'
+                }`}
+              >
+                {tag.icon}
+                <span>{tag.label}</span>
+                {tag.id === 'all' && (
+                  <span className="text-[10px] font-mono px-1.5 py-0.2 rounded-full bg-black/25 text-white/90">
+                    {totalResults}
+                  </span>
+                )}
+              </button>
+            );
+          })}
+
+          {/* Divider */}
+          <div className="h-4 w-px bg-border/80 shrink-0 my-auto mx-0.5" />
+
+          {/* Category Dropdown Chip (Native Picker Overlay) */}
+          <div className="relative shrink-0">
+            <button
+              type="button"
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold transition-all cursor-pointer ${
+                filter.category !== 'all'
+                  ? 'bg-secondary/20 text-secondary border border-secondary/40 shadow-sm'
+                  : 'bg-card hover:bg-card-hover border border-border text-slate-300'
+              }`}
+            >
+              <Filter className="w-3.5 h-3.5 text-secondary shrink-0" />
+              <span className="truncate max-w-[105px]">
+                {filter.category === 'all' ? t.filter.allCategories : filter.category}
+              </span>
+              <ChevronDown className="w-3 h-3 text-slate-400 shrink-0" />
+            </button>
             <select
               value={filter.category}
               onChange={(e) => onFilterChange({ category: e.target.value })}
-              className="bg-transparent text-[11px] sm:text-xs text-foreground font-semibold focus:outline-none cursor-pointer max-w-[105px] sm:max-w-none truncate"
+              className="absolute inset-0 opacity-0 w-full h-full cursor-pointer z-10"
+              aria-label={t.filter.allCategories}
+            >
+              <option value="all" className="bg-card text-foreground">
+                {t.filter.allCategories}
+              </option>
+              {categories.map((cat) => (
+                <option key={cat} value={cat} className="bg-card text-foreground">
+                  {cat}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          {/* Sort Dropdown Chip (Native Picker Overlay) */}
+          <div className="relative shrink-0">
+            <button
+              type="button"
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold transition-all cursor-pointer ${
+                filter.sortBy !== 'updated' || filter.sortOrder !== 'desc'
+                  ? 'bg-primary/20 text-primary-light border border-primary/40 shadow-sm'
+                  : 'bg-card hover:bg-card-hover border border-border text-slate-300'
+              }`}
+            >
+              <ArrowUpDown className="w-3.5 h-3.5 text-primary-light shrink-0" />
+              <span className="truncate max-w-[105px]">
+                {getSortLabel(filter.sortBy, filter.sortOrder)}
+              </span>
+              <ChevronDown className="w-3 h-3 text-slate-400 shrink-0" />
+            </button>
+            <select
+              value={`${filter.sortBy}-${filter.sortOrder}`}
+              onChange={(e) => {
+                const [sortBy, sortOrder] = e.target.value.split('-') as [
+                  FilterState['sortBy'],
+                  FilterState['sortOrder']
+                ];
+                onFilterChange({ sortBy, sortOrder });
+              }}
+              className="absolute inset-0 opacity-0 w-full h-full cursor-pointer z-10"
+              aria-label="Sắp xếp danh sách game"
+            >
+              <option value="updated-desc" className="bg-card text-foreground">
+                {t.filter.sortUpdated}
+              </option>
+              <option value="popular-desc" className="bg-card text-foreground">
+                {t.filter.sortPopular}
+              </option>
+              <option value="codes_count-desc" className="bg-card text-foreground">
+                {t.filter.sortCodes}
+              </option>
+              <option value="release_date-desc" className="bg-card text-foreground">
+                {t.filter.sortRelease}
+              </option>
+              <option value="name-asc" className="bg-card text-foreground">
+                {t.filter.sortName}
+              </option>
+              <option value="rating-desc" className="bg-card text-foreground">
+                {t.filter.sortRating}
+              </option>
+              <option value="license_date-desc" className="bg-card text-foreground">
+                {t.filter.sortLicense}
+              </option>
+            </select>
+          </div>
+        </div>
+        {/* Subtle Fade on mobile right edge */}
+        <div className="pointer-events-none absolute right-0 top-0 bottom-0 w-8 bg-gradient-to-l from-background to-transparent z-10" />
+      </div>
+
+      {/* 2. DESKTOP VIEW (>= 640px): 2 PHẦN TRÊN 1 HÀNG TIÊU CHUẨN */}
+      <div className="hidden sm:flex items-center justify-between gap-2">
+        {/* Main Tag Pills */}
+        <div className="flex items-center gap-2 overflow-x-auto scrollbar-none">
+          {mainTags.map((tag) => {
+            const isActive = filter.tag === tag.id;
+            return (
+              <button
+                key={tag.id}
+                onClick={() => onFilterChange({ tag: tag.id })}
+                className={`flex items-center gap-1.5 px-3 py-2 rounded-xl text-sm font-semibold transition-all shrink-0 cursor-pointer active:scale-95 ${
+                  isActive
+                    ? 'bg-primary text-white shadow-glow-primary'
+                    : 'bg-card hover:bg-card-hover border border-border text-slate-300 hover:text-white'
+                }`}
+              >
+                {tag.icon}
+                <span>{tag.label}</span>
+              </button>
+            );
+          })}
+        </div>
+
+        {/* Controls Section: Category Dropdown + Sort + Count */}
+        <div className="flex items-center justify-end gap-2 text-xs shrink-0">
+          {/* Category Dropdown */}
+          <div className="flex items-center gap-1.5 bg-card border border-border rounded-xl px-2.5 py-1.5 shadow-sm">
+            <Filter className="w-3.5 h-3.5 text-secondary shrink-0" />
+            <select
+              value={filter.category}
+              onChange={(e) => onFilterChange({ category: e.target.value })}
+              className="bg-transparent text-xs text-foreground font-semibold focus:outline-none cursor-pointer"
               aria-label={t.filter.allCategories}
             >
               <option value="all" className="bg-card text-foreground">
@@ -78,8 +208,8 @@ export const CategoryFilter: React.FC<CategoryFilterProps> = ({
           </div>
 
           {/* Sort Dropdown */}
-          <div className="flex items-center gap-1 sm:gap-1.5 bg-card border border-border rounded-lg sm:rounded-xl px-2 sm:px-2.5 py-1.5 shadow-sm">
-            <ArrowUpDown className="w-3 sm:w-3.5 h-3 sm:h-3.5 text-primary-light shrink-0" />
+          <div className="flex items-center gap-1.5 bg-card border border-border rounded-xl px-2.5 py-1.5 shadow-sm">
+            <ArrowUpDown className="w-3.5 h-3.5 text-primary-light shrink-0" />
             <select
               value={`${filter.sortBy}-${filter.sortOrder}`}
               onChange={(e) => {
@@ -89,7 +219,7 @@ export const CategoryFilter: React.FC<CategoryFilterProps> = ({
                 ];
                 onFilterChange({ sortBy, sortOrder });
               }}
-              className="bg-transparent text-[11px] sm:text-xs text-foreground font-semibold focus:outline-none cursor-pointer max-w-[105px] sm:max-w-none truncate"
+              className="bg-transparent text-xs text-foreground font-semibold focus:outline-none cursor-pointer"
               aria-label="Sắp xếp danh sách game"
             >
               <option value="updated-desc" className="bg-card text-foreground">
@@ -117,7 +247,7 @@ export const CategoryFilter: React.FC<CategoryFilterProps> = ({
           </div>
 
           {/* Total Count Badge */}
-          <span className="text-[11px] sm:text-xs text-slate-300 font-mono bg-muted/60 px-2 py-1.5 rounded-lg border border-border/60 shrink-0 whitespace-nowrap">
+          <span className="text-xs text-slate-300 font-mono bg-muted/60 px-2.5 py-1.5 rounded-lg border border-border/60 shrink-0 whitespace-nowrap">
             <strong className="text-foreground">{totalResults}</strong> {t.filter.gamesFound}
           </span>
         </div>

@@ -1103,7 +1103,7 @@ export const App: React.FC = () => {
                 }}
               />
 
-              <div id="game-catalog-section" className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-5 sm:py-8">
+              <div id="game-catalog-section" className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-2.5 sm:py-8">
                 <CategoryFilter
                   filter={filter}
                   onFilterChange={handleFilterChange}
