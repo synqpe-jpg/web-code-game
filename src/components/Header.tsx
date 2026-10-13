@@ -14,6 +14,7 @@ import {
   LogOut,
   Wrench,
   Newspaper,
+  Smartphone,
 } from 'lucide-react';
 import type { GameItem, UserProfile } from '../types/game';
 import { formatCore } from '../utils/textUtils';
@@ -30,6 +31,7 @@ interface HeaderProps {
   onOpenBookmarks: () => void;
   onOpenSubmitCode: () => void;
   onOpenPlayground: () => void;
+  onOpenDownloadApp?: () => void;
   onOpenAuth: () => void;
   onOpenWallet: () => void;
   onOpenReceivedCodes: () => void;
@@ -56,6 +58,7 @@ export const Header: React.FC<HeaderProps> = ({
   onOpenBookmarks,
   onOpenSubmitCode,
   onOpenPlayground,
+  onOpenDownloadApp,
   onOpenAuth,
   onOpenWallet,
   onOpenReceivedCodes,
@@ -261,6 +264,20 @@ export const Header: React.FC<HeaderProps> = ({
                 </span>
               </button>
             )}
+
+            {/* Tải App Button */}
+            <button
+              type="button"
+              onClick={onOpenDownloadApp}
+              className="relative flex items-center gap-1.5 px-2 sm:px-2.5 py-1.5 sm:py-2 rounded-xl bg-gradient-to-r from-primary/15 via-purple-500/15 to-accent/15 hover:from-primary/25 hover:to-accent/25 border border-primary/40 text-primary-light font-extrabold text-xs transition-all active:scale-95 shadow-sm cursor-pointer group"
+              title="Cài đặt App CodeGame lên điện thoại (Nhận code mới & Quà tặng tức thì)"
+            >
+              <Smartphone className="w-3.5 h-3.5 text-primary-light group-hover:scale-110 transition-transform" />
+              <span className="hidden sm:inline">Tải App</span>
+              <span className="px-1.5 py-0.2 rounded-full text-[9px] font-black bg-gradient-to-r from-emerald-500 to-teal-500 text-white shadow-sm">
+                APP
+              </span>
+            </button>
 
             {/* Language Selector Dropdown (Vietnamese, English, Chinese) */}
             <LanguageSelector variant="header" />

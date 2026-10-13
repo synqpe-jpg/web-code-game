@@ -69,3 +69,13 @@ desktop.ini
 .antigravity/
 .antigravity
 **/.antigravity/**
+
+# Android Build Outputs & Caches
+android/.gradle/
+android/build/
+android/app/build/
+android/.idea/
+android/*.iml
+android/app/*.iml
+android/local.properties
+

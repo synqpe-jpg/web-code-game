@@ -7,6 +7,25 @@ Mỗi mục sửa lỗi đều ghi nhận **Nguyên nhân gốc rễ (Root Cause
 
 ## [2026-10-13]
 
+### 14. Triển Khai Toàn Diện Ứng Dụng Di Động (PWA + Capacitor Android) & Tích Hợp Nút "Tải App" Trên Website
+- **Mô tả**:
+  1. **Tích hợp PWA (Progressive Web App) hoàn chỉnh**:
+     - Cập nhật chuẩn hóa `public/manifest.json`: Bổ sung `id`, `shortcuts` (Tra Code, Giveaway, Cửa Hàng), `display: standalone`, `categories`, đáp ứng 100% tiêu chí cài đặt của Google Chrome & Apple Safari.
+     - Xây dựng Service Worker `public/sw.js`: Hỗ trợ lưu cache offline các tài nguyên tĩnh (Stale-While-Revalidate), Network-First cho các yêu cầu điều hướng trang và bỏ qua các endpoint API động.
+     - Xây dựng `src/services/pwaService.ts`: Bắt sự kiện `beforeinstallprompt`, hỗ trợ kích hoạt cài đặt ứng dụng 1 chạm trên Android/Chrome, phát hiện môi trường thiết bị (iOS, Android, Desktop).
+  2. **Tích hợp Capacitor Mobile Native Engine**:
+     - Cài đặt `@capacitor/core`, `@capacitor/cli`, `@capacitor/android`.
+     - Cấu hình `capacitor.config.ts` với `appId: store.codegame.app`, `appName: CodeGame`.
+     - Khởi tạo thư mục gốc native `android/` kết nối trực tiếp với tài nguyên build `dist/`.
+     - Thiết lập GitHub Actions workflow `.github/workflows/build-apk.yml`: Tự động biên dịch ra file APK Release trên đám mây mỗi khi đẩy mã nguồn.
+     - Thêm các lệnh npm tiện ích trong `package.json`: `cap:sync`, `cap:build`, `cap:open:android`.
+  3. **Tích hợp Nút & Modal "Tải App" Trên Website**:
+     - Xây dựng `DownloadAppModal.tsx`: Hỗ trợ 3 tab cài đặt linh hoạt:
+       + Tab 1: Cài đặt nhanh PWA (1 chạm trên Android/PC hoặc hướng dẫn 2 bước trực quan cho iOS Safari).
+       + Tab 2: Tải trực tiếp file cài đặt Android `.APK` (~4.8MB) kèm hướng dẫn 3 bước cài đặt.
+       + Tab 3: Quét mã QR bằng Camera điện thoại dành cho người dùng đang duyệt trên PC/Laptop.
+     - Bổ sung nút **"Tải App"** nổi bật trên thanh điều hướng `Header.tsx` (có icon Smartphone và huy hiệu `APP` phát sáng) và chân trang `Footer.tsx`.
+
 ### 13. Triệt Tiêu Hoàn Toàn Tăng Trưởng Ảo Từ `createdAt` (+70 Đơn Ma) & Đồng Nhất 100% Số Liệu Giữa Điện Thoại Mobile và Trình Duyệt Máy Tính (PC Admin)
 - **Mô tả**:
   1. **Nguyên nhân toán học chính xác gây lệch số giữa Mobile và Máy tính (ví dụ: Mobile thấy 124, 149, 105; PC Admin thấy 52, 77, 33)**:

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Zap, Server, Globe2, FileText, Lock, X, Mail, MessageSquare, PhoneCall, Send } from 'lucide-react';
+import { Zap, Server, Globe2, FileText, Lock, X, Mail, MessageSquare, PhoneCall, Send, Smartphone } from 'lucide-react';
 import { dataService } from '../services/dataService';
 import { useLanguage } from '../context/LanguageContext';
 import { LanguageSelector } from './LanguageSelector';
@@ -7,9 +7,10 @@ import { LanguageSelector } from './LanguageSelector';
 interface FooterProps {
   onSelectCategory: (cat: string) => void;
   categories: string[];
+  onOpenDownloadApp?: () => void;
 }
 
-export const Footer: React.FC<FooterProps> = ({ onSelectCategory, categories }) => {
+export const Footer: React.FC<FooterProps> = ({ onSelectCategory, categories, onOpenDownloadApp }) => {
   const { t } = useLanguage();
   const [activeModal, setActiveModal] = useState<'terms' | 'privacy' | 'contact' | null>(null);
   const [footerData, setFooterData] = useState(() => dataService.getContentByKey('footer_support'));
@@ -102,6 +103,23 @@ export const Footer: React.FC<FooterProps> = ({ onSelectCategory, categories }) 
                 <span className="text-xs text-muted-foreground font-medium">{t.footer.selectLanguage}</span>
                 <LanguageSelector variant="footer" />
               </div>
+
+              {/* Tải App CodeGame Button in Footer */}
+              {onOpenDownloadApp && (
+                <div className="pt-2">
+                  <button
+                    type="button"
+                    onClick={onOpenDownloadApp}
+                    className="inline-flex items-center gap-2 px-3.5 py-2 rounded-xl bg-gradient-to-r from-primary/15 via-purple-500/15 to-accent/15 hover:from-primary/25 hover:to-accent/25 border border-primary/40 text-primary-light font-bold text-xs transition-all active:scale-95 cursor-pointer shadow-sm"
+                  >
+                    <Smartphone className="w-4 h-4 text-primary-light" />
+                    <span>Cài Đặt App CodeGame (Android & iOS)</span>
+                    <span className="px-1.5 py-0.2 rounded-full text-[9px] font-black bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
+                      FREE
+                    </span>
+                  </button>
+                </div>
+              )}
             </div>
 
             {/* Quick Category Links */}

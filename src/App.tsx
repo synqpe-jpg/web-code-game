@@ -20,6 +20,7 @@ import { AuthModal } from './components/AuthModal';
 import { UserWalletModal } from './components/UserWalletModal';
 import { MyReceivedCodesModal } from './components/MyReceivedCodesModal';
 import { UserProfileModal } from './components/UserProfileModal';
+import { DownloadAppModal } from './components/DownloadAppModal';
 import { MobileBottomNav } from './components/MobileBottomNav';
 import { CyberLoader } from './components/CyberLoader';
 
@@ -132,6 +133,7 @@ export const App: React.FC = () => {
   const [isBookmarkDrawerOpen, setIsBookmarkDrawerOpen] = useState(false);
   const [isSubmitModalOpen, setIsSubmitModalOpen] = useState(false);
   const [isPlaygroundModalOpen, setIsPlaygroundModalOpen] = useState(false);
+  const [isDownloadModalOpen, setIsDownloadModalOpen] = useState(false);
   const [isGrowthCenterOpen, setIsGrowthCenterOpen] = useState(false);
   const [growthInitialTab, setGrowthInitialTab] = useState<'wheel' | 'welcome' | 'referral' | 'checkin' | 'leaderboard'>('wheel');
   const [isGrowthEnabled, setIsGrowthEnabled] = useState(() => {
@@ -1077,6 +1079,7 @@ export const App: React.FC = () => {
             setGrowthInitialTab('wheel');
             setIsGrowthCenterOpen(true);
           }}
+          onOpenDownloadApp={() => setIsDownloadModalOpen(true)}
           onOpenAuth={() => setIsAuthModalOpen(true)}
           onOpenWallet={() => setIsWalletModalOpen(true)}
           onOpenReceivedCodes={() => setIsReceivedCodesOpen(true)}
@@ -1192,6 +1195,7 @@ export const App: React.FC = () => {
             const gridElem = document.getElementById('game-catalog-section');
             gridElem?.scrollIntoView({ behavior: 'smooth' });
           }}
+          onOpenDownloadApp={() => setIsDownloadModalOpen(true)}
         />
 
         {/* Mobile Sticky Bottom Navigation Dock */}
@@ -1331,6 +1335,11 @@ export const App: React.FC = () => {
         onOpenWallet={() => setIsWalletModalOpen(true)}
         onLogout={handleLogout}
         onShowToast={showToast}
+      />
+
+      <DownloadAppModal
+        isOpen={isDownloadModalOpen}
+        onClose={() => setIsDownloadModalOpen(false)}
       />
 
       {/* Social Proof Marketing Notifications Toast (Customer Web tabs) */}

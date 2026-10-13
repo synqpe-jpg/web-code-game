@@ -1,7 +1,8 @@
 {
-  "name": "CodeGame.shop - Cổng Tra Cứu Giftcode Bản Quyền G1",
-  "short_name": "CodeGame.shop",
-  "description": "Kho tổng hợp mã giftcode game mobile & PC miễn phí mới nhất 2026. Đối chiếu giấy phép G1 ABEI Bộ TT&TT.",
+  "id": "/",
+  "name": "CodeGame - Cổng Tra Cứu Giftcode & Game Bản Quyền",
+  "short_name": "CodeGame",
+  "description": "Kho tổng hợp mã giftcode game mobile & PC miễn phí mới nhất 2026. Nhận quà tân thủ, tra cứu code game bản quyền G1.",
   "start_url": "/",
   "scope": "/",
   "display": "standalone",
@@ -34,5 +35,29 @@
       "type": "image/png",
       "purpose": "any maskable"
     }
-  ]
+  ],
+  "shortcuts": [
+    {
+      "name": "Tra Cứu Giftcode",
+      "short_name": "Code Game",
+      "description": "Kho giftcode 486+ tựa game mới nhất",
+      "url": "/",
+      "icons": [{ "src": "/logo.png", "sizes": "192x192" }]
+    },
+    {
+      "name": "Săn Giveaway Free",
+      "short_name": "Giveaway",
+      "description": "Nhận giftcode giới hạn miễn phí",
+      "url": "/giveaways",
+      "icons": [{ "src": "/logo.png", "sizes": "192x192" }]
+    },
+    {
+      "name": "Cửa Hàng Code",
+      "short_name": "Cửa Hàng",
+      "description": "Gói quà VIP & Thẻ game chiết khấu cao",
+      "url": "/store",
+      "icons": [{ "src": "/logo.png", "sizes": "192x192" }]
+    }
+  ],
+  "prefer_related_applications": false
 }
