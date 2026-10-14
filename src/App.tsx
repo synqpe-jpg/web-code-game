@@ -4,27 +4,26 @@ import { AnnouncementBar } from './components/AnnouncementBar';
 import { HeroBanner } from './components/HeroBanner';
 import { CategoryFilter } from './components/CategoryFilter';
 import { GameGrid } from './components/GameGrid';
+import { GameDetailModal } from './components/GameDetailModal';
+import { SubmitCodeModal } from './components/SubmitCodeModal';
+import { BookmarkDrawer } from './components/BookmarkDrawer';
+import { CodePlaygroundModal } from './components/CodePlaygroundModal';
+import { GrowthCenterModal } from './components/GrowthCenterModal';
+import { ShareModal } from './components/ShareModal';
+import { NewsView } from './components/NewsView';
+import { GiveawaysView } from './components/GiveawaysView';
+import { StoreView } from './components/StoreView';
+import { UtilitiesView } from './components/UtilitiesView';
+import { ProductDetailModal } from './components/ProductDetailModal';
+import { ProductCheckoutModal } from './components/ProductCheckoutModal';
+import { AuthModal } from './components/AuthModal';
+import { UserWalletModal } from './components/UserWalletModal';
+import { MyReceivedCodesModal } from './components/MyReceivedCodesModal';
+import { UserProfileModal } from './components/UserProfileModal';
+import { DownloadAppModal } from './components/DownloadAppModal';
 import { MobileBottomNav } from './components/MobileBottomNav';
 import { CyberLoader } from './components/CyberLoader';
 
-// Code-split secondary tabs & modals to make initial home page bundle ultra lightweight
-const GameDetailModal = React.lazy(() => import('./components/GameDetailModal').then((m) => ({ default: m.GameDetailModal })));
-const SubmitCodeModal = React.lazy(() => import('./components/SubmitCodeModal').then((m) => ({ default: m.SubmitCodeModal })));
-const BookmarkDrawer = React.lazy(() => import('./components/BookmarkDrawer').then((m) => ({ default: m.BookmarkDrawer })));
-const CodePlaygroundModal = React.lazy(() => import('./components/CodePlaygroundModal').then((m) => ({ default: m.CodePlaygroundModal })));
-const GrowthCenterModal = React.lazy(() => import('./components/GrowthCenterModal').then((m) => ({ default: m.GrowthCenterModal })));
-const ShareModal = React.lazy(() => import('./components/ShareModal').then((m) => ({ default: m.ShareModal })));
-const NewsView = React.lazy(() => import('./components/NewsView').then((m) => ({ default: m.NewsView })));
-const GiveawaysView = React.lazy(() => import('./components/GiveawaysView').then((m) => ({ default: m.GiveawaysView })));
-const StoreView = React.lazy(() => import('./components/StoreView').then((m) => ({ default: m.StoreView })));
-const UtilitiesView = React.lazy(() => import('./components/UtilitiesView').then((m) => ({ default: m.UtilitiesView })));
-const ProductDetailModal = React.lazy(() => import('./components/ProductDetailModal').then((m) => ({ default: m.ProductDetailModal })));
-const ProductCheckoutModal = React.lazy(() => import('./components/ProductCheckoutModal').then((m) => ({ default: m.ProductCheckoutModal })));
-const AuthModal = React.lazy(() => import('./components/AuthModal').then((m) => ({ default: m.AuthModal })));
-const UserWalletModal = React.lazy(() => import('./components/UserWalletModal').then((m) => ({ default: m.UserWalletModal })));
-const MyReceivedCodesModal = React.lazy(() => import('./components/MyReceivedCodesModal').then((m) => ({ default: m.MyReceivedCodesModal })));
-const UserProfileModal = React.lazy(() => import('./components/UserProfileModal').then((m) => ({ default: m.UserProfileModal })));
-const DownloadAppModal = React.lazy(() => import('./components/DownloadAppModal').then((m) => ({ default: m.DownloadAppModal })));
 const AdminApp = React.lazy(() => import('./admin/AdminApp'));
 import { Footer } from './components/Footer';
 import { ToastContainer, type ToastMessage } from './components/Toast';
@@ -32,6 +31,7 @@ import { MarketingNotificationToast } from './components/MarketingNotificationTo
 import { FloatingAnnouncement } from './components/FloatingAnnouncement';
 import { dataService } from './services/dataService';
 import { marketingService } from './services/marketingService';
+import { adminDataService } from './admin/services/adminDataService';
 import { authService } from './services/authService';
 import { growthService } from './services/growthService';
 import type { GameItem, FilterState, StoreProduct, UserProfile, GiveawayCampaign, UtilityProduct } from './types/game';
@@ -103,27 +103,17 @@ export const App: React.FC = () => {
     sortOrder: 'desc',
   });
 
-  // Data & Pagination State (Synchronously initialized with local baseline for 0ms instant First Contentful Paint)
+  // Data & Pagination State
   const [paginationConfig, setPaginationConfig] = useState(() => dataService.getPaginationConfig());
-  const [games, setGames] = useState<GameItem[]>(() => {
-    if (typeof window !== 'undefined') {
-      return dataService.getLocalGamesSync(24);
-    }
-    return [];
-  });
-  const [allGamesList, setAllGamesList] = useState<GameItem[]>(() => {
-    if (typeof window !== 'undefined') {
-      return dataService.getLocalGamesSync(24);
-    }
-    return [];
-  });
-  const [categories, setCategories] = useState<string[]>(() => dataService.getCategoriesSync());
+  const [games, setGames] = useState<GameItem[]>([]);
+  const [allGamesList, setAllGamesList] = useState<GameItem[]>([]);
+  const [categories, setCategories] = useState<string[]>([]);
   const [currentPage, setCurrentPage] = useState(1);
-  const [totalPages, setTotalPages] = useState(() => Math.max(1, Math.ceil(dataService.getTotalGamesCountSync() / 24)));
-  const [totalResults, setTotalResults] = useState(() => dataService.getTotalGamesCountSync());
-  const [hasMore, setHasMore] = useState(true);
+  const [totalPages, setTotalPages] = useState(1);
+  const [totalResults, setTotalResults] = useState(0);
+  const [hasMore, setHasMore] = useState(false);
   const [isLoadingMore, setIsLoadingMore] = useState(false);
-  const [isLoading, setIsLoading] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
 
   // Branding & Assets from CMS
   const [branding, setBranding] = useState(() => dataService.getWebsiteBranding());
@@ -327,6 +317,7 @@ export const App: React.FC = () => {
   // Initial Load & Deep Link Router
   useEffect(() => {
     const loadInitialData = async () => {
+      setIsLoading(true);
       const bmarks = dataService.getBookmarks();
       setBookmarks(bmarks);
       dataService.getBookmarkedGames(bmarks).then((bList) => setBookmarkedGamesList(bList));
@@ -338,10 +329,24 @@ export const App: React.FC = () => {
         setBranding(dataService.getWebsiteBranding());
       });
 
-      // Preload GameDetailModal in background on idle so opening game details is 0ms instant
-      setTimeout(() => {
-        import('./components/GameDetailModal');
-      }, 150);
+      const res = await dataService.queryGames(
+        { search: '', category: 'all', tag: 'all', sortBy: 'release_date', sortOrder: 'desc' },
+        1,
+        pCfg.pageSize,
+        bmarks
+      );
+      setGames(res.items);
+      setAllGamesList(res.items);
+      setTotalPages(res.totalPages);
+      setTotalResults(res.total);
+      setHasMore(res.hasMore);
+      if (res.categories && res.categories.length > 0) {
+        setCategories(res.categories);
+      } else {
+        const cats = await dataService.getCategories();
+        setCategories(cats);
+      }
+      setIsLoading(false);
 
       // Check Hash / Search Params for Deep Linking (/g/:slug, /giveaways, /store, /admin, /#product=id, /#gw=id)
       const parseHash = async () => {
@@ -437,18 +442,12 @@ export const App: React.FC = () => {
         } else if (hashLower.includes('g=') || urlParams.get('g') || urlParams.get('game')) {
           const slug = urlParams.get('g') || urlParams.get('game') || hash.split(/g=/i)[1]?.split('&')[0];
           if (slug) {
-            const local = dataService.getGameBySlugLocal(slug);
-            if (local) {
-              setSelectedGame(local);
+            const game = await dataService.getGameBySlug(slug);
+            if (game) {
+              setSelectedGame(game);
               setCurrentTab('catalog');
+              return;
             }
-            dataService.getGameBySlug(slug, false).then((game) => {
-              if (game) {
-                setSelectedGame(game);
-                setCurrentTab('catalog');
-              }
-            });
-            return;
           }
         }
 
@@ -458,14 +457,11 @@ export const App: React.FC = () => {
           const pathSlug = window.location.pathname.replace(/^\/(?:game|g)\//i, '').replace(/\/$/, '').trim();
           if (pathSlug) {
             setCurrentTab('catalog');
-            const local = dataService.getGameBySlugLocal(pathSlug);
-            if (local) {
-              setSelectedGame(local);
+            const game = await dataService.getGameBySlug(pathSlug);
+            if (game) {
+              setSelectedGame(game);
+              return;
             }
-            dataService.getGameBySlug(pathSlug, false).then((game) => {
-              if (game) setSelectedGame(game);
-            });
-            return;
           }
         } else if (pathname === '/news' || pathname.startsWith('/news/')) {
           setCurrentTab('news');
@@ -936,25 +932,18 @@ export const App: React.FC = () => {
     showToast(`Đã sao chép mã code cho ${gameName}!`, code, 'success');
   };
 
-  // Handle Game Selection (Instant 0ms modal open with 100% full codes)
-  const handleSelectGame = (game: GameItem) => {
-    const fullGame = dataService.getGameBySlugLocal(game.slug) || game;
-    setSelectedGame(fullGame);
-    dataService.getGameBySlug(game.slug, false).then((fresh) => {
-      if (fresh && fresh.codes && fresh.codes.length > (fullGame.codes?.length || 0)) {
-        setSelectedGame(fresh);
-      }
-    });
+  // Handle Game Selection
+  const handleSelectGame = async (game: GameItem) => {
+    setSelectedGame(game);
+    const fullGame = await dataService.getGameBySlug(game.slug, true);
+    if (fullGame) {
+      setSelectedGame(fullGame);
+    }
   };
 
-  const handleSelectGameSlug = (slug: string) => {
-    const fullGame = dataService.getGameBySlugLocal(slug);
+  const handleSelectGameSlug = async (slug: string) => {
+    const fullGame = await dataService.getGameBySlug(slug, true);
     if (fullGame) setSelectedGame(fullGame);
-    dataService.getGameBySlug(slug, false).then((fresh) => {
-      if (fresh && fresh.codes && fresh.codes.length > (fullGame?.codes?.length || 0)) {
-        setSelectedGame(fresh);
-      }
-    });
   };
 
   const handleSelectProductById = (productId: string) => {
@@ -1175,52 +1164,44 @@ export const App: React.FC = () => {
           )}
 
           {currentTab === 'news' && (
-            <React.Suspense fallback={<div className="py-24 flex items-center justify-center"><CyberLoader title="ĐANG TẢI TIN TỨC..." subText="Đang kết nối danh mục tin tức..." /></div>}>
-              <NewsView
-                onShowToast={showToast}
-                onSelectGameSlug={handleSelectGameSlug}
-                initialArticleSlug={initialNewsSlug}
-              />
-            </React.Suspense>
+            <NewsView
+              onShowToast={showToast}
+              onSelectGameSlug={handleSelectGameSlug}
+              initialArticleSlug={initialNewsSlug}
+            />
           )}
 
           {currentTab === 'giveaways' && (
-            <React.Suspense fallback={<div className="py-24 flex items-center justify-center"><CyberLoader title="ĐANG TẢI SỰ KIỆN..." subText="Đang kết nối đợt phát giftcode..." /></div>}>
-              <GiveawaysView
-                onShowToast={showToast}
-                onSelectGameSlug={handleSelectGameSlug}
-                currentUser={currentUser}
-                onOpenAuth={() => setIsAuthModalOpen(true)}
-                onShareGiveaway={handleOpenShareGiveaway}
-              />
-            </React.Suspense>
+            <GiveawaysView
+              onShowToast={showToast}
+              onSelectGameSlug={handleSelectGameSlug}
+              currentUser={currentUser}
+              onOpenAuth={() => setIsAuthModalOpen(true)}
+              onShareGiveaway={handleOpenShareGiveaway}
+            />
           )}
 
           {currentTab === 'store' && (
-            <React.Suspense fallback={<div className="py-24 flex items-center justify-center"><CyberLoader title="ĐANG TẢI CỬA HÀNG..." subText="Đang kết nối kho thẻ game & robux..." /></div>}>
-              <StoreView
-                onSelectProduct={(prod) => setSelectedProduct(prod)}
-                onShowToast={showToast}
-                currentUser={currentUser}
-                onOpenAuth={() => setIsAuthModalOpen(true)}
-                onOpenShare={handleOpenShareProduct}
-              />
-            </React.Suspense>
+            <StoreView
+              onSelectProduct={(prod) => setSelectedProduct(prod)}
+              onShowToast={showToast}
+              currentUser={currentUser}
+              onOpenAuth={() => setIsAuthModalOpen(true)}
+              onOpenShare={handleOpenShareProduct}
+            />
           )}
 
           {currentTab === 'utilities' && (
-            <React.Suspense fallback={<div className="py-24 flex items-center justify-center"><CyberLoader title="ĐANG TẢI TIỆN ÍCH..." subText="Đang kết nối hệ thống tiện ích..." /></div>}>
-              <UtilitiesView
-                onShowToast={showToast}
-                currentUser={currentUser}
-                onUpdateUser={handleUpdateUser}
-                onOpenAuth={() => setIsAuthModalOpen(true)}
-                onOpenShare={handleOpenShareUtility}
-                onOpenWallet={() => setIsWalletModalOpen(true)}
-                selectedUtilityId={selectedUtilityId}
-                onClearSelectedUtility={() => setSelectedUtilityId(null)}
-              />
-            </React.Suspense>
+            <UtilitiesView
+              onShowToast={showToast}
+              currentUser={currentUser}
+              onUpdateUser={handleUpdateUser}
+              onOpenAuth={() => setIsAuthModalOpen(true)}
+              onOpenShare={handleOpenShareUtility}
+              onOpenWallet={() => setIsWalletModalOpen(true)}
+              selectedUtilityId={selectedUtilityId}
+              onClearSelectedUtility={() => setSelectedUtilityId(null)}
+            />
           )}
         </main>
 
@@ -1249,8 +1230,7 @@ export const App: React.FC = () => {
       </div>
 
       {/* Modals & Drawers */}
-      <React.Suspense fallback={null}>
-        {selectedGame && (
+      {selectedGame && (
         <GameDetailModal
           game={selectedGame}
           onClose={() => {
@@ -1381,7 +1361,6 @@ export const App: React.FC = () => {
         isOpen={isDownloadModalOpen}
         onClose={() => setIsDownloadModalOpen(false)}
       />
-      </React.Suspense>
 
       {/* Social Proof Marketing Notifications Toast (Customer Web tabs) */}
       <MarketingNotificationToast

@@ -20,9 +20,6 @@ import {
   FloatingNotificationConfig,
   DEFAULT_FLOATING_NOTIFICATION,
 } from '../types/floatingNotification';
-import { smartMergeEntities } from '../shared/dataMergeUtils';
-import rawGamesData from '../data/games188.json';
-import compactCodesByGame from '../data/compact_codes_by_game.json';
 
 interface RawGame {
   id?: string;
@@ -106,247 +103,24 @@ class DataService {
 
   constructor() {
     this.cleanupLegacyV3Data();
-    this.initSyncBaseline();
     this.setupSyncListeners();
     this.processData().catch(() => {});
   }
 
-  /**
-   * Immediately populate this.games with all 623 games and all 5,321 giftcodes synchronously
-   * Guarantees zero-network, zero-latency rendering so game modals open instantly with 100% codes.
-   */
-  private initSyncBaseline(): void {
-    // 1. Populate codesMap from compactCodesByGame synchronously (0ms)
-    this.codesMap.clear();
-    for (const [slug, codeList] of Object.entries(compactCodesByGame as Record<string, GiftCode[]>)) {
-      if (Array.isArray(codeList)) {
-        this.codesMap.set(slug.toLowerCase(), codeList);
-      }
-    }
-    // Alias support: huyen-thoai-hai-tac <-> pirate-legends
-    const pirateCodes = this.codesMap.get('pirate-legends') || this.codesMap.get('huyen-thoai-hai-tac');
-    if (pirateCodes) {
-      this.codesMap.set('pirate-legends', pirateCodes);
-      this.codesMap.set('huyen-thoai-hai-tac', pirateCodes);
-    }
-
-    // 2. Layer on any custom codes from admin localStorage if present
-    try {
-      const savedCustom = localStorage.getItem('wcg_admin_custom_free_codes_v1');
-      if (savedCustom) {
-        const customList = JSON.parse(savedCustom);
-        if (Array.isArray(customList)) {
-          customList.forEach((c) => {
-            const slug = (c.gameSlug || c.gameId || c.slug || '').toLowerCase();
-            const codeVal = c.codeValue || c.code;
-            if (slug && codeVal) {
-              const list = this.codesMap.get(slug) || [];
-              if (!list.some((x) => x.code.toUpperCase() === codeVal.trim().toUpperCase())) {
-                list.unshift({
-                  code: codeVal.trim(),
-                  rewards: c.rewards || c.description || 'Quà tân thủ & vật phẩm ingame',
-                  status: (c.status || '').toLowerCase().includes('exp') ? 'expired' : 'active',
-                  expiry: c.expiresAt || c.expiry || '',
-                  added_at: c.createdAt || c.updatedAt || new Date().toISOString(),
-                });
-                this.codesMap.set(slug, list);
-              }
-            }
-          });
-        }
-      }
-    } catch {}
-
-    // 3. Initialize baseline Utilities catalog synchronously (0ms) so Tiện Ích page never renders empty
-    try {
-      const savedUt = localStorage.getItem('wcg_admin_utilities_v4') || localStorage.getItem(this.UTILITIES_KEY);
-      let utList: any[] = [];
-      if (savedUt) {
-        try { utList = JSON.parse(savedUt); } catch {}
-      }
-      if (!Array.isArray(utList) || utList.length === 0) {
-        localStorage.setItem('wcg_admin_utilities_v4', JSON.stringify(this.defaultUtilities));
-        localStorage.setItem(this.UTILITIES_KEY, JSON.stringify(this.defaultUtilities));
-      }
-    } catch {}
-
-    // 4. Initialize baseline Store Products catalog synchronously (0ms) so Cửa Hàng page never renders empty
-    try {
-      const savedSp = localStorage.getItem('wcg_admin_store_products_v4') || localStorage.getItem(this.STORE_PRODUCTS_KEY);
-      let spList: any[] = [];
-      if (savedSp) {
-        try { spList = JSON.parse(savedSp); } catch {}
-      }
-      if (!Array.isArray(spList) || spList.length === 0) {
-        localStorage.setItem('wcg_admin_store_products_v4', JSON.stringify(this.defaultStoreProducts));
-        localStorage.setItem(this.STORE_PRODUCTS_KEY, JSON.stringify(this.defaultStoreProducts));
-      }
-    } catch {}
-
-    // 5. Initialize baseline Giveaways catalog synchronously (0ms)
-    try {
-      const savedGw = localStorage.getItem('wcg_admin_giveaways_v4') || localStorage.getItem(this.GIVEAWAYS_KEY);
-      let gwList: any[] = [];
-      if (savedGw) {
-        try { gwList = JSON.parse(savedGw); } catch {}
-      }
-      if (!Array.isArray(gwList) || gwList.length === 0) {
-        localStorage.setItem('wcg_admin_giveaways_v4', JSON.stringify(DEFAULT_GIVEAWAYS));
-        localStorage.setItem(this.GIVEAWAYS_KEY, JSON.stringify(DEFAULT_GIVEAWAYS));
-      }
-    } catch {}
-
-    const fallbackGames = Array.isArray(rawGamesData) ? (rawGamesData as RawGame[]) : [];
-    const categorySet = new Set<string>();
-
-    this.games = fallbackGames
-      .filter((g) => g.status !== 'INACTIVE' && g.is_active !== false)
-      .map((g, index) => {
-        const slug = g.slug || g.id || `game-${index + 1}`;
-        const rawId = g.id || slug;
-        const cat = g.category ? g.category.trim() : 'Game Hot';
-        if (cat) categorySet.add(cat);
-
-        let iconUrl = g.icon_url || g.iconUrl || g.cover_image_url || '';
-        if (!iconUrl || iconUrl.startsWith('/game-icons') || iconUrl.startsWith('game-icons')) {
-          iconUrl = `/game_icons/${slug}.webp`;
-        }
-
-        const relDate = g.release_date || g.gp_release_date || '2026-09-01';
-        const codes = this.getCodesForGame({ slug, id: rawId, name: g.name });
-        const codesCount = codes.length > 0 ? codes.length : ((g as any).codes_count || (g as any).free_codes_count || 0);
-
-        return {
-          id: rawId,
-          name: g.name || 'Tựa Game',
-          slug: slug,
-          publisher: g.publisher || 'Nhà phát hành chính thức',
-          category: cat,
-          rating: typeof g.rating === 'number' ? g.rating : 4.8,
-          icon_url: iconUrl,
-          banner_url: g.banner_url || g.bannerUrl || undefined,
-          description:
-            g.description ||
-            `Tổng hợp trọn bộ giftcode và mã quà tặng độc quyền của game ${g.name}. Cập nhật mới nhất 2026 trên CodeGame.Shop.`,
-          instructions:
-            g.instructions ||
-            'Bước 1: Mở game > Nhấn Avatar nhân vật\nBước 2: Chọn Cài đặt > Nhập Giftcode\nBước 3: Dán mã và nhấn Xác nhận.',
-          platform: g.platform || 'Android, iOS, PC',
-          so_giay_phep: g.so_giay_phep || (g as any).license_number || undefined,
-          ngay_cap_phep: g.ngay_cap_phep || (g as any).license_date || undefined,
-          license_number: (g as any).license_number || g.so_giay_phep || undefined,
-          license_date: (g as any).license_date || g.ngay_cap_phep || undefined,
-          trang_thai_gp: (g as any).trang_thai_gp || (g.so_giay_phep ? 'Đã cấp phép (ABEI)' : undefined),
-          release_date: relDate,
-          download_android: g.download_android || undefined,
-          download_ios: g.download_ios || undefined,
-          download_pc: g.download_pc || undefined,
-          redeem_url: g.redeem_url || undefined,
-          is_featured: Boolean(g.is_featured || g.isFeatured || g.status === 'HOT'),
-          is_hot: Boolean(g.is_hot || g.isHot || g.status === 'HOT' || codesCount > 5),
-          is_new: Boolean(g.is_new || g.isNew || relDate.startsWith('2026-09')),
-          is_active: true,
-          codes_count: codesCount,
-          codes: codes,
-        };
-      });
-
-    this.categories = Array.from(categorySet).filter(Boolean).sort();
-
-    this.fuseInstance = new Fuse(this.games, {
-      keys: [
-        { name: 'name', weight: 0.6 },
-        { name: 'slug', weight: 0.2 },
-        { name: 'publisher', weight: 0.1 },
-        { name: 'category', weight: 0.1 },
-      ],
-      threshold: 0.35,
-      ignoreLocation: true,
-    });
-
-    this.isLoaded = true;
-  }
-
-  /**
-   * Synchronously return initial batch of games for 0ms First Contentful Paint.
-   */
-  public getLocalGamesSync(limit: number = 24): GameItem[] {
-    return (this.games || []).slice(0, limit);
-  }
-
-  /**
-   * Synchronously return categories for 0ms filter render.
-   */
-  public getCategoriesSync(): string[] {
-    return this.categories || [];
-  }
-
-  /**
-   * Synchronously return total count of games in system.
-   */
-  public getTotalGamesCountSync(): number {
-    return (this.games || []).length;
-  }
-
-  /**
-   * Synchronously retrieve full game item with 100% giftcodes from memory in 0ms.
-   * Completely eliminates the 1-3 preview code flash and network delay.
-   */
-  public getGameBySlugLocal(slug: string): GameItem | null {
-    if (!slug) return null;
-    const normSlug = slug.toLowerCase().trim();
-    const cleanWithoutMobile = normSlug.replace(/-mobile$/i, '');
-
-    // Check cachedServerGames first if it has full codes
-    const serverCached = this.cachedServerGames.get(normSlug);
-    if (serverCached && serverCached.codes && serverCached.codes.length > 3) {
-      return serverCached;
-    }
-
-    let found = this.games.find(
-      (g) => (g.slug && g.slug.toLowerCase() === normSlug) || (g.id && g.id.toLowerCase() === normSlug)
-    );
-    if (!found) {
-      found = this.games.find(
-        (g) =>
-          (g.slug && g.slug.toLowerCase().replace(/-mobile$/i, '').trim() === cleanWithoutMobile) ||
-          (g.id && g.id.toLowerCase().replace(/-mobile$/i, '').trim() === cleanWithoutMobile)
-      );
-    }
-    if (!found) {
-      if (normSlug === 'huyen-thoai-hai-tac' || normSlug === 'pirate-legends') {
-        found = this.games.find(
-          (g) => g.slug === 'pirate-legends' || g.slug === 'huyen-thoai-hai-tac'
-        );
-      }
-    }
-    if (!found) return null;
-
-    const codes = this.getCodesForGame(found);
-    const fullCodes = codes.length > 0 ? codes : (found.codes || []);
-    return {
-      ...found,
-      codes: fullCodes,
-      codes_count: fullCodes.length > 0 ? fullCodes.length : (found.codes_count || 0),
-    };
-  }
-
-  private readonly DATASET_VERSION = 'wcg_dataset_2026_10_14_v39';
+  private readonly DATASET_VERSION = 'wcg_dataset_2026_10_10_v38';
 
   private cleanupLegacyV3Data(): void {
     if (typeof window === 'undefined') return;
     try {
       const currentVer = localStorage.getItem('wcg_dataset_version');
       if (currentVer !== this.DATASET_VERSION) {
-        // Clear cached game, code, store products, giveaways and utilities lists to load newest datasets with 100% fresh data
+        // Clear cached game, code, giveaways and utilities lists to load newest datasets with 100% fresh data
         localStorage.removeItem('wcg_admin_games_v5');
         localStorage.removeItem('wcg_admin_free_codes_v5');
         localStorage.removeItem('wcg_admin_games_v4');
         localStorage.removeItem('wcg_admin_free_codes_v4');
         localStorage.removeItem('wcg_admin_utilities_v4');
         localStorage.removeItem('wcg_utilities');
-        localStorage.removeItem('wcg_admin_store_products_v4');
-        localStorage.removeItem(this.STORE_PRODUCTS_KEY);
         localStorage.removeItem('wcg_admin_giveaways_v4');
         localStorage.removeItem(this.GIVEAWAYS_KEY);
         localStorage.setItem('wcg_dataset_version', this.DATASET_VERSION);
@@ -652,12 +426,9 @@ class DataService {
             let hasChanges = false;
             if (json.games && Array.isArray(json.games) && json.games.length > 0) {
               try {
-                const currentGamesRaw = localStorage.getItem('wcg_admin_games_v5');
-                let currentGames: any[] = [];
-                try { currentGames = currentGamesRaw ? JSON.parse(currentGamesRaw) : []; } catch {}
-                const { merged } = smartMergeEntities(currentGames, json.games, 'slug');
-                const newGames = JSON.stringify(merged);
-                if (currentGamesRaw !== newGames) {
+                const currentGames = localStorage.getItem('wcg_admin_games_v5');
+                const newGames = JSON.stringify(json.games);
+                if (currentGames !== newGames) {
                   localStorage.setItem('wcg_admin_games_v5', newGames);
                   hasChanges = true;
                 }
@@ -845,11 +616,8 @@ class DataService {
                   !deletedGwSet.has(g.id) &&
                   !(g.title === '15' && g.game_name && g.game_name.includes('Thiếu Hiệp'))
               );
-              const finalGw = incomingGw.length >= DEFAULT_GIVEAWAYS.length
-                ? incomingGw
-                : smartMergeEntities(DEFAULT_GIVEAWAYS.filter((g) => !deletedGwSet.has(g.id)), incomingGw, 'id').merged;
               const currentGw = localStorage.getItem('wcg_admin_giveaways_v4');
-              const newGw = JSON.stringify(finalGw);
+              const newGw = JSON.stringify(incomingGw);
               if (currentGw !== newGw) {
                 localStorage.setItem('wcg_admin_giveaways_v4', newGw);
                 localStorage.setItem(this.GIVEAWAYS_KEY, newGw);
@@ -880,11 +648,8 @@ class DataService {
               } catch {}
               const delSet = new Set(delList);
               const filtered = json.storeProducts.filter((p: any) => p && p.id && !delSet.has(p.id));
-              const finalSp = filtered.length >= this.defaultStoreProducts.length
-                ? filtered
-                : smartMergeEntities(this.defaultStoreProducts.filter((p) => !delSet.has(p.id)), filtered, 'id').merged;
               const currentSp = localStorage.getItem('wcg_admin_store_products_v4');
-              const newSp = JSON.stringify(finalSp);
+              const newSp = JSON.stringify(filtered);
               if (currentSp !== newSp) {
                 localStorage.setItem('wcg_admin_store_products_v4', newSp);
                 localStorage.setItem(this.STORE_PRODUCTS_KEY, newSp);
@@ -899,11 +664,8 @@ class DataService {
               } catch {}
               const delSet = new Set(delList);
               const filtered = json.utilities.filter((u: any) => u && u.id && !delSet.has(u.id));
-              const finalUt = filtered.length >= this.defaultUtilities.length
-                ? filtered
-                : smartMergeEntities(this.defaultUtilities.filter((u) => !delSet.has(u.id)), filtered, 'id').merged;
               const currentUt = localStorage.getItem('wcg_admin_utilities_v4');
-              const newUt = JSON.stringify(finalUt);
+              const newUt = JSON.stringify(filtered);
               if (currentUt !== newUt) {
                 localStorage.setItem('wcg_admin_utilities_v4', newUt);
                 localStorage.setItem(this.UTILITIES_KEY, newUt);
@@ -1091,11 +853,47 @@ class DataService {
         } catch {}
       }
 
-      // Existing key map for saved codes (e.g. from admin sync)
+      // Dynamically load fallback raw codes & games only if offline/fallback is needed
+      let rawCodesData: any[] = [];
+      let rawGamesData: any[] = [];
+      try {
+        const [codesMod, gamesMod] = await Promise.all([
+          import('../data/crawled_codes_188.json'),
+          import('../data/games188.json'),
+        ]);
+        rawCodesData = codesMod.default || [];
+        rawGamesData = gamesMod.default || [];
+      } catch {}
+
+      const rawCodes: RawCodeItem[] = Array.isArray(rawCodesData) ? (rawCodesData as RawCodeItem[]) : [];
+      const rawFormatted = rawCodes.map((c) => ({
+        id: c.id,
+        gameSlug: c.gameSlug || c.gameId || c.game_slug || c.slug,
+        codeValue: c.codeValue || c.code_value || c.code || c.gift_code,
+        rewards: c.rewards || c.description,
+        status: c.status,
+        expiresAt: c.expiresAt || c.expires_at || c.expiry,
+        createdAt: c.createdAt || c.created_at,
+      }));
+
       const existingKeyMap = new Map<string, any>();
       for (const item of freeCodesList) {
         if (item.gameSlug && item.codeValue) {
           existingKeyMap.set(`${item.gameSlug}___${item.codeValue.trim().toUpperCase()}`, item);
+        }
+      }
+      for (const raw of rawFormatted) {
+        if (raw.gameSlug && raw.codeValue) {
+          const key = `${raw.gameSlug}___${raw.codeValue.trim().toUpperCase()}`;
+          const existing = existingKeyMap.get(key);
+          if (existing) {
+            existing.status = raw.status;
+            existing.rewards = raw.rewards;
+            existing.expiresAt = raw.expiresAt;
+          } else {
+            freeCodesList.push(raw);
+            existingKeyMap.set(key, raw);
+          }
         }
       }
 
@@ -1168,16 +966,16 @@ class DataService {
         this.codesMap.set(slug, [...customList, ...list]);
       }
 
-      // 3. Load Games (Monotonic Union: ensure all bundled games exist, plus any admin additions)
-      let savedGamesList: any[] = [];
+      // 3. Load Games (Prefer Admin Database, fallback to JSON)
+      let gamesList: any[] = [];
       const savedGames = localStorage.getItem('wcg_admin_games_v5');
       if (savedGames !== null) {
         try {
-          savedGamesList = JSON.parse(savedGames);
+          gamesList = JSON.parse(savedGames);
         } catch {}
+      } else {
+        gamesList = Array.isArray(rawGamesData) ? (rawGamesData as RawGame[]) : [];
       }
-      const fallbackGames = Array.isArray(rawGamesData) ? (rawGamesData as RawGame[]) : [];
-      const gamesList = smartMergeEntities(savedGamesList, fallbackGames, 'slug').merged;
 
       const categorySet = new Set<string>();
 
@@ -1250,10 +1048,10 @@ class DataService {
             download_pc: g.download_pc || undefined,
             redeem_url: g.redeem_url || undefined,
             is_featured: Boolean(g.is_featured || g.isFeatured || g.status === 'HOT'),
-            is_hot: Boolean(g.is_hot || g.isHot || g.status === 'HOT' || existingCodes.length > 5 || (g.codes_count || 0) > 5),
+            is_hot: Boolean(g.is_hot || g.isHot || g.status === 'HOT' || existingCodes.length > 5),
             is_new: Boolean(g.is_new || g.isNew || relDate.startsWith('2026-09')),
             is_active: true,
-            codes_count: existingCodes.length > 0 ? existingCodes.length : ((g as any).codes_count || (g as any).free_codes_count || 0),
+            codes_count: existingCodes.length,
             codes: existingCodes,
           };
         });
@@ -1273,11 +1071,9 @@ class DataService {
       });
 
       this.isLoaded = true;
-      this.notifyListeners();
     } catch (err) {
       console.error('DataService processing error:', err);
       this.isLoaded = true;
-      this.notifyListeners();
     }
   }
 
@@ -1301,11 +1097,8 @@ class DataService {
   }
 
   getGames(): GameItem[] {
-    if (!this.isLoaded || !this.games || this.games.length === 0) {
-      if ((!this.games || this.games.length === 0) && Array.isArray(rawGamesData) && rawGamesData.length > 0) {
-        this.games = rawGamesData as unknown as GameItem[];
-      }
-      this.processData().catch(() => {});
+    if (!this.isLoaded) {
+      this.processData();
     }
     return this.games || [];
   }
@@ -1360,21 +1153,12 @@ class DataService {
           if (Array.isArray(json.categories) && json.categories.length > 0) {
             this.categories = json.categories;
           }
-          // Enrich retrieved games with full local codes so clicking them is 0ms instant!
-          const enrichedGames = json.games.map((g: GameItem) => {
-            const localCodes = this.getCodesForGame(g);
-            const fullCodes = localCodes.length > 0 ? localCodes : (g.codes || []);
-            const fullItem = {
-              ...g,
-              codes: fullCodes,
-              codes_count: typeof g.codes_count === 'number' && g.codes_count > 0 ? g.codes_count : fullCodes.length,
-            };
-            if (g.slug) this.cachedServerGames.set(g.slug.toLowerCase(), fullItem);
-            if (g.id) this.cachedServerGames.set(g.id.toLowerCase(), fullItem);
-            return fullItem;
-          });
+          // Cache retrieved games into memory
+          for (const g of json.games) {
+            if (g && g.slug) this.cachedServerGames.set(g.slug, g);
+          }
           return {
-            items: enrichedGames,
+            items: json.games,
             total: typeof json.total === 'number' ? json.total : json.games.length,
             totalPages: typeof json.totalPages === 'number' ? json.totalPages : 1,
             hasMore: Boolean(json.hasMore),
@@ -1642,26 +1426,23 @@ class DataService {
   async getGameBySlug(slug: string, forceFresh: boolean = false): Promise<GameItem | null> {
     if (!slug) return null;
     const normSlug = slug.toLowerCase().trim();
+    const cleanWithoutMobile = normSlug.replace(/-mobile$/i, '');
 
-    // 1. Immediately check local authoritative in-memory game first (0ms instant)
-    const localGame = this.getGameBySlugLocal(slug);
-    if (!forceFresh && localGame && localGame.codes && localGame.codes.length > 0) {
-      return localGame;
+    // 1. Check if cached game has full codes list (> 3 codes or verified complete) AND was fetched within last 5s
+    const lastFetch = this.cachedGameFetchTime.get(normSlug) || 0;
+    const isFresh = Date.now() - lastFetch < 5000;
+    const memCached = this.cachedServerGames.get(normSlug);
+    if (!forceFresh && isFresh && memCached && memCached.codes && memCached.codes.length > 3) {
+      return memCached;
     }
 
-    // 2. Fetch fresh update from Serverless API if requested or needed
+    // 2. Fetch full game details with complete giftcode pool from Serverless D1 API
     try {
-      const res = await fetch(`/api/games?slug=${encodeURIComponent(slug)}`);
+      const res = await fetch(`/api/games?slug=${encodeURIComponent(slug)}&fresh=1`);
       if (res.ok) {
         const json = await res.json();
         if (json && json.success && json.game) {
           const game = json.game;
-          // Ensure codes list is never truncated
-          const localCodes = this.getCodesForGame(game);
-          if (localCodes.length > (game.codes?.length || 0)) {
-            game.codes = localCodes;
-            game.codes_count = localCodes.length;
-          }
           this.cachedServerGames.set(game.slug.toLowerCase(), game);
           if (game.id) this.cachedServerGames.set(game.id.toLowerCase(), game);
           this.cachedGameFetchTime.set(game.slug.toLowerCase(), Date.now());
@@ -1673,7 +1454,51 @@ class DataService {
       // Fallback to local
     }
 
-    return localGame;
+    // 3. Fallback to local memory / bundled dataset with tiered priority lookup
+    await this.init();
+
+    // Tier 1: Exact Match on slug or id
+    let game = this.games.find(
+      (g) => (g.slug && g.slug.toLowerCase() === normSlug) || (g.id && g.id.toLowerCase() === normSlug)
+    );
+
+    // Tier 2: Exact Match on generated nameSlug
+    if (!game) {
+      game = this.games.find(
+        (g) => g.name && g.name.toLowerCase().replace(/[^a-z0-9]+/g, '-') === normSlug
+      );
+    }
+
+    // Tier 3: Known Specific Aliases
+    if (!game) {
+      if (normSlug === 'huyen-thoai-hai-tac' || normSlug === 'pirate-legends') {
+        game = this.games.find(
+          (g) =>
+            g.slug === 'huyen-thoai-hai-tac' ||
+            g.slug === 'pirate-legends' ||
+            g.id === 'huyen-thoai-hai-tac' ||
+            g.id === 'pirate-legends'
+        );
+      }
+    }
+
+    // Tier 4: Match without -mobile suffix (Only if no exact match found above)
+    if (!game) {
+      game = this.games.find(
+        (g) =>
+          (g.slug && g.slug.toLowerCase().replace(/-mobile$/i, '').trim() === cleanWithoutMobile) ||
+          (g.id && g.id.toLowerCase().replace(/-mobile$/i, '').trim() === cleanWithoutMobile)
+      );
+    }
+    if (!game) return null;
+
+    const codes = this.getCodesForGame(game);
+    const finalCodes = codes.length > 0 ? codes : (game.codes || []);
+    return {
+      ...game,
+      codes: finalCodes,
+      codes_count: finalCodes.length,
+    };
   }
 
   /**
@@ -2098,13 +1923,10 @@ class DataService {
       }
     } catch {}
 
-    if (prods === null || prods.length === 0) {
-      prods = this.defaultStoreProducts.filter((p) => p && p.id && !deletedSet.has(p.id));
+    if (prods === null) {
+      prods = [];
     } else {
       prods = prods.filter((p) => p && p.id && !p.id.startsWith('ut_') && !deletedSet.has(p.id));
-      if (prods.length === 0 && this.defaultStoreProducts.length > 0) {
-        prods = this.defaultStoreProducts.filter((p) => p && p.id && !deletedSet.has(p.id));
-      }
     }
 
     return prods.map((p) => {
@@ -2362,13 +2184,10 @@ class DataService {
       }
     } catch {}
 
-    if (utilities === null || utilities.length === 0) {
-      utilities = this.defaultUtilities.filter((u) => u && u.id && !deletedSet.has(u.id));
+    if (utilities === null) {
+      utilities = [];
     } else {
       utilities = utilities.filter((u) => u && u.id && !u.id.startsWith('sp_') && !deletedSet.has(u.id));
-      if (utilities.length === 0 && this.defaultUtilities.length > 0) {
-        utilities = this.defaultUtilities.filter((u) => u && u.id && !deletedSet.has(u.id));
-      }
     }
 
     return utilities.map((u) => {

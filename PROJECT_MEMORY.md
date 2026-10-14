@@ -93,19 +93,6 @@
 - Chỉ duy nhất tài khoản Telegram của Chủ sở hữu (`ID: 7791142901`) có quyền tương tác, nhận báo cáo và kích hoạt bot tự động.
 - Mọi API admin được bảo vệ bằng Secret Token `ADMIN_SYNC_SECRET`.
 
-### 3.6. Quy Tắc Bất Khả Xâm Phạm Về Dữ Liệu & Chống Hồi Quy (Permanent Anti-Regression Architecture)
-- **Sàn Dữ Liệu Bất Di Bất Dịch (Immutable Catalog Floors)**:
-  - 🎮 **Games**: Tối thiểu $\ge 623$ tựa game chuẩn giấy phép ABEI.
-  - 🎁 **Giftcodes**: Tối thiểu $\ge 5,321$ mã quà tặng phong phú.
-  - 📡 **Crawler Sources**: Tối thiểu $\ge 933$ nguồn quét & cào giftcode tự động.
-- **Phép Hợp Tăng Tiến Đơn Điệu (Monotonic Set Union)**:
-  - Mọi thao tác tải hoặc lưu danh mục từ API hoặc Client **BẮT BUỘC** thông qua hàm `smartMergeEntities` trong `src/shared/dataMergeUtils.ts`.
-  - Nghiêm cấm gán mảng trực tiếp (`this.games = json.games`) nếu chưa hợp nhất có sàn bảo vệ.
-- **Canonical Schema Adapter**:
-  - `functions/api/sync.ts` sử dụng `extractIncomingData` tiếp nhận đồng thời cả direct properties lẫn `{ key, data }`, ngăn chặn 100% việc lệch key giữa KV và D1.
-- **Pre-Deploy Gatekeeper (`scripts/verify_data_integrity.cjs`)**:
-  - Tự động chạy ở Bước 0 của mỗi lần `npm run build`. Nếu bất kỳ chỉ số nào tụt giảm dưới sàn cam kết, tiến trình build sẽ lập tức bị hủy bỏ (`exit code 1`).
-
 ---
 
 ## 4. BẢN ĐỒ DỮ LIỆU & STATE MANAGEMENT

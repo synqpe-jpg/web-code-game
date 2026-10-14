@@ -2010,7 +2010,7 @@ export async function loadAllStoreProductsD1(db: D1Database): Promise<any[]> {
         CASE 
           WHEN (SELECT COUNT(*) FROM inventory_codes ic WHERE ic.product_id = sp.id) > 0 
           THEN (SELECT COUNT(*) FROM inventory_codes ic WHERE ic.product_id = sp.id AND ic.status = 'AVAILABLE')
-          ELSE 0 
+          ELSE sp.stock_quantity 
         END AS stock_quantity,
         CASE 
           WHEN (SELECT COUNT(*) FROM inventory_codes ic WHERE ic.product_id = sp.id) > 0 
@@ -2033,9 +2033,6 @@ export async function loadAllStoreProductsD1(db: D1Database): Promise<any[]> {
       ORDER BY sp.id ASC
     `).all();
     const rows = (res && res.results) || [];
-    if (rows.length === 0 && Array.isArray(metaSetting) && metaSetting.length > 0) {
-      return metaSetting;
-    }
     return rows.map((r: any) => {
       const meta = metaMap.get(r.id) || {};
       return {
@@ -2080,7 +2077,7 @@ export async function loadAllUtilitiesD1(db: D1Database): Promise<any[]> {
           CASE 
             WHEN (SELECT COUNT(*) FROM inventory_codes ic WHERE ic.product_id = u.id) > 0 
             THEN (SELECT COUNT(*) FROM inventory_codes ic WHERE ic.product_id = u.id AND ic.status = 'AVAILABLE')
-            ELSE 0 
+            ELSE u.stock_quantity 
           END AS stock_quantity,
           CASE 
             WHEN (SELECT COUNT(*) FROM inventory_codes ic WHERE ic.product_id = u.id) > 0 
@@ -2130,10 +2127,6 @@ export async function loadAllUtilitiesD1(db: D1Database): Promise<any[]> {
         ORDER BY u.id ASC
       `).all().catch(() => null);
       rows = (fallbackRes && fallbackRes.results) || [];
-    }
-
-    if (rows.length === 0 && Array.isArray(metaSetting) && metaSetting.length > 0) {
-      return metaSetting;
     }
 
     return rows.map((r: any) => {
@@ -2299,9 +2292,6 @@ export async function loadAllGiveawaysD1(db: D1Database, includeCodes: boolean =
       ORDER BY g.created_at DESC
     `).all();
     const rows = (res && res.results) || [];
-    if (rows.length === 0 && Array.isArray(metaSetting) && metaSetting.length > 0) {
-      return metaSetting;
-    }
     const list = rows.map((gw: any) => {
       const meta = metaMap.get(gw.id) || {};
       return {
