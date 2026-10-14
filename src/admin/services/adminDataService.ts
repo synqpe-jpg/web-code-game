@@ -112,9 +112,9 @@ class AdminDataService {
     isConnected: true,
     webhookUrl: 'https://admin-code-game-shop.pages.dev/api/webhooks/sepay',
     webhookSecretSet: true,
-    bankAccount: 'CONG TY TNHH WEB CODE GAME',
-    accountNumber: '0987654321',
-    bankName: 'MBBank (Ngân Hàng Quân Đội)',
+    bankAccount: 'CODE GAME SHOP',
+    accountNumber: '10004681879',
+    bankName: 'TPBank',
     paymentPrefix: 'WCG',
     environment: 'PRODUCTION',
     lastWebhookAt: '2026-09-28T10:15:00Z',
@@ -594,7 +594,17 @@ class AdminDataService {
       const savedSePay = localStorage.getItem(this.KEYS.SEPAY);
       if (savedSePay) {
         try {
-          this.sepayConfig = JSON.parse(savedSePay);
+          const parsed = JSON.parse(savedSePay);
+          if (parsed && typeof parsed === 'object') {
+            const isDummy = !parsed.accountNumber || parsed.accountNumber === '0987654321';
+            this.sepayConfig = {
+              ...this.sepayConfig,
+              ...parsed,
+              bankAccount: isDummy ? 'CODE GAME SHOP' : (parsed.bankAccount || 'CODE GAME SHOP'),
+              accountNumber: isDummy ? '10004681879' : (parsed.accountNumber || '10004681879'),
+              bankName: isDummy ? 'TPBank' : (parsed.bankName || 'TPBank'),
+            };
+          }
         } catch {}
       }
 

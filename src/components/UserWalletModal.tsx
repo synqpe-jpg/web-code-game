@@ -29,7 +29,7 @@ import { marketingService } from '../services/marketingService';
 import { growthService } from '../services/growthService';
 import type { UserProfile } from '../types/game';
 import { formatCore, formatFullDateTime } from '../utils/textUtils';
-import { buildVietQrUrl } from '../utils/vietQrUtils';
+import { buildVietQrUrl, generateVietQrDataUrl } from '../utils/vietQrUtils';
 
 interface UserWalletModalProps {
   isOpen: boolean;
@@ -56,6 +56,7 @@ export const UserWalletModal: React.FC<UserWalletModalProps> = ({
   const [copiedKey, setCopiedKey] = useState<string | null>(null);
   const [sepayConfig, setSepayConfig] = useState(() => dataService.getSePayConfig());
   const [depositHistory, setDepositHistory] = useState<any[]>([]);
+  const [qrDataUrl, setQrDataUrl] = useState<string>('');
 
   // Stable references to prevent infinite re-render cascades
   const lastKnownBalanceRef = React.useRef(user?.wallet_balance || 0);
@@ -179,19 +180,6 @@ export const UserWalletModal: React.FC<UserWalletModalProps> = ({
     );
   };
 
-  if (!isOpen) return null;
-
-  const quickAmounts = [
-    { core: 10000 },
-    { core: 20000 },
-    { core: 50000 },
-    { core: 100000 },
-    { core: 200000 },
-    { core: 500000 },
-    { core: 1000000 },
-    { core: 2000000 },
-  ];
-
   const topupAmount = parseInt(customInput.replace(/\D/g, ''), 10) || 0;
   const isValidAmount = topupAmount >= MIN_TOPUP;
 
@@ -205,19 +193,57 @@ export const UserWalletModal: React.FC<UserWalletModalProps> = ({
   const prefix = rawPrefix || 'WCG';
   const transferContent = `${prefix} ${memberCode}`;
 
-  const bankAccount = sepayConfig?.bankAccount || 'CONG TY TNHH WEB CODE GAME';
-  const accountNumber = sepayConfig?.accountNumber || '0987654321';
-  const rawBankName = sepayConfig?.bankName || 'MBBank';
+  const bankAccount = sepayConfig?.bankAccount || 'CODE GAME SHOP';
+  const accountNumber = sepayConfig?.accountNumber || '10004681879';
+  const rawBankName = sepayConfig?.bankName || 'TPBank';
 
-  const qrData = buildVietQrUrl({
+  const qrData = React.useMemo(() => buildVietQrUrl({
     accountNumber,
     bankName: rawBankName,
     amount: topupAmount,
     content: transferContent,
     accountName: bankAccount,
-  });
+  }), [accountNumber, rawBankName, topupAmount, transferContent, bankAccount]);
 
   const displayBankName = qrData.bankInfo.name;
+
+  // Generate local Base64 VietQR data URL immediately for 0ms render & 100% adblocker immunity
+  useEffect(() => {
+    let isMounted = true;
+    if (isOpen && isValidAmount && accountNumber) {
+      generateVietQrDataUrl({
+        accountNumber,
+        bankName: rawBankName,
+        amount: topupAmount,
+        content: transferContent,
+      })
+        .then((url) => {
+          if (isMounted) setQrDataUrl(url);
+        })
+        .catch((err) => {
+          console.warn('[VietQR] Failed to generate local QR data URL, falling back to CDN:', err);
+          if (isMounted) setQrDataUrl(qrData.primaryUrl);
+        });
+    } else {
+      setQrDataUrl('');
+    }
+    return () => {
+      isMounted = false;
+    };
+  }, [isOpen, isValidAmount, accountNumber, rawBankName, topupAmount, transferContent, qrData.primaryUrl]);
+
+  if (!isOpen) return null;
+
+  const quickAmounts = [
+    { core: 10000 },
+    { core: 20000 },
+    { core: 50000 },
+    { core: 100000 },
+    { core: 200000 },
+    { core: 500000 },
+    { core: 1000000 },
+    { core: 2000000 },
+  ];
 
   const handleCopy = (text: string, key: string) => {
     navigator.clipboard.writeText(text);
@@ -497,17 +523,29 @@ export const UserWalletModal: React.FC<UserWalletModalProps> = ({
                       {/* Dynamic VietQR Image Frame */}
                       <div className="w-36 h-36 sm:w-40 sm:h-40 bg-white rounded-xl p-2 shrink-0 shadow-sm flex items-center justify-center border border-slate-300 dark:border-border">
                         {isValidAmount ? (
-                          <img
-                            src={qrData.primaryUrl}
-                            alt="Mã QR Chuyển Khoản Nạp Core"
-                            className="w-full h-full object-contain"
-                            onError={(e) => {
-                              const target = e.target as HTMLImageElement;
-                              if (target.src !== qrData.fallbackUrl) {
-                                target.src = qrData.fallbackUrl;
-                              }
-                            }}
-                          />
+                          qrDataUrl ? (
+                            <img
+                              src={qrDataUrl}
+                              alt="Mã QR Chuyển Khoản Nạp Core"
+                              className="w-full h-full object-contain"
+                            />
+                          ) : (
+                            <img
+                              src={qrData.primaryUrl}
+                              alt="Mã QR Chuyển Khoản Nạp Core"
+                              className="w-full h-full object-contain"
+                              crossOrigin="anonymous"
+                              referrerPolicy="no-referrer"
+                              onError={(e) => {
+                                const target = e.target as HTMLImageElement;
+                                if (qrDataUrl) {
+                                  target.src = qrDataUrl;
+                                } else if (target.src !== qrData.fallbackUrl) {
+                                  target.src = qrData.fallbackUrl;
+                                }
+                              }}
+                            />
+                          )
                         ) : (
                           <div className="text-center p-2 text-rose-400 text-[10.5px] font-medium flex flex-col items-center justify-center gap-1.5 h-full">
                             <AlertCircle className="w-5 h-5 text-rose-400" />

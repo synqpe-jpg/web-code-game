@@ -609,6 +609,23 @@
 
 ---
 
+### ISSUE-034: Bẫy Đặt Hook Phía Sau Early Return Trong Modal Nạp Tiền & Lỗi Trình Duyệt Cốc Cốc Chặn Ảnh QR Bên Thứ Ba
+- **Triệu chứng**:
+  1. Khi mở hoặc đóng modal nạp tiền `UserWalletModal`, ứng dụng React bị sập với mã lỗi `React error #310` ("Rendered more hooks than during the previous render").
+  2. Trên trình duyệt Cốc Cốc hoặc trình duyệt có cài tiện ích chặn quảng cáo (uBlock Origin, AdGuard), khung hiển thị mã QR thanh toán nạp Core bị vỡ icon ảnh hoặc báo lỗi mạng không tải được ảnh từ CDN bên ngoài (`qr.sepay.vn` hoặc `img.vietqr.io`).
+- **Nguyên nhân gốc rễ**:
+  1. *Vi phạm React Rules of Hooks*: Trong `UserWalletModal.tsx`, câu lệnh thoát sớm `if (!isOpen) return null;` được đặt ở dòng 182. Nếu đặt `useEffect` hoặc hook nào phía dưới câu lệnh này, React sẽ ghi nhận số lượng hook bị thay đổi khi modal chuyển từ đóng sang mở hoặc ngược lại $\rightarrow$ gây crash sập toàn bộ component cây DOM.
+  2. *Chặn ảnh QR CDN bên ngoài*: CDN của các dịch vụ sinh QR bên ngoài (`qr.sepay.vn`, `vietqr.io`) thường nằm trong danh sách bộ lọc EasyPrivacy / Fanboy's Annoyance của trình duyệt Cốc Cốc và adblockers, khiến yêu cầu tải ảnh PNG bị chặn (ERR_BLOCKED_BY_CLIENT).
+- **Giải pháp chuẩn đã kiểm chứng**:
+  1. *Tuân thủ 100% Rules of Hooks*: Di chuyển toàn bộ khai báo State, Refs, useMemo, và `useEffect` sinh `qrDataUrl` lên top-level của component, nằm hoàn toàn trước câu lệnh `if (!isOpen) return null;`.
+  2. *Sinh mã VietQR nội bộ chuẩn EMVCo Base64*: Sử dụng thư viện `qrcode` và bộ tạo chuỗi EMVCo NAPAS 247 cục bộ (`generateVietQrDataUrl` trong `vietQrUtils.ts`) sinh Data URL Base64 (`data:image/png;base64,...`) ngay trong trình duyệt. Không gọi bất kỳ network request nào ra bên ngoài $\rightarrow$ Miễn nhiễm 100% với Adblocker, Cốc Cốc, và lỗi gián đoạn mạng.
+  3. *Chuẩn hóa tài khoản TPBank*: Fallback mặc định trong cả `UserWalletModal.tsx` và `adminDataService.ts` luôn là **TPBank - 10004681879 - CODE GAME SHOP**.
+- ⛔ **CÁCH SỬA ĐÃ THẤT BẠI - TUYỆT ĐỐI KHÔNG LẶP LẠI**:
+  - ❌ *Tuyệt đối không đặt bất kỳ hook (`useEffect`, `useState`, `useMemo`) phía dưới `if (!isOpen) return null;`*: Sẽ gây lỗi React crash #310 ngay lập tức khi mở modal.
+  - ❌ *Không chỉ sử dụng URL ảnh CDN `qr.sepay.vn` làm nguồn duy nhất*: Sẽ bị Cốc Cốc và uBlock Origin chặn làm vỡ icon ảnh mã QR.
+
+---
+
 ## 2. QUY TRÌNH BẮT BUỘC TRƯỚC KHI SỬA CODE (PRE-FLIGHT CHECKLIST)
 
 Mọi nhà phát triển hoặc AI Agent khi nhận yêu cầu sửa đổi mã nguồn **PHẢI** thực hiện đủ 4 bước sau:

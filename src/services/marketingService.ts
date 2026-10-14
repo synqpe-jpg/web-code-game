@@ -1775,6 +1775,21 @@ class MarketingService {
     if (!id) return 0;
     if (typeof localStorage !== 'undefined') {
       try {
+        const invRaw = localStorage.getItem('wcg_admin_inventory_v4');
+        if (invRaw) {
+          const invList = JSON.parse(invRaw);
+          if (Array.isArray(invList) && invList.length > 0) {
+            const matching = invList.filter(
+              (i: any) => i && (i.sku === id || i.product_id === id)
+            );
+            if (matching.length > 0) {
+              const s = matching.filter((i: any) => i.status === 'AVAILABLE').length;
+              this.productRealStockMap.set(id, s);
+              return s;
+            }
+          }
+        }
+
         const utRaw = localStorage.getItem('wcg_admin_utilities_v4');
         if (utRaw) {
           const utList = JSON.parse(utRaw);

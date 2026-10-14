@@ -1972,7 +1972,23 @@ class DataService {
     }
 
     return prods.map((p) => {
-      const stock = Math.max(0, Number(p.stock_quantity ?? 0));
+      let stock = Math.max(0, Number(p.stock_quantity ?? 0));
+      try {
+        if (typeof localStorage !== 'undefined') {
+          const invRaw = localStorage.getItem('wcg_admin_inventory_v4');
+          if (invRaw) {
+            const invList = JSON.parse(invRaw);
+            if (Array.isArray(invList) && invList.length > 0) {
+              const matching = invList.filter(
+                (i: any) => i && (i.sku === p.id || ((p as any).sku && i.sku === (p as any).sku) || (i.productName && p.title && String(i.productName).trim().toLowerCase() === String(p.title).trim().toLowerCase()))
+              );
+              if (matching.length > 0) {
+                stock = matching.filter((i: any) => i.status === 'AVAILABLE').length;
+              }
+            }
+          }
+        }
+      } catch {}
       return {
         ...p,
         stock_quantity: stock,
@@ -2233,7 +2249,23 @@ class DataService {
     }
 
     return utilities.map((u) => {
-      const stock = Math.max(0, Number(u.stock_quantity ?? 0));
+      let stock = Math.max(0, Number(u.stock_quantity ?? 0));
+      try {
+        if (typeof localStorage !== 'undefined') {
+          const invRaw = localStorage.getItem('wcg_admin_inventory_v4');
+          if (invRaw) {
+            const invList = JSON.parse(invRaw);
+            if (Array.isArray(invList) && invList.length > 0) {
+              const matching = invList.filter(
+                (i: any) => i && (i.sku === u.id || (u.sku && i.sku === u.sku) || (i.productName && u.title && String(i.productName).trim().toLowerCase() === String(u.title).trim().toLowerCase()))
+              );
+              if (matching.length > 0) {
+                stock = matching.filter((i: any) => i.status === 'AVAILABLE').length;
+              }
+            }
+          }
+        }
+      } catch {}
       return {
         ...u,
         stock_quantity: stock,

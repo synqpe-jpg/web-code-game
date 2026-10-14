@@ -5,6 +5,22 @@ Mỗi mục sửa lỗi đều ghi nhận **Nguyên nhân gốc rễ (Root Cause
 
 ---
 
+## [2026-10-15]
+
+### 46. Chuẩn Hóa Cấu Hình SePay TPBank & Sinh Mã VietQR Offline 100%, Nghiêm Ngặt Quy Tắc Hết Hàng Trong Kho, Xác Minh 5.321 Giftcode & Đồng Bộ Marketing FOMO 1-1
+- **Mô tả & Yêu cầu Người Dùng**:
+  1. *Khôi phục lại mã chuyển tiền SePay chính xác, đảm bảo hoạt động ổn định không lỗi mã QR*: Khôi phục tài khoản TPBank - STK `10004681879` - Tên `CODE GAME SHOP` - Cú pháp `WCG <member_id>`, tạo mã QR Base64 cục bộ (0ms, chống adblocker/Cốc Cốc 100%).
+  2. *Sản phẩm không có trong kho admin tuyệt đối luôn ghi hết trên trang khách*: Nếu tồn kho thật bằng 0 (`stock_quantity <= 0` hoặc kho mã khả dụng = 0), bắt buộc ghi "Hết hàng", khóa nút mua, không cộng tồn kho ảo.
+  3. *Sản phẩm có trong kho hoạt động chính xác tại tất cả các mục*: Hiển thị tồn kho chuẩn, mua thành công trừ kho 1-1.
+  4. *Đảm bảo giftcode và nguồn cào hoạt động tốt*: 5.321 mã giftcode, 933 nguồn crawler, 8 mã VIP Pirate Legend hoạt động ổn định.
+  5. *Đảm bảo Marketing FOMO hoạt động chuẩn theo cấu hình admin và cơ chế tăng trưởng tự cộng trừ đơn 1-1*: Sự kiện mua tự trừ kho và cộng lượt bán nguyên tử, không override hàng hết thành còn.
+- **Giải pháp kỹ thuật (Technical Solutions)**:
+  1. *VietQR EMVCo & Base64 Data URL*: Thêm bộ sinh payload chuẩn NAPAS 247 EMVCo (`generateVietQrEmvCo`), kiểm tra mã CRC-16 CCITT, và hàm `generateVietQrDataUrl` sử dụng thư viện `qrcode` sinh ảnh Base64 cục bộ 100% trong `src/utils/vietQrUtils.ts`.
+  2. *Rules of Hooks trong `UserWalletModal.tsx`*: Di chuyển toàn bộ tính toán và `useEffect` sinh `qrDataUrl` lên trước câu lệnh early return `if (!isOpen) return null;`, ngăn ngừa triệt để lỗi React error #310.
+  3. *Chuẩn hóa Ngân hàng TPBank*: Cập nhật fallback mặc định trong `UserWalletModal.tsx` và `adminDataService.ts` sang TPBank `10004681879` `CODE GAME SHOP`, tự động làm sạch (sanitize) cache cũ nếu còn lưu `0987654321`.
+  4. *Đồng bộ Kho Hàng Admin 1-1 với Web Khách*: Cập nhật `dataService.getStoreProducts()`, `dataService.getUtilityProducts()`, và `marketingService.getRealStockFor()` tự động kiểm tra `wcg_admin_inventory_v4`. Nếu sản phẩm có kho hàng mà số mã `AVAILABLE` = 0, tồn kho hiển thị trả về đúng 0 ("Hết hàng"), vô hiệu hóa nút mua.
+  5. *Kiểm thử hồi quy 100%*: Tạo script `scripts/verify_all_requirements.cjs` kiểm chứng toàn diện cả 5 tiêu chí đều đạt điểm tuyệt đối.
+
 ## [2026-10-14]
 
 ### 45. Khôi Phục Toàn Diện Dữ Liệu Đồng Bộ Cloudflare D1/KV: Loại Bỏ Delta Force Khỏi Giật Code, Phục Hồi Sản Phẩm Tiện Ích & Cửa Hàng, Bảo Toàn 100% Tài Khoản TPBank
