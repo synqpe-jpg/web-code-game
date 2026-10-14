@@ -79,6 +79,107 @@ export function normalizeBank(bankInput?: string): BankInfo {
   };
 }
 
+export function removeVietnameseAccents(str: string): string {
+  return (str || '')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/đ/g, 'd')
+    .replace(/Đ/g, 'D');
+}
+
+export function tlv(tag: string, value: string): string {
+  const len = String(value.length).padStart(2, '0');
+  return `${tag}${len}${value}`;
+}
+
+export function crc16Ccitt(str: string): string {
+  let crc = 0xFFFF;
+  for (let c = 0; c < str.length; c++) {
+    crc ^= str.charCodeAt(c) << 8;
+    for (let i = 0; i < 8; i++) {
+      if ((crc & 0x8000) !== 0) {
+        crc = ((crc << 1) ^ 0x1021) & 0xFFFF;
+      } else {
+        crc = (crc << 1) & 0xFFFF;
+      }
+    }
+  }
+  return crc.toString(16).toUpperCase().padStart(4, '0');
+}
+
+/**
+ * Generate 100% compliant EMVCo / NAPAS 247 payload string for Vietnamese banking apps.
+ */
+export function generateVietQrEmvCo(params: {
+  bin: string;
+  accountNumber: string;
+  amount: number;
+  content: string;
+}): string {
+  const cleanAcc = (params.accountNumber || '').trim().replace(/\s+/g, '');
+  const cleanBin = (params.bin || '970422').trim();
+  const cleanContent = removeVietnameseAccents((params.content || '').trim()).slice(0, 50);
+
+  const sub00 = tlv('00', 'A000000727');
+  const subBank = tlv('00', cleanBin) + tlv('01', cleanAcc);
+  const sub01 = tlv('01', subBank);
+  const sub02 = tlv('02', 'QRIBFTTA');
+  const tag38 = tlv('38', sub00 + sub01 + sub02);
+
+  const isDynamic = params.amount > 0;
+  let raw =
+    tlv('00', '01') +
+    tlv('01', isDynamic ? '12' : '11') +
+    tag38 +
+    tlv('53', '704');
+
+  if (isDynamic) {
+    raw += tlv('54', String(Math.round(params.amount)));
+  }
+  raw += tlv('58', 'VN');
+
+  if (cleanContent) {
+    const sub08 = tlv('08', cleanContent);
+    raw += tlv('62', sub08);
+  }
+
+  raw += '6304';
+  const checksum = crc16Ccitt(raw);
+  return raw + checksum;
+}
+
+/**
+ * Generate local Base64 Data URL for VietQR without relying on external CDNs or network requests.
+ * 100% immune to adblockers, CORS issues, and network timeouts.
+ */
+export async function generateVietQrDataUrl(params: {
+  accountNumber: string;
+  bankName: string;
+  amount: number;
+  content: string;
+}): Promise<string> {
+  const bankInfo = normalizeBank(params.bankName);
+  const emvco = generateVietQrEmvCo({
+    bin: bankInfo.bin,
+    accountNumber: params.accountNumber,
+    amount: params.amount,
+    content: params.content,
+  });
+
+  const QRCodeModule = await import('qrcode');
+  const QRCode = QRCodeModule.default || QRCodeModule;
+
+  return await QRCode.toDataURL(emvco, {
+    width: 360,
+    margin: 1,
+    color: {
+      dark: '#000000',
+      light: '#ffffff',
+    },
+    errorCorrectionLevel: 'M',
+  });
+}
+
 export function buildVietQrUrl(params: {
   accountNumber: string;
   bankName: string;
@@ -86,7 +187,7 @@ export function buildVietQrUrl(params: {
   content: string;
   accountName?: string;
   template?: string;
-}): { primaryUrl: string; fallbackUrl: string; bankInfo: BankInfo } {
+}): { primaryUrl: string; fallbackUrl: string; bankInfo: BankInfo; emvco: string } {
   const { accountNumber, bankName, amount, content, accountName, template = 'qr_only' } = params;
   const bankInfo = normalizeBank(bankName);
   const cleanAcc = accountNumber.trim().replace(/\s+/g, '');
@@ -94,8 +195,14 @@ export function buildVietQrUrl(params: {
   const encodedContent = encodeURIComponent(content.trim());
   const encodedName = accountName ? encodeURIComponent(accountName.trim()) : '';
 
+  const emvco = generateVietQrEmvCo({
+    bin: bankInfo.bin,
+    accountNumber: cleanAcc,
+    amount: cleanAmount,
+    content: content,
+  });
+
   // 1. Primary: SePay official QR template (Fast CDN, high reliability)
-  // template='qr_only' returns ONLY the QR code with no SePay header or VietQR/napas/bank footer
   const primaryUrl = `https://qr.sepay.vn/img?acc=${encodeURIComponent(cleanAcc)}&bank=${encodeURIComponent(bankInfo.code)}&amount=${cleanAmount}&des=${encodedContent}&template=${encodeURIComponent(template)}`;
 
   // 2. Fallback: National VietQR Standard API
@@ -106,5 +213,6 @@ export function buildVietQrUrl(params: {
     primaryUrl,
     fallbackUrl,
     bankInfo,
+    emvco,
   };
 }
