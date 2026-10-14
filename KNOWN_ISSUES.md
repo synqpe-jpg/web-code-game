@@ -589,6 +589,24 @@
 - ⛔ **CÁCH SỬA ĐÃ THẤT BẠI - TUYỆT ĐỐI KHÔNG LẶP LẠI**:
   - ❌ *Không phụ thuộc 100% vào việc ghi mảng monolithic >1MB vào 1 hàng trong bảng system_settings D1*: Bắt buộc phải có bundled fallback trong Edge Worker bundle.
 
+### ISSUE-033: Lệch Tầng Giữa Git Rollback và Cơ Sở Dữ Liệu Cloudflare D1/KV Làm Trắng Trang Bán Hàng & Tiện Ích
+- **Triệu chứng**:
+  - Khi hoàn tác mã nguồn bằng `git checkout` hoặc `git revert`, mã nguồn cục bộ đã trở về commit cũ nhưng trên web trực tuyến:
+    1. Trang Cửa Hàng và Tiện Ích bị rỗng hoàn toàn, không có sản phẩm nào.
+    2. Mục Giật Code vẫn hiển thị các chiến dịch giveaway đã thêm ở các bản sau (như Delta Force).
+    3. Thông tin ngân hàng nạp tiền bị nhảy về tài khoản mẫu placeholder (MBBank 0987654321) thay vì tài khoản chủ shop (TPBank 10004681879).
+- **Nguyên nhân gốc rễ**:
+  1. *Lệch tầng dữ liệu*: Lệnh `git checkout` chỉ tác động đến tệp tĩnh trên ổ cứng máy tính, hoàn toàn không thay đổi trạng thái Cloudflare D1 SQL hoặc KV trên Edge Server. Khi client gọi `/api/sync`, Worker đọc từ D1 (lúc này các bảng sản phẩm có thể chưa được nạp hoặc rỗng), trả về `utilities: []` và `storeProducts: []`, ghi đè làm trắng trình duyệt.
+  2. *Thời điểm commit*: Chiến dịch giveaway như Delta Force (`gw_alienware_vaultbreakers`) được commit lúc 00:49 ngày 14/10, trước commit cập nhật 8 mã Pirate Legends (19:11 ngày 14/10), do đó việc rollback về thời điểm up code Pirate Legends vẫn giữ lại Delta Force trong file mã nguồn nếu không kiểm tra và xóa thủ công.
+- **Giải pháp chuẩn đã kiểm chứng**:
+  1. *Đồng bộ D1/KV đi kèm Rollback*: Bất cứ khi nào hoàn tác Git, bắt buộc phải chạy script `scripts/push_to_kv_sync.cjs` để nạp đồng bộ toàn bộ 8 danh mục dữ liệu tương ứng lên Cloudflare D1 & KV.
+  2. *Cơ chế Fallback & Tự Lành (Self-Healing Baseline)*:
+     - Trong `functions/api/sync.ts`: Nếu D1 trả về `utilities` hoặc `storeProducts` rỗng, Worker tự động nạp từ `src/data/utilities.json` (19 tiện ích) và `src/data/storeProducts.json` (6 sản phẩm), đồng thời auto-heal ghi ngược lại D1.
+     - Trong `dataService.ts`: Nếu API trả về mảng rỗng, client tuyệt đối không ghi đè xóa sạch state mà fallback về `defaultUtilities` và `defaultStoreProducts`.
+  3. *Khóa cứng tài khoản thanh toán*: Enforce TPBank `10004681879` `CODE GAME SHOP` ở cả Edge Worker và Client.
+- ⛔ **CÁCH SỬA ĐÃ THẤT BẠI - TUYỆT ĐỐI KHÔNG LẶP LẠI**:
+  - ❌ *Tuyệt đối không chỉ rollback Git mà không chạy push_to_kv_sync.cjs*: Sẽ gây đứt gãy giữa Edge Worker và cơ sở dữ liệu cloud.
+
 ---
 
 ## 2. QUY TRÌNH BẮT BUỘC TRƯỚC KHI SỬA CODE (PRE-FLIGHT CHECKLIST)

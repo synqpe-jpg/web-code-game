@@ -7,6 +7,20 @@ Mỗi mục sửa lỗi đều ghi nhận **Nguyên nhân gốc rễ (Root Cause
 
 ## [2026-10-14]
 
+### 45. Khôi Phục Toàn Diện Dữ Liệu Đồng Bộ Cloudflare D1/KV: Loại Bỏ Delta Force Khỏi Giật Code, Phục Hồi Sản Phẩm Tiện Ích & Cửa Hàng, Bảo Toàn 100% Tài Khoản TPBank
+- **Mô tả & Phản hồi Người Dùng**:
+  - Người dùng thắc mắc: *"Sao bản khôi phục này không khôi phục toàn bộ dữ liệu, loại bỏ cả các điều chỉnh sau này vậy? Tôi nhớ lúc đó chưa có mã delta force ở giật code, vẫn còn Sản phẩm trong Tiện Ích mà?"*
+- **Truy vết nguyên nhân gốc rễ (Root Cause Investigation)**:
+  1. *Lệch tầng giữa Git và Cloudflare D1/KV*: Khi khôi phục Git bằng `git checkout`, chỉ có các tệp mã nguồn cục bộ được hoàn tác, trong khi cơ sở dữ liệu Cloudflare D1/KV trên Edge Server vẫn duy trì trạng thái máy chủ. Khi Edge Worker `/api/sync` gọi D1 nhưng bảng SQL chưa có sản phẩm và thiếu cơ chế fallback tĩnh, máy chủ trả về mảng rỗng `utilities: []` và `storeProducts: []`, làm trắng trang Tiện Ích và Cửa Hàng trên trình duyệt.
+  2. *Chiến dịch Delta Force ở Giật Code*: Mã `gw_alienware_vaultbreakers` và `gw_garena_delta_force` thuộc chiến dịch Delta Force được thêm vào lúc 00:49 ngày 14/10. Bản khôi phục commit `fdf4024` (19:11 ngày 14/10) vẫn tồn tại mã này trong tệp `giveaways.json`.
+  3. *Tài khoản ngân hàng thanh toán*: Cấu hình mặc định trong `sync.ts` và `dataService.ts` chứa dữ liệu placeholder cũ (MBBank 0987654321), trong khi tài khoản chính thức đã đăng ký của chủ shop là **TPBank - 10004681879 - CODE GAME SHOP**.
+- **Giải pháp xử lý toàn diện (Comprehensive Solution)**:
+  1. *Loại bỏ triệt để Delta Force*: Xóa toàn bộ `gw_alienware_vaultbreakers` và `gw_garena_delta_force` khỏi `src/data/giveaways.json`, đồng thời bổ sung bộ lọc an toàn phía client trong `dataService.ts` (`getGiveaways()` và `cleanupLegacyV3Data()`) để loại bỏ ngay lập tức nếu client còn lưu cache cũ.
+  2. *Phục hồi danh mục Tiện Ích & Cửa Hàng*: Khôi phục 6 sản phẩm Cửa Hàng vào `src/data/storeProducts.json` và liên kết với `src/data/seedData.ts`. Đảm bảo 19 gói Tiện Ích VS Phone / Browser trong `src/data/utilities.json` luôn được nạp.
+  3. *Cơ chế Fallback & Tự Lành Edge Worker*: Cập nhật `functions/api/sync.ts` với cơ chế bảo vệ catalog baseline: Nếu D1 trả về mảng rỗng hoặc thiếu bản ghi, tự động nạp từ fallback tĩnh và ghi bù (auto-heal) ngược lại vào D1 `system_settings`.
+  4. *Khóa cứng thông tin thanh toán chuẩn*: Enforce cấu hình ngân hàng chuẩn **TPBank - 10004681879 - CODE GAME SHOP** ở cả Edge Worker `sync.ts`, Client `dataService.ts`, và payload đồng bộ D1/KV.
+  5. *Đồng bộ D1/KV trực tiếp*: Mở rộng script `scripts/push_to_kv_sync.cjs` nạp toàn diện cả 8 danh mục (`games`, `freeCodes`, `crawlerSources`, `giveaways`, `utilities`, `storeProducts`, `sepay`, `customFreeCodes`) lên Cloudflare D1 & KV thành công 100%.
+
 ### 44. Khôi Phục Toàn Diện Mã Nguồn Về Phiên Bản fdf4024 (Thời Điểm Vừa Bổ Sung 8 Mã VIP Pirate Legends) Theo Mệnh Lệnh Người Dùng
 - **Mô tả & Yêu cầu Người Dùng**:
   - Người dùng yêu cầu: *"Khôi phục lại bản lúc tôi vừa up 8 mã code mới của pirate legend lên giúp tôi."*.

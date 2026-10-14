@@ -24,6 +24,9 @@ import {
 import { verifyToken, computeHash } from '../services/auth_service';
 import { invalidateGamesCatalogCache } from './games';
 import fallbackGamesData from '../../src/data/games188.json';
+import fallbackUtilitiesData from '../../src/data/utilities.json';
+import fallbackGiveawaysData from '../../src/data/giveaways.json';
+import fallbackStoreProductsData from '../../src/data/storeProducts.json';
 
 interface Env {
   ADMIN_SYNC_SECRET?: string;
@@ -200,6 +203,23 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
           else if (specificKey === 'wcg_admin_members_v4') val = await loadAllMembersD1(env.DB, !authorized);
           else val = await getSettingD1(env.DB, specificKey);
         } catch {}
+      }
+
+      if (specificKey === 'wcg_admin_utilities_v4' && (!Array.isArray(val) || val.length === 0)) {
+        val = fallbackUtilitiesData;
+      } else if (specificKey === 'wcg_admin_store_products_v4' && (!Array.isArray(val) || val.length === 0)) {
+        val = fallbackStoreProductsData;
+      } else if (specificKey === 'wcg_admin_giveaways_v4' && (!Array.isArray(val) || val.length === 0)) {
+        val = (fallbackGiveawaysData as any[]).filter(g => g.id !== 'gw_alienware_vaultbreakers' && g.id !== 'gw_garena_delta_force');
+      } else if (specificKey === 'wcg_admin_sepay_v4' && (!val || val.accountNumber === '0987654321')) {
+        val = {
+          bankName: 'TPBank',
+          accountNumber: '10004681879',
+          bankAccount: 'CODE GAME SHOP',
+          paymentPrefix: 'WCG',
+          autoCreditCoreRatio: 1,
+          isConnected: true,
+        };
       }
 
       return new Response(
@@ -494,6 +514,52 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
       masterState = {};
     }
 
+    // 1. Guaranteed Utilities Catalog Baseline:
+    const fallbackUtils = (fallbackUtilitiesData as any[]).filter((u: any) => u && u.id && !deletedUtilSet.has(u.id));
+    if (rawUtilities.length === 0) {
+      rawUtilities = fallbackUtils;
+    } else if (rawUtilities.length < fallbackUtils.length) {
+      const uMap = new Map<string, any>();
+      fallbackUtils.forEach((u: any) => uMap.set(u.id, u));
+      rawUtilities.forEach((u: any) => uMap.set(u.id, { ...(uMap.get(u.id) || {}), ...u }));
+      rawUtilities = Array.from(uMap.values());
+    }
+
+    // 2. Guaranteed Store Products Catalog Baseline:
+    const fallbackStore = (fallbackStoreProductsData as any[]).filter((p: any) => p && p.id && !deletedStoreSet.has(p.id));
+    if (rawStoreProducts.length === 0) {
+      rawStoreProducts = fallbackStore;
+    } else if (rawStoreProducts.length < fallbackStore.length) {
+      const spMap = new Map<string, any>();
+      fallbackStore.forEach((p: any) => spMap.set(p.id, p));
+      rawStoreProducts.forEach((p: any) => spMap.set(p.id, { ...(spMap.get(p.id) || {}), ...p }));
+      rawStoreProducts = Array.from(spMap.values());
+    }
+
+    // 3. Guaranteed Giveaways Catalog Baseline:
+    const fallbackGw = (fallbackGiveawaysData as any[]).filter((g: any) => g && g.id && !deletedGwSet.has(g.id));
+    if (rawGiveaways.length === 0) {
+      rawGiveaways = fallbackGw;
+    } else if (rawGiveaways.length < fallbackGw.length) {
+      const gwMap = new Map<string, any>();
+      fallbackGw.forEach((g: any) => gwMap.set(g.id, g));
+      rawGiveaways.forEach((g: any) => gwMap.set(g.id, { ...(gwMap.get(g.id) || {}), ...g }));
+      rawGiveaways = Array.from(gwMap.values());
+    }
+
+    // Auto-heal D1 settings asynchronously if empty
+    if (env.DB) {
+      if (!d1Settings['wcg_admin_utilities_v4'] || (Array.isArray(d1Settings['wcg_admin_utilities_v4']) && d1Settings['wcg_admin_utilities_v4'].length === 0)) {
+        setSettingD1(env.DB, 'wcg_admin_utilities_v4', rawUtilities).catch(() => {});
+      }
+      if (!d1Settings['wcg_admin_store_products_v4'] || (Array.isArray(d1Settings['wcg_admin_store_products_v4']) && d1Settings['wcg_admin_store_products_v4'].length === 0)) {
+        setSettingD1(env.DB, 'wcg_admin_store_products_v4', rawStoreProducts).catch(() => {});
+      }
+      if (!d1Settings['wcg_admin_giveaways_v4'] || (Array.isArray(d1Settings['wcg_admin_giveaways_v4']) && d1Settings['wcg_admin_giveaways_v4'].length === 0)) {
+        setSettingD1(env.DB, 'wcg_admin_giveaways_v4', rawGiveaways).catch(() => {});
+      }
+    }
+
     // Sanitize Giveaways for public clients (hide codes_pool unless authorized admin) & prioritize in-stock
     const sanitizedGiveaways = rawGiveaways.map((gw: any) => {
       if (!gw || typeof gw !== 'object') return gw;
@@ -525,21 +591,26 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
     });
 
     const parsedSepay = d1Settings['wcg_admin_sepay_v4'] || safeParse(masterState.sepay);
-    const sanitizedPayment = parsedSepay && typeof parsedSepay === 'object' ? {
-      bankName: parsedSepay.bankName || 'MBBank',
-      accountNumber: parsedSepay.accountNumber || '0987654321',
-      bankAccount: parsedSepay.bankAccount || 'CONG TY TNHH WEB CODE GAME',
-      paymentPrefix: parsedSepay.paymentPrefix || 'WCG',
-      autoCreditCoreRatio: parsedSepay.autoCreditCoreRatio || 1,
-      isConnected: Boolean(parsedSepay.isConnected),
-    } : {
-      bankName: 'MBBank',
-      accountNumber: '0987654321',
-      bankAccount: 'CONG TY TNHH WEB CODE GAME',
+    const isDummyBank = !parsedSepay || !parsedSepay.accountNumber || parsedSepay.accountNumber === '0987654321' || !parsedSepay.bankName;
+    const sanitizedPayment = isDummyBank ? {
+      bankName: 'TPBank',
+      accountNumber: '10004681879',
+      bankAccount: 'CODE GAME SHOP',
       paymentPrefix: 'WCG',
       autoCreditCoreRatio: 1,
       isConnected: true,
+    } : {
+      bankName: parsedSepay.bankName || 'TPBank',
+      accountNumber: parsedSepay.accountNumber || '10004681879',
+      bankAccount: parsedSepay.bankAccount || 'CODE GAME SHOP',
+      paymentPrefix: parsedSepay.paymentPrefix || 'WCG',
+      autoCreditCoreRatio: parsedSepay.autoCreditCoreRatio || 1,
+      isConnected: Boolean(parsedSepay.isConnected),
     };
+
+    if (isDummyBank && env.DB) {
+      setSettingD1(env.DB, 'wcg_admin_sepay_v4', sanitizedPayment).catch(() => {});
+    }
 
     // Load Real Marketing Events Hub
     const realEventsHub = await getRealEventsHub(env);

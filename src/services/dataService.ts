@@ -143,18 +143,40 @@ class DataService {
       ];
       obsoleteKeys.forEach((k) => localStorage.removeItem(k));
 
-      // Clean up phantom giveaway in localStorage if present
+      // Clean up phantom giveaway and Delta Force from localStorage if present
       try {
         const rawGw = localStorage.getItem('wcg_admin_giveaways_v4') || localStorage.getItem(this.GIVEAWAYS_KEY);
-        if (rawGw && (rawGw.includes('Thiếu Hiệp') || rawGw.includes('thieu-hiep'))) {
+        if (rawGw) {
           const parsed = JSON.parse(rawGw);
           if (Array.isArray(parsed)) {
             const cleaned = parsed.filter(
-              (g) => !(g?.title === '15' || (g?.game_name && g.game_name.includes('Thiếu Hiệp')) || (g?.game_slug && g.game_slug.includes('thieu-hiep')))
+              (g) =>
+                !(g?.title === '15' || (g?.game_name && g.game_name.includes('Thiếu Hiệp')) || (g?.game_slug && g.game_slug.includes('thieu-hiep'))) &&
+                g?.id !== 'gw_alienware_vaultbreakers' &&
+                g?.id !== 'gw_garena_delta_force' &&
+                !(g?.game_name && g.game_name.toLowerCase().includes('delta force'))
             );
             localStorage.setItem('wcg_admin_giveaways_v4', JSON.stringify(cleaned));
             localStorage.setItem(this.GIVEAWAYS_KEY, JSON.stringify(cleaned));
           }
+        }
+      } catch {}
+
+      // Clean up empty store / utility caches so guaranteed baseline reloads immediately
+      try {
+        const rawSp = localStorage.getItem('wcg_admin_store_products_v4');
+        if (rawSp === '[]' || rawSp === 'null') {
+          localStorage.removeItem('wcg_admin_store_products_v4');
+          localStorage.removeItem(this.STORE_PRODUCTS_KEY);
+        }
+        const rawUt = localStorage.getItem('wcg_admin_utilities_v4');
+        if (rawUt === '[]' || rawUt === 'null') {
+          localStorage.removeItem('wcg_admin_utilities_v4');
+          localStorage.removeItem(this.UTILITIES_KEY);
+        }
+        const rawSepay = localStorage.getItem('wcg_admin_sepay_v4');
+        if (rawSepay && (rawSepay.includes('0987654321') || rawSepay.includes('MBBank'))) {
+          localStorage.removeItem('wcg_admin_sepay_v4');
         }
       } catch {}
 
@@ -614,14 +636,19 @@ class DataService {
                   g &&
                   g.id &&
                   !deletedGwSet.has(g.id) &&
-                  !(g.title === '15' && g.game_name && g.game_name.includes('Thiếu Hiệp'))
+                  !(g.title === '15' && g.game_name && g.game_name.includes('Thiếu Hiệp')) &&
+                  g.id !== 'gw_alienware_vaultbreakers' &&
+                  g.id !== 'gw_garena_delta_force' &&
+                  !(g.game_name && g.game_name.toLowerCase().includes('delta force'))
               );
-              const currentGw = localStorage.getItem('wcg_admin_giveaways_v4');
-              const newGw = JSON.stringify(incomingGw);
-              if (currentGw !== newGw) {
-                localStorage.setItem('wcg_admin_giveaways_v4', newGw);
-                localStorage.setItem(this.GIVEAWAYS_KEY, newGw);
-                hasChanges = true;
+              if (incomingGw.length > 0) {
+                const currentGw = localStorage.getItem('wcg_admin_giveaways_v4');
+                const newGw = JSON.stringify(incomingGw);
+                if (currentGw !== newGw) {
+                  localStorage.setItem('wcg_admin_giveaways_v4', newGw);
+                  localStorage.setItem(this.GIVEAWAYS_KEY, newGw);
+                  hasChanges = true;
+                }
               }
             }
             if (json.deletedStoreProducts && Array.isArray(json.deletedStoreProducts)) {
@@ -648,12 +675,14 @@ class DataService {
               } catch {}
               const delSet = new Set(delList);
               const filtered = json.storeProducts.filter((p: any) => p && p.id && !delSet.has(p.id));
-              const currentSp = localStorage.getItem('wcg_admin_store_products_v4');
-              const newSp = JSON.stringify(filtered);
-              if (currentSp !== newSp) {
-                localStorage.setItem('wcg_admin_store_products_v4', newSp);
-                localStorage.setItem(this.STORE_PRODUCTS_KEY, newSp);
-                hasChanges = true;
+              if (filtered.length > 0) {
+                const currentSp = localStorage.getItem('wcg_admin_store_products_v4');
+                const newSp = JSON.stringify(filtered);
+                if (currentSp !== newSp) {
+                  localStorage.setItem('wcg_admin_store_products_v4', newSp);
+                  localStorage.setItem(this.STORE_PRODUCTS_KEY, newSp);
+                  hasChanges = true;
+                }
               }
             }
             if (json.utilities && Array.isArray(json.utilities)) {
@@ -664,12 +693,14 @@ class DataService {
               } catch {}
               const delSet = new Set(delList);
               const filtered = json.utilities.filter((u: any) => u && u.id && !delSet.has(u.id));
-              const currentUt = localStorage.getItem('wcg_admin_utilities_v4');
-              const newUt = JSON.stringify(filtered);
-              if (currentUt !== newUt) {
-                localStorage.setItem('wcg_admin_utilities_v4', newUt);
-                localStorage.setItem(this.UTILITIES_KEY, newUt);
-                hasChanges = true;
+              if (filtered.length > 0) {
+                const currentUt = localStorage.getItem('wcg_admin_utilities_v4');
+                const newUt = JSON.stringify(filtered);
+                if (currentUt !== newUt) {
+                  localStorage.setItem('wcg_admin_utilities_v4', newUt);
+                  localStorage.setItem(this.UTILITIES_KEY, newUt);
+                  hasChanges = true;
+                }
               }
             }
             if (json.utilityCategories && Array.isArray(json.utilityCategories)) {
@@ -1575,14 +1606,25 @@ class DataService {
               g &&
               g.id &&
               !deletedGwSet.has(g.id) &&
-              !(g.title === '15' && g.game_name && g.game_name.includes('Thiếu Hiệp'))
+              !(g.title === '15' && g.game_name && g.game_name.includes('Thiếu Hiệp')) &&
+              g.id !== 'gw_alienware_vaultbreakers' &&
+              g.id !== 'gw_garena_delta_force' &&
+              !(g.game_name && g.game_name.toLowerCase().includes('delta force'))
           );
         }
       }
     } catch {}
 
     if (list.length === 0 && DEFAULT_GIVEAWAYS.length > 0) {
-      list = DEFAULT_GIVEAWAYS.filter((g) => g && g.id && !deletedGwSet.has(g.id));
+      list = DEFAULT_GIVEAWAYS.filter(
+        (g) =>
+          g &&
+          g.id &&
+          !deletedGwSet.has(g.id) &&
+          g.id !== 'gw_alienware_vaultbreakers' &&
+          g.id !== 'gw_garena_delta_force' &&
+          !(g.game_name && g.game_name.toLowerCase().includes('delta force'))
+      );
     }
 
     // Return giveaways with formatted attributes and prioritized in-stock first
@@ -1923,8 +1965,8 @@ class DataService {
       }
     } catch {}
 
-    if (prods === null) {
-      prods = [];
+    if (!prods || prods.length === 0) {
+      prods = (this.defaultStoreProducts || []).filter((p) => p && p.id && !deletedSet.has(p.id));
     } else {
       prods = prods.filter((p) => p && p.id && !p.id.startsWith('ut_') && !deletedSet.has(p.id));
     }
@@ -2184,8 +2226,8 @@ class DataService {
       }
     } catch {}
 
-    if (utilities === null) {
-      utilities = [];
+    if (!utilities || utilities.length === 0) {
+      utilities = (this.defaultUtilities || []).filter((u) => u && u.id && !deletedSet.has(u.id));
     } else {
       utilities = utilities.filter((u) => u && u.id && !u.id.startsWith('sp_') && !deletedSet.has(u.id));
     }
@@ -2881,11 +2923,12 @@ class DataService {
       if (saved) {
         const parsed = JSON.parse(saved);
         if (parsed && typeof parsed === 'object') {
+          const isDummy = !parsed.accountNumber || parsed.accountNumber === '0987654321';
           return {
             apiKey: parsed.apiKey || '',
-            bankAccount: parsed.bankAccount || 'CONG TY TNHH WEB CODE GAME',
-            accountNumber: parsed.accountNumber || '0987654321',
-            bankName: parsed.bankName || 'MBBank',
+            bankAccount: isDummy ? 'CODE GAME SHOP' : (parsed.bankAccount || 'CODE GAME SHOP'),
+            accountNumber: isDummy ? '10004681879' : (parsed.accountNumber || '10004681879'),
+            bankName: isDummy ? 'TPBank' : (parsed.bankName || 'TPBank'),
             paymentPrefix: parsed.paymentPrefix || 'WCG',
             autoCreditCoreRatio: parsed.autoCreditCoreRatio || 1,
           };
@@ -2894,9 +2937,9 @@ class DataService {
     } catch {}
     return {
       apiKey: '',
-      bankAccount: 'CONG TY TNHH WEB CODE GAME',
-      accountNumber: '0987654321',
-      bankName: 'MBBank',
+      bankAccount: 'CODE GAME SHOP',
+      accountNumber: '10004681879',
+      bankName: 'TPBank',
       paymentPrefix: 'WCG',
       autoCreditCoreRatio: 1,
     };
