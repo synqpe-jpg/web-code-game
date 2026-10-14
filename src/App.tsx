@@ -1391,7 +1391,7 @@ export const App: React.FC = () => {
       )}
 
       {/* Toast Notifications */}
-      <ToastContainer toasts={toasts} onDismiss={dismissToast} />
+      <ToastContainer toasts={toasts} onDismiss={dismissToast} maxVisible={3} />
     </div>
   );
 };

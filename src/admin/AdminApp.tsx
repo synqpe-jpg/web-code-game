@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { AdminLayout } from './components/AdminLayout';
 import { AdminModuleTab } from './components/AdminSidebar';
 import { AdminLoginGuard } from './components/AdminLoginGuard';
@@ -277,18 +277,27 @@ export const AdminApp: React.FC<AdminAppProps> = ({ onBackToClient }) => {
     });
   };
 
-  const showToast = (
+  const showToast = useCallback((
     title: string,
     message?: string,
-    type: 'success' | 'error' | 'info' = 'success'
+    type: 'success' | 'error' | 'info' = 'success',
+    duration?: number
   ) => {
     const id = Date.now().toString() + Math.random().toString(36).substring(2, 5);
-    setToasts((prev) => [...prev, { id, title, message: message || '', type }]);
-  };
+    const toastDuration = duration ?? (type === 'error' ? 3500 : 2500);
 
-  const dismissToast = (id: string) => {
+    // Limit active toasts to at most 2 previous (total max 3 visible) to prevent screen clutter
+    setToasts((prev) => [...prev.slice(-2), { id, title, message: message || '', type, duration: toastDuration }]);
+
+    // Auto-dismiss safety timer
+    setTimeout(() => {
+      setToasts((prev) => prev.filter((t) => t.id !== id));
+    }, toastDuration + 100);
+  }, []);
+
+  const dismissToast = useCallback((id: string) => {
     setToasts((prev) => prev.filter((t) => t.id !== id));
-  };
+  }, []);
 
   const handleQuickAction = (action: string) => {
     switch (action) {
@@ -365,7 +374,7 @@ export const AdminApp: React.FC<AdminAppProps> = ({ onBackToClient }) => {
           onLoginSuccess={handleLoginSuccess}
           onGoToClientSite={handleGoToClientSite}
         />
-        <ToastContainer toasts={toasts} onDismiss={dismissToast} />
+        <ToastContainer toasts={toasts} onDismiss={dismissToast} position="top-center" maxVisible={3} />
       </>
     );
   }
@@ -475,7 +484,7 @@ export const AdminApp: React.FC<AdminAppProps> = ({ onBackToClient }) => {
       </ErrorBoundary>
 
       {/* Global Toast Notifications */}
-      <ToastContainer toasts={toasts} onDismiss={dismissToast} />
+      <ToastContainer toasts={toasts} onDismiss={dismissToast} position="top-center" maxVisible={3} />
     </AdminLayout>
   );
 };

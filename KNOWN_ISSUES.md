@@ -491,8 +491,22 @@
   3. Trong `sync.ts`, ưu tiên dữ liệu từ cấu hình admin/sync mới nhất: `description: (meta && meta.description) ? meta.description : (u.description || '')`.
 - ⛔ **CÁCH SỬA ĐÃ THẤT BẠI - TUYỆT ĐỐI KHÔNG LẶP LẠI**:
   - ❌ *Không dùng sự tồn tại của 1 bảng ngẫu nhiên làm cờ đánh dấu toàn bộ các migration sau đó đã hoàn tất*: Khi thêm migration mới, các câu lệnh mới sẽ bị bỏ qua hoàn toàn trên DB đã tồn tại bảng đó.
-  - ❌ *Không nuốt lỗi (catch swallow) batch update SQL mà không có cơ chế fallback*: Khiến dữ liệu SQL âm thầm lệch pha với `system_settings`.
-  - ❌ *Không ưu tiên `u.description` cũ từ database hơn `meta.description` do admin vừa cập nhật*.
+### ISSUE-026: Tràn Thông Báo Toast Chồng Chất Đè Lên Cột Nút Thao Tác Trong Admin (Toast Action Obstruction)
+- **Triệu chứng**:
+  - Khi quản trị viên thao tác liên tục (như duyệt hoặc xóa giftcode nhanh), hàng loạt thông báo Toast xếp chồng lên nhau thành cột cao ở góc dưới bên phải, đè trực tiếp lên cột nút "THAO TÁC" (Duyệt, Sửa, Xóa).
+  - Vì toast có `pointer-events-auto`, cú click tiếp theo của admin bị rơi vào toast thay vì nút bấm của hàng tiếp theo.
+- **Nguyên nhân gốc rễ**:
+  1. Trong `AdminApp.tsx`, hàm `showToast` không cài đặt timer `setTimeout` tự động đóng, khiến mọi toast hiển thị vĩnh viễn cho đến khi bấm dấu 'X' thủ công.
+  2. Vị trí hiển thị `ToastContainer` đặt cố định ở góc dưới bên phải (`sm:right-5 sm:bottom-5`), thẳng hàng với cột thao tác dính mép phải (`sticky right-0`).
+  3. Không giới hạn số lượng toast hiển thị tối đa (Queue Capping).
+- **Giải pháp chuẩn đã kiểm chứng**:
+  1. Chuyển vị trí `ToastContainer` trong Admin sang đỉnh giữa màn hình (`top-center`: `fixed top-4 left-1/2 -translate-x-1/2`), giải phóng 100% không gian cho các nút thao tác bên phải.
+  2. Tích hợp bộ đếm tự động đóng (Auto-Dismiss Timer: 2.5s) bên trong `ToastItem` và `AdminApp.tsx`, hỗ trợ tạm dừng khi rê chuột và click vào toast để tắt ngay.
+  3. Khóa cứng giới hạn tối đa 3 thông báo hiển thị cùng lúc (`maxVisible={3}` và `prev.slice(-2)`), tự động đẩy thông báo cũ nhất ra khỏi màn hình khi có thông báo mới.
+- ⛔ **CÁCH SỬA ĐÃ THẤT BẠI - TUYỆT ĐỐI KHÔNG LẶP LẠI**:
+  - ❌ *Không đặt ToastContainer ở góc dưới bên phải hoặc góc trên bên phải trên các trang có bảng dữ liệu sở hữu cột thao tác sticky*: Sẽ luôn đè lên các nút thao tác của bảng.
+  - ❌ *Không tạo toast mà không có timer tự động tắt (auto-dismiss)*: Khiến màn hình bị kẹt thông báo vô tận.
+  - ❌ *Không cho phép mảng toast tích lũy không giới hạn*: Buộc phải có cơ chế cắt đuôi danh sách (Queue Capping).
 
 ---
 

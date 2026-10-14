@@ -7,6 +7,27 @@ Mỗi mục sửa lỗi đều ghi nhận **Nguyên nhân gốc rễ (Root Cause
 
 ## [2026-10-14]
 
+### 36. Tái Cấu Trúc Hệ Thống Thông Báo Toast Admin: Chuyển Sang Top-Center, Giới Hạn Tối Đa 3 Toast & Tự Động Biến Mất Chống Che Khuất Thao Tác
+- **Mô tả**:
+  1. **Nhu cầu**: Người dùng phản ánh khi thao tác liên tục trong Admin (ví dụ duyệt hoặc xóa giftcode nhanh), các thông báo Toast chồng chất lên nhau thành một cột cao ở góc dưới bên phải màn hình, đè trực tiếp lên cột "THAO TÁC" (Duyệt, Sửa, Xóa) khiến việc click vào các nút tiếp theo bị cản trở nghiêm trọng.
+  2. **Nguyên nhân gốc rễ (Root Cause)**:
+     - `AdminApp.tsx`: Hàm `showToast` chỉ `setToasts((prev) => [...prev, newToast])` mà không có timer `setTimeout` tự động đóng, khiến các thông báo tồn tại vĩnh viễn trên màn hình cho đến khi người dùng bấm dấu 'X' thủ công.
+     - Vị trí `ToastContainer` đặt cố định ở góc dưới bên phải (`sm:right-5 sm:bottom-5`), trùng khớp 100% với vị trí của cột nút thao tác dính mép phải (`sticky right-0`) của bảng dữ liệu.
+     - Thiếu cơ chế giới hạn số lượng thông báo (Queue Capping): Khi admin click 5-10 lần liên tục, 5-10 toast chồng chất lên nhau chiếm trọn nửa chiều cao màn hình.
+  3. **Giải pháp kiến trúc & Triển khai**:
+     - *Nâng cấp linh hoạt `Toast.tsx`*:
+       + Bổ sung prop `position` hỗ trợ `'top-center'`, `'bottom-center'`, `'bottom-right'`, `'top-right'`.
+       + Bổ sung prop `maxVisible` (mặc định 3 thông báo). Các thông báo cũ nhất sẽ tự động nhường chỗ cho thông báo mới nhất.
+       + Tích hợp bộ đếm thời gian tự động đóng (Auto-Dismiss Timer) bên trong từng `ToastItem` (2.5 giây cho success/info, 3.5 giây cho error).
+       + Hỗ trợ tạm dừng đếm ngược khi rê chuột vào (`onMouseEnter`) và tiếp tục khi chuột rời đi (`onMouseLeave`).
+       + Cho phép click vào bất kỳ đâu trên toast để đóng tức thì, cùng nút "Đóng tất cả" khi có từ 2 thông báo trở lên.
+     - *Tái cấu trúc Admin Toast trong `AdminApp.tsx`*:
+       + Chuyển vị trí hiển thị sang **`top-center`** (`fixed top-4 left-1/2 -translate-x-1/2`), giải phóng hoàn toàn khu vực cột thao tác bên phải.
+       + Bọc `showToast` và `dismissToast` bằng `useCallback`, giới hạn mảng state tối đa 3 toast (`prev.slice(-2)`).
+       + Cấu hình tự động dọn dẹp state đồng bộ qua timer an toàn.
+     - *Tối ưu nhẹ cho Web Khách (`App.tsx`)*: Gán `maxVisible={3}` để đảm bảo web khách cũng không bao giờ bị tràn thông báo.
+- **Kết quả xác minh**: Khi thao tác duyệt/xóa liên tục, các thông báo hiển thị trang nhã ở đỉnh giữa màn hình, tự biến mất sau 2.5s, không bao giờ che khuất các nút Duyệt/Sửa/Xóa bên phải. Biên dịch Vite và Edge Worker thành công 100%.
+
 ### 35. Thêm Dòng "Treo game 24/24 online." Vào Đầu Mô Tả Chi Tiết Tiện Ích & Dịch Vụ Các Sản Phẩm VS Phone & Vá Lỗ Hổng Đồng Bộ Schema Utilities D1
 - **Mô tả**:
   1. **Nhu cầu**: Người dùng yêu cầu trong modal "Chi Tiết Tiện Ích & Dịch Vụ" của toàn bộ các sản phẩm VS Phone (Cloud Phone), thêm dòng đầu tiên: `Treo game 24/24 online.`.
