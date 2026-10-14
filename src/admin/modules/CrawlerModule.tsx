@@ -227,7 +227,22 @@ export const CrawlerModule: React.FC<CrawlerModuleProps> = ({ onShowToast }) => 
 
           if (Array.isArray(data.crawlerSources) && data.crawlerSources.length > 0) {
             const cleanSources = data.crawlerSources.filter((s: CrawlerSource) => !isCodemoi(s));
-            setSources(cleanSources);
+            // Ensure any newly cataloged default sources (e.g. 78 official Facebook sources) are seamlessly included
+            const existingUrls = new Set(cleanSources.map((s: CrawlerSource) => (s.url || '').toLowerCase().replace(/\/+$/, '')));
+            const missingDefaults = (defaultSources as CrawlerSource[]).filter((ds: CrawlerSource) => {
+              if (isCodemoi(ds)) return false;
+              const normUrl = (ds.url || '').toLowerCase().replace(/\/+$/, '');
+              return !existingUrls.has(normUrl);
+            });
+            const mergedSources = missingDefaults.length > 0 ? [...cleanSources, ...missingDefaults] : cleanSources;
+            setSources(mergedSources);
+            if (missingDefaults.length > 0) {
+              fetch('/api/sync', {
+                method: 'POST',
+                headers: getSyncHeaders(),
+                body: JSON.stringify({ crawlerSources: mergedSources }),
+              }).catch(() => {});
+            }
           } else {
             const cleanDefaults = (defaultSources as CrawlerSource[]).filter((s) => !isCodemoi(s));
             setSources(cleanDefaults);

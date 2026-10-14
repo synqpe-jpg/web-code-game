@@ -37,13 +37,13 @@ async function syncAllToKV() {
       });
       console.log(`[${url}] Push free_codes_v5: ${resC.status}`);
 
-      // 3. Sync Crawler Sources v5
+      // 3. Sync Crawler Sources v5 & v1 (D1 + KV)
       const resS = await fetch(url, {
         method: 'POST',
         headers,
-        body: JSON.stringify({ key: 'wcg_admin_crawler_sources_v5', data: sources })
+        body: JSON.stringify({ key: 'wcg_crawler_sources_v1', crawlerSources: sources, data: sources })
       });
-      console.log(`[${url}] Push crawler_sources_v5: ${resS.status}`);
+      console.log(`[${url}] Push crawler_sources_v1: ${resS.status}`);
 
       // 4. Sync Giveaways v5
       const resGw = await fetch(url, {

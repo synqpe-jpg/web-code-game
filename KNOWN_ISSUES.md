@@ -564,6 +564,20 @@
   - ❌ *Không chỉ thay file PNG trong `mipmap/` mà quên xóa `drawable-v24/ic_launcher_foreground.xml`*: Android 7.0+ sẽ luôn ưu tiên file vector robot xanh trong `drawable-v24/`.
   - ❌ *Không để logo tràn 100% mép canvas trong `ic_launcher_foreground.png`*: Khi các launcher Android (Samsung OneUI, Xiaomi MIUI, Google Pixel) áp dụng mặt nạ hình tròn hoặc squircle sẽ làm cắt mất chi tiết logo nếu không có lề an toàn 68%.
 
+### ISSUE-031: Bẫy Lệch Key Cấu Hình Khi Lưu Crawler Sources Giữa KV & D1 Settings (D1 Crawler Settings Desync Trap)
+- **Triệu chứng**:
+  - Dữ liệu nguồn cào code đã được mở rộng lên 933 nguồn trong mã nguồn frontend và file JSON tĩnh, nhưng khi mở trang Quản lý Crawler trong Admin (`/admin#/crawler`), hệ thống vẫn hiển thị cố định số lượng cũ (855 nguồn).
+- **Nguyên nhân gốc rễ**:
+  1. *Lệch key giữa KV và D1*: Trong Cloudflare Worker `functions/api/sync.ts`, `GET /api/sync` ưu tiên đọc nguồn crawler từ D1 settings với key `wcg_crawler_sources_v1`. Tuy nhiên, khi script đồng bộ gửi payload dạng `{ key: 'wcg_admin_crawler_sources_v5', data: sources }`, nhánh lưu D1 `if (body.crawlerSources !== undefined)` không được kích hoạt vì dữ liệu nằm trong `body.data`, dẫn đến việc D1 giữ nguyên snapshot cũ 855 nguồn.
+  2. *Ghi đè mù quáng ở Frontend*: `CrawlerModule.tsx` trước đây khi nhận mảng `data.crawlerSources` từ server đã gán trực tiếp vào state mà không thực hiện phép hợp (union) với `defaultSources` có sẵn trong build frontend.
+- **Giải pháp chuẩn đã kiểm chứng**:
+  1. Chuẩn hóa Worker API `sync.ts` xử lý trọn vẹn cả 2 key `wcg_crawler_sources_v1`, `wcg_admin_crawler_sources_v5` và trường `body.crawlerSources`, tự động parse mảng và ghi đồng bộ vào cả Cloudflare KV lẫn bảng cài đặt D1.
+  2. Trang bị cơ chế Self-Healing Auto-Merge trong `CrawlerModule.tsx`: Frontend tự động lấy tập hợp (union) theo URL chuẩn hóa giữa danh sách server và `defaultSources`. Nếu phát hiện có nguồn mới chưa có trên server, frontend ngay lập tức khôi phục đủ và đẩy ngược về server để cập nhật D1.
+  3. Cập nhật script đồng bộ `scripts/push_to_kv_sync.cjs` truyền đủ cả 2 trường `key: 'wcg_crawler_sources_v1'` và `crawlerSources: sources`.
+- ⛔ **CÁCH SỬA ĐÃ THẤT BẠI - TUYỆT ĐỐI KHÔNG LẶP LẠI**:
+  - ❌ *Không chỉ push lên Cloudflare KV mà quên đồng bộ vào bảng cài đặt D1*: `sync.ts` khi có query `?fresh=true` luôn đọc D1 settings làm nguồn gốc sự thật, nếu D1 không được cập nhật thì KV sẽ bị vô hiệu.
+  - ❌ *Không để frontend ghi đè hoàn toàn state bằng dữ liệu server khi dữ liệu server có số lượng nguồn ít hơn bộ mặc định đi kèm code*: Phải dùng phép hợp (union) để bảo toàn các nguồn mới được thêm vào mã nguồn.
+
 ---
 
 ## 2. QUY TRÌNH BẮT BUỘC TRƯỚC KHI SỬA CODE (PRE-FLIGHT CHECKLIST)

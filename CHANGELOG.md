@@ -7,6 +7,32 @@ Mỗi mục sửa lỗi đều ghi nhận **Nguyên nhân gốc rễ (Root Cause
 
 ## [2026-10-14]
 
+### 42. Khắc Phục Lỗi Đồng Bộ Nguồn Thu Thập Giftcode Trong Admin (Hiển Thị 855 Thay Vì 933 Nguồn)
+- **Mô tả sự cố**:
+  - Người dùng truy cập trang Quản Lý Crawler & Tự Động Hóa Giftcode (`/admin#/crawler`), báo cáo trước đó ghi nhận tổng số nguồn cào đã tăng từ 855 lên 933 nguồn, tuy nhiên trên giao diện Admin thực tế chỉ hiển thị 855 nguồn.
+- **Truy vết nguyên nhân gốc rễ (Root Cause Investigation)**:
+  1. Trong Cloudflare Worker API `functions/api/sync.ts`:
+     - Khi `GET /api/sync?fresh=true`, Worker đọc nguồn crawler từ D1 setting `wcg_crawler_sources_v1` (`d1Settings['wcg_crawler_sources_v1'] || masterState.crawlerSources || []`).
+     - Tuy nhiên, trong nhánh xử lý `POST /api/sync`:
+       + Nhánh xử lý `body.key` chỉ bắt các key đơn lẻ nhưng thiếu `wcg_crawler_sources_v1` và `wcg_admin_crawler_sources_v5`.
+       + Khối lưu cấu hình D1 chỉ kiểm tra `if (body.crawlerSources !== undefined)`.
+       + Do đó, khi script đẩy dữ liệu hoặc client gửi payload dạng `{ key: 'wcg_admin_crawler_sources_v5', data: sources }`, giá trị `wcg_crawler_sources_v1` trong D1 hoàn toàn không được cập nhật, giữ nguyên snapshot cũ 855 nguồn.
+  2. Trong `src/admin/modules/CrawlerModule.tsx`:
+     - Trước đây, khi `data.crawlerSources` từ server trả về 855 phần tử, component trực tiếp ghi đè `setSources(cleanSources)` mà không đối chiếu với 933 nguồn mặc định trong mã nguồn (`defaultSources`).
+- **Giải pháp kiến trúc & Triển khai**:
+  1. *Backend (`functions/api/sync.ts`)*:
+     - Thêm xử lý đồng bộ hai chiều cho `key: 'wcg_crawler_sources_v1'`, `key: 'wcg_admin_crawler_sources_v5'` và trường `crawlerSources`.
+     - Tự động ghi vào cả Cloudflare KV và bảng cài đặt D1 (`wcg_crawler_sources_v1`) bất kể payload gửi theo cấu trúc nào.
+  2. *Frontend (`src/admin/modules/CrawlerModule.tsx`)*:
+     - Bổ sung cơ chế tự động hợp nhất (Auto-Union/Merge): Nếu danh sách từ server trả về thiếu bất kỳ nguồn nào có trong `defaultSources` (78 nguồn Facebook mới), frontend tự động gộp (union) theo URL chuẩn hóa, khôi phục đủ 933 nguồn và tự động đẩy ngược lên `/api/sync` để tự làm lành (self-heal) D1.
+  3. *Script đồng bộ (`scripts/push_to_kv_sync.cjs`)*:
+     - Đẩy đồng bộ cả 2 trường `key: 'wcg_crawler_sources_v1'` và `crawlerSources` lên cả 2 backend `web-code-game.pages.dev` và `admin-code-game-shop.pages.dev`.
+- **Kết quả xác minh**:
+  - `GET https://admin-code-game-shop.pages.dev/api/sync?fresh=true` trả về chính xác `crawlerSources.length === 933`.
+  - `GET https://web-code-game.pages.dev/api/sync?fresh=true` trả về chính xác `crawlerSources.length === 933`.
+  - Giao diện Admin hiển thị đầy đủ 933 nguồn thu thập và cào giftcode.
+
+
 ### 41. Khắc Phục Triệt Để Logo Mặc Định Của Android Cho File Cài Đặt (.APK), Chuẩn Hóa 100% Bộ Icon & Splash Screen Theo Logo Web
 - **Mô tả sự cố**:
   1. **Hiện tượng**: Người dùng tải file `.APK` về cài đặt trên điện thoại Android nhưng icon ứng dụng hiển thị logo robot màu xanh mặc định của Android hoặc hình ảnh placeholder Capacitor, không hiển thị logo chính thức của web CodeGame.

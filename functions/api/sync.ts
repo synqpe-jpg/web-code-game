@@ -1550,6 +1550,7 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
       else if (vKey === 'wcg_admin_utility_categories_v1') currentMaster.utilityCategories = body.data;
       else if (vKey === 'wcg_admin_store_categories_v1') currentMaster.storeCategories = body.data;
       else if (vKey === 'wcg_news_articles_v1') currentMaster.newsArticles = body.data;
+      else if (vKey === 'wcg_crawler_sources_v1' || vKey === 'wcg_admin_crawler_sources_v5') currentMaster.crawlerSources = body.data;
     }
 
     if (body.deletedStoreProducts !== undefined) currentMaster.deletedStoreProducts = body.deletedStoreProducts;
@@ -1887,7 +1888,7 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
         if (body.storeCategories !== undefined || body.key === 'wcg_admin_store_categories_v1') await setSettingD1(env.DB, 'wcg_admin_store_categories_v1', body.storeCategories ?? body.data);
         if (body.giveaways !== undefined) await setSettingD1(env.DB, 'wcg_admin_giveaways_v4', body.giveaways);
         if (body.crawlerPendingCodes !== undefined) await setSettingD1(env.DB, 'wcg_crawler_pending_codes_v1', body.crawlerPendingCodes);
-        if (body.crawlerSources !== undefined) await setSettingD1(env.DB, 'wcg_crawler_sources_v1', body.crawlerSources);
+        if (body.crawlerSources !== undefined || body.key === 'wcg_crawler_sources_v1' || body.key === 'wcg_admin_crawler_sources_v5') await setSettingD1(env.DB, 'wcg_crawler_sources_v1', body.crawlerSources ?? body.data);
         if (body.crawlerLogs !== undefined) await setSettingD1(env.DB, 'wcg_crawler_logs_v1', body.crawlerLogs);
         if (body.deletedNewsArticles !== undefined) await setSettingD1(env.DB, 'wcg_deleted_news_articles_v1', body.deletedNewsArticles);
         if (body.newsArticles !== undefined || body.key === 'wcg_news_articles_v1') await setSettingD1(env.DB, 'wcg_news_articles_v1', body.newsArticles ?? body.data);
