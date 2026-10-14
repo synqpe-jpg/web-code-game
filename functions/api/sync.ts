@@ -294,9 +294,9 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
         rawStoreProducts = (spList || []).filter((p: any) => p && p.id && (authorized || p.is_active !== 0) && !deletedStoreSet.has(p.id)).map((p: any) => {
           const meta = savedStoreMap.get(p.id);
           if (!meta) return p;
-          const finalStock = (meta.stock_quantity !== undefined && Number(meta.stock_quantity) === 0)
-            ? 0
-            : (p.stock_quantity !== undefined ? Math.max(0, Number(p.stock_quantity) || 0) : Math.max(0, Number(meta.stock_quantity) || 0));
+          const finalStock = p.stock_quantity !== undefined
+            ? Math.max(0, Number(p.stock_quantity) || 0)
+            : Math.max(0, Number(meta.stock_quantity) || 0);
           return {
             ...meta,
             ...p,
@@ -358,9 +358,9 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
         rawUtilities = (utList || []).filter((u: any) => u && u.id && (authorized || u.is_active !== 0) && !deletedUtilSet.has(u.id)).map((u: any) => {
           const meta = savedUtilsMap.get(u.id);
           if (!meta) return u;
-          const finalStock = (meta.stock_quantity !== undefined && Number(meta.stock_quantity) === 0)
-            ? 0
-            : (u.stock_quantity !== undefined ? Math.max(0, Number(u.stock_quantity) || 0) : Math.max(0, Number(meta.stock_quantity) || 0));
+          const finalStock = u.stock_quantity !== undefined
+            ? Math.max(0, Number(u.stock_quantity) || 0)
+            : Math.max(0, Number(meta.stock_quantity) || 0);
           return {
             ...meta,
             ...u,
@@ -730,6 +730,29 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
             if (Array.isArray(savedMems) && savedMems.length > 0) {
               responsePayload.members = savedMems;
             }
+          }
+          if (Array.isArray(responsePayload.members) && Array.isArray(responsePayload.transactions) && responsePayload.transactions.length > 0) {
+            const latestTxMap = new Map<string, any>();
+            for (const tx of responsePayload.transactions) {
+              if (tx && tx.memberId && !latestTxMap.has(tx.memberId)) {
+                latestTxMap.set(tx.memberId, tx);
+              }
+              if (tx && tx.memberEmail && !latestTxMap.has(tx.memberEmail)) {
+                latestTxMap.set(tx.memberEmail, tx);
+              }
+            }
+            responsePayload.members = responsePayload.members.map((m: any) => {
+              if (!m) return m;
+              const tx = latestTxMap.get(m.id) || latestTxMap.get(m.email);
+              if (tx && tx.balanceAfter !== undefined && (m.balance === 0 || m.balance === undefined)) {
+                return {
+                  ...m,
+                  balance: Math.max(0, Number(tx.balanceAfter) || 0),
+                  wallet_balance: Math.max(0, Number(tx.balanceAfter) || 0),
+                };
+              }
+              return m;
+            });
           }
           if (d1SepayRes && d1SepayRes.results) responsePayload.sepayLogs = d1SepayRes.results;
         } catch (d1QueryErr: any) {

@@ -294,21 +294,16 @@ export async function ensureSchemaUpgrades(db: D1Database): Promise<void> {
   if (schemaUpgradesPromise) return schemaUpgradesPromise;
 
   schemaUpgradesPromise = (async () => {
-    // 0. Auto-execute One-Time Wallet Reset to 0 VNĐ across all members
+    // Safe schema migrations tracking
     try {
       await db.prepare("CREATE TABLE IF NOT EXISTS schema_migrations (id TEXT PRIMARY KEY, executed_at TEXT DEFAULT (datetime('now')));").run().catch(() => {});
-      const mig = await db.prepare("SELECT 1 FROM schema_migrations WHERE id = 'reset_all_wallets_to_zero_v1'").first().catch(() => null);
-      if (!mig) {
-        await db.prepare("UPDATE members SET balance = 0;").run().catch(() => {});
-        await db.prepare("INSERT OR IGNORE INTO schema_migrations (id) VALUES ('reset_all_wallets_to_zero_v1');").run().catch(() => {});
-      }
     } catch (e) {
-      console.error('[SchemaUpgrade] Wallet reset error:', e);
+      console.error('[SchemaUpgrade] Migration table error:', e);
     }
 
     try {
-      // Fast 1-subrequest check: If schema_v5_full_upgrades exists, all schema migrations are already done
-      const check = await db.prepare("SELECT 1 FROM schema_migrations WHERE id = 'schema_v5_full_upgrades' LIMIT 1").first().catch(() => null);
+      // Fast 1-subrequest check: If heal_and_restore_wallets_v6 exists, all schema migrations are already done
+      const check = await db.prepare("SELECT 1 FROM schema_migrations WHERE id = 'heal_and_restore_wallets_v6' LIMIT 1").first().catch(() => null);
       if (check !== null) {
         schemaUpgradesDone = true;
         return;
@@ -760,19 +755,54 @@ export async function ensureSchemaUpgrades(db: D1Database): Promise<void> {
     `).run().catch(() => {});
   } catch {}
 
-  // One-time D1 reset: Set all members balance to 0, total_spent to 0, clear transactions & orders
+  // Data Recovery & Balance Reconciliation (Self-healing migration v6)
   try {
-    const resetCheck = await db.prepare("SELECT value FROM system_settings WHERE key = 'wcg_d1_wallets_revenue_reset_v5' LIMIT 1;").first<any>().catch(() => null);
-    if (!resetCheck || !resetCheck.value) {
-      await db.prepare('UPDATE members SET balance = 0, total_spent = 0;').run().catch(() => {});
-      await db.prepare('DELETE FROM wallet_transactions;').run().catch(() => {});
-      await db.prepare('DELETE FROM orders;').run().catch(() => {});
-      await db.prepare('DELETE FROM sepay_transactions;').run().catch(() => {});
-      await db.prepare("INSERT OR REPLACE INTO system_settings (key, value, updated_at) VALUES ('wcg_admin_transactions_v4', '[]', datetime('now'));").run().catch(() => {});
-      await db.prepare("INSERT OR REPLACE INTO system_settings (key, value, updated_at) VALUES ('wcg_admin_orders_v4', '[]', datetime('now'));").run().catch(() => {});
-      await db.prepare("INSERT OR REPLACE INTO system_settings (key, value, updated_at) VALUES ('wcg_d1_wallets_revenue_reset_v5', '1', datetime('now'));").run().catch(() => {});
+    const healCheck = await db.prepare("SELECT 1 FROM schema_migrations WHERE id = 'heal_and_restore_wallets_v6' LIMIT 1;").first<any>().catch(() => null);
+    if (!healCheck) {
+      // 1. Restore wallet transactions if missing
+      await db.prepare(`
+        INSERT OR IGNORE INTO wallet_transactions (id, member_id, member_email, type, amount, balance_before, balance_after, description, status, created_at)
+        VALUES 
+          ('tx_1791792319701_0a4c549f', 'usr_1791606009927_p1nu', 'anhlinh2589@duck.com', 'ORDER_PAYMENT', -11240, 12000, 760, 'Thanh toán đơn hàng ORD-1791792319701-0a4c549f (Basic 1 Day VS Phone)', 'COMPLETED', '2026-10-12 08:05:19'),
+          ('TX-DEP-89233940', 'usr_1791606009927_p1nu', 'anhlinh2589@duck.com', 'DEPOSIT', 12000, 0, 12000, 'Nạp tiền tự động SePay #89233940', 'COMPLETED', '2026-10-12 06:59:16'),
+          ('tx_1791622372557_g4i', 'usr_1791556270820_jzv1', 'syndd@duck.com', 'ADMIN_ADJUST', -50000, 2400, 0, 'Thưởng sự kiện thành viên tích cực', 'COMPLETED', '2026-10-10 08:52:52'),
+          ('tx_1791622353845_jau', 'usr_1791606009927_p1nu', 'anhlinh2589@duck.com', 'ADMIN_ADJUST', -50000, 14012, 0, 'Thưởng sự kiện thành viên tích cực', 'COMPLETED', '2026-10-10 08:52:33'),
+          ('TX-DEP-88677028', 'usr_1791606009927_p1nu', 'anhlinh2589@duck.com', 'DEPOSIT', 10000, 4012, 14012, 'Nạp tiền tự động SePay #88677028', 'COMPLETED', '2026-10-10 08:50:49');
+      `).run().catch((e) => console.warn('[Heal tx error]', e?.message));
+
+      // 2. Restore order ORD-1791792319701-0a4c549f if missing
+      await db.prepare(`
+        INSERT OR IGNORE INTO orders (id, member_id, buyer_email, product_id, product_title, quantity, unit_price, total_amount, status, balance_before, balance_after, delivered_codes, idempotency_key, created_at)
+        VALUES (
+          'ORD-1791792319701-0a4c549f',
+          'usr_1791606009927_p1nu',
+          'anhlinh2589@duck.com',
+          'ut_vs_01_basic_1d',
+          'Basic 1 Day VS Phone',
+          1,
+          11240,
+          11240,
+          'COMPLETED',
+          12000,
+          760,
+          '["1"]',
+          'idem_order_1791792319701_0a4c549f',
+          '2026-10-12 08:05:19'
+        );
+      `).run().catch((e) => console.warn('[Heal order error]', e?.message));
+
+      // 3. Restore member balance and total_spent for anhlinh2589@duck.com
+      await db.prepare(`
+        UPDATE members 
+        SET balance = 760, total_spent = 11240 
+        WHERE id = 'usr_1791606009927_p1nu' OR email = 'anhlinh2589@duck.com';
+      `).run().catch((e) => console.warn('[Heal member balance error]', e?.message));
+
+      await db.prepare("INSERT OR IGNORE INTO schema_migrations (id) VALUES ('heal_and_restore_wallets_v6');").run().catch(() => {});
     }
-  } catch {}
+  } catch (err: any) {
+    console.warn('[Heal migration error]', err?.message);
+  }
 
   try {
     await db.prepare("INSERT OR IGNORE INTO schema_migrations (id) VALUES ('schema_v5_full_upgrades');").run().catch(() => {});

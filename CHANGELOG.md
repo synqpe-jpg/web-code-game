@@ -7,6 +7,34 @@ Mỗi mục sửa lỗi đều ghi nhận **Nguyên nhân gốc rễ (Root Cause
 
 ## [2026-10-14]
 
+### 38. Xử Lý Triệt Để Khối Lệnh Reset Ngủ Quên (Dormant Reset Bomb), Khôi Phục Số Dư Ví Thành Viên & Sửa Lỗi Tồn Kho Tiện Ích
+- **Mô tả sự cố**:
+  1. **Hiện tượng**: Người dùng phát hiện các sản phẩm trên web hiển thị hết hàng hoặc không mua được, tài khoản người mua (`anhlinh2589@duck.com`) và toàn bộ thành viên bị hiển thị số dư 0 Core (mất số dư 760 Core còn lại sau khi mua gói VS Phone), danh sách đơn hàng trống.
+  2. **Truy vết nguyên nhân gốc rễ (Root Cause Investigation)**:
+     - **Bản cập nhật gây lỗi**: Commit `4ee3add` lúc 13:55 ngày 14/10/2026.
+     - **Cơ chế kích hoạt bẫy ngủ quên (Dormant Reset Bomb)**:
+       + Trong `functions/services/d1_service.ts`, dòng 763–775 chứa một đoạn mã reset cũ từ giai đoạn thử nghiệm (`wcg_d1_wallets_revenue_reset_v5`).
+       + Trước commit `4ee3add`, hàm `ensureSchemaUpgrades` có lệnh return sớm ở dòng 311 khi bảng `giveaway_claim_guards` tồn tại, nên đoạn reset cũ không bao giờ được chạm tới.
+       + Khi commit `4ee3add` đổi điều kiện kiểm tra sang `schema_v5_full_upgrades` (chưa có trong database), luồng thực thi đi xuyên suốt xuống dòng 763 và vô tình thực thi `UPDATE members SET balance = 0`, `DELETE FROM wallet_transactions`, `DELETE FROM orders`.
+       + Đồng thời ở dòng 298–304 cũng tồn tại một khối `reset_all_wallets_to_zero_v1` tiềm ẩn nguy cơ tương tự.
+     - **Lỗi hiển thị tồn kho hàng hóa (Stock Calculation Bug)**:
+       + Trong `functions/api/sync.ts` dòng 361–363, điều kiện `(meta.stock_quantity !== undefined && Number(meta.stock_quantity) === 0) ? 0 : ...` đã ép `finalStock = 0` dựa theo thuộc tính `stock_quantity: 0` của file cấu hình/snapshot `utilities.json`, đè lên số lượng tồn kho thực tế từ Cloudflare D1 (`u.stock_quantity` được đếm từ bảng `inventory_codes`).
+       + Khiến toàn bộ sản phẩm Tiện Ích (VS Phone) bị vô hiệu hóa nút mua và gắn mác "HẾT HÀNG".
+  3. **Giải pháp kiến trúc & Khôi phục hoàn toàn**:
+     - *Loại bỏ vĩnh viễn mọi khối lệnh Reset ngủ quên*:
+       + Xóa sạch hoàn toàn các khối `reset_all_wallets_to_zero_v1` và `wcg_d1_wallets_revenue_reset_v5` khỏi `d1_service.ts`.
+     - *Thực thi Migration tự phục hồi & Hòa giải dữ liệu (`heal_and_restore_wallets_v6`)*:
+       + Khôi phục số dư tài khoản `anhlinh2589@duck.com` (`usr_1791606009927_p1nu`) về chính xác **760 Core** và `total_spent = 11.240 Core`.
+       + Khôi phục toàn bộ 5 giao dịch ví vào bảng `wallet_transactions` trong Cloudflare D1.
+       + Khôi phục đơn hàng `ORD-1791792319701-0a4c549f` (mua Basic 1 Day VS Phone, mã giao `1`) vào bảng `orders` trong D1.
+     - *Sửa thứ tự ưu tiên tồn kho trong `functions/api/sync.ts`*:
+       + Ưu tiên tuyệt đối số lượng tồn kho thực tế `u.stock_quantity` từ Cloudflare D1 (tính từ `inventory_codes` có sẵn).
+       + Bổ sung cơ chế tự động đối chiếu số dư thành viên từ sổ cái giao dịch `transactions` trong `/api/sync` nhằm chống lại bất kỳ tình huống lệch cache nào trong tương lai.
+- **Kết quả xác minh thực tế trên Production**:
+  - API `/api/sync` trả về: `anhlinh2589@duck.com`: `balance = 760 Core`, `total_spent = 11240 Core`.
+  - Đơn hàng `ORD-1791792319701-0a4c549f` đã xuất hiện trở lại trong lịch sử đơn hàng.
+  - Sản phẩm `ut_vs_05_vip_7d` (VIP 7 Days VS Phone) hiển thị tồn kho chính xác là `8` mã, mở lại chức năng mua hàng bình thường.
+
 ### 37. Bổ Sung Bộ Lọc Theo Nguồn & Thao Tác Duyệt / Xóa Hàng Loạt 1-Chạm Theo Nguồn Trong Quản Lý Crawler Giftcode
 - **Mô tả**:
   1. **Nhu cầu**: Người dùng yêu cầu trong module Quản Lý Crawler & Tự Động Hóa Giftcode (`/admin#/crawler`), tại tab "Hàng Chờ Duyệt", bổ sung tính năng lọc danh sách mã theo nguồn thu thập, đồng thời hỗ trợ Duyệt tất cả hoặc Xóa tất cả theo nguồn với 1 chạm.

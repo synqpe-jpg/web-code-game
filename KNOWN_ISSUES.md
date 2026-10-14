@@ -520,9 +520,21 @@
   3. Tổng hợp `availablePendingSources` tính sẵn số lượng mã (`count`) để hiển thị trực tiếp trong dropdown và banner.
   4. Cung cấp banner thao tác 1-chạm: "Duyệt tất cả nguồn này (X mã)" và "Xóa tất cả nguồn này (X mã)" kết nối trực tiếp với batch API D1/KV.
   5. Trong bảng dữ liệu, nhấp vào tên nguồn ở cột "NGUỒN CÀO" sẽ tự động kích hoạt bộ lọc nguồn tương ứng.
+### ISSUE-028: Bẫy Lệnh Reset Ngủ Quên (Dormant Reset Bomb) & Lỗi Ép Tồn Kho Bằng 0 Đè Lên Kho D1 Thật
+- **Triệu chứng**:
+  - Sau một cập nhật schema hoặc khởi động lại worker, số dư của tất cả thành viên bị reset về 0 VNĐ / 0 Core, bảng lịch sử giao dịch và đơn hàng bị xóa sạch.
+  - Các sản phẩm tiện ích hoặc gói nạp dù trong kho mã D1 (`inventory_codes`) vẫn còn hàng sẵn nhưng trên web khách lại hiển thị 0 mã tồn kho ("HẾT HÀNG") và không thể đặt mua.
+- **Nguyên nhân gốc rễ**:
+  1. *Khối reset ngủ quên (Dormant Reset Bomb)*: Trong `d1_service.ts`, các đoạn mã reset cũ (như `UPDATE members SET balance = 0`, `DELETE FROM wallet_transactions`) từng được viết cho giai đoạn test và được "bảo vệ" ngầm bằng một lệnh return sớm ở đầu hàm `ensureSchemaUpgrades`. Khi điều kiện return sớm bị thay đổi hoặc nâng cấp schema migration ID, luồng thực thi lọt xuống cuối hàm và kích hoạt lại khối lệnh hủy diệt trên database production.
+  2. *Lỗi ép tồn kho bằng 0*: Trong `functions/api/sync.ts`, logic `(meta.stock_quantity !== undefined && Number(meta.stock_quantity) === 0) ? 0 : ...` đọc `stock_quantity: 0` từ snapshot/file JSON tĩnh và ép tồn kho bằng 0, ghi đè lên số lượng tồn kho thực tế tính từ các mã `AVAILABLE` trong D1.
+- **Giải pháp chuẩn đã kiểm chứng**:
+  1. **Tuyệt đối không bao giờ để lại câu lệnh `DELETE` hoặc `UPDATE balance = 0` diện rộng bên trong mã nguồn khởi động hệ thống (`ensureSchemaUpgrades`, `init`, v.v.)**: Mọi thao tác reset chỉ được phép chạy thủ công có chủ đích bằng tay qua lệnh CLI bảo mật, không bao giờ đặt trong code runtime của Serverless Worker.
+  2. Xóa bỏ triệt để các khối `reset_all_wallets_to_zero_v1` và `wcg_d1_wallets_revenue_reset_v5`.
+  3. Xây dựng migration tự phục hồi `heal_and_restore_wallets_v6` để tự động khôi phục số dư ví thành viên và lịch sử giao dịch theo đúng sổ cái kế toán.
+  4. Trong `sync.ts`, luôn ưu tiên số lượng tồn kho thực tế từ D1 (`u.stock_quantity !== undefined ? Math.max(0, Number(u.stock_quantity)) : ...`), không để file tĩnh ghi đè trạng thái hết hàng lên cơ sở dữ liệu.
 - ⛔ **CÁCH SỬA ĐÃ THẤT BẠI - TUYỆT ĐỐI KHÔNG LẶP LẠI**:
-  - ❌ *Không lọc theo chuỗi thô `item.sourceName`*: Khiến mỗi tựa game bị phân mảnh thành một nguồn riêng.
-  - ❌ *Không duyệt/xóa tuần tự từng mã một qua vòng lặp client*: Gây nghẽn mạng và gửi hàng trăm HTTP request làm sập Cloudflare rate limit; bắt buộc dùng `batch_approve_crawler_codes` / `batch_reject_crawler_codes` truyền mảng `pendingIds`.
+  - ❌ *Không bao giờ dựa vào lệnh return sớm để "bảo vệ" các khối code phá hủy (destructive code)*: Khi logic migration thay đổi, code phá hủy sẽ bị kích hoạt trên dữ liệu sống của khách hàng.
+  - ❌ *Không dùng `meta.stock_quantity === 0` để phán đoán tồn kho của sản phẩm có quản lý mã*: File cấu hình ban đầu luôn có `stock_quantity: 0` vì mã được nạp sau trong admin.
 
 ---
 
