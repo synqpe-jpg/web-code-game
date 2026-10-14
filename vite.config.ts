@@ -39,7 +39,7 @@ export default defineConfig({
           if (id.includes('node_modules/react') || id.includes('node_modules/react-dom')) {
             return 'react-vendor';
           }
-          if (id.includes('node_modules/fuse.js') || id.includes('node_modules/canvas-confetti')) {
+          if (id.includes('node_modules/fuse.js') || id.includes('node_modules/canvas-confetti') || id.includes('node_modules/qrcode')) {
             return 'utils-vendor';
           }
         },

@@ -229,6 +229,27 @@ class DataService {
   }
 
   /**
+   * Synchronously return initial batch of games for 0ms First Contentful Paint.
+   */
+  public getLocalGamesSync(limit: number = 24): GameItem[] {
+    return (this.games || []).slice(0, limit);
+  }
+
+  /**
+   * Synchronously return categories for 0ms filter render.
+   */
+  public getCategoriesSync(): string[] {
+    return this.categories || [];
+  }
+
+  /**
+   * Synchronously return total count of games in system.
+   */
+  public getTotalGamesCountSync(): number {
+    return (this.games || []).length;
+  }
+
+  /**
    * Synchronously retrieve full game item with 100% giftcodes from memory in 0ms.
    * Completely eliminates the 1-3 preview code flash and network delay.
    */

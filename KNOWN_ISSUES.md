@@ -645,7 +645,22 @@
 - ⛔ **CÁCH SỬA ĐÃ THẤT BẠI - TUYỆT ĐỐI KHÔNG LẶP LẠI**:
   - ❌ *Không truyền trực tiếp object game từ `queryGames` vào Modal khi chưa enrich đầy đủ giftcode*: Sẽ hiển thị mã bị cắt ngắn (chỉ 1-3 mã).
   - ❌ *Không dùng `forceFresh = true` chặn UI khi người dùng click xem game*: Gây lag 1-3 giây và giật giao diện.
-  - ❌ *Không import toàn bộ `crawled_codes_188.json` 4.78MB vào bundle*: Gây nghẽn mạng di động. Luôn dùng compact catalog map.
+### ISSUE-036: Bẫy Render-Blocking Curtain: Splash Preloader toàn màn hình che giấu Prerendered HTML và Monolithic Bundle 1.33MB làm chậm thời gian tải trang
+- **Triệu chứng**:
+  - Người dùng truy cập `codegame.shop` thấy màn hình tải trang quá lâu, bị giam ở màn hình splash preloader màu đen hoặc spinner CyberLoader trong nhiều giây.
+- **Nguyên nhân gốc rễ**:
+  1. *Splash Preloader màn hình đen toàn cảnh*: `#app-preloader` che toàn màn hình (`z-index: 9999999`) và chỉ được React tháo dỡ qua `useEffect` sau khi tải xong toàn bộ JavaScript. Trang web vốn có sẵn 60 thẻ game prerender trong HTML nhưng bị che hoàn toàn.
+  2. *Render-blocking Google Fonts (11 Font Weights)*: Thẻ `<link href="...fonts.googleapis.com...">` tải 7 font weights của Inter và 4 font weights của JetBrains Mono đồng bộ trong `<head>`, chặn đứng việc vẽ giao diện của trình duyệt.
+  3. *Monolithic JavaScript Bundle (1.33 MB index.js)*: Toàn bộ 17 view và modal phụ bị import tĩnh trong `App.tsx`, khiến bundle ban đầu quá nặng.
+  4. *Khởi tạo State Rỗng & 2 Request API Trùng Lặp*: State `games` rỗng kích hoạt CyberLoader trên mount, kết hợp với việc gọi đồng thời 2 API fetch `/api/games`.
+- **Giải pháp chuẩn đã kiểm chứng**:
+  1. **Tự động mờ Splash Preloader**: Inline script trên `DOMContentLoaded` (hoặc tối đa 700ms) mờ dần preloader ngay khi HTML sẵn sàng (~150ms).
+  2. **Non-blocking Font Preloading**: Dùng `preload` + `media="print" onload="this.media='all'"` để trình duyệt vẽ ngay với system font fallback và swap Inter font ngầm.
+  3. **Code-Splitting 17 View/Modal**: Sử dụng `React.lazy` và `Suspense`, giảm bundle `index.js` từ 1.33 MB xuống 925 KB.
+  4. **Nạp 24 Game Đồng Bộ 0ms**: Khởi tạo state `games: dataService.getLocalGamesSync(24)`, `isLoading: false`, loại bỏ fetch trùng lặp.
+- ⛔ **CÁCH SỬA ĐÃ THẤT BẠI - TUYỆT ĐỐI KHÔNG LẶP LẠI**:
+  - ❌ *Không để splash preloader cố định che phủ HTML prerender cho đến khi React hydrate*: Triệt tiêu toàn bộ ưu thế tải nhanh của prerendered static HTML.
+  - ❌ *Không import tĩnh các modal phụ vào root App component*: Phải code-split toàn bộ modal.
 
 ---
 

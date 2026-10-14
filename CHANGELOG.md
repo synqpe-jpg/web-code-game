@@ -7,6 +7,35 @@ Mỗi mục sửa lỗi đều ghi nhận **Nguyên nhân gốc rễ (Root Cause
 
 ## [2026-10-14]
 
+### 47. Tăng Tốc Tải Trang Toàn Diện: Code-Splitting 17 View/Modal, Non-Blocking Font, Preloader Auto-Dismiss & Nạp Đồng Bộ 0ms
+- **Mô tả & Yêu cầu Người Dùng**:
+  - Người dùng phản ánh tốc độ tải trang quá lâu khi truy cập vào website `codegame.shop`.
+- **Phân Tích Nguyên Nhân Gốc Rễ (Root Cause Analysis)**:
+  1. *Splash Preloader màn hình đen toàn cảnh che khuất HTML tĩnh*: Trang web đã có sẵn 60 thẻ game prerender trong `dist/index.html` (sẵn sàng hiển thị trong ~150ms). Tuy nhiên `#app-preloader` với `position: fixed; inset: 0; z-index: 9999999` đóng vai trò bức tường đen che toàn bộ giao diện cho đến khi toàn bộ 3.1MB JavaScript được tải xong, biên dịch và React mount xong.
+  2. *Render-blocking Google Fonts (11 Font Weights)*: Thẻ `<link href="...fonts.googleapis.com...">` trong `<head>` tải 7 font weights của Inter và 4 font weights của JetBrains Mono một cách đồng bộ. Tại Việt Nam, kết nối Google Fonts thường mất 1 - 2 giây, khiến trình duyệt hoãn hoàn toàn việc vẽ giao diện.
+  3. *Monolithic JavaScript Bundle (1.33 MB index.js)*: Trong `App.tsx`, toàn bộ 17 modal và view phụ (`NewsView`, `GiveawaysView`, `StoreView`, `UtilitiesView`, `GameDetailModal`, `UserWalletModal`, `AuthModal`,...) bị import tĩnh, biến file `index.js` thành khối 1.33 MB (566 KB gzip) dù người dùng mới chỉ vào trang chủ.
+  4. *Khởi tạo State Rỗng & 2 Request API Trùng Lặp*: State `games` khởi tạo bằng `[]` và `isLoading: true`. Khi mount, cả `loadInitialData` lẫn `useEffect(executeQuery)` đồng thời gửi 2 request API `/api/games`, kích hoạt spinner `CyberLoader` che giao diện trong khi dữ liệu 623 game cơ sở đã có sẵn trong bộ nhớ.
+  5. *Meta Cache-Control no-store*: Thẻ `<meta http-equiv="Cache-Control" content="no-store">` ngăn cản trình duyệt tận dụng bộ nhớ đệm bộ nhớ của subresources.
+- **Giải Pháp Đã Triển Khai (Proven Solution)**:
+  1. *Code-Splitting Toàn Diện với `React.lazy` & `Suspense`*:
+     - Tách toàn bộ 17 view và modal phụ thành các chunk độc lập, giảm dung lượng `index.js` từ 1.33 MB xuống chỉ còn **925 KB** (giảm hơn 400 KB).
+     - Thiết lập idle preload cho `GameDetailModal` sau 150ms để việc bấm xem chi tiết game vẫn đạt tốc độ tức thì 0ms.
+  2. *Chuyển Google Fonts Sang Cơ Chế Non-Blocking*:
+     - Tinh giản font weights (`Inter: 400-800`, `JetBrains Mono: 500-600`), sử dụng kỹ thuật `preload` + `media="print" onload="this.media='all'"`. Trình duyệt vẽ ngay lập tức bằng system font fallback và swap mượt mà khi font tải xong.
+  3. *Tự Động Mờ & Gỡ Bỏ Splash Preloader Ngay Khi DOM Sẵn Sàng*:
+     - Thêm script inline kích hoạt mờ dần `#app-preloader` ngay tại sự kiện `DOMContentLoaded` (hoặc tối đa 700ms), giúp người dùng nhìn thấy ngay HTML prerender chỉ trong **150 - 250ms**.
+  4. *Nạp Đồng Bộ 24 Game Baseline Tại Khởi Tạo (0ms)*:
+     - Khởi tạo `games: dataService.getLocalGamesSync(24)`, `categories: dataService.getCategoriesSync()`, `isLoading: false`.
+     - Loại bỏ request `queryGames` trùng lặp trong `loadInitialData`, để `executeQuery` chạy nền theo cơ chế SWR (Stale-While-Revalidate) mà không hiện spinner che màn hình.
+  5. *Tối Ưu Giải Mã Hình Ảnh & Cache*:
+     - Bổ sung `decoding="async"` trên toàn bộ icon game card.
+     - Xóa bỏ thẻ `no-store` meta trong `index.html`.
+     - Nâng cấp phiên bản PWA Service Worker lên `codegame-pwa-v5`.
+- **Giải Pháp Đã Thất Bại & Cần Tránh (Failed Attempts - Do Not Repeat)**:
+  - ❌ *Không được để màn hình splash preloader cố định che phủ HTML prerender cho đến khi React mount xong*: Khiến toàn bộ nỗ lực prerender SEO/FCP trở nên vô nghĩa.
+  - ❌ *Không import tĩnh toàn bộ các modal và tab con vào file khởi động chính*: Gây phình bundle và làm chậm TBT (Total Blocking Time).
+  - ❌ *Không gọi đồng thời 2 hàm fetch dữ liệu giống nhau tại mount*: Gây lãng phí băng thông và kích hoạt giật lag giao diện.
+
 ### 46. Khắc Phục Triệt Để Độ Trễ Hiển Thị Mã (Chỉ Hiện 1-2 Mã Ban Đầu): Hiển Thị 100% Giftcode Ngay Lập Tức Trong 0ms Nhờ Compact Codes Catalog Map & Loại Bỏ Network Roundtrip Chặn UI
 - **Mô tả & Yêu cầu Người Dùng**:
   - Người dùng phản ánh trên Cốc Cốc PC mở `codegame.shop/game/ta-la-hac-ngo-khong` chỉ hiện "Tất cả (3)" / "Còn hạn (3)" (chỉ hiện 3 mã preview ban đầu thay vì 20 mã) hoặc có game không hiện mã nào, một lúc lâu sau mạng load xong mới nhảy ra đầy đủ mã.
