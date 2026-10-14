@@ -180,26 +180,8 @@ export const UserWalletModal: React.FC<UserWalletModalProps> = ({
     );
   };
 
-  if (!isOpen) return null;
-
-  const quickAmounts = [
-    { core: 10000 },
-    { core: 20000 },
-    { core: 50000 },
-    { core: 100000 },
-    { core: 200000 },
-    { core: 500000 },
-    { core: 1000000 },
-    { core: 2000000 },
-  ];
-
   const topupAmount = parseInt(customInput.replace(/\D/g, ''), 10) || 0;
   const isValidAmount = topupAmount >= MIN_TOPUP;
-
-  const isLoggedIn = Boolean(user && user.id && !user.id.startsWith('guest_') && user.role !== 'guest');
-  const currentBalance = user?.wallet_balance || 0;
-  const rawUserId = user?.id || '';
-  const cleanId = (user?.id || user?.username || 'member').trim();
 
   const memberCode = (user?.id || user?.username || '').trim();
   const rawPrefix = (sepayConfig?.paymentPrefix || 'WCG').trim().replace(/[^a-zA-Z0-9]/g, '').toUpperCase();
@@ -218,10 +200,10 @@ export const UserWalletModal: React.FC<UserWalletModalProps> = ({
     accountName: bankAccount,
   });
 
-  const displayBankName = qrData.bankInfo.name;
-
   // Generate local Base64 VietQR data URL immediately for 0ms render & 100% adblocker immunity
+  // MUST remain at the top level before any early return to strictly obey Rules of Hooks
   useEffect(() => {
+    if (!isOpen) return;
     let isMounted = true;
     if (isValidAmount) {
       generateVietQrDataUrl({
@@ -243,7 +225,27 @@ export const UserWalletModal: React.FC<UserWalletModalProps> = ({
     return () => {
       isMounted = false;
     };
-  }, [isValidAmount, accountNumber, rawBankName, topupAmount, transferContent, qrData.primaryUrl]);
+  }, [isOpen, isValidAmount, accountNumber, rawBankName, topupAmount, transferContent, qrData.primaryUrl]);
+
+  if (!isOpen) return null;
+
+  const quickAmounts = [
+    { core: 10000 },
+    { core: 20000 },
+    { core: 50000 },
+    { core: 100000 },
+    { core: 200000 },
+    { core: 500000 },
+    { core: 1000000 },
+    { core: 2000000 },
+  ];
+
+  const isLoggedIn = Boolean(user && user.id && !user.id.startsWith('guest_') && user.role !== 'guest');
+  const currentBalance = user?.wallet_balance || 0;
+  const rawUserId = user?.id || '';
+  const cleanId = (user?.id || user?.username || 'member').trim();
+
+  const displayBankName = qrData.bankInfo.name;
 
   const handleCopy = (text: string, key: string) => {
     navigator.clipboard.writeText(text);

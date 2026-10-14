@@ -7,6 +7,26 @@ Mỗi mục sửa lỗi đều ghi nhận **Nguyên nhân gốc rễ (Root Cause
 
 ## [2026-10-14]
 
+### 49. Khắc Phục Triệt Để Lỗi Sập Giao Diện Khi Mở Modal Nạp Tiền (Minified React Error #310): Chuẩn Hóa Vị Trí Hooks Tuân Thủ Tuyệt Đối Rules of Hooks
+- **Mô tả & Yêu cầu Người Dùng**:
+  - Người dùng bấm vào nút "Nạp Core" thì màn hình bị sập, hiển thị thông báo lỗi của Error Boundary: *"Đã có sự cố hiển thị nhỏ xảy ra - Minified React error #310"*.
+- **Phân Tích Nguyên Nhân Gốc Rễ (Root Cause Analysis)**:
+  1. *Vi phạm nguyên tắc sống còn của React Hooks (Rules of Hooks)*: Trong `src/components/UserWalletModal.tsx`, hook `useEffect` phục vụ sinh chuỗi ảnh VietQR DataURL bị đặt sau câu lệnh early return `if (!isOpen) return null;`.
+  2. *Lệch số lượng hooks giữa 2 lần render*:
+     - Khi modal đóng (`isOpen = false`), render dừng ngay tại `if (!isOpen) return null;` (chỉ 15 hooks đầu tiên được gọi).
+     - Khi người dùng click nút "Nạp Core" (`isOpen = true`), component chạy qua câu lệnh early return và thực thi thêm hook `useEffect` thứ 16 ở dòng 224.
+     - React so sánh chuỗi hooks và phát hiện số lượng hooks ở render hiện tại (16) nhiều hơn render trước đó (15), ném ra lỗi `Minified React error #310` ("Rendered more hooks than during the previous render"), làm sập component tree.
+- **Giải Pháp Đã Triển Khai (Proven Solution)**:
+  1. *Đưa toàn bộ hooks lên mức cao nhất của Component (Top Level)*:
+     - Di chuyển các biến tính toán đầu vào (`topupAmount`, `transferContent`, `accountNumber`, `qrData`) và hook `useEffect` sinh VietQR lên trước câu lệnh `if (!isOpen) return null;`.
+     - Thêm điều kiện `if (!isOpen) return;` bên trong callback của `useEffect` để không thực thi logic khi modal đóng.
+     - Đảm bảo trong mọi lần render (bất kể `isOpen` là `false` hay `true`), React luôn thực thi đúng 16 hooks theo đúng thứ tự tuyệt đối.
+  2. *Kiểm toán toàn bộ dự án*:
+     - Chạy script quét toàn bộ các component modal trong codebase (`ConfirmModal`, `DuplicateCodesModal`, `FormModal`, `QuickFomoAdjustModal`, `Step2VerificationModal`, `AuthModal`, `DownloadAppModal`, `UserWalletModal`), xác nhận 100% không còn bất kỳ hook nào bị đặt sau câu lệnh early return.
+- **Giải Pháp Đã Thất Bại & Cần Tránh (Failed Attempts - Do Not Repeat)**:
+  - ❌ *Tuyệt đối không bao giờ khai báo bất kỳ React Hook (`useState`, `useEffect`, `useCallback`, `useRef`,...) sau câu lệnh `if (...) return` hoặc trong các khối lệnh điều kiện*: Luôn đặt toàn bộ hooks ở top-level của function component trước mọi điểm return.
+
+
 ### 48. Khắc Phục Triệt Để Lỗi Vỡ Ảnh QR Code Nạp Tiền: Tự Động Sinh Mã VietQR Chuẩn EMVCo / NAPAS 247 Offline (Base64 DataURL 0ms) Triệt Tiêu 100% Lỗi Chặn Mạng & AdBlocker
 - **Mô tả & Yêu cầu Người Dùng**:
   - Người dùng truy cập modal nạp tiền trên trình duyệt Cốc Cốc PC phản ánh phần nạp tiền bị lỗi: Khung hiển thị mã QR bị vỡ ảnh (broken image placeholder) kèm alt text *"Mã QR Chuyển Khoản Nạp Core"*, không thể quét mã để nạp tiền dù thông tin số tài khoản MBBank và cú pháp chuyển khoản hiển thị đầy đủ.

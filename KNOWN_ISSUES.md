@@ -683,6 +683,23 @@
 
 ---
 
+### ISSUE-038: Lỗi Sập Giao Diện Minified React Error #310 do gọi Hooks sau câu lệnh Early Return
+- **Triệu chứng**:
+  - Người dùng bấm mở một modal (ví dụ: Modal Nạp Tiền) thì toàn bộ giao diện bị crash, hiển thị màn hình Error Boundary: *"Đã có sự cố hiển thị nhỏ xảy ra - Minified React error #310"*.
+- **Nguyên nhân gốc rễ**:
+  - Vi phạm **Rules of Hooks**: Khai báo hook (`useEffect`, `useState`,...) nằm phía dưới câu lệnh thoát sớm `if (!isOpen) return null;`.
+  - Khi modal đóng (`isOpen = false`), component return sớm, số lượng hooks được chạy là $N$.
+  - Khi modal mở (`isOpen = true`), component chạy tiếp xuống dưới câu lệnh return, kích hoạt thêm hook mới thành $N + 1$.
+  - React ném lỗi invariant 310 (*"Rendered more hooks than during the previous render"*).
+- **Giải pháp chuẩn đã kiểm chứng**:
+  - **Quy tắc tuyệt đối**: Toàn bộ hooks của mọi React component PHẢI được đặt ở mức trên cùng (top-level) của hàm component, trước bất kỳ câu lệnh `return` nào.
+  - Đặt điều kiện kiểm tra (ví dụ `if (!isOpen) return;`) **bên trong** callback của hook, không đặt hook sau câu lệnh điều kiện.
+- ⛔ **CÁCH SỬA ĐÃ THẤT BẠI - TUYỆT ĐỐI KHÔNG LẶP LẠI**:
+  - ❌ *Tuyệt đối không đặt hook sau `if (!isOpen) return null;` hoặc bất kỳ early return nào*: Luôn dẫn đến lỗi phá vỡ chuỗi hooks khi trạng thái thay đổi.
+
+---
+
+
 
 ## 2. QUY TRÌNH BẮT BUỘC TRƯỚC KHI SỬA CODE (PRE-FLIGHT CHECKLIST)
 
