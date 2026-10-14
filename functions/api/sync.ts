@@ -24,6 +24,24 @@ import {
 import { verifyToken, computeHash } from '../services/auth_service';
 import { invalidateGamesCatalogCache } from './games';
 import fallbackGamesData from '../../src/data/games188.json';
+import fallbackCrawlerSources from '../../src/data/crawler_sources.json';
+import { smartMergeEntities, normalizeUrlKey } from '../../src/shared/dataMergeUtils';
+
+/**
+ * Canonical Schema Adapter:
+ * Safely extracts entity payload regardless of whether it was sent as:
+ * - Direct property: body.crawlerSources
+ * - Keyed property: body.key === 'wcg_crawler_sources_v1' && body.data !== undefined
+ * - Payload aliases: body.wcg_admin_crawler_sources_v5
+ */
+export function extractIncomingData(body: any, aliases: string[]): any {
+  if (!body || typeof body !== 'object') return undefined;
+  for (const alias of aliases) {
+    if (body[alias] !== undefined) return body[alias];
+    if (body.key === alias && body.data !== undefined) return body.data;
+  }
+  return undefined;
+}
 
 interface Env {
   ADMIN_SYNC_SECRET?: string;
@@ -550,13 +568,16 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
       success: true,
       timestamp: masterState.timestamp || new Date().toISOString(),
       serverTime: new Date().toISOString(),
-      games: (Array.isArray(d1Settings['wcg_admin_games_v5']) && d1Settings['wcg_admin_games_v5'].length > 0)
-        ? d1Settings['wcg_admin_games_v5']
-        : (Array.isArray(d1Settings['wcg_admin_games_v4']) && d1Settings['wcg_admin_games_v4'].length > 0)
-          ? d1Settings['wcg_admin_games_v4']
-          : (Array.isArray(masterState.games) && masterState.games.length > 0)
-            ? masterState.games
-            : (fallbackGamesData as any[]),
+      games: (() => {
+        const rawGames = (Array.isArray(d1Settings['wcg_admin_games_v5']) && d1Settings['wcg_admin_games_v5'].length > 0)
+          ? d1Settings['wcg_admin_games_v5']
+          : (Array.isArray(d1Settings['wcg_admin_games_v4']) && d1Settings['wcg_admin_games_v4'].length > 0)
+            ? d1Settings['wcg_admin_games_v4']
+            : (Array.isArray(masterState.games) && masterState.games.length > 0)
+              ? masterState.games
+              : [];
+        return smartMergeEntities(rawGames, fallbackGamesData as any[], 'slug').merged;
+      })(),
       freeCodes: authorized ? (() => {
         const rawFc = d1Settings['wcg_admin_free_codes_v5'] || d1Settings['wcg_admin_free_codes_v4'] || (Array.isArray(masterState.freeCodes) ? masterState.freeCodes : []);
         const customFc = d1Settings['wcg_admin_custom_free_codes_v1'] || masterState.customFreeCodes || [];
@@ -595,7 +616,14 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
       realGiveawayClaimedCounts: realEventsHub?.realGiveawayClaimedCounts || {},
       utilityCategories: d1Settings['wcg_admin_utility_categories_v1'] || masterState.utilityCategories || [],
       storeCategories: d1Settings['wcg_admin_store_categories_v1'] || masterState.storeCategories || [],
-      crawlerSources: d1Settings['wcg_crawler_sources_v1'] || masterState.crawlerSources || [],
+      crawlerSources: (() => {
+        const rawSources = d1Settings['wcg_crawler_sources_v1'] || masterState.crawlerSources || [];
+        return smartMergeEntities(
+          rawSources,
+          fallbackCrawlerSources as any[],
+          (s: any) => s.id || (s.targetGameSlug ? `${s.targetGameSlug}_${normalizeUrlKey(s.url)}` : normalizeUrlKey(s.url))
+        ).merged;
+      })(),
       newsArticles: Array.isArray(d1Settings['wcg_news_articles_v1'] || masterState.newsArticles)
         ? (d1Settings['wcg_news_articles_v1'] || masterState.newsArticles).filter(
             (a: any) => !deletedNewsSet.has(a.id) && !deletedNewsSet.has(a.slug)
@@ -1522,60 +1550,97 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
       );
     }
 
-    if (body.key && body.data !== undefined) {
-      const vKey = body.key.replace('_v3', '_v4');
-      if (vKey === 'wcg_admin_transactions_v4' && Array.isArray(body.data) && body.data.length === 0) {
-        if (env.DB) await env.DB.prepare('DELETE FROM wallet_transactions').run().catch(() => {});
-      }
-      if (vKey === 'wcg_admin_orders_v4' && Array.isArray(body.data) && body.data.length === 0) {
-        if (env.DB) await env.DB.prepare('DELETE FROM orders').run().catch(() => {});
-      }
-      if (vKey === 'wcg_admin_store_products_v4') currentMaster.storeProducts = body.data;
-      else if (vKey === 'wcg_admin_utilities_v4') currentMaster.utilities = body.data;
-      else if (vKey === 'wcg_deleted_store_products') currentMaster.deletedStoreProducts = body.data;
-      else if (vKey === 'wcg_deleted_utilities') currentMaster.deletedUtilities = body.data;
-      else if (vKey === 'wcg_deleted_giveaways') currentMaster.deletedGiveaways = body.data;
-      else if (vKey === 'wcg_deleted_free_codes') currentMaster.deletedFreeCodes = body.data;
-      else if (vKey === 'wcg_admin_custom_free_codes_v1') currentMaster.customFreeCodes = body.data;
-      else if (vKey === 'wcg_admin_games_v5' || vKey === 'wcg_admin_games_v4') currentMaster.games = body.data;
-      else if (vKey === 'wcg_admin_free_codes_v5' || vKey === 'wcg_admin_free_codes_v4') currentMaster.freeCodes = body.data;
-      else if (vKey === 'wcg_admin_giveaways_v4') currentMaster.giveaways = body.data;
-      else if (vKey === 'wcg_admin_content_v4') {
-        if (Array.isArray(body.data)) {
-          const existingContent = Array.isArray(currentMaster.content) ? currentMaster.content : [];
-          const map = new Map<string, any>();
-          existingContent.forEach((i: any) => { if (i && i.key) map.set(i.key, i); });
-          body.data.forEach((i: any) => { if (i && i.key) map.set(i.key, { ...(map.get(i.key) || {}), ...i }); });
-          currentMaster.content = Array.from(map.values());
-        }
-      }
-      else if (vKey === 'wcg_admin_sepay_v4') currentMaster.sepay = body.data;
-      else if (vKey === 'wcg_admin_members_v4') currentMaster.members = body.data;
-      else if (vKey === 'wcg_admin_transactions_v4') currentMaster.transactions = body.data;
-      else if (vKey === 'wcg_marketing_config_v1') currentMaster.marketingConfig = body.data;
-      else if (vKey === 'wcg_growth_config_v1') currentMaster.growthConfig = body.data;
-      else if (vKey === 'wcg_admin_utility_categories_v1') currentMaster.utilityCategories = body.data;
-      else if (vKey === 'wcg_admin_store_categories_v1') currentMaster.storeCategories = body.data;
-      else if (vKey === 'wcg_news_articles_v1') currentMaster.newsArticles = body.data;
-      else if (vKey === 'wcg_crawler_sources_v1' || vKey === 'wcg_admin_crawler_sources_v5') currentMaster.crawlerSources = body.data;
-    }
+    // Canonical Schema Ingestion Engine: Safely extract all entity payloads
+    const incGames = extractIncomingData(body, ['games', 'wcg_admin_games_v5', 'wcg_admin_games_v4']);
+    if (incGames !== undefined) currentMaster.games = incGames;
 
-    if (body.deletedStoreProducts !== undefined) currentMaster.deletedStoreProducts = body.deletedStoreProducts;
-    if (body.deletedUtilities !== undefined) currentMaster.deletedUtilities = body.deletedUtilities;
-    if (body.deletedGiveaways !== undefined) currentMaster.deletedGiveaways = body.deletedGiveaways;
-    if (body.deletedFreeCodes !== undefined) currentMaster.deletedFreeCodes = body.deletedFreeCodes;
-    if (body.customFreeCodes !== undefined) currentMaster.customFreeCodes = body.customFreeCodes;
-    if (body.games !== undefined) currentMaster.games = body.games;
-    if (body.freeCodes !== undefined) currentMaster.freeCodes = body.freeCodes;
-    if (body.submissions !== undefined) currentMaster.submissions = body.submissions;
-    if (body.members !== undefined) currentMaster.members = body.members;
-    if (body.transactions !== undefined) currentMaster.transactions = body.transactions;
-    if (body.privateCodes !== undefined) currentMaster.privateCodes = body.privateCodes;
-    if (body.content !== undefined && Array.isArray(body.content)) {
+    const incFreeCodes = extractIncomingData(body, ['freeCodes', 'wcg_admin_free_codes_v5', 'wcg_admin_free_codes_v4']);
+    if (incFreeCodes !== undefined) currentMaster.freeCodes = incFreeCodes;
+
+    const incCustomCodes = extractIncomingData(body, ['customFreeCodes', 'wcg_admin_custom_free_codes_v1']);
+    if (incCustomCodes !== undefined) currentMaster.customFreeCodes = incCustomCodes;
+
+    const incCrawlerSources = extractIncomingData(body, ['crawlerSources', 'wcg_crawler_sources_v1', 'wcg_admin_crawler_sources_v5']);
+    if (incCrawlerSources !== undefined) currentMaster.crawlerSources = incCrawlerSources;
+
+    const incStoreProducts = extractIncomingData(body, ['storeProducts', 'wcg_admin_store_products_v4']);
+    if (incStoreProducts !== undefined) currentMaster.storeProducts = incStoreProducts;
+
+    const incUtilities = extractIncomingData(body, ['utilities', 'wcg_admin_utilities_v4']);
+    if (incUtilities !== undefined) currentMaster.utilities = incUtilities;
+
+    const incGiveaways = extractIncomingData(body, ['giveaways', 'wcg_admin_giveaways_v5', 'wcg_admin_giveaways_v4']);
+    if (incGiveaways !== undefined) currentMaster.giveaways = incGiveaways;
+
+    const incDelStore = extractIncomingData(body, ['deletedStoreProducts', 'wcg_deleted_store_products']);
+    if (incDelStore !== undefined) currentMaster.deletedStoreProducts = incDelStore;
+
+    const incDelUtil = extractIncomingData(body, ['deletedUtilities', 'wcg_deleted_utilities']);
+    if (incDelUtil !== undefined) currentMaster.deletedUtilities = incDelUtil;
+
+    const incDelGw = extractIncomingData(body, ['deletedGiveaways', 'wcg_deleted_giveaways']);
+    if (incDelGw !== undefined) currentMaster.deletedGiveaways = incDelGw;
+
+    const incDelCodes = extractIncomingData(body, ['deletedFreeCodes', 'wcg_deleted_free_codes']);
+    if (incDelCodes !== undefined) currentMaster.deletedFreeCodes = incDelCodes;
+
+    const incDelNews = extractIncomingData(body, ['deletedNewsArticles', 'wcg_deleted_news_articles_v1']);
+    if (incDelNews !== undefined) currentMaster.deletedNewsArticles = incDelNews;
+
+    const incNews = extractIncomingData(body, ['newsArticles', 'wcg_news_articles_v1']);
+    if (incNews !== undefined) currentMaster.newsArticles = incNews;
+
+    const incNewsAuto = extractIncomingData(body, ['newsAutoSources', 'wcg_news_auto_sources_v1']);
+    if (incNewsAuto !== undefined) currentMaster.newsAutoSources = incNewsAuto;
+
+    const incNewsSchedule = extractIncomingData(body, ['newsScheduleConfig', 'wcg_news_schedule_config_v1']);
+    if (incNewsSchedule !== undefined) currentMaster.newsScheduleConfig = incNewsSchedule;
+
+    const incUtilCats = extractIncomingData(body, ['utilityCategories', 'wcg_admin_utility_categories_v1']);
+    if (incUtilCats !== undefined) currentMaster.utilityCategories = incUtilCats;
+
+    const incStoreCats = extractIncomingData(body, ['storeCategories', 'wcg_admin_store_categories_v1']);
+    if (incStoreCats !== undefined) currentMaster.storeCategories = incStoreCats;
+
+    const incMarketing = extractIncomingData(body, ['marketingConfig', 'wcg_marketing_config_v1']);
+    if (incMarketing !== undefined) currentMaster.marketingConfig = incMarketing;
+
+    const incGrowth = extractIncomingData(body, ['growthConfig', 'wcg_growth_config_v1']);
+    if (incGrowth !== undefined) currentMaster.growthConfig = incGrowth;
+
+    const incPendingCodes = extractIncomingData(body, ['crawlerPendingCodes', 'wcg_crawler_pending_codes_v1']);
+    if (incPendingCodes !== undefined) currentMaster.crawlerPendingCodes = incPendingCodes;
+
+    const incCrawlerLogs = extractIncomingData(body, ['crawlerLogs', 'wcg_crawler_logs_v1']);
+    if (incCrawlerLogs !== undefined) currentMaster.crawlerLogs = incCrawlerLogs;
+
+    const incSubmissions = extractIncomingData(body, ['submissions', 'wcg_admin_submissions_v4']);
+    if (incSubmissions !== undefined) currentMaster.submissions = incSubmissions;
+
+    const incMembers = extractIncomingData(body, ['members', 'wcg_admin_members_v4']);
+    if (incMembers !== undefined) currentMaster.members = incMembers;
+
+    const incTransactions = extractIncomingData(body, ['transactions', 'wcg_admin_transactions_v4']);
+    if (incTransactions !== undefined) currentMaster.transactions = incTransactions;
+
+    const incPrivateCodes = extractIncomingData(body, ['privateCodes', 'wcg_admin_private_codes_v4']);
+    if (incPrivateCodes !== undefined) currentMaster.privateCodes = incPrivateCodes;
+
+    const incSepay = extractIncomingData(body, ['sepay', 'wcg_admin_sepay_v4']);
+    if (incSepay !== undefined) currentMaster.sepay = incSepay;
+
+    const incSepayLogs = extractIncomingData(body, ['sepayLogs', 'wcg_admin_sepay_logs_v4']);
+    if (incSepayLogs !== undefined) currentMaster.sepayLogs = incSepayLogs;
+
+    const incSecurityLogs = extractIncomingData(body, ['securityLogs', 'wcg_admin_security_logs_v4']);
+    if (incSecurityLogs !== undefined) currentMaster.securityLogs = incSecurityLogs;
+
+    const incContent = extractIncomingData(body, ['content', 'wcg_admin_content_v4']);
+    if (incContent !== undefined && Array.isArray(incContent)) {
       const existingContent = Array.isArray(currentMaster.content) ? currentMaster.content : [];
       const map = new Map<string, any>();
       existingContent.forEach((i: any) => { if (i && i.key) map.set(i.key, i); });
-      body.content.forEach((i: any) => {
+      incContent.forEach((i: any) => {
         if (i && i.key) {
           const existing = map.get(i.key);
           const incomingTime = i.updatedAt ? Date.parse(i.updatedAt) : 0;
@@ -1587,21 +1652,6 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
       });
       currentMaster.content = Array.from(map.values());
     }
-    if (body.sepay !== undefined) currentMaster.sepay = body.sepay;
-    if (body.sepayLogs !== undefined) currentMaster.sepayLogs = body.sepayLogs;
-    if (body.securityLogs !== undefined) currentMaster.securityLogs = body.securityLogs;
-    if (body.giveaways !== undefined) currentMaster.giveaways = body.giveaways;
-    if (body.storeProducts !== undefined) currentMaster.storeProducts = body.storeProducts;
-    if (body.utilities !== undefined) currentMaster.utilities = body.utilities;
-    if (body.utilityCategories !== undefined) currentMaster.utilityCategories = body.utilityCategories;
-    if (body.storeCategories !== undefined) currentMaster.storeCategories = body.storeCategories;
-    if (body.marketingConfig !== undefined) currentMaster.marketingConfig = body.marketingConfig;
-    if (body.growthConfig !== undefined) currentMaster.growthConfig = body.growthConfig;
-    if (body.crawlerPendingCodes !== undefined) currentMaster.crawlerPendingCodes = body.crawlerPendingCodes;
-    if (body.crawlerSources !== undefined) currentMaster.crawlerSources = body.crawlerSources;
-    if (body.crawlerLogs !== undefined) currentMaster.crawlerLogs = body.crawlerLogs;
-    if (body.deletedNewsArticles !== undefined) currentMaster.deletedNewsArticles = body.deletedNewsArticles;
-    if (body.newsArticles !== undefined) currentMaster.newsArticles = body.newsArticles;
 
     // D1 Quota Optimization: NEVER store huge monolithic inventory, orders or crawled freeCodes arrays in KV/Settings master state
     currentMaster.inventory = [];
@@ -1813,19 +1863,13 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
         }
 
         // Custom Free Codes Sync
-        const incomingCustomFc = body.customFreeCodes !== undefined
-          ? body.customFreeCodes
-          : (body.key === 'wcg_admin_custom_free_codes_v1' && Array.isArray(body.data) ? body.data : null);
-        if (Array.isArray(incomingCustomFc)) {
+        if (Array.isArray(incCustomCodes)) {
           const existingCustom = (await getSettingD1(env.DB, 'wcg_admin_custom_free_codes_v1')) || [];
-          const customMap = new Map<string, any>();
-          if (Array.isArray(existingCustom)) {
-            existingCustom.forEach((c: any) => { if (c && c.id) customMap.set(c.id, c); });
-          }
-          incomingCustomFc.forEach((c: any) => {
-            if (c && c.id) customMap.set(c.id, c);
-          });
-          const mergedCustom = Array.from(customMap.values());
+          const { merged: mergedCustom } = smartMergeEntities(
+            Array.isArray(existingCustom) ? existingCustom : [],
+            incCustomCodes,
+            'id'
+          );
           await setSettingD1(env.DB, 'wcg_admin_custom_free_codes_v1', mergedCustom);
           invalidateGamesCatalogCache();
         }
@@ -1833,74 +1877,67 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
         // Automatically purge any orphaned inventory codes for inactive/deleted products
         await purgeOrphanedInventoryCodesD1(env.DB);
 
-        // System Settings & Configurations in D1 system_settings (skipping deletion tombstone keys which were merged above)
-        if (
-          body.key &&
-          body.data !== undefined &&
-          body.key !== 'wcg_deleted_store_products' &&
-          body.key !== 'wcg_deleted_utilities' &&
-          body.key !== 'wcg_deleted_giveaways' &&
-          body.key !== 'wcg_deleted_inventory_codes' &&
-          body.key !== 'wcg_deleted_free_codes' &&
-          body.key !== 'wcg_admin_custom_free_codes_v1' &&
-          body.key !== 'wcg_admin_content_v4'
-        ) {
-          await setSettingD1(env.DB, body.key, body.data);
-        }
-        if (body.key === 'wcg_admin_content_v4' && Array.isArray(body.data)) {
-          const merged = await mergeContentIntoD1(env.DB, body.data);
-          currentMaster.content = merged;
-        }
-        if (body.games !== undefined || (body.key === 'wcg_admin_games_v5' && Array.isArray(body.data))) {
-          await setSettingD1(env.DB, 'wcg_admin_games_v5', body.games || body.data);
+        // System Settings & Configurations in D1 system_settings
+        if (incGames !== undefined) {
+          await setSettingD1(env.DB, 'wcg_admin_games_v5', incGames);
           invalidateGamesCatalogCache();
         }
+
         // Only allow updating wcg_admin_free_codes_v5 if it's a full catalog import (length >= 1000)
-        // This strictly prevents full-state syncs with smaller arrays from wiping out the 5,076 crawled codes!
-        if (
-          (body.key === 'wcg_admin_free_codes_v5' && Array.isArray(body.data) && body.data.length >= 1000) ||
-          (body.freeCodes !== undefined && Array.isArray(body.freeCodes) && body.freeCodes.length >= 1000)
-        ) {
+        // This strictly prevents full-state syncs with smaller arrays from wiping out the 5,321 crawled codes!
+        if (incFreeCodes !== undefined && Array.isArray(incFreeCodes) && incFreeCodes.length >= 1000) {
           try {
-            await setSettingD1(env.DB, 'wcg_admin_free_codes_v5', body.data || body.freeCodes);
+            await setSettingD1(env.DB, 'wcg_admin_free_codes_v5', incFreeCodes);
           } catch (e: any) {
             console.warn('[Sync] freeCodes setting write skipped or quota limit reached:', e?.message);
           }
           invalidateGamesCatalogCache();
         }
-        if (body.key === 'wcg_admin_games_v5' || body.key === 'wcg_admin_free_codes_v5' || body.key === 'wcg_admin_custom_free_codes_v1') {
-          invalidateGamesCatalogCache();
-        }
-        if (body.content !== undefined && Array.isArray(body.content)) {
-          const merged = await mergeContentIntoD1(env.DB, body.content);
+
+        if (incContent !== undefined && Array.isArray(incContent)) {
+          const merged = await mergeContentIntoD1(env.DB, incContent);
           currentMaster.content = merged;
         }
-        if (body.sepay !== undefined || body.key === 'wcg_admin_sepay_v4') await setSettingD1(env.DB, 'wcg_admin_sepay_v4', body.sepay ?? body.data);
-        const incomingMarketing = body.marketingConfig !== undefined
-          ? body.marketingConfig
-          : (body.key === 'wcg_marketing_config_v1' ? body.data : undefined);
-        if (incomingMarketing !== undefined) {
-          await setSettingD1(env.DB, 'wcg_marketing_config_v1', incomingMarketing);
+
+        if (incCrawlerSources !== undefined) {
+          await setSettingD1(env.DB, 'wcg_crawler_sources_v1', incCrawlerSources);
+        }
+        if (incCrawlerLogs !== undefined) await setSettingD1(env.DB, 'wcg_crawler_logs_v1', incCrawlerLogs);
+        if (incPendingCodes !== undefined) await setSettingD1(env.DB, 'wcg_crawler_pending_codes_v1', incPendingCodes);
+        if (incSepay !== undefined) await setSettingD1(env.DB, 'wcg_admin_sepay_v4', incSepay);
+        if (incMarketing !== undefined) {
+          await setSettingD1(env.DB, 'wcg_marketing_config_v1', incMarketing);
           // Invalidate snapshot cache so it immediately recalculates with new product weights
           const gScope = globalThis as any;
           gScope.__wcg_metrics_snapshot = null;
         }
-        if (body.growthConfig !== undefined || body.key === 'wcg_growth_config_v1') await setSettingD1(env.DB, 'wcg_growth_config_v1', body.growthConfig ?? body.data);
-        if (body.submissions !== undefined) await setSettingD1(env.DB, 'wcg_admin_submissions_v4', body.submissions);
-        if (body.transactions !== undefined) await setSettingD1(env.DB, 'wcg_admin_transactions_v4', body.transactions);
-        if (body.privateCodes !== undefined) await setSettingD1(env.DB, 'wcg_admin_private_codes_v4', body.privateCodes);
-        if (body.securityLogs !== undefined) await setSettingD1(env.DB, 'wcg_admin_security_logs_v4', body.securityLogs);
-        if (body.sepayLogs !== undefined) await setSettingD1(env.DB, 'wcg_admin_sepay_logs_v4', body.sepayLogs);
-        if (body.utilityCategories !== undefined || body.key === 'wcg_admin_utility_categories_v1') await setSettingD1(env.DB, 'wcg_admin_utility_categories_v1', body.utilityCategories ?? body.data);
-        if (body.storeCategories !== undefined || body.key === 'wcg_admin_store_categories_v1') await setSettingD1(env.DB, 'wcg_admin_store_categories_v1', body.storeCategories ?? body.data);
-        if (body.giveaways !== undefined) await setSettingD1(env.DB, 'wcg_admin_giveaways_v4', body.giveaways);
-        if (body.crawlerPendingCodes !== undefined) await setSettingD1(env.DB, 'wcg_crawler_pending_codes_v1', body.crawlerPendingCodes);
-        if (body.crawlerSources !== undefined || body.key === 'wcg_crawler_sources_v1' || body.key === 'wcg_admin_crawler_sources_v5') await setSettingD1(env.DB, 'wcg_crawler_sources_v1', body.crawlerSources ?? body.data);
-        if (body.crawlerLogs !== undefined) await setSettingD1(env.DB, 'wcg_crawler_logs_v1', body.crawlerLogs);
-        if (body.deletedNewsArticles !== undefined) await setSettingD1(env.DB, 'wcg_deleted_news_articles_v1', body.deletedNewsArticles);
-        if (body.newsArticles !== undefined || body.key === 'wcg_news_articles_v1') await setSettingD1(env.DB, 'wcg_news_articles_v1', body.newsArticles ?? body.data);
-        if (body.newsAutoSources !== undefined) await setSettingD1(env.DB, 'wcg_news_auto_sources_v1', body.newsAutoSources);
-        if (body.newsScheduleConfig !== undefined) await setSettingD1(env.DB, 'wcg_news_schedule_config_v1', body.newsScheduleConfig);
+        if (incGrowth !== undefined) await setSettingD1(env.DB, 'wcg_growth_config_v1', incGrowth);
+        if (incSubmissions !== undefined) await setSettingD1(env.DB, 'wcg_admin_submissions_v4', incSubmissions);
+        if (incTransactions !== undefined) await setSettingD1(env.DB, 'wcg_admin_transactions_v4', incTransactions);
+        if (incPrivateCodes !== undefined) await setSettingD1(env.DB, 'wcg_admin_private_codes_v4', incPrivateCodes);
+        if (incSecurityLogs !== undefined) await setSettingD1(env.DB, 'wcg_admin_security_logs_v4', incSecurityLogs);
+        if (incSepayLogs !== undefined) await setSettingD1(env.DB, 'wcg_admin_sepay_logs_v4', incSepayLogs);
+        if (incUtilCats !== undefined) await setSettingD1(env.DB, 'wcg_admin_utility_categories_v1', incUtilCats);
+        if (incStoreCats !== undefined) await setSettingD1(env.DB, 'wcg_admin_store_categories_v1', incStoreCats);
+        if (incGiveaways !== undefined) await setSettingD1(env.DB, 'wcg_admin_giveaways_v4', incGiveaways);
+        if (incDelNews !== undefined) await setSettingD1(env.DB, 'wcg_deleted_news_articles_v1', incDelNews);
+        if (incNews !== undefined) await setSettingD1(env.DB, 'wcg_news_articles_v1', incNews);
+        if (incNewsAuto !== undefined) await setSettingD1(env.DB, 'wcg_news_auto_sources_v1', incNewsAuto);
+        if (incNewsSchedule !== undefined) await setSettingD1(env.DB, 'wcg_news_schedule_config_v1', incNewsSchedule);
+
+        // Fallback for any other arbitrary custom single key sent via { key, data }
+        if (
+          body.key &&
+          body.data !== undefined &&
+          ![
+            'wcg_deleted_store_products', 'wcg_deleted_utilities', 'wcg_deleted_giveaways',
+            'wcg_deleted_inventory_codes', 'wcg_deleted_free_codes', 'wcg_admin_custom_free_codes_v1',
+            'wcg_admin_content_v4', 'wcg_admin_games_v5', 'wcg_admin_free_codes_v5',
+            'wcg_crawler_sources_v1', 'wcg_admin_crawler_sources_v5'
+          ].includes(body.key)
+        ) {
+          await setSettingD1(env.DB, body.key, body.data);
+        }
 
         // Consolidated Master State Snapshot in D1 system_settings
         await setSettingD1(env.DB, 'wcg_master_state_v4', currentMaster);

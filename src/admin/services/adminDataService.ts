@@ -23,6 +23,7 @@ import { DEFAULT_STORE_PRODUCTS, DEFAULT_INVENTORY, DEFAULT_UTILITY_PRODUCTS } f
 import { crossOriginSync } from '../../services/crossOriginSync';
 import { marketingService, DEFAULT_PRODUCT_MARKETING_CONFIG } from '../../services/marketingService';
 import { FloatingNotificationConfig, DEFAULT_FLOATING_NOTIFICATION } from '../../types/floatingNotification';
+import { smartMergeEntities } from '../../shared/dataMergeUtils';
 
 class AdminDataService {
   private games: GameAdminRecord[] = [];
@@ -336,50 +337,52 @@ class AdminDataService {
         }
       }
 
-      // 2. Load Games
+      // 2. Load Games (Monotonic Union: ensure all bundled 623 games exist, plus any admin custom additions)
+      const rawGames: any[] = Array.isArray(rawGamesData) ? rawGamesData : [];
+      const formattedRawGames = rawGames.map((g, idx) => {
+        const slug = g.slug || g.id || `game-${idx + 1}`;
+        let icon = g.icon_url || g.iconUrl || `/game_icons/${slug}.webp`;
+        if (!icon || icon.startsWith('/game-icons') || icon.startsWith('game-icons')) {
+          icon = `/game_icons/${slug}.webp`;
+        }
+
+        let status: 'ACTIVE' | 'HOT' | 'INACTIVE' = 'ACTIVE';
+        if (g.is_hot || g.isHot || idx < 10) status = 'HOT';
+        else if (g.status === 'INACTIVE' || g.is_active === false) status = 'INACTIVE';
+
+        return {
+          id: g.id || slug,
+          name: g.name || 'Game Tựa',
+          slug: slug,
+          publisher: g.publisher || 'Nhà phát hành',
+          category: g.category || 'Nhập Vai',
+          rating: typeof g.rating === 'number' ? g.rating : 4.8,
+          icon_url: icon,
+          banner_url: g.banner_url || g.bannerUrl,
+          description: g.description || `Mô tả game ${g.name}.`,
+          short_description: g.short_description || `Tổng hợp giftcode ${g.name} độc quyền.`,
+          instructions: g.instructions || 'Mở game > Cài đặt > Nhập Giftcode > Nhận thưởng.',
+          platform: g.platform || 'Android, iOS, PC',
+          so_giay_phep: g.so_giay_phep,
+          ngay_cap_phep: g.ngay_cap_phep,
+          release_date: g.gp_release_date || g.release_date || '2026-09-01',
+          status: status,
+          created_at: g.created_at || '2026-08-01T00:00:00Z',
+          updated_at: g.updated_at || '2026-09-27T00:00:00Z',
+        };
+      });
+
       const savedGames = localStorage.getItem(this.KEYS.GAMES);
+      let loadedGames: any[] = [];
       if (savedGames !== null) {
         try {
-          this.games = JSON.parse(savedGames);
+          loadedGames = JSON.parse(savedGames);
         } catch {
-          this.games = [];
+          loadedGames = [];
         }
-      } else {
-        const rawGames: any[] = Array.isArray(rawGamesData) ? rawGamesData : [];
-        this.games = rawGames.map((g, idx) => {
-          const slug = g.slug || g.id || `game-${idx + 1}`;
-          let icon = g.icon_url || g.iconUrl || `/game_icons/${slug}.webp`;
-          if (!icon || icon.startsWith('/game-icons') || icon.startsWith('game-icons')) {
-            icon = `/game_icons/${slug}.webp`;
-          }
-
-          let status: 'ACTIVE' | 'HOT' | 'INACTIVE' = 'ACTIVE';
-          if (g.is_hot || g.isHot || idx < 10) status = 'HOT';
-          else if (g.status === 'INACTIVE' || g.is_active === false) status = 'INACTIVE';
-
-          return {
-            id: g.id || slug,
-            name: g.name || 'Game Tựa',
-            slug: slug,
-            publisher: g.publisher || 'Nhà phát hành',
-            category: g.category || 'Nhập Vai',
-            rating: typeof g.rating === 'number' ? g.rating : 4.8,
-            icon_url: icon,
-            banner_url: g.banner_url || g.bannerUrl,
-            description: g.description || `Mô tả game ${g.name}.`,
-            short_description: g.short_description || `Tổng hợp giftcode ${g.name} độc quyền.`,
-            instructions: g.instructions || 'Mở game > Cài đặt > Nhập Giftcode > Nhận thưởng.',
-            platform: g.platform || 'Android, iOS, PC',
-            so_giay_phep: g.so_giay_phep,
-            ngay_cap_phep: g.ngay_cap_phep,
-            release_date: g.gp_release_date || g.release_date || '2026-09-01',
-            status: status,
-            created_at: g.created_at || '2026-08-01T00:00:00Z',
-            updated_at: g.updated_at || '2026-09-27T00:00:00Z',
-          };
-        });
-        this.safeSetItem(this.KEYS.GAMES, JSON.stringify(this.games));
       }
+      this.games = smartMergeEntities(loadedGames, formattedRawGames, 'slug').merged;
+      this.safeSetItem(this.KEYS.GAMES, JSON.stringify(this.games));
 
       // 3. Load Free Codes
       const savedCodes = localStorage.getItem(this.KEYS.FREE_CODES);
@@ -1304,7 +1307,8 @@ class AdminDataService {
 
             // 14. Games (Catalog - ~660KB)
             if (json.games && Array.isArray(json.games) && json.games.length > 0) {
-              this.games = json.games;
+              const { merged } = smartMergeEntities(this.games, json.games, 'slug');
+              this.games = merged;
               this.safeSetItem(this.KEYS.GAMES, JSON.stringify(this.games));
               hasUpdates = true;
             }

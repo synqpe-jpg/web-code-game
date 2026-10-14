@@ -20,6 +20,7 @@ import {
   FloatingNotificationConfig,
   DEFAULT_FLOATING_NOTIFICATION,
 } from '../types/floatingNotification';
+import { smartMergeEntities } from '../shared/dataMergeUtils';
 
 interface RawGame {
   id?: string;
@@ -426,9 +427,12 @@ class DataService {
             let hasChanges = false;
             if (json.games && Array.isArray(json.games) && json.games.length > 0) {
               try {
-                const currentGames = localStorage.getItem('wcg_admin_games_v5');
-                const newGames = JSON.stringify(json.games);
-                if (currentGames !== newGames) {
+                const currentGamesRaw = localStorage.getItem('wcg_admin_games_v5');
+                let currentGames: any[] = [];
+                try { currentGames = currentGamesRaw ? JSON.parse(currentGamesRaw) : []; } catch {}
+                const { merged } = smartMergeEntities(currentGames, json.games, 'slug');
+                const newGames = JSON.stringify(merged);
+                if (currentGamesRaw !== newGames) {
                   localStorage.setItem('wcg_admin_games_v5', newGames);
                   hasChanges = true;
                 }
@@ -966,16 +970,16 @@ class DataService {
         this.codesMap.set(slug, [...customList, ...list]);
       }
 
-      // 3. Load Games (Prefer Admin Database, fallback to JSON)
-      let gamesList: any[] = [];
+      // 3. Load Games (Monotonic Union: ensure all bundled games exist, plus any admin additions)
+      let savedGamesList: any[] = [];
       const savedGames = localStorage.getItem('wcg_admin_games_v5');
       if (savedGames !== null) {
         try {
-          gamesList = JSON.parse(savedGames);
+          savedGamesList = JSON.parse(savedGames);
         } catch {}
-      } else {
-        gamesList = Array.isArray(rawGamesData) ? (rawGamesData as RawGame[]) : [];
       }
+      const fallbackGames = Array.isArray(rawGamesData) ? (rawGamesData as RawGame[]) : [];
+      const gamesList = smartMergeEntities(savedGamesList, fallbackGames, 'slug').merged;
 
       const categorySet = new Set<string>();
 

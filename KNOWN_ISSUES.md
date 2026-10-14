@@ -589,6 +589,24 @@
 - ⛔ **CÁCH SỬA ĐÃ THẤT BẠI - TUYỆT ĐỐI KHÔNG LẶP LẠI**:
   - ❌ *Không phụ thuộc 100% vào việc ghi mảng monolithic >1MB vào 1 hàng trong bảng system_settings D1*: Bắt buộc phải có bundled fallback trong Edge Worker bundle.
 
+### ISSUE-033: Bẫy Ghi Đè Mù Quáng Danh Mục Dữ Liệu & Hồi Quy Snapshot Cũ (Blind Overwrite & Stale Snapshot Regression Trap)
+- **Triệu chứng**:
+  - Sau khi thêm game mới, nguồn cào mới hoặc giftcode mới, qua vài lượt thao tác trên Admin UI hoặc sau khi tải lại trang, số lượng thực thể bị tụt giảm trở về các con số cũ (ví dụ tụt từ 933 nguồn về 855 nguồn, tụt từ 623 game về 188 game).
+- **Nguyên nhân gốc rễ**:
+  1. *Gán mảng trực tiếp (Blind Array Assignment)*: Code sử dụng phép gán thô `this.games = json.games` hoặc `localStorage.setItem(..., JSON.stringify(json.games))` mà không kiểm tra độ đầy đủ của mảng đến. Nếu server trả về mảng cũ hoặc mảng rỗng, dữ liệu mới trên local bị xóa sổ hoàn toàn.
+  2. *Lệch khóa định danh trong Sync API*: Caller gửi payload `{ key, data }` trong khi backend chỉ kiểm tra thuộc tính trực tiếp `body.xyz !== undefined`, dẫn đến việc backend bỏ qua việc lưu vào D1 và chỉ giữ snapshot cũ.
+  3. *Thiếu cổng kiểm soát trước khi build (Pre-Deploy Integrity Gatekeeper)*: Hệ thống không có bước chặn tự động khi số lượng bản ghi giảm sút dưới ngưỡng cam kết.
+- **Giải pháp chuẩn đã kiểm chứng (Kiến trúc 4 Trụ Cột)**:
+  1. **Canonical Schema Adapter (`extractIncomingData`)**: Luôn trích xuất dữ liệu qua adapter nhận diện cả thuộc tính trực tiếp lẫn cặp `{ key, data }` và payload aliases.
+  2. **Non-Destructive Monotonic Set Union (`smartMergeEntities`)**:
+     - Luôn sử dụng phép hợp tăng tiến đơn điệu có bảo toàn theo khóa định danh (`id`, `slug`, composite key).
+     - Tuyệt đối không gán đè trực tiếp mảng từ server lên local nếu chưa qua phép hợp có sàn bảo vệ (`floor guard`).
+  3. **Tách biệt dữ liệu lớn & Edge Bundling**: D1 chỉ lưu trữ các bản ghi tạo mới (`custom_free_codes`, `deleted_free_codes`), danh mục tĩnh chuẩn (5.321 mã, 623 game, 933 nguồn) được nhúng sẵn vào Worker và HTML tĩnh.
+  4. **Pre-Deploy Gatekeeper (`scripts/verify_data_integrity.cjs`)**: Bắt buộc chạy ở Bước 0 của `build.cjs`. Nếu số lượng bản ghi tụt giảm dưới sàn cam kết ($\ge 623$ game, $\ge 5.321$ mã, $\ge 933$ nguồn), build lập tức bị hủy bỏ với `exit code 1`.
+- ⛔ **CÁCH SỬA ĐÃ THẤT BẠI - TUYỆT ĐỐI KHÔNG LẶP LẠI**:
+  - ❌ *Không gán trực tiếp mảng dữ liệu từ API về state client hoặc từ request body vào database*: Phải luôn dùng `smartMergeEntities`.
+  - ❌ *Không dùng URL thô làm khóa định danh duy nhất cho nguồn crawler*: Các nguồn cào có thể chia sẻ cùng URL fanpage nhà phát hành nhưng phục vụ các game khác nhau (`targetGameSlug`). Khóa định danh bắt buộc phải là `s.id || (s.targetGameSlug ? `${s.targetGameSlug}_${url}` : url)`.
+
 ---
 
 ## 2. QUY TRÌNH BẮT BUỘC TRƯỚC KHI SỬA CODE (PRE-FLIGHT CHECKLIST)

@@ -7,6 +7,46 @@ Mỗi mục sửa lỗi đều ghi nhận **Nguyên nhân gốc rễ (Root Cause
 
 ## [2026-10-14]
 
+### 44. Triển Khai Kiến Trúc Bất Khả Xâm Phạm: Chống Ghi Đè, Khắc Phục Lệch Khóa D1/KV Và Ngăn Chặn Hồi Quy Dữ Liệu
+- **Mô tả & Yêu cầu Người Dùng**:
+  - Người dùng yêu cầu xử lý dứt điểm 3 lỗi đồng bộ dữ liệu lặp lại nhiều lần trong quá trình cùng làm việc:
+    1. *Ghi đè trực tiếp tại Giao diện Admin*: Client Admin hoặc Web Khách vô tình ghi đè toàn bộ danh mục tĩnh phong phú bằng một bản snapshot cũ hoặc nhỏ hơn từ server/offline cache.
+    2. *Lệch khóa lưu trữ giữa D1 và KV Backend*: Gọi API đồng bộ với payload `{ key, data }` thay vì `{ [prop]: [...] }` hoặc lệch version (v1, v4, v5) khiến D1 bỏ qua không lưu, gây ra hiện tượng như 855 nguồn thay vì 933 nguồn.
+    3. *Kéo dữ liệu về bản cũ (Data Regression)*: Giới hạn dung lượng hàng 1MB của D1 khiến việc lưu trực tiếp 5.321 mã bị âm thầm thất bại, và client localStorage tự hồi sinh các bản ghi đã lỗi thời.
+- **Phân Tích Nguyên Nhân Gốc Rễ (Root Cause Analysis)**:
+  - *Nguyên nhân 1*: Thiếu tầng tiếp nhận schema quy chuẩn (Canonical Schema Registry). Mỗi module (`push_to_kv_sync`, `adminDataService`, `CrawlerModule`) dùng các format key khác nhau khiến khối `POST /api/sync` phân nhánh không đồng bộ.
+  - *Nguyên nhân 2*: Thiếu phép hợp tăng tiến đơn điệu (Non-Destructive Monotonic Set Union). Thay vì hợp nhất các tập hợp dữ liệu theo khóa duy nhất, mã nguồn dùng phép gán mảng `this.games = json.games` hoặc `currentMaster.games = incGames`. Khi server hoặc local trả về mảng cũ, dữ liệu mới bị xóa sạch.
+  - *Nguyên nhân 3*: Thiếu chốt chặn kiểm thử tự động trước khi build (Automated Pre-Deploy Integrity Gatekeeper). Nếu một commit làm giảm số lượng game, mã hoặc nguồn, hệ thống vẫn build và deploy bình thường.
+- **Giải Pháp Kiến Trúc 4 Trụ Cột Đã Triển Khai (The 4 Pillars)**:
+  1. **Canonical Schema Adapter (`functions/api/sync.ts`)**:
+     - Viết hàm `extractIncomingData(body, aliases)` bao quát 100% các biến thể (`body[alias]` lẫn `body.key === alias && body.data !== undefined`).
+     - Tiếp nhận đồng nhất toàn bộ 24 thực thể hệ thống (`games`, `freeCodes`, `customFreeCodes`, `crawlerSources`, `storeProducts`, `utilities`, `giveaways`, `newsArticles`,...).
+  2. **Non-Destructive Monotonic Set Union (`src/shared/dataMergeUtils.ts`)**:
+     - Triển khai `smartMergeEntities<T>(serverList, bundledList, uniqueKeySelector, deletedIds)`:
+       + Hỗ trợ cả selector function hoặc tên thuộc tính (`keyof T | string`).
+       + Tự động lọc bỏ các bản ghi trong danh sách xóa (tombstones).
+       + Đảm bảo dữ liệu chỉ tăng (monotonic growth), không bao giờ tụt giảm dưới sàn tĩnh chuẩn (`floor: 623 games, 5,321 codes, 933 sources`).
+       + Áp dụng tại: `functions/api/sync.ts` (GET & POST), `src/admin/services/adminDataService.ts`, và `src/services/dataService.ts`.
+  3. **Bộ Phân Tách Dung Lượng D1 & Edge Catalog Fallback**:
+     - Toàn bộ danh mục nặng 5.321 mã giftcode được biên dịch trực tiếp vào `dist/_worker.js` và HTML tĩnh.
+     - D1 chỉ lưu `wcg_admin_custom_free_codes_v1` (mã tự tạo/duyệt mới) và `wcg_deleted_free_codes` (tombstone).
+     - Worker tự động hợp nhất custom codes lên trên static catalog tại edge, vừa triệt tiêu giới hạn 1MB của D1 vừa giữ tốc độ phản hồi < 50ms.
+  4. **Pre-Deploy Data Integrity Gatekeeper (`scripts/verify_data_integrity.cjs`)**:
+     - Tích hợp thành Bước 0 trong `scripts/build.cjs`.
+     - Tự động kiểm tra trước khi Vite hoặc esbuild chạy:
+       + games188.json $\ge 623$
+       + crawled_codes_188.json $\ge 5,321$
+       + crawler_sources.json $\ge 933$
+       + Pirate Legend VIP 8-11 codes $\ge 46$ mã
+       + Unit assertion `smartMergeEntities` & `normalizeUrlKey`
+     - Bất kỳ vi phạm nào sẽ lập tức chặn đứng quá trình build (`exit code 1`), ngăn chặn 100% nguy cơ deploy bản hồi quy.
+- **Kết Quả Xác Minh Trên Môi Trường Trực Tiếp (Live Verification)**:
+  - `GET https://web-code-game.pages.dev/api/sync`: 623 games, 933 sources, 200 OK.
+  - `GET https://admin-code-game-shop.pages.dev/api/sync`: 623 games, 933 sources, 200 OK.
+  - `GET /api/games?slug=pirate-legends`: 46 codes, 200 OK.
+  - File tài liệu chi tiết: [`data_sync_permanent_architecture.md`](file:///C:/Users/farm2/.gemini/antigravity/brain/e4ba7ced-492a-4203-bd9b-e0bbf53eff95/data_sync_permanent_architecture.md).
+
+
 ### 43. Bổ Sung Bộ 8 Mã Giftcode Vinh Danh VIP Cho Tựa Game Pirate Legends: Huyền Thoại Hải Tặc
 - **Mô tả & Yêu cầu**:
   - Người dùng yêu cầu bổ sung bộ 8 giftcode Vinh Danh (VIP 8 đến VIP 11) kèm thông tin phần thưởng chi tiết cho tựa game Pirate Legends: Huyền Thoại Hải Tặc (NPH GOSU).
