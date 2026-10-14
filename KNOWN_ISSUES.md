@@ -532,9 +532,21 @@
   2. Xóa bỏ triệt để các khối `reset_all_wallets_to_zero_v1` và `wcg_d1_wallets_revenue_reset_v5`.
   3. Xây dựng migration tự phục hồi `heal_and_restore_wallets_v6` để tự động khôi phục số dư ví thành viên và lịch sử giao dịch theo đúng sổ cái kế toán.
   4. Trong `sync.ts`, luôn ưu tiên số lượng tồn kho thực tế từ D1 (`u.stock_quantity !== undefined ? Math.max(0, Number(u.stock_quantity)) : ...`), không để file tĩnh ghi đè trạng thái hết hàng lên cơ sở dữ liệu.
+### ISSUE-029: Bẫy Treo Màn Hình Xác Thực Quản Trị Vô Tận (Admin Auth Spin Loop & Missing Watchdog Trap)
+- **Triệu chứng**:
+  - Khi quản trị viên truy cập trang `/admin` (hoặc `admin-code-game-shop.pages.dev/admin#/utilities`), màn hình bị đứng yên ở trạng thái "Đang xác thực phiên quản trị..." với vòng xoay vô tận. Không vào được dashboard và cũng không tự chuyển sang form đăng nhập.
+- **Nguyên nhân gốc rễ**:
+  1. *Lệnh fetch không timeout*: `verifyAdminSession` gọi `fetch()` đến 4 endpoint liên tiếp (`/api/auth/me`, `codegame.shop`, v.v.) không có `AbortSignal` hay giới hạn thời gian. Khi gặp domain bị chậm mạng hoặc preflight CORS nghẽn, trình duyệt treo promise vô thời hạn.
+  2. *Bẫy cờ `cancelled` trong React `useEffect`*: Khi component mount hoặc router đổi hash, cleanup function gán `cancelled = true`. Khi `verifyAdminSession()` kết thúc, khối `if (!cancelled) setIsVerifying(false)` bị bỏ qua hoàn toàn, khiến `isVerifying` kẹt ở `true` vĩnh viễn.
+  3. *Không có cơ chế thoát hiểm (Escape Hatch)*: Màn hình loading chỉ hiển thị spinner mà không có nút hủy bỏ hay đăng nhập lại.
+- **Giải pháp chuẩn đã kiểm chứng**:
+  1. Sử dụng `fetchWithTimeout(url, options, 3000)` với `AbortController` cho mọi lệnh gọi xác thực mạng.
+  2. Fail-fast ngay lập tức nếu server trả về `401` hoặc `403` (phiên đã hết hạn): Xóa cờ, gán `isVerifying = false` ngay, không duyệt tiếp các domain khác.
+  3. Tích hợp Safety Watchdog Timer (3.5s) trong `useEffect` để ép `setIsVerifying(false)` trong mọi tình huống.
+  4. Cung cấp nút bấm "Đăng nhập lại bằng tài khoản quản trị" ngay dưới spinner để người dùng luôn có lối thoát chủ động.
 - ⛔ **CÁCH SỬA ĐÃ THẤT BẠI - TUYỆT ĐỐI KHÔNG LẶP LẠI**:
-  - ❌ *Không bao giờ dựa vào lệnh return sớm để "bảo vệ" các khối code phá hủy (destructive code)*: Khi logic migration thay đổi, code phá hủy sẽ bị kích hoạt trên dữ liệu sống của khách hàng.
-  - ❌ *Không dùng `meta.stock_quantity === 0` để phán đoán tồn kho của sản phẩm có quản lý mã*: File cấu hình ban đầu luôn có `stock_quantity: 0` vì mã được nạp sau trong admin.
+  - ❌ *Không dùng `if (!cancelled) setIsVerifying(false)` trong `useEffect` có dependency rỗng*: Khiến state bị khóa cứng nếu component re-mount.
+  - ❌ *Không gọi fetch mạng mà không có AbortController timeout trên các màn hình loading chặn giao diện (blocking loading screen)*.
 
 ---
 

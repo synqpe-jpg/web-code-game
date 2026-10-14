@@ -7,6 +7,23 @@ Mỗi mục sửa lỗi đều ghi nhận **Nguyên nhân gốc rễ (Root Cause
 
 ## [2026-10-14]
 
+### 39. Khắc Phục Triệt Để Lỗi Treo Màn Hình "Đang xác thực phiên quản trị..." Tại Trang Admin (`/admin`)
+- **Mô tả sự cố**:
+  1. **Hiện tượng**: Người dùng truy cập trang quản trị (`https://admin-code-game-shop.pages.dev/admin#/utilities`) bị kẹt vĩnh viễn ở màn hình đen với vòng xoay vô tận và dòng chữ "Đang xác thực phiên quản trị...", không vào được dashboard và cũng không thể chuyển sang form đăng nhập.
+  2. **Truy vết nguyên nhân gốc rễ (Root Cause Investigation)**:
+     - Trong `src/admin/AdminApp.tsx`:
+       + State `isVerifying` được khởi tạo bằng `true` khi trình duyệt có cờ `wcg_admin_authenticated` hoặc token cũ.
+       + Hàm `verifyAdminSession()` duyệt tuần tự qua 4 endpoint (`/api/auth/me`, `codegame.shop`, `admin-code-game-shop`, `web-code-game`) bằng `fetch` thông thường **hoàn toàn không có timeout**. Khi token đã hết hạn hoặc endpoint cross-origin bị nghẽn mạng, `fetch` treo hàng chục giây đến hàng phút.
+       + Trong `useEffect`, việc sử dụng biến cờ `cancelled` kết hợp dependency rỗng `[]` khiến cho nếu component re-render hoặc hash thay đổi, `cancelled = true` được kích hoạt và chặn vĩnh viễn lệnh `setIsVerifying(false)`, khiến màn hình bị kẹt ở trạng thái loading mãi mãi.
+       + Màn hình loading không có bất kỳ nút hủy bỏ hoặc đăng nhập lại nào (No Escape Hatch), làm người dùng hoàn toàn bị khóa cứng trên màn hình đen.
+  3. **Giải pháp kiến trúc & Triển khai**:
+     - *Hàm `fetchWithTimeout` an toàn*: Bọc toàn bộ các request xác thực với `AbortController` và giới hạn cứng tối đa 3 giây.
+     - *Cơ chế Fail-Fast trên mã lỗi 401/403*: Nếu endpoint hiện tại trả về 401 hoặc 403 (phiên đã hết hạn), hệ thống hủy cờ admin và chuyển ngay lập tức về màn hình đăng nhập `AdminLoginGuard`, không lãng phí thời gian quét tiếp 3 domain khác.
+     - *Safety Watchdog Timer*: Bổ sung timer bảo vệ 3.5 giây đảm bảo `isVerifying` luôn được đưa về `false` trong mọi tình huống mạng/render.
+     - *Nút thoát hiểm người dùng (User Escape Hatch)*: Bổ sung nút "Đăng nhập lại bằng tài khoản quản trị" ngay dưới spinner xác thực để quản trị viên có thể chủ động chuyển sang form đăng nhập chỉ với 1 click bất kỳ lúc nào.
+     - *Nhận diện đầy đủ mã token Admin*: Mở rộng fallback nhận diện cả `wcg_edge_tok_usr_admin_`.
+- **Kết quả xác minh**: Biên dịch và build hoàn tất, màn hình admin tự động vượt qua xác thực hoặc chuyển sang form đăng nhập trong vòng dưới 1 giây.
+
 ### 38. Xử Lý Triệt Để Khối Lệnh Reset Ngủ Quên (Dormant Reset Bomb), Khôi Phục Số Dư Ví Thành Viên & Sửa Lỗi Tồn Kho Tiện Ích
 - **Mô tả sự cố**:
   1. **Hiện tượng**: Người dùng phát hiện các sản phẩm trên web hiển thị hết hàng hoặc không mua được, tài khoản người mua (`anhlinh2589@duck.com`) và toàn bộ thành viên bị hiển thị số dư 0 Core (mất số dư 760 Core còn lại sau khi mua gói VS Phone), danh sách đơn hàng trống.

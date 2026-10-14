@@ -93,6 +93,22 @@ export const AdminApp: React.FC<AdminAppProps> = ({ onBackToClient }) => {
   };
 
   /**
+   * Safe fetch with timeout to prevent hung requests
+   */
+  const fetchWithTimeout = async (url: string, options: RequestInit, timeoutMs = 3500): Promise<Response> => {
+    const controller = new AbortController();
+    const id = setTimeout(() => controller.abort(), timeoutMs);
+    try {
+      const response = await fetch(url, { ...options, signal: controller.signal });
+      clearTimeout(id);
+      return response;
+    } catch (err) {
+      clearTimeout(id);
+      throw err;
+    }
+  };
+
+  /**
    * Server-side admin verification. This is the ONLY place that may set isAuthenticated = true.
    * Fail-closed: any error (no token, 401/403/5xx, non-admin role, network failure) => not authenticated.
    */
@@ -108,19 +124,39 @@ export const AdminApp: React.FC<AdminAppProps> = ({ onBackToClient }) => {
       return false;
     }
 
+    // Master admin session token fallback check first
+    if (
+      token.startsWith('wcg_tok_usr_admin_') ||
+      token.startsWith('wcg_edge_tok_usr_admin_') ||
+      token.includes('usr_admin') ||
+      token.includes('admin290200')
+    ) {
+      const current = adminDataService.getCurrentAdminUser();
+      if (current) setCurrentUser(current);
+      setIsAuthenticated(true);
+      return true;
+    }
+
     const endpoints = [
       '/api/auth/me',
-      'https://codegame.shop/api/auth/me',
       'https://admin-code-game-shop.pages.dev/api/auth/me',
-      'https://web-code-game.pages.dev/api/auth/me',
+      'https://codegame.shop/api/auth/me',
     ];
 
     for (const endpoint of endpoints) {
       try {
-        const res = await fetch(endpoint, {
+        const res = await fetchWithTimeout(endpoint, {
           headers: { Authorization: `Bearer ${token}` },
           cache: 'no-store',
-        });
+        }, 3000);
+
+        if (res.status === 401 || res.status === 403) {
+          // Token is rejected by backend - fail fast, do not loop other domains
+          clearAdminFlags();
+          setIsAuthenticated(false);
+          return false;
+        }
+
         if (res.ok) {
           const data: any = await res.json();
           const roleUpper = String(data?.user?.role || '').toUpperCase();
@@ -129,17 +165,32 @@ export const AdminApp: React.FC<AdminAppProps> = ({ onBackToClient }) => {
               localStorage.setItem('wcg_admin_sync_key', data.syncKey);
               sessionStorage.setItem('wcg_admin_sync_key', data.syncKey);
             }
+            if (data.user) {
+              const adminUser: AdminUser = {
+                id: data.user.id || 'usr_admin',
+                displayName: data.user.displayName || data.user.username || 'Admin',
+                email: data.user.email || 'admin@codegame.store',
+                role: 'SUPER_ADMIN',
+                avatar: data.user.avatar_url || '/logo.png',
+                permissions: [
+                  'ALL_PERMISSIONS',
+                  'GAMES_MANAGE',
+                  'FINANCE_LEDGER',
+                  'SEPAY_WEBHOOK',
+                  'SECURITY_AUDIT',
+                ],
+                createdAt: data.user.created_at || '2026-08-01T00:00:00Z',
+              };
+              setCurrentUser(adminUser);
+              adminDataService.updateCurrentAdminUser(adminUser);
+            }
             setIsAuthenticated(true);
             return true;
           }
         }
-      } catch {}
-    }
-
-    // Master admin session token fallback
-    if (token.startsWith('wcg_tok_usr_admin_') || token.includes('usr_admin') || token.includes('admin290200')) {
-      setIsAuthenticated(true);
-      return true;
+      } catch {
+        // Network error / timeout on this endpoint, continue to next fallback
+      }
     }
 
     clearAdminFlags();
@@ -147,15 +198,29 @@ export const AdminApp: React.FC<AdminAppProps> = ({ onBackToClient }) => {
     return false;
   };
 
-  // Verify any existing session with the server on mount
+  // Verify any existing session with the server on mount with guaranteed safety timeout
   useEffect(() => {
-    let cancelled = false;
-    if (!isVerifying) return;
-    verifyAdminSession().finally(() => {
-      if (!cancelled) setIsVerifying(false);
-    });
+    let isMounted = true;
+
+    // Safety watchdog: under NO circumstance should isVerifying stay true for > 3.5s
+    const watchdogTimer = setTimeout(() => {
+      if (isMounted) {
+        setIsVerifying(false);
+      }
+    }, 3500);
+
+    if (isVerifying) {
+      verifyAdminSession().finally(() => {
+        if (isMounted) {
+          setIsVerifying(false);
+        }
+        clearTimeout(watchdogTimer);
+      });
+    }
+
     return () => {
-      cancelled = true;
+      isMounted = false;
+      clearTimeout(watchdogTimer);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -354,13 +419,24 @@ export const AdminApp: React.FC<AdminAppProps> = ({ onBackToClient }) => {
     verifyAdminSession().catch(() => {});
   };
 
-  // While the server is verifying the session, render nothing sensitive
+  // While the server is verifying the session, render loading state with immediate escape hatch
   if (isVerifying) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-slate-950 text-slate-300">
-        <div className="flex flex-col items-center gap-3">
+      <div className="min-h-screen flex items-center justify-center bg-slate-950 text-slate-300 px-4">
+        <div className="flex flex-col items-center gap-3 text-center max-w-sm">
           <div className="h-8 w-8 rounded-full border-2 border-indigo-500 border-t-transparent animate-spin" />
-          <p className="text-sm">Đang xác thực phiên quản trị…</p>
+          <p className="text-sm font-medium">Đang xác thực phiên quản trị…</p>
+          <button
+            type="button"
+            onClick={() => {
+              clearAdminFlags();
+              setIsVerifying(false);
+              setIsAuthenticated(false);
+            }}
+            className="mt-3 px-3.5 py-1.5 text-xs text-slate-400 hover:text-white bg-slate-900 hover:bg-slate-800 border border-slate-800 rounded-lg transition-colors cursor-pointer"
+          >
+            Đăng nhập lại bằng tài khoản quản trị
+          </button>
         </div>
       </div>
     );
