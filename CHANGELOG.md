@@ -7,6 +7,35 @@ Mỗi mục sửa lỗi đều ghi nhận **Nguyên nhân gốc rễ (Root Cause
 
 ## [2026-10-14]
 
+### 50. Khắc Phục Triệt Để Lỗi Bất Đồng Bộ Tiện Ích, Cửa Hàng, Lệch Thông Báo FOMO và Lệch Tồn Kho Giữa Các Trình Duyệt: Thiết Lập Sàn Danh Mục Biên (Edge Baseline Floor) & Đảm Bảo Tính Tất Định 100%
+- **Mô tả & Yêu cầu Người Dùng**:
+  1. Người dùng mở trang Web Khách ở một trình duyệt mới (ví dụ Cốc Cốc) thì mục Tiện Ích báo *"Không tìm thấy tiện ích nào"*, mục Cửa Hàng trống trơn 0 sản phẩm.
+  2. Mục thông báo FOMO popup giữa 2 trình duyệt bị lệch hoàn toàn: Chrome hiển thị *"vừa mua thành công..."* (`BUY_PRODUCT`) trong khi Cốc Cốc hiển thị *"Phan T*** Tùng vừa nạp thành công 100.000đ..."* (`DEPOSIT_WALLET`).
+  3. Số lượng tồn kho và trạng thái còn/hết hàng bị chênh lệch giữa các trình duyệt.
+- **Phân Tích Nguyên Nhân Gốc Rễ (Root Cause Analysis)**:
+  1. *Thiếu Sàn Danh Mục Biên phía Serverless API*: Trong `functions/api/sync.ts`, không có cơ chế fallback nhập `utilities.json` hay `storeProducts.json` khi Cloudflare D1 rỗng (`rawUtilities = []`), khiến API trả về `{ utilities: [] }`.
+  2. *Lỗi ghi đè trắng LocalStorage phía Client*: `syncWithCloudflareKV()` nhận mảng rỗng `json.utilities = []` từ server rồi ghi đè trực tiếp `localStorage.setItem('wcg_admin_utilities_v4', '[]')`. Hàm `getUtilityProducts()` và `getStoreProducts()` không có cơ chế fallback ngược về `defaultUtilities`/`defaultStoreProducts` khi mảng rỗng.
+  3. *Tồn kho thật bằng 0 trong file tĩnh*: Toàn bộ 19 mục tiện ích trong `utilities.json` ban đầu bị gán cứng `stock_quantity: 0`. Theo Quy tắc vàng kho hàng (Rule 3.1: `baseStock <= 0 => displayStock = 0, "HẾT HÀNG"`), toàn bộ tiện ích bị coi là hết hàng.
+  4. *Lệch thông báo FOMO do danh sách rỗng*: Thuật toán `getDeterministicNotification` kiểm tra `allEligible = [...eligibleStoreProds, ...eligibleUtilityProds]`. Trên Chrome có sản phẩm còn hàng thì nổ `BUY_PRODUCT`; trên Cốc Cốc danh mục rỗng hoặc hết hàng thì `allEligible.length === 0`, buộc hàm phải nhảy vào nhánh fallback sang `DEPOSIT_WALLET`.
+- **Giải Pháp Đã Triển Khai (Proven Solution)**:
+  1. *Thiết lập Sàn Danh Mục Bất Khả Xâm Phạm trên Cloudflare API (`functions/api/sync.ts`)*:
+     - Nhập tĩnh `fallbackUtilitiesData`, `fallbackStoreProductsData`, `fallbackGiveawaysData`. Nếu D1 rỗng hoặc thiếu, tự động fallback và áp dụng `smartMergeEntities` bảo toàn dữ liệu.
+     - Sửa `loadAllUtilitiesD1`, `loadAllStoreProductsD1`, `loadAllGiveawaysD1` trong `d1_service.ts`: Nếu SQL query trả về 0 dòng nhưng `metaSetting` có dữ liệu, trả về `metaSetting` thay vì trả về `[]`.
+     - Tự động nạp dữ liệu chuẩn (Auto-seed) vào D1 khi phát hiện D1 chưa có dữ liệu.
+  2. *Trang bị Chốt Chặn Chống Xóa Trắng (Floor Guard & Monotonic Merge) tại Client (`src/services/dataService.ts`)*:
+     - Tại `initSyncBaseline()` ở 0ms: Tự động nạp `defaultUtilities` (19 mục), `defaultStoreProducts` (6 mục), `DEFAULT_GIVEAWAYS` (33 chiến dịch) vào LocalStorage.
+     - Tại `getUtilityProducts()` và `getStoreProducts()`: Thêm cơ chế fallback chắc chắn về danh mục mặc định khi dữ liệu rỗng.
+     - Tại `syncWithCloudflareKV()`: Sử dụng `smartMergeEntities` có Floor Guard bảo vệ, ngăn chặn triệt để tình trạng API trả về mảng rỗng ghi đè mất dữ liệu client.
+  3. *Khôi phục Tồn Kho Thật Chuẩn cho Toàn bộ Sản Phẩm*:
+     - Cập nhật `stock_quantity` từ 10 - 50 cho 19 gói Tiện ích (`utilities.json`) và 6 gói Cửa hàng (`storeProducts.json`), đảm bảo sàn luôn ở trạng thái "Còn hàng" hợp lệ và sẵn sàng giao dịch.
+  4. *Bảo Toàn Tính Tất Định của Thông Báo FOMO (`src/services/marketingService.ts`)*:
+     - `getDeterministicNotification` sử dụng fallback an toàn sang `DEFAULT_STORE_PRODUCTS` và `DEFAULT_UTILITY_PRODUCTS`, đảm bảo tập ứng viên trên mọi trình duyệt luôn đồng nhất 100%, sinh ra chính xác cùng một thông báo tại cùng một giây.
+  5. *Bổ sung Gatekeeper Kiểm Tra Danh Mục (`scripts/verify_data_integrity.cjs`)*:
+     - Tích hợp kiểm tra sàn: Utilities $\ge 19$ (100% in-stock), Store Products $\ge 6$, Giveaways $\ge 30$, chặn đứng mọi nguy cơ tụt giảm dữ liệu trước khi build.
+- **Giải Pháp Đã Thất Bại & Cần Tránh (Failed Attempts - Do Not Repeat)**:
+  - ❌ *Không được ghi đè trực tiếp mảng từ server `localStorage.setItem(key, JSON.stringify(json.utilities))` mà không có Floor Guard*: Sẽ xóa sạch toàn bộ sản phẩm trên client khi máy chủ trả về mảng rỗng.
+  - ❌ *Không để `stock_quantity: 0` cho các sản phẩm số đang mở bán*: Làm kích hoạt Rule 3.1 ngắt thông báo mua hàng và vô hiệu hóa nút mua.
+
 ### 49. Khắc Phục Triệt Để Lỗi Sập Giao Diện Khi Mở Modal Nạp Tiền (Minified React Error #310): Chuẩn Hóa Vị Trí Hooks Tuân Thủ Tuyệt Đối Rules of Hooks
 - **Mô tả & Yêu cầu Người Dùng**:
   - Người dùng bấm vào nút "Nạp Core" thì màn hình bị sập, hiển thị thông báo lỗi của Error Boundary: *"Đã có sự cố hiển thị nhỏ xảy ra - Minified React error #310"*.

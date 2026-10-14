@@ -2033,6 +2033,9 @@ export async function loadAllStoreProductsD1(db: D1Database): Promise<any[]> {
       ORDER BY sp.id ASC
     `).all();
     const rows = (res && res.results) || [];
+    if (rows.length === 0 && Array.isArray(metaSetting) && metaSetting.length > 0) {
+      return metaSetting;
+    }
     return rows.map((r: any) => {
       const meta = metaMap.get(r.id) || {};
       return {
@@ -2127,6 +2130,10 @@ export async function loadAllUtilitiesD1(db: D1Database): Promise<any[]> {
         ORDER BY u.id ASC
       `).all().catch(() => null);
       rows = (fallbackRes && fallbackRes.results) || [];
+    }
+
+    if (rows.length === 0 && Array.isArray(metaSetting) && metaSetting.length > 0) {
+      return metaSetting;
     }
 
     return rows.map((r: any) => {
@@ -2292,6 +2299,9 @@ export async function loadAllGiveawaysD1(db: D1Database, includeCodes: boolean =
       ORDER BY g.created_at DESC
     `).all();
     const rows = (res && res.results) || [];
+    if (rows.length === 0 && Array.isArray(metaSetting) && metaSetting.length > 0) {
+      return metaSetting;
+    }
     const list = rows.map((gw: any) => {
       const meta = metaMap.get(gw.id) || {};
       return {

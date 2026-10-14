@@ -113,6 +113,59 @@ try {
   fail(`Failed to read/parse crawler_sources.json: ${e.message}`);
 }
 
+// 3b. Verify Utilities Catalog Baseline & Stock
+const UTILITIES_FILE = path.join(ROOT, 'src/data/utilities.json');
+try {
+  const utilsRaw = fs.readFileSync(UTILITIES_FILE, 'utf-8');
+  const utils = JSON.parse(utilsRaw);
+  if (!Array.isArray(utils)) {
+    fail('utilities.json is not an array!');
+  } else if (utils.length < 19) {
+    fail(`Utilities count dropped below floor guarantee: ${utils.length} < 19`);
+  } else {
+    const oosItems = utils.filter((u) => !u || typeof u.stock_quantity !== 'number' || u.stock_quantity <= 0);
+    if (oosItems.length > 0) {
+      fail(`Found ${oosItems.length} utilities with 0 or invalid stock: ${oosItems.map((u) => u.id).join(', ')}`);
+    } else {
+      pass(`Utilities catalog intact: ${utils.length} items (floor >= 19), 100% in-stock with positive baseline.`);
+    }
+  }
+} catch (e) {
+  fail(`Failed to read/parse utilities.json: ${e.message}`);
+}
+
+// 3c. Verify Store Products Catalog Baseline
+const STORE_PRODS_FILE = path.join(ROOT, 'src/data/storeProducts.json');
+try {
+  const spRaw = fs.readFileSync(STORE_PRODS_FILE, 'utf-8');
+  const prods = JSON.parse(spRaw);
+  if (!Array.isArray(prods)) {
+    fail('storeProducts.json is not an array!');
+  } else if (prods.length < 6) {
+    fail(`Store products count dropped below floor guarantee: ${prods.length} < 6`);
+  } else {
+    pass(`Store products catalog intact: ${prods.length} items (floor >= 6).`);
+  }
+} catch (e) {
+  fail(`Failed to read/parse storeProducts.json: ${e.message}`);
+}
+
+// 3d. Verify Giveaways Catalog Baseline
+const GIVEAWAYS_FILE = path.join(ROOT, 'src/data/giveaways.json');
+try {
+  const gwRaw = fs.readFileSync(GIVEAWAYS_FILE, 'utf-8');
+  const giveaways = JSON.parse(gwRaw);
+  if (!Array.isArray(giveaways)) {
+    fail('giveaways.json is not an array!');
+  } else if (giveaways.length < 30) {
+    fail(`Giveaways count dropped below floor guarantee: ${giveaways.length} < 30`);
+  } else {
+    pass(`Giveaways catalog intact: ${giveaways.length} campaigns (floor >= 30).`);
+  }
+} catch (e) {
+  fail(`Failed to read/parse giveaways.json: ${e.message}`);
+}
+
 // 4. Test smartMergeEntities Unit Logic (Simulated)
 function normalizeUrlKey(url) {
   if (!url || typeof url !== 'string') return '';

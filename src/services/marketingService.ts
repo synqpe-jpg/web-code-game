@@ -14,6 +14,7 @@ import {
   calculateDeterministicStock,
   calculateDeterministicSold,
 } from '../shared/deterministicEngine';
+import { DEFAULT_STORE_PRODUCTS, DEFAULT_UTILITY_PRODUCTS, DEFAULT_GIVEAWAYS } from '../data/seedData';
 
 const MARKETING_CONFIG_KEY = 'wcg_marketing_config_v1';
 const MARKETING_REAL_CLICKS_KEY = 'wcg_marketing_real_clicks_v1';
@@ -3852,7 +3853,10 @@ class MarketingService {
         }
       } catch {}
 
-      const eligibleGiveaways = (Array.isArray(giveaways) ? giveaways : [])
+      const baseGiveaways = (Array.isArray(giveaways) && giveaways.length > 0)
+        ? giveaways
+        : DEFAULT_GIVEAWAYS;
+      const eligibleGiveaways = baseGiveaways
         .filter((gw) => {
           if (!gw || gw.is_active === false) return false;
           if (deletedGwSet.has(gw.id)) return false;
@@ -3928,8 +3932,11 @@ class MarketingService {
         }
       } catch {}
 
+      const baseStoreProds = (Array.isArray(storeProducts) && storeProducts.length > 0)
+        ? storeProducts
+        : DEFAULT_STORE_PRODUCTS;
       const eligibleStoreProds = canStore
-        ? (Array.isArray(storeProducts) ? storeProducts : [])
+        ? baseStoreProds
             .filter((p) => {
               if (!p || p.is_active === false) return false;
               if (deletedStoreSet.has(p.id)) return false;
@@ -3949,8 +3956,11 @@ class MarketingService {
             }))
         : [];
 
+      const baseUtilityProds = (Array.isArray(utilityProducts) && utilityProducts.length > 0)
+        ? utilityProducts
+        : DEFAULT_UTILITY_PRODUCTS;
       const eligibleUtilityProds = canUtil
-        ? (Array.isArray(utilityProducts) ? utilityProducts : [])
+        ? baseUtilityProds
             .filter((u) => {
               if (!u || u.is_active === false) return false;
               if (deletedUtilSet.has(u.id)) return false;

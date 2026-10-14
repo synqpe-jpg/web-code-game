@@ -25,6 +25,9 @@ import { verifyToken, computeHash } from '../services/auth_service';
 import { invalidateGamesCatalogCache } from './games';
 import fallbackGamesData from '../../src/data/games188.json';
 import fallbackCrawlerSources from '../../src/data/crawler_sources.json';
+import fallbackUtilitiesData from '../../src/data/utilities.json';
+import fallbackGiveawaysData from '../../src/data/giveaways.json';
+import fallbackStoreProductsData from '../../src/data/storeProducts.json';
 import { smartMergeEntities, normalizeUrlKey } from '../../src/shared/dataMergeUtils';
 
 /**
@@ -510,6 +513,52 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
 
     if (!masterState) {
       masterState = {};
+    }
+
+    // 1. Guaranteed Utilities Catalog Baseline:
+    if (rawUtilities.length === 0) {
+      rawUtilities = (fallbackUtilitiesData as any[]).filter((u: any) => !deletedUtilSet.has(u.id));
+    } else if (rawUtilities.length < (fallbackUtilitiesData as any[]).length) {
+      rawUtilities = smartMergeEntities(
+        (fallbackUtilitiesData as any[]).filter((u: any) => !deletedUtilSet.has(u.id)),
+        rawUtilities,
+        'id'
+      ).merged;
+    }
+
+    // 2. Guaranteed Store Products Catalog Baseline:
+    if (rawStoreProducts.length === 0) {
+      rawStoreProducts = (fallbackStoreProductsData as any[]).filter((p: any) => !deletedStoreSet.has(p.id));
+    } else if (rawStoreProducts.length < (fallbackStoreProductsData as any[]).length) {
+      rawStoreProducts = smartMergeEntities(
+        (fallbackStoreProductsData as any[]).filter((p: any) => !deletedStoreSet.has(p.id)),
+        rawStoreProducts,
+        'id'
+      ).merged;
+    }
+
+    // 3. Guaranteed Giveaways Catalog Baseline:
+    if (rawGiveaways.length === 0) {
+      rawGiveaways = (fallbackGiveawaysData as any[]).filter((g: any) => !deletedGwSet.has(g.id));
+    } else if (rawGiveaways.length < (fallbackGiveawaysData as any[]).length) {
+      rawGiveaways = smartMergeEntities(
+        (fallbackGiveawaysData as any[]).filter((g: any) => !deletedGwSet.has(g.id)),
+        rawGiveaways,
+        'id'
+      ).merged;
+    }
+
+    // Auto-heal D1 settings asynchronously if empty
+    if (env.DB) {
+      if (!d1Settings['wcg_admin_utilities_v4'] || (Array.isArray(d1Settings['wcg_admin_utilities_v4']) && d1Settings['wcg_admin_utilities_v4'].length === 0)) {
+        setSettingD1(env.DB, 'wcg_admin_utilities_v4', rawUtilities).catch(() => {});
+      }
+      if (!d1Settings['wcg_admin_store_products_v4'] || (Array.isArray(d1Settings['wcg_admin_store_products_v4']) && d1Settings['wcg_admin_store_products_v4'].length === 0)) {
+        setSettingD1(env.DB, 'wcg_admin_store_products_v4', rawStoreProducts).catch(() => {});
+      }
+      if (!d1Settings['wcg_admin_giveaways_v4'] || (Array.isArray(d1Settings['wcg_admin_giveaways_v4']) && d1Settings['wcg_admin_giveaways_v4'].length === 0)) {
+        setSettingD1(env.DB, 'wcg_admin_giveaways_v4', rawGiveaways).catch(() => {});
+      }
     }
 
     // Sanitize Giveaways for public clients (hide codes_pool unless authorized admin) & prioritize in-stock

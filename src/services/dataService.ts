@@ -157,6 +157,45 @@ class DataService {
       }
     } catch {}
 
+    // 3. Initialize baseline Utilities catalog synchronously (0ms) so Tiện Ích page never renders empty
+    try {
+      const savedUt = localStorage.getItem('wcg_admin_utilities_v4') || localStorage.getItem(this.UTILITIES_KEY);
+      let utList: any[] = [];
+      if (savedUt) {
+        try { utList = JSON.parse(savedUt); } catch {}
+      }
+      if (!Array.isArray(utList) || utList.length === 0) {
+        localStorage.setItem('wcg_admin_utilities_v4', JSON.stringify(this.defaultUtilities));
+        localStorage.setItem(this.UTILITIES_KEY, JSON.stringify(this.defaultUtilities));
+      }
+    } catch {}
+
+    // 4. Initialize baseline Store Products catalog synchronously (0ms) so Cửa Hàng page never renders empty
+    try {
+      const savedSp = localStorage.getItem('wcg_admin_store_products_v4') || localStorage.getItem(this.STORE_PRODUCTS_KEY);
+      let spList: any[] = [];
+      if (savedSp) {
+        try { spList = JSON.parse(savedSp); } catch {}
+      }
+      if (!Array.isArray(spList) || spList.length === 0) {
+        localStorage.setItem('wcg_admin_store_products_v4', JSON.stringify(this.defaultStoreProducts));
+        localStorage.setItem(this.STORE_PRODUCTS_KEY, JSON.stringify(this.defaultStoreProducts));
+      }
+    } catch {}
+
+    // 5. Initialize baseline Giveaways catalog synchronously (0ms)
+    try {
+      const savedGw = localStorage.getItem('wcg_admin_giveaways_v4') || localStorage.getItem(this.GIVEAWAYS_KEY);
+      let gwList: any[] = [];
+      if (savedGw) {
+        try { gwList = JSON.parse(savedGw); } catch {}
+      }
+      if (!Array.isArray(gwList) || gwList.length === 0) {
+        localStorage.setItem('wcg_admin_giveaways_v4', JSON.stringify(DEFAULT_GIVEAWAYS));
+        localStorage.setItem(this.GIVEAWAYS_KEY, JSON.stringify(DEFAULT_GIVEAWAYS));
+      }
+    } catch {}
+
     const fallbackGames = Array.isArray(rawGamesData) ? (rawGamesData as RawGame[]) : [];
     const categorySet = new Set<string>();
 
@@ -804,8 +843,11 @@ class DataService {
                   !deletedGwSet.has(g.id) &&
                   !(g.title === '15' && g.game_name && g.game_name.includes('Thiếu Hiệp'))
               );
+              const finalGw = incomingGw.length >= DEFAULT_GIVEAWAYS.length
+                ? incomingGw
+                : smartMergeEntities(DEFAULT_GIVEAWAYS.filter((g) => !deletedGwSet.has(g.id)), incomingGw, 'id').merged;
               const currentGw = localStorage.getItem('wcg_admin_giveaways_v4');
-              const newGw = JSON.stringify(incomingGw);
+              const newGw = JSON.stringify(finalGw);
               if (currentGw !== newGw) {
                 localStorage.setItem('wcg_admin_giveaways_v4', newGw);
                 localStorage.setItem(this.GIVEAWAYS_KEY, newGw);
@@ -836,8 +878,11 @@ class DataService {
               } catch {}
               const delSet = new Set(delList);
               const filtered = json.storeProducts.filter((p: any) => p && p.id && !delSet.has(p.id));
+              const finalSp = filtered.length >= this.defaultStoreProducts.length
+                ? filtered
+                : smartMergeEntities(this.defaultStoreProducts.filter((p) => !delSet.has(p.id)), filtered, 'id').merged;
               const currentSp = localStorage.getItem('wcg_admin_store_products_v4');
-              const newSp = JSON.stringify(filtered);
+              const newSp = JSON.stringify(finalSp);
               if (currentSp !== newSp) {
                 localStorage.setItem('wcg_admin_store_products_v4', newSp);
                 localStorage.setItem(this.STORE_PRODUCTS_KEY, newSp);
@@ -852,8 +897,11 @@ class DataService {
               } catch {}
               const delSet = new Set(delList);
               const filtered = json.utilities.filter((u: any) => u && u.id && !delSet.has(u.id));
+              const finalUt = filtered.length >= this.defaultUtilities.length
+                ? filtered
+                : smartMergeEntities(this.defaultUtilities.filter((u) => !delSet.has(u.id)), filtered, 'id').merged;
               const currentUt = localStorage.getItem('wcg_admin_utilities_v4');
-              const newUt = JSON.stringify(filtered);
+              const newUt = JSON.stringify(finalUt);
               if (currentUt !== newUt) {
                 localStorage.setItem('wcg_admin_utilities_v4', newUt);
                 localStorage.setItem(this.UTILITIES_KEY, newUt);
@@ -2043,10 +2091,13 @@ class DataService {
       }
     } catch {}
 
-    if (prods === null) {
-      prods = [];
+    if (prods === null || prods.length === 0) {
+      prods = this.defaultStoreProducts.filter((p) => p && p.id && !deletedSet.has(p.id));
     } else {
       prods = prods.filter((p) => p && p.id && !p.id.startsWith('ut_') && !deletedSet.has(p.id));
+      if (prods.length === 0 && this.defaultStoreProducts.length > 0) {
+        prods = this.defaultStoreProducts.filter((p) => p && p.id && !deletedSet.has(p.id));
+      }
     }
 
     return prods.map((p) => {
@@ -2304,10 +2355,13 @@ class DataService {
       }
     } catch {}
 
-    if (utilities === null) {
-      utilities = [];
+    if (utilities === null || utilities.length === 0) {
+      utilities = this.defaultUtilities.filter((u) => u && u.id && !deletedSet.has(u.id));
     } else {
       utilities = utilities.filter((u) => u && u.id && !u.id.startsWith('sp_') && !deletedSet.has(u.id));
+      if (utilities.length === 0 && this.defaultUtilities.length > 0) {
+        utilities = this.defaultUtilities.filter((u) => u && u.id && !deletedSet.has(u.id));
+      }
     }
 
     return utilities.map((u) => {

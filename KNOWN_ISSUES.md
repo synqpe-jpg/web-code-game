@@ -699,6 +699,34 @@
 
 ---
 
+### ISSUE-039: Bất đồng bộ danh mục Tiện ích / Cửa hàng, vỡ thông báo FOMO và lệch số lượng tồn kho giữa các trình duyệt do thiếu Sàn Danh mục Biên (Edge Baseline Floor)
+- **Triệu chứng**:
+  1. Người dùng mở trang Web Khách ở một trình duyệt mới (ví dụ Cốc Cốc) thì mục Tiện Ích báo *"Không tìm thấy tiện ích nào"*, mục Cửa Hàng trống trơn 0 sản phẩm.
+  2. Mục thông báo FOMO popup giữa 2 trình duyệt bị lệch hoàn toàn: Chrome hiển thị *"vừa mua thành công..."* (`BUY_PRODUCT`) trong khi Cốc Cốc hiển thị *"Phan T*** Tùng vừa nạp thành công 100.000đ..."* (`DEPOSIT_WALLET`).
+  3. Số lượng tồn kho và trạng thái còn/hết hàng bị chênh lệch giữa các trình duyệt.
+- **Nguyên nhân gốc rễ**:
+  1. *Thiếu Sàn Danh Mục Biên phía Serverless API*: Trong `functions/api/sync.ts`, không có cơ chế fallback nhập `utilities.json` hay `storeProducts.json` khi Cloudflare D1 rỗng (`rawUtilities = []`), khiến API trả về `{ utilities: [] }`.
+  2. *Lỗi ghi đè trắng LocalStorage phía Client*: `syncWithCloudflareKV()` nhận mảng rỗng `json.utilities = []` từ server rồi ghi đè trực tiếp `localStorage.setItem('wcg_admin_utilities_v4', '[]')`. Hàm `getUtilityProducts()` và `getStoreProducts()` không có cơ chế fallback ngược về `defaultUtilities`/`defaultStoreProducts` khi mảng rỗng.
+  3. *Tồn kho thật bằng 0 trong file tĩnh*: Toàn bộ 19 mục tiện ích trong `utilities.json` ban đầu bị gán cứng `stock_quantity: 0`. Theo Quy tắc vàng kho hàng (Rule 3.1: `baseStock <= 0 => displayStock = 0, "HẾT HÀNG"`), toàn bộ tiện ích bị coi là hết hàng.
+  4. *Lệch thông báo FOMO do danh sách rỗng*: Thuật toán `getDeterministicNotification` kiểm tra `allEligible = [...eligibleStoreProds, ...eligibleUtilityProds]`. Trên Chrome có sản phẩm còn hàng thì nổ `BUY_PRODUCT`; trên Cốc Cốc danh mục rỗng hoặc hết hàng thì `allEligible.length === 0`, buộc hàm phải nhảy vào nhánh fallback sang `DEPOSIT_WALLET`.
+- **Giải pháp chuẩn đã kiểm chứng**:
+  1. **Thiết lập Sàn Danh Mục Bất Khả Xâm Phạm trên Cloudflare API**:
+     - `functions/api/sync.ts` nhập tĩnh `fallbackUtilitiesData`, `fallbackStoreProductsData`, `fallbackGiveawaysData`. Nếu D1 rỗng, tự động trả về baseline và chạy ngầm auto-seed vào D1.
+     - `loadAllUtilitiesD1`, `loadAllStoreProductsD1`, `loadAllGiveawaysD1` trong `d1_service.ts`: Nếu câu lệnh SQL trả về 0 dòng nhưng `metaSetting` có dữ liệu, trả về `metaSetting` thay vì trả về `[]`.
+  2. **Trang bị Chốt Chặn Chống Xóa Trắng (Floor Guard & Monotonic Merge) tại Client**:
+     - Tại `initSyncBaseline()` ở millisecond 0: Tự động nạp `defaultUtilities` (19 mục), `defaultStoreProducts` (6 mục), `DEFAULT_GIVEAWAYS` (33 chiến dịch) vào LocalStorage.
+     - Tại `getUtilityProducts()` và `getStoreProducts()`: Nếu rỗng, lập tức fallback về danh mục mặc định.
+     - Tại `syncWithCloudflareKV()`: Dùng `smartMergeEntities` kèm floor guard, không bao giờ cho phép API đè trắng LocalStorage.
+  3. **Khôi phục Tồn kho Thật Chuẩn cho Toàn bộ Tiện Ích & Cửa Hàng**:
+     - Đặt lại `stock_quantity` từ 10 - 50 cho 19 gói Tiện ích (Pine World Browser + 18 gói VS Phone) và 6 gói Store Products.
+  4. **Bảo toàn Tính Tất Định của Thông Báo FOMO**:
+     - `getDeterministicNotification` áp dụng fallback an toàn sang `DEFAULT_STORE_PRODUCTS` và `DEFAULT_UTILITY_PRODUCTS`, đảm bảo mọi trình duyệt luôn sở hữu tập ứng viên đồng nhất 100%, sinh cùng loại thông báo và cùng sản phẩm tại từng giây.
+- ⛔ **CÁCH SỬA ĐÃ THẤT BẠI - TUYỆT ĐỐI KHÔNG LẶP LẠI**:
+  - ❌ *Không được gán đè trực tiếp mảng từ server `localStorage.setItem(key, JSON.stringify(json.utilities))` mà không có Floor Guard bảo vệ*: Dễ xóa sạch toàn bộ sản phẩm trên client khi máy chủ cold start hoặc trả về mảng rỗng.
+  - ❌ *Không để `stock_quantity: 0` cho các sản phẩm số đang mở bán*: Làm kích hoạt Rule 3.1 ngắt thông báo mua hàng và vô hiệu hóa nút mua.
+
+---
+
 
 
 ## 2. QUY TRÌNH BẮT BUỘC TRƯỚC KHI SỬA CODE (PRE-FLIGHT CHECKLIST)
