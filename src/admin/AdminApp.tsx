@@ -32,32 +32,33 @@ interface AdminAppProps {
   onBackToClient?: () => void;
 }
 
+const ALL_ADMIN_TABS: AdminModuleTab[] = [
+  'dashboard',
+  'games',
+  'news',
+  'free-codes',
+  'giftcodes',
+  'crawler',
+  'marketing',
+  'floating-notification',
+  'growth',
+  'members',
+  'wallet',
+  'private-codes',
+  'code-inventory',
+  'utilities',
+  'orders',
+  'sepay',
+  'content',
+  'security-logs',
+  'profile',
+];
+
 export const AdminApp: React.FC<AdminAppProps> = ({ onBackToClient }) => {
   // Navigation State
   const [currentTab, setCurrentTab] = useState<AdminModuleTab>(() => {
     const hash = window.location.hash.replace('#/', '');
-    const validTabs: AdminModuleTab[] = [
-      'dashboard',
-      'games',
-      'news',
-      'free-codes',
-      'giftcodes',
-      'crawler',
-      'marketing',
-      'floating-notification',
-      'growth',
-      'members',
-      'wallet',
-      'private-codes',
-      'code-inventory',
-      'utilities',
-      'orders',
-      'sepay',
-      'content',
-      'security-logs',
-      'profile',
-    ];
-    return validTabs.includes(hash as AdminModuleTab) ? (hash as AdminModuleTab) : 'dashboard';
+    return ALL_ADMIN_TABS.includes(hash as AdminModuleTab) ? (hash as AdminModuleTab) : 'dashboard';
   });
 
   // Selected game for code deep-linking
@@ -293,24 +294,7 @@ export const AdminApp: React.FC<AdminAppProps> = ({ onBackToClient }) => {
   useEffect(() => {
     const handleHashChange = () => {
       const hash = window.location.hash.replace('#/', '');
-      const validTabs: AdminModuleTab[] = [
-        'dashboard',
-        'games',
-        'news',
-        'free-codes',
-        'giftcodes',
-        'members',
-        'wallet',
-        'private-codes',
-        'code-inventory',
-        'utilities',
-        'orders',
-        'sepay',
-        'content',
-        'security-logs',
-        'profile',
-      ];
-      if (validTabs.includes(hash as AdminModuleTab)) {
+      if (ALL_ADMIN_TABS.includes(hash as AdminModuleTab)) {
         setCurrentTab(hash as AdminModuleTab);
       }
     };

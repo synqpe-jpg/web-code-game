@@ -1273,9 +1273,11 @@ class DataService {
       });
 
       this.isLoaded = true;
+      this.notifyListeners();
     } catch (err) {
       console.error('DataService processing error:', err);
       this.isLoaded = true;
+      this.notifyListeners();
     }
   }
 
@@ -1299,8 +1301,11 @@ class DataService {
   }
 
   getGames(): GameItem[] {
-    if (!this.isLoaded) {
-      this.processData();
+    if (!this.isLoaded || !this.games || this.games.length === 0) {
+      if ((!this.games || this.games.length === 0) && Array.isArray(rawGamesData) && rawGamesData.length > 0) {
+        this.games = rawGamesData as unknown as GameItem[];
+      }
+      this.processData().catch(() => {});
     }
     return this.games || [];
   }

@@ -742,9 +742,27 @@
   4. Nâng cấp `DATASET_VERSION = 'wcg_dataset_2026_10_14_v39'` và tự động dọn sạch cache cũ trên mọi client.
   5. Khi nào Admin vào mục Quản lý và bấm "Nhập kho" nạp mã thật, hệ thống mới nâng tồn kho và kích hoạt nút mua trên Web Khách.
 - ⛔ **CÁCH SỬA ĐÃ THẤT BẠI - TUYỆT ĐỐI KHÔNG LẶP LẠI**:
-  - ❌ *Không được fallback sang `stock_quantity` tĩnh khi bảng kho mã rỗng*: Luôn tôn trọng số lượng mã khả dụng thực tế trong `inventory_codes`.
+### ISSUE-041: Gián đoạn thông báo FOMO Marketing trên Web Khách & Không mở được tab Thông Báo Marketing trong Admin
+- **Triệu chứng**:
+  - Người dùng hỏi: *"Hệ Thống fomo marketing toi đâu?"*.
+  - Trong Admin: Bấm vào mục "Thông Báo Marketing" (`#/marketing`) nhưng trang không chuyển hoặc bị gián đoạn.
+  - Ngoài Web Khách: Sau khi đưa tồn kho thật của toàn bộ sản phẩm về 0 (để chống bán khống), các thông báo FOMO marketing nổ rất thưa thớt hoặc mất hẳn.
+- **Nguyên nhân gốc rễ**:
+  1. *Lỗi hash routing trong Admin (`AdminApp.tsx`)*: Mảng `validTabs` trong `handleHashChange` chỉ có 15 tab, bỏ sót 4 tab: `'marketing'`, `'crawler'`, `'floating-notification'`, `'growth'`. Bất kỳ thao tác chuyển hash sang `#/marketing` đều bị từ chối và giữ nguyên tab cũ.
+  2. *Bộ chọn ngẫu nhiên tất định bị rỗng (Empty Fallback Drop)*: Khi `stock_quantity = 0`, loại `BUY_PRODUCT` vẫn được đưa vào pool ứng viên với trọng số 35/112 (31.25%). Khi PRNG chọn `BUY_PRODUCT`, logic không tìm thấy sản phẩm nào có hàng và rơi vào nhánh fallback gán `chosenType = 'COPY_CODE'`. Tương tự với `RESTOCK_PRODUCT` và `CLAIM_GIVEAWAY`. Tuy nhiên việc gán này nằm dưới khối xử lý `COPY_CODE` khiến hàm đi thẳng tới `return null`.
+  3. *Tải bất đồng bộ danh mục Game*: Khi component toast mount, `dataService.getGames()` trả về mảng rỗng `[]` do `processData()` chưa kết thúc và không gọi listener.
+- **Giải pháp chuẩn đã kiểm chứng**:
+  1. Dùng chung hằng số `ALL_ADMIN_TABS` (đủ 19 tab) cho cả khởi tạo và `handleHashChange` trong `AdminApp.tsx`.
+  2. Trong `marketingService.ts`: Kiểm tra `hasEligibleBuyItems` và `hasEligibleGiveawayItems` trước khi đưa vào candidate pool. Nếu kho có 0 hàng khả dụng, trọng số tự động dồn sang `COPY_CODE`, `DEPOSIT_WALLET`, `STATS_COPY`, `RESTOCK_PRODUCT` (đảm bảo 100% time slot đều có thông báo sôi động).
+  3. Bổ sung `rawGamesData` làm fallback trực tiếp cho `COPY_CODE` để không bao giờ bị rỗng.
+  4. Sửa triệt để mọi nhánh fallback của `RESTOCK_PRODUCT` và `BUY_PRODUCT` để trả về thông báo hợp lệ thay vì `null`.
+- ⛔ **CÁCH SỬA ĐÃ THẤT BẠI - TUYỆT ĐỐI KHÔNG LẶP LẠI**:
+  - ❌ *Không được tạo thông báo mua hàng ảo (`BUY_PRODUCT`) cho các sản phẩm có `stock_quantity = 0`*: Vi phạm nghiêm trọng Quy tắc 3.1. Phải dồn trọng số sang `COPY_CODE` và `DEPOSIT_WALLET`.
+  - ❌ *Không được gán `chosenType = 'COPY_CODE'` sau khi khối `if (chosenType === 'COPY_CODE')` đã kết thúc*: Luôn trực tiếp khởi tạo và trả về thông báo hoàn chỉnh.
 
 ---
+
+
 
 
 
