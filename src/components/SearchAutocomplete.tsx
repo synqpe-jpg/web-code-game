@@ -11,12 +11,14 @@ import {
   CheckCircle2,
   AlertCircle,
   ExternalLink,
+  Globe,
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
 import type { GameItem, GiftCode } from '../types/game';
 import { dataService } from '../services/dataService';
 import { marketingService } from '../services/marketingService';
 import { useLanguage } from '../context/LanguageContext';
+import { isG1Licensed } from '../utils/licenseUtils';
 
 interface SearchAutocompleteProps {
   searchQuery: string;
@@ -325,10 +327,15 @@ export const SearchAutocomplete: React.FC<SearchAutocompleteProps> = ({
                                     <Flame className="w-2.5 h-2.5" /> HOT
                                   </span>
                                 )}
-                                {(game.so_giay_phep || game.license_number) && (
+                                {isG1Licensed(game) ? (
                                   <span className="inline-flex items-center gap-0.5 text-[9px] font-semibold px-1 py-0.2 rounded bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
                                     <CheckCircle2 className="w-2.5 h-2.5 text-emerald-400" />
                                     {t.gameCard.licensed}
+                                  </span>
+                                ) : (
+                                  <span className="inline-flex items-center gap-0.5 text-[9px] font-semibold px-1 py-0.2 rounded bg-cyan-500/10 text-cyan-300 border border-cyan-500/30">
+                                    <Globe className="w-2.5 h-2.5 text-cyan-400" />
+                                    {t.gameCard.international}
                                   </span>
                                 )}
                               </div>

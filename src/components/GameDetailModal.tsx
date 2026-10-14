@@ -20,12 +20,14 @@ import {
   Share2,
   AlertTriangle,
   Layers,
+  Globe,
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
 import type { GameItem, GiftCode, UserProfile } from '../types/game';
 import { dataService } from '../services/dataService';
 import { marketingService } from '../services/marketingService';
 import { useLanguage } from '../context/LanguageContext';
+import { isG1Licensed } from '../utils/licenseUtils';
 
 interface GameDetailModalProps {
   game: GameItem | null;
@@ -248,18 +250,22 @@ export const GameDetailModal: React.FC<GameDetailModalProps> = ({
                   <span className="text-[10px] sm:text-xs font-semibold px-2 py-0.5 rounded-lg bg-primary/20 text-primary-light border border-primary/30 whitespace-nowrap">
                     {currentGame.category || 'Game'}
                   </span>
-                  {(currentGame.so_giay_phep || currentGame.license_number) ? (
+                  {isG1Licensed(currentGame) ? (
                     <span
                       className="inline-flex items-center gap-1 text-[9px] sm:text-[10px] font-semibold px-2 py-0.5 rounded-lg bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 shadow-sm cursor-help whitespace-nowrap"
-                      title={`${t.gameCard.licenseTooltip} (GP: ${currentGame.so_giay_phep || currentGame.license_number})`}
+                      title={`${t.gameCard.licenseTooltip} (GP G1: ${currentGame.so_giay_phep || currentGame.license_number})`}
                     >
                       <CheckCircle2 className="w-3 h-3 text-emerald-400 shrink-0" />
                       <span>{t.gameCard.licensed}</span>
                       <span className="hidden sm:inline font-mono text-emerald-400/80">({currentGame.so_giay_phep || currentGame.license_number})</span>
                     </span>
                   ) : (
-                    <span className="text-[9px] sm:text-[10px] font-mono px-1.5 py-0.5 rounded-lg bg-slate-800 text-slate-300 border border-slate-700/60 whitespace-nowrap">
-                      🌐 Quốc Tế
+                    <span
+                      className="inline-flex items-center gap-1 text-[9px] sm:text-[10px] font-semibold px-2 py-0.5 rounded-lg bg-cyan-500/15 text-cyan-300 border border-cyan-500/30 shadow-sm whitespace-nowrap"
+                      title={t.gameCard.internationalTooltip}
+                    >
+                      <Globe className="w-3 h-3 text-cyan-400 shrink-0" />
+                      <span>{t.gameCard.international}</span>
                     </span>
                   )}
                 </div>

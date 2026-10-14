@@ -73,7 +73,9 @@ export interface TranslationSchema {
   };
   gameCard: {
     licensed: string;
+    international: string;
     licenseTooltip: string;
+    internationalTooltip: string;
     licenseNo: string;
     codesAvailable: string;
     viewCodes: string;
@@ -235,7 +237,9 @@ export const translations: Record<Language, TranslationSchema> = {
     },
     gameCard: {
       licensed: '✓ Đã xác minh',
+      international: 'Quốc Tế',
       licenseTooltip: 'Game đã được cấp phép ABEI / G1 chính thức và kiểm duyệt an toàn.',
+      internationalTooltip: 'Tựa game quốc tế / phát hành toàn cầu.',
       licenseNo: 'Giấy phép:',
       codesAvailable: 'mã code',
       viewCodes: 'Xem mã quà tặng',
@@ -396,7 +400,9 @@ export const translations: Record<Language, TranslationSchema> = {
     },
     gameCard: {
       licensed: '✓ Verified',
+      international: 'Global',
       licenseTooltip: 'Officially licensed by ABEI / G1 with verified giftcodes.',
+      internationalTooltip: 'Global / International game release.',
       licenseNo: 'License:',
       codesAvailable: 'codes',
       viewCodes: 'View Codes',
@@ -557,7 +563,9 @@ export const translations: Record<Language, TranslationSchema> = {
     },
     gameCard: {
       licensed: '✓ 已认证',
+      international: '国际服',
       licenseTooltip: '已获得越南国家版号（ABEI / G1）官方认证，安全合规。',
+      internationalTooltip: '国际版 / 全球发行游戏。',
       licenseNo: '版号批文:',
       codesAvailable: '个礼包码',
       viewCodes: '查看礼包',
@@ -718,7 +726,9 @@ export const translations: Record<Language, TranslationSchema> = {
     },
     gameCard: {
       licensed: '✓ ยืนยันแล้ว',
+      international: 'สากล',
       licenseTooltip: 'ได้รับใบอนุญาต ABEI / G1 อย่างเป็นทางการและตรวจสอบโค้ดแล้ว',
+      internationalTooltip: 'เกมสากล / เปิดให้บริการทั่วโลก',
       licenseNo: 'ใบอนุญาต:',
       codesAvailable: 'โค้ด',
       viewCodes: 'ดูโค้ด',

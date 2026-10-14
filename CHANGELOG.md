@@ -7,6 +7,23 @@ Mỗi mục sửa lỗi đều ghi nhận **Nguyên nhân gốc rễ (Root Cause
 
 ## [2026-10-14]
 
+### 30. Chuẩn Hóa Phân Loại Giấy Phép: Chỉ Hiển Thị "✓ Đã Xác Minh" Cho Game G1, Hiển Thị "Quốc Tế" Cho Game Phát Hành Toàn Cầu
+- **Mô tả**:
+  1. **Nhu cầu**: Người dùng yêu cầu chỉ những game nào có giấy phép G1 của Bộ TT&TT / Cục PTTH&TTĐT Việt Nam cấp mới được hiển thị huy hiệu "✓ Đã xác minh", còn lại các game phát hành toàn cầu / quốc tế phải hiển thị rõ ràng nhãn "Quốc Tế".
+  2. **Giải pháp kiến trúc & Triển khai**:
+     - *Xây dựng Module Nhận Diện Chuẩn Pháp Lý (`src/utils/licenseUtils.ts`)*:
+       + Hàm `isG1Licensed(game)` đối soát nghiêm ngặt 3 tầng: (1) `trang_thai_gp` có chữ `G1` và không bị phủ định, (2) Số giấy phép mang định dạng Quyết định phê duyệt nội dung kịch bản G1 chính quy của Việt Nam (`QĐ-BTTTT`, `QĐ-PTTH&TTĐT`, `QĐ-BVHTTDL`, `QD-BTTTT`), (3) Loại trừ triệt để Giấy xác nhận G234 (`GXN`) và các nhãn quốc tế / toàn cầu.
+     - *Chuẩn Hóa Dữ Liệu (`src/data/games188.json`, `public/data/games188.json`)*:
+       + Xóa bỏ chuỗi tạm `"Bản Quyền Quốc Tế"` khỏi trường `so_giay_phep` và `license_number` của 50 game quốc tế mới thêm để tránh nhầm lẫn logic.
+       + Chuẩn hóa 15 game có số quyết định QĐ chính quy về đúng trạng thái `'Đã cấp phép (ABEI - G1)'`.
+     - *Nâng Cấp Giao Diện Web Khách & Modal Chi Tiết*:
+       + `src/components/GameCard.tsx`: Tách biệt rành mạch cả 3 chế độ xem (Lưới `Grid`, Danh sách `List`, và Icon nhỏ `Compact`). Game G1 hiển thị huy hiệu ngọc lục bảo `✓ Đã xác minh`, game quốc tế hiển thị biểu tượng địa cầu `Globe` kèm nhãn cyan `Quốc Tế` (`Global`).
+       + `src/components/GameDetailModal.tsx`: Header hiển thị huy hiệu G1 kèm số quyết định, hoặc nhãn `🌐 Quốc Tế` với tooltip giải thích rõ ràng.
+       + `src/components/SearchAutocomplete.tsx`: Dropdown tìm kiếm hiển thị đồng bộ nhãn G1 và Quốc Tế.
+       + `src/i18n/translations.ts`: Bổ sung đa ngôn ngữ `international` và `internationalTooltip` cho cả 5 ngôn ngữ (Tiếng Việt, English, 中文, ไทย).
+       + `scripts/prerender.js`: Prerender HTML phân định rõ hộp thông tin pháp lý G1 (Đã xác minh) với hộp thông tin bản quyền game quốc tế.
+- **Kết quả xác minh**: Toàn bộ 350 game G1 hiển thị huy hiệu `✓ Đã xác minh`, 187 game quốc tế & non-G1 hiển thị nhãn `Quốc Tế`. Kiểm thử build Vite và Prerender 537 trang hoàn tất 100% không lỗi.
+
 ### 29. Cập Nhật 100% Icon Thật Chính Thức Từ Roblox, Apple App Store & Steam CDN Cho Top 50 Game Mới
 - **Mô tả**:
   1. **Nhu cầu**: Người dùng phát hiện icon của các game mới thêm chưa phản ánh đúng ảnh đại diện/logo chính thức của game và yêu cầu tìm, thay thế bằng icon thật chính xác 100%.

@@ -737,7 +737,9 @@ async function runPrerender() {
           ],
         },
       ],
-      bodyContent: `
+      bodyContent: (() => {
+        const isG1 = (game.trang_thai_gp && /G1\b/i.test(game.trang_thai_gp)) || /(QĐ|QD)-(BTTTT|PTTH&TTĐT|BVHTTDL)/i.test(game.so_giay_phep || '');
+        return `
         <div class="min-h-screen flex flex-col bg-dark-950 text-gray-100">
           <header class="sticky top-0 z-40 w-full border-b border-gray-800/80 bg-dark-950/85 backdrop-blur-md px-4 sm:px-8 py-3.5 flex items-center justify-between">
             <a href="/" class="flex items-center space-x-2.5 text-brand-400 font-extrabold text-lg sm:text-xl">
@@ -754,22 +756,39 @@ async function runPrerender() {
             <div class="flex items-center space-x-4 p-5 rounded-3xl bg-dark-900 border border-gray-800 shadow-xl">
               <img src="${escapeHtml(coverImg)}" alt="${escapeHtml(game.name)}" class="w-16 h-16 sm:w-20 sm:h-20 rounded-2xl object-cover border border-gray-700">
               <div>
-                <span class="inline-block px-2.5 py-0.5 rounded-full bg-brand-500/10 text-brand-400 text-[11px] font-bold border border-brand-500/20 mb-1">
-                  ${escapeHtml(game.category || 'Game Mobile')}
-                </span>
+                <div class="flex items-center gap-1.5 flex-wrap mb-1">
+                  <span class="inline-block px-2.5 py-0.5 rounded-full bg-brand-500/10 text-brand-400 text-[11px] font-bold border border-brand-500/20">
+                    ${escapeHtml(game.category || 'Game Mobile')}
+                  </span>
+                  ${
+                    isG1
+                      ? `<span class="inline-block px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 text-[11px] font-bold border border-emerald-500/40">✓ Đã xác minh (G1)</span>`
+                      : `<span class="inline-block px-2 py-0.5 rounded-full bg-cyan-500/15 text-cyan-300 text-[11px] font-bold border border-cyan-500/30">🌐 Quốc Tế</span>`
+                  }
+                </div>
                 <h1 class="text-xl sm:text-3xl font-black text-white">${escapeHtml(game.name)}</h1>
                 <p class="text-xs sm:text-sm text-gray-400 font-semibold mt-0.5">${escapeHtml(game.publisher || 'NPH Chính Thức VN')}</p>
               </div>
             </div>
 
-            <!-- License Box -->
+            ${
+              isG1
+                ? `<!-- License Box (G1) -->
             <div class="p-4 rounded-2xl bg-emerald-950/40 border border-emerald-500/30 text-xs sm:text-sm text-emerald-200 space-y-1">
-              <div class="font-bold text-emerald-400 text-sm mb-1">📜 Thông Tin Pháp Lý & Giấy Phép G1:</div>
-              <div>• <strong>Số giấy phép:</strong> ${escapeHtml(game.so_giay_phep || 'Đang đồng bộ ABEI')}</div>
-              <div>• <strong>Ngày cấp phép:</strong> ${escapeHtml(game.ngay_cap_phep || game.release_date || '2026')}</div>
+              <div class="font-bold text-emerald-400 text-sm mb-1">📜 Thông Tin Pháp Lý & Giấy Phép G1 (Đã Xác Minh):</div>
+              <div>• <strong>Số giấy phép:</strong> ${escapeHtml(game.so_giay_phep || game.license_number || 'Đã cấp phép G1')}</div>
+              <div>• <strong>Ngày cấp phép:</strong> ${escapeHtml(game.ngay_cap_phep || game.license_date || game.release_date || '2026')}</div>
               <div>• <strong>Nhà phát hành:</strong> ${escapeHtml(game.publisher || 'NPH Chính Thức VN')}</div>
               <div>• <strong>Nguồn đối chiếu:</strong> Cục PTTH&TTĐT (giayphep.abei.gov.vn)</div>
-            </div>
+            </div>`
+                : `<!-- International Box -->
+            <div class="p-4 rounded-2xl bg-slate-900/60 border border-cyan-500/30 text-xs sm:text-sm text-cyan-200 space-y-1">
+              <div class="font-bold text-cyan-400 text-sm mb-1">🌐 Tựa Game Quốc Tế (Phát Hành Toàn Cầu):</div>
+              <div>• <strong>Định danh / Bản quyền:</strong> Phiên bản phát hành quốc tế</div>
+              <div>• <strong>Nhà phát hành / Studio:</strong> ${escapeHtml(game.publisher || 'Quốc Tế')}</div>
+              <div>• <strong>Trạng thái:</strong> Phát hành toàn cầu & Cập nhật giftcode tự động</div>
+            </div>`
+            }
 
             <!-- Codes List -->
             <div class="p-5 rounded-2xl bg-dark-900 border border-gray-800 space-y-3">
@@ -850,7 +869,8 @@ async function runPrerender() {
             <p>© 2026 CodeGame.shop. Nền tảng chia sẻ giftcode cộng đồng.</p>
           </footer>
         </div>
-      `,
+      `;
+      })(),
     });
 
     fs.writeFileSync(path.join(gameDir, 'index.html'), gameHtml, 'utf8');

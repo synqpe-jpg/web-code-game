@@ -9,9 +9,11 @@ import {
   Sparkles,
   Share2,
   CheckCircle2,
+  Globe,
 } from 'lucide-react';
 import type { GameItem } from '../types/game';
 import { useLanguage } from '../context/LanguageContext';
+import { isG1Licensed } from '../utils/licenseUtils';
 
 export interface GameCardProps {
   game: GameItem;
@@ -237,15 +239,23 @@ export const GameCard: React.FC<GameCardProps> = ({
                   <span>HOT</span>
                 </span>
               )}
-              {(game.so_giay_phep || game.license_number) ? (
+              {isG1Licensed(game) ? (
                 <span
                   className="inline-flex items-center gap-0.5 text-[8px] sm:text-[9px] font-semibold px-1 py-0.2 rounded bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 shrink-0"
-                  title={`GP: ${game.so_giay_phep || game.license_number}`}
+                  title={`GP G1: ${game.so_giay_phep || game.license_number}`}
                 >
                   <CheckCircle2 className="w-2 h-2 text-emerald-400" />
                   <span>G1</span>
                 </span>
-              ) : null}
+              ) : (
+                <span
+                  className="inline-flex items-center gap-0.5 text-[8px] sm:text-[9px] font-semibold px-1 py-0.2 rounded bg-cyan-500/10 text-cyan-300 border border-cyan-500/30 shrink-0"
+                  title={t.gameCard.internationalTooltip}
+                >
+                  <Globe className="w-2 h-2 text-cyan-400" />
+                  <span>{t.gameCard.international}</span>
+                </span>
+              )}
             </div>
 
             <h3 className="font-heading font-bold text-xs sm:text-sm text-foreground group-hover:text-primary-light transition-colors line-clamp-2 leading-tight min-h-[2rem] sm:min-h-[2.25rem]">
@@ -296,18 +306,21 @@ export const GameCard: React.FC<GameCardProps> = ({
                 <span>HOT</span>
               </span>
             )}
-            {(game.so_giay_phep || game.license_number) ? (
+            {isG1Licensed(game) ? (
               <span
                 className="inline-flex items-center gap-0.5 text-[9px] sm:text-[10px] font-semibold px-1.5 py-0.5 rounded-md bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 shrink-0"
-                title={`GP: ${game.so_giay_phep || game.license_number}`}
+                title={`${t.gameCard.licenseTooltip} (GP G1: ${game.so_giay_phep || game.license_number})`}
               >
                 <CheckCircle2 className="w-2.5 h-2.5 text-emerald-400" />
                 <span className="hidden xs:inline">{t.gameCard.licensed}</span>
               </span>
             ) : (
-              <span className="inline-flex items-center gap-0.5 text-[9px] sm:text-[10px] font-semibold px-1.5 py-0.5 rounded-md bg-slate-800 text-slate-300 border border-slate-700/60 shrink-0">
-                <Sparkles className="w-2.5 h-2.5 text-cyan-400" />
-                <span className="hidden xs:inline">Quốc Tế</span>
+              <span
+                className="inline-flex items-center gap-0.5 text-[9px] sm:text-[10px] font-semibold px-1.5 py-0.5 rounded-md bg-cyan-500/10 text-cyan-300 border border-cyan-500/30 shrink-0"
+                title={t.gameCard.internationalTooltip}
+              >
+                <Globe className="w-2.5 h-2.5 text-cyan-400" />
+                <span className="hidden xs:inline">{t.gameCard.international}</span>
               </span>
             )}
 
@@ -425,21 +438,21 @@ export const GameCard: React.FC<GameCardProps> = ({
                   <span>HOT</span>
                 </span>
               )}
-              {(game.so_giay_phep || game.license_number) ? (
+              {isG1Licensed(game) ? (
                 <span
                   className="inline-flex items-center gap-0.5 text-[10px] font-semibold px-1.5 py-0.5 rounded-md bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 shrink-0 shadow-sm cursor-help"
-                  title={`${t.gameCard.licenseTooltip} (GP: ${game.so_giay_phep || game.license_number})`}
+                  title={`${t.gameCard.licenseTooltip} (GP G1: ${game.so_giay_phep || game.license_number})`}
                 >
                   <CheckCircle2 className="w-2.5 h-2.5 text-emerald-400" />
                   <span>{t.gameCard.licensed}</span>
                 </span>
               ) : (
                 <span
-                  className="inline-flex items-center gap-0.5 text-[10px] font-semibold px-1.5 py-0.5 rounded-md bg-slate-800 text-slate-300 border border-slate-700/60 shrink-0"
-                  title="Tựa game quốc tế / phát hành toàn cầu"
+                  className="inline-flex items-center gap-0.5 text-[10px] font-semibold px-1.5 py-0.5 rounded-md bg-cyan-500/10 text-cyan-300 border border-cyan-500/30 shrink-0 shadow-sm cursor-help"
+                  title={t.gameCard.internationalTooltip}
                 >
-                  <Sparkles className="w-2.5 h-2.5 text-cyan-400" />
-                  <span>Quốc Tế</span>
+                  <Globe className="w-2.5 h-2.5 text-cyan-400" />
+                  <span>{t.gameCard.international}</span>
                 </span>
               )}
             </div>
