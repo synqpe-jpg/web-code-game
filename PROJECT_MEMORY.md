@@ -13,7 +13,7 @@
   - Web Khách: `https://codegame.shop` / `https://codegame.store` (Cloudflare Pages: `web-code-game`)
   - Web Quản trị (Admin): `https://admin.codegame.shop` (Cloudflare Pages: `admin-code-game-shop`)
 - **Mục tiêu cốt lõi**:
-  1. Cung cấp và tự động cập nhật Giftcode của hơn 486+ tựa game có giấy phép ABEI (G1/G234) tại Việt Nam.
+  1. Cung cấp và tự động cập nhật Giftcode của hơn 623+ tựa game có giấy phép ABEI (G1/G234) và Studio game Việt Nam tại thị trường trong nước & quốc tế.
   2. Nền tảng thương mại điện tử chuyên biệt: Mua bán Tiện ích game (VIP, buff, tool, dịch vụ), Cửa hàng tài khoản, Thẻ game, Giveaway mã quà tặng miễn phí.
   3. Hệ thống Marketing & FOMO thông minh với cơ chế đồng bộ nguyên tử 1 - 1 giữa thông báo và số liệu hiển thị thực tế.
   4. Hệ thống Tự động hóa 24/7: GitHub Actions quét giftcode và tự động xuất bản bài viết tin tức chuẩn SEO kèm ảnh và code game.

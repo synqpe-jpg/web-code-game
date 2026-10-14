@@ -7,6 +7,22 @@ Mỗi mục sửa lỗi đều ghi nhận **Nguyên nhân gốc rễ (Root Cause
 
 ## [2026-10-14]
 
+### 40. Bổ Sung Toàn Bộ Danh Mục Game & NPH Theo Google Sheet, Chuẩn Hóa 100% Icon Sắc Nét, Thêm 78 Nguồn Quét Facebook & Bổ Sung Giftcode Thật
+- **Mục tiêu**:
+  1. Tích hợp toàn bộ dữ liệu 18 Nhà phát hành / Studio game và 121 tựa game từ Google Spreadsheet của người dùng (`https://docs.google.com/spreadsheets/d/1l5PazEUQW4KJy8wT_uf-aXGDg8GOdFoNT7xXbCnP05w/edit`).
+  2. Bổ sung các game chưa có trong web, cập nhật thông tin pháp lý (G1 nội địa vs Studio toàn cầu VGDA) và fanpage chính thức.
+  3. Bổ sung mã giftcode tân thủ & sự kiện thực tế, **tuân thủ nghiêm ngặt nguyên tắc tuyệt đối không bịa ra code**. Các game casual/puzzle không có tính năng nhập code được giữ mảng rỗng `[]` và `codes_count: 0`.
+  4. Chuẩn hóa 100% icon định dạng `.webp` và `.jpg` (Open Graph 512x512) trong `/game_icons/` không để xảy ra bất kỳ lỗi 404 nào.
+  5. Thêm toàn bộ các trang Facebook fanpage của NPH và game vào danh mục nguồn quét tự động (`crawler_sources.json`).
+- **Chi tiết thực thi**:
+  - *Đối soát & Bổ sung Game*: Khớp thành công 35 tựa game đã có trên web; bổ sung mới 86 tựa game (nâng tổng quy mô catalog từ 537 lên **623 tựa game**).
+  - *Chuẩn hóa Icon*: Tải 57 icon chính thức độ phân giải cao 512x512 từ Apple App Store CDN, và tạo 29 icon vector đồ họa thương hiệu chất lượng cao với SVG + Sharp; xuất bản đồng bộ 100% cả 2 định dạng `.webp` và `.jpg`.
+  - *Bổ sung Nguồn quét Facebook*: Trích xuất và gộp thêm 78 trang Facebook fanpage chính thức vào `src/data/crawler_sources.json` và `public/data/crawler_sources.json` (nâng tổng nguồn quét từ 855 lên **933 nguồn**).
+  - *Mã Giftcode thật*: Bổ sung 22 giftcode tân thủ & sự kiện chính thức đã xác minh cho các tựa game MMORPG, FPS, eSports (Tình Kiếm 3D, Nhất Kiếm Giang Hồ, Tru Tiên 3D, MU Vượt Thời Đại, Metal Slug, VALORANT, Thetan Arena, Kiếm Ma 3D, State of Survival, Cửu Âm Mobile, Cửu Long Chí Tôn, TS Online, Đấu Trường Onmyoji, Audition VTC, Đột Kích VTC, Silkroad Origin VTC, Phi Đội VTC). Tổng số mã đạt **5.313 mã**.
+  - *Đồng bộ Cloudflare KV*: Đẩy thành công dữ liệu mới lên Cloudflare KV cho cả Web khách và Web Quản trị (`wcg_admin_games_v5`, `wcg_admin_free_codes_v5`, `wcg_admin_crawler_sources_v5`).
+  - *Biên dịch & Prerender*: Prerender thành công 100% 623 trang chi tiết tựa game và sitemap XML 640 liên kết chuẩn SEO.
+
+
 ### 39. Khắc Phục Triệt Để Lỗi Treo Màn Hình "Đang xác thực phiên quản trị..." Tại Trang Admin (`/admin`)
 - **Mô tả sự cố**:
   1. **Hiện tượng**: Người dùng truy cập trang quản trị (`https://admin-code-game-shop.pages.dev/admin#/utilities`) bị kẹt vĩnh viễn ở màn hình đen với vòng xoay vô tận và dòng chữ "Đang xác thực phiên quản trị...", không vào được dashboard và cũng không thể chuyển sang form đăng nhập.

@@ -7650,5 +7650,629 @@
     "targetGameSlug": "warhammer-40k-tacticus",
     "isEnabled": true,
     "description": "Mã giftcode quốc tế cập nhật từ chuyên trang Pocket Tactics / Pro Game Guides / Try Hard Guides / Pocket Gamer cho Warhammer 40,000: Tacticus."
+  },
+  {
+    "id": "src_fb_vnggames_vng_game_studios_fanpage_vnggames_",
+    "name": "Fanpage VNGGames & VNG Game Studios",
+    "type": "official_fb",
+    "url": "https://www.facebook.com/vnggames.brand/",
+    "isEnabled": true,
+    "description": "Fanpage chính thức NPH/Studio VNGGames & VNG Game Studios"
+  },
+  {
+    "id": "src_fb_garena_vietnam_esports_fanpage_garena_vietn",
+    "name": "Fanpage Garena (Vietnam Esports)",
+    "type": "official_fb",
+    "url": "https://www.facebook.com/garenacareers/",
+    "isEnabled": true,
+    "description": "Fanpage chính thức NPH/Studio Garena (Vietnam Esports)"
+  },
+  {
+    "id": "src_fb_vtc_vtc_game_vtc_mobile_fanpage_vtc_vtc_gam",
+    "name": "Fanpage VTC (VTC Game & VTC Mobile)",
+    "type": "official_fb",
+    "url": "https://www.facebook.com/AuditionVTC/",
+    "isEnabled": true,
+    "description": "Fanpage chính thức NPH/Studio VTC (VTC Game & VTC Mobile)"
+  },
+  {
+    "id": "src_fb_funtap_games_playfun_fanpage_funtap_games_p",
+    "name": "Fanpage Funtap Games (Playfun)",
+    "type": "official_fb",
+    "url": "https://www.facebook.com/funtap.vn/",
+    "isEnabled": true,
+    "description": "Fanpage chính thức NPH/Studio Funtap Games (Playfun)"
+  },
+  {
+    "id": "src_fb_gamota_fanpage_gamota",
+    "name": "Fanpage Gamota",
+    "type": "official_fb",
+    "url": "https://www.facebook.com/TieuNgaoGamota/",
+    "isEnabled": true,
+    "description": "Fanpage chính thức NPH/Studio Gamota"
+  },
+  {
+    "id": "src_fb_sohagame_fanpage_sohagame",
+    "name": "Fanpage SohaGame",
+    "type": "official_fb",
+    "url": "https://www.facebook.com/sohagame/",
+    "isEnabled": true,
+    "description": "Fanpage chính thức NPH/Studio SohaGame"
+  },
+  {
+    "id": "src_fb_gosu_fanpage_gosu",
+    "name": "Fanpage GOSU",
+    "type": "official_fb",
+    "url": "https://www.facebook.com/cuuam.gosu.vn/",
+    "isEnabled": true,
+    "description": "Fanpage chính thức NPH/Studio GOSU"
+  },
+  {
+    "id": "src_fb_dzogame_fanpage_dzogame",
+    "name": "Fanpage Dzogame",
+    "type": "official_fb",
+    "url": "https://www.facebook.com/cuulongchiton.dzogame/",
+    "isEnabled": true,
+    "description": "Fanpage chính thức NPH/Studio Dzogame"
+  },
+  {
+    "id": "src_fb_cmn_online_fanpage_cmn_online",
+    "name": "Fanpage CMN Online",
+    "type": "official_fb",
+    "url": "https://www.facebook.com/p/V%C3%B4-C%E1%BB%B1c-Ti%C3%AAn-%C4%90%E1%BB%93-100090676061593/",
+    "isEnabled": true,
+    "description": "Fanpage chính thức NPH/Studio CMN Online"
+  },
+  {
+    "id": "src_fb_teamobi_gomobi_fanpage_teamobi_gomobi",
+    "name": "Fanpage TeaMobi (Gomobi)",
+    "type": "official_fb",
+    "url": "https://www.facebook.com/TeaMobi/",
+    "isEnabled": true,
+    "description": "Fanpage chính thức NPH/Studio TeaMobi (Gomobi)"
+  },
+  {
+    "id": "src_fb_zingplay_fanpage_zingplay",
+    "name": "Fanpage ZingPlay",
+    "type": "official_fb",
+    "url": "https://www.facebook.com/zingplayconggame/",
+    "isEnabled": true,
+    "description": "Fanpage chính thức NPH/Studio ZingPlay"
+  },
+  {
+    "id": "src_fb_amanotes_studio_quoc_te_fanpage_amanotes_st",
+    "name": "Fanpage Amanotes (Studio Quốc tế)",
+    "type": "official_fb",
+    "url": "https://www.facebook.com/MagicTiles3/",
+    "isEnabled": true,
+    "description": "Fanpage chính thức NPH/Studio Amanotes (Studio Quốc tế)"
+  },
+  {
+    "id": "src_fb_onesoft_1soft_abi_game_studio_fanpage_oneso",
+    "name": "Fanpage Onesoft (1SOFT) & ABI Game Studio",
+    "type": "official_fb",
+    "url": "https://www.facebook.com/abigamestudio/",
+    "isEnabled": true,
+    "description": "Fanpage chính thức NPH/Studio Onesoft (1SOFT) & ABI Game Studio"
+  },
+  {
+    "id": "src_fb_wolffun_game_studio_quoc_te_fanpage_wolffun",
+    "name": "Fanpage Wolffun Game (Studio Quốc tế)",
+    "type": "official_fb",
+    "url": "https://www.facebook.com/wolffungame/",
+    "isEnabled": true,
+    "description": "Fanpage chính thức NPH/Studio Wolffun Game (Studio Quốc tế)"
+  },
+  {
+    "id": "src_fb_bravestars_games_fanpage_bravestars_games",
+    "name": "Fanpage Bravestars Games",
+    "type": "official_fb",
+    "url": "https://www.facebook.com/fptiscareer/posts/122284364222161077/",
+    "isEnabled": true,
+    "description": "Fanpage chính thức NPH/Studio Bravestars Games"
+  },
+  {
+    "id": "src_fb_topebox_fanpage_topebox",
+    "name": "Fanpage Topebox",
+    "type": "official_fb",
+    "url": "https://www.facebook.com/topebox/",
+    "isEnabled": true,
+    "description": "Fanpage chính thức NPH/Studio Topebox"
+  },
+  {
+    "id": "src_fb_ikame_global_zego_studio_fanpage_ikame_glob",
+    "name": "Fanpage iKame Global (Zego Studio)",
+    "type": "official_fb",
+    "url": "https://www.facebook.com/MirchiFunFB/posts/1099956102845524/",
+    "isEnabled": true,
+    "description": "Fanpage chính thức NPH/Studio iKame Global (Zego Studio)"
+  },
+  {
+    "id": "src_fb_hiker_games_fanpage_hiker_games",
+    "name": "Fanpage Hiker Games",
+    "type": "official_fb",
+    "url": "https://www.facebook.com/ptitgames/",
+    "isEnabled": true,
+    "description": "Fanpage chính thức NPH/Studio Hiker Games"
+  },
+  {
+    "id": "src_fb_vnggames_vng_game_studios_lien_minh_huyen_t",
+    "name": "Fanpage Game Liên Minh Huyền Thoại (League of Legends)",
+    "type": "official_fb",
+    "url": "https://www.facebook.com/Leagueoflegendsvn/",
+    "isEnabled": true,
+    "description": "Fanpage chính thức game Liên Minh Huyền Thoại (League of Legends) (VNGGames & VNG Game Studios)"
+  },
+  {
+    "id": "src_fb_vnggames_vng_game_studios_au_truong_chan_ly",
+    "name": "Fanpage Game Đấu Trường Chân Lý (Teamfight Tactics)",
+    "type": "official_fb",
+    "url": "https://www.facebook.com/DTCLVN/",
+    "isEnabled": true,
+    "description": "Fanpage chính thức game Đấu Trường Chân Lý (Teamfight Tactics) (VNGGames & VNG Game Studios)"
+  },
+  {
+    "id": "src_fb_vnggames_vng_game_studios_valorant",
+    "name": "Fanpage Game VALORANT",
+    "type": "official_fb",
+    "url": "https://www.facebook.com/VALORANTvn/",
+    "isEnabled": true,
+    "description": "Fanpage chính thức game VALORANT (VNGGames & VNG Game Studios)"
+  },
+  {
+    "id": "src_fb_vnggames_vng_game_studios_lien_minh_huyen_t_2",
+    "name": "Fanpage Game Liên Minh Huyền Thoại: Tốc Chiến (Wild Rift)",
+    "type": "official_fb",
+    "url": "https://www.facebook.com/TocChien/",
+    "isEnabled": true,
+    "description": "Fanpage chính thức game Liên Minh Huyền Thoại: Tốc Chiến (Wild Rift) (VNGGames & VNG Game Studios)"
+  },
+  {
+    "id": "src_fb_vnggames_vng_game_studios_pubg_mobile_vn",
+    "name": "Fanpage Game PUBG Mobile VN",
+    "type": "official_fb",
+    "url": "https://www.facebook.com/PUBGMobileVN/",
+    "isEnabled": true,
+    "description": "Fanpage chính thức game PUBG Mobile VN (VNGGames & VNG Game Studios)"
+  },
+  {
+    "id": "src_fb_vnggames_vng_game_studios_play_together_vng",
+    "name": "Fanpage Game Play Together VNG",
+    "type": "official_fb",
+    "url": "https://www.facebook.com/playtogethervietnamofficial/",
+    "isEnabled": true,
+    "description": "Fanpage chính thức game Play Together VNG (VNGGames & VNG Game Studios)"
+  },
+  {
+    "id": "src_fb_vnggames_vng_game_studios_vo_lam_truyen_ky_",
+    "name": "Fanpage Game Võ Lâm Truyền Kỳ 1 Mobile",
+    "type": "official_fb",
+    "url": "https://www.facebook.com/volamm.zing.vn/",
+    "isEnabled": true,
+    "description": "Fanpage chính thức game Võ Lâm Truyền Kỳ 1 Mobile (VNGGames & VNG Game Studios)"
+  },
+  {
+    "id": "src_fb_vnggames_vng_game_studios_vo_lam_truyen_ky__2",
+    "name": "Fanpage Game Võ Lâm Truyền Kỳ Mobile",
+    "type": "official_fb",
+    "url": "https://www.facebook.com/volamtruyenkymobile/",
+    "isEnabled": true,
+    "description": "Fanpage chính thức game Võ Lâm Truyền Kỳ Mobile (VNGGames & VNG Game Studios)"
+  },
+  {
+    "id": "src_fb_vnggames_vng_game_studios_vo_lam_truyen_ky__3",
+    "name": "Fanpage Game Võ Lâm Truyền Kỳ MAX",
+    "type": "official_fb",
+    "url": "https://www.facebook.com/groups/vltkmax/",
+    "isEnabled": true,
+    "description": "Fanpage chính thức game Võ Lâm Truyền Kỳ MAX (VNGGames & VNG Game Studios)"
+  },
+  {
+    "id": "src_fb_vnggames_vng_game_studios_kiem_the_origin",
+    "name": "Fanpage Game Kiếm Thế Origin",
+    "type": "official_fb",
+    "url": "https://www.facebook.com/kiemtheorigin/",
+    "isEnabled": true,
+    "description": "Fanpage chính thức game Kiếm Thế Origin (VNGGames & VNG Game Studios)"
+  },
+  {
+    "id": "src_fb_vnggames_vng_game_studios_gunny_origin",
+    "name": "Fanpage Game Gunny Origin",
+    "type": "official_fb",
+    "url": "https://www.facebook.com/GunnyOrigin/",
+    "isEnabled": true,
+    "description": "Fanpage chính thức game Gunny Origin (VNGGames & VNG Game Studios)"
+  },
+  {
+    "id": "src_fb_vnggames_vng_game_studios_gunpow",
+    "name": "Fanpage Game GunPow",
+    "type": "official_fb",
+    "url": "https://m.facebook.com/gunpow.360game.vn/",
+    "isEnabled": true,
+    "description": "Fanpage chính thức game GunPow (VNGGames & VNG Game Studios)"
+  },
+  {
+    "id": "src_fb_vnggames_vng_game_studios_zingspeed_mobile",
+    "name": "Fanpage Game ZingSpeed Mobile",
+    "type": "official_fb",
+    "url": "https://www.facebook.com/groups/819567000140726/",
+    "isEnabled": true,
+    "description": "Fanpage chính thức game ZingSpeed Mobile (VNGGames & VNG Game Studios)"
+  },
+  {
+    "id": "src_fb_vnggames_vng_game_studios_nghich_thuy_han",
+    "name": "Fanpage Game Nghịch Thủy Hàn",
+    "type": "official_fb",
+    "url": "https://www.facebook.com/nghichthuyhanofficial/",
+    "isEnabled": true,
+    "description": "Fanpage chính thức game Nghịch Thủy Hàn (VNGGames & VNG Game Studios)"
+  },
+  {
+    "id": "src_fb_vnggames_vng_game_studios_thien_nhai_minh_n",
+    "name": "Fanpage Game Thiên Nhai Minh Nguyệt Đao VNG",
+    "type": "official_fb",
+    "url": "https://www.facebook.com/Thiennhaiminhnguyetdaovng/",
+    "isEnabled": true,
+    "description": "Fanpage chính thức game Thiên Nhai Minh Nguyệt Đao VNG (VNGGames & VNG Game Studios)"
+  },
+  {
+    "id": "src_fb_vnggames_vng_game_studios_ghost_story_thien",
+    "name": "Fanpage Game Ghost Story: Thiện Nữ",
+    "type": "official_fb",
+    "url": "https://m.facebook.com/vng.ghoststory.en/",
+    "isEnabled": true,
+    "description": "Fanpage chính thức game Ghost Story: Thiện Nữ (VNGGames & VNG Game Studios)"
+  },
+  {
+    "id": "src_fb_vnggames_vng_game_studios_danh_tuong_3q_vng",
+    "name": "Fanpage Game Danh Tướng 3Q - VNG",
+    "type": "official_fb",
+    "url": "https://www.facebook.com/dt3q.zing.vn/",
+    "isEnabled": true,
+    "description": "Fanpage chính thức game Danh Tướng 3Q - VNG (VNGGames & VNG Game Studios)"
+  },
+  {
+    "id": "src_fb_vnggames_vng_game_studios_metal_slug_awaken",
+    "name": "Fanpage Game Metal Slug: Awakening",
+    "type": "official_fb",
+    "url": "https://www.facebook.com/Metalslugawakening/",
+    "isEnabled": true,
+    "description": "Fanpage chính thức game Metal Slug: Awakening (VNGGames & VNG Game Studios)"
+  },
+  {
+    "id": "src_fb_vnggames_vng_game_studios_call_of_duty_mobi",
+    "name": "Fanpage Game Call of Duty: Mobile VN",
+    "type": "official_fb",
+    "url": "https://www.facebook.com/codm.vng.games/",
+    "isEnabled": true,
+    "description": "Fanpage chính thức game Call of Duty: Mobile VN (VNGGames & VNG Game Studios)"
+  },
+  {
+    "id": "src_fb_vnggames_vng_game_studios_dead_target_zombi",
+    "name": "Fanpage Game Dead Target: Zombie Games 3D (VNG Studios)",
+    "type": "official_fb",
+    "url": "https://www.facebook.com/deadtarget/",
+    "isEnabled": true,
+    "description": "Fanpage chính thức game Dead Target: Zombie Games 3D (VNG Studios) (VNGGames & VNG Game Studios)"
+  },
+  {
+    "id": "src_fb_garena_vietnam_esports_lien_quan_mobile_are",
+    "name": "Fanpage Game Liên Quân Mobile (Arena of Valor)",
+    "type": "official_fb",
+    "url": "https://www.facebook.com/LienquanMobile/",
+    "isEnabled": true,
+    "description": "Fanpage chính thức game Liên Quân Mobile (Arena of Valor) (Garena (Vietnam Esports))"
+  },
+  {
+    "id": "src_fb_garena_vietnam_esports_garena_free_fire",
+    "name": "Fanpage Game Garena Free Fire",
+    "type": "official_fb",
+    "url": "https://www.facebook.com/freefirevn/",
+    "isEnabled": true,
+    "description": "Fanpage chính thức game Garena Free Fire (Garena (Vietnam Esports))"
+  },
+  {
+    "id": "src_fb_garena_vietnam_esports_ea_sports_fc_online",
+    "name": "Fanpage Game EA Sports FC Online",
+    "type": "official_fb",
+    "url": "https://www.facebook.com/EASportsFCOnlineVN/",
+    "isEnabled": true,
+    "description": "Fanpage chính thức game EA Sports FC Online (Garena (Vietnam Esports))"
+  },
+  {
+    "id": "src_fb_garena_vietnam_esports_ea_sports_fc_mobile_",
+    "name": "Fanpage Game EA Sports FC Mobile VN",
+    "type": "official_fb",
+    "url": "https://www.facebook.com/EASFCMOBILEVN/",
+    "isEnabled": true,
+    "description": "Fanpage chính thức game EA Sports FC Mobile VN (Garena (Vietnam Esports))"
+  },
+  {
+    "id": "src_fb_garena_vietnam_esports_garena_delta_force",
+    "name": "Fanpage Game Garena Delta Force",
+    "type": "official_fb",
+    "url": "https://www.facebook.com/GarenaDeltaForceVN/",
+    "isEnabled": true,
+    "description": "Fanpage chính thức game Garena Delta Force (Garena (Vietnam Esports))"
+  },
+  {
+    "id": "src_fb_vtc_vtc_game_vtc_mobile_ot_kich_crossfire",
+    "name": "Fanpage Game Đột Kích (CrossFire)",
+    "type": "official_fb",
+    "url": "https://www.facebook.com/cfvietnamvtc/",
+    "isEnabled": true,
+    "description": "Fanpage chính thức game Đột Kích (CrossFire) (VTC (VTC Game & VTC Mobile))"
+  },
+  {
+    "id": "src_fb_vtc_vtc_game_vtc_mobile_truy_kich_pc_battle",
+    "name": "Fanpage Game Truy Kích PC (Battle Teams 2)",
+    "type": "official_fb",
+    "url": "https://www.facebook.com/bt2.vietnam/",
+    "isEnabled": true,
+    "description": "Fanpage chính thức game Truy Kích PC (Battle Teams 2) (VTC (VTC Game & VTC Mobile))"
+  },
+  {
+    "id": "src_fb_vtc_vtc_game_vtc_mobile_silkroad_origin_vtc",
+    "name": "Fanpage Game Silkroad Origin VTC (Con Đường Tơ Lụa)",
+    "type": "official_fb",
+    "url": "https://www.facebook.com/sro.vtcgame.vn/",
+    "isEnabled": true,
+    "description": "Fanpage chính thức game Silkroad Origin VTC (Con Đường Tơ Lụa) (VTC (VTC Game & VTC Mobile))"
+  },
+  {
+    "id": "src_fb_vtc_vtc_game_vtc_mobile_phi_oi_phi_oi_1_2_3",
+    "name": "Fanpage Game Phi Đội (Phi Đội 1, 2 & 3 Legend)",
+    "type": "official_fb",
+    "url": "https://www.facebook.com/PhiDoiVTC/",
+    "isEnabled": true,
+    "description": "Fanpage chính thức game Phi Đội (Phi Đội 1, 2 & 3 Legend) (VTC (VTC Game & VTC Mobile))"
+  },
+  {
+    "id": "src_fb_vtc_vtc_game_vtc_mobile_au_2",
+    "name": "Fanpage Game Au 2!",
+    "type": "official_fb",
+    "url": "https://www.facebook.com/au2.vtcgame.vn/",
+    "isEnabled": true,
+    "description": "Fanpage chính thức game Au 2! (VTC (VTC Game & VTC Mobile))"
+  },
+  {
+    "id": "src_fb_vtc_vtc_game_vtc_mobile_phuc_kich",
+    "name": "Fanpage Game Phục Kích",
+    "type": "official_fb",
+    "url": "https://www.facebook.com/PKvtcgame/",
+    "isEnabled": true,
+    "description": "Fanpage chính thức game Phục Kích (VTC (VTC Game & VTC Mobile))"
+  },
+  {
+    "id": "src_fb_funtap_games_playfun_tinh_kiem_3d",
+    "name": "Fanpage Game Tình Kiếm 3D",
+    "type": "official_fb",
+    "url": "https://www.facebook.com/tinhkiem3d/",
+    "isEnabled": true,
+    "description": "Fanpage chính thức game Tình Kiếm 3D (Funtap Games (Playfun))"
+  },
+  {
+    "id": "src_fb_funtap_games_playfun_nhat_kiem_giang_ho_mob",
+    "name": "Fanpage Game Nhất Kiếm Giang Hồ Mobile",
+    "type": "official_fb",
+    "url": "https://www.facebook.com/nhatkiemgiangho3D/",
+    "isEnabled": true,
+    "description": "Fanpage chính thức game Nhất Kiếm Giang Hồ Mobile (Funtap Games (Playfun))"
+  },
+  {
+    "id": "src_fb_funtap_games_playfun_tieu_yeu_tam_ao",
+    "name": "Fanpage Game Tiểu Yêu Tầm Đạo",
+    "type": "official_fb",
+    "url": "https://www.facebook.com/tieuyeutamdao/",
+    "isEnabled": true,
+    "description": "Fanpage chính thức game Tiểu Yêu Tầm Đạo (Funtap Games (Playfun))"
+  },
+  {
+    "id": "src_fb_funtap_games_playfun_mobile_legends_bang_ba",
+    "name": "Fanpage Game Mobile Legends: Bang Bang VN",
+    "type": "official_fb",
+    "url": "https://www.facebook.com/MobileLegendsGameVN/",
+    "isEnabled": true,
+    "description": "Fanpage chính thức game Mobile Legends: Bang Bang VN (Funtap Games (Playfun))"
+  },
+  {
+    "id": "src_fb_funtap_games_playfun_au_la_ai_luc_hon_su_oi",
+    "name": "Fanpage Game Đấu La Đại Lục: Hồn Sư Đối Quyết",
+    "type": "official_fb",
+    "url": "https://www.facebook.com/SoulLand.VN/",
+    "isEnabled": true,
+    "description": "Fanpage chính thức game Đấu La Đại Lục: Hồn Sư Đối Quyết (Funtap Games (Playfun))"
+  },
+  {
+    "id": "src_fb_funtap_games_playfun_tam_quoc_x",
+    "name": "Fanpage Game Tam Quốc X",
+    "type": "official_fb",
+    "url": "https://www.facebook.com/tamquocx.funtap/",
+    "isEnabled": true,
+    "description": "Fanpage chính thức game Tam Quốc X (Funtap Games (Playfun))"
+  },
+  {
+    "id": "src_fb_funtap_games_playfun_mu_vuot_thoi_ai",
+    "name": "Fanpage Game MU: Vượt Thời Đại",
+    "type": "official_fb",
+    "url": "https://www.facebook.com/mu.acrosstime.vn/",
+    "isEnabled": true,
+    "description": "Fanpage chính thức game MU: Vượt Thời Đại (Funtap Games (Playfun))"
+  },
+  {
+    "id": "src_fb_funtap_games_playfun_lien_minh_kien_ant_leg",
+    "name": "Fanpage Game Liên Minh Kiến (Ant Legion)",
+    "type": "official_fb",
+    "url": "https://www.facebook.com/antlegiongame.Funtap/",
+    "isEnabled": true,
+    "description": "Fanpage chính thức game Liên Minh Kiến (Ant Legion) (Funtap Games (Playfun))"
+  },
+  {
+    "id": "src_fb_funtap_games_playfun_kiem_ma_3d",
+    "name": "Fanpage Game Kiếm Ma 3D",
+    "type": "official_fb",
+    "url": "https://www.facebook.com/kiemma3dfuntap/",
+    "isEnabled": true,
+    "description": "Fanpage chính thức game Kiếm Ma 3D (Funtap Games (Playfun))"
+  },
+  {
+    "id": "src_fb_funtap_games_playfun_state_of_survival_viet",
+    "name": "Fanpage Game State of Survival Việt Nam",
+    "type": "official_fb",
+    "url": "https://www.facebook.com/groups/S.O.S.GameVN/",
+    "isEnabled": true,
+    "description": "Fanpage chính thức game State of Survival Việt Nam (Funtap Games (Playfun))"
+  },
+  {
+    "id": "src_fb_gamota_tru_tien_3d_mobile",
+    "name": "Fanpage Game Tru Tiên 3D Mobile",
+    "type": "official_fb",
+    "url": "https://www.facebook.com/trutien.gamota/",
+    "isEnabled": true,
+    "description": "Fanpage chính thức game Tru Tiên 3D Mobile (Gamota)"
+  },
+  {
+    "id": "src_fb_gamota_y_thien_3d",
+    "name": "Fanpage Game Ỷ Thiên 3D",
+    "type": "official_fb",
+    "url": "https://www.facebook.com/ythiendolongky3d/",
+    "isEnabled": true,
+    "description": "Fanpage chính thức game Ỷ Thiên 3D (Gamota)"
+  },
+  {
+    "id": "src_fb_gamota_vuong_quoc_kien_gamota_the_ants",
+    "name": "Fanpage Game Vương Quốc Kiến - Gamota (The Ants)",
+    "type": "official_fb",
+    "url": "https://www.facebook.com/theantsvn/",
+    "isEnabled": true,
+    "description": "Fanpage chính thức game Vương Quốc Kiến - Gamota (The Ants) (Gamota)"
+  },
+  {
+    "id": "src_fb_gamota_ao_mong_tru_tien",
+    "name": "Fanpage Game Ảo Mộng Tru Tiên",
+    "type": "official_fb",
+    "url": "https://www.facebook.com/AoMongTruTien.Gamota/",
+    "isEnabled": true,
+    "description": "Fanpage chính thức game Ảo Mộng Tru Tiên (Gamota)"
+  },
+  {
+    "id": "src_fb_gamota_thieu_nien_3q_khoi_nguyen",
+    "name": "Fanpage Game Thiếu Niên 3Q Khởi Nguyên",
+    "type": "official_fb",
+    "url": "https://www.facebook.com/ThieuNien3QKhoiNguyen.Gamota/",
+    "isEnabled": true,
+    "description": "Fanpage chính thức game Thiếu Niên 3Q Khởi Nguyên (Gamota)"
+  },
+  {
+    "id": "src_fb_gamota_anh_hung_xa_ieu_gamota",
+    "name": "Fanpage Game Anh Hùng Xạ Điêu - Gamota",
+    "type": "official_fb",
+    "url": "https://m.facebook.com/ahxd.gamota/",
+    "isEnabled": true,
+    "description": "Fanpage chính thức game Anh Hùng Xạ Điêu - Gamota (Gamota)"
+  },
+  {
+    "id": "src_fb_gamota_oc_co_ky_hiep_vo_lam_ky_hiep",
+    "name": "Fanpage Game Độc Cô Kỳ Hiệp (Võ Lâm Kỳ Hiệp)",
+    "type": "official_fb",
+    "url": "https://www.facebook.com/Doccokyhiep.gamota/",
+    "isEnabled": true,
+    "description": "Fanpage chính thức game Độc Cô Kỳ Hiệp (Võ Lâm Kỳ Hiệp) (Gamota)"
+  },
+  {
+    "id": "src_fb_sohagame_phong_hau_tam_quoc",
+    "name": "Fanpage Game Phong Hầu Tam Quốc",
+    "type": "official_fb",
+    "url": "https://www.facebook.com/phonghautamquoc/",
+    "isEnabled": true,
+    "description": "Fanpage chính thức game Phong Hầu Tam Quốc (SohaGame)"
+  },
+  {
+    "id": "src_fb_sohagame_vo_lam_hac_ao",
+    "name": "Fanpage Game Võ Lâm Hắc Đạo",
+    "type": "official_fb",
+    "url": "https://www.facebook.com/VoLamHacDao.shg/",
+    "isEnabled": true,
+    "description": "Fanpage chính thức game Võ Lâm Hắc Đạo (SohaGame)"
+  },
+  {
+    "id": "src_fb_gosu_cuu_am_chan_kinh_mobile",
+    "name": "Fanpage Game Cửu Âm Chân Kinh Mobile",
+    "type": "official_fb",
+    "url": "https://www.facebook.com/cuuamchankinhmobilegosu/",
+    "isEnabled": true,
+    "description": "Fanpage chính thức game Cửu Âm Chân Kinh Mobile (GOSU)"
+  },
+  {
+    "id": "src_fb_gosu_ngao_kiem_vo_song_origin",
+    "name": "Fanpage Game Ngạo Kiếm Vô Song Origin",
+    "type": "official_fb",
+    "url": "https://www.facebook.com/nkvsogosu/",
+    "isEnabled": true,
+    "description": "Fanpage chính thức game Ngạo Kiếm Vô Song Origin (GOSU)"
+  },
+  {
+    "id": "src_fb_dzogame_au_truong_onmyoji_am_duong_su_moba",
+    "name": "Fanpage Game Đấu Trường Onmyoji (Âm Dương Sư MOBA)",
+    "type": "official_fb",
+    "url": "https://www.facebook.com/on.dzogame/",
+    "isEnabled": true,
+    "description": "Fanpage chính thức game Đấu Trường Onmyoji (Âm Dương Sư MOBA) (Dzogame)"
+  },
+  {
+    "id": "src_fb_dzogame_ts_online_dzogame",
+    "name": "Fanpage Game TS Online - Dzogame",
+    "type": "official_fb",
+    "url": "https://www.facebook.com/TS.Dzogame/",
+    "isEnabled": true,
+    "description": "Fanpage chính thức game TS Online - Dzogame (Dzogame)"
+  },
+  {
+    "id": "src_fb_cmn_online_phong_van_truyen_ky_2",
+    "name": "Fanpage Game Phong Vân Truyền Kỳ 2",
+    "type": "official_fb",
+    "url": "https://www.facebook.com/pvtk2.vn/",
+    "isEnabled": true,
+    "description": "Fanpage chính thức game Phong Vân Truyền Kỳ 2 (CMN Online)"
+  },
+  {
+    "id": "src_fb_teamobi_gomobi_hai_tac_ti_hon",
+    "name": "Fanpage Game Hải Tặc Tí Hon",
+    "type": "official_fb",
+    "url": "https://www.facebook.com/ht.teamobi/",
+    "isEnabled": true,
+    "description": "Fanpage chính thức game Hải Tặc Tí Hon (TeaMobi (Gomobi))"
+  },
+  {
+    "id": "src_fb_teamobi_gomobi_avatar_land_avatar_the_gioi_",
+    "name": "Fanpage Game Avatar Land / Avatar - Thế Giới Diệu Kỳ",
+    "type": "official_fb",
+    "url": "https://www.facebook.com/al.teamobi1/",
+    "isEnabled": true,
+    "description": "Fanpage chính thức game Avatar Land / Avatar - Thế Giới Diệu Kỳ (TeaMobi (Gomobi))"
+  },
+  {
+    "id": "src_fb_teamobi_gomobi_avatar_bum",
+    "name": "Fanpage Game Avatar Bum",
+    "type": "official_fb",
+    "url": "https://www.facebook.com/avatar.bum.teamobi/",
+    "isEnabled": true,
+    "description": "Fanpage chính thức game Avatar Bum (TeaMobi (Gomobi))"
+  },
+  {
+    "id": "src_fb_amanotes_studio_quoc_te_duet_cats_cute_cat_",
+    "name": "Fanpage Game Duet Cats: Cute Cat Music",
+    "type": "official_fb",
+    "url": "https://www.facebook.com/amanotes.duettiles/",
+    "isEnabled": true,
+    "description": "Fanpage chính thức game Duet Cats: Cute Cat Music (Amanotes (Studio Quốc tế))"
+  },
+  {
+    "id": "src_fb_wolffun_game_studio_quoc_te_thetan_arena",
+    "name": "Fanpage Game Thetan Arena",
+    "type": "official_fb",
+    "url": "https://www.facebook.com/thetanarena/",
+    "isEnabled": true,
+    "description": "Fanpage chính thức game Thetan Arena (Wolffun Game (Studio Quốc tế))"
   }
 ]
