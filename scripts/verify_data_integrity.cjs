@@ -123,11 +123,11 @@ try {
   } else if (utils.length < 19) {
     fail(`Utilities count dropped below floor guarantee: ${utils.length} < 19`);
   } else {
-    const oosItems = utils.filter((u) => !u || typeof u.stock_quantity !== 'number' || u.stock_quantity <= 0);
-    if (oosItems.length > 0) {
-      fail(`Found ${oosItems.length} utilities with 0 or invalid stock: ${oosItems.map((u) => u.id).join(', ')}`);
+    const invalidUtils = utils.filter((u) => !u || !u.id || !u.title || typeof u.stock_quantity !== 'number' || u.stock_quantity < 0);
+    if (invalidUtils.length > 0) {
+      fail(`Found ${invalidUtils.length} utilities with invalid schema or negative stock: ${invalidUtils.map((u) => u?.id || 'unknown').join(', ')}`);
     } else {
-      pass(`Utilities catalog intact: ${utils.length} items (floor >= 19), 100% in-stock with positive baseline.`);
+      pass(`Utilities catalog intact: ${utils.length} items (floor >= 19) with strict non-negative warehouse stock.`);
     }
   }
 } catch (e) {
@@ -144,7 +144,12 @@ try {
   } else if (prods.length < 6) {
     fail(`Store products count dropped below floor guarantee: ${prods.length} < 6`);
   } else {
-    pass(`Store products catalog intact: ${prods.length} items (floor >= 6).`);
+    const invalidSp = prods.filter((p) => !p || !p.id || !p.title || typeof p.stock_quantity !== 'number' || p.stock_quantity < 0);
+    if (invalidSp.length > 0) {
+      fail(`Found ${invalidSp.length} store products with invalid schema or negative stock: ${invalidSp.map((p) => p?.id || 'unknown').join(', ')}`);
+    } else {
+      pass(`Store products catalog intact: ${prods.length} items (floor >= 6) with strict non-negative warehouse stock.`);
+    }
   }
 } catch (e) {
   fail(`Failed to read/parse storeProducts.json: ${e.message}`);

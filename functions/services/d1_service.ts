@@ -2010,7 +2010,7 @@ export async function loadAllStoreProductsD1(db: D1Database): Promise<any[]> {
         CASE 
           WHEN (SELECT COUNT(*) FROM inventory_codes ic WHERE ic.product_id = sp.id) > 0 
           THEN (SELECT COUNT(*) FROM inventory_codes ic WHERE ic.product_id = sp.id AND ic.status = 'AVAILABLE')
-          ELSE sp.stock_quantity 
+          ELSE 0 
         END AS stock_quantity,
         CASE 
           WHEN (SELECT COUNT(*) FROM inventory_codes ic WHERE ic.product_id = sp.id) > 0 
@@ -2080,7 +2080,7 @@ export async function loadAllUtilitiesD1(db: D1Database): Promise<any[]> {
           CASE 
             WHEN (SELECT COUNT(*) FROM inventory_codes ic WHERE ic.product_id = u.id) > 0 
             THEN (SELECT COUNT(*) FROM inventory_codes ic WHERE ic.product_id = u.id AND ic.status = 'AVAILABLE')
-            ELSE u.stock_quantity 
+            ELSE 0 
           END AS stock_quantity,
           CASE 
             WHEN (SELECT COUNT(*) FROM inventory_codes ic WHERE ic.product_id = u.id) > 0 

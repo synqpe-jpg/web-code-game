@@ -183,7 +183,7 @@ class AdminDataService {
     }
   }
 
-  private readonly DATASET_VERSION = 'wcg_dataset_2026_10_10_v38';
+  private readonly DATASET_VERSION = 'wcg_dataset_2026_10_14_v39';
 
   private cleanupLegacyV3Data(): void {
     if (typeof window === 'undefined') return;
@@ -196,13 +196,15 @@ class AdminDataService {
 
       const currentVer = localStorage.getItem('wcg_dataset_version');
       if (currentVer !== this.DATASET_VERSION) {
-        // Clear cached member, transaction and utilities lists to purge stale offline snapshots and force 100% authoritative pull from Cloudflare D1
+        // Clear cached member, transaction, store products and utilities lists to purge stale offline snapshots and force 100% authoritative pull from Cloudflare D1
         localStorage.removeItem('wcg_admin_members_v4');
         localStorage.removeItem('wcg_admin_transactions_v4');
         localStorage.removeItem('wcg_admin_orders_v4');
         localStorage.removeItem('wcg_admin_games_v5');
         localStorage.removeItem('wcg_admin_utilities_v4');
         localStorage.removeItem('wcg_utilities');
+        localStorage.removeItem('wcg_admin_store_products_v4');
+        localStorage.removeItem(this.KEYS.STORE_PRODUCTS);
         localStorage.removeItem('wcg_admin_giveaways_v4');
         localStorage.removeItem(this.KEYS.GIVEAWAYS);
         localStorage.setItem('wcg_dataset_version', this.DATASET_VERSION);
@@ -2997,7 +2999,7 @@ class AdminDataService {
       if (matchingCodes.length === 0) {
         return {
           ...p,
-          stock_quantity: p.stock_quantity ?? 0,
+          stock_quantity: 0,
         };
       }
       const availCount = matchingCodes.filter((i) => i.status === 'AVAILABLE').length;
@@ -3132,7 +3134,7 @@ class AdminDataService {
       if (matchingCodes.length === 0) {
         return {
           ...u,
-          stock_quantity: u.stock_quantity ?? 0,
+          stock_quantity: 0,
         };
       }
       const availCount = matchingCodes.filter((i) => i.status === 'AVAILABLE').length;

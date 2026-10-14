@@ -7,6 +7,37 @@ Mỗi mục sửa lỗi đều ghi nhận **Nguyên nhân gốc rễ (Root Cause
 
 ## [2026-10-14]
 
+### 51. Ràng Buộc Tồn Kho Thật Tuyệt Đối (Strict Real Warehouse Stock Binding): Khóa Toàn Bộ Mặt Hàng Chưa Có Mã Trong Kho (Kho = 0 -> Hết Hàng, Khóa Mua) & Triệt Tiêu 100% Hiện Tượng Bán Khống
+- **Mô tả & Yêu cầu Người Dùng**:
+  - Người dùng phản ánh: *"Một số mặt hàng không có trong kho nhưng vẫn bán"*.
+  - Nguyên nhân: Trước đó các file seed tĩnh gán số lượng tồn kho dương (10 - 50) khiến web hiển thị "Còn hàng" và cho phép bấm "Mua ngay", trong khi trong kho mã thực tế (`inventory_codes` trên D1 và `inventory` trong Admin) chưa có mã code khả dụng. Khi khách mua sẽ bị lỗi `OUT_OF_STOCK` ("Sản phẩm tạm thời hết hàng trong kho").
+- **Phân Tích Nguyên Nhân Gốc Rễ (Root Cause Analysis)**:
+  1. *Lệch tồn kho giữa Kho Mã và Danh Mục*:
+     - Trong `functions/services/d1_service.ts`: `loadAllStoreProductsD1` và `loadAllUtilitiesD1` có câu lệnh `CASE WHEN COUNT(inventory_codes) > 0 THEN COUNT(status = 'AVAILABLE') ELSE sp.stock_quantity END`. Khi kho có 0 mã, câu lệnh rơi vào nhánh fallback `sp.stock_quantity` (45 - 50), trả về số lượng ảo.
+     - Trong `src/admin/services/adminDataService.ts`: `getStoreProducts()` và `getUtilities()` khi `matchingCodes.length === 0` cũng trả về `p.stock_quantity ?? 0` thay vì trả về `0`.
+  2. *Lệch trải nghiệm giữa Admin và Web Khách*:
+     - Trong Admin: Component `CodeInventoryModule` và `UtilitiesModule` tính tồn kho trực tiếp từ `inventory.filter(status === 'AVAILABLE')`, hiển thị đúng "Kho: Hết hàng (0 mã)".
+     - Ngoài Web Khách: Thẻ sản phẩm nhận `stock_quantity: 45` nên hiển thị "Còn 45 sản phẩm", nút "Mua" sáng xanh. Khi khách bấm mua, `orders/create.ts` kiểm tra kho D1 thấy 0 mã nên chặn đứng giao dịch với lỗi `OUT_OF_STOCK`.
+  3. *Quy tắc người dùng lựa chọn*:
+     - Người dùng đã chỉ định rõ: Các mặt hàng hiện chưa nạp mã vào kho (kho = 0) phải lập tức chuyển sang "Hết hàng" và khóa nút mua. Chỉ khi nào Admin nhập mã vào kho thì web mới mở bán.
+- **Giải Pháp Đã Triển Khai (Proven Solution)**:
+  1. *Đưa toàn bộ baseline file tĩnh về đúng tồn kho thực tế*:
+     - Cập nhật `stock_quantity: 0` cho toàn bộ 19 gói Tiện ích (`utilities.json`) và 6 gói Cửa hàng (`storeProducts.json`).
+  2. *Ràng buộc tuyệt đối câu lệnh SQL trên Cloudflare D1 (`d1_service.ts`)*:
+     - Sửa `loadAllStoreProductsD1` và `loadAllUtilitiesD1`: Khi `COUNT(inventory_codes) = 0`, trả về đúng `0` (`ELSE 0`), không bao giờ fallback sang số tĩnh cũ.
+  3. *Ràng buộc tồn kho trong `adminDataService.ts`*:
+     - `getStoreProducts()` và `getUtilities()`: Khi `matchingCodes.length === 0` (chưa có mã nhập kho), trả về đúng `stock_quantity: 0`.
+     - Nâng cấp `DATASET_VERSION = 'wcg_dataset_2026_10_14_v39'` và tự động xóa cache `wcg_admin_store_products_v4` để mọi trình duyệt lập tức nhận số liệu mới nhất.
+  4. *Nâng cấp `dataService.ts` Client*:
+     - Nâng cấp `DATASET_VERSION = 'wcg_dataset_2026_10_14_v39'`, xóa triệt để cache cũ trên client khi khởi chạy.
+  5. *Đồng bộ hệ thống Marketing FOMO*:
+     - Thuật toán `marketingService` tự động ngắt toàn bộ thông báo `BUY_PRODUCT` cho các sản phẩm có `stock <= 0`, bảo toàn 100% tính nguyên tử và trung thực của sàn giao dịch.
+  6. *Cập nhật Gatekeeper (`scripts/verify_data_integrity.cjs`)*:
+     - Đổi điều kiện kiểm tra tồn kho: Yêu cầu `stock_quantity >= 0` hợp lệ, cho phép tồn kho bằng 0 để tuân thủ kho hàng thực tế.
+- **Giải Pháp Đã Thất Bại & Cần Tránh (Failed Attempts - Do Not Repeat)**:
+  - ❌ *Không được gán tồn kho cứng > 0 vào file tĩnh nếu kho mã D1/Admin chưa có mã khả dụng*: Khách sẽ bấm mua được ngoài giao diện nhưng sập giao dịch ở bước trừ kho backend (`OUT_OF_STOCK`).
+  - ❌ *Không được dùng nhánh `ELSE sp.stock_quantity` trong câu truy vấn D1*: Làm hồi sinh số tồn kho ảo khi bảng kho mã `inventory_codes` đang rỗng.
+
 ### 50. Khắc Phục Triệt Để Lỗi Bất Đồng Bộ Tiện Ích, Cửa Hàng, Lệch Thông Báo FOMO và Lệch Tồn Kho Giữa Các Trình Duyệt: Thiết Lập Sàn Danh Mục Biên (Edge Baseline Floor) & Đảm Bảo Tính Tất Định 100%
 - **Mô tả & Yêu cầu Người Dùng**:
   1. Người dùng mở trang Web Khách ở một trình duyệt mới (ví dụ Cốc Cốc) thì mục Tiện Ích báo *"Không tìm thấy tiện ích nào"*, mục Cửa Hàng trống trơn 0 sản phẩm.

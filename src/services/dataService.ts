@@ -331,20 +331,22 @@ class DataService {
     };
   }
 
-  private readonly DATASET_VERSION = 'wcg_dataset_2026_10_10_v38';
+  private readonly DATASET_VERSION = 'wcg_dataset_2026_10_14_v39';
 
   private cleanupLegacyV3Data(): void {
     if (typeof window === 'undefined') return;
     try {
       const currentVer = localStorage.getItem('wcg_dataset_version');
       if (currentVer !== this.DATASET_VERSION) {
-        // Clear cached game, code, giveaways and utilities lists to load newest datasets with 100% fresh data
+        // Clear cached game, code, store products, giveaways and utilities lists to load newest datasets with 100% fresh data
         localStorage.removeItem('wcg_admin_games_v5');
         localStorage.removeItem('wcg_admin_free_codes_v5');
         localStorage.removeItem('wcg_admin_games_v4');
         localStorage.removeItem('wcg_admin_free_codes_v4');
         localStorage.removeItem('wcg_admin_utilities_v4');
         localStorage.removeItem('wcg_utilities');
+        localStorage.removeItem('wcg_admin_store_products_v4');
+        localStorage.removeItem(this.STORE_PRODUCTS_KEY);
         localStorage.removeItem('wcg_admin_giveaways_v4');
         localStorage.removeItem(this.GIVEAWAYS_KEY);
         localStorage.setItem('wcg_dataset_version', this.DATASET_VERSION);

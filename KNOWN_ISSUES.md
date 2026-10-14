@@ -723,7 +723,26 @@
      - `getDeterministicNotification` áp dụng fallback an toàn sang `DEFAULT_STORE_PRODUCTS` và `DEFAULT_UTILITY_PRODUCTS`, đảm bảo mọi trình duyệt luôn sở hữu tập ứng viên đồng nhất 100%, sinh cùng loại thông báo và cùng sản phẩm tại từng giây.
 - ⛔ **CÁCH SỬA ĐÃ THẤT BẠI - TUYỆT ĐỐI KHÔNG LẶP LẠI**:
   - ❌ *Không được gán đè trực tiếp mảng từ server `localStorage.setItem(key, JSON.stringify(json.utilities))` mà không có Floor Guard bảo vệ*: Dễ xóa sạch toàn bộ sản phẩm trên client khi máy chủ cold start hoặc trả về mảng rỗng.
-  - ❌ *Không để `stock_quantity: 0` cho các sản phẩm số đang mở bán*: Làm kích hoạt Rule 3.1 ngắt thông báo mua hàng và vô hiệu hóa nút mua.
+  - ❌ *Không được gán tồn kho dương tùy tiện vào file json tĩnh khi kho mã thực tế chưa có mã*: Gây ra lỗi bán khống, sập đơn hàng tại khâu thanh toán D1.
+
+---
+
+### ISSUE-040: Bán khống sản phẩm khi kho mã thực tế bằng 0 do gán tồn kho tĩnh dương và nhánh fallback SQL D1
+- **Triệu chứng**:
+  - Web Khách hiển thị sản phẩm còn hàng ("Còn 45/50 sản phẩm"), nút "Mua ngay" sáng xanh, nhưng khi khách bấm mua thì bị báo lỗi *"Sản phẩm tạm thời hết hàng trong kho. Vui lòng liên hệ Admin nạp thêm mã"* (`OUT_OF_STOCK`).
+  - Trong Admin: Mục Quản lý Cửa Hàng & Tiện Ích hiển thị đúng *"Kho: Hết hàng (0 mã)"*, tạo ra sự bất nhất nghiêm trọng giữa giao diện Admin và Web Khách.
+- **Nguyên nhân gốc rễ**:
+  1. File tĩnh `utilities.json` và `storeProducts.json` bị gán `stock_quantity: 10..50` nhằm cứu nguy cho danh mục trống trước đó.
+  2. Câu lệnh SQL trong `loadAllStoreProductsD1` và `loadAllUtilitiesD1` có nhánh `ELSE sp.stock_quantity`. Khi `COUNT(inventory_codes) = 0`, SQL trả về con số tĩnh cũ thay vì `0`.
+  3. Hàm `getStoreProducts()` và `getUtilities()` trong `adminDataService.ts` trả về `p.stock_quantity ?? 0` khi `matchingCodes.length === 0`.
+- **Giải pháp chuẩn đã kiểm chứng**:
+  1. Đưa toàn bộ tồn kho tĩnh trong `utilities.json` và `storeProducts.json` về đúng `stock_quantity: 0`.
+  2. Sửa SQL query D1: Khi `COUNT(inventory_codes) = 0`, trả về đúng `0` (`ELSE 0`).
+  3. Sửa `adminDataService.ts`: Khi `matchingCodes.length === 0`, trả về đúng `stock_quantity: 0`.
+  4. Nâng cấp `DATASET_VERSION = 'wcg_dataset_2026_10_14_v39'` và tự động dọn sạch cache cũ trên mọi client.
+  5. Khi nào Admin vào mục Quản lý và bấm "Nhập kho" nạp mã thật, hệ thống mới nâng tồn kho và kích hoạt nút mua trên Web Khách.
+- ⛔ **CÁCH SỬA ĐÃ THẤT BẠI - TUYỆT ĐỐI KHÔNG LẶP LẠI**:
+  - ❌ *Không được fallback sang `stock_quantity` tĩnh khi bảng kho mã rỗng*: Luôn tôn trọng số lượng mã khả dụng thực tế trong `inventory_codes`.
 
 ---
 
