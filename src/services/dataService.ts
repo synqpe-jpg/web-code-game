@@ -3147,7 +3147,7 @@ class DataService {
             }
 
             if (changed) {
-              localStorage.setItem(this.USER_KEY, JSON.stringify(user));
+              this.saveCurrentUser(user);
               this.notifyListeners();
             }
             return updatedBal;

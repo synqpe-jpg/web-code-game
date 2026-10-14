@@ -442,7 +442,32 @@
   - *Khóa an toàn D1 Ledger*: Trong `d1_service.ts:syncMembersToD1`, thêm điều kiện SQL `balance = CASE WHEN (SELECT COUNT(*) FROM wallet_transactions WHERE member_id = members.id) > 0 THEN members.balance ELSE excluded.balance END` để D1 luôn là Single Source of Truth tuyệt đối.
 - ⛔ **CÁCH SỬA ĐÃ THẤT BẠI - TUYỆT ĐỐI KHÔNG LẶP LẠI**:
   - ❌ *Không được lọc duy nhất `t.type === 'DEPOSIT'` rồi so sánh `txBalance > currentBal`*: Sẽ luôn khiến bất kỳ lệnh nạp cũ nào đè bẹp số dư sau khi khách đã mua hàng.
-  - ❌ *Không chỉ lưu LocalStorage mà không dispatch sự kiện cho React State*: Header component sẽ tiếp tục hiển thị số dư cũ trong suốt phiên làm việc.
+### ISSUE-023: Bất Đồng Bộ Giữa Cột Tĩnh members.balance Và Sổ Cái wallet_transactions Trong Cloudflare D1 (ACID Single Source of Truth Desync)
+- **Triệu chứng**:
+  - Dù tài khoản đã trừ tiền và sổ cái `wallet_transactions` ghi nhận số dư sau giao dịch là 760 Core, nhưng khi người dùng mở trình duyệt (hoặc sau khi cập nhật mã nguồn) màn hình vẫn hiển thị 12.000 Core. Cột tĩnh `members.balance` trên Cloudflare D1 bị lưu lệch giá trị so với số dư sau giao dịch mới nhất.
+- **Nguyên nhân gốc rễ**:
+  1. *Lệch pha giữa bảng `members` và bảng `wallet_transactions`*: Trước đây lệnh `syncMembersToD1` đã vô tình ghi đè mảng thành viên cũ từ client vào bảng `members`, khiến hàng của user `usr_1791606009927_p1nu` có `balance = 12000` trong khi bảng `wallet_transactions` ghi nhận số dư thực tế là 760 Core.
+  2. *Truy vấn tĩnh không tham chiếu sổ cái*: Hàm `loadAllMembersD1` và `/api/auth/me` chỉ `SELECT balance FROM members`, đọc trực tiếp cột tĩnh bị sai lệch mà không tham chiếu đến số dư cuối cùng của sổ cái `wallet_transactions.balance_after`.
+  3. *Thiếu phản xạ trạng thái tức thì khi refresh balance*: `dataService.refreshCurrentUserBalance()` chỉ gán vào `localStorage.setItem` mà không gọi `saveCurrentUser(user)`, dẫn đến việc không kích hoạt `wcg_user_updated` và `BroadcastChannel`, UI không được thông báo để render lại số dư mới.
+- **Giải pháp chuẩn đã kiểm chứng**:
+  - 1. *Đối soát và khôi phục D1 trực tiếp (Reconciliation)*: Chạy endpoint `/api/sync` với action `reconcile_member_balances` để đồng bộ lại 100% các dòng `members.balance` khớp với `wallet_transactions.balance_after` mới nhất.
+  2. *Động hóa số dư qua Subquery SQL (Single Source of Truth)*:
+     - Trong `loadAllMembersD1` (`functions/services/d1_service.ts`):
+       ```sql
+       COALESCE(
+         (SELECT balance_after FROM wallet_transactions WHERE member_id = members.id ORDER BY created_at DESC LIMIT 1),
+         balance
+       ) AS balance
+       ```
+     - Biến bảng sổ cái giao dịch `wallet_transactions` thành chân lý duy nhất. Bất kể cột tĩnh `members.balance` có giá trị gì, hệ thống luôn trả về số dư thực tế của sổ cái.
+  3. *Cơ chế Tự Phục Hồi (Self-Healing) trong `/api/auth/me`*:
+     - Kiểm tra nếu `latestTxRow.balance_after !== member.balance`, hệ thống tự động sửa `members.balance` trong D1 qua `context.waitUntil` và lập tức trả về số dư từ sổ cái.
+  4. *Đồng bộ UI 0 giây*:
+     - `src/services/dataService.ts`: Trong `refreshCurrentUserBalance()`, nếu phát hiện số dư thay đổi thì gọi `this.saveCurrentUser(user)` để phát `wcg_user_updated` và gửi qua `BroadcastChannel`.
+     - `src/App.tsx`: Thêm timer 2 giây ngay khi khởi chạy để đồng bộ tức thì số dư mới nhất từ Edge server.
+- ⛔ **CÁCH SỬA ĐÃ THẤT BẠI - TUYỆT ĐỐI KHÔNG LẶP LẠI**:
+  - ❌ *Không truy vấn trực tiếp cột tĩnh `members.balance` mà bỏ qua bảng `wallet_transactions`*: Bảng thành viên có thể bị lệch nếu có lỗi mạng hoặc lệnh sync từ client cũ đè lên. Luôn phải derive số dư từ sổ cái giao dịch ACID.
+  - ❌ *Không chỉ gán `localStorage.setItem` mà bỏ qua `saveCurrentUser`*: UI React sẽ không nhận được CustomEvent và tiếp tục hiển thị số dư cũ từ state trước đó.
 
 ---
 

@@ -832,14 +832,18 @@ export const App: React.FC = () => {
     // 1. Initial refresh on mount
     syncUser();
 
-    // 2. Gentle polling every 60 seconds ONLY when tab is visible
-    const interval = setInterval(syncUser, 60000);
+    // 1.1. Quick 2s check to immediately reconcile any async local storage on load
+    const quickTimer = setTimeout(syncUser, 2000);
+
+    // 2. Gentle polling every 30 seconds ONLY when tab is visible
+    const interval = setInterval(syncUser, 30000);
 
     // 3. Sync on tab focus / visibility
     window.addEventListener('focus', syncUser);
     document.addEventListener('visibilitychange', syncUser);
 
     return () => {
+      clearTimeout(quickTimer);
       clearInterval(interval);
       window.removeEventListener('focus', syncUser);
       document.removeEventListener('visibilitychange', syncUser);

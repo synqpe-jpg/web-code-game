@@ -2266,8 +2266,14 @@ export async function loadAllMembersD1(db: D1Database, stripSensitive: boolean =
         email, 
         phone, 
         role, 
-        balance, 
-        balance AS wallet_balance,
+        COALESCE(
+          (SELECT balance_after FROM wallet_transactions WHERE member_id = members.id ORDER BY created_at DESC LIMIT 1),
+          balance
+        ) AS balance, 
+        COALESCE(
+          (SELECT balance_after FROM wallet_transactions WHERE member_id = members.id ORDER BY created_at DESC LIMIT 1),
+          balance
+        ) AS wallet_balance,
         total_spent, 
         total_spent AS totalSpent,
         status, 

@@ -7,6 +7,22 @@ Mỗi mục sửa lỗi đều ghi nhận **Nguyên nhân gốc rễ (Root Cause
 
 ## [2026-10-14]
 
+### 32. Chuẩn Hóa Sổ Cái Giao Dịch D1 Là Nguồn Chân Lý Duy Nhất (Single Source of Truth) & Tự Động Phục Hồi Số Dư Ví UI
+- **Mô tả**:
+  1. **Nhu cầu**: Sau đợt cập nhật trước, tài khoản `anhlinh2589@duck.com` trên trình duyệt người dùng vẫn hiển thị số dư cũ 12.000 Core thay vì 760 Core. Cần xử lý triệt để tận gốc từ cơ sở dữ liệu Cloudflare D1 cho tới tầng Edge Worker và React Frontend.
+  2. **Nguyên nhân gốc rễ**:
+     - Trong cơ sở dữ liệu Cloudflare D1, hàng dữ liệu của `usr_1791606009927_p1nu` trong bảng `members` trước đây bị một lệnh sync cũ ghi đè `balance = 12000`, trong khi sổ cái `wallet_transactions` ghi nhận số dư chuẩn xác là 760 Core.
+     - Hàm `loadAllMembersD1` và `/api/auth/me` đọc trực tiếp cột tĩnh `members.balance` mà không lấy số dư sau giao dịch mới nhất trong `wallet_transactions`.
+     - Phía Frontend, hàm `refreshCurrentUserBalance()` khi lấy được số dư mới chưa kích hoạt `saveCurrentUser()` để phát sự kiện `wcg_user_updated` và `BroadcastChannel` cho toàn bộ các tab và component.
+  3. **Giải pháp kiến trúc & Triển khai**:
+     - *Khôi phục dữ liệu trực tiếp trên D1*: Kích hoạt lệnh `reconcile_member_balances` trực tiếp trên Cloudflare D1 live, tự động đối soát và khôi phục số dư tài khoản `usr_1791606009927_p1nu` từ 12.000 Core về đúng 760 Core.
+     - *Nguồn chân lý duy nhất (Single Source of Truth)*: Cập nhật hàm `loadAllMembersD1` trong `functions/services/d1_service.ts`: Sử dụng `COALESCE((SELECT balance_after FROM wallet_transactions WHERE member_id = members.id ORDER BY created_at DESC LIMIT 1), balance)` cho cả `balance` và `wallet_balance`. Bất kể cột `members.balance` có bị can thiệp, số dư luôn tính theo số dư cuối cùng của sổ cái giao dịch.
+     - *Cơ chế Tự Phục Hồi (Self-Healing)*: Cập nhật `functions/api/auth/me.ts`: Nếu phát hiện `member.balance !== latestTxRow.balance_after`, Edge Worker tự động kích hoạt `UPDATE members SET balance = ?` trong background qua `context.waitUntil` và trả về ngay số dư chuẩn xác 760 Core.
+     - *Phản hồi UI tức thì*:
+       + `src/services/dataService.ts`: Trong `refreshCurrentUserBalance()`, nếu phát hiện số dư thay đổi, gọi ngay `this.saveCurrentUser(user)` để đồng bộ toàn bộ tab và broadcast cho React UI cập nhật lại ngay lập tức.
+       + `src/App.tsx`: Bổ sung timer kiểm tra nhanh 2 giây ngay sau khi ứng dụng khởi chạy và rút ngắn chu kỳ kiểm tra định kỳ từ 60s xuống 30s.
+- **Kết quả xác minh**: Số dư của tài khoản `anhlinh2589@duck.com` trên live D1 và API `/api/auth/me` trả về chuẩn xác 100% là 760 Core. Build thành công 100%.
+
 ### 31. Sửa Lỗi Đồng Bộ UI Số Dư Ví Sau Khi Mua Hàng & Khóa Chặt Bảo Vệ Sổ Cái Cloudflare D1
 - **Mô tả**:
   1. **Nhu cầu**: Người dùng phát hiện trường hợp tài khoản `anhlinh2589@duck.com` (tên hiển thị `hulo`) đã nạp tiền và mua 1 tiện ích (`Basic 1 Day VS Phone` giá 11.240 Core), nhưng trên Web Khách số dư vẫn hiển thị 12.000 Core. Cần kiểm tra sâu xem hệ thống có bị lỗi khiến người mua không mất tiền hay không, và báo cáo kết quả chi tiết.

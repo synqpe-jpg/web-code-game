@@ -224,7 +224,23 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
       }
     } catch {}
 
-    const currentBalance = Number(member.balance) || 0;
+    // Authoritative transaction ledger check:
+    // If the latest wallet transaction has a different balance_after than member.balance,
+    // automatically reconcile member.balance to match the authoritative ACID transaction ledger!
+    let currentBalance = Number(member.balance) || 0;
+    const latestTxRow = d1TxRes?.results?.[0];
+    if (latestTxRow && latestTxRow.balance_after !== undefined && !isNaN(Number(latestTxRow.balance_after))) {
+      const expectedBalance = Number(latestTxRow.balance_after);
+      if (expectedBalance !== currentBalance) {
+        currentBalance = expectedBalance;
+        member.balance = currentBalance;
+        const autoFix = env.DB.prepare('UPDATE members SET balance = ? WHERE id = ?')
+          .bind(currentBalance, member.id)
+          .run()
+          .catch(() => {});
+        if (context.waitUntil) context.waitUntil(autoFix);
+      }
+    }
 
     return new Response(
       JSON.stringify({
