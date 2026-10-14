@@ -171,12 +171,21 @@ export const CrawlerModule: React.FC<CrawlerModuleProps> = ({ onShowToast }) => 
           if (Array.isArray(data.crawlerPendingCodes)) {
             setPendingCodes(data.crawlerPendingCodes);
           }
-          if (Array.isArray(data.crawlerSources) && data.crawlerSources.length >= (defaultSources as CrawlerSource[]).length) {
-            setSources(data.crawlerSources);
+          const isCodemoi = (s: CrawlerSource) => {
+            if (!s) return false;
+            const url = (s.url || '').toLowerCase();
+            const name = (s.name || '').toLowerCase();
+            const desc = (s.description || '').toLowerCase();
+            const id = (s.id || '').toLowerCase();
+            return url.includes('codemoi.net') || name.includes('codemoi') || desc.includes('codemoi.net') || id.includes('codemoi');
+          };
+
+          if (Array.isArray(data.crawlerSources) && data.crawlerSources.length > 0) {
+            const cleanSources = data.crawlerSources.filter((s: CrawlerSource) => !isCodemoi(s));
+            setSources(cleanSources);
           } else {
-            const d1Map = new Map(((data.crawlerSources || []) as CrawlerSource[]).map((s) => [s.id, s]));
-            const merged = (defaultSources as CrawlerSource[]).map((ds) => (d1Map.has(ds.id) ? { ...ds, ...d1Map.get(ds.id) } : ds));
-            setSources(merged);
+            const cleanDefaults = (defaultSources as CrawlerSource[]).filter((s) => !isCodemoi(s));
+            setSources(cleanDefaults);
           }
           if (Array.isArray(data.crawlerLogs)) {
             setLogs(data.crawlerLogs);
@@ -184,11 +193,25 @@ export const CrawlerModule: React.FC<CrawlerModuleProps> = ({ onShowToast }) => 
         }
       } else {
         // Fallback to local default sources
-        setSources(defaultSources as CrawlerSource[]);
+        const cleanDefaults = (defaultSources as CrawlerSource[]).filter((s: CrawlerSource) => {
+          const url = (s.url || '').toLowerCase();
+          const name = (s.name || '').toLowerCase();
+          const desc = (s.description || '').toLowerCase();
+          const id = (s.id || '').toLowerCase();
+          return !(url.includes('codemoi.net') || name.includes('codemoi') || desc.includes('codemoi.net') || id.includes('codemoi'));
+        });
+        setSources(cleanDefaults);
       }
     } catch (e: any) {
       console.warn('[CrawlerModule] Tải dữ liệu thất bại, sử dụng fallback', e);
-      setSources(defaultSources as CrawlerSource[]);
+      const cleanDefaults = (defaultSources as CrawlerSource[]).filter((s: CrawlerSource) => {
+        const url = (s.url || '').toLowerCase();
+        const name = (s.name || '').toLowerCase();
+        const desc = (s.description || '').toLowerCase();
+        const id = (s.id || '').toLowerCase();
+        return !(url.includes('codemoi.net') || name.includes('codemoi') || desc.includes('codemoi.net') || id.includes('codemoi'));
+      });
+      setSources(cleanDefaults);
     } finally {
       setIsLoading(false);
     }
@@ -268,6 +291,24 @@ export const CrawlerModule: React.FC<CrawlerModuleProps> = ({ onShowToast }) => 
       onShowToast('Cập nhật hàng loạt', `Đã ${enable ? 'bật' : 'tắt'} ${targetIds.size} nguồn thành công.`, 'success');
     } catch {
       onShowToast('Lỗi lưu', 'Không thể lưu thay đổi.', 'error');
+    }
+  };
+
+  const handleDeleteAllFilteredSources = async () => {
+    if (filteredSources.length === 0) return;
+    if (!window.confirm(`Bạn có chắc chắn muốn xóa vĩnh viễn ${filteredSources.length} nguồn trong danh sách lọc này không?`)) return;
+    const targetIds = new Set(filteredSources.map((s) => s.id));
+    const updated = sources.filter((s) => !targetIds.has(s.id));
+    setSources(updated);
+    try {
+      await fetch('/api/sync', {
+        method: 'POST',
+        headers: getSyncHeaders(),
+        body: JSON.stringify({ crawlerSources: updated }),
+      });
+      onShowToast('Đã xóa nguồn', `Đã xóa vĩnh viễn ${targetIds.size} nguồn khỏi hệ thống.`, 'info');
+    } catch {
+      onShowToast('Lỗi xóa nguồn', 'Không thể xóa các nguồn.', 'error');
     }
   };
 
@@ -1409,18 +1450,28 @@ export const CrawlerModule: React.FC<CrawlerModuleProps> = ({ onShowToast }) => 
               <div className="flex items-center gap-1.5">
                 <button
                   onClick={() => handleToggleAllFilteredSources(true)}
-                  className="px-2.5 py-1.5 rounded-lg bg-emerald-500/10 text-emerald-400 hover:bg-emerald-500/20 text-xs font-medium border border-emerald-500/20 transition-colors"
+                  className="px-2.5 py-1.5 rounded-lg bg-emerald-500/10 text-emerald-400 hover:bg-emerald-500/20 text-xs font-medium border border-emerald-500/20 transition-colors cursor-pointer"
                   title="Bật tất cả nguồn trong danh sách lọc"
                 >
                   Bật tất cả
                 </button>
                 <button
                   onClick={() => handleToggleAllFilteredSources(false)}
-                  className="px-2.5 py-1.5 rounded-lg bg-slate-800 text-slate-400 hover:bg-slate-700 hover:text-white text-xs font-medium border border-slate-700 transition-colors"
+                  className="px-2.5 py-1.5 rounded-lg bg-slate-800 text-slate-400 hover:bg-slate-700 hover:text-white text-xs font-medium border border-slate-700 transition-colors cursor-pointer"
                   title="Tắt tất cả nguồn trong danh sách lọc"
                 >
                   Tắt tất cả
                 </button>
+                {filteredSources.length > 0 && (sourceSearch || sourceTypeFilter !== 'ALL' || sourceStatusFilter !== 'ALL') && (
+                  <button
+                    onClick={handleDeleteAllFilteredSources}
+                    className="px-2.5 py-1.5 rounded-lg bg-rose-500/15 text-rose-400 hover:bg-rose-500/25 text-xs font-medium border border-rose-500/30 transition-colors flex items-center gap-1 cursor-pointer"
+                    title="Xóa vĩnh viễn toàn bộ các nguồn đang lọc này"
+                  >
+                    <Trash2 className="w-3.5 h-3.5" />
+                    <span>Xóa ({filteredSources.length})</span>
+                  </button>
+                )}
               </div>
             </div>
           </div>

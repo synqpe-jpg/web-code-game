@@ -151,8 +151,14 @@ async function main() {
         sourceMap.set(s.id, { ...(existing || {}), ...s });
       }
     });
-  }
-  sources = Array.from(sourceMap.values());
+  sources = Array.from(sourceMap.values()).filter((s) => {
+    if (!s) return false;
+    const url = (s.url || '').toLowerCase();
+    const name = (s.name || '').toLowerCase();
+    const desc = (s.description || '').toLowerCase();
+    const id = (s.id || '').toLowerCase();
+    return !(url.includes('codemoi.net') || name.includes('codemoi') || desc.includes('codemoi.net') || id.includes('codemoi'));
+  });
 
   // Tự động đồng bộ các nguồn mới từ server về local JSON nếu phát hiện có thêm nguồn
   if (sources.length > localSources.length) {

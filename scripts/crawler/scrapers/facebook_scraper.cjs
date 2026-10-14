@@ -233,7 +233,6 @@ class FacebookScraper {
     console.log(`      [FB-Scraper] 🛡️ Fanpage kích hoạt rào chắn Meta Login Wall. Khởi động Cross-Source Engine cho game "${gameName}" (${gameSlug})...`);
 
     const fallbackUrls = [
-      `https://codemoi.net/games/${gameSlug}/`,
       `https://cellphones.com.vn/sforum/tag/code-${gameSlug}`,
       `https://cellphones.com.vn/sforum/code-${gameSlug}`,
     ];

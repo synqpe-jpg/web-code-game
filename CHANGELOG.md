@@ -7,6 +7,25 @@ Mỗi mục sửa lỗi đều ghi nhận **Nguyên nhân gốc rễ (Root Cause
 
 ## [2026-10-14]
 
+### 34. Xóa Triệt Để 538 Nguồn Cào codemoi.net Khỏi Hệ Thống Crawler & Bảo Toàn 100% Mã Code Đã Có
+- **Mô tả**:
+  1. **Nhu cầu**: Người dùng yêu cầu xóa bỏ toàn bộ các nguồn cào có liên quan đến trang web `codemoi.net` trong mục "Nguồn Thu Thập" của Crawler (tổng cộng 538 nguồn), ngắt vĩnh viễn việc thu thập mã mới từ trang này từ nay về sau, đồng thời bảo toàn nguyên vẹn 100% các mã giftcode cũ đã có trong hệ thống.
+  2. **Giải pháp kiến trúc & Triển khai**:
+     - *Thanh lọc dữ liệu nguồn cục bộ (`src/data/crawler_sources.json`, `public/data/crawler_sources.json`)*:
+       + Lọc bỏ triệt để 538 nguồn có URL hoặc tên chứa `codemoi.net`, rút gọn danh mục nguồn từ 1.393 xuống còn **855 nguồn chuẩn chính quy** (gồm các cổng NPH VNG, Garena, Funtap, VTC, MiHoYo, Sforum, LDPlayer và 10 chuyên trang cẩm nang game quốc tế uy tín).
+     - *Đồng bộ D1 Database & Cloudflare KV*:
+       + Gửi gói đồng bộ authoritative 855 nguồn lên API Production `https://codegame.shop/api/sync`. Đã kiểm chứng máy chủ Cloudflare D1/KV ghi nhận chính xác `Live server codemoi sources count: 0`.
+     - *Loại bỏ tận gốc cơ chế tự sinh & Fallback cào mã*:
+       + `scripts/crawler/generate_sources_catalog.cjs`: Gỡ bỏ `src_hub_codemoi_home` và vòng lặp tự sinh nguồn `src_codemoi_${slug}` cho từng game.
+       + `scripts/crawler/scrapers/facebook_scraper.cjs`: Gỡ bỏ đường dẫn `https://codemoi.net/games/${gameSlug}/` khỏi danh sách `fallbackUrls`.
+       + `scripts/crawler/run_crawler.cjs`: Bổ sung bộ lọc an toàn chặn đứng mọi nguồn `codemoi` trước khi bot crawler bắt đầu chu kỳ quét tự động.
+     - *Nâng cấp giao diện Admin CrawlerModule*:
+       + `src/admin/modules/CrawlerModule.tsx`: Thắt chặt logic nạp dữ liệu `loadData()` tự động lọc bỏ nguồn `codemoi` ngay khi nhận dữ liệu từ server.
+       + Bổ sung nút **"Xóa (X nguồn)"** trên thanh công cụ Nguồn Thu Thập để Admin có thể xóa hàng loạt toàn bộ nguồn trong danh sách lọc bất kỳ lúc nào với 1 chạm.
+     - *Bảo toàn giftcode*:
+       + 100% mã giftcode cũ đã có trong kho (`customFreeCodes`: 487 mã, `crawlerPendingCodes`: 499 mã) được giữ nguyên vẹn tuyệt đối.
+- **Kết quả xác minh**: Kiểm tra trực tiếp trên API Cloudflare Production xác nhận số nguồn `codemoi.net` là **0 / 855**. Toàn bộ 487 mã quà tặng và 499 mã chờ duyệt được bảo toàn 100%.
+
 ### 33. Tái Cấu Trúc Bố Cục Giao Diện Crawler & Tự Động Hóa Giftcode Trong 1 Màn Hình Duy Nhất (Single-Screen Responsive Table & Sticky Actions)
 - **Mô tả**:
   1. **Nhu cầu**: Người dùng phản ánh trên giao diện Quản Trị Hệ Thống (`/admin#/crawler`), bảng Hàng Chờ Duyệt Giftcode bị tràn ngang, đẩy toàn bộ cột thao tác "Duyệt, Sửa, Xóa" ra khỏi mép phải màn hình (phải cuộn ngang mới thấy), đồng thời không có phân trang khiến 499 mã cuộn dọc vô tận. Yêu cầu bố cục lại toàn bộ giao diện để mọi thao tác Duyệt, Sửa, Xóa và các thông tin cần thiết đều nằm gọn gàng trong 1 màn hình.

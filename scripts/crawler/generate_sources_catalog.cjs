@@ -321,14 +321,6 @@ const reputableGeneralHubs = [
     isEnabled: true,
     description: 'Kho giftcode và bài viết hướng dẫn nhập code trên giả lập LDPlayer.',
   },
-  {
-    id: 'src_hub_codemoi_home',
-    name: 'CodeMoi - Thư Viện Giftcode Toàn Diện',
-    type: 'reputable_web',
-    url: 'https://codemoi.net',
-    isEnabled: true,
-    description: 'Trang cập nhật giftcode chuyên biệt cho cộng đồng game thủ Việt.',
-  },
   // 10 Chuyên trang Cẩm nang Giftcode & Giveaways Quốc Tế Hàng Đầu
   {
     id: 'src_hub_pocketgamer',
@@ -531,18 +523,7 @@ for (const g of games) {
   const slug = g.slug || g.id;
   const name = g.name || slug;
 
-  // Nguồn 1: Chuyên trang CodeMoi chuyên biệt theo tựa game
-  gameSpecificSources.push({
-    id: `src_codemoi_${slug}`,
-    name: `CodeMoi - ${name}`,
-    type: 'reputable_web',
-    url: `https://codemoi.net/games/${slug}/`,
-    targetGameSlug: slug,
-    isEnabled: true,
-    description: `Cập nhật giftcode ${name} mới nhất, kiểm tra mã quà tặng hàng ngày từ CodeMoi.`,
-  });
-
-  // Nguồn 2: Chuyên trang Sforum / CellphoneS theo tag game
+  // Nguồn 1: Chuyên trang Sforum / CellphoneS theo tag game
   gameSpecificSources.push({
     id: `src_sforum_${slug}`,
     name: `Sforum - ${name}`,
