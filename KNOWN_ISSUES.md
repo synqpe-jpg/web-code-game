@@ -465,9 +465,20 @@
   4. *Đồng bộ UI 0 giây*:
      - `src/services/dataService.ts`: Trong `refreshCurrentUserBalance()`, nếu phát hiện số dư thay đổi thì gọi `this.saveCurrentUser(user)` để phát `wcg_user_updated` và gửi qua `BroadcastChannel`.
      - `src/App.tsx`: Thêm timer 2 giây ngay khi khởi chạy để đồng bộ tức thì số dư mới nhất từ Edge server.
+### ISSUE-024: Tràn Bảng Moderation Đẩy Cột Thao Tác (Duyệt/Sửa/Xóa) Ra Ngoài Màn Hình & Tràn Chiều Cao Vô Hạn Do Thiếu Phân Trang
+- **Triệu chứng**:
+  - Trong Admin (`/admin#/crawler`), bảng Hàng Chờ Duyệt Giftcode bị tràn ngang, các nút thao tác Duyệt (Approve), Sửa (Edit), Xóa (Reject) bị đẩy ra khỏi rìa phải màn hình, người dùng phải cuộn ngang sang phải mới thấy. Đồng thời khi danh sách có hàng trăm mã (499 mã), bảng bị kéo dài hàng nghìn pixel theo chiều dọc.
+- **Nguyên nhân gốc rễ**:
+  1. Thiếu thuộc tính `table-fixed` và thiếu giới hạn `truncate` cho tên tựa game và phần thưởng, khiến các chuỗi dài tự do giãn rộng hàng trăm pixel làm vỡ khung hiển thị.
+  2. Cột thao tác nằm ở cuối bảng nhưng không được gán `sticky right-0`, khiến bất kỳ sự co giãn nào của màn hình hoặc sidebar đều đẩy cột này ra ngoài viewport.
+  3. Thiếu phân trang (Pagination) ở hàng chờ duyệt khiến toàn bộ 499 mã render cùng một lúc trên DOM.
+- **Giải pháp chuẩn đã kiểm chứng**:
+  1. *Khóa cứng tỷ lệ bảng*: Áp dụng `table-fixed min-w-[840px] w-full` và phân bổ độ rộng pixel cố định cho các cột nhỏ (`w-10`, `w-32`, `w-44`, `w-48`, `w-36`).
+  2. *Sticky Action Column Pattern*: Header và cell của cột Thao Tác luôn mang cờ `sticky right-0 bg-slate-950/95` và `sticky right-0 bg-slate-900/95 group-hover:bg-slate-800/95 border-l border-slate-800 shadow-[-6px_0_12px_rgba(0,0,0,0.5)] z-10`, ghim chặt 3 nút Duyệt, Sửa, Xóa cố định trên màn hình trong mọi tình huống.
+  3. *Trang bị Pagination Engine*: Phân trang 20 mã / trang mặc định kèm nút chuyển trang và thanh chọn số lượng mã mỗi trang (15/20/50/100).
 - ⛔ **CÁCH SỬA ĐÃ THẤT BẠI - TUYỆT ĐỐI KHÔNG LẶP LẠI**:
-  - ❌ *Không truy vấn trực tiếp cột tĩnh `members.balance` mà bỏ qua bảng `wallet_transactions`*: Bảng thành viên có thể bị lệch nếu có lỗi mạng hoặc lệnh sync từ client cũ đè lên. Luôn phải derive số dư từ sổ cái giao dịch ACID.
-  - ❌ *Không chỉ gán `localStorage.setItem` mà bỏ qua `saveCurrentUser`*: UI React sẽ không nhận được CustomEvent và tiếp tục hiển thị số dư cũ từ state trước đó.
+  - ❌ *Không để bảng dữ liệu admin co giãn tự do mà không có `table-fixed`*: Tên game hoặc nội dung quà dài sẽ đẩy bung toàn bộ các cột hành động ra khỏi màn hình.
+  - ❌ *Không render mảng hàng trăm items mà không phân trang*: Làm chậm hiệu năng DOM và buộc người dùng phải cuộn chuột vô tận.
 
 ---
 

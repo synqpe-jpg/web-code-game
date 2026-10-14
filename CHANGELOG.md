@@ -7,6 +7,20 @@ Mỗi mục sửa lỗi đều ghi nhận **Nguyên nhân gốc rễ (Root Cause
 
 ## [2026-10-14]
 
+### 33. Tái Cấu Trúc Bố Cục Giao Diện Crawler & Tự Động Hóa Giftcode Trong 1 Màn Hình Duy Nhất (Single-Screen Responsive Table & Sticky Actions)
+- **Mô tả**:
+  1. **Nhu cầu**: Người dùng phản ánh trên giao diện Quản Trị Hệ Thống (`/admin#/crawler`), bảng Hàng Chờ Duyệt Giftcode bị tràn ngang, đẩy toàn bộ cột thao tác "Duyệt, Sửa, Xóa" ra khỏi mép phải màn hình (phải cuộn ngang mới thấy), đồng thời không có phân trang khiến 499 mã cuộn dọc vô tận. Yêu cầu bố cục lại toàn bộ giao diện để mọi thao tác Duyệt, Sửa, Xóa và các thông tin cần thiết đều nằm gọn gàng trong 1 màn hình.
+  2. **Nguyên nhân gốc rễ**:
+     - Bảng `table` không có `table-fixed` và thiếu giới hạn độ rộng cho các cột (`Tựa Game`, `Phần Thưởng`, `Nguồn Cào`), khiến các chuỗi dài (như tên game GamerPower) tự động kéo giãn tổng chiều rộng vượt quá 1350px. Trên màn hình laptop thông thường (khoảng 1000px khả dụng sau khi trừ sidebar), cột thao tác bị trôi hoàn toàn khỏi viewport.
+     - Thiếu cơ chế phân trang (Pagination) cho 499 mã chờ duyệt, khiến DOM render hàng nghìn phần tử và kéo dài chiều cao trang.
+  3. **Giải pháp kiến trúc & Triển khai**:
+     - *Khống chế tỷ lệ & Khóa tràn ngang (Single-Screen Layout)*: Thiết lập `w-full table-fixed min-w-[840px]`, phân bổ độ rộng chuẩn xác theo pixel cho từng cột: Checkbox (`w-10`), Đánh giá & Điểm (`w-32`), Mã Code (`w-44`), Tựa Game (`w-48`), Phần thưởng & HSD (`min-w-[150px]`), Nguồn cào (`w-36`), Thao tác (`w-36`).
+     - *Cột thao tác Pinned Sticky Right*: Header và ô thao tác của mỗi hàng được gán `sticky right-0 bg-slate-950/95` và `sticky right-0 bg-slate-900/95 group-hover:bg-slate-800/95 backdrop-blur-sm border-l border-slate-800 shadow-[-6px_0_12px_rgba(0,0,0,0.5)] z-10`. Đảm bảo 3 nút thao tác **Duyệt (Emerald)**, **Sửa (Indigo)**, **Xóa (Rose)** luôn luôn hiển thị 100% trên màn hình, không bao giờ bị che khuất trong mọi tình huống.
+     - *Hiển thị Icon Thật Của Game*: Tự động khớp tựa game với kho dữ liệu `games` để hiển thị ảnh thumbnail đại diện (24x24 bo góc) cạnh tên game, tên game được cắt gọn gàng kèm tooltip khi hover.
+     - *Phân Trang Tối Ưu (Pagination Engine)*: Bổ sung bộ phân trang linh hoạt (15, 20, 50, 100 mã / trang, mặc định 20 mã), nút điều hướng Đầu, Trước, Trang X/Y, Sau, Cuối, giúp giao diện gọn nhẹ, tải siêu tốc và nằm trọn trong 1 màn hình.
+     - *Thanh công cụ Thao tác hàng loạt (Bulk Actions)*: Hỗ trợ chọn tất cả mã trên trang hiện tại hoặc chọn toàn bộ 499 mã để Duyệt / Xóa 1-chạm.
+- **Kết quả xác minh**: Giao diện hiển thị trọn vẹn 100% trong 1 màn hình mà không cần cuộn ngang. Các nút Duyệt, Sửa, Xóa nổi bật, rõ ràng và truy cập tức thì. Biên dịch Vite và Prerender 537 trang thành công 100%.
+
 ### 32. Chuẩn Hóa Sổ Cái Giao Dịch D1 Là Nguồn Chân Lý Duy Nhất (Single Source of Truth) & Tự Động Phục Hồi Số Dư Ví UI
 - **Mô tả**:
   1. **Nhu cầu**: Sau đợt cập nhật trước, tài khoản `anhlinh2589@duck.com` trên trình duyệt người dùng vẫn hiển thị số dư cũ 12.000 Core thay vì 760 Core. Cần xử lý triệt để tận gốc từ cơ sở dữ liệu Cloudflare D1 cho tới tầng Edge Worker và React Frontend.

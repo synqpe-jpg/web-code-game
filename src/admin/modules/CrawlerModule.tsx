@@ -95,6 +95,8 @@ export const CrawlerModule: React.FC<CrawlerModuleProps> = ({ onShowToast }) => 
   const [searchQuery, setSearchQuery] = useState('');
   const [tierFilter, setTierFilter] = useState<'ALL' | 'TIER_2' | 'TIER_3' | 'TIER_4'>('ALL');
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
+  const [pendingPage, setPendingPage] = useState(1);
+  const [pendingPerPage, setPendingPerPage] = useState(20);
 
   // Source Search, Filter & Pagination (Scale up to 1,000+ sources)
   const [sourceSearch, setSourceSearch] = useState('');
@@ -215,6 +217,16 @@ export const CrawlerModule: React.FC<CrawlerModuleProps> = ({ onShowToast }) => 
       return true;
     });
   }, [pendingCodes, tierFilter, searchQuery]);
+
+  useEffect(() => {
+    setPendingPage(1);
+  }, [searchQuery, tierFilter]);
+
+  const totalPendingPages = Math.max(1, Math.ceil(filteredCodes.length / pendingPerPage));
+  const paginatedCodes = useMemo(() => {
+    const start = (pendingPage - 1) * pendingPerPage;
+    return filteredCodes.slice(start, start + pendingPerPage);
+  }, [filteredCodes, pendingPage, pendingPerPage]);
 
   // Filtered & Paginated Sources (Scale gracefully to 1,000+ sources)
   const filteredSources = useMemo(() => {
@@ -757,32 +769,44 @@ export const CrawlerModule: React.FC<CrawlerModuleProps> = ({ onShowToast }) => 
   const getTierBadge = (tier: number, score: number) => {
     if (tier === 1 || score >= 90) {
       return (
-        <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold bg-emerald-500/10 text-emerald-400 border border-emerald-500/30">
+        <span
+          className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-bold bg-emerald-500/15 text-emerald-400 border border-emerald-500/30 shrink-0 whitespace-nowrap"
+          title={`Bậc 1: ${score}đ - Tuyệt đối tin cậy (Tự động đăng)`}
+        >
           <Sparkles className="w-3 h-3 text-emerald-400" />
-          Bậc 1: {score}đ (Tự động đăng)
+          Bậc 1 • {score}đ
         </span>
       );
     }
     if (tier === 2 || score >= 70) {
       return (
-        <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold bg-sky-500/10 text-sky-400 border border-sky-500/30">
+        <span
+          className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-bold bg-sky-500/15 text-sky-400 border border-sky-500/30 shrink-0 whitespace-nowrap"
+          title={`Bậc 2: ${score}đ - Tiềm năng cao (Đề xuất duyệt)`}
+        >
           <CheckCircle2 className="w-3 h-3 text-sky-400" />
-          Bậc 2: {score}đ (Tiềm năng cao)
+          Bậc 2 • {score}đ
         </span>
       );
     }
     if (tier === 3 || score >= 50) {
       return (
-        <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold bg-amber-500/10 text-amber-400 border border-amber-500/30">
+        <span
+          className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-bold bg-amber-500/15 text-amber-400 border border-amber-500/30 shrink-0 whitespace-nowrap"
+          title={`Bậc 3: ${score}đ - Cần kiểm tra`}
+        >
           <AlertTriangle className="w-3 h-3 text-amber-400" />
-          Bậc 3: {score}đ (Cần kiểm tra)
+          Bậc 3 • {score}đ
         </span>
       );
     }
     return (
-      <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold bg-rose-500/10 text-rose-400 border border-rose-500/30">
+      <span
+        className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-bold bg-rose-500/15 text-rose-400 border border-rose-500/30 shrink-0 whitespace-nowrap"
+        title={`Bậc 4: ${score}đ - Rủi ro thấp`}
+      >
         <XCircle className="w-3 h-3 text-rose-400" />
-        Bậc 4: {score}đ (Rủi ro thấp)
+        Bậc 4 • {score}đ
       </span>
     );
   };
@@ -983,47 +1007,67 @@ export const CrawlerModule: React.FC<CrawlerModuleProps> = ({ onShowToast }) => 
 
       {/* TAB 1: PENDING CODES MODERATION */}
       {activeTab === 'pending' && (
-        <div className="space-y-4">
+        <div className="space-y-3">
           {/* Action & Filter Toolbar */}
-          <div className="bg-slate-900 border border-slate-800 rounded-xl p-4 flex flex-col md:flex-row md:items-center justify-between gap-4">
-            <div className="flex items-center gap-3 flex-1 max-w-md">
-              <div className="relative flex-1">
+          <div className="bg-slate-900 border border-slate-800 rounded-xl p-3 sm:p-4 flex flex-col md:flex-row md:items-center justify-between gap-3">
+            <div className="flex flex-wrap items-center gap-2.5 flex-1">
+              <div className="relative flex-1 min-w-[220px] max-w-md">
                 <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
                 <input
                   type="text"
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                   placeholder="Tìm theo mã code, tên game, phần thưởng..."
-                  className="w-full bg-slate-950 border border-slate-800 rounded-xl pl-9 pr-3 py-2 text-sm text-slate-200 focus:outline-none focus:border-indigo-500 placeholder-slate-500"
+                  className="w-full bg-slate-950 border border-slate-800 rounded-xl pl-9 pr-3 py-1.5 text-xs sm:text-sm text-slate-200 focus:outline-none focus:border-indigo-500 placeholder-slate-500"
                 />
               </div>
 
               <select
                 value={tierFilter}
                 onChange={(e) => setTierFilter(e.target.value as any)}
-                className="bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-sm text-slate-200 focus:outline-none focus:border-indigo-500"
+                className="bg-slate-950 border border-slate-800 rounded-xl px-3 py-1.5 text-xs sm:text-sm text-slate-200 focus:outline-none focus:border-indigo-500 cursor-pointer"
               >
-                <option value="ALL">Tất cả cấp bậc</option>
-                <option value="TIER_2">Bậc 2 (70-89đ) - Tiềm năng</option>
-                <option value="TIER_3">Bậc 3 (50-69đ) - Cần check</option>
-                <option value="TIER_4">Bậc 4 (&lt;50đ) - Thấp</option>
+                <option value="ALL">Tất cả cấp bậc ({pendingCodes.length})</option>
+                <option value="TIER_2">Bậc 2 (70-89đ) - {stats.tier2Count} mã</option>
+                <option value="TIER_3">Bậc 3 (50-69đ) - {stats.tier3Count} mã</option>
+                <option value="TIER_4">Bậc 4 (&lt;50đ) - {stats.tier4Count} mã</option>
               </select>
+
+              <span className="text-xs text-slate-400 hidden xl:inline-block">
+                Khớp: <strong className="text-white">{filteredCodes.length}</strong> / {pendingCodes.length} mã
+              </span>
             </div>
 
             {/* Bulk Action Controls */}
             {selectedIds.length > 0 && (
-              <div className="flex items-center gap-2 bg-indigo-950/40 border border-indigo-500/30 px-3 py-1.5 rounded-xl">
-                <span className="text-xs text-indigo-300 font-medium">Đã chọn {selectedIds.length} mã:</span>
+              <div className="flex flex-wrap items-center gap-2 bg-indigo-950/50 border border-indigo-500/30 px-3 py-1.5 rounded-xl">
+                <span className="text-xs text-indigo-300 font-medium">
+                  Đã chọn <strong className="text-white">{selectedIds.length}</strong> mã:
+                </span>
+                {selectedIds.length < filteredCodes.length && (
+                  <button
+                    onClick={() => setSelectedIds(filteredCodes.map((c) => c.id))}
+                    className="text-[11px] text-indigo-400 hover:text-indigo-200 underline font-medium cursor-pointer"
+                  >
+                    Chọn tất cả {filteredCodes.length}
+                  </button>
+                )}
+                <button
+                  onClick={() => setSelectedIds([])}
+                  className="text-[11px] text-slate-400 hover:text-white cursor-pointer px-1"
+                >
+                  Bỏ chọn
+                </button>
                 <button
                   onClick={handleBulkApprove}
-                  className="px-3 py-1 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-semibold flex items-center gap-1 transition-all"
+                  className="px-2.5 py-1 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-semibold flex items-center gap-1 transition-all shadow-sm active:scale-95 cursor-pointer"
                 >
                   <CheckCheck className="w-3.5 h-3.5" />
                   Duyệt hàng loạt
                 </button>
                 <button
                   onClick={handleBulkReject}
-                  className="px-3 py-1 rounded-lg bg-rose-600/80 hover:bg-rose-500 text-white text-xs font-semibold flex items-center gap-1 transition-all"
+                  className="px-2.5 py-1 rounded-lg bg-rose-600/80 hover:bg-rose-500 text-white text-xs font-semibold flex items-center gap-1 transition-all shadow-sm active:scale-95 cursor-pointer"
                 >
                   <Trash2 className="w-3.5 h-3.5" />
                   Xóa hàng loạt
@@ -1047,122 +1091,224 @@ export const CrawlerModule: React.FC<CrawlerModuleProps> = ({ onShowToast }) => 
           ) : (
             <div className="bg-slate-900 border border-slate-800 rounded-2xl overflow-hidden shadow-xl">
               <div className="overflow-x-auto">
-                <table className="w-full text-left text-sm text-slate-300">
+                <table className="w-full text-left text-sm text-slate-300 table-fixed min-w-[840px]">
                   <thead className="bg-slate-950 text-slate-400 text-xs uppercase font-semibold border-b border-slate-800">
                     <tr>
-                      <th className="p-4 w-10">
+                      <th className="py-3 px-3 w-10 text-center">
                         <input
                           type="checkbox"
-                          checked={selectedIds.length > 0 && selectedIds.length === filteredCodes.length}
+                          checked={
+                            paginatedCodes.length > 0 &&
+                            paginatedCodes.every((c) => selectedIds.includes(c.id))
+                          }
                           onChange={(e) => {
-                            if (e.target.checked) setSelectedIds(filteredCodes.map((c) => c.id));
-                            else setSelectedIds([]);
+                            const pageIds = paginatedCodes.map((c) => c.id);
+                            if (e.target.checked) {
+                              setSelectedIds((prev) => Array.from(new Set([...prev, ...pageIds])));
+                            } else {
+                              setSelectedIds((prev) => prev.filter((id) => !pageIds.includes(id)));
+                            }
                           }}
-                          className="rounded border-slate-700 bg-slate-900 text-indigo-600 focus:ring-indigo-500"
+                          className="rounded border-slate-700 bg-slate-900 text-indigo-600 focus:ring-indigo-500 cursor-pointer"
                         />
                       </th>
-                      <th className="p-4">Đánh Giá & Điểm</th>
-                      <th className="p-4">Mã Giftcode</th>
-                      <th className="p-4">Tựa Game</th>
-                      <th className="p-4">Phần Thưởng & HSD</th>
-                      <th className="p-4">Nguồn Cào</th>
-                      <th className="p-4 text-right">Thao Tác Duyệt</th>
+                      <th className="py-3 px-3 w-32">Đánh Giá & Điểm</th>
+                      <th className="py-3 px-3 w-44">Mã Giftcode</th>
+                      <th className="py-3 px-3 w-48">Tựa Game</th>
+                      <th className="py-3 px-3 min-w-[150px]">Phần Thưởng & HSD</th>
+                      <th className="py-3 px-3 w-36">Nguồn Cào</th>
+                      <th className="py-3 px-3 w-36 text-right sticky right-0 bg-slate-950/95 backdrop-blur-md border-l border-slate-800 shadow-[-6px_0_12px_rgba(0,0,0,0.5)] z-10">
+                        Thao Tác
+                      </th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-800/60">
-                    {filteredCodes.map((item) => (
-                      <tr key={item.id} className="hover:bg-slate-800/40 transition-colors">
-                        <td className="p-4">
-                          <input
-                            type="checkbox"
-                            checked={selectedIds.includes(item.id)}
-                            onChange={(e) => {
-                              if (e.target.checked) setSelectedIds((prev) => [...prev, item.id]);
-                              else setSelectedIds((prev) => prev.filter((id) => id !== item.id));
-                            }}
-                            className="rounded border-slate-700 bg-slate-900 text-indigo-600 focus:ring-indigo-500"
-                          />
-                        </td>
-                        <td className="p-4">
-                          <div className="space-y-1">
-                            {getTierBadge(item.tier, item.score)}
-                            <div className="text-[11px] text-slate-400 line-clamp-1" title={item.reasons?.join(', ')}>
-                              {item.reasons?.[0]}
+                    {paginatedCodes.map((item) => {
+                      const matchedGame = games.find(
+                        (g) => g.slug === item.gameSlug || g.id === item.gameId || (g.name && g.name.toLowerCase() === item.gameName?.toLowerCase())
+                      );
+                      return (
+                        <tr key={item.id} className="group hover:bg-slate-800/40 transition-colors">
+                          <td className="py-2.5 px-3 text-center">
+                            <input
+                              type="checkbox"
+                              checked={selectedIds.includes(item.id)}
+                              onChange={(e) => {
+                                if (e.target.checked) setSelectedIds((prev) => [...prev, item.id]);
+                                else setSelectedIds((prev) => prev.filter((id) => id !== item.id));
+                              }}
+                              className="rounded border-slate-700 bg-slate-900 text-indigo-600 focus:ring-indigo-500 cursor-pointer"
+                            />
+                          </td>
+                          <td className="py-2.5 px-3">
+                            <div className="space-y-0.5">
+                              {getTierBadge(item.tier, item.score)}
+                              <div className="text-[10px] text-slate-400 truncate max-w-[110px]" title={item.reasons?.join(', ')}>
+                                {item.reasons?.[0] || 'Cần kiểm tra'}
+                              </div>
                             </div>
-                          </div>
-                        </td>
-                        <td className="p-4">
-                          <div className="flex items-center gap-2">
-                            <span className="font-mono font-bold text-amber-300 text-base bg-amber-950/30 px-2 py-0.5 rounded border border-amber-500/20">
-                              {item.code}
-                            </span>
-                            <button
-                              onClick={() => copyToClipboard(item.code)}
-                              className="text-slate-500 hover:text-slate-300 transition-colors"
-                              title="Sao chép mã"
-                            >
-                              <Copy className="w-3.5 h-3.5" />
-                            </button>
-                          </div>
-                        </td>
-                        <td className="p-4 font-medium text-white">
-                          <div className="flex items-center gap-2">
-                            <span className="px-2 py-0.5 rounded bg-slate-800 text-xs text-indigo-300 border border-slate-700">
-                              {item.gameName}
-                            </span>
-                          </div>
-                        </td>
-                        <td className="p-4">
-                          <div className="text-slate-300 max-w-xs truncate">{item.rewards}</div>
-                          <div className="text-[11px] text-slate-500 mt-0.5">
-                            HSD: {item.expiresAt || 'Không giới hạn'}
-                          </div>
-                        </td>
-                        <td className="p-4">
-                          <div className="flex items-center gap-1.5 text-xs text-slate-400">
-                            {getSourceIcon(item.sourceType)}
-                            <span className="truncate max-w-[120px]">{item.sourceName || item.sourceType}</span>
-                            {item.sourceUrl && (
-                              <a
-                                href={item.sourceUrl}
-                                target="_blank"
-                                rel="noreferrer"
-                                className="text-slate-500 hover:text-indigo-400"
+                          </td>
+                          <td className="py-2.5 px-3">
+                            <div className="flex items-center gap-1.5 min-w-0">
+                              <span
+                                className="font-mono font-bold text-amber-300 text-xs sm:text-sm bg-amber-950/40 px-2 py-0.5 rounded border border-amber-500/20 truncate select-all"
+                                title={item.code}
                               >
-                                <ExternalLink className="w-3 h-3" />
-                              </a>
-                            )}
-                          </div>
-                        </td>
-                        <td className="p-4 text-right">
-                          <div className="flex items-center justify-end gap-1.5">
-                            <button
-                              onClick={() => handleApprove(item.id)}
-                              className="p-1.5 rounded-lg bg-emerald-600/20 hover:bg-emerald-600 text-emerald-400 hover:text-white transition-all shadow-sm active:scale-95"
-                              title="Duyệt & Đăng ngay (1-Chạm)"
-                            >
-                              <Check className="w-4 h-4" />
-                            </button>
-                            <button
-                              onClick={() => handleOpenEdit(item)}
-                              className="p-1.5 rounded-lg bg-indigo-600/20 hover:bg-indigo-600 text-indigo-400 hover:text-white transition-all shadow-sm active:scale-95"
-                              title="Chỉnh sửa & Duyệt"
-                            >
-                              <Edit className="w-4 h-4" />
-                            </button>
-                            <button
-                              onClick={() => handleReject(item.id)}
-                              className="p-1.5 rounded-lg bg-rose-600/20 hover:bg-rose-600 text-rose-400 hover:text-white transition-all shadow-sm active:scale-95"
-                              title="Từ chối / Loại bỏ"
-                            >
-                              <Trash2 className="w-4 h-4" />
-                            </button>
-                          </div>
-                        </td>
-                      </tr>
-                    ))}
+                                {item.code}
+                              </span>
+                              <button
+                                onClick={() => copyToClipboard(item.code)}
+                                className="text-slate-500 hover:text-slate-200 p-1 rounded hover:bg-slate-800/60 transition-colors shrink-0 cursor-pointer"
+                                title="Sao chép mã"
+                              >
+                                <Copy className="w-3.5 h-3.5" />
+                              </button>
+                            </div>
+                          </td>
+                          <td className="py-2.5 px-3">
+                            <div className="flex items-center gap-2 min-w-0" title={item.gameName}>
+                              {matchedGame?.icon_url ? (
+                                <img
+                                  src={matchedGame.icon_url}
+                                  alt={item.gameName}
+                                  className="w-6 h-6 rounded-md object-cover shrink-0 border border-slate-700 bg-slate-800"
+                                  onError={(e) => {
+                                    (e.currentTarget as HTMLElement).style.display = 'none';
+                                  }}
+                                />
+                              ) : (
+                                <div className="w-6 h-6 rounded-md bg-indigo-950/60 border border-indigo-500/30 text-indigo-400 flex items-center justify-center shrink-0 text-[10px] font-bold">
+                                  {(item.gameName || 'G').charAt(0).toUpperCase()}
+                                </div>
+                              )}
+                              <span className="text-xs font-medium text-slate-200 truncate">
+                                {item.gameName}
+                              </span>
+                            </div>
+                          </td>
+                          <td className="py-2.5 px-3">
+                            <div className="min-w-0">
+                              <div className="text-xs text-slate-300 truncate" title={item.rewards || 'Chưa cập nhật chi tiết quà'}>
+                                {item.rewards || 'Giftcode tân thủ / sự kiện'}
+                              </div>
+                              <div className="text-[10px] text-slate-500 mt-0.5 flex items-center gap-1 font-mono">
+                                <Clock className="w-2.5 h-2.5 text-slate-500" />
+                                <span>HSD: {item.expiresAt || 'Không giới hạn'}</span>
+                              </div>
+                            </div>
+                          </td>
+                          <td className="py-2.5 px-3">
+                            <div className="flex items-center gap-1 text-xs text-slate-400 min-w-0">
+                              <div className="shrink-0">{getSourceIcon(item.sourceType)}</div>
+                              <span className="truncate text-[11px]" title={item.sourceName || item.sourceType}>
+                                {item.sourceName || item.sourceType}
+                              </span>
+                              {item.sourceUrl && (
+                                <a
+                                  href={item.sourceUrl}
+                                  target="_blank"
+                                  rel="noreferrer"
+                                  className="text-slate-500 hover:text-indigo-400 shrink-0 p-0.5"
+                                  title="Mở nguồn cào"
+                                >
+                                  <ExternalLink className="w-3 h-3" />
+                                </a>
+                              )}
+                            </div>
+                          </td>
+                          <td className="py-2.5 px-3 text-right sticky right-0 bg-slate-900/95 group-hover:bg-slate-800/95 backdrop-blur-sm border-l border-slate-800 shadow-[-6px_0_12px_rgba(0,0,0,0.5)] z-10 transition-colors">
+                            <div className="flex items-center justify-end gap-1.5">
+                              <button
+                                onClick={() => handleApprove(item.id)}
+                                className="px-2 py-1 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-semibold text-xs flex items-center gap-1 transition-all shadow-md shadow-emerald-950/40 active:scale-95 cursor-pointer shrink-0"
+                                title="Duyệt & Đăng ngay lên website (1-Chạm)"
+                              >
+                                <Check className="w-3.5 h-3.5" />
+                                <span>Duyệt</span>
+                              </button>
+                              <button
+                                onClick={() => handleOpenEdit(item)}
+                                className="p-1.5 rounded-lg bg-indigo-600/20 hover:bg-indigo-600 text-indigo-300 hover:text-white border border-indigo-500/30 transition-all shadow-sm active:scale-95 cursor-pointer shrink-0"
+                                title="Chỉnh sửa thông tin & Duyệt"
+                              >
+                                <Edit className="w-3.5 h-3.5" />
+                              </button>
+                              <button
+                                onClick={() => handleReject(item.id)}
+                                className="p-1.5 rounded-lg bg-rose-600/20 hover:bg-rose-600 text-rose-300 hover:text-white border border-rose-500/30 transition-all shadow-sm active:scale-95 cursor-pointer shrink-0"
+                                title="Từ chối / Xóa bỏ mã này"
+                              >
+                                <Trash2 className="w-3.5 h-3.5" />
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      );
+                    })}
                   </tbody>
                 </table>
+              </div>
+
+              {/* Phân Trang Cho Hàng Chờ Duyệt */}
+              <div className="bg-slate-950 border-t border-slate-800 px-4 py-3 flex flex-col sm:flex-row items-center justify-between gap-3">
+                <div className="text-xs text-slate-400 flex items-center gap-2">
+                  <span>
+                    Hiển thị <strong className="text-white">{(pendingPage - 1) * pendingPerPage + 1}</strong> -{' '}
+                    <strong className="text-white">{Math.min(pendingPage * pendingPerPage, filteredCodes.length)}</strong> trên{' '}
+                    <strong className="text-amber-400">{filteredCodes.length}</strong> mã
+                  </span>
+                  <select
+                    value={pendingPerPage}
+                    onChange={(e) => {
+                      setPendingPerPage(Number(e.target.value));
+                      setPendingPage(1);
+                    }}
+                    className="bg-slate-900 border border-slate-800 rounded-lg px-2 py-1 text-xs text-slate-300 focus:outline-none focus:border-indigo-500 cursor-pointer"
+                  >
+                    <option value={15}>15 mã / trang</option>
+                    <option value={20}>20 mã / trang</option>
+                    <option value={50}>50 mã / trang</option>
+                    <option value={100}>100 mã / trang</option>
+                  </select>
+                </div>
+
+                <div className="flex items-center gap-1.5">
+                  <button
+                    onClick={() => setPendingPage(1)}
+                    disabled={pendingPage === 1}
+                    className="px-2.5 py-1 rounded-lg bg-slate-900 hover:bg-slate-800 disabled:opacity-30 disabled:cursor-not-allowed text-xs text-slate-300 border border-slate-800 transition-colors"
+                  >
+                    Đầu
+                  </button>
+                  <button
+                    onClick={() => setPendingPage((p) => Math.max(1, p - 1))}
+                    disabled={pendingPage === 1}
+                    className="p-1 rounded-lg bg-slate-900 hover:bg-slate-800 disabled:opacity-30 disabled:cursor-not-allowed text-slate-300 border border-slate-800 transition-colors"
+                    title="Trang trước"
+                  >
+                    <ChevronLeft className="w-4 h-4" />
+                  </button>
+
+                  <span className="text-xs text-slate-300 px-2 font-mono">
+                    Trang <strong className="text-indigo-400">{pendingPage}</strong> / {totalPendingPages}
+                  </span>
+
+                  <button
+                    onClick={() => setPendingPage((p) => Math.min(totalPendingPages, p + 1))}
+                    disabled={pendingPage === totalPendingPages}
+                    className="p-1 rounded-lg bg-slate-900 hover:bg-slate-800 disabled:opacity-30 disabled:cursor-not-allowed text-slate-300 border border-slate-800 transition-colors"
+                    title="Trang sau"
+                  >
+                    <ChevronRight className="w-4 h-4" />
+                  </button>
+                  <button
+                    onClick={() => setPendingPage(totalPendingPages)}
+                    disabled={pendingPage === totalPendingPages}
+                    className="px-2.5 py-1 rounded-lg bg-slate-900 hover:bg-slate-800 disabled:opacity-30 disabled:cursor-not-allowed text-xs text-slate-300 border border-slate-800 transition-colors"
+                  >
+                    Cuối
+                  </button>
+                </div>
               </div>
             </div>
           )}
