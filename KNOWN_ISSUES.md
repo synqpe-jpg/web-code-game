@@ -576,7 +576,18 @@
   3. Cập nhật script đồng bộ `scripts/push_to_kv_sync.cjs` truyền đủ cả 2 trường `key: 'wcg_crawler_sources_v1'` và `crawlerSources: sources`.
 - ⛔ **CÁCH SỬA ĐÃ THẤT BẠI - TUYỆT ĐỐI KHÔNG LẶP LẠI**:
   - ❌ *Không chỉ push lên Cloudflare KV mà quên đồng bộ vào bảng cài đặt D1*: `sync.ts` khi có query `?fresh=true` luôn đọc D1 settings làm nguồn gốc sự thật, nếu D1 không được cập nhật thì KV sẽ bị vô hiệu.
-  - ❌ *Không để frontend ghi đè hoàn toàn state bằng dữ liệu server khi dữ liệu server có số lượng nguồn ít hơn bộ mặc định đi kèm code*: Phải dùng phép hợp (union) để bảo toàn các nguồn mới được thêm vào mã nguồn.
+### ISSUE-032: Bẫy D1 Row Quota 1MB Làm Rỗng Danh Mục Khi Không Có Bundled Fallback Trong Worker API (Edge Worker API D1 Fallback Trap)
+- **Triệu chứng**:
+  - Khi gọi `/api/games` hoặc `/api/games?slug=...`, API trả về 0 games (`total: 0`) hoặc lỗi 404 `"Không tìm thấy trò chơi."` mặc dù file tĩnh và frontend vẫn hiển thị đủ 623 tựa game.
+- **Nguyên nhân gốc rễ**:
+  1. *Giới hạn dung lượng hàng D1 (D1 1MB Row Quota)*: Cloudflare D1 giới hạn 1MB cho mỗi tham số truy vấn và hàng dữ liệu. Khi lưu danh mục mã quà tặng `wcg_admin_free_codes_v5` (>4MB) hoặc danh mục lớn vào bảng `system_settings`, thao tác `INSERT` bị D1 từ chối hoặc bỏ qua để tránh sập transaction.
+  2. *Thiếu tầng dữ liệu dự phòng (Bundled Fallback)*: Trong `functions/api/games.ts` và `functions/api/sync.ts`, nếu D1 settings chưa có hoặc rỗng, code gán mảng rỗng `[]` thay vì fallback về danh mục 623 games và 5,321 mã có sẵn trong build.
+- **Giải pháp chuẩn đã kiểm chứng**:
+  1. Import trực tiếp `fallbackGamesData` (`src/data/games188.json`) và `fallbackCodesData` (`src/data/crawled_codes_188.json`) vào worker bundle `dist/_worker.js` bằng ESBuild.
+  2. Sử dụng toán tử fallback: Nếu D1 settings không có hoặc rỗng (`!Array.isArray(settings[...]) || settings[...].length === 0`), Worker tự động sử dụng `fallbackGamesData` và `fallbackCodesData`.
+  3. Khi có mã mới (custom codes), Worker hợp nhất các mã custom từ D1 lên trên danh mục bundled, đảm bảo API luôn trả về đủ 623 tựa game và đầy đủ 100% giftcode.
+- ⛔ **CÁCH SỬA ĐÃ THẤT BẠI - TUYỆT ĐỐI KHÔNG LẶP LẠI**:
+  - ❌ *Không phụ thuộc 100% vào việc ghi mảng monolithic >1MB vào 1 hàng trong bảng system_settings D1*: Bắt buộc phải có bundled fallback trong Edge Worker bundle.
 
 ---
 

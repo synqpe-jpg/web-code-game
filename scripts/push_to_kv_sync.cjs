@@ -25,7 +25,7 @@ async function syncAllToKV() {
       const resG = await fetch(url, {
         method: 'POST',
         headers,
-        body: JSON.stringify({ key: 'wcg_admin_games_v5', data: games })
+        body: JSON.stringify({ key: 'wcg_admin_games_v5', games, data: games })
       });
       console.log(`[${url}] Push games_v5: ${resG.status}`);
 
@@ -33,7 +33,7 @@ async function syncAllToKV() {
       const resC = await fetch(url, {
         method: 'POST',
         headers,
-        body: JSON.stringify({ key: 'wcg_admin_free_codes_v5', data: freeCodes })
+        body: JSON.stringify({ key: 'wcg_admin_free_codes_v5', freeCodes, data: freeCodes })
       });
       console.log(`[${url}] Push free_codes_v5: ${resC.status}`);
 
@@ -52,6 +52,17 @@ async function syncAllToKV() {
         body: JSON.stringify({ key: 'wcg_admin_giveaways_v5', data: giveaways })
       });
       console.log(`[${url}] Push giveaways_v5: ${resGw.status}`);
+
+      // 5. Sync Custom Free Codes (Pirate Legends VIP Vinh Danh & Custom)
+      const pirateCustomCodes = freeCodes.filter(c => c.gameSlug === 'pirate-legends' && c.source === 'GIFTCODE VINH DANH');
+      if (pirateCustomCodes.length > 0) {
+        const resCust = await fetch(url, {
+          method: 'POST',
+          headers,
+          body: JSON.stringify({ key: 'wcg_admin_custom_free_codes_v1', data: pirateCustomCodes })
+        });
+        console.log(`[${url}] Push custom_free_codes_v1: ${resCust.status}`);
+      }
     } catch (e) {
       console.error(`[${url}] Error:`, e.message);
     }

@@ -23,6 +23,7 @@ import {
 } from '../services/d1_service';
 import { verifyToken, computeHash } from '../services/auth_service';
 import { invalidateGamesCatalogCache } from './games';
+import fallbackGamesData from '../../src/data/games188.json';
 
 interface Env {
   ADMIN_SYNC_SECRET?: string;
@@ -549,7 +550,13 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
       success: true,
       timestamp: masterState.timestamp || new Date().toISOString(),
       serverTime: new Date().toISOString(),
-      games: d1Settings['wcg_admin_games_v5'] || d1Settings['wcg_admin_games_v4'] || (Array.isArray(masterState.games) ? masterState.games : undefined),
+      games: (Array.isArray(d1Settings['wcg_admin_games_v5']) && d1Settings['wcg_admin_games_v5'].length > 0)
+        ? d1Settings['wcg_admin_games_v5']
+        : (Array.isArray(d1Settings['wcg_admin_games_v4']) && d1Settings['wcg_admin_games_v4'].length > 0)
+          ? d1Settings['wcg_admin_games_v4']
+          : (Array.isArray(masterState.games) && masterState.games.length > 0)
+            ? masterState.games
+            : (fallbackGamesData as any[]),
       freeCodes: authorized ? (() => {
         const rawFc = d1Settings['wcg_admin_free_codes_v5'] || d1Settings['wcg_admin_free_codes_v4'] || (Array.isArray(masterState.freeCodes) ? masterState.freeCodes : []);
         const customFc = d1Settings['wcg_admin_custom_free_codes_v1'] || masterState.customFreeCodes || [];
@@ -1844,8 +1851,8 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
           const merged = await mergeContentIntoD1(env.DB, body.data);
           currentMaster.content = merged;
         }
-        if (body.games !== undefined) {
-          await setSettingD1(env.DB, 'wcg_admin_games_v5', body.games);
+        if (body.games !== undefined || (body.key === 'wcg_admin_games_v5' && Array.isArray(body.data))) {
+          await setSettingD1(env.DB, 'wcg_admin_games_v5', body.games || body.data);
           invalidateGamesCatalogCache();
         }
         // Only allow updating wcg_admin_free_codes_v5 if it's a full catalog import (length >= 1000)

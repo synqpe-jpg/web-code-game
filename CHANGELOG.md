@@ -7,6 +7,31 @@ Mỗi mục sửa lỗi đều ghi nhận **Nguyên nhân gốc rễ (Root Cause
 
 ## [2026-10-14]
 
+### 43. Bổ Sung Bộ 8 Mã Giftcode Vinh Danh VIP Cho Tựa Game Pirate Legends: Huyền Thoại Hải Tặc
+- **Mô tả & Yêu cầu**:
+  - Người dùng yêu cầu bổ sung bộ 8 giftcode Vinh Danh (VIP 8 đến VIP 11) kèm thông tin phần thưởng chi tiết cho tựa game Pirate Legends: Huyền Thoại Hải Tặc (NPH GOSU).
+- **Chi tiết thực thi & Triển khai**:
+  1. *Danh sách mã & Phần quà chi tiết*:
+     - `ROBBERVIP11` (VIP 11): 🎁 Quà Vinh Danh VIP 11: Thẻ Chiêu Mộ - Cao Cấp x5 + Đá Đột Phá x50 + Sách Kinh Nghiệm - Vàng x10 + Kim Cương x100.
+     - `MICKEYVIP10` (VIP 10): 🎁 Quà Vinh Danh VIP 10: Thẻ Chiêu Mộ - Cao Cấp x5 + Đá Đột Phá x50 + Sách Kinh Nghiệm - Vàng x10 + Kim Cương x100.
+     - `MICKEYVIP9` (VIP 9): 🎁 Quà Vinh Danh VIP 9: Thẻ Chiêu Mộ - Cao Cấp x5 + Đá Đột Phá x50 + Sách Kinh Nghiệm - Vàng x10 + Kim Cương x100.
+     - `CONVOICONVIP8` (VIP 8): 🎁 Quà Vinh Danh VIP 8: Thẻ Chiêu Mộ - Cao Cấp x5 + Đá Đột Phá x50 + Sách Kinh Nghiệm - Vàng x10 + Kim Cương x100.
+     - `NNBXKHOCASOCVIP8` (VIP 8): 🎁 Quà Vinh Danh VIP 8: Thẻ Chiêu Mộ - Cao Cấp x5 + Đá Đột Phá x50 + Sách Kinh Nghiệm - Vàng x10 + Kim Cương x100.
+     - `SACHUVIP8` (VIP 8): 🎁 Quà Vinh Danh VIP 8: Thẻ Chiêu Mộ - Cao Cấp x5 + Đá Đột Phá x50 + Sách Kinh Nghiệm - Vàng x10 + Kim Cương x100.
+     - `TAMTAIVIP8` (VIP 8): 🎁 Quà Vinh Danh VIP 8: Thẻ Chiêu Mộ - Cao Cấp x5 + Đá Đột Phá x50 + Sách Kinh Nghiệm - Vàng x10 + Kim Cương x100.
+     - `MICKEYVIP8` (VIP 8): 🎁 Quà Vinh Danh VIP 8: Thẻ Chiêu Mộ - Cao Cấp x5 + Đá Đột Phá x50 + Sách Kinh Nghiệm - Vàng x10 + Kim Cương x100.
+  2. *Cập nhật cơ sở dữ liệu*:
+     - Cập nhật `src/data/crawled_codes_188.json` và `public/data/crawled_codes_188.json`: Nâng tổng số mã toàn hệ thống từ 5.313 lên **5.321 mã**. Các mã mới được đặt lên vị trí ưu tiên đầu danh sách của tựa game.
+     - Cập nhật `src/data/games188.json` và `public/data/games188.json`: Tăng `codes_count` và `free_codes_count` của Pirate Legends từ 38 lên **46 mã**.
+  3. *Tự động Prerender & Đồng bộ*:
+     - Prerender thành công trang tĩnh HTML SEO `dist/game/pirate-legends/index.html` chứa đầy đủ 8 mã mới.
+     - Đồng bộ tài nguyên sang ứng dụng Android Capacitor.
+     - Đẩy đồng bộ cả danh mục `wcg_admin_free_codes_v5` và `wcg_admin_custom_free_codes_v1` lên Cloudflare KV & D1.
+- **Kết quả xác minh**:
+  - Kiểm tra prerender: 100% 8 mã xuất hiện trong HTML tĩnh.
+  - Kiểm tra API sync: Trả về đầy đủ 46 mã cho Pirate Legends.
+
+
 ### 42. Khắc Phục Lỗi Đồng Bộ Nguồn Thu Thập Giftcode Trong Admin (Hiển Thị 855 Thay Vì 933 Nguồn)
 - **Mô tả sự cố**:
   - Người dùng truy cập trang Quản Lý Crawler & Tự Động Hóa Giftcode (`/admin#/crawler`), báo cáo trước đó ghi nhận tổng số nguồn cào đã tăng từ 855 lên 933 nguồn, tuy nhiên trên giao diện Admin thực tế chỉ hiển thị 855 nguồn.
