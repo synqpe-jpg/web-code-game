@@ -373,8 +373,8 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
               ? u.product_images
               : (Array.isArray(meta.product_images) && meta.product_images.length > 0 ? meta.product_images : undefined),
             badge: u.badge || meta.badge || '',
-            description: u.description || meta.description || '',
-            instructions: u.instructions || meta.instructions || '',
+            description: (meta && meta.description) ? meta.description : (u.description || ''),
+            instructions: (meta && meta.instructions) ? meta.instructions : (u.instructions || ''),
             virtual_sold_count: u.virtual_sold_count !== undefined ? Number(u.virtual_sold_count) : Number(meta.virtual_sold_count ?? 0),
             show_sold_count: u.show_sold_count !== undefined ? Boolean(u.show_sold_count) : (meta.show_sold_count !== false),
             show_stock_count: u.show_stock_count !== undefined ? Boolean(u.show_stock_count) : (meta.show_stock_count !== false),
@@ -1627,6 +1627,17 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
         if (Array.isArray(incomingUtilities) && incomingUtilities.length > 0) {
           await syncUtilitiesToD1(env.DB, incomingUtilities);
           await setSettingD1(env.DB, 'wcg_admin_utilities_v4', incomingUtilities);
+          try {
+            const descStmts: D1PreparedStatement[] = [];
+            for (const u of incomingUtilities) {
+              if (u && u.id && u.description) {
+                descStmts.push(env.DB.prepare('UPDATE utilities SET description = ? WHERE id = ?').bind(String(u.description).trim(), String(u.id).trim()));
+              }
+            }
+            if (descStmts.length > 0) {
+              await env.DB.batch(descStmts).catch(() => {});
+            }
+          } catch {}
           try {
             const hub = await getRealEventsHub(env);
             if (hub && hub.peakProductSoldCounts) {

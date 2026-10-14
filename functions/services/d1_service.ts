@@ -307,8 +307,8 @@ export async function ensureSchemaUpgrades(db: D1Database): Promise<void> {
     }
 
     try {
-      // Fast 1-subrequest check: If giveaway_claim_guards exists, all schema migrations are already done
-      const check = await db.prepare("SELECT 1 FROM giveaway_claim_guards LIMIT 1").first().catch(() => null);
+      // Fast 1-subrequest check: If schema_v5_full_upgrades exists, all schema migrations are already done
+      const check = await db.prepare("SELECT 1 FROM schema_migrations WHERE id = 'schema_v5_full_upgrades' LIMIT 1").first().catch(() => null);
       if (check !== null) {
         schemaUpgradesDone = true;
         return;
@@ -772,6 +772,10 @@ export async function ensureSchemaUpgrades(db: D1Database): Promise<void> {
       await db.prepare("INSERT OR REPLACE INTO system_settings (key, value, updated_at) VALUES ('wcg_admin_orders_v4', '[]', datetime('now'));").run().catch(() => {});
       await db.prepare("INSERT OR REPLACE INTO system_settings (key, value, updated_at) VALUES ('wcg_d1_wallets_revenue_reset_v5', '1', datetime('now'));").run().catch(() => {});
     }
+  } catch {}
+
+  try {
+    await db.prepare("INSERT OR IGNORE INTO schema_migrations (id) VALUES ('schema_v5_full_upgrades');").run().catch(() => {});
   } catch {}
 
   schemaUpgradesDone = true;
@@ -1612,7 +1616,80 @@ export async function syncUtilitiesToD1(db: D1Database, utilities: any[]): Promi
       );
     }
     if (stmts.length > 0) {
-      await db.batch(stmts).catch((err) => console.warn('[syncUtilitiesToD1 batch error]', err?.message));
+      try {
+        await db.batch(stmts);
+      } catch (err: any) {
+        console.warn('[syncUtilitiesToD1 batch error, trying base fallback]', err?.message);
+        const fallbackStmts: D1PreparedStatement[] = [];
+        for (const u of slice) {
+          if (!u || !u.id) continue;
+          const uId = String(u.id).trim();
+          const title = String(u.title || u.name || uId).trim();
+          const gameSlug = String(u.game_slug || u.slug || '').trim();
+          const gameName = String(u.game_name || u.gameName || '').trim();
+          const origPrice = Math.max(0, Number(u.original_price || u.originalPrice || u.price || 0));
+          const discPercent = Math.max(0, Math.min(100, Number(u.discount_percent || u.discountPercent || 0)));
+          const currPrice = Math.max(0, Number(u.current_price || u.currentPrice || u.price || origPrice));
+          const stockQty = Math.max(0, Number(u.stock_quantity ?? u.stockQuantity ?? 0));
+          const soldCnt = Math.max(0, Number(u.sold_count ?? u.soldCount ?? 0));
+          const isActive = u.is_active === false || u.isActive === false ? 0 : 1;
+          const category = String(u.category || 'other').trim();
+          const categoryLabel = String(u.category_label || '').trim();
+          const coverImageUrl = String(u.cover_image_url || u.icon_url || '').trim();
+          const iconUrl = String(u.icon_url || u.cover_image_url || '').trim();
+          const description = String(u.description || '').trim();
+          const badge = String(u.badge || '').trim();
+          const instructions = String(u.instructions || '').trim();
+          const virtualSoldCount = Math.max(0, Number(u.virtual_sold_count || 0));
+          const showSoldCount = u.show_sold_count === false ? 0 : 1;
+
+          fallbackStmts.push(
+            db.prepare(`
+              INSERT INTO utilities (
+                id, title, game_slug, game_name, original_price, discount_percent, current_price, stock_quantity, sold_count, is_active,
+                category, category_label, cover_image_url, icon_url, description, badge, instructions, virtual_sold_count, show_sold_count
+              )
+              VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+              ON CONFLICT(id) DO UPDATE SET
+                title = excluded.title,
+                game_slug = excluded.game_slug,
+                game_name = excluded.game_name,
+                original_price = excluded.original_price,
+                discount_percent = excluded.discount_percent,
+                current_price = excluded.current_price,
+                stock_quantity = excluded.stock_quantity,
+                sold_count = excluded.sold_count,
+                is_active = excluded.is_active,
+                category = excluded.category,
+                category_label = excluded.category_label,
+                cover_image_url = excluded.cover_image_url,
+                icon_url = excluded.icon_url,
+                description = excluded.description,
+                badge = excluded.badge,
+                instructions = excluded.instructions,
+                virtual_sold_count = excluded.virtual_sold_count,
+                show_sold_count = excluded.show_sold_count
+            `).bind(
+              uId, title, gameSlug, gameName, origPrice, discPercent, currPrice, stockQty, soldCnt, isActive,
+              category, categoryLabel, coverImageUrl, iconUrl, description, badge, instructions, virtualSoldCount, showSoldCount
+            )
+          );
+        }
+        if (fallbackStmts.length > 0) {
+          await db.batch(fallbackStmts).catch((fbErr) => console.warn('[syncUtilitiesToD1 base fallback error]', fbErr?.message));
+        }
+      }
+
+      // Explicit description update guarantee
+      const descStmts: D1PreparedStatement[] = [];
+      for (const u of slice) {
+        if (u && u.id && u.description) {
+          descStmts.push(db.prepare('UPDATE utilities SET description = ? WHERE id = ?').bind(String(u.description).trim(), String(u.id).trim()));
+        }
+      }
+      if (descStmts.length > 0) {
+        await db.batch(descStmts).catch((descErr) => console.warn('[syncUtilitiesToD1 desc update error]', descErr?.message));
+      }
     }
   }
 

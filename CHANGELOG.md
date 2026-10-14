@@ -7,6 +7,26 @@ Mỗi mục sửa lỗi đều ghi nhận **Nguyên nhân gốc rễ (Root Cause
 
 ## [2026-10-14]
 
+### 35. Thêm Dòng "Treo game 24/24 online." Vào Đầu Mô Tả Chi Tiết Tiện Ích & Dịch Vụ Các Sản Phẩm VS Phone & Vá Lỗ Hổng Đồng Bộ Schema Utilities D1
+- **Mô tả**:
+  1. **Nhu cầu**: Người dùng yêu cầu trong modal "Chi Tiết Tiện Ích & Dịch Vụ" của toàn bộ các sản phẩm VS Phone (Cloud Phone), thêm dòng đầu tiên: `Treo game 24/24 online.`.
+  2. **Nguyên nhân gốc rễ (Root Cause)**:
+     - Trước đây, khi gọi `/api/sync` để cập nhật `wcg_admin_utilities_v4`, dữ liệu đã được lưu vào `system_settings` nhưng bảng SQL `utilities` trên Cloudflare D1 không được cập nhật do `syncUtilitiesToD1` thực hiện câu lệnh `INSERT INTO utilities (...)` chứa 7 cột mới (`guide_url`, `product_images`,...) nhưng các cột này chưa từng được tạo trên D1 do hàm `ensureSchemaUpgrades` bị chặn thoát sớm bởi điều kiện kiểm tra cũ `giveaway_claim_guards`.
+     - Lỗi SQL `no such column` khiến toàn bộ khối batch cập nhật bảng `utilities` bị hủy âm thầm.
+     - Khi `GET /api/sync` chạy, logic map ưu tiên đọc `u.description` từ bảng `utilities` thay vì `meta.description`, khiến chuỗi mô tả cũ tiếp tục hiển thị đè lên mô tả mới.
+  3. **Giải pháp kiến trúc & Triển khai**:
+     - *Cập nhật dữ liệu chuẩn (`src/data/utilities.json`, `scripts/update_vs_phone_batch.cjs`, `scripts/sync_vs_phone_utilities.cjs`)*:
+       + Thêm tiền tố `Treo game 24/24 online.\n\n` vào toàn bộ 18 sản phẩm VS Phone (từ `ut_vs_01_basic_1d` đến `ut_vs_18_mvip_30d`).
+     - *Khắc phục cơ chế nâng cấp Schema D1 (`functions/services/d1_service.ts`)*:
+       + Thay thế điều kiện chặn sớm bằng kiểm tra chuẩn trong bảng `schema_migrations` với mã định danh `'schema_v5_full_upgrades'`.
+       + Bổ sung cơ chế fallback hai tầng cho `syncUtilitiesToD1`: Nếu câu lệnh chứa cột mới gặp lỗi, tự động hạ cấp xuống câu lệnh cập nhật các cột cơ sở và thực thi một mảng lệnh `UPDATE utilities SET description = ? WHERE id = ?` trực tiếp cho từng tiện ích.
+     - *Ưu tiên dữ liệu mô tả mới (`functions/api/sync.ts`)*:
+       + Chuẩn hóa logic hợp nhất: `description: (meta && meta.description) ? meta.description : (u.description || '')`.
+       + Bổ sung batch UPDATE trực tiếp vào bảng `utilities` trong handler POST `/api/sync`.
+     - *Đồng bộ trực tiếp Cloudflare D1 & KV*:
+       + Đã đồng bộ thành công cả 18 sản phẩm VS Phone lên cả 3 môi trường (`codegame.shop`, `web-code-game.pages.dev`, `admin-code-game-shop.pages.dev`).
+- **Kết quả xác minh**: Kiểm tra API live trực tiếp trên tất cả các domain xác nhận 18/18 sản phẩm VS Phone đều có dòng đầu tiên là `Treo game 24/24 online.`. Toàn bộ 537 trang tĩnh và Edge Worker bundle biên dịch 100% không lỗi.
+
 ### 34. Xóa Triệt Để 538 Nguồn Cào codemoi.net Khỏi Hệ Thống Crawler & Bảo Toàn 100% Mã Code Đã Có
 - **Mô tả**:
   1. **Nhu cầu**: Người dùng yêu cầu xóa bỏ toàn bộ các nguồn cào có liên quan đến trang web `codemoi.net` trong mục "Nguồn Thu Thập" của Crawler (tổng cộng 538 nguồn), ngắt vĩnh viễn việc thu thập mã mới từ trang này từ nay về sau, đồng thời bảo toàn nguyên vẹn 100% các mã giftcode cũ đã có trong hệ thống.

@@ -478,7 +478,21 @@
   3. *Trang bị Pagination Engine*: Phân trang 20 mã / trang mặc định kèm nút chuyển trang và thanh chọn số lượng mã mỗi trang (15/20/50/100).
 - ⛔ **CÁCH SỬA ĐÃ THẤT BẠI - TUYỆT ĐỐI KHÔNG LẶP LẠI**:
   - ❌ *Không để bảng dữ liệu admin co giãn tự do mà không có `table-fixed`*: Tên game hoặc nội dung quà dài sẽ đẩy bung toàn bộ các cột hành động ra khỏi màn hình.
-  - ❌ *Không render mảng hàng trăm items mà không phân trang*: Làm chậm hiệu năng DOM và buộc người dùng phải cuộn chuột vô tận.
+### ISSUE-025: Lỗi Chặn Thoát Sớm Trong ensureSchemaUpgrades Làm Đứt Gãy Cập Nhật Bảng SQL utilities D1 & Tràn Ngược Mô Tả Cũ
+- **Triệu chứng**:
+  - Dữ liệu tiện ích (như description, instructions) được gửi lên `/api/sync` báo thành công 200 và đã lưu vào `system_settings`, nhưng khi truy vấn lại `GET /api/sync`, dữ liệu mô tả vẫn là văn bản cũ không thay đổi.
+- **Nguyên nhân gốc rễ**:
+  1. Trong `ensureSchemaUpgrades`, dòng kiểm tra `SELECT 1 FROM giveaway_claim_guards LIMIT 1` trả về true khiến hàm thoát sớm (early return) trước khi kịp thực thi các lệnh `ALTER TABLE utilities ADD COLUMN guide_url...` phía sau.
+  2. Bảng `utilities` trên D1 thiếu các cột mới, dẫn đến câu lệnh upsert hàng loạt trong `syncUtilitiesToD1` bị sập với lỗi `no such column`. Khối lệnh bị `catch` âm thầm nên bảng `utilities` không được cập nhật.
+  3. Trong `sync.ts`, logic merge sử dụng `u.description || meta.description || ''`. Vì `u.description` lấy từ bảng SQL `utilities` vẫn còn chứa chuỗi mô tả cũ nên nó luôn đè lên chuỗi mô tả mới trong `meta.description`.
+- **Giải pháp chuẩn đã kiểm chứng**:
+  1. Chuyển cơ chế kiểm tra checkpoint di chuyển schema sang bảng `schema_migrations` với ID duy nhất (ví dụ `'schema_v5_full_upgrades'`).
+  2. Bổ sung cơ chế fallback hai tầng trong `syncUtilitiesToD1`: nếu upsert toàn bộ cột thất bại, tự động hạ cấp xuống upsert các cột cơ sở và thực thi mảng lệnh `UPDATE utilities SET description = ? WHERE id = ?` trực tiếp cho từng bản ghi.
+  3. Trong `sync.ts`, ưu tiên dữ liệu từ cấu hình admin/sync mới nhất: `description: (meta && meta.description) ? meta.description : (u.description || '')`.
+- ⛔ **CÁCH SỬA ĐÃ THẤT BẠI - TUYỆT ĐỐI KHÔNG LẶP LẠI**:
+  - ❌ *Không dùng sự tồn tại của 1 bảng ngẫu nhiên làm cờ đánh dấu toàn bộ các migration sau đó đã hoàn tất*: Khi thêm migration mới, các câu lệnh mới sẽ bị bỏ qua hoàn toàn trên DB đã tồn tại bảng đó.
+  - ❌ *Không nuốt lỗi (catch swallow) batch update SQL mà không có cơ chế fallback*: Khiến dữ liệu SQL âm thầm lệch pha với `system_settings`.
+  - ❌ *Không ưu tiên `u.description` cũ từ database hơn `meta.description` do admin vừa cập nhật*.
 
 ---
 

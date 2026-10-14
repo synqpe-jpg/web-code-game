@@ -87,7 +87,9 @@ function generateUpdatedProducts() {
       const currentPrice = Math.round(pkg.original * 0.95);
       const title = `${spec.tier} ${pkg.duration} VS Phone`;
 
-      const description = `⚡ [ĐẠI LÝ CHÍNH THỨC VS PHONE] - Hệ thống phân phối & kích hoạt tự động uy tín!
+      const description = `Treo game 24/24 online.
+
+⚡ [ĐẠI LÝ CHÍNH THỨC VS PHONE] - Hệ thống phân phối & kích hoạt tự động uy tín!
 
 📱 Dòng máy: VS Phone ${spec.tier}
 ⚙️ Cấu hình phần cứng: ${spec.cpu} | ${spec.ram} | ${spec.rom}

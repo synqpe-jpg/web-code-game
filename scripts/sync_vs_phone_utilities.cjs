@@ -106,7 +106,9 @@ function generateProducts() {
       const discountPercent = Math.round(((pkg.original - pkg.current) / pkg.original) * 100);
       const hours = pkg.days * 24;
 
-      const description = `⚡ [ĐẠI LÝ CHÍNH THỨC VS PHONE] - Hệ thống phân phối & kích hoạt tự động uy tín!
+      const description = `Treo game 24/24 online.
+
+⚡ [ĐẠI LÝ CHÍNH THỨC VS PHONE] - Hệ thống phân phối & kích hoạt tự động uy tín!
 
 📱 Dòng máy: ${spec.titlePrefix}
 ⚙️ Cấu hình phần cứng: ${spec.cpu} | ${spec.ram} | ${spec.rom}
