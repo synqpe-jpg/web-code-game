@@ -46,6 +46,9 @@ jobs:
           java-version: 21
           cache: 'gradle'
 
+      - name: Generate Official Android Icons and Splash Screens
+        run: node scripts/generate_android_icons.cjs
+
       - name: Copy Web Assets to Capacitor Android
         run: |
           mkdir -p android/app/src/main/assets/public
@@ -103,11 +106,12 @@ jobs:
         with:
           tag_name: v1.0.0
           name: CodeGame Mobile App v1.0.0
-          body: "Bản phát hành ứng dụng di động CodeGame dành cho Android (.APK) và PWA."
+          body: "Bản phát hành ứng dụng di động CodeGame chính thức dành cho Android (.APK) với đầy đủ logo thương hiệu và icon chuẩn."
           files: output/CodeGame-v1.0.apk
           fail_on_unmatched_files: true
           draft: false
           prerelease: false
+          make_latest: true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 

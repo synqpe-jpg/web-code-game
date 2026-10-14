@@ -7,6 +7,29 @@ Mỗi mục sửa lỗi đều ghi nhận **Nguyên nhân gốc rễ (Root Cause
 
 ## [2026-10-14]
 
+### 41. Khắc Phục Triệt Để Logo Mặc Định Của Android Cho File Cài Đặt (.APK), Chuẩn Hóa 100% Bộ Icon & Splash Screen Theo Logo Web
+- **Mô tả sự cố**:
+  1. **Hiện tượng**: Người dùng tải file `.APK` về cài đặt trên điện thoại Android nhưng icon ứng dụng hiển thị logo robot màu xanh mặc định của Android hoặc hình ảnh placeholder Capacitor, không hiển thị logo chính thức của web CodeGame.
+  2. **Truy vết nguyên nhân gốc rễ (Root Cause Investigation)**:
+     - Trong thư mục Android `android/app/src/main/res/`:
+       + `drawable-v24/ic_launcher_foreground.xml`: Chứa vector robot Android màu xanh mặc định (`M66.94,46.02L66.94...`). Trên tất cả các thiết bị Android từ Android 7.0 đến Android 15 (API 24+), Android ưu tiên nạp file vector này thay vì hình ảnh PNG trong `mipmap-*/`.
+       + `drawable/ic_launcher_background.xml`: Chứa lưới kẻ ô màu xanh ngọc `#26A69A` mặc định của template Android.
+       + `values/ic_launcher_background.xml`: Đặt màu nền là `#FFFFFF` thay vì màu đen bóng bẩy thương hiệu `#0B0D19`.
+       + `mipmap-{mdpi,hdpi,xhdpi,xxhdpi,xxxhdpi}/`: Chứa các file `ic_launcher.png`, `ic_launcher_round.png`, `ic_launcher_foreground.png` của template mẫu Capacitor cũ.
+       + `drawable/splash.png` và các thư mục `drawable-*/`: Chứa ảnh splash screen mẫu của Capacitor.
+  3. **Giải pháp kiến trúc & Triển khai**:
+     - *Script tự động hóa (`scripts/generate_android_icons.cjs`)*:
+       + Trích xuất từ logo chính thức chất lượng cao `public/logo.png` (1024x1024).
+       + Tạo toàn bộ 5 mật độ màn hình (`mdpi`, `hdpi`, `xhdpi`, `xxhdpi`, `xxxhdpi`) cho cả 3 định dạng: `ic_launcher.png` (bo góc), `ic_launcher_round.png` (cắt tròn chuẩn Launcher), và `ic_launcher_foreground.png` (đặt trong vùng an toàn Safe-Zone 68% chuẩn Adaptive Icon của Google).
+       + Tạo đồng bộ 11 kích thước ảnh splash screen màn hình chờ (`splash.png`) cho cả chế độ dọc (portrait) và ngang (landscape) với logo căn giữa trên nền `#0B0D19`.
+       + Xóa bỏ triệt để file vector robot cũ `drawable-v24/ic_launcher_foreground.xml`.
+       + Cập nhật màu nền Adaptive Icon `ic_launcher_background` sang chuẩn màu thương hiệu `#0B0D19`.
+     - *Tự động hóa CI/CD GitHub Actions (`build-apk.yml`)*:
+       + Bổ sung bước `Generate Official Android Icons and Splash Screens` tự động chạy mỗi khi build release APK.
+       + Bổ sung cờ `make_latest: true` đảm bảo GitHub Release tự động cập nhật file `CodeGame-v1.0.apk` mới nhất.
+- **Kết quả xác minh**: Biên dịch và build hoàn tất, các mật độ ảnh mipmap và splash screen chuẩn 100% logo web.
+
+
 ### 40. Bổ Sung Toàn Bộ Danh Mục Game & NPH Theo Google Sheet, Chuẩn Hóa 100% Icon Sắc Nét, Thêm 78 Nguồn Quét Facebook & Bổ Sung Giftcode Thật
 - **Mục tiêu**:
   1. Tích hợp toàn bộ dữ liệu 18 Nhà phát hành / Studio game và 121 tựa game từ Google Spreadsheet của người dùng (`https://docs.google.com/spreadsheets/d/1l5PazEUQW4KJy8wT_uf-aXGDg8GOdFoNT7xXbCnP05w/edit`).

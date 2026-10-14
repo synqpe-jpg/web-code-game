@@ -544,9 +544,25 @@
   2. Fail-fast ngay lập tức nếu server trả về `401` hoặc `403` (phiên đã hết hạn): Xóa cờ, gán `isVerifying = false` ngay, không duyệt tiếp các domain khác.
   3. Tích hợp Safety Watchdog Timer (3.5s) trong `useEffect` để ép `setIsVerifying(false)` trong mọi tình huống.
   4. Cung cấp nút bấm "Đăng nhập lại bằng tài khoản quản trị" ngay dưới spinner để người dùng luôn có lối thoát chủ động.
+### ISSUE-030: Bẫy Robot Xanh Mặc Định & Lưới Ô Android Trên File Cài Đặt (.APK) (Android Default Vector & Adaptive Icon Trap)
+- **Triệu chứng**:
+  - Người dùng tải file `.APK` về cài đặt trên điện thoại Android nhưng icon ứng dụng hiển thị logo robot màu xanh mặc định của Android hoặc hình ảnh placeholder Capacitor, không hiển thị logo chính thức của web CodeGame.
+- **Nguyên nhân gốc rễ**:
+  1. *Bẫy vector override trong `drawable-v24/`*: Thư mục `android/app/src/main/res/drawable-v24/` chứa file `ic_launcher_foreground.xml` là vector hình robot Android xanh mặc định. Trên mọi thiết bị Android API 24+ (Android 7.0 đến Android 15), hệ điều hành ưu tiên nạp file vector này đè lên các file PNG trong `mipmap-*/`.
+  2. *Bẫy adaptive icon grid*: File `drawable/ic_launcher_background.xml` chứa đường vẽ lưới ô xanh ngọc `#26A69A` của Android Studio template, khiến adaptive icon bị viền và nền xanh ngọc không khớp giao diện web.
+  3. *Màu nền XML*: `values/ic_launcher_background.xml` để `#FFFFFF` thay vì màu đen thương hiệu `#0B0D19`.
+- **Giải pháp chuẩn đã kiểm chứng**:
+  1. Xóa hoàn toàn file vector robot `drawable-v24/ic_launcher_foreground.xml`.
+  2. Dùng sharp tạo trọn bộ PNG cho 5 mật độ màn hình (`mdpi`, `hdpi`, `xhdpi`, `xxhdpi`, `xxxhdpi`):
+     - `ic_launcher.png`: Bo góc 18% của logo web.
+     - `ic_launcher_round.png`: Cắt tròn 100% của logo web.
+     - `ic_launcher_foreground.png`: Logo căn giữa trong vùng an toàn (Safe-Zone 68% của canvas 108dp) trên nền trong suốt.
+  3. Cập nhật màu nền `ic_launcher_background` sang chuẩn màu thương hiệu `#0B0D19`.
+  4. Tạo đồng bộ 11 kích thước ảnh splash screen màn hình chờ (`splash.png`) với logo căn giữa trên nền `#0B0D19`.
+  5. Đưa lệnh `node scripts/generate_android_icons.cjs` vào CI/CD workflow `.github/workflows/build-apk.yml`.
 - ⛔ **CÁCH SỬA ĐÃ THẤT BẠI - TUYỆT ĐỐI KHÔNG LẶP LẠI**:
-  - ❌ *Không dùng `if (!cancelled) setIsVerifying(false)` trong `useEffect` có dependency rỗng*: Khiến state bị khóa cứng nếu component re-mount.
-  - ❌ *Không gọi fetch mạng mà không có AbortController timeout trên các màn hình loading chặn giao diện (blocking loading screen)*.
+  - ❌ *Không chỉ thay file PNG trong `mipmap/` mà quên xóa `drawable-v24/ic_launcher_foreground.xml`*: Android 7.0+ sẽ luôn ưu tiên file vector robot xanh trong `drawable-v24/`.
+  - ❌ *Không để logo tràn 100% mép canvas trong `ic_launcher_foreground.png`*: Khi các launcher Android (Samsung OneUI, Xiaomi MIUI, Google Pixel) áp dụng mặt nạ hình tròn hoặc squircle sẽ làm cắt mất chi tiết logo nếu không có lề an toàn 68%.
 
 ---
 

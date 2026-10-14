@@ -16,8 +16,9 @@
     "deploy:admin": "wrangler pages deploy dist --project-name=admin-code-game-shop",
     "deploy:all": "wrangler pages deploy dist --project-name=web-code-game && wrangler pages deploy dist --project-name=admin-code-game-shop",
     "backup": "node scripts/export_full_database_backup.cjs",
+    "cap:icons": "node scripts/generate_android_icons.cjs",
     "cap:sync": "npx cap sync",
-    "cap:build": "node scripts/build.cjs && npx cap sync",
+    "cap:build": "node scripts/generate_android_icons.cjs && node scripts/build.cjs && npx cap sync",
     "cap:open:android": "npx cap open android"
   },
   "dependencies": {
