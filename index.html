@@ -10,9 +10,6 @@
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
     <meta name="apple-mobile-web-app-title" content="CodeGame" />
-    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
-    <meta http-equiv="Pragma" content="no-cache" />
-    <meta http-equiv="Expires" content="0" />
 
     <!-- Anti-FOUC & Instant Canvas Background Initialization -->
     <script>
@@ -123,10 +120,14 @@
       }
     </script>
 
-    <!-- Typography: Inter (Chuẩn Giao Diện Quốc Tế & Tiếng Việt Tối Ưu) & JetBrains Mono -->
+    <!-- Typography: Inter & JetBrains Mono (Non-blocking Asynchronous Font Preloading) -->
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet" />
+    <link rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;600&display=swap" />
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;600&display=swap" media="print" onload="this.media='all'" />
+    <noscript>
+      <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;600&display=swap" />
+    </noscript>
 
     <style>
       :root {
@@ -254,6 +255,33 @@
         <span class="loader-letter" style="animation-delay:0.8s">E</span>
       </div>
     </div>
+    <script>
+      (function() {
+        var dismissed = false;
+        function dismissPreloader() {
+          if (dismissed) return;
+          var p = document.getElementById('app-preloader');
+          if (p && p.style.opacity !== '0') {
+            dismissed = true;
+            p.style.transition = 'opacity 0.25s ease, visibility 0.25s ease';
+            p.style.opacity = '0';
+            p.style.pointerEvents = 'none';
+            setTimeout(function() {
+              if (p && p.parentNode) p.parentNode.removeChild(p);
+            }, 260);
+          }
+        }
+        window.__dismissWcgPreloader = dismissPreloader;
+        if (document.readyState === 'complete' || document.readyState === 'interactive') {
+          setTimeout(dismissPreloader, 80);
+        } else {
+          document.addEventListener('DOMContentLoaded', function() {
+            setTimeout(dismissPreloader, 80);
+          });
+        }
+        setTimeout(dismissPreloader, 700);
+      })();
+    </script>
 
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>

@@ -29,7 +29,7 @@ import { marketingService } from '../services/marketingService';
 import { growthService } from '../services/growthService';
 import type { UserProfile } from '../types/game';
 import { formatCore, formatFullDateTime } from '../utils/textUtils';
-import { buildVietQrUrl } from '../utils/vietQrUtils';
+import { buildVietQrUrl, generateVietQrDataUrl } from '../utils/vietQrUtils';
 
 interface UserWalletModalProps {
   isOpen: boolean;
@@ -55,6 +55,7 @@ export const UserWalletModal: React.FC<UserWalletModalProps> = ({
   const [isInputFocused, setIsInputFocused] = useState<boolean>(false);
   const [copiedKey, setCopiedKey] = useState<string | null>(null);
   const [sepayConfig, setSepayConfig] = useState(() => dataService.getSePayConfig());
+  const [qrDataUrl, setQrDataUrl] = useState<string>('');
   const [depositHistory, setDepositHistory] = useState<any[]>([]);
 
   // Stable references to prevent infinite re-render cascades
@@ -179,6 +180,53 @@ export const UserWalletModal: React.FC<UserWalletModalProps> = ({
     );
   };
 
+  const topupAmount = parseInt(customInput.replace(/\D/g, ''), 10) || 0;
+  const isValidAmount = topupAmount >= MIN_TOPUP;
+
+  const memberCode = (user?.id || user?.username || '').trim();
+  const rawPrefix = (sepayConfig?.paymentPrefix || 'WCG').trim().replace(/[^a-zA-Z0-9]/g, '').toUpperCase();
+  const prefix = rawPrefix || 'WCG';
+  const transferContent = `${prefix} ${memberCode}`;
+
+  const bankAccount = sepayConfig?.bankAccount || 'CODE GAME SHOP';
+  const accountNumber = sepayConfig?.accountNumber || '10004681879';
+  const rawBankName = sepayConfig?.bankName || 'TPBank';
+
+  const qrData = buildVietQrUrl({
+    accountNumber,
+    bankName: rawBankName,
+    amount: topupAmount,
+    content: transferContent,
+    accountName: bankAccount,
+  });
+
+  // Generate local Base64 VietQR data URL immediately for 0ms render & 100% adblocker immunity
+  // MUST remain at the top level before any early return to strictly obey Rules of Hooks
+  useEffect(() => {
+    if (!isOpen) return;
+    let isMounted = true;
+    if (isValidAmount) {
+      generateVietQrDataUrl({
+        accountNumber,
+        bankName: rawBankName,
+        amount: topupAmount,
+        content: transferContent,
+      })
+        .then((url) => {
+          if (isMounted) setQrDataUrl(url);
+        })
+        .catch((err) => {
+          console.warn('[VietQR] Failed to generate local QR data URL, falling back to CDN:', err);
+          if (isMounted) setQrDataUrl(qrData.primaryUrl);
+        });
+    } else {
+      setQrDataUrl('');
+    }
+    return () => {
+      isMounted = false;
+    };
+  }, [isOpen, isValidAmount, accountNumber, rawBankName, topupAmount, transferContent, qrData.primaryUrl]);
+
   if (!isOpen) return null;
 
   const quickAmounts = [
@@ -192,30 +240,10 @@ export const UserWalletModal: React.FC<UserWalletModalProps> = ({
     { core: 2000000 },
   ];
 
-  const topupAmount = parseInt(customInput.replace(/\D/g, ''), 10) || 0;
-  const isValidAmount = topupAmount >= MIN_TOPUP;
-
   const isLoggedIn = Boolean(user && user.id && !user.id.startsWith('guest_') && user.role !== 'guest');
   const currentBalance = user?.wallet_balance || 0;
   const rawUserId = user?.id || '';
   const cleanId = (user?.id || user?.username || 'member').trim();
-
-  const memberCode = (user?.id || user?.username || '').trim();
-  const rawPrefix = (sepayConfig?.paymentPrefix || 'WCG').trim().replace(/[^a-zA-Z0-9]/g, '').toUpperCase();
-  const prefix = rawPrefix || 'WCG';
-  const transferContent = `${prefix} ${memberCode}`;
-
-  const bankAccount = sepayConfig?.bankAccount || 'CONG TY TNHH WEB CODE GAME';
-  const accountNumber = sepayConfig?.accountNumber || '0987654321';
-  const rawBankName = sepayConfig?.bankName || 'MBBank';
-
-  const qrData = buildVietQrUrl({
-    accountNumber,
-    bankName: rawBankName,
-    amount: topupAmount,
-    content: transferContent,
-    accountName: bankAccount,
-  });
 
   const displayBankName = qrData.bankInfo.name;
 
@@ -495,19 +523,31 @@ export const UserWalletModal: React.FC<UserWalletModalProps> = ({
 
                     <div className="flex flex-col sm:flex-row items-center gap-3.5">
                       {/* Dynamic VietQR Image Frame */}
-                      <div className="w-36 h-36 sm:w-40 sm:h-40 bg-white rounded-xl p-2 shrink-0 shadow-sm flex items-center justify-center border border-slate-300 dark:border-border">
+                      <div className="w-36 h-36 sm:w-40 sm:h-40 bg-white rounded-xl p-2 shrink-0 shadow-sm flex items-center justify-center border border-slate-300 dark:border-border relative">
                         {isValidAmount ? (
-                          <img
-                            src={qrData.primaryUrl}
-                            alt="Mã QR Chuyển Khoản Nạp Core"
-                            className="w-full h-full object-contain"
-                            onError={(e) => {
-                              const target = e.target as HTMLImageElement;
-                              if (target.src !== qrData.fallbackUrl) {
-                                target.src = qrData.fallbackUrl;
-                              }
-                            }}
-                          />
+                          qrDataUrl ? (
+                            <img
+                              src={qrDataUrl}
+                              alt="Mã QR Chuyển Khoản Nạp Core"
+                              className="w-full h-full object-contain"
+                            />
+                          ) : (
+                            <img
+                              src={qrData.primaryUrl}
+                              alt="Mã QR Chuyển Khoản Nạp Core"
+                              className="w-full h-full object-contain"
+                              crossOrigin="anonymous"
+                              referrerPolicy="no-referrer"
+                              onError={(e) => {
+                                const target = e.target as HTMLImageElement;
+                                if (qrDataUrl) {
+                                  target.src = qrDataUrl;
+                                } else if (target.src !== qrData.fallbackUrl) {
+                                  target.src = qrData.fallbackUrl;
+                                }
+                              }}
+                            />
+                          )
                         ) : (
                           <div className="text-center p-2 text-rose-400 text-[10.5px] font-medium flex flex-col items-center justify-center gap-1.5 h-full">
                             <AlertCircle className="w-5 h-5 text-rose-400" />

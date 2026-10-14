@@ -1,5 +1,11 @@
 const { execSync } = require('child_process');
 
+console.log('⚡ 0a. Compiling Compact Giftcodes Catalog Map...');
+execSync('node scripts/generate_compact_codes.cjs', { stdio: 'inherit' });
+
+console.log('🛡️ 0b. Verifying Pre-Deploy Data Integrity & Anti-Regression Guarantees...');
+execSync('node scripts/verify_data_integrity.cjs', { stdio: 'inherit' });
+
 console.log('🖼️ 1. Ensuring OG JPG Icons for Zalo/Facebook compatibility...');
 execSync('node scripts/generate_og_jpg_icons.cjs', { stdio: 'inherit' });
 

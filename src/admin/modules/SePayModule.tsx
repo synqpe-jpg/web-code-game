@@ -24,9 +24,8 @@ import { FormModal } from '../components/ui/FormModal';
 import { Step2VerificationModal } from '../components/ui/Step2VerificationModal';
 import { adminDataService } from '../services/adminDataService';
 import { SePayConfig, SePayWebhookLog, MemberRecord } from '../types/adminTypes';
-import { formatFullDateTime } from '../../utils/textUtils';
-import { formatCore, formatCurrencyVND } from '../../utils/textUtils';
-import { buildVietQrUrl, normalizeBank } from '../../utils/vietQrUtils';
+import { formatFullDateTime, formatCore, formatCurrencyVND } from '../../utils/textUtils';
+import { buildVietQrUrl, normalizeBank, generateVietQrDataUrl } from '../../utils/vietQrUtils';
 
 interface SePayModuleProps {
   onShowToast: (title: string, desc?: string, type?: 'success' | 'error' | 'info') => void;
@@ -63,6 +62,7 @@ export const SePayModule: React.FC<SePayModuleProps> = ({ onShowToast }) => {
   const [isStep2ConfigModalOpen, setIsStep2ConfigModalOpen] = useState(false);
   const [isTestingApiKey, setIsTestingApiKey] = useState(false);
   const [apiTestResult, setApiTestResult] = useState<{ success: boolean; message: string } | null>(null);
+  const [previewQrDataUrl, setPreviewQrDataUrl] = useState('');
 
   // Webhook Test Simulator State
   const [isTestModalOpen, setIsTestModalOpen] = useState(false);
@@ -94,9 +94,9 @@ export const SePayModule: React.FC<SePayModuleProps> = ({ onShowToast }) => {
     setConfig(cfg);
     if (cfg) {
       setApiKey(cfg.apiKey || '');
-      setBankAccount(cfg.bankAccount || 'CONG TY TNHH WEB CODE GAME');
-      setAccountNumber(cfg.accountNumber || '0987654321');
-      setBankName(cfg.bankName || 'MBBank');
+      setBankAccount(cfg.bankAccount || 'CODE GAME SHOP');
+      setAccountNumber(cfg.accountNumber || '10004681879');
+      setBankName(cfg.bankName || 'TPBank');
       setPaymentPrefix(cfg.paymentPrefix || 'WCG');
     }
     const l = adminDataService.getSePayLogs();
@@ -196,8 +196,8 @@ export const SePayModule: React.FC<SePayModuleProps> = ({ onShowToast }) => {
         transactionId: testTxId,
         amount: testAmount,
         content: content,
-        gateway: bankName || 'MBBank',
-        accountNumber: accountNumber || '0987654321',
+        gateway: bankName || 'TPBank',
+        accountNumber: accountNumber || '10004681879',
       });
 
       setIsSimulating(false);
@@ -290,12 +290,29 @@ export const SePayModule: React.FC<SePayModuleProps> = ({ onShowToast }) => {
   };
 
   const previewQrData = buildVietQrUrl({
-    accountNumber: accountNumber || '0987654321',
-    bankName: bankName || 'MBBank',
+    accountNumber: accountNumber || '10004681879',
+    bankName: bankName || 'TPBank',
     amount: 50000,
     content: `${paymentPrefix} usr-1`,
     accountName: bankAccount,
   });
+
+  useEffect(() => {
+    let isMounted = true;
+    generateVietQrDataUrl({
+      accountNumber: accountNumber || '10004681879',
+      bankName: bankName || 'TPBank',
+      amount: 50000,
+      content: `${paymentPrefix} usr-1`,
+    })
+      .then((url) => {
+        if (isMounted) setPreviewQrDataUrl(url);
+      })
+      .catch(() => {});
+    return () => {
+      isMounted = false;
+    };
+  }, [accountNumber, bankName, paymentPrefix]);
 
   const columns: Column<SePayWebhookLog>[] = [
     {
@@ -685,12 +702,16 @@ export const SePayModule: React.FC<SePayModuleProps> = ({ onShowToast }) => {
             <div className="mt-4 p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 flex flex-col items-center text-center">
               <div className="w-44 h-44 bg-white rounded-xl p-2 shadow-sm flex items-center justify-center">
                 <img
-                  src={previewQrData.primaryUrl}
+                  src={previewQrDataUrl || previewQrData.primaryUrl}
                   alt="SePay VietQR Preview"
                   className="w-full h-full object-contain"
+                  crossOrigin="anonymous"
+                  referrerPolicy="no-referrer"
                   onError={(e) => {
                     const target = e.target as HTMLImageElement;
-                    if (target.src !== previewQrData.fallbackUrl) {
+                    if (previewQrDataUrl && target.src !== previewQrDataUrl) {
+                      target.src = previewQrDataUrl;
+                    } else if (target.src !== previewQrData.fallbackUrl) {
                       target.src = previewQrData.fallbackUrl;
                     }
                   }}

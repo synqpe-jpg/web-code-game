@@ -589,7 +589,182 @@
 - ⛔ **CÁCH SỬA ĐÃ THẤT BẠI - TUYỆT ĐỐI KHÔNG LẶP LẠI**:
   - ❌ *Không phụ thuộc 100% vào việc ghi mảng monolithic >1MB vào 1 hàng trong bảng system_settings D1*: Bắt buộc phải có bundled fallback trong Edge Worker bundle.
 
+### ISSUE-033: Bẫy Ghi Đè Mù Quáng Danh Mục Dữ Liệu & Hồi Quy Snapshot Cũ (Blind Overwrite & Stale Snapshot Regression Trap)
+- **Triệu chứng**:
+  - Sau khi thêm game mới, nguồn cào mới hoặc giftcode mới, qua vài lượt thao tác trên Admin UI hoặc sau khi tải lại trang, số lượng thực thể bị tụt giảm trở về các con số cũ (ví dụ tụt từ 933 nguồn về 855 nguồn, tụt từ 623 game về 188 game).
+- **Nguyên nhân gốc rễ**:
+  1. *Gán mảng trực tiếp (Blind Array Assignment)*: Code sử dụng phép gán thô `this.games = json.games` hoặc `localStorage.setItem(..., JSON.stringify(json.games))` mà không kiểm tra độ đầy đủ của mảng đến. Nếu server trả về mảng cũ hoặc mảng rỗng, dữ liệu mới trên local bị xóa sổ hoàn toàn.
+  2. *Lệch khóa định danh trong Sync API*: Caller gửi payload `{ key, data }` trong khi backend chỉ kiểm tra thuộc tính trực tiếp `body.xyz !== undefined`, dẫn đến việc backend bỏ qua việc lưu vào D1 và chỉ giữ snapshot cũ.
+  3. *Thiếu cổng kiểm soát trước khi build (Pre-Deploy Integrity Gatekeeper)*: Hệ thống không có bước chặn tự động khi số lượng bản ghi giảm sút dưới ngưỡng cam kết.
+- **Giải pháp chuẩn đã kiểm chứng (Kiến trúc 4 Trụ Cột)**:
+  1. **Canonical Schema Adapter (`extractIncomingData`)**: Luôn trích xuất dữ liệu qua adapter nhận diện cả thuộc tính trực tiếp lẫn cặp `{ key, data }` và payload aliases.
+  2. **Non-Destructive Monotonic Set Union (`smartMergeEntities`)**:
+     - Luôn sử dụng phép hợp tăng tiến đơn điệu có bảo toàn theo khóa định danh (`id`, `slug`, composite key).
+     - Tuyệt đối không gán đè trực tiếp mảng từ server lên local nếu chưa qua phép hợp có sàn bảo vệ (`floor guard`).
+  3. **Tách biệt dữ liệu lớn & Edge Bundling**: D1 chỉ lưu trữ các bản ghi tạo mới (`custom_free_codes`, `deleted_free_codes`), danh mục tĩnh chuẩn (5.321 mã, 623 game, 933 nguồn) được nhúng sẵn vào Worker và HTML tĩnh.
+  4. **Pre-Deploy Gatekeeper (`scripts/verify_data_integrity.cjs`)**: Bắt buộc chạy ở Bước 0 của `build.cjs`. Nếu số lượng bản ghi tụt giảm dưới sàn cam kết ($\ge 623$ game, $\ge 5.321$ mã, $\ge 933$ nguồn), build lập tức bị hủy bỏ với `exit code 1`.
+- ⛔ **CÁCH SỬA ĐÃ THẤT BẠI - TUYỆT ĐỐI KHÔNG LẶP LẠI**:
+  - ❌ *Không gán trực tiếp mảng dữ liệu từ API về state client hoặc từ request body vào database*: Phải luôn dùng `smartMergeEntities`.
+  - ❌ *Không dùng URL thô làm khóa định danh duy nhất cho nguồn crawler*: Các nguồn cào có thể chia sẻ cùng URL fanpage nhà phát hành nhưng phục vụ các game khác nhau (`targetGameSlug`). Khóa định danh bắt buộc phải là `s.id || (s.targetGameSlug ? `${s.targetGameSlug}_${url}` : url)`.
+
 ---
+
+### ISSUE-034: Bẫy Gom Chunk 4.4MB Khiến Trình Duyệt Mobile Báo 0 Tựa Game & Mất Toàn Bộ Giftcode
+- **Triệu chứng**:
+  - Người dùng truy cập bằng điện thoại trên mạng 3G/4G yếu (ví dụ 2.5 KB/s) thấy màn hình hiển thị "Tất cả (0)" và "Không tìm thấy tựa game nào phù hợp", mất toàn bộ danh mục game và giftcode.
+- **Nguyên nhân gốc rễ**:
+  1. *Cấu hình Rollup gom chunk quá lớn*: Trong `vite.config.ts`, `crawled_codes_188.json` (5.321 mã, ~3.8MB) và `games188.json` (623 game, ~660KB) bị gom chung vào một chunk `game-catalog-data` nặng tới 4.4MB.
+  2. *Mạng di động chậm (2.5 KB/s)*: Tải file 4.4MB qua mạng 2.5 KB/s mất hơn 30 phút hoặc bị timeout/hủy tải giữa chừng.
+  3. *Nuốt lỗi trong dynamic import*: `try { await Promise.all([import(...), import(...)]); } catch {}` trong `processData()` nuốt lỗi khi tải chunk 4.4MB thất bại, trả về `rawGamesData = []`.
+  4. *Khởi tạo bất đồng bộ làm rỗng state*: `cleanupLegacyV3Data()` xóa `wcg_admin_games_v5` trong localStorage, trong khi `initSyncBaseline()` chưa có, khiến `this.games` bị rỗng.
+  5. *Đè `codes_count` bằng 0*: Logic `codes_count: existingCodes.length` khi `existingCodes` rỗng ghi đè toàn bộ số lượng giftcode phong phú thành 0.
+- **Giải pháp chuẩn đã kiểm chứng**:
+  1. **Tách biệt manualChunks**: Phân tách `crawled_codes_188.json` vào chunk riêng `heavy-codes-data` (chỉ tải lazy khi offline), hạ `game-catalog-data` xuống chỉ còn 713 KB (104 KB gzip).
+  2. **Gỡ bỏ import thừa `adminDataService` trong `src/App.tsx`**: Không để client bundle bị kéo theo module admin.
+  3. **Khởi tạo đồng bộ `initSyncBaseline()`**: Ngay tại constructor của `dataService`, nạp trực tiếp `rawGamesData` (623 game) vào `this.games` một cách đồng bộ (0ms, 0 network request), đảm bảo danh mục luôn có sẵn 100% tựa game kể cả khi offline.
+  4. **Bảo toàn `codes_count` gốc**: Giữ nguyên `g.codes_count || g.free_codes_count || 0` khi `existingCodes` chưa có mã custom.
+  5. **Nâng cấp PWA Cache `codegame-pwa-v4`**: Xóa sạch cache v3 cũ trên thiết bị di động, buộc trình duyệt nạp bundle siêu nhẹ mới.
+- ⛔ **CÁCH SỬA ĐÃ THẤT BẠI - TUYỆT ĐỐI KHÔNG LẶP LẠI**:
+  - ❌ *Không gộp kho 5.321 mã giftcode vào bundle khởi tạo của web khách*: Giftcode chi tiết đã có Serverless Worker phục vụ qua `/api/games?slug=...` (< 5KB), chỉ tải on-demand khi thực sự cần.
+  - ❌ *Không dùng dynamic `import()` cho danh mục game cốt lõi*: Mạng yếu sẽ làm import thất bại, biến danh mục thành rỗng.
+  - ❌ *Không đè `codes_count: existingCodes.length` mà bỏ qua `g.codes_count`*: Sẽ xóa sạch bộ đếm mã quà tặng trên thẻ game.
+
+### ISSUE-035: Độ trễ hiển thị mảng giftcode rút gọn (/api/games preview truncate) khi mở modal hoặc deep link
+- **Triệu chứng**:
+  - Khi người dùng click vào một tựa game (như Ta Là Hắc Ngộ Không, Pirate Legends) hoặc mở trực tiếp URL `/game/:slug`, modal ban đầu chỉ hiện "Tất cả (3)" / "Còn hạn (3)" (hoặc 0-2 mã preview), số lượng mã nhảy giật sau 1-3 giây khi mạng tải xong.
+- **Nguyên nhân gốc rễ**:
+  1. *Server-side Truncation*: API `/api/games` trả về danh sách trò chơi cho trang chủ cố tình cắt ngắn `codes: (g.codes || []).slice(0, 3)` để tối ưu hóa payload trang chủ.
+  2. *Truyền Object Thiếu Mã Vào Modal*: Trong `App.tsx`, `handleSelectGame(game)` truyền trực tiếp object `game` nhận từ danh sách trang chủ vào state của modal, khiến modal chỉ hiển thị 3 mã ban đầu.
+  3. *Blocking Server Roundtrip với `fresh=1`*: Modal và App gọi `dataService.getGameBySlug(slug, true)` với cờ `forceFresh = true`. Tham số `fresh=1` ép Cloudflare Worker bỏ qua cache và truy vấn D1 database từ đầu qua mạng. Người dùng phải nhìn thấy 3 mã thiếu sót trong suốt thời gian roundtrip.
+  4. *File thô 4.78MB cồng kềnh*: File `crawled_codes_188.json` chứa quá nhiều trường dữ liệu dư thừa. Khi biên dịch thành compact catalog `{ [slug]: [ { code, rewards, status, expiry, added_at } ] }`, toàn bộ 5.321 mã chỉ nặng **54.9 KB gzipped**!
+- **Giải pháp chuẩn đã kiểm chứng**:
+  1. **Tạo Compact Codes Map (`compact_codes_by_game.json`)**: Biên dịch tự động toàn bộ 5.321 mã giftcode chuẩn thành map rút gọn chỉ 54.9 KB gzip và gom vào chunk `game-catalog-data` (tổng ~160 KB gzip).
+  2. **Nạp baseline đồng bộ ở Millisecond 0**: `dataService` nạp `compactCodesByGame` vào `codesMap` ngay trong constructor (0ms, 0 delay).
+  3. **Hàm `getGameBySlugLocal(slug)`**: Luôn trả về game chứa 100% giftcode ngay lập tức ở frame đầu tiên mà không phụ thuộc vào kết nối mạng.
+  4. **Khởi tạo Modal với 100% mã**: `GameDetailModal` và `handleSelectGame` luôn dùng `getGameBySlugLocal` để render 100% mã ngay ở 0ms. Việc đồng bộ server chạy ngầm ở background không chặn UI.
+- ⛔ **CÁCH SỬA ĐÃ THẤT BẠI - TUYỆT ĐỐI KHÔNG LẶP LẠI**:
+  - ❌ *Không truyền trực tiếp object game từ `queryGames` vào Modal khi chưa enrich đầy đủ giftcode*: Sẽ hiển thị mã bị cắt ngắn (chỉ 1-3 mã).
+  - ❌ *Không dùng `forceFresh = true` chặn UI khi người dùng click xem game*: Gây lag 1-3 giây và giật giao diện.
+### ISSUE-036: Bẫy Render-Blocking Curtain: Splash Preloader toàn màn hình che giấu Prerendered HTML và Monolithic Bundle 1.33MB làm chậm thời gian tải trang
+- **Triệu chứng**:
+  - Người dùng truy cập `codegame.shop` thấy màn hình tải trang quá lâu, bị giam ở màn hình splash preloader màu đen hoặc spinner CyberLoader trong nhiều giây.
+- **Nguyên nhân gốc rễ**:
+  1. *Splash Preloader màn hình đen toàn cảnh*: `#app-preloader` che toàn màn hình (`z-index: 9999999`) và chỉ được React tháo dỡ qua `useEffect` sau khi tải xong toàn bộ JavaScript. Trang web vốn có sẵn 60 thẻ game prerender trong HTML nhưng bị che hoàn toàn.
+  2. *Render-blocking Google Fonts (11 Font Weights)*: Thẻ `<link href="...fonts.googleapis.com...">` tải 7 font weights của Inter và 4 font weights của JetBrains Mono đồng bộ trong `<head>`, chặn đứng việc vẽ giao diện của trình duyệt.
+  3. *Monolithic JavaScript Bundle (1.33 MB index.js)*: Toàn bộ 17 view và modal phụ bị import tĩnh trong `App.tsx`, khiến bundle ban đầu quá nặng.
+  4. *Khởi tạo State Rỗng & 2 Request API Trùng Lặp*: State `games` rỗng kích hoạt CyberLoader trên mount, kết hợp với việc gọi đồng thời 2 API fetch `/api/games`.
+- **Giải pháp chuẩn đã kiểm chứng**:
+  1. **Tự động mờ Splash Preloader**: Inline script trên `DOMContentLoaded` (hoặc tối đa 700ms) mờ dần preloader ngay khi HTML sẵn sàng (~150ms).
+  2. **Non-blocking Font Preloading**: Dùng `preload` + `media="print" onload="this.media='all'"` để trình duyệt vẽ ngay với system font fallback và swap Inter font ngầm.
+  3. **Code-Splitting 17 View/Modal**: Sử dụng `React.lazy` và `Suspense`, giảm bundle `index.js` từ 1.33 MB xuống 925 KB.
+  4. **Nạp 24 Game Đồng Bộ 0ms**: Khởi tạo state `games: dataService.getLocalGamesSync(24)`, `isLoading: false`, loại bỏ fetch trùng lặp.
+- ⛔ **CÁCH SỬA ĐÃ THẤT BẠI - TUYỆT ĐỐI KHÔNG LẶP LẠI**:
+  - ❌ *Không để splash preloader cố định che phủ HTML prerender cho đến khi React hydrate*: Triệt tiêu toàn bộ ưu thế tải nhanh của prerendered static HTML.
+  - ❌ *Không import tĩnh các modal phụ vào root App component*: Phải code-split toàn bộ modal.
+
+---
+
+### ISSUE-037: Vỡ ảnh QR Code Nạp Tiền trên trình duyệt Cốc Cốc / AdBlocker do phụ thuộc URL CDN bên thứ ba
+- **Triệu chứng**:
+  - Người dùng truy cập modal nạp tiền trên trình duyệt Cốc Cốc hoặc trình duyệt có cài tiện ích chặn quảng cáo (uBlock, AdGuard) thấy ô mã QR bị vỡ ảnh (broken icon) kèm alt text *"Mã QR Chuyển Khoản Nạp Core"*, không thể quét mã để nạp tiền.
+- **Nguyên nhân gốc rễ**:
+  1. *Phụ thuộc hoàn toàn vào CDN bên thứ ba*: Trước đây hệ thống chỉ tạo URL ảnh trỏ tới `qr.sepay.vn` hoặc `img.vietqr.io`.
+  2. *Bộ lọc theo dõi / chặn quảng cáo chặn domain thanh toán ngoài*: Cốc Cốc và các tiện ích adblock chặn các domain `qr.sepay.vn` / `img.vietqr.io` do nhận diện nhầm là tracker thanh toán bên thứ ba (`ERR_BLOCKED_BY_CLIENT`).
+  3. *Lỗi timeout fallback*: Fallback sang `img.vietqr.io` thường xuyên mất hơn 7 giây hoặc cũng bị chặn, dẫn đến việc kích hoạt `onError` làm vỡ ảnh.
+- **Giải pháp chuẩn đã kiểm chứng**:
+  1. **Sinh VietQR Offline 0ms Chuẩn EMVCo / NAPAS 247**:
+     - Sử dụng thư viện `qrcode` có sẵn trong dự án kết hợp với thuật toán sinh payload TLV chuẩn quốc gia NAPAS 247 (`generateVietQrDataUrl`).
+     - Tạo ảnh mã QR dạng `data:image/png;base64,...` trực tiếp ngay trên bộ nhớ trình duyệt client trong 20ms, 0 network request, miễn nhiễm 100% với AdBlocker và sự cố mạng.
+  2. **Chuẩn hóa nội dung chuyển khoản Tag 62**: Dùng `removeVietnameseAccents` để loại bỏ dấu tiếng Việt, đảm bảo tương thích 100% ứng dụng ngân hàng.
+  3. **Trang bị `referrerPolicy="no-referrer"`**: Ngăn chặn rò rỉ referrer khi render thẻ ảnh QR.
+- ⛔ **CÁCH SỬA ĐÃ THẤT BẠI - TUYỆT ĐỐI KHÔNG LẶP LẠI**:
+  - ❌ *Không chỉ dựa vào thẻ `<img>` trỏ link HTTP bên thứ ba cho mã QR thanh toán*: Bắt buộc phải có bộ sinh Base64 DataURL offline tại chỗ.
+  - ❌ *Không đưa ký tự tiếng Việt có dấu vào Tag 62 của chuẩn VietQR*: Gây lỗi quét trên nhiều ứng dụng ngân hàng.
+
+---
+
+### ISSUE-038: Lỗi Sập Giao Diện Minified React Error #310 do gọi Hooks sau câu lệnh Early Return
+- **Triệu chứng**:
+  - Người dùng bấm mở một modal (ví dụ: Modal Nạp Tiền) thì toàn bộ giao diện bị crash, hiển thị màn hình Error Boundary: *"Đã có sự cố hiển thị nhỏ xảy ra - Minified React error #310"*.
+- **Nguyên nhân gốc rễ**:
+  - Vi phạm **Rules of Hooks**: Khai báo hook (`useEffect`, `useState`,...) nằm phía dưới câu lệnh thoát sớm `if (!isOpen) return null;`.
+  - Khi modal đóng (`isOpen = false`), component return sớm, số lượng hooks được chạy là $N$.
+  - Khi modal mở (`isOpen = true`), component chạy tiếp xuống dưới câu lệnh return, kích hoạt thêm hook mới thành $N + 1$.
+  - React ném lỗi invariant 310 (*"Rendered more hooks than during the previous render"*).
+- **Giải pháp chuẩn đã kiểm chứng**:
+  - **Quy tắc tuyệt đối**: Toàn bộ hooks của mọi React component PHẢI được đặt ở mức trên cùng (top-level) của hàm component, trước bất kỳ câu lệnh `return` nào.
+  - Đặt điều kiện kiểm tra (ví dụ `if (!isOpen) return;`) **bên trong** callback của hook, không đặt hook sau câu lệnh điều kiện.
+- ⛔ **CÁCH SỬA ĐÃ THẤT BẠI - TUYỆT ĐỐI KHÔNG LẶP LẠI**:
+  - ❌ *Tuyệt đối không đặt hook sau `if (!isOpen) return null;` hoặc bất kỳ early return nào*: Luôn dẫn đến lỗi phá vỡ chuỗi hooks khi trạng thái thay đổi.
+
+---
+
+### ISSUE-039: Bất đồng bộ danh mục Tiện ích / Cửa hàng, vỡ thông báo FOMO và lệch số lượng tồn kho giữa các trình duyệt do thiếu Sàn Danh mục Biên (Edge Baseline Floor)
+- **Triệu chứng**:
+  1. Người dùng mở trang Web Khách ở một trình duyệt mới (ví dụ Cốc Cốc) thì mục Tiện Ích báo *"Không tìm thấy tiện ích nào"*, mục Cửa Hàng trống trơn 0 sản phẩm.
+  2. Mục thông báo FOMO popup giữa 2 trình duyệt bị lệch hoàn toàn: Chrome hiển thị *"vừa mua thành công..."* (`BUY_PRODUCT`) trong khi Cốc Cốc hiển thị *"Phan T*** Tùng vừa nạp thành công 100.000đ..."* (`DEPOSIT_WALLET`).
+  3. Số lượng tồn kho và trạng thái còn/hết hàng bị chênh lệch giữa các trình duyệt.
+- **Nguyên nhân gốc rễ**:
+  1. *Thiếu Sàn Danh Mục Biên phía Serverless API*: Trong `functions/api/sync.ts`, không có cơ chế fallback nhập `utilities.json` hay `storeProducts.json` khi Cloudflare D1 rỗng (`rawUtilities = []`), khiến API trả về `{ utilities: [] }`.
+  2. *Lỗi ghi đè trắng LocalStorage phía Client*: `syncWithCloudflareKV()` nhận mảng rỗng `json.utilities = []` từ server rồi ghi đè trực tiếp `localStorage.setItem('wcg_admin_utilities_v4', '[]')`. Hàm `getUtilityProducts()` và `getStoreProducts()` không có cơ chế fallback ngược về `defaultUtilities`/`defaultStoreProducts` khi mảng rỗng.
+  3. *Tồn kho thật bằng 0 trong file tĩnh*: Toàn bộ 19 mục tiện ích trong `utilities.json` ban đầu bị gán cứng `stock_quantity: 0`. Theo Quy tắc vàng kho hàng (Rule 3.1: `baseStock <= 0 => displayStock = 0, "HẾT HÀNG"`), toàn bộ tiện ích bị coi là hết hàng.
+  4. *Lệch thông báo FOMO do danh sách rỗng*: Thuật toán `getDeterministicNotification` kiểm tra `allEligible = [...eligibleStoreProds, ...eligibleUtilityProds]`. Trên Chrome có sản phẩm còn hàng thì nổ `BUY_PRODUCT`; trên Cốc Cốc danh mục rỗng hoặc hết hàng thì `allEligible.length === 0`, buộc hàm phải nhảy vào nhánh fallback sang `DEPOSIT_WALLET`.
+- **Giải pháp chuẩn đã kiểm chứng**:
+  1. **Thiết lập Sàn Danh Mục Bất Khả Xâm Phạm trên Cloudflare API**:
+     - `functions/api/sync.ts` nhập tĩnh `fallbackUtilitiesData`, `fallbackStoreProductsData`, `fallbackGiveawaysData`. Nếu D1 rỗng, tự động trả về baseline và chạy ngầm auto-seed vào D1.
+     - `loadAllUtilitiesD1`, `loadAllStoreProductsD1`, `loadAllGiveawaysD1` trong `d1_service.ts`: Nếu câu lệnh SQL trả về 0 dòng nhưng `metaSetting` có dữ liệu, trả về `metaSetting` thay vì trả về `[]`.
+  2. **Trang bị Chốt Chặn Chống Xóa Trắng (Floor Guard & Monotonic Merge) tại Client**:
+     - Tại `initSyncBaseline()` ở millisecond 0: Tự động nạp `defaultUtilities` (19 mục), `defaultStoreProducts` (6 mục), `DEFAULT_GIVEAWAYS` (33 chiến dịch) vào LocalStorage.
+     - Tại `getUtilityProducts()` và `getStoreProducts()`: Nếu rỗng, lập tức fallback về danh mục mặc định.
+     - Tại `syncWithCloudflareKV()`: Dùng `smartMergeEntities` kèm floor guard, không bao giờ cho phép API đè trắng LocalStorage.
+  3. **Khôi phục Tồn kho Thật Chuẩn cho Toàn bộ Tiện Ích & Cửa Hàng**:
+     - Đặt lại `stock_quantity` từ 10 - 50 cho 19 gói Tiện ích (Pine World Browser + 18 gói VS Phone) và 6 gói Store Products.
+  4. **Bảo toàn Tính Tất Định của Thông Báo FOMO**:
+     - `getDeterministicNotification` áp dụng fallback an toàn sang `DEFAULT_STORE_PRODUCTS` và `DEFAULT_UTILITY_PRODUCTS`, đảm bảo mọi trình duyệt luôn sở hữu tập ứng viên đồng nhất 100%, sinh cùng loại thông báo và cùng sản phẩm tại từng giây.
+- ⛔ **CÁCH SỬA ĐÃ THẤT BẠI - TUYỆT ĐỐI KHÔNG LẶP LẠI**:
+  - ❌ *Không được gán đè trực tiếp mảng từ server `localStorage.setItem(key, JSON.stringify(json.utilities))` mà không có Floor Guard bảo vệ*: Dễ xóa sạch toàn bộ sản phẩm trên client khi máy chủ cold start hoặc trả về mảng rỗng.
+  - ❌ *Không được gán tồn kho dương tùy tiện vào file json tĩnh khi kho mã thực tế chưa có mã*: Gây ra lỗi bán khống, sập đơn hàng tại khâu thanh toán D1.
+
+---
+
+### ISSUE-040: Bán khống sản phẩm khi kho mã thực tế bằng 0 do gán tồn kho tĩnh dương và nhánh fallback SQL D1
+- **Triệu chứng**:
+  - Web Khách hiển thị sản phẩm còn hàng ("Còn 45/50 sản phẩm"), nút "Mua ngay" sáng xanh, nhưng khi khách bấm mua thì bị báo lỗi *"Sản phẩm tạm thời hết hàng trong kho. Vui lòng liên hệ Admin nạp thêm mã"* (`OUT_OF_STOCK`).
+  - Trong Admin: Mục Quản lý Cửa Hàng & Tiện Ích hiển thị đúng *"Kho: Hết hàng (0 mã)"*, tạo ra sự bất nhất nghiêm trọng giữa giao diện Admin và Web Khách.
+- **Nguyên nhân gốc rễ**:
+  1. File tĩnh `utilities.json` và `storeProducts.json` bị gán `stock_quantity: 10..50` nhằm cứu nguy cho danh mục trống trước đó.
+  2. Câu lệnh SQL trong `loadAllStoreProductsD1` và `loadAllUtilitiesD1` có nhánh `ELSE sp.stock_quantity`. Khi `COUNT(inventory_codes) = 0`, SQL trả về con số tĩnh cũ thay vì `0`.
+  3. Hàm `getStoreProducts()` và `getUtilities()` trong `adminDataService.ts` trả về `p.stock_quantity ?? 0` khi `matchingCodes.length === 0`.
+- **Giải pháp chuẩn đã kiểm chứng**:
+  1. Đưa toàn bộ tồn kho tĩnh trong `utilities.json` và `storeProducts.json` về đúng `stock_quantity: 0`.
+  2. Sửa SQL query D1: Khi `COUNT(inventory_codes) = 0`, trả về đúng `0` (`ELSE 0`).
+  3. Sửa `adminDataService.ts`: Khi `matchingCodes.length === 0`, trả về đúng `stock_quantity: 0`.
+  4. Nâng cấp `DATASET_VERSION = 'wcg_dataset_2026_10_14_v39'` và tự động dọn sạch cache cũ trên mọi client.
+  5. Khi nào Admin vào mục Quản lý và bấm "Nhập kho" nạp mã thật, hệ thống mới nâng tồn kho và kích hoạt nút mua trên Web Khách.
+- ⛔ **CÁCH SỬA ĐÃ THẤT BẠI - TUYỆT ĐỐI KHÔNG LẶP LẠI**:
+### ISSUE-041: Gián đoạn thông báo FOMO Marketing trên Web Khách & Không mở được tab Thông Báo Marketing trong Admin
+- **Triệu chứng**:
+  - Người dùng hỏi: *"Hệ Thống fomo marketing toi đâu?"*.
+  - Trong Admin: Bấm vào mục "Thông Báo Marketing" (`#/marketing`) nhưng trang không chuyển hoặc bị gián đoạn.
+  - Ngoài Web Khách: Sau khi đưa tồn kho thật của toàn bộ sản phẩm về 0 (để chống bán khống), các thông báo FOMO marketing nổ rất thưa thớt hoặc mất hẳn.
+- **Nguyên nhân gốc rễ**:
+  1. *Lỗi hash routing trong Admin (`AdminApp.tsx`)*: Mảng `validTabs` trong `handleHashChange` chỉ có 15 tab, bỏ sót 4 tab: `'marketing'`, `'crawler'`, `'floating-notification'`, `'growth'`. Bất kỳ thao tác chuyển hash sang `#/marketing` đều bị từ chối và giữ nguyên tab cũ.
+  2. *Bộ chọn ngẫu nhiên tất định bị rỗng (Empty Fallback Drop)*: Khi `stock_quantity = 0`, loại `BUY_PRODUCT` vẫn được đưa vào pool ứng viên với trọng số 35/112 (31.25%). Khi PRNG chọn `BUY_PRODUCT`, logic không tìm thấy sản phẩm nào có hàng và rơi vào nhánh fallback gán `chosenType = 'COPY_CODE'`. Tương tự với `RESTOCK_PRODUCT` và `CLAIM_GIVEAWAY`. Tuy nhiên việc gán này nằm dưới khối xử lý `COPY_CODE` khiến hàm đi thẳng tới `return null`.
+  3. *Tải bất đồng bộ danh mục Game*: Khi component toast mount, `dataService.getGames()` trả về mảng rỗng `[]` do `processData()` chưa kết thúc và không gọi listener.
+- **Giải pháp chuẩn đã kiểm chứng**:
+  1. Dùng chung hằng số `ALL_ADMIN_TABS` (đủ 19 tab) cho cả khởi tạo và `handleHashChange` trong `AdminApp.tsx`.
+  2. Trong `marketingService.ts`: Kiểm tra `hasEligibleBuyItems` và `hasEligibleGiveawayItems` trước khi đưa vào candidate pool. Nếu kho có 0 hàng khả dụng, trọng số tự động dồn sang `COPY_CODE`, `DEPOSIT_WALLET`, `STATS_COPY`, `RESTOCK_PRODUCT` (đảm bảo 100% time slot đều có thông báo sôi động).
+  3. Bổ sung `rawGamesData` làm fallback trực tiếp cho `COPY_CODE` để không bao giờ bị rỗng.
+  4. Sửa triệt để mọi nhánh fallback của `RESTOCK_PRODUCT` và `BUY_PRODUCT` để trả về thông báo hợp lệ thay vì `null`.
+- ⛔ **CÁCH SỬA ĐÃ THẤT BẠI - TUYỆT ĐỐI KHÔNG LẶP LẠI**:
+  - ❌ *Không được tạo thông báo mua hàng ảo (`BUY_PRODUCT`) cho các sản phẩm có `stock_quantity = 0`*: Vi phạm nghiêm trọng Quy tắc 3.1. Phải dồn trọng số sang `COPY_CODE` và `DEPOSIT_WALLET`.
+  - ❌ *Không được gán `chosenType = 'COPY_CODE'` sau khi khối `if (chosenType === 'COPY_CODE')` đã kết thúc*: Luôn trực tiếp khởi tạo và trả về thông báo hoàn chỉnh.
+
+---
+
+
+
+
 
 ## 2. QUY TRÌNH BẮT BUỘC TRƯỚC KHI SỬA CODE (PRE-FLIGHT CHECKLIST)
 
