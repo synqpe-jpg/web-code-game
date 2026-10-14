@@ -1,4 +1,6 @@
 import { getMultipleSettingsD1 } from '../services/d1_service';
+import fallbackGamesData from '../../src/data/games188.json';
+import fallbackCodesData from '../../src/data/crawled_codes_188.json';
 
 export interface Env {
   DB?: D1Database;
@@ -199,8 +201,16 @@ export async function getLoadedCatalog(db: D1Database, forceFresh: boolean = fal
     'wcg_deleted_free_codes',
   ]);
 
-  const rawGames = settings['wcg_admin_games_v5'] || settings['wcg_admin_games_v4'] || [];
-  const rawCodes = settings['wcg_admin_free_codes_v5'] || settings['wcg_admin_free_codes_v4'] || [];
+  const rawGames = (Array.isArray(settings['wcg_admin_games_v5']) && settings['wcg_admin_games_v5'].length > 0)
+    ? settings['wcg_admin_games_v5']
+    : ((Array.isArray(settings['wcg_admin_games_v4']) && settings['wcg_admin_games_v4'].length > 0)
+      ? settings['wcg_admin_games_v4']
+      : (fallbackGamesData as any[]));
+  const rawCodes = (Array.isArray(settings['wcg_admin_free_codes_v5']) && settings['wcg_admin_free_codes_v5'].length > 0)
+    ? settings['wcg_admin_free_codes_v5']
+    : ((Array.isArray(settings['wcg_admin_free_codes_v4']) && settings['wcg_admin_free_codes_v4'].length > 0)
+      ? settings['wcg_admin_free_codes_v4']
+      : (fallbackCodesData as any[]));
   const customCodes = settings['wcg_admin_custom_free_codes_v1'] || [];
   const deletedCodesSet = new Set<string>(
     Array.isArray(settings['wcg_deleted_free_codes']) ? settings['wcg_deleted_free_codes'] : []
