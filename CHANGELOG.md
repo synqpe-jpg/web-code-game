@@ -7,6 +7,26 @@ Mỗi mục sửa lỗi đều ghi nhận **Nguyên nhân gốc rễ (Root Cause
 
 ## [2026-10-14]
 
+### 45. Khắc Phục Triệt Để Nghẽn Băng Thông Mobile (4.4MB Chunk) Khiến Web Báo 0 Tựa Game & Không Thấy Giftcode
+- **Mô tả & Yêu cầu Người Dùng**:
+  - Người dùng gửi ảnh chụp màn hình điện thoại truy cập `codegame.shop` hiển thị "Tất cả (0)" và "Không tìm thấy tựa game nào phù hợp", báo cáo không thấy giftcode và trò chơi nào ngoài trang web.
+- **Phân Tích Nguyên Nhân Gốc Rễ (Root Cause Analysis)**:
+  1. *Nghẽn Bundle 4.4MB trên Mạng Di Động Yếu*: Trong `vite.config.ts`, `crawled_codes_188.json` (5.321 mã quà tặng, ~3.8MB) và `games188.json` bị gom chung vào một manual chunk `game-catalog-data` nặng tới 4.403 KB (4.4 MB).
+  2. *Băng thông di động chỉ đạt 2.5 KB/s (ghi nhận trong thanh trạng thái ảnh chụp)*: Ở tốc độ 2.5 KB/s, tải một file 4.4MB mất hơn 30 phút hoặc bị timeout/kết nối ngắt quãng bởi trình duyệt di động.
+  3. *Nuốt lỗi âm thầm trong `processData`*: Khối `try { await Promise.all([import('../data/crawled_codes_188.json'), import('../data/games188.json')]); } catch {}` bắt lỗi âm thầm khi tải chunk 4.4MB thất bại, khiến `rawGamesData = []`.
+  4. *Rỗng danh mục khi LocalStorage bị reset*: Hàm `cleanupLegacyV3Data` dọn dẹp `wcg_admin_games_v5`, trong khi `initSyncBaseline` chưa có, khiến `this.games` bị rỗng hoàn toàn.
+  5. *Đè `codes_count` bằng 0*: Logic `codes_count: existingCodes.length` khi `existingCodes` rỗng đã ghi đè toàn bộ số lượng giftcode chuẩn (ví dụ 46 mã của Pirate Legends, 20 mã của Hắc Ngộ Không) thành 0.
+- **Giải Pháp Đã Triển Khai (Proven Solution)**:
+  1. *Tách biệt manualChunks trong `vite.config.ts`*: Tách riêng `crawled_codes_188.json` vào `heavy-codes-data` (chỉ tải on-demand khi người dùng offline mở modal game), giảm `game-catalog-data` từ 4.4MB xuống chỉ còn 713 KB (104 KB gzip).
+  2. *Gỡ bỏ import thừa `adminDataService` trong `src/App.tsx`*: Tránh việc client bundle bị kéo theo module admin và dữ liệu nặng.
+  3. *Tích hợp `initSyncBaseline()` đồng bộ*: Ngay tại constructor của `dataService`, nạp trực tiếp `rawGamesData` (623 game) vào `this.games` một cách đồng bộ (0ms, 0 network request), đảm bảo danh mục không bao giờ rỗng ở bất kỳ thời điểm nào kể cả khi offline.
+  4. *Bảo toàn `codes_count` gốc*: Giữ nguyên `(g.codes_count || g.free_codes_count || 0)` khi chưa có mã custom, hiển thị đầy đủ badge giftcode (ví dụ "🎁 46+ Giftcode") trên từng thẻ game.
+  5. *Nâng cấp PWA Cache `codegame-pwa-v4`*: Xóa sạch cache v3 cũ trên thiết bị di động, kích hoạt claim ngay lập tức để nạp bundle siêu nhẹ mới.
+- **Giải Pháp Đã Thất Bại & Cần Tránh (Failed Attempts - Do Not Repeat)**:
+  - ❌ *Không được gộp file danh mục game và kho giftcode 5.321 mã vào chung một chunk*: Khiến dung lượng phình to 4.4MB làm tê liệt hoàn toàn thiết bị mạng chậm.
+  - ❌ *Không được dùng dynamic `import()` cho danh mục game cơ sở*: Mạng yếu sẽ làm import thất bại, biến danh mục thành mảng rỗng.
+  - ❌ *Không được gán `codes_count: existingCodes.length` mà bỏ qua `g.codes_count`*: Sẽ xóa sạch bộ đếm mã quà tặng trên giao diện khi kho mã chi tiết chưa nạp vào client.
+
 ### 44. Triển Khai Kiến Trúc Bất Khả Xâm Phạm: Chống Ghi Đè, Khắc Phục Lệch Khóa D1/KV Và Ngăn Chặn Hồi Quy Dữ Liệu
 - **Mô tả & Yêu cầu Người Dùng**:
   - Người dùng yêu cầu xử lý dứt điểm 3 lỗi đồng bộ dữ liệu lặp lại nhiều lần trong quá trình cùng làm việc:

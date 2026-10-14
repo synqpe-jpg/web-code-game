@@ -609,6 +609,28 @@
 
 ---
 
+### ISSUE-034: Bẫy Gom Chunk 4.4MB Khiến Trình Duyệt Mobile Báo 0 Tựa Game & Mất Toàn Bộ Giftcode
+- **Triệu chứng**:
+  - Người dùng truy cập bằng điện thoại trên mạng 3G/4G yếu (ví dụ 2.5 KB/s) thấy màn hình hiển thị "Tất cả (0)" và "Không tìm thấy tựa game nào phù hợp", mất toàn bộ danh mục game và giftcode.
+- **Nguyên nhân gốc rễ**:
+  1. *Cấu hình Rollup gom chunk quá lớn*: Trong `vite.config.ts`, `crawled_codes_188.json` (5.321 mã, ~3.8MB) và `games188.json` (623 game, ~660KB) bị gom chung vào một chunk `game-catalog-data` nặng tới 4.4MB.
+  2. *Mạng di động chậm (2.5 KB/s)*: Tải file 4.4MB qua mạng 2.5 KB/s mất hơn 30 phút hoặc bị timeout/hủy tải giữa chừng.
+  3. *Nuốt lỗi trong dynamic import*: `try { await Promise.all([import(...), import(...)]); } catch {}` trong `processData()` nuốt lỗi khi tải chunk 4.4MB thất bại, trả về `rawGamesData = []`.
+  4. *Khởi tạo bất đồng bộ làm rỗng state*: `cleanupLegacyV3Data()` xóa `wcg_admin_games_v5` trong localStorage, trong khi `initSyncBaseline()` chưa có, khiến `this.games` bị rỗng.
+  5. *Đè `codes_count` bằng 0*: Logic `codes_count: existingCodes.length` khi `existingCodes` rỗng ghi đè toàn bộ số lượng giftcode phong phú thành 0.
+- **Giải pháp chuẩn đã kiểm chứng**:
+  1. **Tách biệt manualChunks**: Phân tách `crawled_codes_188.json` vào chunk riêng `heavy-codes-data` (chỉ tải lazy khi offline), hạ `game-catalog-data` xuống chỉ còn 713 KB (104 KB gzip).
+  2. **Gỡ bỏ import thừa `adminDataService` trong `src/App.tsx`**: Không để client bundle bị kéo theo module admin.
+  3. **Khởi tạo đồng bộ `initSyncBaseline()`**: Ngay tại constructor của `dataService`, nạp trực tiếp `rawGamesData` (623 game) vào `this.games` một cách đồng bộ (0ms, 0 network request), đảm bảo danh mục luôn có sẵn 100% tựa game kể cả khi offline.
+  4. **Bảo toàn `codes_count` gốc**: Giữ nguyên `g.codes_count || g.free_codes_count || 0` khi `existingCodes` chưa có mã custom.
+  5. **Nâng cấp PWA Cache `codegame-pwa-v4`**: Xóa sạch cache v3 cũ trên thiết bị di động, buộc trình duyệt nạp bundle siêu nhẹ mới.
+- ⛔ **CÁCH SỬA ĐÃ THẤT BẠI - TUYỆT ĐỐI KHÔNG LẶP LẠI**:
+  - ❌ *Không gộp kho 5.321 mã giftcode vào bundle khởi tạo của web khách*: Giftcode chi tiết đã có Serverless Worker phục vụ qua `/api/games?slug=...` (< 5KB), chỉ tải on-demand khi thực sự cần.
+  - ❌ *Không dùng dynamic `import()` cho danh mục game cốt lõi*: Mạng yếu sẽ làm import thất bại, biến danh mục thành rỗng.
+  - ❌ *Không đè `codes_count: existingCodes.length` mà bỏ qua `g.codes_count`*: Sẽ xóa sạch bộ đếm mã quà tặng trên thẻ game.
+
+---
+
 ## 2. QUY TRÌNH BẮT BUỘC TRƯỚC KHI SỬA CODE (PRE-FLIGHT CHECKLIST)
 
 Mọi nhà phát triển hoặc AI Agent khi nhận yêu cầu sửa đổi mã nguồn **PHẢI** thực hiện đủ 4 bước sau:

@@ -27,7 +27,10 @@ export default defineConfig({
     rollupOptions: {
       output: {
         manualChunks(id) {
-          if (id.includes('crawled_codes_188.json') || id.includes('games188.json')) {
+          if (id.includes('crawled_codes_188.json')) {
+            return 'heavy-codes-data';
+          }
+          if (id.includes('games188.json')) {
             return 'game-catalog-data';
           }
           if (id.includes('node_modules/lucide-react')) {

@@ -21,6 +21,7 @@ import {
   DEFAULT_FLOATING_NOTIFICATION,
 } from '../types/floatingNotification';
 import { smartMergeEntities } from '../shared/dataMergeUtils';
+import rawGamesData from '../data/games188.json';
 
 interface RawGame {
   id?: string;
@@ -104,8 +105,84 @@ class DataService {
 
   constructor() {
     this.cleanupLegacyV3Data();
+    this.initSyncBaseline();
     this.setupSyncListeners();
     this.processData().catch(() => {});
+  }
+
+  /**
+   * Immediately populate this.games with all 623 games from rawGamesData synchronously
+   * Guarantees zero-network, zero-latency rendering even on ultra-slow mobile connections.
+   */
+  private initSyncBaseline(): void {
+    const fallbackGames = Array.isArray(rawGamesData) ? (rawGamesData as RawGame[]) : [];
+    const categorySet = new Set<string>();
+
+    this.games = fallbackGames
+      .filter((g) => g.status !== 'INACTIVE' && g.is_active !== false)
+      .map((g, index) => {
+        const slug = g.slug || g.id || `game-${index + 1}`;
+        const rawId = g.id || slug;
+        const cat = g.category ? g.category.trim() : 'Game Hot';
+        if (cat) categorySet.add(cat);
+
+        let iconUrl = g.icon_url || g.iconUrl || g.cover_image_url || '';
+        if (!iconUrl || iconUrl.startsWith('/game-icons') || iconUrl.startsWith('game-icons')) {
+          iconUrl = `/game_icons/${slug}.webp`;
+        }
+
+        const relDate = g.release_date || g.gp_release_date || '2026-09-01';
+        const codesCount = (g as any).codes_count || (g as any).free_codes_count || 0;
+
+        return {
+          id: rawId,
+          name: g.name || 'Tựa Game',
+          slug: slug,
+          publisher: g.publisher || 'Nhà phát hành chính thức',
+          category: cat,
+          rating: typeof g.rating === 'number' ? g.rating : 4.8,
+          icon_url: iconUrl,
+          banner_url: g.banner_url || g.bannerUrl || undefined,
+          description:
+            g.description ||
+            `Tổng hợp trọn bộ giftcode và mã quà tặng độc quyền của game ${g.name}. Cập nhật mới nhất 2026 trên CodeGame.Shop.`,
+          instructions:
+            g.instructions ||
+            'Bước 1: Mở game > Nhấn Avatar nhân vật\nBước 2: Chọn Cài đặt > Nhập Giftcode\nBước 3: Dán mã và nhấn Xác nhận.',
+          platform: g.platform || 'Android, iOS, PC',
+          so_giay_phep: g.so_giay_phep || (g as any).license_number || undefined,
+          ngay_cap_phep: g.ngay_cap_phep || (g as any).license_date || undefined,
+          license_number: (g as any).license_number || g.so_giay_phep || undefined,
+          license_date: (g as any).license_date || g.ngay_cap_phep || undefined,
+          trang_thai_gp: (g as any).trang_thai_gp || (g.so_giay_phep ? 'Đã cấp phép (ABEI)' : undefined),
+          release_date: relDate,
+          download_android: g.download_android || undefined,
+          download_ios: g.download_ios || undefined,
+          download_pc: g.download_pc || undefined,
+          redeem_url: g.redeem_url || undefined,
+          is_featured: Boolean(g.is_featured || g.isFeatured || g.status === 'HOT'),
+          is_hot: Boolean(g.is_hot || g.isHot || g.status === 'HOT' || codesCount > 5),
+          is_new: Boolean(g.is_new || g.isNew || relDate.startsWith('2026-09')),
+          is_active: true,
+          codes_count: codesCount,
+          codes: [],
+        };
+      });
+
+    this.categories = Array.from(categorySet).filter(Boolean).sort();
+
+    this.fuseInstance = new Fuse(this.games, {
+      keys: [
+        { name: 'name', weight: 0.6 },
+        { name: 'slug', weight: 0.2 },
+        { name: 'publisher', weight: 0.1 },
+        { name: 'category', weight: 0.1 },
+      ],
+      threshold: 0.35,
+      ignoreLocation: true,
+    });
+
+    this.isLoaded = true;
   }
 
   private readonly DATASET_VERSION = 'wcg_dataset_2026_10_10_v38';
@@ -857,47 +934,11 @@ class DataService {
         } catch {}
       }
 
-      // Dynamically load fallback raw codes & games only if offline/fallback is needed
-      let rawCodesData: any[] = [];
-      let rawGamesData: any[] = [];
-      try {
-        const [codesMod, gamesMod] = await Promise.all([
-          import('../data/crawled_codes_188.json'),
-          import('../data/games188.json'),
-        ]);
-        rawCodesData = codesMod.default || [];
-        rawGamesData = gamesMod.default || [];
-      } catch {}
-
-      const rawCodes: RawCodeItem[] = Array.isArray(rawCodesData) ? (rawCodesData as RawCodeItem[]) : [];
-      const rawFormatted = rawCodes.map((c) => ({
-        id: c.id,
-        gameSlug: c.gameSlug || c.gameId || c.game_slug || c.slug,
-        codeValue: c.codeValue || c.code_value || c.code || c.gift_code,
-        rewards: c.rewards || c.description,
-        status: c.status,
-        expiresAt: c.expiresAt || c.expires_at || c.expiry,
-        createdAt: c.createdAt || c.created_at,
-      }));
-
+      // Existing key map for saved codes (e.g. from admin sync)
       const existingKeyMap = new Map<string, any>();
       for (const item of freeCodesList) {
         if (item.gameSlug && item.codeValue) {
           existingKeyMap.set(`${item.gameSlug}___${item.codeValue.trim().toUpperCase()}`, item);
-        }
-      }
-      for (const raw of rawFormatted) {
-        if (raw.gameSlug && raw.codeValue) {
-          const key = `${raw.gameSlug}___${raw.codeValue.trim().toUpperCase()}`;
-          const existing = existingKeyMap.get(key);
-          if (existing) {
-            existing.status = raw.status;
-            existing.rewards = raw.rewards;
-            existing.expiresAt = raw.expiresAt;
-          } else {
-            freeCodesList.push(raw);
-            existingKeyMap.set(key, raw);
-          }
         }
       }
 
@@ -1052,10 +1093,10 @@ class DataService {
             download_pc: g.download_pc || undefined,
             redeem_url: g.redeem_url || undefined,
             is_featured: Boolean(g.is_featured || g.isFeatured || g.status === 'HOT'),
-            is_hot: Boolean(g.is_hot || g.isHot || g.status === 'HOT' || existingCodes.length > 5),
+            is_hot: Boolean(g.is_hot || g.isHot || g.status === 'HOT' || existingCodes.length > 5 || (g.codes_count || 0) > 5),
             is_new: Boolean(g.is_new || g.isNew || relDate.startsWith('2026-09')),
             is_active: true,
-            codes_count: existingCodes.length,
+            codes_count: existingCodes.length > 0 ? existingCodes.length : ((g as any).codes_count || (g as any).free_codes_count || 0),
             codes: existingCodes,
           };
         });
@@ -1497,11 +1538,30 @@ class DataService {
     if (!game) return null;
 
     const codes = this.getCodesForGame(game);
-    const finalCodes = codes.length > 0 ? codes : (game.codes || []);
+    let finalCodes = codes.length > 0 ? codes : (game.codes || []);
+    if (finalCodes.length === 0) {
+      try {
+        const codesMod = await import('../data/crawled_codes_188.json');
+        const allCodes = codesMod.default || [];
+        const matched = allCodes.filter((c: any) => {
+          const cSlug = (c.gameSlug || c.gameId || c.game_slug || c.slug || '').toLowerCase();
+          return cSlug === normSlug || cSlug === cleanWithoutMobile;
+        });
+        if (matched.length > 0) {
+          finalCodes = matched.map((c: any) => ({
+            code: (c.codeValue || c.code || c.code_value || c.gift_code || '').trim(),
+            rewards: c.rewards || c.description || 'Quà tân thủ & vật phẩm ingame',
+            status: (c.status === 'EXPIRED' || c.status === 'expired') ? 'expired' : 'active',
+            expiry: c.expiresAt || c.expires_at || c.expiry || '',
+            added_at: c.createdAt || c.created_at || new Date().toISOString(),
+          }));
+        }
+      } catch {}
+    }
     return {
       ...game,
       codes: finalCodes,
-      codes_count: finalCodes.length,
+      codes_count: finalCodes.length > 0 ? finalCodes.length : (game.codes_count || 0),
     };
   }
 

@@ -31,7 +31,6 @@ import { MarketingNotificationToast } from './components/MarketingNotificationTo
 import { FloatingAnnouncement } from './components/FloatingAnnouncement';
 import { dataService } from './services/dataService';
 import { marketingService } from './services/marketingService';
-import { adminDataService } from './admin/services/adminDataService';
 import { authService } from './services/authService';
 import { growthService } from './services/growthService';
 import type { GameItem, FilterState, StoreProduct, UserProfile, GiveawayCampaign, UtilityProduct } from './types/game';
