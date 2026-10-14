@@ -7,6 +7,27 @@ Mỗi mục sửa lỗi đều ghi nhận **Nguyên nhân gốc rễ (Root Cause
 
 ## [2026-10-14]
 
+### 37. Bổ Sung Bộ Lọc Theo Nguồn & Thao Tác Duyệt / Xóa Hàng Loạt 1-Chạm Theo Nguồn Trong Quản Lý Crawler Giftcode
+- **Mô tả**:
+  1. **Nhu cầu**: Người dùng yêu cầu trong module Quản Lý Crawler & Tự Động Hóa Giftcode (`/admin#/crawler`), tại tab "Hàng Chờ Duyệt", bổ sung tính năng lọc danh sách mã theo nguồn thu thập, đồng thời hỗ trợ Duyệt tất cả hoặc Xóa tất cả theo nguồn với 1 chạm.
+  2. **Nguyên nhân & Thực trạng**:
+     - Trước đây, tab Hàng Chờ Duyệt chỉ có bộ lọc theo cấp bậc (`TIER_2`, `TIER_3`, `TIER_4`) và ô tìm kiếm tự do theo từ khóa, chưa có bộ lọc phân loại theo nguồn thu thập.
+     - Khi crawler quét mã từ nhiều nguồn khác nhau (như các nguồn quốc tế Try Hard Guides, Pocket Tactics, hoặc nguồn cũ CodeMoi), quản trị viên muốn kiểm tra và duyệt nhanh toàn bộ mã của một nguồn tin cậy cụ thể hoặc dọn sạch toàn bộ mã của một nguồn không mong muốn mà không phải click chọn từng checkbox thủ công.
+  3. **Giải pháp kiến trúc & Triển khai**:
+     - *Hàm chuẩn hóa nguồn `getCrawlerSourceInfo`*:
+       + Tự động phân loại chính xác các nguồn theo URL và tên thương hiệu: `codemoi.net` (CodeMoi), `tryhardguides.com` (Try Hard Guides), `pockettactics.com` (Pocket Tactics), `gamerpower.com` (GamerPower), `sforum.vn` (Sforum), `ldplayer.net` (LDPlayer), `facebook.com` (Facebook Fanpage), `discord.com` (Discord Community).
+       + Cơ chế fallback trích xuất tên miền động (`new URL(url).hostname`) cho mọi domain quốc tế khác phát sinh trong tương lai.
+     - *Thống kê & Bộ lọc động `availablePendingSources`*:
+       + Tự động quét toàn bộ `pendingCodes` và tính toán số lượng mã chính xác theo từng nguồn hiển thị trong dropdown (ví dụ: `Tất cả nguồn (97)`, `Try Hard Guides (67 mã)`, `CodeMoi (26 mã)`, `Pocket Tactics (4 mã)`).
+     - *Thanh công cụ Thao tác hàng loạt theo nguồn (Source Action Banner)*:
+       + Khi chọn một nguồn cụ thể trong dropdown, banner hành động chuyên biệt hiển thị ngay dưới thanh công cụ:
+         * Nút **"Duyệt tất cả nguồn này (X mã)"**: Kích hoạt API `batch_approve_crawler_codes` xuất bản toàn bộ mã của nguồn đó lên website chỉ trong 1 thao tác (có hộp thoại xác nhận an toàn).
+         * Nút **"Xóa tất cả nguồn này (X mã)"**: Kích hoạt API `batch_reject_crawler_codes` dọn dẹp toàn bộ mã của nguồn đó khỏi hàng chờ.
+         * Nút **"Bỏ lọc"** để quay về xem tất cả.
+     - *Tương tác trực tiếp trên bảng dữ liệu*:
+       + Trong cột "NGUỒN CÀO", tên nguồn được chuyển thành nút tương tác thông minh. Quản trị viên chỉ cần click vào tên nguồn tại bất kỳ hàng nào để kích hoạt ngay bộ lọc theo nguồn đó.
+- **Kết quả xác minh**: Kiểm thử biên dịch Vite và Cloudflare Edge Worker bundle thành công 100%. Quản trị viên có thể lọc, duyệt hàng loạt hoặc xóa toàn bộ mã theo nguồn tức thì.
+
 ### 36. Tái Cấu Trúc Hệ Thống Thông Báo Toast Admin: Chuyển Sang Top-Center, Giới Hạn Tối Đa 3 Toast & Tự Động Biến Mất Chống Che Khuất Thao Tác
 - **Mô tả**:
   1. **Nhu cầu**: Người dùng phản ánh khi thao tác liên tục trong Admin (ví dụ duyệt hoặc xóa giftcode nhanh), các thông báo Toast chồng chất lên nhau thành một cột cao ở góc dưới bên phải màn hình, đè trực tiếp lên cột "THAO TÁC" (Duyệt, Sửa, Xóa) khiến việc click vào các nút tiếp theo bị cản trở nghiêm trọng.

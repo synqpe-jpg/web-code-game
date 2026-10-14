@@ -506,7 +506,23 @@
 - ⛔ **CÁCH SỬA ĐÃ THẤT BẠI - TUYỆT ĐỐI KHÔNG LẶP LẠI**:
   - ❌ *Không đặt ToastContainer ở góc dưới bên phải hoặc góc trên bên phải trên các trang có bảng dữ liệu sở hữu cột thao tác sticky*: Sẽ luôn đè lên các nút thao tác của bảng.
   - ❌ *Không tạo toast mà không có timer tự động tắt (auto-dismiss)*: Khiến màn hình bị kẹt thông báo vô tận.
-  - ❌ *Không cho phép mảng toast tích lũy không giới hạn*: Buộc phải có cơ chế cắt đuôi danh sách (Queue Capping).
+### ISSUE-027: Bẫy Lọc & Thao Tác Duyệt / Xóa Giftcode Hàng Chờ Theo Nguồn Thiếu Chuẩn Hóa Domain (Crawler Source Filter & Bulk Action Trap)
+- **Triệu chứng**:
+  - Khi quản lý mã cào trong Hàng Chờ Duyệt (`/admin#/crawler`), danh sách mã cào đến từ nhiều nguồn khác nhau (như các chuyên trang game quốc tế hoặc các nguồn cũ). Quản trị viên không thể lọc riêng theo từng nguồn để duyệt nhanh hoặc xóa nhanh toàn bộ mã của một nguồn.
+  - Nếu lọc theo chuỗi thô `item.sourceName`, các chuỗi có định dạng khác nhau (ví dụ: `CodeMoi - Game A`, `CodeMoi - Game B`, `Try Hard Guides`) bị phân tán thành hàng trăm nhóm riêng lẻ, khiến bộ lọc không thể gom nhóm.
+- **Nguyên nhân gốc rễ**:
+  1. Dữ liệu `PendingCrawlerCode` lưu `sourceName` gắn kèm tên tựa game (`sourceName: "CodeMoi - Tên Game"`), trong khi `sourceUrl` chứa URL bài viết cụ thể.
+  2. Nếu chỉ so sánh chính xác chuỗi `item.sourceName`, mỗi game tạo thành 1 nguồn riêng lẻ khiến dropdown có hàng trăm mục thay vì nhóm lại theo thương hiệu/domain nguồn.
+  3. Thiếu thao tác 1-chạm kết hợp với các endpoint backend `batch_approve_crawler_codes` và `batch_reject_crawler_codes` cho một nguồn đã chọn.
+- **Giải pháp chuẩn đã kiểm chứng**:
+  1. *Hàm phân nhóm nguồn chuẩn mực `getCrawlerSourceInfo`*: Phân tích kết hợp cả `sourceUrl` và `sourceName`, nhận diện các thương hiệu nguồn chính xác (`codemoi.net`, `tryhardguides.com`, `pockettactics.com`, `gamerpower.com`, `sforum.vn`, `ldplayer.net`, `facebook.com`, `discord.com`).
+  2. Fallback trích xuất hostname động `new URL(item.sourceUrl).hostname.replace(/^www\./, '')` cho mọi website quốc tế mới mà không cần hardcode thủ công.
+  3. Tổng hợp `availablePendingSources` tính sẵn số lượng mã (`count`) để hiển thị trực tiếp trong dropdown và banner.
+  4. Cung cấp banner thao tác 1-chạm: "Duyệt tất cả nguồn này (X mã)" và "Xóa tất cả nguồn này (X mã)" kết nối trực tiếp với batch API D1/KV.
+  5. Trong bảng dữ liệu, nhấp vào tên nguồn ở cột "NGUỒN CÀO" sẽ tự động kích hoạt bộ lọc nguồn tương ứng.
+- ⛔ **CÁCH SỬA ĐÃ THẤT BẠI - TUYỆT ĐỐI KHÔNG LẶP LẠI**:
+  - ❌ *Không lọc theo chuỗi thô `item.sourceName`*: Khiến mỗi tựa game bị phân mảnh thành một nguồn riêng.
+  - ❌ *Không duyệt/xóa tuần tự từng mã một qua vòng lặp client*: Gây nghẽn mạng và gửi hàng trăm HTTP request làm sập Cloudflare rate limit; bắt buộc dùng `batch_approve_crawler_codes` / `batch_reject_crawler_codes` truyền mảng `pendingIds`.
 
 ---
 

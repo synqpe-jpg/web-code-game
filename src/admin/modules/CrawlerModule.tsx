@@ -79,6 +79,49 @@ interface CrawlerLog {
   autoCodes?: string[];
 }
 
+export const getCrawlerSourceInfo = (item: { sourceUrl?: string; sourceName?: string; sourceType?: string }) => {
+  const url = (item.sourceUrl || '').toLowerCase();
+  const name = (item.sourceName || '').toLowerCase();
+
+  if (url.includes('codemoi.net') || name.includes('codemoi')) {
+    return { key: 'codemoi.net', label: 'CodeMoi (codemoi.net)' };
+  }
+  if (url.includes('tryhardguides.com') || name.includes('try hard guides')) {
+    return { key: 'tryhardguides.com', label: 'Try Hard Guides' };
+  }
+  if (url.includes('pockettactics.com') || name.includes('pocket tactics')) {
+    return { key: 'pockettactics.com', label: 'Pocket Tactics' };
+  }
+  if (url.includes('gamerpower.com') || name.includes('gamerpower')) {
+    return { key: 'gamerpower.com', label: 'GamerPower' };
+  }
+  if (url.includes('sforum.vn') || name.includes('sforum')) {
+    return { key: 'sforum.vn', label: 'Sforum' };
+  }
+  if (url.includes('ldplayer.net') || name.includes('ldplayer')) {
+    return { key: 'ldplayer.net', label: 'LDPlayer' };
+  }
+  if (url.includes('facebook.com') || name.includes('facebook') || item.sourceType === 'official_fb') {
+    return { key: 'facebook.com', label: 'Facebook Fanpage' };
+  }
+  if (url.includes('discord.com') || url.includes('discord.gg') || item.sourceType === 'community_discord') {
+    return { key: 'discord.com', label: 'Discord Community' };
+  }
+
+  if (url) {
+    try {
+      const parsed = new URL(url);
+      const host = parsed.hostname.replace(/^www\./, '');
+      if (host) return { key: host, label: host };
+    } catch {
+      // ignore
+    }
+  }
+
+  const fallback = (item.sourceName || item.sourceType || 'Khác').trim();
+  return { key: fallback.toLowerCase(), label: fallback };
+};
+
 interface CrawlerModuleProps {
   onShowToast: (title: string, desc?: string, type?: 'success' | 'error' | 'info') => void;
 }
@@ -94,6 +137,8 @@ export const CrawlerModule: React.FC<CrawlerModuleProps> = ({ onShowToast }) => 
   // Search & Filters (Pending Codes)
   const [searchQuery, setSearchQuery] = useState('');
   const [tierFilter, setTierFilter] = useState<'ALL' | 'TIER_2' | 'TIER_3' | 'TIER_4'>('ALL');
+  const [pendingSourceFilter, setPendingSourceFilter] = useState<string>('ALL');
+  const [isProcessingSourceAction, setIsProcessingSourceAction] = useState(false);
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [pendingPage, setPendingPage] = useState(1);
   const [pendingPerPage, setPendingPerPage] = useState(20);
@@ -221,9 +266,30 @@ export const CrawlerModule: React.FC<CrawlerModuleProps> = ({ onShowToast }) => 
     loadData();
   }, []);
 
+  // Available Pending Sources with Code Counts
+  const availablePendingSources = useMemo(() => {
+    const map = new Map<string, { key: string; label: string; count: number }>();
+    for (const item of pendingCodes) {
+      const info = getCrawlerSourceInfo(item);
+      const existing = map.get(info.key);
+      if (existing) {
+        existing.count += 1;
+      } else {
+        map.set(info.key, { key: info.key, label: info.label, count: 1 });
+      }
+    }
+    return Array.from(map.values()).sort((a, b) => b.count - a.count);
+  }, [pendingCodes]);
+
   // Filtered Pending Codes
   const filteredCodes = useMemo(() => {
     return pendingCodes.filter((item) => {
+      // Source filter
+      if (pendingSourceFilter !== 'ALL') {
+        const info = getCrawlerSourceInfo(item);
+        if (info.key !== pendingSourceFilter) return false;
+      }
+
       // Tier filter
       if (tierFilter === 'TIER_2' && item.tier !== 2) return false;
       if (tierFilter === 'TIER_3' && item.tier !== 3) return false;
@@ -239,11 +305,11 @@ export const CrawlerModule: React.FC<CrawlerModuleProps> = ({ onShowToast }) => 
       }
       return true;
     });
-  }, [pendingCodes, tierFilter, searchQuery]);
+  }, [pendingCodes, pendingSourceFilter, tierFilter, searchQuery]);
 
   useEffect(() => {
     setPendingPage(1);
-  }, [searchQuery, tierFilter]);
+  }, [searchQuery, tierFilter, pendingSourceFilter]);
 
   const totalPendingPages = Math.max(1, Math.ceil(filteredCodes.length / pendingPerPage));
   const paginatedCodes = useMemo(() => {
@@ -446,6 +512,100 @@ export const CrawlerModule: React.FC<CrawlerModuleProps> = ({ onShowToast }) => 
       }
     } catch (e: any) {
       onShowToast('Lỗi kết nối', e?.message || 'Không thể kết nối đến máy chủ.', 'error');
+    }
+  };
+
+  // 1-Click Approve All By Source
+  const handleApproveAllBySource = async (customSourceKey?: string) => {
+    const targetKey = customSourceKey || pendingSourceFilter;
+    if (!targetKey || targetKey === 'ALL') return;
+
+    const targetCodes = pendingCodes.filter((c) => getCrawlerSourceInfo(c).key === targetKey);
+    if (targetCodes.length === 0) return;
+
+    const targetSourceInfo = availablePendingSources.find((s) => s.key === targetKey);
+    const sourceName = targetSourceInfo ? targetSourceInfo.label : targetKey;
+
+    const confirmed = window.confirm(
+      `Bạn có chắc chắn muốn DUYỆT TẤT CẢ ${targetCodes.length} mã thuộc nguồn "${sourceName}" và xuất bản ngay lên website?`
+    );
+    if (!confirmed) return;
+
+    setIsProcessingSourceAction(true);
+    try {
+      const ids = targetCodes.map((c) => c.id);
+      const res = await fetch('/api/sync', {
+        method: 'POST',
+        headers: getSyncHeaders(),
+        body: JSON.stringify({
+          action: 'batch_approve_crawler_codes',
+          pendingIds: ids,
+        }),
+      });
+
+      const result = await res.json();
+      if (result && result.success) {
+        onShowToast(
+          'Duyệt theo nguồn thành công! 🎉',
+          `Đã kích hoạt ${result.approvedCount || ids.length} mã từ nguồn "${sourceName}".`,
+          'success'
+        );
+        setPendingCodes((prev) => prev.filter((p) => !ids.includes(p.id)));
+        setSelectedIds((prev) => prev.filter((id) => !ids.includes(id)));
+      } else {
+        onShowToast('Lỗi duyệt theo nguồn', result?.error || 'Thao tác thất bại.', 'error');
+      }
+    } catch (e: any) {
+      onShowToast('Lỗi kết nối', e?.message || 'Không thể kết nối đến máy chủ.', 'error');
+    } finally {
+      setIsProcessingSourceAction(false);
+    }
+  };
+
+  // 1-Click Reject All By Source
+  const handleRejectAllBySource = async (customSourceKey?: string) => {
+    const targetKey = customSourceKey || pendingSourceFilter;
+    if (!targetKey || targetKey === 'ALL') return;
+
+    const targetCodes = pendingCodes.filter((c) => getCrawlerSourceInfo(c).key === targetKey);
+    if (targetCodes.length === 0) return;
+
+    const targetSourceInfo = availablePendingSources.find((s) => s.key === targetKey);
+    const sourceName = targetSourceInfo ? targetSourceInfo.label : targetKey;
+
+    const confirmed = window.confirm(
+      `Bạn có chắc chắn muốn XÓA TOÀN BỘ ${targetCodes.length} mã thuộc nguồn "${sourceName}" khỏi hàng chờ duyệt?`
+    );
+    if (!confirmed) return;
+
+    setIsProcessingSourceAction(true);
+    try {
+      const ids = targetCodes.map((c) => c.id);
+      const res = await fetch('/api/sync', {
+        method: 'POST',
+        headers: getSyncHeaders(),
+        body: JSON.stringify({
+          action: 'batch_reject_crawler_codes',
+          pendingIds: ids,
+        }),
+      });
+
+      const result = await res.json();
+      if (result && result.success) {
+        onShowToast(
+          'Đã xóa theo nguồn',
+          `Đã xóa ${ids.length} mã từ nguồn "${sourceName}" khỏi hàng chờ.`,
+          'info'
+        );
+        setPendingCodes((prev) => prev.filter((p) => !ids.includes(p.id)));
+        setSelectedIds((prev) => prev.filter((id) => !ids.includes(id)));
+      } else {
+        onShowToast('Lỗi xóa theo nguồn', result?.error || 'Thao tác thất bại.', 'error');
+      }
+    } catch (e: any) {
+      onShowToast('Lỗi kết nối', e?.message || 'Không thể kết nối đến máy chủ.', 'error');
+    } finally {
+      setIsProcessingSourceAction(false);
     }
   };
 
@@ -1063,6 +1223,26 @@ export const CrawlerModule: React.FC<CrawlerModuleProps> = ({ onShowToast }) => 
                 />
               </div>
 
+              {/* Source Filter Dropdown */}
+              <select
+                value={pendingSourceFilter}
+                onChange={(e) => setPendingSourceFilter(e.target.value)}
+                className={`border rounded-xl px-3 py-1.5 text-xs sm:text-sm focus:outline-none cursor-pointer transition-colors ${
+                  pendingSourceFilter !== 'ALL'
+                    ? 'bg-indigo-950/80 border-indigo-500 text-indigo-200 font-semibold shadow-sm shadow-indigo-500/20'
+                    : 'bg-slate-950 border-slate-800 text-slate-200 focus:border-indigo-500'
+                }`}
+                title="Lọc danh sách mã theo nguồn thu thập"
+              >
+                <option value="ALL">Tất cả nguồn ({pendingCodes.length})</option>
+                {availablePendingSources.map((s) => (
+                  <option key={s.key} value={s.key}>
+                    {s.label} ({s.count} mã)
+                  </option>
+                ))}
+              </select>
+
+              {/* Tier Filter Dropdown */}
               <select
                 value={tierFilter}
                 onChange={(e) => setTierFilter(e.target.value as any)}
@@ -1116,6 +1296,58 @@ export const CrawlerModule: React.FC<CrawlerModuleProps> = ({ onShowToast }) => 
               </div>
             )}
           </div>
+
+          {/* Active Source Filter Banner with 1-Click Approve/Reject All By Source */}
+          {pendingSourceFilter !== 'ALL' && (
+            <div className="bg-gradient-to-r from-indigo-950/90 via-slate-900 to-indigo-950/90 border border-indigo-500/40 rounded-xl px-4 py-2.5 flex flex-wrap items-center justify-between gap-3 shadow-lg shadow-indigo-950/30">
+              <div className="flex items-center gap-2.5">
+                <div className="w-8 h-8 rounded-lg bg-indigo-600/20 border border-indigo-500/30 text-indigo-400 flex items-center justify-center shrink-0">
+                  <Filter className="w-4 h-4" />
+                </div>
+                <div>
+                  <div className="text-xs text-slate-400">Đang lọc theo nguồn:</div>
+                  <div className="text-sm font-bold text-white flex items-center gap-2">
+                    <span>
+                      {availablePendingSources.find((s) => s.key === pendingSourceFilter)?.label || pendingSourceFilter}
+                    </span>
+                    <span className="px-2 py-0.5 rounded-full text-xs font-semibold bg-indigo-500/20 text-indigo-300 border border-indigo-500/30">
+                      {filteredCodes.length} mã
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-2 flex-wrap">
+                <button
+                  type="button"
+                  disabled={isProcessingSourceAction || filteredCodes.length === 0}
+                  onClick={() => handleApproveAllBySource()}
+                  className="px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 text-white text-xs font-semibold flex items-center gap-1.5 shadow-md shadow-emerald-950/40 active:scale-95 transition-all cursor-pointer"
+                  title="Duyệt tất cả mã thuộc nguồn này và xuất bản ngay lên website"
+                >
+                  <CheckCheck className="w-3.5 h-3.5" />
+                  <span>Duyệt tất cả nguồn này ({filteredCodes.length} mã)</span>
+                </button>
+                <button
+                  type="button"
+                  disabled={isProcessingSourceAction || filteredCodes.length === 0}
+                  onClick={() => handleRejectAllBySource()}
+                  className="px-3 py-1.5 rounded-lg bg-rose-600/80 hover:bg-rose-500 disabled:opacity-50 text-white text-xs font-semibold flex items-center gap-1.5 shadow-md shadow-rose-950/40 active:scale-95 transition-all cursor-pointer"
+                  title="Xóa toàn bộ mã thuộc nguồn này khỏi hàng chờ duyệt"
+                >
+                  <Trash2 className="w-3.5 h-3.5" />
+                  <span>Xóa tất cả nguồn này ({filteredCodes.length} mã)</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setPendingSourceFilter('ALL')}
+                  className="px-2.5 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-medium transition-all cursor-pointer"
+                >
+                  Bỏ lọc
+                </button>
+              </div>
+            </div>
+          )}
 
           {/* Table of Pending Codes */}
           {filteredCodes.length === 0 ? (
@@ -1239,23 +1471,38 @@ export const CrawlerModule: React.FC<CrawlerModuleProps> = ({ onShowToast }) => 
                             </div>
                           </td>
                           <td className="py-2.5 px-3">
-                            <div className="flex items-center gap-1 text-xs text-slate-400 min-w-0">
-                              <div className="shrink-0">{getSourceIcon(item.sourceType)}</div>
-                              <span className="truncate text-[11px]" title={item.sourceName || item.sourceType}>
-                                {item.sourceName || item.sourceType}
-                              </span>
-                              {item.sourceUrl && (
-                                <a
-                                  href={item.sourceUrl}
-                                  target="_blank"
-                                  rel="noreferrer"
-                                  className="text-slate-500 hover:text-indigo-400 shrink-0 p-0.5"
-                                  title="Mở nguồn cào"
-                                >
-                                  <ExternalLink className="w-3 h-3" />
-                                </a>
-                              )}
-                            </div>
+                            {(() => {
+                              const sourceInfo = getCrawlerSourceInfo(item);
+                              const isCurrentFilter = pendingSourceFilter === sourceInfo.key;
+                              return (
+                                <div className="flex items-center gap-1 text-xs text-slate-400 min-w-0">
+                                  <div className="shrink-0">{getSourceIcon(item.sourceType)}</div>
+                                  <button
+                                    type="button"
+                                    onClick={() => setPendingSourceFilter(isCurrentFilter ? 'ALL' : sourceInfo.key)}
+                                    className={`truncate text-[11px] text-left transition-colors cursor-pointer ${
+                                      isCurrentFilter
+                                        ? 'text-indigo-300 font-bold underline'
+                                        : 'hover:text-indigo-300 hover:underline'
+                                    }`}
+                                    title={`Click để ${isCurrentFilter ? 'bỏ lọc' : `lọc tất cả mã từ ${sourceInfo.label}`}`}
+                                  >
+                                    {item.sourceName || sourceInfo.label}
+                                  </button>
+                                  {item.sourceUrl && (
+                                    <a
+                                      href={item.sourceUrl}
+                                      target="_blank"
+                                      rel="noreferrer"
+                                      className="text-slate-500 hover:text-indigo-400 shrink-0 p-0.5"
+                                      title="Mở nguồn cào"
+                                    >
+                                      <ExternalLink className="w-3 h-3" />
+                                    </a>
+                                  )}
+                                </div>
+                              );
+                            })()}
                           </td>
                           <td className="py-2.5 px-3 text-right sticky right-0 bg-slate-900/95 group-hover:bg-slate-800/95 backdrop-blur-sm border-l border-slate-800 shadow-[-6px_0_12px_rgba(0,0,0,0.5)] z-10 transition-colors">
                             <div className="flex items-center justify-end gap-1.5">
