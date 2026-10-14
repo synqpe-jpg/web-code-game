@@ -1826,8 +1826,16 @@ export async function syncMembersToD1(db: D1Database, members: any[]): Promise<v
             email = excluded.email,
             phone = excluded.phone,
             role = excluded.role,
-            balance = excluded.balance,
-            total_spent = excluded.total_spent,
+            balance = CASE 
+              WHEN (SELECT COUNT(*) FROM wallet_transactions WHERE member_id = members.id) > 0 
+              THEN members.balance 
+              ELSE excluded.balance 
+            END,
+            total_spent = CASE 
+              WHEN (SELECT COUNT(*) FROM wallet_transactions WHERE member_id = members.id) > 0 
+              THEN members.total_spent 
+              ELSE excluded.total_spent 
+            END,
             status = excluded.status,
             salt = CASE WHEN excluded.salt != '' AND excluded.password_hash != '' THEN excluded.salt ELSE members.salt END,
             password_hash = CASE WHEN excluded.password_hash != '' THEN excluded.password_hash ELSE members.password_hash END,

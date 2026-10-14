@@ -44,6 +44,7 @@ import { GuideLinksBanner } from './GuideLinksBanner';
 interface UtilitiesViewProps {
   onShowToast: (title: string, message?: string, type?: 'success' | 'error' | 'info') => void;
   currentUser?: UserProfile | null;
+  onUpdateUser?: (user: UserProfile) => void;
   onOpenAuth?: () => void;
   onOpenShare?: (utility: UtilityProduct) => void;
   onOpenWallet?: () => void;
@@ -54,6 +55,7 @@ interface UtilitiesViewProps {
 export const UtilitiesView: React.FC<UtilitiesViewProps> = ({
   onShowToast,
   currentUser,
+  onUpdateUser,
   onOpenAuth,
   onOpenShare,
   onOpenWallet,
@@ -299,6 +301,22 @@ export const UtilitiesView: React.FC<UtilitiesViewProps> = ({
           activeUser,
           safeQty
         );
+
+        // Instantly notify React app state of new balance
+        if (activeUser) {
+          const newBal = (res.order as any)?.balance_after !== undefined
+            ? Number((res.order as any).balance_after)
+            : (res as any)?.remainingBalance !== undefined
+              ? Number((res as any).remainingBalance)
+              : Math.max(0, (activeUser.wallet_balance || 0) - (checkoutUtility.current_price * safeQty));
+          const updatedUser: UserProfile = {
+            ...activeUser,
+            wallet_balance: newBal,
+          };
+          if (onUpdateUser) {
+            onUpdateUser(updatedUser);
+          }
+        }
       } else {
         if (res.message && res.message.includes('Phiên đăng nhập') && onOpenAuth) {
           onOpenAuth();

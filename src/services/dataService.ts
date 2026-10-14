@@ -2115,6 +2115,27 @@ class DataService {
       orders.unshift(serverRes.order);
       localStorage.setItem(this.ORDERS_KEY, JSON.stringify(orders));
 
+      // Record atomic debit transaction locally for ledger consistency
+      try {
+        const txsRaw = localStorage.getItem('wcg_admin_transactions_v4');
+        const txs: any[] = txsRaw ? JSON.parse(txsRaw) : [];
+        const purchaseTx = {
+          id: serverRes.order.id || `tx_${Date.now()}`,
+          referenceId: serverRes.order.id || `ORD-${Date.now()}`,
+          memberId: user.id,
+          memberEmail: user.email,
+          type: 'ORDER',
+          amount: totalPrice,
+          balanceBefore: currentBal,
+          balanceAfter: user.wallet_balance,
+          status: 'COMPLETED',
+          description: `Thanh toán ${qty}x ${prod.title}`,
+          createdAt: serverRes.order.created_at || new Date().toISOString(),
+        };
+        txs.unshift(purchaseTx);
+        localStorage.setItem('wcg_admin_transactions_v4', JSON.stringify(txs.slice(0, 500)));
+      } catch {}
+
       this.syncWithCloudflareKV();
       this.notifyListeners();
 
@@ -2368,6 +2389,27 @@ class DataService {
       orders.unshift(serverRes.order);
       localStorage.setItem(this.ORDERS_KEY, JSON.stringify(orders));
 
+      // Record atomic debit transaction locally for ledger consistency
+      try {
+        const txsRaw = localStorage.getItem('wcg_admin_transactions_v4');
+        const txs: any[] = txsRaw ? JSON.parse(txsRaw) : [];
+        const purchaseTx = {
+          id: serverRes.order.id || `tx_${Date.now()}`,
+          referenceId: serverRes.order.id || `UTL-${Date.now()}`,
+          memberId: user.id,
+          memberEmail: user.email,
+          type: 'ORDER',
+          amount: totalPrice,
+          balanceBefore: currentBal,
+          balanceAfter: user.wallet_balance,
+          status: 'COMPLETED',
+          description: `Thanh toán ${qty}x ${prod.title}`,
+          createdAt: serverRes.order.created_at || new Date().toISOString(),
+        };
+        txs.unshift(purchaseTx);
+        localStorage.setItem('wcg_admin_transactions_v4', JSON.stringify(txs.slice(0, 500)));
+      } catch {}
+
       this.syncWithCloudflareKV();
       this.notifyListeners();
 
@@ -2411,6 +2453,17 @@ class DataService {
         if (savedToken) user.session_token = savedToken;
       }
       localStorage.setItem(this.USER_KEY, JSON.stringify(user));
+
+      // Instant event dispatch to keep React header and UI in sync in 0 seconds
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new CustomEvent('wcg_user_updated', { detail: user }));
+        try {
+          const bc = new BroadcastChannel('wcg_data_sync');
+          bc.postMessage({ type: 'wcg_user_updated', user });
+          bc.close();
+        } catch {}
+      }
+
       // Synchronize directly into Admin Members collection & push to Cloudflare KV
       try {
         const membersRaw = localStorage.getItem('wcg_admin_members_v4');
@@ -2459,6 +2512,14 @@ class DataService {
       } catch {}
     } else {
       localStorage.removeItem(this.USER_KEY);
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new CustomEvent('wcg_user_updated', { detail: null }));
+        try {
+          const bc = new BroadcastChannel('wcg_data_sync');
+          bc.postMessage({ type: 'wcg_user_updated', user: null });
+          bc.close();
+        } catch {}
+      }
     }
   }
 
@@ -2854,9 +2915,10 @@ class DataService {
       if (txsRaw) {
         const txs: any[] = JSON.parse(txsRaw);
         if (Array.isArray(txs)) {
-          const matchingTxs = txs
+          // 1. Get ALL transactions for this user (both DEPOSIT and ORDER/PURCHASE), sorted newest first
+          const allUserTxs = txs
             .filter((t) => {
-              if (!t || t.type !== 'DEPOSIT' || t.status !== 'COMPLETED') return false;
+              if (!t || t.status !== 'COMPLETED') return false;
               const tEmail = (t.memberEmail || '').trim().toLowerCase();
               const tId = (t.memberId || '').trim();
               const normTId = tId.replace(/[^a-zA-Z0-9]/g, '').toUpperCase();
@@ -2868,16 +2930,24 @@ class DataService {
             })
             .sort((a, b) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime());
 
-          const userTx = matchingTxs[0];
+          if (allUserTxs.length > 0 && currentUser) {
+            const latestTx = allUserTxs[0];
+            const latestTxBal = Number(latestTx.balanceAfter);
 
-          if (userTx && currentUser) {
-            const txBalance = Number(userTx.balanceAfter);
-            const currentBal = Number(currentUser.wallet_balance || 0);
-            if (!isNaN(txBalance) && txBalance > currentBal) {
-              currentUser.wallet_balance = txBalance;
+            // If the latest transaction overall is a DEPOSIT, check if it's a new confirmed top-up
+            if (latestTx.type === 'DEPOSIT') {
+              const currentBal = Number(currentUser.wallet_balance || 0);
+              if (!isNaN(latestTxBal) && latestTxBal > currentBal) {
+                currentUser.wallet_balance = latestTxBal;
+                this.saveCurrentUser(currentUser);
+                this.notifyListeners();
+                return { confirmed: true, transaction: latestTx, newBalance: latestTxBal };
+              }
+            } else if (!isNaN(latestTxBal) && currentUser.wallet_balance !== latestTxBal) {
+              // The latest transaction is an ORDER / PURCHASE — ensure local balance strictly matches the latest transaction ledger balance!
+              currentUser.wallet_balance = latestTxBal;
               this.saveCurrentUser(currentUser);
               this.notifyListeners();
-              return { confirmed: true, transaction: userTx, newBalance: txBalance };
             }
           }
         }
@@ -2953,8 +3023,9 @@ class DataService {
         headers: {
           'Authorization': `Bearer ${token}`,
           'Cache-Control': 'no-cache, no-store',
+          'X-Member-Id': user.id || '',
+          'X-Member-Email': user.email || '',
         },
-
       });
       if (res.status === 403) {
         // Account banned

@@ -263,6 +263,20 @@ export const App: React.FC = () => {
     setToasts((prev) => prev.filter((t) => t.id !== id));
   };
 
+  // Real-time listener for user state updates across components, tabs and storage events
+  useEffect(() => {
+    const handleUserUpdate = (e: any) => {
+      const u = e?.detail !== undefined ? e.detail : dataService.getCurrentUser();
+      if (u) {
+        handleUpdateUser(u);
+      } else {
+        setCurrentUser(null);
+      }
+    };
+    window.addEventListener('wcg_user_updated', handleUserUpdate);
+    return () => window.removeEventListener('wcg_user_updated', handleUserUpdate);
+  }, [handleUpdateUser]);
+
   // Global listener for floating toast events (from components/cards)
   useEffect(() => {
     const handleCustomToast = (e: any) => {
@@ -1177,6 +1191,7 @@ export const App: React.FC = () => {
             <UtilitiesView
               onShowToast={showToast}
               currentUser={currentUser}
+              onUpdateUser={handleUpdateUser}
               onOpenAuth={() => setIsAuthModalOpen(true)}
               onOpenShare={handleOpenShareUtility}
               onOpenWallet={() => setIsWalletModalOpen(true)}
@@ -1260,6 +1275,7 @@ export const App: React.FC = () => {
       <ProductCheckoutModal
         product={checkoutProduct}
         currentUser={currentUser}
+        onUpdateUser={handleUpdateUser}
         onOpenAuth={() => setIsAuthModalOpen(true)}
         onOpenWallet={() => setIsWalletModalOpen(true)}
         onClose={() => setCheckoutProduct(null)}

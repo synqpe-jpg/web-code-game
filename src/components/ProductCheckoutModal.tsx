@@ -32,6 +32,7 @@ interface ProductCheckoutModalProps {
   onClose: () => void;
   onShowToast: (title: string, message?: string, type?: 'success' | 'error' | 'info') => void;
   currentUser?: UserProfile | null;
+  onUpdateUser?: (user: UserProfile) => void;
   onOpenAuth?: () => void;
   onOpenWallet?: () => void;
 }
@@ -41,6 +42,7 @@ export const ProductCheckoutModal: React.FC<ProductCheckoutModalProps> = ({
   onClose,
   onShowToast,
   currentUser,
+  onUpdateUser,
   onOpenAuth,
   onOpenWallet,
 }) => {
@@ -157,6 +159,23 @@ export const ProductCheckoutModal: React.FC<ProductCheckoutModalProps> = ({
       if (res.success && res.order) {
         const activeUser = currentUser || (typeof window !== 'undefined' ? dataService.getCurrentUser() : null);
         marketingService.recordRealOrder(liveProduct.title, liveProduct.id, liveProduct.current_price * safeQty, 'store', activeUser, safeQty);
+
+        // Instantly notify React app state of new balance
+        if (activeUser) {
+          const newBal = (res.order as any)?.balance_after !== undefined
+            ? Number((res.order as any).balance_after)
+            : (res as any)?.remainingBalance !== undefined
+              ? Number((res as any).remainingBalance)
+              : Math.max(0, (activeUser.wallet_balance || 0) - (liveProduct.current_price * safeQty));
+          const updatedUser: UserProfile = {
+            ...activeUser,
+            wallet_balance: newBal,
+          };
+          if (onUpdateUser) {
+            onUpdateUser(updatedUser);
+          }
+        }
+
         setCompletedOrder(res.order);
         confetti({
           particleCount: 80,

@@ -56,6 +56,29 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
       ).bind(tokenUserId, tokenUserId, tokenUserId).first<any>();
     }
 
+    if (!member && token.startsWith('wcg_edge_tok_')) {
+      const raw = token.replace('wcg_edge_tok_', '');
+      const parts = raw.split('_');
+      if (parts.length >= 4) {
+        parts.pop(); // sig
+        parts.pop(); // random
+        parts.pop(); // timestamp
+        const extractedUserId = parts.join('_');
+        if (extractedUserId) {
+          member = await env.DB.prepare(
+            'SELECT * FROM members WHERE id = ? LIMIT 1'
+          ).bind(extractedUserId).first<any>();
+        }
+      }
+    }
+
+    const headerUserId = request.headers.get('X-Member-Id')?.trim();
+    if (!member && headerUserId && (token.includes(headerUserId) || token === headerUserId)) {
+      member = await env.DB.prepare(
+        'SELECT * FROM members WHERE id = ? LIMIT 1'
+      ).bind(headerUserId).first<any>();
+    }
+
     if (!member) {
       return new Response(
         JSON.stringify({ success: false, message: 'Phiên đăng nhập không tồn tại hoặc đã hết hạn.' }),

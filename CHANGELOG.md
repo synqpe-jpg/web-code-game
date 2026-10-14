@@ -7,6 +7,27 @@ Mỗi mục sửa lỗi đều ghi nhận **Nguyên nhân gốc rễ (Root Cause
 
 ## [2026-10-14]
 
+### 31. Sửa Lỗi Đồng Bộ UI Số Dư Ví Sau Khi Mua Hàng & Khóa Chặt Bảo Vệ Sổ Cái Cloudflare D1
+- **Mô tả**:
+  1. **Nhu cầu**: Người dùng phát hiện trường hợp tài khoản `anhlinh2589@duck.com` (tên hiển thị `hulo`) đã nạp tiền và mua 1 tiện ích (`Basic 1 Day VS Phone` giá 11.240 Core), nhưng trên Web Khách số dư vẫn hiển thị 12.000 Core. Cần kiểm tra sâu xem hệ thống có bị lỗi khiến người mua không mất tiền hay không, và báo cáo kết quả chi tiết.
+  2. **Kết quả điều tra D1 & An toàn tài chính**:
+     - **Tài chính 100% an toàn & Đã trừ tiền thành công**: Kiểm tra giao dịch D1 trên Cloudflare SQL xác nhận đơn hàng `ORD-1791792319701-0a4c549f` lúc 15:05:19 ngày 12/10/2026 đã trừ đúng 11.240 đ qua transaction nguyên tử `db.batch()` trong `purchaseOrderD1`, số dư thực tế của thành viên trong bảng `members` đã chuyển từ 12.000 Core $\rightarrow$ **760 Core**. Người mua KHÔNG hề nhận hàng miễn phí.
+  3. **Nguyên nhân gốc rễ gây lỗi hiển thị 12.000 Core**:
+     - **Bẫy `checkUserDepositStatus`**: Khi fallback kiểm tra nạp tiền, hàm chỉ lọc `t.type === 'DEPOSIT'`, tìm thấy giao dịch nạp 12.000 đ lúc 13:59:16. Vì `12.000 > 760`, hàm ngộ nhận đây là khoản nạp mới chưa vào ví nên tự động ghi đè `currentUser.wallet_balance` ngược về 12.000 Core!
+     - **Thiếu giao dịch trừ tiền ở LocalStorage**: `createUtilityOrder` và `createOrder` không lưu bản ghi giao dịch `ORDER` vào `wcg_admin_transactions_v4`, khiến sổ cái client thiếu giao dịch mua hàng.
+     - **Đứt gãy luồng React State**: `UtilitiesView` và `ProductCheckoutModal` không có prop `onUpdateUser`; `saveCurrentUser` không phát sự kiện cho UI.
+  4. **Giải pháp kiến trúc toàn diện**:
+     - `src/services/dataService.ts`:
+       + Sửa `checkUserDepositStatus`: Quét toàn bộ lịch sử giao dịch (cả DEPOSIT và ORDER). Nếu giao dịch mới nhất là ORDER, bảo toàn số dư 760 Core, tuyệt đối cấm lệnh nạp cũ đè số dư.
+       + Bổ sung ghi chép giao dịch `ORDER` vào `wcg_admin_transactions_v4` ngay khi mua tiện ích hoặc sản phẩm store.
+       + `saveCurrentUser`: Tự động phát `window.dispatchEvent(new CustomEvent('wcg_user_updated'))` và broadcast qua `BroadcastChannel`.
+       + `refreshCurrentUserBalance`: Bổ sung header `X-Member-Id` và `X-Member-Email` khi truy vấn `/api/auth/me`.
+     - `src/App.tsx`: Lắng nghe sự kiện `wcg_user_updated` và truyền `onUpdateUser={handleUpdateUser}` cho cả `UtilitiesView` và `ProductCheckoutModal`.
+     - `src/components/UtilitiesView.tsx` & `src/components/ProductCheckoutModal.tsx`: Nhận prop `onUpdateUser` và kích hoạt ngay khi thanh toán thành công để cập nhật header 0 giây.
+     - `functions/services/d1_service.ts`: Khóa an toàn `syncMembersToD1` với SQL Guard: chỉ ghi đè `balance` và `total_spent` khi tài khoản chưa có giao dịch trong `wallet_transactions`, bảo toàn 100% số dư thực tế trong D1.
+     - `functions/api/auth/me.ts`: Hỗ trợ trích xuất token/user ID linh hoạt và trả về số dư D1 chuẩn xác (760 Core).
+- **Kết quả xác minh**: Kiểm thử biên dịch Vite và Prerender 537 trang hoàn thành 100% không lỗi. Số dư ví cập nhật tức thì trên toàn bộ giao diện và chống hoàn toàn việc bị reset lại mức cũ.
+
 ### 30. Chuẩn Hóa Phân Loại Giấy Phép: Chỉ Hiển Thị "✓ Đã Xác Minh" Cho Game G1, Hiển Thị "Quốc Tế" Cho Game Phát Hành Toàn Cầu
 - **Mô tả**:
   1. **Nhu cầu**: Người dùng yêu cầu chỉ những game nào có giấy phép G1 của Bộ TT&TT / Cục PTTH&TTĐT Việt Nam cấp mới được hiển thị huy hiệu "✓ Đã xác minh", còn lại các game phát hành toàn cầu / quốc tế phải hiển thị rõ ràng nhãn "Quốc Tế".

@@ -424,6 +424,28 @@
 
 ---
 
+### ISSUE-022: Lỗi Bất Đồng Bộ UI Hiển Thị Số Dư Ví Sau Khi Mua Tiện Ích/Sản Phẩm (checkUserDepositStatus False Revert & Missing State Callback)
+- **Triệu chứng**:
+  - Khách nạp 12.000 Core, mua 1 sản phẩm tiện ích hoặc store (ví dụ Basic 1 Day VS Phone giá 11.240 Core), đơn hàng thành công, kho trừ hàng chuyển sang "Hết hàng", sổ cái Admin D1 trừ tiền chính xác (Ví: 12.000 Core -> 760 Core). Nhưng trên Header / Dropdown thông tin nhân vật của Web Khách vẫn hiển thị nguyên "Số dư: 12.000 Core", gây cảm giác người mua không bị trừ tiền.
+- **Nguyên nhân gốc rễ**:
+  1. **Bẫy lọc duy nhất DEPOSIT trong `checkUserDepositStatus`**: Hàm `checkUserDepositStatus(userId)` trong `dataService.ts` chỉ lọc `t.type === 'DEPOSIT'`, tìm thấy giao dịch nạp tiền cũ (12.000 Core lúc 13:59:16) mà bỏ qua giao dịch mua hàng (11.240 Core lúc 15:05:19). Khi so sánh `txBalance (12.000) > currentBal (760)`, hàm ngộ nhận đây là một khoản nạp tiền mới chưa vào ví và tự động ghi đè ngược `currentUser.wallet_balance` về 12.000 Core!
+  2. **Thiếu ghi chép giao dịch trừ tiền ở local**: `createUtilityOrder` và `createOrder` gửi request lên Cloudflare Pages Functions để trừ tiền trong D1 nhưng không lưu bản ghi giao dịch `ORDER` vào `wcg_admin_transactions_v4` ở LocalStorage, dẫn đến mảng giao dịch client chỉ có duy nhất lệnh nạp tiền.
+  3. **Đứt gãy luồng React State**: `UtilitiesView` và `ProductCheckoutModal` không được truyền prop `onUpdateUser` từ `App.tsx`; `dataService.saveCurrentUser()` lưu vào LocalStorage nhưng không dispatch CustomEvent `wcg_user_updated`, khiến state React `currentUser` trong `App.tsx` không được render lại ngay lập tức.
+  4. **Bẫy ghi đè dữ liệu thành viên từ Client Sync (`syncMembersToD1`)**: `d1_service.ts:1829` dùng `ON CONFLICT(id) DO UPDATE SET balance = excluded.balance`, có nguy cơ bị client sync mảng thành viên cũ đè lên số dư thực tế trong D1.
+- **Giải pháp chuẩn đã kiểm chứng**:
+  - *Sửa triệt để `checkUserDepositStatus`*: Quét toàn bộ lịch sử giao dịch (cả DEPOSIT và ORDER) xếp theo thời gian mới nhất. Nếu giao dịch mới nhất là ORDER/PURCHASE, ép số dư client phải khớp với `balanceAfter` của lệnh mua (760 Core), cấm tuyệt đối việc dùng giao dịch nạp cũ để ghi đè số dư.
+  - *Ghi nhận giao dịch mua vào sổ cái client*: Trong `createUtilityOrder` và `createOrder`, tự động ghi bản ghi giao dịch `{ type: 'ORDER', amount: totalPrice, balanceBefore, balanceAfter }` vào `wcg_admin_transactions_v4`.
+  - *Hoàn thiện cầu nối React State & CustomEvent*:
+    + `dataService.saveCurrentUser` phát ngay `window.dispatchEvent(new CustomEvent('wcg_user_updated', { detail: user }))` và broadcast qua `BroadcastChannel('wcg_data_sync')`.
+    + `App.tsx` lắng nghe sự kiện `wcg_user_updated` và truyền `onUpdateUser={handleUpdateUser}` cho cả `UtilitiesView` và `ProductCheckoutModal`.
+    + `UtilitiesView` và `ProductCheckoutModal` gọi `onUpdateUser` ngay sau khi thanh toán thành công để header đổi số dư ngay lập tức 0 giây.
+  - *Khóa an toàn D1 Ledger*: Trong `d1_service.ts:syncMembersToD1`, thêm điều kiện SQL `balance = CASE WHEN (SELECT COUNT(*) FROM wallet_transactions WHERE member_id = members.id) > 0 THEN members.balance ELSE excluded.balance END` để D1 luôn là Single Source of Truth tuyệt đối.
+- ⛔ **CÁCH SỬA ĐÃ THẤT BẠI - TUYỆT ĐỐI KHÔNG LẶP LẠI**:
+  - ❌ *Không được lọc duy nhất `t.type === 'DEPOSIT'` rồi so sánh `txBalance > currentBal`*: Sẽ luôn khiến bất kỳ lệnh nạp cũ nào đè bẹp số dư sau khi khách đã mua hàng.
+  - ❌ *Không chỉ lưu LocalStorage mà không dispatch sự kiện cho React State*: Header component sẽ tiếp tục hiển thị số dư cũ trong suốt phiên làm việc.
+
+---
+
 ## 2. QUY TRÌNH BẮT BUỘC TRƯỚC KHI SỬA CODE (PRE-FLIGHT CHECKLIST)
 
 Mọi nhà phát triển hoặc AI Agent khi nhận yêu cầu sửa đổi mã nguồn **PHẢI** thực hiện đủ 4 bước sau:
