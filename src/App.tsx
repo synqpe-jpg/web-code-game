@@ -441,12 +441,18 @@ export const App: React.FC = () => {
         } else if (hashLower.includes('g=') || urlParams.get('g') || urlParams.get('game')) {
           const slug = urlParams.get('g') || urlParams.get('game') || hash.split(/g=/i)[1]?.split('&')[0];
           if (slug) {
-            const game = await dataService.getGameBySlug(slug);
-            if (game) {
-              setSelectedGame(game);
+            const local = dataService.getGameBySlugLocal(slug);
+            if (local) {
+              setSelectedGame(local);
               setCurrentTab('catalog');
-              return;
             }
+            dataService.getGameBySlug(slug, false).then((game) => {
+              if (game) {
+                setSelectedGame(game);
+                setCurrentTab('catalog');
+              }
+            });
+            return;
           }
         }
 
@@ -456,11 +462,14 @@ export const App: React.FC = () => {
           const pathSlug = window.location.pathname.replace(/^\/(?:game|g)\//i, '').replace(/\/$/, '').trim();
           if (pathSlug) {
             setCurrentTab('catalog');
-            const game = await dataService.getGameBySlug(pathSlug);
-            if (game) {
-              setSelectedGame(game);
-              return;
+            const local = dataService.getGameBySlugLocal(pathSlug);
+            if (local) {
+              setSelectedGame(local);
             }
+            dataService.getGameBySlug(pathSlug, false).then((game) => {
+              if (game) setSelectedGame(game);
+            });
+            return;
           }
         } else if (pathname === '/news' || pathname.startsWith('/news/')) {
           setCurrentTab('news');
@@ -931,18 +940,25 @@ export const App: React.FC = () => {
     showToast(`Đã sao chép mã code cho ${gameName}!`, code, 'success');
   };
 
-  // Handle Game Selection
-  const handleSelectGame = async (game: GameItem) => {
-    setSelectedGame(game);
-    const fullGame = await dataService.getGameBySlug(game.slug, true);
-    if (fullGame) {
-      setSelectedGame(fullGame);
-    }
+  // Handle Game Selection (Instant 0ms modal open with 100% full codes)
+  const handleSelectGame = (game: GameItem) => {
+    const fullGame = dataService.getGameBySlugLocal(game.slug) || game;
+    setSelectedGame(fullGame);
+    dataService.getGameBySlug(game.slug, false).then((fresh) => {
+      if (fresh && fresh.codes && fresh.codes.length > (fullGame.codes?.length || 0)) {
+        setSelectedGame(fresh);
+      }
+    });
   };
 
-  const handleSelectGameSlug = async (slug: string) => {
-    const fullGame = await dataService.getGameBySlug(slug, true);
+  const handleSelectGameSlug = (slug: string) => {
+    const fullGame = dataService.getGameBySlugLocal(slug);
     if (fullGame) setSelectedGame(fullGame);
+    dataService.getGameBySlug(slug, false).then((fresh) => {
+      if (fresh && fresh.codes && fresh.codes.length > (fullGame?.codes?.length || 0)) {
+        setSelectedGame(fresh);
+      }
+    });
   };
 
   const handleSelectProductById = (productId: string) => {

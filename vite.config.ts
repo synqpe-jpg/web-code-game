@@ -30,7 +30,7 @@ export default defineConfig({
           if (id.includes('crawled_codes_188.json')) {
             return 'heavy-codes-data';
           }
-          if (id.includes('games188.json')) {
+          if (id.includes('games188.json') || id.includes('compact_codes_by_game.json')) {
             return 'game-catalog-data';
           }
           if (id.includes('node_modules/lucide-react')) {

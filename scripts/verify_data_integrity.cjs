@@ -76,6 +76,28 @@ try {
   fail(`Failed to read/parse crawled_codes_188.json: ${e.message}`);
 }
 
+// 2b. Verify Compact Codes Map
+const COMPACT_CODES_FILE = path.join(ROOT, 'src/data/compact_codes_by_game.json');
+try {
+  const compactRaw = fs.readFileSync(COMPACT_CODES_FILE, 'utf-8');
+  const compact = JSON.parse(compactRaw);
+  let totalCompactCodes = 0;
+  for (const arr of Object.values(compact)) {
+    if (Array.isArray(arr)) totalCompactCodes += arr.length;
+  }
+  if (totalCompactCodes < 5321) {
+    fail(`Compact codes total dropped below floor: ${totalCompactCodes} < 5,321`);
+  } else if (!compact['ta-la-hac-ngo-khong'] || compact['ta-la-hac-ngo-khong'].length < 20) {
+    fail(`Compact codes missing Ta La Hac Ngo Khong codes (has ${compact['ta-la-hac-ngo-khong']?.length || 0})`);
+  } else if (!compact['pirate-legends'] || compact['pirate-legends'].length < 46) {
+    fail(`Compact codes missing Pirate Legends codes (has ${compact['pirate-legends']?.length || 0})`);
+  } else {
+    pass(`Compact codes map intact: ${Object.keys(compact).length} games, ${totalCompactCodes} codes (floor >= 5,321)`);
+  }
+} catch (e) {
+  fail(`Failed to read/parse compact_codes_by_game.json: ${e.message}`);
+}
+
 // 3. Verify Crawler Sources
 try {
   const sourcesRaw = fs.readFileSync(SOURCES_FILE, 'utf-8');

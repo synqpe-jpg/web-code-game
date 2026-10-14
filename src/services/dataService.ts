@@ -22,6 +22,7 @@ import {
 } from '../types/floatingNotification';
 import { smartMergeEntities } from '../shared/dataMergeUtils';
 import rawGamesData from '../data/games188.json';
+import compactCodesByGame from '../data/compact_codes_by_game.json';
 
 interface RawGame {
   id?: string;
@@ -111,10 +112,51 @@ class DataService {
   }
 
   /**
-   * Immediately populate this.games with all 623 games from rawGamesData synchronously
-   * Guarantees zero-network, zero-latency rendering even on ultra-slow mobile connections.
+   * Immediately populate this.games with all 623 games and all 5,321 giftcodes synchronously
+   * Guarantees zero-network, zero-latency rendering so game modals open instantly with 100% codes.
    */
   private initSyncBaseline(): void {
+    // 1. Populate codesMap from compactCodesByGame synchronously (0ms)
+    this.codesMap.clear();
+    for (const [slug, codeList] of Object.entries(compactCodesByGame as Record<string, GiftCode[]>)) {
+      if (Array.isArray(codeList)) {
+        this.codesMap.set(slug.toLowerCase(), codeList);
+      }
+    }
+    // Alias support: huyen-thoai-hai-tac <-> pirate-legends
+    const pirateCodes = this.codesMap.get('pirate-legends') || this.codesMap.get('huyen-thoai-hai-tac');
+    if (pirateCodes) {
+      this.codesMap.set('pirate-legends', pirateCodes);
+      this.codesMap.set('huyen-thoai-hai-tac', pirateCodes);
+    }
+
+    // 2. Layer on any custom codes from admin localStorage if present
+    try {
+      const savedCustom = localStorage.getItem('wcg_admin_custom_free_codes_v1');
+      if (savedCustom) {
+        const customList = JSON.parse(savedCustom);
+        if (Array.isArray(customList)) {
+          customList.forEach((c) => {
+            const slug = (c.gameSlug || c.gameId || c.slug || '').toLowerCase();
+            const codeVal = c.codeValue || c.code;
+            if (slug && codeVal) {
+              const list = this.codesMap.get(slug) || [];
+              if (!list.some((x) => x.code.toUpperCase() === codeVal.trim().toUpperCase())) {
+                list.unshift({
+                  code: codeVal.trim(),
+                  rewards: c.rewards || c.description || 'Quà tân thủ & vật phẩm ingame',
+                  status: (c.status || '').toLowerCase().includes('exp') ? 'expired' : 'active',
+                  expiry: c.expiresAt || c.expiry || '',
+                  added_at: c.createdAt || c.updatedAt || new Date().toISOString(),
+                });
+                this.codesMap.set(slug, list);
+              }
+            }
+          });
+        }
+      }
+    } catch {}
+
     const fallbackGames = Array.isArray(rawGamesData) ? (rawGamesData as RawGame[]) : [];
     const categorySet = new Set<string>();
 
@@ -132,7 +174,8 @@ class DataService {
         }
 
         const relDate = g.release_date || g.gp_release_date || '2026-09-01';
-        const codesCount = (g as any).codes_count || (g as any).free_codes_count || 0;
+        const codes = this.getCodesForGame({ slug, id: rawId, name: g.name });
+        const codesCount = codes.length > 0 ? codes.length : ((g as any).codes_count || (g as any).free_codes_count || 0);
 
         return {
           id: rawId,
@@ -165,7 +208,7 @@ class DataService {
           is_new: Boolean(g.is_new || g.isNew || relDate.startsWith('2026-09')),
           is_active: true,
           codes_count: codesCount,
-          codes: [],
+          codes: codes,
         };
       });
 
@@ -183,6 +226,49 @@ class DataService {
     });
 
     this.isLoaded = true;
+  }
+
+  /**
+   * Synchronously retrieve full game item with 100% giftcodes from memory in 0ms.
+   * Completely eliminates the 1-3 preview code flash and network delay.
+   */
+  public getGameBySlugLocal(slug: string): GameItem | null {
+    if (!slug) return null;
+    const normSlug = slug.toLowerCase().trim();
+    const cleanWithoutMobile = normSlug.replace(/-mobile$/i, '');
+
+    // Check cachedServerGames first if it has full codes
+    const serverCached = this.cachedServerGames.get(normSlug);
+    if (serverCached && serverCached.codes && serverCached.codes.length > 3) {
+      return serverCached;
+    }
+
+    let found = this.games.find(
+      (g) => (g.slug && g.slug.toLowerCase() === normSlug) || (g.id && g.id.toLowerCase() === normSlug)
+    );
+    if (!found) {
+      found = this.games.find(
+        (g) =>
+          (g.slug && g.slug.toLowerCase().replace(/-mobile$/i, '').trim() === cleanWithoutMobile) ||
+          (g.id && g.id.toLowerCase().replace(/-mobile$/i, '').trim() === cleanWithoutMobile)
+      );
+    }
+    if (!found) {
+      if (normSlug === 'huyen-thoai-hai-tac' || normSlug === 'pirate-legends') {
+        found = this.games.find(
+          (g) => g.slug === 'pirate-legends' || g.slug === 'huyen-thoai-hai-tac'
+        );
+      }
+    }
+    if (!found) return null;
+
+    const codes = this.getCodesForGame(found);
+    const fullCodes = codes.length > 0 ? codes : (found.codes || []);
+    return {
+      ...found,
+      codes: fullCodes,
+      codes_count: fullCodes.length > 0 ? fullCodes.length : (found.codes_count || 0),
+    };
   }
 
   private readonly DATASET_VERSION = 'wcg_dataset_2026_10_10_v38';
@@ -1198,12 +1284,21 @@ class DataService {
           if (Array.isArray(json.categories) && json.categories.length > 0) {
             this.categories = json.categories;
           }
-          // Cache retrieved games into memory
-          for (const g of json.games) {
-            if (g && g.slug) this.cachedServerGames.set(g.slug, g);
-          }
+          // Enrich retrieved games with full local codes so clicking them is 0ms instant!
+          const enrichedGames = json.games.map((g: GameItem) => {
+            const localCodes = this.getCodesForGame(g);
+            const fullCodes = localCodes.length > 0 ? localCodes : (g.codes || []);
+            const fullItem = {
+              ...g,
+              codes: fullCodes,
+              codes_count: typeof g.codes_count === 'number' && g.codes_count > 0 ? g.codes_count : fullCodes.length,
+            };
+            if (g.slug) this.cachedServerGames.set(g.slug.toLowerCase(), fullItem);
+            if (g.id) this.cachedServerGames.set(g.id.toLowerCase(), fullItem);
+            return fullItem;
+          });
           return {
-            items: json.games,
+            items: enrichedGames,
             total: typeof json.total === 'number' ? json.total : json.games.length,
             totalPages: typeof json.totalPages === 'number' ? json.totalPages : 1,
             hasMore: Boolean(json.hasMore),
@@ -1471,23 +1566,26 @@ class DataService {
   async getGameBySlug(slug: string, forceFresh: boolean = false): Promise<GameItem | null> {
     if (!slug) return null;
     const normSlug = slug.toLowerCase().trim();
-    const cleanWithoutMobile = normSlug.replace(/-mobile$/i, '');
 
-    // 1. Check if cached game has full codes list (> 3 codes or verified complete) AND was fetched within last 5s
-    const lastFetch = this.cachedGameFetchTime.get(normSlug) || 0;
-    const isFresh = Date.now() - lastFetch < 5000;
-    const memCached = this.cachedServerGames.get(normSlug);
-    if (!forceFresh && isFresh && memCached && memCached.codes && memCached.codes.length > 3) {
-      return memCached;
+    // 1. Immediately check local authoritative in-memory game first (0ms instant)
+    const localGame = this.getGameBySlugLocal(slug);
+    if (!forceFresh && localGame && localGame.codes && localGame.codes.length > 0) {
+      return localGame;
     }
 
-    // 2. Fetch full game details with complete giftcode pool from Serverless D1 API
+    // 2. Fetch fresh update from Serverless API if requested or needed
     try {
-      const res = await fetch(`/api/games?slug=${encodeURIComponent(slug)}&fresh=1`);
+      const res = await fetch(`/api/games?slug=${encodeURIComponent(slug)}`);
       if (res.ok) {
         const json = await res.json();
         if (json && json.success && json.game) {
           const game = json.game;
+          // Ensure codes list is never truncated
+          const localCodes = this.getCodesForGame(game);
+          if (localCodes.length > (game.codes?.length || 0)) {
+            game.codes = localCodes;
+            game.codes_count = localCodes.length;
+          }
           this.cachedServerGames.set(game.slug.toLowerCase(), game);
           if (game.id) this.cachedServerGames.set(game.id.toLowerCase(), game);
           this.cachedGameFetchTime.set(game.slug.toLowerCase(), Date.now());
@@ -1499,70 +1597,7 @@ class DataService {
       // Fallback to local
     }
 
-    // 3. Fallback to local memory / bundled dataset with tiered priority lookup
-    await this.init();
-
-    // Tier 1: Exact Match on slug or id
-    let game = this.games.find(
-      (g) => (g.slug && g.slug.toLowerCase() === normSlug) || (g.id && g.id.toLowerCase() === normSlug)
-    );
-
-    // Tier 2: Exact Match on generated nameSlug
-    if (!game) {
-      game = this.games.find(
-        (g) => g.name && g.name.toLowerCase().replace(/[^a-z0-9]+/g, '-') === normSlug
-      );
-    }
-
-    // Tier 3: Known Specific Aliases
-    if (!game) {
-      if (normSlug === 'huyen-thoai-hai-tac' || normSlug === 'pirate-legends') {
-        game = this.games.find(
-          (g) =>
-            g.slug === 'huyen-thoai-hai-tac' ||
-            g.slug === 'pirate-legends' ||
-            g.id === 'huyen-thoai-hai-tac' ||
-            g.id === 'pirate-legends'
-        );
-      }
-    }
-
-    // Tier 4: Match without -mobile suffix (Only if no exact match found above)
-    if (!game) {
-      game = this.games.find(
-        (g) =>
-          (g.slug && g.slug.toLowerCase().replace(/-mobile$/i, '').trim() === cleanWithoutMobile) ||
-          (g.id && g.id.toLowerCase().replace(/-mobile$/i, '').trim() === cleanWithoutMobile)
-      );
-    }
-    if (!game) return null;
-
-    const codes = this.getCodesForGame(game);
-    let finalCodes = codes.length > 0 ? codes : (game.codes || []);
-    if (finalCodes.length === 0) {
-      try {
-        const codesMod = await import('../data/crawled_codes_188.json');
-        const allCodes = codesMod.default || [];
-        const matched = allCodes.filter((c: any) => {
-          const cSlug = (c.gameSlug || c.gameId || c.game_slug || c.slug || '').toLowerCase();
-          return cSlug === normSlug || cSlug === cleanWithoutMobile;
-        });
-        if (matched.length > 0) {
-          finalCodes = matched.map((c: any) => ({
-            code: (c.codeValue || c.code || c.code_value || c.gift_code || '').trim(),
-            rewards: c.rewards || c.description || 'Quà tân thủ & vật phẩm ingame',
-            status: (c.status === 'EXPIRED' || c.status === 'expired') ? 'expired' : 'active',
-            expiry: c.expiresAt || c.expires_at || c.expiry || '',
-            added_at: c.createdAt || c.created_at || new Date().toISOString(),
-          }));
-        }
-      } catch {}
-    }
-    return {
-      ...game,
-      codes: finalCodes,
-      codes_count: finalCodes.length > 0 ? finalCodes.length : (game.codes_count || 0),
-    };
+    return localGame;
   }
 
   /**

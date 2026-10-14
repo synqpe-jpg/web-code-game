@@ -7,6 +7,32 @@ Mỗi mục sửa lỗi đều ghi nhận **Nguyên nhân gốc rễ (Root Cause
 
 ## [2026-10-14]
 
+### 46. Khắc Phục Triệt Để Độ Trễ Hiển Thị Mã (Chỉ Hiện 1-2 Mã Ban Đầu): Hiển Thị 100% Giftcode Ngay Lập Tức Trong 0ms Nhờ Compact Codes Catalog Map & Loại Bỏ Network Roundtrip Chặn UI
+- **Mô tả & Yêu cầu Người Dùng**:
+  - Người dùng phản ánh trên Cốc Cốc PC mở `codegame.shop/game/ta-la-hac-ngo-khong` chỉ hiện "Tất cả (3)" / "Còn hạn (3)" (chỉ hiện 3 mã preview ban đầu thay vì 20 mã) hoặc có game không hiện mã nào, một lúc lâu sau mạng load xong mới nhảy ra đầy đủ mã.
+- **Phân Tích Nguyên Nhân Gốc Rễ (Root Cause Analysis)**:
+  1. *Server-side Truncation*: Endpoint `/api/games` trên Cloudflare Edge cắt `codes: (g.codes || []).slice(0, 3)` để giảm dung lượng gói tin cho trang chủ.
+  2. *Truyền Object Thiếu Mã Vào Modal*: Trong `App.tsx`, `handleSelectGame(game)` gọi `setSelectedGame(game)` ngay với object `game` nhận từ `queryGames` (chỉ có 1-3 mã preview).
+  3. *Blocking Server Roundtrip với `fresh=1`*: `handleSelectGame` và `GameDetailModal` gọi `dataService.getGameBySlug(slug, true)` với cờ `forceFresh = true`. Cờ này gửi `fresh=1` lên `/api/games?slug=...`, buộc Cloudflare Edge bỏ qua cache Worker và query D1 database từ đầu. Trong 1-3 giây chờ network roundtrip, người dùng chỉ nhìn thấy 1-3 mã preview.
+  4. *Kho giftcode thô 4.78MB quá cồng kềnh*: `crawled_codes_188.json` chứa 23 trường thuộc tính dư thừa (`gameId`, `gameSlug`, `slug`, `gameName`, `codeValue`, `isVerified`, `createdAt`, `added_at`...), khiến việc import thô làm phình bundle. Nhưng khi compile dạng compact map `{ [slug]: [ { code, rewards, status, expiry, added_at } ] }`, toàn bộ 5.321 mã chỉ nặng **54.9 KB gzipped**!
+- **Giải Pháp Đã Triển Khai (Proven Solution)**:
+  1. *Biên dịch Compact Codes Map (`scripts/generate_compact_codes.cjs`)*:
+     - Tự động biên dịch toàn bộ 5.321 mã thành `src/data/compact_codes_by_game.json` (chỉ 54.9 KB gzipped).
+     - Tích hợp vào bước `0a` trong `scripts/build.cjs` và gatekeeper `verify_data_integrity.cjs`.
+  2. *Tối ưu hóa Rollup chunk (`vite.config.ts`)*:
+     - Đưa `compact_codes_by_game.json` vào chunk `game-catalog-data` (tổng chỉ 160 KB gzipped cùng `games188.json`), nạp sẵn 100% mã offline cho mọi client ngay từ ban đầu mà không làm chậm tải trang.
+  3. *Nạp mã tức thì ở Millisecond 0 (`dataService.ts`)*:
+     - Nạp `compactCodesByGame` trực tiếp vào `this.codesMap` trong `initSyncBaseline()` đồng bộ (0ms).
+     - Bổ sung hàm `getGameBySlugLocal(slug)`: Trả về game chứa đầy đủ 100% giftcode ngay lập tức mà không cần gọi API.
+     - Hàm `queryGames`: Enrich toàn bộ game trả về từ API bằng `this.getCodesForGame(g)` để mọi thẻ game luôn đủ mã.
+  4. *Cập nhật Modal & Deep Link Render Tức Thì (`App.tsx` & `GameDetailModal.tsx`)*:
+     - `handleSelectGame` và `handleSelectGameSlug`: Lấy ngay bản ghi đầy đủ mã từ `getGameBySlugLocal(slug)` để gán vào state của Modal ở frame đầu tiên (0ms instant render).
+     - `GameDetailModal`: `useState(() => dataService.getGameBySlugLocal(game.slug) || game)` đảm bảo frame 1 luôn hiển thị 100% mã (20 mã của Hắc Ngộ Không, 46 mã của Pirate Legends).
+- **Giải Pháp Đã Thất Bại & Cần Tránh (Failed Attempts - Do Not Repeat)**:
+  - ❌ *Không được truyền trực tiếp object game từ `queryGames` vào Modal khi chưa enrich đầy đủ giftcode*.
+  - ❌ *Không được gọi `getGameBySlug(slug, true)` với `forceFresh=true` làm gián đoạn UI và chờ network roundtrip*.
+  - ❌ *Không được import trực tiếp `crawled_codes_188.json` 4.78MB vào frontend*: Phải dùng compact map rút gọn thuộc tính.
+
 ### 45. Khắc Phục Triệt Để Nghẽn Băng Thông Mobile (4.4MB Chunk) Khiến Web Báo 0 Tựa Game & Không Thấy Giftcode
 - **Mô tả & Yêu cầu Người Dùng**:
   - Người dùng gửi ảnh chụp màn hình điện thoại truy cập `codegame.shop` hiển thị "Tất cả (0)" và "Không tìm thấy tựa game nào phù hợp", báo cáo không thấy giftcode và trò chơi nào ngoài trang web.

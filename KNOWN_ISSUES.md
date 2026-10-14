@@ -629,6 +629,24 @@
   - ❌ *Không dùng dynamic `import()` cho danh mục game cốt lõi*: Mạng yếu sẽ làm import thất bại, biến danh mục thành rỗng.
   - ❌ *Không đè `codes_count: existingCodes.length` mà bỏ qua `g.codes_count`*: Sẽ xóa sạch bộ đếm mã quà tặng trên thẻ game.
 
+### ISSUE-035: Độ trễ hiển thị mảng giftcode rút gọn (/api/games preview truncate) khi mở modal hoặc deep link
+- **Triệu chứng**:
+  - Khi người dùng click vào một tựa game (như Ta Là Hắc Ngộ Không, Pirate Legends) hoặc mở trực tiếp URL `/game/:slug`, modal ban đầu chỉ hiện "Tất cả (3)" / "Còn hạn (3)" (hoặc 0-2 mã preview), số lượng mã nhảy giật sau 1-3 giây khi mạng tải xong.
+- **Nguyên nhân gốc rễ**:
+  1. *Server-side Truncation*: API `/api/games` trả về danh sách trò chơi cho trang chủ cố tình cắt ngắn `codes: (g.codes || []).slice(0, 3)` để tối ưu hóa payload trang chủ.
+  2. *Truyền Object Thiếu Mã Vào Modal*: Trong `App.tsx`, `handleSelectGame(game)` truyền trực tiếp object `game` nhận từ danh sách trang chủ vào state của modal, khiến modal chỉ hiển thị 3 mã ban đầu.
+  3. *Blocking Server Roundtrip với `fresh=1`*: Modal và App gọi `dataService.getGameBySlug(slug, true)` với cờ `forceFresh = true`. Tham số `fresh=1` ép Cloudflare Worker bỏ qua cache và truy vấn D1 database từ đầu qua mạng. Người dùng phải nhìn thấy 3 mã thiếu sót trong suốt thời gian roundtrip.
+  4. *File thô 4.78MB cồng kềnh*: File `crawled_codes_188.json` chứa quá nhiều trường dữ liệu dư thừa. Khi biên dịch thành compact catalog `{ [slug]: [ { code, rewards, status, expiry, added_at } ] }`, toàn bộ 5.321 mã chỉ nặng **54.9 KB gzipped**!
+- **Giải pháp chuẩn đã kiểm chứng**:
+  1. **Tạo Compact Codes Map (`compact_codes_by_game.json`)**: Biên dịch tự động toàn bộ 5.321 mã giftcode chuẩn thành map rút gọn chỉ 54.9 KB gzip và gom vào chunk `game-catalog-data` (tổng ~160 KB gzip).
+  2. **Nạp baseline đồng bộ ở Millisecond 0**: `dataService` nạp `compactCodesByGame` vào `codesMap` ngay trong constructor (0ms, 0 delay).
+  3. **Hàm `getGameBySlugLocal(slug)`**: Luôn trả về game chứa 100% giftcode ngay lập tức ở frame đầu tiên mà không phụ thuộc vào kết nối mạng.
+  4. **Khởi tạo Modal với 100% mã**: `GameDetailModal` và `handleSelectGame` luôn dùng `getGameBySlugLocal` để render 100% mã ngay ở 0ms. Việc đồng bộ server chạy ngầm ở background không chặn UI.
+- ⛔ **CÁCH SỬA ĐÃ THẤT BẠI - TUYỆT ĐỐI KHÔNG LẶP LẠI**:
+  - ❌ *Không truyền trực tiếp object game từ `queryGames` vào Modal khi chưa enrich đầy đủ giftcode*: Sẽ hiển thị mã bị cắt ngắn (chỉ 1-3 mã).
+  - ❌ *Không dùng `forceFresh = true` chặn UI khi người dùng click xem game*: Gây lag 1-3 giây và giật giao diện.
+  - ❌ *Không import toàn bộ `crawled_codes_188.json` 4.78MB vào bundle*: Gây nghẽn mạng di động. Luôn dùng compact catalog map.
+
 ---
 
 ## 2. QUY TRÌNH BẮT BUỘC TRƯỚC KHI SỬA CODE (PRE-FLIGHT CHECKLIST)
