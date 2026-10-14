@@ -583,25 +583,8 @@ export const MarketingNotificationToast: React.FC<MarketingNotificationToastProp
     }
   };
 
-  // Re-sync schedule when dataService completes loading
-  useEffect(() => {
-    const unsub = dataService.subscribe(() => {
-      scheduleRef.current();
-    });
-    return () => unsub();
-  }, []);
-
   if (!notification || !isVisible || !marketingService.getConfig().isEnabled) return null;
   if (typeof document === 'undefined') return null;
-
-  // Do not display customer marketing toast inside dedicated Admin dashboard
-  const isAdminView = typeof window !== 'undefined' && (
-    window.location.hash.startsWith('#/admin') ||
-    window.location.hash.startsWith('#/dashboard') ||
-    window.location.pathname.startsWith('/admin') ||
-    window.location.hostname.includes('admin-code-game-shop')
-  );
-  if (isAdminView) return null;
 
   // Icon & Theme per notification type
   const getTypeMeta = () => {

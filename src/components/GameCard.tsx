@@ -155,7 +155,6 @@ export const GameCard: React.FC<GameCardProps> = ({
           src={iconSrc}
           alt={game.name}
           loading="lazy"
-          decoding="async"
           onLoad={() => setImageLoaded(true)}
           onError={() => setImageError(true)}
           className={`w-full h-full object-cover transition-opacity duration-300 ${

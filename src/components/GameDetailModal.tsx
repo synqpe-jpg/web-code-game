@@ -49,9 +49,8 @@ export const GameDetailModal: React.FC<GameDetailModalProps> = ({
   currentUser,
 }) => {
   const { t } = useLanguage();
-  const [liveGame, setLiveGame] = useState<GameItem | null>(() =>
-    game ? (dataService.getGameBySlugLocal(game.slug) || game) : null
-  );
+  const activeUser = currentUser || (typeof window !== 'undefined' ? dataService.getCurrentUser() : null);
+  const [liveGame, setLiveGame] = useState<GameItem | null>(game);
   const [copiedCode, setCopiedCode] = useState<string | null>(null);
   const [copiedType, setCopiedType] = useState<string | null>(null);
   const [votes, setVotes] = useState<Record<string, { up: number; down: number }>>({});
@@ -59,21 +58,16 @@ export const GameDetailModal: React.FC<GameDetailModalProps> = ({
   const [modalImageError, setModalImageError] = useState(false);
 
   useEffect(() => {
-    if (!game) {
-      setLiveGame(null);
-      return;
-    }
-    const fullLocal = dataService.getGameBySlugLocal(game.slug) || game;
-    setLiveGame(fullLocal);
+    setLiveGame(game);
     setModalImageError(false);
   }, [game]);
 
-  // Dynamically revalidate with latest giftcodes in background without blocking instant UI
+  // Dynamically fetch and enrich with latest giftcodes from Cloudflare serverless D1 API
   useEffect(() => {
     if (!game?.slug) return;
     let isCancelled = false;
-    dataService.getGameBySlug(game.slug, false).then((fresh) => {
-      if (!isCancelled && fresh && fresh.codes && fresh.codes.length > (liveGame?.codes?.length || game.codes?.length || 0)) {
+    dataService.getGameBySlug(game.slug, true).then((fresh) => {
+      if (!isCancelled && fresh && fresh.codes && fresh.codes.length >= (game.codes?.length || 0)) {
         setLiveGame(fresh);
       }
     });

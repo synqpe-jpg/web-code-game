@@ -14,8 +14,6 @@ import {
   calculateDeterministicStock,
   calculateDeterministicSold,
 } from '../shared/deterministicEngine';
-import { DEFAULT_STORE_PRODUCTS, DEFAULT_UTILITY_PRODUCTS, DEFAULT_GIVEAWAYS } from '../data/seedData';
-import rawGamesData from '../data/games188.json';
 
 const MARKETING_CONFIG_KEY = 'wcg_marketing_config_v1';
 const MARKETING_REAL_CLICKS_KEY = 'wcg_marketing_real_clicks_v1';
@@ -3757,25 +3755,10 @@ class MarketingService {
     const statsWeight = Math.max(0, Number(cfgWeights.statsCopy) || 0);
     const restockWeight = Math.max(0, Number(cfgWeights.restockProduct) || 0);
 
-    // Kiểm tra xem thực tế có sản phẩm/tiện ích nào còn hàng trong kho để nổ thông báo BUY_PRODUCT không (Quy tắc 3.1)
-    const baseStoreProds = (Array.isArray(storeProducts) && storeProducts.length > 0) ? storeProducts : DEFAULT_STORE_PRODUCTS;
-    const baseUtilityProds = (Array.isArray(utilityProducts) && utilityProducts.length > 0) ? utilityProducts : DEFAULT_UTILITY_PRODUCTS;
-    const hasEligibleBuyItems = canBuy && (
-      (canStore && baseStoreProds.some((p) => p && p.is_active !== false && (Number(p.stock_quantity) || 0) > 0)) ||
-      (canUtil && baseUtilityProds.some((u) => u && u.is_active !== false && (Number(u.stock_quantity) || 0) > 0))
-    );
-
-    const baseGiveaways = (Array.isArray(giveaways) && giveaways.length > 0) ? giveaways : DEFAULT_GIVEAWAYS;
-    const hasEligibleGiveawayItems = canGw && baseGiveaways.some((g) => {
-      if (!g || g.is_active === false) return false;
-      const realStock = Array.isArray(g.codes_pool) ? g.codes_pool.length : (typeof g.remaining_codes === 'number' ? g.remaining_codes : 0);
-      return realStock > 0;
-    });
-
     const candidates: { type: NotificationType; weight: number }[] = [];
     if (canCopy && copyWeight > 0) candidates.push({ type: 'COPY_CODE', weight: copyWeight });
-    if (hasEligibleBuyItems && buyWeight > 0) candidates.push({ type: 'BUY_PRODUCT', weight: buyWeight });
-    if (hasEligibleGiveawayItems && gwWeight > 0) candidates.push({ type: 'CLAIM_GIVEAWAY', weight: gwWeight });
+    if (canBuy && buyWeight > 0) candidates.push({ type: 'BUY_PRODUCT', weight: buyWeight });
+    if (canGw && gwWeight > 0) candidates.push({ type: 'CLAIM_GIVEAWAY', weight: gwWeight });
     if (canDep && depWeight > 0) candidates.push({ type: 'DEPOSIT_WALLET', weight: depWeight });
     if (canStats && statsWeight > 0) candidates.push({ type: 'STATS_COPY', weight: statsWeight });
     if (canRestock && restockWeight > 0) candidates.push({ type: 'RESTOCK_PRODUCT', weight: restockWeight });
@@ -3783,8 +3766,8 @@ class MarketingService {
     // Fallback nếu các loại đang bật nhưng vô tình bị đặt weight = 0
     if (candidates.length === 0) {
       if (canCopy) candidates.push({ type: 'COPY_CODE', weight: 1 });
-      if (hasEligibleBuyItems) candidates.push({ type: 'BUY_PRODUCT', weight: 1 });
-      if (hasEligibleGiveawayItems) candidates.push({ type: 'CLAIM_GIVEAWAY', weight: 1 });
+      if (canBuy) candidates.push({ type: 'BUY_PRODUCT', weight: 1 });
+      if (canGw) candidates.push({ type: 'CLAIM_GIVEAWAY', weight: 1 });
       if (canDep) candidates.push({ type: 'DEPOSIT_WALLET', weight: 1 });
       if (canStats) candidates.push({ type: 'STATS_COPY', weight: 1 });
       if (canRestock) candidates.push({ type: 'RESTOCK_PRODUCT', weight: 1 });
@@ -3869,10 +3852,7 @@ class MarketingService {
         }
       } catch {}
 
-      const baseGiveaways = (Array.isArray(giveaways) && giveaways.length > 0)
-        ? giveaways
-        : DEFAULT_GIVEAWAYS;
-      const eligibleGiveaways = baseGiveaways
+      const eligibleGiveaways = (Array.isArray(giveaways) ? giveaways : [])
         .filter((gw) => {
           if (!gw || gw.is_active === false) return false;
           if (deletedGwSet.has(gw.id)) return false;
@@ -3922,7 +3902,7 @@ class MarketingService {
       }
       
       // Fallback nếu không có Giveaway hợp lệ
-      if (hasEligibleBuyItems) chosenType = 'BUY_PRODUCT';
+      if (canBuy) chosenType = 'BUY_PRODUCT';
       else if (canCopy) chosenType = 'COPY_CODE';
       else if (canDep) chosenType = 'DEPOSIT_WALLET';
       else if (canStats) chosenType = 'STATS_COPY';
@@ -3948,11 +3928,8 @@ class MarketingService {
         }
       } catch {}
 
-      const baseStoreProds = (Array.isArray(storeProducts) && storeProducts.length > 0)
-        ? storeProducts
-        : DEFAULT_STORE_PRODUCTS;
       const eligibleStoreProds = canStore
-        ? baseStoreProds
+        ? (Array.isArray(storeProducts) ? storeProducts : [])
             .filter((p) => {
               if (!p || p.is_active === false) return false;
               if (deletedStoreSet.has(p.id)) return false;
@@ -3972,11 +3949,8 @@ class MarketingService {
             }))
         : [];
 
-      const baseUtilityProds = (Array.isArray(utilityProducts) && utilityProducts.length > 0)
-        ? utilityProducts
-        : DEFAULT_UTILITY_PRODUCTS;
       const eligibleUtilityProds = canUtil
-        ? baseUtilityProds
+        ? (Array.isArray(utilityProducts) ? utilityProducts : [])
             .filter((u) => {
               if (!u || u.is_active === false) return false;
               if (deletedUtilSet.has(u.id)) return false;
@@ -4075,8 +4049,7 @@ class MarketingService {
 
     // 5. COPY_CODE
     if (chosenType === 'COPY_CODE') {
-      const baseGames = (Array.isArray(games) && games.length > 0) ? games : (rawGamesData as unknown as GameItem[]);
-      const validGames = baseGames
+      const validGames = (Array.isArray(games) ? games : [])
         .filter((g) => g && ((g.codes_count || 0) > 0 || (g.codes && g.codes.length > 0)))
         .sort((a, b) => String(a.slug || a.id).localeCompare(String(b.slug || b.id)));
 
@@ -4201,88 +4174,12 @@ class MarketingService {
       }
 
       // Fallback nếu không có item nào
-      if (canCopy) {
-        const baseGames = (Array.isArray(games) && games.length > 0) ? games : (rawGamesData as unknown as GameItem[]);
-        const validGames = baseGames
-          .filter((g) => g && ((g.codes_count || 0) > 0 || (g.codes && g.codes.length > 0)))
-          .sort((a, b) => String(a.slug || a.id).localeCompare(String(b.slug || b.id)));
-        const chosenGame = validGames[Math.floor(rng() * validGames.length)] || { name: 'Free Fire', slug: 'free-fire' };
-        return {
-          notif: {
-            id: `slot_copy_${slotIndex}`,
-            type: 'COPY_CODE',
-            title: 'Sao chép mã Giftcode',
-            message: `${maskedUser} vừa sao chép 1 Giftcode game ${chosenGame.name}`,
-            timeAgo,
-            userName: maskedUser,
-            gameName: chosenGame.name,
-            gameSlug: chosenGame.slug,
-            timestamp: fireTimeMs,
-          },
-          slotIndex,
-          fireTimeMs,
-          displayDurationMs,
-        };
-      } else if (canDep) {
-        const depositPresets = [50000, 100000, 200000, 300000, 500000, 1000000];
-        const amount = depositPresets[Math.floor(rng() * depositPresets.length)];
-        return {
-          notif: {
-            id: `slot_dep_${slotIndex}`,
-            type: 'DEPOSIT_WALLET',
-            title: 'Nạp tiền ví thành công',
-            message: `${maskedUser} vừa nạp thành công ${amount.toLocaleString('vi-VN')}đ vào ví Core`,
-            timeAgo,
-            userName: maskedUser,
-            depositAmount: amount,
-            timestamp: fireTimeMs,
-          },
-          slotIndex,
-          fireTimeMs,
-          displayDurationMs,
-        };
-      } else if (canStats) {
-        const count = this.getLiveCopyCount(fireTimeMs);
-        return {
-          notif: {
-            id: `slot_stats_${slotIndex}`,
-            type: 'STATS_COPY',
-            title: 'Thống kê sôi động',
-            message: `Hệ thống vừa ghi nhận ${count.toLocaleString('vi-VN')} lượt sao chép giftcode hôm nay!`,
-            timeAgo: 'vừa xong',
-            totalCopiesCount: count,
-            timestamp: fireTimeMs,
-          },
-          slotIndex,
-          fireTimeMs,
-          displayDurationMs,
-        };
-      }
-    }
-
-    // Guaranteed final fallback nếu mọi nhánh trên không khớp nhưng COPY_CODE được bật:
-    if (canCopy) {
-      const baseGames = (Array.isArray(games) && games.length > 0) ? games : (rawGamesData as unknown as GameItem[]);
-      const validGames = baseGames
-        .filter((g) => g && ((g.codes_count || 0) > 0 || (g.codes && g.codes.length > 0)))
-        .sort((a, b) => String(a.slug || a.id).localeCompare(String(b.slug || b.id)));
-      const chosenGame = validGames[Math.floor(rng() * validGames.length)] || { name: 'Free Fire', slug: 'free-fire' };
-      return {
-        notif: {
-          id: `slot_copy_${slotIndex}`,
-          type: 'COPY_CODE',
-          title: 'Sao chép mã Giftcode',
-          message: `${maskedUser} vừa sao chép 1 Giftcode game ${chosenGame.name}`,
-          timeAgo,
-          userName: maskedUser,
-          gameName: chosenGame.name,
-          gameSlug: chosenGame.slug,
-          timestamp: fireTimeMs,
-        },
-        slotIndex,
-        fireTimeMs,
-        displayDurationMs,
-      };
+      if (canCopy) chosenType = 'COPY_CODE';
+      else if (canBuy) chosenType = 'BUY_PRODUCT';
+      else if (canGw) chosenType = 'CLAIM_GIVEAWAY';
+      else if (canDep) chosenType = 'DEPOSIT_WALLET';
+      else if (canStats) chosenType = 'STATS_COPY';
+      else return null;
     }
 
     return null;
