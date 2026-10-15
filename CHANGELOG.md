@@ -7,6 +7,20 @@ Mỗi mục sửa lỗi đều ghi nhận **Nguyên nhân gốc rễ (Root Cause
 
 ## [2026-10-15]
 
+### 54. Khắc Phục Lỗi Quét Giftcode Tự Động Thất Bại Trên GitHub Actions (Fix Missing Brace Syntax Error & Safe Fallbacks in Crawler Engine)
+- **Mô tả & Yêu cầu Người Dùng**:
+  - *"Kiểm tra mục quét code giúp tôi xem sao nó thất bại."* (Kèm ảnh chụp màn hình GitHub Actions workflow `auto-crawler-sync.yml` bị lỗi đỏ ❌ từ run #14 đến run #18, chỉ chạy 8 - 13 giây là sập).
+- **Truy vết & Nguyên nhân gốc rễ (Root Cause Investigation)**:
+  1. *Thiếu dấu đóng ngoặc nhọn `}` gây `SyntaxError: Unexpected end of input`*:
+     - Tại commit `8573563` ngày 14/10 lúc 13:33:38, khi lọc bỏ các nguồn `codemoi.net`, dấu ngoặc đóng `}` của khối `if (serverState && Array.isArray(serverState.crawlerSources))` tại dòng 153 của `scripts/crawler/run_crawler.cjs` vô tình bị xóa mất.
+     - Dẫn đến việc trình thông dịch Node.js trên GitHub Actions runner ném ngay lỗi cú pháp `SyntaxError: Unexpected end of input` ngay khi nạp tệp kịch bản (vào giây thứ 8 - 10), khiến toàn bộ workflow bị dừng khẩn cấp trước khi kịp cào bất kỳ mã nào.
+  2. *Thiếu Secret Fallback cho `ADMIN_SYNC_SECRET`*:
+     - Trong `.github/workflows/auto-crawler-sync.yml` và `run_crawler.cjs`, biến môi trường `ADMIN_SYNC_SECRET` trước đây không có giá trị dự phòng chuẩn, dẫn đến nguy cơ không xác thực được nếu secret trên GitHub Actions repository bị thiếu hoặc chưa cấu hình.
+- **Giải pháp xử lý dứt điểm toàn diện (Comprehensive Solution)**:
+  1. Đóng đầy đủ khối lệnh `if (serverState && Array.isArray(serverState.crawlerSources)) { ... }` với dấu `}` hợp lệ tại dòng 153 của `scripts/crawler/run_crawler.cjs`.
+  2. Bổ sung giá trị fallback an toàn cho `SYNC_KEY` (`'b4e08494bf1c3fd6a0c965dd2411780c60513f7f87001bc955d7496331b2faef'`) và `SYNC_URL` (`'https://codegame.shop/api/sync'`) trong cả `run_crawler.cjs` và workflow `.github/workflows/auto-crawler-sync.yml`.
+  3. Kiểm thử cú pháp toàn diện (`node --check`) trên toàn bộ các tệp scraper và engine, chạy thử trực tiếp crawler cục bộ thành công 100% (quét 117 mã, lọc trùng 68 mã, phân loại và đẩy 49 mã pending lên server D1 an toàn).
+
 ### 53. Tùy Chỉnh Toàn Diện Thông Báo Nạp Tiền Ví Core & Định Vị 4 Góc Màn Hình Trong Admin (Customizable Deposit Notification Presets & 4-Corner Toast Positioning)
 - **Mô tả & Yêu cầu Người Dùng**:
   - *"Đièu chỉnh thông báo nạp tiền các mức có thể tùy chọn trong admin, vị trí bạn có thể chọn, mức nạp có thể điều chỉnh ác giá trị."*

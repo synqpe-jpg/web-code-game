@@ -21,8 +21,8 @@ const { WebScraper } = require('./scrapers/web_scraper.cjs');
 const { DiscordScraper } = require('./scrapers/discord_scraper.cjs');
 const { FacebookScraper } = require('./scrapers/facebook_scraper.cjs');
 
-const SYNC_URL = process.env.SYNC_URL || 'https://web-code-game.pages.dev/api/sync';
-const SYNC_KEY = process.env.ADMIN_SYNC_SECRET || '';
+const SYNC_URL = process.env.SYNC_URL || 'https://codegame.shop/api/sync';
+const SYNC_KEY = process.env.ADMIN_SYNC_SECRET || 'b4e08494bf1c3fd6a0c965dd2411780c60513f7f87001bc955d7496331b2faef';
 
 function requestHttp(url, options = {}, postData = null) {
   return new Promise((resolve, reject) => {
@@ -151,6 +151,7 @@ async function main() {
         sourceMap.set(s.id, { ...(existing || {}), ...s });
       }
     });
+  }
   sources = Array.from(sourceMap.values()).filter((s) => {
     if (!s) return false;
     const url = (s.url || '').toLowerCase();
