@@ -117,16 +117,21 @@
   - `loadProducts(env)` và `loadGiveaways(env)` trong `snapshotService.ts` bị lỗi `ReferenceError: masterRaw is not defined` do thiếu biến trong destructuring `Promise.all`. Lỗi runtime khiến hàm trả về `[]`, dẫn đến vòng lặp dọn dẹp peak xóa sạch `hub.peakProductSoldCounts` trên D1!
   - Bẫy xóa sạch `recordedMax` trong `getSoldDisplay()` & `getClaimedDisplay()` khi `realStock <= 0 && !oosEnabled`: 18/19 tiện ích có `stock_quantity = 0`, nên mỗi khi render lại hàm tự ý gán `recordedMax = baseTotal` (48, 72, 125) thay vì giữ đỉnh (77, 99, 152).
   - Bẫy kẹp trần nhân tạo quá hẹp: `maxAllowedCap = maxCatchUp + 10` trong `getSoldDisplay()`, `maxCap = maxCatchUp + 15` trong poller, `maxAllowed = maxCatchUp + 15` trong `snapshotService.ts`, và `(prevTotal > computedTotal + 20)` trong `stats.ts`.
+  - Bẫy ngắt toàn bộ tiến trình tăng trưởng `if (!parsedAnchorMs) return 0;` trong `getHourlyGrowth` và `getInHourProgression` khi sản phẩm không có `fomo_anchor_time`.
+  - Bẫy auto-heal `if (recordedMax > calculatedBase + 50)` xóa sạch số bán tích lũy khi offline catch-up đạt > 50 đơn.
   - Initial Welcome Toast trong `MarketingNotificationToast.tsx` bị gán nhầm `(welcomeData.notif as any).localOrigin = true;`, ngăn cản toast gọi `recordVirtualSale`.
 - **Giải pháp chuẩn đã kiểm chứng**:
   - `loadProducts` và `loadGiveaways` trong `snapshotService.ts` chuyển sang dùng `loadAllStoreProductsD1`, `loadAllUtilitiesD1`, và `loadAllGiveawaysD1` chuẩn từ `d1_service.ts`.
   - Vô hiệu hóa việc xóa đỉnh khỏi `hub.peakProductSoldCounts` và `hub.peakGiveawayClaimedCounts`, chỉ dọn dẹp nếu dữ liệu hỏng (`> 1,000,000` hoặc `NaN`).
   - Trong `getSoldDisplay()` và `getClaimedDisplay()`, khi `realStock <= 0 && !oosEnabled`: Không xóa `recordedMax`! Chỉ đóng băng tiến trình tăng theo giờ (`hourlyGrowth = 0; inHourProg = 0`), luôn trả về `Math.max(calculatedBase, recordedMax)`.
-  - Mở rộng trần bảo vệ an toàn `Math.max(50000, baseline + 5000)` thay cho các mức hẹp `+ 10 / + 15`, và xóa bỏ kẹp trần `+ 20` trong `stats.ts`.
+  - Fallback anchor thông minh về `sessionAnchor.lastTimestamp` hoặc đầu ngày `dayStart` khi không có `anchorTime` cụ thể.
+  - Mở rộng trần bảo vệ an toàn `Math.max(50000, baseline + 5000)` thay cho các mức hẹp `+ 10 / + 15` hay `+ 50`, và xóa bỏ kẹp trần `+ 20` trong `stats.ts`.
+  - Bổ sung `ensureSessionAnchorsSeeded()` nạp mốc cho toàn bộ catalog và nới `maxCap` lên 70 đơn theo cấu hình Admin.
   - Bỏ cờ `localOrigin = true` tại Welcome Toast, đảm bảo 100% mọi toast nổ ra đều kích hoạt tăng số đã bán trên UI.
 - ⛔ **CÁCH SỬA ĐÃ THẤT BẠI - TUYỆT ĐỐI KHÔNG LẶP LẠI**:
   - ❌ *Không được dùng điều kiện `curSold > info.sold + 2` trong vòng lặp poller*: Sẽ phá hủy hoàn toàn tiến trình bán hàng tự nhiên của phiên người dùng.
-  - ❌ *Không được kẹp trần `maxAllowedCap` ở mức hẹp `maxCatchUp + 10` hoặc `+ 15`*: Khi số đơn bán thêm vượt quá 6-10 đơn, số lượng sẽ bị tự động giật lùi về mốc ban đầu (rubber-band trap).
+  - ❌ *Không được kẹp trần `maxAllowedCap` ở mức hẹp `maxCatchUp + 10` hoặc `+ 15` hay `+ 50`*: Khi số đơn bán thêm vượt quá 6-10 đơn hoặc 50 đơn, số lượng sẽ bị tự động giật lùi về mốc ban đầu (rubber-band trap).
+  - ❌ *Không được return 0 khi thiếu `anchorTime`*: Khiến toàn bộ số ảo Admin thiết lập không thể tự trôi theo thời gian.
   - ❌ *Không được gán `this.highWaterSoldCountMap.set(id, baseTotal)` khi `realStock <= 0` trong `getSoldDisplay()`*: Sẽ xóa sạch các đơn hàng đã bán tích lũy của tiện ích.
   - ❌ *Không được xóa đỉnh `hub.peakProductSoldCounts` trong server snapshot chỉ vì sản phẩm hết hàng hoặc không có số ảo*.
 

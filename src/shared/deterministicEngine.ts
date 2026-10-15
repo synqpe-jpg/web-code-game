@@ -207,13 +207,9 @@ export function calculateHourlyGrowth(
     }
   }
 
-  // If no anchorTime was explicitly provided, do NOT add phantom growth from createdAt!
-  // The baseline set by admin is the canonical display at t=0.
-  if (!parsedAnchorMs) {
-    return 0;
-  }
-
-  const safeStart = Math.min(parsedAnchorMs, timestampMs);
+  // Fallback to day start if anchorTime is not explicitly provided so growth can proceed deterministically
+  const dayStart = Math.floor(timestampMs / 86400000) * 86400000;
+  const safeStart = parsedAnchorMs || dayStart;
   const elapsedMinutes = Math.max(0, Math.floor((timestampMs - safeStart) / 60000));
   if (elapsedMinutes <= 0) return 0;
 
@@ -245,20 +241,20 @@ export function calculateInHourProgression(
 ): number {
   if (!id || priority === 'off') return 0;
 
-  if (!anchorTime) return 0;
   let parsedAnchorMs: number | null = null;
-  let str = String(anchorTime).trim();
-  if (/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/.test(str)) {
-    str = str.replace(' ', 'T') + 'Z';
+  if (anchorTime) {
+    let str = String(anchorTime).trim();
+    if (/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/.test(str)) {
+      str = str.replace(' ', 'T') + 'Z';
+    }
+    const t = new Date(str).getTime();
+    if (!isNaN(t) && t > 0) {
+      parsedAnchorMs = Math.min(t, timestampMs);
+    }
   }
-  const t = new Date(str).getTime();
-  if (!isNaN(t) && t > 0) {
-    parsedAnchorMs = Math.min(t, timestampMs);
-  }
-  if (!parsedAnchorMs) return 0;
 
   // Items within 15 minutes of anchor start at clean baseline without artificial in-hour jump
-  if (timestampMs - parsedAnchorMs < 15 * 60 * 1000) {
+  if (parsedAnchorMs && (timestampMs - parsedAnchorMs < 15 * 60 * 1000)) {
     return 0;
   }
 
@@ -298,15 +294,13 @@ export function calculateDeterministicSold(
   if (priority === 'off') return real;
   const base = Math.max(0, Number(virtualBase !== undefined ? virtualBase : 0));
 
-  const hasDisplayStock = (realStock !== undefined && realStock > 0) || (priority !== 'off' && Number(virtualBonusStock) > 0);
-
-  // NẾU HẾT HÀNG THẬT / HẾT CODE (realStock <= 0) VÀ KHÔNG CÓ TỒN KHO ẢO ĐANG BÁN:
-  if (realStock !== undefined && realStock <= 0 && !hasDisplayStock) {
+  // NẾU HẾT HÀNG THẬT / HẾT CODE (realStock <= 0):
+  if (realStock !== undefined && realStock <= 0) {
     if (!customConfig?.outOfStockEnabled) {
       return real + base;
     }
-    // Nếu có bật bù ngoại tuyến cho hàng hết: kẹp trần theo outOfStockMaxUnits
-    const oosMax = Math.max(1, Number(customConfig.outOfStockMaxUnits) || 10);
+    // Nếu có bật bù ngoại tuyến cho hàng hết: kẹp trần theo outOfStockMaxUnits (default 70)
+    const oosMax = Math.max(1, Number(customConfig.outOfStockMaxUnits) || 70);
     const hourly = calculateHourlyGrowth(productId, createdAt, timestampMs, priority, customConfig, anchorTime);
     return real + base + Math.min(hourly, oosMax);
   }
@@ -419,15 +413,13 @@ export function calculateGlobalSnapshot(
         );
 
     // Bảo toàn đỉnh bán hàng lũy kế (Monotonic Progression): Đỉnh đã đạt được duy trì vĩnh viễn
-    // Tự động thanh lọc đỉnh rác cũ (ghost inflated peak) vượt quá trần cấu hình hiện tại
+    // Tự động thanh lọc đỉnh rác cũ (ghost inflated peak) vượt quá trần cấu hình an toàn
     const oosEnabled = Boolean(data.offlineCatchUp?.outOfStockEnabled);
-    const oosMax = Math.max(1, Number(data.offlineCatchUp?.outOfStockMaxUnits) || 10);
+    const oosMax = Math.max(1, Number(data.offlineCatchUp?.outOfStockMaxUnits) || 70);
+    const maxCatchUp = Math.max(70, Number(data.offlineCatchUp?.maxCatchUpUnits) || 70);
     const peakSold = Number(data.peakProductSoldCounts?.[prod.id]) || 0;
     const baseTarget = Number(prod.virtual_sold_count || 0);
-    const hasDisplayStock = realStock > 0 || (priority !== 'off' && virtualBonusConfig > 0);
-    const maxAllowedPeak = !hasDisplayStock && oosEnabled
-      ? effectiveRealSold + baseTarget + oosMax
-      : effectiveRealSold + baseTarget + 15;
+    const maxAllowedPeak = Math.max(50000, effectiveRealSold + baseTarget + maxCatchUp + 500);
     const effectivePeakSold = (peakSold > maxAllowedPeak) ? rawDisplaySold : peakSold;
     const displaySold = Math.max(rawDisplaySold, effectivePeakSold);
 
@@ -521,15 +513,13 @@ export function calculateGlobalSnapshot(
         );
 
     // Bảo toàn đỉnh nhận quà lũy kế (Monotonic Progression): Đỉnh đã đạt được duy trì vĩnh viễn
-    // Tự động thanh lọc đỉnh rác cũ (ghost inflated peak) vượt quá trần cấu hình hiện tại
+    // Tự động thanh lọc đỉnh rác cũ (ghost inflated peak) vượt quá trần cấu hình an toàn
     const gwOosEnabled = Boolean(data.offlineCatchUp?.outOfStockEnabled);
-    const gwOosMax = Math.max(1, Number(data.offlineCatchUp?.outOfStockMaxUnits) || 10);
+    const gwOosMax = Math.max(1, Number(data.offlineCatchUp?.outOfStockMaxUnits) || 70);
+    const maxCatchUpGw = Math.max(70, Number(data.offlineCatchUp?.maxCatchUpUnits) || 70);
     const peakClaimed = Number(data.peakGiveawayClaimedCounts?.[gw.id]) || 0;
     const baseTargetGw = Number(gw.virtual_claimed_offset || 0);
-    const hasDisplayGwStock = realRemaining > 0 || (priority !== 'off' && virtualBonusConfig > 0);
-    const maxAllowedGwPeak = !hasDisplayGwStock && gwOosEnabled
-      ? effectiveRealClaimed + baseTargetGw + gwOosMax
-      : effectiveRealClaimed + baseTargetGw + 15;
+    const maxAllowedGwPeak = Math.max(50000, effectiveRealClaimed + baseTargetGw + maxCatchUpGw + 500);
     const effectivePeakClaimed = (peakClaimed > maxAllowedGwPeak) ? rawDisplayClaimed : peakClaimed;
     const displayClaimed = Math.max(rawDisplayClaimed, effectivePeakClaimed);
 

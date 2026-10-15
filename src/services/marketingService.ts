@@ -75,13 +75,13 @@ export const DEFAULT_PRODUCT_MARKETING_CONFIG: ProductMarketingConfig = {
 export const DEFAULT_OFFLINE_CATCHUP_CONFIG: OfflineCatchUpConfig = {
   enabled: true,
   scope: 'all',
-  mode: 'auto',
+  mode: 'custom',
   intervalMinutes: 15,
-  incrementStep: 1,
-  maxCatchUpUnits: 30,
-  outOfStockEnabled: false,
-  outOfStockMaxUnits: 10,
-  outOfStockIncrementStep: 1,
+  incrementStep: 12,
+  maxCatchUpUnits: 70,
+  outOfStockEnabled: true,
+  outOfStockMaxUnits: 70,
+  outOfStockIncrementStep: 12,
 };
 
 export const DEFAULT_TYPE_TOGGLES: NotificationTypeToggles = {
@@ -422,10 +422,7 @@ class MarketingService {
                     const details = this.findItemDetails(pId);
                     const virtualBase = Number(details?.virtual_sold_count || 0);
                     const pw = this.getProductConfig(pId);
-                    const hasActiveStock = realStock > 0 || (pw.priority !== 'off' && Number(pw.virtualStockBonus) > 0);
-                    const maxCap = !hasActiveStock && oosEnabled
-                      ? realSold + virtualBase + oosMax + 5
-                      : realSold + virtualBase + 100;
+                    const maxCap = Math.max(50000, realSold + virtualBase + maxCatchUp + 500);
 
                     const effectiveServerSold = info.sold > maxCap ? (realSold + virtualBase) : info.sold;
                     const healedSold = nextSold > maxCap ? effectiveServerSold : Math.min(nextSold, maxCap);
@@ -519,10 +516,7 @@ class MarketingService {
                     const details = this.findGiveawayDetails(gId);
                     const virtualBase = Number(details?.virtual_claimed_offset || 0);
                     const pw = this.getProductConfig(gId);
-                    const hasActiveStock = realRemaining > 0 || (pw.priority !== 'off' && Number(pw.virtualStockBonus) > 0);
-                    const maxCap = !hasActiveStock && oosEnabled
-                      ? realClaimed + virtualBase + oosMax + 5
-                      : realClaimed + virtualBase + 100;
+                    const maxCap = Math.max(50000, realClaimed + virtualBase + maxCatchUp + 500);
 
                     const effectiveServerClaimed = info.claimed > maxCap ? (realClaimed + virtualBase) : info.claimed;
                     const healedClaimed = nextClaimed > maxCap ? effectiveServerClaimed : Math.min(nextClaimed, maxCap);
@@ -606,10 +600,11 @@ class MarketingService {
       this.schedulePeakReport();
     }, 800);
 
-    const intervalSec = Math.max(20, Math.min(60, Number(this.config.syncIntervalSeconds) || 30));
+    const intervalSec = Math.max(15, Math.min(60, Number(this.config.syncIntervalSeconds) || 30));
     this.snapshotPollerTimer = setInterval(() => {
       if (typeof document !== 'undefined' && document.visibilityState === 'hidden') return;
       this.fetchMetricsSnapshot();
+      this.applyOfflineCatchUp();
     }, intervalSec * 1000);
 
     if (typeof document !== 'undefined' && !this.visibilityListenerAttached) {
@@ -617,6 +612,7 @@ class MarketingService {
       document.addEventListener('visibilitychange', () => {
         if (document.visibilityState === 'visible') {
           this.fetchMetricsSnapshot();
+          this.applyOfflineCatchUp();
         }
       });
     }
@@ -655,7 +651,7 @@ class MarketingService {
         const details = this.findItemDetails(id);
         const virtualBase = Number(details?.virtual_sold_count || 0);
         const realSold = Number(details?.sold_count || 0);
-        const maxAllowed = realSold + virtualBase + 100;
+        const maxAllowed = Math.max(50000, realSold + virtualBase + 5000);
         if (val > last && val <= maxAllowed) {
           peakSold[id] = val;
           hasNewPeak = true;
@@ -668,7 +664,7 @@ class MarketingService {
         const details = this.findGiveawayDetails(id);
         const virtualBase = Number(details?.virtual_claimed_offset || 0);
         const realClaimed = Number(details?.claimed_codes || 0);
-        const maxAllowed = realClaimed + virtualBase + 100;
+        const maxAllowed = Math.max(50000, realClaimed + virtualBase + 5000);
         if (val > last && val <= maxAllowed) {
           peakClaimed[id] = val;
           hasNewPeak = true;
@@ -1125,6 +1121,68 @@ class MarketingService {
   }
 
   // --- Session Anchor & Offline Catch-Up Engine ---
+  public ensureSessionAnchorsSeeded(): void {
+    if (typeof window === 'undefined') return;
+    try {
+      const now = this.getCalibratedNow();
+      let changed = false;
+
+      // 1. Seed store products & utilities
+      const spRaw = localStorage.getItem('wcg_admin_store_products_v4') || localStorage.getItem('wcg_store_products_v4');
+      if (spRaw) {
+        try {
+          const spList = JSON.parse(spRaw);
+          if (Array.isArray(spList)) {
+            spList.forEach((p: any) => {
+              if (p && p.id && !this.sessionAnchorMap.has(p.id)) {
+                const base = (Number(p.sold_count) || 0) + (Number(p.virtual_sold_count) || 0);
+                this.sessionAnchorMap.set(p.id, { lastCount: base, lastTimestamp: now });
+                changed = true;
+              }
+            });
+          }
+        } catch {}
+      }
+
+      const utRaw = localStorage.getItem('wcg_admin_utilities_v4') || localStorage.getItem('wcg_utilities_v4');
+      if (utRaw) {
+        try {
+          const utList = JSON.parse(utRaw);
+          if (Array.isArray(utList)) {
+            utList.forEach((u: any) => {
+              if (u && u.id && !this.sessionAnchorMap.has(u.id)) {
+                const base = (Number(u.sold_count) || 0) + (Number(u.virtual_sold_count) || 0);
+                this.sessionAnchorMap.set(u.id, { lastCount: base, lastTimestamp: now });
+                changed = true;
+              }
+            });
+          }
+        } catch {}
+      }
+
+      // 2. Seed giveaways
+      const gwRaw = localStorage.getItem('wcg_admin_giveaways_v4') || localStorage.getItem('wcg_giveaways_v4');
+      if (gwRaw) {
+        try {
+          const gwList = JSON.parse(gwRaw);
+          if (Array.isArray(gwList)) {
+            gwList.forEach((g: any) => {
+              if (g && g.id && !this.sessionAnchorMap.has(g.id)) {
+                const base = (Number(g.claimed_codes) || 0) + (Number(g.virtual_claimed_offset) || 0);
+                this.sessionAnchorMap.set(g.id, { lastCount: base, lastTimestamp: now });
+                changed = true;
+              }
+            });
+          }
+        } catch {}
+      }
+
+      if (changed) {
+        this.saveSessionAnchor();
+      }
+    } catch {}
+  }
+
   private initSessionAnchor(): void {
     if (typeof window === 'undefined') return;
     try {
@@ -1154,6 +1212,8 @@ class MarketingService {
           this.sessionAnchorMap.set(id, { lastCount: count, lastTimestamp: now });
         }
       });
+      // Tự động seed cho toàn bộ catalog nếu chưa có trong sessionAnchorMap
+      this.ensureSessionAnchorsSeeded();
     } catch {}
   }
 
@@ -1212,6 +1272,8 @@ class MarketingService {
       return;
     }
 
+    this.ensureSessionAnchorsSeeded();
+
     const now = this.getCalibratedNow();
     let anyChanged = false;
 
@@ -1244,30 +1306,34 @@ class MarketingService {
       }
 
       const maxCap = isOos && catchUp.outOfStockEnabled
-        ? Math.max(1, Number(catchUp.outOfStockMaxUnits) || 10)
-        : Math.max(1, Number(catchUp.maxCatchUpUnits) || 30);
+        ? Math.max(1, Number(catchUp.outOfStockMaxUnits) || 70)
+        : Math.max(1, Number(catchUp.maxCatchUpUnits) || 70);
       unitsToAdd = Math.min(unitsToAdd, maxCap);
 
       if (unitsToAdd > 0) {
-        const currentHighSold = this.highWaterSoldCountMap.get(id) || anchor.lastCount;
-        const newTarget = Math.max(currentHighSold, anchor.lastCount + unitsToAdd);
-        this.highWaterSoldCountMap.set(id, newTarget);
+        if (id.startsWith('gw_')) {
+          const currentClaimed = this.highWaterClaimedCountMap.get(id) || anchor.lastCount;
+          const newTarget = Math.max(currentClaimed, anchor.lastCount + unitsToAdd);
+          this.highWaterClaimedCountMap.set(id, newTarget);
+          this.sessionAnchorMap.set(id, {
+            lastCount: newTarget,
+            lastTimestamp: now,
+          });
+        } else {
+          const currentHighSold = this.highWaterSoldCountMap.get(id) || anchor.lastCount;
+          const newTarget = Math.max(currentHighSold, anchor.lastCount + unitsToAdd);
+          this.highWaterSoldCountMap.set(id, newTarget);
+          this.sessionAnchorMap.set(id, {
+            lastCount: newTarget,
+            lastTimestamp: now,
+          });
 
-        const currentClaimed = this.highWaterClaimedCountMap.get(id);
-        if (currentClaimed !== undefined) {
-          this.highWaterClaimedCountMap.set(id, Math.max(currentClaimed, anchor.lastCount + unitsToAdd));
+          // TỒN KHO ẢO ĐỒNG BỘ 1 - 1 KHI OFFLINE:
+          // Cứ mỗi đơn bán bù ngoại tuyến, giảm tồn kho ảo đi đúng unitsToAdd đơn vị tương ứng (có tự động bù kho nếu chạm đáy):
+          if (realStock > 0 && pw.virtualStockBonus && pw.virtualStockBonus > 0 && pw.priority !== 'off') {
+            this.decrementProductStock(id, unitsToAdd, `offline_catchup_${id}_${now}`);
+          }
         }
-
-        // TỒN KHO ẢO ĐỒNG BỘ 1 - 1 KHI OFFLINE:
-        // Cứ mỗi đơn bán bù ngoại tuyến, giảm tồn kho ảo đi đúng unitsToAdd đơn vị tương ứng (có tự động bù kho nếu chạm đáy):
-        if (realStock > 0 && pw.virtualStockBonus && pw.virtualStockBonus > 0 && pw.priority !== 'off') {
-          this.decrementProductStock(id, unitsToAdd, `offline_catchup_${id}_${now}`);
-        }
-
-        this.sessionAnchorMap.set(id, {
-          lastCount: newTarget,
-          lastTimestamp: now,
-        });
         anyChanged = true;
       }
     });
@@ -2142,10 +2208,15 @@ class MarketingService {
       }
     }
 
-    // If no anchorTime was explicitly provided, do NOT add phantom growth from createdAt!
-    // The baseline set by admin is the canonical display at t=0.
+    // Fallback to sessionAnchor or day start so growth can proceed deterministically
     if (!parsedAnchorMs) {
-      return 0;
+      const sessionAnchor = this.sessionAnchorMap.get(id);
+      if (sessionAnchor && sessionAnchor.lastTimestamp > 0) {
+        parsedAnchorMs = sessionAnchor.lastTimestamp;
+      } else {
+        const dayStart = Math.floor(this.getCalibratedNow() / 86400000) * 86400000;
+        parsedAnchorMs = dayStart;
+      }
     }
 
     const nowMs = this.getCalibratedNow();
@@ -2165,7 +2236,7 @@ class MarketingService {
       rate *= mult;
     }
     let baseGrowth = Math.floor(elapsedHours * rate);
-    const maxCap = Math.max(1, Number(catchUp.maxCatchUpUnits) || 30);
+    const maxCap = Math.max(1, Number(catchUp.maxCatchUpUnits) || 70);
     baseGrowth = Math.min(baseGrowth, maxCap);
 
     const jitter = stringHash(id) % 3;
@@ -2178,21 +2249,25 @@ class MarketingService {
     const p = priority || pw?.priority || 'normal';
     if (p === 'off') return 0;
 
-    if (!anchorTime) return 0;
     let parsedAnchorMs: number | null = null;
-    let str = String(anchorTime).trim();
-    if (/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/.test(str)) {
-      str = str.replace(' ', 'T') + 'Z';
+    if (anchorTime) {
+      let str = String(anchorTime).trim();
+      if (/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/.test(str)) {
+        str = str.replace(' ', 'T') + 'Z';
+      }
+      const t = new Date(str).getTime();
+      if (!isNaN(t) && t > 0) {
+        parsedAnchorMs = Math.min(t, this.getCalibratedNow());
+      }
     }
-    const t = new Date(str).getTime();
-    if (!isNaN(t) && t > 0) {
-      parsedAnchorMs = Math.min(t, this.getCalibratedNow());
+    if (!parsedAnchorMs) {
+      const sessionAnchor = this.sessionAnchorMap.get(id);
+      parsedAnchorMs = sessionAnchor?.lastTimestamp || (Math.floor(this.getCalibratedNow() / 86400000) * 86400000);
     }
-    if (!parsedAnchorMs) return 0;
 
     const nowMs = this.getCalibratedNow();
     // Items within 15 minutes of anchor start at clean baseline without artificial in-hour jump
-    if (nowMs - parsedAnchorMs < 15 * 60 * 1000) {
+    if (parsedAnchorMs && (nowMs - parsedAnchorMs < 15 * 60 * 1000)) {
       return 0;
     }
 
@@ -2303,7 +2378,7 @@ class MarketingService {
     const realStock = this.getRealStockFor(id);
     const catchUp = this.config.offlineCatchUp || DEFAULT_OFFLINE_CATCHUP_CONFIG;
     const oosEnabled = Boolean(catchUp.outOfStockEnabled);
-    const oosMax = Math.max(1, Number(catchUp.outOfStockMaxUnits) || 10);
+    const oosMax = Math.max(1, Number(catchUp.outOfStockMaxUnits) || 70);
 
     const effectiveStock = typeof (item as any)?.stock_quantity === 'number'
       ? (item as any).stock_quantity
@@ -2328,8 +2403,8 @@ class MarketingService {
 
     const calculatedBase = Math.max(0, effectiveBaseTarget + hourlyGrowth + inHourProg);
 
-    // Auto-heal ghost inflated counts (e.g. legacy bug where recordedMax > calculatedBase + 50)
-    if (recordedMax > calculatedBase + 50 || recordedMax > 50000) {
+    // Auto-heal ghost inflated counts (e.g. legacy bug where recordedMax > calculatedBase + 5000)
+    if (recordedMax > Math.max(50000, calculatedBase + 5000)) {
       recordedMax = calculatedBase;
       if (id) {
         this.highWaterSoldCountMap.set(id, recordedMax);
@@ -2352,6 +2427,10 @@ class MarketingService {
     if (id && finalDisplay > recordedMax) {
       this.highWaterSoldCountMap.set(id, finalDisplay);
       this.saveHighWaterCounts();
+    }
+    if (id && !this.sessionAnchorMap.has(id)) {
+      this.sessionAnchorMap.set(id, { lastCount: finalDisplay, lastTimestamp: this.getCalibratedNow() });
+      this.saveSessionAnchor();
     }
     return finalDisplay;
   }
@@ -2383,7 +2462,7 @@ class MarketingService {
     const realRemaining = this.getRealStockFor(id);
     const catchUp = this.config.offlineCatchUp || DEFAULT_OFFLINE_CATCHUP_CONFIG;
     const oosEnabled = Boolean(catchUp.outOfStockEnabled);
-    const oosMax = Math.max(1, Number(catchUp.outOfStockMaxUnits) || 10);
+    const oosMax = Math.max(1, Number(catchUp.outOfStockMaxUnits) || 70);
     const hasActiveDisplayStock = realRemaining > 0 || (pw.priority !== 'off' && Number(pw.virtualStockBonus) > 0);
 
     if (realRemaining <= 0 && !hasActiveDisplayStock) {
@@ -2404,8 +2483,8 @@ class MarketingService {
 
     const calculatedBase = Math.max(0, effectiveBaseTarget + hourlyGrowth + inHourProg);
 
-    // Auto-heal ghost inflated counts (e.g. legacy 1420 bug where recordedMax > calculatedBase + 50)
-    if (recordedMax > calculatedBase + 50 || recordedMax > 50000) {
+    // Auto-heal ghost inflated counts (e.g. legacy 1420 bug where recordedMax > calculatedBase + 5000)
+    if (recordedMax > Math.max(50000, calculatedBase + 5000)) {
       recordedMax = calculatedBase;
       if (id) {
         this.highWaterClaimedCountMap.set(id, recordedMax);
@@ -2428,6 +2507,10 @@ class MarketingService {
     if (id && finalDisplay > recordedMax) {
       this.highWaterClaimedCountMap.set(id, finalDisplay);
       this.saveHighWaterCounts();
+    }
+    if (id && !this.sessionAnchorMap.has(id)) {
+      this.sessionAnchorMap.set(id, { lastCount: finalDisplay, lastTimestamp: this.getCalibratedNow() });
+      this.saveSessionAnchor();
     }
     return finalDisplay;
   }

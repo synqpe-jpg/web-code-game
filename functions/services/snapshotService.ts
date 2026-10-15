@@ -180,7 +180,7 @@ export async function generateAndPersistSnapshot(env: any): Promise<GlobalMetric
     } catch {}
   }
 
-  // 1.5. Cleanse runaway peaks in hub if values are corrupted (> 1,000,000 or NaN) or exceed current config by > 15
+  // 1.5. Cleanse runaway peaks in hub if values are corrupted (> 1,000,000 or NaN)
   let hubModified = false;
   if (hub.peakProductSoldCounts && typeof hub.peakProductSoldCounts === 'object') {
     const prodMap = new Map((products || []).map(p => [p.id, p]));
@@ -189,7 +189,7 @@ export async function generateAndPersistSnapshot(env: any): Promise<GlobalMetric
       const prod = prodMap.get(pId);
       const baseTarget = Number(prod?.virtual_sold_count || 0);
       const realSold = Number(prod?.sold_count || 0);
-      const maxAllowed = realSold + baseTarget + 15;
+      const maxAllowed = Math.max(50000, realSold + baseTarget + 5000);
       if (isNaN(numVal) || numVal < 0 || numVal > 1000000) {
         delete hub.peakProductSoldCounts[pId];
         hubModified = true;
@@ -207,7 +207,7 @@ export async function generateAndPersistSnapshot(env: any): Promise<GlobalMetric
       const gw = gwMap.get(gId);
       const baseTarget = Number(gw?.virtual_claimed_offset || 0);
       const realClaimed = Number(gw?.claimed_codes || 0);
-      const maxAllowed = realClaimed + baseTarget + 15;
+      const maxAllowed = Math.max(50000, realClaimed + baseTarget + 5000);
       if (isNaN(numVal) || numVal < 0 || numVal > 1000000) {
         delete hub.peakGiveawayClaimedCounts[gId];
         hubModified = true;

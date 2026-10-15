@@ -7,6 +7,28 @@ Mỗi mục sửa lỗi đều ghi nhận **Nguyên nhân gốc rễ (Root Cause
 
 ## [2026-10-15]
 
+### 49. Khắc Phục Triệt Để Hệ Thống FOMO Marketing: Khôi Phục Hiển Thị Số Ảo Admin, Kích Hoạt Tăng Trưởng Ngoại Tuyến (Offline Catch-Up) & Mở Rộng Toàn Diện Trần Đỉnh An Toàn
+- **Mô tả & Yêu cầu Người Dùng**:
+  - *"Kiểm tra tính năng fomo marketing, hiện tại sao lại không chạy các số ảo tôi đã thiết lập đảm bảo chính xác hiển thị trên web và đồng bộ giữa người dùng. Các hệ thống tăng trưởng theo thông báo và tăng trưởng off cũng hoạt động sau lần bạn sửa này."*
+- **Truy vết & Nguyên nhân gốc rễ (Root Cause Investigation)**:
+  1. *Bẫy ngắt toàn bộ tiến trình tăng trưởng (`if (!parsedAnchorMs) return 0;`)*: Trong `marketingService.ts` và `deterministicEngine.ts`, cả 2 hàm `getHourlyGrowth` và `getInHourProgression` kiểm tra nghiêm ngặt `if (!parsedAnchorMs) return 0;`. Do các sản phẩm trong `utilities.json` và `giveaways.json` không có trường `fomo_anchor_time`, toàn bộ bộ đếm trôi theo thời gian bị tê liệt hoàn toàn, trả về 0.
+  2. *Bẫy kẹp trần nhân tạo quá hẹp (`+ 15` trên server & `+ 50` trên client)*:
+     - Trong `snapshotService.ts` (dòng 192, 210) và `deterministicEngine.ts` (dòng 430, 532), server đặt trần bảo vệ `maxAllowed = realSold + baseTarget + 15`. Khi số lượng bán hoặc quà tặng tích lũy vượt quá 15 đơn so với mức gốc, server snapshot tự động coi là dữ liệu rác và xóa sạch đỉnh của sản phẩm!
+     - Trên client `marketingService.ts`, hàm `getSoldDisplay()` và `getClaimedDisplay()` có bẫy auto-heal `if (recordedMax > calculatedBase + 50)`. Với cấu hình Admin đặt `maxCatchUpUnits: 70`, ngay khi bù ngoại tuyến được trên 50 đơn, client tự xóa `recordedMax` và giật lùi số về mức tính toán ban đầu.
+  3. *Thiếu mốc khởi tạo session anchor cho catalog mới*: Bảng `sessionAnchorMap` chỉ nạp các sản phẩm đã có sẵn trong `highWaterSoldCountMap`. Với người dùng mới hoặc phiên mới, `sessionAnchorMap` rỗng nên `applyOfflineCatchUp()` duyệt vòng lặp không tìm thấy sản phẩm nào để tính bù thời gian ngoại tuyến.
+- **Giải pháp xử lý dứt điểm toàn diện (Comprehensive Solution)**:
+  1. *Cơ chế Fallback Anchor thông minh*:
+     - Trong `deterministicEngine.ts` và `marketingService.ts`: Nếu sản phẩm chưa có `anchorTime` cụ thể, hệ thống tự động fallback về mốc `sessionAnchor.lastTimestamp` hoặc đầu ngày (`dayStart`), cho phép số bán ảo và số nhận quà tăng trưởng tất định theo thời gian tự nhiên.
+  2. *Mở rộng trần bảo vệ đỉnh an toàn (Expanded Peak Ceilings)*:
+     - Trong `deterministicEngine.ts`: Nâng `maxAllowedPeak` và `maxAllowedGwPeak` từ `+ 15` lên `Math.max(50000, effectiveReal + baseTarget + maxCatchUp + 500)`.
+     - Trong `functions/services/snapshotService.ts`: Nâng `maxAllowed` từ `+ 15` lên `Math.max(50000, real + baseTarget + 5000)`.
+     - Trong `marketingService.ts`: Nâng ngưỡng kiểm tra auto-heal từ `+ 50` lên `Math.max(50000, calculatedBase + 5000)`.
+  3. *Tự Động Nạp Mốc Cho Catalog (Automatic Catalog Seeding)*:
+     - Bổ sung phương thức `ensureSessionAnchorsSeeded()` nạp toàn bộ danh mục sản phẩm tiện ích, store products và giveaways vào `sessionAnchorMap` với mốc thời gian chuẩn.
+     - Cập nhật `applyOfflineCatchUp()` hỗ trợ trọn vẹn cả giveaways (`gw_*`) và tiện ích với cấu hình chuẩn của Admin (`mode: 'custom'`, `intervalMinutes: 15`, `incrementStep: 12`, `maxCatchUpUnits: 70`, `outOfStockEnabled: true`, `outOfStockMaxUnits: 70`).
+     - Tích hợp `applyOfflineCatchUp()` vào vòng lặp poller và sự kiện `visibilitychange` để tab trình duyệt đang mở cũng được cập nhật liên tục.
+  4. *Đồng bộ D1 SQL & KV Hub*: Đã chạy `scripts/push_to_kv_sync.cjs` đồng bộ 100% dữ liệu sạch lên cả 2 website `web-code-game` và `admin-code-game-shop`.
+
 ### 48. Xóa Triệt Để Mục Yến Vân Rotwood Trong Giật Code & Thiết Lập Kiến Trúc 4 Lớp Chặn Dứt Điểm Dữ Liệu Test (Definitive Gatekeeper Architecture)
 - **Mô tả & Yêu cầu Người Dùng**:
   - *"Mục giật code. kiểm tra mục Yến Vân, chưa xóa hết, cho nguyên nhân và giải pháp dứt điểm đối với sản phẩm test, đảm bảo xóa hoàn toàn sau khi test."*

@@ -171,7 +171,7 @@ console.log(`   ✅ ĐẠT 100%: Toàn bộ ${codes.length.toLocaleString('vi-VN
 // -----------------------------------------------------------------
 // REQUIREMENT 5: FOMO Marketing & Atomic 1-1 Growth Sync
 // -----------------------------------------------------------------
-console.log('▶ [5/6] Kiểm tra Hệ thống Marketing FOMO & Tăng Trưởng Đồng Bộ 1-1...');
+console.log('▶ [5/6] Kiểm tra Hệ thống Marketing FOMO, Tăng Trưởng Ngoại Tuyến & Đồng Bộ Số Ảo Admin...');
 
 assert(marketingServiceContent.includes('recordVirtualSale(productId: string'), 'recordVirtualSale must be present');
 assert(marketingServiceContent.includes('decrementProductStock(productId, 1'), 'recordVirtualSale must decrement stock by 1');
@@ -189,7 +189,31 @@ const toastContent = fs.readFileSync(toastPath, 'utf8');
 assert(toastContent.includes('marketingService.recordVirtualSale(notif.productId'), 'Toast must call recordVirtualSale');
 assert(toastContent.includes('marketingService.recordVirtualGiveawayClaim'), 'Toast must call recordVirtualGiveawayClaim');
 
-console.log('   ✅ ĐẠT 100%: Hệ thống FOMO tuân thủ Admin config và đồng bộ nguyên tử 1 - 1 tuyệt đối!');
+// Verify Offline Catch-Up config (Admin custom 15m / step 12 / max 70)
+assert(marketingServiceContent.includes("intervalMinutes: 15"), 'Offline catch-up intervalMinutes must be 15');
+assert(marketingServiceContent.includes("incrementStep: 12"), 'Offline catch-up incrementStep must be 12');
+assert(marketingServiceContent.includes("maxCatchUpUnits: 70"), 'Offline catch-up maxCatchUpUnits must be 70');
+assert(marketingServiceContent.includes("outOfStockEnabled: true"), 'Offline catch-up outOfStockEnabled must be true');
+assert(marketingServiceContent.includes("outOfStockMaxUnits: 70"), 'Offline catch-up outOfStockMaxUnits must be 70');
+
+// Verify session anchor seeding and fallback in growth calculations
+assert(marketingServiceContent.includes('ensureSessionAnchorsSeeded'), 'marketingService must implement ensureSessionAnchorsSeeded');
+assert(marketingServiceContent.includes('parsedAnchorMs = sessionAnchor.lastTimestamp'), 'getHourlyGrowth must fallback to sessionAnchor.lastTimestamp');
+
+// Verify deterministicEngine.ts anchor fallback & safe peak caps
+const detEnginePath = path.join(__dirname, '../src/shared/deterministicEngine.ts');
+const detEngineContent = fs.readFileSync(detEnginePath, 'utf8');
+assert(detEngineContent.includes('const safeStart = parsedAnchorMs || dayStart;'), 'deterministicEngine calculateHourlyGrowth must fallback to dayStart');
+assert(detEngineContent.includes('Math.max(50000, effectiveRealSold + baseTarget + maxCatchUp + 500)'), 'calculateGlobalSnapshot must have expanded safe peak sold ceiling');
+assert(detEngineContent.includes('Math.max(50000, effectiveRealClaimed + baseTargetGw + maxCatchUpGw + 500)'), 'calculateGlobalSnapshot must have expanded safe peak giveaway ceiling');
+
+// Verify snapshotService.ts safe ceiling
+const snapServicePath = path.join(__dirname, '../functions/services/snapshotService.ts');
+const snapServiceContent = fs.readFileSync(snapServicePath, 'utf8');
+assert(snapServiceContent.includes('Math.max(50000, realSold + baseTarget + 5000)'), 'snapshotService must not clamp peaks with narrow +15 ceiling');
+assert(snapServiceContent.includes('Math.max(50000, realClaimed + baseTarget + 5000)'), 'snapshotService giveaway peak must not clamp with narrow +15 ceiling');
+
+console.log('   ✅ ĐẠT 100%: Hệ thống FOMO tuân thủ Admin config, mở rộng trần đỉnh an toàn, và đồng bộ nguyên tử 1 - 1 tuyệt đối!');
 
 // -----------------------------------------------------------------
 // REQUIREMENT 6: Zero Test Artifacts Rule & Test Lifecycle Auto-Cleanup
