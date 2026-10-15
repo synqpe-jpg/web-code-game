@@ -51,7 +51,7 @@ export const UserWalletModal: React.FC<UserWalletModalProps> = ({
   onOpenAuth,
 }) => {
   const [activeTab, setActiveTab] = useState<'TOPUP' | 'HISTORY'>('TOPUP');
-  const [customInput, setCustomInput] = useState<string>('10000');
+  const [customInput, setCustomInput] = useState<string>('');
   const [isInputFocused, setIsInputFocused] = useState<boolean>(false);
   const [copiedKey, setCopiedKey] = useState<string | null>(null);
   const [sepayConfig, setSepayConfig] = useState(() => dataService.getSePayConfig());
@@ -85,7 +85,7 @@ export const UserWalletModal: React.FC<UserWalletModalProps> = ({
   // Initialize modal state ONLY when freshly opened (prevent re-running when user.wallet_balance updates)
   useEffect(() => {
     if (isOpen && !prevIsOpenRef.current) {
-      setCustomInput('10000');
+      setCustomInput('');
       setSepayConfig(dataService.getSePayConfig());
       lastKnownBalanceRef.current = user?.wallet_balance || 0;
       setSuccessInfo(null);
@@ -181,7 +181,8 @@ export const UserWalletModal: React.FC<UserWalletModalProps> = ({
   };
 
   const topupAmount = parseInt(customInput.replace(/\D/g, ''), 10) || 0;
-  const isValidAmount = topupAmount >= MIN_TOPUP;
+  const isBelowMin = customInput !== '' && topupAmount > 0 && topupAmount < MIN_TOPUP;
+  const isValidAmount = customInput === '' || topupAmount >= MIN_TOPUP;
 
   const isLoggedIn = Boolean(user && user.id && !user.id.startsWith('guest_') && user.role !== 'guest');
   const currentBalance = user?.wallet_balance || 0;
@@ -210,7 +211,7 @@ export const UserWalletModal: React.FC<UserWalletModalProps> = ({
   // Generate local Base64 VietQR data URL immediately for 0ms render & 100% adblocker immunity
   useEffect(() => {
     let isMounted = true;
-    if (isOpen && isValidAmount && accountNumber) {
+    if (isOpen && isValidAmount && !isBelowMin && accountNumber) {
       generateVietQrDataUrl({
         accountNumber,
         bankName: rawBankName,
@@ -230,7 +231,7 @@ export const UserWalletModal: React.FC<UserWalletModalProps> = ({
     return () => {
       isMounted = false;
     };
-  }, [isOpen, isValidAmount, accountNumber, rawBankName, topupAmount, transferContent, qrData.primaryUrl]);
+  }, [isOpen, isValidAmount, isBelowMin, accountNumber, rawBankName, topupAmount, transferContent, qrData.primaryUrl]);
 
   if (!isOpen) return null;
 
@@ -507,22 +508,74 @@ export const UserWalletModal: React.FC<UserWalletModalProps> = ({
                     </div>
                   </div>
 
-                  {/* 2. CHUYỂN MÃ QR VÀ NỘI DUNG LÊN TRÊN */}
+                  {/* 2. SỐ TIỀN MẪU THAM KHẢO (CHO LÊN TRÊN) */}
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs font-bold text-foreground flex items-center gap-1.5">
+                        <Zap className="w-3.5 h-3.5 text-amber-400" />
+                        <span>Số tiền mẫu tham khảo:</span>
+                      </span>
+                      <span className="text-[10px] text-muted-foreground">
+                        Tối thiểu: <span className="font-mono font-bold text-emerald-400">{Number(MIN_TOPUP).toLocaleString('vi-VN')} đ</span>
+                      </span>
+                    </div>
+
+                    {/* Presets Grid - Siêu gọn gàng 4 cột */}
+                    <div className="grid grid-cols-4 gap-1.5">
+                      {quickAmounts.map((amt) => {
+                        const isSelected = topupAmount === amt.core;
+                        return (
+                          <button
+                            key={amt.core}
+                            type="button"
+                            onClick={() => {
+                              setCustomInput(amt.core.toString());
+                              setIsInputFocused(false);
+                            }}
+                            className={`py-2 px-1 rounded-xl text-center border transition-all cursor-pointer ${
+                              isSelected
+                                ? 'bg-primary text-white border-primary shadow-sm font-bold scale-[1.02]'
+                                : 'bg-muted/40 hover:bg-muted/70 border-border text-foreground hover:border-slate-600 font-medium'
+                            }`}
+                          >
+                            <span className="font-mono text-xs block leading-tight">
+                              +{Number(amt.core).toLocaleString('vi-VN')}
+                            </span>
+                          </button>
+                        );
+                      })}
+                    </div>
+
+                    {isBelowMin && (
+                      <div className="text-[11px] text-rose-400 flex items-center gap-1.5 font-medium bg-rose-500/10 border border-rose-500/20 px-2.5 py-1.5 rounded-xl animate-fade-in">
+                        <AlertCircle className="w-3.5 h-3.5 shrink-0" />
+                        <span>Mức nạp tối thiểu là {Number(MIN_TOPUP).toLocaleString('vi-VN')} đ</span>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* 3. KHUNG MÃ QR VÀ CHI TIẾT CHUYỂN KHOẢN */}
                   <div className="p-3.5 sm:p-4 rounded-2xl bg-card border border-border space-y-3 shadow-sm">
                     <div className="flex items-center justify-between text-xs border-b border-border/50 pb-2">
                       <span className="font-bold text-foreground flex items-center gap-1.5">
                         <QrCode className="w-4 h-4 text-primary-light shrink-0" />
                         <span>Quét mã VietQR hoặc chuyển khoản:</span>
                       </span>
-                      <span className="text-[11px] font-mono font-bold text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded-lg border border-emerald-500/20 shrink-0">
-                        +{Number(topupAmount).toLocaleString('vi-VN')} Core
-                      </span>
+                      {topupAmount > 0 ? (
+                        <span className="text-[11px] font-mono font-bold text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded-lg border border-emerald-500/20 shrink-0">
+                          +{Number(topupAmount).toLocaleString('vi-VN')} Core
+                        </span>
+                      ) : (
+                        <span className="text-[11px] font-mono font-medium text-amber-400 bg-amber-500/10 px-2 py-0.5 rounded-lg border border-amber-500/20 shrink-0">
+                          Tự do số tiền
+                        </span>
+                      )}
                     </div>
 
                     <div className="flex flex-col sm:flex-row items-center gap-3.5">
-                      {/* Dynamic VietQR Image Frame */}
+                      {/* Dynamic / Static VietQR Image Frame */}
                       <div className="w-36 h-36 sm:w-40 sm:h-40 bg-white rounded-xl p-2 shrink-0 shadow-sm flex items-center justify-center border border-slate-300 dark:border-border">
-                        {isValidAmount ? (
+                        {!isBelowMin ? (
                           qrDataUrl ? (
                             <img
                               src={qrDataUrl}
@@ -539,7 +592,7 @@ export const UserWalletModal: React.FC<UserWalletModalProps> = ({
                               onError={(e) => {
                                 const target = e.target as HTMLImageElement;
                                 if (qrDataUrl) {
-                                  target.src = qrDataUrl;
+                                   target.src = qrDataUrl;
                                 } else if (target.src !== qrData.fallbackUrl) {
                                   target.src = qrData.fallbackUrl;
                                 }
@@ -556,10 +609,10 @@ export const UserWalletModal: React.FC<UserWalletModalProps> = ({
 
                       {/* Bank Transfer Details */}
                       <div className="flex-1 space-y-1.5 text-xs w-full min-w-0">
-                        {/* Số tiền nạp - Ô input tùy chọn số tiền */}
+                        {/* Nhập số tiền - Ô input tùy chọn số tiền */}
                         <div
                           className={`flex items-center justify-between gap-1.5 p-1.5 sm:p-2 rounded-xl border transition-all ${
-                            !isValidAmount
+                            isBelowMin
                               ? 'bg-rose-500/10 border-rose-500/40 focus-within:ring-1 focus-within:ring-rose-500/50'
                               : 'bg-muted/40 hover:bg-muted/60 focus-within:bg-card focus-within:ring-1 focus-within:ring-primary/60 border-border'
                           }`}
@@ -568,8 +621,8 @@ export const UserWalletModal: React.FC<UserWalletModalProps> = ({
                             htmlFor="topup-amount-input"
                             className="text-muted-foreground text-[11px] font-medium shrink-0 pl-1 cursor-pointer flex items-center gap-1"
                           >
-                            <span>Chọn số tiền nạp:</span>
-                            <SlidersHorizontal className="w-3 h-3 text-amber-400/80" title="Bấm để nhập số tiền tùy ý" />
+                            <span>Nhập số tiền:</span>
+                            <SlidersHorizontal className="w-3 h-3 text-amber-400/80" title="Bấm để nhập số tiền" />
                           </label>
                           <div className="flex items-center gap-1 min-w-0 flex-1 justify-end">
                             <div className="relative flex items-center min-w-0 max-w-[140px] sm:max-w-[165px]">
@@ -602,17 +655,14 @@ export const UserWalletModal: React.FC<UserWalletModalProps> = ({
                                 }}
                                 onBlur={() => {
                                   setIsInputFocused(false);
-                                  if (!customInput || parseInt(customInput, 10) < 1) {
-                                    setCustomInput(MIN_TOPUP.toString());
-                                  }
                                 }}
-                                placeholder="10.000"
+                                placeholder="Nhập số tiền"
                                 className={`w-full text-right font-mono font-black text-sm bg-transparent border-0 focus:outline-none focus:ring-0 ${
                                   customInput ? 'pr-8' : 'pr-4'
                                 } p-0 ${
-                                  !isValidAmount ? 'text-rose-400' : 'text-emerald-400'
+                                  isBelowMin ? 'text-rose-400' : 'text-emerald-400'
                                 }`}
-                                title="Bấm để nhập số tiền tùy ý"
+                                title="Bấm để nhập số tiền"
                               />
 
                               {/* Nút xóa nhanh số tiền để nhập mới không lo bị đúp số */}
@@ -639,7 +689,11 @@ export const UserWalletModal: React.FC<UserWalletModalProps> = ({
                             </div>
                             <button
                               type="button"
-                              onClick={() => handleCopy(topupAmount.toString(), 'amount')}
+                              onClick={() => {
+                                if (topupAmount > 0) {
+                                  handleCopy(topupAmount.toString(), 'amount');
+                                }
+                              }}
                               className="text-primary-light hover:underline p-1 cursor-pointer shrink-0"
                               title="Sao chép số tiền"
                             >
@@ -692,60 +746,15 @@ export const UserWalletModal: React.FC<UserWalletModalProps> = ({
                         </div>
                       </div>
                     </div>
-
-                    {/* Security Tip */}
-                    <div className="p-2 rounded-xl bg-amber-500/10 border border-amber-500/20 text-[10.5px] text-amber-300/90 flex items-center gap-1.5">
-                      <ShieldCheck className="w-3.5 h-3.5 text-amber-400 shrink-0" />
-                      <span>Giữ <strong>đúng nội dung chuyển khoản</strong> để hệ thống tự động cộng Core sau 15s - 2 phút.</span>
-                    </div>
                   </div>
 
-                  {/* 3. SẮP XẾP GỌN CÁC MỤC CHỌN MỆNH GIÁ */}
-                  <div className="space-y-2">
-                    <div className="flex items-center justify-between">
-                      <span className="text-xs font-bold text-foreground">
-                        Chọn Mệnh Giá Nhanh:
-                      </span>
-                      <span className="text-[10px] text-muted-foreground">
-                        Tối thiểu: <span className="font-mono font-bold text-emerald-400">{Number(MIN_TOPUP).toLocaleString('vi-VN')} đ</span>
-                      </span>
-                    </div>
-
-                    {/* Presets Grid - Siêu gọn gàng 4 cột */}
-                    <div className="grid grid-cols-4 gap-1.5">
-                      {quickAmounts.map((amt) => {
-                        const isSelected = topupAmount === amt.core;
-                        return (
-                          <button
-                            key={amt.core}
-                            type="button"
-                            onClick={() => {
-                              setCustomInput(amt.core.toString());
-                              setIsInputFocused(false);
-                            }}
-                            className={`py-2 px-1 rounded-xl text-center border transition-all cursor-pointer ${
-                              isSelected
-                                ? 'bg-primary text-white border-primary shadow-sm font-bold scale-[1.02]'
-                                : 'bg-muted/40 hover:bg-muted/70 border-border text-foreground hover:border-slate-600 font-medium'
-                            }`}
-                          >
-                            <span className="font-mono text-xs block leading-tight">
-                              +{Number(amt.core).toLocaleString('vi-VN')}
-                            </span>
-                          </button>
-                        );
-                      })}
-                    </div>
-
-                    {!isValidAmount && (
-                      <div className="text-[11px] text-rose-400 flex items-center gap-1.5 font-medium bg-rose-500/10 border border-rose-500/20 px-2.5 py-1.5 rounded-xl animate-fade-in">
-                        <AlertCircle className="w-3.5 h-3.5 shrink-0" />
-                        <span>Mức nạp tối thiểu là {Number(MIN_TOPUP).toLocaleString('vi-VN')} đ</span>
-                      </div>
-                    )}
+                  {/* 4. DÒNG GHI CHÚ NHẬN TIỀN (CHUYỂN ĐẾN CUỐI TRANG) */}
+                  <div className="p-2.5 rounded-xl bg-amber-500/10 border border-amber-500/20 text-[11px] text-amber-300/90 flex items-center gap-2">
+                    <ShieldCheck className="w-4 h-4 text-amber-400 shrink-0" />
+                    <span>Giữ <strong>đúng nội dung chuyển khoản</strong> để hệ thống tự động nhận tiền và cộng Core sau 15s - 2 phút.</span>
                   </div>
 
-                  {/* 4. Action Button */}
+                  {/* 5. Nút Đóng & Chờ Xác Minh */}
                   <button
                     type="button"
                     onClick={handleCloseAndWait}

@@ -7,6 +7,15 @@ Mỗi mục sửa lỗi đều ghi nhận **Nguyên nhân gốc rễ (Root Cause
 
 ## [2026-10-15]
 
+### 50. Tinh Chỉnh Giao Diện Nạp Core (UserWalletModal): Đổi "Nhập số tiền", Để Trống Số Tiền Mặc Định, Đưa Mệnh Giá Mẫu Lên Trên & Chuyển Ghi Chú 15s-2p Xuống Cuối Trang
+- **Mô tả & Yêu cầu Người Dùng**:
+  - *"Trong ô Chọn số tiền nạp, đổi thành, nhập số tiền: Con số cụ thể để trống, dòng ghi chú Nhận tiền sau 15s đến 2p chuyển đến cuối trang, số tiền mẫu tham khảo cho lên trên."*
+- **Các điểm cải tiến (Solutions Applied)**:
+  1. *Đổi nhãn ô nhập*: Đổi từ "Chọn số tiền nạp:" thành "Nhập số tiền:" với placeholder "Nhập số tiền".
+  2. *Để trống con số cụ thể*: Giá trị mặc định của `customInput` khởi tạo là chuỗi rỗng `''`, không ép mặc định 10.000 đ. Khi ô trống, mã QR hiển thị dưới dạng VietQR tĩnh (Static EMVCo), App ngân hàng quét nhận đầy đủ STK TPBank và Cú pháp chuyển khoản, cho phép người dùng tự do nhập số tiền trên điện thoại.
+  3. *Đưa số tiền mẫu tham khảo lên trên*: Mục "Số tiền mẫu tham khảo:" (+10k, +20k, +50k, +100k, +200k, +500k, +1M, +2M) được đưa lên ngay dưới Thanh Số Dư Khả Dụng và nằm trên Khung QR Code để người dùng bấm chọn nhanh 1 chạm.
+  4. *Chuyển ghi chú xuống cuối trang*: Dòng "Giữ đúng nội dung chuyển khoản để hệ thống tự động nhận tiền và cộng Core sau 15s - 2 phút." được chuyển xuống vị trí dưới cùng của modal (ngay trước nút Đóng & Chờ xác minh).
+
 ### 49. Khắc Phục Triệt Để Hệ Thống FOMO Marketing: Khôi Phục Hiển Thị Số Ảo Admin, Kích Hoạt Tăng Trưởng Ngoại Tuyến (Offline Catch-Up) & Mở Rộng Toàn Diện Trần Đỉnh An Toàn
 - **Mô tả & Yêu cầu Người Dùng**:
   - *"Kiểm tra tính năng fomo marketing, hiện tại sao lại không chạy các số ảo tôi đã thiết lập đảm bảo chính xác hiển thị trên web và đồng bộ giữa người dùng. Các hệ thống tăng trưởng theo thông báo và tăng trưởng off cũng hoạt động sau lần bạn sửa này."*
