@@ -1958,7 +1958,7 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
           // Invalidate snapshot cache so it immediately recalculates with new product weights
           const gScope = globalThis as any;
           gScope.__wcg_metrics_snapshot = null;
-          await env.DB.prepare("DELETE FROM system_snapshots WHERE id IN ('wcg_metrics_snapshot_v1', 'wcg_metrics_snapshot_v2')").run().catch(() => {});
+          await env.DB.prepare("DELETE FROM system_snapshots").run().catch(() => {});
 
           if (incomingMarketing?.productWeights && typeof incomingMarketing.productWeights === 'object') {
             try {

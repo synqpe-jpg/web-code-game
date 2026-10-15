@@ -207,10 +207,11 @@ export function calculateHourlyGrowth(
     }
   }
 
-  // Fallback to day start if anchorTime is not explicitly provided so growth can proceed deterministically
-  const dayStart = Math.floor(timestampMs / 86400000) * 86400000;
-  const safeStart = parsedAnchorMs || dayStart;
-  const elapsedMinutes = Math.max(0, Math.floor((timestampMs - safeStart) / 60000));
+  // Nếu không có anchorTime cụ thể, coi mốc tăng trưởng bắt đầu từ thời điểm thiết lập hiện tại (không nhảy vọt +70 từ dayStart)
+  if (!parsedAnchorMs) {
+    return 0;
+  }
+  const elapsedMinutes = Math.max(0, Math.floor((timestampMs - parsedAnchorMs) / 60000));
   if (elapsedMinutes <= 0) return 0;
 
   const elapsedHours = elapsedMinutes / 60;

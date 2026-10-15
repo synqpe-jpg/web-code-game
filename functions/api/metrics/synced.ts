@@ -9,7 +9,7 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
 
   try {
     const url = new URL(request.url);
-    const force = url.searchParams.get('force') === 'true' || url.searchParams.get('refresh') === 'true';
+    const force = url.searchParams.get('force') === 'true' || url.searchParams.get('refresh') === 'true' || url.searchParams.get('fresh') === '1';
     const snapshot = await getOrRefreshSnapshot(env, waitUntil ? (p) => waitUntil(p) : undefined, force);
 
     return new Response(JSON.stringify({

@@ -2172,14 +2172,15 @@ class MarketingService {
       }
     }
 
-    // Fallback to sessionAnchor or day start so growth can proceed deterministically
+    // Fallback to sessionAnchor if available, otherwise seed with current time so growth starts from 0
     if (!parsedAnchorMs) {
       const sessionAnchor = this.sessionAnchorMap.get(id);
       if (sessionAnchor && sessionAnchor.lastTimestamp > 0) {
         parsedAnchorMs = sessionAnchor.lastTimestamp;
       } else {
-        const dayStart = Math.floor(this.getCalibratedNow() / 86400000) * 86400000;
-        parsedAnchorMs = dayStart;
+        const nowMs = this.getCalibratedNow();
+        this.sessionAnchorMap.set(id, { baseSold: this.getSoldDisplay({ id }, 0), lastTimestamp: nowMs });
+        return 0;
       }
     }
 
