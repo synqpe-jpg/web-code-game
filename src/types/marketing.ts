@@ -87,10 +87,14 @@ export interface NotificationTypeWeights {
   restockProduct?: number;
 }
 
+export type ToastPosition = 'bottom-left' | 'bottom-right' | 'top-left' | 'top-right';
+
 export interface MarketingConfig {
   isEnabled: boolean;
   typeToggles?: NotificationTypeToggles;
   typeWeights?: NotificationTypeWeights;
+  toastPosition?: ToastPosition;
+  depositNotificationPresets?: number[];
   displayDuration: number; // seconds, e.g. 5
   intervalMin: number;     // seconds, e.g. 15
   intervalMax: number;     // seconds, e.g. 30

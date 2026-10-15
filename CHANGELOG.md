@@ -7,6 +7,30 @@ Mỗi mục sửa lỗi đều ghi nhận **Nguyên nhân gốc rễ (Root Cause
 
 ## [2026-10-15]
 
+### 53. Tùy Chỉnh Toàn Diện Thông Báo Nạp Tiền Ví Core & Định Vị 4 Góc Màn Hình Trong Admin (Customizable Deposit Notification Presets & 4-Corner Toast Positioning)
+- **Mô tả & Yêu cầu Người Dùng**:
+  - *"Đièu chỉnh thông báo nạp tiền các mức có thể tùy chọn trong admin, vị trí bạn có thể chọn, mức nạp có thể điều chỉnh ác giá trị."*
+- **Các cải tiến & Giải pháp triển khai (Comprehensive Solution)**:
+  1. *Cấu trúc dữ liệu & Thiết lập mặc định (`src/types/marketing.ts` & `src/services/marketingService.ts`)*:
+     - Bổ sung kiểu `ToastPosition = 'bottom-left' | 'bottom-right' | 'top-left' | 'top-right'`.
+     - Bổ sung `toastPosition?: ToastPosition` và `depositNotificationPresets?: number[]` vào `MarketingConfig`.
+     - Thiết lập danh sách mặc định `DEFAULT_DEPOSIT_PRESETS = [20000, 50000, 100000, 200000, 300000, 500000, 1000000]` (từ 20.000đ đến 1.000.000đ).
+  2. *Bộ máy sinh thông báo ngẫu nhiên theo mệnh giá cài đặt (`marketingService.ts`)*:
+     - Thay thế toàn bộ các mảng hardcoded cũ bằng hàm tiện ích `getActiveDepositPresets()` và `buildDepositSlotResult()`.
+     - Bất kể thông báo nạp tiền được sinh tự nhiên hay qua các nhánh fallback, hệ thống luôn bốc ngẫu nhiên trong danh sách mệnh giá Admin đã thiết lập.
+  3. *Định vị 4 góc màn hình Toast linh hoạt (`MarketingNotificationToast.tsx`)*:
+     - Hỗ trợ đầy đủ 4 vị trí: Dưới - Trái (`bottom-left`), Dưới - Phải (`bottom-right`), Trên - Trái (`top-left`), Trên - Phải (`top-right`).
+     - Tự động tương thích hoàn hảo trên cả điện thoại di động (mobile) và máy tính (desktop), tránh bị che khuất bởi thanh menu hoặc thanh điều hướng dưới.
+     - Lắng nghe sự kiện `wcg_marketing_config_updated` để cập nhật tức thì vị trí mà không cần người dùng tải lại trang.
+  4. *Giao diện quản trị trực quan & chuyên nghiệp (`MarketingModule.tsx`)*:
+     - Thêm bộ chọn vị trí 4 góc màn hình với biểu tượng mô phỏng mini monitor và đèn tín hiệu LED hiển thị trực quan góc đang chọn.
+     - Thêm bảng quản trị mệnh giá nạp tiền trong thẻ "Nạp tiền vào Ví Core":
+       + Danh sách chip/badge các mức nạp hiện có kèm nút `×` xóa từng mức.
+       + Hàng nút bấm thêm nhanh các mệnh giá thông dụng (+20k, +50k, +100k, +200k, +300k, +500k, +1M, +2M, +5M).
+       + Ô nhập số tiền tùy ý và nút "Thêm mức".
+       + Nút "Mặc định" để khôi phục nhanh về cấu hình mẫu.
+       + Cập nhật nút "Bắn thử" để hiển thị chính xác các mệnh giá trong danh sách cấu hình.
+
 ### 52. Khắc Phục Triệt Để Lệch Số Ảo Admin & Đồng Bộ 2 Chiều Tức Thì (Instant 2-Way SSOT Sync & Ghost Peak Purge)
 - **Mô tả & Yêu cầu Người Dùng**:
   - *"Trong trang admin tôi đã cài lại số ảo nhưng trang web khách vẫn đang giữ số cũ, đồng bộ giúp tôi. Cho phương án lần sau chỉ cần tôi cập nhật số ảo ở adim thì web khách cũng sẽ đồng bộ"*

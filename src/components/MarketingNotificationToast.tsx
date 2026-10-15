@@ -12,7 +12,7 @@ import {
   BellOff,
   PackagePlus,
 } from 'lucide-react';
-import type { MarketingNotification } from '../types/marketing';
+import type { MarketingNotification, ToastPosition } from '../types/marketing';
 import { marketingService } from '../services/marketingService';
 import { dataService } from '../services/dataService';
 
@@ -39,6 +39,17 @@ export const MarketingNotificationToast: React.FC<MarketingNotificationToastProp
   const [isVisible, setIsVisible] = useState(false);
   const [isExiting, setIsExiting] = useState(false);
   const [isHovered, setIsHovered] = useState(false);
+  const [toastPosition, setToastPosition] = useState<ToastPosition>(() => {
+    return marketingService.getConfig().toastPosition || 'bottom-left';
+  });
+
+  useEffect(() => {
+    const handleConfigChange = () => {
+      setToastPosition(marketingService.getConfig().toastPosition || 'bottom-left');
+    };
+    window.addEventListener('wcg_marketing_config_updated', handleConfigChange);
+    return () => window.removeEventListener('wcg_marketing_config_updated', handleConfigChange);
+  }, []);
 
   const timerRef = useRef<any>(null);
   const hideTimerRef = useRef<any>(null);
@@ -643,8 +654,35 @@ export const MarketingNotificationToast: React.FC<MarketingNotificationToastProp
     }
   };
 
+  const getPositionStyles = (pos: ToastPosition) => {
+    switch (pos) {
+      case 'bottom-right':
+        return {
+          placement: 'bottom-20 left-3 right-3 sm:left-auto sm:right-6 sm:bottom-6',
+          exitClass: 'opacity-0 translate-y-2 pointer-events-none',
+        };
+      case 'top-left':
+        return {
+          placement: 'top-20 bottom-auto left-3 right-3 sm:right-auto sm:left-6 sm:top-24 sm:bottom-auto',
+          exitClass: 'opacity-0 -translate-y-2 pointer-events-none',
+        };
+      case 'top-right':
+        return {
+          placement: 'top-20 bottom-auto left-3 right-3 sm:left-auto sm:right-6 sm:top-24 sm:bottom-auto',
+          exitClass: 'opacity-0 -translate-y-2 pointer-events-none',
+        };
+      case 'bottom-left':
+      default:
+        return {
+          placement: 'bottom-20 left-3 right-3 sm:right-auto sm:left-6 sm:bottom-6',
+          exitClass: 'opacity-0 translate-y-2 pointer-events-none',
+        };
+    }
+  };
+
   const meta = getTypeMeta();
   const IconComponent = meta.icon;
+  const posStyle = getPositionStyles(toastPosition);
 
   return (
     <div
@@ -659,9 +697,9 @@ export const MarketingNotificationToast: React.FC<MarketingNotificationToastProp
         hideTimerRef.current = setTimeout(dismissNotification, duration);
       }}
       onClick={handleClickToast}
-      className={`fixed bottom-20 left-3 right-3 sm:right-auto sm:bottom-6 sm:left-6 z-[95] pointer-events-auto sm:max-w-sm w-auto box-border overflow-hidden transition-all duration-300 select-none cursor-pointer ${
+      className={`fixed ${posStyle.placement} z-[95] pointer-events-auto sm:max-w-sm w-auto box-border overflow-hidden transition-all duration-300 select-none cursor-pointer ${
         isExiting
-          ? 'opacity-0 translate-y-2 pointer-events-none'
+          ? posStyle.exitClass
           : 'opacity-100 translate-y-0'
       }`}
       style={{

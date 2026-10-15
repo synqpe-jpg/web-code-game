@@ -36,6 +36,7 @@ import type {
   NotificationTypeWeights,
   ProductMarketingConfig,
   ProductPriority,
+  ToastPosition,
 } from '../../types/marketing';
 import {
   marketingService,
@@ -43,6 +44,7 @@ import {
   DEFAULT_PRODUCT_MARKETING_CONFIG,
   DEFAULT_TYPE_TOGGLES,
   DEFAULT_TYPE_WEIGHTS,
+  DEFAULT_DEPOSIT_PRESETS,
 } from '../../services/marketingService';
 import { dataService } from '../../services/dataService';
 import { adminDataService } from '../services/adminDataService';
@@ -65,6 +67,7 @@ export const MarketingModule: React.FC<MarketingModuleProps> = ({ onShowToast })
   // New Account Input State
   const [newAccountInput, setNewAccountInput] = useState('');
   const [accountSearch, setAccountSearch] = useState('');
+  const [customDepositInput, setCustomDepositInput] = useState<string>('');
   const [isSaving, setIsSaving] = useState(false);
 
   // Batch Product Setup State (Mặc định: ảo 20, bù 20 khi còn <= 1, ưu tiên x2, kho thật >= 1)
@@ -238,6 +241,77 @@ export const MarketingModule: React.FC<MarketingModuleProps> = ({ onShowToast })
     }
   };
 
+  // Toast Position Handler
+  const handleSelectToastPosition = (pos: ToastPosition) => {
+    setConfig((prev) => ({
+      ...prev,
+      toastPosition: pos,
+    }));
+    onShowToast(
+      'Đã chọn vị trí thông báo',
+      `Vị trí popup: ${
+        pos === 'bottom-right'
+          ? 'Góc dưới bên phải'
+          : pos === 'top-left'
+          ? 'Góc trên bên trái'
+          : pos === 'top-right'
+          ? 'Góc trên bên phải'
+          : 'Góc dưới bên trái (mặc định)'
+      }. Bấm "Lưu Cấu Hình" để áp dụng cho khách.`,
+      'info'
+    );
+  };
+
+  // Deposit Presets Handlers
+  const handleAddDepositPreset = (rawVal: number | string) => {
+    const num = typeof rawVal === 'string' ? parseInt(rawVal.replace(/\D/g, ''), 10) : rawVal;
+    if (isNaN(num) || num <= 0) {
+      onShowToast('Số tiền không hợp lệ', 'Vui lòng nhập số tiền lớn hơn 0đ.', 'warning');
+      return;
+    }
+    const current = config.depositNotificationPresets && config.depositNotificationPresets.length > 0
+      ? [...config.depositNotificationPresets]
+      : [...DEFAULT_DEPOSIT_PRESETS];
+    if (current.includes(num)) {
+      onShowToast('Mệnh giá đã tồn tại', `Mức ${num.toLocaleString('vi-VN')}đ đã có trong danh sách.`, 'info');
+      return;
+    }
+    const updated = [...current, num].sort((a, b) => a - b);
+    setConfig((prev) => ({
+      ...prev,
+      depositNotificationPresets: updated,
+    }));
+    setCustomDepositInput('');
+    onShowToast(
+      'Đã thêm mức nạp tiền',
+      `Đã thêm ${num.toLocaleString('vi-VN')}đ vào danh sách thông báo. Bấm "Lưu Cấu Hình" để đồng bộ.`,
+      'success'
+    );
+  };
+
+  const handleRemoveDepositPreset = (targetAmount: number) => {
+    const current = config.depositNotificationPresets && config.depositNotificationPresets.length > 0
+      ? [...config.depositNotificationPresets]
+      : [...DEFAULT_DEPOSIT_PRESETS];
+    if (current.length <= 1) {
+      onShowToast('Cần giữ ít nhất 1 mức', 'Bạn cần giữ tối thiểu 1 mệnh giá nạp tiền để hệ thống hiển thị thông báo.', 'warning');
+      return;
+    }
+    const updated = current.filter((amt) => amt !== targetAmount);
+    setConfig((prev) => ({
+      ...prev,
+      depositNotificationPresets: updated,
+    }));
+  };
+
+  const handleResetDepositPresets = () => {
+    setConfig((prev) => ({
+      ...prev,
+      depositNotificationPresets: [...DEFAULT_DEPOSIT_PRESETS],
+    }));
+    onShowToast('Đã khôi phục mặc định', 'Đã đặt lại danh sách mức nạp về mẫu chuẩn (20k - 1.000k).', 'info');
+  };
+
   // Test notification trigger
   const handleTestTrigger = (type: 'COPY_CODE' | 'BUY_PRODUCT' | 'BUY_UTILITY' | 'CLAIM_GIVEAWAY' | 'DEPOSIT_WALLET' | 'STATS_COPY' | 'RESTOCK_PRODUCT') => {
     const rawAccount = marketingService.getRandomVirtualAccount();
@@ -319,18 +393,23 @@ export const MarketingModule: React.FC<MarketingModuleProps> = ({ onShowToast })
       } as any, true, true);
     } else if (type === 'DEPOSIT_WALLET') {
       const testId = `test_dep_${Date.now()}`;
+      const presets = config.depositNotificationPresets && config.depositNotificationPresets.length > 0
+        ? config.depositNotificationPresets
+        : DEFAULT_DEPOSIT_PRESETS;
+      const testAmount = presets[Math.floor(Math.random() * presets.length)];
       marketingService.pushRealEvent({
         id: testId,
         type: 'DEPOSIT_WALLET',
         title: 'Nạp tiền vào ví',
-        message: `${maskedAccount} vừa nạp thành công 200.000đ vào ví Core`,
+        message: `${maskedAccount} vừa nạp thành công ${testAmount.toLocaleString('vi-VN')}đ vào ví Core`,
         timeAgo: 'vừa xong',
         userName: maskedAccount,
-        depositAmount: 200000,
+        depositAmount: testAmount,
         isRealUser: true,
         timestamp: Date.now(),
         localOrigin: true,
       } as any, true, true);
+      onShowToast('Đã bắn thử thông báo Nạp tiền Ví!', `${maskedAccount} vừa nạp thành công ${testAmount.toLocaleString('vi-VN')}đ vào ví Core.`, 'info');
     } else if (type === 'RESTOCK_PRODUCT') {
       const u = utilityProducts.find((item) => (item.stock_quantity ?? 0) > 0) || utilityProducts[0] || { id: 'util_test', title: 'Tài khoản Netflix Premium 1 Tháng' };
       const testId = `test_restock_${Date.now()}`;
@@ -517,6 +596,9 @@ export const MarketingModule: React.FC<MarketingModuleProps> = ({ onShowToast })
   const renderNotificationTypesSection = () => {
     const toggles = config.typeToggles || DEFAULT_TYPE_TOGGLES;
     const weights = config.typeWeights || DEFAULT_TYPE_WEIGHTS;
+    const depositPresets = config.depositNotificationPresets && config.depositNotificationPresets.length > 0
+      ? config.depositNotificationPresets
+      : DEFAULT_DEPOSIT_PRESETS;
 
     const typeItems = [
       {
@@ -594,8 +676,8 @@ export const MarketingModule: React.FC<MarketingModuleProps> = ({ onShowToast })
         weightKey: 'depositWallet' as keyof NotificationTypeWeights,
         title: 'Nạp tiền vào Ví Core',
         tag: 'DEPOSIT_WALLET',
-        description: 'Nổ thông báo khi thành viên nạp tiền thành công vào ví (50k, 100k, 200k, 500k...).',
-        example: 'Trâm*** vừa nạp thành công 200.000đ vào ví Core',
+        description: `Nổ thông báo khi thành viên nạp tiền thành công vào ví (${depositPresets.slice(0, 4).map(p => (p >= 1000000 ? (p / 1000000) + 'M' : (p / 1000) + 'k')).join(', ')}...).`,
+        example: `Trâm*** vừa nạp thành công ${(depositPresets[0] || 200000).toLocaleString('vi-VN')}đ vào ví Core`,
         icon: Wallet,
         color: 'from-emerald-500/20 to-green-500/10 border-emerald-500/30 text-emerald-400',
         badgeColor: 'bg-emerald-500/15 text-emerald-400 border-emerald-500/30',
@@ -906,6 +988,122 @@ export const MarketingModule: React.FC<MarketingModuleProps> = ({ onShowToast })
                       <span>100 (Tối đa)</span>
                     </div>
                   </div>
+
+                  {/* CẤU HÌNH CÁC MỨC SỐ TIỀN NẠP VÍ TÙY CHỌN */}
+                  {item.tag === 'DEPOSIT_WALLET' && (
+                    <div className="p-3.5 rounded-xl bg-amber-500/5 border border-amber-500/25 space-y-3">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-1.5 text-xs font-bold text-amber-400">
+                          <Wallet className="w-3.5 h-3.5" />
+                          <span>Mức nạp hiển thị ngẫu nhiên ({depositPresets.length} mức)</span>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={handleResetDepositPresets}
+                          className="flex items-center gap-1 text-[10px] text-muted-foreground hover:text-foreground hover:underline transition-colors cursor-pointer"
+                          title="Đặt lại các mức nạp chuẩn mẫu (20k đến 1.000k)"
+                        >
+                          <RotateCcw className="w-2.5 h-2.5" />
+                          <span>Mặc định</span>
+                        </button>
+                      </div>
+
+                      {/* Chips danh sách các mức nạp hiện có */}
+                      <div className="flex flex-wrap gap-1.5">
+                        {depositPresets.map((amt) => (
+                          <span
+                            key={amt}
+                            className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-mono font-bold bg-amber-500/15 border border-amber-500/30 text-amber-300 shadow-xs"
+                          >
+                            <span>{amt.toLocaleString('vi-VN')} đ</span>
+                            <button
+                              type="button"
+                              onClick={() => handleRemoveDepositPreset(amt)}
+                              className="text-amber-400/70 hover:text-rose-400 hover:bg-rose-500/20 rounded p-0.5 transition-colors cursor-pointer"
+                              title={`Xóa mức ${amt.toLocaleString('vi-VN')}đ`}
+                            >
+                              <Trash2 className="w-2.5 h-2.5" />
+                            </button>
+                          </span>
+                        ))}
+                      </div>
+
+                      {/* Hàng nút thêm nhanh các mệnh giá phổ biến */}
+                      <div className="space-y-1.5 pt-1">
+                        <div className="text-[10px] text-muted-foreground font-semibold">
+                          Thêm nhanh mệnh giá phổ biến:
+                        </div>
+                        <div className="flex flex-wrap gap-1">
+                          {[
+                            { label: '+20k', val: 20000 },
+                            { label: '+50k', val: 50000 },
+                            { label: '+100k', val: 100000 },
+                            { label: '+200k', val: 200000 },
+                            { label: '+300k', val: 300000 },
+                            { label: '+500k', val: 500000 },
+                            { label: '+1M', val: 1000000 },
+                            { label: '+2M', val: 2000000 },
+                            { label: '+5M', val: 5000000 },
+                          ].map((p) => {
+                            const isIncluded = depositPresets.includes(p.val);
+                            return (
+                              <button
+                                key={p.val}
+                                type="button"
+                                disabled={isIncluded}
+                                onClick={() => handleAddDepositPreset(p.val)}
+                                className={`px-2 py-0.5 rounded-md text-[10px] font-bold font-mono transition-all cursor-pointer ${
+                                  isIncluded
+                                    ? 'bg-muted/40 text-muted-foreground/50 border border-border/40 cursor-not-allowed'
+                                    : 'bg-muted hover:bg-amber-500/20 text-foreground hover:text-amber-300 border border-border/70 hover:border-amber-500/40 active:scale-95'
+                                }`}
+                              >
+                                {p.label}
+                              </button>
+                            );
+                          })}
+                        </div>
+                      </div>
+
+                      {/* Ô nhập số tiền tùy chỉnh */}
+                      <div className="flex items-center gap-1.5 pt-1">
+                        <div className="relative flex-1">
+                          <input
+                            type="text"
+                            inputMode="numeric"
+                            value={customDepositInput}
+                            onChange={(e) => {
+                              const raw = e.target.value.replace(/\D/g, '');
+                              setCustomDepositInput(raw ? Number(raw).toLocaleString('vi-VN') : '');
+                            }}
+                            onKeyDown={(e) => {
+                              if (e.key === 'Enter') {
+                                e.preventDefault();
+                                handleAddDepositPreset(customDepositInput);
+                              }
+                            }}
+                            placeholder="Nhập số tiền khác (VD: 250.000)"
+                            className="w-full px-3 py-1.5 rounded-xl bg-card border border-border text-foreground font-mono text-xs focus:outline-none focus:border-primary"
+                          />
+                          <span className="absolute right-2.5 top-1/2 -translate-y-1/2 text-[10px] text-muted-foreground font-bold pointer-events-none">
+                            đ
+                          </span>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => handleAddDepositPreset(customDepositInput)}
+                          className="flex items-center gap-1 px-3 py-1.5 rounded-xl text-xs font-bold bg-amber-500 hover:bg-amber-600 text-slate-950 transition-all cursor-pointer shadow-sm active:scale-95 shrink-0"
+                        >
+                          <Plus className="w-3.5 h-3.5" />
+                          <span>Thêm</span>
+                        </button>
+                      </div>
+
+                      <p className="text-[10px] text-muted-foreground leading-relaxed italic">
+                        💡 Hệ thống sẽ tự động bốc ngẫu nhiên 1 trong các mức trên để hiển thị thông báo nạp ví cho khách. Nhớ bấm <b>&quot;Lưu Cấu Hình&quot;</b> ở đầu trang sau khi thay đổi.
+                      </p>
+                    </div>
+                  )}
                 </div>
 
                 {/* Footer hàng nút thao tác */}
@@ -1125,6 +1323,95 @@ export const MarketingModule: React.FC<MarketingModuleProps> = ({ onShowToast })
                 />
                 <div className="w-11 h-6 bg-slate-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary"></div>
               </label>
+            </div>
+
+            {/* Vị trí hiển thị Popup Toast trên màn hình */}
+            <div className="p-3.5 rounded-xl bg-muted/40 border border-border space-y-3">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="font-bold text-sm text-foreground flex items-center gap-2">
+                    <SlidersHorizontal className="w-4 h-4 text-primary" />
+                    <span>Vị trí hiển thị trên màn hình</span>
+                  </p>
+                  <p className="text-xs text-muted-foreground">
+                    Chọn góc màn hình mà thông báo nổi (Toast) sẽ xuất hiện trên thiết bị của khách.
+                  </p>
+                </div>
+                <span className="text-[11px] font-mono px-2 py-0.5 rounded-md bg-primary/10 border border-primary/25 text-primary font-bold shrink-0">
+                  {config.toastPosition === 'bottom-right'
+                    ? 'Dưới - Phải'
+                    : config.toastPosition === 'top-left'
+                    ? 'Trên - Trái'
+                    : config.toastPosition === 'top-right'
+                    ? 'Trên - Phải'
+                    : 'Dưới - Trái (Mặc định)'}
+                </span>
+              </div>
+
+              {/* 4 Corner Options */}
+              <div className="grid grid-cols-2 gap-2.5">
+                {[
+                  {
+                    id: 'bottom-left' as ToastPosition,
+                    label: 'Dưới - Trái',
+                    sub: 'Khuyên dùng (chuẩn)',
+                    cornerDot: 'bottom-1.5 left-1.5',
+                  },
+                  {
+                    id: 'bottom-right' as ToastPosition,
+                    label: 'Dưới - Phải',
+                    sub: 'Góc phải màn hình',
+                    cornerDot: 'bottom-1.5 right-1.5',
+                  },
+                  {
+                    id: 'top-left' as ToastPosition,
+                    label: 'Trên - Trái',
+                    sub: 'Dưới thanh Menu trái',
+                    cornerDot: 'top-1.5 left-1.5',
+                  },
+                  {
+                    id: 'top-right' as ToastPosition,
+                    label: 'Trên - Phải',
+                    sub: 'Dưới thanh Menu phải',
+                    cornerDot: 'top-1.5 right-1.5',
+                  },
+                ].map((pos) => {
+                  const isSelected = (config.toastPosition || 'bottom-left') === pos.id;
+                  return (
+                    <button
+                      key={pos.id}
+                      type="button"
+                      onClick={() => handleSelectToastPosition(pos.id)}
+                      className={`relative flex items-center gap-3 p-2.5 rounded-xl border text-left transition-all cursor-pointer ${
+                        isSelected
+                          ? 'bg-primary/15 border-primary shadow-sm text-foreground ring-1 ring-primary'
+                          : 'bg-card hover:bg-muted/70 border-border/80 text-muted-foreground hover:text-foreground'
+                      }`}
+                    >
+                      {/* Mini monitor preview with active dot */}
+                      <div className="relative w-8 h-6 rounded border border-border bg-slate-900 shrink-0 flex items-center justify-center overflow-hidden">
+                        <div
+                          className={`absolute w-1.5 h-1.5 rounded-full transition-all ${pos.cornerDot} ${
+                            isSelected
+                              ? 'bg-primary shadow-[0_0_6px_rgba(234,88,12,0.9)] scale-125'
+                              : 'bg-slate-600'
+                          }`}
+                        />
+                      </div>
+
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-center gap-1">
+                          <span className={`text-xs font-bold truncate ${isSelected ? 'text-primary' : 'text-foreground'}`}>
+                            {pos.label}
+                          </span>
+                          {isSelected && <CheckCircle2 className="w-3 h-3 text-primary shrink-0" />}
+                        </div>
+                        <p className="text-[10px] text-muted-foreground truncate">{pos.sub}</p>
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
             </div>
 
             {/* Slider 1: Thời gian hiển thị */}

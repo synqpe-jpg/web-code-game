@@ -6,6 +6,7 @@ import type {
   NotificationTypeToggles,
   NotificationTypeWeights,
   OfflineCatchUpConfig,
+  ToastPosition,
 } from '../types/marketing';
 import type { GameItem, StoreProduct, UtilityProduct, GiveawayCampaign, UserProfile } from '../types/game';
 import type { GlobalMetricsSnapshot } from '../shared/deterministicEngine';
@@ -104,10 +105,14 @@ export const DEFAULT_TYPE_WEIGHTS: NotificationTypeWeights = {
   restockProduct: 12,
 };
 
+export const DEFAULT_DEPOSIT_PRESETS: number[] = [20000, 50000, 100000, 200000, 300000, 500000, 1000000];
+
 export const DEFAULT_MARKETING_CONFIG: MarketingConfig = {
   isEnabled: true,
   typeToggles: DEFAULT_TYPE_TOGGLES,
   typeWeights: DEFAULT_TYPE_WEIGHTS,
+  toastPosition: 'bottom-left',
+  depositNotificationPresets: DEFAULT_DEPOSIT_PRESETS,
   displayDuration: 5,
   intervalMin: 12,
   intervalMax: 24,
@@ -3867,14 +3872,22 @@ class MarketingService {
       };
     }
 
-    // 2. DEPOSIT_WALLET
-    if (chosenType === 'DEPOSIT_WALLET') {
-      const depositPresets = [50000, 100000, 200000, 300000, 500000, 1000000];
-      const amount = depositPresets[Math.floor(rng() * depositPresets.length)];
+    const getActiveDepositPresets = (): number[] => {
+      const presets = this.config.depositNotificationPresets;
+      if (Array.isArray(presets) && presets.length > 0) {
+        const valid = presets.filter((p) => typeof p === 'number' && p > 0);
+        if (valid.length > 0) return valid;
+      }
+      return DEFAULT_DEPOSIT_PRESETS;
+    };
+
+    const buildDepositSlotResult = () => {
+      const presets = getActiveDepositPresets();
+      const amount = presets[Math.floor(rng() * presets.length)];
       return {
         notif: {
           id: `slot_dep_${slotIndex}`,
-          type: 'DEPOSIT_WALLET',
+          type: 'DEPOSIT_WALLET' as const,
           title: 'Nạp tiền ví thành công',
           message: `${maskedUser} vừa nạp thành công ${amount.toLocaleString('vi-VN')}đ vào ví Core`,
           timeAgo,
@@ -3886,6 +3899,11 @@ class MarketingService {
         fireTimeMs,
         displayDurationMs,
       };
+    };
+
+    // 2. DEPOSIT_WALLET
+    if (chosenType === 'DEPOSIT_WALLET') {
+      return buildDepositSlotResult();
     }
 
     // 3. CLAIM_GIVEAWAY
@@ -3953,7 +3971,7 @@ class MarketingService {
       // Fallback nếu không có Giveaway hợp lệ
       if (canBuy) chosenType = 'BUY_PRODUCT';
       else if (canCopy) chosenType = 'COPY_CODE';
-      else if (canDep) chosenType = 'DEPOSIT_WALLET';
+      else if (canDep) return buildDepositSlotResult();
       else if (canStats) chosenType = 'STATS_COPY';
       else return null;
     }
@@ -4058,23 +4076,7 @@ class MarketingService {
       // Fallback nếu không có sản phẩm Store/Utility hợp lệ
       if (canCopy) chosenType = 'COPY_CODE';
       else if (canDep) {
-        const depositPresets = [50000, 100000, 200000, 300000, 500000, 1000000];
-        const amount = depositPresets[Math.floor(rng() * depositPresets.length)];
-        return {
-          notif: {
-            id: `slot_dep_${slotIndex}`,
-            type: 'DEPOSIT_WALLET',
-            title: 'Nạp tiền ví thành công',
-            message: `${maskedUser} vừa nạp thành công ${amount.toLocaleString('vi-VN')}đ vào ví Core`,
-            timeAgo,
-            userName: maskedUser,
-            depositAmount: amount,
-            timestamp: fireTimeMs,
-          },
-          slotIndex,
-          fireTimeMs,
-          displayDurationMs,
-        };
+        return buildDepositSlotResult();
       } else if (canStats) {
         const count = this.getLiveCopyCount(fireTimeMs);
         return {
@@ -4127,23 +4129,7 @@ class MarketingService {
 
       // Fallback nếu không có game nào có code
       if (canDep) {
-        const depositPresets = [50000, 100000, 200000, 300000, 500000, 1000000];
-        const amount = depositPresets[Math.floor(rng() * depositPresets.length)];
-        return {
-          notif: {
-            id: `slot_dep_${slotIndex}`,
-            type: 'DEPOSIT_WALLET',
-            title: 'Nạp tiền ví thành công',
-            message: `${maskedUser} vừa nạp thành công ${amount.toLocaleString('vi-VN')}đ vào ví Core`,
-            timeAgo,
-            userName: maskedUser,
-            depositAmount: amount,
-            timestamp: fireTimeMs,
-          },
-          slotIndex,
-          fireTimeMs,
-          displayDurationMs,
-        };
+        return buildDepositSlotResult();
       }
     }
 
@@ -4226,7 +4212,7 @@ class MarketingService {
       if (canCopy) chosenType = 'COPY_CODE';
       else if (canBuy) chosenType = 'BUY_PRODUCT';
       else if (canGw) chosenType = 'CLAIM_GIVEAWAY';
-      else if (canDep) chosenType = 'DEPOSIT_WALLET';
+      else if (canDep) return buildDepositSlotResult();
       else if (canStats) chosenType = 'STATS_COPY';
       else return null;
     }
@@ -4263,9 +4249,14 @@ class MarketingService {
       const saved = localStorage.getItem(MARKETING_CONFIG_KEY);
       if (saved) {
         const parsed = JSON.parse(saved);
+        const validPresets = Array.isArray(parsed.depositNotificationPresets) && parsed.depositNotificationPresets.length > 0
+          ? parsed.depositNotificationPresets.filter((p: any) => typeof p === 'number' && p > 0)
+          : DEFAULT_DEPOSIT_PRESETS;
         return {
           ...DEFAULT_MARKETING_CONFIG,
           ...parsed,
+          toastPosition: parsed.toastPosition || 'bottom-left',
+          depositNotificationPresets: (validPresets.length > 0) ? validPresets : DEFAULT_DEPOSIT_PRESETS,
           typeToggles: { ...DEFAULT_TYPE_TOGGLES, ...(parsed.typeToggles || {}) },
           typeWeights: { ...DEFAULT_TYPE_WEIGHTS, ...(parsed.typeWeights || {}) },
           peakHours: { ...DEFAULT_MARKETING_CONFIG.peakHours, ...(parsed.peakHours || {}) },
@@ -4289,9 +4280,14 @@ class MarketingService {
       if (e.key === MARKETING_CONFIG_KEY && e.newValue) {
         try {
           const parsed = JSON.parse(e.newValue);
+          const validPresets = Array.isArray(parsed.depositNotificationPresets) && parsed.depositNotificationPresets.length > 0
+            ? parsed.depositNotificationPresets.filter((p: any) => typeof p === 'number' && p > 0)
+            : DEFAULT_DEPOSIT_PRESETS;
           this.config = {
             ...DEFAULT_MARKETING_CONFIG,
             ...parsed,
+            toastPosition: parsed.toastPosition || 'bottom-left',
+            depositNotificationPresets: (validPresets.length > 0) ? validPresets : DEFAULT_DEPOSIT_PRESETS,
             typeToggles: {
               ...DEFAULT_TYPE_TOGGLES,
               ...(parsed.typeToggles || {}),
@@ -4550,9 +4546,14 @@ class MarketingService {
         const saved = localStorage.getItem(MARKETING_CONFIG_KEY);
         if (saved) {
           const parsed = JSON.parse(saved);
+          const validPresets = Array.isArray(parsed.depositNotificationPresets) && parsed.depositNotificationPresets.length > 0
+            ? parsed.depositNotificationPresets.filter((p: any) => typeof p === 'number' && p > 0)
+            : DEFAULT_DEPOSIT_PRESETS;
           this.config = {
             ...DEFAULT_MARKETING_CONFIG,
             ...parsed,
+            toastPosition: parsed.toastPosition || 'bottom-left',
+            depositNotificationPresets: (validPresets.length > 0) ? validPresets : DEFAULT_DEPOSIT_PRESETS,
             isEnabled: parsed.isEnabled !== undefined ? Boolean(parsed.isEnabled) : true,
             typeToggles: { ...DEFAULT_TYPE_TOGGLES, ...(parsed.typeToggles || {}) },
             peakHours: { ...DEFAULT_MARKETING_CONFIG.peakHours, ...(parsed.peakHours || {}) },
@@ -4569,6 +4570,19 @@ class MarketingService {
       } catch {}
     }
     return { ...this.config };
+  }
+
+  public getDepositNotificationPresets(): number[] {
+    const presets = this.config.depositNotificationPresets;
+    if (Array.isArray(presets) && presets.length > 0) {
+      const valid = presets.filter((p) => typeof p === 'number' && p > 0);
+      if (valid.length > 0) return valid;
+    }
+    return DEFAULT_DEPOSIT_PRESETS;
+  }
+
+  public getToastPosition(): ToastPosition {
+    return this.config.toastPosition || 'bottom-left';
   }
 
   public async saveConfig(newConfig: MarketingConfig): Promise<boolean> {
