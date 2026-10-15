@@ -15,6 +15,8 @@ import {
   ContentItem,
   SecurityLog,
   UserRole,
+  PendingCrawlerGame,
+  CrawlerAutoPublishConfig,
 } from '../types/adminTypes';
 import type { GiveawayCampaign, StoreProduct, UtilityProduct, UtilityCategory, StoreCategory } from '../../types/game';
 import rawGamesData from '../../data/games188.json';
@@ -42,6 +44,15 @@ class AdminDataService {
   private deletedInventoryItemIds: Set<string> = new Set();
   private customFreeCodes: FreeCodeRecord[] = [];
   private deletedFreeCodeIds: Set<string> = new Set();
+  private pendingGames: PendingCrawlerGame[] = [];
+  private crawlerAutoPublishGamesConfig: CrawlerAutoPublishConfig = {
+    enabled: true,
+    whitelistPublishers: ['VNG', 'Garena', 'SohaGame', 'Funtap', 'Gamota', 'Gosu', 'VTC', 'Dzogame', 'Appota', 'VGP', 'Kplay', 'AceGame'],
+    minInstalls: 50000,
+    minRating: 4.0,
+    autoDownloadIcons: true,
+    autoAddCrawlerSource: true,
+  };
 
   private saveCustomFreeCodes() {
     if (typeof window === 'undefined') return;
@@ -152,6 +163,8 @@ class AdminDataService {
     STORE_PRODUCTS: 'wcg_admin_store_products_v4',
     UTILITIES: 'wcg_admin_utilities_v4',
     ADMIN_USER: 'wcg_admin_user_v4',
+    CRAWLER_PENDING_GAMES: 'wcg_crawler_pending_games_v1',
+    CRAWLER_AUTO_PUBLISH_CONFIG: 'wcg_crawler_auto_publish_games_v1',
   };
 
   constructor() {
@@ -301,6 +314,24 @@ class AdminDataService {
               code: c.code || c.codeValue || '',
               gameSlug: c.gameSlug || c.gameId || '',
             }));
+          }
+        } catch {}
+      }
+
+      const savedPendingGames = localStorage.getItem('wcg_crawler_pending_games_v1');
+      if (savedPendingGames) {
+        try {
+          const parsed = JSON.parse(savedPendingGames);
+          if (Array.isArray(parsed)) this.pendingGames = parsed;
+        } catch {}
+      }
+
+      const savedAutoPublishConfig = localStorage.getItem('wcg_crawler_auto_publish_games_v1');
+      if (savedAutoPublishConfig) {
+        try {
+          const parsed = JSON.parse(savedAutoPublishConfig);
+          if (parsed && typeof parsed.enabled === 'boolean') {
+            this.crawlerAutoPublishGamesConfig = { ...this.crawlerAutoPublishGamesConfig, ...parsed };
           }
         } catch {}
       }
@@ -3566,6 +3597,148 @@ class AdminDataService {
     return [...this.customFreeCodes];
   }
 
+  public getPendingGames(): PendingCrawlerGame[] {
+    return [...this.pendingGames];
+  }
+
+  public setPendingGames(list: PendingCrawlerGame[]): void {
+    this.pendingGames = [...list];
+    if (typeof window !== 'undefined') {
+      try {
+        localStorage.setItem(this.KEYS.CRAWLER_PENDING_GAMES, JSON.stringify(this.pendingGames));
+        crossOriginSync.setItem(this.KEYS.CRAWLER_PENDING_GAMES, this.pendingGames);
+        this.broadcastSync('CRAWLER_PENDING_GAMES_UPDATED', this.pendingGames);
+      } catch {}
+    }
+  }
+
+  public getAutoPublishGamesConfig(): CrawlerAutoPublishConfig {
+    return { ...this.crawlerAutoPublishGamesConfig };
+  }
+
+  public async saveAutoPublishGamesConfig(config: CrawlerAutoPublishConfig): Promise<boolean> {
+    this.crawlerAutoPublishGamesConfig = { ...config };
+    if (typeof window !== 'undefined') {
+      try {
+        localStorage.setItem(this.KEYS.CRAWLER_AUTO_PUBLISH_CONFIG, JSON.stringify(this.crawlerAutoPublishGamesConfig));
+        crossOriginSync.setItem(this.KEYS.CRAWLER_AUTO_PUBLISH_CONFIG, this.crawlerAutoPublishGamesConfig);
+        this.broadcastSync('CRAWLER_AUTO_PUBLISH_CONFIG_UPDATED', this.crawlerAutoPublishGamesConfig);
+      } catch {}
+    }
+    try {
+      const res = await fetch('/api/sync', {
+        method: 'POST',
+        headers: this.getAuthHeaders(),
+        body: JSON.stringify({
+          crawlerAutoPublishGamesConfig: this.crawlerAutoPublishGamesConfig,
+        }),
+      });
+      return res.ok;
+    } catch {
+      return false;
+    }
+  }
+
+  public async approvePendingGame(id: string, editedGame?: Partial<PendingCrawlerGame>): Promise<{ success: boolean; message?: string }> {
+    try {
+      const res = await fetch('/api/sync', {
+        method: 'POST',
+        headers: this.getAuthHeaders(),
+        body: JSON.stringify({
+          action: 'approve_crawler_game',
+          pendingId: id,
+          editedGame,
+        }),
+      });
+      const data = await res.json();
+      if (data && data.success) {
+        this.pendingGames = this.pendingGames.filter((p) => p && p.id !== id && p.slug !== id);
+        this.setPendingGames(this.pendingGames);
+        if (data.approvedGame) {
+          const existIdx = this.games.findIndex((g) => g.slug === data.approvedGame.slug || g.id === data.approvedGame.id);
+          if (existIdx !== -1) {
+            this.games[existIdx] = { ...this.games[existIdx], ...data.approvedGame };
+          } else {
+            this.games.unshift(data.approvedGame);
+          }
+          this.saveGames();
+        }
+        return { success: true, message: data.message };
+      }
+      return { success: false, message: data.error || 'Duyệt game thất bại' };
+    } catch (e: any) {
+      return { success: false, message: e?.message || 'Lỗi kết nối khi duyệt game' };
+    }
+  }
+
+  public async rejectPendingGame(id: string): Promise<{ success: boolean; message?: string }> {
+    try {
+      const res = await fetch('/api/sync', {
+        method: 'POST',
+        headers: this.getAuthHeaders(),
+        body: JSON.stringify({
+          action: 'reject_crawler_game',
+          pendingId: id,
+        }),
+      });
+      const data = await res.json();
+      if (data && data.success) {
+        this.pendingGames = this.pendingGames.filter((p) => p && p.id !== id && p.slug !== id);
+        this.setPendingGames(this.pendingGames);
+        return { success: true, message: data.message };
+      }
+      return { success: false, message: data.error || 'Từ chối game thất bại' };
+    } catch (e: any) {
+      return { success: false, message: e?.message || 'Lỗi kết nối khi loại bỏ game' };
+    }
+  }
+
+  public async batchApprovePendingGames(ids: string[]): Promise<{ success: boolean; message?: string; approvedCount?: number }> {
+    try {
+      const res = await fetch('/api/sync', {
+        method: 'POST',
+        headers: this.getAuthHeaders(),
+        body: JSON.stringify({
+          action: 'batch_approve_crawler_games',
+          pendingIds: ids,
+        }),
+      });
+      const data = await res.json();
+      if (data && data.success) {
+        const idSet = new Set(ids);
+        this.pendingGames = this.pendingGames.filter((p) => !idSet.has(p.id) && !idSet.has(p.slug));
+        this.setPendingGames(this.pendingGames);
+        return { success: true, message: data.message, approvedCount: data.approvedCount };
+      }
+      return { success: false, message: data.error || 'Duyệt hàng loạt thất bại' };
+    } catch (e: any) {
+      return { success: false, message: e?.message || 'Lỗi kết nối khi duyệt hàng loạt' };
+    }
+  }
+
+  public async batchRejectPendingGames(ids: string[]): Promise<{ success: boolean; message?: string }> {
+    try {
+      const res = await fetch('/api/sync', {
+        method: 'POST',
+        headers: this.getAuthHeaders(),
+        body: JSON.stringify({
+          action: 'batch_reject_crawler_games',
+          pendingIds: ids,
+        }),
+      });
+      const data = await res.json();
+      if (data && data.success) {
+        const idSet = new Set(ids);
+        this.pendingGames = this.pendingGames.filter((p) => !idSet.has(p.id) && !idSet.has(p.slug));
+        this.setPendingGames(this.pendingGames);
+        return { success: true, message: data.message };
+      }
+      return { success: false, message: data.error || 'Xóa hàng loạt thất bại' };
+    } catch (e: any) {
+      return { success: false, message: e?.message || 'Lỗi kết nối khi xóa hàng loạt' };
+    }
+  }
+
   public getFullStateSnapshot(): any {
     return {
       storeProducts: this.getStoreProducts().filter((p) => !this.deletedStoreProductIds.has(p.id)),
@@ -3593,6 +3766,8 @@ class AdminDataService {
       marketingConfig: marketingService.getConfig(),
       utilityCategories: this.getUtilityCategories(),
       storeCategories: this.getStoreCategories(),
+      crawlerPendingGames: this.pendingGames,
+      crawlerAutoPublishGamesConfig: this.crawlerAutoPublishGamesConfig,
       isInitialized: true,
       timestamp: new Date().toISOString(),
     };

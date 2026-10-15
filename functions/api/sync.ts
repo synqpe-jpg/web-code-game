@@ -284,6 +284,8 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
             'wcg_admin_store_products_v4',
             'wcg_admin_giveaways_v4',
             'wcg_crawler_pending_codes_v1',
+            'wcg_crawler_pending_games_v1',
+            'wcg_crawler_auto_publish_games_v1',
             'wcg_crawler_sources_v1',
             'wcg_crawler_logs_v1',
             'wcg_news_articles_v1',
@@ -683,6 +685,13 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
 
     if (authorized) {
       responsePayload.crawlerPendingCodes = d1Settings['wcg_crawler_pending_codes_v1'] || masterState.crawlerPendingCodes || [];
+      responsePayload.crawlerPendingGames = d1Settings['wcg_crawler_pending_games_v1'] || masterState.crawlerPendingGames || [];
+      responsePayload.crawlerAutoPublishGamesConfig = d1Settings['wcg_crawler_auto_publish_games_v1'] || masterState.crawlerAutoPublishGamesConfig || {
+        enabled: true,
+        whitelistPublishers: ['VNG', 'Garena', 'SohaGame', 'Funtap', 'Gamota', 'Gosu', 'VTC', 'Dzogame', 'Appota', 'VGP', 'Kplay', 'AceGame'],
+        minInstalls: 50000,
+        minRating: 4.0,
+      };
       responsePayload.crawlerLogs = d1Settings['wcg_crawler_logs_v1'] || masterState.crawlerLogs || [];
       responsePayload.submissions = d1Settings['wcg_admin_submissions_v4'] || masterState.submissions || [];
       responsePayload.privateCodes = d1Settings['wcg_admin_private_codes_v4'] || masterState.privateCodes || [];
@@ -1452,6 +1461,217 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
       }
     }
 
+    // Action: Duyệt Game mới từ Google Play Crawler đưa lên hệ thống chính thức
+    if (body.action === 'approve_crawler_game' && env.DB) {
+      try {
+        const pendingId = String(body.pendingId || body.id || '').trim();
+        const editedGame = body.editedGame || {};
+        const pendingListRaw = await getSettingD1(env.DB, 'wcg_crawler_pending_games_v1') || [];
+        const pendingList: any[] = Array.isArray(pendingListRaw) ? pendingListRaw : [];
+        const targetIndex = pendingList.findIndex((p: any) => p && (p.id === pendingId || p.slug === pendingId));
+        
+        if (targetIndex === -1 && !body.pendingGame) {
+          return new Response(JSON.stringify({ success: false, error: 'Không tìm thấy game trong hàng chờ duyệt' }), { status: 404, headers: CORS_HEADERS });
+        }
+
+        const sourceItem = targetIndex !== -1 ? pendingList[targetIndex] : (body.pendingGame || {});
+        const finalSlug = String(editedGame.slug || sourceItem.slug || '').trim() || `game-${Date.now()}`;
+        const finalName = String(editedGame.name || sourceItem.name || '').trim();
+        const finalDeveloper = String(editedGame.developer || sourceItem.developer || editedGame.publisher || 'NPH Chính Thức').trim();
+
+        // Lấy danh sách games hiện tại trên D1
+        const rawGames = await getSettingD1(env.DB, 'wcg_admin_games_v5') || await getSettingD1(env.DB, 'wcg_admin_games_v4') || (fallbackGamesData as any[]);
+        const gamesList: any[] = Array.isArray(rawGames) ? [...rawGames] : [];
+
+        const existingGameIndex = gamesList.findIndex((g: any) => g && (g.slug === finalSlug || g.id === finalSlug));
+
+        const newGameRecord = {
+          id: finalSlug,
+          slug: finalSlug,
+          name: finalName,
+          publisher: finalDeveloper,
+          category: editedGame.category || sourceItem.category || 'Nhập Vai',
+          rating: Number(editedGame.rating || sourceItem.rating || 4.8),
+          icon_url: editedGame.iconUrl || sourceItem.iconUrl || `/game_icons/${finalSlug}.webp`,
+          cover_image_url: editedGame.iconUrl || sourceItem.iconUrl || `/game_icons/${finalSlug}.webp`,
+          banner_url: '',
+          description: editedGame.description || sourceItem.description || `${finalName} là tựa game mobile mới phát hành chính thức bởi ${finalDeveloper}.`,
+          short_description: `${finalName} - Game Mobile Mới`,
+          instructions: 'Bước 1: Mở game > Nhấn Avatar nhân vật\nBước 2: Chọn Cài đặt > Nhập Giftcode\nBước 3: Dán mã và nhấn Xác nhận.',
+          platform: 'Android, iOS, PC',
+          release_date: editedGame.releaseDate || sourceItem.releaseDate || new Date().toISOString().split('T')[0],
+          download_android: sourceItem.playStoreUrl || `https://play.google.com/store/apps/details?id=${sourceItem.packageId || finalSlug}`,
+          is_featured: false,
+          is_hot: false,
+          is_new: true,
+          is_active: true,
+          status: 'ACTIVE',
+          codes_count: 0,
+          free_codes_count: 0,
+          source: 'Google Play Store VN',
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+        };
+
+        if (existingGameIndex !== -1) {
+          gamesList[existingGameIndex] = { ...gamesList[existingGameIndex], ...newGameRecord };
+        } else {
+          gamesList.unshift(newGameRecord);
+        }
+
+        await setSettingD1(env.DB, 'wcg_admin_games_v5', gamesList);
+
+        // Tự động tạo nguồn crawler sources cho game đó nếu chưa có
+        try {
+          const sourcesRaw = await getSettingD1(env.DB, 'wcg_crawler_sources_v1') || [];
+          const sources: any[] = Array.isArray(sourcesRaw) ? [...sourcesRaw] : [];
+          const hasSource = sources.some((s: any) => s && s.targetGameSlug === finalSlug);
+          if (!hasSource) {
+            sources.push({
+              id: `src_auto_${finalSlug}_${Date.now()}`,
+              name: `Google Search Code ${finalName}`,
+              type: 'reputable_web',
+              url: `https://www.google.com/search?q=${encodeURIComponent('giftcode ' + finalName)}`,
+              targetGameSlug: finalSlug,
+              isEnabled: true,
+              description: `Tự động sinh từ Google Play crawler cho game ${finalName}`
+            });
+            await setSettingD1(env.DB, 'wcg_crawler_sources_v1', sources);
+          }
+        } catch {}
+
+        // Xóa khỏi pending list
+        if (targetIndex !== -1) {
+          pendingList.splice(targetIndex, 1);
+          await setSettingD1(env.DB, 'wcg_crawler_pending_games_v1', pendingList);
+        }
+
+        invalidateGamesCatalogCache();
+
+        return new Response(JSON.stringify({
+          success: true,
+          message: `Đã duyệt và đăng thành công game ${finalName} lên hệ thống!`,
+          approvedGame: newGameRecord,
+          remainingPendingCount: pendingList.length
+        }), { headers: CORS_HEADERS });
+      } catch (e: any) {
+        return new Response(JSON.stringify({ success: false, error: String(e?.message || e) }), { status: 500, headers: CORS_HEADERS });
+      }
+    }
+
+    // Action: Từ chối / Xóa game trong hàng chờ duyệt
+    if (body.action === 'reject_crawler_game' && env.DB) {
+      try {
+        const pendingId = String(body.pendingId || body.id || '').trim();
+        const pendingListRaw = await getSettingD1(env.DB, 'wcg_crawler_pending_games_v1') || [];
+        const pendingList: any[] = Array.isArray(pendingListRaw) ? pendingListRaw : [];
+        const nextList = pendingList.filter((p: any) => p && p.id !== pendingId && p.slug !== pendingId);
+        await setSettingD1(env.DB, 'wcg_crawler_pending_games_v1', nextList);
+
+        return new Response(JSON.stringify({
+          success: true,
+          message: 'Đã loại bỏ game khỏi hàng chờ duyệt.',
+          remainingPendingCount: nextList.length
+        }), { headers: CORS_HEADERS });
+      } catch (e: any) {
+        return new Response(JSON.stringify({ success: false, error: String(e?.message || e) }), { status: 500, headers: CORS_HEADERS });
+      }
+    }
+
+    // Action: Duyệt hàng loạt game từ Crawler
+    if (body.action === 'batch_approve_crawler_games' && env.DB && Array.isArray(body.pendingIds)) {
+      try {
+        const targetIds = new Set(body.pendingIds.map(String));
+        const pendingListRaw = await getSettingD1(env.DB, 'wcg_crawler_pending_games_v1') || [];
+        const pendingList: any[] = Array.isArray(pendingListRaw) ? pendingListRaw : [];
+        const rawGames = await getSettingD1(env.DB, 'wcg_admin_games_v5') || await getSettingD1(env.DB, 'wcg_admin_games_v4') || (fallbackGamesData as any[]);
+        const gamesList: any[] = Array.isArray(rawGames) ? [...rawGames] : [];
+
+        const approvedGames: any[] = [];
+        const remainingPending: any[] = [];
+
+        for (const item of pendingList) {
+          if (item && (targetIds.has(String(item.id)) || targetIds.has(String(item.slug)))) {
+            const finalSlug = String(item.slug || `game-${Date.now()}`);
+            const finalName = String(item.name || '').trim();
+            const finalDeveloper = String(item.developer || 'NPH Chính Thức').trim();
+
+            const newGameRecord = {
+              id: finalSlug,
+              slug: finalSlug,
+              name: finalName,
+              publisher: finalDeveloper,
+              category: item.category || 'Nhập Vai',
+              rating: Number(item.rating || 4.8),
+              icon_url: item.iconUrl || `/game_icons/${finalSlug}.webp`,
+              cover_image_url: item.iconUrl || `/game_icons/${finalSlug}.webp`,
+              banner_url: '',
+              description: item.description || `${finalName} là tựa game mobile mới phát hành chính thức bởi ${finalDeveloper}.`,
+              short_description: `${finalName} - Game Mobile Mới`,
+              instructions: 'Bước 1: Mở game > Nhấn Avatar nhân vật\nBước 2: Chọn Cài đặt > Nhập Giftcode\nBước 3: Dán mã và nhấn Xác nhận.',
+              platform: 'Android, iOS, PC',
+              release_date: item.releaseDate || new Date().toISOString().split('T')[0],
+              download_android: item.playStoreUrl || `https://play.google.com/store/apps/details?id=${item.packageId || finalSlug}`,
+              is_featured: false,
+              is_hot: false,
+              is_new: true,
+              is_active: true,
+              status: 'ACTIVE',
+              codes_count: 0,
+              free_codes_count: 0,
+              source: 'Google Play Store VN',
+              created_at: new Date().toISOString(),
+              updated_at: new Date().toISOString(),
+            };
+
+            const existIdx = gamesList.findIndex((g: any) => g && (g.slug === finalSlug || g.id === finalSlug));
+            if (existIdx !== -1) {
+              gamesList[existIdx] = { ...gamesList[existIdx], ...newGameRecord };
+            } else {
+              gamesList.unshift(newGameRecord);
+            }
+            approvedGames.push(newGameRecord);
+          } else {
+            remainingPending.push(item);
+          }
+        }
+
+        if (approvedGames.length > 0) {
+          await setSettingD1(env.DB, 'wcg_admin_games_v5', gamesList);
+          await setSettingD1(env.DB, 'wcg_crawler_pending_games_v1', remainingPending);
+          invalidateGamesCatalogCache();
+        }
+
+        return new Response(JSON.stringify({
+          success: true,
+          message: `Đã duyệt thành công ${approvedGames.length} game mới lên hệ thống!`,
+          approvedCount: approvedGames.length,
+          remainingPendingCount: remainingPending.length
+        }), { headers: CORS_HEADERS });
+      } catch (e: any) {
+        return new Response(JSON.stringify({ success: false, error: String(e?.message || e) }), { status: 500, headers: CORS_HEADERS });
+      }
+    }
+
+    // Action: Từ chối / Xóa hàng loạt game trong hàng chờ duyệt
+    if (body.action === 'batch_reject_crawler_games' && env.DB && Array.isArray(body.pendingIds)) {
+      try {
+        const targetIds = new Set(body.pendingIds.map(String));
+        const pendingListRaw = await getSettingD1(env.DB, 'wcg_crawler_pending_games_v1') || [];
+        const pendingList: any[] = Array.isArray(pendingListRaw) ? pendingListRaw : [];
+        const nextList = pendingList.filter((p: any) => p && !targetIds.has(String(p.id)) && !targetIds.has(String(p.slug)));
+        await setSettingD1(env.DB, 'wcg_crawler_pending_games_v1', nextList);
+
+        return new Response(JSON.stringify({
+          success: true,
+          message: `Đã loại bỏ ${targetIds.size} game khỏi hàng chờ duyệt.`,
+          remainingPendingCount: nextList.length
+        }), { headers: CORS_HEADERS });
+      } catch (e: any) {
+        return new Response(JSON.stringify({ success: false, error: String(e?.message || e) }), { status: 500, headers: CORS_HEADERS });
+      }
+    }
+
     // Action: Đăng ký / cập nhật trực tiếp thành viên với mật khẩu vào D1 (Admin Direct Provisioning)
     if (body.action === 'admin_set_member_password' && env.DB && body.member) {
       try {
@@ -1680,6 +1900,8 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
     if (body.marketingConfig !== undefined) currentMaster.marketingConfig = body.marketingConfig;
     if (body.growthConfig !== undefined) currentMaster.growthConfig = body.growthConfig;
     if (body.crawlerPendingCodes !== undefined) currentMaster.crawlerPendingCodes = body.crawlerPendingCodes;
+    if (body.crawlerPendingGames !== undefined) currentMaster.crawlerPendingGames = body.crawlerPendingGames;
+    if (body.crawlerAutoPublishGamesConfig !== undefined) currentMaster.crawlerAutoPublishGamesConfig = body.crawlerAutoPublishGamesConfig;
     if (body.crawlerSources !== undefined) currentMaster.crawlerSources = body.crawlerSources;
     if (body.crawlerLogs !== undefined) currentMaster.crawlerLogs = body.crawlerLogs;
     if (body.deletedNewsArticles !== undefined) currentMaster.deletedNewsArticles = body.deletedNewsArticles;
@@ -1998,6 +2220,8 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
         if (body.storeCategories !== undefined || body.key === 'wcg_admin_store_categories_v1') await setSettingD1(env.DB, 'wcg_admin_store_categories_v1', body.storeCategories ?? body.data);
         if (body.giveaways !== undefined) await setSettingD1(env.DB, 'wcg_admin_giveaways_v4', body.giveaways);
         if (body.crawlerPendingCodes !== undefined) await setSettingD1(env.DB, 'wcg_crawler_pending_codes_v1', body.crawlerPendingCodes);
+        if (body.crawlerPendingGames !== undefined) await setSettingD1(env.DB, 'wcg_crawler_pending_games_v1', body.crawlerPendingGames);
+        if (body.crawlerAutoPublishGamesConfig !== undefined) await setSettingD1(env.DB, 'wcg_crawler_auto_publish_games_v1', body.crawlerAutoPublishGamesConfig);
         if (body.crawlerSources !== undefined || body.key === 'wcg_crawler_sources_v1' || body.key === 'wcg_admin_crawler_sources_v5') await setSettingD1(env.DB, 'wcg_crawler_sources_v1', body.crawlerSources ?? body.data);
         if (body.crawlerLogs !== undefined) await setSettingD1(env.DB, 'wcg_crawler_logs_v1', body.crawlerLogs);
         if (body.deletedNewsArticles !== undefined) await setSettingD1(env.DB, 'wcg_deleted_news_articles_v1', body.deletedNewsArticles);

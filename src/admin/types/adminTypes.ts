@@ -217,3 +217,30 @@ export interface SecurityLog {
   details?: any;
   createdAt: string;
 }
+
+export interface PendingCrawlerGame {
+  id: string;
+  name: string;
+  slug: string;
+  packageId: string;
+  developer: string;
+  category: string;
+  rating: number;
+  installs: string;
+  iconUrl: string;
+  playStoreUrl: string;
+  description: string;
+  releaseDate?: string;
+  status: 'PENDING' | 'APPROVED' | 'REJECTED';
+  autoPublishEligible?: boolean;
+  crawledAt: string;
+}
+
+export interface CrawlerAutoPublishConfig {
+  enabled: boolean;
+  whitelistPublishers: string[];
+  minInstalls: number;
+  minRating: number;
+  autoDownloadIcons?: boolean;
+  autoAddCrawlerSource?: boolean;
+}

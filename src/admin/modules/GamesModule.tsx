@@ -10,6 +10,7 @@ import {
   Globe,
   Save,
   Sliders,
+  Smartphone,
 } from 'lucide-react';
 import { DataTable, Column } from '../components/ui/DataTable';
 import { StatusBadge } from '../components/ui/StatusBadge';
@@ -30,6 +31,7 @@ export const GamesModule: React.FC<GamesModuleProps> = ({ onShowToast, onOpenGam
   const [categoryFilter, setCategoryFilter] = useState('ALL');
   const [statusFilter, setStatusFilter] = useState('ALL');
   const [isLoading, setIsLoading] = useState(false);
+  const [pendingGamesCount, setPendingGamesCount] = useState(0);
 
   // Edit / Create Form Modal State
   const [isFormOpen, setIsFormOpen] = useState(false);
@@ -65,6 +67,7 @@ export const GamesModule: React.FC<GamesModuleProps> = ({ onShowToast, onOpenGam
 
     const data = adminDataService.getGames(filterObj);
     setGames(data);
+    setPendingGamesCount(adminDataService.getPendingGames().length);
     setIsLoading(false);
   };
 
@@ -281,6 +284,28 @@ export const GamesModule: React.FC<GamesModuleProps> = ({ onShowToast, onOpenGam
 
   return (
     <div className="space-y-6 animate-in fade-in duration-200">
+      {/* Banner Game Chờ Duyệt từ Google Play */}
+      {pendingGamesCount > 0 && (
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 p-4 rounded-2xl bg-gradient-to-r from-emerald-950/40 via-slate-900 to-teal-950/40 border border-emerald-500/40 text-xs sm:text-sm shadow-lg shadow-emerald-950/20">
+          <div className="flex items-center gap-2.5 text-emerald-300 font-medium">
+            <Smartphone className="w-5 h-5 text-emerald-400 shrink-0" />
+            <span>
+              Phát hiện <strong className="text-white font-bold">{pendingGamesCount}</strong> tựa game mới từ Google Play Store VN đang chờ duyệt!
+            </span>
+          </div>
+          <button
+            type="button"
+            onClick={() => {
+              window.location.hash = '#/crawler';
+            }}
+            className="px-3.5 py-1.5 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-bold text-xs flex items-center gap-1.5 transition-all shadow-md active:scale-95 cursor-pointer"
+          >
+            <span>Duyệt Ngay Trong Crawler</span>
+            <span>&rarr;</span>
+          </button>
+        </div>
+      )}
+
       {/* Quick Status Bar for Catalog Display & Pagination */}
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 p-3.5 rounded-2xl bg-indigo-50/70 dark:bg-indigo-950/30 border border-indigo-200/80 dark:border-indigo-900/50 text-xs">
         <div className="flex items-center gap-2 text-slate-700 dark:text-slate-300">

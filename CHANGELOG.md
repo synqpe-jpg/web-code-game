@@ -7,6 +7,45 @@ Mỗi mục sửa lỗi đều ghi nhận **Nguyên nhân gốc rễ (Root Cause
 
 ## [2026-10-15]
 
+### 55. Triển Khai Hệ Thống Tự Động Cập Nhật Game Mới Trên Google Play Store Theo Phương Án B (100% Auto-Publish & Chế Độ Duyệt Tay Riêng Trong Admin)
+- **Mô tả & Yêu cầu Người Dùng**:
+  - *"Web của tôi có thể tự cập nhật game mới trên gg play không?"*
+  - *"Phương Án B (Tự động đăng 100% không cần bấm duyệt) và có chế độ duyệt tay riênng. Không ảnh hưởng tới code hay tính năng khác"*
+- **Phân tích yêu cầu & Thiết kế hệ thống (Architectural Design)**:
+  1. *Phân luồng 2 nhánh (2-Tier Dispatching Rule)*:
+     - **Nhánh 1: Tự Động Đăng 100% (Auto-Publish)**:
+       + Áp dụng cho các tựa game mới phát hiện từ Nhà Phát Hành chính thức/uy tín tại Việt Nam (`VNG`, `Garena`, `SohaGame`, `Funtap`, `Gamota`, `Gosu`, `VTC Mobile`, `Dzogame`, `Appota`, `VGP`, `Kplay`, `AceGame`...) HOẶC tựa game có lượng cài đặt lớn ($\ge 50,000$) và đánh giá sao cao ($\ge 4.0\star$).
+       + Tự động tải và lưu icon chuẩn WebP, sinh slug SEO, thêm vào master `games` trên Cloudflare D1/KV, tự động tạo nguồn cào giftcode (`crawlerSources`) cho game đó và xuất bản trực tiếp lên `codegame.shop` trong 0 giây mà Admin không cần thao tác gì.
+     - **Nhánh 2: Hàng Chờ Duyệt Tay Riêng (Manual Moderation Queue)**:
+       + Áp dụng cho các tựa game mới chưa thuộc danh sách NPH ưu tiên hoặc cần kiểm duyệt bản quyền.
+       + Tự động lưu vào `crawlerPendingGames` (`wcg_crawler_pending_games_v1`) trên Cloudflare D1/KV để Admin xem xét và duyệt 1-chạm hoặc từ chối.
+  2. *Ràng buộc tuyệt đối (Zero Breaking Changes)*:
+     - Bảo toàn nguyên vẹn 100% dữ liệu 623+ tựa game và kho giftcode hiện có.
+     - Giữ nguyên các tính năng kho hàng, thanh toán, nạp ví SePay, FOMO đồng bộ 1 - 1, session bảo mật của người dùng.
+- **Các giải pháp triển khai chi tiết (Comprehensive Implementation)**:
+  1. *Bộ máy Scraper Google Play VN (`scripts/crawler/google_play_crawler.cjs`)*:
+     - Quét tìm kiếm ứng viên qua 14 danh mục NPH lớn và game mới tại thị trường Việt Nam (`gl=VN&hl=vi`).
+     - Bộ lọc chống trùng lặp 3 lớp: Đối chiếu theo `slug`, `name` (chuẩn hóa không dấu), `packageId` với cơ sở dữ liệu game hiện có và danh sách chờ duyệt.
+     - Tự động tải và lưu icon chuẩn WebP vào `public/game_icons/{slug}.webp` (kèm fallback trực tiếp từ Google Play CDN).
+     - Đồng bộ kết quả lên Cloudflare D1/KV qua API `/api/sync` bằng Secret Token an toàn.
+  2. *Backend & Cloudflare Edge Functions (`functions/api/sync.ts`)*:
+     - Hỗ trợ lưu trữ và đồng bộ 2 setting: `wcg_crawler_pending_games_v1` và `wcg_crawler_auto_publish_games_v1`.
+     - Bổ sung các server actions: `approve_crawler_game`, `reject_crawler_game`, `batch_approve_crawler_games`, `batch_reject_crawler_games`.
+     - Tự động tạo crawler source và purge edge cache (`invalidateGamesCatalogCache()`) ngay khi game được duyệt.
+  3. *Admin Data Service (`src/admin/services/adminDataService.ts`)*:
+     - Bổ sung state `pendingGames` và `crawlerAutoPublishGamesConfig`.
+     - Cung cấp các phương thức: `getPendingGames()`, `setPendingGames()`, `getAutoPublishGamesConfig()`, `saveAutoPublishGamesConfig()`, `approvePendingGame()`, `rejectPendingGame()`, `batchApprovePendingGames()`, `batchRejectPendingGames()`.
+     - Tích hợp vào snapshot `getFullStateSnapshot()`.
+  4. *Giao diện Quản trị Chuyên Nghiệp (`src/admin/modules/CrawlerModule.tsx`)*:
+     - Bổ sung tab mới **"Game Mới (Google Play)"** kèm badge số lượng game chờ duyệt theo thời gian thực.
+     - Thanh điều khiển: Công tắc toggle "⚡ Tự động đăng 100% (Auto-Publish)", nút "⚡ Quét Google Play Ngay".
+     - Bộ lọc tìm kiếm theo tên game, nhà phát hành, package ID.
+     - Danh sách thẻ game hiện đại: Hiển thị icon game, tên game, NPH, Rating ★, Lượt cài đặt, link xem Google Play Store VN, nút "Duyệt & Đăng Ngay", nút "Bỏ qua", nút duyệt/xóa hàng loạt.
+  5. *Tích hợp Shortcut Trong Danh Mục Game (`src/admin/modules/GamesModule.tsx`)*:
+     - Hiển thị banner thông báo nổi bật khi phát hiện game mới chờ duyệt, kèm nút 1-chạm chuyển nhanh sang tab duyệt trong Crawler.
+  6. *Tự Động Hóa 24/7 Qua GitHub Actions (`.github/workflows/auto-google-play-sync.yml`)*:
+     - Thiết lập cron job chạy tự động định kỳ mỗi ngày hoặc kích hoạt thủ công từ GitHub Actions.
+
 ### 54. Khắc Phục Lỗi Quét Giftcode Tự Động Thất Bại Trên GitHub Actions (Fix Missing Brace Syntax Error & Safe Fallbacks in Crawler Engine)
 - **Mô tả & Yêu cầu Người Dùng**:
   - *"Kiểm tra mục quét code giúp tôi xem sao nó thất bại."* (Kèm ảnh chụp màn hình GitHub Actions workflow `auto-crawler-sync.yml` bị lỗi đỏ ❌ từ run #14 đến run #18, chỉ chạy 8 - 13 giây là sập).

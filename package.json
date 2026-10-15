@@ -11,6 +11,7 @@
     "crawl:abei": "node scripts/fetch_abei_database.cjs",
     "sync:codes": "node scripts/sync_source_codes.cjs",
     "crawler:run": "node scripts/crawler/run_crawler.cjs",
+    "crawler:googleplay": "node scripts/crawler/google_play_crawler.cjs",
     "news:auto": "node scripts/crawler/auto_news_publisher.cjs",
     "deploy": "wrangler pages deploy dist --project-name=web-code-game",
     "deploy:admin": "wrangler pages deploy dist --project-name=admin-code-game-shop",
