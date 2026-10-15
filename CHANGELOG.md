@@ -29,6 +29,8 @@ Mỗi mục sửa lỗi đều ghi nhận **Nguyên nhân gốc rễ (Root Cause
      - Trong `marketingService.ts`: `processSyncedSnapshot` nhận trực tiếp `info.sold` và `info.claimed` từ server snapshot, không trói buộc `Math.max` và không gửi đỉnh rác cũ ngược lại máy chủ.
   5. *Purge Toàn Diện Cache Cloudflare Edge*:
      - Trong `functions/services/cache_service.ts`: Bổ sung `/api/metrics/synced` và `/api/stats` vào danh sách purge tức thì trên Cloudflare Cache API và Global REST API.
+  6. *Khôi Phục Chuẩn Xác Số Ảo Cho 3 Chiến Dịch Giveaway Đặt Trước*:
+     - Khôi phục chính xác `virtual_claimed_offset` cho 3Q Đào Đào Viên (`94` -> Hiển thị `96`), Anh Hùng Tiến Lên (`73` -> Hiển thị `75`), Tiên Nghịch Mobile (`188` -> Hiển thị `190`), loại bỏ tình trạng tệp json tĩnh cũ vô tình ghi đè số ảo về 0 gây tụt về mức min (2 mã).
 
 ### 51. Thiết Lập Hệ Thống Phiên Đăng Nhập Bền Vững Đa Tầng (Multi-Tier Session Persistence): Tự Động Khôi Phục Phiên Khi Mở Trình Duyệt / App, Chống Văng Đăng Nhập Đa Thiết Bị & Bảo Lưu Phiên Trừ Khi Đổi Mật Khẩu
 - **Mô tả & Yêu cầu Người Dùng**:
