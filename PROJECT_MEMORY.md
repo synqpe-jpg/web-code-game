@@ -93,6 +93,11 @@
 - Chỉ duy nhất tài khoản Telegram của Chủ sở hữu (`ID: 7791142901`) có quyền tương tác, nhận báo cáo và kích hoạt bot tự động.
 - Mọi API admin được bảo vệ bằng Secret Token `ADMIN_SYNC_SECRET`.
 
+### 3.6. Quy Tắc Tự Động Xóa Dữ Liệu Test (Zero Test Artifacts On Production)
+- Mọi dữ liệu test (sản phẩm tiện ích test `ut_test_*`, sản phẩm cửa hàng test `sp_test_*`, mã giftcode test) được sinh ra để kiểm thử hệ thống phải được dọn dẹp sạch sẽ 100% ngay sau khi hoàn thành bài test (khối `finally`).
+- Tuyệt đối không để sót bất kỳ sản phẩm test nào trên production Cloudflare D1/KV hoặc trong mã nguồn hiển thị cho khách.
+- Chỉ những sản phẩm và mã kho do chính người dùng nhập vào mới được hiển thị và tính tồn kho hợp lệ.
+
 ---
 
 ## 4. BẢN ĐỒ DỮ LIỆU & STATE MANAGEMENT

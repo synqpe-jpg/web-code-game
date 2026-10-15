@@ -162,21 +162,37 @@ class DataService {
         }
       } catch {}
 
-      // Clean up empty store / utility caches so guaranteed baseline reloads immediately
+      // Clean up test products from localStorage if present
+      const testMockIds = new Set([
+        'ut_test_01',
+        'sp_1', 'sp_2', 'sp_3', 'sp_4', 'sp_5', 'sp_6',
+        'sp_hsr_pass',
+        'sp_genshin_welkin',
+        'sp_roblox_robux_1000',
+        'sp_lq_qh_500',
+        'sp_ff_kc_520',
+        'sp_pubg_uc_600',
+      ]);
       try {
         const rawSp = localStorage.getItem('wcg_admin_store_products_v4');
-        if (rawSp === '[]' || rawSp === 'null') {
-          localStorage.removeItem('wcg_admin_store_products_v4');
-          localStorage.removeItem(this.STORE_PRODUCTS_KEY);
+        if (rawSp) {
+          const parsed = JSON.parse(rawSp);
+          if (Array.isArray(parsed)) {
+            const filtered = parsed.filter((p) => p && !testMockIds.has(p.id));
+            localStorage.setItem('wcg_admin_store_products_v4', JSON.stringify(filtered));
+            localStorage.setItem(this.STORE_PRODUCTS_KEY, JSON.stringify(filtered));
+          }
         }
+      } catch {}
+      try {
         const rawUt = localStorage.getItem('wcg_admin_utilities_v4');
-        if (rawUt === '[]' || rawUt === 'null') {
-          localStorage.removeItem('wcg_admin_utilities_v4');
-          localStorage.removeItem(this.UTILITIES_KEY);
-        }
-        const rawSepay = localStorage.getItem('wcg_admin_sepay_v4');
-        if (rawSepay && (rawSepay.includes('0987654321') || rawSepay.includes('MBBank'))) {
-          localStorage.removeItem('wcg_admin_sepay_v4');
+        if (rawUt) {
+          const parsed = JSON.parse(rawUt);
+          if (Array.isArray(parsed)) {
+            const filtered = parsed.filter((u) => u && !testMockIds.has(u.id));
+            localStorage.setItem('wcg_admin_utilities_v4', JSON.stringify(filtered));
+            localStorage.setItem(this.UTILITIES_KEY, JSON.stringify(filtered));
+          }
         }
       } catch {}
 
@@ -675,14 +691,12 @@ class DataService {
               } catch {}
               const delSet = new Set(delList);
               const filtered = json.storeProducts.filter((p: any) => p && p.id && !delSet.has(p.id));
-              if (filtered.length > 0) {
-                const currentSp = localStorage.getItem('wcg_admin_store_products_v4');
-                const newSp = JSON.stringify(filtered);
-                if (currentSp !== newSp) {
-                  localStorage.setItem('wcg_admin_store_products_v4', newSp);
-                  localStorage.setItem(this.STORE_PRODUCTS_KEY, newSp);
-                  hasChanges = true;
-                }
+              const currentSp = localStorage.getItem('wcg_admin_store_products_v4');
+              const newSp = JSON.stringify(filtered);
+              if (currentSp !== newSp) {
+                localStorage.setItem('wcg_admin_store_products_v4', newSp);
+                localStorage.setItem(this.STORE_PRODUCTS_KEY, newSp);
+                hasChanges = true;
               }
             }
             if (json.utilities && Array.isArray(json.utilities)) {
@@ -693,14 +707,12 @@ class DataService {
               } catch {}
               const delSet = new Set(delList);
               const filtered = json.utilities.filter((u: any) => u && u.id && !delSet.has(u.id));
-              if (filtered.length > 0) {
-                const currentUt = localStorage.getItem('wcg_admin_utilities_v4');
-                const newUt = JSON.stringify(filtered);
-                if (currentUt !== newUt) {
-                  localStorage.setItem('wcg_admin_utilities_v4', newUt);
-                  localStorage.setItem(this.UTILITIES_KEY, newUt);
-                  hasChanges = true;
-                }
+              const currentUt = localStorage.getItem('wcg_admin_utilities_v4');
+              const newUt = JSON.stringify(filtered);
+              if (currentUt !== newUt) {
+                localStorage.setItem('wcg_admin_utilities_v4', newUt);
+                localStorage.setItem(this.UTILITIES_KEY, newUt);
+                hasChanges = true;
               }
             }
             if (json.utilityCategories && Array.isArray(json.utilityCategories)) {

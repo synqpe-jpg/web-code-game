@@ -7,6 +7,24 @@ Mỗi mục sửa lỗi đều ghi nhận **Nguyên nhân gốc rễ (Root Cause
 
 ## [2026-10-15]
 
+### 47. Thiết Lập Nguyên Tắc 7 Tự Động Xóa Sản Phẩm Test (Zero Test Artifacts On Production), Dọn Sạch Toàn Bộ Dữ Liệu Test & Bảo Toàn Sản Phẩm Thực Tế Người Dùng
+- **Mô tả & Yêu cầu Người Dùng**:
+  - *"Thêm cho tôi 1 nguyên tắc, đó là tất cả sản phẩm test của hệ thống khi kiểm xong sẽ tự động xóa, không giữ lại trên web. Bạn hãy xóa những sản phẩm test trong khi test hệ thống đi, chỉ những sản phẩm do tôi thêm vào mới được tính và giữ lại ghi là còn."*
+- **Truy vết & Nguyên nhân gốc rễ (Root Cause Investigation)**:
+  1. *Sản phẩm test tồn dư trên Cloudflare D1*: Trong các lần chạy script test trước đó, bản ghi test `ut_test_01` ("Test Utility", tồn kho 5) đã được tạo trên Cloudflare D1 nhưng không được xóa dọn dẹp sau bài test.
+  2. *Sản phẩm mock trong Cửa Hàng*: Tệp `src/data/storeProducts.json` trước đó chứa 6 gói sản phẩm game mock (`sp_hsr_pass`, `sp_genshin_welkin`, `sp_roblox_robux_1000`, `sp_lq_qh_500`, `sp_ff_kc_520`, `sp_pubg_uc_600`) với số lượng tồn kho ảo (45, 38, 25, 30, 40, 28) mà không có mã thật trong kho của người dùng, dẫn đến việc trang web hiển thị bán hàng không có thực.
+- **Giải pháp xử lý toàn diện (Comprehensive Solution)**:
+  1. *Bổ sung Quy Tắc 7 vào `AGENTS.md` & `GEMINI.md`*: Bắt buộc mọi tác nhân và quy trình kiểm thử phải tự động dọn dẹp 100% dữ liệu test trong khối `finally`, tuyệt đối không để sót sản phẩm test trên web thực tế.
+  2. *Dọn sạch sản phẩm test trong mã nguồn*:
+     - Xóa rỗng `src/data/storeProducts.json` thành `[]` (chỉ khi người dùng tự thêm sản phẩm thật thì Cửa Hàng mới có dữ liệu).
+     - Trong `src/data/utilities.json`: Giữ lại nguyên vẹn 19 gói thực tế của người dùng, cập nhật gói `ut_vs_05_vip_7d` với tồn kho thật là 8 (`stock_quantity: 8`) tương ứng với 8 mã thẻ khả dụng trong kho hàng, các gói khác ghi "Hết hàng".
+  3. *Tombstone Deletion & Chống Tái Sinh Trên Cloudflare D1/KV*:
+     - Bổ sung `ut_test_01` vào `legacySeedUtilIds` trong `functions/api/sync.ts`.
+     - Bổ sung 6 ID mock `sp_*` vào `legacySeedStoreIds` trong `functions/api/sync.ts`.
+     - Bổ sung `gw_garena_delta_force` và `gw_alienware_vaultbreakers` vào `legacySeedGwIds` để dọn triệt để Delta Force.
+     - Cập nhật `scripts/push_to_kv_sync.cjs` đẩy các bản ghi Tombstone xóa vĩnh viễn dữ liệu test khỏi Cloudflare D1 SQL và KV.
+  4. *Cập nhật kiểm thử tự động `scripts/verify_all_requirements.cjs`*: Nâng cấp bộ test kiểm tra nghiêm ngặt 6 tiêu chuẩn, xác nhận 0 sản phẩm test còn sót lại và quy trình test luôn cleanup trong `finally`.
+
 ### 46. Chuẩn Hóa Cấu Hình SePay TPBank & Sinh Mã VietQR Offline 100%, Nghiêm Ngặt Quy Tắc Hết Hàng Trong Kho, Xác Minh 5.321 Giftcode & Đồng Bộ Marketing FOMO 1-1
 - **Mô tả & Yêu cầu Người Dùng**:
   1. *Khôi phục lại mã chuyển tiền SePay chính xác, đảm bảo hoạt động ổn định không lỗi mã QR*: Khôi phục tài khoản TPBank - STK `10004681879` - Tên `CODE GAME SHOP` - Cú pháp `WCG <member_id>`, tạo mã QR Base64 cục bộ (0ms, chống adblocker/Cốc Cốc 100%).

@@ -27,3 +27,9 @@ Trước mỗi lần chỉnh sửa bất kỳ file nào trong dự án, tác nh�
 
 ### 🚀 6. TỰ ĐỘNG TRIỂN KHAI KHI KIỂM THỬ THÀNH CÔNG 100% (MỆNH LỆNH CHỦ SỞ HỮU)
 - Từ nay về sau, bất cứ khi nào tác nhân kiểm thử và build báo thành công 100%: **BẮT BUỘC TỰ ĐỘNG** chạy `npm run deploy:all` (triển khai đồng thời Web Khách `web-code-game` và Web Quản trị `admin-code-game-shop`) và `git push origin main` (đồng bộ GitHub), sau đó báo cáo kết quả và URL môi trường trực tiếp cho người dùng mà không cần dừng lại hỏi trước.
+
+### 🧹 7. NGUYÊN TẮC TỰ ĐỘNG XÓA SẢN PHẨM TEST (ZERO TEST ARTIFACTS ON PRODUCTION)
+- Tất cả sản phẩm, mã code hay dữ liệu test do tác nhân/hệ thống sinh ra trong khi kiểm thử **BẮT BUỘC** phải tự động xóa sạch sau khi kiểm thử xong (sử dụng khối `finally` hoặc lệnh dọn dẹp chuyên dụng).
+- Tuyệt đối không giữ lại hay để hiển thị bất kỳ sản phẩm test nào trên web thực tế.
+- Chỉ những sản phẩm thực tế do người dùng nhập vào kho mới được công nhận, lưu trữ và ghi nhận trạng thái còn hàng.
+

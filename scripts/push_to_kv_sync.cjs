@@ -17,6 +17,22 @@ async function syncAllToKV() {
     isConnected: true
   };
 
+  const deletedStoreProducts = [
+    'sp_1', 'sp_2', 'sp_3', 'sp_4', 'sp_5', 'sp_6',
+    'sp_hsr_pass', 'sp_genshin_welkin', 'sp_roblox_robux_1000',
+    'sp_lq_qh_500', 'sp_ff_kc_520', 'sp_pubg_uc_600'
+  ];
+
+  const deletedUtilities = [
+    'ut_1', 'ut_2', 'ut_3', 'ut_4', 'ut_5', 'ut_6',
+    'ut_test_01'
+  ];
+
+  const deletedGiveaways = [
+    'gw_1', 'gw_2', 'gw_3',
+    'gw_garena_delta_force', 'gw_alienware_vaultbreakers'
+  ];
+
   const endpoints = [
     'https://web-code-game.pages.dev/api/sync',
     'https://admin-code-game-shop.pages.dev/api/sync'
@@ -27,9 +43,10 @@ async function syncAllToKV() {
   console.log(`- Free Codes: ${freeCodes.length}`);
   console.log(`- Sources: ${sources.length}`);
   console.log(`- Giveaways: ${giveaways.length} (KHÔNG CÓ Delta Force)`);
-  console.log(`- Utilities: ${utilities.length}`);
-  console.log(`- Store Products: ${storeProducts.length}`);
+  console.log(`- Utilities: ${utilities.length} (KHÔNG CÓ ut_test_01, ut_vs_05_vip_7d stock: 8)`);
+  console.log(`- Store Products: ${storeProducts.length} (0 sản phẩm test/mock)`);
   console.log(`- Payment: TPBank - 10004681879 - CODE GAME SHOP`);
+  console.log(`- Tombstones to purge: ${deletedStoreProducts.length} store products, ${deletedUtilities.length} utilities, ${deletedGiveaways.length} giveaways`);
 
   for (const url of endpoints) {
     try {
@@ -38,7 +55,31 @@ async function syncAllToKV() {
         'X-Sync-Key': 'b4e08494bf1c3fd6a0c965dd2411780c60513f7f87001bc955d7496331b2faef'
       };
 
-      // 1. Sync Games v5
+      // 1. Purge Deleted Store Products (Tombstones)
+      const resDelSp = await fetch(url, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({ key: 'wcg_deleted_store_products', deletedStoreProducts, data: deletedStoreProducts })
+      });
+      console.log(`[${url}] Purge deleted_store_products: ${resDelSp.status}`);
+
+      // 2. Purge Deleted Utilities (Tombstones, including ut_test_01)
+      const resDelUt = await fetch(url, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({ key: 'wcg_deleted_utilities', deletedUtilities, data: deletedUtilities })
+      });
+      console.log(`[${url}] Purge deleted_utilities (ut_test_01): ${resDelUt.status}`);
+
+      // 3. Purge Deleted Giveaways (Tombstones, including Delta Force)
+      const resDelGw = await fetch(url, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({ key: 'wcg_deleted_giveaways', deletedGiveaways, data: deletedGiveaways })
+      });
+      console.log(`[${url}] Purge deleted_giveaways (Delta Force): ${resDelGw.status}`);
+
+      // 4. Sync Games v5
       const resG = await fetch(url, {
         method: 'POST',
         headers,
@@ -46,7 +87,7 @@ async function syncAllToKV() {
       });
       console.log(`[${url}] Push games_v5: ${resG.status}`);
 
-      // 2. Sync Free Codes v5
+      // 5. Sync Free Codes v5
       const resC = await fetch(url, {
         method: 'POST',
         headers,
@@ -54,7 +95,7 @@ async function syncAllToKV() {
       });
       console.log(`[${url}] Push free_codes_v5: ${resC.status}`);
 
-      // 3. Sync Crawler Sources
+      // 6. Sync Crawler Sources
       const resS = await fetch(url, {
         method: 'POST',
         headers,
@@ -62,7 +103,7 @@ async function syncAllToKV() {
       });
       console.log(`[${url}] Push crawler_sources_v1: ${resS.status}`);
 
-      // 4. Sync Giveaways v4
+      // 7. Sync Giveaways v4
       const resGw = await fetch(url, {
         method: 'POST',
         headers,
@@ -70,7 +111,7 @@ async function syncAllToKV() {
       });
       console.log(`[${url}] Push giveaways_v4: ${resGw.status}`);
 
-      // 5. Sync Utilities v4
+      // 8. Sync Utilities v4
       const resUt = await fetch(url, {
         method: 'POST',
         headers,
@@ -78,7 +119,7 @@ async function syncAllToKV() {
       });
       console.log(`[${url}] Push utilities_v4: ${resUt.status}`);
 
-      // 6. Sync Store Products v4
+      // 9. Sync Store Products v4 (Empty or Real only)
       const resSp = await fetch(url, {
         method: 'POST',
         headers,
@@ -86,7 +127,7 @@ async function syncAllToKV() {
       });
       console.log(`[${url}] Push store_products_v4: ${resSp.status}`);
 
-      // 7. Sync Payment (TPBank)
+      // 10. Sync Payment (TPBank)
       const resPay = await fetch(url, {
         method: 'POST',
         headers,
@@ -94,7 +135,7 @@ async function syncAllToKV() {
       });
       console.log(`[${url}] Push sepay_v4 (TPBank): ${resPay.status}`);
 
-      // 8. Sync Custom Free Codes (Pirate Legends VIP Vinh Danh)
+      // 11. Sync Custom Free Codes (Pirate Legends VIP Vinh Danh)
       const pirateCustomCodes = freeCodes.filter(c => c.gameSlug === 'pirate-legends' && c.source === 'GIFTCODE VINH DANH');
       if (pirateCustomCodes.length > 0) {
         const resCust = await fetch(url, {

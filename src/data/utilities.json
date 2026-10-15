@@ -196,7 +196,7 @@
     "original_price": 31551,
     "discount_percent": 5,
     "current_price": 29973,
-    "stock_quantity": 0,
+    "stock_quantity": 8,
     "sold_count": 0,
     "virtual_sold_count": 64,
     "show_sold_count": true,

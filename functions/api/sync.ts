@@ -240,9 +240,12 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
     let rawGiveaways: any[] = [];
     let d1Settings: Record<string, any> = {};
 
-    const legacySeedStoreIds = ['sp_1', 'sp_2', 'sp_3', 'sp_4', 'sp_5', 'sp_6'];
-    const legacySeedUtilIds = ['ut_1', 'ut_2', 'ut_3', 'ut_4', 'ut_5', 'ut_6'];
-    const legacySeedGwIds = ['gw_1', 'gw_2', 'gw_3'];
+    const legacySeedStoreIds = [
+      'sp_1', 'sp_2', 'sp_3', 'sp_4', 'sp_5', 'sp_6',
+      'sp_hsr_pass', 'sp_genshin_welkin', 'sp_roblox_robux_1000', 'sp_lq_qh_500', 'sp_ff_kc_520', 'sp_pubg_uc_600'
+    ];
+    const legacySeedUtilIds = ['ut_1', 'ut_2', 'ut_3', 'ut_4', 'ut_5', 'ut_6', 'ut_test_01'];
+    const legacySeedGwIds = ['gw_1', 'gw_2', 'gw_3', 'gw_garena_delta_force', 'gw_alienware_vaultbreakers'];
 
     const deletedStoreSet = new Set<string>(legacySeedStoreIds);
     const deletedUtilSet = new Set<string>(legacySeedUtilIds);
