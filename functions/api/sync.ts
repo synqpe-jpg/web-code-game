@@ -23,6 +23,7 @@ import {
 } from '../services/d1_service';
 import { verifyToken, computeHash } from '../services/auth_service';
 import { invalidateGamesCatalogCache } from './games';
+import { invalidateCatalogEdgeCache } from '../services/cache_service';
 import fallbackGamesData from '../../src/data/games188.json';
 import fallbackUtilitiesData from '../../src/data/utilities.json';
 import fallbackGiveawaysData from '../../src/data/giveaways.json';
@@ -1123,7 +1124,10 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
             const num = Number(val);
             if (!isNaN(num) && num >= 0 && num < 1000000) {
               const cur = hub.peakProductSoldCounts[pId] || 0;
-              if (body.forceResetSold || body.forceReset || (num > cur && num <= cur + 50) || (cur > num + 50)) {
+              if (body.forceResetSold || body.forceReset || isForceReset || (cur > num + 5)) {
+                hub.peakProductSoldCounts[pId] = num;
+                changed = true;
+              } else if (num > cur && num <= cur + 5) {
                 hub.peakProductSoldCounts[pId] = num;
                 changed = true;
               }
@@ -1137,7 +1141,10 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
             const num = Number(val);
             if (!isNaN(num) && num >= 0 && num < 1000000) {
               const cur = hub.peakGiveawayClaimedCounts[gId] || 0;
-              if (body.forceResetClaimed || body.forceReset || (num > cur && num <= cur + 50) || (cur > num + 50)) {
+              if (body.forceResetClaimed || body.forceReset || isForceReset || (cur > num + 5)) {
+                hub.peakGiveawayClaimedCounts[gId] = num;
+                changed = true;
+              } else if (num > cur && num <= cur + 5) {
                 hub.peakGiveawayClaimedCounts[gId] = num;
                 changed = true;
               }
@@ -1207,6 +1214,7 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
 
           if (isForceReset && env && env.DB) {
             await setSettingD1(env.DB, 'wcg_hourly_fomo_stats', null).catch(() => {});
+            await env.DB.prepare('DELETE FROM system_snapshots').run().catch(() => {});
           }
 
           // Invalidate edge cache for /api/metrics/synced, /api/stats, and /api/realtime-events
@@ -1708,20 +1716,17 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
             const hub = await getRealEventsHub(env);
             if (hub && hub.peakProductSoldCounts) {
               let hubChanged = false;
-              const isForceResetPayload = Boolean(body.forceReset || body.forceResetSold);
               for (const p of incomingProducts) {
                 if (p && p.id && p.virtual_sold_count !== undefined) {
                   const target = Number(p.virtual_sold_count) + (Number(p.sold_count) || 0);
-                  const curPeak = hub.peakProductSoldCounts[p.id] || 0;
-                  if (isForceResetPayload || curPeak > target + 15 || curPeak < target) {
-                    hub.peakProductSoldCounts[p.id] = target;
-                    hubChanged = true;
-                  }
+                  hub.peakProductSoldCounts[p.id] = target;
+                  hubChanged = true;
                 }
               }
               if (hubChanged) await saveRealEventsHub(env, hub, true);
             }
             await env.DB.prepare('DELETE FROM system_snapshots').run().catch(() => {});
+            (globalThis as any).__wcg_metrics_snapshot = null;
           } catch {}
         }
 
@@ -1747,20 +1752,17 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
             const hub = await getRealEventsHub(env);
             if (hub && hub.peakProductSoldCounts) {
               let hubChanged = false;
-              const isForceResetPayload = Boolean(body.forceReset || body.forceResetSold);
               for (const u of incomingUtilities) {
                 if (u && u.id && u.virtual_sold_count !== undefined) {
                   const target = Number(u.virtual_sold_count) + (Number(u.sold_count) || 0);
-                  const curPeak = hub.peakProductSoldCounts[u.id] || 0;
-                  if (isForceResetPayload || curPeak > target + 15 || curPeak < target) {
-                    hub.peakProductSoldCounts[u.id] = target;
-                    hubChanged = true;
-                  }
+                  hub.peakProductSoldCounts[u.id] = target;
+                  hubChanged = true;
                 }
               }
               if (hubChanged) await saveRealEventsHub(env, hub, true);
             }
             await env.DB.prepare('DELETE FROM system_snapshots').run().catch(() => {});
+            (globalThis as any).__wcg_metrics_snapshot = null;
           } catch {}
         }
 
@@ -1784,20 +1786,17 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
             const hub = await getRealEventsHub(env);
             if (hub && hub.peakGiveawayClaimedCounts) {
               let hubChanged = false;
-              const isForceResetPayload = Boolean(body.forceReset || body.forceResetClaimed);
               for (const gw of incomingGiveaways) {
                 if (gw && gw.id && gw.virtual_claimed_offset !== undefined) {
                   const target = Number(gw.virtual_claimed_offset) + (Number(gw.claimed_codes) || 0);
-                  const curPeak = hub.peakGiveawayClaimedCounts[gw.id] || 0;
-                  if (isForceResetPayload || curPeak > target + 15 || curPeak < target) {
-                    hub.peakGiveawayClaimedCounts[gw.id] = target;
-                    hubChanged = true;
-                  }
+                  hub.peakGiveawayClaimedCounts[gw.id] = target;
+                  hubChanged = true;
                 }
               }
               if (hubChanged) await saveRealEventsHub(env, hub, true);
             }
             await env.DB.prepare('DELETE FROM system_snapshots').run().catch(() => {});
+            (globalThis as any).__wcg_metrics_snapshot = null;
           } catch {}
         }
 
@@ -1959,6 +1958,35 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
           // Invalidate snapshot cache so it immediately recalculates with new product weights
           const gScope = globalThis as any;
           gScope.__wcg_metrics_snapshot = null;
+          await env.DB.prepare("DELETE FROM system_snapshots WHERE id IN ('wcg_metrics_snapshot_v1', 'wcg_metrics_snapshot_v2')").run().catch(() => {});
+
+          if (incomingMarketing?.productWeights && typeof incomingMarketing.productWeights === 'object') {
+            try {
+              const rHub = await getRealEventsHub(env);
+              if (rHub) {
+                if (!rHub.peakProductSoldCounts) rHub.peakProductSoldCounts = {};
+                if (!rHub.peakGiveawayClaimedCounts) rHub.peakGiveawayClaimedCounts = {};
+                let changedHub = false;
+                for (const [pId, pw] of Object.entries(incomingMarketing.productWeights as Record<string, any>)) {
+                  if (!pw) continue;
+                  const target = pw.targetDisplaySoldOrClaimed ?? (pId.startsWith('gw_') ? pw.virtualClaimed : pw.virtualSold);
+                  if (typeof target === 'number') {
+                    if (pId.startsWith('gw_')) {
+                      rHub.peakGiveawayClaimedCounts[pId] = target;
+                    } else {
+                      rHub.peakProductSoldCounts[pId] = target;
+                    }
+                    changedHub = true;
+                  }
+                }
+                if (changedHub) {
+                  await saveRealEventsHub(env, rHub, true);
+                }
+              }
+            } catch (err) {
+              console.warn('[Sync] Failed to update rHub from incomingMarketing:', err);
+            }
+          }
         }
         if (body.growthConfig !== undefined || body.key === 'wcg_growth_config_v1') await setSettingD1(env.DB, 'wcg_growth_config_v1', body.growthConfig ?? body.data);
         if (body.submissions !== undefined) await setSettingD1(env.DB, 'wcg_admin_submissions_v4', body.submissions);
@@ -1979,6 +2007,9 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
 
         // Consolidated Master State Snapshot in D1 system_settings
         await setSettingD1(env.DB, 'wcg_master_state_v4', currentMaster);
+
+        // Invalidate Edge Cache and Global CDN caches so all clients immediately see updated numbers
+        await invalidateCatalogEdgeCache(context as any, request, env).catch(() => {});
 
         return new Response(
           JSON.stringify({

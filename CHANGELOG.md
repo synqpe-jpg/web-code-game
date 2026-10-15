@@ -7,6 +7,29 @@ Mỗi mục sửa lỗi đều ghi nhận **Nguyên nhân gốc rễ (Root Cause
 
 ## [2026-10-15]
 
+### 52. Khắc Phục Triệt Để Lệch Số Ảo Admin & Đồng Bộ 2 Chiều Tức Thì (Instant 2-Way SSOT Sync & Ghost Peak Purge)
+- **Mô tả & Yêu cầu Người Dùng**:
+  - *"Trong trang admin tôi đã cài lại số ảo nhưng trang web khách vẫn đang giữ số cũ, đồng bộ giúp tôi. Cho phương án lần sau chỉ cần tôi cập nhật số ảo ở adim thì web khách cũng sẽ đồng bộ"*
+- **Truy vết & 5 Nguyên nhân gốc rễ (Root Cause Investigation)**:
+  1. *Khóa Đỉnh Đơn Điệu (Monotonic Peak Lock) trên Server*: Trong `functions/api/sync.ts`, các đỉnh đã đạt được (`peakProductSoldCounts`, `peakGiveawayClaimedCounts`) sử dụng `Math.max(peak, target)` và trần bảo vệ `50000`, khiến các đỉnh cũ (136, 123) không thể hạ xuống khi Admin cài lại số mới (64, 52).
+  2. *High-Water Mark trói buộc trên Client LocalStorage*: Trong `marketingService.ts`, hàm `processSyncedSnapshot` và `getSoldDisplay()` lưu số lớn nhất từng thấy (`recordedMax`) và dùng `Math.max(curSold, info.sold)`, sau đó còn báo cáo ngược đỉnh cũ lên server qua `schedulePeakReport()`.
+  3. *Lệch Mốc Thời Gian Tăng Trưởng (Timestamp Jump / Missing Anchor)*: Khi Admin đổi số ảo trong Admin panel, trường `fomo_anchor_time` không được cập nhật sang thời điểm hiện tại (`new Date().toISOString()`). Bộ máy `deterministicEngine.ts` fallback về đầu ngày (`dayStart` cách 6.6 tiếng), dẫn đến việc thuật toán tính bù ngoại tuyến tự động cộng thêm +70 đơn ngay lập tức vào con số Admin vừa đặt.
+  4. *Thiếu cờ `forceReset: true` trong các hàm Save của Admin*: Các hàm `saveUtilityItem`, `saveStoreProductItem`, `saveGiveawayItem` trong `adminDataService.ts` chỉ gọi `this.pushFullStateToKV()` (mặc định `force = false`), khiến server không kích hoạt nhánh ghi đè đỉnh.
+  5. *Edge Cache Cloudflare ngăn cập nhật tức thì*: `GET /api/sync` và `/api/metrics/synced` có `s-maxage=60`, nhưng khi Admin POST dữ liệu mới thì endpoint này không được purge toàn diện.
+- **Giải pháp xử lý dứt điểm toàn diện (Comprehensive Solution)**:
+  1. *Kiến trúc Ghi Đè Đỉnh SSOT (Authoritative Peak Override)*:
+     - Trong `functions/api/sync.ts`: Khi Admin lưu hoặc đồng bộ snapshot, server trực tiếp ghi đè đỉnh `hub.peakProductSoldCounts[id] = target` và `hub.peakGiveawayClaimedCounts[id] = target`, xóa sạch cache RAM isolate `globalThis.__wcg_metrics_snapshot = null` và xóa bảng `system_snapshots` trên D1.
+     - Trong `deterministicEngine.ts`: Cơ chế Auto-Heal tự động phát hiện nếu `peak` chênh lệch quá 5 đơn so với `rawDisplaySold` (do Admin vừa hạ/cài lại số ảo) thì lập tức hạ về đúng con số mới của Admin.
+  2. *Cập Nhật Mốc Thời Gian Tự Động (Instant Anchor Reset)*:
+     - Trong `adminDataService.ts`: Khi Admin lưu thay đổi số ảo trong `saveUtilityItem`, `saveStoreProductItem`, `saveGiveawayItem`, trường `fomo_anchor_time` và `virtual_sold_updated_at` / `virtual_claimed_updated_at` được gán ngay `new Date().toISOString()`. Nhờ đó ngay sau khi lưu, `elapsedMinutes = 0`, số hiển thị ngoài web khách chính xác 100% bằng con số Admin đã nhập.
+  3. *Cơ chế Luôn Đồng Bộ Tức Thì (Enforced Force Reset Sync)*:
+     - Trong `adminDataService.ts`: `pushFullStateToKV` luôn đính kèm `forceReset: true`, `forceResetSold: true`, `forceResetClaimed: true`. Tất cả thao tác thêm, sửa, xóa đều gọi `this.pushFullStateToKV(true)`.
+     - Trong `MarketingModule.tsx`: `handleSaveConfig` và `handleApplyBatchToAll` tự động gọi `adminDataService.pushFullStateToKV(true)`.
+  4. *Client Nhận Trực Tiếp Dữ Liệu Máy Chủ Không Kẹt Đỉnh*:
+     - Trong `marketingService.ts`: `processSyncedSnapshot` nhận trực tiếp `info.sold` và `info.claimed` từ server snapshot, không trói buộc `Math.max` và không gửi đỉnh rác cũ ngược lại máy chủ.
+  5. *Purge Toàn Diện Cache Cloudflare Edge*:
+     - Trong `functions/services/cache_service.ts`: Bổ sung `/api/metrics/synced` và `/api/stats` vào danh sách purge tức thì trên Cloudflare Cache API và Global REST API.
+
 ### 51. Thiết Lập Hệ Thống Phiên Đăng Nhập Bền Vững Đa Tầng (Multi-Tier Session Persistence): Tự Động Khôi Phục Phiên Khi Mở Trình Duyệt / App, Chống Văng Đăng Nhập Đa Thiết Bị & Bảo Lưu Phiên Trừ Khi Đổi Mật Khẩu
 - **Mô tả & Yêu cầu Người Dùng**:
   - *"Tôi chỉ cần người dùng trên điện thoại hay trình duyệt khi họ đã đăng ký tài khoản và tài khoản đó đúng, khong bị đổi mật khẩu thì vẫn có thể vào với tài khoản đó khi mở trình duyệt hay app là được."*

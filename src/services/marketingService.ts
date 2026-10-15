@@ -401,40 +401,21 @@ class MarketingService {
                 if (typeof info.sold === 'number') {
                   const isOverriddenSold = this.adminOverrideSoldMap.has(pId);
                   const realSold = typeof info.real_sold === 'number' ? info.real_sold : 0;
-                  const curSold = this.highWaterSoldCountMap.get(pId) || 0;
-                  const curFomo = this.liveFomoSoldCountMap.get(pId) || 0;
-                  const targetSold = isOverriddenSold ? Math.max(realSold, this.adminOverrideSoldMap.get(pId)!) : 0;
-                  const nextSold = Math.max(curSold, targetSold, info.sold);
-                  const nextFomo = Math.max(curFomo, targetSold, info.sold);
+                  const localOrderDelta = this.recentOrderDeltas.get(pId)?.count || 0;
 
-                  if (isOverriddenSold) {
-                    this.highWaterSoldCountMap.set(pId, nextSold);
-                    this.liveFomoSoldCountMap.set(pId, nextFomo);
-                  } else {
-                    // Auto-heal nếu vượt trần tối đa hợp lệ (maxAllowedCap)
-                    const realStock = typeof info.real_stock === 'number'
-                      ? info.real_stock
-                      : (this.productRealStockMap.get(pId) || 0);
-                    const catchUp = this.config.offlineCatchUp || DEFAULT_OFFLINE_CATCHUP_CONFIG;
-                    const oosEnabled = Boolean(catchUp.outOfStockEnabled);
-                    const oosMax = Math.max(1, Number(catchUp.outOfStockMaxUnits) || 10);
-                    const maxCatchUp = Math.max(30, Number(catchUp.maxCatchUpUnits) || 70);
-                    const details = this.findItemDetails(pId);
-                    const virtualBase = Number(details?.virtual_sold_count || 0);
-                    const pw = this.getProductConfig(pId);
-                    const maxCap = Math.max(50000, realSold + virtualBase + maxCatchUp + 500);
+                  // Server snapshot is authoritative canonical baseline
+                  const canonicalSold = isOverriddenSold
+                    ? Math.max(realSold, this.adminOverrideSoldMap.get(pId)!)
+                    : Math.max(realSold, info.sold);
+                  const effectiveSold = canonicalSold + localOrderDelta;
 
-                    const effectiveServerSold = info.sold > maxCap ? (realSold + virtualBase) : info.sold;
-                    const healedSold = nextSold > maxCap ? effectiveServerSold : Math.min(nextSold, maxCap);
-                    const healedFomo = nextFomo > maxCap ? effectiveServerSold : Math.min(nextFomo, maxCap);
+                  this.highWaterSoldCountMap.set(pId, effectiveSold);
+                  this.liveFomoSoldCountMap.set(pId, Math.max(0, effectiveSold - realSold));
+                  this.notifySoldCountChanged(pId, effectiveSold);
 
-                    this.highWaterSoldCountMap.set(pId, healedSold);
-                    this.liveFomoSoldCountMap.set(pId, healedFomo);
-
-                    // Nếu client có đỉnh cao hơn (do live sales vừa nổ), sync peak lên Edge server
-                    if (curSold > info.sold && curSold <= maxCap) {
-                      this.schedulePeakReport();
-                    }
+                  // Chỉ gửi peak report nếu vừa có đơn hàng thật phát sinh tại thiết bị này
+                  if (localOrderDelta > 0) {
+                    this.schedulePeakReport();
                   }
                 }
                 if (typeof info.stock === 'number') {
@@ -496,38 +477,21 @@ class MarketingService {
                 if (typeof info.claimed === 'number') {
                   const isOverriddenClaimed = this.adminOverrideClaimedMap.has(gId);
                   const realClaimed = typeof info.real_claimed === 'number' ? info.real_claimed : 0;
-                  const curClaimed = this.highWaterClaimedCountMap.get(gId) || 0;
-                  const curFomo = this.liveFomoClaimedCountMap.get(gId) || 0;
-                  const targetClaimed = isOverriddenClaimed ? Math.max(realClaimed, this.adminOverrideClaimedMap.get(gId)!) : 0;
-                  const nextClaimed = Math.max(curClaimed, targetClaimed, info.claimed);
-                  const nextFomo = Math.max(curFomo, targetClaimed, info.claimed);
+                  const localGwDelta = this.recentGiveawayDeltas.get(gId)?.count || 0;
 
-                  if (isOverriddenClaimed) {
-                    this.highWaterClaimedCountMap.set(gId, nextClaimed);
-                    this.liveFomoClaimedCountMap.set(gId, nextFomo);
-                  } else {
-                    const realRemaining = typeof info.real_remaining === 'number'
-                      ? info.real_remaining
-                      : (this.productRealStockMap.get(gId) || 0);
-                    const catchUp = this.config.offlineCatchUp || DEFAULT_OFFLINE_CATCHUP_CONFIG;
-                    const oosEnabled = Boolean(catchUp.outOfStockEnabled);
-                    const oosMax = Math.max(1, Number(catchUp.outOfStockMaxUnits) || 10);
-                    const maxCatchUp = Math.max(30, Number(catchUp.maxCatchUpUnits) || 70);
-                    const details = this.findGiveawayDetails(gId);
-                    const virtualBase = Number(details?.virtual_claimed_offset || 0);
-                    const pw = this.getProductConfig(gId);
-                    const maxCap = Math.max(50000, realClaimed + virtualBase + maxCatchUp + 500);
+                  // Server snapshot is authoritative canonical baseline
+                  const canonicalClaimed = isOverriddenClaimed
+                    ? Math.max(realClaimed, this.adminOverrideClaimedMap.get(gId)!)
+                    : Math.max(realClaimed, info.claimed);
+                  const effectiveClaimed = canonicalClaimed + localGwDelta;
 
-                    const effectiveServerClaimed = info.claimed > maxCap ? (realClaimed + virtualBase) : info.claimed;
-                    const healedClaimed = nextClaimed > maxCap ? effectiveServerClaimed : Math.min(nextClaimed, maxCap);
-                    const healedFomo = nextFomo > maxCap ? effectiveServerClaimed : Math.min(nextFomo, maxCap);
+                  this.highWaterClaimedCountMap.set(gId, effectiveClaimed);
+                  this.liveFomoClaimedCountMap.set(gId, Math.max(0, effectiveClaimed - realClaimed));
+                  this.notifySoldCountChanged(gId, effectiveClaimed);
 
-                    this.highWaterClaimedCountMap.set(gId, healedClaimed);
-                    this.liveFomoClaimedCountMap.set(gId, healedFomo);
-
-                    if (curClaimed > info.claimed && curClaimed <= maxCap) {
-                      this.schedulePeakReport();
-                    }
+                  // Chỉ gửi peak report nếu vừa có quà tặng thật nhận tại thiết bị này
+                  if (localGwDelta > 0) {
+                    this.schedulePeakReport();
                   }
                 }
                 if (typeof info.remaining === 'number') {
@@ -2403,23 +2367,14 @@ class MarketingService {
 
     const calculatedBase = Math.max(0, effectiveBaseTarget + hourlyGrowth + inHourProg);
 
-    // Auto-heal ghost inflated counts (e.g. legacy bug where recordedMax > calculatedBase + 5000)
-    if (recordedMax > Math.max(50000, calculatedBase + 5000)) {
+    // Auto-heal ghost inflated counts: nếu recordedMax lớn hơn calculatedBase + 5 (do Admin vừa hạ/cài lại số ảo) hoặc nhỏ hơn effectiveBaseTarget
+    if (recordedMax > calculatedBase + 5 || (effectiveBaseTarget > 0 && recordedMax < effectiveBaseTarget)) {
       recordedMax = calculatedBase;
       if (id) {
         this.highWaterSoldCountMap.set(id, recordedMax);
-        this.liveFomoSoldCountMap.set(id, recordedMax);
+        this.liveFomoSoldCountMap.set(id, Math.max(0, recordedMax - effectiveRealSold));
         this.saveHighWaterCounts();
         this.saveLiveFomoCounts();
-      }
-    }
-
-    // Auto-heal ghost artifact (20-22) caused by previous fallback 20 bug when baseline is small (< 10)
-    if (recordedMax >= 20 && recordedMax <= 22 && calculatedBase < 10) {
-      recordedMax = calculatedBase;
-      if (id) {
-        this.highWaterSoldCountMap.set(id, recordedMax);
-        this.saveHighWaterCounts();
       }
     }
 
@@ -2483,23 +2438,14 @@ class MarketingService {
 
     const calculatedBase = Math.max(0, effectiveBaseTarget + hourlyGrowth + inHourProg);
 
-    // Auto-heal ghost inflated counts (e.g. legacy 1420 bug where recordedMax > calculatedBase + 5000)
-    if (recordedMax > Math.max(50000, calculatedBase + 5000)) {
+    // Auto-heal ghost inflated counts: nếu recordedMax lớn hơn calculatedBase + 5 (do Admin vừa hạ/cài lại số ảo) hoặc nhỏ hơn effectiveBaseTarget
+    if (recordedMax > calculatedBase + 5 || (effectiveBaseTarget > 0 && recordedMax < effectiveBaseTarget)) {
       recordedMax = calculatedBase;
       if (id) {
         this.highWaterClaimedCountMap.set(id, recordedMax);
-        this.liveFomoClaimedCountMap.set(id, recordedMax);
+        this.liveFomoClaimedCountMap.set(id, Math.max(0, recordedMax - effectiveRealClaimed));
         this.saveHighWaterCounts();
         this.saveLiveFomoCounts();
-      }
-    }
-
-    // Auto-heal ghost artifact (20-22) caused by previous fallback 20 bug when baseline is small (< 10)
-    if (recordedMax >= 20 && recordedMax <= 22 && calculatedBase < 10) {
-      recordedMax = calculatedBase;
-      if (id) {
-        this.highWaterClaimedCountMap.set(id, recordedMax);
-        this.saveHighWaterCounts();
       }
     }
 
@@ -2676,6 +2622,10 @@ class MarketingService {
       ...curPw,
       priority: nextPriority,
       virtualStockBonus: nextBonus,
+      targetDisplaySoldOrClaimed: options.targetDisplaySoldOrClaimed,
+      virtualSold: options.targetDisplaySoldOrClaimed,
+      virtualClaimed: options.targetDisplaySoldOrClaimed,
+      lastUpdated: new Date().toISOString(),
     };
 
     const forceReset = options.forceReset === true;
@@ -4512,8 +4462,84 @@ class MarketingService {
       } else {
         this.config = this.loadConfig();
       }
+
+      // Re-align high water marks if productWeights contains explicit target
+      if (this.config.productWeights && typeof this.config.productWeights === 'object') {
+        Object.entries(this.config.productWeights).forEach(([id, pw]: [string, any]) => {
+          if (!pw) return;
+          if (typeof pw.targetDisplaySoldOrClaimed === 'number') {
+            if (id.startsWith('gw_')) {
+              this.highWaterClaimedCountMap.set(id, pw.targetDisplaySoldOrClaimed);
+              this.notifySoldCountChanged(id, pw.targetDisplaySoldOrClaimed);
+            } else {
+              this.highWaterSoldCountMap.set(id, pw.targetDisplaySoldOrClaimed);
+              this.notifySoldCountChanged(id, pw.targetDisplaySoldOrClaimed);
+            }
+          }
+        });
+        this.saveHighWaterCounts();
+      }
+
       this.startSnapshotPoller();
       this.notifyStockChanged('*', 0);
+      this.notifySoldCountChanged('*', 0);
+    });
+
+    window.addEventListener('wcg_utilities_updated', (e: any) => {
+      const list = Array.isArray(e.detail) ? e.detail : [];
+      let changed = false;
+      list.forEach((u: any) => {
+        if (u && u.id && u.virtual_sold_count !== undefined) {
+          const realSold = Number(u.sold_count) || 0;
+          const target = realSold + Number(u.virtual_sold_count || 0);
+          this.highWaterSoldCountMap.set(u.id, target);
+          this.liveFomoSoldCountMap.set(u.id, Number(u.virtual_sold_count || 0));
+          this.notifySoldCountChanged(u.id, target);
+          changed = true;
+        }
+      });
+      if (changed) {
+        this.saveHighWaterCounts();
+        this.saveLiveFomoCounts();
+      }
+    });
+
+    window.addEventListener('wcg_giveaways_updated', (e: any) => {
+      const list = Array.isArray(e.detail) ? e.detail : [];
+      let changed = false;
+      list.forEach((gw: any) => {
+        if (gw && gw.id && gw.virtual_claimed_offset !== undefined) {
+          const realClaimed = Number(gw.claimed_codes) || 0;
+          const target = realClaimed + Number(gw.virtual_claimed_offset || 0);
+          this.highWaterClaimedCountMap.set(gw.id, target);
+          this.liveFomoClaimedCountMap.set(gw.id, Number(gw.virtual_claimed_offset || 0));
+          this.notifySoldCountChanged(gw.id, target);
+          changed = true;
+        }
+      });
+      if (changed) {
+        this.saveHighWaterCounts();
+        this.saveLiveFomoCounts();
+      }
+    });
+
+    window.addEventListener('wcg_store_products_updated', (e: any) => {
+      const list = Array.isArray(e.detail) ? e.detail : [];
+      let changed = false;
+      list.forEach((p: any) => {
+        if (p && p.id && p.virtual_sold_count !== undefined) {
+          const realSold = Number(p.sold_count) || 0;
+          const target = realSold + Number(p.virtual_sold_count || 0);
+          this.highWaterSoldCountMap.set(p.id, target);
+          this.liveFomoSoldCountMap.set(p.id, Number(p.virtual_sold_count || 0));
+          this.notifySoldCountChanged(p.id, target);
+          changed = true;
+        }
+      });
+      if (changed) {
+        this.saveHighWaterCounts();
+        this.saveLiveFomoCounts();
+      }
     });
   }
 
@@ -4626,6 +4652,9 @@ class MarketingService {
               key: MARKETING_CONFIG_KEY,
               data: this.config,
               marketingConfig: this.config,
+              forceReset: true,
+              forceResetSold: true,
+              forceResetClaimed: true,
             }),
           }).catch((err) => {
             console.warn(`[MarketingService] Push to ${url} failed:`, err);

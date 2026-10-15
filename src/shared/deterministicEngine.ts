@@ -413,14 +413,13 @@ export function calculateGlobalSnapshot(
         );
 
     // Bảo toàn đỉnh bán hàng lũy kế (Monotonic Progression): Đỉnh đã đạt được duy trì vĩnh viễn
-    // Tự động thanh lọc đỉnh rác cũ (ghost inflated peak) vượt quá trần cấu hình an toàn
-    const oosEnabled = Boolean(data.offlineCatchUp?.outOfStockEnabled);
-    const oosMax = Math.max(1, Number(data.offlineCatchUp?.outOfStockMaxUnits) || 70);
-    const maxCatchUp = Math.max(70, Number(data.offlineCatchUp?.maxCatchUpUnits) || 70);
+    // Tự động thanh lọc đỉnh rác cũ (ghost inflated peak) vượt quá trần cấu hình an toàn hoặc khi Admin cài lại số ảo
     const peakSold = Number(data.peakProductSoldCounts?.[prod.id]) || 0;
     const baseTarget = Number(prod.virtual_sold_count || 0);
-    const maxAllowedPeak = Math.max(50000, effectiveRealSold + baseTarget + maxCatchUp + 500);
-    const effectivePeakSold = (peakSold > maxAllowedPeak) ? rawDisplaySold : peakSold;
+    // Nếu peakSold chênh lệch quá 5 đơn so với rawDisplaySold (do Admin vừa hạ/cài lại số ảo), lập tức đồng bộ theo rawDisplaySold
+    const effectivePeakSold = (peakSold > rawDisplaySold + 5 || peakSold < (effectiveRealSold + baseTarget))
+      ? rawDisplaySold
+      : peakSold;
     const displaySold = Math.max(rawDisplaySold, effectivePeakSold);
 
     productSnapshots[prod.id] = {
@@ -513,14 +512,13 @@ export function calculateGlobalSnapshot(
         );
 
     // Bảo toàn đỉnh nhận quà lũy kế (Monotonic Progression): Đỉnh đã đạt được duy trì vĩnh viễn
-    // Tự động thanh lọc đỉnh rác cũ (ghost inflated peak) vượt quá trần cấu hình an toàn
-    const gwOosEnabled = Boolean(data.offlineCatchUp?.outOfStockEnabled);
-    const gwOosMax = Math.max(1, Number(data.offlineCatchUp?.outOfStockMaxUnits) || 70);
-    const maxCatchUpGw = Math.max(70, Number(data.offlineCatchUp?.maxCatchUpUnits) || 70);
+    // Tự động thanh lọc đỉnh rác cũ (ghost inflated peak) vượt quá trần cấu hình an toàn hoặc khi Admin cài lại số ảo
     const peakClaimed = Number(data.peakGiveawayClaimedCounts?.[gw.id]) || 0;
     const baseTargetGw = Number(gw.virtual_claimed_offset || 0);
-    const maxAllowedGwPeak = Math.max(50000, effectiveRealClaimed + baseTargetGw + maxCatchUpGw + 500);
-    const effectivePeakClaimed = (peakClaimed > maxAllowedGwPeak) ? rawDisplayClaimed : peakClaimed;
+    // Nếu peakClaimed chênh lệch quá 5 đơn so với rawDisplayClaimed (do Admin vừa hạ/cài lại số ảo), lập tức đồng bộ theo rawDisplayClaimed
+    const effectivePeakClaimed = (peakClaimed > rawDisplayClaimed + 5 || peakClaimed < (effectiveRealClaimed + baseTargetGw))
+      ? rawDisplayClaimed
+      : peakClaimed;
     const displayClaimed = Math.max(rawDisplayClaimed, effectivePeakClaimed);
 
     const displayTotal = displayRemaining + displayClaimed;

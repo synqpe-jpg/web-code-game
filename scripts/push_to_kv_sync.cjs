@@ -123,25 +123,43 @@ async function syncAllToKV() {
       const resGw = await fetch(url, {
         method: 'POST',
         headers,
-        body: JSON.stringify({ key: 'wcg_admin_giveaways_v4', giveaways, data: giveaways })
+        body: JSON.stringify({
+          key: 'wcg_admin_giveaways_v4',
+          giveaways,
+          data: giveaways,
+          forceReset: true,
+          forceResetClaimed: true
+        })
       });
-      console.log(`[${url}] Push giveaways_v4: ${resGw.status}`);
+      console.log(`[${url}] Push giveaways_v4 (forceReset): ${resGw.status}`);
 
       // 8. Sync Utilities v4
       const resUt = await fetch(url, {
         method: 'POST',
         headers,
-        body: JSON.stringify({ key: 'wcg_admin_utilities_v4', utilities, data: utilities })
+        body: JSON.stringify({
+          key: 'wcg_admin_utilities_v4',
+          utilities,
+          data: utilities,
+          forceReset: true,
+          forceResetSold: true
+        })
       });
-      console.log(`[${url}] Push utilities_v4: ${resUt.status}`);
+      console.log(`[${url}] Push utilities_v4 (forceReset): ${resUt.status}`);
 
       // 9. Sync Store Products v4 (Empty or Real only)
       const resSp = await fetch(url, {
         method: 'POST',
         headers,
-        body: JSON.stringify({ key: 'wcg_admin_store_products_v4', storeProducts, data: storeProducts })
+        body: JSON.stringify({
+          key: 'wcg_admin_store_products_v4',
+          storeProducts,
+          data: storeProducts,
+          forceReset: true,
+          forceResetSold: true
+        })
       });
-      console.log(`[${url}] Push store_products_v4: ${resSp.status}`);
+      console.log(`[${url}] Push store_products_v4 (forceReset): ${resSp.status}`);
 
       // 10. Sync Payment (TPBank)
       const resPay = await fetch(url, {
@@ -161,6 +179,21 @@ async function syncAllToKV() {
         });
         console.log(`[${url}] Push custom_free_codes_v1 (Pirate Legends): ${resCust.status}`);
       }
+
+      // 12. Full State Master Sync with forceReset
+      const resFull = await fetch(url, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({
+          utilities,
+          giveaways,
+          storeProducts,
+          forceReset: true,
+          forceResetSold: true,
+          forceResetClaimed: true
+        })
+      });
+      console.log(`[${url}] Push full master snapshot (forceReset): ${resFull.status}`);
     } catch (e) {
       console.error(`[${url}] Error:`, e.message);
     }

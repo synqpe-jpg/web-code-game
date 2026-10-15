@@ -45,6 +45,7 @@ import {
   DEFAULT_TYPE_WEIGHTS,
 } from '../../services/marketingService';
 import { dataService } from '../../services/dataService';
+import { adminDataService } from '../services/adminDataService';
 import type { StoreProduct, UtilityProduct, GiveawayCampaign } from '../../types/game';
 
 interface MarketingModuleProps {
@@ -121,6 +122,7 @@ export const MarketingModule: React.FC<MarketingModuleProps> = ({ onShowToast })
       const finalConfig = { ...config, productWeights: mergedWeights };
       await marketingService.saveConfig(finalConfig);
       setConfig(finalConfig);
+      await adminDataService.pushFullStateToKV(true);
       onShowToast('Đã lưu cấu hình Marketing!', 'Cấu hình đã được đồng bộ lên Cloudflare KV và máy khách.', 'success');
     } catch (err: any) {
       onShowToast('Lỗi lưu cấu hình', err?.message || 'Không thể đồng bộ lên máy chủ. Vui lòng kiểm tra quyền quản trị.', 'error');
@@ -219,6 +221,7 @@ export const MarketingModule: React.FC<MarketingModuleProps> = ({ onShowToast })
       const newConfig = { ...config, productWeights: updatedWeights };
       setConfig(newConfig);
       await marketingService.saveConfig(newConfig);
+      await adminDataService.pushFullStateToKV(true);
       onShowToast(
         'Đã áp dụng và lưu thành công!',
         `Đã lưu và đồng bộ cấu hình kho ảo (+${batchVirtualStock} ảo, bù +${batchAmount} khi ≤${batchThreshold}) cho toàn bộ ${storeProducts.length} Store, ${utilityProducts.length} Tiện ích và ${giveaways.length} Giveaway lên hệ thống.`,

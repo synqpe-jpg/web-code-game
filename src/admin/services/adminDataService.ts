@@ -2889,12 +2889,17 @@ class AdminDataService {
         createdAt: safeCreatedAt,
       });
       if (isClaimedChanged) {
+        const nowIso = new Date().toISOString();
+        if (isVirtualClaimedChanged || !(existing as any).fomo_anchor_time) {
+          (existing as any).fomo_anchor_time = nowIso;
+          (existing as any).virtual_claimed_updated_at = nowIso;
+        }
         const targetDisp = Number(existing.virtual_claimed_offset) + (Number(existing.claimed_codes) || 0);
-        const anchor = (existing as any).fomo_anchor_time || (existing as any).virtual_claimed_updated_at;
+        const anchor = (existing as any).fomo_anchor_time || (existing as any).virtual_claimed_updated_at || nowIso;
         marketingService.syncGiveawayVirtualClaimed(existing.id, Number(existing.virtual_claimed_offset) || 0, true, targetDisp, anchor);
       }
       this.saveGiveaways();
-      this.pushFullStateToKV();
+      this.pushFullStateToKV(true);
       this.logAction('GIVEAWAY_UPDATED', existing.id, 'INFO');
       return existing;
     }
@@ -2909,6 +2914,8 @@ class AdminDataService {
       claimed_codes: safeClaimed,
       created_at: createdAt,
       createdAt: createdAt,
+      fomo_anchor_time: (item as any).fomo_anchor_time || createdAt,
+      virtual_claimed_updated_at: (item as any).virtual_claimed_updated_at || createdAt,
     };
     if (newItem.id) {
       this.deletedGiveawayIds.delete(newItem.id);
@@ -2917,11 +2924,11 @@ class AdminDataService {
     this.giveaways.unshift(newItem);
     if (newItem.virtual_claimed_offset !== undefined) {
       const targetDisp = Number(newItem.virtual_claimed_offset) + (Number(newItem.claimed_codes) || 0);
-      const anchor = (newItem as any).fomo_anchor_time || (newItem as any).virtual_claimed_updated_at;
+      const anchor = (newItem as any).fomo_anchor_time || (newItem as any).virtual_claimed_updated_at || createdAt;
       marketingService.syncGiveawayVirtualClaimed(newItem.id, Number(newItem.virtual_claimed_offset) || 0, true, targetDisp, anchor);
     }
     this.saveGiveaways();
-    this.pushFullStateToKV();
+    this.pushFullStateToKV(true);
     this.logAction('GIVEAWAY_CREATED', newItem.id, 'INFO');
     try {
       const cfg = marketingService.getConfig();
@@ -2940,7 +2947,7 @@ class AdminDataService {
     this.deletedGiveawayIds.add(id);
     this.saveDeletedGiveawayIds();
     this.saveGiveaways();
-    this.pushFullStateToKV();
+    this.pushFullStateToKV(true);
     this.logAction('GIVEAWAY_DELETED', id, 'WARNING');
     return true;
   }
@@ -2954,7 +2961,7 @@ class AdminDataService {
     this.giveaways = this.giveaways.filter((g) => !idSet.has(g.id));
     const deletedCount = initialCount - this.giveaways.length;
     this.saveGiveaways();
-    this.pushFullStateToKV();
+    this.pushFullStateToKV(true);
     this.logAction('GIVEAWAYS_BULK_DELETED', `COUNT_${deletedCount}`, 'WARNING', { count: deletedCount, ids });
     return deletedCount;
   }
@@ -3033,12 +3040,17 @@ class AdminDataService {
         createdAt: safeCreatedAt,
       });
       if (isSoldChanged) {
+        const nowIso = new Date().toISOString();
+        if (isVirtualSoldChanged || !(existing as any).fomo_anchor_time) {
+          (existing as any).fomo_anchor_time = nowIso;
+          (existing as any).virtual_sold_updated_at = nowIso;
+        }
         const targetDisp = Number(existing.virtual_sold_count) + (Number(existing.sold_count) || 0);
-        const anchor = (existing as any).fomo_anchor_time || (existing as any).virtual_sold_updated_at;
+        const anchor = (existing as any).fomo_anchor_time || (existing as any).virtual_sold_updated_at || nowIso;
         marketingService.syncProductVirtualSold(existing.id, Number(existing.virtual_sold_count) || 0, true, targetDisp, anchor);
       }
       this.saveStoreProducts();
-      this.pushFullStateToKV();
+      this.pushFullStateToKV(true);
       this.logAction('STORE_PRODUCT_UPDATED', existing.id, 'INFO');
       return existing;
     }
@@ -3048,6 +3060,8 @@ class AdminDataService {
       id: item.id || `sp_${Date.now()}_${Math.random().toString(36).substring(2, 5)}`,
       created_at: createdAt,
       createdAt: createdAt,
+      fomo_anchor_time: (item as any).fomo_anchor_time || createdAt,
+      virtual_sold_updated_at: (item as any).virtual_sold_updated_at || createdAt,
     };
     if (newItem.id) {
       this.deletedStoreProductIds.delete(newItem.id);
@@ -3056,11 +3070,11 @@ class AdminDataService {
     this.storeProducts.unshift(newItem);
     if (newItem.virtual_sold_count !== undefined) {
       const targetDisp = Number(newItem.virtual_sold_count) + (Number(newItem.sold_count) || 0);
-      const anchor = (newItem as any).fomo_anchor_time || (newItem as any).virtual_sold_updated_at;
+      const anchor = (newItem as any).fomo_anchor_time || (newItem as any).virtual_sold_updated_at || createdAt;
       marketingService.syncProductVirtualSold(newItem.id, Number(newItem.virtual_sold_count) || 0, true, targetDisp, anchor);
     }
     this.saveStoreProducts();
-    this.pushFullStateToKV();
+    this.pushFullStateToKV(true);
     this.logAction('STORE_PRODUCT_CREATED', newItem.id, 'INFO');
     try {
       const cfg = marketingService.getConfig();
@@ -3091,7 +3105,7 @@ class AdminDataService {
     this.saveInventory();
 
     this.saveStoreProducts();
-    this.pushFullStateToKV();
+    this.pushFullStateToKV(true);
     this.logAction('STORE_PRODUCT_DELETED', id, 'WARNING', { title: removedProd.title });
     return true;
   }
@@ -3124,7 +3138,7 @@ class AdminDataService {
     }
 
     this.saveStoreProducts();
-    this.pushFullStateToKV();
+    this.pushFullStateToKV(true);
     this.logAction('STORE_PRODUCTS_BULK_DELETED', `COUNT_${deletedCount}`, 'WARNING', { count: deletedCount, ids });
     return deletedCount;
   }
@@ -3169,12 +3183,17 @@ class AdminDataService {
         createdAt: safeCreatedAt,
       });
       if (isSoldChanged) {
+        const nowIso = new Date().toISOString();
+        if (isVirtualSoldChanged || !(existing as any).fomo_anchor_time) {
+          (existing as any).fomo_anchor_time = nowIso;
+          (existing as any).virtual_sold_updated_at = nowIso;
+        }
         const targetDisp = Number(existing.virtual_sold_count) + (Number(existing.sold_count) || 0);
-        const anchor = (existing as any).fomo_anchor_time || (existing as any).virtual_sold_updated_at;
+        const anchor = (existing as any).fomo_anchor_time || (existing as any).virtual_sold_updated_at || nowIso;
         marketingService.syncProductVirtualSold(existing.id, Number(existing.virtual_sold_count) || 0, true, targetDisp, anchor);
       }
       this.saveUtilities();
-      this.pushFullStateToKV();
+      this.pushFullStateToKV(true);
       this.logAction('UTILITY_UPDATED', existing.id, 'INFO', { title: existing.title });
       return existing;
     }
@@ -3184,6 +3203,8 @@ class AdminDataService {
       id: item.id || `ut_${Date.now()}_${Math.random().toString(36).substring(2, 5)}`,
       created_at: createdAt,
       createdAt: createdAt,
+      fomo_anchor_time: (item as any).fomo_anchor_time || createdAt,
+      virtual_sold_updated_at: (item as any).virtual_sold_updated_at || createdAt,
     };
     if (newItem.id) {
       this.deletedUtilityIds.delete(newItem.id);
@@ -3192,11 +3213,11 @@ class AdminDataService {
     this.utilities.unshift(newItem);
     if (newItem.virtual_sold_count !== undefined) {
       const targetDisp = Number(newItem.virtual_sold_count) + (Number(newItem.sold_count) || 0);
-      const anchor = (newItem as any).fomo_anchor_time || (newItem as any).virtual_sold_updated_at;
+      const anchor = (newItem as any).fomo_anchor_time || (newItem as any).virtual_sold_updated_at || createdAt;
       marketingService.syncProductVirtualSold(newItem.id, Number(newItem.virtual_sold_count) || 0, true, targetDisp, anchor);
     }
     this.saveUtilities();
-    this.pushFullStateToKV();
+    this.pushFullStateToKV(true);
     this.logAction('UTILITY_CREATED', newItem.id, 'INFO', { title: newItem.title });
     try {
       const cfg = marketingService.getConfig();
@@ -3229,7 +3250,7 @@ class AdminDataService {
     this.saveInventory();
 
     this.saveUtilities();
-    this.pushFullStateToKV();
+    this.pushFullStateToKV(true);
     this.logAction('UTILITY_DELETED', id, 'WARNING', { title: removed.title });
     return true;
   }
@@ -3262,7 +3283,7 @@ class AdminDataService {
     }
 
     this.saveUtilities();
-    this.pushFullStateToKV();
+    this.pushFullStateToKV(true);
     this.logAction('UTILITIES_BULK_DELETED', `COUNT_${deletedCount}`, 'WARNING', { count: deletedCount, ids });
     return deletedCount;
   }
@@ -3595,7 +3616,7 @@ class AdminDataService {
       }
       return new Promise((resolve) => {
         this.syncDebounceTimer = setTimeout(async () => {
-          const res = await this.executePushFullStateToKV(false);
+          const res = await this.executePushFullStateToKV(true);
           resolve(res);
         }, 1200);
       });
@@ -3608,7 +3629,7 @@ class AdminDataService {
     return this.executePushFullStateToKV(true);
   }
 
-  private async executePushFullStateToKV(forceReset: boolean = false): Promise<boolean> {
+  private async executePushFullStateToKV(forceReset: boolean = true): Promise<boolean> {
     if (this.isSyncing && this.pendingSyncPromise) {
       return this.pendingSyncPromise;
     }
@@ -3616,11 +3637,9 @@ class AdminDataService {
     this.isSyncing = true;
     this.pendingSyncPromise = (async () => {
       const snapshot: any = this.getFullStateSnapshot();
-      if (forceReset) {
-        snapshot.forceReset = true;
-        snapshot.forceResetSold = true;
-        snapshot.forceResetClaimed = true;
-      }
+      snapshot.forceReset = true;
+      snapshot.forceResetSold = true;
+      snapshot.forceResetClaimed = true;
 
       // Danh sách endpoints ưu tiên tuần tự (Sequential Fallback)
       // Ưu tiên relative endpoint '/api/sync' -> nếu thành công thì DỪNG NGAY, không gọi endpoint tiếp theo!

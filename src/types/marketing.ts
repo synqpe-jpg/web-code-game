@@ -9,6 +9,11 @@ export interface ProductMarketingConfig {
   autoRestockAmount: number;
   /** FOMO (thông báo + kho ảo) chỉ hoạt động khi tồn kho thật >= giá trị này. Mặc định 1. */
   minRealStock?: number;
+  /** Mốc hiển thị số đã bán/đã nhận ảo do Admin chỉ định trực tiếp */
+  targetDisplaySoldOrClaimed?: number;
+  virtualSold?: number;
+  virtualClaimed?: number;
+  lastUpdated?: string;
 }
 
 export interface PeakHoursConfig {

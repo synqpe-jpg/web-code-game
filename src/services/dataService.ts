@@ -435,7 +435,7 @@ class DataService {
     this.activeSyncPromise = (async () => {
       try {
         const fetchOpts: RequestInit = forceFresh ? { headers: { 'Cache-Control': 'no-cache, no-store' } } : {};
-        const url = forceFresh ? `/api/sync?_t=${Date.now()}` : '/api/sync';
+        const url = `/api/sync?fresh=1&_t=${Date.now()}`;
         const res = await fetch(url, fetchOpts);
         if (res.ok) {
           const dateHeader = res.headers.get('date');
@@ -667,6 +667,7 @@ class DataService {
                   localStorage.setItem(this.GIVEAWAYS_KEY, newGw);
                   hasChanges = true;
                 }
+                window.dispatchEvent(new CustomEvent('wcg_giveaways_updated', { detail: incomingGw }));
               }
             }
             if (json.deletedStoreProducts && Array.isArray(json.deletedStoreProducts)) {
@@ -700,6 +701,7 @@ class DataService {
                 localStorage.setItem(this.STORE_PRODUCTS_KEY, newSp);
                 hasChanges = true;
               }
+              window.dispatchEvent(new CustomEvent('wcg_store_products_updated', { detail: filtered }));
             }
             if (json.utilities && Array.isArray(json.utilities)) {
               let delList: string[] = [];
@@ -716,6 +718,7 @@ class DataService {
                 localStorage.setItem(this.UTILITIES_KEY, newUt);
                 hasChanges = true;
               }
+              window.dispatchEvent(new CustomEvent('wcg_utilities_updated', { detail: filtered }));
             }
             if (json.utilityCategories && Array.isArray(json.utilityCategories)) {
               const currentCats = localStorage.getItem('wcg_admin_utility_categories_v1');

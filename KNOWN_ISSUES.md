@@ -649,6 +649,25 @@
   - ❌ *Không chỉ xóa trên frontend mà không gửi Tombstone lên D1*: Bảng SQL D1 sẽ tự phục hồi bản ghi cũ.
   - ❌ *Không build/deploy mà không qua script kiểm tra tự động*: Phải luôn để `audit_zero_test_artifacts.cjs` làm chốt chặn.
 
+### ISSUE-036: Lệch Số Ảo Admin & Web Khách Do Khóa Đỉnh Đơn Điệu (Monotonic Peak Lock) & Nhảy Mốc Anchor (+70 Đơn Bù Giờ)
+- **Triệu chứng**:
+  - Admin vào trang quản trị hạ hoặc cài đặt lại số ảo cho Tiện ích (ví dụ VIP 7 Days VS Phone từ 136 xuống 64) hoặc Giveaway (Pirate Legends từ 123 xuống 52), nhưng sau khi lưu và tải lại trang, Web Khách vẫn giữ số cũ (137, 124).
+- **Nguyên nhân gốc rễ**:
+  1. *Khóa Đỉnh Đơn Điệu (`Math.max`)*: Server `functions/api/sync.ts` và bộ nhớ đỉnh `realEventsHub` sử dụng `Math.max(peak, target)`. Khi Admin hạ số, `Math.max` từ chối hạ đỉnh cũ.
+  2. *Trần Đỉnh Quá Cao (`50000`)*: `deterministicEngine.ts` và `snapshotService.ts` đặt trần 50.000 nên coi 137 là đỉnh hợp lệ.
+  3. *Client Gửi Ngược Đỉnh Lên Server*: `marketingService.ts` lưu `recordedMax` trong LocalStorage và sau đó gọi `schedulePeakReport()` gửi 137 đè ngược lại server.
+  4. *Lệch Mốc Thời Gian Tăng Trưởng (Anchor Desync)*: Khi Admin lưu số mới, trường `fomo_anchor_time` không được cập nhật sang thời điểm hiện tại (`new Date().toISOString()`). Thuật toán `calculateHourlyGrowth` fallback về đầu ngày (`dayStart` cách nhiều tiếng), làm số hiển thị nhảy vọt ngay lập tức +70 đơn bù giờ.
+  5. *Thiếu cờ `forceReset: true` trong các hàm Save Admin*: Các hàm `saveUtilityItem`, `saveGiveawayItem`, `saveStoreProductItem` chỉ gọi `this.pushFullStateToKV()` (mặc định không có cờ `forceReset`).
+- **Giải pháp chuẩn đã kiểm chứng**:
+  1. *Ghi Đè Đỉnh SSOT Trực Tiếp*: Server `functions/api/sync.ts` trực tiếp ghi đè `hub.peakProductSoldCounts[id] = target` khi Admin sync, xóa cache RAM `__wcg_metrics_snapshot` và xóa bảng `system_snapshots` D1.
+  2. *Cập Nhật Anchor Time Hiện Tại*: Khi Admin lưu số ảo mới, lập tức cập nhật `fomo_anchor_time = new Date().toISOString()`. Nhờ đó ngay sau khi lưu, thời gian trôi qua là 0 phút $\rightarrow$ số hiển thị đúng 100% bằng số Admin đã đặt.
+  3. *Tự Động Auto-Heal Khi Phát Hiện Đỉnh Bất Thường*: Trong `deterministicEngine.ts`, nếu `peakSold > rawDisplaySold + 5`, hệ thống tự động reset đỉnh về `rawDisplaySold`.
+  4. *Bảo đảm `forceReset: true`*: `adminDataService.pushFullStateToKV` luôn đính kèm `forceReset: true, forceResetSold: true, forceResetClaimed: true`.
+- ⛔ **CÁCH SỬA ĐÃ THẤT BẠI - TUYỆT ĐỐI KHÔNG LẶP LẠI**:
+  - ❌ *Không dùng `Math.max` vô điều kiện khi Admin thực hiện đồng bộ snapshot*: Phải cho phép Admin ghi đè đỉnh khi có cờ `forceReset`.
+  - ❌ *Không để `fomo_anchor_time` bị null khi Admin vừa sửa số ảo*: Sẽ làm thuật toán tính bù giờ từ đầu ngày và cộng thêm hàng chục đơn ảo ngoài ý muốn.
+  - ❌ *Không cho phép Client LocalStorage tự ý ghi đè ngược đỉnh cũ lên Server nếu không có đơn hàng thật phát sinh*: Client chỉ được báo cáo tăng nếu người dùng thực sự mua hàng tại máy.
+
 ---
 
 ## 2. QUY TRÌNH BẮT BUỘC TRƯỚC KHI SỬA CODE (PRE-FLIGHT CHECKLIST)

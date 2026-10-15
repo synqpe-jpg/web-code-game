@@ -180,8 +180,9 @@ export async function generateAndPersistSnapshot(env: any): Promise<GlobalMetric
     } catch {}
   }
 
-  // 1.5. Cleanse runaway peaks in hub if values are corrupted (> 1,000,000 or NaN)
+  // 1.5. Cleanse runaway peaks in hub if values are corrupted (> 1,000,000 or NaN) or exceed realistic Admin bounds
   let hubModified = false;
+  const catchUpMaxAllowed = Math.max(30, Number(marketingConfig?.offlineCatchUp?.maxCatchUpUnits) || 70);
   if (hub.peakProductSoldCounts && typeof hub.peakProductSoldCounts === 'object') {
     const prodMap = new Map((products || []).map(p => [p.id, p]));
     for (const [pId, val] of Object.entries(hub.peakProductSoldCounts)) {
@@ -189,12 +190,12 @@ export async function generateAndPersistSnapshot(env: any): Promise<GlobalMetric
       const prod = prodMap.get(pId);
       const baseTarget = Number(prod?.virtual_sold_count || 0);
       const realSold = Number(prod?.sold_count || 0);
-      const maxAllowed = Math.max(50000, realSold + baseTarget + 5000);
+      const maxAllowed = realSold + baseTarget + catchUpMaxAllowed + 25;
       if (isNaN(numVal) || numVal < 0 || numVal > 1000000) {
         delete hub.peakProductSoldCounts[pId];
         hubModified = true;
-      } else if (prod && baseTarget >= 0 && numVal > maxAllowed) {
-        hub.peakProductSoldCounts[pId] = Math.max(realSold, baseTarget);
+      } else if (prod && baseTarget >= 0 && (numVal > maxAllowed || numVal < (realSold + baseTarget))) {
+        hub.peakProductSoldCounts[pId] = realSold + baseTarget;
         hubModified = true;
       }
     }
@@ -207,12 +208,12 @@ export async function generateAndPersistSnapshot(env: any): Promise<GlobalMetric
       const gw = gwMap.get(gId);
       const baseTarget = Number(gw?.virtual_claimed_offset || 0);
       const realClaimed = Number(gw?.claimed_codes || 0);
-      const maxAllowed = Math.max(50000, realClaimed + baseTarget + 5000);
+      const maxAllowed = realClaimed + baseTarget + catchUpMaxAllowed + 25;
       if (isNaN(numVal) || numVal < 0 || numVal > 1000000) {
         delete hub.peakGiveawayClaimedCounts[gId];
         hubModified = true;
-      } else if (gw && baseTarget >= 0 && numVal > maxAllowed) {
-        hub.peakGiveawayClaimedCounts[gId] = Math.max(realClaimed, baseTarget);
+      } else if (gw && baseTarget >= 0 && (numVal > maxAllowed || numVal < (realClaimed + baseTarget))) {
+        hub.peakGiveawayClaimedCounts[gId] = realClaimed + baseTarget;
         hubModified = true;
       }
     }
