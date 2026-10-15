@@ -1,5 +1,5 @@
 import { claimGiveawayD1, ensureSchemaUpgrades, getSettingD1, setSettingD1 } from '../../services/d1_service';
-import { verifyToken } from '../../services/auth_service';
+import { verifyToken, extractUserIdFromToken } from '../../services/auth_service';
 import { getRealEventsHub, saveRealEventsHub } from '../../services/realEventsHub';
 
 interface Env {
@@ -69,6 +69,15 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
       member = await env.DB.prepare(
         'SELECT * FROM members WHERE id = ? OR username = ? OR email = ? LIMIT 1'
       ).bind(verifiedUserId, verifiedUserId, verifiedUserId).first<any>();
+    }
+
+    if (!member && token) {
+      const extractedUserId = extractUserIdFromToken(token);
+      if (extractedUserId) {
+        member = await env.DB.prepare(
+          'SELECT * FROM members WHERE id = ? OR username = ? LIMIT 1'
+        ).bind(extractedUserId, extractedUserId).first<any>();
+      }
     }
 
     if (!member) {

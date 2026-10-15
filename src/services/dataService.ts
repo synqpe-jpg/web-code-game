@@ -2518,12 +2518,74 @@ class DataService {
     };
   }
 
+  // Multi-tier storage persistence for authenticated user sessions
+  public persistUserMultiTier(user: UserProfile): void {
+    if (typeof window === 'undefined' || !user || !user.id) return;
+    try {
+      const userStr = JSON.stringify(user);
+      localStorage.setItem(this.USER_KEY, userStr);
+      localStorage.setItem('wcg_persistent_account', userStr);
+      sessionStorage.setItem(this.USER_KEY, userStr);
+
+      const token =
+        user.session_token ||
+        localStorage.getItem('wcg_auth_token') ||
+        sessionStorage.getItem('wcg_auth_token');
+      if (token) {
+        localStorage.setItem('wcg_auth_token', token);
+        sessionStorage.setItem('wcg_auth_token', token);
+      }
+
+      // Set 365-day persistent cookie to survive browser restarts, mobile memory purges, and WebViews
+      if (typeof document !== 'undefined') {
+        const expires = new Date(Date.now() + 365 * 864e5).toUTCString();
+        document.cookie = `wcg_auth_user=${encodeURIComponent(userStr)}; expires=${expires}; path=/; SameSite=Lax`;
+        if (token) {
+          document.cookie = `wcg_auth_token=${encodeURIComponent(token)}; expires=${expires}; path=/; SameSite=Lax`;
+        }
+      }
+    } catch {}
+  }
+
+  public clearUserMultiTier(): void {
+    if (typeof window === 'undefined') return;
+    try {
+      localStorage.removeItem(this.USER_KEY);
+      localStorage.removeItem('wcg_persistent_account');
+      localStorage.removeItem('wcg_auth_token');
+      localStorage.removeItem('wcg_remember_login');
+      sessionStorage.removeItem(this.USER_KEY);
+      sessionStorage.removeItem('wcg_auth_token');
+
+      if (typeof document !== 'undefined') {
+        document.cookie = 'wcg_auth_user=; expires=Thu, 01 Jan 1970 00:00:00 GMT; path=/; SameSite=Lax';
+        document.cookie = 'wcg_auth_token=; expires=Thu, 01 Jan 1970 00:00:00 GMT; path=/; SameSite=Lax';
+      }
+    } catch {}
+  }
+
   // --- USER AUTH & WALLET ---
   getCurrentUser(): UserProfile | null {
     try {
-      const data = localStorage.getItem(this.USER_KEY);
+      let data = typeof localStorage !== 'undefined' ? localStorage.getItem(this.USER_KEY) : null;
+      if (!data && typeof localStorage !== 'undefined') {
+        data = localStorage.getItem('wcg_persistent_account');
+      }
+      if (!data && typeof sessionStorage !== 'undefined') {
+        data = sessionStorage.getItem(this.USER_KEY);
+      }
+      if (!data && typeof document !== 'undefined') {
+        const match = document.cookie.match(/(?:^|;\s*)wcg_auth_user=([^;]+)/);
+        if (match) {
+          try {
+            data = decodeURIComponent(match[1]);
+          } catch {}
+        }
+      }
       if (!data) return null;
       const user: UserProfile = JSON.parse(data);
+      if (!user || !user.id) return null;
+
       const resetFlag = 'wcg_user_wallet_zero_v1';
       if (typeof localStorage !== 'undefined' && !localStorage.getItem(resetFlag)) {
         if (user && user.wallet_balance !== 0) {
@@ -2532,6 +2594,9 @@ class DataService {
         }
         localStorage.setItem(resetFlag, 'true');
       }
+
+      // Auto-heal all storage tiers so they remain in sync
+      this.persistUserMultiTier(user);
       return user;
     } catch {
       return null;
@@ -2541,10 +2606,20 @@ class DataService {
   saveCurrentUser(user: UserProfile | null): void {
     if (user) {
       if (!user.session_token && typeof localStorage !== 'undefined') {
-        const savedToken = localStorage.getItem('wcg_auth_token') || sessionStorage.getItem('wcg_auth_token');
+        let savedToken =
+          localStorage.getItem('wcg_auth_token') ||
+          sessionStorage.getItem('wcg_auth_token');
+        if (!savedToken && typeof document !== 'undefined') {
+          const match = document.cookie.match(/(?:^|;\s*)wcg_auth_token=([^;]+)/);
+          if (match) {
+            try {
+              savedToken = decodeURIComponent(match[1]);
+            } catch {}
+          }
+        }
         if (savedToken) user.session_token = savedToken;
       }
-      localStorage.setItem(this.USER_KEY, JSON.stringify(user));
+      this.persistUserMultiTier(user);
 
       // Instant event dispatch to keep React header and UI in sync in 0 seconds
       if (typeof window !== 'undefined') {
@@ -2603,7 +2678,7 @@ class DataService {
         localStorage.setItem('wcg_admin_members_v4', JSON.stringify(members));
       } catch {}
     } else {
-      localStorage.removeItem(this.USER_KEY);
+      this.clearUserMultiTier();
       if (typeof window !== 'undefined') {
         window.dispatchEvent(new CustomEvent('wcg_user_updated', { detail: null }));
         try {
@@ -3122,17 +3197,26 @@ class DataService {
       });
       if (res.status === 403) {
         // Account banned
-        localStorage.removeItem(this.USER_KEY);
+        this.clearUserMultiTier();
         this.notifyListeners();
         return 0;
+      }
+
+      if (res.status === 401) {
+        const errData = await res.json().catch(() => null);
+        if (errData?.message?.includes('Mật khẩu') || errData?.message?.includes('mật khẩu')) {
+          this.clearUserMultiTier();
+          this.notifyListeners();
+          return 0;
+        }
       }
 
       if (res.ok) {
         const data = await res.json();
           if (data?.success && data?.user && (data.user.id === user.id || data.user.email?.toLowerCase() === user.email?.toLowerCase())) {
-            if (data.token && typeof localStorage !== 'undefined') {
-              localStorage.setItem('wcg_auth_token', data.token);
+            if (data.token) {
               user.session_token = data.token;
+              this.persistUserMultiTier(user);
             }
             const updatedBal = Number(data.user.wallet_balance) || 0;
             let changed = false;

@@ -349,6 +349,7 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
         UPDATE members
         SET password_hash = ?,
             salt = ?,
+            session_token = NULL,
             recovery_otp = NULL,
             recovery_otp_hash = NULL,
             otp_expires_at = NULL,

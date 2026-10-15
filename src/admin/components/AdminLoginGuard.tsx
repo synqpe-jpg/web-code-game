@@ -87,11 +87,8 @@ export const AdminLoginGuard: React.FC<AdminLoginGuardProps> = ({
             createdAt: '2026-08-01T00:00:00Z',
           };
 
-          if (rememberSession) {
-            localStorage.setItem('wcg_admin_authenticated', 'true');
-          } else {
-            sessionStorage.setItem('wcg_admin_authenticated', 'true');
-          }
+          localStorage.setItem('wcg_admin_authenticated', 'true');
+          sessionStorage.setItem('wcg_admin_authenticated', 'true');
 
           if (res.token) {
             localStorage.setItem('wcg_auth_token', res.token);

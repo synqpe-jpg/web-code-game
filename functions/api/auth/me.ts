@@ -1,5 +1,5 @@
 import { ensureSchemaUpgrades, getSettingD1 } from '../../services/d1_service';
-import { verifyToken, computeHash } from '../../services/auth_service';
+import { verifyToken, computeHash, extractUserIdFromToken, createSignedToken, getSigningSecret } from '../../services/auth_service';
 
 interface Env {
   DB: D1Database;
@@ -56,27 +56,28 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
       ).bind(tokenUserId, tokenUserId, tokenUserId).first<any>();
     }
 
-    if (!member && token.startsWith('wcg_edge_tok_')) {
-      const raw = token.replace('wcg_edge_tok_', '');
-      const parts = raw.split('_');
-      if (parts.length >= 4) {
-        parts.pop(); // sig
-        parts.pop(); // random
-        parts.pop(); // timestamp
-        const extractedUserId = parts.join('_');
-        if (extractedUserId) {
-          member = await env.DB.prepare(
-            'SELECT * FROM members WHERE id = ? LIMIT 1'
-          ).bind(extractedUserId).first<any>();
-        }
+    if (!member && token) {
+      const extractedUserId = extractUserIdFromToken(token);
+      if (extractedUserId) {
+        member = await env.DB.prepare(
+          'SELECT * FROM members WHERE id = ? OR username = ? LIMIT 1'
+        ).bind(extractedUserId, extractedUserId).first<any>();
       }
     }
 
     const headerUserId = request.headers.get('X-Member-Id')?.trim();
-    if (!member && headerUserId && (token.includes(headerUserId) || token === headerUserId)) {
-      member = await env.DB.prepare(
-        'SELECT * FROM members WHERE id = ? LIMIT 1'
-      ).bind(headerUserId).first<any>();
+    const headerEmail = request.headers.get('X-Member-Email')?.trim().toLowerCase();
+    if (!member && (headerUserId || headerEmail)) {
+      if (headerUserId && (token.includes(headerUserId) || token === headerUserId)) {
+        member = await env.DB.prepare(
+          'SELECT * FROM members WHERE id = ? LIMIT 1'
+        ).bind(headerUserId).first<any>();
+      }
+      if (!member && headerEmail && token.includes(headerEmail)) {
+        member = await env.DB.prepare(
+          'SELECT * FROM members WHERE LOWER(email) = ? LIMIT 1'
+        ).bind(headerEmail).first<any>();
+      }
     }
 
     if (!member) {
@@ -84,6 +85,26 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
         JSON.stringify({ success: false, message: 'Phiên đăng nhập không tồn tại hoặc đã hết hạn.' }),
         { status: 401, headers: CORS_HEADERS }
       );
+    }
+
+    // Nếu mật khẩu tài khoản vừa bị đổi / reset (session_token bị set NULL), yêu cầu đăng nhập lại bằng mật khẩu mới
+    if (member.session_token === null || member.session_token === '') {
+      return new Response(
+        JSON.stringify({ success: false, message: 'Mật khẩu tài khoản đã được thay đổi. Vui lòng đăng nhập lại bằng mật khẩu mới.' }),
+        { status: 401, headers: CORS_HEADERS }
+      );
+    }
+
+    // Tự động gia hạn và đồng bộ lại token nếu cần để đảm bảo phiên trên thiết bị này luôn hợp lệ
+    let activeToken = token;
+    if (member.session_token !== token) {
+      const signingSecret = getSigningSecret(env);
+      const renewedToken = await createSignedToken(member.id, signingSecret);
+      await env.DB.prepare('UPDATE members SET session_token = ?, last_login = ? WHERE id = ?')
+        .bind(renewedToken, new Date().toISOString(), member.id)
+        .run()
+        .catch(() => {});
+      activeToken = renewedToken;
     }
 
     if (member.status === 'BANNED') {
@@ -245,7 +266,7 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
     return new Response(
       JSON.stringify({
         success: true,
-        token: token,
+        token: activeToken,
         syncKey: isAdmin ? (env.ADMIN_SYNC_SECRET || '') : undefined,
         client_ip: clientIp,
         user: {

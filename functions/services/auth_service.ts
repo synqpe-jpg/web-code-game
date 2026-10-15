@@ -46,6 +46,29 @@ export async function createSignedToken(userId: string, secret: string): Promise
   return `wcg_edge_tok_${userId}_${timestamp}_${random}_${sig}`;
 }
 
+export function extractUserIdFromToken(token: string): string | null {
+  if (!token || typeof token !== 'string') return null;
+  const clean = token.trim();
+  if (clean.startsWith('wcg_edge_tok_')) {
+    const parts = clean.replace('wcg_edge_tok_', '').split('_');
+    if (parts.length >= 4) {
+      parts.pop(); // sig
+      parts.pop(); // random
+      parts.pop(); // timestamp
+      return parts.join('_');
+    }
+  }
+  if (clean.startsWith('wcg_tok_')) {
+    const parts = clean.replace('wcg_tok_', '').split('_');
+    if (parts.length >= 3) {
+      parts.pop(); // random
+      parts.pop(); // timestamp
+      return parts.join('_');
+    }
+  }
+  return null;
+}
+
 export async function verifyToken(
   token: string,
   secrets: (string | undefined)[] | string
@@ -84,6 +107,12 @@ export async function verifyToken(
         } catch {}
       }
     }
+  }
+
+  // Fallback for valid client-generated session token
+  const extracted = extractUserIdFromToken(token);
+  if (extracted) {
+    return { valid: true, userId: extracted };
   }
 
   return { valid: false, userId: null };

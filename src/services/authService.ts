@@ -626,7 +626,7 @@ class AuthService {
   }
 
   // Session Management
-  saveSession(user: UserProfile, token: string, remember: boolean): void {
+  saveSession(user: UserProfile, token: string, remember: boolean = true): void {
     if (user && token) {
       user.session_token = token;
     }
@@ -634,21 +634,29 @@ class AuthService {
     if (token) {
       localStorage.setItem(this.TOKEN_KEY, token);
       sessionStorage.setItem(this.TOKEN_KEY, token);
-      if (remember) {
-        localStorage.setItem(this.REMEMBER_KEY, 'true');
-      } else {
-        localStorage.removeItem(this.REMEMBER_KEY);
-      }
+      localStorage.setItem(this.REMEMBER_KEY, 'true');
+      try {
+        const expires = new Date(Date.now() + 365 * 864e5).toUTCString();
+        document.cookie = `${this.TOKEN_KEY}=${encodeURIComponent(token)}; expires=${expires}; path=/; SameSite=Lax`;
+      } catch {}
     }
   }
 
   getToken(): string {
     if (typeof window === 'undefined') return '';
-    const token =
+    let token =
       localStorage.getItem(this.TOKEN_KEY) ||
       sessionStorage.getItem(this.TOKEN_KEY) ||
       dataService.getCurrentUser()?.session_token ||
       '';
+    if (!token && typeof document !== 'undefined') {
+      const match = document.cookie.match(new RegExp(`(?:^|;\\s*)${this.TOKEN_KEY}=([^;]+)`));
+      if (match) {
+        try {
+          token = decodeURIComponent(match[1]);
+        } catch {}
+      }
+    }
     if (token) {
       // Auto-heal storage so other tabs or refreshed pages never lose session
       if (!localStorage.getItem(this.TOKEN_KEY)) {
@@ -732,9 +740,15 @@ class AuthService {
 
   logout(): void {
     dataService.saveCurrentUser(null);
-    localStorage.removeItem(this.TOKEN_KEY);
-    localStorage.removeItem(this.REMEMBER_KEY);
-    sessionStorage.removeItem(this.TOKEN_KEY);
+    try {
+      localStorage.removeItem(this.TOKEN_KEY);
+      localStorage.removeItem(this.REMEMBER_KEY);
+      sessionStorage.removeItem(this.TOKEN_KEY);
+      if (typeof document !== 'undefined') {
+        document.cookie = `${this.TOKEN_KEY}=; expires=Thu, 01 Jan 1970 00:00:00 GMT; path=/; SameSite=Lax`;
+        document.cookie = 'wcg_auth_user=; expires=Thu, 01 Jan 1970 00:00:00 GMT; path=/; SameSite=Lax';
+      }
+    } catch {}
   }
 }
 

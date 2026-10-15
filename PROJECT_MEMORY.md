@@ -101,6 +101,20 @@
   3. *Lớp 3 (Client Immediate Disinfection)*: `dataService.ts` tự động thanh tẩy LocalStorage và danh sách hiển thị với `isTestArtifactId` ngay lập tức 0ms mà không phụ thuộc mạng.
   4. *Lớp 4 (Pre-Build Gatekeeper Hook)*: Script `scripts/audit_zero_test_artifacts.cjs` chạy tự động trước mỗi lệnh `npm run build`. Nếu phát hiện bất kỳ sản phẩm test nào còn tồn dư trong JSON hoặc database, quá trình build sẽ lập tức hủy bỏ (Fail Fast).
 
+### 3.7. Quy Tắc Phiên Đăng Nhập Bền Vững Đa Tầng (Multi-Tier Session Persistence Rule)
+- Tài khoản người dùng khi đã đăng ký hoặc đăng nhập thành công **BẮT BUỘC ĐƯỢC BẢO LƯU BỀN VỮNG** trên mọi thiết bị (máy tính, điện thoại, Android App APK, In-App WebView Zalo/Facebook).
+- **Kiến trúc 4 tầng lưu trữ đồng thời**:
+  1. `localStorage` (`wcg_user` và `wcg_persistent_account`).
+  2. `document.cookie` (`wcg_auth_user` và `wcg_auth_token`) có thời hạn 365 ngày (`max-age=31536000; SameSite=Lax; path=/`).
+  3. `sessionStorage` để đồng bộ giữa các tab.
+  4. Cơ chế tự phục hồi (`Smart Session Self-Healing`): Khi mở lại app/web, nếu một tầng bị xóa (do trình duyệt dọn RAM), hệ thống tự động đọc từ tầng còn lại và auto-heal phục hồi đầy đủ 100% các tầng lưu trữ.
+- **Serverless Edge Multi-Device Tolerance**:
+  - `/api/auth/me`, `/api/orders/create`, `/api/giveaways/claim` tự động nhận diện thành viên qua `session_token`, HMAC signed token hoặc trích xuất `userId` từ token (`wcg_edge_tok_` và `wcg_tok_`).
+  - Phiên chỉ bị thu hồi và bắt đăng nhập lại khi:
+    1. Người dùng chủ động nhấn nút "Đăng xuất" (`logout()`).
+    2. Tài khoản bị Quản trị viên khóa (`status: 'BANNED'`).
+    3. Mật khẩu tài khoản bị thay đổi / đặt lại (`session_token = NULL`). Khi mật khẩu không đổi, người dùng mở app/web luôn ở trạng thái đã đăng nhập.
+
 ---
 
 ## 4. BẢN ĐỒ DỮ LIỆU & STATE MANAGEMENT

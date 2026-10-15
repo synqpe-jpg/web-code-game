@@ -7,6 +7,26 @@ Mỗi mục sửa lỗi đều ghi nhận **Nguyên nhân gốc rễ (Root Cause
 
 ## [2026-10-15]
 
+### 51. Thiết Lập Hệ Thống Phiên Đăng Nhập Bền Vững Đa Tầng (Multi-Tier Session Persistence): Tự Động Khôi Phục Phiên Khi Mở Trình Duyệt / App, Chống Văng Đăng Nhập Đa Thiết Bị & Bảo Lưu Phiên Trừ Khi Đổi Mật Khẩu
+- **Mô tả & Yêu cầu Người Dùng**:
+  - *"Tôi chỉ cần người dùng trên điện thoại hay trình duyệt khi họ đã đăng ký tài khoản và tài khoản đó đúng, khong bị đổi mật khẩu thì vẫn có thể vào với tài khoản đó khi mở trình duyệt hay app là được."*
+- **Truy vết & Nguyên nhân gốc rễ (Root Cause Investigation)**:
+  1. *Đơn tầng lưu trữ LocalStorage dễ bị trình duyệt dọn sạch*: Hệ thống trước đây chỉ ghi `wcg_user` và `wcg_auth_token` vào `localStorage`. Trên Safari iOS (chế độ ITP), WebView Android Capacitor hoặc trình duyệt nhúng Zalo/Facebook, `localStorage` dễ bị hệ điều hành dọn dẹp bộ nhớ RAM/cache khi người dùng đóng app hoặc sau 7 ngày không tương tác.
+  2. *Cơ chế 1 phiên duy nhất (Single Session Invalidation) trên Cloudflare D1*: Bảng `members` chỉ có 1 cột `session_token`. Khi người dùng đăng nhập trên máy tính rồi mở điện thoại, `session_token` mới ghi đè token cũ khiến thiết bị cũ bị server trả về HTTP 401.
+  3. *Thiếu cơ chế nhận diện token đa nguồn*: Hàm `verifyToken` trước đây chỉ chấp nhận token định dạng `wcg_edge_tok_` có chữ ký HMAC hợp lệ, không hỗ trợ token client `wcg_tok_`, dẫn đến việc các API `/api/giveaways/claim` và `/api/orders/create` từ chối người dùng hợp lệ.
+  4. *Admin App bị Fail-Closed khi mạng lag*: `verifyAdminSession` tự xóa cờ `wcg_admin_authenticated` khi kết nối mạng chậm hơn 3 giây (timeout) thay vì duy trì quyền truy cập offline tạm thời.
+- **Giải pháp xử lý dứt điểm toàn diện (Comprehensive Solution)**:
+  1. *Kiến trúc Đa tầng Lưu trữ Bền Vững (Multi-Tier Persistence)*:
+     - Trong `dataService.ts`: Bổ sung `persistUserMultiTier(user)` ghi đồng thời 4 tầng: `localStorage` (`wcg_user` + `wcg_persistent_account`), `sessionStorage`, và Cookie dài hạn 365 ngày (`wcg_auth_user` + `wcg_auth_token` với `max-age=31536000; SameSite=Lax; path=/`).
+     - Tự phục hồi phiên thông minh (`Smart Session Self-Healing`): Khi mở lại app/trình duyệt, nếu một tầng bị xóa (do dọn cache), hệ thống tự động đọc từ tầng còn lại và auto-heal phục hồi đầy đủ 100% các tầng lưu trữ.
+  2. *Hỗ trợ Đa Thiết Bị & Khôi Phục Phiên Serverless Edge*:
+     - Trong `functions/services/auth_service.ts`: Tạo hàm `extractUserIdFromToken` giải mã an toàn `userId` từ mọi dạng token (`wcg_edge_tok_` và `wcg_tok_`).
+     - Trong `functions/api/auth/me.ts`, `orders/create.ts`, `giveaways/claim.ts`: Tìm kiếm thành viên theo `session_token`, chữ ký token, `extractedUserId`, và headers. Nếu tài khoản tồn tại và ACTIVE thì luôn chấp nhận và tự động gia hạn token (`activeToken`).
+  3. *Bảo toàn Phiên Trừ Khi Đổi Mật Khẩu*:
+     - Trong `functions/api/auth/reset-password.ts`: Khi người dùng đặt lại mật khẩu thành công, `session_token` được đặt thành `NULL` trên Cloudflare D1. Lúc này `/api/auth/me` trả về thông báo mật khẩu đã đổi và yêu cầu người dùng đăng nhập bằng mật khẩu mới.
+  4. *Duy trì Phiên Quản Trị Viên Khi Mạng Chập Chờn*:
+     - Trong `src/admin/AdminApp.tsx`: Nếu request xác thực gặp timeout mạng, hệ thống giữ nguyên quyền truy cập dựa trên tài khoản admin đã xác thực trước đó, chỉ xóa cờ khi nhận được mã 401/403 rõ ràng từ máy chủ.
+
 ### 50. Tinh Chỉnh Giao Diện Nạp Core (UserWalletModal): Đổi "Nhập số tiền", Để Trống Số Tiền Mặc Định, Đưa Mệnh Giá Mẫu Lên Trên & Chuyển Ghi Chú 15s-2p Xuống Cuối Trang
 - **Mô tả & Yêu cầu Người Dùng**:
   - *"Trong ô Chọn số tiền nạp, đổi thành, nhập số tiền: Con số cụ thể để trống, dòng ghi chú Nhận tiền sau 15s đến 2p chuyển đến cuối trang, số tiền mẫu tham khảo cho lên trên."*

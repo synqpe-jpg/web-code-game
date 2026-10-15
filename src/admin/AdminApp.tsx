@@ -193,6 +193,19 @@ export const AdminApp: React.FC<AdminAppProps> = ({ onBackToClient }) => {
       }
     }
 
+    // If endpoints failed due to network error/timeout (offline / transient network latency),
+    // do NOT clear admin credentials if we already have a valid cached admin user and token.
+    const cachedAdmin = adminDataService.getCurrentAdminUser();
+    const hasAdminFlag =
+      localStorage.getItem('wcg_admin_authenticated') === 'true' ||
+      sessionStorage.getItem('wcg_admin_authenticated') === 'true';
+
+    if (cachedAdmin && hasAdminFlag && token) {
+      setCurrentUser(cachedAdmin);
+      setIsAuthenticated(true);
+      return true;
+    }
+
     clearAdminFlags();
     setIsAuthenticated(false);
     return false;
