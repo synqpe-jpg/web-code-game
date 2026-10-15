@@ -162,9 +162,9 @@ expectedCodes.forEach(exp => {
   assert(pirateCodes.some(c => c.code === exp), `Pirate Legends code ${exp} must exist`);
 });
 
-// Verify Delta Force purged from giveaways
+// Verify Delta Force and Rotwood Yến Vân purged from giveaways
 const giveaways = JSON.parse(fs.readFileSync(path.join(__dirname, '../src/data/giveaways.json'), 'utf8'));
-assert(!giveaways.some(g => g.id.includes('delta_force') || g.game_slug?.includes('delta-force')), 'Delta force must be purged from giveaways.json');
+assert(!giveaways.some(g => g.id.includes('delta_force') || g.game_slug?.includes('delta-force') || g.id.includes('rotwood') || g.id === 'gw_gamerpower_rotwood'), 'Delta force and Rotwood Yến Vân must be purged from giveaways.json');
 
 console.log(`   ✅ ĐẠT 100%: Toàn bộ ${codes.length.toLocaleString('vi-VN')} giftcode, ${sources.length} nguồn crawler và 8 mã Pirate Legend hoạt động tốt!`);
 
@@ -206,6 +206,7 @@ assert(geminiMd.includes('7. NGUYÊN TẮC TỰ ĐỘNG XÓA SẢN PHẨM TEST')
 const syncTs = fs.readFileSync(path.join(__dirname, '../functions/api/sync.ts'), 'utf8');
 assert(syncTs.includes("'ut_test_01'"), 'sync.ts must include ut_test_01 in legacySeedUtilIds tombstone set');
 assert(syncTs.includes("'sp_hsr_pass'"), 'sync.ts must include mock store products in legacySeedStoreIds tombstone set');
+assert(syncTs.includes("'gw_gamerpower_rotwood'"), 'sync.ts must include gw_gamerpower_rotwood in legacySeedGwIds tombstone set');
 
 // 3. Test lifecycle: Any temporary test items MUST be wiped in a finally block
 let tempTestProduct = null;

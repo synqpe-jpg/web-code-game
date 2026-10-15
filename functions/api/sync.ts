@@ -210,7 +210,7 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
       } else if (specificKey === 'wcg_admin_store_products_v4' && (!Array.isArray(val) || val.length === 0)) {
         val = fallbackStoreProductsData;
       } else if (specificKey === 'wcg_admin_giveaways_v4' && (!Array.isArray(val) || val.length === 0)) {
-        val = (fallbackGiveawaysData as any[]).filter(g => g.id !== 'gw_alienware_vaultbreakers' && g.id !== 'gw_garena_delta_force');
+        val = (fallbackGiveawaysData as any[]).filter(g => g.id !== 'gw_alienware_vaultbreakers' && g.id !== 'gw_garena_delta_force' && g.id !== 'gw_gamerpower_rotwood');
       } else if (specificKey === 'wcg_admin_sepay_v4' && (!val || val.accountNumber === '0987654321')) {
         val = {
           bankName: 'TPBank',
@@ -245,7 +245,7 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
       'sp_hsr_pass', 'sp_genshin_welkin', 'sp_roblox_robux_1000', 'sp_lq_qh_500', 'sp_ff_kc_520', 'sp_pubg_uc_600'
     ];
     const legacySeedUtilIds = ['ut_1', 'ut_2', 'ut_3', 'ut_4', 'ut_5', 'ut_6', 'ut_test_01'];
-    const legacySeedGwIds = ['gw_1', 'gw_2', 'gw_3', 'gw_garena_delta_force', 'gw_alienware_vaultbreakers'];
+    const legacySeedGwIds = ['gw_1', 'gw_2', 'gw_3', 'gw_garena_delta_force', 'gw_alienware_vaultbreakers', 'gw_gamerpower_rotwood'];
 
     const deletedStoreSet = new Set<string>(legacySeedStoreIds);
     const deletedUtilSet = new Set<string>(legacySeedUtilIds);
@@ -1870,6 +1870,7 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
           await setSettingD1(env.DB, 'wcg_deleted_giveaways', mergedDelGw);
           for (const delId of incomingDelGw) {
             if (delId) {
+              await env.DB.prepare('DELETE FROM giveaways WHERE id = ?').bind(delId).run().catch(() => {});
               await env.DB.prepare('UPDATE giveaways SET status = "ENDED" WHERE id = ?').bind(delId).run().catch(() => {});
             }
           }

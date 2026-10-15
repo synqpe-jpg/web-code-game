@@ -30,7 +30,15 @@ async function syncAllToKV() {
 
   const deletedGiveaways = [
     'gw_1', 'gw_2', 'gw_3',
-    'gw_garena_delta_force', 'gw_alienware_vaultbreakers'
+    'gw_garena_delta_force', 'gw_alienware_vaultbreakers',
+    'gw_gamerpower_rotwood'
+  ];
+
+  const deletedFreeCodes = [
+    'code_delta-force_GP-3812-VAULTBRE',
+    'code_delta-force_AA-VAULTBREAKER-2026',
+    'code_where-winds-meet-mobile_GP-EVERWIND-AW51',
+    'code_yen-van-thap-luc-thanh_AA-WWM-EXCL-2026'
   ];
 
   const endpoints = [
@@ -42,11 +50,11 @@ async function syncAllToKV() {
   console.log(`- Games: ${games.length}`);
   console.log(`- Free Codes: ${freeCodes.length}`);
   console.log(`- Sources: ${sources.length}`);
-  console.log(`- Giveaways: ${giveaways.length} (KHÔNG CÓ Delta Force)`);
+  console.log(`- Giveaways: ${giveaways.length} (KHÔNG CÓ Delta Force, KHÔNG CÓ Yến Vân test)`);
   console.log(`- Utilities: ${utilities.length} (KHÔNG CÓ ut_test_01, ut_vs_05_vip_7d stock: 8)`);
   console.log(`- Store Products: ${storeProducts.length} (0 sản phẩm test/mock)`);
   console.log(`- Payment: TPBank - 10004681879 - CODE GAME SHOP`);
-  console.log(`- Tombstones to purge: ${deletedStoreProducts.length} store products, ${deletedUtilities.length} utilities, ${deletedGiveaways.length} giveaways`);
+  console.log(`- Tombstones to purge: ${deletedStoreProducts.length} store products, ${deletedUtilities.length} utilities, ${deletedGiveaways.length} giveaways, ${deletedFreeCodes.length} test codes`);
 
   for (const url of endpoints) {
     try {
@@ -71,13 +79,21 @@ async function syncAllToKV() {
       });
       console.log(`[${url}] Purge deleted_utilities (ut_test_01): ${resDelUt.status}`);
 
-      // 3. Purge Deleted Giveaways (Tombstones, including Delta Force)
+      // 3. Purge Deleted Giveaways (Tombstones, including Delta Force & Yến Vân test)
       const resDelGw = await fetch(url, {
         method: 'POST',
         headers,
         body: JSON.stringify({ key: 'wcg_deleted_giveaways', deletedGiveaways, data: deletedGiveaways })
       });
-      console.log(`[${url}] Purge deleted_giveaways (Delta Force): ${resDelGw.status}`);
+      console.log(`[${url}] Purge deleted_giveaways (Delta Force & Yến Vân): ${resDelGw.status}`);
+
+      // 4. Purge Deleted Free Codes (Tombstones, including international crawler test codes)
+      const resDelFc = await fetch(url, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({ key: 'wcg_deleted_free_codes', deletedFreeCodes, data: deletedFreeCodes })
+      });
+      console.log(`[${url}] Purge deleted_free_codes (Test codes): ${resDelFc.status}`);
 
       // 4. Sync Games v5
       const resG = await fetch(url, {

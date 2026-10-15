@@ -94,9 +94,12 @@
 - Mọi API admin được bảo vệ bằng Secret Token `ADMIN_SYNC_SECRET`.
 
 ### 3.6. Quy Tắc Tự Động Xóa Dữ Liệu Test (Zero Test Artifacts On Production)
-- Mọi dữ liệu test (sản phẩm tiện ích test `ut_test_*`, sản phẩm cửa hàng test `sp_test_*`, mã giftcode test) được sinh ra để kiểm thử hệ thống phải được dọn dẹp sạch sẽ 100% ngay sau khi hoàn thành bài test (khối `finally`).
-- Tuyệt đối không để sót bất kỳ sản phẩm test nào trên production Cloudflare D1/KV hoặc trong mã nguồn hiển thị cho khách.
-- Chỉ những sản phẩm và mã kho do chính người dùng nhập vào mới được hiển thị và tính tồn kho hợp lệ.
+- Mọi dữ liệu test (sản phẩm tiện ích `ut_test_*`, cửa hàng `sp_test_*`, giveaway `gw_test_*` / mock, mã giftcode test) được sinh ra để kiểm thử hệ thống phải được dọn dẹp sạch sẽ 100% ngay sau khi hoàn thành bài test (khối `finally`).
+- **Kiến trúc phòng vệ 4 lớp dứt điểm (4-Layer Defense Architecture)**:
+  1. *Lớp 1 (Quy ước định danh)*: Mọi ID test bắt buộc mang tiền tố `test_`, `ut_test_`, `sp_test_`, `gw_test_`, hoặc cờ `is_test: true`.
+  2. *Lớp 2 (Edge Worker Auto-Purge)*: `functions/api/sync.ts` kiểm tra và tự động lọc bỏ 100% test ID, đồng thời kích hoạt truy vấn `DELETE FROM` trên Cloudflare D1 để xóa vĩnh viễn dòng dữ liệu test.
+  3. *Lớp 3 (Client Immediate Disinfection)*: `dataService.ts` tự động thanh tẩy LocalStorage và danh sách hiển thị với `isTestArtifactId` ngay lập tức 0ms mà không phụ thuộc mạng.
+  4. *Lớp 4 (Pre-Build Gatekeeper Hook)*: Script `scripts/audit_zero_test_artifacts.cjs` chạy tự động trước mỗi lệnh `npm run build`. Nếu phát hiện bất kỳ sản phẩm test nào còn tồn dư trong JSON hoặc database, quá trình build sẽ lập tức hủy bỏ (Fail Fast).
 
 ---
 

@@ -7,6 +7,22 @@ Mỗi mục sửa lỗi đều ghi nhận **Nguyên nhân gốc rễ (Root Cause
 
 ## [2026-10-15]
 
+### 48. Xóa Triệt Để Mục Yến Vân Rotwood Trong Giật Code & Thiết Lập Kiến Trúc 4 Lớp Chặn Dứt Điểm Dữ Liệu Test (Definitive Gatekeeper Architecture)
+- **Mô tả & Yêu cầu Người Dùng**:
+  - *"Mục giật code. kiểm tra mục Yến Vân, chưa xóa hết, cho nguyên nhân và giải pháp dứt điểm đối với sản phẩm test, đảm bảo xóa hoàn toàn sau khi test."*
+- **Truy vết & Nguyên nhân gốc rễ (Root Cause Investigation)**:
+  1. *Nguồn gốc mục Yến Vân trong Giật Code*: Trong commit `9ee758c` (ngày 14/10) khi thử nghiệm tích hợp các nguồn crawler quốc tế (GamerPower & Alienware Arena), tác nhân đã thêm chiến dịch test `gw_gamerpower_rotwood` ("GamerPower × Rotwood Drakin Armoury Steam Loot") gán nhầm vào tựa game Yến Vân Thập Lục Thanh với kho mã mock `GP-ROT-...`.
+  2. *Bị bỏ sót khi dọn dẹp Delta Force*: Trong lần dọn dẹp Delta Force trước đó, tác nhân chỉ tìm và xóa các ID chứa từ khóa `delta_force` và `vaultbreakers`, nhưng đã bỏ sót chiến dịch `gw_gamerpower_rotwood` được tạo cùng đợt trong `src/data/giveaways.json` và cơ sở dữ liệu Cloudflare D1. Vì còn mã mock trong kho nên chiến dịch này tiếp tục được xếp lên đầu trang Giật Code.
+- **Giải pháp xử lý dứt điểm toàn diện (Comprehensive Solution)**:
+  1. *Xóa vĩnh viễn khỏi mã nguồn & database*:
+     - Xóa `gw_gamerpower_rotwood` khỏi `src/data/giveaways.json`.
+     - Xóa 4 mã test quốc tế khỏi `src/data/crawled_codes_188.json` và `public/data/`.
+     - Thêm `gw_gamerpower_rotwood` vào `legacySeedGwIds` và gửi tombstone `wcg_deleted_giveaways` gọi trực tiếp `DELETE FROM giveaways WHERE id = ?` trên Cloudflare D1 SQL.
+  2. *Thanh tẩy cấp Client*: Bổ sung bộ lọc trong `dataService.ts` (`cleanupLegacyV3Data` và `getGiveaways`) để làm sạch LocalStorage tức thì 0ms.
+  3. *Thiết lập Chốt Chặn Gatekeeper Tự Động Trước Khi Build/Deploy*:
+     - Tạo script `scripts/audit_zero_test_artifacts.cjs` rà soát toàn bộ các tệp dữ liệu JSON và API production.
+     - Tích hợp trực tiếp vào lệnh build: `"build": "node scripts/audit_zero_test_artifacts.cjs && node scripts/build.cjs"`. Nếu phát hiện bất kỳ mục test nào còn sót lại, build sẽ bị hủy bỏ ngay lập tức (Fail Fast).
+
 ### 47. Thiết Lập Nguyên Tắc 7 Tự Động Xóa Sản Phẩm Test (Zero Test Artifacts On Production), Dọn Sạch Toàn Bộ Dữ Liệu Test & Bảo Toàn Sản Phẩm Thực Tế Người Dùng
 - **Mô tả & Yêu cầu Người Dùng**:
   - *"Thêm cho tôi 1 nguyên tắc, đó là tất cả sản phẩm test của hệ thống khi kiểm xong sẽ tự động xóa, không giữ lại trên web. Bạn hãy xóa những sản phẩm test trong khi test hệ thống đi, chỉ những sản phẩm do tôi thêm vào mới được tính và giữ lại ghi là còn."*

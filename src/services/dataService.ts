@@ -154,6 +154,8 @@ class DataService {
                 !(g?.title === '15' || (g?.game_name && g.game_name.includes('Thiếu Hiệp')) || (g?.game_slug && g.game_slug.includes('thieu-hiep'))) &&
                 g?.id !== 'gw_alienware_vaultbreakers' &&
                 g?.id !== 'gw_garena_delta_force' &&
+                g?.id !== 'gw_gamerpower_rotwood' &&
+                !(g?.title && g.title.toLowerCase().includes('rotwood')) &&
                 !(g?.game_name && g.game_name.toLowerCase().includes('delta force'))
             );
             localStorage.setItem('wcg_admin_giveaways_v4', JSON.stringify(cleaned));
@@ -1621,6 +1623,8 @@ class DataService {
               !(g.title === '15' && g.game_name && g.game_name.includes('Thiếu Hiệp')) &&
               g.id !== 'gw_alienware_vaultbreakers' &&
               g.id !== 'gw_garena_delta_force' &&
+              g.id !== 'gw_gamerpower_rotwood' &&
+              !(g.title && g.title.toLowerCase().includes('rotwood')) &&
               !(g.game_name && g.game_name.toLowerCase().includes('delta force'))
           );
         }
@@ -1635,6 +1639,8 @@ class DataService {
           !deletedGwSet.has(g.id) &&
           g.id !== 'gw_alienware_vaultbreakers' &&
           g.id !== 'gw_garena_delta_force' &&
+          g.id !== 'gw_gamerpower_rotwood' &&
+          !(g.title && g.title.toLowerCase().includes('rotwood')) &&
           !(g.game_name && g.game_name.toLowerCase().includes('delta force'))
       );
     }

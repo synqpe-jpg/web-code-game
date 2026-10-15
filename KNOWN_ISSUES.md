@@ -626,20 +626,23 @@
 
 ---
 
-### ISSUE-035: Sản Phẩm Test Của Hệ Thống Bị Sót Lại Trên Production Và Hiển Thị Khách Hàng (Test Artifacts Leaking to Production)
+### ISSUE-035: Sản Phẩm & Chiến Dịch Test Của Hệ Thống Bị Sót Lại Trên Production (Test Artifacts Leaking to Production - Case Yến Vân & Rotwood)
 - **Triệu chứng**:
-  - Trên web khách hoặc trang quản trị xuất hiện các sản phẩm test (ví dụ `ut_test_01` "Test Utility" trong Tiện Ích hoặc các gói mock `sp_hsr_pass`, `sp_genshin_welkin` trong Cửa Hàng) với số lượng tồn kho ảo, trong khi người dùng không hề thêm các sản phẩm này vào kho.
+  - Trên web khách mục "Giật code" (/giveaways), xuất hiện chiến dịch test `GamerPower × Rotwood Drakin Armoury Steam Loot` gán nhầm vào tựa game `Yến Vân Thập Lục Thanh (Where Winds Meet)` (`gw_gamerpower_rotwood`) hiển thị còn 15-50 code, kèm 4 mã giftcode test quốc tế.
+  - Tương tự, trước đó xuất hiện `ut_test_01` trong Tiện Ích và 6 gói mock trong Cửa Hàng.
 - **Nguyên nhân gốc rễ**:
-  - Trong quá trình kiểm thử tự động hoặc tạo seed fallback, tác nhân đã tạo ra các sản phẩm test tạm thời nhưng không dọn dẹp triệt để trong khối `finally`.
-  - Dữ liệu test được đồng bộ lên Cloudflare D1/KV và được lưu vào cache `wcg_admin_*_v4`, dẫn đến việc hiển thị công khai trên giao diện web.
-- **Giải pháp chuẩn đã kiểm chứng**:
-  - Gửi bản ghi Tombstone (`wcg_deleted_utilities`, `wcg_deleted_store_products`) lên Cloudflare D1/KV để xóa vĩnh viễn các ID test (`ut_test_01`, `sp_*` mock).
-  - Khóa danh sách `legacySeedUtilIds` và `legacySeedStoreIds` trong `functions/api/sync.ts` để D1 tự động lọc bỏ và xóa sạch khỏi bảng SQL.
-  - Thiết lập `src/data/storeProducts.json` thành `[]` cho đến khi người dùng tự tay thêm sản phẩm thực tế.
-  - Cập nhật quy tắc bắt buộc trong `AGENTS.md` & `GEMINI.md`: Mọi bài kiểm thử sinh dữ liệu test phải tự động xóa sạch trong khối `finally`.
+  - Trong commit `9ee758c` (khi tích hợp nguồn cào quốc tế GamerPower / Alienware Arena), các chiến dịch giveaway và giftcode test đã được inject trực tiếp vào `giveaways.json` và `crawled_codes_188.json`.
+  - Khi dọn dẹp Delta Force ở các lượt trước, tác nhân chỉ lọc ID Delta Force mà bỏ sót `gw_gamerpower_rotwood`. Vì `giveaways.json` và bảng SQL Cloudflare D1 vẫn lưu bản ghi này nên hệ thống tiếp tục xếp nó lên đầu danh sách Giật Code vì còn code.
+  - Thiếu chốt chặn tự động (Gatekeeper) trước khi build/deploy để rà soát toàn diện các artifact test.
+- **Giải pháp chuẩn đã kiểm chứng (Kiến trúc phòng vệ 4 lớp dứt điểm)**:
+  1. *Lớp 1 (Tombstones triệt để)*: Bổ sung `gw_gamerpower_rotwood`, `ut_test_01`, `sp_*` mock và 4 mã test quốc tế vào danh sách Tombstones `legacySeedGwIds`, `legacySeedStoreIds`, `legacySeedUtilIds` trong `sync.ts` và gửi lệnh `DELETE FROM` tới Cloudflare D1 SQL.
+  2. *Lớp 2 (Edge Worker Guard)*: `functions/api/sync.ts` tự động phát hiện và loại bỏ 100% item test, không bao giờ serve ra API công khai.
+  3. *Lớp 3 (Client Disinfection)*: `dataService.ts` tự động thanh tẩy LocalStorage và memory cache 0ms khi khởi động.
+  4. *Lớp 4 (Pre-Build Gatekeeper Hook)*: Tạo script `scripts/audit_zero_test_artifacts.cjs` tích hợp trực tiếp vào `npm run build`. Bất kỳ tệp JSON hay API nào còn sót 1 mục test sẽ khiến build bị dừng ngay lập tức (Fail Fast).
 - ⛔ **CÁCH SỬA ĐÃ THẤT BẠI - TUYỆT ĐỐI KHÔNG LẶP LẠI**:
-  - ❌ *Không để lại sản phẩm test trong file seed JSON*: Seed catalog chỉ chứa sản phẩm do người dùng cung cấp.
-  - ❌ *Không chạy test thêm sản phẩm mà quên dọn dẹp trong khối `finally`*: Phải luôn đảm bảo dọn dẹp dù test pass hay fail.
+  - ❌ *Không sửa sót nửa vời (chỉ xóa Delta Force mà quên Yến Vân/Rotwood cùng commit)*: Phải luôn dùng `git diff` kiểm tra toàn bộ thay đổi của commit gốc sinh ra dữ liệu test.
+  - ❌ *Không chỉ xóa trên frontend mà không gửi Tombstone lên D1*: Bảng SQL D1 sẽ tự phục hồi bản ghi cũ.
+  - ❌ *Không build/deploy mà không qua script kiểm tra tự động*: Phải luôn để `audit_zero_test_artifacts.cjs` làm chốt chặn.
 
 ---
 
