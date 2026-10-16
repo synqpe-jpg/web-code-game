@@ -1485,6 +1485,7 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
 
         const existingGameIndex = gamesList.findIndex((g: any) => g && (g.slug === finalSlug || g.id === finalSlug));
 
+        const isCodeMoi = sourceItem.sourceType === 'codemoi' || (sourceItem.sourceUrl && sourceItem.sourceUrl.includes('codemoi.net'));
         const newGameRecord = {
           id: finalSlug,
           slug: finalSlug,
@@ -1500,7 +1501,7 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
           instructions: 'Bước 1: Mở game > Nhấn Avatar nhân vật\nBước 2: Chọn Cài đặt > Nhập Giftcode\nBước 3: Dán mã và nhấn Xác nhận.',
           platform: 'Android, iOS, PC',
           release_date: editedGame.releaseDate || sourceItem.releaseDate || new Date().toISOString().split('T')[0],
-          download_android: sourceItem.playStoreUrl || `https://play.google.com/store/apps/details?id=${sourceItem.packageId || finalSlug}`,
+          download_android: sourceItem.playStoreUrl || (sourceItem.packageId && !isCodeMoi ? `https://play.google.com/store/apps/details?id=${sourceItem.packageId}` : ''),
           is_featured: false,
           is_hot: false,
           is_new: true,
@@ -1508,37 +1509,40 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
           status: 'ACTIVE',
           codes_count: 0,
           free_codes_count: 0,
-          source: 'Google Play Store VN',
+          source: isCodeMoi ? 'Code Mới (codemoi.net)' : 'Google Play Store VN',
           created_at: new Date().toISOString(),
           updated_at: new Date().toISOString(),
         };
 
-        if (existingGameIndex !== -1) {
-          gamesList[existingGameIndex] = { ...gamesList[existingGameIndex], ...newGameRecord };
-        } else {
-          gamesList.unshift(newGameRecord);
-        }
-
-        await setSettingD1(env.DB, 'wcg_admin_games_v5', gamesList);
-
-        // Tự động tạo nguồn crawler sources cho game đó nếu chưa có
-        try {
-          const sourcesRaw = await getSettingD1(env.DB, 'wcg_crawler_sources_v1') || [];
-          const sources: any[] = Array.isArray(sourcesRaw) ? [...sourcesRaw] : [];
-          const hasSource = sources.some((s: any) => s && s.targetGameSlug === finalSlug);
-          if (!hasSource) {
-            sources.push({
-              id: `src_auto_${finalSlug}_${Date.now()}`,
-              name: `Google Search Code ${finalName}`,
-              type: 'reputable_web',
-              url: `https://www.google.com/search?q=${encodeURIComponent('giftcode ' + finalName)}`,
-              targetGameSlug: finalSlug,
-              isEnabled: true,
-              description: `Tự động sinh từ Google Play crawler cho game ${finalName}`
-            });
-            await setSettingD1(env.DB, 'wcg_crawler_sources_v1', sources);
+          if (existingGameIndex !== -1) {
+            gamesList[existingGameIndex] = { ...gamesList[existingGameIndex], ...newGameRecord };
+          } else {
+            gamesList.unshift(newGameRecord);
           }
-        } catch {}
+
+          await setSettingD1(env.DB, 'wcg_admin_games_v5', gamesList);
+
+          // Tự động tạo nguồn crawler sources cho game đó nếu chưa có
+          try {
+            const sourcesRaw = await getSettingD1(env.DB, 'wcg_crawler_sources_v1') || [];
+            const sources: any[] = Array.isArray(sourcesRaw) ? [...sourcesRaw] : [];
+            const hasSource = sources.some((s: any) => s && s.targetGameSlug === finalSlug);
+            if (!hasSource) {
+              const crawlerUrl = (isCodeMoi && sourceItem.sourceUrl)
+                ? sourceItem.sourceUrl
+                : `https://www.google.com/search?q=${encodeURIComponent('giftcode ' + finalName)}`;
+              sources.push({
+                id: `src_auto_${finalSlug}_${Date.now()}`,
+                name: `${isCodeMoi ? 'CodeMoi' : 'Google Search'} Code ${finalName}`,
+                type: 'reputable_web',
+                url: crawlerUrl,
+                targetGameSlug: finalSlug,
+                isEnabled: true,
+                description: `Tự động sinh khi duyệt game ${finalName}`
+              });
+              await setSettingD1(env.DB, 'wcg_crawler_sources_v1', sources);
+            }
+          } catch {}
 
         // Xóa khỏi pending list
         if (targetIndex !== -1) {
@@ -1596,6 +1600,7 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
             const finalName = String(item.name || '').trim();
             const finalDeveloper = String(item.developer || 'NPH Chính Thức').trim();
 
+            const isCodeMoi = item.sourceType === 'codemoi' || (item.sourceUrl && item.sourceUrl.includes('codemoi.net'));
             const newGameRecord = {
               id: finalSlug,
               slug: finalSlug,
@@ -1611,7 +1616,7 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
               instructions: 'Bước 1: Mở game > Nhấn Avatar nhân vật\nBước 2: Chọn Cài đặt > Nhập Giftcode\nBước 3: Dán mã và nhấn Xác nhận.',
               platform: 'Android, iOS, PC',
               release_date: item.releaseDate || new Date().toISOString().split('T')[0],
-              download_android: item.playStoreUrl || `https://play.google.com/store/apps/details?id=${item.packageId || finalSlug}`,
+              download_android: item.playStoreUrl || (item.packageId && !isCodeMoi ? `https://play.google.com/store/apps/details?id=${item.packageId}` : ''),
               is_featured: false,
               is_hot: false,
               is_new: true,
@@ -1619,7 +1624,7 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
               status: 'ACTIVE',
               codes_count: 0,
               free_codes_count: 0,
-              source: 'Google Play Store VN',
+              source: isCodeMoi ? 'Code Mới (codemoi.net)' : 'Google Play Store VN',
               created_at: new Date().toISOString(),
               updated_at: new Date().toISOString(),
             };
@@ -1669,6 +1674,182 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
         }), { headers: CORS_HEADERS });
       } catch (e: any) {
         return new Response(JSON.stringify({ success: false, error: String(e?.message || e) }), { status: 500, headers: CORS_HEADERS });
+      }
+    }
+
+    // Action: Quét trực tiếp game mới từ CodeMoi.net trên Cloudflare Edge Function
+    if (body.action === 'scan_codemoi_new_games' && env.DB) {
+      try {
+        const resp = await fetch('https://codemoi.net/game-moi/', {
+          headers: {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
+            'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
+            'Accept-Language': 'vi,en-US;q=0.9,en;q=0.8'
+          }
+        });
+        if (!resp.ok) {
+          return new Response(JSON.stringify({ success: false, error: `Không thể kết nối codemoi.net (HTTP ${resp.status})` }), { status: 502, headers: CORS_HEADERS });
+        }
+        const html = await resp.text();
+        const codemoiGames: any[] = [];
+        const liRegex = /<li[^>]*class="[^"]*flex items-start[^"]*"[^>]*>([\s\S]*?)<\/li>/gi;
+        let match;
+        while ((match = liRegex.exec(html)) !== null) {
+          const liContent = match[1];
+          const hrefMatch = liContent.match(/href="\/games\/([a-z0-9\-]+)\/?"/i);
+          if (!hrefMatch) continue;
+          const slug = hrefMatch[1];
+          const imgMatch = liContent.match(/<img[^>]*src="([^"]+)"[^>]*alt="([^"]*)"/i);
+          let iconUrl = imgMatch ? (imgMatch[1].startsWith('http') ? imgMatch[1] : `https://codemoi.net${imgMatch[1]}`) : `https://codemoi.net/covers/${slug}.webp`;
+          const altName = imgMatch ? imgMatch[2].replace(/&amp;/g, '&').trim() : slug;
+          const nameMatch = liContent.match(/<span[^>]*class="[^"]*font-semibold[^"]*text-slate-900[^"]*"[^>]*>([^<]+)<\/span>/i);
+          const name = nameMatch ? nameMatch[1].replace(/&amp;/g, '&').trim() : altName;
+
+          const infoSpanMatch = liContent.match(/<span[^>]*class="[^"]*text-slate-500[^"]*"[^>]*>([\s\S]*?)<\/span>\s*<\/a>/i);
+          let publisher = 'NPH Game Mobile';
+          let releaseInfo = '';
+          if (infoSpanMatch) {
+            const cleanInfo = infoSpanMatch[1].replace(/<!--[\s\S]*?-->/g, '');
+            const parts = cleanInfo.split(/<span[^>]*class="mx-1\.5"[^>]*>·<\/span>|·/);
+            if (parts.length > 0) publisher = parts[0].replace(/<[^>]+>/g, '').replace(/&amp;/g, '&').trim() || publisher;
+            if (parts.length > 1) releaseInfo = parts.slice(1).join(' · ').replace(/<[^>]+>/g, '').trim();
+          }
+
+          const codeCountMatch = liContent.match(/<span[^>]*tabular-nums[^>]*>(\d+)[\s\S]*?code đang hoạt động<\/span>/i)
+            || liContent.match(/(\d+)(?:<!--[\s\S]*?-->)?\s*code đang hoạt động/i);
+          const activeCodesCount = codeCountMatch ? parseInt(codeCountMatch[1], 10) : 0;
+          const isUpcoming = /mở server/i.test(releaseInfo) || /sắp ra mắt/i.test(liContent);
+
+          codemoiGames.push({
+            slug,
+            name,
+            publisher,
+            releaseInfo,
+            iconUrl,
+            activeCodesCount,
+            isUpcoming,
+            sourceUrl: `https://codemoi.net/games/${slug}/`,
+            status: isUpcoming ? 'UPCOMING' : 'RELEASED'
+          });
+        }
+
+        const rawGames = await getSettingD1(env.DB, 'wcg_admin_games_v5') || await getSettingD1(env.DB, 'wcg_admin_games_v4') || (fallbackGamesData as any[]);
+        const gamesList: any[] = Array.isArray(rawGames) ? [...rawGames] : [];
+        const pendingListRaw = await getSettingD1(env.DB, 'wcg_crawler_pending_games_v1') || [];
+        const pendingList: any[] = Array.isArray(pendingListRaw) ? [...pendingListRaw] : [];
+        const autoConfig = await getSettingD1(env.DB, 'wcg_crawler_auto_publish_games_v1') || {
+          enabled: true,
+          whitelistPublishers: ['VNG', 'Garena', 'SohaGame', 'Funtap', 'Gamota', 'Gosu', 'VTC', 'Dzogame', 'Appota', 'VGP', 'Kplay', 'AceGame', 'VPlay', 'DigiGames', 'JoyGames', 'Gzone', 'Efun', 'Capcom', 'TiMi', 'Mộc Game', 'VelaGame']
+        };
+
+        const existingSlugs = new Set();
+        const baseSlugSet = new Set();
+        const getBase = (s: string) => (s || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/đ/g, 'd').replace(/[^a-z0-9]+/g, '-').replace(/-(vplay|vtc|gosu|gamota|soha|sohagame|funtap|vng|garena|vn|mobile|joygames|efun|online)$/g, '').replace(/^-+|-+$/g, '');
+
+        for (const g of gamesList) {
+          if (g.slug) { existingSlugs.add(g.slug); baseSlugSet.add(getBase(g.slug)); }
+          if (g.id) { existingSlugs.add(g.id); baseSlugSet.add(getBase(g.id)); }
+          if (g.name) { baseSlugSet.add(getBase(g.name)); }
+        }
+        for (const p of pendingList) {
+          if (p.slug) { existingSlugs.add(p.slug); baseSlugSet.add(getBase(p.slug)); }
+          if (p.name) { baseSlugSet.add(getBase(p.name)); }
+        }
+
+        const autoPublished: any[] = [];
+        const newPending: any[] = [];
+        const whitelist: string[] = Array.isArray(autoConfig.whitelistPublishers) ? autoConfig.whitelistPublishers.map((w: string) => w.toLowerCase()) : [];
+
+        for (const item of codemoiGames) {
+          const bSlug = getBase(item.slug);
+          const bName = getBase(item.name);
+          if (existingSlugs.has(item.slug) || baseSlugSet.has(bSlug) || baseSlugSet.has(bName)) {
+            continue;
+          }
+          existingSlugs.add(item.slug);
+          baseSlugSet.add(bSlug);
+          baseSlugSet.add(bName);
+
+          const normDev = (item.publisher || '').toLowerCase();
+          const normName = (item.name || '').toLowerCase();
+          const isWhitelisted = whitelist.some((w: string) => normDev.includes(w) || normName.includes(` ${w}`));
+
+          if (autoConfig.enabled && isWhitelisted) {
+            const newGame = {
+              id: item.slug,
+              slug: item.slug,
+              name: item.name,
+              publisher: item.publisher,
+              category: 'Nhập Vai',
+              rating: 4.8,
+              icon_url: item.iconUrl,
+              cover_image_url: item.iconUrl,
+              banner_url: '',
+              description: `${item.name} là tựa game mobile mới phát hành chính thức bởi ${item.publisher}.`,
+              short_description: `${item.name} - Game Mobile Mới`,
+              instructions: 'Bước 1: Mở game > Nhấn Avatar nhân vật\nBước 2: Chọn Cài đặt > Nhập Giftcode\nBước 3: Dán mã và nhấn Xác nhận.',
+              platform: 'Android, iOS, PC',
+              release_date: new Date().toISOString().split('T')[0],
+              download_android: '',
+              is_featured: false,
+              is_hot: false,
+              is_new: true,
+              is_active: true,
+              status: 'ACTIVE',
+              codes_count: 0,
+              free_codes_count: 0,
+              source: 'Code Mới (codemoi.net)',
+              created_at: new Date().toISOString(),
+              updated_at: new Date().toISOString(),
+            };
+            gamesList.unshift(newGame);
+            autoPublished.push(newGame);
+          } else {
+            const pendingGame = {
+              id: `cm_${item.slug}`,
+              name: item.name,
+              slug: item.slug,
+              packageId: item.slug,
+              developer: item.publisher,
+              category: 'Nhập Vai',
+              rating: 4.8,
+              installs: item.isUpcoming ? 'Sắp ra mắt' : 'Mới ra mắt',
+              iconUrl: item.iconUrl,
+              playStoreUrl: '',
+              sourceType: 'codemoi',
+              sourceUrl: item.sourceUrl,
+              releaseInfo: item.releaseInfo,
+              activeCodesCount: item.activeCodesCount,
+              description: `${item.name} phát hành bởi ${item.publisher}. ${item.releaseInfo || ''}`,
+              releaseDate: new Date().toISOString().split('T')[0],
+              status: 'PENDING',
+              autoPublishEligible: false,
+              crawledAt: new Date().toISOString(),
+            };
+            pendingList.unshift(pendingGame);
+            newPending.push(pendingGame);
+          }
+        }
+
+        if (autoPublished.length > 0) {
+          await setSettingD1(env.DB, 'wcg_admin_games_v5', gamesList);
+          invalidateGamesCatalogCache();
+        }
+        if (newPending.length > 0) {
+          await setSettingD1(env.DB, 'wcg_crawler_pending_games_v1', pendingList);
+        }
+
+        return new Response(JSON.stringify({
+          success: true,
+          message: `Quét CodeMoi.net thành công! Tìm thấy ${codemoiGames.length} game: tự động đăng ${autoPublished.length} game, thêm ${newPending.length} game vào chờ duyệt.`,
+          totalScanned: codemoiGames.length,
+          autoPublishedCount: autoPublished.length,
+          pendingAddedCount: newPending.length,
+          pendingGames: pendingList,
+          games: gamesList,
+        }), { headers: CORS_HEADERS });
+      } catch (err: any) {
+        return new Response(JSON.stringify({ success: false, error: String(err?.message || err) }), { status: 500, headers: CORS_HEADERS });
       }
     }
 

@@ -158,6 +158,7 @@ async function main() {
     const name = (s.name || '').toLowerCase();
     const desc = (s.description || '').toLowerCase();
     const id = (s.id || '').toLowerCase();
+    if (url.includes('codemoi.net/game-moi') || id.includes('codemoi_game_moi')) return true;
     return !(url.includes('codemoi.net') || name.includes('codemoi') || desc.includes('codemoi.net') || id.includes('codemoi'));
   });
 

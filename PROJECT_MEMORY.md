@@ -115,6 +115,13 @@
     2. Tài khoản bị Quản trị viên khóa (`status: 'BANNED'`).
     3. Mật khẩu tài khoản bị thay đổi / đặt lại (`session_token = NULL`). Khi mật khẩu không đổi, người dùng mở app/web luôn ở trạng thái đã đăng nhập.
 
+### 3.8. Quy Tắc Tự Động Cập Nhật Game Mới (Phương Án B — Dual Source: Google Play & CodeMoi.net)
+- **Kiến trúc 2 tầng (2-Tier Auto-Publish Architecture)**:
+  1. *Tự động đăng 100% (Auto-Publish)*: Các tựa game mới phát hiện từ Nhà Phát Hành uy tín (`VNG`, `Garena`, `SohaGame`, `Funtap`, `Gamota`, `Gosu`, `VTC`, `Dzogame`, `VGP`, `VPlay`, `JoyGames`, `Capcom`, `TiMi`...) hoặc có số lượng tải lớn ($\ge 50.000$ tải, rating $\ge 4.0\star$) được tự động tải icon WebP, tạo slug SEO, tạo crawler source cào giftcode và đăng ngay lên sàn mà không cần bấm duyệt.
+  2. *Hàng chờ duyệt tay riêng (Manual Moderation Queue)*: Game từ các nhà phát hành mới hoặc cần xác minh bản quyền được đưa vào `crawlerPendingGames` (`wcg_crawler_pending_games_v1`) trên Cloudflare D1/KV để Admin duyệt 1-chạm hoặc từ chối.
+- **Bộ lọc chống trùng lặp đa tầng (`getBaseSlug`)**: Bóc tách các hậu tố NPH (`-vplay`, `-vtc`, `-gosu`, `-gamota`, `-soha`, `-funtap`, `-vng`, `-garena`, `-vn`, `-mobile`, v.v.) đối soát trực tiếp với 623+ game hiện tại và danh sách chờ duyệt, bảo toàn tuyệt đối không sinh trùng lặp game.
+- **Chạy tự động 24/7**: Định kỳ hằng ngày qua GitHub Actions `.github/workflows/auto-google-play-sync.yml` và kích hoạt tức thì từ Cloudflare Edge API (`/api/sync` action `scan_codemoi_new_games`).
+
 ---
 
 ## 4. BẢN ĐỒ DỮ LIỆU & STATE MANAGEMENT

@@ -3739,6 +3739,39 @@ class AdminDataService {
     }
   }
 
+  public async scanCodemoiNewGames(): Promise<{ success: boolean; message?: string; totalScanned?: number; autoPublishedCount?: number; pendingAddedCount?: number }> {
+    try {
+      const res = await fetch('/api/sync', {
+        method: 'POST',
+        headers: this.getAuthHeaders(),
+        body: JSON.stringify({
+          action: 'scan_codemoi_new_games',
+        }),
+      });
+      const data = await res.json();
+      if (data && data.success) {
+        if (Array.isArray(data.pendingGames)) {
+          this.pendingGames = data.pendingGames;
+          this.setPendingGames(this.pendingGames);
+        }
+        if (Array.isArray(data.games)) {
+          this.games = data.games;
+          this.saveGames();
+        }
+        return {
+          success: true,
+          message: data.message,
+          totalScanned: data.totalScanned || 0,
+          autoPublishedCount: data.autoPublishedCount || 0,
+          pendingAddedCount: data.pendingAddedCount || 0,
+        };
+      }
+      return { success: false, message: data?.error || 'Quét CodeMoi thất bại' };
+    } catch (e: any) {
+      return { success: false, message: e?.message || 'Lỗi kết nối khi quét CodeMoi' };
+    }
+  }
+
   public getFullStateSnapshot(): any {
     return {
       storeProducts: this.getStoreProducts().filter((p) => !this.deletedStoreProductIds.has(p.id)),

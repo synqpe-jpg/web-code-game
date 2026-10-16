@@ -23,8 +23,8 @@ jobs:
           node-version: '22'
           cache: ''
 
-      - name: Run Google Play Game Crawler Engine (Phương Án B)
-        run: node scripts/crawler/google_play_crawler.cjs
+      - name: Run Multi-Source Game Crawler Engine (Google Play & CodeMoi - Phương Án B)
+        run: node scripts/crawler/sync_new_games.cjs
         env:
           SYNC_URL: ${{ secrets.SYNC_URL || 'https://codegame.shop/api/sync' }}
           ADMIN_SYNC_SECRET: ${{ secrets.ADMIN_SYNC_SECRET || 'b4e08494bf1c3fd6a0c965dd2411780c60513f7f87001bc955d7496331b2faef' }}

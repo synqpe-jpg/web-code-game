@@ -5,6 +5,44 @@ Mỗi mục sửa lỗi đều ghi nhận **Nguyên nhân gốc rễ (Root Cause
 
 ---
 
+## [2026-10-16]
+
+### 56. Tích Hợp Nguồn Quét Game Mới Tại CodeMoi.net Theo Phương Án B (100% Auto-Publish NPH Uy Tín & Duyệt Tay Riêng)
+- **Mô tả & Yêu cầu Người Dùng**:
+  - *"Thêm nguồn quét game mới tại https://codemoi.net/"*
+  - Yêu cầu tiếp nối: Áp dụng trọn vẹn theo **Phương Án B** (Tự động đăng 100% cho NPH uy tín, có chế độ duyệt tay riêng, không làm ảnh hưởng tới 623+ game hiện tại và các tính năng khác).
+- **Phân tích kiến trúc & Thách thức kỹ thuật**:
+  1. *Cấu trúc trang `https://codemoi.net/game-moi/`*:
+     - Phân bổ 2 chuyên mục: `🔜 Sắp ra mắt` (kèm lịch ra mắt) và `🆕 Vừa ra mắt 30 ngày qua` (kèm số lượng giftcode sẵn có).
+     - Định dạng ảnh bìa: Đều lưu trữ chuẩn WebP sắc nét tại `https://codemoi.net/covers/{slug}.webp`.
+  2. *Thách thức chống trùng lặp đa tầng (Base Slug Resolution)*:
+     - Khác với Google Play có `packageId`, CodeMoi sử dụng slug có kèm hậu tố NPH (ví dụ: `ta-la-hac-ngo-khong-vplay`), trong khi database 623+ game hiện tại đã có `ta-la-hac-ngo-khong`.
+     - Nếu chỉ so sánh chuỗi slug thô, game sẽ bị đăng trùng lặp vào catalog.
+  3. *Tương thích bộ lọc chặn domain cũ*:
+     - Trước đây `codemoi.net` từng bị ẩn trong `CrawlerModule.tsx` do có các nguồn giftcode cũ không khả dụng. Cần mở khóa chọn lọc riêng cho nguồn `https://codemoi.net/game-moi/` và `src_codemoi_game_moi`.
+- **Giải pháp triển khai toàn diện (Comprehensive Implementation)**:
+  1. *Khai báo nguồn quét mới*:
+     - Thêm nguồn `src_codemoi_game_moi` (`url: "https://codemoi.net/game-moi/"`, name: "CodeMoi.net - Game Mới") vào `src/data/crawler_sources.json` và `public/data/crawler_sources.json` (nâng tổng số lên 934 nguồn).
+  2. *Bộ máy bóc tách & lọc trùng chuẩn xác (`scripts/crawler/scrapers/codemoi_game_scraper.cjs`)*:
+     - Parser chuyên sâu bóc tách toàn bộ 24 game mới/sắp ra mắt từ HTML sạch của CodeMoi.
+     - Tích hợp thuật toán `getBaseSlug()`: tự động bóc tách và loại bỏ hậu tố NPH (`-vplay`, `-vtc`, `-gosu`, `-gamota`, `-soha`, `-funtap`, `-vng`, `-garena`, `-vn`, `-mobile`, `-joygames`, `-efun`, `-online`) để đối soát với 623+ game hiện có, ngăn ngừa 100% trùng lặp.
+     - Phân luồng Phương Án B: Tự động tải icon WebP, tạo slug SEO, tạo crawler source và đăng 100% cho NPH uy tín (`VNG`, `Garena`, `SohaGame`, `Funtap`, `Gamota`, `Gosu`, `VTC`, `Dzogame`, `VGP`, `VPlay`, `JoyGames`, `Gzone`, `DigiGames`, `Capcom`, `TiMi`...); các game khác đưa vào hàng đợi `crawlerPendingGames`.
+  3. *Cloudflare Edge API Trực Tiếp (`functions/api/sync.ts`)*:
+     - Bổ sung Edge action `scan_codemoi_new_games`: Thực hiện outbound `fetch` trực tiếp từ Edge Worker đến CodeMoi.net, phân tích và trả về danh sách game mới chỉ trong ~1 giây khi Admin bấm nút trên giao diện.
+     - Mở rộng các server action `approve_crawler_game`, `batch_approve_crawler_games` để tự động gán icon WebP và tạo crawler source khi duyệt game từ CodeMoi.
+  4. *Giao diện Quản trị Quét Đa Nguồn (`src/admin/modules/CrawlerModule.tsx`)*:
+     - Đổi tên Tab 5 thành **"Game Mới (Google Play & CodeMoi)"** kèm badge hiển thị số game chờ duyệt.
+     - Bổ sung nút **"⚡ Quét CodeMoi.net Ngay"** chạy độc lập song song với **"⚡ Quét Google Play Ngay"**.
+     - Bổ sung bộ lọc nguồn: `Tất cả nguồn`, `🌐 Nguồn CodeMoi.net`, `📱 Nguồn Google Play`.
+     - Thẻ game chờ duyệt hiển thị đầy đủ huy hiệu nguồn, thông tin lịch phát hành, số giftcode khả dụng và nút xem trực tiếp bài viết gốc.
+  5. *Đồng bộ hóa 24/7 (`scripts/crawler/sync_new_games.cjs` & GitHub Actions)*:
+     - Tích hợp scraper CodeMoi và Google Play vào workflow `.github/workflows/auto-google-play-sync.yml` để tự động hóa định kỳ mỗi ngày.
+- **Kết quả xác minh**:
+  - `npm run build`: Audit Zero Test Artifacts 100% Passed, Vite built 100%, Prerender 630 trang tĩnh 100%, Cloudflare Worker bundle `dist/_worker.js` (6.9MB) thành công.
+  - Quét thử nghiệm cào trọn vẹn 24 game mới từ CodeMoi, đối soát chuẩn xác, tải icon và lưu trữ an toàn.
+
+---
+
 ## [2026-10-15]
 
 ### 55. Triển Khai Hệ Thống Tự Động Cập Nhật Game Mới Trên Google Play Store Theo Phương Án B (100% Auto-Publish & Chế Độ Duyệt Tay Riêng Trong Admin)

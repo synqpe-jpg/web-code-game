@@ -670,6 +670,25 @@
 
 ---
 
+### ISSUE-037: Bẫy Trùng Lặp Game Khác Hậu Tố NPH Khi Quét Nguồn CodeMoi.net & Bộ Lọc Domain Cũ Bị Chặn
+- **Triệu chứng**:
+  - Khi cào game từ `codemoi.net/game-moi/`, một số game bị sinh slug trùng với game đã có trong catalog (ví dụ: CodeMoi đặt slug `ta-la-hac-ngo-khong-vplay`, trong khi kho game `games188.json` đã có sẵn `ta-la-hac-ngo-khong`). Nếu chỉ so khớp chuỗi slug thô hoặc packageId (CodeMoi không có packageId), game sẽ bị nhân bản gây trùng lặp.
+  - Nguồn `https://codemoi.net/game-moi/` trước đó không thể hiển thị trong tab Nguồn Cào của Crawler do bộ lọc chặn tên miền `codemoi.net` (tránh các nguồn giftcode cũ lỗi).
+- **Nguyên nhân gốc rễ**:
+  1. CodeMoi thường ghép tên game với mã NPH làm slug (`{ten-game}-{nph}`), trong khi cơ sở dữ liệu gốc lưu slug tên game thuần túy.
+  2. Tab CrawlerModule có bộ lọc `src.url.includes('codemoi.net')` chặn cứng toàn bộ domain này.
+- **Giải pháp chuẩn đã kiểm chứng**:
+  1. *Thuật toán `getBaseSlug()` đa tầng*:
+     - Tự động chuẩn hóa chuỗi và bóc tách các hậu tố NPH thông dụng: `-(vplay|vtc|gosu|gamota|soha|funtap|vng|garena|vn|mobile|joygames|efun|online)$`.
+     - So sánh cả slug gốc lẫn base slug với 623+ game hiện tại và danh sách chờ duyệt trước khi quyết định đăng tự động hoặc thêm vào hàng chờ.
+  2. *Mở khóa chọn lọc nguồn Game Mới*:
+     - Chỉ cho phép `https://codemoi.net/game-moi/` và ID `src_codemoi_game_moi` hiển thị và thực thi, đồng thời duy trì việc chặn các nguồn giftcode cũ không còn hoạt động.
+- ⛔ **CÁCH SỬA ĐÃ THẤT BẠI - TUYỆT ĐỐI KHÔNG LẶP LẠI**:
+  - ❌ *Không chỉ so sánh `existingSlugs.has(game.slug)` đối với CodeMoi*: Bắt buộc phải so sánh thêm `existingSlugs.has(getBaseSlug(game.slug))`.
+  - ❌ *Không mở chặn toàn bộ domain `codemoi.net` mà không phân loại nguồn*: Chỉ cho phép nguồn `/game-moi/`, không phục hồi các nguồn cào code cũ bị 404.
+
+---
+
 ## 2. QUY TRÌNH BẮT BUỘC TRƯỚC KHI SỬA CODE (PRE-FLIGHT CHECKLIST)
 
 Mọi nhà phát triển hoặc AI Agent khi nhận yêu cầu sửa đổi mã nguồn **PHẢI** thực hiện đủ 4 bước sau:

@@ -141,6 +141,7 @@ export const CrawlerModule: React.FC<CrawlerModuleProps> = ({ onShowToast }) => 
   const [gameSearchQuery, setGameSearchQuery] = useState('');
   const [gamePublisherFilter, setGamePublisherFilter] = useState('ALL');
   const [isScanningGooglePlay, setIsScanningGooglePlay] = useState(false);
+  const [isScanningCodeMoi, setIsScanningCodeMoi] = useState(false);
   const [autoPublishConfig, setAutoPublishConfig] = useState<CrawlerAutoPublishConfig>({
     enabled: true,
     whitelistPublishers: ['VNG', 'Garena', 'SohaGame', 'Funtap', 'Gamota', 'Gosu', 'VTC', 'Dzogame', 'Appota', 'VGP', 'Kplay', 'AceGame'],
@@ -251,12 +252,13 @@ export const CrawlerModule: React.FC<CrawlerModuleProps> = ({ onShowToast }) => 
             const name = (s.name || '').toLowerCase();
             const desc = (s.description || '').toLowerCase();
             const id = (s.id || '').toLowerCase();
+            if (url.includes('codemoi.net/game-moi') || id.includes('codemoi_game_moi')) return false;
             return url.includes('codemoi.net') || name.includes('codemoi') || desc.includes('codemoi.net') || id.includes('codemoi');
           };
 
           if (Array.isArray(data.crawlerSources) && data.crawlerSources.length > 0) {
             const cleanSources = data.crawlerSources.filter((s: CrawlerSource) => !isCodemoi(s));
-            // Ensure any newly cataloged default sources (e.g. 78 official Facebook sources) are seamlessly included
+            // Ensure any newly cataloged default sources (e.g. 78 official Facebook sources, codemoi game-moi) are seamlessly included
             const existingUrls = new Set(cleanSources.map((s: CrawlerSource) => (s.url || '').toLowerCase().replace(/\/+$/, '')));
             const missingDefaults = (defaultSources as CrawlerSource[]).filter((ds: CrawlerSource) => {
               if (isCodemoi(ds)) return false;
@@ -282,24 +284,19 @@ export const CrawlerModule: React.FC<CrawlerModuleProps> = ({ onShowToast }) => 
         }
       } else {
         // Fallback to local default sources
-        const cleanDefaults = (defaultSources as CrawlerSource[]).filter((s: CrawlerSource) => {
-          const url = (s.url || '').toLowerCase();
-          const name = (s.name || '').toLowerCase();
-          const desc = (s.description || '').toLowerCase();
-          const id = (s.id || '').toLowerCase();
-          return !(url.includes('codemoi.net') || name.includes('codemoi') || desc.includes('codemoi.net') || id.includes('codemoi'));
-        });
+        const cleanDefaults = (defaultSources as CrawlerSource[]).filter((s: CrawlerSource) => !isCodemoi(s));
         setSources(cleanDefaults);
       }
     } catch (e: any) {
       console.warn('[CrawlerModule] Tải dữ liệu thất bại, sử dụng fallback', e);
-      const cleanDefaults = (defaultSources as CrawlerSource[]).filter((s: CrawlerSource) => {
+      const isCodemoi = (s: CrawlerSource) => {
+        if (!s) return false;
         const url = (s.url || '').toLowerCase();
-        const name = (s.name || '').toLowerCase();
-        const desc = (s.description || '').toLowerCase();
         const id = (s.id || '').toLowerCase();
-        return !(url.includes('codemoi.net') || name.includes('codemoi') || desc.includes('codemoi.net') || id.includes('codemoi'));
-      });
+        if (url.includes('codemoi.net/game-moi') || id.includes('codemoi_game_moi')) return false;
+        return url.includes('codemoi.net') || (s.name || '').toLowerCase().includes('codemoi') || id.includes('codemoi');
+      };
+      const cleanDefaults = (defaultSources as CrawlerSource[]).filter((s: CrawlerSource) => !isCodemoi(s));
       setSources(cleanDefaults);
     } finally {
       setIsLoading(false);
@@ -653,10 +650,15 @@ export const CrawlerModule: React.FC<CrawlerModuleProps> = ({ onShowToast }) => 
     }
   };
 
-  // Filtered Google Play Pending Games
+  // Filtered Google Play & CodeMoi Pending Games
   const filteredPendingGames = useMemo(() => {
     return pendingGames.filter((game) => {
-      if (gamePublisherFilter !== 'ALL') {
+      const isCodeMoi = game.sourceType === 'codemoi' || (game.sourceUrl && game.sourceUrl.includes('codemoi.net'));
+      if (gamePublisherFilter === 'CodeMoi') {
+        if (!isCodeMoi) return false;
+      } else if (gamePublisherFilter === 'GooglePlay') {
+        if (isCodeMoi) return false;
+      } else if (gamePublisherFilter !== 'ALL') {
         const dev = (game.developer || '').toLowerCase();
         if (!dev.includes(gamePublisherFilter.toLowerCase())) return false;
       }
@@ -665,7 +667,8 @@ export const CrawlerModule: React.FC<CrawlerModuleProps> = ({ onShowToast }) => 
         const matchName = (game.name || '').toLowerCase().includes(q);
         const matchDev = (game.developer || '').toLowerCase().includes(q);
         const matchPkg = (game.packageId || '').toLowerCase().includes(q);
-        return matchName || matchDev || matchPkg;
+        const matchSlug = (game.slug || '').toLowerCase().includes(q);
+        return matchName || matchDev || matchPkg || matchSlug;
       }
       return true;
     });
@@ -790,6 +793,25 @@ export const CrawlerModule: React.FC<CrawlerModuleProps> = ({ onShowToast }) => 
       onShowToast('Lỗi quét', 'Không thể hoàn tất quét.', 'error');
     } finally {
       setIsScanningGooglePlay(false);
+    }
+  };
+
+  // Trigger CodeMoi Game Scanner
+  const handleTriggerCodeMoiScan = async () => {
+    setIsScanningCodeMoi(true);
+    onShowToast('Đang quét CodeMoi.net... 🔍', 'Hệ thống đang rà soát game mới tại chuyên mục https://codemoi.net/game-moi/...', 'info');
+    try {
+      const result = await adminDataService.scanCodemoiNewGames();
+      if (result.success) {
+        onShowToast('Hoàn tất quét CodeMoi! ✨', result.message || 'Đã cập nhật danh sách game mới nhất từ codemoi.net.', 'success');
+        await loadData();
+      } else {
+        onShowToast('Thông báo quét', result.message || 'Không thể hoàn tất quét.', 'info');
+      }
+    } catch (e: any) {
+      onShowToast('Lỗi quét CodeMoi', e?.message || 'Không thể hoàn tất quét CodeMoi.', 'error');
+    } finally {
+      setIsScanningCodeMoi(false);
     }
   };
 
@@ -1362,7 +1384,7 @@ export const CrawlerModule: React.FC<CrawlerModuleProps> = ({ onShowToast }) => 
           }`}
         >
           <Smartphone className="w-4 h-4 text-emerald-400" />
-          <span>Game Mới (Google Play)</span>
+          <span>Game Mới (Google Play & CodeMoi)</span>
           {pendingGames.length > 0 ? (
             <span className="px-2 py-0.5 rounded-full text-xs font-bold bg-emerald-500 text-slate-950 animate-pulse">
               {pendingGames.length}
@@ -2266,26 +2288,26 @@ export const CrawlerModule: React.FC<CrawlerModuleProps> = ({ onShowToast }) => 
       {activeTab === 'games_pending' && (
         <div className="space-y-4">
           {/* Top Control Banner */}
-          <div className="bg-gradient-to-r from-emerald-950/40 via-slate-900 to-teal-950/40 border border-emerald-500/30 rounded-2xl p-4 sm:p-5 shadow-xl shadow-emerald-950/10">
+          <div className="bg-gradient-to-r from-emerald-950/40 via-slate-900 to-purple-950/40 border border-emerald-500/30 rounded-2xl p-4 sm:p-5 shadow-xl shadow-emerald-950/10">
             <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
               <div>
                 <div className="flex items-center gap-2">
                   <h2 className="text-xl font-bold text-white flex items-center gap-2">
                     <Smartphone className="w-5 h-5 text-emerald-400" />
-                    Tự Động Cập Nhật Game Mới (Google Play Store VN)
+                    Tự Động Cập Nhật Game Mới (Google Play & CodeMoi.net)
                   </h2>
                   <span className="px-2.5 py-0.5 rounded-full text-xs font-semibold bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
                     Phương Án B (100% Tự Động & Duyệt Tay)
                   </span>
                 </div>
                 <p className="text-slate-300 text-xs sm:text-sm mt-1 max-w-3xl leading-relaxed">
-                  Hệ thống tự động phát hiện game mới trên Google Play Việt Nam. Game thuộc NPH chính thức (VNG, Garena, SohaGame, Funtap, Gamota, Gosu, VTC, Dzogame...) 
+                  Hệ thống tự động phát hiện game mới trên Google Play và CodeMoi.net (lịch mở server & game vừa ra mắt). Game thuộc NPH chính thức (VNG, Garena, SohaGame, Funtap, Gamota, Gosu, VTC, Dzogame, VGP, Kplay, VPlay, Gzone, JoyGames, Capcom, TiMi...) 
                   sẽ được <strong className="text-emerald-400">tự động đăng 100%</strong> lên sàn. Các game khác sẽ đưa vào danh sách chờ bên dưới để Admin duyệt 1-chạm hoặc từ chối.
                 </p>
               </div>
 
               {/* Master Controls */}
-              <div className="flex flex-wrap items-center gap-3 shrink-0">
+              <div className="flex flex-wrap items-center gap-2.5 shrink-0">
                 {/* Auto Publish Switch */}
                 <div 
                   onClick={handleToggleAutoPublish}
@@ -2311,6 +2333,17 @@ export const CrawlerModule: React.FC<CrawlerModuleProps> = ({ onShowToast }) => 
                   </div>
                 </div>
 
+                {/* Quét CodeMoi.net Button */}
+                <button
+                  onClick={handleTriggerCodeMoiScan}
+                  disabled={isScanningCodeMoi}
+                  className="px-4 py-2 rounded-xl bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-500 hover:to-pink-500 text-white font-semibold text-xs sm:text-sm flex items-center gap-2 transition-all shadow-lg shadow-purple-600/20 active:scale-95 cursor-pointer disabled:opacity-60"
+                  title="Quét chuyên mục game mới và lịch mở server tại codemoi.net/game-moi/"
+                >
+                  <RefreshCw className={`w-4 h-4 ${isScanningCodeMoi ? 'animate-spin' : ''}`} />
+                  <span>{isScanningCodeMoi ? 'Đang quét CodeMoi...' : '⚡ Quét CodeMoi.net'}</span>
+                </button>
+
                 {/* Quét Google Play Button */}
                 <button
                   onClick={handleTriggerGooglePlayScan}
@@ -2318,7 +2351,7 @@ export const CrawlerModule: React.FC<CrawlerModuleProps> = ({ onShowToast }) => 
                   className="px-4 py-2 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-semibold text-xs sm:text-sm flex items-center gap-2 transition-all shadow-lg shadow-emerald-600/20 active:scale-95 cursor-pointer disabled:opacity-60"
                 >
                   <RefreshCw className={`w-4 h-4 ${isScanningGooglePlay ? 'animate-spin' : ''}`} />
-                  <span>{isScanningGooglePlay ? 'Đang quét Google Play...' : '⚡ Quét Google Play Ngay'}</span>
+                  <span>{isScanningGooglePlay ? 'Đang quét GP...' : '⚡ Quét Google Play'}</span>
                 </button>
               </div>
             </div>
@@ -2332,7 +2365,7 @@ export const CrawlerModule: React.FC<CrawlerModuleProps> = ({ onShowToast }) => 
                     type="text"
                     value={gameSearchQuery}
                     onChange={(e) => setGameSearchQuery(e.target.value)}
-                    placeholder="Tìm tên game, NPH, package ID..."
+                    placeholder="Tìm tên game, NPH, slug, package ID..."
                     className="w-full bg-slate-950 border border-slate-800 rounded-xl pl-9 pr-3 py-1.5 text-xs sm:text-sm text-slate-200 focus:outline-none focus:border-emerald-500 placeholder-slate-500"
                   />
                 </div>
@@ -2342,7 +2375,9 @@ export const CrawlerModule: React.FC<CrawlerModuleProps> = ({ onShowToast }) => 
                   onChange={(e) => setGamePublisherFilter(e.target.value)}
                   className="bg-slate-950 border border-slate-800 rounded-xl px-3 py-1.5 text-xs sm:text-sm text-slate-200 focus:outline-none focus:border-emerald-500 cursor-pointer"
                 >
-                  <option value="ALL">Tất cả NPH</option>
+                  <option value="ALL">Tất cả Nguồn & NPH</option>
+                  <option value="CodeMoi">🌐 Nguồn CodeMoi.net</option>
+                  <option value="GooglePlay">📱 Nguồn Google Play</option>
                   <option value="VNG">VNG Corporation</option>
                   <option value="Garena">Garena</option>
                   <option value="SohaGame">SohaGame</option>
@@ -2350,6 +2385,10 @@ export const CrawlerModule: React.FC<CrawlerModuleProps> = ({ onShowToast }) => 
                   <option value="Gamota">Gamota</option>
                   <option value="Gosu">GOSU</option>
                   <option value="VTC">VTC Mobile</option>
+                  <option value="VPlay">VPlay</option>
+                  <option value="JoyGames">JoyGames</option>
+                  <option value="Gzone">Gzone</option>
+                  <option value="DigiGames">DigiGames</option>
                   <option value="Dzogame">Dzogame</option>
                 </select>
 
@@ -2437,35 +2476,75 @@ export const CrawlerModule: React.FC<CrawlerModuleProps> = ({ onShowToast }) => 
 
                         {/* Title & Developer */}
                         <div className="flex-1 min-w-0">
-                          <div className="flex items-center gap-1.5">
-                            <h3 className="font-bold text-white text-sm truncate" title={game.name}>
-                              {game.name}
-                            </h3>
-                            <a
-                              href={game.playStoreUrl}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="text-slate-400 hover:text-emerald-400 shrink-0"
-                              title="Mở Google Play Store"
-                            >
-                              <ExternalLink className="w-3.5 h-3.5" />
-                            </a>
-                          </div>
+                          {(() => {
+                            const isFromCodeMoi = game.sourceType === 'codemoi' || (game.sourceUrl && game.sourceUrl.includes('codemoi.net'));
+                            return (
+                              <>
+                                <div className="flex items-center gap-1.5">
+                                  <h3 className="font-bold text-white text-sm truncate" title={game.name}>
+                                    {game.name}
+                                  </h3>
+                                  {isFromCodeMoi ? (
+                                    <a
+                                      href={game.sourceUrl || `https://codemoi.net/games/${game.slug}/`}
+                                      target="_blank"
+                                      rel="noopener noreferrer"
+                                      className="text-slate-400 hover:text-purple-400 shrink-0"
+                                      title="Mở trang game trên CodeMoi.net"
+                                    >
+                                      <ExternalLink className="w-3.5 h-3.5" />
+                                    </a>
+                                  ) : (
+                                    <a
+                                      href={game.playStoreUrl || (game.packageId ? `https://play.google.com/store/apps/details?id=${game.packageId}` : '#')}
+                                      target="_blank"
+                                      rel="noopener noreferrer"
+                                      className="text-slate-400 hover:text-emerald-400 shrink-0"
+                                      title="Mở Google Play Store"
+                                    >
+                                      <ExternalLink className="w-3.5 h-3.5" />
+                                    </a>
+                                  )}
+                                </div>
 
-                          <div className="text-xs text-slate-400 truncate mt-0.5" title={game.developer}>
-                            NPH: <span className="text-slate-200 font-medium">{game.developer}</span>
-                          </div>
+                                <div className="text-xs text-slate-400 truncate mt-0.5" title={game.developer}>
+                                  NPH: <span className="text-slate-200 font-medium">{game.developer}</span>
+                                </div>
 
-                          <div className="flex items-center gap-2 mt-1 text-[11px] text-slate-400">
-                            <span className="flex items-center text-amber-400 font-semibold gap-0.5">
-                              <Star className="w-3 h-3 fill-amber-400 text-amber-400" />
-                              {game.rating || 4.8}
-                            </span>
-                            <span>•</span>
-                            <span>{game.installs || '50.000+'} tải</span>
-                            <span>•</span>
-                            <span className="text-slate-300 font-medium">{game.category || 'Game'}</span>
-                          </div>
+                                <div className="flex flex-wrap items-center gap-1.5 mt-1.5 text-[11px] text-slate-400">
+                                  {isFromCodeMoi ? (
+                                    <span className="px-2 py-0.5 rounded-md text-[10px] font-bold bg-purple-500/20 text-purple-300 border border-purple-500/30">
+                                      🌐 CodeMoi.net
+                                    </span>
+                                  ) : (
+                                    <span className="px-2 py-0.5 rounded-md text-[10px] font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
+                                      📱 Google Play
+                                    </span>
+                                  )}
+                                  {game.releaseInfo && (
+                                    <span className="px-1.5 py-0.5 rounded-md text-[10px] font-medium bg-amber-500/10 text-amber-300 border border-amber-500/20">
+                                      {game.releaseInfo}
+                                    </span>
+                                  )}
+                                  {(game.activeCodesCount || 0) > 0 && (
+                                    <span className="px-1.5 py-0.5 rounded-md text-[10px] font-semibold bg-pink-500/10 text-pink-300 border border-pink-500/20">
+                                      🎁 {game.activeCodesCount} code
+                                    </span>
+                                  )}
+                                  {!isFromCodeMoi && (
+                                    <>
+                                      <span className="flex items-center text-amber-400 font-semibold gap-0.5">
+                                        <Star className="w-3 h-3 fill-amber-400 text-amber-400" />
+                                        {game.rating || 4.8}
+                                      </span>
+                                      <span>•</span>
+                                      <span>{game.installs || '50.000+'} tải</span>
+                                    </>
+                                  )}
+                                </div>
+                              </>
+                            );
+                          })()}
                         </div>
                       </div>
 
@@ -2478,7 +2557,7 @@ export const CrawlerModule: React.FC<CrawlerModuleProps> = ({ onShowToast }) => 
                     {/* Actions Toolbar */}
                     <div className="mt-4 pt-3 border-t border-slate-800/80 flex items-center justify-between gap-2">
                       <span className="text-[10px] text-slate-500 font-mono">
-                        {game.crawledAt ? new Date(game.crawledAt).toLocaleDateString('vi-VN') : 'Google Play'}
+                        {game.sourceType === 'codemoi' ? 'CodeMoi.net' : 'Google Play'} • {game.crawledAt ? new Date(game.crawledAt).toLocaleDateString('vi-VN') : ''}
                       </span>
 
                       <div className="flex items-center gap-1.5">
@@ -2513,18 +2592,28 @@ export const CrawlerModule: React.FC<CrawlerModuleProps> = ({ onShowToast }) => 
               </div>
               <h3 className="text-lg font-bold text-white">Không Có Game Nào Đang Chờ Duyệt</h3>
               <p className="text-slate-400 text-xs sm:text-sm max-w-md mx-auto leading-relaxed">
-                Tất cả các tựa game mới từ NPH chính thức (VNG, Garena, SohaGame, Funtap, Gamota, Gosu, VTC Mobile...) đã được hệ thống 
+                Tất cả các tựa game mới từ NPH chính thức (VNG, Garena, SohaGame, Funtap, Gamota, Gosu, VTC Mobile, VPlay, JoyGames, Gzone...) đã được hệ thống 
                 <strong className="text-emerald-400"> tự động đăng 100%</strong> lên sàn codegame.shop theo Phương án B!
               </p>
-              <div className="pt-2">
+              <div className="pt-2 flex flex-wrap items-center justify-center gap-3">
+                <button
+                  type="button"
+                  onClick={handleTriggerCodeMoiScan}
+                  disabled={isScanningCodeMoi}
+                  className="px-4 py-2.5 rounded-xl bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-500 hover:to-pink-500 text-white font-semibold text-xs sm:text-sm inline-flex items-center gap-2 transition-all shadow-lg shadow-purple-600/20 active:scale-95 cursor-pointer disabled:opacity-60"
+                >
+                  <RefreshCw className={`w-4 h-4 ${isScanningCodeMoi ? 'animate-spin' : ''}`} />
+                  <span>{isScanningCodeMoi ? 'Đang quét CodeMoi...' : '⚡ Quét CodeMoi.net Ngay'}</span>
+                </button>
+
                 <button
                   type="button"
                   onClick={handleTriggerGooglePlayScan}
                   disabled={isScanningGooglePlay}
-                  className="px-5 py-2.5 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-semibold text-xs sm:text-sm inline-flex items-center gap-2 transition-all shadow-lg shadow-emerald-600/20 active:scale-95 cursor-pointer"
+                  className="px-4 py-2.5 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-semibold text-xs sm:text-sm inline-flex items-center gap-2 transition-all shadow-lg shadow-emerald-600/20 active:scale-95 cursor-pointer disabled:opacity-60"
                 >
                   <RefreshCw className={`w-4 h-4 ${isScanningGooglePlay ? 'animate-spin' : ''}`} />
-                  <span>{isScanningGooglePlay ? 'Đang rà soát Google Play VN...' : 'Quét Tìm Game Mới Ngay'}</span>
+                  <span>{isScanningGooglePlay ? 'Đang rà soát Google Play...' : '⚡ Quét Google Play Ngay'}</span>
                 </button>
               </div>
             </div>

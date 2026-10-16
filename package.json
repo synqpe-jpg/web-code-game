@@ -12,6 +12,8 @@
     "sync:codes": "node scripts/sync_source_codes.cjs",
     "crawler:run": "node scripts/crawler/run_crawler.cjs",
     "crawler:googleplay": "node scripts/crawler/google_play_crawler.cjs",
+    "crawler:codemoi": "node scripts/crawler/scrapers/codemoi_game_scraper.cjs",
+    "crawler:games": "node scripts/crawler/sync_new_games.cjs",
     "news:auto": "node scripts/crawler/auto_news_publisher.cjs",
     "deploy": "wrangler pages deploy dist --project-name=web-code-game",
     "deploy:admin": "wrangler pages deploy dist --project-name=admin-code-game-shop",

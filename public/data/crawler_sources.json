@@ -1,5 +1,13 @@
 [
   {
+    "id": "src_codemoi_game_moi",
+    "name": "Code Mới - Chuyên Mục Game Mới Ra Mắt",
+    "type": "reputable_web",
+    "url": "https://codemoi.net/game-moi/",
+    "isEnabled": true,
+    "description": "Nguồn quét game mobile mới ra mắt và lịch mở server tại Việt Nam (codemoi.net)"
+  },
+  {
     "id": "src_pub_vng_main",
     "name": "VNGGames - Cổng NPH Chính Thức",
     "type": "official_site",

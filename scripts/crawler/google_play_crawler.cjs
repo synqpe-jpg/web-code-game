@@ -582,23 +582,32 @@ async function runGooglePlayCrawler() {
       ]
     };
 
-    try {
-      console.log(`[Server] ☁️ Gửi đồng bộ lên Cloudflare D1/KV: ${SYNC_URL}...`);
-      const postRes = await requestHttp(SYNC_URL, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'X-Sync-Key': SYNC_KEY,
-        }
-      }, payload);
+    const syncUrls = [
+      SYNC_URL,
+      'https://web-code-game.pages.dev/api/sync'
+    ];
+    let synced = false;
+    for (const url of syncUrls) {
+      if (synced) break;
+      try {
+        console.log(`[Server] ☁️ Gửi đồng bộ lên ${url}...`);
+        const postRes = await requestHttp(url, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'X-Sync-Key': SYNC_KEY,
+          }
+        }, payload);
 
-      if (postRes && postRes.status === 200) {
-        console.log(`[Server] ✅ Đồng bộ thành công 100% với Cloudflare D1.`);
-      } else {
-        console.warn(`[Server] ⚠️ Máy chủ phản hồi mã ${postRes.status}:`, postRes.text || postRes.data);
+        if (postRes && postRes.status === 200) {
+          console.log(`[Server] ✅ Đồng bộ thành công 100% với Cloudflare D1 (${url}).`);
+          synced = true;
+        } else {
+          console.warn(`[Server] ⚠️ Máy chủ phản hồi mã ${postRes.status}:`, postRes.text || postRes.data);
+        }
+      } catch (syncErr) {
+        console.warn(`[Server] ⚠️ Lỗi kết nối đồng bộ tới ${url}:`, syncErr.message);
       }
-    } catch (syncErr) {
-      console.warn(`[Server] ⚠️ Lỗi kết nối đồng bộ:`, syncErr.message);
     }
   } else {
     console.log(`[Complete] ✨ Không có game mới nào cần cập nhật trong đợt quét này.`);
