@@ -2184,7 +2184,7 @@ class MarketingService {
         parsedAnchorMs = sessionAnchor.lastTimestamp;
       } else {
         const nowMs = this.getCalibratedNow();
-        this.sessionAnchorMap.set(id, { baseSold: this.getSoldDisplay({ id }, 0), lastTimestamp: nowMs });
+        this.sessionAnchorMap.set(id, { lastCount: 0, lastTimestamp: nowMs });
         return 0;
       }
     }

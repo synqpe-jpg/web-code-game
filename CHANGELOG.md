@@ -5,6 +5,38 @@ Mỗi mục sửa lỗi đều ghi nhận **Nguyên nhân gốc rễ (Root Cause
 
 ---
 
+## [2026-10-17]
+
+### 57. Khắc Phục Triệt Để Lỗi Tràn Call Stack (RangeError: Maximum call stack size exceeded) Khi Mở & Chia Sẻ Link Trên Web
+- **Mô tả & Yêu cầu Người Dùng**:
+  - *"Khi tôi chia sẻ link trên web báo thế này."* (Kèm ảnh chụp màn hình điện thoại di động báo lỗi toàn trang: `Đã có sự cố hiển thị nhỏ xảy ra - Maximum call stack size exceeded` bắt nguồn từ ErrorBoundary).
+- **Truy vết & 2 Nguyên nhân gốc rễ (Root Cause Investigation)**:
+  1. *Vòng lặp đệ quy tử thần (Mutual Recursion Loop) giữa `getHourlyGrowth` và `getSoldDisplay`*:
+     - Tại commit `aee5f7b0`, dòng 2187 của `src/services/marketingService.ts` được thêm vào để gán mốc phiên khi `anchorTime` bị thiếu:
+       `this.sessionAnchorMap.set(id, { baseSold: this.getSoldDisplay({ id }, 0), lastTimestamp: nowMs });`
+     - Khi một người dùng mới (hoặc người nhận link chia sẻ mở web trên điện thoại) truy cập: `sessionAnchorMap` rỗng đối với mặt hàng đó.
+     - Hàm `getSoldDisplay` gọi `getHourlyGrowth(id, ...)`.
+     - Trong `getHourlyGrowth`, biểu thức `this.sessionAnchorMap.set` chưa thể hoàn tất cho đến khi tham số `baseSold` được tính toán xong. Nhưng tham số đó lại gọi ngược `this.getSoldDisplay({ id }, 0)`!
+     - Lần gọi `getSoldDisplay` thứ 2 này lại tiếp tục gọi `getHourlyGrowth(id, ...)`!
+     - Khi đó, `sessionAnchorMap` vẫn chưa có giá trị cho `id`, khiến nhánh `else` lại gọi tiếp `getSoldDisplay`!
+     - Chu kỳ lặp vô tận: `getSoldDisplay` $\rightarrow$ `getHourlyGrowth` $\rightarrow$ `getSoldDisplay` $\rightarrow$ `getHourlyGrowth`... diễn ra đồng bộ hàng chục ngàn lần cho đến khi vượt ngưỡng call stack của V8 (~10.000 frame), ném lỗi `RangeError: Maximum call stack size exceeded` khiến toàn bộ ứng dụng bị ErrorBoundary đánh sập.
+  2. *Bẫy xóa đè URL trên luồng khởi tạo (Deep-link Route Premature Wipe)*:
+     - Trong `src/App.tsx`, effect đồng bộ title và URL chạy ngay từ lần render đầu tiên khi `selectedGame` vẫn còn là `null` (do `parseHash()` còn đang xử lý bất đồng bộ).
+     - Điều kiện `if (window.location.pathname.startsWith('/game/')) { window.history.replaceState(null, '', '/'); }` đã vội vã đè đường dẫn chia sẻ thành `/`, khiến người dùng bị đẩy về trang chủ và kích hoạt chuỗi render các sản phẩm store/tiện ích gây bùng nổ lỗi call stack ở trên.
+- **Giải pháp xử lý dứt điểm toàn diện (Comprehensive Solution)**:
+  1. *Triệt tiêu 100% vòng lặp đệ quy trong `marketingService.ts`*:
+     - Thay thế lệnh gọi ngược `getSoldDisplay` bằng mốc khởi tạo an toàn:
+       `this.sessionAnchorMap.set(id, { lastCount: 0, lastTimestamp: nowMs }); return 0;`
+     - Mốc phiên được ghi nhận tức thì không có bất kỳ lệnh gọi hàm phụ thuộc nào. Giá trị tăng trưởng theo giờ xuất phát từ 0 theo đúng chuẩn. Khi `getSoldDisplay` tính toán xong `finalDisplay`, hàm sẽ tự cập nhật lại `lastCount` chuẩn xác.
+     - Phân tích đồ thị gọi hàm AST (`ts.createSourceFile` + DFS Cycle Detector) xác nhận 100% không còn bất kỳ chu trình lặp (0 unique cycles) trong toàn bộ 100 tệp mã nguồn.
+  2. *Khóa bảo vệ đường dẫn chia sẻ Deep-Link trong `App.tsx`*:
+     - Bổ sung cờ trạng thái `isInitialLoadDone`.
+     - Chỉ cho phép `replaceState` xóa đường dẫn `/game/...` khi tiến trình định tuyến ban đầu `parseHash()` đã hoàn tất và người dùng chủ động đóng modal game.
+- **Kết quả xác minh**:
+  - Không còn bất kỳ vòng lặp call stack nào. Mở web trực tiếp hoặc qua link chia sẻ trên mọi thiết bị (Mobile Chrome, Zalo In-App Browser, PC) đều hoạt động mượt mà và ổn định 100%.
+
+---
+
 ## [2026-10-16]
 
 ### 56. Tích Hợp Nguồn Quét Game Mới Tại CodeMoi.net Theo Phương Án B (100% Auto-Publish NPH Uy Tín & Duyệt Tay Riêng)

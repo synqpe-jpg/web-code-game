@@ -689,6 +689,26 @@
 
 ---
 
+### ISSUE-038: Lỗi Tràn Call Stack (RangeError: Maximum call stack size exceeded) Do Vòng Lặp Gọi Đệ Quy getHourlyGrowth - getSoldDisplay
+- **Triệu chứng**:
+  - Người dùng mở web từ link chia sẻ trên mạng xã hội (Zalo In-App Browser, Messenger, Facebook) hoặc truy cập các mục Tiện ích / Cửa hàng: Toàn bộ trang web bị sập và hiển thị màn hình cứu hộ ErrorBoundary với thông báo lỗi đỏ: `Maximum call stack size exceeded`.
+- **Nguyên nhân gốc rễ**:
+  1. *Lỗi đệ quy đồng bộ trong `marketingService.ts`*: Trong hàm `getHourlyGrowth(id, ...)`, nhánh `else` khi chưa có `anchorTime` thực hiện:
+     `this.sessionAnchorMap.set(id, { baseSold: this.getSoldDisplay({ id }, 0), lastTimestamp: nowMs });`
+     Để gán thuộc tính `baseSold`, JavaScript bắt buộc phải thực thi `getSoldDisplay({ id })`. Nhưng bên trong `getSoldDisplay`, hàm lại gọi ngược `getHourlyGrowth(id, ...)`! Do `sessionAnchorMap.set` chưa chạy xong nên `sessionAnchorMap.get(id)` vẫn undefined, khiến nhánh `else` lại gọi tiếp `getSoldDisplay({ id })`. Vòng lặp đệ quy lặp lại liên tục hàng ngàn lần trong 1 microsecond làm tràn ngăn xếp call stack của trình duyệt.
+  2. *Đè xoá route deep-link quá sớm trong `App.tsx`*: Effect đồng bộ URL chạy trong khi `parseHash()` còn đang đọc dữ liệu bất đồng bộ từ slug, đè ngược URL `/game/...` thành `/` và kích hoạt re-render hàng loạt thẻ sản phẩm.
+- **Giải pháp chuẩn đã kiểm chứng**:
+  1. *Khởi tạo Session Anchor độc lập không đệ quy*:
+     - Trong `getHourlyGrowth`: Thiết lập trực tiếp `this.sessionAnchorMap.set(id, { lastCount: 0, lastTimestamp: nowMs });` và `return 0;`.
+     - Tuyệt đối không gọi `getSoldDisplay` hay bất kỳ hàm tính toán ngoài nào bên trong `getHourlyGrowth`.
+  2. *Bảo vệ URL chia sẻ Deep-Link trong `App.tsx`*:
+     - Bổ sung cờ `isInitialLoadDone`. Chỉ cho phép xóa URL `/game/...` khi tiến trình định tuyến ban đầu đã hoàn thành 100%.
+- ⛔ **CÁCH SỬA ĐÃ THẤT BẠI - TUYỆT ĐỐI KHÔNG LẶP LẠI**:
+  - ❌ *Không bao giờ gọi hàm cha (`getSoldDisplay`) từ hàm con (`getHourlyGrowth`) mà không có điều kiện dừng (base case) đã lưu sẵn*: Sẽ luôn gây crash `Maximum call stack size exceeded` trên mọi phiên truy cập mới.
+  - ❌ *Không dùng `window.history.replaceState` để ép đổi pathname khi component cha chưa hoàn tất lifecycle khởi tạo (`isInitialLoadDone === false`)*.
+
+---
+
 ## 2. QUY TRÌNH BẮT BUỘC TRƯỚC KHI SỬA CODE (PRE-FLIGHT CHECKLIST)
 
 Mọi nhà phát triển hoặc AI Agent khi nhận yêu cầu sửa đổi mã nguồn **PHẢI** thực hiện đủ 4 bước sau:

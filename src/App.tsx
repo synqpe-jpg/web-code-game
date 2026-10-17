@@ -134,6 +134,7 @@ export const App: React.FC = () => {
   const [isSubmitModalOpen, setIsSubmitModalOpen] = useState(false);
   const [isPlaygroundModalOpen, setIsPlaygroundModalOpen] = useState(false);
   const [isDownloadModalOpen, setIsDownloadModalOpen] = useState(false);
+  const [isInitialLoadDone, setIsInitialLoadDone] = useState(false);
   const [isGrowthCenterOpen, setIsGrowthCenterOpen] = useState(false);
   const [growthInitialTab, setGrowthInitialTab] = useState<'wheel' | 'welcome' | 'referral' | 'checkin' | 'leaderboard'>('wheel');
   const [isGrowthEnabled, setIsGrowthEnabled] = useState(() => {
@@ -483,6 +484,7 @@ export const App: React.FC = () => {
       };
 
       await parseHash();
+      setIsInitialLoadDone(true);
     };
 
     loadInitialData();
@@ -526,7 +528,10 @@ export const App: React.FC = () => {
         window.history.replaceState(null, '', `/game/${selectedGame.slug}`);
       }
     } else {
-      if (window.location.pathname.startsWith('/game/')) {
+      // Do not wipe pathname if initial deep-link routing is still parsing
+      if (!isInitialLoadDone) return;
+
+      if (window.location.pathname.startsWith('/game/') || window.location.pathname.startsWith('/g/')) {
         window.history.replaceState(null, '', '/');
       }
 
@@ -557,7 +562,7 @@ export const App: React.FC = () => {
         }
       }
     }
-  }, [selectedGame, currentTab]);
+  }, [selectedGame, currentTab, isInitialLoadDone]);
 
   // Handle browser popstate and hashchange navigation (Back / Forward buttons & anchors)
   useEffect(() => {
