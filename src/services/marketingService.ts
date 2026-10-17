@@ -414,9 +414,14 @@ class MarketingService {
                     : Math.max(realSold, info.sold);
                   const effectiveSold = canonicalSold + localOrderDelta;
 
-                  this.highWaterSoldCountMap.set(pId, effectiveSold);
-                  this.liveFomoSoldCountMap.set(pId, Math.max(0, effectiveSold - realSold));
-                  this.notifySoldCountChanged(pId, effectiveSold);
+                  // RÀNG BUỘC ĐƠN ĐIỆU TUYỆT ĐỐI (Monotonically Non-Decreasing):
+                  // Tuyệt đối không giật lùi số đã bán nếu client đã tích lũy số bán cao hơn qua thông báo toast
+                  const curHigh = this.highWaterSoldCountMap.get(pId) || 0;
+                  const finalSold = Math.max(curHigh, effectiveSold);
+
+                  this.highWaterSoldCountMap.set(pId, finalSold);
+                  this.liveFomoSoldCountMap.set(pId, Math.max(0, finalSold - realSold));
+                  this.notifySoldCountChanged(pId, finalSold);
 
                   // Chỉ gửi peak report nếu vừa có đơn hàng thật phát sinh tại thiết bị này
                   if (localOrderDelta > 0) {
@@ -490,9 +495,14 @@ class MarketingService {
                     : Math.max(realClaimed, info.claimed);
                   const effectiveClaimed = canonicalClaimed + localGwDelta;
 
-                  this.highWaterClaimedCountMap.set(gId, effectiveClaimed);
-                  this.liveFomoClaimedCountMap.set(gId, Math.max(0, effectiveClaimed - realClaimed));
-                  this.notifySoldCountChanged(gId, effectiveClaimed);
+                  // RÀNG BUỘC ĐƠN ĐIỆU TUYỆT ĐỐI (Monotonically Non-Decreasing):
+                  // Tuyệt đối không giật lùi số đã nhận nếu client đã tích lũy số đã nhận cao hơn qua thông báo toast
+                  const curHigh = this.highWaterClaimedCountMap.get(gId) || 0;
+                  const finalClaimed = Math.max(curHigh, effectiveClaimed);
+
+                  this.highWaterClaimedCountMap.set(gId, finalClaimed);
+                  this.liveFomoClaimedCountMap.set(gId, Math.max(0, finalClaimed - realClaimed));
+                  this.notifySoldCountChanged(gId, finalClaimed);
 
                   // Chỉ gửi peak report nếu vừa có quà tặng thật nhận tại thiết bị này
                   if (localGwDelta > 0) {
@@ -2373,9 +2383,11 @@ class MarketingService {
 
     const calculatedBase = Math.max(0, effectiveBaseTarget + hourlyGrowth + inHourProg);
 
-    // Auto-heal ghost inflated counts: nếu recordedMax lớn hơn calculatedBase + 5 (do Admin vừa hạ/cài lại số ảo) hoặc nhỏ hơn effectiveBaseTarget
-    if (recordedMax > calculatedBase + 5 || (effectiveBaseTarget > 0 && recordedMax < effectiveBaseTarget)) {
-      recordedMax = calculatedBase;
+    // RÀNG BUỘC ĐƠN ĐIỆU TUYỆT ĐỐI (Monotonically Non-Decreasing):
+    // Đảm bảo recordedMax không bao giờ nhỏ hơn mốc sàn tối thiểu (effectiveBaseTarget).
+    // TUYỆT ĐỐI KHÔNG ép lùi recordedMax về calculatedBase khi số lượng đã bán tăng trưởng theo thông báo toast.
+    if (effectiveBaseTarget > 0 && recordedMax < effectiveBaseTarget) {
+      recordedMax = effectiveBaseTarget;
       if (id) {
         this.highWaterSoldCountMap.set(id, recordedMax);
         this.liveFomoSoldCountMap.set(id, Math.max(0, recordedMax - effectiveRealSold));
@@ -2444,9 +2456,11 @@ class MarketingService {
 
     const calculatedBase = Math.max(0, effectiveBaseTarget + hourlyGrowth + inHourProg);
 
-    // Auto-heal ghost inflated counts: nếu recordedMax lớn hơn calculatedBase + 5 (do Admin vừa hạ/cài lại số ảo) hoặc nhỏ hơn effectiveBaseTarget
-    if (recordedMax > calculatedBase + 5 || (effectiveBaseTarget > 0 && recordedMax < effectiveBaseTarget)) {
-      recordedMax = calculatedBase;
+    // RÀNG BUỘC ĐƠN ĐIỆU TUYỆT ĐỐI (Monotonically Non-Decreasing):
+    // Đảm bảo recordedMax không bao giờ nhỏ hơn mốc sàn tối thiểu (effectiveBaseTarget).
+    // TUYỆT ĐỐI KHÔNG ép lùi recordedMax về calculatedBase khi số lượng đã nhận tăng trưởng theo thông báo toast.
+    if (effectiveBaseTarget > 0 && recordedMax < effectiveBaseTarget) {
+      recordedMax = effectiveBaseTarget;
       if (id) {
         this.highWaterClaimedCountMap.set(id, recordedMax);
         this.liveFomoClaimedCountMap.set(id, Math.max(0, recordedMax - effectiveRealClaimed));

@@ -5,6 +5,33 @@ Mỗi mục sửa lỗi đều ghi nhận **Nguyên nhân gốc rễ (Root Cause
 
 ---
 
+## [2026-10-18]
+
+### 69. Khắc Phục Hiện Tượng Số Hàng Đã Bán Bị Giật Lùi Về Mốc Cũ & Đảm Bảo Tăng Trưởng Đơn Điệu Theo Thông Báo Toast
+- **Mô tả & Yêu cầu Người Dùng**:
+  - *"Kiểm tra số hàng hiển thị đã bán bị giật về mốc nào đó, bạn giúp tôi khiến nó tăng trưởng theo thông báo, khong bị giật về giúp tôi với."*
+- **Nguyên nhân gốc rễ (Root Cause)**:
+  1. *Bẫy Auto-heal cứng `+ 5` trong `getSoldDisplay()` & `getClaimedDisplay()` ([`src/services/marketingService.ts`](file:///c:/4%20Antigravity%20all/13%20web%20code%20game/src/services/marketingService.ts))*:
+     - Trước đây tồn tại đoạn code tự động kéo lùi số: `if (recordedMax > calculatedBase + 5) recordedMax = calculatedBase;`.
+     - Khi khách hàng đang lướt trang, các thông báo toast mua hàng (`BUY_PRODUCT`, `CLAIM_GIVEAWAY`) nổ ra và gọi `incrementLiveSoldCount`, làm số hiển thị đã bán tăng lũy kế (+1, +2, +3, +4, +5, +6).
+     - Ngay khi chạm ngưỡng `calculatedBase + 6`, điều kiện `> calculatedBase + 5` trở thành TRUE $\rightarrow$ hệ thống lập tức ép `recordedMax` tụt ngược về `calculatedBase`, ghi đè vào `highWaterSoldCountMap`. Khách hàng thấy số bán tăng được vài đơn rồi đột ngột bị giật lùi về mốc ban đầu.
+  2. *Poller `fetchMetricsSnapshot()` ghi đè không kiểm tra đỉnh ([`marketingService.ts`](file:///c:/4%20Antigravity%20all/13%20web%20code%20game/src/services/marketingService.ts))*:
+     - Định kỳ 15-30 giây, hàm `fetchMetricsSnapshot()` kéo dữ liệu snapshot từ server về và thực hiện `this.highWaterSoldCountMap.set(pId, effectiveSold)` (và tương tự cho giveaways).
+     - Nếu client đã tích lũy số bán cao hơn nhờ các thông báo toast nổ ra trong phiên, snapshot server trả về mốc tĩnh thấp hơn sẽ đè bẹp mốc đỉnh của client và kích hoạt `notifySoldCountChanged`, kéo tụt số lượng đã bán trên giao diện.
+- **Giải pháp toàn diện đã triển khai (Comprehensive Implementation)**:
+  1. *Triệt tiêu hoàn toàn bẫy ép lùi số `recordedMax > calculatedBase + 5`*:
+     - Trong cả `getSoldDisplay()` và `getClaimedDisplay()`, loại bỏ điều kiện tự động ép lùi số.
+     - Thiết lập ràng buộc đơn điệu không giảm (Monotonically Non-Decreasing): Chỉ cho phép cập nhật khi `recordedMax < effectiveBaseTarget` để đảm bảo không bị tụt dưới mốc sàn cấu hình, và `finalDisplay = Math.max(calculatedBase, recordedMax)`. Mọi đơn hàng từ thông báo toast được bảo toàn vĩnh viễn và lũy kế liên tục.
+  2. *Bảo toàn mốc đỉnh tại chu kỳ Poller Snapshot Server*:
+     - Trong `fetchMetricsSnapshot()`, áp dụng `const finalSold = Math.max(curHigh, effectiveSold)` cho sản phẩm và `const finalClaimed = Math.max(curHigh, effectiveClaimed)` cho sự kiện quà tặng.
+     - Server snapshot chỉ nâng số lượng lên khi có mốc cao hơn, tuyệt đối không bao giờ kéo lùi số lượng mà client đã tích lũy qua thông báo toast.
+- **Kết quả kiểm thử & Triển khai**:
+  - Vượt qua bài kiểm tra Zero Test Artifacts 100%.
+  - Biên dịch và build sạch sẽ toàn bộ client và Edge workers.
+  - Tự động triển khai lên Cloudflare Pages (`web-code-game` và `admin-code-game-shop`) và đồng bộ GitHub.
+
+---
+
 ## [2026-10-17]
 
 ### 68. Xây Dựng Hệ Thống Lọc Bài Rác, Phụ Kiện Quảng Cáo Đa Lớp & Công Cụ Dọn Dẹp 1-Click Tombstones Cho Tin Tức Game
