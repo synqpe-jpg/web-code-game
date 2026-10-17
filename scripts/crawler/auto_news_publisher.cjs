@@ -35,6 +35,59 @@ function normalizeVietnamese(str) {
     .trim();
 }
 
+const BLACKLIST_NEWS_KEYWORDS = [
+  // 1. Phụ kiện công nghệ
+  'tui chong soc', 'túi chống sốc', 'balo laptop', 'ba lô laptop',
+  'chuot gaming', 'chuột gaming', 'chuot asus', 'chuột asus', 'chuot logitech', 'chuột logitech',
+  'chuot khong day', 'chuột không dây', 'chuot co day', 'chuột có dây',
+  'ban phim co', 'bàn phím cơ', 'ban phim co day', 'bàn phím có dây', 'ban phim gaming', 'bàn phím gaming',
+  'ban phim khong day', 'bàn phím không dây', 'lot chuot', 'lót chuột',
+  'tai nghe bluetooth', 'tai nghe gaming', 'tai nghe chup tai', 'tai nghe nhét tai', 'tai nghe nhet tai',
+  'headphone', 'earphone', 'cu sac', 'củ sạc', 'cap sac', 'cáp sạc', 'sac du phong', 'sạc dự phòng',
+  'op lung', 'ốp lưng', 'kinh cuong luc', 'kính cường lực', 'dan man hinh', 'dán màn hình',
+  'gia do laptop', 'giá đỡ laptop', 'gia do dien thoai', 'giá đỡ điện thoại', 'de tan nhiet', 'đế tản nhiệt',
+
+  // 2. Thiết bị phần cứng & đồ điện tử
+  'laptop gaming', 'laptop van phong', 'laptop văn phòng', 'macbook', 'ipad pro', 'ipad air',
+  'iphone 15', 'iphone 16', 'samsung galaxy', 'dien thoai thong minh', 'điện thoại thông minh',
+  'card man hinh', 'card màn hình', 'card do hoa', 'card đồ họa', 'vga', 'ram ddr4', 'ram ddr5',
+  'ssd nvme', 'o cung ssd', 'ổ cứng ssd', 'mainboard', 'cpu intel', 'cpu ryzen', 'nguon may tinh', 'nguồn máy tính',
+  'case pc', 'man hinh may tinh', 'màn hình máy tính',
+
+  // 3. Y tế, dịch vụ khám chữa bệnh, tiện ích đời sống ngoài lề
+  'medpro', 'kham benh', 'khám bệnh', 'dat lich kham', 'đặt lịch khám', 'benh vien', 'bệnh viện',
+  'bac si', 'bác sĩ', 'phong kham', 'phòng khám', 'vay tien', 'vay tiền', 'tin dung', 'tín dụng', 'bao hiem', 'bảo hiểm',
+
+  // 4. Bài viết thương mại thuần túy & săn sale bán hàng
+  'dap hop', 'đập hộp', 'tren tay danh gia', 'trên tay đánh giá', 'tra gop 0%', 'trả góp 0%',
+  'gia bao nhieu tien', 'giá bao nhiêu tiền', 'san sale shopee', 'săn sale shopee', 'voucher lazada',
+  'khuyen mai phu kien', 'khuyến mãi phụ kiện', 'xa hang ton kho', 'xả hàng tồn kho'
+];
+
+function isSpamOrAdArticle(title, content = '', url = '') {
+  const combined = `${title || ''} ${url || ''} ${(content || '').slice(0, 1500)}`.toLowerCase();
+  const normalized = normalizeVietnamese(combined);
+
+  for (const keyword of BLACKLIST_NEWS_KEYWORDS) {
+    const normKw = normalizeVietnamese(keyword);
+    if (combined.includes(keyword.toLowerCase()) || normalized.includes(normKw)) {
+      return {
+        isSpam: true,
+        reason: `Chứa từ khóa phụ kiện / quảng cáo: "${keyword}"`,
+      };
+    }
+  }
+
+  if (/^game mobile:\s*(túi|chuột|bàn phím|tai nghe|laptop|medpro|củ sạc|ba lô)/i.test(title || '')) {
+    return {
+      isSpam: true,
+      reason: 'Tiêu đề không thuộc danh mục game',
+    };
+  }
+
+  return { isSpam: false };
+}
+
 function findMatchingGame(text) {
   if (!text || !gamesCatalog || gamesCatalog.length === 0) return null;
   const norm = normalizeVietnamese(text);
@@ -198,6 +251,14 @@ function extractArticleLinksFromListing(html, sourceUrl, keywords) {
     if (!href.startsWith('http')) continue;
 
     const lower = href.toLowerCase();
+    
+    // Bỏ qua ngay lập tức các link chứa từ khóa phụ kiện / quảng cáo trong blacklist
+    const isSpamLink = BLACKLIST_NEWS_KEYWORDS.some(k => {
+      const slugKw = normalizeVietnamese(k).replace(/\s+/g, '-');
+      return lower.includes(slugKw);
+    });
+    if (isSpamLink) continue;
+
     const hasKeyword = keywords.some(k => lower.includes(normalizeVietnamese(k).replace(/\s+/g, '-')) || lower.includes(k.toLowerCase()));
     const isArticlePattern = /(code|giftcode|tin-tuc|bai-viet|huong-dan|\.html|\.chn|\/wiki)/i.test(lower);
 
@@ -211,6 +272,12 @@ function extractArticleLinksFromListing(html, sourceUrl, keywords) {
 
 function generateAutonomousArticle(scraped, sourceUrl) {
   const matchedGame = findMatchingGame(`${sourceUrl} ${scraped.title} ${scraped.content?.slice(0, 500)}`);
+  
+  // NGUYÊN TẮC BẮT BUỘC: Nếu không khớp game nào trong danh mục VÀ không có mã giftcode thật -> TỪ CHỐI TẠO BÀI
+  if (!matchedGame && (!scraped.codes || scraped.codes.length === 0)) {
+    return null;
+  }
+
   const gameName = matchedGame?.name || 'Game Mobile';
   const currentYear = new Date().getFullYear();
 
@@ -237,7 +304,8 @@ function generateAutonomousArticle(scraped, sourceUrl) {
     .replace(/[^a-z0-9]+/g, '-')
     .replace(/^-+|-+$/g, '') + `-${Date.now().toString(36).slice(-4)}`;
 
-  const codes = scraped.codes && scraped.codes.length > 0 ? scraped.codes : ['CODEVIP2026', 'TANTHU999', 'QUATRIAN888'];
+  // TUYỆT ĐỐI KHÔNG BỊA MÃ GIFTCODE ẢO KHI BÀI VIẾT KHÔNG CÓ CODE
+  const codes = scraped.codes && scraped.codes.length > 0 ? scraped.codes : [];
 
   const gameLogo = matchedGame
     ? (matchedGame.cover_image_url || matchedGame.icon_url || (matchedGame.slug ? `/game_icons/${matchedGame.slug}.webp` : ''))
@@ -254,6 +322,10 @@ function generateAutonomousArticle(scraped, sourceUrl) {
     ? paragraphs.join('\n\n')
     : `Bản tin cập nhật mã quà tặng mới nhất dành cho tựa game **${gameName}**. Nhanh tay sao chép các mã code còn hạn sử dụng bên dưới để nhận các phần quà hỗ trợ tăng lực chiến hấp dẫn từ nhà phát hành.`;
 
+  const codeSection = codes.length > 0
+    ? codes.map(c => `- **${c}**: Gói tài nguyên quà tặng độc quyền`).join('\n')
+    : `- Mã quà tặng chi tiết được hiển thị ở bảng thống kê bên dưới.`;
+
   const content = `## 1. Tổng Quan Sự Kiện & Quà Tặng ${gameName}
 
 ${introBody}
@@ -262,7 +334,7 @@ ${introBody}
 
 Dưới đây là các mã quà tặng đã được kiểm duyệt tính hợp lệ. Độc giả có thể bấm sao chép trực tiếp từng mã hiển thị trên website:
 
-${codes.map(c => `- **${c}**: Gói tài nguyên quà tặng độc quyền`).join('\n')}
+${codeSection}
 
 > 💡 **Lưu ý quan trọng:** Mỗi mã quà tặng đều có thời hạn sử dụng và số lượng kích hoạt nhất định. Bạn nên nhập code ngay khi nhận được!
 
@@ -276,8 +348,8 @@ ${codes.map(c => `- **${c}**: Gói tài nguyên quà tặng độc quyền`).joi
 ## 4. Mẹo Nhận Thêm Code Mới & Cẩm Nang Game Thủ
 
 - Theo dõi Fanpage và Group cộng đồng chính thức của ${gameName} để tham gia các sự kiện săn code độc quyền.
-${matchedGame?.slug ? `- Xem toàn bộ thông tin, mẹo chơi và hướng dẫn nạp game tại chuyên trang [${gameName}](https://codegame.store/game/${matchedGame.slug}) trên **CodeGame.store**.` : ''}
-- Thường xuyên ghé thăm **CodeGame.store** để cập nhật nhanh nhất các mã giftcode máy chủ mới.`;
+${matchedGame?.slug ? `- Xem toàn bộ thông tin, mẹo chơi và hướng dẫn nạp game tại chuyên trang [${gameName}](https://codegame.shop/game/${matchedGame.slug}) trên **CodeGame.shop**.` : ''}
+- Thường xuyên ghé thăm **CodeGame.shop** để cập nhật nhanh nhất các mã giftcode máy chủ mới.`;
 
   return {
     id: `news_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
@@ -424,7 +496,20 @@ async function runAutoNewsPublisher() {
         continue;
       }
 
+      // 1. Kiểm tra bộ lọc bài rác / phụ kiện / quảng cáo
+      const spamCheck = isSpamOrAdArticle(scraped.title, scraped.content, link);
+      if (spamCheck.isSpam) {
+        console.warn(`    🚫 [BLACKLIST BLOCKED]: Bài viết quảng cáo/phụ kiện không liên quan: "${scraped.title}" (${spamCheck.reason})`);
+        continue;
+      }
+
+      // 2. Tạo bài viết chuẩn SEO và đối chiếu danh mục
       const newArticle = generateAutonomousArticle(scraped, link);
+      if (!newArticle) {
+        console.warn(`    ⚠️ [CATALOG SKIP]: Bỏ qua bài viết không khớp game trong danh mục và không có giftcode thực: "${scraped.title}"`);
+        continue;
+      }
+
       newArticle.status = scheduleConfig.defaultPublishStatus || 'PUBLISHED';
 
       existingUrls.add(link.toLowerCase().trim());
@@ -493,7 +578,7 @@ async function runAutoNewsPublisher() {
           `🎮 <b>Tựa Game:</b> ${art.game_name}\n` +
           `📝 <b>Tiêu đề:</b> ${art.title}\n` +
           `🎁 <b>Mã Giftcode:</b> ${art.codes.length} mã (${art.codes.slice(0, 4).join(', ')})\n` +
-          `🔗 <b>Xem bài:</b> https://codegame.store/news/${art.slug}\n` +
+          `🔗 <b>Xem bài:</b> https://codegame.shop/news/${art.slug}\n` +
           `⏱️ <b>Nguồn:</b> ${art.source_url}\n` +
           `🚀 <b>Trạng thái:</b> ${art.status === 'PUBLISHED' ? 'Đã công khai trên Web' : 'Lưu bản nháp'}`;
         await sendTelegramAlert(tgToken, tgChat, msg);

@@ -50,7 +50,7 @@ export const DownloadAppModal: React.FC<DownloadAppModalProps> = ({
     }
 
     // Generate local QR Code with 0 external network requests
-    const targetUrl = typeof window !== 'undefined' ? window.location.origin : 'https://codegame.store';
+    const targetUrl = typeof window !== 'undefined' ? window.location.origin : 'https://codegame.shop';
     QRCode.toDataURL(targetUrl, {
       width: 280,
       margin: 2,
@@ -82,7 +82,7 @@ export const DownloadAppModal: React.FC<DownloadAppModalProps> = ({
   };
 
   const handleCopyLink = () => {
-    const targetUrl = typeof window !== 'undefined' ? window.location.origin : 'https://codegame.store';
+    const targetUrl = typeof window !== 'undefined' ? window.location.origin : 'https://codegame.shop';
     navigator.clipboard?.writeText(targetUrl).then(() => {
       setCopiedLink(true);
       setTimeout(() => setCopiedLink(false), 2000);

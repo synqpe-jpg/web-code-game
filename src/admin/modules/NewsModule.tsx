@@ -56,6 +56,7 @@ import { SearchableGameSelect } from '../components/ui/SearchableGameSelect';
 import { GameAdminRecord } from '../types/adminTypes';
 import { smartVietnameseMatch, normalizeVietnamese } from '../../utils/textUtils';
 import { compressImageFile, optimizeImageUrl, formatBytes } from '../../utils/imageCompressor';
+import { isSpamOrAdArticle } from '../../utils/newsFilterUtils';
 
 interface NewsModuleProps {
   onShowToast: (title: string, message?: string, type?: 'success' | 'error' | 'info') => void;
@@ -151,6 +152,10 @@ export const NewsModule: React.FC<NewsModuleProps> = ({ onShowToast }) => {
   });
   const [newSourceKeywordsInput, setNewSourceKeywordsInput] = useState('code, giftcode, tân thủ');
 
+  // Spam Cleanup state
+  const [isCleaningSpam, setIsCleaningSpam] = useState(false);
+  const [isSpamConfirmModalOpen, setIsSpamConfirmModalOpen] = useState(false);
+
   // Load initial data
   const loadData = () => {
     const list = newsService.getAllArticles();
@@ -197,6 +202,35 @@ export const NewsModule: React.FC<NewsModuleProps> = ({ onShowToast }) => {
     const featuredCount = articles.filter((a) => a.is_featured).length;
     return { total: articles.length, totalViews, totalCodes, publishedCount, featuredCount };
   }, [articles]);
+
+  // Danh sách bài viết bị phát hiện là rác / phụ kiện / quảng cáo
+  const detectedSpamArticles = useMemo(() => {
+    return articles
+      .map((a) => {
+        const res = isSpamOrAdArticle(a.title, `${a.excerpt || ''} ${a.content || ''}`, a.slug);
+        return { article: a, isSpam: res.isSpam, reason: res.reason };
+      })
+      .filter((item) => item.isSpam);
+  }, [articles]);
+
+  // Xử lý dọn dẹp bài rác 1 chạm
+  const handleConfirmCleanupSpam = async () => {
+    setIsCleaningSpam(true);
+    try {
+      const result = await newsService.cleanupSpamArticles();
+      setArticles(newsService.getAllArticles());
+      setIsSpamConfirmModalOpen(false);
+      onShowToast(
+        'Đã dọn dẹp sạch sẽ! 🧹',
+        `Đã xóa vĩnh viễn ${result.deletedCount} bài viết rác/quảng cáo và lưu vào danh sách Tombstones ngăn chặn hồi sinh.`,
+        'success'
+      );
+    } catch (err: any) {
+      onShowToast('Lỗi dọn dẹp', err?.message || 'Không thể dọn dẹp bài viết rác', 'error');
+    } finally {
+      setIsCleaningSpam(false);
+    }
+  };
 
   // Handle open create new article
   const handleOpenCreate = () => {
@@ -663,11 +697,20 @@ export const NewsModule: React.FC<NewsModuleProps> = ({ onShowToast }) => {
         }
       }
 
-      onShowToast(
-        'Bóc tách thành công! ⚡',
-        `Đã đọc nội dung bài viết | Tìm thấy ${data.codes?.length || 0} mã code | ${data.images?.length || 0} ảnh`,
-        'success'
-      );
+      const spamCheck = isSpamOrAdArticle(data.title || '', data.content || '', url);
+      if (spamCheck.isSpam) {
+        onShowToast(
+          'Cảnh báo bài rác / phụ kiện ⚠️',
+          `Bài viết này có thể là quảng cáo hoặc phụ kiện (${spamCheck.reason}).`,
+          'error'
+        );
+      } else {
+        onShowToast(
+          'Bóc tách thành công! ⚡',
+          `Đã đọc nội dung bài viết | Tìm thấy ${data.codes?.length || 0} mã code | ${data.images?.length || 0} ảnh`,
+          'success'
+        );
+      }
     } catch (err: any) {
       onShowToast('Lỗi kết nối', 'Không thể kết nối máy chủ bóc tách. Bạn hãy dán trực tiếp nội dung bài báo vào ô.', 'error');
     } finally {
@@ -902,6 +945,50 @@ export const NewsModule: React.FC<NewsModuleProps> = ({ onShowToast }) => {
           continue;
         }
 
+        // Kiểm tra bộ lọc bài rác / phụ kiện / quảng cáo
+        const spamCheck = isSpamOrAdArticle(data.title || '', data.content || '', item.url);
+        if (spamCheck.isSpam) {
+          error++;
+          setBulkResults((prev) =>
+            prev.map((it, idx) =>
+              idx === i
+                ? {
+                    ...it,
+                    status: 'error',
+                    title: data.title,
+                    errorMsg: `Đã loại bỏ tự động (Quảng cáo/Phụ kiện: ${spamCheck.reason})`,
+                  }
+                : it
+            )
+          );
+          setBulkProgress((prev) => ({ ...prev, errorCount: error }));
+          continue;
+        }
+
+        // Tự động nhận diện Game
+        const matchedGame = bulkAutoDetectGame
+          ? findMatchingGameForBulk(item.url, data.title, data.content)
+          : null;
+
+        // Nếu không khớp game trong danh mục và không có mã giftcode thật -> bỏ qua
+        if (!matchedGame && (!data.codes || data.codes.length === 0)) {
+          error++;
+          setBulkResults((prev) =>
+            prev.map((it, idx) =>
+              idx === i
+                ? {
+                    ...it,
+                    status: 'error',
+                    title: data.title,
+                    errorMsg: 'Bỏ qua do không khớp game trong danh mục và không có mã code',
+                  }
+                : it
+            )
+          );
+          setBulkProgress((prev) => ({ ...prev, errorCount: error }));
+          continue;
+        }
+
         // Đang viết lại bài bằng AI
         setBulkResults((prev) =>
           prev.map((it, idx) =>
@@ -915,11 +1002,6 @@ export const NewsModule: React.FC<NewsModuleProps> = ({ onShowToast }) => {
               : it
           )
         );
-
-        // Tự động nhận diện Game
-        const matchedGame = bulkAutoDetectGame
-          ? findMatchingGameForBulk(item.url, data.title, data.content)
-          : null;
 
         // Viết lại nội dung độc quyền chuẩn SEO
         const rewritten = newsService.rewriteArticleWithAi({
@@ -1367,6 +1449,36 @@ export const NewsModule: React.FC<NewsModuleProps> = ({ onShowToast }) => {
             <RefreshCw className={`w-3.5 h-3.5 ${isSyncing ? 'animate-spin text-primary' : ''}`} />
             <span>{isSyncing ? 'Đang đồng bộ...' : 'Đồng bộ D1'}</span>
           </button>
+
+          {/* Spam Cleanup button */}
+          <button
+            type="button"
+            onClick={() => {
+              if (detectedSpamArticles.length === 0) {
+                onShowToast(
+                  'Kho tin tức sạch sẽ ✨',
+                  'Không phát hiện bất kỳ bài viết quảng cáo hoặc phụ kiện rác nào trong hệ thống!',
+                  'success'
+                );
+                return;
+              }
+              setIsSpamConfirmModalOpen(true);
+            }}
+            className={`flex items-center gap-1.5 px-3.5 py-2.5 rounded-2xl font-bold text-xs border transition-all active:scale-95 cursor-pointer shadow-sm ${
+              detectedSpamArticles.length > 0
+                ? 'bg-rose-500/15 border-rose-500/35 text-rose-300 hover:bg-rose-500/25'
+                : 'bg-muted hover:bg-muted/80 text-muted-foreground border-border/80'
+            }`}
+            title="Quét và xóa vĩnh viễn các bài viết phụ kiện, quảng cáo không liên quan game"
+          >
+            <Trash2 className={`w-3.5 h-3.5 ${detectedSpamArticles.length > 0 ? 'text-rose-400' : 'text-muted-foreground'}`} />
+            <span>Dọn Bài Rác</span>
+            {detectedSpamArticles.length > 0 && (
+              <span className="px-1.5 py-0.2 rounded-full bg-rose-600 text-white font-mono text-[10px] font-black">
+                {detectedSpamArticles.length}
+              </span>
+            )}
+          </button>
         </div>
       </div>
 
@@ -1519,12 +1631,22 @@ export const NewsModule: React.FC<NewsModuleProps> = ({ onShowToast }) => {
                           }}
                         />
                         <div className="space-y-0.5 min-w-0 flex-1 overflow-hidden">
-                          <div
-                            className="font-bold text-foreground truncate text-xs hover:text-primary transition-colors cursor-pointer"
-                            title={art.title}
-                            onClick={() => handleOpenEdit(art)}
-                          >
-                            {art.title}
+                          <div className="flex items-center gap-1.5 flex-wrap">
+                            <span
+                              className="font-bold text-foreground truncate text-xs hover:text-primary transition-colors cursor-pointer"
+                              title={art.title}
+                              onClick={() => handleOpenEdit(art)}
+                            >
+                              {art.title}
+                            </span>
+                            {isSpamOrAdArticle(art.title, `${art.excerpt || ''} ${art.content || ''}`, art.slug).isSpam && (
+                              <span
+                                className="shrink-0 px-1.5 py-0.2 rounded bg-rose-500/20 text-rose-300 text-[10px] font-bold border border-rose-500/35"
+                                title="Bài viết chứa từ khóa phụ kiện / quảng cáo không liên quan game"
+                              >
+                                ⚠️ Rác
+                              </span>
+                            )}
                           </div>
                           <div className="text-[10px] text-muted-foreground truncate font-mono">
                             /news/{art.slug}
@@ -3609,6 +3731,119 @@ export const NewsModule: React.FC<NewsModuleProps> = ({ onShowToast }) => {
                   className="px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white font-bold text-xs transition-all cursor-pointer"
                 >
                   Đóng
+                </button>
+              </div>
+            </div>
+          </div>,
+          document.body
+        )}
+
+      {/* 5. Spam Cleanup Confirmation Modal */}
+      {isSpamConfirmModalOpen &&
+        typeof document !== 'undefined' &&
+        createPortal(
+          <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-black/80 backdrop-blur-md animate-fade-in">
+            <div className="bg-slate-900 border border-slate-700/80 rounded-3xl w-full max-w-2xl max-h-[90vh] flex flex-col overflow-hidden shadow-2xl animate-scale-up">
+              {/* Header */}
+              <div className="p-5 border-b border-slate-800 flex items-center justify-between bg-slate-950/50">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-2xl bg-rose-500/20 border border-rose-500/40 flex items-center justify-center text-rose-400">
+                    <Trash2 className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <h2 className="text-base font-black text-white flex items-center gap-2">
+                      <span>Quét & Dọn Dẹp Bài Viết Rác</span>
+                      <span className="px-2 py-0.5 rounded-full bg-rose-600 text-white font-mono text-xs">
+                        {detectedSpamArticles.length} bài
+                      </span>
+                    </h2>
+                    <p className="text-xs text-slate-400">
+                      Tự động phát hiện bài quảng cáo, phụ kiện công nghệ hoặc không liên quan đến game.
+                    </p>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setIsSpamConfirmModalOpen(false)}
+                  className="w-8 h-8 rounded-full bg-slate-800 hover:bg-slate-700 flex items-center justify-center text-slate-400 hover:text-white transition-colors cursor-pointer"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+
+              {/* Body */}
+              <div className="p-5 overflow-y-auto space-y-4 flex-1">
+                <div className="p-3.5 rounded-2xl bg-rose-500/10 border border-rose-500/30 text-rose-300 text-xs flex items-start gap-2.5">
+                  <AlertCircle className="w-4 h-4 shrink-0 text-rose-400 mt-0.5" />
+                  <div>
+                    <div className="font-bold text-rose-200">Lưu ý quan trọng về cơ chế Tombstone:</div>
+                    <div className="mt-1 text-slate-300">
+                      Khi bấm xác nhận xóa, các bài viết này sẽ bị xóa khỏi cơ sở dữ liệu và mã nhận diện (ID &amp; Slug) sẽ được lưu vào danh sách <b>Tombstones</b> trên máy chủ Cloudflare D1. Việc này đảm bảo các bài viết rác này sẽ <b>không bao giờ bị cào lại hoặc tự động hồi sinh</b> trong tương lai!
+                    </div>
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <div className="text-xs font-bold text-slate-300 flex items-center justify-between">
+                    <span>Danh sách {detectedSpamArticles.length} bài viết sẽ được dọn dẹp:</span>
+                  </div>
+
+                  <div className="max-h-[300px] overflow-y-auto space-y-2 pr-1">
+                    {detectedSpamArticles.map(({ article, reason }) => (
+                      <div
+                        key={article.id}
+                        className="p-3 rounded-2xl bg-slate-800/60 border border-slate-700/60 flex items-center justify-between gap-3 text-xs"
+                      >
+                        <div className="min-w-0 flex-1 space-y-1">
+                          <div className="font-bold text-white truncate" title={article.title}>
+                            {article.title}
+                          </div>
+                          <div className="flex items-center gap-2 flex-wrap text-[11px]">
+                            <span className="text-rose-400 font-semibold">
+                              ⚠️ Lý do: {reason}
+                            </span>
+                            <span className="text-slate-500 font-mono">
+                              /news/{article.slug}
+                            </span>
+                          </div>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            handleDelete(article.id);
+                          }}
+                          className="px-2.5 py-1 rounded-xl bg-slate-700 hover:bg-rose-600 text-slate-300 hover:text-white text-[11px] font-bold transition-all shrink-0 cursor-pointer"
+                        >
+                          Xóa lẻ
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+
+              {/* Footer */}
+              <div className="p-4 border-t border-slate-800 bg-slate-950/60 flex items-center justify-between gap-3">
+                <button
+                  type="button"
+                  disabled={isCleaningSpam}
+                  onClick={() => setIsSpamConfirmModalOpen(false)}
+                  className="px-4 py-2.5 rounded-2xl bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white font-bold text-xs transition-all cursor-pointer"
+                >
+                  Hủy Bỏ
+                </button>
+                <button
+                  type="button"
+                  disabled={isCleaningSpam || detectedSpamArticles.length === 0}
+                  onClick={handleConfirmCleanupSpam}
+                  className="flex items-center gap-2 px-5 py-2.5 rounded-2xl bg-gradient-to-r from-rose-600 to-red-600 hover:from-rose-500 hover:to-red-500 text-white font-black text-xs shadow-lg hover:shadow-rose-600/30 transition-all active:scale-95 cursor-pointer disabled:opacity-50"
+                >
+                  <Trash2 className="w-4 h-4" />
+                  <span>
+                    {isCleaningSpam
+                      ? 'Đang xóa & đồng bộ D1...'
+                      : `Xác Nhận Xóa Sạch (${detectedSpamArticles.length} bài)`}
+                  </span>
                 </button>
               </div>
             </div>

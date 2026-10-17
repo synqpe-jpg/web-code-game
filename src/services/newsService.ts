@@ -1,6 +1,7 @@
 import type { NewsArticle, GameItem } from '../types/game';
 import { DEFAULT_NEWS_ARTICLES } from '../data/seedNews';
 import { smartVietnameseMatch } from '../utils/textUtils';
+import { isSpamOrAdArticle } from '../utils/newsFilterUtils';
 import type { NewsAutoSource, NewsScheduleConfig, NewsCrawlLogItem } from '../types/newsAutomation';
 import { DEFAULT_NEWS_AUTO_SOURCES, DEFAULT_NEWS_SCHEDULE_CONFIG } from '../types/newsAutomation';
 
@@ -481,6 +482,58 @@ class NewsService {
   }
 
   /**
+   * Phát hiện các bài viết spam, rác, phụ kiện quảng cáo hiện có trong kho
+   */
+  public detectSpamArticles(): NewsArticle[] {
+    return this.articles.filter((a) => {
+      const res = isSpamOrAdArticle(a.title, `${a.excerpt || ''} ${a.content || ''}`, a.slug);
+      return res.isSpam;
+    });
+  }
+
+  /**
+   * Admin: Tự động quét và dọn dẹp toàn bộ bài viết spam, rác quảng cáo
+   * Đưa vào danh sách Tombstones ngăn hồi sinh vĩnh viễn
+   */
+  public async cleanupSpamArticles(): Promise<{ deletedCount: number; deletedTitles: string[] }> {
+    const spamList = this.detectSpamArticles();
+    if (spamList.length === 0) {
+      return { deletedCount: 0, deletedTitles: [] };
+    }
+
+    const deletedTitles: string[] = [];
+    for (const item of spamList) {
+      deletedTitles.push(item.title);
+      this.deletedArticleIds.add(item.id);
+      if (item.slug) {
+        this.deletedArticleIds.add(item.slug);
+      }
+    }
+
+    const spamIdSet = new Set(spamList.map((a) => a.id));
+    const spamSlugSet = new Set(spamList.map((a) => a.slug).filter(Boolean));
+
+    this.articles = this.articles.filter(
+      (a) => !spamIdSet.has(a.id) && (!a.slug || !spamSlugSet.has(a.slug))
+    );
+
+    if (typeof window !== 'undefined') {
+      try {
+        localStorage.setItem(STORAGE_DELETED_KEY, JSON.stringify(Array.from(this.deletedArticleIds)));
+      } catch {}
+    }
+
+    this.saveToStorage();
+
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('wcg_news_updated', { detail: this.articles }));
+    }
+
+    await this.syncToCloudflareServer();
+    return { deletedCount: spamList.length, deletedTitles };
+  }
+
+  /**
    * Gửi dữ liệu bài viết lên máy chủ Cloudflare D1
    */
   public async syncArticlesToCloudflare(): Promise<boolean> {
@@ -544,7 +597,7 @@ class NewsService {
         tags = ['Giftcode Mới', 'Mã Quà Tặng', gameName, 'Code Tân Thủ'];
         content = `## Danh Sách Mã Giftcode ${gameName} Mới Nhất Hôm Nay
 
-Ban biên tập **CodeGame.store** gửi tặng cộng đồng game thủ danh sách các mã quà tặng giftcode mới nhất dành cho tựa game **${gameName}** ${pubPhrase}.
+Ban biên tập **CodeGame.shop** gửi tặng cộng đồng game thủ danh sách các mã quà tặng giftcode mới nhất dành cho tựa game **${gameName}** ${pubPhrase}.
 
 ### 1. Danh Sách Mã Code Còn Hạn Sử Dụng
 Toàn bộ mã bên dưới đã được đối chiếu kiểm tra thực tế trong game. Hãy nhanh tay sao chép và nhập ngay trước khi hết hạn sử dụng!
@@ -570,7 +623,7 @@ Tựa game **${gameName}** (${pubPhrase}) vừa chính thức phát hành phiên
 - **Sự Kiện Đăng Nhập 7 Ngày**: Đăng nhập liên tục trong tuần đầu phát hành bản cập nhật để nhận miễn phí rương bảo thạch và vàng khóa.
 
 ### 2. Danh Sách Giftcode Áp Dụng Cho Phiên Bản Này
-Ban quản trị **CodeGame.store** đã tổng hợp và kiểm tra tính hợp lệ của toàn bộ mã giftcode mới nhất dành cho ${gameName}. Hãy sử dụng danh sách mã code bên dưới để nhận ngay quà tặng khởi đầu thuận lợi!
+Ban quản trị **CodeGame.shop** đã tổng hợp và kiểm tra tính hợp lệ của toàn bộ mã giftcode mới nhất dành cho ${gameName}. Hãy sử dụng danh sách mã code bên dưới để nhận ngay quà tặng khởi đầu thuận lợi!
 
 ### 3. Hướng Dẫn Cách Nhập Code Nhận Quà
 1. Mở trò chơi **${gameName}** trên thiết bị của bạn.
@@ -616,7 +669,7 @@ Nhiều người chơi mới thường bối rối không tìm thấy nơi nhậ
 - Mỗi mã code chỉ có thể sử dụng 1 lần cho 1 nhân vật.
 
 ### 3. Danh Sách Mã Đang Hoạt Động 100%
-Dưới đây là bộ mã đã được hệ thống CodeGame.store xác thực kiểm duyệt thành công!`;
+Dưới đây là bộ mã đã được hệ thống CodeGame.shop xác thực kiểm duyệt thành công!`;
         break;
 
       case 'event':
@@ -699,7 +752,7 @@ Nhanh tay sao chép ngay danh sách mã quà tặng bên dưới để không b�
       .replace(/###?\s*Tiêu đề mục (?:lớn|nhỏ)\n*/gi, '')
       .replace(/\*\*Văn bản in đậm\*\*\n*/gi, '')
       .replace(/>\s*💡\s*\*\*Lưu ý:\*\*\s*Nội dung nhắc nhở game thủ\.\.\.\n*/gi, '')
-      .replace(/CodeGame\.shop/gi, 'CodeGame.store')
+      .replace(/CodeGame\.store/gi, 'CodeGame.shop')
       .trim();
 
     // 1. Quét thêm mã giftcode từ nội dung
@@ -795,7 +848,7 @@ ${finalCodes.length > 0 ? finalCodes.map((c) => `- **${c}**: Gói quà tri ân &
 
 ## 4. Mẹo Chơi Game & Cách Nhận Thêm Code Mới
 - Theo dõi Fanpage và Group cộng đồng chính thức của ${gameName} để tham gia các minigame săn code độc quyền.
-- Thường xuyên ghé thăm **CodeGame.store** để cập nhật nhanh nhất các mã giftcode máy chủ mới và sự kiện đua TOP.`;
+- Thường xuyên ghé thăm **CodeGame.shop** để cập nhật nhanh nhất các mã giftcode máy chủ mới và sự kiện đua TOP.`;
 
     const gameLogo =
       params.game?.banner_url ||

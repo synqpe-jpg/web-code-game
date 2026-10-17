@@ -554,7 +554,7 @@ export const NewsDetailModal: React.FC<NewsDetailModalProps> = ({
           {/* Bottom Close Bar & Actions */}
           <div className="pt-6 pb-2 border-t border-border/80 flex flex-col sm:flex-row items-center justify-between gap-3">
             <div className="text-xs text-muted-foreground flex items-center gap-2">
-              <span>Bản quyền nội dung: CodeGame.store</span>
+              <span>Bản quyền nội dung: CodeGame.shop</span>
               <span>•</span>
               <span>Cập nhật: {formattedDate}</span>
             </div>
