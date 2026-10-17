@@ -18,6 +18,7 @@ const fs = require('fs');
 const path = require('path');
 const https = require('https');
 const http = require('http');
+const { downloadAndSaveGameIcon } = require('./engine/game_logo_resolver.cjs');
 
 try {
   require('dotenv').config({ path: path.resolve(__dirname, '../../.env') });
@@ -516,6 +517,13 @@ async function runGooglePlayCrawler() {
       } else {
         // --- NHÁNH 2: ĐƯA VÀO HÀNG CHỜ DUYỆT TAY (PENDING MODERATION QUEUE) ---
         console.log(`[Queue] 📋 ĐƯA VÀO CHỜ DUYỆT TAY: "${details.name}" (${details.developer})`);
+        
+        // Tải trước icon về kho nội bộ
+        let localIconPath = null;
+        if (details.iconUrl) {
+          localIconPath = await downloadAndSaveGameIcon(slug, details.iconUrl);
+        }
+
         newPendingGames.push({
           id: `gp_${pkg.replace(/[^a-zA-Z0-9]/g, '_')}`,
           name: details.name,
@@ -526,6 +534,7 @@ async function runGooglePlayCrawler() {
           rating: details.rating,
           installs: details.installs,
           iconUrl: details.iconUrl,
+          localIconPath: localIconPath || `/game_icons/${slug}.webp`,
           playStoreUrl: details.playStoreUrl,
           description: details.description,
           releaseDate: details.releaseDate,

@@ -738,6 +738,32 @@ export const CrawlerModule: React.FC<CrawlerModuleProps> = ({ onShowToast }) => 
     }
   };
 
+  // Edit Game Logo
+  const handleEditGameLogo = async (gameId: string) => {
+    const targetGame = pendingGames.find((g) => g.id === gameId || g.slug === gameId);
+    if (!targetGame) return;
+
+    const newUrl = window.prompt(
+      `Nhập URL logo chính xác cho game "${targetGame.name}":`,
+      targetGame.iconUrl || ''
+    );
+    if (!newUrl || !newUrl.trim() || newUrl.trim() === targetGame.iconUrl) return;
+
+    try {
+      const res = await adminDataService.updatePendingGameLogo(gameId, newUrl.trim());
+      if (res.success) {
+        onShowToast('Cập nhật logo thành công! 🖼️', `Đã cập nhật logo mới cho game "${targetGame.name}".`, 'success');
+        setPendingGames((prev) =>
+          prev.map((g) => (g.id === gameId || g.slug === gameId ? { ...g, iconUrl: newUrl.trim() } : g))
+        );
+      } else {
+        onShowToast('Lỗi cập nhật logo', res.message || 'Không thể cập nhật logo.', 'error');
+      }
+    } catch (e: any) {
+      onShowToast('Lỗi kết nối', e?.message || 'Không thể kết nối máy chủ.', 'error');
+    }
+  };
+
   // Bulk Approve Games
   const handleBulkApproveGames = async () => {
     if (selectedGameIds.length === 0) return;
@@ -2463,15 +2489,33 @@ export const CrawlerModule: React.FC<CrawlerModuleProps> = ({ onShowToast }) => 
                         </button>
 
                         {/* Game Icon */}
-                        <div className="w-14 h-14 rounded-2xl overflow-hidden bg-slate-950 border border-slate-700/60 shrink-0 shadow-md">
+                        <div className="w-14 h-14 rounded-2xl overflow-hidden bg-slate-950 border border-slate-700/60 shrink-0 shadow-md relative group/icon">
                           <img
-                            src={game.iconUrl || '/game_icons/placeholder.webp'}
+                            src={
+                              game.localIconPath ||
+                              (game.iconUrl && (game.iconUrl.includes('play-lh.googleusercontent.com') || game.iconUrl.startsWith('/'))
+                                ? game.iconUrl
+                                : (game.iconUrl ? `/api/game-icon?slug=${game.slug}&url=${encodeURIComponent(game.iconUrl)}` : `/game_icons/${game.slug}.webp`))
+                            }
                             alt={game.name}
                             className="w-full h-full object-cover"
                             onError={(e: any) => {
-                              e.currentTarget.src = 'https://api.dicebear.com/7.x/identicon/svg?seed=' + game.slug;
+                              if (!e.currentTarget.dataset.retried) {
+                                e.currentTarget.dataset.retried = '1';
+                                e.currentTarget.src = `/game_icons/${game.slug}.webp`;
+                                return;
+                              }
+                              e.currentTarget.src = `data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64"><rect width="64" height="64" rx="16" fill="%230f172a"/><rect x="2" y="2" width="60" height="60" rx="14" fill="none" stroke="%23334155" stroke-width="2"/><text x="50%" y="54%" font-family="sans-serif" font-size="20" font-weight="bold" fill="%2334d399" text-anchor="middle" dominant-baseline="middle">${encodeURIComponent((game.name || 'G').slice(0, 2).toUpperCase())}</text></svg>`;
                             }}
                           />
+                          <button
+                            type="button"
+                            onClick={() => handleEditGameLogo(game.id)}
+                            className="absolute inset-0 bg-black/60 opacity-0 group-hover/icon:opacity-100 flex items-center justify-center transition-opacity cursor-pointer text-white"
+                            title="Nhấn để đổi logo game này"
+                          >
+                            <Edit className="w-4 h-4 text-emerald-400" />
+                          </button>
                         </div>
 
                         {/* Title & Developer */}
@@ -2568,6 +2612,16 @@ export const CrawlerModule: React.FC<CrawlerModuleProps> = ({ onShowToast }) => 
                           title="Bỏ qua game này"
                         >
                           Bỏ qua
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={() => handleEditGameLogo(game.id)}
+                          className="px-2.5 py-1.5 rounded-xl bg-slate-800/80 hover:bg-slate-700 text-slate-300 text-xs font-medium transition-colors cursor-pointer flex items-center gap-1 border border-slate-700/50"
+                          title="Chỉnh sửa hoặc đổi URL logo"
+                        >
+                          <Edit className="w-3 h-3 text-emerald-400" />
+                          <span>Logo</span>
                         </button>
 
                         <button

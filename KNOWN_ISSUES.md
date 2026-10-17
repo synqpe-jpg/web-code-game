@@ -709,6 +709,23 @@
 
 ---
 
+### ISSUE-039: Logo Game Quét Được Bị Lỗi Hiển Thị & Biến Dạng Thành Khối DiceBear Identicon
+- **Triệu chứng**:
+  - Trong trang Quản trị Admin (tab "Crawler & Auto Sync"), toàn bộ các game cào về từ CodeMoi hoặc các nguồn ngoài bị lỗi tải ảnh và biến dạng thành các hình khối pixel / avatar vuông ngẫu nhiên (DiceBear identicon).
+- **Nguyên nhân gốc rễ**:
+  1. *Lỗi ngắt kết nối ECONNRESET & Chặn Adblock*: Tên miền nguồn ngoài (`codemoi.net`) thường xuyên bị ngắt kết nối hoặc chặn cross-origin. Ngoài ra, trình duyệt Cốc Cốc / Adblock chặn tài nguyên từ domain này.
+  2. *Fallback DiceBear*: Sự kiện `onError` trong thẻ `<img>` thay thế bằng `https://api.dicebear.com/7.x/identicon/svg?seed=...`, làm mất hoàn toàn nhận diện game.
+  3. *Thiếu tầng tra cứu Google Play & Lưu trữ nội bộ*: Hệ thống chưa tự động tra cứu logo chính thức từ Google Play CDN (`play-lh.googleusercontent.com`) và chưa tải về lưu trữ nội bộ tại `public/game_icons/{slug}.webp`.
+- **Giải pháp chuẩn đã kiểm chứng**:
+  1. *Engine `game_logo_resolver.cjs`*: Tự động tra cứu Google Play Store VN, lấy logo WebP 512x512/256x256 sắc nét và tải về lưu cố định vào `public/game_icons/{slug}.webp` cùng bản `.jpg` cho Open Graph.
+  2. *Edge Image Proxy (`functions/api/game-icon.ts`)*: Cung cấp endpoint proxy an toàn tại Cloudflare Edge chống 100% việc bị chặn bởi AdBlock.
+  3. *Giao diện Admin thông minh*: Thẻ ảnh ưu tiên nạp từ local icon hoặc Google Play CDN hoặc Edge Proxy; xóa bỏ hoàn toàn fallback DiceBear; bổ sung nút "🖼️ Logo" cho phép Admin đổi link logo nhanh chóng.
+- ⛔ **CÁCH SỬA ĐÃ THẤT BẠI - TUYỆT ĐỐI KHÔNG LẶP LẠI**:
+  - ❌ *Không phụ thuộc trực tiếp vào link ảnh của các web cào (`codemoi.net/covers/...`)*: Dễ bị ECONNRESET, chặn cross-origin, hoặc bị Adblock/Anti-tracking của trình duyệt chặn hoàn toàn.
+  - ❌ *Không dùng DiceBear identicon làm fallback cho logo game*: Gây mất thẩm mỹ và khiến Admin không nhận diện được game để duyệt.
+
+---
+
 ## 2. QUY TRÌNH BẮT BUỘC TRƯỚC KHI SỬA CODE (PRE-FLIGHT CHECKLIST)
 
 Mọi nhà phát triển hoặc AI Agent khi nhận yêu cầu sửa đổi mã nguồn **PHẢI** thực hiện đủ 4 bước sau:

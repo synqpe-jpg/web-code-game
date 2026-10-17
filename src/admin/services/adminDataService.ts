@@ -3693,6 +3693,34 @@ class AdminDataService {
     }
   }
 
+  public async updatePendingGameLogo(id: string, iconUrl: string, playStoreUrl?: string): Promise<{ success: boolean; message?: string }> {
+    try {
+      const res = await fetch('/api/sync', {
+        method: 'POST',
+        headers: this.getAuthHeaders(),
+        body: JSON.stringify({
+          action: 'update_pending_game_logo',
+          pendingId: id,
+          iconUrl,
+          playStoreUrl,
+        }),
+      });
+      const data = await res.json();
+      if (data && data.success) {
+        const idx = this.pendingGames.findIndex((p) => p && (p.id === id || p.slug === id));
+        if (idx !== -1) {
+          this.pendingGames[idx].iconUrl = iconUrl;
+          if (playStoreUrl) this.pendingGames[idx].playStoreUrl = playStoreUrl;
+          this.setPendingGames(this.pendingGames);
+        }
+        return { success: true, message: data.message };
+      }
+      return { success: false, message: data.error || 'Cập nhật logo thất bại' };
+    } catch (e: any) {
+      return { success: false, message: e?.message || 'Lỗi kết nối khi cập nhật logo' };
+    }
+  }
+
   public async batchApprovePendingGames(ids: string[]): Promise<{ success: boolean; message?: string; approvedCount?: number }> {
     try {
       const res = await fetch('/api/sync', {

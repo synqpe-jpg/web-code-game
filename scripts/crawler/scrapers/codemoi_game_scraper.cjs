@@ -18,6 +18,7 @@ const fs = require('fs');
 const path = require('path');
 const https = require('https');
 const http = require('http');
+const { resolveAndPersistGameLogo } = require('../engine/game_logo_resolver.cjs');
 
 try {
   require('dotenv').config({ path: path.resolve(__dirname, '../../../.env') });
@@ -418,16 +419,23 @@ async function runCodemoiGameCrawler(options = {}) {
     baseSlugSet.add(baseSlug);
     baseSlugSet.add(baseName);
 
+    // Tự động tìm kiếm & tải Logo chính xác từ Google Play Store VN
+    const resolvedLogo = await resolveAndPersistGameLogo({
+      slug,
+      name: item.name,
+      developer: item.publisher,
+      iconUrl: item.iconUrl,
+    });
+
+    const finalIcon = resolvedLogo.localIconPath || resolvedLogo.iconUrl;
+    const finalPlayStoreUrl = resolvedLogo.playStoreUrl || '';
+    const finalPackageId = resolvedLogo.packageId || slug;
+
     const isAutoPublish = checkAutoPublishEligibility(item, autoPublishConfig);
 
     if (isAutoPublish) {
       // --- NHÁNH 1: TỰ ĐỘNG ĐĂNG 100% (AUTO-PUBLISH) ---
       console.log(`[Auto-Publish] ⭐ ĐỦ TIÊU CHUẨN ĐĂNG NGAY: "${item.name}" (${item.publisher})`);
-
-      let finalIconPath = item.iconUrl;
-      if (autoPublishConfig.autoDownloadIcons && item.iconUrl) {
-        finalIconPath = await downloadAndSaveIcon(slug, item.iconUrl) || item.iconUrl;
-      }
 
       const newGameRecord = {
         id: slug,
@@ -436,15 +444,15 @@ async function runCodemoiGameCrawler(options = {}) {
         publisher: item.publisher,
         category: 'Nhập Vai',
         rating: 4.8,
-        icon_url: finalIconPath,
-        cover_image_url: finalIconPath,
+        icon_url: finalIcon,
+        cover_image_url: finalIcon,
         banner_url: '',
         description: `${item.name} là tựa game mobile mới phát hành chính thức bởi ${item.publisher}. ${item.releaseInfo ? 'Lịch phát hành: ' + item.releaseInfo + '.' : ''}`,
         short_description: `${item.name} - Game Mobile Mới`,
         instructions: 'Bước 1: Mở game > Nhấn Avatar nhân vật\nBước 2: Chọn Cài đặt > Nhập Giftcode\nBước 3: Dán mã và nhấn Xác nhận.',
         platform: 'Android, iOS, PC',
         release_date: item.releaseDate,
-        download_android: '',
+        download_android: finalPlayStoreUrl,
         is_featured: false,
         is_hot: false,
         is_new: true,
@@ -478,13 +486,14 @@ async function runCodemoiGameCrawler(options = {}) {
         id: `cm_${slug}`,
         name: item.name,
         slug: slug,
-        packageId: slug,
+        packageId: finalPackageId,
         developer: item.publisher,
         category: 'Nhập Vai',
         rating: 4.8,
         installs: item.isUpcoming ? 'Sắp ra mắt' : 'Mới ra mắt',
-        iconUrl: item.iconUrl,
-        playStoreUrl: '',
+        iconUrl: resolvedLogo.iconUrl,
+        localIconPath: resolvedLogo.localIconPath,
+        playStoreUrl: finalPlayStoreUrl,
         sourceType: 'codemoi',
         sourceUrl: item.sourceUrl,
         releaseInfo: item.releaseInfo,

@@ -228,6 +228,7 @@ export interface PendingCrawlerGame {
   rating: number;
   installs: string;
   iconUrl: string;
+  localIconPath?: string;
   playStoreUrl?: string;
   sourceType?: 'google_play' | 'codemoi' | string;
   sourceUrl?: string;

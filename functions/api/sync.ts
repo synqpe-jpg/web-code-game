@@ -1486,6 +1486,7 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
         const existingGameIndex = gamesList.findIndex((g: any) => g && (g.slug === finalSlug || g.id === finalSlug));
 
         const isCodeMoi = sourceItem.sourceType === 'codemoi' || (sourceItem.sourceUrl && sourceItem.sourceUrl.includes('codemoi.net'));
+        const targetIcon = editedGame.iconUrl || sourceItem.localIconPath || `/game_icons/${finalSlug}.webp`;
         const newGameRecord = {
           id: finalSlug,
           slug: finalSlug,
@@ -1493,15 +1494,15 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
           publisher: finalDeveloper,
           category: editedGame.category || sourceItem.category || 'Nhập Vai',
           rating: Number(editedGame.rating || sourceItem.rating || 4.8),
-          icon_url: editedGame.iconUrl || sourceItem.iconUrl || `/game_icons/${finalSlug}.webp`,
-          cover_image_url: editedGame.iconUrl || sourceItem.iconUrl || `/game_icons/${finalSlug}.webp`,
+          icon_url: targetIcon,
+          cover_image_url: targetIcon,
           banner_url: '',
           description: editedGame.description || sourceItem.description || `${finalName} là tựa game mobile mới phát hành chính thức bởi ${finalDeveloper}.`,
           short_description: `${finalName} - Game Mobile Mới`,
           instructions: 'Bước 1: Mở game > Nhấn Avatar nhân vật\nBước 2: Chọn Cài đặt > Nhập Giftcode\nBước 3: Dán mã và nhấn Xác nhận.',
           platform: 'Android, iOS, PC',
           release_date: editedGame.releaseDate || sourceItem.releaseDate || new Date().toISOString().split('T')[0],
-          download_android: sourceItem.playStoreUrl || (sourceItem.packageId && !isCodeMoi ? `https://play.google.com/store/apps/details?id=${sourceItem.packageId}` : ''),
+          download_android: sourceItem.playStoreUrl || (sourceItem.packageId ? `https://play.google.com/store/apps/details?id=${sourceItem.packageId}` : ''),
           is_featured: false,
           is_hot: false,
           is_new: true,
@@ -1601,6 +1602,7 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
             const finalDeveloper = String(item.developer || 'NPH Chính Thức').trim();
 
             const isCodeMoi = item.sourceType === 'codemoi' || (item.sourceUrl && item.sourceUrl.includes('codemoi.net'));
+            const targetBatchIcon = item.localIconPath || (item.iconUrl && item.iconUrl.startsWith('/') ? item.iconUrl : (item.iconUrl || `/game_icons/${finalSlug}.webp`));
             const newGameRecord = {
               id: finalSlug,
               slug: finalSlug,
@@ -1608,15 +1610,15 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
               publisher: finalDeveloper,
               category: item.category || 'Nhập Vai',
               rating: Number(item.rating || 4.8),
-              icon_url: item.iconUrl || `/game_icons/${finalSlug}.webp`,
-              cover_image_url: item.iconUrl || `/game_icons/${finalSlug}.webp`,
+              icon_url: targetBatchIcon,
+              cover_image_url: targetBatchIcon,
               banner_url: '',
               description: item.description || `${finalName} là tựa game mobile mới phát hành chính thức bởi ${finalDeveloper}.`,
               short_description: `${finalName} - Game Mobile Mới`,
               instructions: 'Bước 1: Mở game > Nhấn Avatar nhân vật\nBước 2: Chọn Cài đặt > Nhập Giftcode\nBước 3: Dán mã và nhấn Xác nhận.',
               platform: 'Android, iOS, PC',
               release_date: item.releaseDate || new Date().toISOString().split('T')[0],
-              download_android: item.playStoreUrl || (item.packageId && !isCodeMoi ? `https://play.google.com/store/apps/details?id=${item.packageId}` : ''),
+              download_android: item.playStoreUrl || (item.packageId ? `https://play.google.com/store/apps/details?id=${item.packageId}` : ''),
               is_featured: false,
               is_hot: false,
               is_new: true,
@@ -1655,6 +1657,27 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
         }), { headers: CORS_HEADERS });
       } catch (e: any) {
         return new Response(JSON.stringify({ success: false, error: String(e?.message || e) }), { status: 500, headers: CORS_HEADERS });
+      }
+    }
+
+    // Action: update_pending_game_logo
+    if (body.action === 'update_pending_game_logo' && env.DB) {
+      try {
+        const pendingId = String(body.pendingId || body.id || '').trim();
+        const newIconUrl = String(body.iconUrl || '').trim();
+        const newPlayStoreUrl = String(body.playStoreUrl || '').trim();
+        const pendingListRaw = await getSettingD1(env.DB, 'wcg_crawler_pending_games_v1') || [];
+        const pendingList: any[] = Array.isArray(pendingListRaw) ? [...pendingListRaw] : [];
+        const targetIndex = pendingList.findIndex((p: any) => p && (p.id === pendingId || p.slug === pendingId));
+        if (targetIndex !== -1) {
+          if (newIconUrl) pendingList[targetIndex].iconUrl = newIconUrl;
+          if (newPlayStoreUrl) pendingList[targetIndex].playStoreUrl = newPlayStoreUrl;
+          await setSettingD1(env.DB, 'wcg_crawler_pending_games_v1', pendingList);
+          return new Response(JSON.stringify({ success: true, message: 'Đã cập nhật logo game thành công', updatedGame: pendingList[targetIndex] }), { status: 200, headers: CORS_HEADERS });
+        }
+        return new Response(JSON.stringify({ success: false, error: 'Không tìm thấy game trong danh sách chờ' }), { status: 404, headers: CORS_HEADERS });
+      } catch (err: any) {
+        return new Response(JSON.stringify({ success: false, error: err.message }), { status: 500, headers: CORS_HEADERS });
       }
     }
 

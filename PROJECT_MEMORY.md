@@ -49,6 +49,8 @@
   - `.github/workflows/auto-news-publisher.yml`: Tự động viết và xuất bản bài viết SEO tin tức game mỗi giờ vào phút 45 (`45 * * * *`).
 - **Engine Scripts**:
   - `scripts/crawler/run_crawler.cjs`: Bộ máy cào mã quà tặng đa nguồn kèm thuật toán chấm điểm 4 tầng (4-tier scoring).
+  - `scripts/crawler/engine/game_logo_resolver.cjs`: Bộ máy tự động tra cứu, tải và chuẩn hóa Logo Google Play chính thức (WebP/JPG) cho toàn bộ game quét mới.
+  - `scripts/sync_crawler_game_icons.cjs`: Đồng bộ và chuyển đổi tự động logo cho game trong hàng chờ duyệt lên Cloudflare D1/KV.
   - `scripts/crawler/auto_news_publisher.cjs`: Tự động tìm kiếm nguồn tin game mới, tạo bài viết kèm giftcode game và sync lên Cloudflare.
   - `scripts/sync_games_licenses_icons.cjs`: Đồng bộ danh mục 486 game G1/G234, chuẩn hóa icon và thông tin pháp lý ABEI.
 
