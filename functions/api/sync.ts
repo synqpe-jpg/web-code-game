@@ -1552,6 +1552,7 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
         }
 
         invalidateGamesCatalogCache();
+        await invalidateCatalogEdgeCache(context as any, request, env).catch(() => {});
 
         return new Response(JSON.stringify({
           success: true,
@@ -1595,7 +1596,16 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
         const approvedGames: any[] = [];
         const remainingPending: any[] = [];
 
-        for (const item of pendingList) {
+        // Hợp nhất pendingList từ D1 với danh sách pendingGames do client gửi lên (nếu có)
+        const clientPendingList = Array.isArray(body.pendingGames) ? body.pendingGames : [];
+        const combinedPending = [...pendingList];
+        for (const cp of clientPendingList) {
+          if (cp && (cp.id || cp.slug) && !combinedPending.some(x => x && (x.id === cp.id || x.slug === cp.slug))) {
+            combinedPending.push(cp);
+          }
+        }
+
+        for (const item of combinedPending) {
           if (item && (targetIds.has(String(item.id)) || targetIds.has(String(item.slug)))) {
             const finalSlug = String(item.slug || `game-${Date.now()}`);
             const finalName = String(item.name || '').trim();
@@ -1624,8 +1634,8 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
               is_new: true,
               is_active: true,
               status: 'ACTIVE',
-              codes_count: 0,
-              free_codes_count: 0,
+              codes_count: Number(item.activeCodesCount || 0),
+              free_codes_count: Number(item.activeCodesCount || 0),
               source: isCodeMoi ? 'Code Mới (codemoi.net)' : 'Google Play Store VN',
               created_at: new Date().toISOString(),
               updated_at: new Date().toISOString(),
@@ -1647,12 +1657,14 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
           await setSettingD1(env.DB, 'wcg_admin_games_v5', gamesList);
           await setSettingD1(env.DB, 'wcg_crawler_pending_games_v1', remainingPending);
           invalidateGamesCatalogCache();
+          await invalidateCatalogEdgeCache(context as any, request, env).catch(() => {});
         }
 
         return new Response(JSON.stringify({
           success: true,
           message: `Đã duyệt thành công ${approvedGames.length} game mới lên hệ thống!`,
           approvedCount: approvedGames.length,
+          approvedGames,
           remainingPendingCount: remainingPending.length
         }), { headers: CORS_HEADERS });
       } catch (e: any) {
@@ -1796,8 +1808,11 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
           const normDev = (item.publisher || '').toLowerCase();
           const normName = (item.name || '').toLowerCase();
           const isWhitelisted = whitelist.some((w: string) => normDev.includes(w) || normName.includes(` ${w}`));
+          const hasActiveCodes = Number(item.activeCodesCount || 0) > 0;
+          const autoPublishWhenHasCodes = autoConfig.autoPublishWhenHasCodes !== false;
+          const shouldAutoPublish = autoConfig.enabled && (isWhitelisted || (autoPublishWhenHasCodes && hasActiveCodes));
 
-          if (autoConfig.enabled && isWhitelisted) {
+          if (shouldAutoPublish) {
             const newGame = {
               id: item.slug,
               slug: item.slug,
@@ -1819,8 +1834,8 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
               is_new: true,
               is_active: true,
               status: 'ACTIVE',
-              codes_count: 0,
-              free_codes_count: 0,
+              codes_count: Number(item.activeCodesCount || 0),
+              free_codes_count: Number(item.activeCodesCount || 0),
               source: 'Code Mới (codemoi.net)',
               created_at: new Date().toISOString(),
               updated_at: new Date().toISOString(),
@@ -1857,6 +1872,7 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
         if (autoPublished.length > 0) {
           await setSettingD1(env.DB, 'wcg_admin_games_v5', gamesList);
           invalidateGamesCatalogCache();
+          await invalidateCatalogEdgeCache(context as any, request, env).catch(() => {});
         }
         if (newPending.length > 0) {
           await setSettingD1(env.DB, 'wcg_crawler_pending_games_v1', pendingList);

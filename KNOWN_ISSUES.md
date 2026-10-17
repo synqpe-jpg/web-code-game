@@ -772,9 +772,23 @@
     + Hỗ trợ viết tắt (`tg`, `nk`, `tala`, `hnk`, `tlhnk`, `vltk`, `lq`, `ff`), tên NPH (`VGP`, `VPlay`, `VNG`...), thể loại hoặc slug.
     + Hiển thị logo chính thức của game, số lượng giftcode hiện có, highlight trực quan cụm từ tìm kiếm.
     + Tích hợp vào cả Modal Nhập hàng loạt, Modal Thêm/Sửa code, và thanh lọc trên bảng dữ liệu `DataTable`.
+### ISSUE-043: Lỗi Bất Đồng Bộ Đa Dự Án Cloudflare Pages Giữa codegame.store và codegame.shop (Multi-Project Binding Divergence)
+- **Triệu chứng**:
+  - Admin duyệt game mới trong trang quản trị, hệ thống báo thành công và game đã xuất hiện khi kiểm tra trên `codegame.shop`.
+  - Tuy nhiên, khi truy cập `codegame.store`, dù đã tải lại trang nhiều lần (F5, Ctrl+F5) vẫn không thấy game mới xuất hiện trong catalog.
+- **Nguyên nhân gốc rễ**:
+  1. *Hai miền trỏ vào 2 dự án Cloudflare Pages độc lập*: `codegame.shop` gắn với project `web-code-game`, còn `codegame.store` gắn với project riêng `codegamestore`.
+  2. *Sai lệch Database D1 Binding*: Project `codegamestore` bị gán sai database D1 cũ (`be54527d-...`) thay vì Database D1 SSOT chính (`b2b5372f-1c6f-4067-a74d-8029ded6ec79`), đồng thời thiếu các biến môi trường bí mật `ADMIN_SYNC_SECRET`, `PASSWORD_PEPPER`.
+  3. *Script `deploy:all` bị sót dự án*: Lệnh `npm run deploy:all` trước đây chỉ triển khai `web-code-game` và `admin-code-game-shop`, hoàn toàn không deploy bản build lên `codegamestore`.
+  4. *Edge cache PoP không được xóa cho `codegame.store`*: Hàm `invalidateCatalogEdgeCache` chỉ purge URL của `codegame.shop`.
+- **Giải pháp chuẩn đã kiểm chứng**:
+  1. Sử dụng Cloudflare REST API vá (PATCH) project `codegamestore` sang cùng database D1 SSOT (`b2b5372f-1c6f-4067-a74d-8029ded6ec79`) và nạp đủ secrets.
+  2. Cập nhật `package.json` script `deploy:all` triển khai đồng thời cả 3 project: `web-code-game`, `codegamestore`, `admin-code-game-shop`.
+  3. Bổ sung toàn bộ domain `codegame.store` vào danh sách purge của `cache_service.ts`.
+  4. Bổ sung cơ chế tự động xuất bản (Auto-Publish) khi phát hiện game mới có sẵn giftcode (`activeCodesCount > 0`) với toggle điều khiển trực quan `Có Code: Lên Web Ngay (⚡)` trong Admin Crawler.
 - ⛔ **CÁCH SỬA ĐÃ THẤT BẠI - TUYỆT ĐỐI KHÔNG LẶP LẠI**:
-  - ❌ *Không tiếp tục dùng thẻ `<select>` native với 600+ option*: Gây ức chế trải nghiệm người dùng trên cả desktop và mobile.
-  - ❌ *Không lọc bằng `String.includes` thông thường*: Bắt buộc phải qua `normalizeVietnamese` và `stripAccents` để hỗ trợ gõ có dấu và không dấu tiếng Việt.
+  - ❌ *Không chỉ kiểm tra deploy trên 1 domain `codegame.shop` rồi kết luận hoàn thành*: Bắt buộc phải kiểm tra và deploy đồng bộ cả `codegame.store` và `codegame.shop`.
+  - ❌ *Không sửa mã nguồn client để gọi API chéo domain (CORS issue)*: Cả 2 project phải cùng kết nối trực tiếp vào chung database D1 SSOT tại Edge Worker.
 
 ---
 

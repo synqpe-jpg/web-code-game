@@ -180,7 +180,8 @@ export const CrawlerModule: React.FC<CrawlerModuleProps> = ({ onShowToast }) => 
   const [isScanningCodeMoi, setIsScanningCodeMoi] = useState(false);
   const [autoPublishConfig, setAutoPublishConfig] = useState<CrawlerAutoPublishConfig>({
     enabled: true,
-    whitelistPublishers: ['VNG', 'Garena', 'SohaGame', 'Funtap', 'Gamota', 'Gosu', 'VTC', 'Dzogame', 'Appota', 'VGP', 'Kplay', 'AceGame'],
+    autoPublishWhenHasCodes: true,
+    whitelistPublishers: ['VNG', 'Garena', 'SohaGame', 'Funtap', 'Gamota', 'Gosu', 'VTC', 'Dzogame', 'Appota', 'VGP', 'Kplay', 'AceGame', 'VPlay', 'Capcom', 'Habby'],
     minInstalls: 50000,
     minRating: 4.0,
     autoDownloadIcons: true,
@@ -768,6 +769,27 @@ export const CrawlerModule: React.FC<CrawlerModuleProps> = ({ onShowToast }) => 
         nextConfig.enabled
           ? 'Game mới từ NPH chính thức (VNG, Garena, SohaGame, Funtap...) sẽ được tự động xuất bản ngay.'
           : 'Mọi game mới phát hiện từ Google Play sẽ được lưu vào hàng chờ để Admin duyệt tay.',
+        'success'
+      );
+    } else {
+      onShowToast('Lỗi lưu cấu hình', 'Không thể đồng bộ cấu hình lên máy chủ.', 'error');
+    }
+  };
+
+  // Toggle Auto-Publish When Game Has Codes
+  const handleToggleAutoPublishWhenHasCodes = async () => {
+    const nextConfig = {
+      ...autoPublishConfig,
+      autoPublishWhenHasCodes: autoPublishConfig.autoPublishWhenHasCodes === false,
+    };
+    setAutoPublishConfig(nextConfig);
+    const success = await adminDataService.saveAutoPublishGamesConfig(nextConfig);
+    if (success) {
+      onShowToast(
+        nextConfig.autoPublishWhenHasCodes !== false ? 'Đã bật: Có code lên web ngay ⚡' : 'Đã tắt: Chờ duyệt tay mọi game có code ⏸️',
+        nextConfig.autoPublishWhenHasCodes !== false
+          ? 'Bất kỳ game mới nào xuất hiện có giftcode sẽ tự động được đưa lên web khách ngay lập tức.'
+          : 'Mọi game mới sẽ được lưu vào hàng chờ để Admin duyệt tay.',
         'success'
       );
     } else {
@@ -2456,6 +2478,31 @@ export const CrawlerModule: React.FC<CrawlerModuleProps> = ({ onShowToast }) => 
                     </div>
                     <div className="text-[10px] opacity-75">
                       {autoPublishConfig.enabled ? 'Đăng ngay khi có game mới' : 'Chỉ lưu vào chờ duyệt'}
+                    </div>
+                  </div>
+                </div>
+
+                {/* Auto Publish When Game Has Codes Switch */}
+                <div 
+                  onClick={handleToggleAutoPublishWhenHasCodes}
+                  className={`flex items-center gap-2.5 px-3.5 py-2 rounded-xl border cursor-pointer transition-all ${
+                    autoPublishConfig.autoPublishWhenHasCodes !== false
+                      ? 'bg-amber-950/70 border-amber-500/50 text-amber-300 shadow-md shadow-amber-500/20'
+                      : 'bg-slate-900 border-slate-700 text-slate-400'
+                  }`}
+                  title="Khi game mới xuất hiện, nếu có mã code thì tự động lên web ngay lập tức"
+                >
+                  <div className={`w-4 h-4 rounded-full flex items-center justify-center text-[10px] font-bold ${
+                    autoPublishConfig.autoPublishWhenHasCodes !== false ? 'bg-amber-400 text-slate-950' : 'bg-slate-700 text-slate-400'
+                  }`}>
+                    {autoPublishConfig.autoPublishWhenHasCodes !== false ? '⚡' : '⏸'}
+                  </div>
+                  <div className="text-left">
+                    <div className="text-xs font-bold leading-tight flex items-center gap-1">
+                      <span>Có Code: Lên Web Ngay</span>
+                    </div>
+                    <div className="text-[10px] opacity-75">
+                      {autoPublishConfig.autoPublishWhenHasCodes !== false ? 'Tự đăng nếu game có code' : 'Chờ Admin duyệt tay'}
                     </div>
                   </div>
                 </div>

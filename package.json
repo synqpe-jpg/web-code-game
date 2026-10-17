@@ -18,7 +18,7 @@
     "news:auto": "node scripts/crawler/auto_news_publisher.cjs",
     "deploy": "wrangler pages deploy dist --project-name=web-code-game",
     "deploy:admin": "wrangler pages deploy dist --project-name=admin-code-game-shop",
-    "deploy:all": "wrangler pages deploy dist --project-name=web-code-game && wrangler pages deploy dist --project-name=admin-code-game-shop",
+    "deploy:all": "wrangler pages deploy dist --project-name=web-code-game && wrangler pages deploy dist --project-name=codegamestore && wrangler pages deploy dist --project-name=admin-code-game-shop",
     "backup": "node scripts/export_full_database_backup.cjs",
     "cap:icons": "node scripts/generate_android_icons.cjs",
     "cap:sync": "npx cap sync",

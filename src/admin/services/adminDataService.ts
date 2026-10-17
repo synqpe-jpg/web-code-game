@@ -47,7 +47,8 @@ class AdminDataService {
   private pendingGames: PendingCrawlerGame[] = [];
   private crawlerAutoPublishGamesConfig: CrawlerAutoPublishConfig = {
     enabled: true,
-    whitelistPublishers: ['VNG', 'Garena', 'SohaGame', 'Funtap', 'Gamota', 'Gosu', 'VTC', 'Dzogame', 'Appota', 'VGP', 'Kplay', 'AceGame'],
+    autoPublishWhenHasCodes: true,
+    whitelistPublishers: ['VNG', 'Garena', 'SohaGame', 'Funtap', 'Gamota', 'Gosu', 'VTC', 'Dzogame', 'Appota', 'VGP', 'Kplay', 'AceGame', 'VPlay', 'Capcom', 'Habby'],
     minInstalls: 50000,
     minRating: 4.0,
     autoDownloadIcons: true,
@@ -3641,12 +3642,14 @@ class AdminDataService {
 
   public async approvePendingGame(id: string, editedGame?: Partial<PendingCrawlerGame>): Promise<{ success: boolean; message?: string }> {
     try {
+      const localPending = this.pendingGames.find((p) => p && (p.id === id || p.slug === id));
       const res = await fetch('/api/sync', {
         method: 'POST',
         headers: this.getAuthHeaders(),
         body: JSON.stringify({
           action: 'approve_crawler_game',
           pendingId: id,
+          pendingGame: localPending,
           editedGame,
         }),
       });
@@ -3662,6 +3665,10 @@ class AdminDataService {
             this.games.unshift(data.approvedGame);
           }
           this.saveGames();
+        }
+        if (typeof window !== 'undefined') {
+          window.dispatchEvent(new CustomEvent('wcg_admin_data_updated'));
+          this.broadcastSync('ADMIN_DATA_UPDATED', { action: 'approve_crawler_game', id });
         }
         return { success: true, message: data.message };
       }
@@ -3723,19 +3730,36 @@ class AdminDataService {
 
   public async batchApprovePendingGames(ids: string[]): Promise<{ success: boolean; message?: string; approvedCount?: number }> {
     try {
+      const idSet = new Set(ids);
+      const selectedPendingGames = this.pendingGames.filter((p) => p && (idSet.has(p.id) || idSet.has(p.slug)));
       const res = await fetch('/api/sync', {
         method: 'POST',
         headers: this.getAuthHeaders(),
         body: JSON.stringify({
           action: 'batch_approve_crawler_games',
           pendingIds: ids,
+          pendingGames: selectedPendingGames,
         }),
       });
       const data = await res.json();
       if (data && data.success) {
-        const idSet = new Set(ids);
         this.pendingGames = this.pendingGames.filter((p) => !idSet.has(p.id) && !idSet.has(p.slug));
         this.setPendingGames(this.pendingGames);
+        if (Array.isArray(data.approvedGames) && data.approvedGames.length > 0) {
+          for (const ag of data.approvedGames) {
+            const existIdx = this.games.findIndex((g) => g.slug === ag.slug || g.id === ag.id);
+            if (existIdx !== -1) {
+              this.games[existIdx] = { ...this.games[existIdx], ...ag };
+            } else {
+              this.games.unshift(ag);
+            }
+          }
+          this.saveGames();
+        }
+        if (typeof window !== 'undefined') {
+          window.dispatchEvent(new CustomEvent('wcg_admin_data_updated'));
+          this.broadcastSync('ADMIN_DATA_UPDATED', { action: 'batch_approve_crawler_games', ids });
+        }
         return { success: true, message: data.message, approvedCount: data.approvedCount };
       }
       return { success: false, message: data.error || 'Duyệt hàng loạt thất bại' };

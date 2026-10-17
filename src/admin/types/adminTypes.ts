@@ -243,6 +243,7 @@ export interface PendingCrawlerGame {
 
 export interface CrawlerAutoPublishConfig {
   enabled: boolean;
+  autoPublishWhenHasCodes?: boolean;
   whitelistPublishers: string[];
   minInstalls: number;
   minRating: number;

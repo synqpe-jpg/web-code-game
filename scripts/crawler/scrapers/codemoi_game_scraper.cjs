@@ -297,6 +297,13 @@ async function fetchCodemoiNewGames() {
 function checkAutoPublishEligibility(gameInfo, config) {
   if (!config.enabled) return false;
 
+  // 1. Tự động xuất bản ngay nếu game mới có giftcode hoạt động (mặc định BẬT)
+  const autoPublishWhenHasCodes = config.autoPublishWhenHasCodes !== false;
+  if (autoPublishWhenHasCodes && Number(gameInfo.activeCodesCount || 0) > 0) {
+    return true;
+  }
+
+  // 2. Hoặc nếu nhà phát hành nằm trong danh sách whitelist uy tín
   const normDev = stripAccents(gameInfo.publisher || '');
   const normName = stripAccents(gameInfo.name || '');
 
@@ -331,6 +338,7 @@ async function runCodemoiGameCrawler(options = {}) {
   let serverPendingGames = [];
   let autoPublishConfig = {
     enabled: true,
+    autoPublishWhenHasCodes: true,
     whitelistPublishers: DEFAULT_WHITELIST_PUBLISHERS,
     minInstalls: 50000,
     minRating: 4.0,
@@ -458,8 +466,8 @@ async function runCodemoiGameCrawler(options = {}) {
         is_new: true,
         is_active: true,
         status: 'ACTIVE',
-        codes_count: 0,
-        free_codes_count: 0,
+        codes_count: Number(item.activeCodesCount || 0),
+        free_codes_count: Number(item.activeCodesCount || 0),
         source: 'Code Mới (codemoi.net)',
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
