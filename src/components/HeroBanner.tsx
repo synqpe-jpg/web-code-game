@@ -13,6 +13,7 @@ interface HeroBannerProps {
   onShowToast?: (title: string, message?: string, type?: 'success' | 'error' | 'info') => void;
   onSelectQuickTag: (tag: string) => void;
   onExploreClick?: () => void;
+  isFloatingActive?: boolean;
 }
 
 export const HeroBanner: React.FC<HeroBannerProps> = ({
@@ -22,6 +23,7 @@ export const HeroBanner: React.FC<HeroBannerProps> = ({
   onShowToast,
   onSelectQuickTag,
   onExploreClick,
+  isFloatingActive = false,
 }) => {
   const { t } = useLanguage();
   const [cmsHero, setCmsHero] = useState(() => dataService.getContentByKey('hero_banner'));
@@ -107,12 +109,13 @@ export const HeroBanner: React.FC<HeroBannerProps> = ({
 
           {/* Smart Autocomplete Search Bar */}
           {onSearchChange && (
-            <div className="max-w-xl mx-auto mb-1.5 sm:mb-3.5">
+            <div id="hero-search-container" className="max-w-xl mx-auto mb-1.5 sm:mb-3.5">
               <SearchAutocomplete
                 searchQuery={searchQuery}
                 onSearchChange={onSearchChange}
                 onSelectGame={onSelectGame || (() => {})}
                 onShowToast={onShowToast}
+                isActive={!isFloatingActive}
                 onExploreClick={() => {
                   const target = document.getElementById('game-catalog-section');
                   if (target) {

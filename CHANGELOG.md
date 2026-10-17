@@ -7,6 +7,35 @@ Mỗi mục sửa lỗi đều ghi nhận **Nguyên nhân gốc rễ (Root Cause
 
 ## [2026-10-17]
 
+### 62. Thiết Kế Thanh Tìm Kiếm Thông Minh Ghim Nổi (Sticky Floating Search Bar) Khi Cuộn Xem Game Trên Trang Khách
+- **Mô tả & Yêu cầu Người Dùng**:
+  - *"Tại trang khách, đảm bảo thanh tìm kiếm vẫn ghim nổi khi người dùng kéo xuống dưới xem thêm game, để họ có thể ngay lập tức ấn tên game nếu cần."* (Kèm ảnh chụp màn hình trang chủ Web Khách `codegame.store` / `codegame.shop`).
+- **Nguyên nhân gốc rễ (Root Cause)**:
+  1. *Thanh tìm kiếm chỉ nằm cố định ở Hero Banner*:
+     - Trước đây, thanh tìm kiếm thông minh (`SearchAutocomplete`) chỉ được đặt bên trong khối `HeroBanner`.
+     - Khi người dùng cuộn chuột xuống duyệt danh sách 624 tựa game trong catalog (`#game-catalog-section`), `HeroBanner` bị cuộn khuất khỏi viewport, khiến người dùng không thể tìm kiếm nhanh nếu muốn mà buộc phải cuộn ngược lên đầu trang.
+  2. *Bẫy kỹ thuật CSS `position: sticky` bên trong component con*:
+     - `HeroBanner.tsx` chứa thuộc tính `overflow-hidden`. Nếu chỉ đặt thanh tìm kiếm là `sticky` bên trong `HeroBanner`, ngay khi `HeroBanner` ra khỏi màn hình thì thanh sticky cũng bị kéo biến mất theo. Do đó, thanh tìm kiếm ghim nổi bắt buộc phải được đặt ở cấp độ layout chính (`App.tsx`) dưới dạng `fixed` ghim sát mép dưới của `Header`.
+- **Giải pháp toàn diện đã triển khai (Comprehensive Implementation)**:
+  1. *Nâng cấp `SearchAutocomplete.tsx` hỗ trợ chế độ Ghim Nổi (`isFloating`)*:
+     - Thêm các prop `isFloating?: boolean`, `isActive?: boolean`, `placeholder?: string`.
+     - Tối ưu kích thước compact khi ghim nổi (`py-2 sm:py-2.5`, icon `w-4 h-4 left-3`) để không che khuất nội dung danh mục game.
+     - **Hiển thị gợi ý tức thì khi click**: Ngay khi người dùng nhấp vào thanh tìm kiếm (kể cả khi chưa nhập ký tự nào), dropdown tự động hiển thị danh sách từ khóa tìm nhanh HOT (Liên Quân, Ta Là Hắc Ngộ Không, Tiên Giới, Genshin, Roblox, Free Fire...) và các game nổi bật nhất kèm số lượng code sẵn có.
+     - 1-chạm mở ngay modal chi tiết game mà không cần cuộn trang.
+     - Điều kiện hóa phím tắt `/`: Chỉ kích hoạt trên thanh tìm kiếm đang active (`isActive !== false`), tránh xung đột giữa 2 component tìm kiếm trên cùng DOM.
+  2. *Tích hợp ghim nổi thông minh vào `App.tsx` & `HeroBanner.tsx`*:
+     - Thêm `id="hero-search-container"` vào div container của Hero search.
+     - Sử dụng scroll & resize listener để đo tọa độ thực tế: Khi `heroSearchEl.getBoundingClientRect().bottom < headerHeight` (72px desktop, 56px mobile), thanh floating search bar tự động trượt xuống mượt mà (`translate-y-0 opacity-100`).
+     - Khi người dùng cuộn ngược lên đầu trang, thanh ghim nổi tự động ẩn đi (`-translate-y-4 opacity-0 pointer-events-none`).
+     - Tích hợp nút cuộn nhanh lên đầu trang (`ArrowUp`) tiện lợi ngay cạnh ô tìm kiếm.
+     - Tự động tắt và ẩn khi người dùng chuyển tab sang `news`, `giveaways`, `store`, `utilities` hoặc `admin`.
+- **Kết quả kiểm thử & Triển khai**:
+  - Giao diện responsive 100% mượt mà trên cả Mobile và Desktop.
+  - Tự động đồng bộ từ khóa `searchQuery` hai chiều giữa thanh Hero và thanh Ghim Nổi.
+  - Vượt qua kiểm tra TypeScript, audit zero test artifacts, Vite transform và Prerender SEO Cloudflare Pages.
+
+---
+
 ### 61. Nâng Cấp Toàn Diện Bộ Máy Tìm Kiếm Game Tiếng Việt & Thay Thế Selector Bằng SearchableGameSelect Trong Mục Code Miễn Phí (Free Codes)
 - **Mô tả & Yêu cầu Người Dùng**:
   - *"Trong mục code miễn phí, khi tôi muốn thêm code, tìm game hiện đang tìm khá khó khăn, mở rộng khả năng tìm kiếm, ô tìm kiếm có thể nhập tên tựa game, mở rộng tiếng Việt."* (Kèm ảnh chụp màn hình modal "Nhập Giftcode Hàng Loạt" đang dùng thẻ `<select>` duyệt 624 game).

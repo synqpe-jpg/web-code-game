@@ -23,6 +23,8 @@ import { UserProfileModal } from './components/UserProfileModal';
 import { DownloadAppModal } from './components/DownloadAppModal';
 import { MobileBottomNav } from './components/MobileBottomNav';
 import { CyberLoader } from './components/CyberLoader';
+import { SearchAutocomplete } from './components/SearchAutocomplete';
+import { ArrowUp } from 'lucide-react';
 
 const AdminApp = React.lazy(() => import('./admin/AdminApp'));
 import { Footer } from './components/Footer';
@@ -95,6 +97,7 @@ export const App: React.FC = () => {
 
   // Search & Filter State
   const [searchQuery, setSearchQuery] = useState('');
+  const [isStickySearchVisible, setIsStickySearchVisible] = useState(false);
   const [filter, setFilter] = useState<FilterState>({
     search: '',
     category: 'all',
@@ -226,6 +229,37 @@ export const App: React.FC = () => {
       return next;
     });
   };
+
+  // Sticky Floating Search Bar visibility handler on Catalog scroll
+  useEffect(() => {
+    if (currentTab !== 'catalog') {
+      setIsStickySearchVisible(false);
+      return;
+    }
+
+    const checkStickyVisibility = () => {
+      const heroSearchEl = document.getElementById('hero-search-container');
+      if (!heroSearchEl) {
+        setIsStickySearchVisible(false);
+        return;
+      }
+
+      const rect = heroSearchEl.getBoundingClientRect();
+      // Header height: 72px on sm/desktop (>=640px), 56px on mobile (<640px)
+      const headerHeight = window.innerWidth >= 640 ? 72 : 56;
+      // Show sticky floating search bar once the hero search bar has scrolled up under the header
+      setIsStickySearchVisible(rect.bottom < headerHeight);
+    };
+
+    checkStickyVisibility();
+    window.addEventListener('scroll', checkStickyVisibility, { passive: true });
+    window.addEventListener('resize', checkStickyVisibility, { passive: true });
+
+    return () => {
+      window.removeEventListener('scroll', checkStickyVisibility);
+      window.removeEventListener('resize', checkStickyVisibility);
+    };
+  }, [currentTab]);
 
   // Toast Helper
   const showToast = useCallback(
@@ -1113,6 +1147,44 @@ export const App: React.FC = () => {
           onToggleTheme={handleToggleTheme}
         />
 
+        {/* Sticky Floating Search Bar for Catalog on Scroll */}
+        {currentTab === 'catalog' && (
+          <div
+            className={`fixed top-14 sm:top-[72px] left-0 right-0 z-40 bg-background/95 backdrop-blur-xl border-b border-border shadow-xl shadow-black/25 py-2 sm:py-2.5 transition-all duration-300 ease-in-out ${
+              isStickySearchVisible
+                ? 'translate-y-0 opacity-100 pointer-events-auto'
+                : '-translate-y-4 opacity-0 pointer-events-none'
+            }`}
+          >
+            <div className="max-w-3xl mx-auto px-3 sm:px-6 flex items-center gap-2 sm:gap-3">
+              <div className="flex-1 min-w-0">
+                <SearchAutocomplete
+                  searchQuery={searchQuery}
+                  onSearchChange={handleSearchChange}
+                  onSelectGame={handleSelectGame}
+                  onShowToast={showToast}
+                  isActive={isStickySearchVisible}
+                  isFloating={true}
+                  placeholder="Tìm nhanh tên game, giftcode mới nhất..."
+                  onExploreClick={() => {
+                    document.getElementById('game-catalog-section')?.scrollIntoView({ behavior: 'smooth' });
+                  }}
+                />
+              </div>
+              <button
+                type="button"
+                onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
+                title="Cuộn lên đầu trang"
+                aria-label="Cuộn lên đầu trang"
+                className="px-2.5 sm:px-3 py-2 rounded-xl bg-card hover:bg-card-hover border border-border text-slate-300 hover:text-white text-xs font-semibold flex items-center gap-1.5 transition-all shrink-0 cursor-pointer shadow-xs active:scale-95"
+              >
+                <ArrowUp className="w-4 h-4 text-primary-light" />
+                <span className="hidden sm:inline">Lên đầu</span>
+              </button>
+            </div>
+          </div>
+        )}
+
         {/* Main Content Area */}
         <main className="flex-1 pb-[calc(5.5rem+env(safe-area-inset-bottom))] md:pb-0">
           {currentTab === 'catalog' && (
@@ -1127,6 +1199,7 @@ export const App: React.FC = () => {
                   const gridElem = document.getElementById('game-catalog-section');
                   gridElem?.scrollIntoView({ behavior: 'smooth' });
                 }}
+                isFloatingActive={isStickySearchVisible}
               />
 
               <div id="game-catalog-section" className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-2.5 sm:py-8">

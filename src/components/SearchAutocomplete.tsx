@@ -28,6 +28,9 @@ interface SearchAutocompleteProps {
   onExploreClick?: () => void;
   className?: string;
   autoFocus?: boolean;
+  isFloating?: boolean;
+  isActive?: boolean;
+  placeholder?: string;
 }
 
 // Deterministic gradient for game icon fallback
@@ -56,6 +59,9 @@ export const SearchAutocomplete: React.FC<SearchAutocompleteProps> = ({
   onExploreClick,
   className = '',
   autoFocus = false,
+  isFloating = false,
+  isActive = true,
+  placeholder,
 }) => {
   const { t } = useLanguage();
   const [isOpen, setIsOpen] = useState(false);
@@ -63,6 +69,16 @@ export const SearchAutocomplete: React.FC<SearchAutocompleteProps> = ({
   const [selectedIndex, setSelectedIndex] = useState(-1);
   const containerRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+
+  // Top trending / hot games for instant click suggestions when input is empty
+  const hotGames = useMemo(() => {
+    try {
+      const all = dataService.getGames();
+      return all.filter((g) => g.is_hot || (g.codes_count && g.codes_count > 0)).slice(0, 5);
+    } catch {
+      return [];
+    }
+  }, []);
 
   // Search Results computed dynamically with instant local + server autocomplete
   const [searchResults, setSearchResults] = useState<{
@@ -107,6 +123,7 @@ export const SearchAutocomplete: React.FC<SearchAutocompleteProps> = ({
 
   // Global key listener to press '/' to focus search
   useEffect(() => {
+    if (isActive === false) return;
     const handleGlobalKeyDown = (e: KeyboardEvent) => {
       if (
         e.key === '/' &&
@@ -120,7 +137,7 @@ export const SearchAutocomplete: React.FC<SearchAutocompleteProps> = ({
     };
     window.addEventListener('keydown', handleGlobalKeyDown);
     return () => window.removeEventListener('keydown', handleGlobalKeyDown);
-  }, []);
+  }, [isActive]);
 
   // Click outside listener
   useEffect(() => {
@@ -210,7 +227,11 @@ export const SearchAutocomplete: React.FC<SearchAutocompleteProps> = ({
     <div ref={containerRef} className={`relative w-full ${className}`}>
       {/* Search Bar Input */}
       <div className="relative flex items-center">
-        <Search className="w-4 h-4 sm:w-5 sm:h-5 absolute left-3.5 sm:left-4 top-1/2 -translate-y-1/2 text-primary-light pointer-events-none transition-colors" />
+        <Search
+          className={`${
+            isFloating ? 'w-4 h-4 left-3' : 'w-4 h-4 sm:w-5 sm:h-5 left-3.5 sm:left-4'
+          } absolute top-1/2 -translate-y-1/2 text-primary-light pointer-events-none transition-colors`}
+        />
 
         <input
           ref={inputRef}
@@ -222,12 +243,16 @@ export const SearchAutocomplete: React.FC<SearchAutocompleteProps> = ({
             setSelectedIndex(-1);
           }}
           onFocus={() => {
-            if (searchQuery.trim().length > 0) setIsOpen(true);
+            setIsOpen(true);
           }}
           onKeyDown={handleKeyDown}
           autoFocus={autoFocus}
-          placeholder={t.hero.searchPlaceholder}
-          className="w-full pl-10 sm:pl-12 pr-20 sm:pr-24 py-3 sm:py-3.5 rounded-2xl bg-card hover:bg-card-hover border border-border focus:border-primary focus:ring-2 focus:ring-primary/40 text-foreground text-base sm:text-sm placeholder-slate-400 shadow-xl transition-all outline-none"
+          placeholder={placeholder || t.hero.searchPlaceholder}
+          className={`w-full border border-border focus:border-primary focus:ring-2 focus:ring-primary/40 text-foreground placeholder-slate-400 shadow-xl transition-all outline-none bg-card hover:bg-card-hover ${
+            isFloating
+              ? 'py-2 sm:py-2.5 text-xs sm:text-sm pl-9 sm:pl-10 pr-16 sm:pr-20 rounded-xl'
+              : 'py-3 sm:py-3.5 text-base sm:text-sm pl-10 sm:pl-12 pr-20 sm:pr-24 rounded-2xl'
+          }`}
         />
 
         {/* Right side controls: Clear / Shortcut Badge */}
@@ -265,9 +290,112 @@ export const SearchAutocomplete: React.FC<SearchAutocompleteProps> = ({
       </div>
 
       {/* Autocomplete Results Dropdown Overlay */}
-      {isOpen && searchQuery.trim().length > 0 && (
+      {isOpen && (
         <div className="absolute left-0 right-0 top-full mt-2 bg-card/95 backdrop-blur-xl border border-border/90 rounded-2xl shadow-2xl z-50 overflow-hidden animate-scale-in text-left divide-y divide-border/60 max-h-[75vh] flex flex-col">
-          {hasResults ? (
+          {searchQuery.trim().length === 0 ? (
+            /* HOT GAMES & QUICK KEYWORDS SUGGESTIONS */
+            <div className="overflow-y-auto flex-1 scrollbar-thin p-2 space-y-3">
+              {/* Quick Keywords */}
+              <div className="px-2.5 py-1.5">
+                <div className="flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-wider text-slate-400 mb-2">
+                  <Flame className="w-3.5 h-3.5 text-accent" />
+                  <span>Gợi ý tìm nhanh</span>
+                </div>
+                <div className="flex flex-wrap items-center gap-1.5">
+                  {[
+                    'Liên Quân Mobile',
+                    'Ta Là Hắc Ngộ Không',
+                    'Tiên Giới: Nhận Kiếm',
+                    'Free Fire',
+                    'Genshin Impact',
+                    'Roblox',
+                    'Võ Lâm',
+                    'Honkai: Star Rail',
+                  ].map((tag) => (
+                    <button
+                      key={tag}
+                      type="button"
+                      onClick={() => {
+                        onSearchChange(tag);
+                        inputRef.current?.focus();
+                      }}
+                      className="px-2.5 py-1 rounded-xl text-xs bg-muted hover:bg-card border border-border text-slate-200 hover:text-primary-light hover:border-primary/50 transition-all cursor-pointer font-medium active:scale-95"
+                    >
+                      {tag}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Hot Games List */}
+              {hotGames.length > 0 && (
+                <div>
+                  <div className="flex items-center justify-between px-2.5 py-1.5 text-[11px] font-bold uppercase tracking-wider text-slate-400">
+                    <span className="flex items-center gap-1.5 text-accent">
+                      <Sparkles className="w-3.5 h-3.5 text-accent" />
+                      Tựa game nổi bật nhất
+                    </span>
+                    <span className="text-[10px] lowercase text-slate-500">nhấn để xem code ngay</span>
+                  </div>
+
+                  <div className="space-y-1">
+                    {hotGames.map((game) => (
+                      <div
+                        key={game.id || game.slug}
+                        onClick={() => handleSelectGameItem(game)}
+                        className="flex items-center justify-between gap-3 p-2 rounded-xl transition-all cursor-pointer hover:bg-muted/70 text-foreground border border-transparent"
+                      >
+                        <div className="flex items-center gap-2.5 min-w-0 flex-1">
+                          <div className="w-9 h-9 rounded-xl bg-muted overflow-hidden border border-border shrink-0 flex items-center justify-center shadow-sm">
+                            <img
+                              src={game.icon_url || `/game_icons/${game.slug}.webp`}
+                              alt={game.name}
+                              className="w-full h-full object-cover"
+                              onError={(e) => {
+                                const parent = (e.target as HTMLElement).parentElement;
+                                if (parent) {
+                                  parent.innerHTML = `<div class="w-full h-full bg-gradient-to-br ${getGradientForName(
+                                    game.name
+                                  )} flex items-center justify-center font-bold text-white text-xs">${game.name.substring(
+                                    0,
+                                    2
+                                  )}</div>`;
+                                }
+                              }}
+                            />
+                          </div>
+                          <div className="min-w-0 flex-1">
+                            <div className="flex items-center gap-1.5 flex-wrap">
+                              <span className="font-bold text-xs sm:text-sm text-foreground truncate">
+                                {game.name}
+                              </span>
+                              {game.is_hot && (
+                                <span className="inline-flex items-center gap-0.5 text-[9px] font-bold px-1 py-0.2 rounded bg-rose-500/20 text-rose-400 border border-rose-500/30">
+                                  <Flame className="w-2.5 h-2.5" /> HOT
+                                </span>
+                              )}
+                            </div>
+                            <p className="text-[11px] text-slate-400 truncate">
+                              {game.publisher || 'Nhà phát hành chính thức'} • {game.category || 'Game'}
+                            </p>
+                          </div>
+                        </div>
+
+                        <div className="flex items-center gap-2 shrink-0">
+                          {(game.codes_count || 0) > 0 && (
+                            <span className="text-[11px] font-mono font-bold px-2 py-0.5 rounded-lg bg-emerald-500/15 text-emerald-400 border border-emerald-500/30">
+                              {game.codes_count} code
+                            </span>
+                          )}
+                          <ChevronRight className="w-4 h-4 text-slate-400" />
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          ) : hasResults ? (
             <div className="overflow-y-auto flex-1 scrollbar-thin p-2 space-y-3">
               {/* 1. MATCHING GAMES */}
               {searchResults.games.length > 0 && (
