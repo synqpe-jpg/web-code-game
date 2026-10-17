@@ -124,24 +124,37 @@ async function searchGooglePlayForLogo(gameName, publisher = '') {
 
         const highResIconUrl = `${iconMatch[1]}=s256-rw`;
 
-        // Trích xuất tiêu đề thực
-        const titleMatch = html.match(/<h1[^>]*itemprop="name"[^>]*><span[^>]*>([^<]+)<\/span><\/h1>/i) ||
+        // Trích xuất tiêu đề thực chuẩn xác qua og:title hoặc h1
+        const ogTitle = (html.match(/<meta property="og:title" content="([^"]+)"/i) || [])[1] || '';
+        const titleMatch = html.match(/<h1[^>]*>[\s\S]*?itemprop="name"[^>]*>([^<]+)[\s\S]*?<\/h1>/i) ||
+                          html.match(/<h1[^>]*itemprop="name"[^>]*><span[^>]*>([^<]+)<\/span><\/h1>/i) ||
                           html.match(/<title>([^<-]+)/i);
-        const appTitle = titleMatch ? titleMatch[1].replace(/\s*-\s*Google Play.*$/i, '').trim() : '';
+        const appTitle = (ogTitle.replace(/\s*-\s*(?:Ứng dụng trên Google Play|Apps on Google Play).*$/i, '').trim()) ||
+                         (titleMatch ? titleMatch[1].trim() : '');
 
         // Trích xuất NPH
         const devMatch = html.match(/href="\/store\/apps\/developer\?id=[^"]*"[^>]*><span[^>]*>([^<]+)<\/span>/i) ||
                          html.match(/itemprop="author"[^>]*><span[^>]*>([^<]+)<\/span>/i);
         const developer = devMatch ? devMatch[1].trim() : publisher;
 
-        // Đánh giá sơ bộ độ khớp tên game
+        // Đánh giá chặt chẽ độ khớp tên game
         const normTarget = stripAccents(cleanGameQuery(gameName));
         const normFound = stripAccents(cleanGameQuery(appTitle));
 
-        const isMatch = normFound.includes(normTarget) || normTarget.includes(normFound) ||
-                        queries.some(query => normFound.includes(stripAccents(query)));
+        // Tuyệt đối không cho phép chuỗi rỗng khớp thành công
+        if (!normFound || normFound.length < 2 || !normTarget || normTarget.length < 2) continue;
 
-        if (isMatch || packageIds.length === 1) {
+        // Kiểm tra loại trừ các ứng dụng tiện ích AI / Video không phải game
+        const isSuspectNonGame = (html.includes('luma.sora') || html.includes('com.chat.') || /chat|ai video|ai chatbot/i.test(appTitle)) && !/chat|ai/i.test(gameName);
+        if (isSuspectNonGame) continue;
+
+        const targetWords = normTarget.split(/\s+/).filter(w => w.length > 2);
+        const matchedWords = targetWords.filter(w => normFound.includes(w));
+        const wordMatchRatio = targetWords.length > 0 ? (matchedWords.length / targetWords.length) : 0;
+
+        const isMatch = normFound.includes(normTarget) || normTarget.includes(normFound) || wordMatchRatio >= 0.6;
+
+        if (isMatch) {
           return {
             packageId: pkg,
             title: appTitle || gameName,

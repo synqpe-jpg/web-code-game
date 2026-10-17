@@ -721,8 +721,22 @@
   2. *Edge Image Proxy (`functions/api/game-icon.ts`)*: Cung cấp endpoint proxy an toàn tại Cloudflare Edge chống 100% việc bị chặn bởi AdBlock.
   3. *Giao diện Admin thông minh*: Thẻ ảnh ưu tiên nạp từ local icon hoặc Google Play CDN hoặc Edge Proxy; xóa bỏ hoàn toàn fallback DiceBear; bổ sung nút "🖼️ Logo" cho phép Admin đổi link logo nhanh chóng.
 - ⛔ **CÁCH SỬA ĐÃ THẤT BẠI - TUYỆT ĐỐI KHÔNG LẶP LẠI**:
-  - ❌ *Không phụ thuộc trực tiếp vào link ảnh của các web cào (`codemoi.net/covers/...`)*: Dễ bị ECONNRESET, chặn cross-origin, hoặc bị Adblock/Anti-tracking của trình duyệt chặn hoàn toàn.
-  - ❌ *Không dùng DiceBear identicon làm fallback cho logo game*: Gây mất thẩm mỹ và khiến Admin không nhận diện được game để duyệt.
+---
+
+### ISSUE-040: Bẫy So Khớp Chuỗi Rỗng Khi Tra Cứu Google Play Gây Ghép Nhầm Ứng Dụng Tiện Ích AI Vào Game
+- **Triệu chứng**:
+  - Khi tra cứu tự động trên Google Play cho các game có tên ngắn hoặc tên tiếng Anh (như `Girls Echo`, `MAke Drama: MAD`, `Strinova VN`), hệ thống tự động gán nhầm sang các ứng dụng chat AI (`com.chat.whisper`), công cụ làm video AI (`luma.sora.pika...`), hoặc game sinh tồn không liên quan.
+- **Nguyên nhân gốc rễ**:
+  1. *Thất bại khi bóc tách tiêu đề ứng dụng*: Google Play phiên bản mới bọc tiêu đề trong thẻ `<h1><span class="..." itemprop="name">Tiêu đề</span></h1>`. Biểu thức regex cũ tìm `h1 itemprop="name"` bị miss, khiến biến `appTitle` nhận giá trị rỗng `""`.
+  2. *Bẫy `String.prototype.includes("")` trong JavaScript*: Biểu thức `normTarget.includes(normFound)` khi `normFound === ""` luôn luôn trả về `true` đối với bất kỳ chuỗi mục tiêu nào. Do đó ứng dụng đầu tiên trong danh sách tìm kiếm (thường là các app AI hot nhiều lượt tải) bị coi là "khớp 100%".
+- **Giải pháp chuẩn đã kiểm chứng**:
+  1. Sử dụng `<meta property="og:title">` kết hợp `itemprop="name"` để lấy tiêu đề chính xác 100%.
+  2. Bắt buộc kiểm tra độ dài tối thiểu: `if (!normFound || normFound.length < 2 || !normTarget || normTarget.length < 2) continue;`.
+  3. Lọc bỏ các package hoặc tiêu đề có dấu hiệu app tiện ích AI/video/chat (`isSuspectNonGame`).
+  4. Nếu không khớp Google Play, ưu tiên tải và lưu trực tiếp cover sắc nét gốc của game ($\ge 10KB$) từ trang chủ cào thay vì cố ép sang một ứng dụng Google Play không liên quan.
+- ⛔ **CÁCH SỬA ĐÃ THẤT BẠI - TUYỆT ĐỐI KHÔNG LẶP LẠI**:
+  - ❌ *Không bao giờ gọi `target.includes(found)` khi `found` chưa được kiểm tra `found.trim().length > 0`*: Gây ra lỗi False Positive 100%.
+  - ❌ *Không dùng điều kiện fallback `packageIds.length === 1` khi tên ứng dụng hoàn toàn không có từ khóa tương đồng*: Dễ gán nhầm các ứng dụng rác khi kết quả tìm kiếm chỉ có 1 app.
 
 ---
 
