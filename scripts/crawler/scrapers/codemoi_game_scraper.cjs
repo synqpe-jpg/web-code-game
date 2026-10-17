@@ -435,7 +435,7 @@ async function runCodemoiGameCrawler(options = {}) {
       iconUrl: item.iconUrl,
     });
 
-    const finalIcon = resolvedLogo.localIconPath || resolvedLogo.iconUrl;
+    const finalIcon = resolvedLogo.localIconPath || `/game_icons/${slug}.webp`;
     const finalPlayStoreUrl = resolvedLogo.playStoreUrl || '';
     const finalPackageId = resolvedLogo.packageId || slug;
 
@@ -499,8 +499,8 @@ async function runCodemoiGameCrawler(options = {}) {
         category: 'Nhập Vai',
         rating: 4.8,
         installs: item.isUpcoming ? 'Sắp ra mắt' : 'Mới ra mắt',
-        iconUrl: resolvedLogo.iconUrl,
-        localIconPath: resolvedLogo.localIconPath,
+        iconUrl: resolvedLogo.localIconPath || `/game_icons/${slug}.webp`,
+        localIconPath: resolvedLogo.localIconPath || `/game_icons/${slug}.webp`,
         playStoreUrl: finalPlayStoreUrl,
         sourceType: 'codemoi',
         sourceUrl: item.sourceUrl,

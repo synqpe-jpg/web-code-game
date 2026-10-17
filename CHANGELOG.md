@@ -7,6 +7,30 @@ Mỗi mục sửa lỗi đều ghi nhận **Nguyên nhân gốc rễ (Root Cause
 
 ## [2026-10-17]
 
+### 64. Khắc Phục Triệt Để Mất Logo Game Mới (Tarot & MAD), Loại Bỏ Phụ Thuộc Hotlink Ngoại Vi & Trang Bị Multi-Tier Fallback Icon Cục Bộ
+- **Mô tả & Yêu cầu Người Dùng**:
+  - *"Sau khi đẩy game lên trang khách thì mất logo rồi. Đảm bảo logo chính xác giúp tôi."* (Kèm ảnh chụp màn hình `https://codegame.shop` hiển thị avatar chữ cái viết tắt tím `TV` cho Tarot: Vĩnh Hằng Thần Ngữ và cam `MD` cho MAke Drama: MAD).
+- **Nguyên nhân gốc rễ (Root Cause)**:
+  1. *Lưu trữ URL ngoại vi (Hotlink codemoi.net) vào cơ sở dữ liệu D1*:
+     - Khi crawler quét game mới từ `codemoi.net`, trường `icon_url` trong bản ghi `wcg_admin_games_v5` bị gán link trực tiếp `https://codemoi.net/covers/{slug}.webp` thay vì đường dẫn nội bộ `/game_icons/{slug}.webp`.
+     - Phía máy chủ của `codemoi.net` thường xuyên áp dụng chống hotlink cross-origin hoặc bị drop/reset kết nối mạng (`ECONNRESET`), khiến thẻ `<img>` của trình duyệt người dùng (Cốc Cốc, Chrome) tải thất bại (kích hoạt sự kiện `onError`).
+  2. *Thiếu cơ chế Fallback sang ảnh nội bộ trong `GameCard.tsx`*:
+     - Trước đây, `GameCard.tsx` chỉ gán `const iconSrc = game.icon_url || /game_icons/${game.slug}.webp;`. Khi `game.icon_url` là URL ngoài bị lỗi, `onError` ngay lập tức gán `imageError = true` và hiển thị avatar gradient ký tự viết tắt (`TV`, `MD`) mà không bao giờ thử tải lại từ kho icon cục bộ sẵn có (`/game_icons/...`).
+- **Giải pháp toàn diện đã triển khai (Comprehensive Implementation)**:
+  1. *Cập nhật chuẩn hóa dữ liệu trực tiếp trên D1 (SSOT)*:
+     - Chạy script cập nhật `icon_url` và `cover_image_url` của `tarot-vinh-hang-than-ngu` và `make-drama-mad` sang đường dẫn nội bộ chính thức: `/game_icons/tarot-vinh-hang-than-ngu.webp` (32KB sắc nét) và `/game_icons/make-drama-mad.webp` (19KB sắc nét).
+  2. *Thiết lập bộ lọc chuẩn hóa tại Edge API (`functions/api/games.ts` & `functions/api/sync.ts`)*:
+     - Nếu phát hiện `icon_url` chứa `codemoi.net` hoặc rỗng, backend tự động ép chuẩn về `/game_icons/${slug}.webp`.
+     - Mọi luồng thêm game (`approve_crawler_game`, `batch_approve_crawler_games`, `scan_codemoi_new_games`, auto-publish) đều ép buộc lưu icon cục bộ `/game_icons/${slug}.webp`.
+  3. *Trang bị cơ chế Multi-tier Fallback an toàn trong Frontend*:
+     - [`GameCard.tsx`](file:///c:/4%20Antigravity%20all/13%20web%20code%20game/src/components/GameCard.tsx): `getSafeIcon` lọc ngay các link ngoại vi không ổn định; `handleImageError` tự động thử lại với kho icon nội bộ `/game_icons/${game.slug}.webp` trước khi rơi vào fallback initials.
+     - [`GameDetailModal.tsx`](file:///c:/4%20Antigravity%20all/13%20web%20code%20game/src/components/GameDetailModal.tsx) & [`SearchAutocomplete.tsx`](file:///c:/4%20Antigravity%20all/13%20web%20code%20game/src/components/SearchAutocomplete.tsx): Đồng bộ cơ chế safe icon tương tự.
+- **Kết quả kiểm thử & Triển khai**:
+  - Logo của cả 2 tựa game `Tarot: Vĩnh Hằng Thần Ngữ` và `MAke Drama: MAD` hiển thị chuẩn xác 100%, sắc nét, không còn avatar chữ cái.
+  - Vượt qua bài kiểm tra zero test artifacts, Vite transform và Cloudflare Pages Edge Worker bundle.
+
+---
+
 ### 63. Chuẩn Hóa Hệ Thống Tên Miền (Admin Duy Nhất admin-code-game-shop.pages.dev & 2 Web Khách web-code-game.pages.dev + codegame.shop), Duyệt Game Lên Web Ngay Lập Tức & Tự Động Xuất Bản Khi Có Giftcode
 - **Mô tả & Yêu cầu Người Dùng**:
   - *"Trong admin mục Quản Lý Crawler & Tự Động Hóa Giftcode, phần Game mới, tôi vừa duyệt một vài game, tuy nhiên khi vào web khách không thấy dù đã tải lại trang. Giúp tôi đảm bảo duyệt là lên ngay, có tính năng khi game mới xuất hiện, có code thì tự động lên web."*

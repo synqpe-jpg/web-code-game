@@ -1063,7 +1063,7 @@ class DataService {
           if (cat) categorySet.add(cat);
 
           let iconUrl = g.icon_url || g.iconUrl || g.cover_image_url || '';
-          if (!iconUrl || iconUrl.startsWith('/game-icons') || iconUrl.startsWith('game-icons')) {
+          if (!iconUrl || iconUrl.includes('codemoi.net') || iconUrl.startsWith('/game-icons') || iconUrl.startsWith('game-icons')) {
             iconUrl = `/game_icons/${slug}.webp`;
           }
 

@@ -233,7 +233,11 @@ export const GameDetailModal: React.FC<GameDetailModalProps> = ({
               <div className="w-12 h-12 sm:w-16 sm:h-16 rounded-2xl bg-muted border border-border overflow-hidden shrink-0 shadow-lg flex items-center justify-center">
                 {!modalImageError ? (
                   <img
-                    src={currentGame.icon_url || `/game_icons/${currentGame.slug}.webp`}
+                    src={
+                      !currentGame.icon_url || currentGame.icon_url.includes('codemoi.net') || currentGame.icon_url.startsWith('/game-icons')
+                        ? `/game_icons/${currentGame.slug}.webp`
+                        : (currentGame.icon_url || `/game_icons/${currentGame.slug}.webp`)
+                    }
                     alt={currentGame.name}
                     className="w-full h-full object-cover"
                     onError={() => setModalImageError(true)}

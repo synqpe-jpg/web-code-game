@@ -348,7 +348,11 @@ export const SearchAutocomplete: React.FC<SearchAutocompleteProps> = ({
                         <div className="flex items-center gap-2.5 min-w-0 flex-1">
                           <div className="w-9 h-9 rounded-xl bg-muted overflow-hidden border border-border shrink-0 flex items-center justify-center shadow-sm">
                             <img
-                              src={game.icon_url || `/game_icons/${game.slug}.webp`}
+                              src={
+                                !game.icon_url || game.icon_url.includes('codemoi.net') || game.icon_url.startsWith('/game-icons')
+                                  ? `/game_icons/${game.slug}.webp`
+                                  : (game.icon_url || `/game_icons/${game.slug}.webp`)
+                              }
                               alt={game.name}
                               className="w-full h-full object-cover"
                               onError={(e) => {
@@ -427,7 +431,11 @@ export const SearchAutocomplete: React.FC<SearchAutocompleteProps> = ({
                             {/* Game Icon */}
                             <div className="w-10 h-10 rounded-xl bg-muted overflow-hidden border border-border shrink-0 flex items-center justify-center shadow-sm">
                               <img
-                                src={game.icon_url || `/game_icons/${game.slug}.webp`}
+                                src={
+                                  !game.icon_url || game.icon_url.includes('codemoi.net') || game.icon_url.startsWith('/game-icons')
+                                    ? `/game_icons/${game.slug}.webp`
+                                    : (game.icon_url || `/game_icons/${game.slug}.webp`)
+                                }
                                 alt={game.name}
                                 className="w-full h-full object-cover"
                                 onError={(e) => {

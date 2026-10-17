@@ -799,8 +799,19 @@
   - **TỪ GIỜ VỀ SAU TUYỆT ĐỐI CẤM**:
     + Không bao giờ can thiệp, đọc, sửa, build, deploy hoặc đổi bất kỳ thứ gì liên quan tới `codegame.store` và project Cloudflare `codegamestore`.
     + Mọi công việc của workspace 13 chỉ xoay quanh 1 admin (`https://admin-code-game-shop.pages.dev`) và 2 web khách (`https://web-code-game.pages.dev` & `https://codegame.shop/`).
+### ISSUE-045: Lỗi Mất Logo Game Mới Do Phụ Thuộc Hotlink CodeMoi & Thiếu Fallback Local WebP Icon
+- **Triệu chứng**:
+  - Sau khi đẩy/duyệt game mới lên web khách, thẻ game không hiển thị logo mà rơi về avatar gradient chữ cái viết tắt (ví dụ tím `TV` cho Tarot, cam `MD` cho MAke Drama).
+- **Nguyên nhân gốc rễ**:
+  1. *Lưu trữ hotlink ngoại vi `https://codemoi.net/covers/...` trong D1*: Máy chủ CodeMoi thường xuyên chặn cross-origin hoặc drop connection (`ECONNRESET`), khiến trình duyệt client load ảnh thất bại.
+  2. *Thiếu fallback 2 tầng trong UI component*: `GameCard.tsx` trước đây khi gặp `onError` lập tức chuyển sang render initials thay vì thử fallback về file icon cục bộ `/game_icons/${game.slug}.webp`.
+- **Giải pháp chuẩn đã kiểm chứng**:
+  1. Chuẩn hóa 100% URL icon trong D1 và API về đường dẫn cục bộ `/game_icons/${game.slug}.webp`.
+  2. Tại backend `/api/games` & `/api/sync`: Nếu `icon_url` chứa `codemoi.net` hoặc rỗng $\rightarrow$ Tự động ép chuẩn về `/game_icons/${slug}.webp`.
+  3. Tại frontend `GameCard.tsx`, `GameDetailModal.tsx`, `SearchAutocomplete.tsx`: Bổ sung `getSafeIcon` chặn link codemoi và `handleImageError` tự động thử lại với kho icon nội bộ trước khi hiển thị chữ cái.
 - ⛔ **CÁCH SỬA ĐÃ THẤT BẠI - TUYỆT ĐỐI KHÔNG LẶP LẠI**:
-  - ❌ *Không bao giờ tự ý gộp hoặc deploy sang project `codegamestore`*.
+  - ❌ *Không bao giờ lưu URL trực tiếp của `codemoi.net/covers/` vào database `wcg_admin_games_v5`*: Bắt buộc dùng icon nội bộ `/game_icons/${slug}.webp`.
+  - ❌ *Không chỉ bắt `onError` rồi set ngay `imageError = true`*: Luôn phải fallback về `/game_icons/${slug}.webp` trước.
 
 ---
 

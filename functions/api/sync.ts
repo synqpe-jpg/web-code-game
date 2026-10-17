@@ -1486,7 +1486,10 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
         const existingGameIndex = gamesList.findIndex((g: any) => g && (g.slug === finalSlug || g.id === finalSlug));
 
         const isCodeMoi = sourceItem.sourceType === 'codemoi' || (sourceItem.sourceUrl && sourceItem.sourceUrl.includes('codemoi.net'));
-        const targetIcon = editedGame.iconUrl || sourceItem.localIconPath || `/game_icons/${finalSlug}.webp`;
+        let targetIcon = editedGame.iconUrl || sourceItem.localIconPath || `/game_icons/${finalSlug}.webp`;
+        if (!targetIcon || targetIcon.includes('codemoi.net')) {
+          targetIcon = `/game_icons/${finalSlug}.webp`;
+        }
         const newGameRecord = {
           id: finalSlug,
           slug: finalSlug,
@@ -1612,7 +1615,10 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
             const finalDeveloper = String(item.developer || 'NPH Chính Thức').trim();
 
             const isCodeMoi = item.sourceType === 'codemoi' || (item.sourceUrl && item.sourceUrl.includes('codemoi.net'));
-            const targetBatchIcon = item.localIconPath || (item.iconUrl && item.iconUrl.startsWith('/') ? item.iconUrl : (item.iconUrl || `/game_icons/${finalSlug}.webp`));
+            let targetBatchIcon = item.localIconPath || (item.iconUrl && item.iconUrl.startsWith('/') ? item.iconUrl : `/game_icons/${finalSlug}.webp`);
+            if (!targetBatchIcon || targetBatchIcon.includes('codemoi.net')) {
+              targetBatchIcon = `/game_icons/${finalSlug}.webp`;
+            }
             const newGameRecord = {
               id: finalSlug,
               slug: finalSlug,
@@ -1820,8 +1826,8 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
               publisher: item.publisher,
               category: 'Nhập Vai',
               rating: 4.8,
-              icon_url: item.iconUrl,
-              cover_image_url: item.iconUrl,
+              icon_url: `/game_icons/${item.slug}.webp`,
+              cover_image_url: `/game_icons/${item.slug}.webp`,
               banner_url: '',
               description: `${item.name} là tựa game mobile mới phát hành chính thức bởi ${item.publisher}.`,
               short_description: `${item.name} - Game Mobile Mới`,

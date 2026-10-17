@@ -87,8 +87,29 @@ export const GameCard: React.FC<GameCardProps> = ({
       : null;
   const totalCodes = game.codes_count || (game.codes ? game.codes.length : 0);
 
-  // Fallback icon source: check local webp if icon_url is empty
-  const iconSrc = game.icon_url || `/game_icons/${game.slug}.webp`;
+  const getSafeIcon = (rawUrl?: string, slug?: string) => {
+    if (!rawUrl || rawUrl.includes('codemoi.net') || rawUrl.startsWith('/game-icons')) {
+      return `/game_icons/${slug}.webp`;
+    }
+    return rawUrl;
+  };
+
+  const [currentIconSrc, setCurrentIconSrc] = useState(() => getSafeIcon(game.icon_url, game.slug));
+
+  useEffect(() => {
+    setCurrentIconSrc(getSafeIcon(game.icon_url, game.slug));
+    setImageLoaded(false);
+    setImageError(false);
+  }, [game.slug, game.icon_url]);
+
+  const handleImageError = () => {
+    const localFallback = `/game_icons/${game.slug}.webp`;
+    if (currentIconSrc !== localFallback) {
+      setCurrentIconSrc(localFallback);
+    } else {
+      setImageError(true);
+    }
+  };
 
   const handleCopyClick = (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -152,11 +173,11 @@ export const GameCard: React.FC<GameCardProps> = ({
       )}
       {!imageError ? (
         <img
-          src={iconSrc}
+          src={currentIconSrc}
           alt={game.name}
           loading="lazy"
           onLoad={() => setImageLoaded(true)}
-          onError={() => setImageError(true)}
+          onError={handleImageError}
           className={`w-full h-full object-cover transition-opacity duration-300 ${
             imageLoaded ? 'opacity-100' : 'opacity-0'
           }`}
