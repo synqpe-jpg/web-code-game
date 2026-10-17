@@ -15,6 +15,7 @@ import * as realtimeEventsApi from './api/realtime-events';
 import * as metricsSyncedApi from './api/metrics/synced';
 import * as gamesApi from './api/games';
 import * as crawlArticleApi from './api/crawl-article';
+import * as gameIconApi from './api/game-icon';
 import { invalidateCatalogEdgeCache } from './services/cache_service';
 
 interface Env {
@@ -369,6 +370,12 @@ export default {
       // 8d. /api/crawl-article (AI Article Crawler & Extractor)
       if (pathname === '/api/crawl-article') {
         return await crawlArticleApi.onRequest(context);
+      }
+
+      // 8e. /api/game-icon (Edge Game Icon Proxy & Caching)
+      if (pathname === '/api/game-icon') {
+        if (method === 'OPTIONS') return await gameIconApi.onRequestOptions();
+        return await gameIconApi.onRequestGet(context);
       }
 
       // Fallback for any unknown /api route
