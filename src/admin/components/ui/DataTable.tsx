@@ -35,10 +35,11 @@ export interface DataTableProps<T> {
   customSearchFn?: (item: T, searchTerm: string) => boolean;
   filters?: {
     key: string;
-    label: string;
-    options: { label: string; value: string }[];
-    selectedValue: string;
-    onChange: (val: string) => void;
+    label?: string;
+    options?: { label: string; value: string }[];
+    selectedValue?: string;
+    onChange?: (val: string) => void;
+    customRender?: React.ReactNode;
   }[];
   actions?: React.ReactNode;
   batchActions?: {
@@ -212,23 +213,29 @@ export function DataTable<T extends Record<string, any>>({
 
           <div className="flex flex-wrap items-center gap-1.5">
             {filters.map((f) => (
-              <div key={f.key} className="flex items-center gap-1">
-                <Filter className="h-3.5 w-3.5 text-slate-400 hidden sm:inline" />
-                <select
-                  value={f.selectedValue}
-                  onChange={(e) => {
-                    f.onChange(e.target.value);
-                    setCurrentPage(1);
-                  }}
-                  className="rounded-xl border border-slate-200 bg-white py-1.5 px-2.5 text-xs font-medium text-slate-700 focus:border-indigo-500 focus:outline-none dark:border-slate-800 dark:bg-slate-900 dark:text-slate-300"
-                >
-                  {f.options.map((opt) => (
-                    <option key={opt.value} value={opt.value}>
-                      {opt.label}
-                    </option>
-                  ))}
-                </select>
-              </div>
+              f.customRender ? (
+                <div key={f.key} className="flex items-center">
+                  {f.customRender}
+                </div>
+              ) : (
+                <div key={f.key} className="flex items-center gap-1">
+                  <Filter className="h-3.5 w-3.5 text-slate-400 hidden sm:inline" />
+                  <select
+                    value={f.selectedValue}
+                    onChange={(e) => {
+                      f.onChange?.(e.target.value);
+                      setCurrentPage(1);
+                    }}
+                    className="rounded-xl border border-slate-200 bg-white py-1.5 px-2.5 text-xs font-medium text-slate-700 focus:border-indigo-500 focus:outline-none dark:border-slate-800 dark:bg-slate-900 dark:text-slate-300"
+                  >
+                    {f.options?.map((opt) => (
+                      <option key={opt.value} value={opt.value}>
+                        {opt.label}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              )
             ))}
 
             {onRefresh && (

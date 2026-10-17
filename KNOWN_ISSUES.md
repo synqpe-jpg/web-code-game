@@ -760,6 +760,24 @@
 
 ---
 
+### ISSUE-042: Khó Khăn Khi Chọn Game Nạp Giftcode Do Sử Dụng Thẻ Native Select Không Tìm Kiếm Được Tiếng Việt
+- **Triệu chứng**:
+  - Trong trang Quản trị Code Miễn Phí (`/admin#/free-codes`), khi mở modal "Nhập Giftcode Hàng Loạt" hoặc "Thêm Code Mới", quản trị viên rất khó tìm game vì dropdown danh mục chứa hơn 624 tựa game.
+  - Không thể gõ tên game, không tìm kiếm được tiếng Việt có dấu/không dấu, không có logo nhận diện, phải cuộn chuột tìm kiếm thủ công.
+- **Nguyên nhân gốc rễ**:
+  - Sử dụng thẻ HTML `<select>` mặc định của trình duyệt với danh sách tĩnh 624 `<option>`. Thẻ `<select>` không cung cấp input tìm kiếm và không có cơ chế chuẩn hóa dấu tiếng Việt.
+- **Giải pháp chuẩn đã kiểm chứng**:
+  - Sử dụng component `SearchableGameSelect` tích hợp thuật toán `calculateGameSearchScore` + `normalizeVietnamese`:
+    + Hỗ trợ gõ tiếng Việt có dấu (`Tiên Giới`, `Hắc Ngộ Không`) và không dấu (`tien gioi`, `hac ngo khong`).
+    + Hỗ trợ viết tắt (`tg`, `nk`, `tala`, `hnk`, `tlhnk`, `vltk`, `lq`, `ff`), tên NPH (`VGP`, `VPlay`, `VNG`...), thể loại hoặc slug.
+    + Hiển thị logo chính thức của game, số lượng giftcode hiện có, highlight trực quan cụm từ tìm kiếm.
+    + Tích hợp vào cả Modal Nhập hàng loạt, Modal Thêm/Sửa code, và thanh lọc trên bảng dữ liệu `DataTable`.
+- ⛔ **CÁCH SỬA ĐÃ THẤT BẠI - TUYỆT ĐỐI KHÔNG LẶP LẠI**:
+  - ❌ *Không tiếp tục dùng thẻ `<select>` native với 600+ option*: Gây ức chế trải nghiệm người dùng trên cả desktop và mobile.
+  - ❌ *Không lọc bằng `String.includes` thông thường*: Bắt buộc phải qua `normalizeVietnamese` và `stripAccents` để hỗ trợ gõ có dấu và không dấu tiếng Việt.
+
+---
+
 ## 2. QUY TRÌNH BẮT BUỘC TRƯỚC KHI SỬA CODE (PRE-FLIGHT CHECKLIST)
 
 Mọi nhà phát triển hoặc AI Agent khi nhận yêu cầu sửa đổi mã nguồn **PHẢI** thực hiện đủ 4 bước sau:

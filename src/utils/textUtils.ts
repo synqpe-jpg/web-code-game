@@ -71,6 +71,15 @@ export const GAME_ACRONYM_MAP: Record<string, string[]> = {
   gamota: ['gamota'],
   vtc: ['vtc game', 'vtc mobile'],
   garena: ['garena'],
+  tg: ['tien gioi', 'tien gioi nhan kiem hop nhat'],
+  tgnk: ['tien gioi nhan kiem hop nhat', 'tien gioi nhan kiem'],
+  tgnkhn: ['tien gioi nhan kiem hop nhat'],
+  nk: ['nhan kiem', 'tien gioi nhan kiem hop nhat'],
+  tala: ['ta la hac ngo khong', 'ta la'],
+  hnk: ['hac ngo khong', 'ta la hac ngo khong'],
+  tlhnk: ['ta la hac ngo khong'],
+  vplay: ['vplay'],
+  vgp: ['vgp'],
 };
 
 export interface GameSearchScoreResult {
@@ -212,11 +221,11 @@ export function calculateGameSearchScore(
     }
   }
 
-  // 9. Multi-token match: all typed words present in name/slug
+  // 9. Multi-token match: all typed words present in name/slug/publisher
   if (score === 0) {
     const tokens = queryNorm.split(' ').filter(Boolean);
     if (tokens.length > 1) {
-      const allText = `${nameNorm} ${slugNorm}`;
+      const allText = `${nameNorm} ${slugNorm} ${publisherNorm} ${categoryNorm}`;
       if (tokens.every((tok) => allText.includes(tok))) {
         score = 5200;
         matchType = 'name_sub';

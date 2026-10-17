@@ -7,6 +7,35 @@ Mỗi mục sửa lỗi đều ghi nhận **Nguyên nhân gốc rễ (Root Cause
 
 ## [2026-10-17]
 
+### 61. Nâng Cấp Toàn Diện Bộ Máy Tìm Kiếm Game Tiếng Việt & Thay Thế Selector Bằng SearchableGameSelect Trong Mục Code Miễn Phí (Free Codes)
+- **Mô tả & Yêu cầu Người Dùng**:
+  - *"Trong mục code miễn phí, khi tôi muốn thêm code, tìm game hiện đang tìm khá khó khăn, mở rộng khả năng tìm kiếm, ô tìm kiếm có thể nhập tên tựa game, mở rộng tiếng Việt."* (Kèm ảnh chụp màn hình modal "Nhập Giftcode Hàng Loạt" đang dùng thẻ `<select>` duyệt 624 game).
+- **Nguyên nhân gốc rễ (Root Cause)**:
+  1. *Sử dụng thẻ HTML `<select>` mặc định của trình duyệt*:
+     - Modal "Nhập Giftcode Hàng Loạt" (`handleBulkImport`) và "Thêm / Sửa Giftcode" (`handleCreateNew`, `handleEdit`) trong `FreeCodesModule.tsx` trước đây sử dụng thẻ native `<select>` với hơn 624 thẻ `<option>`.
+     - Thẻ `<select>` native của trình duyệt không hỗ trợ ô nhập liệu tìm kiếm (search input), không hỗ trợ gõ tiếng Việt có dấu/không dấu, không hiển thị icon game, và buộc người dùng phải cuộn chuột thủ công qua 624 dòng game.
+  2. *Bộ lọc trên bảng dữ liệu thiếu ô tìm kiếm linh hoạt*:
+     - Thanh lọc `gameFilter` của bảng dữ liệu `DataTable` cũng dùng thẻ `<select>` cứng, gây bất tiện khi muốn lọc giftcode của một tựa game cụ thể.
+- **Giải pháp toàn diện đã triển khai (Comprehensive Implementation)**:
+  1. *Thay thế hoàn toàn bằng `SearchableGameSelect` trong `FreeCodesModule.tsx`*:
+     - Tích hợp `SearchableGameSelect` vào Modal "Nhập Giftcode Hàng Loạt" và Modal "Thêm / Sửa Code".
+     - Hỗ trợ ô nhập liệu trực tiếp: gõ tên tiếng Việt có dấu (`Tiên Giới`, `Hắc Ngộ Không`), không dấu (`tien gioi`, `hac ngo khong`), viết tắt (`tg`, `nk`, `tala`, `hnk`, `tlhnk`, `vltk`, `lq`, `ff`), tên NPH (`VGP`, `VPlay`, `VNG`...), thể loại, hoặc slug.
+     - Tự động highlight từ khóa tìm kiếm khớp trong tên game (`<mark>`).
+     - Tự động điền trước tựa game đang chọn (`gameFilter`) khi nhấn "Thêm Code Mới" hoặc "Nhập Hàng Loạt".
+  2. *Nâng cấp `DataTable` hỗ trợ `customRender` trong bộ lọc*:
+     - Tích hợp `SearchableGameSelect` trực tiếp vào thanh lọc `filters` của `FreeCodesModule` với cờ `allowClear={true}` để lọc nhanh 1 tựa game trong 1 cú click hoặc quay lại xem tất cả game.
+  3. *Mở rộng bộ máy tìm kiếm tiếng Việt (`textUtils.ts`)*:
+     - Bổ sung các từ viết tắt game phổ biến vào `GAME_ACRONYM_MAP` (`tg`, `tgnk`, `tgnkhn`, `nk`, `tala`, `hnk`, `tlhnk`, `vplay`, `vgp`).
+     - Mở rộng thuật toán Multi-token match trong `calculateGameSearchScore` quét đồng thời cả tên game, slug, nhà phát hành và thể loại.
+  4. *Chuẩn hóa giao diện Light & Dark Theme*:
+     - Nâng cấp `SearchableGameSelect.tsx` hỗ trợ 100% theme sáng/tối sắc nét, viền bo tròn, đổ bóng hiện đại theo thiết kế chung của hệ thống Admin.
+- **Kết quả kiểm thử & Kiểm toán (Verification & Zero Test Artifacts)**:
+  - Vượt qua 16/16 test case tìm kiếm tiếng Việt (dấu, không dấu, viết tắt, NPH) với độ chính xác 100%.
+  - Toàn bộ script kiểm thử tạm thời đã được dọn sạch theo Rule 7.
+  - Build Vite & Cloudflare Pages Edge Worker hoàn thành 100% không cảnh báo lỗi.
+
+---
+
 ### 60. Xây Dựng Hệ Thống Lọc Mã Rác Đa Tầng (Anti-Junk Giftcode Engine) & Dọn Sạch 100% Từ Vựng Web Trong Hàng Chờ Duyệt
 - **Mô tả & Yêu cầu Người Dùng**:
   - *"Bổ sung điều kiện lọc mã code khi quét để tránh mã rác"* (Kèm ảnh chụp màn hình Admin hàng chờ duyệt tràn ngập các từ ngữ thông dụng như `GAME`, `NGAY`, `TYPE`, `BELOW`, `OFFERS`, `FROM`, `GAMOTA`, `THEO`, `WITH`...).

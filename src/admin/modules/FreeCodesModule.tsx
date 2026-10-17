@@ -17,6 +17,7 @@ import { DataTable, Column } from '../components/ui/DataTable';
 import { StatusBadge } from '../components/ui/StatusBadge';
 import { ConfirmModal } from '../components/ui/ConfirmModal';
 import { FormModal } from '../components/ui/FormModal';
+import { SearchableGameSelect } from '../components/ui/SearchableGameSelect';
 import { adminDataService } from '../services/adminDataService';
 import { FreeCodeRecord, GameAdminRecord } from '../types/adminTypes';
 import { smartVietnameseMatch } from '../../utils/textUtils';
@@ -120,9 +121,10 @@ export const FreeCodesModule: React.FC<FreeCodesModuleProps> = ({
   };
 
   const handleCreateNew = () => {
+    const defaultGame = gameFilter !== 'ALL' ? gameFilter : (games[0]?.slug || '');
     setEditingCode({
       id: '',
-      gameSlug: games[0]?.slug || '',
+      gameSlug: defaultGame,
       codeValue: '',
       rewards: '100 Kim Cương, 50k Vàng, Rương Trang Bị SSR',
       status: 'ACTIVE',
@@ -441,12 +443,18 @@ export const FreeCodesModule: React.FC<FreeCodesModuleProps> = ({
           {
             key: 'gameSlug',
             label: 'Game',
-            selectedValue: gameFilter,
-            options: [
-              { label: 'Tất cả game', value: 'ALL' },
-              ...games.map((g) => ({ label: g.name, value: g.slug })),
-            ],
-            onChange: setGameFilter,
+            customRender: (
+              <div className="w-52 sm:w-64">
+                <SearchableGameSelect
+                  games={games}
+                  selectedGameSlug={gameFilter === 'ALL' ? '' : gameFilter}
+                  onSelectGame={(g) => setGameFilter(g ? (g.slug || g.id) : 'ALL')}
+                  placeholder="🎮 Lọc theo tựa game..."
+                  allowClear={true}
+                  clearLabel="🎮 Xem tất cả các game"
+                />
+              </div>
+            ),
           },
           {
             key: 'status',
@@ -468,17 +476,17 @@ export const FreeCodesModule: React.FC<FreeCodesModuleProps> = ({
             </div>
             <button
               onClick={() => {
-                setBulkGameSlug(games[0]?.slug || '');
+                setBulkGameSlug(gameFilter !== 'ALL' ? gameFilter : (games[0]?.slug || ''));
                 setIsBulkOpen(true);
               }}
-              className="inline-flex items-center gap-1.5 rounded-xl border border-indigo-200 bg-indigo-50 px-3.5 py-2 text-xs font-bold text-indigo-700 hover:bg-indigo-100 dark:border-indigo-900/50 dark:bg-indigo-950/40 dark:text-indigo-300"
+              className="inline-flex items-center gap-1.5 rounded-xl border border-indigo-200 bg-indigo-50 px-3.5 py-2 text-xs font-bold text-indigo-700 hover:bg-indigo-100 dark:border-indigo-900/50 dark:bg-indigo-950/40 dark:text-indigo-300 cursor-pointer"
             >
               <Upload className="h-4 w-4" />
               <span>Nhập Hàng Loạt</span>
             </button>
             <button
               onClick={handleCreateNew}
-              className="inline-flex items-center gap-1.5 rounded-xl bg-indigo-600 px-3.5 py-2 text-xs font-bold text-white shadow-sm hover:bg-indigo-700"
+              className="inline-flex items-center gap-1.5 rounded-xl bg-indigo-600 px-3.5 py-2 text-xs font-bold text-white shadow-sm hover:bg-indigo-700 cursor-pointer"
             >
               <Plus className="h-4 w-4" />
               <span>Thêm Code Mới</span>
@@ -517,22 +525,18 @@ export const FreeCodesModule: React.FC<FreeCodesModuleProps> = ({
       >
         <form onSubmit={handleSaveCode} className="space-y-4">
           <div>
-            <label className="text-xs font-bold text-slate-700 dark:text-slate-300">
-              Chọn Game <span className="text-rose-500">*</span>
-            </label>
-            <select
-              value={editingCode?.gameSlug || ''}
-              onChange={(e) =>
-                setEditingCode((prev) => (prev ? { ...prev, gameSlug: e.target.value } : null))
+            <SearchableGameSelect
+              games={games}
+              selectedGameSlug={editingCode?.gameSlug || ''}
+              onSelectGame={(g) =>
+                setEditingCode((prev) =>
+                  prev ? { ...prev, gameSlug: g ? (g.slug || g.id) : '' } : null
+                )
               }
-              className="mt-1 w-full rounded-xl border border-slate-200 bg-white p-2.5 text-xs text-slate-900 focus:border-indigo-500 focus:outline-none dark:border-slate-700 dark:bg-slate-800 dark:text-white"
-            >
-              {games.map((g) => (
-                <option key={g.id} value={g.slug}>
-                  {g.name} ({g.slug})
-                </option>
-              ))}
-            </select>
+              label="Chọn Game"
+              required
+              placeholder="Gõ tên game tiếng Việt có dấu/không dấu (VD: Tiên Giới, Hắc Ngộ Không...)..."
+            />
           </div>
 
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
@@ -656,21 +660,14 @@ export const FreeCodesModule: React.FC<FreeCodesModuleProps> = ({
       >
         <form onSubmit={handleBulkImport} className="space-y-4">
           <div>
-            <label className="text-xs font-bold text-slate-700 dark:text-slate-300">
-              Chọn Game Cần Nạp Code <span className="text-rose-500">*</span>
-            </label>
-            <select
+            <SearchableGameSelect
+              games={games}
+              selectedGameSlug={bulkGameSlug}
+              onSelectGame={(g) => setBulkGameSlug(g ? (g.slug || g.id) : '')}
+              label="Chọn Game Cần Nạp Code"
               required
-              value={bulkGameSlug}
-              onChange={(e) => setBulkGameSlug(e.target.value)}
-              className="mt-1 w-full rounded-xl border border-slate-200 bg-white p-2.5 text-xs text-slate-900 focus:border-indigo-500 focus:outline-none dark:border-slate-700 dark:bg-slate-800 dark:text-white"
-            >
-              {games.map((g) => (
-                <option key={g.id} value={g.slug}>
-                  {g.name} ({g.slug})
-                </option>
-              ))}
-            </select>
+              placeholder="Gõ tên game tiếng Việt có dấu/không dấu (VD: Tiên Giới, Hắc Ngộ Không...)..."
+            />
           </div>
 
           <div>
