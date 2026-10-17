@@ -740,6 +740,26 @@
 
 ---
 
+### ISSUE-041: Bẫy Bóc Tách Từ Vựng Web Thông Dụng Thành Giftcode (Web Scraper False Positives)
+- **Triệu chứng**:
+  - Hàng chờ duyệt Giftcode (`crawlerPendingCodes`) bị tràn ngập các từ ngữ thông dụng tiếng Anh / tiếng Việt như `GAME`, `NGAY`, `TYPE`, `BELOW`, `OFFERS`, `FROM`, `GAMOTA`, `THEO`, `WITH`, `WITHIN`, `WORKS`, `DROPS`...
+- **Nguyên nhân gốc rễ**:
+  1. *Thiếu bộ lọc từ vựng & Blacklist trong Scraper*: Các thẻ HTML `<td>`, `<strong>`, `<b>` trong các câu hướng dẫn hoặc bảng thanh toán (vd: "Type below offers from Gamota") bị regex bóc tách thành mã code nếu từ đó viết hoa hoặc đứng đầu dòng.
+  2. *Thiếu ràng buộc tựa game đích*: Mã không khớp với bất kỳ game nào vẫn được gán nhãn `unknown-game` và đưa vào hàng chờ thay vì loại bỏ.
+  3. *Chấm điểm lỏng lẻo*: Mã không rõ game vẫn được cộng điểm nguồn cào và điểm quà tặng mặc định, đạt 45-60 điểm (vượt ngưỡng 40đ để vào hàng chờ Bậc 3, 4).
+- **Giải pháp chuẩn đã kiểm chứng**:
+  1. Xây dựng engine lọc mã rác đa tầng tập trung (`scripts/crawler/engine/code_filter.cjs`):
+     - Blacklist hơn 200+ từ vựng, nhãn UI, giới từ, tên NPH, thương hiệu nền tảng.
+     - Quy tắc hình thái học: Chặn số nguyên thuần túy dạng ngày tháng (`0401`), bắt buộc tiền tố chuẩn cho mã ngắn thuần chữ cái ($\le 4$ ký tự), chặn ký tự lặp đơn điệu.
+  2. Bắt buộc ràng buộc game: Mã không khớp được game trong catalog (`matchConfidence <= 0` hoặc `unknown-game`) bị loại bỏ ngay lập tức (0 điểm).
+  3. Nâng ngưỡng hàng chờ lên $\ge 50$ điểm kèm điều kiện có tựa game xác định.
+  4. Bổ sung nút "🧹 Dọn mã rác" trong trang Admin để thanh lọc nhanh chóng.
+- ⛔ **CÁCH SỬA ĐÃ THẤT BẠI - TUYỆT ĐỐI KHÔNG LẶP LẠI**:
+  - ❌ *Không chỉ dùng regex độ dài `/^[A-Z0-9]{4,24}$/` mà bỏ qua kiểm tra từ điển*: Sẽ bóc tách nhầm hàng trăm từ tiếng Anh/Việt thông dụng.
+  - ❌ *Không lưu trữ mã `unknown-game` vào hàng chờ*: Giftcode không có game là vô dụng và gây rác hệ thống.
+
+---
+
 ## 2. QUY TRÌNH BẮT BUỘC TRƯỚC KHI SỬA CODE (PRE-FLIGHT CHECKLIST)
 
 Mọi nhà phát triển hoặc AI Agent khi nhận yêu cầu sửa đổi mã nguồn **PHẢI** thực hiện đủ 4 bước sau:

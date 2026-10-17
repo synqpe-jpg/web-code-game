@@ -8,6 +8,8 @@
  * - BẬC 4 (Dưới 50 điểm):  [RỦI RO / TỪ CHỐI] Không đạt chuẩn, tự động gắn cờ Spam/Bỏ qua.
  */
 
+const { isValidGiftCode } = require('./code_filter.cjs');
+
 function calculateCodeScore({
   code,
   gameMatchConfidence, // 0 - 1 (tỷ lệ khớp tựa game)
@@ -17,6 +19,8 @@ function calculateCodeScore({
   isDuplicate,
   contextText = ''
 }) {
+  const cleanCode = String(code || '').trim().toUpperCase();
+
   // Nếu mã bị trùng với kho code hiện có -> 0 điểm ngay
   if (isDuplicate) {
     return {
@@ -27,6 +31,29 @@ function calculateCodeScore({
       reasons: ['Mã code đã tồn tại trong kho hệ thống']
     };
   }
+
+  // 1. KIỂM TRA BỘ LỌC MÃ RÁC ĐA TẦNG (ANTI-JUNK GUARD)
+  if (!isValidGiftCode(cleanCode)) {
+    return {
+      score: 0,
+      tier: 4,
+      tierLabel: 'Bậc 4: Mã rác / Từ vựng thông dụng (0đ)',
+      canAutoPublish: false,
+      reasons: ['Phát hiện từ khóa rác, từ vựng thông dụng hoặc sai định dạng']
+    };
+  }
+
+  // 2. KHÔNG XÁC ĐỊNH ĐƯỢC TỰA GAME -> KHÔNG ĐƯA VÀO HỆ THỐNG
+  if (gameMatchConfidence <= 0) {
+    return {
+      score: 0,
+      tier: 4,
+      tierLabel: 'Bậc 4: Không xác định tựa game (0đ)',
+      canAutoPublish: false,
+      reasons: ['Không xác định được tựa game đích trong hệ thống']
+    };
+  }
+
 
   let score = 0;
   const reasons = [];
@@ -53,7 +80,6 @@ function calculateCodeScore({
   // ==========================================
   // TIÊU CHÍ 2: ĐỊNH DẠNG MÃ CODE (Tối đa 25 điểm)
   // ==========================================
-  const cleanCode = String(code || '').trim();
   const isAlphaNumericUpper = /^[A-Z0-9_-]{5,24}$/.test(cleanCode);
   const isMixedCase = /^[A-Za-z0-9_-]{5,24}$/.test(cleanCode);
   const hasSpamPattern = /(http|www|\.com|\.vn|link|sub|like|share)/i.test(cleanCode);

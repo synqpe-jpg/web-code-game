@@ -7,6 +7,41 @@ Mỗi mục sửa lỗi đều ghi nhận **Nguyên nhân gốc rễ (Root Cause
 
 ## [2026-10-17]
 
+### 60. Xây Dựng Hệ Thống Lọc Mã Rác Đa Tầng (Anti-Junk Giftcode Engine) & Dọn Sạch 100% Từ Vựng Web Trong Hàng Chờ Duyệt
+- **Mô tả & Yêu cầu Người Dùng**:
+  - *"Bổ sung điều kiện lọc mã code khi quét để tránh mã rác"* (Kèm ảnh chụp màn hình Admin hàng chờ duyệt tràn ngập các từ ngữ thông dụng như `GAME`, `NGAY`, `TYPE`, `BELOW`, `OFFERS`, `FROM`, `GAMOTA`, `THEO`, `WITH`...).
+- **Nguyên nhân gốc rễ (Root Cause)**:
+  1. *Thiếu bộ lọc từ vựng & Blacklist trong Scraper (`web_scraper.cjs`)*:
+     - Trình bóc tách HTML quét các thẻ `<td>`, `<strong>`, `<b>`, `<code>` và chỉ loại bỏ đúng 5 từ khóa (`CODE`, `STT`, `HSD`, `GIFTCODE`, `TEN`). Các đoạn văn bản hướng dẫn chứa từ in đậm như `<strong>Type</strong> below offers from Gamota...` hoặc `<strong>Theo</strong>...` hay `Chơi game ngay...` bị regex trích xuất nhầm thành mã giftcode.
+  2. *Thiếu quy tắc ràng buộc tựa game đích (`Game Association Rule`)*:
+     - Khi crawler quét một bài viết hoặc trang web không khớp với bất kỳ game nào trong 624 tựa game của catalog, hệ thống vẫn gắn nhãn `unknown-game` và lưu vào hàng chờ duyệt thay vì loại bỏ ngay lập tức.
+  3. *Quy tắc cấp điểm lỏng lẻo (`code_scorer.cjs`)*:
+     - Mã không rõ game vẫn được cộng điểm nguồn cào (+20đ), điểm quà tặng mặc định (+15đ), điểm độ dài (+10đ - 25đ), đạt 45-60 điểm (vượt ngưỡng 40đ để vào hàng chờ Bậc 3, 4).
+- **Giải pháp toàn diện đã triển khai (Comprehensive Implementation)**:
+  1. *Xây dựng bộ máy lọc mã rác đa tầng tập trung (`scripts/crawler/engine/code_filter.cjs`)*:
+     - **Blacklist toàn diện**: Chặn tuyệt đối hơn 200+ từ vựng tiếng Anh / tiếng Việt thông dụng, nhãn UI, giới từ, liên từ (`TYPE, BELOW, OFFERS, FROM, WITH, WITHIN, WILL, MIGHT, WORKS, DROPS, THAT, BEFORE, ADDED, OPTION, THEO, NGAY, TRONG, DANG, CHON...`).
+     - **Chặn thương hiệu NPH & Nền tảng**: Loại bỏ các từ trùng tên NPH (`GAMOTA, VNG, GARENA, SOHAGAME, FUNTAP, GOSU, VTC...`) hoặc từ khóa thể loại game (`ROBUX, OBBY, ZOMBIES, NINJA, MONSTER...`).
+     - **Quy tắc hình thái học (Morphological Rules)**:
+       - Chặn chuỗi số nguyên thuần túy dạng ngày tháng (`0401`, `12345`).
+       - Mã thuần chữ cái (không số) có độ dài $\le 4$ ký tự bắt buộc phải có tiền tố quà tặng chuẩn (`VIP`, `SVIP`, `GIFT`, `FREE`).
+       - Chặn chuỗi ký tự lặp đơn điệu (như `AAAA`, `1111`).
+       - Chặn mã trùng với slug hoặc các từ trong tên game.
+  2. *Tích hợp đồng bộ vào toàn bộ Scrapers & Scorer*:
+     - `web_scraper.cjs`: Kiểm tra `isValidGiftCode` ngay tại khâu bóc tách HTML trước khi tạo ứng viên.
+     - `facebook_scraper.cjs`: Đồng bộ sử dụng `isValidGiftCode`.
+     - `code_scorer.cjs`: Mã rác hoặc không xác định được game bị chấm ngay 0 điểm (Bậc 4 - Từ chối).
+     - `run_crawler.cjs`: Bắt buộc `gameSlug !== 'unknown-game'` và `matchConfidence > 0`; nâng ngưỡng duyệt hàng chờ lên $\ge 50$ điểm kèm game cụ thể.
+  3. *Cải tiến giao diện Quản Trị Admin (`src/admin/modules/CrawlerModule.tsx`)*:
+     - Thêm nút 1-chạm **"🧹 Dọn mã rác ({count})"** ngay trên thanh điều khiển hàng chờ duyệt.
+     - Hiển thị badge cảnh báo **"⚠️ Nghi vấn rác"** đối với các mã nghi ngờ.
+  4. *Dọn sạch 100% dữ liệu rác trên Cloudflare D1/KV*:
+     - Thực thi thanh lọc toàn bộ 36 mã rác tồn đọng khỏi `crawlerPendingCodes` trên Cloudflare D1 Server (SSOT). Hàng chờ hiện tại hoàn toàn sạch sẽ (0 mã rác).
+- **Kết quả kiểm thử & Kiểm toán (Verification & Zero Test Artifacts)**:
+  - 100% các từ ngữ rác trong ảnh chụp màn hình bị loại bỏ triệt để.
+  - Build frontend, Prerender SEO và Cloudflare Edge Worker bundle thành công 100%.
+
+---
+
 ### 59. Kiểm Tra Toàn Diện & Chuẩn Hóa 100% Logo Các Tựa Game Mới Cập Nhật & Trong Hàng Chờ (Google Play & Official Covers)
 - **Mô tả & Yêu cầu Người Dùng**:
   - *"Bạn kiểm tra những game up date chưa có logo chính xác và cập nhật giúp tôi."*

@@ -9,6 +9,7 @@
 const https = require('https');
 const http = require('http');
 const { extractCodesFromHtml } = require('./web_scraper.cjs');
+const { isValidGiftCode } = require('../engine/code_filter.cjs');
 
 function fetchHttp(url, timeoutMs = 8000) {
   return new Promise((resolve, reject) => {
@@ -137,43 +138,9 @@ class FacebookScraper {
   }
 
   isValidCode(code = '', targetGameSlug = '', gameName = '') {
-    if (!code || typeof code !== 'string') return false;
-    const clean = code.trim().toUpperCase();
-    if (clean.length < 4 || clean.length > 24) return false;
-    // BẮT BUỘC: Phải chứa ít nhất 1 chữ cái (Loại bỏ triệt để các chuỗi số nguyên thuần túy như timestamp 1790816400000 hay id 48896)
-    if (!/[A-Z]/.test(clean)) return false;
-    // Bắt buộc chỉ gồm ký tự A-Z, 0-9, dấu gạch dưới hoặc gạch nối
-    if (!/^[A-Z0-9_-]+$/.test(clean)) return false;
-    // Không nằm trong danh sách từ cấm
-    if (STOP_WORDS.has(clean)) return false;
-
-    // LOẠI BỎ TRIỆT ĐỂ: Bất kỳ mã nào trùng với slug hoặc các từ trong tên game mục tiêu
-    const slugUpper = (targetGameSlug || '').toUpperCase();
-    if (slugUpper && (clean === slugUpper || clean === slugUpper.replace(/-/g, ''))) return false;
-    if (slugUpper) {
-      const slugParts = slugUpper.split('-');
-      if (slugParts.some(p => p.length >= 3 && clean === p)) return false;
-    }
-
-    if (gameName) {
-      const nameParts = gameName.toUpperCase().replace(/[^A-Z0-9\s]/g, ' ').split(/\s+/);
-      if (nameParts.some(p => p.length >= 3 && clean === p)) return false;
-    }
-
-    // QUY TẮC MÃ TOÀN CHỮ CÁI (All-Alpha Rule):
-    // Nếu mã chỉ toàn chữ cái (không có bất kỳ chữ số nào):
-    const isAllLetters = !/\d/.test(clean);
-    if (isAllLetters) {
-      // Bắt buộc phải có tiền tố quà tặng chuẩn (VIP, SVIP, CODE, GIFT, TANTHU, TRIAN...)
-      const hasCodePrefix = /^(VIP|SVIP|CODE|GIFT|TANTHU|TRIAN)/i.test(clean);
-      if (!hasCodePrefix) {
-        // Nếu không có tiền tố code và độ dài <= 8 ký tự (như PIRATE, ANIIMO, DELTA, GENSHIN, PANDA, GACHA...) -> BỎ QUA NGAY!
-        if (clean.length <= 8) return false;
-      }
-    }
-
-    return true;
+    return isValidGiftCode(code, { gameSlug: targetGameSlug, gameName });
   }
+
 
   /**
    * Quét nguồn Fanpage Facebook kèm cơ chế Cross-Source Fallback Intelligence

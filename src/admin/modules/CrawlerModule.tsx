@@ -85,6 +85,42 @@ interface CrawlerLog {
   autoCodes?: string[];
 }
 
+export const JUNK_WORDS_SET = new Set([
+  'TYPE', 'BELOW', 'OFFERS', 'OFFER', 'FROM', 'WITH', 'WITHIN', 'WILL', 'MIGHT', 'WORKS', 'WORKING', 'WORK',
+  'DROPS', 'DROP', 'THAT', 'BEFORE', 'AFTER', 'ADDED', 'OPTION', 'OPTIONS', 'HERE', 'THERE', 'WHERE', 'WHEN',
+  'WHAT', 'WHICH', 'SOME', 'MANY', 'MORE', 'LESS', 'CLICK', 'PRESS', 'ENTER', 'SUBMIT', 'CHECK', 'FOLLOW',
+  'SHARE', 'SUBSCRIBE', 'JOIN', 'DISCORD', 'SERVER', 'CHANNEL', 'ADMIN', 'MODERATOR', 'PLAYER', 'PLAYERS',
+  'ONLINE', 'OFFLINE', 'STATUS', 'VERSION', 'UPDATE', 'UPDATED', 'PATCH', 'NOTES', 'GUIDE', 'GUIDES', 'TRICKS',
+  'TIPS', 'LIST', 'CODES', 'CODE', 'EXPIRED', 'ACTIVE', 'INACTIVE', 'VALID', 'INVALID', 'REDEEM', 'REDEEMED',
+  'REWARDS', 'REWARD', 'FREE', 'ITEM', 'ITEMS', 'GIFT', 'GIFTS', 'GIFTCODE', 'GIFTCODES', 'PROMO', 'PROMOCODE',
+  'PROMOCODES', 'EVENT', 'EVENTS', 'NEWS', 'ARTICLE', 'POST', 'POSTS', 'PAGE', 'PAGES', 'HOME', 'ABOUT',
+  'CONTACT', 'TERMS', 'PRIVACY', 'POLICY', 'LOGIN', 'LOGOUT', 'SIGNUP', 'REGISTER', 'ACCOUNT', 'PASSWORD',
+  'EMAIL', 'DEVICE', 'ANDROID', 'IPHONE', 'IPAD', 'MOBILE', 'TABLET', 'DESKTOP', 'BROWSER', 'WEBSITE', 'STORE',
+  'SHOP', 'BUY', 'SELL', 'PRICE', 'COST', 'MONEY', 'CASH', 'COIN', 'COINS', 'GEM', 'GEMS', 'TOKEN', 'TOKENS',
+  'POINT', 'POINTS', 'LEVEL', 'STAGE', 'WORLD', 'ZONE', 'QUEST', 'MISSION', 'HERO', 'HEROES', 'CHAMPION',
+  'BOSS', 'RAID', 'BATTLE', 'ARENA', 'PVP', 'PVE', 'GAME', 'GAMES', 'GAMING', 'GAMER', 'GAMERS', 'ROBUX',
+  'OBBY', 'ZOMBIE', 'ZOMBIES', 'DIGIT', 'NUMBER', 'CHARS', 'CHARACTER', 'LETTER', 'CASE', 'UPPER', 'LOWER',
+  'TEXT', 'STRING', 'VALUE', 'INPUT', 'OUTPUT', 'ERROR', 'SUCCESS', 'WARNING', 'INFO', 'IN-GAME', 'INGAME',
+  'THEO', 'NGAY', 'TRONG', 'NGOAI', 'TREN', 'DUOI', 'TRUOC', 'SAU', 'GIUA', 'DANG', 'CHON', 'NHAP', 'XUAT',
+  'NHAN', 'TANG', 'THUONG', 'PHAN', 'QUA', 'CHOI', 'TAI', 'CAI', 'DAT', 'HUONG', 'DAN', 'CHI', 'TIET',
+  'TIN', 'TUC', 'SU', 'KIEN', 'CAP', 'NHAT', 'MOI', 'CU', 'HET', 'HAN', 'CON', 'DUNG', 'DUOC', 'KHONG',
+  'GAMOTA', 'GARENA', 'VNG', 'VNGGAMES', 'SOHAGAME', 'SOHA', 'FUNTAP', 'GOSU', 'VTCMOBILE', 'VTCGAME',
+  'VTC', 'DZOGAME', 'APPOTA', 'ACEGAME', 'VGP', 'KPLAY', 'VPLAY', 'DIGIGAMES', 'GZONE', 'JOYGAMES'
+]);
+
+export function isJunkCrawlerCode(item: PendingCrawlerCode): boolean {
+  if (!item || !item.code) return true;
+  const c = item.code.trim().toUpperCase().replace(/^[^A-Z0-9_-]+|[^A-Z0-9_-]+$/g, '');
+  if (c.length < 4 || c.length > 28) return true;
+  if (/^\d+$/.test(c)) return true;
+  if (JUNK_WORDS_SET.has(c)) return true;
+  if (item.gameId === 'unknown-game' || item.gameSlug === 'unknown-game') return true;
+  if (!/\d/.test(c) && !/^(VIP|SVIP|CODE|GIFT|TANTHU|TRIAN|FREE|NEW|HOT|PROMO|KAME|LUCKY)/i.test(c)) {
+    if (c.length <= 4) return true;
+  }
+  return false;
+}
+
 export const getCrawlerSourceInfo = (item: { sourceUrl?: string; sourceName?: string; sourceType?: string }) => {
   const url = (item.sourceUrl || '').toLowerCase();
   const name = (item.sourceName || '').toLowerCase();
@@ -642,6 +678,50 @@ export const CrawlerModule: React.FC<CrawlerModuleProps> = ({ onShowToast }) => 
         setSelectedIds((prev) => prev.filter((id) => !ids.includes(id)));
       } else {
         onShowToast('Lỗi xóa theo nguồn', result?.error || 'Thao tác thất bại.', 'error');
+      }
+    } catch (e: any) {
+      onShowToast('Lỗi kết nối', e?.message || 'Không thể kết nối đến máy chủ.', 'error');
+    } finally {
+      setIsProcessingSourceAction(false);
+    }
+  };
+
+  // 1-Click Clean All Junk Codes
+  const handleCleanAllJunkCodes = async () => {
+    const junkCodes = pendingCodes.filter(isJunkCrawlerCode);
+    if (junkCodes.length === 0) {
+      onShowToast('Tuyệt vời! ✨', 'Không phát hiện bất kỳ mã rác nào trong hàng chờ.', 'success');
+      return;
+    }
+
+    const confirmed = window.confirm(
+      `Phát hiện ${junkCodes.length} mã rác (từ vựng thông dụng, nhãn web, hoặc mã không rõ tựa game).\nBạn có chắc chắn muốn XÓA SẠCH toàn bộ ${junkCodes.length} mã này khỏi hàng chờ duyệt?`
+    );
+    if (!confirmed) return;
+
+    setIsProcessingSourceAction(true);
+    try {
+      const ids = junkCodes.map((c) => c.id);
+      const res = await fetch('/api/sync', {
+        method: 'POST',
+        headers: getSyncHeaders(),
+        body: JSON.stringify({
+          action: 'batch_reject_crawler_codes',
+          pendingIds: ids,
+        }),
+      });
+
+      const result = await res.json();
+      if (result && result.success) {
+        onShowToast(
+          'Đã dọn sạch mã rác! 🧹',
+          `Đã loại bỏ ${ids.length} mã rác khỏi hàng chờ duyệt thành công.`,
+          'success'
+        );
+        setPendingCodes((prev) => prev.filter((p) => !ids.includes(p.id)));
+        setSelectedIds((prev) => prev.filter((id) => !ids.includes(id)));
+      } else {
+        onShowToast('Lỗi dọn mã rác', result?.error || 'Thao tác thất bại.', 'error');
       }
     } catch (e: any) {
       onShowToast('Lỗi kết nối', e?.message || 'Không thể kết nối đến máy chủ.', 'error');
@@ -1507,6 +1587,20 @@ export const CrawlerModule: React.FC<CrawlerModuleProps> = ({ onShowToast }) => 
                 <option value="TIER_4">Bậc 4 (&lt;50đ) - {stats.tier4Count} mã</option>
               </select>
 
+              {/* Nút Dọn Mã Rác Thông Minh */}
+              {pendingCodes.some(isJunkCrawlerCode) && (
+                <button
+                  type="button"
+                  disabled={isProcessingSourceAction}
+                  onClick={handleCleanAllJunkCodes}
+                  className="px-3 py-1.5 rounded-xl border border-rose-500/40 bg-rose-500/15 hover:bg-rose-500/25 text-rose-300 hover:text-white text-xs sm:text-sm font-semibold flex items-center gap-1.5 transition-all shadow-sm active:scale-95 cursor-pointer disabled:opacity-40"
+                  title="Tự động phát hiện và xóa sạch toàn bộ mã rác, từ vựng thông dụng và mã không rõ tựa game"
+                >
+                  <Trash2 className="w-3.5 h-3.5 text-rose-400" />
+                  <span>Dọn mã rác ({pendingCodes.filter(isJunkCrawlerCode).length})</span>
+                </button>
+              )}
+
               <span className="text-xs text-slate-400 hidden xl:inline-block">
                 Khớp: <strong className="text-white">{filteredCodes.length}</strong> / {pendingCodes.length} mã
               </span>
@@ -1669,6 +1763,13 @@ export const CrawlerModule: React.FC<CrawlerModuleProps> = ({ onShowToast }) => 
                           <td className="py-2.5 px-3">
                             <div className="space-y-0.5">
                               {getTierBadge(item.tier, item.score)}
+                              {isJunkCrawlerCode(item) && (
+                                <div>
+                                  <span className="inline-block text-[9px] bg-rose-500/20 text-rose-300 border border-rose-500/30 px-1.5 py-0.5 rounded font-medium">
+                                    ⚠️ Nghi vấn rác
+                                  </span>
+                                </div>
+                              )}
                               <div className="text-[10px] text-slate-400 truncate max-w-[110px]" title={item.reasons?.join(', ')}>
                                 {item.reasons?.[0] || 'Cần kiểm tra'}
                               </div>

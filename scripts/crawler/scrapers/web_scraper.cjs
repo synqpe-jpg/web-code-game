@@ -4,6 +4,7 @@
 
 const https = require('https');
 const http = require('http');
+const { isValidGiftCode } = require('../engine/code_filter.cjs');
 
 function fetchUrl(url, maxRedirects = 3) {
   return new Promise((resolve, reject) => {
@@ -52,8 +53,8 @@ function extractCodesFromHtml(html = '') {
       const rewardCand = cells[1];
       const expiryCand = cells[2] || '';
 
-      // Kiểm tra pattern code (in hoa, 5-24 ký tự)
-      if (/^[A-Z0-9_-]{5,24}$/.test(codeCand) && !/^(CODE|STT|HSD|GIFTCODE|TEN)$/i.test(codeCand)) {
+      // Kiểm tra tính hợp lệ bằng bộ lọc đa tầng
+      if (isValidGiftCode(codeCand)) {
         extracted.push({
           code: codeCand,
           rewards: rewardCand || 'Quà tân thủ & vật phẩm ingame',
@@ -76,7 +77,7 @@ function extractCodesFromHtml(html = '') {
     while ((match = reg.exec(html)) !== null) {
       const c = cleanCodeCandidate(match[1]);
       const r = match[2]?.trim() || 'Quà tặng tân thủ';
-      if (c && /^[A-Za-z0-9_<>-]{4,28}$/.test(c) && !/^(GIFTCODE|EVENT|UPDATE|HOT|ACTIVE|EXPIRED|WORKING|REDEEM|REWARDS)$/i.test(c)) {
+      if (isValidGiftCode(c)) {
         if (!extracted.some((x) => x.code === c)) {
           extracted.push({
             code: c,

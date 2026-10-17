@@ -16,6 +16,7 @@ try {
 } catch {}
 
 const { calculateCodeScore } = require('./engine/code_scorer.cjs');
+const { isValidGiftCode } = require('./engine/code_filter.cjs');
 const { GameMatcher } = require('./engine/game_matcher.cjs');
 const { WebScraper } = require('./scrapers/web_scraper.cjs');
 const { DiscordScraper } = require('./scrapers/discord_scraper.cjs');
@@ -263,12 +264,26 @@ async function main() {
     const gameSlug = matchedGame ? (matchedGame.slug || matchedGame.id) : (src.targetGameSlug || 'unknown-game');
     const gameName = matchedGame ? matchedGame.name : (src.targetGameName || src.name);
 
+    // QUY TẮC BẮT BUỘC: Không nạp code nếu không khớp được tựa game cụ thể nào trong hệ thống
+    if (!matchedGame && (!src.targetGameSlug || src.targetGameSlug === 'unknown-game')) {
+      return;
+    }
+    if (gameSlug === 'unknown-game' || matchConfidence <= 0) {
+      return;
+    }
+
     for (const codeItem of scrapedResult.codes) {
       totalCodesScanned++;
       const cleanCode = String(codeItem.code || '')
         .trim()
         .toUpperCase()
-        .replace(/^[^A-Z0-9]+|[^A-Z0-9]+$/g, '');
+        .replace(/^[^A-Z0-9_-]+|[^A-Z0-9_-]+$/g, '');
+
+      // BỘ LỌC MÃ RÁC ĐA TẦNG: Kiểm tra cấu trúc & danh sách từ vựng cấm
+      if (!isValidGiftCode(cleanCode, { gameSlug, gameName })) {
+        lowScoreCount++;
+        continue;
+      }
 
       // Kiểm tra trùng lặp
       const isDuplicate = knownCodesSet.has(cleanCode) || knownCodesSet.has(`${gameSlug}:::${cleanCode}`);
@@ -316,8 +331,8 @@ async function main() {
         autoApprovedList.push(publishedItem);
         registerCode(cleanCode, gameSlug);
       }
-      // - BẬC 2, 3, 4 (<90 điểm): LƯU VÀO HÀNG ĐỢI CHO ADMIN DUYỆT
-      else if (scoreResult.score >= 40) {
+      // - BẬC 2, 3 (<90 điểm & >= 50 điểm): LƯU VÀO HÀNG ĐỢI CHO ADMIN DUYỆT (Chỉ nhận mã có game xác định)
+      else if (scoreResult.score >= 50 && gameSlug !== 'unknown-game') {
         const pendingItem = {
           id: `pending_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
           gameId: matchedGame?.id || gameSlug,
