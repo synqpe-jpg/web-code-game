@@ -9,9 +9,15 @@
 ## 1. TỔNG QUAN DỰ ÁN & VẬN HÀNH
 
 - **Tên dự án**: Web Code Game & Tiện Ích Game Số 1 Việt Nam
-- **Tên miền sản xuất**:
-  - Web Khách: `https://codegame.shop` / `https://codegame.store` (Cloudflare Pages: `web-code-game`)
-  - Web Quản trị (Admin): `https://admin.codegame.shop` (Cloudflare Pages: `admin-code-game-shop`)
+- **Hệ Thống Tên Miền Chuẩn Mực Duy Nhất (SSOT Domains - Bắt Buộc Tuân Thủ Tuyệt Đối)**:
+  - **Trang Quản Trị (Admin Portal - Duy Nhất)**:
+    - `https://admin-code-game-shop.pages.dev` (Cloudflare Pages Project: `admin-code-game-shop`)
+  - **Trang Khách Hàng (Client Portals - Đúng 2 Web)**:
+    1. `https://web-code-game.pages.dev` (Cloudflare Pages Project: `web-code-game`)
+    2. `https://codegame.shop/` (Custom Domain chính thức trỏ về `web-code-game`)
+  - ⚠️ **MỆNH LỆNH BẮT BUỘC TỪ CHỦ SỞ HỮU DỰ ÁN**:
+    - Dự án này **CHỈ LÀM VIỆC** với 1 tên miền admin duy nhất (`https://admin-code-game-shop.pages.dev`) và đúng 2 web khách (`https://web-code-game.pages.dev` & `https://codegame.shop/`).
+    - Tuyệt đối không cấu hình, không build deploy, và không liên kết sang bất kỳ tên miền nào khác (như `codegame.store` hay `codegamestore`).
 - **Mục tiêu cốt lõi**:
   1. Cung cấp và tự động cập nhật Giftcode của hơn 623+ tựa game có giấy phép ABEI (G1/G234) và Studio game Việt Nam tại thị trường trong nước & quốc tế.
   2. Nền tảng thương mại điện tử chuyên biệt: Mua bán Tiện ích game (VIP, buff, tool, dịch vụ), Cửa hàng tài khoản, Thẻ game, Giveaway mã quà tặng miễn phí.

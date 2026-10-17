@@ -7,25 +7,24 @@ Mỗi mục sửa lỗi đều ghi nhận **Nguyên nhân gốc rễ (Root Cause
 
 ## [2026-10-17]
 
-### 63. Khắc Phục Bất Đồng Bộ Đa Dự Án Cloudflare Pages (codegame.store vs codegame.shop), Duyệt Game Lên Web Ngay Lập Tức & Tự Động Xuất Bản Khi Có Giftcode
+### 63. Chuẩn Hóa Hệ Thống Tên Miền (Admin Duy Nhất admin-code-game-shop.pages.dev & 2 Web Khách web-code-game.pages.dev + codegame.shop), Duyệt Game Lên Web Ngay Lập Tức & Tự Động Xuất Bản Khi Có Giftcode
 - **Mô tả & Yêu cầu Người Dùng**:
   - *"Trong admin mục Quản Lý Crawler & Tự Động Hóa Giftcode, phần Game mới, tôi vừa duyệt một vài game, tuy nhiên khi vào web khách không thấy dù đã tải lại trang. Giúp tôi đảm bảo duyệt là lên ngay, có tính năng khi game mới xuất hiện, có code thì tự động lên web."*
+  - *"Không, dự án này chỉ làm việc với tên miền admin duy nhất là https://admin-code-game-shop.pages.dev , và web khách là 2 web https://web-code-game.pages.dev https://codegame.shop/. Bạn ghi nhớ giúp tôi"*
+- **Quy Định Tên Miền Chuẩn Mực Tuyệt Đối Của Dự Án**:
+  - **Admin Duy Nhất**: `https://admin-code-game-shop.pages.dev` (Cloudflare Pages: `admin-code-game-shop`).
+  - **Web Khách (Đúng 2 Web)**: `https://web-code-game.pages.dev` và `https://codegame.shop/` (Cloudflare Pages: `web-code-game`).
+  - **Tuyệt đối không sử dụng** hoặc liên kết sang các dự án / tên miền khác ngoài phạm vi đã định.
 - **Nguyên nhân gốc rễ (Root Cause)**:
-  1. *Hai Domain Khách Trỏ Vào Hai Dự Án Cloudflare Pages Độc Lập Với Cấu Hình D1 Bất Đồng Bộ*:
-     - `codegame.shop` trỏ vào Cloudflare Pages project `web-code-game`, được bind vào đúng cơ sở dữ liệu Cloudflare D1 SSOT (`b2b5372f-1c6f-4067-a74d-8029ded6ec79`).
-     - Tuy nhiên, `codegame.store` lại trỏ vào một Cloudflare Pages project riêng biệt mang tên `codegamestore`.
-     - Project `codegamestore` trước đây bị cấu hình bind sang Database D1 cũ (`be54527d-...`), thiếu các biến môi trường bảo mật quan trọng (`ADMIN_SYNC_SECRET`, `PASSWORD_PEPPER`), đồng thời lệnh build và deploy trước đây (`npm run deploy:all`) chỉ deploy `web-code-game` và `admin-code-game-shop`, hoàn toàn bỏ quên `codegamestore`.
-     - Hệ quả: Khi Admin duyệt game mới trên trang quản trị, dữ liệu được ghi vào D1 SSOT của `codegame.shop`, nhưng người dùng truy cập `codegame.store` thì Cloudflare Worker lại truy vấn database D1 cũ `be54527d-...`, dẫn đến việc dù đã tải lại trang vẫn không thấy game mới xuất hiện!
-  2. *Cache Edge `/api/games` Chưa Được Xóa Triệt Để Cho Cả Hai Miền*:
-     - Khi game mới được duyệt qua API `approve_crawler_game`, danh sách purge của `cache_service.ts` chưa bao gồm domain `codegame.store`, khiến Cloudflare PoP Edge giữ cache cũ lên tới 30-60 phút.
-  3. *Thiếu Cơ Chế Tự Động Xuất Bản Game Mới Khi Đã Có Sẵn Giftcode*:
+  1. *Cache Edge `/api/games` Chưa Được Xóa Triệt Để Khi Duyệt*:
+     - Khi game mới được duyệt qua API `approve_crawler_game`, danh sách purge của `cache_service.ts` chưa đồng bộ đầy đủ các URL trên Edge PoP cục bộ, khiến Cloudflare PoP Edge giữ cache cũ lên tới 30-60 phút.
+  2. *Thiếu Cơ Chế Tự Động Xuất Bản Game Mới Khi Đã Có Sẵn Giftcode*:
      - Trước đây, crawler chỉ phân loại game mới vào `crawlerPendingGames` để chờ Admin duyệt thủ công. Nếu game mới xuất hiện mà đã có sẵn giftcode hoạt động (`activeCodesCount > 0`), game vẫn bị giữ lại trong hàng chờ thay vì tự động xuất hiện phục vụ người dùng ngay.
 - **Giải pháp toàn diện đã triển khai (Comprehensive Implementation)**:
-  1. *Đồng bộ hóa 100% Cấu hình Cloudflare Pages `codegamestore` sang D1 SSOT*:
-     - Sử dụng Cloudflare REST API vá (PATCH) liên kết D1 của project `codegamestore` sang đúng cơ sở dữ liệu SSOT (`b2b5372f-1c6f-4067-a74d-8029ded6ec79`), bổ sung đầy đủ biến môi trường bí mật.
-     - Cập nhật script `deploy:all` trong [`package.json`](file:///c:/4%20Antigravity%20all/13%20web%20code%20game/package.json) để tự động deploy đồng thời cả 3 project: `web-code-game`, `codegamestore`, và `admin-code-game-shop`.
+  1. *Cố Định Quy Trình Deploy Chuẩn Mực (`package.json`)*:
+     - Cập nhật script `deploy:all`: Chỉ triển khai đúng 2 dự án Cloudflare Pages mục tiêu: `web-code-game` (phục vụ `https://web-code-game.pages.dev` & `https://codegame.shop/`) và `admin-code-game-shop` (phục vụ `https://admin-code-game-shop.pages.dev`).
   2. *Mở Rộng Hệ Thống Invalidate Edge Cache Toàn Cầu ([`cache_service.ts`](file:///c:/4%20Antigravity%20all/13%20web%20code%20game/functions/services/cache_service.ts))*:
-     - Bổ sung `https://codegame.store/api/games`, `https://codegamestore.pages.dev/api/games` và các endpoint liên quan vào danh sách xóa cache Edge PoP cục bộ và Global API Purge.
+     - Chuẩn hóa danh sách URL purge nhắm chính xác vào `https://codegame.shop`, `https://www.codegame.shop`, `https://web-code-game.pages.dev`, và `https://admin-code-game-shop.pages.dev`.
   3. *Cơ Chế Duyệt Là Lên Ngay Lập Tức (Instant Approval & Immediate Edge Purge)*:
      - [`adminDataService.ts`](file:///c:/4%20Antigravity%20all/13%20web%20code%20game/src/admin/services/adminDataService.ts): Gửi kèm payload chi tiết của game được duyệt lên API sync để chống lỗi 404 nếu D1 server chưa kịp lưu pendingList; đồng thời gọi `broadcastSync` và phát event `wcg_admin_data_updated` để cập nhật trạng thái UI client tức thì.
      - Phía server [`sync.ts`](file:///c:/4%20Antigravity%20all/13%20web%20code%20game/functions/api/sync.ts): Cập nhật game vào `wcg_admin_games_v5`, đồng bộ `codes_count` từ `activeCodesCount`, và gọi `invalidateCatalogEdgeCache` xóa cache Edge toàn cầu ngay lập tức.
@@ -36,7 +35,7 @@ Mỗi mục sửa lỗi đều ghi nhận **Nguyên nhân gốc rễ (Root Cause
   5. *Đồng Bộ Toàn Bộ Giftcode Của Game Mới Duyệt (`Tarot` & `MAD`)*:
      - Nạp thành công 20 mã giftcode của `Tarot: Vĩnh Hằng Thần Ngữ` và mã giftcode của `MAke Drama: MAD` vào danh sách `wcg_admin_custom_free_codes_v1` trên Cloudflare D1 SSOT, nâng tổng số custom codes lên 1118 mã.
 - **Kết quả kiểm thử & Triển khai**:
-  - Test live `https://codegame.store/api/games` và `https://codegame.shop/api/games`: Cả 2 domain đều trả về đúng 626 tựa game, 2 game mới duyệt `tarot-vinh-hang-than-ngu` và `make-drama-mad` nằm ngay đầu danh mục.
+  - Test live `https://codegame.shop/api/games` và `https://web-code-game.pages.dev/api/games`: Cả 2 domain đều trả về đúng 626 tựa game, 2 game mới duyệt `tarot-vinh-hang-than-ngu` (20 codes) và `make-drama-mad` (1 code) nằm ngay đầu danh mục.
   - Vượt qua 100% bài kiểm tra audit zero test artifacts, Vite transform, Prerender SEO và biên dịch Cloudflare Pages Edge Worker.
 
 ---
