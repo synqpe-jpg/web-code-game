@@ -12,6 +12,8 @@ import {
   AlertCircle,
   ExternalLink,
   Globe,
+  Clock,
+  Trash2,
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
 import type { GameItem, GiftCode } from '../types/game';
@@ -19,6 +21,12 @@ import { dataService } from '../services/dataService';
 import { marketingService } from '../services/marketingService';
 import { useLanguage } from '../context/LanguageContext';
 import { isG1Licensed } from '../utils/licenseUtils';
+import {
+  getRecentSearches,
+  saveRecentSearch,
+  removeRecentSearch,
+  clearRecentSearches,
+} from '../utils/recentSearchUtils';
 
 interface SearchAutocompleteProps {
   searchQuery: string;
@@ -67,8 +75,27 @@ export const SearchAutocomplete: React.FC<SearchAutocompleteProps> = ({
   const [isOpen, setIsOpen] = useState(false);
   const [copiedCodeKey, setCopiedCodeKey] = useState<string | null>(null);
   const [selectedIndex, setSelectedIndex] = useState(-1);
+  const [recentSearches, setRecentSearches] = useState<string[]>(() => getRecentSearches());
   const containerRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+
+  // Sync recent searches across instances & storage events
+  useEffect(() => {
+    const handleRecentUpdate = (e: Event) => {
+      const customEvent = e as CustomEvent<string[]>;
+      if (customEvent.detail) {
+        setRecentSearches(customEvent.detail);
+      } else {
+        setRecentSearches(getRecentSearches());
+      }
+    };
+    window.addEventListener('wcg_recent_searches_updated', handleRecentUpdate);
+    window.addEventListener('storage', handleRecentUpdate);
+    return () => {
+      window.removeEventListener('wcg_recent_searches_updated', handleRecentUpdate);
+      window.removeEventListener('storage', handleRecentUpdate);
+    };
+  }, []);
 
   // Top trending / hot games for instant click suggestions when input is empty
   const hotGames = useMemo(() => {
@@ -201,14 +228,19 @@ export const SearchAutocomplete: React.FC<SearchAutocompleteProps> = ({
       if (selectedIndex >= 0 && selectedIndex < allNavItems.length) {
         const item = allNavItems[selectedIndex];
         if (item.type === 'game') {
+          saveRecentSearch(item.data.name);
           onSelectGame(item.data);
           setIsOpen(false);
         } else {
+          saveRecentSearch(item.data.game.name);
           onSelectGame(item.data.game);
           setIsOpen(false);
         }
       } else {
         // Trigger normal search submit
+        if (searchQuery.trim()) {
+          saveRecentSearch(searchQuery.trim());
+        }
         setIsOpen(false);
         if (onExploreClick) onExploreClick();
       }
@@ -219,6 +251,7 @@ export const SearchAutocomplete: React.FC<SearchAutocompleteProps> = ({
   };
 
   const handleSelectGameItem = (game: GameItem) => {
+    saveRecentSearch(game.name);
     onSelectGame(game);
     setIsOpen(false);
   };
@@ -279,6 +312,9 @@ export const SearchAutocomplete: React.FC<SearchAutocompleteProps> = ({
           <button
             type="button"
             onClick={() => {
+              if (searchQuery.trim()) {
+                saveRecentSearch(searchQuery.trim());
+              }
               setIsOpen(false);
               if (onExploreClick) onExploreClick();
             }}
@@ -293,9 +329,60 @@ export const SearchAutocomplete: React.FC<SearchAutocompleteProps> = ({
       {isOpen && (
         <div className="absolute left-0 right-0 top-full mt-2 bg-card/95 backdrop-blur-xl border border-border/90 rounded-2xl shadow-2xl z-50 overflow-hidden animate-scale-in text-left divide-y divide-border/60 max-h-[75vh] flex flex-col">
           {searchQuery.trim().length === 0 ? (
-            /* HOT GAMES & QUICK KEYWORDS SUGGESTIONS */
+            /* RECENT SEARCHES, QUICK KEYWORDS & HOT GAMES */
             <div className="overflow-y-auto flex-1 scrollbar-thin p-2 space-y-3">
-              {/* Quick Keywords */}
+              {/* 1. Recent Searches (if user searched previously) */}
+              {recentSearches.length > 0 && (
+                <div className="px-2.5 py-1.5 border-b border-border/50 pb-2.5">
+                  <div className="flex items-center justify-between text-[11px] font-bold uppercase tracking-wider text-slate-400 mb-2">
+                    <span className="flex items-center gap-1.5 text-primary-light">
+                      <Clock className="w-3.5 h-3.5 text-primary-light" />
+                      <span>Tìm kiếm gần đây</span>
+                    </span>
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        clearRecentSearches();
+                      }}
+                      className="text-[10px] lowercase text-slate-400 hover:text-rose-400 transition-colors cursor-pointer flex items-center gap-1 font-normal"
+                      title="Xóa tất cả lịch sử tìm kiếm"
+                    >
+                      <Trash2 className="w-3 h-3" />
+                      <span>xóa lịch sử</span>
+                    </button>
+                  </div>
+                  <div className="flex flex-wrap items-center gap-1.5">
+                    {recentSearches.map((term) => (
+                      <div
+                        key={term}
+                        onClick={() => {
+                          saveRecentSearch(term);
+                          onSearchChange(term);
+                          inputRef.current?.focus();
+                        }}
+                        className="group flex items-center gap-1.5 pl-2.5 pr-1.5 py-1 rounded-xl text-xs bg-muted/80 hover:bg-card border border-border/80 hover:border-primary/50 text-slate-200 hover:text-primary-light transition-all cursor-pointer font-medium active:scale-95 shadow-2xs"
+                      >
+                        <Clock className="w-3 h-3 text-slate-400 group-hover:text-primary-light transition-colors shrink-0" />
+                        <span className="truncate max-w-[130px] sm:max-w-[200px]">{term}</span>
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            removeRecentSearch(term);
+                          }}
+                          className="p-0.5 rounded-md hover:bg-rose-500/20 text-slate-400 hover:text-rose-400 transition-colors shrink-0"
+                          title={`Xóa "${term}"`}
+                        >
+                          <X className="w-3 h-3" />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* 2. Quick Keywords / Hot Suggestions */}
               <div className="px-2.5 py-1.5">
                 <div className="flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-wider text-slate-400 mb-2">
                   <Flame className="w-3.5 h-3.5 text-accent" />
@@ -316,6 +403,7 @@ export const SearchAutocomplete: React.FC<SearchAutocompleteProps> = ({
                       key={tag}
                       type="button"
                       onClick={() => {
+                        saveRecentSearch(tag);
                         onSearchChange(tag);
                         inputRef.current?.focus();
                       }}

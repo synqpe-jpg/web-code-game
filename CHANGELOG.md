@@ -7,6 +7,32 @@ Mỗi mục sửa lỗi đều ghi nhận **Nguyên nhân gốc rễ (Root Cause
 
 ## [2026-10-17]
 
+### 66. Nâng Cấp Bộ Gợi Ý Tìm Nhanh: Tích Hợp Lịch Sử Game Tìm Gần Đây (Recent Searches) Với Cơ Chế Đồng Bộ 1 Chạm
+- **Mô tả & Yêu cầu Người Dùng**:
+  - *"Gợi ý tì nhanh có thể cho những tên game mà người dùng tìm gần đây không?"* (Kèm ảnh chụp màn hình ô tìm kiếm với menu dropdown "GỢI Ý TÌM NHANH").
+- **Nguyên nhân & Thực trạng trước khi sửa**:
+  - Trước đây, khi người dùng nhấp vào thanh tìm kiếm (`searchQuery` rỗng), dropdown chỉ hiển thị một danh sách tĩnh cố định 8 từ khóa ("GỢI Ý TÌM NHANH") và danh sách các game hot.
+  - Người dùng không thể xem lại hoặc nhấp nhanh vào các tựa game mà chính họ vừa tìm kiếm hoặc vừa xem gần đây, buộc phải gõ lại từ đầu tên tựa game mỗi lần tra cứu.
+- **Giải pháp toàn diện đã triển khai (Comprehensive Implementation)**:
+  1. *Xây dựng Utility Quản Lý Lịch Sử Tìm Kiếm ([`recentSearchUtils.ts`](file:///c:/4%20Antigravity%20all/13%20web%20code%20game/src/utils/recentSearchUtils.ts))*:
+     - Quản lý khóa `wcg_recent_searches` trong `localStorage`, tối đa 8 mục gần nhất.
+     - Tự động khử trùng lặp (case-insensitive deduplication), luôn đẩy từ khóa mới tra cứu lên đầu danh sách.
+     - Phát event `wcg_recent_searches_updated` và lắng nghe sự kiện `storage` để đồng bộ real-time tức thì giữa thanh tìm kiếm Hero Banner và thanh tìm kiếm ghim nổi (Floating Sticky Bar).
+  2. *Tự Động Ghi Nhận Lịch Sử Tìm Kiếm & Xem Game*:
+     - Khi người dùng nhấn phím `Enter` hoặc click nút "Tìm kiếm" với từ khóa có nghĩa $\rightarrow$ Lưu vào Recent Searches.
+     - Khi người dùng nhấp vào bất kỳ tựa game nào trong kết quả Autocomplete hoặc trên thẻ game trang chủ ([`App.tsx`](file:///c:/4%20Antigravity%20all/13%20web%20code%20game/src/App.tsx) & [`SearchAutocomplete.tsx`](file:///c:/4%20Antigravity%20all/13%20web%20code%20game/src/components/SearchAutocomplete.tsx)) $\rightarrow$ Tự động lưu tên tựa game vào Recent Searches.
+     - Khi người dùng nhấp vào một chip gợi ý $\rightarrow$ Lưu vào Recent Searches.
+  3. *Thiết Kế Giao Diện Dropdown Trực Quan & Tiện Lợi*:
+     - Thêm khối **"🕒 Tìm kiếm gần đây"** với biểu tượng đồng hồ `Clock`, gắn kèm nút xóa từng từ khóa (`x`) và nút "xóa lịch sử" tổng thể tiện lợi.
+     - Khối **"🔥 Gợi ý tìm nhanh"** và **"✨ Tựa game nổi bật nhất"** vẫn được duy trì ngay phía dưới để người dùng mới hoặc người dùng muốn khám phá game hot vẫn có đầy đủ thông tin.
+     - Nhấp 1 chạm vào chip tìm kiếm gần đây sẽ ngay lập tức kích hoạt tìm kiếm và hiển thị kết quả cho tựa game đó.
+- **Kết quả kiểm thử & Triển khai**:
+  - Vượt qua bài kiểm tra Zero Test Artifacts 100%.
+  - Prerender 624 trang HTML tĩnh SEO và Edge Worker bundle biên dịch sạch.
+  - Triển khai thành công lên cả 2 môi trường: `web-code-game` (`https://codegame.shop/` & `https://web-code-game.pages.dev`) và `admin-code-game-shop`.
+
+---
+
 ### 65. Khắc Phục Lỗi Runtime Trang Khách "useEffect is not defined" Trong Component GameCard.tsx
 - **Mô tả & Yêu cầu Người Dùng**:
   - *"Truy cập trang báo lỗi"* (Kèm ảnh chụp màn hình `https://codegame.shop` hiển thị Error Boundary: *"Đã có sự cố hiển thị nhỏ xảy ra - useEffect is not defined"*).

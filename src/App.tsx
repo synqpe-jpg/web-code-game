@@ -37,6 +37,7 @@ import { adminDataService } from './admin/services/adminDataService';
 import { authService } from './services/authService';
 import { growthService } from './services/growthService';
 import type { GameItem, FilterState, StoreProduct, UserProfile, GiveawayCampaign, UtilityProduct } from './types/game';
+import { saveRecentSearch } from './utils/recentSearchUtils';
 
 export interface SharePayload {
   title: string;
@@ -973,6 +974,7 @@ export const App: React.FC = () => {
 
   // Handle Game Selection
   const handleSelectGame = async (game: GameItem) => {
+    saveRecentSearch(game.name);
     setSelectedGame(game);
     const fullGame = await dataService.getGameBySlug(game.slug, true);
     if (fullGame) {
@@ -1194,7 +1196,10 @@ export const App: React.FC = () => {
                 onSearchChange={handleSearchChange}
                 onSelectGame={handleSelectGame}
                 onShowToast={showToast}
-                onSelectQuickTag={(tag) => handleSearchChange(tag)}
+                onSelectQuickTag={(tag) => {
+                  saveRecentSearch(tag);
+                  handleSearchChange(tag);
+                }}
                 onExploreClick={() => {
                   const gridElem = document.getElementById('game-catalog-section');
                   gridElem?.scrollIntoView({ behavior: 'smooth' });
