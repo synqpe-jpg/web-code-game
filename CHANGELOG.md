@@ -7,6 +7,24 @@ Mỗi mục sửa lỗi đều ghi nhận **Nguyên nhân gốc rễ (Root Cause
 
 ## [2026-10-17]
 
+### 65. Khắc Phục Lỗi Runtime Trang Khách "useEffect is not defined" Trong Component GameCard.tsx
+- **Mô tả & Yêu cầu Người Dùng**:
+  - *"Truy cập trang báo lỗi"* (Kèm ảnh chụp màn hình `https://codegame.shop` hiển thị Error Boundary: *"Đã có sự cố hiển thị nhỏ xảy ra - useEffect is not defined"*).
+- **Nguyên nhân gốc rễ (Root Cause)**:
+  - Khi bổ sung `useEffect` vào [`GameCard.tsx`](file:///c:/4%20Antigravity%20all/13%20web%20code%20game/src/components/GameCard.tsx) để tự động cập nhật `currentIconSrc` khi `game.icon_url` thay đổi, dòng import ở đầu file chỉ có `import React, { useState } from 'react';` mà **quên thêm `useEffect` vào danh sách import của React**.
+  - Khi ứng dụng React hydrate trên trình duyệt client, component `GameCard` gọi `useEffect(...)` gây lỗi runtime: `ReferenceError: useEffect is not defined`. ErrorBoundary đã bắt lỗi và hiển thị modal cảnh báo cho người dùng.
+- **Giải pháp toàn diện đã triển khai (Comprehensive Implementation)**:
+  - Cập nhật dòng 1 của [`src/components/GameCard.tsx`](file:///c:/4%20Antigravity%20all/13%20web%20code%20game/src/components/GameCard.tsx):
+    ```tsx
+    import React, { useState, useEffect } from 'react';
+    ```
+  - Kiểm tra toàn bộ các component khác (`GameDetailModal.tsx`, `SearchAutocomplete.tsx`, `Header.tsx`, ...) đảm bảo đầy đủ các hook import.
+  - Chạy audit Zero Test Artifacts và build production thành công 100% với 624 trang prerender SEO và Cloudflare Pages Edge Worker bundle.
+- **Kết quả kiểm thử & Triển khai**:
+  - Web khách `https://codegame.shop/` và `https://web-code-game.pages.dev` render trơn tru, không còn bất kỳ lỗi runtime nào, logo hiển thị sắc nét 100%.
+
+---
+
 ### 64. Khắc Phục Triệt Để Mất Logo Game Mới (Tarot & MAD), Loại Bỏ Phụ Thuộc Hotlink Ngoại Vi & Trang Bị Multi-Tier Fallback Icon Cục Bộ
 - **Mô tả & Yêu cầu Người Dùng**:
   - *"Sau khi đẩy game lên trang khách thì mất logo rồi. Đảm bảo logo chính xác giúp tôi."* (Kèm ảnh chụp màn hình `https://codegame.shop` hiển thị avatar chữ cái viết tắt tím `TV` cho Tarot: Vĩnh Hằng Thần Ngữ và cam `MD` cho MAke Drama: MAD).

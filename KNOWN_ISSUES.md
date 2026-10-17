@@ -813,6 +813,18 @@
   - ❌ *Không bao giờ lưu URL trực tiếp của `codemoi.net/covers/` vào database `wcg_admin_games_v5`*: Bắt buộc dùng icon nội bộ `/game_icons/${slug}.webp`.
   - ❌ *Không chỉ bắt `onError` rồi set ngay `imageError = true`*: Luôn phải fallback về `/game_icons/${slug}.webp` trước.
 
+### ISSUE-046: Lỗi Runtime "useEffect is not defined" Khi Thêm Hook Mà Quên Cập Nhật Import React
+- **Triệu chứng**:
+  - Truy cập web khách `https://codegame.shop/` hiển thị màn hình Error Boundary: *"Đã có sự cố hiển thị nhỏ xảy ra - useEffect is not defined"*.
+- **Nguyên nhân gốc rễ**:
+  - Khi thêm hook mới (như `useEffect`, `useCallback`, `useMemo`) vào component, dev chỉ gọi hàm trong thân component nhưng danh sách destructured imports từ `'react'` ở dòng đầu file không được bổ sung hook tương ứng.
+  - Do Vite sử dụng esbuild/swc transpile từng file độc lập mà không kiểm tra type checker mặc định khi build (`vite build`), lỗi chỉ phát sinh tại runtime khi trình duyệt thực thi code.
+- **Giải pháp chuẩn đã kiểm chứng**:
+  - Luôn kiểm tra kỹ dòng import đầu tiên của file React component khi thêm hook mới: `import React, { useState, useEffect } from 'react';`.
+  - Khuyến nghị chạy `npx.cmd eslint` hoặc kiểm tra static analysis trước khi commit.
+- ⛔ **CÁCH SỬA ĐÃ THẤT BẠI - TUYỆT ĐỐI KHÔNG LẶP LẠI**:
+  - ❌ *Không được giả định file đã có sẵn hook*: Luôn kiểm tra dòng 1 của component trước khi dùng bất kỳ hook nào.
+
 ---
 
 ## 2. QUY TRÌNH BẮT BUỘC TRƯỚC KHI SỬA CODE (PRE-FLIGHT CHECKLIST)
