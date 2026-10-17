@@ -19,6 +19,7 @@ import {
   FloatingNotificationIconType,
   FloatingNotificationTheme,
 } from '../types/floatingNotification';
+import { RichTextRenderer } from './RichTextRenderer';
 
 interface FloatingAnnouncementProps {
   onNavigateTab?: (tab: string) => void;
@@ -309,7 +310,7 @@ export const FloatingAnnouncement: React.FC<FloatingAnnouncementProps> = ({ onNa
           </div>
 
           <div className="text-xs sm:text-sm text-zinc-300 leading-relaxed space-y-2 mb-6 whitespace-pre-line">
-            {config.message}
+            <RichTextRenderer content={config.message} />
           </div>
 
           <div className="flex items-center gap-3">
@@ -377,7 +378,7 @@ export const FloatingAnnouncement: React.FC<FloatingAnnouncementProps> = ({ onNa
                 {config.title}
               </span>
               <span className="text-xs text-zinc-300 truncate hidden md:inline">
-                {config.message}
+                <RichTextRenderer content={config.message} />
               </span>
             </div>
           </div>
@@ -453,9 +454,9 @@ export const FloatingAnnouncement: React.FC<FloatingAnnouncementProps> = ({ onNa
           </div>
         </div>
 
-        <p className="text-xs text-zinc-300 leading-relaxed mb-4 line-clamp-3">
-          {config.message}
-        </p>
+        <div className="text-xs text-zinc-300 leading-relaxed mb-4 line-clamp-3">
+          <RichTextRenderer content={config.message} />
+        </div>
 
         {/* CTA & Actions */}
         <div className="flex items-center gap-2.5">

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   Bell,
   BellRing,
@@ -22,7 +22,9 @@ import {
   HelpCircle,
   Smartphone,
   Monitor,
+  Link2,
 } from 'lucide-react';
+import { RichTextRenderer } from '../../components/RichTextRenderer';
 import { adminDataService } from '../services/adminDataService';
 import {
   FloatingNotificationConfig,
@@ -45,6 +47,48 @@ export const FloatingNotificationModule: React.FC<FloatingNotificationModuleProp
   const [previewDevice, setPreviewDevice] = useState<'desktop' | 'mobile'>('desktop');
   const [previewDismissed, setPreviewDismissed] = useState(false);
   const [currentTimeStr, setCurrentTimeStr] = useState<string>('');
+
+  // Link Inserter State
+  const [showLinkModal, setShowLinkModal] = useState(false);
+  const [linkText, setLinkText] = useState('Tại đây');
+  const [linkUrl, setLinkUrl] = useState('');
+  const messageTextareaRef = useRef<HTMLTextAreaElement>(null);
+
+  const handleInsertLink = () => {
+    const text = linkText.trim() || 'Tại đây';
+    const url = linkUrl.trim();
+    if (!url) {
+      onShowToast('Vui lòng nhập đường dẫn URL', 'Ví dụ: https://codegame.shop hoặc /store, /news', 'error');
+      return;
+    }
+
+    const markdownLink = `[${text}](${url})`;
+    const textarea = messageTextareaRef.current;
+
+    if (textarea) {
+      const start = textarea.selectionStart || 0;
+      const end = textarea.selectionEnd || 0;
+      const current = config.message || '';
+      const nextMessage = current.substring(0, start) + markdownLink + current.substring(end);
+      setConfig({ ...config, message: nextMessage });
+      setShowLinkModal(false);
+      setLinkUrl('');
+      setLinkText('Tại đây');
+      setTimeout(() => {
+        textarea.focus();
+        const newPos = start + markdownLink.length;
+        textarea.setSelectionRange(newPos, newPos);
+      }, 50);
+    } else {
+      const current = config.message ? `${config.message} ${markdownLink}` : markdownLink;
+      setConfig({ ...config, message: current });
+      setShowLinkModal(false);
+      setLinkUrl('');
+      setLinkText('Tại đây');
+    }
+
+    onShowToast('Đã chèn liên kết vào nội dung', `Đã thêm [${text}](${url})`, 'success');
+  };
 
   // Clock ticker for time-of-day comparison
   useEffect(() => {
@@ -267,21 +311,153 @@ export const FloatingNotificationModule: React.FC<FloatingNotificationModuleProp
               />
             </div>
 
-            {/* Message Body */}
+            {/* Message Body with Link Inserter */}
             <div>
-              <label className="block text-xs font-semibold text-zinc-300 mb-1.5">
-                Nội dung chi tiết / Thông điệp gửi tới khách
-              </label>
+              <div className="flex items-center justify-between mb-1.5">
+                <label className="text-xs font-semibold text-zinc-300">
+                  Nội dung chi tiết / Thông điệp gửi tới khách
+                </label>
+                <button
+                  type="button"
+                  onClick={() => {
+                    const textarea = messageTextareaRef.current;
+                    if (textarea && textarea.selectionStart !== textarea.selectionEnd) {
+                      const selected = textarea.value.substring(textarea.selectionStart, textarea.selectionEnd);
+                      if (selected.trim()) setLinkText(selected.trim());
+                    }
+                    setShowLinkModal(!showLinkModal);
+                  }}
+                  className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-semibold bg-cyan-500/15 text-cyan-300 hover:bg-cyan-500/25 border border-cyan-500/30 transition-all cursor-pointer shadow-xs active:scale-95"
+                  title="Chèn liên kết dạng [Tại đây](URL) vào nội dung"
+                >
+                  <Link2 className="w-3.5 h-3.5" />
+                  <span>+ Chèn Link</span>
+                </button>
+              </div>
+
+              {/* Inline Link Inserter Panel */}
+              {showLinkModal && (
+                <div className="mb-3 p-3.5 rounded-xl bg-zinc-950 border border-cyan-500/40 shadow-xl space-y-3 animate-in fade-in slide-in-from-top-2">
+                  <div className="flex items-center justify-between text-xs font-bold text-cyan-300">
+                    <span className="flex items-center gap-1.5">
+                      <Link2 className="w-4 h-4 text-cyan-400" />
+                      Chèn liên kết vào nội dung thông báo
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => setShowLinkModal(false)}
+                      className="text-zinc-400 hover:text-white p-0.5 rounded"
+                      title="Đóng hộp thoại"
+                    >
+                      <X className="w-4 h-4" />
+                    </button>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                    <div>
+                      <label className="block text-[11px] font-medium text-zinc-400 mb-1">
+                        Chữ hiển thị (nhấp vào chữ này để mở link)
+                      </label>
+                      <input
+                        type="text"
+                        value={linkText}
+                        onChange={(e) => setLinkText(e.target.value)}
+                        placeholder="Ví dụ: Tại đây, Xem chi tiết, Nhận quà..."
+                        className="w-full bg-zinc-900 border border-zinc-700/80 rounded-lg px-3 py-1.5 text-xs text-white placeholder-zinc-500 focus:outline-none focus:border-cyan-400"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-[11px] font-medium text-zinc-400 mb-1">
+                        Đường dẫn URL đích (link trang) <span className="text-rose-400">*</span>
+                      </label>
+                      <input
+                        type="text"
+                        value={linkUrl}
+                        onChange={(e) => setLinkUrl(e.target.value)}
+                        placeholder="https://... hoặc /store, /news"
+                        className="w-full bg-zinc-900 border border-zinc-700/80 rounded-lg px-3 py-1.5 text-xs text-white placeholder-zinc-500 focus:outline-none focus:border-cyan-400"
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') {
+                            e.preventDefault();
+                            handleInsertLink();
+                          }
+                        }}
+                      />
+                    </div>
+                  </div>
+
+                  {/* Quick Preset Links */}
+                  <div className="flex items-center gap-1.5 flex-wrap pt-0.5">
+                    <span className="text-[10px] text-zinc-500">Mẫu link nội bộ:</span>
+                    {[
+                      { label: 'Cửa hàng code', url: '/store' },
+                      { label: 'Săn Giveaway', url: '/giveaways' },
+                      { label: 'Tin tức & sự kiện', url: '/news' },
+                      { label: 'Tiện ích nạp game', url: '/utilities' },
+                    ].map((preset) => (
+                      <button
+                        key={preset.url}
+                        type="button"
+                        onClick={() => {
+                          setLinkUrl(preset.url);
+                          if (!linkText || linkText === 'Tại đây') setLinkText(preset.label);
+                        }}
+                        className="text-[10px] px-2 py-0.5 rounded-md bg-zinc-800 text-zinc-300 hover:text-white hover:bg-zinc-700 border border-zinc-700 transition-colors"
+                      >
+                        {preset.label}
+                      </button>
+                    ))}
+                  </div>
+
+                  <div className="flex items-center justify-end gap-2 pt-1 border-t border-zinc-800/80">
+                    <button
+                      type="button"
+                      onClick={() => setShowLinkModal(false)}
+                      className="px-3 py-1.5 rounded-lg text-xs text-zinc-400 hover:text-white bg-zinc-900 border border-zinc-800"
+                    >
+                      Hủy
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleInsertLink}
+                      className="px-4 py-1.5 rounded-lg text-xs font-bold text-white bg-gradient-to-r from-cyan-600 to-purple-600 hover:from-cyan-500 hover:to-purple-500 shadow-md shadow-cyan-900/30 transition-all active:scale-95 flex items-center gap-1.5"
+                    >
+                      <span>Chèn vào nội dung</span>
+                    </button>
+                  </div>
+                </div>
+              )}
+
               <textarea
+                ref={messageTextareaRef}
                 rows={3}
                 value={config.message}
                 onChange={(e) => setConfig({ ...config, message: e.target.value })}
-                placeholder="Nhập nội dung thông báo nổi..."
+                placeholder="Nhập nội dung thông báo nổi... (Ví dụ: Nhận quà VIP ngay [Tại đây](https://codegame.shop))"
                 className="w-full bg-zinc-950 border border-zinc-800 rounded-xl px-3.5 py-2.5 text-sm text-white placeholder-zinc-500 focus:outline-none focus:border-cyan-500 transition-colors"
               />
-              <p className="text-[11px] text-zinc-500 mt-1">
-                Số ký tự: {config.message.length} | Gợi ý ngắn gọn 1-2 câu để thu hút người đọc tốt nhất.
-              </p>
+
+              <div className="flex items-center justify-between text-[11px] text-zinc-500 mt-1.5 flex-wrap gap-2">
+                <span>
+                  Số ký tự: {config.message.length} | Cú pháp chèn link: <code className="text-cyan-400 font-mono">[Chữ hiển thị](Đường dẫn URL)</code>
+                </span>
+                {config.message.includes('](') && (
+                  <span className="text-emerald-400 font-medium inline-flex items-center gap-1">
+                    <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" /> Đã nhận diện liên kết
+                  </span>
+                )}
+              </div>
+
+              {/* Live Link Preview in Admin */}
+              {config.message.includes('](') && (
+                <div className="mt-2.5 p-2.5 rounded-xl bg-zinc-950/80 border border-cyan-500/30 text-xs text-zinc-300">
+                  <span className="text-[10px] font-bold text-cyan-400 uppercase tracking-wider block mb-1">
+                    Xem trước liên kết trong văn bản:
+                  </span>
+                  <RichTextRenderer content={config.message} />
+                </div>
+              )}
             </div>
 
             {/* Icon Picker */}
@@ -852,7 +1028,7 @@ export const FloatingNotificationModule: React.FC<FloatingNotificationModuleProp
                               {config.title}
                             </span>
                             <span className="text-[10px] text-zinc-300 truncate hidden sm:inline">
-                              {config.message}
+                              <RichTextRenderer content={config.message} />
                             </span>
                           </div>
                         </div>
@@ -902,9 +1078,9 @@ export const FloatingNotificationModule: React.FC<FloatingNotificationModuleProp
                           </div>
                         </div>
 
-                        <p className="text-[11px] text-zinc-300 leading-relaxed mb-3 line-clamp-3">
-                          {config.message || 'Nội dung thông báo nổi chi tiết...'}
-                        </p>
+                        <div className="text-[11px] text-zinc-300 leading-relaxed mb-3 line-clamp-3">
+                          <RichTextRenderer content={config.message || 'Nội dung thông báo nổi chi tiết...'} />
+                        </div>
 
                         {/* Actions */}
                         <div className="flex items-center gap-2 pt-1">

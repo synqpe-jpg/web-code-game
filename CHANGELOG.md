@@ -7,6 +7,34 @@ Mỗi mục sửa lỗi đều ghi nhận **Nguyên nhân gốc rễ (Root Cause
 
 ## [2026-10-17]
 
+### 67. Thêm Tính Năng Chèn Liên Kết (Link Tùy Chỉnh "Tại đây") Vào Nội Dung Thông Báo Nổi
+- **Mô tả & Yêu cầu Người Dùng**:
+  - *"Trong admin, thông báo nổi, thêm mục chèn link, khi người dùng ấn vào nội dung tùy chỉnh ví dụ như chữ : Tại đây thì sẽ dẫn tới đường link."* (Kèm ảnh chụp màn hình module Cài Đặt Thông Báo Nổi).
+- **Nguyên nhân & Thực trạng trước khi sửa**:
+  - Trường `message` trong cài đặt Thông Báo Nổi chỉ được render dưới dạng văn bản thuần (`{config.message}`) trên cả web khách lẫn bảng xem trước Admin.
+  - Admin không có công cụ trực quan để chèn liên kết vào vị trí bất kỳ trong văn bản, và nếu gõ link thì khách truy cập cũng không thể nhấp vào được.
+- **Giải pháp toàn diện đã triển khai (Comprehensive Implementation)**:
+  1. *Xây dựng Component Render Văn Bản Đa Năng ([`RichTextRenderer.tsx`](file:///c:/4%20Antigravity%20all/13%20web%20code%20game/src/components/RichTextRenderer.tsx))*:
+     - Tự động nhận diện cả cú pháp Markdown `[Chữ hiển thị](Đường dẫn URL)` lẫn thẻ HTML `<a>`.
+     - Chuyển đổi an toàn (chống XSS: chỉ cho phép `http`, `https`, `/`, `#`, `mailto:`) thành thẻ liên kết nổi bật có style neon / cyan, gạch chân và icon `ExternalLink`.
+     - Ngăn chặn sự kiện nổi bọt (`e.stopPropagation()`) để khi khách nhấp vào link không làm đóng hoặc gián đoạn popup.
+  2. *Tích Hợp Công Cụ Chèn Link Trực Quan Trong Admin ([`FloatingNotificationModule.tsx`](file:///c:/4%20Antigravity%20all/13%20web%20code%20game/src/admin/modules/FloatingNotificationModule.tsx))*:
+     - Bổ sung nút **`+ Chèn Link`** ngay trên khung nhập "Nội dung chi tiết".
+     - Hộp thoại chèn link thông minh cho phép nhập:
+       + **Chữ hiển thị**: Mặc định là `Tại đây` (hoặc tự động lấy từ văn bản Admin đang bôi đen).
+       + **Đường dẫn URL đích**: Hỗ trợ link ngoài (`https://...`) hoặc link nội bộ (`/store`, `/giveaways`, `/news`, `/utilities`).
+       + **Mẫu link nhanh 1 chạm**: Nạp ngay các trang phổ biến của website.
+     - Tự động chèn `[Chữ hiển thị](URL)` vào đúng vị trí con trỏ của `textarea`.
+     - Thêm khung **Xem trước liên kết thời gian thực** ngay dưới ô nhập liệu để Admin kiểm tra tức thì trước khi lưu.
+  3. *Đồng Bộ Hiển Thị Trên Web Khách ([`FloatingAnnouncement.tsx`](file:///c:/4%20Antigravity%20all/13%20web%20code%20game/src/components/FloatingAnnouncement.tsx)) & Preview Admin*:
+     - Toàn bộ các vị trí thông báo (Center Modal, Top Bar, Bottom Bar, Floating Card góc dưới) đều render link có thể nhấp chuột trực tiếp.
+- **Kết quả kiểm thử & Triển khai**:
+  - Vượt qua bài kiểm tra Zero Test Artifacts 100%.
+  - Biên dịch và prerender 624 trang HTML tĩnh thành công 100%.
+  - Triển khai đồng thời lên cả 2 môi trường Cloudflare Pages: `web-code-game` (`https://codegame.shop/` & `https://web-code-game.pages.dev`) và `admin-code-game-shop`.
+
+---
+
 ### 66. Nâng Cấp Bộ Gợi Ý Tìm Nhanh: Tích Hợp Lịch Sử Game Tìm Gần Đây (Recent Searches) Với Cơ Chế Đồng Bộ 1 Chạm
 - **Mô tả & Yêu cầu Người Dùng**:
   - *"Gợi ý tì nhanh có thể cho những tên game mà người dùng tìm gần đây không?"* (Kèm ảnh chụp màn hình ô tìm kiếm với menu dropdown "GỢI Ý TÌM NHANH").
