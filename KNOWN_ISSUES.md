@@ -788,6 +788,20 @@
   - ❌ *Không triển khai hoặc thêm các tên miền ngoài danh sách vào cấu hình build/deploy*: Dự án này **CHỈ LÀM VIỆC** với 1 Admin duy nhất (`https://admin-code-game-shop.pages.dev`) và 2 Web khách (`https://web-code-game.pages.dev` & `https://codegame.shop/`).
   - ❌ *Không cấu hình nhầm sang Cloudflare project `codegamestore`*: Toàn bộ hạ tầng web khách chỉ nằm trên project `web-code-game`.
 
+### ISSUE-044: Bẫy Nhầm Lẫn Giữa codegame.store (Dự án riêng 3) và web-code-game (Dự án hiện tại 13)
+- **Triệu chứng & Nguyên nhân**:
+  - Máy tính người dùng có 2 thư mục dự án riêng biệt:
+    + `C:\4 Antigravity all\3 Codegame store` $\rightarrow$ Project Cloudflare Pages `codegamestore`, domain `https://codegame.store`, database D1 `codegamestore-db` (`be54527d-f2b7-4777-8da4-38601ef63fd4`).
+    + `C:\4 Antigravity all\13 web code game` $\rightarrow$ Project Cloudflare Pages `web-code-game` & `admin-code-game-shop`, domain `https://web-code-game.pages.dev`, `https://codegame.shop/`, và `https://admin-code-game-shop.pages.dev`, database D1 SSOT `b2b5372f-1c6f-4067-a74d-8029ded6ec79`.
+  - Tác nhân AI từng nhầm lẫn 2 dự án này dẫn đến việc deploy đè và đổi binding D1 của `codegamestore`.
+- **Giải Pháp & Lệnh Cấm Bất Di Bất Dịch**:
+  - Đã rollback hoàn toàn `codegamestore` về deployment gốc `00ba7829-1a6b-4d38-848e-96cc1319fcb0`, khôi phục database `be54527d-f2b7-4777-8da4-38601ef63fd4`, xóa biến `ADMIN_SYNC_SECRET`.
+  - **TỪ GIỜ VỀ SAU TUYỆT ĐỐI CẤM**:
+    + Không bao giờ can thiệp, đọc, sửa, build, deploy hoặc đổi bất kỳ thứ gì liên quan tới `codegame.store` và project Cloudflare `codegamestore`.
+    + Mọi công việc của workspace 13 chỉ xoay quanh 1 admin (`https://admin-code-game-shop.pages.dev`) và 2 web khách (`https://web-code-game.pages.dev` & `https://codegame.shop/`).
+- ⛔ **CÁCH SỬA ĐÃ THẤT BẠI - TUYỆT ĐỐI KHÔNG LẶP LẠI**:
+  - ❌ *Không bao giờ tự ý gộp hoặc deploy sang project `codegamestore`*.
+
 ---
 
 ## 2. QUY TRÌNH BẮT BUỘC TRƯỚC KHI SỬA CODE (PRE-FLIGHT CHECKLIST)

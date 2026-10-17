@@ -17,7 +17,9 @@
     2. `https://codegame.shop/` (Custom Domain chính thức trỏ về `web-code-game`)
   - ⚠️ **MỆNH LỆNH BẮT BUỘC TỪ CHỦ SỞ HỮU DỰ ÁN**:
     - Dự án này **CHỈ LÀM VIỆC** với 1 tên miền admin duy nhất (`https://admin-code-game-shop.pages.dev`) và đúng 2 web khách (`https://web-code-game.pages.dev` & `https://codegame.shop/`).
-    - Tuyệt đối không cấu hình, không build deploy, và không liên kết sang bất kỳ tên miền nào khác (như `codegame.store` hay `codegamestore`).
+  - 🛑 **TUYỆT ĐỐI CẤM ĐỘNG VÀO CODEGAME.STORE (STRICT PROHIBITION)**:
+    - Trang web `https://codegame.store` (thuộc thư mục riêng `C:\4 Antigravity all\3 Codegame store`, Cloudflare Pages project `codegamestore`, Database D1 `codegamestore-db` `be54527d-f2b7-4777-8da4-38601ef63fd4`) là dự án hoàn toàn độc lập khác của người dùng.
+    - **TỪ GIỜ VỀ SAU TUYỆT ĐỐI KHÔNG ĐƯỢC CHẠM VÀO**: Không sửa đổi file, không build, không deploy, không thay đổi cấu hình Cloudflare/D1, không purge cache và không liên kết sang `codegame.store` dưới bất kỳ hình thức nào!
 - **Mục tiêu cốt lõi**:
   1. Cung cấp và tự động cập nhật Giftcode của hơn 623+ tựa game có giấy phép ABEI (G1/G234) và Studio game Việt Nam tại thị trường trong nước & quốc tế.
   2. Nền tảng thương mại điện tử chuyên biệt: Mua bán Tiện ích game (VIP, buff, tool, dịch vụ), Cửa hàng tài khoản, Thẻ game, Giveaway mã quà tặng miễn phí.
