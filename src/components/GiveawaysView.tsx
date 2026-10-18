@@ -44,6 +44,8 @@ interface GiveawaysViewProps {
   currentUser: UserProfile | null;
   onOpenAuth: () => void;
   onShareGiveaway?: (campaign: GiveawayCampaign, e: React.MouseEvent) => void;
+  initialGiveawayId?: string | null;
+  onClearInitialGiveawayId?: () => void;
 }
 
 
@@ -79,6 +81,8 @@ export const GiveawaysView: React.FC<GiveawaysViewProps> = ({
   currentUser,
   onOpenAuth,
   onShareGiveaway,
+  initialGiveawayId,
+  onClearInitialGiveawayId,
 }) => {
   const [giveaways, setGiveaways] = useState<GiveawayCampaign[]>([]);
   const [claimedList, setClaimedList] = useState<ClaimedCodeRecord[]>([]);
@@ -139,6 +143,54 @@ export const GiveawaysView: React.FC<GiveawaysViewProps> = ({
       window.removeEventListener('storage', handleUpdate);
     };
   }, []);
+
+  const handleCloseDetailModal = () => {
+    setDetailModalCampaign(null);
+    onClearInitialGiveawayId?.();
+    try {
+      if (window.location.hash.includes('gw=') || window.location.hash.includes('giveaway=')) {
+        window.history.replaceState(null, '', window.location.pathname + '#giveaways');
+      }
+    } catch {}
+  };
+
+  // Deep link auto-open campaign modal
+  useEffect(() => {
+    const checkTargetGiveaway = () => {
+      const hash = window.location.hash;
+      const search = window.location.search;
+      const path = window.location.pathname;
+      const urlParams = new URLSearchParams(search);
+
+      const targetId =
+        initialGiveawayId ||
+        urlParams.get('gw') ||
+        urlParams.get('giveaway') ||
+        (hash.includes('gw=') ? hash.split(/gw=/i)[1]?.split('&')[0] : null) ||
+        (hash.includes('giveaway=') ? hash.split(/giveaway=/i)[1]?.split('&')[0] : null) ||
+        (path.startsWith('/giveaways/') ? path.replace(/^\/giveaways\//i, '').split('/')[0] : null) ||
+        (path.startsWith('/giveaway/') ? path.replace(/^\/giveaway\//i, '').split('/')[0] : null);
+
+      if (targetId && giveaways.length > 0) {
+        const cleanId = decodeURIComponent(targetId).trim().toLowerCase();
+        const found = giveaways.find(
+          (g) => g.id.toLowerCase() === cleanId || (g.game_slug && g.game_slug.toLowerCase() === cleanId)
+        );
+        if (found) {
+          setDetailModalCampaign(found);
+          setActiveTab('campaigns');
+        }
+      }
+    };
+
+    checkTargetGiveaway();
+    window.addEventListener('hashchange', checkTargetGiveaway);
+    window.addEventListener('popstate', checkTargetGiveaway);
+    return () => {
+      window.removeEventListener('hashchange', checkTargetGiveaway);
+      window.removeEventListener('popstate', checkTargetGiveaway);
+    };
+  }, [giveaways, initialGiveawayId]);
 
 
 
@@ -1561,7 +1613,7 @@ export const GiveawaysView: React.FC<GiveawaysViewProps> = ({
 
           return (
             <div
-              onClick={() => setDetailModalCampaign(null)}
+              onClick={handleCloseDetailModal}
               className="fixed inset-0 z-[105] flex items-center justify-center p-3 sm:p-4 bg-black/80 backdrop-blur-md overflow-y-auto animate-fade-in"
             >
               <div
@@ -1570,7 +1622,7 @@ export const GiveawaysView: React.FC<GiveawaysViewProps> = ({
               >
                 {/* Close button */}
                 <button
-                  onClick={() => setDetailModalCampaign(null)}
+                  onClick={handleCloseDetailModal}
                   className="absolute top-4 right-4 p-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-white border border-slate-700 hover:border-slate-600 shadow-md cursor-pointer transition-all active:scale-90 flex items-center justify-center shrink-0 z-10"
                   aria-label="Đóng"
                   title="Đóng"
@@ -1950,7 +2002,7 @@ export const GiveawaysView: React.FC<GiveawaysViewProps> = ({
                   )}
 
                   <button
-                    onClick={() => setDetailModalCampaign(null)}
+                    onClick={handleCloseDetailModal}
                     className="w-full py-2.5 rounded-xl bg-muted hover:bg-card text-muted-foreground hover:text-foreground text-xs font-semibold transition-colors cursor-pointer text-center"
                   >
                     Đóng cửa sổ

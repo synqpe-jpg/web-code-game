@@ -551,6 +551,116 @@ async function runPrerender() {
   fs.writeFileSync(path.join(giveawaysDir, 'index.html'), giveawaysHtml, 'utf8');
   console.log(`[Prerender] Đã xuất bản dist/giveaways/index.html`);
 
+  // 2.5. Prerender Individual Giveaway Detail Pages (dist/giveaways/:id/index.html)
+  let giveawaysList = [];
+  try {
+    const gwPath = fs.existsSync(path.resolve(__dirname, '../public/data/giveaways.json'))
+      ? path.resolve(__dirname, '../public/data/giveaways.json')
+      : path.resolve(__dirname, '../src/data/giveaways.json');
+    giveawaysList = JSON.parse(fs.readFileSync(gwPath, 'utf8'));
+  } catch (err) {
+    console.warn('[Prerender] Không thể nạp giveaways.json:', err?.message);
+  }
+
+  console.log(`[Prerender] Bắt đầu sinh HTML tĩnh cho ${giveawaysList.length} sự kiện Giveaway...`);
+
+  for (const gw of giveawaysList) {
+    if (!gw || !gw.id) continue;
+    const gwId = gw.id;
+    const gwDetailDir = path.join(giveawaysDir, gwId);
+    if (!fs.existsSync(gwDetailDir)) fs.mkdirSync(gwDetailDir, { recursive: true });
+
+    const gameSlug = gw.game_slug || '';
+    const gameName = gw.game_name || 'Game Mobile';
+
+    // Ưu tiên ảnh JPG chuẩn cho Zalo/Facebook preview
+    const rawJpg = path.resolve(__dirname, `../public/game_icons/${gameSlug}.jpg`);
+    const rawWebp = path.resolve(__dirname, `../public/game_icons/${gameSlug}.webp`);
+    let ogGameIcon = `${BASE_URL}/og-image.jpg`;
+    if (fs.existsSync(rawJpg)) {
+      ogGameIcon = `${BASE_URL}/game_icons/${gameSlug}.jpg`;
+    } else if (fs.existsSync(rawWebp)) {
+      ogGameIcon = `${BASE_URL}/game_icons/${gameSlug}.webp`;
+    }
+
+    const gwTitle = `🎁 Nhận Code: ${gw.title} - ${gameName} | CodeGame.shop`;
+    const gwDesc = gw.description
+      ? `${gw.description} Nhận mã quà tặng độc quyền ${gameName} miễn phí tại CodeGame.shop.`
+      : `Nhận ngay ${gw.title} cho tựa game ${gameName}. Số lượng có hạn, kiểm tra điều kiện tài khoản và nhận mã tức thì!`;
+
+    const gwHtml = buildPageHtml({
+      title: gwTitle,
+      description: gwDesc,
+      canonicalPath: `/giveaways/${encodeURIComponent(gwId)}`,
+      ogImage: ogGameIcon,
+      ogType: 'article',
+      jsonLd: [
+        {
+          '@context': 'https://schema.org',
+          '@type': 'Event',
+          name: `Săn Mã: ${gw.title} - ${gameName}`,
+          description: gwDesc,
+          image: ogGameIcon,
+          startDate: gw.start_time || '2026-01-01',
+          endDate: gw.end_time || '2026-12-31',
+          eventStatus: 'https://schema.org/EventScheduled',
+          eventAttendanceMode: 'https://schema.org/OnlineEventAttendanceMode',
+          location: { '@type': 'VirtualLocation', url: `${BASE_URL}/giveaways/${encodeURIComponent(gwId)}` },
+          organizer: { '@type': 'Organization', name: 'CodeGame.shop', url: BASE_URL },
+          offers: { '@type': 'Offer', price: '0', priceCurrency: 'VND', availability: 'https://schema.org/InStock', url: `${BASE_URL}/giveaways/${encodeURIComponent(gwId)}` },
+        },
+        {
+          '@context': 'https://schema.org',
+          '@type': 'BreadcrumbList',
+          itemListElement: [
+            { '@type': 'ListItem', position: 1, name: 'Trang chủ', item: 'https://codegame.shop/' },
+            { '@type': 'ListItem', position: 2, name: 'Đợt Phát Code', item: 'https://codegame.shop/giveaways' },
+            { '@type': 'ListItem', position: 3, name: gameName, item: `${BASE_URL}/giveaways/${encodeURIComponent(gwId)}` },
+          ],
+        },
+      ],
+      bodyContent: `
+        <div class="min-h-screen flex flex-col bg-dark-950 text-[#431407]" style="background-color: var(--bg-sourcecode, #FFF3E0);">
+          <header class="sticky top-0 z-40 w-full border-b border-orange-200 bg-white/90 backdrop-blur-md px-4 sm:px-8 py-3.5 flex items-center justify-between">
+            <a href="/" class="flex items-center space-x-2.5 text-orange-600 font-extrabold text-lg sm:text-xl">
+              <span>🎮 CodeGame.shop</span>
+            </a>
+            <nav class="flex items-center space-x-3 sm:space-x-6 text-xs sm:text-sm font-bold text-amber-900">
+              <a href="/" class="hover:text-orange-600 transition-colors">Mã Miễn Phí</a>
+              <a href="/giveaways" class="text-orange-600 font-black">Đợt Phát Code</a>
+              <a href="/store" class="hover:text-orange-600 transition-colors">Chợ Code VIP</a>
+            </nav>
+          </header>
+
+          <main class="max-w-4xl mx-auto px-4 sm:px-6 py-8 space-y-6">
+            <div class="rounded-3xl border border-orange-200 p-6 sm:p-8 shadow-md bg-white flex flex-col sm:flex-row items-center gap-6">
+              <img src="${ogGameIcon}" alt="${escapeHtml(gameName)}" class="w-24 h-24 rounded-2xl object-cover shadow-md border border-orange-100" />
+              <div class="flex-1 text-center sm:text-left">
+                <div class="inline-block px-3 py-0.5 rounded-full bg-orange-100 text-orange-800 text-xs font-bold mb-2">
+                  🎁 Sự Kiện Phát Mã Quà Tặng
+                </div>
+                <h1 class="text-xl sm:text-2xl font-black text-amber-950">
+                  ${escapeHtml(gw.title)} - ${escapeHtml(gameName)}
+                </h1>
+                <p class="text-xs sm:text-sm text-amber-900/80 mt-1.5 font-medium leading-relaxed">
+                  ${escapeHtml(gw.description || 'Tham gia nhận mã quà tặng độc quyền hoàn toàn miễn phí.')}
+                </p>
+                <div class="mt-4 flex flex-wrap items-center justify-center sm:justify-start gap-3">
+                  <a href="/giveaways#gw=${encodeURIComponent(gwId)}" class="px-5 py-2.5 rounded-xl bg-orange-600 hover:bg-orange-500 text-white text-xs font-bold shadow-md transition-all">
+                    👉 Vào Nhận Mã Ngay
+                  </a>
+                </div>
+              </div>
+            </div>
+          </main>
+        </div>
+      `,
+    });
+
+    fs.writeFileSync(path.join(gwDetailDir, 'index.html'), gwHtml, 'utf8');
+  }
+  console.log(`[Prerender] Đã xuất bản hoàn tất ${giveawaysList.length} trang chi tiết sự kiện Giveaway!`);
+
   // 3. Prerender Store Page (dist/store/index.html)
   const storeDir = path.join(distDir, 'store');
   if (!fs.existsSync(storeDir)) fs.mkdirSync(storeDir, { recursive: true });
@@ -939,6 +1049,18 @@ async function runPrerender() {
         priority: '0.8',
         changefreq: 'weekly',
         lastmod: artDate,
+      });
+    }
+  });
+
+  // Add all giveaways
+  giveawaysList.forEach((gw) => {
+    if (gw && gw.id) {
+      sitemapUrls.push({
+        loc: `${BASE_URL}/giveaways/${encodeURIComponent(gw.id)}`,
+        priority: '0.8',
+        changefreq: 'daily',
+        lastmod: todayStr,
       });
     }
   });

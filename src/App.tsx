@@ -95,6 +95,7 @@ export const App: React.FC = () => {
   });
 
   const [initialNewsSlug, setInitialNewsSlug] = useState<string | null>(null);
+  const [initialGiveawayId, setInitialGiveawayId] = useState<string | null>(null);
 
   // Search & Filter State
   const [searchQuery, setSearchQuery] = useState('');
@@ -457,6 +458,7 @@ export const App: React.FC = () => {
           return;
         } else if (gwId) {
           setCurrentTab('giveaways');
+          setInitialGiveawayId(gwId);
           return;
         } else if (hashLower === '#news' || hashLower.startsWith('#news')) {
           setCurrentTab('news');
@@ -465,6 +467,8 @@ export const App: React.FC = () => {
           return;
         } else if (hashLower === '#giveaways' || hashLower.startsWith('#giveaways')) {
           setCurrentTab('giveaways');
+          const hashGwId = hash.includes('gw=') ? hash.split(/gw=/i)[1]?.split('&')[0] : null;
+          if (hashGwId) setInitialGiveawayId(hashGwId);
           return;
         } else if (hashLower === '#store' || hashLower.startsWith('#store')) {
           setCurrentTab('store');
@@ -504,8 +508,10 @@ export const App: React.FC = () => {
           const nSlug = window.location.pathname.replace(/^\/news\//i, '').replace(/\/$/, '').trim();
           if (nSlug) setInitialNewsSlug(nSlug);
           return;
-        } else if (pathname === '/giveaways' || pathname.startsWith('/giveaways/')) {
+        } else if (pathname === '/giveaways' || pathname.startsWith('/giveaways/') || pathname === '/giveaway' || pathname.startsWith('/giveaway/')) {
           setCurrentTab('giveaways');
+          const pGwId = window.location.pathname.replace(/^\/(?:giveaways|giveaway)\/?/i, '').split('/')[0].trim();
+          if (pGwId) setInitialGiveawayId(pGwId);
           return;
         } else if (pathname === '/store' || pathname.startsWith('/store/')) {
           setCurrentTab('store');
@@ -621,9 +627,15 @@ export const App: React.FC = () => {
         setCurrentTab('news');
         return;
       }
-      if (hash === '#giveaways' || hash.startsWith('#giveaways') || hash.includes('gw=')) {
+      if (hash === '#giveaways' || hash.startsWith('#giveaways') || hash.includes('gw=') || hash.includes('giveaway=')) {
         setSelectedGame(null);
         setCurrentTab('giveaways');
+        const popGwId = hash.includes('gw=')
+          ? hash.split(/gw=/i)[1]?.split('&')[0]
+          : hash.includes('giveaway=')
+          ? hash.split(/giveaway=/i)[1]?.split('&')[0]
+          : null;
+        if (popGwId) setInitialGiveawayId(popGwId);
         return;
       }
       if (hash === '#store' || hash.startsWith('#store') || hash.includes('product=')) {
@@ -651,9 +663,11 @@ export const App: React.FC = () => {
       } else if (path === '/news' || path.startsWith('/news/')) {
         setSelectedGame(null);
         setCurrentTab('news');
-      } else if (path === '/giveaways' || path.startsWith('/giveaways/')) {
+      } else if (path === '/giveaways' || path.startsWith('/giveaways/') || path === '/giveaway' || path.startsWith('/giveaway/')) {
         setSelectedGame(null);
         setCurrentTab('giveaways');
+        const pGwId = window.location.pathname.replace(/^\/(?:giveaways|giveaway)\/?/i, '').split('/')[0].trim();
+        if (pGwId) setInitialGiveawayId(pGwId);
       } else if (path === '/store' || path.startsWith('/store/')) {
         setSelectedGame(null);
         setCurrentTab('store');
@@ -1022,7 +1036,7 @@ export const App: React.FC = () => {
     setSharePayload({
       title: campaign.title,
       subtitle: `Sự kiện săn mã ${campaign.game_name}`,
-      shareUrl: `${origin}/giveaways#gw=${campaign.id}`,
+      shareUrl: `${origin}/giveaways/${campaign.id}`,
       itemType: 'giveaway',
     });
   };
@@ -1261,6 +1275,8 @@ export const App: React.FC = () => {
               currentUser={currentUser}
               onOpenAuth={() => setIsAuthModalOpen(true)}
               onShareGiveaway={handleOpenShareGiveaway}
+              initialGiveawayId={initialGiveawayId}
+              onClearInitialGiveawayId={() => setInitialGiveawayId(null)}
             />
           )}
 

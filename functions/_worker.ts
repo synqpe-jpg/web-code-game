@@ -17,6 +17,7 @@ import * as gamesApi from './api/games';
 import * as crawlArticleApi from './api/crawl-article';
 import * as gameIconApi from './api/game-icon';
 import { invalidateCatalogEdgeCache } from './services/cache_service';
+import fallbackGiveawaysData from '../src/data/giveaways.json';
 
 interface Env {
   DB?: D1Database;
@@ -393,6 +394,14 @@ export default {
       }
 
       // Static assets fallback (SPA routing with Edge SEO & Social Meta Injection)
+      const userAgent = request.headers.get('User-Agent') || '';
+      const isCrawler = /facebookexternalhit|ZaloBot|TelegramBot|Twitterbot|LinkedInBot|Slackbot|WhatsApp|Viber/i.test(userAgent);
+      const isGiveawayShareQuery = (url.searchParams.has('gw') || url.searchParams.has('giveaway')) && (pathname === '/giveaways' || pathname === '/giveaway');
+
+      if (request.method === 'GET' && isCrawler && isGiveawayShareQuery) {
+        return await renderSeoHtml(request, env, pathname);
+      }
+
       const assetResponse = await env.ASSETS.fetch(request);
       if (assetResponse.status === 404 && request.method === 'GET' && !pathname.match(/\.[a-zA-Z0-9]+$/)) {
         return await renderSeoHtml(request, env, pathname);
@@ -552,10 +561,75 @@ async function renderSeoHtml(
       const description = 'Cập nhật tin tức game mobile, giftcode tân thủ và sự kiện nhận quà hot nhất 2026 tại CodeGame.shop.';
       replaceTitleAndMeta(title, description, '/news', '/og-image.jpg');
     }
-  } else if (pathname === '/giveaways' || pathname.startsWith('/giveaways/')) {
-    const title = 'Sự Kiện Giveaway Nhận Giftcode Game Miễn Phí 2026 | CodeGame.shop';
-    const description = 'Tham gia sự kiện giveaway nhận quà tân thủ, giftcode VIP độc quyền và thẻ game miễn phí mỗi ngày tại CodeGame.shop.';
-    replaceTitleAndMeta(title, description, '/giveaways', '/og-image.jpg');
+  } else if (
+    pathname === '/giveaways' ||
+    pathname.startsWith('/giveaways/') ||
+    pathname === '/giveaway' ||
+    pathname.startsWith('/giveaway/')
+  ) {
+    const urlObj = new URL(request.url);
+    const rawGwId =
+      pathname.replace(/^\/(?:giveaways|giveaway)\/?/i, '').split('/')[0].trim() ||
+      urlObj.searchParams.get('gw') ||
+      urlObj.searchParams.get('giveaway');
+
+    let campaign: any = null;
+    if (rawGwId) {
+      const cleanGwId = decodeURIComponent(rawGwId).trim().toLowerCase();
+      // 1. Thử lấy từ Cloudflare D1
+      if (env.DB) {
+        try {
+          const stmt = env.DB.prepare("SELECT value FROM settings WHERE key = 'wcg_admin_giveaways_v4' LIMIT 1");
+          const row: any = await stmt.first();
+          if (row?.value) {
+            const list = JSON.parse(row.value);
+            if (Array.isArray(list)) {
+              campaign = list.find((g: any) => g && (g.id?.toLowerCase() === cleanGwId || g.game_slug?.toLowerCase() === cleanGwId));
+            }
+          }
+        } catch {}
+      }
+
+      // 2. Fallback sang danh sách tĩnh fallbackGiveawaysData
+      if (!campaign && Array.isArray(fallbackGiveawaysData)) {
+        campaign = (fallbackGiveawaysData as any[]).find(
+          (g) => g && (g.id?.toLowerCase() === cleanGwId || g.game_slug?.toLowerCase() === cleanGwId)
+        );
+      }
+    }
+
+    if (campaign) {
+      const gameName = campaign.game_name || 'Game Mobile';
+      const gameSlug = campaign.game_slug || '';
+      const title = `🎁 Nhận Code: ${campaign.title} - ${gameName} | CodeGame.shop`;
+      const description = campaign.description
+        ? `${campaign.description} Nhận mã quà tặng độc quyền ${gameName} miễn phí tại CodeGame.shop.`
+        : `Nhận ngay ${campaign.title} cho tựa game ${gameName}. Số lượng có hạn, kiểm tra điều kiện tài khoản và nhận mã tức thì!`;
+
+      // Ưu tiên JPG cho Zalo/Facebook preview
+      const iconUrl = gameSlug ? `${origin}/game_icons/${gameSlug}.jpg` : `${origin}/og-image.jpg`;
+
+      const giveawaySchema = {
+        "@context": "https://schema.org",
+        "@type": "Event",
+        "name": `Săn Mã: ${campaign.title} - ${gameName}`,
+        "description": description,
+        "image": iconUrl,
+        "startDate": campaign.start_time || "2026-01-01",
+        "endDate": campaign.end_time || "2026-12-31",
+        "eventStatus": "https://schema.org/EventScheduled",
+        "eventAttendanceMode": "https://schema.org/OnlineEventAttendanceMode",
+        "location": { "@type": "VirtualLocation", "url": `${origin}/giveaways/${campaign.id}` },
+        "organizer": { "@type": "Organization", "name": "CodeGame.shop", "url": origin },
+        "offers": { "@type": "Offer", "price": "0", "priceCurrency": "VND", "availability": "https://schema.org/InStock" }
+      };
+
+      replaceTitleAndMeta(title, description, `/giveaways/${campaign.id}`, iconUrl, giveawaySchema);
+    } else {
+      const title = 'Sự Kiện Giveaway Nhận Giftcode Game Miễn Phí 2026 | CodeGame.shop';
+      const description = 'Tham gia sự kiện giveaway nhận quà tân thủ, giftcode VIP độc quyền và thẻ game miễn phí mỗi ngày tại CodeGame.shop.';
+      replaceTitleAndMeta(title, description, '/giveaways', '/og-image.jpg');
+    }
   } else if (pathname === '/store' || pathname.startsWith('/store/')) {
     const title = 'Cửa Hàng Thẻ Game & Robux Giá Rẻ Uy Tín | CodeGame.shop';
     const description = 'Mua thẻ game, Robux giá rẻ, key bản quyền và nạp game chiết khấu cao tự động 24/7 tại CodeGame.shop.';

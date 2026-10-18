@@ -7,6 +7,36 @@ Mỗi mục sửa lỗi đều ghi nhận **Nguyên nhân gốc rễ (Root Cause
 
 ## [2026-10-18]
 
+### 70. Khắc Phục Lỗi Hiển Thị Icon Game Khi Chia Sẻ Link Sự Kiện Lên Zalo/Mạng Xã Hội & Sửa Lỗi Deep Link Chi Tiết Sự Kiện
+- **Mô tả & Yêu cầu Người Dùng**:
+  - *"Sao khi tôi chia sẻ link sự kiện lên thì không hiện đúng icon của game, khi ấn vào cũng không vào chi tiết sự kiện"* (Kèm ảnh chụp màn hình gửi link `https://codegame.shop/giveaways#gw=gw_1791639328657_df3` vào nhóm Zalo "3Q Xẻng ĐÀO - GIAO...").
+- **Nguyên nhân gốc rễ (Root Cause)**:
+  1. *Bot mạng xã hội (ZaloBot, Facebook, Telegram...) nuốt mất URL Fragment (#gw=...)*:
+     - Giao thức HTTP quy định phần hash `#...` không bao giờ được gửi lên web server trong request GET. Khi người dùng chia sẻ link có hash, ZaloBot chỉ cào đường dẫn `/giveaways` chung.
+     - Trang `/giveaways` tĩnh trước đây chỉ chứa ảnh đại diện mặc định của toàn trang (hoặc banner/sprite) thay vì icon của game thuộc sự kiện đó.
+     - Ngoài ra, Zalo đặc biệt kén định dạng WebP và ưu tiên ảnh đại diện JPG chuẩn tỷ lệ 1:1.
+  2. *Client Router chưa truyền prop mở popup chi tiết khi nhận diện `gwId`*:
+     - Trong [`src/App.tsx`](file:///c:/4%20Antigravity%20all/13%20web%20code%20game/src/App.tsx), khi phát hiện `gwId`, hệ thống chỉ gọi `setCurrentTab('giveaways')` mà không lưu lại hay truyền ID sự kiện xuống `GiveawaysView`.
+     - Trong [`GiveawaysView.tsx`](file:///c:/4%20Antigravity%20all/13%20web%20code%20game/src/components/GiveawaysView.tsx), component không lắng nghe URL hoặc hash để tự động gán `setDetailModalCampaign(found)`, dẫn đến người dùng bấm vào link chỉ đứng ở màn hình danh sách sự kiện chung mà không vào chi tiết sự kiện.
+- **Giải pháp toàn diện đã triển khai (Comprehensive Implementation)**:
+  1. *Chuẩn hóa URL Chia Sẻ Sự Kiện Thành Dạng Clean Path*:
+     - Chuyển đổi định dạng URL chia sẻ từ `https://codegame.shop/giveaways#gw=:id` sang đường dẫn chuẩn RESTful: `https://codegame.shop/giveaways/:id` (vẫn tương thích ngược 100% với các link cũ dạng `#gw=` hoặc `?gw=`).
+  2. *Nâng cấp Static Prerender cho 31 sự kiện Giveaway ([`scripts/prerender.js`](file:///c:/4%20Antigravity%20all/13%20web%20code%20game/scripts/prerender.js))*:
+     - Tự động sinh file HTML tĩnh cho toàn bộ 31 sự kiện tại `dist/giveaways/:id/index.html`.
+     - Tự động liên kết đúng file icon JPG của game: `/game_icons/${game_slug}.jpg` (độ phân giải 512x512, tỷ lệ 1:1 chuẩn Open Graph cho Zalo & Facebook).
+     - Bổ sung Event Schema và Breadcrumb Schema, đồng thời đưa toàn bộ 31 liên kết sự kiện vào `sitemap.xml`.
+  3. *Tích hợp Dynamic Edge SEO trên Cloudflare Worker ([`functions/_worker.ts`](file:///c:/4%20Antigravity%20all/13%20web%20code%20game/functions/_worker.ts))*:
+     - Phát hiện crawler mạng xã hội (`ZaloBot`, `facebookexternalhit`, `TelegramBot`...) và inject chính xác title, description, cùng icon game tương ứng cả khi sự kiện mới được tạo trong runtime D1.
+  4. *Khắc phục Client Deep Link Auto-Open*:
+     - Trong [`src/App.tsx`](file:///c:/4%20Antigravity%20all/13%20web%20code%20game/src/App.tsx), bổ sung state `initialGiveawayId` bóc tách từ pathname `/giveaways/:id`, query `?gw=:id`, và hash `#gw=:id`.
+     - Trong [`GiveawaysView.tsx`](file:///c:/4%20Antigravity%20all/13%20web%20code%20game/src/components/GiveawaysView.tsx), thêm effect tự động mở ngay modal chi tiết sự kiện (`setDetailModalCampaign(found)`) khi người dùng truy cập qua link chia sẻ.
+- **Kết quả kiểm thử & Triển khai**:
+  - File tĩnh `dist/giveaways/gw_1791639328657_df3/index.html` sinh ra chứa thẻ `og:image` là `https://codegame.shop/game_icons/3q-dao-dao-dao.jpg` chuẩn 100%.
+  - Prerender thành công 672 trang HTML tĩnh SEO và Edge Worker bundle biên dịch sạch.
+  - Tự động triển khai lên Cloudflare Pages (`web-code-game` và `admin-code-game-shop`) và đồng bộ GitHub.
+
+---
+
 ### 69. Khắc Phục Hiện Tượng Số Hàng Đã Bán Bị Giật Lùi Về Mốc Cũ & Đảm Bảo Tăng Trưởng Đơn Điệu Theo Thông Báo Toast
 - **Mô tả & Yêu cầu Người Dùng**:
   - *"Kiểm tra số hàng hiển thị đã bán bị giật về mốc nào đó, bạn giúp tôi khiến nó tăng trưởng theo thông báo, khong bị giật về giúp tôi với."*
