@@ -47,7 +47,7 @@ async function runPrerender() {
     title,
     description,
     canonicalPath,
-    ogImage = 'https://codegame.shop/game_icons/anh-hung-tien-len.webp',
+    ogImage = 'https://codegame.shop/og-image.jpg',
     ogType = 'website',
     noindex = false,
     jsonLd = [],

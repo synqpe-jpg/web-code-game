@@ -456,22 +456,22 @@ async function renderSeoHtml(
     html = html.replace(/<title>.*?<\/title>/i, `<title>${title}</title>`);
 
     // 2. Meta description
-    html = html.replace(/<meta name="description" content=".*?" \/>/i, `<meta name="description" content="${description}" />`);
+    html = html.replace(/<meta\s+name="description"\s+content=".*?"\s*\/?>/i, `<meta name="description" content="${description}">`);
 
     // 3. Canonical
-    html = html.replace(/<link rel="canonical" href=".*?" \/>/i, `<link rel="canonical" href="${fullCanonical}" />`);
+    html = html.replace(/<link\s+rel="canonical"\s+href=".*?"\s*\/?>/i, `<link rel="canonical" href="${fullCanonical}">`);
 
     // 4. Open Graph tags
-    html = html.replace(/<meta property="og:title" content=".*?" \/>/i, `<meta property="og:title" content="${title}" />`);
-    html = html.replace(/<meta property="og:description" content=".*?" \/>/i, `<meta property="og:description" content="${description}" />`);
-    html = html.replace(/<meta property="og:url" content=".*?" \/>/i, `<meta property="og:url" content="${fullCanonical}" />`);
-    html = html.replace(/<meta property="og:image" content=".*?" \/>/i, `<meta property="og:image" content="${fullOgImage}" />\n    <meta property="og:image:type" content="image/jpeg" />\n    <meta property="og:image:width" content="512" />\n    <meta property="og:image:height" content="512" />`);
+    html = html.replace(/<meta\s+property="og:title"\s+content=".*?"\s*\/?>/i, `<meta property="og:title" content="${title}">`);
+    html = html.replace(/<meta\s+property="og:description"\s+content=".*?"\s*\/?>/i, `<meta property="og:description" content="${description}">`);
+    html = html.replace(/<meta\s+property="og:url"\s+content=".*?"\s*\/?>/i, `<meta property="og:url" content="${fullCanonical}">`);
+    html = html.replace(/<meta\s+property="og:image"\s+content=".*?"\s*\/?>/i, `<meta property="og:image" content="${fullOgImage}">\n    <meta property="og:image:type" content="image/jpeg">\n    <meta property="og:image:width" content="512">\n    <meta property="og:image:height" content="512">`);
 
     // 5. Twitter tags
-    html = html.replace(/<meta name="twitter:title" content=".*?" \/>/i, `<meta name="twitter:title" content="${title}" />`);
-    html = html.replace(/<meta name="twitter:description" content=".*?" \/>/i, `<meta name="twitter:description" content="${description}" />`);
-    html = html.replace(/<meta name="twitter:url" content=".*?" \/>/i, `<meta name="twitter:url" content="${fullCanonical}" />`);
-    html = html.replace(/<meta name="twitter:image" content=".*?" \/>/i, `<meta name="twitter:image" content="${fullOgImage}" />`);
+    html = html.replace(/<meta\s+name="twitter:title"\s+content=".*?"\s*\/?>/i, `<meta name="twitter:title" content="${title}">`);
+    html = html.replace(/<meta\s+name="twitter:description"\s+content=".*?"\s*\/?>/i, `<meta name="twitter:description" content="${description}">`);
+    html = html.replace(/<meta\s+name="twitter:url"\s+content=".*?"\s*\/?>/i, `<meta name="twitter:url" content="${fullCanonical}">`);
+    html = html.replace(/<meta\s+name="twitter:image"\s+content=".*?"\s*\/?>/i, `<meta name="twitter:image" content="${fullOgImage}">`);
 
     // 6. Inject Schema.org JSON-LD
     if (extraLdJson) {
