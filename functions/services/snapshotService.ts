@@ -182,7 +182,7 @@ export async function generateAndPersistSnapshot(env: any): Promise<GlobalMetric
 
   // 1.5. Cleanse runaway peaks in hub if values are corrupted (> 1,000,000 or NaN) or exceed realistic Admin bounds
   let hubModified = false;
-  const catchUpMaxAllowed = Math.max(30, Number(marketingConfig?.offlineCatchUp?.maxCatchUpUnits) || 70);
+  const catchUpMaxAllowed = Math.max(10, Math.min(30, Number(marketingConfig?.offlineCatchUp?.maxCatchUpUnits) || 30));
   if (hub.peakProductSoldCounts && typeof hub.peakProductSoldCounts === 'object') {
     const prodMap = new Map((products || []).map(p => [p.id, p]));
     for (const [pId, val] of Object.entries(hub.peakProductSoldCounts)) {
@@ -190,11 +190,12 @@ export async function generateAndPersistSnapshot(env: any): Promise<GlobalMetric
       const prod = prodMap.get(pId);
       const baseTarget = Number(prod?.virtual_sold_count || 0);
       const realSold = Number(prod?.sold_count || 0);
-      const maxAllowed = realSold + baseTarget + catchUpMaxAllowed + 25;
+      // Khi baseTarget = 0 (tắt số ảo): trần tối đa đúng bằng số bán thật
+      const maxAllowed = baseTarget > 0 ? (realSold + baseTarget + catchUpMaxAllowed + 10) : realSold;
       if (isNaN(numVal) || numVal < 0 || numVal > 1000000) {
         delete hub.peakProductSoldCounts[pId];
         hubModified = true;
-      } else if (prod && baseTarget >= 0 && (numVal > maxAllowed || numVal < (realSold + baseTarget))) {
+      } else if (prod && (numVal > maxAllowed || numVal < (realSold + baseTarget))) {
         hub.peakProductSoldCounts[pId] = realSold + baseTarget;
         hubModified = true;
       }
@@ -208,11 +209,12 @@ export async function generateAndPersistSnapshot(env: any): Promise<GlobalMetric
       const gw = gwMap.get(gId);
       const baseTarget = Number(gw?.virtual_claimed_offset || 0);
       const realClaimed = Number(gw?.claimed_codes || 0);
-      const maxAllowed = realClaimed + baseTarget + catchUpMaxAllowed + 25;
+      // Khi baseTarget = 0 (tắt số ảo): trần tối đa đúng bằng số nhận thật
+      const maxAllowed = baseTarget > 0 ? (realClaimed + baseTarget + catchUpMaxAllowed + 10) : realClaimed;
       if (isNaN(numVal) || numVal < 0 || numVal > 1000000) {
         delete hub.peakGiveawayClaimedCounts[gId];
         hubModified = true;
-      } else if (gw && baseTarget >= 0 && (numVal > maxAllowed || numVal < (realClaimed + baseTarget))) {
+      } else if (gw && (numVal > maxAllowed || numVal < (realClaimed + baseTarget))) {
         hub.peakGiveawayClaimedCounts[gId] = realClaimed + baseTarget;
         hubModified = true;
       }
@@ -225,11 +227,14 @@ export async function generateAndPersistSnapshot(env: any): Promise<GlobalMetric
     for (const [pId, val] of Object.entries(hub.lowestProductStock)) {
       const prod = prodMap.get(pId);
       const realStock = Math.max(0, Number(prod?.stock_quantity) || 0);
+      const baseTarget = Number(prod?.virtual_sold_count || 0);
       const pw = marketingConfig?.productWeights?.[pId];
-      const virtualBonus = pw?.virtualStockBonus !== undefined ? Number(pw.virtualStockBonus) : 20;
+      const rawBonus = pw?.virtualStockBonus !== undefined ? Number(pw.virtualStockBonus) : 0;
+      const virtualBonus = (baseTarget === 0 && rawBonus === 20 && !pw?.hasExplicitBonus) ? 0 : rawBonus;
       const threshold = pw?.autoRestockThreshold !== undefined ? Number(pw.autoRestockThreshold) : 1;
       const restockAmount = pw?.autoRestockAmount !== undefined ? Number(pw.autoRestockAmount) : 20;
-      const priority = pw?.priority || 'normal';
+      const rawPriority = pw?.priority || (baseTarget === 0 ? 'off' : 'normal');
+      const priority = (baseTarget === 0 && virtualBonus === 0) ? 'off' : rawPriority;
       const effectiveThreshold = (realStock > 0 && threshold < realStock) ? realStock : threshold;
       const maxAllowedStock = (priority === 'off' || virtualBonus <= 0)
         ? realStock
@@ -239,7 +244,7 @@ export async function generateAndPersistSnapshot(env: any): Promise<GlobalMetric
       if (realStock <= 0) {
         delete hub.lowestProductStock[pId];
         hubModified = true;
-      } else if (numVal > maxAllowedStock || numVal <= 0) {
+      } else if (numVal > maxAllowedStock || numVal <= 0 || (priority === 'off' && numVal !== realStock)) {
         hub.lowestProductStock[pId] = maxAllowedStock;
         hubModified = true;
       }
@@ -252,11 +257,14 @@ export async function generateAndPersistSnapshot(env: any): Promise<GlobalMetric
     for (const [gId, val] of Object.entries(hub.lowestGiveawayRemaining)) {
       const gw = gwMap.get(gId);
       const realRemaining = Math.max(0, Number(gw?.remaining_codes) || 0);
+      const baseTarget = Number(gw?.virtual_claimed_offset || 0);
       const pw = marketingConfig?.productWeights?.[gId];
-      const virtualBonus = pw?.virtualStockBonus !== undefined ? Number(pw.virtualStockBonus) : 20;
+      const rawBonus = pw?.virtualStockBonus !== undefined ? Number(pw.virtualStockBonus) : 0;
+      const virtualBonus = (baseTarget === 0 && rawBonus === 20 && !pw?.hasExplicitBonus) ? 0 : rawBonus;
       const threshold = pw?.autoRestockThreshold !== undefined ? Number(pw.autoRestockThreshold) : 1;
       const restockAmount = pw?.autoRestockAmount !== undefined ? Number(pw.autoRestockAmount) : 20;
-      const priority = pw?.priority || 'normal';
+      const rawPriority = pw?.priority || (baseTarget === 0 ? 'off' : 'normal');
+      const priority = (baseTarget === 0 && virtualBonus === 0) ? 'off' : rawPriority;
       const effectiveThreshold = (realRemaining > 0 && threshold < realRemaining) ? realRemaining : threshold;
       const maxAllowedRemaining = (priority === 'off' || virtualBonus <= 0)
         ? realRemaining
@@ -266,7 +274,7 @@ export async function generateAndPersistSnapshot(env: any): Promise<GlobalMetric
       if (realRemaining <= 0) {
         delete hub.lowestGiveawayRemaining[gId];
         hubModified = true;
-      } else if (numVal > maxAllowedRemaining || numVal <= 0) {
+      } else if (numVal > maxAllowedRemaining || numVal <= 0 || (priority === 'off' && numVal !== realRemaining)) {
         hub.lowestGiveawayRemaining[gId] = maxAllowedRemaining;
         hubModified = true;
       }

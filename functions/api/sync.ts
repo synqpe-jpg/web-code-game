@@ -2178,6 +2178,9 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
                 if (p && p.id && p.virtual_sold_count !== undefined) {
                   const target = Number(p.virtual_sold_count) + (Number(p.sold_count) || 0);
                   hub.peakProductSoldCounts[p.id] = target;
+                  if (hub.lowestProductStock && Number(p.virtual_sold_count) === 0) {
+                    hub.lowestProductStock[p.id] = Number(p.stock_quantity) || 0;
+                  }
                   hubChanged = true;
                 }
               }
@@ -2214,6 +2217,9 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
                 if (u && u.id && u.virtual_sold_count !== undefined) {
                   const target = Number(u.virtual_sold_count) + (Number(u.sold_count) || 0);
                   hub.peakProductSoldCounts[u.id] = target;
+                  if (hub.lowestProductStock && Number(u.virtual_sold_count) === 0) {
+                    hub.lowestProductStock[u.id] = Number(u.stock_quantity) || 0;
+                  }
                   hubChanged = true;
                 }
               }
@@ -2248,6 +2254,9 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
                 if (gw && gw.id && gw.virtual_claimed_offset !== undefined) {
                   const target = Number(gw.virtual_claimed_offset) + (Number(gw.claimed_codes) || 0);
                   hub.peakGiveawayClaimedCounts[gw.id] = target;
+                  if (hub.lowestGiveawayRemaining && Number(gw.virtual_claimed_offset) === 0) {
+                    hub.lowestGiveawayRemaining[gw.id] = Number(gw.remaining_codes) || 0;
+                  }
                   hubChanged = true;
                 }
               }

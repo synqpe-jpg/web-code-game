@@ -935,6 +935,43 @@
 
 ---
 
+### ISSUE-051: Bất đồng bộ số ảo ngoài Web do gán ngầm kho ảo 20, bù ngoại tuyến 48 đơn/giờ và bẫy khóa đỉnh ma LocalStorage (Ghost Peak Lock)
+- **Triệu chứng**:
+  - Admin cấu hình số đã săn ảo `virtual_claimed_offset = 0` (hoặc số đã bán `virtual_sold_count = 0`), mong muốn hiển thị đúng 100% số thật (ví dụ 25 đã giật, 7 mã còn lại). Tuy nhiên, trên Web khách và snapshot `/api/metrics/synced` lại hiển thị vọt lên **96 đã giật, 15 mã còn lại**!
+  - Khi Admin cài đặt mục tiêu số ảo (ví dụ 64 đơn cho `ut_vs_05_vip_7d`), chỉ sau thời gian ngắn số lượng ngoài web bị nhảy vọt lên 135 đơn (+71 đơn ngoài ý muốn).
+  - Khi Admin reset số ảo về số thật hoặc chỉnh giảm số lượng, trình duyệt người dùng vẫn bị kẹt cứng ở con số đỉnh ma cũ (96 hoặc 135) do LocalStorage không chịu hạ xuống.
+- **Nguyên nhân gốc rễ**:
+  1. *`DEFAULT_PRODUCT_MARKETING_CONFIG` tự ý ép kho ảo 20 và `priority = 'normal'`*:
+     - Mọi sản phẩm/tiện ích/giveaway chưa cấu hình riêng trong `productWeights` đều bị ép nhận kho ảo 20 và ưu tiên `'normal'`, làm biến dạng tồn kho thật và kích hoạt thuật toán sinh số ảo.
+  2. *`calculateDeterministicSold` không kiểm tra `base <= 0`*:
+     - Kể cả khi Admin đặt `virtual_offset = 0`, hàm vẫn chạy `calculateHourlyGrowth` (+70 đơn) và `inHourProgression` (+1 đơn) $\rightarrow$ đội số lên $25 + 0 + 71 = 96$ đơn.
+  3. *`DEFAULT_OFFLINE_CATCHUP_CONFIG` bị đặt nhầm `mode: 'custom'` và `incrementStep: 12` mỗi 15 phút*:
+     - Tốc độ lên tới **48 đơn/giờ**, khiến mọi sản phẩm có mốc thời gian cách 1.5 giờ đều bị đẩy kịch trần tối đa +70 đơn ngoại tuyến.
+  4. *Bẫy khóa đỉnh ma `Math.max(curHigh, effectiveSold)` trong `fetchMetricsSnapshot`*:
+     - Client lưu con số 96 vào `highWaterClaimedCountMap` của `localStorage`. Khi Admin sync số thật 25 từ server, lệnh `Math.max(curHigh, effectiveSold)` giữ nguyên 96, vĩnh viễn không bao giờ hạ xuống.
+  5. *Hub D1 lưu giữ đỉnh cũ khi `baseTarget = 0`*:
+     - Khâu dọn dẹp `snapshotService.ts` chỉ kiểm tra `maxAllowed = realClaimed + baseTarget + 70 + 25`. Khi `baseTarget = 0`, `maxAllowed` vẫn là $25 + 95 = 120$, từ chối hạ đỉnh 96 xuống 25.
+- **Giải pháp chuẩn đã kiểm chứng**:
+  1. **Khắc phục `src/shared/deterministicEngine.ts`**:
+     - Trong `calculateDeterministicSold`: Nếu `base <= 0`, trả về `real` ngay lập tức, ngắt 100% `hourlyGrowth` và `inHourProgression`.
+     - Trong `calculateHourlyGrowth`: Tốc độ tăng trưởng hợp lý cho từng sản phẩm (0.2 - 1.5 đơn/giờ), khóa trần rate $\le 2.5$ đơn/giờ, trần tối đa 30 đơn, bỏ jitter.
+     - Trong `calculateInHourProgression`: Nếu thiếu `parsedAnchorMs`, trả về 0.
+     - Trong `calculateGlobalSnapshot`: Nếu `virtual_sold_count <= 0` hoặc `virtual_claimed_offset <= 0`, không ép bonus mặc định 20, đưa `priority` về `'off'`, đỉnh tối đa không vượt quá số thật.
+  2. **Khắc phục `functions/services/snapshotService.ts` & `functions/api/sync.ts`**:
+     - Tự động thanh lọc đỉnh ma về đúng số thật khi `baseTarget = 0` trong `hub.peakProductSoldCounts`, `hub.peakGiveawayClaimedCounts`, `hub.lowestProductStock`, `hub.lowestGiveawayRemaining`.
+  3. **Khắc phục `src/services/marketingService.ts`**:
+     - `DEFAULT_PRODUCT_MARKETING_CONFIG`: `priority: 'off'`, `virtualStockBonus: 0`.
+     - `DEFAULT_OFFLINE_CATCHUP_CONFIG`: `mode: 'auto'`, `intervalMinutes: 60`, `incrementStep: 1`, `maxCatchUpUnits: 30`.
+     - `getSoldDisplay` & `getClaimedDisplay`: Nếu `virtualBase <= 0` và không có override, trả về `effectiveReal` và tự động chữa lành `highWaterMap`.
+     - `fetchMetricsSnapshot`: Cho phép hạ số khi server snapshot thấp hơn (`curHigh > effectiveSold + 3`), giải phóng triệt để bẫy khóa đỉnh ma.
+     - `applyOfflineCatchUp`: Bỏ qua các mục có `virtualBase <= 0`.
+- ⛔ **CÁCH SỬA ĐÃ THẤT BẠI - TUYỆT ĐỐI KHÔNG LẶP LẠI**:
+  - ❌ *Không gán mặc định `priority: 'normal'` và `virtualStockBonus: 20` cho mọi sản phẩm*: Khiến mục chưa cấu hình bị thổi phồng kho ảo và số bán ảo.
+  - ❌ *Không cộng `hourlyGrowth` khi `virtualBase <= 0`*: Khi Admin tắt số ảo, số hiển thị phải là số thật 100%.
+  - ❌ *Không dùng `Math.max(curHigh, effectiveSold)` một chiều vô điều kiện trong client snapshot poller*: Sẽ vĩnh viễn khóa cứng các đỉnh ma cũ trong LocalStorage của khách.
+
+---
+
 ## 2. QUY TRÌNH BẮT BUỘC TRƯỚC KHI SỬA CODE (PRE-FLIGHT CHECKLIST)
 
 Mọi nhà phát triển hoặc AI Agent khi nhận yêu cầu sửa đổi mã nguồn **PHẢI** thực hiện đủ 4 bước sau:

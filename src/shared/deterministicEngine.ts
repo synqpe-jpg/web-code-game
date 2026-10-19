@@ -215,19 +215,20 @@ export function calculateHourlyGrowth(
   if (elapsedMinutes <= 0) return 0;
 
   const elapsedHours = elapsedMinutes / 60;
-  let rate = priority === 'high' ? 2.5 : priority === 'low' ? 0.6 : 1.2;
+  // Tốc độ tăng trưởng bán hàng hợp lý cho từng sản phẩm:
+  // high: ~1.5 đơn/giờ, normal: ~0.5 đơn/giờ (1 đơn mỗi 2 giờ), low: ~0.2 đơn/giờ
+  let rate = priority === 'high' ? 1.5 : priority === 'low' ? 0.2 : 0.5;
   if (customConfig?.enabled && customConfig?.mode === 'custom') {
-    const interval = Math.max(1, Number(customConfig.intervalMinutes) || 15);
+    const interval = Math.max(1, Number(customConfig.intervalMinutes) || 60);
     const step = Math.max(1, Number(customConfig.incrementStep) || 1);
-    rate = (60 / interval) * step;
+    rate = Math.min(2.5, (60 / interval) * step);
   }
   let baseGrowth = Math.floor(elapsedHours * rate);
-  // Cap baseGrowth to maxCatchUpUnits (default 70) so offline catch-up matches client calculations
-  const maxCap = Math.max(1, Number(customConfig?.maxCatchUpUnits) || 70);
+  // Cap baseGrowth to maxCatchUpUnits (default 30)
+  const maxCap = Math.max(1, Math.min(30, Number(customConfig?.maxCatchUpUnits) || 30));
   baseGrowth = Math.min(baseGrowth, maxCap);
 
-  const jitter = stringHash(id) % 3;
-  return Math.max(0, baseGrowth + jitter);
+  return baseGrowth;
 }
 
 /**
@@ -254,8 +255,13 @@ export function calculateInHourProgression(
     }
   }
 
+  // Nếu không có mốc anchorTime, không tăng ngẫu nhiên trong giờ
+  if (!parsedAnchorMs) {
+    return 0;
+  }
+
   // Items within 15 minutes of anchor start at clean baseline without artificial in-hour jump
-  if (parsedAnchorMs && (timestampMs - parsedAnchorMs < 15 * 60 * 1000)) {
+  if (timestampMs - parsedAnchorMs < 15 * 60 * 1000) {
     return 0;
   }
 
@@ -300,10 +306,16 @@ export function calculateDeterministicSold(
     if (!customConfig?.outOfStockEnabled) {
       return real + base;
     }
-    // Nếu có bật bù ngoại tuyến cho hàng hết: kẹp trần theo outOfStockMaxUnits (default 70)
-    const oosMax = Math.max(1, Number(customConfig.outOfStockMaxUnits) || 70);
+    // Nếu có bật bù ngoại tuyến cho hàng hết: kẹp trần theo outOfStockMaxUnits (default 10)
+    const oosMax = Math.max(1, Number(customConfig.outOfStockMaxUnits) || 10);
     const hourly = calculateHourlyGrowth(productId, createdAt, timestampMs, priority, customConfig, anchorTime);
     return real + base + Math.min(hourly, oosMax);
+  }
+
+  // NẾU KHÔNG CÓ SỐ LƯỢNG ẢO (base <= 0):
+  // Tuyệt đối không tự động cộng dồn số lượng ảo ngoại tuyến (offline growth) khi admin đặt số ảo = 0!
+  if (base <= 0) {
+    return real;
   }
 
   const hourly = calculateHourlyGrowth(productId, createdAt, timestampMs, priority, customConfig, anchorTime);
@@ -351,10 +363,14 @@ export function calculateGlobalSnapshot(
     const effectiveRealSold = Math.max(serverSoldCount, hubSoldCount);
 
     const pw = data.productWeights?.[prod.id];
-    const virtualBonusConfig = pw?.virtualStockBonus !== undefined ? Number(pw.virtualStockBonus) : 20;
-    const threshold = pw?.autoRestockThreshold !== undefined ? Number(pw.autoRestockThreshold) : 1;
-    const restockAmount = pw?.autoRestockAmount !== undefined ? Number(pw.autoRestockAmount) : 20;
-    const priority = pw?.priority || 'normal';
+    const isProdVirtualSoldZero = prod.virtual_sold_count === undefined || Number(prod.virtual_sold_count) <= 0;
+    const rawBonus = pw?.virtualStockBonus !== undefined ? Math.max(0, Number(pw.virtualStockBonus) || 0) : 0;
+    // Nếu sản phẩm không có số bán ảo và rawBonus rơi vào giá trị default 20 cũ, coi bonus là 0
+    const virtualBonusConfig = (isProdVirtualSoldZero && rawBonus === 20 && !pw?.hasExplicitBonus) ? 0 : rawBonus;
+    const threshold = pw?.autoRestockThreshold !== undefined ? Math.max(1, Number(pw.autoRestockThreshold) || 1) : 1;
+    const restockAmount = pw?.autoRestockAmount !== undefined ? Math.max(1, Number(pw.autoRestockAmount) || 20) : 20;
+    const rawPriority = pw?.priority || (isProdVirtualSoldZero ? 'off' : 'normal');
+    const priority = isProdVirtualSoldZero ? (virtualBonusConfig > 0 ? rawPriority : 'off') : rawPriority;
     const minRealStock = Math.max(1, Number(pw?.minRealStock) || 1);
 
     const effectiveThreshold = (realStock > 0 && threshold < realStock)
@@ -417,8 +433,9 @@ export function calculateGlobalSnapshot(
     // Tự động thanh lọc đỉnh rác cũ (ghost inflated peak) vượt quá trần cấu hình an toàn hoặc khi Admin cài lại số ảo
     const peakSold = Number(data.peakProductSoldCounts?.[prod.id]) || 0;
     const baseTarget = Number(prod.virtual_sold_count || 0);
-    // Nếu peakSold chênh lệch quá 5 đơn so với rawDisplaySold (do Admin vừa hạ/cài lại số ảo), lập tức đồng bộ theo rawDisplaySold
-    const effectivePeakSold = (peakSold > rawDisplaySold + 5 || peakSold < (effectiveRealSold + baseTarget))
+    const maxAllowedPeak = effectiveRealSold + baseTarget + (priority === 'off' ? 0 : 35);
+    // Nếu peakSold chênh lệch quá 5 đơn so với rawDisplaySold (do Admin vừa hạ/cài lại số ảo) hoặc vượt quá trần, lập tức đồng bộ theo rawDisplaySold
+    const effectivePeakSold = (peakSold > maxAllowedPeak || peakSold > rawDisplaySold + 5 || peakSold < (effectiveRealSold + baseTarget))
       ? rawDisplaySold
       : peakSold;
     const displaySold = Math.max(rawDisplaySold, effectivePeakSold);
@@ -451,10 +468,14 @@ export function calculateGlobalSnapshot(
     const effectiveRealClaimed = Math.max(serverClaimed, hubClaimed);
 
     const pw = data.productWeights?.[gw.id];
-    const virtualBonusConfig = pw?.virtualStockBonus !== undefined ? Number(pw.virtualStockBonus) : 20;
-    const threshold = pw?.autoRestockThreshold !== undefined ? Number(pw.autoRestockThreshold) : 1;
-    const restockAmount = pw?.autoRestockAmount !== undefined ? Number(pw.autoRestockAmount) : 20;
-    const priority = pw?.priority || 'normal';
+    const isGwVirtualOffsetZero = gw.virtual_claimed_offset === undefined || Number(gw.virtual_claimed_offset) <= 0;
+    const rawBonus = pw?.virtualStockBonus !== undefined ? Math.max(0, Number(pw.virtualStockBonus) || 0) : 0;
+    // Nếu giveaway có virtual_claimed_offset = 0 và rawBonus rơi vào giá trị default 20 cũ, coi bonus là 0
+    const virtualBonusConfig = (isGwVirtualOffsetZero && rawBonus === 20 && !pw?.hasExplicitBonus) ? 0 : rawBonus;
+    const threshold = pw?.autoRestockThreshold !== undefined ? Math.max(1, Number(pw.autoRestockThreshold) || 1) : 1;
+    const restockAmount = pw?.autoRestockAmount !== undefined ? Math.max(1, Number(pw.autoRestockAmount) || 20) : 20;
+    const rawPriority = pw?.priority || (isGwVirtualOffsetZero ? 'off' : 'normal');
+    const priority = isGwVirtualOffsetZero ? (virtualBonusConfig > 0 ? rawPriority : 'off') : rawPriority;
     const minRealStock = Math.max(1, Number(pw?.minRealStock) || 1);
 
     const effectiveGwThreshold = (realRemaining > 0 && threshold < realRemaining)
@@ -516,8 +537,9 @@ export function calculateGlobalSnapshot(
     // Tự động thanh lọc đỉnh rác cũ (ghost inflated peak) vượt quá trần cấu hình an toàn hoặc khi Admin cài lại số ảo
     const peakClaimed = Number(data.peakGiveawayClaimedCounts?.[gw.id]) || 0;
     const baseTargetGw = Number(gw.virtual_claimed_offset || 0);
-    // Nếu peakClaimed chênh lệch quá 5 đơn so với rawDisplayClaimed (do Admin vừa hạ/cài lại số ảo), lập tức đồng bộ theo rawDisplayClaimed
-    const effectivePeakClaimed = (peakClaimed > rawDisplayClaimed + 5 || peakClaimed < (effectiveRealClaimed + baseTargetGw))
+    const maxAllowedPeakGw = effectiveRealClaimed + baseTargetGw + (priority === 'off' ? 0 : 35);
+    // Nếu peakClaimed chênh lệch quá 5 đơn so với rawDisplayClaimed (do Admin vừa hạ/cài lại số ảo) hoặc vượt quá trần, lập tức đồng bộ theo rawDisplayClaimed
+    const effectivePeakClaimed = (peakClaimed > maxAllowedPeakGw || peakClaimed > rawDisplayClaimed + 5 || peakClaimed < (effectiveRealClaimed + baseTargetGw))
       ? rawDisplayClaimed
       : peakClaimed;
     const displayClaimed = Math.max(rawDisplayClaimed, effectivePeakClaimed);

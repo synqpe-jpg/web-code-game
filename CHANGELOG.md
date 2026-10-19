@@ -7,6 +7,47 @@ Mỗi mục sửa lỗi đều ghi nhận **Nguyên nhân gốc rễ (Root Cause
 
 ## [2026-10-19]
 
+### 82. Khắc Phục Triệt Để Lỗi Bất Đồng Bộ Số Ảo Ngoài Web, Loại Bỏ Gán Ngầm Kho Ảo 20 & Xóa Bỏ Bẫy Khóa Đỉnh Ma LocalStorage
+- **Mô tả & Hiện tượng**:
+  - Người dùng phản ánh: *"Có vẻ việc đồng bộ số ảo trên web vẫn chưa được khắc phục, bạn xử lí giúp tôi"*.
+  - Kiểm tra thực tế: Admin cấu hình chiến dịch Giveaway `gw_1792235539701_wee` (Code Ta Là Hắc Ngộ Không) với `virtual_claimed_offset = 0`, tồn kho còn 7 mã, thực tế đã giật 25 mã (tổng 32 mã). Tuy nhiên, trên Web Khách (`codegame.shop`) và API Snapshot `/api/metrics/synced` lại hiển thị vọt lên **`96 đã săn`**, **`15 mã còn lại`** (tổng 111 mã)!
+  - Tiện ích `ut_vs_05_vip_7d` cấu hình mục tiêu 64 đơn ảo nhưng bị nhảy vọt lên 135 đơn.
+  - Khi Admin reset về số thật, trình duyệt người dùng vẫn bị kẹt cứng ở con số cũ (96/135) không chịu hạ xuống.
+- **Nguyên nhân gốc rễ (Root Cause)**:
+  1. *`DEFAULT_PRODUCT_MARKETING_CONFIG` tự ý ép kho ảo 20 và `priority = 'normal'`*:
+     - Mọi sản phẩm hoặc giveaway chưa cấu hình riêng trong `productWeights` đều bị fallback gán kho ảo 20 và ưu tiên `'normal'`. Giveaway có 7 mã thật bị thuật toán tồn kho đẩy lên 15 mã.
+  2. *`calculateDeterministicSold` không kiểm tra `base <= 0`*:
+     - Dù Admin đặt `virtual_offset = 0`, hàm vẫn chạy `calculateHourlyGrowth` (+70 đơn) và `inHourProgression` (+1 đơn) $\rightarrow$ đội số từ 25 lên $25 + 0 + 71 = 96$ đơn.
+  3. *`DEFAULT_OFFLINE_CATCHUP_CONFIG` bị đặt nhầm `mode: 'custom'` và `incrementStep: 12` mỗi 15 phút*:
+     - Tốc độ tăng trưởng ngoại tuyến lên tới 48 đơn/giờ, khiến mọi sản phẩm có mốc thời gian cách 1.5 giờ đều bị kịch trần tối đa +70 đơn bù giờ.
+  4. *Bẫy khóa đỉnh ma `Math.max(curHigh, effectiveSold)` trong `fetchMetricsSnapshot`*:
+     - Client lưu con số 96 vào `highWaterClaimedCountMap` của `localStorage`. Khi Admin sync số thật 25, lệnh `Math.max(curHigh, effectiveSold)` giữ nguyên 96, không bao giờ hạ xuống.
+  5. *Hub D1 lưu giữ đỉnh cũ khi `baseTarget = 0`*:
+     - Khâu dọn dẹp `snapshotService.ts` kiểm tra `maxAllowed = realClaimed + baseTarget + 70 + 25` $\rightarrow$ không hạ đỉnh 96 xuống 25 khi `baseTarget = 0`.
+- **Giải pháp toàn diện đã triển khai (Solution)**:
+  1. *Nâng cấp `src/shared/deterministicEngine.ts`*:
+     - Trong `calculateDeterministicSold`: Nếu `base <= 0`, trả về `real` ngay lập tức, ngắt 100% `hourlyGrowth` và `inHourProgression`.
+     - Trong `calculateHourlyGrowth`: Tốc độ tăng trưởng hợp lý cho từng sản phẩm (0.2 - 1.5 đơn/giờ), khóa trần rate $\le 2.5$ đơn/giờ, trần tối đa 30 đơn, loại bỏ jitter.
+     - Trong `calculateInHourProgression`: Nếu thiếu `parsedAnchorMs`, trả về 0.
+     - Trong `calculateGlobalSnapshot`: Nếu `virtual_sold_count <= 0` hoặc `virtual_claimed_offset <= 0`, không ép bonus mặc định 20, đưa `priority` về `'off'`, trần peak không vượt quá số thật.
+  2. *Nâng cấp `functions/services/snapshotService.ts` & `functions/api/sync.ts`*:
+     - Tự động thanh lọc đỉnh ma về đúng số thật khi `baseTarget = 0` trong `hub.peakProductSoldCounts`, `hub.peakGiveawayClaimedCounts`, `hub.lowestProductStock`, `hub.lowestGiveawayRemaining`.
+  3. *Nâng cấp `src/services/marketingService.ts`*:
+     - `DEFAULT_PRODUCT_MARKETING_CONFIG`: `priority: 'off'`, `virtualStockBonus: 0`.
+     - `DEFAULT_OFFLINE_CATCHUP_CONFIG`: `mode: 'auto'`, `intervalMinutes: 60`, `incrementStep: 1`, `maxCatchUpUnits: 30`.
+     - `getSoldDisplay` & `getClaimedDisplay`: Nếu `virtualBase <= 0` và không có override, trả về `effectiveReal` và tự động chữa lành `highWaterMap`.
+     - `fetchMetricsSnapshot`: Cho phép hạ số khi server snapshot thấp hơn (`curHigh > effectiveSold + 3`), giải phóng triệt để bẫy khóa đỉnh ma.
+     - `applyOfflineCatchUp`: Bỏ qua các mục có `virtualBase <= 0`.
+- **Files Modified**:
+  - `src/shared/deterministicEngine.ts`
+  - `src/services/marketingService.ts`
+  - `functions/services/snapshotService.ts`
+  - `functions/api/sync.ts`
+  - `KNOWN_ISSUES.md` (ISSUE-051)
+  - `CHANGELOG.md` (Mục 82)
+
+---
+
 ### 81. Nâng Cấp Toàn Diện Trình Quét Giftcode, Bộ Lọc Hình Thái Học & Chấm Điểm 4 Cấp Bậc (Loại Trừ 100% Từ Rác Tiếng Anh)
 - **Mô tả & Hiện tượng**:
   - Người dùng phản ánh: *"Tiếp tục nâng cấp trình quét code giúp tôi, hiện tại những code này khôngc hính xác."* kèm ảnh chụp màn hình Admin Portal (`/admin#/crawler` - tab Hàng Chờ Duyệt Code).

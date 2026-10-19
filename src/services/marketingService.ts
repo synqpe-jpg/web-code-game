@@ -66,8 +66,8 @@ export const PRESET_VIRTUAL_ACCOUNTS: string[] = [
  * ưu tiên bình thường (x2), chỉ chạy FOMO khi kho thật >= 1.
  */
 export const DEFAULT_PRODUCT_MARKETING_CONFIG: ProductMarketingConfig = {
-  priority: 'normal',
-  virtualStockBonus: 20,
+  priority: 'off',
+  virtualStockBonus: 0,
   autoRestockThreshold: 1,
   autoRestockAmount: 20,
   minRealStock: 1,
@@ -76,13 +76,13 @@ export const DEFAULT_PRODUCT_MARKETING_CONFIG: ProductMarketingConfig = {
 export const DEFAULT_OFFLINE_CATCHUP_CONFIG: OfflineCatchUpConfig = {
   enabled: true,
   scope: 'all',
-  mode: 'custom',
-  intervalMinutes: 15,
-  incrementStep: 12,
-  maxCatchUpUnits: 70,
-  outOfStockEnabled: true,
-  outOfStockMaxUnits: 70,
-  outOfStockIncrementStep: 12,
+  mode: 'auto',
+  intervalMinutes: 60,
+  incrementStep: 1,
+  maxCatchUpUnits: 30,
+  outOfStockEnabled: false,
+  outOfStockMaxUnits: 10,
+  outOfStockIncrementStep: 1,
 };
 
 export const DEFAULT_TYPE_TOGGLES: NotificationTypeToggles = {
@@ -417,7 +417,10 @@ class MarketingService {
                   // RÀNG BUỘC ĐƠN ĐIỆU TUYỆT ĐỐI (Monotonically Non-Decreasing):
                   // Tuyệt đối không giật lùi số đã bán nếu client đã tích lũy số bán cao hơn qua thông báo toast
                   const curHigh = this.highWaterSoldCountMap.get(pId) || 0;
-                  const finalSold = Math.max(curHigh, effectiveSold);
+                  // Tự động thanh lọc đỉnh ảo cũ khi Server Snapshot hạ số lượng xuống (do Admin vừa reset hoặc chỉnh giảm)
+                  const finalSold = (curHigh > effectiveSold + 3 || isOverriddenSold)
+                    ? effectiveSold
+                    : Math.max(curHigh, effectiveSold);
 
                   this.highWaterSoldCountMap.set(pId, finalSold);
                   this.liveFomoSoldCountMap.set(pId, Math.max(0, finalSold - realSold));
@@ -450,8 +453,10 @@ class MarketingService {
                       ? realStock
                       : Math.max(realStock + Number(pw.virtualStockBonus || 0), effectiveThreshold + restockAmount);
 
-                    // Auto-heal inflated client cache
-                    if (typeof currentLive === 'number' && currentLive > maxAllowedStock) {
+                    if (pw.priority === 'off' || !pw.virtualStockBonus || pw.virtualStockBonus <= 0) {
+                      this.liveVirtualStockMap.set(pId, realStock);
+                      this.liveVirtualStockTimestampsMap.set(pId, now);
+                    } else if (typeof currentLive === 'number' && currentLive > maxAllowedStock) {
                       const healed = Math.min(info.stock > 0 ? info.stock : maxAllowedStock, maxAllowedStock);
                       this.liveVirtualStockMap.set(pId, healed);
                       this.liveVirtualStockTimestampsMap.set(pId, now);
@@ -498,7 +503,10 @@ class MarketingService {
                   // RÀNG BUỘC ĐƠN ĐIỆU TUYỆT ĐỐI (Monotonically Non-Decreasing):
                   // Tuyệt đối không giật lùi số đã nhận nếu client đã tích lũy số đã nhận cao hơn qua thông báo toast
                   const curHigh = this.highWaterClaimedCountMap.get(gId) || 0;
-                  const finalClaimed = Math.max(curHigh, effectiveClaimed);
+                  // Tự động thanh lọc đỉnh ảo cũ khi Server Snapshot hạ số lượng xuống (do Admin vừa reset hoặc chỉnh giảm)
+                  const finalClaimed = (curHigh > effectiveClaimed + 3 || isOverriddenClaimed)
+                    ? effectiveClaimed
+                    : Math.max(curHigh, effectiveClaimed);
 
                   this.highWaterClaimedCountMap.set(gId, finalClaimed);
                   this.liveFomoClaimedCountMap.set(gId, Math.max(0, finalClaimed - realClaimed));
@@ -531,7 +539,10 @@ class MarketingService {
                       ? realRemaining
                       : Math.max(realRemaining + Number(pw.virtualStockBonus || 0), effectiveThreshold + restockAmount);
 
-                    if (typeof currentLive === 'number' && currentLive > maxAllowedGwStock) {
+                    if (pw.priority === 'off' || !pw.virtualStockBonus || pw.virtualStockBonus <= 0) {
+                      this.liveVirtualStockMap.set(gId, realRemaining);
+                      this.liveVirtualStockTimestampsMap.set(gId, now);
+                    } else if (typeof currentLive === 'number' && currentLive > maxAllowedGwStock) {
                       const healed = Math.min(info.remaining > 0 ? info.remaining : maxAllowedGwStock, maxAllowedGwStock);
                       this.liveVirtualStockMap.set(gId, healed);
                       this.liveVirtualStockTimestampsMap.set(gId, now);
@@ -1264,6 +1275,17 @@ class MarketingService {
 
       const pw = this.getProductConfig(id);
       if (pw.priority === 'off') return;
+
+      // Chỉ áp dụng bù ngoại tuyến khi mục này thực sự có cấu hình số lượng ảo > 0 hoặc admin override
+      if (id.startsWith('gw_')) {
+        const gwDetails = this.findGiveawayDetails(id);
+        const virtualOffset = gwDetails?.virtual_claimed_offset ?? 0;
+        if (virtualOffset <= 0 && !this.adminOverrideClaimedMap.has(id)) return;
+      } else {
+        const prodDetails = this.findItemDetails(id);
+        const virtualSold = (prodDetails as any)?.virtual_sold_count ?? 0;
+        if (virtualSold <= 0 && !this.adminOverrideSoldMap.has(id)) return;
+      }
 
       const realStock = this.getRealStockFor(id);
       const isOos = realStock <= 0;
@@ -2195,16 +2217,8 @@ class MarketingService {
       }
     }
 
-    // Fallback to sessionAnchor if available, otherwise seed with current time so growth starts from 0
     if (!parsedAnchorMs) {
-      const sessionAnchor = this.sessionAnchorMap.get(id);
-      if (sessionAnchor && sessionAnchor.lastTimestamp > 0) {
-        parsedAnchorMs = sessionAnchor.lastTimestamp;
-      } else {
-        const nowMs = this.getCalibratedNow();
-        this.sessionAnchorMap.set(id, { lastCount: 0, lastTimestamp: nowMs });
-        return 0;
-      }
+      return 0;
     }
 
     const nowMs = this.getCalibratedNow();
@@ -2213,22 +2227,21 @@ class MarketingService {
     if (elapsedMinutes <= 0) return 0;
 
     const elapsedHours = elapsedMinutes / 60;
-    let rate = p === 'high' ? 2.5 : p === 'low' ? 0.6 : 1.2;
+    let rate = p === 'high' ? 1.5 : p === 'low' ? 0.2 : 0.5;
     const catchUp = this.config.offlineCatchUp || DEFAULT_OFFLINE_CATCHUP_CONFIG;
     if (catchUp.enabled && catchUp.mode === 'custom') {
-      const interval = Math.max(1, Number(catchUp.intervalMinutes) || 15);
+      const interval = Math.max(1, Number(catchUp.intervalMinutes) || 60);
       const step = Math.max(1, Number(catchUp.incrementStep) || 1);
-      rate = (60 / interval) * step;
+      rate = Math.min(2.5, (60 / interval) * step);
     } else if (this.isCurrentPeakHour()) {
-      const mult = Math.max(1, Number(this.config.peakHours?.multiplier) || 2.0);
-      rate *= mult;
+      const mult = Math.max(1, Number(this.config.peakHours?.multiplier) || 1.5);
+      rate = Math.min(2.5, rate * mult);
     }
     let baseGrowth = Math.floor(elapsedHours * rate);
-    const maxCap = Math.max(1, Number(catchUp.maxCatchUpUnits) || 70);
+    const maxCap = Math.max(1, Math.min(30, Number(catchUp.maxCatchUpUnits) || 30));
     baseGrowth = Math.min(baseGrowth, maxCap);
 
-    const jitter = stringHash(id) % 3;
-    return Math.max(0, baseGrowth + jitter);
+    return baseGrowth;
   }
 
   public getInHourProgression(id: string, createdAt?: string, priority?: string, anchorTime?: string): number {
@@ -2249,13 +2262,12 @@ class MarketingService {
       }
     }
     if (!parsedAnchorMs) {
-      const sessionAnchor = this.sessionAnchorMap.get(id);
-      parsedAnchorMs = sessionAnchor?.lastTimestamp || (Math.floor(this.getCalibratedNow() / 86400000) * 86400000);
+      return 0;
     }
 
     const nowMs = this.getCalibratedNow();
     // Items within 15 minutes of anchor start at clean baseline without artificial in-hour jump
-    if (parsedAnchorMs && (nowMs - parsedAnchorMs < 15 * 60 * 1000)) {
+    if (nowMs - parsedAnchorMs < 15 * 60 * 1000) {
       return 0;
     }
 
@@ -2263,19 +2275,16 @@ class MarketingService {
     const vnDate = new Date(nowMs + 7 * 3600 * 1000);
     const minuteInHour = vnDate.getUTCMinutes(); // 0 to 59
 
-    const maxHourInc = p === 'high' ? 3 : p === 'low' ? 1 : 2;
+    const maxHourInc = p === 'high' ? 2 : p === 'low' ? 0 : 1;
     if (maxHourInc <= 0) return 0;
 
-    // Deterministic threshold minute within the hour based on seed(id, currentHourIndex)
     const seed = (stringHash(id) ^ (currentHourIndex * 1664525)) >>> 0;
-    const triggerMinute1 = 10 + (seed % 15); // min 10 - 24
-    const triggerMinute2 = 28 + ((seed >> 8) % 15); // min 28 - 42
-    const triggerMinute3 = 45 + ((seed >> 16) % 12); // min 45 - 56
+    const triggerMinute1 = 12 + (seed % 22);
+    const triggerMinute2 = 36 + ((seed >> 8) % 20);
 
     let inc = 0;
     if (minuteInHour >= triggerMinute1) inc += 1;
     if (maxHourInc >= 2 && minuteInHour >= triggerMinute2) inc += 1;
-    if (maxHourInc >= 3 && minuteInHour >= triggerMinute3) inc += 1;
     return inc;
   }
 
@@ -2349,14 +2358,17 @@ class MarketingService {
     const realFromHub = id ? (this.realProductSoldCountsMap.get(id) || 0) : 0;
     const effectiveRealSold = Math.max(realSold, realFromHub);
 
-    // If priority is 'off', strictly return real sold
-    if (pw.priority === 'off') {
-      return effectiveRealSold;
-    }
-
-    let recordedMax = id ? (this.highWaterSoldCountMap.get(id) || 0) : 0;
     const virtualBaseRaw = item.virtual_sold_count !== undefined ? item.virtual_sold_count : (details?.virtual_sold_count ?? 0);
     const virtualBase = Number(virtualBaseRaw || 0);
+
+    // If priority is 'off' or virtualBase <= 0 (and no admin override), strictly return real sold
+    if (pw.priority === 'off' || (virtualBase <= 0 && (!id || !this.adminOverrideSoldMap.has(id)))) {
+      if (id && recordedMax > effectiveRealSold) {
+        this.highWaterSoldCountMap.set(id, effectiveRealSold);
+        this.saveHighWaterCounts();
+      }
+      return effectiveRealSold;
+    }
 
     const anchorTime = (item as any)?.fomo_anchor_time || (item as any)?.virtual_sold_updated_at || details?.fomo_anchor_time || details?.virtual_sold_updated_at;
     const createdAt = item.created_at || item.createdAt || details?.created_at;
@@ -2366,7 +2378,7 @@ class MarketingService {
     const realStock = this.getRealStockFor(id);
     const catchUp = this.config.offlineCatchUp || DEFAULT_OFFLINE_CATCHUP_CONFIG;
     const oosEnabled = Boolean(catchUp.outOfStockEnabled);
-    const oosMax = Math.max(1, Number(catchUp.outOfStockMaxUnits) || 70);
+    const oosMax = Math.max(1, Math.min(30, Number(catchUp.outOfStockMaxUnits) || 10));
 
     const effectiveStock = typeof (item as any)?.stock_quantity === 'number'
       ? (item as any).stock_quantity
@@ -2426,14 +2438,18 @@ class MarketingService {
     const realFromHub = id ? (this.realGiveawayClaimedCountsMap.get(id) || 0) : 0;
     const effectiveRealClaimed = Math.max(realClaimed, realFromHub);
 
-    // If priority is 'off', strictly return real claimed
-    if (pw.priority === 'off') {
-      return effectiveRealClaimed;
-    }
-
     let recordedMax = id ? (this.highWaterClaimedCountMap.get(id) || 0) : 0;
     const virtualBaseRaw = campaign.virtual_claimed_offset !== undefined ? campaign.virtual_claimed_offset : (details?.virtual_claimed_offset ?? 0);
     const virtualBase = Number(virtualBaseRaw || 0);
+
+    // If priority is 'off' or virtualBase <= 0 (and no admin override), strictly return real claimed
+    if (pw.priority === 'off' || (virtualBase <= 0 && (!id || !this.adminOverrideClaimedMap.has(id)))) {
+      if (id && recordedMax > effectiveRealClaimed) {
+        this.highWaterClaimedCountMap.set(id, effectiveRealClaimed);
+        this.saveHighWaterCounts();
+      }
+      return effectiveRealClaimed;
+    }
 
     const anchorTime = (campaign as any)?.fomo_anchor_time || (campaign as any)?.virtual_claimed_updated_at || details?.fomo_anchor_time || details?.virtual_claimed_updated_at;
     const createdAt = campaign.created_at || campaign.createdAt || details?.created_at;
@@ -2443,7 +2459,7 @@ class MarketingService {
     const realRemaining = this.getRealStockFor(id);
     const catchUp = this.config.offlineCatchUp || DEFAULT_OFFLINE_CATCHUP_CONFIG;
     const oosEnabled = Boolean(catchUp.outOfStockEnabled);
-    const oosMax = Math.max(1, Number(catchUp.outOfStockMaxUnits) || 70);
+    const oosMax = Math.max(1, Math.min(30, Number(catchUp.outOfStockMaxUnits) || 10));
     const hasActiveDisplayStock = realRemaining > 0 || (pw.priority !== 'off' && Number(pw.virtualStockBonus) > 0);
 
     if (realRemaining <= 0 && !hasActiveDisplayStock) {
