@@ -160,7 +160,7 @@ export const PrivateCodesModule: React.FC<PrivateCodesModuleProps> = ({ onShowTo
       global_cooldown_seconds: 0,
       last_global_claim_at: '',
       custom_success_msg: '',
-      custom_cooldown_msg: '',
+      custom_cooldown_msg: 'Đợt phát trước đạo hữu {last_user} đã nhanh tay đi trước, đạo hữu vui lòng đợi {time_left} rồi thử sức lại.',
       custom_out_of_stock_msg: '',
       enable_waiting_room: true,
       waiting_users_min: 25,
@@ -245,6 +245,7 @@ export const PrivateCodesModule: React.FC<PrivateCodesModuleProps> = ({ onShowTo
       cooldown_hours: Number(formData.cooldown_hours),
       global_cooldown_seconds: Number(formData.global_cooldown_seconds) || 0,
       last_global_claim_at: formData.last_global_claim_at,
+      last_claimer_name: editingItem?.last_claimer_name || '',
       custom_success_msg: formData.custom_success_msg.trim(),
       custom_cooldown_msg: formData.custom_cooldown_msg.trim(),
       custom_out_of_stock_msg: formData.custom_out_of_stock_msg.trim(),
@@ -1236,15 +1237,39 @@ export const PrivateCodesModule: React.FC<PrivateCodesModuleProps> = ({ onShowTo
               <div>
                 <label className="text-slate-700 dark:text-slate-300 font-semibold flex items-center justify-between text-[11px]">
                   <span>2. Thông báo khi đang chờ đợt mã tiếp theo (Hồi chiêu):</span>
-                  <span className="text-[10px] text-slate-400 font-normal">Hỗ trợ: {'{time_left}'}</span>
+                  <span className="text-[10px] text-slate-400 font-normal">Hỗ trợ: {'{last_user}'}, {'{time_left}'}</span>
                 </label>
                 <input
                   type="text"
                   value={formData.custom_cooldown_msg}
                   onChange={(e) => setFormData((p) => ({ ...p, custom_cooldown_msg: e.target.value }))}
-                  placeholder="Mặc định: Mã vừa được giật bởi người chơi khác! Vui lòng chờ đợt mở tiếp theo sau {time_left}."
+                  placeholder="Mặc định: Đợt phát trước đạo hữu {last_user} đã nhanh tay đi trước, đạo hữu vui lòng đợi {time_left} rồi thử sức lại."
                   className="mt-1 w-full rounded-xl border border-slate-200 bg-white p-2.5 text-xs text-slate-900 focus:border-indigo-500 focus:outline-none dark:border-slate-700 dark:bg-slate-800 dark:text-white"
                 />
+                <div className="flex flex-wrap items-center gap-1.5 mt-1 text-[10px] text-slate-400">
+                  <span>Mẫu chèn nhanh:</span>
+                  <button
+                    type="button"
+                    onClick={() => setFormData((p) => ({ ...p, custom_cooldown_msg: 'Đợt phát trước đạo hữu {last_user} đã nhanh tay đi trước, đạo hữu vui lòng đợi {time_left} rồi thử sức lại.' }))}
+                    className="px-1.5 py-0.5 rounded bg-indigo-100 dark:bg-indigo-900/40 text-indigo-700 dark:text-indigo-300 hover:underline cursor-pointer font-medium"
+                  >
+                    Dùng mẫu mặc định
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setFormData((p) => ({ ...p, custom_cooldown_msg: (p.custom_cooldown_msg ? p.custom_cooldown_msg + ' ' : '') + '{last_user}' }))}
+                    className="px-1.5 py-0.5 rounded bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:underline cursor-pointer font-mono"
+                  >
+                    +{'{last_user}'}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setFormData((p) => ({ ...p, custom_cooldown_msg: (p.custom_cooldown_msg ? p.custom_cooldown_msg + ' ' : '') + '{time_left}' }))}
+                    className="px-1.5 py-0.5 rounded bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:underline cursor-pointer font-mono"
+                  >
+                    +{'{time_left}'}
+                  </button>
+                </div>
               </div>
 
               <div>

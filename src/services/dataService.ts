@@ -1843,11 +1843,15 @@ class DataService {
           const remSec = remTotalSec % 60;
           const waitStr = remMin > 0 ? `${remMin} phút ${remSec > 0 ? `${remSec} giây` : ''}`.trim() : `${remSec} giây`;
 
+          const lastClaimer = String(campaign.last_claimer_name || '').trim() || 'đồng đạo trước';
           let cdMsg = String(campaign.custom_cooldown_msg || '').trim();
           if (!cdMsg) {
-            cdMsg = 'Mã vừa được giật bởi người chơi khác! Vui lòng chờ đợt mở tiếp theo sau {time_left}.';
+            cdMsg = 'Đợt phát trước đạo hữu {last_user} đã nhanh tay đi trước, đạo hữu vui lòng đợi {time_left} rồi thử sức lại.';
           }
-          cdMsg = cdMsg.replace(/\{time_left\}/gi, waitStr);
+          cdMsg = cdMsg
+            .replace(/\{last_user\}|\{claimer\}|\{last_claimer\}|\{last_claimer_name\}|\{user\}/gi, lastClaimer)
+            .replace(/\{time_left\}/gi, waitStr)
+            .replace(/\{seconds\}|\{sec\}/gi, `${remTotalSec} giây`);
 
           return {
             success: false,
@@ -1923,6 +1927,7 @@ class DataService {
         if (returnedCode) {
           const nowClaimIso = serverData.last_global_claim_at || new Date().toISOString();
           // Cập nhật ngay lập tức kho thật giveaway trong local storage (-1 còn lại, +1 đã giật, cập nhật last_global_claim_at)
+          const currentClaimerName = (user as any).displayName || user.username || (user.email ? user.email.split('@')[0] : 'Đạo hữu');
           const allGiveaways = this.getGiveaways();
           const updatedGiveaways = allGiveaways.map((g) =>
             g.id === campaignId
@@ -1931,6 +1936,7 @@ class DataService {
                   remaining_codes: Math.max(0, (typeof g.remaining_codes === 'number' ? g.remaining_codes : Number(g.total_codes || 0)) - 1),
                   claimed_codes: (Number(g.claimed_codes) || 0) + 1,
                   last_global_claim_at: nowClaimIso,
+                  last_claimer_name: serverData.lastClaimerName || currentClaimerName,
                 }
               : g
           );
@@ -1976,16 +1982,20 @@ class DataService {
             isAdminBypass: Boolean(serverData.isAdminBypass),
             userClaimsCount: serverData.userClaimsCount,
             last_global_claim_at: nowClaimIso,
+            last_claimer_name: serverData.lastClaimerName || currentClaimerName,
             message: serverData.message || (serverData.alreadyClaimed ? `Mã của bạn: ${returnedCode}` : 'Chúc mừng! Bạn đã nhận giftcode sự kiện thành công.'),
           };
         } else {
-          // If server reported global cooldown active, sync last_global_claim_at
+          // If server reported global cooldown active, sync last_global_claim_at & last_claimer_name
           if (serverData.errorCode === 'GLOBAL_COOLDOWN_ACTIVE' && serverData.nextReleaseAt) {
             const allGiveaways = this.getGiveaways();
             const gw = allGiveaways.find((g) => g.id === campaignId);
             if (gw && gw.global_cooldown_seconds) {
               const estimatedClaimAt = new Date(new Date(serverData.nextReleaseAt).getTime() - gw.global_cooldown_seconds * 1000).toISOString();
               gw.last_global_claim_at = estimatedClaimAt;
+              if (serverData.lastClaimerName) {
+                gw.last_claimer_name = serverData.lastClaimerName;
+              }
               try {
                 localStorage.setItem(this.GIVEAWAYS_KEY, JSON.stringify(allGiveaways));
                 localStorage.setItem('wcg_admin_giveaways_v4', JSON.stringify(allGiveaways));

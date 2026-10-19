@@ -302,17 +302,22 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
           const remSec = remTotalSec % 60;
           const waitStr = remMin > 0 ? `${remMin} phút ${remSec > 0 ? `${remSec} giây` : ''}`.trim() : `${remSec} giây`;
 
+          const lastClaimer = String(campaign.last_claimer_name || '').trim() || 'đồng đạo trước';
           let cdMsg = String(campaign.custom_cooldown_msg || '').trim();
           if (!cdMsg) {
-            cdMsg = 'Mã vừa được giật bởi người chơi khác! Vui lòng chờ đợt mở tiếp theo sau {time_left}.';
+            cdMsg = 'Đợt phát trước đạo hữu {last_user} đã nhanh tay đi trước, đạo hữu vui lòng đợi {time_left} rồi thử sức lại.';
           }
-          cdMsg = cdMsg.replace(/\{time_left\}/gi, waitStr);
+          cdMsg = cdMsg
+            .replace(/\{last_user\}|\{claimer\}|\{last_claimer\}|\{last_claimer_name\}|\{user\}/gi, lastClaimer)
+            .replace(/\{time_left\}/gi, waitStr)
+            .replace(/\{seconds\}|\{sec\}/gi, `${remTotalSec} giây`);
 
           return new Response(
             JSON.stringify({
               success: false,
               errorCode: 'GLOBAL_COOLDOWN_ACTIVE',
               remainingSeconds: remTotalSec,
+              lastClaimerName: lastClaimer,
               nextReleaseAt: new Date(lastGlobalMs + globalCooldownMs).toISOString(),
               message: cdMsg,
             }),
@@ -456,11 +461,12 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
 
     const codeValue = d1ClaimRes.codeContent!;
     const nowIso = new Date().toISOString();
+    const claimerDisplayName = member.display_name || member.username || (member.email ? member.email.split('@')[0] : 'Đạo hữu');
 
-    // Immediate authoritative update of last_global_claim_at to lock subsequent concurrent claims immediately
+    // Immediate authoritative update of last_global_claim_at and last_claimer_name to lock subsequent concurrent claims immediately
     await env.DB.prepare(
-      'UPDATE giveaways SET last_global_claim_at = ? WHERE id = ?'
-    ).bind(nowIso, campaign.id).run().catch(() => {});
+      'UPDATE giveaways SET last_global_claim_at = ?, last_claimer_name = ? WHERE id = ?'
+    ).bind(nowIso, claimerDisplayName, campaign.id).run().catch(() => {});
 
     // 6 & 7. Asynchronously update counters, settings pool & real events hub in background
     const backgroundSync = async () => {
@@ -475,10 +481,10 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
         const remainingCnt = Math.max(0, Number(countRow?.remain_cnt) || 0);
         const claimedCnt = Math.max(0, Number(countRow?.claimed_cnt) || 0);
 
-        // Sync authoritative counters and last_global_claim_at to giveaways table
+        // Sync authoritative counters and last_global_claim_at & last_claimer_name to giveaways table
         await env.DB.prepare(
-          'UPDATE giveaways SET remaining_codes = ?, claimed_codes = ?, last_global_claim_at = ? WHERE id = ?'
-        ).bind(remainingCnt, claimedCnt, nowIso, campaign.id).run().catch(() => {});
+          'UPDATE giveaways SET remaining_codes = ?, claimed_codes = ?, last_global_claim_at = ?, last_claimer_name = ? WHERE id = ?'
+        ).bind(remainingCnt, claimedCnt, nowIso, claimerDisplayName, campaign.id).run().catch(() => {});
 
         // Sync codes_pool in wcg_admin_giveaways_v4
         try {
@@ -495,6 +501,7 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
               storedGiveaways[gwIdx].remaining_codes = remainingCnt;
               storedGiveaways[gwIdx].claimed_codes = claimedCnt;
               storedGiveaways[gwIdx].last_global_claim_at = nowIso;
+              storedGiveaways[gwIdx].last_claimer_name = claimerDisplayName;
 
               // Append claim record to claim_history for admin dashboard visibility
               const claimHistoryItem = {
@@ -591,6 +598,7 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
         isAdminBypass: isAdmin,
         userClaimsCount: userClaimsCount + 1,
         last_global_claim_at: nowIso,
+        last_claimer_name: claimerDisplayName,
         campaign: {
           id: campaign.id,
           game_name: campaign.game_name,
@@ -599,6 +607,7 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
           claimed_codes: claimedCodesNext,
           remaining_codes: remainingCodesNext,
           last_global_claim_at: nowIso,
+          last_claimer_name: claimerDisplayName,
         },
         message: successMsg,
       }),

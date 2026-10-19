@@ -77,6 +77,7 @@ export interface GiveawayCampaign {
   cooldown_hours?: number;
   global_cooldown_seconds?: number;
   last_global_claim_at?: string;
+  last_claimer_name?: string;
   custom_success_msg?: string;
   custom_cooldown_msg?: string;
   custom_out_of_stock_msg?: string;

@@ -7,6 +7,36 @@ Mỗi mục sửa lỗi đều ghi nhận **Nguyên nhân gốc rễ (Root Cause
 
 ## [2026-10-19]
 
+### 78. Tùy Biến Thông Báo Hồi Chiêu Toàn Sàn Giveaway Theo Tên Người Giật Trước ({last_user}) & Thời Gian Đếm Ngược ({time_left})
+- **Mô tả & Yêu cầu Người Dùng**:
+  - *"Trong mục admin, giveaway, mục thông báo khi trong thời gian chờ, nghĩa là người A giật, người B giật nhưng giật sau, chưa hết thời gian đếm ngược, mặc đihj dể nội dung là đợt phát trước đạo hữu A đã nhanh tay đi trước, đạo hữu vui lòng đợi xxx giây rồi thử sức lại. A là tên của người giật trước đó."*
+- **Nguyên nhân gốc rễ & Nhu cầu Hệ thống**:
+  - Trong tính năng giãn cách phát code toàn sàn (Global Release Interval), khi người A vừa giật thành công một mã, toàn bộ người dùng khác (người B, C...) bấm giật mã khi chưa hết hồi chiêu sẽ nhận được thông báo yêu cầu chờ.
+  - Cần cá nhân hóa thông báo theo phong cách kiếm hiệp/game thủ ("đạo hữu"), hiển thị trực tiếp danh tính (nickname/tên hiển thị) của người vừa giật thành công trước đó (`last_claimer_name`) để tăng tính cạnh tranh và minh bạch.
+- **Giải pháp toàn diện đã triển khai (Solution)**:
+  1. *Kiến trúc CSDL D1 & Schema Migration (`functions/services/d1_service.ts` & `src/types/game.ts`)*:
+     - Thêm trường `last_claimer_name` vào interface `GiveawayCampaign`.
+     - Thêm cột `last_claimer_name TEXT DEFAULT ''` vào bảng SQL `giveaways` trong Cloudflare D1.
+     - Cập nhật hàm di chuyển schema `ensureSchemaUpgrades` và hàm đồng bộ `syncGiveawaysToD1` bảo toàn `last_claimer_name`.
+  2. *Lưu trữ & Truyền danh tính người nhận mã (`functions/api/giveaways/claim.ts`)*:
+     - Khi người A giật mã thành công: Trích xuất `claimerDisplayName = member.display_name || member.username || (member.email ? member.email.split('@')[0] : 'Đạo hữu')` và cập nhật ngay lập tức `last_claimer_name` vào bảng D1 và D1 settings `wcg_admin_giveaways_v4`.
+     - Khi người B giật mã khi đang trong thời gian giãn cách: Endpoint trả về mã lỗi `GLOBAL_COOLDOWN_ACTIVE` kèm `lastClaimerName` và chuỗi thông báo `message` đã thay thế `{last_user}` bằng tên người A, `{time_left}` bằng thời gian chờ thực tế (ví dụ: `45 giây`).
+  3. *Mẫu thông báo mặc định & Giao diện Admin (`src/admin/modules/PrivateCodesModule.tsx`)*:
+     - Đặt nội dung mặc định chuẩn mực: `"Đợt phát trước đạo hữu {last_user} đã nhanh tay đi trước, đạo hữu vui lòng đợi {time_left} rồi thử sức lại."`
+     - Bổ sung các nút bấm chèn nhanh trong Admin: `[Dùng mẫu mặc định]`, `[+{last_user}]`, `[+{time_left}]`.
+     - Bảo toàn `last_claimer_name` khi Admin lưu chỉnh sửa sự kiện.
+  4. *Trải nghiệm Web Khách (`src/components/GiveawaysView.tsx` & `src/services/dataService.ts`)*:
+     - Cập nhật khối đếm ngược `ModalGlobalCooldownSection` tự động phân giải template chứa `{last_user}` và `{time_left}` hiển thị sắc nét, sống động.
+     - Đồng bộ tức thì `last_claimer_name` vào LocalStorage khi claim thành công hoặc nhận phản hồi hồi chiêu từ Edge.
+- **Kết quả kiểm thử & Triển khai**:
+  - Audit zero test artifacts: Sạch 100% (31 giveaways thực tế, 0 artifact test).
+  - Biên dịch Vite Frontend & Prerender 672 trang tĩnh SEO thành công.
+  - Tự động triển khai lên Cloudflare Pages (`web-code-game` và `admin-code-game-shop`) và đồng bộ GitHub.
+
+---
+
+## [2026-10-19]
+
 ### 77. Nâng Cấp Thuật Toán Chấm Điểm Tương Quan (Relevance Scoring) & Đẩy Tựa Game Khớp Tên Nhất Lên Top 1 Trong Tìm Kiếm
 - **Mô tả & Yêu cầu Người Dùng**:
   - *"Khi tôi tìm kiếm, cụm từ phù hưpj với tên game nhất không ở trên cùng, bạn giúp tôi đẩy game mà người dùng tìm liên quan nhất lên trên cùng đi"* kèm ảnh chụp màn hình gõ từ khóa `hắc tây du` nhưng dropdown Autocomplete hiện ra: `3Q Đào Đào Đào`, `Tam Quốc Tứ Thời Ca`, `Loạn Chiến 3Q`... thay vì tựa game khớp chính xác nhất là `Hắc Tây Du: Chương Cấm` (`hac-tay-du-chuong-cam`).

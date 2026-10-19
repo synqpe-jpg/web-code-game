@@ -188,9 +188,15 @@ const ModalGlobalCooldownSection: React.FC<{
           </div>
         )}
         <p className="text-[11px] text-amber-200/80 leading-relaxed max-w-sm mx-auto">
-          {campaign.custom_cooldown_msg
-            ? campaign.custom_cooldown_msg.replace(/\{time_left\}/gi, waitText)
-            : `Đợt mã vừa được trao! Toàn bộ người chơi cùng chờ ${campaign.global_cooldown_seconds && campaign.global_cooldown_seconds >= 60 ? `${Math.floor(campaign.global_cooldown_seconds / 60)} phút` : `${campaign.global_cooldown_seconds}s`} trước khi mở mã tiếp theo.`}
+          {(() => {
+            const lastUser = campaign.last_claimer_name || 'người chơi trước';
+            const template =
+              campaign.custom_cooldown_msg ||
+              'Đợt phát trước đạo hữu {last_user} đã nhanh tay đi trước, đạo hữu vui lòng đợi {time_left} rồi thử sức lại.';
+            return template
+              .replace(/\{last_user\}|\{claimer\}|\{last_claimer\}|\{last_claimer_name\}|\{user\}/gi, lastUser)
+              .replace(/\{time_left\}|\{seconds\}|\{sec\}/gi, waitText);
+          })()}
         </p>
       </div>
 

@@ -179,6 +179,7 @@ CREATE TABLE IF NOT EXISTS giveaways (
   cooldown_hours INTEGER NOT NULL DEFAULT 0,
   global_cooldown_seconds INTEGER NOT NULL DEFAULT 0,
   last_global_claim_at TEXT DEFAULT '',
+  last_claimer_name TEXT DEFAULT '',
   custom_success_msg TEXT DEFAULT '',
   custom_cooldown_msg TEXT DEFAULT '',
   custom_out_of_stock_msg TEXT DEFAULT '',
@@ -697,6 +698,9 @@ export async function ensureSchemaUpgrades(db: D1Database): Promise<void> {
     await db.prepare("ALTER TABLE giveaways ADD COLUMN last_global_claim_at TEXT DEFAULT '';").run().catch(() => {});
   } catch {}
   try {
+    await db.prepare("ALTER TABLE giveaways ADD COLUMN last_claimer_name TEXT DEFAULT '';").run().catch(() => {});
+  } catch {}
+  try {
     await db.prepare("ALTER TABLE giveaways ADD COLUMN custom_success_msg TEXT DEFAULT '';").run().catch(() => {});
   } catch {}
   try {
@@ -732,6 +736,7 @@ export async function ensureSchemaUpgrades(db: D1Database): Promise<void> {
         cooldown_hours INTEGER NOT NULL DEFAULT 0,
         global_cooldown_seconds INTEGER NOT NULL DEFAULT 0,
         last_global_claim_at TEXT DEFAULT '',
+        last_claimer_name TEXT DEFAULT '',
         custom_success_msg TEXT DEFAULT '',
         custom_cooldown_msg TEXT DEFAULT '',
         custom_out_of_stock_msg TEXT DEFAULT '',
@@ -1789,6 +1794,7 @@ export async function syncGiveawaysToD1(db: D1Database, giveaways: any[]): Promi
     const cooldown = Math.max(0, Number(gw.cooldown_hours ?? gw.cooldownHours ?? 0));
     const globalCooldownSeconds = Math.max(0, Number(gw.global_cooldown_seconds ?? gw.globalCooldownSeconds ?? 0));
     const lastGlobalClaimAt = String(gw.last_global_claim_at ?? gw.lastGlobalClaimAt ?? '');
+    const lastClaimerName = String(gw.last_claimer_name ?? gw.lastClaimerName ?? '');
     const customSuccessMsg = String(gw.custom_success_msg ?? gw.customSuccessMsg ?? '');
     const customCooldownMsg = String(gw.custom_cooldown_msg ?? gw.customCooldownMsg ?? '');
     const customOutOfStockMsg = String(gw.custom_out_of_stock_msg ?? gw.customOutOfStockMsg ?? '');
@@ -1811,14 +1817,14 @@ export async function syncGiveawaysToD1(db: D1Database, giveaways: any[]): Promi
         id, title, game_slug, game_name, description, rewards,
         total_codes, remaining_codes, claimed_codes,
         min_account_age_days, max_per_user, max_per_ip, cooldown_hours,
-        global_cooldown_seconds, last_global_claim_at,
+        global_cooldown_seconds, last_global_claim_at, last_claimer_name,
         custom_success_msg, custom_cooldown_msg, custom_out_of_stock_msg,
         enable_waiting_room, waiting_users_min, waiting_users_max,
         show_claimed_count, virtual_claimed_offset,
         start_time, end_time, is_active,
         cover_image_url, game_icon_url, status, created_at
       )
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       ON CONFLICT(id) DO UPDATE SET
         title = excluded.title,
         game_slug = excluded.game_slug,
@@ -1834,6 +1840,7 @@ export async function syncGiveawaysToD1(db: D1Database, giveaways: any[]): Promi
         cooldown_hours = excluded.cooldown_hours,
         global_cooldown_seconds = excluded.global_cooldown_seconds,
         last_global_claim_at = CASE WHEN excluded.last_global_claim_at != '' THEN excluded.last_global_claim_at ELSE giveaways.last_global_claim_at END,
+        last_claimer_name = CASE WHEN excluded.last_claimer_name != '' THEN excluded.last_claimer_name ELSE giveaways.last_claimer_name END,
         custom_success_msg = excluded.custom_success_msg,
         custom_cooldown_msg = excluded.custom_cooldown_msg,
         custom_out_of_stock_msg = excluded.custom_out_of_stock_msg,
@@ -1865,6 +1872,7 @@ export async function syncGiveawaysToD1(db: D1Database, giveaways: any[]): Promi
       cooldown,
       globalCooldownSeconds,
       lastGlobalClaimAt,
+      lastClaimerName,
       customSuccessMsg,
       customCooldownMsg,
       customOutOfStockMsg,
