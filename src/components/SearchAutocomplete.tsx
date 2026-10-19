@@ -53,12 +53,56 @@ function getGradientForName(name: string): string {
     'from-amber-500 via-orange-600 to-red-600',
   ];
   let hash = 0;
-  for (let i = 0; i < (name || '').length; i++) {
-    hash = name.charCodeAt(i) + ((hash << 5) - hash);
+  const safe = String(name || '');
+  for (let i = 0; i < safe.length; i++) {
+    hash = safe.charCodeAt(i) + ((hash << 5) - hash);
   }
   const index = Math.abs(hash) % gradients.length;
   return gradients[index];
 }
+
+// Safe React icon component eliminating parent.innerHTML DOM mutations
+interface GameSearchIconProps {
+  game: Partial<GameItem>;
+  size?: 'sm' | 'md';
+}
+
+const GameSearchIcon: React.FC<GameSearchIconProps> = ({ game, size = 'md' }) => {
+  const [hasError, setHasError] = useState(false);
+  const safeName = game?.name || 'Game';
+  const sizeClass = size === 'sm' ? 'w-9 h-9' : 'w-10 h-10';
+
+  const iconSrc = useMemo(() => {
+    if (!game?.icon_url || game.icon_url.includes('codemoi.net') || game.icon_url.startsWith('/game-icons')) {
+      return `/game_icons/${game?.slug || ''}.webp`;
+    }
+    return game.icon_url;
+  }, [game?.icon_url, game?.slug]);
+
+  if (hasError || !iconSrc) {
+    return (
+      <div
+        className={`${sizeClass} rounded-xl bg-gradient-to-br ${getGradientForName(
+          safeName
+        )} flex items-center justify-center font-bold text-white text-xs shrink-0 shadow-sm overflow-hidden select-none`}
+      >
+        {safeName.slice(0, 2).toUpperCase()}
+      </div>
+    );
+  }
+
+  return (
+    <div className={`${sizeClass} rounded-xl bg-muted overflow-hidden border border-border shrink-0 flex items-center justify-center shadow-sm`}>
+      <img
+        src={iconSrc}
+        alt={safeName}
+        className="w-full h-full object-cover"
+        loading="lazy"
+        onError={() => setHasError(true)}
+      />
+    </div>
+  );
+};
 
 export const SearchAutocomplete: React.FC<SearchAutocompleteProps> = ({
   searchQuery,
@@ -76,18 +120,30 @@ export const SearchAutocomplete: React.FC<SearchAutocompleteProps> = ({
   const [isOpen, setIsOpen] = useState(false);
   const [copiedCodeKey, setCopiedCodeKey] = useState<string | null>(null);
   const [selectedIndex, setSelectedIndex] = useState(-1);
-  const [recentSearches, setRecentSearches] = useState<string[]>(() => getRecentSearches());
+  const [recentSearches, setRecentSearches] = useState<string[]>(() => {
+    try {
+      const res = getRecentSearches();
+      return Array.isArray(res) ? res : [];
+    } catch {
+      return [];
+    }
+  });
   const containerRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
   // Sync recent searches across instances & storage events
   useEffect(() => {
     const handleRecentUpdate = (e: Event) => {
-      const customEvent = e as CustomEvent<string[]>;
-      if (customEvent.detail) {
-        setRecentSearches(customEvent.detail);
-      } else {
-        setRecentSearches(getRecentSearches());
+      try {
+        const customEvent = e as CustomEvent<string[]>;
+        if (Array.isArray(customEvent?.detail)) {
+          setRecentSearches(customEvent.detail);
+        } else {
+          const fresh = getRecentSearches();
+          setRecentSearches(Array.isArray(fresh) ? fresh : []);
+        }
+      } catch {
+        setRecentSearches([]);
       }
     };
     window.addEventListener('wcg_recent_searches_updated', handleRecentUpdate);
@@ -102,7 +158,10 @@ export const SearchAutocomplete: React.FC<SearchAutocompleteProps> = ({
   const hotGames = useMemo(() => {
     try {
       const all = dataService.getGames();
-      return all.filter((g) => g.is_hot || (g.codes_count && g.codes_count > 0)).slice(0, 5);
+      if (!Array.isArray(all)) return [];
+      return all
+        .filter((g) => g && (g.is_hot || (g.codes_count && g.codes_count > 0)))
+        .slice(0, 5);
     } catch {
       return [];
     }
@@ -116,21 +175,25 @@ export const SearchAutocomplete: React.FC<SearchAutocompleteProps> = ({
   }>({ games: [], codes: [], totalMatches: 0 });
 
   useEffect(() => {
-    const q = searchQuery.trim();
+    const q = (searchQuery || '').trim();
     if (!q) {
       setSearchResults({ games: [], codes: [], totalMatches: 0 });
       return;
     }
 
     // 1. Instant synchronous local results for 0ms typing response
-    const local = dataService.searchAllGamesAndCodes(q, 6);
-    setSearchResults(local);
+    try {
+      const local = dataService.searchAllGamesAndCodes(q, 6);
+      if (local && Array.isArray(local.games)) {
+        setSearchResults(local);
+      }
+    } catch {}
 
     // 2. Debounced server fetch across entire 450+ games and 9000+ codes catalog
     const timer = setTimeout(async () => {
       try {
         const serverRes = await dataService.searchAllGamesAndCodesServer(q, 6);
-        if (serverRes && serverRes.totalMatches > 0) {
+        if (serverRes && serverRes.totalMatches > 0 && Array.isArray(serverRes.games)) {
           setSearchResults(serverRes);
         }
       } catch {}
@@ -141,28 +204,40 @@ export const SearchAutocomplete: React.FC<SearchAutocompleteProps> = ({
 
   // Sort matching games by relevance score so the closest title match is always at index 0 (Top #1)
   const sortedGames = useMemo(() => {
-    const q = searchQuery.trim();
-    if (!q || searchResults.games.length <= 1) return searchResults.games;
-    return [...searchResults.games].sort((a, b) => {
+    const q = (searchQuery || '').trim();
+    const gamesList = Array.isArray(searchResults?.games) ? searchResults.games : [];
+    if (!q || gamesList.length <= 1) return gamesList;
+    return [...gamesList].sort((a, b) => {
+      if (!a && !b) return 0;
+      if (!a) return 1;
+      if (!b) return -1;
       const scoreA = calculateGameSearchScore(a, q).score;
       const scoreB = calculateGameSearchScore(b, q).score;
       if (scoreB !== scoreA) return scoreB - scoreA;
       const cntA = a.codes_count || 0;
       const cntB = b.codes_count || 0;
       if (cntB !== cntA) return cntB - cntA;
-      return a.name.localeCompare(b.name);
+      return (a.name || '').localeCompare(b.name || '');
     });
-  }, [searchResults.games, searchQuery]);
+  }, [searchResults?.games, searchQuery]);
 
-  const hasResults = searchResults.totalMatches > 0;
+  const hasResults = (searchResults?.totalMatches || 0) > 0;
 
   // Flattened items for keyboard navigation: games first, then codes
   const allNavItems = useMemo(() => {
     const items: Array<{ type: 'game'; data: GameItem } | { type: 'code'; data: { game: GameItem; code: GiftCode } }> = [];
-    sortedGames.forEach((g) => items.push({ type: 'game', data: g }));
-    searchResults.codes.forEach((c) => items.push({ type: 'code', data: c }));
+    if (Array.isArray(sortedGames)) {
+      sortedGames.forEach((g) => {
+        if (g) items.push({ type: 'game', data: g });
+      });
+    }
+    if (Array.isArray(searchResults?.codes)) {
+      searchResults.codes.forEach((c) => {
+        if (c && c.game && c.code) items.push({ type: 'code', data: c });
+      });
+    }
     return items;
-  }, [sortedGames, searchResults.codes]);
+  }, [sortedGames, searchResults?.codes]);
 
   // Global key listener to press '/' to focus search
   useEffect(() => {
@@ -182,15 +257,19 @@ export const SearchAutocomplete: React.FC<SearchAutocompleteProps> = ({
     return () => window.removeEventListener('keydown', handleGlobalKeyDown);
   }, [isActive]);
 
-  // Click outside listener
+  // Click & Touch outside listener (Desktop & Mobile)
   useEffect(() => {
-    const handleClickOutside = (e: MouseEvent) => {
+    const handleClickOutside = (e: MouseEvent | TouchEvent) => {
       if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
         setIsOpen(false);
       }
     };
     document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
+    document.addEventListener('touchstart', handleClickOutside, { passive: true });
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+      document.removeEventListener('touchstart', handleClickOutside);
+    };
   }, []);
 
   // Handle Quick Copy from Autocomplete
@@ -227,7 +306,7 @@ export const SearchAutocomplete: React.FC<SearchAutocompleteProps> = ({
   // Keyboard Navigation inside input
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (!isOpen || allNavItems.length === 0) {
-      if (e.key === 'ArrowDown' && searchQuery.trim()) {
+      if (e.key === 'ArrowDown' && (searchQuery || '').trim()) {
         setIsOpen(true);
       }
       return;
@@ -244,17 +323,17 @@ export const SearchAutocomplete: React.FC<SearchAutocompleteProps> = ({
       if (selectedIndex >= 0 && selectedIndex < allNavItems.length) {
         const item = allNavItems[selectedIndex];
         if (item.type === 'game') {
-          saveRecentSearch(item.data.name);
+          saveRecentSearch(item.data?.name || '');
           onSelectGame(item.data);
           setIsOpen(false);
         } else {
-          saveRecentSearch(item.data.game.name);
+          saveRecentSearch(item.data?.game?.name || '');
           onSelectGame(item.data.game);
           setIsOpen(false);
         }
       } else {
         // Trigger normal search submit
-        if (searchQuery.trim()) {
+        if ((searchQuery || '').trim()) {
           saveRecentSearch(searchQuery.trim());
         }
         setIsOpen(false);
@@ -267,7 +346,9 @@ export const SearchAutocomplete: React.FC<SearchAutocompleteProps> = ({
   };
 
   const handleSelectGameItem = (game: GameItem) => {
-    saveRecentSearch(game.name);
+    if (game?.name) {
+      saveRecentSearch(game.name);
+    }
     onSelectGame(game);
     setIsOpen(false);
   };
@@ -292,6 +373,12 @@ export const SearchAutocomplete: React.FC<SearchAutocompleteProps> = ({
             setSelectedIndex(-1);
           }}
           onFocus={() => {
+            setIsOpen(true);
+          }}
+          onClick={() => {
+            setIsOpen(true);
+          }}
+          onTouchStart={() => {
             setIsOpen(true);
           }}
           onKeyDown={handleKeyDown}
@@ -328,7 +415,7 @@ export const SearchAutocomplete: React.FC<SearchAutocompleteProps> = ({
           <button
             type="button"
             onClick={() => {
-              if (searchQuery.trim()) {
+              if ((searchQuery || '').trim()) {
                 saveRecentSearch(searchQuery.trim());
               }
               setIsOpen(false);
@@ -343,8 +430,8 @@ export const SearchAutocomplete: React.FC<SearchAutocompleteProps> = ({
 
       {/* Autocomplete Results Dropdown Overlay */}
       {isOpen && (
-        <div className="absolute left-0 right-0 top-full mt-2 bg-card/95 backdrop-blur-xl border border-border/90 rounded-2xl shadow-2xl z-50 overflow-hidden animate-scale-in text-left divide-y divide-border/60 max-h-[75vh] flex flex-col">
-          {searchQuery.trim().length === 0 ? (
+        <div className="absolute left-0 right-0 top-full mt-2 bg-card/95 backdrop-blur-xl border border-border/90 rounded-2xl shadow-2xl z-50 overflow-hidden animate-scale-in text-left divide-y divide-border/60 max-h-[65vh] sm:max-h-[75vh] flex flex-col">
+          {(searchQuery || '').trim().length === 0 ? (
             /* RECENT SEARCHES, QUICK KEYWORDS & HOT GAMES */
             <div className="overflow-y-auto flex-1 scrollbar-thin p-2 space-y-3">
               {/* 1. Recent Searches (if user searched previously) */}
@@ -443,39 +530,18 @@ export const SearchAutocomplete: React.FC<SearchAutocompleteProps> = ({
                   </div>
 
                   <div className="space-y-1">
-                    {hotGames.map((game) => (
+                    {hotGames.map((game, gIdx) => (
                       <div
-                        key={game.id || game.slug}
+                        key={game.id || game.slug || `hot_${gIdx}`}
                         onClick={() => handleSelectGameItem(game)}
                         className="flex items-center justify-between gap-3 p-2 rounded-xl transition-all cursor-pointer hover:bg-muted/70 text-foreground border border-transparent"
                       >
                         <div className="flex items-center gap-2.5 min-w-0 flex-1">
-                          <div className="w-9 h-9 rounded-xl bg-muted overflow-hidden border border-border shrink-0 flex items-center justify-center shadow-sm">
-                            <img
-                              src={
-                                !game.icon_url || game.icon_url.includes('codemoi.net') || game.icon_url.startsWith('/game-icons')
-                                  ? `/game_icons/${game.slug}.webp`
-                                  : (game.icon_url || `/game_icons/${game.slug}.webp`)
-                              }
-                              alt={game.name}
-                              className="w-full h-full object-cover"
-                              onError={(e) => {
-                                const parent = (e.target as HTMLElement).parentElement;
-                                if (parent) {
-                                  parent.innerHTML = `<div class="w-full h-full bg-gradient-to-br ${getGradientForName(
-                                    game.name
-                                  )} flex items-center justify-center font-bold text-white text-xs">${game.name.substring(
-                                    0,
-                                    2
-                                  )}</div>`;
-                                }
-                              }}
-                            />
-                          </div>
+                          <GameSearchIcon game={game} size="sm" />
                           <div className="min-w-0 flex-1">
                             <div className="flex items-center gap-1.5 flex-wrap">
                               <span className="font-bold text-xs sm:text-sm text-foreground truncate">
-                                {game.name}
+                                {game.name || 'Game'}
                               </span>
                               {game.is_hot && (
                                 <span className="inline-flex items-center gap-0.5 text-[9px] font-bold px-1 py-0.2 rounded bg-rose-500/20 text-rose-400 border border-rose-500/30">
@@ -523,7 +589,7 @@ export const SearchAutocomplete: React.FC<SearchAutocompleteProps> = ({
 
                       return (
                         <div
-                          key={game.id || game.slug}
+                          key={game.id || game.slug || `game_${idx}`}
                           onClick={() => handleSelectGameItem(game)}
                           className={`flex items-center justify-between gap-3 p-2 rounded-xl transition-all cursor-pointer ${
                             isHighlighted
@@ -533,34 +599,13 @@ export const SearchAutocomplete: React.FC<SearchAutocompleteProps> = ({
                         >
                           <div className="flex items-center gap-2.5 min-w-0 flex-1">
                             {/* Game Icon */}
-                            <div className="w-10 h-10 rounded-xl bg-muted overflow-hidden border border-border shrink-0 flex items-center justify-center shadow-sm">
-                              <img
-                                src={
-                                  !game.icon_url || game.icon_url.includes('codemoi.net') || game.icon_url.startsWith('/game-icons')
-                                    ? `/game_icons/${game.slug}.webp`
-                                    : (game.icon_url || `/game_icons/${game.slug}.webp`)
-                                }
-                                alt={game.name}
-                                className="w-full h-full object-cover"
-                                onError={(e) => {
-                                  const parent = (e.target as HTMLElement).parentElement;
-                                  if (parent) {
-                                    parent.innerHTML = `<div class="w-full h-full bg-gradient-to-br ${getGradientForName(
-                                      game.name
-                                    )} flex items-center justify-center font-bold text-white text-xs">${game.name.substring(
-                                      0,
-                                      2
-                                    )}</div>`;
-                                  }
-                                }}
-                              />
-                            </div>
+                            <GameSearchIcon game={game} size="md" />
 
                             {/* Game Details */}
                             <div className="min-w-0 flex-1">
                               <div className="flex items-center gap-1.5 flex-wrap">
                                 <span className="font-bold text-xs sm:text-sm text-foreground truncate">
-                                  {game.name}
+                                  {game.name || 'Game'}
                                 </span>
                                 {game.is_hot && (
                                   <span className="inline-flex items-center gap-0.5 text-[9px] font-bold px-1 py-0.2 rounded bg-rose-500/20 text-rose-400 border border-rose-500/30">
@@ -612,10 +657,11 @@ export const SearchAutocomplete: React.FC<SearchAutocompleteProps> = ({
 
                   <div className="space-y-1.5">
                     {searchResults.codes.map((item, idx) => {
+                      if (!item || !item.game || !item.code) return null;
                       const globalIdx = sortedGames.length + idx;
                       const isHighlighted = selectedIndex === globalIdx;
-                      const isExpired = item.code.status === 'expired';
-                      const codeKey = `${item.game.name}_${item.code.code}`;
+                      const isExpired = item.code?.status === 'expired';
+                      const codeKey = `${item.game.name || 'game'}_${item.code.code || idx}`;
                       const isCopied = copiedCodeKey === codeKey;
 
                       return (
@@ -632,7 +678,7 @@ export const SearchAutocomplete: React.FC<SearchAutocompleteProps> = ({
                             <div className="flex items-center gap-2 flex-wrap mb-1">
                               {/* Game Pill */}
                               <span className="text-[10px] font-semibold px-2 py-0.5 rounded-md bg-muted text-foreground border border-border truncate max-w-[140px]">
-                                {item.game.name}
+                                {item.game.name || 'Game'}
                               </span>
 
                               {/* Status Pill */}
@@ -652,7 +698,7 @@ export const SearchAutocomplete: React.FC<SearchAutocompleteProps> = ({
                             {/* Code Value & Reward description */}
                             <div className="flex items-center gap-2">
                               <span className="font-mono font-extrabold text-xs sm:text-sm text-emerald-300 tracking-wider">
-                                {item.code.code}
+                                {item.code.code || ''}
                               </span>
                               {item.code.rewards && (
                                 <span className="text-[11px] text-slate-400 truncate max-w-[180px] sm:max-w-[260px]">
@@ -665,7 +711,7 @@ export const SearchAutocomplete: React.FC<SearchAutocompleteProps> = ({
                           {/* Instant Fast Copy Button */}
                           <button
                             type="button"
-                            onClick={(e) => handleCopyCode(item.code.code, item.game.name, isExpired, e)}
+                            onClick={(e) => handleCopyCode(item.code.code, item.game.name || '', isExpired, e)}
                             className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer shrink-0 flex items-center gap-1.5 shadow-sm active:scale-95 ${
                               isCopied
                                 ? 'bg-emerald-500 text-white shadow-glow-primary'

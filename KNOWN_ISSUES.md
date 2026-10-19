@@ -845,6 +845,24 @@
 
 ---
 
+### ISSUE-048: Bẫy Sụp Đổ Cây React Fiber Khi Dùng `parent.innerHTML` Thay Thế Thẻ `<img>` Lỗi Trong Event Listener
+- **Triệu chứng**:
+  - Trên điện thoại di động, khi người dùng chạm hoặc ấn vào ô tìm kiếm thì trang web gặp lỗi crash, xuất hiện màn hình cứu hộ Error Boundary ("Đã có sự cố hiển thị nhỏ xảy ra").
+- **Nguyên nhân gốc rễ**:
+  - Trong component `SearchAutocomplete.tsx`, các thẻ `<img>` icon game tải ảnh webp sử dụng callback:
+    `onError={(e) => { const parent = (e.target as HTMLElement).parentElement; if (parent) parent.innerHTML = '...'; }}`
+  - Thuộc tính `parent.innerHTML` trực tiếp can thiệp và xóa phần tử DOM thật của thẻ `<img>` mà không thông qua React.
+  - Khi người dùng chạm vào ô tìm kiếm trên điện thoại, bàn phím ảo bật lên làm viewport co lại và trình duyệt tự động scroll.
+  - Sự kiện `resize` & `scroll` kích hoạt re-render. Khi React Fiber đối soát cây DOM ảo (reconciliation), React tìm kiếm thẻ `<img>` trong `parent` để unmount/update nhưng thẻ đã bị xóa khỏi DOM thật.
+  - React ném lỗi DOM nghiêm trọng: `NotFoundError: Failed to execute 'removeChild' on 'Node': The node to be removed is not a child of this node.` khiến Error Boundary kích hoạt.
+- **Giải pháp chuẩn đã kiểm chứng**:
+  - Tuyệt đối không dùng `parent.innerHTML` trong bất kỳ component React nào.
+  - Tách thành component con React độc lập (ví dụ `GameSearchIcon`) quản lý state `const [hasError, setHasError] = useState(false);` và dùng `onError={() => setHasError(true)}`. Khi `hasError === true`, React tự động render khối JSX thay thế mà không làm biến dạng cây DOM Fiber.
+- ⛔ **CÁCH SỬA ĐÃ THẤT BẠI - TUYỆT ĐỐI KHÔNG LẶP LẠI**:
+  - ❌ *Tuyệt đối không dùng `element.parentElement.innerHTML = ...` trong React event listener*: Luôn dùng state React thuần để chuyển đổi giao diện khi xảy ra lỗi tải ảnh.
+
+---
+
 ## 2. QUY TRÌNH BẮT BUỘC TRƯỚC KHI SỬA CODE (PRE-FLIGHT CHECKLIST)
 
 Mọi nhà phát triển hoặc AI Agent khi nhận yêu cầu sửa đổi mã nguồn **PHẢI** thực hiện đủ 4 bước sau:

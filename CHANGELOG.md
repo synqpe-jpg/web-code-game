@@ -7,6 +7,46 @@ Mỗi mục sửa lỗi đều ghi nhận **Nguyên nhân gốc rễ (Root Cause
 
 ## [2026-10-19]
 
+### 79. Khắc Phục Triệt Để Lỗi Crash Màn Hình (Error Boundary) Khi Ấn Vào Ô Tìm Kiếm Trên Điện Thoại Di Động
+- **Mô tả & Yêu cầu Người Dùng**:
+  - *"Trên điện thoại, khi tôi ấn vào ô tìm kiếm thì web báo lỗi"* (Màn hình cứu hộ Error Boundary xuất hiện ngay khi người dùng chạm ngón tay vào ô input tìm kiếm trên thiết bị di động).
+- **Nguyên nhân gốc rễ (Root Cause)**:
+  1. *Xung đột DOM Virtual Fiber do `parent.innerHTML` trong `onError`*:
+     - Trong `SearchAutocomplete.tsx`, các thẻ `<img>` icon game tải ảnh `/game_icons/${game.slug}.webp` sử dụng callback:
+       `onError={(e) => { const parent = (e.target as HTMLElement).parentElement; if (parent) { parent.innerHTML = '...'; } }}`
+     - Thao tác gán trực tiếp `parent.innerHTML` xóa cưỡng bức thẻ `<img>` con khỏi cây DOM thật trong khi React Fiber Node vẫn đang lưu vết thẻ `<img>` này.
+     - Trên điện thoại di động: Khi người dùng chạm (tap/touch) vào ô input, trình duyệt kích hoạt bàn phím ảo (virtual keyboard) làm viewport thay đổi đột ngột (resize event) và trang web tự động cuộn (scroll event).
+     - Sự kiện `resize` & `scroll` kích hoạt hàm `checkStickyVisibility` trong `src/App.tsx`, gọi `setIsStickySearchVisible(...)` làm React re-render.
+     - Khi React Fiber thực hiện DOM reconciliation (diffing), React cố gắng tìm kiếm và gỡ bỏ hoặc cập nhật thẻ `<img>` trong `parent`, nhưng thẻ này không còn tồn tại trong DOM thật do đã bị `parent.innerHTML` xóa mất.
+     - React ném ngoại lệ DOM nghiêm trọng: `NotFoundError: Failed to execute 'removeChild' on 'Node': The node to be removed is not a child of this node.` khiến Error Boundary bắt được và hiển thị màn hình cứu hộ sự cố.
+  2. *Nguy cơ Uncaught TypeError trong `sortedGames` & `localeCompare`*:
+     - Hàm sắp xếp `return a.name.localeCompare(b.name);` không bọc guard phòng vệ; nếu bất kỳ item nào thiếu trường `name`, sẽ ném `TypeError: Cannot read properties of undefined (reading 'localeCompare')`.
+  3. *Thiếu bảo vệ kiểu dữ liệu mảng trên `recentSearches` & `hotGames`*:
+     - Khi nhận custom event `wcg_recent_searches_updated`, nếu `event.detail` bị null hoặc không phải mảng, `recentSearches.map` sẽ crash component.
+  4. *Xung đột thanh Sticky Floating Search Bar khi mở bàn phím ảo*:
+     - Khi bàn phím ảo mobile bật lên, trang bị co lại làm `rect.bottom < headerHeight` trở thành `true`, khiến thanh tìm kiếm nổi sticky đột ngột nhảy ra đè lên màn hình ngay khi người dùng đang tập trung gõ vào ô tìm kiếm Hero.
+- **Giải pháp toàn diện đã triển khai (Solution)**:
+  1. *Loại bỏ triệt để 100% `parent.innerHTML` bằng component React thuần `GameSearchIcon`*:
+     - Tạo component con `GameSearchIcon` quản lý trạng thái tải ảnh độc lập qua `useState(false)`.
+     - Khi ảnh gặp lỗi (`onError={() => setHasError(true)}`), React tự chuyển sang render thẻ `<div>` gradient tên game qua chuẩn JSX mà không can thiệp bất kỳ thuộc tính DOM nào của phần tử cha. Bảo toàn 100% tính toàn vẹn của cây React Fiber.
+  2. *Phòng vệ tuyệt đối cho thuật toán sắp xếp & tìm kiếm (`SearchAutocomplete.tsx`)*:
+     - Chuẩn hóa: `(a.name || '').localeCompare(b.name || '')` và bọc kiểm tra `if (!a) return 1; if (!b) return -1;`.
+     - Bọc kiểm tra `Array.isArray(recentSearches)` và `Array.isArray(customEvent?.detail)`.
+     - Lọc sạch các giá trị null/undefined trong danh sách `hotGames` và `searchResults.codes`.
+  3. *Tối ưu trải nghiệm Mobile Touch & Bàn phím ảo*:
+     - Bổ sung sự kiện `touchstart` vào click-outside listener để hỗ trợ phản hồi mượt mà trên iOS Safari, Android Chrome và Zalo In-App Browser.
+     - Thêm `onClick` và `onTouchStart` vào thẻ `<input>` để mở dropdown tức thì khi chạm ngón tay.
+     - Tinh chỉnh chiều cao tối đa thích ứng `max-h-[65vh] sm:max-h-[75vh]` ngăn dropdown bị che khuất bởi bàn phím ảo.
+     - Cập nhật `checkStickyVisibility` trong `src/App.tsx`: Nếu người dùng đang focus vào ô tìm kiếm Hero (`heroSearchEl.contains(document.activeElement)`), thanh sticky search sẽ giữ nguyên ẩn để tránh giật lag hoặc cướp giao diện của người dùng.
+- **Kết quả kiểm thử & Triển khai**:
+  - Audit Zero Test Artifacts: Sạch 100% dữ liệu sản xuất.
+  - Biên dịch Vite Frontend & Prerender 672 trang tĩnh SEO thành công 100%.
+  - Tự động triển khai lên Cloudflare Pages (`web-code-game` và `admin-code-game-shop`) và đồng bộ GitHub.
+
+---
+
+## [2026-10-19]
+
 ### 78. Tùy Biến Thông Báo Hồi Chiêu Toàn Sàn Giveaway Theo Tên Người Giật Trước ({last_user}) & Thời Gian Đếm Ngược ({time_left})
 - **Mô tả & Yêu cầu Người Dùng**:
   - *"Trong mục admin, giveaway, mục thông báo khi trong thời gian chờ, nghĩa là người A giật, người B giật nhưng giật sau, chưa hết thời gian đếm ngược, mặc đihj dể nội dung là đợt phát trước đạo hữu A đã nhanh tay đi trước, đạo hữu vui lòng đợi xxx giây rồi thử sức lại. A là tên của người giật trước đó."*

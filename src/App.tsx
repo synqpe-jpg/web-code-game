@@ -249,6 +249,12 @@ export const App: React.FC = () => {
         return;
       }
 
+      // If user is currently focusing inside the hero search bar, keep sticky bar hidden to prevent UI clashes on mobile keyboard popups
+      if (typeof document !== 'undefined' && heroSearchEl.contains(document.activeElement)) {
+        setIsStickySearchVisible(false);
+        return;
+      }
+
       const rect = heroSearchEl.getBoundingClientRect();
       // Header height: 72px on sm/desktop (>=640px), 56px on mobile (<640px)
       const headerHeight = window.innerWidth >= 640 ? 72 : 56;
