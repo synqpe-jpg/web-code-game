@@ -149,91 +149,96 @@ export function calculateGameSearchScore(
     matchType = 'exact_name';
   }
   // 2. Exact match with slug
-  else if (slugRaw === rawQuery || slugNorm === queryNorm) {
-    score = 9000;
+  else if (slugRaw === rawQuery || slugNorm === queryNorm || slugCompact === queryCompact) {
+    score = 9500;
     matchType = 'exact_slug';
   }
   // 3. Name starts with query (Prefix)
   else if (nameNorm.startsWith(queryNorm) || nameRaw.startsWith(rawQuery) || nameCompact.startsWith(queryCompact)) {
-    score = 8000;
+    score = 8500;
     matchType = 'name_prefix';
   }
-  // 4. Gaming Acronym / Abbreviation Match (e.g. "lq", "vltk", "bf", "dldl", "ff", "hsr")
+  // 4. Slug starts with query
+  else if (slugNorm.startsWith(queryNorm) || slugRaw.startsWith(rawQuery) || slugCompact.startsWith(queryCompact)) {
+    score = 8000;
+    matchType = 'slug_match';
+  }
+  // 5. Gaming Acronym / Abbreviation Match (e.g. "lq", "vltk", "bf", "dldl", "ff", "hsr", "htd")
   else if (queryCompact.length >= 2 && queryCompact.length <= 6) {
     const mapped = GAME_ACRONYM_MAP[queryCompact];
     if (mapped) {
       for (const phrase of mapped) {
         const normPhrase = normalizeVietnamese(phrase);
         if (nameNorm.includes(normPhrase) || slugNorm.includes(normPhrase)) {
-          score = 7500;
+          score = 7800;
           matchType = 'acronym';
           break;
         }
       }
     }
-  }
-
-  // 5. Word boundary match in name (a distinct word in the title starts with or equals query)
-  if (score === 0) {
-    const words = nameNorm.split(/[\s\-:_]+/).filter(Boolean);
-    const rawWords = nameRaw.split(/[\s\-:_]+/).filter(Boolean);
-    if (words.some((w) => w === queryNorm) || rawWords.some((w) => w === rawQuery)) {
-      score = 7000;
-      matchType = 'name_word';
-    } else if (words.some((w) => w.startsWith(queryNorm)) || rawWords.some((w) => w.startsWith(rawQuery))) {
-      score = 6500;
-      matchType = 'name_word';
-    }
-  }
-
-  // 6. Name contains query substring
-  if (score === 0) {
-    if (queryNorm.length >= 3 && (nameNorm.includes(queryNorm) || nameRaw.includes(rawQuery) || nameCompact.includes(queryCompact))) {
-      score = 5500;
-      matchType = 'name_sub';
-    } else if (queryNorm.length < 3 && (nameNorm.includes(` ${queryNorm}`) || nameRaw.includes(` ${rawQuery}`))) {
-      // Short queries only match after a space to avoid false positives (e.g. "ff" in "Offline")
-      score = 5000;
-      matchType = 'name_sub';
-    }
-  }
-
-  // 7. Slug starts with or contains query
-  if (score === 0) {
-    if (slugNorm.startsWith(queryNorm) || slugRaw.startsWith(rawQuery)) {
-      score = 4800;
-      matchType = 'slug_match';
-    } else if (slugNorm.includes(queryNorm) || slugRaw.includes(rawQuery)) {
-      score = 4200;
-      matchType = 'slug_match';
-    }
-  }
-
-  // 8. Initials of words in name match query (e.g. "vltkm", "dldl")
-  if (score === 0 && queryCompact.length >= 2 && queryCompact.length <= 6) {
-    const initials = nameNorm.split(' ').filter(Boolean).map((w) => w[0]).join('');
-    if (initials === queryCompact) {
-      score = 4000;
-      matchType = 'acronym';
-    } else if (initials.includes(queryCompact)) {
-      score = 3500;
-      matchType = 'acronym';
-    }
-  }
-
-  // 9. Multi-token match: all typed words present in name/slug/publisher
-  if (score === 0) {
-    const tokens = queryNorm.split(' ').filter(Boolean);
-    if (tokens.length > 1) {
-      const allText = `${nameNorm} ${slugNorm} ${publisherNorm} ${categoryNorm}`;
-      if (tokens.every((tok) => allText.includes(tok))) {
-        score = 5200;
-        matchType = 'name_sub';
+    if (score === 0) {
+      const initials = nameNorm.split(/[\s\-:_]+/).filter(Boolean).map((w) => w[0]).join('');
+      if (initials === queryCompact) {
+        score = 7500;
+        matchType = 'acronym';
+      } else if (initials.startsWith(queryCompact)) {
+        score = 7000;
+        matchType = 'acronym';
       }
     }
   }
 
-  // 10. Publisher match
+  // 6. Name contains query phrase (require word boundary or length >= 3 to prevent short noise like "ff" in "Offline")
+  if (score === 0) {
+    const isWordBounded =
+      nameNorm.startsWith(queryNorm + ' ') ||
+      nameNorm.includes(' ' + queryNorm + ' ') ||
+      nameNorm.endsWith(' ' + queryNorm) ||
+      nameRaw.startsWith(rawQuery + ' ') ||
+      nameRaw.includes(' ' + rawQuery + ' ') ||
+      nameRaw.endsWith(' ' + rawQuery);
+
+    if (queryNorm.length >= 3 && (nameNorm.includes(queryNorm) || nameRaw.includes(rawQuery) || nameCompact.includes(queryCompact))) {
+      score = 6800;
+      matchType = 'name_sub';
+    } else if (queryNorm.length < 3 && isWordBounded) {
+      score = 6800;
+      matchType = 'name_sub';
+    } else if (slugNorm.includes(queryNorm) || slugRaw.includes(rawQuery)) {
+      if (queryNorm.length >= 3 || slugRaw.startsWith(rawQuery + '-') || slugRaw.includes('-' + rawQuery + '-') || slugRaw.endsWith('-' + rawQuery)) {
+        score = 6500;
+        matchType = 'slug_match';
+      }
+    }
+  }
+
+  // 7. Word boundary match in name (all query tokens exist as words/prefixes in name)
+  if (score === 0) {
+    const wordsInName = nameNorm.split(/[\s\-:_]+/).filter(Boolean);
+    const nameWordSet = new Set(wordsInName);
+    const qTokens = queryNorm.split(' ').filter(Boolean);
+    if (qTokens.length > 1 && qTokens.every((tok) => nameWordSet.has(tok) || wordsInName.some((w) => w.startsWith(tok)))) {
+      score = 6200;
+      matchType = 'name_word';
+    } else if (wordsInName.some((w) => w === queryNorm)) {
+      score = 5500;
+      matchType = 'name_word';
+    } else if (wordsInName.some((w) => w.startsWith(queryNorm))) {
+      score = 5000;
+      matchType = 'name_word';
+    }
+  }
+
+  // 8. Initials of words in name contain query (secondary initials)
+  if (score === 0 && queryCompact.length >= 2 && queryCompact.length <= 6) {
+    const initials = nameNorm.split(/[\s\-:_]+/).filter(Boolean).map((w) => w[0]).join('');
+    if (initials.includes(queryCompact)) {
+      score = 4000;
+      matchType = 'acronym';
+    }
+  }
+
+  // 9. Publisher match
   if (score === 0) {
     if (publisherRaw === rawQuery || publisherNorm === queryNorm) {
       score = 2500;
@@ -250,7 +255,7 @@ export function calculateGameSearchScore(
     }
   }
 
-  // 11. Category match (e.g. "Roblox / Mini Game")
+  // 10. Category match (e.g. "Roblox / Mini Game")
   if (score === 0) {
     if (categoryRaw === rawQuery || categoryNorm === queryNorm) {
       score = 1000;
@@ -263,18 +268,32 @@ export function calculateGameSearchScore(
     }
   }
 
-  // 12. Description match
+  // 11. Description match (strict whole-word matching to avoid false positives)
   if (score === 0 && game.description) {
     const descNorm = normalizeVietnamese(game.description);
     if (descNorm.includes(queryNorm)) {
-      score = 400;
+      score = 1200;
       matchType = 'description';
       matchDetail = 'Khớp trong mô tả';
+    } else {
+      const qTokens = queryNorm.split(' ').filter(Boolean);
+      const descWords = descNorm.split(/[\s\-:_]+/).filter(Boolean);
+      const descWordSet = new Set(descWords);
+      if (qTokens.length > 1 && qTokens.every((tok) => descWordSet.has(tok) || descWords.some((w) => w.startsWith(tok)))) {
+        score = 800;
+        matchType = 'description';
+        matchDetail = 'Khớp trong mô tả';
+      }
     }
   }
 
-  // Quality bonuses
+  // Quality bonuses & tie-breaking penalties
   if (score > 0) {
+    // Reward names that are tighter matches to the query length
+    if (score >= 6000 && nameNorm) {
+      const lengthDiff = Math.max(0, nameNorm.length - queryNorm.length);
+      score -= Math.min(300, lengthDiff * 2);
+    }
     if (game.is_hot) score += 30;
     if (game.is_featured) score += 20;
     if ((game.codes_count || 0) > 0) score += 50;
@@ -368,11 +387,13 @@ export function smartVietnameseMatch(
   const queryCompact = queryNorm.replace(/\s+/g, '');
   if (targetCompact.includes(queryCompact)) return true;
 
-  // 4. Multi-token / All words match check
-  const queryTokens = queryNorm.split(' ').filter(Boolean);
+  // 4. Multi-token / All words match check (requires whole words or word prefixes to prevent false positive substrings)
+  const queryTokens = queryNorm.split(/\s+/).filter(Boolean);
   if (queryTokens.length > 1) {
+    const targetWords = targetNorm.split(/\s+/).filter(Boolean);
+    const targetWordSet = new Set(targetWords);
     const allTokensMatch = queryTokens.every(
-      (tok) => targetNorm.includes(tok) || targetCompact.includes(tok)
+      (tok) => targetWordSet.has(tok) || targetWords.some((tw) => tw.startsWith(tok))
     );
     if (allTokensMatch) return true;
   }
@@ -391,10 +412,10 @@ export function smartVietnameseMatch(
       }
     }
 
-    // Check initials of target words
-    const targetWords = targetNorm.split(' ').filter(Boolean);
+    // Check initials of target words (exact match or prefix match on whole initials)
+    const targetWords = targetNorm.split(/\s+/).filter(Boolean);
     const targetInitials = targetWords.map((w) => w[0]).join('');
-    if (targetInitials.includes(queryCompact)) return true;
+    if (targetInitials === queryCompact || targetInitials.startsWith(queryCompact)) return true;
   }
 
   return false;

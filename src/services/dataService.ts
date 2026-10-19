@@ -1272,8 +1272,8 @@ class DataService {
       list = list.filter((g) => bookmarkedSet.has(g.id) || bookmarkedSet.has(g.slug));
     }
 
-    // 4. Sorting (If searching, keep high-relevance rank first unless explicit non-updated sort was requested)
-    if (filter.search.trim() && searchScores.size > 0 && filter.sortBy === 'updated') {
+    // 4. Sorting (When searching, ALWAYS prioritize high relevance rank first!)
+    if (filter.search.trim() && searchScores.size > 0 && filter.sortBy !== 'name' && filter.sortBy !== 'rating') {
       list = [...list].sort((a, b) => {
         const sA = searchScores.get(a.slug) || 0;
         const sB = searchScores.get(b.slug) || 0;
@@ -1363,44 +1363,70 @@ class DataService {
       return { games: [], codes: [], totalMatches: 0 };
     }
 
-    const matchedGames: GameItem[] = [];
-    const matchedCodes: Array<{ game: GameItem; code: GiftCode }> = [];
+    const scoredGames: Array<{ game: GameItem; score: number }> = [];
+    const matchedCodes: Array<{ game: GameItem; code: GiftCode; score: number }> = [];
     const seenCodeKeys = new Set<string>();
 
-    // 1. Search games by title, slug, publisher, category, description
+    // 1. Score all games by relevance
     for (const game of this.games) {
-      if (
-        smartVietnameseMatch(
-          [game.name, game.slug, game.publisher, game.category, game.description, game.so_giay_phep],
-          q
-        )
-      ) {
-        if (matchedGames.length < limit) {
-          matchedGames.push(game);
-        }
+      const scoreRes = calculateGameSearchScore(game, q);
+      if (scoreRes.score > 0) {
+        scoredGames.push({ game, score: scoreRes.score });
       }
 
       // 2. Search giftcodes within game
       const codes = game.codes || this.getCodesForGame(game) || [];
       for (const code of codes) {
         const codeKey = `${game.id}_${code.code}`;
+        if (!seenCodeKeys.has(codeKey)) {
+          const codeVal = (code.code || '').trim().toLowerCase();
+          const cleanQ = q.toLowerCase();
+          let codeScore = 0;
+          if (codeVal === cleanQ) {
+            codeScore = 10000;
+          } else if (codeVal.startsWith(cleanQ)) {
+            codeScore = 8000;
+          } else if (codeVal.includes(cleanQ)) {
+            codeScore = 6000;
+          } else if (smartVietnameseMatch([code.code, code.rewards], q)) {
+            codeScore = 4000;
+          } else if (scoreRes.score >= 6000) {
+            codeScore = scoreRes.score - 2000;
+          }
 
-        if (
-          !seenCodeKeys.has(codeKey) &&
-          smartVietnameseMatch([code.code, code.rewards, game.name, game.slug], q)
-        ) {
-          seenCodeKeys.add(codeKey);
-          if (matchedCodes.length < limit) {
-            matchedCodes.push({ game, code });
+          if (codeScore > 0) {
+            seenCodeKeys.add(codeKey);
+            matchedCodes.push({ game, code, score: codeScore });
           }
         }
       }
     }
 
+    // Sort games strictly by relevance score DESC, then codes_count DESC
+    scoredGames.sort((a, b) => {
+      if (b.score !== a.score) return b.score - a.score;
+      const cntA = a.game.codes_count || 0;
+      const cntB = b.game.codes_count || 0;
+      if (cntB !== cntA) return cntB - cntA;
+      return a.game.name.localeCompare(b.game.name);
+    });
+
+    const topGames = scoredGames.slice(0, limit).map((item) => item.game);
+
+    // Sort codes by relevance score DESC
+    matchedCodes.sort((a, b) => {
+      if (b.score !== a.score) return b.score - a.score;
+      const aActive = a.code.status === 'active' || a.code.status === 'verified' ? 1 : 0;
+      const bActive = b.code.status === 'active' || b.code.status === 'verified' ? 1 : 0;
+      return bActive - aActive;
+    });
+
+    const topCodes = matchedCodes.slice(0, limit).map((item) => ({ game: item.game, code: item.code }));
+
     return {
-      games: matchedGames,
-      codes: matchedCodes,
-      totalMatches: matchedGames.length + matchedCodes.length,
+      games: topGames,
+      codes: topCodes,
+      totalMatches: scoredGames.length + matchedCodes.length,
     };
   }
 

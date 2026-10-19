@@ -140,10 +140,14 @@ export function smartVietnameseMatch(
   const queryCompact = queryNorm.replace(/\s+/g, '');
   if (targetCompact.includes(queryCompact)) return true;
 
-  // 4. Multi-token match: all search words exist
+  // 4. Multi-token match: requires whole words or word prefixes to prevent false positive substrings
   const queryWords = queryNorm.split(/\s+/).filter(Boolean);
   if (queryWords.length > 1) {
-    const allWordsPresent = queryWords.every((word) => targetNorm.includes(word));
+    const targetWords = targetNorm.split(/\s+/).filter(Boolean);
+    const targetWordSet = new Set(targetWords);
+    const allWordsPresent = queryWords.every(
+      (word) => targetWordSet.has(word) || targetWords.some((tw) => tw.startsWith(word))
+    );
     if (allWordsPresent) return true;
   }
 
@@ -159,12 +163,202 @@ export function smartVietnameseMatch(
     }
   }
 
-  // 6. Initials Matching
+  // 6. Initials Matching (exact match or prefix match on whole initials)
   const targetWords = targetNorm.split(/\s+/).filter(Boolean);
   const initials = targetWords.map((w) => w[0]).join('');
-  if (initials && initials.includes(queryCompact)) return true;
+  if (initials === queryCompact || initials.startsWith(queryCompact)) return true;
 
   return false;
+}
+
+export function calculateGameSearchScore(
+  game: {
+    name?: string;
+    slug?: string;
+    publisher?: string;
+    category?: string;
+    description?: string;
+    is_hot?: boolean | number;
+    is_featured?: boolean | number;
+    codes_count?: number;
+  },
+  searchQuery: string
+): { score: number; matchType: string } {
+  if (!searchQuery || !searchQuery.trim()) {
+    return { score: 0, matchType: 'none' };
+  }
+
+  const rawQuery = searchQuery.trim().toLowerCase();
+  const queryNorm = normalizeVietnamese(rawQuery);
+  const queryCompact = queryNorm.replace(/\s+/g, '');
+  if (!queryNorm && !queryCompact) return { score: 0, matchType: 'none' };
+
+  const nameRaw = (game.name || '').trim().toLowerCase();
+  const nameNorm = normalizeVietnamese(game.name || '');
+  const nameCompact = nameNorm.replace(/\s+/g, '');
+
+  const slugRaw = (game.slug || '').trim().toLowerCase();
+  const slugNorm = normalizeVietnamese(slugRaw);
+  const slugCompact = slugNorm.replace(/\s+/g, '');
+
+  const publisherRaw = (game.publisher || '').trim().toLowerCase();
+  const publisherNorm = normalizeVietnamese(game.publisher || '');
+
+  const categoryRaw = (game.category || '').trim().toLowerCase();
+  const categoryNorm = normalizeVietnamese(game.category || '');
+
+  let score = 0;
+  let matchType = 'none';
+
+  // 1. Exact match with game name
+  if (nameRaw === rawQuery || nameNorm === queryNorm || nameCompact === queryCompact) {
+    score = 10000;
+    matchType = 'exact_name';
+  }
+  // 2. Exact match with slug
+  else if (slugRaw === rawQuery || slugNorm === queryNorm || slugCompact === queryCompact) {
+    score = 9500;
+    matchType = 'exact_slug';
+  }
+  // 3. Name starts with query
+  else if (nameNorm.startsWith(queryNorm) || nameRaw.startsWith(rawQuery) || nameCompact.startsWith(queryCompact)) {
+    score = 8500;
+    matchType = 'name_prefix';
+  }
+  // 4. Slug starts with query
+  else if (slugNorm.startsWith(queryNorm) || slugRaw.startsWith(rawQuery) || slugCompact.startsWith(queryCompact)) {
+    score = 8000;
+    matchType = 'slug_match';
+  }
+  // 5. Gaming Acronym / Abbreviation Match
+  else if (queryCompact.length >= 2 && queryCompact.length <= 6) {
+    const mapped = GAME_ACRONYM_MAP[queryCompact];
+    if (mapped) {
+      for (const phrase of mapped) {
+        const normPhrase = normalizeVietnamese(phrase);
+        if (nameNorm.includes(normPhrase) || slugNorm.includes(normPhrase)) {
+          score = 7800;
+          matchType = 'acronym';
+          break;
+        }
+      }
+    }
+    if (score === 0) {
+      const initials = nameNorm.split(/[\s\-:_]+/).filter(Boolean).map((w) => w[0]).join('');
+      if (initials === queryCompact) {
+        score = 7500;
+        matchType = 'acronym';
+      } else if (initials.startsWith(queryCompact)) {
+        score = 7000;
+        matchType = 'acronym';
+      }
+    }
+  }
+
+  // 6. Name contains query phrase (require word boundary or length >= 3 to prevent short noise like "ff" in "Offline")
+  if (score === 0) {
+    const isWordBounded =
+      nameNorm.startsWith(queryNorm + ' ') ||
+      nameNorm.includes(' ' + queryNorm + ' ') ||
+      nameNorm.endsWith(' ' + queryNorm) ||
+      nameRaw.startsWith(rawQuery + ' ') ||
+      nameRaw.includes(' ' + rawQuery + ' ') ||
+      nameRaw.endsWith(' ' + rawQuery);
+
+    if (queryNorm.length >= 3 && (nameNorm.includes(queryNorm) || nameRaw.includes(rawQuery) || nameCompact.includes(queryCompact))) {
+      score = 6800;
+      matchType = 'name_sub';
+    } else if (queryNorm.length < 3 && isWordBounded) {
+      score = 6800;
+      matchType = 'name_sub';
+    } else if (slugNorm.includes(queryNorm) || slugRaw.includes(rawQuery)) {
+      if (queryNorm.length >= 3 || slugRaw.startsWith(rawQuery + '-') || slugRaw.includes('-' + rawQuery + '-') || slugRaw.endsWith('-' + rawQuery)) {
+        score = 6500;
+        matchType = 'slug_match';
+      }
+    }
+  }
+
+  // 7. Word boundary match in name
+  if (score === 0) {
+    const wordsInName = nameNorm.split(/[\s\-:_]+/).filter(Boolean);
+    const nameWordSet = new Set(wordsInName);
+    const qTokens = queryNorm.split(' ').filter(Boolean);
+    if (qTokens.length > 1 && qTokens.every((tok) => nameWordSet.has(tok) || wordsInName.some((w) => w.startsWith(tok)))) {
+      score = 6200;
+      matchType = 'name_word';
+    } else if (wordsInName.some((w) => w === queryNorm)) {
+      score = 5500;
+      matchType = 'name_word';
+    } else if (wordsInName.some((w) => w.startsWith(queryNorm))) {
+      score = 5000;
+      matchType = 'name_word';
+    }
+  }
+
+  // 8. Secondary initials
+  if (score === 0 && queryCompact.length >= 2 && queryCompact.length <= 6) {
+    const initials = nameNorm.split(/[\s\-:_]+/).filter(Boolean).map((w) => w[0]).join('');
+    if (initials.includes(queryCompact)) {
+      score = 4000;
+      matchType = 'acronym';
+    }
+  }
+
+  // 9. Publisher match
+  if (score === 0) {
+    if (publisherRaw === rawQuery || publisherNorm === queryNorm) {
+      score = 2500;
+      matchType = 'publisher';
+    } else if (publisherNorm.startsWith(queryNorm) || publisherRaw.startsWith(rawQuery)) {
+      score = 2000;
+      matchType = 'publisher';
+    } else if (publisherNorm.includes(queryNorm) || publisherRaw.includes(rawQuery)) {
+      score = 1500;
+      matchType = 'publisher';
+    }
+  }
+
+  // 10. Category match
+  if (score === 0) {
+    if (categoryRaw === rawQuery || categoryNorm === queryNorm) {
+      score = 1000;
+      matchType = 'category';
+    } else if (categoryNorm.includes(queryNorm) || categoryRaw.includes(rawQuery)) {
+      score = 800;
+      matchType = 'category';
+    }
+  }
+
+  // 11. Description match
+  if (score === 0 && game.description) {
+    const descNorm = normalizeVietnamese(game.description);
+    if (descNorm.includes(queryNorm)) {
+      score = 1200;
+      matchType = 'description';
+    } else {
+      const qTokens = queryNorm.split(' ').filter(Boolean);
+      const descWords = descNorm.split(/[\s\-:_]+/).filter(Boolean);
+      const descWordSet = new Set(descWords);
+      if (qTokens.length > 1 && qTokens.every((tok) => descWordSet.has(tok) || descWords.some((w) => w.startsWith(tok)))) {
+        score = 800;
+        matchType = 'description';
+      }
+    }
+  }
+
+  // Quality bonuses & length penalty
+  if (score > 0) {
+    if (score >= 6000 && nameNorm) {
+      const lengthDiff = Math.max(0, nameNorm.length - queryNorm.length);
+      score -= Math.min(300, lengthDiff * 2);
+    }
+    if (game.is_hot) score += 30;
+    if (game.is_featured) score += 20;
+    if ((game.codes_count || 0) > 0) score += 50;
+  }
+
+  return { score, matchType };
 }
 
 // In-Memory Isolation Cache in Cloudflare Workers
@@ -497,47 +691,73 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
         );
       }
 
-      const matchedGames: GameItem[] = [];
-      const matchedCodes: Array<{ game: GameItem; code: GiftCode }> = [];
+      const scoredGames: Array<{ game: GameItem; score: number }> = [];
+      const matchedCodes: Array<{ game: GameItem; code: GiftCode; score: number }> = [];
       const seenCodeKeys = new Set<string>();
 
       for (const game of catalog.games) {
-        if (
-          smartVietnameseMatch(
-            [game.name, game.slug, game.publisher, game.category, game.description, game.so_giay_phep],
-            q
-          )
-        ) {
-          if (matchedGames.length < limit) {
-            // Include top 2 active codes preview
-            matchedGames.push({
+        const scoreRes = calculateGameSearchScore(game, q);
+        if (scoreRes.score > 0) {
+          scoredGames.push({
+            game: {
               ...game,
               codes: (game.codes || []).slice(0, 2),
-            });
-          }
+            },
+            score: scoreRes.score,
+          });
         }
 
         const codes = game.codes || [];
         for (const code of codes) {
           const codeKey = `${game.id}_${code.code}`;
-          if (
-            !seenCodeKeys.has(codeKey) &&
-            smartVietnameseMatch([code.code, code.rewards, game.name, game.slug], q)
-          ) {
-            seenCodeKeys.add(codeKey);
-            if (matchedCodes.length < limit) {
-              matchedCodes.push({ game, code });
+          if (!seenCodeKeys.has(codeKey)) {
+            const codeVal = (code.code || '').trim().toLowerCase();
+            const cleanQ = q.toLowerCase();
+            let codeScore = 0;
+            if (codeVal === cleanQ) {
+              codeScore = 10000;
+            } else if (codeVal.startsWith(cleanQ)) {
+              codeScore = 8000;
+            } else if (codeVal.includes(cleanQ)) {
+              codeScore = 6000;
+            } else if (smartVietnameseMatch([code.code, code.rewards], q)) {
+              codeScore = 4000;
+            } else if (scoreRes.score >= 6000) {
+              codeScore = scoreRes.score - 2000;
+            }
+
+            if (codeScore > 0) {
+              seenCodeKeys.add(codeKey);
+              matchedCodes.push({ game, code, score: codeScore });
             }
           }
         }
       }
 
+      scoredGames.sort((a, b) => {
+        if (b.score !== a.score) return b.score - a.score;
+        const cntA = a.game.codes_count || 0;
+        const cntB = b.game.codes_count || 0;
+        if (cntB !== cntA) return cntB - cntA;
+        return a.game.name.localeCompare(b.game.name);
+      });
+
+      matchedCodes.sort((a, b) => {
+        if (b.score !== a.score) return b.score - a.score;
+        const aActive = a.code.status === 'active' || a.code.status === 'verified' ? 1 : 0;
+        const bActive = b.code.status === 'active' || b.code.status === 'verified' ? 1 : 0;
+        return bActive - aActive;
+      });
+
+      const topGames = scoredGames.slice(0, limit).map((item) => item.game);
+      const topCodes = matchedCodes.slice(0, limit).map((item) => ({ game: item.game, code: item.code }));
+
       return new Response(
         JSON.stringify({
           success: true,
-          games: matchedGames,
-          codes: matchedCodes,
-          totalMatches: matchedGames.length + matchedCodes.length,
+          games: topGames,
+          codes: topCodes,
+          totalMatches: scoredGames.length + matchedCodes.length,
         }),
         {
           headers: {
@@ -590,14 +810,19 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
 
     let filtered = catalog.games;
 
-    // Filter A: Search
+    // Filter A: Search with relevance scoring
+    const searchScoreMap = new Map<string, number>();
     if (searchQuery) {
-      filtered = filtered.filter((g) =>
-        smartVietnameseMatch(
-          [g.name, g.publisher, g.slug, g.category, g.description, g.so_giay_phep],
-          searchQuery
-        )
-      );
+      filtered = filtered
+        .map((g) => {
+          const res = calculateGameSearchScore(g, searchQuery);
+          if (res.score > 0) {
+            searchScoreMap.set(g.slug, res.score);
+          }
+          return { game: g, score: res.score };
+        })
+        .filter((item) => item.score > 0)
+        .map((item) => item.game);
     }
 
     // Filter B: Category
@@ -615,50 +840,62 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
       filtered = filtered.filter((g) => (g.codes_count || 0) > 0);
     }
 
-    // Sorting
-    filtered = [...filtered].sort((a, b) => {
-      let valA: number | string = 0;
-      let valB: number | string = 0;
+    // Sorting (When searching, prioritize relevance score unless explicit sort by name or rating)
+    if (searchQuery && searchScoreMap.size > 0 && sortBy !== 'name' && sortBy !== 'rating') {
+      filtered = [...filtered].sort((a, b) => {
+        const sA = searchScoreMap.get(a.slug) || 0;
+        const sB = searchScoreMap.get(b.slug) || 0;
+        if (sB !== sA) return sB - sA;
+        const cntA = a.codes_count || 0;
+        const cntB = b.codes_count || 0;
+        if (cntB !== cntA) return cntB - cntA;
+        return a.name.localeCompare(b.name);
+      });
+    } else {
+      filtered = [...filtered].sort((a, b) => {
+        let valA: number | string = 0;
+        let valB: number | string = 0;
 
-      if (sortBy === 'updated') {
-        valA = a.codes?.[0]?.added_at || a.release_date || '1970-01-01';
-        valB = b.codes?.[0]?.added_at || b.release_date || '1970-01-01';
-      } else if (sortBy === 'popular') {
-        valA =
-          (a.is_hot ? 1000 : 0) +
-          (a.is_featured ? 500 : 0) +
-          (a.rating || 0) * 50 +
-          (a.codes_count || 0) * 10;
-        valB =
-          (b.is_hot ? 1000 : 0) +
-          (b.is_featured ? 500 : 0) +
-          (b.rating || 0) * 50 +
-          (b.codes_count || 0) * 10;
-      } else if (sortBy === 'release_date') {
-        valA = a.release_date || '1970-01-01';
-        valB = b.release_date || '1970-01-01';
-      } else if (sortBy === 'license_date') {
-        valA = a.ngay_cap_phep || '1970-01-01';
-        valB = b.ngay_cap_phep || '1970-01-01';
-      } else if (sortBy === 'name') {
-        valA = a.name.toLowerCase();
-        valB = b.name.toLowerCase();
-        return sortOrder === 'asc'
-          ? (valA as string).localeCompare(valB as string)
-          : (valB as string).localeCompare(valA as string);
-      } else if (sortBy === 'codes_count') {
-        valA = a.codes_count || 0;
-        valB = b.codes_count || 0;
-      } else if (sortBy === 'rating') {
-        valA = a.rating || 0;
-        valB = b.rating || 0;
-      }
+        if (sortBy === 'updated') {
+          valA = a.codes?.[0]?.added_at || a.release_date || '1970-01-01';
+          valB = b.codes?.[0]?.added_at || b.release_date || '1970-01-01';
+        } else if (sortBy === 'popular') {
+          valA =
+            (a.is_hot ? 1000 : 0) +
+            (a.is_featured ? 500 : 0) +
+            (a.rating || 0) * 50 +
+            (a.codes_count || 0) * 10;
+          valB =
+            (b.is_hot ? 1000 : 0) +
+            (b.is_featured ? 500 : 0) +
+            (b.rating || 0) * 50 +
+            (b.codes_count || 0) * 10;
+        } else if (sortBy === 'release_date') {
+          valA = a.release_date || '1970-01-01';
+          valB = b.release_date || '1970-01-01';
+        } else if (sortBy === 'license_date') {
+          valA = a.ngay_cap_phep || '1970-01-01';
+          valB = b.ngay_cap_phep || '1970-01-01';
+        } else if (sortBy === 'name') {
+          valA = a.name.toLowerCase();
+          valB = b.name.toLowerCase();
+          return sortOrder === 'asc'
+            ? (valA as string).localeCompare(valB as string)
+            : (valB as string).localeCompare(valA as string);
+        } else if (sortBy === 'codes_count') {
+          valA = a.codes_count || 0;
+          valB = b.codes_count || 0;
+        } else if (sortBy === 'rating') {
+          valA = a.rating || 0;
+          valB = b.rating || 0;
+        }
 
-      if (sortOrder === 'desc') {
-        return valA < valB ? 1 : valA > valB ? -1 : 0;
-      }
-      return valA > valB ? 1 : valA < valB ? -1 : 0;
-    });
+        if (sortOrder === 'desc') {
+          return valA < valB ? 1 : valA > valB ? -1 : 0;
+        }
+        return valA > valB ? 1 : valA < valB ? -1 : 0;
+      });
+    }
 
     const total = filtered.length;
     const totalPages = Math.max(1, Math.ceil(total / limit));

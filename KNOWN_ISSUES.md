@@ -827,6 +827,24 @@
 
 ---
 
+### ISSUE-047: Bẫy Duyệt Mảng Tuyến Tính & Match Chuỗi Con Lỏng Lẻo Khiến Game Khớp Tên Nhất Bị Đẩy Xuống Dưới
+- **Triệu chứng**:
+  - Khi gõ từ khóa tìm kiếm (ví dụ "hắc tây du"), dropdown gợi ý tự động (Autocomplete) và danh mục game hiển thị các tựa game không liên quan (như `3Q Đào Đào Đào`, `Tam Quốc Tứ Thời Ca`, `Loạn Chiến 3Q`) ở các vị trí đầu tiên, trong khi tựa game khớp chính xác nhất là `Hắc Tây Du: Chương Cấm` lại bị đẩy xuống dưới hoặc biến mất khỏi top gợi ý.
+- **Nguyên nhân gốc rễ**:
+  1. *Duyệt mảng tuyến tính và slice sớm không sắp xếp*: Thuật toán duyệt qua mảng game, game nào khớp `smartVietnameseMatch` thì đẩy ngay vào danh sách và `break` khi đủ `limit = 6` mà không hề tính điểm tương quan (Relevance Score) và không sắp xếp.
+  2. *Nhiễu chuỗi con trong mô tả dài*: Kiểm tra `queryWords.every(w => target.includes(w))` trên toàn bộ chuỗi nối dài gồm cả mô tả 300 từ. Với từ khóa "hắc tây du", "hac" ăn lan vào "khắc chế", "tay" ăn lan vào "rảnh tay", "du" ăn lan vào "dùng xẻng" $\rightarrow$ mọi game có mô tả dài đều trả về `true` và cướp mất các vị trí đầu.
+  3. *Lỗi điều kiện sắp xếp Catalog*: `dataService.queryGames` bọc logic sort tìm kiếm trong `if (filter.sortBy === 'updated')`, trong khi mặc định của trang web là `filter.sortBy = 'release_date'`.
+- **Giải pháp chuẩn đã kiểm chứng**:
+  1. *Thang điểm Relevance Scoring chặt chẽ (`calculateGameSearchScore`)*: Exact title 10,000đ, Exact slug 9,500đ, Prefix 8,500đ, Acronyms 7,800đ, Subphrase 6,800đ, Word Boundary 6,200đ, Mô tả 800 - 1,200đ. Phạt nhẹ theo chênh lệch độ dài tên để ưu tiên game có tên ngắn gọn sát nghĩa.
+  2. *Sắp xếp toàn bộ trước khi slice*: Cả ở client (`dataService.searchAllGamesAndCodes`, `SearchAutocomplete.tsx` với `sortedGames`) và Cloudflare Edge (`/api/games?autocomplete=1`).
+  3. *Ràng buộc ranh giới từ (word boundary)*: Đối với từ khóa ngắn dưới 3 ký tự (ví dụ "ff"), bắt buộc phải có ranh giới từ hoặc dấu cách, tuyệt đối không cho phép "ff" ăn lan vào giữa từ như "Offline".
+- ⛔ **CÁCH SỬA ĐÃ THẤT BẠI - TUYỆT ĐỐI KHÔNG LẶP LẠI**:
+  - ❌ *Không duyệt mảng tuyến tính và push vào kết quả theo thứ tự database*: Phải tính điểm và sort DESC toàn bộ trước khi slice `limit`.
+  - ❌ *Không kiểm tra `target.includes(sub)` đối với từ khóa ngắn hoặc không có ranh giới từ trong mô tả dài*: Gây tỷ lệ false positive cực cao.
+  - ❌ *Không bọc logic sort tìm kiếm trong điều kiện `sortBy === 'updated'`*: Khi người dùng có nhập từ khóa tìm kiếm, mức độ tương quan (relevance) luôn phải được ưu tiên hàng đầu.
+
+---
+
 ## 2. QUY TRÌNH BẮT BUỘC TRƯỚC KHI SỬA CODE (PRE-FLIGHT CHECKLIST)
 
 Mọi nhà phát triển hoặc AI Agent khi nhận yêu cầu sửa đổi mã nguồn **PHẢI** thực hiện đủ 4 bước sau:

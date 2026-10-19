@@ -21,6 +21,7 @@ import { dataService } from '../services/dataService';
 import { marketingService } from '../services/marketingService';
 import { useLanguage } from '../context/LanguageContext';
 import { isG1Licensed } from '../utils/licenseUtils';
+import { calculateGameSearchScore } from '../utils/textUtils';
 import {
   getRecentSearches,
   saveRecentSearch,
@@ -138,15 +139,30 @@ export const SearchAutocomplete: React.FC<SearchAutocompleteProps> = ({
     return () => clearTimeout(timer);
   }, [searchQuery]);
 
+  // Sort matching games by relevance score so the closest title match is always at index 0 (Top #1)
+  const sortedGames = useMemo(() => {
+    const q = searchQuery.trim();
+    if (!q || searchResults.games.length <= 1) return searchResults.games;
+    return [...searchResults.games].sort((a, b) => {
+      const scoreA = calculateGameSearchScore(a, q).score;
+      const scoreB = calculateGameSearchScore(b, q).score;
+      if (scoreB !== scoreA) return scoreB - scoreA;
+      const cntA = a.codes_count || 0;
+      const cntB = b.codes_count || 0;
+      if (cntB !== cntA) return cntB - cntA;
+      return a.name.localeCompare(b.name);
+    });
+  }, [searchResults.games, searchQuery]);
+
   const hasResults = searchResults.totalMatches > 0;
 
   // Flattened items for keyboard navigation: games first, then codes
   const allNavItems = useMemo(() => {
     const items: Array<{ type: 'game'; data: GameItem } | { type: 'code'; data: { game: GameItem; code: GiftCode } }> = [];
-    searchResults.games.forEach((g) => items.push({ type: 'game', data: g }));
+    sortedGames.forEach((g) => items.push({ type: 'game', data: g }));
     searchResults.codes.forEach((c) => items.push({ type: 'code', data: c }));
     return items;
-  }, [searchResults]);
+  }, [sortedGames, searchResults.codes]);
 
   // Global key listener to press '/' to focus search
   useEffect(() => {
@@ -490,18 +506,18 @@ export const SearchAutocomplete: React.FC<SearchAutocompleteProps> = ({
           ) : hasResults ? (
             <div className="overflow-y-auto flex-1 scrollbar-thin p-2 space-y-3">
               {/* 1. MATCHING GAMES */}
-              {searchResults.games.length > 0 && (
+              {sortedGames.length > 0 && (
                 <div>
                   <div className="flex items-center justify-between px-2.5 py-1.5 text-[11px] font-bold uppercase tracking-wider text-slate-400">
                     <span className="flex items-center gap-1.5 text-primary-light">
                       <Gift className="w-3.5 h-3.5 text-primary-light" />
-                      {t.search.matchingGames} ({searchResults.games.length})
+                      {t.search.matchingGames} ({sortedGames.length})
                     </span>
                     <span className="text-[10px] lowercase text-slate-500">nhấn để xem chi tiết</span>
                   </div>
 
                   <div className="space-y-1">
-                    {searchResults.games.map((game, idx) => {
+                    {sortedGames.map((game, idx) => {
                       const isHighlighted = selectedIndex === idx;
                       const totalCodes = game.codes_count || (game.codes ? game.codes.length : 0);
 
@@ -596,7 +612,7 @@ export const SearchAutocomplete: React.FC<SearchAutocompleteProps> = ({
 
                   <div className="space-y-1.5">
                     {searchResults.codes.map((item, idx) => {
-                      const globalIdx = searchResults.games.length + idx;
+                      const globalIdx = sortedGames.length + idx;
                       const isHighlighted = selectedIndex === globalIdx;
                       const isExpired = item.code.status === 'expired';
                       const codeKey = `${item.game.name}_${item.code.code}`;

@@ -7,6 +7,44 @@ Mỗi mục sửa lỗi đều ghi nhận **Nguyên nhân gốc rễ (Root Cause
 
 ## [2026-10-19]
 
+### 77. Nâng Cấp Thuật Toán Chấm Điểm Tương Quan (Relevance Scoring) & Đẩy Tựa Game Khớp Tên Nhất Lên Top 1 Trong Tìm Kiếm
+- **Mô tả & Yêu cầu Người Dùng**:
+  - *"Khi tôi tìm kiếm, cụm từ phù hưpj với tên game nhất không ở trên cùng, bạn giúp tôi đẩy game mà người dùng tìm liên quan nhất lên trên cùng đi"* kèm ảnh chụp màn hình gõ từ khóa `hắc tây du` nhưng dropdown Autocomplete hiện ra: `3Q Đào Đào Đào`, `Tam Quốc Tứ Thời Ca`, `Loạn Chiến 3Q`... thay vì tựa game khớp chính xác nhất là `Hắc Tây Du: Chương Cấm` (`hac-tay-du-chuong-cam`).
+- **Nguyên nhân gốc rễ**:
+  1. *Duyệt mảng tuyến tính không sắp xếp*: Trong `dataService.searchAllGamesAndCodes` và Edge API `functions/api/games.ts?autocomplete=1`, hệ thống lặp qua danh sách game theo thứ tự xuất hiện trong database. Game nào trả về `true` từ `smartVietnameseMatch` được `push()` ngay vào kết quả và dừng vòng lặp khi đủ `limit = 6` mà hoàn toàn không tính điểm tương quan và không sắp xếp.
+  2. *Nhiễu chuỗi con trong mô tả dài*: Trong `smartVietnameseMatch`, hàm kiểm tra `queryWords.every(w => targetNorm.includes(w))` trên toàn bộ chuỗi nối dài bao gồm cả trường `description` (300+ từ). Với từ khóa `hắc tây du`: chữ `hac` bị khớp vào chữ `khắc` (trong "khắc chế"), chữ `tay` khớp vào `rảnh tay`, chữ `du` khớp vào `dùng` (trong "dùng xẻng"). Do đó hầu hết mọi tựa game có mô tả dài (như `3Q Đào Đào Đào`) đều trả về `true` và cướp mất 6 vị trí đầu trước khi vòng lặp duyệt tới `Hắc Tây Du: Chương Cấm`.
+  3. *Lỗi điều kiện sắp xếp Catalog*: Trong `dataService.queryGames`, khối sắp xếp theo điểm tương quan tìm kiếm bị bọc trong `if (filter.sortBy === 'updated')`, trong khi mặc định catalog của web là `filter.sortBy = 'release_date'`, dẫn đến catalog grid không được xếp theo độ liên quan khi tìm kiếm.
+- **Giải pháp toàn diện đã triển khai (Solution)**:
+  1. *Chuẩn hóa & Nâng cấp Thang điểm Tương quan (`calculateGameSearchScore` trong `src/utils/textUtils.ts` & `functions/api/games.ts`)*:
+     - Exact Match trên tên game: 10,000 điểm.
+     - Exact Match trên slug: 9,500 điểm.
+     - Tên game bắt đầu bằng từ khóa (Prefix Match): 8,500 điểm.
+     - Slug bắt đầu bằng từ khóa: 8,000 điểm.
+     - Viết tắt game chuẩn và Initials (lq, ff, hsr, htd...): 7,000 - 7,800 điểm.
+     - Tên game chứa trọn vẹn cụm từ tìm kiếm: 6,800 điểm.
+     - Tên game chứa tất cả các từ tìm kiếm dưới dạng từ độc lập: 6,200 điểm.
+     - Khớp Nhà phát hành: 2,000 - 2,500 điểm.
+     - Khớp Thể loại: 800 - 1,000 điểm.
+     - Khớp Mô tả: 800 - 1,200 điểm (buộc phải khớp cả cụm hoặc theo danh sách từ độc lập, không ăn lan chuỗi con).
+     - Phạt nhẹ theo chênh lệch độ dài giữa tên game và từ khóa để ưu tiên tựa game có tên ngắn, gọn gàng và sát nghĩa nhất.
+     - Ràng buộc ranh giới từ (word boundary) cho các từ khóa ngắn dưới 3 ký tự để loại bỏ triệt để việc chữ `ff` ăn lan vào `Offline`.
+  2. *Sắp xếp Triệt để Toàn Bộ Kết Quả*:
+     - `src/services/dataService.ts`: Trong `searchAllGamesAndCodes`, tính điểm cho toàn bộ 624 game, sắp xếp giảm dần theo `score`, sau đó mới lấy `topGames = scoredGames.slice(0, limit)`.
+     - `src/components/SearchAutocomplete.tsx`: Bổ sung `sortedGames` với `useMemo` tính lại điểm và sắp xếp kết quả client-side để đảm bảo kết quả ở vị trí số 1 luôn là tựa game khớp sát nhất với ô input.
+     - `functions/api/games.ts`: Cập nhật endpoint `/api/games?autocomplete=1` chấm điểm và sort toàn bộ danh mục trước khi cắt `limit`, cập nhật endpoint `/api/games?search=...` ưu tiên sort theo relevance score.
+- **Kết quả kiểm thử**:
+  - Gõ `hắc tây du` hoặc `hac tay du` $\rightarrow$ Top #1: `Hắc Tây Du: Chương Cấm` (Score: 8,528). Các game không liên quan bị loại bỏ 100%.
+  - Gõ `lq` $\rightarrow$ Top #1: `Liên Quân Mobile` (Score: 7,822).
+  - Gõ `ff` $\rightarrow$ Top #1: `Free Fire` (Score: 7,836), không còn bị nhận nhầm bởi `Offline`.
+  - Gõ `hsr` $\rightarrow$ Top #1: `Honkai: Star Rail` (Score: 7,874).
+  - Gõ `delta force` $\rightarrow$ Top #1: `Delta Force` (Score: 10,100).
+  - Audit zero test artifacts: Sạch 100% (0 artifact test).
+  - Biên dịch Vite Frontend & Prerender 672 trang tĩnh SEO thành công.
+
+---
+
+## [2026-10-19]
+
 ### 76. Phát Triển Tính Năng Phát Code Theo Thời Gian Cho Toàn Web Chờ (Global Release Interval), Tùy Chỉnh Thông Báo & Phòng Chờ Trực Tuyến (Live Waiting Room)
 - **Mô tả & Yêu cầu Người Dùng**:
   - *"Trong admin, mục giveaway, bạn có thể lên cho tôi kế hoạch phát code theo thời gian cho toàn web chờ không? CỤ thể khi người A giật code, thì sau 1 khoảng thời gianddax điều chỉnh từ adim, code tiếp theo mới bị giật tiếp, người B và C... cũng phải chờ đến thời gian này mới giật được. Có cả cài đặt thông báo tùy chỉnh khi giật được code và không. Có thể tùy chỉnh có bao nhiêu người đang chờ code tiếp theo. Bạn lên kế hoạch giúp tôi."*
