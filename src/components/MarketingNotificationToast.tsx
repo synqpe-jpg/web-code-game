@@ -158,6 +158,20 @@ export const MarketingNotificationToast: React.FC<MarketingNotificationToastProp
         return;
       }
     }
+    if (notif.type === 'RESTOCK_PRODUCT' && notif.productId) {
+      if (deletedStoreSet.has(notif.productId) || deletedUtilSet.has(notif.productId) || deletedGwSet.has(notif.productId)) {
+        return;
+      }
+      // QUY TẮC BẮT BUỘC TỪ NGƯỜI DÙNG: Chỉ thông báo những mục còn hàng đang bán trên web
+      const realStock = marketingService.getRealStockFor(notif.productId);
+      if (realStock <= 0) {
+        return;
+      }
+      const displayStock = marketingService.getDisplayStock(notif.productId, realStock);
+      if (displayStock <= 0) {
+        return;
+      }
+    }
 
     const finalNotif = marketingService.sanitizeNotificationMasking(notif);
 

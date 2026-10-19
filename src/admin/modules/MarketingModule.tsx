@@ -411,7 +411,14 @@ export const MarketingModule: React.FC<MarketingModuleProps> = ({ onShowToast })
       } as any, true, true);
       onShowToast('Đã bắn thử thông báo Nạp tiền Ví!', `${maskedAccount} vừa nạp thành công ${testAmount.toLocaleString('vi-VN')}đ vào ví Core.`, 'info');
     } else if (type === 'RESTOCK_PRODUCT') {
-      const u = utilityProducts.find((item) => (item.stock_quantity ?? 0) > 0) || utilityProducts[0] || { id: 'util_test', title: 'Tài khoản Netflix Premium 1 Tháng' };
+      const activeUtils = utilityProducts.filter((item) => (item.stock_quantity ?? 0) > 0 && item.is_active !== false);
+      const activeStores = storeProducts.filter((item) => (item.stock_quantity ?? 0) > 0 && item.is_active !== false);
+      const u = activeUtils[0] || activeStores[0];
+      if (!u) {
+        onShowToast('Chưa có sản phẩm còn hàng!', 'Hiện tại tất cả các mục đều hết hàng hoặc bị ẩn, vui lòng thêm tồn kho trước khi test bổ sung.', 'error');
+        return;
+      }
+      const itemType = (u as any).category ? 'utility' : 'store';
       const testId = `test_restock_${Date.now()}`;
       marketingService.boostProductStock(u.id, 20, testId);
       marketingService.pushRealEvent({
@@ -424,7 +431,7 @@ export const MarketingModule: React.FC<MarketingModuleProps> = ({ onShowToast })
         productId: u.id,
         productName: u.title,
         restockAmount: 20,
-        itemType: 'utility',
+        itemType,
         isRealUser: true,
         timestamp: Date.now(),
         localOrigin: true,

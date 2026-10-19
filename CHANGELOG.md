@@ -7,6 +7,33 @@ Mỗi mục sửa lỗi đều ghi nhận **Nguyên nhân gốc rễ (Root Cause
 
 ## [2026-10-19]
 
+### 73. Chuẩn Hóa Thông Báo Marketing Bổ Sung Tồn Kho (RESTOCK_PRODUCT): Chỉ Thông Báo Những Mục Còn Hàng Đang Bán Trên Web
+- **Mô tả & Yêu cầu Người Dùng**:
+  - *"Thông báo marketing fomo góc dưới trái màn hình, trong mục thông báo bổ sung hàng, bạn theiets lập cho tôi chỉ thông báo những mục còn hàng đang bán trênwweb."* (Kèm ảnh chụp màn hình thông báo *"Kho hàng vừa bổ sung thêm +20 Basic 7 Days VS Phone!"* trong khi sản phẩm này trên web đang hết hàng: `stock_quantity = 0`).
+- **Nguyên nhân gốc rễ (Root Cause)**:
+  - Trong [`src/services/marketingService.ts`](file:///c:/4%20Antigravity%20all/13%20web%20code%20game/src/services/marketingService.ts), bộ tạo thông báo PRNG tất định `getDeterministicNotification` cho loại `RESTOCK_PRODUCT` trước đây chỉ kiểm tra cờ `p.is_active !== false` và `pw.priority !== 'off'`, hoàn toàn bỏ qua việc kiểm tra tồn kho thật (`p.stock_quantity > 0` hoặc `getDisplayStock() > 0`).
+  - Do đó, các sản phẩm đã hết hàng trong kho thật (như `Basic 7 Days VS Phone` có `stock_quantity = 0`) vẫn bị đưa vào danh sách ứng viên `restockCandidates` để sinh thông báo "Bổ sung tồn kho", khiến khách hàng bấm vào sản phẩm thì thấy hiển thị "Tạm hết hàng".
+- **Giải pháp toàn diện đã triển khai (Solution)**:
+  1. *Lọc Nghiêm Ngặt Ứng Viên Bổ Sung Hàng (`src/services/marketingService.ts`)*:
+     - Với `storeProducts`: Bắt buộc kiểm tra `realStock = Number(p.stock_quantity) > 0`, `realStock >= minRealStock`, và `getDisplayStock(p.id, realStock) > 0`.
+     - Với `utilityProducts`: Bắt buộc kiểm tra `realStock = Number(u.stock_quantity) > 0`, `realStock >= minRealStock`, và `getDisplayStock(u.id, realStock) > 0`.
+     - Với `giveaways`: Bắt buộc kiểm tra `realStock = codes_pool.length || remaining_codes > 0`, `realStock >= minRealStock`, và `getDisplayStock(g.id, realStock) > 0`.
+     - Áp dụng trọng số ưu tiên Admin (`priorityWeight`: `high = x5`, `normal = x2`, `low = x1`) và tỷ lệ danh mục (`categoryRatio`) khi bốc thăm ngẫu nhiên.
+     - Nếu toàn bộ các mục đều hết hàng: Tự động fallback sang các loại thông báo khác (`COPY_CODE`, `BUY_PRODUCT`, `CLAIM_GIVEAWAY`, `DEPOSIT_WALLET`) thay vì sinh thông báo rỗng hoặc lỗi.
+  2. *Bảo Vệ Tại Nguồn Sinh Event Tức Thì (`marketingService.recordRealRestock`)*:
+     - Kiểm tra `getRealStockFor(productId) > 0` và `getDisplayStock(productId, realStock) > 0` trước khi đẩy sự kiện bổ sung kho vào hàng đợi.
+  3. *Lớp Phòng Vệ Chiều Sâu Tại Toast Renderer (`src/components/MarketingNotificationToast.tsx`)*:
+     - Trong hàm `triggerNotification`, chặn 100% mọi thông báo `RESTOCK_PRODUCT` nếu ID sản phẩm nằm trong danh sách đã xóa hoặc có `realStock <= 0` / `displayStock <= 0`.
+  4. *Chuẩn Hóa Nút Test Admin (`src/admin/modules/MarketingModule.tsx`)*:
+     - Khi Admin bấm bắn thử thông báo Bổ sung tồn kho, hệ thống tự động tìm sản phẩm còn hàng thật (`stock_quantity > 0` & `is_active !== false`). Nếu không có sản phẩm nào còn hàng, hệ thống cảnh báo rõ ràng thay vì chọn bừa sản phẩm hết hàng.
+- **Kết quả kiểm thử & Triển khai**:
+  - Audit zero test artifacts: Sạch 100% (0 dữ liệu test).
+  - Biên dịch Vite Frontend & Prerender 672 trang tĩnh SEO thành công.
+  - Esbuild Cloudflare Edge Worker bundle thành công (`dist/_worker.js` 6.9MB).
+  - Tự động triển khai lên Cloudflare Pages (`web-code-game` và `admin-code-game-shop`) và đồng bộ GitHub.
+
+---
+
 ### 72. Hệ Thống Thông Báo Sự Kiện, Code Mới & Khuyến Mãi Qua Email Theo Nhu Cầu Người Dùng (Smart Email Notification System)
 - **Mô tả & Yêu cầu Người Dùng**:
   - *"Bạn lên phương án triền khai việc lấy thông báo sự kiện, code mới cho người dùng, người dùng có thể lựa chọn mail nhận những thông tin từ web như code mới của game do người dùng đăng ký, sự kiện phát code miễn phí, hay sản phẩm sale. CHo tôi phương án triển khai trước."*

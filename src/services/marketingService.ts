@@ -2060,6 +2060,14 @@ class MarketingService {
     restockAmount: number = 20,
     itemType: 'store' | 'utility' | 'giveaway' = 'utility'
   ): void {
+    // QUY TẮC BẮT BUỘC: Chỉ thông báo bổ sung hàng cho các mục còn hàng đang bán trên web
+    if (productId) {
+      const realStock = this.getRealStockFor(productId);
+      if (realStock <= 0) return;
+      const displayStock = this.getDisplayStock(productId, realStock);
+      if (displayStock <= 0) return;
+    }
+
     const now = this.getCalibratedNow();
     const amt = Math.max(1, restockAmount || 20);
     const event: MarketingNotification = {
@@ -4165,36 +4173,78 @@ class MarketingService {
 
       const restockCandidates: { id: string; title: string; itemType: 'store' | 'utility' | 'giveaway' }[] = [];
 
-      (Array.isArray(storeProducts) ? storeProducts : []).forEach((p) => {
-        if (p && p.is_active !== false && !deletedStoreSet.has(p.id)) {
-          const pw = this.getProductConfig(p.id);
-          if (pw.priority !== 'off') {
+      // QUY TẮC BẮT BUỘC TỪ NGƯỜI DÙNG: Chỉ thông báo những mục còn hàng đang bán trên web
+      if (canStore) {
+        (Array.isArray(storeProducts) ? storeProducts : []).forEach((p) => {
+          if (p && p.is_active !== false && !deletedStoreSet.has(p.id)) {
+            const realStock = Number(p.stock_quantity) || 0;
+            if (realStock <= 0) return;
+            const pw = this.getProductConfig(p.id);
+            if (pw.priority === 'off') return;
+            if (realStock < this.getMinRealStock(p.id)) return;
+            const displayStock = this.getDisplayStock(p.id, realStock);
+            if (displayStock <= 0) return;
+
             restockCandidates.push({ id: p.id, title: p.title, itemType: 'store' });
           }
-        }
-      });
+        });
+      }
 
-      (Array.isArray(utilityProducts) ? utilityProducts : []).forEach((u) => {
-        if (u && u.is_active !== false && !deletedUtilSet.has(u.id)) {
-          const pw = this.getProductConfig(u.id);
-          if (pw.priority !== 'off') {
+      if (canUtil) {
+        (Array.isArray(utilityProducts) ? utilityProducts : []).forEach((u) => {
+          if (u && u.is_active !== false && !deletedUtilSet.has(u.id)) {
+            const realStock = Number(u.stock_quantity) || 0;
+            if (realStock <= 0) return;
+            const pw = this.getProductConfig(u.id);
+            if (pw.priority === 'off') return;
+            if (realStock < this.getMinRealStock(u.id)) return;
+            const displayStock = this.getDisplayStock(u.id, realStock);
+            if (displayStock <= 0) return;
+
             restockCandidates.push({ id: u.id, title: u.title, itemType: 'utility' });
           }
-        }
-      });
+        });
+      }
 
-      (Array.isArray(giveaways) ? giveaways : []).forEach((g) => {
-        if (g && g.is_active !== false && !deletedGwSet.has(g.id)) {
-          const pw = this.getProductConfig(g.id);
-          if (pw.priority !== 'off') {
+      if (canGw) {
+        (Array.isArray(giveaways) ? giveaways : []).forEach((g) => {
+          if (g && g.is_active !== false && !deletedGwSet.has(g.id)) {
+            const realStock = Array.isArray(g.codes_pool)
+              ? g.codes_pool.length
+              : (typeof g.remaining_codes === 'number' ? g.remaining_codes : 0);
+            if (realStock <= 0) return;
+            const pw = this.getProductConfig(g.id);
+            if (pw.priority === 'off') return;
+            if (realStock < this.getMinRealStock(g.id)) return;
+            const displayStock = this.getDisplayStock(g.id, realStock);
+            if (displayStock <= 0) return;
+
             restockCandidates.push({ id: g.id, title: g.title, itemType: 'giveaway' });
           }
-        }
-      });
+        });
+      }
 
       if (restockCandidates.length > 0) {
         restockCandidates.sort((a, b) => String(a.id).localeCompare(String(b.id)));
-        const selected = restockCandidates[Math.floor(rng() * restockCandidates.length)];
+
+        // Áp dụng trọng số ưu tiên đã cấu hình trong Admin:
+        // 'high' (x5): xuất hiện gấp 5 lần, 'normal' (x2): xuất hiện 2 lần, 'low' (x1): 1 lần
+        const weightedCandidates: typeof restockCandidates = [];
+        restockCandidates.forEach((cand) => {
+          const pw = this.getProductConfig(cand.id);
+          const priorityWeight = pw.priority === 'high' ? 5 : pw.priority === 'low' ? 1 : 2;
+          const categoryRatio = cand.itemType === 'utility'
+            ? (utilWeight > 0 ? utilWeight : 10)
+            : cand.itemType === 'giveaway'
+            ? (gwWeight > 0 ? gwWeight : 20)
+            : (storeWeight > 0 ? storeWeight : 25);
+          const weight = Math.max(1, Math.round(priorityWeight * (categoryRatio / 10)));
+          for (let w = 0; w < weight; w++) {
+            weightedCandidates.push(cand);
+          }
+        });
+
+        const selected = weightedCandidates[Math.floor(rng() * weightedCandidates.length)] || restockCandidates[0];
         const pw = this.getProductConfig(selected.id);
         const restockAmount = Math.max(5, Number(pw.autoRestockAmount) || 20);
 
@@ -4222,7 +4272,7 @@ class MarketingService {
         };
       }
 
-      // Fallback nếu không có item nào
+      // Fallback nếu không có mục nào còn hàng đang bán trên web
       if (canCopy) chosenType = 'COPY_CODE';
       else if (canBuy) chosenType = 'BUY_PRODUCT';
       else if (canGw) chosenType = 'CLAIM_GIVEAWAY';
