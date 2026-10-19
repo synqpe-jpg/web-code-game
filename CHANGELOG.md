@@ -7,6 +7,35 @@ Mỗi mục sửa lỗi đều ghi nhận **Nguyên nhân gốc rễ (Root Cause
 
 ## [2026-10-19]
 
+### 74. Bổ Sung Toàn Diện 1,178 Mã Giftcode Còn Thiếu Từ File Muse ('Giftcode 2 Game.xlsx')
+- **Mô tả & Yêu cầu Người Dùng**:
+  - *"@[c:\4 Antigravity all\13 web code game\code Muse] Bạn kiểm tra file trong mục này, bổ sung các code còn thiếu vào web của tôi."*
+- **Kiểm tra & Phân tích Dữ liệu Nguồn (`code Muse/Giftcode 2 Game.xlsx`)**:
+  - File Excel gồm 5 sheet: `Mục lục`, `Ta Là Hắc Ngộ Không`, `Pirate Legends`, `Tổng hợp 340 game`, và `Tất cả code`.
+  - Sheet `Tất cả code` tổng hợp 1,890 mã code của 166 tựa game từ các link fanpage Facebook quét mới.
+  - Sheet `Ta Là Hắc Ngộ Không` bổ sung 38 mã code (trong đó có 15 mã mới chưa có trên web: `SANSANGDAINAO`, `1KCHIENHUU`, `TAYTHIENHACHOA`, `500THANHVIENHNK`, `TALAHACNKGROUP`, `TOP1BXH`, `TLHKH5`, `THAMTAY666`, `THAIVG999`, `DUYNHAT888`, `XINCHAOTHIENMENH`, `DAINAO`, `20KTHIENMENHNHAN`, `DUONGTANG`, `LONGCUNG666`).
+  - Sheet `Pirate Legends` bổ sung thêm các mã code đặc biệt (`Q3SV4U8J6GN1D`, `HTHTVIP`).
+  - Đối chiếu với cơ sở dữ liệu hiện có (5,317 giftcodes của 624 games), phát hiện **1,178 mã giftcode còn thiếu hoàn toàn trên web**.
+- **Giải pháp toàn diện đã triển khai (Solution)**:
+  1. *Mapping chuẩn xác 100% tựa game sang hệ thống Web (`scripts/sync_missing_codes_from_muse.py`)*:
+     - Map đầy đủ 165 tựa game từ Excel vào slug tương ứng trong `games188.json` (bao gồm các game đặc biệt: `The Ants: Underground Kingdom` $\rightarrow$ `vuong-quoc-kien`, `VNGGames Studios` $\rightarrow$ `play-together`, `Where Winds Meet` $\rightarrow$ `yen-van-thap-luc-thanh`, `Pirate Legends` $\rightarrow$ `pirate-legends`, `Blox Fruits` $\rightarrow$ `roblox`).
+  2. *Bổ sung 1,178 mã giftcode mới kèm metadata chuẩn mực*:
+     - Tạo bản ghi chi tiết: `id`, `gameSlug`, `codeValue`, `rewards`, `status = 'ACTIVE'`, `is_active = true`, `is_verified = true`, `expires_at = '2026-12-31'`, `sourceUrl`, `source`, `copyCount`.
+     - Đưa các mã code mới lên đầu danh sách để hiển thị ưu tiên ngay khi khách mở web.
+  3. *Cập nhật Hướng Dẫn Nhập Code (`instructions`) & Bộ Đếm Kho*:
+     - Cập nhật hướng dẫn nhập code chi tiết từ sheet `Tổng hợp 340 game` cho các game tương ứng.
+     - Tính toán lại chính xác `codes_count` và `free_codes_count` cho toàn bộ 624 game.
+  4. *Đồng bộ đồng loạt vào toàn bộ các kho dữ liệu dự án*:
+     - `src/data/crawled_codes_188.json`, `public/data/crawled_codes_188.json`, `data/crawled_codes_188.json`, `data/sources/crawled_codes_188.json`.
+     - `src/data/games188.json`, `public/data/games188.json`, `data/games188.json`, `data/sources/games188.json`.
+- **Kết quả kiểm thử & Triển khai**:
+  - Audit zero test artifacts: Sạch 100% (6,495 codes thực tế, 0 mã test).
+  - Biên dịch Vite Frontend & Prerender 672 trang tĩnh SEO thành công.
+  - Esbuild Cloudflare Edge Worker bundle thành công (`dist/_worker.js` 8.2MB).
+  - Tự động triển khai lên Cloudflare Pages (`web-code-game` và `admin-code-game-shop`) và đồng bộ GitHub.
+
+---
+
 ### 73. Chuẩn Hóa Thông Báo Marketing Bổ Sung Tồn Kho (RESTOCK_PRODUCT): Chỉ Thông Báo Những Mục Còn Hàng Đang Bán Trên Web
 - **Mô tả & Yêu cầu Người Dùng**:
   - *"Thông báo marketing fomo góc dưới trái màn hình, trong mục thông báo bổ sung hàng, bạn theiets lập cho tôi chỉ thông báo những mục còn hàng đang bán trênwweb."* (Kèm ảnh chụp màn hình thông báo *"Kho hàng vừa bổ sung thêm +20 Basic 7 Days VS Phone!"* trong khi sản phẩm này trên web đang hết hàng: `stock_quantity = 0`).
