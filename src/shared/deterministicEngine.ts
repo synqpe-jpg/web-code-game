@@ -370,7 +370,7 @@ export function calculateGlobalSnapshot(
     const threshold = pw?.autoRestockThreshold !== undefined ? Math.max(1, Number(pw.autoRestockThreshold) || 1) : 1;
     const restockAmount = pw?.autoRestockAmount !== undefined ? Math.max(1, Number(pw.autoRestockAmount) || 20) : 20;
     const rawPriority = pw?.priority || (isProdVirtualSoldZero ? 'off' : 'normal');
-    const priority = isProdVirtualSoldZero ? (virtualBonusConfig > 0 ? rawPriority : 'off') : rawPriority;
+    const priority = pw?.priority || (isProdVirtualSoldZero ? (virtualBonusConfig > 0 ? rawPriority : 'off') : rawPriority);
     const minRealStock = Math.max(1, Number(pw?.minRealStock) || 1);
 
     const effectiveThreshold = (realStock > 0 && threshold < realStock)
@@ -475,7 +475,7 @@ export function calculateGlobalSnapshot(
     const threshold = pw?.autoRestockThreshold !== undefined ? Math.max(1, Number(pw.autoRestockThreshold) || 1) : 1;
     const restockAmount = pw?.autoRestockAmount !== undefined ? Math.max(1, Number(pw.autoRestockAmount) || 20) : 20;
     const rawPriority = pw?.priority || (isGwVirtualOffsetZero ? 'off' : 'normal');
-    const priority = isGwVirtualOffsetZero ? (virtualBonusConfig > 0 ? rawPriority : 'off') : rawPriority;
+    const priority = pw?.priority || (isGwVirtualOffsetZero ? (virtualBonusConfig > 0 ? rawPriority : 'off') : rawPriority);
     const minRealStock = Math.max(1, Number(pw?.minRealStock) || 1);
 
     const effectiveGwThreshold = (realRemaining > 0 && threshold < realRemaining)

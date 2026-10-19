@@ -968,7 +968,39 @@
 - ⛔ **CÁCH SỬA ĐÃ THẤT BẠI - TUYỆT ĐỐI KHÔNG LẶP LẠI**:
   - ❌ *Không gán mặc định `priority: 'normal'` và `virtualStockBonus: 20` cho mọi sản phẩm*: Khiến mục chưa cấu hình bị thổi phồng kho ảo và số bán ảo.
   - ❌ *Không cộng `hourlyGrowth` khi `virtualBase <= 0`*: Khi Admin tắt số ảo, số hiển thị phải là số thật 100%.
-  - ❌ *Không dùng `Math.max(curHigh, effectiveSold)` một chiều vô điều kiện trong client snapshot poller*: Sẽ vĩnh viễn khóa cứng các đỉnh ma cũ trong LocalStorage của khách.
+### ISSUE-052: Thông báo Marketing nổ ra nhưng số còn lại không giảm 1 và số đã bán/đã giật không tăng 1 (Notification Stock & Sold Disconnect)
+- **Triệu chứng**:
+  - Khi có 1 thông báo toast nổ ra trên giao diện (ví dụ đơn mua sản phẩm hoặc giật giveaway), số lượng còn lại (`Còn:`) của sản phẩm đó không giảm đi 1, hoặc số đã bán / đã săn (`Đã bán:`, `Đã săn:`) không tăng thêm 1.
+  - Trên các thiết bị khác nhau, số lượng hiển thị không đồng bộ thống nhất với nhau.
+- **Nguyên nhân gốc rễ**:
+  1. *`MarketingNotificationToast.tsx` có cờ chặn `if (!(notif as any).localOrigin)`*: Chặn các thông báo test trigger từ Admin hoặc thông báo cục bộ không gửi tín hiệu `recordVirtualSale` hay `recordVirtualGiveawayClaim`.
+  2. *`decrementProductStock` chặn khi `pw.priority === 'off'` và ép ngược về `realStock`*:
+     - Nhánh `if (pw.priority === 'off') return this.getDisplayStock(productId);` chặn trừ kho khi sản phẩm không có priority.
+     - Dòng `nextStock = Math.max(realStock, nextStock);` ép ngược số lượng về `realStock` (ví dụ từ $7 - 1 = 6$ bị ép ngược về 7).
+  3. *`getDisplayStock` ghi đè `liveVirtualStockMap` về `baseStock` khi `virtualStockBonus <= 0`*:
+     - Mỗi lần component re-render, nó kiểm tra `virtualStockBonus <= 0` và ép ngược `liveStock = baseStock` (7), đồng thời `return Math.max(baseStock, liveStock)` chặn đứng việc hiển thị số 6.
+  4. *`incrementLiveSoldCount` & `incrementLiveClaimedCount` chặn khi `pw.priority === 'off'`*:
+     - Chặn tăng số đã bán / đã giật khi priority là `'off'`.
+  5. *`getSoldDisplay` & `getClaimedDisplay` xóa sổ lượt tăng từ thông báo và lỗi TDZ `recordedMax`*:
+     - `getSoldDisplay` sử dụng `recordedMax` trước khi khai báo `let recordedMax`.
+     - Điều kiện `if (pw.priority === 'off' || virtualBase <= 0)` tự động reset `recordedMax` về `effectiveRealSold`, xóa sạch lượt bán tăng thêm từ thông báo nổ.
+  6. *Server Snapshot Hub tự ý ép `priority = 'off'` và xóa số đã giảm*:
+     - `functions/services/snapshotService.ts` tự ý ép `priority = 'off'` khi `baseTarget === 0` thay vì tôn trọng `pw.priority` mà Admin đã cài đặt.
+     - Điều kiện `(priority === 'off' && numVal !== realStock)` và `(priority === 'off' && numVal !== realRemaining)` xóa sạch số lượng đã giảm trong Hub D1 và ép ngược về số thật ban đầu, khiến thiết bị khác không đồng bộ được số đã trừ.
+- **Giải pháp chuẩn đã kiểm chứng**:
+  1. **Nâng cấp `src/components/MarketingNotificationToast.tsx`**: Mọi thông báo xuất hiện trên màn hình đều kích hoạt trừ kho và tăng số bán/săn, chống trừ đúp bằng Set `processedStockNotifIds`.
+  2. **Nâng cấp `src/services/marketingService.ts`**:
+     - `decrementProductStock`: Bỏ chặn `priority === 'off'`, cho phép `nextStock = Math.max(1, nextStock)` giảm dần tự nhiên.
+     - `getDisplayStock`: Giữ nguyên `baseStock <= 0 => 0`. Khi `baseStock > 0`, trả về đúng `liveStock` đã trừ thay vì ép về `baseStock`.
+     - `incrementLiveSoldCount` & `incrementLiveClaimedCount`: Cho phép số đã bán/săn tăng +1 theo thông báo.
+     - `getSoldDisplay` & `getClaimedDisplay`: Khai báo `recordedMax` ở đầu hàm (sửa TDZ); bảo toàn lượt tăng từ thông báo (+1, +2...), chỉ thanh lọc khi vượt quá đỉnh ma rác phi lý (> +35).
+     - `initLiveVirtualStock`: Giữ nguyên giá trị `v` hợp lệ từ `sessionStorage` khi reload.
+     - `fetchMetricsSnapshot`: Tự động nhận snapshot kho thấp hơn từ server (`info.stock < currentLive`), lập tức phát `notifyStockChanged` để UI cập nhật 0 giây cho mọi thiết bị.
+  3. **Nâng cấp `functions/services/snapshotService.ts` & `src/shared/deterministicEngine.ts`**: Tôn trọng 100% `pw.priority` Admin cài đặt, không xóa ép `lowestProductStock` / `lowestGiveawayRemaining` trong Hub D1.
+- ⛔ **CÁCH SỬA ĐÃ THẤT BẠI - TUYỆT ĐỐI KHÔNG LẶP LẠI**:
+  - ❌ *Không dùng `Math.max(realStock, nextStock)` trong hàm trừ kho*: Sẽ ngăn cản hoàn toàn việc giảm tồn kho dưới số thật khi không có kho ảo.
+  - ❌ *Không ép `liveVirtualStockMap.set(k, baseStock)` mỗi khi đọc `getDisplayStock`*: Sẽ xóa sạch ngay lập tức số lượng đã giảm do thông báo nổ.
+  - ❌ *Không reset `recordedMax` về `effectiveRealSold` khi `virtualBase <= 0` nếu `recordedMax` chỉ tăng do thông báo*: Sẽ xóa sổ toàn bộ lượt bán/giật vừa tăng từ toast.
 
 ---
 

@@ -132,6 +132,7 @@ export function calculateGameSearchScore(
 
   const slugRaw = (game.slug || '').trim().toLowerCase();
   const slugNorm = normalizeVietnamese(slugRaw);
+  const slugCompact = slugNorm.replace(/[\s-]+/g, '');
 
   const publisherRaw = (game.publisher || '').trim().toLowerCase();
   const publisherNorm = normalizeVietnamese(game.publisher || '');

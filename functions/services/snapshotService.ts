@@ -234,7 +234,7 @@ export async function generateAndPersistSnapshot(env: any): Promise<GlobalMetric
       const threshold = pw?.autoRestockThreshold !== undefined ? Number(pw.autoRestockThreshold) : 1;
       const restockAmount = pw?.autoRestockAmount !== undefined ? Number(pw.autoRestockAmount) : 20;
       const rawPriority = pw?.priority || (baseTarget === 0 ? 'off' : 'normal');
-      const priority = (baseTarget === 0 && virtualBonus === 0) ? 'off' : rawPriority;
+      const priority = pw?.priority || ((baseTarget === 0 && virtualBonus === 0) ? 'off' : rawPriority);
       const effectiveThreshold = (realStock > 0 && threshold < realStock) ? realStock : threshold;
       const maxAllowedStock = (priority === 'off' || virtualBonus <= 0)
         ? realStock
@@ -244,7 +244,7 @@ export async function generateAndPersistSnapshot(env: any): Promise<GlobalMetric
       if (realStock <= 0) {
         delete hub.lowestProductStock[pId];
         hubModified = true;
-      } else if (numVal > maxAllowedStock || numVal <= 0 || (priority === 'off' && numVal !== realStock)) {
+      } else if (numVal > maxAllowedStock || numVal <= 0) {
         hub.lowestProductStock[pId] = maxAllowedStock;
         hubModified = true;
       }
@@ -264,7 +264,7 @@ export async function generateAndPersistSnapshot(env: any): Promise<GlobalMetric
       const threshold = pw?.autoRestockThreshold !== undefined ? Number(pw.autoRestockThreshold) : 1;
       const restockAmount = pw?.autoRestockAmount !== undefined ? Number(pw.autoRestockAmount) : 20;
       const rawPriority = pw?.priority || (baseTarget === 0 ? 'off' : 'normal');
-      const priority = (baseTarget === 0 && virtualBonus === 0) ? 'off' : rawPriority;
+      const priority = pw?.priority || ((baseTarget === 0 && virtualBonus === 0) ? 'off' : rawPriority);
       const effectiveThreshold = (realRemaining > 0 && threshold < realRemaining) ? realRemaining : threshold;
       const maxAllowedRemaining = (priority === 'off' || virtualBonus <= 0)
         ? realRemaining
@@ -274,7 +274,7 @@ export async function generateAndPersistSnapshot(env: any): Promise<GlobalMetric
       if (realRemaining <= 0) {
         delete hub.lowestGiveawayRemaining[gId];
         hubModified = true;
-      } else if (numVal > maxAllowedRemaining || numVal <= 0 || (priority === 'off' && numVal !== realRemaining)) {
+      } else if (numVal > maxAllowedRemaining || numVal <= 0) {
         hub.lowestGiveawayRemaining[gId] = maxAllowedRemaining;
         hubModified = true;
       }

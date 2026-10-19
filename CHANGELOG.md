@@ -5,6 +5,55 @@ Mỗi mục sửa lỗi đều ghi nhận **Nguyên nhân gốc rễ (Root Cause
 
 ---
 
+## [2026-10-20]
+
+### 83. Hoàn Thiện Cơ Chế Đồng Bộ Nguyên Tử 1 - 1 Khi Thông Báo Nổ Ra (Giảm 1 Số Còn Lại, Tăng 1 Đã Bán/Đã Giật), Đồng Bộ Đa Thiết Bị & Tuân Thủ Tuyệt Đối Cấu Hình Admin
+- **Mô tả & Hiện tượng**:
+  - Người dùng yêu cầu 4 tiêu chí cốt lõi:
+    1. Khi có 1 thông báo nổ ra, thì sản phẩm đi kèm đều giảm đi 1 ở số còn lại, số đã bán / đã giật tăng 1.
+    2. Không gây ảnh hưởng tới các tính năng khác trên web (mua hàng thật, nạp SePay, giật giveaway thật, search, crawler...).
+    3. Các sản phẩm phải đồng bộ giống nhau giữa các thiết bị (Cross-device Synchronization).
+    4. Tất cả hệ thống FOMO marketing đều phải hoạt động theo những gì đang cài đặt trong trang admin.
+- **Nguyên nhân gốc rễ (Root Cause)**:
+  1. *`MarketingNotificationToast.tsx` chặn các thông báo có cờ `localOrigin`*: Khiến các thông báo test từ Admin hoặc kích hoạt cục bộ không chạy `recordVirtualSale` hay `recordVirtualGiveawayClaim`.
+  2. *`decrementProductStock` chặn khi `pw.priority === 'off'` và ép ngược về `realStock`*:
+     - Nhánh `if (pw.priority === 'off') return this.getDisplayStock(productId);` chặn trừ kho khi sản phẩm không có priority.
+     - Dòng `nextStock = Math.max(realStock, nextStock);` ép ngược số lượng về `realStock` (ví dụ từ $7 - 1 = 6$ bị ép ngược về 7).
+  3. *`getDisplayStock` ghi đè `liveVirtualStockMap` về `baseStock` khi `virtualStockBonus <= 0`*:
+     - Mỗi lần component re-render, nó kiểm tra `virtualStockBonus <= 0` và ép ngược `liveStock = baseStock` (7), đồng thời `return Math.max(baseStock, liveStock)` chặn đứng việc hiển thị số 6.
+  4. *`incrementLiveSoldCount` & `incrementLiveClaimedCount` chặn khi `pw.priority === 'off'`*:
+     - Chặn tăng số đã bán / đã giật khi priority là `'off'`.
+  5. *`getSoldDisplay` & `getClaimedDisplay` xóa sổ lượt tăng từ thông báo và lỗi TDZ `recordedMax`*:
+     - `getSoldDisplay` sử dụng `recordedMax` trước khi khai báo `let recordedMax`.
+     - Điều kiện `if (pw.priority === 'off' || virtualBase <= 0)` tự động reset `recordedMax` về `effectiveRealSold`, xóa sạch lượt bán tăng thêm từ thông báo nổ.
+  6. *Server Snapshot Hub tự ý ép `priority = 'off'` và xóa số đã giảm*:
+     - `functions/services/snapshotService.ts` tự ý ép `priority = 'off'` khi `baseTarget === 0` thay vì tôn trọng `pw.priority` mà Admin đã cài đặt.
+     - Điều kiện `(priority === 'off' && numVal !== realStock)` và `(priority === 'off' && numVal !== realRemaining)` xóa sạch số lượng đã giảm trong Hub D1 và ép ngược về số thật ban đầu, khiến thiết bị khác không đồng bộ được số đã trừ.
+- **Giải pháp toàn diện đã triển khai (Solution)**:
+  1. *Nâng cấp `src/components/MarketingNotificationToast.tsx`*:
+     - Mọi thông báo nổ ra trên giao diện (`BUY_PRODUCT`, `CLAIM_GIVEAWAY`, `COPY_CODE`, `RESTOCK_PRODUCT`) đều kích hoạt đồng bộ nguyên tử 1 - 1, chống trừ đúp bằng Set `processedStockNotifIds`.
+  2. *Nâng cấp `src/services/marketingService.ts`*:
+     - `decrementProductStock`: Gỡ bỏ chặn `priority === 'off'`, cho phép `nextStock = Math.max(1, nextStock)` trừ dần từ 7 xuống 6, 5...
+     - `getDisplayStock`: Giữ nguyên quy tắc vàng `baseStock <= 0 => 0`. Khi `baseStock > 0`, trả về đúng `liveStock` đã trừ ($\ge 1$) thay vì ép ngược về `baseStock`.
+     - `incrementLiveSoldCount` & `incrementLiveClaimedCount`: Gỡ bỏ chặn `priority === 'off'`, cho phép số đã bán/đã giật tăng thêm +1 theo đúng thông báo nổ.
+     - `getSoldDisplay` & `getClaimedDisplay`: Khai báo `recordedMax` ở đầu hàm (sửa lỗi TDZ); bảo toàn số lượng tăng từ thông báo (+1, +2...), chỉ thanh lọc khi vượt quá đỉnh ma rác phi lý (> +35).
+     - `initLiveVirtualStock`: Giữ nguyên giá trị `v` hợp lệ từ `sessionStorage` để không bị nhảy ngược số cũ khi F5/reload.
+     - `fetchMetricsSnapshot`: Tự động nhận snapshot kho thấp hơn từ server (`info.stock < currentLive` và `info.remaining < currentLive`), lập tức phát `notifyStockChanged` để UI cập nhật 0 giây cho mọi thiết bị.
+  3. *Nâng cấp `functions/services/snapshotService.ts` & `src/shared/deterministicEngine.ts`*:
+     - Tôn trọng 100% `pw.priority` do Admin cấu hình trong `productWeights`.
+     - Bỏ xóa ép `lowestProductStock` và `lowestGiveawayRemaining` trong Hub D1 khi `priority === 'off'`, cho phép CSDL Serverless Edge lưu giữ số lượng tồn kho thấp nhất sau các đơn nổ để đồng bộ tức thì cho tất cả thiết bị khác.
+  4. *Sửa lỗi biến `slugCompact` trong `src/utils/textUtils.ts`*.
+- **Files Modified**:
+  - `src/components/MarketingNotificationToast.tsx`
+  - `src/services/marketingService.ts`
+  - `functions/services/snapshotService.ts`
+  - `src/shared/deterministicEngine.ts`
+  - `src/utils/textUtils.ts`
+  - `KNOWN_ISSUES.md` (ISSUE-052)
+  - `CHANGELOG.md` (Mục 83)
+
+---
+
 ## [2026-10-19]
 
 ### 82. Khắc Phục Triệt Để Lỗi Bất Đồng Bộ Số Ảo Ngoài Web, Loại Bỏ Gán Ngầm Kho Ảo 20 & Xóa Bỏ Bẫy Khóa Đỉnh Ma LocalStorage

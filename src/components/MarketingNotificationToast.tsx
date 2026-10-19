@@ -188,22 +188,16 @@ export const MarketingNotificationToast: React.FC<MarketingNotificationToastProp
     // Luôn ưu tiên tăng giảm số lượng của web theo thông báo nổ (bảo toàn 1 - 1 tuyệt đối cho cả thật và ảo):
     marketingService.recordToastFiredTime();
     if (notif.type === 'BUY_PRODUCT' && notif.productId) {
-      if (!(notif as any).localOrigin) {
-        marketingService.recordVirtualSale(notif.productId, notif.id);
-      }
+      marketingService.recordVirtualSale(notif.productId, notif.id);
     } else if (notif.type === 'CLAIM_GIVEAWAY' && (notif.giveawayId || notif.productId)) {
       const gwId = notif.giveawayId || notif.productId;
-      if (gwId && !(notif as any).localOrigin) {
+      if (gwId) {
         marketingService.recordVirtualGiveawayClaim(gwId, notif.id);
       }
     } else if (notif.type === 'COPY_CODE') {
-      if (!(notif as any).localOrigin) {
-        marketingService.incrementLiveCounter(1, notif.id);
-      }
+      marketingService.incrementLiveCounter(1, notif.id);
     } else if (notif.type === 'RESTOCK_PRODUCT' && notif.productId) {
-      if (!(notif as any).localOrigin) {
-        marketingService.boostProductStock(notif.productId, notif.restockAmount || 20, notif.id);
-      }
+      marketingService.boostProductStock(notif.productId, notif.restockAmount || 20, notif.id);
     }
 
     const config = marketingService.getConfig();
