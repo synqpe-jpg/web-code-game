@@ -28,6 +28,7 @@ import { FloatingNotificationModule } from './modules/FloatingNotificationModule
 import { GrowthModule } from './modules/GrowthModule';
 import { CrawlerModule } from './modules/CrawlerModule';
 import { EventSchedulerModule } from './modules/EventSchedulerModule';
+import { EmailNotificationModule } from './modules/EmailNotificationModule';
 
 interface AdminAppProps {
   onBackToClient?: () => void;
@@ -47,6 +48,7 @@ export const AdminApp: React.FC<AdminAppProps> = ({ onBackToClient }) => {
       'marketing',
       'floating-notification',
       'growth',
+      'email-notifications',
       'members',
       'wallet',
       'private-codes',
@@ -314,6 +316,11 @@ export const AdminApp: React.FC<AdminAppProps> = ({ onBackToClient }) => {
         'news',
         'free-codes',
         'giftcodes',
+        'crawler',
+        'marketing',
+        'floating-notification',
+        'growth',
+        'email-notifications',
         'members',
         'wallet',
         'private-codes',
@@ -541,6 +548,10 @@ export const AdminApp: React.FC<AdminAppProps> = ({ onBackToClient }) => {
 
         {currentTab === 'event-scheduler' && (
           <EventSchedulerModule onShowToast={showToast} />
+        )}
+
+        {currentTab === 'email-notifications' && (
+          <EmailNotificationModule onShowToast={showToast} />
         )}
 
         {currentTab === 'orders' && (

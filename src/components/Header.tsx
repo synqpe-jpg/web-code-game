@@ -15,6 +15,7 @@ import {
   Wrench,
   Newspaper,
   Smartphone,
+  Bell,
 } from 'lucide-react';
 import type { GameItem, UserProfile } from '../types/game';
 import { formatCore } from '../utils/textUtils';
@@ -32,6 +33,7 @@ interface HeaderProps {
   onOpenSubmitCode: () => void;
   onOpenPlayground: () => void;
   onOpenDownloadApp?: () => void;
+  onOpenNotificationModal?: () => void;
   onOpenAuth: () => void;
   onOpenWallet: () => void;
   onOpenReceivedCodes: () => void;
@@ -59,6 +61,7 @@ export const Header: React.FC<HeaderProps> = ({
   onOpenSubmitCode,
   onOpenPlayground,
   onOpenDownloadApp,
+  onOpenNotificationModal,
   onOpenAuth,
   onOpenWallet,
   onOpenReceivedCodes,
@@ -426,6 +429,27 @@ export const Header: React.FC<HeaderProps> = ({
                         <span>{t.header.myCodes}</span>
                       </button>
 
+                      {/* 2.1 Cài Đặt Thông Báo Email */}
+                      {onOpenNotificationModal && (
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setIsUserMenuOpen(false);
+                            onOpenNotificationModal();
+                          }}
+                          className="w-full flex items-center justify-between p-2 rounded-xl hover:bg-muted text-foreground cursor-pointer text-left group"
+                        >
+                          <span className="flex items-center gap-2">
+                            <Bell className="w-4 h-4 text-secondary group-hover:scale-110 transition-transform" />
+                            <span className="font-medium">Thông Báo Email</span>
+                          </span>
+                          <span className="text-[10px] text-secondary font-bold bg-secondary/15 px-2 py-0.5 rounded-full border border-secondary/30">
+                            Cài đặt
+                          </span>
+                        </button>
+                      )}
+
                       {/* 3. Vòng Quay Quà */}
                       {isGrowthEnabled && (
                         <button
@@ -530,6 +554,19 @@ export const Header: React.FC<HeaderProps> = ({
                 </button>
               )}
             </div>
+
+            {/* Email Notifications Subscription Button */}
+            {onOpenNotificationModal && (
+              <button
+                onClick={onOpenNotificationModal}
+                className="p-2 sm:p-2.5 min-w-[34px] min-h-[34px] sm:min-w-[42px] sm:min-h-[42px] flex items-center justify-center rounded-xl bg-card hover:bg-card-hover border border-border/80 hover:border-secondary/40 text-slate-300 hover:text-secondary transition-all cursor-pointer active:scale-95 shadow-sm shrink-0 relative group"
+                title="Đăng ký nhận mã code & sự kiện qua Email"
+                aria-label="Nhận thông báo email"
+              >
+                <Bell className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-secondary group-hover:scale-110 transition-transform" />
+                <span className="absolute -top-0.5 -right-0.5 w-2 h-2 bg-secondary rounded-full border border-card animate-pulse" />
+              </button>
+            )}
 
             {/* Theme Toggle Button (Desktop / Tablet sm+) */}
             <button

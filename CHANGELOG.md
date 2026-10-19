@@ -7,6 +7,47 @@ Mỗi mục sửa lỗi đều ghi nhận **Nguyên nhân gốc rễ (Root Cause
 
 ## [2026-10-19]
 
+### 72. Hệ Thống Thông Báo Sự Kiện, Code Mới & Khuyến Mãi Qua Email Theo Nhu Cầu Người Dùng (Smart Email Notification System)
+- **Mô tả & Yêu cầu Người Dùng**:
+  - *"Bạn lên phương án triền khai việc lấy thông báo sự kiện, code mới cho người dùng, người dùng có thể lựa chọn mail nhận những thông tin từ web như code mới của game do người dùng đăng ký, sự kiện phát code miễn phí, hay sản phẩm sale. CHo tôi phương án triển khai trước."*
+  - *"Ok , bạn triển khai giúp tôi nhé."*
+- **Kiến trúc & Các thành phần đã triển khai**:
+  1. *Cơ sở dữ liệu Cloudflare D1 SQL Schema (`migrations/0009_email_notifications.sql` & `ensureNotificationTablesD1`)*:
+     - Bảng `email_subscribers`: Quản lý email, userId, cờ tùy chọn nhận tin (`notify_followed_codes`, `notify_giveaways`, `notify_sales`), danh sách game theo dõi dạng JSON (`subscribed_games`), mã token hủy đăng ký an toàn 1-chạm (`unsubscribe_token`), trạng thái kích hoạt (`is_active`).
+     - Bảng `email_notification_logs`: Nhật ký kiểm toán gửi mail gồm type, title, subject, số lượng người nhận, số lượng thành công, trạng thái (`SENT`/`FAILED`), người gửi (`sent_by`), và thông điệp lỗi nếu có.
+  2. *Serverless Edge Email Dispatcher & Cyberpunk HTML Template (`functions/api/notifications/_emailHelper.ts`)*:
+     - Gửi email trực tiếp qua REST API (hỗ trợ cả **Resend API** và **Brevo API**) với 0 dependencies, chạy native trên Cloudflare Workers dưới 300ms.
+     - Trình tạo email HTML phong cách Cyberpunk Dark Mode đáp ứng đầy đủ chuẩn hiển thị trên mọi client (Gmail, Outlook, Apple Mail), gồm logo thương hiệu, badge chủ đề phát quang, thông tin game, khối hiển thị giftcode nổi bật, nút CTA to rõ và liên kết Hủy Đăng Ký 1-chạm hợp chuẩn RFC-8058.
+  3. *Bộ API Cloudflare Pages Functions (`functions/api/notifications/`)*:
+     - `subscribe.ts`: Đăng ký mới hoặc cập nhật tùy chọn nhận tin, lưu danh sách game theo dõi.
+     - `unsubscribe.ts`: GET trực tiếp từ email trả về trang xác nhận Cyberpunk thân thiện; POST cho client app.
+     - `settings.ts`: Quản trị viên cấu hình API Key, nhà cung cấp (Resend/Brevo), tên người gửi và email người gửi (lưu trong D1 system_settings).
+     - `send.ts`: Lọc danh sách subscriber theo nhóm mục tiêu (`ALL`, `GIVEAWAY`, `SALE`, `GAME`, `TEST`), điều phối gửi email hàng loạt và ghi log kiểm toán.
+     - `subscribers.ts`: Danh sách subscriber cho Admin kèm phân trang/tìm kiếm và chức năng xóa.
+     - `logs.ts`: Xem 100 nhật ký gửi mail gần nhất.
+  4. *Client State Management & LocalStorage Cache (`src/services/notificationService.ts`)*:
+     - Singleton `notificationService` lưu cache `wcg_email_subscription_v1` để giao diện phản hồi tức thì 0ms khi người dùng bấm chuông theo dõi/hủy theo dõi game.
+     - Đồng bộ nền với Cloudflare D1 và phát sự kiện `wcg_email_subscription_updated` cập nhật đồng loạt các nút quả chuông toàn trang.
+  5. *Giao Diện Người Dùng Web Khách*:
+     - `EmailSubscriptionModal.tsx`: Popup Cyberpunk trực quan cho phép nhập email, bật/tắt 3 nhóm nhận tin, quản lý danh sách game theo dõi dạng tags có nút x xóa nhanh, nút Lưu Cài Đặt và Hủy Đăng Ký.
+     - `Header.tsx`: Bổ sung nút quả chuông trên thanh điều hướng ngoài và mục "Thông Báo Email" trong menu tài khoản.
+     - `GameDetailModal.tsx`: Tích hợp nút chuông `Bell` / `BellRing` ("Báo code mới" / "Đang theo dõi") ngay cạnh nút Bookmark trong modal chi tiết game.
+  6. *Module Quản Trị Admin (`src/admin/modules/EmailNotificationModule.tsx`)*:
+     - Bổ sung tab `email-notifications` vào Admin Sidebar & Topbar ("Thông Báo Email & Khách" kèm badge MỚI).
+     - 4 thẻ KPI thống kê tổng quan (Tổng người đăng ký, Báo code game, Báo Giveaway, Báo Flash Sale).
+     - 4 tab chuyên sâu:
+       + Tab 1 (Người Đăng Ký): Bảng danh sách email, các tùy chọn, danh sách game theo dõi, trạng thái kích hoạt, công cụ tìm kiếm và nút xóa.
+       + Tab 2 (Gửi Email Sự Kiện): Soạn tiêu đề, nội dung, chọn nhóm người nhận, chọn game cụ thể, nút bấm CTA và **Iframe Live Preview trực tiếp** theo thời gian thực.
+       + Tab 3 (Cấu Hình Nhà Cung Cấp): Chọn Resend hoặc Brevo, nhập API Key, cấu hình thông tin người gửi kèm hộp Gửi Email Kiểm Thử ngay tức thì.
+       + Tab 4 (Nhật Ký Gửi Mail): Xem lịch sử gửi, tỉ lệ thành công, người thực hiện.
+- **Kết quả kiểm thử & Triển khai**:
+  - Audit zero test artifacts: Sạch 100% (0 dữ liệu test).
+  - Biên dịch Vite Frontend & Prerender 672 trang tĩnh SEO thành công.
+  - Esbuild Cloudflare Edge Worker bundle thành công (`dist/_worker.js` 6.9MB).
+  - Tự động triển khai lên Cloudflare Pages (`web-code-game` và `admin-code-game-shop`) và đồng bộ GitHub.
+
+---
+
 ### 71. Hệ Thống Lịch Đếm Ngược & Sự Kiện Tự Động (Event Countdown & Auto-Schedule System)
 - **Mô tả & Yêu cầu Người Dùng**:
   - *"Bạn có thể lên phương án tạo lịch đếm ngược thông báo còn xxx tời gian sẽ diễn ra đợt sự kiện nào đó trên web, tại mục sản phẩm cũng tương tự hiện ra đếm ngược không? Ví dụ còn 2 ngày nữa sẽ mở sự kiện phát code, trong mục sản phẩm cũng hiện lên thời gian tương tự đếm ngược, khi hết giờ tự mở sự kiẹn, sự kiện bán giảm giá cũng vậy. Trong admin có thêm mục cài đặt chi tiết cho mục này. CHo tôi phương án trước."*

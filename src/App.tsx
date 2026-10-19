@@ -32,6 +32,7 @@ import { Footer } from './components/Footer';
 import { ToastContainer, type ToastMessage } from './components/Toast';
 import { MarketingNotificationToast } from './components/MarketingNotificationToast';
 import { FloatingAnnouncement } from './components/FloatingAnnouncement';
+import { EmailSubscriptionModal } from './components/notification/EmailSubscriptionModal';
 import { dataService } from './services/dataService';
 import { marketingService } from './services/marketingService';
 import { adminDataService } from './admin/services/adminDataService';
@@ -187,6 +188,7 @@ export const App: React.FC = () => {
   const [isWalletModalOpen, setIsWalletModalOpen] = useState(false);
   const [isReceivedCodesOpen, setIsReceivedCodesOpen] = useState(false);
   const [isProfileModalOpen, setIsProfileModalOpen] = useState(false);
+  const [isEmailModalOpen, setIsEmailModalOpen] = useState(false);
 
   // Capture referral tracking parameters (?ref=... or ?invite=...) on mount
   useEffect(() => {
@@ -1191,6 +1193,7 @@ export const App: React.FC = () => {
             setIsGrowthCenterOpen(true);
           }}
           onOpenDownloadApp={() => setIsDownloadModalOpen(true)}
+          onOpenNotificationModal={() => setIsEmailModalOpen(true)}
           onOpenAuth={() => setIsAuthModalOpen(true)}
           onOpenWallet={() => setIsWalletModalOpen(true)}
           onOpenReceivedCodes={() => setIsReceivedCodesOpen(true)}
@@ -1498,6 +1501,16 @@ export const App: React.FC = () => {
         isOpen={isDownloadModalOpen}
         onClose={() => setIsDownloadModalOpen(false)}
       />
+
+      {/* Email Subscription & Notification Preferences Modal */}
+      {isEmailModalOpen && (
+        <EmailSubscriptionModal
+          isOpen={isEmailModalOpen}
+          onClose={() => setIsEmailModalOpen(false)}
+          currentUser={currentUser}
+          onShowToast={showToast}
+        />
+      )}
 
       {/* Social Proof Marketing Notifications Toast (Customer Web tabs) */}
       <MarketingNotificationToast

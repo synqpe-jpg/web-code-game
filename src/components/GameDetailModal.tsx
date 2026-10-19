@@ -21,11 +21,15 @@ import {
   AlertTriangle,
   Layers,
   Globe,
+  Bell,
+  BellRing,
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
 import type { GameItem, GiftCode, UserProfile } from '../types/game';
 import { dataService } from '../services/dataService';
 import { marketingService } from '../services/marketingService';
+import { notificationService } from '../services/notificationService';
+import { EmailSubscriptionModal } from './notification/EmailSubscriptionModal';
 import { useLanguage } from '../context/LanguageContext';
 import { isG1Licensed } from '../utils/licenseUtils';
 
@@ -56,11 +60,25 @@ export const GameDetailModal: React.FC<GameDetailModalProps> = ({
   const [votes, setVotes] = useState<Record<string, { up: number; down: number }>>({});
   const [selectedCodeTab, setSelectedCodeTab] = useState<'all' | 'active' | 'expired'>('all');
   const [modalImageError, setModalImageError] = useState(false);
+  const [isEmailModalOpen, setIsEmailModalOpen] = useState(false);
+  const [isGameFollowed, setIsGameFollowed] = useState(false);
 
   useEffect(() => {
     setLiveGame(game);
     setModalImageError(false);
+    if (game?.slug) {
+      setIsGameFollowed(notificationService.isGameFollowed(game.slug));
+    }
   }, [game]);
+
+  useEffect(() => {
+    if (!liveGame?.slug) return;
+    setIsGameFollowed(notificationService.isGameFollowed(liveGame.slug));
+    const unsub = notificationService.subscribe(() => {
+      setIsGameFollowed(notificationService.isGameFollowed(liveGame.slug));
+    });
+    return unsub;
+  }, [liveGame?.slug]);
 
   // Dynamically fetch and enrich with latest giftcodes from Cloudflare serverless D1 API
   useEffect(() => {
@@ -294,6 +312,25 @@ export const GameDetailModal: React.FC<GameDetailModalProps> = ({
             </div>
 
             <div className="flex items-center gap-1 sm:gap-1.5 shrink-0">
+              <button
+                onClick={() => setIsEmailModalOpen(true)}
+                className={`p-1.5 sm:p-2 rounded-xl border transition-all cursor-pointer active:scale-90 flex items-center gap-1.5 ${
+                  isGameFollowed
+                    ? 'bg-secondary/20 border-secondary/50 text-secondary shadow-neon-teal'
+                    : 'bg-muted/60 border-border text-muted-foreground hover:text-foreground'
+                }`}
+                title={isGameFollowed ? 'Đang nhận thông báo code game này qua Email' : 'Nhận thông báo khi có code mới cho game này'}
+              >
+                {isGameFollowed ? (
+                  <BellRing className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-secondary animate-bounce-subtle" />
+                ) : (
+                  <Bell className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+                )}
+                <span className="hidden sm:inline text-[11px] font-bold">
+                  {isGameFollowed ? 'Đang theo dõi' : 'Báo code mới'}
+                </span>
+              </button>
+
               <button
                 onClick={() => onOpenShare(currentGame)}
                 className="p-1.5 sm:p-2.5 rounded-xl bg-muted/60 hover:bg-muted border border-border text-muted-foreground hover:text-foreground transition-all cursor-pointer active:scale-90"
@@ -706,6 +743,17 @@ export const GameDetailModal: React.FC<GameDetailModalProps> = ({
           )}
         </div>
       </div>
+
+      {isEmailModalOpen && (
+        <EmailSubscriptionModal
+          isOpen={isEmailModalOpen}
+          onClose={() => setIsEmailModalOpen(false)}
+          currentUser={activeUser}
+          targetGameSlug={currentGame.slug}
+          targetGameName={currentGame.name}
+          onShowToast={onShowToast}
+        />
+      )}
     </div>,
     document.body
   );

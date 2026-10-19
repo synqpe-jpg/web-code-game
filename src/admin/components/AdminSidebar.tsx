@@ -25,6 +25,7 @@ import {
   Bot,
   Newspaper,
   Clock,
+  Mail,
 } from 'lucide-react';
 import { AdminUser } from '../types/adminTypes';
 import { normalizeVietnamese } from '../../utils/textUtils';
@@ -45,6 +46,7 @@ export type AdminModuleTab =
   | 'code-inventory'
   | 'utilities'
   | 'event-scheduler'
+  | 'email-notifications'
   | 'orders'
   | 'sepay'
   | 'content'
@@ -141,6 +143,13 @@ export const AdminSidebar: React.FC<AdminSidebarProps> = ({
           id: 'marketing',
           label: 'Thông Báo Marketing',
           icon: Megaphone,
+        },
+        {
+          id: 'email-notifications',
+          label: 'Thông Báo Email & Khách',
+          icon: Mail,
+          badge: 'MỚI',
+          badgeColor: 'bg-emerald-500 text-neutral-950 font-bold',
         },
       ],
     },
