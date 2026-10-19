@@ -24,7 +24,7 @@
     "free_codes_count": 0,
     "source": "Code Mới (codemoi.net)",
     "created_at": "2026-10-17T07:31:42.072Z",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   },
   {
     "id": "ta-la-hac-ngo-khong",
@@ -53,7 +53,7 @@
     "codes_count": 35,
     "free_codes_count": 35,
     "source": "Phần thưởng từ nhà phát hành",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   },
   {
     "id": "pirate-legends",
@@ -82,7 +82,7 @@
     "codes_count": 49,
     "free_codes_count": 49,
     "source": "Phần thưởng từ nhà phát hành",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   },
   {
     "id": "di-gioi-sinh-ton-oeg",
@@ -111,7 +111,7 @@
     "codes_count": 18,
     "free_codes_count": 18,
     "source": "Phần thưởng từ nhà phát hành",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   },
   {
     "id": "yen-van-thap-luc-thanh",
@@ -140,7 +140,7 @@
     "codes_count": 187,
     "free_codes_count": 187,
     "source": "Phần thưởng từ nhà phát hành",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   },
   {
     "id": "3q-dao-dao-dao",
@@ -169,7 +169,7 @@
     "codes_count": 11,
     "free_codes_count": 11,
     "source": "Phần thưởng từ nhà phát hành",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   },
   {
     "id": "long-tuong-tam-quoc",
@@ -198,7 +198,7 @@
     "codes_count": 21,
     "free_codes_count": 21,
     "source": "Phần thưởng từ nhà phát hành",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   },
   {
     "id": "thuong-lam-canh-gioi",
@@ -211,7 +211,7 @@
     "cover_image_url": "/game_icons/thuong-lam-canh-gioi.webp",
     "banner_url": "",
     "description": "Giftcode Thương Lam Cảnh Giới mới nhất Tháng 10/2026, đã kiểm tra. Bản Việt hóa của Tales of Erin — game nhập vai anime kỳ ảo với nét vẽ nhân vật nữ nổi bật, kỹ năng chiến đấu nhiều hiệu ứng hoành tráng, chiêu mộ nhân vật và lập đội hình. Nhập giftcode để nhận đá triệu hồi và tài nguyên tân thủ.",
-    "instructions": "Chơi tới cấp 7 mới mở được tính năng nhập code. Vào game, mở phần Cài đặt / biểu tượng đổi quà. Tìm mục Nhập Giftcode rồi nhập code. Bấm xác nhận — quà gửi vào Thư trong game ngay.",
+    "instructions": "Cài đặt → mục Nhập giftcode → dán mã (phân biệt chữ hoa/thường) → quà về hòm thư trong vài phút",
     "platform": "Android, iOS, PC",
     "so_giay_phep": "462/QĐ-PTTH&TTĐT",
     "ngay_cap_phep": "2026-07-29",
@@ -227,7 +227,7 @@
     "codes_count": 12,
     "free_codes_count": 12,
     "source": "Phần thưởng từ nhà phát hành",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   },
   {
     "id": "soul-strike",
@@ -253,10 +253,10 @@
     "is_hot": false,
     "is_new": false,
     "is_active": true,
-    "codes_count": 11,
-    "free_codes_count": 11,
+    "codes_count": 14,
+    "free_codes_count": 14,
     "source": "Phần thưởng từ nhà phát hành",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   },
   {
     "id": "skyblock-ba-chu-luc-dia",
@@ -285,7 +285,7 @@
     "codes_count": 5,
     "free_codes_count": 5,
     "source": "Phần thưởng từ nhà phát hành",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   },
   {
     "id": "tien-nghich-tan-tinh-kiem",
@@ -314,7 +314,7 @@
     "codes_count": 6,
     "free_codes_count": 6,
     "source": "Phần thưởng từ nhà phát hành",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   },
   {
     "id": "gun-x-mobile",
@@ -343,7 +343,7 @@
     "codes_count": 12,
     "free_codes_count": 12,
     "source": "Phần thưởng từ nhà phát hành",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   },
   {
     "id": "cau-ca-van-can",
@@ -372,7 +372,7 @@
     "codes_count": 1,
     "free_codes_count": 1,
     "source": "Phần thưởng từ nhà phát hành",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   },
   {
     "id": "tam-quoc-tu-thoi-ca",
@@ -398,10 +398,10 @@
     "is_hot": true,
     "is_new": false,
     "is_active": true,
-    "codes_count": 60,
-    "free_codes_count": 60,
+    "codes_count": 61,
+    "free_codes_count": 61,
     "source": "Phần thưởng từ nhà phát hành",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   },
   {
     "id": "apex-girls",
@@ -427,10 +427,10 @@
     "is_hot": true,
     "is_new": false,
     "is_active": true,
-    "codes_count": 23,
-    "free_codes_count": 23,
+    "codes_count": 25,
+    "free_codes_count": 25,
     "source": "Phần thưởng từ nhà phát hành",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   },
   {
     "id": "nam-quoc-son-ha",
@@ -459,7 +459,7 @@
     "codes_count": 2,
     "free_codes_count": 2,
     "source": "Phần thưởng từ nhà phát hành",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   },
   {
     "id": "loan-chien-3q",
@@ -488,7 +488,7 @@
     "codes_count": 12,
     "free_codes_count": 12,
     "source": "Phần thưởng từ nhà phát hành",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   },
   {
     "id": "kiem-khach-truyen-ky",
@@ -514,10 +514,10 @@
     "is_hot": true,
     "is_new": false,
     "is_active": true,
-    "codes_count": 7,
-    "free_codes_count": 7,
+    "codes_count": 11,
+    "free_codes_count": 11,
     "source": "Phần thưởng từ nhà phát hành",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   },
   {
     "id": "pixel-defenders-merge-td-game",
@@ -546,7 +546,7 @@
     "codes_count": 6,
     "free_codes_count": 6,
     "source": "Phần thưởng từ nhà phát hành",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   },
   {
     "id": "loan-xi-ngau-3q-oeg",
@@ -572,10 +572,10 @@
     "is_hot": true,
     "is_new": false,
     "is_active": true,
-    "codes_count": 22,
-    "free_codes_count": 22,
+    "codes_count": 27,
+    "free_codes_count": 27,
     "source": "Phần thưởng từ nhà phát hành",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   },
   {
     "id": "tam-quoc-tranh-ba-thien-ha",
@@ -604,7 +604,7 @@
     "codes_count": 40,
     "free_codes_count": 40,
     "source": "Phần thưởng từ nhà phát hành",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   },
   {
     "id": "titan-rush-chien-than-thuc-tinh",
@@ -617,7 +617,7 @@
     "cover_image_url": "/game_icons/titan-rush-chien-than-thuc-tinh.webp",
     "banner_url": "",
     "description": "TITAN RUSH: CHIẾN THẦN THỨC TỈNH là siêu phẩm game mobile bản quyền G1 được phát hành chính thức bởi CÔNG TY CỔ PHẦN FUNTAP GAMES. Nhận ngay bộ giftcode tân thủ mới nhất để trải nghiệm game trọn vẹn.",
-    "instructions": "Bước 1: Mở game > Nhấn Avatar nhân vật\nBước 2: Chọn Cài đặt > Nhập Giftcode\nBước 3: Dán mã và nhấn Xác nhận.",
+    "instructions": "Biểu tượng bánh răng ở menu chính → Cài đặt → tab Tài khoản → Redeem Code → nhập chính xác → OK → quà về hòm thư",
     "platform": "Android, iOS, PC",
     "so_giay_phep": "514/QĐ-PTTH&TTĐT",
     "ngay_cap_phep": "2026-08-14",
@@ -633,7 +633,7 @@
     "codes_count": 5,
     "free_codes_count": 5,
     "source": "Phần thưởng từ nhà phát hành",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   },
   {
     "id": "girls-frontline-2-luu-day",
@@ -662,7 +662,7 @@
     "codes_count": 8,
     "free_codes_count": 8,
     "source": "Phần thưởng từ nhà phát hành",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   },
   {
     "id": "quan-nhi-ca",
@@ -691,7 +691,7 @@
     "codes_count": 13,
     "free_codes_count": 13,
     "source": "Phần thưởng từ nhà phát hành",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   },
   {
     "id": "doi-tuong-nhi-nho",
@@ -720,7 +720,7 @@
     "codes_count": 21,
     "free_codes_count": 21,
     "source": "Phần thưởng từ nhà phát hành",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   },
   {
     "id": "hac-tay-du-chuong-cam",
@@ -749,7 +749,7 @@
     "codes_count": 5,
     "free_codes_count": 5,
     "source": "Phần thưởng từ nhà phát hành",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   },
   {
     "id": "huyen-thoai-huong-cang",
@@ -778,7 +778,7 @@
     "codes_count": 9,
     "free_codes_count": 9,
     "source": "Phần thưởng từ nhà phát hành",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   },
   {
     "id": "giang-ho-trong-tay",
@@ -807,7 +807,7 @@
     "codes_count": 15,
     "free_codes_count": 15,
     "source": "Phần thưởng từ nhà phát hành",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   },
   {
     "id": "diet-quy-origin",
@@ -836,7 +836,7 @@
     "codes_count": 2,
     "free_codes_count": 2,
     "source": "Phần thưởng từ nhà phát hành",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   },
   {
     "id": "co-lau-loan-the",
@@ -865,7 +865,7 @@
     "codes_count": 5,
     "free_codes_count": 5,
     "source": "Phần thưởng từ nhà phát hành",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   },
   {
     "id": "loan-the-3q-than-ma-lenh-oeg",
@@ -894,7 +894,7 @@
     "codes_count": 26,
     "free_codes_count": 26,
     "source": "Phần thưởng từ nhà phát hành",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   },
   {
     "id": "shenzhou-m",
@@ -923,7 +923,7 @@
     "codes_count": 3,
     "free_codes_count": 3,
     "source": "Phần thưởng từ nhà phát hành",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   },
   {
     "id": "phi-kiem-tru-thien-ma",
@@ -952,7 +952,7 @@
     "codes_count": 14,
     "free_codes_count": 14,
     "source": "Phần thưởng từ nhà phát hành",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   },
   {
     "id": "afk-three-kingdoms",
@@ -981,7 +981,7 @@
     "codes_count": 1,
     "free_codes_count": 1,
     "source": "Phần thưởng từ nhà phát hành",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   },
   {
     "id": "khe-uoc-rong",
@@ -1010,7 +1010,7 @@
     "codes_count": 15,
     "free_codes_count": 15,
     "source": "Phần thưởng từ nhà phát hành",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   },
   {
     "id": "tuyet-dinh-chien-gioi-vplay",
@@ -1039,7 +1039,7 @@
     "codes_count": 0,
     "free_codes_count": 0,
     "source": "Phần thưởng từ nhà phát hành",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   },
   {
     "id": "dao-huu-tu-tien",
@@ -1065,10 +1065,10 @@
     "is_hot": true,
     "is_new": false,
     "is_active": true,
-    "codes_count": 15,
-    "free_codes_count": 15,
+    "codes_count": 16,
+    "free_codes_count": 16,
     "source": "Phần thưởng từ nhà phát hành",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   },
   {
     "id": "anime-fighting-simulator-endless",
@@ -1097,7 +1097,7 @@
     "codes_count": 11,
     "free_codes_count": 11,
     "source": "Phần thưởng từ nhà phát hành",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   },
   {
     "id": "anime-vanguards",
@@ -1126,7 +1126,7 @@
     "codes_count": 16,
     "free_codes_count": 16,
     "source": "Phần thưởng từ nhà phát hành",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   },
   {
     "id": "3q-goi-tuong-di",
@@ -1155,7 +1155,7 @@
     "codes_count": 36,
     "free_codes_count": 36,
     "source": "Phần thưởng từ nhà phát hành",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   },
   {
     "id": "blade-ball",
@@ -1184,7 +1184,7 @@
     "codes_count": 24,
     "free_codes_count": 24,
     "source": "Phần thưởng từ nhà phát hành",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   },
   {
     "id": "tam-quoc-chi-vuong-chien",
@@ -1213,7 +1213,7 @@
     "codes_count": 0,
     "free_codes_count": 0,
     "source": "Phần thưởng từ nhà phát hành",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   },
   {
     "id": "nhat-luan-kiem",
@@ -1242,7 +1242,7 @@
     "codes_count": 7,
     "free_codes_count": 7,
     "source": "Phần thưởng từ nhà phát hành",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   },
   {
     "id": "ark-recode",
@@ -1271,7 +1271,7 @@
     "codes_count": 2,
     "free_codes_count": 2,
     "source": "Phần thưởng từ nhà phát hành",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   },
   {
     "id": "aniimo",
@@ -1300,7 +1300,7 @@
     "codes_count": 10,
     "free_codes_count": 10,
     "source": "Phần thưởng từ nhà phát hành",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   },
   {
     "id": "tieu-tien-ta-vo-dich",
@@ -1313,7 +1313,7 @@
     "cover_image_url": "/game_icons/tieu-tien-ta-vo-dich.webp",
     "banner_url": "",
     "description": "Giftcode Tiểu Tiên Ta Vô Địch mới nhất Tháng 10/2026, đã kiểm tra. Tiểu Tiên Ta Vô Địch là game nhập vai tu tiên rảnh tay (idle) do Alo Game phát hành. Nhập giftcode để nhận kim cương, vàng và nhiều phần quà tân thủ.",
-    "instructions": "Vào game, mở phần Cài đặt hoặc biểu tượng đổi quà. Tìm mục Nhập Giftcode / Gift Code. Nhập code rồi bấm Đổi/Nhận. Quà sẽ được gửi vào hộp thư trong game.",
+    "instructions": "Ảnh đại diện → Trung tâm người dùng → Trao đổi mã quà tặng → nhập code → Đổi ngay → mở hòm thư nhận quà",
     "platform": "Android, iOS, PC",
     "so_giay_phep": "366/QĐ-PTTH&TTĐT",
     "ngay_cap_phep": "2026-06-23",
@@ -1329,7 +1329,7 @@
     "codes_count": 17,
     "free_codes_count": 17,
     "source": "Phần thưởng từ nhà phát hành",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   },
   {
     "id": "giac-ngo-thuat-chu",
@@ -1358,7 +1358,7 @@
     "codes_count": 7,
     "free_codes_count": 7,
     "source": "Phần thưởng từ nhà phát hành",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   },
   {
     "id": "fairy-tamer",
@@ -1387,7 +1387,7 @@
     "codes_count": 8,
     "free_codes_count": 8,
     "source": "Phần thưởng từ nhà phát hành",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   },
   {
     "id": "hoi-tho-hai-tac",
@@ -1416,7 +1416,7 @@
     "codes_count": 24,
     "free_codes_count": 24,
     "source": "Phần thưởng từ nhà phát hành",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   },
   {
     "id": "capybara-go",
@@ -1445,7 +1445,7 @@
     "codes_count": 14,
     "free_codes_count": 14,
     "source": "Phần thưởng từ nhà phát hành",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   },
   {
     "id": "king-legacy",
@@ -1474,7 +1474,7 @@
     "codes_count": 21,
     "free_codes_count": 21,
     "source": "Phần thưởng từ nhà phát hành",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   },
   {
     "id": "chaos-zero-nightmare",
@@ -1503,7 +1503,7 @@
     "codes_count": 2,
     "free_codes_count": 2,
     "source": "Phần thưởng từ nhà phát hành",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   },
   {
     "id": "cookie-run-kingdom",
@@ -1532,7 +1532,7 @@
     "codes_count": 15,
     "free_codes_count": 15,
     "source": "Phần thưởng từ nhà phát hành",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   },
   {
     "id": "gangstar-mirage-city-online",
@@ -1561,7 +1561,7 @@
     "codes_count": 4,
     "free_codes_count": 4,
     "source": "Phần thưởng từ nhà phát hành",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   },
   {
     "id": "ez-pz-byte-heroes",
@@ -1590,7 +1590,7 @@
     "codes_count": 3,
     "free_codes_count": 3,
     "source": "Phần thưởng từ nhà phát hành",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   },
   {
     "id": "lost-sword",
@@ -1619,7 +1619,7 @@
     "codes_count": 3,
     "free_codes_count": 3,
     "source": "Phần thưởng từ nhà phát hành",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   },
   {
     "id": "genesis-war",
@@ -1648,7 +1648,7 @@
     "codes_count": 1,
     "free_codes_count": 1,
     "source": "Phần thưởng từ nhà phát hành",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   },
   {
     "id": "neo-artifacts",
@@ -1677,7 +1677,7 @@
     "codes_count": 4,
     "free_codes_count": 4,
     "source": "Phần thưởng từ nhà phát hành",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   },
   {
     "id": "mongil-star-dive",
@@ -1706,7 +1706,7 @@
     "codes_count": 6,
     "free_codes_count": 6,
     "source": "Phần thưởng từ nhà phát hành",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   },
   {
     "id": "kiem-vu-son-ha",
@@ -1735,7 +1735,7 @@
     "codes_count": 8,
     "free_codes_count": 8,
     "source": "Phần thưởng từ nhà phát hành",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   },
   {
     "id": "greedy-cave-rebirth",
@@ -1764,7 +1764,7 @@
     "codes_count": 8,
     "free_codes_count": 8,
     "source": "Phần thưởng từ nhà phát hành",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   },
   {
     "id": "seven-deadly-sins-origin",
@@ -1793,7 +1793,7 @@
     "codes_count": 4,
     "free_codes_count": 4,
     "source": "Phần thưởng từ nhà phát hành",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   },
   {
     "id": "star-sailors",
@@ -1822,7 +1822,7 @@
     "codes_count": 4,
     "free_codes_count": 4,
     "source": "Phần thưởng từ nhà phát hành",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   },
   {
     "id": "ragnarok-huyen-thoai-mmo",
@@ -1851,7 +1851,7 @@
     "codes_count": 4,
     "free_codes_count": 4,
     "source": "Phần thưởng từ nhà phát hành",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   },
   {
     "id": "rogue-legend",
@@ -1880,7 +1880,7 @@
     "codes_count": 5,
     "free_codes_count": 5,
     "source": "Phần thưởng từ nhà phát hành",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   },
   {
     "id": "where-winds-meet-mobile",
@@ -1909,7 +1909,7 @@
     "codes_count": 148,
     "free_codes_count": 148,
     "source": "Phần thưởng từ nhà phát hành",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   },
   {
     "id": "outerplane",
@@ -1938,7 +1938,7 @@
     "codes_count": 16,
     "free_codes_count": 16,
     "source": "Phần thưởng từ nhà phát hành",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   },
   {
     "id": "wuthering-waves-cyberpunk",
@@ -1967,7 +1967,7 @@
     "codes_count": 20,
     "free_codes_count": 20,
     "source": "Phần thưởng từ nhà phát hành",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   },
   {
     "id": "pham-tran-tien-lo",
@@ -1996,7 +1996,7 @@
     "codes_count": 23,
     "free_codes_count": 23,
     "source": "Phần thưởng từ nhà phát hành",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   },
   {
     "id": "vo-lam-hac-dao",
@@ -2025,7 +2025,7 @@
     "codes_count": 10,
     "free_codes_count": 10,
     "source": "Phần thưởng từ nhà phát hành",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   },
   {
     "id": "chi-huy-toi-thuong",
@@ -2054,7 +2054,7 @@
     "codes_count": 3,
     "free_codes_count": 3,
     "source": "Phần thưởng từ nhà phát hành",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   },
   {
     "id": "tap-tap-heroes",
@@ -2083,7 +2083,7 @@
     "codes_count": 6,
     "free_codes_count": 6,
     "source": "Phần thưởng từ nhà phát hành",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   },
   {
     "id": "van-tien-chien",
@@ -2112,7 +2112,7 @@
     "codes_count": 1,
     "free_codes_count": 1,
     "source": "Phần thưởng từ nhà phát hành",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   },
   {
     "id": "tieu-cuong-3q",
@@ -2141,7 +2141,7 @@
     "codes_count": 28,
     "free_codes_count": 28,
     "source": "Phần thưởng từ nhà phát hành",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   },
   {
     "id": "tan-vo-lam",
@@ -2170,7 +2170,7 @@
     "codes_count": 5,
     "free_codes_count": 5,
     "source": "Phần thưởng từ nhà phát hành",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   },
   {
     "id": "pokemon-champions",
@@ -2199,7 +2199,7 @@
     "codes_count": 1,
     "free_codes_count": 1,
     "source": "Phần thưởng từ nhà phát hành",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   },
   {
     "id": "light-and-night",
@@ -2228,7 +2228,7 @@
     "codes_count": 5,
     "free_codes_count": 5,
     "source": "Phần thưởng từ nhà phát hành",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   },
   {
     "id": "dragon-raja-thuc-tinh",
@@ -2257,7 +2257,7 @@
     "codes_count": 14,
     "free_codes_count": 14,
     "source": "Phần thưởng từ nhà phát hành",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   },
   {
     "id": "phuong-hoang-tru-tien",
@@ -2286,7 +2286,7 @@
     "codes_count": 24,
     "free_codes_count": 24,
     "source": "Phần thưởng từ nhà phát hành",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   },
   {
     "id": "hao-khi-du-hiep",
@@ -2315,7 +2315,7 @@
     "codes_count": 12,
     "free_codes_count": 12,
     "source": "Phần thưởng từ nhà phát hành",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   },
   {
     "id": "bo-lac-3q",
@@ -2344,7 +2344,7 @@
     "codes_count": 24,
     "free_codes_count": 24,
     "source": "Phần thưởng từ nhà phát hành",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   },
   {
     "id": "thai-cuc-vo-dao-x-arena",
@@ -2373,7 +2373,7 @@
     "codes_count": 2,
     "free_codes_count": 2,
     "source": "Phần thưởng từ nhà phát hành",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   },
   {
     "id": "dao-si-bat-truong-phi",
@@ -2402,7 +2402,7 @@
     "codes_count": 7,
     "free_codes_count": 7,
     "source": "Phần thưởng từ nhà phát hành",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   },
   {
     "id": "ever-night-thuc-tinh-oeg",
@@ -2431,7 +2431,7 @@
     "codes_count": 25,
     "free_codes_count": 25,
     "source": "Phần thưởng từ nhà phát hành",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   },
   {
     "id": "dau-la-dai-luc",
@@ -2460,7 +2460,7 @@
     "codes_count": 34,
     "free_codes_count": 34,
     "source": "Phần thưởng từ nhà phát hành",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   },
   {
     "id": "top-football-club",
@@ -2489,7 +2489,7 @@
     "codes_count": 21,
     "free_codes_count": 21,
     "source": "Phần thưởng từ nhà phát hành",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   },
   {
     "id": "tien-nghich-mobile",
@@ -2518,7 +2518,7 @@
     "codes_count": 32,
     "free_codes_count": 32,
     "source": "Phần thưởng từ nhà phát hành",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   },
   {
     "id": "ts-origin",
@@ -2547,7 +2547,7 @@
     "codes_count": 2,
     "free_codes_count": 2,
     "source": "Phần thưởng từ nhà phát hành",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   },
   {
     "id": "thu-cung-bao-dan",
@@ -2576,7 +2576,7 @@
     "codes_count": 21,
     "free_codes_count": 21,
     "source": "Phần thưởng từ nhà phát hành",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   },
   {
     "id": "skyria-dao-ky-bi",
@@ -2605,7 +2605,7 @@
     "codes_count": 6,
     "free_codes_count": 6,
     "source": "Phần thưởng từ nhà phát hành",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   },
   {
     "id": "kiem-linh-du-ky",
@@ -2634,7 +2634,7 @@
     "codes_count": 8,
     "free_codes_count": 8,
     "source": "Phần thưởng từ nhà phát hành",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   },
   {
     "id": "infinity-kingdom",
@@ -2663,7 +2663,7 @@
     "codes_count": 19,
     "free_codes_count": 19,
     "source": "Phần thưởng từ nhà phát hành",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   },
   {
     "id": "van-thang-nam-de",
@@ -2692,7 +2692,7 @@
     "codes_count": 4,
     "free_codes_count": 4,
     "source": "Phần thưởng từ nhà phát hành",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   },
   {
     "id": "kiem-chi-giang-ho-khai-thien",
@@ -2721,7 +2721,7 @@
     "codes_count": 11,
     "free_codes_count": 11,
     "source": "Phần thưởng từ nhà phát hành",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   },
   {
     "id": "lineage-w",
@@ -2750,7 +2750,7 @@
     "codes_count": 6,
     "free_codes_count": 6,
     "source": "Phần thưởng từ nhà phát hành",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   },
   {
     "id": "dau-la-the-gioi-san-hon",
@@ -2779,7 +2779,7 @@
     "codes_count": 7,
     "free_codes_count": 7,
     "source": "Phần thưởng từ nhà phát hành",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   },
   {
     "id": "van-dinh-tam-quoc",
@@ -2808,7 +2808,7 @@
     "codes_count": 4,
     "free_codes_count": 4,
     "source": "Phần thưởng từ nhà phát hành",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   },
   {
     "id": "giang-ho-ky-ngo",
@@ -2837,7 +2837,7 @@
     "codes_count": 56,
     "free_codes_count": 56,
     "source": "Phần thưởng từ nhà phát hành",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   },
   {
     "id": "anh-kiet-tam-quoc",
@@ -2866,7 +2866,7 @@
     "codes_count": 8,
     "free_codes_count": 8,
     "source": "Phần thưởng từ nhà phát hành",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   },
   {
     "id": "than-thu-origin",
@@ -2895,7 +2895,7 @@
     "codes_count": 3,
     "free_codes_count": 3,
     "source": "Phần thưởng từ nhà phát hành",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   },
   {
     "id": "dao-mong-anh-hung-2",
@@ -2924,7 +2924,7 @@
     "codes_count": 8,
     "free_codes_count": 8,
     "source": "Phần thưởng từ nhà phát hành",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   },
   {
     "id": "vuon-hoa-hanh-phuc",
@@ -2953,7 +2953,7 @@
     "codes_count": 2,
     "free_codes_count": 2,
     "source": "Phần thưởng từ nhà phát hành",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   },
   {
     "id": "co-giap-vo-han",
@@ -2982,7 +2982,7 @@
     "codes_count": 13,
     "free_codes_count": 13,
     "source": "Phần thưởng từ nhà phát hành",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   },
   {
     "id": "lordnine-cuu-vuong-tranh-ba",
@@ -3011,7 +3011,7 @@
     "codes_count": 9,
     "free_codes_count": 9,
     "source": "Phần thưởng từ nhà phát hành",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   },
   {
     "id": "tinh-kiem-truyen-ky-mobile",
@@ -3040,7 +3040,7 @@
     "codes_count": 2,
     "free_codes_count": 2,
     "source": "Phần thưởng từ nhà phát hành",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   },
   {
     "id": "bloodline-dong-mau-anh-hung",
@@ -3069,7 +3069,7 @@
     "codes_count": 19,
     "free_codes_count": 19,
     "source": "Phần thưởng từ nhà phát hành",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   },
   {
     "id": "total-football-vng",
@@ -3098,7 +3098,7 @@
     "codes_count": 9,
     "free_codes_count": 9,
     "source": "Phần thưởng từ nhà phát hành",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   },
   {
     "id": "lac-than-chien-ca",
@@ -3127,7 +3127,7 @@
     "codes_count": 2,
     "free_codes_count": 2,
     "source": "Phần thưởng từ nhà phát hành",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   },
   {
     "id": "cookierun-banh-quy",
@@ -3156,7 +3156,7 @@
     "codes_count": 3,
     "free_codes_count": 3,
     "source": "Phần thưởng từ nhà phát hành",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   },
   {
     "id": "nhat-niem-son-hai",
@@ -3185,7 +3185,7 @@
     "codes_count": 9,
     "free_codes_count": 9,
     "source": "Phần thưởng từ nhà phát hành",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   },
   {
     "id": "thu-thanh-dai-chien",
@@ -3214,7 +3214,7 @@
     "codes_count": 1,
     "free_codes_count": 1,
     "source": "Phần thưởng từ nhà phát hành",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   },
   {
     "id": "vo-hiep-origin",
@@ -3243,7 +3243,7 @@
     "codes_count": 5,
     "free_codes_count": 5,
     "source": "Phần thưởng từ nhà phát hành",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   },
   {
     "id": "haunted-room",
@@ -3272,7 +3272,7 @@
     "codes_count": 14,
     "free_codes_count": 14,
     "source": "Phần thưởng từ nhà phát hành",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   },
   {
     "id": "tam-quoc-36-ke",
@@ -3301,7 +3301,7 @@
     "codes_count": 14,
     "free_codes_count": 14,
     "source": "Phần thưởng từ nhà phát hành",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   },
   {
     "id": "ta-la-cao-thu-vo-lam",
@@ -3330,7 +3330,7 @@
     "codes_count": 9,
     "free_codes_count": 9,
     "source": "Phần thưởng từ nhà phát hành",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   },
   {
     "id": "vuong-gia-chien-quoc",
@@ -3359,7 +3359,7 @@
     "codes_count": 10,
     "free_codes_count": 10,
     "source": "Phần thưởng từ nhà phát hành",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   },
   {
     "id": "kanban-musume",
@@ -3388,7 +3388,7 @@
     "codes_count": 3,
     "free_codes_count": 3,
     "source": "Phần thưởng từ nhà phát hành",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   },
   {
     "id": "phap-su-hac-am",
@@ -3417,7 +3417,7 @@
     "codes_count": 7,
     "free_codes_count": 7,
     "source": "Phần thưởng từ nhà phát hành",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   },
   {
     "id": "sieu-hai-tac",
@@ -3446,7 +3446,7 @@
     "codes_count": 12,
     "free_codes_count": 12,
     "source": "Phần thưởng từ nhà phát hành",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   },
   {
     "id": "than-ma-arena",
@@ -3475,7 +3475,7 @@
     "codes_count": 10,
     "free_codes_count": 10,
     "source": "Phần thưởng từ nhà phát hành",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   },
   {
     "id": "ballistic-hero",
@@ -3504,7 +3504,7 @@
     "codes_count": 23,
     "free_codes_count": 23,
     "source": "Phần thưởng từ nhà phát hành",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   },
   {
     "id": "vlcm-origin",
@@ -3533,7 +3533,7 @@
     "codes_count": 3,
     "free_codes_count": 3,
     "source": "Phần thưởng từ nhà phát hành",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   },
   {
     "id": "bang-bang-dai-chien",
@@ -3562,7 +3562,7 @@
     "codes_count": 8,
     "free_codes_count": 8,
     "source": "Phần thưởng từ nhà phát hành",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   },
   {
     "id": "vo-danh-giang-ho",
@@ -3591,7 +3591,7 @@
     "codes_count": 15,
     "free_codes_count": 15,
     "source": "Phần thưởng từ nhà phát hành",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   },
   {
     "id": "ludus-quyet-dau",
@@ -3620,7 +3620,7 @@
     "codes_count": 5,
     "free_codes_count": 5,
     "source": "Phần thưởng từ nhà phát hành",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   },
   {
     "id": "tan-3q-max",
@@ -3649,7 +3649,7 @@
     "codes_count": 6,
     "free_codes_count": 6,
     "source": "Phần thưởng từ nhà phát hành",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   },
   {
     "id": "hoan-my-tam-quoc",
@@ -3678,7 +3678,7 @@
     "codes_count": 12,
     "free_codes_count": 12,
     "source": "Phần thưởng từ nhà phát hành",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   },
   {
     "id": "de-che-bong-da",
@@ -3707,7 +3707,7 @@
     "codes_count": 3,
     "free_codes_count": 3,
     "source": "Phần thưởng từ nhà phát hành",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   },
   {
     "id": "legends-reborn",
@@ -3736,7 +3736,7 @@
     "codes_count": 1,
     "free_codes_count": 1,
     "source": "Phần thưởng từ nhà phát hành",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   },
   {
     "id": "huyen-tuong-phong-than",
@@ -3765,7 +3765,7 @@
     "codes_count": 10,
     "free_codes_count": 10,
     "source": "Phần thưởng từ nhà phát hành",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   },
   {
     "id": "kiem-de-origin",
@@ -3794,7 +3794,7 @@
     "codes_count": 3,
     "free_codes_count": 3,
     "source": "Phần thưởng từ nhà phát hành",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   },
   {
     "id": "phong-hau-tam-quoc",
@@ -3823,7 +3823,7 @@
     "codes_count": 6,
     "free_codes_count": 6,
     "source": "Phần thưởng từ nhà phát hành",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   },
   {
     "id": "phong-than",
@@ -3852,7 +3852,7 @@
     "codes_count": 22,
     "free_codes_count": 22,
     "source": "Phần thưởng từ nhà phát hành",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   },
   {
     "id": "bomber-vng",
@@ -3881,7 +3881,7 @@
     "codes_count": 9,
     "free_codes_count": 9,
     "source": "Phần thưởng từ nhà phát hành",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   },
   {
     "id": "vuot-tuong-thep",
@@ -3910,7 +3910,7 @@
     "codes_count": 8,
     "free_codes_count": 8,
     "source": "Phần thưởng từ nhà phát hành",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   },
   {
     "id": "phong-than-ta-dinh-doat",
@@ -3939,7 +3939,7 @@
     "codes_count": 14,
     "free_codes_count": 14,
     "source": "Phần thưởng từ nhà phát hành",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   },
   {
     "id": "ngao-kiem-vo-song-mobile",
@@ -3968,7 +3968,7 @@
     "codes_count": 5,
     "free_codes_count": 5,
     "source": "Phần thưởng từ nhà phát hành",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   },
   {
     "id": "quai-thu-phong-thu",
@@ -3997,7 +3997,7 @@
     "codes_count": 1,
     "free_codes_count": 1,
     "source": "Phần thưởng từ nhà phát hành",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   },
   {
     "id": "the-gioi-hoa-vien-cua-toi",
@@ -4026,7 +4026,7 @@
     "codes_count": 13,
     "free_codes_count": 13,
     "source": "Phần thưởng từ nhà phát hành",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   },
   {
     "id": "tho-san-sieu-cap",
@@ -4055,7 +4055,7 @@
     "codes_count": 6,
     "free_codes_count": 6,
     "source": "Phần thưởng từ nhà phát hành",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   },
   {
     "id": "nhip-dieu-than-tuong-oeg",
@@ -4084,7 +4084,7 @@
     "codes_count": 7,
     "free_codes_count": 7,
     "source": "Phần thưởng từ nhà phát hành",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   },
   {
     "id": "samkok-tam-quoc",
@@ -4113,7 +4113,7 @@
     "codes_count": 132,
     "free_codes_count": 132,
     "source": "Phần thưởng từ nhà phát hành",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   },
   {
     "id": "dragon-city",
@@ -4142,7 +4142,7 @@
     "codes_count": 1,
     "free_codes_count": 1,
     "source": "Phần thưởng từ nhà phát hành",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   },
   {
     "id": "tho-san-quy",
@@ -4171,7 +4171,7 @@
     "codes_count": 20,
     "free_codes_count": 20,
     "source": "Phần thưởng từ nhà phát hành",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   },
   {
     "id": "vu-tru-than-thoai",
@@ -4200,7 +4200,7 @@
     "codes_count": 1,
     "free_codes_count": 1,
     "source": "Phần thưởng từ nhà phát hành",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   },
   {
     "id": "truyen-thuyet-haki",
@@ -4229,7 +4229,7 @@
     "codes_count": 3,
     "free_codes_count": 3,
     "source": "Phần thưởng từ nhà phát hành",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   },
   {
     "id": "truyen-thuyet-than-khi",
@@ -4258,7 +4258,7 @@
     "codes_count": 6,
     "free_codes_count": 6,
     "source": "Phần thưởng từ nhà phát hành",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   },
   {
     "id": "tran-thi-hang-quy",
@@ -4287,7 +4287,7 @@
     "codes_count": 0,
     "free_codes_count": 0,
     "source": "Phần thưởng từ nhà phát hành",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   },
   {
     "id": "vu-tru-dai-chien",
@@ -4316,7 +4316,7 @@
     "codes_count": 1,
     "free_codes_count": 1,
     "source": "Phần thưởng từ nhà phát hành",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   },
   {
     "id": "forsaken-world-2",
@@ -4345,7 +4345,7 @@
     "codes_count": 11,
     "free_codes_count": 11,
     "source": "Phần thưởng từ nhà phát hành",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   },
   {
     "id": "anh-hung-tien-len",
@@ -4374,7 +4374,7 @@
     "codes_count": 36,
     "free_codes_count": 36,
     "source": "Phần thưởng từ nhà phát hành",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   },
   {
     "id": "arcane-hunter",
@@ -4403,7 +4403,7 @@
     "codes_count": 2,
     "free_codes_count": 2,
     "source": "Phần thưởng từ nhà phát hành",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   },
   {
     "id": "3q-chess-ky-thu-tam-quoc",
@@ -4432,7 +4432,7 @@
     "codes_count": 9,
     "free_codes_count": 9,
     "source": "Phần thưởng từ nhà phát hành",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   },
   {
     "id": "cherry-tale",
@@ -4461,7 +4461,7 @@
     "codes_count": 3,
     "free_codes_count": 3,
     "source": "Phần thưởng từ nhà phát hành",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   },
   {
     "id": "quy-mon-quan",
@@ -4490,7 +4490,7 @@
     "codes_count": 10,
     "free_codes_count": 10,
     "source": "Phần thưởng từ nhà phát hành",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   },
   {
     "id": "huyen-thoai-phuc-yeu",
@@ -4519,7 +4519,7 @@
     "codes_count": 17,
     "free_codes_count": 17,
     "source": "Phần thưởng từ nhà phát hành",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   },
   {
     "id": "hoi-uc-kiem-the",
@@ -4548,7 +4548,7 @@
     "codes_count": 6,
     "free_codes_count": 6,
     "source": "Phần thưởng từ nhà phát hành",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   },
   {
     "id": "tam-quoc-dong-khoi",
@@ -4577,7 +4577,7 @@
     "codes_count": 1,
     "free_codes_count": 1,
     "source": "Phần thưởng từ nhà phát hành",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   },
   {
     "id": "minh-chu-vo-lam",
@@ -4606,7 +4606,7 @@
     "codes_count": 21,
     "free_codes_count": 21,
     "source": "Phần thưởng từ nhà phát hành",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   },
   {
     "id": "kiem-hiep-tinh",
@@ -4635,7 +4635,7 @@
     "codes_count": 19,
     "free_codes_count": 19,
     "source": "Phần thưởng từ nhà phát hành",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   },
   {
     "id": "arknights-endfield",
@@ -4664,7 +4664,7 @@
     "codes_count": 5,
     "free_codes_count": 5,
     "source": "Phần thưởng từ nhà phát hành",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   },
   {
     "id": "bleach-soul-resonance",
@@ -4693,7 +4693,7 @@
     "codes_count": 7,
     "free_codes_count": 7,
     "source": "Phần thưởng từ nhà phát hành",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   },
   {
     "id": "tan-kiem-hiep-tinh-1",
@@ -4722,7 +4722,7 @@
     "codes_count": 8,
     "free_codes_count": 8,
     "source": "Phần thưởng từ nhà phát hành",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   },
   {
     "id": "ngoi-sao-thoi-trang",
@@ -4748,10 +4748,10 @@
     "is_hot": false,
     "is_new": false,
     "is_active": true,
-    "codes_count": 9,
-    "free_codes_count": 9,
+    "codes_count": 10,
+    "free_codes_count": 10,
     "source": "Phần thưởng từ nhà phát hành",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   },
   {
     "id": "na-tra-phong-than-ky",
@@ -4780,7 +4780,7 @@
     "codes_count": 9,
     "free_codes_count": 9,
     "source": "Phần thưởng từ nhà phát hành",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   },
   {
     "id": "ven-nguyen-ky-uc-mobile",
@@ -4809,7 +4809,7 @@
     "codes_count": 1,
     "free_codes_count": 1,
     "source": "Phần thưởng từ nhà phát hành",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   },
   {
     "id": "thieu-nien-ca-hanh-khoi-dong",
@@ -4838,7 +4838,7 @@
     "codes_count": 6,
     "free_codes_count": 6,
     "source": "Phần thưởng từ nhà phát hành",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   },
   {
     "id": "tokyo-ghoul-thuc-tinh",
@@ -4867,7 +4867,7 @@
     "codes_count": 23,
     "free_codes_count": 23,
     "source": "Phần thưởng từ nhà phát hành",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   },
   {
     "id": "mu-vinh-hang",
@@ -4896,7 +4896,7 @@
     "codes_count": 16,
     "free_codes_count": 16,
     "source": "Phần thưởng từ nhà phát hành",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   },
   {
     "id": "phi-kiem-tu-tien",
@@ -4925,7 +4925,7 @@
     "codes_count": 5,
     "free_codes_count": 5,
     "source": "Phần thưởng từ nhà phát hành",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   },
   {
     "id": "x-wukong",
@@ -4954,7 +4954,7 @@
     "codes_count": 17,
     "free_codes_count": 17,
     "source": "Phần thưởng từ nhà phát hành",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   },
   {
     "id": "kiem-linh-nhap-vai-tu-tien",
@@ -4983,7 +4983,7 @@
     "codes_count": 8,
     "free_codes_count": 8,
     "source": "Phần thưởng từ nhà phát hành",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   },
   {
     "id": "thieu-nien-3q-khoi-nguyen",
@@ -4996,7 +4996,7 @@
     "cover_image_url": "/game_icons/thieu-nien-3q-khoi-nguyen.webp",
     "banner_url": "",
     "description": "Giftcode Thiếu Niên 3Q: Khởi Nguyên mới nhất Tháng 10/2026, đã kiểm tra. Chiến thuật đấu tướng đề tài Tam Quốc, nơi đầu óc và khả năng đọc trận quyết định tất cả. Đồ hoạ 3D với tạo hình nhân vật kiểu huyễn tưởng, chơi bán tự động gọn nhẹ, dàn tướng trải nhiều phe. Nhập giftcode để nhận quà miễn phí.",
-    "instructions": "Vào game, bấm Avatar ở góc trên bên trái. Chọn Cài đặt rồi bấm nút Đổi thưởng. Nhập code rồi bấm Sử dụng. Quà sẽ được gửi vào hộp thư trong game.",
+    "instructions": "Bấm vào avatar nhân vật → Mã Đổi Thưởng → nhập code → Xác Nhận",
     "platform": "Android, iOS, PC",
     "so_giay_phep": "583/QĐ-PTTH&TTĐT",
     "ngay_cap_phep": "2025-12-30",
@@ -5012,7 +5012,7 @@
     "codes_count": 4,
     "free_codes_count": 4,
     "source": "Phần thưởng từ nhà phát hành",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   },
   {
     "id": "sieu-tien-hoa",
@@ -5041,7 +5041,7 @@
     "codes_count": 11,
     "free_codes_count": 11,
     "source": "Phần thưởng từ nhà phát hành",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   },
   {
     "id": "dragon-traveler-vn",
@@ -5070,7 +5070,7 @@
     "codes_count": 22,
     "free_codes_count": 22,
     "source": "Phần thưởng từ nhà phát hành",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   },
   {
     "id": "drift-racing-3v3",
@@ -5099,7 +5099,7 @@
     "codes_count": 4,
     "free_codes_count": 4,
     "source": "Phần thưởng từ nhà phát hành",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   },
   {
     "id": "shinkai-impact-khoi-nguyen",
@@ -5128,7 +5128,7 @@
     "codes_count": 6,
     "free_codes_count": 6,
     "source": "Phần thưởng từ nhà phát hành",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   },
   {
     "id": "phong-ma-tam-quoc",
@@ -5157,7 +5157,7 @@
     "codes_count": 7,
     "free_codes_count": 7,
     "source": "Phần thưởng từ nhà phát hành",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   },
   {
     "id": "chien-hoa-tam-gioi-vtc",
@@ -5186,7 +5186,7 @@
     "codes_count": 7,
     "free_codes_count": 7,
     "source": "Phần thưởng từ nhà phát hành",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   },
   {
     "id": "hai-tac-loan-dau",
@@ -5215,7 +5215,7 @@
     "codes_count": 5,
     "free_codes_count": 5,
     "source": "Phần thưởng từ nhà phát hành",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   },
   {
     "id": "crossfire-legends-mobile-vng",
@@ -5244,7 +5244,7 @@
     "codes_count": 30,
     "free_codes_count": 30,
     "source": "Phần thưởng từ nhà phát hành",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   },
   {
     "id": "ta-lam-tong-su-trong-tien-mon",
@@ -5273,7 +5273,7 @@
     "codes_count": 7,
     "free_codes_count": 7,
     "source": "Phần thưởng từ nhà phát hành",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   },
   {
     "id": "chien-than-mini",
@@ -5302,7 +5302,7 @@
     "codes_count": 22,
     "free_codes_count": 22,
     "source": "Phần thưởng từ nhà phát hành",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   },
   {
     "id": "anh-hung-bat-diet",
@@ -5331,7 +5331,7 @@
     "codes_count": 6,
     "free_codes_count": 6,
     "source": "Phần thưởng từ nhà phát hành",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   },
   {
     "id": "chien-binh-devias",
@@ -5360,7 +5360,7 @@
     "codes_count": 3,
     "free_codes_count": 3,
     "source": "Phần thưởng từ nhà phát hành",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   },
   {
     "id": "fc-mobile-vn",
@@ -5386,10 +5386,10 @@
     "is_hot": true,
     "is_new": false,
     "is_active": true,
-    "codes_count": 24,
-    "free_codes_count": 24,
+    "codes_count": 25,
+    "free_codes_count": 25,
     "source": "Phần thưởng từ nhà phát hành",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   },
   {
     "id": "lang-tieu-chi",
@@ -5418,7 +5418,7 @@
     "codes_count": 0,
     "free_codes_count": 0,
     "source": "Phần thưởng từ nhà phát hành",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   },
   {
     "id": "thao-tung-tam-quoc",
@@ -5447,7 +5447,7 @@
     "codes_count": 23,
     "free_codes_count": 23,
     "source": "Phần thưởng từ nhà phát hành",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   },
   {
     "id": "mu-hong-hoa-dao",
@@ -5476,7 +5476,7 @@
     "codes_count": 8,
     "free_codes_count": 8,
     "source": "Phần thưởng từ nhà phát hành",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   },
   {
     "id": "tay-du-tam-bao",
@@ -5505,7 +5505,7 @@
     "codes_count": 5,
     "free_codes_count": 5,
     "source": "Phần thưởng từ nhà phát hành",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   },
   {
     "id": "lu-khach-dai-luc-idle-rpg",
@@ -5534,7 +5534,7 @@
     "codes_count": 13,
     "free_codes_count": 13,
     "source": "Phần thưởng từ nhà phát hành",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   },
   {
     "id": "thanh-long-huyen-thoai",
@@ -5563,7 +5563,7 @@
     "codes_count": 2,
     "free_codes_count": 2,
     "source": "Phần thưởng từ nhà phát hành",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   },
   {
     "id": "mieu-de-tam-quoc",
@@ -5592,7 +5592,7 @@
     "codes_count": 8,
     "free_codes_count": 8,
     "source": "Phần thưởng từ nhà phát hành",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   },
   {
     "id": "soul-land-time-reversed",
@@ -5621,7 +5621,7 @@
     "codes_count": 3,
     "free_codes_count": 3,
     "source": "Phần thưởng từ nhà phát hành",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   },
   {
     "id": "palmon",
@@ -5650,7 +5650,7 @@
     "codes_count": 10,
     "free_codes_count": 10,
     "source": "Phần thưởng từ nhà phát hành",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   },
   {
     "id": "chien-tuyen-huong-duong",
@@ -5679,7 +5679,7 @@
     "codes_count": 4,
     "free_codes_count": 4,
     "source": "Phần thưởng từ nhà phát hành",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   },
   {
     "id": "atlan-origin-luc-dia-troi-day",
@@ -5708,7 +5708,7 @@
     "codes_count": 11,
     "free_codes_count": 11,
     "source": "Phần thưởng từ nhà phát hành",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   },
   {
     "id": "samkok-new-force",
@@ -5737,7 +5737,7 @@
     "codes_count": 3,
     "free_codes_count": 3,
     "source": "Phần thưởng từ nhà phát hành",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   },
   {
     "id": "quan-anh-phong-hoa-luc",
@@ -5766,7 +5766,7 @@
     "codes_count": 21,
     "free_codes_count": 21,
     "source": "Phần thưởng từ nhà phát hành",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   },
   {
     "id": "chien-loan-tam-quoc",
@@ -5795,7 +5795,7 @@
     "codes_count": 12,
     "free_codes_count": 12,
     "source": "Phần thưởng từ nhà phát hành",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   },
   {
     "id": "phu-sinh-mong",
@@ -5824,7 +5824,7 @@
     "codes_count": 9,
     "free_codes_count": 9,
     "source": "Phần thưởng từ nhà phát hành",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   },
   {
     "id": "thien-ha-ngu-tuyet",
@@ -5853,7 +5853,7 @@
     "codes_count": 10,
     "free_codes_count": 10,
     "source": "Phần thưởng từ nhà phát hành",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   },
   {
     "id": "cong-thanh-truyen-ky-tam-quoc",
@@ -5882,7 +5882,7 @@
     "codes_count": 2,
     "free_codes_count": 2,
     "source": "Phần thưởng từ nhà phát hành",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   },
   {
     "id": "tam-quoc-huyen-tuong-vng",
@@ -5911,7 +5911,7 @@
     "codes_count": 18,
     "free_codes_count": 18,
     "source": "Phần thưởng từ nhà phát hành",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   },
   {
     "id": "chu-thuat-dai-chien",
@@ -5940,7 +5940,7 @@
     "codes_count": 4,
     "free_codes_count": 4,
     "source": "Phần thưởng từ nhà phát hành",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   },
   {
     "id": "ky-nguyen-bang-ha-3q",
@@ -5969,7 +5969,7 @@
     "codes_count": 8,
     "free_codes_count": 8,
     "source": "Phần thưởng từ nhà phát hành",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   },
   {
     "id": "samkok-kingdom-crush",
@@ -5998,7 +5998,7 @@
     "codes_count": 2,
     "free_codes_count": 2,
     "source": "Phần thưởng từ nhà phát hành",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   },
   {
     "id": "quy-tuong-3q-thuc-tinh-oeg",
@@ -6027,7 +6027,7 @@
     "codes_count": 1,
     "free_codes_count": 1,
     "source": "Phần thưởng từ nhà phát hành",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   },
   {
     "id": "tam-quoc-khoi-dong",
@@ -6056,7 +6056,7 @@
     "codes_count": 6,
     "free_codes_count": 6,
     "source": "Phần thưởng từ nhà phát hành",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   },
   {
     "id": "tam-quoc-chi-chien-luoc-tth",
@@ -6085,7 +6085,7 @@
     "codes_count": 8,
     "free_codes_count": 8,
     "source": "Phần thưởng từ nhà phát hành",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   },
   {
     "id": "manga-ba-chay",
@@ -6111,10 +6111,10 @@
     "is_hot": true,
     "is_new": false,
     "is_active": true,
-    "codes_count": 29,
-    "free_codes_count": 29,
+    "codes_count": 31,
+    "free_codes_count": 31,
     "source": "Phần thưởng từ nhà phát hành",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   },
   {
     "id": "delta-force",
@@ -6140,10 +6140,10 @@
     "is_hot": true,
     "is_new": false,
     "is_active": true,
-    "codes_count": 237,
-    "free_codes_count": 237,
+    "codes_count": 243,
+    "free_codes_count": 243,
     "source": "Phần thưởng từ nhà phát hành",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   },
   {
     "id": "hoa-son-kiem-the-vtc",
@@ -6172,7 +6172,7 @@
     "codes_count": 7,
     "free_codes_count": 7,
     "source": "Phần thưởng từ nhà phát hành",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   },
   {
     "id": "tan-chan-long-oeg",
@@ -6201,7 +6201,7 @@
     "codes_count": 4,
     "free_codes_count": 4,
     "source": "Phần thưởng từ nhà phát hành",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   },
   {
     "id": "stickman-go",
@@ -6230,7 +6230,7 @@
     "codes_count": 8,
     "free_codes_count": 8,
     "source": "Phần thưởng từ nhà phát hành",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   },
   {
     "id": "huyen-anh-vo-lam",
@@ -6259,7 +6259,7 @@
     "codes_count": 7,
     "free_codes_count": 7,
     "source": "Phần thưởng từ nhà phát hành",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   },
   {
     "id": "vo-hiep-truyen-ky-2",
@@ -6288,7 +6288,7 @@
     "codes_count": 6,
     "free_codes_count": 6,
     "source": "Phần thưởng từ nhà phát hành",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   },
   {
     "id": "tiem-tap-hoa-thoi-gian",
@@ -6317,7 +6317,7 @@
     "codes_count": 8,
     "free_codes_count": 8,
     "source": "Phần thưởng từ nhà phát hành",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   },
   {
     "id": "x-samkok-sieu-nang-tam-quoc",
@@ -6346,7 +6346,7 @@
     "codes_count": 19,
     "free_codes_count": 19,
     "source": "Phần thưởng từ nhà phát hành",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   },
   {
     "id": "pet-samkok-bao-thu-3q",
@@ -6372,10 +6372,10 @@
     "is_hot": true,
     "is_new": false,
     "is_active": true,
-    "codes_count": 6,
-    "free_codes_count": 6,
+    "codes_count": 10,
+    "free_codes_count": 10,
     "source": "Phần thưởng từ nhà phát hành",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   },
   {
     "id": "tan-binh-thuc-tinh",
@@ -6404,7 +6404,7 @@
     "codes_count": 4,
     "free_codes_count": 4,
     "source": "Phần thưởng từ nhà phát hành",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   },
   {
     "id": "great-sky-dai-thien-the-gioi",
@@ -6433,7 +6433,7 @@
     "codes_count": 1,
     "free_codes_count": 1,
     "source": "Phần thưởng từ nhà phát hành",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   },
   {
     "id": "me-ta-tam-quoc",
@@ -6462,7 +6462,7 @@
     "codes_count": 214,
     "free_codes_count": 214,
     "source": "Phần thưởng từ nhà phát hành",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   },
   {
     "id": "dau-pha-thuong-khung-2d",
@@ -6491,7 +6491,7 @@
     "codes_count": 12,
     "free_codes_count": 12,
     "source": "Phần thưởng từ nhà phát hành",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   },
   {
     "id": "kiem-hiep-auto-chess",
@@ -6520,7 +6520,7 @@
     "codes_count": 11,
     "free_codes_count": 11,
     "source": "Phần thưởng từ nhà phát hành",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   },
   {
     "id": "thuc-than-ky",
@@ -6549,7 +6549,7 @@
     "codes_count": 3,
     "free_codes_count": 3,
     "source": "Phần thưởng từ nhà phát hành",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   },
   {
     "id": "ts3-chien-than-ky",
@@ -6578,7 +6578,7 @@
     "codes_count": 10,
     "free_codes_count": 10,
     "source": "Phần thưởng từ nhà phát hành",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   },
   {
     "id": "tay-du-truyen-ky-cmn",
@@ -6607,7 +6607,7 @@
     "codes_count": 9,
     "free_codes_count": 9,
     "source": "Phần thưởng từ nhà phát hành",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   },
   {
     "id": "kiem-khach-phong-lang",
@@ -6636,7 +6636,7 @@
     "codes_count": 9,
     "free_codes_count": 9,
     "source": "Phần thưởng từ nhà phát hành",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   },
   {
     "id": "ngao-the-vo-lam",
@@ -6665,7 +6665,7 @@
     "codes_count": 5,
     "free_codes_count": 5,
     "source": "Phần thưởng từ nhà phát hành",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   },
   {
     "id": "nhat-kiem-phuc-ma",
@@ -6694,7 +6694,7 @@
     "codes_count": 9,
     "free_codes_count": 9,
     "source": "Phần thưởng từ nhà phát hành",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   },
   {
     "id": "titan-awakening",
@@ -6723,7 +6723,7 @@
     "codes_count": 1,
     "free_codes_count": 1,
     "source": "Phần thưởng từ nhà phát hành",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   },
   {
     "id": "thieu-hiep-xin-dung-buoc",
@@ -6752,7 +6752,7 @@
     "codes_count": 5,
     "free_codes_count": 5,
     "source": "Phần thưởng từ nhà phát hành",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   },
   {
     "id": "souls",
@@ -6781,7 +6781,7 @@
     "codes_count": 14,
     "free_codes_count": 14,
     "source": "Phần thưởng từ nhà phát hành",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   },
   {
     "id": "magic-chess-go-go",
@@ -6810,7 +6810,7 @@
     "codes_count": 3,
     "free_codes_count": 3,
     "source": "Phần thưởng từ nhà phát hành",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   },
   {
     "id": "tay-du-mobile-tam-gioi-chien",
@@ -6839,7 +6839,7 @@
     "codes_count": 9,
     "free_codes_count": 9,
     "source": "Phần thưởng từ nhà phát hành",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   },
   {
     "id": "anh-hung-cam-dia",
@@ -6868,7 +6868,7 @@
     "codes_count": 7,
     "free_codes_count": 7,
     "source": "Phần thưởng từ nhà phát hành",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   },
   {
     "id": "thoi-khong-chi-mong",
@@ -6897,7 +6897,7 @@
     "codes_count": 27,
     "free_codes_count": 27,
     "source": "Phần thưởng từ nhà phát hành",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   },
   {
     "id": "tam-quoc-phan-cong-vng",
@@ -6926,7 +6926,7 @@
     "codes_count": 1,
     "free_codes_count": 1,
     "source": "Phần thưởng từ nhà phát hành",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   },
   {
     "id": "tieu-tuyet-linh-chu",
@@ -6955,7 +6955,7 @@
     "codes_count": 5,
     "free_codes_count": 5,
     "source": "Phần thưởng từ nhà phát hành",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   },
   {
     "id": "tay-du-phuc-ma",
@@ -6984,7 +6984,7 @@
     "codes_count": 16,
     "free_codes_count": 16,
     "source": "Phần thưởng từ nhà phát hành",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   },
   {
     "id": "yeu-thu-van-dao",
@@ -7013,7 +7013,7 @@
     "codes_count": 5,
     "free_codes_count": 5,
     "source": "Phần thưởng từ nhà phát hành",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   },
   {
     "id": "dau-than-tuyet-the",
@@ -7042,7 +7042,7 @@
     "codes_count": 10,
     "free_codes_count": 10,
     "source": "Phần thưởng từ nhà phát hành",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   },
   {
     "id": "than-ma-pk",
@@ -7071,7 +7071,7 @@
     "codes_count": 13,
     "free_codes_count": 13,
     "source": "Phần thưởng từ nhà phát hành",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   },
   {
     "id": "ky-nguyen-icarus",
@@ -7100,7 +7100,7 @@
     "codes_count": 1,
     "free_codes_count": 1,
     "source": "Phần thưởng từ nhà phát hành",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   },
   {
     "id": "mobile-armor-storm",
@@ -7129,7 +7129,7 @@
     "codes_count": 1,
     "free_codes_count": 1,
     "source": "Phần thưởng từ nhà phát hành",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   },
   {
     "id": "cuc-toc-tam-quoc",
@@ -7158,7 +7158,7 @@
     "codes_count": 10,
     "free_codes_count": 10,
     "source": "Phần thưởng từ nhà phát hành",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   },
   {
     "id": "anh-hung-pixel",
@@ -7187,7 +7187,7 @@
     "codes_count": 14,
     "free_codes_count": 14,
     "source": "Phần thưởng từ nhà phát hành",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   },
   {
     "id": "endless-nightmare-6-reborn",
@@ -7216,7 +7216,7 @@
     "codes_count": 42,
     "free_codes_count": 42,
     "source": "Phần thưởng từ nhà phát hành",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   },
   {
     "id": "thoi-dai-anh-hung",
@@ -7245,7 +7245,7 @@
     "codes_count": 30,
     "free_codes_count": 30,
     "source": "Phần thưởng từ nhà phát hành",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   },
   {
     "id": "tro-ve-tuoi-tho",
@@ -7274,7 +7274,7 @@
     "codes_count": 2,
     "free_codes_count": 2,
     "source": "Phần thưởng từ nhà phát hành",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   },
   {
     "id": "tien-len-alita",
@@ -7303,7 +7303,7 @@
     "codes_count": 5,
     "free_codes_count": 5,
     "source": "Phần thưởng từ nhà phát hành",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   },
   {
     "id": "than-ma-loan-vu",
@@ -7332,7 +7332,7 @@
     "codes_count": 19,
     "free_codes_count": 19,
     "source": "Phần thưởng từ nhà phát hành",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   },
   {
     "id": "vo-lam-dai-minh-tinh",
@@ -7361,7 +7361,7 @@
     "codes_count": 15,
     "free_codes_count": 15,
     "source": "Phần thưởng từ nhà phát hành",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   },
   {
     "id": "than-ma-ao-hoa",
@@ -7390,7 +7390,7 @@
     "codes_count": 5,
     "free_codes_count": 5,
     "source": "Phần thưởng từ nhà phát hành",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   },
   {
     "id": "mukbang-tam-quoc",
@@ -7419,7 +7419,7 @@
     "codes_count": 8,
     "free_codes_count": 8,
     "source": "Phần thưởng từ nhà phát hành",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   },
   {
     "id": "zenless-zone-zero",
@@ -7448,7 +7448,7 @@
     "codes_count": 17,
     "free_codes_count": 17,
     "source": "Phần thưởng từ nhà phát hành",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   },
   {
     "id": "roblox",
@@ -7477,7 +7477,7 @@
     "codes_count": 28,
     "free_codes_count": 28,
     "source": "Phần thưởng từ nhà phát hành",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   },
   {
     "id": "roblox-blox-fruits",
@@ -7506,7 +7506,7 @@
     "codes_count": 19,
     "free_codes_count": 19,
     "source": "Phần thưởng từ nhà phát hành",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   },
   {
     "id": "tay-du-beo-vng",
@@ -7535,7 +7535,7 @@
     "codes_count": 10,
     "free_codes_count": 10,
     "source": "Phần thưởng từ nhà phát hành",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   },
   {
     "id": "3q-trieu-hoan-su",
@@ -7564,7 +7564,7 @@
     "codes_count": 8,
     "free_codes_count": 8,
     "source": "Phần thưởng từ nhà phát hành",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   },
   {
     "id": "hero-clash",
@@ -7593,7 +7593,7 @@
     "codes_count": 5,
     "free_codes_count": 5,
     "source": "Phần thưởng từ nhà phát hành",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   },
   {
     "id": "thu-ky-huyen",
@@ -7622,7 +7622,7 @@
     "codes_count": 7,
     "free_codes_count": 7,
     "source": "Phần thưởng từ nhà phát hành",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   },
   {
     "id": "vo-hon",
@@ -7651,7 +7651,7 @@
     "codes_count": 5,
     "free_codes_count": 5,
     "source": "Phần thưởng từ nhà phát hành",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   },
   {
     "id": "tam-quoc-meo",
@@ -7680,7 +7680,7 @@
     "codes_count": 10,
     "free_codes_count": 10,
     "source": "Phần thưởng từ nhà phát hành",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   },
   {
     "id": "dislyte",
@@ -7709,7 +7709,7 @@
     "codes_count": 10,
     "free_codes_count": 10,
     "source": "Phần thưởng từ nhà phát hành",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   },
   {
     "id": "ghost-story-thien-nu",
@@ -7738,7 +7738,7 @@
     "codes_count": 8,
     "free_codes_count": 8,
     "source": "Phần thưởng từ nhà phát hành",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   },
   {
     "id": "hoc-vien-ninja-g4m",
@@ -7767,7 +7767,7 @@
     "codes_count": 3,
     "free_codes_count": 3,
     "source": "Phần thưởng từ nhà phát hành",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   },
   {
     "id": "neverness-to-everness",
@@ -7796,7 +7796,7 @@
     "codes_count": 5,
     "free_codes_count": 5,
     "source": "Phần thưởng từ nhà phát hành",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   },
   {
     "id": "hanh-trinh-afk",
@@ -7825,7 +7825,7 @@
     "codes_count": 19,
     "free_codes_count": 19,
     "source": "Phần thưởng từ nhà phát hành",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   },
   {
     "id": "luc-tung-tam-quoc",
@@ -7854,7 +7854,7 @@
     "codes_count": 19,
     "free_codes_count": 19,
     "source": "Phần thưởng từ nhà phát hành",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   },
   {
     "id": "fortias-saga",
@@ -7883,7 +7883,7 @@
     "codes_count": 1,
     "free_codes_count": 1,
     "source": "Phần thưởng từ nhà phát hành",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   },
   {
     "id": "vo-dich-tu-tien-gioi-vtc",
@@ -7912,7 +7912,7 @@
     "codes_count": 19,
     "free_codes_count": 19,
     "source": "Phần thưởng từ nhà phát hành",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   },
   {
     "id": "mobile-legends-bang-bang",
@@ -7941,7 +7941,7 @@
     "codes_count": 20,
     "free_codes_count": 20,
     "source": "Phần thưởng từ nhà phát hành",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   },
   {
     "id": "huyet-canh-chi-vuc",
@@ -7970,7 +7970,7 @@
     "codes_count": 4,
     "free_codes_count": 4,
     "source": "Phần thưởng từ nhà phát hành",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   },
   {
     "id": "dau-truong-chan-ly",
@@ -7999,7 +7999,7 @@
     "codes_count": 60,
     "free_codes_count": 60,
     "source": "Phần thưởng từ nhà phát hành",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   },
   {
     "id": "huyen-thoai-lang-la",
@@ -8028,7 +8028,7 @@
     "codes_count": 16,
     "free_codes_count": 16,
     "source": "Phần thưởng từ nhà phát hành",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   },
   {
     "id": "thap-tuyet-tran",
@@ -8057,7 +8057,7 @@
     "codes_count": 5,
     "free_codes_count": 5,
     "source": "Phần thưởng từ nhà phát hành",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   },
   {
     "id": "nam-lun-tien-len",
@@ -8086,7 +8086,7 @@
     "codes_count": 33,
     "free_codes_count": 33,
     "source": "Phần thưởng từ nhà phát hành",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   },
   {
     "id": "tay-du-vng",
@@ -8115,7 +8115,7 @@
     "codes_count": 28,
     "free_codes_count": 28,
     "source": "Phần thưởng từ nhà phát hành",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   },
   {
     "id": "tieu-yeu-tam-dao",
@@ -8144,7 +8144,7 @@
     "codes_count": 35,
     "free_codes_count": 35,
     "source": "Phần thưởng từ nhà phát hành",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   },
   {
     "id": "super-snail",
@@ -8173,7 +8173,7 @@
     "codes_count": 11,
     "free_codes_count": 11,
     "source": "Phần thưởng từ nhà phát hành",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   },
   {
     "id": "nam-dai-chien-tpl",
@@ -8202,7 +8202,7 @@
     "codes_count": 1,
     "free_codes_count": 1,
     "source": "Phần thưởng từ nhà phát hành",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   },
   {
     "id": "kiem-vuc-3d",
@@ -8231,7 +8231,7 @@
     "codes_count": 2,
     "free_codes_count": 2,
     "source": "Phần thưởng từ nhà phát hành",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   },
   {
     "id": "jx2-origin",
@@ -8260,7 +8260,7 @@
     "codes_count": 9,
     "free_codes_count": 9,
     "source": "Phần thưởng từ nhà phát hành",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   },
   {
     "id": "phong-van-truyen-ky-2",
@@ -8289,7 +8289,7 @@
     "codes_count": 1,
     "free_codes_count": 1,
     "source": "Phần thưởng từ nhà phát hành",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   },
   {
     "id": "chu-cong-xung-xung-xung",
@@ -8318,7 +8318,7 @@
     "codes_count": 5,
     "free_codes_count": 5,
     "source": "Phần thưởng từ nhà phát hành",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   },
   {
     "id": "tam-quoc-x",
@@ -8347,7 +8347,7 @@
     "codes_count": 217,
     "free_codes_count": 217,
     "source": "Phần thưởng từ nhà phát hành",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   },
   {
     "id": "swordash",
@@ -8376,7 +8376,7 @@
     "codes_count": 0,
     "free_codes_count": 0,
     "source": "Phần thưởng từ nhà phát hành",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   },
   {
     "id": "genshin-impact",
@@ -8405,7 +8405,7 @@
     "codes_count": 61,
     "free_codes_count": 61,
     "source": "Phần thưởng từ nhà phát hành",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   },
   {
     "id": "call-of-dragons",
@@ -8434,7 +8434,7 @@
     "codes_count": 2,
     "free_codes_count": 2,
     "source": "Phần thưởng từ nhà phát hành",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   },
   {
     "id": "kiem-the-origin",
@@ -8460,10 +8460,10 @@
     "is_hot": true,
     "is_new": false,
     "is_active": true,
-    "codes_count": 20,
-    "free_codes_count": 20,
+    "codes_count": 32,
+    "free_codes_count": 32,
     "source": "Phần thưởng từ nhà phát hành",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   },
   {
     "id": "honkai-star-rail",
@@ -8492,7 +8492,7 @@
     "codes_count": 68,
     "free_codes_count": 68,
     "source": "Phần thưởng từ nhà phát hành",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   },
   {
     "id": "kiem-hiep-tinh-2-mobile",
@@ -8521,7 +8521,7 @@
     "codes_count": 12,
     "free_codes_count": 12,
     "source": "Phần thưởng từ nhà phát hành",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   },
   {
     "id": "immortal-rising-2",
@@ -8550,7 +8550,7 @@
     "codes_count": 2,
     "free_codes_count": 2,
     "source": "Phần thưởng từ nhà phát hành",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   },
   {
     "id": "dai-hiep-chay-di",
@@ -8579,7 +8579,7 @@
     "codes_count": 15,
     "free_codes_count": 15,
     "source": "Phần thưởng từ nhà phát hành",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   },
   {
     "id": "vo-cuc-tien-do-cmn",
@@ -8608,7 +8608,7 @@
     "codes_count": 8,
     "free_codes_count": 8,
     "source": "Phần thưởng từ nhà phát hành",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   },
   {
     "id": "lang-rong-3",
@@ -8637,7 +8637,7 @@
     "codes_count": 1,
     "free_codes_count": 1,
     "source": "Phần thưởng từ nhà phát hành",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   },
   {
     "id": "giang-ho-bat-phai-phan-tranh",
@@ -8666,7 +8666,7 @@
     "codes_count": 13,
     "free_codes_count": 13,
     "source": "Phần thưởng từ nhà phát hành",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   },
   {
     "id": "chronicle-of-infinity",
@@ -8695,7 +8695,7 @@
     "codes_count": 3,
     "free_codes_count": 3,
     "source": "Phần thưởng từ nhà phát hành",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   },
   {
     "id": "mech-arena",
@@ -8724,7 +8724,7 @@
     "codes_count": 11,
     "free_codes_count": 11,
     "source": "Phần thưởng từ nhà phát hành",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   },
   {
     "id": "play-together",
@@ -8750,10 +8750,10 @@
     "is_hot": true,
     "is_new": false,
     "is_active": true,
-    "codes_count": 41,
-    "free_codes_count": 41,
+    "codes_count": 43,
+    "free_codes_count": 43,
     "source": "Phần thưởng từ nhà phát hành",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   },
   {
     "id": "afk-arena",
@@ -8782,7 +8782,7 @@
     "codes_count": 26,
     "free_codes_count": 26,
     "source": "Phần thưởng từ nhà phát hành",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   },
   {
     "id": "de-quoc-quat-khoi-tan-the-ky",
@@ -8811,7 +8811,7 @@
     "codes_count": 8,
     "free_codes_count": 8,
     "source": "Phần thưởng từ nhà phát hành",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   },
   {
     "id": "nhat-niem-tieu-dao-gzone",
@@ -8840,7 +8840,7 @@
     "codes_count": 30,
     "free_codes_count": 30,
     "source": "Phần thưởng từ nhà phát hành",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   },
   {
     "id": "chien-gioi-4d",
@@ -8866,10 +8866,10 @@
     "is_hot": true,
     "is_new": false,
     "is_active": true,
-    "codes_count": 104,
-    "free_codes_count": 104,
+    "codes_count": 105,
+    "free_codes_count": 105,
     "source": "Phần thưởng từ nhà phát hành",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   },
   {
     "id": "rise-of-kingdoms",
@@ -8895,10 +8895,10 @@
     "is_hot": true,
     "is_new": false,
     "is_active": true,
-    "codes_count": 35,
-    "free_codes_count": 35,
+    "codes_count": 36,
+    "free_codes_count": 36,
     "source": "Phần thưởng từ nhà phát hành",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   },
   {
     "id": "hanh-trinh-bat-tan-sinh-ton",
@@ -8927,7 +8927,7 @@
     "codes_count": 14,
     "free_codes_count": 14,
     "source": "Phần thưởng từ nhà phát hành",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   },
   {
     "id": "goi-ta-dai-chuong-quy",
@@ -8956,7 +8956,7 @@
     "codes_count": 15,
     "free_codes_count": 15,
     "source": "Phần thưởng từ nhà phát hành",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   },
   {
     "id": "vuong-quoc-kien",
@@ -8985,7 +8985,7 @@
     "codes_count": 33,
     "free_codes_count": 33,
     "source": "Phần thưởng từ nhà phát hành",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   },
   {
     "id": "gunny-origin",
@@ -9014,7 +9014,7 @@
     "codes_count": 24,
     "free_codes_count": 24,
     "source": "Phần thưởng từ nhà phát hành",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   },
   {
     "id": "mini-world-creata",
@@ -9043,7 +9043,7 @@
     "codes_count": 12,
     "free_codes_count": 12,
     "source": "Phần thưởng từ nhà phát hành",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   },
   {
     "id": "idle-gog",
@@ -9072,7 +9072,7 @@
     "codes_count": 5,
     "free_codes_count": 5,
     "source": "Phần thưởng từ nhà phát hành",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   },
   {
     "id": "pew-pew-slime-idle-rpg",
@@ -9101,7 +9101,7 @@
     "codes_count": 9,
     "free_codes_count": 9,
     "source": "Phần thưởng từ nhà phát hành",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   },
   {
     "id": "meo-may-sieu-quay",
@@ -9130,7 +9130,7 @@
     "codes_count": 4,
     "free_codes_count": 4,
     "source": "Phần thưởng từ nhà phát hành",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   },
   {
     "id": "na-tra-nao-hai",
@@ -9159,7 +9159,7 @@
     "codes_count": 5,
     "free_codes_count": 5,
     "source": "Phần thưởng từ nhà phát hành",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   },
   {
     "id": "tan-omg3q-vng",
@@ -9188,7 +9188,7 @@
     "codes_count": 16,
     "free_codes_count": 16,
     "source": "Phần thưởng từ nhà phát hành",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   },
   {
     "id": "dai-chien-tam-quoc",
@@ -9217,7 +9217,7 @@
     "codes_count": 37,
     "free_codes_count": 37,
     "source": "Phần thưởng từ nhà phát hành",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   },
   {
     "id": "doi-hinh-toi-thuong",
@@ -9246,7 +9246,7 @@
     "codes_count": 5,
     "free_codes_count": 5,
     "source": "Phần thưởng từ nhà phát hành",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   },
   {
     "id": "mong-huyen-giang-ho",
@@ -9275,7 +9275,7 @@
     "codes_count": 12,
     "free_codes_count": 12,
     "source": "Phần thưởng từ nhà phát hành",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   },
   {
     "id": "thanh-quang-thien-su",
@@ -9304,7 +9304,7 @@
     "codes_count": 7,
     "free_codes_count": 7,
     "source": "Phần thưởng từ nhà phát hành",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   },
   {
     "id": "thieu-nien-3q-vng",
@@ -9333,7 +9333,7 @@
     "codes_count": 31,
     "free_codes_count": 31,
     "source": "Phần thưởng từ nhà phát hành",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   },
   {
     "id": "mong-canh-tam-quoc",
@@ -9362,7 +9362,7 @@
     "codes_count": 5,
     "free_codes_count": 5,
     "source": "Phần thưởng từ nhà phát hành",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   },
   {
     "id": "lords-mobile",
@@ -9391,7 +9391,7 @@
     "codes_count": 27,
     "free_codes_count": 27,
     "source": "Phần thưởng từ nhà phát hành",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   },
   {
     "id": "giang-ho-ngu-tuyet-mobile",
@@ -9420,7 +9420,7 @@
     "codes_count": 19,
     "free_codes_count": 19,
     "source": "Phần thưởng từ nhà phát hành",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   },
   {
     "id": "vo-lam-truyen-ky-1-mobile",
@@ -9449,7 +9449,7 @@
     "codes_count": 9,
     "free_codes_count": 9,
     "source": "Phần thưởng từ nhà phát hành",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   },
   {
     "id": "dicero",
@@ -9478,7 +9478,7 @@
     "codes_count": 4,
     "free_codes_count": 4,
     "source": "Phần thưởng từ nhà phát hành",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   },
   {
     "id": "call-of-duty-mobile-vn",
@@ -9507,7 +9507,7 @@
     "codes_count": 110,
     "free_codes_count": 110,
     "source": "Phần thưởng từ nhà phát hành",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   },
   {
     "id": "dau-truong-huyen-thoai",
@@ -9536,7 +9536,7 @@
     "codes_count": 11,
     "free_codes_count": 11,
     "source": "Phần thưởng từ nhà phát hành",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   },
   {
     "id": "lien-quan-mobile",
@@ -9562,10 +9562,10 @@
     "is_hot": false,
     "is_new": false,
     "is_active": true,
-    "codes_count": 29,
-    "free_codes_count": 29,
+    "codes_count": 32,
+    "free_codes_count": 32,
     "source": "Phần thưởng từ nhà phát hành",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   },
   {
     "id": "pubg-mobile",
@@ -9594,7 +9594,7 @@
     "codes_count": 26,
     "free_codes_count": 26,
     "source": "Phần thưởng từ nhà phát hành",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   },
   {
     "id": "the-seven-deadly-sins-grand-cross",
@@ -9623,7 +9623,7 @@
     "codes_count": 15,
     "free_codes_count": 15,
     "source": "Phần thưởng từ nhà phát hành",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   },
   {
     "id": "khu-vuon-tren-may",
@@ -9652,7 +9652,7 @@
     "codes_count": 1,
     "free_codes_count": 1,
     "source": "Phần thưởng từ nhà phát hành",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   },
   {
     "id": "ngoa-long-vng",
@@ -9681,7 +9681,7 @@
     "codes_count": 19,
     "free_codes_count": 19,
     "source": "Phần thưởng từ nhà phát hành",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   },
   {
     "id": "tam-gioi-anh-hung",
@@ -9710,7 +9710,7 @@
     "codes_count": 14,
     "free_codes_count": 14,
     "source": "Phần thưởng từ nhà phát hành",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   },
   {
     "id": "danh-tuong-3q-vng",
@@ -9739,7 +9739,7 @@
     "codes_count": 40,
     "free_codes_count": 40,
     "source": "Phần thưởng từ nhà phát hành",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   },
   {
     "id": "grand-blue",
@@ -9768,7 +9768,7 @@
     "codes_count": 14,
     "free_codes_count": 14,
     "source": "Phần thưởng từ nhà phát hành",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   },
   {
     "id": "dragon-village-m",
@@ -9797,7 +9797,7 @@
     "codes_count": 0,
     "free_codes_count": 0,
     "source": "Phần thưởng từ nhà phát hành",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   },
   {
     "id": "omg-3q",
@@ -9826,7 +9826,7 @@
     "codes_count": 27,
     "free_codes_count": 27,
     "source": "Phần thưởng từ nhà phát hành",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   },
   {
     "id": "zingspeed-mobile",
@@ -9855,7 +9855,7 @@
     "codes_count": 60,
     "free_codes_count": 60,
     "source": "Phần thưởng từ nhà phát hành",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   },
   {
     "id": "x-wukong-dai-chien-tam-gioi",
@@ -9884,7 +9884,7 @@
     "codes_count": 17,
     "free_codes_count": 17,
     "source": "Phần thưởng từ nhà phát hành",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   },
   {
     "id": "tam-quoc-huyen-tuong",
@@ -9913,7 +9913,7 @@
     "codes_count": 20,
     "free_codes_count": 20,
     "source": "Phần thưởng từ nhà phát hành",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   },
   {
     "id": "buu-boi-truyen-ky",
@@ -9942,7 +9942,7 @@
     "codes_count": 8,
     "free_codes_count": 8,
     "source": "Phần thưởng từ nhà phát hành",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   },
   {
     "id": "free-fire",
@@ -9968,10 +9968,10 @@
     "is_hot": false,
     "is_new": false,
     "is_active": true,
-    "codes_count": 31,
-    "free_codes_count": 31,
+    "codes_count": 36,
+    "free_codes_count": 36,
     "source": "Phần thưởng từ nhà phát hành",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   },
   {
     "id": "gunpow",
@@ -10000,7 +10000,7 @@
     "codes_count": 37,
     "free_codes_count": 37,
     "source": "Phần thưởng từ nhà phát hành",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   },
   {
     "id": "god-rivals-rpg-roguelike",
@@ -10029,7 +10029,7 @@
     "codes_count": 0,
     "free_codes_count": 0,
     "source": "Phần thưởng từ nhà phát hành",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   },
   {
     "id": "gambit-hero",
@@ -10058,7 +10058,7 @@
     "codes_count": 0,
     "free_codes_count": 0,
     "source": "Phần thưởng từ nhà phát hành",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   },
   {
     "id": "thien-menh-lac-hong",
@@ -10087,7 +10087,7 @@
     "codes_count": 1,
     "free_codes_count": 1,
     "source": "Phần thưởng từ nhà phát hành",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   },
   {
     "id": "truyen-ky-tai-khoi",
@@ -10116,7 +10116,7 @@
     "codes_count": 0,
     "free_codes_count": 0,
     "source": "Phần thưởng từ nhà phát hành",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   },
   {
     "id": "elpis-fallen-star",
@@ -10145,7 +10145,7 @@
     "codes_count": 1,
     "free_codes_count": 1,
     "source": "Phần thưởng từ nhà phát hành",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   },
   {
     "id": "blood-strike-one-punch-man",
@@ -10174,7 +10174,7 @@
     "codes_count": 8,
     "free_codes_count": 8,
     "source": "Phần thưởng từ nhà phát hành",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   },
   {
     "id": "lord-of-mysteries",
@@ -10203,7 +10203,7 @@
     "codes_count": 0,
     "free_codes_count": 0,
     "source": "Phần thưởng từ nhà phát hành",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   },
   {
     "id": "gold-and-glory",
@@ -10232,7 +10232,7 @@
     "codes_count": 0,
     "free_codes_count": 0,
     "source": "Phần thưởng từ nhà phát hành",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   },
   {
     "id": "astro-arena-3vs3-battle-pvp",
@@ -10261,7 +10261,7 @@
     "codes_count": 0,
     "free_codes_count": 0,
     "source": "Phần thưởng từ nhà phát hành",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   },
   {
     "id": "cuoc-doi-gam-voc",
@@ -10290,7 +10290,7 @@
     "codes_count": 0,
     "free_codes_count": 0,
     "source": "Phần thưởng từ nhà phát hành",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   },
   {
     "id": "knight-survivors",
@@ -10319,7 +10319,7 @@
     "codes_count": 0,
     "free_codes_count": 0,
     "source": "Phần thưởng từ nhà phát hành",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   },
   {
     "id": "heavenfall",
@@ -10348,7 +10348,7 @@
     "codes_count": 0,
     "free_codes_count": 0,
     "source": "Phần thưởng từ nhà phát hành",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   },
   {
     "id": "last-war-survival",
@@ -10377,7 +10377,7 @@
     "codes_count": 0,
     "free_codes_count": 0,
     "source": "Phần thưởng từ nhà phát hành",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   },
   {
     "id": "soul-huntress",
@@ -10406,7 +10406,7 @@
     "codes_count": 2,
     "free_codes_count": 2,
     "source": "Phần thưởng từ nhà phát hành",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   },
   {
     "id": "dark-war-survival",
@@ -10435,7 +10435,7 @@
     "codes_count": 3,
     "free_codes_count": 3,
     "source": "Phần thưởng từ nhà phát hành",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   },
   {
     "id": "project-e-tan-nguyen-kiem-hiep",
@@ -10464,7 +10464,7 @@
     "codes_count": 1,
     "free_codes_count": 1,
     "source": "Phần thưởng từ nhà phát hành",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   },
   {
     "id": "norse-saga-cuu-gioi-thuc-tinh",
@@ -10490,10 +10490,10 @@
     "is_hot": false,
     "is_new": false,
     "is_active": true,
-    "codes_count": 5,
-    "free_codes_count": 5,
+    "codes_count": 17,
+    "free_codes_count": 17,
     "source": "Phần thưởng từ nhà phát hành",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   },
   {
     "id": "vo-lam-1-3d-tpl",
@@ -10522,7 +10522,7 @@
     "codes_count": 0,
     "free_codes_count": 0,
     "source": "Phần thưởng từ nhà phát hành",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   },
   {
     "id": "x-dogs",
@@ -10551,7 +10551,7 @@
     "codes_count": 0,
     "free_codes_count": 0,
     "source": "Phần thưởng từ nhà phát hành",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   },
   {
     "id": "zombies-boom",
@@ -10580,7 +10580,7 @@
     "codes_count": 0,
     "free_codes_count": 0,
     "source": "Phần thưởng từ nhà phát hành",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   },
   {
     "id": "sea-of-remnants",
@@ -10609,7 +10609,7 @@
     "codes_count": 0,
     "free_codes_count": 0,
     "source": "Phần thưởng từ nhà phát hành",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   },
   {
     "id": "nguyet-mong",
@@ -10638,7 +10638,7 @@
     "codes_count": 6,
     "free_codes_count": 6,
     "source": "Phần thưởng từ nhà phát hành",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   },
   {
     "id": "tam-quoc-hop-tuong",
@@ -10667,7 +10667,7 @@
     "codes_count": 0,
     "free_codes_count": 0,
     "source": "Phần thưởng từ nhà phát hành",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   },
   {
     "id": "adventurer-alliance",
@@ -10696,7 +10696,7 @@
     "codes_count": 0,
     "free_codes_count": 0,
     "source": "Phần thưởng từ nhà phát hành",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   },
   {
     "id": "top-eleven-vng",
@@ -10725,7 +10725,7 @@
     "codes_count": 0,
     "free_codes_count": 0,
     "source": "Phần thưởng từ nhà phát hành",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   },
   {
     "id": "pewpew-plants-rogue-garden",
@@ -10754,7 +10754,7 @@
     "codes_count": 4,
     "free_codes_count": 4,
     "source": "Phần thưởng từ nhà phát hành",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   },
   {
     "id": "thoi-loan-2",
@@ -10783,7 +10783,7 @@
     "codes_count": 0,
     "free_codes_count": 0,
     "source": "Phần thưởng từ nhà phát hành",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   },
   {
     "id": "doomsday-agent",
@@ -10812,7 +10812,7 @@
     "codes_count": 0,
     "free_codes_count": 0,
     "source": "Phần thưởng từ nhà phát hành",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   },
   {
     "id": "xom-nho-tuoi-tho",
@@ -10841,7 +10841,7 @@
     "codes_count": 0,
     "free_codes_count": 0,
     "source": "Phần thưởng từ nhà phát hành",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   },
   {
     "id": "dynasty-chronicles",
@@ -10870,7 +10870,7 @@
     "codes_count": 0,
     "free_codes_count": 0,
     "source": "Phần thưởng từ nhà phát hành",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   },
   {
     "id": "tap-dragon-little-knight-luna",
@@ -10899,7 +10899,7 @@
     "codes_count": 0,
     "free_codes_count": 0,
     "source": "Phần thưởng từ nhà phát hành",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   },
   {
     "id": "mech-transformers",
@@ -10928,7 +10928,7 @@
     "codes_count": 0,
     "free_codes_count": 0,
     "source": "Phần thưởng từ nhà phát hành",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   },
   {
     "id": "ninja-ma-thuat",
@@ -10957,7 +10957,7 @@
     "codes_count": 0,
     "free_codes_count": 0,
     "source": "Phần thưởng từ nhà phát hành",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   },
   {
     "id": "dao-rong-tai-sinh",
@@ -10986,7 +10986,7 @@
     "codes_count": 0,
     "free_codes_count": 0,
     "source": "Phần thưởng từ nhà phát hành",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   },
   {
     "id": "tan-y-thien-giang-ho-lenh",
@@ -11015,7 +11015,7 @@
     "codes_count": 11,
     "free_codes_count": 11,
     "source": "Phần thưởng từ nhà phát hành",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   },
   {
     "id": "loopy-ducky",
@@ -11044,7 +11044,7 @@
     "codes_count": 0,
     "free_codes_count": 0,
     "source": "Phần thưởng từ nhà phát hành",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   },
   {
     "id": "ky-nguyen-tai-phu",
@@ -11073,7 +11073,7 @@
     "codes_count": 0,
     "free_codes_count": 0,
     "source": "Phần thưởng từ nhà phát hành",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   },
   {
     "id": "dao-huu-tu-tien-khong",
@@ -11102,7 +11102,7 @@
     "codes_count": 0,
     "free_codes_count": 0,
     "source": "Phần thưởng từ nhà phát hành",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   },
   {
     "id": "undead-slayer-extreme",
@@ -11131,7 +11131,7 @@
     "codes_count": 0,
     "free_codes_count": 0,
     "source": "Phần thưởng từ nhà phát hành",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   },
   {
     "id": "tong-su-manh-nhat",
@@ -11160,7 +11160,7 @@
     "codes_count": 0,
     "free_codes_count": 0,
     "source": "Phần thưởng từ nhà phát hành",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   },
   {
     "id": "palworld-online",
@@ -11189,7 +11189,7 @@
     "codes_count": 0,
     "free_codes_count": 0,
     "source": "Phần thưởng từ nhà phát hành",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   },
   {
     "id": "dawnbound-heroes",
@@ -11218,7 +11218,7 @@
     "codes_count": 0,
     "free_codes_count": 0,
     "source": "Phần thưởng từ nhà phát hành",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   },
   {
     "id": "eternal-dragons",
@@ -11247,7 +11247,7 @@
     "codes_count": 0,
     "free_codes_count": 0,
     "source": "Phần thưởng từ nhà phát hành",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   },
   {
     "id": "eileen-saga-the-crush-girl",
@@ -11276,7 +11276,7 @@
     "codes_count": 0,
     "free_codes_count": 0,
     "source": "Phần thưởng từ nhà phát hành",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   },
   {
     "id": "hoi-tho-mat-troi-mobile",
@@ -11305,7 +11305,7 @@
     "codes_count": 0,
     "free_codes_count": 0,
     "source": "Phần thưởng từ nhà phát hành",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   },
   {
     "id": "x-hero-save-animals",
@@ -11334,7 +11334,7 @@
     "codes_count": 0,
     "free_codes_count": 0,
     "source": "Phần thưởng từ nhà phát hành",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   },
   {
     "id": "fireborn",
@@ -11363,7 +11363,7 @@
     "codes_count": 0,
     "free_codes_count": 0,
     "source": "Phần thưởng từ nhà phát hành",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   },
   {
     "id": "dao-sinh-ton-3d",
@@ -11392,7 +11392,7 @@
     "codes_count": 0,
     "free_codes_count": 0,
     "source": "Phần thưởng từ nhà phát hành",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   },
   {
     "id": "shadow-warriors-idle",
@@ -11421,7 +11421,7 @@
     "codes_count": 0,
     "free_codes_count": 0,
     "source": "Phần thưởng từ nhà phát hành",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   },
   {
     "id": "kiem-rong-vtc-mobile",
@@ -11450,7 +11450,7 @@
     "codes_count": 12,
     "free_codes_count": 12,
     "source": "Phần thưởng từ nhà phát hành",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   },
   {
     "id": "khai-tong-lap-phai",
@@ -11479,7 +11479,7 @@
     "codes_count": 0,
     "free_codes_count": 0,
     "source": "Phần thưởng từ nhà phát hành",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   },
   {
     "id": "piggy-town-vn",
@@ -11508,7 +11508,7 @@
     "codes_count": 3,
     "free_codes_count": 3,
     "source": "Phần thưởng từ nhà phát hành",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   },
   {
     "id": "hao-khi-chien-hon-migame",
@@ -11537,7 +11537,7 @@
     "codes_count": 0,
     "free_codes_count": 0,
     "source": "Phần thưởng từ nhà phát hành",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   },
   {
     "id": "dinh-phong-tam-quoc-2",
@@ -11566,7 +11566,7 @@
     "codes_count": 0,
     "free_codes_count": 0,
     "source": "Phần thưởng từ nhà phát hành",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   },
   {
     "id": "soul-knight-defense",
@@ -11595,7 +11595,7 @@
     "codes_count": 0,
     "free_codes_count": 0,
     "source": "Phần thưởng từ nhà phát hành",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   },
   {
     "id": "backpack-defense-zombie-td",
@@ -11624,7 +11624,7 @@
     "codes_count": 0,
     "free_codes_count": 0,
     "source": "Phần thưởng từ nhà phát hành",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   },
   {
     "id": "idle-heroes-ky-nguyen-anh-hung",
@@ -11653,7 +11653,7 @@
     "codes_count": 0,
     "free_codes_count": 0,
     "source": "Phần thưởng từ nhà phát hành",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   },
   {
     "id": "thanh-chu-tam-quoc-gzone",
@@ -11682,7 +11682,7 @@
     "codes_count": 0,
     "free_codes_count": 0,
     "source": "Phần thưởng từ nhà phát hành",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   },
   {
     "id": "rise-of-dragons",
@@ -11711,7 +11711,7 @@
     "codes_count": 0,
     "free_codes_count": 0,
     "source": "Phần thưởng từ nhà phát hành",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   },
   {
     "id": "happy-citizens-mayor-sim",
@@ -11740,7 +11740,7 @@
     "codes_count": 0,
     "free_codes_count": 0,
     "source": "Phần thưởng từ nhà phát hành",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   },
   {
     "id": "lands-of-jail",
@@ -11769,7 +11769,7 @@
     "codes_count": 0,
     "free_codes_count": 0,
     "source": "Phần thưởng từ nhà phát hành",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   },
   {
     "id": "dao-quan-than-thanh",
@@ -11798,7 +11798,7 @@
     "codes_count": 0,
     "free_codes_count": 0,
     "source": "Phần thưởng từ nhà phát hành",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   },
   {
     "id": "be-a-pro-football",
@@ -11827,7 +11827,7 @@
     "codes_count": 2,
     "free_codes_count": 2,
     "source": "Phần thưởng từ nhà phát hành",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   },
   {
     "id": "final-war-frozen-defense",
@@ -11856,7 +11856,7 @@
     "codes_count": 0,
     "free_codes_count": 0,
     "source": "Phần thưởng từ nhà phát hành",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   },
   {
     "id": "tieu-dao-vo-lam",
@@ -11885,7 +11885,7 @@
     "codes_count": 9,
     "free_codes_count": 9,
     "source": "Phần thưởng từ nhà phát hành",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   },
   {
     "id": "brown-dust-2",
@@ -11914,7 +11914,7 @@
     "codes_count": 0,
     "free_codes_count": 0,
     "source": "Phần thưởng từ nhà phát hành",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   },
   {
     "id": "bac-thay-kungfu",
@@ -11943,7 +11943,7 @@
     "codes_count": 0,
     "free_codes_count": 0,
     "source": "Phần thưởng từ nhà phát hành",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   },
   {
     "id": "the-gioi-moi-ninja",
@@ -11972,7 +11972,7 @@
     "codes_count": 0,
     "free_codes_count": 0,
     "source": "Phần thưởng từ nhà phát hành",
-    "updated_at": "2026-10-19T06:11:29.987620Z",
+    "updated_at": "2026-10-19T13:52:30.933643Z",
     "download_android": "https://play.google.com/store/apps/details?id=com.keshxcj.wrfudcfj"
   },
   {
@@ -12002,7 +12002,7 @@
     "codes_count": 0,
     "free_codes_count": 0,
     "source": "Phần thưởng từ nhà phát hành",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   },
   {
     "id": "tu-tien-chi-lo-oeg",
@@ -12031,7 +12031,7 @@
     "codes_count": 2,
     "free_codes_count": 2,
     "source": "Phần thưởng từ nhà phát hành",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   },
   {
     "id": "tang-long-bat-bai",
@@ -12060,7 +12060,7 @@
     "codes_count": 15,
     "free_codes_count": 15,
     "source": "Phần thưởng từ nhà phát hành",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   },
   {
     "id": "chua-cong-chay-mau",
@@ -12089,7 +12089,7 @@
     "codes_count": 3,
     "free_codes_count": 3,
     "source": "Phần thưởng từ nhà phát hành",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   },
   {
     "id": "tam-quoc-thu-hoa",
@@ -12118,7 +12118,7 @@
     "codes_count": 15,
     "free_codes_count": 15,
     "source": "Phần thưởng từ nhà phát hành",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   },
   {
     "id": "tieu-ngao-doc-ton-vgp",
@@ -12147,7 +12147,7 @@
     "codes_count": 8,
     "free_codes_count": 8,
     "source": "Phần thưởng từ nhà phát hành",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   },
   {
     "id": "soul-knight",
@@ -12176,7 +12176,7 @@
     "codes_count": 10,
     "free_codes_count": 10,
     "source": "Phần thưởng từ nhà phát hành",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   },
   {
     "id": "rellion-npc-survival",
@@ -12205,7 +12205,7 @@
     "codes_count": 0,
     "free_codes_count": 0,
     "source": "Phần thưởng từ nhà phát hành",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   },
   {
     "id": "idle-cat-gunner",
@@ -12234,7 +12234,7 @@
     "codes_count": 0,
     "free_codes_count": 0,
     "source": "Phần thưởng từ nhà phát hành",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   },
   {
     "id": "chinh-phuc-cuu-chau",
@@ -12263,7 +12263,7 @@
     "codes_count": 21,
     "free_codes_count": 21,
     "source": "Phần thưởng từ nhà phát hành",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   },
   {
     "id": "co-gioi-chien-war-robots",
@@ -12292,7 +12292,7 @@
     "codes_count": 4,
     "free_codes_count": 4,
     "source": "Phần thưởng từ nhà phát hành",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   },
   {
     "id": "draconia-saga",
@@ -12321,7 +12321,7 @@
     "codes_count": 7,
     "free_codes_count": 7,
     "source": "Phần thưởng từ nhà phát hành",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   },
   {
     "id": "sword-of-convallaria",
@@ -12350,7 +12350,7 @@
     "codes_count": 18,
     "free_codes_count": 18,
     "source": "Phần thưởng từ nhà phát hành",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   },
   {
     "id": "majo-apocalypse-tactics",
@@ -12379,7 +12379,7 @@
     "codes_count": 11,
     "free_codes_count": 11,
     "source": "Phần thưởng từ nhà phát hành",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   },
   {
     "id": "tram-tien-quyet",
@@ -12408,7 +12408,7 @@
     "codes_count": 24,
     "free_codes_count": 24,
     "source": "Phần thưởng từ nhà phát hành",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   },
   {
     "id": "blue-lock-pwc",
@@ -12437,7 +12437,7 @@
     "codes_count": 0,
     "free_codes_count": 0,
     "source": "Phần thưởng từ nhà phát hành",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   },
   {
     "id": "lost-era-immortal-legend",
@@ -12466,7 +12466,7 @@
     "codes_count": 25,
     "free_codes_count": 25,
     "source": "Phần thưởng từ nhà phát hành",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   },
   {
     "id": "big-bang-thoi-khong",
@@ -12495,7 +12495,7 @@
     "codes_count": 8,
     "free_codes_count": 8,
     "source": "Phần thưởng từ nhà phát hành",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   },
   {
     "id": "yong-heroes-2",
@@ -12524,7 +12524,7 @@
     "codes_count": 6,
     "free_codes_count": 6,
     "source": "Phần thưởng từ nhà phát hành",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   },
   {
     "id": "voyage-age-pirate-vow",
@@ -12553,7 +12553,7 @@
     "codes_count": 10,
     "free_codes_count": 10,
     "source": "Phần thưởng từ nhà phát hành",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   },
   {
     "id": "tinh-linh-khoi-nguyen",
@@ -12582,7 +12582,7 @@
     "codes_count": 1,
     "free_codes_count": 1,
     "source": "Phần thưởng từ nhà phát hành",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   },
   {
     "id": "omg-goddess-idle-legends",
@@ -12611,7 +12611,7 @@
     "codes_count": 9,
     "free_codes_count": 9,
     "source": "Phần thưởng từ nhà phát hành",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   },
   {
     "id": "revelation-thien-du",
@@ -12640,7 +12640,7 @@
     "codes_count": 3,
     "free_codes_count": 3,
     "source": "Phần thưởng từ nhà phát hành",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   },
   {
     "id": "chien-vi-vinh-quang",
@@ -12669,7 +12669,7 @@
     "codes_count": 8,
     "free_codes_count": 8,
     "source": "Phần thưởng từ nhà phát hành",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   },
   {
     "id": "idle-angels",
@@ -12698,7 +12698,7 @@
     "codes_count": 3,
     "free_codes_count": 3,
     "source": "Phần thưởng từ nhà phát hành",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   },
   {
     "id": "clash-of-critters",
@@ -12727,7 +12727,7 @@
     "codes_count": 8,
     "free_codes_count": 8,
     "source": "Phần thưởng từ nhà phát hành",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   },
   {
     "id": "hyper-spark-ki-clash",
@@ -12756,7 +12756,7 @@
     "codes_count": 25,
     "free_codes_count": 25,
     "source": "Phần thưởng từ nhà phát hành",
-    "updated_at": "2026-10-19T06:11:29.987620Z",
+    "updated_at": "2026-10-19T13:52:30.933643Z",
     "download_android": "https://play.google.com/store/apps/details?id=zeni.chaojiz.com"
   },
   {
@@ -12786,7 +12786,7 @@
     "codes_count": 1,
     "free_codes_count": 1,
     "source": "Phần thưởng từ nhà phát hành",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   },
   {
     "id": "cai-the-tranh-hung",
@@ -12815,7 +12815,7 @@
     "codes_count": 4,
     "free_codes_count": 4,
     "source": "Phần thưởng từ nhà phát hành",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   },
   {
     "id": "ngoi-sao-showbiz",
@@ -12844,7 +12844,7 @@
     "codes_count": 33,
     "free_codes_count": 33,
     "source": "Phần thưởng từ nhà phát hành",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   },
   {
     "id": "than-kiem-ky-thu",
@@ -12873,7 +12873,7 @@
     "codes_count": 10,
     "free_codes_count": 10,
     "source": "Phần thưởng từ nhà phát hành",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   },
   {
     "id": "ares-the-iron-vanguard",
@@ -12902,7 +12902,7 @@
     "codes_count": 8,
     "free_codes_count": 8,
     "source": "Phần thưởng từ nhà phát hành",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   },
   {
     "id": "red-dragon-legend",
@@ -12931,7 +12931,7 @@
     "codes_count": 2,
     "free_codes_count": 2,
     "source": "Phần thưởng từ nhà phát hành",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   },
   {
     "id": "soul-knight-prequel",
@@ -12960,7 +12960,7 @@
     "codes_count": 7,
     "free_codes_count": 7,
     "source": "Phần thưởng từ nhà phát hành",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   },
   {
     "id": "dont-die-survival",
@@ -12989,7 +12989,7 @@
     "codes_count": 6,
     "free_codes_count": 6,
     "source": "Phần thưởng từ nhà phát hành",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   },
   {
     "id": "avalar-raid-of-shadow",
@@ -13018,7 +13018,7 @@
     "codes_count": 1,
     "free_codes_count": 1,
     "source": "Phần thưởng từ nhà phát hành",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   },
   {
     "id": "ky-tich-atlans",
@@ -13047,7 +13047,7 @@
     "codes_count": 2,
     "free_codes_count": 2,
     "source": "Phần thưởng từ nhà phát hành",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   },
   {
     "id": "pof-con-duong-ma-phap",
@@ -13076,7 +13076,7 @@
     "codes_count": 0,
     "free_codes_count": 0,
     "source": "Phần thưởng từ nhà phát hành",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   },
   {
     "id": "tru-tien-3d",
@@ -13105,7 +13105,7 @@
     "codes_count": 19,
     "free_codes_count": 19,
     "source": "Phần thưởng từ nhà phát hành",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   },
   {
     "id": "bo-lac-dau-phong",
@@ -13134,7 +13134,7 @@
     "codes_count": 0,
     "free_codes_count": 0,
     "source": "Phần thưởng từ nhà phát hành",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   },
   {
     "id": "allfiring",
@@ -13163,7 +13163,7 @@
     "codes_count": 1,
     "free_codes_count": 1,
     "source": "Phần thưởng từ nhà phát hành",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   },
   {
     "id": "basketball-zero",
@@ -13192,7 +13192,7 @@
     "codes_count": 2,
     "free_codes_count": 2,
     "source": "Phần thưởng từ nhà phát hành",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   },
   {
     "id": "sword-of-reborn",
@@ -13221,7 +13221,7 @@
     "codes_count": 10,
     "free_codes_count": 10,
     "source": "Phần thưởng từ nhà phát hành",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   },
   {
     "id": "conquest-of-nine-kingdoms",
@@ -13250,7 +13250,7 @@
     "codes_count": 9,
     "free_codes_count": 9,
     "source": "Phần thưởng từ nhà phát hành",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   },
   {
     "id": "westland-survival",
@@ -13279,7 +13279,7 @@
     "codes_count": 4,
     "free_codes_count": 4,
     "source": "Phần thưởng từ nhà phát hành",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   },
   {
     "id": "speed-monkey-escape",
@@ -13308,7 +13308,7 @@
     "codes_count": 5,
     "free_codes_count": 5,
     "source": "Phần thưởng từ nhà phát hành",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   },
   {
     "id": "idle-horizons",
@@ -13337,7 +13337,7 @@
     "codes_count": 0,
     "free_codes_count": 0,
     "source": "Phần thưởng từ nhà phát hành",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   },
   {
     "id": "summoners-war",
@@ -13366,7 +13366,7 @@
     "codes_count": 1,
     "free_codes_count": 1,
     "source": "Phần thưởng từ nhà phát hành",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   },
   {
     "id": "star-blaster",
@@ -13395,7 +13395,7 @@
     "codes_count": 3,
     "free_codes_count": 3,
     "source": "Phần thưởng từ nhà phát hành",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   },
   {
     "id": "dao-rong-dot-bien",
@@ -13424,7 +13424,7 @@
     "codes_count": 3,
     "free_codes_count": 3,
     "source": "Phần thưởng từ nhà phát hành",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   },
   {
     "id": "world-of-tanks-blitz",
@@ -13453,7 +13453,7 @@
     "codes_count": 28,
     "free_codes_count": 28,
     "source": "Phần thưởng từ nhà phát hành",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   },
   {
     "id": "fortress-saga",
@@ -13482,7 +13482,7 @@
     "codes_count": 4,
     "free_codes_count": 4,
     "source": "Phần thưởng từ nhà phát hành",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   },
   {
     "id": "dress-to-impress",
@@ -13511,7 +13511,7 @@
     "codes_count": 25,
     "free_codes_count": 25,
     "source": "Phần thưởng từ nhà phát hành",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   },
   {
     "id": "mu-luc-dia-vng",
@@ -13540,7 +13540,7 @@
     "codes_count": 31,
     "free_codes_count": 31,
     "source": "Phần thưởng từ nhà phát hành",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   },
   {
     "id": "combo-thuc-tinh",
@@ -13569,7 +13569,7 @@
     "codes_count": 14,
     "free_codes_count": 14,
     "source": "Phần thưởng từ nhà phát hành",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   },
   {
     "id": "meme-war",
@@ -13598,7 +13598,7 @@
     "codes_count": 0,
     "free_codes_count": 0,
     "source": "Phần thưởng từ nhà phát hành",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   },
   {
     "id": "vuong-quoc-bat-diet",
@@ -13627,7 +13627,7 @@
     "codes_count": 6,
     "free_codes_count": 6,
     "source": "Phần thưởng từ nhà phát hành",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   },
   {
     "id": "hero-survival-io",
@@ -13656,7 +13656,7 @@
     "codes_count": 1,
     "free_codes_count": 1,
     "source": "Phần thưởng từ nhà phát hành",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   },
   {
     "id": "port-city",
@@ -13685,7 +13685,7 @@
     "codes_count": 1,
     "free_codes_count": 1,
     "source": "Phần thưởng từ nhà phát hành",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   },
   {
     "id": "chien-thu-hon-chien",
@@ -13714,7 +13714,7 @@
     "codes_count": 3,
     "free_codes_count": 3,
     "source": "Phần thưởng từ nhà phát hành",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   },
   {
     "id": "legend-piece",
@@ -13743,7 +13743,7 @@
     "codes_count": 6,
     "free_codes_count": 6,
     "source": "Phần thưởng từ nhà phát hành",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   },
   {
     "id": "the-gioi-tu-tien",
@@ -13772,7 +13772,7 @@
     "codes_count": 1,
     "free_codes_count": 1,
     "source": "Phần thưởng từ nhà phát hành",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   },
   {
     "id": "thien-thu-truyen-ky",
@@ -13801,7 +13801,7 @@
     "codes_count": 5,
     "free_codes_count": 5,
     "source": "Phần thưởng từ nhà phát hành",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   },
   {
     "id": "fallen-souls-idle-rpg",
@@ -13830,7 +13830,7 @@
     "codes_count": 6,
     "free_codes_count": 6,
     "source": "Phần thưởng từ nhà phát hành",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   },
   {
     "id": "vong-xuyen-phong-hoa-luc",
@@ -13859,7 +13859,7 @@
     "codes_count": 4,
     "free_codes_count": 4,
     "source": "Phần thưởng từ nhà phát hành",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   },
   {
     "id": "mong-thien-kiem",
@@ -13888,7 +13888,7 @@
     "codes_count": 0,
     "free_codes_count": 0,
     "source": "Phần thưởng từ nhà phát hành",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   },
   {
     "id": "doomsday-last-survivors",
@@ -13917,7 +13917,7 @@
     "codes_count": 9,
     "free_codes_count": 9,
     "source": "Phần thưởng từ nhà phát hành",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   },
   {
     "id": "pixel-dai-chien",
@@ -13946,7 +13946,7 @@
     "codes_count": 4,
     "free_codes_count": 4,
     "source": "Phần thưởng từ nhà phát hành",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   },
   {
     "id": "3q-thanh-chu-tieu-dao",
@@ -13975,7 +13975,7 @@
     "codes_count": 10,
     "free_codes_count": 10,
     "source": "Phần thưởng từ nhà phát hành",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   },
   {
     "id": "north-war",
@@ -14004,7 +14004,7 @@
     "codes_count": 1,
     "free_codes_count": 1,
     "source": "Phần thưởng từ nhà phát hành",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   },
   {
     "id": "thieu-nu-scarlet",
@@ -14033,7 +14033,7 @@
     "codes_count": 12,
     "free_codes_count": 12,
     "source": "Phần thưởng từ nhà phát hành",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   },
   {
     "id": "match-go-heroes",
@@ -14062,7 +14062,7 @@
     "codes_count": 5,
     "free_codes_count": 5,
     "source": "Phần thưởng từ nhà phát hành",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   },
   {
     "id": "tam-quoc-quy-ke",
@@ -14091,7 +14091,7 @@
     "codes_count": 0,
     "free_codes_count": 0,
     "source": "Phần thưởng từ nhà phát hành",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   },
   {
     "id": "dynasty-warriors-overlords",
@@ -14120,7 +14120,7 @@
     "codes_count": 7,
     "free_codes_count": 7,
     "source": "Phần thưởng từ nhà phát hành",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   },
   {
     "id": "thieu-nien-tay-du-vtc",
@@ -14149,7 +14149,7 @@
     "codes_count": 11,
     "free_codes_count": 11,
     "source": "Phần thưởng từ nhà phát hành",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   },
   {
     "id": "blox-fruits",
@@ -14178,7 +14178,7 @@
     "codes_count": 4,
     "free_codes_count": 4,
     "source": "Chuyên trang cẩm nang quốc tế (Pocket Gamer, Pocket Tactics, Pro Game Guides...)",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   },
   {
     "id": "solo-leveling-arise",
@@ -14207,7 +14207,7 @@
     "codes_count": 3,
     "free_codes_count": 3,
     "source": "Chuyên trang cẩm nang quốc tế (Pocket Gamer, Pocket Tactics, Pro Game Guides...)",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   },
   {
     "id": "wuthering-waves",
@@ -14236,7 +14236,7 @@
     "codes_count": 3,
     "free_codes_count": 3,
     "source": "Chuyên trang cẩm nang quốc tế (Pocket Gamer, Pocket Tactics, Pro Game Guides...)",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   },
   {
     "id": "whiteout-survival",
@@ -14265,7 +14265,7 @@
     "codes_count": 3,
     "free_codes_count": 3,
     "source": "Chuyên trang cẩm nang quốc tế (Pocket Gamer, Pocket Tactics, Pro Game Guides...)",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   },
   {
     "id": "brawl-stars",
@@ -14294,7 +14294,7 @@
     "codes_count": 2,
     "free_codes_count": 2,
     "source": "Chuyên trang cẩm nang quốc tế (Pocket Gamer, Pocket Tactics, Pro Game Guides...)",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   },
   {
     "id": "monopoly-go",
@@ -14323,7 +14323,7 @@
     "codes_count": 2,
     "free_codes_count": 2,
     "source": "Chuyên trang cẩm nang quốc tế (Pocket Gamer, Pocket Tactics, Pro Game Guides...)",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   },
   {
     "id": "pet-simulator-99",
@@ -14352,7 +14352,7 @@
     "codes_count": 2,
     "free_codes_count": 2,
     "source": "Chuyên trang cẩm nang quốc tế (Pocket Gamer, Pocket Tactics, Pro Game Guides...)",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   },
   {
     "id": "all-star-tower-defense",
@@ -14381,7 +14381,7 @@
     "codes_count": 2,
     "free_codes_count": 2,
     "source": "Chuyên trang cẩm nang quốc tế (Pocket Gamer, Pocket Tactics, Pro Game Guides...)",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   },
   {
     "id": "toilet-tower-defense",
@@ -14410,7 +14410,7 @@
     "codes_count": 2,
     "free_codes_count": 2,
     "source": "Chuyên trang cẩm nang quốc tế (Pocket Gamer, Pocket Tactics, Pro Game Guides...)",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   },
   {
     "id": "adopt-me",
@@ -14439,7 +14439,7 @@
     "codes_count": 2,
     "free_codes_count": 2,
     "source": "Chuyên trang cẩm nang quốc tế (Pocket Gamer, Pocket Tactics, Pro Game Guides...)",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   },
   {
     "id": "murder-mystery-2",
@@ -14468,7 +14468,7 @@
     "codes_count": 2,
     "free_codes_count": 2,
     "source": "Chuyên trang cẩm nang quốc tế (Pocket Gamer, Pocket Tactics, Pro Game Guides...)",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   },
   {
     "id": "doors-roblox",
@@ -14497,7 +14497,7 @@
     "codes_count": 2,
     "free_codes_count": 2,
     "source": "Chuyên trang cẩm nang quốc tế (Pocket Gamer, Pocket Tactics, Pro Game Guides...)",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   },
   {
     "id": "da-hood",
@@ -14526,7 +14526,7 @@
     "codes_count": 2,
     "free_codes_count": 2,
     "source": "Chuyên trang cẩm nang quốc tế (Pocket Gamer, Pocket Tactics, Pro Game Guides...)",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   },
   {
     "id": "fruit-battlegrounds",
@@ -14555,7 +14555,7 @@
     "codes_count": 2,
     "free_codes_count": 2,
     "source": "Chuyên trang cẩm nang quốc tế (Pocket Gamer, Pocket Tactics, Pro Game Guides...)",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   },
   {
     "id": "shindo-life",
@@ -14584,7 +14584,7 @@
     "codes_count": 2,
     "free_codes_count": 2,
     "source": "Chuyên trang cẩm nang quốc tế (Pocket Gamer, Pocket Tactics, Pro Game Guides...)",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   },
   {
     "id": "fisch-roblox",
@@ -14613,7 +14613,7 @@
     "codes_count": 2,
     "free_codes_count": 2,
     "source": "Chuyên trang cẩm nang quốc tế (Pocket Gamer, Pocket Tactics, Pro Game Guides...)",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   },
   {
     "id": "jujutsu-infinite",
@@ -14642,7 +14642,7 @@
     "codes_count": 2,
     "free_codes_count": 2,
     "source": "Chuyên trang cẩm nang quốc tế (Pocket Gamer, Pocket Tactics, Pro Game Guides...)",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   },
   {
     "id": "tower-defense-simulator",
@@ -14671,7 +14671,7 @@
     "codes_count": 2,
     "free_codes_count": 2,
     "source": "Chuyên trang cẩm nang quốc tế (Pocket Gamer, Pocket Tactics, Pro Game Guides...)",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   },
   {
     "id": "bee-swarm-simulator",
@@ -14700,7 +14700,7 @@
     "codes_count": 2,
     "free_codes_count": 2,
     "source": "Chuyên trang cẩm nang quốc tế (Pocket Gamer, Pocket Tactics, Pro Game Guides...)",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   },
   {
     "id": "arsenal-roblox",
@@ -14729,7 +14729,7 @@
     "codes_count": 2,
     "free_codes_count": 2,
     "source": "Chuyên trang cẩm nang quốc tế (Pocket Gamer, Pocket Tactics, Pro Game Guides...)",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   },
   {
     "id": "roblox-rivals",
@@ -14758,7 +14758,7 @@
     "codes_count": 2,
     "free_codes_count": 2,
     "source": "Chuyên trang cẩm nang quốc tế (Pocket Gamer, Pocket Tactics, Pro Game Guides...)",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   },
   {
     "id": "nikke-goddess-of-victory",
@@ -14787,7 +14787,7 @@
     "codes_count": 2,
     "free_codes_count": 2,
     "source": "Chuyên trang cẩm nang quốc tế (Pocket Gamer, Pocket Tactics, Pro Game Guides...)",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   },
   {
     "id": "blue-archive",
@@ -14816,7 +14816,7 @@
     "codes_count": 2,
     "free_codes_count": 2,
     "source": "Chuyên trang cẩm nang quốc tế (Pocket Gamer, Pocket Tactics, Pro Game Guides...)",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   },
   {
     "id": "marvel-snap",
@@ -14845,7 +14845,7 @@
     "codes_count": 2,
     "free_codes_count": 2,
     "source": "Chuyên trang cẩm nang quốc tế (Pocket Gamer, Pocket Tactics, Pro Game Guides...)",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   },
   {
     "id": "clash-of-clans",
@@ -14874,7 +14874,7 @@
     "codes_count": 2,
     "free_codes_count": 2,
     "source": "Chuyên trang cẩm nang quốc tế (Pocket Gamer, Pocket Tactics, Pro Game Guides...)",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   },
   {
     "id": "clash-royale",
@@ -14903,7 +14903,7 @@
     "codes_count": 2,
     "free_codes_count": 2,
     "source": "Chuyên trang cẩm nang quốc tế (Pocket Gamer, Pocket Tactics, Pro Game Guides...)",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   },
   {
     "id": "dragon-ball-legends",
@@ -14932,7 +14932,7 @@
     "codes_count": 2,
     "free_codes_count": 2,
     "source": "Chuyên trang cẩm nang quốc tế (Pocket Gamer, Pocket Tactics, Pro Game Guides...)",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   },
   {
     "id": "seven-deadly-sins-grand-cross",
@@ -14961,7 +14961,7 @@
     "codes_count": 2,
     "free_codes_count": 2,
     "source": "Chuyên trang cẩm nang quốc tế (Pocket Gamer, Pocket Tactics, Pro Game Guides...)",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   },
   {
     "id": "mu-dark-epoch",
@@ -14990,7 +14990,7 @@
     "codes_count": 2,
     "free_codes_count": 2,
     "source": "Chuyên trang cẩm nang quốc tế (Pocket Gamer, Pocket Tactics, Pro Game Guides...)",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   },
   {
     "id": "tree-of-savior-neo",
@@ -15019,7 +15019,7 @@
     "codes_count": 2,
     "free_codes_count": 2,
     "source": "Chuyên trang cẩm nang quốc tế (Pocket Gamer, Pocket Tactics, Pro Game Guides...)",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   },
   {
     "id": "fate-war",
@@ -15048,7 +15048,7 @@
     "codes_count": 2,
     "free_codes_count": 2,
     "source": "Chuyên trang cẩm nang quốc tế (Pocket Gamer, Pocket Tactics, Pro Game Guides...)",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   },
   {
     "id": "project-entropy",
@@ -15077,7 +15077,7 @@
     "codes_count": 2,
     "free_codes_count": 2,
     "source": "Chuyên trang cẩm nang quốc tế (Pocket Gamer, Pocket Tactics, Pro Game Guides...)",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   },
   {
     "id": "revelation-m",
@@ -15106,7 +15106,7 @@
     "codes_count": 8,
     "free_codes_count": 8,
     "source": "Chuyên trang cẩm nang quốc tế (Pocket Gamer, Pocket Tactics, Pro Game Guides...)",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   },
   {
     "id": "the-walking-dead-survivors",
@@ -15135,7 +15135,7 @@
     "codes_count": 2,
     "free_codes_count": 2,
     "source": "Chuyên trang cẩm nang quốc tế (Pocket Gamer, Pocket Tactics, Pro Game Guides...)",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   },
   {
     "id": "naraka-bladepoint-mobile",
@@ -15164,7 +15164,7 @@
     "codes_count": 2,
     "free_codes_count": 2,
     "source": "Chuyên trang cẩm nang quốc tế (Pocket Gamer, Pocket Tactics, Pro Game Guides...)",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   },
   {
     "id": "black-clover-m",
@@ -15193,7 +15193,7 @@
     "codes_count": 2,
     "free_codes_count": 2,
     "source": "Chuyên trang cẩm nang quốc tế (Pocket Gamer, Pocket Tactics, Pro Game Guides...)",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   },
   {
     "id": "reverse-1999",
@@ -15222,7 +15222,7 @@
     "codes_count": 2,
     "free_codes_count": 2,
     "source": "Chuyên trang cẩm nang quốc tế (Pocket Gamer, Pocket Tactics, Pro Game Guides...)",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   },
   {
     "id": "eversoul",
@@ -15251,7 +15251,7 @@
     "codes_count": 2,
     "free_codes_count": 2,
     "source": "Chuyên trang cẩm nang quốc tế (Pocket Gamer, Pocket Tactics, Pro Game Guides...)",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   },
   {
     "id": "honkai-impact-3rd",
@@ -15280,7 +15280,7 @@
     "codes_count": 2,
     "free_codes_count": 2,
     "source": "Chuyên trang cẩm nang quốc tế (Pocket Gamer, Pocket Tactics, Pro Game Guides...)",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   },
   {
     "id": "astra-knights-of-veda",
@@ -15309,7 +15309,7 @@
     "codes_count": 2,
     "free_codes_count": 2,
     "source": "Chuyên trang cẩm nang quốc tế (Pocket Gamer, Pocket Tactics, Pro Game Guides...)",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   },
   {
     "id": "dunk-ing-simulator",
@@ -15338,7 +15338,7 @@
     "codes_count": 2,
     "free_codes_count": 2,
     "source": "Chuyên trang cẩm nang quốc tế (Pocket Gamer, Pocket Tactics, Pro Game Guides...)",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   },
   {
     "id": "type-soul",
@@ -15367,7 +15367,7 @@
     "codes_count": 2,
     "free_codes_count": 2,
     "source": "Chuyên trang cẩm nang quốc tế (Pocket Gamer, Pocket Tactics, Pro Game Guides...)",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   },
   {
     "id": "anime-defenders",
@@ -15396,7 +15396,7 @@
     "codes_count": 2,
     "free_codes_count": 2,
     "source": "Chuyên trang cẩm nang quốc tế (Pocket Gamer, Pocket Tactics, Pro Game Guides...)",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   },
   {
     "id": "deepwoken",
@@ -15425,7 +15425,7 @@
     "codes_count": 2,
     "free_codes_count": 2,
     "source": "Chuyên trang cẩm nang quốc tế (Pocket Gamer, Pocket Tactics, Pro Game Guides...)",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   },
   {
     "id": "the-strongest-battlegrounds",
@@ -15454,7 +15454,7 @@
     "codes_count": 2,
     "free_codes_count": 2,
     "source": "Chuyên trang cẩm nang quốc tế (Pocket Gamer, Pocket Tactics, Pro Game Guides...)",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   },
   {
     "id": "ragnarok-the-new-world",
@@ -15483,7 +15483,7 @@
     "codes_count": 2,
     "free_codes_count": 2,
     "source": "Chuyên trang cẩm nang quốc tế (Pocket Gamer, Pocket Tactics, Pro Game Guides...)",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   },
   {
     "id": "sword-art-online-variant-showdown",
@@ -15512,7 +15512,7 @@
     "codes_count": 2,
     "free_codes_count": 2,
     "source": "Chuyên trang cẩm nang quốc tế (Pocket Gamer, Pocket Tactics, Pro Game Guides...)",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   },
   {
     "id": "subway-surfers",
@@ -15541,7 +15541,7 @@
     "codes_count": 2,
     "free_codes_count": 2,
     "source": "Chuyên trang cẩm nang quốc tế (Pocket Gamer, Pocket Tactics, Pro Game Guides...)",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   },
   {
     "id": "dragon-ball-sparking-zero",
@@ -15570,7 +15570,7 @@
     "codes_count": 2,
     "free_codes_count": 2,
     "source": "Chuyên trang cẩm nang quốc tế (Pocket Gamer, Pocket Tactics, Pro Game Guides...)",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   },
   {
     "id": "warhammer-40k-tacticus",
@@ -15599,7 +15599,7 @@
     "codes_count": 2,
     "free_codes_count": 2,
     "source": "Chuyên trang cẩm nang quốc tế (Pocket Gamer, Pocket Tactics, Pro Game Guides...)",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   },
   {
     "id": "lien-minh-huyen-thoai",
@@ -15633,7 +15633,7 @@
     "codes_count": 0,
     "free_codes_count": 0,
     "source": "Phần thưởng từ nhà phát hành",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   },
   {
     "id": "valorant",
@@ -15667,7 +15667,7 @@
     "codes_count": 1,
     "free_codes_count": 1,
     "source": "Phần thưởng từ nhà phát hành",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   },
   {
     "id": "lien-minh-toc-chien",
@@ -15701,7 +15701,7 @@
     "codes_count": 0,
     "free_codes_count": 0,
     "source": "Phần thưởng từ nhà phát hành",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   },
   {
     "id": "vo-lam-truyen-ky-mobile",
@@ -15735,7 +15735,7 @@
     "codes_count": 0,
     "free_codes_count": 0,
     "source": "Phần thưởng từ nhà phát hành",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   },
   {
     "id": "vo-lam-truyen-ky-max",
@@ -15769,7 +15769,7 @@
     "codes_count": 5,
     "free_codes_count": 5,
     "source": "Phần thưởng từ nhà phát hành",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   },
   {
     "id": "kiem-the-pc",
@@ -15803,7 +15803,7 @@
     "codes_count": 0,
     "free_codes_count": 0,
     "source": "Phần thưởng từ nhà phát hành",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   },
   {
     "id": "nghich-thuy-han",
@@ -15837,7 +15837,7 @@
     "codes_count": 2,
     "free_codes_count": 2,
     "source": "Phần thưởng từ nhà phát hành",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   },
   {
     "id": "thien-nhai-minh-nguyet-dao-vng",
@@ -15871,7 +15871,7 @@
     "codes_count": 0,
     "free_codes_count": 0,
     "source": "Phần thưởng từ nhà phát hành",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   },
   {
     "id": "metal-slug-awakening",
@@ -15905,7 +15905,7 @@
     "codes_count": 10,
     "free_codes_count": 10,
     "source": "Phần thưởng từ nhà phát hành",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   },
   {
     "id": "dead-target-zombie-games-3d-vng-studios",
@@ -15939,7 +15939,7 @@
     "codes_count": 5,
     "free_codes_count": 5,
     "source": "Phần thưởng từ nhà phát hành",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   },
   {
     "id": "ea-sports-fc-online",
@@ -15973,7 +15973,7 @@
     "codes_count": 2,
     "free_codes_count": 2,
     "source": "Phần thưởng từ nhà phát hành",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   },
   {
     "id": "audition-vtc",
@@ -16007,7 +16007,7 @@
     "codes_count": 1,
     "free_codes_count": 1,
     "source": "Phần thưởng từ nhà phát hành",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   },
   {
     "id": "dot-kich-vtc",
@@ -16041,7 +16041,7 @@
     "codes_count": 1,
     "free_codes_count": 1,
     "source": "Phần thưởng từ nhà phát hành",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   },
   {
     "id": "truy-kich-pc-battle-teams-2",
@@ -16075,7 +16075,7 @@
     "codes_count": 4,
     "free_codes_count": 4,
     "source": "Phần thưởng từ nhà phát hành",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   },
   {
     "id": "silkroad-origin-vtc",
@@ -16109,7 +16109,7 @@
     "codes_count": 6,
     "free_codes_count": 6,
     "source": "Phần thưởng từ nhà phát hành",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   },
   {
     "id": "phi-doi-vtc",
@@ -16143,7 +16143,7 @@
     "codes_count": 1,
     "free_codes_count": 1,
     "source": "Phần thưởng từ nhà phát hành",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   },
   {
     "id": "au-2",
@@ -16177,7 +16177,7 @@
     "codes_count": 15,
     "free_codes_count": 15,
     "source": "Phần thưởng từ nhà phát hành",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   },
   {
     "id": "phuc-kich",
@@ -16211,7 +16211,7 @@
     "codes_count": 0,
     "free_codes_count": 0,
     "source": "Phần thưởng từ nhà phát hành",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   },
   {
     "id": "ufc-sieu-sao-bong-da",
@@ -16245,7 +16245,7 @@
     "codes_count": 0,
     "free_codes_count": 0,
     "source": "Phần thưởng từ nhà phát hành",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   },
   {
     "id": "tinh-kiem-3d",
@@ -16279,7 +16279,7 @@
     "codes_count": 13,
     "free_codes_count": 13,
     "source": "Phần thưởng từ nhà phát hành",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   },
   {
     "id": "nhat-kiem-giang-ho-mobile",
@@ -16313,7 +16313,7 @@
     "codes_count": 2,
     "free_codes_count": 2,
     "source": "Phần thưởng từ nhà phát hành",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   },
   {
     "id": "mu-vuot-thoi-dai",
@@ -16347,7 +16347,7 @@
     "codes_count": 2,
     "free_codes_count": 2,
     "source": "Phần thưởng từ nhà phát hành",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   },
   {
     "id": "lien-minh-kien-ant-legion",
@@ -16381,7 +16381,7 @@
     "codes_count": 19,
     "free_codes_count": 19,
     "source": "Phần thưởng từ nhà phát hành",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   },
   {
     "id": "kiem-ma-3d",
@@ -16415,7 +16415,7 @@
     "codes_count": 6,
     "free_codes_count": 6,
     "source": "Phần thưởng từ nhà phát hành",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   },
   {
     "id": "state-of-survival-viet-nam",
@@ -16449,7 +16449,7 @@
     "codes_count": 34,
     "free_codes_count": 34,
     "source": "Phần thưởng từ nhà phát hành",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   },
   {
     "id": "tru-tien-3d-mobile",
@@ -16483,7 +16483,7 @@
     "codes_count": 16,
     "free_codes_count": 16,
     "source": "Phần thưởng từ nhà phát hành",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   },
   {
     "id": "y-thien-3d",
@@ -16517,7 +16517,7 @@
     "codes_count": 0,
     "free_codes_count": 0,
     "source": "Phần thưởng từ nhà phát hành",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   },
   {
     "id": "tieu-ngao-gamota",
@@ -16551,7 +16551,7 @@
     "codes_count": 0,
     "free_codes_count": 0,
     "source": "Phần thưởng từ nhà phát hành",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   },
   {
     "id": "ao-mong-tru-tien",
@@ -16585,7 +16585,7 @@
     "codes_count": 0,
     "free_codes_count": 0,
     "source": "Phần thưởng từ nhà phát hành",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   },
   {
     "id": "anh-hung-xa-dieu-gamota",
@@ -16619,7 +16619,7 @@
     "codes_count": 0,
     "free_codes_count": 0,
     "source": "Phần thưởng từ nhà phát hành",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   },
   {
     "id": "doc-co-ky-hiep-vo-lam-ky-hiep",
@@ -16653,7 +16653,7 @@
     "codes_count": 15,
     "free_codes_count": 15,
     "source": "Phần thưởng từ nhà phát hành",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   },
   {
     "id": "tru-tien-kiem-vu",
@@ -16687,7 +16687,7 @@
     "codes_count": 5,
     "free_codes_count": 5,
     "source": "Phần thưởng từ nhà phát hành",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   },
   {
     "id": "cuu-am-chan-kinh-2",
@@ -16721,7 +16721,7 @@
     "codes_count": 0,
     "free_codes_count": 0,
     "source": "Phần thưởng từ nhà phát hành",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   },
   {
     "id": "cuu-am-chan-kinh-mobile",
@@ -16755,7 +16755,7 @@
     "codes_count": 9,
     "free_codes_count": 9,
     "source": "Phần thưởng từ nhà phát hành",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   },
   {
     "id": "ngao-kiem-vo-song-origin",
@@ -16789,7 +16789,7 @@
     "codes_count": 0,
     "free_codes_count": 0,
     "source": "Phần thưởng từ nhà phát hành",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   },
   {
     "id": "cuu-long-chi-ton",
@@ -16823,7 +16823,7 @@
     "codes_count": 2,
     "free_codes_count": 2,
     "source": "Phần thưởng từ nhà phát hành",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   },
   {
     "id": "hiep-khach-mobile",
@@ -16857,7 +16857,7 @@
     "codes_count": 13,
     "free_codes_count": 13,
     "source": "Phần thưởng từ nhà phát hành",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   },
   {
     "id": "dau-truong-onmyoji-am-duong-su-moba",
@@ -16891,7 +16891,7 @@
     "codes_count": 1,
     "free_codes_count": 1,
     "source": "Phần thưởng từ nhà phát hành",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   },
   {
     "id": "hiep-khach-idle",
@@ -16925,7 +16925,7 @@
     "codes_count": 0,
     "free_codes_count": 0,
     "source": "Phần thưởng từ nhà phát hành",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   },
   {
     "id": "melojam",
@@ -16959,7 +16959,7 @@
     "codes_count": 0,
     "free_codes_count": 0,
     "source": "Phần thưởng từ nhà phát hành",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   },
   {
     "id": "ts-online-dzogame",
@@ -16993,7 +16993,7 @@
     "codes_count": 1,
     "free_codes_count": 1,
     "source": "Phần thưởng từ nhà phát hành",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   },
   {
     "id": "bangbang-online",
@@ -17027,7 +17027,7 @@
     "codes_count": 7,
     "free_codes_count": 7,
     "source": "Phần thưởng từ nhà phát hành",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   },
   {
     "id": "kiem-vu-kiem-linh",
@@ -17061,7 +17061,7 @@
     "codes_count": 0,
     "free_codes_count": 0,
     "source": "Phần thưởng từ nhà phát hành",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   },
   {
     "id": "ngoc-rong-online",
@@ -17095,7 +17095,7 @@
     "codes_count": 0,
     "free_codes_count": 0,
     "source": "Phần thưởng từ nhà phát hành",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   },
   {
     "id": "ninja-school-online",
@@ -17129,7 +17129,7 @@
     "codes_count": 1,
     "free_codes_count": 1,
     "source": "Phần thưởng từ nhà phát hành",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   },
   {
     "id": "hai-tac-ti-hon",
@@ -17163,7 +17163,7 @@
     "codes_count": 0,
     "free_codes_count": 0,
     "source": "Phần thưởng từ nhà phát hành",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   },
   {
     "id": "avatar-land-avatar-the-gioi-dieu-ky",
@@ -17197,7 +17197,7 @@
     "codes_count": 0,
     "free_codes_count": 0,
     "source": "Phần thưởng từ nhà phát hành",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   },
   {
     "id": "avatar-bum",
@@ -17231,7 +17231,7 @@
     "codes_count": 0,
     "free_codes_count": 0,
     "source": "Phần thưởng từ nhà phát hành",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   },
   {
     "id": "thoi-dai-hiep-si-hiep-si-online",
@@ -17265,7 +17265,7 @@
     "codes_count": 0,
     "free_codes_count": 0,
     "source": "Phần thưởng từ nhà phát hành",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   },
   {
     "id": "bida-zingplay-8-ball-bida-phom",
@@ -17299,7 +17299,7 @@
     "codes_count": 0,
     "free_codes_count": 0,
     "source": "Phần thưởng từ nhà phát hành",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   },
   {
     "id": "ica-zingplay",
@@ -17330,10 +17330,10 @@
     "is_hot": true,
     "is_new": true,
     "is_active": true,
-    "codes_count": 14,
-    "free_codes_count": 14,
+    "codes_count": 22,
+    "free_codes_count": 22,
     "source": "Phần thưởng từ nhà phát hành",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   },
   {
     "id": "co-ty-phu-zingplay",
@@ -17367,7 +17367,7 @@
     "codes_count": 0,
     "free_codes_count": 0,
     "source": "Phần thưởng từ nhà phát hành",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   },
   {
     "id": "co-tuong-zingplay",
@@ -17401,7 +17401,7 @@
     "codes_count": 0,
     "free_codes_count": 0,
     "source": "Phần thưởng từ nhà phát hành",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   },
   {
     "id": "magic-tiles-3",
@@ -17435,7 +17435,7 @@
     "codes_count": 0,
     "free_codes_count": 0,
     "source": "Phần thưởng từ nhà phát hành",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   },
   {
     "id": "tiles-hop-edm-rush",
@@ -17450,7 +17450,7 @@
     "cover_image_url": "/game_icons/tiles-hop-edm-rush.webp",
     "banner_url": "",
     "description": "Tiles Hop: EDM Rush! là tựa game Âm nhạc (Music Ball Smash) đình đám được phát hành chính thức bởi Amanotes Pte. Ltd. / Amanotes Vietnam. Tổng hợp toàn bộ mã giftcode tân thủ, sự kiện fanpage và hướng dẫn nhập code nhận quà miễn phí mới nhất.",
-    "instructions": "Bước 1: Mở game > Nhấn Avatar nhân vật\nBước 2: Chọn Cài đặt / Thiết lập > Chọn mục Giftcode / Mã Quà\nBước 3: Nhập mã và xác nhận để nhận quà trong Hòm thư.",
+    "instructions": "Nhân vật đạt cấp 8+ để mở tính năng nhập code",
     "platform": "Mobile (iOS/Android)",
     "official_url": "https://www.amanotes.com/products",
     "fanpage_url": "https://www.facebook.com/MagicTiles3/",
@@ -17469,7 +17469,7 @@
     "codes_count": 0,
     "free_codes_count": 0,
     "source": "Phần thưởng từ nhà phát hành",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   },
   {
     "id": "duet-cats-cute-cat-music",
@@ -17503,7 +17503,7 @@
     "codes_count": 0,
     "free_codes_count": 0,
     "source": "Phần thưởng từ nhà phát hành",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   },
   {
     "id": "duet-tiles-dual-vocal-game",
@@ -17537,7 +17537,7 @@
     "codes_count": 0,
     "free_codes_count": 0,
     "source": "Phần thưởng từ nhà phát hành",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   },
   {
     "id": "dancing-road-color-ball-run",
@@ -17571,7 +17571,7 @@
     "codes_count": 0,
     "free_codes_count": 0,
     "source": "Phần thưởng từ nhà phát hành",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   },
   {
     "id": "hop-ball-3d-jump-on-edm-beat",
@@ -17605,7 +17605,7 @@
     "codes_count": 0,
     "free_codes_count": 0,
     "source": "Phần thưởng từ nhà phát hành",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   },
   {
     "id": "beat-jumper-edm-rush-up",
@@ -17639,7 +17639,7 @@
     "codes_count": 12,
     "free_codes_count": 12,
     "source": "Phần thưởng từ nhà phát hành",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   },
   {
     "id": "magic-dream-tiles",
@@ -17673,7 +17673,7 @@
     "codes_count": 0,
     "free_codes_count": 0,
     "source": "Phần thưởng từ nhà phát hành",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   },
   {
     "id": "1945-air-force-plane-shooter",
@@ -17707,7 +17707,7 @@
     "codes_count": 37,
     "free_codes_count": 37,
     "source": "Phần thưởng từ nhà phát hành",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   },
   {
     "id": "space-shooter-galaxy-attack",
@@ -17741,7 +17741,7 @@
     "codes_count": 1,
     "free_codes_count": 1,
     "source": "Phần thưởng từ nhà phát hành",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   },
   {
     "id": "galaxy-attack-alien-shooting",
@@ -17775,7 +17775,7 @@
     "codes_count": 1,
     "free_codes_count": 1,
     "source": "Phần thưởng từ nhà phát hành",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   },
   {
     "id": "wood-nuts-bolts-puzzle",
@@ -17809,7 +17809,7 @@
     "codes_count": 0,
     "free_codes_count": 0,
     "source": "Phần thưởng từ nhà phát hành",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   },
   {
     "id": "satisdom",
@@ -17843,7 +17843,7 @@
     "codes_count": 0,
     "free_codes_count": 0,
     "source": "Phần thưởng từ nhà phát hành",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   },
   {
     "id": "super-ball-adventure",
@@ -17877,7 +17877,7 @@
     "codes_count": 0,
     "free_codes_count": 0,
     "source": "Phần thưởng từ nhà phát hành",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   },
   {
     "id": "thetan-arena",
@@ -17911,7 +17911,7 @@
     "codes_count": 1,
     "free_codes_count": 1,
     "source": "Phần thưởng từ nhà phát hành",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   },
   {
     "id": "thetan-rivals",
@@ -17945,7 +17945,7 @@
     "codes_count": 0,
     "free_codes_count": 0,
     "source": "Phần thưởng từ nhà phát hành",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   },
   {
     "id": "heroes-strike",
@@ -17979,7 +17979,7 @@
     "codes_count": 5,
     "free_codes_count": 5,
     "source": "Phần thưởng từ nhà phát hành",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   },
   {
     "id": "tank-raid-online",
@@ -18013,7 +18013,7 @@
     "codes_count": 0,
     "free_codes_count": 0,
     "source": "Phần thưởng từ nhà phát hành",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   },
   {
     "id": "stickman-revenge",
@@ -18047,7 +18047,7 @@
     "codes_count": 0,
     "free_codes_count": 0,
     "source": "Phần thưởng từ nhà phát hành",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   },
   {
     "id": "hair-salon-barber-shop",
@@ -18081,7 +18081,7 @@
     "codes_count": 0,
     "free_codes_count": 0,
     "source": "Phần thưởng từ nhà phát hành",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   },
   {
     "id": "merge-defense-shadow-action-series",
@@ -18115,7 +18115,7 @@
     "codes_count": 0,
     "free_codes_count": 0,
     "source": "Phần thưởng từ nhà phát hành",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   },
   {
     "id": "sky-dancer-escapingfromeden",
@@ -18149,7 +18149,7 @@
     "codes_count": 0,
     "free_codes_count": 0,
     "source": "Phần thưởng từ nhà phát hành",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   },
   {
     "id": "thief-puzzle-to-pass-a-level",
@@ -18183,7 +18183,7 @@
     "codes_count": 0,
     "free_codes_count": 0,
     "source": "Phần thưởng từ nhà phát hành",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   },
   {
     "id": "pocket-army-ark-of-war-series",
@@ -18217,7 +18217,7 @@
     "codes_count": 29,
     "free_codes_count": 29,
     "source": "Phần thưởng từ nhà phát hành",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   },
   {
     "id": "wood-screw-puzzle",
@@ -18251,7 +18251,7 @@
     "codes_count": 0,
     "free_codes_count": 0,
     "source": "Phần thưởng từ nhà phát hành",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   },
   {
     "id": "farm-city-farming-building",
@@ -18285,7 +18285,7 @@
     "codes_count": 6,
     "free_codes_count": 6,
     "source": "Phần thưởng từ nhà phát hành",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   },
   {
     "id": "car-race-3d",
@@ -18319,7 +18319,7 @@
     "codes_count": 0,
     "free_codes_count": 0,
     "source": "Phần thưởng từ nhà phát hành",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   },
   {
     "id": "hotpot-frenzy",
@@ -18353,7 +18353,7 @@
     "codes_count": 0,
     "free_codes_count": 0,
     "source": "Phần thưởng từ nhà phát hành",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   },
   {
     "id": "unscrew-master-color-nut-bolt",
@@ -18387,7 +18387,7 @@
     "codes_count": 0,
     "free_codes_count": 0,
     "source": "Phần thưởng từ nhà phát hành",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   },
   {
     "id": "tangled-line-3d",
@@ -18421,7 +18421,7 @@
     "codes_count": 0,
     "free_codes_count": 0,
     "source": "Phần thưởng từ nhà phát hành",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   },
   {
     "id": "numberland",
@@ -18455,7 +18455,7 @@
     "codes_count": 0,
     "free_codes_count": 0,
     "source": "Phần thưởng từ nhà phát hành",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   },
   {
     "id": "toy-factory",
@@ -18470,7 +18470,7 @@
     "cover_image_url": "/game_icons/toy-factory.webp",
     "banner_url": "",
     "description": "Toy Factory là tựa game Giải đố Casual (Puzzle) đình đám được phát hành chính thức bởi Công ty Cổ phần Hiker Games (Hiker Games JSC). Tổng hợp toàn bộ mã giftcode tân thủ, sự kiện fanpage và hướng dẫn nhập code nhận quà miễn phí mới nhất.",
-    "instructions": "Bước 1: Mở game > Nhấn Avatar nhân vật\nBước 2: Chọn Cài đặt / Thiết lập > Chọn mục Giftcode / Mã Quà\nBước 3: Nhập mã và xác nhận để nhận quà trong Hòm thư.",
+    "instructions": "Đăng nhập trang chủ website Tru Tiên 3D → chọn box giftcode → nhập code nhận quà",
     "platform": "Mobile (iOS/Android)",
     "official_url": "http://www.hikergames.com/",
     "fanpage_url": "https://www.facebook.com/ptitgames/",
@@ -18489,7 +18489,7 @@
     "codes_count": 0,
     "free_codes_count": 0,
     "source": "Phần thưởng từ nhà phát hành",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   },
   {
     "id": "meow-vs-zombie",
@@ -18523,6 +18523,6 @@
     "codes_count": 0,
     "free_codes_count": 0,
     "source": "Phần thưởng từ nhà phát hành",
-    "updated_at": "2026-10-19T06:11:29.987620Z"
+    "updated_at": "2026-10-19T13:52:30.933643Z"
   }
 ]

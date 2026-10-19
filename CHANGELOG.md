@@ -7,6 +7,31 @@ Mỗi mục sửa lỗi đều ghi nhận **Nguyên nhân gốc rễ (Root Cause
 
 ## [2026-10-19]
 
+### 75. Quét & Tổng Hợp Toàn Bộ Code Tuần & Giftcode Mới Từ File 'Giftcode 2 Game (1).xlsx'
+- **Mô tả & Yêu cầu Người Dùng**:
+  - *"@[c:\4 Antigravity all\13 web code game\code Muse] Tôi vừa thêm 1 file nữa, bản qquets rồi tỏng hợp tất cả đưa lên web của tôi đi."*
+- **Kiểm tra & Phân tích Dữ liệu Nguồn (`code Muse/Giftcode 2 Game (1).xlsx`)**:
+  - File mới được bổ sung 2 sheet chuyên biệt mới toanh: `Code tuần` (217 dòng giftcode sự kiện cuối tuần / hàng tuần) và `Tổng hợp code tuần` (348 dòng theo dõi trạng thái quét theo link Facebook).
+  - Quét toàn diện cả 2 file Excel trong thư mục `code Muse/` (tổng cộng hơn 4,079 lượt mã trên 7 sheet).
+  - Đối chiếu với cơ sở dữ liệu web hiện tại (6,495 codes), phát hiện và trích xuất thêm **74 mã code tuần mới độc quyền chưa từng có trên web** (bao gồm mã cửa & code vũ khí Delta Force: `8255`, `4134`, `6279`, `0111`, `5926`, `7425`, `WELCOMETODF`; code tuần Chiến Giới 4D: `TETTRUNGCUU99`; code Clash of Critters: `WEEKLYGIFT`; code Đạo Hữu Xin Dừng Bước: `DHVUIVE11`; code FC Mobile: `GARUDAJUARA`; code Free Fire ngày: `FFMCLJESSCR7`, `HZRGAHAS5XQY`, `FFMC6UR5ZNJQ`, `FFMCF8XLVNKC`, `FFMC2SJLKXSB`...).
+- **Giải pháp toàn diện đã triển khai (Solution)**:
+  1. *Xây dựng Script Quét Toàn Bộ Thư Mục (`scripts/sync_all_muse_files.py`)*:
+     - Tự động duyệt qua tất cả file `.xlsx` trong `code Muse/`, parse toàn bộ 7 sheet (`Code tuần`, `Tất cả code`, `Ta Là Hắc Ngộ Không`, `Pirate Legends`, `Tổng hợp 340 game`, `Tổng hợp code tuần`).
+     - Map chuẩn xác tên game vào database, đánh dấu nguồn `Code Tuần (Weekly Code)` với hạn dùng và ghi chú phần thưởng đầy đủ.
+  2. *Bổ sung 74 mã code mới và đẩy lên đầu trang*:
+     - Tăng tổng số giftcode thực tế trên toàn bộ hệ thống từ **6,495** lên **6,569 mã**.
+     - Cập nhật số lượng `codes_count` và `free_codes_count` cho toàn bộ 624 tựa game.
+  3. *Đồng bộ đồng loạt vào toàn bộ các kho dữ liệu dự án*:
+     - `src/data/crawled_codes_188.json`, `public/data/crawled_codes_188.json`, `data/crawled_codes_188.json`, `data/sources/crawled_codes_188.json`.
+     - `src/data/games188.json`, `public/data/games188.json`, `data/games188.json`, `data/sources/games188.json`.
+- **Kết quả kiểm thử & Triển khai**:
+  - Audit zero test artifacts: Sạch 100% (6,569 codes thực tế, 0 mã test).
+  - Biên dịch Vite Frontend & Prerender 672 trang tĩnh SEO thành công.
+  - Esbuild Cloudflare Edge Worker bundle thành công (`dist/_worker.js` 8.3MB).
+  - Tự động triển khai lên Cloudflare Pages (`web-code-game` và `admin-code-game-shop`) và đồng bộ GitHub.
+
+---
+
 ### 74. Bổ Sung Toàn Diện 1,178 Mã Giftcode Còn Thiếu Từ File Muse ('Giftcode 2 Game.xlsx')
 - **Mô tả & Yêu cầu Người Dùng**:
   - *"@[c:\4 Antigravity all\13 web code game\code Muse] Bạn kiểm tra file trong mục này, bổ sung các code còn thiếu vào web của tôi."*
