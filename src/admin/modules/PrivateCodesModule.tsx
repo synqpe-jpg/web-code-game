@@ -19,6 +19,10 @@ import {
   Zap,
   Eye,
   EyeOff,
+  Clock,
+  Users,
+  Bell,
+  MessageSquare,
 } from 'lucide-react';
 import { FormModal } from '../components/ui/FormModal';
 import { ConfirmModal } from '../components/ui/ConfirmModal';
@@ -78,6 +82,14 @@ export const PrivateCodesModule: React.FC<PrivateCodesModuleProps> = ({ onShowTo
     max_per_user: 1,
     max_per_ip: 1,
     cooldown_hours: 1,
+    global_cooldown_seconds: 0,
+    last_global_claim_at: '',
+    custom_success_msg: '',
+    custom_cooldown_msg: '',
+    custom_out_of_stock_msg: '',
+    enable_waiting_room: true,
+    waiting_users_min: 25,
+    waiting_users_max: 85,
     show_claimed_count: true,
     virtual_claimed_offset: 0,
     start_time: '2026-09-01',
@@ -145,6 +157,14 @@ export const PrivateCodesModule: React.FC<PrivateCodesModuleProps> = ({ onShowTo
       max_per_user: 1,
       max_per_ip: 1,
       cooldown_hours: 1,
+      global_cooldown_seconds: 0,
+      last_global_claim_at: '',
+      custom_success_msg: '',
+      custom_cooldown_msg: '',
+      custom_out_of_stock_msg: '',
+      enable_waiting_room: true,
+      waiting_users_min: 25,
+      waiting_users_max: 85,
       show_claimed_count: true,
       virtual_claimed_offset: 0,
       start_time: new Date().toISOString().split('T')[0],
@@ -171,6 +191,14 @@ export const PrivateCodesModule: React.FC<PrivateCodesModuleProps> = ({ onShowTo
       max_per_user: gw.max_per_user !== undefined ? Number(gw.max_per_user) : 1,
       max_per_ip: gw.max_per_ip !== undefined ? Number(gw.max_per_ip) : 1,
       cooldown_hours: gw.cooldown_hours !== undefined ? Number(gw.cooldown_hours) : 0,
+      global_cooldown_seconds: Number(gw.global_cooldown_seconds || 0),
+      last_global_claim_at: gw.last_global_claim_at || '',
+      custom_success_msg: gw.custom_success_msg || '',
+      custom_cooldown_msg: gw.custom_cooldown_msg || '',
+      custom_out_of_stock_msg: gw.custom_out_of_stock_msg || '',
+      enable_waiting_room: gw.enable_waiting_room !== false,
+      waiting_users_min: gw.waiting_users_min !== undefined ? Number(gw.waiting_users_min) : 25,
+      waiting_users_max: gw.waiting_users_max !== undefined ? Number(gw.waiting_users_max) : 85,
       show_claimed_count: gw.show_claimed_count !== false,
       virtual_claimed_offset: gw.virtual_claimed_offset || 0,
       start_time: gw.start_time ? gw.start_time.split('T')[0] : '2026-09-01',
@@ -179,6 +207,14 @@ export const PrivateCodesModule: React.FC<PrivateCodesModuleProps> = ({ onShowTo
       cover_image_url: gw.cover_image_url || gw.game_icon_url || '',
     });
     setIsFormOpen(true);
+  };
+
+  const handleResetGlobalCooldown = (gw: GiveawayCampaign) => {
+    gw.last_global_claim_at = '';
+    adminDataService.saveGiveawayItem(gw);
+    adminDataService.pushFullStateToKV(true);
+    loadData();
+    onShowToast('Đã mở đợt phát ngay', `Đã xóa thời gian chờ toàn sàn cho "${gw.title}". Khách có thể giật mã tiếp theo ngay lập tức.`, 'success');
   };
 
   const handleSubmitForm = (e: React.FormEvent) => {
@@ -207,6 +243,14 @@ export const PrivateCodesModule: React.FC<PrivateCodesModuleProps> = ({ onShowTo
       max_per_user: Number(formData.max_per_user),
       max_per_ip: Number(formData.max_per_ip),
       cooldown_hours: Number(formData.cooldown_hours),
+      global_cooldown_seconds: Number(formData.global_cooldown_seconds) || 0,
+      last_global_claim_at: formData.last_global_claim_at,
+      custom_success_msg: formData.custom_success_msg.trim(),
+      custom_cooldown_msg: formData.custom_cooldown_msg.trim(),
+      custom_out_of_stock_msg: formData.custom_out_of_stock_msg.trim(),
+      enable_waiting_room: formData.enable_waiting_room,
+      waiting_users_min: Number(formData.waiting_users_min) || 0,
+      waiting_users_max: Number(formData.waiting_users_max) || 0,
       show_claimed_count: formData.show_claimed_count,
       virtual_claimed_offset: Number(formData.virtual_claimed_offset) || 0,
       start_time: formData.start_time,
@@ -743,6 +787,29 @@ export const PrivateCodesModule: React.FC<PrivateCodesModuleProps> = ({ onShowTo
                           <span className="text-slate-300 dark:text-slate-600 mx-1">•</span>
                           CD: <strong className="text-slate-800 dark:text-slate-200">{gw.cooldown_hours ? `${gw.cooldown_hours}h` : '0h'}</strong>
                         </div>
+                        {Boolean(gw.global_cooldown_seconds && gw.global_cooldown_seconds > 0) && (
+                          <div className="flex items-center gap-1 text-[10px] text-purple-600 dark:text-purple-400 font-semibold pt-0.5">
+                            <Clock className="w-2.5 h-2.5 shrink-0" />
+                            <span>Giãn cách: {gw.global_cooldown_seconds >= 60 ? `${Math.round(gw.global_cooldown_seconds / 60)}p` : `${gw.global_cooldown_seconds}s`}</span>
+                            {(() => {
+                              const isCooling = gw.last_global_claim_at &&
+                                (new Date(gw.last_global_claim_at).getTime() + (gw.global_cooldown_seconds || 0) * 1000) > Date.now();
+                              return isCooling ? (
+                                <button
+                                  type="button"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    handleResetGlobalCooldown(gw);
+                                  }}
+                                  className="ml-1 text-[9px] px-1.5 py-0.2 rounded bg-amber-500/15 text-amber-600 dark:text-amber-400 border border-amber-500/30 hover:bg-amber-500/25 cursor-pointer font-bold transition-all"
+                                  title="Đang khóa chờ đợt mã tiếp theo. Nhấn để mở ngay lập tức!"
+                                >
+                                  ⏳ Đang chờ (Mở ngay)
+                                </button>
+                              ) : null;
+                            })()}
+                          </div>
+                        )}
                       </div>
                     </td>
 
@@ -1058,6 +1125,206 @@ export const PrivateCodesModule: React.FC<PrivateCodesModuleProps> = ({ onShowTo
                   placeholder="0"
                   className="mt-1 w-full font-mono rounded-xl border border-slate-200 bg-white p-2.5 text-xs text-slate-900 focus:border-purple-500 focus:outline-none dark:border-slate-700 dark:bg-slate-800 dark:text-white"
                 />
+              </div>
+            )}
+          </div>
+
+          {/* SECTION 1: GLOBAL RELEASE INTERVAL (HỒI CHIÊU TOÀN SÀN CHO TOÀN WEB CHỜ) */}
+          <div className="p-4 rounded-2xl bg-amber-50/70 dark:bg-amber-950/30 border border-amber-200/80 dark:border-amber-900/50 space-y-3">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-bold text-amber-900 dark:text-amber-300 flex items-center gap-1.5">
+                <Clock className="w-4 h-4 text-amber-600 dark:text-amber-400" />
+                ⏱️ Phát Code Giãn Cách Toàn Sàn (Toàn Web Chờ Giữa 2 Lượt Giật):
+              </span>
+              <span className="text-[11px] font-bold text-amber-600 dark:text-amber-400 font-mono">
+                {formData.global_cooldown_seconds === 0
+                  ? 'Tắt (Phát liên tục)'
+                  : formData.global_cooldown_seconds >= 60
+                  ? `${Math.floor(formData.global_cooldown_seconds / 60)} phút ${formData.global_cooldown_seconds % 60 > 0 ? `${formData.global_cooldown_seconds % 60}s` : ''}`
+                  : `${formData.global_cooldown_seconds} giây`}
+              </span>
+            </div>
+            <p className="text-[11px] text-slate-500 dark:text-slate-400 leading-relaxed">
+              Khi người A giật code thành công, toàn bộ website (người B, C, D...) bị khóa đếm ngược và phải chờ hết khoảng thời gian này mới giật được mã kế tiếp.
+            </p>
+
+            <div className="space-y-2">
+              <div className="flex items-center gap-2">
+                <input
+                  type="number"
+                  min={0}
+                  value={formData.global_cooldown_seconds}
+                  onChange={(e) => setFormData((p) => ({ ...p, global_cooldown_seconds: Math.max(0, parseInt(e.target.value, 10) || 0) }))}
+                  placeholder="0 = Tắt, cho phép giật tự do"
+                  className="w-full font-mono rounded-xl border border-slate-200 bg-white p-2.5 text-xs text-slate-900 focus:border-amber-500 focus:outline-none dark:border-slate-700 dark:bg-slate-800 dark:text-white"
+                />
+                <span className="text-xs text-slate-500 whitespace-nowrap font-medium">giây</span>
+              </div>
+
+              {/* Quick Preset Buttons */}
+              <div className="flex flex-wrap items-center gap-1.5 pt-0.5">
+                <span className="text-[10px] text-slate-400 font-medium mr-1">Chọn nhanh:</span>
+                {[
+                  { label: 'Tắt (0s)', val: 0 },
+                  { label: '30s', val: 30 },
+                  { label: '1 phút', val: 60 },
+                  { label: '2 phút', val: 120 },
+                  { label: '3 phút', val: 180 },
+                  { label: '5 phút', val: 300 },
+                  { label: '10 phút', val: 600 },
+                  { label: '15 phút', val: 900 },
+                ].map((item) => (
+                  <button
+                    key={item.val}
+                    type="button"
+                    onClick={() => setFormData((p) => ({ ...p, global_cooldown_seconds: item.val }))}
+                    className={`px-2 py-1 rounded-lg text-[10px] font-bold cursor-pointer transition-all ${
+                      formData.global_cooldown_seconds === item.val
+                        ? 'bg-amber-600 text-white shadow-xs'
+                        : 'bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700 hover:bg-amber-50 dark:hover:bg-amber-950/40'
+                    }`}
+                  >
+                    {item.label}
+                  </button>
+                ))}
+              </div>
+
+              {/* Status & Reset Current Cooldown if editing */}
+              {editingItem && editingItem.last_global_claim_at && (
+                <div className="p-2.5 rounded-xl bg-amber-100/60 dark:bg-amber-900/30 border border-amber-300/50 dark:border-amber-700/50 flex items-center justify-between text-xs mt-2">
+                  <div className="text-[11px] text-amber-900 dark:text-amber-200">
+                    <span>Lượt giật gần nhất: </span>
+                    <strong className="font-mono">{formatFullDateTime(editingItem.last_global_claim_at)}</strong>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setFormData((p) => ({ ...p, last_global_claim_at: '' }));
+                      if (editingItem) handleResetGlobalCooldown(editingItem);
+                    }}
+                    className="px-2.5 py-1 rounded-lg bg-amber-600 hover:bg-amber-700 text-white font-bold text-[11px] cursor-pointer transition-colors shadow-2xs"
+                  >
+                    🔄 Mở đợt phát ngay (Reset chờ)
+                  </button>
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* SECTION 2: CUSTOM NOTIFICATION MESSAGES */}
+          <div className="p-4 rounded-2xl bg-indigo-50/70 dark:bg-indigo-950/30 border border-indigo-200/80 dark:border-indigo-900/50 space-y-3">
+            <span className="text-xs font-bold text-indigo-900 dark:text-indigo-300 flex items-center gap-1.5">
+              <MessageSquare className="w-4 h-4 text-indigo-600 dark:text-indigo-400" />
+              💬 Cài Đặt Thông Báo Tùy Chỉnh Khi Giật Mã:
+            </span>
+
+            <div className="space-y-3 text-xs">
+              <div>
+                <label className="text-slate-700 dark:text-slate-300 font-semibold flex items-center justify-between text-[11px]">
+                  <span>1. Thông báo khi giật mã thành công:</span>
+                  <span className="text-[10px] text-slate-400 font-normal">Hỗ trợ: {'{code}'}, {'{game_name}'}</span>
+                </label>
+                <input
+                  type="text"
+                  value={formData.custom_success_msg}
+                  onChange={(e) => setFormData((p) => ({ ...p, custom_success_msg: e.target.value }))}
+                  placeholder="Mặc định: Chúc mừng bạn đã giật thành công giftcode: {code}! Hãy kích hoạt ngay nhé."
+                  className="mt-1 w-full rounded-xl border border-slate-200 bg-white p-2.5 text-xs text-slate-900 focus:border-indigo-500 focus:outline-none dark:border-slate-700 dark:bg-slate-800 dark:text-white"
+                />
+              </div>
+
+              <div>
+                <label className="text-slate-700 dark:text-slate-300 font-semibold flex items-center justify-between text-[11px]">
+                  <span>2. Thông báo khi đang chờ đợt mã tiếp theo (Hồi chiêu):</span>
+                  <span className="text-[10px] text-slate-400 font-normal">Hỗ trợ: {'{time_left}'}</span>
+                </label>
+                <input
+                  type="text"
+                  value={formData.custom_cooldown_msg}
+                  onChange={(e) => setFormData((p) => ({ ...p, custom_cooldown_msg: e.target.value }))}
+                  placeholder="Mặc định: Mã vừa được giật bởi người chơi khác! Vui lòng chờ đợt mở tiếp theo sau {time_left}."
+                  className="mt-1 w-full rounded-xl border border-slate-200 bg-white p-2.5 text-xs text-slate-900 focus:border-indigo-500 focus:outline-none dark:border-slate-700 dark:bg-slate-800 dark:text-white"
+                />
+              </div>
+
+              <div>
+                <label className="text-slate-700 dark:text-slate-300 font-semibold text-[11px] block">
+                  3. Thông báo khi sự kiện hết sạch mã trong kho:
+                </label>
+                <input
+                  type="text"
+                  value={formData.custom_out_of_stock_msg}
+                  onChange={(e) => setFormData((p) => ({ ...p, custom_out_of_stock_msg: e.target.value }))}
+                  placeholder="Mặc định: Rất tiếc! Toàn bộ giftcode của sự kiện này đã được trao tặng hết."
+                  className="mt-1 w-full rounded-xl border border-slate-200 bg-white p-2.5 text-xs text-slate-900 focus:border-indigo-500 focus:outline-none dark:border-slate-700 dark:bg-slate-800 dark:text-white"
+                />
+              </div>
+            </div>
+          </div>
+
+          {/* SECTION 3: LIVE WAITING ROOM & QUEUE COUNTER */}
+          <div className="p-4 rounded-2xl bg-teal-50/70 dark:bg-teal-950/30 border border-teal-200/80 dark:border-teal-900/50 space-y-3">
+            <div className="flex items-center justify-between">
+              <div>
+                <span className="text-xs font-bold text-teal-900 dark:text-teal-300 flex items-center gap-1.5">
+                  <Users className="w-4 h-4 text-teal-600 dark:text-teal-400" />
+                  👥 Phòng Chờ & Bộ Đếm Người Đang Chờ (Waiting Room):
+                </span>
+                <span className="text-[11px] text-slate-500 dark:text-slate-400">
+                  Hiển thị số lượng người đang cùng canh giật mã tiếp theo ngoài Web Khách.
+                </span>
+              </div>
+              <label className="relative inline-flex items-center cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={formData.enable_waiting_room}
+                  onChange={(e) => setFormData((p) => ({ ...p, enable_waiting_room: e.target.checked }))}
+                  className="sr-only peer"
+                />
+                <div className="w-11 h-6 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-teal-600"></div>
+              </label>
+            </div>
+
+            {formData.enable_waiting_room && (
+              <div className="space-y-3 pt-1">
+                <div className="grid grid-cols-2 gap-3 text-xs">
+                  <div>
+                    <label className="text-slate-700 dark:text-slate-300 font-semibold text-[11px] block">
+                      Số người tối thiểu (Min):
+                    </label>
+                    <input
+                      type="number"
+                      min={0}
+                      value={formData.waiting_users_min}
+                      onChange={(e) => setFormData((p) => ({ ...p, waiting_users_min: Math.max(0, parseInt(e.target.value, 10) || 0) }))}
+                      placeholder="VD: 25"
+                      className="mt-1 w-full font-mono rounded-xl border border-slate-200 bg-white p-2.5 text-xs text-slate-900 focus:border-teal-500 focus:outline-none dark:border-slate-700 dark:bg-slate-800 dark:text-white"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="text-slate-700 dark:text-slate-300 font-semibold text-[11px] block">
+                      Số người tối đa (Max):
+                    </label>
+                    <input
+                      type="number"
+                      min={0}
+                      value={formData.waiting_users_max}
+                      onChange={(e) => setFormData((p) => ({ ...p, waiting_users_max: Math.max(0, parseInt(e.target.value, 10) || 0) }))}
+                      placeholder="VD: 85"
+                      className="mt-1 w-full font-mono rounded-xl border border-slate-200 bg-white p-2.5 text-xs text-slate-900 focus:border-teal-500 focus:outline-none dark:border-slate-700 dark:bg-slate-800 dark:text-white"
+                    />
+                  </div>
+                </div>
+
+                {/* Live Preview Box */}
+                <div className="p-2.5 rounded-xl bg-white dark:bg-slate-900 border border-teal-200 dark:border-teal-800 flex items-center justify-between text-xs">
+                  <span className="text-[11px] text-slate-500">Xem trước ngoài Web Khách:</span>
+                  <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold bg-teal-500/15 text-teal-700 dark:text-teal-300 border border-teal-500/30">
+                    <span className="w-2 h-2 rounded-full bg-teal-500 animate-pulse" />
+                    <span>🟢 Có {Math.floor((Number(formData.waiting_users_min) + Number(formData.waiting_users_max)) / 2 || 48)} người đang cùng chờ mã kế tiếp</span>
+                  </div>
+                </div>
               </div>
             )}
           </div>

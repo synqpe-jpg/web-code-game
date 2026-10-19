@@ -1804,6 +1804,35 @@ class DataService {
       }
     }
 
+    // 4.1 Pre-check Global Release Interval / Global Queue Cooldown (Toàn web chờ giữa 2 lần giật)
+    const globalCooldownSeconds = isAdmin ? 0 : Math.max(0, Number(campaign.global_cooldown_seconds || 0));
+    if (globalCooldownSeconds > 0 && campaign.last_global_claim_at) {
+      const lastGlobalMs = new Date(campaign.last_global_claim_at).getTime();
+      if (!isNaN(lastGlobalMs)) {
+        const cooldownMs = globalCooldownSeconds * 1000;
+        const remainingGlobalMs = (lastGlobalMs + cooldownMs) - nowMs;
+        if (remainingGlobalMs > 0) {
+          const remTotalSec = Math.ceil(remainingGlobalMs / 1000);
+          const remMin = Math.floor(remTotalSec / 60);
+          const remSec = remTotalSec % 60;
+          const waitStr = remMin > 0 ? `${remMin} phút ${remSec > 0 ? `${remSec} giây` : ''}`.trim() : `${remSec} giây`;
+
+          let cdMsg = String(campaign.custom_cooldown_msg || '').trim();
+          if (!cdMsg) {
+            cdMsg = 'Mã vừa được giật bởi người chơi khác! Vui lòng chờ đợt mở tiếp theo sau {time_left}.';
+          }
+          cdMsg = cdMsg.replace(/\{time_left\}/gi, waitStr);
+
+          return {
+            success: false,
+            errorCode: 'GLOBAL_COOLDOWN_ACTIVE',
+            remainingSeconds: remTotalSec,
+            message: cdMsg,
+          };
+        }
+      }
+    }
+
     const token =
       (typeof localStorage !== 'undefined' ? localStorage.getItem('wcg_auth_token') : null) ||
       (typeof sessionStorage !== 'undefined' ? sessionStorage.getItem('wcg_auth_token') : null) ||
@@ -1866,7 +1895,8 @@ class DataService {
           : null;
 
         if (returnedCode) {
-          // Cập nhật ngay lập tức kho thật giveaway trong local storage (-1 còn lại, +1 đã giật)
+          const nowClaimIso = serverData.last_global_claim_at || new Date().toISOString();
+          // Cập nhật ngay lập tức kho thật giveaway trong local storage (-1 còn lại, +1 đã giật, cập nhật last_global_claim_at)
           const allGiveaways = this.getGiveaways();
           const updatedGiveaways = allGiveaways.map((g) =>
             g.id === campaignId
@@ -1874,6 +1904,7 @@ class DataService {
                   ...g,
                   remaining_codes: Math.max(0, (typeof g.remaining_codes === 'number' ? g.remaining_codes : Number(g.total_codes || 0)) - 1),
                   claimed_codes: (Number(g.claimed_codes) || 0) + 1,
+                  last_global_claim_at: nowClaimIso,
                 }
               : g
           );
@@ -1892,7 +1923,7 @@ class DataService {
               game_icon_url: campaign.game_icon_url || '',
               code_value: returnedCode,
               rewards: campaign.rewards || serverData.campaign?.rewards || 'Quà tặng sự kiện',
-              claimed_at: new Date().toISOString(),
+              claimed_at: nowClaimIso,
             };
             claimedList.unshift(newRecord);
             localStorage.setItem(this.CLAIMED_CODES_KEY, JSON.stringify(claimedList));
@@ -1918,12 +1949,30 @@ class DataService {
             alreadyClaimed: Boolean(serverData.alreadyClaimed),
             isAdminBypass: Boolean(serverData.isAdminBypass),
             userClaimsCount: serverData.userClaimsCount,
+            last_global_claim_at: nowClaimIso,
             message: serverData.message || (serverData.alreadyClaimed ? `Mã của bạn: ${returnedCode}` : 'Chúc mừng! Bạn đã nhận giftcode sự kiện thành công.'),
           };
         } else {
+          // If server reported global cooldown active, sync last_global_claim_at
+          if (serverData.errorCode === 'GLOBAL_COOLDOWN_ACTIVE' && serverData.nextReleaseAt) {
+            const allGiveaways = this.getGiveaways();
+            const gw = allGiveaways.find((g) => g.id === campaignId);
+            if (gw && gw.global_cooldown_seconds) {
+              const estimatedClaimAt = new Date(new Date(serverData.nextReleaseAt).getTime() - gw.global_cooldown_seconds * 1000).toISOString();
+              gw.last_global_claim_at = estimatedClaimAt;
+              try {
+                localStorage.setItem(this.GIVEAWAYS_KEY, JSON.stringify(allGiveaways));
+                localStorage.setItem('wcg_admin_giveaways_v4', JSON.stringify(allGiveaways));
+              } catch {}
+              this.notifyListeners();
+            }
+          }
+
           return {
             success: false,
             code: undefined,
+            errorCode: serverData.errorCode,
+            remainingSeconds: serverData.remainingSeconds,
             alreadyClaimed: Boolean(serverData.alreadyClaimed),
             isAdminBypass: Boolean(serverData.isAdminBypass),
             message: serverData.message || 'Không thể nhận mã lúc này. Mã quà tặng có thể đã hết hoặc sự kiện đã tạm đóng.',

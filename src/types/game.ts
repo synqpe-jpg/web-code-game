@@ -75,6 +75,14 @@ export interface GiveawayCampaign {
   max_per_user?: number;
   max_per_ip?: number;
   cooldown_hours?: number;
+  global_cooldown_seconds?: number;
+  last_global_claim_at?: string;
+  custom_success_msg?: string;
+  custom_cooldown_msg?: string;
+  custom_out_of_stock_msg?: string;
+  enable_waiting_room?: boolean;
+  waiting_users_min?: number;
+  waiting_users_max?: number;
   show_claimed_count?: boolean;
   show_remaining_count?: boolean;
   virtual_claimed_offset?: number;

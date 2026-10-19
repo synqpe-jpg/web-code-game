@@ -132,6 +132,19 @@
 - **Bộ lọc chống trùng lặp đa tầng (`getBaseSlug`)**: Bóc tách các hậu tố NPH (`-vplay`, `-vtc`, `-gosu`, `-gamota`, `-soha`, `-funtap`, `-vng`, `-garena`, `-vn`, `-mobile`, v.v.) đối soát trực tiếp với 623+ game hiện tại và danh sách chờ duyệt, bảo toàn tuyệt đối không sinh trùng lặp game.
 - **Chạy tự động 24/7**: Định kỳ hằng ngày qua GitHub Actions `.github/workflows/auto-google-play-sync.yml` và kích hoạt tức thì từ Cloudflare Edge API (`/api/sync` action `scan_codemoi_new_games`).
 
+### 3.9. Quy Tắc Phát Code Giãn Cách Toàn Sàn & Phòng Chờ Trực Tuyến (Global Release Interval & Waiting Room)
+- **Cơ chế Khóa Hồi Chiêu Toàn Sàn (Global Release Interval)**:
+  - Khi một người chơi giật mã thành công, hệ thống nguyên tử ghi nhận `last_global_claim_at = nowIso` vào CSDL Cloudflare D1.
+  - Toàn bộ website (tất cả người chơi khác) rơi vào trạng thái chờ đợt mã kế tiếp trong khoảng thời gian `global_cooldown_seconds` (ví dụ: 30s, 1p, 2p, 3p, 5p...).
+  - Mọi request gửi tới `/api/giveaways/claim` trong thời gian này đều bị chặn ở cấp Server Edge với mã `GLOBAL_COOLDOWN_ACTIVE` và trả về `remainingSeconds`, `nextReleaseAt`, kèm thông báo tùy biến `custom_cooldown_msg` tự động thay thế placeholder `{time_left}`.
+- **Tùy biến Thông Báo Đa Kịch Bản (Custom Notification Messages)**:
+  - `custom_success_msg`: Thông báo chúc mừng khi giật thành công (hỗ trợ `{code}`, `{game_name}`, `{rewards}`).
+  - `custom_cooldown_msg`: Thông báo khi toàn web đang chờ hồi chiêu (hỗ trợ `{time_left}`).
+  - `custom_out_of_stock_msg`: Thông báo khi toàn bộ mã trong sự kiện đã được phát hết.
+- **Phòng Chờ Trực Tuyến (Live Waiting Room)**:
+  - Hiển thị badge số người chơi thực tế và đang cùng canh mã tiếp theo ngoài web khách (`LiveWaitingRoomBadge`) dựa trên cấu hình `waiting_users_min` và `waiting_users_max` kèm dao động Jitter tự nhiên.
+  - Admin có nút mở ngay "⏳ Đang chờ (Mở ngay)" trong quản trị để xả hàng tức thì khi cần.
+
 ---
 
 ## 4. BẢN ĐỒ DỮ LIỆU & STATE MANAGEMENT

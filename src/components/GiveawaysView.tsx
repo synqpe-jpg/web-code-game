@@ -30,6 +30,7 @@ import {
   ChevronUp,
   PackageCheck,
   Box,
+  Users,
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
 import { CyberLoader } from './CyberLoader';
@@ -38,6 +39,7 @@ import { marketingService } from '../services/marketingService';
 import type { GiveawayCampaign, ClaimedCodeRecord, UserProfile } from '../types/game';
 import { formatRelativeDate, formatFullDateTime } from '../utils/textUtils';
 import { EventCountdownBadge } from './countdown/EventCountdownBadge';
+import { useEventCountdown } from '../hooks/useEventCountdown';
 import { eventSchedulerService } from '../services/eventSchedulerService';
 
 interface GiveawaysViewProps {
@@ -49,6 +51,159 @@ interface GiveawaysViewProps {
   initialGiveawayId?: string | null;
   onClearInitialGiveawayId?: () => void;
 }
+
+/**
+ * Component hiển thị Phòng chờ & Bộ đếm người đang chờ trực tiếp
+ */
+const LiveWaitingRoomBadge: React.FC<{
+  minUsers?: number;
+  maxUsers?: number;
+  className?: string;
+  variant?: 'card' | 'modal';
+}> = ({ minUsers = 25, maxUsers = 85, className = '', variant = 'card' }) => {
+  const min = Math.max(1, minUsers || 25);
+  const max = Math.max(min + 1, maxUsers || 85);
+  const mid = Math.floor((min + max) / 2);
+
+  const [count, setCount] = useState<number>(() => {
+    return mid + Math.floor((Math.sin(Date.now() / 10000) * (max - min)) / 4);
+  });
+
+  useEffect(() => {
+    const interval = window.setInterval(() => {
+      setCount((prev) => {
+        const delta = Math.floor(Math.random() * 5) - 2;
+        const next = prev + delta;
+        return Math.min(max, Math.max(min, next));
+      });
+    }, 3500);
+
+    return () => clearInterval(interval);
+  }, [min, max]);
+
+  if (variant === 'modal') {
+    return (
+      <div className={`p-2.5 rounded-xl bg-teal-500/10 border border-teal-500/25 flex items-center justify-between text-xs ${className}`}>
+        <div className="flex items-center gap-2">
+          <span className="relative flex h-2.5 w-2.5">
+            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-teal-400 opacity-75"></span>
+            <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-teal-500"></span>
+          </span>
+          <span className="font-semibold text-teal-300">Phòng chờ trực tuyến:</span>
+        </div>
+        <span className="font-mono font-bold text-teal-400 flex items-center gap-1.5">
+          <Users className="w-3.5 h-3.5" />
+          <span>{count} người đang chờ</span>
+        </span>
+      </div>
+    );
+  }
+
+  return (
+    <div className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-teal-500/15 text-teal-300 border border-teal-500/30 ${className}`}>
+      <span className="relative flex h-1.5 w-1.5 mr-0.5">
+        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-teal-400 opacity-75"></span>
+        <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-teal-500"></span>
+      </span>
+      <Users className="w-3 h-3 text-teal-400" />
+      <span>{count} người đang chờ</span>
+    </div>
+  );
+};
+
+/**
+ * Component hiển thị đếm ngược mở mã tiếp theo trên Card
+ */
+const GlobalReleaseBadge: React.FC<{
+  campaign: GiveawayCampaign;
+  onExpire?: () => void;
+  className?: string;
+}> = ({ campaign, onExpire, className = '' }) => {
+  const globalSec = Number(campaign.global_cooldown_seconds || 0);
+  const lastClaimAt = campaign.last_global_claim_at;
+  const targetDate = React.useMemo(() => {
+    if (globalSec <= 0 || !lastClaimAt) return null;
+    const lastMs = new Date(lastClaimAt).getTime();
+    if (isNaN(lastMs)) return null;
+    return new Date(lastMs + globalSec * 1000).toISOString();
+  }, [globalSec, lastClaimAt]);
+
+  const { minutes, seconds, isExpired } = useEventCountdown(targetDate, onExpire);
+
+  if (globalSec <= 0 || !targetDate || isExpired) return null;
+
+  const pad = (n: number) => String(n).padStart(2, '0');
+
+  return (
+    <div className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs border backdrop-blur-md bg-gradient-to-r from-amber-950/80 via-orange-950/80 to-yellow-950/80 border-amber-500/40 text-amber-200 shadow-[0_0_12px_rgba(245,158,11,0.25)] ${className}`}>
+      <Clock className="w-3.5 h-3.5 text-amber-400 animate-pulse" />
+      <span className="text-[11px] opacity-80">Mã tiếp theo:</span>
+      <span className="font-mono font-bold tracking-wider text-amber-300">
+        {pad(minutes)}:{pad(seconds)}
+      </span>
+    </div>
+  );
+};
+
+/**
+ * Component hiển thị đếm ngược mở mã tiếp theo trong Modal
+ */
+const ModalGlobalCooldownSection: React.FC<{
+  campaign: GiveawayCampaign;
+  onExpire: () => void;
+}> = ({ campaign, onExpire }) => {
+  const globalSec = Number(campaign.global_cooldown_seconds || 0);
+  const lastClaimAt = campaign.last_global_claim_at;
+  const targetDate = React.useMemo(() => {
+    if (globalSec <= 0 || !lastClaimAt) return null;
+    const lastMs = new Date(lastClaimAt).getTime();
+    if (isNaN(lastMs)) return null;
+    return new Date(lastMs + globalSec * 1000).toISOString();
+  }, [globalSec, lastClaimAt]);
+
+  const { minutes, seconds, isExpired } = useEventCountdown(targetDate, onExpire);
+
+  if (globalSec <= 0 || !targetDate || isExpired) return null;
+
+  const pad = (n: number) => String(n).padStart(2, '0');
+  const waitText = `${pad(minutes)}:${pad(seconds)}`;
+
+  return (
+    <div className="space-y-3">
+      <div className="p-4 rounded-2xl bg-gradient-to-r from-amber-950/70 via-orange-950/70 to-red-950/70 border border-amber-500/40 text-center space-y-2.5 shadow-lg">
+        <div className="text-xs font-bold text-amber-300 uppercase tracking-wider flex items-center justify-center gap-1.5">
+          <Clock className="w-4 h-4 text-amber-400 animate-pulse" />
+          <span>Mã Kế Tiếp Mở Cho Toàn Web Sau:</span>
+        </div>
+        <div className="text-3xl font-mono font-black text-amber-300 tracking-widest drop-shadow-md">
+          {waitText}
+        </div>
+        {campaign.enable_waiting_room !== false && (
+          <div className="pt-1 flex justify-center">
+            <LiveWaitingRoomBadge
+              minUsers={campaign.waiting_users_min}
+              maxUsers={campaign.waiting_users_max}
+              variant="card"
+            />
+          </div>
+        )}
+        <p className="text-[11px] text-amber-200/80 leading-relaxed max-w-sm mx-auto">
+          {campaign.custom_cooldown_msg
+            ? campaign.custom_cooldown_msg.replace(/\{time_left\}/gi, waitText)
+            : `Đợt mã vừa được trao! Toàn bộ người chơi cùng chờ ${campaign.global_cooldown_seconds && campaign.global_cooldown_seconds >= 60 ? `${Math.floor(campaign.global_cooldown_seconds / 60)} phút` : `${campaign.global_cooldown_seconds}s`} trước khi mở mã tiếp theo.`}
+        </p>
+      </div>
+
+      <button
+        disabled
+        className="w-full py-3.5 rounded-2xl bg-amber-500/20 text-amber-300 border border-amber-500/40 text-xs font-bold flex items-center justify-center gap-2 cursor-not-allowed"
+      >
+        <Clock className="w-4 h-4 text-amber-400" />
+        <span>Đang Chờ Đợt Mã Tiếp Theo ({waitText})</span>
+      </button>
+    </div>
+  );
+};
 
 
 
@@ -225,6 +380,12 @@ export const GiveawaysView: React.FC<GiveawaysViewProps> = ({
       setClaimedList(freshClaimedList);
 
       if (!res.success) {
+        if ((res as any).errorCode === 'GLOBAL_COOLDOWN_ACTIVE') {
+          onShowToast('Đang chờ đợt mã tiếp theo', res.message || 'Mã vừa được giật bởi người chơi khác! Vui lòng chờ đợt mở kế tiếp.', 'info');
+          loadData();
+          return;
+        }
+
         const myPrevClaims = freshClaimedList.filter((c) => c.campaign_id === campaign.id);
         const myPrevCode = res.code || (myPrevClaims.length > 0 ? myPrevClaims[0].code_value : null);
         if ((res.alreadyClaimed || myPrevClaims.length > 0) && myPrevCode) {
@@ -268,7 +429,7 @@ export const GiveawaysView: React.FC<GiveawaysViewProps> = ({
             res.isAdminBypass || isAdmin
               ? '👑 [Admin Mode] Giật mã mới thành công!'
               : '🎉 Giật code thành công!',
-            `Mã mới của bạn: ${res.code}`,
+            res.message || `Mã mới của bạn: ${res.code}`,
             'success'
           );
         } else {
@@ -641,6 +802,13 @@ export const GiveawaysView: React.FC<GiveawaysViewProps> = ({
                   campaign.status === 'ENDED' ||
                   campaign.is_active === false;
 
+                const isCardGlobalCooling = Boolean(
+                  campaign.global_cooldown_seconds &&
+                  campaign.global_cooldown_seconds > 0 &&
+                  campaign.last_global_claim_at &&
+                  (new Date(campaign.last_global_claim_at).getTime() + campaign.global_cooldown_seconds * 1000) > Date.now()
+                );
+
                 return (
                   <div
                     key={campaign.id}
@@ -703,6 +871,27 @@ export const GiveawaysView: React.FC<GiveawaysViewProps> = ({
                       <h3 className="font-heading font-bold text-base text-foreground mb-2 leading-snug">
                         {campaign.title}
                       </h3>
+
+                      {/* Live Waiting Room Badge */}
+                      {campaign.enable_waiting_room !== false && remaining > 0 && !isEnded && (
+                        <div className="mb-2">
+                          <LiveWaitingRoomBadge
+                            minUsers={campaign.waiting_users_min}
+                            maxUsers={campaign.waiting_users_max}
+                            variant="card"
+                          />
+                        </div>
+                      )}
+
+                      {/* Global Release Countdown Badge if Active */}
+                      {isCardGlobalCooling && !isNotStarted && (
+                        <div className="mb-2.5">
+                          <GlobalReleaseBadge
+                            campaign={campaign}
+                            onExpire={() => setGiveaways([...dataService.getGiveaways()])}
+                          />
+                        </div>
+                      )}
 
                       {/* Event Countdown Badge if Upcoming */}
                       {isNotStarted && campaign.start_time && (
@@ -779,6 +968,12 @@ export const GiveawaysView: React.FC<GiveawaysViewProps> = ({
                                     : `(${userAgeDays}/${campaign.min_account_age_days}d)`
                                   : ''}
                               </span>
+                            </span>
+                          )}
+                          {Boolean(campaign.global_cooldown_seconds && campaign.global_cooldown_seconds > 0) && (
+                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-purple-500/10 text-purple-400 border border-purple-500/20 font-medium">
+                              <Clock className="w-3 h-3 text-purple-400" />
+                              <span>Giãn cách {campaign.global_cooldown_seconds >= 60 ? `${Math.round(campaign.global_cooldown_seconds / 60)}p` : `${campaign.global_cooldown_seconds}s`}</span>
                             </span>
                           )}
                         </div>
@@ -913,6 +1108,17 @@ export const GiveawaysView: React.FC<GiveawaysViewProps> = ({
                             >
                               <ShieldCheck className="w-3.5 h-3.5 text-rose-400" />
                               <span>Tuổi Nick</span>
+                            </button>
+                          ) : isCardGlobalCooling ? (
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setDetailModalCampaign(campaign);
+                              }}
+                              className="py-2.5 px-3 rounded-xl bg-amber-500/15 hover:bg-amber-500/25 text-amber-300 border border-amber-500/30 text-xs font-bold flex items-center justify-center gap-1.5 cursor-pointer transition-all"
+                            >
+                              <Clock className="w-3.5 h-3.5 text-amber-400" />
+                              <span>Chờ Đợt Mã</span>
                             </button>
                           ) : (
                             <button
@@ -1633,6 +1839,13 @@ export const GiveawaysView: React.FC<GiveawaysViewProps> = ({
             currentCampaign.status === 'ENDED' ||
             currentCampaign.is_active === false;
 
+          const isModalGlobalCooling = Boolean(
+            currentCampaign.global_cooldown_seconds &&
+            currentCampaign.global_cooldown_seconds > 0 &&
+            currentCampaign.last_global_claim_at &&
+            (new Date(currentCampaign.last_global_claim_at).getTime() + currentCampaign.global_cooldown_seconds * 1000) > Date.now()
+          );
+
           return (
             <div
               onClick={handleCloseDetailModal}
@@ -1822,6 +2035,27 @@ export const GiveawaysView: React.FC<GiveawaysViewProps> = ({
                           </span>
                         </div>
                       )}
+
+                      {/* Rule 5: Global release interval */}
+                      {Boolean(currentCampaign.global_cooldown_seconds && currentCampaign.global_cooldown_seconds > 0) && (
+                        <div
+                          className={`p-2.5 rounded-xl border flex items-center justify-between gap-2 sm:col-span-2 ${
+                            isModalGlobalCooling
+                              ? 'bg-amber-500/10 border-amber-500/30 text-amber-300'
+                              : 'bg-muted/50 border-border/70 text-foreground'
+                          }`}
+                        >
+                          <div className="flex items-center gap-2 min-w-0">
+                            <Clock className="w-3.5 h-3.5 text-amber-400 shrink-0" />
+                            <span className="truncate">
+                              Giãn cách phát mã toàn sàn: {currentCampaign.global_cooldown_seconds >= 60 ? `${Math.floor(currentCampaign.global_cooldown_seconds / 60)} phút` : `${currentCampaign.global_cooldown_seconds}s`} / 1 mã
+                            </span>
+                          </div>
+                          <span className="text-[10px] font-bold shrink-0">
+                            {isModalGlobalCooling ? '⏳ Đang chờ đợt tiếp' : '🟢 Sẵn sàng'}
+                          </span>
+                        </div>
+                      )}
                     </div>
                   </div>
 
@@ -1990,6 +2224,23 @@ export const GiveawaysView: React.FC<GiveawaysViewProps> = ({
                         <span>Xem {userClaimCount} Mã Đã Nhận & Sao Chép</span>
                       </button>
                     </div>
+                  ) : isModalGlobalCooling ? (
+                    <div className="space-y-2">
+                      <ModalGlobalCooldownSection
+                        campaign={currentCampaign}
+                        onExpire={() => setGiveaways([...dataService.getGiveaways()])}
+                      />
+                      {isAdmin && (
+                        <button
+                          onClick={() => handleClaim(currentCampaign)}
+                          disabled={claimingId === currentCampaign.id}
+                          className="w-full py-2.5 rounded-xl bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 border border-amber-500/40 text-xs font-bold flex items-center justify-center gap-1.5 cursor-pointer transition-all active:scale-95"
+                        >
+                          <Sparkles className="w-3.5 h-3.5" />
+                          <span>👑 [Admin] Bỏ qua chờ đợt — Giật thử nghiệm ngay</span>
+                        </button>
+                      )}
+                    </div>
                   ) : isCooldownActive ? (
                     <button
                       onClick={() => {
@@ -2016,32 +2267,42 @@ export const GiveawaysView: React.FC<GiveawaysViewProps> = ({
                       className="w-full py-3.5 rounded-2xl bg-rose-500/15 hover:bg-rose-500/25 text-rose-400 border border-rose-500/30 text-xs font-bold flex items-center justify-center gap-2 cursor-pointer transition-all"
                     >
                       <ShieldCheck className="w-4 h-4 text-rose-400" />
-                      <span>Chưa Đủ Điều Kiện Tuổi Nick ({userAgeDays}/{minAccountAgeDays} ngày)</span>
+                      <span>Chưa Đủ Điều Kiện Tuổi Nick ({userAgeDays}/${minAccountAgeDays} ngày)</span>
                     </button>
                   ) : (
-                    <button
-                      onClick={() => handleClaim(currentCampaign)}
-                      disabled={claimingId === currentCampaign.id}
-                      className="w-full py-3.5 rounded-2xl bg-gradient-to-r from-accent via-rose-500 to-amber-500 hover:opacity-95 text-white font-display font-black text-xs sm:text-sm tracking-wide shadow-glow-accent hover:scale-[1.01] active:scale-[0.99] transition-all cursor-pointer flex items-center justify-center gap-2 disabled:opacity-75 disabled:cursor-not-allowed"
-                    >
-                      {claimingId === currentCampaign.id ? (
-                        <>
-                          <Loader2 className="w-5 h-5 animate-spin text-white" />
-                          <span>Đang Kết Nối Nhận Mã...</span>
-                        </>
-                      ) : (
-                        <>
-                          <Sparkles className="w-5 h-5 animate-bounce" />
-                          <span>
-                            {userClaimCount > 0
-                              ? isAdmin
-                                ? `👑 [Admin] Giật Thêm Mã (Đã có ${userClaimCount} mã)`
-                                : `⚡ Giật Thêm Mã Mới (${userClaimCount}/${isUnlimitedUser ? '∞' : rawMaxPerUser || 1})`
-                              : '⚡ GIẬT MÃ CODE NGAY (MIỄN PHÍ)'}
-                          </span>
-                        </>
+                    <div className="space-y-2">
+                      {currentCampaign.enable_waiting_room !== false && (
+                        <LiveWaitingRoomBadge
+                          minUsers={currentCampaign.waiting_users_min}
+                          maxUsers={currentCampaign.waiting_users_max}
+                          variant="modal"
+                          className="mb-1"
+                        />
                       )}
-                    </button>
+                      <button
+                        onClick={() => handleClaim(currentCampaign)}
+                        disabled={claimingId === currentCampaign.id}
+                        className="w-full py-3.5 rounded-2xl bg-gradient-to-r from-accent via-rose-500 to-amber-500 hover:opacity-95 text-white font-display font-black text-xs sm:text-sm tracking-wide shadow-glow-accent hover:scale-[1.01] active:scale-[0.99] transition-all cursor-pointer flex items-center justify-center gap-2 disabled:opacity-75 disabled:cursor-not-allowed"
+                      >
+                        {claimingId === currentCampaign.id ? (
+                          <>
+                            <Loader2 className="w-5 h-5 animate-spin text-white" />
+                            <span>Đang Kết Nối Nhận Mã...</span>
+                          </>
+                        ) : (
+                          <>
+                            <Sparkles className="w-5 h-5 animate-bounce" />
+                            <span>
+                              {userClaimCount > 0
+                                ? isAdmin
+                                  ? `👑 [Admin] Giật Thêm Mã (Đã có ${userClaimCount} mã)`
+                                  : `⚡ Giật Thêm Mã Mới (${userClaimCount}/${isUnlimitedUser ? '∞' : rawMaxPerUser || 1})`
+                                : '⚡ GIẬT MÃ CODE NGAY (MIỄN PHÍ)'}
+                            </span>
+                          </>
+                        )}
+                      </button>
+                    </div>
                   )}
 
                   <button

@@ -177,6 +177,14 @@ CREATE TABLE IF NOT EXISTS giveaways (
   max_per_user INTEGER NOT NULL DEFAULT 1 CHECK (max_per_user > 0),
   max_per_ip INTEGER NOT NULL DEFAULT 1 CHECK (max_per_ip > 0),
   cooldown_hours INTEGER NOT NULL DEFAULT 0,
+  global_cooldown_seconds INTEGER NOT NULL DEFAULT 0,
+  last_global_claim_at TEXT DEFAULT '',
+  custom_success_msg TEXT DEFAULT '',
+  custom_cooldown_msg TEXT DEFAULT '',
+  custom_out_of_stock_msg TEXT DEFAULT '',
+  enable_waiting_room INTEGER NOT NULL DEFAULT 1,
+  waiting_users_min INTEGER NOT NULL DEFAULT 0,
+  waiting_users_max INTEGER NOT NULL DEFAULT 0,
   show_claimed_count INTEGER NOT NULL DEFAULT 1,
   virtual_claimed_offset INTEGER NOT NULL DEFAULT 0,
   start_time TEXT,
@@ -683,6 +691,30 @@ export async function ensureSchemaUpgrades(db: D1Database): Promise<void> {
     await db.prepare("ALTER TABLE giveaways ADD COLUMN game_icon_url TEXT DEFAULT '';").run().catch(() => {});
   } catch {}
   try {
+    await db.prepare("ALTER TABLE giveaways ADD COLUMN global_cooldown_seconds INTEGER NOT NULL DEFAULT 0;").run().catch(() => {});
+  } catch {}
+  try {
+    await db.prepare("ALTER TABLE giveaways ADD COLUMN last_global_claim_at TEXT DEFAULT '';").run().catch(() => {});
+  } catch {}
+  try {
+    await db.prepare("ALTER TABLE giveaways ADD COLUMN custom_success_msg TEXT DEFAULT '';").run().catch(() => {});
+  } catch {}
+  try {
+    await db.prepare("ALTER TABLE giveaways ADD COLUMN custom_cooldown_msg TEXT DEFAULT '';").run().catch(() => {});
+  } catch {}
+  try {
+    await db.prepare("ALTER TABLE giveaways ADD COLUMN custom_out_of_stock_msg TEXT DEFAULT '';").run().catch(() => {});
+  } catch {}
+  try {
+    await db.prepare("ALTER TABLE giveaways ADD COLUMN enable_waiting_room INTEGER NOT NULL DEFAULT 1;").run().catch(() => {});
+  } catch {}
+  try {
+    await db.prepare("ALTER TABLE giveaways ADD COLUMN waiting_users_min INTEGER NOT NULL DEFAULT 0;").run().catch(() => {});
+  } catch {}
+  try {
+    await db.prepare("ALTER TABLE giveaways ADD COLUMN waiting_users_max INTEGER NOT NULL DEFAULT 0;").run().catch(() => {});
+  } catch {}
+  try {
     await db.prepare(`
       CREATE TABLE IF NOT EXISTS giveaways (
         id TEXT PRIMARY KEY,
@@ -698,6 +730,14 @@ export async function ensureSchemaUpgrades(db: D1Database): Promise<void> {
         max_per_user INTEGER NOT NULL DEFAULT 1 CHECK (max_per_user > 0),
         max_per_ip INTEGER NOT NULL DEFAULT 1 CHECK (max_per_ip > 0),
         cooldown_hours INTEGER NOT NULL DEFAULT 0,
+        global_cooldown_seconds INTEGER NOT NULL DEFAULT 0,
+        last_global_claim_at TEXT DEFAULT '',
+        custom_success_msg TEXT DEFAULT '',
+        custom_cooldown_msg TEXT DEFAULT '',
+        custom_out_of_stock_msg TEXT DEFAULT '',
+        enable_waiting_room INTEGER NOT NULL DEFAULT 1,
+        waiting_users_min INTEGER NOT NULL DEFAULT 0,
+        waiting_users_max INTEGER NOT NULL DEFAULT 0,
         show_claimed_count INTEGER NOT NULL DEFAULT 1,
         virtual_claimed_offset INTEGER NOT NULL DEFAULT 0,
         start_time TEXT,
@@ -1747,6 +1787,14 @@ export async function syncGiveawaysToD1(db: D1Database, giveaways: any[]): Promi
     const rawMaxIp = Number(gw.max_per_ip ?? gw.maxPerIp);
     const maxIp = (rawMaxIp === 0 || rawMaxIp >= 999999) ? 999999 : (rawMaxIp > 0 ? rawMaxIp : 1);
     const cooldown = Math.max(0, Number(gw.cooldown_hours ?? gw.cooldownHours ?? 0));
+    const globalCooldownSeconds = Math.max(0, Number(gw.global_cooldown_seconds ?? gw.globalCooldownSeconds ?? 0));
+    const lastGlobalClaimAt = String(gw.last_global_claim_at ?? gw.lastGlobalClaimAt ?? '');
+    const customSuccessMsg = String(gw.custom_success_msg ?? gw.customSuccessMsg ?? '');
+    const customCooldownMsg = String(gw.custom_cooldown_msg ?? gw.customCooldownMsg ?? '');
+    const customOutOfStockMsg = String(gw.custom_out_of_stock_msg ?? gw.customOutOfStockMsg ?? '');
+    const enableWaitingRoom = (gw.enable_waiting_room !== false && (gw as any).enableWaitingRoom !== false) ? 1 : 0;
+    const waitingUsersMin = Math.max(0, Number(gw.waiting_users_min ?? gw.waitingUsersMin ?? 0));
+    const waitingUsersMax = Math.max(0, Number(gw.waiting_users_max ?? gw.waitingUsersMax ?? 0));
     const showClaimed = (gw.show_claimed_count !== false && (gw as any).showClaimedCount !== false) ? 1 : 0;
     const virtualOffset = Number(gw.virtual_claimed_offset ?? gw.virtualClaimedOffset ?? 0);
     const isActive = (gw.is_active !== false && (gw as any).isActive !== false) ? 1 : 0;
@@ -1763,11 +1811,14 @@ export async function syncGiveawaysToD1(db: D1Database, giveaways: any[]): Promi
         id, title, game_slug, game_name, description, rewards,
         total_codes, remaining_codes, claimed_codes,
         min_account_age_days, max_per_user, max_per_ip, cooldown_hours,
+        global_cooldown_seconds, last_global_claim_at,
+        custom_success_msg, custom_cooldown_msg, custom_out_of_stock_msg,
+        enable_waiting_room, waiting_users_min, waiting_users_max,
         show_claimed_count, virtual_claimed_offset,
         start_time, end_time, is_active,
         cover_image_url, game_icon_url, status, created_at
       )
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       ON CONFLICT(id) DO UPDATE SET
         title = excluded.title,
         game_slug = excluded.game_slug,
@@ -1781,6 +1832,14 @@ export async function syncGiveawaysToD1(db: D1Database, giveaways: any[]): Promi
         max_per_user = excluded.max_per_user,
         max_per_ip = excluded.max_per_ip,
         cooldown_hours = excluded.cooldown_hours,
+        global_cooldown_seconds = excluded.global_cooldown_seconds,
+        last_global_claim_at = CASE WHEN excluded.last_global_claim_at != '' THEN excluded.last_global_claim_at ELSE giveaways.last_global_claim_at END,
+        custom_success_msg = excluded.custom_success_msg,
+        custom_cooldown_msg = excluded.custom_cooldown_msg,
+        custom_out_of_stock_msg = excluded.custom_out_of_stock_msg,
+        enable_waiting_room = excluded.enable_waiting_room,
+        waiting_users_min = excluded.waiting_users_min,
+        waiting_users_max = excluded.waiting_users_max,
         show_claimed_count = excluded.show_claimed_count,
         virtual_claimed_offset = excluded.virtual_claimed_offset,
         start_time = excluded.start_time,
@@ -1804,6 +1863,14 @@ export async function syncGiveawaysToD1(db: D1Database, giveaways: any[]): Promi
       maxUser,
       maxIp,
       cooldown,
+      globalCooldownSeconds,
+      lastGlobalClaimAt,
+      customSuccessMsg,
+      customCooldownMsg,
+      customOutOfStockMsg,
+      enableWaitingRoom,
+      waitingUsersMin,
+      waitingUsersMax,
       showClaimed,
       virtualOffset,
       startTime,

@@ -7,6 +7,43 @@ Mỗi mục sửa lỗi đều ghi nhận **Nguyên nhân gốc rễ (Root Cause
 
 ## [2026-10-19]
 
+### 76. Phát Triển Tính Năng Phát Code Theo Thời Gian Cho Toàn Web Chờ (Global Release Interval), Tùy Chỉnh Thông Báo & Phòng Chờ Trực Tuyến (Live Waiting Room)
+- **Mô tả & Yêu cầu Người Dùng**:
+  - *"Trong admin, mục giveaway, bạn có thể lên cho tôi kế hoạch phát code theo thời gian cho toàn web chờ không? CỤ thể khi người A giật code, thì sau 1 khoảng thời gianddax điều chỉnh từ adim, code tiếp theo mới bị giật tiếp, người B và C... cũng phải chờ đến thời gian này mới giật được. Có cả cài đặt thông báo tùy chỉnh khi giật được code và không. Có thể tùy chỉnh có bao nhiêu người đang chờ code tiếp theo. Bạn lên kế hoạch giúp tôi."*
+  - *"Ok triển đi bạn."*
+- **Nguyên nhân & Nhu cầu Hệ thống**:
+  - Khi tổ chức các đợt phát giftcode độc quyền (Giveaway), nếu thả tự do mã, toàn bộ kho code có thể bị giật sạch trong vài giây bởi số lượng lớn người dùng cùng lúc (hoặc script tự động), khiến sự kiện kết thúc quá nhanh và đa số người chơi không kịp trải nghiệm.
+  - Cần cơ chế khóa hồi chiêu toàn sàn (Global Release Interval): Khi người A giật thành công một mã quà, toàn bộ website (người B, C, D...) bị khóa hồi chiêu và phải chờ đúng khoảng thời gian do Admin thiết lập (ví dụ: 1 phút, 3 phút, 5 phút...) thì mã tiếp theo mới mở cho toàn bộ người chơi cùng giật.
+  - Cần cho phép Admin tùy biến nội dung thông báo thông minh: (1) Khi giật thành công (`custom_success_msg`), (2) Khi toàn sàn đang chờ hồi chiêu (`custom_cooldown_msg` với placeholder `{time_left}`), (3) Khi toàn bộ mã đã trao hết (`custom_out_of_stock_msg`).
+  - Cần tính năng Phòng Chờ Trực Tuyến (Live Waiting Room) hiển thị số người chơi đang cùng canh mã tiếp theo ngoài web khách kèm cấu hình số người Min/Max và dao động Jitter tự nhiên.
+- **Giải pháp toàn diện đã triển khai (Solution)**:
+  1. *Định nghĩa Type & Kiến trúc CSDL (`src/types/game.ts` & `functions/services/d1_service.ts`)*:
+     - Bổ sung 8 trường mới vào `GiveawayCampaign`: `global_cooldown_seconds`, `last_global_claim_at`, `custom_success_msg`, `custom_cooldown_msg`, `custom_out_of_stock_msg`, `enable_waiting_room`, `waiting_users_min`, `waiting_users_max`.
+     - Cập nhật bảng `giveaways` trong Cloudflare D1 với migration `ALTER TABLE giveaways ADD COLUMN ...` an toàn và đồng bộ hóa tự động.
+  2. *Bảo vệ Cấp Server Nguyên Tử (`functions/api/giveaways/claim.ts`)*:
+     - Kiểm tra khoảng cách thời gian từ `last_global_claim_at` so với thời điểm hiện tại `nowMs`. Nếu chưa hết `global_cooldown_seconds`, từ chối ngay lập tức với mã lỗi `GLOBAL_COOLDOWN_ACTIVE` và trả về `remainingSeconds`, `nextReleaseAt`, kèm câu thông báo tùy biến `custom_cooldown_msg` đã thay thế thời gian thực `{time_left}`.
+     - Khi claim thành công, cập nhật ngay lập tức `last_global_claim_at = nowIso` vào cơ sở dữ liệu D1.
+     - Định dạng thông báo thành công theo mẫu `custom_success_msg` (thay thế `{code}`, `{game_name}`, `{rewards}`) và thông báo hết mã theo mẫu `custom_out_of_stock_msg`.
+  3. *Tích Hợp Giao Diện Quản Trị Admin (`src/admin/modules/PrivateCodesModule.tsx`)*:
+     - Thêm 3 khối cấu hình chuyên sâu trong Modal Tạo/Sửa Chiến dịch:
+       - (A) Giãn cách phát mã toàn sàn với các nút chọn nhanh preset: `Tắt (0s)`, `30s`, `1 phút`, `2 phút`, `3 phút`, `5 phút`, `10 phút`, `15 phút`.
+       - (B) Tùy chỉnh thông báo: Thành công, Đang chờ mở mã tiếp theo (hỗ trợ `{time_left}`), Khi hết mã.
+       - (C) Cấu hình phòng chờ trực tuyến (Min/Max số người đang chờ) kèm bộ tạo biến thiên ngẫu nhiên và Live Preview trực quan.
+     - Bổ sung chỉ báo trạng thái thời gian thực và nút "⏳ Đang chờ (Mở ngay)" trên bảng danh sách để Admin có thể xả hàng / mở khóa ngay lập tức mà không cần chờ hết giờ.
+  4. *Trải Nghiệm Khách Hàng Web (`src/components/GiveawaysView.tsx` & `src/services/dataService.ts`)*:
+     - Pre-check và đồng bộ `last_global_claim_at` vào LocalStorage khi claim thành công hoặc khi server phản hồi `GLOBAL_COOLDOWN_ACTIVE`.
+     - Card View: Hiển thị badge phòng chờ trực tuyến (`LiveWaitingRoomBadge`), đồng hồ đếm ngược mở mã tiếp theo (`GlobalReleaseBadge`), badge điều kiện giãn cách và nút trạng thái "Chờ Đợt Mã".
+     - Modal Chi Tiết: Hiển thị điều kiện giãn cách toàn sàn, khối đếm ngược toàn sàn cỡ lớn (`ModalGlobalCooldownSection`) khi đang trong thời gian giãn cách, badge phòng chờ trực tuyến và nút giật mã hỗ trợ Admin Bypass để test nhanh.
+- **Kết quả kiểm thử & Triển khai**:
+  - Audit zero test artifacts: Sạch 100% (31 giveaways thực tế, 6,569 codes, 0 artifact test).
+  - Biên dịch Vite Frontend & Prerender 672 trang tĩnh SEO thành công.
+  - Esbuild Cloudflare Edge Worker bundle thành công (`dist/_worker.js` 8.3MB).
+  - Tự động triển khai lên Cloudflare Pages (`web-code-game` và `admin-code-game-shop`) và đồng bộ GitHub.
+
+---
+
+## [2026-10-19]
+
 ### 75. Quét & Tổng Hợp Toàn Bộ Code Tuần & Giftcode Mới Từ File 'Giftcode 2 Game (1).xlsx'
 - **Mô tả & Yêu cầu Người Dùng**:
   - *"@[c:\4 Antigravity all\13 web code game\code Muse] Tôi vừa thêm 1 file nữa, bản qquets rồi tỏng hợp tất cả đưa lên web của tôi đi."*

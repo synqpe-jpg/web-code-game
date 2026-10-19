@@ -289,6 +289,39 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
       }
     }
 
+    // 3.2 Global Release Interval / Global Queue Cooldown (Toàn web chờ giữa 2 lần giật)
+    const globalCooldownSeconds = isAdmin ? 0 : Math.max(0, Number(campaign.global_cooldown_seconds || 0));
+    if (globalCooldownSeconds > 0 && campaign.last_global_claim_at) {
+      const lastGlobalMs = new Date(campaign.last_global_claim_at).getTime();
+      if (!isNaN(lastGlobalMs)) {
+        const globalCooldownMs = globalCooldownSeconds * 1000;
+        const remainingGlobalMs = (lastGlobalMs + globalCooldownMs) - nowMs;
+        if (remainingGlobalMs > 0) {
+          const remTotalSec = Math.ceil(remainingGlobalMs / 1000);
+          const remMin = Math.floor(remTotalSec / 60);
+          const remSec = remTotalSec % 60;
+          const waitStr = remMin > 0 ? `${remMin} phút ${remSec > 0 ? `${remSec} giây` : ''}`.trim() : `${remSec} giây`;
+
+          let cdMsg = String(campaign.custom_cooldown_msg || '').trim();
+          if (!cdMsg) {
+            cdMsg = 'Mã vừa được giật bởi người chơi khác! Vui lòng chờ đợt mở tiếp theo sau {time_left}.';
+          }
+          cdMsg = cdMsg.replace(/\{time_left\}/gi, waitStr);
+
+          return new Response(
+            JSON.stringify({
+              success: false,
+              errorCode: 'GLOBAL_COOLDOWN_ACTIVE',
+              remainingSeconds: remTotalSec,
+              nextReleaseAt: new Date(lastGlobalMs + globalCooldownMs).toISOString(),
+              message: cdMsg,
+            }),
+            { status: 400, headers: CORS_HEADERS }
+          );
+        }
+      }
+    }
+
     // 4. Pre-check IP limit (bypassed for Admin & Unlimited IP)
     const ipClaimsCount = Number(ipClaimsCountRow?.cnt) || 0;
 
@@ -347,11 +380,15 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
     }
 
     if (availCount <= 0) {
+      let oosMsg = String(campaign.custom_out_of_stock_msg || '').trim();
+      if (!oosMsg) {
+        oosMsg = 'Rất tiếc! Toàn bộ giftcode của sự kiện này đã được trao tặng hết.';
+      }
       return new Response(
         JSON.stringify({
           success: false,
           errorCode: 'OUT_OF_STOCK',
-          message: 'Rất tiếc! Toàn bộ giftcode của sự kiện này đã được trao tặng hết.',
+          message: oosMsg,
         }),
         { status: 400, headers: CORS_HEADERS }
       );
@@ -418,6 +455,12 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
     }
 
     const codeValue = d1ClaimRes.codeContent!;
+    const nowIso = new Date().toISOString();
+
+    // Immediate authoritative update of last_global_claim_at to lock subsequent concurrent claims immediately
+    await env.DB.prepare(
+      'UPDATE giveaways SET last_global_claim_at = ? WHERE id = ?'
+    ).bind(nowIso, campaign.id).run().catch(() => {});
 
     // 6 & 7. Asynchronously update counters, settings pool & real events hub in background
     const backgroundSync = async () => {
@@ -432,10 +475,10 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
         const remainingCnt = Math.max(0, Number(countRow?.remain_cnt) || 0);
         const claimedCnt = Math.max(0, Number(countRow?.claimed_cnt) || 0);
 
-        // Sync authoritative counters to giveaways table
+        // Sync authoritative counters and last_global_claim_at to giveaways table
         await env.DB.prepare(
-          'UPDATE giveaways SET remaining_codes = ?, claimed_codes = ? WHERE id = ?'
-        ).bind(remainingCnt, claimedCnt, campaign.id).run().catch(() => {});
+          'UPDATE giveaways SET remaining_codes = ?, claimed_codes = ?, last_global_claim_at = ? WHERE id = ?'
+        ).bind(remainingCnt, claimedCnt, nowIso, campaign.id).run().catch(() => {});
 
         // Sync codes_pool in wcg_admin_giveaways_v4
         try {
@@ -451,6 +494,7 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
               storedGiveaways[gwIdx].codes_pool = curPool;
               storedGiveaways[gwIdx].remaining_codes = remainingCnt;
               storedGiveaways[gwIdx].claimed_codes = claimedCnt;
+              storedGiveaways[gwIdx].last_global_claim_at = nowIso;
 
               // Append claim record to claim_history for admin dashboard visibility
               const claimHistoryItem = {
@@ -458,7 +502,7 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
                 user: member.username || member.display_name || member.id,
                 email: member.email || '',
                 code: codeValue,
-                claimedAt: new Date().toISOString(),
+                claimedAt: nowIso,
               };
               storedGiveaways[gwIdx].claim_history = [
                 claimHistoryItem,
@@ -526,6 +570,18 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
     const claimedCodesNext = (Number(campaign.claimed_codes) || 0) + 1;
     const remainingCodesNext = Math.max(0, (typeof campaign.remaining_codes === 'number' ? campaign.remaining_codes : Number(campaign.total_codes || 1)) - 1);
 
+    let successMsg = String(campaign.custom_success_msg || '').trim();
+    if (!successMsg) {
+      successMsg = isAdmin
+        ? `[Chế độ Quản Trị Viên] Giật thành công mã mới từ kho: ${codeValue}`
+        : 'Nhận giftcode thành công!';
+    } else {
+      successMsg = successMsg
+        .replace(/\{code\}/gi, codeValue)
+        .replace(/\{game_name\}/gi, campaign.game_name || '')
+        .replace(/\{rewards\}/gi, campaign.rewards || campaign.title || '');
+    }
+
     return new Response(
       JSON.stringify({
         success: true,
@@ -534,6 +590,7 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
         alreadyClaimed: false,
         isAdminBypass: isAdmin,
         userClaimsCount: userClaimsCount + 1,
+        last_global_claim_at: nowIso,
         campaign: {
           id: campaign.id,
           game_name: campaign.game_name,
@@ -541,10 +598,9 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
           rewards: campaign.title,
           claimed_codes: claimedCodesNext,
           remaining_codes: remainingCodesNext,
+          last_global_claim_at: nowIso,
         },
-        message: isAdmin
-          ? `[Chế độ Quản Trị Viên] Giật thành công mã mới từ kho: ${codeValue}`
-          : 'Nhận giftcode thành công!',
+        message: successMsg,
       }),
       { status: 200, headers: CORS_HEADERS }
     );
