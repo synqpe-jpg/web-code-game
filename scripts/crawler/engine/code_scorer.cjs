@@ -8,7 +8,7 @@
  * - BẬC 4 (Dưới 50 điểm):  [RỦI RO / TỪ CHỐI] Không đạt chuẩn, tự động gắn cờ Spam/Bỏ qua.
  */
 
-const { isValidGiftCode } = require('./code_filter.cjs');
+const { isValidGiftCode, VALID_CODE_PREFIXES } = require('./code_filter.cjs');
 
 function calculateCodeScore({
   code,
@@ -54,7 +54,6 @@ function calculateCodeScore({
     };
   }
 
-
   let score = 0;
   const reasons = [];
 
@@ -80,22 +79,29 @@ function calculateCodeScore({
   // ==========================================
   // TIÊU CHÍ 2: ĐỊNH DẠNG MÃ CODE (Tối đa 25 điểm)
   // ==========================================
-  const isAlphaNumericUpper = /^[A-Z0-9_-]{5,24}$/.test(cleanCode);
+  const hasDigit = /\d/.test(cleanCode);
+  const hasLetter = /[A-Z]/.test(cleanCode);
+  const hasLegitPrefix = VALID_CODE_PREFIXES.test(cleanCode);
+  const isTrulyAlphaNumeric = (hasDigit && hasLetter) || hasLegitPrefix;
+  const isUpperFormat = /^[A-Z0-9_-]{5,24}$/.test(cleanCode);
   const isMixedCase = /^[A-Za-z0-9_-]{5,24}$/.test(cleanCode);
   const hasSpamPattern = /(http|www|\.com|\.vn|link|sub|like|share)/i.test(cleanCode);
 
   if (hasSpamPattern) {
     score -= 30;
     reasons.push('Phát hiện ký tự URL hoặc từ khóa rác: -30đ');
-  } else if (isAlphaNumericUpper) {
+  } else if (isTrulyAlphaNumeric && isUpperFormat) {
     score += 25;
-    reasons.push('Mã chuẩn ký tự in hoa 5-24 ký tự: +25đ');
+    reasons.push('Mã chuẩn alphanumeric in hoa (có cả chữ và số hoặc tiền tố giftcode): +25đ');
+  } else if (!hasDigit && !hasLegitPrefix) {
+    score -= 25;
+    reasons.push('Mã thuần chữ cái không có số và không có tiền tố giftcode: -25đ');
+  } else if (isUpperFormat) {
+    score += 12;
+    reasons.push('Định dạng mã cơ bản: +12đ');
   } else if (isMixedCase) {
-    score += 18;
-    reasons.push('Mã có lẫn ký tự thường: +18đ');
-  } else if (cleanCode.length >= 4 && cleanCode.length <= 32) {
-    score += 10;
-    reasons.push('Định dạng mã cơ bản: +10đ');
+    score += 8;
+    reasons.push('Mã có lẫn ký tự thường: +8đ');
   } else {
     reasons.push('Độ dài mã bất thường (<4 hoặc >32 ký tự): +0đ');
   }
@@ -109,7 +115,7 @@ function calculateCodeScore({
       score += 20;
       reasons.push('Nguồn Fanpage / Trang chủ NPH chính thức: +20đ');
       break;
-    case 'reputable_web': // Sforum, GameK, TheGioiDiDong, CodeMoi
+    case 'reputable_web': // Sforum, GameK, TheGioiDiDong, CodeMoi, GamerPower
       score += 18;
       reasons.push('Nguồn chuyên trang tin tức game uy tín: +18đ');
       break;
@@ -140,45 +146,37 @@ function calculateCodeScore({
     score += 8;
     reasons.push('Có thông tin hạn dùng: +8đ');
   } else {
-    // Thưởng nhẹ nếu ngữ cảnh bài viết có từ khóa tân thủ / phát code
     if (/tân thủ|quà tặng|tri ân|mừng|livestream|update|sự kiện/i.test(contextText)) {
       score += 5;
       reasons.push('Ngữ cảnh bài viết chứa từ khóa sự kiện NPH: +5đ');
     }
   }
 
-  // Giới hạn điểm từ 0 đến 100
-  const finalScore = Math.max(0, Math.min(100, Math.round(score)));
+  // Khóa trần điểm đối với mã thuần chữ cái không có số: tối đa 55 điểm (Bậc 3)
+  let finalScore = Math.max(0, Math.min(100, Math.round(score)));
+  if (!hasDigit && !hasLegitPrefix) {
+    finalScore = Math.min(55, finalScore);
+  }
 
-  // Xác định cấp bậc
+  // ==========================================
+  // PHÂN CẤP BẬC CHUẨN XÁC
+  // ==========================================
   let tier = 4;
   let tierLabel = 'Bậc 4: Rủi ro / Điểm thấp (<50đ)';
   let canAutoPublish = false;
 
-  // ĐIỀU KIỆN TIÊN QUYẾT ĐỂ TỰ ĐỘNG ĐĂNG (CAN AUTO PUBLISH):
-  // 1. Phải đạt điểm >= 90.
-  // 2. BẮT BUỘC: Mã phải chứa chữ và số (Alpha-numeric như TNM20B, GM999, MAPLSVMOI)
-  //    HOẶC phải có tiền tố giftcode chuẩn (VIP, SVIP, CODE, GIFT, TANTHU, TRIAN...).
-  //    Nếu mã chỉ toàn chữ cái (như PIRATE, ANIIMO, DELTA, GACHA) -> BẮT BUỘC đưa vào Bậc 2 để Admin duyệt tay, TUYỆT ĐỐI KHÔNG auto-publish!
-  const hasDigit = /\d/.test(cleanCode);
-  const hasLegitPrefix = /^(VIP|SVIP|CODE|GIFT|TANTHU|TRIAN)/i.test(cleanCode);
-  const isAlphaNumeric = hasDigit || hasLegitPrefix;
-
-  if (finalScore >= 90 && isAlphaNumeric) {
+  // BẬC 1: Chỉ dành cho mã đạt >= 90 điểm VÀ là AlphaNumeric (có số hoặc tiền tố giftcode)
+  if (finalScore >= 90 && isTrulyAlphaNumeric) {
     tier = 1;
     tierLabel = 'Bậc 1: Xuất sắc (90-100đ)';
     canAutoPublish = true;
-  } else if (finalScore >= 90 && !isAlphaNumeric) {
-    tier = 2;
-    tierLabel = 'Bậc 2: Điểm cao nhưng toàn chữ cái (Cần Admin duyệt tay)';
-    canAutoPublish = false;
-  } else if (finalScore >= 70) {
+  } else if (finalScore >= 70 && isTrulyAlphaNumeric) {
     tier = 2;
     tierLabel = 'Bậc 2: Tiềm năng cao (70-89đ)';
     canAutoPublish = false;
   } else if (finalScore >= 50) {
     tier = 3;
-    tierLabel = 'Bậc 3: Nghi ngờ (50-69đ)';
+    tierLabel = 'Bậc 3: Cần kiểm tra (50-69đ)';
     canAutoPublish = false;
   } else {
     tier = 4;

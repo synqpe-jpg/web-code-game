@@ -4,7 +4,7 @@
 
 const https = require('https');
 const http = require('http');
-const { isValidGiftCode } = require('../engine/code_filter.cjs');
+const { isValidGiftCode, VALID_CODE_PREFIXES } = require('../engine/code_filter.cjs');
 
 function fetchUrl(url, maxRedirects = 3) {
   return new Promise((resolve, reject) => {
@@ -35,57 +35,100 @@ function fetchUrl(url, maxRedirects = 3) {
 }
 
 function cleanCodeCandidate(raw = '') {
-  return String(raw || '').trim().replace(/^[^A-Za-z0-9]+|[^A-Za-z0-9]+$/g, '');
+  return String(raw || '').trim().replace(/^[^A-Za-z0-9_-]+|[^A-Za-z0-9_-]+$/g, '');
 }
 
-function extractCodesFromHtml(html = '') {
+function extractCodesFromHtml(html = '', options = {}) {
   const extracted = [];
   if (!html) return extracted;
 
-  // 1. Tìm trong các thẻ <table>, <code>, <strong>, <b>, <td>
-  const tableRows = html.match(/<tr[^>]*>([\s\S]*?)<\/tr>/gi) || [];
-  for (const row of tableRows) {
-    const cells = (row.match(/<td[^>]*>([\s\S]*?)<\/td>/gi) || []).map((c) =>
-      c.replace(/<[^>]+>/g, '').trim()
-    );
-    if (cells.length >= 2) {
-      const codeCand = cleanCodeCandidate(cells[0]);
-      const rewardCand = cells[1];
-      const expiryCand = cells[2] || '';
+  const seenCodes = new Set();
 
-      // Kiểm tra tính hợp lệ bằng bộ lọc đa tầng
-      if (isValidGiftCode(codeCand)) {
-        extracted.push({
-          code: codeCand,
-          rewards: rewardCand || 'Quà tân thủ & vật phẩm ingame',
-          expiresAt: expiryCand.includes('202') ? expiryCand : '2026-12-31',
-        });
+  function addCandidate(code, rewards = 'Quà tặng tân thủ & vật phẩm ingame', expiresAt = '2026-12-31') {
+    const c = cleanCodeCandidate(code);
+    if (!c || seenCodes.has(c.toUpperCase())) return;
+
+    if (isValidGiftCode(c, options)) {
+      seenCodes.add(c.toUpperCase());
+      extracted.push({
+        code: c,
+        rewards: rewards.replace(/<[^>]+>/g, '').trim() || 'Quà tân thủ & vật phẩm ingame',
+        expiresAt: expiresAt && expiresAt.includes('202') ? expiresAt : '2026-12-31',
+      });
+    }
+  }
+
+  // 1. Thẻ mã code chuyên dụng: class chứa code-field, giftcode, promo-code, active-code, card-code
+  const codeElementRegex = /<(?:span|div|code|p|button|td)[^>]*class=["'][^"']*(?:code-field|giftcode|promo-code|coupon-code|active-code|redeem-code|card-code)[^"']*["'][^>]*>([A-Za-z0-9_-]{4,28})<\//gi;
+  let elemMatch;
+  while ((elemMatch = codeElementRegex.exec(html)) !== null) {
+    addCandidate(elemMatch[1]);
+  }
+
+  // 2. Data attributes chứa code (data-clipboard-text, data-code, data-redeem-code)
+  const dataAttrRegex = /(?:data-clipboard-text|data-code|data-redeem-code)=["']([A-Za-z0-9_-]{4,28})["']/gi;
+  let dataMatch;
+  while ((dataMatch = dataAttrRegex.exec(html)) !== null) {
+    addCandidate(dataMatch[1]);
+  }
+
+  // 3. Aria-labels chứa mã quà (vd: "Flag KR37X46J37 as expired", "Copy code ABC123")
+  const ariaLabelRegex = /aria-label=["'](?:Flag|Copy|Sao chép)\s+([A-Za-z0-9_-]{4,28})\s+(?:as|code|mã)/gi;
+  let ariaMatch;
+  while ((ariaMatch = ariaLabelRegex.exec(html)) !== null) {
+    addCandidate(ariaMatch[1]);
+  }
+
+  // 4. Tìm trong các bảng <table> (chỉ duyệt nếu bảng có chứa ngữ cảnh mã quà)
+  const tables = html.match(/<table[\s\S]*?<\/table>/gi) || [];
+  for (const table of tables) {
+    const isCodeTable = /(code|giftcode|mã|phần thưởng|reward|quà|hạn)/i.test(table);
+    if (!isCodeTable) continue;
+
+    const tableRows = table.match(/<tr[^>]*>([\s\S]*?)<\/tr>/gi) || [];
+    for (const row of tableRows) {
+      const cells = (row.match(/<td[^>]*>([\s\S]*?)<\/td>/gi) || []).map((c) =>
+        c.replace(/<[^>]+>/g, '').trim()
+      );
+      if (cells.length >= 2) {
+        const codeCand = cleanCodeCandidate(cells[0]);
+        const rewardCand = cells[1];
+        const expiryCand = cells[2] || '';
+        addCandidate(codeCand, rewardCand, expiryCand);
       }
     }
   }
 
-  // 2. Tìm pattern dạng "Code: XXXXX", "Giftcode: XXXXX" hoặc thẻ <li><strong>CODE</strong>
-  const regexPatterns = [
-    /(?:code|giftcode|mã quà tặng|mã code|promo code)[:\s*]+([A-Za-z0-9_<>-]{4,28})\b/gi,
-    /<(?:strong|b)>([A-Za-z0-9_<>-]{4,28})<\/(?:strong|b)>\s*[:–—\-]\s*([^<\n]+)/gi,
-    /<li>\s*<(?:strong|b|code)>([A-Za-z0-9_<>-]{4,28})<\/(?:strong|b|code)>\s*[:–—\-]?\s*([^<\n]+)/gi,
-    /<code>([A-Za-z0-9_<>-]{4,28})<\/code>\s*[:–—\-]\s*([^<\n]+)/gi,
+  // 5. Tìm pattern dạng "Code: XXXXX", "Giftcode: XXXXX" với dấu phân cách bắt buộc
+  const strictRegexPatterns = [
+    // BẮT BUỘC có dấu phân cách rõ ràng: dấu hai chấm :, dấu bằng = hoặc gạch ngang -
+    /(?:code|giftcode|mã quà tặng|mã code|promo code)\s*[:=–—\-]\s*([A-Za-z0-9_-]{4,28})\b/gi,
+    // Nếu chỉ có khoảng trắng: BẮT BUỘC phải viết hoa TOÀN BỘ VÀ chứa ít nhất một chữ số hoặc tiền tố giftcode chuẩn
+    /(?:code|giftcode|mã quà tặng|mã code|promo code)\s+([A-Z0-9_-]{5,28})\b/g,
+    // Thẻ <code> độc lập kèm mô tả
+    /<code>([A-Za-z0-9_-]{4,28})<\/code>\s*[:=–—\-]\s*([^<\n]+)/gi,
+    // Thẻ <strong>/<b> hoặc <li><strong>: BẮT BUỘC có chữ số hoặc tiền tố quà tặng chuẩn
+    /<(?:strong|b)>([A-Za-z0-9_-]{4,28})<\/(?:strong|b)>\s*[:=–—\-]\s*([^<\n]+)/gi,
+    /<li>\s*<(?:strong|b|code)>([A-Za-z0-9_-]{4,28})<\/(?:strong|b|code)>\s*[:=–—\-]?\s*([^<\n]+)/gi,
   ];
 
-  for (const reg of regexPatterns) {
+  for (const reg of strictRegexPatterns) {
     let match;
     while ((match = reg.exec(html)) !== null) {
-      const c = cleanCodeCandidate(match[1]);
+      const rawCandidate = match[1];
+      const c = cleanCodeCandidate(rawCandidate);
       const r = match[2]?.trim() || 'Quà tặng tân thủ';
-      if (isValidGiftCode(c)) {
-        if (!extracted.some((x) => x.code === c)) {
-          extracted.push({
-            code: c,
-            rewards: r.replace(/<[^>]+>/g, '').trim() || 'Quà tặng sự kiện',
-            expiresAt: '2026-12-31',
-          });
-        }
+
+      // Lọc nhanh: Nếu mã thuần chữ cái mà KHÔNG có tiền tố code và KHÔNG có dấu gạch nối: BỎ QUA NGAY
+      const hasNumber = /\d/.test(c);
+      const hasPrefix = VALID_CODE_PREFIXES.test(c);
+      const hasDelimiter = (c.includes('-') || c.includes('_')) && c.length >= 7;
+
+      if (!hasNumber && !hasPrefix && !hasDelimiter) {
+        continue;
       }
+
+      addCandidate(c, r);
     }
   }
 
@@ -93,7 +136,7 @@ function extractCodesFromHtml(html = '') {
 }
 
 class WebScraper {
-  async scrapeSource(sourceUrl) {
+  async scrapeSource(sourceUrl, options = {}) {
     try {
       // Hỗ trợ đặc biệt cho GamerPower API (Giveaways & Loot Tracker)
       if (sourceUrl.includes('gamerpower.com')) {
@@ -122,7 +165,7 @@ class WebScraper {
       const titleMatch = html.match(/<title[^>]*>([^<]+)<\/title>/i);
       const title = titleMatch ? titleMatch[1].trim() : '';
 
-      const codes = extractCodesFromHtml(html);
+      const codes = extractCodesFromHtml(html, options);
 
       return {
         url: sourceUrl,

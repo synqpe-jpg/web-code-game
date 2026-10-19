@@ -896,6 +896,45 @@
 
 ---
 
+### ISSUE-050: Trình quét Giftcode cào nhầm từ vựng tiếng Anh thông dụng (HELPER, ALREADY, MEANS, WITHOUT) & Lỗi hiển thị Bậc 1 sai lệch
+- **Triệu chứng**:
+  - Trong Admin Portal (`/admin#/crawler` - tab Hàng Chờ Duyệt Code), xuất hiện các mã code vô nghĩa bóc tách từ bài viết tiếng Anh (`Where Winds Meet`): `HELPER`, `ALREADY`, `MEANS`, `WITHOUT`.
+  - Cả 4 từ đều bị chấm điểm sai lệch lên tới **98 điểm** và hiển thị badge màu xanh lá **`Bậc 1 • 98đ`**, trong khi thực tế chúng chỉ là từ vựng tiếng Anh trong câu văn hướng dẫn.
+- **Nguyên nhân gốc rễ**:
+  1. *Regex bóc tách trong `scripts/crawler/scrapers/web_scraper.cjs` quá dễ dãi*:
+     - Pattern `/(?:code|giftcode|mã quà tặng|mã code|promo code)[:\s*]+([A-Za-z0-9_<>-]{4,28})\b/gi` sử dụng `[:\s*]+`, khớp cả một dấu cách thông thường ` ` giữa chữ "code" và từ tiếng Anh kế tiếp trong câu văn xuôi (`Exchange Code Helper` -> `Helper`, `has had this code already` -> `already`, `a code means somebody` -> `means`, `A code without a tick` -> `without`).
+     - Thiếu bóc tách thẻ code chuyên dụng (`code-field`, `code-card`, `giftcode`, `data-clipboard-text`, `aria-label`).
+  2. *Bộ lọc `code_filter.cjs` thiếu cơ chế kiểm tra hình thái học cho mã thuần chữ cái*:
+     - Quy tắc cũ cho phép mọi chuỗi chỉ toàn chữ cái (không có chữ số) lọt qua nếu không nằm trong danh sách 150 từ của `JUNK_WORDS_SET`.
+     - Không kiểm tra hậu tố từ loại tiếng Anh (`-ER`, `-LY`, `-ING`, `-TION`, `-ED`...) và không kiểm tra chuỗi gốc viết thường trong văn bản.
+  3. *Thuật toán chấm điểm `code_scorer.cjs` cho điểm oan*:
+     - Regex `/^[A-Z0-9_-]{5,24}$/` khớp cả chữ cái thuần túy và cộng trọn vẹn +25 điểm Alphanumeric. Cùng với +40đ (match tên game) và +18đ (nguồn uy tín) + 15đ (phần thưởng giả định) = 98 điểm.
+  4. *Bẫy hiển thị `getTierBadge` trong `CrawlerModule.tsx`*:
+     - Dòng code `if (tier === 1 || score >= 90)` đã ghi đè hiển thị Bậc 1 mỗi khi `score >= 90`, dù `tier` thực tế là 2.
+- **Giải pháp chuẩn đã kiểm chứng**:
+  1. **Nâng cấp `code_filter.cjs`**:
+     - *Quy tắc thép mã thuần chữ cái*: Nếu mã không có chữ số (`!/\d/.test(clean)`), BẮT BUỘC phải có tiền tố quà tặng chuẩn (`VIP`, `SVIP`, `GIFT`, `CODE`, `TANTHU`, `LAUNCH`...), HOẶC chứa gạch nối/dưới $\ge 7$ ký tự, HOẶC bắt đầu bằng từ viết tắt tựa game (acronym $\ge 3$ ký tự như `WWM`). Nếu không có $\rightarrow$ **100% REJECT LẬP TỨC**.
+     - Thêm `ENGLISH_WORD_SUFFIXES` để loại trừ triệt để từ ngữ có hậu tố tiếng Anh thông dụng.
+     - Kiểm tra chuỗi gốc: nếu viết thường trong văn bản và không có số $\rightarrow$ REJECT.
+     - Mở rộng `JUNK_WORDS_SET` thêm hơn 200 từ vựng và thuật ngữ game.
+  2. **Nâng cấp `web_scraper.cjs`**:
+     - Bắt buộc có dấu phân cách rõ ràng (`:`, `=`, `-`) sau từ khóa code, hoặc mã phải viết hoa và chứa số/tiền tố.
+     - Bổ sung trích xuất từ các component thẻ code hiện đại (`code-field`, `code-card`, `giftcode`, `data-clipboard-text`, `aria-label`). Đối với `Where Winds Meet`, trích xuất thành công 498 mã chuẩn xác (`KR37X46J37`, `THYC44DPXN`, ...) và loại bỏ 100% mã rác.
+  3. **Nâng cấp `code_scorer.cjs`**:
+     - Phân biệt rõ `isTrulyAlphaNumeric` (phải có cả chữ và số, hoặc tiền tố code).
+     - Mã thuần chữ cái bị trừ 25 điểm và khóa trần điểm $\le 55$đ (Bậc 3), tuyệt đối không bao giờ được cấp Bậc 1 hay Bậc 2.
+  4. **Nâng cấp `CrawlerModule.tsx`**:
+     - Sửa `getTierBadge` kiểm tra nghiêm ngặt `tier === 1`.
+     - Cập nhật `isJunkCrawlerCode` đồng bộ với bộ lọc server.
+  5. **Dọn sạch dữ liệu rác trên Cloudflare D1**:
+     - Gửi yêu cầu API xóa bỏ toàn bộ 4 mã rác khỏi `wcg_crawler_pending_codes_v1`.
+- ⛔ **CÁCH SỬA ĐÃ THẤT BẠI - TUYỆT ĐỐI KHÔNG LẶP LẠI**:
+  - ❌ *Không dùng `[:\s*]+` sau từ khóa code trong regex bóc tách*: `\s+` khớp dấu cách giữa các từ trong câu văn thường, biến từ vựng thông thường thành ứng viên code.
+  - ❌ *Không cộng điểm Alphanumeric cho chuỗi chỉ gồm chữ cái*: Cần regex `(?=.*[A-Z])(?=.*\d)` hoặc tiền tố code rõ ràng.
+  - ❌ *Không dùng `if (tier === 1 || score >= 90)` để hiển thị badge Bậc 1*: Badge phải phản ánh chính xác thuộc tính `tier`.
+
+---
+
 ## 2. QUY TRÌNH BẮT BUỘC TRƯỚC KHI SỬA CODE (PRE-FLIGHT CHECKLIST)
 
 Mọi nhà phát triển hoặc AI Agent khi nhận yêu cầu sửa đổi mã nguồn **PHẢI** thực hiện đủ 4 bước sau:

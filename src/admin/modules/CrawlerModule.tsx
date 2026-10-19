@@ -86,21 +86,51 @@ interface CrawlerLog {
 }
 
 export const JUNK_WORDS_SET = new Set([
+  // The culprits and common false positives from game guides
+  'HELPER', 'ALREADY', 'MEANS', 'WITHOUT', 'SYSTEM', 'WARRIOR', 'FEATURE', 'FEATURES',
+  'ACCOUNT', 'OPTION', 'OPTIONS', 'CHOOSE', 'SELECT', 'CREATE', 'SETTING', 'SETTINGS',
+  'REQUIRE', 'REQUIRES', 'FOLLOW', 'MESSAGE', 'COMMENT', 'ANSWER', 'ANSWERS', 'QUESTION', 'QUESTIONS',
+  'DETAIL', 'DETAILS', 'DESCRIPTION', 'NOTE', 'NOTES', 'NOTICE', 'IMPORTANT', 'SUMMARY',
+  'GENERAL', 'DEFAULT', 'NORMAL', 'CUSTOM', 'STANDARD', 'SIMPLE', 'ADVANCED', 'CLIENT',
+  'DOWNLOAD', 'INSTALL', 'UPGRADE', 'RESULT', 'RESULTS', 'METHOD', 'METHODS', 'TARGET',
+  'SOURCE', 'SOURCES', 'ACTION', 'ACTIONS', 'EFFECT', 'EFFECTS', 'AMOUNT', 'CHANGE', 'CHANCE',
+  'DAMAGE', 'ATTACK', 'DEFENSE', 'HEALTH', 'ENERGY', 'SPIRIT', 'POWER', 'FORCE', 'SPEED',
+  'RANGE', 'SKILL', 'SKILLS', 'TALENT', 'TALENTS', 'MAGIC', 'WEAPON', 'WEAPONS', 'ARMOR',
+  'SHIELD', 'POTION', 'SCROLL', 'RECIPE', 'INVENTORY', 'STORAGE', 'MARKET', 'AUCTION',
+  'TRADE', 'GUILD', 'PARTY', 'FRIEND', 'FRIENDS', 'ENEMY', 'ENEMIES', 'DUNGEON', 'DUNGEONS',
+  'SEASON', 'SEASONS', 'RANK', 'RANKS', 'TIER', 'TIERS', 'SCORE', 'SCORES', 'COIN', 'COINS',
+  'GOLD', 'SILVER', 'COPPER', 'DIAMOND', 'RUBY', 'SAPPHIRE', 'EMERALD', 'PEARL', 'CRYSTAL',
+  'STONE', 'METAL', 'WOOD', 'HERB', 'LEATHER', 'CLOTH', 'WATER', 'FIRE', 'EARTH', 'WIND',
+  'LIGHT', 'DARK', 'SHADOW', 'HOLY', 'CHAOS', 'ORDER', 'SPACE', 'TIME', 'DEATH', 'LIFE',
+  'NATURE', 'BEAST', 'BEASTS', 'DRAGON', 'DRAGONS', 'DEMON', 'DEMONS', 'ANGEL', 'ANGELS',
+  'HUMAN', 'HUMANS', 'UNDEAD', 'ELEMENTAL', 'MECHANICAL', 'GIANT', 'TITAN', 'LORD', 'KING',
+  'QUEEN', 'PRINCE', 'PRINCESS', 'KNIGHT', 'KNIGHTS', 'MAGE', 'PRIEST', 'ROGUE', 'HUNTER',
+  'WARLOCK', 'PALADIN', 'SHAMAN', 'DRUID', 'MONK', 'BARD', 'ASSASSIN', 'ARCHER', 'NINJA', 'SAMURAI',
+  'CHECKLIST', 'EXCHANGE', 'REVIEW', 'REVIEWING', 'READING', 'BELIEVE', 'SOMEBODY', 'BESIDE',
+  'REDEEMING', 'REDEEMED', 'TRIED', 'FLAGGED', 'UNUSED', 'EXPIRED', 'EXPIRES', 'ACTIVE',
+  'INACTIVE', 'UNLOCKED', 'LOCKED', 'COMING', 'SOON', 'TOOLS', 'TOOL', 'SEARCH', 'SEARCHING',
+
+  // UI Actions & Prepositions (English)
   'TYPE', 'BELOW', 'OFFERS', 'OFFER', 'FROM', 'WITH', 'WITHIN', 'WILL', 'MIGHT', 'WORKS', 'WORKING', 'WORK',
-  'DROPS', 'DROP', 'THAT', 'BEFORE', 'AFTER', 'ADDED', 'OPTION', 'OPTIONS', 'HERE', 'THERE', 'WHERE', 'WHEN',
-  'WHAT', 'WHICH', 'SOME', 'MANY', 'MORE', 'LESS', 'CLICK', 'PRESS', 'ENTER', 'SUBMIT', 'CHECK', 'FOLLOW',
+  'DROPS', 'DROP', 'THAT', 'BEFORE', 'AFTER', 'ADDED', 'HERE', 'THERE', 'WHERE', 'WHEN',
+  'WHAT', 'WHICH', 'SOME', 'MANY', 'MORE', 'LESS', 'CLICK', 'PRESS', 'ENTER', 'SUBMIT', 'CHECK',
   'SHARE', 'SUBSCRIBE', 'JOIN', 'DISCORD', 'SERVER', 'CHANNEL', 'ADMIN', 'MODERATOR', 'PLAYER', 'PLAYERS',
-  'ONLINE', 'OFFLINE', 'STATUS', 'VERSION', 'UPDATE', 'UPDATED', 'PATCH', 'NOTES', 'GUIDE', 'GUIDES', 'TRICKS',
-  'TIPS', 'LIST', 'CODES', 'CODE', 'EXPIRED', 'ACTIVE', 'INACTIVE', 'VALID', 'INVALID', 'REDEEM', 'REDEEMED',
+  'ONLINE', 'OFFLINE', 'STATUS', 'VERSION', 'UPDATE', 'UPDATED', 'PATCH', 'GUIDE', 'GUIDES', 'TRICKS',
+  'TIPS', 'LIST', 'CODES', 'CODE', 'VALID', 'INVALID', 'REDEEM',
   'REWARDS', 'REWARD', 'FREE', 'ITEM', 'ITEMS', 'GIFT', 'GIFTS', 'GIFTCODE', 'GIFTCODES', 'PROMO', 'PROMOCODE',
   'PROMOCODES', 'EVENT', 'EVENTS', 'NEWS', 'ARTICLE', 'POST', 'POSTS', 'PAGE', 'PAGES', 'HOME', 'ABOUT',
-  'CONTACT', 'TERMS', 'PRIVACY', 'POLICY', 'LOGIN', 'LOGOUT', 'SIGNUP', 'REGISTER', 'ACCOUNT', 'PASSWORD',
+  'CONTACT', 'TERMS', 'PRIVACY', 'POLICY', 'LOGIN', 'LOGOUT', 'SIGNUP', 'REGISTER', 'PASSWORD',
   'EMAIL', 'DEVICE', 'ANDROID', 'IPHONE', 'IPAD', 'MOBILE', 'TABLET', 'DESKTOP', 'BROWSER', 'WEBSITE', 'STORE',
-  'SHOP', 'BUY', 'SELL', 'PRICE', 'COST', 'MONEY', 'CASH', 'COIN', 'COINS', 'GEM', 'GEMS', 'TOKEN', 'TOKENS',
+  'SHOP', 'BUY', 'SELL', 'PRICE', 'COST', 'MONEY', 'CASH', 'GEM', 'GEMS', 'TOKEN', 'TOKENS',
   'POINT', 'POINTS', 'LEVEL', 'STAGE', 'WORLD', 'ZONE', 'QUEST', 'MISSION', 'HERO', 'HEROES', 'CHAMPION',
   'BOSS', 'RAID', 'BATTLE', 'ARENA', 'PVP', 'PVE', 'GAME', 'GAMES', 'GAMING', 'GAMER', 'GAMERS', 'ROBUX',
   'OBBY', 'ZOMBIE', 'ZOMBIES', 'DIGIT', 'NUMBER', 'CHARS', 'CHARACTER', 'LETTER', 'CASE', 'UPPER', 'LOWER',
   'TEXT', 'STRING', 'VALUE', 'INPUT', 'OUTPUT', 'ERROR', 'SUCCESS', 'WARNING', 'INFO', 'IN-GAME', 'INGAME',
+  'COUPON', 'CLAIM', 'CLAIMED', 'VERIFIED', 'STEPS', 'HOWTO', 'TITLE', 'TABLE', 'HEADER',
+  'FOOTER', 'BANNER', 'IMAGE', 'COVER', 'THUMB', 'VIDEO', 'WATCH', 'STREAM', 'TOTAL', 'COUNT',
+  'MONTH', 'YEAR', 'DAILY', 'WEEKLY', 'MONTHLY', 'NEWEST', 'LATEST', 'OLDEST', 'RANDOM',
+
+  // UI Actions & Common Words (Vietnamese)
   'THEO', 'NGAY', 'TRONG', 'NGOAI', 'TREN', 'DUOI', 'TRUOC', 'SAU', 'GIUA', 'DANG', 'CHON', 'NHAP', 'XUAT',
   'NHAN', 'TANG', 'THUONG', 'PHAN', 'QUA', 'CHOI', 'TAI', 'CAI', 'DAT', 'HUONG', 'DAN', 'CHI', 'TIET',
   'TIN', 'TUC', 'SU', 'KIEN', 'CAP', 'NHAT', 'MOI', 'CU', 'HET', 'HAN', 'CON', 'DUNG', 'DUOC', 'KHONG',
@@ -110,13 +140,29 @@ export const JUNK_WORDS_SET = new Set([
 
 export function isJunkCrawlerCode(item: PendingCrawlerCode): boolean {
   if (!item || !item.code) return true;
-  const c = item.code.trim().toUpperCase().replace(/^[^A-Z0-9_-]+|[^A-Z0-9_-]+$/g, '');
+  const raw = String(item.code).trim();
+  const c = raw.toUpperCase().replace(/^[^A-Z0-9_-]+|[^A-Z0-9_-]+$/g, '');
   if (c.length < 4 || c.length > 28) return true;
   if (/^\d+$/.test(c)) return true;
   if (JUNK_WORDS_SET.has(c)) return true;
   if (item.gameId === 'unknown-game' || item.gameSlug === 'unknown-game') return true;
-  if (!/\d/.test(c) && !/^(VIP|SVIP|CODE|GIFT|TANTHU|TRIAN|FREE|NEW|HOT|PROMO|KAME|LUCKY)/i.test(c)) {
-    if (c.length <= 4) return true;
+
+  // Nếu chuỗi gốc là chữ thường hoàn toàn và không có số: là chữ trong đoạn văn
+  if (/^[a-z]+$/.test(raw) && !/\d/.test(c)) return true;
+
+  // Kiểm tra mã thuần chữ cái (không có chữ số)
+  const isAllLetters = !/\d/.test(c);
+  if (isAllLetters) {
+    const hasPrefix = /^(VIP|SVIP|CODE|GIFT|TANTHU|TRIAN|FREE|NEW|HOT|PROMO|KAME|HAPPY|WELCOME|DISCORD|FB|LUCKY|REWARD|LAUNCH|RELEASE|SPECIAL|SUMMER|WINTER|SPRING|AUTUMN|XMAS|CHRISTMAS|HALLOWEEN|ANNIVERSARY|UPDATE|OPEN|BETA|ALPHA)/i.test(c);
+    const hasDelimiter = (c.includes('-') || c.includes('_')) && c.length >= 7;
+
+    // Nếu không có số, không có tiền tố code và không có dấu phân cách -> Rác 100%
+    if (!hasPrefix && !hasDelimiter) return true;
+
+    // Hậu tố ngữ pháp tiếng Anh thông dụng
+    if (/(?:TION|SION|MENT|NESS|ABLE|IBLE|LESS|FULLY|FULL|INGS|ING|ED|EST|IST|ISM|ITY|SHIP|HOOD|WARD|WISE|ERS|ORS|ER|OR|LY|OUS|IVE|ANCE|ENCE)$/i.test(c) && !hasPrefix) {
+      return true;
+    }
   }
   return false;
 }
@@ -1302,7 +1348,7 @@ export const CrawlerModule: React.FC<CrawlerModuleProps> = ({ onShowToast }) => 
   };
 
   const getTierBadge = (tier: number, score: number) => {
-    if (tier === 1 || score >= 90) {
+    if (tier === 1) {
       return (
         <span
           className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-bold bg-emerald-500/15 text-emerald-400 border border-emerald-500/30 shrink-0 whitespace-nowrap"
@@ -1313,7 +1359,7 @@ export const CrawlerModule: React.FC<CrawlerModuleProps> = ({ onShowToast }) => 
         </span>
       );
     }
-    if (tier === 2 || score >= 70) {
+    if (tier === 2) {
       return (
         <span
           className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-bold bg-sky-500/15 text-sky-400 border border-sky-500/30 shrink-0 whitespace-nowrap"
@@ -1324,7 +1370,7 @@ export const CrawlerModule: React.FC<CrawlerModuleProps> = ({ onShowToast }) => 
         </span>
       );
     }
-    if (tier === 3 || score >= 50) {
+    if (tier === 3) {
       return (
         <span
           className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-bold bg-amber-500/15 text-amber-400 border border-amber-500/30 shrink-0 whitespace-nowrap"
@@ -1338,7 +1384,7 @@ export const CrawlerModule: React.FC<CrawlerModuleProps> = ({ onShowToast }) => 
     return (
       <span
         className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-bold bg-rose-500/15 text-rose-400 border border-rose-500/30 shrink-0 whitespace-nowrap"
-        title={`Bậc 4: ${score}đ - Rủi ro thấp`}
+        title={`Bậc 4: ${score}đ - Rủi ro / Từ chối`}
       >
         <XCircle className="w-3 h-3 text-rose-400" />
         Bậc 4 • {score}đ

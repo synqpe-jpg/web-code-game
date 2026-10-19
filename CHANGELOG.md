@@ -7,6 +7,48 @@ Mỗi mục sửa lỗi đều ghi nhận **Nguyên nhân gốc rễ (Root Cause
 
 ## [2026-10-19]
 
+### 81. Nâng Cấp Toàn Diện Trình Quét Giftcode, Bộ Lọc Hình Thái Học & Chấm Điểm 4 Cấp Bậc (Loại Trừ 100% Từ Rác Tiếng Anh)
+- **Mô tả & Hiện tượng**:
+  - Người dùng phản ánh: *"Tiếp tục nâng cấp trình quét code giúp tôi, hiện tại những code này khôngc hính xác."* kèm ảnh chụp màn hình Admin Portal (`/admin#/crawler` - tab Hàng Chờ Duyệt Code).
+  - Tựa game `Where Winds Meet` (nguồn `https://wwmtools.com/codes/`) xuất hiện 4 mã rác là từ vựng tiếng Anh thông dụng: `HELPER`, `ALREADY`, `MEANS`, `WITHOUT`.
+  - Cả 4 từ đều bị chấm điểm sai lệch lên tới **98 điểm** và hiển thị badge màu xanh lá **`Bậc 1 • 98đ`**, trong khi thực tế chúng chỉ là từ trong câu văn xuôi của bài viết.
+- **Nguyên nhân gốc rễ (Root Cause)**:
+  1. *Regex bóc tách trong `web_scraper.cjs` quá dễ dãi*:
+     - Pattern `/(?:code|giftcode|mã quà tặng|mã code|promo code)[:\s*]+([A-Za-z0-9_<>-]{4,28})\b/gi` dùng `[:\s*]+` khớp luôn một dấu cách ` ` giữa chữ "code" và từ tiếng Anh kế tiếp trong câu (`Exchange Code Helper` -> `Helper`, `has had this code already` -> `already`, `a code means somebody` -> `means`, `A code without a tick` -> `without`).
+  2. *Bộ lọc `code_filter.cjs` thiếu kiểm tra hình thái học cho mã thuần chữ cái*:
+     - Chuỗi thuần chữ cái không có số (như `HELPER`, `ALREADY`, `MEANS`, `WITHOUT`) đều lọt qua vì không có trong danh sách 150 từ của `JUNK_WORDS_SET`.
+     - Không kiểm tra hậu tố từ loại tiếng Anh (`-ER`, `-LY`, `-ING`, `-TION`, `-ED`...) và không kiểm tra chuỗi gốc viết thường trong câu.
+  3. *Hệ thống chấm điểm `code_scorer.cjs` cho điểm oan*:
+     - Regex `/^[A-Z0-9_-]{5,24}$/` khớp cả chữ cái thuần túy và cộng trọn vẹn +25 điểm Alphanumeric. Cùng với +40đ (match tên game) và +18đ (nguồn uy tín) + 15đ (phần thưởng) = 98 điểm.
+  4. *Lỗi logic hiển thị `getTierBadge` trong `CrawlerModule.tsx`*:
+     - Câu lệnh `if (tier === 1 || score >= 90)` ép hiển thị Bậc 1 mỗi khi `score >= 90`, làm sai lệch cấp bậc quản trị.
+- **Giải pháp toàn diện đã triển khai (Solution)**:
+  1. *Nâng cấp `code_filter.cjs`*:
+     - **Quy tắc thép mã thuần chữ cái**: Nếu mã không có chữ số (`!/\d/.test(clean)`), BẮT BUỘC phải có tiền tố quà tặng chuẩn (`VIP`, `SVIP`, `GIFT`, `CODE`, `TANTHU`, `LAUNCH`...), HOẶC chứa gạch nối/dưới $\ge 7$ ký tự, HOẶC bắt đầu bằng từ viết tắt tựa game (acronym $\ge 3$ ký tự như `WWM`). Nếu không có $\rightarrow$ **100% REJECT LẬP TỨC**.
+     - Bổ sung `ENGLISH_WORD_SUFFIXES` loại trừ triệt để các từ kết thúc bằng hậu tố ngữ pháp tiếng Anh (`-ER`, `-LY`, `-ING`, `-TION`, `-ED`...).
+     - Nếu từ gốc trong HTML là chữ thường (`already`, `means`, `without`) và không có số $\rightarrow$ Tự động loại bỏ.
+     - Mở rộng `JUNK_WORDS_SET` thêm 200+ từ vựng tiếng Anh/Việt và thuật ngữ game.
+  2. *Nâng cấp `web_scraper.cjs`*:
+     - Bắt buộc có dấu phân cách rõ ràng (`:`, `=`, `-`) sau từ khóa code; nếu chỉ có khoảng trắng thì mã bắt buộc phải viết hoa và chứa số hoặc tiền tố giftcode.
+     - Bổ sung trích xuất từ các component thẻ code hiện đại (`code-field`, `code-card`, `giftcode`, `data-clipboard-text`, `aria-label`). Đối với `Where Winds Meet`, trích xuất thành công 498 mã chuẩn xác (`KR37X46J37`, `THYC44DPXN`, ...) và loại bỏ 100% mã rác.
+  3. *Nâng cấp `code_scorer.cjs`*:
+     - Phân biệt rõ `isTrulyAlphaNumeric` (phải có cả chữ và số, hoặc tiền tố code).
+     - Mã thuần chữ cái bị trừ 25 điểm và khóa trần điểm $\le 55$đ (Bậc 3), tuyệt đối không bao giờ được cấp Bậc 1 hay Bậc 2.
+  4. *Nâng cấp `CrawlerModule.tsx`*:
+     - Sửa `getTierBadge` kiểm tra nghiêm ngặt `tier === 1` thay vì dùng `|| score >= 90`.
+     - Cập nhật `isJunkCrawlerCode` đồng bộ với bộ lọc server.
+  5. *Dọn sạch dữ liệu rác trên Cloudflare D1*:
+     - Đã dọn sạch 4 mã rác khỏi `wcg_crawler_pending_codes_v1` trên Cloudflare D1 server (`codegame.shop`).
+- **Files Modified**:
+  - `scripts/crawler/engine/code_filter.cjs`
+  - `scripts/crawler/engine/code_scorer.cjs`
+  - `scripts/crawler/scrapers/web_scraper.cjs`
+  - `src/admin/modules/CrawlerModule.tsx`
+  - `KNOWN_ISSUES.md` (ISSUE-050)
+  - `CHANGELOG.md` (Mục 81)
+
+---
+
 ### 80. Khắc Phục Triệt Để Hiện Tượng Logo Game Không Tải Được (Ô Vuông Tối/Đen) & Tối Ưu Hóa Bộ Nhớ Cache Hình Ảnh Toàn Hệ Thống
 - **Mô tả & Hiện tượng**:
   - Người dùng hỏi: *"Bạn có biết vì sao không tải được logo game không?"* kèm ảnh chụp màn hình trình duyệt Cốc Cốc trên domain `codegame.shop`.

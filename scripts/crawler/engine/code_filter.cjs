@@ -5,30 +5,55 @@
  * 1. Blacklist từ cấm, từ vựng tiếng Anh/Việt thông dụng, nhãn UI, tiêu đề cột.
  * 2. Tên Nhà Phát Hành, nền tảng, thể loại game bị bóc tách nhầm.
  * 3. Kiểm tra cấu trúc hình thái học: độ dài, chữ số, tiền tố quà tặng hợp lệ.
- * 4. Loại trừ tuyệt đối mã không có tựa game gắn liền (unknown-game).
+ * 4. Ngăn chặn tuyệt đối các từ vựng tiếng Anh/Việt thông thường lọt vào làm giftcode.
+ * 5. Loại trừ tuyệt đối mã không có tựa game gắn liền (unknown-game).
  */
 
 // 1. TẬP HỢP TỪ CẤM & TỪ VỰNG THÔNG DỤNG (STOP WORDS / JUNK WORDS)
 const JUNK_WORDS_SET = new Set([
+  // The 4 culprits and common false positives from game guides
+  'HELPER', 'ALREADY', 'MEANS', 'WITHOUT', 'SYSTEM', 'WARRIOR', 'FEATURE', 'FEATURES',
+  'ACCOUNT', 'OPTION', 'OPTIONS', 'CHOOSE', 'SELECT', 'CREATE', 'SETTING', 'SETTINGS',
+  'REQUIRE', 'REQUIRES', 'FOLLOW', 'MESSAGE', 'COMMENT', 'ANSWER', 'ANSWERS', 'QUESTION', 'QUESTIONS',
+  'DETAIL', 'DETAILS', 'DESCRIPTION', 'NOTE', 'NOTES', 'NOTICE', 'IMPORTANT', 'SUMMARY',
+  'GENERAL', 'DEFAULT', 'NORMAL', 'CUSTOM', 'STANDARD', 'SIMPLE', 'ADVANCED', 'CLIENT',
+  'DOWNLOAD', 'INSTALL', 'UPGRADE', 'RESULT', 'RESULTS', 'METHOD', 'METHODS', 'TARGET',
+  'SOURCE', 'SOURCES', 'ACTION', 'ACTIONS', 'EFFECT', 'EFFECTS', 'AMOUNT', 'CHANGE', 'CHANCE',
+  'DAMAGE', 'ATTACK', 'DEFENSE', 'HEALTH', 'ENERGY', 'SPIRIT', 'POWER', 'FORCE', 'SPEED',
+  'RANGE', 'SKILL', 'SKILLS', 'TALENT', 'TALENTS', 'MAGIC', 'WEAPON', 'WEAPONS', 'ARMOR',
+  'SHIELD', 'POTION', 'SCROLL', 'RECIPE', 'INVENTORY', 'STORAGE', 'MARKET', 'AUCTION',
+  'TRADE', 'GUILD', 'PARTY', 'FRIEND', 'FRIENDS', 'ENEMY', 'ENEMIES', 'DUNGEON', 'DUNGEONS',
+  'SEASON', 'SEASONS', 'RANK', 'RANKS', 'TIER', 'TIERS', 'SCORE', 'SCORES', 'COIN', 'COINS',
+  'GOLD', 'SILVER', 'COPPER', 'DIAMOND', 'RUBY', 'SAPPHIRE', 'EMERALD', 'PEARL', 'CRYSTAL',
+  'STONE', 'METAL', 'WOOD', 'HERB', 'LEATHER', 'CLOTH', 'WATER', 'FIRE', 'EARTH', 'WIND',
+  'LIGHT', 'DARK', 'SHADOW', 'HOLY', 'CHAOS', 'ORDER', 'SPACE', 'TIME', 'DEATH', 'LIFE',
+  'NATURE', 'BEAST', 'BEASTS', 'DRAGON', 'DRAGONS', 'DEMON', 'DEMONS', 'ANGEL', 'ANGELS',
+  'HUMAN', 'HUMANS', 'UNDEAD', 'ELEMENTAL', 'MECHANICAL', 'GIANT', 'TITAN', 'LORD', 'KING',
+  'QUEEN', 'PRINCE', 'PRINCESS', 'KNIGHT', 'KNIGHTS', 'MAGE', 'PRIEST', 'ROGUE', 'HUNTER',
+  'WARLOCK', 'PALADIN', 'SHAMAN', 'DRUID', 'MONK', 'BARD', 'ASSASSIN', 'ARCHER', 'NINJA', 'SAMURAI',
+  'CHECKLIST', 'EXCHANGE', 'REVIEW', 'REVIEWING', 'READING', 'BELIEVE', 'SOMEBODY', 'BESIDE',
+  'REDEEMING', 'REDEEMED', 'TRIED', 'FLAGGED', 'UNUSED', 'EXPIRED', 'EXPIRES', 'ACTIVE',
+  'INACTIVE', 'UNLOCKED', 'LOCKED', 'COMING', 'SOON', 'TOOLS', 'TOOL', 'SEARCH', 'SEARCHING',
+
   // UI Actions & Prepositions (English)
   'TYPE', 'BELOW', 'OFFERS', 'OFFER', 'FROM', 'WITH', 'WITHIN', 'WILL', 'MIGHT', 'WORKS', 'WORKING', 'WORK',
-  'DROPS', 'DROP', 'THAT', 'BEFORE', 'AFTER', 'ADDED', 'OPTION', 'OPTIONS', 'HERE', 'THERE', 'WHERE', 'WHEN',
-  'WHAT', 'WHICH', 'SOME', 'MANY', 'MORE', 'LESS', 'CLICK', 'PRESS', 'ENTER', 'SUBMIT', 'CHECK', 'FOLLOW',
+  'DROPS', 'DROP', 'THAT', 'BEFORE', 'AFTER', 'ADDED', 'HERE', 'THERE', 'WHERE', 'WHEN',
+  'WHAT', 'WHICH', 'SOME', 'MANY', 'MORE', 'LESS', 'CLICK', 'PRESS', 'ENTER', 'SUBMIT', 'CHECK',
   'SHARE', 'SUBSCRIBE', 'JOIN', 'DISCORD', 'SERVER', 'CHANNEL', 'ADMIN', 'MODERATOR', 'PLAYER', 'PLAYERS',
-  'ONLINE', 'OFFLINE', 'STATUS', 'VERSION', 'UPDATE', 'UPDATED', 'PATCH', 'NOTES', 'GUIDE', 'GUIDES', 'TRICKS',
-  'TIPS', 'LIST', 'CODES', 'CODE', 'EXPIRED', 'ACTIVE', 'INACTIVE', 'VALID', 'INVALID', 'REDEEM', 'REDEEMED',
+  'ONLINE', 'OFFLINE', 'STATUS', 'VERSION', 'UPDATE', 'UPDATED', 'PATCH', 'GUIDE', 'GUIDES', 'TRICKS',
+  'TIPS', 'LIST', 'CODES', 'CODE', 'VALID', 'INVALID', 'REDEEM',
   'REWARDS', 'REWARD', 'FREE', 'ITEM', 'ITEMS', 'GIFT', 'GIFTS', 'GIFTCODE', 'GIFTCODES', 'PROMO', 'PROMOCODE',
   'PROMOCODES', 'EVENT', 'EVENTS', 'NEWS', 'ARTICLE', 'POST', 'POSTS', 'PAGE', 'PAGES', 'HOME', 'ABOUT',
-  'CONTACT', 'TERMS', 'PRIVACY', 'POLICY', 'LOGIN', 'LOGOUT', 'SIGNUP', 'REGISTER', 'ACCOUNT', 'PASSWORD',
+  'CONTACT', 'TERMS', 'PRIVACY', 'POLICY', 'LOGIN', 'LOGOUT', 'SIGNUP', 'REGISTER', 'PASSWORD',
   'EMAIL', 'DEVICE', 'ANDROID', 'IPHONE', 'IPAD', 'MOBILE', 'TABLET', 'DESKTOP', 'BROWSER', 'WEBSITE', 'STORE',
-  'SHOP', 'BUY', 'SELL', 'PRICE', 'COST', 'MONEY', 'CASH', 'COIN', 'COINS', 'GEM', 'GEMS', 'TOKEN', 'TOKENS',
+  'SHOP', 'BUY', 'SELL', 'PRICE', 'COST', 'MONEY', 'CASH', 'GEM', 'GEMS', 'TOKEN', 'TOKENS',
   'POINT', 'POINTS', 'LEVEL', 'STAGE', 'WORLD', 'ZONE', 'QUEST', 'MISSION', 'HERO', 'HEROES', 'CHAMPION',
   'BOSS', 'RAID', 'BATTLE', 'ARENA', 'PVP', 'PVE', 'GAME', 'GAMES', 'GAMING', 'GAMER', 'GAMERS', 'ROBUX',
   'OBBY', 'ZOMBIE', 'ZOMBIES', 'DIGIT', 'NUMBER', 'CHARS', 'CHARACTER', 'LETTER', 'CASE', 'UPPER', 'LOWER',
   'TEXT', 'STRING', 'VALUE', 'INPUT', 'OUTPUT', 'ERROR', 'SUCCESS', 'WARNING', 'INFO', 'IN-GAME', 'INGAME',
-  'ABOUT', 'COUPON', 'CLAIM', 'CLAIMED', 'VERIFIED', 'METHOD', 'STEPS', 'HOWTO', 'TITLE', 'TABLE', 'HEADER',
-  'FOOTER', 'BANNER', 'IMAGE', 'COVER', 'THUMB', 'VIDEO', 'WATCH', 'STREAM', 'TOTAL', 'COUNT', 'SEARCH',
-  'MONTH', 'YEAR', 'DAILY', 'WEEKLY', 'MONTHLY', 'NEWEST', 'LATEST', 'OLDEST', 'RANDOM', 'DEFAULT',
+  'COUPON', 'CLAIM', 'CLAIMED', 'VERIFIED', 'STEPS', 'HOWTO', 'TITLE', 'TABLE', 'HEADER',
+  'FOOTER', 'BANNER', 'IMAGE', 'COVER', 'THUMB', 'VIDEO', 'WATCH', 'STREAM', 'TOTAL', 'COUNT',
+  'MONTH', 'YEAR', 'DAILY', 'WEEKLY', 'MONTHLY', 'NEWEST', 'LATEST', 'OLDEST', 'RANDOM',
 
   // UI Actions & Common Words (Vietnamese)
   'THEO', 'NGAY', 'TRONG', 'NGOAI', 'TREN', 'DUOI', 'TRUOC', 'SAU', 'GIUA', 'DANG', 'CHON', 'NHAP', 'XUAT',
@@ -51,7 +76,22 @@ const JUNK_WORDS_SET = new Set([
 ]);
 
 // Tiền tố giftcode chuẩn được công nhận
-const VALID_CODE_PREFIXES = /^(VIP|SVIP|CODE|GIFT|TANTHU|TRIAN|FREE|NEW|HOT|PROMO|KAME|HAPPY|WELCOME|DISCORD|FB|LUCKY|REWARD)/i;
+const VALID_CODE_PREFIXES = /^(VIP|SVIP|CODE|GIFT|TANTHU|TRIAN|FREE|NEW|HOT|PROMO|KAME|HAPPY|WELCOME|DISCORD|FB|LUCKY|REWARD|LAUNCH|RELEASE|SPECIAL|SUMMER|WINTER|SPRING|AUTUMN|XMAS|CHRISTMAS|HALLOWEEN|ANNIVERSARY|UPDATE|OPEN|BETA|ALPHA)/i;
+
+// Hậu tố từ loại tiếng Anh thông dụng (Suffixes)
+const ENGLISH_WORD_SUFFIXES = /(?:TION|SION|MENT|NESS|ABLE|IBLE|LESS|FULLY|FULL|INGS|ING|ED|EST|IST|ISM|ITY|SHIP|HOOD|WARD|WISE|ERS|ORS|ER|OR|LY|OUS|IVE|ANCE|ENCE)$/i;
+
+/**
+ * Trích xuất từ viết tắt của tựa game (acronym) ví dụ "Where Winds Meet" -> "WWM"
+ */
+function extractGameAcronym(gameName = '') {
+  if (!gameName) return '';
+  const words = gameName.replace(/[^A-Za-z0-9\s]/g, ' ').trim().split(/\s+/).filter(Boolean);
+  if (words.length >= 2) {
+    return words.map(w => w[0]).join('').toUpperCase();
+  }
+  return '';
+}
 
 /**
  * Kiểm tra xem một chuỗi mã code ứng viên có phải là mã quà tặng hợp lệ không
@@ -62,7 +102,8 @@ const VALID_CODE_PREFIXES = /^(VIP|SVIP|CODE|GIFT|TANTHU|TRIAN|FREE|NEW|HOT|PROM
 function isValidGiftCode(rawCode, options = {}) {
   if (!rawCode || typeof rawCode !== 'string') return false;
 
-  const clean = String(rawCode).trim().toUpperCase().replace(/^[^A-Z0-9_-]+|[^A-Z0-9_-]+$/g, '');
+  const rawTrimmed = String(rawCode).trim();
+  const clean = rawTrimmed.toUpperCase().replace(/^[^A-Z0-9_-]+|[^A-Z0-9_-]+$/g, '');
 
   // 1. Kiểm tra độ dài cơ bản (4 - 28 ký tự)
   if (clean.length < 4 || clean.length > 28) return false;
@@ -73,36 +114,52 @@ function isValidGiftCode(rawCode, options = {}) {
   // 3. Không nằm trong Blacklist / Stop words
   if (JUNK_WORDS_SET.has(clean)) return false;
 
-  // 4. Loại trừ chuỗi số nguyên thuần túy (như ngày tháng 0401, timestamp, số ID bài viết)
-  if (/^\d+$/.test(clean)) {
-    // Chỉ chấp nhận nếu có ít nhất 6 chữ số và là chuỗi số có quy luật (nhưng hầu hết code game đều có chữ cái)
+  // 4. Nếu chuỗi gốc là toàn bộ chữ thường (như 'already', 'means', 'without') và không có số hoặc gạch nối:
+  // Đó là từ ngữ trong văn bản bình thường (prose), tuyệt đối không phải giftcode!
+  const isOriginalAllLowercase = /^[a-z]+$/.test(rawTrimmed);
+  if (isOriginalAllLowercase && !/\d/.test(clean)) {
     return false;
   }
 
-  // 5. Loại trừ chuỗi lặp ký tự đơn điệu (như AAAAA, 11111, -----)
+  // 5. Loại trừ chuỗi số nguyên thuần túy (như ngày tháng 0401, timestamp, số ID bài viết)
+  if (/^\d+$/.test(clean)) {
+    return false;
+  }
+
+  // 6. Loại trừ chuỗi lặp ký tự đơn điệu (như AAAAA, 11111, -----)
   if (/^(.)\1{3,}$/.test(clean)) return false;
 
-  // 6. Kiểm tra quy tắc mã thuần chữ cái (Không có chữ số nào):
+  // 7. KIỂM TRA NGHIÊM NGẶT MÃ THUẦN CHỮ CÁI (KHÔNG CÓ CHỮ SỐ):
   const isAllLetters = !/\d/.test(clean);
   if (isAllLetters) {
-    // Có tiền tố quà tặng chuẩn không? (VIP, SVIP, GIFT, CODE, TANTHU...)
+    // Có tiền tố quà tặng chuẩn không? (VIP, SVIP, GIFT, CODE, TANTHU, LAUNCH...)
     const hasPrefix = VALID_CODE_PREFIXES.test(clean);
 
-    // Nếu độ dài <= 4 ký tự (như GAME, NGAY, TYPE, WITH, FROM):
-    // BẮT BUỘC phải có tiền tố quà tặng (như VIP, GIFT)
-    if (clean.length <= 4 && !hasPrefix) {
+    // Có chứa dấu phân cách '-' hoặc '_' và độ dài >= 7 không?
+    const hasDelimiter = (clean.includes('-') || clean.includes('_')) && clean.length >= 7;
+
+    // Có bắt đầu bằng chữ viết tắt của game không? (Ví dụ: WWM cho Where Winds Meet)
+    const gameName = (options.gameName || '').trim();
+    const gameAcronym = extractGameAcronym(gameName);
+    const hasGameAcronym = Boolean(gameAcronym && gameAcronym.length >= 3 && clean.startsWith(gameAcronym));
+
+    // NẾU MÃ THUẦN CHỮ CÁI MÀ:
+    // - Không có tiền tố quà tặng chuẩn
+    // - Không có dấu phân cách
+    // - Không bắt đầu bằng viết tắt tựa game
+    // -> 100% LÀ TỪ VỰNG TIẾNG ANH / VIỆT THÔNG THƯỜNG -> TỪ CHỐI NGAY LẬP TỨC!
+    if (!hasPrefix && !hasDelimiter && !hasGameAcronym) {
       return false;
     }
 
-    // Nếu độ dài 5 - 8 ký tự nhưng không có tiền tố code và không chứa gạch nối:
-    // Cần kiểm tra xem có phải là từ vựng bình thường không
-    if (clean.length <= 8 && !hasPrefix && !clean.includes('-') && !clean.includes('_')) {
-      // Nếu là từ chỉ gồm 1 nguyên âm đơn điệu hoặc dạng từ ghép thông thường
-      if (JUNK_WORDS_SET.has(clean)) return false;
+    // Nếu mang hậu tố ngữ pháp tiếng Anh thông dụng (như -ER, -LY, -ING, -TION, -ED...)
+    // mà không có tiền tố quà tặng chuẩn hoặc viết tắt game:
+    if (ENGLISH_WORD_SUFFIXES.test(clean) && !hasPrefix && !hasGameAcronym) {
+      return false;
     }
   }
 
-  // 7. Loại trừ nếu mã trùng với slug hoặc các từ trong tên game đang xét
+  // 8. Loại trừ nếu mã trùng với slug hoặc các từ trong tên game đang xét
   const gameSlug = (options.gameSlug || '').toUpperCase();
   if (gameSlug) {
     if (clean === gameSlug || clean === gameSlug.replace(/-/g, '')) return false;
@@ -123,4 +180,5 @@ module.exports = {
   JUNK_WORDS_SET,
   VALID_CODE_PREFIXES,
   isValidGiftCode,
+  extractGameAcronym,
 };
