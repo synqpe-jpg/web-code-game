@@ -1004,6 +1004,25 @@
 
 ---
 
+### ISSUE-053: Ảnh bìa tin tức bị lỗi ô vuông đen (/og-image.jpg) do chặn Hotlinking và thiếu slug game
+- **Triệu chứng**:
+  - Tại chuyên mục Tin Tức Game, các bài viết (như Tarot, Ride Storm, Build a Golem, FC Online, Ta Là Quan Lão Gia...) hiển thị logo vuông đen mặc định `/og-image.jpg` thay vì hiển thị hình ảnh tựa game.
+- **Nguyên nhân gốc rễ**:
+  - Tiêu đề crawler có tiền tố `Game Mobile: Code...` khiến bộ đối soát không nhận diện được tên game, gán `game_name: 'Game Mobile'` và `game_slug: undefined`.
+  - Ảnh bìa trỏ đến trang mạng ngoài (`st.download.com.vn`) bị máy chủ nguồn chặn Hotlink (lỗi 403 Forbidden) khi trình duyệt gửi `Referer: https://codegame.shop/`.
+  - Khi thẻ `<img>` gặp lỗi 403, hàm `handleImageFallback` cố tìm icon theo `article.game_slug`. Do `game_slug` là `undefined`, nó rơi thẳng vào fallback cuối cùng `/og-image.jpg` (ảnh đen).
+- **Giải pháp chuẩn đã kiểm chứng**:
+  1. Thêm `referrerPolicy="no-referrer"` vào 100% thẻ `<img>` của tin tức để vô hiệu hóa việc gửi header Referer, vượt qua tường lửa chống hotlink của các trang nguồn.
+  2. Xây dựng module tự động tra cứu Logo Google Play Store VN (`game_logo_resolver.cjs`) cho các game mới và lưu vào `public/game_icons/${slug}.webp`.
+  3. Tự động tải và chuyển đổi ảnh bìa bài viết về lưu trữ nội bộ tại `public/news_covers/${slug}.webp` (nội bộ hóa tài nguyên 100%, tốc độ tải cực nhanh qua CDN Cloudflare Pages).
+  4. Nâng cấp cơ chế fallback 3 lớp: Bìa bài viết $\rightarrow$ Icon WebP game $\rightarrow$ Ảnh thư viện `gallery_urls[0]` $\rightarrow$ Tuyệt đối không rơi vào `/og-image.jpg` khi có thông tin game.
+  5. Xóa triệt để các bài viết rác (Medpro khám bệnh, bài 2015) bằng Tombstone (`deletedNewsArticles`).
+- ⛔ **CÁCH SỬA ĐÃ THẤT BẠI - TUYỆT ĐỐI KHÔNG LẶP LẠI**:
+  - ❌ *Không để thẻ `<img>` tin tức thiếu thuộc tính `referrerPolicy="no-referrer"`*: Trình duyệt gửi Referer sẽ bị máy chủ báo mạng ngoài trả về 403 Forbidden.
+  - ❌ *Không fallback trực tiếp về `/og-image.jpg` khi `cover_url` lỗi*: Phải kiểm tra và tìm icon WebP chính thức theo tên game hoặc slug trước.
+
+---
+
 ## 2. QUY TRÌNH BẮT BUỘC TRƯỚC KHI SỬA CODE (PRE-FLIGHT CHECKLIST)
 
 Mọi nhà phát triển hoặc AI Agent khi nhận yêu cầu sửa đổi mã nguồn **PHẢI** thực hiện đủ 4 bước sau:

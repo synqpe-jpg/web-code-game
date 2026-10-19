@@ -7,6 +7,42 @@ Mỗi mục sửa lỗi đều ghi nhận **Nguyên nhân gốc rễ (Root Cause
 
 ## [2026-10-20]
 
+### 84. Chuẩn Hóa 100% Ảnh Bìa & Logo Game Trong Mục Tin Tức, Khắc Phục Lỗi Ảnh Đen /og-image.jpg & Chặn Hotlinking
+- **Mô tả & Hiện tượng**:
+  - Tại chuyên mục Tin Tức Game trên web, nhiều bài viết (như *Tarot: Vĩnh Hằng Thần Ngữ*, *Ride Storm*, *Build a Golem*, *Volleyball Journey*, *Cameraman Tower Defense*, *FC Online*, *Ta Là Quan Lão Gia*) hiển thị ảnh vuông màu đen mặc định `/og-image.jpg`, không hiển thị đúng ảnh bìa hoặc logo đại diện của tựa game đó.
+- **Nguyên nhân gốc rễ (Root Cause)**:
+  1. *Lỗi nhận diện tên game từ crawler*: Khi cào bài viết từ các trang báo mạng (download.com.vn), tiêu đề bài viết có tiền tố `Game Mobile: Code...` khiến bộ đối soát không nhận diện được tên game, gán mặc định `game_name: 'Game Mobile'` và `game_slug: undefined`.
+  2. *Chính sách chặn Hotlink (Hotlink Protection) của bên thứ ba*: Ảnh bìa bài viết trỏ trực tiếp đến `https://st.download.com.vn/...`. Khi trình duyệt người dùng truy cập từ `https://codegame.shop/`, trình duyệt gửi header `Referer: https://codegame.shop/`, máy chủ download.com.vn trả về mã lỗi 403 Forbidden.
+  3. *Cơ chế Fallback rơi vào ảnh đen*: Khi ảnh ngoài lỗi (403), component kích hoạt `onError` và cố tìm icon theo `article.game_slug`. Vì `game_slug` là `undefined`, nó rơi thẳng vào nhánh cuối `/og-image.jpg` (ảnh vuông đen).
+  4. *Ảnh bài viết dính mã HTML entities*: Tiêu đề một số bài cào chứa các ký tự mã hóa như `c&#243;` (có), `L&#224;` (Là), `L&#227;o` (Lão), `c&#225;ch` (cách) chưa được decode sạch sẽ.
+  5. *Dữ liệu rác ngoài lề*: Tồn tại 3 bài viết rác trong danh sách cào cũ (Medpro - Đặt lịch khám bệnh, Giftcode Game Online 2015, landing page download.com.vn).
+- **Giải pháp toàn diện đã triển khai (Solution)**:
+  1. *Xây dựng script chuẩn hóa dữ liệu `scripts/fix_all_news_covers.cjs`*:
+     - Tự động bóc tách tên game chính xác và gán `game_slug` chuẩn cho 100% các bài viết bị lỗi `Game Mobile`.
+     - Tích hợp tra cứu Google Play Store VN qua `game_logo_resolver.cjs`, tải Logo chính thức của *Ta Là Quan Lão Gia* (`com.szckhd.jwgly.azvn`) và lưu vào `public/game_icons/ta-la-quan-lao-gia.webp`.
+     - Gán Logo chính thức của *FC Online (FO4)* (`ea-sports-fc-online.webp`) và *Tarot: Vĩnh Hằng Thần Ngữ* (`tarot-vinh-hang-than-ngu.webp`).
+     - Tự động tải các ảnh bìa từ `st.download.com.vn` về tối ưu hóa sang WebP chất lượng cao lưu trữ cố định tại `public/news_covers/${slug}.webp` (nội bộ hóa tài nguyên 100%, không phụ thuộc máy chủ ngoài, triệt tiêu nguy cơ 403 hotlink).
+     - Loại bỏ vĩnh viễn 3 bài viết rác (Medpro, 2015, landing page) bằng cơ chế Tombstone (`deletedNewsArticles`) gửi lên Cloudflare Edge D1.
+  2. *Nâng cấp Frontend `src/components/NewsView.tsx` & `src/components/NewsDetailModal.tsx`*:
+     - Thêm thuộc tính `referrerPolicy="no-referrer"` vào 100% các thẻ `<img>` của bài viết tin tức, hero banner, gallery và modal chi tiết.
+     - Nâng cấp `getSafeArticleCover` và `handleImageFallback` theo cơ chế 3 lớp thông minh: (1) Ảnh bìa bài viết nếu không phải `/og-image.jpg`, (2) Icon WebP chính thức theo `article.game_slug`, (3) Ảnh chụp màn hình đầu tiên trong bài `gallery_urls[0]`.
+     - Tuyệt đối không để rơi vào `/og-image.jpg` khi có thông tin tựa game.
+  3. *Nâng cấp Engine cào tự động `scripts/crawler/auto_news_publisher.cjs`*:
+     - Bổ sung hàm bóc tách tên game thông minh `extractGameNameFromTitle(rawTitle)`.
+     - Chuyển `generateAutonomousArticle` thành `async`, tự động tra cứu Google Play Store VN khi gặp game mới và tự động tải lưu ảnh bìa bài viết thành WebP nội bộ.
+     - Decode toàn bộ các mã HTML entities tiếng Việt trong tiêu đề và nội dung bài viết.
+- **Files Modified**:
+  - `src/components/NewsView.tsx`
+  - `src/components/NewsDetailModal.tsx`
+  - `scripts/crawler/auto_news_publisher.cjs`
+  - `scripts/fix_all_news_covers.cjs`
+  - `public/news_covers/*` (7 ảnh WebP nội bộ)
+  - `public/game_icons/*` (Logo WebP/JPG Ta Là Quan Lão Gia & Tarot)
+  - `CHANGELOG.md` (Mục 84)
+  - `KNOWN_ISSUES.md` (ISSUE-053)
+
+---
+
 ### 83. Hoàn Thiện Cơ Chế Đồng Bộ Nguyên Tử 1 - 1 Khi Thông Báo Nổ Ra (Giảm 1 Số Còn Lại, Tăng 1 Đã Bán/Đã Giật), Đồng Bộ Đa Thiết Bị & Tuân Thủ Tuyệt Đối Cấu Hình Admin
 - **Mô tả & Hiện tượng**:
   - Người dùng yêu cầu 4 tiêu chí cốt lõi:

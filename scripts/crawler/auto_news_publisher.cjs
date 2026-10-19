@@ -9,8 +9,26 @@
 const fs = require('fs');
 const path = require('path');
 
+let sharp = null;
+try {
+  sharp = require('sharp');
+} catch {}
+
+let gameLogoResolver = null;
+try {
+  gameLogoResolver = require('./engine/game_logo_resolver.cjs');
+} catch (e) {
+  console.warn('[AutoNews] Cannot load game_logo_resolver:', e?.message);
+}
+
 const SYNC_URL = process.env.SYNC_URL || 'https://codegame.shop/api/sync';
 const ADMIN_SYNC_SECRET = process.env.ADMIN_SYNC_SECRET || 'b4e08494bf1c3fd6a0c965dd2411780c60513f7f87001bc955d7496331b2faef';
+
+const ROOT_DIR = path.resolve(__dirname, '../..');
+const NEWS_COVERS_DIR = path.join(ROOT_DIR, 'public/news_covers');
+const GAME_ICONS_DIR = path.join(ROOT_DIR, 'public/game_icons');
+if (!fs.existsSync(NEWS_COVERS_DIR)) fs.mkdirSync(NEWS_COVERS_DIR, { recursive: true });
+if (!fs.existsSync(GAME_ICONS_DIR)) fs.mkdirSync(GAME_ICONS_DIR, { recursive: true });
 
 // Load games catalog for intelligent matching
 let gamesCatalog = [];
@@ -110,6 +128,22 @@ function findMatchingGame(text) {
 function cleanHtmlEntities(str) {
   if (!str) return '';
   return str
+    .replace(/&#243;/g, 'ó')
+    .replace(/&#224;/g, 'à')
+    .replace(/&#227;/g, 'ã')
+    .replace(/&#225;/g, 'á')
+    .replace(/&#233;/g, 'é')
+    .replace(/&#232;/g, 'è')
+    .replace(/&#234;/g, 'ê')
+    .replace(/&#237;/g, 'í')
+    .replace(/&#242;/g, 'ò')
+    .replace(/&#244;/g, 'ô')
+    .replace(/&#245;/g, 'õ')
+    .replace(/&#250;/g, 'ú')
+    .replace(/&#249;/g, 'ù')
+    .replace(/&#253;/g, 'ý')
+    .replace(/&#273;/g, 'đ')
+    .replace(/&#272;/g, 'Đ')
     .replace(/&amp;/g, '&')
     .replace(/&quot;/g, '"')
     .replace(/&#39;/g, "'")
@@ -117,6 +151,45 @@ function cleanHtmlEntities(str) {
     .replace(/&gt;/g, '>')
     .replace(/&nbsp;/g, ' ')
     .replace(/&copy;/g, '©');
+}
+
+function extractGameNameFromTitle(rawTitle) {
+  if (!rawTitle) return '';
+  let clean = cleanHtmlEntities(rawTitle)
+    .replace(/^Game Mobile:\s*/i, '')
+    .replace(/^(?:Tổng hợp\s+)?(?:toàn bộ\s+)?code\s+(?:game\s+)?/i, '')
+    .replace(/^(?:Trọn bộ\s+)?(?:mã\s+)?giftcode\s+(?:game\s+)?/i, '')
+    .replace(/\s*-\s*Download\.com\.vn.*$/i, '')
+    .replace(/\s*-\s*Sforum.*$/i, '')
+    .replace(/\s*-\s*GameK.*$/i, '')
+    .replace(/\s*mới nhất.*$/i, '')
+    .replace(/\s*còn hạn.*$/i, '')
+    .replace(/\s*và cách (?:nhập|đổi|kích hoạt).*$/i, '')
+    .replace(/\s*\(\d{4}\).*$/i, '')
+    .trim();
+  clean = clean.replace(/^[:\-–\s]+|[:\-–\s]+$/g, '').trim();
+  return clean;
+}
+
+async function downloadImageToNewsCover(imageUrl, slug) {
+  if (!imageUrl || !slug || !sharp) return null;
+  try {
+    const res = await fetch(imageUrl, {
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/124.0.0.0 Safari/537.36',
+        'Referer': imageUrl.includes('download.com.vn') ? 'https://download.com.vn/' : 'https://google.com/'
+      }
+    });
+    if (!res.ok) return null;
+    const buf = Buffer.from(await res.arrayBuffer());
+    if (buf.length < 500) return null;
+
+    const outPath = path.join(NEWS_COVERS_DIR, `${slug}.webp`);
+    await sharp(buf).webp({ quality: 85 }).toFile(outPath);
+    return `/news_covers/${slug}.webp`;
+  } catch (e) {
+    return null;
+  }
 }
 
 function scanGiftcodesFromText(text) {
@@ -270,18 +343,54 @@ function extractArticleLinksFromListing(html, sourceUrl, keywords) {
   return Array.from(links).slice(0, 8);
 }
 
-function generateAutonomousArticle(scraped, sourceUrl) {
-  const matchedGame = findMatchingGame(`${sourceUrl} ${scraped.title} ${scraped.content?.slice(0, 500)}`);
-  
-  // NGUYÊN TẮC BẮT BUỘC: Nếu không khớp game nào trong danh mục VÀ không có mã giftcode thật -> TỪ CHỐI TẠO BÀI
-  if (!matchedGame && (!scraped.codes || scraped.codes.length === 0)) {
+async function generateAutonomousArticle(scraped, sourceUrl) {
+  let matchedGame = findMatchingGame(`${sourceUrl} ${scraped.title} ${scraped.content?.slice(0, 500)}`);
+  let extractedName = extractGameNameFromTitle(scraped.title);
+
+  // Nếu chưa khớp được game từ text thô, thử tìm lại bằng tên bóc tách
+  if (!matchedGame && extractedName) {
+    matchedGame = findMatchingGame(extractedName);
+  }
+
+  // Nếu vẫn chưa có trong danh mục: Tra cứu Google Play Store VN
+  let gameSlug = matchedGame?.slug;
+  if (!matchedGame && extractedName && gameLogoResolver) {
+    try {
+      const gPlay = await gameLogoResolver.searchGooglePlayForLogo(extractedName);
+      if (gPlay && gPlay.iconUrl) {
+        const genSlug = normalizeVietnamese(extractedName).replace(/\s+/g, '-');
+        await gameLogoResolver.downloadAndSaveGameIcon(genSlug, gPlay.iconUrl);
+        matchedGame = {
+          name: gPlay.title || extractedName,
+          slug: genSlug,
+          icon_url: `/game_icons/${genSlug}.webp`,
+        };
+        gameSlug = genSlug;
+        console.log(`    🔍 [Google Play Auto-Resolved]: Đã tìm thấy Logo chính thức cho "${extractedName}" -> ${genSlug}.webp`);
+      }
+    } catch (e) {
+      console.warn(`    ⚠️ [Google Play Lookup Error]:`, e?.message);
+    }
+  }
+
+  // NGUYÊN TẮC BẮT BUỘC: Nếu không khớp game nào và không bóc tách được tên VÀ không có mã giftcode thật -> TỪ CHỐI TẠO BÀI
+  if (!matchedGame && !extractedName && (!scraped.codes || scraped.codes.length === 0)) {
     return null;
   }
 
-  const gameName = matchedGame?.name || 'Game Mobile';
+  const gameName = matchedGame?.name || extractedName || 'Game Mobile';
+  if (!gameSlug && gameName && gameName !== 'Game Mobile') {
+    gameSlug = normalizeVietnamese(gameName).replace(/\s+/g, '-');
+  }
+
   const currentYear = new Date().getFullYear();
 
-  let title = scraped.title;
+  let cleanTitle = cleanHtmlEntities(scraped.title)
+    .replace(/^Game Mobile:\s*/i, '')
+    .replace(/\s*-\s*Download\.com\.vn/i, '')
+    .trim();
+
+  let title = cleanTitle;
   if (!title || title.length < 12) {
     title = `Tổng Hợp Trọn Bộ Giftcode ${gameName} Mới Nhất (${currentYear})`;
   } else {
@@ -296,22 +405,27 @@ function generateAutonomousArticle(scraped, sourceUrl) {
     }
   }
 
-  const slug = title
-    .toLowerCase()
-    .normalize('NFD')
-    .replace(/[\u0300-\u036f]/g, '')
-    .replace(/[đĐ]/g, 'd')
-    .replace(/[^a-z0-9]+/g, '-')
-    .replace(/^-+|-+$/g, '') + `-${Date.now().toString(36).slice(-4)}`;
+  const slug = normalizeVietnamese(title).replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '') + `-${Date.now().toString(36).slice(-4)}`;
 
   // TUYỆT ĐỐI KHÔNG BỊA MÃ GIFTCODE ẢO KHI BÀI VIẾT KHÔNG CÓ CODE
   const codes = scraped.codes && scraped.codes.length > 0 ? scraped.codes : [];
 
-  const gameLogo = matchedGame
-    ? (matchedGame.cover_image_url || matchedGame.icon_url || (matchedGame.slug ? `/game_icons/${matchedGame.slug}.webp` : ''))
-    : '';
-
-  const cover_url = gameLogo || (scraped.cover_url && scraped.cover_url.trim()) || '/og-image.jpg';
+  // Xác định ảnh bìa an toàn tuyệt đối
+  let cover_url = '';
+  if (gameSlug && fs.existsSync(path.join(GAME_ICONS_DIR, `${gameSlug}.webp`))) {
+    cover_url = `/game_icons/${gameSlug}.webp`;
+  } else if (matchedGame?.icon_url) {
+    cover_url = matchedGame.icon_url;
+  } else if (scraped.cover_url && scraped.cover_url.trim()) {
+    // Tải ảnh bìa bài viết về lưu trữ nội bộ để chống 100% chặn hotlinking
+    const localCoverSlug = gameSlug || slug;
+    const localCover = await downloadImageToNewsCover(scraped.cover_url, localCoverSlug);
+    cover_url = localCover || scraped.cover_url;
+  } else if (scraped.images && scraped.images.length > 0) {
+    cover_url = scraped.images[0];
+  } else {
+    cover_url = '/og-image.jpg';
+  }
 
   const paragraphs = (scraped.content || '')
     .split('\n\n')
@@ -348,7 +462,7 @@ ${codeSection}
 ## 4. Mẹo Nhận Thêm Code Mới & Cẩm Nang Game Thủ
 
 - Theo dõi Fanpage và Group cộng đồng chính thức của ${gameName} để tham gia các sự kiện săn code độc quyền.
-${matchedGame?.slug ? `- Xem toàn bộ thông tin, mẹo chơi và hướng dẫn nạp game tại chuyên trang [${gameName}](https://codegame.shop/game/${matchedGame.slug}) trên **CodeGame.shop**.` : ''}
+${gameSlug ? `- Xem toàn bộ thông tin, mẹo chơi và hướng dẫn nạp game tại chuyên trang [${gameName}](https://codegame.shop/game/${gameSlug}) trên **CodeGame.shop**.` : ''}
 - Thường xuyên ghé thăm **CodeGame.shop** để cập nhật nhanh nhất các mã giftcode máy chủ mới.`;
 
   return {
@@ -362,7 +476,7 @@ ${matchedGame?.slug ? `- Xem toàn bộ thông tin, mẹo chơi và hướng d�
     virtual_views: Math.floor(Math.random() * 200) + 180,
     views_growth_rate: 1.0,
     game_id: matchedGame?.id,
-    game_slug: matchedGame?.slug,
+    game_slug: gameSlug,
     game_name: gameName,
     tags: ['Giftcode Mới', gameName, 'GameMobile', 'CapNhatCode'],
     codes,
@@ -504,7 +618,7 @@ async function runAutoNewsPublisher() {
       }
 
       // 2. Tạo bài viết chuẩn SEO và đối chiếu danh mục
-      const newArticle = generateAutonomousArticle(scraped, link);
+      const newArticle = await generateAutonomousArticle(scraped, link);
       if (!newArticle) {
         console.warn(`    ⚠️ [CATALOG SKIP]: Bỏ qua bài viết không khớp game trong danh mục và không có giftcode thực: "${scraped.title}"`);
         continue;

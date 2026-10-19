@@ -25,13 +25,16 @@ import { useLanguage } from '../context/LanguageContext';
 
 const getSafeArticleCover = (article: NewsArticle): string => {
   const raw = (article.cover_url || '').trim();
-  if (raw) return raw;
+  if (raw && raw !== '/og-image.jpg') return raw;
   if (article.game_slug) return `/game_icons/${article.game_slug}.webp`;
+  if (article.gallery_urls && article.gallery_urls.length > 0 && article.gallery_urls[0]) {
+    return article.gallery_urls[0];
+  }
   return '/og-image.jpg';
 };
 
 const isGameIconCover = (url: string, gameSlug?: string): boolean => {
-  if (!url) return false;
+  if (!url || url === '/og-image.jpg') return false;
   if (url.includes('/game_icons/')) return true;
   if (gameSlug && url.includes(gameSlug)) return true;
   return false;
@@ -42,6 +45,8 @@ const handleImageFallback = (e: React.SyntheticEvent<HTMLImageElement>, article:
   el.onerror = null; // Strictly prevent infinite re-render / reload loop
   if (article.game_slug && !el.src.includes(`/game_icons/${article.game_slug}.webp`)) {
     el.src = `/game_icons/${article.game_slug}.webp`;
+  } else if (article.gallery_urls && article.gallery_urls.length > 0 && !el.src.includes(article.gallery_urls[0])) {
+    el.src = article.gallery_urls[0];
   } else {
     el.src = '/og-image.jpg';
   }
@@ -272,6 +277,7 @@ export const NewsView: React.FC<NewsViewProps> = ({
                           alt={featuredArticle.title}
                           className="w-24 h-24 sm:w-28 sm:h-28 rounded-3xl object-cover shadow-2xl ring-2 ring-white/25 group-hover:ring-primary/80"
                           loading="eager"
+                          referrerPolicy="no-referrer"
                           onError={(e) => handleImageFallback(e, featuredArticle)}
                         />
                         <div className="absolute -bottom-2 inset-x-0 mx-auto w-16 h-2 bg-black/60 rounded-full blur-sm" />
@@ -283,6 +289,7 @@ export const NewsView: React.FC<NewsViewProps> = ({
                       alt={featuredArticle.title}
                       className="relative z-10 w-full h-full object-cover transition-transform duration-700 group-hover:scale-105"
                       loading="eager"
+                      referrerPolicy="no-referrer"
                       onError={(e) => handleImageFallback(e, featuredArticle)}
                     />
                   )}
@@ -487,6 +494,7 @@ export const NewsView: React.FC<NewsViewProps> = ({
                                 alt={article.title}
                                 className="w-20 h-20 sm:w-24 sm:h-24 rounded-2xl object-cover shadow-2xl ring-2 ring-white/20 group-hover:ring-primary/80"
                                 loading="lazy"
+                                referrerPolicy="no-referrer"
                                 onError={(e) => handleImageFallback(e, article)}
                               />
                               <div className="absolute -bottom-2 inset-x-0 mx-auto w-12 h-2 bg-black/60 rounded-full blur-sm" />
@@ -498,6 +506,7 @@ export const NewsView: React.FC<NewsViewProps> = ({
                             alt={article.title}
                             className="relative z-10 w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
                             loading="lazy"
+                            referrerPolicy="no-referrer"
                             onError={(e) => handleImageFallback(e, article)}
                           />
                         )}

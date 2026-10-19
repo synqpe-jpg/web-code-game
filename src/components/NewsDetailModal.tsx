@@ -127,6 +127,8 @@ export const NewsDetailModal: React.FC<NewsDetailModalProps> = ({
                     src={`/game_icons/${article.game_slug}.webp`}
                     alt={article.game_name}
                     className="w-5 h-5 rounded-md object-cover border border-border/80 shrink-0 hidden sm:block"
+                    loading="lazy"
+                    referrerPolicy="no-referrer"
                     onError={(e) => {
                       (e.currentTarget as HTMLElement).style.display = 'none';
                     }}
@@ -211,10 +213,15 @@ export const NewsDetailModal: React.FC<NewsDetailModalProps> = ({
 
             {/* Cover Image Banner */}
             {(() => {
-              const modalCover = (article.cover_url || '').trim() || (article.game_slug ? `/game_icons/${article.game_slug}.webp` : '/og-image.jpg');
+              const rawCover = (article.cover_url || '').trim();
+              const modalCover = (rawCover && rawCover !== '/og-image.jpg')
+                ? rawCover
+                : (article.game_slug ? `/game_icons/${article.game_slug}.webp` : (article.gallery_urls?.[0] || '/og-image.jpg'));
               const isGameIcon = Boolean(
-                modalCover.includes('/game_icons/') || 
-                (article.game_slug && modalCover.includes(article.game_slug))
+                modalCover !== '/og-image.jpg' && (
+                  modalCover.includes('/game_icons/') || 
+                  (article.game_slug && modalCover.includes(article.game_slug))
+                )
               );
               return (
                 <div className="relative w-full aspect-video sm:aspect-[21/9] rounded-2xl overflow-hidden border border-border/80 shadow-md bg-slate-950 flex items-center justify-center">
@@ -231,10 +238,18 @@ export const NewsDetailModal: React.FC<NewsDetailModalProps> = ({
                         src={modalCover}
                         alt={article.title}
                         className="w-24 h-24 sm:w-32 sm:h-32 rounded-3xl object-cover shadow-2xl ring-4 ring-white/20 shrink-0"
+                        loading="eager"
+                        referrerPolicy="no-referrer"
                         onError={(e) => {
                           const el = e.currentTarget;
                           el.onerror = null;
-                          el.src = '/og-image.jpg';
+                          if (article.game_slug && !el.src.includes(`/game_icons/${article.game_slug}.webp`)) {
+                            el.src = `/game_icons/${article.game_slug}.webp`;
+                          } else if (article.gallery_urls && article.gallery_urls.length > 0 && !el.src.includes(article.gallery_urls[0])) {
+                            el.src = article.gallery_urls[0];
+                          } else {
+                            el.src = '/og-image.jpg';
+                          }
                         }}
                       />
                       {article.game_name && (
@@ -255,10 +270,17 @@ export const NewsDetailModal: React.FC<NewsDetailModalProps> = ({
                       className="relative z-10 w-full h-full object-cover"
                       loading="eager"
                       decoding="async"
+                      referrerPolicy="no-referrer"
                       onError={(e) => {
                         const el = e.currentTarget;
                         el.onerror = null;
-                        el.src = '/og-image.jpg';
+                        if (article.game_slug && !el.src.includes(`/game_icons/${article.game_slug}.webp`)) {
+                          el.src = `/game_icons/${article.game_slug}.webp`;
+                        } else if (article.gallery_urls && article.gallery_urls.length > 0 && !el.src.includes(article.gallery_urls[0])) {
+                          el.src = article.gallery_urls[0];
+                        } else {
+                          el.src = '/og-image.jpg';
+                        }
                       }}
                     />
                   )}
@@ -456,6 +478,7 @@ export const NewsDetailModal: React.FC<NewsDetailModalProps> = ({
                       className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
                       loading="lazy"
                       decoding="async"
+                      referrerPolicy="no-referrer"
                     />
                     <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center text-white text-xs font-bold">
                       Xem ảnh ↗
@@ -501,10 +524,15 @@ export const NewsDetailModal: React.FC<NewsDetailModalProps> = ({
                   >
                     <div>
                       {(() => {
-                        const relCover = (rel.cover_url || '').trim() || (rel.game_slug ? `/game_icons/${rel.game_slug}.webp` : '/og-image.jpg');
+                        const rawRel = (rel.cover_url || '').trim();
+                        const relCover = (rawRel && rawRel !== '/og-image.jpg')
+                          ? rawRel
+                          : (rel.game_slug ? `/game_icons/${rel.game_slug}.webp` : (rel.gallery_urls?.[0] || '/og-image.jpg'));
                         const isRelGameIcon = Boolean(
-                          relCover.includes('/game_icons/') || 
-                          (rel.game_slug && relCover.includes(rel.game_slug))
+                          relCover !== '/og-image.jpg' && (
+                            relCover.includes('/game_icons/') || 
+                            (rel.game_slug && relCover.includes(rel.game_slug))
+                          )
                         );
                         return (
                           <div className="relative w-full aspect-video rounded-lg overflow-hidden mb-2 bg-slate-950 flex items-center justify-center">
@@ -517,10 +545,16 @@ export const NewsDetailModal: React.FC<NewsDetailModalProps> = ({
                                 src={relCover}
                                 alt={rel.title}
                                 className="relative z-10 w-12 h-12 rounded-xl object-cover shadow-md ring-1 ring-white/20 group-hover:scale-105 transition-transform"
+                                loading="lazy"
+                                referrerPolicy="no-referrer"
                                 onError={(e) => {
                                   const el = e.currentTarget;
                                   el.onerror = null;
-                                  el.src = '/og-image.jpg';
+                                  if (rel.game_slug && !el.src.includes(`/game_icons/${rel.game_slug}.webp`)) {
+                                    el.src = `/game_icons/${rel.game_slug}.webp`;
+                                  } else {
+                                    el.src = '/og-image.jpg';
+                                  }
                                 }}
                               />
                             ) : (
@@ -528,10 +562,16 @@ export const NewsDetailModal: React.FC<NewsDetailModalProps> = ({
                                 src={relCover}
                                 alt={rel.title}
                                 className="relative z-10 w-full h-full object-cover group-hover:scale-105 transition-transform"
+                                loading="lazy"
+                                referrerPolicy="no-referrer"
                                 onError={(e) => {
                                   const el = e.currentTarget;
                                   el.onerror = null;
-                                  el.src = '/og-image.jpg';
+                                  if (rel.game_slug && !el.src.includes(`/game_icons/${rel.game_slug}.webp`)) {
+                                    el.src = `/game_icons/${rel.game_slug}.webp`;
+                                  } else {
+                                    el.src = '/og-image.jpg';
+                                  }
                                 }}
                               />
                             )}
