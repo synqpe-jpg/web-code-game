@@ -24,6 +24,7 @@ import {
   Search,
   Bot,
   Newspaper,
+  Clock,
 } from 'lucide-react';
 import { AdminUser } from '../types/adminTypes';
 import { normalizeVietnamese } from '../../utils/textUtils';
@@ -43,6 +44,7 @@ export type AdminModuleTab =
   | 'private-codes'
   | 'code-inventory'
   | 'utilities'
+  | 'event-scheduler'
   | 'orders'
   | 'sepay'
   | 'content'
@@ -159,6 +161,13 @@ export const AdminSidebar: React.FC<AdminSidebarProps> = ({
           id: 'private-codes',
           label: 'Phát Code & Giveaway',
           icon: KeyRound,
+        },
+        {
+          id: 'event-scheduler',
+          label: 'Lịch Đếm Ngược Sự Kiện',
+          icon: Clock,
+          badge: 'MỚI',
+          badgeColor: 'bg-amber-500 text-neutral-950 font-bold',
         },
         {
           id: 'orders',

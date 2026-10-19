@@ -27,6 +27,7 @@ import { MarketingModule } from './modules/MarketingModule';
 import { FloatingNotificationModule } from './modules/FloatingNotificationModule';
 import { GrowthModule } from './modules/GrowthModule';
 import { CrawlerModule } from './modules/CrawlerModule';
+import { EventSchedulerModule } from './modules/EventSchedulerModule';
 
 interface AdminAppProps {
   onBackToClient?: () => void;
@@ -51,6 +52,7 @@ export const AdminApp: React.FC<AdminAppProps> = ({ onBackToClient }) => {
       'private-codes',
       'code-inventory',
       'utilities',
+      'event-scheduler',
       'orders',
       'sepay',
       'content',
@@ -317,6 +319,7 @@ export const AdminApp: React.FC<AdminAppProps> = ({ onBackToClient }) => {
         'private-codes',
         'code-inventory',
         'utilities',
+        'event-scheduler',
         'orders',
         'sepay',
         'content',
@@ -534,6 +537,10 @@ export const AdminApp: React.FC<AdminAppProps> = ({ onBackToClient }) => {
 
         {currentTab === 'utilities' && (
           <UtilitiesModule onShowToast={showToast} />
+        )}
+
+        {currentTab === 'event-scheduler' && (
+          <EventSchedulerModule onShowToast={showToast} />
         )}
 
         {currentTab === 'orders' && (

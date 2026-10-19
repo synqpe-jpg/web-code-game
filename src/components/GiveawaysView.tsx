@@ -37,6 +37,8 @@ import { dataService } from '../services/dataService';
 import { marketingService } from '../services/marketingService';
 import type { GiveawayCampaign, ClaimedCodeRecord, UserProfile } from '../types/game';
 import { formatRelativeDate, formatFullDateTime } from '../utils/textUtils';
+import { EventCountdownBadge } from './countdown/EventCountdownBadge';
+import { eventSchedulerService } from '../services/eventSchedulerService';
 
 interface GiveawaysViewProps {
   onShowToast: (title: string, message?: string, type?: 'success' | 'error' | 'info') => void;
@@ -702,6 +704,22 @@ export const GiveawaysView: React.FC<GiveawaysViewProps> = ({
                         {campaign.title}
                       </h3>
 
+                      {/* Event Countdown Badge if Upcoming */}
+                      {isNotStarted && campaign.start_time && (
+                        <div className="mb-2.5">
+                          <EventCountdownBadge
+                            targetDate={campaign.start_time}
+                            label="Mở sau:"
+                            theme="fire"
+                            variant="compact"
+                            onExpire={() => {
+                              playClaimVictorySound();
+                              setGiveaways([...dataService.getGiveaways()]);
+                            }}
+                          />
+                        </div>
+                      )}
+
                       {/* Rewards Box */}
                       <div className="p-3 rounded-2xl bg-muted/50 border border-border/70 mb-3">
                         <div className="flex items-center gap-1.5 text-xs font-semibold text-primary-light mb-1">
@@ -824,10 +842,14 @@ export const GiveawaysView: React.FC<GiveawaysViewProps> = ({
                             </button>
                           ) : isNotStarted ? (
                             <button
-                              disabled
-                              className="py-2.5 px-3 rounded-xl bg-muted/60 text-muted-foreground border border-border text-xs font-semibold flex items-center justify-center gap-1 cursor-not-allowed"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setDetailModalCampaign(campaign);
+                              }}
+                              className="py-2.5 px-3 rounded-xl bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 border border-amber-500/40 text-xs font-bold flex items-center justify-center gap-1.5 cursor-pointer transition-all active:scale-95"
                             >
-                              <span>Chưa Mở</span>
+                              <Clock className="w-3.5 h-3.5 text-amber-400" />
+                              <span>Chờ Mở</span>
                             </button>
                           ) : isEnded ? (
                             <button
@@ -1881,13 +1903,34 @@ export const GiveawaysView: React.FC<GiveawaysViewProps> = ({
                       <span>Đăng Nhập Ngay Để Giật Code</span>
                     </button>
                   ) : isNotStarted ? (
-                    <button
-                      disabled
-                      className="w-full py-3.5 rounded-2xl bg-muted/60 text-muted-foreground border border-border text-xs font-bold flex items-center justify-center gap-2 cursor-not-allowed"
-                    >
-                      <Clock className="w-4 h-4" />
-                      <span>Chưa Đến Giờ Mở Sự Kiện ({formatRelativeDate(currentCampaign.start_time)})</span>
-                    </button>
+                    <div className="space-y-3">
+                      <div className="p-3.5 sm:p-4 rounded-2xl bg-gradient-to-r from-red-950/60 via-orange-950/60 to-amber-950/60 border border-orange-500/30 text-center space-y-2">
+                        <div className="text-xs font-bold text-orange-300 uppercase tracking-wider flex items-center justify-center gap-1.5">
+                          <Flame className="w-4 h-4 text-orange-400 fill-orange-400 animate-pulse" />
+                          <span>Sự Kiện Sắp Diễn Ra — Đếm Ngược Đến Giờ G:</span>
+                        </div>
+                        <div className="flex justify-center">
+                          <EventCountdownBadge
+                            targetDate={currentCampaign.start_time}
+                            label="Mở sau:"
+                            theme="fire"
+                            variant="detailed"
+                            onExpire={() => {
+                              playClaimVictorySound();
+                              confetti({ particleCount: 60, spread: 70, origin: { y: 0.6 } });
+                              setGiveaways([...dataService.getGiveaways()]);
+                            }}
+                          />
+                        </div>
+                      </div>
+                      <button
+                        disabled
+                        className="w-full py-3.5 rounded-2xl bg-muted/60 text-muted-foreground border border-border text-xs font-bold flex items-center justify-center gap-2 cursor-not-allowed"
+                      >
+                        <Clock className="w-4 h-4" />
+                        <span>Chờ Đến Giờ Mở Sự Kiện ({formatRelativeDate(currentCampaign.start_time)})</span>
+                      </button>
+                    </div>
                   ) : isEnded ? (
                     <button
                       disabled

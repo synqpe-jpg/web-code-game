@@ -5,6 +5,44 @@ Mỗi mục sửa lỗi đều ghi nhận **Nguyên nhân gốc rễ (Root Cause
 
 ---
 
+## [2026-10-19]
+
+### 71. Hệ Thống Lịch Đếm Ngược & Sự Kiện Tự Động (Event Countdown & Auto-Schedule System)
+- **Mô tả & Yêu cầu Người Dùng**:
+  - *"Bạn có thể lên phương án tạo lịch đếm ngược thông báo còn xxx tời gian sẽ diễn ra đợt sự kiện nào đó trên web, tại mục sản phẩm cũng tương tự hiện ra đếm ngược không? Ví dụ còn 2 ngày nữa sẽ mở sự kiện phát code, trong mục sản phẩm cũng hiện lên thời gian tương tự đếm ngược, khi hết giờ tự mở sự kiẹn, sự kiện bán giảm giá cũng vậy. Trong admin có thêm mục cài đặt chi tiết cho mục này. CHo tôi phương án trước."*
+  - *"Ok , bạn triển khai theo phương án này đi"*
+- **Kiến trúc & Các thành phần đã triển khai**:
+  1. *Định nghĩa kiểu dữ liệu chuẩn (`src/types/eventScheduler.ts`)*:
+     - `ScheduledEventType`: Hỗ trợ 3 nhóm sự kiện: `GIVEAWAY` (Phát Giftcode Giờ G), `FLASH_SALE_PRODUCT` (Săn Sale Giảm Giá Giờ Vàng), `GLOBAL_ANNOUNCEMENT` (Thông báo sự kiện toàn hệ thống).
+     - `ScheduledEventRecord`: Cấu hình chi tiết gồm target_id, thời gian bắt đầu/kết thúc, countdown_lead_hours (thời điểm bắt đầu bật đồng hồ đếm ngược), giá sale & phần trăm giảm giá, theme giao diện (`fire`, `cyber`, `gold`, `emerald`), nút CTA điều hướng.
+  2. *Service & Reactive Math Engine (`src/services/eventSchedulerService.ts` & `src/hooks/useEventCountdown.ts`)*:
+     - Tính toán trạng thái thời gian thực (`UPCOMING`, `LIVE`, `ENDED`, `HIDDEN`) dựa trên delta timestamp math thay vì đếm lùi từng giây truyền thống, triệt tiêu 100% timer drift khi ứng dụng chạy nền.
+     - Lắng nghe `visibilitychange` để đồng bộ lại tức thì ngay khi người dùng chuyển lại tab.
+     - Đầy đủ hàm tra cứu theo sản phẩm (`getScheduleForProduct`), theo chiến dịch (`getScheduleForGiveaway`), theo game (`getSchedulesForGame`), và banner sự kiện trên cùng (`getTopBannerSchedule`).
+  3. *Thanh Banner Thông Báo Toàn Trang (`src/components/countdown/TopEventBanner.tsx`)*:
+     - Hiển thị trên đầu trang web khách dưới dạng banner nổi bật (có thể tắt lưu theo phiên), đồng hồ đếm ngược thời gian thực, nút CTA chuyển tab / mở popup tương ứng.
+  4. *Huy hiệu Đếm Ngược Linh Hoạt (`src/components/countdown/EventCountdownBadge.tsx`)*:
+     - Hỗ trợ 3 biến thể: `compact`, `pill`, `detailed` với 4 theme màu sắc phát quang (Fire, Cyber, Gold, Emerald).
+  5. *Tích hợp Vào Mục Sự Kiện / Giveaway (`src/components/GiveawaysView.tsx`)*:
+     - Trên thẻ sự kiện chưa tới Giờ G: Hiển thị badge "Sắp Mở", đổi nút bấm thành "Chờ Mở".
+     - Trong popup chi tiết sự kiện: Hiển thị banner đếm ngược lớn đến Giờ G. Khi đồng hồ điểm 00:00:00, hệ thống tự động bùng nổ hiệu ứng pháo hoa, phát âm thanh arcade và kích hoạt nút "Giật Mã Ngay" mà không cần tải lại trang.
+  6. *Tích hợp Vào Mục Sản Phẩm & Tiện Ích (`src/components/StoreView.tsx` & `src/components/UtilitiesView.tsx`)*:
+     - Tự động áp dụng giá bán Flash Sale (`effectivePrice` & `effectiveDiscount`) ở cả chế độ List View và Grid View khi sự kiện chuyển sang trạng thái LIVE.
+     - Hiển thị badge đếm ngược "Sắp Sale" hoặc "Hết hạn" theo thời gian thực, nút chuyển thành "Săn Sale" với hiệu ứng neon gradient.
+  7. *Module Quản Trị Chi Tiết Tại Trang Admin (`src/admin/modules/EventSchedulerModule.tsx`)*:
+     - Thêm module tab `event-scheduler` vào Admin Sidebar & Topbar ("Lịch Đếm Ngược Sự Kiện" kèm badge MỚI).
+     - 4 thẻ KPI thống kê trạng thái, bộ lọc tìm kiếm & trạng thái, bảng quản trị với đồng hồ đếm ngược thời gian thực, nút bật/tắt nhanh 1 chạm.
+     - Modal Thêm / Chỉnh sửa sự kiện trực quan kèm Date-Time Picker chuẩn Việt Nam, bộ chọn liên kết sự kiện/sản phẩm, cấu hình giá Flash Sale và Live Preview trực tiếp.
+  8. *Đồng bộ Dữ liệu Đám Mây Cloudflare D1 (SSOT) (`functions/api/sync.ts` & `dataService.ts`)*:
+     - Đưa `wcg_event_schedules_v1` vào `PUBLIC_ALLOWED_KEYS`, nạp tự động qua D1 system_settings, đồng bộ 2 chiều tức thì giữa Admin và Web Khách.
+- **Kết quả kiểm thử & Triển khai**:
+  - Audit zero test artifacts: Sạch 100% (0 dữ liệu test).
+  - Biên dịch Vite Frontend & Prerender 672 trang tĩnh SEO thành công.
+  - Esbuild Cloudflare Edge Worker bundle thành công (`dist/_worker.js` 6.9MB).
+  - Tự động triển khai lên Cloudflare Pages (`web-code-game` và `admin-code-game-shop`) và đồng bộ GitHub.
+
+---
+
 ## [2026-10-18]
 
 ### 70. Khắc Phục Lỗi Hiển Thị Icon Game Khi Chia Sẻ Link Sự Kiện Lên Zalo/Mạng Xã Hội & Sửa Lỗi Deep Link Chi Tiết Sự Kiện

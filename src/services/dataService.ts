@@ -833,6 +833,15 @@ class DataService {
                 window.dispatchEvent(new CustomEvent('wcg_news_updated', { detail: cleanArticles }));
               }
             }
+            if (json.eventSchedules && Array.isArray(json.eventSchedules)) {
+              const currentSchedulesRaw = localStorage.getItem('wcg_event_schedules_v1');
+              const newSchedules = JSON.stringify(json.eventSchedules);
+              if (currentSchedulesRaw !== newSchedules) {
+                localStorage.setItem('wcg_event_schedules_v1', newSchedules);
+                window.dispatchEvent(new CustomEvent('wcg_event_schedules_updated', { detail: json.eventSchedules }));
+                hasChanges = true;
+              }
+            }
             if (hasChanges) {
               console.log('[DataSync] Applied new updates from Cloudflare KV');
               this.reload();

@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback, useTransition } from 'react';
 import { Header } from './components/Header';
 import { AnnouncementBar } from './components/AnnouncementBar';
+import { TopEventBanner } from './components/countdown/TopEventBanner';
 import { HeroBanner } from './components/HeroBanner';
 import { CategoryFilter } from './components/CategoryFilter';
 import { GameGrid } from './components/GameGrid';
@@ -1063,6 +1064,40 @@ export const App: React.FC = () => {
     });
   };
 
+  const handleBannerNavigate = (link: string, targetType?: string, targetId?: string) => {
+    if (targetType === 'GIVEAWAY' || targetType === 'giveaway' || link.startsWith('/giveaways') || link.startsWith('/giveaway')) {
+      handleSelectTab('giveaways');
+      if (targetId) {
+        setInitialGiveawayId(targetId);
+      }
+      return;
+    }
+    if (targetType === 'FLASH_SALE_PRODUCT' || targetType === 'product' || targetType === 'utility' || link.startsWith('/utilities')) {
+      handleSelectTab('utilities');
+      if (targetId) {
+        setSelectedUtilityId(targetId);
+      }
+      return;
+    }
+    if (link.startsWith('/store')) {
+      handleSelectTab('store');
+      if (targetId) {
+        handleSelectProductById(targetId);
+      }
+      return;
+    }
+    if (link.startsWith('/game/')) {
+      const slug = link.replace('/game/', '').trim();
+      if (slug) {
+        handleSelectGameSlug(slug);
+      }
+      return;
+    }
+    if (link.startsWith('http')) {
+      window.open(link, '_blank', 'noopener,noreferrer');
+    }
+  };
+
   const handleLogout = () => {
     authService.logout();
     setCurrentUser(null);
@@ -1134,6 +1169,9 @@ export const App: React.FC = () => {
       <div className="relative z-10 flex-1 flex flex-col w-full max-w-full">
         {/* Dynamic Announcement Banner from Admin CMS */}
         <AnnouncementBar />
+
+        {/* Top Sticky Event Countdown Banner */}
+        <TopEventBanner onNavigate={handleBannerNavigate} />
 
         {/* Top Navigation Bar */}
         <Header

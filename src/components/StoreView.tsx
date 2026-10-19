@@ -14,6 +14,8 @@ import { dataService } from '../services/dataService';
 import { marketingService } from '../services/marketingService';
 import { formatCore, smartVietnameseMatch } from '../utils/textUtils';
 import type { StoreProduct, UserProfile } from '../types/game';
+import { EventCountdownBadge } from './countdown/EventCountdownBadge';
+import { eventSchedulerService } from '../services/eventSchedulerService';
 
 interface StoreViewProps {
   onSelectProduct: (product: StoreProduct) => void;
@@ -264,6 +266,12 @@ export const StoreView: React.FC<StoreViewProps> = ({
         /* MODE 2: LIST VIEW (Danh sách hàng ngang) */
         <div className="flex flex-col gap-2 sm:gap-2.5">
           {filtered.map((product) => {
+            const flashSale = eventSchedulerService.getScheduleForProduct(product.id);
+            const isFlashSaleLive = flashSale?.status === 'LIVE';
+            const isFlashSaleUpcoming = flashSale?.status === 'UPCOMING';
+            const effectivePrice = isFlashSaleLive && flashSale.event.sale_price ? flashSale.event.sale_price : product.current_price;
+            const effectiveDiscount = isFlashSaleLive && flashSale.event.discount_percent ? flashSale.event.discount_percent : product.discount_percent;
+
             const displayStock =
               product.stock_quantity <= 0
                 ? 0
@@ -273,7 +281,7 @@ export const StoreView: React.FC<StoreViewProps> = ({
             return (
               <div
                 key={product.id}
-                onClick={() => onSelectProduct(product)}
+                onClick={() => onSelectProduct({ ...product, current_price: effectivePrice, discount_percent: effectiveDiscount })}
                 className="bg-card hover:bg-card-hover rounded-xl sm:rounded-2xl border border-border/80 hover:border-secondary/50 shadow-cyber-card p-2 sm:p-3 transition-all duration-200 hover:-translate-y-0.5 flex items-center justify-between gap-2.5 sm:gap-3 cursor-pointer group active:scale-[0.99] relative overflow-hidden"
               >
                 {/* Product Thumbnail */}
@@ -295,9 +303,9 @@ export const StoreView: React.FC<StoreViewProps> = ({
                       }
                     }}
                   />
-                  {product.discount_percent > 0 && (
-                    <div className="absolute top-0 right-0 px-1 py-0.2 rounded-bl-lg bg-accent text-white text-[8px] sm:text-[9px] font-mono font-bold">
-                      -{product.discount_percent}%
+                  {(effectiveDiscount > 0 || isFlashSaleLive) && (
+                    <div className={`absolute top-0 right-0 px-1 py-0.2 rounded-bl-lg text-white text-[8px] sm:text-[9px] font-mono font-bold ${isFlashSaleLive ? 'bg-red-600 animate-pulse' : 'bg-accent'}`}>
+                      -{effectiveDiscount}%
                     </div>
                   )}
                 </div>
@@ -312,6 +320,24 @@ export const StoreView: React.FC<StoreViewProps> = ({
                       <span className="text-[8px] sm:text-[9px] font-bold px-1 py-0.2 rounded bg-amber-500/20 text-amber-300 border border-amber-500/30 shrink-0">
                         {product.badge}
                       </span>
+                    )}
+                    {isFlashSaleUpcoming && flashSale && (
+                      <EventCountdownBadge
+                        targetDate={flashSale.event.start_time}
+                        label="Sắp Sale:"
+                        theme={flashSale.event.theme || 'fire'}
+                        variant="pill"
+                        onExpire={() => setProducts([...dataService.getStoreProducts()])}
+                      />
+                    )}
+                    {isFlashSaleLive && flashSale && (
+                      <EventCountdownBadge
+                        targetDate={flashSale.event.end_time}
+                        label="Hết hạn:"
+                        theme={flashSale.event.theme || 'fire'}
+                        variant="pill"
+                        onExpire={() => setProducts([...dataService.getStoreProducts()])}
+                      />
                     )}
                   </div>
                   <h3 className="font-heading font-bold text-xs sm:text-sm text-foreground group-hover:text-secondary transition-colors truncate">
@@ -338,9 +364,9 @@ export const StoreView: React.FC<StoreViewProps> = ({
                 <div className="flex items-center gap-2 sm:gap-3 shrink-0" onClick={(e) => e.stopPropagation()}>
                   <div className="text-right">
                     <div className="font-display font-black text-xs sm:text-sm md:text-base text-emerald-400">
-                      {formatCore(product.current_price)}
+                      {formatCore(effectivePrice)}
                     </div>
-                    {product.original_price > product.current_price && (
+                    {product.original_price > effectivePrice && (
                       <div className="text-[9px] sm:text-[10px] text-slate-400 line-through font-mono hidden xs:block">
                         {formatCore(product.original_price)}
                       </div>
@@ -358,16 +384,18 @@ export const StoreView: React.FC<StoreViewProps> = ({
                         onOpenAuth();
                         onShowToast('Cần đăng nhập', 'Vui lòng đăng nhập để mua gói code.', 'info');
                       } else {
-                        onSelectProduct(product);
+                        onSelectProduct({ ...product, current_price: effectivePrice, discount_percent: effectiveDiscount });
                       }
                     }}
                     className={`px-2.5 sm:px-3 py-1.5 rounded-xl font-bold text-xs shadow-sm transition-all flex items-center gap-1 cursor-pointer active:scale-95 ${
                       product.stock_quantity <= 0
                         ? 'bg-slate-800 text-slate-500 border border-slate-700/60 cursor-not-allowed'
+                        : isFlashSaleLive
+                        ? 'bg-gradient-to-r from-red-600 to-amber-600 hover:from-red-500 hover:to-amber-500 text-white shadow-neon-orange animate-pulse'
                         : 'bg-secondary hover:bg-secondary/90 text-white'
                     }`}
                   >
-                    <span>Mua</span>
+                    <span>{isFlashSaleLive ? 'Săn Sale' : 'Mua'}</span>
                     <ChevronRight className="w-3.5 h-3.5" />
                   </button>
 
@@ -386,168 +414,196 @@ export const StoreView: React.FC<StoreViewProps> = ({
       ) : (
         /* MODE 1: GRID VIEW (2 cột trên Mobile, 3-4 cột trên Desktop) */
         <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-2.5 sm:gap-4">
-          {filtered.map((product) => (
-            <div
-              key={product.id}
-              onClick={() => onSelectProduct(product)}
-              className="bg-card hover:bg-card-hover rounded-2xl border border-border/80 hover:border-secondary/50 shadow-cyber-card p-2.5 sm:p-3.5 transition-all duration-200 hover:-translate-y-0.5 flex flex-col justify-between cursor-pointer group active:scale-[0.98] relative overflow-hidden min-h-[140px]"
-            >
-              <div>
-                {/* Top: Small Game Icon (40px mobile / 48px desktop) + Titles + Direct Share Button */}
-                <div className="flex items-start justify-between gap-1.5 mb-1.5 sm:mb-2.5">
-                  <div className="flex items-start gap-2 sm:gap-2.5 min-w-0 flex-1">
-                    <div className="relative w-10 h-10 sm:w-12 sm:h-12 rounded-xl bg-muted overflow-hidden shrink-0 border border-border shadow-sm group-hover:scale-105 transition-transform flex items-center justify-center">
-                      <img
-                        src={product.cover_image_url || product.game_icon_url || `/game_icons/${product.game_slug}.webp`}
-                        alt={product.game_name}
-                        className="w-full h-full object-cover"
-                        loading="lazy"
-                        referrerPolicy="no-referrer"
-                        onError={(e) => {
-                          const target = e.target as HTMLImageElement;
-                          const localFallback = `/game_icons/${product.game_slug}.webp`;
-                          if (target.src !== localFallback && !target.src.endsWith(localFallback)) {
-                            target.src = localFallback;
-                          } else {
-                            target.onerror = null;
-                            target.src = '/vite.svg';
-                          }
-                        }}
-                      />
-                      {product.discount_percent > 0 && (
-                        <div className="absolute top-0 right-0 px-1 py-0.2 rounded-bl-lg bg-accent text-white text-[8px] sm:text-[9px] font-mono font-bold">
-                          -{product.discount_percent}%
+          {filtered.map((product) => {
+            const flashSale = eventSchedulerService.getScheduleForProduct(product.id);
+            const isFlashSaleLive = flashSale?.status === 'LIVE';
+            const isFlashSaleUpcoming = flashSale?.status === 'UPCOMING';
+            const effectivePrice = isFlashSaleLive && flashSale.event.sale_price ? flashSale.event.sale_price : product.current_price;
+            const effectiveDiscount = isFlashSaleLive && flashSale.event.discount_percent ? flashSale.event.discount_percent : product.discount_percent;
+
+            return (
+              <div
+                key={product.id}
+                onClick={() => onSelectProduct({ ...product, current_price: effectivePrice, discount_percent: effectiveDiscount })}
+                className="bg-card hover:bg-card-hover rounded-2xl border border-border/80 hover:border-secondary/50 shadow-cyber-card p-2.5 sm:p-3.5 transition-all duration-200 hover:-translate-y-0.5 flex flex-col justify-between cursor-pointer group active:scale-[0.98] relative overflow-hidden min-h-[140px]"
+              >
+                <div>
+                  {/* Top: Small Game Icon (40px mobile / 48px desktop) + Titles + Direct Share Button */}
+                  <div className="flex items-start justify-between gap-1.5 mb-1.5 sm:mb-2.5">
+                    <div className="flex items-start gap-2 sm:gap-2.5 min-w-0 flex-1">
+                      <div className="relative w-10 h-10 sm:w-12 sm:h-12 rounded-xl bg-muted overflow-hidden shrink-0 border border-border shadow-sm group-hover:scale-105 transition-transform flex items-center justify-center">
+                        <img
+                          src={product.cover_image_url || product.game_icon_url || `/game_icons/${product.game_slug}.webp`}
+                          alt={product.game_name}
+                          className="w-full h-full object-cover"
+                          loading="lazy"
+                          referrerPolicy="no-referrer"
+                          onError={(e) => {
+                            const target = e.target as HTMLImageElement;
+                            const localFallback = `/game_icons/${product.game_slug}.webp`;
+                            if (target.src !== localFallback && !target.src.endsWith(localFallback)) {
+                              target.src = localFallback;
+                            } else {
+                              target.onerror = null;
+                              target.src = '/vite.svg';
+                            }
+                          }}
+                        />
+                        {(effectiveDiscount > 0 || isFlashSaleLive) && (
+                          <div className={`absolute top-0 right-0 px-1 py-0.2 rounded-bl-lg text-white text-[8px] sm:text-[9px] font-mono font-bold ${isFlashSaleLive ? 'bg-red-600 animate-pulse' : 'bg-accent'}`}>
+                            -{effectiveDiscount}%
+                          </div>
+                        )}
+                      </div>
+
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-1 flex-wrap mb-0.5">
+                          <span className="text-[9px] sm:text-[10px] font-semibold px-1.5 py-0.2 rounded bg-secondary/15 text-secondary border border-secondary/30 truncate max-w-full block">
+                            {product.game_name}
+                          </span>
+                          {product.badge && (
+                            <span className="text-[8px] sm:text-[9px] font-bold px-1 py-0.2 rounded bg-amber-500/20 text-amber-300 border border-amber-500/30 shrink-0">
+                              {product.badge}
+                            </span>
+                          )}
+                          {isFlashSaleUpcoming && flashSale && (
+                            <EventCountdownBadge
+                              targetDate={flashSale.event.start_time}
+                              label="Sale:"
+                              theme={flashSale.event.theme || 'fire'}
+                              variant="pill"
+                              onExpire={() => setProducts([...dataService.getStoreProducts()])}
+                            />
+                          )}
+                          {isFlashSaleLive && flashSale && (
+                            <EventCountdownBadge
+                              targetDate={flashSale.event.end_time}
+                              label="Hết:"
+                              theme={flashSale.event.theme || 'fire'}
+                              variant="pill"
+                              onExpire={() => setProducts([...dataService.getStoreProducts()])}
+                            />
+                          )}
                         </div>
+                        <h3 className="font-heading font-bold text-[11px] sm:text-xs md:text-sm text-foreground group-hover:text-secondary transition-colors line-clamp-2 leading-snug">
+                          {product.title}
+                        </h3>
+                      </div>
+                    </div>
+
+                    {/* Direct Share Button on Product */}
+                    <button
+                      onClick={(e) => handleShareProduct(product, e)}
+                      className="p-1.5 rounded-lg bg-muted/40 hover:bg-muted text-slate-400 hover:text-foreground transition-all cursor-pointer active:scale-90 shrink-0"
+                      title="Chia sẻ link sản phẩm"
+                      aria-label="Chia sẻ link sản phẩm"
+                    >
+                      <Share2 className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+
+                  {/* Product description short - Clamped to 2 lines max */}
+                  {product.description && (
+                    <p
+                      className="text-[11px] text-slate-400/90 leading-relaxed mb-2.5 line-clamp-2 overflow-hidden"
+                      style={{
+                        display: '-webkit-box',
+                        WebkitLineClamp: 2,
+                        WebkitBoxOrient: 'vertical',
+                        overflow: 'hidden',
+                        maxHeight: '2.5rem',
+                      }}
+                    >
+                      {product.description}
+                    </p>
+                  )}
+                </div>
+
+                {/* Bottom: Price in Core & 1-tap Buy button */}
+                <div className="pt-2 sm:pt-2.5 border-t border-border/50 flex flex-col sm:flex-row sm:items-center justify-between gap-1.5 sm:gap-2">
+                  <div className="flex items-baseline justify-between sm:block">
+                    <div className="flex items-baseline gap-1">
+                      <span className="font-display font-black text-xs sm:text-sm md:text-base text-emerald-400">
+                        {formatCore(effectivePrice)}
+                      </span>
+                      {product.original_price > effectivePrice && (
+                        <span className="text-[9px] sm:text-[10px] text-slate-400 line-through font-mono hidden xs:inline">
+                          {formatCore(product.original_price)}
+                        </span>
                       )}
                     </div>
-
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-1 mb-0.5">
-                        <span className="text-[9px] sm:text-[10px] font-semibold px-1.5 py-0.2 rounded bg-secondary/15 text-secondary border border-secondary/30 truncate max-w-full block">
-                          {product.game_name}
-                        </span>
-                        {product.badge && (
-                          <span className="text-[8px] sm:text-[9px] font-bold px-1 py-0.2 rounded bg-amber-500/20 text-amber-300 border border-amber-500/30 shrink-0">
-                            {product.badge}
-                          </span>
-                        )}
-                      </div>
-                      <h3 className="font-heading font-bold text-[11px] sm:text-xs md:text-sm text-foreground group-hover:text-secondary transition-colors line-clamp-2 leading-snug">
-                        {product.title}
-                      </h3>
-                    </div>
+                    {(() => {
+                      const displayStock =
+                        product.stock_quantity <= 0
+                          ? 0
+                          : marketingService.getDisplayStock(product.id, product.stock_quantity);
+                      const displaySold = marketingService.getSoldDisplay(product);
+                      return (
+                        <div className="flex items-center gap-1.5 flex-wrap">
+                          {(product as any).show_stock_count !== false && (
+                            <span
+                              className={`text-[9px] sm:text-[10px] font-mono ${
+                                displayStock <= 0 ? 'text-rose-400 font-bold' : 'text-slate-300'
+                              }`}
+                            >
+                              {displayStock <= 0 ? 'Hết hàng' : `Còn: ${displayStock}`}
+                            </span>
+                          )}
+                          {product.show_sold_count !== false && (
+                            <span className="text-[9px] sm:text-[10px] font-mono text-amber-400/90">
+                              {(product as any).show_stock_count !== false ? '• ' : ''}Đã bán: {displaySold}
+                            </span>
+                          )}
+                        </div>
+                      );
+                    })()}
                   </div>
 
-                  {/* Direct Share Button on Product */}
                   <button
-                    onClick={(e) => handleShareProduct(product, e)}
-                    className="p-1.5 rounded-lg bg-muted/40 hover:bg-muted text-slate-400 hover:text-foreground transition-all cursor-pointer active:scale-90 shrink-0"
-                    title="Chia sẻ link sản phẩm"
-                    aria-label="Chia sẻ link sản phẩm"
+                    disabled={product.stock_quantity <= 0}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      if (product.stock_quantity <= 0) {
+                        onShowToast(
+                          'Hết hàng',
+                          'Gói code này hiện đã hết hàng trong kho. Vui lòng quay lại sau.',
+                          'error'
+                        );
+                        return;
+                      }
+                      if (!currentUser && onOpenAuth) {
+                        onOpenAuth();
+                        onShowToast('Cần đăng nhập', 'Vui lòng đăng nhập để mua gói code.', 'info');
+                      } else {
+                        onSelectProduct({ ...product, current_price: effectivePrice, discount_percent: effectiveDiscount });
+                      }
+                    }}
+                    className={`w-full sm:w-auto px-2 sm:px-3 py-1.5 min-h-[30px] sm:min-h-[34px] rounded-lg sm:rounded-xl font-bold text-[11px] sm:text-xs shadow-sm transition-all flex items-center justify-center gap-1 shrink-0 ${
+                      product.stock_quantity <= 0
+                        ? 'bg-slate-800 text-slate-500 border border-slate-700/60 cursor-not-allowed'
+                        : isFlashSaleLive
+                        ? 'bg-gradient-to-r from-red-600 to-amber-600 hover:from-red-500 hover:to-amber-500 text-white shadow-neon-orange animate-pulse cursor-pointer active:scale-95'
+                        : 'bg-secondary hover:bg-secondary/90 text-white cursor-pointer active:scale-95'
+                    }`}
                   >
-                    <Share2 className="w-3.5 h-3.5" />
+                    {product.stock_quantity <= 0 ? (
+                      <span>Hết hàng</span>
+                    ) : !currentUser ? (
+                      <>
+                        <LogIn className="w-3 h-3 sm:w-3.5 sm:h-3.5" />
+                        <span>{isFlashSaleLive ? 'Săn Sale' : 'Mua'}</span>
+                      </>
+                    ) : (
+                      <>
+                        <span>{isFlashSaleLive ? 'Săn Sale Ngay' : 'Mua Ngay'}</span>
+                        <ChevronRight className="w-3 h-3 sm:w-3.5 sm:h-3.5" />
+                      </>
+                    )}
                   </button>
                 </div>
-
-                {/* Product description short - Clamped to 2 lines max */}
-                {product.description && (
-                  <p
-                    className="text-[11px] text-slate-400/90 leading-relaxed mb-2.5 line-clamp-2 overflow-hidden"
-                    style={{
-                      display: '-webkit-box',
-                      WebkitLineClamp: 2,
-                      WebkitBoxOrient: 'vertical',
-                      overflow: 'hidden',
-                      maxHeight: '2.5rem',
-                    }}
-                  >
-                    {product.description}
-                  </p>
-                )}
               </div>
-
-              {/* Bottom: Price in Core & 1-tap Buy button */}
-              <div className="pt-2 sm:pt-2.5 border-t border-border/50 flex flex-col sm:flex-row sm:items-center justify-between gap-1.5 sm:gap-2">
-                <div className="flex items-baseline justify-between sm:block">
-                  <div className="flex items-baseline gap-1">
-                    <span className="font-display font-black text-xs sm:text-sm md:text-base text-emerald-400">
-                      {formatCore(product.current_price)}
-                    </span>
-                    {product.original_price > product.current_price && (
-                      <span className="text-[9px] sm:text-[10px] text-slate-400 line-through font-mono hidden xs:inline">
-                        {formatCore(product.original_price)}
-                      </span>
-                    )}
-                  </div>
-                  {(() => {
-                    const displayStock =
-                      product.stock_quantity <= 0
-                        ? 0
-                        : marketingService.getDisplayStock(product.id, product.stock_quantity);
-                    const displaySold = marketingService.getSoldDisplay(product);
-                    return (
-                      <div className="flex items-center gap-1.5 flex-wrap">
-                        {(product as any).show_stock_count !== false && (
-                          <span
-                            className={`text-[9px] sm:text-[10px] font-mono ${
-                              displayStock <= 0 ? 'text-rose-400 font-bold' : 'text-slate-300'
-                            }`}
-                          >
-                            {displayStock <= 0 ? 'Hết hàng' : `Còn: ${displayStock}`}
-                          </span>
-                        )}
-                        {product.show_sold_count !== false && (
-                          <span className="text-[9px] sm:text-[10px] font-mono text-amber-400/90">
-                            {(product as any).show_stock_count !== false ? '• ' : ''}Đã bán: {displaySold}
-                          </span>
-                        )}
-                      </div>
-                    );
-                  })()}
-                </div>
-
-                <button
-                  disabled={product.stock_quantity <= 0}
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    if (product.stock_quantity <= 0) {
-                      onShowToast(
-                        'Hết hàng',
-                        'Gói code này hiện đã hết hàng trong kho. Vui lòng quay lại sau.',
-                        'error'
-                      );
-                      return;
-                    }
-                    if (!currentUser && onOpenAuth) {
-                      onOpenAuth();
-                      onShowToast('Cần đăng nhập', 'Vui lòng đăng nhập để mua gói code.', 'info');
-                    } else {
-                      onSelectProduct(product);
-                    }
-                  }}
-                  className={`w-full sm:w-auto px-2 sm:px-3 py-1.5 min-h-[30px] sm:min-h-[34px] rounded-lg sm:rounded-xl font-bold text-[11px] sm:text-xs shadow-sm transition-all flex items-center justify-center gap-1 shrink-0 ${
-                    product.stock_quantity <= 0
-                      ? 'bg-slate-800 text-slate-500 border border-slate-700/60 cursor-not-allowed'
-                      : 'bg-secondary hover:bg-secondary/90 text-white cursor-pointer active:scale-95'
-                  }`}
-                >
-                  {product.stock_quantity <= 0 ? (
-                    <span>Hết hàng</span>
-                  ) : !currentUser ? (
-                    <>
-                      <LogIn className="w-3 h-3 sm:w-3.5 sm:h-3.5" />
-                      <span>Mua</span>
-                    </>
-                  ) : (
-                    <>
-                      <span>Mua Ngay</span>
-                      <ChevronRight className="w-3 h-3 sm:w-3.5 sm:h-3.5" />
-                    </>
-                  )}
-                </button>
-              </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       )}
     </div>
