@@ -863,6 +863,39 @@
 
 ---
 
+### ISSUE-049: Bẫy Ô Vuông Đen Tối Do `loading="lazy"` Kết Hợp Skeleton `bg-muted` & File Giả Mạo Định Dạng (Lazy Load Dark Box & Disguised WebP Trap)
+- **Triệu chứng**:
+  - Khi người dùng mở website (đặc biệt trên trình duyệt Cốc Cốc hoặc thiết bị di động), hàng loạt ô logo game (như Tarot, Tiên Giới, Hải Tặc Truyền Kỳ, MAKe Drama, Dị Giới Sinh Tồn, Yến Vân...) hiển thị dạng ô vuông màu đen/tím tối ngòm, không hiện hình ảnh và cũng không hiện avatar chữ cái.
+- **Nguyên nhân gốc rễ**:
+  1. *Lỗi `loading="lazy"` kết hợp `opacity-0` và Skeleton `bg-muted animate-pulse`*:
+     - Trong `GameCard.tsx`, khi `imageLoaded === false`, thẻ `<img>` bị ép class `opacity-0` và một thẻ skeleton `<div className="absolute inset-0 bg-muted animate-pulse" />` đè lên trên.
+     - Với các thẻ ở màn hình đầu tiên (above-the-fold), `loading="lazy"` khiến cơ chế IntersectionObserver của Chromium (nhất là tính năng Data Saver / Battery Saver của Cốc Cốc) trì hoãn tải ảnh, không kích hoạt `onLoad`.
+     - Vì màu `bg-muted` trong dark mode là màu xám đen (`hsl(217.2 32.6% 17.5%)`), người dùng thấy một hàng ô vuông màu đen tối ngòm!
+  2. *File JPEG giả mạo mang đuôi mở rộng `.webp` & Dung lượng quá tải*:
+     - File `yen-van-thap-luc-thanh.webp`, `where-winds-meet.webp`, `where-winds-meet-mobile.webp`, `ark-recode.webp`, `cherry-tale.webp` thực chất là file JPEG gốc (header `FF D8 FF E0 ... JFIF`) nặng tới 224 KB nhưng lại mang đuôi `.webp`.
+     - Cloudflare gửi `Content-Type: image/webp` theo đuôi mở rộng, làm trình giải mã WebP của trình duyệt gặp lỗi phân giải stream nhị phân.
+     - Các icon nặng hàng trăm KB (`3q-dao-dao-dao.webp` nặng 513 KB) gây nghẽn kết nối mạng di động.
+  3. *Thiếu chuỗi fallback đa tầng và lệch dữ liệu D1 vs local JSON*:
+     - 3 tựa game mới (`Tarot`, `Hải Tặc Truyền Kỳ`, `MAKe Drama`) có trên Cloudflare D1 nhưng chưa có trong `games188.json` cục bộ.
+     - Hàm `handleImageError` cũ chỉ thử lại chính đường dẫn webp mà không thử sang file `.jpg` song hành hay Edge proxy.
+- **Giải pháp chuẩn đã kiểm chứng**:
+  - **Kiến trúc hiển thị 2 lớp (Persistent Branded Base Layer + Smooth Progressive Overlay)**:
+    - *Lớp nền (Base Layer)*: Luôn luôn render avatar gradient rực rỡ với chữ cái viết tắt của game (`getGameInitials`). Lớp này luôn hiện diện ngay từ frame 0.
+    - *Lớp ảnh (Image Layer)*: Thẻ `<img>` nằm đè lên trên với `decoding="async"` (bỏ `loading="lazy"` ở các thẻ trên màn hình), mượt mà chuyển `opacity-0` sang `opacity-100 transition-opacity duration-300` khi ảnh tải xong.
+    - *Xóa bỏ hoàn toàn skeleton `bg-muted animate-pulse`*: Đảm bảo trên toàn bộ website không bao giờ xuất hiện ô vuông đen tối.
+  - **Chuẩn hóa nhị phân & Nén toàn bộ icon**:
+    - Dùng Python Pillow chuyển đổi 100% các file JPEG mang đuôi webp sang WebP nguyên bản (nén từ 224 KB xuống 12.6 KB).
+    - Nén toàn bộ 24 icon vượt 80 KB (`3q-dao-dao-dao` từ 513 KB xuống 26 KB).
+    - Tạo đầy đủ 644/644 file `.jpg` Open Graph song hành tương ứng.
+  - **Fallback Đa Tầng**: WebP $\rightarrow$ JPG $\rightarrow$ Edge Proxy `/api/game-icon?slug=...` $\rightarrow$ Initials Avatar.
+  - **Bổ sung 3 game thiếu vào `games188.json`** & nâng cấp `DATASET_VERSION = 'wcg_dataset_2026_10_19_v39'` để tự động làm mới LocalStorage của toàn bộ người dùng.
+- ⛔ **CÁCH SỬA ĐÃ THẤT BẠI - TUYỆT ĐỐI KHÔNG LẶP LẠI**:
+  - ❌ *Không che giấu avatar sau một khối skeleton `bg-muted animate-pulse` tối đen khi `imageLoaded === false`*: Khiến web trông như bị hỏng nếu mạng chậm hoặc trình duyệt trì hoãn ảnh.
+  - ❌ *Không dùng `loading="lazy"` cho các thẻ game ở màn hình đầu tiên (above-the-fold)*: Trình duyệt Cốc Cốc và Chromium trên mobile sẽ trì hoãn tải ảnh gây trễ hiển thị nghiêm trọng.
+  - ❌ *Không đổi tên file `.jpg` thành `.webp` mà không dùng thư viện chuyển đổi nhị phân (Pillow/Sharp)*: Gây lỗi giải mã hình ảnh (WebP decoder error).
+
+---
+
 ## 2. QUY TRÌNH BẮT BUỘC TRƯỚC KHI SỬA CODE (PRE-FLIGHT CHECKLIST)
 
 Mọi nhà phát triển hoặc AI Agent khi nhận yêu cầu sửa đổi mã nguồn **PHẢI** thực hiện đủ 4 bước sau:

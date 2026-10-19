@@ -76,15 +76,22 @@ export const BookmarkDrawer: React.FC<BookmarkDrawerProps> = ({
                   }}
                   className="flex items-center gap-3 min-w-0 flex-1 cursor-pointer"
                 >
-                  <div className="w-12 h-12 rounded-xl bg-muted overflow-hidden shrink-0 border border-border">
+                  <div className="relative w-12 h-12 rounded-xl overflow-hidden shrink-0 border border-border flex items-center justify-center bg-gradient-to-br from-indigo-600 via-purple-600 to-pink-600 select-none">
+                    <span className="font-bold text-white text-xs select-none pointer-events-none">
+                      {game.name ? game.name.slice(0, 2).toUpperCase() : 'G'}
+                    </span>
                     <img
                       src={game.icon_url || `/game_icons/${game.slug}.webp`}
                       alt={game.name}
-                      className="w-full h-full object-cover"
+                      decoding="async"
+                      className="absolute inset-0 w-full h-full object-cover transition-opacity duration-200"
                       onError={(e) => {
                         const target = e.target as HTMLImageElement;
-                        target.onerror = null;
-                        target.src = '/vite.svg';
+                        if (!target.src.endsWith('.jpg')) {
+                          target.src = `/game_icons/${game.slug}.jpg`;
+                        } else {
+                          target.style.display = 'none';
+                        }
                       }}
                     />
                   </div>

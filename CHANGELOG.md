@@ -7,6 +7,56 @@ Mỗi mục sửa lỗi đều ghi nhận **Nguyên nhân gốc rễ (Root Cause
 
 ## [2026-10-19]
 
+### 80. Khắc Phục Triệt Để Hiện Tượng Logo Game Không Tải Được (Ô Vuông Tối/Đen) & Tối Ưu Hóa Bộ Nhớ Cache Hình Ảnh Toàn Hệ Thống
+- **Mô tả & Hiện tượng**:
+  - Người dùng hỏi: *"Bạn có biết vì sao không tải được logo game không?"* kèm ảnh chụp màn hình trình duyệt Cốc Cốc trên domain `codegame.shop`.
+  - Hàng trên: `Tarot: Vĩnh Hằng Thần Ngữ`, `Tiên Giới: Nhân Kiếm Hợp Nhất`, `Hải Tặc Truyền Kỳ`, `MAKe Drama: MAD` hiển thị ô vuông màu đen/tối không hiện logo.
+  - Hàng dưới: `TA LÀ HẮC NGỘ KHÔNG` và `Pirate Legends: Huyền Thoại Hải Tặc` hiển thị logo bình thường, nhưng `Dị Giới Sinh Tồn OEG` và `Yến Vân Thập Lục Thanh (Where Winds Meet)` lại bị ô vuông màu đen/tối.
+- **Nguyên nhân gốc rễ (Root Cause)**:
+  1. *Lỗi `loading="lazy"` kết hợp `opacity-0` và Skeleton `bg-muted animate-pulse`*:
+     - Trong `GameCard.tsx`, khi `imageLoaded === false`, thẻ `<img>` bị gán class `opacity-0` (vô hình 100%) và một thẻ `<div className="absolute inset-0 bg-muted animate-pulse" />` được render đè lên trên.
+     - Thuộc tính `loading="lazy"` trên các thẻ ở màn hình đầu tiên (above-the-fold) khiến trình duyệt Chromium (đặc biệt là Cốc Cốc với tính năng Chế độ tiết kiệm dữ liệu / Chặn quảng cáo tích hợp) trì hoãn tải ảnh, không kích hoạt sự kiện `onLoad` ngay lập tức.
+     - Vì màu `bg-muted` trong dark mode là màu xám đen (`hsl(217.2 32.6% 17.5%)`), người dùng nhìn thấy một loạt ô vuông màu đen/tối như thể ảnh bị hỏng!
+     - Các game như `TA LÀ HẮC NGỘ KHÔNG` và `Pirate Legends` đã có sẵn trong HTTP disk cache của trình duyệt từ những lần truy cập trước nên kích hoạt `onLoad` tức thì (hiện ảnh), còn các game mới thêm vào chưa từng được cache nên bị trì hoãn và hiển thị ô đen.
+  2. *File ảnh giả mạo định dạng (JPEG đổi tên thành `.webp`) & Dung lượng bất thường*:
+     - File `yen-van-thap-luc-thanh.webp`, `where-winds-meet.webp`, `where-winds-meet-mobile.webp`, `ark-recode.webp`, `cherry-tale.webp` thực chất là file JPEG gốc (header `FF D8 FF E0 ... JFIF`) dung lượng lên tới **224 KB** nhưng lại được lưu với đuôi mở rộng `.webp`.
+     - Cloudflare trả về `Content-Type: image/webp` theo extension, khiến bộ giải mã hình ảnh (WebP decoder) của một số trình duyệt Chromium/Cốc Cốc gặp lỗi phân giải stream nhị phân và hủy bỏ hiển thị.
+     - Một số icon game khác bị thừa dung lượng nghiêm trọng (`3q-dao-dao-dao.webp` nặng 513 KB, `kanban-musume.webp` nặng 465 KB), gây nghẽn đường truyền HTTP pipeline khi mở trang.
+  3. *Lệch dữ liệu giữa Cloudflare D1 và các file tĩnh nội bộ (`games188.json`)*:
+     - 3 tựa game mới (`Tarot: Vĩnh Hằng Thần Ngữ`, `Hải Tặc Truyền Kỳ`, `MAKe Drama: MAD`) tồn tại trên Cloudflare D1 nhưng chưa được đồng bộ vào `public/data/games188.json`, `data/games188.json` và `src/data/games188.json`, dẫn đến việc fallback cục bộ bị thiếu dữ liệu.
+  4. *Cơ chế xử lý lỗi `handleImageError` thiếu chuỗi fallback đa cấp*:
+     - Trước đây, khi ảnh `.webp` gặp sự cố, code chỉ gán lại chính đường dẫn fallback `/game_icons/${game.slug}.webp`. Nếu file đó lỗi, hệ thống lập tức bỏ cuộc mà không thử sang định dạng chuẩn `.jpg` hay Edge Proxy `/api/game-icon`.
+- **Giải pháp toàn diện đã triển khai (Solution)**:
+  1. *Kiến trúc hiển thị 2 lớp (Persistent Branded Base Layer + Smooth Progressive Overlay)*:
+     - **Lớp nền (Base Layer)**: Luôn luôn render một avatar gradient rực rỡ, thời thượng mang màu sắc nhận diện thương hiệu kèm chữ viết tắt tên game in hoa nổi bật (`getGameInitials`). Lớp này luôn hiện diện ngay từ frame 0.
+     - **Lớp ảnh (Image Layer)**: Thẻ `<img>` nằm đè lên trên với `decoding="async"` (bỏ `loading="lazy"` gây trễ trên Chromium/Cốc Cốc), mượt mà chuyển đổi `opacity-0` sang `opacity-100 transition-opacity duration-300` khi ảnh tải xong.
+     - **Xóa bỏ hoàn toàn skeleton `bg-muted animate-pulse`**: Đảm bảo trên toàn bộ website (dù mạng chậm, mất kết nối hay trình duyệt chặn) **TUYỆT ĐỐI KHÔNG BAO GIỜ XUẤT HIỆN Ô VUÔNG ĐEN TỐI**.
+  2. *Chuyển đổi toàn bộ JPEG giả mạo sang chuẩn WebP nguyên bản & Nén toàn bộ icon quá tải*:
+     - Dùng Python Pillow 12.3.0 chuẩn hóa `yen-van-thap-luc-thanh.webp`, `where-winds-meet.webp`, `ark-recode.webp`, `cherry-tale.webp` thành định dạng WebP chuẩn xịn 100%, nén từ 224 KB xuống chỉ còn **12.6 KB** (giảm 94.4% dung lượng).
+     - Nén toàn bộ 24 icon WebP vượt ngưỡng 80 KB (`3q-dao-dao-dao.webp` từ 513 KB xuống 26 KB, `kanban-musume.webp` từ 465 KB xuống 15 KB).
+     - Đồng bộ và xuất bản đầy đủ 644/644 file `.jpg` song hành tương ứng cho toàn bộ danh mục game.
+  3. *Cơ chế Fallback đa tầng (Multi-stage Fallback Chain)*:
+     - Stage 0: Tải file `.webp` nguyên bản.
+     - Stage 1: Nếu WebP lỗi, tự động chuyển sang tải file `.jpg` (`/game_icons/${slug}.jpg`).
+     - Stage 2: Nếu file JPG lỗi, tự động gọi qua Cloudflare Edge Icon Proxy (`/api/game-icon?slug=${slug}`).
+     - Stage 3: Nếu tất cả đều không tải được, ẩn thẻ `<img>` và giữ nguyên avatar gradient chữ cái đẹp mắt.
+  4. *Đồng bộ 100% dữ liệu 627 tựa game & Nâng cấp `DATASET_VERSION`*:
+     - Bổ sung 3 game còn thiếu vào tất cả các file JSON cục bộ (`public/data/games188.json`, `data/games188.json`, `src/data/games188.json`).
+     - Nâng cấp `DATASET_VERSION = 'wcg_dataset_2026_10_19_v39'` trong `src/services/dataService.ts` để tự động làm mới LocalStorage của tất cả người dùng, loại bỏ cache cũ bị nghẽn.
+- **Files Modified**:
+  - `src/components/GameCard.tsx`
+  - `src/components/GameDetailModal.tsx`
+  - `src/components/SearchAutocomplete.tsx`
+  - `src/components/BookmarkDrawer.tsx`
+  - `src/services/dataService.ts`
+  - `public/data/games188.json`
+  - `data/games188.json`
+  - `src/data/games188.json`
+  - `data/sources/games188.json`
+  - `public/game_icons/*` (đã chuẩn hóa và nén toàn bộ)
+
+---
+
 ### 79. Khắc Phục Triệt Để Lỗi Crash Màn Hình (Error Boundary) Khi Ấn Vào Ô Tìm Kiếm Trên Điện Thoại Di Động
 - **Mô tả & Yêu cầu Người Dùng**:
   - *"Trên điện thoại, khi tôi ấn vào ô tìm kiếm thì web báo lỗi"* (Màn hình cứu hộ Error Boundary xuất hiện ngay khi người dùng chạm ngón tay vào ô input tìm kiếm trên thiết bị di động).

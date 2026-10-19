@@ -68,38 +68,48 @@ interface GameSearchIconProps {
 }
 
 const GameSearchIcon: React.FC<GameSearchIconProps> = ({ game, size = 'md' }) => {
-  const [hasError, setHasError] = useState(false);
+  const [isLoaded, setIsLoaded] = useState(false);
+  const [fallbackStage, setFallbackStage] = useState(0); // 0: primary, 1: jpg, 2: edge proxy, 3: initials
   const safeName = game?.name || 'Game';
   const sizeClass = size === 'sm' ? 'w-9 h-9' : 'w-10 h-10';
 
   const iconSrc = useMemo(() => {
+    const slug = game?.slug || '';
+    if (fallbackStage === 1) return `/game_icons/${slug}.jpg`;
+    if (fallbackStage === 2) return `/api/game-icon?slug=${encodeURIComponent(slug)}`;
     if (!game?.icon_url || game.icon_url.includes('codemoi.net') || game.icon_url.startsWith('/game-icons')) {
-      return `/game_icons/${game?.slug || ''}.webp`;
+      return `/game_icons/${slug}.webp`;
     }
     return game.icon_url;
-  }, [game?.icon_url, game?.slug]);
+  }, [game?.icon_url, game?.slug, fallbackStage]);
 
-  if (hasError || !iconSrc) {
-    return (
+  return (
+    <div
+      className={`relative ${sizeClass} rounded-xl overflow-hidden border border-border shrink-0 flex items-center justify-center shadow-sm select-none bg-slate-900/40`}
+    >
+      {/* 1. Base Layer: ALWAYS render vibrant branded gradient avatar with initials */}
       <div
-        className={`${sizeClass} rounded-xl bg-gradient-to-br ${getGradientForName(
+        className={`absolute inset-0 w-full h-full bg-gradient-to-br ${getGradientForName(
           safeName
-        )} flex items-center justify-center font-bold text-white text-xs shrink-0 shadow-sm overflow-hidden select-none`}
+        )} flex items-center justify-center font-bold text-white text-xs select-none pointer-events-none`}
+        aria-hidden="true"
       >
         {safeName.slice(0, 2).toUpperCase()}
       </div>
-    );
-  }
 
-  return (
-    <div className={`${sizeClass} rounded-xl bg-muted overflow-hidden border border-border shrink-0 flex items-center justify-center shadow-sm`}>
-      <img
-        src={iconSrc}
-        alt={safeName}
-        className="w-full h-full object-cover"
-        loading="lazy"
-        onError={() => setHasError(true)}
-      />
+      {/* 2. Top Image Layer: Fade in over gradient when loaded */}
+      {fallbackStage < 3 && iconSrc && (
+        <img
+          src={iconSrc}
+          alt={safeName}
+          decoding="async"
+          onLoad={() => setIsLoaded(true)}
+          onError={() => setFallbackStage((prev) => Math.min(3, prev + 1))}
+          className={`absolute inset-0 w-full h-full object-cover transition-opacity duration-200 ${
+            isLoaded ? 'opacity-100' : 'opacity-0'
+          }`}
+        />
+      )}
     </div>
   );
 };

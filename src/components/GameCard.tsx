@@ -68,8 +68,6 @@ export const GameCard: React.FC<GameCardProps> = ({
   viewMode = 'grid',
 }) => {
   const { t } = useLanguage();
-  const [imageLoaded, setImageLoaded] = useState(false);
-  const [imageError, setImageError] = useState(false);
   const [copiedCode, setCopiedCode] = useState(false);
   const [copiedLink, setCopiedLink] = useState(false);
 
@@ -95,19 +93,28 @@ export const GameCard: React.FC<GameCardProps> = ({
   };
 
   const [currentIconSrc, setCurrentIconSrc] = useState(() => getSafeIcon(game.icon_url, game.slug));
+  const [imageLoaded, setImageLoaded] = useState(false);
+  const [fallbackStage, setFallbackStage] = useState(0); // 0: primary webp, 1: local jpg, 2: edge proxy, 3: initials only
 
   useEffect(() => {
     setCurrentIconSrc(getSafeIcon(game.icon_url, game.slug));
     setImageLoaded(false);
-    setImageError(false);
+    setFallbackStage(0);
   }, [game.slug, game.icon_url]);
 
   const handleImageError = () => {
-    const localFallback = `/game_icons/${game.slug}.webp`;
-    if (currentIconSrc !== localFallback) {
-      setCurrentIconSrc(localFallback);
+    const slug = game.slug;
+    if (fallbackStage === 0) {
+      // Stage 1: Try JPG version of the icon
+      setFallbackStage(1);
+      setCurrentIconSrc(`/game_icons/${slug}.jpg`);
+    } else if (fallbackStage === 1) {
+      // Stage 2: Try Edge Proxy endpoint
+      setFallbackStage(2);
+      setCurrentIconSrc(`/api/game-icon?slug=${encodeURIComponent(slug)}`);
     } else {
-      setImageError(true);
+      // Stage 3: Cleanly fallback to colorful branded gradient avatar with initials
+      setFallbackStage(3);
     }
   };
 
@@ -166,30 +173,30 @@ export const GameCard: React.FC<GameCardProps> = ({
 
   const renderGameIcon = (sizeClasses: string, textClasses: string = 'text-xs sm:text-sm') => (
     <div
-      className={`relative ${sizeClasses} rounded-xl bg-muted/70 border border-border/70 overflow-hidden shrink-0 flex items-center justify-center group-hover:scale-105 transition-transform duration-300 shadow-sm`}
+      className={`relative ${sizeClasses} rounded-xl overflow-hidden shrink-0 flex items-center justify-center group-hover:scale-105 transition-transform duration-300 shadow-sm border border-border/70 select-none bg-slate-900/40`}
     >
-      {!imageLoaded && !imageError && (
-        <div className="absolute inset-0 bg-muted animate-pulse" />
-      )}
-      {!imageError ? (
+      {/* 1. Base Layer: ALWAYS render vibrant branded gradient avatar with game initials */}
+      <div
+        className={`absolute inset-0 w-full h-full bg-gradient-to-br ${getGradientForName(
+          game.name
+        )} flex items-center justify-center font-display font-extrabold text-white ${textClasses} shadow-inner select-none pointer-events-none`}
+        aria-hidden="true"
+      >
+        {getGameInitials(game.name)}
+      </div>
+
+      {/* 2. Top Image Layer: Fade in smoothly over the gradient when loaded */}
+      {fallbackStage < 3 && currentIconSrc && (
         <img
           src={currentIconSrc}
           alt={game.name}
-          loading="lazy"
+          decoding="async"
           onLoad={() => setImageLoaded(true)}
           onError={handleImageError}
-          className={`w-full h-full object-cover transition-opacity duration-300 ${
+          className={`absolute inset-0 w-full h-full object-cover transition-opacity duration-300 ${
             imageLoaded ? 'opacity-100' : 'opacity-0'
           }`}
         />
-      ) : (
-        <div
-          className={`w-full h-full bg-gradient-to-br ${getGradientForName(
-            game.name
-          )} flex items-center justify-center font-display font-extrabold text-white ${textClasses} shadow-inner select-none`}
-        >
-          {getGameInitials(game.name)}
-        </div>
       )}
     </div>
   );

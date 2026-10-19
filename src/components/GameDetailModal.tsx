@@ -59,17 +59,23 @@ export const GameDetailModal: React.FC<GameDetailModalProps> = ({
   const [copiedType, setCopiedType] = useState<string | null>(null);
   const [votes, setVotes] = useState<Record<string, { up: number; down: number }>>({});
   const [selectedCodeTab, setSelectedCodeTab] = useState<'all' | 'active' | 'expired'>('all');
-  const [modalImageError, setModalImageError] = useState(false);
+  const [modalImageLoaded, setModalImageLoaded] = useState(false);
+  const [modalFallbackStage, setModalFallbackStage] = useState(0); // 0: webp, 1: jpg, 2: edge proxy, 3: initials
   const [isEmailModalOpen, setIsEmailModalOpen] = useState(false);
   const [isGameFollowed, setIsGameFollowed] = useState(false);
 
   useEffect(() => {
     setLiveGame(game);
-    setModalImageError(false);
+    setModalImageLoaded(false);
+    setModalFallbackStage(0);
     if (game?.slug) {
       setIsGameFollowed(notificationService.isGameFollowed(game.slug));
     }
   }, [game]);
+
+  const handleModalImageError = () => {
+    setModalFallbackStage((prev) => Math.min(3, prev + 1));
+  };
 
   useEffect(() => {
     if (!liveGame?.slug) return;
@@ -248,22 +254,32 @@ export const GameDetailModal: React.FC<GameDetailModalProps> = ({
 
           <div className="flex items-start justify-between gap-2.5 sm:gap-3">
             <div className="flex items-center gap-2.5 sm:gap-3 min-w-0 flex-1">
-              <div className="w-12 h-12 sm:w-16 sm:h-16 rounded-2xl bg-muted border border-border overflow-hidden shrink-0 shadow-lg flex items-center justify-center">
-                {!modalImageError ? (
+              <div className="relative w-12 h-12 sm:w-16 sm:h-16 rounded-2xl overflow-hidden shrink-0 shadow-lg border border-border flex items-center justify-center bg-slate-900/40 select-none">
+                {/* 1. Base Layer: ALWAYS render vibrant branded gradient avatar with initials */}
+                <div className="absolute inset-0 w-full h-full bg-gradient-to-br from-primary via-purple-600 to-accent flex items-center justify-center font-display font-extrabold text-white text-lg sm:text-2xl shadow-inner select-none pointer-events-none">
+                  {initials}
+                </div>
+
+                {/* 2. Top Image Layer: Fade in over gradient when loaded */}
+                {modalFallbackStage < 3 && (
                   <img
                     src={
-                      !currentGame.icon_url || currentGame.icon_url.includes('codemoi.net') || currentGame.icon_url.startsWith('/game-icons')
-                        ? `/game_icons/${currentGame.slug}.webp`
-                        : (currentGame.icon_url || `/game_icons/${currentGame.slug}.webp`)
+                      modalFallbackStage === 1
+                        ? `/game_icons/${currentGame.slug}.jpg`
+                        : modalFallbackStage === 2
+                        ? `/api/game-icon?slug=${encodeURIComponent(currentGame.slug)}`
+                        : (!currentGame.icon_url || currentGame.icon_url.includes('codemoi.net') || currentGame.icon_url.startsWith('/game-icons')
+                            ? `/game_icons/${currentGame.slug}.webp`
+                            : (currentGame.icon_url || `/game_icons/${currentGame.slug}.webp`))
                     }
                     alt={currentGame.name}
-                    className="w-full h-full object-cover"
-                    onError={() => setModalImageError(true)}
+                    decoding="async"
+                    onLoad={() => setModalImageLoaded(true)}
+                    onError={handleModalImageError}
+                    className={`absolute inset-0 w-full h-full object-cover transition-opacity duration-300 ${
+                      modalImageLoaded ? 'opacity-100' : 'opacity-0'
+                    }`}
                   />
-                ) : (
-                  <div className="w-full h-full bg-gradient-to-br from-primary via-purple-600 to-accent flex items-center justify-center font-display font-extrabold text-white text-lg sm:text-2xl select-none">
-                    {initials}
-                  </div>
                 )}
               </div>
 
