@@ -132,6 +132,7 @@ export interface ProductPackageVariant {
   original_price?: number;
   stock_quantity?: number;
   sold_count?: number;
+  virtual_sold_count?: number;
   badge?: string;
   note?: string; // e.g. "Xử lý tiêu chuẩn", "Bảo hành 30 ngày"
   description?: string;

@@ -125,7 +125,11 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
     ? selectedPackage.stock_quantity
     : product.stock_quantity;
   const displayStock = realStock <= 0 ? 0 : marketingService.getDisplayStock(selectedPackage.id || product.id, realStock);
-  const displaySold = marketingService.getSoldDisplay(product as any);
+  const displaySold = marketingService.getSoldDisplay({
+    ...selectedPackage,
+    created_at: product.created_at,
+    fomo_anchor_time: (product as any).fomo_anchor_time,
+  } as any);
   const isOutOfStock = realStock <= 0 || displayStock <= 0;
 
   const currentPrice = selectedPackage.price;
@@ -510,9 +514,14 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
                                 </span>
                               )}
                             </div>
-                            <span className="text-[11px] text-muted-foreground block truncate mt-0.5">
-                              {pkg.note || 'Xử lý tiêu chuẩn'}
-                            </span>
+                            <div className="flex items-center gap-2 mt-0.5">
+                              <span className="text-[11px] text-muted-foreground truncate">
+                                {pkg.note || 'Xử lý tiêu chuẩn'}
+                              </span>
+                              <span className="text-[11px] text-slate-400 font-mono shrink-0">
+                                • Đã bán: <strong className="text-foreground">{marketingService.getSoldDisplay({ ...pkg, created_at: product.created_at } as any)}</strong>
+                              </span>
+                            </div>
                           </div>
 
                           <div className="text-right shrink-0">

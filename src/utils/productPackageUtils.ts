@@ -149,6 +149,7 @@ export function groupStoreProductsByGame(products: StoreProduct[]): StoreProduct
         original_price: item.original_price,
         stock_quantity: item.stock_quantity,
         sold_count: item.sold_count || 0,
+        virtual_sold_count: item.virtual_sold_count || 0,
         badge: item.badge,
         note: item.package_type || 'Gói nạp game',
         is_active: item.is_active !== false,
@@ -156,6 +157,7 @@ export function groupStoreProductsByGame(products: StoreProduct[]): StoreProduct
 
       const totalStock = packages.reduce((sum, p) => sum + (Number(p.stock_quantity) || 0), 0);
       const totalSold = packages.reduce((sum, p) => sum + (Number(p.sold_count) || 0), 0);
+      const totalVirtualSold = list.reduce((sum, p) => sum + (Number(p.virtual_sold_count) || 0), 0);
       const minPrice = Math.min(...packages.map((p) => p.price));
 
       const parentProduct: StoreProduct = {
@@ -165,6 +167,7 @@ export function groupStoreProductsByGame(products: StoreProduct[]): StoreProduct
         current_price: minPrice,
         stock_quantity: totalStock,
         sold_count: totalSold,
+        virtual_sold_count: totalVirtualSold,
         packages,
       };
 
@@ -295,6 +298,7 @@ export function groupUtilitiesByTheme(utilities: UtilityProduct[]): UtilityProdu
         original_price: subItem.original_price,
         stock_quantity: subItem.stock_quantity,
         sold_count: subItem.sold_count || 0,
+        virtual_sold_count: subItem.virtual_sold_count || 0,
         badge: subItem.badge,
         note: 'Giao tài khoản tự động trong 0 giây',
         is_active: subItem.is_active !== false,
@@ -303,6 +307,7 @@ export function groupUtilitiesByTheme(utilities: UtilityProduct[]): UtilityProdu
 
     const totalStock = packages.reduce((sum, p) => sum + (Number(p.stock_quantity) || 0), 0);
     const totalSold = packages.reduce((sum, p) => sum + (Number(p.sold_count) || 0), 0);
+    const totalVirtualSold = list.reduce((sum, p) => sum + (Number(p.virtual_sold_count) || 0), 0);
     const minPrice = Math.min(...packages.map((p) => p.price));
 
     const parentUtility: UtilityProduct = {
@@ -314,6 +319,7 @@ export function groupUtilitiesByTheme(utilities: UtilityProduct[]): UtilityProdu
       current_price: minPrice,
       stock_quantity: totalStock,
       sold_count: totalSold,
+      virtual_sold_count: totalVirtualSold,
       packages,
     };
 
@@ -371,6 +377,7 @@ export function groupGiveawaysByGame(campaigns: GiveawayCampaign[]): GiveawayCam
 
       const totalPool = packages.reduce((sum, p) => sum + (Number(p.remaining_codes) || 0), 0);
       const totalClaimed = packages.reduce((sum, p) => sum + (Number(p.claimed_codes) || 0), 0);
+      const totalVirtualClaimed = list.reduce((sum, p) => sum + (Number(p.virtual_claimed_offset) || 0), 0);
 
       const parentCampaign: GiveawayCampaign = {
         ...lead,
@@ -378,6 +385,7 @@ export function groupGiveawaysByGame(campaigns: GiveawayCampaign[]): GiveawayCam
         title: `Code riêng ${lead.game_name}`,
         remaining_codes: totalPool,
         claimed_codes: totalClaimed,
+        virtual_claimed_offset: totalVirtualClaimed,
         total_codes: totalPool + totalClaimed,
         packages,
       };

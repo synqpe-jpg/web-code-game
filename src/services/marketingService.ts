@@ -416,10 +416,9 @@ class MarketingService {
                   const effectiveSold = canonicalSold + localOrderDelta;
 
                   // RÀNG BUỘC ĐƠN ĐIỆU TUYỆT ĐỐI (Monotonically Non-Decreasing):
-                  // Tuyệt đối không giật lùi số đã bán nếu client đã tích lũy số bán cao hơn qua thông báo toast
+                  // Tuyệt đối không giật lùi số đã bán nếu client đã tích lũy số bán cao hơn; ưu tiên mốc lớn nhất
                   const curHigh = this.highWaterSoldCountMap.get(pId) || 0;
-                  // Tự động thanh lọc đỉnh ảo cũ khi Server Snapshot hạ số lượng xuống (do Admin vừa reset hoặc chỉnh giảm)
-                  const finalSold = (curHigh > effectiveSold + 3 || isOverriddenSold)
+                  const finalSold = isOverriddenSold
                     ? effectiveSold
                     : Math.max(curHigh, effectiveSold);
 
@@ -427,8 +426,8 @@ class MarketingService {
                   this.liveFomoSoldCountMap.set(pId, Math.max(0, finalSold - realSold));
                   this.notifySoldCountChanged(pId, finalSold);
 
-                  // Chỉ gửi peak report nếu vừa có đơn hàng thật phát sinh tại thiết bị này
-                  if (localOrderDelta > 0) {
+                  // Nếu số cục bộ cao hơn server hoặc có đơn hàng thật: đồng bộ peak lên server để chia sẻ cho các máy khác
+                  if (curHigh > effectiveSold || localOrderDelta > 0) {
                     this.schedulePeakReport();
                   }
                 }
@@ -507,10 +506,9 @@ class MarketingService {
                   const effectiveClaimed = canonicalClaimed + localGwDelta;
 
                   // RÀNG BUỘC ĐƠN ĐIỆU TUYỆT ĐỐI (Monotonically Non-Decreasing):
-                  // Tuyệt đối không giật lùi số đã nhận nếu client đã tích lũy số đã nhận cao hơn qua thông báo toast
+                  // Tuyệt đối không giật lùi số đã nhận nếu client đã tích lũy số đã nhận cao hơn; ưu tiên mốc lớn nhất
                   const curHigh = this.highWaterClaimedCountMap.get(gId) || 0;
-                  // Tự động thanh lọc đỉnh ảo cũ khi Server Snapshot hạ số lượng xuống (do Admin vừa reset hoặc chỉnh giảm)
-                  const finalClaimed = (curHigh > effectiveClaimed + 3 || isOverriddenClaimed)
+                  const finalClaimed = isOverriddenClaimed
                     ? effectiveClaimed
                     : Math.max(curHigh, effectiveClaimed);
 
@@ -518,8 +516,8 @@ class MarketingService {
                   this.liveFomoClaimedCountMap.set(gId, Math.max(0, finalClaimed - realClaimed));
                   this.notifySoldCountChanged(gId, finalClaimed);
 
-                  // Chỉ gửi peak report nếu vừa có quà tặng thật nhận tại thiết bị này
-                  if (localGwDelta > 0) {
+                  // Nếu số cục bộ cao hơn server hoặc có quà tặng nhận thật: đồng bộ peak lên server để chia sẻ cho các máy khác
+                  if (curHigh > effectiveClaimed || localGwDelta > 0) {
                     this.schedulePeakReport();
                   }
                 }
@@ -2347,8 +2345,32 @@ class MarketingService {
     return null;
   }
 
-  public getSoldDisplay(item: { id?: string; sold_count?: number; virtual_sold_count?: number; created_at?: string; createdAt?: string; fomo_anchor_time?: string; virtual_sold_updated_at?: string } | null | undefined): number {
+  public getSoldDisplay(item: { id?: string; sold_count?: number; virtual_sold_count?: number; created_at?: string; createdAt?: string; fomo_anchor_time?: string; virtual_sold_updated_at?: string; packages?: any[] } | null | undefined): number {
     if (!item) return 0;
+
+    // NẾU LÀ SẢN PHẨM GOM NHÓM CÓ NHIỀU GÓI CON (VARIANTS / PACKAGES):
+    // Tự động cộng tổng số lượng đã bán của tất cả các gói con lại hiển thị cho thẻ đại diện
+    if (Array.isArray((item as any)?.packages) && (item as any).packages.length > 1) {
+      const sumVariantSold = (item as any).packages.reduce((sum: number, pkg: any) => {
+        const singlePkg = {
+          ...pkg,
+          packages: undefined,
+          created_at: pkg.created_at || item.created_at || (item as any).createdAt,
+          fomo_anchor_time: (pkg as any).fomo_anchor_time || (item as any).fomo_anchor_time,
+        };
+        return sum + this.getSoldDisplay(singlePkg);
+      }, 0);
+
+      const id = item.id || '';
+      const recordedMax = id ? (this.highWaterSoldCountMap.get(id) || 0) : 0;
+      const finalDisplay = Math.max(sumVariantSold, recordedMax);
+      if (id && finalDisplay > recordedMax) {
+        this.highWaterSoldCountMap.set(id, finalDisplay);
+        this.saveHighWaterCounts();
+      }
+      return finalDisplay;
+    }
+
     const id = item.id || '';
     const details = id && (item.sold_count === undefined || item.virtual_sold_count === undefined) ? this.findItemDetails(id) : null;
 
@@ -2430,8 +2452,32 @@ class MarketingService {
     return finalDisplay;
   }
 
-  public getClaimedDisplay(campaign: { id?: string; claimed_codes?: number; virtual_claimed_offset?: number; created_at?: string; createdAt?: string; fomo_anchor_time?: string; virtual_claimed_updated_at?: string } | null | undefined): number {
+  public getClaimedDisplay(campaign: { id?: string; claimed_codes?: number; virtual_claimed_offset?: number; created_at?: string; createdAt?: string; fomo_anchor_time?: string; virtual_claimed_updated_at?: string; packages?: any[] } | null | undefined): number {
     if (!campaign) return 0;
+
+    // NẾU LÀ CHIẾN DỊCH GOM NHÓM CÓ NHIỀU GÓI QUÀ (PACKAGES):
+    // Tự động cộng tổng số lượng đã nhận của tất cả các gói quà lại hiển thị cho thẻ đại diện
+    if (Array.isArray((campaign as any)?.packages) && (campaign as any).packages.length > 1) {
+      const sumVariantClaimed = (campaign as any).packages.reduce((sum: number, pkg: any) => {
+        const singlePkg = {
+          ...pkg,
+          packages: undefined,
+          created_at: pkg.created_at || campaign.created_at || (campaign as any).createdAt,
+          fomo_anchor_time: (pkg as any).fomo_anchor_time || (campaign as any).fomo_anchor_time,
+        };
+        return sum + this.getClaimedDisplay(singlePkg);
+      }, 0);
+
+      const id = campaign.id || '';
+      const recordedMax = id ? (this.highWaterClaimedCountMap.get(id) || 0) : 0;
+      const finalDisplay = Math.max(sumVariantClaimed, recordedMax);
+      if (id && finalDisplay > recordedMax) {
+        this.highWaterClaimedCountMap.set(id, finalDisplay);
+        this.saveHighWaterCounts();
+      }
+      return finalDisplay;
+    }
+
     const id = campaign.id || '';
     const details = id && (campaign.claimed_codes === undefined || campaign.virtual_claimed_offset === undefined) ? this.findGiveawayDetails(id) : null;
 

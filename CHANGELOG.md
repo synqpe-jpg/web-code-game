@@ -7,6 +7,35 @@ Mỗi mục sửa lỗi đều ghi nhận **Nguyên nhân gốc rễ (Root Cause
 
 ## [2026-10-20]
 
+### 97. Khắc Phục Lỗi Kéo Lùi Số Bán Ảo Thẻ Gom Nhóm & Đồng Bộ Số Đã Bán Lũy Kế Đơn Điệu Không Giảm
+- **Mô tả & Yêu cầu người dùng**:
+  - Người dùng phản ánh: *"Ngoại trừ gói 7 ngày có hàng trong kho, thì các gói còn lại đều hết hàng, mà hàng đã không có trong kho thực thì mặc định kho ảo cũng = 0. Bạn giúp tôi tổng cả 3 gói con lại hiển thị, nhưng khi khách mở ra vẫn phải hiển thị từng loại đã bán bao nhiêu. Con số ảo nào lớn thì đổ quy tắc để lấy số đó, đồng thời đồng bộ giữa các máy và trình duyệt khác nhau. Đảm bảo thông số hàng đã bán tăng dần chứ không bị kéo giật lùi nữa. Các mục khác bên các kênh khác tương tự."*
+- **Nguyên nhân gốc rễ & Phân tích (Root Cause & Analysis)**:
+  1. *Thẻ gom nhóm bị đè số bởi một gói con đơn lẻ*: Các dòng Tiện ích như VS Phone VIP có 3 gói con (1 Ngày = 39, 7 Ngày = 64, 30 Ngày = 110). Thẻ đại diện ngoài sàn trước đây chỉ lấy ID và `virtual_sold_count` của riêng gói 7 ngày (64). Khi Poller tải snapshot từ server của mã này, nó đè bẹp số bán của cả thẻ nhóm về 64.
+  2. *Cơ chế Auto-Heal kẹp trần nhân tạo (`curHigh > effectiveSold + 3`)*: Khi trình duyệt của người dùng tích lũy được mốc cao (ví dụ 184), snapshot server của riêng gói con (64) kích hoạt điều kiện chênh lệch quá 3 đơn, kéo giật lùi số đã bán của thẻ đại diện từ 184 về 64.
+  3. *Modal chi tiết chưa tách biệt số bán từng gói con*: Trong `ProductDetailModal.tsx`, biến `displaySold` lấy theo sản phẩm cha (`product`) thay vì theo gói được chọn (`selectedPackage`).
+- **Giải pháp toàn diện đã triển khai (Solution)**:
+  1. *Chuẩn hóa kho hàng thật vs kho ảo (`src/data/utilities.json`)*:
+     - Giữ nguyên `stock_quantity: 8` cho gói duy nhất còn hàng `ut_vs_05_vip_7d`.
+     - Chuyển toàn bộ 17 gói VS Phone khác về `stock_quantity: 0`, đảm bảo hiển thị đúng "Hết hàng" và kho ảo = 0 theo Quy tắc vàng kho hàng. Thẻ VS Phone VIP hiển thị "Còn: 8".
+  2. *Cộng dồn số lượng đã bán cho toàn bộ thẻ gom nhóm (`src/services/marketingService.ts` & `src/utils/productPackageUtils.ts`)*:
+     - Trong `getSoldDisplay`: Nếu sản phẩm có `packages && packages.length > 1`, tự động tính tổng số đã bán của tất cả các gói con gộp lại:
+       $$\text{Tổng đã bán VIP} = 39 + 64 + 110 = \mathbf{213\text{ gói}}$$
+     - Tương tự trong `getClaimedDisplay` cho chiến dịch Giveaway gom nhóm.
+  3. *Hiển thị chi tiết số lượng đã bán từng gói trong Modal (`ProductDetailModal.tsx`)*:
+     - Khối đánh giá trên đầu Modal cập nhật tức thì theo gói đang chọn (`marketingService.getSoldDisplay(selectedPackage)`).
+     - Danh sách từng gói con hiển thị chi tiết: `• Đã bán: [X]` kèm trạng thái "Còn lại: Y" hoặc "Hết hàng".
+  4. *Ràng buộc đơn điệu tuyệt đối & Đồng bộ mốc lớn nhất giữa các máy (`marketingService.ts`)*:
+     - Loại bỏ điều kiện kéo giật lùi `curHigh > effectiveSold + 3`, áp dụng quy tắc: `finalSold = isOverriddenSold ? effectiveSold : Math.max(curHigh, effectiveSold)`.
+     - Khi số cục bộ cao hơn server, tự động kích hoạt `schedulePeakReport()` đẩy mốc đỉnh lên Cloudflare Backend, đảm bảo mọi thiết bị và trình duyệt khác nhau đều được đồng bộ mốc cao nhất và thông số chỉ có tăng dần.
+- **Files Modified**:
+  - `src/data/utilities.json`
+  - `src/types/game.ts`
+  - `src/utils/productPackageUtils.ts`
+  - `src/components/ProductDetailModal.tsx`
+  - `src/services/marketingService.ts`
+  - `CHANGELOG.md` (Mục 97)
+
 ### 96. Chuẩn Hóa Mẫu Mặc Định & Cập Nhật Toàn Bộ Sản Phẩm Giveaway Theo Công Thức "Code riêng + Tên game" & "Code ngẫu nhiên"
 - **Mô tả & Yêu cầu người dùng**:
   - Người dùng yêu cầu: *"Tại Giveaway, bạn mặc định giúp tôi vài thông tin, tôi vẫn có thể chỉnh sửa nếu cần như cũ nhưng nội dung mẫu khi tạo thì bạn làm nhứau giúp tôi. Tiêu đề đợt phát: Code riêng + Kèm tên tựa game được chọn. Phần thưởng chi tiết: Code ngẫu nhiên. Từ nay về sau các sản phẩm mới đều như vậy, đồng thời bạn sửa giúp tôi sản phẩm cũ theo công thức như trên."*
