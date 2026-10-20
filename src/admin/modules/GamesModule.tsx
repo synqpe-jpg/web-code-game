@@ -11,7 +11,14 @@ import {
   Save,
   Sliders,
   Smartphone,
+  Bot,
+  Radio,
+  MessageSquare,
+  Check,
+  X,
+  Sparkles,
 } from 'lucide-react';
+import type { CrawlerSource } from '../../types/game';
 import { DataTable, Column } from '../components/ui/DataTable';
 import { StatusBadge } from '../components/ui/StatusBadge';
 import { ConfirmModal } from '../components/ui/ConfirmModal';
@@ -36,6 +43,15 @@ export const GamesModule: React.FC<GamesModuleProps> = ({ onShowToast, onOpenGam
   // Edit / Create Form Modal State
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [editingGame, setEditingGame] = useState<Partial<GameAdminRecord> | null>(null);
+
+  // Crawler Sources State for Game
+  const [gameSources, setGameSources] = useState<CrawlerSource[]>([]);
+  const [originalSlug, setOriginalSlug] = useState<string>('');
+  const [isAddingSource, setIsAddingSource] = useState(false);
+  const [newSourceType, setNewSourceType] = useState<'official_fb' | 'official_site' | 'reputable_web' | 'community_discord'>('official_fb');
+  const [newSourceName, setNewSourceName] = useState('');
+  const [newSourceUrl, setNewSourceUrl] = useState('');
+  const [newSourceDesc, setNewSourceDesc] = useState('');
 
   // Delete Confirm Modal State
   const [isDeleteOpen, setIsDeleteOpen] = useState(false);
@@ -71,6 +87,13 @@ export const GamesModule: React.FC<GamesModuleProps> = ({ onShowToast, onOpenGam
     setIsLoading(false);
   };
 
+  const resetNewSourceForm = () => {
+    setNewSourceType('official_fb');
+    setNewSourceName('');
+    setNewSourceUrl('');
+    setNewSourceDesc('');
+  };
+
   const handleCreateNew = () => {
     setEditingGame({
       id: '',
@@ -90,19 +113,90 @@ export const GamesModule: React.FC<GamesModuleProps> = ({ onShowToast, onOpenGam
       so_giay_phep: '',
       ngay_cap_phep: '',
     });
+    setOriginalSlug('');
+    setGameSources([]);
+    setIsAddingSource(false);
+    resetNewSourceForm();
     setIsFormOpen(true);
   };
 
   const handleEdit = (game: GameAdminRecord) => {
     setEditingGame({ ...game });
+    setOriginalSlug(game.slug || '');
+    const currentSources = adminDataService.getGameCrawlerSources(game.slug || '');
+    setGameSources(currentSources);
+    setIsAddingSource(false);
+    resetNewSourceForm();
     setIsFormOpen(true);
   };
 
-  const handleSaveGame = (e: React.FormEvent) => {
+  const handleAddGameSource = (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
+    if (!newSourceName.trim() || !newSourceUrl.trim()) {
+      onShowToast('Thiếu thông tin', 'Vui lòng nhập tên nguồn và đường dẫn URL.', 'error');
+      return;
+    }
+
+    const newSrc: CrawlerSource = {
+      id: `src_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
+      name: newSourceName.trim(),
+      type: newSourceType,
+      url: newSourceUrl.trim(),
+      targetGameSlug: editingGame?.slug || '',
+      description: newSourceDesc.trim() || undefined,
+      isEnabled: true,
+    };
+
+    setGameSources((prev) => [...prev, newSrc]);
+    resetNewSourceForm();
+    setIsAddingSource(false);
+    onShowToast('Đã thêm nguồn', `Đã thêm "${newSrc.name}" vào danh sách nguồn quét code. Nhấn "Lưu Thay Đổi" để hoàn tất.`, 'info');
+  };
+
+  const handleToggleGameSource = (sourceId: string) => {
+    setGameSources((prev) =>
+      prev.map((s) => (s.id === sourceId ? { ...s, isEnabled: !s.isEnabled } : s))
+    );
+  };
+
+  const handleDeleteGameSource = (sourceId: string) => {
+    setGameSources((prev) => prev.filter((s) => s.id !== sourceId));
+    onShowToast('Đã gỡ nguồn', 'Đã gỡ nguồn quét code khỏi danh sách.', 'info');
+  };
+
+  const applyTemplate = (type: 'official_fb' | 'official_site' | 'reputable_web') => {
+    const gameName = editingGame?.name?.trim() || 'Tựa Game';
+    setNewSourceType(type);
+    if (type === 'official_fb') {
+      setNewSourceName(`Fanpage Facebook Chính Thức - ${gameName}`);
+      setNewSourceDesc(`Trang Fanpage cộng đồng chính thức cập nhật giftcode và sự kiện ${gameName}`);
+    } else if (type === 'official_site') {
+      setNewSourceName(`Trang Chủ & Cổng Nhập Code - ${gameName}`);
+      setNewSourceDesc(`Trang chủ sự kiện và cổng quy đổi mã quà tặng chính thức của NPH`);
+    } else if (type === 'reputable_web') {
+      setNewSourceName(`Cẩm Nang Code Game - ${gameName}`);
+      setNewSourceDesc(`Trang tin tức và hướng dẫn nhận giftcode cập nhật thường xuyên`);
+    }
+  };
+
+  const handleSaveGame = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!editingGame || !editingGame.name?.trim()) {
       onShowToast('Lỗi', 'Tên game không được để trống.', 'error');
       return;
+    }
+
+    // Auto-generate slug if missing
+    let targetSlug = editingGame.slug?.trim();
+    if (!targetSlug) {
+      targetSlug = editingGame.name
+        .toLowerCase()
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '')
+        .replace(/[đĐ]/g, 'd')
+        .replace(/[^a-z0-9]+/g, '-')
+        .replace(/^-+|-+$/g, '');
+      editingGame.slug = targetSlug;
     }
 
     try {
@@ -110,16 +204,30 @@ export const GamesModule: React.FC<GamesModuleProps> = ({ onShowToast, onOpenGam
         // Update
         const updated = adminDataService.updateGame(editingGame.id, editingGame);
         if (updated) {
-          onShowToast('Thành công', `Đã cập nhật thông tin game ${updated.name}.`, 'success');
+          // Sync crawler sources
+          await adminDataService.syncGameCrawlerSources(targetSlug, gameSources, originalSlug);
+          onShowToast(
+            'Cập nhật thành công! 🎉',
+            `Đã lưu game ${updated.name} và tự động đồng bộ ${gameSources.length} nguồn quét code vào mục Crawler & Tự Động Hóa.`,
+            'success'
+          );
         }
       } else {
         // Create
         const created = adminDataService.createGame(editingGame as any);
-        onShowToast('Thành công', `Đã thêm game mới ${created.name}.`, 'success');
+        // Sync crawler sources
+        await adminDataService.syncGameCrawlerSources(targetSlug, gameSources);
+        onShowToast(
+          'Thêm game mới thành công! 🎉',
+          `Đã tạo game ${created.name} và tự động kích hoạt ${gameSources.length} nguồn quét code trong Crawler.`,
+          'success'
+        );
       }
 
       setIsFormOpen(false);
       setEditingGame(null);
+      setOriginalSlug('');
+      setGameSources([]);
       loadGames();
     } catch (err: any) {
       onShowToast('Thao tác thất bại', err?.message || 'Có lỗi xảy ra', 'error');
@@ -130,7 +238,10 @@ export const GamesModule: React.FC<GamesModuleProps> = ({ onShowToast, onOpenGam
     if (!deletingGame) return;
     const ok = adminDataService.deleteGame(deletingGame.id);
     if (ok) {
-      onShowToast('Đã xóa game', `Game ${deletingGame.name} đã được xóa thành công.`, 'success');
+      if (deletingGame.slug) {
+        adminDataService.deleteGameCrawlerSources(deletingGame.slug);
+      }
+      onShowToast('Đã xóa game', `Game ${deletingGame.name} và các nguồn quét code liên quan đã được xóa thành công.`, 'success');
       setIsDeleteOpen(false);
       setDeletingGame(null);
       loadGames();
@@ -412,7 +523,7 @@ export const GamesModule: React.FC<GamesModuleProps> = ({ onShowToast, onOpenGam
         }}
         title={editingGame?.id ? `Chỉnh Sửa Game: ${editingGame.name}` : 'Thêm Game Mới Vào Hệ Thống'}
         subtitle="Thông tin sẽ được cập nhật trực tiếp vào cơ sở dữ liệu và hiển thị ngay cho khách hàng."
-        maxWidth="2xl"
+        maxWidth="3xl"
       >
         <form onSubmit={handleSaveGame} className="space-y-4">
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
@@ -584,6 +695,259 @@ export const GamesModule: React.FC<GamesModuleProps> = ({ onShowToast, onOpenGam
               placeholder="Giới thiệu nội dung game..."
               className="mt-1 w-full rounded-xl border border-slate-200 bg-white p-2.5 text-xs text-slate-900 focus:border-indigo-500 focus:outline-none dark:border-slate-700 dark:bg-slate-800 dark:text-white"
             />
+          </div>
+
+          {/* NGUỒN QUÉT CODE TỰ ĐỘNG CHO GAME (TỰ ĐỘNG THÊM VÀO CRAWLER) */}
+          <div className="rounded-2xl border border-indigo-200/80 bg-indigo-50/40 p-4 dark:border-indigo-900/60 dark:bg-indigo-950/20 space-y-3.5">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+              <div className="flex items-center gap-2">
+                <div className="p-1.5 rounded-lg bg-indigo-600 text-white shadow-sm">
+                  <Bot className="w-4 h-4" />
+                </div>
+                <div>
+                  <div className="flex items-center gap-2">
+                    <h4 className="text-xs font-bold text-slate-900 dark:text-white">
+                      Nguồn Quét Code Tự Động (Crawler Sources)
+                    </h4>
+                    <span className="px-2 py-0.5 rounded-full text-[10px] font-black bg-indigo-100 dark:bg-indigo-900/60 text-indigo-700 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800">
+                      {gameSources.length} nguồn
+                    </span>
+                  </div>
+                  <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">
+                    Thêm các liên kết Website, Fanpage Facebook hoặc Discord để tự động cào giftcode định kỳ. Các nguồn này sẽ tự động được đồng bộ vào mục <strong>Crawler & Tự Động Hóa Giftcode</strong>.
+                  </p>
+                </div>
+              </div>
+
+              {!isAddingSource && (
+                <button
+                  type="button"
+                  onClick={() => setIsAddingSource(true)}
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold shadow-sm transition-all self-start sm:self-auto shrink-0 cursor-pointer"
+                >
+                  <Plus className="w-3.5 h-3.5" />
+                  <span>Thêm Nguồn Quét Code</span>
+                </button>
+              )}
+            </div>
+
+            {/* Danh sách các nguồn đã gán cho game này */}
+            {gameSources.length === 0 ? (
+              <div className="text-center py-6 px-4 rounded-xl border border-dashed border-slate-300 dark:border-slate-700 bg-white/60 dark:bg-slate-900/60">
+                <Radio className="w-8 h-8 text-slate-400 dark:text-slate-600 mx-auto mb-1.5 opacity-60" />
+                <p className="text-xs font-semibold text-slate-700 dark:text-slate-300">
+                  Chưa có nguồn quét code nào riêng cho tựa game này
+                </p>
+                <p className="text-[11px] text-slate-500 dark:text-slate-400 max-w-md mx-auto mt-0.5">
+                  Bấm nút <strong>"Thêm Nguồn Quét Code"</strong> ở trên để thêm link Facebook Fanpage hoặc Website chính thức của game.
+                </p>
+              </div>
+            ) : (
+              <div className="space-y-2 max-h-60 overflow-y-auto pr-1">
+                {gameSources.map((source, idx) => {
+                  const isFB = source.type === 'official_fb';
+                  const isSite = source.type === 'official_site';
+                  const isDiscord = source.type === 'community_discord';
+
+                  const badgeClass = isFB
+                    ? 'bg-blue-100 text-blue-700 dark:bg-blue-950 dark:text-blue-300 border-blue-200 dark:border-blue-800'
+                    : isSite
+                    ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300 border-emerald-200 dark:border-emerald-800'
+                    : isDiscord
+                    ? 'bg-purple-100 text-purple-700 dark:bg-purple-950 dark:text-purple-300 border-purple-200 dark:border-purple-800'
+                    : 'bg-amber-100 text-amber-700 dark:bg-amber-950 dark:text-amber-300 border-amber-200 dark:border-amber-800';
+
+                  const badgeLabel = isFB
+                    ? '📘 Fanpage Facebook'
+                    : isSite
+                    ? '🏠 Trang Chủ / Cổng Code'
+                    : isDiscord
+                    ? '💬 Discord Cộng Đồng'
+                    : '🌐 Báo Game / Web';
+
+                  return (
+                    <div
+                      key={source.id || idx}
+                      className="flex items-center justify-between gap-3 p-3 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-xs hover:border-indigo-400 dark:hover:border-indigo-600 transition-all"
+                    >
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span className={`px-2 py-0.5 rounded-md text-[10px] font-bold border ${badgeClass}`}>
+                            {badgeLabel}
+                          </span>
+                          <span className="font-bold text-xs text-slate-900 dark:text-white truncate">
+                            {source.name}
+                          </span>
+                          {!source.isEnabled && (
+                            <span className="px-1.5 py-0.2 rounded text-[10px] font-semibold bg-slate-100 text-slate-500 dark:bg-slate-800 dark:text-slate-400">
+                              Tạm dừng
+                            </span>
+                          )}
+                        </div>
+                        <div className="flex items-center gap-2 mt-1">
+                          <a
+                            href={source.url}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="text-[11px] text-indigo-600 dark:text-indigo-400 hover:underline flex items-center gap-1 font-mono truncate max-w-sm sm:max-w-md"
+                          >
+                            <span className="truncate">{source.url}</span>
+                            <ExternalLink className="w-3 h-3 shrink-0 opacity-70" />
+                          </a>
+                        </div>
+                        {source.description && (
+                          <p className="text-[10px] text-slate-500 dark:text-slate-400 truncate mt-0.5">
+                            {source.description}
+                          </p>
+                        )}
+                      </div>
+
+                      <div className="flex items-center gap-2 shrink-0">
+                        {/* Toggle Active Switch */}
+                        <button
+                          type="button"
+                          onClick={() => handleToggleGameSource(source.id)}
+                          className={`relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${
+                            source.isEnabled ? 'bg-emerald-500' : 'bg-slate-300 dark:bg-slate-700'
+                          }`}
+                          title={source.isEnabled ? 'Đang kích hoạt (Bấm để tạm dừng)' : 'Đang tạm dừng (Bấm để kích hoạt)'}
+                        >
+                          <span
+                            className={`pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow-md ring-0 transition duration-200 ease-in-out ${
+                              source.isEnabled ? 'translate-x-4' : 'translate-x-0'
+                            }`}
+                          />
+                        </button>
+
+                        {/* Delete Source Button */}
+                        <button
+                          type="button"
+                          onClick={() => handleDeleteGameSource(source.id)}
+                          className="p-1.5 rounded-lg text-slate-400 hover:bg-rose-50 hover:text-rose-600 dark:hover:bg-rose-950/40 dark:hover:text-rose-400 transition-colors cursor-pointer"
+                          title="Xóa nguồn quét này"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+
+            {/* FORM THÊM NGUỒN MỚI (INLINE) */}
+            {isAddingSource && (
+              <div className="p-3.5 rounded-xl bg-white dark:bg-slate-900 border border-indigo-300 dark:border-indigo-700 shadow-md space-y-3 animate-in fade-in duration-150">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-bold text-slate-900 dark:text-white flex items-center gap-1.5">
+                    <Sparkles className="w-3.5 h-3.5 text-indigo-500" />
+                    <span>Thêm Nguồn Quét Code Mới</span>
+                  </span>
+                  <div className="flex items-center gap-1">
+                    <span className="text-[11px] text-slate-500 dark:text-slate-400 mr-1 hidden sm:inline">Mẫu nhanh:</span>
+                    <button
+                      type="button"
+                      onClick={() => applyTemplate('official_fb')}
+                      className="px-2 py-0.5 rounded text-[10px] font-bold bg-blue-50 hover:bg-blue-100 text-blue-700 dark:bg-blue-950/60 dark:text-blue-300 border border-blue-200 dark:border-blue-800 transition-colors cursor-pointer"
+                    >
+                      📘 Fanpage FB
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => applyTemplate('official_site')}
+                      className="px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-50 hover:bg-emerald-100 text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800 transition-colors cursor-pointer"
+                    >
+                      🏠 Trang Chủ
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => applyTemplate('reputable_web')}
+                      className="px-2 py-0.5 rounded text-[10px] font-bold bg-amber-50 hover:bg-amber-100 text-amber-700 dark:bg-amber-950/60 dark:text-amber-300 border border-amber-200 dark:border-amber-800 transition-colors cursor-pointer"
+                    >
+                      🌐 Báo Game
+                    </button>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
+                  <div>
+                    <label className="text-[11px] font-bold text-slate-700 dark:text-slate-300">
+                      Loại Nguồn Quét <span className="text-rose-500">*</span>
+                    </label>
+                    <select
+                      value={newSourceType}
+                      onChange={(e) => setNewSourceType(e.target.value as any)}
+                      className="mt-1 w-full rounded-xl border border-slate-200 bg-white p-2 text-xs text-slate-900 focus:border-indigo-500 focus:outline-none dark:border-slate-700 dark:bg-slate-800 dark:text-white"
+                    >
+                      <option value="official_fb">📘 Facebook Fanpage Chính Thức</option>
+                      <option value="official_site">🏠 Trang Chủ / Cổng Nhập Code</option>
+                      <option value="reputable_web">🌐 Báo Game / Trang Web Uy Tín</option>
+                      <option value="community_discord">💬 Discord Cộng Đồng</option>
+                    </select>
+                  </div>
+
+                  <div className="sm:col-span-2">
+                    <label className="text-[11px] font-bold text-slate-700 dark:text-slate-300">
+                      Tên Nguồn <span className="text-rose-500">*</span>
+                    </label>
+                    <input
+                      type="text"
+                      value={newSourceName}
+                      onChange={(e) => setNewSourceName(e.target.value)}
+                      placeholder="VD: Fanpage Facebook Chính Thức - Genshin Impact"
+                      className="mt-1 w-full rounded-xl border border-slate-200 bg-white p-2 text-xs text-slate-900 focus:border-indigo-500 focus:outline-none dark:border-slate-700 dark:bg-slate-800 dark:text-white"
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="text-[11px] font-bold text-slate-700 dark:text-slate-300">
+                    Đường Dẫn URL (Link Fanpage / Website) <span className="text-rose-500">*</span>
+                  </label>
+                  <input
+                    type="url"
+                    value={newSourceUrl}
+                    onChange={(e) => setNewSourceUrl(e.target.value)}
+                    placeholder="VD: https://facebook.com/genshinimpact.vi hoặc https://genshin.hoyoverse.com/vi/gift"
+                    className="mt-1 w-full rounded-xl border border-slate-200 bg-white p-2 text-xs text-slate-900 focus:border-indigo-500 focus:outline-none dark:border-slate-700 dark:bg-slate-800 dark:text-white font-mono"
+                  />
+                </div>
+
+                <div>
+                  <label className="text-[11px] font-bold text-slate-700 dark:text-slate-300">
+                    Ghi Chú / Mô Tả (Tùy chọn)
+                  </label>
+                  <input
+                    type="text"
+                    value={newSourceDesc}
+                    onChange={(e) => setNewSourceDesc(e.target.value)}
+                    placeholder="VD: Quét bài viết phát mã quà tặng khi livestream máy chủ mới"
+                    className="mt-1 w-full rounded-xl border border-slate-200 bg-white p-2 text-xs text-slate-900 focus:border-indigo-500 focus:outline-none dark:border-slate-700 dark:bg-slate-800 dark:text-white"
+                  />
+                </div>
+
+                <div className="flex items-center justify-end gap-2 pt-1">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setIsAddingSource(false);
+                      resetNewSourceForm();
+                    }}
+                    className="px-3 py-1.5 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300 text-xs font-semibold text-slate-700 transition-colors cursor-pointer"
+                  >
+                    Hủy
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleAddGameSource()}
+                    className="inline-flex items-center gap-1.5 px-4 py-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold shadow-sm transition-all cursor-pointer"
+                  >
+                    <Check className="w-3.5 h-3.5" />
+                    <span>Lưu Nguồn Vào Danh Sách</span>
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
 
           <div className="flex items-center justify-end gap-3 pt-3 border-t border-slate-100 dark:border-slate-800">

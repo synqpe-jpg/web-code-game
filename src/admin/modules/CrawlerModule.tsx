@@ -43,6 +43,7 @@ import { adminDataService } from '../services/adminDataService';
 import { GameAdminRecord, PendingCrawlerGame, CrawlerAutoPublishConfig } from '../types/adminTypes';
 import { smartVietnameseMatch } from '../../utils/textUtils';
 import defaultSources from '../../data/crawler_sources.json';
+import type { CrawlerSource } from '../../types/game';
 
 interface PendingCrawlerCode {
   id: string;
@@ -63,15 +64,7 @@ interface PendingCrawlerCode {
   createdAt: string;
 }
 
-interface CrawlerSource {
-  id: string;
-  name: string;
-  type: 'reputable_web' | 'official_fb' | 'community_discord' | 'official_site';
-  url: string;
-  targetGameSlug?: string;
-  isEnabled: boolean;
-  description?: string;
-}
+// CrawlerSource imported from types/game
 
 interface CrawlerLog {
   id: string;
@@ -388,6 +381,17 @@ export const CrawlerModule: React.FC<CrawlerModuleProps> = ({ onShowToast }) => 
 
   useEffect(() => {
     loadData();
+
+    const handleSourcesUpdate = () => {
+      loadData();
+    };
+
+    window.addEventListener('wcg_crawler_sources_updated', handleSourcesUpdate);
+    window.addEventListener('wcg_admin_data_updated', handleSourcesUpdate);
+    return () => {
+      window.removeEventListener('wcg_crawler_sources_updated', handleSourcesUpdate);
+      window.removeEventListener('wcg_admin_data_updated', handleSourcesUpdate);
+    };
   }, []);
 
   // Available Pending Sources with Code Counts

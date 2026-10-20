@@ -18,7 +18,8 @@ import {
   PendingCrawlerGame,
   CrawlerAutoPublishConfig,
 } from '../types/adminTypes';
-import type { GiveawayCampaign, StoreProduct, UtilityProduct, UtilityCategory, StoreCategory } from '../../types/game';
+import type { GiveawayCampaign, StoreProduct, UtilityProduct, UtilityCategory, StoreCategory, CrawlerSource } from '../../types/game';
+import defaultCrawlerSources from '../../data/crawler_sources.json';
 import rawGamesData from '../../data/games188.json';
 import rawCodesData from '../../data/crawled_codes_188.json';
 import { DEFAULT_STORE_PRODUCTS, DEFAULT_INVENTORY, DEFAULT_UTILITY_PRODUCTS } from '../../data/seedData';
@@ -45,6 +46,7 @@ class AdminDataService {
   private customFreeCodes: FreeCodeRecord[] = [];
   private deletedFreeCodeIds: Set<string> = new Set();
   private pendingGames: PendingCrawlerGame[] = [];
+  private crawlerSources: CrawlerSource[] = [];
   private crawlerAutoPublishGamesConfig: CrawlerAutoPublishConfig = {
     enabled: true,
     autoPublishWhenHasCodes: true,
@@ -317,6 +319,21 @@ class AdminDataService {
             }));
           }
         } catch {}
+      }
+
+            const savedCrawlerSources = localStorage.getItem('wcg_admin_crawler_sources_v1');
+      if (savedCrawlerSources) {
+        try {
+          const parsed = JSON.parse(savedCrawlerSources);
+          if (Array.isArray(parsed) && parsed.length > 0) {
+            this.crawlerSources = parsed;
+          }
+        } catch {}
+      }
+      if (this.crawlerSources.length === 0 && Array.isArray(defaultCrawlerSources)) {
+        this.crawlerSources = (defaultCrawlerSources as CrawlerSource[]).filter(
+          (s) => !s?.url?.includes('codemoi.net') && !s?.name?.toLowerCase().includes('codemoi')
+        );
       }
 
       const savedPendingGames = localStorage.getItem('wcg_crawler_pending_games_v1');
@@ -1335,6 +1352,12 @@ class AdminDataService {
                 hasUpdates = true;
               }
             }
+                        if (json.crawlerSources && Array.isArray(json.crawlerSources)) {
+              this.crawlerSources = json.crawlerSources;
+              this.safeSetItem('wcg_admin_crawler_sources_v1', JSON.stringify(this.crawlerSources));
+              hasUpdates = true;
+            }
+
             if (json.marketingConfig && typeof json.marketingConfig === 'object') {
               const currentMarketing = localStorage.getItem('wcg_marketing_config_v1');
               const newMarketing = JSON.stringify(json.marketingConfig);
@@ -3938,6 +3961,58 @@ class AdminDataService {
 
     return this.pendingSyncPromise;
   }
+
+  public getCrawlerSources(): CrawlerSource[] {
+    return [...this.crawlerSources];
+  }
+
+  public getGameCrawlerSources(gameSlug: string): CrawlerSource[] {
+    if (!gameSlug) return [];
+    return this.crawlerSources.filter((s) => s.targetGameSlug === gameSlug);
+  }
+
+  public async saveCrawlerSources(sources: CrawlerSource[]): Promise<boolean> {
+    this.crawlerSources = sources;
+    try {
+      this.safeSetItem('wcg_admin_crawler_sources_v1', JSON.stringify(sources));
+      crossOriginSync.setItem('wcg_admin_crawler_sources_v1', sources);
+      this.broadcastSync('CRAWLER_SOURCES_UPDATED', sources);
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new CustomEvent('wcg_crawler_sources_updated', { detail: sources }));
+      }
+      await this.syncToCloudflareKV('wcg_crawler_sources_v1', sources);
+      return true;
+    } catch (e) {
+      console.warn('[AdminDataService] Lỗi lưu crawler sources:', e);
+      return false;
+    }
+  }
+
+  public async syncGameCrawlerSources(
+    newGameSlug: string,
+    gameSources: CrawlerSource[],
+    oldGameSlug?: string
+  ): Promise<boolean> {
+    if (!newGameSlug) return false;
+    const otherSources = this.crawlerSources.filter(
+      (s) => s.targetGameSlug !== newGameSlug && (!oldGameSlug || s.targetGameSlug !== oldGameSlug)
+    );
+    const updatedGameSources = gameSources.map((s) => ({
+      ...s,
+      targetGameSlug: newGameSlug,
+      id: s.id || ('src_' + Date.now() + '_' + Math.random().toString(36).substring(2, 6)),
+      isEnabled: s.isEnabled !== undefined ? s.isEnabled : true,
+    }));
+    const finalSources = [...updatedGameSources, ...otherSources];
+    return await this.saveCrawlerSources(finalSources);
+  }
+
+  public async deleteGameCrawlerSources(gameSlug: string): Promise<boolean> {
+    if (!gameSlug) return false;
+    const remainingSources = this.crawlerSources.filter((s) => s.targetGameSlug !== gameSlug);
+    return await this.saveCrawlerSources(remainingSources);
+  }
+
 }
 
 export const adminDataService = new AdminDataService();

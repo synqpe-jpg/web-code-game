@@ -296,3 +296,15 @@ export interface CrawlerAutoPublishConfig {
   autoAddCrawlerSource?: boolean;
 }
 
+// Crawler Source Model (Nguồn cào tự động)
+export interface CrawlerSource {
+  id: string;
+  name: string;
+  type: 'reputable_web' | 'official_fb' | 'community_discord' | 'official_site' | string;
+  url: string;
+  targetGameSlug?: string;
+  isEnabled: boolean;
+  description?: string;
+}
+
+

@@ -7,6 +7,37 @@ Mỗi mục sửa lỗi đều ghi nhận **Nguyên nhân gốc rễ (Root Cause
 
 ## [2026-10-20]
 
+### 85. Tích Hợp Mục "Nguồn Quét Code" Khi Tạo Mới & Chỉnh Sửa Game, Tự Động Đồng Bộ Vào Crawler & Tự Động Hóa Giftcode
+- **Mô tả & Yêu cầu người dùng**:
+  - Tại trang Quản Lý Danh Mục Game trong Admin (`admin-code-game-shop.pages.dev/admin#/games`), trong modal thêm mới hoặc chỉnh sửa game, bổ sung mục **"Nguồn Quét Code Tự Động (Crawler Sources)"**.
+  - Cho phép quản trị viên thêm nhiều nguồn quét code khác nhau cho tựa game đó (như Facebook Fanpage, Website chính thức, Cổng nhập code, Discord...).
+  - Mọi nguồn được thêm hoặc chỉnh sửa tại đây sẽ **tự động đồng bộ ngay lập tức vào mục "Crawler & Tự Động Hóa Giftcode"** (`CrawlerModule.tsx`) và lưu trữ trực tiếp trên Cloudflare D1/KV.
+- **Giải pháp toàn diện đã triển khai (Solution)**:
+  1. *Khai báo kiểu chuẩn `CrawlerSource` trong `src/types/game.ts`*:
+     - Tái cấu trúc kiểu dữ liệu `CrawlerSource` thành interface dùng chung toàn hệ thống, gắn kết chặt chẽ qua thuộc tính `targetGameSlug?: string`.
+  2. *Nâng cấp `src/admin/services/adminDataService.ts`*:
+     - Bổ sung các phương thức: `getCrawlerSources()`, `getGameCrawlerSources(slug)`, `saveCrawlerSources(sources)`, `syncGameCrawlerSources(slug, sources, oldSlug)`, và `deleteGameCrawlerSources(slug)`.
+     - Tự động phát Custom Event `wcg_crawler_sources_updated` và đồng bộ trực tiếp lên Cloudflare qua endpoint `/api/sync` (`key: 'wcg_crawler_sources_v1'`).
+  3. *Nâng cấp `src/admin/modules/CrawlerModule.tsx`*:
+     - Import trực tiếp `CrawlerSource` từ `types/game.ts`.
+     - Lắng nghe sự kiện `wcg_crawler_sources_updated` để tự động nạp lại danh sách nguồn cào ngay khi có nguồn mới được thêm từ trang Quản lý Game mà không cần F5 hay reload trang.
+  4. *Nâng cấp Giao diện & Form `src/admin/modules/GamesModule.tsx`*:
+     - Mở rộng FormModal lên `maxWidth="3xl"`.
+     - Thêm section chuyên nghiệp **"📡 Nguồn Quét Code Tự Động (Crawler Sources)"** với badge số lượng nguồn.
+     - Hiển thị danh sách nguồn kèm icon & badge phân loại sắc nét (Fanpage FB, Trang chủ / Cổng code, Báo game, Discord).
+     - Hỗ trợ công tắc bật/tắt nguồn (`isEnabled`), xem trước liên kết (`ExternalLink`), và nút xóa nguồn.
+     - Form thêm nguồn nhanh (Inline Form) với 3 nút tạo mẫu thông minh (Quick Templates: Mẫu Fanpage FB, Mẫu Trang Chủ, Mẫu Báo Game) tự động điền sẵn loại và tên nguồn tương ứng với tên game đang sửa.
+     - Trong `handleSaveGame`: Tự động gọi `syncGameCrawlerSources` gắn nguồn với slug của game và đồng bộ vào hệ thống.
+     - Trong `handleDeleteConfirm`: Tự động dọn dẹp các nguồn cào khi xóa game khỏi danh mục.
+- **Files Modified**:
+  - `src/types/game.ts`
+  - `src/admin/services/adminDataService.ts`
+  - `src/admin/modules/CrawlerModule.tsx`
+  - `src/admin/modules/GamesModule.tsx`
+  - `CHANGELOG.md` (Mục 85)
+
+---
+
 ### 84. Chuẩn Hóa 100% Ảnh Bìa & Logo Game Trong Mục Tin Tức, Khắc Phục Lỗi Ảnh Đen /og-image.jpg & Chặn Hotlinking
 - **Mô tả & Hiện tượng**:
   - Tại chuyên mục Tin Tức Game trên web, nhiều bài viết (như *Tarot: Vĩnh Hằng Thần Ngữ*, *Ride Storm*, *Build a Golem*, *Volleyball Journey*, *Cameraman Tower Defense*, *FC Online*, *Ta Là Quan Lão Gia*) hiển thị ảnh vuông màu đen mặc định `/og-image.jpg`, không hiển thị đúng ảnh bìa hoặc logo đại diện của tựa game đó.
