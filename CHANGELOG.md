@@ -7,6 +7,32 @@ Mỗi mục sửa lỗi đều ghi nhận **Nguyên nhân gốc rễ (Root Cause
 
 ## [2026-10-20]
 
+### 98. Cố Định Con Số Đã Bán Duy Nhất Bằng Tổng Các Mục Con & Chỉ Tăng Trưởng Đều 1 Đơn Vị Khi Có Thông Báo Mua Hàng
+- **Mô tả & Yêu cầu người dùng**:
+  - Người dùng phản ánh: *"Hiện tại rất nhiều các con số đã bán nhảy loạn lên, cố định giúp tôi 1 con số duy nhất, chính là tổng các sản phẩm đã bán của toàn bộ mục con trong thẻ cộng lại, con số sẽ tăng trưởng đều 1 đơn vị khi có 1 đơn vị thông báo sản phẩm được bán ra."* Kèm 2 hình ảnh đối chiếu (ảnh 1 nhảy loạn lên 362, 443, 335... và ảnh 2 mốc chuẩn 213, 246, 185...).
+- **Nguyên nhân gốc rễ & Phân tích (Root Cause & Analysis)**:
+  - *Lỗi cộng dồn kép do trùng ID giữa thẻ nhóm và gói con*: Thẻ cha gom nhóm (`parentUtility`) sử dụng ID của gói đại diện (`lead.id = ut_vs_05_vip_7d`). Khi hàm `getSoldDisplay` tính tổng các gói con được 213, nó ghi đè 213 vào `highWaterSoldCountMap` với key `ut_vs_05_vip_7d`. Lần re-render tiếp theo, khi duyệt mảng gói con, riêng gói `ut_vs_05_vip_7d` đọc ra 213 thay vì 64, dẫn đến tổng bị nhân đôi: $39 + 213 + 110 = 362$ (nhóm Basic nhảy lên 443, KVIP nhảy lên 335).
+  - *Nhảy số nhân tạo từ hàm tăng trưởng theo giờ*: Các hàm `hourlyGrowth` và `inHourProgression` tự tính chênh lệch thời gian và cộng thêm số ảo ngẫu nhiên khiến con số không cố định.
+- **Giải pháp toàn diện đã triển khai (Solution)**:
+  1. *Triệt tiêu hoàn toàn vòng lặp cộng dồn kép*:
+     - Trong `getSoldDisplay`: Khi thẻ nhóm có `packages && packages.length > 1`, hàm tính tổng các gói con và trả về trực tiếp, **tuyệt đối không ghi đè vào `highWaterSoldCountMap` của ID gói con lẻ**.
+  2. *Cố định 1 con số cơ sở duy nhất & chỉ tăng khi có thông báo nổ*:
+     - Loại bỏ việc cộng tự động của `hourlyGrowth` và `inHourProgression` khỏi số bán hiển thị.
+     - Số đã bán của từng gói cố định bằng `effectiveRealSold + virtualBase`.
+     - Tổng số đã bán của thẻ nhóm cố định bằng tổng các gói con:
+       - VIP: $39 + 64 + 110 = \mathbf{213}$
+       - Basic: $49 + 72 + 125 = \mathbf{246}$
+       - KVIP: $35 + 58 + 92 = \mathbf{185}$
+       - SVIP: $29 + 45 + 76 = \mathbf{150}$
+       - XVIP: $22 + 38 + 61 = \mathbf{121}$
+       - MVIP: $18 + 31 + 47 = \mathbf{96}$
+     - Khi có 1 thông báo toast mua hàng (`BUY_PRODUCT`) nổ ra $\rightarrow$ Số đã bán của gói và thẻ nhóm tăng trưởng đều đúng **+1 đơn vị**!
+  3. *Tự động thanh lọc các mốc rác cũ bị thổi phồng trong LocalStorage*:
+     - Tự động reset các giá trị vượt quá mốc cơ bản + 35 về đúng mốc chuẩn, dọn sạch ngay lập tức các con số 362, 443 cũ trên trình duyệt khách hàng.
+- **Files Modified**:
+  - `src/services/marketingService.ts`
+  - `CHANGELOG.md` (Mục 98)
+
 ### 97. Khắc Phục Lỗi Kéo Lùi Số Bán Ảo Thẻ Gom Nhóm & Đồng Bộ Số Đã Bán Lũy Kế Đơn Điệu Không Giảm
 - **Mô tả & Yêu cầu người dùng**:
   - Người dùng phản ánh: *"Ngoại trừ gói 7 ngày có hàng trong kho, thì các gói còn lại đều hết hàng, mà hàng đã không có trong kho thực thì mặc định kho ảo cũng = 0. Bạn giúp tôi tổng cả 3 gói con lại hiển thị, nhưng khi khách mở ra vẫn phải hiển thị từng loại đã bán bao nhiêu. Con số ảo nào lớn thì đổ quy tắc để lấy số đó, đồng thời đồng bộ giữa các máy và trình duyệt khác nhau. Đảm bảo thông số hàng đã bán tăng dần chứ không bị kéo giật lùi nữa. Các mục khác bên các kênh khác tương tự."*

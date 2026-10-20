@@ -416,11 +416,11 @@ class MarketingService {
                   const effectiveSold = canonicalSold + localOrderDelta;
 
                   // RÀNG BUỘC ĐƠN ĐIỆU TUYỆT ĐỐI (Monotonically Non-Decreasing):
-                  // Tuyệt đối không giật lùi số đã bán nếu client đã tích lũy số bán cao hơn; ưu tiên mốc lớn nhất
+                  // Số đã bán cố định theo cấu hình; thanh lọc sạch các đỉnh rác cũ (> effectiveSold + 35) do lỗi lặp
                   const curHigh = this.highWaterSoldCountMap.get(pId) || 0;
                   const finalSold = isOverriddenSold
                     ? effectiveSold
-                    : Math.max(curHigh, effectiveSold);
+                    : (curHigh > effectiveSold + 35 ? effectiveSold : Math.max(curHigh, effectiveSold));
 
                   this.highWaterSoldCountMap.set(pId, finalSold);
                   this.liveFomoSoldCountMap.set(pId, Math.max(0, finalSold - realSold));
@@ -506,11 +506,11 @@ class MarketingService {
                   const effectiveClaimed = canonicalClaimed + localGwDelta;
 
                   // RÀNG BUỘC ĐƠN ĐIỆU TUYỆT ĐỐI (Monotonically Non-Decreasing):
-                  // Tuyệt đối không giật lùi số đã nhận nếu client đã tích lũy số đã nhận cao hơn; ưu tiên mốc lớn nhất
+                  // Số đã nhận cố định theo cấu hình; thanh lọc sạch các đỉnh rác cũ (> effectiveClaimed + 35) do lỗi lặp
                   const curHigh = this.highWaterClaimedCountMap.get(gId) || 0;
                   const finalClaimed = isOverriddenClaimed
                     ? effectiveClaimed
-                    : Math.max(curHigh, effectiveClaimed);
+                    : (curHigh > effectiveClaimed + 35 ? effectiveClaimed : Math.max(curHigh, effectiveClaimed));
 
                   this.highWaterClaimedCountMap.set(gId, finalClaimed);
                   this.liveFomoClaimedCountMap.set(gId, Math.max(0, finalClaimed - realClaimed));
@@ -2349,7 +2349,8 @@ class MarketingService {
     if (!item) return 0;
 
     // NẾU LÀ SẢN PHẨM GOM NHÓM CÓ NHIỀU GÓI CON (VARIANTS / PACKAGES):
-    // Tự động cộng tổng số lượng đã bán của tất cả các gói con lại hiển thị cho thẻ đại diện
+    // Cố định 1 con số duy nhất chính là TỔNG của toàn bộ các mục con trong thẻ cộng lại!
+    // Tuyệt đối không ghi đè tổng này vào highWaterSoldCountMap của gói con đơn lẻ để tránh vòng lặp cộng dồn kép.
     if (Array.isArray((item as any)?.packages) && (item as any).packages.length > 1) {
       const sumVariantSold = (item as any).packages.reduce((sum: number, pkg: any) => {
         const singlePkg = {
@@ -2361,14 +2362,7 @@ class MarketingService {
         return sum + this.getSoldDisplay(singlePkg);
       }, 0);
 
-      const id = item.id || '';
-      const recordedMax = id ? (this.highWaterSoldCountMap.get(id) || 0) : 0;
-      const finalDisplay = Math.max(sumVariantSold, recordedMax);
-      if (id && finalDisplay > recordedMax) {
-        this.highWaterSoldCountMap.set(id, finalDisplay);
-        this.saveHighWaterCounts();
-      }
-      return finalDisplay;
+      return sumVariantSold;
     }
 
     const id = item.id || '';
@@ -2379,57 +2373,25 @@ class MarketingService {
     const realFromHub = id ? (this.realProductSoldCountsMap.get(id) || 0) : 0;
     const effectiveRealSold = Math.max(realSold, realFromHub);
 
-    let recordedMax = id ? (this.highWaterSoldCountMap.get(id) || 0) : 0;
     const virtualBaseRaw = item.virtual_sold_count !== undefined ? item.virtual_sold_count : (details?.virtual_sold_count ?? 0);
     const virtualBase = Number(virtualBaseRaw || 0);
-
-    // If priority is 'off' or virtualBase <= 0 (and no admin override):
-    // Cho phép số đã bán tăng 1 theo thông báo toast (recordedMax), chỉ thanh lọc nếu vượt quá đỉnh ma rác phi lý (+35)
-    if (pw.priority === 'off' || (virtualBase <= 0 && (!id || !this.adminOverrideSoldMap.has(id)))) {
-      if (id && recordedMax > effectiveRealSold + 35) {
-        recordedMax = effectiveRealSold;
-        this.highWaterSoldCountMap.set(id, effectiveRealSold);
-        this.saveHighWaterCounts();
-      }
-      return Math.max(effectiveRealSold, recordedMax);
-    }
-
-    const anchorTime = (item as any)?.fomo_anchor_time || (item as any)?.virtual_sold_updated_at || details?.fomo_anchor_time || details?.virtual_sold_updated_at;
-    const createdAt = item.created_at || item.createdAt || details?.created_at;
-    let hourlyGrowth = this.getHourlyGrowth(id, createdAt, pw.priority, anchorTime);
-    let inHourProg = this.getInHourProgression(id, createdAt, pw.priority, anchorTime);
-
-    const realStock = this.getRealStockFor(id);
-    const catchUp = this.config.offlineCatchUp || DEFAULT_OFFLINE_CATCHUP_CONFIG;
-    const oosEnabled = Boolean(catchUp.outOfStockEnabled);
-    const oosMax = Math.max(1, Math.min(30, Number(catchUp.outOfStockMaxUnits) || 10));
-
-    const effectiveStock = typeof (item as any)?.stock_quantity === 'number'
-      ? (item as any).stock_quantity
-      : realStock;
-    const hasActiveDisplayStock = effectiveStock > 0 || (pw.priority !== 'off' && Number(pw.virtualStockBonus) > 0);
-
-    if (effectiveStock <= 0 && !hasActiveDisplayStock) {
-      if (!oosEnabled) {
-        // Hết hàng thật & không bật bù ngoại tuyến: ngắt toàn bộ tiến trình tăng theo giờ, bảo toàn tuyệt đối số lượng đã bán trước đó
-        hourlyGrowth = 0;
-        inHourProg = 0;
-      } else {
-        hourlyGrowth = Math.min(hourlyGrowth, oosMax);
-        inHourProg = 0;
-      }
-    }
 
     let effectiveBaseTarget = effectiveRealSold + virtualBase;
     if (id && this.adminOverrideSoldMap.has(id)) {
       effectiveBaseTarget = Math.max(effectiveRealSold, this.adminOverrideSoldMap.get(id)!);
     }
 
-    const calculatedBase = Math.max(0, effectiveBaseTarget + hourlyGrowth + inHourProg);
+    // CỐ ĐỊNH 1 CON SỐ CƠ SỞ DUY NHẤT:
+    // Con số cơ sở cố định theo đúng cấu hình kho; chỉ tăng trưởng đều 1 đơn vị khi có 1 thông báo toast nổ ra (+1, +2...)
+    let recordedMax = id ? (this.highWaterSoldCountMap.get(id) || 0) : 0;
 
-    // RÀNG BUỘC ĐƠN ĐIỆU TUYỆT ĐỐI (Monotonically Non-Decreasing):
-    // Đảm bảo recordedMax không bao giờ nhỏ hơn mốc sàn tối thiểu (effectiveBaseTarget).
-    // TUYỆT ĐỐI KHÔNG ép lùi recordedMax về calculatedBase khi số lượng đã bán tăng trưởng theo thông báo toast.
+    // Tự động thanh lọc các con số rác cũ bị thổi phồng bất thường do lỗi cộng dồn kép (> effectiveBaseTarget + 35)
+    if (id && recordedMax > effectiveBaseTarget + 35) {
+      recordedMax = effectiveBaseTarget;
+      this.highWaterSoldCountMap.set(id, recordedMax);
+      this.saveHighWaterCounts();
+    }
+
     if (effectiveBaseTarget > 0 && recordedMax < effectiveBaseTarget) {
       recordedMax = effectiveBaseTarget;
       if (id) {
@@ -2440,23 +2402,15 @@ class MarketingService {
       }
     }
 
-    const finalDisplay = Math.max(calculatedBase, recordedMax);
-    if (id && finalDisplay > recordedMax) {
-      this.highWaterSoldCountMap.set(id, finalDisplay);
-      this.saveHighWaterCounts();
-    }
-    if (id && !this.sessionAnchorMap.has(id)) {
-      this.sessionAnchorMap.set(id, { lastCount: finalDisplay, lastTimestamp: this.getCalibratedNow() });
-      this.saveSessionAnchor();
-    }
-    return finalDisplay;
+    return Math.max(effectiveBaseTarget, recordedMax);
   }
 
   public getClaimedDisplay(campaign: { id?: string; claimed_codes?: number; virtual_claimed_offset?: number; created_at?: string; createdAt?: string; fomo_anchor_time?: string; virtual_claimed_updated_at?: string; packages?: any[] } | null | undefined): number {
     if (!campaign) return 0;
 
     // NẾU LÀ CHIẾN DỊCH GOM NHÓM CÓ NHIỀU GÓI QUÀ (PACKAGES):
-    // Tự động cộng tổng số lượng đã nhận của tất cả các gói quà lại hiển thị cho thẻ đại diện
+    // Cố định 1 con số duy nhất chính là TỔNG của toàn bộ các gói quà cộng lại!
+    // Tuyệt đối không ghi đè tổng này vào highWaterClaimedCountMap của gói quà đơn lẻ.
     if (Array.isArray((campaign as any)?.packages) && (campaign as any).packages.length > 1) {
       const sumVariantClaimed = (campaign as any).packages.reduce((sum: number, pkg: any) => {
         const singlePkg = {
@@ -2468,14 +2422,7 @@ class MarketingService {
         return sum + this.getClaimedDisplay(singlePkg);
       }, 0);
 
-      const id = campaign.id || '';
-      const recordedMax = id ? (this.highWaterClaimedCountMap.get(id) || 0) : 0;
-      const finalDisplay = Math.max(sumVariantClaimed, recordedMax);
-      if (id && finalDisplay > recordedMax) {
-        this.highWaterClaimedCountMap.set(id, finalDisplay);
-        this.saveHighWaterCounts();
-      }
-      return finalDisplay;
+      return sumVariantClaimed;
     }
 
     const id = campaign.id || '';
@@ -2486,53 +2433,23 @@ class MarketingService {
     const realFromHub = id ? (this.realGiveawayClaimedCountsMap.get(id) || 0) : 0;
     const effectiveRealClaimed = Math.max(realClaimed, realFromHub);
 
-    let recordedMax = id ? (this.highWaterClaimedCountMap.get(id) || 0) : 0;
     const virtualBaseRaw = campaign.virtual_claimed_offset !== undefined ? campaign.virtual_claimed_offset : (details?.virtual_claimed_offset ?? 0);
     const virtualBase = Number(virtualBaseRaw || 0);
-
-    // If priority is 'off' or virtualBase <= 0 (and no admin override):
-    // Cho phép số đã nhận tăng 1 theo thông báo toast (recordedMax), chỉ thanh lọc nếu vượt quá đỉnh ma rác phi lý (+35)
-    if (pw.priority === 'off' || (virtualBase <= 0 && (!id || !this.adminOverrideClaimedMap.has(id)))) {
-      if (id && recordedMax > effectiveRealClaimed + 35) {
-        recordedMax = effectiveRealClaimed;
-        this.highWaterClaimedCountMap.set(id, effectiveRealClaimed);
-        this.saveHighWaterCounts();
-      }
-      return Math.max(effectiveRealClaimed, recordedMax);
-    }
-
-    const anchorTime = (campaign as any)?.fomo_anchor_time || (campaign as any)?.virtual_claimed_updated_at || details?.fomo_anchor_time || details?.virtual_claimed_updated_at;
-    const createdAt = campaign.created_at || campaign.createdAt || details?.created_at;
-    let hourlyGrowth = this.getHourlyGrowth(id, createdAt, pw.priority, anchorTime);
-    let inHourProg = this.getInHourProgression(id, createdAt, pw.priority, anchorTime);
-
-    const realRemaining = this.getRealStockFor(id);
-    const catchUp = this.config.offlineCatchUp || DEFAULT_OFFLINE_CATCHUP_CONFIG;
-    const oosEnabled = Boolean(catchUp.outOfStockEnabled);
-    const oosMax = Math.max(1, Math.min(30, Number(catchUp.outOfStockMaxUnits) || 10));
-    const hasActiveDisplayStock = realRemaining > 0 || (pw.priority !== 'off' && Number(pw.virtualStockBonus) > 0);
-
-    if (realRemaining <= 0 && !hasActiveDisplayStock) {
-      if (!oosEnabled) {
-        // Hết mã thật trong kho & không bật bù ngoại tuyến: ngắt tăng theo giờ, bảo toàn tuyệt đối số mã đã nhận
-        hourlyGrowth = 0;
-        inHourProg = 0;
-      } else {
-        hourlyGrowth = Math.min(hourlyGrowth, oosMax);
-        inHourProg = 0;
-      }
-    }
 
     let effectiveBaseTarget = effectiveRealClaimed + virtualBase;
     if (id && this.adminOverrideClaimedMap.has(id)) {
       effectiveBaseTarget = Math.max(effectiveRealClaimed, this.adminOverrideClaimedMap.get(id)!);
     }
 
-    const calculatedBase = Math.max(0, effectiveBaseTarget + hourlyGrowth + inHourProg);
+    let recordedMax = id ? (this.highWaterClaimedCountMap.get(id) || 0) : 0;
 
-    // RÀNG BUỘC ĐƠN ĐIỆU TUYỆT ĐỐI (Monotonically Non-Decreasing):
-    // Đảm bảo recordedMax không bao giờ nhỏ hơn mốc sàn tối thiểu (effectiveBaseTarget).
-    // TUYỆT ĐỐI KHÔNG ép lùi recordedMax về calculatedBase khi số lượng đã nhận tăng trưởng theo thông báo toast.
+    // Tự động thanh lọc các con số rác cũ bị thổi phồng bất thường do lỗi cộng dồn kép (> effectiveBaseTarget + 35)
+    if (id && recordedMax > effectiveBaseTarget + 35) {
+      recordedMax = effectiveBaseTarget;
+      this.highWaterClaimedCountMap.set(id, recordedMax);
+      this.saveHighWaterCounts();
+    }
+
     if (effectiveBaseTarget > 0 && recordedMax < effectiveBaseTarget) {
       recordedMax = effectiveBaseTarget;
       if (id) {
@@ -2543,16 +2460,7 @@ class MarketingService {
       }
     }
 
-    const finalDisplay = Math.max(calculatedBase, recordedMax);
-    if (id && finalDisplay > recordedMax) {
-      this.highWaterClaimedCountMap.set(id, finalDisplay);
-      this.saveHighWaterCounts();
-    }
-    if (id && !this.sessionAnchorMap.has(id)) {
-      this.sessionAnchorMap.set(id, { lastCount: finalDisplay, lastTimestamp: this.getCalibratedNow() });
-      this.saveSessionAnchor();
-    }
-    return finalDisplay;
+    return Math.max(effectiveBaseTarget, recordedMax);
   }
 
   public syncProductVirtualSold(productId: string, virtualCount: number, forceReset: boolean = true, exactTargetDisplay?: number, anchorTime?: string): void {
