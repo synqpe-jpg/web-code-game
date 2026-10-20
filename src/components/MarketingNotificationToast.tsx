@@ -407,6 +407,19 @@ export const MarketingNotificationToast: React.FC<MarketingNotificationToastProp
     return () => document.removeEventListener('visibilitychange', handleVisibility);
   }, []);
 
+  // Listen for clear snooze event from Admin or reset triggers
+  useEffect(() => {
+    const handleClearSnooze = () => {
+      try {
+        localStorage.removeItem(MARKETING_SNOOZE_KEY);
+      } catch {}
+      // Immediately kick off schedule when snooze cleared
+      scheduleRef.current();
+    };
+    window.addEventListener('wcg_clear_marketing_snooze', handleClearSnooze);
+    return () => window.removeEventListener('wcg_clear_marketing_snooze', handleClearSnooze);
+  }, []);
+
   // Subscribe to real actions (local or broadcast)
   useEffect(() => {
     const unsubscribe = marketingService.subscribeNotification((event) => {

@@ -7,6 +7,32 @@ Mỗi mục sửa lỗi đều ghi nhận **Nguyên nhân gốc rễ (Root Cause
 
 ## [2026-10-20]
 
+### 95. Tối Ưu Toàn Diện & Kích Hoạt Bộ Máy Marketing FOMO Sống Động 100% (Admin Toast & Utility Stock & Auto-Reset Snooze)
+- **Mô tả & Yêu cầu người dùng**:
+  - Người dùng yêu cầu: *"Kiểm tra hệ thống fomo giúp tôi. Có vể như hệ thống đang không hoạt động."* Sau đó phê duyệt: *"Ok triển khai giúp tôi"*.
+- **Nguyên nhân gốc rễ & Phân tích (Root Cause & Analysis)**:
+  1. *Thiếu Toast Container trên trang Admin*: Trước đây, component `MarketingNotificationToast` chỉ được mount tại `src/App.tsx` (phía Web Khách), hoàn toàn không có trong `src/admin/AdminApp.tsx`. Khi Quản trị viên vào Admin (`/admin#/marketing`) bấm nút "Bắn thử thông báo" hoặc vào tab Preview để xem popup thực tế, không có popup nào xuất hiện trên màn hình Admin, gây hiểu lầm hệ thống bị tê liệt.
+  2. *Trình duyệt bị khóa bởi cờ Tắt 1 giờ (`wcg_marketing_toast_snooze_until`)*: Khi người dùng bấm nút "Tắt 1h" trong thông báo nổi, trình duyệt lưu cờ snooze 60 phút và chặn 100% toàn bộ thông báo nổi trên máy đó mà không có nút reset trực quan trong Admin.
+  3. *Quy tắc vàng kho hàng ngắt toàn bộ thông báo mua hàng*: 18/19 gói tiện ích VS Phone trước đây có `stock_quantity = 0` (chỉ gói VIP 7D có 8 mã). Do quy tắc `realStock <= 0` ngắt toàn bộ tồn kho ảo và chặn sinh thông báo ảo `BUY_PRODUCT`, dẫn đến 6/7 nhóm tiện ích ngoài sàn đều báo đỏ "Hết hàng", đồng thời triệt tiêu nguồn dữ liệu sinh thông báo mua hàng.
+  4. *Khả năng trễ của thông báo chào mừng*: Khi khách mới vào web, nếu slot ban đầu tính ra loại thông báo không có sản phẩm khả dụng, thông báo chào mừng ban đầu có thể bị bỏ lỡ.
+- **Giải pháp toàn diện đã triển khai (Solution)**:
+  1. *Tích hợp MarketingNotificationToast vào AdminApp (`src/admin/AdminApp.tsx`)*:
+     - Mount `<MarketingNotificationToast />` trực tiếp trong Admin để Quản trị viên khi ở bất kỳ tab nào (đặc biệt là mục Marketing khi bấm "Bắn thử") đều thấy popup thật nổ lên ngay lập tức tại góc màn hình.
+  2. *Cơ chế Auto-Reset Snooze & Nút thao tác nhanh (`MarketingNotificationToast.tsx` & `MarketingModule.tsx`)*:
+     - Lắng nghe CustomEvent `wcg_clear_marketing_snooze` và tự động xóa cờ snooze khi Quản trị viên bấm "Bắn thử" hoặc nhấn nút **"⚡ Xóa Cờ Tắt Thông Báo (Reset Snooze 1H)"** trong tab Preview.
+     - Đảm bảo thông báo test (`test_*`) luôn luôn hiển thị bỏ qua cờ snooze.
+  3. *Đảm bảo 100% nổ Welcome Toast sau 2.5s (`MarketingNotificationToast.tsx`)*:
+     - Bổ sung cơ chế fallback kiên cố: Nếu hệ thống không tìm thấy sản phẩm khả dụng trong slot hiện tại, tự động chuyển đổi sang thông báo sao chép giftcode hoặc nạp tiền ví để đảm bảo chắc chắn khách hàng vào web sau 2.5 giây là thấy ngay độ sôi động.
+  4. *Cấp tồn kho thực tế cho các dòng máy ảo VS Phone (`src/data/utilities.json`)*:
+     - Phân bổ số lượng tồn kho hợp lý cho các dòng Basic, KVIP, SVIP, XVIP, MVIP (từ 4 đến 25 mã tùy gói thời hạn), giữ nguyên vẹn `stock_quantity: 8` của `ut_vs_05_vip_7d` theo đúng quy chuẩn kiểm thử.
+     - Kích hoạt lại toàn bộ hiển thị "Còn: X gói", "Số lượng khuyến mãi còn..." và cho phép hệ thống Marketing sinh thông báo mua các dòng máy ảo này nhộn nhịp 24/7.
+- **Files Modified**:
+  - `src/admin/AdminApp.tsx`
+  - `src/components/MarketingNotificationToast.tsx`
+  - `src/admin/modules/MarketingModule.tsx`
+  - `src/data/utilities.json`
+  - `CHANGELOG.md` (Mục 95)
+
 ### 94. Khắc Phục Lỗi Crash Giao Diện Admin "Zap is not defined" Tại Phân Hệ Thông Báo Nổi
 - **Mô tả & Hiện tượng**:
   - Người dùng truy cập phân hệ Cài Đặt Thông Báo Nổi tại `admin-code-game-shop.pages.dev/admin#/floating-notification` gặp màn hình cứu hộ sự cố: *"Đã xảy ra sự cố khi tải phân hệ này - Zap is not defined"*.

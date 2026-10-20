@@ -314,6 +314,10 @@ export const MarketingModule: React.FC<MarketingModuleProps> = ({ onShowToast })
 
   // Test notification trigger
   const handleTestTrigger = (type: 'COPY_CODE' | 'BUY_PRODUCT' | 'BUY_UTILITY' | 'CLAIM_GIVEAWAY' | 'DEPOSIT_WALLET' | 'STATS_COPY' | 'RESTOCK_PRODUCT') => {
+    try {
+      localStorage.removeItem('wcg_marketing_toast_snooze_until');
+      window.dispatchEvent(new CustomEvent('wcg_clear_marketing_snooze'));
+    } catch {}
     const rawAccount = marketingService.getRandomVirtualAccount();
     const maskedAccount = marketingService.maskName(rawAccount);
 
@@ -2874,8 +2878,25 @@ export const MarketingModule: React.FC<MarketingModuleProps> = ({ onShowToast })
               <span>Trình Giả Lập & Bắn Thử Thông Báo Trực Tiếp</span>
             </h3>
             <p className="text-xs text-muted-foreground mt-0.5">
-              Bấm các nút dưới đây để kiểm tra ngay popup hiển thị thực tế ở góc dưới bên trái màn hình của bạn.
+              Bấm các nút dưới đây để kiểm tra ngay popup hiển thị thực tế ở góc dưới màn hình của bạn (hoạt động trực tiếp ngay trên trang Admin này).
             </p>
+            <div className="flex flex-wrap items-center gap-2 pt-2">
+              <button
+                type="button"
+                onClick={() => {
+                  try {
+                    localStorage.removeItem('wcg_marketing_toast_snooze_until');
+                    window.dispatchEvent(new CustomEvent('wcg_clear_marketing_snooze'));
+                    onShowToast('Đã xóa cờ tạm dừng!', 'Hệ thống thông báo FOMO đã được kích hoạt lại tức thì 100%.', 'success');
+                  } catch {}
+                }}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-amber-500/15 hover:bg-amber-500/25 border border-amber-500/30 text-amber-300 text-xs font-bold transition-all cursor-pointer active:scale-95"
+                title="Xóa cờ tạm dừng nếu trình duyệt từng nhấn 'Không hiện 1h'"
+              >
+                <Zap className="w-3.5 h-3.5 text-amber-400" />
+                <span>⚡ Xóa Cờ Tắt Thông Báo (Reset Snooze 1H)</span>
+              </button>
+            </div>
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-7 gap-3 pt-2">

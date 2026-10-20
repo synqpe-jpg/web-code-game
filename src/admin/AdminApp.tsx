@@ -29,6 +29,7 @@ import { GrowthModule } from './modules/GrowthModule';
 import { CrawlerModule } from './modules/CrawlerModule';
 import { EventSchedulerModule } from './modules/EventSchedulerModule';
 import { EmailNotificationModule } from './modules/EmailNotificationModule';
+import { MarketingNotificationToast } from '../components/MarketingNotificationToast';
 
 interface AdminAppProps {
   onBackToClient?: () => void;
@@ -474,6 +475,9 @@ export const AdminApp: React.FC<AdminAppProps> = ({ onBackToClient }) => {
           onGoToClientSite={handleGoToClientSite}
         />
         <ToastContainer toasts={toasts} onDismiss={dismissToast} position="top-center" maxVisible={3} />
+
+      {/* Marketing FOMO Notification Toast (Active for Admin Previews & Live Tests) */}
+      <MarketingNotificationToast />
       </>
     );
   }
