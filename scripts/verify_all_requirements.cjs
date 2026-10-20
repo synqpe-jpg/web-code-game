@@ -208,14 +208,14 @@ const snapServicePath = path.join(__dirname, '../functions/services/snapshotServ
 const snapServiceContent = fs.readFileSync(snapServicePath, 'utf8');
 assert(snapServiceContent.includes('generateAndPersistSnapshot'), 'snapshotService must implement generateAndPersistSnapshot');
 
-// Verify VS Phone VIP package counts sum to authoritative baseline 215
+// Verify VS Phone VIP package counts sum to authoritative baseline 216
 const vip1d = utilities.find(u => u.id === 'ut_vs_04_vip_1d');
 const vip7d = utilities.find(u => u.id === 'ut_vs_05_vip_7d');
 const vip30d = utilities.find(u => u.id === 'ut_vs_06_vip_30d');
 assert(vip1d && vip7d && vip30d, 'All 3 VIP packages must exist');
-assert(vip7d.virtual_sold_count === 66, 'ut_vs_05_vip_7d virtual_sold_count must be 66');
+assert(vip7d.virtual_sold_count === 67, 'ut_vs_05_vip_7d virtual_sold_count must be 67');
 const totalVipSold = (vip1d.virtual_sold_count || 0) + (vip7d.virtual_sold_count || 0) + (vip30d.virtual_sold_count || 0);
-assert(totalVipSold === 215, 'Total VIP virtual sold must strictly equal 215 (39 + 66 + 110)');
+assert(totalVipSold === 216, 'Total VIP virtual sold must strictly equal 216 (39 + 67 + 110)');
 
 console.log('   ✅ ĐẠT 100%: Hệ thống FOMO tuân thủ Admin config, mở rộng trần đỉnh an toàn, và đồng bộ nguyên tử 1 - 1 tuyệt đối!');
 

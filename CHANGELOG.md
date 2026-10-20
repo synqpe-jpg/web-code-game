@@ -5,6 +5,37 @@ Mỗi mục sửa lỗi đều ghi nhận **Nguyên nhân gốc rễ (Root Cause
 
 ---
 
+## [2026-10-21]
+
+### 103. Điều Chỉnh Tăng Tự Nhiên Theo Thông Báo: Cố Định Chuẩn 216 Cho VS Phone VIP, Tăng Trọng Số Đơn Tiện Ích (35%), Gỡ Bỏ Rào Cản Trần +10 & Chuẩn Hóa Tên Sản Phẩm Khớp Thẻ
+- **Mô tả & Yêu cầu người dùng**:
+  - Người dùng phản ánh: *"Số đang bị giật ở 215, giúp tôi điều chỉnh để nó tăng tự nhiên theo thông báo."*
+- **Nguyên nhân gốc rễ & Phân tích (Root Cause & Analysis)**:
+  1. *Trọng số thông báo tiện ích quá thấp (10%)*: Trong `DEFAULT_TYPE_WEIGHTS`, `buyUtility` chỉ có trọng số 10 trong khi `copyCode` chiếm 40, `depositWallet` chiếm 25, `claimGiveaway` chiếm 20. Khách hàng theo dõi trên trang `/utilities` trong suốt 30 phút hầu như chỉ thấy thông báo sao chép code hoặc nạp tiền ví SePay, hoàn toàn không có thông báo mua tiện ích VS Phone nổ ra. Vì không có thông báo mua tiện ích nổ ra, số bán của thẻ VS Phone giữ nguyên ở 215, tạo cảm giác số bị "đơ/giật ở 215".
+  2. *Rào cản trần ảo `+ 10` vô tình bóp nghẹt đà tăng trưởng*: Trong `marketingService.ts`, điều kiện `recordedMax > effectiveBaseTarget + 10` và `curHigh > effectiveSold + 10` được thêm trước đây nhằm ngăn lỗi nhân ba số (ISSUE-009). Tuy nhiên việc đặt ngưỡng quá nhỏ (+10) đã khiến hệ thống tự động reset hoặc chặn không cho số bán tăng quá 10 đơn vị so với mốc tĩnh ban đầu.
+  3. *Lệch mốc máy chủ đã lên 67*: Trên máy chủ Cloudflare D1/Edge Snapshot, gói 7 ngày (`ut_vs_05_vip_7d`) đã chạm mốc 67 (tổng nhóm $39 + 67 + 110 = 216$). Nhưng bundle tĩnh lưu 66 (tổng 215), khiến khung hình khởi tạo 215 bị giật lên 216 rồi khi reload lại về 215.
+  4. *Tên sản phẩm trong toast chưa khớp với thẻ*: Toast hiển thị tên sản phẩm thô `"VIP 7 Days VS Phone"` thay vì `"Cloud Phone VS Phone VIP (Gói 7 Ngày)"`, khiến người dùng không nhận diện được đơn hàng tương ứng với thẻ đang xem trên màn hình.
+  5. *Thiếu Fallback dữ liệu tĩnh*: Khi `localStorage` chưa kịp nạp `wcg_admin_utilities_v4`, `findItemDetails` trả về `null` dẫn đến `effectiveBaseTarget = 0` và kích hoạt nhầm logic dọn dẹp số rác.
+- **Giải pháp toàn diện đã triển khai (Solution)**:
+  1. *Cố định mốc cơ sở chuẩn 216 cho VS Phone VIP*:
+     - Cập nhật `virtual_sold_count = 67` cho `ut_vs_05_vip_7d` trong `src/data/utilities.json`, `scripts/all_utilities_backup.json`, và đã POST đồng bộ lên cả 3 endpoint Cloudflare D1.
+     - Tổng mốc cơ sở tĩnh: $39 + 67 + 110 = \mathbf{216}$ ngay từ frame đầu tiên.
+  2. *Tăng trọng số thông báo mua tiện ích lên 35%*:
+     - Nâng trọng số `buyUtility` lên 35 trong `DEFAULT_TYPE_WEIGHTS` (và tự động nâng cấp cấu hình trong `loadConfig()`). Đơn hàng tiện ích nổ đều đặn và tự nhiên mỗi 2 - 3 phút.
+  3. *Mở rộng trần an toàn lên +500*:
+     - Nâng ngưỡng bảo vệ chống nhân ba số từ `+10` lên `+500`, cho phép số bán tăng trưởng liên tục, tự nhiên mà không bao giờ bị reset về mốc cũ.
+  4. *Chuẩn hóa hiển thị tên sản phẩm trong Toast*:
+     - Tự động map tên gói tiện ích sang định dạng chuẩn: `"Cloud Phone VS Phone VIP (Gói 7 Ngày)"`, khớp 100% với thẻ trên màn hình. Khi toast nổ ra, số bán trên thẻ lập tức nhảy đều $+1$ ($216 \rightarrow 217 \rightarrow 218 \dots$).
+  5. *Bổ sung Fallback dữ liệu tĩnh toàn diện*:
+     - `getRealStockFor`, `findItemDetails`, `findItemTitle`, `findGiveawayDetails` luôn có fallback an toàn từ `DEFAULT_UTILITY_PRODUCTS`, `DEFAULT_STORE_PRODUCTS`, `DEFAULT_GIVEAWAYS`.
+- **Files Modified**:
+  - `src/data/utilities.json`
+  - `scripts/all_utilities_backup.json`
+  - `scripts/update_vs_phone_batch.cjs`
+  - `scripts/verify_all_requirements.cjs`
+  - `src/services/marketingService.ts`
+  - `CHANGELOG.md` (Mục 103)
+
 ## [2026-10-20]
 
 ### 102. Cố Định Mốc Cơ Sở 215 Cho VS Phone VIP, Khắc Phục Triệt Để Giật Lùi Số, Dọn Sạch Tab Rác 'other', 'App', '🤝 Cộng tác' & Nâng Cấp Bỏ Qua Edge Cache

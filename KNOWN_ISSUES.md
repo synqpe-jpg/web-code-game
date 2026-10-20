@@ -26,6 +26,7 @@
 - ⛔ **CÁCH SỬA ĐÃ THẤT BẠI - TUYỆT ĐỐI KHÔNG LẶP LẠI**:
   - ❌ *Không chỉ trông đợi vào API async để kéo số lên*: Nếu số tĩnh trong bundle thấp hơn số server, mỗi lần tải trang người dùng đều sẽ thấy số giật lùi trước khi bật lên.
   - ❌ *Không cache cứng API snapshot trên Edge mà bỏ qua cờ no-store/fresh*: Sẽ làm client bị giam trong dữ liệu cũ 30 giây.
+  - ❌ *Không đặt trần rào cản quá hẹp như `effectiveBaseTarget + 10`*: Việc này sẽ bóp nghẹt đà tăng trưởng tự nhiên của sản phẩm sau 10 đơn hàng và kích hoạt nhầm logic reset số về mốc cơ sở. Luôn đặt trần rộng rãi (+500) để vừa chống lỗi nhân ba số (ISSUE-009) vừa đảm bảo số tăng trưởng trơn tru.
 
 ---
 

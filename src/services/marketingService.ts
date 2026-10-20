@@ -10,6 +10,7 @@ import type {
   ToastPosition,
 } from '../types/marketing';
 import type { GameItem, StoreProduct, UtilityProduct, GiveawayCampaign, UserProfile } from '../types/game';
+import { DEFAULT_STORE_PRODUCTS, DEFAULT_UTILITY_PRODUCTS, DEFAULT_GIVEAWAYS } from '../data/seedData';
 import type { GlobalMetricsSnapshot } from '../shared/deterministicEngine';
 import {
   calculateDeterministicCopyCount,
@@ -97,11 +98,11 @@ export const DEFAULT_TYPE_TOGGLES: NotificationTypeToggles = {
 };
 
 export const DEFAULT_TYPE_WEIGHTS: NotificationTypeWeights = {
-  copyCode: 40,
+  copyCode: 20,
   depositWallet: 25,
-  claimGiveaway: 20,
+  claimGiveaway: 15,
   buyStore: 5,
-  buyUtility: 10,
+  buyUtility: 35,
   statsCopy: 5,
   restockProduct: 0,
 };
@@ -420,7 +421,7 @@ class MarketingService {
                   const curHigh = this.highWaterSoldCountMap.get(pId) || 0;
                   const finalSold = isOverriddenSold
                     ? effectiveSold
-                    : (curHigh > effectiveSold + 10 ? effectiveSold : Math.max(curHigh, effectiveSold));
+                    : (curHigh > effectiveSold + 500 ? effectiveSold : Math.max(curHigh, effectiveSold));
 
                   this.highWaterSoldCountMap.set(pId, finalSold);
                   this.liveFomoSoldCountMap.set(pId, Math.max(0, finalSold - realSold));
@@ -510,7 +511,7 @@ class MarketingService {
                   const curHigh = this.highWaterClaimedCountMap.get(gId) || 0;
                   const finalClaimed = isOverriddenClaimed
                     ? effectiveClaimed
-                    : (curHigh > effectiveClaimed + 10 ? effectiveClaimed : Math.max(curHigh, effectiveClaimed));
+                    : (curHigh > effectiveClaimed + 500 ? effectiveClaimed : Math.max(curHigh, effectiveClaimed));
 
                   this.highWaterClaimedCountMap.set(gId, finalClaimed);
                   this.liveFomoClaimedCountMap.set(gId, Math.max(0, finalClaimed - realClaimed));
@@ -1933,6 +1934,30 @@ class MarketingService {
       this.productRealStockMap.set(id, s);
       return s;
     }
+
+    // Default Seed Data Fallback (Bảo toàn số tồn kho thật khi chưa nạp localStorage/snapshot)
+    const defUt = DEFAULT_UTILITY_PRODUCTS.find((u) => u && u.id === id);
+    if (defUt && defUt.stock_quantity !== undefined) {
+      const s = Math.max(0, Number(defUt.stock_quantity) || 0);
+      this.productRealStockMap.set(id, s);
+      return s;
+    }
+    const defSp = DEFAULT_STORE_PRODUCTS.find((p) => p && p.id === id);
+    if (defSp && defSp.stock_quantity !== undefined) {
+      const s = Math.max(0, Number(defSp.stock_quantity) || 0);
+      this.productRealStockMap.set(id, s);
+      return s;
+    }
+    const defGw = DEFAULT_GIVEAWAYS.find((g) => g && g.id === id);
+    if (defGw) {
+      const count = Array.isArray(defGw.codes_pool)
+        ? defGw.codes_pool.length
+        : (typeof defGw.remaining_codes === 'number' ? defGw.remaining_codes : 0);
+      const s = Math.max(0, Number(count) || 0);
+      this.productRealStockMap.set(id, s);
+      return s;
+    }
+
     return 0;
   }
 
@@ -2068,6 +2093,15 @@ class MarketingService {
         }
       } catch {}
     }
+
+    // Default Seed Data Fallback for findItemTitle
+    const defUt = DEFAULT_UTILITY_PRODUCTS.find((u) => u && u.id === id);
+    if (defUt && defUt.title) return { title: defUt.title, itemType: 'utility' };
+    const defSp = DEFAULT_STORE_PRODUCTS.find((p) => p && p.id === id);
+    if (defSp && defSp.title) return { title: defSp.title, itemType: 'store' };
+    const defGw = DEFAULT_GIVEAWAYS.find((g) => g && g.id === id);
+    if (defGw && defGw.title) return { title: defGw.title, itemType: 'giveaway' };
+
     return null;
   }
 
@@ -2342,6 +2376,29 @@ class MarketingService {
         }
       } catch {}
     }
+
+    // Default Seed Data Fallback for Item Details
+    const defUt = DEFAULT_UTILITY_PRODUCTS.find((u) => u && u.id === id);
+    if (defUt) {
+      return {
+        sold_count: typeof defUt.sold_count === 'number' ? defUt.sold_count : Number(defUt.sold_count) || 0,
+        virtual_sold_count: defUt.virtual_sold_count !== undefined ? Number(defUt.virtual_sold_count) : 0,
+        created_at: defUt.created_at,
+        fomo_anchor_time: (defUt as any).fomo_anchor_time,
+        virtual_sold_updated_at: (defUt as any).virtual_sold_updated_at,
+      };
+    }
+    const defSp = DEFAULT_STORE_PRODUCTS.find((p) => p && p.id === id);
+    if (defSp) {
+      return {
+        sold_count: typeof defSp.sold_count === 'number' ? defSp.sold_count : Number(defSp.sold_count) || 0,
+        virtual_sold_count: defSp.virtual_sold_count !== undefined ? Number(defSp.virtual_sold_count) : 0,
+        created_at: defSp.created_at,
+        fomo_anchor_time: (defSp as any).fomo_anchor_time,
+        virtual_sold_updated_at: (defSp as any).virtual_sold_updated_at,
+      };
+    }
+
     return null;
   }
 
@@ -2365,6 +2422,19 @@ class MarketingService {
         }
       } catch {}
     }
+
+    // Default Seed Data Fallback for Giveaway Details
+    const defGw = DEFAULT_GIVEAWAYS.find((g) => g && g.id === id);
+    if (defGw) {
+      return {
+        claimed_codes: typeof defGw.claimed_codes === 'number' ? defGw.claimed_codes : Number(defGw.claimed_codes) || 0,
+        virtual_claimed_offset: defGw.virtual_claimed_offset !== undefined ? Number(defGw.virtual_claimed_offset) : 0,
+        created_at: defGw.created_at,
+        fomo_anchor_time: (defGw as any).fomo_anchor_time,
+        virtual_claimed_updated_at: (defGw as any).virtual_claimed_updated_at,
+      };
+    }
+
     return null;
   }
 
@@ -2408,8 +2478,8 @@ class MarketingService {
     // Con số cơ sở cố định theo đúng cấu hình kho; chỉ tăng trưởng đều 1 đơn vị khi có 1 thông báo toast nổ ra (+1, +2...)
     let recordedMax = id ? (this.highWaterSoldCountMap.get(id) || 0) : 0;
 
-    // Tự động thanh lọc các con số rác cũ bị thổi phồng bất thường do lỗi cộng dồn kép (> effectiveBaseTarget + 35)
-    if (id && recordedMax > effectiveBaseTarget + 10) {
+    // Tự động thanh lọc các con số rác cũ bị thổi phồng bất thường do lỗi cộng dồn kép (> effectiveBaseTarget + 500)
+    if (id && recordedMax > effectiveBaseTarget + 500) {
       recordedMax = effectiveBaseTarget;
       this.highWaterSoldCountMap.set(id, recordedMax);
       this.saveHighWaterCounts();
@@ -2466,8 +2536,8 @@ class MarketingService {
 
     let recordedMax = id ? (this.highWaterClaimedCountMap.get(id) || 0) : 0;
 
-    // Tự động thanh lọc các con số rác cũ bị thổi phồng bất thường do lỗi cộng dồn kép (> effectiveBaseTarget + 35)
-    if (id && recordedMax > effectiveBaseTarget + 10) {
+    // Tự động thanh lọc các con số rác cũ bị thổi phồng bất thường do lỗi cộng dồn kép (> effectiveBaseTarget + 500)
+    if (id && recordedMax > effectiveBaseTarget + 500) {
       recordedMax = effectiveBaseTarget;
       this.highWaterClaimedCountMap.set(id, recordedMax);
       this.saveHighWaterCounts();
@@ -3318,7 +3388,7 @@ class MarketingService {
           if (realStock <= 0 && !oosEnabled && !hasVirtual) return;
           const cur = this.highWaterSoldCountMap.get(k) || 0;
           const baseTarget = Number((details as any)?.virtual_sold_count || 0);
-          if (v > cur && (baseTarget <= 0 || v <= baseTarget + 10)) {
+          if (v > cur && (baseTarget <= 0 || v <= baseTarget + 500)) {
             this.highWaterSoldCountMap.set(k, v);
             this.liveFomoSoldCountMap.set(k, v);
             peakSoldChanged = true;
@@ -3344,7 +3414,7 @@ class MarketingService {
           if (realRemaining <= 0 && !oosEnabled && !hasVirtual) return;
           const cur = this.highWaterClaimedCountMap.get(k) || 0;
           const baseTarget = Number(details?.virtual_claimed_offset || 0);
-          if (v > cur && (baseTarget <= 0 || v <= baseTarget + 10)) {
+          if (v > cur && (baseTarget <= 0 || v <= baseTarget + 500)) {
             this.highWaterClaimedCountMap.set(k, v);
             this.liveFomoClaimedCountMap.set(k, v);
             peakClaimedChanged = true;
@@ -4064,16 +4134,42 @@ class MarketingService {
           }
         });
         const selectedItem = weightedItems[Math.floor(rng() * weightedItems.length)] || allEligible[0];
+        let displayTitle = selectedItem.title;
+        if (selectedItem.itemType === 'utility' && selectedItem.id.startsWith('ut_vs_')) {
+          const vsTitles: Record<string, string> = {
+            'ut_vs_01_basic_1d': 'Cloud Phone VS Phone Basic (Gói 1 Ngày)',
+            'ut_vs_02_basic_7d': 'Cloud Phone VS Phone Basic (Gói 7 Ngày)',
+            'ut_vs_03_basic_30d': 'Cloud Phone VS Phone Basic (Gói 30 Ngày)',
+            'ut_vs_04_vip_1d': 'Cloud Phone VS Phone VIP (Gói 1 Ngày)',
+            'ut_vs_05_vip_7d': 'Cloud Phone VS Phone VIP (Gói 7 Ngày)',
+            'ut_vs_06_vip_30d': 'Cloud Phone VS Phone VIP (Gói 30 Ngày)',
+            'ut_vs_07_kvip_1d': 'Cloud Phone VS Phone KVIP (Gói 1 Ngày)',
+            'ut_vs_08_kvip_7d': 'Cloud Phone VS Phone KVIP (Gói 7 Ngày)',
+            'ut_vs_09_kvip_30d': 'Cloud Phone VS Phone KVIP (Gói 30 Ngày)',
+            'ut_vs_10_svip_1d': 'Cloud Phone VS Phone SVIP (Gói 1 Ngày)',
+            'ut_vs_11_svip_7d': 'Cloud Phone VS Phone SVIP (Gói 7 Ngày)',
+            'ut_vs_12_svip_30d': 'Cloud Phone VS Phone SVIP (Gói 30 Ngày)',
+            'ut_vs_13_xvip_1d': 'Cloud Phone VS Phone XVIP (Gói 1 Ngày)',
+            'ut_vs_14_xvip_7d': 'Cloud Phone VS Phone XVIP (Gói 7 Ngày)',
+            'ut_vs_15_xvip_30d': 'Cloud Phone VS Phone XVIP (Gói 30 Ngày)',
+            'ut_vs_16_mvip_1d': 'Cloud Phone VS Phone MVIP (Gói 1 Ngày)',
+            'ut_vs_17_mvip_7d': 'Cloud Phone VS Phone MVIP (Gói 7 Ngày)',
+            'ut_vs_18_mvip_30d': 'Cloud Phone VS Phone MVIP (Gói 30 Ngày)',
+          };
+          if (vsTitles[selectedItem.id]) {
+            displayTitle = vsTitles[selectedItem.id];
+          }
+        }
         return {
           notif: {
             id: `slot_buy_${slotIndex}`,
             type: 'BUY_PRODUCT',
             title: selectedItem.itemType === 'utility' ? 'Đơn hàng tiện ích' : 'Đơn hàng mới',
-            message: `${maskedUser} vừa mua thành công ${selectedItem.title}`,
+            message: `${maskedUser} vừa mua thành công ${displayTitle}`,
             timeAgo,
             userName: maskedUser,
             productId: selectedItem.id,
-            productName: selectedItem.title,
+            productName: displayTitle,
             productPrice: selectedItem.price,
             itemType: selectedItem.itemType,
             timestamp: fireTimeMs,
@@ -4305,13 +4401,20 @@ class MarketingService {
         const validPresets = Array.isArray(parsed.depositNotificationPresets) && parsed.depositNotificationPresets.length > 0
           ? parsed.depositNotificationPresets.filter((p: any) => typeof p === 'number' && p > 0)
           : DEFAULT_DEPOSIT_PRESETS;
+        const loadedWeights = { ...DEFAULT_TYPE_WEIGHTS, ...(parsed.typeWeights || {}) };
+        if (!parsed.typeWeights || parsed.typeWeights.buyUtility === undefined || parsed.typeWeights.buyUtility <= 10) {
+          loadedWeights.buyUtility = DEFAULT_TYPE_WEIGHTS.buyUtility;
+        }
+        if (!parsed.typeWeights || parsed.typeWeights.copyCode === undefined || parsed.typeWeights.copyCode >= 40) {
+          loadedWeights.copyCode = DEFAULT_TYPE_WEIGHTS.copyCode;
+        }
         return {
           ...DEFAULT_MARKETING_CONFIG,
           ...parsed,
           toastPosition: parsed.toastPosition || 'bottom-left',
           depositNotificationPresets: (validPresets.length > 0) ? validPresets : DEFAULT_DEPOSIT_PRESETS,
           typeToggles: { ...DEFAULT_TYPE_TOGGLES, ...(parsed.typeToggles || {}) },
-          typeWeights: { ...DEFAULT_TYPE_WEIGHTS, ...(parsed.typeWeights || {}) },
+          typeWeights: loadedWeights,
           peakHours: { ...DEFAULT_MARKETING_CONFIG.peakHours, ...(parsed.peakHours || {}) },
           voteConfig: { ...DEFAULT_MARKETING_CONFIG.voteConfig, ...(parsed.voteConfig || {}) },
           timeAgoConfig: { ...DEFAULT_MARKETING_CONFIG.timeAgoConfig, ...(parsed.timeAgoConfig || {}) },
@@ -4348,6 +4451,9 @@ class MarketingService {
             typeWeights: {
               ...DEFAULT_TYPE_WEIGHTS,
               ...(parsed.typeWeights || {}),
+              buyUtility: (!parsed.typeWeights || parsed.typeWeights.buyUtility === undefined || parsed.typeWeights.buyUtility <= 10)
+                ? DEFAULT_TYPE_WEIGHTS.buyUtility
+                : parsed.typeWeights.buyUtility,
             },
             offlineCatchUp: {
               ...DEFAULT_OFFLINE_CATCHUP_CONFIG,

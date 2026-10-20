@@ -26,7 +26,7 @@ const VS_PHONE_SPECS = [
     rom: '50GB Bộ nhớ',
     packages: [
       { id: 'ut_vs_04_vip_1d', duration: '1 Day', days: 1, original: 13146, sold: 39 },
-      { id: 'ut_vs_05_vip_7d', duration: '7 Days', days: 7, original: 31551, sold: 64 },
+      { id: 'ut_vs_05_vip_7d', duration: '7 Days', days: 7, original: 31551, sold: 67 },
       { id: 'ut_vs_06_vip_30d', duration: '30 Days', days: 30, original: 89395, sold: 110 }
     ]
   },
@@ -125,7 +125,7 @@ function generateUpdatedProducts() {
         original_price: pkg.original,
         discount_percent: discountPercent,
         current_price: currentPrice,
-        stock_quantity: 0, // Trạng thái hết hàng theo quy định
+        stock_quantity: pkg.id === 'ut_vs_05_vip_7d' ? 8 : 0, // Gói 7 ngày có 8 sản phẩm trong kho, các gói khác hết hàng
         sold_count: 0,
         virtual_sold_count: pkg.sold,
         show_sold_count: true,
