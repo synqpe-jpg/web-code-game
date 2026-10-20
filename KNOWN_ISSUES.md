@@ -10,6 +10,21 @@
 
 ## 1. DANH MỤC LỖI & CÁC BẪY ĐÃ THẤT BẠI (DO NOT REPEAT)
 
+### ISSUE-008: Lỗi ReferenceError khi click vào thẻ Giveaway và ID ảo làm mất kết nối database
+- **Triệu chứng**:
+  - Khi người dùng click vào thẻ Giveaway ngoài web khách hoặc bấm nút "Chi tiết", giao diện bị đơ, không mở modal hoặc ném lỗi console `ReferenceError: selectedRewardPackageId is not defined`.
+  - Hoặc khi bấm giật code thì API báo `Chiến dịch không tồn tại` do ID bị gán tiền tố ảo `group_gw_...`.
+- **Nguyên nhân gốc rễ**:
+  - Component `GiveawaysView.tsx` sử dụng biến `selectedRewardPackageId` để tính toán active package nhưng thiếu khai báo state `useState`.
+  - Hàm `groupGiveawaysByGame` trong `productPackageUtils.ts` tự ý đổi ID campaign đại diện thành `group_gw_...`, khiến các truy vấn theo ID gốc vào `giveaways.json` hoặc database Cloudflare KV / D1 thất bại.
+- **Giải pháp chuẩn đã kiểm chứng**:
+  - Khai báo đầy đủ state `const [selectedRewardPackageId, setSelectedRewardPackageId] = useState<string | null>(null);` và gán mặc định qua `handleOpenDetailModal(campaign)`.
+  - Giữ nguyên `id: lead.id` cho các sản phẩm/chiến dịch đại diện được gom nhóm (`parentProduct.id = lead.id`, `parentUtility.id = lead.id`, `parentCampaign.id = lead.id`), lưu ID từng đợt vào `pkg.id`.
+- ⛔ **CÁCH SỬA ĐÃ THẤT BẠI - TUYỆT ĐỐI KHÔNG LẶP LẠI**:
+  - ❌ *Không tự ý gán ID ảo dạng `group_...` cho sản phẩm đại diện*: Gây sập liên kết khóa ngoại với kho mã SKU, bảng D1 và API claims.
+
+---
+
 ### ISSUE-001: Bất đồng bộ tồn kho thật vs tồn kho ảo (Ghost Stock & Data Resurrection)
 - **Triệu chứng**:
   - Admin đã chuyển trạng thái sản phẩm sang hết hàng hoặc xóa hết sản phẩm trong kho `inventory`, nhưng web khách vẫn báo còn hàng, vẫn cho mua, hoặc sau khi F5 lại tự nhảy về trạng thái còn hàng.

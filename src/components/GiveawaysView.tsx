@@ -271,11 +271,13 @@ export const GiveawaysView: React.FC<GiveawaysViewProps> = ({
   const [searchQuery, setSearchQuery] = useState('');
   const [filterCategory, setFilterCategory] = useState<'all' | 'available' | 'hot' | 'mine'>('all');
   const [isRedeemGuideOpen, setIsRedeemGuideOpen] = useState(false);
+  const [selectedRewardPackageId, setSelectedRewardPackageId] = useState<string | null>(null);
 
   const [isUnboxing, setIsUnboxing] = useState(false);
 
   const loadData = () => {
-    const list = dataService.getGiveaways();
+    const rawList = dataService.getGiveaways();
+    const list = groupGiveawaysByGame(rawList);
     setGiveaways(list);
     const myCodes = dataService.getClaimedCodes();
     setClaimedList(myCodes);
@@ -308,8 +310,15 @@ export const GiveawaysView: React.FC<GiveawaysViewProps> = ({
     };
   }, []);
 
+  const handleOpenDetailModal = (campaign: GiveawayCampaign) => {
+    setDetailModalCampaign(campaign);
+    const pkgs = getGiveawayPackages(campaign);
+    setSelectedRewardPackageId(pkgs[0]?.id || campaign.id);
+  };
+
   const handleCloseDetailModal = () => {
     setDetailModalCampaign(null);
+    setSelectedRewardPackageId(null);
     onClearInitialGiveawayId?.();
     try {
       if (window.location.hash.includes('gw=') || window.location.hash.includes('giveaway=')) {
@@ -341,7 +350,7 @@ export const GiveawaysView: React.FC<GiveawaysViewProps> = ({
           (g) => g.id.toLowerCase() === cleanId || (g.game_slug && g.game_slug.toLowerCase() === cleanId)
         );
         if (found) {
-          setDetailModalCampaign(found);
+          handleOpenDetailModal(found);
           setActiveTab('campaigns');
         }
       }
@@ -368,17 +377,18 @@ export const GiveawaysView: React.FC<GiveawaysViewProps> = ({
         currentUser.id === 'usr_admin')
   );
 
-  const handleClaim = async (campaign: GiveawayCampaign) => {
+  const handleClaim = async (campaign: GiveawayCampaign, targetPackageId?: string) => {
     if (!currentUser) {
       onOpenAuth();
       onShowToast('Cần đăng nhập', 'Vui lòng đăng nhập hoặc đăng ký tài khoản để giật mã quà tặng miễn phí.', 'info');
       return;
     }
     if (claimingId) return;
+    const targetId = targetPackageId || selectedRewardPackageId || campaign.id;
     setClaimingId(campaign.id);
 
     try {
-      const res = await dataService.claimGiveaway(campaign.id);
+      const res = await dataService.claimGiveaway(targetId);
       setClaimingId(null);
       setDetailModalCampaign(null);
 
@@ -393,7 +403,7 @@ export const GiveawaysView: React.FC<GiveawaysViewProps> = ({
           return;
         }
 
-        const myPrevClaims = freshClaimedList.filter((c) => c.campaign_id === campaign.id);
+        const myPrevClaims = freshClaimedList.filter((c) => c.campaign_id === targetId || c.campaign_id === campaign.id);
         const myPrevCode = res.code || (myPrevClaims.length > 0 ? myPrevClaims[0].code_value : null);
         if ((res.alreadyClaimed || myPrevClaims.length > 0) && myPrevCode) {
           setClaimedRewardModal({
@@ -819,7 +829,7 @@ export const GiveawaysView: React.FC<GiveawaysViewProps> = ({
                 return (
                   <div
                     key={campaign.id}
-                    onClick={() => setDetailModalCampaign(campaign)}
+                    onClick={() => handleOpenDetailModal(campaign)}
                     className="bg-card rounded-2xl border border-border/80 hover:border-accent/40 shadow-cyber-card p-3.5 sm:p-4 flex flex-col justify-between transition-all duration-200 hover:-translate-y-0.5 group cursor-pointer"
                   >
                     <div>
@@ -1069,7 +1079,7 @@ export const GiveawaysView: React.FC<GiveawaysViewProps> = ({
                           <button
                             onClick={(e) => {
                               e.stopPropagation();
-                              setDetailModalCampaign(campaign);
+                              handleOpenDetailModal(campaign);
                             }}
                             className="py-2.5 px-3 rounded-xl bg-muted/80 hover:bg-muted text-foreground border border-border text-xs font-bold flex items-center justify-center gap-1.5 cursor-pointer transition-all hover:border-primary/40"
                           >
@@ -1093,7 +1103,7 @@ export const GiveawaysView: React.FC<GiveawaysViewProps> = ({
                             <button
                               onClick={(e) => {
                                 e.stopPropagation();
-                                setDetailModalCampaign(campaign);
+                                handleOpenDetailModal(campaign);
                               }}
                               className="py-2.5 px-3 rounded-xl bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 border border-amber-500/40 text-xs font-bold flex items-center justify-center gap-1.5 cursor-pointer transition-all active:scale-95"
                             >
@@ -1167,7 +1177,7 @@ export const GiveawaysView: React.FC<GiveawaysViewProps> = ({
                             <button
                               onClick={(e) => {
                                 e.stopPropagation();
-                                setDetailModalCampaign(campaign);
+                                handleOpenDetailModal(campaign);
                               }}
                               className="py-2.5 px-3 rounded-xl bg-amber-500/15 hover:bg-amber-500/25 text-amber-300 border border-amber-500/30 text-xs font-bold flex items-center justify-center gap-1.5 cursor-pointer transition-all"
                             >
@@ -1975,14 +1985,68 @@ export const GiveawaysView: React.FC<GiveawaysViewProps> = ({
 
                 {/* Modal Scrollable Body */}
                 <div className="flex-1 overflow-y-auto pr-1 space-y-3.5 custom-scrollbar text-xs">
+                  {/* Package Selector if multiple packages */}
+                  {packages.length > 1 && (
+                    <div className="p-3.5 rounded-2xl bg-card-hover/90 border border-border/80 space-y-2">
+                      <div className="flex items-center justify-between">
+                        <span className="text-[11px] font-extrabold text-foreground uppercase tracking-wider flex items-center gap-1.5">
+                          <Gift className="w-4 h-4 text-accent" />
+                          <span>Chọn Gói Quà Tặng Bạn Muốn Giật ({packages.length} gói):</span>
+                        </span>
+                        <span className="text-[10px] text-accent font-bold font-mono">
+                          {activePackage?.name || 'Mặc định'}
+                        </span>
+                      </div>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                        {packages.map((pkg) => {
+                          const isSelected = activePackage?.id === pkg.id;
+                          const pkgStock =
+                            Array.isArray(pkg.codes_pool) && pkg.codes_pool.length > 0
+                              ? pkg.codes_pool.length
+                              : typeof pkg.remaining_codes === 'number'
+                              ? pkg.remaining_codes
+                              : 0;
+                          return (
+                            <button
+                              key={pkg.id}
+                              type="button"
+                              onClick={() => setSelectedRewardPackageId(pkg.id)}
+                              className={`p-2.5 rounded-xl border text-left transition-all cursor-pointer flex flex-col justify-between ${
+                                isSelected
+                                  ? 'bg-accent/15 border-accent text-accent shadow-sm ring-1 ring-accent'
+                                  : 'bg-muted/40 hover:bg-muted/70 border-border/70 text-foreground'
+                              }`}
+                            >
+                              <div className="flex items-center justify-between gap-1 mb-1">
+                                <span className="text-xs font-bold line-clamp-1">{pkg.name}</span>
+                                {pkg.badge && (
+                                  <span className="text-[9px] font-bold px-1.5 py-0.2 rounded bg-amber-500/20 text-amber-300 border border-amber-500/30 shrink-0">
+                                    {pkg.badge}
+                                  </span>
+                                )}
+                              </div>
+                              <p className="text-[10px] text-muted-foreground line-clamp-1">{pkg.rewards}</p>
+                              <div className="mt-1.5 flex items-center justify-between text-[10px] font-mono">
+                                <span className={pkgStock > 0 ? 'text-emerald-400 font-bold' : 'text-rose-400 font-bold'}>
+                                  {pkgStock > 0 ? `Còn ${pkgStock} mã` : 'Hết mã'}
+                                </span>
+                                {isSelected && <span className="text-[9px] text-accent font-bold">✓ Đang chọn</span>}
+                              </div>
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
+
                   {/* Rewards Box */}
                   <div className="p-3.5 rounded-2xl bg-muted/60 border border-border/80 space-y-1.5">
                     <div className="flex items-center gap-1.5 text-xs font-bold text-accent">
                       <Gift className="w-4 h-4" />
-                      <span>Chi Tiết Phần Thưởng Code:</span>
+                      <span>Chi Tiết Phần Thưởng Code{packages.length > 1 ? ` (${activePackage?.name || currentCampaign.title})` : ''}:</span>
                     </div>
                     <p className="text-xs sm:text-sm text-foreground/90 font-medium leading-relaxed">
-                      {currentCampaign.rewards}
+                      {activePackage?.rewards || currentCampaign.rewards}
                     </p>
                     {currentCampaign.description && (
                       <p className="text-[11px] text-muted-foreground pt-1 border-t border-border/40">
@@ -2288,7 +2352,7 @@ export const GiveawaysView: React.FC<GiveawaysViewProps> = ({
                       />
                       {isAdmin && (
                         <button
-                          onClick={() => handleClaim(currentCampaign)}
+                          onClick={() => handleClaim(currentCampaign, activePackage?.id)}
                           disabled={claimingId === currentCampaign.id}
                           className="w-full py-2.5 rounded-xl bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 border border-amber-500/40 text-xs font-bold flex items-center justify-center gap-1.5 cursor-pointer transition-all active:scale-95"
                         >
@@ -2336,7 +2400,7 @@ export const GiveawaysView: React.FC<GiveawaysViewProps> = ({
                         />
                       )}
                       <button
-                        onClick={() => handleClaim(currentCampaign)}
+                        onClick={() => handleClaim(currentCampaign, activePackage?.id)}
                         disabled={claimingId === currentCampaign.id}
                         className="w-full py-3.5 rounded-2xl bg-gradient-to-r from-accent via-rose-500 to-amber-500 hover:opacity-95 text-white font-display font-black text-xs sm:text-sm tracking-wide shadow-glow-accent hover:scale-[1.01] active:scale-[0.99] transition-all cursor-pointer flex items-center justify-center gap-2 disabled:opacity-75 disabled:cursor-not-allowed"
                       >

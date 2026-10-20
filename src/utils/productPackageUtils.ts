@@ -160,7 +160,7 @@ export function groupStoreProductsByGame(products: StoreProduct[]): StoreProduct
 
       const parentProduct: StoreProduct = {
         ...lead,
-        id: `grouped_${lead.game_slug || lead.id}`,
+        id: lead.id,
         title: `${lead.game_name} - Nạp Game & Gói Quà Tặng`,
         current_price: minPrice,
         stock_quantity: totalStock,
@@ -307,7 +307,7 @@ export function groupUtilitiesByTheme(utilities: UtilityProduct[]): UtilityProdu
 
     const parentUtility: UtilityProduct = {
       ...lead,
-      id: `group_${groupKey}`,
+      id: lead.id,
       title: meta.title,
       badge: meta.badge,
       description: meta.description || lead.description,
@@ -374,7 +374,7 @@ export function groupGiveawaysByGame(campaigns: GiveawayCampaign[]): GiveawayCam
 
       const parentCampaign: GiveawayCampaign = {
         ...lead,
-        id: `group_gw_${lead.game_slug || lead.id}`,
+        id: lead.id,
         title: `Đại Tiệc Giftcode Quà Tặng - ${lead.game_name}`,
         remaining_codes: totalPool,
         claimed_codes: totalClaimed,

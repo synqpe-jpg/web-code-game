@@ -7,6 +7,43 @@ Mỗi mục sửa lỗi đều ghi nhận **Nguyên nhân gốc rễ (Root Cause
 
 ## [2026-10-20]
 
+### 87. Gom Nhóm Sản Phẩm Trong Admin (Quản Lý Tiện Ích & Kho Code Bán) & Khắc Phục Lỗi Giật Giveaway Khi Click
+- **Mô tả & Yêu cầu người dùng**:
+  1. *Yêu cầu 1*: Nhóm trong Admin (vị trí quản lý mã và sản phẩm tương tự như ngoài web khách):
+     - Tại Quản lý Tiện Ích (`UtilitiesModule.tsx`): Gom các gói cùng dòng máy ảo (VS Phone Basic, VIP, KVIP, SVIP, XVIP, MVIP...) thành các thẻ sản phẩm đại diện.
+     - Tại Kho Code & Gói Bán (`CodeInventoryModule.tsx`): Gom các gói bán cùng game thành thẻ đại diện cho Tựa Game đó.
+     - Thêm Toggle chuyển đổi linh hoạt: `[Nhóm đại diện]` (mặc định) vs `[Tất cả gói lẻ]`.
+     - Mỗi thẻ đại diện hiển thị đầy đủ thông tin gộp: Tên sản phẩm/game đại diện, giá khởi điểm "Từ {giá} đ", tổng kho thực tế, tổng đã bán, kèm danh sách các gói con mở rộng với đầy đủ nút thao tác nhanh (+ Nhập kho, Chi tiết kho, Số ảo, Đổi trạng thái, Sửa, Xóa) cho từng gói con.
+  2. *Yêu cầu 2*: Khắc phục triệt để lỗi khi người dùng chọn/click vào Giveaway ngoài Web Khách:
+     - Khắc phục `ReferenceError: selectedRewardPackageId is not defined` do thiếu khai báo state trong `GiveawaysView.tsx`.
+     - Khắc phục lỗi `group_gw_...` gây lỗi "Chiến dịch không tồn tại" khi gọi API claim bằng cách giữ ID chiến dịch gốc (`lead.id`).
+     - Tích hợp bộ chọn gói quà tặng đa năng khi chiến dịch có nhiều gói (`packages.length > 1`) và gửi đúng ID gói khi giật mã.
+  3. *Yêu cầu 3*: Đảm bảo hệ thống số ảo, marketing FOMO hoạt động chuẩn xác:
+     - Quy tắc 1 - 1: Hàng thật = 0 thì số lượng hiển thị = 0 ("HẾT HÀNG"), ngắt bonus ảo và auto-restock.
+     - Khi có thông báo mua/nhận nổ ra, tồn kho giảm 1, đã bán/đã săn tăng 1, thẻ đại diện tự động cập nhật đồng thời trên toàn bộ các thiết bị qua `BroadcastChannel`.
+- **Nguyên nhân gốc rễ (Root Cause)**:
+  1. *Lỗi Giveaway Crash*: Biến `selectedRewardPackageId` được dùng trực tiếp trong hàm tính toán activePackage mà không có `useState` tương ứng, khiến trình duyệt ném `ReferenceError` làm hỏng component modal. Đồng thời hàm `groupGiveawaysByGame` gán ID ảo dạng `group_gw_...` khiến endpoint claim không tìm thấy campaign thật.
+  2. *Admin rời rạc*: Các gói tiện ích và gói game hiển thị dạng flat (19+ thẻ) khiến quản trị viên khó theo dõi tổng thể số lượng kho theo từng dòng sản phẩm.
+- **Giải pháp toàn diện đã triển khai (Solution)**:
+  1. *Khắc phục lỗi Giveaway trong `src/components/GiveawaysView.tsx`*:
+     - Khai báo state `selectedRewardPackageId`.
+     - Viết hàm `handleOpenDetailModal(campaign)` tự động đặt activePackage mặc định.
+     - Nâng cấp `handleClaim(campaign, targetPackageId)` gửi đúng ID của gói quà đã chọn.
+     - Bổ sung giao diện chọn gói quà tặng trong modal chi tiết kèm viền active và badge trạng thái còn lại.
+  2. *Chuẩn hóa ID gom nhóm trong `src/utils/productPackageUtils.ts`*:
+     - `parentProduct.id = lead.id`, `parentUtility.id = lead.id`, `parentCampaign.id = lead.id` bảo tồn liên kết nguyên vẹn với database D1 và KV.
+  3. *Nâng cấp giao diện Quản Trị `UtilitiesModule.tsx` & `CodeInventoryModule.tsx`*:
+     - Bổ sung state `viewMode` ('grouped' | 'flat') lưu trong `localStorage`.
+     - Bổ sung nút Toggle chuyển đổi chế độ xem ở thanh công cụ.
+     - Thiết kế thẻ đại diện chuyên nghiệp với giá "Từ ... đ", tổng kho gộp, tổng bán gộp và danh sách các gói con kèm nút thao tác riêng cho từng gói.
+- **Files Modified**:
+  - `src/utils/productPackageUtils.ts`
+  - `src/components/GiveawaysView.tsx`
+  - `src/admin/modules/UtilitiesModule.tsx`
+  - `src/admin/modules/CodeInventoryModule.tsx`
+  - `CHANGELOG.md` (Mục 87)
+  - `KNOWN_ISSUES.md` (Mục ISSUE-008)
+
 ### 86. Tái Cấu Trúc 3 Mục Cửa Hàng, Tiện Ích & Giveaway Theo Mô Hình "Sản Phẩm Đại Diện → Nhiều Gói Tùy Chọn" (Parent Product - Packages / Variants)
 - **Mô tả & Yêu cầu người dùng**:
   - Tái cấu trúc lại 3 mục: Cửa Hàng Code, Tiện Ích, và Giveaway (Giật Code).
