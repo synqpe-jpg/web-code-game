@@ -244,12 +244,12 @@ class MarketingService {
     this.initRealClicks();
     this.initLiveVirtualStock();
     this.initLiveFomoCounts();
+    this.initSnapshotCache();
     this.initHighWaterCounts();
     this.initAdminOverrides();
     this.initSessionAnchor();
     this.applyOfflineCatchUp();
     this.initHourlyServerStats();
-    this.initSnapshotCache();
     this.initBroadcastChannel();
     this.setupStorageListener();
     this.startGlobalCounterTicker();
@@ -354,7 +354,7 @@ class MarketingService {
   public async fetchMetricsSnapshot(): Promise<void> {
     if (typeof window === 'undefined') return;
     try {
-      const res = await fetch('/api/metrics/synced', { cache: 'no-store' });
+      const res = await fetch(`/api/metrics/synced?fresh=1&_t=${Date.now()}`, { cache: 'no-store' });
       if (!res.ok) return;
       const data: any = await res.json().catch(() => null);
       if (data && data.success && data.snapshot) {
@@ -1054,11 +1054,9 @@ class MarketingService {
     } catch {}
   }
 
-  private saveHighWaterCounts(): void {
+  private saveHighWaterCounts(immediate: boolean = false): void {
     if (typeof window === 'undefined') return;
-    if (this.saveHighWaterTimer) return;
-    this.saveHighWaterTimer = setTimeout(() => {
-      this.saveHighWaterTimer = null;
+    const persist = () => {
       try {
         const soldObj: Record<string, number> = {};
         this.highWaterSoldCountMap.forEach((val, key) => {
@@ -1072,7 +1070,22 @@ class MarketingService {
         });
         localStorage.setItem(MARKETING_HIGH_WATER_CLAIMED_KEY, JSON.stringify(claimedObj));
       } catch {}
-    }, 300);
+    };
+
+    if (immediate) {
+      if (this.saveHighWaterTimer) {
+        clearTimeout(this.saveHighWaterTimer);
+        this.saveHighWaterTimer = null;
+      }
+      persist();
+      return;
+    }
+
+    if (this.saveHighWaterTimer) return;
+    this.saveHighWaterTimer = setTimeout(() => {
+      this.saveHighWaterTimer = null;
+      persist();
+    }, 50);
   }
 
   private initAdminOverrides(): void {
@@ -2219,6 +2232,12 @@ class MarketingService {
     }
 
     if (!parsedAnchorMs) {
+      const sessionAnchor = this.sessionAnchorMap.get(id);
+      if (sessionAnchor && sessionAnchor.lastTimestamp > 0) {
+        parsedAnchorMs = sessionAnchor.lastTimestamp;
+      }
+    }
+    if (!parsedAnchorMs) {
       return 0;
     }
 
@@ -2753,7 +2772,7 @@ class MarketingService {
     const currentSold = this.getSoldDisplay({ id: productId });
     const nextSold = currentSold + inc;
     this.highWaterSoldCountMap.set(productId, nextSold);
-    this.saveHighWaterCounts();
+    this.saveHighWaterCounts(true);
 
     this.updateSessionAnchor(productId, nextSold);
     this.notifySoldCountChanged(productId, nextSold);
@@ -2792,7 +2811,7 @@ class MarketingService {
     const currentClaimed = this.getClaimedDisplay({ id: campaignId });
     const nextClaimed = currentClaimed + inc;
     this.highWaterClaimedCountMap.set(campaignId, nextClaimed);
-    this.saveHighWaterCounts();
+    this.saveHighWaterCounts(true);
 
     this.updateSessionAnchor(campaignId, nextClaimed);
     this.notifySoldCountChanged(campaignId, nextClaimed);

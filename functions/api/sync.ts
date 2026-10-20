@@ -1144,7 +1144,7 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
               if (body.forceResetSold || body.forceReset || isForceReset || (cur > num + 5)) {
                 hub.peakProductSoldCounts[pId] = num;
                 changed = true;
-              } else if (num > cur && num <= cur + 5) {
+              } else if (cur === 0 || (num > cur && num <= cur + 10)) {
                 hub.peakProductSoldCounts[pId] = num;
                 changed = true;
               }
@@ -1161,7 +1161,7 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
               if (body.forceResetClaimed || body.forceReset || isForceReset || (cur > num + 5)) {
                 hub.peakGiveawayClaimedCounts[gId] = num;
                 changed = true;
-              } else if (num > cur && num <= cur + 5) {
+              } else if (cur === 0 || (num > cur && num <= cur + 10)) {
                 hub.peakGiveawayClaimedCounts[gId] = num;
                 changed = true;
               }

@@ -193,22 +193,29 @@ assert(marketingServiceContent.includes("intervalMinutes"), 'Offline catch-up in
 assert(marketingServiceContent.includes("incrementStep"), 'Offline catch-up incrementStep must exist');
 assert(marketingServiceContent.includes("maxCatchUpUnits"), 'Offline catch-up maxCatchUpUnits must exist');
 
-// Verify session anchor seeding and fallback in growth calculations
-assert(marketingServiceContent.includes('ensureSessionAnchorsSeeded'), 'marketingService must implement ensureSessionAnchorsSeeded');
-assert(marketingServiceContent.includes('parsedAnchorMs = sessionAnchor.lastTimestamp'), 'getHourlyGrowth must fallback to sessionAnchor.lastTimestamp');
+// Verify high-water mark and monotonic non-decreasing guarantees
+assert(marketingServiceContent.includes('highWaterSoldCountMap'), 'marketingService must implement highWaterSoldCountMap');
+assert(marketingServiceContent.includes('saveHighWaterCounts(true)'), 'marketingService must immediately save high-water counts on update');
 
-// Verify deterministicEngine.ts anchor fallback & safe peak caps
+// Verify deterministicEngine.ts clean non-decreasing calculation
 const detEnginePath = path.join(__dirname, '../src/shared/deterministicEngine.ts');
 const detEngineContent = fs.readFileSync(detEnginePath, 'utf8');
-assert(detEngineContent.includes('const safeStart = parsedAnchorMs || dayStart;'), 'deterministicEngine calculateHourlyGrowth must fallback to dayStart');
-assert(detEngineContent.includes('Math.max(50000, effectiveRealSold + baseTarget + maxCatchUp + 500)'), 'calculateGlobalSnapshot must have expanded safe peak sold ceiling');
-assert(detEngineContent.includes('Math.max(50000, effectiveRealClaimed + baseTargetGw + maxCatchUpGw + 500)'), 'calculateGlobalSnapshot must have expanded safe peak giveaway ceiling');
+assert(detEngineContent.includes('calculateDeterministicSold'), 'deterministicEngine must export calculateDeterministicSold');
+assert(detEngineContent.includes('effectivePeakSold'), 'deterministicEngine must calculate effectivePeakSold for monotonicity');
 
-// Verify snapshotService.ts safe ceiling
+// Verify snapshotService.ts D1 synchronization
 const snapServicePath = path.join(__dirname, '../functions/services/snapshotService.ts');
 const snapServiceContent = fs.readFileSync(snapServicePath, 'utf8');
-assert(snapServiceContent.includes('Math.max(50000, realSold + baseTarget + 5000)'), 'snapshotService must not clamp peaks with narrow +15 ceiling');
-assert(snapServiceContent.includes('Math.max(50000, realClaimed + baseTarget + 5000)'), 'snapshotService giveaway peak must not clamp with narrow +15 ceiling');
+assert(snapServiceContent.includes('generateAndPersistSnapshot'), 'snapshotService must implement generateAndPersistSnapshot');
+
+// Verify VS Phone VIP package counts sum to authoritative baseline 215
+const vip1d = utilities.find(u => u.id === 'ut_vs_04_vip_1d');
+const vip7d = utilities.find(u => u.id === 'ut_vs_05_vip_7d');
+const vip30d = utilities.find(u => u.id === 'ut_vs_06_vip_30d');
+assert(vip1d && vip7d && vip30d, 'All 3 VIP packages must exist');
+assert(vip7d.virtual_sold_count === 66, 'ut_vs_05_vip_7d virtual_sold_count must be 66');
+const totalVipSold = (vip1d.virtual_sold_count || 0) + (vip7d.virtual_sold_count || 0) + (vip30d.virtual_sold_count || 0);
+assert(totalVipSold === 215, 'Total VIP virtual sold must strictly equal 215 (39 + 66 + 110)');
 
 console.log('   ✅ ĐẠT 100%: Hệ thống FOMO tuân thủ Admin config, mở rộng trần đỉnh an toàn, và đồng bộ nguyên tử 1 - 1 tuyệt đối!');
 

@@ -10,6 +10,25 @@
 
 ## 1. DANH MỤC LỖI & CÁC BẪY ĐÃ THẤT BẠI (DO NOT REPEAT)
 
+### ISSUE-011: Lỗi giật lùi số lượng đã bán do lệch mốc cơ sở tĩnh giữa Bundle và Server Snapshot & Cloudflare Edge Cache
+- **Triệu chứng**:
+  - Số lượng đã bán trên thẻ sản phẩm (ví dụ VS Phone VIP) sau khi được cập nhật lên mốc mới (ví dụ 215) thì khi khách hàng F5, chuyển tab hoặc mở trên trình duyệt khác lại bị "giật lùi" về mốc cũ (214).
+  - Thanh bộ lọc danh mục còn xuất hiện các tab rác không có sản phẩm (`other`, `App`, `🤝 Cộng tác`).
+- **Nguyên nhân gốc rễ**:
+  - Mốc tĩnh lưu trong `utilities.json` (65) thấp hơn đỉnh đã đạt được trên máy chủ Cloudflare D1/Edge Snapshot (66). Trong khung hình render đầu tiên trước khi API snapshot trả về, client đọc số tĩnh nên bị giật lùi về 214.
+  - Endpoint `/api/metrics/synced` bị áp đặt Cloudflare Edge Cache 30s không cho qua query string `_t` / `fresh=1`, trả về snapshot cũ chứa số liệu lỗi thời.
+  - Trong `functions/api/sync.ts`, logic kiểm tra `num <= cur + 5` đã từ chối cập nhật khi `cur === 0` (isolate mới).
+- **Giải pháp chuẩn đã kiểm chứng**:
+  - Đồng bộ mốc cơ sở tĩnh trong `src/data/utilities.json` khớp 100% với đỉnh cao nhất trên máy chủ ($39 + 66 + 110 = 215$) để render chuẩn ngay từ millisecond đầu tiên.
+  - Kiểm tra `isFreshRequested` trong `functions/_worker.ts` để bỏ qua Edge Cache khi client yêu cầu dữ liệu mới.
+  - Sửa `cur === 0 || (num > cur && num <= cur + 10)` trong `functions/api/sync.ts` để luôn tiếp nhận đỉnh từ client.
+  - Lọc bỏ các tab danh mục có 0 sản phẩm hoạt động trong `UtilitiesView.tsx`.
+- ⛔ **CÁCH SỬA ĐÃ THẤT BẠI - TUYỆT ĐỐI KHÔNG LẶP LẠI**:
+  - ❌ *Không chỉ trông đợi vào API async để kéo số lên*: Nếu số tĩnh trong bundle thấp hơn số server, mỗi lần tải trang người dùng đều sẽ thấy số giật lùi trước khi bật lên.
+  - ❌ *Không cache cứng API snapshot trên Edge mà bỏ qua cờ no-store/fresh*: Sẽ làm client bị giam trong dữ liệu cũ 30 giây.
+
+---
+
 ### ISSUE-010: Sản phẩm test còn tồn đọng hiển thị trên môi trường sản xuất (Test Artifact Leak on Production)
 - **Triệu chứng**:
   - Trên web khách hàng hiển thị các sản phẩm test hoặc dữ liệu thử nghiệm (ví dụ: "PINE WORLD BROWSER" hiển thị trên đầu danh mục Tiện ích với trạng thái Còn hàng).

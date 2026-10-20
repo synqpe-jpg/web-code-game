@@ -411,9 +411,28 @@ export const UtilitiesView: React.FC<UtilitiesViewProps> = ({
       return timeB - timeA;
     });
 
+  // Chỉ hiển thị danh mục hệ thống hoặc danh mục thực tế đang có sản phẩm hoạt động
+  const activeCategorySet = useMemo(() => {
+    const set = new Set<string>();
+    utilities.forEach((u) => {
+      if (u.is_active !== false && (u as any).is_active !== 0 && (u as any).is_active !== '0') {
+        if (u.category) set.add(u.category.trim().toLowerCase());
+        if (u.category_label) set.add(u.category_label.trim().toLowerCase());
+      }
+    });
+    return set;
+  }, [utilities]);
+
+  const visibleCategories = categoriesList.filter((cat) => {
+    if (cat.isSystem) return true;
+    const catId = (cat.id || '').trim().toLowerCase();
+    const catLabel = (cat.label || '').trim().toLowerCase();
+    return activeCategorySet.has(catId) || activeCategorySet.has(catLabel);
+  });
+
   const categoryTabs = [
     { id: 'all', label: 'Tất cả tiện ích', icon: Layers, rawIcon: '' },
-    ...categoriesList.map((cat) => {
+    ...visibleCategories.map((cat) => {
       let IconComponent = Sparkles;
       if (cat.id === 'account') IconComponent = Tv;
       else if (cat.id === 'key') IconComponent = KeyRound;

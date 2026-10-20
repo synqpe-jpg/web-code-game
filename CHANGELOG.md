@@ -7,6 +7,38 @@ Mỗi mục sửa lỗi đều ghi nhận **Nguyên nhân gốc rễ (Root Cause
 
 ## [2026-10-20]
 
+### 102. Cố Định Mốc Cơ Sở 215 Cho VS Phone VIP, Khắc Phục Triệt Để Giật Lùi Số, Dọn Sạch Tab Rác 'other', 'App', '🤝 Cộng tác' & Nâng Cấp Bỏ Qua Edge Cache
+- **Mô tả & Yêu cầu người dùng**:
+  - Người dùng gửi ảnh chụp màn hình Cốc Cốc trên trang Tiện ích (`codegame.shop/utilities`) và phản ánh: *"Bị giật về nè bạn"* (thẻ VS Phone VIP hiển thị Đã bán: 214 thay vì 215, đồng thời thanh danh mục có các mục rác: `other`, `App`, `🤝 Cộng tác`).
+- **Nguyên nhân gốc rễ & Phân tích (Root Cause & Analysis)**:
+  1. *Lệch mốc cơ sở tĩnh giữa Bundle và Server Snapshot*: File `utilities.json` trước đó lưu gói 7 Ngày (`ut_vs_05_vip_7d`) với `virtual_sold_count = 65` ($39 + 65 + 110 = 214$). Khi người dùng mở trang hoặc F5, khung hình đầu tiên hiển thị số tĩnh 214. Trong khi máy chủ Cloudflare Edge đã lưu đỉnh 215 (gói 7 ngày là 66). Khoảng trễ bất đồng bộ giữa lúc nạp HTML và lúc API `/api/metrics/synced` trả về khiến số hiển thị giật lùi về 214.
+  2. *Cloudflare Edge Cache 30s ghi đè phiên bản cũ*: Trong `functions/_worker.ts`, endpoint `/api/metrics/synced` bị áp đặt Edge Cache 30s (`s-maxage=30`). Khi client gửi yêu cầu `cache: 'no-store'` hoặc kèm query timestamp, cache key bị xóa query string khiến Cloudflare trả về bản snapshot cũ của 30s trước chứa mốc 214.
+  3. *Lỗi logic từ chối đỉnh bán trong `functions/api/sync.ts`*: Điều kiện `else if (num > cur && num <= cur + 5)` khiến các thiết bị hoặc isolate mới (khi `cur === 0`) từ chối toàn bộ đỉnh số bán $> 5$, dẫn đến việc máy chủ không lưu nhận được đỉnh 66 của gói 7 ngày.
+  4. *Tab danh mục rác 'other', 'App', '🤝 Cộng tác' còn lưu trong CSDL*: Bảng cài đặt D1 `wcg_admin_utility_categories_v1` vẫn lưu các danh mục thừa từ đợt test cũ, và `UtilitiesView.tsx` không lọc bỏ các danh mục có 0 sản phẩm hoạt động.
+- **Giải pháp toàn diện đã triển khai (Solution)**:
+  1. *Đưa mốc cơ sở tĩnh lên chuẩn 215*:
+     - Cập nhật `virtual_sold_count = 66` cho `ut_vs_05_vip_7d` trong `src/data/utilities.json`, `scripts/all_utilities_backup.json` và đồng bộ vào Cloudflare D1.
+     - Tổng mốc cơ sở: $39 + 66 + 110 = \mathbf{215}$ ngay từ millisecond đầu tiên, triệt tiêu hoàn toàn khả năng render 214 trên mọi thiết bị và trình duyệt.
+  2. *Sửa logic chấp nhận đỉnh trong `functions/api/sync.ts`*:
+     - Sửa điều kiện thành `else if (cur === 0 || (num > cur && num <= cur + 10))` cho cả `peakSold` và `peakClaimed`, cho phép tiếp nhận đỉnh từ client ngay cả khi máy chủ khởi tạo isolate mới.
+  3. *Bỏ qua Edge Cache khi yêu cầu dữ liệu tươi*:
+     - Trong `functions/_worker.ts`, kiểm tra cờ `fresh`, `force`, `_t` hoặc header `no-cache`/`no-store` để luôn trả lời dữ liệu snapshot thời gian thực, không bị dính cache 30s.
+  4. *Lưu trữ tức thì `saveHighWaterCounts(true)`*:
+     - Trong `marketingService.ts`, ghi đè ngay lập tức vào `localStorage` khi có sự kiện mua hàng/tăng số bán, không chờ debounce 300ms.
+     - Gọi `initSnapshotCache()` trước `initHighWaterCounts()` trong constructor.
+  5. *Dọn sạch vĩnh viễn danh mục rác*:
+     - Cập nhật D1 setting `wcg_admin_utility_categories_v1` chỉ còn 5 danh mục chuẩn (`account`, `key`, `tool`, `service`, `cloud-phone`).
+     - Bổ sung bộ lọc `visibleCategories` trong `UtilitiesView.tsx`: Chỉ hiển thị danh mục hệ thống hoặc danh mục thực tế đang có $\ge 1$ sản phẩm hoạt động.
+- **Files Modified**:
+  - `src/data/utilities.json`
+  - `scripts/all_utilities_backup.json`
+  - `src/components/UtilitiesView.tsx`
+  - `src/services/marketingService.ts`
+  - `functions/api/sync.ts`
+  - `functions/_worker.ts`
+  - `scripts/verify_all_requirements.cjs`
+  - `CHANGELOG.md` (Mục 102)
+
 ### 101. Xóa Bỏ Triệt Để Sản Phẩm Test "PINE WORLD BROWSER" Khỏi Danh Mục Tiện Ích & CSDL Cloudflare D1
 - **Mô tả & Yêu cầu người dùng**:
   - Người dùng gửi ảnh chụp màn hình trang Tiện ích (`codegame.shop/utilities`) và nhắc nhở: *"Có sản phẩm test xong bạn quên chưa xóa kìa"*.

@@ -194,16 +194,22 @@ export default {
       if (pathname === '/api/realtime-events') {
         if (method === 'GET') {
           if (typeof caches !== 'undefined' && (caches as any).default) {
+            const reqUrl = new URL(request.url);
+            const ccHeader = request.headers.get('cache-control') || '';
+            const isFreshRequested = reqUrl.searchParams.has('fresh') || reqUrl.searchParams.has('force') || reqUrl.searchParams.has('_t') || ccHeader.includes('no-cache') || ccHeader.includes('no-store');
+
             const cache = (caches as any).default;
             const cacheUrl = new URL(request.url);
             cacheUrl.search = '';
             const cacheKey = new Request(cacheUrl.toString(), { method: 'GET' });
 
-            const cached = await cache.match(cacheKey);
-            if (cached) {
-              const res = new Response(cached.body, cached);
-              res.headers.set('CF-Edge-Cache-Status', 'HIT');
-              return res;
+            if (!isFreshRequested) {
+              const cached = await cache.match(cacheKey);
+              if (cached) {
+                const res = new Response(cached.body, cached);
+                res.headers.set('CF-Edge-Cache-Status', 'HIT');
+                return res;
+              }
             }
 
             const response = await realtimeEventsApi.onRequestGet(context);
@@ -237,16 +243,22 @@ export default {
       if (pathname === '/api/metrics/synced') {
         if (method === 'GET') {
           if (typeof caches !== 'undefined' && (caches as any).default) {
+            const reqUrl = new URL(request.url);
+            const ccHeader = request.headers.get('cache-control') || '';
+            const isFreshRequested = reqUrl.searchParams.has('fresh') || reqUrl.searchParams.has('force') || reqUrl.searchParams.has('_t') || reqUrl.searchParams.has('t') || ccHeader.includes('no-cache') || ccHeader.includes('no-store');
+
             const cache = (caches as any).default;
             const cacheUrl = new URL(request.url);
             cacheUrl.search = '';
             const cacheKey = new Request(cacheUrl.toString(), { method: 'GET' });
 
-            const cached = await cache.match(cacheKey);
-            if (cached) {
-              const res = new Response(cached.body, cached);
-              res.headers.set('CF-Edge-Cache-Status', 'HIT');
-              return res;
+            if (!isFreshRequested) {
+              const cached = await cache.match(cacheKey);
+              if (cached) {
+                const res = new Response(cached.body, cached);
+                res.headers.set('CF-Edge-Cache-Status', 'HIT');
+                return res;
+              }
             }
 
             const response = await metricsSyncedApi.onRequestGet(context);
