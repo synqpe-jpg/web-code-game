@@ -7,6 +7,30 @@ Mỗi mục sửa lỗi đều ghi nhận **Nguyên nhân gốc rễ (Root Cause
 
 ## [2026-10-20]
 
+### 101. Xóa Bỏ Triệt Để Sản Phẩm Test "PINE WORLD BROWSER" Khỏi Danh Mục Tiện Ích & CSDL Cloudflare D1
+- **Mô tả & Yêu cầu người dùng**:
+  - Người dùng gửi ảnh chụp màn hình trang Tiện ích (`codegame.shop/utilities`) và nhắc nhở: *"Có sản phẩm test xong bạn quên chưa xóa kìa"*.
+- **Nguyên nhân gốc rễ & Phân tích (Root Cause & Analysis)**:
+  1. *Sản phẩm test tồn đọng từ giai đoạn dựng khung ban đầu*: `ut_1791615390756_1yc` ("PINE WORLD BROWSER") là tiện ích mẫu thử nghiệm trước đây.
+  2. *Vô tình cấp tồn kho trong lần test trước*: Trong đợt kiểm thử trước, tiện ích này vô tình được gán `stock_quantity = 20`. Kèm theo cơ chế tồn kho ảo FOMO (+20), sản phẩm hiển thị "Còn: 40 • Đã bán: 35".
+  3. *Thuật toán ưu tiên đẩy sản phẩm lên đầu trang*: Vì `stock_quantity = 40` lớn hơn số lượng của các gói VS Phone, bộ lọc danh mục đã tự động xếp "PINE WORLD BROWSER" lên ngay vị trí số 1 của trang Tiện ích, vi phạm nghiêm trọng Quy tắc 7 (Zero Test Artifacts on Production).
+- **Giải pháp toàn diện đã triển khai (Solution)**:
+  1. *Thanh lọc hoàn toàn khỏi mã nguồn*:
+     - Loại bỏ bản ghi `ut_1791615390756_1yc` khỏi `src/data/utilities.json`. Danh mục tiện ích hiện tại chỉ còn đúng 18 gói máy ảo VS Phone chính thức.
+     - Cập nhật các bộ kiểm thử `scripts/audit_zero_test_artifacts.cjs` và `scripts/verify_all_requirements.cjs` đưa ID này vào danh sách cấm vĩnh viễn (`KNOWN_TEST_IDS`) và xác minh số lượng tiện ích là 18.
+  2. *Đồng bộ và xóa sạch vĩnh viễn trên Cloudflare D1 Database*:
+     - Gửi yêu cầu đồng bộ xác thực quản trị lên `/api/sync` với `deletedUtilities: ['ut_1791615390756_1yc']`.
+     - Database Cloudflare D1 đã xóa bản ghi khỏi bảng `utilities` và lưu vào danh sách Tombstone `wcg_deleted_utilities`, đảm bảo không bao giờ phục hồi lại trên bất kỳ thiết bị hay client nào.
+     - Đồng thời thanh lọc 2 mã test tự do `fc_custom_1792051905355_a8v2` và `fc_custom_1792051903180_4oz7` khỏi D1.
+- **Files Modified**:
+  - `src/data/utilities.json`
+  - `scripts/audit_zero_test_artifacts.cjs`
+  - `scripts/verify_all_requirements.cjs`
+  - `scripts/all_utilities_backup.json`
+  - `scripts/update_vs_phone_batch.cjs`
+  - `CHANGELOG.md` (Mục 101)
+
+
 ### 100. Tối Ưu Hóa Tính Tự Nhiên Toàn Web: Cố Định Chuẩn 214 Cho VS Phone VIP, Đa Dạng Hóa Danh Mục FOMO & Điều Hòa Nhịp Độ Thông Báo Thư Thái
 - **Mô tả & Yêu cầu người dùng**:
   - Người dùng phản ánh: *"Bạn kiểm tra giúp tôi, sản phẩm như vs phone cứ hiện 213 rồi lại 214, nhìn nó không tăng bình thường mà còn nhảy rất mất tự nhiên, tùy chỉnh giúp tôi tăng tính tự nhiên cho web."*

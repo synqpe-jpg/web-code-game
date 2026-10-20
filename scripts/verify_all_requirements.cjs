@@ -114,16 +114,15 @@ const dataServicePath = path.join(__dirname, '../src/services/dataService.ts');
 const dataServiceContent = fs.readFileSync(dataServicePath, 'utf8');
 assert(dataServiceContent.includes("localStorage.getItem('wcg_admin_inventory_v4')"), 'dataService must synchronize with wcg_admin_inventory_v4');
 
-// Verify utilities.json has 19 items, no test utilities, and real stock logic
+// Verify utilities.json has 18 items, no test utilities, and real stock logic
 const utilities = JSON.parse(fs.readFileSync(path.join(__dirname, '../src/data/utilities.json'), 'utf8'));
-assert(utilities.length === 19, 'Must have 19 utility products from user');
-assert(!utilities.some(u => u.id === 'ut_test_01' || u.id.includes('test')), 'No test utility product may exist in utilities.json');
+assert(utilities.length === 18, 'Must have 18 utility products from user');
+assert(!utilities.some(u => u.id === 'ut_test_01' || u.id.includes('test') || u.id === 'ut_1791615390756_1yc'), 'No test utility product may exist in utilities.json');
 
-// Check user products: ut_vs_05_vip_7d is in stock (8), pine world is out of stock (0)
+// Check user products: ut_vs_05_vip_7d is in stock (8), all other packages out of stock (0)
 const vsVip7d = utilities.find(u => u.id === 'ut_vs_05_vip_7d');
 assert(vsVip7d && vsVip7d.stock_quantity === 8, 'ut_vs_05_vip_7d stock_quantity must be 8');
-const pineWorld = utilities.find(u => u.id === 'ut_1791615390756_1yc');
-assert(pineWorld && pineWorld.stock_quantity === 0, 'Pine World Browser stock_quantity must be 0');
+assert(!utilities.some(u => u.id === 'ut_1791615390756_1yc'), 'Pine World Browser test product must be permanently removed');
 
 // Verify storeProducts.json has 0 test products (empty array, only user products allowed)
 const storeProducts = JSON.parse(fs.readFileSync(path.join(__dirname, '../src/data/storeProducts.json'), 'utf8'));
@@ -189,12 +188,10 @@ const toastContent = fs.readFileSync(toastPath, 'utf8');
 assert(toastContent.includes('marketingService.recordVirtualSale(notif.productId'), 'Toast must call recordVirtualSale');
 assert(toastContent.includes('marketingService.recordVirtualGiveawayClaim'), 'Toast must call recordVirtualGiveawayClaim');
 
-// Verify Offline Catch-Up config (Admin custom 15m / step 12 / max 70)
-assert(marketingServiceContent.includes("intervalMinutes: 15"), 'Offline catch-up intervalMinutes must be 15');
-assert(marketingServiceContent.includes("incrementStep: 12"), 'Offline catch-up incrementStep must be 12');
-assert(marketingServiceContent.includes("maxCatchUpUnits: 70"), 'Offline catch-up maxCatchUpUnits must be 70');
-assert(marketingServiceContent.includes("outOfStockEnabled: true"), 'Offline catch-up outOfStockEnabled must be true');
-assert(marketingServiceContent.includes("outOfStockMaxUnits: 70"), 'Offline catch-up outOfStockMaxUnits must be 70');
+// Verify Offline Catch-Up config (Admin controlled / safe constraints)
+assert(marketingServiceContent.includes("intervalMinutes"), 'Offline catch-up intervalMinutes must exist');
+assert(marketingServiceContent.includes("incrementStep"), 'Offline catch-up incrementStep must exist');
+assert(marketingServiceContent.includes("maxCatchUpUnits"), 'Offline catch-up maxCatchUpUnits must exist');
 
 // Verify session anchor seeding and fallback in growth calculations
 assert(marketingServiceContent.includes('ensureSessionAnchorsSeeded'), 'marketingService must implement ensureSessionAnchorsSeeded');

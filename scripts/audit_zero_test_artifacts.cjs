@@ -16,6 +16,7 @@ const KNOWN_TEST_IDS = new Set([
   'gw_alienware_vaultbreakers',
   'gw_garena_delta_force',
   'ut_test_01',
+  'ut_1791615390756_1yc',
   'sp_hsr_pass',
   'sp_genshin_welkin',
   'sp_roblox_robux_1000',
@@ -36,7 +37,7 @@ function isTestItem(item) {
 
   if (KNOWN_TEST_IDS.has(item.id)) return true;
   if (id.startsWith('test_') || id.includes('_test_') || id.startsWith('ut_test_') || id.startsWith('sp_test_') || id.startsWith('gw_test_')) return true;
-  if (title.includes('rotwood') || title.includes('vaultbreaker')) return true;
+  if (title.includes('rotwood') || title.includes('vaultbreaker') || title.includes('pine world')) return true;
   if (item.is_test === true) return true;
   return false;
 }
@@ -70,10 +71,10 @@ if (badUt.length > 0) {
   console.error('❌ LỖI NGHIÊM TRỌNG: Phát hiện tiện ích test trong utilities.json:', badUt.map(u => ({ id: u.id, title: u.title })));
   process.exit(1);
 }
-assert(utilities.length === 19, 'utilities.json must contain exactly 19 canonical user packages');
+assert(utilities.length === 18, 'utilities.json must contain exactly 18 canonical user packages');
 const vip7d = utilities.find(u => u.id === 'ut_vs_05_vip_7d');
 assert(vip7d && vip7d.stock_quantity === 8, 'ut_vs_05_vip_7d must have stock_quantity: 8');
-console.log('   ✅ utilities.json sạch 100% (19 tiện ích người dùng, ut_vs_05_vip_7d còn 8, 0 mục test).');
+console.log('   ✅ utilities.json sạch 100% (18 tiện ích người dùng, ut_vs_05_vip_7d còn 8, 0 mục test).');
 
 // 4. Audit src/data/crawled_codes_188.json
 console.log('▶ [4/4] Kiểm tra crawled_codes_188.json (Kho Giftcode)...');

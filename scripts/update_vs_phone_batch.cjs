@@ -172,7 +172,7 @@ async function main() {
   const updatedVsPhone = generateUpdatedProducts();
   console.log(`Đã tạo thành công ${updatedVsPhone.length} sản phẩm VS Phone với tên và mô tả mới.`);
 
-  // 3. Kết hợp với các sản phẩm khác (như Pine World Browser)
+  // 3. Kết hợp với các sản phẩm khác (nếu có)
   const nonVsProducts = existingUtilities.filter(u => !u.id.startsWith('ut_vs_'));
   const allUtilities = [...nonVsProducts, ...updatedVsPhone];
 

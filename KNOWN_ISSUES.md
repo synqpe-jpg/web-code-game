@@ -10,6 +10,22 @@
 
 ## 1. DANH MỤC LỖI & CÁC BẪY ĐÃ THẤT BẠI (DO NOT REPEAT)
 
+### ISSUE-010: Sản phẩm test còn tồn đọng hiển thị trên môi trường sản xuất (Test Artifact Leak on Production)
+- **Triệu chứng**:
+  - Trên web khách hàng hiển thị các sản phẩm test hoặc dữ liệu thử nghiệm (ví dụ: "PINE WORLD BROWSER" hiển thị trên đầu danh mục Tiện ích với trạng thái Còn hàng).
+- **Nguyên nhân gốc rễ**:
+  - Sản phẩm dùng để thử nghiệm tính năng hoặc test template giao diện trong giai đoạn đầu không được dọn dẹp sạch sẽ sau khi test.
+  - Khi can thiệp cấu hình tồn kho thử nghiệm, sản phẩm test vô tình được gán tồn kho lớn, khiến thuật toán sắp xếp (sort by stock) tự động đưa sản phẩm test lên đầu trang chủ/danh mục.
+- **Giải pháp chuẩn đã kiểm chứng**:
+  - Thực hiện nghiêm ngặt Quy tắc 7: Toàn bộ sản phẩm, mã code hay dữ liệu test phải được tự động xóa sạch hoàn toàn sau khi kiểm thử.
+  - Xóa vĩnh viễn khỏi file dữ liệu tĩnh `src/data/utilities.json` (chỉ giữ 18 gói VS Phone chính hãng của người dùng).
+  - Gửi Tombstone `deletedUtilities: ['ut_1791615390756_1yc']` lên Cloudflare D1 API `/api/sync` để xóa triệt để dòng dữ liệu trong bảng SQL `utilities` và lưu vào `wcg_deleted_utilities`.
+  - Khóa vĩnh viễn ID trong bộ kiểm thử `scripts/audit_zero_test_artifacts.cjs` để ngăn chặn bất kỳ hành vi vô tình thêm lại vào codebase.
+- ⛔ **CÁCH SỬA ĐÃ THẤT BẠI - TUYỆT ĐỐI KHÔNG LẶP LẠI**:
+  - ❌ *Không chỉ ẩn sản phẩm trên UI hoặc chỉ sửa ở code cục bộ*: Nếu không đồng bộ xóa trên Cloudflare D1 kèm Tombstone, API `/api/sync` sẽ tải đè lại sản phẩm cũ lên trình duyệt người dùng.
+
+---
+
 ### ISSUE-009: Lỗi cộng dồn kép số lượng đã bán của thẻ gom nhóm (Double Accumulation)
 - **Triệu chứng**:
   - Số lượng đã bán trên thẻ gom nhóm (ví dụ thẻ Tiện ích VS Phone VIP, Basic, KVIP...) bị nhảy vọt lên phi lý (VIP nhảy lên 362 thay vì 213, Basic lên 443 thay vì 246, KVIP lên 335 thay vì 185...).
