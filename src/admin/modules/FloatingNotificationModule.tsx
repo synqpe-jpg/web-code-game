@@ -23,6 +23,7 @@ import {
   Smartphone,
   Monitor,
   Link2,
+  Zap,
 } from 'lucide-react';
 import { RichTextRenderer } from '../../components/RichTextRenderer';
 import { adminDataService } from '../services/adminDataService';

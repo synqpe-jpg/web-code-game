@@ -7,6 +7,19 @@ Mỗi mục sửa lỗi đều ghi nhận **Nguyên nhân gốc rễ (Root Cause
 
 ## [2026-10-20]
 
+### 94. Khắc Phục Lỗi Crash Giao Diện Admin "Zap is not defined" Tại Phân Hệ Thông Báo Nổi
+- **Mô tả & Hiện tượng**:
+  - Người dùng truy cập phân hệ Cài Đặt Thông Báo Nổi tại `admin-code-game-shop.pages.dev/admin#/floating-notification` gặp màn hình cứu hộ sự cố: *"Đã xảy ra sự cố khi tải phân hệ này - Zap is not defined"*.
+- **Nguyên nhân gốc rễ (Root Cause)**:
+  - Trong `src/admin/modules/FloatingNotificationModule.tsx`, icon `Zap` được sử dụng trong khối tiêu đề Card *"🎯 Gắn Sự Kiện Đang Diễn Ra (Event Spotlight)"* (`<Zap className="w-4 h-4" />`) nhưng danh sách import từ gói `lucide-react` ở đầu tệp bị thiếu component `Zap`.
+  - Khi người dùng điều hướng tới phân hệ Thông Báo Nổi, JavaScript Engine gặp định danh `Zap` chưa khai báo và ném `ReferenceError: Zap is not defined`, kích hoạt Error Boundary của phân hệ.
+- **Giải pháp toàn diện đã triển khai (Solution)**:
+  1. Bổ sung `Zap` vào danh sách import từ `lucide-react` trong `src/admin/modules/FloatingNotificationModule.tsx`.
+  2. Quét toàn bộ component JSX trong các tệp vừa cập nhật để đảm bảo 100% không còn bất kỳ identifier nào bị thiếu import.
+- **Files Modified**:
+  - `src/admin/modules/FloatingNotificationModule.tsx`
+  - `CHANGELOG.md` (Mục 94)
+
 ### 93. Tích Hợp Gắn Sự Kiện Đang Diễn Ra (Event Spotlight) Vào Thông Báo Nổi
 - **Mô tả & Yêu cầu người dùng**:
   - Người dùng yêu cầu: *"Trong mục thông báo nổi, có thể chèn sự kiện đang diễn ra trên web, ví dụ như giveaway hay giảm giá, khi thông báo nổ lên có thể hiện ra sự kiện này đang diễn ra, đến ngay?"* (kèm ảnh chụp màn hình Admin mục "Cài Đặt Thông Báo Nổi" tại `admin-code-game-shop.pages.dev/admin#/floating-notification`). Sau đó người dùng phê duyệt triển khai: *"Ok triển khai giúp tôi"*.
