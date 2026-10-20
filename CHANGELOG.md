@@ -7,6 +7,32 @@ Mỗi mục sửa lỗi đều ghi nhận **Nguyên nhân gốc rễ (Root Cause
 
 ## [2026-10-20]
 
+### 99. Chuẩn Hóa Toàn Diện Hệ Thống FOMO: Giữ Nguyên Số Đã Bán Cơ Sở, Ngắt Catch-Up Nền, Tăng +1 Đúng Nhịp Khi Nổ Thông Báo & Ổn Định Phòng Chờ Giveaway
+- **Mô tả & Yêu cầu người dùng**:
+  - Người dùng phản ánh: *"Trên web vẫn nhảy liên tục các số, bạn kiểm tra toàn bộ giúp tôi xem vấn đề nơi nào?"*
+  - Yêu cầu chỉ đạo: *"Số đã bán giữ nguyên, giữ thông báo ảo, tăng +1 khi có thông báo. Hệ thống fomo hoạt động bình thường."*
+- **Nguyên nhân gốc rễ & Phân tích (Root Cause & Analysis)**:
+  1. *Giờ cao điểm làm dồn dập thông báo ảo*: Khung giờ cao điểm (19:00 - 23:30) kẹp trần multiplier x2.0 khiến khoảng cách thông báo chỉ còn 8 - 9 giây. Do chỉ có gói VIP 7 Ngày còn hàng thật trong kho, gần như toàn bộ thông báo mua ảo dồn vào thẻ này khiến số bán nhảy liên tục (+1 mỗi 8s) và tồn kho tụt liên tục rồi bật nhảy auto-restock.
+  2. *Bộ đếm phòng chờ trực tuyến Giveaway jitter 3.5s*: `OnlineWaitingCounter` trong `GiveawaysView.tsx` chạy `setInterval` 3.5s với delta ngẫu nhiên `[-2, +2]`, khiến số người đang chờ trên mọi thẻ đổi liên tục.
+  3. *Tự động cộng ngẫu nhiên của calculateDeterministicSold trên server*: Backend Worker tự động cộng thêm `hourlyGrowth` (+30) và `inHourProgression` theo thời gian trôi qua, khiến snapshot kéo số tăng ngoài ý muốn.
+  4. *Offline Catch-Up chạy ngầm mỗi 10s*: `applyOfflineCatchUp` tự tính bù thời gian ngoại tuyến và đẩy số bán lên `highWaterSoldCountMap`.
+- **Giải pháp toàn diện đã triển khai (Solution)**:
+  1. *Cố định số cơ sở chuẩn mực*:
+     - `calculateDeterministicSold` trên backend và frontend cố định trả về `real + base`, không cộng thời gian trôi.
+     - Ngắt `applyOfflineCatchUp` khỏi việc tự động tăng số ảo trong nền.
+     - Tự động thanh lọc các đỉnh rác cũ vượt trần (`curHigh > effectiveBaseTarget + 10`) về đúng mốc cơ sở.
+  2. *Tăng +1 khi và chỉ khi có thông báo nổ*:
+     - Mỗi khi có thông báo toast mua hàng (`BUY_PRODUCT`) hoặc nhận quà (`CLAIM_GIVEAWAY`) hiển thị trên màn hình, số lượng tương ứng tăng đúng **+1 đơn vị**.
+  3. *Điều hòa nhịp độ thông báo FOMO tự nhiên*:
+     - Nâng khoảng cách tối thiểu giữa các thông báo lên ít nhất 16 - 30 giây, giúp thông báo nổ nhịp nhàng, êm ái, mang lại trải nghiệm mua hàng chân thực.
+  4. *Ổn định bộ đếm phòng chờ Giveaway*:
+     - Chuyển chu kỳ cập nhật `OnlineWaitingCounter` từ 3.5 giây sang 45 giây và biến thiên nhẹ nhàng, triệt tiêu hoàn toàn hiện tượng rung giật số.
+- **Files Modified**:
+  - `src/shared/deterministicEngine.ts`
+  - `src/services/marketingService.ts`
+  - `src/components/GiveawaysView.tsx`
+  - `CHANGELOG.md` (Mục 99)
+
 ### 98. Cố Định Con Số Đã Bán Duy Nhất Bằng Tổng Các Mục Con & Chỉ Tăng Trưởng Đều 1 Đơn Vị Khi Có Thông Báo Mua Hàng
 - **Mô tả & Yêu cầu người dùng**:
   - Người dùng phản ánh: *"Hiện tại rất nhiều các con số đã bán nhảy loạn lên, cố định giúp tôi 1 con số duy nhất, chính là tổng các sản phẩm đã bán của toàn bộ mục con trong thẻ cộng lại, con số sẽ tăng trưởng đều 1 đơn vị khi có 1 đơn vị thông báo sản phẩm được bán ra."* Kèm 2 hình ảnh đối chiếu (ảnh 1 nhảy loạn lên 362, 443, 335... và ảnh 2 mốc chuẩn 213, 246, 185...).

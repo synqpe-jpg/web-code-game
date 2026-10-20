@@ -115,8 +115,8 @@ export const DEFAULT_MARKETING_CONFIG: MarketingConfig = {
   toastPosition: 'bottom-left',
   depositNotificationPresets: DEFAULT_DEPOSIT_PRESETS,
   displayDuration: 5,
-  intervalMin: 12,
-  intervalMax: 24,
+  intervalMin: 18,
+  intervalMax: 30,
   initialDelay: 3,
   isNameMasked: true,
   realUserCooldownSec: 20,
@@ -124,7 +124,7 @@ export const DEFAULT_MARKETING_CONFIG: MarketingConfig = {
     enabled: true,
     startTime: '19:00',
     endTime: '23:30',
-    multiplier: 2.0,
+    multiplier: 1.25,
   },
   virtualAccounts: PRESET_VIRTUAL_ACCOUNTS,
   productWeights: {},
@@ -420,7 +420,7 @@ class MarketingService {
                   const curHigh = this.highWaterSoldCountMap.get(pId) || 0;
                   const finalSold = isOverriddenSold
                     ? effectiveSold
-                    : (curHigh > effectiveSold + 35 ? effectiveSold : Math.max(curHigh, effectiveSold));
+                    : (curHigh > effectiveSold + 10 ? effectiveSold : Math.max(curHigh, effectiveSold));
 
                   this.highWaterSoldCountMap.set(pId, finalSold);
                   this.liveFomoSoldCountMap.set(pId, Math.max(0, finalSold - realSold));
@@ -510,7 +510,7 @@ class MarketingService {
                   const curHigh = this.highWaterClaimedCountMap.get(gId) || 0;
                   const finalClaimed = isOverriddenClaimed
                     ? effectiveClaimed
-                    : (curHigh > effectiveClaimed + 35 ? effectiveClaimed : Math.max(curHigh, effectiveClaimed));
+                    : (curHigh > effectiveClaimed + 10 ? effectiveClaimed : Math.max(curHigh, effectiveClaimed));
 
                   this.highWaterClaimedCountMap.set(gId, finalClaimed);
                   this.liveFomoClaimedCountMap.set(gId, Math.max(0, finalClaimed - realClaimed));
@@ -1264,6 +1264,10 @@ class MarketingService {
    */
   public applyOfflineCatchUp(): void {
     if (typeof window === 'undefined') return;
+    // Theo yêu cầu chủ sở hữu: Số đã bán cố định theo cấu hình kho,
+    // chỉ tăng đều đúng +1 đơn vị khi có thông báo nổ ra,
+    // ngắt hoàn toàn việc tự động cộng dồn số ảo theo thời gian ngoại tuyến.
+    return;
     const catchUp = this.config.offlineCatchUp || DEFAULT_OFFLINE_CATCHUP_CONFIG;
     if (!catchUp.enabled) return;
 
@@ -1615,15 +1619,15 @@ class MarketingService {
   }
 
   public getSlotDurationMs(timestampMs: number = this.getCalibratedNow()): number {
-    const minSec = Math.max(5, Number(this.config.intervalMin) || 12);
-    const maxSec = Math.max(minSec, Number(this.config.intervalMax) || 24);
+    const minSec = Math.max(15, Number(this.config.intervalMin) || 18);
+    const maxSec = Math.max(minSec, Number(this.config.intervalMax) || 30);
     let baseSec = Math.round((minSec + maxSec) / 2);
 
     if (this.isPeakHourAt(timestampMs)) {
-      const multiplier = Math.max(1, Number(this.config.peakHours?.multiplier) || 2.0);
-      baseSec = Math.max(4, Math.round(baseSec / multiplier));
+      const multiplier = Math.max(1, Math.min(1.5, Number(this.config.peakHours?.multiplier) || 1.25));
+      baseSec = Math.max(16, Math.round(baseSec / multiplier));
     }
-    return baseSec * 1000;
+    return Math.max(16, baseSec) * 1000;
   }
 
   public getNextIntervalMs(): number {
@@ -2386,7 +2390,7 @@ class MarketingService {
     let recordedMax = id ? (this.highWaterSoldCountMap.get(id) || 0) : 0;
 
     // Tự động thanh lọc các con số rác cũ bị thổi phồng bất thường do lỗi cộng dồn kép (> effectiveBaseTarget + 35)
-    if (id && recordedMax > effectiveBaseTarget + 35) {
+    if (id && recordedMax > effectiveBaseTarget + 10) {
       recordedMax = effectiveBaseTarget;
       this.highWaterSoldCountMap.set(id, recordedMax);
       this.saveHighWaterCounts();
@@ -2444,7 +2448,7 @@ class MarketingService {
     let recordedMax = id ? (this.highWaterClaimedCountMap.get(id) || 0) : 0;
 
     // Tự động thanh lọc các con số rác cũ bị thổi phồng bất thường do lỗi cộng dồn kép (> effectiveBaseTarget + 35)
-    if (id && recordedMax > effectiveBaseTarget + 35) {
+    if (id && recordedMax > effectiveBaseTarget + 10) {
       recordedMax = effectiveBaseTarget;
       this.highWaterClaimedCountMap.set(id, recordedMax);
       this.saveHighWaterCounts();
@@ -3294,7 +3298,8 @@ class MarketingService {
           const hasVirtual = Number(details?.virtual_sold_count || 0) > 0;
           if (realStock <= 0 && !oosEnabled && !hasVirtual) return;
           const cur = this.highWaterSoldCountMap.get(k) || 0;
-          if (v > cur) {
+          const baseTarget = Number((details as any)?.virtual_sold_count || 0);
+          if (v > cur && (baseTarget <= 0 || v <= baseTarget + 10)) {
             this.highWaterSoldCountMap.set(k, v);
             this.liveFomoSoldCountMap.set(k, v);
             peakSoldChanged = true;
@@ -3319,7 +3324,8 @@ class MarketingService {
           const hasVirtual = Number(details?.virtual_claimed_offset || 0) > 0;
           if (realRemaining <= 0 && !oosEnabled && !hasVirtual) return;
           const cur = this.highWaterClaimedCountMap.get(k) || 0;
-          if (v > cur) {
+          const baseTarget = Number(details?.virtual_claimed_offset || 0);
+          if (v > cur && (baseTarget <= 0 || v <= baseTarget + 10)) {
             this.highWaterClaimedCountMap.set(k, v);
             this.liveFomoClaimedCountMap.set(k, v);
             peakClaimedChanged = true;

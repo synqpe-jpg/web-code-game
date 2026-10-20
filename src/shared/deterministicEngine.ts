@@ -318,9 +318,8 @@ export function calculateDeterministicSold(
     return real;
   }
 
-  const hourly = calculateHourlyGrowth(productId, createdAt, timestampMs, priority, customConfig, anchorTime);
-  const inHour = calculateInHourProgression(productId, timestampMs, priority, createdAt, anchorTime);
-  return real + base + hourly + inHour;
+  // Cố định số cơ sở chuẩn theo cấu hình kho; chỉ tăng khi có đơn hàng thật hoặc thông báo toast nổ ra
+  return real + base;
 }
 
 /**
@@ -433,7 +432,7 @@ export function calculateGlobalSnapshot(
     // Tự động thanh lọc đỉnh rác cũ (ghost inflated peak) vượt quá trần cấu hình an toàn hoặc khi Admin cài lại số ảo
     const peakSold = Number(data.peakProductSoldCounts?.[prod.id]) || 0;
     const baseTarget = Number(prod.virtual_sold_count || 0);
-    const maxAllowedPeak = effectiveRealSold + baseTarget + (priority === 'off' ? 0 : 35);
+    const maxAllowedPeak = effectiveRealSold + baseTarget + (priority === 'off' ? 0 : 10);
     // Nếu peakSold chênh lệch quá 5 đơn so với rawDisplaySold (do Admin vừa hạ/cài lại số ảo) hoặc vượt quá trần, lập tức đồng bộ theo rawDisplaySold
     const effectivePeakSold = (peakSold > maxAllowedPeak || peakSold > rawDisplaySold + 5 || peakSold < (effectiveRealSold + baseTarget))
       ? rawDisplaySold
@@ -537,7 +536,7 @@ export function calculateGlobalSnapshot(
     // Tự động thanh lọc đỉnh rác cũ (ghost inflated peak) vượt quá trần cấu hình an toàn hoặc khi Admin cài lại số ảo
     const peakClaimed = Number(data.peakGiveawayClaimedCounts?.[gw.id]) || 0;
     const baseTargetGw = Number(gw.virtual_claimed_offset || 0);
-    const maxAllowedPeakGw = effectiveRealClaimed + baseTargetGw + (priority === 'off' ? 0 : 35);
+    const maxAllowedPeakGw = effectiveRealClaimed + baseTargetGw + (priority === 'off' ? 0 : 10);
     // Nếu peakClaimed chênh lệch quá 5 đơn so với rawDisplayClaimed (do Admin vừa hạ/cài lại số ảo) hoặc vượt quá trần, lập tức đồng bộ theo rawDisplayClaimed
     const effectivePeakClaimed = (peakClaimed > maxAllowedPeakGw || peakClaimed > rawDisplayClaimed + 5 || peakClaimed < (effectiveRealClaimed + baseTargetGw))
       ? rawDisplayClaimed

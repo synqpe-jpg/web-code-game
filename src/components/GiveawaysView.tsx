@@ -67,17 +67,17 @@ const LiveWaitingRoomBadge: React.FC<{
   const mid = Math.floor((min + max) / 2);
 
   const [count, setCount] = useState<number>(() => {
-    return mid + Math.floor((Math.sin(Date.now() / 10000) * (max - min)) / 4);
+    return mid + Math.floor((Math.sin(Date.now() / 60000) * (max - min)) / 4);
   });
 
   useEffect(() => {
     const interval = window.setInterval(() => {
       setCount((prev) => {
-        const delta = Math.floor(Math.random() * 5) - 2;
+        const delta = Math.floor(Math.random() * 3) - 1;
         const next = prev + delta;
         return Math.min(max, Math.max(min, next));
       });
-    }, 3500);
+    }, 45000);
 
     return () => clearInterval(interval);
   }, [min, max]);
