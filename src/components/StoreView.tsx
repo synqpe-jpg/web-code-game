@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import {
   ShoppingBag,
   ShieldCheck,
@@ -13,7 +13,7 @@ import {
 import { dataService } from '../services/dataService';
 import { marketingService } from '../services/marketingService';
 import { formatCore, smartVietnameseMatch } from '../utils/textUtils';
-import { getProductPackages, getProductMinPrice } from '../utils/productPackageUtils';
+import { getProductPackages, getProductMinPrice, groupStoreProductsByGame } from '../utils/productPackageUtils';
 import type { StoreProduct, UserProfile } from '../types/game';
 import { EventCountdownBadge } from './countdown/EventCountdownBadge';
 import { eventSchedulerService } from '../services/eventSchedulerService';
@@ -109,8 +109,11 @@ export const StoreView: React.FC<StoreViewProps> = ({
     })),
   ];
 
+  // Gom nhóm các gói nạp theo từng Tựa Game thành sản phẩm đại diện
+  const groupedProducts = useMemo(() => groupStoreProductsByGame(products), [products]);
+
   // Filter & sort products (Mặc định ưu tiên hàng còn lên trên đầu)
-  const filtered = products
+  const filtered = groupedProducts
     .filter((p) => {
       if (p.is_active === false || p.is_active === 0 || (p as any).is_active === '0') return false;
       if (filterType !== 'all') {
@@ -387,7 +390,7 @@ export const StoreView: React.FC<StoreViewProps> = ({
                         onShowToast('Hết hàng', 'Gói code này hiện đã hết hàng trong kho.', 'error');
                         return;
                       }
-                      if (!currentUser && onOpenAuth) {
+                      if (!currentUser && !hasMultiplePackages && onOpenAuth) {
                         onOpenAuth();
                         onShowToast('Cần đăng nhập', 'Vui lòng đăng nhập để mua gói code.', 'info');
                       } else {
@@ -402,7 +405,7 @@ export const StoreView: React.FC<StoreViewProps> = ({
                         : 'bg-secondary hover:bg-secondary/90 text-white'
                     }`}
                   >
-                    <span>{isFlashSaleLive ? 'Săn Sale' : 'Mua'}</span>
+                    <span>{hasMultiplePackages ? 'Chọn Gói' : (isFlashSaleLive ? 'Săn Sale' : 'Mua')}</span>
                     <ChevronRight className="w-3.5 h-3.5" />
                   </button>
 
@@ -584,7 +587,7 @@ export const StoreView: React.FC<StoreViewProps> = ({
                         );
                         return;
                       }
-                      if (!currentUser && onOpenAuth) {
+                      if (!currentUser && !hasMultiplePackages && onOpenAuth) {
                         onOpenAuth();
                         onShowToast('Cần đăng nhập', 'Vui lòng đăng nhập để mua gói code.', 'info');
                       } else {
@@ -601,14 +604,14 @@ export const StoreView: React.FC<StoreViewProps> = ({
                   >
                     {product.stock_quantity <= 0 ? (
                       <span>Hết hàng</span>
-                    ) : !currentUser ? (
+                    ) : !currentUser && !hasMultiplePackages ? (
                       <>
                         <LogIn className="w-3 h-3 sm:w-3.5 sm:h-3.5" />
                         <span>{isFlashSaleLive ? 'Săn Sale' : 'Mua'}</span>
                       </>
                     ) : (
                       <>
-                        <span>{isFlashSaleLive ? 'Săn Sale Ngay' : 'Mua Ngay'}</span>
+                        <span>{hasMultiplePackages ? 'Chọn Gói' : (isFlashSaleLive ? 'Săn Sale Ngay' : 'Mua Ngay')}</span>
                         <ChevronRight className="w-3 h-3 sm:w-3.5 sm:h-3.5" />
                       </>
                     )}

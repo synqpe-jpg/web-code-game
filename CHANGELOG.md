@@ -7,6 +7,38 @@ Mỗi mục sửa lỗi đều ghi nhận **Nguyên nhân gốc rễ (Root Cause
 
 ## [2026-10-20]
 
+### 88. Tích Hợp ProductDetailModal Vào Tiện Ích, Kích Hoạt Gom Nhóm Cửa Hàng & Hoàn Thiện Bộ Chọn Gói Giveaway
+- **Mô tả & Yêu cầu người dùng**:
+  1. *Khắc phục lỗi khi chọn sản phẩm trên trang khách chưa hiện ra các mục con*:
+     - Tại trang Tiện Ích (`UtilitiesView.tsx`): Người dùng click vào sản phẩm "Cloud Phone VS Phone VIP" chỉ hiện modal cũ 1 cột với 1 mức giá cố định, không có danh sách các gói con (1 Ngày, 7 Ngày, 30 Ngày...).
+     - Tại trang Cửa Hàng (`StoreView.tsx`): Danh sách sản phẩm hiển thị flat rời rạc, chưa gom theo tựa game.
+  2. *Khắc phục triệt để lỗi khi ấn vào Giveaway*:
+     - Khắc phục lỗi `Uncaught ReferenceError: packages is not defined` trên thẻ card ngoài danh sách.
+     - Cung cấp nút thao tác trực quan: Nếu chiến dịch có nhiều gói, bấm "Chọn Gói Quà" sẽ mở modal để người dùng chọn gói quà tặng tùy ý; nếu chỉ có 1 gói thì bấm giật mã trực tiếp.
+- **Nguyên nhân gốc rễ (Root Cause)**:
+  1. `UtilitiesView.tsx` đã import component `ProductDetailModal` nhưng ở phần render JSX lại dùng khối modal `createPortal` tự code kiểu cũ 1 cột (dòng 840-1199), đồng thời danh sách `filtered` lấy trực tiếp từ mảng `utilities` phẳng mà không qua hàm `groupUtilitiesByTheme`.
+  2. `StoreView.tsx` chưa áp dụng `groupStoreProductsByGame` cho mảng `products`, khiến sản phẩm không mang mảng `packages` và không hiển thị giá "Từ ... đ" hay số gói tùy chọn.
+  3. `App.tsx` hàm `onBuyNow` của `ProductDetailModal` chưa nhận tham số `(prod, pkg, qty)` và chưa truyền `selectedPackage`, `initialQuantity` vào `ProductCheckoutModal`.
+  4. `GiveawaysView.tsx` ngoài card còn đoạn code JSX gọi biến `packages` chưa được định nghĩa trong phạm vi card, gây văng `ReferenceError: packages is not defined`.
+- **Giải pháp toàn diện đã triển khai (Solution)**:
+  1. *Trang Tiện Ích (`UtilitiesView.tsx`)*:
+     - Dùng `useMemo` gom nhóm `groupUtilitiesByTheme(utilities)`.
+     - Thay thế toàn bộ khối modal 1 cột cũ bằng `<ProductDetailModal product={selectedUtility} onClose={handleCloseDetail} onBuyNow={...} />`.
+     - Cập nhật hiển thị giá "Từ {giá} đ" và badge "{x} gói" ở cả List View và Grid View. Nút bấm đổi thành "Chọn Gói".
+  2. *Trang Cửa Hàng (`StoreView.tsx` & `App.tsx`)*:
+     - Áp dụng `groupStoreProductsByGame(products)` trong `StoreView.tsx`.
+     - Đồng bộ sâu `App.tsx`: `onBuyNow` lưu đúng `checkoutPackage` và `checkoutQuantity`, truyền vào `ProductCheckoutModal`.
+     - Hỗ trợ deep-link URL và click toast marketing tìm đúng sản phẩm trong nhóm gộp.
+  3. *Trang Giveaway (`GiveawaysView.tsx`)*:
+     - Dọn sạch tham chiếu `packages` ngoài card, thay bằng badge hiển thị gọn gàng.
+     - Nâng cấp nút Card CTA: Nếu có nhiều gói quà tặng, nút hiển thị "Chọn Gói Quà" và mở modal chọn gói; nếu có 1 gói duy nhất thì thực thi giật mã ngay.
+- **Files Modified**:
+  - `src/components/UtilitiesView.tsx`
+  - `src/components/StoreView.tsx`
+  - `src/components/GiveawaysView.tsx`
+  - `src/App.tsx`
+  - `CHANGELOG.md` (Mục 88)
+
 ### 87. Gom Nhóm Sản Phẩm Trong Admin (Quản Lý Tiện Ích & Kho Code Bán) & Khắc Phục Lỗi Giật Giveaway Khi Click
 - **Mô tả & Yêu cầu người dùng**:
   1. *Yêu cầu 1*: Nhóm trong Admin (vị trí quản lý mã và sản phẩm tương tự như ngoài web khách):

@@ -40,6 +40,7 @@ import { authService } from './services/authService';
 import { growthService } from './services/growthService';
 import type { GameItem, FilterState, StoreProduct, UserProfile, GiveawayCampaign, UtilityProduct, ProductPackageVariant } from './types/game';
 import { saveRecentSearch } from './utils/recentSearchUtils';
+import { groupStoreProductsByGame } from './utils/productPackageUtils';
 
 export interface SharePayload {
   title: string;
@@ -456,7 +457,10 @@ export const App: React.FC = () => {
         if (prodId) {
           setCurrentTab('store');
           const storeProducts = dataService.getStoreProducts();
-          const found = storeProducts.find(
+          const grouped = groupStoreProductsByGame(storeProducts);
+          const found = grouped.find(
+            (p) => p.id === prodId || p.id.toLowerCase() === prodId.toLowerCase() || (p.packages && p.packages.some((pkg) => pkg.id.toLowerCase() === prodId.toLowerCase()))
+          ) || storeProducts.find(
             (p) => p.id === prodId || p.id.toLowerCase() === prodId.toLowerCase()
           );
           if (found) {
@@ -1014,7 +1018,10 @@ export const App: React.FC = () => {
 
   const handleSelectProductById = (productId: string) => {
     const prods = dataService.getStoreProducts();
-    const found = prods.find((p) => p.id === productId || p.id.toLowerCase() === productId.toLowerCase());
+    const grouped = groupStoreProductsByGame(prods);
+    const found = grouped.find(
+      (p) => p.id === productId || p.id.toLowerCase() === productId.toLowerCase() || (p.packages && p.packages.some((pkg) => pkg.id.toLowerCase() === productId.toLowerCase()))
+    ) || prods.find((p) => p.id === productId || p.id.toLowerCase() === productId.toLowerCase());
     if (found) {
       setSelectedProduct(found);
     }
@@ -1414,23 +1421,30 @@ export const App: React.FC = () => {
         onOpenShare={handleOpenShareProduct}
         onClose={() => setSelectedProduct(null)}
         onShowToast={showToast}
-        onBuyNow={(prod) => {
+        onBuyNow={(prod, pkg, qty) => {
           setSelectedProduct(null);
           if (!currentUser) {
             setIsAuthModalOpen(true);
           } else {
             setCheckoutProduct(prod);
+            setCheckoutPackage(pkg || null);
+            setCheckoutQuantity(qty || 1);
           }
         }}
       />
 
       <ProductCheckoutModal
         product={checkoutProduct}
+        selectedPackage={checkoutPackage}
+        initialQuantity={checkoutQuantity}
         currentUser={currentUser}
         onUpdateUser={handleUpdateUser}
         onOpenAuth={() => setIsAuthModalOpen(true)}
         onOpenWallet={() => setIsWalletModalOpen(true)}
-        onClose={() => setCheckoutProduct(null)}
+        onClose={() => {
+          setCheckoutProduct(null);
+          setCheckoutPackage(null);
+        }}
         onShowToast={showToast}
       />
 
