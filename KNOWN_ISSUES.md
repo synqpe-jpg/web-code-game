@@ -10,6 +10,22 @@
 
 ## 1. DANH MỤC LỖI & CÁC BẪY ĐÃ THẤT BẠI (DO NOT REPEAT)
 
+### ISSUE-009: Lỗi cộng dồn kép số lượng đã bán của thẻ gom nhóm (Double Accumulation)
+- **Triệu chứng**:
+  - Số lượng đã bán trên thẻ gom nhóm (ví dụ thẻ Tiện ích VS Phone VIP, Basic, KVIP...) bị nhảy vọt lên phi lý (VIP nhảy lên 362 thay vì 213, Basic lên 443 thay vì 246, KVIP lên 335 thay vì 185...).
+- **Nguyên nhân gốc rễ**:
+  - Thẻ cha gom nhóm (parentUtility) sử dụng ID của gói con đại diện (lead.id = ut_vs_05_vip_7d).
+  - Khi getSoldDisplay tính tổng các gói con (39 + 64 + 110 = 213), nếu lưu kết quả vào highWaterSoldCountMap với key lead.id, lần re-render tiếp theo gói con ut_vs_05_vip_7d đọc ra 213 thay vì 64, làm tổng bị nhân đôi: 39 + 213 + 110 = 362.
+  - Đồng thời các hàm hourlyGrowth và inHourProgression tự tính chênh lệch thời gian và cộng thêm số ngẫu nhiên khiến số bán nhảy loạn không cố định.
+- **Giải pháp chuẩn đã kiểm chứng**:
+  - Khi thẻ gom nhóm có packages && packages.length > 1, tính tổng và trả về trực tiếp, tuyệt đối không ghi đè vào highWaterSoldCountMap dưới ID của gói con đơn lẻ.
+  - Cố định con số cơ sở bằng effectiveRealSold + virtualBase và chỉ tăng trưởng đều đúng +1 đơn vị khi có sự kiện toast mua hàng (BUY_PRODUCT) nổ ra.
+  - Tự động thanh lọc các mốc rác cũ vượt trần trong LocalStorage.
+- ⛔ **CÁCH SỬA ĐÃ THẤT BẠI - TUYỆT ĐỐI KHÔNG LẶP LẠI**:
+  - ❌ *Không lưu tổng nhóm vào bộ nhớ cache map với key là id của gói con lẻ*: Gây ô nhiễm dữ liệu gói con đại diện và cộng dồn đệ quy vô hạn.
+
+---
+
 ### ISSUE-008: Lỗi ReferenceError khi click vào thẻ Giveaway và ID ảo làm mất kết nối database
 - **Triệu chứng**:
   - Khi người dùng click vào thẻ Giveaway ngoài web khách hoặc bấm nút "Chi tiết", giao diện bị đơ, không mở modal hoặc ném lỗi console `ReferenceError: selectedRewardPackageId is not defined`.
