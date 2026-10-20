@@ -96,6 +96,7 @@ export const PrivateCodesModule: React.FC<PrivateCodesModuleProps> = ({ onShowTo
     end_time: '2026-12-31',
     is_active: true,
     cover_image_url: '/game_icons/genshin-impact.webp',
+    packages: [] as any[],
   });
 
   // --- BATCH CODE POOL MODAL STATE (KHO MÃ) ---
@@ -205,6 +206,7 @@ export const PrivateCodesModule: React.FC<PrivateCodesModuleProps> = ({ onShowTo
       end_time: gw.end_time ? gw.end_time.split('T')[0] : '2026-12-31',
       is_active: gw.is_active,
       cover_image_url: gw.cover_image_url || gw.game_icon_url || '',
+      packages: gw.packages || [],
     });
     setIsFormOpen(true);
   };
@@ -258,6 +260,7 @@ export const PrivateCodesModule: React.FC<PrivateCodesModuleProps> = ({ onShowTo
       end_time: formData.end_time,
       created_at: editingItem?.created_at || (editingItem as any)?.createdAt || new Date().toISOString(),
       is_active: formData.is_active,
+      packages: formData.packages || editingItem?.packages || [],
       game_icon_url: formData.cover_image_url || `/game_icons/${formData.game_slug}.webp`,
       cover_image_url: formData.cover_image_url,
       codes_pool: existingPool,

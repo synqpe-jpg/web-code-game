@@ -36,7 +36,8 @@ import confetti from 'canvas-confetti';
 import { CyberLoader } from './CyberLoader';
 import { dataService } from '../services/dataService';
 import { marketingService } from '../services/marketingService';
-import type { GiveawayCampaign, ClaimedCodeRecord, UserProfile } from '../types/game';
+import type { GiveawayCampaign, ClaimedCodeRecord, UserProfile, GiveawayRewardPackage } from '../types/game';
+import { groupGiveawaysByGame, getGiveawayPackages } from '../utils/productPackageUtils';
 import { formatRelativeDate, formatFullDateTime } from '../utils/textUtils';
 import { EventCountdownBadge } from './countdown/EventCountdownBadge';
 import { useEventCountdown } from '../hooks/useEventCountdown';
@@ -915,7 +916,54 @@ export const GiveawaysView: React.FC<GiveawaysViewProps> = ({
                         </div>
                       )}
 
-                      {/* Rewards Box */}
+                      {/* Package Selector if multiple */}
+                  {packages.length > 1 && (
+                    <div className="space-y-2 p-3.5 rounded-2xl bg-slate-900/60 border border-border/80">
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs font-bold text-foreground flex items-center gap-1.5">
+                          <Package className="w-4 h-4 text-accent" />
+                          <span>Chọn gói quà tặng muốn săn:</span>
+                        </span>
+                        <span className="text-[10px] text-muted-foreground font-mono">
+                          {packages.length} gói có sẵn
+                        </span>
+                      </div>
+                      <div className="space-y-2 max-h-[180px] overflow-y-auto pr-1 scrollbar-thin">
+                        {packages.map((pkg) => {
+                          const isSelected = pkg.id === activePackage.id;
+                          const pool = pkg.remaining_codes ?? 0;
+                          return (
+                            <button
+                              key={pkg.id}
+                              type="button"
+                              onClick={() => setSelectedRewardPackageId(pkg.id)}
+                              className={`w-full p-2.5 rounded-xl border text-left transition-all cursor-pointer flex items-center justify-between gap-3 ${
+                                isSelected
+                                  ? 'border-red-500 bg-red-500/10 shadow-md ring-1 ring-red-500/60'
+                                  : 'border-border/80 bg-card hover:bg-card-hover'
+                              }`}
+                            >
+                              <div className="min-w-0 flex-1">
+                                <span className={`text-xs font-bold block truncate ${isSelected ? 'text-white' : 'text-foreground'}`}>
+                                  {pkg.name}
+                                </span>
+                                <span className="text-[11px] text-muted-foreground block truncate mt-0.5">
+                                  {pkg.rewards}
+                                </span>
+                              </div>
+                              <div className="text-right shrink-0">
+                                <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded-full bg-emerald-500/15 text-emerald-400 border border-emerald-500/30">
+                                  Còn {pool} mã
+                                </span>
+                              </div>
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Rewards Box */}
                       <div className="p-3 rounded-2xl bg-muted/50 border border-border/70 mb-3">
                         <div className="flex items-center gap-1.5 text-xs font-semibold text-primary-light mb-1">
                           <Gift className="w-3.5 h-3.5" />
@@ -1775,10 +1823,12 @@ export const GiveawaysView: React.FC<GiveawaysViewProps> = ({
       {detailModalCampaign && typeof document !== 'undefined' && createPortal(
         (() => {
           const currentCampaign = giveaways.find((g) => g.id === detailModalCampaign.id) || detailModalCampaign;
+          const packages = getGiveawayPackages(currentCampaign);
+          const activePackage = packages.find((p) => p.id === selectedRewardPackageId) || packages[0];
           const poolCount =
-            Array.isArray(currentCampaign.codes_pool) && currentCampaign.codes_pool.length > 0
-              ? currentCampaign.codes_pool.length
-              : (typeof currentCampaign.remaining_codes === 'number' ? currentCampaign.remaining_codes : 0);
+            Array.isArray(activePackage?.codes_pool || currentCampaign.codes_pool) && (activePackage?.codes_pool || currentCampaign.codes_pool)!.length > 0
+              ? (activePackage?.codes_pool || currentCampaign.codes_pool)!.length
+              : (typeof activePackage?.remaining_codes === 'number' ? activePackage.remaining_codes : (typeof currentCampaign.remaining_codes === 'number' ? currentCampaign.remaining_codes : 0));
           const displayRemaining = marketingService.getDisplayStock(currentCampaign.id, poolCount);
           const displayClaimed =
             currentCampaign.show_claimed_count !== false

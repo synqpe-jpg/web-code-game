@@ -38,7 +38,7 @@ import { marketingService } from './services/marketingService';
 import { adminDataService } from './admin/services/adminDataService';
 import { authService } from './services/authService';
 import { growthService } from './services/growthService';
-import type { GameItem, FilterState, StoreProduct, UserProfile, GiveawayCampaign, UtilityProduct } from './types/game';
+import type { GameItem, FilterState, StoreProduct, UserProfile, GiveawayCampaign, UtilityProduct, ProductPackageVariant } from './types/game';
 import { saveRecentSearch } from './utils/recentSearchUtils';
 
 export interface SharePayload {
@@ -135,6 +135,8 @@ export const App: React.FC = () => {
   const [sharePayload, setSharePayload] = useState<SharePayload | null>(null);
   const [selectedProduct, setSelectedProduct] = useState<StoreProduct | null>(null);
   const [checkoutProduct, setCheckoutProduct] = useState<StoreProduct | null>(null);
+  const [checkoutPackage, setCheckoutPackage] = useState<ProductPackageVariant | null>(null);
+  const [checkoutQuantity, setCheckoutQuantity] = useState<number>(1);
   const [selectedUtilityId, setSelectedUtilityId] = useState<string | null>(null);
 
   const [isBookmarkDrawerOpen, setIsBookmarkDrawerOpen] = useState(false);

@@ -28,7 +28,9 @@ import { formatCore } from '../utils/textUtils';
 import { GuideLinksBanner } from './GuideLinksBanner';
 
 interface ProductCheckoutModalProps {
-  product: StoreProduct | null;
+  product: StoreProduct | any | null;
+  selectedPackage?: any | null;
+  initialQuantity?: number;
   onClose: () => void;
   onShowToast: (title: string, message?: string, type?: 'success' | 'error' | 'info') => void;
   currentUser?: UserProfile | null;
@@ -39,6 +41,8 @@ interface ProductCheckoutModalProps {
 
 export const ProductCheckoutModal: React.FC<ProductCheckoutModalProps> = ({
   product,
+  selectedPackage,
+  initialQuantity = 1,
   onClose,
   onShowToast,
   currentUser,
@@ -46,13 +50,19 @@ export const ProductCheckoutModal: React.FC<ProductCheckoutModalProps> = ({
   onOpenAuth,
   onOpenWallet,
 }) => {
-  const [quantity, setQuantity] = useState<number>(1);
+  const [quantity, setQuantity] = useState<number>(initialQuantity || 1);
   const [isProcessing, setIsProcessing] = useState(false);
   const [completedOrder, setCompletedOrder] = useState<OrderRecord | null>(null);
   const [copiedCodeIdx, setCopiedCodeIdx] = useState<number | null>(null);
   const [copiedAll, setCopiedAll] = useState<boolean>(false);
   const [idempotencyKey, setIdempotencyKey] = useState<string>('');
   const [, setTick] = useState(0);
+
+  useEffect(() => {
+    if (initialQuantity && initialQuantity > 0) {
+      setQuantity(initialQuantity);
+    }
+  }, [initialQuantity]);
 
   useEffect(() => {
     const handleUpdate = () => setTick((t) => t + 1);
@@ -86,14 +96,24 @@ export const ProductCheckoutModal: React.FC<ProductCheckoutModalProps> = ({
   if (!product) return null;
   const liveProduct = dataService.getStoreProducts().find((p) => p.id === product.id) || product;
 
+  const effectivePrice = selectedPackage?.price ?? liveProduct.current_price;
+  const effectiveOriginalPrice = selectedPackage?.original_price ?? liveProduct.original_price;
+  const effectiveTitle = selectedPackage && selectedPackage.name && selectedPackage.name !== liveProduct.title
+    ? `${liveProduct.title} - ${selectedPackage.name}`
+    : liveProduct.title;
+  const effectiveTargetId = selectedPackage?.id || liveProduct.id;
+
   const user = currentUser || dataService.getCurrentUser();
   const userBalance = user?.wallet_balance || 0;
-  const realStock = Math.max(0, Number(liveProduct.stock_quantity ?? 0));
+  const rawStock = typeof selectedPackage?.stock_quantity === 'number'
+    ? selectedPackage.stock_quantity
+    : liveProduct.stock_quantity;
+  const realStock = Math.max(0, Number(rawStock ?? 0));
   const maxStock = realStock;
   const safeQty = realStock > 0 ? Math.min(Math.max(1, quantity), maxStock) : 0;
-  const totalPrice = liveProduct.current_price * safeQty;
+  const totalPrice = effectivePrice * safeQty;
   const isBalanceEnough = userBalance >= totalPrice;
-  const checkoutDisplayStock = realStock <= 0 ? 0 : marketingService.getDisplayStock(liveProduct.id, realStock);
+  const checkoutDisplayStock = realStock <= 0 ? 0 : marketingService.getDisplayStock(effectiveTargetId, realStock);
 
   const handleDecreaseQty = () => {
     if (maxStock <= 0) return;
@@ -138,7 +158,7 @@ export const ProductCheckoutModal: React.FC<ProductCheckoutModalProps> = ({
       return;
     }
 
-    if (liveProduct.stock_quantity <= 0) {
+    if (realStock <= 0) {
       onShowToast('Hết hàng', 'Sản phẩm tạm thời hết hàng trong kho.', 'error');
       return;
     }
@@ -153,12 +173,12 @@ export const ProductCheckoutModal: React.FC<ProductCheckoutModalProps> = ({
     setIsProcessing(true);
 
     try {
-      const res = await dataService.createOrder(liveProduct.id, safeQty, activeKey);
+      const res = await dataService.createOrder(effectiveTargetId, safeQty, activeKey);
       setIsProcessing(false);
 
       if (res.success && res.order) {
         const activeUser = currentUser || (typeof window !== 'undefined' ? dataService.getCurrentUser() : null);
-        marketingService.recordRealOrder(liveProduct.title, liveProduct.id, liveProduct.current_price * safeQty, 'store', activeUser, safeQty);
+        marketingService.recordRealOrder(effectiveTitle, effectiveTargetId, totalPrice, 'store', activeUser, safeQty);
 
         // Instantly notify React app state of new balance
         if (activeUser) {
@@ -166,7 +186,7 @@ export const ProductCheckoutModal: React.FC<ProductCheckoutModalProps> = ({
             ? Number((res.order as any).balance_after)
             : (res as any)?.remainingBalance !== undefined
               ? Number((res as any).remainingBalance)
-              : Math.max(0, (activeUser.wallet_balance || 0) - (liveProduct.current_price * safeQty));
+              : Math.max(0, (activeUser.wallet_balance || 0) - totalPrice);
           const updatedUser: UserProfile = {
             ...activeUser,
             wallet_balance: newBal,
@@ -253,7 +273,7 @@ export const ProductCheckoutModal: React.FC<ProductCheckoutModalProps> = ({
                 <h3 className="font-heading font-bold text-sm sm:text-base text-foreground truncate">
                   Thanh Toán Đơn Hàng
                 </h3>
-                <p className="text-xs text-muted-foreground truncate">{product.title}</p>
+                <p className="text-xs text-muted-foreground truncate">{effectiveTitle}</p>
               </div>
             </div>
             <button
@@ -307,13 +327,13 @@ export const ProductCheckoutModal: React.FC<ProductCheckoutModalProps> = ({
                   </div>
                   <div>
                     <h4 className="font-heading font-bold text-xs text-foreground truncate max-w-[180px]">
-                      {product.title}
+                      {effectiveTitle}
                     </h4>
-                    <span className="text-[11px] text-muted-foreground">{product.game_name}</span>
+                    <span className="text-[11px] text-muted-foreground">{product.game_name || (product as any).category_label || ''}</span>
                   </div>
                 </div>
                 <span className="font-display font-black text-sm text-emerald-400">
-                  {formatCore(product.current_price)}
+                  {formatCore(effectivePrice)}
                 </span>
               </div>
 
@@ -451,14 +471,14 @@ export const ProductCheckoutModal: React.FC<ProductCheckoutModalProps> = ({
                   </div>
                   <div>
                     <h4 className="font-heading font-bold text-sm text-foreground truncate max-w-[190px]">
-                      {product.title}
+                      {effectiveTitle}
                     </h4>
-                    <span className="text-xs text-muted-foreground">{product.game_name}</span>
+                    <span className="text-xs text-muted-foreground">{product.game_name || (product as any).category_label || ''}</span>
                   </div>
                 </div>
                 <div className="text-right">
                   <span className="font-display font-black text-base text-emerald-400 block">
-                    {formatCore(product.current_price)}
+                    {formatCore(effectivePrice)}
                   </span>
                   <span className={`text-[10px] font-semibold flex items-center gap-1 justify-end font-sans ${checkoutDisplayStock > 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
                     {checkoutDisplayStock > 0 ? (

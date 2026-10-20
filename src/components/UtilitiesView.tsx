@@ -38,6 +38,9 @@ import { CyberLoader } from './CyberLoader';
 import { dataService } from '../services/dataService';
 import { marketingService } from '../services/marketingService';
 import { formatCore, smartVietnameseMatch } from '../utils/textUtils';
+import { ProductDetailModal } from './ProductDetailModal';
+import { getProductPackages, getProductMinPrice, groupUtilitiesByTheme } from '../utils/productPackageUtils';
+import type { ProductPackageVariant } from '../types/game';
 import type { UserProfile, UtilityProduct, OrderRecord, UtilityCategory } from '../types/game';
 import { GuideLinksBanner } from './GuideLinksBanner';
 import { EventCountdownBadge } from './countdown/EventCountdownBadge';
@@ -64,7 +67,8 @@ export const UtilitiesView: React.FC<UtilitiesViewProps> = ({
   selectedUtilityId,
   onClearSelectedUtility,
 }) => {
-  const [utilities, setUtilities] = useState<UtilityProduct[]>(() => dataService.getUtilityProducts());
+  const [utilities, setUtilities] = useState<UtilityProduct[]>(() => groupUtilitiesByTheme(dataService.getUtilityProducts()));
+  const [selectedPackage, setSelectedPackage] = useState<ProductPackageVariant | null>(null);
   const [categoriesList, setCategoriesList] = useState<UtilityCategory[]>(() => dataService.getUtilityCategories());
   const [filterCategory, setFilterCategory] = useState<string>('all');
   const [search, setSearch] = useState<string>('');
@@ -146,7 +150,7 @@ export const UtilitiesView: React.FC<UtilitiesViewProps> = ({
 
     const handleUpdate = () => {
       const latest = dataService.getUtilityProducts();
-      setUtilities(latest);
+      setUtilities(groupUtilitiesByTheme(latest));
       setCategoriesList(dataService.getUtilityCategories());
       setCmsIntro(dataService.getContentByKey('utilities_section'));
       setSelectedUtility((curr) => (curr ? latest.find((u) => u.id === curr.id) || curr : null));
@@ -155,13 +159,13 @@ export const UtilitiesView: React.FC<UtilitiesViewProps> = ({
     const unsub = dataService.subscribe(handleUpdate);
     const unsubStock = marketingService.subscribeStockChange(() => {
       const latest = dataService.getUtilityProducts();
-      setUtilities([...latest]);
+      setUtilities(groupUtilitiesByTheme([...latest]));
       setSelectedUtility((curr) => (curr ? latest.find((u) => u.id === curr.id) || curr : null));
       setCheckoutUtility((curr) => (curr ? latest.find((u) => u.id === curr.id) || curr : null));
     });
     const unsubSold = marketingService.subscribeSoldCountChange(() => {
       const latest = dataService.getUtilityProducts();
-      setUtilities([...latest]);
+      setUtilities(groupUtilitiesByTheme([...latest]));
       setSelectedUtility((curr) => (curr ? latest.find((u) => u.id === curr.id) || curr : null));
       setCheckoutUtility((curr) => (curr ? latest.find((u) => u.id === curr.id) || curr : null));
     });
@@ -196,7 +200,7 @@ export const UtilitiesView: React.FC<UtilitiesViewProps> = ({
     }
   };
 
-  const handleStartCheckout = (item: UtilityProduct, e?: React.MouseEvent) => {
+  const handleStartCheckout = (item: UtilityProduct, selectedPkg?: ProductPackageVariant | null, initialQty: number = 1, e?: React.MouseEvent) => {
     if (e) e.stopPropagation();
     if (!currentUser && onOpenAuth) {
       onOpenAuth();
@@ -204,7 +208,8 @@ export const UtilitiesView: React.FC<UtilitiesViewProps> = ({
       return;
     }
     setCheckoutUtility(item);
-    setQuantity(1);
+    setSelectedPackage(selectedPkg || null);
+    setQuantity(initialQty || 1);
     setCompletedOrder(null);
     setCopiedCodeIdx(null);
     setCopiedAll(false);
@@ -220,7 +225,7 @@ export const UtilitiesView: React.FC<UtilitiesViewProps> = ({
   const userBalance = currentUser?.wallet_balance || 0;
   const totalPrice = checkoutUtility ? checkoutUtility.current_price * safeQty : 0;
   const isBalanceEnough = checkoutUtility ? userBalance >= totalPrice : false;
-  const checkoutDisplayStock = checkoutUtility ? (realStock <= 0 ? 0 : marketingService.getDisplayStock(checkoutUtility.id, realStock)) : 0;
+  const checkoutDisplayStock = checkoutUtility ? (realStock <= 0 ? 0 : marketingService.getDisplayStock(targetId, realStock)) : 0;
 
   const handleDecreaseQty = () => {
     if (maxStock <= 0) return;
@@ -280,7 +285,7 @@ export const UtilitiesView: React.FC<UtilitiesViewProps> = ({
     setIsProcessing(true);
 
     try {
-      const res = await dataService.createUtilityOrder(checkoutUtility.id, safeQty, activeKey);
+      const res = await dataService.createUtilityOrder(targetId, safeQty, activeKey);
       setIsProcessing(false);
 
       if (res.success && res.order) {
@@ -296,9 +301,9 @@ export const UtilitiesView: React.FC<UtilitiesViewProps> = ({
         // Record real order into Marketing Service
         const activeUser = currentUser || (typeof window !== 'undefined' ? dataService.getCurrentUser() : null);
         marketingService.recordRealOrder(
-          checkoutUtility.title,
+          effectiveTitle,
           checkoutUtility.id,
-          checkoutUtility.current_price * safeQty,
+          effectivePrice * safeQty,
           'utility',
           activeUser,
           safeQty

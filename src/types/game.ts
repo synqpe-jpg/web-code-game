@@ -54,6 +54,20 @@ export interface StatsOverview {
   totalPublishers: number;
 }
 
+// Giveaway Reward Package / Tier Model
+export interface GiveawayRewardPackage {
+  id: string;
+  name: string;
+  rewards: string;
+  total_codes?: number;
+  claimed_codes?: number;
+  remaining_codes?: number;
+  codes_pool?: string[];
+  badge?: string;
+  is_active?: boolean;
+  note?: string;
+}
+
 // Giveaway Campaign Model
 export interface GiveawayCampaign {
   id: string;
@@ -70,6 +84,7 @@ export interface GiveawayCampaign {
   end_time: string;
   is_active: boolean;
   cover_image_url?: string;
+  packages?: GiveawayRewardPackage[];
   requires_auth?: boolean;
   min_account_age_days?: number;
   max_per_user?: number;
@@ -109,6 +124,20 @@ export interface GuideLinkItem {
   url: string;
 }
 
+// Product Package / Variant Model (Gói Sản Phẩm / Tùy Chọn)
+export interface ProductPackageVariant {
+  id: string;
+  name: string;
+  price: number;
+  original_price?: number;
+  stock_quantity?: number;
+  sold_count?: number;
+  badge?: string;
+  note?: string; // e.g. "Xử lý tiêu chuẩn", "Bảo hành 30 ngày"
+  description?: string;
+  is_active?: boolean;
+}
+
 // Store Product / Paid Code Model
 export interface StoreProduct {
   id: string;
@@ -141,6 +170,7 @@ export interface StoreProduct {
   show_guide_link?: boolean;
   show_warranty?: boolean;
   warranty_text?: string;
+  packages?: ProductPackageVariant[];
 }
 
 // Store Category Model (Danh Mục Gói Code / Cửa Hàng)
@@ -208,6 +238,7 @@ export interface UtilityProduct {
   show_guide_link?: boolean;
   show_warranty?: boolean;
   warranty_text?: string;
+  packages?: ProductPackageVariant[];
 }
 
 // Utility Category Model (Danh Mục Tiện Ích)

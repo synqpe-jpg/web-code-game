@@ -31,6 +31,8 @@ import { DuplicateCodesModal, DuplicateCodeItem } from '../components/ui/Duplica
 import { ImageUploadInput } from '../components/ui/ImageUploadInput';
 import { ProductGalleryUpload } from '../components/ui/ProductGalleryUpload';
 import { QuickFomoAdjustModal } from '../components/ui/QuickFomoAdjustModal';
+import { PackageManagerSection } from '../components/ui/PackageManagerSection';
+import type { ProductPackageVariant } from '../../types/game';
 import { adminDataService } from '../services/adminDataService';
 import { marketingService } from '../../services/marketingService';
 import { InventoryItem } from '../types/adminTypes';

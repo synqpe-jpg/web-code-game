@@ -13,6 +13,7 @@ import {
 import { dataService } from '../services/dataService';
 import { marketingService } from '../services/marketingService';
 import { formatCore, smartVietnameseMatch } from '../utils/textUtils';
+import { getProductPackages, getProductMinPrice } from '../utils/productPackageUtils';
 import type { StoreProduct, UserProfile } from '../types/game';
 import { EventCountdownBadge } from './countdown/EventCountdownBadge';
 import { eventSchedulerService } from '../services/eventSchedulerService';
@@ -363,9 +364,15 @@ export const StoreView: React.FC<StoreViewProps> = ({
                 {/* Price & Action */}
                 <div className="flex items-center gap-2 sm:gap-3 shrink-0" onClick={(e) => e.stopPropagation()}>
                   <div className="text-right">
-                    <div className="font-display font-black text-xs sm:text-sm md:text-base text-emerald-400">
-                      {formatCore(effectivePrice)}
+                    <div className="font-display font-black text-xs sm:text-sm md:text-base text-emerald-400 flex items-center justify-end gap-1">
+                      {hasMultiplePackages && <span className="text-[10px] text-muted-foreground font-normal">Từ</span>}
+                      <span>{formatCore(displayPrice)}</span>
                     </div>
+                    {hasMultiplePackages && (
+                      <span className="text-[9px] font-bold px-1.5 py-0.2 rounded bg-indigo-500/20 text-indigo-300 border border-indigo-500/30 inline-block">
+                        {packages.length} gói
+                      </span>
+                    )}
                     {product.original_price > effectivePrice && (
                       <div className="text-[9px] sm:text-[10px] text-slate-400 line-through font-mono hidden xs:block">
                         {formatCore(product.original_price)}
@@ -522,13 +529,19 @@ export const StoreView: React.FC<StoreViewProps> = ({
                 {/* Bottom: Price in Core & 1-tap Buy button */}
                 <div className="pt-2 sm:pt-2.5 border-t border-border/50 flex flex-col sm:flex-row sm:items-center justify-between gap-1.5 sm:gap-2">
                   <div className="flex items-baseline justify-between sm:block">
-                    <div className="flex items-baseline gap-1">
+                    <div className="flex items-baseline gap-1 flex-wrap">
+                      {hasMultiplePackages && <span className="text-[10px] text-muted-foreground font-medium">Từ</span>}
                       <span className="font-display font-black text-xs sm:text-sm md:text-base text-emerald-400">
-                        {formatCore(effectivePrice)}
+                        {formatCore(displayPrice)}
                       </span>
-                      {product.original_price > effectivePrice && (
+                      {!hasMultiplePackages && product.original_price > effectivePrice && (
                         <span className="text-[9px] sm:text-[10px] text-slate-400 line-through font-mono hidden xs:inline">
                           {formatCore(product.original_price)}
+                        </span>
+                      )}
+                      {hasMultiplePackages && (
+                        <span className="text-[9px] font-bold px-1.5 py-0.2 rounded bg-indigo-500/20 text-indigo-300 border border-indigo-500/30 ml-1">
+                          {packages.length} gói
                         </span>
                       )}
                     </div>

@@ -7,6 +7,52 @@ Mỗi mục sửa lỗi đều ghi nhận **Nguyên nhân gốc rễ (Root Cause
 
 ## [2026-10-20]
 
+### 86. Tái Cấu Trúc 3 Mục Cửa Hàng, Tiện Ích & Giveaway Theo Mô Hình "Sản Phẩm Đại Diện → Nhiều Gói Tùy Chọn" (Parent Product - Packages / Variants)
+- **Mô tả & Yêu cầu người dùng**:
+  - Tái cấu trúc lại 3 mục: Cửa Hàng Code, Tiện Ích, và Giveaway (Giật Code).
+  - Ngoài trang danh mục: Mỗi thẻ hiển thị là đại diện cho 1 sản phẩm cha (Tựa Game hoặc Chủ Đề Dịch Vụ) với mức giá thấp nhất ("Từ {giá} đ"), số gói có sẵn, tổng tồn kho và số lượng đã bán.
+  - Khi người dùng click vào thẻ: Mở giao diện chi tiết 2 cột chuẩn mẫu:
+    + Cột trái: Ảnh bìa/banner lớn, 3 khối cam kết uy tín (Giao dịch có bảo vệ, Nhanh chóng, Chính hãng 100%), đánh giá ⭐ 5.0, mô tả chi tiết và hướng dẫn sử dụng.
+    + Cột phải: Khối "Chọn gói sản phẩm" (Packages Selection) hiển thị danh sách các gói (tên gói, giá gói, ghi chú xử lý, huy hiệu) kèm viền active nổi bật, nút chọn số lượng và nút "Mua Ngay" / "Giật Ngay" gói đã chọn.
+- **Giải pháp toàn diện đã triển khai (Solution)**:
+  1. *Khai báo kiểu dữ liệu `ProductPackageVariant` & `GiveawayRewardPackage` trong `src/types/game.ts`*:
+     - Bổ sung `packages?: ProductPackageVariant[]` vào `StoreProduct` và `UtilityProduct`.
+     - Bổ sung `packages?: GiveawayRewardPackage[]` vào `GiveawayCampaign`.
+  2. *Xây dựng bộ thư viện hỗ trợ `src/utils/productPackageUtils.ts`*:
+     - `getProductPackages(product)`: Fallback an toàn 100% cho sản phẩm đơn gói cũ.
+     - `getProductMinPrice(product)`, `getProductTotalStock(product)`, `getProductTotalSold(product)`.
+     - `groupStoreProductsByGame(products)`: Gom các sản phẩm cùng game thành 1 thẻ đại diện cho game đó.
+     - `groupUtilitiesByTheme(utilities)`: Gom các sản phẩm cùng chủ đề/dòng máy ảo (VS Phone Basic, VIP, SVIP...) thành sản phẩm đại diện.
+     - `groupGiveawaysByGame(campaigns)`: Gom các đợt phát code cùng game thành 1 sự kiện quà tặng lớn.
+  3. *Tái cấu trúc `ProductDetailModal.tsx`*:
+     - Chuyển sang bố cục 2 cột (Responsive Grid `lg:grid-cols-12`).
+     - Cột trái: Ảnh lớn, 3 badge cam kết (Giao dịch bảo vệ, Nhanh chóng, Chính hãng 100%), mô tả, link hướng dẫn.
+     - Cột phải: Gói đã chọn (giá, tình trạng còn hàng), danh sách chọn gói với viền active đỏ/amber chuẩn mẫu, bộ đếm số lượng và nút Mua ngay.
+  4. *Nâng cấp `ProductCheckoutModal.tsx`*:
+     - Hỗ trợ thanh toán đúng gói đã chọn (`selectedPackage`), tính đúng giá gói và trừ đúng mã trong kho D1.
+  5. *Nâng cấp Thẻ ngoài sàn trong `StoreView.tsx`, `UtilitiesView.tsx` & `GiveawaysView.tsx`*:
+     - Hiển thị giá khởi điểm "Từ {minPrice} đ" và badge số lượng gói tùy chọn.
+     - `UtilitiesView.tsx`: Thay thế modal chi tiết cũ bằng `ProductDetailModal` chuẩn 2 cột.
+     - `GiveawaysView.tsx`: Tích hợp bộ chọn gói quà tặng muốn giật trong modal chi tiết.
+  6. *Nâng cấp Quản Trị Admin (`CodeInventoryModule.tsx`, `UtilitiesModule.tsx`, `PrivateCodesModule.tsx`)*:
+     - Xây dựng component `PackageManagerSection.tsx`: Cho phép thêm/sửa/xóa gói con trực tiếp với các nút tạo mẫu nhanh (Thời hạn, MXH/Buff, Nạp game).
+- **Files Modified**:
+  - `src/types/game.ts`
+  - `src/utils/productPackageUtils.ts` (Mới)
+  - `src/components/ProductDetailModal.tsx`
+  - `src/components/ProductCheckoutModal.tsx`
+  - `src/components/StoreView.tsx`
+  - `src/components/UtilitiesView.tsx`
+  - `src/components/GiveawaysView.tsx`
+  - `src/App.tsx`
+  - `src/admin/components/ui/PackageManagerSection.tsx` (Mới)
+  - `src/admin/modules/CodeInventoryModule.tsx`
+  - `src/admin/modules/UtilitiesModule.tsx`
+  - `src/admin/modules/PrivateCodesModule.tsx`
+  - `CHANGELOG.md` (Mục 86)
+
+---
+
 ### 85. Tích Hợp Mục "Nguồn Quét Code" Khi Tạo Mới & Chỉnh Sửa Game, Tự Động Đồng Bộ Vào Crawler & Tự Động Hóa Giftcode
 - **Mô tả & Yêu cầu người dùng**:
   - Tại trang Quản Lý Danh Mục Game trong Admin (`admin-code-game-shop.pages.dev/admin#/games`), trong modal thêm mới hoặc chỉnh sửa game, bổ sung mục **"Nguồn Quét Code Tự Động (Crawler Sources)"**.

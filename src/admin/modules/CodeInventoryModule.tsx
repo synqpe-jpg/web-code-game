@@ -28,6 +28,8 @@ import { ImageUploadInput } from '../components/ui/ImageUploadInput';
 import { ProductGalleryUpload } from '../components/ui/ProductGalleryUpload';
 import { SearchableGameSelect } from '../components/ui/SearchableGameSelect';
 import { QuickFomoAdjustModal } from '../components/ui/QuickFomoAdjustModal';
+import { PackageManagerSection } from '../components/ui/PackageManagerSection';
+import type { ProductPackageVariant } from '../../types/game';
 import { adminDataService } from '../services/adminDataService';
 import { marketingService } from '../../services/marketingService';
 import { InventoryItem, GameAdminRecord } from '../types/adminTypes';
