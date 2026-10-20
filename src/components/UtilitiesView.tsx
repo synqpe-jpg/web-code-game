@@ -371,8 +371,11 @@ export const UtilitiesView: React.FC<UtilitiesViewProps> = ({
     }
   };
 
+  // Gom nhóm các gói tiện ích cùng dòng máy ảo / chủ đề thành sản phẩm đại diện
+  const groupedUtilities = useMemo(() => groupUtilitiesByTheme(utilities), [utilities]);
+
   // Filter & sort utilities (Mặc định ưu tiên hàng còn lên trên đầu)
-  const filtered = utilities
+  const filtered = groupedUtilities
     .filter((u) => {
       if (u.is_active === false || u.is_active === 0 || (u as any).is_active === '0') return false;
       if (filterCategory !== 'all') {
@@ -658,7 +661,14 @@ export const UtilitiesView: React.FC<UtilitiesViewProps> = ({
 
                   <button
                     disabled={item.stock_quantity <= 0}
-                    onClick={(e) => handleStartCheckout({ ...item, current_price: effectivePrice, discount_percent: effectiveDiscount }, e)}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      if (item.packages && item.packages.length > 1) {
+                        setSelectedUtility({ ...item, current_price: effectivePrice, discount_percent: effectiveDiscount });
+                      } else {
+                        handleStartCheckout({ ...item, current_price: effectivePrice, discount_percent: effectiveDiscount }, null, 1, e);
+                      }
+                    }}
                     className={`px-2.5 sm:px-3 py-1.5 rounded-xl font-bold text-xs shadow-sm transition-all flex items-center gap-1 cursor-pointer active:scale-95 ${
                       item.stock_quantity <= 0
                         ? 'bg-slate-800 text-slate-500 border border-slate-700/60 cursor-not-allowed'
@@ -667,7 +677,7 @@ export const UtilitiesView: React.FC<UtilitiesViewProps> = ({
                         : 'bg-teal-600 hover:bg-teal-500 text-white'
                     }`}
                   >
-                    <span>{isFlashSaleLive ? 'Săn Sale' : 'Mua'}</span>
+                    <span>{item.packages && item.packages.length > 1 ? 'Chọn Gói' : (isFlashSaleLive ? 'Săn Sale' : 'Mua')}</span>
                     <ChevronRight className="w-3.5 h-3.5" />
                   </button>
 
@@ -821,7 +831,14 @@ export const UtilitiesView: React.FC<UtilitiesViewProps> = ({
 
                   <button
                     disabled={item.stock_quantity <= 0}
-                    onClick={(e) => handleStartCheckout({ ...item, current_price: effectivePrice, discount_percent: effectiveDiscount }, e)}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      if (item.packages && item.packages.length > 1) {
+                        setSelectedUtility({ ...item, current_price: effectivePrice, discount_percent: effectiveDiscount });
+                      } else {
+                        handleStartCheckout({ ...item, current_price: effectivePrice, discount_percent: effectiveDiscount }, null, 1, e);
+                      }
+                    }}
                     className={`w-full sm:w-auto px-2 sm:px-3 py-1.5 min-h-[30px] sm:min-h-[34px] rounded-lg sm:rounded-xl font-bold text-[11px] sm:text-xs shadow-sm transition-all flex items-center justify-center gap-1 shrink-0 ${
                       item.stock_quantity <= 0
                         ? 'bg-slate-800 text-slate-500 border border-slate-700/60 cursor-not-allowed'
@@ -832,14 +849,9 @@ export const UtilitiesView: React.FC<UtilitiesViewProps> = ({
                   >
                     {item.stock_quantity <= 0 ? (
                       <span>Hết hàng</span>
-                    ) : !currentUser ? (
-                      <>
-                        <LogIn className="w-3 h-3 sm:w-3.5 sm:h-3.5" />
-                        <span>Mua</span>
-                      </>
                     ) : (
                       <>
-                        <span>{isFlashSaleLive ? 'Săn Sale' : 'Mua Ngay'}</span>
+                        <span>{item.packages && item.packages.length > 1 ? 'Chọn Gói' : (isFlashSaleLive ? 'Săn Sale Ngay' : 'Mua Ngay')}</span>
                         <ChevronRight className="w-3 h-3 sm:w-3.5 sm:h-3.5" />
                       </>
                     )}

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { createPortal } from 'react-dom';
 import {
   Gift,
@@ -249,6 +249,8 @@ export const GiveawaysView: React.FC<GiveawaysViewProps> = ({
   onClearInitialGiveawayId,
 }) => {
   const [giveaways, setGiveaways] = useState<GiveawayCampaign[]>([]);
+  // Gom nhóm các chiến dịch Giveaway cùng Tựa Game thành chiến dịch đại diện
+  const groupedCampaigns = useMemo(() => groupGiveawaysByGame(giveaways), [giveaways]);
   const [claimedList, setClaimedList] = useState<ClaimedCodeRecord[]>([]);
   const [activeTab, setActiveTab] = useState<'campaigns' | 'my_codes'>('campaigns');
   const [copiedCode, setCopiedCode] = useState<string | null>(null);
@@ -537,7 +539,21 @@ export const GiveawaysView: React.FC<GiveawaysViewProps> = ({
   };
 
   // Filter & sort campaigns (Mặc định ưu tiên hàng còn lên trên đầu)
-  const activeGiveaways = giveaways
+  const getCampaignStock = (c: GiveawayCampaign) => {
+    if (Array.isArray(c.packages) && c.packages.length > 0) {
+      return c.packages.reduce((sum, p) => {
+        const pCount = Array.isArray(p.codes_pool) && p.codes_pool.length > 0
+          ? p.codes_pool.length
+          : (typeof p.remaining_codes === 'number' ? p.remaining_codes : 0);
+        return sum + pCount;
+      }, 0);
+    }
+    return Array.isArray(c.codes_pool) && c.codes_pool.length > 0
+      ? c.codes_pool.length
+      : (typeof c.remaining_codes === 'number' ? c.remaining_codes : 0);
+  };
+
+  const activeGiveaways = groupedCampaigns
     .filter((c) => {
       if (c.is_active === false) return false;
       // Search query filter
@@ -550,29 +566,20 @@ export const GiveawaysView: React.FC<GiveawaysViewProps> = ({
       }
       // Category filter
       if (filterCategory === 'available') {
-        const poolCount =
-          Array.isArray(c.codes_pool) && c.codes_pool.length > 0
-            ? c.codes_pool.length
-            : (typeof c.remaining_codes === 'number' ? c.remaining_codes : 0);
+        const poolCount = getCampaignStock(c);
         return poolCount > 0;
       }
       if (filterCategory === 'hot') {
         return (c.claimed_codes || 0) >= 5 || (c.show_claimed_count !== false);
       }
       if (filterCategory === 'mine') {
-        return claimedList.some((my) => my.campaign_id === c.id);
+        return claimedList.some((my) => my.campaign_id === c.id || (c.packages && c.packages.some((p) => p.id === my.campaign_id)));
       }
       return true;
     })
     .sort((a, b) => {
-      const poolCountA =
-        Array.isArray(a.codes_pool) && a.codes_pool.length > 0
-          ? a.codes_pool.length
-          : (typeof a.remaining_codes === 'number' ? a.remaining_codes : 0);
-      const poolCountB =
-        Array.isArray(b.codes_pool) && b.codes_pool.length > 0
-          ? b.codes_pool.length
-          : (typeof b.remaining_codes === 'number' ? b.remaining_codes : 0);
+      const poolCountA = getCampaignStock(a);
+      const poolCountB = getCampaignStock(b);
 
       const inStockA = poolCountA > 0 ? 1 : 0;
       const inStockB = poolCountB > 0 ? 1 : 0;
@@ -631,7 +638,7 @@ export const GiveawaysView: React.FC<GiveawaysViewProps> = ({
               }`}
             >
               <Layers className="w-3.5 h-3.5" />
-              <span>Đang Mở ({giveaways.filter((c) => c.is_active !== false).length})</span>
+              <span>Đang Mở ({groupedCampaigns.filter((c) => c.is_active !== false).length})</span>
             </button>
             <button
               onClick={() => setActiveTab('my_codes')}
@@ -666,7 +673,7 @@ export const GiveawaysView: React.FC<GiveawaysViewProps> = ({
                       : 'bg-muted/70 text-muted-foreground hover:text-foreground border border-border'
                   }`}
                 >
-                  Tất Cả ({giveaways.filter((c) => c.is_active !== false).length})
+                  Tất Cả ({groupedCampaigns.filter((c) => c.is_active !== false).length})
                 </button>
                 <button
                   onClick={() => setFilterCategory('available')}

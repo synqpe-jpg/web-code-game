@@ -7,6 +7,26 @@ Mỗi mục sửa lỗi đều ghi nhận **Nguyên nhân gốc rễ (Root Cause
 
 ## [2026-10-20]
 
+### 90. Khắc Phục Lỗi Sập Trang Giveaway (ReferenceError: groupedCampaigns) & Kích Hoạt Gom Nhóm Chuẩn Xác Ngoài Sàn Tiện Ích
+- **Mô tả & Yêu cầu người dùng**:
+  - Người dùng phản ánh: *"Trang khách đang không gom chính xác, mục giveaway lại lỗi rồi"* (kèm ảnh chụp trang tiện ích ngoài web khách vẫn hiển thị 19 thẻ sản phẩm lẻ rời rạc: Basic 1D, 7D, 30D, VIP 1D, 7D, 30D...).
+- **Nguyên nhân gốc rễ (Root Cause)**:
+  1. *Lỗi Giveaway*: Biến `groupedCampaigns` được gọi ở bộ phân giải deep-link và modal nhưng chưa từng được khai báo trong scope của `GiveawaysView.tsx`, ném `ReferenceError: groupedCampaigns is not defined` làm sập trang Giveaway. Đồng thời danh sách `activeGiveaways` vẫn lọc trên `giveaways` mảng thô.
+  2. *Lỗi Tiện Ích không gom nhóm*: Tại `UtilitiesView.tsx` dòng 375, `const filtered = utilities.filter(...)` lấy trực tiếp từ state `utilities` (mảng raw thô 19 items) thay vì `groupedUtilities` (mảng đã gom nhóm qua `groupUtilitiesByTheme`).
+- **Giải pháp toàn diện đã triển khai (Solution)**:
+  1. *Khắc phục triệt để GiveawaysView*:
+     - Khai báo state phái sinh `const groupedCampaigns = useMemo(() => groupGiveawaysByGame(giveaways), [giveaways]);`.
+     - Cho `activeGiveaways` lọc và sắp xếp trên `groupedCampaigns` với thuật toán tính tồn kho tổng `getCampaignStock(c)`.
+     - Cập nhật số lượng hiển thị trên các tab "Đang Mở" và "Tất Cả" dựa trên `groupedCampaigns`.
+  2. *Gom nhóm chuẩn xác ngoài sàn Tiện Ích (`UtilitiesView.tsx`)*:
+     - Khai báo `const groupedUtilities = useMemo(() => groupUtilitiesByTheme(utilities), [utilities]);`.
+     - Cho `filtered = groupedUtilities.filter(...)`: Sàn chỉ còn đúng 7 thẻ sản phẩm đại diện (1 độc lập + 6 dòng VS Phone).
+     - Nút bấm ngoài thẻ đổi thành "Chọn Gói", khi click mở modal chi tiết 2 cột chọn gói con thay vì mở thẳng modal thanh toán.
+- **Files Modified**:
+  - `src/components/GiveawaysView.tsx`
+  - `src/components/UtilitiesView.tsx`
+  - `CHANGELOG.md` (Mục 90)
+
 ### 89. Khắc Phục Hiện Tượng "Đang Từ Nhiều Gói Thu Về 1 Gói" Khi Mở Chi Tiết Tiện Ích & Giveaway
 - **Mô tả & Yêu cầu người dùng**:
   - Người dùng phản ánh: *"Tôi ấn vào 1 sản phẩm, một lát sau đang từ nhiều thu về chỉ còn 1"* (kèm ảnh chụp modal VS Phone SVIP đang từ 3 gói bị thu về gói lẻ `SVIP 1 Day VS Phone` 1 gói có sẵn).
