@@ -7,6 +7,27 @@ Mỗi mục sửa lỗi đều ghi nhận **Nguyên nhân gốc rễ (Root Cause
 
 ## [2026-10-20]
 
+### 89. Khắc Phục Hiện Tượng "Đang Từ Nhiều Gói Thu Về 1 Gói" Khi Mở Chi Tiết Tiện Ích & Giveaway
+- **Mô tả & Yêu cầu người dùng**:
+  - Người dùng phản ánh: *"Tôi ấn vào 1 sản phẩm, một lát sau đang từ nhiều thu về chỉ còn 1"* (kèm ảnh chụp modal VS Phone SVIP đang từ 3 gói bị thu về gói lẻ `SVIP 1 Day VS Phone` 1 gói có sẵn).
+- **Nguyên nhân gốc rễ (Root Cause)**:
+  1. Trong `UtilitiesView.tsx`, sau khi mở modal, `dataService.syncWithCloudflareKV` hoặc `marketingService` kích hoạt các hàm lắng nghe sự kiện (`handleUpdate`, `unsubStock`, `unsubSold`).
+  2. Các listener này gọi `setSelectedUtility((curr) => curr ? latest.find(u => u.id === curr.id) : null)`. Biến `latest` lấy từ `dataService.getUtilityProducts()` là danh sách thô phẳng (chưa gom nhóm, không có mảng `packages`). Do `parentUtility.id = lead.id`, `latest.find(...)` tìm thấy gói lẻ thô đầu tiên và ghi đè `selectedUtility`.
+  3. `ProductDetailModal` nhận `selectedUtility` bị ghi đè không có `packages`, nên fallback về 1 gói duy nhất khiến danh sách gói bị co lại.
+  4. Tương tự, trong `GiveawaysView.tsx` dòng 1805, modal chi tiết gọi `giveaways.find(g => g.id === detailModalCampaign.id)` trên mảng raw thay vì mảng gom nhóm `groupedCampaigns`.
+- **Giải pháp toàn diện đã triển khai (Solution)**:
+  1. Trong `UtilitiesView.tsx`:
+     - Cập nhật hàm `handleUpdate`: Gom nhóm `rawLatest` qua `groupUtilitiesByTheme`, tìm trong danh sách `groupedLatest` để bảo toàn nguyên vẹn mảng `packages` và thông tin sản phẩm đại diện.
+     - Cho `unsubStock` và `unsubSold` sử dụng thống nhất hàm `handleUpdate`.
+     - Cập nhật logic `selectedUtilityId` và `#utility=` hash check tìm trong danh sách đã gom nhóm trước.
+  2. Trong `GiveawaysView.tsx`:
+     - Sửa `currentCampaign` bên trong modal createPortal tìm trong `groupedCampaigns` thay vì mảng phẳng `giveaways`.
+     - Cập nhật deep link URL tìm trong `groupedCampaigns`.
+- **Files Modified**:
+  - `src/components/UtilitiesView.tsx`
+  - `src/components/GiveawaysView.tsx`
+  - `CHANGELOG.md` (Mục 89)
+
 ### 88. Tích Hợp ProductDetailModal Vào Tiện Ích, Kích Hoạt Gom Nhóm Cửa Hàng & Hoàn Thiện Bộ Chọn Gói Giveaway
 - **Mô tả & Yêu cầu người dùng**:
   1. *Khắc phục lỗi khi chọn sản phẩm trên trang khách chưa hiện ra các mục con*:

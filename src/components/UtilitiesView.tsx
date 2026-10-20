@@ -67,7 +67,7 @@ export const UtilitiesView: React.FC<UtilitiesViewProps> = ({
   selectedUtilityId,
   onClearSelectedUtility,
 }) => {
-  const [utilities, setUtilities] = useState<UtilityProduct[]>(() => groupUtilitiesByTheme(dataService.getUtilityProducts()));
+  const [utilities, setUtilities] = useState<UtilityProduct[]>(() => dataService.getUtilityProducts());
   const [selectedPackage, setSelectedPackage] = useState<ProductPackageVariant | null>(null);
   const [categoriesList, setCategoriesList] = useState<UtilityCategory[]>(() => dataService.getUtilityCategories());
   const [filterCategory, setFilterCategory] = useState<string>('all');
@@ -113,12 +113,16 @@ export const UtilitiesView: React.FC<UtilitiesViewProps> = ({
   // Sync selected utility if passed from outside
   useEffect(() => {
     if (selectedUtilityId) {
-      const found = utilities.find((u) => u.id === selectedUtilityId);
+      const raw = dataService.getUtilityProducts();
+      const grouped = groupUtilitiesByTheme(raw);
+      const found = grouped.find(
+        (u) => u.id === selectedUtilityId || (u.packages && u.packages.some((p) => p.id === selectedUtilityId))
+      ) || raw.find((u) => u.id === selectedUtilityId);
       if (found) {
         setSelectedUtility(found);
       }
     }
-  }, [selectedUtilityId, utilities]);
+  }, [selectedUtilityId]);
 
   // Deep-link check from URL hash (#utility=xxx)
   useEffect(() => {
@@ -127,7 +131,11 @@ export const UtilitiesView: React.FC<UtilitiesViewProps> = ({
       if (hash.includes('utility=')) {
         const id = hash.split('utility=')[1]?.split('&')[0];
         if (id) {
-          const found = dataService.getUtilityProducts().find((u) => u.id === id);
+          const raw = dataService.getUtilityProducts();
+          const grouped = groupUtilitiesByTheme(raw);
+          const found = grouped.find(
+            (u) => u.id === id || (u.packages && u.packages.some((p) => p.id === id))
+          ) || raw.find((u) => u.id === id);
           if (found) setSelectedUtility(found);
         }
       }
@@ -149,26 +157,25 @@ export const UtilitiesView: React.FC<UtilitiesViewProps> = ({
     dataService.syncWithCloudflareKV(true);
 
     const handleUpdate = () => {
-      const latest = dataService.getUtilityProducts();
-      setUtilities(groupUtilitiesByTheme(latest));
+      const rawLatest = dataService.getUtilityProducts();
+      const groupedLatest = groupUtilitiesByTheme(rawLatest);
+      setUtilities([...rawLatest]);
       setCategoriesList(dataService.getUtilityCategories());
       setCmsIntro(dataService.getContentByKey('utilities_section'));
-      setSelectedUtility((curr) => (curr ? latest.find((u) => u.id === curr.id) || curr : null));
-      setCheckoutUtility((curr) => (curr ? latest.find((u) => u.id === curr.id) || curr : null));
+      setSelectedUtility((curr) => {
+        if (!curr) return null;
+        // Bắt buộc tìm trong danh sách ĐÃ GOM NHÓM để bảo toàn mảng packages các gói con
+        const found = groupedLatest.find(
+          (u) => u.id === curr.id || (u.packages && u.packages.some((p) => p.id === curr.id))
+        );
+        return found || curr;
+      });
+      setCheckoutUtility((curr) => (curr ? rawLatest.find((u) => u.id === curr.id) || curr : null));
     };
+
     const unsub = dataService.subscribe(handleUpdate);
-    const unsubStock = marketingService.subscribeStockChange(() => {
-      const latest = dataService.getUtilityProducts();
-      setUtilities(groupUtilitiesByTheme([...latest]));
-      setSelectedUtility((curr) => (curr ? latest.find((u) => u.id === curr.id) || curr : null));
-      setCheckoutUtility((curr) => (curr ? latest.find((u) => u.id === curr.id) || curr : null));
-    });
-    const unsubSold = marketingService.subscribeSoldCountChange(() => {
-      const latest = dataService.getUtilityProducts();
-      setUtilities(groupUtilitiesByTheme([...latest]));
-      setSelectedUtility((curr) => (curr ? latest.find((u) => u.id === curr.id) || curr : null));
-      setCheckoutUtility((curr) => (curr ? latest.find((u) => u.id === curr.id) || curr : null));
-    });
+    const unsubStock = marketingService.subscribeStockChange(handleUpdate);
+    const unsubSold = marketingService.subscribeSoldCountChange(handleUpdate);
     window.addEventListener('wcg_admin_data_updated', handleUpdate);
     window.addEventListener('wcg_virtual_stock_updated', handleUpdate);
     window.addEventListener('wcg_sold_count_updated', handleUpdate);

@@ -346,7 +346,12 @@ export const GiveawaysView: React.FC<GiveawaysViewProps> = ({
 
       if (targetId && giveaways.length > 0) {
         const cleanId = decodeURIComponent(targetId).trim().toLowerCase();
-        const found = giveaways.find(
+        const found = groupedCampaigns.find(
+          (g) =>
+            g.id.toLowerCase() === cleanId ||
+            (g.game_slug && g.game_slug.toLowerCase() === cleanId) ||
+            (g.packages && g.packages.some((p) => p.id.toLowerCase() === cleanId))
+        ) || giveaways.find(
           (g) => g.id.toLowerCase() === cleanId || (g.game_slug && g.game_slug.toLowerCase() === cleanId)
         );
         if (found) {
@@ -1802,7 +1807,7 @@ export const GiveawaysView: React.FC<GiveawaysViewProps> = ({
       {/* CAMPAIGN DETAIL & CLAIM MODAL */}
       {detailModalCampaign && typeof document !== 'undefined' && createPortal(
         (() => {
-          const currentCampaign = giveaways.find((g) => g.id === detailModalCampaign.id) || detailModalCampaign;
+          const currentCampaign = groupedCampaigns.find((g) => g.id === detailModalCampaign.id || (g.packages && g.packages.some((p) => p.id === detailModalCampaign.id))) || detailModalCampaign;
           const packages = getGiveawayPackages(currentCampaign);
           const activePackage = packages.find((p) => p.id === selectedRewardPackageId) || packages[0];
           const poolCount =
