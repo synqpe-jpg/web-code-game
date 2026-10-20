@@ -90,6 +90,161 @@ export const FloatingNotificationModule: React.FC<FloatingNotificationModuleProp
     onShowToast('Đã chèn liên kết vào nội dung', `Đã thêm [${text}](${url})`, 'success');
   };
 
+  // Live Events from DB for Spotlight
+  const [giveaways, setGiveaways] = useState<GiveawayCampaign[]>([]);
+  const [storeProducts, setStoreProducts] = useState<StoreProduct[]>([]);
+  const [utilities, setUtilities] = useState<UtilityProduct[]>([]);
+  const [spotlightTab, setSpotlightTab] = useState<EventSpotlightType>('giveaway');
+
+  // Load real events on mount
+  useEffect(() => {
+    try {
+      setGiveaways(adminDataService.getGiveaways());
+      setStoreProducts(adminDataService.getStoreProducts());
+      setUtilities(adminDataService.getUtilities());
+    } catch (e) {
+      console.warn('[FloatingNotificationModule] Error loading live events:', e);
+    }
+  }, []);
+
+  // Event Spotlight Handlers
+  const handleToggleSpotlight = (enabled: boolean) => {
+    const currentSp = config.eventSpotlight || {
+      enabled: false,
+      type: 'giveaway',
+      title: '🎁 Sự Kiện Đang Diễn Ra',
+      subtitle: 'Nhanh tay nhận ngay quà tặng độc quyền',
+      badgeText: '🔴 ĐANG DIỄN RA',
+      ctaText: 'Đến Ngay ➔',
+      ctaLink: '#giveaways',
+    };
+    setConfig({
+      ...config,
+      eventSpotlight: {
+        ...currentSp,
+        enabled,
+      },
+    });
+  };
+
+  const handleSelectSpotlightItem = (type: EventSpotlightType, itemId: string) => {
+    if (type === 'giveaway') {
+      const found = giveaways.find((g) => g.id === itemId);
+      if (!found) return;
+      const stock = typeof found.remaining_codes === 'number'
+        ? found.remaining_codes
+        : Array.isArray(found.codes_pool)
+        ? found.codes_pool.length
+        : 0;
+
+      setConfig({
+        ...config,
+        eventSpotlight: {
+          enabled: true,
+          type: 'giveaway',
+          targetId: found.id,
+          title: found.title,
+          subtitle: `🎁 Mã quà tặng miễn phí ${found.game_name ? `game ${found.game_name}` : ''} • Còn ${stock} suất`,
+          badgeText: '🔴 ĐANG DIỄN RA',
+          imageUrl: found.banner_url || found.image_url || (found.game_slug ? `/game_icons/${found.game_slug}.webp` : '') || '',
+          remainingCodes: stock,
+          ctaText: 'Săn Quà Ngay ➔',
+          ctaLink: `#giveaways?gw=${found.id}`,
+        },
+      });
+      onShowToast('Đã chọn chiến dịch Giveaway', `Gắn sự kiện "${found.title}" thành công!`, 'info');
+    } else if (type === 'store_discount') {
+      const found = storeProducts.find((p) => p.id === itemId);
+      if (!found) return;
+      const hasDiscount = found.original_price && found.original_price > found.price;
+      const percent = hasDiscount
+        ? Math.round(((found.original_price - found.price) / found.original_price) * 100)
+        : found.discount_percentage || 0;
+
+      setConfig({
+        ...config,
+        eventSpotlight: {
+          enabled: true,
+          type: 'store_discount',
+          targetId: found.id,
+          title: found.title,
+          subtitle: `⚡ Ưu đãi Flash Sale ${percent > 0 ? `giảm giá -${percent}%` : ''} • Giá chỉ ${formatCore(found.price)}`,
+          badgeText: percent > 0 ? `⚡ GIẢM -${percent}%` : '⚡ FLASH SALE',
+          imageUrl: found.cover_image_url || found.icon_url || (found.game_slug ? `/game_icons/${found.game_slug}.webp` : '') || '',
+          originalPrice: found.original_price,
+          discountPrice: found.price,
+          ctaText: 'Đến Ngay ➔',
+          ctaLink: `#store?product=${found.id}`,
+        },
+      });
+      onShowToast('Đã chọn sản phẩm Cửa Hàng', `Gắn ưu đãi "${found.title}" thành công!`, 'info');
+    } else if (type === 'utility_hot') {
+      const found = utilities.find((u) => u.id === itemId);
+      if (!found) return;
+      const price = found.current_price || found.price || 0;
+
+      setConfig({
+        ...config,
+        eventSpotlight: {
+          enabled: true,
+          type: 'utility_hot',
+          targetId: found.id,
+          title: found.name,
+          subtitle: `🔥 Tiện ích treo game VIP • Chỉ từ ${formatCore(price)}`,
+          badgeText: '🔥 HOT NHẤT',
+          imageUrl: found.cover_image_url || found.icon_url || '',
+          ctaText: 'Đến Ngay ➔',
+          ctaLink: `#utilities?utility=${found.id}`,
+        },
+      });
+      onShowToast('Đã chọn tiện ích', `Gắn dịch vụ "${found.name}" thành công!`, 'info');
+    }
+  };
+
+  const handleApplySpotlightToNotification = () => {
+    const sp = config.eventSpotlight;
+    if (!sp || !sp.title) {
+      onShowToast('Chưa chọn sự kiện', 'Vui lòng chọn hoặc nhập sự kiện trước khi điền mẫu.', 'error');
+      return;
+    }
+
+    const newTitle = `🔥 SỰ KIỆN: ${sp.title}`;
+    const newMsg = `Sự kiện "${sp.title}" đang diễn ra trực tiếp trên hệ thống CodeGame.Shop! ${sp.subtitle || ''}. Số lượng quà và ưu đãi có hạn, nhấn nút bên dưới để tham gia ngay!`;
+    const newIcon = sp.type === 'giveaway' ? 'gift' : 'flame';
+    const newCta = sp.ctaText || 'Đến Ngay ➔';
+    const newLink = sp.ctaLink || '#giveaways';
+
+    setConfig({
+      ...config,
+      title: newTitle,
+      message: newMsg,
+      iconType: newIcon,
+      showCta: true,
+      ctaText: newCta,
+      ctaLink: newLink,
+      ctaTargetBlank: false,
+    });
+
+    onShowToast('Đã áp dụng mẫu thành công! 🎉', 'Toàn bộ tiêu đề, nội dung, biểu tượng và liên kết đã được cập nhật đồng bộ.', 'success');
+  };
+
+  const handleUpdateSpotlightField = (field, value) => {
+    const currentSp = config.eventSpotlight || {
+      enabled: true,
+      type: 'giveaway',
+      title: '',
+      ctaText: 'Đến Ngay ➔',
+      ctaLink: '#giveaways',
+    };
+    setConfig({
+      ...config,
+      eventSpotlight: {
+        ...currentSp,
+        [field]: value,
+      },
+    });
+  };
+
   // Clock ticker for time-of-day comparison
   useEffect(() => {
     const updateTime = () => {
@@ -506,6 +661,246 @@ export const FloatingNotificationModule: React.FC<FloatingNotificationModuleProp
                 </div>
               )}
             </div>
+          </div>
+
+          {/* Card: Gắn Sự Kiện Đang Diễn Ra (Event Spotlight) */}
+          <div className="bg-zinc-900/80 rounded-2xl border border-zinc-800 p-5 space-y-4">
+            <div className="flex items-center justify-between pb-3 border-b border-zinc-800">
+              <div className="flex items-center gap-2.5">
+                <div className="p-2 rounded-lg bg-amber-500/10 text-amber-400">
+                  <Zap className="w-4 h-4" />
+                </div>
+                <div>
+                  <h3 className="text-sm font-semibold text-white flex items-center gap-2">
+                    <span>Gắn Sự Kiện Đang Diễn Ra</span>
+                    <span className="text-[10px] px-2 py-0.5 rounded-full bg-amber-500/15 text-amber-300 border border-amber-500/30 font-medium">
+                      Event Spotlight
+                    </span>
+                  </h3>
+                  <p className="text-xs text-zinc-400">Chèn thẻ sự kiện Giveaway, Giảm giá hoặc Tiện ích kèm nút "Đến Ngay"</p>
+                </div>
+              </div>
+
+              <label className="relative inline-flex items-center cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={Boolean(config.eventSpotlight?.enabled)}
+                  onChange={(e) => handleToggleSpotlight(e.target.checked)}
+                  className="sr-only peer"
+                />
+                <div className="w-9 h-5 bg-zinc-800 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-amber-500"></div>
+                <span className="ml-2.5 text-xs text-zinc-300">
+                  {config.eventSpotlight?.enabled ? 'Đang Bật' : 'Đang Tắt'}
+                </span>
+              </label>
+            </div>
+
+            {config.eventSpotlight?.enabled && (
+              <div className="space-y-4 animate-in fade-in duration-200">
+                {/* Tabs chọn nguồn sự kiện */}
+                <div className="flex flex-wrap items-center gap-2 p-1 rounded-xl bg-zinc-950 border border-zinc-800">
+                  {[
+                    { id: 'giveaway', label: '🎁 Giveaway / Giật Code', count: giveaways.length },
+                    { id: 'store_discount', label: '🔥 Giảm Giá Cửa Hàng', count: storeProducts.length },
+                    { id: 'utility_hot', label: '⚡ Tiện Ích Hot', count: utilities.length },
+                    { id: 'custom', label: '🎨 Tự Nhập Tùy Chỉnh' },
+                  ].map((tab) => (
+                    <button
+                      key={tab.id}
+                      type="button"
+                      onClick={() => setSpotlightTab(tab.id)}
+                      className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
+                        spotlightTab === tab.id
+                          ? 'bg-amber-500/20 text-amber-300 border border-amber-500/40 shadow-sm'
+                          : 'text-zinc-400 hover:text-white'
+                      }`}
+                    >
+                      {tab.label}
+                    </button>
+                  ))}
+                </div>
+
+                {/* Dropdown danh sách sự kiện thật */}
+                {spotlightTab === 'giveaway' && (
+                  <div className="space-y-2">
+                    <label className="block text-xs font-semibold text-zinc-300">
+                      Chọn Chiến Dịch Giveaway Đang Mở:
+                    </label>
+                    <select
+                      value={config.eventSpotlight?.targetId || ''}
+                      onChange={(e) => handleSelectSpotlightItem('giveaway', e.target.value)}
+                      className="w-full bg-zinc-950 border border-zinc-800 rounded-xl px-3 py-2.5 text-xs text-white focus:outline-none focus:border-amber-500"
+                    >
+                      <option value="">-- Bấm chọn 1 sự kiện Giveaway trên web --</option>
+                      {giveaways.map((gw) => {
+                        const stock = typeof gw.remaining_codes === 'number'
+                          ? gw.remaining_codes
+                          : Array.isArray(gw.codes_pool)
+                          ? gw.codes_pool.length
+                          : 0;
+                        return (
+                          <option key={gw.id} value={gw.id}>
+                            {gw.title} {gw.game_name ? `(${gw.game_name})` : ''} - [Còn ${stock} mã]
+                          </option>
+                        );
+                      })}
+                    </select>
+                  </div>
+                )}
+
+                {spotlightTab === 'store_discount' && (
+                  <div className="space-y-2">
+                    <label className="block text-xs font-semibold text-zinc-300">
+                      Chọn Sản Phẩm Cửa Hàng / Flash Sale:
+                    </label>
+                    <select
+                      value={config.eventSpotlight?.targetId || ''}
+                      onChange={(e) => handleSelectSpotlightItem('store_discount', e.target.value)}
+                      className="w-full bg-zinc-950 border border-zinc-800 rounded-xl px-3 py-2.5 text-xs text-white focus:outline-none focus:border-amber-500"
+                    >
+                      <option value="">-- Bấm chọn 1 sản phẩm Cửa hàng --</option>
+                      {storeProducts.map((sp) => {
+                        const hasDiscount = sp.original_price && sp.original_price > sp.price;
+                        return (
+                          <option key={sp.id} value={sp.id}>
+                            {sp.title} - {formatCore(sp.price)} {hasDiscount ? `(Gốc ${formatCore(sp.original_price)})` : ''}
+                          </option>
+                        );
+                      })}
+                    </select>
+                  </div>
+                )}
+
+                {spotlightTab === 'utility_hot' && (
+                  <div className="space-y-2">
+                    <label className="block text-xs font-semibold text-zinc-300">
+                      Chọn Gói Tiện Ích Đang Hot:
+                    </label>
+                    <select
+                      value={config.eventSpotlight?.targetId || ''}
+                      onChange={(e) => handleSelectSpotlightItem('utility_hot', e.target.value)}
+                      className="w-full bg-zinc-950 border border-zinc-800 rounded-xl px-3 py-2.5 text-xs text-white focus:outline-none focus:border-amber-500"
+                    >
+                      <option value="">-- Bấm chọn 1 gói Tiện ích --</option>
+                      {utilities.map((ut) => (
+                        <option key={ut.id} value={ut.id}>
+                          {ut.name} - {formatCore(ut.current_price || ut.price)}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                )}
+
+                {/* Thẻ Xem Nhanh & Nút Điền Nhanh Toàn Bộ Thông Báo */}
+                {config.eventSpotlight?.title && (
+                  <div className="p-3.5 rounded-xl bg-amber-500/10 border border-amber-500/30 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                    <div className="flex items-center gap-3 min-w-0">
+                      {config.eventSpotlight.imageUrl ? (
+                        <img
+                          src={config.eventSpotlight.imageUrl}
+                          alt="event"
+                          className="w-10 h-10 rounded-lg object-cover border border-amber-500/40 shrink-0"
+                          onError={(e) => { e.target.style.display = 'none'; }}
+                        />
+                      ) : (
+                        <div className="w-10 h-10 rounded-lg bg-black/40 border border-amber-500/40 flex items-center justify-center shrink-0">
+                          <Gift className="w-5 h-5 text-amber-400" />
+                        </div>
+                      )}
+                      <div className="min-w-0">
+                        <span className="text-[10px] font-bold text-amber-400 uppercase tracking-wider block">
+                          {config.eventSpotlight.badgeText || 'Đang diễn ra'}
+                        </span>
+                        <h4 className="text-xs font-bold text-white truncate">
+                          {config.eventSpotlight.title}
+                        </h4>
+                        <p className="text-[11px] text-zinc-300 truncate">
+                          {config.eventSpotlight.subtitle}
+                        </p>
+                      </div>
+                    </div>
+
+                    <button
+                      type="button"
+                      onClick={handleApplySpotlightToNotification}
+                      className="flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-lg bg-amber-500 hover:bg-amber-400 text-zinc-950 font-bold text-xs shadow-md transition-transform active:scale-95 shrink-0 cursor-pointer"
+                      title="Tự động đồng bộ tiêu đề, thông điệp, biểu tượng và liên kết CTA theo sự kiện này"
+                    >
+                      <Sparkles className="w-3.5 h-3.5" />
+                      <span>⚡ Áp Dụng Vào Toàn Bộ Thông Báo</span>
+                    </button>
+                  </div>
+                )}
+
+                {/* Tinh chỉnh các trường thông tin sự kiện */}
+                <div className="pt-3 border-t border-zinc-800 grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+                  <div className="sm:col-span-2">
+                    <label className="block text-[11px] font-semibold text-zinc-300 mb-1">
+                      Tên Sự Kiện Hiển Thị Trên Thẻ Mini
+                    </label>
+                    <input
+                      type="text"
+                      value={config.eventSpotlight?.title || ''}
+                      onChange={(e) => handleUpdateSpotlightField('title', e.target.value)}
+                      placeholder="VD: Giveaway 500 Giftcode VIP Black Myth: Wukong"
+                      className="w-full bg-zinc-950 border border-zinc-800 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-amber-500"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-[11px] font-semibold text-zinc-300 mb-1">
+                      Dòng Phụ / Chi Tiết Ưu Đãi (Subtitle)
+                    </label>
+                    <input
+                      type="text"
+                      value={config.eventSpotlight?.subtitle || ''}
+                      onChange={(e) => handleUpdateSpotlightField('subtitle', e.target.value)}
+                      placeholder="VD: Còn 15 suất quà miễn phí • Hạn chót hôm nay"
+                      className="w-full bg-zinc-950 border border-zinc-800 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-amber-500"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-[11px] font-semibold text-zinc-300 mb-1">
+                      Nhãn Huy Hiệu Nhấp Nháy (Badge)
+                    </label>
+                    <input
+                      type="text"
+                      value={config.eventSpotlight?.badgeText || '🔴 ĐANG DIỄN RA'}
+                      onChange={(e) => handleUpdateSpotlightField('badgeText', e.target.value)}
+                      placeholder="VD: 🔴 ĐANG DIỄN RA, ⚡ FLASH SALE..."
+                      className="w-full bg-zinc-950 border border-zinc-800 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-amber-500"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-[11px] font-semibold text-zinc-300 mb-1">
+                      Chữ Trên Nút Bấm (CTA Label)
+                    </label>
+                    <input
+                      type="text"
+                      value={config.eventSpotlight?.ctaText || 'Đến Ngay ➔'}
+                      onChange={(e) => handleUpdateSpotlightField('ctaText', e.target.value)}
+                      placeholder="VD: Đến Ngay ➔ hoặc Săn Quà Ngay ➔"
+                      className="w-full bg-zinc-950 border border-zinc-800 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-amber-500"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-[11px] font-semibold text-zinc-300 mb-1">
+                      Đường Dẫn Sự Kiện (Deep-link)
+                    </label>
+                    <input
+                      type="text"
+                      value={config.eventSpotlight?.ctaLink || '#giveaways'}
+                      onChange={(e) => handleUpdateSpotlightField('ctaLink', e.target.value)}
+                      placeholder="VD: #giveaways?gw=gw_1 hoặc #utilities?utility=ut_1"
+                      className="w-full bg-zinc-950 border border-zinc-800 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-amber-500"
+                    />
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
 
           {/* Card 2: Vị trí hiển thị (Position) */}

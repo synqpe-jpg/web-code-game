@@ -25,6 +25,23 @@ export type FloatingNotificationIconType =
   | 'shield'
   | 'custom';
 
+export type EventSpotlightType = 'giveaway' | 'store_discount' | 'utility_hot' | 'news_code' | 'custom';
+
+export interface FloatingEventSpotlight {
+  enabled: boolean;
+  type: EventSpotlightType;
+  targetId?: string;       // ID của Giveaway / Store / Utility
+  title: string;           // Tên sự kiện (VD: "Giveaway 500 Giftcode VIP Black Myth: Wukong")
+  subtitle?: string;        // Mô tả ngắn hoặc ưu đãi (VD: "Còn 15 suất quà miễn phí • Hạn chót hôm nay")
+  badgeText?: string;       // Nhãn huy hiệu (VD: "🔴 ĐANG DIỄN RA", "⚡ FLASH SALE", "🎁 QUÀ TẶNG HOT")
+  imageUrl?: string;        // Icon / Bìa của tựa game hoặc sản phẩm
+  originalPrice?: number;   // Giá gốc nếu có
+  discountPrice?: number;   // Giá giảm nếu có
+  remainingCodes?: number;  // Số mã còn lại nếu là Giveaway
+  ctaText?: string;         // Text nút (VD: "Đến Ngay ➔", "Săn Quà Ngay ➔")
+  ctaLink?: string;         // Link dẫn tới sự kiện (VD: "#giveaways?gw=gw_123")
+}
+
 export interface FloatingNotificationConfig {
   id?: string;
   enabled: boolean;
@@ -33,6 +50,9 @@ export interface FloatingNotificationConfig {
   iconType: FloatingNotificationIconType;
   customIconUrl?: string;
   position: FloatingNotificationPosition;
+
+  // Sự kiện đang diễn ra trên web (Event Spotlight)
+  eventSpotlight?: FloatingEventSpotlight;
 
   // Khung giờ hiển thị trong ngày
   scheduleMode: 'all_day' | 'time_range';
@@ -68,6 +88,15 @@ export const DEFAULT_FLOATING_NOTIFICATION: FloatingNotificationConfig = {
   message: 'Cập nhật hàng ngàn Giftcode VIP và mã bản quyền chính hãng mỗi ngày. Chia sẻ trang để mọi người cùng biết nhé.',
   iconType: 'gift',
   position: 'center_modal',
+  eventSpotlight: {
+    enabled: false,
+    type: 'giveaway',
+    title: '🎁 Sự Kiện Giveaway Đang Diễn Ra',
+    subtitle: 'Nhanh tay nhận ngay mã quà tặng độc quyền miễn phí',
+    badgeText: '🔴 ĐANG DIỄN RA',
+    ctaText: 'Đến Ngay ➔',
+    ctaLink: '#giveaways',
+  },
   scheduleMode: 'all_day',
   startTime: '08:00',
   endTime: '23:00',

@@ -7,6 +7,34 @@ Mỗi mục sửa lỗi đều ghi nhận **Nguyên nhân gốc rễ (Root Cause
 
 ## [2026-10-20]
 
+### 93. Tích Hợp Gắn Sự Kiện Đang Diễn Ra (Event Spotlight) Vào Thông Báo Nổi
+- **Mô tả & Yêu cầu người dùng**:
+  - Người dùng yêu cầu: *"Trong mục thông báo nổi, có thể chèn sự kiện đang diễn ra trên web, ví dụ như giveaway hay giảm giá, khi thông báo nổ lên có thể hiện ra sự kiện này đang diễn ra, đến ngay?"* (kèm ảnh chụp màn hình Admin mục "Cài Đặt Thông Báo Nổi" tại `admin-code-game-shop.pages.dev/admin#/floating-notification`). Sau đó người dùng phê duyệt triển khai: *"Ok triển khai giúp tôi"*.
+- **Nguyên nhân gốc rễ & Phân tích (Root Cause & Analysis)**:
+  1. Trước đây, cấu hình Thông Báo Nổi (`FloatingNotificationConfig`) chỉ có tiêu đề, nội dung văn bản đơn giản và 1 nút CTA ngoài cùng. Chưa hỗ trợ gắn trực tiếp thông tin sự kiện thời gian thực (realtime event) từ kho dữ liệu (Chiến dịch Giveaway, Flash Sale Cửa Hàng, Tiện Ích Hot).
+  2. Người quản trị phải nhập link và văn bản thủ công, không có tính năng chọn nhanh sự kiện từ danh mục và tự động điền mẫu (auto-fill).
+  3. Giao diện Web Khách (`FloatingAnnouncement.tsx`) thiếu khối hiển thị thẻ sự kiện nổi bật (Mini Event Spotlight Card) với ảnh đại diện, giá gạch/giá ưu đãi, số lượng quà còn lại và hiệu ứng huy hiệu nhấp nháy thu hút người dùng.
+  4. Nút bấm CTA trước đây nếu có link nội bộ (như `#giveaways?gw=...` hoặc `#utilities?utility=...`) chỉ reload hoặc điều hướng URL hash mà không tự động mở modal chi tiết sự kiện cho người dùng.
+- **Giải pháp toàn diện đã triển khai (Solution)**:
+  1. *Mở rộng Type Definition (`src/types/floatingNotification.ts`)*:
+     - Bổ sung type `EventSpotlightType` (`'giveaway' | 'store_discount' | 'utility_hot' | 'news_code' | 'custom'`).
+     - Bổ sung cấu trúc `FloatingEventSpotlight`: gồm `enabled`, `type`, `targetId`, `title`, `subtitle`, `badgeText`, `imageUrl`, `originalPrice`, `discountPrice`, `remainingCodes`, `ctaText`, `ctaLink`.
+     - Cập nhật `FloatingNotificationConfig` và `DEFAULT_FLOATING_NOTIFICATION` với cấu hình sự kiện mặc định trực quan.
+  2. *Nâng cấp giao diện Quản Trị Admin (`FloatingNotificationModule.tsx`)*:
+     - Bổ sung Card quản lý **"🎯 Gắn Sự Kiện Đang Diễn Ra (Event Spotlight)"** với 4 tab: Chiến Dịch Giveaway, Giảm Giá Cửa Hàng, Tiện Ích Đang Hot, Tùy Chỉnh.
+     - Tự động nạp danh sách sự kiện thực tế từ `adminDataService.getGiveaways()`, `getStoreProducts()`, `getUtilities()`.
+     - Thêm nút tiện ích **"⚡ Áp Dụng Vào Toàn Bộ Thông Báo" (1-Click Auto-Fill)**: Khi chọn 1 sự kiện, quản trị viên có thể bấm 1 nút để tự động điền tiêu đề thông báo, nội dung, huy hiệu và link CTA.
+     - Mockup Preview bên phải cập nhật theo thời gian thực hiển thị cả thẻ Mini Event Spotlight bên trong khung thông báo nổi.
+  3. *Tích hợp Thẻ Sự Kiện & Deep-link trên Web Khách (`FloatingAnnouncement.tsx`)*:
+     - Tạo hàm render chuyên biệt `renderEventSpotlightCard`: Render card sự kiện mini với hiệu ứng viền neon, thumbnail ảnh game/sản phẩm có fallback, huy hiệu nhấp nháy `🔴 ĐANG DIỄN RA` / `⚡ FLASH SALE`, mức giá ưu đãi và số lượng quà tặng còn lại.
+     - Thẻ sự kiện xuất hiện đồng bộ ở cả 3 chế độ hiển thị: Popup giữa màn hình (`center_modal`), Thông báo góc (`bottom_right`/`bottom_left`) và Banner ghim (`top_bar`/`bottom_bar`).
+     - Tối ưu `handleCtaClick`: Khi người dùng bấm *"Đến Ngay ➔"*, hệ thống tự động bóc tách link hash nội bộ, chuyển tab tương ứng (`onNavigateTab`) và kích hoạt CustomEvent để mở ngay lập tức modal chi tiết Giveaway / Cửa hàng / Tiện ích mà không cần tải lại trang.
+- **Files Modified**:
+  - `src/types/floatingNotification.ts`
+  - `src/components/FloatingAnnouncement.tsx`
+  - `src/admin/modules/FloatingNotificationModule.tsx`
+  - `CHANGELOG.md` (Mục 93)
+
 ### 92. Tinh Chỉnh Hiển Thị Tồn Kho Các Gói: "Số lượng khuyến mãi còn"
 - **Mô tả & Yêu cầu người dùng**:
   - Người dùng yêu cầu: *"Chỗ hiển thị số lượng còn 8 kia đổi tên thành, số lượng khuyễn mãi còn..."* (kèm ảnh chụp màn hình modal chọn gói tiện ích "Cloud Phone VS Phone VIP - Cấu Hình Cao Treo Game 24/7" tại `codegame.shop/utilities`).

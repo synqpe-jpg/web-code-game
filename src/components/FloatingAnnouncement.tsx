@@ -188,18 +188,55 @@ export const FloatingAnnouncement: React.FC<FloatingAnnouncementProps> = ({ onNa
     }
   };
 
-  const handleCtaClick = (e: React.MouseEvent) => {
-    if (!config.ctaLink) return;
+  const handleCtaClick = (e: React.MouseEvent, overrideLink?: string) => {
+    const link = overrideLink || config.ctaLink;
+    if (!link) return;
 
     // Handle internal navigation if needed
-    if (config.ctaLink.startsWith('#')) {
+    if (link.startsWith('#')) {
       e.preventDefault();
-      const targetId = config.ctaLink.replace('#', '');
-      const element = document.getElementById(targetId);
-      if (element) {
-        element.scrollIntoView({ behavior: 'smooth' });
+      const hashPart = link.replace('#', '');
+      const [baseSection, queryStr] = hashPart.split('?');
+      const params = new URLSearchParams(queryStr || '');
+
+      // Check tab target
+      if (baseSection === 'giveaways' || link.includes('giveaway')) {
+        onNavigateTab?.('giveaways');
+        const gwId = params.get('gw') || params.get('id');
+        if (gwId) {
+          window.location.hash = link;
+          window.dispatchEvent(new CustomEvent('wcg_open_giveaway_detail', { detail: { id: gwId } }));
+        } else {
+          window.location.hash = '#giveaways';
+        }
+      } else if (baseSection === 'utilities' || link.includes('utility')) {
+        onNavigateTab?.('utilities');
+        const utId = params.get('utility') || params.get('ut') || params.get('id');
+        if (utId) {
+          window.location.hash = link;
+          window.dispatchEvent(new CustomEvent('wcg_open_utility_detail', { detail: { id: utId } }));
+        } else {
+          window.location.hash = '#utilities';
+        }
+      } else if (baseSection === 'store' || link.includes('store') || link.includes('product')) {
+        onNavigateTab?.('store');
+        const prodId = params.get('product') || params.get('prod') || params.get('id');
+        if (prodId) {
+          window.location.hash = link;
+          window.dispatchEvent(new CustomEvent('wcg_open_store_detail', { detail: { id: prodId } }));
+        } else {
+          window.location.hash = '#store';
+        }
+      } else if (baseSection === 'news' || link.includes('news')) {
+        onNavigateTab?.('news');
+        window.location.hash = link;
       } else {
-        window.location.hash = config.ctaLink;
+        const element = document.getElementById(baseSection);
+        if (element) {
+          element.scrollIntoView({ behavior: 'smooth' });
+        } else {
+          window.location.hash = link;
+        }
       }
       handleDismiss();
       return;
@@ -208,7 +245,7 @@ export const FloatingAnnouncement: React.FC<FloatingAnnouncementProps> = ({ onNa
     if (config.ctaTargetBlank) {
       // Default browser behavior for target="_blank"
     } else {
-      window.location.href = config.ctaLink;
+      window.location.href = link;
       handleDismiss();
     }
   };
@@ -278,6 +315,84 @@ export const FloatingAnnouncement: React.FC<FloatingAnnouncementProps> = ({ onNa
 
   const themeStyles = getThemeClasses(config.theme);
 
+  // Render Mini Event Spotlight Card
+  const renderEventSpotlightCard = (spotlight?: typeof config.eventSpotlight, isCompact = false) => {
+    if (!spotlight || !spotlight.enabled || !spotlight.title) return null;
+
+    const eventBadge = spotlight.badgeText || (spotlight.type === 'giveaway' ? '🔴 ĐANG DIỄN RA' : '⚡ FLASH SALE');
+    const eventCtaText = spotlight.ctaText || 'Đến Ngay ➔';
+    const targetLink = spotlight.ctaLink || (spotlight.type === 'giveaway' ? '#giveaways' : '#utilities');
+
+    return (
+      <div
+        onClick={(e) => handleCtaClick(e, targetLink)}
+        className={`group relative overflow-hidden rounded-xl border border-amber-500/35 bg-gradient-to-r from-amber-500/15 via-rose-500/10 to-purple-500/15 transition-all hover:border-amber-400/70 hover:from-amber-500/25 hover:to-purple-500/25 cursor-pointer shadow-lg my-3 select-none ${
+          isCompact ? 'p-2.5' : 'p-3 sm:p-3.5'
+        }`}
+      >
+        {/* Glow ambient effect */}
+        <div className="absolute -right-6 -top-6 w-24 h-24 bg-amber-500/20 rounded-full blur-2xl group-hover:bg-amber-400/30 transition-all pointer-events-none" />
+
+        <div className="relative flex items-center gap-3">
+          {/* Thumbnail / Icon */}
+          <div className="relative shrink-0 w-11 h-11 sm:w-12 sm:h-12 rounded-xl overflow-hidden border border-amber-500/40 bg-black/60 shadow-inner flex items-center justify-center">
+            {spotlight.imageUrl ? (
+              <img
+                src={spotlight.imageUrl}
+                alt={spotlight.title}
+                className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                onError={(e) => {
+                  (e.target as HTMLElement).style.display = 'none';
+                }}
+              />
+            ) : spotlight.type === 'giveaway' ? (
+              <Gift className="w-6 h-6 text-amber-400 animate-bounce" />
+            ) : (
+              <Flame className="w-6 h-6 text-rose-400 animate-pulse" />
+            )}
+            <span className="absolute -top-1 -right-1 flex h-2.5 w-2.5">
+              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-rose-400 opacity-75"></span>
+              <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-rose-500"></span>
+            </span>
+          </div>
+
+          {/* Content */}
+          <div className="min-w-0 flex-1">
+            <div className="flex items-center gap-1.5 mb-0.5">
+              <span className="inline-flex items-center gap-1 text-[9px] font-black uppercase tracking-wider px-1.5 py-0.5 rounded bg-rose-500/20 text-rose-300 border border-rose-500/30">
+                <span className="w-1.5 h-1.5 rounded-full bg-rose-400 animate-pulse" />
+                {eventBadge}
+              </span>
+              {typeof spotlight.remainingCodes === 'number' && spotlight.remainingCodes > 0 && (
+                <span className="text-[10px] text-amber-300 font-mono font-bold">
+                  • Còn {spotlight.remainingCodes} suất
+                </span>
+              )}
+            </div>
+
+            <h5 className="text-xs sm:text-sm font-bold text-white group-hover:text-amber-300 transition-colors truncate leading-snug">
+              {spotlight.title}
+            </h5>
+
+            {spotlight.subtitle && (
+              <p className="text-[11px] text-zinc-300 line-clamp-1 mt-0.5 font-medium">
+                {spotlight.subtitle}
+              </p>
+            )}
+          </div>
+
+          {/* Action button */}
+          <div className="shrink-0">
+            <span className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg bg-gradient-to-r from-amber-500 to-rose-500 hover:from-amber-400 hover:to-rose-400 text-zinc-950 font-black text-[11px] shadow-md group-hover:scale-105 active:scale-95 transition-all">
+              <span>{eventCtaText}</span>
+              <ChevronRight className="w-3.5 h-3.5" />
+            </span>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
   // Position 1: CENTER MODAL POPUP (with backdrop overlay)
   if (config.position === 'center_modal') {
     return (
@@ -309,11 +424,14 @@ export const FloatingAnnouncement: React.FC<FloatingAnnouncementProps> = ({ onNa
             </div>
           </div>
 
-          <div className="text-xs sm:text-sm text-zinc-300 leading-relaxed space-y-2 mb-6 whitespace-pre-line">
+          <div className="text-xs sm:text-sm text-zinc-300 leading-relaxed space-y-2 mb-4 whitespace-pre-line">
             <RichTextRenderer content={config.message} />
           </div>
 
-          <div className="flex items-center gap-3">
+          {/* Thẻ Sự Kiện Đang Diễn Ra (Event Spotlight) */}
+          {renderEventSpotlightCard(config.eventSpotlight)}
+
+          <div className="flex items-center gap-3 mt-4">
             {config.showCta && (
               <a
                 href={config.ctaLink}
@@ -454,9 +572,12 @@ export const FloatingAnnouncement: React.FC<FloatingAnnouncementProps> = ({ onNa
           </div>
         </div>
 
-        <div className="text-xs text-zinc-300 leading-relaxed mb-4 line-clamp-3">
+        <div className="text-xs text-zinc-300 leading-relaxed mb-3 line-clamp-3">
           <RichTextRenderer content={config.message} />
         </div>
+
+        {/* Thẻ Sự Kiện Đang Diễn Ra (Event Spotlight) */}
+        {renderEventSpotlightCard(config.eventSpotlight, true)}
 
         {/* CTA & Actions */}
         <div className="flex items-center gap-2.5">
