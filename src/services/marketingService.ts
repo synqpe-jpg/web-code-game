@@ -97,13 +97,13 @@ export const DEFAULT_TYPE_TOGGLES: NotificationTypeToggles = {
 };
 
 export const DEFAULT_TYPE_WEIGHTS: NotificationTypeWeights = {
-  copyCode: 30,
-  buyStore: 25,
+  copyCode: 40,
+  depositWallet: 25,
+  claimGiveaway: 20,
+  buyStore: 5,
   buyUtility: 10,
-  claimGiveaway: 25,
-  depositWallet: 7,
-  statsCopy: 3,
-  restockProduct: 12,
+  statsCopy: 5,
+  restockProduct: 0,
 };
 
 export const DEFAULT_DEPOSIT_PRESETS: number[] = [20000, 50000, 100000, 200000, 300000, 500000, 1000000];
@@ -115,16 +115,16 @@ export const DEFAULT_MARKETING_CONFIG: MarketingConfig = {
   toastPosition: 'bottom-left',
   depositNotificationPresets: DEFAULT_DEPOSIT_PRESETS,
   displayDuration: 5,
-  intervalMin: 18,
-  intervalMax: 30,
-  initialDelay: 3,
+  intervalMin: 25,
+  intervalMax: 45,
+  initialDelay: 5,
   isNameMasked: true,
   realUserCooldownSec: 20,
   peakHours: {
     enabled: true,
     startTime: '19:00',
     endTime: '23:30',
-    multiplier: 1.25,
+    multiplier: 1.15,
   },
   virtualAccounts: PRESET_VIRTUAL_ACCOUNTS,
   productWeights: {},
@@ -1619,15 +1619,15 @@ class MarketingService {
   }
 
   public getSlotDurationMs(timestampMs: number = this.getCalibratedNow()): number {
-    const minSec = Math.max(15, Number(this.config.intervalMin) || 18);
-    const maxSec = Math.max(minSec, Number(this.config.intervalMax) || 30);
+    const minSec = Math.max(20, Number(this.config.intervalMin) || 25);
+    const maxSec = Math.max(minSec, Number(this.config.intervalMax) || 45);
     let baseSec = Math.round((minSec + maxSec) / 2);
 
     if (this.isPeakHourAt(timestampMs)) {
-      const multiplier = Math.max(1, Math.min(1.5, Number(this.config.peakHours?.multiplier) || 1.25));
-      baseSec = Math.max(16, Math.round(baseSec / multiplier));
+      const multiplier = Math.max(1, Math.min(1.3, Number(this.config.peakHours?.multiplier) || 1.15));
+      baseSec = Math.max(22, Math.round(baseSec / multiplier));
     }
-    return Math.max(16, baseSec) * 1000;
+    return Math.max(22, baseSec) * 1000;
   }
 
   public getNextIntervalMs(): number {

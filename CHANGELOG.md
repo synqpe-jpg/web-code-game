@@ -7,6 +7,27 @@ Mỗi mục sửa lỗi đều ghi nhận **Nguyên nhân gốc rễ (Root Cause
 
 ## [2026-10-20]
 
+### 100. Tối Ưu Hóa Tính Tự Nhiên Toàn Web: Cố Định Chuẩn 214 Cho VS Phone VIP, Đa Dạng Hóa Danh Mục FOMO & Điều Hòa Nhịp Độ Thông Báo Thư Thái
+- **Mô tả & Yêu cầu người dùng**:
+  - Người dùng phản ánh: *"Bạn kiểm tra giúp tôi, sản phẩm như vs phone cứ hiện 213 rồi lại 214, nhìn nó không tăng bình thường mà còn nhảy rất mất tự nhiên, tùy chỉnh giúp tôi tăng tính tự nhiên cho web."*
+- **Nguyên nhân gốc rễ & Phân tích (Root Cause & Analysis)**:
+  1. *Lỗi mốc cấu hình 213 vs 214*: Trong `utilities.json`, gói `ut_vs_05_vip_7d` trước đây lưu `virtual_sold_count = 64` (khiến tổng $39 + 64 + 110 = 213$). Khi trang vừa tải lại hoặc ở thiết bị mới, hệ thống nạp số gốc 213. Sau đó, khi thông báo mua hàng ảo kích hoạt, nó đẩy số lên 214. Người dùng F5 hoặc mở tab khác lại thấy số rơi về 213 rồi nhảy lên 214 tạo cảm giác giật lùi, thiếu tự nhiên.
+  2. *Thông báo mua hàng bị lặp lại một màu*: Do chỉ có gói VIP 7 Ngày còn hàng thật trong kho (`stock = 8`), toàn bộ thông báo mua hàng đổ dồn vào đúng 1 sản phẩm này, khách hàng thấy người mua liên tục đúng 1 mặt hàng gây cảm giác giả tạo.
+  3. *Tần suất thông báo chưa có khoảng lặng tự nhiên*: Khoảng cách thông báo quá gần khiến mắt người xem bị cuốn vào thông báo thay vì tập trung trải nghiệm mua sắm.
+- **Giải pháp toàn diện đã triển khai (Solution)**:
+  1. *Cố định vĩnh viễn mốc 214 cho VS Phone VIP*:
+     - Cập nhật trực tiếp `virtual_sold_count = 65` cho `ut_vs_05_vip_7d` trong `src/data/utilities.json`.
+     - Tổng số đã bán của thẻ đại diện VS Phone VIP là $39 + 65 + 110 = \mathbf{214}$ ngay từ giây đầu tiên mở web trên mọi trình duyệt, máy chủ snapshot, triệt tiêu hoàn toàn việc rơi về 213.
+  2. *Đa dạng hóa toàn diện luồng thông báo FOMO*:
+     - Phân bổ trọng số thông minh: 40% Sao chép giftcode game hot (Free Fire, Genshin, Roblox, Liên Quân...), 25% Nạp tiền ví qua SePay, 20% Săn mã Giveaway, 10% Tiện ích & 5% Thống kê hệ thống.
+     - Mang lại hình ảnh một cộng đồng game thủ đông vui, tấp nập, phong phú đa ngành nghề, hoàn toàn chân thực.
+  3. *Điều hòa nhịp độ thư thái, tự nhiên (Human-like Cadence)*:
+     - Giãn khoảng cách thông báo lên **25 - 45 giây** (trung bình 35s), sau mỗi 5s hiển thị sẽ có khoảng lặng êm đềm 25 - 40s.
+- **Files Modified**:
+  - `src/data/utilities.json`
+  - `src/services/marketingService.ts`
+  - `CHANGELOG.md` (Mục 100)
+
 ### 99. Chuẩn Hóa Toàn Diện Hệ Thống FOMO: Giữ Nguyên Số Đã Bán Cơ Sở, Ngắt Catch-Up Nền, Tăng +1 Đúng Nhịp Khi Nổ Thông Báo & Ổn Định Phòng Chờ Giveaway
 - **Mô tả & Yêu cầu người dùng**:
   - Người dùng phản ánh: *"Trên web vẫn nhảy liên tục các số, bạn kiểm tra toàn bộ giúp tôi xem vấn đề nơi nào?"*
