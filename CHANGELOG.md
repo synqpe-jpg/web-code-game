@@ -7,6 +7,23 @@ Mỗi mục sửa lỗi đều ghi nhận **Nguyên nhân gốc rễ (Root Cause
 
 ## [2026-10-20]
 
+### 92. Tinh Chỉnh Hiển Thị Tồn Kho Các Gói: "Số lượng khuyến mãi còn"
+- **Mô tả & Yêu cầu người dùng**:
+  - Người dùng yêu cầu: *"Chỗ hiển thị số lượng còn 8 kia đổi tên thành, số lượng khuyễn mãi còn..."* (kèm ảnh chụp màn hình modal chọn gói tiện ích "Cloud Phone VS Phone VIP - Cấu Hình Cao Treo Game 24/7" tại `codegame.shop/utilities`).
+- **Nguyên nhân gốc rễ & Phân tích (Root Cause & Analysis)**:
+  - Trong `ProductDetailModal.tsx` tại danh sách chọn gói sản phẩm, dòng hiển thị số lượng tồn kho của từng gói đang dùng text ngắn `Còn {pkgStock}` (ví dụ "Còn 8").
+  - Người dùng muốn thay đổi tên nhãn thành "Số lượng khuyến mãi còn: {pkgStock}" nhằm tạo cảm giác ưu đãi có hạn và thúc đẩy quyết định mua hàng (FOMO).
+- **Giải pháp toàn diện đã triển khai (Solution)**:
+  1. *Cập nhật ProductDetailModal (`src/components/ProductDetailModal.tsx`)*:
+     - Thay thế `Còn {pkgStock}` thành `Số lượng khuyến mãi còn: {pkgStock}` với số lượng in đậm màu xanh ngọc `text-emerald-400 font-bold`.
+  2. *Đồng bộ ProductCheckoutModal & UtilitiesView (`ProductCheckoutModal.tsx`, `UtilitiesView.tsx`)*:
+     - Cập nhật dòng trạng thái kho khi sang bước thanh toán gói thành `Số lượng khuyến mãi còn: {stock} gói/mã • Giao tức thì` để đảm bảo trải nghiệm khách hàng hoàn toàn thống nhất và chuyên nghiệp.
+- **Files Modified**:
+  - `src/components/ProductDetailModal.tsx`
+  - `src/components/ProductCheckoutModal.tsx`
+  - `src/components/UtilitiesView.tsx`
+  - `CHANGELOG.md` (Mục 92)
+
 ### 91. Bổ Sung Các Nguồn Tin Tức Game Uy Tín & Nâng Cấp Bộ Máy Crawler Tự Động 24/7
 - **Mô tả & Yêu cầu người dùng**:
   - Người dùng yêu cầu: *"Bổ sung thêm vài nguồn về bài tin tức game giúp tôi"* (kèm ảnh chụp màn hình Admin mục "Tin Tức Game & Code" tại `https://admin-code-game-shop.pages.dev/admin#/news` -> tab Nguồn Quét Tự Động).

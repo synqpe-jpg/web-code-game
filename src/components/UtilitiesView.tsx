@@ -1051,7 +1051,7 @@ export const UtilitiesView: React.FC<UtilitiesViewProps> = ({
                           <>
                             <span className="w-1.5 h-1.5 rounded-full bg-teal-400 animate-pulse" />
                             {(checkoutUtility as any).show_stock_count !== false
-                              ? `Còn ${checkoutDisplayStock} gói • Kích hoạt ngay`
+                              ? `Số lượng khuyến mãi còn: ${checkoutDisplayStock} gói • Kích hoạt ngay`
                               : 'Sẵn sàng • Kích hoạt ngay'}
                           </>
                         ) : (

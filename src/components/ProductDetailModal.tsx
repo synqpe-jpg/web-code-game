@@ -522,8 +522,8 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
                             {isPkgOut ? (
                               <span className="text-[10px] text-rose-400 font-semibold block">Hết hàng</span>
                             ) : (
-                              <span className="text-[10px] text-muted-foreground font-mono block">
-                                Còn {typeof pkg.stock_quantity === 'number' ? pkg.stock_quantity : 'sẵn'}
+                              <span className="text-[10px] text-muted-foreground font-mono block whitespace-nowrap">
+                                Số lượng khuyến mãi còn: <strong className="text-emerald-400 font-bold">{typeof pkg.stock_quantity === 'number' ? pkg.stock_quantity : 'sẵn'}</strong>
                               </span>
                             )}
                           </div>
