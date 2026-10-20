@@ -842,6 +842,36 @@ class AdminDataService {
         localStorage.setItem(this.KEYS.GIVEAWAYS, JSON.stringify(this.giveaways));
       }
 
+      // Auto-normalize legacy giveaways to formula: title = "Code riêng " + game_name, rewards = "Code ngẫu nhiên"
+      let hasLegacyGwUpdated = false;
+      this.giveaways.forEach((g) => {
+        if (g && g.game_name) {
+          const expectedTitle = `Code riêng ${g.game_name.trim()}`;
+          if (
+            g.title === '1 code ngẫu nhiên bất kỳ' ||
+            g.title === '1 code riêng ngẫu nhiên' ||
+            g.title === g.game_name ||
+            (g.title && !g.title.startsWith('Code riêng'))
+          ) {
+            g.title = expectedTitle;
+            hasLegacyGwUpdated = true;
+          }
+          if (
+            g.rewards === 'code riêng ngẫu nhiên' ||
+            g.rewards === 'Code ngẫu nhiên từ NPH' ||
+            g.rewards === 'Code ngẫu nhiên bất kỳ' ||
+            g.rewards === '1 code ngẫu nhiên' ||
+            !g.rewards
+          ) {
+            g.rewards = 'Code ngẫu nhiên';
+            hasLegacyGwUpdated = true;
+          }
+        }
+      });
+      if (hasLegacyGwUpdated) {
+        localStorage.setItem(this.KEYS.GIVEAWAYS, JSON.stringify(this.giveaways));
+      }
+
       // 15. Load Store Products
       const savedStoreProducts = localStorage.getItem(this.KEYS.STORE_PRODUCTS);
       if (savedStoreProducts !== null) {

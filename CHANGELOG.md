@@ -7,6 +7,31 @@ Mỗi mục sửa lỗi đều ghi nhận **Nguyên nhân gốc rễ (Root Cause
 
 ## [2026-10-20]
 
+### 96. Chuẩn Hóa Mẫu Mặc Định & Cập Nhật Toàn Bộ Sản Phẩm Giveaway Theo Công Thức "Code riêng + Tên game" & "Code ngẫu nhiên"
+- **Mô tả & Yêu cầu người dùng**:
+  - Người dùng yêu cầu: *"Tại Giveaway, bạn mặc định giúp tôi vài thông tin, tôi vẫn có thể chỉnh sửa nếu cần như cũ nhưng nội dung mẫu khi tạo thì bạn làm nhứau giúp tôi. Tiêu đề đợt phát: Code riêng + Kèm tên tựa game được chọn. Phần thưởng chi tiết: Code ngẫu nhiên. Từ nay về sau các sản phẩm mới đều như vậy, đồng thời bạn sửa giúp tôi sản phẩm cũ theo công thức như trên."*
+- **Nguyên nhân gốc rễ & Phân tích (Root Cause & Analysis)**:
+  1. *Form tạo mới thiếu giá trị mẫu tự động*: Trong `PrivateCodesModule.tsx`, hàm `handleOpenCreate` trước đây khởi tạo `title: ''` và `rewards: ''`. Khi Quản trị viên chọn tựa game trong dropdown `SearchableGameSelect`, form chỉ lưu `game_slug` và `game_name` mà không tự động gợi ý điền mẫu tiêu đề `Code riêng ${game.name}` và phần thưởng `Code ngẫu nhiên`.
+  2. *Dữ liệu đợt phát cũ chưa đồng nhất*: 31 chiến dịch Giveaway cũ trong `src/data/giveaways.json` có tiêu đề phân tán như `1 code ngẫu nhiên bất kỳ`, `1 code riêng ngẫu nhiên` hoặc chỉ có tên game trơn `Pirate Legends: Huyền Thoại Hải Tặc`, cùng phần thưởng không đồng nhất (`Code ngẫu nhiên từ NPH`, `code riêng ngẫu nhiên`...).
+- **Giải pháp toàn diện đã triển khai (Solution)**:
+  1. *Thiết lập mẫu mặc định khi tạo mới trong `PrivateCodesModule.tsx`*:
+     - Khi mở modal tạo mới (`handleOpenCreate`): Tự động điền `title: Code riêng ${game.name}` và `rewards: 'Code ngẫu nhiên'`.
+     - Khi Quản trị viên thay đổi tựa game từ dropdown `SearchableGameSelect`: Tự động cập nhật lại `title` tương ứng với game mới chọn theo định dạng `Code riêng ${g.name}` và gán `rewards: 'Code ngẫu nhiên'`.
+     - Quản trị viên vẫn có 100% quyền tự do chỉnh sửa, thay đổi tiêu đề hoặc phần thưởng theo ý muốn.
+     - Placeholder và dòng ghi chú gợi ý trực quan: `Mẫu chuẩn: Code riêng + Tên game` và `Mẫu chuẩn: Code ngẫu nhiên`.
+  2. *Chuẩn hóa toàn bộ 31 chiến dịch Giveaway cũ (`src/data/giveaways.json`)*:
+     - Chuyển toàn bộ 31 chiến dịch sang: `title = "Code riêng " + game_name` và `rewards = "Code ngẫu nhiên"`.
+  3. *Đồng bộ hiển thị gom nhóm và lớp bọc dữ liệu runtime (`productPackageUtils.ts`, `dataService.ts`, `adminDataService.ts`)*:
+     - Trong `groupGiveawaysByGame`: Đảm bảo `parentCampaign.title` hiển thị `Code riêng ${lead.game_name}`.
+     - Trong `dataService.ts` và `adminDataService.ts`: Bổ sung cơ chế auto-normalize cho toàn bộ bản ghi Giveaway cũ từ localStorage/KV, đảm bảo dữ liệu hiển thị trên Web Khách và Web Admin luôn đồng nhất 100%.
+- **Files Modified**:
+  - `src/admin/modules/PrivateCodesModule.tsx`
+  - `src/data/giveaways.json`
+  - `src/utils/productPackageUtils.ts`
+  - `src/services/dataService.ts`
+  - `src/admin/services/adminDataService.ts`
+  - `CHANGELOG.md` (Mục 96)
+
 ### 95. Tối Ưu Toàn Diện & Kích Hoạt Bộ Máy Marketing FOMO Sống Động 100% (Admin Toast & Utility Stock & Auto-Reset Snooze)
 - **Mô tả & Yêu cầu người dùng**:
   - Người dùng yêu cầu: *"Kiểm tra hệ thống fomo giúp tôi. Có vể như hệ thống đang không hoạt động."* Sau đó phê duyệt: *"Ok triển khai giúp tôi"*.

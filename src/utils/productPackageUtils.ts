@@ -375,7 +375,7 @@ export function groupGiveawaysByGame(campaigns: GiveawayCampaign[]): GiveawayCam
       const parentCampaign: GiveawayCampaign = {
         ...lead,
         id: lead.id,
-        title: `Đại Tiệc Giftcode Quà Tặng - ${lead.game_name}`,
+        title: `Code riêng ${lead.game_name}`,
         remaining_codes: totalPool,
         claimed_codes: totalClaimed,
         total_codes: totalPool + totalClaimed,

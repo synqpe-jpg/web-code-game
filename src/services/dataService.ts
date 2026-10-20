@@ -1692,8 +1692,28 @@ class DataService {
       const accurateTotal = typeof gw.total_codes === 'number' && gw.total_codes >= (poolCount + claimed)
         ? gw.total_codes
         : (poolCount + claimed);
+
+      // Normalize legacy giveaways to formula: title = "Code riêng " + game_name, rewards = "Code ngẫu nhiên"
+      const normalizedTitle = gw.game_name && (
+        gw.title === '1 code ngẫu nhiên bất kỳ' ||
+        gw.title === '1 code riêng ngẫu nhiên' ||
+        gw.title === gw.game_name ||
+        !gw.title ||
+        !gw.title.startsWith('Code riêng')
+      ) ? `Code riêng ${gw.game_name.trim()}` : (gw.title || (gw.game_name ? `Code riêng ${gw.game_name.trim()}` : 'Code riêng'));
+
+      const normalizedRewards = (
+        gw.rewards === 'code riêng ngẫu nhiên' ||
+        gw.rewards === 'Code ngẫu nhiên từ NPH' ||
+        gw.rewards === 'Code ngẫu nhiên bất kỳ' ||
+        gw.rewards === '1 code ngẫu nhiên' ||
+        !gw.rewards
+      ) ? 'Code ngẫu nhiên' : gw.rewards;
+
       return {
         ...gw,
+        title: normalizedTitle,
+        rewards: normalizedRewards,
         min_account_age_days: Number(gw.min_account_age_days ?? (gw as any).minAccountAgeDays ?? 0),
         max_per_user: Number(gw.max_per_user ?? (gw as any).maxPerUser ?? 1),
         max_per_ip: Number(gw.max_per_ip ?? (gw as any).maxPerIp ?? 1),

@@ -71,11 +71,11 @@ export const PrivateCodesModule: React.FC<PrivateCodesModuleProps> = ({ onShowTo
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [editingItem, setEditingItem] = useState<GiveawayCampaign | null>(null);
   const [formData, setFormData] = useState({
-    title: '',
+    title: 'Code riêng Genshin Impact',
     game_slug: 'genshin-impact',
     game_name: 'Genshin Impact',
     description: 'Code dùng cho 1 tài khoản, 1 loại dùng 1 lần.',
-    rewards: '',
+    rewards: 'Code ngẫu nhiên',
     total_codes: 0,
     claimed_codes: 0,
     min_account_age_days: 0,
@@ -146,12 +146,13 @@ export const PrivateCodesModule: React.FC<PrivateCodesModuleProps> = ({ onShowTo
   const handleOpenCreate = () => {
     setEditingItem(null);
     const defaultGame = games[0];
+    const initialGameName = defaultGame?.name || 'Genshin Impact';
     setFormData({
-      title: '',
+      title: `Code riêng ${initialGameName}`,
       game_slug: defaultGame?.slug || 'genshin-impact',
-      game_name: defaultGame?.name || 'Genshin Impact',
+      game_name: initialGameName,
       description: 'Code dùng cho 1 tài khoản, 1 loại dùng 1 lần.',
-      rewards: '',
+      rewards: 'Code ngẫu nhiên',
       total_codes: 0,
       claimed_codes: 0,
       min_account_age_days: 0,
@@ -172,6 +173,7 @@ export const PrivateCodesModule: React.FC<PrivateCodesModuleProps> = ({ onShowTo
       end_time: '2026-12-31',
       is_active: true,
       cover_image_url: defaultGame?.icon_url || '/game_icons/genshin-impact.webp',
+      packages: [],
     });
     setIsFormOpen(true);
   };
@@ -928,12 +930,19 @@ export const PrivateCodesModule: React.FC<PrivateCodesModuleProps> = ({ onShowTo
                 games={games}
                 selectedGameSlug={formData.game_slug}
                 onSelectGame={(g) => {
-                  setFormData((p) => ({
-                    ...p,
-                    game_slug: g.slug,
-                    game_name: g.name,
-                    cover_image_url: g.icon_url || p.cover_image_url,
-                  }));
+                  setFormData((p) => {
+                    const isNewCreation = !editingItem;
+                    const shouldAutoTitle = isNewCreation || !p.title || p.title.startsWith('Code riêng');
+                    const shouldAutoRewards = isNewCreation && (!p.rewards || p.rewards === 'Code ngẫu nhiên');
+                    return {
+                      ...p,
+                      game_slug: g.slug,
+                      game_name: g.name,
+                      title: shouldAutoTitle ? `Code riêng ${g.name}` : p.title,
+                      rewards: shouldAutoRewards ? 'Code ngẫu nhiên' : (p.rewards || 'Code ngẫu nhiên'),
+                      cover_image_url: g.icon_url || p.cover_image_url,
+                    };
+                  });
                 }}
                 label="Chọn Tựa Game"
                 required
@@ -949,9 +958,12 @@ export const PrivateCodesModule: React.FC<PrivateCodesModuleProps> = ({ onShowTo
                 required
                 value={formData.title}
                 onChange={(e) => setFormData((p) => ({ ...p, title: e.target.value }))}
-                placeholder="VD: 1 code ngẫu nhiên bất kỳ / Phát 500 Giftcode Tân Thủ"
+                placeholder="VD: Code riêng Genshin Impact"
                 className="mt-1 w-full rounded-xl border border-slate-200 bg-white p-2.5 text-xs text-slate-900 focus:border-indigo-500 focus:outline-none dark:border-slate-700 dark:bg-slate-800 dark:text-white"
               />
+              <p className="mt-1 text-[11px] text-slate-500 dark:text-slate-400">
+                Mẫu chuẩn: <span className="font-semibold text-indigo-600 dark:text-indigo-400">Code riêng + Tên game</span> (Có thể tự do chỉnh sửa)
+              </p>
             </div>
           </div>
 
@@ -964,9 +976,12 @@ export const PrivateCodesModule: React.FC<PrivateCodesModuleProps> = ({ onShowTo
               required
               value={formData.rewards}
               onChange={(e) => setFormData((p) => ({ ...p, rewards: e.target.value }))}
-              placeholder="VD: Rương Tướng SSR + 10.000 KNB + 50 Vé Quay"
+              placeholder="VD: Code ngẫu nhiên"
               className="mt-1 w-full rounded-xl border border-slate-200 bg-white p-2.5 text-xs text-slate-900 focus:border-indigo-500 focus:outline-none dark:border-slate-700 dark:bg-slate-800 dark:text-white"
             />
+            <p className="mt-1 text-[11px] text-slate-500 dark:text-slate-400">
+              Mẫu chuẩn: <span className="font-semibold text-emerald-600 dark:text-emerald-400">Code ngẫu nhiên</span> (Có thể tự do chỉnh sửa)
+            </p>
           </div>
 
           <div>
