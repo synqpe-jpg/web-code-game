@@ -7,6 +7,40 @@ Mỗi mục sửa lỗi đều ghi nhận **Nguyên nhân gốc rễ (Root Cause
 
 ## [2026-10-20]
 
+### 91. Bổ Sung Các Nguồn Tin Tức Game Uy Tín & Nâng Cấp Bộ Máy Crawler Tự Động 24/7
+- **Mô tả & Yêu cầu người dùng**:
+  - Người dùng yêu cầu: *"Bổ sung thêm vài nguồn về bài tin tức game giúp tôi"* (kèm ảnh chụp màn hình Admin mục "Tin Tức Game & Code" tại `https://admin-code-game-shop.pages.dev/admin#/news` -> tab Nguồn Quét Tự Động).
+- **Nguyên nhân gốc rễ & Phân tích (Root Cause & Analysis)**:
+  1. Trước đây hệ thống chỉ có 4 nguồn cơ bản (GameK, Sforum, Download.vn, Thế Giới Di Động), thiếu các trang báo điện tử chính thống và chuyên trang game eSports uy tín tại Việt Nam như Báo Thanh Niên Game, FPT Shop Game App, Lag.vn, VnExpress Game, Hoàng Hà Mobile, Kênh 14.
+  2. Bộ bóc tách đường dẫn `extractArticleLinksFromListing` trước đây dùng regex `href=["']([^"']+)["']` chỉ bóc được thẻ có dấu nháy, bỏ sót các trang báo dùng HTML minified lược bỏ dấu nháy (`href=/bai-viet.chn`), đồng thời chưa loại trừ chặt chẽ file tĩnh (.css, .js, favicon) khiến một số liên kết không phải bài viết bị lọt vào danh sách quét.
+  3. Khi nạp snapshot từ server hoặc LocalStorage, nếu client đã có 4 nguồn cũ thì các nguồn mặc định mới không được tự động bổ sung.
+- **Giải pháp toàn diện đã triển khai (Solution)**:
+  1. *Mở rộng danh sách nguồn tin tức chất lượng cao (10 nguồn chuẩn mực)*:
+     - GameK - Giftcode & Game Mobile (`https://gamek.vn/mobile-social.chn`)
+     - Sforum CellphoneS - Game App & Giftcode (`https://cellphones.com.vn/sforum/game-app`)
+     - Báo Thanh Niên - Tin Tức Game & eSports (`https://thanhnien.vn/game.html`)
+     - FPT Shop - Game App & Giftcode (`https://fptshop.com.vn/tin-tuc/game-app`)
+     - Lag.vn - Tin Game & Giftcode Hot (`https://lag.vn/tin-tuc-game`)
+     - VnExpress - Chuyên Mục Trò Chơi & Game (`https://vnexpress.net/so-hoa/game`)
+     - Download.vn - Chuyên Mục Giftcode Game (`https://download.com.vn/s/giftcode`)
+     - Thế Giới Di Động - Game App & Code (`https://www.thegioididong.com/game-app`)
+     - Hoàng Hà Mobile - Game App & Code Tân Thủ (`https://hoanghamobile.com/tin-tuc/chuyen-muc/game-app`)
+     - Kênh 14 - Game Mobile & eSports (`https://kenh14.vn/game.chn`)
+  2. *Cải tiến bộ máy bóc tách link trong `auto_news_publisher.cjs`*:
+     - Hỗ trợ cả HTML minified không có dấu nháy `href=(?:["']([^"']+)["']|([^"'\s>]+))`.
+     - Lọc bỏ triệt để file tĩnh (`.css`, `.js`, `.png`, `.jpg`, `.jpeg`, `.webp`, `.svg`, `.ico`, `.woff`...).
+     - Bổ sung pattern bài viết cho Thanh Niên (`.htm`), FPT Shop (`/tin-tuc/giai-tri/`), GameK/Kênh 14 (`.chn`), VnExpress (`-\d+\.html`).
+     - Tự động làm sạch tên báo ở đuôi tiêu đề bài viết.
+  3. *Cơ chế Smart Merge & Nút Thao Tác Trực Quan Trên Admin (`NewsModule.tsx` & `newsService.ts`)*:
+     - Tự động bổ sung các nguồn mặc định mới vào danh sách nếu trong LocalStorage hoặc server snapshot chưa có.
+     - Thêm phương thức `resetToDefaultAutoSources()` và nút *"Nạp Lại 10 Nguồn Chuẩn"* trên giao diện Admin để người dùng có thể đồng bộ tức thì bất cứ lúc nào.
+- **Files Modified**:
+  - `src/types/newsAutomation.ts`
+  - `src/services/newsService.ts`
+  - `scripts/crawler/auto_news_publisher.cjs`
+  - `src/admin/modules/NewsModule.tsx`
+  - `CHANGELOG.md` (Mục 91)
+
 ### 90. Khắc Phục Lỗi Sập Trang Giveaway (ReferenceError: groupedCampaigns) & Kích Hoạt Gom Nhóm Chuẩn Xác Ngoài Sàn Tiện Ích
 - **Mô tả & Yêu cầu người dùng**:
   - Người dùng phản ánh: *"Trang khách đang không gom chính xác, mục giveaway lại lỗi rồi"* (kèm ảnh chụp trang tiện ích ngoài web khách vẫn hiển thị 19 thẻ sản phẩm lẻ rời rạc: Basic 1D, 7D, 30D, VIP 1D, 7D, 30D...).

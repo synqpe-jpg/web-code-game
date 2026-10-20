@@ -162,6 +162,13 @@ function extractGameNameFromTitle(rawTitle) {
     .replace(/\s*-\s*Download\.com\.vn.*$/i, '')
     .replace(/\s*-\s*Sforum.*$/i, '')
     .replace(/\s*-\s*GameK.*$/i, '')
+    .replace(/\s*-\s*Báo Thanh Niên.*$/i, '')
+    .replace(/\s*-\s*Thanh Niên.*$/i, '')
+    .replace(/\s*-\s*FPT Shop.*$/i, '')
+    .replace(/\s*-\s*VnExpress.*$/i, '')
+    .replace(/\s*-\s*Lag\.vn.*$/i, '')
+    .replace(/\s*-\s*Hoàng Hà Mobile.*$/i, '')
+    .replace(/\s*-\s*Kenh14.*$/i, '')
     .replace(/\s*mới nhất.*$/i, '')
     .replace(/\s*còn hạn.*$/i, '')
     .replace(/\s*và cách (?:nhập|đổi|kích hoạt).*$/i, '')
@@ -310,7 +317,8 @@ async function extractArticleFromUrl(url) {
 
 function extractArticleLinksFromListing(html, sourceUrl, keywords) {
   const links = new Set();
-  const hrefMatches = [...html.matchAll(/href=["']([^"']+)["']/gi)];
+  // Hỗ trợ cả HTML minified không có dấu nháy và có dấu nháy
+  const hrefMatches = [...html.matchAll(/href=(?:["']([^"']+)["']|([^"'\s>]+))/gi)];
   let baseUrl = '';
   try {
     const parsed = new URL(sourceUrl);
@@ -318,10 +326,14 @@ function extractArticleLinksFromListing(html, sourceUrl, keywords) {
   } catch {}
 
   for (const m of hrefMatches) {
-    let href = m[1].trim();
+    let href = (m[1] || m[2] || '').trim();
     if (!href || href.startsWith('#') || href.startsWith('javascript:')) continue;
-    if (href.startsWith('/')) href = baseUrl + href;
+    if (href.startsWith('//')) href = 'https:' + href;
+    else if (href.startsWith('/')) href = baseUrl + href;
     if (!href.startsWith('http')) continue;
+
+    // Bỏ qua tài nguyên tĩnh và media
+    if (/\.(css|js|png|jpg|jpeg|webp|svg|ico|gif|woff|woff2|ttf|map)(\?.*)?$/i.test(href)) continue;
 
     const lower = href.toLowerCase();
     
@@ -333,9 +345,9 @@ function extractArticleLinksFromListing(html, sourceUrl, keywords) {
     if (isSpamLink) continue;
 
     const hasKeyword = keywords.some(k => lower.includes(normalizeVietnamese(k).replace(/\s+/g, '-')) || lower.includes(k.toLowerCase()));
-    const isArticlePattern = /(code|giftcode|tin-tuc|bai-viet|huong-dan|\.html|\.chn|\/wiki)/i.test(lower);
+    const isArticlePattern = /(code|giftcode|tin-tuc|bai-viet|huong-dan|giai-tri|\.html|\.htm|\.chn|\/wiki|[0-9]{5,})/i.test(lower);
 
-    if (hasKeyword && isArticlePattern && !lower.includes('tag') && !lower.includes('category') && !lower.includes('page/')) {
+    if (hasKeyword && isArticlePattern && !lower.includes('tag') && !lower.includes('category') && !lower.includes('page/') && !lower.includes('chu-de/') && !lower.includes('chuyen-muc/')) {
       links.add(href);
     }
   }
@@ -536,31 +548,89 @@ async function runAutoNewsPublisher() {
 
   const existingArticles = Array.isArray(syncState?.newsArticles) ? syncState.newsArticles : [];
   const deletedSet = new Set(Array.isArray(syncState?.deletedNewsArticles) ? syncState.deletedNewsArticles : []);
-  const autoSources = Array.isArray(syncState?.newsAutoSources) && syncState.newsAutoSources.length > 0
+
+  const DEFAULT_SOURCES = [
+    {
+      id: 'src_gamek_mobile',
+      name: 'GameK - Giftcode & Game Mobile',
+      url: 'https://gamek.vn/mobile-social.chn',
+      filterKeywords: ['code', 'giftcode', 'quà tặng', 'tân thủ', 'máy chủ', 'update'],
+      status: 'ACTIVE',
+    },
+    {
+      id: 'src_sforum_games',
+      name: 'Sforum CellphoneS - Game App & Giftcode',
+      url: 'https://cellphones.com.vn/sforum/game-app',
+      filterKeywords: ['code', 'giftcode', 'nhập code', 'blox fruit', 'wiki', 'tân thủ'],
+      status: 'ACTIVE',
+    },
+    {
+      id: 'src_thanhnien_game',
+      name: 'Báo Thanh Niên - Tin Tức Game & eSports',
+      url: 'https://thanhnien.vn/game.html',
+      filterKeywords: ['game', 'esports', 'mobile', 'code', 'ra mắt', 'cập nhật'],
+      status: 'ACTIVE',
+    },
+    {
+      id: 'src_fptshop_gameapp',
+      name: 'FPT Shop - Game App & Giftcode',
+      url: 'https://fptshop.com.vn/tin-tuc/game-app',
+      filterKeywords: ['code', 'giftcode', 'game', 'tân thủ', 'nhập code', 'lmht', 'mobile'],
+      status: 'ACTIVE',
+    },
+    {
+      id: 'src_lag_game',
+      name: 'Lag.vn - Tin Game & Giftcode Hot',
+      url: 'https://lag.vn/tin-tuc-game',
+      filterKeywords: ['code', 'giftcode', 'game', 'esports', 'tân thủ', 'mobile'],
+      status: 'ACTIVE',
+    },
+    {
+      id: 'src_vnexpress_game',
+      name: 'VnExpress - Chuyên Mục Trò Chơi & Game',
+      url: 'https://vnexpress.net/so-hoa/game',
+      filterKeywords: ['game', 'trò chơi', 'esports', 'mobile', 'ra mắt'],
+      status: 'ACTIVE',
+    },
+    {
+      id: 'src_download_giftcode',
+      name: 'Download.vn - Chuyên Mục Giftcode Game',
+      url: 'https://download.com.vn/s/giftcode',
+      filterKeywords: ['code', 'giftcode', 'huyền thoại', 'tân thủ', 'quà tặng'],
+      status: 'ACTIVE',
+    },
+    {
+      id: 'src_tgdd_gameapp',
+      name: 'Thế Giới Di Động - Game App & Code',
+      url: 'https://www.thegioididong.com/game-app',
+      filterKeywords: ['code', 'giftcode', 'nhận quà', 'sự kiện', 'tân thủ'],
+      status: 'ACTIVE',
+    },
+    {
+      id: 'src_hoanghamobile_game',
+      name: 'Hoàng Hà Mobile - Game App & Code Tân Thủ',
+      url: 'https://hoanghamobile.com/tin-tuc/chuyen-muc/game-app',
+      filterKeywords: ['code', 'giftcode', 'game', 'tân thủ', 'nhập code'],
+      status: 'ACTIVE',
+    },
+    {
+      id: 'src_kenh14_game',
+      name: 'Kênh 14 - Game Mobile & eSports',
+      url: 'https://kenh14.vn/game.chn',
+      filterKeywords: ['game', 'giftcode', 'code', 'esports', 'tân thủ', 'mobile'],
+      status: 'ACTIVE',
+    },
+  ];
+
+  let rawSources = Array.isArray(syncState?.newsAutoSources) && syncState.newsAutoSources.length > 0
     ? syncState.newsAutoSources
-    : [
-        {
-          id: 'src_gamek_mobile',
-          name: 'GameK - Giftcode & Game Mobile',
-          url: 'https://gamek.vn/mobile-social.chn',
-          filterKeywords: ['code', 'giftcode', 'tân thủ'],
-          status: 'ACTIVE',
-        },
-        {
-          id: 'src_sforum_games',
-          name: 'Sforum CellphoneS - Game App & Giftcode',
-          url: 'https://cellphones.com.vn/sforum/game-app',
-          filterKeywords: ['code', 'giftcode', 'blox fruit'],
-          status: 'ACTIVE',
-        },
-        {
-          id: 'src_download_giftcode',
-          name: 'Download.vn - Chuyên Mục Giftcode Game',
-          url: 'https://download.com.vn/s/giftcode',
-          filterKeywords: ['code', 'giftcode', 'huyền thoại'],
-          status: 'ACTIVE',
-        },
-      ];
+    : [...DEFAULT_SOURCES];
+
+  // Tự động bổ sung các nguồn mặc định mới nếu trong database D1 chưa có
+  const existingSourceIds = new Set(rawSources.map(s => s.id));
+  const existingSourceUrls = new Set(rawSources.map(s => (s.url || '').toLowerCase().trim()));
+  const missingDefs = DEFAULT_SOURCES.filter(d => !existingSourceIds.has(d.id) && !existingSourceUrls.has(d.url.toLowerCase().trim()));
+  const autoSources = missingDefs.length > 0 ? [...rawSources, ...missingDefs] : rawSources;
 
   const scheduleConfig = syncState?.newsScheduleConfig || {
     enabled: true,

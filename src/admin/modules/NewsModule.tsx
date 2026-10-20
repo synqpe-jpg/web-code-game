@@ -1201,6 +1201,15 @@ export const NewsModule: React.FC<NewsModuleProps> = ({ onShowToast }) => {
     onShowToast('Đã thêm nguồn mới 🎉', `Nguồn "${sourceToAdd.name}" đã được kích hoạt thành công!`, 'success');
   };
 
+  // 3b. Quản lý nguồn: Khôi phục toàn bộ 10 nguồn tin uy tín mặc định
+  const handleResetToDefaultSources = async () => {
+    if (confirm('Bạn có muốn đồng bộ và cập nhật lại danh sách 10 nguồn tin tức game chất lượng cao mặc định không?')) {
+      const resetList = await newsService.resetToDefaultAutoSources();
+      setAutoSources(resetList);
+      onShowToast('Đã nạp nguồn mặc định! 🚀', `Đã đồng bộ đầy đủ ${resetList.length} nguồn tin tức uy tín hàng đầu.`, 'success');
+    }
+  };
+
   // 4. Lập lịch: Cập nhật cấu hình
   const handleSaveScheduleConfig = async (changes: Partial<NewsScheduleConfig>) => {
     const next = { ...scheduleConfig, ...changes };
@@ -3255,14 +3264,25 @@ export const NewsModule: React.FC<NewsModuleProps> = ({ onShowToast }) => {
                     <div className="text-xs text-slate-300">
                       Hệ thống tự động theo dõi các nguồn bên dưới, quét bài mới, đối soát chống trùng lặp và tự động tạo bài viết chuẩn SEO.
                     </div>
-                    <button
-                      type="button"
-                      onClick={() => setIsAddingSource(!isAddingSource)}
-                      className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs transition-all active:scale-95 cursor-pointer shrink-0"
-                    >
-                      <Plus className="w-4 h-4" />
-                      <span>{isAddingSource ? 'Đóng Form' : '+ Thêm Nguồn Mới'}</span>
-                    </button>
+                    <div className="flex items-center gap-2 shrink-0">
+                      <button
+                        type="button"
+                        onClick={handleResetToDefaultSources}
+                        className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-slate-700/80 hover:bg-slate-700 text-slate-200 hover:text-white font-bold text-xs transition-all active:scale-95 cursor-pointer border border-slate-600/60 shadow-sm"
+                        title="Khôi phục và nạp lại toàn bộ 10 nguồn tin tức uy tín mặc định"
+                      >
+                        <RefreshCw className="w-3.5 h-3.5 text-indigo-400" />
+                        <span>Nạp Lại 10 Nguồn Chuẩn</span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setIsAddingSource(!isAddingSource)}
+                        className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs transition-all active:scale-95 cursor-pointer shrink-0 shadow-sm"
+                      >
+                        <Plus className="w-4 h-4" />
+                        <span>{isAddingSource ? 'Đóng Form' : '+ Thêm Nguồn Mới'}</span>
+                      </button>
+                    </div>
                   </div>
 
                   {/* Form thêm nguồn mới */}

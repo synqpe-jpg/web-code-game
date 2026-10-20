@@ -24,6 +24,23 @@ class NewsService {
     this.loadFromStorage();
   }
 
+  private mergeDefaultSources(existing: NewsAutoSource[]): NewsAutoSource[] {
+    if (!Array.isArray(existing) || existing.length === 0) {
+      return [...DEFAULT_NEWS_AUTO_SOURCES];
+    }
+    const existingIds = new Set(existing.map((s) => s.id));
+    const existingUrls = new Set(existing.map((s) => s.url.toLowerCase().trim()));
+
+    const missingDefaults = DEFAULT_NEWS_AUTO_SOURCES.filter(
+      (def) => !existingIds.has(def.id) && !existingUrls.has(def.url.toLowerCase().trim())
+    );
+
+    if (missingDefaults.length > 0) {
+      return [...existing, ...missingDefaults];
+    }
+    return existing;
+  }
+
   private loadFromStorage() {
     if (typeof window === 'undefined') {
       this.articles = [...DEFAULT_NEWS_ARTICLES];
@@ -68,7 +85,7 @@ class NewsService {
       if (srcStored) {
         const parsedSrc = JSON.parse(srcStored);
         if (Array.isArray(parsedSrc) && parsedSrc.length > 0) {
-          this.autoSources = parsedSrc;
+          this.autoSources = this.mergeDefaultSources(parsedSrc);
         }
       }
     } catch {}
@@ -162,6 +179,18 @@ class NewsService {
     return true;
   }
 
+  public async resetToDefaultAutoSources(): Promise<NewsAutoSource[]> {
+    this.autoSources = [...DEFAULT_NEWS_AUTO_SOURCES];
+    if (typeof window !== 'undefined') {
+      try {
+        localStorage.setItem(STORAGE_SOURCES_KEY, JSON.stringify(this.autoSources));
+      } catch {}
+    }
+    this.notifyListeners();
+    await this.syncToCloudflareServer();
+    return [...this.autoSources];
+  }
+
   /**
    * Quản lý Cấu hình lập lịch & xuất bản tự động
    */
@@ -227,7 +256,7 @@ class NewsService {
       this.saveToStorage();
     }
     if (Array.isArray(serverSources) && serverSources.length > 0) {
-      this.autoSources = serverSources;
+      this.autoSources = this.mergeDefaultSources(serverSources);
       if (typeof window !== 'undefined') {
         try {
           localStorage.setItem(STORAGE_SOURCES_KEY, JSON.stringify(this.autoSources));
