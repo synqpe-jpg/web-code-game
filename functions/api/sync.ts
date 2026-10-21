@@ -28,6 +28,7 @@ import fallbackGamesData from '../../src/data/games188.json';
 import fallbackUtilitiesData from '../../src/data/utilities.json';
 import fallbackGiveawaysData from '../../src/data/giveaways.json';
 import fallbackStoreProductsData from '../../src/data/storeProducts.json';
+import { DEFAULT_NEWS_ARTICLES as fallbackNewsArticles } from '../../src/data/seedNews';
 
 interface Env {
   ADMIN_SYNC_SECRET?: string;
@@ -213,6 +214,8 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
         val = fallbackStoreProductsData;
       } else if (specificKey === 'wcg_admin_giveaways_v4' && (!Array.isArray(val) || val.length === 0)) {
         val = (fallbackGiveawaysData as any[]).filter(g => g.id !== 'gw_alienware_vaultbreakers' && g.id !== 'gw_garena_delta_force' && g.id !== 'gw_gamerpower_rotwood');
+      } else if (specificKey === 'wcg_news_articles_v1' && (!Array.isArray(val) || val.length === 0)) {
+        val = fallbackNewsArticles;
       } else if (specificKey === 'wcg_admin_sepay_v4' && (!val || val.accountNumber === '0987654321')) {
         val = {
           bankName: 'TPBank',
@@ -576,8 +579,9 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
     const sanitizedGiveaways = rawGiveaways.map((gw: any) => {
       if (!gw || typeof gw !== 'object') return gw;
       const { codes_pool, claim_history, ...rest } = gw;
-      const poolArr = Array.isArray(codes_pool) ? codes_pool : [];
-      const remainingCount = poolArr.length > 0
+      const poolArr = Array.isArray(codes_pool) ? codes_pool : (Array.isArray(gw.codes_pool) ? gw.codes_pool : []);
+      const hasPool = Array.isArray(codes_pool) || Array.isArray(gw.codes_pool);
+      const remainingCount = hasPool
         ? poolArr.length
         : (typeof gw.remaining_codes === 'number' ? gw.remaining_codes : 0);
       return {
@@ -685,11 +689,13 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
       utilityCategories: d1Settings['wcg_admin_utility_categories_v1'] || masterState.utilityCategories || [],
       storeCategories: d1Settings['wcg_admin_store_categories_v1'] || masterState.storeCategories || [],
       crawlerSources: d1Settings['wcg_crawler_sources_v1'] || masterState.crawlerSources || [],
-      newsArticles: Array.isArray(d1Settings['wcg_news_articles_v1'] || masterState.newsArticles)
-        ? (d1Settings['wcg_news_articles_v1'] || masterState.newsArticles).filter(
-            (a: any) => !deletedNewsSet.has(a.id) && !deletedNewsSet.has(a.slug)
-          )
-        : [],
+      newsArticles: (() => {
+        const raw = d1Settings['wcg_news_articles_v1'] || masterState.newsArticles;
+        const candidate = Array.isArray(raw) && raw.length > 0 ? raw : fallbackNewsArticles;
+        return candidate.filter(
+          (a: any) => !deletedNewsSet.has(a.id) && !deletedNewsSet.has(a.slug)
+        );
+      })(),
       deletedNewsArticles: Array.from(deletedNewsSet),
       newsAutoSources: d1Settings['wcg_news_auto_sources_v1'] || masterState.newsAutoSources || [],
       newsScheduleConfig: d1Settings['wcg_news_schedule_config_v1'] || masterState.newsScheduleConfig || null,

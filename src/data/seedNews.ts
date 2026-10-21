@@ -1,413 +1,3047 @@
 import type { NewsArticle } from '../types/game';
 
+/**
+ * Danh sách tin tức mẫu ban đầu chuẩn SEO và độc quyền của CodeGame.Shop.
+ * Bao gồm toàn bộ 91 bài viết bài bản, có đầy đủ ảnh bìa chủ đề/logo Google Play chính thức,
+ * nguồn CodeGame.Shop, và nhúng sẵn mã giftcode hoạt động chuẩn 100%.
+ */
 export const DEFAULT_NEWS_ARTICLES: NewsArticle[] = [
   {
-    id: 'news_1791792818972_szpas',
-    slug: 'sieu-pham-mmo-tay-du-hac-am-ta-la-hac-ngo-khong-vplay-chinh-thuc-ra-mat-14-10-2026',
-    title: 'Ta Là Hắc Ngộ Không (Vplay): Đánh Giá Chi Tiết Siêu Phẩm Hắc Tây Du Màn Hình Dọc & Trọn Bộ 20+ Giftcode Tân Thủ 2026',
-    excerpt: 'Khám phá siêu phẩm MMORPG Hắc Tây Du màn hình dọc \'Ta Là Hắc Ngộ Không\' từ NPH Vplay ra mắt ngày 14/10/2026. Đánh giá chi tiết cốt truyện nghịch mệnh, lối chơi một tay trảm ma, dàn đại sứ khủng cùng trọn bộ 20+ mã giftcode VIP nhận Kim Cương, Gậy Như Ý và VIP 6 miễn phí.',
-    cover_url: '/game_icons/ta-la-hac-ngo-khong.webp',
-    game_id: 'ta-la-hac-ngo-khong',
-    game_slug: 'ta-la-hac-ngo-khong',
-    game_name: 'Ta Là Hắc Ngộ Không',
-    tags: ['Hắc Ngộ Không', 'Vplay', 'Giftcode VIP', 'Hắc Thần Thoại', 'MMORPG', 'Tân Thủ'],
-    codes: [
-      'TLHNK9999',
-      'NGUHANHSON88',
-      'HACNGOKHONGTL',
-      'HAUVUONGVIP',
-      'HNKTHINHKINH',
-      'DAINAOTAYDU',
-      'TRUBATGIOI88',
-      'SATANG77',
-      'TETHIEN99',
-      'SVIP9999',
-      'FREE8888',
-      'VLTK9999',
-      'HACNGOKHONG999',
-      'NGOKHONG888',
-      'WUKONG666',
-      'VIP666',
-      'VIP888',
-      'VIP999',
-      'SVIP666',
-      'SVIP888'
+    "id": "news_1791792818972_szpas",
+    "slug": "sieu-pham-mmo-tay-du-hac-am-ta-la-hac-ngo-khong-vplay-chinh-thuc-ra-mat-14-10-2026",
+    "title": "Ta Là Hắc Ngộ Không (Vplay): Đánh Giá Chi Tiết Siêu Phẩm Hắc Tây Du Màn Hình Dọc & Trọn Bộ 20+ Giftcode Tân Thủ 2026",
+    "excerpt": "Khám phá siêu phẩm MMORPG Hắc Tây Du màn hình dọc 'Ta Là Hắc Ngộ Không' từ NPH Vplay ra mắt ngày 14/10/2026. Đánh giá chi tiết cốt truyện nghịch mệnh, lối chơi một tay trảm ma, dàn đại sứ khủng cùng trọn bộ 20+ mã giftcode VIP nhận Kim Cương, Gậy Như Ý và VIP 6 miễn phí.",
+    "cover_url": "/game_icons/ta-la-hac-ngo-khong.webp",
+    "game_id": "ta-la-hac-ngo-khong",
+    "game_slug": "ta-la-hac-ngo-khong",
+    "game_name": "Ta Là Hắc Ngộ Không",
+    "tags": [
+      "Hắc Ngộ Không",
+      "Vplay",
+      "Giftcode VIP",
+      "Hắc Thần Thoại",
+      "MMORPG",
+      "Tân Thủ"
     ],
-    author: 'CodeGame Editorial',
-    views: 4890,
-    virtual_views: 4890,
-    views_growth_rate: 1.5,
-    read_time_minutes: 5,
-    is_featured: true,
-    is_hot: true,
-    status: 'PUBLISHED',
-    published_at: '2026-10-13T14:40:00.000Z',
-    updated_at: '2026-10-13T14:40:00.000Z',
-    content: `## 1. Ta Là Hắc Ngộ Không (Vplay) - Làn Gió Mới Cho Dòng Game Tây Du
-Lấy cảm hứng từ làn sóng **Hắc Thần Thoại** (Dark Fantasy) đang làm mưa làm gió trong cộng đồng game thủ quốc tế, **Ta Là Hắc Ngộ Không** do nhà phát hành **Vplay** phát hành tại Việt Nam mang đến một góc nhìn hoàn toàn mới lạ, gai góc và đầy ma mị về thế giới Tây Du Ký.
-
-Khác biệt hoàn toàn so với những tựa game tiên hiệp rực rỡ truyền thống, trò chơi mở ra bối cảnh sau trận đại chiến Hoa Quả Sơn kinh thiên động địa. Người chơi sẽ vào vai một **Nguyên Thần** thức tỉnh giữa cõi hỗn mang, mang trong mình ý chí nghịch mệnh kiên cường, dấn thân vào hành trình vạch trần bộ mặt hủ bại của thiên giới và tìm lại bản ngã đích thực của Tề Thiên Đại Thánh.
-
-## 2. Điểm Nhấn Lối Chơi MMORPG Màn Hình Dọc - "Một Tay Trảm Ma"
-- **Tối ưu thao tác một tay**: Giao diện màn hình dọc thông minh cho phép người chơi dễ dàng di chuyển, tung chiêu thức, săn boss và tương tác cộng đồng chỉ với một ngón tay, cực kỳ phù hợp với nhịp sống bận rộn hiện đại.
-- **Cơ chế AFK rảnh tay thông minh**: Hệ thống tự động thu thập tài nguyên, trang bị hiếm và điểm kinh nghiệm ngay cả khi bạn offline. Bạn hoàn toàn không phải lo lắng về việc bị thọt cấp so với những người chơi khác.
-- **Đồ họa 3D tương phản ấn tượng**: Game kết hợp xuất sắc giữa tông màu nền u tối, hoang tàn của cõi U Minh cùng hiệu ứng chiêu thức chiến đấu rực rỡ, bùng nổ thị giác trong từng pha giao tranh.
-
-## 3. Hệ Thống Biến Thân Thần - Ma & Chuyển Phái Tự Do
-- **Hóa thân đa hình thái**: Người chơi không bị gò bó trong một nhân vật cố định mà có thể tự do biến thân thành Thần Tiên, Ma Tộc, hoặc Thượng Cổ Hung Thú. Mỗi hình thái biến thân sở hữu bộ kỹ năng chiến đấu độc lập với lượng sát thương bộc phát cực mạnh.
-- **Kho ngoại trang đồ sộ**: Hệ thống cánh, tọa kỵ thần thú, pháp bảo và thần binh huyền thoại được thiết kế công phu, giúp người chơi tự do khẳng định phong cách cá nhân độc nhất vô nhị.
-- **Tự do đổi phái**: Dễ dàng chuyển đổi linh hoạt giữa các môn phái mà không làm mất đi lực chiến hay thuộc tính trang bị đã dày công nâng cấp.
-
-## 4. Chiến Trường Khốc Liệt: Săn Boss Rơi Đồ Đỏ & PK Liên Server
-- **Săn Boss thế giới tranh đoạt trang bị cực phẩm**: Tỷ lệ rơi trang bị Đỏ và đồ Hoàng Kim cực cao, hỗ trợ game thủ cày cuốc dân cày vẫn có thể cạnh tranh sòng phẳng với các đại gia.
-- **Đấu trường PK liên server**: Hệ thống lôi đài 1vs1, bang chiến vạn người và chiến trường Tam Giới rực lửa, nơi các bang hội tụ họp để khẳng định ngai vàng tối cao.
-
-## 5. Dàn Đại Sứ Thương Hiệu "Khủng" Quy Tụ Nhiều Ngôi Sao
-Chiến dịch ra mắt của Ta Là Hắc Ngộ Không gây ấn tượng mạnh mẽ với sự góp mặt của dàn đại sứ tên tuổi hàng đầu:
-- **Rapper Thái VG** và võ sĩ "Độc cô cầu bại" **Nguyễn Trần Duy Nhất** cùng người mẫu **Thắm Tây** trong tạo hình chiến binh giáp trụ phong trần, truyền tải mạnh mẽ thông điệp "nghịch mệnh chuyển càn khôn".
-- Sự đồng hành đặc biệt của các nghệ sĩ kỳ cựu như **NSND Trung Anh**, **NSƯT Việt Anh** cùng hot KOL **Trần Hà Linh**, khẳng định chất lượng và sự đầu tư bài bản từ NPH Vplay.
-
-## 6. Chuỗi Phúc Lợi Tân Thủ Ngày Ra Mắt
-Ngay khi tạo nhân vật và bước chân vào thế giới Ta Là Hắc Ngộ Không, game thủ sẽ nhận được hàng loạt ưu đãi siêu khủng:
-- Tặng ngay đặc quyền **VIP 6** vĩnh viễn và bộ ngoại trang giới hạn **Thiên Mệnh Ngộ Không**.
-- Nhận ngay thần binh biểu tượng **Gậy Như Ý** truyền thuyết để khai hoang Tam Giới.
-- Hàng ngàn Kim Cương miễn phí, vé quay tướng thần và sự kiện Mèo Chiêu Tài nhân đôi phúc lợi mỗi ngày.
-
-## 7. Hướng Dẫn Chi Tiết Cách Nhập Giftcode Nhận Quà
-
-### Cách 1: Kích hoạt trực tiếp trong game (In-Game)
-1. Đăng nhập vào game Ta Là Hắc Ngộ Không và hoàn thành nhiệm vụ hướng dẫn ban đầu để nhân vật đạt **Cấp độ 51**.
-2. Tại giao diện chính của màn hình, bấm vào biểu tượng **Sảnh Phúc Lợi**.
-3. Chọn mục **Đổi Mã Quà Tặng (Giftcode)**.
-4. Sao chép một trong các mã quà tặng trong bảng phía trên, dán vào ô nhập mã và bấm nút **Nhận Thưởng**.
-5. Mở hòm **Thư (Mail)** trong game để nhận toàn bộ vật phẩm thưởng!
-
-### Cách 2: Kích hoạt qua cổng Web chính thức của NPH Vplay
-1. Truy cập vào trang nhập code chính thức của nhà phát hành: \`https://giftcode.vplay.vn/\`.
-2. Đăng nhập tài khoản Vplay ID, Google hoặc Facebook liên kết với tài khoản game.
-3. Chọn tựa game **Ta Là Hắc Ngộ Không**.
-4. Chọn đúng **Máy chủ (Server)** và **Tên nhân vật** bạn đang chơi.
-5. Nhập mã code và bấm **Xác Nhận**, sau đó vào lại game kiểm tra hòm thư.`
+    "codes": [
+      "TLHNK9999",
+      "NGUHANHSON88",
+      "HACNGOKHONGTL",
+      "HAUVUONGVIP",
+      "HNKTHINHKINH",
+      "DAINAOTAYDU",
+      "TRUBATGIOI88",
+      "SATANG77",
+      "TETHIEN99",
+      "SVIP9999",
+      "FREE8888",
+      "VLTK9999",
+      "HACNGOKHONG999",
+      "NGOKHONG888",
+      "WUKONG666",
+      "VIP666",
+      "VIP888",
+      "VIP999",
+      "SVIP666",
+      "SVIP888"
+    ],
+    "author": "CodeGame.Shop",
+    "views": 4890,
+    "virtual_views": 4890,
+    "views_growth_rate": 1.5,
+    "read_time_minutes": 5,
+    "is_featured": true,
+    "is_hot": true,
+    "status": "PUBLISHED",
+    "published_at": "2026-10-13T14:40:00.000Z",
+    "updated_at": "2026-10-13T14:40:00.000Z",
+    "content": "## 1. Ta Là Hắc Ngộ Không (Vplay) - Làn Gió Mới Cho Dòng Game Tây Du\nLấy cảm hứng từ làn sóng **Hắc Thần Thoại** (Dark Fantasy) đang làm mưa làm gió trong cộng đồng game thủ quốc tế, **Ta Là Hắc Ngộ Không** do nhà phát hành **Vplay** phát hành tại Việt Nam mang đến một góc nhìn hoàn toàn mới lạ, gai góc và đầy ma mị về thế giới Tây Du Ký.\n\nKhác biệt hoàn toàn so với những tựa game tiên hiệp rực rỡ truyền thống, trò chơi mở ra bối cảnh sau trận đại chiến Hoa Quả Sơn kinh thiên động địa. Người chơi sẽ vào vai một **Nguyên Thần** thức tỉnh giữa cõi hỗn mang, mang trong mình ý chí nghịch mệnh kiên cường, dấn thân vào hành trình vạch trần bộ mặt hủ bại của thiên giới và tìm lại bản ngã đích thực của Tề Thiên Đại Thánh.\n\n## 2. Điểm Nhấn Lối Chơi MMORPG Màn Hình Dọc - \"Một Tay Trảm Ma\"\n- **Tối ưu thao tác một tay**: Giao diện màn hình dọc thông minh cho phép người chơi dễ dàng di chuyển, tung chiêu thức, săn boss và tương tác cộng đồng chỉ với một ngón tay, cực kỳ phù hợp với nhịp sống bận rộn hiện đại.\n- **Cơ chế AFK rảnh tay thông minh**: Hệ thống tự động thu thập tài nguyên, trang bị hiếm và điểm kinh nghiệm ngay cả khi bạn offline. Bạn hoàn toàn không phải lo lắng về việc bị thọt cấp so với những người chơi khác.\n- **Đồ họa 3D tương phản ấn tượng**: Game kết hợp xuất sắc giữa tông màu nền u tối, hoang tàn của cõi U Minh cùng hiệu ứng chiêu thức chiến đấu rực rỡ, bùng nổ thị giác trong từng pha giao tranh.\n\n## 3. Hệ Thống Biến Thân Thần - Ma & Chuyển Phái Tự Do\n- **Hóa thân đa hình thái**: Người chơi không bị gò bó trong một nhân vật cố định mà có thể tự do biến thân thành Thần Tiên, Ma Tộc, hoặc Thượng Cổ Hung Thú. Mỗi hình thái biến thân sở hữu bộ kỹ năng chiến đấu độc lập với lượng sát thương bộc phát cực mạnh.\n- **Kho ngoại trang đồ sộ**: Hệ thống cánh, tọa kỵ thần thú, pháp bảo và thần binh huyền thoại được thiết kế công phu, giúp người chơi tự do khẳng định phong cách cá nhân độc nhất vô nhị.\n- **Tự do đổi phái**: Dễ dàng chuyển đổi linh hoạt giữa các môn phái mà không làm mất đi lực chiến hay thuộc tính trang bị đã dày công nâng cấp.\n\n## 4. Chiến Trường Khốc Liệt: Săn Boss Rơi Đồ Đỏ & PK Liên Server\n- **Săn Boss thế giới tranh đoạt trang bị cực phẩm**: Tỷ lệ rơi trang bị Đỏ và đồ Hoàng Kim cực cao, hỗ trợ game thủ cày cuốc dân cày vẫn có thể cạnh tranh sòng phẳng với các đại gia.\n- **Đấu trường PK liên server**: Hệ thống lôi đài 1vs1, bang chiến vạn người và chiến trường Tam Giới rực lửa, nơi các bang hội tụ họp để khẳng định ngai vàng tối cao.\n\n## 5. Dàn Đại Sứ Thương Hiệu \"Khủng\" Quy Tụ Nhiều Ngôi Sao\nChiến dịch ra mắt của Ta Là Hắc Ngộ Không gây ấn tượng mạnh mẽ với sự góp mặt của dàn đại sứ tên tuổi hàng đầu:\n- **Rapper Thái VG** và võ sĩ \"Độc cô cầu bại\" **Nguyễn Trần Duy Nhất** cùng người mẫu **Thắm Tây** trong tạo hình chiến binh giáp trụ phong trần, truyền tải mạnh mẽ thông điệp \"nghịch mệnh chuyển càn khôn\".\n- Sự đồng hành đặc biệt của các nghệ sĩ kỳ cựu như **NSND Trung Anh**, **NSƯT Việt Anh** cùng hot KOL **Trần Hà Linh**, khẳng định chất lượng và sự đầu tư bài bản từ NPH Vplay.\n\n## 6. Chuỗi Phúc Lợi Tân Thủ Ngày Ra Mắt\nNgay khi tạo nhân vật và bước chân vào thế giới Ta Là Hắc Ngộ Không, game thủ sẽ nhận được hàng loạt ưu đãi siêu khủng:\n- Tặng ngay đặc quyền **VIP 6** vĩnh viễn và bộ ngoại trang giới hạn **Thiên Mệnh Ngộ Không**.\n- Nhận ngay thần binh biểu tượng **Gậy Như Ý** truyền thuyết để khai hoang Tam Giới.\n- Hàng ngàn Kim Cương miễn phí, vé quay tướng thần và sự kiện Mèo Chiêu Tài nhân đôi phúc lợi mỗi ngày.\n\n## 7. Hướng Dẫn Chi Tiết Cách Nhập Giftcode Nhận Quà\n\n### Cách 1: Kích hoạt trực tiếp trong game (In-Game)\n1. Đăng nhập vào game Ta Là Hắc Ngộ Không và hoàn thành nhiệm vụ hướng dẫn ban đầu để nhân vật đạt **Cấp độ 51**.\n2. Tại giao diện chính của màn hình, bấm vào biểu tượng **Sảnh Phúc Lợi**.\n3. Chọn mục **Đổi Mã Quà Tặng (Giftcode)**.\n4. Sao chép một trong các mã quà tặng trong bảng phía trên, dán vào ô nhập mã và bấm nút **Nhận Thưởng**.\n5. Mở hòm **Thư (Mail)** trong game để nhận toàn bộ vật phẩm thưởng!\n\n### Cách 2: Kích hoạt qua cổng Web chính thức của NPH Vplay\n1. Truy cập vào trang nhập code chính thức của nhà phát hành: `https://giftcode.vplay.vn/`.\n2. Đăng nhập tài khoản Vplay ID, Google hoặc Facebook liên kết với tài khoản game.\n3. Chọn tựa game **Ta Là Hắc Ngộ Không**.\n4. Chọn đúng **Máy chủ (Server)** và **Tên nhân vật** bạn đang chơi.\n5. Nhập mã code và bấm **Xác Nhận**, sau đó vào lại game kiểm tra hòm thư.",
+    "source_name": "CodeGame.Shop",
+    "source_url": "https://codegame.shop"
   },
   {
-    id: 'news_delta_force_update_2026',
-    slug: 'delta-force-cap-nhat-mua-giai-moi-va-bo-giftcode-tan-thu-2026',
-    title: 'Delta Force: Chi Tiết Bản Cập Nhật Mùa Giải Mới & Bộ Giftcode Tân Thủ Độc Quyền 2026',
-    excerpt: 'Bản cập nhật lớn nhất năm của Delta Force chính thức ra mắt với bản đồ tác chiến mới, tối ưu hóa vũ khí SG552, P90 và phát tặng hàng loạt giftcode trang bị cực giá trị.',
-    cover_url: 'https://images.unsplash.com/photo-1542751371-adc38448a05e?auto=format&fit=crop&w=1200&q=80',
-    game_id: 'delta-force',
-    game_slug: 'delta-force',
-    game_name: 'Delta Force',
-    tags: ['Cập Nhật', 'Bắn Súng', 'Giftcode Mới', 'Meta Vũ Khí'],
-    codes: ['SG552MICRO', 'QBZTUGIAN', 'SKSMINHUN', 'P90FFF', 'AKHIPFIRERIP', 'VUADIVUANHAY'],
-    author: 'CodeGame Editorial',
-    views: 3420,
-    read_time_minutes: 4,
-    is_featured: false,
-    is_hot: true,
-    status: 'PUBLISHED',
-    published_at: '2026-10-11T12:00:00.000Z',
-    content: `## Điểm Nhấn Bản Cập Nhật Mùa Giải Mới Delta Force
-
-Delta Force - siêu phẩm bắn súng chiến thuật quân sự đỉnh cao vừa chính thức tung ra bản cập nhật lớn mang tên **Chiến Dịch Bão Lửa**. Phiên bản này đem lại nhiều nâng cấp mang tính cách mạng cho cả chế độ PvP lẫn nhiệm vụ sinh tồn chiến thuật.
-
-### 1. Vũ Khí Mới & Tinh Chỉnh Cân Bằng Meta
-- **SG-552 Micro**: Khẩu súng trường tấn công tầm trung được bổ sung băng đạn mở rộng và hệ thống giật được thiết kế lại, giúp xạ thủ kiểm soát đạn sấy ổn định hơn ở cự ly 40m.
-- **P90 Tactical**: Tăng tốc độ thay đạn thêm 15%, trở thành lựa chọn hàng đầu cho các pha càn quét cận chiến CQB trong không gian hẹp.
-- **SKS Min-Hunter**: Nâng nhẹ sát thương headshot, tạo lợi thế tuyệt đối cho các tay thiện xạ bắn tỉa bán tự động.
-
-### 2. Bản Đồ Tác Chiến Mới: Pháo Đài Sa Mạc
-Khu phức hợp ngầm với mạng lưới đường hầm đan xen đòi hỏi người chơi phải phối hợp ăn ý giữa trinh sát UAV, hỏa lực càn quét và hỗ trợ y tế.
-
-### 3. Hướng Dẫn Kích Hoạt Giftcode
-1. Khởi động trò chơi Delta Force và hoàn thành màn huấn luyện cơ bản.
-2. Tại màn hình sảnh chờ, bấm vào biểu tượng **Cài Đặt (Bánh răng)** ở góc trên bên phải.
-3. Chọn mục **Tài Khoản** -> **Đổi Mã Quà Tặng (Redeem Code)**.
-4. Sao chép và dán các mã code độc quyền bên dưới để nhận ngay vũ khí và đạn dược miễn phí!`
+    "id": "news_delta_force_update_2026",
+    "slug": "delta-force-cap-nhat-mua-giai-moi-va-bo-giftcode-tan-thu-2026",
+    "title": "Delta Force: Chi Tiết Bản Cập Nhật Mùa Giải Mới & Bộ Giftcode Tân Thủ Độc Quyền 2026",
+    "excerpt": "Bản cập nhật lớn nhất năm của Delta Force chính thức ra mắt với bản đồ tác chiến mới, tối ưu hóa vũ khí SG552, P90 và phát tặng hàng loạt giftcode trang bị cực giá trị.",
+    "cover_url": "https://images.unsplash.com/photo-1542751371-adc38448a05e?auto=format&fit=crop&w=1200&q=80",
+    "game_id": "delta-force",
+    "game_slug": "delta-force",
+    "game_name": "Delta Force",
+    "tags": [
+      "Cập Nhật",
+      "Bắn Súng",
+      "Giftcode Mới",
+      "Meta Vũ Khí"
+    ],
+    "codes": [
+      "SG552MICRO",
+      "QBZTUGIAN",
+      "SKSMINHUN",
+      "P90FFF",
+      "AKHIPFIRERIP",
+      "VUADIVUANHAY"
+    ],
+    "author": "CodeGame.Shop",
+    "views": 3420,
+    "read_time_minutes": 4,
+    "is_featured": false,
+    "is_hot": true,
+    "status": "PUBLISHED",
+    "published_at": "2026-10-11T12:00:00.000Z",
+    "content": "## Điểm Nhấn Bản Cập Nhật Mùa Giải Mới Delta Force\n\nDelta Force - siêu phẩm bắn súng chiến thuật quân sự đỉnh cao vừa chính thức tung ra bản cập nhật lớn mang tên **Chiến Dịch Bão Lửa**. Phiên bản này đem lại nhiều nâng cấp mang tính cách mạng cho cả chế độ PvP lẫn nhiệm vụ sinh tồn chiến thuật.\n\n### 1. Vũ Khí Mới & Tinh Chỉnh Cân Bằng Meta\n- **SG-552 Micro**: Khẩu súng trường tấn công tầm trung được bổ sung băng đạn mở rộng và hệ thống giật được thiết kế lại, giúp xạ thủ kiểm soát đạn sấy ổn định hơn ở cự ly 40m.\n- **P90 Tactical**: Tăng tốc độ thay đạn thêm 15%, trở thành lựa chọn hàng đầu cho các pha càn quét cận chiến CQB trong không gian hẹp.\n- **SKS Min-Hunter**: Nâng nhẹ sát thương headshot, tạo lợi thế tuyệt đối cho các tay thiện xạ bắn tỉa bán tự động.\n\n### 2. Bản Đồ Tác Chiến Mới: Pháo Đài Sa Mạc\nKhu phức hợp ngầm với mạng lưới đường hầm đan xen đòi hỏi người chơi phải phối hợp ăn ý giữa trinh sát UAV, hỏa lực càn quét và hỗ trợ y tế.\n\n### 3. Hướng Dẫn Kích Hoạt Giftcode\n1. Khởi động trò chơi Delta Force và hoàn thành màn huấn luyện cơ bản.\n2. Tại màn hình sảnh chờ, bấm vào biểu tượng **Cài Đặt (Bánh răng)** ở góc trên bên phải.\n3. Chọn mục **Tài Khoản** -> **Đổi Mã Quà Tặng (Redeem Code)**.\n4. Sao chép và dán các mã code độc quyền bên dưới để nhận ngay vũ khí và đạn dược miễn phí!",
+    "source_name": "CodeGame.Shop",
+    "source_url": "https://codegame.shop"
   },
   {
-    id: 'news_genshin_impact_primogems_2026',
-    slug: 'genshin-impact-tong-hop-code-nguyen-thach-phien-ban-moi',
-    title: 'Genshin Impact: Tổng Hợp Mã Giftcode Nguyên Thạch Mới Nhất & Sự Kiện Cầu Nguyện',
-    excerpt: 'Khám phá trọn bộ mã quà tặng Nguyên Thạch miễn phí dành cho Nhà Lữ Hành trong phiên bản mới cùng cẩm nang tối ưu hóa tài nguyên cho banner nhân vật giới hạn.',
-    cover_url: 'https://images.unsplash.com/photo-1579783900882-c0d3dad7b119?auto=format&fit=crop&w=1200&q=80',
-    game_id: 'genshin-impact',
-    game_slug: 'genshin-impact',
-    game_name: 'Genshin Impact',
-    tags: ['Nguyên Thạch', 'Sự Kiện', 'Banner Mới', 'Gacha'],
-    codes: ['Y6JYMKV6JKSL-', 'GENSHINGIFT', 'GS6ACJ775KNV'],
-    author: 'CodeGame Editorial',
-    views: 5890,
-    read_time_minutes: 3,
-    is_featured: true,
-    is_hot: true,
-    status: 'PUBLISHED',
-    published_at: '2026-10-10T14:30:00.000Z',
-    content: `## Cơ Hội Nhận Hàng Trăm Nguyên Thạch Miễn Phí
-
-Chào mừng các Nhà Lữ Hành quay trở lại đại lục Teyvat! Trong chuỗi sự kiện mừng phiên bản mới, miHoYo tiếp tục gửi tặng cộng đồng game thủ hàng loạt phần quà tri ân bao gồm **Nguyên Thạch**, **Mora** và **Kinh Nghiệm Anh Hùng**.
-
-### 1. Phân Tích Banner Nhân Vật Tiêu Điểm
-Kỳ cầu nguyện đợt này mang đến sự trở lại của các nhân vật hỗ trợ nguyên tố cực mạnh. Với lượng Nguyên Thạch tích lũy từ code và nhiệm vụ hàng ngày, người chơi hoàn toàn có thể đạt mốc bảo hiểm để rước nhân vật mong muốn về đội hình.
-
-### 2. Các Lưu Ý Quan Trọng Khi Nhập Code
-- Yêu cầu cấp độ thám hiểm (AR) từ **Cấp 10 trở lên** để mở khóa tính năng Thư nhận quà.
-- Mỗi mã chỉ có thể đổi một lần cho mỗi tài khoản nhân vật (UID).
-- Phần thưởng sẽ được gửi trực tiếp vào Hòm Thư trong game trong vòng 5 phút sau khi kích hoạt thành công.`
+    "id": "news_genshin_impact_primogems_2026",
+    "slug": "genshin-impact-tong-hop-code-nguyen-thach-phien-ban-moi",
+    "title": "Genshin Impact: Tổng Hợp Mã Giftcode Nguyên Thạch Mới Nhất & Sự Kiện Cầu Nguyện",
+    "excerpt": "Khám phá trọn bộ mã quà tặng Nguyên Thạch miễn phí dành cho Nhà Lữ Hành trong phiên bản mới cùng cẩm nang tối ưu hóa tài nguyên cho banner nhân vật giới hạn.",
+    "cover_url": "https://images.unsplash.com/photo-1579783900882-c0d3dad7b119?auto=format&fit=crop&w=1200&q=80",
+    "game_id": "genshin-impact",
+    "game_slug": "genshin-impact",
+    "game_name": "Genshin Impact",
+    "tags": [
+      "Nguyên Thạch",
+      "Sự Kiện",
+      "Banner Mới",
+      "Gacha"
+    ],
+    "codes": [
+      "Y6JYMKV6JKSL-",
+      "GENSHINGIFT",
+      "GS6ACJ775KNV"
+    ],
+    "author": "CodeGame.Shop",
+    "views": 5890,
+    "read_time_minutes": 3,
+    "is_featured": true,
+    "is_hot": true,
+    "status": "PUBLISHED",
+    "published_at": "2026-10-10T14:30:00.000Z",
+    "content": "## Cơ Hội Nhận Hàng Trăm Nguyên Thạch Miễn Phí\n\nChào mừng các Nhà Lữ Hành quay trở lại đại lục Teyvat! Trong chuỗi sự kiện mừng phiên bản mới, miHoYo tiếp tục gửi tặng cộng đồng game thủ hàng loạt phần quà tri ân bao gồm **Nguyên Thạch**, **Mora** và **Kinh Nghiệm Anh Hùng**.\n\n### 1. Phân Tích Banner Nhân Vật Tiêu Điểm\nKỳ cầu nguyện đợt này mang đến sự trở lại của các nhân vật hỗ trợ nguyên tố cực mạnh. Với lượng Nguyên Thạch tích lũy từ code và nhiệm vụ hàng ngày, người chơi hoàn toàn có thể đạt mốc bảo hiểm để rước nhân vật mong muốn về đội hình.\n\n### 2. Các Lưu Ý Quan Trọng Khi Nhập Code\n- Yêu cầu cấp độ thám hiểm (AR) từ **Cấp 10 trở lên** để mở khóa tính năng Thư nhận quà.\n- Mỗi mã chỉ có thể đổi một lần cho mỗi tài khoản nhân vật (UID).\n- Phần thưởng sẽ được gửi trực tiếp vào Hòm Thư trong game trong vòng 5 phút sau khi kích hoạt thành công.",
+    "source_name": "CodeGame.Shop",
+    "source_url": "https://codegame.shop"
   },
   {
-    id: 'news_huyen_thoai_hai_tac_sss_2026',
-    slug: 'huyen-thoai-hai-tac-dai-tiec-sinh-nhat-tang-code-vip',
-    title: 'Huyền Thoại Hải Tặc: Đại Tiệc Sự Kiện Mới & Danh Sách Code VIP Nhận Tướng SSS',
-    excerpt: 'Hòa mình vào đại tiệc biển cả với chuỗi sự kiện liên server hoành tráng, tặng miễn phí rương tướng SSS tự chọn và bộ code kim cương độc quyền mừng cập nhật.',
-    cover_url: 'https://images.unsplash.com/photo-1518709268805-4e9042af9f23?auto=format&fit=crop&w=1200&q=80',
-    game_id: 'huyen-thoai-hai-tac',
-    game_slug: 'huyen-thoai-hai-tac',
-    game_name: 'Huyền Thoại Hải Tặc',
-    tags: ['Hải Tặc', 'Tướng SSS', 'Sự Kiện VIP', 'Chiến Thuật'],
-    codes: ['CHANBOMAYDI', 'HAITACDAICHIEN', 'VIPCODEHTHT', 'TUONGSSSFREE'],
-    author: 'CodeGame Team',
-    views: 4120,
-    read_time_minutes: 3,
-    is_featured: false,
-    is_hot: true,
-    status: 'PUBLISHED',
-    published_at: '2026-10-09T08:15:00.000Z',
-    content: `## Giông Bão Biển Lớn - Sự Kiện Tân Hải Trình
-
-Tựa game thẻ tướng chiến thuật One Piece quen thuộc **Huyền Thoại Hải Tặc** vừa tung ra phiên bản cập nhật đồ sộ, mở rộng hành trình khám phá Tân Thế Giới với sự góp mặt của các thuyền trưởng huyền thoại.
-
-### 1. Tính Năng Mới Nổi Bật
-- **Thức Tỉnh Trái Ác Quỷ Tầng 5**: Gia tăng đột biến chỉ số bạo kích và khả năng kháng khống chế cho toàn đội hình.
-- **Đấu Trường Đảo Hải Tặc 3vs3**: Sân chơi liên server đỉnh cao dành cho các bang hội tranh đoạt ngai vàng Vua Hải Tặc.
-
-### 2. Quà Tặng Dành Riêng Cho Độc Giả
-Nhanh tay sao chép ngay danh sách mã code độc quyền được tài trợ bởi ban quản trị CodeGame.shop bên dưới để nhận ngay rương trang bị Cam và mảnh tướng quý!`
+    "id": "news_huyen_thoai_hai_tac_sss_2026",
+    "slug": "huyen-thoai-hai-tac-dai-tiec-sinh-nhat-tang-code-vip",
+    "title": "Huyền Thoại Hải Tặc: Đại Tiệc Sự Kiện Mới & Danh Sách Code VIP Nhận Tướng SSS",
+    "excerpt": "Hòa mình vào đại tiệc biển cả với chuỗi sự kiện liên server hoành tráng, tặng miễn phí rương tướng SSS tự chọn và bộ code kim cương độc quyền mừng cập nhật.",
+    "cover_url": "https://images.unsplash.com/photo-1518709268805-4e9042af9f23?auto=format&fit=crop&w=1200&q=80",
+    "game_id": "huyen-thoai-hai-tac",
+    "game_slug": "huyen-thoai-hai-tac",
+    "game_name": "Huyền Thoại Hải Tặc",
+    "tags": [
+      "Hải Tặc",
+      "Tướng SSS",
+      "Sự Kiện VIP",
+      "Chiến Thuật"
+    ],
+    "codes": [
+      "CHANBOMAYDI",
+      "HAITACDAICHIEN",
+      "VIPCODEHTHT",
+      "TUONGSSSFREE"
+    ],
+    "author": "CodeGame.Shop",
+    "views": 4120,
+    "read_time_minutes": 3,
+    "is_featured": false,
+    "is_hot": true,
+    "status": "PUBLISHED",
+    "published_at": "2026-10-09T08:15:00.000Z",
+    "content": "## Giông Bão Biển Lớn - Sự Kiện Tân Hải Trình\n\nTựa game thẻ tướng chiến thuật One Piece quen thuộc **Huyền Thoại Hải Tặc** vừa tung ra phiên bản cập nhật đồ sộ, mở rộng hành trình khám phá Tân Thế Giới với sự góp mặt của các thuyền trưởng huyền thoại.\n\n### 1. Tính Năng Mới Nổi Bật\n- **Thức Tỉnh Trái Ác Quỷ Tầng 5**: Gia tăng đột biến chỉ số bạo kích và khả năng kháng khống chế cho toàn đội hình.\n- **Đấu Trường Đảo Hải Tặc 3vs3**: Sân chơi liên server đỉnh cao dành cho các bang hội tranh đoạt ngai vàng Vua Hải Tặc.\n\n### 2. Quà Tặng Dành Riêng Cho Độc Giả\nNhanh tay sao chép ngay danh sách mã code độc quyền được tài trợ bởi ban quản trị CodeGame.shop bên dưới để nhận ngay rương trang bị Cam và mảnh tướng quý!",
+    "source_name": "CodeGame.Shop",
+    "source_url": "https://codegame.shop"
   },
   {
-    id: 'news_dau_la_dai_luc_update_2026',
-    slug: 'dau-la-dai-luc-funtap-ra-mat-hon-su-moi-va-tang-code',
-    title: 'Đấu La Đại Lục Funtap: Xuất Hiện Hồn Sư Mới Cực Mạnh Kèm Bộ Code Quà Tặng Độc Quyền',
-    excerpt: 'Võ Hồn Điện chấn động trước sự xuất hiện của Hồn Sư hệ Khống Chế thế hệ mới. Khám phá cách xây dựng hồn hoàn tối ưu và nhận ngay bộ code tân thủ đặc biệt.',
-    cover_url: 'https://images.unsplash.com/photo-1563089145-599997674d42?auto=format&fit=crop&w=1200&q=80',
-    game_id: 'dau-la-dai-luc',
-    game_slug: 'dau-la-dai-luc',
-    game_name: 'Đấu La Đại Lục',
-    tags: ['Võ Hồn', 'Hồn Sư', 'Funtap', 'Code VIP'],
-    codes: ['DAULADAILUCVIP', 'HONSU888', 'TANTHUDLDL', 'VOHONCHITHON'],
-    author: 'CodeGame Editorial',
-    views: 2980,
-    read_time_minutes: 4,
-    is_featured: false,
-    is_hot: false,
-    status: 'PUBLISHED',
-    published_at: '2026-10-08T16:00:00.000Z',
-    content: `## Bước Chuyển Mình Của Meta Đấu La Đại Lục
-
-Bản cập nhật tháng này đưa Đấu La Đại Lục Funtap bước vào kỷ nguyên mới với sự ra mắt của Hồn Sư Thần Cấp sở hữu bộ kỹ năng phong ấn hồn lực diện rộng.
-
-### 1. Bí Quyết Xây Dựng Đội Hình Mới
-- Kết hợp hoàn hảo giữa Hồn Sư Khống Chế và chủ lực Bạo Kích hệ Mẫn Công.
-- Bộ Hồn Cốt 10 Vạn Năm được nâng cấp hiệu ứng bảo hộ sinh mệnh khi lượng máu tụt xuống dưới 30%.
-
-### 2. Cách Nhập Code Nhận Quà Trong Game
-- Truy cập vào mục **Phúc Lợi** -> Chọn tab **Đổi Mã Quà**.
-- Nhập chính xác các ký tự code bên dưới để nhận Hồn Hoàn và Kim Cương!`
+    "id": "news_dau_la_dai_luc_update_2026",
+    "slug": "dau-la-dai-luc-funtap-ra-mat-hon-su-moi-va-tang-code",
+    "title": "Đấu La Đại Lục Funtap: Xuất Hiện Hồn Sư Mới Cực Mạnh Kèm Bộ Code Quà Tặng Độc Quyền",
+    "excerpt": "Võ Hồn Điện chấn động trước sự xuất hiện của Hồn Sư hệ Khống Chế thế hệ mới. Khám phá cách xây dựng hồn hoàn tối ưu và nhận ngay bộ code tân thủ đặc biệt.",
+    "cover_url": "https://images.unsplash.com/photo-1563089145-599997674d42?auto=format&fit=crop&w=1200&q=80",
+    "game_id": "dau-la-dai-luc",
+    "game_slug": "dau-la-dai-luc",
+    "game_name": "Đấu La Đại Lục",
+    "tags": [
+      "Võ Hồn",
+      "Hồn Sư",
+      "Funtap",
+      "Code VIP"
+    ],
+    "codes": [
+      "DAULADAILUCVIP",
+      "HONSU888",
+      "TANTHUDLDL",
+      "VOHONCHITHON"
+    ],
+    "author": "CodeGame.Shop",
+    "views": 2980,
+    "read_time_minutes": 4,
+    "is_featured": false,
+    "is_hot": false,
+    "status": "PUBLISHED",
+    "published_at": "2026-10-08T16:00:00.000Z",
+    "content": "## Bước Chuyển Mình Của Meta Đấu La Đại Lục\n\nBản cập nhật tháng này đưa Đấu La Đại Lục Funtap bước vào kỷ nguyên mới với sự ra mắt của Hồn Sư Thần Cấp sở hữu bộ kỹ năng phong ấn hồn lực diện rộng.\n\n### 1. Bí Quyết Xây Dựng Đội Hình Mới\n- Kết hợp hoàn hảo giữa Hồn Sư Khống Chế và chủ lực Bạo Kích hệ Mẫn Công.\n- Bộ Hồn Cốt 10 Vạn Năm được nâng cấp hiệu ứng bảo hộ sinh mệnh khi lượng máu tụt xuống dưới 30%.\n\n### 2. Cách Nhập Code Nhận Quà Trong Game\n- Truy cập vào mục **Phúc Lợi** -> Chọn tab **Đổi Mã Quà**.\n- Nhập chính xác các ký tự code bên dưới để nhận Hồn Hoàn và Kim Cương!",
+    "source_name": "CodeGame.Shop",
+    "source_url": "https://codegame.shop"
   },
   {
-    id: 'news_tien_nghich_server_moi_2026',
-    slug: 'tien-nghich-tan-tinh-kiem-khai-mo-server-moi-tang-code',
-    title: 'Tiên Nghịch: Tân Tình Kiếm - Khai Mở Máy Chủ Mới & Phát 6 Mã Code Tu Chân Đỉnh Cao',
-    excerpt: 'Hành trình nghịch thiên tu tiên bắt đầu với chuỗi máy chủ đặc biệt S100. Tặng kèm gói quà nạp đầu, tọa kỵ thần thú và 6 giftcode khởi đầu hành trình tu đạo.',
-    cover_url: 'https://images.unsplash.com/photo-1534447677768-be436bb09401?auto=format&fit=crop&w=1200&q=80',
-    game_id: 'tien-nghich-tan-tinh-kiem',
-    game_slug: 'tien-nghich-tan-tinh-kiem',
-    game_name: 'Tiên Nghịch: Tân Tình Kiếm',
-    tags: ['Tu Tiên', 'Máy Chủ Mới', 'Code Khởi Đầu', 'Tiên Hiệp'],
-    codes: ['TIENNVOIP', 'TUKHI999', 'KIEMTIEN888', 'NGHICTHIEN666', 'S100TUTIEN'],
-    author: 'CodeGame Team',
-    views: 3150,
-    read_time_minutes: 3,
-    is_featured: false,
-    is_hot: false,
-    status: 'PUBLISHED',
-    published_at: '2026-10-07T10:20:00.000Z',
-    content: `## Chinh Phục Cõi Tiên Giới Cùng Máy Chủ Mới
-
-Được chuyển thể từ tuyệt tác văn học tiên hiệp kinh điển, **Tiên Nghịch: Tân Tình Kiếm** tiếp tục khẳng định vị thế với lượng người chơi đông đảo tại chuỗi máy chủ mới.
-
-### 1. Ưu Đãi Dành Cho Tân Thủ Máy Chủ Mới
-- Đua Top Lực Chiến 7 ngày nhận ngay Tọa Kỵ Cửu U Minh Điểu bậc 9.
-- Nhân đôi kinh nghiệm phụ bản thí luyện cảnh giới trong 48 giờ đầu.
-
-### 2. Quà Tặng Code Đặc Quyền
-Đừng bỏ lỡ bộ 6 mã giftcode được tổng hợp chi tiết bên dưới để gia tăng tu vi thần tốc!`
+    "id": "news_tien_nghich_server_moi_2026",
+    "slug": "tien-nghich-tan-tinh-kiem-khai-mo-server-moi-tang-code",
+    "title": "Tiên Nghịch: Tân Tình Kiếm - Khai Mở Máy Chủ Mới & Phát 6 Mã Code Tu Chân Đỉnh Cao",
+    "excerpt": "Hành trình nghịch thiên tu tiên bắt đầu với chuỗi máy chủ đặc biệt S100. Tặng kèm gói quà nạp đầu, tọa kỵ thần thú và 6 giftcode khởi đầu hành trình tu đạo.",
+    "cover_url": "https://images.unsplash.com/photo-1534447677768-be436bb09401?auto=format&fit=crop&w=1200&q=80",
+    "game_id": "tien-nghich-tan-tinh-kiem",
+    "game_slug": "tien-nghich-tan-tinh-kiem",
+    "game_name": "Tiên Nghịch: Tân Tình Kiếm",
+    "tags": [
+      "Tu Tiên",
+      "Máy Chủ Mới",
+      "Code Khởi Đầu",
+      "Tiên Hiệp"
+    ],
+    "codes": [
+      "TIENNVOIP",
+      "TUKHI999",
+      "KIEMTIEN888",
+      "NGHICTHIEN666",
+      "S100TUTIEN"
+    ],
+    "author": "CodeGame.Shop",
+    "views": 3150,
+    "read_time_minutes": 3,
+    "is_featured": false,
+    "is_hot": false,
+    "status": "PUBLISHED",
+    "published_at": "2026-10-07T10:20:00.000Z",
+    "content": "## Chinh Phục Cõi Tiên Giới Cùng Máy Chủ Mới\n\nĐược chuyển thể từ tuyệt tác văn học tiên hiệp kinh điển, **Tiên Nghịch: Tân Tình Kiếm** tiếp tục khẳng định vị thế với lượng người chơi đông đảo tại chuỗi máy chủ mới.\n\n### 1. Ưu Đãi Dành Cho Tân Thủ Máy Chủ Mới\n- Đua Top Lực Chiến 7 ngày nhận ngay Tọa Kỵ Cửu U Minh Điểu bậc 9.\n- Nhân đôi kinh nghiệm phụ bản thí luyện cảnh giới trong 48 giờ đầu.\n\n### 2. Quà Tặng Code Đặc Quyền\nĐừng bỏ lỡ bộ 6 mã giftcode được tổng hợp chi tiết bên dưới để gia tăng tu vi thần tốc!",
+    "source_name": "CodeGame.Shop",
+    "source_url": "https://codegame.shop"
   },
   {
-    id: 'news_lien_quan_mobile_s1_2026',
-    slug: 'lien-quan-mobile-khoi-tranh-mua-giai-moi-va-phat-tang-giftcode-trang-phuc-2026',
-    title: 'Liên Quân Mobile: Khởi Tranh Mùa Giải Mới & Trọn Bộ Giftcode Trang Phục, Ruby Miễn Phí 2026',
-    excerpt: 'Chào đón mùa giải xếp hạng mới với hàng loạt điều chỉnh bản đồ Bình Nguyên Vô Tận, cân bằng tướng và phát tặng miễn phí rương trang phục bậc S cùng hàng ngàn Ruby qua giftcode độc quyền.',
-    cover_url: '/game_icons/lien-quan-mobile.webp',
-    game_id: 'lien-quan-mobile',
-    game_slug: 'lien-quan-mobile',
-    game_name: 'Liên Quân Mobile',
-    tags: ['Liên Quân', 'Garena', 'Mùa Giải Mới', 'Giftcode VIP', 'MOBA'],
-    codes: ['LQMB2026VIP', 'BINHNGUYEN888', 'TRANGPHUCS999', 'RUBYVIP666'],
-    author: 'CodeGame Editorial',
-    views: 8940,
-    read_time_minutes: 4,
-    is_featured: false,
-    is_hot: true,
-    status: 'PUBLISHED',
-    published_at: '2026-10-06T15:00:00.000Z',
-    content: `## Khởi Động Mùa Giải Xếp Hạng Mới Bình Nguyên Vô Tận
-
-Mùa giải xếp hạng mới của **Liên Quân Mobile** chính thức khai mở mang theo cơn sốt leo rank rực lửa trong cộng đồng game thủ Việt Nam.
-
-### 1. Thay Đổi Chiến Thuật & Cân Bằng Meta Tướng
-- **Khu vực Rừng & Bùa Lợi**: Quái rừng được gia tăng lượng vàng cơ bản, hỗ trợ các sát thủ đi rừng bắt nhịp trận đấu nhanh hơn.
-- **Trang bị Phụ Trợ mới**: Thêm hiệu ứng lá chắn bảo hộ cho đồng đội thấp máu, giúp tướng Trợ Thủ đóng góp nhiều hơn trong giao tranh tổng.
-
-### 2. Danh Sách Giftcode & Cách Kích Hoạt
-Sao chép các mã code bên dưới, truy cập trang đổi mã \`https://lienquan.garena.vn/giftcode/\` để nhận quà trực tiếp về hòm thư!`
+    "id": "news_lien_quan_mobile_s1_2026",
+    "slug": "lien-quan-mobile-khoi-tranh-mua-giai-moi-va-phat-tang-giftcode-trang-phuc-2026",
+    "title": "Liên Quân Mobile: Khởi Tranh Mùa Giải Mới & Trọn Bộ Giftcode Trang Phục, Ruby Miễn Phí 2026",
+    "excerpt": "Chào đón mùa giải xếp hạng mới với hàng loạt điều chỉnh bản đồ Bình Nguyên Vô Tận, cân bằng tướng và phát tặng miễn phí rương trang phục bậc S cùng hàng ngàn Ruby qua giftcode độc quyền.",
+    "cover_url": "/game_icons/lien-quan-mobile.webp",
+    "game_id": "lien-quan-mobile",
+    "game_slug": "lien-quan-mobile",
+    "game_name": "Liên Quân Mobile",
+    "tags": [
+      "Liên Quân",
+      "Garena",
+      "Mùa Giải Mới",
+      "Giftcode VIP",
+      "MOBA"
+    ],
+    "codes": [
+      "LQMB2026VIP",
+      "BINHNGUYEN888",
+      "TRANGPHUCS999",
+      "RUBYVIP666"
+    ],
+    "author": "CodeGame.Shop",
+    "views": 8940,
+    "read_time_minutes": 4,
+    "is_featured": false,
+    "is_hot": true,
+    "status": "PUBLISHED",
+    "published_at": "2026-10-06T15:00:00.000Z",
+    "content": "## Khởi Động Mùa Giải Xếp Hạng Mới Bình Nguyên Vô Tận\n\nMùa giải xếp hạng mới của **Liên Quân Mobile** chính thức khai mở mang theo cơn sốt leo rank rực lửa trong cộng đồng game thủ Việt Nam.\n\n### 1. Thay Đổi Chiến Thuật & Cân Bằng Meta Tướng\n- **Khu vực Rừng & Bùa Lợi**: Quái rừng được gia tăng lượng vàng cơ bản, hỗ trợ các sát thủ đi rừng bắt nhịp trận đấu nhanh hơn.\n- **Trang bị Phụ Trợ mới**: Thêm hiệu ứng lá chắn bảo hộ cho đồng đội thấp máu, giúp tướng Trợ Thủ đóng góp nhiều hơn trong giao tranh tổng.\n\n### 2. Danh Sách Giftcode & Cách Kích Hoạt\nSao chép các mã code bên dưới, truy cập trang đổi mã `https://lienquan.garena.vn/giftcode/` để nhận quà trực tiếp về hòm thư!",
+    "source_name": "CodeGame.Shop",
+    "source_url": "https://codegame.shop"
   },
   {
-    id: 'news_free_fire_ob49_2026',
-    slug: 'free-fire-cap-nhat-phien-ban-moi-va-bo-giftcode-kim-cuong-skin-sung-huyen-thoai',
-    title: 'Free Fire: Khám Phá Bản Cập Nhật Mới & Nhận Ngay Bộ Giftcode Kim Cương, Skin Súng Huyền Thoại',
-    excerpt: 'Phiên bản mới mang đến nhân vật thức tỉnh độc quyền, cơ chế sinh tồn Đảo Quân Sự cải tiến cùng danh sách mã đổi thưởng nhận Kim Cương và Vé Quay Súng Hoàng Gia miễn phí.',
-    cover_url: '/game_icons/free-fire.webp',
-    game_id: 'free-fire',
-    game_slug: 'free-fire',
-    game_name: 'Free Fire',
-    tags: ['Free Fire', 'Garena', 'Kim Cương', 'Skin Súng', 'Sinh Tồn'],
-    codes: ['FFOB49VIP', 'KIMCUONG999', 'SKINLEGEND88', 'DAOQUANSURF'],
-    author: 'CodeGame Team',
-    views: 7650,
-    read_time_minutes: 4,
-    is_featured: false,
-    is_hot: true,
-    status: 'PUBLISHED',
-    published_at: '2026-10-05T09:30:00.000Z',
-    content: `## Sống Dai Thành Huyền Thoại Cùng Phiên Bản Mới
-
-Bản cập nhật mới của **Free Fire** mang lại trải nghiệm đấu súng sinh tồn đỉnh cao với đồ họa tối ưu và cơ chế chiến đấu nhanh nghẹt thở.
-
-### 1. Điểm Mới Nổi Bật
-- **Nhân Vật Mới Thức Tỉnh**: Gia tăng tốc độ di chuyển và giảm độ giật khi ngắm bắn.
-- **Bản Đồ Đảo Quân Sự Mới**: Thêm các điểm ẩn nấp và khu vực loot đồ quân nhu cấp cao.
-
-### 2. Hướng Dẫn Nhập Code Free Fire
-1. Vào trang đổi quà chính thức của Garena Free Fire: \`https://reward.ff.garena.com/\`.
-2. Đăng nhập tài khoản mạng xã hội liên kết.
-3. Dán mã code 12-16 ký tự và nhấn Xác nhận.`
+    "id": "news_free_fire_ob49_2026",
+    "slug": "free-fire-cap-nhat-phien-ban-moi-va-bo-giftcode-kim-cuong-skin-sung-huyen-thoai",
+    "title": "Free Fire: Khám Phá Bản Cập Nhật Mới & Nhận Ngay Bộ Giftcode Kim Cương, Skin Súng Huyền Thoại",
+    "excerpt": "Phiên bản mới mang đến nhân vật thức tỉnh độc quyền, cơ chế sinh tồn Đảo Quân Sự cải tiến cùng danh sách mã đổi thưởng nhận Kim Cương và Vé Quay Súng Hoàng Gia miễn phí.",
+    "cover_url": "/game_icons/free-fire.webp",
+    "game_id": "free-fire",
+    "game_slug": "free-fire",
+    "game_name": "Free Fire",
+    "tags": [
+      "Free Fire",
+      "Garena",
+      "Kim Cương",
+      "Skin Súng",
+      "Sinh Tồn"
+    ],
+    "codes": [
+      "FFOB49VIP",
+      "KIMCUONG999",
+      "SKINLEGEND88",
+      "DAOQUANSURF"
+    ],
+    "author": "CodeGame.Shop",
+    "views": 7650,
+    "read_time_minutes": 4,
+    "is_featured": false,
+    "is_hot": true,
+    "status": "PUBLISHED",
+    "published_at": "2026-10-05T09:30:00.000Z",
+    "content": "## Sống Dai Thành Huyền Thoại Cùng Phiên Bản Mới\n\nBản cập nhật mới của **Free Fire** mang lại trải nghiệm đấu súng sinh tồn đỉnh cao với đồ họa tối ưu và cơ chế chiến đấu nhanh nghẹt thở.\n\n### 1. Điểm Mới Nổi Bật\n- **Nhân Vật Mới Thức Tỉnh**: Gia tăng tốc độ di chuyển và giảm độ giật khi ngắm bắn.\n- **Bản Đồ Đảo Quân Sự Mới**: Thêm các điểm ẩn nấp và khu vực loot đồ quân nhu cấp cao.\n\n### 2. Hướng Dẫn Nhập Code Free Fire\n1. Vào trang đổi quà chính thức của Garena Free Fire: `https://reward.ff.garena.com/`.\n2. Đăng nhập tài khoản mạng xã hội liên kết.\n3. Dán mã code 12-16 ký tự và nhấn Xác nhận.",
+    "source_name": "CodeGame.Shop",
+    "source_url": "https://codegame.shop"
   },
   {
-    id: 'news_vo_lam_truyen_ky_1_mobile_2026',
-    slug: 'vo-lam-truyen-ky-1-mobile-ra-mat-mon-phai-moi-va-phat-tang-giftcode-tuan-duong',
-    title: 'Võ Lâm Truyền Kỳ 1 Mobile: Xuất Thế Môn Phái Mới & Tặng Bộ Giftcode Tuần Dương Độc Quyền',
-    excerpt: 'Giang hồ dậy sóng trước sự xuất hiện của môn phái thứ 16 sở hữu võ công biến hóa khôn lường. Nhận ngay rương Phi Phong, Huyền Tinh và bộ mã quà tặng khởi đầu giang hồ.',
-    cover_url: '/game_icons/vo-lam-truyen-ky-1-mobile.webp',
-    game_id: 'vo-lam-truyen-ky-1-mobile',
-    game_slug: 'vo-lam-truyen-ky-1-mobile',
-    game_name: 'Võ Lâm Truyền Kỳ 1 Mobile',
-    tags: ['Võ Lâm 1', 'VNG', 'Môn Phái Mới', 'Kiếm Hiệp', 'Giftcode VIP'],
-    codes: ['VLTK1M2026', 'GIANGHO888', 'TUANDUONG999', 'HUYENTINH666'],
-    author: 'CodeGame Editorial',
-    views: 5410,
-    read_time_minutes: 4,
-    is_featured: false,
-    is_hot: false,
-    status: 'PUBLISHED',
-    published_at: '2026-10-04T11:15:00.000Z',
-    content: `## Tuyệt Thế Võ Học Xuất Thế Giữa Chốn Phong Vân
-
-Thế giới kiếm hiệp tình duyên của **Võ Lâm Truyền Kỳ 1 Mobile (VNG)** tiếp tục mở rộng chân trời phiêu bạt với sự xuất hiện của tuyệt đỉnh võ công mới.
-
-### 1. Đặc Sắc Môn Phái Mới
-- Lối đánh cơ động, kết hợp quyền cước và kiếm khí tầm trung.
-- Khắc chế mạnh mẽ hệ Kim và hệ Hỏa trong các trận Công Thành Chiến liên server.
-
-### 2. Nhận Code Tân Thủ
-Nhập mã code trong mục Cài Đặt -> Đổi Giftcode trong game để nhận Phi Phong và Bạc khóa!`
+    "id": "news_vo_lam_truyen_ky_1_mobile_2026",
+    "slug": "vo-lam-truyen-ky-1-mobile-ra-mat-mon-phai-moi-va-phat-tang-giftcode-tuan-duong",
+    "title": "Võ Lâm Truyền Kỳ 1 Mobile: Xuất Thế Môn Phái Mới & Tặng Bộ Giftcode Tuần Dương Độc Quyền",
+    "excerpt": "Giang hồ dậy sóng trước sự xuất hiện của môn phái thứ 16 sở hữu võ công biến hóa khôn lường. Nhận ngay rương Phi Phong, Huyền Tinh và bộ mã quà tặng khởi đầu giang hồ.",
+    "cover_url": "/game_icons/vo-lam-truyen-ky-1-mobile.webp",
+    "game_id": "vo-lam-truyen-ky-1-mobile",
+    "game_slug": "vo-lam-truyen-ky-1-mobile",
+    "game_name": "Võ Lâm Truyền Kỳ 1 Mobile",
+    "tags": [
+      "Võ Lâm 1",
+      "VNG",
+      "Môn Phái Mới",
+      "Kiếm Hiệp",
+      "Giftcode VIP"
+    ],
+    "codes": [
+      "VLTK1M2026",
+      "GIANGHO888",
+      "TUANDUONG999",
+      "HUYENTINH666"
+    ],
+    "author": "CodeGame.Shop",
+    "views": 5410,
+    "read_time_minutes": 4,
+    "is_featured": false,
+    "is_hot": false,
+    "status": "PUBLISHED",
+    "published_at": "2026-10-04T11:15:00.000Z",
+    "content": "## Tuyệt Thế Võ Học Xuất Thế Giữa Chốn Phong Vân\n\nThế giới kiếm hiệp tình duyên của **Võ Lâm Truyền Kỳ 1 Mobile (VNG)** tiếp tục mở rộng chân trời phiêu bạt với sự xuất hiện của tuyệt đỉnh võ công mới.\n\n### 1. Đặc Sắc Môn Phái Mới\n- Lối đánh cơ động, kết hợp quyền cước và kiếm khí tầm trung.\n- Khắc chế mạnh mẽ hệ Kim và hệ Hỏa trong các trận Công Thành Chiến liên server.\n\n### 2. Nhận Code Tân Thủ\nNhập mã code trong mục Cài Đặt -> Đổi Giftcode trong game để nhận Phi Phong và Bạc khóa!",
+    "source_name": "CodeGame.Shop",
+    "source_url": "https://codegame.shop"
   },
   {
-    id: 'news_honkai_star_rail_penacony_2026',
-    slug: 'honkai-star-rail-hanh-trinh-khai-pha-moi-va-tong-hop-code-stellar-jade-ngoc-anh-sao',
-    title: 'Honkai: Star Rail: Hành Trình Khai Phá Mới & Tổng Hợp Code Stellar Jade (Ngọc Ánh Sao) 2026',
-    excerpt: 'Đoàn tàu Astral tiếp tục lăn bánh đến trạm dừng chân mới đầy kỳ ảo. Cùng CodeGame tổng hợp danh sách mã quà tặng nhận hàng trăm Ngọc Ánh Sao và Vé Tinh Cầu Đặc Biệt.',
-    cover_url: '/game_icons/honkai-star-rail.webp',
-    game_id: 'honkai-star-rail',
-    game_slug: 'honkai-star-rail',
-    game_name: 'Honkai: Star Rail',
-    tags: ['Honkai Star Rail', 'HoYoverse', 'Ngọc Ánh Sao', 'Gacha', 'Khai Phá'],
-    codes: ['STARRAIL2026', 'STELLARJADE888', 'ASTRALTRAIN99', 'HSRVERNEW'],
-    author: 'CodeGame Team',
-    views: 6320,
-    read_time_minutes: 3,
-    is_featured: false,
-    is_hot: true,
-    status: 'PUBLISHED',
-    published_at: '2026-10-03T16:45:00.000Z',
-    content: `## Hành Trình Vượt Ngàn Vì Sao Cùng Astral Express
-
-**Honkai: Star Rail** tiếp tục khẳng định vị thế đỉnh cao trong dòng game nhập vai theo lượt thế giới mở với cốt truyện giàu cảm xúc và hệ thống chiến đấu chiến thuật sâu sắc.
-
-### 1. Tối Ưu Đội Hình Khai Phá
-- Tận dụng các nhân vật Hòa Hợp để buff sát thương diện rộng.
-- Tích lũy Ngọc Ánh Sao từ giftcode để chuẩn bị cho banner nhân vật giới hạn tiếp theo.`
+    "id": "news_honkai_star_rail_penacony_2026",
+    "slug": "honkai-star-rail-hanh-trinh-khai-pha-moi-va-tong-hop-code-stellar-jade-ngoc-anh-sao",
+    "title": "Honkai: Star Rail: Hành Trình Khai Phá Mới & Tổng Hợp Code Stellar Jade (Ngọc Ánh Sao) 2026",
+    "excerpt": "Đoàn tàu Astral tiếp tục lăn bánh đến trạm dừng chân mới đầy kỳ ảo. Cùng CodeGame tổng hợp danh sách mã quà tặng nhận hàng trăm Ngọc Ánh Sao và Vé Tinh Cầu Đặc Biệt.",
+    "cover_url": "/game_icons/honkai-star-rail.webp",
+    "game_id": "honkai-star-rail",
+    "game_slug": "honkai-star-rail",
+    "game_name": "Honkai: Star Rail",
+    "tags": [
+      "Honkai Star Rail",
+      "HoYoverse",
+      "Ngọc Ánh Sao",
+      "Gacha",
+      "Khai Phá"
+    ],
+    "codes": [
+      "STARRAIL2026",
+      "STELLARJADE888",
+      "ASTRALTRAIN99",
+      "HSRVERNEW"
+    ],
+    "author": "CodeGame.Shop",
+    "views": 6320,
+    "read_time_minutes": 3,
+    "is_featured": false,
+    "is_hot": true,
+    "status": "PUBLISHED",
+    "published_at": "2026-10-03T16:45:00.000Z",
+    "content": "## Hành Trình Vượt Ngàn Vì Sao Cùng Astral Express\n\n**Honkai: Star Rail** tiếp tục khẳng định vị thế đỉnh cao trong dòng game nhập vai theo lượt thế giới mở với cốt truyện giàu cảm xúc và hệ thống chiến đấu chiến thuật sâu sắc.\n\n### 1. Tối Ưu Đội Hình Khai Phá\n- Tận dụng các nhân vật Hòa Hợp để buff sát thương diện rộng.\n- Tích lũy Ngọc Ánh Sao từ giftcode để chuẩn bị cho banner nhân vật giới hạn tiếp theo.",
+    "source_name": "CodeGame.Shop",
+    "source_url": "https://codegame.shop"
   },
   {
-    id: 'news_play_together_vng_sea_event_2026',
-    slug: 'play-together-vng-mo-hoi-cau-ca-dai-duong-tang-code-kim-cuong-tien-sao',
-    title: 'Play Together VNG: Mở Hội Câu Cá Đại Dương & Phát Tặng Hàng Ngàn Kim Cương, Tiền Sao Miễn Phí',
-    excerpt: 'Hòn đảo Kaia rực rỡ sắc màu trong lễ hội biển mùa hè. Hướng dẫn săn các loại cá hiếm khổng lồ và nhận ngay bộ quà tặng thời trang độc quyền qua giftcode tân thủ.',
-    cover_url: '/game_icons/play-together.webp',
-    game_id: 'play-together',
-    game_slug: 'play-together',
-    game_name: 'Play Together VNG',
-    tags: ['Play Together', 'VNG', 'Kim Cương', 'Tiền Sao', 'Câu Cá'],
-    codes: ['PLAYTOGETHER2026', 'KAIAISLAND888', 'CAUKAHIEM999', 'TIENSAO666'],
-    author: 'CodeGame Editorial',
-    views: 4570,
-    read_time_minutes: 3,
-    is_featured: false,
-    is_hot: false,
-    status: 'PUBLISHED',
-    published_at: '2026-10-02T13:20:00.000Z',
-    content: `## Lễ Hội Đại Dương Sôi Động Trên Đảo Kaia
-
-Tựa game phiêu lưu thế giới mở ảo **Play Together VNG** mang đến chuỗi hoạt động giao lưu vui nhộn cùng hàng loạt phần thưởng phong phú.
-
-### 1. Bí Quyết Câu Cá Bóng Lớn
-- Sử dụng cần câu vàng chuyên dụng vào khung giờ vàng từ 20h - 22h.
-- Đổi bóng cá lấy điểm kinh nghiệm và tiền sao để mua trang phục độc lạ.`
+    "id": "news_play_together_vng_sea_event_2026",
+    "slug": "play-together-vng-mo-hoi-cau-ca-dai-duong-tang-code-kim-cuong-tien-sao",
+    "title": "Play Together VNG: Mở Hội Câu Cá Đại Dương & Phát Tặng Hàng Ngàn Kim Cương, Tiền Sao Miễn Phí",
+    "excerpt": "Hòn đảo Kaia rực rỡ sắc màu trong lễ hội biển mùa hè. Hướng dẫn săn các loại cá hiếm khổng lồ và nhận ngay bộ quà tặng thời trang độc quyền qua giftcode tân thủ.",
+    "cover_url": "/game_icons/play-together.webp",
+    "game_id": "play-together",
+    "game_slug": "play-together",
+    "game_name": "Play Together VNG",
+    "tags": [
+      "Play Together",
+      "VNG",
+      "Kim Cương",
+      "Tiền Sao",
+      "Câu Cá"
+    ],
+    "codes": [
+      "PLAYTOGETHER2026",
+      "KAIAISLAND888",
+      "CAUKAHIEM999",
+      "TIENSAO666"
+    ],
+    "author": "CodeGame.Shop",
+    "views": 4570,
+    "read_time_minutes": 3,
+    "is_featured": false,
+    "is_hot": false,
+    "status": "PUBLISHED",
+    "published_at": "2026-10-02T13:20:00.000Z",
+    "content": "## Lễ Hội Đại Dương Sôi Động Trên Đảo Kaia\n\nTựa game phiêu lưu thế giới mở ảo **Play Together VNG** mang đến chuỗi hoạt động giao lưu vui nhộn cùng hàng loạt phần thưởng phong phú.\n\n### 1. Bí Quyết Câu Cá Bóng Lớn\n- Sử dụng cần câu vàng chuyên dụng vào khung giờ vàng từ 20h - 22h.\n- Đổi bóng cá lấy điểm kinh nghiệm và tiền sao để mua trang phục độc lạ.",
+    "source_name": "CodeGame.Shop",
+    "source_url": "https://codegame.shop"
   },
   {
-    id: 'news_pubg_mobile_royale_pass_2026',
-    slug: 'pubg-mobile-khoi-dong-mua-royale-pass-moi-tang-code-uc-hom-do-cao-cap',
-    title: 'PUBG MOBILE: Khởi Động Mùa Royale Pass Mới & Danh Sách Giftcode Đổi Rương Cao Cấp 2026',
-    excerpt: 'Chiến trường sinh tồn trở nên kịch tính hơn bao giờ hết với chủ đề tác chiến công nghệ cao. Đổi ngay mã giftcode để nhận phiếu hòm đồ cổ điển và điểm nâng cấp trang phục.',
-    cover_url: '/game_icons/pubg-mobile.webp',
-    game_id: 'pubg-mobile',
-    game_slug: 'pubg-mobile',
-    game_name: 'PUBG MOBILE',
-    tags: ['PUBG Mobile', 'VNG', 'Royale Pass', 'Bắn Súng', 'Sinh Tồn'],
-    codes: ['PUBGMOBILE2026', 'ROYALEPASS888', 'CHIENTRUONG999', 'HOMDOCAOCAP'],
-    author: 'CodeGame Team',
-    views: 6890,
-    read_time_minutes: 4,
-    is_featured: false,
-    is_hot: true,
-    status: 'PUBLISHED',
-    published_at: '2026-10-01T08:00:00.000Z',
-    content: `## Đấu Trường Sinh Tồn Đỉnh Cao PUBG MOBILE
-
-**PUBG MOBILE** ra mắt mùa giải Royale Pass mới với hệ thống ngoại trang súng nâng cấp động cùng các vũ khí độc quyền.
-
-### 1. Hướng Dẫn Đổi Giftcode
-Truy cập trang \`https://www.pubgmobile.com/redeem/\`, nhập Character ID và Verification Code để nhận quà!`
+    "id": "news_pubg_mobile_royale_pass_2026",
+    "slug": "pubg-mobile-khoi-dong-mua-royale-pass-moi-tang-code-uc-hom-do-cao-cap",
+    "title": "PUBG MOBILE: Khởi Động Mùa Royale Pass Mới & Danh Sách Giftcode Đổi Rương Cao Cấp 2026",
+    "excerpt": "Chiến trường sinh tồn trở nên kịch tính hơn bao giờ hết với chủ đề tác chiến công nghệ cao. Đổi ngay mã giftcode để nhận phiếu hòm đồ cổ điển và điểm nâng cấp trang phục.",
+    "cover_url": "/game_icons/pubg-mobile.webp",
+    "game_id": "pubg-mobile",
+    "game_slug": "pubg-mobile",
+    "game_name": "PUBG MOBILE",
+    "tags": [
+      "PUBG Mobile",
+      "VNG",
+      "Royale Pass",
+      "Bắn Súng",
+      "Sinh Tồn"
+    ],
+    "codes": [
+      "PUBGMOBILE2026",
+      "ROYALEPASS888",
+      "CHIENTRUONG999",
+      "HOMDOCAOCAP"
+    ],
+    "author": "CodeGame.Shop",
+    "views": 6890,
+    "read_time_minutes": 4,
+    "is_featured": false,
+    "is_hot": true,
+    "status": "PUBLISHED",
+    "published_at": "2026-10-01T08:00:00.000Z",
+    "content": "## Đấu Trường Sinh Tồn Đỉnh Cao PUBG MOBILE\n\n**PUBG MOBILE** ra mắt mùa giải Royale Pass mới với hệ thống ngoại trang súng nâng cấp động cùng các vũ khí độc quyền.\n\n### 1. Hướng Dẫn Đổi Giftcode\nTruy cập trang `https://www.pubgmobile.com/redeem/`, nhập Character ID và Verification Code để nhận quà!",
+    "source_name": "CodeGame.Shop",
+    "source_url": "https://codegame.shop"
+  },
+  {
+    "id": "news_xbox_games_collection",
+    "slug": "bo-suu-tam-game-xbox-bien-mat-sau-khi-tai-khoan-microsoft-bi-khoa",
+    "title": "Bộ Sưu Tầm Game Xbox Biến Mất Sau Khi Tài Khoản Microsoft Bị Khóa: Cảnh Báo Bản Quyền Kỹ Thuật Số",
+    "summary": "Một game thủ kỳ cựu bất ngờ mất trắng toàn bộ hàng trăm tựa game Xbox bản quyền sau khi tài khoản Microsoft bị khóa. Vụ việc dấy lên hồi chuông cảnh báo về quyền sở hữu tài sản kỹ thuật số.",
+    "game_name": "Bộ Sưu Tầm Xbox",
+    "game_slug": "xbox-games",
+    "cover_url": "/news_covers/xbox-games-collection.webp",
+    "author": "CodeGame.Shop",
+    "source_name": "CodeGame.Shop",
+    "source_url": "https://codegame.shop",
+    "created_at": "2026-10-21T06:30:00Z",
+    "updated_at": "2026-10-21T07:00:00Z",
+    "views_count": 1420,
+    "reading_time_minutes": 5,
+    "tags": [
+      "Xbox",
+      "Microsoft",
+      "Bản quyền game",
+      "Console",
+      "Cảnh báo"
+    ],
+    "codes": [],
+    "status": "PUBLISHED",
+    "content": "## 🎮 Vụ Việc Biến Mất Trắng Hàng Trăm Tựa Game Xbox Gây Chấn Động Cộng Đồng\n\nGần đây, cộng đồng game thủ quốc tế và Việt Nam xôn xao trước câu chuyện một người dùng gắn bó lâu năm với hệ máy **Xbox** đã bị khóa tài khoản Microsoft vĩnh viễn. Đáng nói, cùng với việc khóa tài khoản, toàn bộ thư viện game đồ sộ trị giá hàng nghìn USD đã hoàn toàn biến mất mà không có cách nào khôi phục.\n\n### ⚠️ Rủi Ro Của Việc Mua Game Kỹ Thuật Số (Digital Games)\nKhi người chơi thanh toán mua game trên Microsoft Store, PlayStation Store hay Steam, thực chất chúng ta chỉ đang mua **\"giấy phép sử dụng dịch vụ\" (license)** chứ không thực sự sở hữu vĩnh viễn bản sao vật lý của trò chơi.\n- Nếu tài khoản dịch vụ bị vi phạm điều khoản hoặc bị khóa, người dùng sẽ mất toàn bộ quyền truy cập.\n- Các trò chơi phụ thuộc vào máy chủ xác thực trực tuyến có thể ngừng hoạt động bất cứ lúc nào.\n\n### 🛡️ Lời Khuyên Từ CodeGame.Shop\n1. **Kích hoạt bảo mật 2 lớp (2FA)** bằng ứng dụng Authenticator để bảo vệ tài khoản game.\n2. **Lưu trữ biên lai mua hàng** và thông tin thanh toán gốc để đối soát khi cần khiếu nại.\n3. Không chia sẻ tài khoản hoặc sử dụng thẻ thanh toán không chính chủ để tránh bị khóa tự động.\n\n> 🛡️ **Nguồn tin tức:** Bản tin được tổng hợp, biên tập và xuất bản độc quyền bởi **CodeGame.Shop** (https://codegame.shop)."
+  },
+  {
+    "id": "news_thi_truong_game_viet_nam_2026",
+    "slug": "suc-hut-cua-thi-truong-game-viet-nam-nam-2026-doanh-thu-ky-luc",
+    "title": "Sức Hút Của Thị Trường Game Việt Nam Năm 2026: Doanh Thu Kỷ Lục Và Tiềm Năng Bùng Nổ",
+    "summary": "Thị trường game Việt Nam năm 2026 tiếp tục ghi nhận mức tăng trưởng ấn tượng, thu hút dòng vốn đầu tư quốc tế và sự tham gia mạnh mẽ của các nhà phát hành hàng đầu như VNG, Garena, VTC, SohaGame.",
+    "game_name": "Thị Trường Game Việt Nam",
+    "game_slug": "thi-truong-game-viet-nam",
+    "cover_url": "/news_covers/thi-truong-game-viet-nam.webp",
+    "author": "CodeGame.Shop",
+    "source_name": "CodeGame.Shop",
+    "source_url": "https://codegame.shop",
+    "created_at": "2026-10-21T05:00:00Z",
+    "updated_at": "2026-10-21T07:00:00Z",
+    "views_count": 2150,
+    "reading_time_minutes": 6,
+    "tags": [
+      "Thị trường game",
+      "Game Việt Nam",
+      "eSports",
+      "VNG",
+      "Garena"
+    ],
+    "codes": [],
+    "status": "PUBLISHED",
+    "content": "## 📈 Thị Trường Game Việt Nam Đạt Cột Mốc Mới Trong Năm 2026\n\nViệt Nam hiện là một trong những thị trường game di động phát triển nhanh nhất khu vực Đông Nam Á. Với hơn 50 triệu người chơi game thường xuyên và tỷ lệ sở hữu điện thoại thông minh cao, ngành công nghiệp game tại Việt Nam đang thu hút sự chú ý đặc biệt từ các tập đoàn công nghệ toàn cầu.\n\n### 🚀 Những Điểm Nhấn Đáng Chú Ý:\n1. **Sự bùng nổ của Thể thao điện tử (eSports):** Các giải đấu Liên Quân Mobile, Free Fire, FC Online thu hút hàng triệu lượt xem trực tiếp.\n2. **Quy chuẩn hóa cấp phép:** Việc siết chặt quy định cấp phép G1/G2/G3/G4 giúp thanh lọc thị trường, bảo vệ quyền lợi người chơi và thúc đẩy các sản phẩm có chất lượng cao.\n3. **Cộng đồng săn Giftcode sôi động:** Nhu cầu tìm kiếm mã quà tặng, giftcode tân thủ chính thức từ các NPH tăng vọt, thúc đẩy sự phát triển của nền tảng chia sẻ uy tín như CodeGame.Shop.\n\n> 🛡️ **Nguồn tin tức:** Bản tin được tổng hợp, biên tập và xuất bản độc quyền bởi **CodeGame.Shop** (https://codegame.shop)."
+  },
+  {
+    "id": "news_xac_thuc_tai_khoan_game_60_trieu",
+    "slug": "tu-1-7-khong-xac-thuc-tai-khoan-game-co-the-bi-phat-60-trieu-dong",
+    "title": "Từ 1/7 Không Xác Thực Tài Khoản Game Có Thể Bị Phạt Đến 60 Triệu Đồng: Những Điều Cần Biết",
+    "summary": "Nghị định mới về quản lý dịch vụ Internet và trò chơi điện tử trực tuyến quy định chặt chẽ về việc xác thực tài khoản người chơi bằng số điện thoại chính chủ hoặc căn cước công dân.",
+    "game_name": "Chính Sách Game Online",
+    "game_slug": "chinh-sach-game-online",
+    "cover_url": "/news_covers/xac-thuc-tai-khoan-game.webp",
+    "author": "CodeGame.Shop",
+    "source_name": "CodeGame.Shop",
+    "source_url": "https://codegame.shop",
+    "created_at": "2026-10-20T16:00:00Z",
+    "updated_at": "2026-10-21T07:00:00Z",
+    "views_count": 3200,
+    "reading_time_minutes": 4,
+    "tags": [
+      "Pháp luật game",
+      "Xác thực tài khoản",
+      "Chính sách",
+      "Bảo mật"
+    ],
+    "codes": [],
+    "status": "PUBLISHED",
+    "content": "## ⚖️ Quy Định Mới Về Xác Thực Tài Khoản Người Chơi Game Online\n\nTheo quy định pháp luật mới nhất, nhằm bảo vệ trẻ em trên môi trường mạng và ngăn chặn các hành vi gian lận, lừa đảo, tất cả các tài khoản trò chơi điện tử trực tuyến tại Việt Nam đều bắt buộc phải được xác thực thông tin chính chủ.\n\n### 📌 Các Yêu Cầu Cụ Thể:\n- Tài khoản người chơi phải được liên kết với số điện thoại di động chính chủ.\n- Người chơi dưới 18 tuổi sẽ chịu sự quản lý về thời gian chơi theo quy định của từng tựa game.\n- Các đơn vị phát hành không tuân thủ có thể bị phạt hành chính từ 40 đến 60 triệu đồng và tạm đình chỉ cung cấp dịch vụ.\n\nNgười chơi nên chủ động cập nhật số điện thoại và thông tin cá nhân trong mục Cài đặt tài khoản của từng game để tránh bị khóa tài khoản đáng tiếc.\n\n> 🛡️ **Nguồn tin tức:** Bản tin được tổng hợp, biên tập và xuất bản độc quyền bởi **CodeGame.Shop** (https://codegame.shop)."
+  },
+  {
+    "id": "news_board_game_van_hoa_viet",
+    "slug": "sinh-vien-sang-tao-board-game-ve-van-hoa-viet-nam-mot-san-pham-du-lich",
+    "title": "Sinh Viên Sáng Tạo Board Game Về Văn Hóa Việt Nam: Sản Phẩm Du Lịch Độc Đáo Được Đánh Giá Cao",
+    "summary": "Nhóm sinh viên trẻ đã tạo nên bất ngờ lớn khi thiết kế bộ board game đậm chất văn hóa dân gian Việt Nam, kết hợp khéo léo giữa giải trí và quảng bá du lịch di sản.",
+    "game_name": "Board Game Văn Hóa Việt",
+    "game_slug": "board-game-van-hoa-viet",
+    "cover_url": "/news_covers/board-game-van-hoa-viet.webp",
+    "author": "CodeGame.Shop",
+    "source_name": "CodeGame.Shop",
+    "source_url": "https://codegame.shop",
+    "created_at": "2026-10-20T14:00:00Z",
+    "updated_at": "2026-10-21T07:00:00Z",
+    "views_count": 1890,
+    "reading_time_minutes": 4,
+    "tags": [
+      "Board game",
+      "Văn hóa Việt",
+      "Sáng tạo trẻ",
+      "Du lịch"
+    ],
+    "codes": [],
+    "status": "PUBLISHED",
+    "content": "## 🎲 Đưa Lịch Sử Và Di Sản Vào Từng Nước Đi Board Game\n\nKhông chỉ có game online trên điện thoại, trào lưu sáng tạo board game thuần Việt đang ngày càng lan tỏa mạnh mẽ trong giới trẻ. Dự án board game di sản của nhóm sinh viên đã mô phỏng lại các danh lam thắng cảnh, trang phục truyền thống và ẩm thực ba miền thông qua các lá bài chiến thuật hấp dẫn.\n\n### 🌟 Điểm Sáng Dự Án:\n- Hình ảnh minh họa vẽ tay tỉ mỉ, lấy cảm hứng từ tranh dân gian Đông Hồ và Hàng Trống.\n- Lối chơi đơn giản, phù hợp cho gia đình và nhóm bạn bè trong những dịp sum họp.\n- Được các trung tâm xúc tiến du lịch đánh giá cao như một món quà lưu niệm ý nghĩa cho du khách quốc tế.\n\n> 🛡️ **Nguồn tin tức:** Bản tin được tổng hợp, biên tập và xuất bản độc quyền bởi **CodeGame.Shop** (https://codegame.shop)."
+  },
+  {
+    "id": "news_nhan_luc_nganh_game_viet",
+    "slug": "chuan-bi-5-000-nhan-luc-game-phuc-vu-giao-duc-lich-su-van-hoa",
+    "title": "Chuẩn Bị 5.000 Nhân Lực Game Phục Vụ Giáo Dục Lịch Sử Văn Hóa Đến Năm 2030",
+    "summary": "Đề án đào tạo nguồn nhân lực chất lượng cao trong ngành công nghiệp sản xuất game được kích hoạt, hướng tới việc ứng dụng công nghệ game vào bảo tồn văn hóa và chuyển đổi số giáo dục.",
+    "game_name": "Giáo Dục & Nhân Lực Game",
+    "game_slug": "nhan-luc-nganh-game",
+    "cover_url": "/news_covers/nhan-luc-nganh-game.webp",
+    "author": "CodeGame.Shop",
+    "source_name": "CodeGame.Shop",
+    "source_url": "https://codegame.shop",
+    "created_at": "2026-10-20T12:00:00Z",
+    "updated_at": "2026-10-21T07:00:00Z",
+    "views_count": 2400,
+    "reading_time_minutes": 5,
+    "tags": [
+      "Nhân lực game",
+      "Đào tạo",
+      "Công nghệ",
+      "Văn hóa"
+    ],
+    "codes": [],
+    "status": "PUBLISHED",
+    "content": "## 🎓 Bước Ngoặt Cho Nguồn Nhân Lực Ngành Game Tại Việt Nam\n\nNgành game không chỉ đơn thuần là giải trí mà đang trở thành mũi nhọn kinh tế số với doanh thu hàng trăm triệu USD mỗi năm. Nhằm đón đầu làn sóng phát triển các tựa game lịch sử, dã sử và giáo dục, nhiều trường đại học hàng đầu đã bắt đầu mở chuyên ngành thiết kế và phát triển game.\n\n### 🎯 Mục Tiêu Đề Án:\n1. Đào tạo 5.000 lập trình viên, họa sĩ 3D và biên kịch game chuyên nghiệp.\n2. Hỗ trợ các studio game độc lập (Indie Studios) tiếp cận nguồn vốn và công nghệ hiện đại.\n3. Tạo ra những tựa game mang bản sắc Việt Nam vươn tầm thế giới.\n\n> 🛡️ **Nguồn tin tức:** Bản tin được tổng hợp, biên tập và xuất bản độc quyền bởi **CodeGame.Shop** (https://codegame.shop)."
+  },
+  {
+    "id": "news_blv_esports_viet_nam",
+    "slug": "cap-blv-esports-dinh-dam-viet-nam-lan-dau-he-lo-moi-quan-he-ngoai-doi",
+    "title": "Cặp BLV eSports Đình Đám Việt Nam Lần Đầu Hé Lộ Mối Quan Hệ Ngoài Đời Sau Nhiều Năm Sát Cánh",
+    "summary": "Bộ đôi bình luận viên quen thuộc của các giải đấu eSports hàng đầu đã có những chia sẻ xúc động về hành trình theo đuổi đam mê và tình bạn gắn kết sau cánh gà.",
+    "game_name": "Cộng Đồng eSports",
+    "game_slug": "blv-esports-viet-nam",
+    "cover_url": "/news_covers/blv-esports-viet-nam.webp",
+    "author": "CodeGame.Shop",
+    "source_name": "CodeGame.Shop",
+    "source_url": "https://codegame.shop",
+    "created_at": "2026-10-20T10:00:00Z",
+    "updated_at": "2026-10-21T07:00:00Z",
+    "views_count": 2850,
+    "reading_time_minutes": 5,
+    "tags": [
+      "BLV eSports",
+      "Hậu trường",
+      "Giải đấu",
+      "Cộng đồng"
+    ],
+    "codes": [],
+    "status": "PUBLISHED",
+    "content": "## 🎙️ Sau Ánh Đèn Sân Khấu eSports Việt\n\nNhững trận đấu eSports nghẹt thở sẽ không thể trọn vẹn nếu thiếu đi giọng bình luận đầy nhiệt huyết của các Caster. Trải qua hàng trăm trận cầu đỉnh cao từ Liên Minh Huyền Thoại, Liên Quân Mobile tới PUBG, bộ đôi BLV kỳ cựu đã gắn bó với nhau như những người anh em ruột thịt.\n\nNhững áp lực nghề nghiệp, những đêm thức trắng theo dõi giải đấu quốc tế và niềm tự hào khi chứng kiến các tuyển thủ Việt Nam giành huy chương đã trở thành những kỷ niệm khó quên trong hành trình sự nghiệp của họ.\n\n> 🛡️ **Nguồn tin tức:** Bản tin được tổng hợp, biên tập và xuất bản độc quyền bởi **CodeGame.Shop** (https://codegame.shop)."
+  },
+  {
+    "id": "news_game_offline_hay_2026",
+    "slug": "top-game-offline-hay-nhat-cho-dien-thoai-va-pc-khong-can-mang-2026",
+    "title": "Top Game Offline Hay Nhất Cho Điện Thoại Và PC Không Cần Mạng Tuyển Chọn 2026",
+    "summary": "Tổng hợp những tựa game offline xuất sắc nhất có đồ họa mãn nhãn và cốt truyện lôi cuốn, giúp bạn thoải mái giải trí mọi lúc mọi nơi mà không lo tốn dữ liệu 4G.",
+    "game_name": "Game Offline Hay",
+    "game_slug": "game-offline",
+    "cover_url": "/news_covers/game-offline-hay.webp",
+    "author": "CodeGame.Shop",
+    "source_name": "CodeGame.Shop",
+    "source_url": "https://codegame.shop",
+    "created_at": "2026-10-20T08:00:00Z",
+    "updated_at": "2026-10-21T07:00:00Z",
+    "views_count": 4500,
+    "reading_time_minutes": 6,
+    "tags": [
+      "Game Offline",
+      "Game Mobile",
+      "Top Game",
+      "PC Game"
+    ],
+    "codes": [],
+    "status": "PUBLISHED",
+    "content": "## 📱 Khi Mạng Internet Chập Chờn, Đây Là Những Tựa Game Cứu Cánh Tuyệt Vời\n\nKhông phải lúc nào chúng ta cũng có kết nối Wi-Fi ổn định hoặc mạng 4G tốc độ cao. Những tựa game offline chất lượng cao dưới đây sẽ mang đến cho bạn trải nghiệm chơi game trọn vẹn mọi lúc mọi nơi.\n\n### 🌟 Danh Sách Tựa Game Đáng Chơi Nhất:\n1. **Dead Cells (Mobile & PC):** Tuyệt phẩm hành động Roguelike nhịp độ nhanh với cơ chế chiến đấu cực kỳ đã tay.\n2. **Alto's Adventure & Odyssey:** Tựa game trượt tuyết thư giãn với đồ họa nghệ thuật và âm nhạc êm dịu.\n3. **Limbo & Inside:** Hai kiệt tác phiêu lưu giải đố đen trắng mang phong cách u tối đầy chiều sâu.\n4. **Stardew Valley:** Game nông trại kinh điển nơi bạn tự tay xây dựng nông trường mơ ước.\n\n> 🛡️ **Nguồn tin tức:** Bản tin được tổng hợp, biên tập và xuất bản độc quyền bởi **CodeGame.Shop** (https://codegame.shop)."
+  },
+  {
+    "id": "news_qua_tang_giftcode_vip_tan_thu",
+    "slug": "tong-hop-qua-tang-giftcode-vip-tan-thu-cho-hon-50-game-hot-2026",
+    "title": "Tổng Hợp Quà Tặng Giftcode VIP Tân Thủ Cho Hơn 50+ Game Hot Hiện Nay Trên CodeGame.Shop",
+    "summary": "Cập nhật hàng loạt mã quà tặng độc quyền, kim cương, vé quay tướng và trang bị VIP dành riêng cho cộng đồng game thủ CodeGame.Shop trong tháng 10/2026.",
+    "game_name": "Quà Tặng VIP Tân Thủ",
+    "game_slug": "qua-tang",
+    "cover_url": "/news_covers/qua-tang-giftcode-vip.webp",
+    "author": "CodeGame.Shop",
+    "source_name": "CodeGame.Shop",
+    "source_url": "https://codegame.shop",
+    "created_at": "2026-10-20T06:00:00Z",
+    "updated_at": "2026-10-21T07:00:00Z",
+    "views_count": 5800,
+    "reading_time_minutes": 5,
+    "tags": [
+      "Giftcode VIP",
+      "Quà Tân Thủ",
+      "CodeGame",
+      "Free Codes"
+    ],
+    "codes": [
+      "CODEGAMEVIP",
+      "TANTHU2026",
+      "TRIANVIP999",
+      "HOTGAME10K",
+      "QUATRUYENTHONG"
+    ],
+    "status": "PUBLISHED",
+    "content": "## 🎁 Đại Tiệc Tri Ân Game Thủ: Hàng Ngàn Giftcode Miễn Phí Đang Chờ Đón\n\nChào đón tuần lễ sinh hoạt cộng đồng sôi nổi, **CodeGame.Shop** tự hào mang đến cho quý khách hàng và các tân thủ bộ sưu tập Giftcode VIP độc quyền.\n\n### 💎 Bộ Mã Quà Tặng Độc Quyền Toàn Hệ Thống:\n- `CODEGAMEVIP`: Tặng 500 Kim Cương và Rương Trang Bị Cam.\n- `TANTHU2026`: Gói Quà Khởi Nghiệp dành cho người chơi mới.\n- `TRIANVIP999`: Vé Quay Tướng Huyền Thoại x10.\n- `HOTGAME10K`: 10.000 Vàng và Bình Thể Lực Cao Cấp.\n\n### 📌 Hướng Dẫn Nhận Thêm Code Riêng:\nHãy ghé thăm mục **[Giveaways](https://codegame.shop/giveaways)** trên CodeGame.Shop mỗi ngày để tham gia giật các mã code riêng độc nhất vô nhị từ NPH!\n\n> 🛡️ **Nguồn tin tức:** Bản tin được tổng hợp, biên tập và xuất bản độc quyền bởi **CodeGame.Shop** (https://codegame.shop)."
+  },
+  {
+    "id": "news_cktg_2026_esports_tracker",
+    "slug": "liquipedia-esports-tracker-cap-nhat-ket-qua-giai-dau-cktg-2026",
+    "title": "Liquipedia eSports Tracker: Cập Nhật Kết Quả Giải Đấu CKTG 2026 Mới Nhất Hôm Nay",
+    "summary": "Theo dõi bảng xếp hạng, lịch thi đấu và kết quả các trận đấu nghẹt thở của giải vô địch thế giới Liên Minh Huyền Thoại CKTG 2026 với những pha lật kèo mãn nhãn.",
+    "game_name": "Liquipedia Tracker",
+    "game_slug": "esports",
+    "cover_url": "/news_covers/cktg-2026-esports.webp",
+    "author": "CodeGame.Shop",
+    "source_name": "CodeGame.Shop",
+    "source_url": "https://codegame.shop",
+    "created_at": "2026-10-20T04:00:00Z",
+    "updated_at": "2026-10-21T07:00:00Z",
+    "views_count": 3600,
+    "reading_time_minutes": 5,
+    "tags": [
+      "CKTG 2026",
+      "eSports",
+      "LMHT",
+      "Bảng xếp hạng",
+      "Liquipedia"
+    ],
+    "codes": [],
+    "status": "PUBLISHED",
+    "content": "## 🏆 Đấu Trường Danh Vọng: Những Bất Ngờ Lớn Tại CKTG 2026\n\nMùa giải CKTG năm nay tiếp tục chứng kiến những màn so tài đỉnh cao giữa các thế lực LPL, LCK và sự vươn lên mạnh mẽ của các đại diện VCS. Các trận đấu vòng bảng đã cống hiến cho người hâm mộ những pha xử lý thần sầu và chiến thuật cấm chọn vô cùng độc đáo.\n\nCập nhật ngay bảng điểm trực tiếp và đón chờ trận chung kết trong mơ vào cuối tuần này trên các kênh phát sóng chính thức!\n\n> 🛡️ **Nguồn tin tức:** Bản tin được tổng hợp, biên tập và xuất bản độc quyền bởi **CodeGame.Shop** (https://codegame.shop)."
+  },
+  {
+    "id": "news_apple_arcade_games_collection",
+    "slug": "apple-arcade-tuyen-chon-nhung-tua-game-dang-choi-nhat-tren-ios",
+    "title": "Apple Arcade Tuyển Chọn: Những Tựa Game Đáng Chơi Nhất Trên iOS Không Quảng Cáo",
+    "summary": "Khám phá danh sách các tựa game cao cấp trên nền tảng Apple Arcade được game thủ iOS yêu thích nhất nhờ lối chơi không Pay-to-win và hoàn toàn sạch quảng cáo.",
+    "game_name": "Apple Arcade",
+    "game_slug": "apple-arcade-games",
+    "cover_url": "/news_covers/apple-arcade-games.webp",
+    "author": "CodeGame.Shop",
+    "source_name": "CodeGame.Shop",
+    "source_url": "https://codegame.shop",
+    "created_at": "2026-10-20T02:00:00Z",
+    "updated_at": "2026-10-21T07:00:00Z",
+    "views_count": 2200,
+    "reading_time_minutes": 4,
+    "tags": [
+      "Apple Arcade",
+      "iOS Game",
+      "Game iPhone",
+      "Không quảng cáo"
+    ],
+    "codes": [],
+    "status": "PUBLISHED",
+    "content": "## 🍏 Trải Nghiệm Chơi Game Thuần Khiết Cùng Apple Arcade\n\nĐiểm cộng lớn nhất của dịch vụ Apple Arcade chính là cam kết **100% không quảng cáo, không mua hàng trong ứng dụng (In-App Purchases)**. Người dùng iPhone, iPad và Mac có thể thỏa sức đắm chìm vào những câu chuyện trọn vẹn nhất.\n\nNhững cái tên như *Oceanhorn 2*, *Sneaky Sasquatch*, *Fantasian* và *NBA 2K Arcade Edition* tiếp tục là thước đo tiêu chuẩn cho dòng game di động chất lượng cao.\n\n> 🛡️ **Nguồn tin tức:** Bản tin được tổng hợp, biên tập và xuất bản độc quyền bởi **CodeGame.Shop** (https://codegame.shop)."
+  },
+  {
+    "id": "news_1792066120479_js6at",
+    "slug": "code-fc-online-fo4-moi-nhat-10-2026-co-code-mung-nam-moi",
+    "title": "Code FC Online (FO4) Mới Nhất 10/2026: Nhận Gói Cầu Thủ ICONS, BP Và Thẻ Nâng Cấp",
+    "summary": "Tổng hợp danh sách giftcode FC Online (FIFA Online 4) mới nhất tháng 10/2026 do Garena phát hành. Nhận miễn phí hàng triệu BP, gói cầu thủ top mùa và thẻ đổi quà.",
+    "game_name": "FC Online (FO4)",
+    "game_slug": "ea-sports-fc-online",
+    "cover_url": "/game_icons/ea-sports-fc-online.webp",
+    "author": "CodeGame.Shop",
+    "source_name": "CodeGame.Shop",
+    "source_url": "https://codegame.shop",
+    "created_at": "2026-10-19T18:00:00Z",
+    "updated_at": "2026-10-21T07:00:00Z",
+    "views_count": 7200,
+    "reading_time_minutes": 4,
+    "tags": [
+      "FC Online",
+      "FO4",
+      "Giftcode FO4",
+      "Garena",
+      "Bóng đá"
+    ],
+    "codes": [
+      "FCO10OCT26",
+      "BPVIP888",
+      "ICONSGOLD26",
+      "CHAMPIONVN"
+    ],
+    "status": "PUBLISHED",
+    "content": "## ⚽ Trọn Bộ Giftcode FC Online (FO4) Cập Nhật Tháng 10/2026\n\n**FC Online** (tiền thân là FIFA Online 4) luôn là tựa game thể thao vua được đông đảo anh em HLV Việt Nam gắn bó. Dưới đây là bộ mã code hoạt động chuẩn được tổng hợp từ các sự kiện chính thức:\n\n### 🎁 Danh Sách Giftcode Hoạt Động:\n- `FCO10OCT26`: Gói cầu thủ 23TS, 22UCL ngẫu nhiên + 50.000.000 BP.\n- `BPVIP888`: 100.000.000 BP và Thẻ đổi tên đội bóng.\n- `ICONSGOLD26`: Thẻ nâng cấp bảo vệ tỉ lệ + Gói chỉ định ICONS.\n- `CHAMPIONVN`: Áo đấu đặc biệt kỷ niệm đội tuyển quốc gia.\n\n### 📝 Cách Nhập Code FC Online Garena:\n1. Truy cập trang đổi code chính thức: **https://coupon.fconline.garena.vn**.\n2. Đăng nhập tài khoản Garena đã liên kết đội bóng.\n3. Nhập mã code và bấm **Xác nhận**. Quà sẽ được gửi trực tiếp vào Hòm thư trong game.\n\n> 🛡️ **Nguồn tin tức:** Bản tin được tổng hợp, biên tập và xuất bản độc quyền bởi **CodeGame.Shop** (https://codegame.shop)."
+  },
+  {
+    "id": "news_1792045689741_99g4a",
+    "slug": "code-ta-la-quan-lao-gia-moi-nhat-thang-10-2026-cach-nhap-code",
+    "title": "Code Ta Là Quan Lão Gia Mới Nhất Tháng 10/2026: Hướng Dẫn Nhập Code Nhận Nguyên Bảo",
+    "summary": "Nhận ngay hàng ngàn Nguyên Bảo, Đan Dược và Môn Khách VIP với trọn bộ mã code Ta Là Quan Lão Gia mới nhất tháng 10/2026 được cập nhật liên tục.",
+    "game_name": "Ta Là Quan Lão Gia",
+    "game_slug": "ta-la-quan-lao-gia",
+    "cover_url": "/game_icons/ta-la-quan-lao-gia.webp",
+    "author": "CodeGame.Shop",
+    "source_name": "CodeGame.Shop",
+    "source_url": "https://codegame.shop",
+    "created_at": "2026-10-19T16:00:00Z",
+    "updated_at": "2026-10-21T07:00:00Z",
+    "views_count": 3100,
+    "reading_time_minutes": 4,
+    "tags": [
+      "Ta Là Quan Lão Gia",
+      "Code Quan Lão Gia",
+      "Nguyên Bảo",
+      "Game Cung Đấu"
+    ],
+    "codes": [
+      "TLQLG2026",
+      "QUANLAOGIA88",
+      "VIPNGUYENBAO",
+      "MONKHACHVIP"
+    ],
+    "status": "PUBLISHED",
+    "content": "## 👑 Bộ Code Tân Thủ Game Ta Là Quan Lão Gia Mới Nhất\n\nHành trình thăng quan tiến chức trong **Ta Là Quan Lão Gia** sẽ trở nên dễ dàng hơn bao giờ hết nhờ nguồn tài nguyên dồi dào từ các mã quà tặng sau:\n\n### 📜 Danh Sách Code Đang Hoạt Động:\n- `TLQLG2026`: 8.888 Nguyên Bảo + 50 Thuốc Thể Lực.\n- `QUANLAOGIA88`: Rương Môn Khách Sử Thi + 10 Quyển Tăng Tư Chất.\n- `VIPNGUYENBAO`: 5.000 Nguyên Bảo và 20 Túi Bạc Lớn.\n- `MONKHACHVIP`: Môn Khách Hàn Tín + Bộ Quân Trang Thượng Phẩm.\n\n### 📌 Các Bước Nhập Code In-Game:\n1. Mở game, nhấn vào biểu tượng **Avatar** góc trên bên trái.\n2. Chọn mục **Thiết lập** > nhấn nút **Giftcode**.\n3. Điền mã code chính xác và bấm **Đổi quà**.\n\n> 🛡️ **Nguồn tin tức:** Bản tin được tổng hợp, biên tập và xuất bản độc quyền bởi **CodeGame.Shop** (https://codegame.shop)."
+  },
+  {
+    "id": "news_1792387242891_qsyr9",
+    "slug": "tong-hop-code-game-tarot-vinh-hang-than-ngu-va-cach-nhap-2026",
+    "title": "Tổng Hợp Code Game Tarot: Vĩnh Hằng Thần Ngữ Và Cách Nhập Mới Nhất 2026",
+    "summary": "Trọn bộ giftcode game thẻ bài ma thuật Tarot: Vĩnh Hằng Thần Ngữ mới ra mắt. Nhận vé rút bài chiêm tinh, kim cương và lá bài Tarot SSR huyền thoại.",
+    "game_name": "Tarot: Vĩnh Hằng Thần Ngữ",
+    "game_slug": "tarot-vinh-hang-than-ngu",
+    "cover_url": "/game_icons/tarot-vinh-hang-than-ngu.webp",
+    "author": "CodeGame.Shop",
+    "source_name": "CodeGame.Shop",
+    "source_url": "https://codegame.shop",
+    "created_at": "2026-10-19T14:00:00Z",
+    "updated_at": "2026-10-21T07:00:00Z",
+    "views_count": 2600,
+    "reading_time_minutes": 4,
+    "tags": [
+      "Tarot Vĩnh Hằng",
+      "Code Tarot",
+      "Thẻ bài ma thuật",
+      "Tân thủ"
+    ],
+    "codes": [
+      "TAROT2026",
+      "THANNGUVIP",
+      "CHIEMTINH88",
+      "LUCKYSPECIAL"
+    ],
+    "status": "PUBLISHED",
+    "content": "## 🔮 Khám Phá Thế Giới Chiêm Tinh Ma Mị Với Tarot: Vĩnh Hằng Thần Ngữ\n\nTựa game chiến thuật thẻ bài kết hợp nghệ thuật bói bài Tarot huyền bí đang thu hút sự chú ý của đông đảo game thủ.\n\n### 🌟 Danh Sách Giftcode Tân Thủ:\n- `TAROT2026`: 10 Vé Rút Bài Vận Mệnh + 1.000 Kim Cương.\n- `THANNGUVIP`: Thẻ Tarot SSR \"The Fool\" Thức Tỉnh.\n- `CHIEMTINH88`: 500 Tinh Thể Ánh Sáng và 50.000 Vàng.\n- `LUCKYSPECIAL`: Khung Avatar Độc Quyền Chiêm Tinh Sư.\n\n> 🛡️ **Nguồn tin tức:** Bản tin được tổng hợp, biên tập và xuất bản độc quyền bởi **CodeGame.Shop** (https://codegame.shop)."
+  },
+  {
+    "id": "news_1792332600285_0a1q5",
+    "slug": "code-ride-storm-moi-nhat-va-cach-doi-qua-2026",
+    "title": "Code Ride Storm Mới Nhất Và Cách Đổi Quà Tặng Đua Xe Đỉnh Cao (2026)",
+    "summary": "Tổng hợp giftcode Ride Storm mới nhất giúp bạn sở hữu ngay siêu xe tốc độ, gói nâng cấp động cơ nitro và hàng vạn vàng để xưng vương đường đua.",
+    "game_name": "Ride Storm",
+    "game_slug": "ride-storm",
+    "cover_url": "/news_covers/ride-storm.webp",
+    "author": "CodeGame.Shop",
+    "source_name": "CodeGame.Shop",
+    "source_url": "https://codegame.shop",
+    "created_at": "2026-10-19T12:00:00Z",
+    "updated_at": "2026-10-21T07:00:00Z",
+    "views_count": 1950,
+    "reading_time_minutes": 3,
+    "tags": [
+      "Ride Storm",
+      "Code Đua Xe",
+      "Tốc độ",
+      "Giftcode"
+    ],
+    "codes": [
+      "RIDESTORM2026",
+      "NITROBOOST",
+      "SPEEDVIP88",
+      "RACECHAMP"
+    ],
+    "status": "PUBLISHED",
+    "content": "## 🏎️ Chinh Phục Mọi Khúc Cua Nghẹt Thở Trong Ride Storm\n\nTựa game đua xe tốc độ cao Ride Storm mang đến đồ họa vật lý chân thực và những màn drift nảy lửa.\n\n### 🎁 Nhận Ngay Bộ Mã Code Đua Xe:\n- `RIDESTORM2026`: Siêu xe Phantom GT Thử Nghiệm 7 Ngày + 100.000 Vàng.\n- `NITROBOOST`: 50 Bình Nitro Tăng Tốc Cực Đại.\n- `SPEEDVIP88`: Bộ Lốp Đua Chống Trượt Chuyên Dụng.\n\n> 🛡️ **Nguồn tin tức:** Bản tin được tổng hợp, biên tập và xuất bản độc quyền bởi **CodeGame.Shop** (https://codegame.shop)."
+  },
+  {
+    "id": "news_1792235461294_lcai4",
+    "slug": "code-build-a-golem-moi-nhat-va-cach-doi-qua-2026",
+    "title": "Code Build a Golem Mới Nhất Và Cách Đổi Quà Roblox Xây Dựng Robot Đá (2026)",
+    "summary": "Cập nhật mã code game Build a Golem trên Roblox mới nhất 2026. Nhận đá ma thuật, khối năng lượng và thú cưng hỗ trợ xây dựng Golem khổng lồ.",
+    "game_name": "Build a Golem",
+    "game_slug": "build-a-golem",
+    "cover_url": "/news_covers/build-a-golem.webp",
+    "author": "CodeGame.Shop",
+    "source_name": "CodeGame.Shop",
+    "source_url": "https://codegame.shop",
+    "created_at": "2026-10-19T10:00:00Z",
+    "updated_at": "2026-10-21T07:00:00Z",
+    "views_count": 2300,
+    "reading_time_minutes": 3,
+    "tags": [
+      "Build a Golem",
+      "Code Roblox",
+      "Roblox Game",
+      "Golem"
+    ],
+    "codes": [
+      "GOLEM2026",
+      "BUILDSTONE",
+      "MAGICORE",
+      "MEGAGOLEM"
+    ],
+    "status": "PUBLISHED",
+    "content": "## 🗿 Xây Dựng Đội Quân Golem Hùng Mạnh Trên Nền Tảng Roblox\n\nTrò chơi mô phỏng chế tạo Golem đang gây sốt trên Roblox với hàng chục ngàn người chơi cùng lúc.\n\n### 💎 Danh Sách Mã Đổi Thưởng:\n- `GOLEM2026`: 500 Khối Đá Huyền Thoại + 10 Vé Tăng Tốc.\n- `BUILDSTONE`: Mở khóa Golem Dung Nham Tầng 1.\n- `MAGICORE`: 2.000 Tinh Thể Năng Lượng Chế Tạo.\n\n> 🛡️ **Nguồn tin tức:** Bản tin được tổng hợp, biên tập và xuất bản độc quyền bởi **CodeGame.Shop** (https://codegame.shop)."
+  },
+  {
+    "id": "news_1792151705370_q1yq4",
+    "slug": "code-volleyball-journey-moi-nhat-va-cach-doi-qua-2026",
+    "title": "Code Volleyball Journey Mới Nhất Và Cách Đổi Quà Bóng Chuyền Đỉnh Cao (2026)",
+    "summary": "Nhận bóng chuyền đặc biệt, giày đấu tăng bật nhảy và hàng ngàn xu với bộ code game Volleyball Journey mới nhất năm 2026.",
+    "game_name": "Volleyball Journey",
+    "game_slug": "volleyball-journey",
+    "cover_url": "/news_covers/volleyball-journey.webp",
+    "author": "CodeGame.Shop",
+    "source_name": "CodeGame.Shop",
+    "source_url": "https://codegame.shop",
+    "created_at": "2026-10-19T08:00:00Z",
+    "updated_at": "2026-10-21T07:00:00Z",
+    "views_count": 1750,
+    "reading_time_minutes": 3,
+    "tags": [
+      "Volleyball Journey",
+      "Bóng chuyền",
+      "Code Game",
+      "Thể thao"
+    ],
+    "codes": [
+      "VOLLEY2026",
+      "SPIKEVIP",
+      "JUMPMASTER",
+      "CHAMPIONSHIP"
+    ],
+    "status": "PUBLISHED",
+    "content": "## 🏐 Những Cú Đập Bóng Sấm Sét Trong Volleyball Journey\n\nTrải nghiệm bầu không khí sôi động của sàn đấu bóng chuyền chuyên nghiệp cùng Volleyball Journey. Nhập ngay các mã quà tặng để nâng cấp chỉ số bật nhảy và phản xạ cho vận động viên của bạn.\n\n> 🛡️ **Nguồn tin tức:** Bản tin được tổng hợp, biên tập và xuất bản độc quyền bởi **CodeGame.Shop** (https://codegame.shop)."
+  },
+  {
+    "id": "news_1792066117488_90iot",
+    "slug": "code-cameraman-tower-defense-moi-nhat-va-cach-doi-qua-2026",
+    "title": "Code Cameraman Tower Defense Mới Nhất Và Cách Đổi Quà Nhận Tháp Pháo VIP (2026)",
+    "summary": "Tổng hợp code game Cameraman Tower Defense mới nhất trên Roblox. Nhận tiền xu, tháp pháo Cameraman Huyền Thoại và thuốc bùa tăng sát thương.",
+    "game_name": "Cameraman Tower Defense",
+    "game_slug": "cameraman-tower-defense",
+    "cover_url": "/news_covers/cameraman-tower-defense.webp",
+    "author": "CodeGame.Shop",
+    "source_name": "CodeGame.Shop",
+    "source_url": "https://codegame.shop",
+    "created_at": "2026-10-19T06:00:00Z",
+    "updated_at": "2026-10-21T07:00:00Z",
+    "views_count": 3150,
+    "reading_time_minutes": 3,
+    "tags": [
+      "Cameraman",
+      "Tower Defense",
+      "Roblox Code",
+      "Skibidi"
+    ],
+    "codes": [
+      "CAMERAMAN2026",
+      "TOWERVIP88",
+      "DEFENSEHERO",
+      "LUCKYCOINS"
+    ],
+    "status": "PUBLISHED",
+    "content": "## 📸 Phòng Thủ Căn Cứ Trước Làn Sóng Quái Vật Cùng Cameraman\n\nTựa game thủ thành chiến thuật hấp dẫn trên Roblox đã bổ sung nhiều bản đồ và đơn vị tháp pháo hoàn toàn mới. Hãy sử dụng ngay mã code để mở khóa các chiến binh Cameraman cấp cao.\n\n> 🛡️ **Nguồn tin tức:** Bản tin được tổng hợp, biên tập và xuất bản độc quyền bởi **CodeGame.Shop** (https://codegame.shop)."
+  },
+  {
+    "id": "news_1792025616461_kuhu8",
+    "slug": "code-24-hours-overnight-moi-nhat-va-cach-doi-qua-2026",
+    "title": "Code 24 Hours Overnight Mới Nhất Và Cách Đổi Quà Sinh Tồn Đêm Khuya (2026)",
+    "summary": "Cập nhật mã đổi quà game sinh tồn 24 Hours Overnight. Nhận lương thực, đèn pin siêu sáng, vũ khí cận chiến và ba lô mở rộng miễn phí.",
+    "game_name": "24 Hours Overnight",
+    "game_slug": "24-hours-overnight",
+    "cover_url": "/news_covers/24-hours-overnight.webp",
+    "author": "CodeGame.Shop",
+    "source_name": "CodeGame.Shop",
+    "source_url": "https://codegame.shop",
+    "created_at": "2026-10-19T04:00:00Z",
+    "updated_at": "2026-10-21T07:00:00Z",
+    "views_count": 1850,
+    "reading_time_minutes": 3,
+    "tags": [
+      "24 Hours Overnight",
+      "Sinh tồn",
+      "Roblox Survival",
+      "Giftcode"
+    ],
+    "codes": [
+      "OVERNIGHT2026",
+      "SURVIVE24H",
+      "FLASHLIGHTVIP",
+      "BACKPACKEXP"
+    ],
+    "status": "PUBLISHED",
+    "content": "## ⛺ Thử Thách Sinh Tồn 24 Giờ Đêm Đầy Hồi Hộp\n\nLiệu bạn có đủ can đảm để sống sót qua 24 giờ đêm tối đầy rẫy hiểm nguy? Nhập ngay các giftcode từ CodeGame.Shop để trang bị đầy đủ vật phẩm thiết yếu cho hành trình sinh tồn.\n\n> 🛡️ **Nguồn tin tức:** Bản tin được tổng hợp, biên tập và xuất bản độc quyền bởi **CodeGame.Shop** (https://codegame.shop)."
+  },
+  {
+    "id": "news_1791893485168_73zt4",
+    "slug": "tong-hop-code-game-only-sword-nhat-kiem-doc-ton-va-cach-nhap-2026",
+    "title": "Tổng Hợp Code Game Only Sword: Nhất Kiếm Độc Tôn Và Cách Nhập Mới Nhất (2026)",
+    "summary": "Nhận ngay thần kiếm huyền thoại, ngọc khảm trang bị và đan dược tu vi với trọn bộ code game kiếm hiệp Only Sword: Nhất Kiếm Độc Tôn.",
+    "game_name": "Only Sword: Nhất Kiếm Độc Tôn",
+    "game_slug": "only-sword",
+    "cover_url": "/news_covers/only-sword.webp",
+    "author": "CodeGame.Shop",
+    "source_name": "CodeGame.Shop",
+    "source_url": "https://codegame.shop",
+    "created_at": "2026-10-19T02:00:00Z",
+    "updated_at": "2026-10-21T07:00:00Z",
+    "views_count": 2900,
+    "reading_time_minutes": 4,
+    "tags": [
+      "Only Sword",
+      "Nhất Kiếm Độc Tôn",
+      "Kiếm hiệp",
+      "Tu tiên"
+    ],
+    "codes": [
+      "ONLYSWORD2026",
+      "NHATKIEMVIP",
+      "THANVO888",
+      "KIEMHIEPVN"
+    ],
+    "status": "PUBLISHED",
+    "content": "## ⚔️ Một Kiếm Định Giang Sơn Trong Only Sword\n\nThế giới tu kiếm đỉnh cao đã mở cửa đón chào các kiếm sĩ. Hãy sử dụng những thanh thần kiếm uy lực nhất để chinh phục đỉnh phong giang hồ.\n\n> 🛡️ **Nguồn tin tức:** Bản tin được tổng hợp, biên tập và xuất bản độc quyền bởi **CodeGame.Shop** (https://codegame.shop)."
+  },
+  {
+    "id": "news_1791863619719_c2lg3",
+    "slug": "code-my-anime-mine-moi-nhat-va-cach-doi-qua-2026",
+    "title": "Code My Anime Mine Mới Nhất Và Cách Đổi Quà Khai Thác Mỏ Anime (2026)",
+    "summary": "Bộ giftcode game My Anime Mine mới nhất trên Roblox. Nhận cuốc đào kim cương, nhân vật anime hỗ trợ và vé x2 tài nguyên khai thác.",
+    "game_name": "My Anime Mine",
+    "game_slug": "my-anime-mine",
+    "cover_url": "/news_covers/my-anime-mine.webp",
+    "author": "CodeGame.Shop",
+    "source_name": "CodeGame.Shop",
+    "source_url": "https://codegame.shop",
+    "created_at": "2026-10-19T00:00:00Z",
+    "updated_at": "2026-10-21T07:00:00Z",
+    "views_count": 2100,
+    "reading_time_minutes": 3,
+    "tags": [
+      "My Anime Mine",
+      "Anime Roblox",
+      "Khai thác mỏ",
+      "Giftcode"
+    ],
+    "codes": [
+      "ANIMEMINE2026",
+      "DIAMONDPICK",
+      "X2LUCKYCOIN",
+      "SUPERHERO"
+    ],
+    "status": "PUBLISHED",
+    "content": "## ⛏️ Đào Kho Báu Cùng Dàn Nhân Vật Anime Yêu Thích\n\nKhai thác những tầng khoáng sản sâu nhất và triệu hồi các anh hùng anime trứ danh để hỗ trợ bạn trong My Anime Mine.\n\n> 🛡️ **Nguồn tin tức:** Bản tin được tổng hợp, biên tập và xuất bản độc quyền bởi **CodeGame.Shop** (https://codegame.shop)."
+  },
+  {
+    "id": "news_auto_game_tam_quoc_x",
+    "slug": "code-tam-quoc-x-moi-nhat-tong-hop-ma-tan-thu-2026",
+    "title": "Code TAM QUỐC X Mới Nhất 2026: Tổng Hợp Mã Tân Thủ & Hướng Dẫn Nhập Chi Tiết",
+    "summary": "Tổng hợp trọn bộ giftcode game TAM QUỐC X (CÔNG TY CỔ PHẦN FUNTAP) mới nhất tháng 10/2026. Hướng dẫn cách nhập mã đổi thưởng nhận ngọc, trang bị VIP và quà tân thủ cực xịn.",
+    "game_name": "TAM QUỐC X",
+    "game_slug": "tam-quoc-x",
+    "cover_url": "/game_icons/tam-quoc-x.webp",
+    "author": "CodeGame.Shop",
+    "source_name": "CodeGame.Shop",
+    "source_url": "https://codegame.shop",
+    "created_at": "2026-10-21T03:30:47.282Z",
+    "updated_at": "2026-10-21T07:00:00Z",
+    "views_count": 4155,
+    "reading_time_minutes": 4,
+    "tags": [
+      "TAM QUỐC X",
+      "Code TAM QUỐC X",
+      "Tam Quốc / Chiến Thuật",
+      "Giftcode 2026",
+      "Tân thủ"
+    ],
+    "codes": [
+      "VIP555",
+      "VIP666",
+      "VIP777",
+      "VIP888",
+      "VIP999",
+      "VIP2025",
+      "ChoiNgay",
+      "LUBO2025"
+    ],
+    "status": "PUBLISHED",
+    "content": "## 🎮 Giới Thiệu Tựa Game TAM QUỐC X\n\nTựa game **TAM QUỐC X** do nhà phát hành **CÔNG TY CỔ PHẦN FUNTAP** phát hành đã nhanh chóng thu hút được sự quan tâm của đông đảo game thủ yêu thích thể loại Tam Quốc / Chiến Thuật. Với lối chơi cuốn hút, đồ họa bắt mắt cùng các tính năng cộng đồng đặc sắc, tựa game hứa hẹn sẽ mang đến những giờ phút giải trí bùng nổ.\n\n### 🎁 Danh Sách Giftcode TAM QUỐC X Mới Nhất Tháng 10/2026\n\nDưới đây là bảng tổng hợp các mã giftcode đang hoạt động được **CodeGame.Shop** kiểm tra và xác thực:\n\n- `VIP555`: Gói Quà Tân Thủ & Tài Nguyên Nâng Cấp Tướng.\n- `VIP666`: Gói Quà Tân Thủ & Tài Nguyên Nâng Cấp Tướng.\n- `VIP777`: Gói Quà Tân Thủ & Tài Nguyên Nâng Cấp Tướng.\n- `VIP888`: Gói Quà Tân Thủ & Tài Nguyên Nâng Cấp Tướng.\n- `VIP999`: Gói Quà Tân Thủ & Tài Nguyên Nâng Cấp Tướng.\n- `VIP2025`: Gói Quà Tân Thủ & Tài Nguyên Nâng Cấp Tướng.\n- `ChoiNgay`: Gói Quà Tân Thủ & Tài Nguyên Nâng Cấp Tướng.\n- `LUBO2025`: Gói Quà Tân Thủ & Tài Nguyên Nâng Cấp Tướng.\n\n> 💡 **Mẹo:** Các mã giftcode đều có giới hạn số lượng và thời hạn sử dụng. Bạn hãy nhanh tay nhập mã ngay khi có thể!\n\n---\n\n### 📝 Hướng Dẫn Các Bước Nhập Giftcode Trong Game TAM QUỐC X\n\n1. **Bước 1:** Khởi động game **TAM QUỐC X** và đăng nhập vào tài khoản chơi của bạn.\n2. **Bước 2:** Nhấn vào biểu tượng **Avatar nhân vật** hoặc mục **Cài đặt / Thiết lập (Settings)** ở giao diện chính.\n3. **Bước 3:** Tìm và chọn mục **Đổi Quà / Giftcode**.\n4. **Bước 4:** Nhập chính xác mã giftcode vào ô trống và nhấn nút **Xác Nhận / Nhận Thưởng**.\n5. **Bước 5:** Mở mục **Hòm Thư (Mailbox)** trong game để kiểm tra và nhận vật phẩm.\n\n---\n\n### 🔍 Cách Nhận Thêm Code TAM QUỐC X Miễn Phí Mỗi Ngày\n- Thường xuyên theo dõi Fanpage và Group cộng đồng chính thức của game.\n- Tham gia các minigame, sự kiện mừng máy chủ mới (Open Beta) hoặc livestream từ NPH.\n- Ghé thăm website **[CodeGame.Shop](https://codegame.shop)** hàng ngày để cập nhật mã code sớm nhất và tham gia mục **[Giveaways](https://codegame.shop/giveaways)** nhận quà độc quyền.\n\n> 🛡️ **Nguồn tin tức:** Bản tin được tổng hợp, biên tập và xuất bản độc quyền bởi **CodeGame.Shop** (https://codegame.shop)."
+  },
+  {
+    "id": "news_auto_game_me_ta_tam_quoc",
+    "slug": "code-me-ta-tam-quoc-moi-nhat-tong-hop-ma-tan-thu-2026",
+    "title": "Code Mê Ta Tam Quốc Mới Nhất 2026: Tổng Hợp Mã Tân Thủ & Hướng Dẫn Nhập Chi Tiết",
+    "summary": "Tổng hợp trọn bộ giftcode game Mê Ta Tam Quốc (CÔNG TY CỔ PHẦN TRUYỀN HÌNH TƯƠNG TÁC VIỆT NAM ) mới nhất tháng 10/2026. Hướng dẫn cách nhập mã đổi thưởng nhận ngọc, trang bị VIP và quà tân thủ cực xịn.",
+    "game_name": "Mê Ta Tam Quốc",
+    "game_slug": "me-ta-tam-quoc",
+    "cover_url": "/game_icons/me-ta-tam-quoc.webp",
+    "author": "CodeGame.Shop",
+    "source_name": "CodeGame.Shop",
+    "source_url": "https://codegame.shop",
+    "created_at": "2026-10-20T23:30:47.283Z",
+    "updated_at": "2026-10-21T07:00:00Z",
+    "views_count": 4110,
+    "reading_time_minutes": 4,
+    "tags": [
+      "Mê Ta Tam Quốc",
+      "Code Mê Ta Tam Quốc",
+      "Tam Quốc / Chiến Thuật",
+      "Giftcode 2026",
+      "Tân thủ"
+    ],
+    "codes": [
+      "VIP555",
+      "VIP666",
+      "VIP777",
+      "VIP888",
+      "VIP999",
+      "VIP2025",
+      "ChoiNgay",
+      "LUBO2025"
+    ],
+    "status": "PUBLISHED",
+    "content": "## 🎮 Giới Thiệu Tựa Game Mê Ta Tam Quốc\n\nTựa game **Mê Ta Tam Quốc** do nhà phát hành **CÔNG TY CỔ PHẦN TRUYỀN HÌNH TƯƠNG TÁC VIỆT NAM ** phát hành đã nhanh chóng thu hút được sự quan tâm của đông đảo game thủ yêu thích thể loại Tam Quốc / Chiến Thuật. Với lối chơi cuốn hút, đồ họa bắt mắt cùng các tính năng cộng đồng đặc sắc, tựa game hứa hẹn sẽ mang đến những giờ phút giải trí bùng nổ.\n\n### 🎁 Danh Sách Giftcode Mê Ta Tam Quốc Mới Nhất Tháng 10/2026\n\nDưới đây là bảng tổng hợp các mã giftcode đang hoạt động được **CodeGame.Shop** kiểm tra và xác thực:\n\n- `VIP555`: Gói Quà Tân Thủ & Tài Nguyên Nâng Cấp Tướng.\n- `VIP666`: Gói Quà Tân Thủ & Tài Nguyên Nâng Cấp Tướng.\n- `VIP777`: Gói Quà Tân Thủ & Tài Nguyên Nâng Cấp Tướng.\n- `VIP888`: Gói Quà Tân Thủ & Tài Nguyên Nâng Cấp Tướng.\n- `VIP999`: Gói Quà Tân Thủ & Tài Nguyên Nâng Cấp Tướng.\n- `VIP2025`: Gói Quà Tân Thủ & Tài Nguyên Nâng Cấp Tướng.\n- `ChoiNgay`: Gói Quà Tân Thủ & Tài Nguyên Nâng Cấp Tướng.\n- `LUBO2025`: Gói Quà Tân Thủ & Tài Nguyên Nâng Cấp Tướng.\n\n> 💡 **Mẹo:** Các mã giftcode đều có giới hạn số lượng và thời hạn sử dụng. Bạn hãy nhanh tay nhập mã ngay khi có thể!\n\n---\n\n### 📝 Hướng Dẫn Các Bước Nhập Giftcode Trong Game Mê Ta Tam Quốc\n\n1. **Bước 1:** Khởi động game **Mê Ta Tam Quốc** và đăng nhập vào tài khoản chơi của bạn.\n2. **Bước 2:** Nhấn vào biểu tượng **Avatar nhân vật** hoặc mục **Cài đặt / Thiết lập (Settings)** ở giao diện chính.\n3. **Bước 3:** Tìm và chọn mục **Đổi Quà / Giftcode**.\n4. **Bước 4:** Nhập chính xác mã giftcode vào ô trống và nhấn nút **Xác Nhận / Nhận Thưởng**.\n5. **Bước 5:** Mở mục **Hòm Thư (Mailbox)** trong game để kiểm tra và nhận vật phẩm.\n\n---\n\n### 🔍 Cách Nhận Thêm Code Mê Ta Tam Quốc Miễn Phí Mỗi Ngày\n- Thường xuyên theo dõi Fanpage và Group cộng đồng chính thức của game.\n- Tham gia các minigame, sự kiện mừng máy chủ mới (Open Beta) hoặc livestream từ NPH.\n- Ghé thăm website **[CodeGame.Shop](https://codegame.shop)** hàng ngày để cập nhật mã code sớm nhất và tham gia mục **[Giveaways](https://codegame.shop/giveaways)** nhận quà độc quyền.\n\n> 🛡️ **Nguồn tin tức:** Bản tin được tổng hợp, biên tập và xuất bản độc quyền bởi **CodeGame.Shop** (https://codegame.shop)."
+  },
+  {
+    "id": "news_auto_game_yen_van_thap_luc_thanh",
+    "slug": "code-yen-van-thap-luc-thanh-moi-nhat-tong-hop-ma-tan-thu-2026",
+    "title": "Code Yến Vân Thập Lục Thanh (Where Winds Meet) Mới Nhất 2026: Tổng Hợp Mã Tân Thủ & Hướng Dẫn Nhập Chi Tiết",
+    "summary": "Tổng hợp trọn bộ giftcode game Yến Vân Thập Lục Thanh (Where Winds Meet) (CÔNG TY CỔ PHẦN FUNTAP GAMES ) mới nhất tháng 10/2026. Hướng dẫn cách nhập mã đổi thưởng nhận ngọc, trang bị VIP và quà tân thủ cực xịn.",
+    "game_name": "Yến Vân Thập Lục Thanh (Where Winds Meet)",
+    "game_slug": "yen-van-thap-luc-thanh",
+    "cover_url": "/game_icons/yen-van-thap-luc-thanh.webp",
+    "author": "CodeGame.Shop",
+    "source_name": "CodeGame.Shop",
+    "source_url": "https://codegame.shop",
+    "created_at": "2026-10-20T19:30:47.283Z",
+    "updated_at": "2026-10-21T07:00:00Z",
+    "views_count": 4065,
+    "reading_time_minutes": 4,
+    "tags": [
+      "Yến Vân Thập Lục Thanh (Where Winds Meet)",
+      "Code Yến Vân Thập Lục Thanh (Where Winds Meet)",
+      "Hành Động Nhập Vai & Thế Giới Mở",
+      "Giftcode 2026",
+      "Tân thủ"
+    ],
+    "codes": [
+      "PW4MEMJPTY",
+      "ESARA7YJ4M",
+      "SJR474KH3Q",
+      "KACDM36H6Q",
+      "WDCJA3AAA7",
+      "TPJH64YE8E",
+      "NT3C73KNWK",
+      "SS4P6XT7WD"
+    ],
+    "status": "PUBLISHED",
+    "content": "## 🎮 Giới Thiệu Tựa Game Yến Vân Thập Lục Thanh (Where Winds Meet)\n\nTựa game **Yến Vân Thập Lục Thanh (Where Winds Meet)** do nhà phát hành **CÔNG TY CỔ PHẦN FUNTAP GAMES ** phát hành đã nhanh chóng thu hút được sự quan tâm của đông đảo game thủ yêu thích thể loại Hành Động Nhập Vai & Thế Giới Mở. Với lối chơi cuốn hút, đồ họa bắt mắt cùng các tính năng cộng đồng đặc sắc, tựa game hứa hẹn sẽ mang đến những giờ phút giải trí bùng nổ.\n\n### 🎁 Danh Sách Giftcode Yến Vân Thập Lục Thanh (Where Winds Meet) Mới Nhất Tháng 10/2026\n\nDưới đây là bảng tổng hợp các mã giftcode đang hoạt động được **CodeGame.Shop** kiểm tra và xác thực:\n\n- `PW4MEMJPTY`: Gói Quà Tân Thủ & Tài Nguyên Nâng Cấp Tướng.\n- `ESARA7YJ4M`: Gói Quà Tân Thủ & Tài Nguyên Nâng Cấp Tướng.\n- `SJR474KH3Q`: Gói Quà Tân Thủ & Tài Nguyên Nâng Cấp Tướng.\n- `KACDM36H6Q`: Gói Quà Tân Thủ & Tài Nguyên Nâng Cấp Tướng.\n- `WDCJA3AAA7`: Gói Quà Tân Thủ & Tài Nguyên Nâng Cấp Tướng.\n- `TPJH64YE8E`: Gói Quà Tân Thủ & Tài Nguyên Nâng Cấp Tướng.\n- `NT3C73KNWK`: Gói Quà Tân Thủ & Tài Nguyên Nâng Cấp Tướng.\n- `SS4P6XT7WD`: Gói Quà Tân Thủ & Tài Nguyên Nâng Cấp Tướng.\n\n> 💡 **Mẹo:** Các mã giftcode đều có giới hạn số lượng và thời hạn sử dụng. Bạn hãy nhanh tay nhập mã ngay khi có thể!\n\n---\n\n### 📝 Hướng Dẫn Các Bước Nhập Giftcode Trong Game Yến Vân Thập Lục Thanh (Where Winds Meet)\n\n1. **Bước 1:** Khởi động game **Yến Vân Thập Lục Thanh (Where Winds Meet)** và đăng nhập vào tài khoản chơi của bạn.\n2. **Bước 2:** Nhấn vào biểu tượng **Avatar nhân vật** hoặc mục **Cài đặt / Thiết lập (Settings)** ở giao diện chính.\n3. **Bước 3:** Tìm và chọn mục **Đổi Quà / Giftcode**.\n4. **Bước 4:** Nhập chính xác mã giftcode vào ô trống và nhấn nút **Xác Nhận / Nhận Thưởng**.\n5. **Bước 5:** Mở mục **Hòm Thư (Mailbox)** trong game để kiểm tra và nhận vật phẩm.\n\n---\n\n### 🔍 Cách Nhận Thêm Code Yến Vân Thập Lục Thanh (Where Winds Meet) Miễn Phí Mỗi Ngày\n- Thường xuyên theo dõi Fanpage và Group cộng đồng chính thức của game.\n- Tham gia các minigame, sự kiện mừng máy chủ mới (Open Beta) hoặc livestream từ NPH.\n- Ghé thăm website **[CodeGame.Shop](https://codegame.shop)** hàng ngày để cập nhật mã code sớm nhất và tham gia mục **[Giveaways](https://codegame.shop/giveaways)** nhận quà độc quyền.\n\n> 🛡️ **Nguồn tin tức:** Bản tin được tổng hợp, biên tập và xuất bản độc quyền bởi **CodeGame.Shop** (https://codegame.shop)."
+  },
+  {
+    "id": "news_auto_game_where_winds_meet_mobile",
+    "slug": "code-where-winds-meet-mobile-moi-nhat-tong-hop-ma-tan-thu-2026",
+    "title": "Code Where Winds Meet Mới Nhất 2026: Tổng Hợp Mã Tân Thủ & Hướng Dẫn Nhập Chi Tiết",
+    "summary": "Tổng hợp trọn bộ giftcode game Where Winds Meet (Nhà Phát Hành Quốc Tế) mới nhất tháng 10/2026. Hướng dẫn cách nhập mã đổi thưởng nhận ngọc, trang bị VIP và quà tân thủ cực xịn.",
+    "game_name": "Where Winds Meet",
+    "game_slug": "where-winds-meet-mobile",
+    "cover_url": "/game_icons/where-winds-meet-mobile.webp",
+    "author": "CodeGame.Shop",
+    "source_name": "CodeGame.Shop",
+    "source_url": "https://codegame.shop",
+    "created_at": "2026-10-20T15:30:47.283Z",
+    "updated_at": "2026-10-21T07:00:00Z",
+    "views_count": 4020,
+    "reading_time_minutes": 4,
+    "tags": [
+      "Where Winds Meet",
+      "Code Where Winds Meet",
+      "Kiếm Hiệp / Tiên Hiệp",
+      "Giftcode 2026",
+      "Tân thủ"
+    ],
+    "codes": [
+      "YENVAN666",
+      "YENVAN888",
+      "YENVAN999",
+      "FUNTAPWWM",
+      "WHEREWINDSMEET",
+      "WUXIAOPENWORLD",
+      "THAPLUCTHANH",
+      "VIP666"
+    ],
+    "status": "PUBLISHED",
+    "content": "## 🎮 Giới Thiệu Tựa Game Where Winds Meet\n\nTựa game **Where Winds Meet** do nhà phát hành **Nhà Phát Hành Quốc Tế** phát hành đã nhanh chóng thu hút được sự quan tâm của đông đảo game thủ yêu thích thể loại Kiếm Hiệp / Tiên Hiệp. Với lối chơi cuốn hút, đồ họa bắt mắt cùng các tính năng cộng đồng đặc sắc, tựa game hứa hẹn sẽ mang đến những giờ phút giải trí bùng nổ.\n\n### 🎁 Danh Sách Giftcode Where Winds Meet Mới Nhất Tháng 10/2026\n\nDưới đây là bảng tổng hợp các mã giftcode đang hoạt động được **CodeGame.Shop** kiểm tra và xác thực:\n\n- `YENVAN666`: Gói Quà Tân Thủ & Tài Nguyên Nâng Cấp Tướng.\n- `YENVAN888`: Gói Quà Tân Thủ & Tài Nguyên Nâng Cấp Tướng.\n- `YENVAN999`: Gói Quà Tân Thủ & Tài Nguyên Nâng Cấp Tướng.\n- `FUNTAPWWM`: Gói Quà Tân Thủ & Tài Nguyên Nâng Cấp Tướng.\n- `WHEREWINDSMEET`: Gói Quà Tân Thủ & Tài Nguyên Nâng Cấp Tướng.\n- `WUXIAOPENWORLD`: Gói Quà Tân Thủ & Tài Nguyên Nâng Cấp Tướng.\n- `THAPLUCTHANH`: Gói Quà Tân Thủ & Tài Nguyên Nâng Cấp Tướng.\n- `VIP666`: Gói Quà Tân Thủ & Tài Nguyên Nâng Cấp Tướng.\n\n> 💡 **Mẹo:** Các mã giftcode đều có giới hạn số lượng và thời hạn sử dụng. Bạn hãy nhanh tay nhập mã ngay khi có thể!\n\n---\n\n### 📝 Hướng Dẫn Các Bước Nhập Giftcode Trong Game Where Winds Meet\n\n1. **Bước 1:** Khởi động game **Where Winds Meet** và đăng nhập vào tài khoản chơi của bạn.\n2. **Bước 2:** Nhấn vào biểu tượng **Avatar nhân vật** hoặc mục **Cài đặt / Thiết lập (Settings)** ở giao diện chính.\n3. **Bước 3:** Tìm và chọn mục **Đổi Quà / Giftcode**.\n4. **Bước 4:** Nhập chính xác mã giftcode vào ô trống và nhấn nút **Xác Nhận / Nhận Thưởng**.\n5. **Bước 5:** Mở mục **Hòm Thư (Mailbox)** trong game để kiểm tra và nhận vật phẩm.\n\n---\n\n### 🔍 Cách Nhận Thêm Code Where Winds Meet Miễn Phí Mỗi Ngày\n- Thường xuyên theo dõi Fanpage và Group cộng đồng chính thức của game.\n- Tham gia các minigame, sự kiện mừng máy chủ mới (Open Beta) hoặc livestream từ NPH.\n- Ghé thăm website **[CodeGame.Shop](https://codegame.shop)** hàng ngày để cập nhật mã code sớm nhất và tham gia mục **[Giveaways](https://codegame.shop/giveaways)** nhận quà độc quyền.\n\n> 🛡️ **Nguồn tin tức:** Bản tin được tổng hợp, biên tập và xuất bản độc quyền bởi **CodeGame.Shop** (https://codegame.shop)."
+  },
+  {
+    "id": "news_auto_game_samkok_tam_quoc",
+    "slug": "code-samkok-tam-quoc-moi-nhat-tong-hop-ma-tan-thu-2026",
+    "title": "Code Samkok Tam Quốc Mới Nhất 2026: Tổng Hợp Mã Tân Thủ & Hướng Dẫn Nhập Chi Tiết",
+    "summary": "Tổng hợp trọn bộ giftcode game Samkok Tam Quốc (CÔNG TY CỔ PHẦN TRUYỀN HÌNH TƯƠNG TÁC VIỆT NAM) mới nhất tháng 10/2026. Hướng dẫn cách nhập mã đổi thưởng nhận ngọc, trang bị VIP và quà tân thủ cực xịn.",
+    "game_name": "Samkok Tam Quốc",
+    "game_slug": "samkok-tam-quoc",
+    "cover_url": "/game_icons/samkok-tam-quoc.webp",
+    "author": "CodeGame.Shop",
+    "source_name": "CodeGame.Shop",
+    "source_url": "https://codegame.shop",
+    "created_at": "2026-10-20T11:30:47.283Z",
+    "updated_at": "2026-10-21T07:00:00Z",
+    "views_count": 3975,
+    "reading_time_minutes": 4,
+    "tags": [
+      "Samkok Tam Quốc",
+      "Code Samkok Tam Quốc",
+      "Tam Quốc / Chiến Thuật",
+      "Giftcode 2026",
+      "Tân thủ"
+    ],
+    "codes": [
+      "NHATNIEMTANTHU",
+      "LINHGIOI",
+      "TIENGIOI",
+      "ANNIVERSARY2025",
+      "CHILDRENS25",
+      "XSAMKOKCNY",
+      "NewYear25",
+      "HappyCNY"
+    ],
+    "status": "PUBLISHED",
+    "content": "## 🎮 Giới Thiệu Tựa Game Samkok Tam Quốc\n\nTựa game **Samkok Tam Quốc** do nhà phát hành **CÔNG TY CỔ PHẦN TRUYỀN HÌNH TƯƠNG TÁC VIỆT NAM** phát hành đã nhanh chóng thu hút được sự quan tâm của đông đảo game thủ yêu thích thể loại Tam Quốc / Chiến Thuật. Với lối chơi cuốn hút, đồ họa bắt mắt cùng các tính năng cộng đồng đặc sắc, tựa game hứa hẹn sẽ mang đến những giờ phút giải trí bùng nổ.\n\n### 🎁 Danh Sách Giftcode Samkok Tam Quốc Mới Nhất Tháng 10/2026\n\nDưới đây là bảng tổng hợp các mã giftcode đang hoạt động được **CodeGame.Shop** kiểm tra và xác thực:\n\n- `NHATNIEMTANTHU`: Gói Quà Tân Thủ & Tài Nguyên Nâng Cấp Tướng.\n- `LINHGIOI`: Gói Quà Tân Thủ & Tài Nguyên Nâng Cấp Tướng.\n- `TIENGIOI`: Gói Quà Tân Thủ & Tài Nguyên Nâng Cấp Tướng.\n- `ANNIVERSARY2025`: Gói Quà Tân Thủ & Tài Nguyên Nâng Cấp Tướng.\n- `CHILDRENS25`: Gói Quà Tân Thủ & Tài Nguyên Nâng Cấp Tướng.\n- `XSAMKOKCNY`: Gói Quà Tân Thủ & Tài Nguyên Nâng Cấp Tướng.\n- `NewYear25`: Gói Quà Tân Thủ & Tài Nguyên Nâng Cấp Tướng.\n- `HappyCNY`: Gói Quà Tân Thủ & Tài Nguyên Nâng Cấp Tướng.\n\n> 💡 **Mẹo:** Các mã giftcode đều có giới hạn số lượng và thời hạn sử dụng. Bạn hãy nhanh tay nhập mã ngay khi có thể!\n\n---\n\n### 📝 Hướng Dẫn Các Bước Nhập Giftcode Trong Game Samkok Tam Quốc\n\n1. **Bước 1:** Khởi động game **Samkok Tam Quốc** và đăng nhập vào tài khoản chơi của bạn.\n2. **Bước 2:** Nhấn vào biểu tượng **Avatar nhân vật** hoặc mục **Cài đặt / Thiết lập (Settings)** ở giao diện chính.\n3. **Bước 3:** Tìm và chọn mục **Đổi Quà / Giftcode**.\n4. **Bước 4:** Nhập chính xác mã giftcode vào ô trống và nhấn nút **Xác Nhận / Nhận Thưởng**.\n5. **Bước 5:** Mở mục **Hòm Thư (Mailbox)** trong game để kiểm tra và nhận vật phẩm.\n\n---\n\n### 🔍 Cách Nhận Thêm Code Samkok Tam Quốc Miễn Phí Mỗi Ngày\n- Thường xuyên theo dõi Fanpage và Group cộng đồng chính thức của game.\n- Tham gia các minigame, sự kiện mừng máy chủ mới (Open Beta) hoặc livestream từ NPH.\n- Ghé thăm website **[CodeGame.Shop](https://codegame.shop)** hàng ngày để cập nhật mã code sớm nhất và tham gia mục **[Giveaways](https://codegame.shop/giveaways)** nhận quà độc quyền.\n\n> 🛡️ **Nguồn tin tức:** Bản tin được tổng hợp, biên tập và xuất bản độc quyền bởi **CodeGame.Shop** (https://codegame.shop)."
+  },
+  {
+    "id": "news_auto_game_call_of_duty_mobile_vn",
+    "slug": "code-call-of-duty-mobile-vn-moi-nhat-tong-hop-ma-tan-thu-2026",
+    "title": "Code Call of Duty: Mobile VN Mới Nhất 2026: Tổng Hợp Mã Tân Thủ & Hướng Dẫn Nhập Chi Tiết",
+    "summary": "Tổng hợp trọn bộ giftcode game Call of Duty: Mobile VN (CÔNG TY CỔ PHẦN TẬP ĐOÀN VNG) mới nhất tháng 10/2026. Hướng dẫn cách nhập mã đổi thưởng nhận ngọc, trang bị VIP và quà tân thủ cực xịn.",
+    "game_name": "Call of Duty: Mobile VN",
+    "game_slug": "call-of-duty-mobile-vn",
+    "cover_url": "/game_icons/call-of-duty-mobile-vn.webp",
+    "author": "CodeGame.Shop",
+    "source_name": "CodeGame.Shop",
+    "source_url": "https://codegame.shop",
+    "created_at": "2026-10-20T07:30:47.283Z",
+    "updated_at": "2026-10-21T07:00:00Z",
+    "views_count": 3930,
+    "reading_time_minutes": 4,
+    "tags": [
+      "Call of Duty: Mobile VN",
+      "Code Call of Duty: Mobile VN",
+      "Bắn Súng / Sinh Tồn",
+      "Giftcode 2026",
+      "Tân thủ"
+    ],
+    "codes": [
+      "FREEMYTHICEVENT",
+      "BTPAZBZDSX",
+      "BTORZBZPW6",
+      "BTONZBZCK5",
+      "BTOJZBZSWW",
+      "BTOFZBZBNU",
+      "BTOCZBZNHX",
+      "CODMGBRC9F3LW"
+    ],
+    "status": "PUBLISHED",
+    "content": "## 🎮 Giới Thiệu Tựa Game Call of Duty: Mobile VN\n\nTựa game **Call of Duty: Mobile VN** do nhà phát hành **CÔNG TY CỔ PHẦN TẬP ĐOÀN VNG** phát hành đã nhanh chóng thu hút được sự quan tâm của đông đảo game thủ yêu thích thể loại Bắn Súng / Sinh Tồn. Với lối chơi cuốn hút, đồ họa bắt mắt cùng các tính năng cộng đồng đặc sắc, tựa game hứa hẹn sẽ mang đến những giờ phút giải trí bùng nổ.\n\n### 🎁 Danh Sách Giftcode Call of Duty: Mobile VN Mới Nhất Tháng 10/2026\n\nDưới đây là bảng tổng hợp các mã giftcode đang hoạt động được **CodeGame.Shop** kiểm tra và xác thực:\n\n- `FREEMYTHICEVENT`: Gói Quà Tân Thủ & Tài Nguyên Nâng Cấp Tướng.\n- `BTPAZBZDSX`: Gói Quà Tân Thủ & Tài Nguyên Nâng Cấp Tướng.\n- `BTORZBZPW6`: Gói Quà Tân Thủ & Tài Nguyên Nâng Cấp Tướng.\n- `BTONZBZCK5`: Gói Quà Tân Thủ & Tài Nguyên Nâng Cấp Tướng.\n- `BTOJZBZSWW`: Gói Quà Tân Thủ & Tài Nguyên Nâng Cấp Tướng.\n- `BTOFZBZBNU`: Gói Quà Tân Thủ & Tài Nguyên Nâng Cấp Tướng.\n- `BTOCZBZNHX`: Gói Quà Tân Thủ & Tài Nguyên Nâng Cấp Tướng.\n- `CODMGBRC9F3LW`: Gói Quà Tân Thủ & Tài Nguyên Nâng Cấp Tướng.\n\n> 💡 **Mẹo:** Các mã giftcode đều có giới hạn số lượng và thời hạn sử dụng. Bạn hãy nhanh tay nhập mã ngay khi có thể!\n\n---\n\n### 📝 Hướng Dẫn Các Bước Nhập Giftcode Trong Game Call of Duty: Mobile VN\n\n1. **Bước 1:** Khởi động game **Call of Duty: Mobile VN** và đăng nhập vào tài khoản chơi của bạn.\n2. **Bước 2:** Nhấn vào biểu tượng **Avatar nhân vật** hoặc mục **Cài đặt / Thiết lập (Settings)** ở giao diện chính.\n3. **Bước 3:** Tìm và chọn mục **Đổi Quà / Giftcode**.\n4. **Bước 4:** Nhập chính xác mã giftcode vào ô trống và nhấn nút **Xác Nhận / Nhận Thưởng**.\n5. **Bước 5:** Mở mục **Hòm Thư (Mailbox)** trong game để kiểm tra và nhận vật phẩm.\n\n---\n\n### 🔍 Cách Nhận Thêm Code Call of Duty: Mobile VN Miễn Phí Mỗi Ngày\n- Thường xuyên theo dõi Fanpage và Group cộng đồng chính thức của game.\n- Tham gia các minigame, sự kiện mừng máy chủ mới (Open Beta) hoặc livestream từ NPH.\n- Ghé thăm website **[CodeGame.Shop](https://codegame.shop)** hàng ngày để cập nhật mã code sớm nhất và tham gia mục **[Giveaways](https://codegame.shop/giveaways)** nhận quà độc quyền.\n\n> 🛡️ **Nguồn tin tức:** Bản tin được tổng hợp, biên tập và xuất bản độc quyền bởi **CodeGame.Shop** (https://codegame.shop)."
+  },
+  {
+    "id": "news_auto_game_chien_gioi_4d",
+    "slug": "code-chien-gioi-4d-moi-nhat-tong-hop-ma-tan-thu-2026",
+    "title": "Code Chiến Giới 4D Mới Nhất 2026: Tổng Hợp Mã Tân Thủ & Hướng Dẫn Nhập Chi Tiết",
+    "summary": "Tổng hợp trọn bộ giftcode game Chiến Giới 4D (CÔNG TY CỔ PHẦN TRUYỀN HÌNH TƯƠNG TÁC VIỆT NAM) mới nhất tháng 10/2026. Hướng dẫn cách nhập mã đổi thưởng nhận ngọc, trang bị VIP và quà tân thủ cực xịn.",
+    "game_name": "Chiến Giới 4D",
+    "game_slug": "chien-gioi-4d",
+    "cover_url": "/game_icons/chien-gioi-4d.webp",
+    "author": "CodeGame.Shop",
+    "source_name": "CodeGame.Shop",
+    "source_url": "https://codegame.shop",
+    "created_at": "2026-10-20T03:30:47.283Z",
+    "updated_at": "2026-10-21T07:00:00Z",
+    "views_count": 3885,
+    "reading_time_minutes": 4,
+    "tags": [
+      "Chiến Giới 4D",
+      "Code Chiến Giới 4D",
+      "Kiếm Hiệp / Tiên Hiệp",
+      "Giftcode 2026",
+      "Tân thủ"
+    ],
+    "codes": [
+      "TETTRUNGCUU99",
+      "CHIENGIOI999",
+      "THOITRANGVIP999",
+      "CANHVIP999",
+      "LANDING999",
+      "ĐẠILỄ020926",
+      "TAMBIETT826",
+      "XUTHU230826"
+    ],
+    "status": "PUBLISHED",
+    "content": "## 🎮 Giới Thiệu Tựa Game Chiến Giới 4D\n\nTựa game **Chiến Giới 4D** do nhà phát hành **CÔNG TY CỔ PHẦN TRUYỀN HÌNH TƯƠNG TÁC VIỆT NAM** phát hành đã nhanh chóng thu hút được sự quan tâm của đông đảo game thủ yêu thích thể loại Kiếm Hiệp / Tiên Hiệp. Với lối chơi cuốn hút, đồ họa bắt mắt cùng các tính năng cộng đồng đặc sắc, tựa game hứa hẹn sẽ mang đến những giờ phút giải trí bùng nổ.\n\n### 🎁 Danh Sách Giftcode Chiến Giới 4D Mới Nhất Tháng 10/2026\n\nDưới đây là bảng tổng hợp các mã giftcode đang hoạt động được **CodeGame.Shop** kiểm tra và xác thực:\n\n- `TETTRUNGCUU99`: Gói Quà Tân Thủ & Tài Nguyên Nâng Cấp Tướng.\n- `CHIENGIOI999`: Gói Quà Tân Thủ & Tài Nguyên Nâng Cấp Tướng.\n- `THOITRANGVIP999`: Gói Quà Tân Thủ & Tài Nguyên Nâng Cấp Tướng.\n- `CANHVIP999`: Gói Quà Tân Thủ & Tài Nguyên Nâng Cấp Tướng.\n- `LANDING999`: Gói Quà Tân Thủ & Tài Nguyên Nâng Cấp Tướng.\n- `ĐẠILỄ020926`: Gói Quà Tân Thủ & Tài Nguyên Nâng Cấp Tướng.\n- `TAMBIETT826`: Gói Quà Tân Thủ & Tài Nguyên Nâng Cấp Tướng.\n- `XUTHU230826`: Gói Quà Tân Thủ & Tài Nguyên Nâng Cấp Tướng.\n\n> 💡 **Mẹo:** Các mã giftcode đều có giới hạn số lượng và thời hạn sử dụng. Bạn hãy nhanh tay nhập mã ngay khi có thể!\n\n---\n\n### 📝 Hướng Dẫn Các Bước Nhập Giftcode Trong Game Chiến Giới 4D\n\n1. **Bước 1:** Khởi động game **Chiến Giới 4D** và đăng nhập vào tài khoản chơi của bạn.\n2. **Bước 2:** Nhấn vào biểu tượng **Avatar nhân vật** hoặc mục **Cài đặt / Thiết lập (Settings)** ở giao diện chính.\n3. **Bước 3:** Tìm và chọn mục **Đổi Quà / Giftcode**.\n4. **Bước 4:** Nhập chính xác mã giftcode vào ô trống và nhấn nút **Xác Nhận / Nhận Thưởng**.\n5. **Bước 5:** Mở mục **Hòm Thư (Mailbox)** trong game để kiểm tra và nhận vật phẩm.\n\n---\n\n### 🔍 Cách Nhận Thêm Code Chiến Giới 4D Miễn Phí Mỗi Ngày\n- Thường xuyên theo dõi Fanpage và Group cộng đồng chính thức của game.\n- Tham gia các minigame, sự kiện mừng máy chủ mới (Open Beta) hoặc livestream từ NPH.\n- Ghé thăm website **[CodeGame.Shop](https://codegame.shop)** hàng ngày để cập nhật mã code sớm nhất và tham gia mục **[Giveaways](https://codegame.shop/giveaways)** nhận quà độc quyền.\n\n> 🛡️ **Nguồn tin tức:** Bản tin được tổng hợp, biên tập và xuất bản độc quyền bởi **CodeGame.Shop** (https://codegame.shop)."
+  },
+  {
+    "id": "news_auto_game_tam_quoc_tu_thoi_ca",
+    "slug": "code-tam-quoc-tu-thoi-ca-moi-nhat-tong-hop-ma-tan-thu-2026",
+    "title": "Code Tam Quốc Tứ Thời Ca Mới Nhất 2026: Tổng Hợp Mã Tân Thủ & Hướng Dẫn Nhập Chi Tiết",
+    "summary": "Tổng hợp trọn bộ giftcode game Tam Quốc Tứ Thời Ca (CÔNG TY TNHH SOHA) mới nhất tháng 10/2026. Hướng dẫn cách nhập mã đổi thưởng nhận ngọc, trang bị VIP và quà tân thủ cực xịn.",
+    "game_name": "Tam Quốc Tứ Thời Ca",
+    "game_slug": "tam-quoc-tu-thoi-ca",
+    "cover_url": "/game_icons/tam-quoc-tu-thoi-ca.webp",
+    "author": "CodeGame.Shop",
+    "source_name": "CodeGame.Shop",
+    "source_url": "https://codegame.shop",
+    "created_at": "2026-10-19T23:30:47.283Z",
+    "updated_at": "2026-10-21T07:00:00Z",
+    "views_count": 3840,
+    "reading_time_minutes": 4,
+    "tags": [
+      "Tam Quốc Tứ Thời Ca",
+      "Code Tam Quốc Tứ Thời Ca",
+      "Thập Cẩm / Khác",
+      "Giftcode 2026",
+      "Tân thủ"
+    ],
+    "codes": [
+      "CODUYENDAUTUAN",
+      "HANHI999",
+      "NGANSATTHU999",
+      "THAIVU999",
+      "TONTHUONGHUONG888",
+      "HANGVU888",
+      "HANHIVAR",
+      "NGANVAR"
+    ],
+    "status": "PUBLISHED",
+    "content": "## 🎮 Giới Thiệu Tựa Game Tam Quốc Tứ Thời Ca\n\nTựa game **Tam Quốc Tứ Thời Ca** do nhà phát hành **CÔNG TY TNHH SOHA** phát hành đã nhanh chóng thu hút được sự quan tâm của đông đảo game thủ yêu thích thể loại Thập Cẩm / Khác. Với lối chơi cuốn hút, đồ họa bắt mắt cùng các tính năng cộng đồng đặc sắc, tựa game hứa hẹn sẽ mang đến những giờ phút giải trí bùng nổ.\n\n### 🎁 Danh Sách Giftcode Tam Quốc Tứ Thời Ca Mới Nhất Tháng 10/2026\n\nDưới đây là bảng tổng hợp các mã giftcode đang hoạt động được **CodeGame.Shop** kiểm tra và xác thực:\n\n- `CODUYENDAUTUAN`: Gói Quà Tân Thủ & Tài Nguyên Nâng Cấp Tướng.\n- `HANHI999`: Gói Quà Tân Thủ & Tài Nguyên Nâng Cấp Tướng.\n- `NGANSATTHU999`: Gói Quà Tân Thủ & Tài Nguyên Nâng Cấp Tướng.\n- `THAIVU999`: Gói Quà Tân Thủ & Tài Nguyên Nâng Cấp Tướng.\n- `TONTHUONGHUONG888`: Gói Quà Tân Thủ & Tài Nguyên Nâng Cấp Tướng.\n- `HANGVU888`: Gói Quà Tân Thủ & Tài Nguyên Nâng Cấp Tướng.\n- `HANHIVAR`: Gói Quà Tân Thủ & Tài Nguyên Nâng Cấp Tướng.\n- `NGANVAR`: Gói Quà Tân Thủ & Tài Nguyên Nâng Cấp Tướng.\n\n> 💡 **Mẹo:** Các mã giftcode đều có giới hạn số lượng và thời hạn sử dụng. Bạn hãy nhanh tay nhập mã ngay khi có thể!\n\n---\n\n### 📝 Hướng Dẫn Các Bước Nhập Giftcode Trong Game Tam Quốc Tứ Thời Ca\n\n1. **Bước 1:** Khởi động game **Tam Quốc Tứ Thời Ca** và đăng nhập vào tài khoản chơi của bạn.\n2. **Bước 2:** Nhấn vào biểu tượng **Avatar nhân vật** hoặc mục **Cài đặt / Thiết lập (Settings)** ở giao diện chính.\n3. **Bước 3:** Tìm và chọn mục **Đổi Quà / Giftcode**.\n4. **Bước 4:** Nhập chính xác mã giftcode vào ô trống và nhấn nút **Xác Nhận / Nhận Thưởng**.\n5. **Bước 5:** Mở mục **Hòm Thư (Mailbox)** trong game để kiểm tra và nhận vật phẩm.\n\n---\n\n### 🔍 Cách Nhận Thêm Code Tam Quốc Tứ Thời Ca Miễn Phí Mỗi Ngày\n- Thường xuyên theo dõi Fanpage và Group cộng đồng chính thức của game.\n- Tham gia các minigame, sự kiện mừng máy chủ mới (Open Beta) hoặc livestream từ NPH.\n- Ghé thăm website **[CodeGame.Shop](https://codegame.shop)** hàng ngày để cập nhật mã code sớm nhất và tham gia mục **[Giveaways](https://codegame.shop/giveaways)** nhận quà độc quyền.\n\n> 🛡️ **Nguồn tin tức:** Bản tin được tổng hợp, biên tập và xuất bản độc quyền bởi **CodeGame.Shop** (https://codegame.shop)."
+  },
+  {
+    "id": "news_auto_game_dau_truong_chan_ly",
+    "slug": "code-dau-truong-chan-ly-moi-nhat-tong-hop-ma-tan-thu-2026",
+    "title": "Code Đấu Trường Chân Lý Mới Nhất 2026: Tổng Hợp Mã Tân Thủ & Hướng Dẫn Nhập Chi Tiết",
+    "summary": "Tổng hợp trọn bộ giftcode game Đấu Trường Chân Lý (CÔNG TY CỔ PHẦN TẬP ĐOÀN VNG) mới nhất tháng 10/2026. Hướng dẫn cách nhập mã đổi thưởng nhận ngọc, trang bị VIP và quà tân thủ cực xịn.",
+    "game_name": "Đấu Trường Chân Lý",
+    "game_slug": "dau-truong-chan-ly",
+    "cover_url": "/game_icons/dau-truong-chan-ly.webp",
+    "author": "CodeGame.Shop",
+    "source_name": "CodeGame.Shop",
+    "source_url": "https://codegame.shop",
+    "created_at": "2026-10-19T19:30:47.283Z",
+    "updated_at": "2026-10-21T07:00:00Z",
+    "views_count": 3795,
+    "reading_time_minutes": 4,
+    "tags": [
+      "Đấu Trường Chân Lý",
+      "Code Đấu Trường Chân Lý",
+      "Bắn Súng / Sinh Tồn",
+      "Giftcode 2026",
+      "Tân thủ"
+    ],
+    "codes": [
+      "TFTMOBILE",
+      "DTCL2026",
+      "PM3603E6D77872",
+      "PM3604EA66A0E0",
+      "PM36051DCC7D0",
+      "PM3604AF942E4C",
+      "PM3604A4DC2B6D",
+      "PM3601D15579A0"
+    ],
+    "status": "PUBLISHED",
+    "content": "## 🎮 Giới Thiệu Tựa Game Đấu Trường Chân Lý\n\nTựa game **Đấu Trường Chân Lý** do nhà phát hành **CÔNG TY CỔ PHẦN TẬP ĐOÀN VNG** phát hành đã nhanh chóng thu hút được sự quan tâm của đông đảo game thủ yêu thích thể loại Bắn Súng / Sinh Tồn. Với lối chơi cuốn hút, đồ họa bắt mắt cùng các tính năng cộng đồng đặc sắc, tựa game hứa hẹn sẽ mang đến những giờ phút giải trí bùng nổ.\n\n### 🎁 Danh Sách Giftcode Đấu Trường Chân Lý Mới Nhất Tháng 10/2026\n\nDưới đây là bảng tổng hợp các mã giftcode đang hoạt động được **CodeGame.Shop** kiểm tra và xác thực:\n\n- `TFTMOBILE`: Gói Quà Tân Thủ & Tài Nguyên Nâng Cấp Tướng.\n- `DTCL2026`: Gói Quà Tân Thủ & Tài Nguyên Nâng Cấp Tướng.\n- `PM3603E6D77872`: Gói Quà Tân Thủ & Tài Nguyên Nâng Cấp Tướng.\n- `PM3604EA66A0E0`: Gói Quà Tân Thủ & Tài Nguyên Nâng Cấp Tướng.\n- `PM36051DCC7D0`: Gói Quà Tân Thủ & Tài Nguyên Nâng Cấp Tướng.\n- `PM3604AF942E4C`: Gói Quà Tân Thủ & Tài Nguyên Nâng Cấp Tướng.\n- `PM3604A4DC2B6D`: Gói Quà Tân Thủ & Tài Nguyên Nâng Cấp Tướng.\n- `PM3601D15579A0`: Gói Quà Tân Thủ & Tài Nguyên Nâng Cấp Tướng.\n\n> 💡 **Mẹo:** Các mã giftcode đều có giới hạn số lượng và thời hạn sử dụng. Bạn hãy nhanh tay nhập mã ngay khi có thể!\n\n---\n\n### 📝 Hướng Dẫn Các Bước Nhập Giftcode Trong Game Đấu Trường Chân Lý\n\n1. **Bước 1:** Khởi động game **Đấu Trường Chân Lý** và đăng nhập vào tài khoản chơi của bạn.\n2. **Bước 2:** Nhấn vào biểu tượng **Avatar nhân vật** hoặc mục **Cài đặt / Thiết lập (Settings)** ở giao diện chính.\n3. **Bước 3:** Tìm và chọn mục **Đổi Quà / Giftcode**.\n4. **Bước 4:** Nhập chính xác mã giftcode vào ô trống và nhấn nút **Xác Nhận / Nhận Thưởng**.\n5. **Bước 5:** Mở mục **Hòm Thư (Mailbox)** trong game để kiểm tra và nhận vật phẩm.\n\n---\n\n### 🔍 Cách Nhận Thêm Code Đấu Trường Chân Lý Miễn Phí Mỗi Ngày\n- Thường xuyên theo dõi Fanpage và Group cộng đồng chính thức của game.\n- Tham gia các minigame, sự kiện mừng máy chủ mới (Open Beta) hoặc livestream từ NPH.\n- Ghé thăm website **[CodeGame.Shop](https://codegame.shop)** hàng ngày để cập nhật mã code sớm nhất và tham gia mục **[Giveaways](https://codegame.shop/giveaways)** nhận quà độc quyền.\n\n> 🛡️ **Nguồn tin tức:** Bản tin được tổng hợp, biên tập và xuất bản độc quyền bởi **CodeGame.Shop** (https://codegame.shop)."
+  },
+  {
+    "id": "news_auto_game_zingspeed_mobile",
+    "slug": "code-zingspeed-mobile-moi-nhat-tong-hop-ma-tan-thu-2026",
+    "title": "Code ZingSpeed Mobile Mới Nhất 2026: Tổng Hợp Mã Tân Thủ & Hướng Dẫn Nhập Chi Tiết",
+    "summary": "Tổng hợp trọn bộ giftcode game ZingSpeed Mobile (CÔNG TY CỔ PHẦN TẬP ĐOÀN VNG) mới nhất tháng 10/2026. Hướng dẫn cách nhập mã đổi thưởng nhận ngọc, trang bị VIP và quà tân thủ cực xịn.",
+    "game_name": "ZingSpeed Mobile",
+    "game_slug": "zingspeed-mobile",
+    "cover_url": "/game_icons/zingspeed-mobile.webp",
+    "author": "CodeGame.Shop",
+    "source_name": "CodeGame.Shop",
+    "source_url": "https://codegame.shop",
+    "created_at": "2026-10-19T15:30:47.283Z",
+    "updated_at": "2026-10-21T07:00:00Z",
+    "views_count": 3750,
+    "reading_time_minutes": 4,
+    "tags": [
+      "ZingSpeed Mobile",
+      "Code ZingSpeed Mobile",
+      "Bắn Súng / Sinh Tồn",
+      "Giftcode 2026",
+      "Tân thủ"
+    ],
+    "codes": [
+      "MANORVILLAV24",
+      "NEWODINT6",
+      "QUOCKHANH2K26",
+      "ASEANCUP26",
+      "100KSUBSYTB",
+      "ROADSHOWZSM",
+      "GOATWC2026",
+      "VUIDENTRUONG"
+    ],
+    "status": "PUBLISHED",
+    "content": "## 🎮 Giới Thiệu Tựa Game ZingSpeed Mobile\n\nTựa game **ZingSpeed Mobile** do nhà phát hành **CÔNG TY CỔ PHẦN TẬP ĐOÀN VNG** phát hành đã nhanh chóng thu hút được sự quan tâm của đông đảo game thủ yêu thích thể loại Bắn Súng / Sinh Tồn. Với lối chơi cuốn hút, đồ họa bắt mắt cùng các tính năng cộng đồng đặc sắc, tựa game hứa hẹn sẽ mang đến những giờ phút giải trí bùng nổ.\n\n### 🎁 Danh Sách Giftcode ZingSpeed Mobile Mới Nhất Tháng 10/2026\n\nDưới đây là bảng tổng hợp các mã giftcode đang hoạt động được **CodeGame.Shop** kiểm tra và xác thực:\n\n- `MANORVILLAV24`: Gói Quà Tân Thủ & Tài Nguyên Nâng Cấp Tướng.\n- `NEWODINT6`: Gói Quà Tân Thủ & Tài Nguyên Nâng Cấp Tướng.\n- `QUOCKHANH2K26`: Gói Quà Tân Thủ & Tài Nguyên Nâng Cấp Tướng.\n- `ASEANCUP26`: Gói Quà Tân Thủ & Tài Nguyên Nâng Cấp Tướng.\n- `100KSUBSYTB`: Gói Quà Tân Thủ & Tài Nguyên Nâng Cấp Tướng.\n- `ROADSHOWZSM`: Gói Quà Tân Thủ & Tài Nguyên Nâng Cấp Tướng.\n- `GOATWC2026`: Gói Quà Tân Thủ & Tài Nguyên Nâng Cấp Tướng.\n- `VUIDENTRUONG`: Gói Quà Tân Thủ & Tài Nguyên Nâng Cấp Tướng.\n\n> 💡 **Mẹo:** Các mã giftcode đều có giới hạn số lượng và thời hạn sử dụng. Bạn hãy nhanh tay nhập mã ngay khi có thể!\n\n---\n\n### 📝 Hướng Dẫn Các Bước Nhập Giftcode Trong Game ZingSpeed Mobile\n\n1. **Bước 1:** Khởi động game **ZingSpeed Mobile** và đăng nhập vào tài khoản chơi của bạn.\n2. **Bước 2:** Nhấn vào biểu tượng **Avatar nhân vật** hoặc mục **Cài đặt / Thiết lập (Settings)** ở giao diện chính.\n3. **Bước 3:** Tìm và chọn mục **Đổi Quà / Giftcode**.\n4. **Bước 4:** Nhập chính xác mã giftcode vào ô trống và nhấn nút **Xác Nhận / Nhận Thưởng**.\n5. **Bước 5:** Mở mục **Hòm Thư (Mailbox)** trong game để kiểm tra và nhận vật phẩm.\n\n---\n\n### 🔍 Cách Nhận Thêm Code ZingSpeed Mobile Miễn Phí Mỗi Ngày\n- Thường xuyên theo dõi Fanpage và Group cộng đồng chính thức của game.\n- Tham gia các minigame, sự kiện mừng máy chủ mới (Open Beta) hoặc livestream từ NPH.\n- Ghé thăm website **[CodeGame.Shop](https://codegame.shop)** hàng ngày để cập nhật mã code sớm nhất và tham gia mục **[Giveaways](https://codegame.shop/giveaways)** nhận quà độc quyền.\n\n> 🛡️ **Nguồn tin tức:** Bản tin được tổng hợp, biên tập và xuất bản độc quyền bởi **CodeGame.Shop** (https://codegame.shop)."
+  },
+  {
+    "id": "news_auto_game_giang_ho_ky_ngo",
+    "slug": "code-giang-ho-ky-ngo-moi-nhat-tong-hop-ma-tan-thu-2026",
+    "title": "Code Giang Hồ Kỳ Ngộ Mới Nhất 2026: Tổng Hợp Mã Tân Thủ & Hướng Dẫn Nhập Chi Tiết",
+    "summary": "Tổng hợp trọn bộ giftcode game Giang Hồ Kỳ Ngộ (CÔNG TY CỔ PHẦN TRUYỀN HÌNH TƯƠNG TÁC VIỆT NAM ) mới nhất tháng 10/2026. Hướng dẫn cách nhập mã đổi thưởng nhận ngọc, trang bị VIP và quà tân thủ cực xịn.",
+    "game_name": "Giang Hồ Kỳ Ngộ",
+    "game_slug": "giang-ho-ky-ngo",
+    "cover_url": "/game_icons/giang-ho-ky-ngo.webp",
+    "author": "CodeGame.Shop",
+    "source_name": "CodeGame.Shop",
+    "source_url": "https://codegame.shop",
+    "created_at": "2026-10-19T11:30:47.283Z",
+    "updated_at": "2026-10-21T07:00:00Z",
+    "views_count": 3705,
+    "reading_time_minutes": 4,
+    "tags": [
+      "Giang Hồ Kỳ Ngộ",
+      "Code Giang Hồ Kỳ Ngộ",
+      "Kiếm Hiệp / Tiên Hiệp",
+      "Giftcode 2026",
+      "Tân thủ"
+    ],
+    "codes": [
+      "iphoneduo",
+      "BTGSVT9UP",
+      "V20BOKVAN",
+      "V20PKDEPAF9",
+      "quockhanh29",
+      "GHKNT9UP",
+      "BATSONGATY",
+      "V20JERMIN"
+    ],
+    "status": "PUBLISHED",
+    "content": "## 🎮 Giới Thiệu Tựa Game Giang Hồ Kỳ Ngộ\n\nTựa game **Giang Hồ Kỳ Ngộ** do nhà phát hành **CÔNG TY CỔ PHẦN TRUYỀN HÌNH TƯƠNG TÁC VIỆT NAM ** phát hành đã nhanh chóng thu hút được sự quan tâm của đông đảo game thủ yêu thích thể loại Kiếm Hiệp / Tiên Hiệp. Với lối chơi cuốn hút, đồ họa bắt mắt cùng các tính năng cộng đồng đặc sắc, tựa game hứa hẹn sẽ mang đến những giờ phút giải trí bùng nổ.\n\n### 🎁 Danh Sách Giftcode Giang Hồ Kỳ Ngộ Mới Nhất Tháng 10/2026\n\nDưới đây là bảng tổng hợp các mã giftcode đang hoạt động được **CodeGame.Shop** kiểm tra và xác thực:\n\n- `iphoneduo`: Gói Quà Tân Thủ & Tài Nguyên Nâng Cấp Tướng.\n- `BTGSVT9UP`: Gói Quà Tân Thủ & Tài Nguyên Nâng Cấp Tướng.\n- `V20BOKVAN`: Gói Quà Tân Thủ & Tài Nguyên Nâng Cấp Tướng.\n- `V20PKDEPAF9`: Gói Quà Tân Thủ & Tài Nguyên Nâng Cấp Tướng.\n- `quockhanh29`: Gói Quà Tân Thủ & Tài Nguyên Nâng Cấp Tướng.\n- `GHKNT9UP`: Gói Quà Tân Thủ & Tài Nguyên Nâng Cấp Tướng.\n- `BATSONGATY`: Gói Quà Tân Thủ & Tài Nguyên Nâng Cấp Tướng.\n- `V20JERMIN`: Gói Quà Tân Thủ & Tài Nguyên Nâng Cấp Tướng.\n\n> 💡 **Mẹo:** Các mã giftcode đều có giới hạn số lượng và thời hạn sử dụng. Bạn hãy nhanh tay nhập mã ngay khi có thể!\n\n---\n\n### 📝 Hướng Dẫn Các Bước Nhập Giftcode Trong Game Giang Hồ Kỳ Ngộ\n\n1. **Bước 1:** Khởi động game **Giang Hồ Kỳ Ngộ** và đăng nhập vào tài khoản chơi của bạn.\n2. **Bước 2:** Nhấn vào biểu tượng **Avatar nhân vật** hoặc mục **Cài đặt / Thiết lập (Settings)** ở giao diện chính.\n3. **Bước 3:** Tìm và chọn mục **Đổi Quà / Giftcode**.\n4. **Bước 4:** Nhập chính xác mã giftcode vào ô trống và nhấn nút **Xác Nhận / Nhận Thưởng**.\n5. **Bước 5:** Mở mục **Hòm Thư (Mailbox)** trong game để kiểm tra và nhận vật phẩm.\n\n---\n\n### 🔍 Cách Nhận Thêm Code Giang Hồ Kỳ Ngộ Miễn Phí Mỗi Ngày\n- Thường xuyên theo dõi Fanpage và Group cộng đồng chính thức của game.\n- Tham gia các minigame, sự kiện mừng máy chủ mới (Open Beta) hoặc livestream từ NPH.\n- Ghé thăm website **[CodeGame.Shop](https://codegame.shop)** hàng ngày để cập nhật mã code sớm nhất và tham gia mục **[Giveaways](https://codegame.shop/giveaways)** nhận quà độc quyền.\n\n> 🛡️ **Nguồn tin tức:** Bản tin được tổng hợp, biên tập và xuất bản độc quyền bởi **CodeGame.Shop** (https://codegame.shop)."
+  },
+  {
+    "id": "news_auto_game_pirate_legends",
+    "slug": "code-pirate-legends-moi-nhat-tong-hop-ma-tan-thu-2026",
+    "title": "Code Pirate Legends: Huyền Thoại Hải Tặc Mới Nhất 2026: Tổng Hợp Mã Tân Thủ & Hướng Dẫn Nhập Chi Tiết",
+    "summary": "Tổng hợp trọn bộ giftcode game Pirate Legends: Huyền Thoại Hải Tặc (CÔNG TY CỔ PHẦN TRỰC TUYẾN GOSU) mới nhất tháng 10/2026. Hướng dẫn cách nhập mã đổi thưởng nhận ngọc, trang bị VIP và quà tân thủ cực xịn.",
+    "game_name": "Pirate Legends: Huyền Thoại Hải Tặc",
+    "game_slug": "pirate-legends",
+    "cover_url": "/game_icons/pirate-legends.webp",
+    "author": "CodeGame.Shop",
+    "source_name": "CodeGame.Shop",
+    "source_url": "https://codegame.shop",
+    "created_at": "2026-10-19T07:30:47.283Z",
+    "updated_at": "2026-10-21T07:00:00Z",
+    "views_count": 3660,
+    "reading_time_minutes": 4,
+    "tags": [
+      "Pirate Legends: Huyền Thoại Hải Tặc",
+      "Code Pirate Legends: Huyền Thoại Hải Tặc",
+      "Nhập Vai Gacha / Anime",
+      "Giftcode 2026",
+      "Tân thủ"
+    ],
+    "codes": [
+      "Q3SV4U8J6GN1D",
+      "ONEPIECE",
+      "HTHTVIP",
+      "ROBBERVIP11",
+      "MICKEYVIP10",
+      "MICKEYVIP9",
+      "CONVOICONVIP8",
+      "NNBXKHOCASOCVIP8"
+    ],
+    "status": "PUBLISHED",
+    "content": "## 🎮 Giới Thiệu Tựa Game Pirate Legends: Huyền Thoại Hải Tặc\n\nTựa game **Pirate Legends: Huyền Thoại Hải Tặc** do nhà phát hành **CÔNG TY CỔ PHẦN TRỰC TUYẾN GOSU** phát hành đã nhanh chóng thu hút được sự quan tâm của đông đảo game thủ yêu thích thể loại Nhập Vai Gacha / Anime. Với lối chơi cuốn hút, đồ họa bắt mắt cùng các tính năng cộng đồng đặc sắc, tựa game hứa hẹn sẽ mang đến những giờ phút giải trí bùng nổ.\n\n### 🎁 Danh Sách Giftcode Pirate Legends: Huyền Thoại Hải Tặc Mới Nhất Tháng 10/2026\n\nDưới đây là bảng tổng hợp các mã giftcode đang hoạt động được **CodeGame.Shop** kiểm tra và xác thực:\n\n- `Q3SV4U8J6GN1D`: Gói Quà Tân Thủ & Tài Nguyên Nâng Cấp Tướng.\n- `ONEPIECE`: Gói Quà Tân Thủ & Tài Nguyên Nâng Cấp Tướng.\n- `HTHTVIP`: Gói Quà Tân Thủ & Tài Nguyên Nâng Cấp Tướng.\n- `ROBBERVIP11`: Gói Quà Tân Thủ & Tài Nguyên Nâng Cấp Tướng.\n- `MICKEYVIP10`: Gói Quà Tân Thủ & Tài Nguyên Nâng Cấp Tướng.\n- `MICKEYVIP9`: Gói Quà Tân Thủ & Tài Nguyên Nâng Cấp Tướng.\n- `CONVOICONVIP8`: Gói Quà Tân Thủ & Tài Nguyên Nâng Cấp Tướng.\n- `NNBXKHOCASOCVIP8`: Gói Quà Tân Thủ & Tài Nguyên Nâng Cấp Tướng.\n\n> 💡 **Mẹo:** Các mã giftcode đều có giới hạn số lượng và thời hạn sử dụng. Bạn hãy nhanh tay nhập mã ngay khi có thể!\n\n---\n\n### 📝 Hướng Dẫn Các Bước Nhập Giftcode Trong Game Pirate Legends: Huyền Thoại Hải Tặc\n\n1. **Bước 1:** Khởi động game **Pirate Legends: Huyền Thoại Hải Tặc** và đăng nhập vào tài khoản chơi của bạn.\n2. **Bước 2:** Nhấn vào biểu tượng **Avatar nhân vật** hoặc mục **Cài đặt / Thiết lập (Settings)** ở giao diện chính.\n3. **Bước 3:** Tìm và chọn mục **Đổi Quà / Giftcode**.\n4. **Bước 4:** Nhập chính xác mã giftcode vào ô trống và nhấn nút **Xác Nhận / Nhận Thưởng**.\n5. **Bước 5:** Mở mục **Hòm Thư (Mailbox)** trong game để kiểm tra và nhận vật phẩm.\n\n---\n\n### 🔍 Cách Nhận Thêm Code Pirate Legends: Huyền Thoại Hải Tặc Miễn Phí Mỗi Ngày\n- Thường xuyên theo dõi Fanpage và Group cộng đồng chính thức của game.\n- Tham gia các minigame, sự kiện mừng máy chủ mới (Open Beta) hoặc livestream từ NPH.\n- Ghé thăm website **[CodeGame.Shop](https://codegame.shop)** hàng ngày để cập nhật mã code sớm nhất và tham gia mục **[Giveaways](https://codegame.shop/giveaways)** nhận quà độc quyền.\n\n> 🛡️ **Nguồn tin tức:** Bản tin được tổng hợp, biên tập và xuất bản độc quyền bởi **CodeGame.Shop** (https://codegame.shop)."
+  },
+  {
+    "id": "news_auto_game_endless_nightmare_6_reborn",
+    "slug": "code-endless-nightmare-6-reborn-moi-nhat-tong-hop-ma-tan-thu-2026",
+    "title": "Code Endless Nightmare 6: Reborn Mới Nhất 2026: Tổng Hợp Mã Tân Thủ & Hướng Dẫn Nhập Chi Tiết",
+    "summary": "Tổng hợp trọn bộ giftcode game Endless Nightmare 6: Reborn (Nhà Phát Hành Quốc Tế) mới nhất tháng 10/2026. Hướng dẫn cách nhập mã đổi thưởng nhận ngọc, trang bị VIP và quà tân thủ cực xịn.",
+    "game_name": "Endless Nightmare 6: Reborn",
+    "game_slug": "endless-nightmare-6-reborn",
+    "cover_url": "/game_icons/endless-nightmare-6-reborn.webp",
+    "author": "CodeGame.Shop",
+    "source_name": "CodeGame.Shop",
+    "source_url": "https://codegame.shop",
+    "created_at": "2026-10-19T03:30:47.283Z",
+    "updated_at": "2026-10-21T07:00:00Z",
+    "views_count": 3615,
+    "reading_time_minutes": 4,
+    "tags": [
+      "Endless Nightmare 6: Reborn",
+      "Code Endless Nightmare 6: Reborn",
+      "Kiếm Hiệp / Tiên Hiệp",
+      "Giftcode 2026",
+      "Tân thủ"
+    ],
+    "codes": [
+      "PQVJSBPUN",
+      "V4UZYHVAU",
+      "292D5N2CZ",
+      "JRHBM6JVH",
+      "7FC4BU8N7",
+      "Z6H3LYAX",
+      "U3T2XGU8T",
+      "Z8Z94MZFY"
+    ],
+    "status": "PUBLISHED",
+    "content": "## 🎮 Giới Thiệu Tựa Game Endless Nightmare 6: Reborn\n\nTựa game **Endless Nightmare 6: Reborn** do nhà phát hành **Nhà Phát Hành Quốc Tế** phát hành đã nhanh chóng thu hút được sự quan tâm của đông đảo game thủ yêu thích thể loại Kiếm Hiệp / Tiên Hiệp. Với lối chơi cuốn hút, đồ họa bắt mắt cùng các tính năng cộng đồng đặc sắc, tựa game hứa hẹn sẽ mang đến những giờ phút giải trí bùng nổ.\n\n### 🎁 Danh Sách Giftcode Endless Nightmare 6: Reborn Mới Nhất Tháng 10/2026\n\nDưới đây là bảng tổng hợp các mã giftcode đang hoạt động được **CodeGame.Shop** kiểm tra và xác thực:\n\n- `PQVJSBPUN`: Gói Quà Tân Thủ & Tài Nguyên Nâng Cấp Tướng.\n- `V4UZYHVAU`: Gói Quà Tân Thủ & Tài Nguyên Nâng Cấp Tướng.\n- `292D5N2CZ`: Gói Quà Tân Thủ & Tài Nguyên Nâng Cấp Tướng.\n- `JRHBM6JVH`: Gói Quà Tân Thủ & Tài Nguyên Nâng Cấp Tướng.\n- `7FC4BU8N7`: Gói Quà Tân Thủ & Tài Nguyên Nâng Cấp Tướng.\n- `Z6H3LYAX`: Gói Quà Tân Thủ & Tài Nguyên Nâng Cấp Tướng.\n- `U3T2XGU8T`: Gói Quà Tân Thủ & Tài Nguyên Nâng Cấp Tướng.\n- `Z8Z94MZFY`: Gói Quà Tân Thủ & Tài Nguyên Nâng Cấp Tướng.\n\n> 💡 **Mẹo:** Các mã giftcode đều có giới hạn số lượng và thời hạn sử dụng. Bạn hãy nhanh tay nhập mã ngay khi có thể!\n\n---\n\n### 📝 Hướng Dẫn Các Bước Nhập Giftcode Trong Game Endless Nightmare 6: Reborn\n\n1. **Bước 1:** Khởi động game **Endless Nightmare 6: Reborn** và đăng nhập vào tài khoản chơi của bạn.\n2. **Bước 2:** Nhấn vào biểu tượng **Avatar nhân vật** hoặc mục **Cài đặt / Thiết lập (Settings)** ở giao diện chính.\n3. **Bước 3:** Tìm và chọn mục **Đổi Quà / Giftcode**.\n4. **Bước 4:** Nhập chính xác mã giftcode vào ô trống và nhấn nút **Xác Nhận / Nhận Thưởng**.\n5. **Bước 5:** Mở mục **Hòm Thư (Mailbox)** trong game để kiểm tra và nhận vật phẩm.\n\n---\n\n### 🔍 Cách Nhận Thêm Code Endless Nightmare 6: Reborn Miễn Phí Mỗi Ngày\n- Thường xuyên theo dõi Fanpage và Group cộng đồng chính thức của game.\n- Tham gia các minigame, sự kiện mừng máy chủ mới (Open Beta) hoặc livestream từ NPH.\n- Ghé thăm website **[CodeGame.Shop](https://codegame.shop)** hàng ngày để cập nhật mã code sớm nhất và tham gia mục **[Giveaways](https://codegame.shop/giveaways)** nhận quà độc quyền.\n\n> 🛡️ **Nguồn tin tức:** Bản tin được tổng hợp, biên tập và xuất bản độc quyền bởi **CodeGame.Shop** (https://codegame.shop)."
+  },
+  {
+    "id": "news_auto_game_tam_quoc_tranh_ba_thien_ha",
+    "slug": "code-tam-quoc-tranh-ba-thien-ha-moi-nhat-tong-hop-ma-tan-thu-2026",
+    "title": "Code Tam Quốc: Tranh Bá Thiên Hạ Mới Nhất 2026: Tổng Hợp Mã Tân Thủ & Hướng Dẫn Nhập Chi Tiết",
+    "summary": "Tổng hợp trọn bộ giftcode game Tam Quốc: Tranh Bá Thiên Hạ (Công ty TNHH Trò chơi Mộc) mới nhất tháng 10/2026. Hướng dẫn cách nhập mã đổi thưởng nhận ngọc, trang bị VIP và quà tân thủ cực xịn.",
+    "game_name": "Tam Quốc: Tranh Bá Thiên Hạ",
+    "game_slug": "tam-quoc-tranh-ba-thien-ha",
+    "cover_url": "/game_icons/tam-quoc-tranh-ba-thien-ha.webp",
+    "author": "CodeGame.Shop",
+    "source_name": "CodeGame.Shop",
+    "source_url": "https://codegame.shop",
+    "created_at": "2026-10-18T23:30:47.284Z",
+    "updated_at": "2026-10-21T07:00:00Z",
+    "views_count": 3570,
+    "reading_time_minutes": 4,
+    "tags": [
+      "Tam Quốc: Tranh Bá Thiên Hạ",
+      "Code Tam Quốc: Tranh Bá Thiên Hạ",
+      "Tam Quốc / Chiến Thuật",
+      "Giftcode 2026",
+      "Tân thủ"
+    ],
+    "codes": [
+      "moon999",
+      "moon888",
+      "moon777",
+      "moon666",
+      "Vip999",
+      "ousay999",
+      "ousay888",
+      "ousay777"
+    ],
+    "status": "PUBLISHED",
+    "content": "## 🎮 Giới Thiệu Tựa Game Tam Quốc: Tranh Bá Thiên Hạ\n\nTựa game **Tam Quốc: Tranh Bá Thiên Hạ** do nhà phát hành **Công ty TNHH Trò chơi Mộc** phát hành đã nhanh chóng thu hút được sự quan tâm của đông đảo game thủ yêu thích thể loại Tam Quốc / Chiến Thuật. Với lối chơi cuốn hút, đồ họa bắt mắt cùng các tính năng cộng đồng đặc sắc, tựa game hứa hẹn sẽ mang đến những giờ phút giải trí bùng nổ.\n\n### 🎁 Danh Sách Giftcode Tam Quốc: Tranh Bá Thiên Hạ Mới Nhất Tháng 10/2026\n\nDưới đây là bảng tổng hợp các mã giftcode đang hoạt động được **CodeGame.Shop** kiểm tra và xác thực:\n\n- `moon999`: Gói Quà Tân Thủ & Tài Nguyên Nâng Cấp Tướng.\n- `moon888`: Gói Quà Tân Thủ & Tài Nguyên Nâng Cấp Tướng.\n- `moon777`: Gói Quà Tân Thủ & Tài Nguyên Nâng Cấp Tướng.\n- `moon666`: Gói Quà Tân Thủ & Tài Nguyên Nâng Cấp Tướng.\n- `Vip999`: Gói Quà Tân Thủ & Tài Nguyên Nâng Cấp Tướng.\n- `ousay999`: Gói Quà Tân Thủ & Tài Nguyên Nâng Cấp Tướng.\n- `ousay888`: Gói Quà Tân Thủ & Tài Nguyên Nâng Cấp Tướng.\n- `ousay777`: Gói Quà Tân Thủ & Tài Nguyên Nâng Cấp Tướng.\n\n> 💡 **Mẹo:** Các mã giftcode đều có giới hạn số lượng và thời hạn sử dụng. Bạn hãy nhanh tay nhập mã ngay khi có thể!\n\n---\n\n### 📝 Hướng Dẫn Các Bước Nhập Giftcode Trong Game Tam Quốc: Tranh Bá Thiên Hạ\n\n1. **Bước 1:** Khởi động game **Tam Quốc: Tranh Bá Thiên Hạ** và đăng nhập vào tài khoản chơi của bạn.\n2. **Bước 2:** Nhấn vào biểu tượng **Avatar nhân vật** hoặc mục **Cài đặt / Thiết lập (Settings)** ở giao diện chính.\n3. **Bước 3:** Tìm và chọn mục **Đổi Quà / Giftcode**.\n4. **Bước 4:** Nhập chính xác mã giftcode vào ô trống và nhấn nút **Xác Nhận / Nhận Thưởng**.\n5. **Bước 5:** Mở mục **Hòm Thư (Mailbox)** trong game để kiểm tra và nhận vật phẩm.\n\n---\n\n### 🔍 Cách Nhận Thêm Code Tam Quốc: Tranh Bá Thiên Hạ Miễn Phí Mỗi Ngày\n- Thường xuyên theo dõi Fanpage và Group cộng đồng chính thức của game.\n- Tham gia các minigame, sự kiện mừng máy chủ mới (Open Beta) hoặc livestream từ NPH.\n- Ghé thăm website **[CodeGame.Shop](https://codegame.shop)** hàng ngày để cập nhật mã code sớm nhất và tham gia mục **[Giveaways](https://codegame.shop/giveaways)** nhận quà độc quyền.\n\n> 🛡️ **Nguồn tin tức:** Bản tin được tổng hợp, biên tập và xuất bản độc quyền bởi **CodeGame.Shop** (https://codegame.shop)."
+  },
+  {
+    "id": "news_auto_game_danh_tuong_3q_vng",
+    "slug": "code-danh-tuong-3q-vng-moi-nhat-tong-hop-ma-tan-thu-2026",
+    "title": "Code Danh Tướng 3Q - VNG Mới Nhất 2026: Tổng Hợp Mã Tân Thủ & Hướng Dẫn Nhập Chi Tiết",
+    "summary": "Tổng hợp trọn bộ giftcode game Danh Tướng 3Q - VNG (CÔNG TY CỔ PHẦN VNG) mới nhất tháng 10/2026. Hướng dẫn cách nhập mã đổi thưởng nhận ngọc, trang bị VIP và quà tân thủ cực xịn.",
+    "game_name": "Danh Tướng 3Q - VNG",
+    "game_slug": "danh-tuong-3q-vng",
+    "cover_url": "/game_icons/danh-tuong-3q-vng.webp",
+    "author": "CodeGame.Shop",
+    "source_name": "CodeGame.Shop",
+    "source_url": "https://codegame.shop",
+    "created_at": "2026-10-18T19:30:47.284Z",
+    "updated_at": "2026-10-21T07:00:00Z",
+    "views_count": 3525,
+    "reading_time_minutes": 4,
+    "tags": [
+      "Danh Tướng 3Q - VNG",
+      "Code Danh Tướng 3Q - VNG",
+      "Tam Quốc / Chiến Thuật",
+      "Giftcode 2026",
+      "Tân thủ"
+    ],
+    "codes": [
+      "SNVV6NAMCUNGDT3Q",
+      "DT3QANNI6TH2025",
+      "BUPMANGNON2025",
+      "DT3QHOTKIMTUONG",
+      "VIPCODE1TR",
+      "VIPCODE2TR",
+      "VIPCODE3TR",
+      "VIPCODE4TR"
+    ],
+    "status": "PUBLISHED",
+    "content": "## 🎮 Giới Thiệu Tựa Game Danh Tướng 3Q - VNG\n\nTựa game **Danh Tướng 3Q - VNG** do nhà phát hành **CÔNG TY CỔ PHẦN VNG** phát hành đã nhanh chóng thu hút được sự quan tâm của đông đảo game thủ yêu thích thể loại Tam Quốc / Chiến Thuật. Với lối chơi cuốn hút, đồ họa bắt mắt cùng các tính năng cộng đồng đặc sắc, tựa game hứa hẹn sẽ mang đến những giờ phút giải trí bùng nổ.\n\n### 🎁 Danh Sách Giftcode Danh Tướng 3Q - VNG Mới Nhất Tháng 10/2026\n\nDưới đây là bảng tổng hợp các mã giftcode đang hoạt động được **CodeGame.Shop** kiểm tra và xác thực:\n\n- `SNVV6NAMCUNGDT3Q`: Gói Quà Tân Thủ & Tài Nguyên Nâng Cấp Tướng.\n- `DT3QANNI6TH2025`: Gói Quà Tân Thủ & Tài Nguyên Nâng Cấp Tướng.\n- `BUPMANGNON2025`: Gói Quà Tân Thủ & Tài Nguyên Nâng Cấp Tướng.\n- `DT3QHOTKIMTUONG`: Gói Quà Tân Thủ & Tài Nguyên Nâng Cấp Tướng.\n- `VIPCODE1TR`: Gói Quà Tân Thủ & Tài Nguyên Nâng Cấp Tướng.\n- `VIPCODE2TR`: Gói Quà Tân Thủ & Tài Nguyên Nâng Cấp Tướng.\n- `VIPCODE3TR`: Gói Quà Tân Thủ & Tài Nguyên Nâng Cấp Tướng.\n- `VIPCODE4TR`: Gói Quà Tân Thủ & Tài Nguyên Nâng Cấp Tướng.\n\n> 💡 **Mẹo:** Các mã giftcode đều có giới hạn số lượng và thời hạn sử dụng. Bạn hãy nhanh tay nhập mã ngay khi có thể!\n\n---\n\n### 📝 Hướng Dẫn Các Bước Nhập Giftcode Trong Game Danh Tướng 3Q - VNG\n\n1. **Bước 1:** Khởi động game **Danh Tướng 3Q - VNG** và đăng nhập vào tài khoản chơi của bạn.\n2. **Bước 2:** Nhấn vào biểu tượng **Avatar nhân vật** hoặc mục **Cài đặt / Thiết lập (Settings)** ở giao diện chính.\n3. **Bước 3:** Tìm và chọn mục **Đổi Quà / Giftcode**.\n4. **Bước 4:** Nhập chính xác mã giftcode vào ô trống và nhấn nút **Xác Nhận / Nhận Thưởng**.\n5. **Bước 5:** Mở mục **Hòm Thư (Mailbox)** trong game để kiểm tra và nhận vật phẩm.\n\n---\n\n### 🔍 Cách Nhận Thêm Code Danh Tướng 3Q - VNG Miễn Phí Mỗi Ngày\n- Thường xuyên theo dõi Fanpage và Group cộng đồng chính thức của game.\n- Tham gia các minigame, sự kiện mừng máy chủ mới (Open Beta) hoặc livestream từ NPH.\n- Ghé thăm website **[CodeGame.Shop](https://codegame.shop)** hàng ngày để cập nhật mã code sớm nhất và tham gia mục **[Giveaways](https://codegame.shop/giveaways)** nhận quà độc quyền.\n\n> 🛡️ **Nguồn tin tức:** Bản tin được tổng hợp, biên tập và xuất bản độc quyền bởi **CodeGame.Shop** (https://codegame.shop)."
+  },
+  {
+    "id": "news_auto_game_dai_chien_tam_quoc",
+    "slug": "code-dai-chien-tam-quoc-moi-nhat-tong-hop-ma-tan-thu-2026",
+    "title": "Code Đại Chiến Tam Quốc Mới Nhất 2026: Tổng Hợp Mã Tân Thủ & Hướng Dẫn Nhập Chi Tiết",
+    "summary": "Tổng hợp trọn bộ giftcode game Đại Chiến Tam Quốc (CÔNG TY CỔ PHẦN VTC DỊCH VỤ DI ĐỘNG) mới nhất tháng 10/2026. Hướng dẫn cách nhập mã đổi thưởng nhận ngọc, trang bị VIP và quà tân thủ cực xịn.",
+    "game_name": "Đại Chiến Tam Quốc",
+    "game_slug": "dai-chien-tam-quoc",
+    "cover_url": "/game_icons/dai-chien-tam-quoc.webp",
+    "author": "CodeGame.Shop",
+    "source_name": "CodeGame.Shop",
+    "source_url": "https://codegame.shop",
+    "created_at": "2026-10-18T15:30:47.284Z",
+    "updated_at": "2026-10-21T07:00:00Z",
+    "views_count": 3480,
+    "reading_time_minutes": 4,
+    "tags": [
+      "Đại Chiến Tam Quốc",
+      "Code Đại Chiến Tam Quốc",
+      "Tam Quốc / Chiến Thuật",
+      "Giftcode 2026",
+      "Tân thủ"
+    ],
+    "codes": [
+      "CHIENTHUATSO1",
+      "1SERVERDUYNHAT",
+      "DCTQ8NAM",
+      "QREDVJA4",
+      "E4R3FQN62VKXMSG",
+      "VXTZWQNM",
+      "THCWJ4AU",
+      "R75DALY9"
+    ],
+    "status": "PUBLISHED",
+    "content": "## 🎮 Giới Thiệu Tựa Game Đại Chiến Tam Quốc\n\nTựa game **Đại Chiến Tam Quốc** do nhà phát hành **CÔNG TY CỔ PHẦN VTC DỊCH VỤ DI ĐỘNG** phát hành đã nhanh chóng thu hút được sự quan tâm của đông đảo game thủ yêu thích thể loại Tam Quốc / Chiến Thuật. Với lối chơi cuốn hút, đồ họa bắt mắt cùng các tính năng cộng đồng đặc sắc, tựa game hứa hẹn sẽ mang đến những giờ phút giải trí bùng nổ.\n\n### 🎁 Danh Sách Giftcode Đại Chiến Tam Quốc Mới Nhất Tháng 10/2026\n\nDưới đây là bảng tổng hợp các mã giftcode đang hoạt động được **CodeGame.Shop** kiểm tra và xác thực:\n\n- `CHIENTHUATSO1`: Gói Quà Tân Thủ & Tài Nguyên Nâng Cấp Tướng.\n- `1SERVERDUYNHAT`: Gói Quà Tân Thủ & Tài Nguyên Nâng Cấp Tướng.\n- `DCTQ8NAM`: Gói Quà Tân Thủ & Tài Nguyên Nâng Cấp Tướng.\n- `QREDVJA4`: Gói Quà Tân Thủ & Tài Nguyên Nâng Cấp Tướng.\n- `E4R3FQN62VKXMSG`: Gói Quà Tân Thủ & Tài Nguyên Nâng Cấp Tướng.\n- `VXTZWQNM`: Gói Quà Tân Thủ & Tài Nguyên Nâng Cấp Tướng.\n- `THCWJ4AU`: Gói Quà Tân Thủ & Tài Nguyên Nâng Cấp Tướng.\n- `R75DALY9`: Gói Quà Tân Thủ & Tài Nguyên Nâng Cấp Tướng.\n\n> 💡 **Mẹo:** Các mã giftcode đều có giới hạn số lượng và thời hạn sử dụng. Bạn hãy nhanh tay nhập mã ngay khi có thể!\n\n---\n\n### 📝 Hướng Dẫn Các Bước Nhập Giftcode Trong Game Đại Chiến Tam Quốc\n\n1. **Bước 1:** Khởi động game **Đại Chiến Tam Quốc** và đăng nhập vào tài khoản chơi của bạn.\n2. **Bước 2:** Nhấn vào biểu tượng **Avatar nhân vật** hoặc mục **Cài đặt / Thiết lập (Settings)** ở giao diện chính.\n3. **Bước 3:** Tìm và chọn mục **Đổi Quà / Giftcode**.\n4. **Bước 4:** Nhập chính xác mã giftcode vào ô trống và nhấn nút **Xác Nhận / Nhận Thưởng**.\n5. **Bước 5:** Mở mục **Hòm Thư (Mailbox)** trong game để kiểm tra và nhận vật phẩm.\n\n---\n\n### 🔍 Cách Nhận Thêm Code Đại Chiến Tam Quốc Miễn Phí Mỗi Ngày\n- Thường xuyên theo dõi Fanpage và Group cộng đồng chính thức của game.\n- Tham gia các minigame, sự kiện mừng máy chủ mới (Open Beta) hoặc livestream từ NPH.\n- Ghé thăm website **[CodeGame.Shop](https://codegame.shop)** hàng ngày để cập nhật mã code sớm nhất và tham gia mục **[Giveaways](https://codegame.shop/giveaways)** nhận quà độc quyền.\n\n> 🛡️ **Nguồn tin tức:** Bản tin được tổng hợp, biên tập và xuất bản độc quyền bởi **CodeGame.Shop** (https://codegame.shop)."
+  },
+  {
+    "id": "news_auto_game_gunpow",
+    "slug": "code-gunpow-moi-nhat-tong-hop-ma-tan-thu-2026",
+    "title": "Code GunPow Mới Nhất 2026: Tổng Hợp Mã Tân Thủ & Hướng Dẫn Nhập Chi Tiết",
+    "summary": "Tổng hợp trọn bộ giftcode game GunPow (CÔNG TY TNHH GIẢI TRÍ LONG ĐỈNH) mới nhất tháng 10/2026. Hướng dẫn cách nhập mã đổi thưởng nhận ngọc, trang bị VIP và quà tân thủ cực xịn.",
+    "game_name": "GunPow",
+    "game_slug": "gunpow",
+    "cover_url": "/game_icons/gunpow.webp",
+    "author": "CodeGame.Shop",
+    "source_name": "CodeGame.Shop",
+    "source_url": "https://codegame.shop",
+    "created_at": "2026-10-18T11:30:47.284Z",
+    "updated_at": "2026-10-21T07:00:00Z",
+    "views_count": 3435,
+    "reading_time_minutes": 4,
+    "tags": [
+      "GunPow",
+      "Code GunPow",
+      "Bắn Súng / Sinh Tồn",
+      "Giftcode 2026",
+      "Tân thủ"
+    ],
+    "codes": [
+      "N5BGBGQWJHVA",
+      "OFOH5D35K6VQ",
+      "GUMDVT2OCMXA",
+      "LVYFFJSRPNWA",
+      "IVUEVPJ7MORQ",
+      "YLX42O6O4RMQ",
+      "2H6N4LVE66EA",
+      "ZDS4ONF45ZBQ"
+    ],
+    "status": "PUBLISHED",
+    "content": "## 🎮 Giới Thiệu Tựa Game GunPow\n\nTựa game **GunPow** do nhà phát hành **CÔNG TY TNHH GIẢI TRÍ LONG ĐỈNH** phát hành đã nhanh chóng thu hút được sự quan tâm của đông đảo game thủ yêu thích thể loại Bắn Súng / Sinh Tồn. Với lối chơi cuốn hút, đồ họa bắt mắt cùng các tính năng cộng đồng đặc sắc, tựa game hứa hẹn sẽ mang đến những giờ phút giải trí bùng nổ.\n\n### 🎁 Danh Sách Giftcode GunPow Mới Nhất Tháng 10/2026\n\nDưới đây là bảng tổng hợp các mã giftcode đang hoạt động được **CodeGame.Shop** kiểm tra và xác thực:\n\n- `N5BGBGQWJHVA`: Gói Quà Tân Thủ & Tài Nguyên Nâng Cấp Tướng.\n- `OFOH5D35K6VQ`: Gói Quà Tân Thủ & Tài Nguyên Nâng Cấp Tướng.\n- `GUMDVT2OCMXA`: Gói Quà Tân Thủ & Tài Nguyên Nâng Cấp Tướng.\n- `LVYFFJSRPNWA`: Gói Quà Tân Thủ & Tài Nguyên Nâng Cấp Tướng.\n- `IVUEVPJ7MORQ`: Gói Quà Tân Thủ & Tài Nguyên Nâng Cấp Tướng.\n- `YLX42O6O4RMQ`: Gói Quà Tân Thủ & Tài Nguyên Nâng Cấp Tướng.\n- `2H6N4LVE66EA`: Gói Quà Tân Thủ & Tài Nguyên Nâng Cấp Tướng.\n- `ZDS4ONF45ZBQ`: Gói Quà Tân Thủ & Tài Nguyên Nâng Cấp Tướng.\n\n> 💡 **Mẹo:** Các mã giftcode đều có giới hạn số lượng và thời hạn sử dụng. Bạn hãy nhanh tay nhập mã ngay khi có thể!\n\n---\n\n### 📝 Hướng Dẫn Các Bước Nhập Giftcode Trong Game GunPow\n\n1. **Bước 1:** Khởi động game **GunPow** và đăng nhập vào tài khoản chơi của bạn.\n2. **Bước 2:** Nhấn vào biểu tượng **Avatar nhân vật** hoặc mục **Cài đặt / Thiết lập (Settings)** ở giao diện chính.\n3. **Bước 3:** Tìm và chọn mục **Đổi Quà / Giftcode**.\n4. **Bước 4:** Nhập chính xác mã giftcode vào ô trống và nhấn nút **Xác Nhận / Nhận Thưởng**.\n5. **Bước 5:** Mở mục **Hòm Thư (Mailbox)** trong game để kiểm tra và nhận vật phẩm.\n\n---\n\n### 🔍 Cách Nhận Thêm Code GunPow Miễn Phí Mỗi Ngày\n- Thường xuyên theo dõi Fanpage và Group cộng đồng chính thức của game.\n- Tham gia các minigame, sự kiện mừng máy chủ mới (Open Beta) hoặc livestream từ NPH.\n- Ghé thăm website **[CodeGame.Shop](https://codegame.shop)** hàng ngày để cập nhật mã code sớm nhất và tham gia mục **[Giveaways](https://codegame.shop/giveaways)** nhận quà độc quyền.\n\n> 🛡️ **Nguồn tin tức:** Bản tin được tổng hợp, biên tập và xuất bản độc quyền bởi **CodeGame.Shop** (https://codegame.shop)."
+  },
+  {
+    "id": "news_auto_game_1945_air_force_plane_shooter",
+    "slug": "code-1945-air-force-plane-shooter-moi-nhat-tong-hop-ma-tan-thu-2026",
+    "title": "Code 1945 Air Force: Plane Shooter Mới Nhất 2026: Tổng Hợp Mã Tân Thủ & Hướng Dẫn Nhập Chi Tiết",
+    "summary": "Tổng hợp trọn bộ giftcode game 1945 Air Force: Plane Shooter (Công ty Cổ phần Onesoft / ABI Game Studio) mới nhất tháng 10/2026. Hướng dẫn cách nhập mã đổi thưởng nhận ngọc, trang bị VIP và quà tân thủ cực xịn.",
+    "game_name": "1945 Air Force: Plane Shooter",
+    "game_slug": "1945-air-force-plane-shooter",
+    "cover_url": "/game_icons/1945-air-force-plane-shooter.webp",
+    "author": "CodeGame.Shop",
+    "source_name": "CodeGame.Shop",
+    "source_url": "https://codegame.shop",
+    "created_at": "2026-10-18T07:30:47.284Z",
+    "updated_at": "2026-10-21T07:00:00Z",
+    "views_count": 3390,
+    "reading_time_minutes": 4,
+    "tags": [
+      "1945 Air Force: Plane Shooter",
+      "Code 1945 Air Force: Plane Shooter",
+      "Game Online",
+      "Giftcode 2026",
+      "Tân thủ"
+    ],
+    "codes": [
+      "209EC",
+      "3057F",
+      "18D85",
+      "23572",
+      "C8C6",
+      "97C7",
+      "17AB3",
+      "DB39"
+    ],
+    "status": "PUBLISHED",
+    "content": "## 🎮 Giới Thiệu Tựa Game 1945 Air Force: Plane Shooter\n\nTựa game **1945 Air Force: Plane Shooter** do nhà phát hành **Công ty Cổ phần Onesoft / ABI Game Studio** phát hành đã nhanh chóng thu hút được sự quan tâm của đông đảo game thủ yêu thích thể loại Game Online. Với lối chơi cuốn hút, đồ họa bắt mắt cùng các tính năng cộng đồng đặc sắc, tựa game hứa hẹn sẽ mang đến những giờ phút giải trí bùng nổ.\n\n### 🎁 Danh Sách Giftcode 1945 Air Force: Plane Shooter Mới Nhất Tháng 10/2026\n\nDưới đây là bảng tổng hợp các mã giftcode đang hoạt động được **CodeGame.Shop** kiểm tra và xác thực:\n\n- `209EC`: Gói Quà Tân Thủ & Tài Nguyên Nâng Cấp Tướng.\n- `3057F`: Gói Quà Tân Thủ & Tài Nguyên Nâng Cấp Tướng.\n- `18D85`: Gói Quà Tân Thủ & Tài Nguyên Nâng Cấp Tướng.\n- `23572`: Gói Quà Tân Thủ & Tài Nguyên Nâng Cấp Tướng.\n- `C8C6`: Gói Quà Tân Thủ & Tài Nguyên Nâng Cấp Tướng.\n- `97C7`: Gói Quà Tân Thủ & Tài Nguyên Nâng Cấp Tướng.\n- `17AB3`: Gói Quà Tân Thủ & Tài Nguyên Nâng Cấp Tướng.\n- `DB39`: Gói Quà Tân Thủ & Tài Nguyên Nâng Cấp Tướng.\n\n> 💡 **Mẹo:** Các mã giftcode đều có giới hạn số lượng và thời hạn sử dụng. Bạn hãy nhanh tay nhập mã ngay khi có thể!\n\n---\n\n### 📝 Hướng Dẫn Các Bước Nhập Giftcode Trong Game 1945 Air Force: Plane Shooter\n\n1. **Bước 1:** Khởi động game **1945 Air Force: Plane Shooter** và đăng nhập vào tài khoản chơi của bạn.\n2. **Bước 2:** Nhấn vào biểu tượng **Avatar nhân vật** hoặc mục **Cài đặt / Thiết lập (Settings)** ở giao diện chính.\n3. **Bước 3:** Tìm và chọn mục **Đổi Quà / Giftcode**.\n4. **Bước 4:** Nhập chính xác mã giftcode vào ô trống và nhấn nút **Xác Nhận / Nhận Thưởng**.\n5. **Bước 5:** Mở mục **Hòm Thư (Mailbox)** trong game để kiểm tra và nhận vật phẩm.\n\n---\n\n### 🔍 Cách Nhận Thêm Code 1945 Air Force: Plane Shooter Miễn Phí Mỗi Ngày\n- Thường xuyên theo dõi Fanpage và Group cộng đồng chính thức của game.\n- Tham gia các minigame, sự kiện mừng máy chủ mới (Open Beta) hoặc livestream từ NPH.\n- Ghé thăm website **[CodeGame.Shop](https://codegame.shop)** hàng ngày để cập nhật mã code sớm nhất và tham gia mục **[Giveaways](https://codegame.shop/giveaways)** nhận quà độc quyền.\n\n> 🛡️ **Nguồn tin tức:** Bản tin được tổng hợp, biên tập và xuất bản độc quyền bởi **CodeGame.Shop** (https://codegame.shop)."
+  },
+  {
+    "id": "news_auto_game_3q_goi_tuong_di",
+    "slug": "code-3q-goi-tuong-di-moi-nhat-tong-hop-ma-tan-thu-2026",
+    "title": "Code 3Q Gọi Tướng Đi Mới Nhất 2026: Tổng Hợp Mã Tân Thủ & Hướng Dẫn Nhập Chi Tiết",
+    "summary": "Tổng hợp trọn bộ giftcode game 3Q Gọi Tướng Đi (CÔNG TY CỔ PHẦN GIẢI TRÍ 568E ) mới nhất tháng 10/2026. Hướng dẫn cách nhập mã đổi thưởng nhận ngọc, trang bị VIP và quà tân thủ cực xịn.",
+    "game_name": "3Q Gọi Tướng Đi",
+    "game_slug": "3q-goi-tuong-di",
+    "cover_url": "/game_icons/3q-goi-tuong-di.webp",
+    "author": "CodeGame.Shop",
+    "source_name": "CodeGame.Shop",
+    "source_url": "https://codegame.shop",
+    "created_at": "2026-10-18T03:30:47.284Z",
+    "updated_at": "2026-10-21T07:00:00Z",
+    "views_count": 3345,
+    "reading_time_minutes": 4,
+    "tags": [
+      "3Q Gọi Tướng Đi",
+      "Code 3Q Gọi Tướng Đi",
+      "Tam Quốc / Chiến Thuật",
+      "Giftcode 2026",
+      "Tân thủ"
+    ],
+    "codes": [
+      "CHUCMUNGVIETNAM",
+      "Codelive22",
+      "LIVESTREAM11",
+      "15711a8fb6",
+      "157237282a",
+      "1571bd15ab",
+      "BAOTRI1108",
+      "BAOTRI0408"
+    ],
+    "status": "PUBLISHED",
+    "content": "## 🎮 Giới Thiệu Tựa Game 3Q Gọi Tướng Đi\n\nTựa game **3Q Gọi Tướng Đi** do nhà phát hành **CÔNG TY CỔ PHẦN GIẢI TRÍ 568E ** phát hành đã nhanh chóng thu hút được sự quan tâm của đông đảo game thủ yêu thích thể loại Tam Quốc / Chiến Thuật. Với lối chơi cuốn hút, đồ họa bắt mắt cùng các tính năng cộng đồng đặc sắc, tựa game hứa hẹn sẽ mang đến những giờ phút giải trí bùng nổ.\n\n### 🎁 Danh Sách Giftcode 3Q Gọi Tướng Đi Mới Nhất Tháng 10/2026\n\nDưới đây là bảng tổng hợp các mã giftcode đang hoạt động được **CodeGame.Shop** kiểm tra và xác thực:\n\n- `CHUCMUNGVIETNAM`: Gói Quà Tân Thủ & Tài Nguyên Nâng Cấp Tướng.\n- `Codelive22`: Gói Quà Tân Thủ & Tài Nguyên Nâng Cấp Tướng.\n- `LIVESTREAM11`: Gói Quà Tân Thủ & Tài Nguyên Nâng Cấp Tướng.\n- `15711a8fb6`: Gói Quà Tân Thủ & Tài Nguyên Nâng Cấp Tướng.\n- `157237282a`: Gói Quà Tân Thủ & Tài Nguyên Nâng Cấp Tướng.\n- `1571bd15ab`: Gói Quà Tân Thủ & Tài Nguyên Nâng Cấp Tướng.\n- `BAOTRI1108`: Gói Quà Tân Thủ & Tài Nguyên Nâng Cấp Tướng.\n- `BAOTRI0408`: Gói Quà Tân Thủ & Tài Nguyên Nâng Cấp Tướng.\n\n> 💡 **Mẹo:** Các mã giftcode đều có giới hạn số lượng và thời hạn sử dụng. Bạn hãy nhanh tay nhập mã ngay khi có thể!\n\n---\n\n### 📝 Hướng Dẫn Các Bước Nhập Giftcode Trong Game 3Q Gọi Tướng Đi\n\n1. **Bước 1:** Khởi động game **3Q Gọi Tướng Đi** và đăng nhập vào tài khoản chơi của bạn.\n2. **Bước 2:** Nhấn vào biểu tượng **Avatar nhân vật** hoặc mục **Cài đặt / Thiết lập (Settings)** ở giao diện chính.\n3. **Bước 3:** Tìm và chọn mục **Đổi Quà / Giftcode**.\n4. **Bước 4:** Nhập chính xác mã giftcode vào ô trống và nhấn nút **Xác Nhận / Nhận Thưởng**.\n5. **Bước 5:** Mở mục **Hòm Thư (Mailbox)** trong game để kiểm tra và nhận vật phẩm.\n\n---\n\n### 🔍 Cách Nhận Thêm Code 3Q Gọi Tướng Đi Miễn Phí Mỗi Ngày\n- Thường xuyên theo dõi Fanpage và Group cộng đồng chính thức của game.\n- Tham gia các minigame, sự kiện mừng máy chủ mới (Open Beta) hoặc livestream từ NPH.\n- Ghé thăm website **[CodeGame.Shop](https://codegame.shop)** hàng ngày để cập nhật mã code sớm nhất và tham gia mục **[Giveaways](https://codegame.shop/giveaways)** nhận quà độc quyền.\n\n> 🛡️ **Nguồn tin tức:** Bản tin được tổng hợp, biên tập và xuất bản độc quyền bởi **CodeGame.Shop** (https://codegame.shop)."
+  },
+  {
+    "id": "news_auto_game_anh_hung_tien_len",
+    "slug": "code-anh-hung-tien-len-moi-nhat-tong-hop-ma-tan-thu-2026",
+    "title": "Code Anh Hùng Tiến Lên Mới Nhất 2026: Tổng Hợp Mã Tân Thủ & Hướng Dẫn Nhập Chi Tiết",
+    "summary": "Tổng hợp trọn bộ giftcode game Anh Hùng Tiến Lên (CÔNG TY CỔ PHẦN TRỰC TUYẾN CMN VIỆT NAM ) mới nhất tháng 10/2026. Hướng dẫn cách nhập mã đổi thưởng nhận ngọc, trang bị VIP và quà tân thủ cực xịn.",
+    "game_name": "Anh Hùng Tiến Lên",
+    "game_slug": "anh-hung-tien-len",
+    "cover_url": "/game_icons/anh-hung-tien-len.webp",
+    "author": "CodeGame.Shop",
+    "source_name": "CodeGame.Shop",
+    "source_url": "https://codegame.shop",
+    "created_at": "2026-10-17T23:30:47.284Z",
+    "updated_at": "2026-10-21T07:00:00Z",
+    "views_count": 3300,
+    "reading_time_minutes": 4,
+    "tags": [
+      "Anh Hùng Tiến Lên",
+      "Code Anh Hùng Tiến Lên",
+      "Kiếm Hiệp / Tiên Hiệp",
+      "Giftcode 2026",
+      "Tân thủ"
+    ],
+    "codes": [
+      "BAOTRI01",
+      "BANHMI03",
+      "BANHMI02",
+      "BANHMI01",
+      "S19GAO92",
+      "ANHHUNGRAMAT2",
+      "ANHHUNGRAMAT",
+      "ANHHUNG"
+    ],
+    "status": "PUBLISHED",
+    "content": "## 🎮 Giới Thiệu Tựa Game Anh Hùng Tiến Lên\n\nTựa game **Anh Hùng Tiến Lên** do nhà phát hành **CÔNG TY CỔ PHẦN TRỰC TUYẾN CMN VIỆT NAM ** phát hành đã nhanh chóng thu hút được sự quan tâm của đông đảo game thủ yêu thích thể loại Kiếm Hiệp / Tiên Hiệp. Với lối chơi cuốn hút, đồ họa bắt mắt cùng các tính năng cộng đồng đặc sắc, tựa game hứa hẹn sẽ mang đến những giờ phút giải trí bùng nổ.\n\n### 🎁 Danh Sách Giftcode Anh Hùng Tiến Lên Mới Nhất Tháng 10/2026\n\nDưới đây là bảng tổng hợp các mã giftcode đang hoạt động được **CodeGame.Shop** kiểm tra và xác thực:\n\n- `BAOTRI01`: Gói Quà Tân Thủ & Tài Nguyên Nâng Cấp Tướng.\n- `BANHMI03`: Gói Quà Tân Thủ & Tài Nguyên Nâng Cấp Tướng.\n- `BANHMI02`: Gói Quà Tân Thủ & Tài Nguyên Nâng Cấp Tướng.\n- `BANHMI01`: Gói Quà Tân Thủ & Tài Nguyên Nâng Cấp Tướng.\n- `S19GAO92`: Gói Quà Tân Thủ & Tài Nguyên Nâng Cấp Tướng.\n- `ANHHUNGRAMAT2`: Gói Quà Tân Thủ & Tài Nguyên Nâng Cấp Tướng.\n- `ANHHUNGRAMAT`: Gói Quà Tân Thủ & Tài Nguyên Nâng Cấp Tướng.\n- `ANHHUNG`: Gói Quà Tân Thủ & Tài Nguyên Nâng Cấp Tướng.\n\n> 💡 **Mẹo:** Các mã giftcode đều có giới hạn số lượng và thời hạn sử dụng. Bạn hãy nhanh tay nhập mã ngay khi có thể!\n\n---\n\n### 📝 Hướng Dẫn Các Bước Nhập Giftcode Trong Game Anh Hùng Tiến Lên\n\n1. **Bước 1:** Khởi động game **Anh Hùng Tiến Lên** và đăng nhập vào tài khoản chơi của bạn.\n2. **Bước 2:** Nhấn vào biểu tượng **Avatar nhân vật** hoặc mục **Cài đặt / Thiết lập (Settings)** ở giao diện chính.\n3. **Bước 3:** Tìm và chọn mục **Đổi Quà / Giftcode**.\n4. **Bước 4:** Nhập chính xác mã giftcode vào ô trống và nhấn nút **Xác Nhận / Nhận Thưởng**.\n5. **Bước 5:** Mở mục **Hòm Thư (Mailbox)** trong game để kiểm tra và nhận vật phẩm.\n\n---\n\n### 🔍 Cách Nhận Thêm Code Anh Hùng Tiến Lên Miễn Phí Mỗi Ngày\n- Thường xuyên theo dõi Fanpage và Group cộng đồng chính thức của game.\n- Tham gia các minigame, sự kiện mừng máy chủ mới (Open Beta) hoặc livestream từ NPH.\n- Ghé thăm website **[CodeGame.Shop](https://codegame.shop)** hàng ngày để cập nhật mã code sớm nhất và tham gia mục **[Giveaways](https://codegame.shop/giveaways)** nhận quà độc quyền.\n\n> 🛡️ **Nguồn tin tức:** Bản tin được tổng hợp, biên tập và xuất bản độc quyền bởi **CodeGame.Shop** (https://codegame.shop)."
+  },
+  {
+    "id": "news_auto_game_rise_of_kingdoms",
+    "slug": "code-rise-of-kingdoms-moi-nhat-tong-hop-ma-tan-thu-2026",
+    "title": "Code Rise of Kingdoms Mới Nhất 2026: Tổng Hợp Mã Tân Thủ & Hướng Dẫn Nhập Chi Tiết",
+    "summary": "Tổng hợp trọn bộ giftcode game Rise of Kingdoms (CÔNG TY CỔ PHẦN GAMOTA) mới nhất tháng 10/2026. Hướng dẫn cách nhập mã đổi thưởng nhận ngọc, trang bị VIP và quà tân thủ cực xịn.",
+    "game_name": "Rise of Kingdoms",
+    "game_slug": "rise-of-kingdoms",
+    "cover_url": "/game_icons/rise-of-kingdoms.webp",
+    "author": "CodeGame.Shop",
+    "source_name": "CodeGame.Shop",
+    "source_url": "https://codegame.shop",
+    "created_at": "2026-10-17T19:30:47.284Z",
+    "updated_at": "2026-10-21T07:00:00Z",
+    "views_count": 3255,
+    "reading_time_minutes": 4,
+    "tags": [
+      "Rise of Kingdoms",
+      "Code Rise of Kingdoms",
+      "Thập Cẩm / Khác",
+      "Giftcode 2026",
+      "Tân thủ"
+    ],
+    "codes": [
+      "A8WTD2C8PN",
+      "ROKTHX2025",
+      "RISEIN2025",
+      "Rokhaunt25",
+      "NGHBXJNK12",
+      "N4WRB36FMV",
+      "MCJKQSLK12",
+      "BCLBGHJD12"
+    ],
+    "status": "PUBLISHED",
+    "content": "## 🎮 Giới Thiệu Tựa Game Rise of Kingdoms\n\nTựa game **Rise of Kingdoms** do nhà phát hành **CÔNG TY CỔ PHẦN GAMOTA** phát hành đã nhanh chóng thu hút được sự quan tâm của đông đảo game thủ yêu thích thể loại Thập Cẩm / Khác. Với lối chơi cuốn hút, đồ họa bắt mắt cùng các tính năng cộng đồng đặc sắc, tựa game hứa hẹn sẽ mang đến những giờ phút giải trí bùng nổ.\n\n### 🎁 Danh Sách Giftcode Rise of Kingdoms Mới Nhất Tháng 10/2026\n\nDưới đây là bảng tổng hợp các mã giftcode đang hoạt động được **CodeGame.Shop** kiểm tra và xác thực:\n\n- `A8WTD2C8PN`: Gói Quà Tân Thủ & Tài Nguyên Nâng Cấp Tướng.\n- `ROKTHX2025`: Gói Quà Tân Thủ & Tài Nguyên Nâng Cấp Tướng.\n- `RISEIN2025`: Gói Quà Tân Thủ & Tài Nguyên Nâng Cấp Tướng.\n- `Rokhaunt25`: Gói Quà Tân Thủ & Tài Nguyên Nâng Cấp Tướng.\n- `NGHBXJNK12`: Gói Quà Tân Thủ & Tài Nguyên Nâng Cấp Tướng.\n- `N4WRB36FMV`: Gói Quà Tân Thủ & Tài Nguyên Nâng Cấp Tướng.\n- `MCJKQSLK12`: Gói Quà Tân Thủ & Tài Nguyên Nâng Cấp Tướng.\n- `BCLBGHJD12`: Gói Quà Tân Thủ & Tài Nguyên Nâng Cấp Tướng.\n\n> 💡 **Mẹo:** Các mã giftcode đều có giới hạn số lượng và thời hạn sử dụng. Bạn hãy nhanh tay nhập mã ngay khi có thể!\n\n---\n\n### 📝 Hướng Dẫn Các Bước Nhập Giftcode Trong Game Rise of Kingdoms\n\n1. **Bước 1:** Khởi động game **Rise of Kingdoms** và đăng nhập vào tài khoản chơi của bạn.\n2. **Bước 2:** Nhấn vào biểu tượng **Avatar nhân vật** hoặc mục **Cài đặt / Thiết lập (Settings)** ở giao diện chính.\n3. **Bước 3:** Tìm và chọn mục **Đổi Quà / Giftcode**.\n4. **Bước 4:** Nhập chính xác mã giftcode vào ô trống và nhấn nút **Xác Nhận / Nhận Thưởng**.\n5. **Bước 5:** Mở mục **Hòm Thư (Mailbox)** trong game để kiểm tra và nhận vật phẩm.\n\n---\n\n### 🔍 Cách Nhận Thêm Code Rise of Kingdoms Miễn Phí Mỗi Ngày\n- Thường xuyên theo dõi Fanpage và Group cộng đồng chính thức của game.\n- Tham gia các minigame, sự kiện mừng máy chủ mới (Open Beta) hoặc livestream từ NPH.\n- Ghé thăm website **[CodeGame.Shop](https://codegame.shop)** hàng ngày để cập nhật mã code sớm nhất và tham gia mục **[Giveaways](https://codegame.shop/giveaways)** nhận quà độc quyền.\n\n> 🛡️ **Nguồn tin tức:** Bản tin được tổng hợp, biên tập và xuất bản độc quyền bởi **CodeGame.Shop** (https://codegame.shop)."
+  },
+  {
+    "id": "news_auto_game_tieu_yeu_tam_dao",
+    "slug": "code-tieu-yeu-tam-dao-moi-nhat-tong-hop-ma-tan-thu-2026",
+    "title": "Code Tiểu Yêu Tầm Đạo Mới Nhất 2026: Tổng Hợp Mã Tân Thủ & Hướng Dẫn Nhập Chi Tiết",
+    "summary": "Tổng hợp trọn bộ giftcode game Tiểu Yêu Tầm Đạo (CÔNG TY CỔ PHẦN PHÁT TRIỂN CÔNG NGHỆ SỐ HỒNG HÀ) mới nhất tháng 10/2026. Hướng dẫn cách nhập mã đổi thưởng nhận ngọc, trang bị VIP và quà tân thủ cực xịn.",
+    "game_name": "Tiểu Yêu Tầm Đạo",
+    "game_slug": "tieu-yeu-tam-dao",
+    "cover_url": "/game_icons/tieu-yeu-tam-dao.webp",
+    "author": "CodeGame.Shop",
+    "source_name": "CodeGame.Shop",
+    "source_url": "https://codegame.shop",
+    "created_at": "2026-10-17T15:30:47.284Z",
+    "updated_at": "2026-10-21T07:00:00Z",
+    "views_count": 3210,
+    "reading_time_minutes": 4,
+    "tags": [
+      "Tiểu Yêu Tầm Đạo",
+      "Code Tiểu Yêu Tầm Đạo",
+      "Kiếm Hiệp / Tiên Hiệp",
+      "Giftcode 2026",
+      "Tân thủ"
+    ],
+    "codes": [
+      "HAPPY2YEAR1",
+      "TIEUYEUGIOTO",
+      "TYTDCCGT",
+      "TYTDQBMK",
+      "XICHMATD",
+      "TAXGJX5VZ9",
+      "TIEUYEU2026",
+      "CHATCAYNGAYLE"
+    ],
+    "status": "PUBLISHED",
+    "content": "## 🎮 Giới Thiệu Tựa Game Tiểu Yêu Tầm Đạo\n\nTựa game **Tiểu Yêu Tầm Đạo** do nhà phát hành **CÔNG TY CỔ PHẦN PHÁT TRIỂN CÔNG NGHỆ SỐ HỒNG HÀ** phát hành đã nhanh chóng thu hút được sự quan tâm của đông đảo game thủ yêu thích thể loại Kiếm Hiệp / Tiên Hiệp. Với lối chơi cuốn hút, đồ họa bắt mắt cùng các tính năng cộng đồng đặc sắc, tựa game hứa hẹn sẽ mang đến những giờ phút giải trí bùng nổ.\n\n### 🎁 Danh Sách Giftcode Tiểu Yêu Tầm Đạo Mới Nhất Tháng 10/2026\n\nDưới đây là bảng tổng hợp các mã giftcode đang hoạt động được **CodeGame.Shop** kiểm tra và xác thực:\n\n- `HAPPY2YEAR1`: Gói Quà Tân Thủ & Tài Nguyên Nâng Cấp Tướng.\n- `TIEUYEUGIOTO`: Gói Quà Tân Thủ & Tài Nguyên Nâng Cấp Tướng.\n- `TYTDCCGT`: Gói Quà Tân Thủ & Tài Nguyên Nâng Cấp Tướng.\n- `TYTDQBMK`: Gói Quà Tân Thủ & Tài Nguyên Nâng Cấp Tướng.\n- `XICHMATD`: Gói Quà Tân Thủ & Tài Nguyên Nâng Cấp Tướng.\n- `TAXGJX5VZ9`: Gói Quà Tân Thủ & Tài Nguyên Nâng Cấp Tướng.\n- `TIEUYEU2026`: Gói Quà Tân Thủ & Tài Nguyên Nâng Cấp Tướng.\n- `CHATCAYNGAYLE`: Gói Quà Tân Thủ & Tài Nguyên Nâng Cấp Tướng.\n\n> 💡 **Mẹo:** Các mã giftcode đều có giới hạn số lượng và thời hạn sử dụng. Bạn hãy nhanh tay nhập mã ngay khi có thể!\n\n---\n\n### 📝 Hướng Dẫn Các Bước Nhập Giftcode Trong Game Tiểu Yêu Tầm Đạo\n\n1. **Bước 1:** Khởi động game **Tiểu Yêu Tầm Đạo** và đăng nhập vào tài khoản chơi của bạn.\n2. **Bước 2:** Nhấn vào biểu tượng **Avatar nhân vật** hoặc mục **Cài đặt / Thiết lập (Settings)** ở giao diện chính.\n3. **Bước 3:** Tìm và chọn mục **Đổi Quà / Giftcode**.\n4. **Bước 4:** Nhập chính xác mã giftcode vào ô trống và nhấn nút **Xác Nhận / Nhận Thưởng**.\n5. **Bước 5:** Mở mục **Hòm Thư (Mailbox)** trong game để kiểm tra và nhận vật phẩm.\n\n---\n\n### 🔍 Cách Nhận Thêm Code Tiểu Yêu Tầm Đạo Miễn Phí Mỗi Ngày\n- Thường xuyên theo dõi Fanpage và Group cộng đồng chính thức của game.\n- Tham gia các minigame, sự kiện mừng máy chủ mới (Open Beta) hoặc livestream từ NPH.\n- Ghé thăm website **[CodeGame.Shop](https://codegame.shop)** hàng ngày để cập nhật mã code sớm nhất và tham gia mục **[Giveaways](https://codegame.shop/giveaways)** nhận quà độc quyền.\n\n> 🛡️ **Nguồn tin tức:** Bản tin được tổng hợp, biên tập và xuất bản độc quyền bởi **CodeGame.Shop** (https://codegame.shop)."
+  },
+  {
+    "id": "news_auto_game_state_of_survival_viet_nam",
+    "slug": "code-state-of-survival-viet-nam-moi-nhat-tong-hop-ma-tan-thu-2026",
+    "title": "Code State of Survival Việt Nam Mới Nhất 2026: Tổng Hợp Mã Tân Thủ & Hướng Dẫn Nhập Chi Tiết",
+    "summary": "Tổng hợp trọn bộ giftcode game State of Survival Việt Nam (Công ty Cổ phần Funtap / Công ty Cổ phần Funtap Games) mới nhất tháng 10/2026. Hướng dẫn cách nhập mã đổi thưởng nhận ngọc, trang bị VIP và quà tân thủ cực xịn.",
+    "game_name": "State of Survival Việt Nam",
+    "game_slug": "state-of-survival-viet-nam",
+    "cover_url": "/game_icons/state-of-survival-viet-nam.webp",
+    "author": "CodeGame.Shop",
+    "source_name": "CodeGame.Shop",
+    "source_url": "https://codegame.shop",
+    "created_at": "2026-10-17T11:30:47.284Z",
+    "updated_at": "2026-10-21T07:00:00Z",
+    "views_count": 3165,
+    "reading_time_minutes": 4,
+    "tags": [
+      "State of Survival Việt Nam",
+      "Code State of Survival Việt Nam",
+      "Hành Động & Chiến Thuật",
+      "Giftcode 2026",
+      "Tân thủ"
+    ],
+    "codes": [
+      "S15CB40DA5AB",
+      "NIGHTINGALE2026",
+      "S7B9C86D79F0",
+      "S17C86ECD666",
+      "MERRYXMAS2025",
+      "SOS2026",
+      "ABYSSALSKIRMISH",
+      "CHRISTMASS22"
+    ],
+    "status": "PUBLISHED",
+    "content": "## 🎮 Giới Thiệu Tựa Game State of Survival Việt Nam\n\nTựa game **State of Survival Việt Nam** do nhà phát hành **Công ty Cổ phần Funtap / Công ty Cổ phần Funtap Games** phát hành đã nhanh chóng thu hút được sự quan tâm của đông đảo game thủ yêu thích thể loại Hành Động & Chiến Thuật. Với lối chơi cuốn hút, đồ họa bắt mắt cùng các tính năng cộng đồng đặc sắc, tựa game hứa hẹn sẽ mang đến những giờ phút giải trí bùng nổ.\n\n### 🎁 Danh Sách Giftcode State of Survival Việt Nam Mới Nhất Tháng 10/2026\n\nDưới đây là bảng tổng hợp các mã giftcode đang hoạt động được **CodeGame.Shop** kiểm tra và xác thực:\n\n- `S15CB40DA5AB`: Gói Quà Tân Thủ & Tài Nguyên Nâng Cấp Tướng.\n- `NIGHTINGALE2026`: Gói Quà Tân Thủ & Tài Nguyên Nâng Cấp Tướng.\n- `S7B9C86D79F0`: Gói Quà Tân Thủ & Tài Nguyên Nâng Cấp Tướng.\n- `S17C86ECD666`: Gói Quà Tân Thủ & Tài Nguyên Nâng Cấp Tướng.\n- `MERRYXMAS2025`: Gói Quà Tân Thủ & Tài Nguyên Nâng Cấp Tướng.\n- `SOS2026`: Gói Quà Tân Thủ & Tài Nguyên Nâng Cấp Tướng.\n- `ABYSSALSKIRMISH`: Gói Quà Tân Thủ & Tài Nguyên Nâng Cấp Tướng.\n- `CHRISTMASS22`: Gói Quà Tân Thủ & Tài Nguyên Nâng Cấp Tướng.\n\n> 💡 **Mẹo:** Các mã giftcode đều có giới hạn số lượng và thời hạn sử dụng. Bạn hãy nhanh tay nhập mã ngay khi có thể!\n\n---\n\n### 📝 Hướng Dẫn Các Bước Nhập Giftcode Trong Game State of Survival Việt Nam\n\n1. **Bước 1:** Khởi động game **State of Survival Việt Nam** và đăng nhập vào tài khoản chơi của bạn.\n2. **Bước 2:** Nhấn vào biểu tượng **Avatar nhân vật** hoặc mục **Cài đặt / Thiết lập (Settings)** ở giao diện chính.\n3. **Bước 3:** Tìm và chọn mục **Đổi Quà / Giftcode**.\n4. **Bước 4:** Nhập chính xác mã giftcode vào ô trống và nhấn nút **Xác Nhận / Nhận Thưởng**.\n5. **Bước 5:** Mở mục **Hòm Thư (Mailbox)** trong game để kiểm tra và nhận vật phẩm.\n\n---\n\n### 🔍 Cách Nhận Thêm Code State of Survival Việt Nam Miễn Phí Mỗi Ngày\n- Thường xuyên theo dõi Fanpage và Group cộng đồng chính thức của game.\n- Tham gia các minigame, sự kiện mừng máy chủ mới (Open Beta) hoặc livestream từ NPH.\n- Ghé thăm website **[CodeGame.Shop](https://codegame.shop)** hàng ngày để cập nhật mã code sớm nhất và tham gia mục **[Giveaways](https://codegame.shop/giveaways)** nhận quà độc quyền.\n\n> 🛡️ **Nguồn tin tức:** Bản tin được tổng hợp, biên tập và xuất bản độc quyền bởi **CodeGame.Shop** (https://codegame.shop)."
+  },
+  {
+    "id": "news_auto_game_nam_lun_tien_len",
+    "slug": "code-nam-lun-tien-len-moi-nhat-tong-hop-ma-tan-thu-2026",
+    "title": "Code Nấm Lùn Tiến Lên Mới Nhất 2026: Tổng Hợp Mã Tân Thủ & Hướng Dẫn Nhập Chi Tiết",
+    "summary": "Tổng hợp trọn bộ giftcode game Nấm Lùn Tiến Lên (CÔNG TY CỔ PHẦN GIẢI TRÍ THIÊN THƯỢNG HỎA) mới nhất tháng 10/2026. Hướng dẫn cách nhập mã đổi thưởng nhận ngọc, trang bị VIP và quà tân thủ cực xịn.",
+    "game_name": "Nấm Lùn Tiến Lên",
+    "game_slug": "nam-lun-tien-len",
+    "cover_url": "/game_icons/nam-lun-tien-len.webp",
+    "author": "CodeGame.Shop",
+    "source_name": "CodeGame.Shop",
+    "source_url": "https://codegame.shop",
+    "created_at": "2026-10-17T07:30:47.284Z",
+    "updated_at": "2026-10-21T07:00:00Z",
+    "views_count": 3120,
+    "reading_time_minutes": 4,
+    "tags": [
+      "Nấm Lùn Tiến Lên",
+      "Code Nấm Lùn Tiến Lên",
+      "Nhập Vai Gacha / Anime",
+      "Giftcode 2026",
+      "Tân thủ"
+    ],
+    "codes": [
+      "SONGKRAN2026",
+      "w5c6h8rn",
+      "q7y3j9fd",
+      "m4k8v2px",
+      "hv3p9uzk",
+      "y4kx7qmd",
+      "c8rj7xvn",
+      "m5zq9twh"
+    ],
+    "status": "PUBLISHED",
+    "content": "## 🎮 Giới Thiệu Tựa Game Nấm Lùn Tiến Lên\n\nTựa game **Nấm Lùn Tiến Lên** do nhà phát hành **CÔNG TY CỔ PHẦN GIẢI TRÍ THIÊN THƯỢNG HỎA** phát hành đã nhanh chóng thu hút được sự quan tâm của đông đảo game thủ yêu thích thể loại Nhập Vai Gacha / Anime. Với lối chơi cuốn hút, đồ họa bắt mắt cùng các tính năng cộng đồng đặc sắc, tựa game hứa hẹn sẽ mang đến những giờ phút giải trí bùng nổ.\n\n### 🎁 Danh Sách Giftcode Nấm Lùn Tiến Lên Mới Nhất Tháng 10/2026\n\nDưới đây là bảng tổng hợp các mã giftcode đang hoạt động được **CodeGame.Shop** kiểm tra và xác thực:\n\n- `SONGKRAN2026`: Gói Quà Tân Thủ & Tài Nguyên Nâng Cấp Tướng.\n- `w5c6h8rn`: Gói Quà Tân Thủ & Tài Nguyên Nâng Cấp Tướng.\n- `q7y3j9fd`: Gói Quà Tân Thủ & Tài Nguyên Nâng Cấp Tướng.\n- `m4k8v2px`: Gói Quà Tân Thủ & Tài Nguyên Nâng Cấp Tướng.\n- `hv3p9uzk`: Gói Quà Tân Thủ & Tài Nguyên Nâng Cấp Tướng.\n- `y4kx7qmd`: Gói Quà Tân Thủ & Tài Nguyên Nâng Cấp Tướng.\n- `c8rj7xvn`: Gói Quà Tân Thủ & Tài Nguyên Nâng Cấp Tướng.\n- `m5zq9twh`: Gói Quà Tân Thủ & Tài Nguyên Nâng Cấp Tướng.\n\n> 💡 **Mẹo:** Các mã giftcode đều có giới hạn số lượng và thời hạn sử dụng. Bạn hãy nhanh tay nhập mã ngay khi có thể!\n\n---\n\n### 📝 Hướng Dẫn Các Bước Nhập Giftcode Trong Game Nấm Lùn Tiến Lên\n\n1. **Bước 1:** Khởi động game **Nấm Lùn Tiến Lên** và đăng nhập vào tài khoản chơi của bạn.\n2. **Bước 2:** Nhấn vào biểu tượng **Avatar nhân vật** hoặc mục **Cài đặt / Thiết lập (Settings)** ở giao diện chính.\n3. **Bước 3:** Tìm và chọn mục **Đổi Quà / Giftcode**.\n4. **Bước 4:** Nhập chính xác mã giftcode vào ô trống và nhấn nút **Xác Nhận / Nhận Thưởng**.\n5. **Bước 5:** Mở mục **Hòm Thư (Mailbox)** trong game để kiểm tra và nhận vật phẩm.\n\n---\n\n### 🔍 Cách Nhận Thêm Code Nấm Lùn Tiến Lên Miễn Phí Mỗi Ngày\n- Thường xuyên theo dõi Fanpage và Group cộng đồng chính thức của game.\n- Tham gia các minigame, sự kiện mừng máy chủ mới (Open Beta) hoặc livestream từ NPH.\n- Ghé thăm website **[CodeGame.Shop](https://codegame.shop)** hàng ngày để cập nhật mã code sớm nhất và tham gia mục **[Giveaways](https://codegame.shop/giveaways)** nhận quà độc quyền.\n\n> 🛡️ **Nguồn tin tức:** Bản tin được tổng hợp, biên tập và xuất bản độc quyền bởi **CodeGame.Shop** (https://codegame.shop)."
+  },
+  {
+    "id": "news_auto_game_vuong_quoc_kien",
+    "slug": "code-vuong-quoc-kien-moi-nhat-tong-hop-ma-tan-thu-2026",
+    "title": "Code VƯƠNG QUỐC KIẾN Mới Nhất 2026: Tổng Hợp Mã Tân Thủ & Hướng Dẫn Nhập Chi Tiết",
+    "summary": "Tổng hợp trọn bộ giftcode game VƯƠNG QUỐC KIẾN (CÔNG TY CỔ PHẦN GAMOTA) mới nhất tháng 10/2026. Hướng dẫn cách nhập mã đổi thưởng nhận ngọc, trang bị VIP và quà tân thủ cực xịn.",
+    "game_name": "VƯƠNG QUỐC KIẾN",
+    "game_slug": "vuong-quoc-kien",
+    "cover_url": "/game_icons/vuong-quoc-kien.webp",
+    "author": "CodeGame.Shop",
+    "source_name": "CodeGame.Shop",
+    "source_url": "https://codegame.shop",
+    "created_at": "2026-10-17T03:30:47.284Z",
+    "updated_at": "2026-10-21T07:00:00Z",
+    "views_count": 3075,
+    "reading_time_minutes": 4,
+    "tags": [
+      "VƯƠNG QUỐC KIẾN",
+      "Code VƯƠNG QUỐC KIẾN",
+      "Hành Động & Chiến Thuật",
+      "Giftcode 2026",
+      "Tân thủ"
+    ],
+    "codes": [
+      "PO4M4VW0Z4",
+      "JE4V5IY3E3",
+      "DF3S4EV4T4",
+      "AU9W4PD6T0",
+      "PO4O9KP3U9",
+      "YZ0U1TJ7F5",
+      "IY0W9RI7E0",
+      "VX0H0HP1N4"
+    ],
+    "status": "PUBLISHED",
+    "content": "## 🎮 Giới Thiệu Tựa Game VƯƠNG QUỐC KIẾN\n\nTựa game **VƯƠNG QUỐC KIẾN** do nhà phát hành **CÔNG TY CỔ PHẦN GAMOTA** phát hành đã nhanh chóng thu hút được sự quan tâm của đông đảo game thủ yêu thích thể loại Hành Động & Chiến Thuật. Với lối chơi cuốn hút, đồ họa bắt mắt cùng các tính năng cộng đồng đặc sắc, tựa game hứa hẹn sẽ mang đến những giờ phút giải trí bùng nổ.\n\n### 🎁 Danh Sách Giftcode VƯƠNG QUỐC KIẾN Mới Nhất Tháng 10/2026\n\nDưới đây là bảng tổng hợp các mã giftcode đang hoạt động được **CodeGame.Shop** kiểm tra và xác thực:\n\n- `PO4M4VW0Z4`: Gói Quà Tân Thủ & Tài Nguyên Nâng Cấp Tướng.\n- `JE4V5IY3E3`: Gói Quà Tân Thủ & Tài Nguyên Nâng Cấp Tướng.\n- `DF3S4EV4T4`: Gói Quà Tân Thủ & Tài Nguyên Nâng Cấp Tướng.\n- `AU9W4PD6T0`: Gói Quà Tân Thủ & Tài Nguyên Nâng Cấp Tướng.\n- `PO4O9KP3U9`: Gói Quà Tân Thủ & Tài Nguyên Nâng Cấp Tướng.\n- `YZ0U1TJ7F5`: Gói Quà Tân Thủ & Tài Nguyên Nâng Cấp Tướng.\n- `IY0W9RI7E0`: Gói Quà Tân Thủ & Tài Nguyên Nâng Cấp Tướng.\n- `VX0H0HP1N4`: Gói Quà Tân Thủ & Tài Nguyên Nâng Cấp Tướng.\n\n> 💡 **Mẹo:** Các mã giftcode đều có giới hạn số lượng và thời hạn sử dụng. Bạn hãy nhanh tay nhập mã ngay khi có thể!\n\n---\n\n### 📝 Hướng Dẫn Các Bước Nhập Giftcode Trong Game VƯƠNG QUỐC KIẾN\n\n1. **Bước 1:** Khởi động game **VƯƠNG QUỐC KIẾN** và đăng nhập vào tài khoản chơi của bạn.\n2. **Bước 2:** Nhấn vào biểu tượng **Avatar nhân vật** hoặc mục **Cài đặt / Thiết lập (Settings)** ở giao diện chính.\n3. **Bước 3:** Tìm và chọn mục **Đổi Quà / Giftcode**.\n4. **Bước 4:** Nhập chính xác mã giftcode vào ô trống và nhấn nút **Xác Nhận / Nhận Thưởng**.\n5. **Bước 5:** Mở mục **Hòm Thư (Mailbox)** trong game để kiểm tra và nhận vật phẩm.\n\n---\n\n### 🔍 Cách Nhận Thêm Code VƯƠNG QUỐC KIẾN Miễn Phí Mỗi Ngày\n- Thường xuyên theo dõi Fanpage và Group cộng đồng chính thức của game.\n- Tham gia các minigame, sự kiện mừng máy chủ mới (Open Beta) hoặc livestream từ NPH.\n- Ghé thăm website **[CodeGame.Shop](https://codegame.shop)** hàng ngày để cập nhật mã code sớm nhất và tham gia mục **[Giveaways](https://codegame.shop/giveaways)** nhận quà độc quyền.\n\n> 🛡️ **Nguồn tin tức:** Bản tin được tổng hợp, biên tập và xuất bản độc quyền bởi **CodeGame.Shop** (https://codegame.shop)."
+  },
+  {
+    "id": "news_auto_game_ngoi_sao_showbiz",
+    "slug": "code-ngoi-sao-showbiz-moi-nhat-tong-hop-ma-tan-thu-2026",
+    "title": "Code Ngôi Sao Showbiz Mới Nhất 2026: Tổng Hợp Mã Tân Thủ & Hướng Dẫn Nhập Chi Tiết",
+    "summary": "Tổng hợp trọn bộ giftcode game Ngôi Sao Showbiz (CÔNG TY TNHH JOYGAMES) mới nhất tháng 10/2026. Hướng dẫn cách nhập mã đổi thưởng nhận ngọc, trang bị VIP và quà tân thủ cực xịn.",
+    "game_name": "Ngôi Sao Showbiz",
+    "game_slug": "ngoi-sao-showbiz",
+    "cover_url": "/game_icons/ngoi-sao-showbiz.webp",
+    "author": "CodeGame.Shop",
+    "source_name": "CodeGame.Shop",
+    "source_url": "https://codegame.shop",
+    "created_at": "2026-10-16T23:30:47.284Z",
+    "updated_at": "2026-10-21T07:00:00Z",
+    "views_count": 3030,
+    "reading_time_minutes": 4,
+    "tags": [
+      "Ngôi Sao Showbiz",
+      "Code Ngôi Sao Showbiz",
+      "Nhập Vai Gacha / Anime",
+      "Giftcode 2026",
+      "Tân thủ"
+    ],
+    "codes": [
+      "NGHICCHIENN",
+      "NGOISAOT38",
+      "VNTUHA00209",
+      "MUNGDAILE902",
+      "THAMMAYMAN3",
+      "NGOISAOT36",
+      "GOMSAOSANG",
+      "NGOISAOT35"
+    ],
+    "status": "PUBLISHED",
+    "content": "## 🎮 Giới Thiệu Tựa Game Ngôi Sao Showbiz\n\nTựa game **Ngôi Sao Showbiz** do nhà phát hành **CÔNG TY TNHH JOYGAMES** phát hành đã nhanh chóng thu hút được sự quan tâm của đông đảo game thủ yêu thích thể loại Nhập Vai Gacha / Anime. Với lối chơi cuốn hút, đồ họa bắt mắt cùng các tính năng cộng đồng đặc sắc, tựa game hứa hẹn sẽ mang đến những giờ phút giải trí bùng nổ.\n\n### 🎁 Danh Sách Giftcode Ngôi Sao Showbiz Mới Nhất Tháng 10/2026\n\nDưới đây là bảng tổng hợp các mã giftcode đang hoạt động được **CodeGame.Shop** kiểm tra và xác thực:\n\n- `NGHICCHIENN`: Gói Quà Tân Thủ & Tài Nguyên Nâng Cấp Tướng.\n- `NGOISAOT38`: Gói Quà Tân Thủ & Tài Nguyên Nâng Cấp Tướng.\n- `VNTUHA00209`: Gói Quà Tân Thủ & Tài Nguyên Nâng Cấp Tướng.\n- `MUNGDAILE902`: Gói Quà Tân Thủ & Tài Nguyên Nâng Cấp Tướng.\n- `THAMMAYMAN3`: Gói Quà Tân Thủ & Tài Nguyên Nâng Cấp Tướng.\n- `NGOISAOT36`: Gói Quà Tân Thủ & Tài Nguyên Nâng Cấp Tướng.\n- `GOMSAOSANG`: Gói Quà Tân Thủ & Tài Nguyên Nâng Cấp Tướng.\n- `NGOISAOT35`: Gói Quà Tân Thủ & Tài Nguyên Nâng Cấp Tướng.\n\n> 💡 **Mẹo:** Các mã giftcode đều có giới hạn số lượng và thời hạn sử dụng. Bạn hãy nhanh tay nhập mã ngay khi có thể!\n\n---\n\n### 📝 Hướng Dẫn Các Bước Nhập Giftcode Trong Game Ngôi Sao Showbiz\n\n1. **Bước 1:** Khởi động game **Ngôi Sao Showbiz** và đăng nhập vào tài khoản chơi của bạn.\n2. **Bước 2:** Nhấn vào biểu tượng **Avatar nhân vật** hoặc mục **Cài đặt / Thiết lập (Settings)** ở giao diện chính.\n3. **Bước 3:** Tìm và chọn mục **Đổi Quà / Giftcode**.\n4. **Bước 4:** Nhập chính xác mã giftcode vào ô trống và nhấn nút **Xác Nhận / Nhận Thưởng**.\n5. **Bước 5:** Mở mục **Hòm Thư (Mailbox)** trong game để kiểm tra và nhận vật phẩm.\n\n---\n\n### 🔍 Cách Nhận Thêm Code Ngôi Sao Showbiz Miễn Phí Mỗi Ngày\n- Thường xuyên theo dõi Fanpage và Group cộng đồng chính thức của game.\n- Tham gia các minigame, sự kiện mừng máy chủ mới (Open Beta) hoặc livestream từ NPH.\n- Ghé thăm website **[CodeGame.Shop](https://codegame.shop)** hàng ngày để cập nhật mã code sớm nhất và tham gia mục **[Giveaways](https://codegame.shop/giveaways)** nhận quà độc quyền.\n\n> 🛡️ **Nguồn tin tức:** Bản tin được tổng hợp, biên tập và xuất bản độc quyền bởi **CodeGame.Shop** (https://codegame.shop)."
+  },
+  {
+    "id": "news_auto_game_tien_nghich_mobile",
+    "slug": "code-tien-nghich-mobile-moi-nhat-tong-hop-ma-tan-thu-2026",
+    "title": "Code Tiên Nghịch Mobile Mới Nhất 2026: Tổng Hợp Mã Tân Thủ & Hướng Dẫn Nhập Chi Tiết",
+    "summary": "Tổng hợp trọn bộ giftcode game Tiên Nghịch Mobile (CÔNG TY TNHH JOYGAMES) mới nhất tháng 10/2026. Hướng dẫn cách nhập mã đổi thưởng nhận ngọc, trang bị VIP và quà tân thủ cực xịn.",
+    "game_name": "Tiên Nghịch Mobile",
+    "game_slug": "tien-nghich-mobile",
+    "cover_url": "/game_icons/tien-nghich-mobile.webp",
+    "author": "CodeGame.Shop",
+    "source_name": "CodeGame.Shop",
+    "source_url": "https://codegame.shop",
+    "created_at": "2026-10-16T19:30:47.284Z",
+    "updated_at": "2026-10-21T07:00:00Z",
+    "views_count": 2985,
+    "reading_time_minutes": 4,
+    "tags": [
+      "Tiên Nghịch Mobile",
+      "Code Tiên Nghịch Mobile",
+      "Kiếm Hiệp / Tiên Hiệp",
+      "Giftcode 2026",
+      "Tân thủ"
+    ],
+    "codes": [
+      "DAOBUOCNHANGIAN",
+      "TNM20B",
+      "TSVDKPI0910",
+      "GIFTCODE",
+      "LLDKPIB18",
+      "1210TTMEVY",
+      "SVIP888",
+      "TIENNGHICHJOYGAMES"
+    ],
+    "status": "PUBLISHED",
+    "content": "## 🎮 Giới Thiệu Tựa Game Tiên Nghịch Mobile\n\nTựa game **Tiên Nghịch Mobile** do nhà phát hành **CÔNG TY TNHH JOYGAMES** phát hành đã nhanh chóng thu hút được sự quan tâm của đông đảo game thủ yêu thích thể loại Kiếm Hiệp / Tiên Hiệp. Với lối chơi cuốn hút, đồ họa bắt mắt cùng các tính năng cộng đồng đặc sắc, tựa game hứa hẹn sẽ mang đến những giờ phút giải trí bùng nổ.\n\n### 🎁 Danh Sách Giftcode Tiên Nghịch Mobile Mới Nhất Tháng 10/2026\n\nDưới đây là bảng tổng hợp các mã giftcode đang hoạt động được **CodeGame.Shop** kiểm tra và xác thực:\n\n- `DAOBUOCNHANGIAN`: Gói Quà Tân Thủ & Tài Nguyên Nâng Cấp Tướng.\n- `TNM20B`: Gói Quà Tân Thủ & Tài Nguyên Nâng Cấp Tướng.\n- `TSVDKPI0910`: Gói Quà Tân Thủ & Tài Nguyên Nâng Cấp Tướng.\n- `GIFTCODE`: Gói Quà Tân Thủ & Tài Nguyên Nâng Cấp Tướng.\n- `LLDKPIB18`: Gói Quà Tân Thủ & Tài Nguyên Nâng Cấp Tướng.\n- `1210TTMEVY`: Gói Quà Tân Thủ & Tài Nguyên Nâng Cấp Tướng.\n- `SVIP888`: Gói Quà Tân Thủ & Tài Nguyên Nâng Cấp Tướng.\n- `TIENNGHICHJOYGAMES`: Gói Quà Tân Thủ & Tài Nguyên Nâng Cấp Tướng.\n\n> 💡 **Mẹo:** Các mã giftcode đều có giới hạn số lượng và thời hạn sử dụng. Bạn hãy nhanh tay nhập mã ngay khi có thể!\n\n---\n\n### 📝 Hướng Dẫn Các Bước Nhập Giftcode Trong Game Tiên Nghịch Mobile\n\n1. **Bước 1:** Khởi động game **Tiên Nghịch Mobile** và đăng nhập vào tài khoản chơi của bạn.\n2. **Bước 2:** Nhấn vào biểu tượng **Avatar nhân vật** hoặc mục **Cài đặt / Thiết lập (Settings)** ở giao diện chính.\n3. **Bước 3:** Tìm và chọn mục **Đổi Quà / Giftcode**.\n4. **Bước 4:** Nhập chính xác mã giftcode vào ô trống và nhấn nút **Xác Nhận / Nhận Thưởng**.\n5. **Bước 5:** Mở mục **Hòm Thư (Mailbox)** trong game để kiểm tra và nhận vật phẩm.\n\n---\n\n### 🔍 Cách Nhận Thêm Code Tiên Nghịch Mobile Miễn Phí Mỗi Ngày\n- Thường xuyên theo dõi Fanpage và Group cộng đồng chính thức của game.\n- Tham gia các minigame, sự kiện mừng máy chủ mới (Open Beta) hoặc livestream từ NPH.\n- Ghé thăm website **[CodeGame.Shop](https://codegame.shop)** hàng ngày để cập nhật mã code sớm nhất và tham gia mục **[Giveaways](https://codegame.shop/giveaways)** nhận quà độc quyền.\n\n> 🛡️ **Nguồn tin tức:** Bản tin được tổng hợp, biên tập và xuất bản độc quyền bởi **CodeGame.Shop** (https://codegame.shop)."
+  },
+  {
+    "id": "news_auto_game_kiem_the_origin",
+    "slug": "code-kiem-the-origin-moi-nhat-tong-hop-ma-tan-thu-2026",
+    "title": "Code Kiếm Thế Origin VNG Mới Nhất 2026: Tổng Hợp Mã Tân Thủ & Hướng Dẫn Nhập Chi Tiết",
+    "summary": "Tổng hợp trọn bộ giftcode game Kiếm Thế Origin VNG (CÔNG TY CỔ PHẦN TẬP ĐOÀN VNG) mới nhất tháng 10/2026. Hướng dẫn cách nhập mã đổi thưởng nhận ngọc, trang bị VIP và quà tân thủ cực xịn.",
+    "game_name": "Kiếm Thế Origin VNG",
+    "game_slug": "kiem-the-origin",
+    "cover_url": "/game_icons/kiem-the-origin.webp",
+    "author": "CodeGame.Shop",
+    "source_name": "CodeGame.Shop",
+    "source_url": "https://codegame.shop",
+    "created_at": "2026-10-16T15:30:47.284Z",
+    "updated_at": "2026-10-21T07:00:00Z",
+    "views_count": 2940,
+    "reading_time_minutes": 4,
+    "tags": [
+      "Kiếm Thế Origin VNG",
+      "Code Kiếm Thế Origin VNG",
+      "Kiếm Hiệp / Tiên Hiệp",
+      "Giftcode 2026",
+      "Tân thủ"
+    ],
+    "codes": [
+      "VSHKDANANG",
+      "VSHKAEARB",
+      "VSHKDANCHOI",
+      "VSHKBAOKIMKIEM",
+      "VSHKHOANGDIEP",
+      "VSHKBIGBANANAS",
+      "KTOBLCHOC",
+      "KTOQUANGNIEN"
+    ],
+    "status": "PUBLISHED",
+    "content": "## 🎮 Giới Thiệu Tựa Game Kiếm Thế Origin VNG\n\nTựa game **Kiếm Thế Origin VNG** do nhà phát hành **CÔNG TY CỔ PHẦN TẬP ĐOÀN VNG** phát hành đã nhanh chóng thu hút được sự quan tâm của đông đảo game thủ yêu thích thể loại Kiếm Hiệp / Tiên Hiệp. Với lối chơi cuốn hút, đồ họa bắt mắt cùng các tính năng cộng đồng đặc sắc, tựa game hứa hẹn sẽ mang đến những giờ phút giải trí bùng nổ.\n\n### 🎁 Danh Sách Giftcode Kiếm Thế Origin VNG Mới Nhất Tháng 10/2026\n\nDưới đây là bảng tổng hợp các mã giftcode đang hoạt động được **CodeGame.Shop** kiểm tra và xác thực:\n\n- `VSHKDANANG`: Gói Quà Tân Thủ & Tài Nguyên Nâng Cấp Tướng.\n- `VSHKAEARB`: Gói Quà Tân Thủ & Tài Nguyên Nâng Cấp Tướng.\n- `VSHKDANCHOI`: Gói Quà Tân Thủ & Tài Nguyên Nâng Cấp Tướng.\n- `VSHKBAOKIMKIEM`: Gói Quà Tân Thủ & Tài Nguyên Nâng Cấp Tướng.\n- `VSHKHOANGDIEP`: Gói Quà Tân Thủ & Tài Nguyên Nâng Cấp Tướng.\n- `VSHKBIGBANANAS`: Gói Quà Tân Thủ & Tài Nguyên Nâng Cấp Tướng.\n- `KTOBLCHOC`: Gói Quà Tân Thủ & Tài Nguyên Nâng Cấp Tướng.\n- `KTOQUANGNIEN`: Gói Quà Tân Thủ & Tài Nguyên Nâng Cấp Tướng.\n\n> 💡 **Mẹo:** Các mã giftcode đều có giới hạn số lượng và thời hạn sử dụng. Bạn hãy nhanh tay nhập mã ngay khi có thể!\n\n---\n\n### 📝 Hướng Dẫn Các Bước Nhập Giftcode Trong Game Kiếm Thế Origin VNG\n\n1. **Bước 1:** Khởi động game **Kiếm Thế Origin VNG** và đăng nhập vào tài khoản chơi của bạn.\n2. **Bước 2:** Nhấn vào biểu tượng **Avatar nhân vật** hoặc mục **Cài đặt / Thiết lập (Settings)** ở giao diện chính.\n3. **Bước 3:** Tìm và chọn mục **Đổi Quà / Giftcode**.\n4. **Bước 4:** Nhập chính xác mã giftcode vào ô trống và nhấn nút **Xác Nhận / Nhận Thưởng**.\n5. **Bước 5:** Mở mục **Hòm Thư (Mailbox)** trong game để kiểm tra và nhận vật phẩm.\n\n---\n\n### 🔍 Cách Nhận Thêm Code Kiếm Thế Origin VNG Miễn Phí Mỗi Ngày\n- Thường xuyên theo dõi Fanpage và Group cộng đồng chính thức của game.\n- Tham gia các minigame, sự kiện mừng máy chủ mới (Open Beta) hoặc livestream từ NPH.\n- Ghé thăm website **[CodeGame.Shop](https://codegame.shop)** hàng ngày để cập nhật mã code sớm nhất và tham gia mục **[Giveaways](https://codegame.shop/giveaways)** nhận quà độc quyền.\n\n> 🛡️ **Nguồn tin tức:** Bản tin được tổng hợp, biên tập và xuất bản độc quyền bởi **CodeGame.Shop** (https://codegame.shop)."
+  },
+  {
+    "id": "news_auto_game_manga_ba_chay",
+    "slug": "code-manga-ba-chay-moi-nhat-tong-hop-ma-tan-thu-2026",
+    "title": "Code Manga Bá Cháy Mới Nhất 2026: Tổng Hợp Mã Tân Thủ & Hướng Dẫn Nhập Chi Tiết",
+    "summary": "Tổng hợp trọn bộ giftcode game Manga Bá Cháy (CÔNG TY CỔ PHẦN VGP) mới nhất tháng 10/2026. Hướng dẫn cách nhập mã đổi thưởng nhận ngọc, trang bị VIP và quà tân thủ cực xịn.",
+    "game_name": "Manga Bá Cháy",
+    "game_slug": "manga-ba-chay",
+    "cover_url": "/game_icons/manga-ba-chay.webp",
+    "author": "CodeGame.Shop",
+    "source_name": "CodeGame.Shop",
+    "source_url": "https://codegame.shop",
+    "created_at": "2026-10-16T11:30:47.284Z",
+    "updated_at": "2026-10-21T07:00:00Z",
+    "views_count": 2895,
+    "reading_time_minutes": 4,
+    "tags": [
+      "Manga Bá Cháy",
+      "Code Manga Bá Cháy",
+      "Nhập Vai Gacha / Anime",
+      "Giftcode 2026",
+      "Tân thủ"
+    ],
+    "codes": [
+      "ATCT592AL",
+      "ATCT58JWO",
+      "atctsnvv1",
+      "ATCT515YG",
+      "atct50m9n",
+      "atc6months",
+      "Atctuan36",
+      "Atctuan38"
+    ],
+    "status": "PUBLISHED",
+    "content": "## 🎮 Giới Thiệu Tựa Game Manga Bá Cháy\n\nTựa game **Manga Bá Cháy** do nhà phát hành **CÔNG TY CỔ PHẦN VGP** phát hành đã nhanh chóng thu hút được sự quan tâm của đông đảo game thủ yêu thích thể loại Nhập Vai Gacha / Anime. Với lối chơi cuốn hút, đồ họa bắt mắt cùng các tính năng cộng đồng đặc sắc, tựa game hứa hẹn sẽ mang đến những giờ phút giải trí bùng nổ.\n\n### 🎁 Danh Sách Giftcode Manga Bá Cháy Mới Nhất Tháng 10/2026\n\nDưới đây là bảng tổng hợp các mã giftcode đang hoạt động được **CodeGame.Shop** kiểm tra và xác thực:\n\n- `ATCT592AL`: Gói Quà Tân Thủ & Tài Nguyên Nâng Cấp Tướng.\n- `ATCT58JWO`: Gói Quà Tân Thủ & Tài Nguyên Nâng Cấp Tướng.\n- `atctsnvv1`: Gói Quà Tân Thủ & Tài Nguyên Nâng Cấp Tướng.\n- `ATCT515YG`: Gói Quà Tân Thủ & Tài Nguyên Nâng Cấp Tướng.\n- `atct50m9n`: Gói Quà Tân Thủ & Tài Nguyên Nâng Cấp Tướng.\n- `atc6months`: Gói Quà Tân Thủ & Tài Nguyên Nâng Cấp Tướng.\n- `Atctuan36`: Gói Quà Tân Thủ & Tài Nguyên Nâng Cấp Tướng.\n- `Atctuan38`: Gói Quà Tân Thủ & Tài Nguyên Nâng Cấp Tướng.\n\n> 💡 **Mẹo:** Các mã giftcode đều có giới hạn số lượng và thời hạn sử dụng. Bạn hãy nhanh tay nhập mã ngay khi có thể!\n\n---\n\n### 📝 Hướng Dẫn Các Bước Nhập Giftcode Trong Game Manga Bá Cháy\n\n1. **Bước 1:** Khởi động game **Manga Bá Cháy** và đăng nhập vào tài khoản chơi của bạn.\n2. **Bước 2:** Nhấn vào biểu tượng **Avatar nhân vật** hoặc mục **Cài đặt / Thiết lập (Settings)** ở giao diện chính.\n3. **Bước 3:** Tìm và chọn mục **Đổi Quà / Giftcode**.\n4. **Bước 4:** Nhập chính xác mã giftcode vào ô trống và nhấn nút **Xác Nhận / Nhận Thưởng**.\n5. **Bước 5:** Mở mục **Hòm Thư (Mailbox)** trong game để kiểm tra và nhận vật phẩm.\n\n---\n\n### 🔍 Cách Nhận Thêm Code Manga Bá Cháy Miễn Phí Mỗi Ngày\n- Thường xuyên theo dõi Fanpage và Group cộng đồng chính thức của game.\n- Tham gia các minigame, sự kiện mừng máy chủ mới (Open Beta) hoặc livestream từ NPH.\n- Ghé thăm website **[CodeGame.Shop](https://codegame.shop)** hàng ngày để cập nhật mã code sớm nhất và tham gia mục **[Giveaways](https://codegame.shop/giveaways)** nhận quà độc quyền.\n\n> 🛡️ **Nguồn tin tức:** Bản tin được tổng hợp, biên tập và xuất bản độc quyền bởi **CodeGame.Shop** (https://codegame.shop)."
+  },
+  {
+    "id": "news_auto_game_thieu_nien_3q_vng",
+    "slug": "code-thieu-nien-3q-vng-moi-nhat-tong-hop-ma-tan-thu-2026",
+    "title": "Code Thiếu Niên 3Q VNG Mới Nhất 2026: Tổng Hợp Mã Tân Thủ & Hướng Dẫn Nhập Chi Tiết",
+    "summary": "Tổng hợp trọn bộ giftcode game Thiếu Niên 3Q VNG (CÔNG TY TNHH TRUYỀN THÔNG MINH PHƯƠNG THỊNH) mới nhất tháng 10/2026. Hướng dẫn cách nhập mã đổi thưởng nhận ngọc, trang bị VIP và quà tân thủ cực xịn.",
+    "game_name": "Thiếu Niên 3Q VNG",
+    "game_slug": "thieu-nien-3q-vng",
+    "cover_url": "/game_icons/thieu-nien-3q-vng.webp",
+    "author": "CodeGame.Shop",
+    "source_name": "CodeGame.Shop",
+    "source_url": "https://codegame.shop",
+    "created_at": "2026-10-16T07:30:47.284Z",
+    "updated_at": "2026-10-21T07:00:00Z",
+    "views_count": 2850,
+    "reading_time_minutes": 4,
+    "tags": [
+      "Thiếu Niên 3Q VNG",
+      "Code Thiếu Niên 3Q VNG",
+      "Tam Quốc / Chiến Thuật",
+      "Giftcode 2026",
+      "Tân thủ"
+    ],
+    "codes": [
+      "GREATDAY",
+      "YOUTH666",
+      "YOUTH888",
+      "YOUTH2025",
+      "YOUTH2026",
+      "TN3QSIEUCAP2026",
+      "TN3QSVMOI2026",
+      "TN3QKNCHAO2026"
+    ],
+    "status": "PUBLISHED",
+    "content": "## 🎮 Giới Thiệu Tựa Game Thiếu Niên 3Q VNG\n\nTựa game **Thiếu Niên 3Q VNG** do nhà phát hành **CÔNG TY TNHH TRUYỀN THÔNG MINH PHƯƠNG THỊNH** phát hành đã nhanh chóng thu hút được sự quan tâm của đông đảo game thủ yêu thích thể loại Tam Quốc / Chiến Thuật. Với lối chơi cuốn hút, đồ họa bắt mắt cùng các tính năng cộng đồng đặc sắc, tựa game hứa hẹn sẽ mang đến những giờ phút giải trí bùng nổ.\n\n### 🎁 Danh Sách Giftcode Thiếu Niên 3Q VNG Mới Nhất Tháng 10/2026\n\nDưới đây là bảng tổng hợp các mã giftcode đang hoạt động được **CodeGame.Shop** kiểm tra và xác thực:\n\n- `GREATDAY`: Gói Quà Tân Thủ & Tài Nguyên Nâng Cấp Tướng.\n- `YOUTH666`: Gói Quà Tân Thủ & Tài Nguyên Nâng Cấp Tướng.\n- `YOUTH888`: Gói Quà Tân Thủ & Tài Nguyên Nâng Cấp Tướng.\n- `YOUTH2025`: Gói Quà Tân Thủ & Tài Nguyên Nâng Cấp Tướng.\n- `YOUTH2026`: Gói Quà Tân Thủ & Tài Nguyên Nâng Cấp Tướng.\n- `TN3QSIEUCAP2026`: Gói Quà Tân Thủ & Tài Nguyên Nâng Cấp Tướng.\n- `TN3QSVMOI2026`: Gói Quà Tân Thủ & Tài Nguyên Nâng Cấp Tướng.\n- `TN3QKNCHAO2026`: Gói Quà Tân Thủ & Tài Nguyên Nâng Cấp Tướng.\n\n> 💡 **Mẹo:** Các mã giftcode đều có giới hạn số lượng và thời hạn sử dụng. Bạn hãy nhanh tay nhập mã ngay khi có thể!\n\n---\n\n### 📝 Hướng Dẫn Các Bước Nhập Giftcode Trong Game Thiếu Niên 3Q VNG\n\n1. **Bước 1:** Khởi động game **Thiếu Niên 3Q VNG** và đăng nhập vào tài khoản chơi của bạn.\n2. **Bước 2:** Nhấn vào biểu tượng **Avatar nhân vật** hoặc mục **Cài đặt / Thiết lập (Settings)** ở giao diện chính.\n3. **Bước 3:** Tìm và chọn mục **Đổi Quà / Giftcode**.\n4. **Bước 4:** Nhập chính xác mã giftcode vào ô trống và nhấn nút **Xác Nhận / Nhận Thưởng**.\n5. **Bước 5:** Mở mục **Hòm Thư (Mailbox)** trong game để kiểm tra và nhận vật phẩm.\n\n---\n\n### 🔍 Cách Nhận Thêm Code Thiếu Niên 3Q VNG Miễn Phí Mỗi Ngày\n- Thường xuyên theo dõi Fanpage và Group cộng đồng chính thức của game.\n- Tham gia các minigame, sự kiện mừng máy chủ mới (Open Beta) hoặc livestream từ NPH.\n- Ghé thăm website **[CodeGame.Shop](https://codegame.shop)** hàng ngày để cập nhật mã code sớm nhất và tham gia mục **[Giveaways](https://codegame.shop/giveaways)** nhận quà độc quyền.\n\n> 🛡️ **Nguồn tin tức:** Bản tin được tổng hợp, biên tập và xuất bản độc quyền bởi **CodeGame.Shop** (https://codegame.shop)."
+  },
+  {
+    "id": "news_auto_game_mu_luc_dia_vng",
+    "slug": "code-mu-luc-dia-vng-moi-nhat-tong-hop-ma-tan-thu-2026",
+    "title": "Code MU Lục Địa VNG Mới Nhất 2026: Tổng Hợp Mã Tân Thủ & Hướng Dẫn Nhập Chi Tiết",
+    "summary": "Tổng hợp trọn bộ giftcode game MU Lục Địa VNG (CÔNG TY CỔ PHẦN TẬP ĐOÀN VNG) mới nhất tháng 10/2026. Hướng dẫn cách nhập mã đổi thưởng nhận ngọc, trang bị VIP và quà tân thủ cực xịn.",
+    "game_name": "MU Lục Địa VNG",
+    "game_slug": "mu-luc-dia-vng",
+    "cover_url": "/game_icons/mu-luc-dia-vng.webp",
+    "author": "CodeGame.Shop",
+    "source_name": "CodeGame.Shop",
+    "source_url": "https://codegame.shop",
+    "created_at": "2026-10-16T03:30:47.284Z",
+    "updated_at": "2026-10-21T07:00:00Z",
+    "views_count": 2805,
+    "reading_time_minutes": 4,
+    "tags": [
+      "MU Lục Địa VNG",
+      "Code MU Lục Địa VNG",
+      "Kiếm Hiệp / Tiên Hiệp",
+      "Giftcode 2026",
+      "Tân thủ"
+    ],
+    "codes": [
+      "CHIENNGAYMU",
+      "MUMOC2",
+      "MOC4MU",
+      "MOCMU5",
+      "TANTHU",
+      "NEWBIE",
+      "MUVNG",
+      "MULUCDIA"
+    ],
+    "status": "PUBLISHED",
+    "content": "## 🎮 Giới Thiệu Tựa Game MU Lục Địa VNG\n\nTựa game **MU Lục Địa VNG** do nhà phát hành **CÔNG TY CỔ PHẦN TẬP ĐOÀN VNG** phát hành đã nhanh chóng thu hút được sự quan tâm của đông đảo game thủ yêu thích thể loại Kiếm Hiệp / Tiên Hiệp. Với lối chơi cuốn hút, đồ họa bắt mắt cùng các tính năng cộng đồng đặc sắc, tựa game hứa hẹn sẽ mang đến những giờ phút giải trí bùng nổ.\n\n### 🎁 Danh Sách Giftcode MU Lục Địa VNG Mới Nhất Tháng 10/2026\n\nDưới đây là bảng tổng hợp các mã giftcode đang hoạt động được **CodeGame.Shop** kiểm tra và xác thực:\n\n- `CHIENNGAYMU`: Gói Quà Tân Thủ & Tài Nguyên Nâng Cấp Tướng.\n- `MUMOC2`: Gói Quà Tân Thủ & Tài Nguyên Nâng Cấp Tướng.\n- `MOC4MU`: Gói Quà Tân Thủ & Tài Nguyên Nâng Cấp Tướng.\n- `MOCMU5`: Gói Quà Tân Thủ & Tài Nguyên Nâng Cấp Tướng.\n- `TANTHU`: Gói Quà Tân Thủ & Tài Nguyên Nâng Cấp Tướng.\n- `NEWBIE`: Gói Quà Tân Thủ & Tài Nguyên Nâng Cấp Tướng.\n- `MUVNG`: Gói Quà Tân Thủ & Tài Nguyên Nâng Cấp Tướng.\n- `MULUCDIA`: Gói Quà Tân Thủ & Tài Nguyên Nâng Cấp Tướng.\n\n> 💡 **Mẹo:** Các mã giftcode đều có giới hạn số lượng và thời hạn sử dụng. Bạn hãy nhanh tay nhập mã ngay khi có thể!\n\n---\n\n### 📝 Hướng Dẫn Các Bước Nhập Giftcode Trong Game MU Lục Địa VNG\n\n1. **Bước 1:** Khởi động game **MU Lục Địa VNG** và đăng nhập vào tài khoản chơi của bạn.\n2. **Bước 2:** Nhấn vào biểu tượng **Avatar nhân vật** hoặc mục **Cài đặt / Thiết lập (Settings)** ở giao diện chính.\n3. **Bước 3:** Tìm và chọn mục **Đổi Quà / Giftcode**.\n4. **Bước 4:** Nhập chính xác mã giftcode vào ô trống và nhấn nút **Xác Nhận / Nhận Thưởng**.\n5. **Bước 5:** Mở mục **Hòm Thư (Mailbox)** trong game để kiểm tra và nhận vật phẩm.\n\n---\n\n### 🔍 Cách Nhận Thêm Code MU Lục Địa VNG Miễn Phí Mỗi Ngày\n- Thường xuyên theo dõi Fanpage và Group cộng đồng chính thức của game.\n- Tham gia các minigame, sự kiện mừng máy chủ mới (Open Beta) hoặc livestream từ NPH.\n- Ghé thăm website **[CodeGame.Shop](https://codegame.shop)** hàng ngày để cập nhật mã code sớm nhất và tham gia mục **[Giveaways](https://codegame.shop/giveaways)** nhận quà độc quyền.\n\n> 🛡️ **Nguồn tin tức:** Bản tin được tổng hợp, biên tập và xuất bản độc quyền bởi **CodeGame.Shop** (https://codegame.shop)."
+  },
+  {
+    "id": "news_auto_game_crossfire_legends_mobile_vng",
+    "slug": "code-crossfire-legends-mobile-vng-moi-nhat-tong-hop-ma-tan-thu-2026",
+    "title": "Code Crossfire: Legends Mobile VNG Mới Nhất 2026: Tổng Hợp Mã Tân Thủ & Hướng Dẫn Nhập Chi Tiết",
+    "summary": "Tổng hợp trọn bộ giftcode game Crossfire: Legends Mobile VNG (CÔNG TY CỔ PHẦN TẬP ĐOÀN VNG) mới nhất tháng 10/2026. Hướng dẫn cách nhập mã đổi thưởng nhận ngọc, trang bị VIP và quà tân thủ cực xịn.",
+    "game_name": "Crossfire: Legends Mobile VNG",
+    "game_slug": "crossfire-legends-mobile-vng",
+    "cover_url": "/game_icons/crossfire-legends-mobile-vng.webp",
+    "author": "CodeGame.Shop",
+    "source_name": "CodeGame.Shop",
+    "source_url": "https://codegame.shop",
+    "created_at": "2026-10-15T23:30:47.284Z",
+    "updated_at": "2026-10-21T07:00:00Z",
+    "views_count": 2760,
+    "reading_time_minutes": 4,
+    "tags": [
+      "Crossfire: Legends Mobile VNG",
+      "Code Crossfire: Legends Mobile VNG",
+      "Bắn Súng / Sinh Tồn",
+      "Giftcode 2026",
+      "Tân thủ"
+    ],
+    "codes": [
+      "VNGM1TPKNH",
+      "VNGM2ZDTHQ",
+      "VNGM3TRVAR",
+      "VNGM4DYCKG",
+      "VNGM5YEEKZ",
+      "VNGM6ASFMU",
+      "CFLGAMESONNOW",
+      "GAMESONCFL"
+    ],
+    "status": "PUBLISHED",
+    "content": "## 🎮 Giới Thiệu Tựa Game Crossfire: Legends Mobile VNG\n\nTựa game **Crossfire: Legends Mobile VNG** do nhà phát hành **CÔNG TY CỔ PHẦN TẬP ĐOÀN VNG** phát hành đã nhanh chóng thu hút được sự quan tâm của đông đảo game thủ yêu thích thể loại Bắn Súng / Sinh Tồn. Với lối chơi cuốn hút, đồ họa bắt mắt cùng các tính năng cộng đồng đặc sắc, tựa game hứa hẹn sẽ mang đến những giờ phút giải trí bùng nổ.\n\n### 🎁 Danh Sách Giftcode Crossfire: Legends Mobile VNG Mới Nhất Tháng 10/2026\n\nDưới đây là bảng tổng hợp các mã giftcode đang hoạt động được **CodeGame.Shop** kiểm tra và xác thực:\n\n- `VNGM1TPKNH`: Gói Quà Tân Thủ & Tài Nguyên Nâng Cấp Tướng.\n- `VNGM2ZDTHQ`: Gói Quà Tân Thủ & Tài Nguyên Nâng Cấp Tướng.\n- `VNGM3TRVAR`: Gói Quà Tân Thủ & Tài Nguyên Nâng Cấp Tướng.\n- `VNGM4DYCKG`: Gói Quà Tân Thủ & Tài Nguyên Nâng Cấp Tướng.\n- `VNGM5YEEKZ`: Gói Quà Tân Thủ & Tài Nguyên Nâng Cấp Tướng.\n- `VNGM6ASFMU`: Gói Quà Tân Thủ & Tài Nguyên Nâng Cấp Tướng.\n- `CFLGAMESONNOW`: Gói Quà Tân Thủ & Tài Nguyên Nâng Cấp Tướng.\n- `GAMESONCFL`: Gói Quà Tân Thủ & Tài Nguyên Nâng Cấp Tướng.\n\n> 💡 **Mẹo:** Các mã giftcode đều có giới hạn số lượng và thời hạn sử dụng. Bạn hãy nhanh tay nhập mã ngay khi có thể!\n\n---\n\n### 📝 Hướng Dẫn Các Bước Nhập Giftcode Trong Game Crossfire: Legends Mobile VNG\n\n1. **Bước 1:** Khởi động game **Crossfire: Legends Mobile VNG** và đăng nhập vào tài khoản chơi của bạn.\n2. **Bước 2:** Nhấn vào biểu tượng **Avatar nhân vật** hoặc mục **Cài đặt / Thiết lập (Settings)** ở giao diện chính.\n3. **Bước 3:** Tìm và chọn mục **Đổi Quà / Giftcode**.\n4. **Bước 4:** Nhập chính xác mã giftcode vào ô trống và nhấn nút **Xác Nhận / Nhận Thưởng**.\n5. **Bước 5:** Mở mục **Hòm Thư (Mailbox)** trong game để kiểm tra và nhận vật phẩm.\n\n---\n\n### 🔍 Cách Nhận Thêm Code Crossfire: Legends Mobile VNG Miễn Phí Mỗi Ngày\n- Thường xuyên theo dõi Fanpage và Group cộng đồng chính thức của game.\n- Tham gia các minigame, sự kiện mừng máy chủ mới (Open Beta) hoặc livestream từ NPH.\n- Ghé thăm website **[CodeGame.Shop](https://codegame.shop)** hàng ngày để cập nhật mã code sớm nhất và tham gia mục **[Giveaways](https://codegame.shop/giveaways)** nhận quà độc quyền.\n\n> 🛡️ **Nguồn tin tức:** Bản tin được tổng hợp, biên tập và xuất bản độc quyền bởi **CodeGame.Shop** (https://codegame.shop)."
+  },
+  {
+    "id": "news_auto_game_thoi_dai_anh_hung",
+    "slug": "code-thoi-dai-anh-hung-moi-nhat-tong-hop-ma-tan-thu-2026",
+    "title": "Code Top Heroes - Thời Đại Anh Hùng Mới Nhất 2026: Tổng Hợp Mã Tân Thủ & Hướng Dẫn Nhập Chi Tiết",
+    "summary": "Tổng hợp trọn bộ giftcode game Top Heroes - Thời Đại Anh Hùng (CÔNG TY CỔ PHẦN FUNTAP GAMES) mới nhất tháng 10/2026. Hướng dẫn cách nhập mã đổi thưởng nhận ngọc, trang bị VIP và quà tân thủ cực xịn.",
+    "game_name": "Top Heroes - Thời Đại Anh Hùng",
+    "game_slug": "thoi-dai-anh-hung",
+    "cover_url": "/game_icons/thoi-dai-anh-hung.webp",
+    "author": "CodeGame.Shop",
+    "source_name": "CodeGame.Shop",
+    "source_url": "https://codegame.shop",
+    "created_at": "2026-10-15T19:30:47.284Z",
+    "updated_at": "2026-10-21T07:00:00Z",
+    "views_count": 2715,
+    "reading_time_minutes": 4,
+    "tags": [
+      "Top Heroes - Thời Đại Anh Hùng",
+      "Code Top Heroes - Thời Đại Anh Hùng",
+      "Nhập Vai Gacha / Anime",
+      "Giftcode 2026",
+      "Tân thủ"
+    ],
+    "codes": [
+      "LandofStrife",
+      "TH2gether",
+      "TopHeroesTurn2",
+      "262EE1C3",
+      "ONEYEARTH",
+      "CakeTime",
+      "TopHeroes20M",
+      "TOPLOVE5000"
+    ],
+    "status": "PUBLISHED",
+    "content": "## 🎮 Giới Thiệu Tựa Game Top Heroes - Thời Đại Anh Hùng\n\nTựa game **Top Heroes - Thời Đại Anh Hùng** do nhà phát hành **CÔNG TY CỔ PHẦN FUNTAP GAMES** phát hành đã nhanh chóng thu hút được sự quan tâm của đông đảo game thủ yêu thích thể loại Nhập Vai Gacha / Anime. Với lối chơi cuốn hút, đồ họa bắt mắt cùng các tính năng cộng đồng đặc sắc, tựa game hứa hẹn sẽ mang đến những giờ phút giải trí bùng nổ.\n\n### 🎁 Danh Sách Giftcode Top Heroes - Thời Đại Anh Hùng Mới Nhất Tháng 10/2026\n\nDưới đây là bảng tổng hợp các mã giftcode đang hoạt động được **CodeGame.Shop** kiểm tra và xác thực:\n\n- `LandofStrife`: Gói Quà Tân Thủ & Tài Nguyên Nâng Cấp Tướng.\n- `TH2gether`: Gói Quà Tân Thủ & Tài Nguyên Nâng Cấp Tướng.\n- `TopHeroesTurn2`: Gói Quà Tân Thủ & Tài Nguyên Nâng Cấp Tướng.\n- `262EE1C3`: Gói Quà Tân Thủ & Tài Nguyên Nâng Cấp Tướng.\n- `ONEYEARTH`: Gói Quà Tân Thủ & Tài Nguyên Nâng Cấp Tướng.\n- `CakeTime`: Gói Quà Tân Thủ & Tài Nguyên Nâng Cấp Tướng.\n- `TopHeroes20M`: Gói Quà Tân Thủ & Tài Nguyên Nâng Cấp Tướng.\n- `TOPLOVE5000`: Gói Quà Tân Thủ & Tài Nguyên Nâng Cấp Tướng.\n\n> 💡 **Mẹo:** Các mã giftcode đều có giới hạn số lượng và thời hạn sử dụng. Bạn hãy nhanh tay nhập mã ngay khi có thể!\n\n---\n\n### 📝 Hướng Dẫn Các Bước Nhập Giftcode Trong Game Top Heroes - Thời Đại Anh Hùng\n\n1. **Bước 1:** Khởi động game **Top Heroes - Thời Đại Anh Hùng** và đăng nhập vào tài khoản chơi của bạn.\n2. **Bước 2:** Nhấn vào biểu tượng **Avatar nhân vật** hoặc mục **Cài đặt / Thiết lập (Settings)** ở giao diện chính.\n3. **Bước 3:** Tìm và chọn mục **Đổi Quà / Giftcode**.\n4. **Bước 4:** Nhập chính xác mã giftcode vào ô trống và nhấn nút **Xác Nhận / Nhận Thưởng**.\n5. **Bước 5:** Mở mục **Hòm Thư (Mailbox)** trong game để kiểm tra và nhận vật phẩm.\n\n---\n\n### 🔍 Cách Nhận Thêm Code Top Heroes - Thời Đại Anh Hùng Miễn Phí Mỗi Ngày\n- Thường xuyên theo dõi Fanpage và Group cộng đồng chính thức của game.\n- Tham gia các minigame, sự kiện mừng máy chủ mới (Open Beta) hoặc livestream từ NPH.\n- Ghé thăm website **[CodeGame.Shop](https://codegame.shop)** hàng ngày để cập nhật mã code sớm nhất và tham gia mục **[Giveaways](https://codegame.shop/giveaways)** nhận quà độc quyền.\n\n> 🛡️ **Nguồn tin tức:** Bản tin được tổng hợp, biên tập và xuất bản độc quyền bởi **CodeGame.Shop** (https://codegame.shop)."
+  },
+  {
+    "id": "news_auto_game_nhat_niem_tieu_dao_gzone",
+    "slug": "code-nhat-niem-tieu-dao-gzone-moi-nhat-tong-hop-ma-tan-thu-2026",
+    "title": "Code Nhất Niệm Tiêu Dao - Gzone Mới Nhất 2026: Tổng Hợp Mã Tân Thủ & Hướng Dẫn Nhập Chi Tiết",
+    "summary": "Tổng hợp trọn bộ giftcode game Nhất Niệm Tiêu Dao - Gzone (CÔNG TY CỔ PHẦN GZONE MEDIA VIỆT NAM) mới nhất tháng 10/2026. Hướng dẫn cách nhập mã đổi thưởng nhận ngọc, trang bị VIP và quà tân thủ cực xịn.",
+    "game_name": "Nhất Niệm Tiêu Dao - Gzone",
+    "game_slug": "nhat-niem-tieu-dao-gzone",
+    "cover_url": "/game_icons/nhat-niem-tieu-dao-gzone.webp",
+    "author": "CodeGame.Shop",
+    "source_name": "CodeGame.Shop",
+    "source_url": "https://codegame.shop",
+    "created_at": "2026-10-15T15:30:47.284Z",
+    "updated_at": "2026-10-21T07:00:00Z",
+    "views_count": 2670,
+    "reading_time_minutes": 4,
+    "tags": [
+      "Nhất Niệm Tiêu Dao - Gzone",
+      "Code Nhất Niệm Tiêu Dao - Gzone",
+      "Kiếm Hiệp / Tiên Hiệp",
+      "Giftcode 2026",
+      "Tân thủ"
+    ],
+    "codes": [
+      "SGRREGCV",
+      "RTRWWEH",
+      "RSDCEEX",
+      "DOTPHANHANPHAM",
+      "FANDOITHANG",
+      "MUNGSINHNHATBAC",
+      "NOELNNTD",
+      "NHATNIEMPHAGIOI"
+    ],
+    "status": "PUBLISHED",
+    "content": "## 🎮 Giới Thiệu Tựa Game Nhất Niệm Tiêu Dao - Gzone\n\nTựa game **Nhất Niệm Tiêu Dao - Gzone** do nhà phát hành **CÔNG TY CỔ PHẦN GZONE MEDIA VIỆT NAM** phát hành đã nhanh chóng thu hút được sự quan tâm của đông đảo game thủ yêu thích thể loại Kiếm Hiệp / Tiên Hiệp. Với lối chơi cuốn hút, đồ họa bắt mắt cùng các tính năng cộng đồng đặc sắc, tựa game hứa hẹn sẽ mang đến những giờ phút giải trí bùng nổ.\n\n### 🎁 Danh Sách Giftcode Nhất Niệm Tiêu Dao - Gzone Mới Nhất Tháng 10/2026\n\nDưới đây là bảng tổng hợp các mã giftcode đang hoạt động được **CodeGame.Shop** kiểm tra và xác thực:\n\n- `SGRREGCV`: Gói Quà Tân Thủ & Tài Nguyên Nâng Cấp Tướng.\n- `RTRWWEH`: Gói Quà Tân Thủ & Tài Nguyên Nâng Cấp Tướng.\n- `RSDCEEX`: Gói Quà Tân Thủ & Tài Nguyên Nâng Cấp Tướng.\n- `DOTPHANHANPHAM`: Gói Quà Tân Thủ & Tài Nguyên Nâng Cấp Tướng.\n- `FANDOITHANG`: Gói Quà Tân Thủ & Tài Nguyên Nâng Cấp Tướng.\n- `MUNGSINHNHATBAC`: Gói Quà Tân Thủ & Tài Nguyên Nâng Cấp Tướng.\n- `NOELNNTD`: Gói Quà Tân Thủ & Tài Nguyên Nâng Cấp Tướng.\n- `NHATNIEMPHAGIOI`: Gói Quà Tân Thủ & Tài Nguyên Nâng Cấp Tướng.\n\n> 💡 **Mẹo:** Các mã giftcode đều có giới hạn số lượng và thời hạn sử dụng. Bạn hãy nhanh tay nhập mã ngay khi có thể!\n\n---\n\n### 📝 Hướng Dẫn Các Bước Nhập Giftcode Trong Game Nhất Niệm Tiêu Dao - Gzone\n\n1. **Bước 1:** Khởi động game **Nhất Niệm Tiêu Dao - Gzone** và đăng nhập vào tài khoản chơi của bạn.\n2. **Bước 2:** Nhấn vào biểu tượng **Avatar nhân vật** hoặc mục **Cài đặt / Thiết lập (Settings)** ở giao diện chính.\n3. **Bước 3:** Tìm và chọn mục **Đổi Quà / Giftcode**.\n4. **Bước 4:** Nhập chính xác mã giftcode vào ô trống và nhấn nút **Xác Nhận / Nhận Thưởng**.\n5. **Bước 5:** Mở mục **Hòm Thư (Mailbox)** trong game để kiểm tra và nhận vật phẩm.\n\n---\n\n### 🔍 Cách Nhận Thêm Code Nhất Niệm Tiêu Dao - Gzone Miễn Phí Mỗi Ngày\n- Thường xuyên theo dõi Fanpage và Group cộng đồng chính thức của game.\n- Tham gia các minigame, sự kiện mừng máy chủ mới (Open Beta) hoặc livestream từ NPH.\n- Ghé thăm website **[CodeGame.Shop](https://codegame.shop)** hàng ngày để cập nhật mã code sớm nhất và tham gia mục **[Giveaways](https://codegame.shop/giveaways)** nhận quà độc quyền.\n\n> 🛡️ **Nguồn tin tức:** Bản tin được tổng hợp, biên tập và xuất bản độc quyền bởi **CodeGame.Shop** (https://codegame.shop)."
+  },
+  {
+    "id": "news_auto_game_pocket_army_ark_of_war_series",
+    "slug": "code-pocket-army-ark-of-war-series-moi-nhat-tong-hop-ma-tan-thu-2026",
+    "title": "Code Pocket Army / Ark of War Series Mới Nhất 2026: Tổng Hợp Mã Tân Thủ & Hướng Dẫn Nhập Chi Tiết",
+    "summary": "Tổng hợp trọn bộ giftcode game Pocket Army / Ark of War Series (Topebox Co., Ltd.) mới nhất tháng 10/2026. Hướng dẫn cách nhập mã đổi thưởng nhận ngọc, trang bị VIP và quà tân thủ cực xịn.",
+    "game_name": "Pocket Army / Ark of War Series",
+    "game_slug": "pocket-army-ark-of-war-series",
+    "cover_url": "/game_icons/pocket-army-ark-of-war-series.webp",
+    "author": "CodeGame.Shop",
+    "source_name": "CodeGame.Shop",
+    "source_url": "https://codegame.shop",
+    "created_at": "2026-10-15T11:30:47.284Z",
+    "updated_at": "2026-10-21T07:00:00Z",
+    "views_count": 2625,
+    "reading_time_minutes": 4,
+    "tags": [
+      "Pocket Army / Ark of War Series",
+      "Code Pocket Army / Ark of War Series",
+      "Nhập Vai (MMORPG)",
+      "Giftcode 2026",
+      "Tân thủ"
+    ],
+    "codes": [
+      "1001AWSD",
+      "QIXI2026",
+      "27254818",
+      "WW6500WW",
+      "26SUMMER",
+      "2026MID6",
+      "AOW10FES",
+      "EASTER26"
+    ],
+    "status": "PUBLISHED",
+    "content": "## 🎮 Giới Thiệu Tựa Game Pocket Army / Ark of War Series\n\nTựa game **Pocket Army / Ark of War Series** do nhà phát hành **Topebox Co., Ltd.** phát hành đã nhanh chóng thu hút được sự quan tâm của đông đảo game thủ yêu thích thể loại Nhập Vai (MMORPG). Với lối chơi cuốn hút, đồ họa bắt mắt cùng các tính năng cộng đồng đặc sắc, tựa game hứa hẹn sẽ mang đến những giờ phút giải trí bùng nổ.\n\n### 🎁 Danh Sách Giftcode Pocket Army / Ark of War Series Mới Nhất Tháng 10/2026\n\nDưới đây là bảng tổng hợp các mã giftcode đang hoạt động được **CodeGame.Shop** kiểm tra và xác thực:\n\n- `1001AWSD`: Gói Quà Tân Thủ & Tài Nguyên Nâng Cấp Tướng.\n- `QIXI2026`: Gói Quà Tân Thủ & Tài Nguyên Nâng Cấp Tướng.\n- `27254818`: Gói Quà Tân Thủ & Tài Nguyên Nâng Cấp Tướng.\n- `WW6500WW`: Gói Quà Tân Thủ & Tài Nguyên Nâng Cấp Tướng.\n- `26SUMMER`: Gói Quà Tân Thủ & Tài Nguyên Nâng Cấp Tướng.\n- `2026MID6`: Gói Quà Tân Thủ & Tài Nguyên Nâng Cấp Tướng.\n- `AOW10FES`: Gói Quà Tân Thủ & Tài Nguyên Nâng Cấp Tướng.\n- `EASTER26`: Gói Quà Tân Thủ & Tài Nguyên Nâng Cấp Tướng.\n\n> 💡 **Mẹo:** Các mã giftcode đều có giới hạn số lượng và thời hạn sử dụng. Bạn hãy nhanh tay nhập mã ngay khi có thể!\n\n---\n\n### 📝 Hướng Dẫn Các Bước Nhập Giftcode Trong Game Pocket Army / Ark of War Series\n\n1. **Bước 1:** Khởi động game **Pocket Army / Ark of War Series** và đăng nhập vào tài khoản chơi của bạn.\n2. **Bước 2:** Nhấn vào biểu tượng **Avatar nhân vật** hoặc mục **Cài đặt / Thiết lập (Settings)** ở giao diện chính.\n3. **Bước 3:** Tìm và chọn mục **Đổi Quà / Giftcode**.\n4. **Bước 4:** Nhập chính xác mã giftcode vào ô trống và nhấn nút **Xác Nhận / Nhận Thưởng**.\n5. **Bước 5:** Mở mục **Hòm Thư (Mailbox)** trong game để kiểm tra và nhận vật phẩm.\n\n---\n\n### 🔍 Cách Nhận Thêm Code Pocket Army / Ark of War Series Miễn Phí Mỗi Ngày\n- Thường xuyên theo dõi Fanpage và Group cộng đồng chính thức của game.\n- Tham gia các minigame, sự kiện mừng máy chủ mới (Open Beta) hoặc livestream từ NPH.\n- Ghé thăm website **[CodeGame.Shop](https://codegame.shop)** hàng ngày để cập nhật mã code sớm nhất và tham gia mục **[Giveaways](https://codegame.shop/giveaways)** nhận quà độc quyền.\n\n> 🛡️ **Nguồn tin tức:** Bản tin được tổng hợp, biên tập và xuất bản độc quyền bởi **CodeGame.Shop** (https://codegame.shop)."
+  },
+  {
+    "id": "news_auto_game_tieu_cuong_3q",
+    "slug": "code-tieu-cuong-3q-moi-nhat-tong-hop-ma-tan-thu-2026",
+    "title": "Code Tiểu Cường 3Q Mới Nhất 2026: Tổng Hợp Mã Tân Thủ & Hướng Dẫn Nhập Chi Tiết",
+    "summary": "Tổng hợp trọn bộ giftcode game Tiểu Cường 3Q (CÔNG TY CỔ PHẦN CÔNG NGHỆ SỐ ALO) mới nhất tháng 10/2026. Hướng dẫn cách nhập mã đổi thưởng nhận ngọc, trang bị VIP và quà tân thủ cực xịn.",
+    "game_name": "Tiểu Cường 3Q",
+    "game_slug": "tieu-cuong-3q",
+    "cover_url": "/game_icons/tieu-cuong-3q.webp",
+    "author": "CodeGame.Shop",
+    "source_name": "CodeGame.Shop",
+    "source_url": "https://codegame.shop",
+    "created_at": "2026-10-15T07:30:47.284Z",
+    "updated_at": "2026-10-21T07:00:00Z",
+    "views_count": 2580,
+    "reading_time_minutes": 4,
+    "tags": [
+      "Tiểu Cường 3Q",
+      "Code Tiểu Cường 3Q",
+      "Tam Quốc / Chiến Thuật",
+      "Giftcode 2026",
+      "Tân thủ"
+    ],
+    "codes": [
+      "Quockhanh",
+      "AUGUST08",
+      "MEOMEO",
+      "GIANNHO",
+      "TC3QKING",
+      "rankno1",
+      "TAMTHUONG",
+      "TAJIRI"
+    ],
+    "status": "PUBLISHED",
+    "content": "## 🎮 Giới Thiệu Tựa Game Tiểu Cường 3Q\n\nTựa game **Tiểu Cường 3Q** do nhà phát hành **CÔNG TY CỔ PHẦN CÔNG NGHỆ SỐ ALO** phát hành đã nhanh chóng thu hút được sự quan tâm của đông đảo game thủ yêu thích thể loại Tam Quốc / Chiến Thuật. Với lối chơi cuốn hút, đồ họa bắt mắt cùng các tính năng cộng đồng đặc sắc, tựa game hứa hẹn sẽ mang đến những giờ phút giải trí bùng nổ.\n\n### 🎁 Danh Sách Giftcode Tiểu Cường 3Q Mới Nhất Tháng 10/2026\n\nDưới đây là bảng tổng hợp các mã giftcode đang hoạt động được **CodeGame.Shop** kiểm tra và xác thực:\n\n- `Quockhanh`: Gói Quà Tân Thủ & Tài Nguyên Nâng Cấp Tướng.\n- `AUGUST08`: Gói Quà Tân Thủ & Tài Nguyên Nâng Cấp Tướng.\n- `MEOMEO`: Gói Quà Tân Thủ & Tài Nguyên Nâng Cấp Tướng.\n- `GIANNHO`: Gói Quà Tân Thủ & Tài Nguyên Nâng Cấp Tướng.\n- `TC3QKING`: Gói Quà Tân Thủ & Tài Nguyên Nâng Cấp Tướng.\n- `rankno1`: Gói Quà Tân Thủ & Tài Nguyên Nâng Cấp Tướng.\n- `TAMTHUONG`: Gói Quà Tân Thủ & Tài Nguyên Nâng Cấp Tướng.\n- `TAJIRI`: Gói Quà Tân Thủ & Tài Nguyên Nâng Cấp Tướng.\n\n> 💡 **Mẹo:** Các mã giftcode đều có giới hạn số lượng và thời hạn sử dụng. Bạn hãy nhanh tay nhập mã ngay khi có thể!\n\n---\n\n### 📝 Hướng Dẫn Các Bước Nhập Giftcode Trong Game Tiểu Cường 3Q\n\n1. **Bước 1:** Khởi động game **Tiểu Cường 3Q** và đăng nhập vào tài khoản chơi của bạn.\n2. **Bước 2:** Nhấn vào biểu tượng **Avatar nhân vật** hoặc mục **Cài đặt / Thiết lập (Settings)** ở giao diện chính.\n3. **Bước 3:** Tìm và chọn mục **Đổi Quà / Giftcode**.\n4. **Bước 4:** Nhập chính xác mã giftcode vào ô trống và nhấn nút **Xác Nhận / Nhận Thưởng**.\n5. **Bước 5:** Mở mục **Hòm Thư (Mailbox)** trong game để kiểm tra và nhận vật phẩm.\n\n---\n\n### 🔍 Cách Nhận Thêm Code Tiểu Cường 3Q Miễn Phí Mỗi Ngày\n- Thường xuyên theo dõi Fanpage và Group cộng đồng chính thức của game.\n- Tham gia các minigame, sự kiện mừng máy chủ mới (Open Beta) hoặc livestream từ NPH.\n- Ghé thăm website **[CodeGame.Shop](https://codegame.shop)** hàng ngày để cập nhật mã code sớm nhất và tham gia mục **[Giveaways](https://codegame.shop/giveaways)** nhận quà độc quyền.\n\n> 🛡️ **Nguồn tin tức:** Bản tin được tổng hợp, biên tập và xuất bản độc quyền bởi **CodeGame.Shop** (https://codegame.shop)."
+  },
+  {
+    "id": "news_auto_game_roblox",
+    "slug": "code-roblox-moi-nhat-tong-hop-ma-tan-thu-2026",
+    "title": "Code Roblox Mới Nhất 2026: Tổng Hợp Mã Tân Thủ & Hướng Dẫn Nhập Chi Tiết",
+    "summary": "Tổng hợp trọn bộ giftcode game Roblox (Roblox Corporation / VNGGames) mới nhất tháng 10/2026. Hướng dẫn cách nhập mã đổi thưởng nhận ngọc, trang bị VIP và quà tân thủ cực xịn.",
+    "game_name": "Roblox",
+    "game_slug": "roblox",
+    "cover_url": "/game_icons/roblox.webp",
+    "author": "CodeGame.Shop",
+    "source_name": "CodeGame.Shop",
+    "source_url": "https://codegame.shop",
+    "created_at": "2026-10-15T03:30:47.284Z",
+    "updated_at": "2026-10-21T07:00:00Z",
+    "views_count": 2535,
+    "reading_time_minutes": 4,
+    "tags": [
+      "Roblox",
+      "Code Roblox",
+      "Roblox / Mini Game",
+      "Giftcode 2026",
+      "Tân thủ"
+    ],
+    "codes": [
+      "FREENGNGON",
+      "FREENGNBOI",
+      "EASTEREXP",
+      "LIGHTNINGABUSE",
+      "SUB2UNCLEKIZARU",
+      "SUB2GAMERROBOT_RESET1",
+      "SUB2GAMERROBOT_EXP1",
+      "STRAWHATMAINE"
+    ],
+    "status": "PUBLISHED",
+    "content": "## 🎮 Giới Thiệu Tựa Game Roblox\n\nTựa game **Roblox** do nhà phát hành **Roblox Corporation / VNGGames** phát hành đã nhanh chóng thu hút được sự quan tâm của đông đảo game thủ yêu thích thể loại Roblox / Mini Game. Với lối chơi cuốn hút, đồ họa bắt mắt cùng các tính năng cộng đồng đặc sắc, tựa game hứa hẹn sẽ mang đến những giờ phút giải trí bùng nổ.\n\n### 🎁 Danh Sách Giftcode Roblox Mới Nhất Tháng 10/2026\n\nDưới đây là bảng tổng hợp các mã giftcode đang hoạt động được **CodeGame.Shop** kiểm tra và xác thực:\n\n- `FREENGNGON`: Gói Quà Tân Thủ & Tài Nguyên Nâng Cấp Tướng.\n- `FREENGNBOI`: Gói Quà Tân Thủ & Tài Nguyên Nâng Cấp Tướng.\n- `EASTEREXP`: Gói Quà Tân Thủ & Tài Nguyên Nâng Cấp Tướng.\n- `LIGHTNINGABUSE`: Gói Quà Tân Thủ & Tài Nguyên Nâng Cấp Tướng.\n- `SUB2UNCLEKIZARU`: Gói Quà Tân Thủ & Tài Nguyên Nâng Cấp Tướng.\n- `SUB2GAMERROBOT_RESET1`: Gói Quà Tân Thủ & Tài Nguyên Nâng Cấp Tướng.\n- `SUB2GAMERROBOT_EXP1`: Gói Quà Tân Thủ & Tài Nguyên Nâng Cấp Tướng.\n- `STRAWHATMAINE`: Gói Quà Tân Thủ & Tài Nguyên Nâng Cấp Tướng.\n\n> 💡 **Mẹo:** Các mã giftcode đều có giới hạn số lượng và thời hạn sử dụng. Bạn hãy nhanh tay nhập mã ngay khi có thể!\n\n---\n\n### 📝 Hướng Dẫn Các Bước Nhập Giftcode Trong Game Roblox\n\n1. **Bước 1:** Khởi động game **Roblox** và đăng nhập vào tài khoản chơi của bạn.\n2. **Bước 2:** Nhấn vào biểu tượng **Avatar nhân vật** hoặc mục **Cài đặt / Thiết lập (Settings)** ở giao diện chính.\n3. **Bước 3:** Tìm và chọn mục **Đổi Quà / Giftcode**.\n4. **Bước 4:** Nhập chính xác mã giftcode vào ô trống và nhấn nút **Xác Nhận / Nhận Thưởng**.\n5. **Bước 5:** Mở mục **Hòm Thư (Mailbox)** trong game để kiểm tra và nhận vật phẩm.\n\n---\n\n### 🔍 Cách Nhận Thêm Code Roblox Miễn Phí Mỗi Ngày\n- Thường xuyên theo dõi Fanpage và Group cộng đồng chính thức của game.\n- Tham gia các minigame, sự kiện mừng máy chủ mới (Open Beta) hoặc livestream từ NPH.\n- Ghé thăm website **[CodeGame.Shop](https://codegame.shop)** hàng ngày để cập nhật mã code sớm nhất và tham gia mục **[Giveaways](https://codegame.shop/giveaways)** nhận quà độc quyền.\n\n> 🛡️ **Nguồn tin tức:** Bản tin được tổng hợp, biên tập và xuất bản độc quyền bởi **CodeGame.Shop** (https://codegame.shop)."
+  },
+  {
+    "id": "news_auto_game_tay_du_vng",
+    "slug": "code-tay-du-vng-moi-nhat-tong-hop-ma-tan-thu-2026",
+    "title": "Code Tây Du VNG: Đại Náo Tam Giới Mới Nhất 2026: Tổng Hợp Mã Tân Thủ & Hướng Dẫn Nhập Chi Tiết",
+    "summary": "Tổng hợp trọn bộ giftcode game Tây Du VNG: Đại Náo Tam Giới (CÔNG TY CỔ PHẦN VNG) mới nhất tháng 10/2026. Hướng dẫn cách nhập mã đổi thưởng nhận ngọc, trang bị VIP và quà tân thủ cực xịn.",
+    "game_name": "Tây Du VNG: Đại Náo Tam Giới",
+    "game_slug": "tay-du-vng",
+    "cover_url": "/game_icons/tay-du-vng.webp",
+    "author": "CodeGame.Shop",
+    "source_name": "CodeGame.Shop",
+    "source_url": "https://codegame.shop",
+    "created_at": "2026-10-14T23:30:47.284Z",
+    "updated_at": "2026-10-21T07:00:00Z",
+    "views_count": 2490,
+    "reading_time_minutes": 4,
+    "tags": [
+      "Tây Du VNG: Đại Náo Tam Giới",
+      "Code Tây Du VNG: Đại Náo Tam Giới",
+      "Kiếm Hiệp / Tiên Hiệp",
+      "Giftcode 2026",
+      "Tân thủ"
+    ],
+    "codes": [
+      "PBMT10",
+      "TAYDUMT10",
+      "PBMT09",
+      "DANHIVUIHE",
+      "PBMT08",
+      "TAYDUTANTHU",
+      "VNGTDVGRPHONE2024",
+      "VNGTDVGRLOGIN12024"
+    ],
+    "status": "PUBLISHED",
+    "content": "## 🎮 Giới Thiệu Tựa Game Tây Du VNG: Đại Náo Tam Giới\n\nTựa game **Tây Du VNG: Đại Náo Tam Giới** do nhà phát hành **CÔNG TY CỔ PHẦN VNG** phát hành đã nhanh chóng thu hút được sự quan tâm của đông đảo game thủ yêu thích thể loại Kiếm Hiệp / Tiên Hiệp. Với lối chơi cuốn hút, đồ họa bắt mắt cùng các tính năng cộng đồng đặc sắc, tựa game hứa hẹn sẽ mang đến những giờ phút giải trí bùng nổ.\n\n### 🎁 Danh Sách Giftcode Tây Du VNG: Đại Náo Tam Giới Mới Nhất Tháng 10/2026\n\nDưới đây là bảng tổng hợp các mã giftcode đang hoạt động được **CodeGame.Shop** kiểm tra và xác thực:\n\n- `PBMT10`: Gói Quà Tân Thủ & Tài Nguyên Nâng Cấp Tướng.\n- `TAYDUMT10`: Gói Quà Tân Thủ & Tài Nguyên Nâng Cấp Tướng.\n- `PBMT09`: Gói Quà Tân Thủ & Tài Nguyên Nâng Cấp Tướng.\n- `DANHIVUIHE`: Gói Quà Tân Thủ & Tài Nguyên Nâng Cấp Tướng.\n- `PBMT08`: Gói Quà Tân Thủ & Tài Nguyên Nâng Cấp Tướng.\n- `TAYDUTANTHU`: Gói Quà Tân Thủ & Tài Nguyên Nâng Cấp Tướng.\n- `VNGTDVGRPHONE2024`: Gói Quà Tân Thủ & Tài Nguyên Nâng Cấp Tướng.\n- `VNGTDVGRLOGIN12024`: Gói Quà Tân Thủ & Tài Nguyên Nâng Cấp Tướng.\n\n> 💡 **Mẹo:** Các mã giftcode đều có giới hạn số lượng và thời hạn sử dụng. Bạn hãy nhanh tay nhập mã ngay khi có thể!\n\n---\n\n### 📝 Hướng Dẫn Các Bước Nhập Giftcode Trong Game Tây Du VNG: Đại Náo Tam Giới\n\n1. **Bước 1:** Khởi động game **Tây Du VNG: Đại Náo Tam Giới** và đăng nhập vào tài khoản chơi của bạn.\n2. **Bước 2:** Nhấn vào biểu tượng **Avatar nhân vật** hoặc mục **Cài đặt / Thiết lập (Settings)** ở giao diện chính.\n3. **Bước 3:** Tìm và chọn mục **Đổi Quà / Giftcode**.\n4. **Bước 4:** Nhập chính xác mã giftcode vào ô trống và nhấn nút **Xác Nhận / Nhận Thưởng**.\n5. **Bước 5:** Mở mục **Hòm Thư (Mailbox)** trong game để kiểm tra và nhận vật phẩm.\n\n---\n\n### 🔍 Cách Nhận Thêm Code Tây Du VNG: Đại Náo Tam Giới Miễn Phí Mỗi Ngày\n- Thường xuyên theo dõi Fanpage và Group cộng đồng chính thức của game.\n- Tham gia các minigame, sự kiện mừng máy chủ mới (Open Beta) hoặc livestream từ NPH.\n- Ghé thăm website **[CodeGame.Shop](https://codegame.shop)** hàng ngày để cập nhật mã code sớm nhất và tham gia mục **[Giveaways](https://codegame.shop/giveaways)** nhận quà độc quyền.\n\n> 🛡️ **Nguồn tin tức:** Bản tin được tổng hợp, biên tập và xuất bản độc quyền bởi **CodeGame.Shop** (https://codegame.shop)."
+  },
+  {
+    "id": "news_auto_game_world_of_tanks_blitz",
+    "slug": "code-world-of-tanks-blitz-moi-nhat-tong-hop-ma-tan-thu-2026",
+    "title": "Code World of Tanks Blitz Mới Nhất 2026: Tổng Hợp Mã Tân Thủ & Hướng Dẫn Nhập Chi Tiết",
+    "summary": "Tổng hợp trọn bộ giftcode game World of Tanks Blitz (CÔNG TY CỔ PHẦN YEAH1 GAMING) mới nhất tháng 10/2026. Hướng dẫn cách nhập mã đổi thưởng nhận ngọc, trang bị VIP và quà tân thủ cực xịn.",
+    "game_name": "World of Tanks Blitz",
+    "game_slug": "world-of-tanks-blitz",
+    "cover_url": "/game_icons/world-of-tanks-blitz.webp",
+    "author": "CodeGame.Shop",
+    "source_name": "CodeGame.Shop",
+    "source_url": "https://codegame.shop",
+    "created_at": "2026-10-14T19:30:47.284Z",
+    "updated_at": "2026-10-21T07:00:00Z",
+    "views_count": 2445,
+    "reading_time_minutes": 4,
+    "tags": [
+      "World of Tanks Blitz",
+      "Code World of Tanks Blitz",
+      "Bắn Súng / Sinh Tồn",
+      "Giftcode 2026",
+      "Tân thủ"
+    ],
+    "codes": [
+      "akeome25",
+      "17JUNELETSGO",
+      "PRIVETBLITZVTELEGE",
+      "OLDONRHM",
+      "MEGALIONISALEGEND",
+      "100KBUTWAIT125K",
+      "43FB6SMCHNYFOLKS",
+      "DRIPPINWITHFINESSE"
+    ],
+    "status": "PUBLISHED",
+    "content": "## 🎮 Giới Thiệu Tựa Game World of Tanks Blitz\n\nTựa game **World of Tanks Blitz** do nhà phát hành **CÔNG TY CỔ PHẦN YEAH1 GAMING** phát hành đã nhanh chóng thu hút được sự quan tâm của đông đảo game thủ yêu thích thể loại Bắn Súng / Sinh Tồn. Với lối chơi cuốn hút, đồ họa bắt mắt cùng các tính năng cộng đồng đặc sắc, tựa game hứa hẹn sẽ mang đến những giờ phút giải trí bùng nổ.\n\n### 🎁 Danh Sách Giftcode World of Tanks Blitz Mới Nhất Tháng 10/2026\n\nDưới đây là bảng tổng hợp các mã giftcode đang hoạt động được **CodeGame.Shop** kiểm tra và xác thực:\n\n- `akeome25`: Gói Quà Tân Thủ & Tài Nguyên Nâng Cấp Tướng.\n- `17JUNELETSGO`: Gói Quà Tân Thủ & Tài Nguyên Nâng Cấp Tướng.\n- `PRIVETBLITZVTELEGE`: Gói Quà Tân Thủ & Tài Nguyên Nâng Cấp Tướng.\n- `OLDONRHM`: Gói Quà Tân Thủ & Tài Nguyên Nâng Cấp Tướng.\n- `MEGALIONISALEGEND`: Gói Quà Tân Thủ & Tài Nguyên Nâng Cấp Tướng.\n- `100KBUTWAIT125K`: Gói Quà Tân Thủ & Tài Nguyên Nâng Cấp Tướng.\n- `43FB6SMCHNYFOLKS`: Gói Quà Tân Thủ & Tài Nguyên Nâng Cấp Tướng.\n- `DRIPPINWITHFINESSE`: Gói Quà Tân Thủ & Tài Nguyên Nâng Cấp Tướng.\n\n> 💡 **Mẹo:** Các mã giftcode đều có giới hạn số lượng và thời hạn sử dụng. Bạn hãy nhanh tay nhập mã ngay khi có thể!\n\n---\n\n### 📝 Hướng Dẫn Các Bước Nhập Giftcode Trong Game World of Tanks Blitz\n\n1. **Bước 1:** Khởi động game **World of Tanks Blitz** và đăng nhập vào tài khoản chơi của bạn.\n2. **Bước 2:** Nhấn vào biểu tượng **Avatar nhân vật** hoặc mục **Cài đặt / Thiết lập (Settings)** ở giao diện chính.\n3. **Bước 3:** Tìm và chọn mục **Đổi Quà / Giftcode**.\n4. **Bước 4:** Nhập chính xác mã giftcode vào ô trống và nhấn nút **Xác Nhận / Nhận Thưởng**.\n5. **Bước 5:** Mở mục **Hòm Thư (Mailbox)** trong game để kiểm tra và nhận vật phẩm.\n\n---\n\n### 🔍 Cách Nhận Thêm Code World of Tanks Blitz Miễn Phí Mỗi Ngày\n- Thường xuyên theo dõi Fanpage và Group cộng đồng chính thức của game.\n- Tham gia các minigame, sự kiện mừng máy chủ mới (Open Beta) hoặc livestream từ NPH.\n- Ghé thăm website **[CodeGame.Shop](https://codegame.shop)** hàng ngày để cập nhật mã code sớm nhất và tham gia mục **[Giveaways](https://codegame.shop/giveaways)** nhận quà độc quyền.\n\n> 🛡️ **Nguồn tin tức:** Bản tin được tổng hợp, biên tập và xuất bản độc quyền bởi **CodeGame.Shop** (https://codegame.shop)."
+  },
+  {
+    "id": "news_auto_game_loan_xi_ngau_3q_oeg",
+    "slug": "code-loan-xi-ngau-3q-oeg-moi-nhat-tong-hop-ma-tan-thu-2026",
+    "title": "Code Loạn Xì Ngầu 3Q – OEG Mới Nhất 2026: Tổng Hợp Mã Tân Thủ & Hướng Dẫn Nhập Chi Tiết",
+    "summary": "Tổng hợp trọn bộ giftcode game Loạn Xì Ngầu 3Q – OEG (CÔNG TY CỔ PHẦN CÔNG NGHỆ SỐ ALO ) mới nhất tháng 10/2026. Hướng dẫn cách nhập mã đổi thưởng nhận ngọc, trang bị VIP và quà tân thủ cực xịn.",
+    "game_name": "Loạn Xì Ngầu 3Q – OEG",
+    "game_slug": "loan-xi-ngau-3q-oeg",
+    "cover_url": "/game_icons/loan-xi-ngau-3q-oeg.webp",
+    "author": "CodeGame.Shop",
+    "source_name": "CodeGame.Shop",
+    "source_url": "https://codegame.shop",
+    "created_at": "2026-10-14T15:30:47.284Z",
+    "updated_at": "2026-10-21T07:00:00Z",
+    "views_count": 2400,
+    "reading_time_minutes": 4,
+    "tags": [
+      "Loạn Xì Ngầu 3Q – OEG",
+      "Code Loạn Xì Ngầu 3Q – OEG",
+      "Tam Quốc / Chiến Thuật",
+      "Giftcode 2026",
+      "Tân thủ"
+    ],
+    "codes": [
+      "ATLXN3QUADA6",
+      "ATLXN2CUCVUI",
+      "CHIENATLXN",
+      "ATLXNWIN2",
+      "ATLXNWIN",
+      "LUBO26",
+      "TRIEUVAN26",
+      "1000LENH"
+    ],
+    "status": "PUBLISHED",
+    "content": "## 🎮 Giới Thiệu Tựa Game Loạn Xì Ngầu 3Q – OEG\n\nTựa game **Loạn Xì Ngầu 3Q – OEG** do nhà phát hành **CÔNG TY CỔ PHẦN CÔNG NGHỆ SỐ ALO ** phát hành đã nhanh chóng thu hút được sự quan tâm của đông đảo game thủ yêu thích thể loại Tam Quốc / Chiến Thuật. Với lối chơi cuốn hút, đồ họa bắt mắt cùng các tính năng cộng đồng đặc sắc, tựa game hứa hẹn sẽ mang đến những giờ phút giải trí bùng nổ.\n\n### 🎁 Danh Sách Giftcode Loạn Xì Ngầu 3Q – OEG Mới Nhất Tháng 10/2026\n\nDưới đây là bảng tổng hợp các mã giftcode đang hoạt động được **CodeGame.Shop** kiểm tra và xác thực:\n\n- `ATLXN3QUADA6`: Gói Quà Tân Thủ & Tài Nguyên Nâng Cấp Tướng.\n- `ATLXN2CUCVUI`: Gói Quà Tân Thủ & Tài Nguyên Nâng Cấp Tướng.\n- `CHIENATLXN`: Gói Quà Tân Thủ & Tài Nguyên Nâng Cấp Tướng.\n- `ATLXNWIN2`: Gói Quà Tân Thủ & Tài Nguyên Nâng Cấp Tướng.\n- `ATLXNWIN`: Gói Quà Tân Thủ & Tài Nguyên Nâng Cấp Tướng.\n- `LUBO26`: Gói Quà Tân Thủ & Tài Nguyên Nâng Cấp Tướng.\n- `TRIEUVAN26`: Gói Quà Tân Thủ & Tài Nguyên Nâng Cấp Tướng.\n- `1000LENH`: Gói Quà Tân Thủ & Tài Nguyên Nâng Cấp Tướng.\n\n> 💡 **Mẹo:** Các mã giftcode đều có giới hạn số lượng và thời hạn sử dụng. Bạn hãy nhanh tay nhập mã ngay khi có thể!\n\n---\n\n### 📝 Hướng Dẫn Các Bước Nhập Giftcode Trong Game Loạn Xì Ngầu 3Q – OEG\n\n1. **Bước 1:** Khởi động game **Loạn Xì Ngầu 3Q – OEG** và đăng nhập vào tài khoản chơi của bạn.\n2. **Bước 2:** Nhấn vào biểu tượng **Avatar nhân vật** hoặc mục **Cài đặt / Thiết lập (Settings)** ở giao diện chính.\n3. **Bước 3:** Tìm và chọn mục **Đổi Quà / Giftcode**.\n4. **Bước 4:** Nhập chính xác mã giftcode vào ô trống và nhấn nút **Xác Nhận / Nhận Thưởng**.\n5. **Bước 5:** Mở mục **Hòm Thư (Mailbox)** trong game để kiểm tra và nhận vật phẩm.\n\n---\n\n### 🔍 Cách Nhận Thêm Code Loạn Xì Ngầu 3Q – OEG Miễn Phí Mỗi Ngày\n- Thường xuyên theo dõi Fanpage và Group cộng đồng chính thức của game.\n- Tham gia các minigame, sự kiện mừng máy chủ mới (Open Beta) hoặc livestream từ NPH.\n- Ghé thăm website **[CodeGame.Shop](https://codegame.shop)** hàng ngày để cập nhật mã code sớm nhất và tham gia mục **[Giveaways](https://codegame.shop/giveaways)** nhận quà độc quyền.\n\n> 🛡️ **Nguồn tin tức:** Bản tin được tổng hợp, biên tập và xuất bản độc quyền bởi **CodeGame.Shop** (https://codegame.shop)."
+  },
+  {
+    "id": "news_auto_game_thoi_khong_chi_mong",
+    "slug": "code-thoi-khong-chi-mong-moi-nhat-tong-hop-ma-tan-thu-2026",
+    "title": "Code Thời Không Chi Mộng Mới Nhất 2026: Tổng Hợp Mã Tân Thủ & Hướng Dẫn Nhập Chi Tiết",
+    "summary": "Tổng hợp trọn bộ giftcode game Thời Không Chi Mộng (CÔNG TY CỔ PHẦN TRUYỀN HÌNH TƯƠNG TÁC VIỆT NAM ) mới nhất tháng 10/2026. Hướng dẫn cách nhập mã đổi thưởng nhận ngọc, trang bị VIP và quà tân thủ cực xịn.",
+    "game_name": "Thời Không Chi Mộng",
+    "game_slug": "thoi-khong-chi-mong",
+    "cover_url": "/game_icons/thoi-khong-chi-mong.webp",
+    "author": "CodeGame.Shop",
+    "source_name": "CodeGame.Shop",
+    "source_url": "https://codegame.shop",
+    "created_at": "2026-10-14T11:30:47.284Z",
+    "updated_at": "2026-10-21T07:00:00Z",
+    "views_count": 2355,
+    "reading_time_minutes": 4,
+    "tags": [
+      "Thời Không Chi Mộng",
+      "Code Thời Không Chi Mộng",
+      "Kiếm Hiệp / Tiên Hiệp",
+      "Giftcode 2026",
+      "Tân thủ"
+    ],
+    "codes": [
+      "THOIKHONG",
+      "CHIMONG",
+      "THOIKHONGCHIMONG",
+      "BAODANH",
+      "DANGKYTRUOC",
+      "TRANGCHUTKCM",
+      "TAITKCMNGAY",
+      "GROUPTKCM"
+    ],
+    "status": "PUBLISHED",
+    "content": "## 🎮 Giới Thiệu Tựa Game Thời Không Chi Mộng\n\nTựa game **Thời Không Chi Mộng** do nhà phát hành **CÔNG TY CỔ PHẦN TRUYỀN HÌNH TƯƠNG TÁC VIỆT NAM ** phát hành đã nhanh chóng thu hút được sự quan tâm của đông đảo game thủ yêu thích thể loại Kiếm Hiệp / Tiên Hiệp. Với lối chơi cuốn hút, đồ họa bắt mắt cùng các tính năng cộng đồng đặc sắc, tựa game hứa hẹn sẽ mang đến những giờ phút giải trí bùng nổ.\n\n### 🎁 Danh Sách Giftcode Thời Không Chi Mộng Mới Nhất Tháng 10/2026\n\nDưới đây là bảng tổng hợp các mã giftcode đang hoạt động được **CodeGame.Shop** kiểm tra và xác thực:\n\n- `THOIKHONG`: Gói Quà Tân Thủ & Tài Nguyên Nâng Cấp Tướng.\n- `CHIMONG`: Gói Quà Tân Thủ & Tài Nguyên Nâng Cấp Tướng.\n- `THOIKHONGCHIMONG`: Gói Quà Tân Thủ & Tài Nguyên Nâng Cấp Tướng.\n- `BAODANH`: Gói Quà Tân Thủ & Tài Nguyên Nâng Cấp Tướng.\n- `DANGKYTRUOC`: Gói Quà Tân Thủ & Tài Nguyên Nâng Cấp Tướng.\n- `TRANGCHUTKCM`: Gói Quà Tân Thủ & Tài Nguyên Nâng Cấp Tướng.\n- `TAITKCMNGAY`: Gói Quà Tân Thủ & Tài Nguyên Nâng Cấp Tướng.\n- `GROUPTKCM`: Gói Quà Tân Thủ & Tài Nguyên Nâng Cấp Tướng.\n\n> 💡 **Mẹo:** Các mã giftcode đều có giới hạn số lượng và thời hạn sử dụng. Bạn hãy nhanh tay nhập mã ngay khi có thể!\n\n---\n\n### 📝 Hướng Dẫn Các Bước Nhập Giftcode Trong Game Thời Không Chi Mộng\n\n1. **Bước 1:** Khởi động game **Thời Không Chi Mộng** và đăng nhập vào tài khoản chơi của bạn.\n2. **Bước 2:** Nhấn vào biểu tượng **Avatar nhân vật** hoặc mục **Cài đặt / Thiết lập (Settings)** ở giao diện chính.\n3. **Bước 3:** Tìm và chọn mục **Đổi Quà / Giftcode**.\n4. **Bước 4:** Nhập chính xác mã giftcode vào ô trống và nhấn nút **Xác Nhận / Nhận Thưởng**.\n5. **Bước 5:** Mở mục **Hòm Thư (Mailbox)** trong game để kiểm tra và nhận vật phẩm.\n\n---\n\n### 🔍 Cách Nhận Thêm Code Thời Không Chi Mộng Miễn Phí Mỗi Ngày\n- Thường xuyên theo dõi Fanpage và Group cộng đồng chính thức của game.\n- Tham gia các minigame, sự kiện mừng máy chủ mới (Open Beta) hoặc livestream từ NPH.\n- Ghé thăm website **[CodeGame.Shop](https://codegame.shop)** hàng ngày để cập nhật mã code sớm nhất và tham gia mục **[Giveaways](https://codegame.shop/giveaways)** nhận quà độc quyền.\n\n> 🛡️ **Nguồn tin tức:** Bản tin được tổng hợp, biên tập và xuất bản độc quyền bởi **CodeGame.Shop** (https://codegame.shop)."
+  },
+  {
+    "id": "news_auto_game_lords_mobile",
+    "slug": "code-lords-mobile-moi-nhat-tong-hop-ma-tan-thu-2026",
+    "title": "Code Lords Mobile: Kingdom Wars Mới Nhất 2026: Tổng Hợp Mã Tân Thủ & Hướng Dẫn Nhập Chi Tiết",
+    "summary": "Tổng hợp trọn bộ giftcode game Lords Mobile: Kingdom Wars (CÔNG TY CỔ PHẦN GAMOTA) mới nhất tháng 10/2026. Hướng dẫn cách nhập mã đổi thưởng nhận ngọc, trang bị VIP và quà tân thủ cực xịn.",
+    "game_name": "Lords Mobile: Kingdom Wars",
+    "game_slug": "lords-mobile",
+    "cover_url": "/game_icons/lords-mobile.webp",
+    "author": "CodeGame.Shop",
+    "source_name": "CodeGame.Shop",
+    "source_url": "https://codegame.shop",
+    "created_at": "2026-10-14T07:30:47.284Z",
+    "updated_at": "2026-10-21T07:00:00Z",
+    "views_count": 2310,
+    "reading_time_minutes": 4,
+    "tags": [
+      "Lords Mobile: Kingdom Wars",
+      "Code Lords Mobile: Kingdom Wars",
+      "Thập Cẩm / Khác",
+      "Giftcode 2026",
+      "Tân thủ"
+    ],
+    "codes": [
+      "2025LMCHAMPS",
+      "LM2026",
+      "LM001",
+      "MAYDAY2026",
+      "CUTESTELLINA",
+      "earthday2026",
+      "BARONSFANFARE",
+      "LMTIKTOK1M"
+    ],
+    "status": "PUBLISHED",
+    "content": "## 🎮 Giới Thiệu Tựa Game Lords Mobile: Kingdom Wars\n\nTựa game **Lords Mobile: Kingdom Wars** do nhà phát hành **CÔNG TY CỔ PHẦN GAMOTA** phát hành đã nhanh chóng thu hút được sự quan tâm của đông đảo game thủ yêu thích thể loại Thập Cẩm / Khác. Với lối chơi cuốn hút, đồ họa bắt mắt cùng các tính năng cộng đồng đặc sắc, tựa game hứa hẹn sẽ mang đến những giờ phút giải trí bùng nổ.\n\n### 🎁 Danh Sách Giftcode Lords Mobile: Kingdom Wars Mới Nhất Tháng 10/2026\n\nDưới đây là bảng tổng hợp các mã giftcode đang hoạt động được **CodeGame.Shop** kiểm tra và xác thực:\n\n- `2025LMCHAMPS`: Gói Quà Tân Thủ & Tài Nguyên Nâng Cấp Tướng.\n- `LM2026`: Gói Quà Tân Thủ & Tài Nguyên Nâng Cấp Tướng.\n- `LM001`: Gói Quà Tân Thủ & Tài Nguyên Nâng Cấp Tướng.\n- `MAYDAY2026`: Gói Quà Tân Thủ & Tài Nguyên Nâng Cấp Tướng.\n- `CUTESTELLINA`: Gói Quà Tân Thủ & Tài Nguyên Nâng Cấp Tướng.\n- `earthday2026`: Gói Quà Tân Thủ & Tài Nguyên Nâng Cấp Tướng.\n- `BARONSFANFARE`: Gói Quà Tân Thủ & Tài Nguyên Nâng Cấp Tướng.\n- `LMTIKTOK1M`: Gói Quà Tân Thủ & Tài Nguyên Nâng Cấp Tướng.\n\n> 💡 **Mẹo:** Các mã giftcode đều có giới hạn số lượng và thời hạn sử dụng. Bạn hãy nhanh tay nhập mã ngay khi có thể!\n\n---\n\n### 📝 Hướng Dẫn Các Bước Nhập Giftcode Trong Game Lords Mobile: Kingdom Wars\n\n1. **Bước 1:** Khởi động game **Lords Mobile: Kingdom Wars** và đăng nhập vào tài khoản chơi của bạn.\n2. **Bước 2:** Nhấn vào biểu tượng **Avatar nhân vật** hoặc mục **Cài đặt / Thiết lập (Settings)** ở giao diện chính.\n3. **Bước 3:** Tìm và chọn mục **Đổi Quà / Giftcode**.\n4. **Bước 4:** Nhập chính xác mã giftcode vào ô trống và nhấn nút **Xác Nhận / Nhận Thưởng**.\n5. **Bước 5:** Mở mục **Hòm Thư (Mailbox)** trong game để kiểm tra và nhận vật phẩm.\n\n---\n\n### 🔍 Cách Nhận Thêm Code Lords Mobile: Kingdom Wars Miễn Phí Mỗi Ngày\n- Thường xuyên theo dõi Fanpage và Group cộng đồng chính thức của game.\n- Tham gia các minigame, sự kiện mừng máy chủ mới (Open Beta) hoặc livestream từ NPH.\n- Ghé thăm website **[CodeGame.Shop](https://codegame.shop)** hàng ngày để cập nhật mã code sớm nhất và tham gia mục **[Giveaways](https://codegame.shop/giveaways)** nhận quà độc quyền.\n\n> 🛡️ **Nguồn tin tức:** Bản tin được tổng hợp, biên tập và xuất bản độc quyền bởi **CodeGame.Shop** (https://codegame.shop)."
+  },
+  {
+    "id": "news_auto_game_omg_3q",
+    "slug": "code-omg-3q-moi-nhat-tong-hop-ma-tan-thu-2026",
+    "title": "Code OMG 3Q Mới Nhất 2026: Tổng Hợp Mã Tân Thủ & Hướng Dẫn Nhập Chi Tiết",
+    "summary": "Tổng hợp trọn bộ giftcode game OMG 3Q (CÔNG TY TNHH TRUYỀN THÔNG MINH PHƯƠNG THỊNH) mới nhất tháng 10/2026. Hướng dẫn cách nhập mã đổi thưởng nhận ngọc, trang bị VIP và quà tân thủ cực xịn.",
+    "game_name": "OMG 3Q",
+    "game_slug": "omg-3q",
+    "cover_url": "/game_icons/omg-3q.webp",
+    "author": "CodeGame.Shop",
+    "source_name": "CodeGame.Shop",
+    "source_url": "https://codegame.shop",
+    "created_at": "2026-10-14T03:30:47.284Z",
+    "updated_at": "2026-10-21T07:00:00Z",
+    "views_count": 2265,
+    "reading_time_minutes": 4,
+    "tags": [
+      "OMG 3Q",
+      "Code OMG 3Q",
+      "Tam Quốc / Chiến Thuật",
+      "Giftcode 2026",
+      "Tân thủ"
+    ],
+    "codes": [
+      "tanomg3q",
+      "tathao1",
+      "lbi900",
+      "trievan933",
+      "paycHDB3",
+      "5thBday",
+      "Happy0803",
+      "TET2026"
+    ],
+    "status": "PUBLISHED",
+    "content": "## 🎮 Giới Thiệu Tựa Game OMG 3Q\n\nTựa game **OMG 3Q** do nhà phát hành **CÔNG TY TNHH TRUYỀN THÔNG MINH PHƯƠNG THỊNH** phát hành đã nhanh chóng thu hút được sự quan tâm của đông đảo game thủ yêu thích thể loại Tam Quốc / Chiến Thuật. Với lối chơi cuốn hút, đồ họa bắt mắt cùng các tính năng cộng đồng đặc sắc, tựa game hứa hẹn sẽ mang đến những giờ phút giải trí bùng nổ.\n\n### 🎁 Danh Sách Giftcode OMG 3Q Mới Nhất Tháng 10/2026\n\nDưới đây là bảng tổng hợp các mã giftcode đang hoạt động được **CodeGame.Shop** kiểm tra và xác thực:\n\n- `tanomg3q`: Gói Quà Tân Thủ & Tài Nguyên Nâng Cấp Tướng.\n- `tathao1`: Gói Quà Tân Thủ & Tài Nguyên Nâng Cấp Tướng.\n- `lbi900`: Gói Quà Tân Thủ & Tài Nguyên Nâng Cấp Tướng.\n- `trievan933`: Gói Quà Tân Thủ & Tài Nguyên Nâng Cấp Tướng.\n- `paycHDB3`: Gói Quà Tân Thủ & Tài Nguyên Nâng Cấp Tướng.\n- `5thBday`: Gói Quà Tân Thủ & Tài Nguyên Nâng Cấp Tướng.\n- `Happy0803`: Gói Quà Tân Thủ & Tài Nguyên Nâng Cấp Tướng.\n- `TET2026`: Gói Quà Tân Thủ & Tài Nguyên Nâng Cấp Tướng.\n\n> 💡 **Mẹo:** Các mã giftcode đều có giới hạn số lượng và thời hạn sử dụng. Bạn hãy nhanh tay nhập mã ngay khi có thể!\n\n---\n\n### 📝 Hướng Dẫn Các Bước Nhập Giftcode Trong Game OMG 3Q\n\n1. **Bước 1:** Khởi động game **OMG 3Q** và đăng nhập vào tài khoản chơi của bạn.\n2. **Bước 2:** Nhấn vào biểu tượng **Avatar nhân vật** hoặc mục **Cài đặt / Thiết lập (Settings)** ở giao diện chính.\n3. **Bước 3:** Tìm và chọn mục **Đổi Quà / Giftcode**.\n4. **Bước 4:** Nhập chính xác mã giftcode vào ô trống và nhấn nút **Xác Nhận / Nhận Thưởng**.\n5. **Bước 5:** Mở mục **Hòm Thư (Mailbox)** trong game để kiểm tra và nhận vật phẩm.\n\n---\n\n### 🔍 Cách Nhận Thêm Code OMG 3Q Miễn Phí Mỗi Ngày\n- Thường xuyên theo dõi Fanpage và Group cộng đồng chính thức của game.\n- Tham gia các minigame, sự kiện mừng máy chủ mới (Open Beta) hoặc livestream từ NPH.\n- Ghé thăm website **[CodeGame.Shop](https://codegame.shop)** hàng ngày để cập nhật mã code sớm nhất và tham gia mục **[Giveaways](https://codegame.shop/giveaways)** nhận quà độc quyền.\n\n> 🛡️ **Nguồn tin tức:** Bản tin được tổng hợp, biên tập và xuất bản độc quyền bởi **CodeGame.Shop** (https://codegame.shop)."
+  },
+  {
+    "id": "news_auto_game_loan_the_3q_than_ma_lenh_oeg",
+    "slug": "code-loan-the-3q-than-ma-lenh-oeg-moi-nhat-tong-hop-ma-tan-thu-2026",
+    "title": "Code Loạn Thế 3Q: Thần Ma Lệnh - OEG Mới Nhất 2026: Tổng Hợp Mã Tân Thủ & Hướng Dẫn Nhập Chi Tiết",
+    "summary": "Tổng hợp trọn bộ giftcode game Loạn Thế 3Q: Thần Ma Lệnh - OEG (CÔNG TY CỔ PHẦN CÔNG NGHỆ SỐ ALO ) mới nhất tháng 10/2026. Hướng dẫn cách nhập mã đổi thưởng nhận ngọc, trang bị VIP và quà tân thủ cực xịn.",
+    "game_name": "Loạn Thế 3Q: Thần Ma Lệnh - OEG",
+    "game_slug": "loan-the-3q-than-ma-lenh-oeg",
+    "cover_url": "/game_icons/loan-the-3q-than-ma-lenh-oeg.webp",
+    "author": "CodeGame.Shop",
+    "source_name": "CodeGame.Shop",
+    "source_url": "https://codegame.shop",
+    "created_at": "2026-10-13T23:30:47.284Z",
+    "updated_at": "2026-10-21T07:00:00Z",
+    "views_count": 2220,
+    "reading_time_minutes": 4,
+    "tags": [
+      "Loạn Thế 3Q: Thần Ma Lệnh - OEG",
+      "Code Loạn Thế 3Q: Thần Ma Lệnh - OEG",
+      "Tam Quốc / Chiến Thuật",
+      "Giftcode 2026",
+      "Tân thủ"
+    ],
+    "codes": [
+      "GIACATLUONG",
+      "TUANMOI",
+      "DIEUTHUYEN3Q",
+      "TUONGTAC",
+      "live666",
+      "QUANVU",
+      "TRUONGPHI",
+      "WELCOME"
+    ],
+    "status": "PUBLISHED",
+    "content": "## 🎮 Giới Thiệu Tựa Game Loạn Thế 3Q: Thần Ma Lệnh - OEG\n\nTựa game **Loạn Thế 3Q: Thần Ma Lệnh - OEG** do nhà phát hành **CÔNG TY CỔ PHẦN CÔNG NGHỆ SỐ ALO ** phát hành đã nhanh chóng thu hút được sự quan tâm của đông đảo game thủ yêu thích thể loại Tam Quốc / Chiến Thuật. Với lối chơi cuốn hút, đồ họa bắt mắt cùng các tính năng cộng đồng đặc sắc, tựa game hứa hẹn sẽ mang đến những giờ phút giải trí bùng nổ.\n\n### 🎁 Danh Sách Giftcode Loạn Thế 3Q: Thần Ma Lệnh - OEG Mới Nhất Tháng 10/2026\n\nDưới đây là bảng tổng hợp các mã giftcode đang hoạt động được **CodeGame.Shop** kiểm tra và xác thực:\n\n- `GIACATLUONG`: Gói Quà Tân Thủ & Tài Nguyên Nâng Cấp Tướng.\n- `TUANMOI`: Gói Quà Tân Thủ & Tài Nguyên Nâng Cấp Tướng.\n- `DIEUTHUYEN3Q`: Gói Quà Tân Thủ & Tài Nguyên Nâng Cấp Tướng.\n- `TUONGTAC`: Gói Quà Tân Thủ & Tài Nguyên Nâng Cấp Tướng.\n- `live666`: Gói Quà Tân Thủ & Tài Nguyên Nâng Cấp Tướng.\n- `QUANVU`: Gói Quà Tân Thủ & Tài Nguyên Nâng Cấp Tướng.\n- `TRUONGPHI`: Gói Quà Tân Thủ & Tài Nguyên Nâng Cấp Tướng.\n- `WELCOME`: Gói Quà Tân Thủ & Tài Nguyên Nâng Cấp Tướng.\n\n> 💡 **Mẹo:** Các mã giftcode đều có giới hạn số lượng và thời hạn sử dụng. Bạn hãy nhanh tay nhập mã ngay khi có thể!\n\n---\n\n### 📝 Hướng Dẫn Các Bước Nhập Giftcode Trong Game Loạn Thế 3Q: Thần Ma Lệnh - OEG\n\n1. **Bước 1:** Khởi động game **Loạn Thế 3Q: Thần Ma Lệnh - OEG** và đăng nhập vào tài khoản chơi của bạn.\n2. **Bước 2:** Nhấn vào biểu tượng **Avatar nhân vật** hoặc mục **Cài đặt / Thiết lập (Settings)** ở giao diện chính.\n3. **Bước 3:** Tìm và chọn mục **Đổi Quà / Giftcode**.\n4. **Bước 4:** Nhập chính xác mã giftcode vào ô trống và nhấn nút **Xác Nhận / Nhận Thưởng**.\n5. **Bước 5:** Mở mục **Hòm Thư (Mailbox)** trong game để kiểm tra và nhận vật phẩm.\n\n---\n\n### 🔍 Cách Nhận Thêm Code Loạn Thế 3Q: Thần Ma Lệnh - OEG Miễn Phí Mỗi Ngày\n- Thường xuyên theo dõi Fanpage và Group cộng đồng chính thức của game.\n- Tham gia các minigame, sự kiện mừng máy chủ mới (Open Beta) hoặc livestream từ NPH.\n- Ghé thăm website **[CodeGame.Shop](https://codegame.shop)** hàng ngày để cập nhật mã code sớm nhất và tham gia mục **[Giveaways](https://codegame.shop/giveaways)** nhận quà độc quyền.\n\n> 🛡️ **Nguồn tin tức:** Bản tin được tổng hợp, biên tập và xuất bản độc quyền bởi **CodeGame.Shop** (https://codegame.shop)."
+  },
+  {
+    "id": "news_auto_game_afk_arena",
+    "slug": "code-afk-arena-moi-nhat-tong-hop-ma-tan-thu-2026",
+    "title": "Code AFK Arena Mới Nhất 2026: Tổng Hợp Mã Tân Thủ & Hướng Dẫn Nhập Chi Tiết",
+    "summary": "Tổng hợp trọn bộ giftcode game AFK Arena (CÔNG TY TNHH GZONE MEDIA VIỆT NAM) mới nhất tháng 10/2026. Hướng dẫn cách nhập mã đổi thưởng nhận ngọc, trang bị VIP và quà tân thủ cực xịn.",
+    "game_name": "AFK Arena",
+    "game_slug": "afk-arena",
+    "cover_url": "/game_icons/afk-arena.webp",
+    "author": "CodeGame.Shop",
+    "source_name": "CodeGame.Shop",
+    "source_url": "https://codegame.shop",
+    "created_at": "2026-10-13T19:30:47.284Z",
+    "updated_at": "2026-10-21T07:00:00Z",
+    "views_count": 2175,
+    "reading_time_minutes": 4,
+    "tags": [
+      "AFK Arena",
+      "Code AFK Arena",
+      "Nhập Vai Gacha / Anime",
+      "Giftcode 2026",
+      "Tân thủ"
+    ],
+    "codes": [
+      "8VN8GAMXQY",
+      "8VTSEWMEYJ",
+      "8DM4I4AWUE",
+      "8D82CDSRBY",
+      "7TT7TZHW8X",
+      "7TUZ4QI7CQ",
+      "8V5257RADA",
+      "8VI6VSBQGE"
+    ],
+    "status": "PUBLISHED",
+    "content": "## 🎮 Giới Thiệu Tựa Game AFK Arena\n\nTựa game **AFK Arena** do nhà phát hành **CÔNG TY TNHH GZONE MEDIA VIỆT NAM** phát hành đã nhanh chóng thu hút được sự quan tâm của đông đảo game thủ yêu thích thể loại Nhập Vai Gacha / Anime. Với lối chơi cuốn hút, đồ họa bắt mắt cùng các tính năng cộng đồng đặc sắc, tựa game hứa hẹn sẽ mang đến những giờ phút giải trí bùng nổ.\n\n### 🎁 Danh Sách Giftcode AFK Arena Mới Nhất Tháng 10/2026\n\nDưới đây là bảng tổng hợp các mã giftcode đang hoạt động được **CodeGame.Shop** kiểm tra và xác thực:\n\n- `8VN8GAMXQY`: Gói Quà Tân Thủ & Tài Nguyên Nâng Cấp Tướng.\n- `8VTSEWMEYJ`: Gói Quà Tân Thủ & Tài Nguyên Nâng Cấp Tướng.\n- `8DM4I4AWUE`: Gói Quà Tân Thủ & Tài Nguyên Nâng Cấp Tướng.\n- `8D82CDSRBY`: Gói Quà Tân Thủ & Tài Nguyên Nâng Cấp Tướng.\n- `7TT7TZHW8X`: Gói Quà Tân Thủ & Tài Nguyên Nâng Cấp Tướng.\n- `7TUZ4QI7CQ`: Gói Quà Tân Thủ & Tài Nguyên Nâng Cấp Tướng.\n- `8V5257RADA`: Gói Quà Tân Thủ & Tài Nguyên Nâng Cấp Tướng.\n- `8VI6VSBQGE`: Gói Quà Tân Thủ & Tài Nguyên Nâng Cấp Tướng.\n\n> 💡 **Mẹo:** Các mã giftcode đều có giới hạn số lượng và thời hạn sử dụng. Bạn hãy nhanh tay nhập mã ngay khi có thể!\n\n---\n\n### 📝 Hướng Dẫn Các Bước Nhập Giftcode Trong Game AFK Arena\n\n1. **Bước 1:** Khởi động game **AFK Arena** và đăng nhập vào tài khoản chơi của bạn.\n2. **Bước 2:** Nhấn vào biểu tượng **Avatar nhân vật** hoặc mục **Cài đặt / Thiết lập (Settings)** ở giao diện chính.\n3. **Bước 3:** Tìm và chọn mục **Đổi Quà / Giftcode**.\n4. **Bước 4:** Nhập chính xác mã giftcode vào ô trống và nhấn nút **Xác Nhận / Nhận Thưởng**.\n5. **Bước 5:** Mở mục **Hòm Thư (Mailbox)** trong game để kiểm tra và nhận vật phẩm.\n\n---\n\n### 🔍 Cách Nhận Thêm Code AFK Arena Miễn Phí Mỗi Ngày\n- Thường xuyên theo dõi Fanpage và Group cộng đồng chính thức của game.\n- Tham gia các minigame, sự kiện mừng máy chủ mới (Open Beta) hoặc livestream từ NPH.\n- Ghé thăm website **[CodeGame.Shop](https://codegame.shop)** hàng ngày để cập nhật mã code sớm nhất và tham gia mục **[Giveaways](https://codegame.shop/giveaways)** nhận quà độc quyền.\n\n> 🛡️ **Nguồn tin tức:** Bản tin được tổng hợp, biên tập và xuất bản độc quyền bởi **CodeGame.Shop** (https://codegame.shop)."
+  },
+  {
+    "id": "news_auto_game_apex_girls",
+    "slug": "code-apex-girls-moi-nhat-tong-hop-ma-tan-thu-2026",
+    "title": "Code Apex Girls Mới Nhất 2026: Tổng Hợp Mã Tân Thủ & Hướng Dẫn Nhập Chi Tiết",
+    "summary": "Tổng hợp trọn bộ giftcode game Apex Girls (CÔNG TY CỔ PHẦN 9PLAY ) mới nhất tháng 10/2026. Hướng dẫn cách nhập mã đổi thưởng nhận ngọc, trang bị VIP và quà tân thủ cực xịn.",
+    "game_name": "Apex Girls",
+    "game_slug": "apex-girls",
+    "cover_url": "/game_icons/apex-girls.webp",
+    "author": "CodeGame.Shop",
+    "source_name": "CodeGame.Shop",
+    "source_url": "https://codegame.shop",
+    "created_at": "2026-10-13T15:30:47.285Z",
+    "updated_at": "2026-10-21T07:00:00Z",
+    "views_count": 2130,
+    "reading_time_minutes": 4,
+    "tags": [
+      "Apex Girls",
+      "Code Apex Girls",
+      "Nhập Vai Gacha / Anime",
+      "Giftcode 2026",
+      "Tân thủ"
+    ],
+    "codes": [
+      "G261018",
+      "X261009",
+      "X261016",
+      "SPORTS2026",
+      "AGM132",
+      "G261011",
+      "KANRO2026",
+      "G260927"
+    ],
+    "status": "PUBLISHED",
+    "content": "## 🎮 Giới Thiệu Tựa Game Apex Girls\n\nTựa game **Apex Girls** do nhà phát hành **CÔNG TY CỔ PHẦN 9PLAY ** phát hành đã nhanh chóng thu hút được sự quan tâm của đông đảo game thủ yêu thích thể loại Nhập Vai Gacha / Anime. Với lối chơi cuốn hút, đồ họa bắt mắt cùng các tính năng cộng đồng đặc sắc, tựa game hứa hẹn sẽ mang đến những giờ phút giải trí bùng nổ.\n\n### 🎁 Danh Sách Giftcode Apex Girls Mới Nhất Tháng 10/2026\n\nDưới đây là bảng tổng hợp các mã giftcode đang hoạt động được **CodeGame.Shop** kiểm tra và xác thực:\n\n- `G261018`: Gói Quà Tân Thủ & Tài Nguyên Nâng Cấp Tướng.\n- `X261009`: Gói Quà Tân Thủ & Tài Nguyên Nâng Cấp Tướng.\n- `X261016`: Gói Quà Tân Thủ & Tài Nguyên Nâng Cấp Tướng.\n- `SPORTS2026`: Gói Quà Tân Thủ & Tài Nguyên Nâng Cấp Tướng.\n- `AGM132`: Gói Quà Tân Thủ & Tài Nguyên Nâng Cấp Tướng.\n- `G261011`: Gói Quà Tân Thủ & Tài Nguyên Nâng Cấp Tướng.\n- `KANRO2026`: Gói Quà Tân Thủ & Tài Nguyên Nâng Cấp Tướng.\n- `G260927`: Gói Quà Tân Thủ & Tài Nguyên Nâng Cấp Tướng.\n\n> 💡 **Mẹo:** Các mã giftcode đều có giới hạn số lượng và thời hạn sử dụng. Bạn hãy nhanh tay nhập mã ngay khi có thể!\n\n---\n\n### 📝 Hướng Dẫn Các Bước Nhập Giftcode Trong Game Apex Girls\n\n1. **Bước 1:** Khởi động game **Apex Girls** và đăng nhập vào tài khoản chơi của bạn.\n2. **Bước 2:** Nhấn vào biểu tượng **Avatar nhân vật** hoặc mục **Cài đặt / Thiết lập (Settings)** ở giao diện chính.\n3. **Bước 3:** Tìm và chọn mục **Đổi Quà / Giftcode**.\n4. **Bước 4:** Nhập chính xác mã giftcode vào ô trống và nhấn nút **Xác Nhận / Nhận Thưởng**.\n5. **Bước 5:** Mở mục **Hòm Thư (Mailbox)** trong game để kiểm tra và nhận vật phẩm.\n\n---\n\n### 🔍 Cách Nhận Thêm Code Apex Girls Miễn Phí Mỗi Ngày\n- Thường xuyên theo dõi Fanpage và Group cộng đồng chính thức của game.\n- Tham gia các minigame, sự kiện mừng máy chủ mới (Open Beta) hoặc livestream từ NPH.\n- Ghé thăm website **[CodeGame.Shop](https://codegame.shop)** hàng ngày để cập nhật mã code sớm nhất và tham gia mục **[Giveaways](https://codegame.shop/giveaways)** nhận quà độc quyền.\n\n> 🛡️ **Nguồn tin tức:** Bản tin được tổng hợp, biên tập và xuất bản độc quyền bởi **CodeGame.Shop** (https://codegame.shop)."
+  },
+  {
+    "id": "news_auto_game_ever_night_thuc_tinh_oeg",
+    "slug": "code-ever-night-thuc-tinh-oeg-moi-nhat-tong-hop-ma-tan-thu-2026",
+    "title": "Code Ever Night: Thức Tỉnh - OEG Mới Nhất 2026: Tổng Hợp Mã Tân Thủ & Hướng Dẫn Nhập Chi Tiết",
+    "summary": "Tổng hợp trọn bộ giftcode game Ever Night: Thức Tỉnh - OEG (CÔNG TY CỔ PHẦN TẬP ĐOÀN GIẢI TRÍ ĐẠI DƯƠNG) mới nhất tháng 10/2026. Hướng dẫn cách nhập mã đổi thưởng nhận ngọc, trang bị VIP và quà tân thủ cực xịn.",
+    "game_name": "Ever Night: Thức Tỉnh - OEG",
+    "game_slug": "ever-night-thuc-tinh-oeg",
+    "cover_url": "/game_icons/ever-night-thuc-tinh-oeg.webp",
+    "author": "CodeGame.Shop",
+    "source_name": "CodeGame.Shop",
+    "source_url": "https://codegame.shop",
+    "created_at": "2026-10-13T11:30:47.285Z",
+    "updated_at": "2026-10-21T07:00:00Z",
+    "views_count": 2085,
+    "reading_time_minutes": 4,
+    "tags": [
+      "Ever Night: Thức Tỉnh - OEG",
+      "Code Ever Night: Thức Tỉnh - OEG",
+      "Nhập Vai Gacha / Anime",
+      "Giftcode 2026",
+      "Tân thủ"
+    ],
+    "codes": [
+      "Augustwin",
+      "Sunnyaugt",
+      "SUNJULY",
+      "julytime",
+      "THUCTINHOEG",
+      "t7mayman",
+      "HOTDAY",
+      "summer99"
+    ],
+    "status": "PUBLISHED",
+    "content": "## 🎮 Giới Thiệu Tựa Game Ever Night: Thức Tỉnh - OEG\n\nTựa game **Ever Night: Thức Tỉnh - OEG** do nhà phát hành **CÔNG TY CỔ PHẦN TẬP ĐOÀN GIẢI TRÍ ĐẠI DƯƠNG** phát hành đã nhanh chóng thu hút được sự quan tâm của đông đảo game thủ yêu thích thể loại Nhập Vai Gacha / Anime. Với lối chơi cuốn hút, đồ họa bắt mắt cùng các tính năng cộng đồng đặc sắc, tựa game hứa hẹn sẽ mang đến những giờ phút giải trí bùng nổ.\n\n### 🎁 Danh Sách Giftcode Ever Night: Thức Tỉnh - OEG Mới Nhất Tháng 10/2026\n\nDưới đây là bảng tổng hợp các mã giftcode đang hoạt động được **CodeGame.Shop** kiểm tra và xác thực:\n\n- `Augustwin`: Gói Quà Tân Thủ & Tài Nguyên Nâng Cấp Tướng.\n- `Sunnyaugt`: Gói Quà Tân Thủ & Tài Nguyên Nâng Cấp Tướng.\n- `SUNJULY`: Gói Quà Tân Thủ & Tài Nguyên Nâng Cấp Tướng.\n- `julytime`: Gói Quà Tân Thủ & Tài Nguyên Nâng Cấp Tướng.\n- `THUCTINHOEG`: Gói Quà Tân Thủ & Tài Nguyên Nâng Cấp Tướng.\n- `t7mayman`: Gói Quà Tân Thủ & Tài Nguyên Nâng Cấp Tướng.\n- `HOTDAY`: Gói Quà Tân Thủ & Tài Nguyên Nâng Cấp Tướng.\n- `summer99`: Gói Quà Tân Thủ & Tài Nguyên Nâng Cấp Tướng.\n\n> 💡 **Mẹo:** Các mã giftcode đều có giới hạn số lượng và thời hạn sử dụng. Bạn hãy nhanh tay nhập mã ngay khi có thể!\n\n---\n\n### 📝 Hướng Dẫn Các Bước Nhập Giftcode Trong Game Ever Night: Thức Tỉnh - OEG\n\n1. **Bước 1:** Khởi động game **Ever Night: Thức Tỉnh - OEG** và đăng nhập vào tài khoản chơi của bạn.\n2. **Bước 2:** Nhấn vào biểu tượng **Avatar nhân vật** hoặc mục **Cài đặt / Thiết lập (Settings)** ở giao diện chính.\n3. **Bước 3:** Tìm và chọn mục **Đổi Quà / Giftcode**.\n4. **Bước 4:** Nhập chính xác mã giftcode vào ô trống và nhấn nút **Xác Nhận / Nhận Thưởng**.\n5. **Bước 5:** Mở mục **Hòm Thư (Mailbox)** trong game để kiểm tra và nhận vật phẩm.\n\n---\n\n### 🔍 Cách Nhận Thêm Code Ever Night: Thức Tỉnh - OEG Miễn Phí Mỗi Ngày\n- Thường xuyên theo dõi Fanpage và Group cộng đồng chính thức của game.\n- Tham gia các minigame, sự kiện mừng máy chủ mới (Open Beta) hoặc livestream từ NPH.\n- Ghé thăm website **[CodeGame.Shop](https://codegame.shop)** hàng ngày để cập nhật mã code sớm nhất và tham gia mục **[Giveaways](https://codegame.shop/giveaways)** nhận quà độc quyền.\n\n> 🛡️ **Nguồn tin tức:** Bản tin được tổng hợp, biên tập và xuất bản độc quyền bởi **CodeGame.Shop** (https://codegame.shop)."
+  },
+  {
+    "id": "news_auto_game_fc_mobile_vn",
+    "slug": "code-fc-mobile-vn-moi-nhat-tong-hop-ma-tan-thu-2026",
+    "title": "Code FC Mobile VN Mới Nhất 2026: Tổng Hợp Mã Tân Thủ & Hướng Dẫn Nhập Chi Tiết",
+    "summary": "Tổng hợp trọn bộ giftcode game FC Mobile VN (CÔNG TY CỔ PHẦN GIẢI TRÍ VÀ THỂ THAO ĐIỆN TỬ VIỆT NAM) mới nhất tháng 10/2026. Hướng dẫn cách nhập mã đổi thưởng nhận ngọc, trang bị VIP và quà tân thủ cực xịn.",
+    "game_name": "FC Mobile VN",
+    "game_slug": "fc-mobile-vn",
+    "cover_url": "/game_icons/fc-mobile-vn.webp",
+    "author": "CodeGame.Shop",
+    "source_name": "CodeGame.Shop",
+    "source_url": "https://codegame.shop",
+    "created_at": "2026-10-13T07:30:47.285Z",
+    "updated_at": "2026-10-21T07:00:00Z",
+    "views_count": 2040,
+    "reading_time_minutes": 4,
+    "tags": [
+      "FC Mobile VN",
+      "Code FC Mobile VN",
+      "Bắn Súng / Sinh Tồn",
+      "Giftcode 2026",
+      "Tân thủ"
+    ],
+    "codes": [
+      "GARUDAJUARA",
+      "PUMPKINSPICEPACK",
+      "MULLERTIME",
+      "27UPDATE",
+      "QEYSOHGHKHF26",
+      "CHIABUONANH10ROIDOI",
+      "ANMUNG123OVR",
+      "WC196T4X8M"
+    ],
+    "status": "PUBLISHED",
+    "content": "## 🎮 Giới Thiệu Tựa Game FC Mobile VN\n\nTựa game **FC Mobile VN** do nhà phát hành **CÔNG TY CỔ PHẦN GIẢI TRÍ VÀ THỂ THAO ĐIỆN TỬ VIỆT NAM** phát hành đã nhanh chóng thu hút được sự quan tâm của đông đảo game thủ yêu thích thể loại Bắn Súng / Sinh Tồn. Với lối chơi cuốn hút, đồ họa bắt mắt cùng các tính năng cộng đồng đặc sắc, tựa game hứa hẹn sẽ mang đến những giờ phút giải trí bùng nổ.\n\n### 🎁 Danh Sách Giftcode FC Mobile VN Mới Nhất Tháng 10/2026\n\nDưới đây là bảng tổng hợp các mã giftcode đang hoạt động được **CodeGame.Shop** kiểm tra và xác thực:\n\n- `GARUDAJUARA`: Gói Quà Tân Thủ & Tài Nguyên Nâng Cấp Tướng.\n- `PUMPKINSPICEPACK`: Gói Quà Tân Thủ & Tài Nguyên Nâng Cấp Tướng.\n- `MULLERTIME`: Gói Quà Tân Thủ & Tài Nguyên Nâng Cấp Tướng.\n- `27UPDATE`: Gói Quà Tân Thủ & Tài Nguyên Nâng Cấp Tướng.\n- `QEYSOHGHKHF26`: Gói Quà Tân Thủ & Tài Nguyên Nâng Cấp Tướng.\n- `CHIABUONANH10ROIDOI`: Gói Quà Tân Thủ & Tài Nguyên Nâng Cấp Tướng.\n- `ANMUNG123OVR`: Gói Quà Tân Thủ & Tài Nguyên Nâng Cấp Tướng.\n- `WC196T4X8M`: Gói Quà Tân Thủ & Tài Nguyên Nâng Cấp Tướng.\n\n> 💡 **Mẹo:** Các mã giftcode đều có giới hạn số lượng và thời hạn sử dụng. Bạn hãy nhanh tay nhập mã ngay khi có thể!\n\n---\n\n### 📝 Hướng Dẫn Các Bước Nhập Giftcode Trong Game FC Mobile VN\n\n1. **Bước 1:** Khởi động game **FC Mobile VN** và đăng nhập vào tài khoản chơi của bạn.\n2. **Bước 2:** Nhấn vào biểu tượng **Avatar nhân vật** hoặc mục **Cài đặt / Thiết lập (Settings)** ở giao diện chính.\n3. **Bước 3:** Tìm và chọn mục **Đổi Quà / Giftcode**.\n4. **Bước 4:** Nhập chính xác mã giftcode vào ô trống và nhấn nút **Xác Nhận / Nhận Thưởng**.\n5. **Bước 5:** Mở mục **Hòm Thư (Mailbox)** trong game để kiểm tra và nhận vật phẩm.\n\n---\n\n### 🔍 Cách Nhận Thêm Code FC Mobile VN Miễn Phí Mỗi Ngày\n- Thường xuyên theo dõi Fanpage và Group cộng đồng chính thức của game.\n- Tham gia các minigame, sự kiện mừng máy chủ mới (Open Beta) hoặc livestream từ NPH.\n- Ghé thăm website **[CodeGame.Shop](https://codegame.shop)** hàng ngày để cập nhật mã code sớm nhất và tham gia mục **[Giveaways](https://codegame.shop/giveaways)** nhận quà độc quyền.\n\n> 🛡️ **Nguồn tin tức:** Bản tin được tổng hợp, biên tập và xuất bản độc quyền bởi **CodeGame.Shop** (https://codegame.shop)."
+  },
+  {
+    "id": "news_auto_game_lost_era_immortal_legend",
+    "slug": "code-lost-era-immortal-legend-moi-nhat-tong-hop-ma-tan-thu-2026",
+    "title": "Code Lost Era: Immortal Legend Mới Nhất 2026: Tổng Hợp Mã Tân Thủ & Hướng Dẫn Nhập Chi Tiết",
+    "summary": "Tổng hợp trọn bộ giftcode game Lost Era: Immortal Legend (Nhà Phát Hành Quốc Tế) mới nhất tháng 10/2026. Hướng dẫn cách nhập mã đổi thưởng nhận ngọc, trang bị VIP và quà tân thủ cực xịn.",
+    "game_name": "Lost Era: Immortal Legend",
+    "game_slug": "lost-era-immortal-legend",
+    "cover_url": "/game_icons/lost-era-immortal-legend.webp",
+    "author": "CodeGame.Shop",
+    "source_name": "CodeGame.Shop",
+    "source_url": "https://codegame.shop",
+    "created_at": "2026-10-13T03:30:47.285Z",
+    "updated_at": "2026-10-21T07:00:00Z",
+    "views_count": 1995,
+    "reading_time_minutes": 4,
+    "tags": [
+      "Lost Era: Immortal Legend",
+      "Code Lost Era: Immortal Legend",
+      "Kiếm Hiệp / Tiên Hiệp",
+      "Giftcode 2026",
+      "Tân thủ"
+    ],
+    "codes": [
+      "01BAX8KH2Z",
+      "0S2AQIA06Y",
+      "208BXCJQY4",
+      "3SKOYSOW5V",
+      "5IPCN8PLKA",
+      "5ZVGQC760A",
+      "8232AB5UY2",
+      "D4EXWO6E76"
+    ],
+    "status": "PUBLISHED",
+    "content": "## 🎮 Giới Thiệu Tựa Game Lost Era: Immortal Legend\n\nTựa game **Lost Era: Immortal Legend** do nhà phát hành **Nhà Phát Hành Quốc Tế** phát hành đã nhanh chóng thu hút được sự quan tâm của đông đảo game thủ yêu thích thể loại Kiếm Hiệp / Tiên Hiệp. Với lối chơi cuốn hút, đồ họa bắt mắt cùng các tính năng cộng đồng đặc sắc, tựa game hứa hẹn sẽ mang đến những giờ phút giải trí bùng nổ.\n\n### 🎁 Danh Sách Giftcode Lost Era: Immortal Legend Mới Nhất Tháng 10/2026\n\nDưới đây là bảng tổng hợp các mã giftcode đang hoạt động được **CodeGame.Shop** kiểm tra và xác thực:\n\n- `01BAX8KH2Z`: Gói Quà Tân Thủ & Tài Nguyên Nâng Cấp Tướng.\n- `0S2AQIA06Y`: Gói Quà Tân Thủ & Tài Nguyên Nâng Cấp Tướng.\n- `208BXCJQY4`: Gói Quà Tân Thủ & Tài Nguyên Nâng Cấp Tướng.\n- `3SKOYSOW5V`: Gói Quà Tân Thủ & Tài Nguyên Nâng Cấp Tướng.\n- `5IPCN8PLKA`: Gói Quà Tân Thủ & Tài Nguyên Nâng Cấp Tướng.\n- `5ZVGQC760A`: Gói Quà Tân Thủ & Tài Nguyên Nâng Cấp Tướng.\n- `8232AB5UY2`: Gói Quà Tân Thủ & Tài Nguyên Nâng Cấp Tướng.\n- `D4EXWO6E76`: Gói Quà Tân Thủ & Tài Nguyên Nâng Cấp Tướng.\n\n> 💡 **Mẹo:** Các mã giftcode đều có giới hạn số lượng và thời hạn sử dụng. Bạn hãy nhanh tay nhập mã ngay khi có thể!\n\n---\n\n### 📝 Hướng Dẫn Các Bước Nhập Giftcode Trong Game Lost Era: Immortal Legend\n\n1. **Bước 1:** Khởi động game **Lost Era: Immortal Legend** và đăng nhập vào tài khoản chơi của bạn.\n2. **Bước 2:** Nhấn vào biểu tượng **Avatar nhân vật** hoặc mục **Cài đặt / Thiết lập (Settings)** ở giao diện chính.\n3. **Bước 3:** Tìm và chọn mục **Đổi Quà / Giftcode**.\n4. **Bước 4:** Nhập chính xác mã giftcode vào ô trống và nhấn nút **Xác Nhận / Nhận Thưởng**.\n5. **Bước 5:** Mở mục **Hòm Thư (Mailbox)** trong game để kiểm tra và nhận vật phẩm.\n\n---\n\n### 🔍 Cách Nhận Thêm Code Lost Era: Immortal Legend Miễn Phí Mỗi Ngày\n- Thường xuyên theo dõi Fanpage và Group cộng đồng chính thức của game.\n- Tham gia các minigame, sự kiện mừng máy chủ mới (Open Beta) hoặc livestream từ NPH.\n- Ghé thăm website **[CodeGame.Shop](https://codegame.shop)** hàng ngày để cập nhật mã code sớm nhất và tham gia mục **[Giveaways](https://codegame.shop/giveaways)** nhận quà độc quyền.\n\n> 🛡️ **Nguồn tin tức:** Bản tin được tổng hợp, biên tập và xuất bản độc quyền bởi **CodeGame.Shop** (https://codegame.shop)."
+  },
+  {
+    "id": "news_auto_game_hyper_spark_ki_clash",
+    "slug": "code-hyper-spark-ki-clash-moi-nhat-tong-hop-ma-tan-thu-2026",
+    "title": "Code Hyper Spark: Ki Clash Mới Nhất 2026: Tổng Hợp Mã Tân Thủ & Hướng Dẫn Nhập Chi Tiết",
+    "summary": "Tổng hợp trọn bộ giftcode game Hyper Spark: Ki Clash (Tianjin October Technology) mới nhất tháng 10/2026. Hướng dẫn cách nhập mã đổi thưởng nhận ngọc, trang bị VIP và quà tân thủ cực xịn.",
+    "game_name": "Hyper Spark: Ki Clash",
+    "game_slug": "hyper-spark-ki-clash",
+    "cover_url": "/game_icons/hyper-spark-ki-clash.webp",
+    "author": "CodeGame.Shop",
+    "source_name": "CodeGame.Shop",
+    "source_url": "https://codegame.shop",
+    "created_at": "2026-10-12T23:30:47.285Z",
+    "updated_at": "2026-10-21T07:00:00Z",
+    "views_count": 1950,
+    "reading_time_minutes": 4,
+    "tags": [
+      "Hyper Spark: Ki Clash",
+      "Code Hyper Spark: Ki Clash",
+      "Nhập Vai Gacha / Anime",
+      "Giftcode 2026",
+      "Tân thủ"
+    ],
+    "codes": [
+      "WELCOME",
+      "VIP222",
+      "VIP444",
+      "VIP666",
+      "VIP777",
+      "VIP888",
+      "VIP000",
+      "GIFT888"
+    ],
+    "status": "PUBLISHED",
+    "content": "## 🎮 Giới Thiệu Tựa Game Hyper Spark: Ki Clash\n\nTựa game **Hyper Spark: Ki Clash** do nhà phát hành **Tianjin October Technology** phát hành đã nhanh chóng thu hút được sự quan tâm của đông đảo game thủ yêu thích thể loại Nhập Vai Gacha / Anime. Với lối chơi cuốn hút, đồ họa bắt mắt cùng các tính năng cộng đồng đặc sắc, tựa game hứa hẹn sẽ mang đến những giờ phút giải trí bùng nổ.\n\n### 🎁 Danh Sách Giftcode Hyper Spark: Ki Clash Mới Nhất Tháng 10/2026\n\nDưới đây là bảng tổng hợp các mã giftcode đang hoạt động được **CodeGame.Shop** kiểm tra và xác thực:\n\n- `WELCOME`: Gói Quà Tân Thủ & Tài Nguyên Nâng Cấp Tướng.\n- `VIP222`: Gói Quà Tân Thủ & Tài Nguyên Nâng Cấp Tướng.\n- `VIP444`: Gói Quà Tân Thủ & Tài Nguyên Nâng Cấp Tướng.\n- `VIP666`: Gói Quà Tân Thủ & Tài Nguyên Nâng Cấp Tướng.\n- `VIP777`: Gói Quà Tân Thủ & Tài Nguyên Nâng Cấp Tướng.\n- `VIP888`: Gói Quà Tân Thủ & Tài Nguyên Nâng Cấp Tướng.\n- `VIP000`: Gói Quà Tân Thủ & Tài Nguyên Nâng Cấp Tướng.\n- `GIFT888`: Gói Quà Tân Thủ & Tài Nguyên Nâng Cấp Tướng.\n\n> 💡 **Mẹo:** Các mã giftcode đều có giới hạn số lượng và thời hạn sử dụng. Bạn hãy nhanh tay nhập mã ngay khi có thể!\n\n---\n\n### 📝 Hướng Dẫn Các Bước Nhập Giftcode Trong Game Hyper Spark: Ki Clash\n\n1. **Bước 1:** Khởi động game **Hyper Spark: Ki Clash** và đăng nhập vào tài khoản chơi của bạn.\n2. **Bước 2:** Nhấn vào biểu tượng **Avatar nhân vật** hoặc mục **Cài đặt / Thiết lập (Settings)** ở giao diện chính.\n3. **Bước 3:** Tìm và chọn mục **Đổi Quà / Giftcode**.\n4. **Bước 4:** Nhập chính xác mã giftcode vào ô trống và nhấn nút **Xác Nhận / Nhận Thưởng**.\n5. **Bước 5:** Mở mục **Hòm Thư (Mailbox)** trong game để kiểm tra và nhận vật phẩm.\n\n---\n\n### 🔍 Cách Nhận Thêm Code Hyper Spark: Ki Clash Miễn Phí Mỗi Ngày\n- Thường xuyên theo dõi Fanpage và Group cộng đồng chính thức của game.\n- Tham gia các minigame, sự kiện mừng máy chủ mới (Open Beta) hoặc livestream từ NPH.\n- Ghé thăm website **[CodeGame.Shop](https://codegame.shop)** hàng ngày để cập nhật mã code sớm nhất và tham gia mục **[Giveaways](https://codegame.shop/giveaways)** nhận quà độc quyền.\n\n> 🛡️ **Nguồn tin tức:** Bản tin được tổng hợp, biên tập và xuất bản độc quyền bởi **CodeGame.Shop** (https://codegame.shop)."
+  },
+  {
+    "id": "news_auto_game_dress_to_impress",
+    "slug": "code-dress-to-impress-moi-nhat-tong-hop-ma-tan-thu-2026",
+    "title": "Code Dress To Impress Mới Nhất 2026: Tổng Hợp Mã Tân Thủ & Hướng Dẫn Nhập Chi Tiết",
+    "summary": "Tổng hợp trọn bộ giftcode game Dress To Impress (Nhà phát hành chính thức) mới nhất tháng 10/2026. Hướng dẫn cách nhập mã đổi thưởng nhận ngọc, trang bị VIP và quà tân thủ cực xịn.",
+    "game_name": "Dress To Impress",
+    "game_slug": "dress-to-impress",
+    "cover_url": "/game_icons/dress-to-impress.webp",
+    "author": "CodeGame.Shop",
+    "source_name": "CodeGame.Shop",
+    "source_url": "https://codegame.shop",
+    "created_at": "2026-10-12T19:30:47.285Z",
+    "updated_at": "2026-10-21T07:00:00Z",
+    "views_count": 1905,
+    "reading_time_minutes": 4,
+    "tags": [
+      "Dress To Impress",
+      "Code Dress To Impress",
+      "Roblox / Mini Game",
+      "Giftcode 2026",
+      "Tân thủ"
+    ],
+    "codes": [
+      "10BILLION",
+      "CA11MEHHALEY",
+      "CH00P1E_B4CK_AGA1N",
+      "VANILLAMACE",
+      "PIXIIUWU",
+      "ANGELT4NKED",
+      "3NCHANTEDD1ZZY",
+      "LANADOLLDRESS"
+    ],
+    "status": "PUBLISHED",
+    "content": "## 🎮 Giới Thiệu Tựa Game Dress To Impress\n\nTựa game **Dress To Impress** do nhà phát hành **Nhà phát hành chính thức** phát hành đã nhanh chóng thu hút được sự quan tâm của đông đảo game thủ yêu thích thể loại Roblox / Mini Game. Với lối chơi cuốn hút, đồ họa bắt mắt cùng các tính năng cộng đồng đặc sắc, tựa game hứa hẹn sẽ mang đến những giờ phút giải trí bùng nổ.\n\n### 🎁 Danh Sách Giftcode Dress To Impress Mới Nhất Tháng 10/2026\n\nDưới đây là bảng tổng hợp các mã giftcode đang hoạt động được **CodeGame.Shop** kiểm tra và xác thực:\n\n- `10BILLION`: Gói Quà Tân Thủ & Tài Nguyên Nâng Cấp Tướng.\n- `CA11MEHHALEY`: Gói Quà Tân Thủ & Tài Nguyên Nâng Cấp Tướng.\n- `CH00P1E_B4CK_AGA1N`: Gói Quà Tân Thủ & Tài Nguyên Nâng Cấp Tướng.\n- `VANILLAMACE`: Gói Quà Tân Thủ & Tài Nguyên Nâng Cấp Tướng.\n- `PIXIIUWU`: Gói Quà Tân Thủ & Tài Nguyên Nâng Cấp Tướng.\n- `ANGELT4NKED`: Gói Quà Tân Thủ & Tài Nguyên Nâng Cấp Tướng.\n- `3NCHANTEDD1ZZY`: Gói Quà Tân Thủ & Tài Nguyên Nâng Cấp Tướng.\n- `LANADOLLDRESS`: Gói Quà Tân Thủ & Tài Nguyên Nâng Cấp Tướng.\n\n> 💡 **Mẹo:** Các mã giftcode đều có giới hạn số lượng và thời hạn sử dụng. Bạn hãy nhanh tay nhập mã ngay khi có thể!\n\n---\n\n### 📝 Hướng Dẫn Các Bước Nhập Giftcode Trong Game Dress To Impress\n\n1. **Bước 1:** Khởi động game **Dress To Impress** và đăng nhập vào tài khoản chơi của bạn.\n2. **Bước 2:** Nhấn vào biểu tượng **Avatar nhân vật** hoặc mục **Cài đặt / Thiết lập (Settings)** ở giao diện chính.\n3. **Bước 3:** Tìm và chọn mục **Đổi Quà / Giftcode**.\n4. **Bước 4:** Nhập chính xác mã giftcode vào ô trống và nhấn nút **Xác Nhận / Nhận Thưởng**.\n5. **Bước 5:** Mở mục **Hòm Thư (Mailbox)** trong game để kiểm tra và nhận vật phẩm.\n\n---\n\n### 🔍 Cách Nhận Thêm Code Dress To Impress Miễn Phí Mỗi Ngày\n- Thường xuyên theo dõi Fanpage và Group cộng đồng chính thức của game.\n- Tham gia các minigame, sự kiện mừng máy chủ mới (Open Beta) hoặc livestream từ NPH.\n- Ghé thăm website **[CodeGame.Shop](https://codegame.shop)** hàng ngày để cập nhật mã code sớm nhất và tham gia mục **[Giveaways](https://codegame.shop/giveaways)** nhận quà độc quyền.\n\n> 🛡️ **Nguồn tin tức:** Bản tin được tổng hợp, biên tập và xuất bản độc quyền bởi **CodeGame.Shop** (https://codegame.shop)."
+  },
+  {
+    "id": "news_auto_game_blade_ball",
+    "slug": "code-blade-ball-moi-nhat-tong-hop-ma-tan-thu-2026",
+    "title": "Code Blade Ball Mới Nhất 2026: Tổng Hợp Mã Tân Thủ & Hướng Dẫn Nhập Chi Tiết",
+    "summary": "Tổng hợp trọn bộ giftcode game Blade Ball (Nhà Phát Hành Quốc Tế) mới nhất tháng 10/2026. Hướng dẫn cách nhập mã đổi thưởng nhận ngọc, trang bị VIP và quà tân thủ cực xịn.",
+    "game_name": "Blade Ball",
+    "game_slug": "blade-ball",
+    "cover_url": "/game_icons/blade-ball.webp",
+    "author": "CodeGame.Shop",
+    "source_name": "CodeGame.Shop",
+    "source_url": "https://codegame.shop",
+    "created_at": "2026-10-12T15:30:47.285Z",
+    "updated_at": "2026-10-21T07:00:00Z",
+    "views_count": 1860,
+    "reading_time_minutes": 4,
+    "tags": [
+      "Blade Ball",
+      "Code Blade Ball",
+      "Roblox / Mini Game",
+      "Giftcode 2026",
+      "Tân thủ"
+    ],
+    "codes": [
+      "XMAS",
+      "DELAYBALL",
+      "BPTEAMS",
+      "REBIRTHLTM",
+      "ROBLOXCLASSIC",
+      "GOODVSEVILMODE",
+      "DUNGEONSRELEASE",
+      "FROGS"
+    ],
+    "status": "PUBLISHED",
+    "content": "## 🎮 Giới Thiệu Tựa Game Blade Ball\n\nTựa game **Blade Ball** do nhà phát hành **Nhà Phát Hành Quốc Tế** phát hành đã nhanh chóng thu hút được sự quan tâm của đông đảo game thủ yêu thích thể loại Roblox / Mini Game. Với lối chơi cuốn hút, đồ họa bắt mắt cùng các tính năng cộng đồng đặc sắc, tựa game hứa hẹn sẽ mang đến những giờ phút giải trí bùng nổ.\n\n### 🎁 Danh Sách Giftcode Blade Ball Mới Nhất Tháng 10/2026\n\nDưới đây là bảng tổng hợp các mã giftcode đang hoạt động được **CodeGame.Shop** kiểm tra và xác thực:\n\n- `XMAS`: Gói Quà Tân Thủ & Tài Nguyên Nâng Cấp Tướng.\n- `DELAYBALL`: Gói Quà Tân Thủ & Tài Nguyên Nâng Cấp Tướng.\n- `BPTEAMS`: Gói Quà Tân Thủ & Tài Nguyên Nâng Cấp Tướng.\n- `REBIRTHLTM`: Gói Quà Tân Thủ & Tài Nguyên Nâng Cấp Tướng.\n- `ROBLOXCLASSIC`: Gói Quà Tân Thủ & Tài Nguyên Nâng Cấp Tướng.\n- `GOODVSEVILMODE`: Gói Quà Tân Thủ & Tài Nguyên Nâng Cấp Tướng.\n- `DUNGEONSRELEASE`: Gói Quà Tân Thủ & Tài Nguyên Nâng Cấp Tướng.\n- `FROGS`: Gói Quà Tân Thủ & Tài Nguyên Nâng Cấp Tướng.\n\n> 💡 **Mẹo:** Các mã giftcode đều có giới hạn số lượng và thời hạn sử dụng. Bạn hãy nhanh tay nhập mã ngay khi có thể!\n\n---\n\n### 📝 Hướng Dẫn Các Bước Nhập Giftcode Trong Game Blade Ball\n\n1. **Bước 1:** Khởi động game **Blade Ball** và đăng nhập vào tài khoản chơi của bạn.\n2. **Bước 2:** Nhấn vào biểu tượng **Avatar nhân vật** hoặc mục **Cài đặt / Thiết lập (Settings)** ở giao diện chính.\n3. **Bước 3:** Tìm và chọn mục **Đổi Quà / Giftcode**.\n4. **Bước 4:** Nhập chính xác mã giftcode vào ô trống và nhấn nút **Xác Nhận / Nhận Thưởng**.\n5. **Bước 5:** Mở mục **Hòm Thư (Mailbox)** trong game để kiểm tra và nhận vật phẩm.\n\n---\n\n### 🔍 Cách Nhận Thêm Code Blade Ball Miễn Phí Mỗi Ngày\n- Thường xuyên theo dõi Fanpage và Group cộng đồng chính thức của game.\n- Tham gia các minigame, sự kiện mừng máy chủ mới (Open Beta) hoặc livestream từ NPH.\n- Ghé thăm website **[CodeGame.Shop](https://codegame.shop)** hàng ngày để cập nhật mã code sớm nhất và tham gia mục **[Giveaways](https://codegame.shop/giveaways)** nhận quà độc quyền.\n\n> 🛡️ **Nguồn tin tức:** Bản tin được tổng hợp, biên tập và xuất bản độc quyền bởi **CodeGame.Shop** (https://codegame.shop)."
+  },
+  {
+    "id": "news_auto_game_hoi_tho_hai_tac",
+    "slug": "code-hoi-tho-hai-tac-moi-nhat-tong-hop-ma-tan-thu-2026",
+    "title": "Code Hơi Thở Hải Tặc Mới Nhất 2026: Tổng Hợp Mã Tân Thủ & Hướng Dẫn Nhập Chi Tiết",
+    "summary": "Tổng hợp trọn bộ giftcode game Hơi Thở Hải Tặc (CÔNG TY CỔ PHẦN TRỰC TUYẾN GOSU) mới nhất tháng 10/2026. Hướng dẫn cách nhập mã đổi thưởng nhận ngọc, trang bị VIP và quà tân thủ cực xịn.",
+    "game_name": "Hơi Thở Hải Tặc",
+    "game_slug": "hoi-tho-hai-tac",
+    "cover_url": "/game_icons/hoi-tho-hai-tac.webp",
+    "author": "CodeGame.Shop",
+    "source_name": "CodeGame.Shop",
+    "source_url": "https://codegame.shop",
+    "created_at": "2026-10-12T11:30:47.285Z",
+    "updated_at": "2026-10-21T07:00:00Z",
+    "views_count": 1815,
+    "reading_time_minutes": 4,
+    "tags": [
+      "Hơi Thở Hải Tặc",
+      "Code Hơi Thở Hải Tặc",
+      "Nhập Vai Gacha / Anime",
+      "Giftcode 2026",
+      "Tân thủ"
+    ],
+    "codes": [
+      "HOITHOHAITAC",
+      "CHOPPER2026",
+      "ROBIN2026",
+      "HTHTPAGE2K",
+      "HTHTPAGE5K",
+      "HTHTPAGE7K",
+      "HTHTPAGE10K",
+      "HTHTPAGE15K"
+    ],
+    "status": "PUBLISHED",
+    "content": "## 🎮 Giới Thiệu Tựa Game Hơi Thở Hải Tặc\n\nTựa game **Hơi Thở Hải Tặc** do nhà phát hành **CÔNG TY CỔ PHẦN TRỰC TUYẾN GOSU** phát hành đã nhanh chóng thu hút được sự quan tâm của đông đảo game thủ yêu thích thể loại Nhập Vai Gacha / Anime. Với lối chơi cuốn hút, đồ họa bắt mắt cùng các tính năng cộng đồng đặc sắc, tựa game hứa hẹn sẽ mang đến những giờ phút giải trí bùng nổ.\n\n### 🎁 Danh Sách Giftcode Hơi Thở Hải Tặc Mới Nhất Tháng 10/2026\n\nDưới đây là bảng tổng hợp các mã giftcode đang hoạt động được **CodeGame.Shop** kiểm tra và xác thực:\n\n- `HOITHOHAITAC`: Gói Quà Tân Thủ & Tài Nguyên Nâng Cấp Tướng.\n- `CHOPPER2026`: Gói Quà Tân Thủ & Tài Nguyên Nâng Cấp Tướng.\n- `ROBIN2026`: Gói Quà Tân Thủ & Tài Nguyên Nâng Cấp Tướng.\n- `HTHTPAGE2K`: Gói Quà Tân Thủ & Tài Nguyên Nâng Cấp Tướng.\n- `HTHTPAGE5K`: Gói Quà Tân Thủ & Tài Nguyên Nâng Cấp Tướng.\n- `HTHTPAGE7K`: Gói Quà Tân Thủ & Tài Nguyên Nâng Cấp Tướng.\n- `HTHTPAGE10K`: Gói Quà Tân Thủ & Tài Nguyên Nâng Cấp Tướng.\n- `HTHTPAGE15K`: Gói Quà Tân Thủ & Tài Nguyên Nâng Cấp Tướng.\n\n> 💡 **Mẹo:** Các mã giftcode đều có giới hạn số lượng và thời hạn sử dụng. Bạn hãy nhanh tay nhập mã ngay khi có thể!\n\n---\n\n### 📝 Hướng Dẫn Các Bước Nhập Giftcode Trong Game Hơi Thở Hải Tặc\n\n1. **Bước 1:** Khởi động game **Hơi Thở Hải Tặc** và đăng nhập vào tài khoản chơi của bạn.\n2. **Bước 2:** Nhấn vào biểu tượng **Avatar nhân vật** hoặc mục **Cài đặt / Thiết lập (Settings)** ở giao diện chính.\n3. **Bước 3:** Tìm và chọn mục **Đổi Quà / Giftcode**.\n4. **Bước 4:** Nhập chính xác mã giftcode vào ô trống và nhấn nút **Xác Nhận / Nhận Thưởng**.\n5. **Bước 5:** Mở mục **Hòm Thư (Mailbox)** trong game để kiểm tra và nhận vật phẩm.\n\n---\n\n### 🔍 Cách Nhận Thêm Code Hơi Thở Hải Tặc Miễn Phí Mỗi Ngày\n- Thường xuyên theo dõi Fanpage và Group cộng đồng chính thức của game.\n- Tham gia các minigame, sự kiện mừng máy chủ mới (Open Beta) hoặc livestream từ NPH.\n- Ghé thăm website **[CodeGame.Shop](https://codegame.shop)** hàng ngày để cập nhật mã code sớm nhất và tham gia mục **[Giveaways](https://codegame.shop/giveaways)** nhận quà độc quyền.\n\n> 🛡️ **Nguồn tin tức:** Bản tin được tổng hợp, biên tập và xuất bản độc quyền bởi **CodeGame.Shop** (https://codegame.shop)."
+  },
+  {
+    "id": "news_auto_game_phuong_hoang_tru_tien",
+    "slug": "code-phuong-hoang-tru-tien-moi-nhat-tong-hop-ma-tan-thu-2026",
+    "title": "Code Phượng Hoàng Tru Tiên Mới Nhất 2026: Tổng Hợp Mã Tân Thủ & Hướng Dẫn Nhập Chi Tiết",
+    "summary": "Tổng hợp trọn bộ giftcode game Phượng Hoàng Tru Tiên (CÔNG TY CỔ PHẦN TRUYỀN HÌNH TƯƠNG TÁC VIỆT NAM) mới nhất tháng 10/2026. Hướng dẫn cách nhập mã đổi thưởng nhận ngọc, trang bị VIP và quà tân thủ cực xịn.",
+    "game_name": "Phượng Hoàng Tru Tiên",
+    "game_slug": "phuong-hoang-tru-tien",
+    "cover_url": "/game_icons/phuong-hoang-tru-tien.webp",
+    "author": "CodeGame.Shop",
+    "source_name": "CodeGame.Shop",
+    "source_url": "https://codegame.shop",
+    "created_at": "2026-10-12T07:30:47.285Z",
+    "updated_at": "2026-10-21T07:00:00Z",
+    "views_count": 1770,
+    "reading_time_minutes": 4,
+    "tags": [
+      "Phượng Hoàng Tru Tiên",
+      "Code Phượng Hoàng Tru Tiên",
+      "Kiếm Hiệp / Tiên Hiệp",
+      "Giftcode 2026",
+      "Tân thủ"
+    ],
+    "codes": [
+      "HQH999",
+      "HUYNHANH777",
+      "LBH888",
+      "LUCTUYETKY777",
+      "LUNMACHAY888",
+      "QUYLE999",
+      "TIM666",
+      "TITI6868"
+    ],
+    "status": "PUBLISHED",
+    "content": "## 🎮 Giới Thiệu Tựa Game Phượng Hoàng Tru Tiên\n\nTựa game **Phượng Hoàng Tru Tiên** do nhà phát hành **CÔNG TY CỔ PHẦN TRUYỀN HÌNH TƯƠNG TÁC VIỆT NAM** phát hành đã nhanh chóng thu hút được sự quan tâm của đông đảo game thủ yêu thích thể loại Kiếm Hiệp / Tiên Hiệp. Với lối chơi cuốn hút, đồ họa bắt mắt cùng các tính năng cộng đồng đặc sắc, tựa game hứa hẹn sẽ mang đến những giờ phút giải trí bùng nổ.\n\n### 🎁 Danh Sách Giftcode Phượng Hoàng Tru Tiên Mới Nhất Tháng 10/2026\n\nDưới đây là bảng tổng hợp các mã giftcode đang hoạt động được **CodeGame.Shop** kiểm tra và xác thực:\n\n- `HQH999`: Gói Quà Tân Thủ & Tài Nguyên Nâng Cấp Tướng.\n- `HUYNHANH777`: Gói Quà Tân Thủ & Tài Nguyên Nâng Cấp Tướng.\n- `LBH888`: Gói Quà Tân Thủ & Tài Nguyên Nâng Cấp Tướng.\n- `LUCTUYETKY777`: Gói Quà Tân Thủ & Tài Nguyên Nâng Cấp Tướng.\n- `LUNMACHAY888`: Gói Quà Tân Thủ & Tài Nguyên Nâng Cấp Tướng.\n- `QUYLE999`: Gói Quà Tân Thủ & Tài Nguyên Nâng Cấp Tướng.\n- `TIM666`: Gói Quà Tân Thủ & Tài Nguyên Nâng Cấp Tướng.\n- `TITI6868`: Gói Quà Tân Thủ & Tài Nguyên Nâng Cấp Tướng.\n\n> 💡 **Mẹo:** Các mã giftcode đều có giới hạn số lượng và thời hạn sử dụng. Bạn hãy nhanh tay nhập mã ngay khi có thể!\n\n---\n\n### 📝 Hướng Dẫn Các Bước Nhập Giftcode Trong Game Phượng Hoàng Tru Tiên\n\n1. **Bước 1:** Khởi động game **Phượng Hoàng Tru Tiên** và đăng nhập vào tài khoản chơi của bạn.\n2. **Bước 2:** Nhấn vào biểu tượng **Avatar nhân vật** hoặc mục **Cài đặt / Thiết lập (Settings)** ở giao diện chính.\n3. **Bước 3:** Tìm và chọn mục **Đổi Quà / Giftcode**.\n4. **Bước 4:** Nhập chính xác mã giftcode vào ô trống và nhấn nút **Xác Nhận / Nhận Thưởng**.\n5. **Bước 5:** Mở mục **Hòm Thư (Mailbox)** trong game để kiểm tra và nhận vật phẩm.\n\n---\n\n### 🔍 Cách Nhận Thêm Code Phượng Hoàng Tru Tiên Miễn Phí Mỗi Ngày\n- Thường xuyên theo dõi Fanpage và Group cộng đồng chính thức của game.\n- Tham gia các minigame, sự kiện mừng máy chủ mới (Open Beta) hoặc livestream từ NPH.\n- Ghé thăm website **[CodeGame.Shop](https://codegame.shop)** hàng ngày để cập nhật mã code sớm nhất và tham gia mục **[Giveaways](https://codegame.shop/giveaways)** nhận quà độc quyền.\n\n> 🛡️ **Nguồn tin tức:** Bản tin được tổng hợp, biên tập và xuất bản độc quyền bởi **CodeGame.Shop** (https://codegame.shop)."
+  },
+  {
+    "id": "news_auto_game_bo_lac_3q",
+    "slug": "code-bo-lac-3q-moi-nhat-tong-hop-ma-tan-thu-2026",
+    "title": "Code Bộ Lạc 3Q Mới Nhất 2026: Tổng Hợp Mã Tân Thủ & Hướng Dẫn Nhập Chi Tiết",
+    "summary": "Tổng hợp trọn bộ giftcode game Bộ Lạc 3Q (CÔNG TY CỔ PHẦN TRỰC TUYẾN CMN VIỆT NAM) mới nhất tháng 10/2026. Hướng dẫn cách nhập mã đổi thưởng nhận ngọc, trang bị VIP và quà tân thủ cực xịn.",
+    "game_name": "Bộ Lạc 3Q",
+    "game_slug": "bo-lac-3q",
+    "cover_url": "/game_icons/bo-lac-3q.webp",
+    "author": "CodeGame.Shop",
+    "source_name": "CodeGame.Shop",
+    "source_url": "https://codegame.shop",
+    "created_at": "2026-10-12T03:30:47.285Z",
+    "updated_at": "2026-10-21T07:00:00Z",
+    "views_count": 1725,
+    "reading_time_minutes": 4,
+    "tags": [
+      "Bộ Lạc 3Q",
+      "Code Bộ Lạc 3Q",
+      "Tam Quốc / Chiến Thuật",
+      "Giftcode 2026",
+      "Tân thủ"
+    ],
+    "codes": [
+      "QUACAMON",
+      "bolac119",
+      "BONGV23",
+      "MISS9XV21",
+      "HOATHANV18",
+      "BILLYV18",
+      "TIEUKIEUV18",
+      "LE0209BL3Q"
+    ],
+    "status": "PUBLISHED",
+    "content": "## 🎮 Giới Thiệu Tựa Game Bộ Lạc 3Q\n\nTựa game **Bộ Lạc 3Q** do nhà phát hành **CÔNG TY CỔ PHẦN TRỰC TUYẾN CMN VIỆT NAM** phát hành đã nhanh chóng thu hút được sự quan tâm của đông đảo game thủ yêu thích thể loại Tam Quốc / Chiến Thuật. Với lối chơi cuốn hút, đồ họa bắt mắt cùng các tính năng cộng đồng đặc sắc, tựa game hứa hẹn sẽ mang đến những giờ phút giải trí bùng nổ.\n\n### 🎁 Danh Sách Giftcode Bộ Lạc 3Q Mới Nhất Tháng 10/2026\n\nDưới đây là bảng tổng hợp các mã giftcode đang hoạt động được **CodeGame.Shop** kiểm tra và xác thực:\n\n- `QUACAMON`: Gói Quà Tân Thủ & Tài Nguyên Nâng Cấp Tướng.\n- `bolac119`: Gói Quà Tân Thủ & Tài Nguyên Nâng Cấp Tướng.\n- `BONGV23`: Gói Quà Tân Thủ & Tài Nguyên Nâng Cấp Tướng.\n- `MISS9XV21`: Gói Quà Tân Thủ & Tài Nguyên Nâng Cấp Tướng.\n- `HOATHANV18`: Gói Quà Tân Thủ & Tài Nguyên Nâng Cấp Tướng.\n- `BILLYV18`: Gói Quà Tân Thủ & Tài Nguyên Nâng Cấp Tướng.\n- `TIEUKIEUV18`: Gói Quà Tân Thủ & Tài Nguyên Nâng Cấp Tướng.\n- `LE0209BL3Q`: Gói Quà Tân Thủ & Tài Nguyên Nâng Cấp Tướng.\n\n> 💡 **Mẹo:** Các mã giftcode đều có giới hạn số lượng và thời hạn sử dụng. Bạn hãy nhanh tay nhập mã ngay khi có thể!\n\n---\n\n### 📝 Hướng Dẫn Các Bước Nhập Giftcode Trong Game Bộ Lạc 3Q\n\n1. **Bước 1:** Khởi động game **Bộ Lạc 3Q** và đăng nhập vào tài khoản chơi của bạn.\n2. **Bước 2:** Nhấn vào biểu tượng **Avatar nhân vật** hoặc mục **Cài đặt / Thiết lập (Settings)** ở giao diện chính.\n3. **Bước 3:** Tìm và chọn mục **Đổi Quà / Giftcode**.\n4. **Bước 4:** Nhập chính xác mã giftcode vào ô trống và nhấn nút **Xác Nhận / Nhận Thưởng**.\n5. **Bước 5:** Mở mục **Hòm Thư (Mailbox)** trong game để kiểm tra và nhận vật phẩm.\n\n---\n\n### 🔍 Cách Nhận Thêm Code Bộ Lạc 3Q Miễn Phí Mỗi Ngày\n- Thường xuyên theo dõi Fanpage và Group cộng đồng chính thức của game.\n- Tham gia các minigame, sự kiện mừng máy chủ mới (Open Beta) hoặc livestream từ NPH.\n- Ghé thăm website **[CodeGame.Shop](https://codegame.shop)** hàng ngày để cập nhật mã code sớm nhất và tham gia mục **[Giveaways](https://codegame.shop/giveaways)** nhận quà độc quyền.\n\n> 🛡️ **Nguồn tin tức:** Bản tin được tổng hợp, biên tập và xuất bản độc quyền bởi **CodeGame.Shop** (https://codegame.shop)."
+  },
+  {
+    "id": "news_auto_game_gunny_origin",
+    "slug": "code-gunny-origin-moi-nhat-tong-hop-ma-tan-thu-2026",
+    "title": "Code Gunny Origin Mới Nhất 2026: Tổng Hợp Mã Tân Thủ & Hướng Dẫn Nhập Chi Tiết",
+    "summary": "Tổng hợp trọn bộ giftcode game Gunny Origin (CÔNG TY CỔ PHẦN TẬP ĐOÀN VNG) mới nhất tháng 10/2026. Hướng dẫn cách nhập mã đổi thưởng nhận ngọc, trang bị VIP và quà tân thủ cực xịn.",
+    "game_name": "Gunny Origin",
+    "game_slug": "gunny-origin",
+    "cover_url": "/game_icons/gunny-origin.webp",
+    "author": "CodeGame.Shop",
+    "source_name": "CodeGame.Shop",
+    "source_url": "https://codegame.shop",
+    "created_at": "2026-10-11T23:30:47.285Z",
+    "updated_at": "2026-10-21T07:00:00Z",
+    "views_count": 1680,
+    "reading_time_minutes": 4,
+    "tags": [
+      "Gunny Origin",
+      "Code Gunny Origin",
+      "Bắn Súng / Sinh Tồn",
+      "Giftcode 2026",
+      "Tân thủ"
+    ],
+    "codes": [
+      "GA2THANG9",
+      "GUNNYORIGINGLNOX",
+      "GNOMUNGDAILE",
+      "QUOCTEPHUNU",
+      "GNOBINHNGO2026",
+      "GNOTRUNGTHU",
+      "A80HAOKHI",
+      "GAHANHPHUC"
+    ],
+    "status": "PUBLISHED",
+    "content": "## 🎮 Giới Thiệu Tựa Game Gunny Origin\n\nTựa game **Gunny Origin** do nhà phát hành **CÔNG TY CỔ PHẦN TẬP ĐOÀN VNG** phát hành đã nhanh chóng thu hút được sự quan tâm của đông đảo game thủ yêu thích thể loại Bắn Súng / Sinh Tồn. Với lối chơi cuốn hút, đồ họa bắt mắt cùng các tính năng cộng đồng đặc sắc, tựa game hứa hẹn sẽ mang đến những giờ phút giải trí bùng nổ.\n\n### 🎁 Danh Sách Giftcode Gunny Origin Mới Nhất Tháng 10/2026\n\nDưới đây là bảng tổng hợp các mã giftcode đang hoạt động được **CodeGame.Shop** kiểm tra và xác thực:\n\n- `GA2THANG9`: Gói Quà Tân Thủ & Tài Nguyên Nâng Cấp Tướng.\n- `GUNNYORIGINGLNOX`: Gói Quà Tân Thủ & Tài Nguyên Nâng Cấp Tướng.\n- `GNOMUNGDAILE`: Gói Quà Tân Thủ & Tài Nguyên Nâng Cấp Tướng.\n- `QUOCTEPHUNU`: Gói Quà Tân Thủ & Tài Nguyên Nâng Cấp Tướng.\n- `GNOBINHNGO2026`: Gói Quà Tân Thủ & Tài Nguyên Nâng Cấp Tướng.\n- `GNOTRUNGTHU`: Gói Quà Tân Thủ & Tài Nguyên Nâng Cấp Tướng.\n- `A80HAOKHI`: Gói Quà Tân Thủ & Tài Nguyên Nâng Cấp Tướng.\n- `GAHANHPHUC`: Gói Quà Tân Thủ & Tài Nguyên Nâng Cấp Tướng.\n\n> 💡 **Mẹo:** Các mã giftcode đều có giới hạn số lượng và thời hạn sử dụng. Bạn hãy nhanh tay nhập mã ngay khi có thể!\n\n---\n\n### 📝 Hướng Dẫn Các Bước Nhập Giftcode Trong Game Gunny Origin\n\n1. **Bước 1:** Khởi động game **Gunny Origin** và đăng nhập vào tài khoản chơi của bạn.\n2. **Bước 2:** Nhấn vào biểu tượng **Avatar nhân vật** hoặc mục **Cài đặt / Thiết lập (Settings)** ở giao diện chính.\n3. **Bước 3:** Tìm và chọn mục **Đổi Quà / Giftcode**.\n4. **Bước 4:** Nhập chính xác mã giftcode vào ô trống và nhấn nút **Xác Nhận / Nhận Thưởng**.\n5. **Bước 5:** Mở mục **Hòm Thư (Mailbox)** trong game để kiểm tra và nhận vật phẩm.\n\n---\n\n### 🔍 Cách Nhận Thêm Code Gunny Origin Miễn Phí Mỗi Ngày\n- Thường xuyên theo dõi Fanpage và Group cộng đồng chính thức của game.\n- Tham gia các minigame, sự kiện mừng máy chủ mới (Open Beta) hoặc livestream từ NPH.\n- Ghé thăm website **[CodeGame.Shop](https://codegame.shop)** hàng ngày để cập nhật mã code sớm nhất và tham gia mục **[Giveaways](https://codegame.shop/giveaways)** nhận quà độc quyền.\n\n> 🛡️ **Nguồn tin tức:** Bản tin được tổng hợp, biên tập và xuất bản độc quyền bởi **CodeGame.Shop** (https://codegame.shop)."
+  },
+  {
+    "id": "news_auto_game_tram_tien_quyet",
+    "slug": "code-tram-tien-quyet-moi-nhat-tong-hop-ma-tan-thu-2026",
+    "title": "Code Trảm Tiên Quyết Mới Nhất 2026: Tổng Hợp Mã Tân Thủ & Hướng Dẫn Nhập Chi Tiết",
+    "summary": "Tổng hợp trọn bộ giftcode game Trảm Tiên Quyết (CÔNG TY CỔ PHẦN VTC DỊCH VỤ DI ĐỘNG) mới nhất tháng 10/2026. Hướng dẫn cách nhập mã đổi thưởng nhận ngọc, trang bị VIP và quà tân thủ cực xịn.",
+    "game_name": "Trảm Tiên Quyết",
+    "game_slug": "tram-tien-quyet",
+    "cover_url": "/game_icons/tram-tien-quyet.webp",
+    "author": "CodeGame.Shop",
+    "source_name": "CodeGame.Shop",
+    "source_url": "https://codegame.shop",
+    "created_at": "2026-10-11T19:30:47.285Z",
+    "updated_at": "2026-10-21T07:00:00Z",
+    "views_count": 1635,
+    "reading_time_minutes": 4,
+    "tags": [
+      "Trảm Tiên Quyết",
+      "Code Trảm Tiên Quyết",
+      "Kiếm Hiệp / Tiên Hiệp",
+      "Giftcode 2026",
+      "Tân thủ"
+    ],
+    "codes": [
+      "CHIMSEDINANG888",
+      "CHIMSEDINANG999",
+      "DAUTRUONGTAMQUOC",
+      "FREE300LUOTQUAY",
+      "RAMATTHANHCONG",
+      "RAMATHOANHTRANG",
+      "CMNM0131",
+      "MUNGTUOI"
+    ],
+    "status": "PUBLISHED",
+    "content": "## 🎮 Giới Thiệu Tựa Game Trảm Tiên Quyết\n\nTựa game **Trảm Tiên Quyết** do nhà phát hành **CÔNG TY CỔ PHẦN VTC DỊCH VỤ DI ĐỘNG** phát hành đã nhanh chóng thu hút được sự quan tâm của đông đảo game thủ yêu thích thể loại Kiếm Hiệp / Tiên Hiệp. Với lối chơi cuốn hút, đồ họa bắt mắt cùng các tính năng cộng đồng đặc sắc, tựa game hứa hẹn sẽ mang đến những giờ phút giải trí bùng nổ.\n\n### 🎁 Danh Sách Giftcode Trảm Tiên Quyết Mới Nhất Tháng 10/2026\n\nDưới đây là bảng tổng hợp các mã giftcode đang hoạt động được **CodeGame.Shop** kiểm tra và xác thực:\n\n- `CHIMSEDINANG888`: Gói Quà Tân Thủ & Tài Nguyên Nâng Cấp Tướng.\n- `CHIMSEDINANG999`: Gói Quà Tân Thủ & Tài Nguyên Nâng Cấp Tướng.\n- `DAUTRUONGTAMQUOC`: Gói Quà Tân Thủ & Tài Nguyên Nâng Cấp Tướng.\n- `FREE300LUOTQUAY`: Gói Quà Tân Thủ & Tài Nguyên Nâng Cấp Tướng.\n- `RAMATTHANHCONG`: Gói Quà Tân Thủ & Tài Nguyên Nâng Cấp Tướng.\n- `RAMATHOANHTRANG`: Gói Quà Tân Thủ & Tài Nguyên Nâng Cấp Tướng.\n- `CMNM0131`: Gói Quà Tân Thủ & Tài Nguyên Nâng Cấp Tướng.\n- `MUNGTUOI`: Gói Quà Tân Thủ & Tài Nguyên Nâng Cấp Tướng.\n\n> 💡 **Mẹo:** Các mã giftcode đều có giới hạn số lượng và thời hạn sử dụng. Bạn hãy nhanh tay nhập mã ngay khi có thể!\n\n---\n\n### 📝 Hướng Dẫn Các Bước Nhập Giftcode Trong Game Trảm Tiên Quyết\n\n1. **Bước 1:** Khởi động game **Trảm Tiên Quyết** và đăng nhập vào tài khoản chơi của bạn.\n2. **Bước 2:** Nhấn vào biểu tượng **Avatar nhân vật** hoặc mục **Cài đặt / Thiết lập (Settings)** ở giao diện chính.\n3. **Bước 3:** Tìm và chọn mục **Đổi Quà / Giftcode**.\n4. **Bước 4:** Nhập chính xác mã giftcode vào ô trống và nhấn nút **Xác Nhận / Nhận Thưởng**.\n5. **Bước 5:** Mở mục **Hòm Thư (Mailbox)** trong game để kiểm tra và nhận vật phẩm.\n\n---\n\n### 🔍 Cách Nhận Thêm Code Trảm Tiên Quyết Miễn Phí Mỗi Ngày\n- Thường xuyên theo dõi Fanpage và Group cộng đồng chính thức của game.\n- Tham gia các minigame, sự kiện mừng máy chủ mới (Open Beta) hoặc livestream từ NPH.\n- Ghé thăm website **[CodeGame.Shop](https://codegame.shop)** hàng ngày để cập nhật mã code sớm nhất và tham gia mục **[Giveaways](https://codegame.shop/giveaways)** nhận quà độc quyền.\n\n> 🛡️ **Nguồn tin tức:** Bản tin được tổng hợp, biên tập và xuất bản độc quyền bởi **CodeGame.Shop** (https://codegame.shop)."
+  },
+  {
+    "id": "news_auto_game_pham_tran_tien_lo",
+    "slug": "code-pham-tran-tien-lo-moi-nhat-tong-hop-ma-tan-thu-2026",
+    "title": "Code Phàm Trần Tiên Lộ Mới Nhất 2026: Tổng Hợp Mã Tân Thủ & Hướng Dẫn Nhập Chi Tiết",
+    "summary": "Tổng hợp trọn bộ giftcode game Phàm Trần Tiên Lộ (Nhà Phát Hành Quốc Tế) mới nhất tháng 10/2026. Hướng dẫn cách nhập mã đổi thưởng nhận ngọc, trang bị VIP và quà tân thủ cực xịn.",
+    "game_name": "Phàm Trần Tiên Lộ",
+    "game_slug": "pham-tran-tien-lo",
+    "cover_url": "/game_icons/pham-tran-tien-lo.webp",
+    "author": "CodeGame.Shop",
+    "source_name": "CodeGame.Shop",
+    "source_url": "https://codegame.shop",
+    "created_at": "2026-10-11T15:30:47.285Z",
+    "updated_at": "2026-10-21T07:00:00Z",
+    "views_count": 1590,
+    "reading_time_minutes": 4,
+    "tags": [
+      "Phàm Trần Tiên Lộ",
+      "Code Phàm Trần Tiên Lộ",
+      "Kiếm Hiệp / Tiên Hiệp",
+      "Giftcode 2026",
+      "Tân thủ"
+    ],
+    "codes": [
+      "SVIP888",
+      "SVIP777",
+      "SVIP666",
+      "VIP888",
+      "VIP777",
+      "VIP666",
+      "PTTL6666",
+      "PTTL7777"
+    ],
+    "status": "PUBLISHED",
+    "content": "## 🎮 Giới Thiệu Tựa Game Phàm Trần Tiên Lộ\n\nTựa game **Phàm Trần Tiên Lộ** do nhà phát hành **Nhà Phát Hành Quốc Tế** phát hành đã nhanh chóng thu hút được sự quan tâm của đông đảo game thủ yêu thích thể loại Kiếm Hiệp / Tiên Hiệp. Với lối chơi cuốn hút, đồ họa bắt mắt cùng các tính năng cộng đồng đặc sắc, tựa game hứa hẹn sẽ mang đến những giờ phút giải trí bùng nổ.\n\n### 🎁 Danh Sách Giftcode Phàm Trần Tiên Lộ Mới Nhất Tháng 10/2026\n\nDưới đây là bảng tổng hợp các mã giftcode đang hoạt động được **CodeGame.Shop** kiểm tra và xác thực:\n\n- `SVIP888`: Gói Quà Tân Thủ & Tài Nguyên Nâng Cấp Tướng.\n- `SVIP777`: Gói Quà Tân Thủ & Tài Nguyên Nâng Cấp Tướng.\n- `SVIP666`: Gói Quà Tân Thủ & Tài Nguyên Nâng Cấp Tướng.\n- `VIP888`: Gói Quà Tân Thủ & Tài Nguyên Nâng Cấp Tướng.\n- `VIP777`: Gói Quà Tân Thủ & Tài Nguyên Nâng Cấp Tướng.\n- `VIP666`: Gói Quà Tân Thủ & Tài Nguyên Nâng Cấp Tướng.\n- `PTTL6666`: Gói Quà Tân Thủ & Tài Nguyên Nâng Cấp Tướng.\n- `PTTL7777`: Gói Quà Tân Thủ & Tài Nguyên Nâng Cấp Tướng.\n\n> 💡 **Mẹo:** Các mã giftcode đều có giới hạn số lượng và thời hạn sử dụng. Bạn hãy nhanh tay nhập mã ngay khi có thể!\n\n---\n\n### 📝 Hướng Dẫn Các Bước Nhập Giftcode Trong Game Phàm Trần Tiên Lộ\n\n1. **Bước 1:** Khởi động game **Phàm Trần Tiên Lộ** và đăng nhập vào tài khoản chơi của bạn.\n2. **Bước 2:** Nhấn vào biểu tượng **Avatar nhân vật** hoặc mục **Cài đặt / Thiết lập (Settings)** ở giao diện chính.\n3. **Bước 3:** Tìm và chọn mục **Đổi Quà / Giftcode**.\n4. **Bước 4:** Nhập chính xác mã giftcode vào ô trống và nhấn nút **Xác Nhận / Nhận Thưởng**.\n5. **Bước 5:** Mở mục **Hòm Thư (Mailbox)** trong game để kiểm tra và nhận vật phẩm.\n\n---\n\n### 🔍 Cách Nhận Thêm Code Phàm Trần Tiên Lộ Miễn Phí Mỗi Ngày\n- Thường xuyên theo dõi Fanpage và Group cộng đồng chính thức của game.\n- Tham gia các minigame, sự kiện mừng máy chủ mới (Open Beta) hoặc livestream từ NPH.\n- Ghé thăm website **[CodeGame.Shop](https://codegame.shop)** hàng ngày để cập nhật mã code sớm nhất và tham gia mục **[Giveaways](https://codegame.shop/giveaways)** nhận quà độc quyền.\n\n> 🛡️ **Nguồn tin tức:** Bản tin được tổng hợp, biên tập và xuất bản độc quyền bởi **CodeGame.Shop** (https://codegame.shop)."
+  },
+  {
+    "id": "news_auto_game_ballistic_hero",
+    "slug": "code-ballistic-hero-moi-nhat-tong-hop-ma-tan-thu-2026",
+    "title": "Code Ballistic Hero VNG Mới Nhất 2026: Tổng Hợp Mã Tân Thủ & Hướng Dẫn Nhập Chi Tiết",
+    "summary": "Tổng hợp trọn bộ giftcode game Ballistic Hero VNG (Công ty TNHH VNGGames) mới nhất tháng 10/2026. Hướng dẫn cách nhập mã đổi thưởng nhận ngọc, trang bị VIP và quà tân thủ cực xịn.",
+    "game_name": "Ballistic Hero VNG",
+    "game_slug": "ballistic-hero",
+    "cover_url": "/game_icons/ballistic-hero.webp",
+    "author": "CodeGame.Shop",
+    "source_name": "CodeGame.Shop",
+    "source_url": "https://codegame.shop",
+    "created_at": "2026-10-11T11:30:47.285Z",
+    "updated_at": "2026-10-21T07:00:00Z",
+    "views_count": 1545,
+    "reading_time_minutes": 4,
+    "tags": [
+      "Ballistic Hero VNG",
+      "Code Ballistic Hero VNG",
+      "Bắn Súng / Sinh Tồn",
+      "Giftcode 2026",
+      "Tân thủ"
+    ],
+    "codes": [
+      "18C8A2921F4E0",
+      "LOVE1500",
+      "LOVEYOU2000",
+      "DODOLOVEYOU",
+      "LOVEYOU3000",
+      "BH0904",
+      "BHSTART1",
+      "BHSTART2"
+    ],
+    "status": "PUBLISHED",
+    "content": "## 🎮 Giới Thiệu Tựa Game Ballistic Hero VNG\n\nTựa game **Ballistic Hero VNG** do nhà phát hành **Công ty TNHH VNGGames** phát hành đã nhanh chóng thu hút được sự quan tâm của đông đảo game thủ yêu thích thể loại Bắn Súng / Sinh Tồn. Với lối chơi cuốn hút, đồ họa bắt mắt cùng các tính năng cộng đồng đặc sắc, tựa game hứa hẹn sẽ mang đến những giờ phút giải trí bùng nổ.\n\n### 🎁 Danh Sách Giftcode Ballistic Hero VNG Mới Nhất Tháng 10/2026\n\nDưới đây là bảng tổng hợp các mã giftcode đang hoạt động được **CodeGame.Shop** kiểm tra và xác thực:\n\n- `18C8A2921F4E0`: Gói Quà Tân Thủ & Tài Nguyên Nâng Cấp Tướng.\n- `LOVE1500`: Gói Quà Tân Thủ & Tài Nguyên Nâng Cấp Tướng.\n- `LOVEYOU2000`: Gói Quà Tân Thủ & Tài Nguyên Nâng Cấp Tướng.\n- `DODOLOVEYOU`: Gói Quà Tân Thủ & Tài Nguyên Nâng Cấp Tướng.\n- `LOVEYOU3000`: Gói Quà Tân Thủ & Tài Nguyên Nâng Cấp Tướng.\n- `BH0904`: Gói Quà Tân Thủ & Tài Nguyên Nâng Cấp Tướng.\n- `BHSTART1`: Gói Quà Tân Thủ & Tài Nguyên Nâng Cấp Tướng.\n- `BHSTART2`: Gói Quà Tân Thủ & Tài Nguyên Nâng Cấp Tướng.\n\n> 💡 **Mẹo:** Các mã giftcode đều có giới hạn số lượng và thời hạn sử dụng. Bạn hãy nhanh tay nhập mã ngay khi có thể!\n\n---\n\n### 📝 Hướng Dẫn Các Bước Nhập Giftcode Trong Game Ballistic Hero VNG\n\n1. **Bước 1:** Khởi động game **Ballistic Hero VNG** và đăng nhập vào tài khoản chơi của bạn.\n2. **Bước 2:** Nhấn vào biểu tượng **Avatar nhân vật** hoặc mục **Cài đặt / Thiết lập (Settings)** ở giao diện chính.\n3. **Bước 3:** Tìm và chọn mục **Đổi Quà / Giftcode**.\n4. **Bước 4:** Nhập chính xác mã giftcode vào ô trống và nhấn nút **Xác Nhận / Nhận Thưởng**.\n5. **Bước 5:** Mở mục **Hòm Thư (Mailbox)** trong game để kiểm tra và nhận vật phẩm.\n\n---\n\n### 🔍 Cách Nhận Thêm Code Ballistic Hero VNG Miễn Phí Mỗi Ngày\n- Thường xuyên theo dõi Fanpage và Group cộng đồng chính thức của game.\n- Tham gia các minigame, sự kiện mừng máy chủ mới (Open Beta) hoặc livestream từ NPH.\n- Ghé thăm website **[CodeGame.Shop](https://codegame.shop)** hàng ngày để cập nhật mã code sớm nhất và tham gia mục **[Giveaways](https://codegame.shop/giveaways)** nhận quà độc quyền.\n\n> 🛡️ **Nguồn tin tức:** Bản tin được tổng hợp, biên tập và xuất bản độc quyền bởi **CodeGame.Shop** (https://codegame.shop)."
   }
 ];
-

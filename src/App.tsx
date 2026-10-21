@@ -761,17 +761,30 @@ export const App: React.FC = () => {
         return prev;
       });
 
-      const res = await dataService.queryGames(filter, 1, paginationConfig.pageSize, bookmarks);
-      if (!isCancelled) {
-        setGames(res.items);
-        setCurrentPage(1);
-        setTotalPages(res.totalPages);
-        setTotalResults(res.total);
-        setHasMore(res.hasMore);
-        if (res.categories && res.categories.length > 0) {
-          setCategories(res.categories);
+      try {
+        const res = await dataService.queryGames(filter, 1, paginationConfig.pageSize, bookmarks);
+        if (!isCancelled && res) {
+          setGames(res.items || []);
+          setCurrentPage(1);
+          setTotalPages(res.totalPages || 1);
+          setTotalResults(res.total || 0);
+          setHasMore(Boolean(res.hasMore));
+          if (res.categories && res.categories.length > 0) {
+            setCategories(res.categories);
+          }
         }
-        setIsLoading(false);
+      } catch (err) {
+        console.error('[App] executeQuery error, fallback to client dataset:', err);
+        const fallbackList = dataService.getGames();
+        if (!isCancelled && fallbackList.length > 0) {
+          setGames(fallbackList.slice(0, paginationConfig.pageSize));
+          setTotalResults(fallbackList.length);
+          setTotalPages(Math.ceil(fallbackList.length / paginationConfig.pageSize));
+        }
+      } finally {
+        if (!isCancelled) {
+          setIsLoading(false);
+        }
       }
     };
 
@@ -780,6 +793,24 @@ export const App: React.FC = () => {
       isCancelled = true;
     };
   }, [filter, currentTab, paginationConfig.mode, paginationConfig.pageSize]);
+
+  // Safety Watchdog: Guarantee CyberLoader never hangs indefinitely under any network condition
+  useEffect(() => {
+    if (!isLoading) return;
+    const watchdogTimer = setTimeout(() => {
+      console.warn('[App] Watchdog: Force clearing CyberLoader after 2500ms to guarantee instant interactivity');
+      setIsLoading(false);
+      setGames((prev) => {
+        if (prev.length === 0) {
+          const fallbackList = dataService.getGames();
+          return fallbackList.slice(0, paginationConfig.pageSize);
+        }
+        return prev;
+      });
+    }, 2500);
+
+    return () => clearTimeout(watchdogTimer);
+  }, [isLoading, paginationConfig.pageSize]);
 
   // Infinite Scroll: Load Next Page
   const handleLoadMore = useCallback(async () => {

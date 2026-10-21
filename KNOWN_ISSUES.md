@@ -10,6 +10,27 @@
 
 ## 1. DANH MỤC LỖI & CÁC BẪY ĐÃ THẤT BẠI (DO NOT REPEAT)
 
+### ISSUE-061: Lỗi D1 Quota Exhaustion dẫn tới trả về mảng rỗng làm xóa sạch dữ liệu Client & Treo CyberLoader trang chủ do thiếu Watchdog
+- **Triệu chứng**:
+  - Web khách bị mất hàng chục bài viết tin tức (từ 91 bài rớt xuống chỉ còn 12 bài mẫu), giftcode nhúng trong bài biến mất.
+  - Trang chủ bị kẹt vô hạn ở vòng tròn xoay `CyberLoader` ("ĐANG TẢI DỮ LIỆU... Đang kết nối hơn 340+ tựa game..."), không xem được game.
+  - Giveaway không có mã thật trong kho nhưng vẫn hiển thị còn 55 mã, 43 mã và mở nút Giật Mã.
+- **Nguyên nhân gốc rễ**:
+  1. *D1 Quota Exhaustion*: Gói miễn phí Cloudflare D1 chạm hạn mức đọc hàng ngày (`D1_ERROR: Your account has exceeded D1's free tier daily row read limit`). Khi D1 từ chối truy vấn, `/api/sync` fallback về `newsArticles: []`.
+  2. *Destructive Client Sync Overwrite*: `dataService.ts` thấy server trả về `[]` đã lưu đè `localStorage` của khách thành rỗng, làm xóa sạch toàn bộ bài viết trong máy khách. `seedNews.ts` trước đây chỉ có 12 bài khởi tạo sơ khai.
+  3. *Unprotected CyberLoader State*: Trong `App.tsx`, `executeQuery()` thiếu `try/finally` và thiếu fail-safe watchdog timeout. Khi mạng bị trễ hoặc API bị hoãn, `setIsLoading(false)` không bao giờ được gọi.
+  4. *Giveaway Pool Fallback Bug*: Trong `sync.ts` và `GiveawaysView.tsx`, logic `codes_pool.length > 0 ? codes_pool.length : remaining_codes` rơi vào nhánh fallback khi `codes_pool` là `[]` (rỗng), dẫn tới việc đọc số lượng cũ (40, 25) và được marketing engine cộng dồn ảo.
+- **Giải pháp chuẩn đã kiểm chứng**:
+  - Lưu trữ toàn bộ 91 bài viết tin tức chất lượng cao trực tiếp trong `src/data/seedNews.ts`.
+  - Bổ sung fallback `fallbackNewsArticles` trong `functions/api/sync.ts` để server luôn trả về đủ 91 bài kể cả khi D1 quá tải quota.
+  - Trang bị lá chắn trong `dataService.ts`: Nếu server trả về `[]` trong khi client đang có bài viết, tuyệt đối không ghi đè `localStorage`.
+  - Bọc `try / catch / finally` và bổ sung Fail-safe Watchdog Timer 2.5s trong `App.tsx` cho `isLoading`.
+  - Khóa chặt tồn kho Giveaway: Khi `codes_pool` là mảng rỗng `[]`, số lượng mã thực bắt buộc bằng `0` và hiển thị "Hết Code".
+- ⛔ **CÁCH SỬA ĐÃ THẤT BẠI - TUYỆT ĐỐI KHÔNG LẶP LẠI**:
+  - ❌ *Không bao giờ tin tưởng tuyệt đối rằng Cloudflare D1 luôn khả dụng*: D1 free tier có hạn mức đọc 5 triệu dòng/ngày, có thể bị chạm bất cứ lúc nào. Mọi endpoint đồng bộ `/api/sync` và catalog BẮT BUỘC phải có fallback dữ liệu tĩnh đầy đủ trong code bundle.
+  - ❌ *Không ghi đè mảng rỗng `[]` từ server lên `localStorage` của client nếu chưa xác minh qua Tombstone*: Đây là bẫy gây mất dữ liệu nghiêm trọng nhất.
+  - ❌ *Không để cờ `isLoading` không có watchdog bảo vệ*: Mọi loader toàn trang hoặc spinner catalog phải có timeout tối đa 2.5s để tự giải phóng giao diện cho người dùng.
+
 ### ISSUE-060: Lỗi Giveaway tự động mở ("Còn lại: 60 mã", [Giật Mã] active) khi trong kho không có mã thực do Fallback Resurrection Bug
 - **Triệu chứng**:
   - Trên web khách (`codegame.shop/giveaways`), một số chiến dịch giveaway (như 3Q Đào Đào Đào, Anh Hùng Tiến Lên, Tiên Nghịch Mobile, Pirate Legends) không có mã thực nào trong kho nhưng ngoài web khách vẫn tự mở, hiển thị còn hàng và cho phép bấm nút Giật Mã.

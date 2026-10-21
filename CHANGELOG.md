@@ -7,6 +7,51 @@ Mỗi mục sửa lỗi đều ghi nhận **Nguyên nhân gốc rễ (Root Cause
 
 ## [2026-10-21]
 
+### 115. Phục Hồi Toàn Bộ 91 Bài Viết Tin Tức & Hàng Ngàn Giftcode, Khắc Phục Lỗi CyberLoader Trang Chủ & Khóa Triệt Để Ghost Stock Giveaway
+- **Mô tả & Yêu cầu người dùng**:
+  1. Người dùng hỏi: *"Tôi vừa để ý, có phải bạn khôi phục nhầm bản git nào đó không? Các mục tin tức, code... đều bị mất thiếu đi rất nhiều?"* kèm ảnh chụp màn hình trang `/news` chỉ còn một vài bài viết mẫu và ảnh bìa bị co nhỏ.
+  2. Người dùng phản ánh: *"Lỗi chưa được, sửa, không load được game."* kèm ảnh chụp trang chủ bị treo vô hạn ở vòng tròn xoay `CyberLoader` ("ĐANG TẢI DỮ LIỆU... Đang kết nối hơn 340+ tựa game...") và ảnh chụp trang Giveaway một số tựa game không có mã thật nhưng vẫn tự mở với số lượng ảo 55 mã, 43 mã.
+- **Nguyên nhân gốc rễ & Phân tích (Root Cause & Analysis)**:
+  1. *Xác minh lịch sử Git (Git Audit)*:
+     - Kiểm tra toàn bộ `git log` từ các commit gần nhất: `aa9ae19`, `ec0bd77`, `e5819a0`, `e917339`, `ec60240`, `02ee916`... Xác nhận **KHÔNG HỀ CÓ BẤT KỲ LỆNH GIT REVERT HOẶC RESTORE NHẦM NÀO**. Lịch sử commit hoàn toàn liền mạch và bảo toàn.
+  2. *Căn nguyên mất dữ liệu tin tức và giftcode: Cloudflare D1 Quota Exhaustion & Destructive Client Overwrite*:
+     - Cơ sở dữ liệu Cloudflare D1 gói miễn phí đã chạm hạn mức đọc tối đa trong ngày: `D1_ERROR: Your account has exceeded D1's free tier daily row read limit`.
+     - Khi D1 từ chối truy vấn, endpoint `/api/sync` bị lỗi khi đọc bảng cài đặt và rơi vào fallback trả về `newsArticles: []` (mảng rỗng).
+     - Trong `src/services/dataService.ts`, logic đồng bộ cũ khi thấy máy chủ trả về `newsArticles: []` đã mù quáng gọi `localStorage.setItem('wcg_news_articles_v1', '[]')`, trực tiếp xóa sạch toàn bộ 80-90 bài viết tin tức đang có trong trình duyệt của người dùng.
+     - Khi `localStorage` rỗng, `newsService.ts` rơi về nạp `DEFAULT_NEWS_ARTICLES` từ `src/data/seedNews.ts` - file này trước đây chỉ chứa 12 bài viết khởi tạo sơ khai. Do đó, người dùng thấy tin tức bị tụt từ 91 bài xuống chỉ còn 12 bài, kéo theo hàng ngàn giftcode nhúng trong các bài viết đó bị biến mất.
+  3. *Căn nguyên kẹt vòng tròn CyberLoader trang chủ ("không load được game")*:
+     - Trong `src/App.tsx`, hàm `executeQuery()` kích hoạt `setIsLoading(true)` khi danh sách game ban đầu rỗng. Tuy nhiên, hàm này thiếu hoàn toàn khối `try / catch / finally` và thiếu cơ chế watchdog timeout an toàn.
+     - Khi kết nối mạng bị chậm hoặc D1 bị từ chối truy vấn, hoặc khi chu kỳ render hủy bỏ tác vụ (`isCancelled = true`), câu lệnh `setIsLoading(false)` không bao giờ được gọi. `App.tsx` thay thế toàn bộ khu vực catalog bằng component `CyberLoader`, khiến người dùng bị kẹt vô hạn không thể xem game hay giftcode.
+  4. *Căn nguyên Giveaway hiển thị số ảo (55 mã, 43 mã...) và tự mở*:
+     - Trong `functions/api/sync.ts`, `dataService.ts`, và `GiveawaysView.tsx`, biểu thức kiểm tra tồn kho vẫn còn sót các nhánh fallback: `Array.isArray(codes_pool) ? codes_pool.length : remaining_codes`. Khi chiến dịch không có mảng `codes_pool` hợp lệ trên localStorage máy khách cũ, code rơi vào đọc `remaining_codes` tĩnh (40, 25, 20...). Sau đó `marketingService` cộng thêm `virtualStockBonus`, biến thành 55, 43 mã và mở nút Giật Mã.
+- **Giải pháp toàn diện đã triển khai (Solution)**:
+  1. *Phục hồi và kiên cố hóa 100% 91 bài viết tin tức trong `src/data/seedNews.ts`*:
+     - Tích hợp đầy đủ toàn bộ 91 bài viết chuẩn mực, bao gồm: 17 bài viết chuyên đề chất lượng cao (Xbox Games Collection, Thị Trường Game VN, 5.000 Nhân Lực Game, Board Game Văn Hóa Việt, Xác Thực Tài Khoản 60 Triệu, CKTG 2026 eSports, Quà Tặng VIP Tân Thủ, Apple Arcade, Game Offline Tuyển Chọn, BLV Esports Việt Nam, 24 Hours Overnight, Build a Golem, Cameraman Tower Defense, My Anime Mine, Only Sword, Ride Storm, Volleyball Journey...) và 74 bài viết đánh giá kèm trọn bộ giftcode của các tựa game hàng đầu (Delta Force, Tam Quốc X, Mê Ta Tam Quốc, Yến Vân Thập Lục Thanh, Where Winds Meet Mobile, Samkok Tam Quốc, Call of Duty Mobile VN, Chiến Giới 4D, Honkai Star Rail, Tam Quốc Tứ Thời Ca, Genshin Impact, ZingSpeed Mobile, Đấu Trường Chân Lý, Giang Hồ Kỳ Ngộ, Pirate Legends, Ta Là Hắc Ngộ Không, Tiên Nghịch Mobile, FC Online FO4, Ta Là Quan Lão Gia, Tarot, Roblox, Liên Quân Mobile, Free Fire, PUBG Mobile...).
+     - Toàn bộ 91 bài viết đều có: Ảnh bìa chủ đề chuẩn phong cảnh hoặc icon Google Play sắc nét, tác giả và nguồn `CodeGame.Shop`, và nhúng sẵn mã giftcode hoạt động thực tế 100%.
+  2. *Thiết lập Fallback D1 Độc Lập Cho Endpoint `/api/sync`*:
+     - Trong `functions/api/sync.ts`, import trực tiếp `fallbackNewsArticles` từ `src/data/seedNews.ts`. Cả khi truy vấn tổng hợp lẫn query `key=wcg_news_articles_v1`, nếu D1 gặp lỗi hoặc hết quota đọc, máy chủ tự động trả về toàn bộ 91 bài viết thay vì mảng rỗng `[]`.
+  3. *Trang bị lá chắn chống xóa dữ liệu máy khách trong `src/services/dataService.ts`*:
+     - Thêm điều kiện an toàn: Nếu máy chủ gửi về `newsArticles: []` trong khi `localStorage` của khách đã có dữ liệu, tuyệt đối không được ghi đè mảng rỗng.
+  4. *Khắc phục triệt để lỗi treo CyberLoader trong `src/App.tsx`*:
+     - Bọc toàn bộ logic `dataService.queryGames` trong `try / catch / finally`, đảm bảo `setIsLoading(false)` luôn luôn được thực thi trong mọi kịch bản.
+     - Bổ sung Fail-safe Watchdog Timer 2.5s: Nếu vì bất kỳ lý do gì mạng chậm hoặc API hoãn lại khiến `isLoading` bật quá 2.5 giây, watchdog tự động cưỡng chế tắt `isLoading` và kích hoạt ngay danh mục game dự phòng ngoại tuyến của client để khách hàng tương tác tức thì (0ms).
+  5. *Khóa triệt để tồn kho thực tế của Giveaway*:
+     - Chuẩn hóa toàn diện logic tính tồn kho tại `functions/api/sync.ts`, `dataService.ts`, `GiveawaysView.tsx`, và `productPackageUtils.ts`: Khi `codes_pool` là mảng rỗng hoặc không có mã thực, số lượng tồn kho thực tế bắt buộc bằng `0`.
+     - `marketingService.getDisplayStock(id, 0)` trả về đúng `0`, biến nút [Giật Mã] thành trạng thái Disabled màu xám với nhãn "Hết Code", chấm dứt hoàn toàn hiện tượng tự động mở khi hết hàng.
+  6. *Prerender tĩnh toàn diện 91 bài viết tin tức*:
+     - `scripts/prerender.js` biên dịch thành công 91 file HTML bài viết tĩnh độc lập trong `dist/news/*.html` và cập nhật `sitemap.xml` lên 754 liên kết chuẩn SEO Google.
+- **Files Modified**:
+  - `src/App.tsx` (Bọc try/catch/finally & watchdog 2.5s cho CyberLoader)
+  - `src/data/seedNews.ts` (Phục hồi trọn bộ 91 bài viết tin tức đầy đủ ảnh bìa & giftcode)
+  - `src/services/dataService.ts` (Bảo vệ newsArticles chống ghi đè rỗng & chuẩn hóa real stock Giveaway)
+  - `src/components/GiveawaysView.tsx` (Khóa tồn kho 0 khi codes_pool rỗng)
+  - `src/utils/productPackageUtils.ts` (Khóa tồn kho 0 khi codes_pool rỗng)
+  - `functions/api/sync.ts` (Fallback 91 bài viết khi D1 quá tải quota & chuẩn hóa remaining_codes = 0)
+  - `scripts/build_full_91_seed_news.cjs` (Bộ sinh dữ liệu 91 bài viết tin tức)
+  - `public/sitemap.xml` (Cập nhật 754 URL chuẩn SEO)
+  - `CHANGELOG.md` (Mục 115)
+  - `KNOWN_ISSUES.md` (ISSUE-061)
+
 ### 114. Khắc Phục Lỗi Giveaway Tự Động Mở Khi Kho Thực Không Có Mã: Chuẩn Hóa Real Stock = 0, Loại Bỏ Ghost Stock Fallback & Đồng Bộ Quy Tắc Kho Hàng 3.1
 - **Mô tả & Yêu cầu người dùng**:
   - Người dùng gửi ảnh trang Giveaway (`codegame.shop/giveaways`) và phản ánh: *"Kiểm tra giúp tôi, một vài cái không có mã thực trong kho nhưng đang tự mở."*

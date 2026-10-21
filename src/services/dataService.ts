@@ -848,11 +848,17 @@ class DataService {
                 (a: any) => !deletedSet.has(a.id) && !deletedSet.has(a.slug)
               );
               const currentNews = localStorage.getItem('wcg_news_articles_v1');
-              const newNews = JSON.stringify(cleanArticles);
-              if (currentNews !== newNews || json.newsAutoSources || json.newsScheduleConfig) {
-                localStorage.setItem('wcg_news_articles_v1', newNews);
-                newsService.applyServerSnapshot(cleanArticles, json.newsAutoSources, json.newsScheduleConfig);
-                window.dispatchEvent(new CustomEvent('wcg_news_updated', { detail: cleanArticles }));
+              let existingLocalArticles: any[] = [];
+              try {
+                if (currentNews) existingLocalArticles = JSON.parse(currentNews);
+              } catch {}
+              if (cleanArticles.length > 0 || !Array.isArray(existingLocalArticles) || existingLocalArticles.length === 0) {
+                const newNews = JSON.stringify(cleanArticles);
+                if (currentNews !== newNews || json.newsAutoSources || json.newsScheduleConfig) {
+                  localStorage.setItem('wcg_news_articles_v1', newNews);
+                  newsService.applyServerSnapshot(cleanArticles, json.newsAutoSources, json.newsScheduleConfig);
+                  window.dispatchEvent(new CustomEvent('wcg_news_updated', { detail: cleanArticles }));
+                }
               }
             }
             if (json.eventSchedules && Array.isArray(json.eventSchedules)) {
@@ -1709,7 +1715,7 @@ class DataService {
     return list.map((gw) => {
       const poolCount = Array.isArray(gw.codes_pool)
         ? gw.codes_pool.length
-        : (typeof gw.remaining_codes === 'number' ? gw.remaining_codes : 0);
+        : 0;
       const claimed = Number(gw.claimed_codes) || 0;
       const accurateTotal = typeof gw.total_codes === 'number' && gw.total_codes >= (poolCount + claimed)
         ? gw.total_codes
