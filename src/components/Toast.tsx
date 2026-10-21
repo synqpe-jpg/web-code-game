@@ -93,7 +93,7 @@ export const ToastContainer: React.FC<ToastProps> = ({
   // Take at most maxVisible latest toasts to prevent flooding
   const visibleToasts = toasts.slice(-maxVisible);
 
-  let positionClasses = 'fixed bottom-20 right-3 left-3 sm:left-auto sm:right-5 sm:bottom-5 items-end';
+  let positionClasses = 'fixed top-3 left-3 right-3 sm:top-auto sm:left-auto sm:right-5 sm:bottom-5 items-center sm:items-end';
   if (position === 'top-center') {
     positionClasses = 'fixed top-4 left-1/2 -translate-x-1/2 items-center';
   } else if (position === 'bottom-center') {

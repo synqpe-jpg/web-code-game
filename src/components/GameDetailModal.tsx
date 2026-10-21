@@ -204,18 +204,21 @@ export const GameDetailModal: React.FC<GameDetailModalProps> = ({
 
   const handleCopy = (code: string, isExpired = false) => {
     navigator.clipboard.writeText(code);
+    if (typeof navigator !== 'undefined' && navigator.vibrate) {
+      try { navigator.vibrate(25); } catch {}
+    }
     dataService.recordCopyEvent(code, currentGame.slug || currentGame.name);
     marketingService.recordRealCopy(currentGame.name, currentGame.slug || '', 1, activeUser);
     setCopiedCode(code);
     if (isExpired) {
-      onShowToast(t.modal.copySuccess, `${t.modal.expiredNotice}`, 'info');
+      onShowToast(`Đã chép mã: ${code}`, `${t.modal.expiredNotice}`, 'info');
     } else {
-      onShowToast(t.modal.copySuccess, `${t.modal.copiedNotice}`, 'success');
+      onShowToast(`Đã chép: ${code}`, 'Sẵn sàng dán vào game', 'success');
       confetti({
-        particleCount: 40,
-        spread: 60,
+        particleCount: 30,
+        spread: 50,
         origin: { y: 0.7 },
-        colors: ['#8B5CF6', '#F43F5E', '#10B981', '#06B6D4'],
+        colors: ['#10B981', '#06B6D4', '#8B5CF6'],
       });
     }
 
@@ -433,8 +436,8 @@ export const GameDetailModal: React.FC<GameDetailModalProps> = ({
 
         {/* Modal Body (Scrollable) */}
         <div className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-5 overscroll-contain pb-[max(env(safe-area-inset-bottom,0px),1.5rem)]">
-          {/* Code Filter Tab Switcher (Full-width Segmented Control) */}
-          <div className="sticky top-0 z-10 p-1 rounded-2xl bg-card/95 backdrop-blur-md border border-border/80 shadow-sm">
+          {/* Code Filter Tab Switcher & Quick Copy Bar (Sticky Container) */}
+          <div className="sticky top-0 z-10 p-1.5 rounded-2xl bg-card/95 backdrop-blur-md border border-border/80 shadow-md space-y-1.5">
             <div className="grid grid-cols-3 gap-1 w-full">
               <button
                 type="button"
@@ -478,6 +481,41 @@ export const GameDetailModal: React.FC<GameDetailModalProps> = ({
                 <span className="text-[10px] font-mono opacity-80">({expiredCodes.length})</span>
               </button>
             </div>
+
+            {/* Quick Sticky "Copy All" Bar */}
+            {(selectedCodeTab === 'all' || selectedCodeTab === 'active') && activeCodes.length > 0 && (
+              <div className="flex items-center justify-between gap-2 px-2.5 py-1.5 rounded-xl bg-emerald-500/10 border border-emerald-500/25">
+                <div className="flex items-center gap-1.5 min-w-0">
+                  <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse shrink-0" />
+                  <span className="text-[11px] sm:text-xs font-bold text-emerald-400 truncate">
+                    {activeCodes.length} mã còn hạn hoạt động
+                  </span>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() => handleCopyAll(activeCodes, 'active')}
+                  className={`h-7 sm:h-8 px-2.5 sm:px-3 rounded-lg text-[11px] sm:text-xs font-bold border transition-all cursor-pointer active:scale-95 shadow-sm shrink-0 flex items-center gap-1.5 ${
+                    copiedType === 'active'
+                      ? 'bg-emerald-600 text-white border-emerald-500 shadow-neon-emerald'
+                      : 'bg-emerald-500 hover:bg-emerald-400 text-slate-950 border-emerald-400'
+                  }`}
+                  title={`Sao chép toàn bộ ${activeCodes.length} mã còn hạn`}
+                >
+                  {copiedType === 'active' ? (
+                    <>
+                      <Check className="w-3.5 h-3.5 text-white stroke-[2.5]" />
+                      <span>{t.modal.copiedAll} ({activeCodes.length})</span>
+                    </>
+                  ) : (
+                    <>
+                      <Copy className="w-3.5 h-3.5 text-slate-950" />
+                      <span>{t.modal.copyAll} ({activeCodes.length})</span>
+                    </>
+                  )}
+                </button>
+              </div>
+            )}
           </div>
 
           {/* ========================================================================= */}
@@ -546,76 +584,106 @@ export const GameDetailModal: React.FC<GameDetailModalProps> = ({
                     return (
                       <div
                         key={`active-${codeItem.code}-${idx}`}
-                        className="p-2.5 sm:p-3.5 rounded-2xl bg-muted/50 border border-emerald-500/30 hover:border-emerald-500/60 hover:bg-muted/70 transition-all flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 sm:gap-3 group shadow-sm overflow-hidden"
+                        className={`group relative rounded-2xl border transition-all duration-200 overflow-hidden shadow-sm ${
+                          isThisCopied
+                            ? 'bg-emerald-950/40 border-emerald-500 ring-1 ring-emerald-500/50'
+                            : 'bg-muted/40 hover:bg-muted/70 border-emerald-500/25 hover:border-emerald-500/50'
+                        }`}
                       >
-                        {/* Code & Reward Info */}
-                        <div className="flex-1 min-w-0 max-w-full">
-                          <div className="flex flex-wrap items-center gap-1.5 sm:gap-2">
-                            <button
-                              onClick={() => handleCopy(codeItem.code)}
-                              className="inline-flex items-center gap-1.5 sm:gap-2 px-2.5 sm:px-3 py-1.5 rounded-xl bg-card border border-emerald-500/40 hover:border-emerald-500 text-xs sm:text-base font-mono font-bold text-emerald-400 hover:text-white hover:bg-emerald-600 transition-all cursor-pointer shadow-inner max-w-full truncate"
-                              title={t.modal.copy}
-                            >
-                              <span className="truncate">{codeItem.code}</span>
-                              {isThisCopied ? (
-                                <Check className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-emerald-400 shrink-0" />
-                              ) : (
-                                <Copy className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-muted-foreground group-hover:text-white shrink-0" />
-                              )}
-                            </button>
+                        {/* Main Touch / Click Area */}
+                        <div className="p-2.5 sm:p-3.5 flex items-center justify-between gap-2.5 sm:gap-4">
+                          {/* Left: Code + Metadata (Click to Copy) */}
+                          <div
+                            onClick={() => handleCopy(codeItem.code)}
+                            className="flex-1 min-w-0 cursor-pointer select-none"
+                            title="Nhấn để sao chép mã"
+                          >
+                            {/* Row 1: Code Text + Badges */}
+                            <div className="flex items-center gap-1.5 sm:gap-2">
+                              <span className="font-mono text-sm sm:text-base font-black tracking-wider text-emerald-400 group-hover:text-emerald-300 truncate">
+                                {codeItem.code}
+                              </span>
 
-                            <span className="inline-flex items-center gap-1 text-[10px] sm:text-[11px] font-semibold px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 shrink-0">
-                              <CheckCircle2 className="w-3 h-3 shrink-0" /> {t.modal.activeCodes}
-                            </span>
+                              <span className="inline-flex items-center gap-1 text-[9px] sm:text-[10px] font-semibold px-2 py-0.5 rounded-full bg-emerald-500/15 text-emerald-400 border border-emerald-500/30 shrink-0">
+                                <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                                {t.modal.activeCodes}
+                              </span>
+                            </div>
+
+                            {/* Row 2: Rewards & Expiry */}
+                            <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 mt-0.5 text-[11px] sm:text-xs text-muted-foreground">
+                              {codeItem.rewards && (
+                                <span className="truncate max-w-[180px] xs:max-w-[260px] sm:max-w-md text-slate-300 font-sans">
+                                  🎁 {codeItem.rewards}
+                                </span>
+                              )}
+                              {codeItem.expiry && (
+                                <span className="text-[10px] font-mono text-muted-foreground/80 shrink-0 flex items-center gap-0.5">
+                                  <Clock className="w-2.5 h-2.5 text-amber-400/80" />
+                                  {codeItem.expiry}
+                                </span>
+                              )}
+                            </div>
                           </div>
 
-                          <p className="text-xs sm:text-sm text-muted-foreground mt-1 font-sans leading-snug break-words">
-                            🎁 {codeItem.rewards || 'Giftcode in-game rewards'}
-                          </p>
+                          {/* Right: Quick Thumb Actions (Vote & Copy Button) */}
+                          <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
+                            {/* Votes: Compact pill */}
+                            <div className="flex items-center bg-card/90 border border-border/80 rounded-xl p-0.5 shadow-xs">
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleVote(codeItem.code, 'up');
+                                }}
+                                className="flex items-center gap-0.5 px-1.5 py-1 rounded-lg hover:bg-emerald-500/20 text-[10px] sm:text-[11px] font-mono text-muted-foreground hover:text-emerald-400 transition-colors cursor-pointer active:scale-90"
+                                title={t.modal.reportWorking}
+                              >
+                                <ThumbsUp className="w-3 h-3 text-emerald-400/90" />
+                                <span>{voteInfo.up}</span>
+                              </button>
+                              <div className="w-[1px] h-3 bg-border/80" />
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleVote(codeItem.code, 'down');
+                                }}
+                                className="flex items-center gap-0.5 px-1.5 py-1 rounded-lg hover:bg-rose-500/20 text-[10px] sm:text-[11px] font-mono text-muted-foreground hover:text-rose-400 transition-colors cursor-pointer active:scale-90"
+                                title={t.modal.reportExpired}
+                              >
+                                <ThumbsDown className="w-3 h-3 text-rose-400/90" />
+                                <span>{voteInfo.down}</span>
+                              </button>
+                            </div>
 
-                          {codeItem.expiry && (
-                            <span className="inline-flex items-center gap-1 text-[10px] text-muted-foreground font-mono mt-0.5">
-                              <Clock className="w-3 h-3 text-amber-400 shrink-0" /> {t.modal.releaseDate}: {codeItem.expiry}
-                            </span>
-                          )}
-                        </div>
-
-                        {/* Vote Buttons & Copy CTA */}
-                        <div className="flex items-center gap-1.5 sm:gap-2 self-end sm:self-center shrink-0 mt-1 sm:mt-0">
-                          <button
-                            onClick={() => handleVote(codeItem.code, 'up')}
-                            className="flex items-center gap-1 px-2 sm:px-2.5 py-1 sm:py-1.5 rounded-xl bg-card hover:bg-emerald-500/20 border border-border hover:border-emerald-500/40 text-xs font-mono text-muted-foreground hover:text-emerald-400 transition-colors cursor-pointer"
-                            title={t.modal.reportWorking}
-                          >
-                            <ThumbsUp className="w-3 h-3 sm:w-3.5 sm:h-3.5" />
-                            <span>{voteInfo.up}</span>
-                          </button>
-
-                          <button
-                            onClick={() => handleVote(codeItem.code, 'down')}
-                            className="flex items-center gap-1 px-2 sm:px-2.5 py-1 sm:py-1.5 rounded-xl bg-card hover:bg-rose-500/20 border border-border hover:border-rose-500/40 text-xs font-mono text-muted-foreground hover:text-rose-400 transition-colors cursor-pointer"
-                            title={t.modal.reportExpired}
-                          >
-                            <ThumbsDown className="w-3 h-3 sm:w-3.5 sm:h-3.5" />
-                            <span>{voteInfo.down}</span>
-                          </button>
-
-                          <button
-                            onClick={() => handleCopy(codeItem.code)}
-                            className="flex items-center gap-1 px-2.5 sm:px-3 py-1 sm:py-1.5 rounded-xl text-xs font-semibold bg-emerald-600 hover:bg-emerald-500 text-white shadow-sm transition-all cursor-pointer shrink-0"
-                          >
-                            {isThisCopied ? (
-                              <>
-                                <Check className="w-3 h-3 sm:w-3.5 sm:h-3.5" />
-                                <span>{t.gameCard.copied}</span>
-                              </>
-                            ) : (
-                              <>
-                                <Copy className="w-3.5 h-3.5 sm:w-3.5 sm:h-3.5" />
-                                <span>{t.modal.copy}</span>
-                              </>
-                            )}
-                          </button>
+                            {/* Prominent Ergonomic Copy Button */}
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleCopy(codeItem.code);
+                              }}
+                              className={`h-8 sm:h-9 px-2.5 sm:px-3.5 rounded-xl text-xs sm:text-xs font-bold flex items-center justify-center gap-1.5 transition-all cursor-pointer active:scale-95 shrink-0 shadow-sm ${
+                                isThisCopied
+                                  ? 'bg-emerald-600 text-white shadow-neon-emerald ring-1 ring-emerald-400'
+                                  : 'bg-emerald-500/20 hover:bg-emerald-500 text-emerald-400 hover:text-white border border-emerald-500/40 hover:shadow-md'
+                              }`}
+                              title={t.modal.copy}
+                            >
+                              {isThisCopied ? (
+                                <>
+                                  <Check className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-white stroke-[2.5]" />
+                                  <span>{t.gameCard.copied}</span>
+                                </>
+                              ) : (
+                                <>
+                                  <Copy className="w-3.5 h-3.5" />
+                                  <span>{t.modal.copy}</span>
+                                </>
+                              )}
+                            </button>
+                          </div>
                         </div>
                       </div>
                     );

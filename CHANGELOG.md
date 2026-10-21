@@ -7,6 +7,27 @@ Mỗi mục sửa lỗi đều ghi nhận **Nguyên nhân gốc rễ (Root Cause
 
 ## [2026-10-21]
 
+### 106. Tối Ưu Hóa Trải Nghiệm Sao Chép Code Trên Mobile: Thiết Kế Thẻ Code Tinh Gọn, Tiện Thao Tác Ngón Cái, Sticky Sao Chép Tất Cả & Di Chuyển Thông Báo Lên Đầu Màn Hình
+- **Mô tả & Yêu cầu người dùng**:
+  - Người dùng gửi ảnh chụp màn hình trang chi tiết game trên mobile và yêu cầu: *"Thiết kế lại giao diện sao chép code giúp tôi trên mobile, để thao tác tiện, gọn nhanh chóng, dễ hiểu."*
+- **Nguyên nhân gốc rễ & Phân tích (Root Cause & Analysis)**:
+  1. *Thẻ code quá cồng kềnh (chiều cao ~140px)*: Card code cũ chia thành 4 hàng rời rạc (Hàng 1: nút code + tag còn hạn; Hàng 2: phần thưởng; Hàng 3: ngày phát hành; Hàng 4: 2 nút vote + nút sao chép). Trên màn hình điện thoại chỉ hiển thị được 1.5 - 2 code cùng lúc, khiến người dùng phải cuộn màn hình liên tục với các game có nhiều mã (34 mã).
+  2. *Trùng lặp 2 nút sao chép trên cùng 1 thẻ*: Cả ô code và nút góc phải đều là nút copy, gây rối mắt và không rõ ràng cho người dùng.
+  3. *Toast thông báo che khuất mã kế tiếp*: Hộp thoại Toast xuất hiện ở đáy màn hình (`bottom-20`), che lấp toàn bộ mã code bên dưới khiến người dùng không thể sao chép liên tục.
+  4. *Nút Sao chép tất cả bị cuộn mất*: Người dùng muốn copy toàn bộ mã phải tìm ở đầu danh sách, khi cuộn xuống dưới thì không còn thấy nút.
+- **Giải pháp toàn diện đã triển khai (Solution)**:
+  1. *Thiết kế lại thẻ code tinh gọn 2 hàng (~65px, giảm 50% chiều cao)*:
+     - **Hàng 1**: Mã code hiển thị chữ to, font monospace siêu nét, độ tương phản cao kèm chấm tín hiệu xanh `● Còn hạn`. Đi kèm nút bấm sao chép ngón cái chuyên dụng `[📋 Sao chép]` (chuyển sang `[✓ Đã sao chép!]` kèm hiệu ứng neon xanh rực rỡ khi nhấn).
+     - **Hàng 2**: Tóm tắt phần thưởng 🎁 và ngày phát hành 🕒 tinh tế, kèm cụm vote đánh giá nhỏ gọn `[👍 | 👎]`.
+     - **Toàn bộ thẻ là vùng chạm**: Người dùng chạm vào bất kỳ đâu trên ô code đều lập tức copy mã.
+  2. *Thanh thao tác nhanh Sticky "Sao chép tất cả"*: Đặt cố định ngay dưới thanh lọc tab (Tất cả / Còn hạn / Hết hạn). Cho phép người dùng copy toàn bộ 34 mã chỉ với đúng 1 chạm bất kỳ lúc nào mà không cần cuộn ngược lên đầu trang.
+  3. *Phản hồi rung xúc giác (Haptic Feedback)*: Kích hoạt `navigator.vibrate(25ms)` khi copy thành công, tạo cảm giác xúc giác chân thực trên điện thoại.
+  4. *Di chuyển Toast lên đầu màn hình (`top-3`)*: Trên mobile, thông báo nổi ở phía trên cùng màn hình (chuẩn Dynamic Island / iOS Notification), hoàn toàn không che khuất các thẻ code hoặc ngón tay thao tác ở nửa dưới màn hình.
+- **Files Modified**:
+  - `src/components/GameDetailModal.tsx`
+  - `src/components/Toast.tsx`
+  - `CHANGELOG.md` (Mục 106)
+
 ### 105. Hỗ Trợ Đa Dạng Biến Thể Mật Khẩu Admin (meomeo29, meomeo2902, Meomeo2902) & Xóa Bỏ Khóa IP Tạm Thời
 - **Mô tả & Yêu cầu người dùng**:
   - Người dùng gửi ảnh chụp màn hình đăng nhập `admin-code-game-shop.pages.dev` nhập `admin290200` và `meomeo29` bị báo: *"Tên đăng nhập hoặc mật khẩu không chính xác. Bạn còn 2 lần thử trước khi IP bị khóa tạm thời."*
