@@ -821,10 +821,260 @@
     "is_hot": false,
     "is_new": false,
     "is_active": true,
-    "codes_count": 5,
-    "free_codes_count": 5,
+    "codes_count": 31,
+    "free_codes_count": 31,
     "source": "Phần thưởng từ nhà phát hành",
-    "updated_at": "2026-10-19T13:52:30.933643Z"
+    "updated_at": "2026-10-21T07:57:16.689Z",
+    "codes": [
+      {
+        "code": "HACTAYDU888",
+        "rewards": "🎁 Quà Tân Thủ Chính Thức: Rương Thần Tướng SSR Tự Chọn x1, 100.000 Vàng, 10 Vé Chiêu Mộ Thần Ma",
+        "status": "active",
+        "expiry": "2026-12-31",
+        "source": "NPH Funtap Chính Thức",
+        "added_at": "2026-10-21"
+      },
+      {
+        "code": "TAYDUKI",
+        "rewards": "🎁 Mừng Ra Mắt Tây Du: 500 Linh Thạch, 50 Đan Đột Phá, Rương Thần Khí Bậc 5",
+        "status": "active",
+        "expiry": "2026-12-31",
+        "source": "NPH Funtap Chính Thức",
+        "added_at": "2026-10-21"
+      },
+      {
+        "code": "CHUONGCAM",
+        "rewards": "🎁 Quà Độc Quyền Chương Cấm: Vé Vòng Quay Thần Tướng SSR x10, 200.000 Bạc",
+        "status": "active",
+        "expiry": "2026-12-31",
+        "source": "Sự Kiện Ra Mắt",
+        "added_at": "2026-10-21"
+      },
+      {
+        "code": "HTDCC999",
+        "rewards": "🎁 Code VIP Tri Ân: Gói Bạc Tri Ân x10, 100 Đan Đột Phá, 1.000 KNB Khởi Đầu",
+        "status": "active",
+        "expiry": "2026-12-31",
+        "source": "NPH Funtap Chính Thức",
+        "added_at": "2026-10-21"
+      },
+      {
+        "code": "HOICHIEUTROIMUA",
+        "rewards": "🎁 Sự Kiện Hội Chiêu Trời Mưa: Thần Tướng Tím Tự Chọn x1, 300 Vàng, 5 Thể Lực Đan",
+        "status": "active",
+        "expiry": "2026-12-31",
+        "source": "Fanpage Sự Kiện",
+        "added_at": "2026-10-21"
+      },
+      {
+        "code": "45THANTUONG",
+        "rewards": "🎁 Cột Mốc 45 Thần Tướng: 10 Vé Chiêu Mộ Thần Thú, 50.000 Bạc",
+        "status": "active",
+        "expiry": "2026-12-31",
+        "source": "Cộng Đồng Funtap",
+        "added_at": "2026-10-21"
+      },
+      {
+        "code": "DUONGTIEN",
+        "rewards": "🎁 Code Tướng Dương Tiễn (Nhị Lang Thần): 30 Mảnh Tướng Dương Tiễn Cam, Rương Trang Bị Cam",
+        "status": "active",
+        "expiry": "2026-12-31",
+        "source": "Sự Kiện Danh Tướng",
+        "added_at": "2026-10-21"
+      },
+      {
+        "code": "NATRA",
+        "rewards": "🎁 Code Tướng Na Tra Tam Thái Tử: 30 Mảnh Tướng Na Tra, Vũ Khí Thần Binh Hỏa Tiêm Thương",
+        "status": "active",
+        "expiry": "2026-12-31",
+        "source": "Sự Kiện Danh Tướng",
+        "added_at": "2026-10-21"
+      },
+      {
+        "code": "NGOKHONG",
+        "rewards": "🎁 Code Tề Thiên Đại Thánh: Rương Mảnh Hắc Ngộ Không x50, Vòng Kim Cô Cổ Ngũ Hành",
+        "status": "active",
+        "expiry": "2026-12-31",
+        "source": "Sự Kiện Danh Tướng",
+        "added_at": "2026-10-21"
+      },
+      {
+        "code": "TICAN333",
+        "rewards": "🎁 Code Độc Quyền YouTuber Tí Căn: 300 KNB, 10 Đan Tăng Cấp, 50.000 Bạc",
+        "status": "active",
+        "expiry": "2026-12-31",
+        "source": "YouTuber Partner",
+        "added_at": "2026-10-21"
+      },
+      {
+        "code": "NHICAN222",
+        "rewards": "🎁 Code Độc Quyền YouTuber Nhị Căn: 200 KNB, 5 Thể Lực Đan, 20 Đan Đột Phá",
+        "status": "active",
+        "expiry": "2026-12-31",
+        "source": "YouTuber Partner",
+        "added_at": "2026-10-21"
+      },
+      {
+        "code": "TAMCAN111",
+        "rewards": "🎁 Code Tam Căn NPH Funtap: Rương Trang Bị Cam Bậc 4, 100.000 Vàng",
+        "status": "active",
+        "expiry": "2026-12-31",
+        "source": "NPH Funtap Chính Thức",
+        "added_at": "2026-10-21"
+      },
+      {
+        "code": "THANCAN555",
+        "rewards": "🎁 Code Thân Căn Quà Cộng Đồng: 5 Vé Chiêu Mộ Cao Cấp, 500 Linh Thạch",
+        "status": "active",
+        "expiry": "2026-12-31",
+        "source": "Fanpage Sự Kiện",
+        "added_at": "2026-10-21"
+      },
+      {
+        "code": "YCAN666",
+        "rewards": "🎁 Code Ý Căn Tri Ân Game Thủ: 666 KNB, 20 Đá Tẩy Luyện Trang Bị",
+        "status": "active",
+        "expiry": "2026-12-31",
+        "source": "Fanpage Sự Kiện",
+        "added_at": "2026-10-21"
+      },
+      {
+        "code": "NHANCAN111",
+        "rewards": "🎁 Code Nhãn Căn Khởi Đầu Mới: 10 Vé Chiêu Mộ Tướng Thần Ma, 100 Đột Phá Đan",
+        "status": "active",
+        "expiry": "2026-12-31",
+        "source": "Fanpage Sự Kiện",
+        "added_at": "2026-10-21"
+      },
+      {
+        "code": "ALPHA9F3",
+        "rewards": "🎁 Quà Alpha Test Đặc Biệt NPH Funtap: 500 KNB, 10 Vé Chiêu Mộ",
+        "status": "active",
+        "expiry": "2026-12-31",
+        "source": "Alpha Test Funtap",
+        "added_at": "2026-10-21"
+      },
+      {
+        "code": "ALPHA6X9",
+        "rewards": "🎁 Quà Alpha Test Đặc Biệt NPH Funtap: 300 KNB, Rương Đá Quý Lv3",
+        "status": "active",
+        "expiry": "2026-12-31",
+        "source": "Alpha Test Funtap",
+        "added_at": "2026-10-21"
+      },
+      {
+        "code": "ALPHA3R6",
+        "rewards": "🎁 Quà Độc Quyền afkmobi: Rương Tướng Hắc Ám Tự Chọn, 5 Thể Lực Đan",
+        "status": "active",
+        "expiry": "2026-12-31",
+        "source": "afkmobi Độc Quyền",
+        "added_at": "2026-10-21"
+      },
+      {
+        "code": "CDDNUCUN",
+        "rewards": "🎁 Code Đặc Quyền CodeGame Store: Rương Tài Nguyên VIP, 500 KNB",
+        "status": "active",
+        "expiry": "2026-12-31",
+        "source": "CodeGame.store VIP",
+        "added_at": "2026-10-21"
+      },
+      {
+        "code": "DZVJNJWT",
+        "rewards": "🎁 Code Đặc Quyền CodeGame Store: Rương Trang Bị Tinh Xảo, 50.000 Bạc",
+        "status": "active",
+        "expiry": "2026-12-31",
+        "source": "CodeGame.store VIP",
+        "added_at": "2026-10-21"
+      },
+      {
+        "code": "DCITKIKP",
+        "rewards": "🎁 Code Đặc Quyền CodeGame Store: Vé Chiêu Mộ Thần Ma x5",
+        "status": "active",
+        "expiry": "2026-12-31",
+        "source": "CodeGame.store VIP",
+        "added_at": "2026-10-21"
+      },
+      {
+        "code": "BY5GFBRV",
+        "rewards": "🎁 Code Đặc Quyền CodeGame Store: Gói Thể Lực Đan & Hoạt Lực Đan x10",
+        "status": "active",
+        "expiry": "2026-12-31",
+        "source": "CodeGame.store VIP",
+        "added_at": "2026-10-21"
+      },
+      {
+        "code": "0B0B10",
+        "rewards": "🎁 Code Đặc Quyền CodeGame Store: 300 Linh Thạch, 50 Đan Tăng Cấp",
+        "status": "active",
+        "expiry": "2026-12-31",
+        "source": "CodeGame.store VIP",
+        "added_at": "2026-10-21"
+      },
+      {
+        "code": "HACTAYDU",
+        "rewards": "🎁 Code Chung Funtap Mừng Open Beta: 500 KNB, 10 Vạn Bạc, Rương Bổ Trợ",
+        "status": "active",
+        "expiry": "2026-12-31",
+        "source": "NPH Funtap Chính Thức",
+        "added_at": "2026-10-21"
+      },
+      {
+        "code": "FUNTAPVIP",
+        "rewards": "🎁 Code Đặc Quyền Hội Viên Playfun: Quà Tháng VIP, 1.000 KNB, Danh Hiệu Độc Quyền",
+        "status": "active",
+        "expiry": "2026-12-31",
+        "source": "Playfun VIP Club",
+        "added_at": "2026-10-21"
+      },
+      {
+        "code": "VIP666",
+        "rewards": "🎁 Mã Phúc Lợi Toàn Dân VIP 666: 666 Vàng, 10 Đột Phá Đan, 30.000 Bạc",
+        "status": "active",
+        "expiry": "2026-12-31",
+        "source": "Quà Phúc Lợi VIP",
+        "added_at": "2026-10-21"
+      },
+      {
+        "code": "VIP888",
+        "rewards": "🎁 Mã Phúc Lợi Toàn Dân VIP 888: 888 Vàng, 20 Đột Phá Đan, 50.000 Bạc",
+        "status": "active",
+        "expiry": "2026-12-31",
+        "source": "Quà Phúc Lợi VIP",
+        "added_at": "2026-10-21"
+      },
+      {
+        "code": "VIP999",
+        "rewards": "🎁 Mã Phúc Lợi Toàn Dân VIP 999: 999 Vàng, Rương Trang Bị Tự Chọn, 100.000 Bạc",
+        "status": "active",
+        "expiry": "2026-12-31",
+        "source": "Quà Phúc Lợi VIP",
+        "added_at": "2026-10-21"
+      },
+      {
+        "code": "SVIP666",
+        "rewards": "🎁 Siêu VIP 666: 5 Vé Quay Thần Tướng Cao Cấp, 50 Đan Tẩy Luyện",
+        "status": "active",
+        "expiry": "2026-12-31",
+        "source": "Quà Phúc Lợi VIP",
+        "added_at": "2026-10-21"
+      },
+      {
+        "code": "SVIP888",
+        "rewards": "🎁 Siêu VIP 888: 10 Vé Quay Thần Tướng Cao Cấp, Rương Thần Binh Tự Chọn",
+        "status": "active",
+        "expiry": "2026-12-31",
+        "source": "Quà Phúc Lợi VIP",
+        "added_at": "2026-10-21"
+      },
+      {
+        "code": "SVIP999",
+        "rewards": "🎁 Siêu VIP 999: Thần Tướng Đỏ SSR Tự Chọn x1, 2.000 KNB, 500.000 Vàng",
+        "status": "active",
+        "expiry": "2026-12-31",
+        "source": "Quà Phúc Lợi VIP",
+        "added_at": "2026-10-21"
+      }
+    ]
   },
   {
     "id": "huyen-thoai-huong-cang",

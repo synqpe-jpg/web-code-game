@@ -25,6 +25,7 @@ import { verifyToken, computeHash } from '../services/auth_service';
 import { invalidateGamesCatalogCache } from './games';
 import { invalidateCatalogEdgeCache } from '../services/cache_service';
 import fallbackGamesData from '../../src/data/games188.json';
+import fallbackCodesData from '../../src/data/crawled_codes_188.json';
 import fallbackUtilitiesData from '../../src/data/utilities.json';
 import fallbackGiveawaysData from '../../src/data/giveaways.json';
 import fallbackStoreProductsData from '../../src/data/storeProducts.json';
@@ -645,7 +646,13 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
             ? masterState.games
             : (fallbackGamesData as any[]),
       freeCodes: authorized ? (() => {
-        const rawFc = d1Settings['wcg_admin_free_codes_v5'] || d1Settings['wcg_admin_free_codes_v4'] || (Array.isArray(masterState.freeCodes) ? masterState.freeCodes : []);
+        const rawFc = (Array.isArray(d1Settings['wcg_admin_free_codes_v5']) && d1Settings['wcg_admin_free_codes_v5'].length > 0)
+          ? d1Settings['wcg_admin_free_codes_v5']
+          : ((Array.isArray(d1Settings['wcg_admin_free_codes_v4']) && d1Settings['wcg_admin_free_codes_v4'].length > 0)
+            ? d1Settings['wcg_admin_free_codes_v4']
+            : ((Array.isArray(masterState.freeCodes) && masterState.freeCodes.length > 0)
+              ? masterState.freeCodes
+              : (fallbackCodesData as any[])));
         const customFc = d1Settings['wcg_admin_custom_free_codes_v1'] || masterState.customFreeCodes || [];
         const deletedFc = new Set<string>(d1Settings['wcg_deleted_free_codes'] || masterState.deletedFreeCodes || []);
         const customMap = new Map<string, any>();

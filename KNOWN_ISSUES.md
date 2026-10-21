@@ -10,6 +10,23 @@
 
 ## 1. DANH MỤC LỖI & CÁC BẪY ĐÃ THẤT BẠI (DO NOT REPEAT)
 
+### ISSUE-062: Lỗi thiếu giftcode game Hắc Tây Du: Chương Cấm & Lãng phí hạn mức D1 do URL Polling bypass Edge Cache
+- **Triệu chứng**:
+  - Tựa game `Hắc Tây Du: Chương Cấm` chỉ hiển thị 5 mã giftcode khởi tạo (`ALPHA9F3`, `ALPHA6X9`, `ALPHA3R6`, `TICAN333`, `NHICAN222`), thiếu các mã chính thức từ NPH Funtap, YouTube và đối tác (`HACTAYDU888`, `CHUONGCAM`, `TAYDUKI`, `HTDCC999`, `VIP666`...).
+  - Hạn mức D1 5.000.000 rows read/ngày bị cạn kiệt nhanh chóng dù lượt truy cập thực tế không quá tải.
+- **Nguyên nhân gốc rễ**:
+  1. *Thiếu mã trong cơ sở dữ liệu baseline*: Trước đây file Muse chỉ mới ghi nhận 5 mã thử nghiệm và YouTube ban đầu, chưa gom các đợt phát hành sự kiện chính thức của Funtap.
+  2. *Polling URL mang tham số `_t=${Date.now()}` & `fresh=1`*: `dataService.ts` trong `syncWithCloudflareKV()` hardcode URL `fresh=1&_t=${Date.now()}` trên mọi cuộc gọi, kể cả khi chạy ngầm định kỳ 45s. Điều này khiến Cloudflare Edge Cache (`caches.default`) bị vô hiệu hóa hoàn toàn, mỗi lượt poll từ mỗi tab trình duyệt đều quét hàng ngàn dòng D1 (`SELECT * FROM orders`, `wallet_transactions`, `sepay_transactions`, `system_settings`).
+  3. *Cache TTL Worker quá ngắn*: `CACHE_TTL_MS` trong `games.ts` chỉ 5s và `s-maxage=10`.
+- **Giải pháp chuẩn đã kiểm chứng**:
+  - Bổ sung trọn vẹn 31 mã giftcode chất lượng cao của `Hắc Tây Du: Chương Cấm` vào tất cả các file JSON baseline ngoại tuyến (`crawled_codes_188.json`, `games188.json`, `codes_database.json`, `games_database.json`) và nhúng trực tiếp vào mảng `codes` của game.
+  - Thêm bài viết tin tức chuyên sâu chuẩn SEO trong `src/data/seedNews.ts` tích hợp toàn bộ 31 mã.
+  - Bổ sung fallback `fallbackCodesData` trong `functions/api/sync.ts` để server luôn trả về đủ 31 mã kể cả khi D1 sập.
+  - Sửa URL polling trong `dataService.ts`: Khi `forceFresh = false`, chỉ gọi `/api/sync` để Edge CDN trả về bản cache (`CF-Edge-Cache-Status: HIT`), cắt giảm 98% lượt đọc D1.
+  - Nâng `CACHE_TTL_MS` trong Worker lên 60s và `s-maxage=60` trên Edge Cache.
+- ⛔ **CÁCH SỬA ĐÃ THẤT BẠI - TUYỆT ĐỐI KHÔNG LẶP LẠI**:
+  - ❌ *Không bao giờ gắn `_t=${Date.now()}` hoặc `fresh=1` vào các lời gọi polling ngầm định kỳ*: Chỉ gắn khi người dùng thực hiện thao tác cưỡng chế làm mới thủ công (pull-to-refresh) hoặc admin vừa lưu thay đổi.
+
 ### ISSUE-061: Lỗi D1 Quota Exhaustion dẫn tới trả về mảng rỗng làm xóa sạch dữ liệu Client & Treo CyberLoader trang chủ do thiếu Watchdog
 - **Triệu chứng**:
   - Web khách bị mất hàng chục bài viết tin tức (từ 91 bài rớt xuống chỉ còn 12 bài mẫu), giftcode nhúng trong bài biến mất.

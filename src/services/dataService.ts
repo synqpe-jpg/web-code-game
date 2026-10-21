@@ -435,7 +435,7 @@ class DataService {
     this.activeSyncPromise = (async () => {
       try {
         const fetchOpts: RequestInit = forceFresh ? { headers: { 'Cache-Control': 'no-cache, no-store' } } : {};
-        const url = `/api/sync?fresh=1&_t=${Date.now()}`;
+        const url = forceFresh ? `/api/sync?fresh=1&_t=${Date.now()}` : '/api/sync';
         const res = await fetch(url, fetchOpts);
         if (res.ok) {
           const dateHeader = res.headers.get('date');

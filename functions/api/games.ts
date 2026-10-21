@@ -370,7 +370,7 @@ interface CatalogCache {
 }
 
 let catalogCache: CatalogCache | null = null;
-const CACHE_TTL_MS = 5 * 1000; // 5 seconds fast cache
+const CACHE_TTL_MS = 60 * 1000; // 60 seconds fast in-worker cache to protect Cloudflare D1 quota
 
 export function invalidateGamesCatalogCache(): void {
   catalogCache = null;
@@ -673,7 +673,7 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
         {
           headers: {
             ...CORS_HEADERS,
-            'Cache-Control': 'public, max-age=3, s-maxage=5, stale-while-revalidate=10',
+            'Cache-Control': 'public, max-age=15, s-maxage=60, stale-while-revalidate=120',
           },
         }
       );
@@ -929,8 +929,8 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
         headers: {
           ...CORS_HEADERS,
           'Cache-Control': isFiltered
-            ? 'public, max-age=3, s-maxage=5, stale-while-revalidate=10'
-            : 'public, max-age=5, s-maxage=10, stale-while-revalidate=20',
+            ? 'public, max-age=15, s-maxage=30, stale-while-revalidate=60'
+            : 'public, max-age=30, s-maxage=60, stale-while-revalidate=180',
         },
       }
     );
