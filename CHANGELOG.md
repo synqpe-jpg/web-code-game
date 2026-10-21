@@ -7,6 +7,31 @@ Mỗi mục sửa lỗi đều ghi nhận **Nguyên nhân gốc rễ (Root Cause
 
 ## [2026-10-21]
 
+### 118. Tích Hợp Mẫu Thông Báo Cố Định "Web bảo trì" Trong Admin Portal (Floating Modal & Announcement Bar) Phân Định Rõ Các Tính Năng
+- **Mô tả & Yêu cầu người dùng**:
+  1. Người dùng yêu cầu: *"Web hiện tại người dùng không thể làm gì?"*
+  2. Người dùng yêu cầu: *"Bạn tạo cho tôi 1 mẫu thông báo cố định trong admind, báo những vẫn đề trên, tiêu đề là Web bảo trì. Và những việc không làm và vẫn làm bình thường"*
+- **Nguyên nhân gốc rễ & Phân tích (Root Cause & Analysis)**:
+  - Khi Cloudflare D1 tạm chạm trần hạn mức miễn phí hoặc trong các đợt nâng cấp, cơ sở dữ liệu D1 từ chối các thao tác ghi (Write) và truy vấn động.
+  - Các chức năng tĩnh (baseline) như tra cứu 10.738 mã Giftcode của 627 tựa game, tìm kiếm, đọc 94 bài viết tin tức, xem bảng giá máy ảo vẫn hoạt động 100% mượt mà do chạy trực tiếp từ baseline tĩnh và Prerender HTML.
+  - Tuy nhiên, người dùng ghé thăm web có thể bối rối nếu cố gắng đăng nhập, nạp tiền vào ví hoặc mua hàng. Admin cần một mẫu thông báo định sẵn, chuẩn mực, chỉ với 1 cú click là có thể phát thông báo rõ ràng tới toàn bộ người dùng mà không cần gõ thủ công.
+- **Giải pháp toàn diện đã triển khai (Solution)**:
+  1. *Định nghĩa mẫu `MAINTENANCE_FLOATING_NOTIFICATION` trong `src/types/floatingNotification.ts`*:
+     - Tiêu đề cố định: `Web bảo trì`.
+     - Phân định rõ 2 mục:
+       - ❌ **NHỮNG VIỆC TẠM THỜI CHƯA THỂ LÀM**: Đăng ký/Đăng nhập tài khoản, Nạp tiền tự động qua SePay, Mua hàng/máy ảo VS Phone trừ ví, Giật mã Giveaway.
+       - ✅ **NHỮNG VIỆC VẪN LÀM ĐƯỢC 100% BÌNH THƯỜNG**: Tra cứu & sao chép 10.700+ mã Giftcode của 627 tựa game (miễn phí), Tìm kiếm game siêu tốc, Đọc 94 bài viết tin tức & cẩm nang tân thủ, Xem bảng giá dịch vụ máy ảo.
+     - Icon khiên bảo vệ (`shield`), theme đỏ đậm cảnh báo (`crimson`), vị trí giữa màn hình (`center_modal`), nút CTA: *"Đã Hiểu & Xem Giftcode Ngay ➔"* trỏ tới `#game-catalog-section`.
+  2. *Thêm khối nút thao tác nhanh (Quick Presets) trong `src/admin/modules/FloatingNotificationModule.tsx`*:
+     - Nút 1-click `🛠️ Áp Dụng Mẫu: Web Bảo Trì` tự động nạp cấu hình và cho phép xem trước trực quan ngay lập tức.
+     - Nút nạp lại mẫu chào mừng `🎁 Mẫu Chào Mừng`.
+  3. *Thêm mẫu điền nhanh cho Thanh Thông Báo Đầu Trang (`AnnouncementBar`) trong `src/admin/modules/ContentCMSModule.tsx`*:
+     - Cung cấp nút `🛠️ Mẫu: Web Bảo Trì` với câu tóm tắt nổi bật cho thanh cuộn đầu trang.
+- **Files Modified**:
+  - `src/types/floatingNotification.ts` (Thêm mẫu cấu hình `MAINTENANCE_FLOATING_NOTIFICATION`)
+  - `src/admin/modules/FloatingNotificationModule.tsx` (Thêm nút thao tác nhanh và preset handler)
+  - `src/admin/modules/ContentCMSModule.tsx` (Thêm nút nạp nhanh mẫu thông báo bảo trì cho Announcement Bar)
+
 ### 117. Bổ Sung Trọn Bộ Giftcode Cho Tarot (22 Mã), Hải Tặc Truyền Kỳ (6 Mã), MAke Drama: MAD (3 Mã) & Đồng Bộ Toàn Bộ 4.112 Mã Từ Backup D1 Vào Kho Tĩnh Baseline (Tổng 10.738 Giftcode)
 - **Mô tả & Yêu cầu người dùng**:
   1. Người dùng yêu cầu: *"Những game này bổ sung trước giúp tôi, ngoài ra có rất nhiều game không hiển thị đủ như lúc còn d1, bạn bổ sung để đảm bảo dù có d1 tràn thì vẫn có thể để khách đọc và chép được code giúp tôi.

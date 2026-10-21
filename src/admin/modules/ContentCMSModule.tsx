@@ -1323,6 +1323,35 @@ export const ContentCMSModule: React.FC<ContentCMSModuleProps> = ({ onShowToast 
               </div>
             </div>
 
+            {/* Quick Presets for Announcement Bar */}
+            <div className="flex flex-wrap items-center gap-2 p-3 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700">
+              <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider flex items-center gap-1">
+                ⚡ Mẫu điền nhanh:
+              </span>
+              <button
+                type="button"
+                onClick={() => {
+                  setAnnouncementActive(true);
+                  setAnnouncementText('🛠️ Web bảo trì hệ thống tài khoản & nạp ví: Tạm dừng nạp ví và mua hàng. Hệ thống tra cứu & sao chép 10.700+ Code Game của 627 tựa game vẫn hoạt động 100% bình thường!');
+                  setAnnouncementSubtext('Quý khách vẫn có thể tìm kiếm, tra cứu và sao chép giftcode miễn phí, đọc 94 bài viết tin tức hoàn toàn bình thường.');
+                }}
+                className="px-2.5 py-1 rounded-lg text-xs font-bold bg-rose-500/10 text-rose-600 hover:bg-rose-500/20 border border-rose-300 dark:border-rose-700 transition-colors cursor-pointer"
+              >
+                🛠️ Mẫu: Web Bảo Trì
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setAnnouncementActive(true);
+                  setAnnouncementText('🔥 CHÀO MỪNG BẠN ĐẾN VỚI CODEGAME STORE - KHO GIFTCODE GAME & DỊCH VỤ SỐ 1 VIỆT NAM');
+                  setAnnouncementSubtext('Khuyến mãi nạp đầu tặng 20% giá trị qua cổng SePay MBBank.');
+                }}
+                className="px-2.5 py-1 rounded-lg text-xs font-bold bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 hover:bg-indigo-500/20 border border-indigo-300 dark:border-indigo-700 transition-colors cursor-pointer"
+              >
+                🎁 Mẫu Chào Mừng
+              </button>
+            </div>
+
             <div>
               <label className="text-xs font-bold text-slate-700 dark:text-slate-300">
                 Nội dung thông báo nổi bật chính

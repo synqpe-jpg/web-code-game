@@ -114,3 +114,41 @@ export const DEFAULT_FLOATING_NOTIFICATION: FloatingNotificationConfig = {
   showDoNotShowAgain: true,
   updatedAt: new Date().toISOString(),
 };
+
+export const MAINTENANCE_FLOATING_NOTIFICATION: FloatingNotificationConfig = {
+  enabled: true,
+  title: 'Web bảo trì',
+  message: `Hệ thống cơ sở dữ liệu máy chủ đang trong quá trình bảo trì và nâng cấp định kỳ.
+
+❌ **NHỮNG VIỆC TẠM THỜI CHƯA THỂ LÀM:**
+• Đăng ký tài khoản mới & Đăng nhập thành viên
+• Nạp tiền tự động vào ví (cổng SePay QR)
+• Mua hàng / Mua máy ảo VS Phone trừ tiền ví
+• Giật mã Giveaway miễn phí
+
+✅ **NHỮNG VIỆC VẪN LÀM ĐƯỢC 100% BÌNH THƯỜNG:**
+• Tra cứu & Sao chép hơn 10.700+ mã Giftcode của 627 tựa game (miễn phí 100%)
+• Tìm kiếm, lọc thể loại game không dấu / có dấu siêu tốc
+• Đọc toàn bộ 94 bài viết tin tức & cẩm nang tân thủ chuẩn SEO
+• Xem bảng giá & chi tiết cấu hình dịch vụ máy ảo
+
+⏰ *Toàn bộ tính năng giao dịch sẽ tự động mở lại ngay sau khi hoàn tất bảo trì. Cảm ơn sự đồng hành của quý khách!*`,
+  iconType: 'shield',
+  position: 'center_modal',
+  scheduleMode: 'all_day',
+  startTime: '00:00',
+  endTime: '23:59',
+  showCta: true,
+  ctaText: 'Đã Hiểu & Xem Giftcode Ngay ➔',
+  ctaLink: '#game-catalog-section',
+  ctaTargetBlank: false,
+  showSecondaryButton: true,
+  secondaryButtonText: 'Đóng thông báo',
+  frequency: 'always',
+  delaySeconds: 1,
+  autoDismissSeconds: 0,
+  theme: 'crimson',
+  targetPages: 'all',
+  showDoNotShowAgain: true,
+  updatedAt: new Date().toISOString(),
+};

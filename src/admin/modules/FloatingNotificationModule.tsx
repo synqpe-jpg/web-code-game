@@ -30,6 +30,7 @@ import { adminDataService } from '../services/adminDataService';
 import {
   FloatingNotificationConfig,
   DEFAULT_FLOATING_NOTIFICATION,
+  MAINTENANCE_FLOATING_NOTIFICATION,
   FloatingNotificationPosition,
   FloatingNotificationFrequency,
   FloatingNotificationTheme,
@@ -296,6 +297,16 @@ export const FloatingNotificationModule: React.FC<FloatingNotificationModuleProp
     }
   };
 
+  const handleApplyMaintenancePreset = () => {
+    setConfig({ ...MAINTENANCE_FLOATING_NOTIFICATION, updatedAt: new Date().toISOString() });
+    setPreviewDismissed(false);
+    onShowToast(
+      'Đã điền mẫu "Web bảo trì"! 🛠️',
+      'Đã tự động nạp tiêu đề "Web bảo trì", nội dung việc không làm & vẫn làm, icon khiên và màu cảnh báo. Nhấn "Lưu Cài Đặt" để kích hoạt.',
+      'success'
+    );
+  };
+
   // Helper check if currently within scheduled time
   const isCurrentlyInSchedule = () => {
     if (config.scheduleMode === 'all_day') return true;
@@ -414,6 +425,44 @@ export const FloatingNotificationModule: React.FC<FloatingNotificationModuleProp
           >
             <Save className="w-4 h-4" />
             {isSaving ? 'Đang Lưu...' : 'Lưu Cài Đặt'}
+          </button>
+        </div>
+      </div>
+
+      {/* Quick Presets Bar */}
+      <div className="bg-gradient-to-r from-amber-950/40 via-zinc-900 to-purple-950/40 p-4 rounded-2xl border border-amber-500/30 flex flex-col md:flex-row items-start md:items-center justify-between gap-4 shadow-lg shadow-black/40">
+        <div className="flex items-center gap-3">
+          <div className="p-2.5 rounded-xl bg-amber-500/10 border border-amber-500/20 text-amber-400 shrink-0">
+            <Zap className="w-5 h-5 animate-pulse" />
+          </div>
+          <div>
+            <div className="flex items-center gap-2">
+              <span className="text-xs font-black uppercase tracking-wider text-amber-400">⚡ Mẫu Cài Đặt Sẵn (Quick Presets)</span>
+              <span className="text-[10px] px-2 py-0.5 rounded-full bg-rose-500/20 text-rose-300 font-bold border border-rose-500/30">Mới Cập Nhật</span>
+            </div>
+            <p className="text-xs text-zinc-300 mt-0.5">
+              Nạp nhanh mẫu thông báo đã soạn thảo đầy đủ nội dung chỉ với 1 cú click:
+            </p>
+          </div>
+        </div>
+
+        <div className="flex flex-wrap items-center gap-2.5 shrink-0">
+          <button
+            type="button"
+            onClick={handleApplyMaintenancePreset}
+            className="flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold text-white bg-gradient-to-r from-rose-600 to-amber-600 hover:from-rose-500 hover:to-amber-500 border border-rose-400/40 shadow-md shadow-rose-900/30 transition-all hover:scale-[1.02] cursor-pointer"
+          >
+            <Shield className="w-4 h-4 text-rose-200" />
+            <span>🛠️ Áp Dụng Mẫu: Web Bảo Trì</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={handleResetToDefault}
+            className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-semibold text-zinc-300 bg-zinc-800/80 hover:bg-zinc-700 hover:text-white border border-zinc-700 transition-colors cursor-pointer"
+          >
+            <Gift className="w-3.5 h-3.5 text-purple-400" />
+            <span>Mẫu Chào Mừng</span>
           </button>
         </div>
       </div>
