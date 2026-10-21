@@ -190,8 +190,8 @@ export async function generateAndPersistSnapshot(env: any): Promise<GlobalMetric
       const prod = prodMap.get(pId);
       const baseTarget = Number(prod?.virtual_sold_count || 0);
       const realSold = Number(prod?.sold_count || 0);
-      // Khi baseTarget = 0 (tắt số ảo): trần tối đa đúng bằng số bán thật
-      const maxAllowed = baseTarget > 0 ? (realSold + baseTarget + catchUpMaxAllowed + 10) : realSold;
+      // Trần an toàn bảo toàn tăng trưởng tự nhiên (+2000 đơn) mà không bị reset về mốc cơ sở
+      const maxAllowed = baseTarget > 0 ? (realSold + baseTarget + 2000) : Math.max(realSold, 2000);
       if (isNaN(numVal) || numVal < 0 || numVal > 1000000) {
         delete hub.peakProductSoldCounts[pId];
         hubModified = true;
@@ -209,8 +209,8 @@ export async function generateAndPersistSnapshot(env: any): Promise<GlobalMetric
       const gw = gwMap.get(gId);
       const baseTarget = Number(gw?.virtual_claimed_offset || 0);
       const realClaimed = Number(gw?.claimed_codes || 0);
-      // Khi baseTarget = 0 (tắt số ảo): trần tối đa đúng bằng số nhận thật
-      const maxAllowed = baseTarget > 0 ? (realClaimed + baseTarget + catchUpMaxAllowed + 10) : realClaimed;
+      // Trần an toàn bảo toàn tăng trưởng tự nhiên (+2000 đơn) mà không bị reset về mốc cơ sở
+      const maxAllowed = baseTarget > 0 ? (realClaimed + baseTarget + 2000) : Math.max(realClaimed, 2000);
       if (isNaN(numVal) || numVal < 0 || numVal > 1000000) {
         delete hub.peakGiveawayClaimedCounts[gId];
         hubModified = true;

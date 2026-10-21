@@ -421,7 +421,7 @@ class MarketingService {
                   const curHigh = this.highWaterSoldCountMap.get(pId) || 0;
                   const finalSold = isOverriddenSold
                     ? effectiveSold
-                    : (curHigh > effectiveSold + 500 ? effectiveSold : Math.max(curHigh, effectiveSold));
+                    : (curHigh > effectiveSold + 2000 ? effectiveSold : Math.max(curHigh, effectiveSold));
 
                   this.highWaterSoldCountMap.set(pId, finalSold);
                   this.liveFomoSoldCountMap.set(pId, Math.max(0, finalSold - realSold));
@@ -511,7 +511,7 @@ class MarketingService {
                   const curHigh = this.highWaterClaimedCountMap.get(gId) || 0;
                   const finalClaimed = isOverriddenClaimed
                     ? effectiveClaimed
-                    : (curHigh > effectiveClaimed + 500 ? effectiveClaimed : Math.max(curHigh, effectiveClaimed));
+                    : (curHigh > effectiveClaimed + 2000 ? effectiveClaimed : Math.max(curHigh, effectiveClaimed));
 
                   this.highWaterClaimedCountMap.set(gId, finalClaimed);
                   this.liveFomoClaimedCountMap.set(gId, Math.max(0, finalClaimed - realClaimed));
@@ -2479,7 +2479,7 @@ class MarketingService {
     let recordedMax = id ? (this.highWaterSoldCountMap.get(id) || 0) : 0;
 
     // Tự động thanh lọc các con số rác cũ bị thổi phồng bất thường do lỗi cộng dồn kép (> effectiveBaseTarget + 500)
-    if (id && recordedMax > effectiveBaseTarget + 500) {
+    if (id && recordedMax > effectiveBaseTarget + 2000) {
       recordedMax = effectiveBaseTarget;
       this.highWaterSoldCountMap.set(id, recordedMax);
       this.saveHighWaterCounts();
@@ -2537,7 +2537,7 @@ class MarketingService {
     let recordedMax = id ? (this.highWaterClaimedCountMap.get(id) || 0) : 0;
 
     // Tự động thanh lọc các con số rác cũ bị thổi phồng bất thường do lỗi cộng dồn kép (> effectiveBaseTarget + 500)
-    if (id && recordedMax > effectiveBaseTarget + 500) {
+    if (id && recordedMax > effectiveBaseTarget + 2000) {
       recordedMax = effectiveBaseTarget;
       this.highWaterClaimedCountMap.set(id, recordedMax);
       this.saveHighWaterCounts();
@@ -3388,7 +3388,7 @@ class MarketingService {
           if (realStock <= 0 && !oosEnabled && !hasVirtual) return;
           const cur = this.highWaterSoldCountMap.get(k) || 0;
           const baseTarget = Number((details as any)?.virtual_sold_count || 0);
-          if (v > cur && (baseTarget <= 0 || v <= baseTarget + 500)) {
+          if (v > cur && (baseTarget <= 0 || v <= baseTarget + 2000)) {
             this.highWaterSoldCountMap.set(k, v);
             this.liveFomoSoldCountMap.set(k, v);
             peakSoldChanged = true;
@@ -3414,7 +3414,7 @@ class MarketingService {
           if (realRemaining <= 0 && !oosEnabled && !hasVirtual) return;
           const cur = this.highWaterClaimedCountMap.get(k) || 0;
           const baseTarget = Number(details?.virtual_claimed_offset || 0);
-          if (v > cur && (baseTarget <= 0 || v <= baseTarget + 500)) {
+          if (v > cur && (baseTarget <= 0 || v <= baseTarget + 2000)) {
             this.highWaterClaimedCountMap.set(k, v);
             this.liveFomoClaimedCountMap.set(k, v);
             peakClaimedChanged = true;
@@ -4649,9 +4649,12 @@ class MarketingService {
         if (u && u.id && u.virtual_sold_count !== undefined) {
           const realSold = Number(u.sold_count) || 0;
           const target = realSold + Number(u.virtual_sold_count || 0);
-          this.highWaterSoldCountMap.set(u.id, target);
-          this.liveFomoSoldCountMap.set(u.id, Number(u.virtual_sold_count || 0));
-          this.notifySoldCountChanged(u.id, target);
+          const cur = this.highWaterSoldCountMap.get(u.id) || 0;
+          // BẢO TOÀN ĐƠN ĐIỆU TUYỆT ĐỐI: Không bao giờ kéo giật lùi đỉnh đã bán tích lũy của sản phẩm
+          const nextVal = Math.max(cur, target);
+          this.highWaterSoldCountMap.set(u.id, nextVal);
+          this.liveFomoSoldCountMap.set(u.id, Math.max(0, nextVal - realSold));
+          this.notifySoldCountChanged(u.id, nextVal);
           changed = true;
         }
       });
@@ -4668,9 +4671,12 @@ class MarketingService {
         if (gw && gw.id && gw.virtual_claimed_offset !== undefined) {
           const realClaimed = Number(gw.claimed_codes) || 0;
           const target = realClaimed + Number(gw.virtual_claimed_offset || 0);
-          this.highWaterClaimedCountMap.set(gw.id, target);
+          const cur = this.highWaterClaimedCountMap.get(gw.id) || 0;
+          // BẢO TOÀN ĐƠN ĐIỆU TUYỆT ĐỐI: Không bao giờ kéo giật lùi đỉnh quà đã nhận của chiến dịch
+          const nextVal = Math.max(cur, target);
+          this.highWaterClaimedCountMap.set(gw.id, nextVal);
           this.liveFomoClaimedCountMap.set(gw.id, Number(gw.virtual_claimed_offset || 0));
-          this.notifySoldCountChanged(gw.id, target);
+          this.notifySoldCountChanged(gw.id, nextVal);
           changed = true;
         }
       });
@@ -4687,9 +4693,12 @@ class MarketingService {
         if (p && p.id && p.virtual_sold_count !== undefined) {
           const realSold = Number(p.sold_count) || 0;
           const target = realSold + Number(p.virtual_sold_count || 0);
-          this.highWaterSoldCountMap.set(p.id, target);
+          const cur = this.highWaterSoldCountMap.get(p.id) || 0;
+          // BẢO TOÀN ĐƠN ĐIỆU TUYỆT ĐỐI: Không bao giờ kéo giật lùi đỉnh đã bán tích lũy của sản phẩm
+          const nextVal = Math.max(cur, target);
+          this.highWaterSoldCountMap.set(p.id, nextVal);
           this.liveFomoSoldCountMap.set(p.id, Number(p.virtual_sold_count || 0));
-          this.notifySoldCountChanged(p.id, target);
+          this.notifySoldCountChanged(p.id, nextVal);
           changed = true;
         }
       });

@@ -1141,10 +1141,10 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
             const num = Number(val);
             if (!isNaN(num) && num >= 0 && num < 1000000) {
               const cur = hub.peakProductSoldCounts[pId] || 0;
-              if (body.forceResetSold || body.forceReset || isForceReset || (cur > num + 5)) {
+              if (body.forceResetSold || body.forceReset || isForceReset) {
                 hub.peakProductSoldCounts[pId] = num;
                 changed = true;
-              } else if (cur === 0 || (num > cur && num <= cur + 10)) {
+              } else if (cur === 0 || num > cur) {
                 hub.peakProductSoldCounts[pId] = num;
                 changed = true;
               }
@@ -1158,10 +1158,10 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
             const num = Number(val);
             if (!isNaN(num) && num >= 0 && num < 1000000) {
               const cur = hub.peakGiveawayClaimedCounts[gId] || 0;
-              if (body.forceResetClaimed || body.forceReset || isForceReset || (cur > num + 5)) {
+              if (body.forceResetClaimed || body.forceReset || isForceReset) {
                 hub.peakGiveawayClaimedCounts[gId] = num;
                 changed = true;
-              } else if (cur === 0 || (num > cur && num <= cur + 10)) {
+              } else if (cur === 0 || num > cur) {
                 hub.peakGiveawayClaimedCounts[gId] = num;
                 changed = true;
               }

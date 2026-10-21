@@ -432,9 +432,9 @@ export function calculateGlobalSnapshot(
     // Tự động thanh lọc đỉnh rác cũ (ghost inflated peak) vượt quá trần cấu hình an toàn hoặc khi Admin cài lại số ảo
     const peakSold = Number(data.peakProductSoldCounts?.[prod.id]) || 0;
     const baseTarget = Number(prod.virtual_sold_count || 0);
-    const maxAllowedPeak = effectiveRealSold + baseTarget + (priority === 'off' ? 0 : 10);
-    // Nếu peakSold chênh lệch quá 5 đơn so với rawDisplaySold (do Admin vừa hạ/cài lại số ảo) hoặc vượt quá trần, lập tức đồng bộ theo rawDisplaySold
-    const effectivePeakSold = (peakSold > maxAllowedPeak || peakSold > rawDisplaySold + 5 || peakSold < (effectiveRealSold + baseTarget))
+    const maxAllowedPeak = baseTarget > 0 ? (effectiveRealSold + baseTarget + 2000) : Math.max(effectiveRealSold, 2000);
+    // Bảo toàn đơn điệu tuyệt đối: Không bao giờ kéo giật lùi đỉnh bán hàng khi tăng trưởng bình thường
+    const effectivePeakSold = (peakSold > maxAllowedPeak || peakSold < (effectiveRealSold + baseTarget))
       ? rawDisplaySold
       : peakSold;
     const displaySold = Math.max(rawDisplaySold, effectivePeakSold);
@@ -536,9 +536,9 @@ export function calculateGlobalSnapshot(
     // Tự động thanh lọc đỉnh rác cũ (ghost inflated peak) vượt quá trần cấu hình an toàn hoặc khi Admin cài lại số ảo
     const peakClaimed = Number(data.peakGiveawayClaimedCounts?.[gw.id]) || 0;
     const baseTargetGw = Number(gw.virtual_claimed_offset || 0);
-    const maxAllowedPeakGw = effectiveRealClaimed + baseTargetGw + (priority === 'off' ? 0 : 10);
-    // Nếu peakClaimed chênh lệch quá 5 đơn so với rawDisplayClaimed (do Admin vừa hạ/cài lại số ảo) hoặc vượt quá trần, lập tức đồng bộ theo rawDisplayClaimed
-    const effectivePeakClaimed = (peakClaimed > maxAllowedPeakGw || peakClaimed > rawDisplayClaimed + 5 || peakClaimed < (effectiveRealClaimed + baseTargetGw))
+    const maxAllowedPeakGw = baseTargetGw > 0 ? (effectiveRealClaimed + baseTargetGw + 2000) : Math.max(effectiveRealClaimed, 2000);
+    // Bảo toàn đơn điệu tuyệt đối: Không bao giờ kéo giật lùi đỉnh nhận quà khi tăng trưởng bình thường
+    const effectivePeakClaimed = (peakClaimed > maxAllowedPeakGw || peakClaimed < (effectiveRealClaimed + baseTargetGw))
       ? rawDisplayClaimed
       : peakClaimed;
     const displayClaimed = Math.max(rawDisplayClaimed, effectivePeakClaimed);

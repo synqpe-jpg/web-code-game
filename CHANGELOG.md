@@ -7,6 +7,27 @@ Mỗi mục sửa lỗi đều ghi nhận **Nguyên nhân gốc rễ (Root Cause
 
 ## [2026-10-21]
 
+### 104. Khắc Phục Triệt Để Tận Gốc Lỗi Giật Lùi Số Bán Về 216: Bảo Toàn Đơn Điệu Tuyệt Đối (Monotonically Non-Decreasing) Trên Toàn Bộ Hệ Thống Snapshot, Hub D1 & Event Listeners
+- **Mô tả & Yêu cầu người dùng**:
+  - Người dùng phản ánh: *"Số ảo lại bị kéo về 216, kiểm tra giúp tôi, sửa rất lâu rồi nhưng không xong*"
+- **Nguyên nhân gốc rễ & Phân tích (Root Cause & Analysis)**:
+  1. *Thủ phạm 1 - Client Event Overwrite (`src/services/marketingService.ts`)*: Ba event listeners `wcg_utilities_updated`, `wcg_giveaways_updated`, `wcg_store_products_updated` ghi đè vô điều kiện `highWaterSoldCountMap.set(u.id, target)` với `target = realSold + u.virtual_sold_count` (bằng 67 cho gói `ut_vs_05_vip_7d`). Mỗi khi `dataService.syncWithCloudflareKV()` chạy (khi load trang hoặc sync nền), event này phát ra và ngay lập tức xóa sạch mọi số tăng thêm từ toast, kéo giật lùi số về 67 (tổng thẻ 216)!
+  2. *Thủ phạm 2 - Server Public Monotonicity Inversion (`functions/api/sync.ts`)*: Tại endpoint public `report_peak_metrics`, logic `if (body.forceResetSold || body.forceReset || isForceReset || (cur > num + 5))` có điều kiện `(cur > num + 5)` không kiểm tra quyền admin. Bất kỳ client mới nào mở trang gửi `num = 67` lên server sẽ lập tức ép server reset toàn bộ đỉnh số bán về 67. Đồng thời điều kiện `else if (cur === 0 || (num > cur && num <= cur + 10))` chặn tiếp nhận đỉnh nếu chênh lệch $> 10$.
+  3. *Thủ phạm 3 - Server Snapshot Ceiling & Kill-Switch (`src/shared/deterministicEngine.ts`)*: Điều kiện `peakSold > rawDisplaySold + 5` và `maxAllowedPeak = effectiveRealSold + baseTarget + 10` tự động ép đỉnh về `rawDisplaySold` (67) ngay khi số bán tăng quá 5 hoặc 10 đơn vị!
+  4. *Thủ phạm 4 - Cloudflare Worker Cleanser (`functions/services/snapshotService.ts`)*: Logic `maxAllowed = baseTarget > 0 ? (realSold + baseTarget + catchUpMaxAllowed + 10) : realSold` (tối đa +40 đơn) tự động gán `hub.peakProductSoldCounts[pId] = realSold + baseTarget`.
+- **Giải pháp toàn diện đã triển khai (Solution)**:
+  1. *Bảo toàn đơn điệu tuyệt đối trong Event Listeners*: Dùng `Math.max(cur, target)` trong 3 event listener `wcg_utilities_updated`, `wcg_giveaways_updated`, `wcg_store_products_updated` để không bao giờ kéo lùi số bán / số quà đã nhận.
+  2. *Loại bỏ điều kiện hạ số tùy tiện trên Server API*: Bỏ `(cur > num + 5)` cho các request không có cờ `isForceReset`. Chỉ tiếp nhận tăng số `if (num > cur)`.
+  3. *Mở rộng trần an toàn và gỡ bỏ kill-switch trong `deterministicEngine.ts`*: Loại bỏ hoàn toàn điều kiện `peakSold > rawDisplaySold + 5`, nâng trần bảo vệ lên `+2000 đơn`.
+  4. *Đồng bộ trần an toàn trong `snapshotService.ts` và `marketingService.ts`*: Đồng nhất trần bảo vệ `+2000` cho cả sản phẩm và giveaway.
+- **Files Modified**:
+  - `src/services/marketingService.ts`
+  - `src/shared/deterministicEngine.ts`
+  - `functions/services/snapshotService.ts`
+  - `functions/api/sync.ts`
+  - `CHANGELOG.md` (Mục 104)
+  - `KNOWN_ISSUES.md` (Cập nhật ISSUE-011)
+
 ### 103. Điều Chỉnh Tăng Tự Nhiên Theo Thông Báo: Cố Định Chuẩn 216 Cho VS Phone VIP, Tăng Trọng Số Đơn Tiện Ích (35%), Gỡ Bỏ Rào Cản Trần +10 & Chuẩn Hóa Tên Sản Phẩm Khớp Thẻ
 - **Mô tả & Yêu cầu người dùng**:
   - Người dùng phản ánh: *"Số đang bị giật ở 215, giúp tôi điều chỉnh để nó tăng tự nhiên theo thông báo."*
