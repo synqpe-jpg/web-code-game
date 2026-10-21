@@ -31,6 +31,17 @@ export const MobileBottomNav: React.FC<MobileBottomNavProps> = ({
   currentUser,
 }) => {
   const { t } = useLanguage();
+  const [isMobileSearchActive, setIsMobileSearchActive] = React.useState(false);
+
+  React.useEffect(() => {
+    const handleMobileSearch = (e: any) => {
+      setIsMobileSearchActive(Boolean(e?.detail?.isOpen));
+    };
+    window.addEventListener('wcg_mobile_search_toggled', handleMobileSearch);
+    return () => window.removeEventListener('wcg_mobile_search_toggled', handleMobileSearch);
+  }, []);
+
+  if (isMobileSearchActive) return null;
 
   const formatCompactBalance = (balance: number) => {
     if (!balance || balance <= 0) return '0đ';

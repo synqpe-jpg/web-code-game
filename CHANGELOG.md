@@ -7,6 +7,42 @@ Mỗi mục sửa lỗi đều ghi nhận **Nguyên nhân gốc rễ (Root Cause
 
 ## [2026-10-21]
 
+### 107. Tái Thiết Kế Toàn Diện Trải Nghiệm Tìm Kiếm Mobile: Fullscreen Search Overlay, Header Cố Định Chống Bàn Phím Đè, Ẩn Xung Đột Bottom Nav & Toast Marketing
+- **Mô tả & Yêu cầu người dùng**:
+  - Người dùng gửi ảnh chụp màn hình điện thoại khi gõ tìm game "Hắc" và yêu cầu: *"Trên giao diện mobile, khi ấn vào tìm game hiển thị giao diện như trên, Thiết kế lại giao diện giúp tôi trên mobile, để thao tác tiện, gọn nhanh chóng, dễ hiểu."*
+- **Nguyên nhân gốc rễ & Phân tích (Root Cause & Analysis)**:
+  1. *Thiếu Mobile Search View chuyên dụng*: Trên thiết bị di động, thanh tìm kiếm cũ chỉ render dropdown `absolute` theo luồng tài liệu desktop. Khi bàn phím ảo (Laban Key/Gboard) bật lên chiếm hơn 50% màn hình, trình duyệt tự cuộn khiến ô input bị trôi mất dạng.
+  2. *Chồng chéo tầng hiển thị nghiêm trọng (Layer Collision)*:
+     - Thanh điều hướng đáy `MobileBottomNav` (`fixed bottom-0 z-40`) bị trình duyệt di động đẩy lên sát mép trên bàn phím ảo.
+     - Hộp thoại FOMO Toast `MarketingNotificationToast` (`fixed bottom-20 z-[95]`) đè trực tiếp lên trên `MobileBottomNav` và các thẻ game.
+     - Kết quả: Bàn phím ảo $\rightarrow$ Bottom Nav $\rightarrow$ Marketing Toast $\rightarrow$ Thẻ game đè lẫn nhau, ô tìm kiếm biến mất hoàn toàn và người dùng không thể thấy kết quả hay thao tác gõ chữ.
+- **Giải pháp toàn diện đã triển khai (Solution)**:
+  1. *Dedicated Fullscreen Mobile Search Overlay (`createPortal` trực tiếp vào `document.body`)*:
+     - Khi người dùng chạm vào ô tìm kiếm trên mobile, kích hoạt ngay giao diện tìm kiếm toàn màn hình chuyên dụng (`fixed inset-0 z-[100] bg-background`).
+     - Tự động đồng bộ chiều cao và tọa độ theo `window.visualViewport` để giao diện luôn luôn khít 100% trong khoảng không gian phía trên bàn phím ảo, bất kể loại bàn phím hay chiều cao mở rộng.
+  2. *Header Tìm Kiếm Cố Định Đỉnh Màn Hình (Sticky Top Header)*:
+     - **Nút Quay lại `[←]` (ArrowLeft)**: Kích thước 40x40px bo góc thanh lịch, chạm 1 chạm để đóng overlay và trả lại trang chủ tức thì.
+     - **Ô nhập liệu (Search Input)**: Chữ to rõ (font 16px chống iOS/Android tự zoom), tự động focus, icon kính lúp tím neon, hiển thị chính xác từng ký tự đang gõ.
+     - **Nút Xóa nhanh `[✕]` (Clear)**: Chạm 1 chạm là xóa sạch từ khóa và giữ nguyên con trỏ trong ô nhập.
+     - **Nút "Tìm"**: Nhanh chóng lưu lịch sử và kích hoạt tìm kiếm.
+  3. *Dải Gợi Ý Nhanh 1 Chạm (Quick Tags Chips)*:
+     - Nằm ngay dưới Header, hiển thị các tựa game HOT nhất (`🔥 Ta Là Hắc Ngộ Không`, `Roblox`, `Liên Quân`, `Free Fire`, `FC Mobile`...). Chạm vào chip nào là tìm kiếm ngay lập tức trong 0ms.
+  4. *Danh Sách Kết Quả & Gợi Ý Tối Ưu Cho Ngón Cái*:
+     - **Trạng thái chưa nhập**: Hiển thị Lịch sử tìm kiếm gần đây (kèm nút xóa tất cả / xóa từng từ) và danh sách Top Game nổi bật có nhiều Code nhất kèm icon sắc nét và badge G1.
+     - **Trạng thái đang gõ (ví dụ gõ "Hắc")**: Hiển thị danh sách Game tìm thấy (`Ta Là Hắc Ngộ Không`, `Võ Lâm Hắc Đạo`...) dạng thẻ ngang bo góc 16px rộng rãi, chạm vào mở ngay `GameDetailModal` để sao chép code; đi kèm danh sách mã giftcode khớp từ khóa với nút sao chép 1 chạm có rung xúc giác (Haptic Feedback `navigator.vibrate(25ms)`).
+     - **Trạng thái không có kết quả**: Thông báo lịch sự kèm đề xuất game hot thay thế.
+  5. *Loại Bỏ Hoàn Toàn Xung Đột UI Khi Tìm Kiếm (Zero Conflict)*:
+     - Phát tín hiệu Custom Event `wcg_mobile_search_toggled`:
+       - `MobileBottomNav`: Tự động ẩn hoàn toàn trong thời gian tìm kiếm, không bị bàn phím ảo đẩy lên.
+       - `MarketingNotificationToast`: Tạm dừng và ẩn hoàn toàn, 100% không xuất hiện đè lên kết quả tìm kiếm.
+       - Body được khóa cuộn (`overflow: hidden`), đảm bảo việc vuốt chạm tìm kiếm siêu mượt mà.
+- **Files Modified**:
+  - `src/components/SearchAutocomplete.tsx`
+  - `src/components/MarketingNotificationToast.tsx`
+  - `src/components/MobileBottomNav.tsx`
+  - `CHANGELOG.md` (Mục 107)
+  - `KNOWN_ISSUES.md` (ISSUE-012)
+
 ### 106. Tối Ưu Hóa Trải Nghiệm Sao Chép Code Trên Mobile: Thiết Kế Thẻ Code Tinh Gọn, Tiện Thao Tác Ngón Cái, Sticky Sao Chép Tất Cả & Di Chuyển Thông Báo Lên Đầu Màn Hình
 - **Mô tả & Yêu cầu người dùng**:
   - Người dùng gửi ảnh chụp màn hình trang chi tiết game trên mobile và yêu cầu: *"Thiết kế lại giao diện sao chép code giúp tôi trên mobile, để thao tác tiện, gọn nhanh chóng, dễ hiểu."*

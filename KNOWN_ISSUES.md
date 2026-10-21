@@ -10,6 +10,26 @@
 
 ## 1. DANH MỤC LỖI & CÁC BẪY ĐÃ THẤT BẠI (DO NOT REPEAT)
 
+### ISSUE-012: Chồng chéo giao diện tìm kiếm trên mobile do bàn phím ảo đẩy Bottom Nav và Toast Marketing đè lên ô input
+- **Triệu chứng**:
+  - Khi người dùng chạm vào ô tìm kiếm trên điện thoại di động và bắt đầu gõ (ví dụ gõ "Hắc"), bàn phím ảo bật lên đẩy thanh Bottom Navigation lên sát mép trên bàn phím.
+  - Đồng thời Toast thông báo Marketing (FOMO) nổi đè lên trên Bottom Nav và các thẻ game.
+  - Ô tìm kiếm bị cuộn mất dạng hoặc che khuất hoàn toàn, giao diện bị đè chữ lộn xộn, người dùng không thể nhìn thấy text đang gõ, nút xóa hay danh sách kết quả.
+- **Nguyên nhân gốc rễ**:
+  - Tìm kiếm mobile vẫn dùng chung component dropdown `absolute` theo flow tài liệu desktop.
+  - Không có Fullscreen Search Overlay tách biệt qua `createPortal` vào `document.body`.
+  - Không có cơ chế nhận diện mở tìm kiếm trên mobile để tạm ẩn thanh `MobileBottomNav` và `MarketingNotificationToast`.
+- **Giải pháp chuẩn đã kiểm chứng**:
+  - Triển khai Dedicated Fullscreen Mobile Search Overlay qua `createPortal(..., document.body)` với `z-[100]`.
+  - Đồng bộ kích thước chiều cao và tọa độ theo `window.visualViewport` để overlay luôn luôn khít 100% trong khoảng trống phía trên bàn phím ảo.
+  - Header tìm kiếm cố định (`sticky top-0`) gồm nút Quay lại `[←]`, ô input 16px to rõ có autofocus, nút xóa nhanh `[✕]`, nút "Tìm", dải Quick Tags gợi ý, và danh sách kết quả tối ưu chạm ngón cái.
+  - Phát tín hiệu `wcg_mobile_search_toggled` để tự động ẩn hoàn toàn `MobileBottomNav` và `MarketingNotificationToast` trong suốt thời gian tìm kiếm.
+- ⛔ **CÁCH SỬA ĐÃ THẤT BẠI - TUYỆT ĐỐI KHÔNG LẶP LẠI**:
+  - ❌ *Không chỉ tăng z-index của dropdown desktop hoặc cuộn trang*: Bàn phím ảo trên mobile co hẹp viewport và làm lệch vị trí `absolute`, trong khi các phần tử `fixed bottom-0` luôn bị đẩy lên trên bàn phím.
+  - ❌ *Không để Toast marketing hoặc Bottom Nav hiển thị trong khi người dùng đang nhập liệu*: Gây xao nhãng và đè lấp kết quả tìm kiếm trên màn hình di động nhỏ.
+
+---
+
 ### ISSUE-011: Lỗi giật lùi số lượng đã bán do lệch mốc cơ sở tĩnh giữa Bundle và Server Snapshot & Cloudflare Edge Cache
 - **Triệu chứng**:
   - Số lượng đã bán trên thẻ sản phẩm (ví dụ VS Phone VIP) sau khi được cập nhật lên mốc mới (ví dụ 215) thì khi khách hàng F5, chuyển tab hoặc mở trên trình duyệt khác lại bị "giật lùi" về mốc cũ (214).

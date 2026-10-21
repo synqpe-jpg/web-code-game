@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
+import { createPortal } from 'react-dom';
 import {
   Search,
   X,
@@ -14,6 +15,7 @@ import {
   Globe,
   Clock,
   Trash2,
+  ArrowLeft,
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
 import type { GameItem, GiftCode } from '../types/game';
@@ -140,6 +142,84 @@ export const SearchAutocomplete: React.FC<SearchAutocompleteProps> = ({
   });
   const containerRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+  const mobileInputRef = useRef<HTMLInputElement>(null);
+
+  // Responsive device detector
+  const [isMobile, setIsMobile] = useState<boolean>(() => {
+    if (typeof window === 'undefined') return false;
+    return window.innerWidth < 640;
+  });
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const handleResize = () => {
+      setIsMobile(window.innerWidth < 640);
+    };
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
+
+  // Visual viewport dynamic height & offset calculation (for virtual keyboard support)
+  const [viewportHeight, setViewportHeight] = useState<number | null>(null);
+  const [viewportTop, setViewportTop] = useState<number | null>(null);
+
+  useEffect(() => {
+    if (!isOpen || !isMobile || typeof window === 'undefined') return;
+
+    const handleViewportChange = () => {
+      if (window.visualViewport) {
+        setViewportHeight(window.visualViewport.height);
+        setViewportTop(window.visualViewport.offsetTop);
+      }
+    };
+
+    handleViewportChange();
+
+    if (window.visualViewport) {
+      window.visualViewport.addEventListener('resize', handleViewportChange);
+      window.visualViewport.addEventListener('scroll', handleViewportChange);
+      return () => {
+        window.visualViewport?.removeEventListener('resize', handleViewportChange);
+        window.visualViewport?.removeEventListener('scroll', handleViewportChange);
+      };
+    }
+  }, [isOpen, isMobile]);
+
+  // Mobile search open / close controllers
+  const handleOpenMobileSearch = () => {
+    setIsOpen(true);
+    if (typeof document !== 'undefined') {
+      document.body.style.overflow = 'hidden';
+    }
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('wcg_mobile_search_toggled', { detail: { isOpen: true } }));
+    }
+    setTimeout(() => {
+      mobileInputRef.current?.focus();
+    }, 60);
+  };
+
+  const handleCloseMobileSearch = () => {
+    setIsOpen(false);
+    if (typeof document !== 'undefined') {
+      document.body.style.overflow = '';
+    }
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('wcg_mobile_search_toggled', { detail: { isOpen: false } }));
+    }
+  };
+
+  // Safe cleanup on unmount
+  useEffect(() => {
+    return () => {
+      if (typeof document !== 'undefined') {
+        document.body.style.overflow = '';
+      }
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new CustomEvent('wcg_mobile_search_toggled', { detail: { isOpen: false } }));
+      }
+    };
+  }, []);
 
   // Sync recent searches across instances & storage events
   useEffect(() => {
@@ -291,6 +371,13 @@ export const SearchAutocomplete: React.FC<SearchAutocompleteProps> = ({
     marketingService.recordRealCopy(gameName, '', 1, activeUser);
     setCopiedCodeKey(`${gameName}_${code}`);
 
+    // Haptic feedback for tactile satisfaction on mobile
+    if (typeof navigator !== 'undefined' && navigator.vibrate) {
+      try {
+        navigator.vibrate(25);
+      } catch {}
+    }
+
     if (onShowToast) {
       if (isExpired) {
         onShowToast(t.modal.copySuccess, `Mã "${code}" (${gameName}) có thể đã hết hạn.`, 'info');
@@ -301,9 +388,9 @@ export const SearchAutocomplete: React.FC<SearchAutocompleteProps> = ({
 
     try {
       confetti({
-        particleCount: 30,
-        spread: 50,
-        origin: { y: 0.6 },
+        particleCount: 25,
+        spread: 45,
+        origin: { y: 0.5 },
         colors: ['#10B981', '#8B5CF6', '#F59E0B'],
       });
     } catch {}
@@ -317,7 +404,8 @@ export const SearchAutocomplete: React.FC<SearchAutocompleteProps> = ({
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (!isOpen || allNavItems.length === 0) {
       if (e.key === 'ArrowDown' && (searchQuery || '').trim()) {
-        setIsOpen(true);
+        if (isMobile) handleOpenMobileSearch();
+        else setIsOpen(true);
       }
       return;
     }
@@ -335,23 +423,24 @@ export const SearchAutocomplete: React.FC<SearchAutocompleteProps> = ({
         if (item.type === 'game') {
           saveRecentSearch(item.data?.name || '');
           onSelectGame(item.data);
-          setIsOpen(false);
+          handleCloseMobileSearch();
         } else {
           saveRecentSearch(item.data?.game?.name || '');
           onSelectGame(item.data.game);
-          setIsOpen(false);
+          handleCloseMobileSearch();
         }
       } else {
         // Trigger normal search submit
         if ((searchQuery || '').trim()) {
           saveRecentSearch(searchQuery.trim());
         }
-        setIsOpen(false);
+        handleCloseMobileSearch();
         if (onExploreClick) onExploreClick();
       }
     } else if (e.key === 'Escape') {
-      setIsOpen(false);
+      handleCloseMobileSearch();
       inputRef.current?.blur();
+      mobileInputRef.current?.blur();
     }
   };
 
@@ -360,7 +449,7 @@ export const SearchAutocomplete: React.FC<SearchAutocompleteProps> = ({
       saveRecentSearch(game.name);
     }
     onSelectGame(game);
-    setIsOpen(false);
+    handleCloseMobileSearch();
   };
 
   return (
@@ -379,17 +468,33 @@ export const SearchAutocomplete: React.FC<SearchAutocompleteProps> = ({
           value={searchQuery}
           onChange={(e) => {
             onSearchChange(e.target.value);
-            setIsOpen(true);
+            if (isMobile) handleOpenMobileSearch();
+            else setIsOpen(true);
             setSelectedIndex(-1);
           }}
-          onFocus={() => {
-            setIsOpen(true);
+          onFocus={(e) => {
+            if (isMobile) {
+              e.currentTarget.blur();
+              handleOpenMobileSearch();
+            } else {
+              setIsOpen(true);
+            }
           }}
-          onClick={() => {
-            setIsOpen(true);
+          onClick={(e) => {
+            if (isMobile) {
+              e.currentTarget.blur();
+              handleOpenMobileSearch();
+            } else {
+              setIsOpen(true);
+            }
           }}
-          onTouchStart={() => {
-            setIsOpen(true);
+          onTouchStart={(e) => {
+            if (isMobile) {
+              e.currentTarget.blur();
+              handleOpenMobileSearch();
+            } else {
+              setIsOpen(true);
+            }
           }}
           onKeyDown={handleKeyDown}
           autoFocus={autoFocus}
@@ -408,7 +513,7 @@ export const SearchAutocomplete: React.FC<SearchAutocompleteProps> = ({
               type="button"
               onClick={() => {
                 onSearchChange('');
-                setIsOpen(false);
+                handleCloseMobileSearch();
                 inputRef.current?.focus();
               }}
               className="p-1 rounded-lg text-slate-400 hover:text-foreground hover:bg-muted/80 transition-colors cursor-pointer"
@@ -428,7 +533,7 @@ export const SearchAutocomplete: React.FC<SearchAutocompleteProps> = ({
               if ((searchQuery || '').trim()) {
                 saveRecentSearch(searchQuery.trim());
               }
-              setIsOpen(false);
+              handleCloseMobileSearch();
               if (onExploreClick) onExploreClick();
             }}
             className="px-2.5 py-1 rounded-xl bg-primary hover:bg-primary-hover text-white text-xs font-bold transition-all cursor-pointer shadow-sm active:scale-95 hidden sm:block"
@@ -438,8 +543,8 @@ export const SearchAutocomplete: React.FC<SearchAutocompleteProps> = ({
         </div>
       </div>
 
-      {/* Autocomplete Results Dropdown Overlay */}
-      {isOpen && (
+      {/* Desktop Autocomplete Results Dropdown (Desktop Only) */}
+      {isOpen && !isMobile && (
         <div className="absolute left-0 right-0 top-full mt-2 bg-card/95 backdrop-blur-xl border border-border/90 rounded-2xl shadow-2xl z-50 overflow-hidden animate-scale-in text-left divide-y divide-border/60 max-h-[65vh] sm:max-h-[75vh] flex flex-col">
           {(searchQuery || '').trim().length === 0 ? (
             /* RECENT SEARCHES, QUICK KEYWORDS & HOT GAMES */
@@ -775,6 +880,386 @@ export const SearchAutocomplete: React.FC<SearchAutocompleteProps> = ({
             </button>
           </div>
         </div>
+      )}
+
+      {/* Mobile Fullscreen Search Overlay (Mobile Only - Rendered at Body Level) */}
+      {isMobile && isOpen && typeof document !== 'undefined' && createPortal(
+        <div
+          className="fixed inset-0 z-[100] bg-background/98 backdrop-blur-2xl flex flex-col select-none animate-fade-in"
+          style={{
+            height: viewportHeight ? `${viewportHeight}px` : '100dvh',
+            top: viewportTop ? `${viewportTop}px` : '0px',
+          }}
+        >
+          {/* 1. Mobile Search Header (Sticky Top) */}
+          <div className="shrink-0 bg-card/95 backdrop-blur-xl border-b border-border/80 px-3 py-2 flex items-center gap-2 pt-[max(env(safe-area-inset-top,0px),0.5rem)] shadow-sm">
+            {/* Back button */}
+            <button
+              type="button"
+              onClick={handleCloseMobileSearch}
+              aria-label="Quay lại"
+              className="w-10 h-10 rounded-xl bg-muted/80 active:bg-muted text-foreground flex items-center justify-center shrink-0 transition-transform active:scale-90 cursor-pointer"
+            >
+              <ArrowLeft className="w-5 h-5" />
+            </button>
+
+            {/* Search Input Box */}
+            <div className="relative flex-1 flex items-center">
+              <Search className="w-4 h-4 absolute left-3 text-primary-light pointer-events-none" />
+              <input
+                ref={mobileInputRef}
+                type="text"
+                value={searchQuery}
+                onChange={(e) => {
+                  onSearchChange(e.target.value);
+                  setSelectedIndex(-1);
+                }}
+                onKeyDown={handleKeyDown}
+                placeholder="Tìm tên game, giftcode..."
+                className="w-full h-10 pl-9 pr-9 rounded-xl bg-background border border-border focus:border-primary focus:ring-2 focus:ring-primary/40 text-foreground text-[16px] placeholder:text-muted-foreground outline-none transition-all shadow-inner"
+                autoFocus
+              />
+              {searchQuery ? (
+                <button
+                  type="button"
+                  onClick={() => {
+                    onSearchChange('');
+                    mobileInputRef.current?.focus();
+                  }}
+                  aria-label="Xóa từ khóa"
+                  className="w-8 h-8 rounded-lg absolute right-1 top-1/2 -translate-y-1/2 flex items-center justify-center text-muted-foreground hover:text-foreground active:scale-90 cursor-pointer"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              ) : null}
+            </div>
+
+            {/* Search action button */}
+            <button
+              type="button"
+              onClick={() => {
+                if ((searchQuery || '').trim()) {
+                  saveRecentSearch(searchQuery.trim());
+                }
+                handleCloseMobileSearch();
+                if (onExploreClick) onExploreClick();
+              }}
+              className="px-3 h-10 rounded-xl bg-primary hover:bg-primary-hover text-white text-xs font-bold shrink-0 flex items-center justify-center shadow-sm active:scale-95 cursor-pointer"
+            >
+              Tìm
+            </button>
+          </div>
+
+          {/* 2. Quick Tags Bar (Always visible for instant 1-tap search) */}
+          <div className="shrink-0 px-3 py-2 border-b border-border/40 bg-card/40 flex items-center gap-1.5 overflow-x-auto scrollbar-none whitespace-nowrap">
+            <span className="text-[10px] font-bold uppercase tracking-wider text-accent flex items-center gap-1 shrink-0">
+              <Flame className="w-3 h-3 text-accent" /> Gợi ý:
+            </span>
+            {[
+              'Ta Là Hắc Ngộ Không',
+              'Roblox',
+              'Liên Quân Mobile',
+              'Free Fire',
+              'FC Mobile',
+              'Tiên Giới: Nhận Kiếm',
+              'Võ Lâm',
+              'Genshin Impact',
+            ].map((tag) => (
+              <button
+                key={tag}
+                type="button"
+                onClick={() => {
+                  saveRecentSearch(tag);
+                  onSearchChange(tag);
+                  mobileInputRef.current?.focus();
+                }}
+                className={`px-2.5 py-1 rounded-lg text-xs font-medium border transition-all shrink-0 active:scale-95 cursor-pointer ${
+                  searchQuery.toLowerCase() === tag.toLowerCase()
+                    ? 'bg-primary/20 text-primary-light border-primary/50'
+                    : 'bg-muted/70 hover:bg-muted text-slate-200 border-border/60'
+                }`}
+              >
+                {tag}
+              </button>
+            ))}
+          </div>
+
+          {/* 3. Scrollable Results Area */}
+          <div className="flex-1 overflow-y-auto overscroll-contain p-3 space-y-4 pb-12 scrollbar-thin">
+            {(searchQuery || '').trim().length === 0 ? (
+              /* Empty State: Recent searches & Hot games */
+              <>
+                {recentSearches.length > 0 && (
+                  <div className="rounded-2xl bg-card/60 border border-border/60 p-3 space-y-2">
+                    <div className="flex items-center justify-between text-[11px] font-bold uppercase tracking-wider text-slate-400">
+                      <span className="flex items-center gap-1.5 text-primary-light">
+                        <Clock className="w-3.5 h-3.5 text-primary-light" />
+                        <span>Tìm kiếm gần đây</span>
+                      </span>
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          clearRecentSearches();
+                        }}
+                        className="text-[11px] text-slate-400 hover:text-rose-400 transition-colors cursor-pointer flex items-center gap-1 font-normal"
+                      >
+                        <Trash2 className="w-3 h-3" />
+                        <span>Xóa tất cả</span>
+                      </button>
+                    </div>
+                    <div className="flex flex-wrap items-center gap-1.5 pt-1">
+                      {recentSearches.map((term) => (
+                        <div
+                          key={term}
+                          onClick={() => {
+                            saveRecentSearch(term);
+                            onSearchChange(term);
+                            mobileInputRef.current?.focus();
+                          }}
+                          className="flex items-center gap-1.5 pl-2.5 pr-1.5 py-1 rounded-xl text-xs bg-muted/80 border border-border/80 text-slate-200 active:scale-95 cursor-pointer font-medium"
+                        >
+                          <Clock className="w-3 h-3 text-slate-400 shrink-0" />
+                          <span className="truncate max-w-[150px]">{term}</span>
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              removeRecentSearch(term);
+                            }}
+                            className="p-0.5 rounded-md text-slate-400 hover:text-rose-400 active:scale-90 shrink-0"
+                          >
+                            <X className="w-3 h-3" />
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {hotGames.length > 0 && (
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between px-1 text-[11px] font-bold uppercase tracking-wider text-slate-400">
+                      <span className="flex items-center gap-1.5 text-accent">
+                        <Sparkles className="w-3.5 h-3.5 text-accent" />
+                        Tựa game nổi bật có nhiều Code
+                      </span>
+                      <span className="text-[10px] text-slate-500 font-normal">Chạm để xem</span>
+                    </div>
+                    <div className="space-y-2">
+                      {hotGames.map((game, gIdx) => (
+                        <div
+                          key={game.id || game.slug || `hot_${gIdx}`}
+                          onClick={() => handleSelectGameItem(game)}
+                          className="flex items-center justify-between gap-3 p-2.5 rounded-2xl bg-card/80 border border-border/70 active:bg-muted/80 active:scale-[0.98] transition-all cursor-pointer shadow-sm"
+                        >
+                          <div className="flex items-center gap-3 min-w-0 flex-1">
+                            <GameSearchIcon game={game} size="md" />
+                            <div className="min-w-0 flex-1">
+                              <div className="flex items-center gap-1.5 flex-wrap">
+                                <span className="font-bold text-sm text-foreground truncate">
+                                  {game.name || 'Game'}
+                                </span>
+                                {game.is_hot && (
+                                  <span className="inline-flex items-center gap-0.5 text-[9px] font-bold px-1.5 py-0.5 rounded-md bg-rose-500/20 text-rose-400 border border-rose-500/30">
+                                    <Flame className="w-2.5 h-2.5" /> HOT
+                                  </span>
+                                )}
+                              </div>
+                              <p className="text-xs text-slate-400 truncate mt-0.5">
+                                {game.publisher || 'NPH chính thức'} • {game.category || 'Game'}
+                              </p>
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-2 shrink-0">
+                            {(game.codes_count || 0) > 0 && (
+                              <span className="text-xs font-mono font-bold px-2 py-1 rounded-xl bg-emerald-500/15 text-emerald-400 border border-emerald-500/30">
+                                {game.codes_count} code
+                              </span>
+                            )}
+                            <ChevronRight className="w-4 h-4 text-slate-400" />
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </>
+            ) : hasResults ? (
+              /* Results State: Matching Games & Codes */
+              <>
+                {sortedGames.length > 0 && (
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between px-1 text-[11px] font-bold uppercase tracking-wider text-slate-400">
+                      <span className="flex items-center gap-1.5 text-primary-light">
+                        <Gift className="w-3.5 h-3.5 text-primary-light" />
+                        Game tìm thấy ({sortedGames.length})
+                      </span>
+                      <span className="text-[10px] text-slate-500 font-normal">Chạm để mở</span>
+                    </div>
+                    <div className="space-y-2">
+                      {sortedGames.map((game, idx) => {
+                        const totalCodes = game.codes_count || (game.codes ? game.codes.length : 0);
+                        return (
+                          <div
+                            key={game.id || game.slug || `m_game_${idx}`}
+                            onClick={() => handleSelectGameItem(game)}
+                            className="flex items-center justify-between gap-3 p-3 rounded-2xl bg-card/90 border border-border/80 active:bg-primary/10 active:border-primary/40 active:scale-[0.98] transition-all cursor-pointer shadow-md"
+                          >
+                            <div className="flex items-center gap-3 min-w-0 flex-1">
+                              <GameSearchIcon game={game} size="md" />
+                              <div className="min-w-0 flex-1">
+                                <div className="flex items-center gap-1.5 flex-wrap">
+                                  <span className="font-bold text-sm text-foreground truncate">
+                                    {game.name || 'Game'}
+                                  </span>
+                                  {game.is_hot && (
+                                    <span className="inline-flex items-center gap-0.5 text-[9px] font-bold px-1.5 py-0.5 rounded-md bg-rose-500/20 text-rose-400 border border-rose-500/30">
+                                      <Flame className="w-2.5 h-2.5" /> HOT
+                                    </span>
+                                  )}
+                                  {isG1Licensed(game) ? (
+                                    <span className="inline-flex items-center gap-0.5 text-[9px] font-semibold px-1.5 py-0.5 rounded-md bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
+                                      <CheckCircle2 className="w-2.5 h-2.5 text-emerald-400" />
+                                      G1
+                                    </span>
+                                  ) : null}
+                                </div>
+                                <p className="text-xs text-slate-400 truncate mt-0.5">
+                                  {game.publisher || 'NPH chính thức'}
+                                </p>
+                              </div>
+                            </div>
+                            <div className="flex items-center gap-2 shrink-0">
+                              <span className="text-xs font-mono font-bold px-2 py-1 rounded-xl bg-emerald-500/15 text-emerald-400 border border-emerald-500/30">
+                                {totalCodes} code
+                              </span>
+                              <ChevronRight className="w-4 h-4 text-slate-400" />
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+
+                {searchResults.codes.length > 0 && (
+                  <div className="space-y-2 pt-2">
+                    <div className="flex items-center justify-between px-1 text-[11px] font-bold uppercase tracking-wider text-slate-400">
+                      <span className="flex items-center gap-1.5 text-emerald-400">
+                        <Sparkles className="w-3.5 h-3.5 text-emerald-400" />
+                        Giftcode tìm thấy ({searchResults.codes.length})
+                      </span>
+                      <span className="text-[10px] text-emerald-400/80 font-mono">1 chạm sao chép</span>
+                    </div>
+                    <div className="space-y-2">
+                      {searchResults.codes.map((item, idx) => {
+                        if (!item || !item.game || !item.code) return null;
+                        const isExpired = item.code?.status === 'expired';
+                        const codeKey = `${item.game.name || 'game'}_${item.code.code || idx}`;
+                        const isCopied = copiedCodeKey === codeKey;
+
+                        return (
+                          <div
+                            key={codeKey}
+                            onClick={() => handleSelectGameItem(item.game)}
+                            className="flex items-center justify-between gap-3 p-3 rounded-2xl bg-card/90 border border-border/80 transition-all cursor-pointer shadow-sm active:scale-[0.98]"
+                          >
+                            <div className="min-w-0 flex-1">
+                              <div className="flex items-center gap-1.5 flex-wrap mb-1">
+                                <span className="text-[11px] font-semibold px-2 py-0.5 rounded-lg bg-muted text-foreground border border-border truncate max-w-[150px]">
+                                  {item.game.name || 'Game'}
+                                </span>
+                                {isExpired ? (
+                                  <span className="inline-flex items-center gap-1 text-[9px] font-mono px-1.5 py-0.5 rounded bg-rose-500/15 text-rose-400 border border-rose-500/30">
+                                    <AlertCircle className="w-2.5 h-2.5" />
+                                    Hết hạn
+                                  </span>
+                                ) : (
+                                  <span className="inline-flex items-center gap-1 text-[9px] font-mono px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-300 border border-emerald-500/40">
+                                    <CheckCircle2 className="w-2.5 h-2.5 text-emerald-400" />
+                                    Còn hạn
+                                  </span>
+                                )}
+                              </div>
+                              <div className="flex items-center gap-2">
+                                <span className="font-mono font-extrabold text-sm text-emerald-300 tracking-wider">
+                                  {item.code.code || ''}
+                                </span>
+                                {item.code.rewards && (
+                                  <span className="text-[11px] text-slate-400 truncate max-w-[150px]">
+                                    • {item.code.rewards}
+                                  </span>
+                                )}
+                              </div>
+                            </div>
+
+                            <button
+                              type="button"
+                              onClick={(e) => handleCopyCode(item.code.code, item.game.name || '', isExpired, e)}
+                              className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer shrink-0 flex items-center gap-1.5 shadow-sm active:scale-95 ${
+                                isCopied
+                                  ? 'bg-emerald-500 text-white shadow-glow-primary'
+                                  : 'bg-emerald-500/20 hover:bg-emerald-500 text-emerald-300 hover:text-white border border-emerald-500/40'
+                              }`}
+                            >
+                              {isCopied ? (
+                                <>
+                                  <Check className="w-3.5 h-3.5" />
+                                  <span>Đã chép</span>
+                                </>
+                              ) : (
+                                <>
+                                  <Copy className="w-3.5 h-3.5" />
+                                  <span>Sao chép</span>
+                                </>
+                              )}
+                            </button>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+              </>
+            ) : (
+              /* No results */
+              <div className="rounded-2xl bg-card/60 border border-border/70 p-6 text-center space-y-3">
+                <div className="w-12 h-12 rounded-2xl bg-muted/80 flex items-center justify-center mx-auto text-slate-400">
+                  <Search className="w-6 h-6" />
+                </div>
+                <div>
+                  <p className="text-sm font-bold text-foreground">
+                    Không tìm thấy game hoặc code khớp với "{searchQuery}"
+                  </p>
+                  <p className="text-xs text-slate-400 mt-1">
+                    Thử tìm kiếm với tên không dấu hoặc từ khóa ngắn hơn.
+                  </p>
+                </div>
+                {hotGames.length > 0 && (
+                  <div className="pt-2 text-left">
+                    <p className="text-xs font-bold text-accent uppercase tracking-wider mb-2">
+                      Gợi ý các game HOT:
+                    </p>
+                    <div className="space-y-1.5">
+                      {hotGames.slice(0, 3).map((g) => (
+                        <div
+                          key={g.id || g.slug}
+                          onClick={() => handleSelectGameItem(g)}
+                          className="flex items-center justify-between p-2 rounded-xl bg-card hover:bg-muted/60 border border-border cursor-pointer active:scale-98"
+                        >
+                          <span className="text-xs font-bold text-foreground truncate">{g.name}</span>
+                          <span className="text-[11px] font-mono text-emerald-400">{g.codes_count || 0} code</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+        </div>,
+        document.body
       )}
     </div>
   );

@@ -39,6 +39,16 @@ export const MarketingNotificationToast: React.FC<MarketingNotificationToastProp
   const [isVisible, setIsVisible] = useState(false);
   const [isExiting, setIsExiting] = useState(false);
   const [isHovered, setIsHovered] = useState(false);
+    const [isMobileSearchActive, setIsMobileSearchActive] = useState(false);
+
+  useEffect(() => {
+    const handleMobileSearchToggle = (e: any) => {
+      setIsMobileSearchActive(Boolean(e?.detail?.isOpen));
+    };
+    window.addEventListener('wcg_mobile_search_toggled', handleMobileSearchToggle);
+    return () => window.removeEventListener('wcg_mobile_search_toggled', handleMobileSearchToggle);
+  }, []);
+
   const [toastPosition, setToastPosition] = useState<ToastPosition>(() => {
     return marketingService.getConfig().toastPosition || 'bottom-left';
   });
@@ -615,7 +625,7 @@ export const MarketingNotificationToast: React.FC<MarketingNotificationToastProp
     }
   };
 
-  if (!notification || !isVisible || !marketingService.getConfig().isEnabled) return null;
+  if (isMobileSearchActive || !notification || !isVisible || !marketingService.getConfig().isEnabled) return null;
   if (typeof document === 'undefined') return null;
 
   // Icon & Theme per notification type
