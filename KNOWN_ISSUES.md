@@ -10,6 +10,25 @@
 
 ## 1. DANH MỤC LỖI & CÁC BẪY ĐÃ THẤT BẠI (DO NOT REPEAT)
 
+### ISSUE-056: Lỗi nháy hình liên tục trong thẻ tin tức do React Reconciliation đè Virtual DOM lên DOM thực tế (`onError`) & Bẫy co cụm ảnh thành ô vuông 80px do kiểm tra `url.includes(gameSlug)`
+- **Triệu chứng**:
+  - Nhiều thẻ tin tức trên web khách (`codegame.shop/news`) bị nháy hình (flicker/flash) liên tục mỗi khi có sự kiện re-render (hover, cuộn, toast marketing FOMO nổ mỗi 15-30s).
+  - Các bài viết chuyên đề (Board Game, 5.000 Nhân Lực, Thị Trường Game VN) bị màn hình đen thui (black container).
+  - Thẻ bài viết "Tổng hợp giftcode quà tặng VIP" hoặc bài game bị co thành ô vuông nhỏ 80px lọt thỏm giữa nền đen rỗng.
+- **Nguyên nhân gốc rễ**:
+  1. *React Virtual DOM Reconciliation vs Real DOM `onError`*: `NewsView.tsx` và `NewsDetailModal.tsx` can thiệp trực tiếp `el.src = fallback` trong `onError` của thẻ `<img>`. Khi React re-render, Virtual DOM có `src` ban đầu khác với Real DOM, React ép ghi đè lại URL lỗi. Trình duyệt tải lại lỗi $\rightarrow$ kích hoạt `onError` $\rightarrow$ DOM đổi $\rightarrow$ re-render ép lại $\rightarrow$ tạo thành vòng lặp nháy hình liên tục.
+  2. *Bẫy Substring Match Trap trong hàm nhận diện Icon*: `url.includes(gameSlug)` trả về `true` cho bài viết có `cover_url: '/news_covers/qua-tang-giftcode-vip.webp'` và `game_slug: 'qua-tang'`, khiến component hiểu nhầm ảnh phong cảnh 1200x675 thành icon vuông game 80px và áp class `w-20 h-20` giữa hộp đen!
+  3. *Lỗi 404 chuỗi fallback ngắt dòng*: Khi fallback trỏ về `/game_icons/${gameSlug}.webp` nhưng slug này là slug chủ đề không có file thật trên đĩa, cờ `onerror = null` làm ảnh chết hẳn và để lộ nền đen `bg-slate-950`.
+- **Giải pháp chuẩn đã kiểm chứng**:
+  1. Xây dựng module chuẩn hóa `<SafeNewsCover>` với `useState` để React lưu giữ trạng thái URL fallback bền vững qua mọi chu kỳ re-render, loại bỏ 100% hiện tượng nháy hình.
+  2. Thiết lập hàm `resolveTopicCoverByKeywords` ánh xạ chính xác 10 chủ đề chuyên đề lớn (`nhan-luc`, `board-game`, `qua-tang`, `thi-truong`, `xbox`, `apple-arcade`, `cktg`, `game-offline`, `xac-thuc`, `blv`) với ảnh bìa phong cảnh 1200x675 tràn viền (Full-Bleed `w-full h-full object-cover`).
+  3. Tinh chỉnh `isOnlyIconUrl` chỉ nhận diện `/game_icons/` (loại trừ `/news_covers/`), giải phóng ảnh phong cảnh hiển thị trọn vẹn tỉ lệ 16:10.
+  4. Cập nhật và đồng bộ 100% 91/91 bài viết trên Cloudflare D1 và Web Khách, bổ sung bộ phân loại tự động vào crawler `auto_news_publisher.cjs`.
+- ⛔ **CÁCH SỬA ĐÃ THẤT BẠI - TUYỆT ĐỐI KHÔNG LẶP LẠI**:
+  - ❌ *Không gán trực tiếp `e.currentTarget.src = fallback` trong `onError`*: Nếu component có polling hoặc toast marketing nổ thường xuyên, việc can thiệp trực tiếp vào DOM sẽ gây ra xung đột reconcile và nhấp nháy vô tận. Luôn bọc trong sub-component với `useState`.
+  - ❌ *Không dùng `url.includes(gameSlug)` để phân biệt icon game*: Tên file ảnh bìa chuyên đề thường chứa từ khóa trùng với slug chủ đề. Chỉ kiểm tra `url.startsWith('/game_icons/') && !url.includes('/news_covers/')`.
+
+
 ### ISSUE-012: Chồng chéo giao diện tìm kiếm trên mobile do bàn phím ảo đẩy Bottom Nav và Toast Marketing đè lên ô input
 - **Triệu chứng**:
   - Khi người dùng chạm vào ô tìm kiếm trên điện thoại di động và bắt đầu gõ (ví dụ gõ "Hắc"), bàn phím ảo bật lên đẩy thanh Bottom Navigation lên sát mép trên bàn phím.

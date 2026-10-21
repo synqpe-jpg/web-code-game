@@ -18,6 +18,7 @@ import {
 import type { NewsArticle, GameItem } from '../types/game';
 import { newsService } from '../services/newsService';
 import { optimizeImageUrl } from '../utils/imageCompressor';
+import { SafeNewsCover } from '../utils/newsImageUtils';
 
 interface NewsDetailModalProps {
   article: NewsArticle | null;
@@ -221,87 +222,15 @@ export const NewsDetailModal: React.FC<NewsDetailModalProps> = ({
             </div>
 
             {/* Cover Image Banner */}
-            {(() => {
-              const rawCover = (article.cover_url || '').trim();
-              const modalCover = (rawCover && rawCover !== '/og-image.jpg')
-                ? rawCover
-                : (article.game_slug ? `/game_icons/${article.game_slug}.webp` : (article.gallery_urls?.[0] || '/og-image.jpg'));
-              const isGameIcon = Boolean(
-                modalCover !== '/og-image.jpg' && (
-                  modalCover.includes('/game_icons/') || 
-                  (article.game_slug && modalCover.includes(article.game_slug))
-                )
-              );
-              return (
-                <div className="relative w-full aspect-video sm:aspect-[21/9] rounded-2xl overflow-hidden border border-border/80 shadow-md bg-slate-950 flex items-center justify-center">
-                  {/* Ambient blur backdrop */}
-                  <div
-                    className="absolute inset-0 bg-cover bg-center blur-2xl opacity-40 scale-125 pointer-events-none"
-                    style={{ backgroundImage: `url(${modalCover})` }}
-                  />
-                  <div className="absolute inset-0 bg-gradient-to-t from-slate-950/85 via-slate-950/35 to-transparent pointer-events-none" />
+            <div className="relative w-full aspect-video sm:aspect-[21/9] rounded-2xl overflow-hidden border border-border/80 shadow-md bg-slate-950 flex items-center justify-center">
+              <SafeNewsCover article={article} isHero={true} />
 
-                  {/* Sub-logo Watermark Badge: CodeGame.Shop */}
-                  <div className="absolute top-3 right-3 z-20 flex items-center gap-1.5 px-3 py-1 rounded-full bg-slate-950/85 backdrop-blur-md border border-white/25 shadow-lg text-[11px] font-bold text-white select-none">
-                    <img src="/og-image.jpg" alt="CodeGame.Shop" className="w-4 h-4 rounded-full object-cover ring-1 ring-primary/60" />
-                    <span className="tracking-tight text-slate-100">CodeGame.Shop • Nguồn Độc Quyền</span>
-                  </div>
-
-                  {isGameIcon ? (
-                    <div className="relative z-10 flex flex-col sm:flex-row items-center justify-center p-6 gap-4 text-center sm:text-left">
-                      <img
-                        src={modalCover}
-                        alt={article.title}
-                        className="w-24 h-24 sm:w-32 sm:h-32 rounded-3xl object-cover shadow-2xl ring-4 ring-white/20 shrink-0"
-                        loading="eager"
-                        referrerPolicy="no-referrer"
-                        onError={(e) => {
-                          const el = e.currentTarget;
-                          el.onerror = null;
-                          if (article.game_slug && !el.src.includes(`/game_icons/${article.game_slug}.webp`)) {
-                            el.src = `/game_icons/${article.game_slug}.webp`;
-                          } else if (article.gallery_urls && article.gallery_urls.length > 0 && !el.src.includes(article.gallery_urls[0])) {
-                            el.src = article.gallery_urls[0];
-                          } else {
-                            el.src = '/og-image.jpg';
-                          }
-                        }}
-                      />
-                      {article.game_name && (
-                        <div className="space-y-1">
-                          <span className="px-3 py-1 rounded-full text-xs font-black bg-primary text-white uppercase tracking-wider inline-block shadow-md">
-                            {article.game_name}
-                          </span>
-                          <p className="text-white font-bold text-sm sm:text-lg drop-shadow">
-                            Cẩm Nang & Trọn Bộ Giftcode Mới Nhất
-                          </p>
-                        </div>
-                      )}
-                    </div>
-                  ) : (
-                    <img
-                      src={optimizeImageUrl(modalCover, 1200)}
-                      alt={article.title}
-                      className="relative z-10 w-full h-full object-cover"
-                      loading="eager"
-                      decoding="async"
-                      referrerPolicy="no-referrer"
-                      onError={(e) => {
-                        const el = e.currentTarget;
-                        el.onerror = null;
-                        if (article.game_slug && !el.src.includes(`/game_icons/${article.game_slug}.webp`)) {
-                          el.src = `/game_icons/${article.game_slug}.webp`;
-                        } else if (article.gallery_urls && article.gallery_urls.length > 0 && !el.src.includes(article.gallery_urls[0])) {
-                          el.src = article.gallery_urls[0];
-                        } else {
-                          el.src = '/og-image.jpg';
-                        }
-                      }}
-                    />
-                  )}
-                </div>
-              );
-            })()}
+              {/* Sub-logo Watermark Badge: CodeGame.Shop */}
+              <div className="absolute top-3 right-3 z-20 flex items-center gap-1.5 px-3 py-1 rounded-full bg-slate-950/85 backdrop-blur-md border border-white/25 shadow-lg text-[11px] font-bold text-white select-none">
+                <img src="/og-image.jpg" alt="CodeGame.Shop" className="w-4 h-4 rounded-full object-cover ring-1 ring-primary/60" />
+                <span className="tracking-tight text-slate-100">CodeGame.Shop • Nguồn Độc Quyền</span>
+              </div>
+            </div>
 
             {/* Excerpt Lead */}
             {article.excerpt && (
@@ -538,61 +467,9 @@ export const NewsDetailModal: React.FC<NewsDetailModalProps> = ({
                     className="group p-3 rounded-xl bg-muted/40 hover:bg-muted/80 border border-border/60 hover:border-primary/50 transition-all cursor-pointer flex flex-col justify-between"
                   >
                     <div>
-                      {(() => {
-                        const rawRel = (rel.cover_url || '').trim();
-                        const relCover = (rawRel && rawRel !== '/og-image.jpg')
-                          ? rawRel
-                          : (rel.game_slug ? `/game_icons/${rel.game_slug}.webp` : (rel.gallery_urls?.[0] || '/og-image.jpg'));
-                        const isRelGameIcon = Boolean(
-                          relCover !== '/og-image.jpg' && (
-                            relCover.includes('/game_icons/') || 
-                            (rel.game_slug && relCover.includes(rel.game_slug))
-                          )
-                        );
-                        return (
-                          <div className="relative w-full aspect-video rounded-lg overflow-hidden mb-2 bg-slate-950 flex items-center justify-center">
-                            <div
-                              className="absolute inset-0 bg-cover bg-center blur-lg opacity-30 pointer-events-none"
-                              style={{ backgroundImage: `url(${relCover})` }}
-                            />
-                            {isRelGameIcon ? (
-                              <img
-                                src={relCover}
-                                alt={rel.title}
-                                className="relative z-10 w-12 h-12 rounded-xl object-cover shadow-md ring-1 ring-white/20 group-hover:scale-105 transition-transform"
-                                loading="lazy"
-                                referrerPolicy="no-referrer"
-                                onError={(e) => {
-                                  const el = e.currentTarget;
-                                  el.onerror = null;
-                                  if (rel.game_slug && !el.src.includes(`/game_icons/${rel.game_slug}.webp`)) {
-                                    el.src = `/game_icons/${rel.game_slug}.webp`;
-                                  } else {
-                                    el.src = '/og-image.jpg';
-                                  }
-                                }}
-                              />
-                            ) : (
-                              <img
-                                src={relCover}
-                                alt={rel.title}
-                                className="relative z-10 w-full h-full object-cover group-hover:scale-105 transition-transform"
-                                loading="lazy"
-                                referrerPolicy="no-referrer"
-                                onError={(e) => {
-                                  const el = e.currentTarget;
-                                  el.onerror = null;
-                                  if (rel.game_slug && !el.src.includes(`/game_icons/${rel.game_slug}.webp`)) {
-                                    el.src = `/game_icons/${rel.game_slug}.webp`;
-                                  } else {
-                                    el.src = '/og-image.jpg';
-                                  }
-                                }}
-                              />
-                            )}
-                          </div>
-                        );
-                      })()}
+                      <div className="mb-2">
+                        <SafeNewsCover article={rel} />
+                      </div>
                       <h4 className="text-xs font-bold text-white line-clamp-2 group-hover:text-primary-light transition-colors">
                         {rel.title}
                       </h4>

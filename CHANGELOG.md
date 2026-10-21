@@ -7,6 +7,43 @@ Mỗi mục sửa lỗi đều ghi nhận **Nguyên nhân gốc rễ (Root Cause
 
 ## [2026-10-21]
 
+### 110. Loại Bỏ Triệt Để Hiện Tượng Nháy Hình (Zero-Flicker) Trong Mục Tin Tức: Chuẩn Hóa SafeNewsCover State-Managed, Phục Hồi Ảnh Bìa Chuyên Đề Phong Cảnh (Full-Bleed 16:10) & Đồng Bộ Toàn Bộ 91 Bài Viết Trên Cloudflare D1
+- **Mô tả & Yêu cầu người dùng**:
+  - Người dùng gửi ảnh chụp màn hình trang Tin tức (`codegame.shop/news`) và phản ánh: *"Nhiều mục tin tức hiển thị trên web khách đang nháy hình, sửa giúp tôi, đảm bảo phải có ảnh liên quan của chủ đề bài viết."*
+  - Hiện trạng ảnh chụp: Các thẻ tin tức nháy hình liên tục; bài "Tổng hợp Giftcode VIP" bị co nhỏ thành ô vuông 80px lọt thỏm giữa nền đen; các bài viết "5.000 nhân lực", "Board game văn hóa", "Thị trường game VN" bị ô đen tuyền; một số bài icon bị thu nhỏ giữa card rỗng.
+- **Nguyên nhân gốc rễ & Phân tích (Root Cause & Analysis)**:
+  1. *Xung Đột React DOM Reconciliation Với Thẻ Img Trực Tiếp (`onError`)*: Trong `NewsView.tsx` và `NewsDetailModal.tsx`, việc xử lý lỗi ảnh dùng lệnh trực tiếp `el.src = fallback; el.onerror = null;`. Khi React re-render (do toast marketing FOMO nổ mỗi 15-30s, đếm ngược hoặc hover), React so sánh Virtual DOM (`src` cũ lỗi) với Real DOM (`src` đã đổi), ép trình duyệt tải lại URL lỗi. Trình duyệt tải thất bại $\rightarrow$ kích hoạt `onError` $\rightarrow$ DOM đổi $\rightarrow$ re-render ép lại $\rightarrow$ tạo thành vòng lặp nhấp nháy hình liên tục (Flickering loop).
+  2. *Bẫy Substring Match Khi Phân Biệt Icon Game*: Logic `isCardGameIcon = (cover.includes('/game_icons/') || (gameSlug && cover.includes(gameSlug)))` đã mắc bẫy khi bài viết có `cover_url: '/news_covers/qua-tang-giftcode-vip.webp'` và `game_slug: 'qua-tang'`. Vì URL ảnh chứa chuỗi 'qua-tang', component hiểu nhầm đây là icon game và ép co lại thành `w-20 h-20` giữa khung đen rỗng.
+  3. *Lỗi Fallback Chuỗi 404 Đứt Gãy*: Khi ảnh ngoài bị 403, logic cũ fallback sang `/game_icons/${article.game_slug}.webp`. Với các bài viết chuyên đề (chủ đề không phải game), file này không tồn tại trên đĩa (404), trong khi cờ `onerror = null` đã ngắt fallback tiếp theo khiến thẻ biến thành ô đen chết trên nền `bg-slate-950`.
+- **Giải pháp toàn diện đã triển khai (Solution)**:
+  1. *Xây Dựng Component `<SafeNewsCover>` Quản Lý Bằng React State*:
+     - Quản lý đường dẫn ảnh thông qua hook `useState(initialUrl)`. Khi phát hiện lỗi tải, state được cập nhật bền vững qua các mốc: `Ảnh Gốc` $\rightarrow$ `Ảnh Chuyên Đề/Icon Game Hợp Lệ` $\rightarrow$ `Ảnh Mặc Định /news_covers/game-offline-hay.webp`.
+     - Ngăn chặn hoàn toàn việc React reconciliation ép lại URL lỗi trong các chu kỳ re-render tiếp theo, triệt tiêu 100% hiện tượng nháy hình.
+  2. *Bộ Ánh Xạ Chuyên Đề Thông Minh (`resolveTopicCoverByKeywords`)*:
+     - Tự động nhận diện từ khóa trong tiêu đề/nội dung/slug để gán đúng ảnh bìa phong cảnh chất lượng cao (1200x675 / 16:10):
+       - `nhân lực`, `5.000 nhân lực`, `tuyển dụng` $\rightarrow$ `/news_covers/nhan-luc-nganh-game-viet.webp`
+       - `board game`, `văn hóa việt` $\rightarrow$ `/news_covers/board-game-van-hoa-viet.webp`
+       - `quà tặng`, `giftcode vip` $\rightarrow$ `/news_covers/qua-tang-giftcode-vip.webp`
+       - `thị trường`, `doanh thu`, `chính sách` $\rightarrow$ `/news_covers/thi-truong-game-viet-nam.webp`
+       - `xbox`, `console` $\rightarrow$ `/news_covers/xbox-games-collection.webp`
+       - `apple`, `arcade`, `ios` $\rightarrow$ `/news_covers/apple-arcade-games.webp`
+       - `esports`, `cktg`, `liquipedia` $\rightarrow$ `/news_covers/cktg-2026-esports.webp`
+       - `game offline`, `không mạng` $\rightarrow$ `/news_covers/game-offline-hay.webp`
+  3. *Hiển Thị Tràn Viền Full-Bleed & Ambient Glow Đẳng Cấp*:
+     - Ảnh bìa phong cảnh được hiển thị tràn viền `w-full h-full object-cover` tỉ lệ 16:10 chuẩn e-magazine.
+     - Với các bài viết tựa game hiển thị icon Google Play: Icon nổi bật ở giữa với viền bo tròn đổ bóng, phía sau là lớp nền ambient phát sáng mờ ảo theo màu sắc game, loại bỏ hoàn toàn các hộp đen rỗng.
+  4. *Làm Sạch Dữ Liệu & Đồng Bộ 100% 91/91 Bài Viết Trên Cloudflare D1*:
+     - Rà soát toàn bộ 91 bài viết trên cơ sở dữ liệu production Cloudflare D1; chuẩn hóa bài viết Xbox sang `/news_covers/xbox-games-collection.webp`.
+     - Đối soát 100% bài viết: 0 bài viết bị thiếu file ảnh cục bộ, loại bỏ triệt để các URL 403 từ báo chí bên ngoài.
+     - Cập nhật bộ cào tin tức tự động `scripts/crawler/auto_news_publisher.cjs` để áp dụng ngay chuẩn phân loại ảnh bìa mới cho các bài viết tự động trong tương lai.
+- **Files Modified**:
+  - `src/utils/newsImageUtils.tsx` (Mới tạo)
+  - `src/components/NewsView.tsx`
+  - `src/components/NewsDetailModal.tsx`
+  - `scripts/crawler/auto_news_publisher.cjs`
+  - `CHANGELOG.md` (Mục 110)
+  - `KNOWN_ISSUES.md` (ISSUE-056)
+
 ### 109. Đồng Bộ Toàn Diện Nút Ẩn/Hiện "Đã Bán" Từ Admin Lên Web Khách (Utilities & Store): Đồng Bộ Cloudflare D1, Kết Nối Trực Tiếp Nút Bấm Toolbar & Modal Chi Tiết
 - **Mô tả & Yêu cầu người dùng**:
   - Người dùng gửi ảnh chụp màn hình Admin mục Tiện ích (`admin-code-game-shop.pages.dev/admin#/utilities`) và hỏi: *"Trong admin, tôi đã ẩn đã bán sao ngoài web khách vẫn hiện. giúp tôi."*

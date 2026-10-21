@@ -424,15 +424,39 @@ async function generateAutonomousArticle(scraped, sourceUrl) {
 
   // Xác định ảnh bìa an toàn tuyệt đối
   let cover_url = '';
-  if (gameSlug && fs.existsSync(path.join(GAME_ICONS_DIR, `${gameSlug}.webp`))) {
-    cover_url = `/game_icons/${gameSlug}.webp`;
-  } else if (matchedGame?.icon_url && !matchedGame.icon_url.includes('og-image')) {
-    cover_url = matchedGame.icon_url;
-  } else if (scraped.cover_url && scraped.cover_url.trim() && !scraped.cover_url.includes('logo') && !scraped.cover_url.includes('favicon')) {
-    // Tải ảnh bìa bài viết về lưu trữ nội bộ để chống 100% chặn hotlinking
-    const localCoverSlug = gameSlug || slug;
-    const localCover = await downloadImageToNewsCover(scraped.cover_url, localCoverSlug);
-    cover_url = localCover || '';
+
+  // Ưu tiên 1: Nếu bài viết thuộc chủ đề chuyên đề ngành/tổng hợp (nhân lực, board game, giftcode vip...), dùng ảnh bìa chuyên đề chuẩn 1200x675
+  const combinedText = ((scraped.title || '') + ' ' + title + ' ' + (gameSlug || '')).toLowerCase();
+  if (combinedText.includes('nhân lực') || combinedText.includes('5.000 nhân lực') || combinedText.includes('tuyển dụng')) {
+    cover_url = '/news_covers/nhan-luc-nganh-game-viet.webp';
+  } else if (combinedText.includes('board game') || combinedText.includes('văn hóa việt')) {
+    cover_url = '/news_covers/board-game-van-hoa-viet.webp';
+  } else if (combinedText.includes('quà tặng') || combinedText.includes('giftcode vip') || combinedText.includes('tổng hợp trọn bộ')) {
+    cover_url = '/news_covers/qua-tang-giftcode-vip.webp';
+  } else if (combinedText.includes('thị trường') || combinedText.includes('doanh thu') || combinedText.includes('chính sách')) {
+    cover_url = '/news_covers/thi-truong-game-viet-nam.webp';
+  } else if (combinedText.includes('xbox') || combinedText.includes('console')) {
+    cover_url = '/news_covers/xbox-games-collection.webp';
+  } else if (combinedText.includes('apple') || combinedText.includes('arcade') || combinedText.includes('ios')) {
+    cover_url = '/news_covers/apple-arcade-games.webp';
+  } else if (combinedText.includes('esports') || combinedText.includes('cktg') || combinedText.includes('liquipedia')) {
+    cover_url = '/news_covers/cktg-2026-esports.webp';
+  } else if (combinedText.includes('game offline') || combinedText.includes('không mạng')) {
+    cover_url = '/news_covers/game-offline-hay.webp';
+  }
+
+  // Ưu tiên 2: Nếu là tựa game có icon hợp lệ trong kho
+  if (!cover_url) {
+    if (gameSlug && fs.existsSync(path.join(GAME_ICONS_DIR, `${gameSlug}.webp`))) {
+      cover_url = `/game_icons/${gameSlug}.webp`;
+    } else if (matchedGame?.icon_url && !matchedGame.icon_url.includes('og-image')) {
+      cover_url = matchedGame.icon_url;
+    } else if (scraped.cover_url && scraped.cover_url.trim() && !scraped.cover_url.includes('logo') && !scraped.cover_url.includes('favicon')) {
+      // Tải ảnh bìa bài viết về lưu trữ nội bộ để chống 100% chặn hotlinking
+      const localCoverSlug = gameSlug || slug;
+      const localCover = await downloadImageToNewsCover(scraped.cover_url, localCoverSlug);
+      cover_url = localCover || '';
+    }
   }
 
   if (!cover_url && scraped.images && scraped.images.length > 0) {
@@ -443,22 +467,9 @@ async function generateAutonomousArticle(scraped, sourceUrl) {
     }
   }
 
-  // Nếu vẫn chưa có ảnh bìa: Chọn ảnh chuyên đề gaming artwork tương ứng với thể loại bài viết (TUYỆT ĐỐI KHÔNG LẤY LOGO WEB LÀM ẢNH BÌA CHÍNH)
+  // Nếu vẫn chưa có ảnh bìa: Mặc định chọn ảnh phong cảnh gaming phù hợp
   if (!cover_url) {
-    const lowerTitle = (scraped.title || '').toLowerCase();
-    if (lowerTitle.includes('esports') || lowerTitle.includes('cktg') || lowerTitle.includes('lmht')) {
-      cover_url = '/news_covers/cktg-2026-esports.webp';
-    } else if (lowerTitle.includes('apple') || lowerTitle.includes('arcade') || lowerTitle.includes('ios')) {
-      cover_url = '/news_covers/apple-arcade-games.webp';
-    } else if (lowerTitle.includes('xbox') || lowerTitle.includes('console') || lowerTitle.includes('pc')) {
-      cover_url = '/news_covers/xbox-games-collection.webp';
-    } else if (lowerTitle.includes('board game') || lowerTitle.includes('cờ')) {
-      cover_url = '/news_covers/board-game-van-hoa-viet.webp';
-    } else if (lowerTitle.includes('thị trường') || lowerTitle.includes('doanh thu') || lowerTitle.includes('chính sách') || lowerTitle.includes('nhân lực')) {
-      cover_url = '/news_covers/thi-truong-game-viet-nam.webp';
-    } else {
-      cover_url = '/news_covers/game-offline-hay.webp';
-    }
+    cover_url = '/news_covers/game-offline-hay.webp';
   }
 
   const paragraphs = (scraped.content || '')

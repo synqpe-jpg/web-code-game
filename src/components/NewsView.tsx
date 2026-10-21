@@ -21,37 +21,10 @@ import {
 } from 'lucide-react';
 import { NewsArticle } from '../types/game';
 import { newsService } from '../services/newsService';
+import { dataService } from '../services/dataService';
+import { SafeNewsCover } from '../utils/newsImageUtils';
 import { NewsDetailModal } from './NewsDetailModal';
 import { useLanguage } from '../context/LanguageContext';
-
-const getSafeArticleCover = (article: NewsArticle): string => {
-  const raw = (article.cover_url || '').trim();
-  if (raw && raw !== '/og-image.jpg') return raw;
-  if (article.game_slug) return `/game_icons/${article.game_slug}.webp`;
-  if (article.gallery_urls && article.gallery_urls.length > 0 && article.gallery_urls[0]) {
-    return article.gallery_urls[0];
-  }
-  return '/og-image.jpg';
-};
-
-const isGameIconCover = (url: string, gameSlug?: string): boolean => {
-  if (!url || url === '/og-image.jpg') return false;
-  if (url.includes('/game_icons/')) return true;
-  if (gameSlug && url.includes(gameSlug)) return true;
-  return false;
-};
-
-const handleImageFallback = (e: React.SyntheticEvent<HTMLImageElement>, article: NewsArticle) => {
-  const el = e.currentTarget;
-  el.onerror = null; // Strictly prevent infinite re-render / reload loop
-  if (article.game_slug && !el.src.includes(`/game_icons/${article.game_slug}.webp`)) {
-    el.src = `/game_icons/${article.game_slug}.webp`;
-  } else if (article.gallery_urls && article.gallery_urls.length > 0 && !el.src.includes(article.gallery_urls[0])) {
-    el.src = article.gallery_urls[0];
-  } else {
-    el.src = '/og-image.jpg';
-  }
-};
 
 interface NewsViewProps {
   onShowToast: (title: string, message?: string, type?: 'success' | 'error' | 'info') => void;
@@ -99,6 +72,8 @@ export const NewsView: React.FC<NewsViewProps> = ({
 
   useEffect(() => {
     loadArticles();
+    // Tự động kéo dữ liệu mới nhất từ máy chủ để làm sạch hoàn toàn cache cũ trên client
+    dataService.syncWithCloudflareKV(true).catch(() => {});
 
     // Listen to news updates (from admin sync)
     const handleNewsUpdate = () => loadArticles();
@@ -258,42 +233,8 @@ export const NewsView: React.FC<NewsViewProps> = ({
             className="group relative cursor-pointer overflow-hidden rounded-3xl bg-card border border-border/80 hover:border-primary/50 shadow-lg hover:shadow-xl transition-all duration-300 grid grid-cols-1 md:grid-cols-12 gap-0 md:max-h-[290px]"
           >
             {/* Cover image (5 cols on md, 4 cols on lg/xl) */}
-            {(() => {
-              const heroCover = getSafeArticleCover(featuredArticle);
-              const isGameIcon = isGameIconCover(heroCover, featuredArticle.game_slug);
-              return (
-                <div className="md:col-span-5 lg:col-span-4 xl:col-span-4 relative overflow-hidden bg-slate-950 flex items-center justify-center min-h-[190px] max-h-[240px] md:max-h-none md:h-full">
-                  {/* Ambient blur backdrop */}
-                  <div
-                    className="absolute inset-0 bg-cover bg-center blur-2xl opacity-45 scale-125 pointer-events-none transition-transform duration-700 group-hover:scale-135"
-                    style={{ backgroundImage: `url(${heroCover})` }}
-                  />
-                  <div className="absolute inset-0 bg-gradient-to-t from-slate-950/85 via-slate-950/30 to-transparent pointer-events-none" />
-
-                  {isGameIcon ? (
-                    <div className="relative z-10 flex items-center justify-center p-6">
-                      <div className="relative group-hover:scale-110 transition-transform duration-300">
-                        <img
-                          src={heroCover}
-                          alt={featuredArticle.title}
-                          className="w-24 h-24 sm:w-28 sm:h-28 rounded-3xl object-cover shadow-2xl ring-2 ring-white/25 group-hover:ring-primary/80"
-                          loading="eager"
-                          referrerPolicy="no-referrer"
-                          onError={(e) => handleImageFallback(e, featuredArticle)}
-                        />
-                        <div className="absolute -bottom-2 inset-x-0 mx-auto w-16 h-2 bg-black/60 rounded-full blur-sm" />
-                      </div>
-                    </div>
-                  ) : (
-                    <img
-                      src={heroCover}
-                      alt={featuredArticle.title}
-                      className="relative z-10 w-full h-full object-cover transition-transform duration-700 group-hover:scale-105"
-                      loading="eager"
-                      referrerPolicy="no-referrer"
-                      onError={(e) => handleImageFallback(e, featuredArticle)}
-                    />
-                  )}
+            <div className="md:col-span-5 lg:col-span-4 xl:col-span-4 relative overflow-hidden bg-slate-950 flex items-center justify-center min-h-[190px] max-h-[240px] md:max-h-none md:h-full">
+              <SafeNewsCover article={featuredArticle} isHero={true} />
 
                   {/* Badges on image */}
                   <div className="absolute top-3 left-3 z-20 flex flex-wrap items-center gap-1.5">
@@ -314,8 +255,6 @@ export const NewsView: React.FC<NewsViewProps> = ({
                     <span className="tracking-tight text-slate-200">CodeGame.Shop</span>
                   </div>
                 </div>
-              );
-            })()}
 
             {/* Info panel (7 cols on md, 8 cols on lg/xl) */}
             <div className="md:col-span-7 lg:col-span-8 xl:col-span-8 p-4 sm:p-5 lg:p-6 flex flex-col justify-between space-y-2 sm:space-y-3">
@@ -486,42 +425,8 @@ export const NewsView: React.FC<NewsViewProps> = ({
                   className="group relative cursor-pointer flex flex-col overflow-hidden rounded-2xl bg-card border border-border/80 hover:border-primary/50 shadow-sm hover:shadow-xl transition-all duration-300 hover:-translate-y-1"
                 >
                   {/* Thumbnail */}
-                  {(() => {
-                    const cardCover = getSafeArticleCover(article);
-                    const isCardGameIcon = isGameIconCover(cardCover, article.game_slug);
-                    return (
-                      <div className="relative aspect-[16/10] overflow-hidden bg-slate-950 flex items-center justify-center">
-                        {/* Ambient blur backdrop */}
-                        <div
-                          className="absolute inset-0 bg-cover bg-center blur-2xl opacity-40 scale-125 pointer-events-none transition-transform duration-700 group-hover:scale-135"
-                          style={{ backgroundImage: `url(${cardCover})` }}
-                        />
-                        <div className="absolute inset-0 bg-gradient-to-t from-slate-950/85 via-slate-950/30 to-transparent pointer-events-none" />
-
-                        {isCardGameIcon ? (
-                          <div className="relative z-10 flex items-center justify-center p-4 w-full h-full">
-                            <div className="relative group-hover:scale-110 transition-transform duration-300">
-                              <img
-                                src={cardCover}
-                                alt={article.title}
-                                className="w-20 h-20 sm:w-24 sm:h-24 rounded-2xl object-cover shadow-2xl ring-2 ring-white/20 group-hover:ring-primary/80"
-                                loading="lazy"
-                                referrerPolicy="no-referrer"
-                                onError={(e) => handleImageFallback(e, article)}
-                              />
-                              <div className="absolute -bottom-2 inset-x-0 mx-auto w-12 h-2 bg-black/60 rounded-full blur-sm" />
-                            </div>
-                          </div>
-                        ) : (
-                          <img
-                            src={cardCover}
-                            alt={article.title}
-                            className="relative z-10 w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
-                            loading="lazy"
-                            referrerPolicy="no-referrer"
-                            onError={(e) => handleImageFallback(e, article)}
-                          />
-                        )}
+                  <div className="relative aspect-[16/10] overflow-hidden bg-slate-950 flex items-center justify-center">
+                    <SafeNewsCover article={article} />
 
                         {/* Badges on image */}
                         <div className="absolute top-3 left-3 z-20 flex flex-wrap gap-1.5">
@@ -552,8 +457,6 @@ export const NewsView: React.FC<NewsViewProps> = ({
                           </div>
                         )}
                       </div>
-                    );
-                  })()}
 
                   {/* Article Info */}
                   <div className="p-5 flex-1 flex flex-col justify-between space-y-3">
