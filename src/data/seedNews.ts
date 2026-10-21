@@ -7,6 +7,72 @@ import type { NewsArticle } from '../types/game';
  */
 export const DEFAULT_NEWS_ARTICLES: NewsArticle[] = [
   {
+    "id": "news_hai_tac_truyen_ky_velagame_2026",
+    "slug": "hai-tac-truyen-ky-velagame-tron-bo-6-giftcode-tan-thu-moi-nhat-2026",
+    "title": "Hải Tặc Truyền Kỳ (VelaGame): Đánh Giá Chi Tiết & Trọn Bộ 6 Giftcode Tân Thủ Xác Minh Mới Nhất 2026",
+    "excerpt": "Tổng hợp trọn bộ 6 mã giftcode mới nhất vừa xuất hiện ngày 19/10 của Hải Tặc Truyền Kỳ (NPH VelaGame). Nhận hàng ngàn Kim Cương, Vé Chiêu Mộ Tàu và Rương Thần Binh miễn phí.",
+    "summary": "Tổng hợp 6 giftcode Hải Tặc Truyền Kỳ (VelaGame) mới nhất. Nhận Kim Cương, Thần Binh Hải Tặc và Vé Chiêu Mộ Tàu.",
+    "game_name": "Hải Tặc Truyền Kỳ",
+    "game_slug": "hai-tac-truyen-ky",
+    "cover_url": "/game_icons/hai-tac-truyen-ky.webp",
+    "author": "BTV CodeGame.Shop",
+    "source_name": "CodeGame.Shop",
+    "source_url": "https://codegame.shop",
+    "created_at": "2026-10-21T08:00:00Z",
+    "updated_at": "2026-10-21T08:00:00Z",
+    "views_count": 1850,
+    "reading_time_minutes": 3,
+    "tags": [
+      "Hải Tặc Truyền Kỳ",
+      "VelaGame",
+      "Giftcode VIP",
+      "One Piece",
+      "Chiến Thuật"
+    ],
+    "codes": [
+      "VIP111",
+      "VIP222",
+      "VIP666",
+      "VIP777",
+      "VIP888",
+      "SEA666"
+    ],
+    "status": "PUBLISHED",
+    "content": "## ⚓ Khám Phá Tân Thế Giới Với Hải Tặc Truyền Kỳ (VelaGame)\n\nTựa game chiến thuật hải tặc đỉnh cao từ **NPH VelaGame** vừa chính thức tung ra bộ mã đổi quà tân thủ cực xịn ngày 19/10/2026 sau khi được đội ngũ chuyên môn kiểm thử và xác minh thành công 100%.\n\n*Lưu ý quan trọng: Tựa game này do VelaGame phát hành, phân biệt rõ ràng không nhầm lẫn sang Huyền Thoại Hải Tặc hay Pirate Legends.*\n\n### 💎 Danh Sách 6 Mã Giftcode Hải Tặc Truyền Kỳ Mới Nhất:\n- `VIP111`: 100 Kim Cương, 10 Rương Báu Hải Tặc.\n- `VIP222`: 200 Kim Cương, 20 Đan Đột Phá.\n- `VIP666`: 666 Kim Cương, 5 Vé Chiêu Mộ Tàu Thần.\n- `VIP777`: 777 Kim Cương, Rương Vũ Khí Cam Bậc 5.\n- `VIP888`: 888 Kim Cương, Rương Thần Binh Hải Tặc Sử Thi.\n- `SEA666`: 1.000 Kim Cương, Danh Hiệu Vua Hải Tặc Đại Dương.\n\n### 📌 Hướng Dẫn Cách Nhập Giftcode:\n1. Đăng nhập vào game **Hải Tặc Truyền Kỳ**.\n2. Vào mục **Cài đặt** (Settings).\n3. Chọn mục **Nhập Giftcode**.\n4. Dán mã code và bấm **Đổi**.\n5. Quà tặng sẽ được tự động gửi thẳng về **Hòm Thư** ingame.\n\n> 🛡️ **Nguồn tin tức:** Bản tin được tổng hợp và bảo chứng bởi **CodeGame.Shop** (https://codegame.shop)."
+  },
+  {
+    "id": "news_make_drama_mad_wemade_connect_2026",
+    "slug": "make-drama-mad-wemade-connect-tron-bo-giftcode-quoc-te-moi-nhat-2026",
+    "title": "MAke Drama: MAD (Wemade Connect): Đánh Giá Game & Trọn Bộ 3 Giftcode Quốc Tế Giá Trị Nhất 2026",
+    "excerpt": "Tổng hợp trọn bộ 3 mã coupon chính thức của tựa game nhập vai giả tưởng MAke Drama: MAD từ NPH Wemade Connect bản quốc tế. Nhận 10 vé quay, 300K Credit và hộp quà chọn.",
+    "summary": "Trọn bộ 3 giftcode MAke Drama: MAD (Wemade Connect bản quốc tế). Nhận 10 vé quay, 300.000 Credit và Hộp Quà Tự Chọn Thần Thoại.",
+    "game_name": "MAke Drama: MAD",
+    "game_slug": "make-drama-mad",
+    "cover_url": "/game_icons/make-drama-mad.webp",
+    "author": "BTV CodeGame.Shop",
+    "source_name": "CodeGame.Shop",
+    "source_url": "https://codegame.shop",
+    "created_at": "2026-10-21T08:00:00Z",
+    "updated_at": "2026-10-21T08:00:00Z",
+    "views_count": 1420,
+    "reading_time_minutes": 3,
+    "tags": [
+      "MAke Drama",
+      "MAD",
+      "Wemade Connect",
+      "Bản Quốc Tế",
+      "Coupon"
+    ],
+    "codes": [
+      "MAD1STONE",
+      "2026MADGLOBAL",
+      "BLOODYMARY"
+    ],
+    "status": "PUBLISHED",
+    "content": "## 🎬 Siêu Phẩm Nhập Vai Đậm Chất Điện Ảnh: MAke Drama: MAD (Wemade Connect)\n\n**MAke Drama: MAD** là tựa game nhập vai giải đố hành động phong cách anime điện ảnh do **Wemade Connect** phát hành toàn cầu. Game đưa người chơi vào một thế giới kịch bản đa tầng nơi mỗi quyết định đều thay đổi diễn biến cốt truyện.\n\n### 🎁 Trọn Bộ 3 Mã Giftcode Quốc Tế Chắc Chắn Hoạt Động:\n- `MAD1STONE`: 10 Vé Quay Chiêu Mộ Cao Cấp (Thời hạn sử dụng: **Đến hết 11/11/2026**).\n- `2026MADGLOBAL`: 300.000 Credit + Gói Tài Nguyên Khởi Đầu Dồi Dào (Thời hạn sử dụng: **Đến hết 08/11/2026**).\n- `BLOODYMARY`: 5 Hộp Quà Tự Chọn Thần Thoại (Mở nhận nguyên liệu đột phá cao cấp).\n\n### 📌 Hướng Dẫn Cách Nhập Giftcode / Coupon:\n1. Khởi động game **MAke Drama: MAD** trên điện thoại.\n2. Mở mục **Cài đặt (Settings)** ở góc màn hình.\n3. Nhấn vào mục **Account / Giftcode (Coupon)**.\n4. Điền chính xác mã code phía trên và bấm Xác Nhận.\n5. Mở hòm thư trong game để thu thập toàn bộ phần thưởng.\n\n> 🛡️ **Nguồn tin tức:** Bản tin được tổng hợp và bảo chứng bởi **CodeGame.Shop** (https://codegame.shop)."
+  },
+
+  {
     "id": "news_hac_tay_du_chuong_cam_full_codes_2026",
     "slug": "hac-tay-du-chuong-cam-funtap-danh-gia-va-tron-bo-31-giftcode-tan-thu-vip-2026",
     "title": "Hắc Tây Du: Chương Cấm (Funtap): Đánh Giá Chi Tiết & Trọn Bộ 31+ Giftcode Tân Thủ VIP Mới Nhất 2026",
@@ -817,11 +883,29 @@ export const DEFAULT_NEWS_ARTICLES: NewsArticle[] = [
       "Tân thủ"
     ],
     "codes": [
-      "TAROT2026",
-      "THANNGUVIP",
-      "CHIEMTINH88",
-      "LUCKYSPECIAL"
-    ],
+      "VIP666",
+      "VIP777",
+      "VIP888",
+      "Vip999",
+      "Svip666",
+      "Svip777",
+      "Svip888",
+      "Svip999",
+      "Lily666",
+      "Lily888",
+      "meo666",
+      "meo888",
+      "bemy666",
+      "bemy888",
+      "dfg666",
+      "dfg888",
+      "Ichi666",
+      "Ichi888",
+      "review666",
+      "review888",
+      "Oracle",
+      "FBVN1017"
+],
     "status": "PUBLISHED",
     "content": "## 🔮 Khám Phá Thế Giới Chiêm Tinh Ma Mị Với Tarot: Vĩnh Hằng Thần Ngữ\n\nTựa game chiến thuật thẻ bài kết hợp nghệ thuật bói bài Tarot huyền bí đang thu hút sự chú ý của đông đảo game thủ.\n\n### 🌟 Danh Sách Giftcode Tân Thủ:\n- `TAROT2026`: 10 Vé Rút Bài Vận Mệnh + 1.000 Kim Cương.\n- `THANNGUVIP`: Thẻ Tarot SSR \"The Fool\" Thức Tỉnh.\n- `CHIEMTINH88`: 500 Tinh Thể Ánh Sáng và 50.000 Vàng.\n- `LUCKYSPECIAL`: Khung Avatar Độc Quyền Chiêm Tinh Sư.\n\n> 🛡️ **Nguồn tin tức:** Bản tin được tổng hợp, biên tập và xuất bản độc quyền bởi **CodeGame.Shop** (https://codegame.shop)."
   },

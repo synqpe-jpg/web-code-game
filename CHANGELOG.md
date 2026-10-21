@@ -7,6 +7,42 @@ Mỗi mục sửa lỗi đều ghi nhận **Nguyên nhân gốc rễ (Root Cause
 
 ## [2026-10-21]
 
+### 117. Bổ Sung Trọn Bộ Giftcode Cho Tarot (22 Mã), Hải Tặc Truyền Kỳ (6 Mã), MAke Drama: MAD (3 Mã) & Đồng Bộ Toàn Bộ 4.112 Mã Từ Backup D1 Vào Kho Tĩnh Baseline (Tổng 10.738 Giftcode)
+- **Mô tả & Yêu cầu người dùng**:
+  1. Người dùng yêu cầu: *"Những game này bổ sung trước giúp tôi, ngoài ra có rất nhiều game không hiển thị đủ như lúc còn d1, bạn bổ sung để đảm bảo dù có d1 tràn thì vẫn có thể để khách đọc và chép được code giúp tôi.
+     1. Tarot: Vĩnh Hằng Thần Ngữ (Mộc Games) — 22 code (cập nhật 20/10, đã được xác minh)
+     2. Hải Tặc Truyền Kỳ (VelaGame) — 6 code: VIP111 VIP222 VIP666 VIP777 VIP888 SEA666
+     3. MAke Drama: MAD (Wemade Connect, bản quốc tế) — 3 code chắc chắn: MAD1STONE, 2026MADGLOBAL, BLOODYMARY"*
+- **Nguyên nhân gốc rễ & Phân tích (Root Cause & Analysis)**:
+  1. *Nguyên nhân các game thiếu code khi D1 tràn hạn mức*:
+     - Trước đây, khi Cloudflare D1 còn hoạt động, bảng `system_settings` trong D1 (`wcg_admin_free_codes_v5`) chứa tới **9.825 mã giftcode**.
+     - Tuy nhiên, file dự phòng ngoại tuyến `src/data/crawled_codes_188.json` chỉ mới lưu trữ 6.595 mã (thiếu hơn 4.112 mã độc nhất của 366 tựa game).
+     - Khi D1 bị tràn hạn mức đọc 5 triệu rows read/ngày, hệ thống fallback về `crawled_codes_188.json` khiến hàng trăm tựa game (như Tarot, Dragon Village M, Tam Quốc Chí Vương Chiến, Lord of Mysteries, Lăng Tiêu Chí, Trấn Thi Hàng Quỷ, Swordash, Hải Tặc Truyền Kỳ...) bị tụt số lượng mã hoặc hiển thị 0 mã.
+  2. *Đặc thù của 3 tựa game người dùng cung cấp*:
+     - `Tarot: Vĩnh Hằng Thần Ngữ`: Đã cập nhật thêm 11 mã mới (tổng 22 mã, trong đó mã `FBVN1017` có hạn đến 24/10/2026, cơ chế game phân biệt chữ hoa/thường).
+     - `Hải Tặc Truyền Kỳ`: Tựa game của NPH VelaGame vừa ra mắt bộ code 19/10/2026, trước đây chưa có trong hệ thống.
+     - `MAke Drama: MAD`: Tựa game quốc tế của Wemade Connect có 3 mã coupon chính thức có thời hạn cụ thể (11/11/2026 và 08/11/2026).
+- **Giải pháp toàn diện đã triển khai (Solution)**:
+  1. *Cập nhật trọn vẹn 31 mã cho 3 game ưu tiên*:
+     - `Tarot: Vĩnh Hằng Thần Ngữ`: Cập nhật đủ 22 mã chuẩn xác hoa/thường, hạn sử dụng `FBVN1017` là 24/10/2026, hướng dẫn đổi thưởng cụ thể.
+     - `Hải Tặc Truyền Kỳ`: Bổ sung 6 mã của VelaGame, ghi chú phân biệt với Pirate Legends / Huyền Thoại Hải Tặc.
+     - `MAke Drama: MAD`: Bổ sung 3 mã chuẩn hạn quốc tế của Wemade Connect.
+  2. *Hòa nhập toàn diện 4.112 mã giftcode từ D1 Backup vào kho tĩnh baseline*:
+     - Quét toàn bộ 9.825 mã trong bản lưu trữ D1 (`temp_sync.json`), ánh xạ chính xác 425 slug về danh mục 627 game chuẩn mực (xử lý các bí danh `huyen-thoai-hai-tac` -> `pirate-legends`, `dau-truong-chan-ly-mobile` -> `dau-truong-chan-ly`...).
+     - Bổ sung 4.112 mã giftcode độc nhất vào `src/data/crawled_codes_188.json`, nâng tổng số giftcode trong kho tĩnh từ 6.595 lên **10.738 mã giftcode** (tăng hơn 62%).
+     - Đồng bộ toàn diện sang tất cả các file mirror: `public/data/crawled_codes_188.json`, `data/crawled_codes_188.json`, `public/data/codes_database.json`.
+  3. *Đồng bộ và nhúng trực tiếp vào `games188.json`*:
+     - Cập nhật trường `codes_count` và `free_codes_count` cho toàn bộ 627 tựa game.
+     - Nhúng trực tiếp danh sách mã vào mảng `codes` của từng đối tượng game trong `games188.json`, đảm bảo modal chi tiết game hiển thị ngay lập tức trong 0ms mà không phụ thuộc vào bất kỳ truy vấn D1 nào.
+  4. *Cập nhật bài viết tin tức chuẩn SEO trong `src/data/seedNews.ts`*:
+     - Cập nhật bài viết Tarot với 22 mã và hướng dẫn phân biệt hoa/thường.
+     - Thêm 2 bài viết mới chuẩn SEO cho Hải Tặc Truyền Kỳ (VelaGame) và MAke Drama: MAD (Wemade Connect), nâng tổng số bài viết lên 94 bài.
+- **Files Modified**:
+  - `src/data/crawled_codes_188.json` (Nâng tổng số code lên 10.738)
+  - `src/data/games188.json` (Cập nhật codes_count và mảng codes cho tất cả game)
+  - `public/data/crawled_codes_188.json`, `public/data/games188.json`, `data/crawled_codes_188.json`, `data/games188.json`, `public/data/codes_database.json`, `public/data/games_database.json` (Đồng bộ mirror)
+  - `src/data/seedNews.ts` (Nâng tổng số bài viết tin tức lên 94 bài)
+
 ### 116. Bổ Sung Trọn Bộ 31+ Giftcode Cho Game "Hắc Tây Du: Chương Cấm", Tích Hợp Fallback Độc Lập & Triển Khai Giải Pháp Toàn Diện Tiết Kiệm Hạn Mức Cloudflare D1
 - **Mô tả & Yêu cầu người dùng**:
   1. Người dùng yêu cầu: *"Gmae Hắc Tây Du CHương Cấm chưa đúng, tôi đã có rất nhièu code nhưng giờ chỉ có 5. Thêm cho đủ để dù d1 hết người dùng vẫn có thể thấy giúp tôi."*
