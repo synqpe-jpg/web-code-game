@@ -318,7 +318,7 @@ export const GrowthCenterModal: React.FC<GrowthCenterModalProps> = ({
       onClick={onClose}
     >
       <div
-        className="relative w-full max-w-2xl bg-card border-t sm:border border-border/90 rounded-t-[32px] sm:rounded-3xl p-4 sm:p-6 shadow-2xl animate-scale-in max-h-[92dvh] sm:max-h-[90vh] overflow-y-auto overscroll-contain pb-[max(env(safe-area-inset-bottom,0px),1.5rem)]"
+        className="relative w-full max-w-2xl bg-card border-t sm:border border-border/90 rounded-t-[32px] sm:rounded-3xl p-4 sm:p-6 shadow-2xl animate-scale-in max-h-[92dvh] sm:max-h-[90vh] overflow-y-auto touch-pan-y pb-[max(env(safe-area-inset-bottom,0px),1.5rem)]"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Mobile Pull Indicator */}

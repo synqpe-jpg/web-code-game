@@ -177,7 +177,7 @@ export const NewsDetailModal: React.FC<NewsDetailModalProps> = ({
         </div>
 
         {/* Scrollable Content Body */}
-        <div className="flex-1 overflow-y-auto custom-scrollbar p-4 sm:p-6 sm:px-8 space-y-6">
+        <div className="flex-1 min-h-0 overflow-y-auto touch-pan-y custom-scrollbar p-4 sm:p-6 sm:px-8 space-y-6">
           {/* Article Header & Cover */}
           <div className="space-y-4">
             {/* Breadcrumb Navigation */}

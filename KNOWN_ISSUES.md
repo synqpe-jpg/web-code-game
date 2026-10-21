@@ -10,6 +10,25 @@
 
 ## 1. DANH MỤC LỖI & CÁC BẪY ĐÃ THẤT BẠI (DO NOT REPEAT)
 
+### ISSUE-058: Lỗi kẹt cuộn ngược trên mobile (Chỉ lướt xuống được, không vuốt lên được) do overscroll-contain WebKit trap, thiếu min-h-0 và nested scroll
+- **Triệu chứng**:
+  - Trên điện thoại di động, người dùng mở xem chi tiết tiện ích hoặc mở modal thanh toán mua hàng, khi lướt xuống dưới xem thông tin hoặc các gói tùy chọn thì bình thường, nhưng khi muốn vuốt ngược lên trên đỉnh modal thì màn hình bị "đơ" cứng ngắc, vuốt lên không ăn.
+- **Nguyên nhân gốc rễ**:
+  1. *Bẫy Kẹt Biên Giới WebKit do `overscroll-behavior: contain`*: Áp dụng `overscroll-behavior: contain` toàn cục lên `div[class*="overflow-y-auto"]` khiến trình duyệt iOS Safari / Chrome Android đóng băng cử chỉ touch khi chạm đáy hoặc chạm đỉnh.
+  2. *Thiếu `min-h-0` trong Flex Column*: Trong layout `flex flex-col`, flex item con có `flex-1 overflow-y-auto` mặc định nhận `min-height: auto`, khiến trình duyệt tính toán kích thước chiều cao theo toàn bộ nội dung con thay vì co lại theo khung nhìn, gây lỗi cuộn một chiều.
+  3. *Bẫy Scroll Lồng Nhau (Nested Scroll Trap)*: Khối danh sách gói tiện ích `max-h-[300px] overflow-y-auto` nằm lọt thỏm trong modal. Ngón tay chạm vào khối này sẽ bị giam giữ cử chỉ, không cho phép lan truyền cuộn lên modal cha.
+  4. *Rò rỉ cuộn nền*: `document.body` không được khóa khi mở modal, khiến cử chỉ vuốt bị phân tán ra trang nền.
+- **Giải pháp chuẩn đã kiểm chứng**:
+  - Dùng hook `useLockBodyScroll` khóa `document.body.style.overflow = 'hidden'` và `touchAction = 'none'` khi mở modal.
+  - Sửa `src/index.css` đổi `overscroll-behavior: contain` thành `touch-action: pan-y !important; overscroll-behavior-y: auto !important;`.
+  - Bổ sung `min-h-0 touch-pan-y` vào toàn bộ thẻ cuộn `flex-1 min-h-0 overflow-y-auto touch-pan-y`.
+  - Trên mobile, cho phép danh sách gói tiện ích và mô tả co giãn tự nhiên (`sm:max-h-[300px] sm:overflow-y-auto`) thay vì ép scroll lồng nhau.
+- ⛔ **CÁCH SỬA ĐÃ THẤT BẠI - TUYỆT ĐỐI KHÔNG LẶP LẠI**:
+  - ❌ *Không áp đặt `overscroll-behavior: contain` bừa bãi lên toàn bộ container cuộn*: WebKit sẽ đóng băng cử chỉ khi người dùng chạm biên.
+  - ❌ *Không quên `min-h-0` khi dùng `flex-1 overflow-y-auto` trong container flex column*: Sẽ gây lỗi layout chiều cao và kẹt cuộn trên thiết bị di động.
+  - ❌ *Không lồng container cuộn có chiều cao cố định (`max-h-[300px] overflow-y-auto`) bên trong modal di động vốn đã scroll*: Ngón tay cái của người dùng sẽ bị bẫy trong container con.
+
+
 ### ISSUE-057: Lỗi xếp tầng nhiều thanh công cụ và lặp nút Copy trên mobile chiếm dụng diện tích màn hình chi tiết game
 - **Triệu chứng**:
   - Khi mở modal chi tiết game trên mobile, các thanh công cụ xếp chồng dọc liên tiếp: nút tải Google Play $\rightarrow$ tab lọc 3 cột $\rightarrow$ khung thông báo số mã còn hạn kèm nút copy $\rightarrow$ tiêu đề phần 1 kèm nút copy thứ 2.

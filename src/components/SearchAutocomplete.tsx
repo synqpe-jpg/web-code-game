@@ -985,7 +985,7 @@ export const SearchAutocomplete: React.FC<SearchAutocompleteProps> = ({
           </div>
 
           {/* 3. Scrollable Results Area */}
-          <div className="flex-1 overflow-y-auto overscroll-contain p-3 space-y-4 pb-12 scrollbar-thin">
+          <div className="flex-1 min-h-0 overflow-y-auto touch-pan-y p-3 space-y-4 pb-12 scrollbar-thin">
             {(searchQuery || '').trim().length === 0 ? (
               /* Empty State: Recent searches & Hot games */
               <>

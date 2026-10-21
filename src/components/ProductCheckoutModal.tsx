@@ -23,6 +23,7 @@ import confetti from 'canvas-confetti';
 import { CyberLoader } from './CyberLoader';
 import type { StoreProduct, OrderRecord, UserProfile } from '../types/game';
 import { dataService } from '../services/dataService';
+import { useLockBodyScroll } from '../hooks/useLockBodyScroll';
 import { marketingService } from '../services/marketingService';
 import { formatCore } from '../utils/textUtils';
 import { GuideLinksBanner } from './GuideLinksBanner';
@@ -257,7 +258,7 @@ export const ProductCheckoutModal: React.FC<ProductCheckoutModalProps> = ({
       )}
       <div className="fixed inset-0 z-[100] flex items-end sm:items-center justify-center p-0 sm:p-4 bg-black/80 backdrop-blur-md overflow-hidden animate-fade-in">
       <div
-        className="relative w-full max-w-lg bg-card border-t sm:border border-border/90 rounded-t-[28px] sm:rounded-3xl overflow-hidden shadow-2xl animate-scale-in flex flex-col max-h-[88dvh] sm:max-h-[88vh]"
+        className="relative w-full max-w-lg bg-card border-t sm:border border-border/90 rounded-t-[28px] sm:rounded-3xl overflow-hidden shadow-2xl animate-scale-in flex flex-col h-[88dvh] sm:h-auto max-h-[88dvh] sm:max-h-[88vh]"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
@@ -288,7 +289,7 @@ export const ProductCheckoutModal: React.FC<ProductCheckoutModalProps> = ({
         </div>
 
         {/* Body */}
-        <div className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-5">
+        <div className="flex-1 min-h-0 overflow-y-auto touch-pan-y p-4 sm:p-6 space-y-5">
           {!user ? (
             /* Auth Required */
             <div className="py-6 text-center space-y-5 animate-scale-in">
@@ -389,7 +390,7 @@ export const ProductCheckoutModal: React.FC<ProductCheckoutModalProps> = ({
                   )}
                 </div>
 
-                <div className="space-y-2 max-h-48 overflow-y-auto pr-1">
+                <div className="space-y-2 sm:max-h-48 sm:overflow-y-auto pr-1">
                   {deliveredLines.map((codeItem: string, idx: number) => (
                     <div
                       key={idx}

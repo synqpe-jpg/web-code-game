@@ -26,6 +26,7 @@ export const CodePlaygroundModal: React.FC<CodePlaygroundModalProps> = ({
   } | null>(null);
   const [isSpinning, setIsSpinning] = useState(false);
   const [isCopied, setIsCopied] = useState(false);
+  useLockBodyScroll(true);
 
   if (!isOpen || typeof document === 'undefined') return null;
 
@@ -70,7 +71,7 @@ export const CodePlaygroundModal: React.FC<CodePlaygroundModalProps> = ({
   return createPortal(
     <div className="fixed inset-0 z-[100] flex items-end sm:items-center justify-center p-0 sm:p-4 bg-black/80 backdrop-blur-md overflow-hidden animate-fade-in">
       <div
-        className="relative w-full max-w-lg bg-card border-t sm:border border-border/90 rounded-t-[28px] sm:rounded-3xl p-4 sm:p-6 shadow-2xl animate-scale-in max-h-[88dvh] sm:max-h-[88vh] overflow-y-auto overscroll-contain pb-[max(env(safe-area-inset-bottom,0px),1.5rem)]"
+        className="relative w-full max-w-lg bg-card border-t sm:border border-border/90 rounded-t-[28px] sm:rounded-3xl p-4 sm:p-6 shadow-2xl animate-scale-in max-h-[88dvh] sm:max-h-[88vh] overflow-y-auto touch-pan-y pb-[max(env(safe-area-inset-bottom,0px),1.5rem)]"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Mobile Sheet Indicator */}

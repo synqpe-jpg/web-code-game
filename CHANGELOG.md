@@ -7,6 +7,36 @@ Mỗi mục sửa lỗi đều ghi nhận **Nguyên nhân gốc rễ (Root Cause
 
 ## [2026-10-21]
 
+### 112. Khắc Phục Triệt Để Lỗi Kẹt Cuộn Ngược Trên Mobile (Chỉ Lướt Xuống Được, Không Vuốt Lên Được): Hóa Giải Bẫy WebKit Boundary Trap Của overscroll-contain, Bổ Sung min-h-0 & touch-action: pan-y, Xóa Bỏ Nested Scroll Traps và Khóa Cuộn Body Đa Tầng
+- **Mô tả & Yêu cầu người dùng**:
+  - Người dùng phản ánh: *"Trên điện thoại, web khách, một vài chỗ chỉ có thể lướt xuống, khi vuốt lên không được, bạn kiểm tra giúp tôi và xử lý, đặc biệt khi ấn vào phần mua hàng trong Tiện ích tôi hay bị."*
+- **Nguyên nhân gốc rễ & Phân tích (Root Cause & Analysis)**:
+  1. *Bẫy Kẹt Biên Giới (WebKit/Safari Boundary Trap) do `overscroll-behavior: contain`*: Trong `src/index.css`, quy tắc toàn cục `div[class*="overflow-y-auto"] { overscroll-behavior: contain; }` áp đặt lên mọi container cuộn. Trên thiết bị di động (đặc biệt iOS Safari và Chrome Android), khi người dùng lướt xuống đáy modal, `overscroll-behavior: contain` làm mất ngữ cảnh nhận diện thao tác cử chỉ touch. Khi người dùng đảo chiều vuốt để quay lên trên, WebKit nhận diện nhầm cử chỉ là overscroll hủy bỏ và từ chối cuộn ngược lên, khiến giao diện bị "đơ" cứng ngắc.
+  2. *Lỗi Thiếu `min-h-0` Trong Flexbox Column Chiều Dọc*: Các container modal đều dùng `flex flex-col` kết hợp với con `flex-1 overflow-y-auto`. Theo đặc tả CSS Flexbox, mặc định flex item có `min-height: auto` (tương đương chiều cao toàn bộ nội dung con). Thiếu `min-h-0`, trình duyệt di động gặp xung đột kích thước, khiến việc tính toán hướng cuộn bị lỗi một chiều.
+  3. *Bẫy Scroll Lồng Nhau (Nested Scroll Trap) Trong `ProductDetailModal`*: Khối danh sách gói tiện ích `max-h-[300px] overflow-y-auto` và khối mô tả `max-h-[500px] overflow-y-auto` nằm bên trong thân modal vốn đã scrollable. Trên mobile, ngón tay cái người dùng đặt trúng khối gói 300px này; vì khối gói đã ở đỉnh của nó (`scrollTop = 0`), `overscroll-behavior: contain` ngăn chặn lan truyền cuộn lên modal cha, khiến cả màn hình bị khóa chặt không thể vuốt lên.
+  4. *Rò Rỉ Cử Chỉ Cuộn Ra Nền Body (Missing Body Scroll Lock)*: Khi mở modal, `document.body` không được khóa, khiến trình duyệt di động chuyển hướng thao tác cuộn vào trang nền thay vì modal đang mở.
+- **Giải pháp toàn diện đã triển khai (Solution)**:
+  1. *Tạo Hook `useLockBodyScroll` Chuẩn Reference Counting*: Khóa `document.body.style.overflow = 'hidden'` và `touchAction = 'none'` khi có bất kỳ modal nào mở, giải phóng hoàn toàn hiện tượng rò rỉ cuộn nền.
+  2. *Loại Bỏ `overscroll-behavior: contain` Toàn Cục & Cấp Quyền Cuộn Hai Chiều*: Sửa `src/index.css` chuyển sang `touch-action: pan-y !important; overscroll-behavior-y: auto !important;` giúp phần cứng GPU nhận diện thao tác vuốt hai chiều mượt mà 60fps.
+  3. *Chuẩn Hóa `flex-1 min-h-0 overflow-y-auto touch-pan-y` Cho Toàn Bộ Modal*: Áp dụng cho `ProductDetailModal`, Checkout Modal trong `UtilitiesView`, `ProductCheckoutModal`, `GameDetailModal`, `UserWalletModal`, `GrowthCenterModal`, `SubmitCodeModal`, `CodePlaygroundModal`, `GiveawaysView`, `SearchAutocomplete`.
+  4. *Xóa Bỏ Bẫy Scroll Lồng Nhau Trên Mobile*: Cho phép danh sách gói tiện ích và mô tả co giãn tự nhiên (`sm:max-h-[300px] sm:overflow-y-auto`) trên mobile, loại bỏ hoàn toàn bẫy kẹt ngón cái.
+- **Files Modified**:
+  - `src/hooks/useLockBodyScroll.ts` (Mới tạo)
+  - `src/index.css`
+  - `src/components/ProductDetailModal.tsx`
+  - `src/components/UtilitiesView.tsx`
+  - `src/components/ProductCheckoutModal.tsx`
+  - `src/components/GameDetailModal.tsx`
+  - `src/components/UserWalletModal.tsx`
+  - `src/components/GrowthCenterModal.tsx`
+  - `src/components/SubmitCodeModal.tsx`
+  - `src/components/CodePlaygroundModal.tsx`
+  - `src/components/GiveawaysView.tsx`
+  - `src/components/SearchAutocomplete.tsx`
+  - `src/components/NewsDetailModal.tsx`
+  - `CHANGELOG.md` (Mục 112)
+  - `KNOWN_ISSUES.md` (ISSUE-058)
+
 ### 111. Tối Ưu Hóa Giao Diện Modal Chi Tiết Game Trên Mobile: Thu Gọn Thống Kê (Tất Cả, Còn Hạn, Hết Hạn) Ngang Tên Game & Đồng Cấp Nút "Copy Tất Cả" Ngang Hàng Với "Google Play"
 - **Mô tả & Yêu cầu người dùng**:
   - Người dùng gửi ảnh chụp màn hình modal chi tiết game trên mobile (`codegame.shop/game/girls-echo`) và yêu cầu: *"Trên giao diện mobile, thu gọn mục thống kê Tất cả, còn hạn, hết hạn ngang với vị trí tên game, nút copy tất cả nang với nút tải xuống gg play"*.

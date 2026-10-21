@@ -43,6 +43,7 @@ import { getProductPackages, getProductMinPrice, groupUtilitiesByTheme } from '.
 import type { ProductPackageVariant } from '../types/game';
 import type { UserProfile, UtilityProduct, OrderRecord, UtilityCategory } from '../types/game';
 import { GuideLinksBanner } from './GuideLinksBanner';
+import { useLockBodyScroll } from '../hooks/useLockBodyScroll';
 import { EventCountdownBadge } from './countdown/EventCountdownBadge';
 import { eventSchedulerService } from '../services/eventSchedulerService';
 
@@ -919,7 +920,7 @@ export const UtilitiesView: React.FC<UtilitiesViewProps> = ({
           )}
           <div className="fixed inset-0 z-[100] flex items-end sm:items-center justify-center p-0 sm:p-4 bg-black/80 backdrop-blur-md overflow-hidden animate-fade-in">
           <div
-            className="relative w-full max-w-lg bg-card border-t sm:border border-border/90 rounded-t-[28px] sm:rounded-3xl overflow-hidden shadow-2xl animate-scale-in flex flex-col max-h-[88dvh] sm:max-h-[88vh]"
+            className="relative w-full max-w-lg bg-card border-t sm:border border-border/90 rounded-t-[28px] sm:rounded-3xl overflow-hidden shadow-2xl animate-scale-in flex flex-col h-[88dvh] sm:h-auto max-h-[88dvh] sm:max-h-[88vh]"
             onClick={(e) => e.stopPropagation()}
           >
             {/* Header - Fixed at top */}
@@ -953,7 +954,7 @@ export const UtilitiesView: React.FC<UtilitiesViewProps> = ({
               </div>
             </div>
 
-            <div className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-4 sm:space-y-5 overscroll-contain pb-[max(env(safe-area-inset-bottom,0px),1.25rem)]">
+            <div className="flex-1 min-h-0 overflow-y-auto touch-pan-y p-4 sm:p-6 space-y-4 sm:space-y-5 pb-[max(env(safe-area-inset-bottom,0px),1.25rem)]">
               {completedOrder ? (
                 <div className="text-center py-3 space-y-4 animate-scale-in">
                   <div className="w-16 h-16 rounded-full bg-emerald-500/20 text-emerald-400 border border-emerald-500/40 flex items-center justify-center mx-auto shadow-glow-emerald">
@@ -991,7 +992,7 @@ export const UtilitiesView: React.FC<UtilitiesViewProps> = ({
                           )}
                         </div>
 
-                        <div className="space-y-2 max-h-48 overflow-y-auto pr-1">
+                        <div className="space-y-2 sm:max-h-48 sm:overflow-y-auto pr-1">
                           {deliveredLines.map((codeItem: string, idx: number) => (
                             <div
                               key={idx}

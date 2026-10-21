@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { createPortal } from 'react-dom';
 import { X, Send, Sparkles, AlertCircle } from 'lucide-react';
 import { dataService } from '../services/dataService';
+import { useLockBodyScroll } from '../hooks/useLockBodyScroll';
 import type { GameItem } from '../types/game';
 
 interface SubmitCodeModalProps {
@@ -64,7 +65,7 @@ export const SubmitCodeModal: React.FC<SubmitCodeModalProps> = ({
   return createPortal(
     <div className="fixed inset-0 z-[100] flex items-end sm:items-center justify-center p-0 sm:p-4 bg-black/80 backdrop-blur-md overflow-hidden animate-fade-in">
       <div
-        className="relative w-full max-w-lg bg-card border-t sm:border border-border/90 rounded-t-[28px] sm:rounded-3xl p-4 sm:p-6 shadow-2xl animate-scale-in max-h-[88dvh] sm:max-h-[88vh] overflow-y-auto overscroll-contain pb-[max(env(safe-area-inset-bottom,0px),1.5rem)]"
+        className="relative w-full max-w-lg bg-card border-t sm:border border-border/90 rounded-t-[28px] sm:rounded-3xl p-4 sm:p-6 shadow-2xl animate-scale-in max-h-[88dvh] sm:max-h-[88vh] overflow-y-auto touch-pan-y pb-[max(env(safe-area-inset-bottom,0px),1.5rem)]"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Mobile Sheet Indicator */}

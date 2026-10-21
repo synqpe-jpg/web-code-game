@@ -343,10 +343,12 @@
     border-bottom-right-radius: 0 !important;
   }
 
-  /* Modal scrollable body */
-  div[class*="overflow-y-auto"] {
-    -webkit-overflow-scrolling: touch;
-    overscroll-behavior: contain;
+  /* Modal scrollable body - Bidirectional smooth mobile scrolling */
+  div[class*="overflow-y-auto"],
+  .overflow-y-auto {
+    -webkit-overflow-scrolling: touch !important;
+    touch-action: pan-y !important;
+    overscroll-behavior-y: auto !important;
   }
 
   /* Bottom padding with safe-area support for modals and bottom sheet content */

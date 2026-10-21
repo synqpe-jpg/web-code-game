@@ -28,6 +28,7 @@ import { marketingService } from '../services/marketingService';
 import { dataService } from '../services/dataService';
 import { getProductPackages } from '../utils/productPackageUtils';
 import { GuideLinksBanner } from './GuideLinksBanner';
+import { useLockBodyScroll } from '../hooks/useLockBodyScroll';
 
 export interface ProductDetailModalProps {
   product: StoreProduct | UtilityProduct | null;
@@ -52,6 +53,7 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
   const [isZoomed, setIsZoomed] = useState(false);
   const [isDescExpanded, setIsDescExpanded] = useState(false);
   const [quantity, setQuantity] = useState(1);
+  useLockBodyScroll(Boolean(product));
   const [, setTick] = useState(0);
 
   // Danh sách các gói tùy chọn
@@ -195,7 +197,7 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
       className="fixed inset-0 z-[100] flex items-end sm:items-center justify-center p-0 sm:p-4 bg-black/80 backdrop-blur-md overflow-hidden animate-fade-in"
     >
       <div
-        className="relative w-full max-w-5xl bg-card border-t sm:border border-border/90 rounded-t-[28px] sm:rounded-3xl overflow-hidden shadow-2xl animate-scale-in flex flex-col h-[90dvh] sm:h-auto sm:max-h-[90vh]"
+        className="relative w-full max-w-5xl bg-card border-t sm:border border-border/90 rounded-t-[28px] sm:rounded-3xl overflow-hidden shadow-2xl animate-scale-in flex flex-col h-[90dvh] sm:h-auto max-h-[90dvh] sm:max-h-[90vh]"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Top Bar Header */}
@@ -255,7 +257,7 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
         </div>
 
         {/* Modal Body - 2 Columns Layout */}
-        <div className="flex-1 overflow-y-auto p-4 sm:p-6 scrollbar-thin">
+        <div className="flex-1 min-h-0 overflow-y-auto touch-pan-y p-4 sm:p-6 scrollbar-thin">
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
             {/* CỘT TRÁI (Left Column): Ảnh đại diện lớn, Cam kết uy tín, Chi tiết thông tin */}
             <div className="lg:col-span-7 space-y-4 sm:space-y-5">
@@ -391,7 +393,7 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
                     className={`relative bg-card p-3.5 sm:p-4 rounded-2xl border border-border transition-all duration-300 ${
                       !isDescExpanded && product.description.length > 200
                         ? 'max-h-[140px] overflow-hidden'
-                        : 'max-h-[500px] overflow-y-auto scrollbar-thin'
+                        : 'sm:max-h-[500px] sm:overflow-y-auto scrollbar-thin'
                     }`}
                   >
                     <p className="text-xs sm:text-sm text-muted-foreground leading-relaxed whitespace-pre-line">
@@ -491,7 +493,7 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
                     </span>
                   </div>
 
-                  <div className="space-y-2 max-h-[300px] overflow-y-auto pr-1 scrollbar-thin">
+                  <div className="space-y-2 sm:max-h-[300px] sm:overflow-y-auto pr-1 scrollbar-thin">
                     {packages.map((pkg) => {
                       const isSelected = pkg.id === selectedPackage.id;
                       const pkgStock = typeof pkg.stock_quantity === 'number' ? pkg.stock_quantity : product.stock_quantity;

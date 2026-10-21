@@ -31,6 +31,7 @@ import { marketingService } from '../services/marketingService';
 import { notificationService } from '../services/notificationService';
 import { EmailSubscriptionModal } from './notification/EmailSubscriptionModal';
 import { useLanguage } from '../context/LanguageContext';
+import { useLockBodyScroll } from '../hooks/useLockBodyScroll';
 import { isG1Licensed } from '../utils/licenseUtils';
 
 interface GameDetailModalProps {
@@ -53,6 +54,7 @@ export const GameDetailModal: React.FC<GameDetailModalProps> = ({
   currentUser,
 }) => {
   const { t } = useLanguage();
+  useLockBodyScroll(true);
   const activeUser = currentUser || (typeof window !== 'undefined' ? dataService.getCurrentUser() : null);
   const [liveGame, setLiveGame] = useState<GameItem | null>(game);
   const [copiedCode, setCopiedCode] = useState<string | null>(null);
@@ -247,7 +249,7 @@ export const GameDetailModal: React.FC<GameDetailModalProps> = ({
       onClick={onClose}
     >
       <div
-        className="relative w-full max-w-3xl h-[88dvh] sm:h-auto sm:max-h-[88vh] flex flex-col bg-card border-t sm:border border-border/90 rounded-t-[28px] sm:rounded-3xl shadow-2xl overflow-hidden animate-scale-in"
+        className="relative w-full max-w-3xl h-[88dvh] sm:h-auto max-h-[88dvh] sm:max-h-[88vh] flex flex-col bg-card border-t sm:border border-border/90 rounded-t-[28px] sm:rounded-3xl shadow-2xl overflow-hidden animate-scale-in"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header Bar - Fixed at top of modal */}
@@ -510,7 +512,7 @@ export const GameDetailModal: React.FC<GameDetailModalProps> = ({
         </div>
 
         {/* Modal Body (Scrollable) */}
-        <div className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-5 overscroll-contain pb-[max(env(safe-area-inset-bottom,0px),1.5rem)]">
+        <div className="flex-1 min-h-0 overflow-y-auto touch-pan-y p-4 sm:p-6 space-y-5 pb-[max(env(safe-area-inset-bottom,0px),1.5rem)]">
           {/* Code Filter Tab Switcher (Ẩn trên mobile vì đã tích hợp trực tiếp ngang tên game và nút tải) */}
           <div className="hidden sm:block sticky top-0 z-10 p-1.5 rounded-2xl bg-card/95 backdrop-blur-md border border-border/80 shadow-md space-y-1.5">
             <div className="grid grid-cols-3 gap-1 w-full">

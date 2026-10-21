@@ -285,7 +285,7 @@ export const UserWalletModal: React.FC<UserWalletModalProps> = ({
   return createPortal(
     <div className="fixed inset-0 z-[100] flex items-end sm:items-center justify-center p-0 sm:p-4 bg-black/80 backdrop-blur-md overflow-hidden animate-fade-in">
       <div
-        className="relative w-full max-w-lg bg-card border-t sm:border border-border/90 rounded-t-[28px] sm:rounded-3xl overflow-hidden shadow-2xl animate-scale-in flex flex-col max-h-[90dvh] sm:max-h-[90vh]"
+        className="relative w-full max-w-lg bg-card border-t sm:border border-border/90 rounded-t-[28px] sm:rounded-3xl overflow-hidden shadow-2xl animate-scale-in flex flex-col h-[90dvh] sm:h-auto max-h-[90dvh] sm:max-h-[90vh]"
         onClick={(e) => e.stopPropagation()}
       >
         {/* ================= SUCCESS NOTIFICATION OVERLAY CARD ================= */}
@@ -481,7 +481,7 @@ export const UserWalletModal: React.FC<UserWalletModalProps> = ({
             </div>
 
             {/* Modal Body */}
-            <div className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-5">
+            <div className="flex-1 min-h-0 overflow-y-auto touch-pan-y p-4 sm:p-6 space-y-5">
               {activeTab === 'TOPUP' ? (
                 /* ================= TAB 1: NẠP CORE (VIETQR) ================= */
                 <div className="space-y-3.5 animate-fade-in">

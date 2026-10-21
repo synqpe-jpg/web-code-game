@@ -1897,11 +1897,11 @@ export const GiveawaysView: React.FC<GiveawaysViewProps> = ({
           return (
             <div
               onClick={handleCloseDetailModal}
-              className="fixed inset-0 z-[105] flex items-center justify-center p-3 sm:p-4 bg-black/80 backdrop-blur-md overflow-y-auto animate-fade-in"
+              className="fixed inset-0 z-[105] flex items-end sm:items-center justify-center p-0 sm:p-4 bg-black/80 backdrop-blur-md overflow-hidden animate-fade-in"
             >
               <div
                 onClick={(e) => e.stopPropagation()}
-                className="relative w-full max-w-lg bg-card border border-border/90 rounded-3xl overflow-hidden shadow-2xl p-5 sm:p-6 space-y-4 my-auto animate-scale-in max-h-[92vh] flex flex-col"
+                className="relative w-full max-w-lg bg-card border-t sm:border border-border/90 rounded-t-[28px] sm:rounded-3xl overflow-hidden shadow-2xl p-4 sm:p-6 space-y-4 animate-scale-in h-[88dvh] sm:h-auto max-h-[88dvh] sm:max-h-[90vh] flex flex-col"
               >
                 {/* Close button */}
                 <button
@@ -1966,7 +1966,7 @@ export const GiveawaysView: React.FC<GiveawaysViewProps> = ({
                 </div>
 
                 {/* Modal Scrollable Body */}
-                <div className="flex-1 overflow-y-auto pr-1 space-y-3.5 custom-scrollbar text-xs">
+                <div className="flex-1 min-h-0 overflow-y-auto touch-pan-y pr-1 space-y-3.5 custom-scrollbar text-xs">
                   {/* Package Selector if multiple packages */}
                   {packages.length > 1 && (
                     <div className="p-3.5 rounded-2xl bg-card-hover/90 border border-border/80 space-y-2">
