@@ -426,17 +426,39 @@ async function generateAutonomousArticle(scraped, sourceUrl) {
   let cover_url = '';
   if (gameSlug && fs.existsSync(path.join(GAME_ICONS_DIR, `${gameSlug}.webp`))) {
     cover_url = `/game_icons/${gameSlug}.webp`;
-  } else if (matchedGame?.icon_url) {
+  } else if (matchedGame?.icon_url && !matchedGame.icon_url.includes('og-image')) {
     cover_url = matchedGame.icon_url;
-  } else if (scraped.cover_url && scraped.cover_url.trim()) {
+  } else if (scraped.cover_url && scraped.cover_url.trim() && !scraped.cover_url.includes('logo') && !scraped.cover_url.includes('favicon')) {
     // Tải ảnh bìa bài viết về lưu trữ nội bộ để chống 100% chặn hotlinking
     const localCoverSlug = gameSlug || slug;
     const localCover = await downloadImageToNewsCover(scraped.cover_url, localCoverSlug);
-    cover_url = localCover || scraped.cover_url;
-  } else if (scraped.images && scraped.images.length > 0) {
-    cover_url = scraped.images[0];
-  } else {
-    cover_url = '/og-image.jpg';
+    cover_url = localCover || '';
+  }
+
+  if (!cover_url && scraped.images && scraped.images.length > 0) {
+    const validImg = scraped.images.find(img => !img.includes('logo') && !img.includes('avatar') && !img.includes('favicon'));
+    if (validImg) {
+      const localCover = await downloadImageToNewsCover(validImg, slug);
+      cover_url = localCover || '';
+    }
+  }
+
+  // Nếu vẫn chưa có ảnh bìa: Chọn ảnh chuyên đề gaming artwork tương ứng với thể loại bài viết (TUYỆT ĐỐI KHÔNG LẤY LOGO WEB LÀM ẢNH BÌA CHÍNH)
+  if (!cover_url) {
+    const lowerTitle = (scraped.title || '').toLowerCase();
+    if (lowerTitle.includes('esports') || lowerTitle.includes('cktg') || lowerTitle.includes('lmht')) {
+      cover_url = '/news_covers/cktg-2026-esports.webp';
+    } else if (lowerTitle.includes('apple') || lowerTitle.includes('arcade') || lowerTitle.includes('ios')) {
+      cover_url = '/news_covers/apple-arcade-games.webp';
+    } else if (lowerTitle.includes('xbox') || lowerTitle.includes('console') || lowerTitle.includes('pc')) {
+      cover_url = '/news_covers/xbox-games-collection.webp';
+    } else if (lowerTitle.includes('board game') || lowerTitle.includes('cờ')) {
+      cover_url = '/news_covers/board-game-van-hoa-viet.webp';
+    } else if (lowerTitle.includes('thị trường') || lowerTitle.includes('doanh thu') || lowerTitle.includes('chính sách') || lowerTitle.includes('nhân lực')) {
+      cover_url = '/news_covers/thi-truong-game-viet-nam.webp';
+    } else {
+      cover_url = '/news_covers/game-offline-hay.webp';
+    }
   }
 
   const paragraphs = (scraped.content || '')
@@ -475,7 +497,11 @@ ${codeSection}
 
 - Theo dõi Fanpage và Group cộng đồng chính thức của ${gameName} để tham gia các sự kiện săn code độc quyền.
 ${gameSlug ? `- Xem toàn bộ thông tin, mẹo chơi và hướng dẫn nạp game tại chuyên trang [${gameName}](https://codegame.shop/game/${gameSlug}) trên **CodeGame.shop**.` : ''}
-- Thường xuyên ghé thăm **CodeGame.shop** để cập nhật nhanh nhất các mã giftcode máy chủ mới.`;
+- Thường xuyên ghé thăm **CodeGame.shop** để cập nhật nhanh nhất các mã giftcode máy chủ mới.
+
+---
+
+> 🛡️ **Nguồn tin tức:** Bản tin được tổng hợp, biên tập và xuất bản độc quyền bởi **CodeGame.Shop** (https://codegame.shop). Mọi thông tin giftcode đã được xác thực trước khi công bố.`;
 
   return {
     id: `news_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
@@ -492,7 +518,7 @@ ${gameSlug ? `- Xem toàn bộ thông tin, mẹo chơi và hướng dẫn nạp 
     game_name: gameName,
     tags: ['Giftcode Mới', gameName, 'GameMobile', 'CapNhatCode'],
     codes,
-    author: 'CodeGame Editorial',
+    author: 'CodeGame.Shop',
     views: 0,
     read_time_minutes: 3,
     is_featured: false,
@@ -500,7 +526,8 @@ ${gameSlug ? `- Xem toàn bộ thông tin, mẹo chơi và hướng dẫn nạp 
     status: 'PUBLISHED',
     published_at: new Date().toISOString(),
     updated_at: new Date().toISOString(),
-    source_url: sourceUrl,
+    source_name: 'CodeGame.Shop',
+    source_url: 'https://codegame.shop',
   };
 }
 

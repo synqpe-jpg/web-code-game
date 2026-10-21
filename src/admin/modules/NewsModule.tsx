@@ -497,7 +497,7 @@ export const NewsModule: React.FC<NewsModuleProps> = ({ onShowToast }) => {
       content: editingArticle.content,
       cover_url:
         editingArticle.cover_url ||
-        'https://images.unsplash.com/photo-1542751371-adc38448a05e?auto=format&fit=crop&w=1200&q=80',
+        (editingArticle.game_slug ? `/game_icons/${editingArticle.game_slug}.webp` : '/news_covers/game-offline-hay.webp'),
       gallery_urls: editingArticle.gallery_urls || [],
       virtual_views: Number(editingArticle.virtual_views) || 0,
       views_growth_rate: editingArticle.views_growth_rate !== undefined ? Number(editingArticle.views_growth_rate) : 1.0,
@@ -506,7 +506,9 @@ export const NewsModule: React.FC<NewsModuleProps> = ({ onShowToast }) => {
       game_name: editingArticle.game_name,
       tags: parsedTags,
       codes: editingArticle.codes || [],
-      author: editingArticle.author || 'CodeGame Editorial',
+      author: 'CodeGame.Shop',
+      source_name: 'CodeGame.Shop',
+      source_url: editingArticle.source_url || 'https://codegame.shop',
       views: editingArticle.views || 0,
       read_time_minutes: editingArticle.read_time_minutes || 3,
       is_featured: Boolean(editingArticle.is_featured),
@@ -1624,21 +1626,31 @@ export const NewsModule: React.FC<NewsModuleProps> = ({ onShowToast }) => {
                     {/* Bài Viết */}
                     <td className="py-2 px-3 min-w-[200px] max-w-[260px]">
                       <div className="flex items-center gap-2.5">
-                        <img
-                          src={art.cover_url || (art.game_slug ? `/game_icons/${art.game_slug}.webp` : '/og-image.jpg')}
-                          alt={art.title}
-                          className="w-10 h-10 rounded-xl object-cover shrink-0 border border-border/60 shadow-xs cursor-pointer"
-                          onClick={() => handleOpenEdit(art)}
-                          onError={(e) => {
-                            const el = e.currentTarget as HTMLImageElement;
-                            el.onerror = null;
-                            if (art.game_slug && !el.src.includes(`/game_icons/${art.game_slug}.webp`)) {
-                              el.src = `/game_icons/${art.game_slug}.webp`;
-                            } else {
-                              el.src = '/og-image.jpg';
-                            }
-                          }}
-                        />
+                        <div className="relative shrink-0">
+                          <img
+                            src={art.cover_url || (art.game_slug ? `/game_icons/${art.game_slug}.webp` : '/og-image.jpg')}
+                            alt={art.title}
+                            referrerPolicy="no-referrer"
+                            className="w-10 h-10 rounded-xl object-cover shrink-0 border border-border/60 shadow-xs cursor-pointer"
+                            onClick={() => handleOpenEdit(art)}
+                            onError={(e) => {
+                              const el = e.currentTarget as HTMLImageElement;
+                              el.onerror = null;
+                              if (art.game_slug && !el.src.includes(`/game_icons/${art.game_slug}.webp`)) {
+                                el.src = `/game_icons/${art.game_slug}.webp`;
+                              } else {
+                                el.src = '/og-image.jpg';
+                              }
+                            }}
+                          />
+                          {/* Logo phụ nhỏ ở góc ảnh */}
+                          <img
+                            src="/og-image.jpg"
+                            alt="CodeGame"
+                            className="absolute -bottom-1 -right-1 w-4 h-4 rounded-full ring-1 ring-background shadow-xs object-cover pointer-events-none"
+                            title="Nguồn xuất bản: CodeGame.Shop"
+                          />
+                        </div>
                         <div className="space-y-0.5 min-w-0 flex-1 overflow-hidden">
                           <div className="flex items-center gap-1.5 flex-wrap">
                             <span
@@ -1657,8 +1669,10 @@ export const NewsModule: React.FC<NewsModuleProps> = ({ onShowToast }) => {
                               </span>
                             )}
                           </div>
-                          <div className="text-[10px] text-muted-foreground truncate font-mono">
-                            /news/{art.slug}
+                          <div className="flex items-center gap-2 text-[10px] text-muted-foreground truncate">
+                            <span className="text-primary-light font-semibold">Nguồn: CodeGame.Shop</span>
+                            <span>•</span>
+                            <span className="font-mono">/news/{art.slug}</span>
                           </div>
                         </div>
                       </div>

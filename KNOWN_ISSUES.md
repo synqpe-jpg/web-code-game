@@ -1110,6 +1110,36 @@
 
 ---
 
+### ISSUE-054: Logo ảnh bìa tin tức fallback về logo web chính, thiếu Sub-logo Watermark và chưa chuẩn hóa nguồn CodeGame.Shop
+- **Triệu chứng**:
+  - Tại trang Quản trị (/admin#/news) và trang Khách hàng (/news), phần lớn bài viết tin tức hiển thị thumbnail tròn logo web CodeGame.Shop thay vì logo hoặc ảnh bìa của tựa game bài viết đề cập.
+  - Các bài viết chưa có logo phụ (watermark) để nhận diện thương hiệu độc quyền của web trên ảnh bìa.
+  - Nguồn và tác giả bài viết bị để trống hoặc hiển thị tên báo ngoài thay vì thương hiệu chính thức CodeGame.Shop.
+- **Nguyên nhân gốc rễ**:
+  1. *Chặn Hotlink HTTP 403*: Máy chủ báo mạng ngoài (	hanhnien.vn, kenh14, lag.vn) chặn Hotlink khi trình duyệt gửi header Referer, kích hoạt sự kiện onError khiến ảnh fallback về logo web /og-image.jpg.
+  2. *Slug icon không tồn tại*: Trình cào tự động slugify các tiêu đề tin tức chung (như eSports, game offline, thị trường game...) và gán đường dẫn /game_icons/.webp nhưng file không tồn tại trên máy chủ (HTTP 404), dẫn tới fallback về logo web.
+  3. *Thiếu Sub-logo Watermark*: Giao diện thẻ tin tức và banner chi tiết chưa có lớp badge thương hiệu nổi trên ảnh bài viết.
+  4. *Chưa chuẩn hóa nguồn bài viết*: Thuộc tính source_name, source_url, uthor không được ép buộc gán về CodeGame.Shop.
+- **Giải pháp chuẩn đã kiểm chứng**:
+  1. Bổ sung trọn bộ Gaming Artworks chuyên đề độ nét cao tại public/news_covers/ (cktg-2026-esports, apple-arcade-games, xbox-games-collection, thi-truong-game-viet-nam, board-game-van-hoa-viet...) và Logo chính thức Google Play VN tại public/game_icons/.
+  2. Nâng cấp uto_news_publisher.cjs:
+     - Tự động tải ảnh bìa về lưu nội bộ tại public/news_covers/.webp chống triệt để lỗi 403.
+     - Tự động ánh xạ ảnh bìa chuyên đề theo danh mục bài viết.
+     - Tự động tra cứu logo Google Play Store VN cho game mới.
+     - Tuyệt đối cấm gán /og-image.jpg làm ảnh bìa chính bài viết.
+     - Tự động gán uthor = 'CodeGame.Shop', source_name = 'CodeGame.Shop', source_url = 'https://codegame.shop'.
+  3. Thêm **Sub-logo Watermark Badge**:
+     - Hiển thị huy hiệu logo tròn CodeGame.Shop phát sáng nhẹ ở góc trên phải ảnh bìa trong NewsView.tsx, NewsDetailModal.tsx và NewsModule.tsx (Admin).
+     - Hiển thị nhãn Nguồn: CodeGame.Shop trong thông tin bài viết và Box chứng nhận bản quyền nguồn chính thức tại chân bài viết.
+  4. Chạy script chuẩn hóa scripts/fix_all_news_covers_and_sources.cjs làm sạch và đồng bộ 100% 79/79 bài viết trên Cloudflare D1.
+- ⛔ **CÁCH SỬA ĐÃ THẤT BẠI - TUYỆT ĐỐI KHÔNG LẶP LẠI**:
+  - ❌ *Không dùng trực tiếp URL ảnh ngoài từ các báo mạng mà không tải về nội bộ*: Báo chí luôn kích hoạt hotlink protection chặn 403.
+  - ❌ *Không tự gán đường dẫn /game_icons/.webp nếu file ảnh chưa thực sự tồn tại*: Luôn có danh mục ảnh bìa chuyên đề dự phòng cho các bài viết tin tức tổng hợp.
+  - ❌ *Không gán /og-image.jpg làm ảnh bìa chính*: Chỉ dùng logo tròn làm Sub-logo watermark badge ở góc ảnh bìa.
+
+
+---
+
 ## 2. QUY TRÌNH BẮT BUỘC TRƯỚC KHI SỬA CODE (PRE-FLIGHT CHECKLIST)
 
 Mọi nhà phát triển hoặc AI Agent khi nhận yêu cầu sửa đổi mã nguồn **PHẢI** thực hiện đủ 4 bước sau:

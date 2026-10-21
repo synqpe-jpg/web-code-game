@@ -17,6 +17,7 @@ import {
   ChevronRight,
   ChevronsLeft,
   ChevronsRight,
+  ShieldCheck,
 } from 'lucide-react';
 import { NewsArticle } from '../types/game';
 import { newsService } from '../services/newsService';
@@ -306,6 +307,12 @@ export const NewsView: React.FC<NewsViewProps> = ({
                       </span>
                     )}
                   </div>
+
+                  {/* Logo phụ & Nguồn: CodeGame.Shop */}
+                  <div className="absolute top-3 right-3 z-20 flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-slate-950/85 backdrop-blur-md border border-white/20 shadow-lg text-[10px] font-bold text-white select-none">
+                    <img src="/og-image.jpg" alt="CodeGame.Shop" className="w-3.5 h-3.5 rounded-full object-cover ring-1 ring-primary/60" />
+                    <span className="tracking-tight text-slate-200">CodeGame.Shop</span>
+                  </div>
                 </div>
               );
             })()}
@@ -314,6 +321,11 @@ export const NewsView: React.FC<NewsViewProps> = ({
             <div className="md:col-span-7 lg:col-span-8 xl:col-span-8 p-4 sm:p-5 lg:p-6 flex flex-col justify-between space-y-2 sm:space-y-3">
               <div className="space-y-2">
                 <div className="flex items-center gap-2.5 text-xs text-muted-foreground flex-wrap">
+                  <span className="flex items-center gap-1.5 font-bold text-primary-light">
+                    <ShieldCheck className="w-3.5 h-3.5 text-primary-light" />
+                    Nguồn: CodeGame.Shop
+                  </span>
+                  <span>•</span>
                   <span className="flex items-center gap-1">
                     <Calendar className="w-3.5 h-3.5" />
                     {new Date(featuredArticle.published_at).toLocaleDateString('vi-VN')}
@@ -526,6 +538,12 @@ export const NewsView: React.FC<NewsViewProps> = ({
                           )}
                         </div>
 
+                        {/* Sub-logo Watermark Badge: CodeGame.Shop */}
+                        <div className="absolute top-3 right-3 z-20 flex items-center gap-1 px-2 py-0.5 rounded-full bg-slate-950/80 backdrop-blur-md border border-white/20 shadow-md text-[9px] font-bold text-white select-none">
+                          <img src="/og-image.jpg" alt="CodeGame" className="w-3 h-3 rounded-full object-cover ring-1 ring-primary/60" />
+                          <span className="text-slate-200">CodeGame.Shop</span>
+                        </div>
+
                         {/* Codes badge on image bottom */}
                         {hasCodes && (
                           <div className="absolute bottom-3 right-3 z-20 px-2.5 py-1 rounded-lg bg-amber-500/90 backdrop-blur-md text-slate-950 text-[11px] font-black flex items-center gap-1 shadow-md">
@@ -541,7 +559,12 @@ export const NewsView: React.FC<NewsViewProps> = ({
                   <div className="p-5 flex-1 flex flex-col justify-between space-y-3">
                     <div className="space-y-2">
                       {/* Meta stats */}
-                      <div className="flex items-center gap-2 text-[11px] text-muted-foreground">
+                      <div className="flex items-center gap-2 text-[11px] text-muted-foreground flex-wrap">
+                        <span className="font-semibold text-primary-light flex items-center gap-1">
+                          <ShieldCheck className="w-3 h-3 text-primary-light" />
+                          CodeGame.Shop
+                        </span>
+                        <span>•</span>
                         <span>{new Date(article.published_at).toLocaleDateString('vi-VN')}</span>
                         <span>•</span>
                         <span>{article.read_time_minutes || 3} phút đọc</span>

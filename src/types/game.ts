@@ -283,6 +283,8 @@ export interface NewsArticle {
   tags?: string[];
   codes?: string[]; // Embedded gift codes for this article
   author?: string;
+  source_name?: string;
+  source_url?: string;
   views?: number;
   virtual_views?: number; // Base views (Lượt xem ban đầu)
   views_growth_rate?: number; // Growth rate multiplier (1.0x, 1.5x, 2.0x...)

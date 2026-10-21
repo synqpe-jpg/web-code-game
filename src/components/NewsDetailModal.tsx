@@ -13,6 +13,7 @@ import {
   Tag,
   ArrowRight,
   Sparkles,
+  ShieldCheck,
 } from 'lucide-react';
 import type { NewsArticle, GameItem } from '../types/game';
 import { newsService } from '../services/newsService';
@@ -139,8 +140,12 @@ export const NewsDetailModal: React.FC<NewsDetailModalProps> = ({
                 </span>
               </div>
             )}
-            <span className="text-xs text-muted-foreground truncate hidden md:inline">
-              {article.author || 'CodeGame Editorial'} • {formattedDate}
+            <div className="hidden md:flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-primary/10 border border-primary/25 text-[11px] font-bold text-primary-light shrink-0">
+              <img src="/og-image.jpg" alt="CodeGame.Shop" className="w-3.5 h-3.5 rounded-full object-cover ring-1 ring-primary/60" />
+              <span>Nguồn: CodeGame.Shop</span>
+            </div>
+            <span className="text-xs text-muted-foreground truncate hidden lg:inline">
+              • {formattedDate}
             </span>
           </div>
 
@@ -194,7 +199,11 @@ export const NewsDetailModal: React.FC<NewsDetailModalProps> = ({
             </h1>
 
             {/* Meta badges */}
-            <div className="flex flex-wrap items-center gap-3 text-xs text-slate-400">
+            <div className="flex flex-wrap items-center gap-2.5 sm:gap-3 text-xs text-slate-400">
+              <span className="flex items-center gap-1.5 font-bold text-primary-light bg-primary/10 border border-primary/25 px-2.5 py-0.5 rounded-full">
+                <ShieldCheck className="w-3.5 h-3.5 text-primary-light" />
+                Nguồn: CodeGame.Shop
+              </span>
               <span className="flex items-center gap-1">
                 <Calendar className="w-3.5 h-3.5 text-primary-light" />
                 {formattedDate}
@@ -231,6 +240,12 @@ export const NewsDetailModal: React.FC<NewsDetailModalProps> = ({
                     style={{ backgroundImage: `url(${modalCover})` }}
                   />
                   <div className="absolute inset-0 bg-gradient-to-t from-slate-950/85 via-slate-950/35 to-transparent pointer-events-none" />
+
+                  {/* Sub-logo Watermark Badge: CodeGame.Shop */}
+                  <div className="absolute top-3 right-3 z-20 flex items-center gap-1.5 px-3 py-1 rounded-full bg-slate-950/85 backdrop-blur-md border border-white/25 shadow-lg text-[11px] font-bold text-white select-none">
+                    <img src="/og-image.jpg" alt="CodeGame.Shop" className="w-4 h-4 rounded-full object-cover ring-1 ring-primary/60" />
+                    <span className="tracking-tight text-slate-100">CodeGame.Shop • Nguồn Độc Quyền</span>
+                  </div>
 
                   {isGameIcon ? (
                     <div className="relative z-10 flex flex-col sm:flex-row items-center justify-center p-6 gap-4 text-center sm:text-left">
@@ -590,6 +605,20 @@ export const NewsDetailModal: React.FC<NewsDetailModalProps> = ({
               </div>
             </div>
           )}
+
+          {/* Nguồn bản quyền xuất bản chính thức */}
+          <div className="p-4 rounded-2xl bg-gradient-to-r from-card via-card to-primary/5 border border-border/80 flex flex-col sm:flex-row items-center gap-3.5 shadow-sm">
+            <img src="/og-image.jpg" alt="CodeGame.Shop" className="w-12 h-12 rounded-2xl object-cover border border-primary/40 shadow-md shrink-0" />
+            <div className="flex-1 text-center sm:text-left">
+              <div className="flex items-center justify-center sm:justify-start gap-1.5">
+                <span className="font-extrabold text-sm text-foreground">Nguồn Bản Quyền: CodeGame.Shop</span>
+                <ShieldCheck className="w-4 h-4 text-emerald-400" />
+              </div>
+              <p className="text-xs text-muted-foreground mt-0.5">
+                Mọi tin tức, hướng dẫn cẩm nang và mã giftcode được tổng hợp, kiểm duyệt tính hợp lệ và xuất bản độc quyền bởi đội ngũ biên tập <strong>CodeGame.Shop</strong>.
+              </p>
+            </div>
+          </div>
 
           {/* Bottom Close Bar & Actions */}
           <div className="pt-6 pb-2 border-t border-border/80 flex flex-col sm:flex-row items-center justify-between gap-3">

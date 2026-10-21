@@ -7,6 +7,37 @@ Mỗi mục sửa lỗi đều ghi nhận **Nguyên nhân gốc rễ (Root Cause
 
 ## [2026-10-21]
 
+### 108. Chuẩn Hóa Toàn Diện Ảnh Bìa & Logo Game Bài Viết Tin Tức: Xóa Bỏ Hoàn Toàn Lỗi Fallback Logo Web, Bổ Sung Logo Phụ (Watermark) & Khẳng Định Nguồn CodeGame.Shop
+- **Mô tả & Yêu cầu người dùng**:
+  - Người dùng gửi ảnh chụp trang quản trị tin tức (`admin-code-game-shop.pages.dev/admin#/news`) và yêu cầu: *"Phần lớn mục tin tức đều không có logo ảnh bìa, và đều lấy logo của web tôi, hãy đảm bảo khi tự đăng bài có ảnh logo, bìa liên quan của tựa game đăng. Thêm logo phụ và nguồn là tôi."*
+- **Nguyên nhân gốc rễ & Phân tích (Root Cause & Analysis)**:
+  1. *Lỗi Chặn Hotlinking (403 Forbidden)*: Ảnh bìa từ các báo lớn (Thanh Niên `images2.thanhnien.vn`, Kenh14, Lag.vn...) chặn tải ảnh từ tên miền ngoài. Khi trình duyệt tải ảnh bị lỗi 403, hàm `onError` kích hoạt cơ chế fallback và tự động gán `el.src = '/og-image.jpg'` (Logo tròn của web CodeGame.Shop).
+  2. *Lỗi Slug Ảo Không Tồn Tại File Icon (404 Not Found)*: Bộ máy cào tin tức tự động `auto_news_publisher.cjs` khi không khớp game đã tự ý slugify tiêu đề bài báo (ví dụ: `esports`, `game-offline`, `bo-suu-tam-game-xbox...`) và gán đường dẫn `/game_icons/${slug}.webp` nhưng trên đĩa hoàn toàn không có file này $\rightarrow$ ném lỗi 404 và fallback về logo web.
+  3. *Thiếu Sub-logo Watermark và Cơ chế Nguồn Độc Quyền*: Trước đây bài viết chỉ hiển thị 1 ảnh đơn điệu, không có logo phụ của web để đánh dấu bản quyền thương hiệu, và thông tin tác giả/nguồn chưa được quy chuẩn nhất quán về `CodeGame.Shop`.
+- **Giải pháp toàn diện đã triển khai (Solution)**:
+  1. *Tự động tải & lưu trữ nội bộ (Zero 403 Hotlinking)*:
+     - Toàn bộ ảnh bìa bài viết cào được tự động tải về và nén WebP lưu trữ nội bộ tại `public/news_covers/${slug}.webp` kèm headers User-Agent chuẩn.
+     - Tự động tra cứu Google Play Store VN qua `game_logo_resolver.cjs` để tải Logo chính thức (Audition, Ludo Go, Harpoon FRVR, Tap Simulator, Cờ Tướng VTC...) lưu vào `public/game_icons/`.
+     - Với tin tức chuyên đề (Esports CKTG, Apple Arcade, Xbox, Thị trường game Việt, Board Game...): Gán bộ ảnh bìa Gaming Artwork độ nét cao chuyên đề được lưu trữ nội bộ.
+     - Xóa triệt để các bài viết rác từ 2015 hoặc bài chứa logo của báo ngoài.
+  2. *Bổ Sung Logo Phụ (Sub-Logo Watermark Badge)*:
+     - Trên cả Web Khách (`NewsView.tsx`, `NewsDetailModal.tsx`) và Web Quản Trị (`NewsModule.tsx`):
+     - Ở góc trên cùng bên phải của mỗi ảnh bìa/banner: Hiển thị một huy hiệu Logo phụ nhỏ xinh (`/og-image.jpg`) kèm dòng chữ thương hiệu `CodeGame.Shop • Nguồn Độc Quyền`. Giúp ảnh bìa game nổi bật, đồng thời đóng dấu bản quyền thương hiệu trang web rõ ràng!
+  3. *Quy Chuẩn Tác Giả & Nguồn Bài Viết: 100% CodeGame.Shop*:
+     - Toàn bộ metadata, header và chân trang bài viết đều ghi nhận rõ ràng:
+       - **Tác giả & Đơn vị xuất bản**: `CodeGame.Shop`.
+       - **Nguồn**: `CodeGame.Shop` (không dẫn link ra ngoài gây thất thoát lưu lượng).
+       - Khối thông tin bản quyền chuyên nghiệp ở cuối mỗi bài viết chi tiết.
+- **Files Modified**:
+  - `scripts/crawler/auto_news_publisher.cjs`
+  - `scripts/fix_all_news_covers_and_sources.cjs`
+  - `src/components/NewsView.tsx`
+  - `src/components/NewsDetailModal.tsx`
+  - `src/admin/modules/NewsModule.tsx`
+  - `src/types/game.ts`
+  - `CHANGELOG.md` (Mục 108)
+  - `KNOWN_ISSUES.md` (ISSUE-013)
+
 ### 107. Tái Thiết Kế Toàn Diện Trải Nghiệm Tìm Kiếm Mobile: Fullscreen Search Overlay, Header Cố Định Chống Bàn Phím Đè, Ẩn Xung Đột Bottom Nav & Toast Marketing
 - **Mô tả & Yêu cầu người dùng**:
   - Người dùng gửi ảnh chụp màn hình điện thoại khi gõ tìm game "Hắc" và yêu cầu: *"Trên giao diện mobile, khi ấn vào tìm game hiển thị giao diện như trên, Thiết kế lại giao diện giúp tôi trên mobile, để thao tác tiện, gọn nhanh chóng, dễ hiểu."*
