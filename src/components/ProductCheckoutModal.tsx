@@ -94,6 +94,8 @@ export const ProductCheckoutModal: React.FC<ProductCheckoutModalProps> = ({
     }
   }, [product?.id]);
 
+  useLockBodyScroll(Boolean(product));
+
   if (!product) return null;
   const liveProduct = dataService.getStoreProducts().find((p) => p.id === product.id) || product;
 

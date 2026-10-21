@@ -27,6 +27,7 @@ import confetti from 'canvas-confetti';
 import { dataService } from '../services/dataService';
 import { marketingService } from '../services/marketingService';
 import { growthService } from '../services/growthService';
+import { useLockBodyScroll } from '../hooks/useLockBodyScroll';
 import type { UserProfile } from '../types/game';
 import { formatCore, formatFullDateTime } from '../utils/textUtils';
 import { buildVietQrUrl, generateVietQrDataUrl } from '../utils/vietQrUtils';
@@ -57,6 +58,7 @@ export const UserWalletModal: React.FC<UserWalletModalProps> = ({
   const [sepayConfig, setSepayConfig] = useState(() => dataService.getSePayConfig());
   const [depositHistory, setDepositHistory] = useState<any[]>([]);
   const [qrDataUrl, setQrDataUrl] = useState<string>('');
+  useLockBodyScroll(isOpen);
 
   // Stable references to prevent infinite re-render cascades
   const lastKnownBalanceRef = React.useRef(user?.wallet_balance || 0);

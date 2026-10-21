@@ -7,6 +7,29 @@ Mỗi mục sửa lỗi đều ghi nhận **Nguyên nhân gốc rễ (Root Cause
 
 ## [2026-10-21]
 
+### 113. Khắc Phục Lỗi Màn Hình Đơ Tại Splash Preloader (Vào Web Bị Kẹt Không Vào Được): Bổ Sung Import useLockBodyScroll & Cơ Chế Preloader Safety Watchdog Đa Tầng
+- **Mô tả & Yêu cầu người dùng**:
+  - Người dùng phản ánh: *"Tôi vào web không được"* kèm ảnh chụp màn hình trình duyệt Cốc Cốc tại trang chủ `codegame.shop` bị dừng vô hạn ở màn hình preloader đen tròn xoay có chữ "CODE GAME".
+- **Nguyên nhân gốc rễ & Phân tích (Root Cause & Analysis)**:
+  1. *Lỗi ReferenceError thiếu import `useLockBodyScroll`*: Trong `src/components/CodePlaygroundModal.tsx`, hook `useLockBodyScroll` được gọi nhưng quên thêm lệnh `import { useLockBodyScroll } from '../hooks/useLockBodyScroll';`. Do component này được render trong cây component ban đầu của `src/App.tsx`, lỗi `ReferenceError: useLockBodyScroll is not defined` đã phát sinh ngay trong chu kỳ render đầu tiên.
+  2. *Bẫy che phủ vĩnh viễn của Splash Preloader (`#app-preloader`)*: Khi React vấp phải lỗi `ReferenceError`, ErrorBoundary bắt lỗi nhưng thẻ `<div id="app-preloader">` với CSS `position: fixed; inset: 0; z-index: 9999999` không có cơ chế tự gỡ bỏ khi xảy ra lỗi ngoài luồng `useEffect`. Kết quả là người dùng bị kẹt ở màn hình loading ban đầu.
+- **Giải pháp toàn diện đã triển khai (Solution)**:
+  1. *Bổ sung import và gắn cờ điều kiện*: Bổ sung đầy đủ import `useLockBodyScroll` trong `CodePlaygroundModal.tsx`, `SubmitCodeModal.tsx`, `UserWalletModal.tsx`, `ProductCheckoutModal.tsx` và chỉ kích hoạt khi modal thực sự mở (`useLockBodyScroll(isOpen)` hoặc `useLockBodyScroll(Boolean(product))`).
+  2. *Cơ chế Preloader Safety Watchdog đa tầng*:
+     - Tích hợp watchdog timer trong `index.html` tự động giải phóng và xóa `#app-preloader` sau tối đa 2.2 giây hoặc ngay khi sự kiện `window.load` hoàn tất.
+     - Trong `ErrorBoundary.tsx`: Khi bắt được bất kỳ ngoại lệ nào, tự động xóa sạch `#app-preloader` để hiển thị ngay giao diện dự phòng và nút khôi phục thay vì để người dùng bị kẹt.
+     - Trong `App.tsx`: Kích hoạt `dismissPreloader` ngay lập tức, kết hợp với `requestAnimationFrame` và `setTimeout(..., 150)` không bị phụ thuộc vào sự thay đổi tab.
+- **Files Modified**:
+  - `src/components/CodePlaygroundModal.tsx`
+  - `src/components/SubmitCodeModal.tsx`
+  - `src/components/ProductCheckoutModal.tsx`
+  - `src/components/UserWalletModal.tsx`
+  - `src/components/ErrorBoundary.tsx`
+  - `src/App.tsx`
+  - `index.html`
+  - `CHANGELOG.md` (Mục 113)
+  - `KNOWN_ISSUES.md` (ISSUE-059)
+
 ### 112. Khắc Phục Triệt Để Lỗi Kẹt Cuộn Ngược Trên Mobile (Chỉ Lướt Xuống Được, Không Vuốt Lên Được): Hóa Giải Bẫy WebKit Boundary Trap Của overscroll-contain, Bổ Sung min-h-0 & touch-action: pan-y, Xóa Bỏ Nested Scroll Traps và Khóa Cuộn Body Đa Tầng
 - **Mô tả & Yêu cầu người dùng**:
   - Người dùng phản ánh: *"Trên điện thoại, web khách, một vài chỗ chỉ có thể lướt xuống, khi vuốt lên không được, bạn kiểm tra giúp tôi và xử lý, đặc biệt khi ấn vào phần mua hàng trong Tiện ích tôi hay bị."*

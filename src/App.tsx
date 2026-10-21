@@ -353,15 +353,15 @@ export const App: React.FC = () => {
       }
     };
 
-    // Use double requestAnimationFrame to ensure the browser has painted the view
-    const rafId = requestAnimationFrame(() => {
-      requestAnimationFrame(() => {
-        setTimeout(dismissPreloader, 120);
-      });
-    });
+    dismissPreloader();
+    const rafId = requestAnimationFrame(dismissPreloader);
+    const timeoutId = setTimeout(dismissPreloader, 150);
 
-    return () => cancelAnimationFrame(rafId);
-  }, [currentTab]);
+    return () => {
+      cancelAnimationFrame(rafId);
+      clearTimeout(timeoutId);
+    };
+  }, []);
 
   // Initial Load & Deep Link Router
   useEffect(() => {

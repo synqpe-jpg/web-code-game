@@ -256,6 +256,28 @@
     </div>
 
     <div id="root"></div>
+    <script>
+      (function() {
+        var timer = setTimeout(function() {
+          var p = document.getElementById('app-preloader');
+          if (p) {
+            p.style.opacity = '0';
+            p.style.pointerEvents = 'none';
+            setTimeout(function() { if (p.parentNode) p.parentNode.removeChild(p); }, 360);
+          }
+        }, 2200);
+        window.addEventListener('load', function() {
+          setTimeout(function() {
+            var p = document.getElementById('app-preloader');
+            if (p) {
+              p.style.opacity = '0';
+              p.style.pointerEvents = 'none';
+              setTimeout(function() { if (p.parentNode) p.parentNode.removeChild(p); }, 360);
+            }
+          }, 600);
+        });
+      })();
+    </script>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>

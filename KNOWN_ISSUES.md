@@ -10,6 +10,21 @@
 
 ## 1. DANH MỤC LỖI & CÁC BẪY ĐÃ THẤT BẠI (DO NOT REPEAT)
 
+### ISSUE-059: Lỗi kẹt màn hình Splash Preloader đen thui khi vào web do ReferenceError thiếu import và thiếu Watchdog bảo vệ
+- **Triệu chứng**:
+  - Người dùng truy cập `codegame.shop`, màn hình xuất hiện vòng tròn logo xoay với chữ "CODE GAME" trên nền đen và bị kẹt vô hạn tại đây, không vào được web.
+- **Nguyên nhân gốc rễ**:
+  1. *Lỗi ReferenceError thiếu import hook*: Một component được gọi ngầm trong cây render ban đầu (`CodePlaygroundModal`) sử dụng hook nhưng thiếu lệnh `import`. Khi React khởi động, ngoại lệ `ReferenceError: useLockBodyScroll is not defined` ném ra làm ngắt quãng chu kỳ render.
+  2. *Bẫy Preloader Z-Index 9999999 không có Watchdog*: Preloader overlay che phủ toàn màn hình chỉ được xóa khi `useEffect` trong `App.tsx` chạy xong. Khi ứng dụng gặp lỗi, luồng `useEffect` không kích hoạt dẫn đến preloader che kín toàn bộ giao diện và nuốt sạch mọi tương tác chuột/touch.
+- **Giải pháp chuẩn đã kiểm chứng**:
+  - Kiểm tra toàn bộ component có dùng hook để đảm bảo 100% có câu lệnh `import`.
+  - Tích hợp watchdog timer trong `index.html` tự động hủy bỏ preloader sau 2.2 giây hoặc khi `load` event hoàn tất.
+  - Tích hợp tự động gỡ preloader ngay trong `ErrorBoundary.componentDidCatch` để người dùng luôn nhìn thấy giao diện cứu hộ thay vì màn hình loading chết.
+  - Sử dụng headless browser (Edge/Chrome CDP) kiểm tra trực tiếp console log và kiểm tra sự biến mất của preloader trước khi triển khai.
+- ⛔ **CÁCH SỬA ĐÃ THẤT BẠI - TUYỆT ĐỐI KHÔNG LẶP LẠI**:
+  - ❌ *Không phụ thuộc duy nhất vào useEffect của App để gỡ bỏ preloader toàn cục*: Bất kỳ lỗi khởi tạo nào xảy ra trước đó sẽ khóa người dùng vĩnh viễn trong màn hình đen. Luôn phải có fail-safe watchdog timer trong HTML.
+  - ❌ *Không chỉ chạy test build Vite đơn thuần mà không kiểm tra lỗi runtime ReferenceError*: Vite build không chạy `tsc` kiểm tra type/import chặt chẽ theo mặc định. Phải dùng Edge DevTools CDP hoặc `tsc` để kiểm tra.
+
 ### ISSUE-058: Lỗi kẹt cuộn ngược trên mobile (Chỉ lướt xuống được, không vuốt lên được) do overscroll-contain WebKit trap, thiếu min-h-0 và nested scroll
 - **Triệu chứng**:
   - Trên điện thoại di động, người dùng mở xem chi tiết tiện ích hoặc mở modal thanh toán mua hàng, khi lướt xuống dưới xem thông tin hoặc các gói tùy chọn thì bình thường, nhưng khi muốn vuốt ngược lên trên đỉnh modal thì màn hình bị "đơ" cứng ngắc, vuốt lên không ăn.

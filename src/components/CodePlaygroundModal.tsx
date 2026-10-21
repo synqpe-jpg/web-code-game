@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { createPortal } from 'react-dom';
 import { X, Code2, Dices, Copy, Check, Sparkles } from 'lucide-react';
 import confetti from 'canvas-confetti';
+import { useLockBodyScroll } from '../hooks/useLockBodyScroll';
 import type { GameItem } from '../types/game';
 
 interface CodePlaygroundModalProps {
@@ -26,7 +27,7 @@ export const CodePlaygroundModal: React.FC<CodePlaygroundModalProps> = ({
   } | null>(null);
   const [isSpinning, setIsSpinning] = useState(false);
   const [isCopied, setIsCopied] = useState(false);
-  useLockBodyScroll(true);
+  useLockBodyScroll(isOpen);
 
   if (!isOpen || typeof document === 'undefined') return null;
 

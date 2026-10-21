@@ -26,6 +26,7 @@ export const SubmitCodeModal: React.FC<SubmitCodeModalProps> = ({
   const [submitterEmail, setSubmitterEmail] = useState(currentUser?.email || '');
   const [error, setError] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
+  useLockBodyScroll(isOpen);
 
   if (!isOpen || typeof document === 'undefined') return null;
 
