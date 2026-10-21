@@ -720,6 +720,28 @@ class DataService {
               }
               window.dispatchEvent(new CustomEvent('wcg_utilities_updated', { detail: filtered }));
             }
+            if (json.utilitiesGlobalShowSold !== undefined) {
+              const currentVal = localStorage.getItem('wcg_utilities_global_show_sold');
+              const newVal = String(json.utilitiesGlobalShowSold);
+              if (currentVal !== newVal) {
+                localStorage.setItem('wcg_utilities_global_show_sold', newVal);
+                localStorage.setItem('wcg_admin_show_sold_util', newVal);
+                hasChanges = true;
+                window.dispatchEvent(new CustomEvent('wcg_utilities_settings_updated', { detail: { showSold: json.utilitiesGlobalShowSold } }));
+                window.dispatchEvent(new Event('wcg_sold_count_updated'));
+              }
+            }
+            if (json.storeGlobalShowSold !== undefined) {
+              const currentVal = localStorage.getItem('wcg_store_global_show_sold');
+              const newVal = String(json.storeGlobalShowSold);
+              if (currentVal !== newVal) {
+                localStorage.setItem('wcg_store_global_show_sold', newVal);
+                localStorage.setItem('wcg_admin_show_sold_store', newVal);
+                hasChanges = true;
+                window.dispatchEvent(new CustomEvent('wcg_store_settings_updated', { detail: { showSold: json.storeGlobalShowSold } }));
+                window.dispatchEvent(new Event('wcg_sold_count_updated'));
+              }
+            }
             if (json.utilityCategories && Array.isArray(json.utilityCategories)) {
               const currentCats = localStorage.getItem('wcg_admin_utility_categories_v1');
               const newCats = JSON.stringify(json.utilityCategories);

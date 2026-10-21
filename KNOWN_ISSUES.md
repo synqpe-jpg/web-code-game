@@ -1140,6 +1140,25 @@
 
 ---
 
+### ISSUE-055: Nút ẩn "Đã bán" trong Admin Toolbar chỉ lưu cục bộ, không đồng bộ ra Web Khách và Modal chi tiết
+- **Triệu chứng**:
+  - Admin bấm nút `HIỂN THỊ: [🚫 Đã bán]` trên thanh công cụ mục Tiện ích (`/admin#/utilities`) hoặc Cửa hàng (`/admin#/inventory`), trên Admin cột/huy hiệu đã ẩn nhưng ngoài trang khách (`/utilities` hoặc `/store`) và trong modal chi tiết sản phẩm (`ProductDetailModal`) vẫn hiển thị "Đã bán: X".
+- **Nguyên nhân gốc rễ**:
+  1. Nút bấm trên thanh công cụ Admin trước đây chỉ lưu vào biến giao diện nội bộ `showAdminSold` (`wcg_admin_show_sold_util`) cho riêng trình duyệt Admin, không kết nối tới Web Khách và không gửi đồng bộ lên Cloudflare D1.
+  2. `ProductDetailModal.tsx` bỏ qua thuộc tính `show_sold_count`, luôn luôn hiển thị dòng "Đã bán: X gói" và "• Đã bán: X" dù sản phẩm có cấu hình ẩn hay không.
+  3. Web Khách thiếu cờ cấu hình hiển thị toàn cục từ máy chủ để đồng bộ trạng thái khi Admin bật/tắt trên thanh công cụ.
+- **Giải pháp chuẩn đã kiểm chứng**:
+  1. Quy chuẩn nút bấm trên thanh công cụ Admin thành bộ điều khiển toàn cục: cập nhật cờ `wcg_utilities_global_show_sold` / `wcg_store_global_show_sold`, đồng bộ tức thì lên Cloudflare D1 qua `/api/sync` và phát sự kiện cập nhật giao diện 0 giây.
+  2. Nâng cấp `UtilitiesView.tsx` & `StoreView.tsx`: kiểm tra đồng thời cả cờ toàn cục `isGlobalSoldEnabled` và cờ riêng lẻ `item.show_sold_count !== false`.
+  3. Nâng cấp `ProductDetailModal.tsx`: kiểm tra `isSoldVisible` trước khi hiển thị dòng đã bán ở header modal và danh sách gói.
+  4. Tích hợp hai chiều trong Cloudflare Edge Worker (`functions/api/sync.ts`) và `dataService.ts` để lưu trữ và tải cấu hình cho 100% người dùng.
+- ⛔ **CÁCH SỬA ĐÃ THẤT BẠI - TUYỆT ĐỐI KHÔNG LẶP LẠI**:
+  - ❌ *Không chỉ gán biến state nội bộ trong Admin component*: Mọi nút bấm bật/tắt hiển thị trên Admin mà người dùng nhìn thấy phải được liên kết đồng bộ với Web Khách và máy chủ Cloudflare D1/KV.
+  - ❌ *Không render cứng nhãn "Đã bán" trong modal chi tiết mà không kiểm tra cờ `show_sold_count`*.
+
+
+---
+
 ## 2. QUY TRÌNH BẮT BUỘC TRƯỚC KHI SỬA CODE (PRE-FLIGHT CHECKLIST)
 
 Mọi nhà phát triển hoặc AI Agent khi nhận yêu cầu sửa đổi mã nguồn **PHẢI** thực hiện đủ 4 bước sau:

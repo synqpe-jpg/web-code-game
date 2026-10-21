@@ -132,6 +132,12 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
   } as any);
   const isOutOfStock = realStock <= 0 || displayStock <= 0;
 
+  // Quyết định hiển thị "Đã bán" dựa trên: Cấu hình toàn cục + Cấu hình sản phẩm riêng lẻ
+  const isGlobalSoldEnabled = isStoreProduct
+    ? (typeof window !== 'undefined' ? (localStorage.getItem('wcg_store_global_show_sold') !== 'false' && localStorage.getItem('wcg_admin_show_sold_store') !== 'false') : true)
+    : (typeof window !== 'undefined' ? (localStorage.getItem('wcg_utilities_global_show_sold') !== 'false' && localStorage.getItem('wcg_admin_show_sold_util') !== 'false') : true);
+  const isSoldVisible = isGlobalSoldEnabled && (product as any).show_sold_count !== false;
+
   const currentPrice = selectedPackage.price;
   const originalPrice = selectedPackage.original_price || currentPrice;
   const discountPercent =
@@ -465,9 +471,11 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
                       <Star className="w-3.5 h-3.5 fill-amber-400 text-amber-400" />
                       <span>5.0 (Đánh giá uy tín)</span>
                     </span>
-                    <span className="text-slate-400">
-                      Đã bán: <strong className="text-foreground font-mono">{displaySold}</strong> gói
-                    </span>
+                    {isSoldVisible && (
+                      <span className="text-slate-400">
+                        Đã bán: <strong className="text-foreground font-mono">{displaySold}</strong> gói
+                      </span>
+                    )}
                   </div>
                 </div>
 
@@ -518,9 +526,11 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
                               <span className="text-[11px] text-muted-foreground truncate">
                                 {pkg.note || 'Xử lý tiêu chuẩn'}
                               </span>
-                              <span className="text-[11px] text-slate-400 font-mono shrink-0">
-                                • Đã bán: <strong className="text-foreground">{marketingService.getSoldDisplay({ ...pkg, created_at: product.created_at } as any)}</strong>
-                              </span>
+                              {isSoldVisible && (pkg as any).show_sold_count !== false && (
+                                <span className="text-[11px] text-slate-400 font-mono shrink-0">
+                                  • Đã bán: <strong className="text-foreground">{marketingService.getSoldDisplay({ ...pkg, created_at: product.created_at } as any)}</strong>
+                                </span>
+                              )}
                             </div>
                           </div>
 

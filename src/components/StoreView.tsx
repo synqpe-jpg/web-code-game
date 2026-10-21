@@ -40,6 +40,10 @@ export const StoreView: React.FC<StoreViewProps> = ({
   const [filterType, setFilterType] = useState<string>('all');
   const [search, setSearch] = useState<string>('');
   const [cmsIntro, setCmsIntro] = useState(() => dataService.getContentByKey('store_section'));
+  const [isGlobalSoldEnabled, setIsGlobalSoldEnabled] = useState<boolean>(() => {
+    if (typeof window === 'undefined') return true;
+    return localStorage.getItem('wcg_store_global_show_sold') !== 'false' && localStorage.getItem('wcg_admin_show_sold_store') !== 'false';
+  });
 
   const [viewMode, setViewMode] = useState<'grid' | 'list'>(() => {
     if (typeof window !== 'undefined') {
@@ -61,6 +65,9 @@ export const StoreView: React.FC<StoreViewProps> = ({
       setProducts([...dataService.getStoreProducts()]);
       setCmsIntro(dataService.getContentByKey('store_section'));
       setCategoriesList([...dataService.getStoreCategories()]);
+      setIsGlobalSoldEnabled(
+        localStorage.getItem('wcg_store_global_show_sold') !== 'false' && localStorage.getItem('wcg_admin_show_sold_store') !== 'false'
+      );
     };
     const unsub = dataService.subscribe(handleUpdate);
     const unsubStock = marketingService.subscribeStockChange(handleUpdate);
@@ -68,6 +75,7 @@ export const StoreView: React.FC<StoreViewProps> = ({
     window.addEventListener('wcg_admin_data_updated', handleUpdate);
     window.addEventListener('wcg_virtual_stock_updated', handleUpdate);
     window.addEventListener('wcg_sold_count_updated', handleUpdate);
+    window.addEventListener('wcg_store_settings_updated', handleUpdate);
     window.addEventListener('storage', handleUpdate);
     return () => {
       unsub();
@@ -76,6 +84,7 @@ export const StoreView: React.FC<StoreViewProps> = ({
       window.removeEventListener('wcg_admin_data_updated', handleUpdate);
       window.removeEventListener('wcg_virtual_stock_updated', handleUpdate);
       window.removeEventListener('wcg_sold_count_updated', handleUpdate);
+      window.removeEventListener('wcg_store_settings_updated', handleUpdate);
       window.removeEventListener('storage', handleUpdate);
     };
   }, []);
@@ -353,7 +362,7 @@ export const StoreView: React.FC<StoreViewProps> = ({
                         {displayStock <= 0 ? 'Hết hàng' : `Còn: ${displayStock}`}
                       </span>
                     )}
-                    {product.show_sold_count !== false && (
+                    {isGlobalSoldEnabled && product.show_sold_count !== false && (
                       <>
                         {(product as any).show_stock_count !== false && <span>•</span>}
                         <span className="font-mono text-amber-400/90 hidden xs:inline">
@@ -565,7 +574,7 @@ export const StoreView: React.FC<StoreViewProps> = ({
                               {displayStock <= 0 ? 'Hết hàng' : `Còn: ${displayStock}`}
                             </span>
                           )}
-                          {product.show_sold_count !== false && (
+                          {isGlobalSoldEnabled && product.show_sold_count !== false && (
                             <span className="text-[9px] sm:text-[10px] font-mono text-amber-400/90">
                               {(product as any).show_stock_count !== false ? '• ' : ''}Đã bán: {displaySold}
                             </span>

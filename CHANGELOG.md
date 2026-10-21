@@ -7,6 +7,38 @@ Mỗi mục sửa lỗi đều ghi nhận **Nguyên nhân gốc rễ (Root Cause
 
 ## [2026-10-21]
 
+### 109. Đồng Bộ Toàn Diện Nút Ẩn/Hiện "Đã Bán" Từ Admin Lên Web Khách (Utilities & Store): Đồng Bộ Cloudflare D1, Kết Nối Trực Tiếp Nút Bấm Toolbar & Modal Chi Tiết
+- **Mô tả & Yêu cầu người dùng**:
+  - Người dùng gửi ảnh chụp màn hình Admin mục Tiện ích (`admin-code-game-shop.pages.dev/admin#/utilities`) và hỏi: *"Trong admin, tôi đã ẩn đã bán sao ngoài web khách vẫn hiện. giúp tôi."*
+- **Nguyên nhân gốc rễ & Phân tích (Root Cause & Analysis)**:
+  1. *Nút Bấm Toolbar Admin Chỉ Lưu LocalStorage Cục Bộ Của Admin*: Nút `HIỂN THỊ: [Đã bán]` trên thanh công cụ của `UtilitiesModule.tsx` và `CodeInventoryModule.tsx` chỉ lưu biến `showAdminSold` vào `localStorage.getItem('wcg_admin_show_sold_util')`. Biến này chỉ dùng để ẩn cột trong bảng quản trị nội bộ mà hoàn toàn KHÔNG kết nối tới Web Khách, cũng KHÔNG gửi đồng bộ lên máy chủ Cloudflare D1/KV.
+  2. *Modal Chi Tiết Sản Phẩm Bỏ Qua Cấu Hình Ẩn Đã Bán*: Trong `ProductDetailModal.tsx`, dòng hiển thị `Đã bán: X gói` và `• Đã bán: X` trong danh sách gói hoàn toàn không kiểm tra cờ `show_sold_count`, dẫn đến việc dù Admin có tắt số bán ở từng sản phẩm thì khi khách click mở modal chi tiết số bán vẫn hiện ra.
+  3. *Web Khách Thiếu Lắng Nghe Cấu Hình Toàn Cục*: `UtilitiesView.tsx` và `StoreView.tsx` chỉ kiểm tra `item.show_sold_count !== false` của từng sản phẩm riêng lẻ, không có cờ toàn cục `wcg_utilities_global_show_sold` / `wcg_store_global_show_sold` để phản hồi ngay khi Admin bấm nút trên Toolbar.
+- **Giải pháp toàn diện đã triển khai (Solution)**:
+  1. *Chuẩn Hóa Nút Bấm Toolbar Thành Bộ Điều Khiển Toàn Cục*:
+     - Khi Admin bấm `[Đã bán]` trên Toolbar Tiện ích (`admin#/utilities`) hoặc Cửa hàng (`admin#/inventory`), hệ thống lập tức cập nhật cờ toàn cục `wcg_utilities_global_show_sold` / `wcg_store_global_show_sold`.
+     - Tự động gọi `adminDataService.pushFullStateToKV(true)` để lưu ngay giá trị mới lên Cloudflare D1 `system_settings` qua `/api/sync`.
+     - Bắn sự kiện `wcg_utilities_settings_updated` / `wcg_store_settings_updated` và `wcg_sold_count_updated` để toàn bộ giao diện cập nhật ngay 0 giây.
+     - Hiển thị Toast thông báo trạng thái rõ ràng cho Admin: *"Đã ẩn/bật hiển thị 'Đã bán' trên Web Khách và Admin"*.
+  2. *Cập Nhật Web Khách (UtilitiesView, StoreView, ProductDetailModal)*:
+     - `UtilitiesView.tsx` & `StoreView.tsx`: Tích hợp cờ `isGlobalSoldEnabled`. Khi Admin ẩn, toàn bộ huy hiệu "Đã bán: X" trên các thẻ sản phẩm (dạng danh sách và dạng lưới) đều tự động ẩn hoàn toàn.
+     - `ProductDetailModal.tsx`: Kiểm tra đồng thời cả cờ toàn cục `isGlobalSoldEnabled` và cờ riêng lẻ `(product as any).show_sold_count !== false`. Ẩn triệt để dòng "Đã bán: X gói" ở header modal và dòng "• Đã bán: X" ở danh sách các gói lựa chọn.
+  3. *Đồng Bộ Hai Chiều Qua Cloudflare Edge Worker (`sync.ts` & `dataService.ts`)*:
+     - Thêm trường `utilitiesGlobalShowSold` và `storeGlobalShowSold` vào payload `GET /api/sync` và xử lý lưu trữ trong `POST /api/sync`.
+     - `dataService.ts` tự động tiếp nhận snapshot từ server và cập nhật LocalStorage của mọi khách truy cập mới hoặc người dùng mở web ở trình duyệt khác.
+     - Ngay lập tức đồng bộ giá trị `wcg_utilities_global_show_sold: false` lên Cloudflare D1 để đáp ứng đúng trạng thái người dùng đã chọn trong ảnh chụp.
+- **Files Modified**:
+  - `src/components/ProductDetailModal.tsx`
+  - `src/components/UtilitiesView.tsx`
+  - `src/components/StoreView.tsx`
+  - `src/admin/modules/UtilitiesModule.tsx`
+  - `src/admin/modules/CodeInventoryModule.tsx`
+  - `src/admin/services/adminDataService.ts`
+  - `src/services/dataService.ts`
+  - `functions/api/sync.ts`
+  - `CHANGELOG.md` (Mục 109)
+  - `KNOWN_ISSUES.md` (ISSUE-055)
+
 ### 108. Chuẩn Hóa Toàn Diện Ảnh Bìa & Logo Game Bài Viết Tin Tức: Xóa Bỏ Hoàn Toàn Lỗi Fallback Logo Web, Bổ Sung Logo Phụ (Watermark) & Khẳng Định Nguồn CodeGame.Shop
 - **Mô tả & Yêu cầu người dùng**:
   - Người dùng gửi ảnh chụp trang quản trị tin tức (`admin-code-game-shop.pages.dev/admin#/news`) và yêu cầu: *"Phần lớn mục tin tức đều không có logo ảnh bìa, và đều lấy logo của web tôi, hãy đảm bảo khi tự đăng bài có ảnh logo, bìa liên quan của tựa game đăng. Thêm logo phụ và nguồn là tôi."*

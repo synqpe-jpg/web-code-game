@@ -668,6 +668,12 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
       publicPayment: sanitizedPayment,
       marketingConfig: resolvedMarketingConfig,
       growthConfig: resolvedGrowthConfig,
+      utilitiesGlobalShowSold: d1Settings['wcg_utilities_global_show_sold'] !== undefined
+        ? (d1Settings['wcg_utilities_global_show_sold'] === true || d1Settings['wcg_utilities_global_show_sold'] === 'true')
+        : (masterState?.utilitiesGlobalShowSold !== undefined ? Boolean(masterState.utilitiesGlobalShowSold) : true),
+      storeGlobalShowSold: d1Settings['wcg_store_global_show_sold'] !== undefined
+        ? (d1Settings['wcg_store_global_show_sold'] === true || d1Settings['wcg_store_global_show_sold'] === 'true')
+        : (masterState?.storeGlobalShowSold !== undefined ? Boolean(masterState.storeGlobalShowSold) : true),
       masterCopyClicks: (() => {
         const vnToday = new Date(Date.now() + 7 * 3600 * 1000).toISOString().slice(0, 10);
         return (realEventsHub?.date === vnToday && typeof realEventsHub?.masterCopyClicks === 'number')
@@ -2474,6 +2480,16 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
         if (body.newsAutoSources !== undefined) await setSettingD1(env.DB, 'wcg_news_auto_sources_v1', body.newsAutoSources);
         if (body.newsScheduleConfig !== undefined) await setSettingD1(env.DB, 'wcg_news_schedule_config_v1', body.newsScheduleConfig);
         if (body.eventSchedules !== undefined || body.key === 'wcg_event_schedules_v1') await setSettingD1(env.DB, 'wcg_event_schedules_v1', body.eventSchedules ?? body.data);
+        if (body.utilitiesGlobalShowSold !== undefined || body.key === 'wcg_utilities_global_show_sold') {
+          const val = body.utilitiesGlobalShowSold !== undefined ? Boolean(body.utilitiesGlobalShowSold) : Boolean(body.data);
+          currentMaster.utilitiesGlobalShowSold = val;
+          await setSettingD1(env.DB, 'wcg_utilities_global_show_sold', val);
+        }
+        if (body.storeGlobalShowSold !== undefined || body.key === 'wcg_store_global_show_sold') {
+          const val = body.storeGlobalShowSold !== undefined ? Boolean(body.storeGlobalShowSold) : Boolean(body.data);
+          currentMaster.storeGlobalShowSold = val;
+          await setSettingD1(env.DB, 'wcg_store_global_show_sold', val);
+        }
 
         // Consolidated Master State Snapshot in D1 system_settings
         await setSettingD1(env.DB, 'wcg_master_state_v4', currentMaster);

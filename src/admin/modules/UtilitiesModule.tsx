@@ -60,7 +60,7 @@ export const UtilitiesModule: React.FC<UtilitiesModuleProps> = ({ onShowToast })
 
   const [showAdminSold, setShowAdminSold] = useState<boolean>(() => {
     if (typeof window === 'undefined') return true;
-    return localStorage.getItem('wcg_admin_show_sold_util') !== 'false';
+    return localStorage.getItem('wcg_admin_show_sold_util') !== 'false' && localStorage.getItem('wcg_utilities_global_show_sold') !== 'false';
   });
 
   const [showAdminStock, setShowAdminStock] = useState<boolean>(() => {
@@ -719,17 +719,28 @@ export const UtilitiesModule: React.FC<UtilitiesModuleProps> = ({ onShowToast })
               {/* Nút 1: Đã bán */}
               <button
                 type="button"
-                onClick={() => {
+                onClick={async () => {
                   const next = !showAdminSold;
                   setShowAdminSold(next);
                   localStorage.setItem('wcg_admin_show_sold_util', String(next));
+                  localStorage.setItem('wcg_utilities_global_show_sold', String(next));
+                  window.dispatchEvent(new CustomEvent('wcg_utilities_settings_updated', { detail: { showSold: next } }));
+                  window.dispatchEvent(new Event('wcg_sold_count_updated'));
+                  try {
+                    await adminDataService.pushFullStateToKV(true);
+                  } catch (e) {}
+                  onShowToast(
+                    'Cấu hình hiển thị Tiện Ích',
+                    next ? 'Đã bật hiển thị "Đã bán" trên Web Khách & Admin' : 'Đã ẩn hiển thị "Đã bán" trên Web Khách & Admin',
+                    'success'
+                  );
                 }}
                 className={`px-2 py-1 rounded-lg text-xs font-bold transition-all flex items-center gap-1 cursor-pointer ${
                   showAdminSold
                     ? 'bg-amber-500 text-white shadow-xs'
                     : 'text-slate-500 hover:text-slate-900 dark:hover:text-white line-through opacity-70'
                 }`}
-                title={showAdminSold ? 'Đang hiện số Đã Bán (Nhấn để ẩn)' : 'Đang ẩn số Đã Bán (Nhấn để hiện)'}
+                title={showAdminSold ? 'Đang hiện "Đã bán" trên Web Khách & Admin (Nhấn để ẩn)' : 'Đang ẩn "Đã bán" trên Web Khách & Admin (Nhấn để hiện)'}
               >
                 {showAdminSold ? <Eye className="h-3 w-3" /> : <EyeOff className="h-3 w-3" />}
                 <span>Đã bán</span>

@@ -3685,6 +3685,12 @@ class AdminDataService {
         headers: this.getAuthHeaders(),
         body: JSON.stringify({
           crawlerAutoPublishGamesConfig: this.crawlerAutoPublishGamesConfig,
+      utilitiesGlobalShowSold: typeof localStorage !== 'undefined'
+        ? (localStorage.getItem('wcg_utilities_global_show_sold') !== 'false' && localStorage.getItem('wcg_admin_show_sold_util') !== 'false')
+        : true,
+      storeGlobalShowSold: typeof localStorage !== 'undefined'
+        ? (localStorage.getItem('wcg_store_global_show_sold') !== 'false' && localStorage.getItem('wcg_admin_show_sold_store') !== 'false')
+        : true,
         }),
       });
       return res.ok;
