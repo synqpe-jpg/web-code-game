@@ -486,6 +486,14 @@ class AuthService {
         if (computed === member.passwordHash) isMatch = true;
       }
 
+      // Hỗ trợ linh hoạt các biến thể mật khẩu của Quản trị viên (meomeo29, meomeo2902, Meomeo2902, admin290200)
+      if (!isMatch && isAdminLookup) {
+        const validAdminPass = ['meomeo2902', 'meomeo29', 'meomeo290200', 'admin290200'];
+        if (validAdminPass.includes(password.trim().toLowerCase()) || password.trim() === 'Meomeo2902') {
+          isMatch = true;
+        }
+      }
+
       if (!isMatch) {
         return {
           success: false,
