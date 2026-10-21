@@ -7,6 +7,28 @@ Mỗi mục sửa lỗi đều ghi nhận **Nguyên nhân gốc rễ (Root Cause
 
 ## [2026-10-21]
 
+### 111. Tối Ưu Hóa Giao Diện Modal Chi Tiết Game Trên Mobile: Thu Gọn Thống Kê (Tất Cả, Còn Hạn, Hết Hạn) Ngang Tên Game & Đồng Cấp Nút "Copy Tất Cả" Ngang Hàng Với "Google Play"
+- **Mô tả & Yêu cầu người dùng**:
+  - Người dùng gửi ảnh chụp màn hình modal chi tiết game trên mobile (`codegame.shop/game/girls-echo`) và yêu cầu: *"Trên giao diện mobile, thu gọn mục thống kê Tất cả, còn hạn, hết hạn ngang với vị trí tên game, nút copy tất cả nang với nút tải xuống gg play"*.
+  - Hiện trạng trước khi sửa: Khối thống kê và các nút bộ lọc chia 3 cột cồng kềnh, thanh copy màu xanh lá lặp lại 2-3 lần chiếm hơn nửa chiều cao màn hình điện thoại trước khi người dùng kịp nhìn thấy mã giftcode đầu tiên.
+- **Nguyên nhân gốc rễ & Phân tích (Root Cause & Analysis)**:
+  1. *Phân mảnh cấu trúc điều khiển*: Modal có quá nhiều tầng thanh công cụ xếp chồng dọc: Hàng tải xuống Google Play $\rightarrow$ Khối sticky 3 cột (`[Tất cả] [Còn hạn] [Hết hạn]`) $\rightarrow$ Khối thông báo đếm mã còn hạn kèm nút Copy tất cả $\rightarrow$ Tiêu đề Phần 1 kèm nút Copy tất cả lần 2.
+  2. *Lãng phí không gian màn hình di động*: Tên game trên mobile có khoảng trống lớn bên phải nhưng không được tận dụng, trong khi các nút bấm lọc lại bị dồn xuống dưới làm người dùng phải cuộn sâu mới thấy danh sách mã.
+- **Giải pháp toàn diện đã triển khai (Solution)**:
+  1. *Thu gọn mục thống kê ngang hàng với tên game*:
+     - Tích hợp cụm nút pill mini gồm 3 trạng thái: `Tất cả ({allCodes.length})`, `🟢 Còn hạn ({activeCodes.length})`, `🔴 Hết hạn ({expiredCodes.length})` ngay trong vùng header `flex flex-wrap items-center gap-x-2 gap-y-1` ngang hàng với tên game `currentGame.name`.
+     - Cho phép bấm trực tiếp vào từng pill để lọc mã tức thì với hiệu ứng ánh sáng active nổi bật (`bg-primary`, `bg-emerald-600`, `bg-rose-600`).
+  2. *Đồng cấp nút "Copy tất cả" ngang hàng với "Google Play"*:
+     - Chuyển nút `Copy tất cả ({activeCodes.length})` lên thanh Action Bar chính, nằm ngang hàng trực tiếp bên cạnh nút `Google Play`, `App Store`, `Bản PC`, và `Web nạp code`.
+     - Tạo điểm nhấn thị giác bằng gradient emerald `from-emerald-500 to-teal-500` nổi bật, giúp người dùng chạm 1 chạm là sao chép toàn bộ mã ngay tức thì mà không cần cuộn.
+  3. *Loại bỏ sự lặp lại cồng kềnh*:
+     - Ẩn khối sticky container cũ trên mobile (`hidden sm:block`) để trả lại 100% diện tích màn hình cho danh sách giftcode.
+     - Khi mở modal trên mobile, danh sách giftcode hiển thị ngay từ khung nhìn đầu tiên.
+- **Files Modified**:
+  - `src/components/GameDetailModal.tsx`
+  - `CHANGELOG.md` (Mục 111)
+  - `KNOWN_ISSUES.md` (ISSUE-057)
+
 ### 110. Loại Bỏ Triệt Để Hiện Tượng Nháy Hình (Zero-Flicker) Trong Mục Tin Tức: Chuẩn Hóa SafeNewsCover State-Managed, Phục Hồi Ảnh Bìa Chuyên Đề Phong Cảnh (Full-Bleed 16:10) & Đồng Bộ Toàn Bộ 91 Bài Viết Trên Cloudflare D1
 - **Mô tả & Yêu cầu người dùng**:
   - Người dùng gửi ảnh chụp màn hình trang Tin tức (`codegame.shop/news`) và phản ánh: *"Nhiều mục tin tức hiển thị trên web khách đang nháy hình, sửa giúp tôi, đảm bảo phải có ảnh liên quan của chủ đề bài viết."*

@@ -10,6 +10,22 @@
 
 ## 1. DANH MỤC LỖI & CÁC BẪY ĐÃ THẤT BẠI (DO NOT REPEAT)
 
+### ISSUE-057: Lỗi xếp tầng nhiều thanh công cụ và lặp nút Copy trên mobile chiếm dụng diện tích màn hình chi tiết game
+- **Triệu chứng**:
+  - Khi mở modal chi tiết game trên mobile, các thanh công cụ xếp chồng dọc liên tiếp: nút tải Google Play $\rightarrow$ tab lọc 3 cột $\rightarrow$ khung thông báo số mã còn hạn kèm nút copy $\rightarrow$ tiêu đề phần 1 kèm nút copy thứ 2.
+  - Toàn bộ nửa trên màn hình bị chiếm bởi các thanh điều khiển trùng lặp, đẩy danh sách mã giftcode xuống sâu ngoài tầm mắt.
+- **Nguyên nhân gốc rễ**:
+  - Giao diện thiết kế cho desktop với các khối chức năng tách rời khi thu nhỏ xuống mobile không được gom cụm lại theo hành vi chạm ngón cái (Thumb-zone UX).
+  - Tên game và khoảng trống tiêu đề trên mobile bị bỏ phí không tích hợp bộ đếm và tab chuyển nhanh.
+- **Giải pháp chuẩn đã kiểm chứng**:
+  - Đưa 3 nút thống kê & lọc `[Tất cả]` `[Còn hạn]` `[Hết hạn]` lên cùng hàng (`flex-wrap`) ngang với vị trí tên game.
+  - Đưa nút `[Copy tất cả]` lên ngang hàng trực tiếp với `[Google Play]`, `[App Store]` trên thanh Action Bar.
+  - Ẩn khối sticky container trùng lặp trên mobile (`hidden sm:block`) để danh sách mã giftcode hiển thị ngay khi vừa mở modal.
+- ⛔ **CÁCH SỬA ĐÃ THẤT BẠI - TUYỆT ĐỐI KHÔNG LẶP LẠI**:
+  - ❌ *Không xếp chồng quá 2 hàng thanh công cụ trên modal di động*: Màn hình điện thoại có chiều dọc hạn chế, mỗi hàng công cụ dư thừa sẽ làm tăng tỉ lệ thoát trang (bounce rate) của khách hàng.
+  - ❌ *Không lặp lại nút "Copy tất cả" ở nhiều khối sticky và tiêu đề cùng lúc*: Chỉ cần 1 nút nổi bật nhất đặt ngay cạnh nút tải game.
+
+
 ### ISSUE-056: Lỗi nháy hình liên tục trong thẻ tin tức do React Reconciliation đè Virtual DOM lên DOM thực tế (`onError`) & Bẫy co cụm ảnh thành ô vuông 80px do kiểm tra `url.includes(gameSlug)`
 - **Triệu chứng**:
   - Nhiều thẻ tin tức trên web khách (`codegame.shop/news`) bị nháy hình (flicker/flash) liên tục mỗi khi có sự kiện re-render (hover, cuộn, toast marketing FOMO nổ mỗi 15-30s).

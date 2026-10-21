@@ -311,9 +311,59 @@ export const GameDetailModal: React.FC<GameDetailModalProps> = ({
                   )}
                 </div>
 
-                <h2 className="font-heading font-extrabold text-sm sm:text-xl text-foreground truncate">
-                  {currentGame.name}
-                </h2>
+                {/* Tên game & Bộ lọc/Thống kê (Tất cả, còn hạn, hết hạn) thu gọn ngang hàng */}
+                <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+                  <h2 className="font-heading font-extrabold text-sm sm:text-xl text-foreground truncate max-w-[140px] xs:max-w-[200px] sm:max-w-none">
+                    {currentGame.name}
+                  </h2>
+
+                  {/* Mục thống kê Tất cả, còn hạn, hết hạn thu gọn ngang với vị trí tên game */}
+                  <div className="inline-flex items-center gap-0.5 p-0.5 rounded-lg bg-slate-900/80 border border-border/70 shrink-0 shadow-inner">
+                    <button
+                      type="button"
+                      onClick={() => setSelectedCodeTab('all')}
+                      className={`px-1.5 sm:px-2 py-0.5 rounded-md text-[9px] sm:text-[10px] font-bold transition-all cursor-pointer active:scale-95 whitespace-nowrap ${
+                        selectedCodeTab === 'all'
+                          ? 'bg-primary text-white shadow-xs ring-1 ring-primary-light/50'
+                          : 'text-muted-foreground hover:text-foreground hover:bg-muted/50'
+                      }`}
+                      title={t.modal.allCodes}
+                    >
+                      <span>{t.modal.allCodes}</span>
+                      <span className="ml-0.5 font-mono opacity-85">({allCodes.length})</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => setSelectedCodeTab('active')}
+                      className={`flex items-center gap-1 px-1.5 sm:px-2 py-0.5 rounded-md text-[9px] sm:text-[10px] font-bold transition-all cursor-pointer active:scale-95 whitespace-nowrap ${
+                        selectedCodeTab === 'active'
+                          ? 'bg-emerald-600 text-white shadow-xs ring-1 ring-emerald-400/50'
+                          : 'text-emerald-400 hover:text-emerald-300 hover:bg-muted/50'
+                      }`}
+                      title={t.modal.activeCodes}
+                    >
+                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 shrink-0" />
+                      <span>{t.modal.activeCodes}</span>
+                      <span className="font-mono opacity-85">({activeCodes.length})</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => setSelectedCodeTab('expired')}
+                      className={`flex items-center gap-1 px-1.5 sm:px-2 py-0.5 rounded-md text-[9px] sm:text-[10px] font-bold transition-all cursor-pointer active:scale-95 whitespace-nowrap ${
+                        selectedCodeTab === 'expired'
+                          ? 'bg-rose-600 text-white shadow-xs ring-1 ring-rose-400/50'
+                          : 'text-muted-foreground hover:text-rose-300 hover:bg-muted/50'
+                      }`}
+                      title={t.modal.expiredCodes}
+                    >
+                      <span className="w-1.5 h-1.5 rounded-full bg-rose-400 shrink-0" />
+                      <span>{t.modal.expiredCodes}</span>
+                      <span className="font-mono opacity-85">({expiredCodes.length})</span>
+                    </button>
+                  </div>
+                </div>
 
                 <p className="text-[10px] sm:text-xs text-muted-foreground flex items-center gap-2 mt-0.5">
                   <span className="flex items-center gap-1 truncate">
@@ -382,8 +432,33 @@ export const GameDetailModal: React.FC<GameDetailModalProps> = ({
             </div>
           </div>
 
-          {/* Download & Redeem Links */}
-          <div className="flex items-center gap-1.5 sm:gap-2 mt-3 pt-2.5 border-t border-border/40 overflow-x-auto scrollbar-none pb-0.5">
+          {/* Action Row: Nút Copy Tất Cả & Tải Xuống GG Play / App Store / PC */}
+          <div className="flex items-center gap-1.5 sm:gap-2 mt-2.5 pt-2 sm:pt-2.5 border-t border-border/40 overflow-x-auto scrollbar-none pb-0.5">
+            {/* Nút Copy Tất Cả - Ngang hàng trực tiếp với nút tải Google Play */}
+            {activeCodes.length > 0 && (
+              <button
+                type="button"
+                onClick={() => handleCopyAll(activeCodes, 'active')}
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-[11px] sm:text-xs font-black border transition-all cursor-pointer active:scale-95 shadow-sm shrink-0 ${
+                  copiedType === 'active'
+                    ? 'bg-emerald-600 text-white border-emerald-500 shadow-neon-emerald'
+                    : 'bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 hover:to-teal-400 text-slate-950 border-emerald-400 font-extrabold shadow-sm'
+                }`}
+                title={`Sao chép toàn bộ ${activeCodes.length} mã còn hạn`}
+              >
+                {copiedType === 'active' ? (
+                  <>
+                    <Check className="w-3.5 h-3.5 text-white stroke-[2.5]" />
+                    <span>{t.modal.copiedAll} ({activeCodes.length})</span>
+                  </>
+                ) : (
+                  <>
+                    <Copy className="w-3.5 h-3.5 text-slate-950" />
+                    <span>{t.modal.copyAll} ({activeCodes.length})</span>
+                  </>
+                )}
+              </button>
+            )}
             {currentGame.redeem_url && (
               <a
                 href={currentGame.redeem_url}
@@ -436,8 +511,8 @@ export const GameDetailModal: React.FC<GameDetailModalProps> = ({
 
         {/* Modal Body (Scrollable) */}
         <div className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-5 overscroll-contain pb-[max(env(safe-area-inset-bottom,0px),1.5rem)]">
-          {/* Code Filter Tab Switcher & Quick Copy Bar (Sticky Container) */}
-          <div className="sticky top-0 z-10 p-1.5 rounded-2xl bg-card/95 backdrop-blur-md border border-border/80 shadow-md space-y-1.5">
+          {/* Code Filter Tab Switcher (Ẩn trên mobile vì đã tích hợp trực tiếp ngang tên game và nút tải) */}
+          <div className="hidden sm:block sticky top-0 z-10 p-1.5 rounded-2xl bg-card/95 backdrop-blur-md border border-border/80 shadow-md space-y-1.5">
             <div className="grid grid-cols-3 gap-1 w-full">
               <button
                 type="button"
