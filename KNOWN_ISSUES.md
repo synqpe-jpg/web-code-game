@@ -10,6 +10,20 @@
 
 ## 1. DANH MỤC LỖI & CÁC BẪY ĐÃ THẤT BẠI (DO NOT REPEAT)
 
+### ISSUE-060: Lỗi Giveaway tự động mở ("Còn lại: 60 mã", [Giật Mã] active) khi trong kho không có mã thực do Fallback Resurrection Bug
+- **Triệu chứng**:
+  - Trên web khách (`codegame.shop/giveaways`), một số chiến dịch giveaway (như 3Q Đào Đào Đào, Anh Hùng Tiến Lên, Tiên Nghịch Mobile, Pirate Legends) không có mã thực nào trong kho nhưng ngoài web khách vẫn tự mở, hiển thị còn hàng và cho phép bấm nút Giật Mã.
+- **Nguyên nhân gốc rễ**:
+  1. *Số tồn kho ảo còn vương lại trong file tĩnh*: `remaining_codes` trong file cấu hình lưu các số tĩnh 40, 25, 20, 18 dù kho mã thực rỗng (`codes_pool` không có mã).
+  2. *Lỗi Fallback Resurrection Bug*: Biểu thức kiểm tra tồn kho `Array.isArray(codes_pool) && codes_pool.length > 0 ? codes_pool.length : remaining_codes`. Khi kho thực là mảng rỗng `[]` (`length === 0`), điều kiện `codes_pool.length > 0` bị false, dẫn tới việc code nhảy sang nhánh fallback đọc `remaining_codes` cũ thay vì trả về 0.
+  3. *Tương tác với Marketing Engine*: Nhận diện nhầm `realStock > 0`, `marketingService.getDisplayStock` cộng thêm `virtualStockBonus`, khiến web hiển thị 60, 45, 40, 38 mã và mở nút Giật Mã.
+- **Giải pháp chuẩn đã kiểm chứng**:
+  - Đặt toàn bộ 31 chiến dịch trong `giveaways.json` về `"codes_pool": []`, `"remaining_codes": 0`.
+  - Thay đổi biểu thức tính toán tồn kho thành: `Array.isArray(codes_pool) ? codes_pool.length : (typeof remaining_codes === 'number' ? remaining_codes : 0)`.
+  - Khi `realStock <= 0`, nút [Giật Mã] bị Disabled và hiển thị nhãn "Hết Code", tuân thủ 100% Quy tắc 3.1.
+- ⛔ **CÁCH SỬA ĐÃ THẤT BẠI - TUYỆT ĐỐI KHÔNG LẶP LẠI**:
+  - ❌ *Không dùng `Array.isArray(codes_pool) && codes_pool.length > 0 ? codes_pool.length : remaining_codes`*: Cách viết này sẽ khiến một kho hàng vừa bị rút cạn mã (`length === 0`) bị "hồi sinh" tồn kho ảo do rơi vào nhánh fallback của `remaining_codes`.
+
 ### ISSUE-059: Lỗi kẹt màn hình Splash Preloader đen thui khi vào web do ReferenceError thiếu import và thiếu Watchdog bảo vệ
 - **Triệu chứng**:
   - Người dùng truy cập `codegame.shop`, màn hình xuất hiện vòng tròn logo xoay với chữ "CODE GAME" trên nền đen và bị kẹt vô hạn tại đây, không vào được web.

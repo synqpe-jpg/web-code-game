@@ -7,6 +7,29 @@ Mỗi mục sửa lỗi đều ghi nhận **Nguyên nhân gốc rễ (Root Cause
 
 ## [2026-10-21]
 
+### 114. Khắc Phục Lỗi Giveaway Tự Động Mở Khi Kho Thực Không Có Mã: Chuẩn Hóa Real Stock = 0, Loại Bỏ Ghost Stock Fallback & Đồng Bộ Quy Tắc Kho Hàng 3.1
+- **Mô tả & Yêu cầu người dùng**:
+  - Người dùng gửi ảnh trang Giveaway (`codegame.shop/giveaways`) và phản ánh: *"Kiểm tra giúp tôi, một vài cái không có mã thực trong kho nhưng đang tự mở."*
+  - Hiện trạng trong ảnh: 4 tựa game đầu danh sách (3Q Đào Đào Đào, Anh Hùng Tiến Lên, Tiên Nghịch Mobile, Pirate Legends) không có mã thật trong kho nhưng vẫn hiển thị "Còn lại: 60 mã", "Còn lại: 45 mã", v.v. và nút [Giật Mã] đang ở trạng thái mở.
+- **Nguyên nhân gốc rễ & Phân tích (Root Cause & Analysis)**:
+  1. *Số lượng tồn kho ảo còn sót lại trong file cơ sở*: 4 chiến dịch trên có `"remaining_codes"` lưu các số 40, 25, 20, 18 trong `giveaways.json` trong khi trường `codes_pool` không được khai báo (`undefined`).
+  2. *Lỗi Fallback Resurrection Bug*: Trong `GiveawaysView.tsx`, `dataService.ts`, `productPackageUtils.ts`, điều kiện kiểm tra tồn kho là `Array.isArray(codes_pool) && codes_pool.length > 0 ? codes_pool.length : remaining_codes`. Khi kho thực trống (`codes_pool.length === 0`), điều kiện `&& codes_pool.length > 0` bị false, dẫn đến việc hệ thống rơi vào nhánh fallback đọc `remaining_codes` cũ (40, 25, 20, 18).
+  3. *Marketing Engine kích hoạt cộng dồn tồn kho ảo*: Khi nhận diện `realStock > 0` (từ fallback sai), `marketingService.getDisplayStock()` áp dụng thêm `virtualStockBonus`, biến 40 thành 60, 25 thành 45 và kích hoạt nút [Giật Mã].
+- **Giải pháp toàn diện đã triển khai (Solution)**:
+  1. *Cập nhật cơ sở dữ liệu `src/data/giveaways.json`*: Đặt toàn bộ 31 chiến dịch về đúng trạng thái thực tế: `"codes_pool": []`, `"remaining_codes": 0`, `"total_codes": claimed_codes`.
+  2. *Sửa triệt để biểu thức tính toán tồn kho*: Chuyển sang `Array.isArray(codes_pool) ? codes_pool.length : (typeof remaining_codes === 'number' ? remaining_codes : 0)`. Khi kho thực là mảng rỗng `[]`, tồn kho thực tế bắt buộc bằng `0`.
+  3. *Đồng bộ phía Cloudflare Worker & D1*: Sửa `functions/api/sync.ts` và `functions/services/d1_service.ts` để đồng bộ `remaining_codes = 0` khi `effectivePool.length === 0`.
+  4. *Khóa trạng thái Hết Code ngoài giao diện*: Khi kho thực bằng 0, nút [Giật Mã] tự động chuyển thành nút Disabled màu xám mang nhãn "Hết Code", tuân thủ 100% Quy tắc Kho Hàng 3.1.
+- **Files Modified**:
+  - `src/data/giveaways.json`
+  - `src/components/GiveawaysView.tsx`
+  - `src/services/dataService.ts`
+  - `src/utils/productPackageUtils.ts`
+  - `functions/api/sync.ts`
+  - `functions/services/d1_service.ts`
+  - `CHANGELOG.md` (Mục 114)
+  - `KNOWN_ISSUES.md` (ISSUE-060)
+
 ### 113. Khắc Phục Lỗi Màn Hình Đơ Tại Splash Preloader (Vào Web Bị Kẹt Không Vào Được): Bổ Sung Import useLockBodyScroll & Cơ Chế Preloader Safety Watchdog Đa Tầng
 - **Mô tả & Yêu cầu người dùng**:
   - Người dùng phản ánh: *"Tôi vào web không được"* kèm ảnh chụp màn hình trình duyệt Cốc Cốc tại trang chủ `codegame.shop` bị dừng vô hạn ở màn hình preloader đen tròn xoay có chữ "CODE GAME".

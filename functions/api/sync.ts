@@ -463,10 +463,9 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
           const historyFromMeta = Array.isArray(meta.claim_history) ? meta.claim_history : [];
           const effectiveHistory = historyFromD1.length > 0 ? historyFromD1 : historyFromMeta;
 
-          const realRemaining = Math.max(
-            Number(g.remaining_codes) || 0,
-            effectivePool.length
-          );
+          const realRemaining = Array.isArray(effectivePool)
+            ? effectivePool.length
+            : (Number(g.remaining_codes) || 0);
           const realTotal = Math.max(
             Number(g.total_codes) || 0,
             realRemaining + (Number(g.claimed_codes) || 0)

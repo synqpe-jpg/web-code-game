@@ -2369,9 +2369,12 @@ export async function loadAllGiveawaysD1(db: D1Database, includeCodes: boolean =
     const rows = (res && res.results) || [];
     const list = rows.map((gw: any) => {
       const meta = metaMap.get(gw.id) || {};
+      const poolLen = Array.isArray(meta.codes_pool) ? meta.codes_pool.length : (Array.isArray(gw.codes_pool) ? gw.codes_pool.length : null);
+      const rem = poolLen !== null ? poolLen : Math.max(0, Number(gw.remaining_codes) || 0);
       return {
         ...meta,
         ...gw,
+        remaining_codes: rem,
         virtual_claimed_offset: meta.virtual_claimed_offset !== undefined ? Math.max(0, Number(meta.virtual_claimed_offset) || 0) : Math.max(0, Number(gw.virtual_claimed_offset) || 0),
         fomo_anchor_time: meta.fomo_anchor_time || gw.fomo_anchor_time || null,
         show_claimed_count: gw.show_claimed_count !== undefined ? Boolean(gw.show_claimed_count) : (meta.show_claimed_count !== undefined ? Boolean(meta.show_claimed_count) : true),

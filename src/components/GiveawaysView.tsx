@@ -542,13 +542,13 @@ export const GiveawaysView: React.FC<GiveawaysViewProps> = ({
   const getCampaignStock = (c: GiveawayCampaign) => {
     if (Array.isArray(c.packages) && c.packages.length > 0) {
       return c.packages.reduce((sum, p) => {
-        const pCount = Array.isArray(p.codes_pool) && p.codes_pool.length > 0
+        const pCount = Array.isArray(p.codes_pool)
           ? p.codes_pool.length
           : (typeof p.remaining_codes === 'number' ? p.remaining_codes : 0);
         return sum + pCount;
       }, 0);
     }
-    return Array.isArray(c.codes_pool) && c.codes_pool.length > 0
+    return Array.isArray(c.codes_pool)
       ? c.codes_pool.length
       : (typeof c.remaining_codes === 'number' ? c.remaining_codes : 0);
   };
@@ -758,7 +758,7 @@ export const GiveawaysView: React.FC<GiveawaysViewProps> = ({
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3.5 sm:gap-4">
               {activeGiveaways.map((campaign) => {
                 const poolCount =
-                  Array.isArray(campaign.codes_pool) && campaign.codes_pool.length > 0
+                  Array.isArray(campaign.codes_pool)
                     ? campaign.codes_pool.length
                     : (typeof campaign.remaining_codes === 'number' ? campaign.remaining_codes : 0);
 
@@ -1428,7 +1428,7 @@ export const GiveawaysView: React.FC<GiveawaysViewProps> = ({
           const targetCampaign = claimedRewardModal.campaign;
           const allMyCampaignCodes = claimedList.filter((c) => c.campaign_id === targetCampaign.id);
           const poolCount =
-            Array.isArray(targetCampaign.codes_pool) && targetCampaign.codes_pool.length > 0
+            Array.isArray(targetCampaign.codes_pool)
               ? targetCampaign.codes_pool.length
               : (typeof targetCampaign.remaining_codes === 'number' ? targetCampaign.remaining_codes : 0);
           const remaining = marketingService.getDisplayStock(targetCampaign.id, poolCount);
@@ -1817,9 +1817,10 @@ export const GiveawaysView: React.FC<GiveawaysViewProps> = ({
           const currentCampaign = groupedCampaigns.find((g) => g.id === detailModalCampaign.id || (g.packages && g.packages.some((p) => p.id === detailModalCampaign.id))) || detailModalCampaign;
           const packages = getGiveawayPackages(currentCampaign);
           const activePackage = packages.find((p) => p.id === selectedRewardPackageId) || packages[0];
+          const effectivePool = activePackage?.codes_pool || currentCampaign.codes_pool;
           const poolCount =
-            Array.isArray(activePackage?.codes_pool || currentCampaign.codes_pool) && (activePackage?.codes_pool || currentCampaign.codes_pool)!.length > 0
-              ? (activePackage?.codes_pool || currentCampaign.codes_pool)!.length
+            Array.isArray(effectivePool)
+              ? effectivePool.length
               : (typeof activePackage?.remaining_codes === 'number' ? activePackage.remaining_codes : (typeof currentCampaign.remaining_codes === 'number' ? currentCampaign.remaining_codes : 0));
           const displayRemaining = marketingService.getDisplayStock(currentCampaign.id, poolCount);
           const displayClaimed =
@@ -1983,7 +1984,7 @@ export const GiveawaysView: React.FC<GiveawaysViewProps> = ({
                         {packages.map((pkg) => {
                           const isSelected = activePackage?.id === pkg.id;
                           const pkgStock =
-                            Array.isArray(pkg.codes_pool) && pkg.codes_pool.length > 0
+                            Array.isArray(pkg.codes_pool)
                               ? pkg.codes_pool.length
                               : typeof pkg.remaining_codes === 'number'
                               ? pkg.remaining_codes

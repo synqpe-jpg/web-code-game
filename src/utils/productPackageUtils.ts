@@ -90,7 +90,7 @@ export function getGiveawayPackages(campaign: GiveawayCampaign): GiveawayRewardP
 
   // Fallback gói mặc định
   const poolCount =
-    Array.isArray(campaign.codes_pool) && campaign.codes_pool.length > 0
+    Array.isArray(campaign.codes_pool)
       ? campaign.codes_pool.length
       : typeof campaign.remaining_codes === 'number'
       ? campaign.remaining_codes
@@ -365,7 +365,7 @@ export function groupGiveawaysByGame(campaigns: GiveawayCampaign[]): GiveawayCam
         total_codes: item.total_codes || 0,
         claimed_codes: item.claimed_codes || 0,
         remaining_codes:
-          Array.isArray(item.codes_pool) && item.codes_pool.length > 0
+          Array.isArray(item.codes_pool)
             ? item.codes_pool.length
             : typeof item.remaining_codes === 'number'
             ? item.remaining_codes

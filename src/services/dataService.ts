@@ -1707,7 +1707,7 @@ class DataService {
 
     // Return giveaways with formatted attributes and prioritized in-stock first
     return list.map((gw) => {
-      const poolCount = Array.isArray(gw.codes_pool) && gw.codes_pool.length > 0
+      const poolCount = Array.isArray(gw.codes_pool)
         ? gw.codes_pool.length
         : (typeof gw.remaining_codes === 'number' ? gw.remaining_codes : 0);
       const claimed = Number(gw.claimed_codes) || 0;

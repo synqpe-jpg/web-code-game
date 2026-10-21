@@ -6,8 +6,8 @@
     "game_name": "3Q Đào Đào Đào",
     "description": "Code dùng cho 1 tài khoản, 1 loại dùng 1 lần.",
     "rewards": "Code ngẫu nhiên",
-    "total_codes": 134,
-    "remaining_codes": 40,
+    "total_codes": 1,
+    "remaining_codes": 0,
     "claimed_codes": 1,
     "min_account_age_days": 0,
     "max_per_user": 1,
@@ -24,7 +24,8 @@
     "created_at": "2026-10-10T13:35:28.657Z",
     "fomo_anchor_time": null,
     "show_remaining_count": true,
-    "virtual_claimed_updated_at": null
+    "virtual_claimed_updated_at": null,
+    "codes_pool": []
   },
   {
     "id": "gw_1791639448099_4tb",
@@ -33,8 +34,8 @@
     "game_name": "Anh Hùng Tiến Lên",
     "description": "Code dùng cho 1 tài khoản, 1 loại dùng 1 lần.",
     "rewards": "Code ngẫu nhiên",
-    "total_codes": 98,
-    "remaining_codes": 25,
+    "total_codes": 1,
+    "remaining_codes": 0,
     "claimed_codes": 1,
     "min_account_age_days": 0,
     "max_per_user": 2,
@@ -51,7 +52,8 @@
     "created_at": "2026-10-10T13:37:28.099Z",
     "fomo_anchor_time": null,
     "show_remaining_count": true,
-    "virtual_claimed_updated_at": null
+    "virtual_claimed_updated_at": null,
+    "codes_pool": []
   },
   {
     "id": "gw_1791639381997_w49",
@@ -60,8 +62,8 @@
     "game_name": "Tiên Nghịch Mobile",
     "description": "Code dùng cho 1 tài khoản, 1 loại dùng 1 lần.",
     "rewards": "Code ngẫu nhiên",
-    "total_codes": 208,
-    "remaining_codes": 20,
+    "total_codes": 1,
+    "remaining_codes": 0,
     "claimed_codes": 1,
     "min_account_age_days": 0,
     "max_per_user": 1,
@@ -78,7 +80,8 @@
     "created_at": "2026-10-10T13:36:21.997Z",
     "fomo_anchor_time": null,
     "show_remaining_count": true,
-    "virtual_claimed_updated_at": null
+    "virtual_claimed_updated_at": null,
+    "codes_pool": []
   },
   {
     "id": "gw_1791786741665_k5q",
@@ -87,8 +90,8 @@
     "game_name": "Pirate Legends: Huyền Thoại Hải Tặc",
     "description": "Code dùng cho 1 tài khoản, 1 loại dùng 1 lần.",
     "rewards": "Code ngẫu nhiên",
-    "total_codes": 18,
-    "remaining_codes": 18,
+    "total_codes": 0,
+    "remaining_codes": 0,
     "claimed_codes": 0,
     "min_account_age_days": 0,
     "max_per_user": 1,
@@ -105,7 +108,8 @@
     "created_at": "2026-10-12T06:32:21.665Z",
     "fomo_anchor_time": null,
     "show_remaining_count": true,
-    "virtual_claimed_updated_at": null
+    "virtual_claimed_updated_at": null,
+    "codes_pool": []
   },
   {
     "id": "gw_khe_uoc_rong",
@@ -132,7 +136,8 @@
     "created_at": "2026-10-10T14:59:26.583Z",
     "fomo_anchor_time": null,
     "show_remaining_count": true,
-    "virtual_claimed_updated_at": null
+    "virtual_claimed_updated_at": null,
+    "codes_pool": []
   },
   {
     "id": "gw_chien_thu_hon_chien",
@@ -159,7 +164,8 @@
     "created_at": "2026-10-10T14:59:26.583Z",
     "fomo_anchor_time": null,
     "show_remaining_count": true,
-    "virtual_claimed_updated_at": null
+    "virtual_claimed_updated_at": null,
+    "codes_pool": []
   },
   {
     "id": "gw_tam_quoc_thu_hoa",
@@ -186,7 +192,8 @@
     "created_at": "2026-10-10T14:59:26.583Z",
     "fomo_anchor_time": null,
     "show_remaining_count": true,
-    "virtual_claimed_updated_at": null
+    "virtual_claimed_updated_at": null,
+    "codes_pool": []
   },
   {
     "id": "gw_chinh_phuc_cuu_chau",
@@ -213,7 +220,8 @@
     "created_at": "2026-10-10T14:59:26.583Z",
     "fomo_anchor_time": null,
     "show_remaining_count": true,
-    "virtual_claimed_updated_at": null
+    "virtual_claimed_updated_at": null,
+    "codes_pool": []
   },
   {
     "id": "gw_clash_of_critters",
@@ -240,7 +248,8 @@
     "created_at": "2026-10-10T14:59:26.583Z",
     "fomo_anchor_time": null,
     "show_remaining_count": true,
-    "virtual_claimed_updated_at": null
+    "virtual_claimed_updated_at": null,
+    "codes_pool": []
   },
   {
     "id": "gw_long_tuong_tam_quoc",
@@ -267,7 +276,8 @@
     "created_at": "2026-10-10T14:59:26.583Z",
     "fomo_anchor_time": null,
     "show_remaining_count": true,
-    "virtual_claimed_updated_at": null
+    "virtual_claimed_updated_at": null,
+    "codes_pool": []
   },
   {
     "id": "gw_tieu_cuong_3q",
@@ -294,7 +304,8 @@
     "created_at": "2026-10-10T14:59:26.583Z",
     "fomo_anchor_time": null,
     "show_remaining_count": true,
-    "virtual_claimed_updated_at": null
+    "virtual_claimed_updated_at": null,
+    "codes_pool": []
   },
   {
     "id": "gw_tam_quoc_tranh_ba_thien_ha",
@@ -321,7 +332,8 @@
     "created_at": "2026-10-10T14:59:26.583Z",
     "fomo_anchor_time": null,
     "show_remaining_count": true,
-    "virtual_claimed_updated_at": null
+    "virtual_claimed_updated_at": null,
+    "codes_pool": []
   },
   {
     "id": "gw_doi_tuong_nhi_nho",
@@ -348,7 +360,8 @@
     "created_at": "2026-10-10T14:59:26.583Z",
     "fomo_anchor_time": null,
     "show_remaining_count": true,
-    "virtual_claimed_updated_at": null
+    "virtual_claimed_updated_at": null,
+    "codes_pool": []
   },
   {
     "id": "gw_quan_nhi_ca",
@@ -375,7 +388,8 @@
     "created_at": "2026-10-10T14:59:26.583Z",
     "fomo_anchor_time": null,
     "show_remaining_count": true,
-    "virtual_claimed_updated_at": null
+    "virtual_claimed_updated_at": null,
+    "codes_pool": []
   },
   {
     "id": "gw_quan_anh_phong_hoa_luc",
@@ -402,7 +416,8 @@
     "created_at": "2026-10-10T14:59:26.583Z",
     "fomo_anchor_time": null,
     "show_remaining_count": true,
-    "virtual_claimed_updated_at": null
+    "virtual_claimed_updated_at": null,
+    "codes_pool": []
   },
   {
     "id": "gw_3q_thanh_chu_tieu_dao",
@@ -429,7 +444,8 @@
     "created_at": "2026-10-10T14:59:26.583Z",
     "fomo_anchor_time": null,
     "show_remaining_count": true,
-    "virtual_claimed_updated_at": null
+    "virtual_claimed_updated_at": null,
+    "codes_pool": []
   },
   {
     "id": "gw_dynasty_warriors_overlords",
@@ -456,7 +472,8 @@
     "created_at": "2026-10-10T14:59:26.583Z",
     "fomo_anchor_time": null,
     "show_remaining_count": true,
-    "virtual_claimed_updated_at": null
+    "virtual_claimed_updated_at": null,
+    "codes_pool": []
   },
   {
     "id": "gw_giang_ho_ky_ngo",
@@ -483,7 +500,8 @@
     "created_at": "2026-10-10T14:59:26.582Z",
     "fomo_anchor_time": null,
     "show_remaining_count": true,
-    "virtual_claimed_updated_at": null
+    "virtual_claimed_updated_at": null,
+    "codes_pool": []
   },
   {
     "id": "gw_samkok_tam_quoc",
@@ -510,7 +528,8 @@
     "created_at": "2026-10-10T14:59:26.582Z",
     "fomo_anchor_time": null,
     "show_remaining_count": true,
-    "virtual_claimed_updated_at": null
+    "virtual_claimed_updated_at": null,
+    "codes_pool": []
   },
   {
     "id": "gw_bo_lac_3q",
@@ -537,7 +556,8 @@
     "created_at": "2026-10-10T14:59:26.582Z",
     "fomo_anchor_time": null,
     "show_remaining_count": true,
-    "virtual_claimed_updated_at": null
+    "virtual_claimed_updated_at": null,
+    "codes_pool": []
   },
   {
     "id": "gw_thu_cung_bao_dan",
@@ -564,7 +584,8 @@
     "created_at": "2026-10-10T14:59:26.582Z",
     "fomo_anchor_time": null,
     "show_remaining_count": true,
-    "virtual_claimed_updated_at": null
+    "virtual_claimed_updated_at": null,
+    "codes_pool": []
   },
   {
     "id": "gw_tam_quoc_tu_thoi_ca",
@@ -591,7 +612,8 @@
     "created_at": "2026-10-10T14:59:26.581Z",
     "fomo_anchor_time": null,
     "show_remaining_count": true,
-    "virtual_claimed_updated_at": null
+    "virtual_claimed_updated_at": null,
+    "codes_pool": []
   },
   {
     "id": "gw_fc_mobile_vn",
@@ -618,7 +640,8 @@
     "created_at": "2026-10-10T14:33:03.744Z",
     "fomo_anchor_time": null,
     "show_remaining_count": true,
-    "virtual_claimed_updated_at": null
+    "virtual_claimed_updated_at": null,
+    "codes_pool": []
   },
   {
     "id": "gw_lien_quan_mobile",
@@ -645,7 +668,8 @@
     "created_at": "2026-10-10T14:33:03.744Z",
     "fomo_anchor_time": null,
     "show_remaining_count": true,
-    "virtual_claimed_updated_at": null
+    "virtual_claimed_updated_at": null,
+    "codes_pool": []
   },
   {
     "id": "gw_roblox",
@@ -672,7 +696,8 @@
     "created_at": "2026-10-10T14:33:03.744Z",
     "fomo_anchor_time": null,
     "show_remaining_count": true,
-    "virtual_claimed_updated_at": null
+    "virtual_claimed_updated_at": null,
+    "codes_pool": []
   },
   {
     "id": "gw_pubg_mobile_vn",
@@ -699,7 +724,8 @@
     "created_at": "2026-10-10T14:33:03.744Z",
     "fomo_anchor_time": null,
     "show_remaining_count": true,
-    "virtual_claimed_updated_at": null
+    "virtual_claimed_updated_at": null,
+    "codes_pool": []
   },
   {
     "id": "gw_play_together_vng",
@@ -726,7 +752,8 @@
     "created_at": "2026-10-10T14:33:03.744Z",
     "fomo_anchor_time": null,
     "show_remaining_count": true,
-    "virtual_claimed_updated_at": null
+    "virtual_claimed_updated_at": null,
+    "codes_pool": []
   },
   {
     "id": "gw_mobile_legends_mlbb",
@@ -753,7 +780,8 @@
     "created_at": "2026-10-10T14:33:03.744Z",
     "fomo_anchor_time": null,
     "show_remaining_count": true,
-    "virtual_claimed_updated_at": null
+    "virtual_claimed_updated_at": null,
+    "codes_pool": []
   },
   {
     "id": "gw_genshin_impact",
@@ -780,7 +808,8 @@
     "created_at": "2026-10-10T14:33:03.744Z",
     "fomo_anchor_time": null,
     "show_remaining_count": true,
-    "virtual_claimed_updated_at": null
+    "virtual_claimed_updated_at": null,
+    "codes_pool": []
   },
   {
     "id": "gw_honkai_star_rail",
@@ -807,7 +836,8 @@
     "created_at": "2026-10-10T14:33:03.744Z",
     "fomo_anchor_time": null,
     "show_remaining_count": true,
-    "virtual_claimed_updated_at": null
+    "virtual_claimed_updated_at": null,
+    "codes_pool": []
   },
   {
     "id": "gw_free_fire_max",
@@ -834,6 +864,7 @@
     "created_at": "2026-10-10T14:33:03.743Z",
     "fomo_anchor_time": null,
     "show_remaining_count": true,
-    "virtual_claimed_updated_at": null
+    "virtual_claimed_updated_at": null,
+    "codes_pool": []
   }
 ]
