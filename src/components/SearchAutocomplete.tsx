@@ -102,6 +102,11 @@ const GameSearchIcon: React.FC<GameSearchIconProps> = ({ game, size = 'md' }) =>
       {/* 2. Top Image Layer: Fade in over gradient when loaded */}
       {fallbackStage < 3 && iconSrc && (
         <img
+          ref={(imgEl) => {
+            if (imgEl && imgEl.complete && imgEl.naturalWidth > 0 && !isLoaded) {
+              setIsLoaded(true);
+            }
+          }}
           src={iconSrc}
           alt={safeName}
           decoding="async"

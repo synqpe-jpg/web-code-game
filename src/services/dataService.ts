@@ -1244,12 +1244,25 @@ class DataService {
           if (Array.isArray(json.categories) && json.categories.length > 0) {
             this.categories = json.categories;
           }
-          // Cache retrieved games into memory
-          for (const g of json.games) {
-            if (g && g.slug) this.cachedServerGames.set(g.slug, g);
-          }
+          // Enrich and cache retrieved games into memory with complete code lists
+          const enrichedGames = json.games.map((g: any) => {
+            if (!g || !g.slug) return g;
+            const localCodes = this.getCodesForGame(g);
+            const fullCodes = (localCodes && localCodes.length > (g.codes?.length || 0))
+              ? localCodes
+              : (g.codes || []);
+            const enriched: GameItem = {
+              ...g,
+              codes: fullCodes,
+              codes_count: Math.max(g.codes_count || 0, fullCodes.length, g.codes?.length || 0),
+              icon_url: g.icon_url || `/game_icons/${g.slug}.webp`,
+            };
+            this.cachedServerGames.set(g.slug.toLowerCase(), enriched);
+            if (g.id) this.cachedServerGames.set(String(g.id).toLowerCase(), enriched);
+            return enriched;
+          });
           return {
-            items: json.games,
+            items: enrichedGames,
             total: typeof json.total === 'number' ? json.total : json.games.length,
             totalPages: typeof json.totalPages === 'number' ? json.totalPages : 1,
             hasMore: Boolean(json.hasMore),
@@ -1540,31 +1553,48 @@ class DataService {
     return result;
   }
 
+  public getCachedServerGame(slug: string): GameItem | null {
+    if (!slug) return null;
+    const norm = slug.toLowerCase().trim();
+    return this.cachedServerGames.get(norm) || this.cachedServerGames.get(norm.replace(/-mobile$/i, '')) || null;
+  }
+
   async getGameBySlug(slug: string, forceFresh: boolean = false): Promise<GameItem | null> {
     if (!slug) return null;
     const normSlug = slug.toLowerCase().trim();
     const cleanWithoutMobile = normSlug.replace(/-mobile$/i, '');
 
-    // 1. Check if cached game has full codes list (> 3 codes or verified complete) AND was fetched within last 5s
-    const lastFetch = this.cachedGameFetchTime.get(normSlug) || 0;
-    const isFresh = Date.now() - lastFetch < 5000;
-    const memCached = this.cachedServerGames.get(normSlug);
-    if (!forceFresh && isFresh && memCached && memCached.codes && memCached.codes.length > 3) {
+    // 1. Check if cached game has full codes list (> 3 codes or verified complete)
+    const memCached = this.cachedServerGames.get(normSlug) || this.cachedServerGames.get(cleanWithoutMobile);
+    if (!forceFresh && memCached && memCached.codes && memCached.codes.length > 3) {
       return memCached;
     }
 
     // 2. Fetch full game details with complete giftcode pool from Serverless D1 API
     try {
-      const res = await fetch(`/api/games?slug=${encodeURIComponent(slug)}&fresh=1`);
+      const fetchUrl = forceFresh
+        ? `/api/games?slug=${encodeURIComponent(slug)}&fresh=1`
+        : `/api/games?slug=${encodeURIComponent(slug)}`;
+      const res = await fetch(fetchUrl);
       if (res.ok) {
         const json = await res.json();
         if (json && json.success && json.game) {
           const game = json.game;
-          this.cachedServerGames.set(game.slug.toLowerCase(), game);
-          if (game.id) this.cachedServerGames.set(game.id.toLowerCase(), game);
+          const localCodes = this.getCodesForGame(game);
+          const fullCodes = (game.codes && game.codes.length >= (localCodes?.length || 0))
+            ? game.codes
+            : (localCodes || game.codes || []);
+          const finalGame: GameItem = {
+            ...game,
+            codes: fullCodes,
+            codes_count: Math.max(game.codes_count || 0, fullCodes.length, game.codes?.length || 0),
+            icon_url: game.icon_url || `/game_icons/${game.slug}.webp`,
+          };
+          this.cachedServerGames.set(game.slug.toLowerCase(), finalGame);
+          if (game.id) this.cachedServerGames.set(String(game.id).toLowerCase(), finalGame);
           this.cachedGameFetchTime.set(game.slug.toLowerCase(), Date.now());
-          if (game.id) this.cachedGameFetchTime.set(game.id.toLowerCase(), Date.now());
-          return game;
+          if (game.id) this.cachedGameFetchTime.set(String(game.id).toLowerCase(), Date.now());
+          return finalGame;
         }
       }
     } catch {
@@ -1611,11 +1641,14 @@ class DataService {
 
     const codes = this.getCodesForGame(game);
     const finalCodes = codes.length > 0 ? codes : (game.codes || []);
-    return {
+    const localResult: GameItem = {
       ...game,
       codes: finalCodes,
       codes_count: finalCodes.length,
+      icon_url: game.icon_url || `/game_icons/${game.slug}.webp`,
     };
+    this.cachedServerGames.set(normSlug, localResult);
+    return localResult;
   }
 
   /**

@@ -188,6 +188,11 @@ export const GameCard: React.FC<GameCardProps> = ({
       {/* 2. Top Image Layer: Fade in smoothly over the gradient when loaded */}
       {fallbackStage < 3 && currentIconSrc && (
         <img
+          ref={(imgEl) => {
+            if (imgEl && imgEl.complete && imgEl.naturalWidth > 0 && !imageLoaded) {
+              setImageLoaded(true);
+            }
+          }}
           src={currentIconSrc}
           alt={game.name}
           decoding="async"

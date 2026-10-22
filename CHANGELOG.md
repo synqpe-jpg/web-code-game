@@ -7,6 +7,38 @@ Mỗi mục sửa lỗi đều ghi nhận **Nguyên nhân gốc rễ (Root Cause
 
 ## [2026-10-22]
 
+### 125. Khắc Phục Triệt Để Hiện Tượng Mở Modal Game Nhảy 2 Giao Diện (3 Code Nhảy Lên Đủ Code & Logo Đổi Thành Avatar Chữ "TA")
+- **Mô tả & Yêu cầu người dùng**:
+  - Người dùng phản ánh: *"Khi tôi ấn vào 1 tựa game thì luôn hiện ra 2 giao diện khác nhau, ban đầu chỉ có 3 code, nhưng đúng ảnh logo game, sau hiện ra đủ code nhưng sai logo game. Làm chính xác hiện 1 lần chính ra chính xác đúng logo game và đủ code."*
+- **Nguyên nhân gốc rễ (Root Cause)**:
+  1. *Lỗi nhảy số lượng code (3 code -> 20/22 code)*:
+     - Endpoint serverless `/api/games?page=...` chỉ gắn 3 code xem trước (`codes: (g.codes || []).slice(0, 3)`) để tối ưu hóa payload mạng khi phân trang lưới game.
+     - Khi người dùng bấm vào thẻ game trên trang chủ, hàm `handleSelectGame(game)` trong `App.tsx` lập tức gọi `setSelectedGame(game)` với object thẻ game này (vốn chỉ mang 3 code).
+     - Điều này khiến `GameDetailModal` hiển thị ngay tức thì với 3 code ("Tất cả (3)").
+     - Vài trăm ms sau, cuộc gọi `await dataService.getGameBySlug(game.slug, true)` hoàn tất và gọi `setSelectedGame(fullGame)` cập nhật danh sách đầy đủ 20 code ("Tất cả (20)"), gây ra hiệu ứng giật/chớp số lượng code trước mắt người dùng.
+  2. *Lỗi logo game thật biến thành placeholder chữ cái "TA" tím*:
+     - Trong `GameDetailModal.tsx`, hook `useEffect` theo dõi `[game]` (object reference).
+     - Khi `App.tsx` cập nhật `selectedGame` từ game 3 code sang `fullGame` 20 code, object reference thay đổi khiến `useEffect([game])` kích hoạt.
+     - Trong effect này, code thực thi: `setModalImageLoaded(false); setModalFallbackStage(0);`.
+     - Vì state `modalImageLoaded` bị ép về `false`, CSS của thẻ `<img>` chuyển thành `opacity-0` (ẩn hoàn toàn), để lộ layer chữ viết tắt tên game `{initials}` ("TA") với nền gradient tím ở bên dưới!
+     - Nghiêm trọng hơn: Thuộc tính `src` của ảnh (`/game_icons/tarot-vinh-hang-than-ngu.webp`) **hoàn toàn không thay đổi và ảnh đã nằm sẵn trong bộ nhớ đệm DOM**, trình duyệt **KHÔNG BAO GIỜ PHÁT LẠI SỰ KIỆN `onLoad`**!
+     - Do `onLoad` không chạy lại, `modalImageLoaded` kẹt vĩnh viễn ở `false`, khiến logo game thật bị ẩn vĩnh viễn và người dùng chỉ thấy avatar chữ "TA"!
+- **Giải pháp dứt điểm đã triển khai (Solution)**:
+  1. *Đồng bộ trước toàn bộ danh sách giftcode cục bộ (Enrich Full Codes Synchronously)*:
+     - Trong `dataService.ts`: Tại hàm `queryGames()`, khi API trả về các game phân trang, tự động ghép (`enrich`) với toàn bộ danh sách code từ `this.getCodesForGame(g)` và lưu vào `cachedServerGames`.
+     - Trong `App.tsx`: Tại `handleSelectGame(game)`, ngay lập tức kiểm tra `dataService.getCodesForGame(game)` và `cachedServerGames`. Game truyền vào `setSelectedGame` lập tức mang đầy đủ 100% giftcode ngay tại frame render đầu tiên (0ms), triệt tiêu hoàn toàn bước trung gian 3 code!
+  2. *Bảo vệ trạng thái ảnh không bị reset khi cùng một tựa game (Isomorphic Image Persistence)*:
+     - Trong `GameDetailModal.tsx`: Sử dụng `prevGameSlugRef` để theo dõi slug game. **CHỈ reset `modalImageLoaded` và `modalFallbackStage` khi người dùng chuyển sang một tựa game hoàn toàn khác**! Khi cùng một tựa game được cập nhật thêm code hoặc dữ liệu mới, trạng thái ảnh đã load được bảo toàn 100%.
+     - Bổ sung `ref callback` cho thẻ `<img>`: `if (imgEl && imgEl.complete && imgEl.naturalWidth > 0 && !modalImageLoaded) setModalImageLoaded(true);`. Nếu ảnh đã được nạp sẵn từ cache trình duyệt, giao diện kích hoạt hiển thị ảnh ngay lập tức mà không cần đợi `onLoad`.
+     - Memoize `currentGame` với `useMemo` để luôn chọn danh sách giftcode lớn nhất và đường dẫn `icon_url` chuẩn mực, không bao giờ bị downgrade.
+     - Áp dụng kiểm tra `ref` tương tự cho `GameCard.tsx` và `SearchAutocomplete.tsx` để đồng bộ chuẩn hiển thị 0ms cho toàn bộ hệ thống.
+- **Files Modified**:
+  - `src/App.tsx`
+  - `src/components/GameCard.tsx`
+  - `src/components/GameDetailModal.tsx`
+  - `src/components/SearchAutocomplete.tsx`
+  - `src/services/dataService.ts`
+
 ### 124. Điều Tra & Triệt Tiêu Nguyên Nhân Bùng Nổ D1 (1.12M Rows Read): Tối Ưu Hóa Correlated Subqueries & Chặn Triệt Để Bypass Edge Cache
 - **Mô tả & Yêu cầu người dùng**:
   - Người dùng gửi ảnh dashboard Cloudflare: Lượng đọc D1 tăng vọt lên **1.12M / 5M** với **17.42k queries**, hỏi: *"Bạn kiểm tra giúp tôi xem, lượng d1 đang tăng rất nhanh, có chỗ nào bất thường?"*

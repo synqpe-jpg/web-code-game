@@ -10,6 +10,25 @@
 
 ## 1. DANH MỤC LỖI & CÁC BẪY ĐÃ THẤT BẠI (DO NOT REPEAT)
 
+### ISSUE-067: Lỗi Mở Modal Game Nhảy 2 Giao Diện (3 Code Nhảy Lên Đủ Code & Logo Đổi Thành Avatar Chữ "TA")
+- **Triệu chứng**:
+  - Khi người dùng bấm vào một tựa game (ví dụ Tarot: Vĩnh Hằng Thần Ngữ), modal mở ra ban đầu hiển thị đúng logo nhưng chỉ có 3 code ("Tất cả (3)").
+  - Vài trăm ms sau, giao diện tự động cập nhật lên đầy đủ 20 code ("Tất cả (20)"), nhưng ảnh logo game thật biến mất và bị thay thế bằng avatar chữ cái viết tắt "TA" trên nền tím.
+- **Nguyên nhân gốc rễ**:
+  1. *Truyền object card có `slice(0, 3)` vào `setSelectedGame` trước khi nạp đủ code*:
+     - Phân trang lưới game trên Edge gắn 3 code xem trước. Khi click thẻ game, `handleSelectGame(game)` gọi ngay `setSelectedGame(game)` với object 3 code này, sau đó mới gọi async `getGameBySlug` để lấy 20 code, gây ra hiện tượng nhảy giật 2 giao diện.
+  2. *Reset trạng thái ảnh `setModalImageLoaded(false)` khi `game` prop thay đổi reference*:
+     - `GameDetailModal` có `useEffect([game])`. Khi `selectedGame` được update từ 3 code sang 20 code, hook chạy và gọi `setModalImageLoaded(false)`.
+     - Lớp ảnh bị gán `opacity-0` để lộ avatar chữ cái `{initials}` ("TA") bên dưới.
+     - Do URL ảnh `src` không đổi và ảnh đã nằm trong bộ nhớ cache trình duyệt, trình duyệt không bao giờ kích hoạt lại sự kiện `onLoad`, khiến ảnh kẹt vĩnh viễn ở trạng thái ẩn!
+- **Giải pháp chuẩn đã kiểm chứng**:
+  - Dùng `prevGameSlugRef` trong `GameDetailModal.tsx` để **CHỈ reset trạng thái ảnh khi chuyển sang một game khác**. Cùng một game cập nhật code thì giữ nguyên trạng thái ảnh đã load.
+  - Thêm `ref` callback kiểm tra `imgEl.complete && imgEl.naturalWidth > 0` để bật `modalImageLoaded = true` ngay lập tức nếu ảnh đã có trong cache.
+  - Làm giàu dữ liệu (`enrich`) toàn bộ danh sách code trong `queryGames()` và trước khi gọi `setSelectedGame(game)` trong `App.tsx`, đảm bảo modal luôn mở với 100% mã code ngay từ frame render đầu tiên (0ms).
+- ⛔ **CÁCH SỬA ĐÃ THẤT BẠI - TUYỆT ĐỐI KHÔNG LẶP LẠI**:
+  - ❌ *Không bao giờ đặt `useEffect([game])` chứa `setModalImageLoaded(false)` mà không kiểm tra xem slug game có thực sự thay đổi hay không*: Vì bất kỳ cập nhật prop nào (như cập nhật code, vote, bookmark) cũng sẽ làm bay màu logo game và biến thành chữ cái.
+  - ❌ *Không phụ thuộc 100% vào sự kiện `onLoad` của `<img>` khi component re-render*: Phải luôn kèm theo `ref={(el) => { if (el?.complete && el?.naturalWidth > 0) ... }}` để bắt kịp ảnh đã cache.
+
 ### ISSUE-066: Bùng Nổ D1 Rows Read Do Correlated Scalar Subqueries & Client `syncWithCloudflareKV(true)` Ép Bypass Cache
 - **Triệu chứng**:
   - Cloudflare Dashboard báo lượng đọc D1 tăng vọt lên 1.12M / 5M rows read chỉ trong buổi sáng, số lượng query chạm 17.42k queries.

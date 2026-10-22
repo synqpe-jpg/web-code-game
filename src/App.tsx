@@ -1035,15 +1035,42 @@ export const App: React.FC = () => {
   // Handle Game Selection
   const handleSelectGame = async (game: GameItem) => {
     saveRecentSearch(game.name);
-    setSelectedGame(game);
-    const fullGame = await dataService.getGameBySlug(game.slug, true);
-    if (fullGame) {
-      setSelectedGame(fullGame);
+    // 1. Immediately enrich with complete code list from dataService so the modal opens with full codes on the VERY FIRST RENDER
+    const localCodes = dataService.getCodesForGame(game);
+    const cachedGame = dataService.getCachedServerGame(game.slug);
+    const fullCodes = (cachedGame?.codes && cachedGame.codes.length > 3)
+      ? cachedGame.codes
+      : (localCodes && localCodes.length > (game.codes?.length || 0) ? localCodes : (game.codes || []));
+
+    const initialEnrichedGame: GameItem = {
+      ...game,
+      codes: fullCodes,
+      codes_count: Math.max(game.codes_count || 0, fullCodes.length, game.codes?.length || 0),
+      icon_url: game.icon_url || cachedGame?.icon_url || `/game_icons/${game.slug}.webp`,
+    };
+    setSelectedGame(initialEnrichedGame);
+
+    // 2. Background verify with serverless API without forceFresh bypass unless needed
+    const fullGame = await dataService.getGameBySlug(game.slug, false);
+    if (fullGame && fullGame.codes && fullGame.codes.length >= initialEnrichedGame.codes.length) {
+      setSelectedGame((prev) => {
+        if (!prev || (prev.slug !== game.slug && prev.id !== game.id)) return prev;
+        return {
+          ...prev,
+          ...fullGame,
+          icon_url: fullGame.icon_url || prev.icon_url || `/game_icons/${game.slug}.webp`,
+        };
+      });
     }
   };
 
   const handleSelectGameSlug = async (slug: string) => {
-    const fullGame = await dataService.getGameBySlug(slug, true);
+    const cachedGame = dataService.getCachedServerGame(slug);
+    if (cachedGame && cachedGame.codes && cachedGame.codes.length > 3) {
+      setSelectedGame(cachedGame);
+      return;
+    }
+    const fullGame = await dataService.getGameBySlug(slug, false);
     if (fullGame) setSelectedGame(fullGame);
   };
 

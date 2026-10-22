@@ -65,12 +65,37 @@ export const GameDetailModal: React.FC<GameDetailModalProps> = ({
   const [modalFallbackStage, setModalFallbackStage] = useState(0); // 0: webp, 1: jpg, 2: edge proxy, 3: initials
   const [isEmailModalOpen, setIsEmailModalOpen] = useState(false);
   const [isGameFollowed, setIsGameFollowed] = useState(false);
+  const prevGameSlugRef = React.useRef<string | null>(game ? (game.slug || game.id || null) : null);
 
   useEffect(() => {
-    setLiveGame(game);
-    setModalImageLoaded(false);
-    setModalFallbackStage(0);
-    if (game?.slug) {
+    if (!game) return;
+    const currentSlug = game.slug || game.id || '';
+    const isNewGame = prevGameSlugRef.current !== currentSlug;
+    prevGameSlugRef.current = currentSlug;
+
+    if (isNewGame) {
+      setLiveGame(game);
+      setModalImageLoaded(false);
+      setModalFallbackStage(0);
+      setSelectedCodeTab('all');
+    } else {
+      // Same game updated with fresh codes or details: seamlessly merge without resetting image state!
+      setLiveGame((prev) => {
+        if (!prev) return game;
+        const prevCodes = prev.codes || [];
+        const newCodes = game.codes || [];
+        const bestCodes = newCodes.length >= prevCodes.length ? newCodes : prevCodes;
+        return {
+          ...prev,
+          ...game,
+          icon_url: game.icon_url || prev.icon_url || `/game_icons/${game.slug}.webp`,
+          codes: bestCodes,
+          codes_count: Math.max(prev.codes_count || 0, game.codes_count || 0, bestCodes.length),
+        };
+      });
+    }
+
+    if (game.slug) {
       setIsGameFollowed(notificationService.isGameFollowed(game.slug));
     }
   }, [game]);
@@ -92,9 +117,16 @@ export const GameDetailModal: React.FC<GameDetailModalProps> = ({
   useEffect(() => {
     if (!game?.slug) return;
     let isCancelled = false;
-    dataService.getGameBySlug(game.slug, true).then((fresh) => {
-      if (!isCancelled && fresh && fresh.codes && fresh.codes.length >= (game.codes?.length || 0)) {
-        setLiveGame(fresh);
+    dataService.getGameBySlug(game.slug, false).then((fresh) => {
+      if (!isCancelled && fresh && fresh.codes && fresh.codes.length > (game.codes?.length || 0)) {
+        setLiveGame((prev) => {
+          if (!prev || (prev.slug !== fresh.slug && prev.id !== fresh.id)) return prev;
+          return {
+            ...prev,
+            ...fresh,
+            icon_url: fresh.icon_url || prev.icon_url || `/game_icons/${fresh.slug}.webp`,
+          };
+        });
       }
     });
     return () => {
@@ -115,10 +147,21 @@ export const GameDetailModal: React.FC<GameDetailModalProps> = ({
     c.code.toUpperCase() === 'ATNGAY1' ||
     c.code.toUpperCase() === 'ATNGAY2';
 
-  // Ensure currentGame is strictly null if game is null or closed
-  const currentGame = game
-    ? (liveGame && (liveGame.slug === game.slug || liveGame.id === game.id) ? liveGame : game)
-    : null;
+  // Ensure currentGame is strictly null if game is null or closed, and always preserve highest code count and safe icon
+  const currentGame = React.useMemo(() => {
+    if (!game) return null;
+    const base = liveGame && (liveGame.slug === game.slug || liveGame.id === game.id) ? liveGame : game;
+    const baseCodes = base.codes || [];
+    const propCodes = game.codes || [];
+    const bestCodes = propCodes.length >= baseCodes.length ? propCodes : baseCodes;
+    return {
+      ...base,
+      ...game,
+      codes: bestCodes,
+      codes_count: Math.max(base.codes_count || 0, game.codes_count || 0, bestCodes.length),
+      icon_url: game.icon_url || base.icon_url || `/game_icons/${game.slug}.webp`,
+    };
+  }, [game, liveGame]);
 
   useEffect(() => {
     if (!currentGame || !currentGame.codes) return;
@@ -268,6 +311,11 @@ export const GameDetailModal: React.FC<GameDetailModalProps> = ({
                 {/* 2. Top Image Layer: Fade in over gradient when loaded */}
                 {modalFallbackStage < 3 && (
                   <img
+                    ref={(imgEl) => {
+                      if (imgEl && imgEl.complete && imgEl.naturalWidth > 0 && !modalImageLoaded) {
+                        setModalImageLoaded(true);
+                      }
+                    }}
                     src={
                       modalFallbackStage === 1
                         ? `/game_icons/${currentGame.slug}.jpg`
