@@ -16,6 +16,7 @@ import * as metricsSyncedApi from './api/metrics/synced';
 import * as gamesApi from './api/games';
 import * as crawlArticleApi from './api/crawl-article';
 import * as gameIconApi from './api/game-icon';
+import * as ingestCodesApi from './api/crawler/ingest-codes';
 import { invalidateCatalogEdgeCache } from './services/cache_service';
 import fallbackGiveawaysData from '../src/data/giveaways.json';
 
@@ -389,6 +390,13 @@ export default {
       if (pathname === '/api/game-icon') {
         if (method === 'OPTIONS') return await gameIconApi.onRequestOptions();
         return await gameIconApi.onRequestGet(context);
+      }
+
+      // 8f. /api/crawler/ingest-codes (Muse Bot & External Giftcode Ingestion API)
+      if (pathname === '/api/crawler/ingest-codes') {
+        if (method === 'OPTIONS') return await ingestCodesApi.onRequestOptions();
+        if (method === 'POST') return await ingestCodesApi.onRequestPost(context);
+        return await ingestCodesApi.onRequestGet(context);
       }
 
       // Fallback for any unknown /api route
