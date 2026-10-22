@@ -5,6 +5,37 @@ Mỗi mục sửa lỗi đều ghi nhận **Nguyên nhân gốc rễ (Root Cause
 
 ---
 
+## [2026-10-22]
+
+### 119. Đồng Bộ Toàn Diện Dữ Liệu Admin Cloudflare D1 & Web Khách: Hợp Nhất 11.778 Giftcode, 629 Game, 163 Bài Viết Sạch & 32 Sự Kiện Giveaway
+- **Mô tả & Yêu cầu người dùng**:
+  1. Người dùng yêu cầu: *"Hôm nay d1 đã khôi phục nhưng sao dữ liệu chưa trả về như cũ, các bài viết,các code đang phát...."*
+  2. Người dùng yêu cầu: *"Những thứ gì trang admin có mà trang khách chưa cập nhật?"*
+  3. Người dùng yêu cầu: *"Đồng ý, ngoài ra, tại mục Kho Giftcode, lấy toàn bộ dữ liệu trong trang admin giúp tôi."*
+- **Nguyên nhân gốc rễ & Phân tích (Root Cause & Analysis)**:
+  - Khi Cloudflare D1 khôi phục hạn ngạch sau 00:00 UTC, bot cào tự động (`auto-news-publisher`) đã chạy và nạp 101 bài viết crawler thô vào D1, trong đó có 20 bài bị trùng lặp do sinh hậu tố ngẫu nhiên.
+  - Các bài viết biên tập chuẩn (Tarot 22 code, Hải Tặc Truyền Kỳ 6 code, MAD 3 code, Hắc Tây Du 31 code...) trước đó mới lưu tại file tĩnh và chưa được đồng bộ lên bảng `wcg_news_articles_v1` của D1, dẫn đến việc khi client gọi `/api/sync` bị ghi đè danh sách bài viết thô.
+  - Kho Giftcode trên Admin D1 chứa 6.970 mã (trong đó có 1.040 mã custom/crawled chưa có trong baseline tĩnh), trong khi baseline tĩnh chứa 10.738 mã. Hai bên bị lệch dữ liệu.
+  - Danh mục game trên D1 đã có thêm 2 game mới (`Girls Echo` và `Dragonbound: Wings of Magic`) nâng tổng lên 629 game, nhưng file tĩnh web khách vẫn ở mốc 627 game.
+  - Chiến dịch Giveaway thứ 32 (`gw_1792235539701_wee` - Ta Là Hắc Ngộ Không, đã được khách giật sạch 24/24 mã) có trên D1 nhưng chưa có trong file tĩnh.
+- **Giải pháp toàn diện đã triển khai (Solution)**:
+  1. *Hợp nhất toàn bộ 11.778 mã Giftcode*:
+     - Lấy toàn bộ 6.970 mã từ Admin D1 (kèm 1.741 mã custom) kết hợp với 10.738 mã tĩnh, loại bỏ 84 mã đã xóa (tombstones).
+     - Tổng cộng đạt **11.778 mã Giftcode độc nhất**, nhúng trực tiếp vào mảng `codes` của toàn bộ 629 game trong `games188.json` và đồng bộ lên bảng `wcg_admin_free_codes_v5` trên D1.
+  2. *Đồng bộ danh mục 629 game*:
+     - Bổ sung `Girls Echo` (`girls-echo`) và `Dragonbound: Wings of Magic` (`dragonbound-wings-of-magic`) vào `games188.json` và đồng bộ lên D1.
+  3. *Lọc rác & Hợp nhất 163 bài viết tin tức sạch*:
+     - Bảo toàn 100% 94 bài viết biên tập chất lượng cao (kèm code Tarot, Hải Tặc, MAD, Hắc Tây Du...).
+     - Lọc bỏ sạch sẽ 20 bài viết trùng lặp của crawler, bổ sung 69 bài viết độc nhất từ D1. Tổng cộng 163 bài viết chuẩn SEO, đồng bộ vào `src/data/seedNews.ts` và đẩy lên `wcg_news_articles_v1` trên D1 (HTTP 200).
+  4. *Đồng bộ 32/32 chiến dịch Giveaway*:
+     - Bổ sung chiến dịch thứ 32 (`Ta Là Hắc Ngộ Không`) vào `src/data/giveaways.json` và đồng bộ D1.
+- **Files Modified**:
+  - `src/data/crawled_codes_188.json`, `public/data/crawled_codes_188.json`, `data/crawled_codes_188.json`, `public/data/codes_database.json` (Nâng tổng lên 11.778 giftcode)
+  - `src/data/games188.json`, `public/data/games188.json`, `data/games188.json`, `public/data/games_database.json` (Nâng tổng lên 629 tựa game kèm codes nhúng)
+  - `src/data/giveaways.json` (Đồng bộ 32 chiến dịch)
+  - `src/data/seedNews.ts` (Nâng tổng lên 163 bài viết sạch)
+  - `scripts/sync_all_admin_and_client_data.cjs` (Bộ công cụ đồng bộ toàn diện Admin <-> Web Khách)
+
 ## [2026-10-21]
 
 ### 118. Tích Hợp Mẫu Thông Báo Cố Định "Web bảo trì" Trong Admin Portal (Floating Modal & Announcement Bar) Phân Định Rõ Các Tính Năng

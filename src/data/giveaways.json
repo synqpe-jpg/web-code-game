@@ -866,5 +866,30 @@
     "show_remaining_count": true,
     "virtual_claimed_updated_at": null,
     "codes_pool": []
+  },
+  {
+    "id": "gw_1792235539701_wee",
+    "game_slug": "ta-la-hac-ngo-khong",
+    "game_name": "TA LÀ HẮC NGỘ KHÔNG",
+    "game_icon_url": "/game_icons/ta-la-hac-ngo-khong.webp",
+    "cover_image_url": "/game_icons/ta-la-hac-ngo-khong.webp",
+    "title": "Code Ta Là Hắc Ngộ Không",
+    "description": "Code dùng cho 1 tài khoản, 1 loại dùng 1 lần.",
+    "rewards": "Code ngẫu nhiên",
+    "total_codes": 24,
+    "remaining_codes": 0,
+    "claimed_codes": 24,
+    "codes_pool": [],
+    "virtual_claimed_offset": 0,
+    "show_claimed_count": true,
+    "min_account_age_days": 0,
+    "max_per_user": 1,
+    "max_per_ip": 1,
+    "cooldown_hours": 1,
+    "start_time": "2026-10-17",
+    "end_time": "2026-12-31",
+    "is_active": true,
+    "status": "ACTIVE",
+    "created_at": "2026-10-17T11:12:19.701Z"
   }
 ]
