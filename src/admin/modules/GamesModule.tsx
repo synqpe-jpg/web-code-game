@@ -17,6 +17,8 @@ import {
   Check,
   X,
   Sparkles,
+  Rocket,
+  Gamepad2,
 } from 'lucide-react';
 import type { CrawlerSource } from '../../types/game';
 import { DataTable, Column } from '../components/ui/DataTable';
@@ -26,6 +28,7 @@ import { FormModal } from '../components/ui/FormModal';
 import { ImageUploadInput } from '../components/ui/ImageUploadInput';
 import { adminDataService } from '../services/adminDataService';
 import { GameAdminRecord } from '../types/adminTypes';
+import { UpcomingGamesSection } from './UpcomingGamesSection';
 
 interface GamesModuleProps {
   onShowToast: (title: string, desc?: string, type?: 'success' | 'error' | 'info') => void;
@@ -33,6 +36,8 @@ interface GamesModuleProps {
 }
 
 export const GamesModule: React.FC<GamesModuleProps> = ({ onShowToast, onOpenGameCodes }) => {
+  const [subTab, setSubTab] = useState<'catalog' | 'upcoming'>('catalog');
+  const [upcomingCount, setUpcomingCount] = useState(() => adminDataService.getUpcomingGames().length);
   const [games, setGames] = useState<GameAdminRecord[]>([]);
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [categoryFilter, setCategoryFilter] = useState('ALL');
@@ -62,9 +67,11 @@ export const GamesModule: React.FC<GamesModuleProps> = ({ onShowToast, onOpenGam
 
   useEffect(() => {
     loadGames();
+    setUpcomingCount(adminDataService.getUpcomingGames().length);
 
     const handleSync = () => {
       loadGames();
+      setUpcomingCount(adminDataService.getUpcomingGames().length);
     };
 
     window.addEventListener('wcg_admin_data_updated', handleSync);
@@ -412,8 +419,50 @@ export const GamesModule: React.FC<GamesModuleProps> = ({ onShowToast, onOpenGam
 
   return (
     <div className="space-y-6 animate-in fade-in duration-200">
-      {/* Banner Game Chờ Duyệt từ Google Play */}
-      {pendingGamesCount > 0 && (
+      {/* Module Top Navigation Subtabs */}
+      <div className="flex items-center gap-2 border-b border-border/70 pb-3">
+        <button
+          type="button"
+          onClick={() => setSubTab('catalog')}
+          className={`flex items-center gap-2 px-4 py-2.5 rounded-xl font-bold text-xs sm:text-sm transition-all cursor-pointer ${
+            subTab === 'catalog'
+              ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/20'
+              : 'bg-card text-slate-400 hover:text-white hover:bg-card-hover border border-border'
+          }`}
+        >
+          <Gamepad2 className="w-4 h-4" />
+          <span>🎮 Danh Mục Game Sàn ({games.length})</span>
+        </button>
+
+        <button
+          type="button"
+          onClick={() => setSubTab('upcoming')}
+          className={`flex items-center gap-2 px-4 py-2.5 rounded-xl font-bold text-xs sm:text-sm transition-all cursor-pointer relative ${
+            subTab === 'upcoming'
+              ? 'bg-gradient-to-r from-purple-600 via-indigo-600 to-pink-600 text-white shadow-md shadow-indigo-600/25'
+              : 'bg-card text-slate-400 hover:text-white hover:bg-card-hover border border-border'
+          }`}
+        >
+          <Rocket className="w-4 h-4 text-amber-400" />
+          <span>🚀 Game Chuẩn Bị Ra Mắt & API Muse ({upcomingCount})</span>
+          <span className="ml-1 px-1.5 py-0.5 rounded-full text-[10px] bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 font-mono">
+            API Live
+          </span>
+        </button>
+      </div>
+
+      {subTab === 'upcoming' ? (
+        <UpcomingGamesSection
+          onShowToast={onShowToast}
+          onGameLaunched={() => {
+            loadGames();
+            setUpcomingCount(adminDataService.getUpcomingGames().length);
+          }}
+        />
+      ) : (
+        <>
+          {/* Banner Game Chờ Duyệt từ Google Play */}
+          {pendingGamesCount > 0 && (
         <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 p-4 rounded-2xl bg-gradient-to-r from-emerald-950/40 via-slate-900 to-teal-950/40 border border-emerald-500/40 text-xs sm:text-sm shadow-lg shadow-emerald-950/20">
           <div className="flex items-center gap-2.5 text-emerald-300 font-medium">
             <Smartphone className="w-5 h-5 text-emerald-400 shrink-0" />
@@ -1022,6 +1071,8 @@ export const GamesModule: React.FC<GamesModuleProps> = ({ onShowToast, onOpenGam
         confirmText={`Xóa ${selectedIds.length} game`}
         variant="danger"
       />
+        </>
+      )}
     </div>
   );
 };

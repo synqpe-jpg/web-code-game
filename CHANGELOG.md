@@ -7,6 +7,61 @@ Mỗi mục sửa lỗi đều ghi nhận **Nguyên nhân gốc rễ (Root Cause
 
 ## [2026-10-23]
 
+### 147. Tích Hợp Trung Tâm Quản Lý Game Sắp Ra Mắt & Cổng Tiếp Nhận API Muse Bot Trong Admin Quản Trị (Upcoming Games Hub & Muse Bot API Ingest)
+- **Mô tả & Yêu cầu người dùng**:
+  - *"Trong admin, mục quản lý game, bạn thêm phần game chuẩn bị ra mắt, có chỗ cho API để tôi nhờ Muse quản lý giống bên quét code"*
+  - Thêm một phân hệ quản lý "Game Chuẩn Bị Ra Mắt" ngay trong mục "Quản Lý Game" của Admin Dashboard, cung cấp đầy đủ giao diện cấu hình, tài liệu schema, mã nguồn mẫu (Python, cURL, JS/TS) và cổng API tự động để Muse bot có thể đẩy và đồng bộ dữ liệu game sắp mở server kèm giftcode dự kiến.
+- **Nguyên nhân gốc rễ & Phân tích nghiệp vụ**:
+  - Đối thủ codemoi.net có tính năng "Game sắp ra mắt" với đồng hồ đếm ngược sống và đăng ký nhận code tân thủ giờ G rất hút người dùng.
+  - Trước đây, hệ thống chỉ có danh mục game đã phát hành và cổng API cào code `/api/crawler/ingest-codes`, chưa có endpoint và module quản lý độc lập cho các tựa game đang trong giai đoạn Alpha Test, Closed Beta hoặc sắp mở server chính thức.
+  - Người dùng cần một cổng API chuẩn hóa như phân hệ Crawler để bot Muse tự động cập nhật lịch phát hành, ngày giờ mở server, link đăng ký trước và danh sách giftcode tân thủ dự kiến.
+- **Giải pháp đã triển khai (Solution)**:
+  1. *Định nghĩa Kiểu Dữ Liệu & Model Quản Trị (`adminTypes.ts`)*:
+     - Tạo interface `UpcomingGameAdminRecord` với các trường chi tiết: `id`, `name`, `slug`, `publisher`, `releaseDate` (ISO string/giờ G), `category`, `platform`, `iconUrl`, `bannerUrl`, `description`, `preRegUrl`, `expectedCodes` (mảng mã dự kiến), `subscribersCount`, `status` (`'UPCOMING' | 'LAUNCHED' | 'CANCELLED'`), `source`, `createdAt`, `updatedAt`.
+     - Tạo interface `UpcomingGameApiLogEntry` ghi nhận lịch sử các đợt đồng bộ của Muse bot.
+  2. *Dịch Vụ Lưu Trữ & Đồng Bộ 1-1 (`adminDataService.ts`)*:
+     - Thêm key `KEYS.UPCOMING_GAMES` (`wcg_admin_upcoming_games_v1`) và `KEYS.UPCOMING_GAMES_LOGS`.
+     - Seed sẵn 5 tựa game sắp ra mắt thực tế tại Việt Nam: Strinova VN (iDreamSky), Tiên Giới (VTC Game), Hiệp Khách Hành (SohaGame), Where Winds Meet VN (NetEase), Honkai: Star Rail 3.0 (HoYoverse).
+     - Triển khai đầy đủ CRUD: `getUpcomingGames()`, `saveUpcomingGame()`, `deleteUpcomingGame()`, `addUpcomingGameLog()`, `getUpcomingGamesLogs()`.
+     - Đặc biệt: Cung cấp hàm `launchUpcomingGame(id)` cho phép Admin bấm 1 nút "🚀 Phát Hành Lên Sàn" khi game mở server thật: Tự động chuyển trạng thái sang `LAUNCHED`, chuyển game vào danh mục game chính thức (`GameAdminRecord`) và tự động giải phóng toàn bộ `expectedCodes` thành giftcode hợp lệ trong kho với phần thưởng "Quà tân thủ mừng mở server".
+  3. *Cloudflare Serverless Edge Worker API (`functions/api/crawler/ingest-upcoming-games.ts`)*:
+     - Xây dựng endpoint chuẩn Serverless Edge hỗ trợ đầy đủ `GET` (danh sách / tra cứu theo slug), `POST` (tiếp nhận danh sách game từ Muse bot), và `OPTIONS` (CORS preflight).
+     - Xác thực an toàn qua Header `x-api-key` hoặc query `?apiKey=...` (đồng bộ API Key của module Crawler).
+     - Hỗ trợ lưu trữ trực tiếp vào Cloudflare D1 Database (`upcoming_games`), tự động tạo bảng nếu chưa có, và fallback mượt mà nếu môi trường chưa kích hoạt D1.
+     - Validate định dạng ngày tháng `releaseDate` ISO 8601 và tự động format slug URL thân thiện.
+  4. *Khai Báo Định Tuyến Edge Worker (`functions/_worker.ts`)*:
+     - Khai báo route `/api/crawler/ingest-upcoming-games` trong `functions/_worker.ts` (tuân thủ nguyên tắc ISSUE-079).
+  5. *Giao Diện Phân Hệ Upcoming Games Section (`UpcomingGamesSection.tsx`)*:
+     - **Thống kê nhanh**: Tổng game sắp ra mắt, Game mở server trong 7 ngày tới, Tổng giftcode dự kiến, Tổng lượt đăng ký nhận thông báo.
+     - **Tích hợp Muse Bot API Hub**:
+       - Hiển thị URL Endpoint API với nút copy 1 chạm.
+       - Hiển thị API Key bí mật với chế độ ẩn/hiện và nút copy.
+       - Hướng dẫn JSON Payload Schema đầy đủ các trường bắt buộc và tùy chọn.
+       - Code mẫu sẵn có cho **Python** (dùng `requests`), **cURL** (cho bash script/cron job), và **JavaScript/TypeScript** (dùng `fetch`).
+       - Bảng Test API trực tiếp ngay trên giao diện với nút "Gửi Test Ingest", hiển thị phản hồi JSON thời gian thực và tự động cập nhật danh sách.
+     - **Lưới Thẻ Game Sắp Ra Mắt**:
+       - Đồng hồ đếm ngược sống (Live Countdown: X ngày Y giờ Z phút) đến đúng giờ mở server.
+       - Badge trạng thái trực quan: "Sắp Ra Mắt", "Đã Phát Hành", "Tạm Hoãn".
+       - Danh sách Giftcode dự kiến dạng pills với nút copy nhanh từng mã.
+       - Nút "🚀 Phát Hành Lên Sàn" tự động nạp game vào web sàn và kích hoạt code tân thủ.
+       - Nút Chỉnh sửa, Xóa, Xem trang đăng ký trước.
+     - **Modal Thêm / Sửa Game Sắp Ra Mắt**:
+       - Form đầy đủ các trường: Tên game, Slug, Nhà phát hành, Thể loại, Nền tảng, Ngày & Giờ mở server (hỗ trợ `datetime-local`), Link đăng ký trước, URL Icon, URL Banner, Danh sách mã dự kiến (nhập phân tách bằng dấu phẩy hoặc xuống dòng).
+  6. *Tích Hợp Sub-Tab Vào `GamesModule.tsx`*:
+     - Bổ sung thanh điều hướng Sub-Tab trên đầu trang Quản Lý Game:
+       - Tab 1: `🎮 Danh Mục Game Sàn ({games.length})`
+       - Tab 2: `🚀 Game Chuẩn Bị Ra Mắt & API Muse ({upcomingCount})` (kèm badge nổi bật).
+     - Giữ nguyên toàn bộ tính năng và luồng duyệt game hiện có của GamesModule.
+- **Files Modified**:
+  - `src/admin/types/adminTypes.ts`
+  - `src/admin/services/adminDataService.ts`
+  - `functions/api/crawler/ingest-upcoming-games.ts` (new)
+  - `functions/_worker.ts`
+  - `src/admin/modules/UpcomingGamesSection.tsx` (new)
+  - `src/admin/modules/GamesModule.tsx`
+  - `CHANGELOG.md`
+  - `KNOWN_ISSUES.md`
+
 ### 146. Tối Ưu Tốc Độ Tải Trang Web Khách & Loại Bỏ Khối Dữ Liệu 8.8MB Khỏi Bundle Ban Đầu (Client Initial Load & Bundle Performance Optimization)
 - **Mô tả & Yêu cầu người dùng**:
   - *"Ok giải quyết vấn đề Tối ưu tải trang trước." (Người dùng yêu cầu tối ưu hóa tốc độ tải trang ngoài web khách codegame.shop, khắc phục tình trạng mất ~20 giây mới hiển thị lưới game so với đối thủ codemoi.net).*

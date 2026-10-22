@@ -276,3 +276,40 @@ export interface CrawlerApiLogEntry {
   }>;
   timestamp: string;
 }
+
+export interface UpcomingGameAdminRecord {
+  id: string;
+  name: string;
+  slug: string;
+  publisher: string;
+  releaseDate: string; // ISO date string or YYYY-MM-DD or YYYY-MM-DDTHH:mm:ss
+  category: string;
+  platform: string; // e.g. 'PC, Android, iOS'
+  iconUrl?: string;
+  bannerUrl?: string;
+  description?: string;
+  preRegUrl?: string;
+  expectedCodes: string[];
+  subscribersCount?: number;
+  source?: string; // 'Muse Bot' | 'Admin Console'
+  status: 'UPCOMING' | 'LAUNCHED' | 'CANCELLED';
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface UpcomingGameApiLogEntry {
+  id: string;
+  botName: string;
+  sourceIp: string;
+  totalGamesProcessed: number;
+  totalGamesAdded: number;
+  totalGamesUpdated: number;
+  status: 'SUCCESS' | 'FAILED';
+  details?: Array<{
+    name: string;
+    slug: string;
+    status: string;
+    releaseDate?: string;
+  }>;
+  timestamp: string;
+}

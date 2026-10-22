@@ -17,6 +17,7 @@ import * as gamesApi from './api/games';
 import * as crawlArticleApi from './api/crawl-article';
 import * as gameIconApi from './api/game-icon';
 import * as ingestCodesApi from './api/crawler/ingest-codes';
+import * as ingestUpcomingGamesApi from './api/crawler/ingest-upcoming-games';
 import * as notifSubscribeApi from './api/notifications/subscribe';
 import * as notifUnsubscribeApi from './api/notifications/unsubscribe';
 import * as notifSubscribersApi from './api/notifications/subscribers';
@@ -403,6 +404,13 @@ export default {
         if (method === 'OPTIONS') return await ingestCodesApi.onRequestOptions();
         if (method === 'POST') return await ingestCodesApi.onRequestPost(context);
         return await ingestCodesApi.onRequestGet(context);
+      }
+
+      // 8g. /api/crawler/ingest-upcoming-games (Muse Bot Upcoming Games Ingestion API)
+      if (pathname === '/api/crawler/ingest-upcoming-games') {
+        if (method === 'OPTIONS') return await ingestUpcomingGamesApi.onRequestOptions();
+        if (method === 'POST') return await ingestUpcomingGamesApi.onRequestPost(context);
+        return await ingestUpcomingGamesApi.onRequestGet(context);
       }
 
       // 9. /api/notifications/* (Email Notification Hub)

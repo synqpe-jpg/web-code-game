@@ -19,6 +19,8 @@ import {
   CrawlerAutoPublishConfig,
   CrawlerApiConfig,
   CrawlerApiLogEntry,
+  UpcomingGameAdminRecord,
+  UpcomingGameApiLogEntry,
 } from '../types/adminTypes';
 import type { GiveawayCampaign, StoreProduct, UtilityProduct, UtilityCategory, StoreCategory, CrawlerSource } from '../../types/game';
 import defaultCrawlerSources from '../../data/crawler_sources.json';
@@ -65,6 +67,8 @@ class AdminDataService {
     autoPublish: true,
   };
   private crawlerApiLogs: CrawlerApiLogEntry[] = [];
+  private upcomingGames: UpcomingGameAdminRecord[] = [];
+  private upcomingGamesLogs: UpcomingGameApiLogEntry[] = [];
 
   private saveCustomFreeCodes() {
     if (typeof window === 'undefined') return;
@@ -179,6 +183,8 @@ class AdminDataService {
     CRAWLER_AUTO_PUBLISH_CONFIG: 'wcg_crawler_auto_publish_games_v1',
     CRAWLER_API_CONFIG: 'wcg_crawler_api_config_v1',
     CRAWLER_API_LOGS: 'wcg_crawler_api_logs_v1',
+    UPCOMING_GAMES: 'wcg_admin_upcoming_games_v1',
+    UPCOMING_GAMES_LOGS: 'wcg_admin_upcoming_games_logs_v1',
   };
 
   constructor() {
@@ -380,6 +386,26 @@ class AdminDataService {
         try {
           const parsed = JSON.parse(savedApiLogs);
           if (Array.isArray(parsed)) this.crawlerApiLogs = parsed;
+        } catch {}
+      }
+
+      const savedUpcoming = localStorage.getItem(this.KEYS.UPCOMING_GAMES);
+      if (savedUpcoming) {
+        try {
+          const parsed = JSON.parse(savedUpcoming);
+          if (Array.isArray(parsed)) this.upcomingGames = parsed;
+        } catch {}
+      }
+      if (this.upcomingGames.length === 0) {
+        this.upcomingGames = this.getDefaultUpcomingGames();
+        this.safeSetItem(this.KEYS.UPCOMING_GAMES, JSON.stringify(this.upcomingGames));
+      }
+
+      const savedUpcomingLogs = localStorage.getItem(this.KEYS.UPCOMING_GAMES_LOGS);
+      if (savedUpcomingLogs) {
+        try {
+          const parsed = JSON.parse(savedUpcomingLogs);
+          if (Array.isArray(parsed)) this.upcomingGamesLogs = parsed;
         } catch {}
       }
 
@@ -4220,6 +4246,230 @@ class AdminDataService {
       console.warn('[AdminDataService] Lỗi fetch live crawler api logs:', e);
     }
     return this.crawlerApiLogs;
+  }
+
+  // ==========================================
+  // 🚀 QUẢN LÝ GAME CHUẨN BỊ RA MẮT & API MUSE
+  // ==========================================
+
+  public getDefaultUpcomingGames(): UpcomingGameAdminRecord[] {
+    return [
+      {
+        id: 'ug_strinova_vn',
+        name: 'Strinova VN',
+        slug: 'strinova-vn',
+        publisher: 'iDreamSky / VPlay',
+        releaseDate: '2026-10-23T10:00:00+07:00',
+        category: 'Bắn Súng Anime 3D',
+        platform: 'PC, Android, iOS',
+        iconUrl: '/game_icons/strinova-vn.webp',
+        bannerUrl: 'https://images.unsplash.com/photo-1542751371-adc38448a05e?auto=format&fit=crop&w=1200&q=80',
+        description: 'Game bắn súng chiến thuật biến hình Anime 3D góc nhìn thứ ba đỉnh cao 2026 từ iDreamSky.',
+        preRegUrl: 'https://strinova.vplay.vn',
+        expectedCodes: ['STRINOVAOB', 'STRINOVAVN', 'VIP999', 'OPENBETA2026'],
+        subscribersCount: 2840,
+        source: 'Muse Bot',
+        status: 'UPCOMING',
+        createdAt: '2026-10-20T08:00:00Z',
+        updatedAt: '2026-10-22T14:00:00Z',
+      },
+      {
+        id: 'ug_tien_gioi',
+        name: 'Tiên Giới',
+        slug: 'tien-gioi',
+        publisher: 'SohaGame',
+        releaseDate: '2026-10-28T10:00:00+07:00',
+        category: 'Nhập Vai Tiên Hiệp',
+        platform: 'Android, iOS',
+        iconUrl: '/game_icons/tien-gioi.webp',
+        bannerUrl: 'https://images.unsplash.com/photo-1518709268805-4e9042af9f23?auto=format&fit=crop&w=1200&q=80',
+        description: 'Siêu phẩm MMORPG tiên hiệp thế giới mở đồ họa 4K với hệ thống phi kiếm và không chiến độc nhất.',
+        preRegUrl: 'https://tiengioi.sohagame.vn',
+        expectedCodes: ['TIENGIOI2026', 'TIENGIOISOHA', 'VIP666', 'TANTHU2026'],
+        subscribersCount: 1950,
+        source: 'Muse Bot',
+        status: 'UPCOMING',
+        createdAt: '2026-10-21T09:30:00Z',
+        updatedAt: '2026-10-22T16:00:00Z',
+      },
+      {
+        id: 'ug_hiep_khach_hanh',
+        name: 'Hiệp Khách Hành',
+        slug: 'hiep-khach-hanh',
+        publisher: 'VTC Mobile',
+        releaseDate: '2026-11-01T10:00:00+07:00',
+        category: 'Kiếm Hiệp Kim Dung',
+        platform: 'Android, iOS',
+        iconUrl: '/game_icons/hiep-khach-hanh.webp',
+        bannerUrl: 'https://images.unsplash.com/photo-1534447677768-be436bb09401?auto=format&fit=crop&w=1200&q=80',
+        description: 'Tuyệt phẩm kiếm hiệp Kim Dung chính tông do VTC Mobile phát hành độc quyền tại Việt Nam.',
+        preRegUrl: 'https://hiepkhachhanh.vtc.vn',
+        expectedCodes: ['HIEPKHACHHANH', 'HKHVTC', 'TANTHU', 'TRIAN2026'],
+        subscribersCount: 1420,
+        source: 'Muse Bot',
+        status: 'UPCOMING',
+        createdAt: '2026-10-21T11:00:00Z',
+        updatedAt: '2026-10-22T17:00:00Z',
+      },
+      {
+        id: 'ug_where_winds_meet',
+        name: 'Where Winds Meet VN',
+        slug: 'where-winds-meet',
+        publisher: 'NetEase Games',
+        releaseDate: '2026-11-15T09:00:00+07:00',
+        category: 'Hành Động Thế Giới Mở',
+        platform: 'PC, Mobile',
+        iconUrl: '/game_icons/where-winds-meet.webp',
+        description: 'Bom tấn võ hiệp thế giới mở thời Ngũ Đại Thập Quốc với đồ họa ray-tracing đỉnh cao.',
+        expectedCodes: ['WHEREWINDSMEET', 'WWMOPENBETA', 'VIP888'],
+        subscribersCount: 5630,
+        source: 'Muse Bot',
+        status: 'UPCOMING',
+        createdAt: '2026-10-18T10:00:00Z',
+        updatedAt: '2026-10-22T12:00:00Z',
+      },
+      {
+        id: 'ug_hsr_ver30',
+        name: 'Honkai: Star Rail 3.0',
+        slug: 'honkai-star-rail',
+        publisher: 'HoYoverse',
+        releaseDate: '2026-12-10T10:00:00+07:00',
+        category: 'Chiến Thuật Theo Lượt',
+        platform: 'PC, Android, iOS',
+        iconUrl: '/game_icons/honkai-star-rail.webp',
+        description: 'Phiên bản đại cập nhật 3.0 mở ra hành tinh mới Amphoreus và dàn nhân vật 5 sao giới hạn mới.',
+        expectedCodes: ['HSRVER30', 'STARRAIL30', 'AMPHOREUS'],
+        subscribersCount: 8900,
+        source: 'Muse Bot',
+        status: 'UPCOMING',
+        createdAt: '2026-10-19T14:00:00Z',
+        updatedAt: '2026-10-22T18:00:00Z',
+      },
+    ];
+  }
+
+  public getUpcomingGames(): UpcomingGameAdminRecord[] {
+    return [...this.upcomingGames];
+  }
+
+  public async saveUpcomingGame(game: UpcomingGameAdminRecord): Promise<void> {
+    const idx = this.upcomingGames.findIndex((g) => g.id === game.id || (g.slug && g.slug === game.slug));
+    const now = new Date().toISOString();
+    const cleanGame: UpcomingGameAdminRecord = {
+      ...game,
+      updatedAt: now,
+      createdAt: game.createdAt || now,
+    };
+
+    if (idx >= 0) {
+      this.upcomingGames[idx] = cleanGame;
+    } else {
+      this.upcomingGames.unshift(cleanGame);
+    }
+
+    this.safeSetItem(this.KEYS.UPCOMING_GAMES, JSON.stringify(this.upcomingGames));
+    crossOriginSync.setItem(this.KEYS.UPCOMING_GAMES, this.upcomingGames);
+    this.broadcastSync('UPCOMING_GAMES_UPDATED', this.upcomingGames);
+    await this.syncToCloudflareKV(this.KEYS.UPCOMING_GAMES, this.upcomingGames);
+  }
+
+  public async deleteUpcomingGame(id: string): Promise<void> {
+    this.upcomingGames = this.upcomingGames.filter((g) => g.id !== id && g.slug !== id);
+    this.safeSetItem(this.KEYS.UPCOMING_GAMES, JSON.stringify(this.upcomingGames));
+    crossOriginSync.setItem(this.KEYS.UPCOMING_GAMES, this.upcomingGames);
+    this.broadcastSync('UPCOMING_GAMES_UPDATED', this.upcomingGames);
+    await this.syncToCloudflareKV(this.KEYS.UPCOMING_GAMES, this.upcomingGames);
+  }
+
+  public async setUpcomingGames(games: UpcomingGameAdminRecord[]): Promise<void> {
+    this.upcomingGames = [...games];
+    this.safeSetItem(this.KEYS.UPCOMING_GAMES, JSON.stringify(this.upcomingGames));
+    crossOriginSync.setItem(this.KEYS.UPCOMING_GAMES, this.upcomingGames);
+    this.broadcastSync('UPCOMING_GAMES_UPDATED', this.upcomingGames);
+    await this.syncToCloudflareKV(this.KEYS.UPCOMING_GAMES, this.upcomingGames);
+  }
+
+  /**
+   * Phát hành game sắp ra mắt thành Game Chính Thức trên sàn khi mở server
+   */
+  public async launchUpcomingGame(id: string): Promise<{ success: boolean; gameName: string; codesAdded: number }> {
+    const ug = this.upcomingGames.find((g) => g.id === id || g.slug === id);
+    if (!ug) {
+      return { success: false, gameName: '', codesAdded: 0 };
+    }
+
+    // 1. Chuyển trạng thái UpcomingGame sang LAUNCHED
+    ug.status = 'LAUNCHED';
+    ug.updatedAt = new Date().toISOString();
+    await this.saveUpcomingGame(ug);
+
+    // 2. Thêm vào danh sách game chính thức nếu chưa có
+    const existingGame = this.games.find((g) => g.slug === ug.slug);
+    if (!existingGame) {
+      const newGame: GameAdminRecord = {
+        id: ug.slug,
+        name: ug.name,
+        slug: ug.slug,
+        publisher: ug.publisher,
+        category: ug.category,
+        rating: 5.0,
+        icon_url: ug.iconUrl || `/game_icons/${ug.slug}.webp`,
+        banner_url: ug.bannerUrl,
+        description: ug.description || `Tổng hợp trọn bộ giftcode ${ug.name} mới nhất 2026.`,
+        short_description: `Giftcode ${ug.name} tân thủ mừng mở server.`,
+        instructions: 'Bước 1: Mở game > Nhấn Avatar nhân vật\nBước 2: Chọn Cài đặt > Nhập Giftcode\nBước 3: Dán mã và nhấn Xác nhận.',
+        platform: ug.platform || 'Android, iOS, PC',
+        release_date: ug.releaseDate?.split('T')[0] || new Date().toISOString().split('T')[0],
+        status: 'HOT',
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      };
+      await this.saveGame(newGame);
+    }
+
+    // 3. Kích hoạt toàn bộ giftcode dự kiến vào kho custom code
+    let codesAdded = 0;
+    if (Array.isArray(ug.expectedCodes) && ug.expectedCodes.length > 0) {
+      for (const codeStr of ug.expectedCodes) {
+        const cleanCode = codeStr.trim().toUpperCase();
+        if (!cleanCode) continue;
+        const exists = this.customFreeCodes.some(
+          (c) => c.gameSlug === ug.slug && (c.codeValue?.toUpperCase() === cleanCode || c.code?.toUpperCase() === cleanCode)
+        );
+        if (!exists) {
+          const newCode: FreeCodeRecord = {
+            id: `fc_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
+            codeValue: cleanCode,
+            code: cleanCode,
+            gameSlug: ug.slug,
+            rewards: 'Quà tân thủ mừng mở server',
+            status: 'ACTIVE',
+            expiresAt: '2026-12-31',
+            isVerified: true,
+            copyCount: 0,
+            notes: `Giftcode tân thủ do Muse/Hệ thống nạp từ lịch ra mắt game ${ug.name}`,
+            createdAt: new Date().toISOString(),
+          };
+          this.customFreeCodes.unshift(newCode);
+          codesAdded++;
+        }
+      }
+      this.saveCustomFreeCodes();
+    }
+
+    return { success: true, gameName: ug.name, codesAdded };
+  }
+
+  public getUpcomingGamesLogs(): UpcomingGameApiLogEntry[] {
+    return [...this.upcomingGamesLogs];
+  }
+
+  public addUpcomingGameLog(log: UpcomingGameApiLogEntry): void {
+    this.upcomingGamesLogs.unshift(log);
+    if (this.upcomingGamesLogs.length > 50) {
+      this.upcomingGamesLogs = this.upcomingGamesLogs.slice(0, 50);
+    }
+    this.safeSetItem(this.KEYS.UPCOMING_GAMES_LOGS, JSON.stringify(this.upcomingGamesLogs));
   }
 
 

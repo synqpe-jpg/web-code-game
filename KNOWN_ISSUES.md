@@ -10,6 +10,22 @@
 
 ## 1. DANH MỤC LỖI & CÁC BẪY ĐÃ THẤT BẠI (DO NOT REPEAT)
 
+### ISSUE-082: Phân Tán Khóa API Giữa Các Cổng Ingest Khiến Bot Tự Động Gặp Lỗi Xác Thực (Fragmented Ingest API Keys Trap)
+- **Triệu chứng**:
+  - Khi mở rộng các endpoint API tiếp nhận dữ liệu từ bên ngoài (như Muse bot ingest Upcoming Games, Crawler ingest codes), việc sinh thêm khóa bí mật độc lập khiến người dùng/bot phải lưu nhiều API Key khác nhau. Khi đổi key ở một nơi, các dịch vụ bot khác bị ngắt kết nối với mã lỗi `401 Unauthorized`.
+  - Quên khai báo route mới trong `functions/_worker.ts` dẫn đến Cloudflare Pages Edge trả về `404 Endpoint not found`.
+- **Nguyên nhân gốc rễ**:
+  1. Mỗi phân hệ (Crawler, Upcoming Games, ...) ban đầu tự sinh state key riêng trong localStorage hoặc hardcode các bí danh khác nhau.
+  2. Người dùng cấu hình Muse bot với 1 API Key chung cho cả việc quét mã code và cập nhật game sắp ra mắt.
+  3. Cloudflare Pages Functions cấu trúc monolithic worker yêu cầu mọi endpoint REST mới phải được định tuyến rõ ràng tại `functions/_worker.ts`.
+- **Giải pháp chuẩn đã kiểm chứng**:
+  - Tái sử dụng và đồng bộ hóa chung API Key hệ thống (`crawlerApiConfig.apiKey`) cho các phân hệ tiếp nhận dữ liệu tự động (Crawler & Upcoming Games). Khi người dùng đổi API Key tại Quản trị, cả hai cổng đều tự động nhận diện khóa mới.
+  - Hỗ trợ truyền API Key linh hoạt qua cả Header (`x-api-key`, `Authorization: Bearer <key>`) và Query Parameter (`?apiKey=...`) để Muse bot hoặc curl/cron job dễ dàng tích hợp.
+  - Luôn đăng ký route trong `functions/_worker.ts` trước khi triển khai (tuân thủ ISSUE-079).
+- ⛔ **CÁCH SỬA ĐÃ THẤT BẠI - TUYỆT ĐỐI KHÔNG LẶP LẠI**:
+  - ❌ *Không tạo ra nhiều trường API Key riêng biệt cho từng loại dữ liệu crawler*: Gây rắc rối khi vận hành bot và dễ làm đứt gãy kết nối khi bảo trì.
+  - ❌ *Không quên hỗ trợ CORS OPTIONS preflight*: Khi gọi từ client-side script hoặc web-based test consoles, thiếu CORS sẽ khiến trình duyệt chặn request.
+
 ### ISSUE-081: Trình Duyệt Bị Treo 15-20 Giây Do Tải Và Parse Khối Dữ Liệu 8.8MB (11,762 Giftcodes) Ngay Khi Mở Trang (Monolithic Catalog Chunk & Eager Processing Trap)
 - **Triệu chứng**:
   - Khi người dùng vào trang chủ `codegame.shop`, giao diện hiển thị màn hình tải (CyberLoader) rất lâu, mất khoảng 15-20 giây mới render được danh sách thẻ game.
