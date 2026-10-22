@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import {
   Bot,
   CheckCircle2,
@@ -235,8 +235,12 @@ export const CrawlerModule: React.FC<CrawlerModuleProps> = ({ onShowToast }) => 
   const [pendingCodes, setPendingCodes] = useState<PendingCrawlerCode[]>([]);
   const [pendingGames, setPendingGames] = useState<PendingCrawlerGame[]>([]);
   const [selectedGameIds, setSelectedGameIds] = useState<string[]>([]);
+  const [gameSearchInput, setGameSearchInput] = useState('');
   const [gameSearchQuery, setGameSearchQuery] = useState('');
   const [gamePublisherFilter, setGamePublisherFilter] = useState('ALL');
+  const [gamePage, setGamePage] = useState(1);
+  const PENDING_GAMES_PER_PAGE = 20;
+  const gamesContainerRef = useRef<HTMLDivElement>(null);
   const [isScanningGooglePlay, setIsScanningGooglePlay] = useState(false);
   const [isScanningCodeMoi, setIsScanningCodeMoi] = useState(false);
   const [isAutoPublishing, setIsAutoPublishing] = useState(false);
@@ -842,7 +846,7 @@ export const CrawlerModule: React.FC<CrawlerModuleProps> = ({ onShowToast }) => 
     }
   };
 
-  // Filtered Google Play & CodeMoi Pending Games
+  // Filtered Google Play & CodeMoi Pending Games with Vietnamese Accent Search
   const filteredPendingGames = useMemo(() => {
     return pendingGames.filter((game) => {
       const isCodeMoi = game.sourceType === 'codemoi' || (game.sourceUrl && game.sourceUrl.includes('codemoi.net'));
@@ -855,16 +859,52 @@ export const CrawlerModule: React.FC<CrawlerModuleProps> = ({ onShowToast }) => 
         if (!dev.includes(gamePublisherFilter.toLowerCase())) return false;
       }
       if (gameSearchQuery.trim()) {
-        const q = gameSearchQuery.toLowerCase();
-        const matchName = (game.name || '').toLowerCase().includes(q);
-        const matchDev = (game.developer || '').toLowerCase().includes(q);
-        const matchPkg = (game.packageId || '').toLowerCase().includes(q);
-        const matchSlug = (game.slug || '').toLowerCase().includes(q);
-        return matchName || matchDev || matchPkg || matchSlug;
+        return smartVietnameseMatch(
+          [game.name, game.developer, game.packageId, game.slug, game.description || ''],
+          gameSearchQuery
+        );
       }
       return true;
     });
   }, [pendingGames, gamePublisherFilter, gameSearchQuery]);
+
+  const totalGamePages = Math.max(1, Math.ceil(filteredPendingGames.length / PENDING_GAMES_PER_PAGE));
+
+  const paginatedPendingGames = useMemo(() => {
+    const start = (gamePage - 1) * PENDING_GAMES_PER_PAGE;
+    return filteredPendingGames.slice(start, start + PENDING_GAMES_PER_PAGE);
+  }, [filteredPendingGames, gamePage]);
+
+  // Reset page when filter or search changes
+  useEffect(() => {
+    setGamePage(1);
+  }, [gameSearchQuery, gamePublisherFilter]);
+
+  const handleApplyGameSearch = () => {
+    setGameSearchQuery(gameSearchInput.trim());
+    setGamePage(1);
+  };
+
+  const handleClearGameSearch = () => {
+    setGameSearchInput('');
+    setGameSearchQuery('');
+    setGamePage(1);
+  };
+
+  const generatePageNumbers = (current: number, total: number): (number | string)[] => {
+    if (total <= 7) {
+      return Array.from({ length: total }, (_, i) => i + 1);
+    }
+    const pages: (number | string)[] = [];
+    if (current <= 3) {
+      pages.push(1, 2, 3, 4, '...', total);
+    } else if (current >= total - 2) {
+      pages.push(1, '...', total - 3, total - 2, total - 1, total);
+    } else {
+      pages.push(1, '...', current - 1, current, current + 1, '...', total);
+    }
+    return pages;
+  };
 
   // Toggle Auto-Publish 100% Mode
   const handleToggleAutoPublish = async () => {
@@ -2697,130 +2737,121 @@ export const CrawlerModule: React.FC<CrawlerModuleProps> = ({ onShowToast }) => 
 
       {/* TAB 5: GOOGLE PLAY GAME MODERATION (PHƯƠNG ÁN B) */}
       {activeTab === 'games_pending' && (
-        <div className="space-y-4">
-          {/* Top Control Banner */}
-          <div className="bg-gradient-to-r from-emerald-950/40 via-slate-900 to-purple-950/40 border border-emerald-500/30 rounded-2xl p-4 sm:p-5 shadow-xl shadow-emerald-950/10">
-            <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
-              <div>
-                <div className="flex items-center gap-2">
-                  <h2 className="text-xl font-bold text-white flex items-center gap-2">
-                    <Smartphone className="w-5 h-5 text-emerald-400" />
-                    Tự Động Cập Nhật Game Mới (Google Play & CodeMoi.net)
-                  </h2>
-                  <span className="px-2.5 py-0.5 rounded-full text-xs font-semibold bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
-                    Phương Án B (100% Tự Động & Duyệt Tay)
-                  </span>
+        <div ref={gamesContainerRef} className="space-y-4">
+          {/* Top Control Bar - Compact, Elegant & Responsive */}
+          <div className="bg-slate-900/90 border border-emerald-500/30 rounded-2xl p-3.5 sm:p-4 shadow-lg shadow-emerald-950/10 space-y-3">
+            {/* Row 1: Header title + Fast Scan Action Buttons */}
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-slate-800/80">
+              <div className="flex items-center gap-2.5">
+                <div className="w-8 h-8 rounded-xl bg-emerald-500/10 border border-emerald-500/30 flex items-center justify-center text-emerald-400 shrink-0">
+                  <Smartphone className="w-4 h-4" />
                 </div>
-                <p className="text-slate-300 text-xs sm:text-sm mt-1 max-w-3xl leading-relaxed">
-                  Hệ thống tự động phát hiện game mới trên Google Play và CodeMoi.net (lịch mở server & game vừa ra mắt). Game thuộc NPH chính thức (VNG, Garena, SohaGame, Funtap, Gamota, Gosu, VTC, Dzogame, VGP, Kplay, VPlay, Gzone, JoyGames, Capcom, TiMi...) 
-                  sẽ được <strong className="text-emerald-400">tự động đăng 100%</strong> lên sàn. Các game khác sẽ đưa vào danh sách chờ bên dưới để Admin duyệt 1-chạm hoặc từ chối.
-                </p>
+                <div>
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <h2 className="text-sm sm:text-base font-bold text-white tracking-tight">
+                      Quét Game Mới & Hàng Chờ Duyệt
+                    </h2>
+                    <span className="px-2 py-0.5 rounded-full text-[10px] sm:text-xs font-semibold bg-emerald-500/15 text-emerald-300 border border-emerald-500/30">
+                      {pendingGames.length} game chờ
+                    </span>
+                  </div>
+                  <p className="text-[11px] text-slate-400 mt-0.5">
+                    Google Play & CodeMoi • Tự động đăng game NPH lớn & game có sẵn mã giftcode
+                  </p>
+                </div>
               </div>
 
-              {/* Master Controls */}
-              <div className="flex flex-wrap items-center gap-2.5 shrink-0">
-                {/* Auto Publish Switch */}
-                <div 
-                  onClick={handleToggleAutoPublish}
-                  className={`flex items-center gap-2.5 px-3.5 py-2 rounded-xl border cursor-pointer transition-all ${
-                    autoPublishConfig.enabled
-                      ? 'bg-emerald-950/70 border-emerald-500/50 text-emerald-300 shadow-md shadow-emerald-500/20'
-                      : 'bg-slate-900 border-slate-700 text-slate-400'
-                  }`}
-                  title="Bật/Tắt chế độ tự động đăng game mới từ NPH chính thức"
-                >
-                  <div className={`w-4 h-4 rounded-full flex items-center justify-center text-[10px] font-bold ${
-                    autoPublishConfig.enabled ? 'bg-emerald-400 text-slate-950' : 'bg-slate-700 text-slate-400'
-                  }`}>
-                    {autoPublishConfig.enabled ? '✓' : '✕'}
-                  </div>
-                  <div className="text-left">
-                    <div className="text-xs font-bold leading-tight">
-                      {autoPublishConfig.enabled ? 'Tự Động Đăng: BẬT' : 'Tự Động Đăng: TẮT'}
-                    </div>
-                    <div className="text-[10px] opacity-75">
-                      {autoPublishConfig.enabled ? 'Đăng ngay khi có game mới' : 'Chỉ lưu vào chờ duyệt'}
-                    </div>
-                  </div>
-                </div>
-
-                {/* Auto Publish When Game Has Codes Switch */}
-                <div 
-                  onClick={handleToggleAutoPublishWhenHasCodes}
-                  className={`flex items-center gap-2.5 px-3.5 py-2 rounded-xl border cursor-pointer transition-all ${
-                    autoPublishConfig.autoPublishWhenHasCodes !== false
-                      ? 'bg-amber-950/70 border-amber-500/50 text-amber-300 shadow-md shadow-amber-500/20'
-                      : 'bg-slate-900 border-slate-700 text-slate-400'
-                  }`}
-                  title="Khi game mới xuất hiện, nếu có mã code thì tự động lên web ngay lập tức"
-                >
-                  <div className={`w-4 h-4 rounded-full flex items-center justify-center text-[10px] font-bold ${
-                    autoPublishConfig.autoPublishWhenHasCodes !== false ? 'bg-amber-400 text-slate-950' : 'bg-slate-700 text-slate-400'
-                  }`}>
-                    {autoPublishConfig.autoPublishWhenHasCodes !== false ? '⚡' : '⏸'}
-                  </div>
-                  <div className="text-left">
-                    <div className="text-xs font-bold leading-tight flex items-center gap-1">
-                      <span>Có Code: Lên Web Ngay</span>
-                    </div>
-                    <div className="text-[10px] opacity-75">
-                      {autoPublishConfig.autoPublishWhenHasCodes !== false ? 'Tự đăng nếu game có code' : 'Chờ Admin duyệt tay'}
-                    </div>
-                  </div>
-                </div>
-
-                {/* Quét CodeMoi.net Button */}
+              {/* Fast Scan Action Buttons Group */}
+              <div className="flex items-center gap-2 flex-wrap shrink-0">
                 <button
-                  onClick={handleTriggerCodeMoiScan}
-                  disabled={isScanningCodeMoi}
-                  className="px-4 py-2 rounded-xl bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-500 hover:to-pink-500 text-white font-semibold text-xs sm:text-sm flex items-center gap-2 transition-all shadow-lg shadow-purple-600/20 active:scale-95 cursor-pointer disabled:opacity-60"
-                  title="Quét chuyên mục game mới và lịch mở server tại codemoi.net/game-moi/"
-                >
-                  <RefreshCw className={`w-4 h-4 ${isScanningCodeMoi ? 'animate-spin' : ''}`} />
-                  <span>{isScanningCodeMoi ? 'Đang quét CodeMoi...' : '⚡ Quét CodeMoi.net'}</span>
-                </button>
-
-                {/* Quét Google Play Button */}
-                <button
+                  type="button"
                   onClick={handleTriggerGooglePlayScan}
                   disabled={isScanningGooglePlay}
-                  className="px-4 py-2 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-semibold text-xs sm:text-sm flex items-center gap-2 transition-all shadow-lg shadow-emerald-600/20 active:scale-95 cursor-pointer disabled:opacity-60"
+                  className="px-3 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 text-white font-medium text-xs flex items-center gap-1.5 transition-all shadow-sm active:scale-95 cursor-pointer"
                   title="Quét toàn bộ game mobile mới trên Google Play Store VN"
                 >
-                  <RefreshCw className={`w-4 h-4 ${isScanningGooglePlay ? 'animate-spin' : ''}`} />
+                  <RefreshCw className={`w-3.5 h-3.5 ${isScanningGooglePlay ? 'animate-spin' : ''}`} />
                   <span>{isScanningGooglePlay ? 'Đang quét GP...' : '⚡ Quét Google Play'}</span>
                 </button>
 
-                {/* Tự Động Đăng Game Có Code Button */}
                 <button
+                  type="button"
+                  onClick={handleTriggerCodeMoiScan}
+                  disabled={isScanningCodeMoi}
+                  className="px-3 py-1.5 rounded-xl bg-purple-600 hover:bg-purple-500 disabled:opacity-50 text-white font-medium text-xs flex items-center gap-1.5 transition-all shadow-sm active:scale-95 cursor-pointer"
+                  title="Quét chuyên mục game mới và lịch mở server tại codemoi.net"
+                >
+                  <RefreshCw className={`w-3.5 h-3.5 ${isScanningCodeMoi ? 'animate-spin' : ''}`} />
+                  <span>{isScanningCodeMoi ? 'Đang quét CodeMoi...' : '⚡ Quét CodeMoi.net'}</span>
+                </button>
+
+                <button
+                  type="button"
                   onClick={handleAutoPublishGamesWithCodes}
                   disabled={isAutoPublishing || isScanningGooglePlay || isScanningCodeMoi}
-                  className="px-4 py-2 rounded-xl bg-gradient-to-r from-amber-600 to-orange-600 hover:from-amber-500 hover:to-orange-500 text-white font-semibold text-xs sm:text-sm flex items-center gap-2 transition-all shadow-lg shadow-amber-600/20 active:scale-95 cursor-pointer disabled:opacity-60"
+                  className="px-3 py-1.5 rounded-xl bg-amber-600 hover:bg-amber-500 disabled:opacity-50 text-white font-medium text-xs flex items-center gap-1.5 transition-all shadow-sm active:scale-95 cursor-pointer"
                   title="Tự động kiểm tra và đăng ngay toàn bộ game có mã giftcode lên danh mục chính thức"
                 >
-                  <Zap className={`w-4 h-4 ${isAutoPublishing ? 'animate-spin' : 'text-amber-200'}`} />
+                  <Zap className={`w-3.5 h-3.5 ${isAutoPublishing ? 'animate-spin' : 'text-amber-200'}`} />
                   <span>{isAutoPublishing ? 'Đang đăng...' : '⚡ Đăng Game Có Code'}</span>
                 </button>
               </div>
             </div>
 
-            {/* Quick Filter & Bulk Actions Bar */}
-            <div className="mt-4 pt-4 border-t border-slate-800/80 flex flex-col md:flex-row md:items-center justify-between gap-3">
-              <div className="flex flex-wrap items-center gap-2.5 flex-1">
-                <div className="relative flex-1 min-w-[200px] max-w-sm">
-                  <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+            {/* Row 2: Search Input with Dedicated Search Button, Publisher Filter & Compact Automation Switches */}
+            <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3">
+              {/* Search Box + Button + Filter */}
+              <div className="flex flex-wrap items-center gap-2 flex-1">
+                <div className="relative flex-1 min-w-[200px] max-w-sm flex items-center">
+                  <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
                   <input
                     type="text"
-                    value={gameSearchQuery}
-                    onChange={(e) => setGameSearchQuery(e.target.value)}
+                    value={gameSearchInput}
+                    onChange={(e) => {
+                      setGameSearchInput(e.target.value);
+                      if (!e.target.value.trim() && gameSearchQuery) {
+                        setGameSearchQuery('');
+                        setGamePage(1);
+                      }
+                    }}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') {
+                        handleApplyGameSearch();
+                      }
+                    }}
                     placeholder="Tìm tên game, NPH, slug, package ID..."
-                    className="w-full bg-slate-950 border border-slate-800 rounded-xl pl-9 pr-3 py-1.5 text-xs sm:text-sm text-slate-200 focus:outline-none focus:border-emerald-500 placeholder-slate-500"
+                    className="w-full bg-slate-950 border border-slate-800 focus:border-emerald-500 rounded-xl pl-9 pr-8 py-1.5 text-xs sm:text-sm text-slate-200 placeholder-slate-500 focus:outline-none transition-colors"
                   />
+                  {gameSearchInput && (
+                    <button
+                      type="button"
+                      onClick={handleClearGameSearch}
+                      className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-white p-0.5 cursor-pointer"
+                      title="Xóa tìm kiếm"
+                    >
+                      <X className="w-3.5 h-3.5" />
+                    </button>
+                  )}
                 </div>
 
+                {/* Dedicated Search Button */}
+                <button
+                  type="button"
+                  onClick={handleApplyGameSearch}
+                  className="px-3.5 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-medium text-xs sm:text-sm flex items-center gap-1.5 transition-all shadow-sm active:scale-95 cursor-pointer shrink-0"
+                  title="Nhấn để tìm kiếm"
+                >
+                  <Search className="w-3.5 h-3.5" />
+                  <span>Tìm kiếm</span>
+                </button>
+
+                {/* Publisher Filter */}
                 <select
                   value={gamePublisherFilter}
-                  onChange={(e) => setGamePublisherFilter(e.target.value)}
+                  onChange={(e) => {
+                    setGamePublisherFilter(e.target.value);
+                    setGamePage(1);
+                  }}
                   className="bg-slate-950 border border-slate-800 rounded-xl px-3 py-1.5 text-xs sm:text-sm text-slate-200 focus:outline-none focus:border-emerald-500 cursor-pointer"
                 >
                   <option value="ALL">Tất cả Nguồn & NPH</option>
@@ -2840,18 +2871,52 @@ export const CrawlerModule: React.FC<CrawlerModuleProps> = ({ onShowToast }) => 
                   <option value="Dzogame">Dzogame</option>
                 </select>
 
-                <span className="text-xs text-slate-400">
+                <span className="text-xs text-slate-400 whitespace-nowrap">
                   Hiển thị: <strong className="text-emerald-400">{filteredPendingGames.length}</strong> / {pendingGames.length} game
                 </span>
               </div>
 
-              {/* Bulk Actions */}
-              {selectedGameIds.length > 0 && (
-                <div className="flex items-center gap-2 bg-emerald-950/60 border border-emerald-500/40 px-3 py-1.5 rounded-xl">
+              {/* Compact Automation Switches */}
+              <div className="flex items-center gap-2 shrink-0 flex-wrap">
+                <button
+                  type="button"
+                  onClick={handleToggleAutoPublish}
+                  className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl border text-xs font-medium transition-all cursor-pointer ${
+                    autoPublishConfig.enabled
+                      ? 'bg-emerald-950/60 border-emerald-500/40 text-emerald-300'
+                      : 'bg-slate-950 border-slate-800 text-slate-400 hover:text-slate-300'
+                  }`}
+                  title="Tự động đăng 100% khi có game mới từ NPH lớn"
+                >
+                  <span className={`w-2 h-2 rounded-full ${autoPublishConfig.enabled ? 'bg-emerald-400' : 'bg-slate-600'}`} />
+                  <span>Tự Đăng NPH Lớn: <strong>{autoPublishConfig.enabled ? 'BẬT' : 'TẮT'}</strong></span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={handleToggleAutoPublishWhenHasCodes}
+                  className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl border text-xs font-medium transition-all cursor-pointer ${
+                    autoPublishConfig.autoPublishWhenHasCodes !== false
+                      ? 'bg-amber-950/60 border-amber-500/40 text-amber-300'
+                      : 'bg-slate-950 border-slate-800 text-slate-400 hover:text-slate-300'
+                  }`}
+                  title="Tự động đăng ngay lập tức nếu game có mã giftcode"
+                >
+                  <span className={`w-2 h-2 rounded-full ${autoPublishConfig.autoPublishWhenHasCodes !== false ? 'bg-amber-400' : 'bg-slate-600'}`} />
+                  <span>Có Code Đăng Ngay: <strong>{autoPublishConfig.autoPublishWhenHasCodes !== false ? 'BẬT' : 'TẮT'}</strong></span>
+                </button>
+              </div>
+            </div>
+
+            {/* Bulk Selection Bar */}
+            {selectedGameIds.length > 0 && (
+              <div className="pt-2.5 border-t border-slate-800/80 flex items-center justify-between gap-2 flex-wrap">
+                <div className="flex items-center gap-2 flex-wrap">
                   <span className="text-xs text-emerald-300 font-medium">
                     Đã chọn <strong className="text-white">{selectedGameIds.length}</strong> game:
                   </span>
                   <button
+                    type="button"
                     onClick={handleBulkApproveGames}
                     className="px-2.5 py-1 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-semibold flex items-center gap-1 transition-all shadow-sm active:scale-95 cursor-pointer"
                   >
@@ -2859,6 +2924,7 @@ export const CrawlerModule: React.FC<CrawlerModuleProps> = ({ onShowToast }) => 
                     <span>Duyệt & Đăng Tất Cả</span>
                   </button>
                   <button
+                    type="button"
                     onClick={handleBulkRejectGames}
                     className="px-2 py-1 rounded-lg bg-rose-600/30 hover:bg-rose-600/50 text-rose-300 text-xs font-medium flex items-center gap-1 transition-all active:scale-95 cursor-pointer"
                   >
@@ -2866,240 +2932,367 @@ export const CrawlerModule: React.FC<CrawlerModuleProps> = ({ onShowToast }) => 
                     <span>Bỏ qua</span>
                   </button>
                   <button
-                    onClick={() => setSelectedGameIds([])}
-                    className="text-[11px] text-slate-400 hover:text-white cursor-pointer px-1"
+                    type="button"
+                    onClick={() => {
+                      const pageIds = paginatedPendingGames.map((g) => g.id);
+                      const allSelected = pageIds.length > 0 && pageIds.every((id) => selectedGameIds.includes(id));
+                      if (allSelected) {
+                        setSelectedGameIds((prev) => prev.filter((id) => !pageIds.includes(id)));
+                      } else {
+                        setSelectedGameIds((prev) => Array.from(new Set([...prev, ...pageIds])));
+                      }
+                    }}
+                    className="px-2 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-xs text-slate-300 font-medium flex items-center gap-1 cursor-pointer transition-colors"
                   >
-                    Hủy chọn
+                    {paginatedPendingGames.length > 0 && paginatedPendingGames.every((g) => selectedGameIds.includes(g.id)) ? (
+                      <CheckSquare className="w-3.5 h-3.5 text-emerald-400" />
+                    ) : (
+                      <Square className="w-3.5 h-3.5" />
+                    )}
+                    <span>Chọn 20 game trang này</span>
                   </button>
                 </div>
-              )}
-            </div>
+                <button
+                  type="button"
+                  onClick={() => setSelectedGameIds([])}
+                  className="text-xs text-slate-400 hover:text-white cursor-pointer"
+                >
+                  Hủy chọn tất cả
+                </button>
+              </div>
+            )}
           </div>
 
-          {/* Pending Games List */}
-          {filteredPendingGames.length > 0 ? (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3.5">
-              {filteredPendingGames.map((game) => {
-                const isSelected = selectedGameIds.includes(game.id);
-                return (
-                  <div
-                    key={game.id}
-                    className={`bg-slate-900 border rounded-2xl p-4 transition-all hover:border-emerald-500/50 flex flex-col justify-between ${
-                      isSelected
-                        ? 'border-emerald-500/80 bg-emerald-950/10 shadow-lg shadow-emerald-950/20'
-                        : 'border-slate-800'
-                    }`}
-                  >
-                    <div>
-                      {/* Card Header: Icon, Name, Developer */}
-                      <div className="flex items-start gap-3">
-                        {/* Select Checkbox */}
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setSelectedGameIds((prev) =>
-                              isSelected ? prev.filter((id) => id !== game.id) : [...prev, game.id]
-                            );
-                          }}
-                          className="mt-1 text-slate-500 hover:text-emerald-400 cursor-pointer"
-                        >
-                          {isSelected ? (
-                            <CheckSquare className="w-4 h-4 text-emerald-400" />
-                          ) : (
-                            <Square className="w-4 h-4" />
-                          )}
-                        </button>
-
-                        {/* Game Icon */}
-                        <div className="w-14 h-14 rounded-2xl overflow-hidden bg-slate-950 border border-slate-700/60 shrink-0 shadow-md relative group/icon">
-                          <img
-                            src={
-                              game.localIconPath && game.localIconPath.startsWith('/')
-                                ? game.localIconPath
-                                : `/game_icons/${game.slug}.webp`
-                            }
-                            alt={cleanGameTitle(game.name)}
-                            referrerPolicy="no-referrer"
-                            loading="lazy"
-                            className="w-full h-full object-cover"
-                            onError={(e: any) => {
-                              const el = e.currentTarget;
-                              const stage = Number(el.dataset.stage || '0');
-                              if (stage === 0 && game.iconUrl) {
-                                el.dataset.stage = '1';
-                                el.src = `/api/game-icon?slug=${game.slug}&url=${encodeURIComponent(game.iconUrl)}`;
-                                return;
-                              }
-                              if (stage <= 1 && game.iconUrl && game.iconUrl.startsWith('http')) {
-                                el.dataset.stage = '2';
-                                el.src = game.iconUrl;
-                                return;
-                              }
-                              el.src = `data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64"><rect width="64" height="64" rx="16" fill="%230f172a"/><rect x="2" y="2" width="60" height="60" rx="14" fill="none" stroke="%23334155" stroke-width="2"/><text x="50%" y="54%" font-family="sans-serif" font-size="20" font-weight="bold" fill="%2334d399" text-anchor="middle" dominant-baseline="middle">${encodeURIComponent((cleanGameTitle(game.name) || 'G').slice(0, 2).toUpperCase())}</text></svg>`;
+          {/* Pending Games List & Pagination */}
+          {filteredPendingGames.length === 0 && pendingGames.length > 0 ? (
+            <div className="bg-slate-900 border border-slate-800 rounded-2xl p-8 text-center space-y-3">
+              <div className="w-12 h-12 rounded-full bg-slate-800 text-slate-400 flex items-center justify-center mx-auto">
+                <Search className="w-6 h-6" />
+              </div>
+              <h3 className="text-base font-bold text-white">Không Tìm Thấy Game Phù Hợp</h3>
+              <p className="text-slate-400 text-xs max-w-sm mx-auto">
+                Không có game nào trong hàng chờ khớp với từ khóa tìm kiếm hoặc bộ lọc hiện tại.
+              </p>
+              <button
+                type="button"
+                onClick={handleClearGameSearch}
+                className="px-3.5 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-xs text-slate-200 font-medium inline-flex items-center gap-1.5 cursor-pointer"
+              >
+                <X className="w-3.5 h-3.5" />
+                <span>Xóa bộ lọc tìm kiếm</span>
+              </button>
+            </div>
+          ) : paginatedPendingGames.length > 0 ? (
+            <div className="space-y-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3.5">
+                {paginatedPendingGames.map((game) => {
+                  const isSelected = selectedGameIds.includes(game.id);
+                  const isFromCodeMoi = game.sourceType === 'codemoi' || (game.sourceUrl && game.sourceUrl.includes('codemoi.net'));
+                  return (
+                    <div
+                      key={game.id}
+                      className={`bg-slate-900 border rounded-2xl p-3.5 sm:p-4 transition-all hover:border-emerald-500/50 flex flex-col justify-between ${
+                        isSelected
+                          ? 'border-emerald-500/80 bg-emerald-950/10 shadow-lg shadow-emerald-950/20'
+                          : 'border-slate-800'
+                      }`}
+                    >
+                      <div>
+                        {/* Card Header: Select Checkbox, Game Icon, Name, Developer */}
+                        <div className="flex items-start gap-2.5">
+                          {/* Select Checkbox */}
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setSelectedGameIds((prev) =>
+                                isSelected ? prev.filter((id) => id !== game.id) : [...prev, game.id]
+                              );
                             }}
-                          />
+                            className="mt-0.5 text-slate-500 hover:text-emerald-400 cursor-pointer"
+                          >
+                            {isSelected ? (
+                              <CheckSquare className="w-4 h-4 text-emerald-400" />
+                            ) : (
+                              <Square className="w-4 h-4" />
+                            )}
+                          </button>
+
+                          {/* Game Icon */}
+                          <div className="w-13 h-13 rounded-xl overflow-hidden bg-slate-950 border border-slate-700/60 shrink-0 shadow-md relative group/icon">
+                            <img
+                              src={
+                                game.localIconPath && game.localIconPath.startsWith('/')
+                                  ? game.localIconPath
+                                  : `/game_icons/${game.slug}.webp`
+                              }
+                              alt={cleanGameTitle(game.name)}
+                              referrerPolicy="no-referrer"
+                              loading="lazy"
+                              className="w-full h-full object-cover"
+                              onError={(e: any) => {
+                                const el = e.currentTarget;
+                                const stage = Number(el.dataset.stage || '0');
+                                if (stage === 0 && game.iconUrl) {
+                                  el.dataset.stage = '1';
+                                  el.src = `/api/game-icon?slug=${game.slug}&url=${encodeURIComponent(game.iconUrl)}`;
+                                  return;
+                                }
+                                if (stage <= 1 && game.iconUrl && game.iconUrl.startsWith('http')) {
+                                  el.dataset.stage = '2';
+                                  el.src = game.iconUrl;
+                                  return;
+                                }
+                                el.src = `data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64"><rect width="64" height="64" rx="16" fill="%230f172a"/><rect x="2" y="2" width="60" height="60" rx="14" fill="none" stroke="%23334155" stroke-width="2"/><text x="50%" y="54%" font-family="sans-serif" font-size="20" font-weight="bold" fill="%2334d399" text-anchor="middle" dominant-baseline="middle">${encodeURIComponent((cleanGameTitle(game.name) || 'G').slice(0, 2).toUpperCase())}</text></svg>`;
+                              }}
+                            />
+                            <button
+                              type="button"
+                              onClick={() => handleEditGameLogo(game.id)}
+                              className="absolute inset-0 bg-black/60 opacity-0 group-hover/icon:opacity-100 flex items-center justify-center transition-opacity cursor-pointer text-white"
+                              title="Nhấn để đổi logo game này"
+                            >
+                              <Edit className="w-3.5 h-3.5 text-emerald-400" />
+                            </button>
+                          </div>
+
+                          {/* Title & Developer */}
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-1.5">
+                              <h3 className="font-bold text-white text-sm truncate" title={cleanGameTitle(game.name)}>
+                                {cleanGameTitle(game.name)}
+                              </h3>
+                              {isFromCodeMoi ? (
+                                <a
+                                  href={game.sourceUrl || `https://codemoi.net/games/${game.slug}/`}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="text-slate-400 hover:text-purple-400 shrink-0"
+                                  title="Mở trang game trên CodeMoi.net"
+                                >
+                                  <ExternalLink className="w-3.5 h-3.5" />
+                                </a>
+                              ) : (
+                                <a
+                                  href={game.playStoreUrl || (game.packageId ? `https://play.google.com/store/apps/details?id=${game.packageId}` : '#')}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="text-slate-400 hover:text-emerald-400 shrink-0"
+                                  title="Mở Google Play Store"
+                                >
+                                  <ExternalLink className="w-3.5 h-3.5" />
+                                </a>
+                              )}
+                            </div>
+
+                            <div className="text-xs text-slate-400 truncate mt-0.5" title={cleanGameTitle(game.developer)}>
+                              NPH: <span className="text-slate-200 font-medium">{cleanGameTitle(game.developer)}</span>
+                            </div>
+
+                            <div className="flex flex-wrap items-center gap-1.5 mt-1.5 text-[11px] text-slate-400">
+                              {isFromCodeMoi ? (
+                                <span className="px-1.5 py-0.5 rounded-md text-[10px] font-bold bg-purple-500/20 text-purple-300 border border-purple-500/30">
+                                  🌐 CodeMoi
+                                </span>
+                              ) : (
+                                <span className="px-1.5 py-0.5 rounded-md text-[10px] font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
+                                  📱 Google Play
+                                </span>
+                              )}
+                              {game.releaseInfo && (
+                                <span className="px-1.5 py-0.5 rounded-md text-[10px] font-medium bg-amber-500/10 text-amber-300 border border-amber-500/20">
+                                  {game.releaseInfo}
+                                </span>
+                              )}
+                              {(game.activeCodesCount || 0) > 0 && (
+                                <span className="px-1.5 py-0.5 rounded-md text-[10px] font-semibold bg-emerald-500/20 text-emerald-300 border border-emerald-500/40">
+                                  🎁 {game.activeCodesCount} code
+                                </span>
+                              )}
+                              {!isFromCodeMoi && (
+                                <>
+                                  <span className="flex items-center text-amber-400 font-semibold gap-0.5 text-[10px]">
+                                    <Star className="w-2.5 h-2.5 fill-amber-400 text-amber-400" />
+                                    {game.rating || 4.8}
+                                  </span>
+                                  <span>•</span>
+                                  <span className="text-[10px]">{game.installs || '50.000+'}</span>
+                                </>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Description */}
+                        <p className="text-slate-400 text-xs mt-2.5 line-clamp-2 leading-relaxed">
+                          {cleanGameTitle(game.description) || `${cleanGameTitle(game.name)} là tựa game mobile mới phát hành chính thức.`}
+                        </p>
+                      </div>
+
+                      {/* Actions Toolbar */}
+                      <div className="mt-3.5 pt-2.5 border-t border-slate-800/80 flex items-center justify-between gap-2">
+                        <span className="text-[10px] text-slate-500 font-mono truncate max-w-[120px]">
+                          {game.crawledAt ? new Date(game.crawledAt).toLocaleDateString('vi-VN') : ''}
+                        </span>
+
+                        <div className="flex items-center gap-1.5 shrink-0">
+                          <button
+                            type="button"
+                            onClick={() => handleRejectGame(game.id)}
+                            className="px-2 py-1 rounded-lg bg-slate-800 hover:bg-rose-950/60 hover:text-rose-300 text-slate-400 text-xs font-medium transition-colors cursor-pointer"
+                            title="Bỏ qua game này"
+                          >
+                            Bỏ qua
+                          </button>
+
                           <button
                             type="button"
                             onClick={() => handleEditGameLogo(game.id)}
-                            className="absolute inset-0 bg-black/60 opacity-0 group-hover/icon:opacity-100 flex items-center justify-center transition-opacity cursor-pointer text-white"
-                            title="Nhấn để đổi logo game này"
+                            className="px-2 py-1 rounded-lg bg-slate-800/80 hover:bg-slate-700 text-slate-300 text-xs font-medium transition-colors cursor-pointer flex items-center gap-1 border border-slate-700/50"
+                            title="Chỉnh sửa hoặc đổi URL logo"
                           >
-                            <Edit className="w-4 h-4 text-emerald-400" />
+                            <Edit className="w-3 h-3 text-emerald-400" />
+                            <span>Logo</span>
+                          </button>
+
+                          <button
+                            type="button"
+                            onClick={() => handleApproveGame(game.id)}
+                            className={`px-3 py-1 rounded-xl text-white text-xs font-bold transition-all shadow-sm active:scale-95 cursor-pointer flex items-center gap-1 ${
+                              (game.activeCodesCount || 0) > 0
+                                ? 'bg-gradient-to-r from-amber-600 to-orange-600 hover:from-amber-500 hover:to-orange-500 shadow-amber-600/20 ring-1 ring-amber-400/50'
+                                : 'bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 shadow-emerald-600/20'
+                            }`}
+                          >
+                            {(game.activeCodesCount || 0) > 0 ? (
+                              <>
+                                <Zap className="w-3 h-3 text-amber-200" />
+                                <span>⚡ Đăng Ngay</span>
+                              </>
+                            ) : (
+                              <>
+                                <CheckCircle2 className="w-3 h-3" />
+                                <span>Duyệt & Đăng</span>
+                              </>
+                            )}
                           </button>
                         </div>
-
-                        {/* Title & Developer */}
-                        <div className="flex-1 min-w-0">
-                          {(() => {
-                            const isFromCodeMoi = game.sourceType === 'codemoi' || (game.sourceUrl && game.sourceUrl.includes('codemoi.net'));
-                            return (
-                              <>
-                                <div className="flex items-center gap-1.5">
-                                  <h3 className="font-bold text-white text-sm truncate" title={cleanGameTitle(game.name)}>
-                                    {cleanGameTitle(game.name)}
-                                  </h3>
-                                  {isFromCodeMoi ? (
-                                    <a
-                                      href={game.sourceUrl || `https://codemoi.net/games/${game.slug}/`}
-                                      target="_blank"
-                                      rel="noopener noreferrer"
-                                      className="text-slate-400 hover:text-purple-400 shrink-0"
-                                      title="Mở trang game trên CodeMoi.net"
-                                    >
-                                      <ExternalLink className="w-3.5 h-3.5" />
-                                    </a>
-                                  ) : (
-                                    <a
-                                      href={game.playStoreUrl || (game.packageId ? `https://play.google.com/store/apps/details?id=${game.packageId}` : '#')}
-                                      target="_blank"
-                                      rel="noopener noreferrer"
-                                      className="text-slate-400 hover:text-emerald-400 shrink-0"
-                                      title="Mở Google Play Store"
-                                    >
-                                      <ExternalLink className="w-3.5 h-3.5" />
-                                    </a>
-                                  )}
-                                </div>
-
-                                <div className="text-xs text-slate-400 truncate mt-0.5" title={cleanGameTitle(game.developer)}>
-                                  NPH: <span className="text-slate-200 font-medium">{cleanGameTitle(game.developer)}</span>
-                                </div>
-
-                                <div className="flex flex-wrap items-center gap-1.5 mt-1.5 text-[11px] text-slate-400">
-                                  {isFromCodeMoi ? (
-                                    <span className="px-2 py-0.5 rounded-md text-[10px] font-bold bg-purple-500/20 text-purple-300 border border-purple-500/30">
-                                      🌐 CodeMoi.net
-                                    </span>
-                                  ) : (
-                                    <span className="px-2 py-0.5 rounded-md text-[10px] font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
-                                      📱 Google Play
-                                    </span>
-                                  )}
-                                  {game.releaseInfo && (
-                                    <span className="px-1.5 py-0.5 rounded-md text-[10px] font-medium bg-amber-500/10 text-amber-300 border border-amber-500/20">
-                                      {game.releaseInfo}
-                                    </span>
-                                  )}
-                                  {(game.activeCodesCount || 0) > 0 && (
-                                    <span className="px-1.5 py-0.5 rounded-md text-[10px] font-semibold bg-emerald-500/20 text-emerald-300 border border-emerald-500/40">
-                                      🎁 {game.activeCodesCount} code (Có code)
-                                    </span>
-                                  )}
-                                  {!isFromCodeMoi && (
-                                    <>
-                                      <span className="flex items-center text-amber-400 font-semibold gap-0.5">
-                                        <Star className="w-3 h-3 fill-amber-400 text-amber-400" />
-                                        {game.rating || 4.8}
-                                      </span>
-                                      <span>•</span>
-                                      <span>{game.installs || '50.000+'} tải</span>
-                                    </>
-                                  )}
-                                </div>
-                              </>
-                            );
-                          })()}
-                        </div>
-                      </div>
-
-                      {/* Description */}
-                      <p className="text-slate-400 text-xs mt-3 line-clamp-2 leading-relaxed">
-                        {cleanGameTitle(game.description) || `${cleanGameTitle(game.name)} là tựa game mobile mới phát hành chính thức.`}
-                      </p>
-                    </div>
-
-                    {/* Actions Toolbar */}
-                    <div className="mt-4 pt-3 border-t border-slate-800/80 flex items-center justify-between gap-2">
-                      <span className="text-[10px] text-slate-500 font-mono">
-                        {game.sourceType === 'codemoi' ? 'CodeMoi.net' : 'Google Play'} • {game.crawledAt ? new Date(game.crawledAt).toLocaleDateString('vi-VN') : ''}
-                      </span>
-
-                      <div className="flex items-center gap-1.5">
-                        <button
-                          type="button"
-                          onClick={() => handleRejectGame(game.id)}
-                          className="px-2.5 py-1.5 rounded-xl bg-slate-800 hover:bg-rose-950/60 hover:text-rose-300 text-slate-400 text-xs font-medium transition-colors cursor-pointer"
-                          title="Bỏ qua game này"
-                        >
-                          Bỏ qua
-                        </button>
-
-                        <button
-                          type="button"
-                          onClick={() => handleEditGameLogo(game.id)}
-                          className="px-2.5 py-1.5 rounded-xl bg-slate-800/80 hover:bg-slate-700 text-slate-300 text-xs font-medium transition-colors cursor-pointer flex items-center gap-1 border border-slate-700/50"
-                          title="Chỉnh sửa hoặc đổi URL logo"
-                        >
-                          <Edit className="w-3 h-3 text-emerald-400" />
-                          <span>Logo</span>
-                        </button>
-
-                        <button
-                          type="button"
-                          onClick={() => handleApproveGame(game.id)}
-                          className={`px-3.5 py-1.5 rounded-xl text-white text-xs font-bold transition-all shadow-md active:scale-95 cursor-pointer flex items-center gap-1 ${
-                            (game.activeCodesCount || 0) > 0
-                              ? 'bg-gradient-to-r from-amber-600 to-orange-600 hover:from-amber-500 hover:to-orange-500 shadow-amber-600/20 ring-1 ring-amber-400/50'
-                              : 'bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 shadow-emerald-600/20'
-                          }`}
-                        >
-                          {(game.activeCodesCount || 0) > 0 ? (
-                            <>
-                              <Zap className="w-3.5 h-3.5 text-amber-200" />
-                              <span>⚡ Đăng Ngay (Có Code)</span>
-                            </>
-                          ) : (
-                            <>
-                              <CheckCircle2 className="w-3.5 h-3.5" />
-                              <span>Duyệt & Đăng Ngay</span>
-                            </>
-                          )}
-                        </button>
                       </div>
                     </div>
+                  );
+                })}
+              </div>
+
+              {/* Pagination Bar - Exactly 20 games / page */}
+              {totalGamePages > 1 && (
+                <div className="bg-slate-900 border border-slate-800 rounded-xl p-3 flex flex-col sm:flex-row items-center justify-between gap-3">
+                  <span className="text-xs text-slate-400">
+                    Hiển thị <strong className="text-emerald-400">{(gamePage - 1) * PENDING_GAMES_PER_PAGE + 1} - {Math.min(gamePage * PENDING_GAMES_PER_PAGE, filteredPendingGames.length)}</strong> trong số <strong>{filteredPendingGames.length}</strong> game (Trang {gamePage}/{totalGamePages})
+                  </span>
+
+                  <div className="flex items-center gap-1.5 flex-wrap">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setGamePage(1);
+                        gamesContainerRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                      }}
+                      disabled={gamePage === 1}
+                      className="px-2.5 py-1 rounded-lg bg-slate-950 hover:bg-slate-800 disabled:opacity-30 disabled:cursor-not-allowed text-xs text-slate-300 border border-slate-800 transition-colors cursor-pointer"
+                      title="Trang đầu"
+                    >
+                      Đầu
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setGamePage((p) => Math.max(1, p - 1));
+                        gamesContainerRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                      }}
+                      disabled={gamePage === 1}
+                      className="p-1 rounded-lg bg-slate-950 hover:bg-slate-800 disabled:opacity-30 disabled:cursor-not-allowed text-slate-300 border border-slate-800 transition-colors cursor-pointer"
+                      title="Trang trước"
+                    >
+                      <ChevronLeft className="w-4 h-4" />
+                    </button>
+
+                    {/* Page Numbers */}
+                    <div className="flex items-center gap-1">
+                      {generatePageNumbers(gamePage, totalGamePages).map((p, idx) => {
+                        if (p === '...') {
+                          return (
+                            <span key={`dots-${idx}`} className="text-xs text-slate-500 px-1 select-none">
+                              ...
+                            </span>
+                          );
+                        }
+                        const pageNum = Number(p);
+                        const isActive = pageNum === gamePage;
+                        return (
+                          <button
+                            key={`page-${pageNum}`}
+                            type="button"
+                            onClick={() => {
+                              setGamePage(pageNum);
+                              gamesContainerRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                            }}
+                            className={`w-7 h-7 rounded-lg text-xs font-semibold flex items-center justify-center transition-all cursor-pointer ${
+                              isActive
+                                ? 'bg-emerald-600 text-white shadow-sm shadow-emerald-500/30'
+                                : 'bg-slate-950 hover:bg-slate-800 text-slate-300 border border-slate-800'
+                            }`}
+                          >
+                            {pageNum}
+                          </button>
+                        );
+                      })}
+                    </div>
+
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setGamePage((p) => Math.min(totalGamePages, p + 1));
+                        gamesContainerRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                      }}
+                      disabled={gamePage === totalGamePages}
+                      className="p-1 rounded-lg bg-slate-950 hover:bg-slate-800 disabled:opacity-30 disabled:cursor-not-allowed text-slate-300 border border-slate-800 transition-colors cursor-pointer"
+                      title="Trang sau"
+                    >
+                      <ChevronRight className="w-4 h-4" />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setGamePage(totalGamePages);
+                        gamesContainerRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                      }}
+                      disabled={gamePage === totalGamePages}
+                      className="px-2.5 py-1 rounded-lg bg-slate-950 hover:bg-slate-800 disabled:opacity-30 disabled:cursor-not-allowed text-xs text-slate-300 border border-slate-800 transition-colors cursor-pointer"
+                      title="Trang cuối"
+                    >
+                      Cuối
+                    </button>
                   </div>
-                );
-              })}
+                </div>
+              )}
             </div>
           ) : (
             /* Empty State */
-            <div className="bg-slate-900 border border-slate-800 rounded-2xl p-10 text-center space-y-3">
-              <div className="w-16 h-16 rounded-full bg-emerald-500/10 text-emerald-400 flex items-center justify-center mx-auto border border-emerald-500/20">
-                <CheckCircle2 className="w-8 h-8" />
+            <div className="bg-slate-900 border border-slate-800 rounded-2xl p-8 text-center space-y-3">
+              <div className="w-14 h-14 rounded-full bg-emerald-500/10 text-emerald-400 flex items-center justify-center mx-auto border border-emerald-500/20">
+                <CheckCircle2 className="w-7 h-7" />
               </div>
-              <h3 className="text-lg font-bold text-white">Không Có Game Nào Đang Chờ Duyệt</h3>
+              <h3 className="text-base font-bold text-white">Không Có Game Nào Đang Chờ Duyệt</h3>
               <p className="text-slate-400 text-xs sm:text-sm max-w-md mx-auto leading-relaxed">
-                Tất cả các tựa game mới từ NPH chính thức (VNG, Garena, SohaGame, Funtap, Gamota, Gosu, VTC Mobile, VPlay, JoyGames, Gzone...) đã được hệ thống 
-                <strong className="text-emerald-400"> tự động đăng 100%</strong> lên sàn codegame.shop theo Phương án B!
+                Tất cả các tựa game mới từ NPH chính thức đã được hệ thống <strong className="text-emerald-400">tự động đăng 100%</strong> lên sàn codegame.shop theo Phương án B!
               </p>
-              <div className="pt-2 flex flex-wrap items-center justify-center gap-3">
+              <div className="pt-2 flex flex-wrap items-center justify-center gap-2.5">
                 <button
                   type="button"
                   onClick={handleTriggerCodeMoiScan}
                   disabled={isScanningCodeMoi}
-                  className="px-4 py-2.5 rounded-xl bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-500 hover:to-pink-500 text-white font-semibold text-xs sm:text-sm inline-flex items-center gap-2 transition-all shadow-lg shadow-purple-600/20 active:scale-95 cursor-pointer disabled:opacity-60"
+                  className="px-3.5 py-2 rounded-xl bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-500 hover:to-pink-500 text-white font-semibold text-xs inline-flex items-center gap-2 transition-all shadow-md shadow-purple-600/20 active:scale-95 cursor-pointer disabled:opacity-60"
                 >
-                  <RefreshCw className={`w-4 h-4 ${isScanningCodeMoi ? 'animate-spin' : ''}`} />
+                  <RefreshCw className={`w-3.5 h-3.5 ${isScanningCodeMoi ? 'animate-spin' : ''}`} />
                   <span>{isScanningCodeMoi ? 'Đang quét CodeMoi...' : '⚡ Quét CodeMoi.net Ngay'}</span>
                 </button>
 
@@ -3107,9 +3300,9 @@ export const CrawlerModule: React.FC<CrawlerModuleProps> = ({ onShowToast }) => 
                   type="button"
                   onClick={handleTriggerGooglePlayScan}
                   disabled={isScanningGooglePlay}
-                  className="px-4 py-2.5 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-semibold text-xs sm:text-sm inline-flex items-center gap-2 transition-all shadow-lg shadow-emerald-600/20 active:scale-95 cursor-pointer disabled:opacity-60"
+                  className="px-3.5 py-2 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-semibold text-xs inline-flex items-center gap-2 transition-all shadow-md shadow-emerald-600/20 active:scale-95 cursor-pointer disabled:opacity-60"
                 >
-                  <RefreshCw className={`w-4 h-4 ${isScanningGooglePlay ? 'animate-spin' : ''}`} />
+                  <RefreshCw className={`w-3.5 h-3.5 ${isScanningGooglePlay ? 'animate-spin' : ''}`} />
                   <span>{isScanningGooglePlay ? 'Đang rà soát Google Play...' : '⚡ Quét Google Play Ngay'}</span>
                 </button>
               </div>

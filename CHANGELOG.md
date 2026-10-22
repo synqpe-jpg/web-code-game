@@ -7,6 +7,30 @@ Mỗi mục sửa lỗi đều ghi nhận **Nguyên nhân gốc rễ (Root Cause
 
 ## [2026-10-22]
 
+### 138. Tối Ưu Thu Gọn Giao Diện Quét Game Mới, Phân Trang 20 Game/Trang & Bổ Sung Nút Tìm Kiếm (Crawler Module)
+- **Mô tả & Yêu cầu người dùng**:
+  - *"Trong trang admin, mục Quản Lý Crawler & Tự Động Hóa Giftcode, phần quét game mới bạn cho gọn giao diện lại giúp tôi cho hợp lý dễ nhìn, Phân trang các game giúp tôi, 1 trang trong hàng chờ duyệt thì có 20 game. Có nút tìm kiếm."*
+- **Nguyên nhân gốc rễ (Root Cause)**:
+  1. *Giao diện cồng kềnh, chiếm nhiều không gian dọc*: Tab quét game mới (`games_pending`) trước đây có banner điều khiển rất lớn với các đoạn văn bản dài, các thẻ switch tự động đăng chiếm diện tích lớn và các nút quét dàn trải, gây khó nhìn trên các thiết bị màn hình vừa và nhỏ.
+  2. *Thiếu phân trang hàng chờ duyệt*: Toàn bộ danh sách game trong hàng chờ (hàng chục đến hàng trăm game) render cùng lúc trên 1 trang duy nhất, làm trang bị kéo dài vô tận, gây giật lag và khó kiểm soát thao tác duyệt game.
+  3. *Thiếu nút bấm tìm kiếm chuyên dụng*: Thanh tìm kiếm trước đây chỉ là một ô input tìm kiếm thuần túy kích hoạt `onChange`, không có nút bấm "Tìm kiếm" riêng biệt để người dùng xác nhận thao tác lọc hoặc tìm kiếm có chủ đích, thiếu nút [X] xóa nhanh, và chưa hỗ trợ tìm kiếm không dấu tiếng Việt thông minh cho danh sách game chờ.
+- **Giải pháp đã triển khai (Solution)**:
+  1. *Thu gọn giao diện (Compact Header & Controls)*:
+     - Tối ưu header thành thanh điều khiển hiện đại, gọn gàng, giảm 60% chiều cao thừa.
+     - Gom nhóm 3 nút quét nhanh (`Quét Google Play`, `Quét CodeMoi.net`, `Đăng Game Có Code`) dạng compact button ở góc phải.
+     - Thu gọn 2 switch tự động đăng thành dạng pill badge toggle inline trực quan (`Tự Đăng NPH Lớn: BẬT/TẮT` và `Có Code Đăng Ngay: BẬT/TẮT`).
+  2. *Bổ sung Nút Tìm Kiếm Chuyên Dụng & Tìm Kiếm Tiếng Việt Thông Minh*:
+     - Bổ sung ô input có nút [X] xóa nhanh, nút **"Tìm kiếm"** riêng biệt kèm icon kính lúp (`Search`).
+     - Hỗ trợ nhấn phím `Enter` hoặc click nút "Tìm kiếm" để kích hoạt lọc; xóa hết chữ trong ô lập tức khôi phục toàn bộ danh sách.
+     - Tích hợp `smartVietnameseMatch` hỗ trợ tìm kiếm cả tiếng Việt có dấu và không dấu cho tên game, nhà phát hành, package ID và slug.
+  3. *Phân trang chuẩn mực 20 game / trang (`PENDING_GAMES_PER_PAGE = 20`)*:
+     - Chia đều chính xác 20 game mỗi trang cho hàng chờ duyệt (`paginatedPendingGames`).
+     - Thanh phân trang chuyên nghiệp ở cuối danh sách: `Đầu`, `< Trước`, danh sách số trang `[1, 2, 3...]`, `Sau >`, `Cuối`.
+     - Tự động cuộn mượt (smooth scroll) về đầu danh sách khi chuyển trang.
+     - Bổ sung nút "Chọn 20 game trang này" trong thanh tác vụ hàng loạt, giúp admin duyệt nhanh hoặc bỏ qua theo từng trang.
+- **Files Modified**:
+  - `src/admin/modules/CrawlerModule.tsx`
+
 ### 137. Khắc Phục Lỗi Không Hiện Modal Giao Hàng Thành Công Khi Mua Mã & Chuẩn Hóa Kiểm Tra Tồn Kho Theo Biến Thể Gói (Package Variant Stock)
 - **Mô tả & Yêu cầu người dùng**:
   - *"Vừa rồi, khi tôi mua mã, không hiện lên thông báo nổi lên giữa màn hình báo thành công và nút chép mã, mà góc dưới bên phải hiện lên lỗi gì đó. Đảm bảo khi tôi mua và thành công thì sẽ nổ ra bảng cũ."*

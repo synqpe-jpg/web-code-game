@@ -10,6 +10,23 @@
 
 ## 1. DANH MỤC LỖI & CÁC BẪY ĐÃ THẤT BẠI (DO NOT REPEAT)
 
+### ISSUE-074: Tràn Màn Hình & Trải Nghiệm Khó Khăn Khi Duyệt Hàng Chờ Game Mới Do Thiếu Phân Trang & Nút Tìm Kiếm
+- **Triệu chứng**:
+  - Tại trang Admin, tab Quản Lý Game Mới & Hàng Chờ Duyệt (`activeTab === 'games_pending'`), khi danh sách game chờ lớn (160+ game), trang kéo dài vô tận, gây nặng trình duyệt và khó theo dõi.
+  - Người dùng không có nút bấm "Tìm kiếm" riêng biệt mà chỉ có ô input gõ text, dễ gây nhầm lẫn về trạng thái đang lọc; tìm kiếm tiếng Việt không dấu không khớp được tên game có dấu.
+  - Phần banner quét game mới chiếm nhiều diện tích dọc với nhiều thẻ switch to và văn bản dàn trải.
+- **Nguyên nhân gốc rễ**:
+  1. Hàng chờ duyệt game trước đây render trực tiếp toàn bộ danh sách `filteredPendingGames` mà không có phân trang.
+  2. Logic tìm kiếm dùng `.toLowerCase().includes()` đơn thuần, không hỗ trợ xóa dấu tiếng Việt.
+  3. Thiếu nút bấm hành động tìm kiếm trực quan cạnh ô input và nút xóa [X].
+- **Giải pháp chuẩn đã kiểm chứng**:
+  - Tối ưu header điều khiển gọn gàng, giảm 60% chiều cao thừa, thu gọn 2 switch thành pill badge toggle inline.
+  - Phân trang chuẩn 20 game / trang (`PENDING_GAMES_PER_PAGE = 20`) cho hàng chờ duyệt, có thanh phân trang đầy đủ (`Đầu`, `Trước`, các số trang, `Sau`, `Cuối`), tự động scroll về đầu danh sách khi chuyển trang.
+  - Bổ sung nút bấm "Tìm kiếm" chuyên dụng kèm icon kính lúp, hỗ trợ phím `Enter`, nút xóa [X], và tích hợp `smartVietnameseMatch` tìm kiếm tiếng Việt thông minh có/không dấu.
+- ⛔ **CÁCH SỬA ĐÃ THẤT BẠI - TUYỆT ĐỐI KHÔNG LẶP LẠI**:
+  - ❌ *Không bao giờ render toàn bộ hàng trăm game cùng lúc*: Bắt buộc phải phân trang (chuẩn 20 game / trang) để đảm bảo hiệu năng và tính trực quan.
+  - ❌ *Không bỏ qua `smartVietnameseMatch` khi tìm kiếm game tiếng Việt*: Tìm "vo lam" phải khớp "Võ Lâm Truyền Kỳ".
+
 ### ISSUE-073: Modal Giao Hàng Thành Công Không Hiện Do Kiểm Tra Tồn Kho Sai Biến Thể Gói Con (Package Stock Inversion)
 - **Triệu chứng**:
   - Khi người dùng mua tiện ích (hoặc sản phẩm cửa hàng có gói con như VS Phone VIP 7 Ngày), modal giao hàng thành công ở giữa màn hình không xuất hiện.
