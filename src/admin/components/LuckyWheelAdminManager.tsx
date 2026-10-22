@@ -17,6 +17,7 @@ import {
   X,
   ListPlus,
   Percent,
+  Trophy,
 } from 'lucide-react';
 import { growthService, DEFAULT_WHEEL_SLICES } from '../../services/growthService';
 import type { WheelSlice, GrowthConfig } from '../../types/growth';

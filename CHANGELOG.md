@@ -7,6 +7,21 @@ Mỗi mục sửa lỗi đều ghi nhận **Nguyên nhân gốc rễ (Root Cause
 
 ## [2026-10-22]
 
+### 135. Sửa Lỗi "Trophy is not defined" Khi Mở Tab Vòng Quay May Mắn Trong Admin
+- **Mô tả & Yêu cầu người dùng**:
+  - Người dùng báo lỗi: *"Tôi vào vòng quay để cài trong admin báo lỗi."* (Kèm ảnh chụp màn hình thông báo: *"Đã xảy ra sự cố khi tải phân hệ này - Trophy is not defined"* tại `admin-code-game-shop.pages.dev/admin#/utilities`).
+- **Nguyên nhân gốc rễ (Root Cause)**:
+  - Trong component `src/admin/components/LuckyWheelAdminManager.tsx`, biểu tượng `<Trophy className="w-4 h-4 text-amber-500" />` được sử dụng ở tiêu đề bảng cấu hình 8 ô phần thưởng nhưng chưa được khai báo import từ thư viện `lucide-react`. Khi phân hệ được tải trên trình duyệt, việc truy cập biến chưa định nghĩa `Trophy` kích hoạt `ReferenceError: Trophy is not defined`.
+- **Giải pháp đã triển khai (Solution)**:
+  - Bổ sung `Trophy` vào danh sách import từ `'lucide-react'` trong `src/admin/components/LuckyWheelAdminManager.tsx`.
+  - Quét kiểm tra toàn diện toàn bộ codebase để đảm bảo 100% các icon JSX đều được khai báo import chuẩn mực.
+- **Files Modified**:
+  - `src/admin/components/LuckyWheelAdminManager.tsx`
+  - `CHANGELOG.md`
+- **Kiểm thử & Triển khai**:
+  - Chạy build và audit: thành công 100%, 0 lỗi, 0 test artifacts.
+  - Tự động triển khai lên Production: `web-code-game` và `admin-code-game-shop`.
+
 ### 134. Bổ Sung Tính Năng "Vòng Quay May Mắn" (Lucky Wheel) Cho Phát Code & Giveaway, Tiện Ích Và Trang Quản Trị Admin
 - **Mô tả & Yêu cầu người dùng**:
   - *"Trong mục phát code và giveaway, bạn thêm một mục Vòng quay giúp tôi, trong admin tôi có thể thêm danh sách mã, thiết lập tỉ lệ, điều giá cho mỗi lượt, điều chỉnh phần thưởng, cụ thể từng loiaj phần thưởng... Mục Tiện Ích cũng thêm vòng quay tương tự giúp tôi."*
