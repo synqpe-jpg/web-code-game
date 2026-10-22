@@ -7,6 +7,33 @@ Mỗi mục sửa lỗi đều ghi nhận **Nguyên nhân gốc rễ (Root Cause
 
 ## [2026-10-22]
 
+### 122. Khắc Phục Lỗi Kho Thật Giveaway Có Mã Nhưng Web Khách Không Hiện & Tự Động Giải Phóng Tombstone Khi Admin Kích Hoạt
+- **Mô tả & Yêu cầu người dùng**:
+  - Người dùng phản ánh: *"Trong kho thật của tôi có hàng của giveaway nhưng web khách chưa hiện"*.
+- **Nguyên nhân gốc rễ (Root Cause)**:
+  1. *Lỗi tính tồn kho trên Web Khách*:
+     - Vì lý do bảo mật, endpoint `/api/sync` cho khách (unauthorized) không trả về danh sách mã thô `codes_pool` (để tránh bị lộ mã qua tab Network) mà chỉ trả về số lượng `remaining_codes`.
+     - Tuy nhiên, trong `dataService.ts`, `productPackageUtils.ts`, và `GiveawaysView.tsx`, code kiểm tra tồn kho bằng `Array.isArray(codes_pool) ? codes_pool.length : 0`. Khi `codes_pool` là `undefined` trên máy khách, hàm luôn ép số lượng về `0`. Khi số lượng thực tế bằng 0, Rule 3.1 của Marketing Engine tự động chuyển thẻ quà tặng sang "HẾT CODE" và vô hiệu hóa nút Giật Mã!
+  2. *Lỗi kẹt Tombstone `wcg_deleted_giveaways` & `legacySeedGwIds`*:
+     - Chiến dịch quà tặng `Yến Vân Thập Lục Thanh (Where Winds Meet)` (ID `gw_gamerpower_rotwood`) có 15 mã trong kho thật. Trên Admin hiển thị `Kho: 15 / 16` (Đang mở).
+     - Tuy nhiên, trên Cloudflare D1 bản ghi này bị kẹt trong mảng `legacySeedGwIds` và `wcg_deleted_giveaways` (tombstone) từ đợt dọn dẹp trước. Hàm POST `/api/sync` trước đây chỉ thực hiện merge (union) tombstone mà không cho phép un-tombstone khi Admin lưu dữ liệu mới, đồng thời `dataService.ts` hardcode bộ lọc loại trừ.
+- **Giải pháp dứt điểm đã triển khai (Solution)**:
+  1. *Khắc phục biểu thức tồn kho trên Web Khách*:
+     - Cập nhật đồng bộ trong `src/services/dataService.ts`, `src/utils/productPackageUtils.ts`, và `src/components/GiveawaysView.tsx`:
+       `const poolCount = Array.isArray(c.codes_pool) ? c.codes_pool.length : (typeof c.remaining_codes === 'number' ? c.remaining_codes : 0);`
+     - Đảm bảo bất kỳ chiến dịch giveaway nào có mã trong kho trên máy chủ sẽ lập tức hiển thị chính xác số lượng tồn kho thực tế, ưu tiên xếp lên đầu trang và mở nút [Giật Mã].
+  2. *Cơ chế Tự Động Giải Phóng Tombstone (Self-Healing Un-Tombstone)*:
+     - Trong `functions/api/sync.ts`, khi Admin lưu danh sách chiến dịch hoặc sản phẩm, hệ thống tự động đối soát và gỡ bỏ ID khỏi `wcg_deleted_giveaways`, `wcg_deleted_store_products`, `wcg_deleted_utilities`.
+     - Cho phép `forceReset / overwriteTombstones` ghi đè danh sách tombstone khi cần.
+     - Gỡ bỏ bộ lọc hardcode `rotwood` trong `dataService.ts` và `sync.ts`.
+  3. *Kích hoạt lại đợt phát 15 mã Yến Vân Thập Lục Thanh*:
+     - Chuyển trạng thái `gw_gamerpower_rotwood` sang `ACTIVE`, un-tombstone trên D1. Public API `/api/sync` đã trả về đủ 42 chiến dịch kèm `remaining_codes: 15`.
+- **Files Modified**:
+  - `functions/api/sync.ts`
+  - `src/components/GiveawaysView.tsx`
+  - `src/services/dataService.ts`
+  - `src/utils/productPackageUtils.ts`
+
 ### 121. Điều Tra Toàn Diện Hạn Mức D1 Buổi Sáng: Triệt Tiêu Lỗ Hổng Client Report Peak Xóa Sạch Edge CDN Cache & Tối Ưu Tần Suất Snapshot Service
 - **Mô tả & Yêu cầu người dùng**:
   - Người dùng gửi ảnh dashboard Cloudflare D1 cho thấy: Mới sáng đã mất ~505k rows read (1/10 hạn mức 5M) và hỏi: *"Bạn kiểm tra trên cloudflare giúp tôi xem sao mới sáng đã mất 1/10 read rồi. Ngoài ra có chỗ nào bất thường không?"*

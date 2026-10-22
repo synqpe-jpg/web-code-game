@@ -10,6 +10,23 @@
 
 ## 1. DANH MỤC LỖI & CÁC BẪY ĐÃ THẤT BẠI (DO NOT REPEAT)
 
+### ISSUE-064: Lỗi Kho Thật Giveaway Có Mã Nhưng Web Khách Ép Về 0 Do Thiếu Fallback `remaining_codes` & Kẹt Tombstone D1
+- **Triệu chứng**:
+  - Quản trị viên nhập mã vào kho của chiến dịch Giveaway trong trang Admin, bảng Admin hiển thị `Kho: 15 / 16` (Đang mở).
+  - Tuy nhiên ngoài web khách (`codegame.shop/giveaways`), chiến dịch biến mất hoàn toàn hoặc hiển thị "Hết Code" (0 mã), nút Giật Mã bị khóa.
+- **Nguyên nhân gốc rễ**:
+  1. *Lỗi logic tính tồn kho Client*:
+     API `/api/sync` cho khách bảo mật bằng cách lược bỏ `codes_pool` (tránh lộ mã thô trên tab Network) và chỉ trả về số lượng `remaining_codes`.
+     Client lại kiểm tra bằng `Array.isArray(codes_pool) ? codes_pool.length : 0`. Do `codes_pool` là `undefined`, stock luôn bị ép về 0.
+  2. *Kẹt Tombstone một chiều*:
+     Khi Admin kích hoạt lại hoặc thêm mã vào một chiến dịch từng bị đánh dấu xóa, server `POST /api/sync` chỉ merge union `wcg_deleted_giveaways`, khiến ID bị khóa vĩnh viễn trong danh sách xóa và không thể giải phóng xuống web khách.
+- **Giải pháp chuẩn đã kiểm chứng**:
+  - Dùng đúng biểu thức chuẩn: `Array.isArray(codes_pool) ? codes_pool.length : (typeof remaining_codes === 'number' ? remaining_codes : 0)` trên toàn bộ các component client (`dataService.ts`, `productPackageUtils.ts`, `GiveawaysView.tsx`).
+  - Trang bị cơ chế Self-healing Un-tombstone trong `functions/api/sync.ts`: Khi Admin lưu danh sách chiến dịch/sản phẩm mới, tự động xóa các ID đó khỏi bảng tombstone tương ứng.
+- ⛔ **CÁCH SỬA ĐÃ THẤT BẠI - TUYỆT ĐỐI KHÔNG LẶP LẠI**:
+  - ❌ *Không bao giờ viết `Array.isArray(codes_pool) ? codes_pool.length : 0` trên Web Khách*: Vì `codes_pool` không bao giờ được gửi công khai cho khách, cách viết này sẽ triệt tiêu 100% tồn kho thật ngoài web.
+  - ❌ *Không hardcode mảng xóa tĩnh `legacySeedGwIds` chặn vĩnh viễn ID trong Worker*: Khiến Admin dù có thêm hàng cũng không thể hiển thị được.
+
 ### ISSUE-063: Lỗ hổng Polling ngầm 12s tại `marketingService` bypass Edge Cache gây cạn kiệt Cloudflare D1 Quota
 - **Triệu chứng**:
   - Cloudflare D1 chạm trần 5.000.000 rows read/ngày rất nhanh dù lượng người dùng đồng thời ở mức trung bình.

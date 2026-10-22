@@ -251,7 +251,7 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
       'sp_hsr_pass', 'sp_genshin_welkin', 'sp_roblox_robux_1000', 'sp_lq_qh_500', 'sp_ff_kc_520', 'sp_pubg_uc_600'
     ];
     const legacySeedUtilIds = ['ut_1', 'ut_2', 'ut_3', 'ut_4', 'ut_5', 'ut_6', 'ut_test_01'];
-    const legacySeedGwIds = ['gw_1', 'gw_2', 'gw_3', 'gw_garena_delta_force', 'gw_alienware_vaultbreakers', 'gw_gamerpower_rotwood'];
+    const legacySeedGwIds = ['gw_1', 'gw_2', 'gw_3', 'gw_garena_delta_force', 'gw_alienware_vaultbreakers'];
 
     const deletedStoreSet = new Set<string>(legacySeedStoreIds);
     const deletedUtilSet = new Set<string>(legacySeedUtilIds);
@@ -2267,6 +2267,15 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
                 .run().catch(() => {});
             }
           }
+          // Self-healing: if an incoming giveaway was previously in wcg_deleted_giveaways tombstone, un-tombstone it!
+          try {
+            const activeIds = new Set(incomingGiveaways.map((g: any) => g?.id).filter(Boolean));
+            const existingDelGw = (await getSettingD1<string[]>(env.DB, 'wcg_deleted_giveaways')) || [];
+            if (Array.isArray(existingDelGw) && existingDelGw.some((id: string) => activeIds.has(id))) {
+              const cleanedDelGw = existingDelGw.filter((id: string) => !activeIds.has(id));
+              await setSettingD1(env.DB, 'wcg_deleted_giveaways', cleanedDelGw);
+            }
+          } catch {}
           try {
             const hub = await getRealEventsHub(env);
             if (hub && hub.peakGiveawayClaimedCounts) {
@@ -2323,7 +2332,7 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
           : (body.key === 'wcg_deleted_store_products' && Array.isArray(body.data) ? body.data : null);
         if (Array.isArray(incomingDelStore)) {
           const existingDelStore = (await getSettingD1(env.DB, 'wcg_deleted_store_products')) || [];
-          const mergedDelStore = Array.from(new Set([...(Array.isArray(existingDelStore) ? existingDelStore : []), ...incomingDelStore]));
+          const mergedDelStore = (body.forceReset || body.overwriteTombstones) ? incomingDelStore : Array.from(new Set([...(Array.isArray(existingDelStore) ? existingDelStore : []), ...incomingDelStore]));
           await setSettingD1(env.DB, 'wcg_deleted_store_products', mergedDelStore);
           for (const delId of incomingDelStore) {
             if (delId) {
@@ -2338,7 +2347,7 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
           : (body.key === 'wcg_deleted_utilities' && Array.isArray(body.data) ? body.data : null);
         if (Array.isArray(incomingDelUtils)) {
           const existingDelUtils = (await getSettingD1(env.DB, 'wcg_deleted_utilities')) || [];
-          const mergedDelUtils = Array.from(new Set([...(Array.isArray(existingDelUtils) ? existingDelUtils : []), ...incomingDelUtils]));
+          const mergedDelUtils = (body.forceReset || body.overwriteTombstones) ? incomingDelUtils : Array.from(new Set([...(Array.isArray(existingDelUtils) ? existingDelUtils : []), ...incomingDelUtils]));
           await setSettingD1(env.DB, 'wcg_deleted_utilities', mergedDelUtils);
           for (const delId of incomingDelUtils) {
             if (delId) {
@@ -2353,7 +2362,7 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
           : (body.key === 'wcg_deleted_giveaways' && Array.isArray(body.data) ? body.data : null);
         if (Array.isArray(incomingDelGw)) {
           const existingDelGw = (await getSettingD1(env.DB, 'wcg_deleted_giveaways')) || [];
-          const mergedDelGw = Array.from(new Set([...(Array.isArray(existingDelGw) ? existingDelGw : []), ...incomingDelGw]));
+          const mergedDelGw = (body.forceReset || body.overwriteTombstones) ? incomingDelGw : Array.from(new Set([...(Array.isArray(existingDelGw) ? existingDelGw : []), ...incomingDelGw]));
           await setSettingD1(env.DB, 'wcg_deleted_giveaways', mergedDelGw);
           for (const delId of incomingDelGw) {
             if (delId) {

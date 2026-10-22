@@ -1689,8 +1689,6 @@ class DataService {
               !(g.title === '15' && g.game_name && g.game_name.includes('Thiếu Hiệp')) &&
               g.id !== 'gw_alienware_vaultbreakers' &&
               g.id !== 'gw_garena_delta_force' &&
-              g.id !== 'gw_gamerpower_rotwood' &&
-              !(g.title && g.title.toLowerCase().includes('rotwood')) &&
               !(g.game_name && g.game_name.toLowerCase().includes('delta force'))
           );
         }
@@ -1705,8 +1703,6 @@ class DataService {
           !deletedGwSet.has(g.id) &&
           g.id !== 'gw_alienware_vaultbreakers' &&
           g.id !== 'gw_garena_delta_force' &&
-          g.id !== 'gw_gamerpower_rotwood' &&
-          !(g.title && g.title.toLowerCase().includes('rotwood')) &&
           !(g.game_name && g.game_name.toLowerCase().includes('delta force'))
       );
     }
@@ -1715,7 +1711,7 @@ class DataService {
     return list.map((gw) => {
       const poolCount = Array.isArray(gw.codes_pool)
         ? gw.codes_pool.length
-        : 0;
+        : (typeof gw.remaining_codes === 'number' ? gw.remaining_codes : 0);
       const claimed = Number(gw.claimed_codes) || 0;
       const accurateTotal = typeof gw.total_codes === 'number' && gw.total_codes >= (poolCount + claimed)
         ? gw.total_codes

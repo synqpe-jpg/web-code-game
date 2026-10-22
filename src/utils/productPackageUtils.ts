@@ -92,7 +92,7 @@ export function getGiveawayPackages(campaign: GiveawayCampaign): GiveawayRewardP
   const poolCount =
     Array.isArray(campaign.codes_pool)
       ? campaign.codes_pool.length
-      : 0;
+      : (typeof campaign.remaining_codes === 'number' ? campaign.remaining_codes : 0);
 
   return [
     {
@@ -365,7 +365,7 @@ export function groupGiveawaysByGame(campaigns: GiveawayCampaign[]): GiveawayCam
         remaining_codes:
           Array.isArray(item.codes_pool)
             ? item.codes_pool.length
-            : 0,
+            : (typeof item.remaining_codes === 'number' ? item.remaining_codes : 0),
         codes_pool: item.codes_pool || [],
         is_active: item.is_active !== false,
         note: 'Dành cho thành viên',
