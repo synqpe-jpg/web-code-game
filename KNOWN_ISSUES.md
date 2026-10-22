@@ -10,6 +10,27 @@
 
 ## 1. DANH MỤC LỖI & CÁC BẪY ĐÃ THẤT BẠI (DO NOT REPEAT)
 
+### ISSUE-069: Logo Game Google Play Bị Lỗi Hiển Thị Chữ Viết Tắt SVG Do Trực Tiếp Nhúng Cross-Origin & Hàng Chờ Duyệt Giữ Lại Game Đã Có Code
+- **Triệu chứng**:
+  - Tại trang quản trị Admin (`/admin#/crawler`), toàn bộ thẻ game mới quét từ Google Play hiển thị khung màu tối với chữ cái viết tắt SVG màu xanh ("HI", "ON", "GU", "GI", "LÀ"...) thay vì logo game thật.
+  - Tên game hiển thị lỗi thực thể HTML dạng `Girls&#39; Frontline 2: Lưu Đày`.
+  - Một số tựa game đã có giftcode hoặc trùng lặp với danh mục xuất bản bị kẹt trong hàng chờ duyệt.
+- **Nguyên nhân gốc rễ**:
+  1. *Chặn ảnh Cross-Origin & Hotlink Protection*:
+     - `CrawlerModule.tsx` gắn trực tiếp URL `play-lh.googleusercontent.com` vào thẻ `<img>` mà không qua proxy Edge và không có `referrerpolicy="no-referrer"`.
+     - Browser gửi Referer `https://admin-code-game-shop.pages.dev/` khiến Google Play chặn hoặc extension chặn quảng cáo adblock kích hoạt lỗi.
+     - Hàm `onError` thử fallback sang `/game_icons/${game.slug}.webp` (chưa tải về local), gây lỗi 404 lần 2 và ép giao diện render SVG avatar chữ cái viết tắt.
+  2. *Thiếu cơ chế Auto-Publish theo mã giftcode*:
+     - `scan_googleplay_new_games` chỉ xét whitelist NPH mà không kiểm tra số lượng giftcode hoạt động của tựa game.
+- **Giải pháp chuẩn đã kiểm chứng**:
+  - Tải và đồng bộ toàn bộ 40/40 logo game chất lượng cao WebP về lưu tĩnh trong `public/game_icons/${slug}.webp` (kèm bản Open Graph `.jpg`).
+  - Trang bị kiến trúc ảnh 3 tầng: (1) Icon tĩnh nội bộ `/game_icons/${slug}.webp` -> (2) Edge Icon Proxy `/api/game-icon` -> (3) URL trực tiếp kèm `referrerPolicy="no-referrer"`.
+  - Giải mã thực thể HTML bằng `cleanGameTitle()` để hiển thị tên chuẩn xác.
+  - Xây dựng action `auto_publish_games_with_codes` trên Cloudflare Edge Worker tự động đăng toàn bộ game có code lên danh mục chính thức và giải phóng game trùng lặp.
+- ⛔ **CÁCH SỬA ĐÃ THẤT BẠI - TUYỆT ĐỐI KHÔNG LẶP LẠI**:
+  - ❌ *Không bao giờ gắn trực tiếp URL `play-lh.googleusercontent.com` vào `<img>` mà thiếu `referrerpolicy="no-referrer"`*: Sẽ bị trình duyệt gửi referer và Google Play trả về lỗi hoặc bị adblock chặn.
+  - ❌ *Không bao giờ để game có giftcode bị giữ lại trong hàng chờ duyệt*: Bất kỳ game nào đã có mã quà tặng hoạt động phải được tự động đăng (Auto-Publish) ngay lập tức.
+
 ### ISSUE-068: Nút Quét Game Mới Google Play Trên Trang Admin Chỉ Giả Lập Bằng `setTimeout` Không Gọi Backend Thực Tế
 - **Triệu chứng**:
   - Tại trang quản trị Admin mục `Crawler & Auto Sync` -> `Game Mới (Google Play & CodeMoi)`, khi bấm nút `"⚡ Quét Google Play"` hoặc `"⚡ Quét Google Play Ngay"`, hệ thống chỉ xoay tròn 2 giây rồi hiện thông báo thành công mà không có bất kỳ game mới nào từ Google Play được nạp vào hệ thống.

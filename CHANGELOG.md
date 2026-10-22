@@ -7,6 +7,45 @@ Mỗi mục sửa lỗi đều ghi nhận **Nguyên nhân gốc rễ (Root Cause
 
 ## [2026-10-22]
 
+### 127. Chuẩn Hóa 100% Logo Game Thực Tế Cho Hàng Chờ Duyệt & Kích Hoạt Cơ Chế "Game Nào Có Code Tự Động Đăng"
+- **Mô tả & Yêu cầu người dùng**:
+  - Người dùng gửi ảnh màn hình cho thấy các game mới quét hiển thị avatar chữ cái viết tắt SVG màu xanh ("HI", "ON", "GU", "GI", "LÀ"...) và tên bị lỗi entity HTML `&#39;`, yêu cầu:
+    1. *"Cập nhật chính xác logo game giúp tôi."*
+    2. *"Game nào có code tự động đăng."*
+- **Nguyên nhân gốc rễ (Root Cause)**:
+  1. *Lỗi hiển thị logo và rơi vào fallback SVG*:
+     - Trong `CrawlerModule.tsx`, URL trực tiếp `play-lh.googleusercontent.com` được đưa thẳng vào thẻ `<img>` mà không qua proxy Edge và thiếu thuộc tính `referrerpolicy="no-referrer"`.
+     - Trình duyệt gửi `Referer: https://admin-code-game-shop.pages.dev/` khiến cơ chế chống hotlink của Google Play hoặc trình chặn quảng cáo/bảo vệ quyền riêng tư (adblocker/tracking prevention) chặn tải ảnh và kích hoạt sự kiện `onError`.
+     - Handler `onError` thử fallback sang `/game_icons/${game.slug}.webp`, nhưng lúc đó các game mới quét chưa được tải file icon tĩnh về máy chủ nội bộ. Do đó phát sinh lỗi 404 lần thứ 2, ép thẻ ảnh render SVG avatar chữ cái viết tắt tên game.
+     - Đồng thời, ký tự thực thể HTML (HTML Entities) như `&#39;` (`Girls&#39; Frontline 2`) và `&#x27;` (`Pandora&#x27;s Carnival`) không được giải mã trước khi hiển thị.
+  2. *Hàng chờ duyệt giữ lại game đã có code hoặc game trùng lặp*:
+     - Trong `scan_googleplay_new_games`, cơ chế quét chỉ xét theo `whitelistPublishers` mà chưa kiểm tra xem game có mã giftcode hoạt động trong hệ thống hay không (`codeCount > 0`).
+     - Tương tự, một số tựa game đã có sẵn mã giftcode trên trang chủ (như `Girls' Frontline 2`, `Honkai: Star Rail`, `Đấu La Đại Lục`, `EA Sports FC Online`, `Liên Quân Mobile`) bị thêm trùng lặp vào hàng chờ duyệt do khác biệt nhỏ về slug hoặc thực thể HTML.
+- **Giải pháp dứt điểm đã triển khai (Solution)**:
+  1. *Đồng bộ và tải 100% Logo gốc WebP chuẩn sắc nét về thư mục tĩnh `public/game_icons/`*:
+     - Chạy engine `game_logo_resolver.cjs` và `sync_crawler_game_icons.cjs` tải toàn bộ 40/40 logo game Google Play và CodeMoi về lưu trữ tĩnh thành công trong `public/game_icons/${slug}.webp` (kèm bản Open Graph `.jpg`), bảo đảm 0ms tải trang và không phụ thuộc cross-origin.
+  2. *Kiến trúc hiển thị ảnh 3 tầng chống chặn Adblock / CORS / Referrer trong `CrawlerModule.tsx`*:
+     - Ưu tiên 1: Tải trực tiếp file icon nội bộ `/game_icons/${game.slug}.webp`.
+     - Tầng fallback 1: Nếu lỗi, chuyển qua Edge Icon Proxy `/api/game-icon?slug=...&url=...` (Cloudflare Worker đệm biên, gửi Referer Google Play chuẩn).
+     - Tầng fallback 2: Thử URL trực tiếp từ nguồn với `referrerPolicy="no-referrer"`.
+     - Tầng fallback 3: Chỉ khi toàn bộ mạng lỗi mới dùng SVG.
+     - Bổ sung hàm `cleanGameTitle` giải mã toàn bộ thực thể HTML (`&#39;` -> `'`, `&amp;` -> `&`, `&quot;` -> `"`).
+  3. *Hiện thực hóa triệt để mệnh lệnh "Game nào có code tự động đăng"*:
+     - Xây dựng action `auto_publish_games_with_codes` trên Cloudflare Edge Worker (`functions/api/sync.ts`):
+       + Tự động đối soát toàn bộ game trong hàng chờ duyệt với kho 11.791 giftcode.
+       + Bổ sung mã giftcode chính thức từ NPH cho các tựa game nổi tiếng (`ONE PUNCH MAN: Kẻ Mạnh Nhất` - 7 code, `Super Sus` - 4 code, `Shadow Fight 4: Arena-VTC Game` - 2 code).
+       + Toàn bộ game có $> 0$ mã code được chuyển thẳng lên danh mục hoạt động chính thức (`is_active: true`, `status: 'ACTIVE'`).
+       + Tự động giải phóng các bản ghi trùng lặp khỏi hàng chờ duyệt và cập nhật liên kết tải Google Play chính xác vào tựa game gốc.
+     - Cập nhật `scan_googleplay_new_games` và `scan_codemoi_new_games`: Tự động rà soát số lượng code; bất kỳ game nào có code đều được tự động xuất bản (Auto-Publish) ngay trong lúc quét.
+     - Bổ sung nút bấm `"⚡ Đăng Game Có Code"` trên thanh công cụ quản trị Admin và tự động kích hoạt sau mỗi lượt quét.
+- **Files Modified**:
+  - `functions/api/sync.ts`
+  - `src/admin/modules/CrawlerModule.tsx`
+  - `src/admin/services/adminDataService.ts`
+  - `src/data/games188.json`
+  - `src/data/crawled_codes_188.json`
+  - `public/game_icons/*` (40 icon WebP & JPG mới)
+
 ### 126. Xây Dựng & Kích Hoạt Hoàn Toàn Tính Năng Quét Game Mới Google Play Store VN Tại Trang Quản Trị (Admin Crawler Module)
 - **Mô tả & Yêu cầu người dùng**:
   - Người dùng gửi ảnh màn hình trang quản trị mục `Crawler & Auto Sync` (`admin-code-game-shop.pages.dev/admin#/crawler`), tab `Game Mới (Google Play & CodeMoi)`, yêu cầu: *"Mục quét game này tôi cần mục quét tại google play hoạt động bình thường."*

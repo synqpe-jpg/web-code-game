@@ -207,6 +207,18 @@ interface CrawlerModuleProps {
   onShowToast: (title: string, desc?: string, type?: 'success' | 'error' | 'info') => void;
 }
 
+export const cleanGameTitle = (str: string) => {
+  if (!str) return '';
+  return str
+    .replace(/&#39;/g, "'")
+    .replace(/&#x27;/g, "'")
+    .replace(/&quot;/g, '"')
+    .replace(/&amp;/g, '&')
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .trim();
+};
+
 export const CrawlerModule: React.FC<CrawlerModuleProps> = ({ onShowToast }) => {
   const [activeTab, setActiveTab] = useState<'pending' | 'games_pending' | 'sources' | 'logs' | 'scoring'>('pending');
   const [isLoading, setIsLoading] = useState(false);
@@ -217,6 +229,7 @@ export const CrawlerModule: React.FC<CrawlerModuleProps> = ({ onShowToast }) => 
   const [gamePublisherFilter, setGamePublisherFilter] = useState('ALL');
   const [isScanningGooglePlay, setIsScanningGooglePlay] = useState(false);
   const [isScanningCodeMoi, setIsScanningCodeMoi] = useState(false);
+  const [isAutoPublishing, setIsAutoPublishing] = useState(false);
   const [autoPublishConfig, setAutoPublishConfig] = useState<CrawlerAutoPublishConfig>({
     enabled: true,
     autoPublishWhenHasCodes: true,
@@ -967,6 +980,8 @@ export const CrawlerModule: React.FC<CrawlerModuleProps> = ({ onShowToast }) => 
       const result = await adminDataService.scanGooglePlayNewGames();
       if (result.success) {
         onShowToast('Hoàn tất quét Google Play! 🎉', result.message || 'Đã cập nhật danh sách game mới nhất từ Google Play Store VN.', 'success');
+        // Tự động rà soát và đăng ngay game có code
+        await adminDataService.autoPublishGamesWithCodes().catch(() => {});
         await loadData();
       } else {
         onShowToast('Thông báo quét', result.message || 'Không thể hoàn tất quét Google Play.', 'info');
@@ -986,6 +1001,8 @@ export const CrawlerModule: React.FC<CrawlerModuleProps> = ({ onShowToast }) => 
       const result = await adminDataService.scanCodemoiNewGames();
       if (result.success) {
         onShowToast('Hoàn tất quét CodeMoi! ✨', result.message || 'Đã cập nhật danh sách game mới nhất từ codemoi.net.', 'success');
+        // Tự động rà soát và đăng ngay game có code
+        await adminDataService.autoPublishGamesWithCodes().catch(() => {});
         await loadData();
       } else {
         onShowToast('Thông báo quét', result.message || 'Không thể hoàn tất quét.', 'info');
@@ -994,6 +1011,29 @@ export const CrawlerModule: React.FC<CrawlerModuleProps> = ({ onShowToast }) => 
       onShowToast('Lỗi quét CodeMoi', e?.message || 'Không thể hoàn tất quét CodeMoi.', 'error');
     } finally {
       setIsScanningCodeMoi(false);
+    }
+  };
+
+  // Tự động đăng toàn bộ game có code trong hàng chờ duyệt
+  const handleAutoPublishGamesWithCodes = async () => {
+    setIsAutoPublishing(true);
+    onShowToast('Đang rà soát và đăng game có code... ⚡', 'Kiểm tra mã quà tặng cho toàn bộ game trong hàng chờ...', 'info');
+    try {
+      const result = await adminDataService.autoPublishGamesWithCodes();
+      if (result.success) {
+        onShowToast(
+          'Tự động đăng thành công! 🎉',
+          result.message || 'Đã đăng toàn bộ game có code lên danh mục chính thức.',
+          'success'
+        );
+        await loadData();
+      } else {
+        onShowToast('Thông báo', result.message || 'Không có game nào có code cần đăng.', 'info');
+      }
+    } catch (e: any) {
+      onShowToast('Lỗi tự động đăng', e?.message || 'Không thể kết nối máy chủ.', 'error');
+    } finally {
+      setIsAutoPublishing(false);
     }
   };
 
@@ -2577,9 +2617,21 @@ export const CrawlerModule: React.FC<CrawlerModuleProps> = ({ onShowToast }) => 
                   onClick={handleTriggerGooglePlayScan}
                   disabled={isScanningGooglePlay}
                   className="px-4 py-2 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-semibold text-xs sm:text-sm flex items-center gap-2 transition-all shadow-lg shadow-emerald-600/20 active:scale-95 cursor-pointer disabled:opacity-60"
+                  title="Quét toàn bộ game mobile mới trên Google Play Store VN"
                 >
                   <RefreshCw className={`w-4 h-4 ${isScanningGooglePlay ? 'animate-spin' : ''}`} />
                   <span>{isScanningGooglePlay ? 'Đang quét GP...' : '⚡ Quét Google Play'}</span>
+                </button>
+
+                {/* Tự Động Đăng Game Có Code Button */}
+                <button
+                  onClick={handleAutoPublishGamesWithCodes}
+                  disabled={isAutoPublishing || isScanningGooglePlay || isScanningCodeMoi}
+                  className="px-4 py-2 rounded-xl bg-gradient-to-r from-amber-600 to-orange-600 hover:from-amber-500 hover:to-orange-500 text-white font-semibold text-xs sm:text-sm flex items-center gap-2 transition-all shadow-lg shadow-amber-600/20 active:scale-95 cursor-pointer disabled:opacity-60"
+                  title="Tự động kiểm tra và đăng ngay toàn bộ game có mã giftcode lên danh mục chính thức"
+                >
+                  <Zap className={`w-4 h-4 ${isAutoPublishing ? 'animate-spin' : 'text-amber-200'}`} />
+                  <span>{isAutoPublishing ? 'Đang đăng...' : '⚡ Đăng Game Có Code'}</span>
                 </button>
               </div>
             </div>
@@ -2694,20 +2746,28 @@ export const CrawlerModule: React.FC<CrawlerModuleProps> = ({ onShowToast }) => 
                         <div className="w-14 h-14 rounded-2xl overflow-hidden bg-slate-950 border border-slate-700/60 shrink-0 shadow-md relative group/icon">
                           <img
                             src={
-                              game.localIconPath ||
-                              (game.iconUrl && (game.iconUrl.includes('play-lh.googleusercontent.com') || game.iconUrl.startsWith('/'))
-                                ? game.iconUrl
-                                : (game.iconUrl ? `/api/game-icon?slug=${game.slug}&url=${encodeURIComponent(game.iconUrl)}` : `/game_icons/${game.slug}.webp`))
+                              game.localIconPath && game.localIconPath.startsWith('/')
+                                ? game.localIconPath
+                                : `/game_icons/${game.slug}.webp`
                             }
-                            alt={game.name}
+                            alt={cleanGameTitle(game.name)}
+                            referrerPolicy="no-referrer"
+                            loading="lazy"
                             className="w-full h-full object-cover"
                             onError={(e: any) => {
-                              if (!e.currentTarget.dataset.retried) {
-                                e.currentTarget.dataset.retried = '1';
-                                e.currentTarget.src = `/game_icons/${game.slug}.webp`;
+                              const el = e.currentTarget;
+                              const stage = Number(el.dataset.stage || '0');
+                              if (stage === 0 && game.iconUrl) {
+                                el.dataset.stage = '1';
+                                el.src = `/api/game-icon?slug=${game.slug}&url=${encodeURIComponent(game.iconUrl)}`;
                                 return;
                               }
-                              e.currentTarget.src = `data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64"><rect width="64" height="64" rx="16" fill="%230f172a"/><rect x="2" y="2" width="60" height="60" rx="14" fill="none" stroke="%23334155" stroke-width="2"/><text x="50%" y="54%" font-family="sans-serif" font-size="20" font-weight="bold" fill="%2334d399" text-anchor="middle" dominant-baseline="middle">${encodeURIComponent((game.name || 'G').slice(0, 2).toUpperCase())}</text></svg>`;
+                              if (stage <= 1 && game.iconUrl && game.iconUrl.startsWith('http')) {
+                                el.dataset.stage = '2';
+                                el.src = game.iconUrl;
+                                return;
+                              }
+                              el.src = `data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64"><rect width="64" height="64" rx="16" fill="%230f172a"/><rect x="2" y="2" width="60" height="60" rx="14" fill="none" stroke="%23334155" stroke-width="2"/><text x="50%" y="54%" font-family="sans-serif" font-size="20" font-weight="bold" fill="%2334d399" text-anchor="middle" dominant-baseline="middle">${encodeURIComponent((cleanGameTitle(game.name) || 'G').slice(0, 2).toUpperCase())}</text></svg>`;
                             }}
                           />
                           <button
@@ -2727,8 +2787,8 @@ export const CrawlerModule: React.FC<CrawlerModuleProps> = ({ onShowToast }) => 
                             return (
                               <>
                                 <div className="flex items-center gap-1.5">
-                                  <h3 className="font-bold text-white text-sm truncate" title={game.name}>
-                                    {game.name}
+                                  <h3 className="font-bold text-white text-sm truncate" title={cleanGameTitle(game.name)}>
+                                    {cleanGameTitle(game.name)}
                                   </h3>
                                   {isFromCodeMoi ? (
                                     <a
@@ -2753,8 +2813,8 @@ export const CrawlerModule: React.FC<CrawlerModuleProps> = ({ onShowToast }) => 
                                   )}
                                 </div>
 
-                                <div className="text-xs text-slate-400 truncate mt-0.5" title={game.developer}>
-                                  NPH: <span className="text-slate-200 font-medium">{game.developer}</span>
+                                <div className="text-xs text-slate-400 truncate mt-0.5" title={cleanGameTitle(game.developer)}>
+                                  NPH: <span className="text-slate-200 font-medium">{cleanGameTitle(game.developer)}</span>
                                 </div>
 
                                 <div className="flex flex-wrap items-center gap-1.5 mt-1.5 text-[11px] text-slate-400">
@@ -2773,8 +2833,8 @@ export const CrawlerModule: React.FC<CrawlerModuleProps> = ({ onShowToast }) => 
                                     </span>
                                   )}
                                   {(game.activeCodesCount || 0) > 0 && (
-                                    <span className="px-1.5 py-0.5 rounded-md text-[10px] font-semibold bg-pink-500/10 text-pink-300 border border-pink-500/20">
-                                      🎁 {game.activeCodesCount} code
+                                    <span className="px-1.5 py-0.5 rounded-md text-[10px] font-semibold bg-emerald-500/20 text-emerald-300 border border-emerald-500/40">
+                                      🎁 {game.activeCodesCount} code (Có code)
                                     </span>
                                   )}
                                   {!isFromCodeMoi && (
@@ -2796,7 +2856,7 @@ export const CrawlerModule: React.FC<CrawlerModuleProps> = ({ onShowToast }) => 
 
                       {/* Description */}
                       <p className="text-slate-400 text-xs mt-3 line-clamp-2 leading-relaxed">
-                        {game.description || `${game.name} là tựa game mobile mới phát hành chính thức.`}
+                        {cleanGameTitle(game.description) || `${cleanGameTitle(game.name)} là tựa game mobile mới phát hành chính thức.`}
                       </p>
                     </div>
 
@@ -2829,10 +2889,23 @@ export const CrawlerModule: React.FC<CrawlerModuleProps> = ({ onShowToast }) => 
                         <button
                           type="button"
                           onClick={() => handleApproveGame(game.id)}
-                          className="px-3.5 py-1.5 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white text-xs font-bold transition-all shadow-md shadow-emerald-600/20 active:scale-95 cursor-pointer flex items-center gap-1"
+                          className={`px-3.5 py-1.5 rounded-xl text-white text-xs font-bold transition-all shadow-md active:scale-95 cursor-pointer flex items-center gap-1 ${
+                            (game.activeCodesCount || 0) > 0
+                              ? 'bg-gradient-to-r from-amber-600 to-orange-600 hover:from-amber-500 hover:to-orange-500 shadow-amber-600/20 ring-1 ring-amber-400/50'
+                              : 'bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 shadow-emerald-600/20'
+                          }`}
                         >
-                          <CheckCircle2 className="w-3.5 h-3.5" />
-                          <span>Duyệt & Đăng Ngay</span>
+                          {(game.activeCodesCount || 0) > 0 ? (
+                            <>
+                              <Zap className="w-3.5 h-3.5 text-amber-200" />
+                              <span>⚡ Đăng Ngay (Có Code)</span>
+                            </>
+                          ) : (
+                            <>
+                              <CheckCircle2 className="w-3.5 h-3.5" />
+                              <span>Duyệt & Đăng Ngay</span>
+                            </>
+                          )}
                         </button>
                       </div>
                     </div>

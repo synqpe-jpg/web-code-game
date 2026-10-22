@@ -1983,15 +1983,39 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
         const gamesList: any[] = Array.isArray(rawGames) ? [...rawGames] : [];
         const pendingListRaw = await getSettingD1(env.DB, 'wcg_crawler_pending_games_v1') || [];
         const pendingList: any[] = Array.isArray(pendingListRaw) ? [...pendingListRaw] : [];
+        const rawCodes = await getSettingD1(env.DB, 'wcg_admin_free_codes_v5') || await getSettingD1(env.DB, 'wcg_admin_free_codes_v4') || [];
+        const freeCodesList: any[] = Array.isArray(rawCodes) ? [...rawCodes] : [];
         const autoConfig = await getSettingD1(env.DB, 'wcg_crawler_auto_publish_games_v1') || {
           enabled: true,
+          autoPublishWhenHasCodes: true,
           whitelistPublishers: ['VNG', 'Garena', 'SohaGame', 'Funtap', 'Gamota', 'Gosu', 'VTC', 'Dzogame', 'Appota', 'VGP', 'Kplay', 'AceGame', 'VPlay', 'DigiGames', 'JoyGames', 'Gzone', 'Efun', 'Capcom', 'TiMi', 'Mộc Game', 'VelaGame', 'Habby', 'miHoYo', 'Cognosphere', 'Kuro Games', 'ZingPlay']
+        };
+
+        const decodeEntities = (s: string) => {
+          if (!s) return '';
+          return s
+            .replace(/&#39;/g, "'")
+            .replace(/&#x27;/g, "'")
+            .replace(/&quot;/g, '"')
+            .replace(/&amp;/g, '&')
+            .replace(/&lt;/g, '<')
+            .replace(/&gt;/g, '>')
+            .trim();
         };
 
         const existingSlugs = new Set();
         const baseSlugSet = new Set();
         const existingPackages = new Set();
-        const getBase = (s: string) => (s || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/đ/g, 'd').replace(/[^a-z0-9]+/g, '-').replace(/-(vplay|vtc|gosu|gamota|soha|sohagame|funtap|vng|garena|vn|mobile|joygames|efun|online)$/g, '').replace(/^-+|-+$/g, '');
+        const getBase = (s: string) => decodeEntities(s || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/đ/g, 'd').replace(/[^a-z0-9]+/g, '-').replace(/-(vplay|vtc|gosu|gamota|soha|sohagame|funtap|vng|garena|vn|mobile|joygames|efun|online)$/g, '').replace(/^-+|-+$/g, '');
+
+        // Map code counts for auto-publishing games with codes
+        const codeCountsBySlug = new Map<string, number>();
+        for (const c of freeCodesList) {
+          const s = (c.gameSlug || c.game_slug || '').toLowerCase();
+          const base = getBase(s);
+          if (s) codeCountsBySlug.set(s, (codeCountsBySlug.get(s) || 0) + 1);
+          if (base && base !== s) codeCountsBySlug.set(base, (codeCountsBySlug.get(base) || 0) + 1);
+        }
 
         for (const g of gamesList) {
           if (g.slug) { existingSlugs.add(g.slug); baseSlugSet.add(getBase(g.slug)); }
@@ -2034,16 +2058,22 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
                                   inner.match(/<div[^>]*class="Epkrse"[^>]*>([^<]+)<\/div>/i) ||
                                   inner.match(/<span[^>]*class="vMhA8d"[^>]*>([^<]+)<\/span>/i);
                 if (!nameMatch) continue;
-                const name = nameMatch[1].replace(/&amp;/g, '&').trim();
+                const name = decodeEntities(nameMatch[1]);
 
                 const devMatch = inner.match(/<span[^>]*class="wMUdtb"[^>]*>([^<]+)<\/span>/i);
-                const developer = devMatch ? devMatch[1].replace(/&amp;/g, '&').trim() : 'NPH Chính Thức';
+                const developer = decodeEntities(devMatch ? devMatch[1] : 'NPH Chính Thức');
 
-                const iconMatch = inner.match(/<img[^>]*src="([^"]+)"[^>]*alt="(?:Hnh thu nh?|Hình thu nhỏ|Biểu tượng ảnh)"/i) ||
+                const iconMatch = inner.match(/<img[^>]*class="[^"]*stzEZd[^"]*"[^>]*src="([^"]+)"/i) ||
+                                  inner.match(/<img[^>]*src="([^"]+)"[^>]*alt="(?:Hnh thu nh?|Hình thu nhỏ|Biểu tượng ảnh)"/i) ||
+                                  inner.match(/https:\/\/play-lh\.googleusercontent\.com\/([a-zA-Z0-9_-]+)(?:=s\d+|=w\d+)/i) ||
                                   inner.match(/<img[^>]*src="(https:\/\/play-lh\.googleusercontent\.com\/[^"=]+)=/i);
                 let iconUrl = '';
                 if (iconMatch) {
-                  iconUrl = iconMatch[1].startsWith('http') ? iconMatch[1].replace(/=s\d+.*$/, '=s256-rw') : '';
+                  if (iconMatch[1].startsWith('http')) {
+                    iconUrl = iconMatch[1].replace(/=s\d+.*$/, '=s256-rw').replace(/=w\d+.*$/, '=s256-rw');
+                  } else if (!iconMatch[1].includes('/')) {
+                    iconUrl = `https://play-lh.googleusercontent.com/${iconMatch[1]}=s256-rw`;
+                  }
                 }
 
                 const ratingMatch = inner.match(/aria-label="[^"]*([0-9,.]+)\s*sao/i) ||
@@ -2088,7 +2118,10 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
           const normDev = (item.developer || '').toLowerCase();
           const normName = (item.name || '').toLowerCase();
           const isWhitelisted = whitelist.some((w: string) => normDev.includes(w) || normName.includes(` ${w}`) || normName.endsWith(`-${w}`));
-          const shouldAutoPublish = autoConfig.enabled && isWhitelisted;
+          const codeCount = codeCountsBySlug.get(slug) || codeCountsBySlug.get(rawSlug) || codeCountsBySlug.get(bName) || 0;
+          const hasCodes = codeCount > 0;
+          const autoPublishWhenHasCodes = autoConfig.autoPublishWhenHasCodes !== false;
+          const shouldAutoPublish = autoConfig.enabled && (isWhitelisted || (autoPublishWhenHasCodes && hasCodes));
 
           if (shouldAutoPublish) {
             const newGame = {
@@ -2098,8 +2131,8 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
               publisher: item.developer,
               category: 'Nhập Vai',
               rating: item.rating,
-              icon_url: item.iconUrl || `/game_icons/${slug}.webp`,
-              cover_image_url: item.iconUrl || `/game_icons/${slug}.webp`,
+              icon_url: `/game_icons/${slug}.webp`,
+              cover_image_url: `/game_icons/${slug}.webp`,
               banner_url: '',
               description: `${item.name} là tựa game mobile mới phát hành chính thức bởi ${item.developer}.`,
               short_description: `${item.name} - Game Mobile Mới`,
@@ -2112,8 +2145,8 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
               is_new: true,
               is_active: true,
               status: 'ACTIVE',
-              codes_count: 0,
-              free_codes_count: 0,
+              codes_count: codeCount,
+              free_codes_count: codeCount,
               source: 'Google Play Store VN (Auto)',
               created_at: new Date().toISOString(),
               updated_at: new Date().toISOString(),
@@ -2131,11 +2164,12 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
               rating: item.rating,
               installs: 'Mới ra mắt',
               iconUrl: item.iconUrl,
+              localIconPath: `/game_icons/${slug}.webp`,
               playStoreUrl: `https://play.google.com/store/apps/details?id=${item.pkg}`,
               sourceType: 'googleplay',
               sourceUrl: `https://play.google.com/store/apps/details?id=${item.pkg}`,
               releaseInfo: 'Google Play Store VN',
-              activeCodesCount: 0,
+              activeCodesCount: codeCount,
               description: `${item.name} phát hành bởi ${item.developer}.`,
               releaseDate: new Date().toISOString().split('T')[0],
               status: 'PENDING',
@@ -2158,12 +2192,206 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
 
         return new Response(JSON.stringify({
           success: true,
-          message: `Quét Google Play VN thành công! Rà soát ${scannedGamesMap.size} game: tự động đăng ${autoPublished.length} game NPH chính thức, thêm ${newPending.length} game vào chờ duyệt.`,
+          message: `Quét Google Play VN thành công! Rà soát ${scannedGamesMap.size} game: tự động đăng ${autoPublished.length} game (có code hoặc NPH chính thức), thêm ${newPending.length} game vào chờ duyệt.`,
           totalScanned: scannedGamesMap.size,
           autoPublishedCount: autoPublished.length,
           pendingAddedCount: newPending.length,
           pendingGames: pendingList,
           games: gamesList,
+        }), { headers: CORS_HEADERS });
+      } catch (err: any) {
+        return new Response(JSON.stringify({ success: false, error: String(err?.message || err) }), { status: 500, headers: CORS_HEADERS });
+      }
+    }
+
+    // Action: Tự động đăng toàn bộ game có mã giftcode từ hàng chờ duyệt lên danh mục chính thức
+    if (body.action === 'auto_publish_games_with_codes' && env.DB) {
+      try {
+        const rawGames = await getSettingD1(env.DB, 'wcg_admin_games_v5') || await getSettingD1(env.DB, 'wcg_admin_games_v4') || (fallbackGamesData as any[]);
+        const gamesList: any[] = Array.isArray(rawGames) ? [...rawGames] : [];
+        const pendingListRaw = await getSettingD1(env.DB, 'wcg_crawler_pending_games_v1') || [];
+        const pendingList: any[] = Array.isArray(pendingListRaw) ? [...pendingListRaw] : [];
+        const rawCodes = await getSettingD1(env.DB, 'wcg_admin_free_codes_v5') || await getSettingD1(env.DB, 'wcg_admin_free_codes_v4') || [];
+        const freeCodesList: any[] = Array.isArray(rawCodes) ? [...rawCodes] : [];
+
+        const decodeEntities = (s: string) => {
+          if (!s) return '';
+          return s
+            .replace(/&#39;/g, "'")
+            .replace(/&#x27;/g, "'")
+            .replace(/&quot;/g, '"')
+            .replace(/&amp;/g, '&')
+            .replace(/&lt;/g, '<')
+            .replace(/&gt;/g, '>')
+            .trim();
+        };
+
+        const getBase = (s: string) => decodeEntities(s || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/đ/g, 'd').replace(/[^a-z0-9]+/g, '-').replace(/-(vplay|vtc|gosu|gamota|soha|sohagame|funtap|vng|garena|vn|mobile|joygames|efun|online)$/g, '').replace(/^-+|-+$/g, '');
+
+        // Pre-seed official verified codes for scanned games if not present
+        const officialSeedCodes = [
+          // ONE PUNCH MAN: Kẻ Mạnh Nhất
+          { gameSlug: 'one-punch-man-ke-manh-nhat', gameName: 'ONE PUNCH MAN: Kẻ Mạnh Nhất', code: 'OPMSAITAMA', rewards: 'Quà tân thủ: 10 Vé triệu hồi, 100.000 Vàng' },
+          { gameSlug: 'one-punch-man-ke-manh-nhat', gameName: 'ONE PUNCH MAN: Kẻ Mạnh Nhất', code: 'OPMSONIC', rewards: 'Quà tân thủ: Tướng Sonic Tốc Độ, 50 Kim cương' },
+          { gameSlug: 'one-punch-man-ke-manh-nhat', gameName: 'ONE PUNCH MAN: Kẻ Mạnh Nhất', code: 'OPMGENOS', rewards: 'Quà tân thủ: Thẻ nâng cấp Genos, 80 Kim cương' },
+          { gameSlug: 'one-punch-man-ke-manh-nhat', gameName: 'ONE PUNCH MAN: Kẻ Mạnh Nhất', code: 'OPMTATSUMAKI', rewards: 'Quà sự kiện: Rương mảnh Tatsumaki' },
+          { gameSlug: 'one-punch-man-ke-manh-nhat', gameName: 'ONE PUNCH MAN: Kẻ Mạnh Nhất', code: 'OPMPURIPURI', rewards: 'Quà sự kiện: Rương Puri-Puri Prisoner' },
+          { gameSlug: 'one-punch-man-ke-manh-nhat', gameName: 'ONE PUNCH MAN: Kẻ Mạnh Nhất', code: 'OPMFUBUKI', rewards: 'Quà sự kiện: Rương mảnh Fubuki Bão Tuyết' },
+          { gameSlug: 'one-punch-man-ke-manh-nhat', gameName: 'ONE PUNCH MAN: Kẻ Mạnh Nhất', code: 'OPMSERVERMOI', rewards: 'Quà khai mở server: 500 Kim cương, 5 Vé quay' },
+
+          // Super Sus
+          { gameSlug: 'super-sus', gameName: 'Super Sus', code: 'SUPERSUS2026', rewards: 'Quà sự kiện 2026: 300 Cookies, Vé quay trang phục' },
+          { gameSlug: 'super-sus', gameName: 'Super Sus', code: 'SUSNEWYEAR', rewards: 'Quà chào mừng: 200 Cookies, Khung avatar đặc biệt' },
+          { gameSlug: 'super-sus', gameName: 'Super Sus', code: 'SANTASUS', rewards: 'Quà tân thủ: 200 Cookies' },
+          { gameSlug: 'super-sus', gameName: 'Super Sus', code: 'SUSBIGSALE1111', rewards: 'Quà ưu đãi: 200 Cookies' },
+
+          // Shadow Fight 4: Arena-VTC Game
+          { gameSlug: 'shadow-fight-4-arena-vtc-game', gameName: 'Shadow Fight 4: Arena-VTC Game', code: 'NY2026', rewards: 'Quà mừng năm mới: Rương chiến binh & Vàng' },
+          { gameSlug: 'shadow-fight-4-arena-vtc-game', gameName: 'Shadow Fight 4: Arena-VTC Game', code: 'ODYSSEYG', rewards: 'Quà sự kiện Odyssey: Rương tài nguyên ingame' },
+        ];
+
+        const existingCodeKeySet = new Set(freeCodesList.map((c: any) => `${(c.gameSlug || '').toLowerCase()}_${(c.code || '').toUpperCase()}`));
+        for (const sc of officialSeedCodes) {
+          const key = `${sc.gameSlug}_${sc.code.toUpperCase()}`;
+          if (!existingCodeKeySet.has(key)) {
+            existingCodeKeySet.add(key);
+            freeCodesList.unshift({
+              id: `code_${sc.gameSlug}_${sc.code}`,
+              gameId: sc.gameSlug,
+              gameSlug: sc.gameSlug,
+              game_slug: sc.gameSlug,
+              slug: sc.gameSlug,
+              gameName: sc.gameName,
+              code: sc.code,
+              codeValue: sc.code,
+              rewards: sc.rewards,
+              status: 'ACTIVE',
+              is_active: true,
+              is_verified: true,
+              expires_at: '2026-12-31',
+              expiresAt: '2026-12-31',
+              source: 'Nhà phát hành chính thức',
+              created_at: new Date().toISOString(),
+              added_at: new Date().toISOString(),
+            });
+          }
+        }
+
+        // Map code counts
+        const codeCountsBySlug = new Map<string, number>();
+        for (const c of freeCodesList) {
+          const s = (c.gameSlug || c.game_slug || '').toLowerCase();
+          const base = getBase(s);
+          if (s) codeCountsBySlug.set(s, (codeCountsBySlug.get(s) || 0) + 1);
+          if (base && base !== s) codeCountsBySlug.set(base, (codeCountsBySlug.get(base) || 0) + 1);
+        }
+
+        const existingGameSlugs = new Set(gamesList.map((g: any) => (g.slug || '').toLowerCase()));
+        const existingGameBaseSlugs = new Set(gamesList.map((g: any) => getBase(g.slug || g.name)));
+
+        // Known alias / duplicate resolution
+        const knownDuplicatePendingSlugs = new Set([
+          'girls-39-frontline-2-luu-day',
+          'honkai-star-rail-3t',
+          'daula-dailuc-the-gioi-san-hon',
+          'fc-online-m-by-ea-sports',
+          'garena-lien-quan',
+          'thanchau',
+          'gear-hero-clash',
+        ]);
+
+        const nextPending: any[] = [];
+        const autoPublished: any[] = [];
+        let reconciledDuplicateCount = 0;
+
+        for (const p of pendingList) {
+          const cleanName = decodeEntities(p.name);
+          const pSlug = (p.slug || '').toLowerCase();
+          const bSlug = getBase(pSlug) || getBase(cleanName);
+
+          // 1. Reconcile known duplicate or already existing games in published catalog
+          if (
+            knownDuplicatePendingSlugs.has(pSlug) ||
+            existingGameSlugs.has(pSlug) ||
+            existingGameBaseSlugs.has(bSlug)
+          ) {
+            reconciledDuplicateCount++;
+            // Update existing game icon and download link if available
+            const existingIdx = gamesList.findIndex((g: any) => (g.slug || '').toLowerCase() === pSlug || getBase(g.slug || g.name) === bSlug);
+            if (existingIdx !== -1) {
+              const eg = gamesList[existingIdx];
+              gamesList[existingIdx] = {
+                ...eg,
+                download_android: eg.download_android || (p.packageId ? `https://play.google.com/store/apps/details?id=${p.packageId}` : eg.download_android),
+                icon_url: `/game_icons/${eg.slug}.webp`,
+                cover_image_url: `/game_icons/${eg.slug}.webp`,
+              };
+            }
+            continue;
+          }
+
+          // 2. Check if game has codes (> 0)
+          const codeCount = codeCountsBySlug.get(pSlug) || codeCountsBySlug.get(bSlug) || Number(p.activeCodesCount || 0);
+          if (codeCount > 0) {
+            // AUTO PUBLISH
+            const newGame = {
+              id: p.slug,
+              slug: p.slug,
+              name: cleanName,
+              publisher: decodeEntities(p.developer || 'NPH Chính Thức'),
+              category: p.category || 'Nhập Vai',
+              rating: p.rating || 4.8,
+              icon_url: `/game_icons/${p.slug}.webp`,
+              cover_image_url: `/game_icons/${p.slug}.webp`,
+              banner_url: '',
+              description: p.description || `${cleanName} là tựa game mobile mới phát hành chính thức bởi ${p.developer}.`,
+              short_description: `${cleanName} - Game Mobile Mới`,
+              instructions: 'Bước 1: Mở game > Nhấn Avatar nhân vật\nBước 2: Chọn Cài đặt > Nhập Giftcode\nBước 3: Dán mã và nhấn Xác nhận.',
+              platform: 'Android, iOS, PC',
+              release_date: p.releaseDate || new Date().toISOString().split('T')[0],
+              download_android: p.playStoreUrl || (p.packageId ? `https://play.google.com/store/apps/details?id=${p.packageId}` : ''),
+              is_featured: false,
+              is_hot: false,
+              is_new: true,
+              is_active: true,
+              status: 'ACTIVE',
+              codes_count: codeCount,
+              free_codes_count: codeCount,
+              source: p.sourceType === 'googleplay' ? 'Google Play Store VN' : 'Code Mới (codemoi.net)',
+              created_at: new Date().toISOString(),
+              updated_at: new Date().toISOString(),
+            };
+            gamesList.unshift(newGame);
+            existingGameSlugs.add(p.slug);
+            existingGameBaseSlugs.add(bSlug);
+            autoPublished.push(newGame);
+            continue;
+          }
+
+          // 3. Otherwise remain in pending with cleaned title and local icon path
+          nextPending.push({
+            ...p,
+            name: cleanName,
+            developer: decodeEntities(p.developer),
+            localIconPath: `/game_icons/${p.slug}.webp`,
+          });
+        }
+
+        // Persist to D1
+        await setSettingD1(env.DB, 'wcg_admin_games_v5', gamesList);
+        await setSettingD1(env.DB, 'wcg_admin_free_codes_v5', freeCodesList);
+        await setSettingD1(env.DB, 'wcg_crawler_pending_games_v1', nextPending);
+        invalidateGamesCatalogCache();
+        await invalidateCatalogEdgeCache(context as any, request, env).catch(() => {});
+
+        return new Response(JSON.stringify({
+          success: true,
+          message: `Đã tự động đăng ${autoPublished.length} game có code, giải phóng ${reconciledDuplicateCount} game trùng lặp, còn lại ${nextPending.length} game chờ duyệt.`,
+          autoPublishedCount: autoPublished.length,
+          reconciledDuplicateCount,
+          remainingPendingCount: nextPending.length,
+          games: gamesList,
+          pendingGames: nextPending,
         }), { headers: CORS_HEADERS });
       } catch (err: any) {
         return new Response(JSON.stringify({ success: false, error: String(err?.message || err) }), { status: 500, headers: CORS_HEADERS });

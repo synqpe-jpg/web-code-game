@@ -3916,6 +3916,45 @@ class AdminDataService {
     }
   }
 
+  public async autoPublishGamesWithCodes(): Promise<{
+    success: boolean;
+    message?: string;
+    autoPublishedCount?: number;
+    reconciledDuplicateCount?: number;
+    remainingPendingCount?: number;
+  }> {
+    try {
+      const res = await fetch('/api/sync', {
+        method: 'POST',
+        headers: this.getAuthHeaders(),
+        body: JSON.stringify({
+          action: 'auto_publish_games_with_codes',
+        }),
+      });
+      const data = await res.json();
+      if (data && data.success) {
+        if (Array.isArray(data.pendingGames)) {
+          this.pendingGames = data.pendingGames;
+          this.setPendingGames(this.pendingGames);
+        }
+        if (Array.isArray(data.games)) {
+          this.games = data.games;
+          this.saveGames();
+        }
+        return {
+          success: true,
+          message: data.message,
+          autoPublishedCount: data.autoPublishedCount || 0,
+          reconciledDuplicateCount: data.reconciledDuplicateCount || 0,
+          remainingPendingCount: data.remainingPendingCount || 0,
+        };
+      }
+      return { success: false, message: data?.error || 'Tự động đăng game có code thất bại' };
+    } catch (e: any) {
+      return { success: false, message: e?.message || 'Lỗi kết nối khi tự động đăng game' };
+    }
+  }
+
   public getFullStateSnapshot(): any {
     return {
       storeProducts: this.getStoreProducts().filter((p) => !this.deletedStoreProductIds.has(p.id)),
