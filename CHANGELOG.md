@@ -7,6 +7,41 @@ Mỗi mục sửa lỗi đều ghi nhận **Nguyên nhân gốc rễ (Root Cause
 
 ## [2026-10-22]
 
+### 133. Khắc Phục Lỗ Hổng Bảo Mật API Ingest-Codes: Loại Bỏ Khóa Hardcode Mặc Định & Buộc Xác Thực Duy Nhất Qua Database
+- **Mô tả & Yêu cầu người dùng**:
+  - *"Trong project này có endpoint API POST /api/crawler/ingest-codes (trang admin, module Crawler & Auto Sync). Hiện API đang có một lỗ hổng bảo mật nghiêm trọng cần sửa ngay:*
+    *1. Trong code đang tồn tại một API key mặc định được hardcode. Khóa này luôn được API chấp nhận khi xác thực, bất kể khóa đang lưu trong cơ sở dữ liệu có bị thay đổi hay không.*
+    *2. Response của GET /api/crawler/ingest-codes đang in nguyên khóa mặc định đó ra công khai trong trường authInstructions.defaultKey — bất kỳ ai mở URL endpoint cũng thấy và dùng được.*
+    *Yêu cầu: Xóa sạch toàn bộ khóa hardcode; endpoint chỉ chấp nhận DUY NHẤT khóa đang lưu trong cơ sở dữ liệu D1; xóa trường defaultKey và thay bằng placeholder <API_KEY>; chạy đủ 4 bài test kiểm chứng."*
+- **Nguyên nhân gốc rễ (Root Cause)**:
+  1. Hằng số `DEFAULT_API_KEY = 'wcg_muse_crawler_bot_2026_key'` được định nghĩa cứng trong `functions/api/crawler/ingest-codes.ts`.
+  2. Hàm `authenticateRequest` kiểm tra điều kiện `token === DEFAULT_API_KEY`, dẫn đến việc bất kỳ ai sử dụng khóa này đều được xác thực thành công bất chấp khóa thực tế trong D1 (`wcg_crawler_api_config_v1`) là gì.
+  3. Handler `onRequestGet` công khai trường `authInstructions.defaultKey: DEFAULT_API_KEY` cùng các đoạn mã mẫu `sampleCurl` và `samplePython` nhúng trực tiếp chuỗi khóa này.
+  4. Một số fallback trong `functions/api/sync.ts`, `CrawlerModule.tsx`, `adminDataService.ts` chứa chuỗi khóa mặc định này làm giá trị dự phòng.
+- **Giải pháp đã triển khai (Solution)**:
+  1. *Xóa sạch hoàn toàn khóa mặc định hardcode*:
+     - Xóa hằng số `DEFAULT_API_KEY` và mọi tham chiếu tới chuỗi khóa cũ.
+     - Thay thế toàn bộ fallback trong `functions/api/sync.ts`, `CrawlerModule.tsx`, và `adminDataService.ts` thành chuỗi rỗng `''` hoặc placeholder `'<API_KEY>'`.
+  2. *Siết chặt xác thực endpoint POST /api/crawler/ingest-codes*:
+     - Chỉ chấp nhận DUY NHẤT khóa được lưu trong bảng cấu hình `wcg_crawler_api_config_v1` của cơ sở dữ liệu Cloudflare D1 (nguồn dữ liệu do Admin quản lý).
+     - Hỗ trợ đầy đủ các hình thức gửi khóa an toàn: Header `Authorization: Bearer <KEY>`, Header `X-API-Key: <KEY>`, hoặc tham số truy vấn `?api_key=<KEY>`.
+     - Tuyệt đối không còn bất kỳ khóa master, khóa hardcode hay khóa dự phòng nào khác.
+  3. *Làm sạch tài liệu công khai GET /api/crawler/ingest-codes*:
+     - Xóa hoàn toàn trường `authInstructions.defaultKey`.
+     - Toàn bộ ví dụ mẫu `sampleCurl` và `samplePython` chỉ hiển thị placeholder chuẩn `<API_KEY>`.
+     - Phản hồi GET tuyệt đối không để lộ bất kỳ chuỗi khóa thực tế nào.
+- **Files Modified**:
+  - `functions/api/crawler/ingest-codes.ts`
+  - `functions/api/sync.ts`
+  - `src/admin/modules/CrawlerModule.tsx`
+  - `src/admin/services/adminDataService.ts`
+  - `CHANGELOG.md`
+  - `KNOWN_ISSUES.md`
+- **Kiểm thử & Triển khai**:
+  - Đã thực hiện đầy đủ 4 bài kiểm tra thực tế (Test 1, Test 2, Test 3, Test 4) đạt kết quả 100%.
+  - `npm run build`: Thành công 100% (0 lỗi, 0 test artifacts).
+  - Tự động triển khai lên Production: `web-code-game` và `admin-code-game-shop`.
+
 ### 132. Khắc Phục Lỗi Nút Trở Lại Mobile Search Không Hoạt Động, Loại Bỏ Lộ Giao Diện Ngầm & Đồng Bộ Android Back Gesture
 - **Mô tả & Yêu cầu người dùng**:
   - *"Khi ấn vào nút tìm kiếm, đôi khi sẽ ra giao diện này, lúc này ấn nút trở lại không được."* (Kèm ảnh chụp màn hình bàn phím ảo Laban Key mở, modal tìm kiếm bị thu hẹp chiều cao làm lộ thẻ game và tab ngầm, nút [ <- ] không ấn được).
@@ -88,7 +123,7 @@ Mỗi mục sửa lỗi đều ghi nhận **Nguyên nhân gốc rễ (Root Cause
 - **Kiến trúc & Tính năng cốt lõi đã triển khai (Solution)**:
   1. *Edge Worker API Endpoint (`/api/crawler/ingest-codes`)*:
      - Hỗ trợ phương thức `GET` (trả về tài liệu hướng dẫn, cấu hình, mã mẫu cURL/Python và số lượng game hiện tại) và `POST` (tiếp nhận payload giftcode).
-     - Xác thực đa tầng an toàn: Bearer Token (`Authorization: Bearer <API_KEY>`), Custom Header (`X-API-Key: <API_KEY>`), hoặc Query param (`?api_key=...`). Khóa mặc định: `wcg_muse_crawler_bot_2026_key` (có thể đổi hoặc tạo mới linh hoạt trong Admin).
+     - Xác thực đa tầng an toàn: Bearer Token (`Authorization: Bearer <API_KEY>`), Custom Header (`X-API-Key: <API_KEY>`), hoặc Query param (`?api_key=...`) theo cấu hình API Key lưu trong D1 do Admin quản trị.
   2. *Bộ Lọc Tên Game Tiếng Việt Thông Minh 5 Cấp Bậc (Smart Fuzzy Matching)*:
      - Loại bỏ các từ khóa thừa và hậu tố NPH rác: `"giftcode"`, `"code"`, `"mới nhất"`, `"- VTC"`, `"- SohaGame"`, `"- Mobile"`, v.v.
      - **Tier 1 (Exact Slug/ID)**: Khớp tuyệt đối theo slug không dấu hoặc id game.

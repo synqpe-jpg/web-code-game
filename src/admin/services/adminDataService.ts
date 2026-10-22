@@ -60,7 +60,7 @@ class AdminDataService {
   };
   private crawlerApiConfig: CrawlerApiConfig = {
     enabled: true,
-    apiKey: 'wcg_muse_crawler_bot_2026_key',
+    apiKey: '',
     botName: 'Muse Master Bot',
     autoPublish: true,
   };
@@ -4201,7 +4201,7 @@ class AdminDataService {
     try {
       const syncRes = await fetch('/api/sync?fast=true', {
         headers: {
-          'Authorization': `Bearer ${this.crawlerApiConfig.apiKey || 'wcg_muse_crawler_bot_2026_key'}`,
+          'Authorization': `Bearer ${this.crawlerApiConfig.apiKey || ''}`,
         },
       });
       if (syncRes.ok) {

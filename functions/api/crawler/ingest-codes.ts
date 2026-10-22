@@ -30,10 +30,10 @@ const CORS_HEADERS = {
   'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-API-Key, X-Sync-Key, X-Requested-With',
 };
 
-const DEFAULT_API_KEY = 'wcg_muse_crawler_bot_2026_key';
-
 /**
  * Xác thực API Key
+ * Chỉ chấp nhận DUY NHẤT khóa đang lưu trong cơ sở dữ liệu D1 (cùng nguồn dữ liệu module Crawler & Auto Sync).
+ * Không tồn tại bất kỳ khóa mặc định hay khóa dự phòng hardcode nào.
  */
 async function authenticateRequest(request: Request, env: Env): Promise<{ authorized: boolean; botName: string; error?: string }> {
   const urlObj = new URL(request.url);
@@ -47,24 +47,17 @@ async function authenticateRequest(request: Request, env: Env): Promise<{ author
     return { authorized: false, botName: '', error: 'Thiếu API Key xác thực (Bearer Token, header X-API-Key hoặc tham số ?api_key=...)' };
   }
 
-  // 1. Master Keys
-  if (
-    token === DEFAULT_API_KEY ||
-    token === 'wcg_tok_usr_admin_master' ||
-    (env.MUSE_API_KEY && token === env.MUSE_API_KEY.trim()) ||
-    (env.ADMIN_SYNC_SECRET && token === env.ADMIN_SYNC_SECRET.trim())
-  ) {
-    return { authorized: true, botName: 'Muse Master Bot' };
-  }
-
-  // 2. Custom API Key được cấu hình trong D1
+  // Xác thực duy nhất với khóa cấu hình đang lưu trong cơ sở dữ liệu D1
   if (env.DB) {
     try {
       const apiConfig = await getSettingD1(env.DB, 'wcg_crawler_api_config_v1');
-      if (apiConfig && apiConfig.apiKey && token === String(apiConfig.apiKey).trim()) {
-        return { authorized: true, botName: apiConfig.botName || 'External Bot' };
+      const configuredKey = apiConfig?.apiKey ? String(apiConfig.apiKey).trim() : '';
+      if (configuredKey && token === configuredKey) {
+        return { authorized: true, botName: apiConfig?.botName || 'External Bot' };
       }
-    } catch {}
+    } catch (err) {
+      console.error('[IngestCodes] Lỗi đọc cấu hình API từ D1:', err);
+    }
   }
 
   return { authorized: false, botName: '', error: 'API Key không chính xác hoặc đã bị vô hiệu hóa.' };
@@ -274,7 +267,6 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
     authInstructions: {
       header: 'Authorization: Bearer <API_KEY> hoặc X-API-Key: <API_KEY>',
       queryParam: '?api_key=<API_KEY>',
-      defaultKey: DEFAULT_API_KEY,
     },
     capabilities: [
       'Tự động lọc và khớp tên game tiếng Việt thông minh (Fuzzy Vietnamese Accent Matching).',
@@ -284,7 +276,7 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
     ],
     sampleCurl: `curl -X POST "${urlObj.origin}/api/crawler/ingest-codes" \\
   -H "Content-Type: application/json" \\
-  -H "Authorization: Bearer ${DEFAULT_API_KEY}" \\
+  -H "Authorization: Bearer <API_KEY>" \\
   -d '{
     "gameName": "Mộng Thiên Kiếm",
     "codes": ["MONGTHIENKIEM", "VIP666", "VIP888"],
@@ -297,7 +289,7 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
 url = "${urlObj.origin}/api/crawler/ingest-codes"
 headers = {
     "Content-Type": "application/json",
-    "Authorization": "Bearer ${DEFAULT_API_KEY}"
+    "Authorization": "Bearer <API_KEY>"
 }
 payload = {
     "gameName": "Mộng Thiên Kiếm",

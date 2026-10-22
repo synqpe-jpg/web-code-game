@@ -253,7 +253,7 @@ export const CrawlerModule: React.FC<CrawlerModuleProps> = ({ onShowToast }) => 
   // State Cổng API & Webhook (Muse Bot)
   const [crawlerApiConfig, setCrawlerApiConfig] = useState<CrawlerApiConfig>({
     enabled: true,
-    apiKey: 'wcg_muse_crawler_bot_2026_key',
+    apiKey: '',
     botName: 'Muse Master Bot',
     autoPublish: true,
   });
@@ -1556,7 +1556,7 @@ export const CrawlerModule: React.FC<CrawlerModuleProps> = ({ onShowToast }) => 
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${crawlerApiConfig.apiKey || 'wcg_muse_crawler_bot_2026_key'}`,
+          'Authorization': `Bearer ${crawlerApiConfig.apiKey || ''}`,
         },
         body: JSON.stringify(payload),
       });
@@ -3251,7 +3251,8 @@ export const CrawlerModule: React.FC<CrawlerModuleProps> = ({ onShowToast }) => 
                   <input
                     type={showApiKey ? 'text' : 'password'}
                     readOnly
-                    value={crawlerApiConfig.apiKey || 'wcg_muse_crawler_bot_2026_key'}
+                    value={crawlerApiConfig.apiKey || ''}
+                    placeholder="Chưa có API Key"
                     className="bg-transparent text-xs text-amber-300 font-mono flex-1 outline-none select-all font-semibold"
                   />
                   <button
@@ -3264,7 +3265,7 @@ export const CrawlerModule: React.FC<CrawlerModuleProps> = ({ onShowToast }) => 
                   </button>
                   <button
                     type="button"
-                    onClick={() => handleCopyText(crawlerApiConfig.apiKey || 'wcg_muse_crawler_bot_2026_key', 'key')}
+                    onClick={() => handleCopyText(crawlerApiConfig.apiKey || '', 'key')}
                     className="px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-medium flex items-center gap-1 transition-colors cursor-pointer"
                   >
                     {copiedKey ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
@@ -3522,7 +3523,7 @@ export const CrawlerModule: React.FC<CrawlerModuleProps> = ({ onShowToast }) => 
                 type="button"
                 onClick={() => {
                   const currentOrigin = typeof window !== 'undefined' ? window.location.origin : 'https://codegame.shop';
-                  const key = crawlerApiConfig.apiKey || 'wcg_muse_crawler_bot_2026_key';
+                  const key = crawlerApiConfig.apiKey || '<API_KEY>';
                   let codeToCopy = '';
                   if (apiSnippetLang === 'python') {
                     codeToCopy = `import requests
@@ -3588,7 +3589,7 @@ console.log(data);`;
 import requests
 
 API_URL = "${typeof window !== 'undefined' ? window.location.origin : 'https://codegame.shop'}/api/crawler/ingest-codes"
-API_KEY = "${crawlerApiConfig.apiKey || 'wcg_muse_crawler_bot_2026_key'}"
+API_KEY = "${crawlerApiConfig.apiKey || '<API_KEY>'}"
 
 headers = {
     "Content-Type": "application/json",
@@ -3613,7 +3614,7 @@ print("API Response:", response.json())`}
                 {apiSnippetLang === 'curl' && `# 💻 cURL Terminal Command
 curl -X POST "${typeof window !== 'undefined' ? window.location.origin : 'https://codegame.shop'}/api/crawler/ingest-codes" \\
   -H "Content-Type: application/json" \\
-  -H "Authorization: Bearer ${crawlerApiConfig.apiKey || 'wcg_muse_crawler_bot_2026_key'}" \\
+  -H "Authorization: Bearer ${crawlerApiConfig.apiKey || '<API_KEY>'}" \\
   -d '{
     "gameName": "Mộng Thiên Kiếm",
     "codes": ["MONGTHIENKIEM", "VIP666", "VIP888", "VIP999"],
@@ -3626,7 +3627,7 @@ const res = await fetch('${typeof window !== 'undefined' ? window.location.origi
   method: 'POST',
   headers: {
     'Content-Type': 'application/json',
-    'Authorization': 'Bearer ${crawlerApiConfig.apiKey || 'wcg_muse_crawler_bot_2026_key'}',
+    'Authorization': 'Bearer ${crawlerApiConfig.apiKey || '<API_KEY>'}',
   },
   body: JSON.stringify({
     gameName: 'Mộng Thiên Kiếm',

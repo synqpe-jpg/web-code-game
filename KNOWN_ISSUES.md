@@ -10,6 +10,22 @@
 
 ## 1. DANH MỤC LỖI & CÁC BẪY ĐÃ THẤT BẠI (DO NOT REPEAT)
 
+### ISSUE-072: Lỗ Hổng Bảo Mật API Ingest-Codes Do Tồn Tại API Key Mặc Định Hardcode & Lộ Khóa Trong Response GET
+- **Triệu chứng**:
+  - Endpoint `POST /api/crawler/ingest-codes` chấp nhận một API key mặc định hardcode bất kể khóa trong cơ sở dữ liệu D1 có bị thay đổi hay không.
+  - Endpoint `GET /api/crawler/ingest-codes` in nguyên khóa mặc định trong trường `authInstructions.defaultKey` và mã mẫu `sampleCurl`/`samplePython`, khiến bất kỳ ai cũng có thể đọc được khóa và gửi dữ liệu lên hệ thống.
+- **Nguyên nhân gốc rễ**:
+  1. Hằng số `DEFAULT_API_KEY` được định nghĩa trong code và hàm `authenticateRequest` kiểm tra `token === DEFAULT_API_KEY`.
+  2. Tài liệu công khai GET in trực tiếp `defaultKey` và nhúng chuỗi khóa vào script mẫu.
+  3. Giá trị fallback trong code Admin và sync logic sử dụng khóa mặc định thay vì chuỗi rỗng hoặc placeholder.
+- **Giải pháp chuẩn đã kiểm chứng**:
+  - Xóa sạch hằng số và chuỗi khóa mặc định trên toàn bộ codebase.
+  - `authenticateRequest` chỉ chấp nhận DUY NHẤT khóa được lưu trong bảng cấu hình `wcg_crawler_api_config_v1` của D1.
+  - Loại bỏ hoàn toàn trường `defaultKey` trong response GET, thay thế các đoạn mã mẫu bằng placeholder `<API_KEY>`.
+- ⛔ **CÁCH SỬA ĐÃ THẤT BẠI - TUYỆT ĐỐI KHÔNG LẶP LẠI**:
+  - ❌ *Không bao giờ hardcode API key hoặc token mặc định vào mã nguồn làm phương án fallback*: Mọi khóa xác thực phải được nạp động từ cơ sở dữ liệu (D1) hoặc biến môi trường bí mật (Secrets).
+  - ❌ *Không bao giờ in API key thực tế trong response tài liệu GET công khai*: Chỉ sử dụng placeholder dạng `<API_KEY>` trong các đoạn code mẫu cURL / Python / Node.js.
+
 ### ISSUE-071: Nút Quay Lại [ <- ] Trên Mobile Search Bị Trơ Khi Bàn Phím Ảo Mở & Layout Bị Thu Hẹp Làm Lộ Thẻ Game
 - **Triệu chứng**:
   - Trên điện thoại di động (Android / iOS), khi chạm mở thanh tìm kiếm và bàn phím ảo (Laban Key / Gboard / iOS keyboard) hiện lên:

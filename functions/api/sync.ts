@@ -749,7 +749,7 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
       responsePayload.crawlerLogs = d1Settings['wcg_crawler_logs_v1'] || masterState.crawlerLogs || [];
       responsePayload.crawlerApiConfig = d1Settings['wcg_crawler_api_config_v1'] || masterState.crawlerApiConfig || {
         enabled: true,
-        apiKey: 'wcg_muse_crawler_bot_2026_key',
+        apiKey: '',
         botName: 'Muse Master Bot',
         autoPublish: true,
       };
