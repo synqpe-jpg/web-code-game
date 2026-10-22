@@ -2083,13 +2083,13 @@ export async function loadAllStoreProductsD1(db: D1Database): Promise<any[]> {
         sp.discount_percent, 
         sp.current_price, 
         CASE 
-          WHEN (SELECT COUNT(*) FROM inventory_codes ic WHERE ic.product_id = sp.id) > 0 
-          THEN (SELECT COUNT(*) FROM inventory_codes ic WHERE ic.product_id = sp.id AND ic.status = 'AVAILABLE')
+          WHEN ic_agg.total_cnt > 0 
+          THEN COALESCE(ic_agg.available_cnt, 0)
           ELSE sp.stock_quantity 
         END AS stock_quantity,
         CASE 
-          WHEN (SELECT COUNT(*) FROM inventory_codes ic WHERE ic.product_id = sp.id) > 0 
-          THEN (SELECT COUNT(*) FROM inventory_codes ic WHERE ic.product_id = sp.id AND ic.status = 'SOLD')
+          WHEN ic_agg.total_cnt > 0 
+          THEN COALESCE(ic_agg.sold_cnt, 0)
           ELSE sp.sold_count 
         END AS sold_count,
         sp.is_active, 
@@ -2104,6 +2104,15 @@ export async function loadAllStoreProductsD1(db: D1Database): Promise<any[]> {
         COALESCE(sp.show_sold_count, 1) AS show_sold_count,
         sp.created_at
       FROM store_products sp
+      LEFT JOIN (
+        SELECT 
+          product_id,
+          COUNT(*) AS total_cnt,
+          SUM(CASE WHEN status = 'AVAILABLE' THEN 1 ELSE 0 END) AS available_cnt,
+          SUM(CASE WHEN status = 'SOLD' THEN 1 ELSE 0 END) AS sold_cnt
+        FROM inventory_codes
+        GROUP BY product_id
+      ) ic_agg ON sp.id = ic_agg.product_id
       WHERE sp.is_active = 1 AND sp.id NOT LIKE 'ut_%'
       ORDER BY sp.id ASC
     `).all();
@@ -2150,13 +2159,13 @@ export async function loadAllUtilitiesD1(db: D1Database): Promise<any[]> {
           u.discount_percent, 
           u.current_price, 
           CASE 
-            WHEN (SELECT COUNT(*) FROM inventory_codes ic WHERE ic.product_id = u.id) > 0 
-            THEN (SELECT COUNT(*) FROM inventory_codes ic WHERE ic.product_id = u.id AND ic.status = 'AVAILABLE')
+            WHEN ic_agg.total_cnt > 0 
+            THEN COALESCE(ic_agg.available_cnt, 0)
             ELSE u.stock_quantity 
           END AS stock_quantity,
           CASE 
-            WHEN (SELECT COUNT(*) FROM inventory_codes ic WHERE ic.product_id = u.id) > 0 
-            THEN (SELECT COUNT(*) FROM inventory_codes ic WHERE ic.product_id = u.id AND ic.status = 'SOLD')
+            WHEN ic_agg.total_cnt > 0 
+            THEN COALESCE(ic_agg.sold_cnt, 0)
             ELSE u.sold_count 
           END AS sold_count,
           u.is_active, 
@@ -2178,6 +2187,15 @@ export async function loadAllUtilitiesD1(db: D1Database): Promise<any[]> {
           COALESCE(u.product_images, '[]') AS product_images,
           u.created_at
         FROM utilities u
+        LEFT JOIN (
+          SELECT 
+            product_id,
+            COUNT(*) AS total_cnt,
+            SUM(CASE WHEN status = 'AVAILABLE' THEN 1 ELSE 0 END) AS available_cnt,
+            SUM(CASE WHEN status = 'SOLD' THEN 1 ELSE 0 END) AS sold_cnt
+          FROM inventory_codes
+          GROUP BY product_id
+        ) ic_agg ON u.id = ic_agg.product_id
         WHERE u.is_active = 1
         ORDER BY u.id ASC
       `).all();
@@ -2341,13 +2359,13 @@ export async function loadAllGiveawaysD1(db: D1Database, includeCodes: boolean =
         COALESCE(g.rewards, '') AS rewards, 
         g.total_codes, 
         CASE 
-          WHEN (SELECT COUNT(*) FROM giveaway_codes gc WHERE gc.giveaway_id = g.id) > 0 
-          THEN (SELECT COUNT(*) FROM giveaway_codes gc WHERE gc.giveaway_id = g.id AND gc.status = 'AVAILABLE')
+          WHEN gc_agg.total_cnt > 0 
+          THEN COALESCE(gc_agg.available_cnt, 0)
           ELSE g.remaining_codes 
         END AS remaining_codes,
         CASE 
-          WHEN (SELECT COUNT(*) FROM giveaway_codes gc WHERE gc.giveaway_id = g.id) > 0 
-          THEN (SELECT COUNT(*) FROM giveaway_codes gc WHERE gc.giveaway_id = g.id AND gc.status = 'CLAIMED')
+          WHEN gc_agg.total_cnt > 0 
+          THEN COALESCE(gc_agg.claimed_cnt, 0)
           ELSE g.claimed_codes 
         END AS claimed_codes,
         COALESCE(g.min_account_age_days, 0) AS min_account_age_days,
@@ -2364,6 +2382,15 @@ export async function loadAllGiveawaysD1(db: D1Database, includeCodes: boolean =
         g.status, 
         g.created_at
       FROM giveaways g
+      LEFT JOIN (
+        SELECT 
+          giveaway_id,
+          COUNT(*) AS total_cnt,
+          SUM(CASE WHEN status = 'AVAILABLE' THEN 1 ELSE 0 END) AS available_cnt,
+          SUM(CASE WHEN status = 'CLAIMED' THEN 1 ELSE 0 END) AS claimed_cnt
+        FROM giveaway_codes
+        GROUP BY giveaway_id
+      ) gc_agg ON g.id = gc_agg.giveaway_id
       ORDER BY g.created_at DESC
     `).all();
     const rows = (res && res.results) || [];

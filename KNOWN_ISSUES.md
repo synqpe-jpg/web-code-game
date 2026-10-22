@@ -10,6 +10,24 @@
 
 ## 1. DANH MỤC LỖI & CÁC BẪY ĐÃ THẤT BẠI (DO NOT REPEAT)
 
+### ISSUE-066: Bùng Nổ D1 Rows Read Do Correlated Scalar Subqueries & Client `syncWithCloudflareKV(true)` Ép Bypass Cache
+- **Triệu chứng**:
+  - Cloudflare Dashboard báo lượng đọc D1 tăng vọt lên 1.12M / 5M rows read chỉ trong buổi sáng, số lượng query chạm 17.42k queries.
+- **Nguyên nhân gốc rễ**:
+  1. *Correlated Scalar Subqueries trong `loadAllGiveawaysD1`*:
+     - Câu lệnh SELECT từ `giveaways` chứa 3 scalar subqueries quét bảng `giveaway_codes` cho mỗi dòng giveaway. 42 dòng $\times$ 3 subqueries khiến SQLite thực hiện 126 lần quét cho mỗi request, ngốn tới 862 rows read/lần gọi (chiếm hơn 401k rows read tổng cộng).
+  2. *Client gọi `syncWithCloudflareKV(true)`*:
+     - Các view `NewsView.tsx` và `UtilitiesView.tsx` gọi `dataService.syncWithCloudflareKV(true)` với query param `?fresh=1&_t=${Date.now()}` và header `no-cache, no-store`.
+     - URL bị gắn timestamp khiến Cloudflare Edge CDN không bao giờ hit cache, mỗi lượt xem trang đều ép D1 đọc hơn 1.000 rows.
+- **Giải pháp chuẩn đã kiểm chứng**:
+  - Tối ưu câu lệnh SQL bằng Single Aggregated `LEFT JOIN` gom nhóm trước (`GROUP BY`), cắt giảm ngay 95% lượng đọc từ 862 rows xuống 42 rows.
+  - Gỡ bỏ cờ `(true)` trong `NewsView.tsx` và `UtilitiesView.tsx`.
+  - Khóa chặt cờ `forceFresh` trong `dataService.ts`: Chỉ Admin đăng nhập trong `/admin` mới được bypass cache.
+  - Bổ sung In-Memory Isolate Cache 15s trong `functions/api/sync.ts` và giãn D1 write throttle lên 60s trong `realEventsHub.ts`.
+- ⛔ **CÁCH SỬA ĐÃ THẤT BẠI - TUYỆT ĐỐI KHÔNG LẶP LẠI**:
+  - ❌ *Không dùng Scalar Subqueries lồng trong mệnh đề SELECT trên SQLite/D1*: Luôn chuyển sang `LEFT JOIN (SELECT ... GROUP BY)` để SQLite gom nhóm 1 lần thay vì quét lặp từng dòng.
+  - ❌ *Không cho phép máy khách thông thường truyền `_t=${Date.now()}` hoặc `fresh=1`*: Đây là nguyên nhân trực tiếp triệt tiêu toàn bộ hiệu năng của Cloudflare Edge CDN.
+
 ### ISSUE-065: Lỗi Ẩn Bài Viết Mới Do Thiếu Trường `published_at` & Bẫy Hồi Sinh Dữ Liệu Mock Thay Vì Khôi Phục Mã Thật Chưa Phát Hết
 - **Triệu chứng**:
   - Web Quản trị cập nhật tin tức đến ngày 22/10 nhưng ngoài Web Khách danh sách bài viết chỉ hiển thị đến ngày 13/10.

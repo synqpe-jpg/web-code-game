@@ -309,7 +309,7 @@ class DataService {
           }
 
           if (type.includes('content') || type.includes('branding')) {
-            this.syncWithCloudflareKV(true).then(() => {
+            this.syncWithCloudflareKV().then(() => {
               this.reload();
               window.dispatchEvent(new CustomEvent('wcg_admin_content_updated'));
             });
@@ -434,8 +434,14 @@ class DataService {
 
     this.activeSyncPromise = (async () => {
       try {
-        const fetchOpts: RequestInit = forceFresh ? { headers: { 'Cache-Control': 'no-cache, no-store' } } : {};
-        const url = forceFresh ? `/api/sync?fresh=1&_t=${Date.now()}` : '/api/sync';
+        const isAdmin = typeof window !== 'undefined' && (
+          window.location.hash.includes('/admin') ||
+          Boolean(sessionStorage.getItem('wcg_admin_session')) ||
+          Boolean(localStorage.getItem('wcg_auth_token'))
+        );
+        const shouldBypass = forceFresh && isAdmin;
+        const fetchOpts: RequestInit = shouldBypass ? { headers: { 'Cache-Control': 'no-cache, no-store' } } : {};
+        const url = shouldBypass ? '/api/sync?fresh=1' : '/api/sync';
         const res = await fetch(url, fetchOpts);
         if (res.ok) {
           const dateHeader = res.headers.get('date');

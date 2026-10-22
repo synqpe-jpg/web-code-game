@@ -240,6 +240,28 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
     }
 
     // 2. Fetch master state - Cloudflare D1 as authoritative Single Source of Truth (SSOT)
+    const isNoCache = request.headers.get('Cache-Control')?.includes('no-cache') ||
+                      request.headers.get('Pragma')?.includes('no-cache') ||
+                      url.searchParams.has('nocache') ||
+                      url.searchParams.has('fresh');
+
+    const globalScope = globalThis as any;
+    const nowMs = Date.now();
+    const PUBLIC_CACHE_TTL_MS = 15000; // 15s in-memory isolate cache for public GET /api/sync
+
+    if (!authorized && !isNoCache && globalScope.__wcg_public_sync_cache) {
+      if (nowMs - globalScope.__wcg_public_sync_cache.cachedAt < PUBLIC_CACHE_TTL_MS) {
+        return new Response(globalScope.__wcg_public_sync_cache.bodyStr, {
+          headers: {
+            ...CORS_HEADERS,
+            'Cache-Control': 'public, max-age=15, s-maxage=30, stale-while-revalidate=60',
+            'X-Server-Time': new Date().toISOString(),
+            'X-Cache-Status': 'HIT-ISOLATE',
+          },
+        });
+      }
+    }
+
     let masterState: any = null;
     let rawStoreProducts: any[] = [];
     let rawUtilities: any[] = [];
@@ -891,12 +913,15 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
       }
     }
 
-    const isNoCache = request.headers.get('Cache-Control')?.includes('no-cache') ||
-                      request.headers.get('Pragma')?.includes('no-cache') ||
-                      url.searchParams.has('nocache') ||
-                      url.searchParams.has('fresh');
+    const bodyStr = JSON.stringify(responsePayload);
+    if (!authorized && !isNoCache) {
+      globalScope.__wcg_public_sync_cache = {
+        bodyStr,
+        cachedAt: nowMs,
+      };
+    }
 
-    return new Response(JSON.stringify(responsePayload), {
+    return new Response(bodyStr, {
       headers: {
         ...CORS_HEADERS,
         'Cache-Control': (authorized || isNoCache)
@@ -1588,6 +1613,7 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
         }
 
         invalidateGamesCatalogCache();
+        (globalThis as any).__wcg_public_sync_cache = null;
         await invalidateCatalogEdgeCache(context as any, request, env).catch(() => {});
 
         return new Response(JSON.stringify({

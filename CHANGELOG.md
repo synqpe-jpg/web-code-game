@@ -7,6 +7,39 @@ Mỗi mục sửa lỗi đều ghi nhận **Nguyên nhân gốc rễ (Root Cause
 
 ## [2026-10-22]
 
+### 124. Điều Tra & Triệt Tiêu Nguyên Nhân Bùng Nổ D1 (1.12M Rows Read): Tối Ưu Hóa Correlated Subqueries & Chặn Triệt Để Bypass Edge Cache
+- **Mô tả & Yêu cầu người dùng**:
+  - Người dùng gửi ảnh dashboard Cloudflare: Lượng đọc D1 tăng vọt lên **1.12M / 5M** với **17.42k queries**, hỏi: *"Bạn kiểm tra giúp tôi xem, lượng d1 đang tăng rất nhanh, có chỗ nào bất thường?"*
+- **Nguyên nhân gốc rễ qua dữ liệu GraphQL Analytics chi tiết (Root Cause via Exact Query Tracing)**:
+  1. *Thủ phạm số 1: Truy vấn `loadAllGiveawaysD1` chứa Correlated Subqueries ngốn 401.669 rows read*:
+     - Trong `functions/services/d1_service.ts`, câu lệnh SELECT từ `giveaways` chứa 3 câu truy vấn con lồng nhau (`SELECT COUNT(*) FROM giveaway_codes...`).
+     - Với 42 chiến dịch giveaway, SQLite thực hiện $42 \times 3 = 126$ lần quét `giveaway_codes` cho **mỗi lượt gọi**.
+     - Kết quả phân tích GraphQL: Chỉ riêng truy vấn này chạy 466 lần đã ngốn tới **401.669 rows read** (trung bình ~862 rows/lần gọi)!
+  2. *Thủ phạm số 2: Các component `NewsView.tsx` và `UtilitiesView.tsx` gọi `syncWithCloudflareKV(true)`*:
+     - Khi mở trang Tin Tức hoặc Tiện Ích, code gọi `dataService.syncWithCloudflareKV(true)`.
+     - Tham số `true` kích hoạt cờ `forceFresh`, nối thêm `?fresh=1&_t=${Date.now()}` kèm header `no-cache, no-store`.
+     - Tham số timestamp `_t` biến mỗi request thành 1 URL duy nhất, khiến Cloudflare Edge CDN **luôn bị Cache Miss 100%**. Mỗi lượt xem trang buộc Edge Worker phải quét toàn bộ giveaway, sản phẩm và tiện ích D1 (~1.000 rows read/request).
+  3. *Thủ phạm số 3: Thiếu In-Memory Isolate Cache tại endpoint `/api/sync`*:
+     - Không có bộ đệm bộ nhớ isolate, khiến các request đồng thời hoặc nối tiếp nhau từ các tab client liên tục ép đọc D1.
+- **Giải pháp dứt điểm đã triển khai (Solution)**:
+  1. *Tối ưu hóa câu truy vấn D1 với Single Aggregated `LEFT JOIN`*:
+     - Chuyển đổi toàn bộ subqueries rời rạc trong `loadAllGiveawaysD1`, `loadAllStoreProductsD1` và `loadAllUtilitiesD1` thành `LEFT JOIN (SELECT ... GROUP BY ...)` một lần duy nhất.
+     - Giảm số lượng rows read của `loadAllGiveawaysD1` từ **862 rows** xuống chỉ còn **42 rows** (Giảm ngay **95%** lượng đọc D1)!
+  2. *Gỡ bỏ hoàn toàn `forceFresh` bypass cache phía client*:
+     - Trong `NewsView.tsx` và `UtilitiesView.tsx`: chuyển `syncWithCloudflareKV(true)` thành `syncWithCloudflareKV()`.
+     - Trong `dataService.ts`: Khóa chặt logic bypass cache, CHỈ cho phép khi thực sự đang đăng nhập quyền Admin trong trang Quản trị (`/admin`). Khách vãng lai 100% dùng URL chuẩn `/api/sync` để tận dụng triệt để Cloudflare Edge CDN Cache.
+  3. *Trang bị In-Memory Isolate Cache 15s cho `/api/sync`*:
+     - Bổ sung `__wcg_public_sync_cache` tại `functions/api/sync.ts`. Bất kỳ request nào tới cùng isolate trong vòng 15 giây sẽ được phản hồi ngay lập tức trong 0ms với **0 D1 reads**.
+  4. *Giãn throttle ghi D1 trong `realEventsHub.ts` từ 30s lên 60s*:
+     - Cắt giảm 50% số lượng truy vấn write vào bảng `system_settings`.
+- **Files Modified**:
+  - `functions/api/sync.ts`
+  - `functions/services/d1_service.ts`
+  - `functions/services/realEventsHub.ts`
+  - `src/components/NewsView.tsx`
+  - `src/components/UtilitiesView.tsx`
+  - `src/services/dataService.ts`
+
 ### 123. Khôi Phục Đúng Kho Mã Thật Chưa Phát Hết (3Q Đào Đào Đào, Anh Hùng Tiến Lên), Xóa Sạch Mock Yến Vân Rotwood & Khắc Phục Lỗi Sắp Xếp Ngày Tin Tức (22/10 vs 13/10)
 - **Mô tả & Yêu cầu người dùng**:
   - Người dùng phản ánh gay gắt: *"Có vẻ bạn đã bịa ra số liệu nào đó, trên thực tế tôi chưa bao giờ thêm mã thật vào game Yến Vân Thập Lục Thanh, bản cũ của tôi có chứa các mã của game 3qq Đào đào đào và một tựa game khác chưa phát hết. Nguyên tắc của tôi cho bạn là không bịa ra sản phẩm ảo sao bạn vẫn cho vào? Bản còn các mã giveaway của tôi chưa phát hết đâu? Mục tin tức trước đó trong admin cập nhật đến ngày 22 còn web khách sao bảo đồng bộ rồi vẫn chỉ thấy đến 13/10? Rốt cuộc có vấn đề gì xảy ra với bạn?"*

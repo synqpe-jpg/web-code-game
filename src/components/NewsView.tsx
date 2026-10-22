@@ -73,7 +73,7 @@ export const NewsView: React.FC<NewsViewProps> = ({
   useEffect(() => {
     loadArticles();
     // Tự động kéo dữ liệu mới nhất từ máy chủ để làm sạch hoàn toàn cache cũ trên client
-    dataService.syncWithCloudflareKV(true).catch(() => {});
+    dataService.syncWithCloudflareKV().catch(() => {});
 
     // Listen to news updates (from admin sync)
     const handleNewsUpdate = () => loadArticles();

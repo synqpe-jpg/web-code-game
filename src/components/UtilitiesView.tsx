@@ -159,7 +159,7 @@ export const UtilitiesView: React.FC<UtilitiesViewProps> = ({
 
   useEffect(() => {
     // Luôn kích hoạt đồng bộ dữ liệu mới nhất từ Cloudflare D1 khi mở trang Tiện Ích
-    dataService.syncWithCloudflareKV(true);
+    dataService.syncWithCloudflareKV();
 
     const handleUpdate = () => {
       const rawLatest = dataService.getUtilityProducts();
