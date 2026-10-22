@@ -31,7 +31,9 @@ import {
   PackageCheck,
   Box,
   Users,
+  Dices,
 } from 'lucide-react';
+import { LuckyWheelSection } from './LuckyWheelSection';
 import confetti from 'canvas-confetti';
 import { CyberLoader } from './CyberLoader';
 import { dataService } from '../services/dataService';
@@ -252,7 +254,7 @@ export const GiveawaysView: React.FC<GiveawaysViewProps> = ({
   // Gom nhóm các chiến dịch Giveaway cùng Tựa Game thành chiến dịch đại diện
   const groupedCampaigns = useMemo(() => groupGiveawaysByGame(giveaways), [giveaways]);
   const [claimedList, setClaimedList] = useState<ClaimedCodeRecord[]>([]);
-  const [activeTab, setActiveTab] = useState<'campaigns' | 'my_codes'>('campaigns');
+  const [activeTab, setActiveTab] = useState<'campaigns' | 'my_codes' | 'wheel'>('campaigns');
   const [copiedCode, setCopiedCode] = useState<string | null>(null);
   const [cmsIntro, setCmsIntro] = useState(() => dataService.getContentByKey('giveaway_section'));
   const [claimingId, setClaimingId] = useState<string | null>(null);
@@ -628,10 +630,10 @@ export const GiveawaysView: React.FC<GiveawaysViewProps> = ({
           </div>
 
           {/* Tab Switcher */}
-          <div className="flex items-center gap-1.5 sm:gap-2 p-1 sm:p-1.5 rounded-xl sm:rounded-2xl bg-muted/70 border border-border shrink-0 self-stretch sm:self-auto">
+          <div className="flex items-center gap-1.5 sm:gap-2 p-1 sm:p-1.5 rounded-xl sm:rounded-2xl bg-muted/70 border border-border shrink-0 self-stretch sm:self-auto overflow-x-auto scrollbar-none">
             <button
               onClick={() => setActiveTab('campaigns')}
-              className={`flex-1 sm:flex-initial flex items-center justify-center gap-1.5 sm:gap-2 px-3 py-2 sm:px-4 sm:py-2.5 rounded-lg sm:rounded-xl text-xs font-bold transition-all cursor-pointer ${
+              className={`flex-1 sm:flex-initial flex items-center justify-center gap-1.5 sm:gap-2 px-3 py-2 sm:px-4 sm:py-2.5 rounded-lg sm:rounded-xl text-xs font-bold transition-all cursor-pointer whitespace-nowrap ${
                 activeTab === 'campaigns'
                   ? 'bg-primary text-white shadow-glow-primary'
                   : 'text-muted-foreground hover:text-foreground'
@@ -641,8 +643,19 @@ export const GiveawaysView: React.FC<GiveawaysViewProps> = ({
               <span>Đang Mở ({groupedCampaigns.filter((c) => c.is_active !== false).length})</span>
             </button>
             <button
+              onClick={() => setActiveTab('wheel')}
+              className={`flex-1 sm:flex-initial flex items-center justify-center gap-1.5 sm:gap-2 px-3 py-2 sm:px-4 sm:py-2.5 rounded-lg sm:rounded-xl text-xs font-bold transition-all cursor-pointer whitespace-nowrap ${
+                activeTab === 'wheel'
+                  ? 'bg-gradient-to-r from-amber-500 to-orange-500 text-white shadow-lg shadow-amber-500/30'
+                  : 'text-muted-foreground hover:text-foreground'
+              }`}
+            >
+              <Dices className="w-3.5 h-3.5 text-amber-300" />
+              <span>🎡 Vòng Quay May Mắn</span>
+            </button>
+            <button
               onClick={() => setActiveTab('my_codes')}
-              className={`flex-1 sm:flex-initial flex items-center justify-center gap-1.5 sm:gap-2 px-3 py-2 sm:px-4 sm:py-2.5 rounded-lg sm:rounded-xl text-xs font-bold transition-all cursor-pointer ${
+              className={`flex-1 sm:flex-initial flex items-center justify-center gap-1.5 sm:gap-2 px-3 py-2 sm:px-4 sm:py-2.5 rounded-lg sm:rounded-xl text-xs font-bold transition-all cursor-pointer whitespace-nowrap ${
                 activeTab === 'my_codes'
                   ? 'bg-primary text-white shadow-glow-primary'
                   : 'text-muted-foreground hover:text-foreground'
@@ -1278,6 +1291,14 @@ export const GiveawaysView: React.FC<GiveawaysViewProps> = ({
             )}
           </div>
         </div>
+      ) : activeTab === 'wheel' ? (
+        <LuckyWheelSection
+          currentUser={currentUser}
+          onOpenAuth={onOpenAuth}
+          onShowToast={onShowToast}
+          onViewClaimedCodes={() => setActiveTab('my_codes')}
+          themeContext="giveaways"
+        />
       ) : (
         /* Tab: My Claimed Codes */
         <div className="space-y-4">

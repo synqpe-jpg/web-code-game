@@ -2,12 +2,15 @@ export interface WheelSlice {
   id: string;
   label: string;
   sublabel?: string;
-  type: 'CORE' | 'SPIN' | 'GIFTCODE' | 'VOUCHER' | 'EMPTY';
+  type: 'CORE' | 'SPIN' | 'GIFTCODE' | 'VOUCHER' | 'EMPTY' | 'ITEM';
   value: number | string;
   color: string;
   textColor: string;
   probability: number; // Tỷ lệ xuất hiện (trọng số)
   codeContent?: string;
+  codesList?: string[]; // Danh sách mã code dự trữ để phát dần
+  totalCodesCount?: number; // Tổng số mã đã nạp
+  remainingCodesCount?: number; // Số mã còn lại trong kho
 }
 
 export interface DailyReward {

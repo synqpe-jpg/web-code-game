@@ -115,7 +115,7 @@ export const DEFAULT_GROWTH_CONFIG: GrowthConfig = {
   referrerBonusSpins: 1, // Tặng lượt quay
 
   // 4. Vòng Quay May Mắn
-  wheelEnabled: false,
+  wheelEnabled: true,
   dailyFreeSpins: 1,
   costPerSpinCore: 10000,
   slices: DEFAULT_WHEEL_SLICES,
@@ -442,10 +442,10 @@ class GrowthService {
   public spinWheel(
     userId: string,
     useCore: boolean = false
-  ): { success: boolean; sliceIndex: number; slice: WheelSlice | null; message: string } {
+  ): { success: boolean; sliceIndex: number; slice: WheelSlice | null; awardedCode?: string; message: string } {
     const cfg = this.getConfig();
-    if (!cfg.isEnabled || !cfg.wheelEnabled) {
-      return { success: false, sliceIndex: -1, slice: null, message: 'Vòng Quay May Mắn hiện đang bảo trì.' };
+    if (!cfg.wheelEnabled) {
+      return { success: false, sliceIndex: -1, slice: null, message: 'Vòng Quay May Mắn hiện đang tạm đóng hoặc bảo trì.' };
     }
 
     const data = this.getUserGrowthData(userId);
@@ -453,7 +453,7 @@ class GrowthService {
 
     if (!useCore) {
       if (data.freeSpinsAvailable <= 0) {
-        return { success: false, sliceIndex: -1, slice: null, message: 'Bạn đã hết lượt quay miễn phí hôm nay. Hãy mời bạn bè hoặc dùng Core để quay tiếp!' };
+        return { success: false, sliceIndex: -1, slice: null, message: 'Bạn đã hết lượt quay miễn phí hôm nay. Hãy dùng Core để quay tiếp!' };
       }
       data.freeSpinsAvailable -= 1;
       data.lastFreeSpinDate = today;
@@ -462,7 +462,7 @@ class GrowthService {
       const currentUser = dataService.getCurrentUser();
       const cost = cfg.costPerSpinCore || 10000;
       if (!currentUser || (currentUser.wallet_balance || 0) < cost) {
-        return { success: false, sliceIndex: -1, slice: null, message: `Số dư ví không đủ ${cost.toLocaleString('vi-VN')} Core để mua thêm lượt quay.` };
+        return { success: false, sliceIndex: -1, slice: null, message: `Số dư ví không đủ ${cost.toLocaleString('vi-VN')}đ để mua thêm lượt quay.` };
       }
       // Trừ Core
       currentUser.wallet_balance -= cost;
@@ -486,18 +486,60 @@ class GrowthService {
     const wonSlice = slices[selectedIndex];
     data.totalSpinsCount += 1;
 
-    // Xử lý trao thưởng
-    if (wonSlice.type === 'CORE' && typeof wonSlice.value === 'number' && wonSlice.value > 0) {
+    let awardedCode: string | undefined = undefined;
+
+    // Xử lý trao thưởng cụ thể theo từng loại phần thưởng
+    if (wonSlice.type === 'GIFTCODE') {
+      if (Array.isArray(wonSlice.codesList) && wonSlice.codesList.length > 0) {
+        awardedCode = wonSlice.codesList.shift();
+        wonSlice.remainingCodesCount = wonSlice.codesList.length;
+        this.saveConfig({ slices });
+      } else if (wonSlice.codeContent) {
+        awardedCode = wonSlice.codeContent;
+      } else if (typeof wonSlice.value === 'string' && wonSlice.value.trim()) {
+        awardedCode = wonSlice.value.trim();
+      } else {
+        awardedCode = `WCG-VIP-LUCKY-${Math.random().toString(36).substring(2, 8).toUpperCase()}`;
+      }
+
+      // Tự động lưu vào danh sách "Mã đã nhận" của người dùng
+      try {
+        dataService.saveClaimedCode({
+          campaignId: `wheel_${wonSlice.id}`,
+          campaignTitle: `Vòng Quay May Mắn - ${wonSlice.label}`,
+          gameName: 'Vòng Quay May Mắn',
+          gameSlug: 'vong-quay-may-man',
+          code: awardedCode,
+          rewards: wonSlice.sublabel || wonSlice.label,
+          claimedAt: new Date().toISOString(),
+          isUsed: false,
+        });
+      } catch {}
+    } else if (wonSlice.type === 'CORE' && typeof wonSlice.value === 'number' && wonSlice.value > 0) {
       dataService.topupWallet(wonSlice.value);
     } else if (wonSlice.type === 'SPIN' && typeof wonSlice.value === 'number') {
       data.freeSpinsAvailable += wonSlice.value;
+    } else if (wonSlice.type === 'VOUCHER') {
+      awardedCode = typeof wonSlice.value === 'string' ? wonSlice.value : (wonSlice.codeContent || 'WCG-VOUCHER-LUCKY');
+      try {
+        dataService.saveClaimedCode({
+          campaignId: `wheel_voucher_${wonSlice.id}`,
+          campaignTitle: `Voucher Giảm Giá - ${wonSlice.label}`,
+          gameName: 'Shop Code Game',
+          gameSlug: 'shop-code-game',
+          code: awardedCode,
+          rewards: wonSlice.sublabel || wonSlice.label,
+          claimedAt: new Date().toISOString(),
+          isUsed: false,
+        });
+      } catch {}
     }
 
     data.spinHistory.unshift({
       id: `spin_${Date.now()}`,
       timestamp: new Date().toISOString(),
       sliceLabel: wonSlice.label,
-      reward: wonSlice.label,
+      reward: awardedCode ? `${wonSlice.label}: ${awardedCode}` : wonSlice.label,
     });
     if (data.spinHistory.length > 20) data.spinHistory = data.spinHistory.slice(0, 20);
 
@@ -507,6 +549,7 @@ class GrowthService {
       success: true,
       sliceIndex: selectedIndex,
       slice: wonSlice,
+      awardedCode,
       message: `Chúc mừng bạn đã quay trúng: ${wonSlice.label}!`,
     };
   }

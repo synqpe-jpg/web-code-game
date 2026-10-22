@@ -32,7 +32,9 @@ import {
   Package,
   BookOpen,
   ExternalLink,
+  Dices,
 } from 'lucide-react';
+import { LuckyWheelSection } from './LuckyWheelSection';
 import confetti from 'canvas-confetti';
 import { CyberLoader } from './CyberLoader';
 import { dataService } from '../services/dataService';
@@ -69,6 +71,7 @@ export const UtilitiesView: React.FC<UtilitiesViewProps> = ({
   onClearSelectedUtility,
 }) => {
   const [utilities, setUtilities] = useState<UtilityProduct[]>(() => dataService.getUtilityProducts());
+  const [activeMainTab, setActiveMainTab] = useState<'catalog' | 'wheel'>('catalog');
   const [selectedPackage, setSelectedPackage] = useState<ProductPackageVariant | null>(null);
   const [categoriesList, setCategoriesList] = useState<UtilityCategory[]>(() => dataService.getUtilityCategories());
   const [filterCategory, setFilterCategory] = useState<string>('all');
@@ -495,7 +498,43 @@ export const UtilitiesView: React.FC<UtilitiesViewProps> = ({
         </div>
       </div>
 
-      {/* Filter and Search Bar */}
+      {/* Tab Switcher: Kho Tiện Ích vs Vòng Quay May Mắn */}
+      <div className="flex items-center gap-1.5 sm:gap-2 p-1 sm:p-1.5 rounded-xl sm:rounded-2xl bg-muted/70 border border-border shrink-0 w-fit">
+        <button
+          onClick={() => setActiveMainTab('catalog')}
+          className={`flex items-center gap-1.5 sm:gap-2 px-3 py-2 sm:px-4 sm:py-2.5 rounded-lg sm:rounded-xl text-xs font-bold transition-all cursor-pointer ${
+            activeMainTab === 'catalog'
+              ? 'bg-teal-600 text-white shadow-sm'
+              : 'text-muted-foreground hover:text-foreground'
+          }`}
+        >
+          <Wrench className="w-3.5 h-3.5" />
+          <span>Kho Tiện Ích & Dịch Vụ ({utilities.length})</span>
+        </button>
+        <button
+          onClick={() => setActiveMainTab('wheel')}
+          className={`flex items-center gap-1.5 sm:gap-2 px-3 py-2 sm:px-4 sm:py-2.5 rounded-lg sm:rounded-xl text-xs font-bold transition-all cursor-pointer ${
+            activeMainTab === 'wheel'
+              ? 'bg-gradient-to-r from-amber-500 to-orange-500 text-white shadow-lg shadow-amber-500/30'
+              : 'text-muted-foreground hover:text-foreground'
+          }`}
+        >
+          <Dices className="w-3.5 h-3.5 text-amber-300" />
+          <span>🎡 Vòng Quay May Mắn</span>
+        </button>
+      </div>
+
+      {activeMainTab === 'wheel' ? (
+        <LuckyWheelSection
+          currentUser={currentUser}
+          onOpenAuth={onOpenAuth}
+          onShowToast={onShowToast}
+          onViewClaimedCodes={() => setActiveMainTab('catalog')}
+          themeContext="utilities"
+        />
+      ) : (
+        <>
+          {/* Filter and Search Bar */}
       <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2.5">
         {/* Category tabs - Horizontal scrollable on mobile */}
         <div className="relative flex-1 min-w-0 overflow-hidden w-full max-w-full">
@@ -890,6 +929,8 @@ export const UtilitiesView: React.FC<UtilitiesViewProps> = ({
             );
           })}
         </div>
+      )}
+      </>
       )}
 
       {/* PRODUCT DETAIL MODAL 2 CỘT HIỂN THỊ CÁC GÓI CON / VARIANTS */}

@@ -23,7 +23,9 @@ import {
   Users,
   Bell,
   MessageSquare,
+  Dices,
 } from 'lucide-react';
+import { LuckyWheelAdminManager } from '../components/LuckyWheelAdminManager';
 import { FormModal } from '../components/ui/FormModal';
 import { ConfirmModal } from '../components/ui/ConfirmModal';
 import { ImageUploadInput } from '../components/ui/ImageUploadInput';
@@ -46,6 +48,7 @@ export const PrivateCodesModule: React.FC<PrivateCodesModuleProps> = ({ onShowTo
   const [statusFilter, setStatusFilter] = useState<'ALL' | 'ACTIVE' | 'INACTIVE'>('ALL');
   const [searchQuery, setSearchQuery] = useState('');
   const [copiedId, setCopiedId] = useState<string | null>(null);
+  const [subTab, setSubTab] = useState<'campaigns' | 'wheel'>('campaigns');
 
   // --- SHOW / HIDE VIRTUAL METRICS TOGGLE ---
   const [showVirtualStats, setShowVirtualStats] = useState<boolean>(() => {
@@ -456,7 +459,41 @@ export const PrivateCodesModule: React.FC<PrivateCodesModuleProps> = ({ onShowTo
 
   return (
     <div className="space-y-6 animate-in fade-in duration-200">
-      {/* Top Header Card */}
+      {/* Subtab Switcher */}
+      <div className="flex items-center gap-2 border-b border-slate-200 dark:border-slate-800 pb-3">
+        <button
+          type="button"
+          onClick={() => setSubTab('campaigns')}
+          className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+            subTab === 'campaigns'
+              ? 'bg-purple-600 text-white shadow-sm'
+              : 'bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-700 hover:bg-slate-50'
+          }`}
+        >
+          <span>🎁 Đợt Phát Code (Giveaway)</span>
+          <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-black/20 text-white font-mono">
+            {giveaways.length}
+          </span>
+        </button>
+        <button
+          type="button"
+          onClick={() => setSubTab('wheel')}
+          className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+            subTab === 'wheel'
+              ? 'bg-gradient-to-r from-amber-500 to-orange-500 text-white shadow-sm'
+              : 'bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-700 hover:bg-slate-50'
+          }`}
+        >
+          <Dices className="w-3.5 h-3.5 text-amber-400" />
+          <span>🎡 Quản Lý Vòng Quay May Mắn</span>
+        </button>
+      </div>
+
+      {subTab === 'wheel' ? (
+        <LuckyWheelAdminManager onShowToast={onShowToast} contextTitle="Phát Code & Giveaway" />
+      ) : (
+        <>
+          {/* Top Header Card */}
       <div className="rounded-2xl border border-slate-200 bg-white p-6 dark:border-slate-800 dark:bg-slate-900 shadow-sm">
         <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 border-b border-slate-100 pb-5 dark:border-slate-800">
           <div>
@@ -914,6 +951,8 @@ export const PrivateCodesModule: React.FC<PrivateCodesModuleProps> = ({ onShowTo
           </table>
         </div>
       </div>
+      </>
+      )}
 
       {/* CREATE / EDIT GIVEAWAY MODAL */}
       <FormModal

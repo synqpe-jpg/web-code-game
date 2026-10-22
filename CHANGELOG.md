@@ -7,6 +7,40 @@ Mỗi mục sửa lỗi đều ghi nhận **Nguyên nhân gốc rễ (Root Cause
 
 ## [2026-10-22]
 
+### 134. Bổ Sung Tính Năng "Vòng Quay May Mắn" (Lucky Wheel) Cho Phát Code & Giveaway, Tiện Ích Và Trang Quản Trị Admin
+- **Mô tả & Yêu cầu người dùng**:
+  - *"Trong mục phát code và giveaway, bạn thêm một mục Vòng quay giúp tôi, trong admin tôi có thể thêm danh sách mã, thiết lập tỉ lệ, điều giá cho mỗi lượt, điều chỉnh phần thưởng, cụ thể từng loiaj phần thưởng... Mục Tiện Ích cũng thêm vòng quay tương tự giúp tôi."*
+- **Nguyên nhân & Nhu cầu hệ thống**:
+  - Tăng tương tác người dùng (gamification / retention), cho phép người dùng quay thưởng nhận giftcode độc quyền, điểm Core, lượt quay miễn phí hoặc voucher giảm giá.
+  - Cần hệ thống quản trị trực quan tại Admin cho phép cấu hình 8 ô phần thưởng, thêm danh sách mã quà tặng (hỗ trợ nhập hàng loạt), tinh chỉnh xác suất trúng (%), giá mỗi lượt quay (Core), và đồng bộ dữ liệu đa kênh qua Cloudflare D1.
+- **Giải pháp đã triển khai (Solution)**:
+  1. *Mở rộng Type & Engine*:
+     - Bổ sung `codesList?: string[]`, `totalCodesCount?: number`, `remainingCodesCount?: number` vào `WheelSlice` (`src/types/growth.ts`).
+     - Cập nhật hàm `growthService.spinWheel`: khi quay trúng ô có mã giftcode, tự động trích 1 mã từ kho `codesList`, trừ tồn kho, lưu trực tiếp vào lịch sử "Mã Đã Nhận" của tài khoản (`dataService.saveClaimedCode`), cộng Core / lượt quay thưởng nếu trúng các loại phần thưởng tương ứng.
+  2. *Giao diện Vòng Quay May Mắn Client (`src/components/LuckyWheelSection.tsx`)*:
+     - Thiết kế vòng quay HTML5 Canvas sắc nét với 8 ô phần thưởng, viền LED ánh vàng lấp lánh, kim chỉ hướng mạ vàng sang trọng và hiệu ứng quay vật lý cubic-bezier mượt mà.
+     - HUD hiển thị lượt quay miễn phí hàng ngày, số dư Core ví, chi phí mỗi lượt quay.
+     - Modal công bố chiến thắng kèm hiệu ứng pháo hoa Confetti, nút sao chép mã 1 chạm và dẫn lối người dùng tới kho mã cá nhân.
+     - Tích hợp liền mạch thành Tab "🎡 Vòng Quay May Mắn" trong cả **Phát Code & Giveaway** (`src/components/GiveawaysView.tsx`) và **Tiện Ích & Dịch Vụ** (`src/components/UtilitiesView.tsx`).
+  3. *Trang Quản Trị Admin Vòng Quay (`src/admin/components/LuckyWheelAdminManager.tsx`)*:
+     - Bật/tắt tính năng toàn cục, điều chỉnh số lượt quay miễn phí mỗi ngày, chi phí mỗi lượt quay (Core).
+     - Bảng cấu hình 8 ô phần thưởng: Tên hiển thị, mô tả phụ, phân loại (`GIFTCODE`, `CORE`, `SPIN`, `VOUCHER`, `ITEM`, `EMPTY`), giá trị, mã màu sắc, và tỉ lệ trúng thưởng (%) với nút tự động cân bằng 100%.
+     - Modal nhập kho mã giftcode số lượng lớn (Bulk Code Import): dán nhiều mã cùng lúc, xem danh sách mã còn lại, xóa từng mã hoặc xóa toàn bộ kho.
+     - Tích hợp trực tiếp vào 2 module Admin: **Phát Code Riêng** (`PrivateCodesModule.tsx`) và **Tiện Ích & Dịch Vụ** (`UtilitiesModule.tsx`).
+- **Files Created & Modified**:
+  - `src/types/growth.ts`
+  - `src/services/growthService.ts`
+  - `src/components/LuckyWheelSection.tsx` *(Mới tạo)*
+  - `src/admin/components/LuckyWheelAdminManager.tsx` *(Mới tạo)*
+  - `src/components/GiveawaysView.tsx`
+  - `src/components/UtilitiesView.tsx`
+  - `src/admin/modules/PrivateCodesModule.tsx`
+  - `src/admin/modules/UtilitiesModule.tsx`
+  - `CHANGELOG.md`
+- **Kiểm thử & Triển khai**:
+  - Build kiểm thử đạt 100% (0 lỗi, 0 test artifacts).
+  - Tự động triển khai lên Production: `web-code-game` và `admin-code-game-shop`.
+
 ### 133. Khắc Phục Lỗ Hổng Bảo Mật API Ingest-Codes: Loại Bỏ Khóa Hardcode Mặc Định & Buộc Xác Thực Duy Nhất Qua Database
 - **Mô tả & Yêu cầu người dùng**:
   - *"Trong project này có endpoint API POST /api/crawler/ingest-codes (trang admin, module Crawler & Auto Sync). Hiện API đang có một lỗ hổng bảo mật nghiêm trọng cần sửa ngay:*
