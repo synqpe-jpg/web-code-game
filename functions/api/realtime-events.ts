@@ -41,8 +41,8 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
   return new Response(JSON.stringify(payload), {
     headers: {
       ...CORS_HEADERS,
-      // Edge response: ensure fresh real-user events across all clients without browser/PoP stale caching
-      'Cache-Control': 'no-cache, no-store, must-revalidate',
+      // Edge response: cached for 15s at Edge CDN to protect D1, invalidated instantly on Admin updates
+      'Cache-Control': 'public, max-age=10, s-maxage=15, stale-while-revalidate=30',
     },
   });
 };

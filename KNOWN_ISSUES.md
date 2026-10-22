@@ -10,6 +10,33 @@
 
 ## 1. DANH MỤC LỖI & CÁC BẪY ĐÃ THẤT BẠI (DO NOT REPEAT)
 
+### ISSUE-063: Lỗ hổng Polling ngầm 12s tại `marketingService` bypass Edge Cache gây cạn kiệt Cloudflare D1 Quota
+- **Triệu chứng**:
+  - Cloudflare D1 chạm trần 5.000.000 rows read/ngày rất nhanh dù lượng người dùng đồng thời ở mức trung bình.
+  - Sau khi D1 chạm trần, các API đồng bộ bị lỗi `D1_ERROR: Your account has exceeded D1's free tier daily row read limit`.
+- **Nguyên nhân gốc rễ**:
+  1. *Tham số `fresh=1&_t=${Date.now()}` trong `fetchMetricsSnapshot()`*:
+     `snapshotPollerTimer` lặp lại mỗi **12 giây** trên mọi tab trình duyệt mở của khách (`marketingService.ts`). URL bị hardcode tham số `fresh=1&_t=${Date.now()}` kèm `{ cache: 'no-store' }`.
+     Tham số `_t=${Date.now()}` tạo ra URL mới mỗi lần gọi, khiến Cloudflare Edge CDN không bao giờ hit cache.
+     Tham số `fresh=1` kích hoạt cờ `force = true` tại `functions/api/metrics/synced.ts`, ép Worker chạy đồng bộ 9 truy vấn D1 liên tục.
+  2. *Polling `/api/realtime-events` mỗi 18-22s với `{ cache: 'no-store' }`*:
+     Endpoint này trả về header `no-cache, no-store`, đồng thời hàm `getRealEventsHub()` thiếu bộ đệm isolate in-memory khiến mỗi request đều truy vấn bảng `wcg_real_events_hub` trong D1.
+  3. *TTL Edge Cache công khai quá ngắn tại `/api/sync`*:
+     `s-maxage=5s` quá ngắn khiến Edge CDN hết hạn chỉ sau 5 giây.
+- **Giải pháp chuẩn đã kiểm chứng**:
+  - Gỡ bỏ hoàn toàn `?fresh=1&_t=...` và `no-store` trong các cuộc gọi ngầm tại `marketingService.ts` và `growthService.ts`.
+  - Giãn chu kỳ poller từ 12s lên 25s cho snapshot và 25-30s cho realtime events.
+  - Cấu hình header Cache-Control chuẩn cho Cloudflare Edge CDN:
+    - `/api/metrics/synced`: `public, max-age=10, s-maxage=15, stale-while-revalidate=30`.
+    - `/api/realtime-events`: `public, max-age=10, s-maxage=15, stale-while-revalidate=30`.
+    - `/api/sync`: `public, max-age=15, s-maxage=30, stale-while-revalidate=60`.
+    - `/api/stats`: `public, max-age=15, s-maxage=30, stale-while-revalidate=60`.
+  - Trang bị isolate in-memory cache TTL 10s trong `realEventsHub.ts`.
+  - Kết hợp với cơ chế Purge tức thì của `invalidateCatalogEdgeCache()`: Ngay khi Admin lưu bất kỳ thay đổi nào, Edge CDN xóa cache toàn cầu ngay lập tức, đảm bảo đồng bộ 100% dữ liệu Admin -> Web Khách mà không tiêu tốn đọc D1.
+- ⛔ **CÁCH SỬA ĐÃ THẤT BẠI - TUYỆT ĐỐI KHÔNG LẶP LẠI**:
+  - ❌ *Không bao giờ hardcode `_t=${Date.now()}`, `fresh=1`, hoặc `{ cache: 'no-store' }` trong các hàm background poller hoặc `setInterval`*: Đây là thủ phạm số 1 gây bùng nổ truy vấn D1.
+  - ❌ *Không đặt `s-maxage` quá ngắn (< 15s) trên các endpoint danh mục public*: Khiến Cloudflare Edge CDN liên tục phải forward request vào D1.
+
 ### ISSUE-062: Lỗi thiếu giftcode game Hắc Tây Du: Chương Cấm & Lãng phí hạn mức D1 do URL Polling bypass Edge Cache
 - **Triệu chứng**:
   - Tựa game `Hắc Tây Du: Chương Cấm` chỉ hiển thị 5 mã giftcode khởi tạo (`ALPHA9F3`, `ALPHA6X9`, `ALPHA3R6`, `TICAN333`, `NHICAN222`), thiếu các mã chính thức từ NPH Funtap, YouTube và đối tác (`HACTAYDU888`, `CHUONGCAM`, `TAYDUKI`, `HTDCC999`, `VIP666`...).

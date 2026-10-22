@@ -197,7 +197,7 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
   return new Response(JSON.stringify(responseData), {
     headers: {
       'Content-Type': 'application/json',
-      'Cache-Control': 'no-cache, no-store, must-revalidate',
+      'Cache-Control': 'public, max-age=15, s-maxage=30, stale-while-revalidate=60',
       'Access-Control-Allow-Origin': '*',
     },
   });

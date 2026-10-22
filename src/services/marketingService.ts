@@ -355,7 +355,7 @@ class MarketingService {
   public async fetchMetricsSnapshot(): Promise<void> {
     if (typeof window === 'undefined') return;
     try {
-      const res = await fetch(`/api/metrics/synced?fresh=1&_t=${Date.now()}`, { cache: 'no-store' });
+      const res = await fetch('/api/metrics/synced');
       if (!res.ok) return;
       const data: any = await res.json().catch(() => null);
       if (data && data.success && data.snapshot) {
@@ -600,7 +600,7 @@ class MarketingService {
       this.schedulePeakReport();
     }, 800);
 
-    const intervalSec = Math.max(10, Math.min(30, Number(this.config.syncIntervalSeconds) || 12));
+    const intervalSec = Math.max(20, Math.min(60, Number(this.config.syncIntervalSeconds) || 25));
     this.snapshotPollerTimer = setInterval(() => {
       if (typeof document !== 'undefined' && document.visibilityState === 'hidden') return;
       this.fetchMetricsSnapshot();
@@ -1540,7 +1540,7 @@ class MarketingService {
       }
 
       try {
-        const res = await fetch('/api/realtime-events', { cache: 'no-store' });
+        const res = await fetch('/api/realtime-events');
         if (res.ok) {
           const data: any = await res.json();
           if (data && data.success) {
@@ -1566,9 +1566,9 @@ class MarketingService {
     // First background poll after 1 second for snappy start
     setTimeout(poll, 1000);
 
-    // Periodic poll (18s to 22s) for smooth real-user sync with Cloudflare Edge Cache
+    // Periodic poll (25s to 30s) for smooth real-user sync with Cloudflare Edge Cache
     const scheduleNextPoll = () => {
-      const intervalMs = 18000 + Math.floor(Math.random() * 4000);
+      const intervalMs = 25000 + Math.floor(Math.random() * 5000);
       this.realtimePollerTimer = setTimeout(async () => {
         await poll();
         if (this.isPollerRunning) {

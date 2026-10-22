@@ -85,6 +85,12 @@ export async function invalidateCatalogEdgeCache(
   url.search = '';
   const cleanUrl = url.toString();
 
+  // 0. Xóa cache bộ nhớ isolate (Worker memory) để mọi request kế tiếp buộc phải lấy snapshot mới
+  const gScope = globalThis as any;
+  gScope.__wcg_metrics_snapshot = null;
+  gScope.__wcg_hub = null;
+  gScope.__wcg_hub_loaded_at = 0;
+
   // 1. Xóa PoP cục bộ (Local Edge Datacenter)
   if (typeof caches !== 'undefined' && (caches as any).default) {
     const cache = (caches as any).default;

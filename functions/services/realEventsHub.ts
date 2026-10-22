@@ -126,7 +126,13 @@ export function mergeStockMonotonic(target: Record<string, number>, source?: Rec
   return result;
 }
 
-export async function getRealEventsHub(env: any): Promise<RealEventHubData> {
+export async function getRealEventsHub(env: any, force: boolean = false): Promise<RealEventHubData> {
+  const now = Date.now();
+  const HUB_CACHE_TTL_MS = 10000; // 10s isolate TTL to protect D1 from duplicate reads
+  if (!force && globalScope.__wcg_hub && globalScope.__wcg_hub_loaded_at && (now - globalScope.__wcg_hub_loaded_at < HUB_CACHE_TTL_MS)) {
+    return globalScope.__wcg_hub;
+  }
+
   const vnToday = new Date(Date.now() + 7 * 3600 * 1000).toISOString().slice(0, 10);
   let hub: RealEventHubData = {
     date: vnToday,
@@ -345,6 +351,7 @@ export async function getRealEventsHub(env: any): Promise<RealEventHubData> {
     lowestGiveawayRemaining: { ...(hub.lowestGiveawayRemaining || {}) },
     updatedAt: hub.updatedAt,
   };
+  globalScope.__wcg_hub_loaded_at = Date.now();
 
   return hub;
 }
@@ -410,6 +417,7 @@ export async function saveRealEventsHub(env: any, hub: RealEventHubData, forceRe
     lowestGiveawayRemaining: { ...(hub.lowestGiveawayRemaining || {}) },
     updatedAt: hub.updatedAt,
   };
+  globalScope.__wcg_hub_loaded_at = Date.now();
 
   // 2. Update Edge Cache API (TTL 5s)
   try {

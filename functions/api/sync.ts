@@ -897,7 +897,7 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
         ...CORS_HEADERS,
         'Cache-Control': (authorized || isNoCache)
           ? 'no-cache, no-store, must-revalidate'
-          : 'public, max-age=5, s-maxage=5, stale-while-revalidate=5',
+          : 'public, max-age=15, s-maxage=30, stale-while-revalidate=60',
         'X-Server-Time': new Date().toISOString(),
       },
     });

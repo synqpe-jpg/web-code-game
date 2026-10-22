@@ -254,7 +254,7 @@ class GrowthService {
   public async fetchFreshConfigFromServer(): Promise<GrowthConfig> {
     if (typeof window === 'undefined') return this.getConfig();
     try {
-      const res = await fetch(`/api/sync?fresh=1&t=${Date.now()}`);
+      const res = await fetch('/api/sync');
       if (res.ok) {
         const json = await res.json();
         if (json?.growthConfig && typeof json.growthConfig === 'object') {

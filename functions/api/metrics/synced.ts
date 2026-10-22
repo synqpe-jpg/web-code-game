@@ -9,7 +9,7 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
 
   try {
     const url = new URL(request.url);
-    const force = url.searchParams.get('force') === 'true' || url.searchParams.get('refresh') === 'true' || url.searchParams.get('fresh') === '1';
+    const force = url.searchParams.get('force') === 'true';
     const snapshot = await getOrRefreshSnapshot(env, waitUntil ? (p) => waitUntil(p) : undefined, force);
 
     return new Response(JSON.stringify({
@@ -19,7 +19,7 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
       status: 200,
       headers: {
         'Content-Type': 'application/json',
-        'Cache-Control': 'no-cache, no-store, must-revalidate',
+        'Cache-Control': force ? 'no-cache, no-store, must-revalidate' : 'public, max-age=10, s-maxage=15, stale-while-revalidate=30',
         'Access-Control-Allow-Origin': '*',
         'Access-Control-Allow-Methods': 'GET, OPTIONS',
       },
