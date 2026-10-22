@@ -10,6 +10,18 @@
 
 ## 1. DANH MỤC LỖI & CÁC BẪY ĐÃ THẤT BẠI (DO NOT REPEAT)
 
+### ISSUE-077: Nhầm Lẫn Giữa Fanpage Tổng Của Nhà Phát Hành Và Fanpage Độc Quyền Từng Game Trong Cấu Hình Crawler
+- **Triệu chứng**:
+  - Khi bot crawler quét Facebook fanpage, các mã code của nhiều game khác nhau thuộc cùng một nhà phát hành (VNG, VTC Mobile, SohaGame, Funtap) bị gán nhầm vào một tựa game duy nhất.
+- **Nguyên nhân gốc rễ**:
+  1. Nguồn Fanpage tổng của NPH (ví dụ `https://facebook.com/vnggames`, `https://facebook.com/vtcmobile.vn`) bị đặt cờ `targetGameSlug` cố định trỏ về 1 game cụ thể.
+  2. Khi `run_crawler.cjs` duyệt nguồn, nếu thấy `targetGameSlug` thì gán độ tin cậy tuyệt đối 100% (`matchConfidence = 1.0`), bỏ qua đối soát tên tựa game trong bài viết.
+- **Giải pháp chuẩn đã kiểm chứng**:
+  - Tuyệt đối không gán `targetGameSlug` cho Fanpage tổng của NPH. Các nguồn này phải để mở (`targetGameSlug = undefined`) để `GameMatcher` phân tích tiêu đề và nội dung bài viết, tự động ghép mã đúng với từng game.
+  - Chỉ gán `targetGameSlug` cho Fanpage độc quyền của từng tựa game cụ thể (ví dụ: `https://www.facebook.com/beaprovtcgame` trỏ về `be-a-pro-football`).
+- ⛔ **CÁCH SỬA ĐÃ THẤT BẠI - TUYỆT ĐỐI KHÔNG LẶP LẠI**:
+  - ❌ *Không bao giờ gán `targetGameSlug` cho các URL Fanpage tổng của NPH*: Sẽ làm sai lệch hoàn toàn dữ liệu cào giftcode toàn sàn.
+
 ### ISSUE-076: Trùng Lặp Tên Game Giữa Cơ Sở Dữ Liệu Web Và Hàng Chờ Duyệt Do Cơ Chế Quét Đa Nguồn
 - **Triệu chứng**:
   - Người dùng hoặc admin phát hiện trên Web có 2 game trùng tên hoặc crawler tự động nạp các game đã có sẵn trên sàn vào hàng chờ duyệt (ví dụ: Liên Quân Mobile, Delta Force, Crossfire, Seven Deadly Sins).

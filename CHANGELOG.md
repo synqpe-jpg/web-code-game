@@ -7,6 +7,29 @@ Mỗi mục sửa lỗi đều ghi nhận **Nguyên nhân gốc rễ (Root Cause
 
 ## [2026-10-22]
 
+### 141. Đồng Bộ & Tích Hợp 1,221 Nguồn Quét Fanpage Facebook Chính Xác Cho Toàn Bộ Game Trên Web (Exact Fanpage Crawler Sources)
+- **Mô tả & Yêu cầu người dùng**:
+  - *"@[c:\2 File\nguon-fanpage-627-game.json] Đây là danh sách toàn bộ các link trang chủ fb của các game trên web hiện tại, thêm vào nguồn quét chính xác giúp tôi."*
+- **Nguyên nhân gốc rễ (Root Cause)**:
+  1. *Thiếu nguồn Fanpage Facebook chính thức cho từng tựa game*: Trước đây hệ thống chỉ có 288 nguồn Fanpage Facebook, trong đó có tới 139 nguồn game bị gán URL Fanpage tổng của Nhà Phát Hành (`facebook.com/vnggames`, `facebook.com/vtcmobile.vn`, `facebook.com/sohagame.vn`, `facebook.com/funtap.vn`) với cờ `targetGameSlug`. Điều này khiến crawler khi cào bài đăng tổng của NPH bị nhận nhầm tất cả code của mọi game thuộc NPH đó về 1 game duy nhất.
+  2. *Thiếu liên kết Fanpage trực tiếp*: Hơn 300 tựa game trên web chưa có nguồn Fanpage riêng để bot tự động trích xuất mã giftcode sự kiện độc quyền.
+- **Giải pháp đã triển khai (Solution)**:
+  1. *Phân loại & chuẩn hóa dữ liệu 627 game*:
+     - Tách biệt rõ ràng giữa **Fanpage Tổng của Nhà Phát Hành** (Publisher Hubs không gán `targetGameSlug` để dùng `GameMatcher` đối soát tự động theo nội dung bài viết) và **Fanpage Độc Quyền Của Từng Game** (`targetGameSlug` chuẩn 100% trỏ trực tiếp đến slug của game).
+     - Nâng cấp 115 game từ link NPH tổng lên đúng Fanpage độc quyền chính thức (như `Lineage W`, `Be A Pro Football`, `Arknights: Endfield`, `Atlan Origin`, `Bloodline`, `Ballistic Hero`, v.v.).
+     - Tích hợp 484 nguồn Fanpage Facebook độc quyền trỏ thẳng đến 423 tựa game đang hoạt động trên Web Khách (đạt tỷ lệ phủ sóng 80.0% tựa game có Fanpage trực tiếp).
+     - Bổ sung đầy đủ 10 Fanpage NPH tổng còn thiếu: CMN Vietnam, Gzone Games, VGP Games, OEG, DzoGame, ABI Game Studio, TeaMobi, Wolffun Game, Topebox, JoyGames.
+     - Bảo toàn nguyên vẹn 100% các nguồn Web Uy Tín (617), Website NPH & Cổng Nạp (24), và Discord (5).
+  2. *Đồng bộ đa tầng & Serverless Edge (SSOT)*:
+     - Cập nhật đồng bộ các file dữ liệu: `src/data/crawler_sources.json`, `public/data/crawler_sources.json`, và `android/app/src/main/assets/public/data/crawler_sources.json` (tổng cộng 1,221 nguồn quét).
+     - Đồng bộ thành công lên Cloudflare D1 CSDL máy chủ (`wcg_crawler_sources_v1`) qua endpoint `/api/sync` cho cả Web Khách và Trang Quản Trị Admin.
+- **Files Modified**:
+  - `src/data/crawler_sources.json`
+  - `public/data/crawler_sources.json`
+  - `android/app/src/main/assets/public/data/crawler_sources.json`
+  - `CHANGELOG.md`
+  - `KNOWN_ISSUES.md`
+
 ### 140. Kiểm Tra & Khử Trùng Lặp Toàn Diện Game Trên Web & Hàng Chờ Duyệt (Deduplicate Web & Pending Games)
 - **Mô tả & Yêu cầu người dùng**:
   - *"Bạn kiểm tra giúp tôi, xem trên web và hàng chờ duyệt game, có bao nhiêu game trùng tên? Xóa để lại 1 giúp tôi."*
