@@ -2830,6 +2830,7 @@ class AdminDataService {
     backgroundStyle?: string;
     backgroundOpacity?: number;
     siteTitle?: string;
+    portalSubtitle?: string;
   } {
     const defaultBg =
       'https://images.unsplash.com/photo-1542751371-adc38448a05e?w=1920&auto=format&fit=crop&q=80';
@@ -2837,6 +2838,7 @@ class AdminDataService {
     const item = this.contentItems.find((c) => c.key === 'website_branding');
     const footer = this.contentItems.find((c) => c.key === 'footer_support');
 
+    const bTitle = item?.title?.trim();
     const footerTitle = footer?.extraData?.brandTitle?.trim();
     const footerLogo = footer?.extraData?.brandLogo?.trim();
 
@@ -2868,6 +2870,7 @@ class AdminDataService {
         backgroundStyle: item.extraData.backgroundStyle || 'ambient',
         backgroundOpacity: item.extraData.backgroundOpacity ?? 0.35,
         siteTitle: effectiveTitle,
+        portalSubtitle: item.extraData.portalSubtitle || 'Cổng Tra Cứu Giftcode #1',
       };
     }
     return {
@@ -2877,6 +2880,7 @@ class AdminDataService {
       backgroundStyle: 'ambient',
       backgroundOpacity: 0.35,
       siteTitle: effectiveTitle,
+      portalSubtitle: 'Cổng Tra Cứu Giftcode #1',
     };
   }
 

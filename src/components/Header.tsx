@@ -50,6 +50,7 @@ interface HeaderProps {
     backgroundStyle?: string;
     backgroundOpacity?: number;
     siteTitle?: string;
+    portalSubtitle?: string;
   };
 }
 
@@ -178,7 +179,7 @@ export const Header: React.FC<HeaderProps> = ({
                 )}
               </div>
               <span className="text-[10px] text-slate-400 font-sans hidden sm:block">
-                {t.header.portalSubtitle}
+                {branding?.portalSubtitle || t.header.portalSubtitle}
               </span>
             </div>
           </div>

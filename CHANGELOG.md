@@ -7,6 +7,30 @@ Mỗi mục sửa lỗi đều ghi nhận **Nguyên nhân gốc rễ (Root Cause
 
 ## [2026-10-22]
 
+### 139. Thêm Tùy Chọn Tùy Biến Khẩu Hiệu Header "Cổng Tra Cứu Giftcode #1" & Sửa Triệt Để Lỗi Máy Chủ "isLegacyOrEmpty is not defined" (Content CMS)
+- **Mô tả & Yêu cầu người dùng**:
+  - *"Tôi không tìm thấy chỗ tùy chọn thay đổi nội dung dòng chữ Cổng tra cứu Giftcode #1, Khi tôi cập nhật nội dung máy chủ báo như ảnh 2."*
+- **Nguyên nhân gốc rễ (Root Cause)**:
+  1. *Thiếu trường tùy biến khẩu hiệu Header*: Dòng chữ nhỏ "Cổng Tra Cứu Giftcode #1" (`portalSubtitle`) nằm dưới tên website ở thanh Header trước đây chỉ lấy giá trị mặc định từ `t.header.portalSubtitle` trong i18n, chưa có trường nhập liệu trong Quản Trị Nội Dung Web (mục Nhận Diện Thương Hiệu `website_branding`).
+  2. *Lỗi phạm vi biến gây lỗi lưu (Scope Inversion Crash)*: Hàm `isLegacyOrEmpty` trước đây được khai báo cục bộ bên trong hàm `loadCMSData` (dòng 185). Khi Admin lưu từng mục (`handleSaveSection('footer')`) hoặc bấm nút "Lưu Tất Cả Nội Dung Web Khách" (`handleSaveAll`), các hàm này cố gọi `isLegacyOrEmpty` nhưng hàm không tồn tại trong scope ngoài, dẫn đến `ReferenceError: isLegacyOrEmpty is not defined` và bắn toast cảnh báo lỗi kết nối máy chủ Cloudflare.
+  3. *Lỗi biến chưa khai báo trong `adminDataService.ts`*: Trong `adminDataService.ts:getWebsiteBranding`, biến `bTitle` được sử dụng trong `!isLegacyOrEmpty(bTitle)` nhưng chưa có khai báo `const bTitle = item?.title?.trim();`.
+- **Giải pháp đã triển khai (Solution)**:
+  1. *Khắc phục triệt để lỗi `isLegacyOrEmpty is not defined`*:
+     - Đưa hàm `isLegacyOrEmpty` ra phạm vi module bên ngoài component `ContentCMSModule`, đảm bảo mọi hàm con (`loadCMSData`, `handleSaveSection`, `handleSaveAll`) đều truy cập hợp lệ 100%.
+     - Bổ sung khai báo `const bTitle = item?.title?.trim();` trong `adminDataService.ts`.
+  2. *Bổ sung ô tùy chọn khẩu hiệu Header trong Quản Trị Nội Dung*:
+     - Thêm ô nhập liệu **"Khẩu Hiệu / Phụ Đề Header (Cổng tra cứu Giftcode #1)"** ngay dưới ô Tên Website trong mục Nhận Diện Thương Hiệu (`website_branding`).
+     - Có nút *"Mặc định"* để khôi phục nhanh chuỗi *"Cổng Tra Cứu Giftcode #1"*.
+     - Bổ sung hiển thị phụ đề này trong khung *Xem trước Header Logo (Live Preview)* để Admin xem trước ngay khi gõ.
+  3. *Đồng bộ và hiển thị thời gian thực lên Web Khách*:
+     - Cập nhật `dataService.getWebsiteBranding()` và `adminDataService.getWebsiteBranding()` trả về `portalSubtitle`.
+     - Cập nhật `Header.tsx` ưu tiên hiển thị `branding?.portalSubtitle || t.header.portalSubtitle`.
+- **Files Modified**:
+  - `src/admin/modules/ContentCMSModule.tsx`
+  - `src/admin/services/adminDataService.ts`
+  - `src/components/Header.tsx`
+  - `src/services/dataService.ts`
+
 ### 138. Tối Ưu Thu Gọn Giao Diện Quét Game Mới, Phân Trang 20 Game/Trang & Bổ Sung Nút Tìm Kiếm (Crawler Module)
 - **Mô tả & Yêu cầu người dùng**:
   - *"Trong trang admin, mục Quản Lý Crawler & Tự Động Hóa Giftcode, phần quét game mới bạn cho gọn giao diện lại giúp tôi cho hợp lý dễ nhìn, Phân trang các game giúp tôi, 1 trang trong hàng chờ duyệt thì có 20 game. Có nút tìm kiếm."*

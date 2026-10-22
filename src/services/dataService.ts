@@ -3107,6 +3107,7 @@ class DataService {
     backgroundStyle?: string;
     backgroundOpacity?: number;
     siteTitle?: string;
+    portalSubtitle?: string;
   } {
     const defaultBg =
       'https://images.unsplash.com/photo-1542751371-adc38448a05e?w=1920&auto=format&fit=crop&q=80';
@@ -3160,6 +3161,7 @@ class DataService {
             backgroundStyle: branding?.extraData?.backgroundStyle || 'ambient',
             backgroundOpacity: branding?.extraData?.backgroundOpacity ?? 0.35,
             siteTitle: effectiveTitle,
+            portalSubtitle: branding?.extraData?.portalSubtitle || 'Cổng Tra Cứu Giftcode #1',
           };
         }
       }
@@ -3171,6 +3173,7 @@ class DataService {
       backgroundStyle: 'ambient',
       backgroundOpacity: 0.35,
       siteTitle: 'CodeGame.Shop',
+      portalSubtitle: 'Cổng Tra Cứu Giftcode #1',
     };
   }
 

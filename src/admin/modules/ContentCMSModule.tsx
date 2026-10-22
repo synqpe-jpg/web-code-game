@@ -48,6 +48,12 @@ type SectionTab =
   | 'branding'
   | 'floating';
 
+const isLegacyOrEmpty = (t?: string | null) => {
+  if (!t) return true;
+  const s = t.trim().toUpperCase();
+  return !s || s === 'WEB CODE GAME' || s === 'WEB CODE' || s === 'WEB CODE GAME 2026';
+};
+
 export const ContentCMSModule: React.FC<ContentCMSModuleProps> = ({ onShowToast }) => {
   const [isLoading, setIsLoading] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
@@ -63,6 +69,7 @@ export const ContentCMSModule: React.FC<ContentCMSModuleProps> = ({ onShowToast 
   // 0. WEBSITE BRANDING & ASSETS STATE
   // ==========================================
   const [siteTitle, setSiteTitle] = useState('CodeGame.Shop');
+  const [portalSubtitle, setPortalSubtitle] = useState('Cổng Tra Cứu Giftcode #1');
   const [logoUrl, setLogoUrl] = useState('');
   const [avatarUrl, setAvatarUrl] = useState('');
   const [backgroundUrl, setBackgroundUrl] = useState('');
@@ -182,12 +189,6 @@ export const ContentCMSModule: React.FC<ContentCMSModuleProps> = ({ onShowToast 
     const footerTitle = footerItem?.extraData?.brandTitle?.trim();
     const footerLogo = footerItem?.extraData?.brandLogo?.trim();
 
-    const isLegacyOrEmpty = (t?: string | null) => {
-      if (!t) return true;
-      const s = t.trim().toUpperCase();
-      return !s || s === 'WEB CODE GAME' || s === 'WEB CODE' || s === 'WEB CODE GAME 2026';
-    };
-
     if (branding) {
       const resolvedTitle = !isLegacyOrEmpty(branding.title)
         ? branding.title.trim()
@@ -203,6 +204,9 @@ export const ContentCMSModule: React.FC<ContentCMSModuleProps> = ({ onShowToast 
         setBackgroundUrl(branding.extraData.backgroundUrl || '');
         setBackgroundStyle(branding.extraData.backgroundStyle || 'ambient');
         setBackgroundOpacity(branding.extraData.backgroundOpacity ?? 0.35);
+        if (branding.extraData.portalSubtitle !== undefined) {
+          setPortalSubtitle(branding.extraData.portalSubtitle);
+        }
       }
     } else if (footerTitle) {
       setSiteTitle(footerTitle);
@@ -352,6 +356,7 @@ export const ContentCMSModule: React.FC<ContentCMSModuleProps> = ({ onShowToast 
               backgroundUrl: backgroundUrl.trim(),
               backgroundStyle,
               backgroundOpacity,
+              portalSubtitle: portalSubtitle.trim(),
             },
           });
           // Tự động đồng bộ chân trang nếu chân trang chưa có hoặc đang khớp với tên cũ
@@ -486,6 +491,7 @@ export const ContentCMSModule: React.FC<ContentCMSModuleProps> = ({ onShowToast 
                 backgroundUrl: backgroundUrl.trim(),
                 backgroundStyle,
                 backgroundOpacity,
+                portalSubtitle: portalSubtitle.trim(),
               },
             });
           }
@@ -549,6 +555,7 @@ export const ContentCMSModule: React.FC<ContentCMSModuleProps> = ({ onShowToast 
           backgroundUrl: backgroundUrl.trim(),
           backgroundStyle,
           backgroundOpacity,
+          portalSubtitle: portalSubtitle.trim(),
         },
       });
 
@@ -1824,6 +1831,42 @@ export const ContentCMSModule: React.FC<ContentCMSModuleProps> = ({ onShowToast 
               <p className="text-[11px] text-slate-500 dark:text-slate-400">
                 Tên này xuất hiện tại Logo Header trên cùng, Tab tiêu đề trình duyệt (Title) và các thông báo của hệ thống.
               </p>
+
+              {/* KHẨU HIỆU / PHỤ ĐỀ HEADER (PORTAL SUBTITLE) */}
+              <div className="pt-3 border-t border-indigo-100 dark:border-indigo-900/50 space-y-2">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-bold text-slate-900 dark:text-white flex items-center gap-1.5">
+                    <Sparkles className="w-4 h-4 text-amber-500" />
+                    <span>Khẩu Hiệu / Phụ Đề Header (Cổng tra cứu Giftcode #1)</span>
+                  </span>
+                  <span className="text-[10px] text-amber-600 dark:text-amber-400 font-mono font-semibold">
+                    Dòng chữ nhỏ dưới Logo Header
+                  </span>
+                </div>
+                <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
+                  <input
+                    type="text"
+                    value={portalSubtitle}
+                    onChange={(e) => setPortalSubtitle(e.target.value)}
+                    placeholder="VD: Cổng Tra Cứu Giftcode #1"
+                    className="flex-1 rounded-xl border border-slate-200 bg-white p-2.5 text-xs font-medium text-slate-900 focus:border-indigo-500 focus:outline-none dark:border-slate-700 dark:bg-slate-800 dark:text-white"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setPortalSubtitle('Cổng Tra Cứu Giftcode #1');
+                      onShowToast('Mặc định', 'Đã đặt lại khẩu hiệu mặc định "Cổng Tra Cứu Giftcode #1".', 'info');
+                    }}
+                    className="px-3 py-2 text-xs font-semibold rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700 border border-slate-200 dark:border-slate-700 cursor-pointer shrink-0 transition-colors"
+                    title="Đặt lại khẩu hiệu mặc định"
+                  >
+                    Mặc định
+                  </button>
+                </div>
+                <p className="text-[11px] text-slate-500 dark:text-slate-400">
+                  Đây chính là dòng chữ hiển thị ngay dưới Tên Website ở thanh Header góc trên bên trái (Mặc định: <em>Cổng Tra Cứu Giftcode #1</em>).
+                </p>
+              </div>
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -1850,15 +1893,18 @@ export const ContentCMSModule: React.FC<ContentCMSModuleProps> = ({ onShowToast 
                 {/* Logo Preview */}
                 <div className="p-3 rounded-xl bg-slate-900 border border-slate-700 flex items-center justify-between gap-3">
                   <span className="text-[11px] text-slate-400 font-mono">Xem trước Header Logo:</span>
-                  <div className="flex items-center gap-2">
-                    <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center overflow-hidden">
+                  <div className="flex items-center gap-2.5">
+                    <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center overflow-hidden shrink-0 shadow-md">
                       {logoUrl ? (
                         <img src={logoUrl} alt="Logo" className="w-full h-full object-contain p-1" />
                       ) : (
                         <Gamepad2 className="w-5 h-5 text-white" />
                       )}
                     </div>
-                    <span className="font-bold text-white text-xs">{siteTitle}</span>
+                    <div className="flex flex-col min-w-0">
+                      <span className="font-bold text-white text-xs truncate">{siteTitle || 'CodeGame.Shop'}</span>
+                      <span className="text-[10px] text-slate-400 truncate">{portalSubtitle || 'Cổng Tra Cứu Giftcode #1'}</span>
+                    </div>
                   </div>
                 </div>
               </div>

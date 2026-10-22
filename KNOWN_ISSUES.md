@@ -10,6 +10,19 @@
 
 ## 1. DANH MỤC LỖI & CÁC BẪY ĐÃ THẤT BẠI (DO NOT REPEAT)
 
+### ISSUE-075: Cảnh Báo "isLegacyOrEmpty is not defined" Khi Lưu Nội Dung Web Do Khai Báo Hàm Sai Phạm Vi (Local Scope Trap)
+- **Triệu chứng**:
+  - Tại trang Quản Trị Nội Dung & Banner (`/admin#/content`), khi bấm nút "Lưu Tất Cả Nội Dung Web Khách" hoặc lưu mục Chân Trang, hệ thống hiển thị toast đỏ/đen: *"Cảnh Báo Đồng Bộ: Đã lưu cục bộ nhưng chưa kết nối được máy chủ Cloudflare: isLegacyOrEmpty is not defined"*.
+  - Nội dung không đồng bộ lên Cloudflare và dữ liệu branding bị kẹt.
+- **Nguyên nhân gốc rễ**:
+  1. Helper `isLegacyOrEmpty` được khai báo bên trong hàm `loadCMSData` thay vì khai báo ở phạm vi module (ngoài component).
+  2. Khi `handleSaveSection` hoặc `handleSaveAll` thực thi, JavaScript ném lỗi `ReferenceError: isLegacyOrEmpty is not defined`.
+- **Giải pháp chuẩn đã kiểm chứng**:
+  - Luôn khai báo các hàm tiện ích kiểm tra chuỗi rác/legacy ở phạm vi cấp module (`module-level scope`), không khai báo lồng bên trong các hàm `useEffect` hay `loadData`.
+  - Khai báo đầy đủ các biến tham chiếu trước khi truyền vào hàm kiểm tra (`const bTitle = item?.title?.trim();`).
+- ⛔ **CÁCH SỬA ĐÃ THẤT BẠI - TUYỆT ĐỐI KHÔNG LẶP LẠI**:
+  - ❌ *Không bao giờ khai báo hàm helper kiểm tra dữ liệu bên trong hàm fetch/loadData*: Vì các handler lưu dữ liệu (`handleSave...`) cũng cần dùng chung hàm này.
+
 ### ISSUE-074: Tràn Màn Hình & Trải Nghiệm Khó Khăn Khi Duyệt Hàng Chờ Game Mới Do Thiếu Phân Trang & Nút Tìm Kiếm
 - **Triệu chứng**:
   - Tại trang Admin, tab Quản Lý Game Mới & Hàng Chờ Duyệt (`activeTab === 'games_pending'`), khi danh sách game chờ lớn (160+ game), trang kéo dài vô tận, gây nặng trình duyệt và khó theo dõi.
