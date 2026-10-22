@@ -7,6 +7,43 @@ Mỗi mục sửa lỗi đều ghi nhận **Nguyên nhân gốc rễ (Root Cause
 
 ## [2026-10-22]
 
+### 130. Thêm Cổng API & Webhook Tiếp Nhận Giftcode Cho Muse Bot, Lọc Tên Game Tiếng Việt Thông Minh & Tự Động Kích Hoạt Game Chờ
+- **Mô tả & Yêu cầu người dùng**:
+  - *"Bạn có thể tạo 1 mục API trong Quản Lý Crawler & Tự Động Hóa Giftcode để 1 ai như Muse có thể quét và gửi code tới trang, sau đó web sẽ lọc tên game, và thêm code của game vào đúng game đó không?"*
+- **Kiến trúc & Tính năng cốt lõi đã triển khai (Solution)**:
+  1. *Edge Worker API Endpoint (`/api/crawler/ingest-codes`)*:
+     - Hỗ trợ phương thức `GET` (trả về tài liệu hướng dẫn, cấu hình, mã mẫu cURL/Python và số lượng game hiện tại) và `POST` (tiếp nhận payload giftcode).
+     - Xác thực đa tầng an toàn: Bearer Token (`Authorization: Bearer <API_KEY>`), Custom Header (`X-API-Key: <API_KEY>`), hoặc Query param (`?api_key=...`). Khóa mặc định: `wcg_muse_crawler_bot_2026_key` (có thể đổi hoặc tạo mới linh hoạt trong Admin).
+  2. *Bộ Lọc Tên Game Tiếng Việt Thông Minh 5 Cấp Bậc (Smart Fuzzy Matching)*:
+     - Loại bỏ các từ khóa thừa và hậu tố NPH rác: `"giftcode"`, `"code"`, `"mới nhất"`, `"- VTC"`, `"- SohaGame"`, `"- Mobile"`, v.v.
+     - **Tier 1 (Exact Slug/ID)**: Khớp tuyệt đối theo slug không dấu hoặc id game.
+     - **Tier 2 (Normalized Name)**: Khớp 100% theo tên chuẩn hóa loại bỏ dấu tiếng Việt và chữ hoa/thường (VD: `"Mong Thien Kiem"` ➔ `"Mộng Thiên Kiếm"`).
+     - **Tier 3 (Acronym Map)**: Nhận diện các từ viết tắt game thủ thông dụng (VD: `"vltk"` ➔ Võ Lâm Truyền Kỳ, `"ff"` ➔ Free Fire, `"lq"` ➔ Liên Quân, `"hsr"` ➔ Honkai Star Rail...).
+     - **Tier 4 (Token Overlap & Substring)**: Khớp theo tỷ lệ từ khóa trùng lặp $\ge 70\%$ hoặc chuỗi con liên tiếp.
+  3. *Cơ Chế Tự Động Kích Hoạt & Xuất Bản Game Lên Web Khách (Auto-Publish)*:
+     - Nếu tựa game đang nằm trong **Hàng Chờ Duyệt** (`wcg_crawler_pending_games_v1` - 192 game Google Play & CodeMoi chưa có mã), khi Muse gửi mã mới tới, hệ thống tự động xuất bản game sang danh mục chính thức `wcg_admin_games_v5`, tạo bản ghi game đầy đủ, cập nhật số lượng mã, và xóa cache biên Cloudflare CDN tức thì!
+  4. *Chống Trùng Lặp Mã Code Tuyệt Đối (Deduplication)*:
+     - Tự động đối chiếu các mã gửi đến với toàn bộ kho code hiện tại của tựa game.
+     - Chỉ thêm những mã mới chưa từng tồn tại; tự động bỏ qua các mã trùng và trả về mảng `duplicateCodes` cùng `addedCodes` trong JSON response.
+  5. *Giao Diện Tab 6 Trong Admin Portal (`CrawlerModule.tsx`)*:
+     - **Địa chỉ kết nối & API Key**: Hiển thị endpoint URL, khóa xác thực (ẩn/hiện, sao chép 1-chạm, tạo khóa ngẫu nhiên mới), tùy chọn bật/tắt tiếp nhận API và tự động đăng game.
+     - **Bàn Thử Nghiệm Tương Tác (Live Ingest Test Console)**: Cho phép Admin nhập tên game, danh sách code và gửi thử ngay trên trình duyệt; xem trực tiếp JSON phản hồi với kết quả khớp game, số code nạp và trạng thái tự động đăng.
+     - **Mã Mẫu Sẵn Dùng (SDK Snippets)**: Cung cấp sẵn mã mẫu Python (thư viện `requests` dành riêng cho Muse Bot), cURL terminal, và Node.js Fetch.
+     - **Nhật Ký Gọi API Gần Đây**: Lưu trữ và hiển thị 50 lượt gọi API gần nhất vào Cloudflare D1 (`wcg_crawler_api_logs_v1`), cho phép Admin giám sát IP, Bot name, số code nạp, và các game được cập nhật.
+- **Files Modified / Created**:
+  - `functions/api/crawler/ingest-codes.ts` *(Mới tạo)*
+  - `functions/_worker.ts`
+  - `functions/api/sync.ts`
+  - `src/admin/modules/CrawlerModule.tsx`
+  - `src/admin/services/adminDataService.ts`
+  - `src/admin/types/adminTypes.ts`
+  - `CHANGELOG.md`
+- **Kiểm thử & Triển khai**:
+  - `npm run build`: Thành công 100% (Vite, Prerender 532 trang game, Worker bundle 12.8MB).
+  - Kiểm thử live `GET https://codegame.shop/api/crawler/ingest-codes`: Trả về `200 OK`, trạng thái `ONLINE`.
+  - Kiểm thử live `POST https://codegame.shop/api/crawler/ingest-codes`: Gửi `"Mong Thien Kiem"` (không dấu) ➔ Khớp chính xác `Mộng Thiên Kiếm` (ID: `mong-thien-kiem`, NPH: `DigiGames`), lọc trùng 11 mã có sẵn thành công 100%.
+  - `npm run deploy:all`: Đã xuất bản lên `web-code-game` và `admin-code-game-shop`.
+
 ### 129. Chuẩn Hóa 100% Logo Nội Bộ Tĩnh, Di Chuyển Game 0 Code Về Hàng Chờ Duyệt & Khóa Điều Kiện Đăng Trực Tiếp
 - **Mô tả & Yêu cầu người dùng**:
   - Người dùng gửi 2 ảnh chụp màn hình cho thấy:
