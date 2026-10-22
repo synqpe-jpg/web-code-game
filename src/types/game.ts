@@ -3,6 +3,8 @@ export interface GiftCode {
   rewards: string;
   status: 'active' | 'expired' | 'verified';
   expiry?: string;
+  expiresAt?: string;
+  expires_at?: string;
   source?: string;
   added_at?: string;
   votes_up?: number;

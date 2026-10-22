@@ -7,6 +7,50 @@ Mỗi mục sửa lỗi đều ghi nhận **Nguyên nhân gốc rễ (Root Cause
 
 ## [2026-10-22]
 
+### 144. Chuẩn Hóa Hạn Sử Dụng Từ Muse/API & Tự Động Chuyển Mã Hết Hạn Vào Mục "Đã Hết Hạn" Của Game (Giftcode Expiration Normalization & Real-time Auto-Archiving)
+- **Mô tả & Yêu cầu người dùng**:
+  - *"Bạn đảm bảo code từ API, Muse khi cập nhật về nhớ ghi đúng hạn sử dụng, Khi hết hạn tự động chuyển sang mục đã hết hạn của game đó giúp tôi."*
+- **Nguyên nhân gốc rễ (Root Cause)**:
+  1. *Lỗi logic phân loại mã tại Web Khách (`GameDetailModal.tsx` & `GameCard.tsx`)*:
+     - Hàm `isExpired(c)` trước đây chỉ so sánh chuỗi `c.status === 'expired'` và 2 mã mock cứng (`ATNGAY1`, `ATNGAY2`).
+     - Khi một mã giftcode có ngày hết hạn trong quá khứ (ví dụ `expiresAt: '2026-10-20'`) nhưng trường `status` lưu tĩnh trong CSDL hoặc payload là `'ACTIVE'` hoặc `'active'`, hàm `isExpired` trả về `false`.
+     - Hậu quả: Mã quá hạn vẫn hiển thị trong tab "Còn hạn" (Active Codes) ngoài Web Khách, khiến người chơi sao chép phải mã đã hết hạn.
+  2. *Thiếu chuẩn hóa ngày tháng đa định dạng từ Muse Bot & External Crawler (`functions/api/crawler/ingest-codes.ts`)*:
+     - Hàm `extractCodesFromPayload` chỉ gán trực tiếp giá trị `c.expiresAt || '2026-12-31'` mà không bóc tách các định dạng ngày Việt Nam (`DD/MM/YYYY`), dấu phân cách (`DD-MM-YYYY`), timestamp số, hoặc các từ khóa trạng thái ("Hết hạn", "Vĩnh viễn").
+     - Khi tạo bản ghi mới (`newCodeRecord`), mã luôn bị gán cứng `status: 'ACTIVE'`, `is_active: true` mà không kiểm tra xem ngày hết hạn đã trôi qua thời gian thực tế hay chưa.
+     - Ngoài ra, nếu Muse/Bot gửi cập nhật hạn sử dụng cho một mã code đã tồn tại trước đó, mã bị bỏ qua vào danh sách duplicate mà không được cập nhật lại `expiresAt` và trạng thái `status`.
+  3. *Thiếu logic so sánh thời gian thực tại các tầng Serverless Edge và Search*:
+     - Các endpoint `/api/games`, `/api/sync` và component `SearchAutocomplete` chỉ dựa vào thuộc tính tĩnh `status === 'expired'`, dẫn đến lệch pha dữ liệu giữa thời gian thực và CSDL.
+- **Giải pháp đã triển khai (Solution)**:
+  1. *Xây dựng bộ công cụ chuẩn mực `src/utils/codeUtils.ts`*:
+     - `parseExpirationDate(rawInput, nowMs?)`: Nhận diện và chuẩn hóa mọi định dạng hạn sử dụng: ISO `YYYY-MM-DD`, ngày Việt Nam `DD/MM/YYYY`, timestamp, từ khóa ("Hết hạn", "Đã hết hạn", "Quá hạn" -> `isExpired: true`; "Vĩnh viễn", "Vô thời hạn", "Còn hạn" -> `isExpired: false`). Hạn ngày được tính hợp lệ đến hết 23:59:59 của ngày đó.
+     - `isCodeExpired(codeObj, nowMs?)`: Kiểm tra tổng hợp mã mock, trạng thái chuỗi (`expired`, `hết hạn`, `inactive`), và so sánh chính xác ngày hết hạn với `Date.now()`.
+  2. *Nâng cấp API nạp code ngoại vi (`functions/api/crawler/ingest-codes.ts`)*:
+     - Nhận diện toàn diện các trường HSD từ Muse: `expiresAt`, `expires_at`, `expiry`, `expire_date`, `expireDate`, `expirationDate`, `hsd`, `han_su_dung`.
+     - Tự động kiểm tra thời gian thực: Nếu hạn đã qua, gán ngay `status: 'EXPIRED'`, `is_active: false`.
+     - Cập nhật thông minh cho mã trùng lặp: Nếu mã đã tồn tại và Muse gửi lại hạn sử dụng mới, hệ thống tự động cập nhật `expiresAt`, `status`, `is_active` mà không bị kẹt.
+  3. *Tự động phân loại thời gian thực ngoài Web Khách (`GameDetailModal.tsx`, `GameCard.tsx`, `SearchAutocomplete.tsx`)*:
+     - `GameDetailModal`: Bất kỳ mã nào quá hạn sẽ tự động rơi vào mảng `expiredCodes` và hiển thị tại tab/mục "Đã hết hạn" kèm badge hiển thị `HSD: {codeItem.expiry}` trực quan. Tab "Còn hạn" chỉ giữ lại các mã thực sự còn hiệu lực.
+     - `GameCard`: Tự động lọc các mã còn hạn thực tế để hiển thị mã đại diện chính xác.
+     - `SearchAutocomplete`: Hiển thị badge màu đỏ "Hết hạn" thay vì badge xanh khi mã đã quá hạn.
+  4. *Đồng bộ phía Serverless Edge API (`functions/api/games.ts` & `functions/api/sync.ts`)*:
+     - Cập nhật hàm sort và gán trạng thái `status` tự động theo thời gian thực trên Cloudflare Edge Worker.
+  5. *Bổ sung tài liệu hướng dẫn chuẩn HSD trong Trang Quản Trị Admin (`CrawlerModule.tsx`)*:
+     - Hiển thị callout tím hướng dẫn rõ ràng quy chuẩn `expiresAt` cho Muse Bot / Python Script.
+- **Files Modified**:
+  - `src/utils/codeUtils.ts` (Tạo mới module dùng chung)
+  - `src/types/game.ts`
+  - `functions/api/crawler/ingest-codes.ts`
+  - `functions/api/games.ts`
+  - `functions/api/sync.ts`
+  - `src/services/dataService.ts`
+  - `src/components/GameDetailModal.tsx`
+  - `src/components/GameCard.tsx`
+  - `src/components/SearchAutocomplete.tsx`
+  - `src/admin/modules/CrawlerModule.tsx`
+  - `CHANGELOG.md`
+  - `KNOWN_ISSUES.md`
+
 ### 143. Khắc Phục Lỗi "Không thể đồng bộ lên máy chủ" Khi Lưu Cài Đặt Nhận Thông Báo Email (Missing Notification Routes in Worker)
 - **Mô tả & Yêu cầu người dùng**:
   - *"Mục nhận thông báo email khi tôi lưu báo lỗi như ảnh. (Ảnh chụp màn hình: toast lỗi 'Không thành công: Không thể đồng bộ lên máy chủ.')"*

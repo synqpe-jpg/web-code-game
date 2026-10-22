@@ -14,6 +14,7 @@ import {
 import type { GameItem } from '../types/game';
 import { useLanguage } from '../context/LanguageContext';
 import { isG1Licensed } from '../utils/licenseUtils';
+import { isCodeExpired } from '../utils/codeUtils';
 
 export interface GameCardProps {
   game: GameItem;
@@ -71,11 +72,7 @@ export const GameCard: React.FC<GameCardProps> = ({
   const [copiedCode, setCopiedCode] = useState(false);
   const [copiedLink, setCopiedLink] = useState(false);
 
-  const isExpired = (c: { status?: string; code: string }) =>
-    c.status === 'expired' ||
-    c.status === 'EXPIRED' ||
-    c.code.toUpperCase() === 'ATNGAY1' ||
-    c.code.toUpperCase() === 'ATNGAY2';
+  const isExpired = (c: { status?: string; code: string; expiry?: string; expiresAt?: string }) => isCodeExpired(c);
   const activeCodes = (game.codes || []).filter((c) => !isExpired(c));
   const firstCode =
     activeCodes.length > 0

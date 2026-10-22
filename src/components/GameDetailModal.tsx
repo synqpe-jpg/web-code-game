@@ -33,6 +33,7 @@ import { EmailSubscriptionModal } from './notification/EmailSubscriptionModal';
 import { useLanguage } from '../context/LanguageContext';
 import { useLockBodyScroll } from '../hooks/useLockBodyScroll';
 import { isG1Licensed } from '../utils/licenseUtils';
+import { isCodeExpired } from '../utils/codeUtils';
 
 interface GameDetailModalProps {
   game: GameItem | null;
@@ -142,10 +143,7 @@ export const GameDetailModal: React.FC<GameDetailModalProps> = ({
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [onClose]);
 
-  const isExpired = (c: GiftCode) =>
-    (c.status as string)?.toLowerCase() === 'expired' ||
-    c.code.toUpperCase() === 'ATNGAY1' ||
-    c.code.toUpperCase() === 'ATNGAY2';
+  const isExpired = (c: GiftCode) => isCodeExpired(c);
 
   // Ensure currentGame is strictly null if game is null or closed, and always preserve highest code count and safe icon
   const currentGame = React.useMemo(() => {
@@ -804,13 +802,19 @@ export const GameDetailModal: React.FC<GameDetailModalProps> = ({
                         className="p-2.5 sm:p-3 rounded-2xl bg-muted/20 border border-border/50 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 opacity-80 hover:opacity-100 transition-opacity"
                       >
                         <div className="flex-1 min-w-0">
-                          <div className="flex items-center gap-2">
+                          <div className="flex items-center gap-2 flex-wrap">
                             <span className="font-mono text-xs sm:text-sm font-semibold line-through text-muted-foreground bg-muted/50 px-2.5 py-1 rounded-lg border border-border/60">
                               {codeItem.code}
                             </span>
                             <span className="inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-full bg-rose-500/15 text-rose-400 border border-rose-500/30">
                               <XCircle className="w-3 h-3" /> {t.modal.expiredCodes}
                             </span>
+                            {codeItem.expiry && (
+                              <span className="inline-flex items-center gap-1 text-[10px] font-mono text-muted-foreground bg-muted/40 px-2 py-0.5 rounded-full border border-border/40">
+                                <Clock className="w-2.5 h-2.5 text-rose-400/80" />
+                                HSD: {codeItem.expiry}
+                              </span>
+                            )}
                           </div>
                           {codeItem.rewards && (
                             <p className="text-[11px] sm:text-xs text-muted-foreground mt-1 truncate">

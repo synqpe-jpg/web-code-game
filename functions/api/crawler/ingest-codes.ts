@@ -13,6 +13,7 @@
 import { getSettingD1, setSettingD1, getMultipleSettingsD1 } from '../../services/d1_service';
 import { normalizeVietnamese, stripAccents, GAME_ACRONYM_MAP, invalidateGamesCatalogCache } from '../games';
 import { invalidateCatalogEdgeCache } from '../../services/cache_service';
+import { parseExpirationDate, isCodeExpired } from '../../../src/utils/codeUtils';
 import fallbackGamesData from '../../../src/data/games188.json';
 import fallbackCodesData from '../../../src/data/crawled_codes_188.json';
 
@@ -173,47 +174,86 @@ function findBestMatchingGame(
   return bestCandidate;
 }
 
+interface ExtractedCodeItem {
+  code: string;
+  rewards: string;
+  expiresAt: string;
+  isExpired: boolean;
+  rawStatus?: string;
+}
+
 /**
- * Trích xuất và làm sạch danh sách mã code từ input
+ * Trích xuất và làm sạch danh sách mã code từ input (chuẩn hóa Hạn Sử Dụng & Trạng Thái)
  */
-function extractCodesFromPayload(item: any): Array<{ code: string; rewards: string; expiresAt: string }> {
-  const result: Array<{ code: string; rewards: string; expiresAt: string }> = [];
+function extractCodesFromPayload(item: any): Array<ExtractedCodeItem> {
+  const result: Array<ExtractedCodeItem> = [];
+
+  const defaultReward = item.rewards || item.description || 'Quà tặng giftcode cập nhật tự động qua Muse API';
+  const defaultRawExp =
+    item.expiresAt ||
+    item.expires_at ||
+    item.expiry ||
+    item.expire_date ||
+    item.expireDate ||
+    item.expirationDate ||
+    item.expiration_date ||
+    item.hsd ||
+    item.han_su_dung;
+
+  const parseItemCode = (rawCode: any, rawReward?: any, rawExp?: any, rawStatus?: any) => {
+    const val = String(rawCode || '').trim().toUpperCase().replace(/^#/, '');
+    if (val.length < 3 || val.length > 40) return;
+
+    const expInput = rawExp !== undefined && rawExp !== null && rawExp !== '' ? rawExp : defaultRawExp;
+    const parsedExp = parseExpirationDate(expInput);
+
+    const explicitStatus = rawStatus !== undefined && rawStatus !== null && rawStatus !== '' ? String(rawStatus) : item.status;
+    const explicitExpired = explicitStatus && (
+      String(explicitStatus).toLowerCase() === 'expired' ||
+      String(explicitStatus).toLowerCase() === 'hết hạn' ||
+      String(explicitStatus).toLowerCase() === 'het han'
+    );
+
+    const isExpired = parsedExp.isExpired || Boolean(explicitExpired);
+    const formattedExpiry = parsedExp.formatted || (isExpired ? 'Hết hạn' : '2026-12-31');
+
+    result.push({
+      code: val,
+      rewards: String(rawReward || defaultReward).trim(),
+      expiresAt: formattedExpiry,
+      isExpired,
+      rawStatus: explicitStatus ? String(explicitStatus) : undefined,
+    });
+  };
 
   // Trường hợp 1: Array of objects [{ code, rewards, expiresAt }]
   if (Array.isArray(item.codes) && item.codes.length > 0) {
     for (const c of item.codes) {
       if (typeof c === 'string') {
-        const val = c.trim().toUpperCase().replace(/^#/, '');
-        if (val.length >= 3 && val.length <= 40) {
-          result.push({
-            code: val,
-            rewards: item.rewards || item.description || 'Quà tặng giftcode cập nhật tự động qua Muse API',
-            expiresAt: item.expiresAt || item.expires_at || '2026-12-31',
-          });
-        }
+        parseItemCode(c);
       } else if (c && typeof c === 'object') {
-        const val = String(c.code || c.codeValue || c.gift_code || '').trim().toUpperCase().replace(/^#/, '');
-        if (val.length >= 3 && val.length <= 40) {
-          result.push({
-            code: val,
-            rewards: c.rewards || c.description || item.rewards || 'Quà tặng giftcode cập nhật tự động qua Muse API',
-            expiresAt: c.expiresAt || c.expires_at || c.expiry || item.expiresAt || '2026-12-31',
-          });
-        }
+        const val = c.code || c.codeValue || c.code_value || c.gift_code || c.giftcode || c.val;
+        const rewards = c.rewards || c.description || c.reward || c.qua || c.items;
+        const exp =
+          c.expiresAt ||
+          c.expires_at ||
+          c.expiry ||
+          c.expire_date ||
+          c.expireDate ||
+          c.expirationDate ||
+          c.expiration_date ||
+          c.hsd ||
+          c.han_su_dung ||
+          c.hanSuDung;
+        const status = c.status || c.statusValue || c.trangThai || c.trang_thai;
+        parseItemCode(val, rewards, exp, status);
       }
     }
   }
 
   // Trường hợp 2: Single code property
   if (item.code && typeof item.code === 'string') {
-    const val = item.code.trim().toUpperCase().replace(/^#/, '');
-    if (val.length >= 3 && val.length <= 40) {
-      result.push({
-        code: val,
-        rewards: item.rewards || item.description || 'Quà tặng giftcode cập nhật tự động qua Muse API',
-        expiresAt: item.expiresAt || item.expires_at || '2026-12-31',
-      });
-    }
+    parseItemCode(item.code, item.rewards, defaultRawExp, item.status);
   }
 
   // Trường hợp 3: Khối văn bản thô (rawText) chứa nhiều code cách nhau bằng dấu phẩy hoặc xuống dòng
@@ -225,11 +265,7 @@ function extractCodesFromPayload(item: any): Array<{ code: string; rewards: stri
 
     for (const val of tokens) {
       if (!result.some((r) => r.code === val)) {
-        result.push({
-          code: val,
-          rewards: item.rewards || 'Quà tặng giftcode cập nhật tự động qua Muse API',
-          expiresAt: item.expiresAt || '2026-12-31',
-        });
+        parseItemCode(val, item.rewards, defaultRawExp, item.status);
       }
     }
   }
@@ -272,6 +308,8 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
       'Tự động lọc và khớp tên game tiếng Việt thông minh (Fuzzy Vietnamese Accent Matching).',
       'Tự động kích hoạt & đăng game lên Web Khách nếu game đang ở Hàng Chờ Duyệt (Auto-Publish on Code arrival).',
       'Tự động lọc trùng lặp mã code (Deduplication) và nạp mã mới vào đúng game.',
+      'Tự động chuẩn hóa Hạn Sử Dụng (expiresAt) đa định dạng: YYYY-MM-DD, DD/MM/YYYY, timestamp, hoặc "Hết hạn" / "Vĩnh viễn".',
+      'Tự động phân loại trạng thái: Khi mã hết hạn (hoặc ngày hết hạn < hiện tại), hệ thống tự động gán status: EXPIRED và chuyển sang mục Đã hết hạn của game.',
       'Cập nhật bộ đếm codes_count và tự động xóa cache biên CDN.',
     ],
     sampleCurl: `curl -X POST "${urlObj.origin}/api/crawler/ingest-codes" \\
@@ -463,8 +501,31 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
       // 4.2. LỌC TRÙNG & TẠO BẢN GHI MÃ CODE MỚI
       const nowIso = new Date().toISOString();
       for (const c of codesToIngest) {
+        const isExp = c.isExpired || (c.rawStatus && (String(c.rawStatus).toLowerCase() === 'expired' || String(c.rawStatus).toLowerCase() === 'hết hạn'));
+        const codeStatus = isExp ? 'EXPIRED' : 'ACTIVE';
+
         if (existingCodesSet.has(c.code)) {
           duplicateCodes.push(c.code);
+          // Nếu mã code đã tồn tại nhưng Muse/Bot gửi thông tin hạn dùng mới -> cập nhật hạn & trạng thái hết hạn tức thì!
+          const existingIdx = existingCustomCodes.findIndex((ec) =>
+            ec &&
+            (ec.gameSlug === gameSlug || ec.slug === gameSlug || ec.gameId === gameSlug) &&
+            String(ec.code || ec.codeValue || '').toUpperCase() === c.code
+          );
+          if (existingIdx !== -1) {
+            existingCustomCodes[existingIdx] = {
+              ...existingCustomCodes[existingIdx],
+              expiresAt: c.expiresAt,
+              expires_at: c.expiresAt,
+              expiry: c.expiresAt,
+              status: codeStatus,
+              is_active: !isExp,
+              rewards: c.rewards || existingCustomCodes[existingIdx].rewards,
+              updatedAt: nowIso,
+              updated_at: nowIso,
+            };
+            stateModified = true;
+          }
           continue;
         }
 
@@ -481,8 +542,8 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
           gift_code: c.code,
           rewards: c.rewards,
           description: c.rewards,
-          status: 'ACTIVE',
-          is_active: true,
+          status: codeStatus,
+          is_active: !isExp,
           is_verified: true,
           isVerified: true,
           expires_at: c.expiresAt,

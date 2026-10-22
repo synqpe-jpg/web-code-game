@@ -3835,6 +3835,19 @@ console.log(data);`}
             </div>
           </div>
 
+          {/* Note on Expiration Date format for Muse / Bot */}
+          <div className="p-3.5 rounded-xl bg-purple-950/30 border border-purple-500/30 text-xs text-slate-300 space-y-1.5">
+            <div className="flex items-center gap-2 font-bold text-purple-300">
+              <Clock className="w-4 h-4 text-purple-400" />
+              <span>Quy Chuẩn Hạn Sử Dụng (expiresAt) Cho Muse Bot / API:</span>
+            </div>
+            <ul className="list-disc list-inside space-y-1 text-slate-400 pl-1 text-[11px]">
+              <li><strong className="text-slate-200">Định dạng hỗ trợ:</strong> ISO <code className="text-purple-300 font-mono">YYYY-MM-DD</code> (VD: 2026-12-31), ngày Việt Nam <code className="text-purple-300 font-mono">DD/MM/YYYY</code> (VD: 31/12/2026), timestamp, hoặc chữ <code className="text-purple-300 font-mono">"Hết hạn"</code> / <code className="text-purple-300 font-mono">"Vĩnh viễn"</code>.</li>
+              <li><strong className="text-slate-200">Tự động chuyển mục Hết hạn:</strong> Khi mã nạp vào có hạn sử dụng trước ngày hiện tại hoặc mang nhãn <code className="text-rose-400 font-mono">"Hết hạn"</code>, hệ thống tự động gán <code className="text-rose-400 font-mono">status: "EXPIRED"</code> và chuyển sang tab "Đã hết hạn" của game đó.</li>
+              <li><strong className="text-slate-200">Cập nhật mã đã có:</strong> Nếu gửi lại một mã code đã tồn tại kèm ngày hết hạn mới, hệ thống tự động cập nhật HSD và đồng bộ trạng thái ngay lập tức.</li>
+            </ul>
+          </div>
+
           {/* Recent Ingestion Logs Table */}
           <div className="bg-slate-900 border border-slate-800 rounded-2xl p-5 space-y-4">
             <div className="flex items-center justify-between border-b border-slate-800 pb-3">

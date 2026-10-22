@@ -24,6 +24,7 @@ import { marketingService } from '../services/marketingService';
 import { useLanguage } from '../context/LanguageContext';
 import { isG1Licensed } from '../utils/licenseUtils';
 import { calculateGameSearchScore } from '../utils/textUtils';
+import { isCodeExpired } from '../utils/codeUtils';
 import {
   getRecentSearches,
   saveRecentSearch,
@@ -818,7 +819,7 @@ export const SearchAutocomplete: React.FC<SearchAutocompleteProps> = ({
                       if (!item || !item.game || !item.code) return null;
                       const globalIdx = sortedGames.length + idx;
                       const isHighlighted = selectedIndex === globalIdx;
-                      const isExpired = item.code?.status === 'expired';
+                      const isExpired = isCodeExpired(item.code);
                       const codeKey = `${item.game.name || 'game'}_${item.code.code || idx}`;
                       const isCopied = copiedCodeKey === codeKey;
 
@@ -1220,7 +1221,7 @@ export const SearchAutocomplete: React.FC<SearchAutocompleteProps> = ({
                     <div className="space-y-2">
                       {searchResults.codes.map((item, idx) => {
                         if (!item || !item.game || !item.code) return null;
-                        const isExpired = item.code?.status === 'expired';
+                        const isExpired = isCodeExpired(item.code);
                         const codeKey = `${item.game.name || 'game'}_${item.code.code || idx}`;
                         const isCopied = copiedCodeKey === codeKey;
 

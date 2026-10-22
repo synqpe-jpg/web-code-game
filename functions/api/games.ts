@@ -1,4 +1,5 @@
 import { getMultipleSettingsD1 } from '../services/d1_service';
+import { isCodeExpired, parseExpirationDate } from '../../src/utils/codeUtils';
 import fallbackGamesData from '../../src/data/games188.json';
 import fallbackCodesData from '../../src/data/crawled_codes_188.json';
 
@@ -422,7 +423,7 @@ export async function getLoadedCatalog(db: D1Database, forceFresh: boolean = fal
 
       const normSlug = String(slug).trim().toLowerCase();
       const codeStr = String(codeVal).trim();
-      const isExp = item.status === 'EXPIRED' || item.status === 'expired';
+      const isExp = isCodeExpired(item);
 
       const list = codesMap.get(normSlug) || [];
       list.push({
@@ -446,9 +447,7 @@ export async function getLoadedCatalog(db: D1Database, forceFresh: boolean = fal
 
       const normSlug = String(slug).trim().toLowerCase();
       const codeStr = String(codeVal).trim();
-      const isExp =
-        item.status === 'EXPIRED' ||
-        item.status === 'expired';
+      const isExp = isCodeExpired(item);
 
       const list = codesMap.get(normSlug) || [];
       if (list.some((existing) => existing.code.toUpperCase() === codeStr.toUpperCase())) {
@@ -528,8 +527,8 @@ export async function getLoadedCatalog(db: D1Database, forceFresh: boolean = fal
 
       const allCodes = Array.from(mergedCodesMap.values());
       allCodes.sort((a, b) => {
-        const aActive = a.status !== 'expired' ? 1 : 0;
-        const bActive = b.status !== 'expired' ? 1 : 0;
+        const aActive = !isCodeExpired(a) ? 1 : 0;
+        const bActive = !isCodeExpired(b) ? 1 : 0;
         if (aActive !== bActive) return bActive - aActive;
 
         const timeA = a.added_at ? new Date(a.added_at).getTime() : 0;

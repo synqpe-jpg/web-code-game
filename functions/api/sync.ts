@@ -1,3 +1,4 @@
+import { parseExpirationDate, isCodeExpired } from '../../src/utils/codeUtils';
 import { getRealEventsHub, saveRealEventsHub } from '../services/realEventsHub';
 import {
   getSettingD1,
@@ -1393,6 +1394,9 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
         const customListRaw = await getSettingD1(env.DB, 'wcg_admin_custom_free_codes_v1') || [];
         const customList: any[] = Array.isArray(customListRaw) ? customListRaw : [];
 
+        const approvedExpiry = editedCode.expiresAt || sourceItem.expiresAt || '2026-12-31';
+        const parsedExp = parseExpirationDate(approvedExpiry);
+        const isExp = parsedExp.isExpired || (editedCode.status && String(editedCode.status).toLowerCase() === 'expired');
         const approvedItem = {
           id: `fc_custom_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
           gameId: editedCode.gameId || sourceItem.gameId || sourceItem.gameSlug || '',
@@ -1401,13 +1405,15 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
           code: finalCode,
           codeValue: finalCode,
           rewards: editedCode.rewards || sourceItem.rewards || 'Quà tặng tân thủ & sự kiện',
-          status: 'ACTIVE',
+          status: isExp ? 'EXPIRED' : 'ACTIVE',
           type: 'EVENT',
           sourceUrl: sourceItem.sourceUrl || '',
           sourceType: sourceItem.sourceType || 'reputable_web',
           score: sourceItem.score || 85,
           tier: sourceItem.tier || 2,
-          expiresAt: editedCode.expiresAt || sourceItem.expiresAt || '2026-12-31',
+          expiresAt: parsedExp.formatted || approvedExpiry,
+          expires_at: parsedExp.formatted || approvedExpiry,
+          expiry: parsedExp.formatted || approvedExpiry,
           createdAt: new Date().toISOString(),
           updatedAt: new Date().toISOString(),
         };
@@ -1468,6 +1474,9 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
 
         for (const item of pendingList) {
           if (item && targetIds.has(item.id)) {
+            const batchExpiry = item.expiresAt || '2026-12-31';
+            const parsedBatchExp = parseExpirationDate(batchExpiry);
+            const isBatchExp = parsedBatchExp.isExpired || (item.status && String(item.status).toLowerCase() === 'expired');
             approvedItems.push({
               id: `fc_custom_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
               gameId: item.gameId || item.gameSlug || '',
@@ -1476,13 +1485,15 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
               code: String(item.code || '').trim().toUpperCase(),
               codeValue: String(item.code || item.codeValue || '').trim().toUpperCase(),
               rewards: item.rewards || 'Quà tặng tân thủ & sự kiện',
-              status: 'ACTIVE',
+              status: isBatchExp ? 'EXPIRED' : 'ACTIVE',
               type: 'EVENT',
               sourceUrl: item.sourceUrl || '',
               sourceType: item.sourceType || 'reputable_web',
               score: item.score || 85,
               tier: item.tier || 2,
-              expiresAt: item.expiresAt || '2026-12-31',
+              expiresAt: parsedBatchExp.formatted || batchExpiry,
+              expires_at: parsedBatchExp.formatted || batchExpiry,
+              expiry: parsedBatchExp.formatted || batchExpiry,
               createdAt: new Date().toISOString(),
               updatedAt: new Date().toISOString(),
             });

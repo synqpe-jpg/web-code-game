@@ -10,6 +10,25 @@
 
 ## 1. DANH MỤC LỖI & CÁC BẪY ĐÃ THẤT BẠI (DO NOT REPEAT)
 
+### ISSUE-080: Mã Giftcode Quá Hạn Vẫn Hiển Thị Ở Tab "Còn Hạn" Do Kiểm Tra Chuỗi Status Tĩnh Thay Vì So Sánh Thời Gian Thực (Static Status vs Realtime Expiration Trap)
+- **Triệu chứng**:
+  - Khi xem chi tiết game ngoài Web Khách (`GameDetailModal`), những mã giftcode có ngày hết hạn trong quá khứ (ví dụ `expiresAt: '2026-10-20'`) vẫn nằm trong tab "Còn hạn" (Active Codes).
+  - Khi người dùng sao chép tất cả mã còn hạn (`handleCopyAll`), hệ thống sao chép cả những mã đã hết hạn.
+  - Khi bot Muse hoặc API nạp mã đã hết hạn, mã vẫn được lưu với trạng thái `status: 'ACTIVE'`.
+- **Nguyên nhân gốc rễ**:
+  1. Hàm `isExpired(c)` trong component chỉ kiểm tra `c.status === 'expired'` mà không parse và đối chiếu ngày `expiresAt` với `Date.now()`.
+  2. Bất kỳ mã nào khi được import hoặc cào về có ngày hết hạn nhưng CSDL chưa có cron job quét cập nhật chuỗi `status` sang `'expired'` thì mã đó vẫn bị hiểu là còn hạn vĩnh viễn.
+  3. Định dạng ngày tháng không đồng nhất: Một số nguồn gửi `YYYY-MM-DD`, một số gửi `DD/MM/YYYY`, một số gửi "Hết hạn" dẫn đến hàm `new Date()` trả về `NaN` hoặc sai lệch múi giờ.
+- **Giải pháp chuẩn đã kiểm chứng**:
+  - Dùng helper tập trung `isCodeExpired(codeObj)` từ `src/utils/codeUtils.ts`.
+  - Bộ chuẩn hóa `parseExpirationDate` hỗ trợ đầy đủ ISO `YYYY-MM-DD`, ngày Việt Nam `DD/MM/YYYY`, timestamp, và các từ khóa ("Hết hạn", "Vĩnh viễn").
+  - Tính hợp lệ của ngày hết hạn đến hết `23:59:59.999` của ngày ghi nhận.
+  - Tự động gán `status: 'EXPIRED'` ngay tại ngõ vào API (`ingest-codes.ts`) nếu hạn sử dụng đã qua.
+  - Ở mọi component hiển thị (`GameDetailModal`, `GameCard`, `SearchAutocomplete`), phân loại bằng `isCodeExpired(c)` giúp mã tự động nhảy sang tab "Đã hết hạn" ngay tức thì theo thời gian thực mà không phụ thuộc vào chuỗi `status` tĩnh.
+- ⛔ **CÁCH SỬA ĐÃ THẤT BẠI - TUYỆT ĐỐI KHÔNG LẶP LẠI**:
+  - ❌ *Không chỉ kiểm tra chuỗi `c.status === 'expired'`*: Chuỗi `status` là dữ liệu tĩnh; nếu không so sánh với `Date.now()`, mã quá hạn sẽ không bao giờ tự động chuyển tab.
+  - ❌ *Không dùng `new Date(str)` đơn thuần cho ngày Việt Nam `DD/MM/YYYY`*: Trình duyệt V8 sẽ hiểu nhầm là `MM/DD/YYYY` hoặc trả về `Invalid Date`. Bắt buộc phải bóc tách Regex `(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})` trước khi khởi tạo Date.
+
 ### ISSUE-079: Lỗi 404 "Endpoint not found" Khi Gọi API Do Quên Khai Báo Route Trong `functions/_worker.ts`
 - **Triệu chứng**:
   - Khi người dùng bấm lưu hoặc tương tác với một tính năng (như "Lưu Cài Đặt" nhận thông báo email), web báo lỗi: *"Không thành công: Không thể đồng bộ lên máy chủ."*.

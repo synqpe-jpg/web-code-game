@@ -13,6 +13,7 @@ import type {
   StoreCategory,
 } from '../types/game';
 import { smartVietnameseMatch, calculateGameSearchScore } from '../utils/textUtils';
+import { isCodeExpired, parseExpirationDate } from '../utils/codeUtils';
 
 import { DEFAULT_STORE_PRODUCTS, DEFAULT_UTILITY_PRODUCTS, DEFAULT_GIVEAWAYS } from '../data/seedData';
 import { marketingService } from './marketingService';
@@ -1022,6 +1023,7 @@ class DataService {
 
         const normalizedCode = codeValue.trim().toUpperCase();
         const isExp =
+          isCodeExpired(item) ||
           item.status === 'EXPIRED' ||
           item.status === 'expired' ||
           normalizedCode === 'ATNGAY1' ||
@@ -1031,7 +1033,9 @@ class DataService {
           code: codeValue.trim(),
           rewards: item.rewards || 'Quà tân thủ & vật phẩm ingame',
           status: (isExp ? 'expired' : 'active') as 'expired' | 'active',
-          expiry: item.expiresAt || '',
+          expiry: item.expiresAt || (item as any).expires_at || (item as any).expiry || '',
+          expiresAt: item.expiresAt || (item as any).expires_at || (item as any).expiry || '',
+          expires_at: item.expiresAt || (item as any).expires_at || (item as any).expiry || '',
           added_at: item.createdAt || new Date().toISOString(),
         };
 
@@ -1542,8 +1546,8 @@ class DataService {
     }
     const result = Array.from(mergedMap.values());
     result.sort((a, b) => {
-      const aActive = a.status !== 'expired' ? 1 : 0;
-      const bActive = b.status !== 'expired' ? 1 : 0;
+      const aActive = !isCodeExpired(a) ? 1 : 0;
+      const bActive = !isCodeExpired(b) ? 1 : 0;
       if (aActive !== bActive) return bActive - aActive;
 
       const timeA = a.added_at ? new Date(a.added_at).getTime() : 0;
