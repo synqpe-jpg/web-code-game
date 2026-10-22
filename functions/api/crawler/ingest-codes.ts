@@ -188,7 +188,7 @@ interface ExtractedCodeItem {
 function extractCodesFromPayload(item: any): Array<ExtractedCodeItem> {
   const result: Array<ExtractedCodeItem> = [];
 
-  const defaultReward = item.rewards || item.description || 'Quà tặng giftcode cập nhật tự động qua Muse API';
+  const defaultReward = item.rewards || item.description || 'Thưởng của NPH';
   const defaultRawExp =
     item.expiresAt ||
     item.expires_at ||

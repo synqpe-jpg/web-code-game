@@ -7,6 +7,33 @@ Mỗi mục sửa lỗi đều ghi nhận **Nguyên nhân gốc rễ (Root Cause
 
 ## [2026-10-22]
 
+### 145. Cập Nhật Hàng Loạt 783 Giftcode Sang Mô Tả "Thưởng của NPH" & Chuẩn Hóa Fallback Ingest API (Batch Rewards Update to Official Publisher Rewards)
+- **Mô tả & Yêu cầu người dùng**:
+  - *"Nhiệm vụ: cập nhật hàng loạt trường phần thưởng cho các giftcode đã có trên codegame.shop. Bối cảnh: Các mã nạp qua API crawler (/api/crawler/ingest-codes) trước đây được gửi không kèm phần thưởng, nên trang đang hiển thị dòng mặc định '🎁Quà tặng giftcode cập nhật tự động qua Muse API' dưới các mã đó... Yêu cầu: 1. Tìm mọi bản ghi giftcode mà trường phần thưởng/mô tả đang trống hoặc bằng đúng dòng mặc định. 2. Đặt phần thưởng của các bản ghi đó thành đúng văn bản: 'Thưởng của NPH'. 3. KHÔNG sửa các mã đã có phần thưởng thật; không đụng vào chuỗi mã, hạn dùng hay trường nào khác. 4. Purge cache CDN để hiển thị ngay. 5. Báo cáo số bản ghi đã cập nhật và kiểm tra hiển thị ở 3 trang mẫu: /game/mong-thien-kiem (mã MONGTHIENKIEM), /game/ta-la-cao-thu-vo-lam (mã CAOTHUVOLAM26), /game/vuon-hoa-hanh-phuc (mã C0D96EF8)."*
+- **Nguyên nhân gốc rễ (Root Cause)**:
+  - Trước đây, khi bot Muse gửi danh sách mã qua endpoint `/api/crawler/ingest-codes` mà không kèm trường `rewards` chi tiết, hệ thống tự động gán dòng dự phòng `"Quà tặng giftcode cập nhật tự động qua Muse API"`.
+  - Các mã này đã được lưu vào cơ sở dữ liệu Cloudflare D1 (`wcg_admin_custom_free_codes_v1`), dẫn đến giao diện hiển thị badge `🎁 Quà tặng giftcode cập nhật tự động qua Muse API` dưới mã.
+- **Giải pháp đã triển khai (Solution)**:
+  1. *Quét & Chuẩn hóa toàn bộ 2,539 mã custom trong CSDL Cloudflare D1 (`wcg_admin_custom_free_codes_v1`)*:
+     - Phát hiện chính xác 783 bản ghi mang dòng chữ mặc định hoặc rỗng (bao gồm mã `MONGTHIENKIEM`, `CAOTHUVOLAM26`, `C0D96EF8`, `CTVV8386`, v.v.).
+     - Cập nhật trường `rewards` và `description` của toàn bộ 783 bản ghi này thành đúng văn bản: `"Thưởng của NPH"`.
+     - Bảo toàn nguyên vẹn 100% cho 1,756 mã có phần thưởng thật cụ thể từ trước (ví dụ: các gói VIP, KNB, Vàng, Rương Trang Bị).
+     - Tuyệt đối không can thiệp vào chuỗi mã (`code`), hạn dùng (`expiresAt`), hay bất kỳ trường dữ liệu nào khác.
+  2. *Lưu D1 (SSOT) & Kích hoạt Edge/CDN Cache Invalidation*:
+     - Đồng bộ thành công 783 bản ghi đã cập nhật lên Cloudflare D1 qua `/api/sync`.
+     - Tự động xóa sạch Worker isolate memory cache (`invalidateGamesCatalogCache()`) và CDN Edge cache (`invalidateCatalogEdgeCache`).
+  3. *Chuẩn hóa giá trị mặc định cho tương lai trong `functions/api/crawler/ingest-codes.ts`*:
+     - Thay thế chuỗi fallback `defaultReward` từ `"Quà tặng giftcode cập nhật tự động qua Muse API"` thành `"Thưởng của NPH"`.
+     - Bất kỳ mã nào Muse/Bot đẩy lên trong tương lai nếu không có mô tả phần thưởng sẽ tự động hiển thị `"Thưởng của NPH"`.
+  4. *Kiểm thử trực tiếp trên môi trường thực tế*:
+     - `/game/mong-thien-kiem` (mã `MONGTHIENKIEM`): Hiển thị `🎁 Thưởng của NPH` (PASS).
+     - `/game/ta-la-cao-thu-vo-lam` (mã `CAOTHUVOLAM26`): Hiển thị `🎁 Thưởng của NPH` (PASS).
+     - `/game/vuon-hoa-hanh-phuc` (mã `C0D96EF8`): Hiển thị `🎁 Thưởng của NPH` (PASS).
+     - `/game/hac-tay-du-chuong-cam` (mã `CTVV8386`): Hiển thị `🎁 Thưởng của NPH` (PASS).
+- **Files Modified**:
+  - `functions/api/crawler/ingest-codes.ts`
+  - `CHANGELOG.md`
+
 ### 144. Chuẩn Hóa Hạn Sử Dụng Từ Muse/API & Tự Động Chuyển Mã Hết Hạn Vào Mục "Đã Hết Hạn" Của Game (Giftcode Expiration Normalization & Real-time Auto-Archiving)
 - **Mô tả & Yêu cầu người dùng**:
   - *"Bạn đảm bảo code từ API, Muse khi cập nhật về nhớ ghi đúng hạn sử dụng, Khi hết hạn tự động chuyển sang mục đã hết hạn của game đó giúp tôi."*
