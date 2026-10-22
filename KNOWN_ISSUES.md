@@ -10,6 +10,18 @@
 
 ## 1. DANH MỤC LỖI & CÁC BẪY ĐÃ THẤT BẠI (DO NOT REPEAT)
 
+### ISSUE-079: Lỗi 404 "Endpoint not found" Khi Gọi API Do Quên Khai Báo Route Trong `functions/_worker.ts`
+- **Triệu chứng**:
+  - Khi người dùng bấm lưu hoặc tương tác với một tính năng (như "Lưu Cài Đặt" nhận thông báo email), web báo lỗi: *"Không thành công: Không thể đồng bộ lên máy chủ."*.
+  - Kiểm tra network thấy request trả về `404 Not Found` với JSON payload: `{"success":false,"error":"Endpoint not found","path":"..."}`.
+- **Nguyên nhân gốc rễ**:
+  1. Dự án sử dụng `functions/_worker.ts` làm Single Entry Point bundle duy nhất của Edge Worker (`dist/_worker.js`).
+  2. Bất kỳ file API mới nào tạo trong `functions/api/` nếu không được import và routing tường minh trong `_worker.ts` sẽ bị rơi vào khối fallback 404 mặc định ở cuối hàm `fetch`.
+- **Giải pháp chuẩn đã kiểm chứng**:
+  - Mỗi khi thêm endpoint mới trong `functions/api/`, BẮT BUỘC phải import module đó vào `functions/_worker.ts` và thêm khối điều kiện `if (pathname === '/api/...')` tương ứng cho các HTTP method (GET, POST, OPTIONS, DELETE).
+- ⛔ **CÁCH SỬA ĐÃ THẤT BẠI - TUYỆT ĐỐI KHÔNG LẶP LẠI**:
+  - ❌ *Không ỷ lại vào filesystem-based routing của Cloudflare Pages*: Vì dự án đang build thông qua bundle `_worker.js`, Cloudflare sẽ bỏ qua filesystem routing nếu route không nằm trong file `_worker.ts`.
+
 ### ISSUE-078: Lỗi "buyerDisplayName is not defined" Khi Thanh Toán Đơn Hàng Do Khai Báo Biến Trong Khối Try Của API Orders Create
 - **Triệu chứng**:
   - Người dùng bấm nút "Xác Nhận Mua" ở modal thanh toán Tiện Ích hoặc Cửa Hàng, ví tiền đã bị trừ nhưng màn hình nổ pháo hoa chúc mừng và danh sách mã code không hiện ra; góc dưới bên phải hiện toast đỏ: *"Thất bại: buyerDisplayName is not defined"*.

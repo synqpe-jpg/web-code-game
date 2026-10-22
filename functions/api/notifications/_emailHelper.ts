@@ -123,7 +123,7 @@ export async function dispatchEmail(config: EmailProviderConfig, payload: SendEm
 export async function ensureNotificationTablesD1(db: any): Promise<void> {
   if (!db) return;
   try {
-    await db.exec(`
+    await db.prepare(`
       CREATE TABLE IF NOT EXISTS email_subscribers (
         id TEXT PRIMARY KEY,
         email TEXT UNIQUE NOT NULL,
@@ -136,8 +136,10 @@ export async function ensureNotificationTablesD1(db: any): Promise<void> {
         is_active INTEGER DEFAULT 1,
         created_at TEXT NOT NULL,
         updated_at TEXT NOT NULL
-      );
+      )
+    `).run().catch(() => {});
 
+    await db.prepare(`
       CREATE TABLE IF NOT EXISTS email_notification_logs (
         id TEXT PRIMARY KEY,
         type TEXT NOT NULL,
@@ -149,8 +151,8 @@ export async function ensureNotificationTablesD1(db: any): Promise<void> {
         sent_by TEXT DEFAULT 'SYSTEM',
         error_message TEXT,
         created_at TEXT NOT NULL
-      );
-    `).catch(() => {});
+      )
+    `).run().catch(() => {});
   } catch (err) {
     console.warn('[Notification DB Init]', err);
   }

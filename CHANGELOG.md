@@ -7,6 +7,30 @@ Mỗi mục sửa lỗi đều ghi nhận **Nguyên nhân gốc rễ (Root Cause
 
 ## [2026-10-22]
 
+### 143. Khắc Phục Lỗi "Không thể đồng bộ lên máy chủ" Khi Lưu Cài Đặt Nhận Thông Báo Email (Missing Notification Routes in Worker)
+- **Mô tả & Yêu cầu người dùng**:
+  - *"Mục nhận thông báo email khi tôi lưu báo lỗi như ảnh. (Ảnh chụp màn hình: toast lỗi 'Không thành công: Không thể đồng bộ lên máy chủ.')"*
+- **Nguyên nhân gốc rễ (Root Cause)**:
+  - Khi người dùng bấm nút *"Lưu Cài Đặt"* trong modal Nhận Thông Báo Email (`EmailSubscriptionModal.tsx`), hàm `notificationService.saveSubscription` gửi request `POST /api/notifications/subscribe`.
+  - Do kiến trúc Cloudflare Pages của dự án sử dụng `functions/_worker.ts` làm Single Entry Point điều phối toàn bộ các tuyến đường Edge Worker (`dist/_worker.js`), bất kỳ endpoint nào chưa được import và khai báo định tuyến trong `_worker.ts` sẽ bị rơi vào khối fallback 404 (`{"success":false,"error":"Endpoint not found","path":"/api/notifications/subscribe"}`).
+  - Phía client nhận HTTP 404 với `res.ok === false` nên hiển thị toast lỗi: *"Không thành công: Không thể đồng bộ lên máy chủ."*.
+  - Ngoài ra, hàm `ensureNotificationTablesD1` trong `_emailHelper.ts` sử dụng `db.exec()` với nhiều câu lệnh CREATE TABLE gộp, dễ gây lỗi trên Cloudflare D1 so với chuẩn `db.prepare().run()`.
+- **Giải pháp đã triển khai (Solution)**:
+  1. *Định tuyến toàn diện 6 module Email Notification trong `functions/_worker.ts`*:
+     - `/api/notifications/subscribe` (Đăng ký / cập nhật tùy chọn nhận thông báo email).
+     - `/api/notifications/unsubscribe` (Xử lý hủy đăng ký 1-chạm an toàn).
+     - `/api/notifications/subscribers` (Xem và quản trị danh sách người đăng ký cho Admin).
+     - `/api/notifications/settings` (Cấu hình nhà cung cấp email Resend / Brevo).
+     - `/api/notifications/send` (Gửi email thông báo code drop / sự kiện).
+     - `/api/notifications/logs` (Tra cứu lịch sử gửi email).
+  2. *Chuẩn hóa tạo bảng CSDL D1*:
+     - Chuyển `ensureNotificationTablesD1` sang `db.prepare(...).run()` riêng biệt cho `email_subscribers` và `email_notification_logs`, đảm bảo tự động khởi tạo bảng an toàn 100% trên Cloudflare D1.
+- **Files Modified**:
+  - `functions/_worker.ts`
+  - `functions/api/notifications/_emailHelper.ts`
+  - `CHANGELOG.md`
+  - `KNOWN_ISSUES.md`
+
 ### 142. Khắc Phục Lỗi "buyerDisplayName is not defined" Khi Mua Gói Tiện Ích & Cửa Hàng (Orders Create API)
 - **Mô tả & Yêu cầu người dùng**:
   - *"Khi tôi mua lần đầu web báo lỗi thế này. (Ảnh chụp màn hình: toast lỗi 'Thất bại: buyerDisplayName is not defined') "*

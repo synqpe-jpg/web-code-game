@@ -17,6 +17,12 @@ import * as gamesApi from './api/games';
 import * as crawlArticleApi from './api/crawl-article';
 import * as gameIconApi from './api/game-icon';
 import * as ingestCodesApi from './api/crawler/ingest-codes';
+import * as notifSubscribeApi from './api/notifications/subscribe';
+import * as notifUnsubscribeApi from './api/notifications/unsubscribe';
+import * as notifSubscribersApi from './api/notifications/subscribers';
+import * as notifSettingsApi from './api/notifications/settings';
+import * as notifSendApi from './api/notifications/send';
+import * as notifLogsApi from './api/notifications/logs';
 import { invalidateCatalogEdgeCache } from './services/cache_service';
 import fallbackGiveawaysData from '../src/data/giveaways.json';
 
@@ -397,6 +403,41 @@ export default {
         if (method === 'OPTIONS') return await ingestCodesApi.onRequestOptions();
         if (method === 'POST') return await ingestCodesApi.onRequestPost(context);
         return await ingestCodesApi.onRequestGet(context);
+      }
+
+      // 9. /api/notifications/* (Email Notification Hub)
+      if (pathname === '/api/notifications/subscribe') {
+        if (method === 'OPTIONS') return await notifSubscribeApi.onRequestOptions();
+        if (method === 'POST') return await notifSubscribeApi.onRequestPost(context);
+        return await notifSubscribeApi.onRequestGet(context);
+      }
+
+      if (pathname === '/api/notifications/unsubscribe') {
+        if (method === 'OPTIONS') return await notifUnsubscribeApi.onRequestOptions();
+        if (method === 'GET') return await notifUnsubscribeApi.onRequestGet(context);
+        if (method === 'POST') return await notifUnsubscribeApi.onRequestPost(context);
+      }
+
+      if (pathname === '/api/notifications/subscribers') {
+        if (method === 'OPTIONS') return await notifSubscribersApi.onRequestOptions();
+        if (method === 'GET') return await notifSubscribersApi.onRequestGet(context);
+        if (method === 'DELETE') return await notifSubscribersApi.onRequestDelete(context);
+      }
+
+      if (pathname === '/api/notifications/settings') {
+        if (method === 'OPTIONS') return await notifSettingsApi.onRequestOptions();
+        if (method === 'GET') return await notifSettingsApi.onRequestGet(context);
+        if (method === 'POST') return await notifSettingsApi.onRequestPost(context);
+      }
+
+      if (pathname === '/api/notifications/send') {
+        if (method === 'OPTIONS') return await notifSendApi.onRequestOptions();
+        if (method === 'POST') return await notifSendApi.onRequestPost(context);
+      }
+
+      if (pathname === '/api/notifications/logs') {
+        if (method === 'OPTIONS') return await notifLogsApi.onRequestOptions();
+        return await notifLogsApi.onRequestGet(context);
       }
 
       // Fallback for any unknown /api route
