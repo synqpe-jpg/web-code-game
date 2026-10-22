@@ -7,6 +7,24 @@ Mỗi mục sửa lỗi đều ghi nhận **Nguyên nhân gốc rễ (Root Cause
 
 ## [2026-10-22]
 
+### 142. Khắc Phục Lỗi "buyerDisplayName is not defined" Khi Mua Gói Tiện Ích & Cửa Hàng (Orders Create API)
+- **Mô tả & Yêu cầu người dùng**:
+  - *"Khi tôi mua lần đầu web báo lỗi thế này. (Ảnh chụp màn hình: toast lỗi 'Thất bại: buyerDisplayName is not defined') "*
+- **Nguyên nhân gốc rễ (Root Cause)**:
+  - Trong `functions/api/orders/create.ts`, biến `buyerDisplayName` được khai báo bằng `const` bên trong khối `try { ... }` ở bước 6 (cập nhật Marketing Event Hub).
+  - Ngay sau khối `try` đó, ở bước 6.1 (gửi thông báo đơn hàng mới qua Telegram `sendNewOrderAlert`), code gọi `buyerName: buyerDisplayName`.
+  - Vì `const` có phạm vi khối (block-scoped), khi thực thi ngoài khối `try`, JavaScript ném ngoại lệ `ReferenceError: buyerDisplayName is not defined`.
+  - Mặc dù giao dịch trong CSDL D1 đã trừ tiền ví và xuất mã thành công, ngoại lệ này làm sập luồng xử lý phản hồi HTTP, trả về mã lỗi 500 với thông điệp `buyerDisplayName is not defined`.
+  - Phía giao diện (`ProductCheckoutModal.tsx`) nhận `res.success === false`, không hiển thị được màn hình nổ pháo hoa chúc mừng kèm nút sao chép mã mà bắn toast đỏ "Thất bại: buyerDisplayName is not defined".
+- **Giải pháp đã triển khai (Solution)**:
+  - Di chuyển khai báo `const buyerDisplayName = member.display_name || member.username || member.email || buyerName || 'Khách hàng';` lên đầu hàm (ngay sau khi xác thực `member`), đảm bảo biến nằm trong phạm vi toàn cục của request handler.
+  - Loại bỏ khai báo trùng lặp bên trong khối `try`.
+  - Đảm bảo toàn bộ luồng tạo đơn hàng, trừ tiền ví, cập nhật Real Events Hub, gửi Telegram Alert và trả về phản hồi 200 kèm mã code đã mua hoạt động mượt mà 100%.
+- **Files Modified**:
+  - `functions/api/orders/create.ts`
+  - `CHANGELOG.md`
+  - `KNOWN_ISSUES.md`
+
 ### 141. Đồng Bộ & Tích Hợp 1,221 Nguồn Quét Fanpage Facebook Chính Xác Cho Toàn Bộ Game Trên Web (Exact Fanpage Crawler Sources)
 - **Mô tả & Yêu cầu người dùng**:
   - *"@[c:\2 File\nguon-fanpage-627-game.json] Đây là danh sách toàn bộ các link trang chủ fb của các game trên web hiện tại, thêm vào nguồn quét chính xác giúp tôi."*

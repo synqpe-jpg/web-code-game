@@ -147,6 +147,8 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
       );
     }
 
+    const buyerDisplayName = member.display_name || member.username || member.email || buyerName || 'Khách hàng';
+
     // 1.1 Idempotency Pre-check: Nếu đơn hàng đã được tạo thành công với key này, trả lại ngay lập tức
     const existingOrder = await env.DB.prepare(
       'SELECT * FROM orders WHERE member_id = ? AND idempotency_key = ? LIMIT 1'
@@ -406,7 +408,6 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
       }
 
       // Create real BUY_PRODUCT notification event for all devices to receive immediately
-      const buyerDisplayName = member.display_name || member.username || member.email || 'Khách hàng';
       const buyEvt = {
         id: `evt_order_${newOrderId}_${Date.now()}`,
         type: 'BUY_PRODUCT',

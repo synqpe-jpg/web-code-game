@@ -10,6 +10,18 @@
 
 ## 1. DANH MỤC LỖI & CÁC BẪY ĐÃ THẤT BẠI (DO NOT REPEAT)
 
+### ISSUE-078: Lỗi "buyerDisplayName is not defined" Khi Thanh Toán Đơn Hàng Do Khai Báo Biến Trong Khối Try Của API Orders Create
+- **Triệu chứng**:
+  - Người dùng bấm nút "Xác Nhận Mua" ở modal thanh toán Tiện Ích hoặc Cửa Hàng, ví tiền đã bị trừ nhưng màn hình nổ pháo hoa chúc mừng và danh sách mã code không hiện ra; góc dưới bên phải hiện toast đỏ: *"Thất bại: buyerDisplayName is not defined"*.
+- **Nguyên nhân gốc rễ**:
+  1. Trong `functions/api/orders/create.ts`, biến `buyerDisplayName` được khai báo bằng `const` bên trong khối `try { ... }` ở bước 6 (cập nhật Real Events Hub).
+  2. Ở bước 6.1 (gửi cảnh báo Telegram `sendNewOrderAlert`), code truy cập `buyerDisplayName` ở phạm vi ngoài khối `try`, gây ra lỗi runtime `ReferenceError: buyerDisplayName is not defined`.
+  3. Lỗi 500 được trả về cho trình duyệt, khiến `res.success` bằng `false` và chặn modal thành công hiển thị.
+- **Giải pháp chuẩn đã kiểm chứng**:
+  - Luôn khai báo các thông tin người mua (`buyerDisplayName`, `buyerPhone`, `buyerEmail`) ở phạm vi cấp hàm ngay sau khi xác thực danh tính `member`, không khai báo cục bộ lồng trong các khối `try` hoặc `if` con.
+- ⛔ **CÁCH SỬA ĐÃ THẤT BẠI - TUYỆT ĐỐI KHÔNG LẶP LẠI**:
+  - ❌ *Không bao giờ khai báo biến dùng cho các handler bên ngoài (như Telegram alert, logging) bên trong khối try của sub-service*: Sẽ gây ReferenceError phá vỡ luồng trả về kết quả cho khách hàng.
+
 ### ISSUE-077: Nhầm Lẫn Giữa Fanpage Tổng Của Nhà Phát Hành Và Fanpage Độc Quyền Từng Game Trong Cấu Hình Crawler
 - **Triệu chứng**:
   - Khi bot crawler quét Facebook fanpage, các mã code của nhiều game khác nhau thuộc cùng một nhà phát hành (VNG, VTC Mobile, SohaGame, Funtap) bị gán nhầm vào một tựa game duy nhất.
