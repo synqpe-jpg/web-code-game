@@ -436,8 +436,11 @@ export async function saveRealEventsHub(env: any, hub: RealEventHubData, forceRe
     }
   } catch {}
 
-  // 3. Persist to D1 as SSOT
-  if (env && env.DB) {
+  // 3. Persist to D1 as SSOT with 30s throttle to protect D1 write quota
+  const now = Date.now();
+  const lastD1Save = globalScope.__wcg_hub_last_d1_save || 0;
+  if (env && env.DB && (forceReset || (now - lastD1Save >= 30000))) {
+    globalScope.__wcg_hub_last_d1_save = now;
     try {
       await setSettingD1(env.DB, 'wcg_real_events_hub', hub);
     } catch (dbErr: any) {

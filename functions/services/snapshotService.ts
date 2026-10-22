@@ -14,7 +14,7 @@ import {
 import { getRealEventsHub, saveRealEventsHub } from './realEventsHub';
 
 const SNAPSHOT_ROW_ID = 'GLOBAL_REALTIME_SNAPSHOT';
-export const SNAPSHOT_REFRESH_INTERVAL_MS = 10000; // 10 seconds
+export const SNAPSHOT_REFRESH_INTERVAL_MS = 120000; // 2 minutes (Admin updates still force immediate refresh)
 
 // In-memory isolate cache to prevent redundant D1 reads across rapid requests in the same isolate
 const globalScope = globalThis as any;

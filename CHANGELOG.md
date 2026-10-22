@@ -7,6 +7,36 @@ Mỗi mục sửa lỗi đều ghi nhận **Nguyên nhân gốc rễ (Root Cause
 
 ## [2026-10-22]
 
+### 121. Điều Tra Toàn Diện Hạn Mức D1 Buổi Sáng: Triệt Tiêu Lỗ Hổng Client Report Peak Xóa Sạch Edge CDN Cache & Tối Ưu Tần Suất Snapshot Service
+- **Mô tả & Yêu cầu người dùng**:
+  - Người dùng gửi ảnh dashboard Cloudflare D1 cho thấy: Mới sáng đã mất ~505k rows read (1/10 hạn mức 5M) và hỏi: *"Bạn kiểm tra trên cloudflare giúp tôi xem sao mới sáng đã mất 1/10 read rồi. Ngoài ra có chỗ nào bất thường không?"*
+- **Nguyên nhân gốc rễ qua dữ liệu GraphQL Analytics thực tế (Root Cause via Cloudflare Analytics)**:
+  1. *Phân bổ dữ liệu đọc D1 theo từng giờ sáng 22/10 (UTC+7)*:
+     - 07:00 - 08:00: 223 queries | 16.763 rows read
+     - 08:00 - 09:00: 252 queries | 22.139 rows read
+     - **09:00 - 10:00: 3.851 queries | 364.692 rows read (Chiếm hơn 72% tổng lượng read cả buổi sáng!)**
+     - 10:00 - 10:30: 1.254 queries | 102.246 rows read
+  2. *Nguyên nhân khiến khung giờ 09:00 - 10:00 bùng nổ 365k reads*:
+     - Trong khoảng thời gian này, web đang chạy phiên bản cũ (trước bản vá lúc 10:11): `fetchMetricsSnapshot()` gọi mỗi 12 giây với `?fresh=1&_t=...` ép quét toàn bộ sản phẩm/giveaway trên D1.
+     - Đồng thời, ta thực hiện script đồng bộ toàn diện (`sync_all_admin_and_client_data.cjs`) và đối soát database.
+  3. *Phát hiện bất thường nghiêm trọng thứ hai: Client `report_peak_metrics` xóa sạch Server Edge Cache*:
+     - Trong `functions/api/sync.ts` (dòng 1246-1270), mỗi khi nhận `{ type: 'report_peak_metrics' }` từ client (vốn được kích hoạt liên tục với debounce 400ms mỗi khi có số ảo thay đổi), server đã thực thi `cache.delete('/api/metrics/synced')`, `cache.delete('/api/stats')`, `cache.delete('/api/realtime-events')` và đặt `__wcg_metrics_snapshot = null`.
+     - Hậu quả: Ngay sau khi Edge Cache lưu đệm được vài giây, một tab client gửi `report_peak_metrics` lập tức xóa sạch Edge Cache, khiến tất cả các tab và user khác bị ép truy vấn trực tiếp vào D1!
+  4. *Tần suất Snapshot Service quá ngắn*:
+     - `SNAPSHOT_REFRESH_INTERVAL_MS` trong `snapshotService.ts` chỉ để 10 giây (10000ms), khiến snapshot liên tục tái tạo và ghi D1 `INSERT INTO system_snapshots` 6 lần/phút.
+  5. *`saveRealEventsHub` không có throttle*:
+     - Mỗi lượt copy hoặc peak report đều ghi trực tiếp vào bảng `system_settings` của D1.
+- **Giải pháp dứt điểm đã triển khai (Solution)**:
+  1. *Khóa chặt quyền xóa cache*: Trong `functions/api/sync.ts`, CHỈ xóa cache và xóa snapshot khi có yêu cầu cưỡng chế `isForceReset === true` từ Admin. Client gửi `report_peak_metrics` thông thường tuyệt đối không được xóa Edge Cache của Server.
+  2. *Nâng chu kỳ Snapshot Service*: Nâng `SNAPSHOT_REFRESH_INTERVAL_MS` từ 10 giây lên **120 giây (2 phút)**. Tiết kiệm ngay hơn 90% lượt đọc ngầm của Worker isolate.
+  3. *Giãn Debounce Client Peak Reporting*: Trong `marketingService.ts`, nâng debounce từ 400ms lên **15 giây (15000ms)** và gắn cờ throttle 12s để triệt tiêu việc spam POST request.
+  4. *Throttling D1 Writes trong `saveRealEventsHub`*: Thêm cơ chế đệm thời gian tối thiểu 30 giây giữa các lần ghi D1 cho hub event.
+- **Files Modified**:
+  - `functions/api/sync.ts`
+  - `functions/services/snapshotService.ts`
+  - `functions/services/realEventsHub.ts`
+  - `src/services/marketingService.ts`
+
 ### 120. Triệt Tiêu Lỗ Hổng Polling D1 Quota Leak & Nâng Cấp Tầng Edge CDN Cache Bảo Vệ Vĩnh Viễn Giới Hạn Cloudflare D1
 - **Mô tả & Yêu cầu người dùng**:
   - Người dùng yêu cầu: *"Bạn xem giúp tôi d1 đã được tối ưu chưa để tránh tình trạng như hôm trước chưa? Và đảm bảo đồng bộ dữ liệu 100%, khi trang admin làm gì gì web khách sẽ cần cập nhật chính xác. Nếu có vấn đề nào thì báo tôi."*

@@ -222,6 +222,7 @@ class MarketingService {
   private recentGiveawayDeltas: Map<string, { expiresAt: number }> = new Map();
   private snapshotPollerTimer: any = null;
   private peakReportTimer: any = null;
+  private lastPeakReportSentTime: number = 0;
   private visibilityListenerAttached: boolean = false;
   private lastReportedPeaks: {
     sold: Record<string, number>;
@@ -633,11 +634,14 @@ class MarketingService {
     this.peakReportTimer = setTimeout(async () => {
       this.peakReportTimer = null;
       await this.reportPeakMetrics();
-    }, 400); // 400ms debounce for rapid cross-device sync
+    }, 15000); // 15s gentle debounce to protect server resources
   }
 
   public async reportPeakMetrics(): Promise<void> {
     if (typeof window === 'undefined') return;
+    const nowMs = Date.now();
+    if (nowMs - this.lastPeakReportSentTime < 12000) return;
+    this.lastPeakReportSentTime = nowMs;
     try {
       const peakSold: Record<string, number> = {};
       const peakClaimed: Record<string, number> = {};

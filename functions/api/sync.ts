@@ -1243,35 +1243,38 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
           hub.updatedAt = new Date().toISOString();
           await saveRealEventsHub(env, hub, isForceReset);
 
-          // Invalidate/refresh memory isolate snapshot cache so subsequent GETs immediately reflect the new peak
-          const gScope = globalThis as any;
-          gScope.__wcg_metrics_snapshot = null;
+          // CHỈ xóa cache và snapshot khi có yêu cầu cưỡng chế forceReset từ Admin
+          // Client report peak metric không được phép phá vỡ Edge CDN Cache
+          if (isForceReset) {
+            const gScope = globalThis as any;
+            gScope.__wcg_metrics_snapshot = null;
 
-          if (isForceReset && env && env.DB) {
-            await setSettingD1(env.DB, 'wcg_hourly_fomo_stats', null).catch(() => {});
-            await env.DB.prepare('DELETE FROM system_snapshots').run().catch(() => {});
-          }
-
-          // Invalidate edge cache for /api/metrics/synced, /api/stats, and /api/realtime-events
-          try {
-            if (typeof caches !== 'undefined' && (caches as any).default) {
-              const cache = (caches as any).default;
-              const cacheUrl = new URL(request.url);
-              cacheUrl.pathname = '/api/metrics/synced';
-              cacheUrl.search = '';
-              await cache.delete(new Request(cacheUrl.toString(), { method: 'GET' }));
-
-              const statsUrl = new URL(request.url);
-              statsUrl.pathname = '/api/stats';
-              statsUrl.search = '';
-              await cache.delete(new Request(statsUrl.toString(), { method: 'GET' }));
-
-              const eventsUrl = new URL(request.url);
-              eventsUrl.pathname = '/api/realtime-events';
-              eventsUrl.search = '';
-              await cache.delete(new Request(eventsUrl.toString(), { method: 'GET' }));
+            if (env && env.DB) {
+              await setSettingD1(env.DB, 'wcg_hourly_fomo_stats', null).catch(() => {});
+              await env.DB.prepare('DELETE FROM system_snapshots').run().catch(() => {});
             }
-          } catch {}
+
+            // Invalidate edge cache for /api/metrics/synced, /api/stats, and /api/realtime-events
+            try {
+              if (typeof caches !== 'undefined' && (caches as any).default) {
+                const cache = (caches as any).default;
+                const cacheUrl = new URL(request.url);
+                cacheUrl.pathname = '/api/metrics/synced';
+                cacheUrl.search = '';
+                await cache.delete(new Request(cacheUrl.toString(), { method: 'GET' }));
+
+                const statsUrl = new URL(request.url);
+                statsUrl.pathname = '/api/stats';
+                statsUrl.search = '';
+                await cache.delete(new Request(statsUrl.toString(), { method: 'GET' }));
+
+                const eventsUrl = new URL(request.url);
+                eventsUrl.pathname = '/api/realtime-events';
+                eventsUrl.search = '';
+                await cache.delete(new Request(eventsUrl.toString(), { method: 'GET' }));
+              }
+            } catch {}
+          }
         }
 
         return new Response(
