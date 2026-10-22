@@ -10,6 +10,18 @@
 
 ## 1. DANH MỤC LỖI & CÁC BẪY ĐÃ THẤT BẠI (DO NOT REPEAT)
 
+### ISSUE-068: Nút Quét Game Mới Google Play Trên Trang Admin Chỉ Giả Lập Bằng `setTimeout` Không Gọi Backend Thực Tế
+- **Triệu chứng**:
+  - Tại trang quản trị Admin mục `Crawler & Auto Sync` -> `Game Mới (Google Play & CodeMoi)`, khi bấm nút `"⚡ Quét Google Play"` hoặc `"⚡ Quét Google Play Ngay"`, hệ thống chỉ xoay tròn 2 giây rồi hiện thông báo thành công mà không có bất kỳ game mới nào từ Google Play được nạp vào hệ thống.
+- **Nguyên nhân gốc rễ**:
+  - `handleTriggerGooglePlayScan` trong `CrawlerModule.tsx` bị hardcode giả lập bằng `await new Promise((resolve) => setTimeout(resolve, 2000))`.
+  - Backend Cloudflare Edge Function (`functions/api/sync.ts`) thiếu action `scan_googleplay_new_games`, và `adminDataService.ts` thiếu method kết nối.
+- **Giải pháp chuẩn đã kiểm chứng**:
+  - Xây dựng action `scan_googleplay_new_games` trong `functions/api/sync.ts` thực hiện cào song song các query Google Play Store VN, lọc app tiện ích, bóc tách metadata (tên, dev, rating, icon s256-rw), phân loại theo whitelist và lưu vào D1 (`wcg_admin_games_v5`, `wcg_crawler_pending_games_v1`).
+  - Nối method `scanGooglePlayNewGames()` vào `adminDataService.ts` và gắn vào handler `handleTriggerGooglePlayScan` của `CrawlerModule.tsx`.
+- ⛔ **CÁCH SỬA ĐÃ THẤT BẠI - TUYỆT ĐỐI KHÔNG LẶP LẠI**:
+  - ❌ *Không bao giờ để nút chức năng trang Admin dùng `setTimeout` giả lập hành vi cào*: Mọi tác vụ cào/quét phải được thực thi trên serverless edge hoặc background runner thật để đảm bảo dữ liệu thật.
+
 ### ISSUE-067: Lỗi Mở Modal Game Nhảy 2 Giao Diện (3 Code Nhảy Lên Đủ Code & Logo Đổi Thành Avatar Chữ "TA")
 - **Triệu chứng**:
   - Khi người dùng bấm vào một tựa game (ví dụ Tarot: Vĩnh Hằng Thần Ngữ), modal mở ra ban đầu hiển thị đúng logo nhưng chỉ có 3 code ("Tất cả (3)").

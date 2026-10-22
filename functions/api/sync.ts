@@ -1957,6 +1957,219 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
       }
     }
 
+    // Action: Quét trực tiếp game mới từ Google Play Store VN trên Cloudflare Edge Function
+    if (body.action === 'scan_googleplay_new_games' && env.DB) {
+      try {
+        const searchQueries = [
+          'https://play.google.com/store/search?q=VNG+game&c=apps&hl=vi&gl=VN',
+          'https://play.google.com/store/search?q=Garena+game&c=apps&hl=vi&gl=VN',
+          'https://play.google.com/store/search?q=SohaGame&c=apps&hl=vi&gl=VN',
+          'https://play.google.com/store/search?q=Funtap+game&c=apps&hl=vi&gl=VN',
+          'https://play.google.com/store/search?q=Gamota+game&c=apps&hl=vi&gl=VN',
+          'https://play.google.com/store/search?q=Gosu+game&c=apps&hl=vi&gl=VN',
+          'https://play.google.com/store/search?q=VTC+game&c=apps&hl=vi&gl=VN',
+          'https://play.google.com/store/search?q=game+mobile+viet+nam&c=apps&hl=vi&gl=VN',
+        ];
+
+        const excludedPackages = new Set([
+          'com.zing.zalo', 'com.facebook.katana', 'com.facebook.orca', 'com.instagram.android',
+          'com.zhiliaoapp.musically', 'com.ss.android.ugc.trill', 'com.shopee.vn', 'com.lazada.android',
+          'vn.momo.platform', 'vnpay.vi-dien-tu', 'com.vng.zingmp3', 'com.spotify.music',
+          'com.google.android.youtube', 'com.netflix.mediaclient', 'com.kakao.talk',
+          'org.telegram.messenger', 'com.whatsapp'
+        ]);
+
+        const rawGames = await getSettingD1(env.DB, 'wcg_admin_games_v5') || await getSettingD1(env.DB, 'wcg_admin_games_v4') || (fallbackGamesData as any[]);
+        const gamesList: any[] = Array.isArray(rawGames) ? [...rawGames] : [];
+        const pendingListRaw = await getSettingD1(env.DB, 'wcg_crawler_pending_games_v1') || [];
+        const pendingList: any[] = Array.isArray(pendingListRaw) ? [...pendingListRaw] : [];
+        const autoConfig = await getSettingD1(env.DB, 'wcg_crawler_auto_publish_games_v1') || {
+          enabled: true,
+          whitelistPublishers: ['VNG', 'Garena', 'SohaGame', 'Funtap', 'Gamota', 'Gosu', 'VTC', 'Dzogame', 'Appota', 'VGP', 'Kplay', 'AceGame', 'VPlay', 'DigiGames', 'JoyGames', 'Gzone', 'Efun', 'Capcom', 'TiMi', 'Mộc Game', 'VelaGame', 'Habby', 'miHoYo', 'Cognosphere', 'Kuro Games', 'ZingPlay']
+        };
+
+        const existingSlugs = new Set();
+        const baseSlugSet = new Set();
+        const existingPackages = new Set();
+        const getBase = (s: string) => (s || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/đ/g, 'd').replace(/[^a-z0-9]+/g, '-').replace(/-(vplay|vtc|gosu|gamota|soha|sohagame|funtap|vng|garena|vn|mobile|joygames|efun|online)$/g, '').replace(/^-+|-+$/g, '');
+
+        for (const g of gamesList) {
+          if (g.slug) { existingSlugs.add(g.slug); baseSlugSet.add(getBase(g.slug)); }
+          if (g.id) { existingSlugs.add(g.id); baseSlugSet.add(getBase(g.id)); }
+          if (g.name) { baseSlugSet.add(getBase(g.name)); }
+          if (g.download_android) {
+            const m = g.download_android.match(/id=([a-zA-Z0-9._]+)/);
+            if (m) existingPackages.add(m[1].toLowerCase());
+          }
+        }
+        for (const p of pendingList) {
+          if (p.slug) { existingSlugs.add(p.slug); baseSlugSet.add(getBase(p.slug)); }
+          if (p.name) { baseSlugSet.add(getBase(p.name)); }
+          if (p.packageId) { existingPackages.add(p.packageId.toLowerCase()); }
+        }
+
+        const scannedGamesMap = new Map<string, { pkg: string; name: string; developer: string; iconUrl: string; rating: number }>();
+
+        // Query Google Play Store search pages in parallel
+        await Promise.all(
+          searchQueries.map(async (url) => {
+            try {
+              const res = await fetch(url, {
+                headers: {
+                  'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
+                  'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
+                  'Accept-Language': 'vi,en-US;q=0.9,en;q=0.8'
+                }
+              });
+              if (!res.ok) return;
+              const html = await res.text();
+              const cardRegex = /<a[^>]*href="\/store\/apps\/details\?id=([a-zA-Z0-9._]+)"[^>]*>([\s\S]*?)<\/a>/gi;
+              let m;
+              while ((m = cardRegex.exec(html)) !== null) {
+                const pkg = m[1];
+                if (excludedPackages.has(pkg.toLowerCase())) continue;
+                const inner = m[2];
+
+                const nameMatch = inner.match(/<span[^>]*class="DdYX5"[^>]*>([^<]+)<\/span>/i) ||
+                                  inner.match(/<div[^>]*class="Epkrse"[^>]*>([^<]+)<\/div>/i) ||
+                                  inner.match(/<span[^>]*class="vMhA8d"[^>]*>([^<]+)<\/span>/i);
+                if (!nameMatch) continue;
+                const name = nameMatch[1].replace(/&amp;/g, '&').trim();
+
+                const devMatch = inner.match(/<span[^>]*class="wMUdtb"[^>]*>([^<]+)<\/span>/i);
+                const developer = devMatch ? devMatch[1].replace(/&amp;/g, '&').trim() : 'NPH Chính Thức';
+
+                const iconMatch = inner.match(/<img[^>]*src="([^"]+)"[^>]*alt="(?:Hnh thu nh?|Hình thu nhỏ|Biểu tượng ảnh)"/i) ||
+                                  inner.match(/<img[^>]*src="(https:\/\/play-lh\.googleusercontent\.com\/[^"=]+)=/i);
+                let iconUrl = '';
+                if (iconMatch) {
+                  iconUrl = iconMatch[1].startsWith('http') ? iconMatch[1].replace(/=s\d+.*$/, '=s256-rw') : '';
+                }
+
+                const ratingMatch = inner.match(/aria-label="[^"]*([0-9,.]+)\s*sao/i) ||
+                                    inner.match(/class="w2kbF">([0-9,.]+)</i);
+                let rating = 4.8;
+                if (ratingMatch) {
+                  const r = parseFloat(ratingMatch[1].replace(',', '.'));
+                  if (!isNaN(r) && r > 0 && r <= 5) rating = Math.round(r * 10) / 10;
+                }
+
+                if (!scannedGamesMap.has(pkg)) {
+                  scannedGamesMap.set(pkg, { pkg, name, developer, iconUrl, rating });
+                }
+              }
+            } catch {}
+          })
+        );
+
+        const autoPublished: any[] = [];
+        const newPending: any[] = [];
+        const whitelist: string[] = Array.isArray(autoConfig.whitelistPublishers) ? autoConfig.whitelistPublishers.map((w: string) => w.toLowerCase()) : [];
+
+        for (const item of scannedGamesMap.values()) {
+          const rawSlug = getBase(item.name);
+          const slug = rawSlug || `gp-${item.pkg.replace(/[^a-z0-9]+/gi, '-').toLowerCase()}`;
+          const bName = getBase(item.name);
+
+          if (
+            existingPackages.has(item.pkg.toLowerCase()) ||
+            existingSlugs.has(slug) ||
+            baseSlugSet.has(rawSlug) ||
+            baseSlugSet.has(bName)
+          ) {
+            continue;
+          }
+
+          existingPackages.add(item.pkg.toLowerCase());
+          existingSlugs.add(slug);
+          baseSlugSet.add(rawSlug);
+          baseSlugSet.add(bName);
+
+          const normDev = (item.developer || '').toLowerCase();
+          const normName = (item.name || '').toLowerCase();
+          const isWhitelisted = whitelist.some((w: string) => normDev.includes(w) || normName.includes(` ${w}`) || normName.endsWith(`-${w}`));
+          const shouldAutoPublish = autoConfig.enabled && isWhitelisted;
+
+          if (shouldAutoPublish) {
+            const newGame = {
+              id: slug,
+              slug,
+              name: item.name,
+              publisher: item.developer,
+              category: 'Nhập Vai',
+              rating: item.rating,
+              icon_url: item.iconUrl || `/game_icons/${slug}.webp`,
+              cover_image_url: item.iconUrl || `/game_icons/${slug}.webp`,
+              banner_url: '',
+              description: `${item.name} là tựa game mobile mới phát hành chính thức bởi ${item.developer}.`,
+              short_description: `${item.name} - Game Mobile Mới`,
+              instructions: 'Bước 1: Mở game > Nhấn Avatar nhân vật\nBước 2: Chọn Cài đặt > Nhập Giftcode\nBước 3: Dán mã và nhấn Xác nhận.',
+              platform: 'Android, iOS, PC',
+              release_date: new Date().toISOString().split('T')[0],
+              download_android: `https://play.google.com/store/apps/details?id=${item.pkg}`,
+              is_featured: false,
+              is_hot: false,
+              is_new: true,
+              is_active: true,
+              status: 'ACTIVE',
+              codes_count: 0,
+              free_codes_count: 0,
+              source: 'Google Play Store VN (Auto)',
+              created_at: new Date().toISOString(),
+              updated_at: new Date().toISOString(),
+            };
+            gamesList.unshift(newGame);
+            autoPublished.push(newGame);
+          } else {
+            const pendingGame = {
+              id: `gp_${item.pkg.replace(/[^a-zA-Z0-9]/g, '_')}`,
+              name: item.name,
+              slug,
+              packageId: item.pkg,
+              developer: item.developer,
+              category: 'Nhập Vai',
+              rating: item.rating,
+              installs: 'Mới ra mắt',
+              iconUrl: item.iconUrl,
+              playStoreUrl: `https://play.google.com/store/apps/details?id=${item.pkg}`,
+              sourceType: 'googleplay',
+              sourceUrl: `https://play.google.com/store/apps/details?id=${item.pkg}`,
+              releaseInfo: 'Google Play Store VN',
+              activeCodesCount: 0,
+              description: `${item.name} phát hành bởi ${item.developer}.`,
+              releaseDate: new Date().toISOString().split('T')[0],
+              status: 'PENDING',
+              autoPublishEligible: false,
+              crawledAt: new Date().toISOString(),
+            };
+            pendingList.unshift(pendingGame);
+            newPending.push(pendingGame);
+          }
+        }
+
+        if (autoPublished.length > 0) {
+          await setSettingD1(env.DB, 'wcg_admin_games_v5', gamesList);
+          invalidateGamesCatalogCache();
+          await invalidateCatalogEdgeCache(context as any, request, env).catch(() => {});
+        }
+        if (newPending.length > 0) {
+          await setSettingD1(env.DB, 'wcg_crawler_pending_games_v1', pendingList);
+        }
+
+        return new Response(JSON.stringify({
+          success: true,
+          message: `Quét Google Play VN thành công! Rà soát ${scannedGamesMap.size} game: tự động đăng ${autoPublished.length} game NPH chính thức, thêm ${newPending.length} game vào chờ duyệt.`,
+          totalScanned: scannedGamesMap.size,
+          autoPublishedCount: autoPublished.length,
+          pendingAddedCount: newPending.length,
+          pendingGames: pendingList,
+          games: gamesList,
+        }), { headers: CORS_HEADERS });
+      } catch (err: any) {
+        return new Response(JSON.stringify({ success: false, error: String(err?.message || err) }), { status: 500, headers: CORS_HEADERS });
+      }
+    }
+
     // Action: Đăng ký / cập nhật trực tiếp thành viên với mật khẩu vào D1 (Admin Direct Provisioning)
     if (body.action === 'admin_set_member_password' && env.DB && body.member) {
       try {

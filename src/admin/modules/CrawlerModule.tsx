@@ -962,13 +962,17 @@ export const CrawlerModule: React.FC<CrawlerModuleProps> = ({ onShowToast }) => 
   // Trigger Google Play Scanner
   const handleTriggerGooglePlayScan = async () => {
     setIsScanningGooglePlay(true);
-    onShowToast('Đang quét Google Play VN... 🔍', 'Hệ thống đang rà soát các game mới từ VNG, Garena, SohaGame, Funtap...', 'info');
+    onShowToast('Đang quét Google Play VN... 🔍', 'Hệ thống đang rà soát các game mới từ VNG, Garena, SohaGame, Funtap, Gamota, Gosu, VTC...', 'info');
     try {
-      await new Promise((resolve) => setTimeout(resolve, 2000));
-      await loadData();
-      onShowToast('Hoàn tất quét! ✨', 'Đã cập nhật danh sách game mới nhất từ Google Play Store VN.', 'success');
-    } catch {
-      onShowToast('Lỗi quét', 'Không thể hoàn tất quét.', 'error');
+      const result = await adminDataService.scanGooglePlayNewGames();
+      if (result.success) {
+        onShowToast('Hoàn tất quét Google Play! 🎉', result.message || 'Đã cập nhật danh sách game mới nhất từ Google Play Store VN.', 'success');
+        await loadData();
+      } else {
+        onShowToast('Thông báo quét', result.message || 'Không thể hoàn tất quét Google Play.', 'info');
+      }
+    } catch (e: any) {
+      onShowToast('Lỗi quét Google Play', e?.message || 'Không thể hoàn tất quét Google Play.', 'error');
     } finally {
       setIsScanningGooglePlay(false);
     }

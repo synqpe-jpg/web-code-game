@@ -7,6 +7,31 @@ Mỗi mục sửa lỗi đều ghi nhận **Nguyên nhân gốc rễ (Root Cause
 
 ## [2026-10-22]
 
+### 126. Xây Dựng & Kích Hoạt Hoàn Toàn Tính Năng Quét Game Mới Google Play Store VN Tại Trang Quản Trị (Admin Crawler Module)
+- **Mô tả & Yêu cầu người dùng**:
+  - Người dùng gửi ảnh màn hình trang quản trị mục `Crawler & Auto Sync` (`admin-code-game-shop.pages.dev/admin#/crawler`), tab `Game Mới (Google Play & CodeMoi)`, yêu cầu: *"Mục quét game này tôi cần mục quét tại google play hoạt động bình thường."*
+- **Nguyên nhân gốc rễ (Root Cause)**:
+  - Trước đây, nút `"⚡ Quét Google Play"` trong `CrawlerModule.tsx` (`handleTriggerGooglePlayScan`) chỉ được nối với một hàm giả lập `setTimeout(resolve, 2000)` rồi hiển thị toast thông báo ảo, hoàn toàn không gọi backend để quét game thực tế.
+  - Phía backend Cloudflare Edge Functions (`functions/api/sync.ts`) đã có action `scan_codemoi_new_games` nhưng chưa có action `scan_googleplay_new_games`.
+  - Service `adminDataService.ts` thiếu phương thức `scanGooglePlayNewGames()`.
+- **Giải pháp dứt điểm đã triển khai (Solution)**:
+  1. *Triển khai action `scan_googleplay_new_games` trên Cloudflare Edge Worker (`functions/api/sync.ts`)*:
+     - Truy vấn song song các chuyên mục tìm kiếm Google Play Store VN: NPH chính thức (VNG, Garena, SohaGame, Funtap, Gamota, Gosu, VTC Mobile...) và từ khóa game mobile Việt Nam mới.
+     - Bộ lọc loại trừ các ứng dụng mạng xã hội / ví điện tử / tiện ích (`EXCLUDED_PACKAGES`).
+     - Trích xuất tự động: Tên game, NPH/Nhà phát triển, Package ID, Rating, và Icon độ phân giải cao (`=s256-rw`).
+     - Lọc trùng lặp thông minh với toàn bộ 629 game đã xuất bản và danh sách chờ duyệt hiện có.
+     - Phân loại theo cơ chế Whitelist: Các game từ NPH chính thức được tự động đăng (Auto-Publish) vào `wcg_admin_games_v5`, các game còn lại được đưa vào hàng chờ duyệt tay (`wcg_crawler_pending_games_v1`).
+  2. *Thêm phương thức `scanGooglePlayNewGames()` vào `adminDataService.ts`*:
+     - Gửi request xác thực quyền Admin lên `/api/sync` với `action: 'scan_googleplay_new_games'`.
+     - Nhận và cập nhật tức thì danh sách `pendingGames` và `games` trong state của Admin.
+  3. *Kết nối nút bấm trong `CrawlerModule.tsx`*:
+     - Nối cả 2 vị trí nút bấm `"⚡ Quét Google Play"` và `"⚡ Quét Google Play Ngay"` vào `adminDataService.scanGooglePlayNewGames()`.
+     - Hiển thị spinner trạng thái, thông báo toast kết quả quét chi tiết (số game đã rà soát, số game tự động đăng, số game thêm vào hàng chờ duyệt).
+- **Files Modified**:
+  - `functions/api/sync.ts`
+  - `src/admin/modules/CrawlerModule.tsx`
+  - `src/admin/services/adminDataService.ts`
+
 ### 125. Khắc Phục Triệt Để Hiện Tượng Mở Modal Game Nhảy 2 Giao Diện (3 Code Nhảy Lên Đủ Code & Logo Đổi Thành Avatar Chữ "TA")
 - **Mô tả & Yêu cầu người dùng**:
   - Người dùng phản ánh: *"Khi tôi ấn vào 1 tựa game thì luôn hiện ra 2 giao diện khác nhau, ban đầu chỉ có 3 code, nhưng đúng ảnh logo game, sau hiện ra đủ code nhưng sai logo game. Làm chính xác hiện 1 lần chính ra chính xác đúng logo game và đủ code."*
