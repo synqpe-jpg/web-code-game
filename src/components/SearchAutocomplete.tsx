@@ -148,17 +148,18 @@ export const SearchAutocomplete: React.FC<SearchAutocompleteProps> = ({
   const containerRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const mobileInputRef = useRef<HTMLInputElement>(null);
+  const mobileOverlayRef = useRef<HTMLDivElement>(null);
 
-  // Responsive device detector
+  // Responsive device detector (Tailwind md breakpoint: 768px)
   const [isMobile, setIsMobile] = useState<boolean>(() => {
     if (typeof window === 'undefined') return false;
-    return window.innerWidth < 640;
+    return window.innerWidth < 768;
   });
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
     const handleResize = () => {
-      setIsMobile(window.innerWidth < 640);
+      setIsMobile(window.innerWidth < 768);
     };
     window.addEventListener('resize', handleResize);
     return () => window.removeEventListener('resize', handleResize);
@@ -199,9 +200,10 @@ export const SearchAutocomplete: React.FC<SearchAutocompleteProps> = ({
     if (typeof window !== 'undefined') {
       window.dispatchEvent(new CustomEvent('wcg_mobile_search_toggled', { detail: { isOpen: true } }));
     }
+    mobileInputRef.current?.focus();
     setTimeout(() => {
       mobileInputRef.current?.focus();
-    }, 60);
+    }, 50);
   };
 
   const handleCloseMobileSearch = () => {
@@ -355,6 +357,14 @@ export const SearchAutocomplete: React.FC<SearchAutocompleteProps> = ({
   // Click & Touch outside listener (Desktop & Mobile)
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent | TouchEvent) => {
+      // Nếu thao tác diễn ra bên trong overlay tìm kiếm mobile, tuyệt đối không đóng
+      if (mobileOverlayRef.current && mobileOverlayRef.current.contains(e.target as Node)) {
+        return;
+      }
+      // Nếu giao diện mobile đang mở, chỉ nút quay lại / đóng mới được đóng
+      if (isMobile && isOpen) {
+        return;
+      }
       if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
         setIsOpen(false);
       }
@@ -365,7 +375,7 @@ export const SearchAutocomplete: React.FC<SearchAutocompleteProps> = ({
       document.removeEventListener('mousedown', handleClickOutside);
       document.removeEventListener('touchstart', handleClickOutside);
     };
-  }, []);
+  }, [isMobile, isOpen]);
 
   // Handle Quick Copy from Autocomplete
   const handleCopyCode = (code: string, gameName: string, isExpired: boolean, e: React.MouseEvent) => {
@@ -458,9 +468,15 @@ export const SearchAutocomplete: React.FC<SearchAutocompleteProps> = ({
   };
 
   return (
-    <div ref={containerRef} className={`relative w-full ${className}`}>
+    <div
+      ref={containerRef}
+      className={`relative w-full ${className}`}
+      onClick={() => {
+        if (isMobile) handleOpenMobileSearch();
+      }}
+    >
       {/* Search Bar Input */}
-      <div className="relative flex items-center">
+      <div className={`relative flex items-center ${isMobile ? 'cursor-pointer' : ''}`}>
         <Search
           className={`${
             isFloating ? 'w-4 h-4 left-3' : 'w-4 h-4 sm:w-5 sm:h-5 left-3.5 sm:left-4'
@@ -470,6 +486,7 @@ export const SearchAutocomplete: React.FC<SearchAutocompleteProps> = ({
         <input
           ref={inputRef}
           type="text"
+          readOnly={isMobile}
           value={searchQuery}
           onChange={(e) => {
             onSearchChange(e.target.value);
@@ -477,34 +494,26 @@ export const SearchAutocomplete: React.FC<SearchAutocompleteProps> = ({
             else setIsOpen(true);
             setSelectedIndex(-1);
           }}
-          onFocus={(e) => {
+          onFocus={() => {
             if (isMobile) {
-              e.currentTarget.blur();
               handleOpenMobileSearch();
             } else {
               setIsOpen(true);
             }
           }}
-          onClick={(e) => {
+          onClick={() => {
             if (isMobile) {
-              e.currentTarget.blur();
-              handleOpenMobileSearch();
-            } else {
-              setIsOpen(true);
-            }
-          }}
-          onTouchStart={(e) => {
-            if (isMobile) {
-              e.currentTarget.blur();
               handleOpenMobileSearch();
             } else {
               setIsOpen(true);
             }
           }}
           onKeyDown={handleKeyDown}
-          autoFocus={autoFocus}
+          autoFocus={autoFocus && !isMobile}
           placeholder={placeholder || t.hero.searchPlaceholder}
           className={`w-full border border-border focus:border-primary focus:ring-2 focus:ring-primary/40 text-foreground placeholder-slate-400 shadow-xl transition-all outline-none bg-card hover:bg-card-hover ${
+            isMobile ? 'cursor-pointer select-none' : ''
+          } ${
             isFloating
               ? 'py-2 sm:py-2.5 text-xs sm:text-sm pl-9 sm:pl-10 pr-16 sm:pr-20 rounded-xl'
               : 'py-3 sm:py-3.5 text-base sm:text-sm pl-10 sm:pl-12 pr-20 sm:pr-24 rounded-2xl'
@@ -550,17 +559,17 @@ export const SearchAutocomplete: React.FC<SearchAutocompleteProps> = ({
 
       {/* Desktop Autocomplete Results Dropdown (Desktop Only) */}
       {isOpen && !isMobile && (
-        <div className="absolute left-0 right-0 top-full mt-2 bg-card/95 backdrop-blur-xl border border-border/90 rounded-2xl shadow-2xl z-50 overflow-hidden animate-scale-in text-left divide-y divide-border/60 max-h-[65vh] sm:max-h-[75vh] flex flex-col">
+        <div className="absolute left-0 right-0 top-full mt-2 bg-[#0a1526]/98 backdrop-blur-2xl border border-blue-500/35 rounded-2xl shadow-2xl z-50 overflow-hidden animate-scale-in text-left divide-y divide-blue-500/25 max-h-[65vh] sm:max-h-[75vh] flex flex-col">
           {(searchQuery || '').trim().length === 0 ? (
             /* RECENT SEARCHES, QUICK KEYWORDS & HOT GAMES */
             <div className="overflow-y-auto flex-1 scrollbar-thin p-2 space-y-3">
-              {/* 1. Recent Searches (if user searched previously) */}
-              {recentSearches.length > 0 && (
-                <div className="px-2.5 py-1.5 border-b border-border/50 pb-2.5">
-                  <div className="flex items-center justify-between text-[11px] font-bold uppercase tracking-wider text-slate-400 mb-2">
-                    <span className="flex items-center gap-1.5 text-primary-light">
-                      <Clock className="w-3.5 h-3.5 text-primary-light" />
-                      <span>Tìm kiếm gần đây</span>
+              {/* 1. Recent Searches (Cap strictly at 5 recent items + Màu Lam) */}
+              {recentSearches.slice(0, 5).length > 0 && (
+                <div className="px-3 py-2.5 rounded-xl bg-[#0e1d38] border border-blue-500/35 mb-2 shadow-sm">
+                  <div className="flex items-center justify-between text-[11px] font-bold uppercase tracking-wider text-blue-300 mb-2">
+                    <span className="flex items-center gap-1.5 text-blue-400">
+                      <Clock className="w-3.5 h-3.5 text-blue-400" />
+                      <span>Tìm kiếm gần đây ({recentSearches.slice(0, 5).length}/5)</span>
                     </span>
                     <button
                       type="button"
@@ -568,7 +577,7 @@ export const SearchAutocomplete: React.FC<SearchAutocompleteProps> = ({
                         e.stopPropagation();
                         clearRecentSearches();
                       }}
-                      className="text-[10px] lowercase text-slate-400 hover:text-rose-400 transition-colors cursor-pointer flex items-center gap-1 font-normal"
+                      className="text-[10px] lowercase text-blue-300 hover:text-rose-400 transition-colors cursor-pointer flex items-center gap-1 font-normal"
                       title="Xóa tất cả lịch sử tìm kiếm"
                     >
                       <Trash2 className="w-3 h-3" />
@@ -576,7 +585,7 @@ export const SearchAutocomplete: React.FC<SearchAutocompleteProps> = ({
                     </button>
                   </div>
                   <div className="flex flex-wrap items-center gap-1.5">
-                    {recentSearches.map((term) => (
+                    {recentSearches.slice(0, 5).map((term) => (
                       <div
                         key={term}
                         onClick={() => {
@@ -584,9 +593,9 @@ export const SearchAutocomplete: React.FC<SearchAutocompleteProps> = ({
                           onSearchChange(term);
                           inputRef.current?.focus();
                         }}
-                        className="group flex items-center gap-1.5 pl-2.5 pr-1.5 py-1 rounded-xl text-xs bg-muted/80 hover:bg-card border border-border/80 hover:border-primary/50 text-slate-200 hover:text-primary-light transition-all cursor-pointer font-medium active:scale-95 shadow-2xs"
+                        className="group flex items-center gap-1.5 pl-2.5 pr-1.5 py-1 rounded-xl text-xs bg-[#13284c] hover:bg-[#1a386a] border border-blue-500/40 hover:border-blue-400 text-blue-100 hover:text-white transition-all cursor-pointer font-medium active:scale-95 shadow-sm"
                       >
-                        <Clock className="w-3 h-3 text-slate-400 group-hover:text-primary-light transition-colors shrink-0" />
+                        <Clock className="w-3 h-3 text-blue-400 group-hover:text-blue-300 transition-colors shrink-0" />
                         <span className="truncate max-w-[130px] sm:max-w-[200px]">{term}</span>
                         <button
                           type="button"
@@ -594,7 +603,7 @@ export const SearchAutocomplete: React.FC<SearchAutocompleteProps> = ({
                             e.stopPropagation();
                             removeRecentSearch(term);
                           }}
-                          className="p-0.5 rounded-md hover:bg-rose-500/20 text-slate-400 hover:text-rose-400 transition-colors shrink-0"
+                          className="p-0.5 rounded-md hover:bg-rose-500/20 text-blue-300 hover:text-rose-400 transition-colors shrink-0"
                           title={`Xóa "${term}"`}
                         >
                           <X className="w-3 h-3" />
@@ -605,10 +614,10 @@ export const SearchAutocomplete: React.FC<SearchAutocompleteProps> = ({
                 </div>
               )}
 
-              {/* 2. Quick Keywords / Hot Suggestions */}
+              {/* 2. Quick Keywords / Hot Suggestions (Màu Lam) */}
               <div className="px-2.5 py-1.5">
-                <div className="flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-wider text-slate-400 mb-2">
-                  <Flame className="w-3.5 h-3.5 text-accent" />
+                <div className="flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-wider text-blue-300 mb-2">
+                  <Flame className="w-3.5 h-3.5 text-amber-400" />
                   <span>Gợi ý tìm nhanh</span>
                 </div>
                 <div className="flex flex-wrap items-center gap-1.5">
@@ -630,7 +639,7 @@ export const SearchAutocomplete: React.FC<SearchAutocompleteProps> = ({
                         onSearchChange(tag);
                         inputRef.current?.focus();
                       }}
-                      className="px-2.5 py-1 rounded-xl text-xs bg-muted hover:bg-card border border-border text-slate-200 hover:text-primary-light hover:border-primary/50 transition-all cursor-pointer font-medium active:scale-95"
+                      className="px-2.5 py-1 rounded-xl text-xs bg-[#0e1d38] hover:bg-[#16305c] border border-blue-500/35 hover:border-blue-400 text-blue-100 hover:text-white transition-all cursor-pointer font-medium active:scale-95 shadow-sm"
                     >
                       {tag}
                     </button>
@@ -649,12 +658,12 @@ export const SearchAutocomplete: React.FC<SearchAutocompleteProps> = ({
                     <span className="text-[10px] lowercase text-slate-500">nhấn để xem code ngay</span>
                   </div>
 
-                  <div className="space-y-1">
+                  <div className="space-y-1.5 px-0.5">
                     {hotGames.map((game, gIdx) => (
                       <div
                         key={game.id || game.slug || `hot_${gIdx}`}
                         onClick={() => handleSelectGameItem(game)}
-                        className="flex items-center justify-between gap-3 p-2 rounded-xl transition-all cursor-pointer hover:bg-muted/70 text-foreground border border-transparent"
+                        className="flex items-center justify-between gap-3 p-2.5 rounded-xl transition-all cursor-pointer bg-[#0e1d38] hover:bg-[#16305c] text-foreground border border-blue-500/35 hover:border-blue-400/60 shadow-sm"
                       >
                         <div className="flex items-center gap-2.5 min-w-0 flex-1">
                           <GameSearchIcon game={game} size="sm" />
@@ -702,7 +711,7 @@ export const SearchAutocomplete: React.FC<SearchAutocompleteProps> = ({
                     <span className="text-[10px] lowercase text-slate-500">nhấn để xem chi tiết</span>
                   </div>
 
-                  <div className="space-y-1">
+                  <div className="space-y-1.5 px-0.5">
                     {sortedGames.map((game, idx) => {
                       const isHighlighted = selectedIndex === idx;
                       const totalCodes = game.codes_count || (game.codes ? game.codes.length : 0);
@@ -711,10 +720,10 @@ export const SearchAutocomplete: React.FC<SearchAutocompleteProps> = ({
                         <div
                           key={game.id || game.slug || `game_${idx}`}
                           onClick={() => handleSelectGameItem(game)}
-                          className={`flex items-center justify-between gap-3 p-2 rounded-xl transition-all cursor-pointer ${
+                          className={`flex items-center justify-between gap-3 p-2.5 rounded-xl transition-all cursor-pointer bg-[#0e1d38] text-foreground border shadow-sm ${
                             isHighlighted
-                              ? 'bg-primary/20 border border-primary/40 text-foreground'
-                              : 'hover:bg-muted/70 text-foreground border border-transparent'
+                              ? 'bg-[#183464] border-blue-400 ring-2 ring-blue-500/40 text-white'
+                              : 'hover:bg-[#16305c] border-blue-500/35 hover:border-blue-400/60'
                           }`}
                         >
                           <div className="flex items-center gap-2.5 min-w-0 flex-1">
@@ -890,30 +899,32 @@ export const SearchAutocomplete: React.FC<SearchAutocompleteProps> = ({
       {/* Mobile Fullscreen Search Overlay (Mobile Only - Rendered at Body Level) */}
       {isMobile && isOpen && typeof document !== 'undefined' && createPortal(
         <div
-          className="fixed inset-0 z-[100] bg-background/98 backdrop-blur-2xl flex flex-col select-none animate-fade-in"
+          ref={mobileOverlayRef}
+          className="fixed inset-0 z-[100] bg-[#070e1b] flex flex-col select-none animate-fade-in"
           style={{
             height: viewportHeight ? `${viewportHeight}px` : '100dvh',
             top: viewportTop ? `${viewportTop}px` : '0px',
           }}
         >
           {/* 1. Mobile Search Header (Sticky Top) */}
-          <div className="shrink-0 bg-card/95 backdrop-blur-xl border-b border-border/80 px-3 py-2 flex items-center gap-2 pt-[max(env(safe-area-inset-top,0px),0.5rem)] shadow-sm">
+          <div className="shrink-0 bg-[#0a1526] border-b border-blue-500/35 px-3 py-2 flex items-center gap-2 pt-[max(env(safe-area-inset-top,0px),0.5rem)] shadow-md">
             {/* Back button */}
             <button
               type="button"
               onClick={handleCloseMobileSearch}
               aria-label="Quay lại"
-              className="w-10 h-10 rounded-xl bg-muted/80 active:bg-muted text-foreground flex items-center justify-center shrink-0 transition-transform active:scale-90 cursor-pointer"
+              className="w-10 h-10 rounded-xl bg-[#102344] active:bg-[#173260] text-blue-100 flex items-center justify-center shrink-0 transition-transform active:scale-90 cursor-pointer border border-blue-500/30"
             >
-              <ArrowLeft className="w-5 h-5" />
+              <ArrowLeft className="w-5 h-5 text-blue-300" />
             </button>
 
             {/* Search Input Box */}
             <div className="relative flex-1 flex items-center">
-              <Search className="w-4 h-4 absolute left-3 text-primary-light pointer-events-none" />
+              <Search className="w-4 h-4 absolute left-3 text-blue-400 pointer-events-none" />
               <input
                 ref={mobileInputRef}
-                type="text"
+                type="search"
+                enterKeyHint="search"
                 value={searchQuery}
                 onChange={(e) => {
                   onSearchChange(e.target.value);
@@ -921,7 +932,7 @@ export const SearchAutocomplete: React.FC<SearchAutocompleteProps> = ({
                 }}
                 onKeyDown={handleKeyDown}
                 placeholder="Tìm tên game, giftcode..."
-                className="w-full h-10 pl-9 pr-9 rounded-xl bg-background border border-border focus:border-primary focus:ring-2 focus:ring-primary/40 text-foreground text-[16px] placeholder:text-muted-foreground outline-none transition-all shadow-inner"
+                className="w-full h-10 pl-9 pr-9 rounded-xl bg-[#0c1a30] border border-blue-500/40 focus:border-blue-400 focus:ring-2 focus:ring-blue-500/40 text-white text-[16px] placeholder:text-blue-300/50 outline-none transition-all shadow-inner"
                 autoFocus
               />
               {searchQuery ? (
@@ -949,16 +960,16 @@ export const SearchAutocomplete: React.FC<SearchAutocompleteProps> = ({
                 handleCloseMobileSearch();
                 if (onExploreClick) onExploreClick();
               }}
-              className="px-3 h-10 rounded-xl bg-primary hover:bg-primary-hover text-white text-xs font-bold shrink-0 flex items-center justify-center shadow-sm active:scale-95 cursor-pointer"
+              className="px-3 h-10 rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white text-xs font-bold shrink-0 flex items-center justify-center shadow-md active:scale-95 cursor-pointer border border-blue-400/40"
             >
               Tìm
             </button>
           </div>
 
-          {/* 2. Quick Tags Bar (Always visible for instant 1-tap search) */}
-          <div className="shrink-0 px-3 py-2 border-b border-border/40 bg-card/40 flex items-center gap-1.5 overflow-x-auto scrollbar-none whitespace-nowrap">
-            <span className="text-[10px] font-bold uppercase tracking-wider text-accent flex items-center gap-1 shrink-0">
-              <Flame className="w-3 h-3 text-accent" /> Gợi ý:
+          {/* 2. Quick Tags Bar (Always visible for instant 1-tap search - Màu Lam) */}
+          <div className="shrink-0 px-3 py-2 border-b border-blue-500/30 bg-[#0a1526] flex items-center gap-1.5 overflow-x-auto scrollbar-none whitespace-nowrap">
+            <span className="text-[10px] font-bold uppercase tracking-wider text-blue-300 flex items-center gap-1 shrink-0">
+              <Flame className="w-3 h-3 text-amber-400" /> Gợi ý:
             </span>
             {[
               'Ta Là Hắc Ngộ Không',
@@ -980,8 +991,8 @@ export const SearchAutocomplete: React.FC<SearchAutocompleteProps> = ({
                 }}
                 className={`px-2.5 py-1 rounded-lg text-xs font-medium border transition-all shrink-0 active:scale-95 cursor-pointer ${
                   searchQuery.toLowerCase() === tag.toLowerCase()
-                    ? 'bg-primary/20 text-primary-light border-primary/50'
-                    : 'bg-muted/70 hover:bg-muted text-slate-200 border-border/60'
+                    ? 'bg-blue-600 text-white border-blue-400 shadow-sm'
+                    : 'bg-[#102344] active:bg-[#173260] text-blue-100 border-blue-500/40'
                 }`}
               >
                 {tag}
@@ -994,12 +1005,12 @@ export const SearchAutocomplete: React.FC<SearchAutocompleteProps> = ({
             {(searchQuery || '').trim().length === 0 ? (
               /* Empty State: Recent searches & Hot games */
               <>
-                {recentSearches.length > 0 && (
-                  <div className="rounded-2xl bg-card/60 border border-border/60 p-3 space-y-2">
-                    <div className="flex items-center justify-between text-[11px] font-bold uppercase tracking-wider text-slate-400">
-                      <span className="flex items-center gap-1.5 text-primary-light">
-                        <Clock className="w-3.5 h-3.5 text-primary-light" />
-                        <span>Tìm kiếm gần đây</span>
+                {recentSearches.slice(0, 5).length > 0 && (
+                  <div className="rounded-2xl bg-[#0b1728] border border-blue-500/40 p-3 space-y-2 shadow-md">
+                    <div className="flex items-center justify-between text-[11px] font-bold uppercase tracking-wider text-blue-300">
+                      <span className="flex items-center gap-1.5 text-blue-400">
+                        <Clock className="w-3.5 h-3.5 text-blue-400" />
+                        <span>Tìm kiếm gần đây ({recentSearches.slice(0, 5).length}/5)</span>
                       </span>
                       <button
                         type="button"
@@ -1007,14 +1018,14 @@ export const SearchAutocomplete: React.FC<SearchAutocompleteProps> = ({
                           e.stopPropagation();
                           clearRecentSearches();
                         }}
-                        className="text-[11px] text-slate-400 hover:text-rose-400 transition-colors cursor-pointer flex items-center gap-1 font-normal"
+                        className="text-[11px] text-blue-300 hover:text-rose-400 transition-colors cursor-pointer flex items-center gap-1 font-normal"
                       >
                         <Trash2 className="w-3 h-3" />
                         <span>Xóa tất cả</span>
                       </button>
                     </div>
                     <div className="flex flex-wrap items-center gap-1.5 pt-1">
-                      {recentSearches.map((term) => (
+                      {recentSearches.slice(0, 5).map((term) => (
                         <div
                           key={term}
                           onClick={() => {
@@ -1022,9 +1033,9 @@ export const SearchAutocomplete: React.FC<SearchAutocompleteProps> = ({
                             onSearchChange(term);
                             mobileInputRef.current?.focus();
                           }}
-                          className="flex items-center gap-1.5 pl-2.5 pr-1.5 py-1 rounded-xl text-xs bg-muted/80 border border-border/80 text-slate-200 active:scale-95 cursor-pointer font-medium"
+                          className="flex items-center gap-1.5 pl-2.5 pr-1.5 py-1.5 rounded-xl text-xs bg-[#102344] active:bg-[#173260] border border-blue-500/45 text-blue-100 active:scale-95 cursor-pointer font-medium shadow-sm"
                         >
-                          <Clock className="w-3 h-3 text-slate-400 shrink-0" />
+                          <Clock className="w-3 h-3 text-blue-400 shrink-0" />
                           <span className="truncate max-w-[150px]">{term}</span>
                           <button
                             type="button"
@@ -1032,7 +1043,7 @@ export const SearchAutocomplete: React.FC<SearchAutocompleteProps> = ({
                               e.stopPropagation();
                               removeRecentSearch(term);
                             }}
-                            className="p-0.5 rounded-md text-slate-400 hover:text-rose-400 active:scale-90 shrink-0"
+                            className="p-0.5 rounded-md text-blue-300 hover:text-rose-400 active:scale-90 shrink-0"
                           >
                             <X className="w-3 h-3" />
                           </button>
@@ -1056,7 +1067,7 @@ export const SearchAutocomplete: React.FC<SearchAutocompleteProps> = ({
                         <div
                           key={game.id || game.slug || `hot_${gIdx}`}
                           onClick={() => handleSelectGameItem(game)}
-                          className="flex items-center justify-between gap-3 p-2.5 rounded-2xl bg-card/80 border border-border/70 active:bg-muted/80 active:scale-[0.98] transition-all cursor-pointer shadow-sm"
+                          className="flex items-center justify-between gap-3 p-3 rounded-2xl bg-[#0b1728] border border-blue-500/35 active:bg-[#122442] active:border-blue-400/60 active:scale-[0.98] transition-all cursor-pointer shadow-md"
                         >
                           <div className="flex items-center gap-3 min-w-0 flex-1">
                             <GameSearchIcon game={game} size="md" />
@@ -1109,7 +1120,7 @@ export const SearchAutocomplete: React.FC<SearchAutocompleteProps> = ({
                           <div
                             key={game.id || game.slug || `m_game_${idx}`}
                             onClick={() => handleSelectGameItem(game)}
-                            className="flex items-center justify-between gap-3 p-3 rounded-2xl bg-card/90 border border-border/80 active:bg-primary/10 active:border-primary/40 active:scale-[0.98] transition-all cursor-pointer shadow-md"
+                            className="flex items-center justify-between gap-3 p-3 rounded-2xl bg-[#0b1728] border border-blue-500/35 active:bg-[#122442] active:border-blue-400/60 active:scale-[0.98] transition-all cursor-pointer shadow-md"
                           >
                             <div className="flex items-center gap-3 min-w-0 flex-1">
                               <GameSearchIcon game={game} size="md" />
@@ -1168,7 +1179,7 @@ export const SearchAutocomplete: React.FC<SearchAutocompleteProps> = ({
                           <div
                             key={codeKey}
                             onClick={() => handleSelectGameItem(item.game)}
-                            className="flex items-center justify-between gap-3 p-3 rounded-2xl bg-card/90 border border-border/80 transition-all cursor-pointer shadow-sm active:scale-[0.98]"
+                            className="flex items-center justify-between gap-3 p-3 rounded-2xl bg-[#0b1728] border border-blue-500/35 active:bg-[#122442] active:border-blue-400/60 transition-all cursor-pointer shadow-md active:scale-[0.98]"
                           >
                             <div className="min-w-0 flex-1">
                               <div className="flex items-center gap-1.5 flex-wrap mb-1">
@@ -1229,21 +1240,21 @@ export const SearchAutocomplete: React.FC<SearchAutocompleteProps> = ({
               </>
             ) : (
               /* No results */
-              <div className="rounded-2xl bg-card/60 border border-border/70 p-6 text-center space-y-3">
-                <div className="w-12 h-12 rounded-2xl bg-muted/80 flex items-center justify-center mx-auto text-slate-400">
-                  <Search className="w-6 h-6" />
+              <div className="rounded-2xl bg-[#0b1728] border border-blue-500/35 p-6 text-center space-y-3 shadow-md">
+                <div className="w-12 h-12 rounded-2xl bg-[#102344] border border-blue-500/30 flex items-center justify-center mx-auto text-blue-300">
+                  <Search className="w-6 h-6 text-blue-400" />
                 </div>
                 <div>
-                  <p className="text-sm font-bold text-foreground">
+                  <p className="text-sm font-bold text-white">
                     Không tìm thấy game hoặc code khớp với "{searchQuery}"
                   </p>
-                  <p className="text-xs text-slate-400 mt-1">
+                  <p className="text-xs text-blue-200/70 mt-1">
                     Thử tìm kiếm với tên không dấu hoặc từ khóa ngắn hơn.
                   </p>
                 </div>
                 {hotGames.length > 0 && (
                   <div className="pt-2 text-left">
-                    <p className="text-xs font-bold text-accent uppercase tracking-wider mb-2">
+                    <p className="text-xs font-bold text-blue-300 uppercase tracking-wider mb-2">
                       Gợi ý các game HOT:
                     </p>
                     <div className="space-y-1.5">
@@ -1251,7 +1262,7 @@ export const SearchAutocomplete: React.FC<SearchAutocompleteProps> = ({
                         <div
                           key={g.id || g.slug}
                           onClick={() => handleSelectGameItem(g)}
-                          className="flex items-center justify-between p-2 rounded-xl bg-card hover:bg-muted/60 border border-border cursor-pointer active:scale-98"
+                          className="flex items-center justify-between p-2.5 rounded-xl bg-[#102344] hover:bg-[#16305c] border border-blue-500/35 text-white cursor-pointer active:scale-98 shadow-sm"
                         >
                           <span className="text-xs font-bold text-foreground truncate">{g.name}</span>
                           <span className="text-[11px] font-mono text-emerald-400">{g.codes_count || 0} code</span>

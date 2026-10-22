@@ -7,6 +7,40 @@ Mỗi mục sửa lỗi đều ghi nhận **Nguyên nhân gốc rễ (Root Cause
 
 ## [2026-10-22]
 
+### 131. Khắc Phục Lỗi Thanh Tìm Kiếm Trên Mobile, Giới Hạn 5 Tựa Game Lịch Sử & Chuẩn Hóa Nền Thẻ Gợi Ý Màu Lam
+- **Mô tả & Yêu cầu người dùng**:
+  - *"Trên giao diện mobile, thanh tìm kiếm đang gặp vấn đề ấn vào không được. Ngoài ra chỉ lưu lịch sử 5 tựa game gần nhất người dùng tìm giúp tôi nền thẻ game gợi ý hoặc gần đây là nền màu lam, hiện tại để trong suốt khá khó nhìn."*
+- **Nguyên nhân gốc rễ (Root Cause)**:
+  1. *Lỗi thanh tìm kiếm không bấm vào được trên mobile*:
+     - Trong `SearchAutocomplete.tsx`, `handleClickOutside` lắng nghe sự kiện `touchstart` trên `document`.
+     - Khi modal tìm kiếm full-screen mobile mở qua `createPortal(..., document.body)`, container modal nằm tại `document.body` (ngoài `containerRef.current`).
+     - Khi người dùng chạm bất kỳ điểm nào trên giao diện tìm kiếm mobile (vào ô nhập, danh sách gợi ý, nút xóa), điều kiện `!containerRef.current.contains(e.target)` bị thỏa mãn ➔ `handleClickOutside` ngay lập tức gọi `setIsOpen(false)` và đóng modal ngay trong tích tắc (modal bị đóng tức thì hoặc không mở ra được).
+     - Đồng thời, thẻ input trên trang có gắn sự kiện `onTouchStart={(e) => { e.currentTarget.blur(); handleOpenMobileSearch(); }}` làm trình duyệt di động (iOS Safari / Android Chrome) hủy cử chỉ chạm tự nhiên và chặn việc kích hoạt bàn phím ảo.
+  2. *Lịch sử tìm kiếm lưu quá nhiều (8 tựa game)*:
+     - Biến `MAX_RECENT_SEARCHES` trong `recentSearchUtils.ts` đang đặt là `8` thay vì `5`.
+  3. *Nền thẻ game gợi ý và lịch sử tìm kiếm bị trong suốt khó nhìn*:
+     - Các thẻ gợi ý game hot, kết quả tìm kiếm và thẻ lịch sử trước đây dùng class `border border-transparent` và `bg-muted/70`, `bg-card/60`, khiến nội dung bị xuyên thấu, đè chữ lên hình nền trang chủ rất khó đọc.
+- **Giải pháp đã triển khai (Solution)**:
+  1. *Khắc phục triệt để thanh tìm kiếm mobile*:
+     - Thêm `mobileOverlayRef` gắn vào container modal `createPortal`.
+     - Trong `handleClickOutside`, bổ sung điều kiện bảo vệ `if (mobileOverlayRef.current?.contains(e.target)) return;` và `if (isMobile && isOpen) return;`. Tuyệt đối không cho phép click outside đóng modal khi người dùng đang thao tác trên giao diện mobile.
+     - Đồng bộ breakpoint nhận diện mobile `isMobile` theo chuẩn Tailwind `window.innerWidth < 768` (trước đó là `640`).
+     - Gắn `readOnly={isMobile}` cho input trên trang chủ để ngăn bàn phím ảo nhảy giật kép trên mobile; click vào input hoặc container thanh tìm kiếm sẽ mở ngay modal tìm kiếm chuyên dụng với tiêu điểm `mobileInputRef`.
+  2. *Giới hạn lịch sử tìm kiếm còn đúng 5 tựa game gần nhất*:
+     - Đặt `export const MAX_RECENT_SEARCHES = 5;` trong `recentSearchUtils.ts`.
+     - Cắt mảng `recentSearches.slice(0, 5)` cả trên desktop dropdown và mobile modal.
+  3. *Chuẩn hóa nền thẻ gợi ý và lịch sử sang màu lam đậm (Rich Navy / Cobalt Blue)*:
+     - Đổi toàn bộ nền thẻ tìm kiếm gần đây sang màu lam đậm: `bg-[#0e1d38]`, `bg-[#13284c]`, viền `border-blue-500/40`, chữ `text-blue-100`.
+     - Đổi toàn bộ thẻ game gợi ý nổi bật và kết quả tìm kiếm sang nền màu lam đặc: `bg-[#0e1d38]`, hover/active `bg-[#16305c]`, viền `border-blue-500/35`, tiêu đề `text-white font-bold`, phụ đề `text-blue-200/70`.
+     - Loại bỏ hoàn toàn nền trong suốt, tăng độ tương phản và giúp người dùng nhìn cực kỳ rõ ràng, dịu mắt và thẩm mỹ.
+- **Files Modified**:
+  - `src/components/SearchAutocomplete.tsx`
+  - `src/utils/recentSearchUtils.ts`
+  - `CHANGELOG.md`
+- **Kiểm thử & Triển khai**:
+  - `npm run build`: Thành công 100% (0 lỗi, 0 test artifacts).
+  - Tự động triển khai lên Production: `web-code-game` và `admin-code-game-shop`.
+
 ### 130. Thêm Cổng API & Webhook Tiếp Nhận Giftcode Cho Muse Bot, Lọc Tên Game Tiếng Việt Thông Minh & Tự Động Kích Hoạt Game Chờ
 - **Mô tả & Yêu cầu người dùng**:
   - *"Bạn có thể tạo 1 mục API trong Quản Lý Crawler & Tự Động Hóa Giftcode để 1 ai như Muse có thể quét và gửi code tới trang, sau đó web sẽ lọc tên game, và thêm code của game vào đúng game đó không?"*

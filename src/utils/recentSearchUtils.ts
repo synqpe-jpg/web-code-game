@@ -4,7 +4,7 @@
  */
 
 const RECENT_SEARCHES_KEY = 'wcg_recent_searches';
-export const MAX_RECENT_SEARCHES = 8;
+export const MAX_RECENT_SEARCHES = 5;
 
 export function getRecentSearches(): string[] {
   if (typeof window === 'undefined') return [];
