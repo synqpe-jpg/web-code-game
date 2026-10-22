@@ -165,32 +165,6 @@ export const SearchAutocomplete: React.FC<SearchAutocompleteProps> = ({
     return () => window.removeEventListener('resize', handleResize);
   }, []);
 
-  // Visual viewport dynamic height & offset calculation (for virtual keyboard support)
-  const [viewportHeight, setViewportHeight] = useState<number | null>(null);
-  const [viewportTop, setViewportTop] = useState<number | null>(null);
-
-  useEffect(() => {
-    if (!isOpen || !isMobile || typeof window === 'undefined') return;
-
-    const handleViewportChange = () => {
-      if (window.visualViewport) {
-        setViewportHeight(window.visualViewport.height);
-        setViewportTop(window.visualViewport.offsetTop);
-      }
-    };
-
-    handleViewportChange();
-
-    if (window.visualViewport) {
-      window.visualViewport.addEventListener('resize', handleViewportChange);
-      window.visualViewport.addEventListener('scroll', handleViewportChange);
-      return () => {
-        window.visualViewport?.removeEventListener('resize', handleViewportChange);
-        window.visualViewport?.removeEventListener('scroll', handleViewportChange);
-      };
-    }
-  }, [isOpen, isMobile]);
-
   // Mobile search open / close controllers
   const handleOpenMobileSearch = () => {
     setIsOpen(true);
@@ -206,7 +180,20 @@ export const SearchAutocomplete: React.FC<SearchAutocompleteProps> = ({
     }, 50);
   };
 
-  const handleCloseMobileSearch = () => {
+  const handleCloseMobileSearch = (e?: React.SyntheticEvent | Event) => {
+    if (e) {
+      try {
+        e.preventDefault();
+        e.stopPropagation();
+      } catch {}
+    }
+    // Dismiss virtual keyboard cleanly
+    if (mobileInputRef.current) {
+      mobileInputRef.current.blur();
+    }
+    if (inputRef.current) {
+      inputRef.current.blur();
+    }
     setIsOpen(false);
     if (typeof document !== 'undefined') {
       document.body.style.overflow = '';
@@ -215,6 +202,48 @@ export const SearchAutocomplete: React.FC<SearchAutocompleteProps> = ({
       window.dispatchEvent(new CustomEvent('wcg_mobile_search_toggled', { detail: { isOpen: false } }));
     }
   };
+
+  // Hardware back button / Android gesture navigation listener
+  useEffect(() => {
+    if (!isOpen || !isMobile || typeof window === 'undefined') return;
+
+    // Push dummy history entry so Android system back button or back swipe closes search overlay
+    window.history.pushState({ wcg_search_overlay: true }, '');
+
+    const handlePopState = () => {
+      if (mobileInputRef.current) mobileInputRef.current.blur();
+      if (inputRef.current) inputRef.current.blur();
+      setIsOpen(false);
+      if (typeof document !== 'undefined') {
+        document.body.style.overflow = '';
+      }
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new CustomEvent('wcg_mobile_search_toggled', { detail: { isOpen: false } }));
+      }
+    };
+
+    window.addEventListener('popstate', handlePopState);
+    return () => {
+      window.removeEventListener('popstate', handlePopState);
+      if (window.history.state?.wcg_search_overlay) {
+        window.history.back();
+      }
+    };
+  }, [isOpen, isMobile]);
+
+  // Multi-instance synchronization (ensure all instances close together)
+  useEffect(() => {
+    const handleGlobalToggle = (e: any) => {
+      if (e?.detail?.isOpen === false && isOpen) {
+        setIsOpen(false);
+        if (typeof document !== 'undefined') {
+          document.body.style.overflow = '';
+        }
+      }
+    };
+    window.addEventListener('wcg_mobile_search_toggled', handleGlobalToggle);
+    return () => window.removeEventListener('wcg_mobile_search_toggled', handleGlobalToggle);
+  }, [isOpen]);
 
   // Safe cleanup on unmount
   useEffect(() => {
@@ -900,10 +929,12 @@ export const SearchAutocomplete: React.FC<SearchAutocompleteProps> = ({
       {isMobile && isOpen && typeof document !== 'undefined' && createPortal(
         <div
           ref={mobileOverlayRef}
-          className="fixed inset-0 z-[100] bg-[#070e1b] flex flex-col select-none animate-fade-in"
+          className="fixed inset-0 w-full h-[100dvh] min-h-screen z-[100] bg-[#070e1b] flex flex-col select-none animate-fade-in overflow-hidden"
           style={{
-            height: viewportHeight ? `${viewportHeight}px` : '100dvh',
-            top: viewportTop ? `${viewportTop}px` : '0px',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
           }}
         >
           {/* 1. Mobile Search Header (Sticky Top) */}
@@ -911,11 +942,12 @@ export const SearchAutocomplete: React.FC<SearchAutocompleteProps> = ({
             {/* Back button */}
             <button
               type="button"
+              onPointerDown={handleCloseMobileSearch}
               onClick={handleCloseMobileSearch}
               aria-label="Quay lại"
-              className="w-10 h-10 rounded-xl bg-[#102344] active:bg-[#173260] text-blue-100 flex items-center justify-center shrink-0 transition-transform active:scale-90 cursor-pointer border border-blue-500/30"
+              className="w-10 h-10 rounded-xl bg-[#102344] active:bg-[#173260] text-blue-100 flex items-center justify-center shrink-0 transition-transform active:scale-90 cursor-pointer border border-blue-500/30 touch-manipulation select-none"
             >
-              <ArrowLeft className="w-5 h-5 text-blue-300" />
+              <ArrowLeft className="w-5 h-5 text-blue-300 pointer-events-none" />
             </button>
 
             {/* Search Input Box */}
@@ -938,14 +970,22 @@ export const SearchAutocomplete: React.FC<SearchAutocompleteProps> = ({
               {searchQuery ? (
                 <button
                   type="button"
-                  onClick={() => {
+                  onPointerDown={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    onSearchChange('');
+                    mobileInputRef.current?.focus();
+                  }}
+                  onClick={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
                     onSearchChange('');
                     mobileInputRef.current?.focus();
                   }}
                   aria-label="Xóa từ khóa"
-                  className="w-8 h-8 rounded-lg absolute right-1 top-1/2 -translate-y-1/2 flex items-center justify-center text-muted-foreground hover:text-foreground active:scale-90 cursor-pointer"
+                  className="w-8 h-8 rounded-lg absolute right-1 top-1/2 -translate-y-1/2 flex items-center justify-center text-muted-foreground hover:text-foreground active:scale-90 cursor-pointer touch-manipulation"
                 >
-                  <X className="w-4 h-4" />
+                  <X className="w-4 h-4 pointer-events-none" />
                 </button>
               ) : null}
             </div>
@@ -953,6 +993,15 @@ export const SearchAutocomplete: React.FC<SearchAutocompleteProps> = ({
             {/* Search action button */}
             <button
               type="button"
+              onPointerDown={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                if ((searchQuery || '').trim()) {
+                  saveRecentSearch(searchQuery.trim());
+                }
+                handleCloseMobileSearch();
+                if (onExploreClick) onExploreClick();
+              }}
               onClick={() => {
                 if ((searchQuery || '').trim()) {
                   saveRecentSearch(searchQuery.trim());
@@ -960,7 +1009,7 @@ export const SearchAutocomplete: React.FC<SearchAutocompleteProps> = ({
                 handleCloseMobileSearch();
                 if (onExploreClick) onExploreClick();
               }}
-              className="px-3 h-10 rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white text-xs font-bold shrink-0 flex items-center justify-center shadow-md active:scale-95 cursor-pointer border border-blue-400/40"
+              className="px-3 h-10 rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white text-xs font-bold shrink-0 flex items-center justify-center shadow-md active:scale-95 cursor-pointer border border-blue-400/40 touch-manipulation"
             >
               Tìm
             </button>
@@ -1001,7 +1050,7 @@ export const SearchAutocomplete: React.FC<SearchAutocompleteProps> = ({
           </div>
 
           {/* 3. Scrollable Results Area */}
-          <div className="flex-1 min-h-0 overflow-y-auto touch-pan-y p-3 space-y-4 pb-12 scrollbar-thin">
+          <div className="flex-1 min-h-0 overflow-y-auto touch-pan-y overscroll-contain p-3 space-y-4 pb-48 scrollbar-thin">
             {(searchQuery || '').trim().length === 0 ? (
               /* Empty State: Recent searches & Hot games */
               <>

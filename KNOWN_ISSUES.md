@@ -10,6 +10,32 @@
 
 ## 1. DANH MỤC LỖI & CÁC BẪY ĐÃ THẤT BẠI (DO NOT REPEAT)
 
+### ISSUE-071: Nút Quay Lại [ <- ] Trên Mobile Search Bị Trơ Khi Bàn Phím Ảo Mở & Layout Bị Thu Hẹp Làm Lộ Thẻ Game
+- **Triệu chứng**:
+  - Trên điện thoại di động (Android / iOS), khi chạm mở thanh tìm kiếm và bàn phím ảo (Laban Key / Gboard / iOS keyboard) hiện lên:
+  - Ấn vào nút [ <- ] (Quay lại) ở góc trên bên trái không có tác dụng, giao diện tìm kiếm không chịu đóng.
+  - Chiều cao của modal tìm kiếm bị thu hẹp bất thường (chỉ chiếm phần trên), để lộ một khoảng hở nhìn thấy thẻ game trang chủ và thanh tab màu tím bên dưới trước khi đến bàn phím ảo.
+- **Nguyên nhân gốc rễ**:
+  1. *Hủy sự kiện Click do Keyboard Blur & Layout Shift*:
+     - Nút [ <- ] chỉ dùng `onClick`.
+     - Khi bàn phím ảo đang mở, ô input đang giữ focus. Khi ngón tay người dùng chạm vào nút [ <- ], trình duyệt kích hoạt sự kiện `blur` trên ô input và bắt đầu thu bàn phím lại.
+     - Việc bàn phím thu lại kích hoạt `visualViewport.onresize` ➔ state `setViewportHeight` & `setViewportTop` re-render và dịch chuyển vị trí container DOM giữa chừng giữa `touchstart` và `touchend`/`click`.
+     - Trình duyệt di động coi cử chỉ bị trượt/dịch chuyển và hủy (cancel) sự kiện `click` tổng hợp. Do đó `onClick` không bao giờ chạy.
+  2. *Hở màn hình do gán chiều cao backdrop theo `visualViewport.height`*:
+     - Backdrop modal gắn inline style `height: viewportHeight ? ${viewportHeight}px : '100dvh'`. Khi bàn phím ảo mở lên (~350px), `visualViewport.height` bị co lại chỉ còn ~350px - 400px.
+     - Backdrop bị thu ngắn lại thay vì bao phủ toàn màn hình, để lộ nền trang chủ phía sau.
+  3. *Không có xử lý phím Back vật lý / cử chỉ Android*:
+     - Modal không đẩy trạng thái vào `window.history`, khiến người dùng vuốt Back trên Android thì bị văng khỏi trang web.
+- **Giải pháp chuẩn đã kiểm chứng**:
+  - Gắn sự kiện `onPointerDown={handleCloseMobileSearch}` song song với `onClick` trên nút [ <- ], nút X và nút Tìm. `pointerdown` kích hoạt ngay lập tức tại miligiây đầu tiên ngón tay chạm xuống màn hình trước khi layout bị dịch chuyển.
+  - Bổ sung `touch-manipulation select-none` và `pointer-events-none` trên SVG icon `<ArrowLeft />`.
+  - Khóa chặt backdrop modal `fixed inset-0 w-full h-[100dvh] min-h-screen z-[100] bg-[#070e1b] select-none overflow-hidden`, với style `{ top: 0, left: 0, right: 0, bottom: 0 }`.
+  - Không thay đổi chiều cao của container gốc theo `visualViewport`; dùng `overscroll-contain touch-pan-y` và `pb-48` cho danh sách kết quả cuộn.
+  - Tích hợp `window.history.pushState({ wcg_search_overlay: true }, '')` và lắng nghe `popstate` để hỗ trợ hoàn hảo cử chỉ vuốt Back trên Android.
+- ⛔ **CÁCH SỬA ĐÃ THẤT BẠI - TUYỆT ĐỐI KHÔNG LẶP LẠI**:
+  - ❌ *Không bao giờ gán `height: visualViewport.height` hoặc `top: visualViewport.offsetTop` lên container backdrop gốc của modal full-screen*: Điều này sẽ làm backdrop bị co ngắn khi bàn phím ảo mở, làm lộ nội dung trang chủ phía sau và kích hoạt re-render liên tục gây hủy sự kiện chạm.
+  - ❌ *Không bao giờ chỉ dựa vào `onClick` cho các nút điều khiển quan trọng (nút đóng, nút quay lại) trên modal mobile khi có input đang focus*: Bắt buộc phải gắn kèm `onPointerDown` với `e.preventDefault()` để bắt sự kiện tức thì trước khi bàn phím ảo kích hoạt blur.
+
 ### ISSUE-070: Ô Trắng Trơn Trong Admin Do Fallback `/icon-192.png` Ảo & Game 0 Code Tràn Vào Trang Chủ Do Auto-Publish Bỏ Qua Kiểm Tra Mã Code
 - **Triệu chứng**:
   - Tại trang quản trị Admin (`/admin#/games`), một loạt game mới (Diamond, Con Đường Tơ Lụa, Song Kiếm Loạn Vũ, Tiên Đạo Ta Độc Tôn...) hiển thị ô vuông màu trắng trơn không có ảnh.

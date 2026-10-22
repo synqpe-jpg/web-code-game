@@ -7,6 +7,47 @@ Mỗi mục sửa lỗi đều ghi nhận **Nguyên nhân gốc rễ (Root Cause
 
 ## [2026-10-22]
 
+### 132. Khắc Phục Lỗi Nút Trở Lại Mobile Search Không Hoạt Động, Loại Bỏ Lộ Giao Diện Ngầm & Đồng Bộ Android Back Gesture
+- **Mô tả & Yêu cầu người dùng**:
+  - *"Khi ấn vào nút tìm kiếm, đôi khi sẽ ra giao diện này, lúc này ấn nút trở lại không được."* (Kèm ảnh chụp màn hình bàn phím ảo Laban Key mở, modal tìm kiếm bị thu hẹp chiều cao làm lộ thẻ game và tab ngầm, nút [ <- ] không ấn được).
+- **Nguyên nhân gốc rễ (Root Cause)**:
+  1. *Lỗi nút [ <- ] không phản hồi khi ấn trên điện thoại di động*:
+     - Nút [ <- ] trước đây chỉ lắng nghe sự kiện `onClick`.
+     - Khi người dùng đang mở bàn phím ảo (ô input `mobileInputRef` đang có tiêu điểm focus), người dùng chạm tay vào nút [ <- ]:
+     - Trình duyệt di động (Chrome/Safari) phát hiện người dùng chạm ra ngoài ô input, lập tức kích hoạt sự kiện `blur` và bắt đầu thu bàn phím ảo lại.
+     - Việc thu bàn phím ảo kích hoạt sự kiện `window.visualViewport.onresize` ➔ mã cũ gọi `setViewportHeight` và `setViewportTop` cập nhật state React.
+     - Quá trình re-render và dịch chuyển vị trí DOM diễn ra ngay giữa thời điểm `touchstart` và `touchend`/`click`. Trình duyệt phát hiện layout bị dịch chuyển nên lập tức **hủy (cancel) sự kiện `click` tổng hợp**. Do đó hàm `handleCloseMobileSearch` không bao giờ được gọi.
+  2. *Giao diện tìm kiếm bị co cụm làm lộ game card và tab ngầm*:
+     - Trước đây, thẻ backdrop gốc của modal mobile có gắn inline style `height: viewportHeight ? ${viewportHeight}px : '100dvh'`.
+     - Khi bàn phím ảo mở lên, `visualViewport.height` chỉ còn khoảng 320px - 400px.
+     - Backdrop bị ép co lại chỉ còn 320px, để hở một khoảng trống ~150px giữa mép dưới của modal và mép trên của bàn phím ảo, khiến các thẻ game trang chủ (`Kiếm Vũ Thiên Hành Ca`, thanh tab màu tím) lộ ra phía sau.
+  3. *Thiếu hỗ trợ phím Back vật lý / cử chỉ vuốt Back trên Android*:
+     - Modal tìm kiếm chưa được tích hợp vào `window.history`. Khi người dùng vuốt cạnh màn hình để Back trên Android, trình duyệt bị điều hướng lùi trang thay vì đóng modal.
+  4. *Xung đột thanh tìm kiếm ghim nổi (`isStickySearchVisible`)*:
+     - Khi cuộn trang trên mobile, thanh ghim nổi có thể hiển thị đè hoặc gây gián đoạn tiêu điểm.
+- **Giải pháp đã triển khai (Solution)**:
+  1. *Khắc phục triệt để nút [ <- ] (Quay lại) với phản hồi 0ms*:
+     - Thêm sự kiện `onPointerDown={handleCloseMobileSearch}` song song với `onClick` trên nút [ <- ], nút Xóa từ khóa (`X`) và nút `Tìm`. Sự kiện `pointerdown` kích hoạt ngay lập tức tại miligiây đầu tiên ngón tay chạm vào màn hình — trước khi bất kỳ layout shift hay blur nào có thể hủy sự kiện.
+     - Gắn class `touch-manipulation select-none` và đặt `pointer-events-none` trên icon `<ArrowLeft />` để chống chạm hụt hay chạm nhầm vào SVG path.
+     - Trong `handleCloseMobileSearch`: Chủ động gọi `mobileInputRef.current?.blur()`, khôi phục `document.body.style.overflow = ''`, và phát Custom Event `wcg_mobile_search_toggled`.
+  2. *Đảm bảo Modal Full-Screen bao phủ 100% màn hình tuyệt đối*:
+     - Loại bỏ việc gán `height: viewportHeight` và `top: viewportTop` co giãn làm hở layout.
+     - Khóa cứng backdrop: `fixed inset-0 w-full h-[100dvh] min-h-screen z-[100] bg-[#070e1b] flex flex-col select-none overflow-hidden`, với style `{ top: 0, left: 0, right: 0, bottom: 0 }`.
+     - Phía trong danh sách cuộn: Thêm `pb-48` (`padding-bottom: 12rem`) và `overscroll-contain touch-pan-y` để người dùng cuộn mượt mà mọi kết quả lên trên bàn phím ảo mà không bao giờ bị hở nội dung trang chủ.
+  3. *Tích hợp Android Hardware Back & Gesture Navigation*:
+     - Khi mở modal tìm kiếm, tự động `window.history.pushState({ wcg_search_overlay: true }, '')`.
+     - Lắng nghe sự kiện `popstate`: nếu người dùng vuốt Back trên Android, modal sẽ tự động đóng ngay lập tức mà không tải lại trang. Khi đóng bằng nút [ <- ], tự động dọn dẹp state history tương ứng.
+  4. *Đồng bộ đa phiên bản & bảo vệ thanh ghim nổi*:
+     - Trong `App.tsx`, lắng nghe `wcg_mobile_search_toggled`: ẩn hoàn toàn thanh tìm kiếm ghim nổi khi modal mobile đang hoạt động.
+     - Đồng bộ trạng thái đóng trên toàn bộ các component tìm kiếm (`SearchAutocomplete`).
+- **Files Modified**:
+  - `src/components/SearchAutocomplete.tsx`
+  - `src/App.tsx`
+  - `CHANGELOG.md`
+- **Kiểm thử & Triển khai**:
+  - `npm run build`: Thành công 100% (0 lỗi, 0 test artifacts).
+  - Tự động triển khai lên Production: `web-code-game` và `admin-code-game-shop`.
+
 ### 131. Khắc Phục Lỗi Thanh Tìm Kiếm Trên Mobile, Giới Hạn 5 Tựa Game Lịch Sử & Chuẩn Hóa Nền Thẻ Gợi Ý Màu Lam
 - **Mô tả & Yêu cầu người dùng**:
   - *"Trên giao diện mobile, thanh tìm kiếm đang gặp vấn đề ấn vào không được. Ngoài ra chỉ lưu lịch sử 5 tựa game gần nhất người dùng tìm giúp tôi nền thẻ game gợi ý hoặc gần đây là nền màu lam, hiện tại để trong suốt khá khó nhìn."*

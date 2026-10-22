@@ -103,6 +103,7 @@ export const App: React.FC = () => {
   // Search & Filter State
   const [searchQuery, setSearchQuery] = useState('');
   const [isStickySearchVisible, setIsStickySearchVisible] = useState(false);
+  const [isMobileSearchActive, setIsMobileSearchActive] = useState(false);
   const [filter, setFilter] = useState<FilterState>({
     search: '',
     category: 'all',
@@ -240,12 +241,28 @@ export const App: React.FC = () => {
 
   // Sticky Floating Search Bar visibility handler on Catalog scroll
   useEffect(() => {
+    const handleMobileSearchToggle = (e: any) => {
+      const active = Boolean(e?.detail?.isOpen);
+      setIsMobileSearchActive(active);
+      if (active) {
+        setIsStickySearchVisible(false);
+      }
+    };
+    window.addEventListener('wcg_mobile_search_toggled', handleMobileSearchToggle);
+
     if (currentTab !== 'catalog') {
       setIsStickySearchVisible(false);
-      return;
+      return () => {
+        window.removeEventListener('wcg_mobile_search_toggled', handleMobileSearchToggle);
+      };
     }
 
     const checkStickyVisibility = () => {
+      if (isMobileSearchActive) {
+        setIsStickySearchVisible(false);
+        return;
+      }
+
       const heroSearchEl = document.getElementById('hero-search-container');
       if (!heroSearchEl) {
         setIsStickySearchVisible(false);
@@ -270,10 +287,11 @@ export const App: React.FC = () => {
     window.addEventListener('resize', checkStickyVisibility, { passive: true });
 
     return () => {
+      window.removeEventListener('wcg_mobile_search_toggled', handleMobileSearchToggle);
       window.removeEventListener('scroll', checkStickyVisibility);
       window.removeEventListener('resize', checkStickyVisibility);
     };
-  }, [currentTab]);
+  }, [currentTab, isMobileSearchActive]);
 
   // Toast Helper
   const showToast = useCallback(
@@ -1278,7 +1296,7 @@ export const App: React.FC = () => {
         />
 
         {/* Sticky Floating Search Bar for Catalog on Scroll */}
-        {currentTab === 'catalog' && (
+        {currentTab === 'catalog' && !isMobileSearchActive && (
           <div
             className={`fixed top-14 sm:top-[72px] left-0 right-0 z-40 bg-background/95 backdrop-blur-xl border-b border-border shadow-xl shadow-black/25 py-2 sm:py-2.5 transition-all duration-300 ease-in-out ${
               isStickySearchVisible
