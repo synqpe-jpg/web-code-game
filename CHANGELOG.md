@@ -7,6 +7,33 @@ Mỗi mục sửa lỗi đều ghi nhận **Nguyên nhân gốc rễ (Root Cause
 
 ## [2026-10-22]
 
+### 140. Kiểm Tra & Khử Trùng Lặp Toàn Diện Game Trên Web & Hàng Chờ Duyệt (Deduplicate Web & Pending Games)
+- **Mô tả & Yêu cầu người dùng**:
+  - *"Bạn kiểm tra giúp tôi, xem trên web và hàng chờ duyệt game, có bao nhiêu game trùng tên? Xóa để lại 1 giúp tôi."*
+- **Nguyên nhân gốc rễ (Root Cause)**:
+  1. *Trùng lặp trên Web (3 game)*:
+     - Game `The Seven Deadly Sins: Grand Cross` tồn tại 2 bản ghi nhân bản trên web: `the-seven-deadly-sins-grand-cross` (28 codes) và `seven-deadly-sins-grand-cross` (2 codes).
+     - Game `X Wukong` (`x-wukong`, 26 codes) và `X-WUKONG ĐẠI CHIẾN TAM GIỚI` (`x-wukong-dai-chien-tam-gioi`, 24 codes) cùng là 1 tựa game do SohaGame phát hành, cùng giấy phép ABEI `543/QĐ-PTTH&TTĐT`.
+     - Game `Tam Quốc Huyễn Tướng VNG` (`tam-quoc-huyen-tuong-vng`, 23 codes) và `Tam Quốc Huyễn Tưởng: 3Q AFK` (`tam-quoc-huyen-tuong`, 26 codes) cùng là 1 tựa game do VNG phát hành, cùng giấy phép ABEI `217/QĐ-PTTH&TTĐT`.
+  2. *Trùng lặp trong Hàng chờ duyệt (14 game)*:
+     - Crawler quét tự động các nguồn bên ngoài và đưa 14 tựa game vào hàng chờ duyệt, mặc dù các tựa game này đã có mặt trên sàn Web Khách với đầy đủ giấy phép và giftcode (Liên Quân Mobile, Delta Force, Crossfire Legends, Mobile Legends: Bang Bang, Kiếm Rồng, Trảm Tiên Quyết, Kiếm Ma 3D, FC Online, Honkai: Star Rail, OMG 3Q, Đấu Trường Onmyoji, Au 2, Infinity Kingdom, Con Đường Tơ Lụa).
+- **Giải pháp đã triển khai (Solution)**:
+  1. *Khử trùng trên Web & Gộp toàn bộ giftcode không trùng lặp*:
+     - Giữ lại `the-seven-deadly-sins-grand-cross` chuẩn (NPH Netmarble, GP 85/GXN-PTTH&TTĐT), gộp 2 code từ `seven-deadly-sins-grand-cross` sang (tổng 30 code), xóa bản ghi thừa.
+     - Giữ lại `x-wukong` chuẩn (tên đầy đủ "X-Wukong: Đại Chiến Tam Giới", SohaGame), gộp 24 code từ `x-wukong-dai-chien-tam-gioi` sang, xóa bản ghi thừa.
+     - Giữ lại `tam-quoc-huyen-tuong-vng` chuẩn (tên đầy đủ "Tam Quốc Huyễn Tưởng - 3Q AFK (VNG)"), gộp 26 code từ `tam-quoc-huyen-tuong` sang, xóa bản ghi thừa.
+     - Khử trùng lặp mã code và đồng bộ toàn bộ file `games188.json` (529 game), `crawled_codes_188.json` (11,762 code).
+  2. *Khử trùng trong Hàng chờ duyệt*:
+     - Lọc bỏ hoàn toàn 14 game trùng lặp đã có trên web khỏi `crawlerPendingGames` (hàng chờ giảm từ 94 game xuống còn 80 game mới thực sự 100%).
+     - Đồng bộ danh sách sạch lên Cloudflare D1 trên cả 2 endpoints.
+- **Files Modified**:
+  - `src/data/games188.json`
+  - `public/data/games188.json`
+  - `public/data/games_database.json`
+  - `src/data/crawled_codes_188.json`
+  - `public/data/crawled_codes_188.json`
+  - `public/data/codes_database.json`
+
 ### 139. Thêm Tùy Chọn Tùy Biến Khẩu Hiệu Header "Cổng Tra Cứu Giftcode #1" & Sửa Triệt Để Lỗi Máy Chủ "isLegacyOrEmpty is not defined" (Content CMS)
 - **Mô tả & Yêu cầu người dùng**:
   - *"Tôi không tìm thấy chỗ tùy chọn thay đổi nội dung dòng chữ Cổng tra cứu Giftcode #1, Khi tôi cập nhật nội dung máy chủ báo như ảnh 2."*

@@ -10,6 +10,19 @@
 
 ## 1. DANH MỤC LỖI & CÁC BẪY ĐÃ THẤT BẠI (DO NOT REPEAT)
 
+### ISSUE-076: Trùng Lặp Tên Game Giữa Cơ Sở Dữ Liệu Web Và Hàng Chờ Duyệt Do Cơ Chế Quét Đa Nguồn
+- **Triệu chứng**:
+  - Người dùng hoặc admin phát hiện trên Web có 2 game trùng tên hoặc crawler tự động nạp các game đã có sẵn trên sàn vào hàng chờ duyệt (ví dụ: Liên Quân Mobile, Delta Force, Crossfire, Seven Deadly Sins).
+- **Nguyên nhân gốc rễ**:
+  1. Hai nguồn khác nhau quét game cùng tên với các tiền tố NPH khác nhau (ví dụ: "Garena Liên Quân Mobile" vs "Liên Quân Mobile").
+  2. Hai slug khác nhau cùng trỏ về 1 tựa game trên web (`the-seven-deadly-sins-grand-cross` vs `seven-deadly-sins-grand-cross`).
+- **Giải pháp chuẩn đã kiểm chứng**:
+  - Đối chiếu toàn diện tên cốt lõi, package ID và giấy phép ABEI.
+  - Khi gộp game, luôn di chuyển toàn bộ giftcode sang game chuẩn và khử trùng mã code trước khi xóa bản ghi thừa.
+  - Loại bỏ các game trùng lặp khỏi hàng chờ duyệt (`crawlerPendingGames`) trên Cloudflare D1.
+- ⛔ **CÁCH SỬA ĐÃ THẤT BẠI - TUYỆT ĐỐI KHÔNG LẶP LẠI**:
+  - ❌ *Không xóa game mà không di chuyển giftcode*: Phải luôn di chuyển toàn bộ giftcode của bản ghi bị xóa sang bản ghi được giữ lại để không làm mất mã code của người dùng.
+
 ### ISSUE-075: Cảnh Báo "isLegacyOrEmpty is not defined" Khi Lưu Nội Dung Web Do Khai Báo Hàm Sai Phạm Vi (Local Scope Trap)
 - **Triệu chứng**:
   - Tại trang Quản Trị Nội Dung & Banner (`/admin#/content`), khi bấm nút "Lưu Tất Cả Nội Dung Web Khách" hoặc lưu mục Chân Trang, hệ thống hiển thị toast đỏ/đen: *"Cảnh Báo Đồng Bộ: Đã lưu cục bộ nhưng chưa kết nối được máy chủ Cloudflare: isLegacyOrEmpty is not defined"*.
