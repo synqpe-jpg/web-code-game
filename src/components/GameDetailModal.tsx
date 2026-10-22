@@ -320,12 +320,13 @@ export const GameDetailModal: React.FC<GameDetailModalProps> = ({
                       modalFallbackStage === 1
                         ? `/game_icons/${currentGame.slug}.jpg`
                         : modalFallbackStage === 2
-                        ? `/api/game-icon?slug=${encodeURIComponent(currentGame.slug)}`
+                        ? `/api/game-icon?slug=${encodeURIComponent(currentGame.slug)}${currentGame.icon_url && currentGame.icon_url.startsWith('http') ? `&url=${encodeURIComponent(currentGame.icon_url)}` : ''}`
                         : (!currentGame.icon_url || currentGame.icon_url.includes('codemoi.net') || currentGame.icon_url.startsWith('/game-icons')
                             ? `/game_icons/${currentGame.slug}.webp`
                             : (currentGame.icon_url || `/game_icons/${currentGame.slug}.webp`))
                     }
                     alt={currentGame.name}
+                    referrerPolicy="no-referrer"
                     decoding="async"
                     onLoad={() => setModalImageLoaded(true)}
                     onError={handleModalImageError}

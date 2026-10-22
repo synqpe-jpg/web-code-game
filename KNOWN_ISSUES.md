@@ -10,6 +10,27 @@
 
 ## 1. DANH MỤC LỖI & CÁC BẪY ĐÃ THẤT BẠI (DO NOT REPEAT)
 
+### ISSUE-070: Ô Trắng Trơn Trong Admin Do Fallback `/icon-192.png` Ảo & Game 0 Code Tràn Vào Trang Chủ Do Auto-Publish Bỏ Qua Kiểm Tra Mã Code
+- **Triệu chứng**:
+  - Tại trang quản trị Admin (`/admin#/games`), một loạt game mới (Diamond, Con Đường Tơ Lụa, Song Kiếm Loạn Vũ, Tiên Đạo Ta Độc Tôn...) hiển thị ô vuông màu trắng trơn không có ảnh.
+  - Ngoài trang khách `codegame.shop`, các game này hiển thị với chữ cái viết tắt ("CON", "SON", "TIE"...) kèm dòng *"0 Có mã code", "Đang tải dữ liệu..."*.
+- **Nguyên nhân gốc rễ**:
+  1. *Ô trắng trong Admin*:
+     - `GamesModule.tsx` nhúng trực tiếp `item.icon_url` (là URL `play-lh.googleusercontent.com`) mà thiếu `referrerPolicy="no-referrer"`. Trình duyệt gửi Referer từ domain admin khiến Google Play chặn 403.
+     - Handler `onError` gán `(e.target as HTMLImageElement).src = '/icon-192.png'`, nhưng tệp `/icon-192.png` **không hề tồn tại** trong `public/`. Sự cố lỗi 404 kép để lại một khung ô vuông trắng trơn vô hồn.
+  2. *Game 0 code tràn ra trang chủ*:
+     - `scan_googleplay_new_games` và `scan_codemoi_new_games` trong `functions/api/sync.ts` thiết lập điều kiện `shouldAutoPublish = autoConfig.enabled && (isWhitelisted || (autoPublishWhenHasCodes && hasCodes))`.
+     - Vì NPH nằm trong whitelist nên dù `codeCount = 0`, game vẫn bị tự động đăng thẳng lên danh mục chính thức `wcg_admin_games_v5`.
+- **Giải pháp chuẩn đã kiểm chứng**:
+  - Tải toàn bộ 61 logo Google Play độ phân giải cao về lưu tĩnh tại `public/game_icons/${slug}.webp` & `.jpg` (đạt 748 icon nội bộ 100%).
+  - Cập nhật `GamesModule.tsx`, `GameCard.tsx`, `GameDetailModal.tsx` trang bị `referrerPolicy="no-referrer"` và fallback 3 tầng (Icon nội bộ -> Edge Proxy `/api/game-icon?slug=...&url=...` -> Gradient Avatar chữ cái thương hiệu). Tuyệt đối không fallback vào đường dẫn tệp không tồn tại.
+  - Di chuyển toàn bộ 162 game có 0 code sang bảng Hàng Chờ Duyệt (`wcg_crawler_pending_games_v1`).
+  - Thêm điều kiện bắt buộc `if (allCodes.length === 0) continue;` trong `functions/api/games.ts` để bảo đảm Web Khách CHỈ phục vụ game có mã giftcode hoạt động.
+  - Khóa chặt `shouldAutoPublish = autoConfig.enabled && hasCodes;` — bắt buộc phải có code mới được đăng tự động.
+- ⛔ **CÁCH SỬA ĐÃ THẤT BẠI - TUYỆT ĐỐI KHÔNG LẶP LẠI**:
+  - ❌ *Không bao giờ gán fallback `onError` vào một đường dẫn tệp chưa được kiểm tra tồn tại (như `/icon-192.png`)*: Lỗi 404 kép sẽ tạo ra ô vuông trắng trơn hoặc biểu tượng vỡ ảnh.
+  - ❌ *Không bao giờ cho phép Auto-Publish game chỉ vì NPH nằm trong Whitelist khi chưa có mã giftcode hoạt động*: Quy tắc cốt lõi của Web Code Game là chỉ đăng game khi đã có giftcode (`codes_count > 0`), game chưa có code bắt buộc nằm ở Hàng Chờ Duyệt.
+
 ### ISSUE-069: Logo Game Google Play Bị Lỗi Hiển Thị Chữ Viết Tắt SVG Do Trực Tiếp Nhúng Cross-Origin & Hàng Chờ Duyệt Giữ Lại Game Đã Có Code
 - **Triệu chứng**:
   - Tại trang quản trị Admin (`/admin#/crawler`), toàn bộ thẻ game mới quét từ Google Play hiển thị khung màu tối với chữ cái viết tắt SVG màu xanh ("HI", "ON", "GU", "GI", "LÀ"...) thay vì logo game thật.

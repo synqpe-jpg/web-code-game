@@ -7,6 +7,48 @@ Mỗi mục sửa lỗi đều ghi nhận **Nguyên nhân gốc rễ (Root Cause
 
 ## [2026-10-22]
 
+### 129. Chuẩn Hóa 100% Logo Nội Bộ Tĩnh, Di Chuyển Game 0 Code Về Hàng Chờ Duyệt & Khóa Điều Kiện Đăng Trực Tiếp
+- **Mô tả & Yêu cầu người dùng**:
+  - Người dùng gửi 2 ảnh chụp màn hình cho thấy:
+    1. Trang khách `codegame.shop` hiển thị hàng loạt game với avatar chữ cái viết tắt ("CON", "SON", "TIE", "PHO", "TRA", "AU-", "GHO", "TA-") và dòng chữ *"0 Có mã code", "Đang tải dữ liệu..."*.
+    2. Trang quản trị Admin `admin#/games` hiển thị khung vuông trắng trơn bị lỗi ảnh cho các game này (Diamond, Con Đường Tơ Lụa, Song Kiếm Loạn Vũ, Tiên Đạo Ta Độc Tôn, Phong Vân Chí, Trảm Tiên Quyết, Au Mobile VTC, Ghost Soul M, Ta Là Đạo Sĩ Xuất Quan, Kiếm Rồng...).
+    3. Yêu cầu: *"Rất nhiều game vẫn chưa cập nhật logo, bạn tạo quy trình đảm bảo phải có logo chính xác giúp tôi. Ngoài ra các game không có code đưa về hàng chờ chuyệt, khi nnàocos thì mới đăng trên trang."*
+- **Nguyên nhân gốc rễ (Root Cause)**:
+  1. *Lỗi ảnh trắng trong Admin (`GamesModule.tsx`) & avatar chữ cái trên Web Khách (`GameCard.tsx`)*:
+     - Khi `scan_googleplay_new_games` quét các tựa game từ Google Play Store VN, hệ thống lưu trực tiếp URL `play-lh.googleusercontent.com` vào trường `icon_url` của D1 thay vì tải về máy chủ nội bộ.
+     - Trong `GamesModule.tsx`, thẻ `<img>` thiếu thuộc tính `referrerPolicy="no-referrer"`. Khi trình duyệt gửi Referer từ domain `admin-code-game-shop.pages.dev`, Google Play chặn hotlink (403/ERR_BLOCKED).
+     - Handler `onError` của Admin lại gán fallback tới `/icon-192.png` — một tệp **không hề tồn tại** trong `public/`. Lỗi 404 kép khiến giao diện để lại một khung vuông màu trắng trơn đơ cứng.
+     - Tương tự trên Web Khách `GameCard.tsx`, do thiếu `referrerPolicy="no-referrer"` và chưa có file tĩnh trong `public/game_icons/`, ảnh bị lỗi và chuyển qua avatar chữ cái viết tắt.
+  2. *Game 0 code bị xuất bản trực tiếp lên trang chủ*:
+     - Trong `scan_googleplay_new_games` và `scan_codemoi_new_games` (`functions/api/sync.ts`), điều kiện auto-publish sử dụng `(isWhitelisted || (autoPublishWhenHasCodes && hasCodes))`.
+     - Vì các NPH như VTC, Gamota, VGP nằm trong whitelist, hệ thống đã tự động xuất bản (Auto-Publish) toàn bộ 162 game dù chúng **hoàn toàn chưa có mã giftcode nào** (`codeCount = 0`).
+     - Đồng thời, API công khai `functions/api/games.ts` trước đó nạp toàn bộ `rawGames` mà không lọc bỏ game có 0 code, dẫn đến việc người dùng vào `codegame.shop` thấy hàng loạt game "0 Có mã code".
+- **Giải pháp dứt điểm đã triển khai (Solution)**:
+  1. *Quy trình tải và chuẩn hóa 100% Logo game chính thức*:
+     - Viết và chạy engine `resolve_and_download_all_logos.cjs`: Tự động tải toàn bộ 61 logo chất lượng cao từ Google Play Store VN, xử lý qua Sharp chuyển đổi sang định dạng WebP 256x256 (quality 90) và Open Graph JPG 512x512 (quality 85) lưu vĩnh viễn tại `public/game_icons/${slug}.webp` & `.jpg`.
+     - Tổng số icon chuẩn trong `public/game_icons/` tăng từ 686 lên 748 icon, đạt độ phủ 100%.
+  2. *Kiến trúc phòng thủ hiển thị ảnh đa tầng chống lỗi ô trắng*:
+     - Trong `GamesModule.tsx`: Thêm `referrerPolicy="no-referrer"`, fallback 3 tầng (Icon nội bộ -> Edge Proxy `/api/game-icon?slug=...&url=...` -> Gradient Avatar chữ cái nhận diện thương hiệu). Loại bỏ hoàn toàn đường dẫn lỗi `/icon-192.png`.
+     - Trong `GameCard.tsx` & `GameDetailModal.tsx`: Thêm `referrerPolicy="no-referrer"`, truyền URL gốc vào Edge Proxy endpoint để Worker tải ảnh với User-Agent và Referer Google Play hợp lệ.
+  3. *Hiện thực hóa quy trình "Game không có code đưa về hàng chờ duyệt"*:
+     - Chạy script `move_nocode_games_to_pending.cjs`: Tự động tách 162 game có 0 code khỏi danh mục chính thức và chuyển sang bảng Hàng Chờ Duyệt (`wcg_crawler_pending_games_v1`). Danh mục xuất bản chính thức `wcg_admin_games_v5` chỉ còn giữ lại 532 game có mã code hoạt động (100% có giftcode).
+     - Trong `functions/api/games.ts`: Thêm điều kiện chặn bắt buộc `if (allCodes.length === 0) continue;`. Trang khách `codegame.shop` và thanh tìm kiếm tuyệt đối chỉ phục vụ các game CÓ MÃ CODE.
+     - Trong `functions/api/sync.ts`: Sửa `shouldAutoPublish = autoConfig.enabled && hasCodes;` (và `hasActiveCodes`). Game chưa có code BẮT BUỘC nằm tại hàng chờ duyệt; chỉ khi nào cào được code mới hoặc Admin thêm code thì hệ thống mới tự động đăng lên trang khách.
+- **Files Modified**:
+  - `functions/api/games.ts`
+  - `functions/api/sync.ts`
+  - `src/admin/modules/GamesModule.tsx`
+  - `src/components/GameCard.tsx`
+  - `src/components/GameDetailModal.tsx`
+  - `public/game_icons/*` (61 logo WebP & JPG mới)
+  - `src/data/games188.json`
+  - `public/data/games188.json`
+  - `public/data/games_database.json`
+  - `scripts/move_nocode_games_to_pending.cjs`
+  - `scripts/resolve_and_download_all_logos.cjs`
+  - `scripts/update_ui_image_props.cjs`
+  - `CHANGELOG.md`
+
 ### 128. Xác Minh NPH DigiGames & Bổ Sung 11 Giftcode Chính Thức Mừng Khai Mở Game Mộng Thiên Kiếm (22/10/2026)
 - **Mô tả & Yêu cầu người dùng**:
   - Người dùng yêu cầu kiểm tra game *Mộng Thiên Kiếm*: *"theo tôi biết game này của DigiGames, nếu đúng thì thêm 11 code này giúp tôi. MONGTHIENKIEM, TIEULONGNU, HUTRUC, LIKEPAGE, KHAIMO2210, VIP666, VIP777, VIP888, VIP999, HOITUANHHUNG, NGOCXINHGAI"*.

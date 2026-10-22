@@ -1875,7 +1875,8 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
           const isWhitelisted = whitelist.some((w: string) => normDev.includes(w) || normName.includes(` ${w}`));
           const hasActiveCodes = Number(item.activeCodesCount || 0) > 0;
           const autoPublishWhenHasCodes = autoConfig.autoPublishWhenHasCodes !== false;
-          const shouldAutoPublish = autoConfig.enabled && (isWhitelisted || (autoPublishWhenHasCodes && hasActiveCodes));
+          // Strict Business Rule: Chỉ đăng game có mã giftcode hoạt động. Game 0 code luôn đưa về hàng chờ duyệt
+          const shouldAutoPublish = autoConfig.enabled && hasActiveCodes;
 
           if (shouldAutoPublish) {
             const newGame = {
@@ -2121,7 +2122,8 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
           const codeCount = codeCountsBySlug.get(slug) || codeCountsBySlug.get(rawSlug) || codeCountsBySlug.get(bName) || 0;
           const hasCodes = codeCount > 0;
           const autoPublishWhenHasCodes = autoConfig.autoPublishWhenHasCodes !== false;
-          const shouldAutoPublish = autoConfig.enabled && (isWhitelisted || (autoPublishWhenHasCodes && hasCodes));
+          // Strict Business Rule: Chỉ đăng game có mã giftcode hoạt động. Game 0 code luôn đưa về hàng chờ duyệt
+          const shouldAutoPublish = autoConfig.enabled && hasCodes;
 
           if (shouldAutoPublish) {
             const newGame = {

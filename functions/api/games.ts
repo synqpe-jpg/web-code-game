@@ -536,11 +536,17 @@ export async function getLoadedCatalog(db: D1Database, forceFresh: boolean = fal
         const timeB = b.added_at ? new Date(b.added_at).getTime() : 0;
         return timeB - timeA;
       });
+      // Strict Business Rule: CHỈ xuất bản game CÓ MÃ GIFTCODE HOẠT ĐỘNG lên Web Khách
+      // Các game không có mã code (0 code) được giữ trong Hàng Chờ Duyệt (wcg_crawler_pending_games_v1)
+      if (allCodes.length === 0) {
+        continue;
+      }
+
       const cat = g.category ? String(g.category).trim() : 'Game Hot';
       if (cat) categorySet.add(cat);
 
       let iconUrl = g.icon_url || g.iconUrl || g.cover_image_url || '';
-      if (!iconUrl || iconUrl.includes('codemoi.net') || iconUrl.startsWith('/game-icons') || iconUrl.startsWith('game-icons')) {
+      if (!iconUrl || iconUrl.includes('codemoi.net') || iconUrl.includes('googleusercontent.com') || iconUrl.startsWith('/game-icons') || iconUrl.startsWith('game-icons')) {
         iconUrl = `/game_icons/${slug}.webp`;
       }
 

@@ -111,7 +111,8 @@ export const GameCard: React.FC<GameCardProps> = ({
     } else if (fallbackStage === 1) {
       // Stage 2: Try Edge Proxy endpoint
       setFallbackStage(2);
-      setCurrentIconSrc(`/api/game-icon?slug=${encodeURIComponent(slug)}`);
+      const rawUrl = game.icon_url && game.icon_url.startsWith('http') ? game.icon_url : '';
+      setCurrentIconSrc(`/api/game-icon?slug=${encodeURIComponent(slug)}${rawUrl ? `&url=${encodeURIComponent(rawUrl)}` : ''}`);
     } else {
       // Stage 3: Cleanly fallback to colorful branded gradient avatar with initials
       setFallbackStage(3);
@@ -195,6 +196,7 @@ export const GameCard: React.FC<GameCardProps> = ({
           }}
           src={currentIconSrc}
           alt={game.name}
+          referrerPolicy="no-referrer"
           decoding="async"
           onLoad={() => setImageLoaded(true)}
           onError={handleImageError}
