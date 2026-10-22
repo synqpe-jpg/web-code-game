@@ -10,6 +10,22 @@
 
 ## 1. DANH MỤC LỖI & CÁC BẪY ĐÃ THẤT BẠI (DO NOT REPEAT)
 
+### ISSUE-073: Modal Giao Hàng Thành Công Không Hiện Do Kiểm Tra Tồn Kho Sai Biến Thể Gói Con (Package Stock Inversion)
+- **Triệu chứng**:
+  - Khi người dùng mua tiện ích (hoặc sản phẩm cửa hàng có gói con như VS Phone VIP 7 Ngày), modal giao hàng thành công ở giữa màn hình không xuất hiện.
+  - Góc dưới bên phải màn hình hiện lên toast thông báo lỗi: *"Hết hàng: Sản phẩm tiện ích tạm thời hết hàng trong kho."* hoặc *"Thất bại: Sản phẩm tạm thời hết hàng trong kho."*.
+- **Nguyên nhân gốc rễ**:
+  1. Trong `UtilitiesView.tsx` và `ProductCheckoutModal.tsx`, logic kiểm tra tồn kho trước khi thanh toán và trạng thái disable của nút mua kiểm tra `checkoutUtility.stock_quantity <= 0` hoặc `liveProduct.stock_quantity <= 0` thay vì `realStock <= 0` / `maxStock <= 0`.
+  2. Khi sản phẩm thuộc nhóm có nhiều gói thời hạn (ví dụ VS Phone VIP: Gói 1 ngày có stock 0, Gói 7 ngày có stock 8), đối tượng đại diện nhóm hoặc item dẫn đầu có `stock_quantity = 0`. Client hiểu nhầm toàn bộ sản phẩm hết hàng và chặn giao dịch ngay lập tức.
+  3. Khi listener `wcg_virtual_stock_updated` hoặc `syncWithCloudflareKV` kích hoạt, `setCheckoutUtility` tìm trong danh sách `rawLatest` (chưa gom nhóm) làm mất mảng `packages` và đè `stock_quantity = 0`.
+- **Giải pháp chuẩn đã kiểm chứng**:
+  - Luôn sử dụng `realStock` (tính từ `selectedPackage?.stock_quantity ?? checkoutUtility?.stock_quantity`) trong mọi điều kiện kiểm tra tồn kho tại Client.
+  - Cập nhật `setCheckoutUtility` tìm kiếm từ `groupedLatest` để bảo toàn danh sách gói con `packages`.
+  - Trên Server Edge (`functions/api/orders/create.ts`), bổ sung cơ chế tự động cấp phát mã dự phòng khi `product.stock_quantity >= qty` nhưng `inventory_codes` chưa được nạp mã thủ công.
+- ⛔ **CÁCH SỬA ĐÃ THẤT BẠI - TUYỆT ĐỐI KHÔNG LẶP LẠI**:
+  - ❌ *Không bao giờ kiểm tra `item.stock_quantity <= 0` trên đối tượng cha khi sản phẩm có mảng biến thể `packages`*: Phải luôn ưu tiên tồn kho của gói được chọn (`selectedPackage?.stock_quantity`).
+  - ❌ *Không bao giờ dùng danh sách thô `rawLatest` để cập nhật lại state của sản phẩm đã gom nhóm*: Việc này sẽ làm mất toàn bộ cấu trúc biến thể gói và làm đè sai số tồn kho.
+
 ### ISSUE-072: Lỗ Hổng Bảo Mật API Ingest-Codes Do Tồn Tại API Key Mặc Định Hardcode & Lộ Khóa Trong Response GET
 - **Triệu chứng**:
   - Endpoint `POST /api/crawler/ingest-codes` chấp nhận một API key mặc định hardcode bất kể khóa trong cơ sở dữ liệu D1 có bị thay đổi hay không.

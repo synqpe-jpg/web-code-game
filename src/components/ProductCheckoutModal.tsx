@@ -617,14 +617,14 @@ export const ProductCheckoutModal: React.FC<ProductCheckoutModalProps> = ({
               {/* Action Button */}
               <button
                 onClick={handlePayWithWallet}
-                disabled={isProcessing || maxStock <= 0 || liveProduct.stock_quantity <= 0}
+                disabled={isProcessing || maxStock <= 0}
                 className="w-full py-3.5 rounded-2xl bg-gradient-to-r from-secondary to-primary hover:opacity-95 text-white font-display font-bold text-sm shadow-glow-primary transition-all cursor-pointer disabled:opacity-50 flex items-center justify-center gap-2"
               >
                 <Sparkles className="w-4 h-4 text-amber-300" />
                 <span>
                   {isProcessing
                     ? 'Đang xử lý thanh toán...'
-                    : maxStock <= 0 || liveProduct.stock_quantity <= 0
+                    : maxStock <= 0
                     ? 'Sản phẩm tạm hết hàng'
                     : !isBalanceEnough
                     ? `Thiếu ${formatCore(totalPrice - userBalance)} • Nạp Core Ngay`

@@ -178,7 +178,26 @@ export const UtilitiesView: React.FC<UtilitiesViewProps> = ({
         );
         return found || curr;
       });
-      setCheckoutUtility((curr) => (curr ? rawLatest.find((u) => u.id === curr.id) || curr : null));
+      setCheckoutUtility((curr) => {
+        if (!curr) return null;
+        const found = groupedLatest.find(
+          (u) => u.id === curr.id || (u.packages && u.packages.some((p) => p.id === curr.id))
+        ) || rawLatest.find((u) => u.id === curr.id);
+        return found || curr;
+      });
+      setSelectedPackage((currPkg) => {
+        if (!currPkg) return null;
+        const foundItem = rawLatest.find((u) => u.id === currPkg.id);
+        if (foundItem) {
+          return {
+            ...currPkg,
+            stock_quantity: foundItem.stock_quantity,
+            price: foundItem.current_price,
+            original_price: foundItem.original_price,
+          };
+        }
+        return currPkg;
+      });
       setIsGlobalSoldEnabled(
         localStorage.getItem('wcg_utilities_global_show_sold') !== 'false' && localStorage.getItem('wcg_admin_show_sold_util') !== 'false'
       );
@@ -296,7 +315,7 @@ export const UtilitiesView: React.FC<UtilitiesViewProps> = ({
       return;
     }
 
-    if (checkoutUtility.stock_quantity <= 0) {
+    if (realStock <= 0) {
       onShowToast('Hết hàng', 'Sản phẩm tiện ích tạm thời hết hàng trong kho.', 'error');
       return;
     }
@@ -341,7 +360,7 @@ export const UtilitiesView: React.FC<UtilitiesViewProps> = ({
             ? Number((res.order as any).balance_after)
             : (res as any)?.remainingBalance !== undefined
               ? Number((res as any).remainingBalance)
-              : Math.max(0, (activeUser.wallet_balance || 0) - (checkoutUtility.current_price * safeQty));
+              : Math.max(0, (activeUser.wallet_balance || 0) - totalPrice);
           const updatedUser: UserProfile = {
             ...activeUser,
             wallet_balance: newBal,
@@ -976,10 +995,10 @@ export const UtilitiesView: React.FC<UtilitiesViewProps> = ({
                   </div>
                   <div className="min-w-0 flex-1">
                     <h3 className="font-heading font-bold text-sm sm:text-base text-foreground truncate">
-                      Thanh Toán Tiện Ích
+                      {completedOrder ? 'Nhận Tiện Ích Thành Công' : 'Thanh Toán Tiện Ích'}
                     </h3>
                     <p className="text-xs text-muted-foreground truncate">
-                      {checkoutUtility.title}
+                      {effectiveTitle}
                     </p>
                   </div>
                 </div>
@@ -1105,7 +1124,7 @@ export const UtilitiesView: React.FC<UtilitiesViewProps> = ({
                       </div>
                       <div>
                         <h4 className="font-heading font-bold text-sm text-foreground truncate max-w-[190px]">
-                          {checkoutUtility.title}
+                          {effectiveTitle}
                         </h4>
                         <span className="text-xs text-muted-foreground">
                           {checkoutUtility.category_label || checkoutUtility.category || 'Tiện ích'}
@@ -1114,7 +1133,7 @@ export const UtilitiesView: React.FC<UtilitiesViewProps> = ({
                     </div>
                     <div className="text-right">
                       <span className="font-display font-black text-base text-emerald-400 block">
-                        {formatCore(checkoutUtility.current_price)}
+                        {formatCore(effectivePrice)}
                       </span>
                       <span className={`text-[10px] font-semibold flex items-center gap-1 justify-end font-sans ${checkoutDisplayStock > 0 ? 'text-teal-400' : 'text-rose-400'}`}>
                         {checkoutDisplayStock > 0 ? (
@@ -1196,7 +1215,7 @@ export const UtilitiesView: React.FC<UtilitiesViewProps> = ({
                     {/* Total Calculation Row */}
                     <div className="p-2.5 rounded-xl bg-muted/40 border border-border flex items-center justify-between text-xs">
                       <span className="text-muted-foreground">
-                        Tổng tiền ({safeQty} gói x {formatCore(checkoutUtility.current_price)}):
+                        Tổng tiền ({safeQty} gói x {formatCore(effectivePrice)}):
                       </span>
                       <span className="font-display font-black text-sm text-emerald-400">
                         {formatCore(totalPrice)}
@@ -1249,14 +1268,14 @@ export const UtilitiesView: React.FC<UtilitiesViewProps> = ({
 
                   <button
                     onClick={handleExecutePayment}
-                    disabled={isProcessing || maxStock <= 0 || checkoutUtility.stock_quantity <= 0}
+                    disabled={isProcessing || maxStock <= 0}
                     className="w-full py-3.5 rounded-2xl bg-gradient-to-r from-teal-500 to-indigo-600 hover:opacity-95 text-white font-display font-bold text-sm shadow-glow-primary transition-all cursor-pointer disabled:opacity-50 flex items-center justify-center gap-2"
                   >
                     <Sparkles className="w-4 h-4 text-amber-300" />
                     <span>
                       {isProcessing
                         ? 'Đang xử lý thanh toán...'
-                        : maxStock <= 0 || checkoutUtility.stock_quantity <= 0
+                        : maxStock <= 0
                         ? 'Tiện ích tạm hết hàng'
                         : !isBalanceEnough
                         ? `Thiếu ${formatCore(totalPrice - userBalance)} • Nạp Core Ngay`

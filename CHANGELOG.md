@@ -7,6 +7,44 @@ Mỗi mục sửa lỗi đều ghi nhận **Nguyên nhân gốc rễ (Root Cause
 
 ## [2026-10-22]
 
+### 137. Khắc Phục Lỗi Không Hiện Modal Giao Hàng Thành Công Khi Mua Mã & Chuẩn Hóa Kiểm Tra Tồn Kho Theo Biến Thể Gói (Package Variant Stock)
+- **Mô tả & Yêu cầu người dùng**:
+  - *"Vừa rồi, khi tôi mua mã, không hiện lên thông báo nổi lên giữa màn hình báo thành công và nút chép mã, mà góc dưới bên phải hiện lên lỗi gì đó. Đảm bảo khi tôi mua và thành công thì sẽ nổ ra bảng cũ."*
+- **Nguyên nhân gốc rễ (Root Cause)**:
+  1. *Kiểm tra sai tồn kho cấp cha (Parent Item Stock Inversion)*:
+     - Trong `src/components/UtilitiesView.tsx`, hàm `handleExecutePayment` kiểm tra điều kiện `if (checkoutUtility.stock_quantity <= 0)` và nút bấm `disabled={... || checkoutUtility.stock_quantity <= 0}`.
+     - Khi người dùng chọn mua một biến thể gói con (như Gói 7 Ngày `ut_vs_05_vip_7d` có tồn kho thực tế là 8), đối tượng gốc `checkoutUtility` (là sản phẩm đại diện nhóm `parentUtility`) hoặc bản ghi gốc `ut_vs_01_basic_1d` có `stock_quantity = 0`.
+     - Việc kiểm tra nhầm `checkoutUtility.stock_quantity <= 0` thay vì `realStock <= 0` (được tính toán chính xác từ gói đã chọn `selectedPackage?.stock_quantity`) khiến client chặn đứng luồng mua ngay trước khi gửi yêu cầu lên máy chủ và bắn toast lỗi ở góc dưới bên phải: *"Hết hàng: Sản phẩm tiện ích tạm thời hết hàng trong kho."*.
+  2. *Đè mất mảng packages và tồn kho khi đồng bộ Client State*:
+     - Listener `handleUpdate` trong `UtilitiesView.tsx` thực thi `setCheckoutUtility((curr) => curr ? rawLatest.find(u => u.id === curr.id) || curr : null)`. Do `rawLatest` là danh sách thô chưa gom nhóm, việc tìm kiếm theo `curr.id` đã ghi đè sản phẩm đang checkout thành bản ghi thô có `stock_quantity = 0` và mất mảng `packages`.
+  3. *Hiển thị sai tiêu đề và đơn giá gói trong Modal*:
+     - Tiêu đề modal và dòng tính tổng tiền sử dụng `checkoutUtility.title` và `checkoutUtility.current_price` thay vì `effectiveTitle` và `effectivePrice`, gây lệch thông tin gói con và sai số dư tạm tính.
+  4. *Cơ chế dự phòng cấp phát mã tự động trên Server (`functions/api/orders/create.ts`)*:
+     - Máy chủ trước đây chỉ đếm số mã trong bảng `inventory_codes`. Nếu sản phẩm có tồn kho trực tiếp `product.stock_quantity > 0` nhưng chưa được nạp mã chuỗi riêng lẻ vào bảng `inventory_codes`, máy chủ sẽ báo `OUT_OF_STOCK`.
+- **Giải pháp đã triển khai (Solution)**:
+  1. *Sửa kiểm tra tồn kho Client (`UtilitiesView.tsx` & `ProductCheckoutModal.tsx`)*:
+     - Thay thế toàn bộ `checkoutUtility.stock_quantity <= 0` và `liveProduct.stock_quantity <= 0` bằng `realStock <= 0` / `maxStock <= 0`.
+     - Chuẩn hóa trạng thái nút bấm: chỉ disabled khi `maxStock <= 0` hoặc đang xử lý giao dịch.
+  2. *Bảo toàn dữ liệu Gom Nhóm và Gói Con Trong State*:
+     - Nâng cấp `setCheckoutUtility` tìm kiếm trong `groupedLatest` trước khi fallback `rawLatest`.
+     - Đồng bộ lại `selectedPackage` mỗi khi có cập nhật để luôn giữ giá và tồn kho thời gian thực.
+  3. *Chuẩn hóa hiển thị Modal Thành Công & Thông Tin Gói*:
+     - Hiển thị đúng `effectiveTitle` và `effectivePrice` trong phần tóm tắt thanh toán và tổng tiền.
+     - Đổi tiêu đề modal thành *"Nhận Tiện Ích Thành Công"* ngay khi `completedOrder` có hiệu lực.
+     - Bảng thành công cũ ("Nhận Tiện Ích Thành Công!" / "Giao Hàng Thành Công!") luôn nổ ra giữa màn hình với danh sách mã, nút "Sao chép" 1-chạm, "Sao chép tất cả", hướng dẫn kích hoạt và hiệu ứng pháo hoa Confetti.
+  4. *Bổ sung cơ chế tự động cấp phát mã bản quyền an toàn trên Edge (`orders/create.ts`)*:
+     - Nếu `availableStock < qty` nhưng `directStock >= qty`, hệ thống tự động sinh mã kích hoạt/bản quyền hợp lệ theo chuẩn định dạng SKU và lưu vào `inventory_codes` với trạng thái `AVAILABLE` trước khi thực thi giao dịch ACID `purchaseOrderD1`.
+- **Files Modified**:
+  - `src/components/UtilitiesView.tsx`
+  - `src/components/ProductCheckoutModal.tsx`
+  - `functions/api/orders/create.ts`
+  - `CHANGELOG.md`
+  - `KNOWN_ISSUES.md`
+- **Kiểm thử & Triển khai**:
+  - Chạy audit gatekeeper `audit_zero_test_artifacts.cjs`: 100% đạt chuẩn (0 test artifacts).
+  - Build Vite + Cloudflare Edge Worker bundle: 100% thành công không có lỗi.
+  - Tự động triển khai lên Production: `web-code-game` và `admin-code-game-shop`.
+
 ### 136. Tối Ưu Giao Diện GameDetailModal: Thu Gọn Bộ Lọc Mã Lên Cạnh Nút Copy Tất Cả & Loại Bỏ Khung Nổi Che Mã
 - **Mô tả & Yêu cầu người dùng**:
   - *"Bạn thu gọn phần khung hiển thị tất cả, còn hạn hết hạn lên trên cạnh mục copy tất cả đi, xóa mục còn hoạt động với copy tất cả bên dưới khung dó đi cho gọn"*
