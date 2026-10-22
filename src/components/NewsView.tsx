@@ -267,7 +267,7 @@ export const NewsView: React.FC<NewsViewProps> = ({
                   <span>•</span>
                   <span className="flex items-center gap-1">
                     <Calendar className="w-3.5 h-3.5" />
-                    {new Date(featuredArticle.published_at).toLocaleDateString('vi-VN')}
+                    {new Date(featuredArticle.published_at || (featuredArticle as any).created_at || Date.now()).toLocaleDateString('vi-VN')}
                   </span>
                   <span>•</span>
                   <span className="flex items-center gap-1">
@@ -468,7 +468,7 @@ export const NewsView: React.FC<NewsViewProps> = ({
                           CodeGame.Shop
                         </span>
                         <span>•</span>
-                        <span>{new Date(article.published_at).toLocaleDateString('vi-VN')}</span>
+                        <span>{new Date(article.published_at || (article as any).created_at || Date.now()).toLocaleDateString('vi-VN')}</span>
                         <span>•</span>
                         <span>{article.read_time_minutes || 3} phút đọc</span>
                         <span>•</span>

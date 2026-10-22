@@ -10,6 +10,25 @@
 
 ## 1. DANH MỤC LỖI & CÁC BẪY ĐÃ THẤT BẠI (DO NOT REPEAT)
 
+### ISSUE-065: Lỗi Ẩn Bài Viết Mới Do Thiếu Trường `published_at` & Bẫy Hồi Sinh Dữ Liệu Mock Thay Vì Khôi Phục Mã Thật Chưa Phát Hết
+- **Triệu chứng**:
+  - Web Quản trị cập nhật tin tức đến ngày 22/10 nhưng ngoài Web Khách danh sách bài viết chỉ hiển thị đến ngày 13/10.
+  - Người dùng phản ánh mã quà tặng thật chưa phát hết của 3Q Đào Đào Đào và Anh Hùng Tiến Lên không hiện, thay vào đó lại xuất hiện mục mock Yến Vân Thập Lục Thanh (Rotwood).
+- **Nguyên nhân gốc rễ**:
+  1. *Lỗi sắp xếp tin tức*:
+     - Trong `seedNews.ts` và API trả về, 150/163 bài viết chỉ có trường `created_at` mà không có trường `published_at`.
+     - `newsService.ts` sắp xếp bằng `new Date(a.published_at || 0)`. Khi `published_at` là `undefined`, timestamp bị trả về 0 (1/1/1970). Chỉ có 13 bài viết có trường `published_at` (bài mới nhất là 13/10). Do đó toàn bộ bài viết từ 14/10 đến 22/10 bị chìm xuống đáy danh sách.
+  2. *Bẫy un-tombstone nhầm dữ liệu mock test*:
+     - Tác nhân ở lượt trước un-tombstone `gw_gamerpower_rotwood` do thấy nó có 15 mã trong D1, nhưng đó là mã test `GP-ROT-...` từ GamerPower thời kỳ đầu chứ không phải mã thật của người dùng (vi phạm Rule 7: Zero Test Artifacts).
+     - Trong khi đó, mã thật chưa phát hết của **3Q Đào Đào Đào** (19 mã) và **Anh Hùng Tiến Lên** (18 mã) lại bị reset về `[]` trong `codes_pool`.
+- **Giải pháp chuẩn đã kiểm chứng**:
+  - Luôn dùng fallback `a.published_at || a.created_at || new Date().toISOString()` trong cả model, service và UI (`NewsView.tsx`, `NewsDetailModal.tsx`).
+  - Chuẩn hóa đồng bộ cả hai trường `created_at` và `published_at` cho 100% bài viết tin tức.
+  - Thanh trừng triệt để `gw_gamerpower_rotwood` khỏi D1 và codebase; phục hồi đúng 19 mã thật của 3Q Đào Đào Đào và 18 mã thật của Anh Hùng Tiến Lên.
+- ⛔ **CÁCH SỬA ĐÃ THẤT BẠI - TUYỆT ĐỐI KHÔNG LẶP LẠI**:
+  - ❌ *Không bao giờ dựa hoàn toàn vào `a.published_at` mà không có fallback `a.created_at`*: Khiến các bài viết crawler hoặc bài viết mới thêm không hiện lên đầu trang.
+  - ❌ *Không un-tombstone bất kỳ chiến dịch nào chứa tiền tố mock như `GP-ROT-`*: Chỉ chấp nhận mã thật do người dùng cung cấp.
+
 ### ISSUE-064: Lỗi Kho Thật Giveaway Có Mã Nhưng Web Khách Ép Về 0 Do Thiếu Fallback `remaining_codes` & Kẹt Tombstone D1
 - **Triệu chứng**:
   - Quản trị viên nhập mã vào kho của chiến dịch Giveaway trong trang Admin, bảng Admin hiển thị `Kho: 15 / 16` (Đang mở).

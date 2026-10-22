@@ -100,7 +100,7 @@ export const NewsDetailModal: React.FC<NewsDetailModalProps> = ({
     .filter((a) => a.id !== article.id && (a.game_slug === article.game_slug || a.tags?.some((t) => article.tags?.includes(t))))
     .slice(0, 3);
 
-  const formattedDate = new Date(article.published_at).toLocaleDateString('vi-VN', {
+  const formattedDate = new Date(article.published_at || (article as any).created_at || Date.now()).toLocaleDateString('vi-VN', {
     day: '2-digit',
     month: '2-digit',
     year: 'numeric',
@@ -475,7 +475,7 @@ export const NewsDetailModal: React.FC<NewsDetailModalProps> = ({
                       </h4>
                     </div>
                     <span className="text-[10px] text-slate-400 mt-2 block">
-                      {new Date(rel.published_at).toLocaleDateString('vi-VN')}
+                      {new Date(rel.published_at || (rel as any).created_at || Date.now()).toLocaleDateString('vi-VN')}
                     </span>
                   </div>
                 ))}

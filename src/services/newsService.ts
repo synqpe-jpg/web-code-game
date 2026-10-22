@@ -71,7 +71,10 @@ class NewsService {
             (a: NewsArticle) =>
               !this.deletedArticleIds.has(a.id) &&
               !this.deletedArticleIds.has(a.slug)
-          );
+          ).map((a: any) => ({
+            ...a,
+            published_at: a.published_at || a.created_at || new Date().toISOString(),
+          }));
           this.isLoaded = true;
         }
       }
@@ -251,7 +254,10 @@ class NewsService {
         (a) =>
           !this.deletedArticleIds.has(a.id) &&
           !this.deletedArticleIds.has(a.slug)
-      );
+      ).map((a: any) => ({
+        ...a,
+        published_at: a.published_at || a.created_at || new Date().toISOString(),
+      }));
       this.articles = cleanServer;
       this.saveToStorage();
     }
@@ -314,8 +320,8 @@ class NewsService {
       .sort((a, b) => {
         if (a.is_featured && !b.is_featured) return -1;
         if (!a.is_featured && b.is_featured) return 1;
-        const dateA = new Date(a.published_at || 0).getTime();
-        const dateB = new Date(b.published_at || 0).getTime();
+        const dateA = new Date(a.published_at || (a as any).created_at || 0).getTime();
+        const dateB = new Date(b.published_at || (b as any).created_at || 0).getTime();
         return dateB - dateA;
       });
   }

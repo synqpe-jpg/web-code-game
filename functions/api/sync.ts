@@ -457,7 +457,7 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
           });
         }
 
-        rawGiveaways = (gwList || []).filter((g: any) => g && g.id && g.status !== 'ENDED' && !deletedGwSet.has(g.id)).map((g: any) => {
+        rawGiveaways = (gwList || []).filter((g: any) => g && g.id && g.status !== 'ENDED' && !deletedGwSet.has(g.id) && g.id !== 'gw_gamerpower_rotwood' && g.id !== 'gw_alienware_vaultbreakers' && g.id !== 'gw_garena_delta_force').map((g: any) => {
           const meta = gwMetaMap.get(g.id) || {};
           const poolFromD1 = Array.isArray(g.codes_pool) ? g.codes_pool : [];
           const poolFromMeta = Array.isArray(meta.codes_pool) ? meta.codes_pool : [];
@@ -701,7 +701,11 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
         const candidate = Array.isArray(raw) && raw.length > 0 ? raw : fallbackNewsArticles;
         return candidate.filter(
           (a: any) => !deletedNewsSet.has(a.id) && !deletedNewsSet.has(a.slug)
-        );
+        ).map((a: any) => ({
+          ...a,
+          published_at: a.published_at || a.created_at || new Date().toISOString(),
+          created_at: a.created_at || a.published_at || new Date().toISOString(),
+        }));
       })(),
       deletedNewsArticles: Array.from(deletedNewsSet),
       newsAutoSources: d1Settings['wcg_news_auto_sources_v1'] || masterState.newsAutoSources || [],
@@ -2269,7 +2273,11 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
           }
           // Self-healing: if an incoming giveaway was previously in wcg_deleted_giveaways tombstone, un-tombstone it!
           try {
-            const activeIds = new Set(incomingGiveaways.map((g: any) => g?.id).filter(Boolean));
+            const activeIds = new Set(
+              incomingGiveaways
+                .map((g: any) => g?.id)
+                .filter((id: string) => id && id !== 'gw_gamerpower_rotwood' && id !== 'gw_alienware_vaultbreakers' && id !== 'gw_garena_delta_force')
+            );
             const existingDelGw = (await getSettingD1<string[]>(env.DB, 'wcg_deleted_giveaways')) || [];
             if (Array.isArray(existingDelGw) && existingDelGw.some((id: string) => activeIds.has(id))) {
               const cleanedDelGw = existingDelGw.filter((id: string) => !activeIds.has(id));
@@ -2367,6 +2375,7 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
           for (const delId of incomingDelGw) {
             if (delId) {
               await env.DB.prepare('DELETE FROM giveaways WHERE id = ?').bind(delId).run().catch(() => {});
+              await env.DB.prepare('DELETE FROM giveaway_codes WHERE giveaway_id = ?').bind(delId).run().catch(() => {});
               await env.DB.prepare('UPDATE giveaways SET status = "ENDED" WHERE id = ?').bind(delId).run().catch(() => {});
             }
           }

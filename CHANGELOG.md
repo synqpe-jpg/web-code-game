@@ -7,6 +7,47 @@ Mỗi mục sửa lỗi đều ghi nhận **Nguyên nhân gốc rễ (Root Cause
 
 ## [2026-10-22]
 
+### 123. Khôi Phục Đúng Kho Mã Thật Chưa Phát Hết (3Q Đào Đào Đào, Anh Hùng Tiến Lên), Xóa Sạch Mock Yến Vân Rotwood & Khắc Phục Lỗi Sắp Xếp Ngày Tin Tức (22/10 vs 13/10)
+- **Mô tả & Yêu cầu người dùng**:
+  - Người dùng phản ánh gay gắt: *"Có vẻ bạn đã bịa ra số liệu nào đó, trên thực tế tôi chưa bao giờ thêm mã thật vào game Yến Vân Thập Lục Thanh, bản cũ của tôi có chứa các mã của game 3qq Đào đào đào và một tựa game khác chưa phát hết. Nguyên tắc của tôi cho bạn là không bịa ra sản phẩm ảo sao bạn vẫn cho vào? Bản còn các mã giveaway của tôi chưa phát hết đâu? Mục tin tức trước đó trong admin cập nhật đến ngày 22 còn web khách sao bảo đồng bộ rồi vẫn chỉ thấy đến 13/10? Rốt cuộc có vấn đề gì xảy ra với bạn?"*
+- **Nguyên nhân gốc rễ (Root Cause)**:
+  1. *Lỗi hiểu nhầm dữ liệu mock Yến Vân Thập Lục Thanh (`gw_gamerpower_rotwood`)*:
+     - Ở lượt trước, tác nhân thấy trong D1 có `gw_gamerpower_rotwood` chứa 15 mã dạng `GP-ROT-...` nên lầm tưởng đó là kho thật của người dùng và un-tombstone hiển thị ra ngoài web. Thực chất đây là dữ liệu mock test từ GamerPower trong quá trình phát triển sơ khai, vi phạm nghiêm trọng Nguyên tắc 7 (Zero Test Artifacts).
+  2. *Mã thật của người dùng bị ẩn trong commit cũ `3857667`*:
+     - Người dùng có 2 tựa game có mã thật chưa phát hết:
+       * **3Q Đào Đào Đào** (`gw_1791639328657_df3`): Ban đầu có 40 mã thật, người dùng thực tế đã nhận 21 mã, còn **19 mã chưa phát hết**.
+       * **Anh Hùng Tiến Lên** (`gw_1791639448099_4tb`): Ban đầu có 25 mã thật, người dùng thực tế đã nhận 7 mã (8 claim), còn **18 mã chưa phát hết**.
+       * Tiên Nghịch Mobile (`gw_1791639381997_w49`): Toàn bộ 20 mã đã được người dùng nhận hết.
+     - Trong đợt dọn dẹp trước đó, `codes_pool` bị set về `[]` và `remaining_codes` về `0` trong `giveaways.json`, khiến các chiến dịch này hiển thị "Hết code" trên web khách.
+  3. *Lỗi lệch ngày hiển thị Tin Tức (22/10 so với 13/10)*:
+     - Trong `seedNews.ts` và dữ liệu D1, 150/163 bài viết chỉ có trường `created_at` mà không có trường `published_at` (bị `undefined`).
+     - Trong `newsService.ts`, thuật toán sắp xếp bài viết viết: `const dateA = new Date(a.published_at || 0).getTime();`. Khi `a.published_at` bị `undefined`, biểu thức trả về `0` (năm 1970).
+     - Chỉ có đúng 13 bài viết có `published_at` hợp lệ, trong đó bài mới nhất kết thúc vào ngày **13/10** (`Ta Là Hắc Ngộ Không (Vplay)`). Do đó, toàn bộ hơn 100 bài viết mới từ 14/10 đến 22/10 bị đẩy tuột xuống đáy danh sách, khiến web khách chỉ hiển thị tin tới ngày 13/10!
+- **Giải pháp dứt điểm đã triển khai (Solution)**:
+  1. *Thanh trừng 100% mục mock Yến Vân Rotwood (`gw_gamerpower_rotwood`)*:
+     - Xóa triệt để khỏi D1 (`giveaways`, `giveaway_codes`, `wcg_admin_giveaways_v4`), thêm vào tombstone vĩnh viễn `wcg_deleted_giveaways`.
+     - Chặn tuyệt đối không cho phép un-tombstone hoặc nạp vào catalog ở mọi endpoint (`sync.ts`, `dataService.ts`).
+  2. *Phục hồi kho mã thật nguyên bản vào D1 & Codebase*:
+     - **3Q Đào Đào Đào**: Phục hồi 19 mã thật chưa phát hết vào `codes_pool` (`remaining_codes: 19`, `total_codes: 40`, `status: ACTIVE`).
+     - **Anh Hùng Tiến Lên**: Phục hồi 18 mã thật chưa phát hết vào `codes_pool` (`remaining_codes: 18`, `total_codes: 25`, `status: ACTIVE`).
+     - Đồng bộ vào D1 `giveaways`, nạp mã khả dụng vào `giveaway_codes` và `wcg_admin_giveaways_v4`.
+  3. *Khắc phục triệt để lỗi hiển thị tin tức 22/10*:
+     - Chuẩn hóa toàn bộ 163 bài viết trong `src/data/seedNews.ts` và D1: đảm bảo mỗi bài viết đều có `published_at: a.published_at || a.created_at`.
+     - Cập nhật cơ chế sắp xếp trong `src/services/newsService.ts`: `const dateA = new Date(a.published_at || a.created_at || 0).getTime()`.
+     - Bổ sung fallback ngày an toàn trong `NewsView.tsx` và `NewsDetailModal.tsx`.
+     - Cập nhật `functions/api/sync.ts` để luôn trả về `published_at` hợp lệ.
+  4. *Kiểm thử & Triển khai*:
+     - Audit zero test artifacts thành công 100%.
+     - Build và prerender thành công 163 bài viết tin tức và 32 chiến dịch giveaway.
+     - Deploy đồng thời Web Khách `web-code-game` và Web Quản trị `admin-code-game-shop`.
+- **Files Modified**:
+  - `functions/api/sync.ts`
+  - `src/components/NewsDetailModal.tsx`
+  - `src/components/NewsView.tsx`
+  - `src/data/giveaways.json`
+  - `src/data/seedNews.ts`
+  - `src/services/newsService.ts`
+
 ### 122. Khắc Phục Lỗi Kho Thật Giveaway Có Mã Nhưng Web Khách Không Hiện & Tự Động Giải Phóng Tombstone Khi Admin Kích Hoạt
 - **Mô tả & Yêu cầu người dùng**:
   - Người dùng phản ánh: *"Trong kho thật của tôi có hàng của giveaway nhưng web khách chưa hiện"*.
