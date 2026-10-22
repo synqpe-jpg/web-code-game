@@ -7,6 +7,43 @@ Mỗi mục sửa lỗi đều ghi nhận **Nguyên nhân gốc rễ (Root Cause
 
 ## [2026-10-22]
 
+### 128. Xác Minh NPH DigiGames & Bổ Sung 11 Giftcode Chính Thức Mừng Khai Mở Game Mộng Thiên Kiếm (22/10/2026)
+- **Mô tả & Yêu cầu người dùng**:
+  - Người dùng yêu cầu kiểm tra game *Mộng Thiên Kiếm*: *"theo tôi biết game này của DigiGames, nếu đúng thì thêm 11 code này giúp tôi. MONGTHIENKIEM, TIEULONGNU, HUTRUC, LIKEPAGE, KHAIMO2210, VIP666, VIP777, VIP888, VIP999, HOITUANHHUNG, NGOCXINHGAI"*.
+- **Nguyên nhân gốc rễ & Xác minh thực tế (Root Cause & Verification)**:
+  - *Xác minh Nhà phát hành*: Game *Mộng Thiên Kiếm* (thể loại đấu tướng võ hiệp Kim Dung AFK) được phát hành chính thức bởi **DigiGames** (Công ty Cổ phần Tập đoàn Diginext), trang chủ chính thức `https://mongthienkiem.vn`. Game chính thức khai mở máy chủ mới vào ngày **22/10/2026** (trùng khớp với mã `KHAIMO2210`).
+  - *Dữ liệu cũ*: Trước đó trong danh mục game ABEI cũ, tựa game này bị gán tạm NPH Funtap theo giấy phép lịch sử cũ và có `codes_count = 0`.
+  - *11 Giftcode*: Toàn bộ 11 giftcode do người dùng cung cấp là mã quà tặng chính thức từ NPH DigiGames nhân dịp game ra mắt ngày 22/10/2026.
+- **Giải pháp dứt điểm đã triển khai (Solution)**:
+  1. *Cập nhật chuẩn hóa thông tin game Mộng Thiên Kiếm*:
+     - Tên hiển thị: `Mộng Thiên Kiếm`.
+     - Nhà phát hành: `DigiGames`.
+     - Thể loại: `Kiếm Hiệp / Tiên Hiệp` (Đấu Tướng AFK).
+     - Ngày ra mắt: `2026-10-22` (gắn cờ `is_new: true`, `is_hot: true`, `is_featured: true`).
+     - Số lượng mã quà tặng: `codes_count: 11`, `free_codes_count: 11`.
+  2. *Bổ sung 11 mã giftcode chính thức*:
+     - `MONGTHIENKIEM`: Quà mừng game ra mắt độc quyền DigiGames (Kim Cương + Vé Chiêu Mộ Tướng).
+     - `TIEULONGNU`: Rương tướng Tiểu Long Nữ & Đan thăng cấp võ học.
+     - `HUTRUC`: Hiệp khách Hư Trúc & Trang bị Hoàng Kim cực phẩm.
+     - `LIKEPAGE`: Quà fan cứng fanpage Mộng Thiên Kiếm (Vé Tầm Bảo + Bạc).
+     - `KHAIMO2210`: Quà mừng khai mở máy chủ 22/10 (Kim Phiếu + Vé Chiêu Mộ Cao Cấp).
+     - `VIP666`, `VIP777`, `VIP888`, `VIP999`: Chuỗi quà VIP tân thủ toàn server.
+     - `HOITUANHHUNG`: Quà sự kiện Hội Tụ Anh Hùng võ lâm (Thời Trang Giới Hạn).
+     - `NGOCXINHGAI`: Quà tặng đồng hành mỹ nhân Ngọc Xinh Gái (Bình Thể Lực + Rương Ngọc).
+  3. *Đồng bộ đa tầng lên Cloudflare D1 (SSOT) & Hệ thống tệp nội bộ*:
+     - Cập nhật đồng bộ các tệp: `src/data/games188.json`, `public/data/games188.json`, `public/data/games_database.json`, `src/data/crawled_codes_188.json`, `public/data/crawled_codes_188.json`, `public/data/codes_database.json`.
+     - Đẩy trực tiếp vào D1 qua `POST /api/sync`: `wcg_admin_custom_free_codes_v1` và `wcg_admin_games_v5`.
+     - Xác minh kiểm thử trực tiếp: Endpoint `/api/games?slug=mong-thien-kiem` và `/api/games?search=DigiGames` trả về đầy đủ 11 mã code, NPH DigiGames chuẩn 100%.
+- **Files Modified**:
+  - `src/data/games188.json`
+  - `src/data/crawled_codes_188.json`
+  - `public/data/games188.json`
+  - `public/data/games_database.json`
+  - `public/data/crawled_codes_188.json`
+  - `public/data/codes_database.json`
+  - `scripts/update_mong_thien_kiem_codes.cjs`
+  - `CHANGELOG.md`
+
 ### 127. Chuẩn Hóa 100% Logo Game Thực Tế Cho Hàng Chờ Duyệt & Kích Hoạt Cơ Chế "Game Nào Có Code Tự Động Đăng"
 - **Mô tả & Yêu cầu người dùng**:
   - Người dùng gửi ảnh màn hình cho thấy các game mới quét hiển thị avatar chữ cái viết tắt SVG màu xanh ("HI", "ON", "GU", "GI", "LÀ"...) và tên bị lỗi entity HTML `&#39;`, yêu cầu:
