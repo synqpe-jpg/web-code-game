@@ -12,7 +12,6 @@ import {
   ChevronRight,
 } from 'lucide-react';
 import { dataService } from '../services/dataService';
-import { adminDataService } from '../admin/services/adminDataService';
 import {
   FloatingNotificationConfig,
   DEFAULT_FLOATING_NOTIFICATION,

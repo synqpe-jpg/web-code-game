@@ -7,6 +7,7 @@ import { marketingService } from '../services/marketingService';
 import type { GameItem } from '../types/game';
 
 interface HeroBannerProps {
+  totalGames?: number;
   searchQuery?: string;
   onSearchChange?: (q: string) => void;
   onSelectGame?: (game: GameItem) => void;
@@ -17,6 +18,7 @@ interface HeroBannerProps {
 }
 
 export const HeroBanner: React.FC<HeroBannerProps> = ({
+  totalGames,
   searchQuery = '',
   onSearchChange,
   onSelectGame,
@@ -150,7 +152,9 @@ export const HeroBanner: React.FC<HeroBannerProps> = ({
             <div className="p-3 rounded-xl bg-card/70 border border-border text-center shadow-sm">
               <div className="flex items-center justify-center gap-1 text-primary mb-0.5">
                 <Gift className="w-3.5 h-3.5 text-accent" />
-                <span className="font-display font-bold text-base text-foreground">450+</span>
+                <span className="font-display font-bold text-base text-foreground">
+                  {totalGames && totalGames > 0 ? `${totalGames}+` : '529+'}
+                </span>
               </div>
               <span className="text-[11px] text-slate-300 font-medium">{t.hero.statGames}</span>
             </div>

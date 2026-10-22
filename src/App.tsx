@@ -35,7 +35,6 @@ import { FloatingAnnouncement } from './components/FloatingAnnouncement';
 import { EmailSubscriptionModal } from './components/notification/EmailSubscriptionModal';
 import { dataService } from './services/dataService';
 import { marketingService } from './services/marketingService';
-import { adminDataService } from './admin/services/adminDataService';
 import { authService } from './services/authService';
 import { growthService } from './services/growthService';
 import type { GameItem, FilterState, StoreProduct, UserProfile, GiveawayCampaign, UtilityProduct, ProductPackageVariant } from './types/game';
@@ -768,6 +767,7 @@ export const App: React.FC = () => {
   // Query Execution for Catalog Tab
   useEffect(() => {
     if (currentTab !== 'catalog') return;
+    if (!isInitialLoadDone) return;
     let isCancelled = false;
 
     const executeQuery = async () => {
@@ -1338,6 +1338,7 @@ export const App: React.FC = () => {
           {currentTab === 'catalog' && (
             <>
               <HeroBanner
+                totalGames={totalResults || 529}
                 searchQuery={searchQuery}
                 onSearchChange={handleSearchChange}
                 onSelectGame={handleSelectGame}

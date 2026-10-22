@@ -86,6 +86,8 @@ class DataService {
   private cachedServerGames: Map<string, GameItem> = new Map();
   private cachedGameFetchTime: Map<string, number> = new Map();
   private listeners: Set<() => void> = new Set();
+  private codesFallbackLoadingPromise: Promise<void> | null = null;
+  private codesFallbackLoaded: boolean = false;
 
   // Local storage keys
   private readonly BOOKMARKS_KEY = 'wcg_bookmarks';
@@ -945,48 +947,14 @@ class DataService {
         } catch {}
       }
 
-      // Dynamically load fallback raw codes & games only if offline/fallback is needed
-      let rawCodesData: any[] = [];
+      // Dynamically load fallback raw games only if offline/fallback is needed and not cached in localStorage
       let rawGamesData: any[] = [];
-      try {
-        const [codesMod, gamesMod] = await Promise.all([
-          import('../data/crawled_codes_188.json'),
-          import('../data/games188.json'),
-        ]);
-        rawCodesData = codesMod.default || [];
-        rawGamesData = gamesMod.default || [];
-      } catch {}
-
-      const rawCodes: RawCodeItem[] = Array.isArray(rawCodesData) ? (rawCodesData as RawCodeItem[]) : [];
-      const rawFormatted = rawCodes.map((c) => ({
-        id: c.id,
-        gameSlug: c.gameSlug || c.gameId || c.game_slug || c.slug,
-        codeValue: c.codeValue || c.code_value || c.code || c.gift_code,
-        rewards: c.rewards || c.description,
-        status: c.status,
-        expiresAt: c.expiresAt || c.expires_at || c.expiry,
-        createdAt: c.createdAt || c.created_at,
-      }));
-
-      const existingKeyMap = new Map<string, any>();
-      for (const item of freeCodesList) {
-        if (item.gameSlug && item.codeValue) {
-          existingKeyMap.set(`${item.gameSlug}___${item.codeValue.trim().toUpperCase()}`, item);
-        }
-      }
-      for (const raw of rawFormatted) {
-        if (raw.gameSlug && raw.codeValue) {
-          const key = `${raw.gameSlug}___${raw.codeValue.trim().toUpperCase()}`;
-          const existing = existingKeyMap.get(key);
-          if (existing) {
-            existing.status = raw.status;
-            existing.rewards = raw.rewards;
-            existing.expiresAt = raw.expiresAt;
-          } else {
-            freeCodesList.push(raw);
-            existingKeyMap.set(key, raw);
-          }
-        }
+      const savedGamesCheck = localStorage.getItem('wcg_admin_games_v5');
+      if (savedGamesCheck === null) {
+        try {
+          const gamesMod = await import('../data/games188.json');
+          rawGamesData = gamesMod.default || [];
+        } catch {}
       }
 
       // Merge custom codes at the top (highest priority) and filter out deleted codes
@@ -1172,6 +1140,63 @@ class DataService {
     }
   }
 
+  public async ensureFallbackCodesLoaded(): Promise<void> {
+    if (this.codesFallbackLoaded) return;
+    if (this.codesFallbackLoadingPromise) return this.codesFallbackLoadingPromise;
+
+    this.codesFallbackLoadingPromise = (async () => {
+      try {
+        const codesMod = await import('../data/crawled_codes_188.json');
+        const rawCodes: RawCodeItem[] = Array.isArray(codesMod.default) ? (codesMod.default as RawCodeItem[]) : [];
+        for (const c of rawCodes) {
+          const slug = c.gameSlug || (c as any).gameId || (c as any).game_slug || (c as any).slug;
+          const codeValue = c.codeValue || (c as any).code_value || (c as any).code || (c as any).gift_code;
+          if (!slug || !codeValue) continue;
+
+          const normalizedCode = codeValue.trim().toUpperCase();
+          const isExp =
+            isCodeExpired(c) ||
+            c.status === 'EXPIRED' ||
+            c.status === 'expired' ||
+            normalizedCode === 'ATNGAY1' ||
+            normalizedCode === 'ATNGAY2';
+
+          const codeItem: GiftCode = {
+            code: codeValue.trim(),
+            rewards: c.rewards || c.description || 'Quà tân thủ & vật phẩm ingame',
+            status: (isExp ? 'expired' : 'active') as 'expired' | 'active',
+            expiry: c.expiresAt || (c as any).expires_at || (c as any).expiry || '',
+            expiresAt: c.expiresAt || (c as any).expires_at || (c as any).expiry || '',
+            expires_at: c.expiresAt || (c as any).expires_at || (c as any).expiry || '',
+            added_at: c.createdAt || (c as any).created_at || new Date().toISOString(),
+          };
+
+          const list = this.codesMap.get(slug) || [];
+          if (!list.some((existing) => existing.code.toUpperCase() === codeItem.code.toUpperCase())) {
+            list.push(codeItem);
+            this.codesMap.set(slug, list);
+          }
+
+          if (slug === 'pirate-legends' || slug === 'huyen-thoai-hai-tac') {
+            const altSlug = slug === 'pirate-legends' ? 'huyen-thoai-hai-tac' : 'pirate-legends';
+            const altList = this.codesMap.get(altSlug) || [];
+            if (!altList.some((x) => x.code.toUpperCase() === codeItem.code.toUpperCase())) {
+              altList.push(codeItem);
+              this.codesMap.set(altSlug, altList);
+            }
+          }
+        }
+        this.codesFallbackLoaded = true;
+      } catch (err) {
+        console.warn('[dataService] Fallback codes load error:', err);
+      } finally {
+        this.codesFallbackLoadingPromise = null;
+      }
+    })();
+
+    return this.codesFallbackLoadingPromise;
+  }
+
   async init(): Promise<void> {
     if (!this.isLoaded) {
       await this.processData();
@@ -1280,6 +1305,7 @@ class DataService {
 
     // 2. Client-side fallback logic
     await this.init();
+    await this.ensureFallbackCodesLoaded();
 
     let list = this.games;
 
@@ -1607,6 +1633,7 @@ class DataService {
 
     // 3. Fallback to local memory / bundled dataset with tiered priority lookup
     await this.init();
+    await this.ensureFallbackCodesLoaded();
 
     // Tier 1: Exact Match on slug or id
     let game = this.games.find(

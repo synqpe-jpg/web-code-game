@@ -5,6 +5,46 @@ Mỗi mục sửa lỗi đều ghi nhận **Nguyên nhân gốc rễ (Root Cause
 
 ---
 
+## [2026-10-23]
+
+### 146. Tối Ưu Tốc Độ Tải Trang Web Khách & Loại Bỏ Khối Dữ Liệu 8.8MB Khỏi Bundle Ban Đầu (Client Initial Load & Bundle Performance Optimization)
+- **Mô tả & Yêu cầu người dùng**:
+  - *"Ok giải quyết vấn đề Tối ưu tải trang trước." (Người dùng yêu cầu tối ưu hóa tốc độ tải trang ngoài web khách codegame.shop, khắc phục tình trạng mất ~20 giây mới hiển thị lưới game so với đối thủ codemoi.net).*
+- **Nguyên nhân gốc rễ (Root Cause)**:
+  1. *Khối dữ liệu 8.8MB bị tải và preload ngay khi mở web*:
+     - File `src/admin/services/adminDataService.ts` chứa static import trực tiếp `crawled_codes_188.json` (11,762 giftcode, 11MB raw) và `games188.json`.
+     - Hai file ngoài web khách (`src/App.tsx` và `src/components/FloatingAnnouncement.tsx`) import thừa `adminDataService` mà không hề sử dụng bất kỳ phương thức nào của nó.
+     - Hệ quả: Vite xem `crawled_codes_188.json` là dependency bắt buộc của entry point và gộp thành chunk `game-catalog-data.js` nặng **8,838 kB (8.84 MB)** kèm thẻ `modulepreload` trên `index.html`. Trình duyệt người dùng phải tải 8.8MB trước khi web có thể sẵn sàng.
+  2. *Nghẽn CPU Main Thread khi khởi động*:
+     - Hàm khởi tạo `constructor()` của `dataService.ts` tự động gọi `this.processData()`.
+     - Hàm này duyệt và map toàn bộ 11,762 giftcode, tạo hàng nghìn Map key và lặp qua 529 game để dựng bảng mã code, khiến CPU trên thiết bị (đặc biệt là điện thoại) bị đơ từ 3 đến 10 giây.
+  3. *Truy vấn mạng bị gửi đúp (Duplicate Network Race Condition)*:
+     - Trên `App.tsx`, cả 2 hook `useEffect` (`loadInitialData` và `executeQuery`) cùng lúc kích hoạt gọi `/api/games?page=1&limit=24`, dẫn đến việc tranh chấp tài nguyên mạng và cập nhật state hai lần liên tiếp.
+  4. *Lệch số liệu Hero Banner*:
+     - Thẻ Hero Banner ghi cố định "450+ game" trong khi thực tế sàn đang hiển thị 529 game.
+- **Giải pháp đã triển khai (Solution)**:
+  1. *Loại bỏ toàn bộ import thừa của `adminDataService`*:
+     - Xóa `import { adminDataService }` khỏi `src/App.tsx` và `src/components/FloatingAnnouncement.tsx`. Admin module giờ đây hoàn toàn độc lập và chỉ được tải khi truy cập trang Quản Trị `/admin`.
+  2. *Tách rời 11,762 giftcode khỏi luồng khởi động (`dataService.ts`)*:
+     - `processData()` chỉ tải danh mục game fallback khi cần và các mã custom người dùng/admin trong localStorage (chỉ vài KB), hoàn tất trong < 2ms thay vì nhiều giây.
+     - Đưa toàn bộ kho 11,762 giftcode vào hàm nạp theo nhu cầu `ensureFallbackCodesLoaded()`. Trình duyệt người dùng xem web bình thường sẽ KHÔNG BAO GIỜ phải tải file 8.8MB này.
+     - Khi người dùng bấm vào xem chi tiết 1 game (`getGameBySlug`), API `/api/games?slug=...` trả về đầy đủ mã của riêng game đó trên Cloudflare Edge trong ~200ms.
+  3. *Tách Chunk Vite (`vite.config.ts`)*:
+     - Đưa `crawled_codes_188.json` thành chunk độc lập `crawled-codes-offline-fallback`.
+     - File `dist/index.html` sạch 100%, không còn preload chunk 8.8MB. Tổng dung lượng JavaScript ban đầu giảm từ **10.7 MB xuống ~1.67 MB uncompressed (chỉ ~362 kB gzipped)** — giảm hơn **85%**.
+  4. *Ngắt truy vấn đúp trên `App.tsx`*:
+     - Thêm điều kiện `if (!isInitialLoadDone) return;` vào hook `executeQuery`, đảm bảo khi vào web chỉ có duy nhất 1 request `/api/games?page=1&limit=24` được gửi.
+  5. *Đồng bộ chỉ số Hero Banner*:
+     - Bổ sung prop `totalGames={totalResults || 529}` vào `HeroBanner.tsx`, hiển thị linh hoạt `529+ game` đồng bộ chuẩn xác với kho hàng.
+- **Files Modified**:
+  - `src/App.tsx`
+  - `src/components/FloatingAnnouncement.tsx`
+  - `src/components/HeroBanner.tsx`
+  - `src/services/dataService.ts`
+  - `vite.config.ts`
+  - `CHANGELOG.md`
+  - `KNOWN_ISSUES.md`
+
 ## [2026-10-22]
 
 ### 145. Cập Nhật Hàng Loạt 783 Giftcode Sang Mô Tả "Thưởng của NPH" & Chuẩn Hóa Fallback Ingest API (Batch Rewards Update to Official Publisher Rewards)

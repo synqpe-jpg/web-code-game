@@ -10,6 +10,24 @@
 
 ## 1. DANH MỤC LỖI & CÁC BẪY ĐÃ THẤT BẠI (DO NOT REPEAT)
 
+### ISSUE-081: Trình Duyệt Bị Treo 15-20 Giây Do Tải Và Parse Khối Dữ Liệu 8.8MB (11,762 Giftcodes) Ngay Khi Mở Trang (Monolithic Catalog Chunk & Eager Processing Trap)
+- **Triệu chứng**:
+  - Khi người dùng vào trang chủ `codegame.shop`, giao diện hiển thị màn hình tải (CyberLoader) rất lâu, mất khoảng 15-20 giây mới render được danh sách thẻ game.
+  - Thiết bị di động bị giật lag, đơ thao tác cuộn do CPU bị chiếm dụng 100%.
+- **Nguyên nhân gốc rễ**:
+  1. File `crawled_codes_188.json` (chứa 11,762 giftcode, nặng 11MB raw) bị import tĩnh hoặc nạp ngay lập tức lúc trang khởi tạo (`dataService.constructor -> processData()`), sinh ra chunk JS `game-catalog-data.js` nặng 8.84 MB.
+  2. Vite tự động thêm `modulepreload` cho chunk 8.8MB này vào `dist/index.html` do các import thừa từ admin module trong `App.tsx` và `FloatingAnnouncement.tsx`.
+  3. Cả hai hook `loadInitialData` và `executeQuery` trong `App.tsx` đều gọi `/api/games?page=1&limit=24` cùng lúc trên mount, gây nghẽn mạng và xung đột cập nhật state.
+- **Giải pháp chuẩn đã kiểm chứng**:
+  - Tuyệt đối không import tĩnh `crawled_codes_188.json` hoặc nạp toàn bộ giftcode vào bộ nhớ client khi khởi động.
+  - Sử dụng API Serverless Edge `/api/games?page=1&limit=24` để chỉ trả về 24 game kèm tối đa 3 code đại diện (chỉ ~18 KB).
+  - Tách `crawled_codes_188.json` thành chunk fallback on-demand (`crawled-codes-offline-fallback`), chỉ nạp khi offline thông qua hàm `ensureFallbackCodesLoaded()`.
+  - Khử toàn bộ import chéo không cần thiết từ thư mục `src/admin/` sang các component Web Khách.
+  - Thêm cờ `if (!isInitialLoadDone) return;` vào hook `executeQuery` để chống gọi API trùng lặp lúc mount.
+- ⛔ **CÁCH SỬA ĐÃ THẤT BẠI - TUYỆT ĐỐI KHÔNG LẶP LẠI**:
+  - ❌ *Không bao giờ import toàn bộ file JSON giftcode thô 11MB vào bundle chính của Web Khách*: Người dùng thông thường chỉ xem một vài tựa game, việc bắt người dùng tải 11,762 mã giftcode của 529 game cùng lúc là nguyên nhân trực tiếp gây lag trang 20 giây.
+  - ❌ *Không chạy hàm duyệt mảng 10,000+ phần tử trong constructor của service*: Sẽ khóa chặt main thread ngay khi script vừa tải xong, khiến trình duyệt không thể phản hồi tương tác người dùng.
+
 ### ISSUE-080: Mã Giftcode Quá Hạn Vẫn Hiển Thị Ở Tab "Còn Hạn" Do Kiểm Tra Chuỗi Status Tĩnh Thay Vì So Sánh Thời Gian Thực (Static Status vs Realtime Expiration Trap)
 - **Triệu chứng**:
   - Khi xem chi tiết game ngoài Web Khách (`GameDetailModal`), những mã giftcode có ngày hết hạn trong quá khứ (ví dụ `expiresAt: '2026-10-20'`) vẫn nằm trong tab "Còn hạn" (Active Codes).
