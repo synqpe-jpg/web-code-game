@@ -362,59 +362,10 @@ export const GameDetailModal: React.FC<GameDetailModalProps> = ({
                   )}
                 </div>
 
-                {/* Tên game & Bộ lọc/Thống kê (Tất cả, còn hạn, hết hạn) thu gọn ngang hàng */}
-                <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
-                  <h2 className="font-heading font-extrabold text-sm sm:text-xl text-foreground truncate max-w-[140px] xs:max-w-[200px] sm:max-w-none">
-                    {currentGame.name}
-                  </h2>
-
-                  {/* Mục thống kê Tất cả, còn hạn, hết hạn thu gọn ngang với vị trí tên game */}
-                  <div className="inline-flex items-center gap-0.5 p-0.5 rounded-lg bg-slate-900/80 border border-border/70 shrink-0 shadow-inner">
-                    <button
-                      type="button"
-                      onClick={() => setSelectedCodeTab('all')}
-                      className={`px-1.5 sm:px-2 py-0.5 rounded-md text-[9px] sm:text-[10px] font-bold transition-all cursor-pointer active:scale-95 whitespace-nowrap ${
-                        selectedCodeTab === 'all'
-                          ? 'bg-primary text-white shadow-xs ring-1 ring-primary-light/50'
-                          : 'text-muted-foreground hover:text-foreground hover:bg-muted/50'
-                      }`}
-                      title={t.modal.allCodes}
-                    >
-                      <span>{t.modal.allCodes}</span>
-                      <span className="ml-0.5 font-mono opacity-85">({allCodes.length})</span>
-                    </button>
-
-                    <button
-                      type="button"
-                      onClick={() => setSelectedCodeTab('active')}
-                      className={`flex items-center gap-1 px-1.5 sm:px-2 py-0.5 rounded-md text-[9px] sm:text-[10px] font-bold transition-all cursor-pointer active:scale-95 whitespace-nowrap ${
-                        selectedCodeTab === 'active'
-                          ? 'bg-emerald-600 text-white shadow-xs ring-1 ring-emerald-400/50'
-                          : 'text-emerald-400 hover:text-emerald-300 hover:bg-muted/50'
-                      }`}
-                      title={t.modal.activeCodes}
-                    >
-                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 shrink-0" />
-                      <span>{t.modal.activeCodes}</span>
-                      <span className="font-mono opacity-85">({activeCodes.length})</span>
-                    </button>
-
-                    <button
-                      type="button"
-                      onClick={() => setSelectedCodeTab('expired')}
-                      className={`flex items-center gap-1 px-1.5 sm:px-2 py-0.5 rounded-md text-[9px] sm:text-[10px] font-bold transition-all cursor-pointer active:scale-95 whitespace-nowrap ${
-                        selectedCodeTab === 'expired'
-                          ? 'bg-rose-600 text-white shadow-xs ring-1 ring-rose-400/50'
-                          : 'text-muted-foreground hover:text-rose-300 hover:bg-muted/50'
-                      }`}
-                      title={t.modal.expiredCodes}
-                    >
-                      <span className="w-1.5 h-1.5 rounded-full bg-rose-400 shrink-0" />
-                      <span>{t.modal.expiredCodes}</span>
-                      <span className="font-mono opacity-85">({expiredCodes.length})</span>
-                    </button>
-                  </div>
-                </div>
+                {/* Tên game */}
+                <h2 className="font-heading font-extrabold text-base sm:text-xl text-foreground truncate">
+                  {currentGame.name}
+                </h2>
 
                 <p className="text-[10px] sm:text-xs text-muted-foreground flex items-center gap-2 mt-0.5">
                   <span className="flex items-center gap-1 truncate">
@@ -510,6 +461,54 @@ export const GameDetailModal: React.FC<GameDetailModalProps> = ({
                 )}
               </button>
             )}
+
+            {/* Bộ Lọc Tabs: Tất Cả / Còn Hạn / Hết Hạn thu gọn ngay cạnh Copy Tất Cả */}
+            <div className="inline-flex items-center gap-0.5 p-0.5 rounded-xl bg-slate-900/80 border border-border/70 shrink-0 shadow-inner">
+              <button
+                type="button"
+                onClick={() => setSelectedCodeTab('all')}
+                className={`flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-[11px] sm:text-xs font-bold transition-all cursor-pointer active:scale-95 whitespace-nowrap ${
+                  selectedCodeTab === 'all'
+                    ? 'bg-primary text-white shadow-xs'
+                    : 'text-muted-foreground hover:text-foreground hover:bg-muted/50'
+                }`}
+                title={t.modal.allCodes}
+              >
+                <Layers className="w-3 h-3 sm:w-3.5 sm:h-3.5 shrink-0" />
+                <span>{t.modal.allCodes}</span>
+                <span className="font-mono text-[10px] opacity-80">({allCodes.length})</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setSelectedCodeTab('active')}
+                className={`flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-[11px] sm:text-xs font-bold transition-all cursor-pointer active:scale-95 whitespace-nowrap ${
+                  selectedCodeTab === 'active'
+                    ? 'bg-emerald-600 text-white shadow-xs'
+                    : 'text-muted-foreground hover:text-emerald-400 hover:bg-muted/50'
+                }`}
+                title={t.modal.activeCodes}
+              >
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 shrink-0" />
+                <span>{t.modal.activeCodes}</span>
+                <span className="font-mono text-[10px] opacity-80">({activeCodes.length})</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setSelectedCodeTab('expired')}
+                className={`flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-[11px] sm:text-xs font-bold transition-all cursor-pointer active:scale-95 whitespace-nowrap ${
+                  selectedCodeTab === 'expired'
+                    ? 'bg-rose-600 text-white shadow-xs'
+                    : 'text-muted-foreground hover:text-rose-400 hover:bg-muted/50'
+                }`}
+                title={t.modal.expiredCodes}
+              >
+                <span className="w-1.5 h-1.5 rounded-full bg-rose-400 shrink-0" />
+                <span>{t.modal.expiredCodes}</span>
+                <span className="font-mono text-[10px] opacity-80">({expiredCodes.length})</span>
+              </button>
+            </div>
             {currentGame.redeem_url && (
               <a
                 href={currentGame.redeem_url}
@@ -562,88 +561,6 @@ export const GameDetailModal: React.FC<GameDetailModalProps> = ({
 
         {/* Modal Body (Scrollable) */}
         <div className="flex-1 min-h-0 overflow-y-auto touch-pan-y p-4 sm:p-6 space-y-5 pb-[max(env(safe-area-inset-bottom,0px),1.5rem)]">
-          {/* Code Filter Tab Switcher (Ẩn trên mobile vì đã tích hợp trực tiếp ngang tên game và nút tải) */}
-          <div className="hidden sm:block sticky top-0 z-10 p-1.5 rounded-2xl bg-card/95 backdrop-blur-md border border-border/80 shadow-md space-y-1.5">
-            <div className="grid grid-cols-3 gap-1 w-full">
-              <button
-                type="button"
-                onClick={() => setSelectedCodeTab('all')}
-                className={`flex items-center justify-center gap-1 sm:gap-1.5 py-1.5 sm:py-2 px-1 rounded-xl text-[11px] sm:text-xs font-bold transition-all cursor-pointer active:scale-95 whitespace-nowrap ${
-                  selectedCodeTab === 'all'
-                    ? 'bg-primary text-white shadow-sm'
-                    : 'text-muted-foreground hover:text-foreground hover:bg-muted/60'
-                }`}
-              >
-                <Layers className="w-3 h-3 sm:w-3.5 sm:h-3.5 shrink-0" />
-                <span>{t.modal.allCodes}</span>
-                <span className="text-[10px] font-mono opacity-80">({allCodes.length})</span>
-              </button>
-
-              <button
-                type="button"
-                onClick={() => setSelectedCodeTab('active')}
-                className={`flex items-center justify-center gap-1 sm:gap-1.5 py-1.5 sm:py-2 px-1 rounded-xl text-[11px] sm:text-xs font-bold transition-all cursor-pointer active:scale-95 whitespace-nowrap ${
-                  selectedCodeTab === 'active'
-                    ? 'bg-emerald-600 text-white shadow-sm'
-                    : 'text-muted-foreground hover:text-foreground hover:bg-muted/60'
-                }`}
-              >
-                <CheckCircle2 className="w-3 h-3 sm:w-3.5 sm:h-3.5 text-emerald-300 shrink-0" />
-                <span>{t.modal.activeCodes}</span>
-                <span className="text-[10px] font-mono opacity-80">({activeCodes.length})</span>
-              </button>
-
-              <button
-                type="button"
-                onClick={() => setSelectedCodeTab('expired')}
-                className={`flex items-center justify-center gap-1 sm:gap-1.5 py-1.5 sm:py-2 px-1 rounded-xl text-[11px] sm:text-xs font-bold transition-all cursor-pointer active:scale-95 whitespace-nowrap ${
-                  selectedCodeTab === 'expired'
-                    ? 'bg-rose-600 text-white shadow-sm'
-                    : 'text-muted-foreground hover:text-foreground hover:bg-muted/60'
-                }`}
-              >
-                <Clock className="w-3 h-3 sm:w-3.5 sm:h-3.5 text-rose-300 shrink-0" />
-                <span>{t.modal.expiredCodes}</span>
-                <span className="text-[10px] font-mono opacity-80">({expiredCodes.length})</span>
-              </button>
-            </div>
-
-            {/* Quick Sticky "Copy All" Bar */}
-            {(selectedCodeTab === 'all' || selectedCodeTab === 'active') && activeCodes.length > 0 && (
-              <div className="flex items-center justify-between gap-2 px-2.5 py-1.5 rounded-xl bg-emerald-500/10 border border-emerald-500/25">
-                <div className="flex items-center gap-1.5 min-w-0">
-                  <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse shrink-0" />
-                  <span className="text-[11px] sm:text-xs font-bold text-emerald-400 truncate">
-                    {activeCodes.length} mã còn hạn hoạt động
-                  </span>
-                </div>
-
-                <button
-                  type="button"
-                  onClick={() => handleCopyAll(activeCodes, 'active')}
-                  className={`h-7 sm:h-8 px-2.5 sm:px-3 rounded-lg text-[11px] sm:text-xs font-bold border transition-all cursor-pointer active:scale-95 shadow-sm shrink-0 flex items-center gap-1.5 ${
-                    copiedType === 'active'
-                      ? 'bg-emerald-600 text-white border-emerald-500 shadow-neon-emerald'
-                      : 'bg-emerald-500 hover:bg-emerald-400 text-slate-950 border-emerald-400'
-                  }`}
-                  title={`Sao chép toàn bộ ${activeCodes.length} mã còn hạn`}
-                >
-                  {copiedType === 'active' ? (
-                    <>
-                      <Check className="w-3.5 h-3.5 text-white stroke-[2.5]" />
-                      <span>{t.modal.copiedAll} ({activeCodes.length})</span>
-                    </>
-                  ) : (
-                    <>
-                      <Copy className="w-3.5 h-3.5 text-slate-950" />
-                      <span>{t.modal.copyAll} ({activeCodes.length})</span>
-                    </>
-                  )}
-                </button>
-              </div>
-            )}
-          </div>
-
           {/* ========================================================================= */}
           {/* PHẦN 1: DANH SÁCH MÃ GIFTCODE CÒN HOẠT ĐỘNG (ACTIVE CODES)               */}
           {/* ========================================================================= */}

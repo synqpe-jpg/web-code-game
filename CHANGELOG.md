@@ -7,6 +7,26 @@ Mỗi mục sửa lỗi đều ghi nhận **Nguyên nhân gốc rễ (Root Cause
 
 ## [2026-10-22]
 
+### 136. Tối Ưu Giao Diện GameDetailModal: Thu Gọn Bộ Lọc Mã Lên Cạnh Nút Copy Tất Cả & Loại Bỏ Khung Nổi Che Mã
+- **Mô tả & Yêu cầu người dùng**:
+  - *"Bạn thu gọn phần khung hiển thị tất cả, còn hạn hết hạn lên trên cạnh mục copy tất cả đi, xóa mục còn hoạt động với copy tất cả bên dưới khung dó đi cho gọn"*
+- **Nguyên nhân gốc rễ (Root Cause)**:
+  - Trước đây, trong component `GameDetailModal.tsx`, bộ lọc mã (`Tất cả`, `Còn hạn`, `Hết hạn`) vừa xuất hiện dưới dạng các pill nhỏ ép ngang hàng với tên tựa game (làm tên game bị co ngắn và hiển thị chật chội), vừa xuất hiện trong một khung sticky nổi (`sticky top-0`) bên trong thân modal chứa kèm thanh thông báo `... mã còn hạn hoạt động` và một nút `Copy tất cả` trùng lặp thứ 2. Khung nổi này trên desktop đã che khuất một phần các thẻ giftcode đầu danh sách.
+- **Giải pháp đã triển khai (Solution)**:
+  1. *Di chuyển bộ lọc Tabs lên thanh công cụ*:
+     - Thu gọn bộ 3 nút tab lọc mã (`Tất cả`, `Còn hạn`, `Hết hạn`) đưa lên thanh công cụ trên cùng, đặt ngay cạnh nút `Copy tất cả`.
+  2. *Giải phóng không gian tên tựa game*:
+     - Loại bỏ cụm pill lọc bị chèn ép cạnh tên game, giúp tiêu đề game hiển thị đầy đủ, rõ ràng và thoáng mắt.
+  3. *Xóa bỏ khung nổi thừa trong thân modal*:
+     - Xóa bỏ hoàn toàn khối sticky chứa dòng chữ `... mã còn hạn hoạt động` và nút `Copy tất cả` trùng lặp trong phần thân modal. Danh sách giftcode giờ đây hiển thị ngay từ đầu mà không bị bất kỳ khung nổi nào che khuất.
+- **Files Modified**:
+  - `src/components/GameDetailModal.tsx`
+  - `CHANGELOG.md`
+- **Kiểm thử & Triển khai**:
+  - Chạy audit dữ liệu test: 100% sạch (0 sản phẩm test).
+  - Build: Thành công 100% không có lỗi.
+  - Tự động triển khai lên Production: `web-code-game` và `admin-code-game-shop`.
+
 ### 135. Sửa Lỗi "Trophy is not defined" Khi Mở Tab Vòng Quay May Mắn Trong Admin
 - **Mô tả & Yêu cầu người dùng**:
   - Người dùng báo lỗi: *"Tôi vào vòng quay để cài trong admin báo lỗi."* (Kèm ảnh chụp màn hình thông báo: *"Đã xảy ra sự cố khi tải phân hệ này - Trophy is not defined"* tại `admin-code-game-shop.pages.dev/admin#/utilities`).
