@@ -250,3 +250,29 @@ export interface CrawlerAutoPublishConfig {
   autoDownloadIcons?: boolean;
   autoAddCrawlerSource?: boolean;
 }
+
+export interface CrawlerApiConfig {
+  enabled: boolean;
+  apiKey: string;
+  botName: string;
+  autoPublish: boolean;
+  rateLimitPerMinute?: number;
+  lastUsedAt?: string;
+}
+
+export interface CrawlerApiLogEntry {
+  id: string;
+  botName: string;
+  sourceIp: string;
+  totalItemsProcessed: number;
+  totalCodesReceived: number;
+  totalCodesAdded: number;
+  autoPublishedGamesCount: number;
+  details: Array<{
+    input: string;
+    matched?: string;
+    added: number;
+    status: 'SUCCESS' | 'FAILED';
+  }>;
+  timestamp: string;
+}

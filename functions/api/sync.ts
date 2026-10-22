@@ -315,6 +315,8 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
             'wcg_crawler_auto_publish_games_v1',
             'wcg_crawler_sources_v1',
             'wcg_crawler_logs_v1',
+            'wcg_crawler_api_config_v1',
+            'wcg_crawler_api_logs_v1',
             'wcg_news_articles_v1',
             'wcg_deleted_news_articles_v1',
             'wcg_news_auto_sources_v1',
@@ -745,6 +747,13 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
         minRating: 4.0,
       };
       responsePayload.crawlerLogs = d1Settings['wcg_crawler_logs_v1'] || masterState.crawlerLogs || [];
+      responsePayload.crawlerApiConfig = d1Settings['wcg_crawler_api_config_v1'] || masterState.crawlerApiConfig || {
+        enabled: true,
+        apiKey: 'wcg_muse_crawler_bot_2026_key',
+        botName: 'Muse Master Bot',
+        autoPublish: true,
+      };
+      responsePayload.crawlerApiLogs = d1Settings['wcg_crawler_api_logs_v1'] || masterState.crawlerApiLogs || [];
       responsePayload.submissions = d1Settings['wcg_admin_submissions_v4'] || masterState.submissions || [];
       responsePayload.privateCodes = d1Settings['wcg_admin_private_codes_v4'] || masterState.privateCodes || [];
       responsePayload.sepay = parsedSepay;
@@ -2633,6 +2642,8 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
     if (body.crawlerAutoPublishGamesConfig !== undefined) currentMaster.crawlerAutoPublishGamesConfig = body.crawlerAutoPublishGamesConfig;
     if (body.crawlerSources !== undefined) currentMaster.crawlerSources = body.crawlerSources;
     if (body.crawlerLogs !== undefined) currentMaster.crawlerLogs = body.crawlerLogs;
+    if (body.crawlerApiConfig !== undefined) currentMaster.crawlerApiConfig = body.crawlerApiConfig;
+    if (body.crawlerApiLogs !== undefined) currentMaster.crawlerApiLogs = body.crawlerApiLogs;
     if (body.deletedNewsArticles !== undefined) currentMaster.deletedNewsArticles = body.deletedNewsArticles;
     if (body.newsArticles !== undefined) currentMaster.newsArticles = body.newsArticles;
     if (body.eventSchedules !== undefined) currentMaster.eventSchedules = body.eventSchedules;
@@ -2977,6 +2988,8 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
         if (body.crawlerAutoPublishGamesConfig !== undefined) await setSettingD1(env.DB, 'wcg_crawler_auto_publish_games_v1', body.crawlerAutoPublishGamesConfig);
         if (body.crawlerSources !== undefined || body.key === 'wcg_crawler_sources_v1' || body.key === 'wcg_admin_crawler_sources_v5') await setSettingD1(env.DB, 'wcg_crawler_sources_v1', body.crawlerSources ?? body.data);
         if (body.crawlerLogs !== undefined) await setSettingD1(env.DB, 'wcg_crawler_logs_v1', body.crawlerLogs);
+        if (body.crawlerApiConfig !== undefined || body.key === 'wcg_crawler_api_config_v1') await setSettingD1(env.DB, 'wcg_crawler_api_config_v1', body.crawlerApiConfig ?? body.data);
+        if (body.crawlerApiLogs !== undefined || body.key === 'wcg_crawler_api_logs_v1') await setSettingD1(env.DB, 'wcg_crawler_api_logs_v1', body.crawlerApiLogs ?? body.data);
         if (body.deletedNewsArticles !== undefined) await setSettingD1(env.DB, 'wcg_deleted_news_articles_v1', body.deletedNewsArticles);
         if (body.newsArticles !== undefined || body.key === 'wcg_news_articles_v1') await setSettingD1(env.DB, 'wcg_news_articles_v1', body.newsArticles ?? body.data);
         if (body.newsAutoSources !== undefined) await setSettingD1(env.DB, 'wcg_news_auto_sources_v1', body.newsAutoSources);

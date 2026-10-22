@@ -35,12 +35,22 @@ import {
   Square,
   Star,
   Gamepad2,
+  Code,
+  Key,
+  Terminal,
+  Send,
+  Eye,
+  EyeOff,
+  Play,
+  Server,
+  Lock,
+  ArrowUpRight,
 } from 'lucide-react';
 import { FormModal } from '../components/ui/FormModal';
 import { ConfirmModal } from '../components/ui/ConfirmModal';
 import { SearchableGameSelect } from '../components/ui/SearchableGameSelect';
 import { adminDataService } from '../services/adminDataService';
-import { GameAdminRecord, PendingCrawlerGame, CrawlerAutoPublishConfig } from '../types/adminTypes';
+import { GameAdminRecord, PendingCrawlerGame, CrawlerAutoPublishConfig, CrawlerApiConfig, CrawlerApiLogEntry } from '../types/adminTypes';
 import { smartVietnameseMatch } from '../../utils/textUtils';
 import defaultSources from '../../data/crawler_sources.json';
 import type { CrawlerSource } from '../../types/game';
@@ -220,7 +230,7 @@ export const cleanGameTitle = (str: string) => {
 };
 
 export const CrawlerModule: React.FC<CrawlerModuleProps> = ({ onShowToast }) => {
-  const [activeTab, setActiveTab] = useState<'pending' | 'games_pending' | 'sources' | 'logs' | 'scoring'>('pending');
+  const [activeTab, setActiveTab] = useState<'pending' | 'games_pending' | 'sources' | 'logs' | 'scoring' | 'api'>('pending');
   const [isLoading, setIsLoading] = useState(false);
   const [pendingCodes, setPendingCodes] = useState<PendingCrawlerCode[]>([]);
   const [pendingGames, setPendingGames] = useState<PendingCrawlerGame[]>([]);
@@ -239,6 +249,32 @@ export const CrawlerModule: React.FC<CrawlerModuleProps> = ({ onShowToast }) => 
     autoDownloadIcons: true,
     autoAddCrawlerSource: true,
   });
+
+  // State Cổng API & Webhook (Muse Bot)
+  const [crawlerApiConfig, setCrawlerApiConfig] = useState<CrawlerApiConfig>({
+    enabled: true,
+    apiKey: 'wcg_muse_crawler_bot_2026_key',
+    botName: 'Muse Master Bot',
+    autoPublish: true,
+  });
+  const [showApiKey, setShowApiKey] = useState(false);
+  const [copiedKey, setCopiedKey] = useState(false);
+  const [copiedUrl, setCopiedUrl] = useState(false);
+  const [copiedSnippet, setCopiedSnippet] = useState<string | null>(null);
+  const [apiSnippetLang, setApiSnippetLang] = useState<'python' | 'curl' | 'nodejs'>('python');
+
+  // Test Console State
+  const [testGameInput, setTestGameInput] = useState('Mộng Thiên Kiếm');
+  const [testCodesInput, setTestCodesInput] = useState('MONGTHIENKIEM\nVIP666\nVIP888\nVIP999\nTIEULONGNU\nHUTRUC');
+  const [testRewardsInput, setTestRewardsInput] = useState('Quà tặng tân thủ độc quyền 2026');
+  const [testBotNameInput, setTestBotNameInput] = useState('Muse Crawler Bot');
+  const [isExecutingApiTest, setIsExecutingApiTest] = useState(false);
+  const [apiTestResponse, setApiTestResponse] = useState<any | null>(null);
+  const [apiTestError, setApiTestError] = useState<string | null>(null);
+
+  // Ingest Logs State
+  const [crawlerApiLogs, setCrawlerApiLogs] = useState<CrawlerApiLogEntry[]>([]);
+  const [isLoadingApiLogs, setIsLoadingApiLogs] = useState(false);
   const [sources, setSources] = useState<CrawlerSource[]>([]);
   const [logs, setLogs] = useState<CrawlerLog[]>([]);
   const [games, setGames] = useState<GameAdminRecord[]>([]);
@@ -370,6 +406,16 @@ export const CrawlerModule: React.FC<CrawlerModuleProps> = ({ onShowToast }) => 
           if (Array.isArray(data.crawlerLogs)) {
             setLogs(data.crawlerLogs);
           }
+          if (data.crawlerApiConfig) {
+            setCrawlerApiConfig(data.crawlerApiConfig);
+          } else {
+            setCrawlerApiConfig(adminDataService.getCrawlerApiConfig());
+          }
+          if (Array.isArray(data.crawlerApiLogs)) {
+            setCrawlerApiLogs(data.crawlerApiLogs);
+          } else {
+            setCrawlerApiLogs(adminDataService.getCrawlerApiLogs());
+          }
         }
       } else {
         // Fallback to local default sources
@@ -387,6 +433,8 @@ export const CrawlerModule: React.FC<CrawlerModuleProps> = ({ onShowToast }) => 
       };
       const cleanDefaults = (defaultSources as CrawlerSource[]).filter((s: CrawlerSource) => !isCodemoi(s));
       setSources(cleanDefaults);
+      setCrawlerApiConfig(adminDataService.getCrawlerApiConfig());
+      setCrawlerApiLogs(adminDataService.getCrawlerApiLogs());
     } finally {
       setIsLoading(false);
     }
@@ -1440,6 +1488,111 @@ export const CrawlerModule: React.FC<CrawlerModuleProps> = ({ onShowToast }) => 
     );
   };
 
+
+  // --- HANDLERS CHO CỔNG API & MUSE BOT ---
+  const handleCopyText = (text: string, type: 'url' | 'key' | 'python' | 'curl' | 'nodejs') => {
+    if (typeof navigator !== 'undefined' && navigator.clipboard) {
+      navigator.clipboard.writeText(text);
+      if (type === 'url') {
+        setCopiedUrl(true);
+        setTimeout(() => setCopiedUrl(false), 2000);
+      } else if (type === 'key') {
+        setCopiedKey(true);
+        setTimeout(() => setCopiedKey(false), 2000);
+      } else {
+        setCopiedSnippet(type);
+        setTimeout(() => setCopiedSnippet(null), 2000);
+      }
+      onShowToast('Đã sao chép vào bộ nhớ tạm!', 'success');
+    }
+  };
+
+  const handleSaveApiConfig = async (updated: Partial<CrawlerApiConfig>) => {
+    const nextConfig = { ...crawlerApiConfig, ...updated };
+    setCrawlerApiConfig(nextConfig);
+    const ok = await adminDataService.saveCrawlerApiConfig(nextConfig);
+    if (ok) {
+      onShowToast('Đã lưu cấu hình API Crawler thành công!', 'success');
+    } else {
+      onShowToast('Lỗi khi lưu cấu hình API', 'error');
+    }
+  };
+
+  const handleRegenerateApiKey = async () => {
+    const randomHex = Array.from({ length: 16 }, () => Math.floor(Math.random() * 16).toString(16)).join('');
+    const newKey = `wcg_muse_${randomHex}`;
+    await handleSaveApiConfig({ apiKey: newKey });
+    onShowToast(`Đã tạo API Key mới: ${newKey}`, 'success');
+  };
+
+  const handleExecuteApiTest = async () => {
+    if (!testGameInput.trim()) {
+      onShowToast('Vui lòng nhập tên game để thử nghiệm!', 'error');
+      return;
+    }
+    const rawLines = testCodesInput
+      .split(/[\r\n,;]+/)
+      .map((c) => c.trim().toUpperCase().replace(/^#/, ''))
+      .filter(Boolean);
+
+    if (rawLines.length === 0) {
+      onShowToast('Vui lòng nhập ít nhất 1 mã giftcode!', 'error');
+      return;
+    }
+
+    setIsExecutingApiTest(true);
+    setApiTestError(null);
+    setApiTestResponse(null);
+
+    try {
+      const payload = {
+        gameName: testGameInput.trim(),
+        codes: rawLines,
+        rewards: testRewardsInput.trim() || 'Quà tặng tân thủ độc quyền 2026',
+        source: testBotNameInput.trim() || 'Muse Admin Test Console',
+      };
+
+      const res = await fetch('/api/crawler/ingest-codes', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${crawlerApiConfig.apiKey || 'wcg_muse_crawler_bot_2026_key'}`,
+        },
+        body: JSON.stringify(payload),
+      });
+
+      const data = await res.json();
+      setApiTestResponse(data);
+
+      if (data && data.success) {
+        onShowToast(`Thành công! Đã thêm ${data.totalAdded} mã mới, ${data.totalDuplicates} mã trùng.`, 'success');
+        loadData();
+      } else {
+        setApiTestError(data?.error || 'Yêu cầu API không thành công');
+        onShowToast(data?.error || 'Lỗi khi nạp giftcode qua API', 'error');
+      }
+    } catch (err: any) {
+      const errMsg = err?.message || 'Không thể kết nối tới endpoint API';
+      setApiTestError(errMsg);
+      onShowToast(errMsg, 'error');
+    } finally {
+      setIsExecutingApiTest(false);
+    }
+  };
+
+  const handleRefreshApiLogs = async () => {
+    setIsLoadingApiLogs(true);
+    try {
+      const liveLogs = await adminDataService.fetchLiveCrawlerApiLogs();
+      setCrawlerApiLogs(liveLogs);
+      onShowToast('Đã làm mới danh sách nhật ký API!', 'success');
+    } catch {
+      onShowToast('Không thể làm mới nhật ký', 'error');
+    } finally {
+      setIsLoadingApiLogs(false);
+    }
+  };
+
   return (
     <div className="space-y-6">
       {/* Header Banner */}
@@ -1652,6 +1805,21 @@ export const CrawlerModule: React.FC<CrawlerModuleProps> = ({ onShowToast }) => 
         >
           <HelpCircle className="w-4 h-4" />
           Quy Chuẩn 4 Cấp Bậc
+        </button>
+
+        <button
+          onClick={() => setActiveTab('api')}
+          className={`px-4 py-2.5 rounded-xl font-medium text-sm flex items-center gap-2 transition-all cursor-pointer ${
+            activeTab === 'api'
+              ? 'bg-gradient-to-r from-purple-600 via-indigo-600 to-blue-600 text-white shadow-md shadow-purple-600/25 font-semibold'
+              : 'text-slate-400 hover:text-white hover:bg-slate-800/60'
+          }`}
+        >
+          <Code className="w-4 h-4 text-purple-400" />
+          <span>Cổng API & Webhook (Muse Bot)</span>
+          <span className="px-1.5 py-0.5 rounded-full text-[10px] font-bold bg-purple-500/20 text-purple-300 border border-purple-500/30">
+            REST v1
+          </span>
         </button>
       </div>
 
@@ -2947,6 +3115,640 @@ export const CrawlerModule: React.FC<CrawlerModuleProps> = ({ onShowToast }) => 
               </div>
             </div>
           )}
+        </div>
+      )}
+
+      {/* TAB 6: CỔNG API & WEBHOOK (MUSE BOT INTEGRATION) */}
+      {activeTab === 'api' && (
+        <div className="space-y-6">
+          {/* Header Banner */}
+          <div className="bg-gradient-to-r from-purple-950/50 via-slate-900 to-indigo-950/50 border border-purple-500/30 rounded-2xl p-5 shadow-xl shadow-purple-950/20">
+            <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+              <div>
+                <div className="flex items-center gap-2">
+                  <h2 className="text-xl font-bold text-white flex items-center gap-2">
+                    <Code className="w-5 h-5 text-purple-400" />
+                    Cổng API & Webhook Tiếp Nhận Giftcode Ngoại Vi (Muse Bot)
+                  </h2>
+                  <span className="px-2.5 py-0.5 rounded-full text-xs font-semibold bg-purple-500/20 text-purple-300 border border-purple-500/30 flex items-center gap-1.5">
+                    <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+                    REST API ONLINE
+                  </span>
+                </div>
+                <p className="text-slate-300 text-xs sm:text-sm mt-1.5 max-w-3xl leading-relaxed">
+                  Cổng kết nối chuyên biệt cho các Agent AI tự hành (Muse Bot, Python Crawlers, cURL hoặc dịch vụ bên ngoài) đẩy mã giftcode trực tiếp lên sàn. 
+                  Hệ thống tích hợp thuật toán <strong className="text-purple-300">lọc tên game thông minh 5 cấp bậc</strong> (tiếng Việt có dấu, không dấu, viết tắt), 
+                  <strong className="text-emerald-400"> tự động xuất bản game</strong> từ hàng chờ duyệt khi có code, và <strong className="text-amber-300">lọc trùng lặp mã code tuyệt đối</strong>.
+                </p>
+              </div>
+
+              <div className="flex items-center gap-2 shrink-0">
+                <a
+                  href="/api/crawler/ingest-codes"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="px-3.5 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-semibold flex items-center gap-1.5 transition-all border border-slate-700 cursor-pointer"
+                >
+                  <ExternalLink className="w-3.5 h-3.5 text-purple-400" />
+                  <span>Xem Live API Docs (JSON)</span>
+                </a>
+              </div>
+            </div>
+          </div>
+
+          {/* 3 Core Architecture Pillars */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="bg-slate-900/80 border border-slate-800 rounded-2xl p-4 relative overflow-hidden">
+              <div className="w-9 h-9 rounded-xl bg-purple-500/20 border border-purple-500/30 flex items-center justify-center text-purple-400 mb-3">
+                <Search className="w-4 h-4" />
+              </div>
+              <h3 className="text-sm font-bold text-white">1. Lọc Tên Game Thông Minh (Fuzzy Matching)</h3>
+              <p className="text-xs text-slate-400 mt-1.5 leading-relaxed">
+                Tự động chuẩn hóa dấu tiếng Việt, loại bỏ hậu tố rác ("Mobile", "Online", "VN", "NPH..."), và so khớp từ viết tắt (VLTK, FF, LQ, HSR, GI...) để tìm chính xác game trong cơ sở dữ liệu.
+              </p>
+            </div>
+
+            <div className="bg-slate-900/80 border border-slate-800 rounded-2xl p-4 relative overflow-hidden">
+              <div className="w-9 h-9 rounded-xl bg-emerald-500/20 border border-emerald-500/30 flex items-center justify-center text-emerald-400 mb-3">
+                <Sparkles className="w-4 h-4" />
+              </div>
+              <h3 className="text-sm font-bold text-white">2. Tự Động Kích Hoạt & Đăng Lên Web Khách</h3>
+              <p className="text-xs text-slate-400 mt-1.5 leading-relaxed">
+                Khi Muse gửi code của bất kỳ game nào đang ở <strong className="text-emerald-400">Hàng Chờ Duyệt</strong> (192 game Google Play & CodeMoi), hệ thống sẽ tự động chuyển game sang trạng thái ACTIVE và đăng ngay lên sàn codegame.shop!
+              </p>
+            </div>
+
+            <div className="bg-slate-900/80 border border-slate-800 rounded-2xl p-4 relative overflow-hidden">
+              <div className="w-9 h-9 rounded-xl bg-amber-500/20 border border-amber-500/30 flex items-center justify-center text-amber-400 mb-3">
+                <ShieldCheck className="w-4 h-4" />
+              </div>
+              <h3 className="text-sm font-bold text-white">3. Chống Trùng Lặp Tuyệt Đối & Xóa Cache Biên</h3>
+              <p className="text-xs text-slate-400 mt-1.5 leading-relaxed">
+                Tự động đối chiếu với toàn bộ kho code hiện tại của tựa game. Bỏ qua mã đã có, chỉ thêm mã mới chưa từng tồn tại, cập nhật bộ đếm và xóa cache biên Cloudflare CDN tức thì.
+              </p>
+            </div>
+          </div>
+
+          {/* Credentials & Configuration Panel */}
+          <div className="bg-slate-900 border border-slate-800 rounded-2xl p-5 space-y-4">
+            <div className="flex items-center justify-between border-b border-slate-800 pb-3">
+              <div className="flex items-center gap-2">
+                <Key className="w-4 h-4 text-purple-400" />
+                <h3 className="text-sm font-bold text-white">Thông Tin Xác Thực & Địa Chỉ Kết Nối API</h3>
+              </div>
+              <span className="text-[11px] text-slate-400 font-mono">
+                Method: <strong className="text-emerald-400 font-bold">POST</strong> & <strong className="text-sky-400 font-bold">GET</strong>
+              </span>
+            </div>
+
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+              {/* Endpoint URL Box */}
+              <div>
+                <label className="block text-xs font-semibold text-slate-300 mb-1.5">
+                  Đường Dẫn Endpoint (REST API URL)
+                </label>
+                <div className="flex items-center gap-2 bg-slate-950 border border-slate-800 rounded-xl px-3 py-2">
+                  <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-500/20 text-emerald-400 font-mono">
+                    POST
+                  </span>
+                  <input
+                    type="text"
+                    readOnly
+                    value={typeof window !== 'undefined' ? `${window.location.origin}/api/crawler/ingest-codes` : 'https://codegame.shop/api/crawler/ingest-codes'}
+                    className="bg-transparent text-xs text-slate-200 font-mono flex-1 outline-none select-all"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => handleCopyText(typeof window !== 'undefined' ? `${window.location.origin}/api/crawler/ingest-codes` : 'https://codegame.shop/api/crawler/ingest-codes', 'url')}
+                    className="px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-medium flex items-center gap-1 transition-colors cursor-pointer"
+                  >
+                    {copiedUrl ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
+                    <span>{copiedUrl ? 'Đã sao chép' : 'Sao chép'}</span>
+                  </button>
+                </div>
+                <p className="text-[11px] text-slate-500 mt-1">
+                  Chấp nhận Header <code className="text-purple-300 font-mono">Authorization: Bearer &lt;API_KEY&gt;</code> hoặc <code className="text-purple-300 font-mono">X-API-Key: &lt;API_KEY&gt;</code>
+                </p>
+              </div>
+
+              {/* API Key Box */}
+              <div>
+                <div className="flex items-center justify-between mb-1.5">
+                  <label className="block text-xs font-semibold text-slate-300">
+                    Khóa Xác Thực (API Key của Muse / Bot)
+                  </label>
+                  <button
+                    type="button"
+                    onClick={handleRegenerateApiKey}
+                    className="text-[11px] text-purple-400 hover:text-purple-300 flex items-center gap-1 cursor-pointer transition-colors"
+                  >
+                    <RefreshCw className="w-3 h-3" />
+                    <span>Tạo khóa mới</span>
+                  </button>
+                </div>
+                <div className="flex items-center gap-2 bg-slate-950 border border-slate-800 rounded-xl px-3 py-2">
+                  <Lock className="w-3.5 h-3.5 text-purple-400 shrink-0" />
+                  <input
+                    type={showApiKey ? 'text' : 'password'}
+                    readOnly
+                    value={crawlerApiConfig.apiKey || 'wcg_muse_crawler_bot_2026_key'}
+                    className="bg-transparent text-xs text-amber-300 font-mono flex-1 outline-none select-all font-semibold"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowApiKey(!showApiKey)}
+                    className="p-1 rounded hover:bg-slate-800 text-slate-400 hover:text-slate-200 transition-colors"
+                    title={showApiKey ? 'Ẩn khóa' : 'Hiện khóa'}
+                  >
+                    {showApiKey ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleCopyText(crawlerApiConfig.apiKey || 'wcg_muse_crawler_bot_2026_key', 'key')}
+                    className="px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-medium flex items-center gap-1 transition-colors cursor-pointer"
+                  >
+                    {copiedKey ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
+                    <span>{copiedKey ? 'Đã sao chép' : 'Sao chép'}</span>
+                  </button>
+                </div>
+                <p className="text-[11px] text-slate-500 mt-1">
+                  API Key được lưu bảo mật trong cơ sở dữ liệu Cloudflare D1.
+                </p>
+              </div>
+            </div>
+
+            {/* Quick Toggle Controls */}
+            <div className="pt-3 border-t border-slate-800/80 flex flex-wrap items-center justify-between gap-3 text-xs">
+              <div className="flex items-center gap-3">
+                <label className="flex items-center gap-2 cursor-pointer select-none">
+                  <input
+                    type="checkbox"
+                    checked={crawlerApiConfig.enabled}
+                    onChange={(e) => handleSaveApiConfig({ enabled: e.target.checked })}
+                    className="w-4 h-4 rounded text-purple-600 bg-slate-950 border-slate-700 focus:ring-purple-500 focus:ring-offset-slate-900"
+                  />
+                  <span className="text-slate-300 font-medium">Kích hoạt Cổng Tiếp Nhận API</span>
+                </label>
+
+                <label className="flex items-center gap-2 cursor-pointer select-none">
+                  <input
+                    type="checkbox"
+                    checked={crawlerApiConfig.autoPublish}
+                    onChange={(e) => handleSaveApiConfig({ autoPublish: e.target.checked })}
+                    className="w-4 h-4 rounded text-emerald-600 bg-slate-950 border-slate-700 focus:ring-emerald-500 focus:ring-offset-slate-900"
+                  />
+                  <span className="text-slate-300 font-medium">Tự động kích hoạt game từ hàng chờ khi có code</span>
+                </label>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <span className="text-slate-400 text-xs">Tên định danh Bot:</span>
+                <input
+                  type="text"
+                  value={crawlerApiConfig.botName || 'Muse Master Bot'}
+                  onChange={(e) => setCrawlerApiConfig({ ...crawlerApiConfig, botName: e.target.value })}
+                  onBlur={() => handleSaveApiConfig({ botName: crawlerApiConfig.botName })}
+                  className="bg-slate-950 border border-slate-800 rounded-lg px-2.5 py-1 text-xs text-white focus:outline-none focus:border-purple-500 font-medium"
+                />
+              </div>
+            </div>
+          </div>
+
+          {/* Live Interactive Test Console */}
+          <div className="bg-slate-900 border border-slate-800 rounded-2xl p-5 space-y-4">
+            <div className="flex items-center justify-between border-b border-slate-800 pb-3">
+              <div className="flex items-center gap-2">
+                <Terminal className="w-4 h-4 text-emerald-400" />
+                <h3 className="text-sm font-bold text-white">Bàn Thử Nghiệm Gửi Mã (Interactive Ingest Test Console)</h3>
+              </div>
+              <span className="text-[11px] text-slate-400">
+                Thử gửi mã trực tiếp ngay tại đây để kiểm tra thuật toán lọc tên game và nạp code
+              </span>
+            </div>
+
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
+              {/* Left Column: Input Form */}
+              <div className="space-y-3">
+                <div>
+                  <label className="block text-xs font-semibold text-slate-300 mb-1">
+                    Tên Game Cần Nạp Code <span className="text-rose-400">*</span>
+                  </label>
+                  <input
+                    type="text"
+                    value={testGameInput}
+                    onChange={(e) => setTestGameInput(e.target.value)}
+                    placeholder="VD: Mộng Thiên Kiếm, Võ Lâm Truyền Kỳ, Genshin Impact, Free Fire..."
+                    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-purple-500 font-medium"
+                  />
+                  <p className="text-[10px] text-slate-500 mt-1">
+                    Hỗ trợ gõ không dấu, có dấu, hoặc viết tắt (VD: "Mong Thien Kiem", "vltk", "hsr"...). Hệ thống sẽ tự động lọc và khớp vào đúng game.
+                  </p>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold text-slate-300 mb-1">
+                    Danh Sách Mã Giftcode (Mỗi dòng một mã hoặc cách nhau bằng dấu phẩy) <span className="text-rose-400">*</span>
+                  </label>
+                  <textarea
+                    rows={4}
+                    value={testCodesInput}
+                    onChange={(e) => setTestCodesInput(e.target.value)}
+                    placeholder="MONGTHIENKIEM&#10;VIP666&#10;VIP888&#10;VIP999"
+                    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-amber-300 font-mono font-bold focus:outline-none focus:border-purple-500"
+                  />
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-300 mb-1">Phần Thưởng</label>
+                    <input
+                      type="text"
+                      value={testRewardsInput}
+                      onChange={(e) => setTestRewardsInput(e.target.value)}
+                      placeholder="Quà tặng tân thủ 2026..."
+                      className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-slate-200 focus:outline-none focus:border-purple-500"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-300 mb-1">Nguồn Gửi (Source)</label>
+                    <input
+                      type="text"
+                      value={testBotNameInput}
+                      onChange={(e) => setTestBotNameInput(e.target.value)}
+                      placeholder="Muse Crawler Bot"
+                      className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-slate-200 focus:outline-none focus:border-purple-500 font-medium"
+                    />
+                  </div>
+                </div>
+
+                <div className="pt-2">
+                  <button
+                    type="button"
+                    onClick={handleExecuteApiTest}
+                    disabled={isExecutingApiTest || !testGameInput.trim() || !testCodesInput.trim()}
+                    className="w-full py-2.5 rounded-xl bg-gradient-to-r from-purple-600 via-indigo-600 to-blue-600 hover:from-purple-500 hover:to-blue-500 text-white font-semibold text-xs flex items-center justify-center gap-2 transition-all shadow-md shadow-purple-600/20 active:scale-98 cursor-pointer disabled:opacity-50"
+                  >
+                    <Send className={`w-3.5 h-3.5 ${isExecutingApiTest ? 'animate-spin' : ''}`} />
+                    <span>{isExecutingApiTest ? 'Đang gửi và xử lý API...' : '⚡ Gửi Thử Tới API (POST /api/crawler/ingest-codes)'}</span>
+                  </button>
+                </div>
+              </div>
+
+              {/* Right Column: Live API Response Viewer */}
+              <div className="flex flex-col">
+                <div className="flex items-center justify-between mb-1.5">
+                  <label className="block text-xs font-semibold text-slate-300">
+                    Kết Quả Phản Hồi Từ API (JSON Response):
+                  </label>
+                  {apiTestResponse && (
+                    <span className={`text-[11px] font-bold px-2 py-0.5 rounded ${
+                      apiTestResponse.success
+                        ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30'
+                        : 'bg-rose-500/20 text-rose-400 border border-rose-500/30'
+                    }`}>
+                      {apiTestResponse.success ? '200 OK - THÀNH CÔNG' : 'LỖI XỬ LÝ'}
+                    </span>
+                  )}
+                </div>
+
+                <div className="flex-1 bg-slate-950 border border-slate-800 rounded-xl p-3 min-h-[220px] max-h-[320px] overflow-y-auto font-mono text-[11px] text-slate-300">
+                  {apiTestResponse ? (
+                    <pre className="whitespace-pre-wrap leading-relaxed">
+                      {JSON.stringify(apiTestResponse, null, 2)}
+                    </pre>
+                  ) : apiTestError ? (
+                    <div className="text-rose-400 flex items-start gap-2">
+                      <XCircle className="w-4 h-4 shrink-0 mt-0.5" />
+                      <div>
+                        <strong>Lỗi API:</strong>
+                        <p className="mt-1">{apiTestError}</p>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="h-full flex flex-col items-center justify-center text-slate-600 space-y-1 text-center py-8">
+                      <Terminal className="w-8 h-8 text-slate-700" />
+                      <p>Chưa có kết quả phản hồi.</p>
+                      <p className="text-[10px]">Nhấn "Gửi Thử Tới API" ở bên trái để xem kết quả khớp game và nạp mã.</p>
+                    </div>
+                  )}
+                </div>
+
+                {apiTestResponse && apiTestResponse.results && apiTestResponse.results[0] && (
+                  <div className="mt-2.5 p-2.5 rounded-xl bg-slate-950/70 border border-slate-800 flex items-center justify-between text-xs">
+                    <div className="flex items-center gap-2">
+                      {apiTestResponse.results[0].matchedGame?.icon_url && (
+                        <img
+                          src={apiTestResponse.results[0].matchedGame.icon_url}
+                          alt="Icon"
+                          className="w-6 h-6 rounded-md object-cover border border-slate-700"
+                        />
+                      )}
+                      <div>
+                        <span className="text-slate-400 text-[10px]">Game khớp:</span>{' '}
+                        <strong className="text-white">{apiTestResponse.results[0].matchedGame?.name}</strong>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2 text-[11px]">
+                      <span className="text-emerald-400 font-semibold">
+                        +{apiTestResponse.results[0].addedCount || 0} mã mới
+                      </span>
+                      {apiTestResponse.results[0].duplicateCount > 0 && (
+                        <span className="text-amber-400">
+                          ({apiTestResponse.results[0].duplicateCount} trùng)
+                        </span>
+                      )}
+                      {apiTestResponse.results[0].autoPublished && (
+                        <span className="px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-300 font-bold text-[10px]">
+                          🚀 Đã đăng lên Web!
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+
+          {/* Ready-to-use Code Snippets (Python, cURL, Node.js) */}
+          <div className="bg-slate-900 border border-slate-800 rounded-2xl p-5 space-y-4">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-800 pb-3">
+              <div className="flex items-center gap-2">
+                <Code className="w-4 h-4 text-purple-400" />
+                <h3 className="text-sm font-bold text-white">Mã Mẫu Cho Muse & Lập Trình Viên (SDK Snippets)</h3>
+              </div>
+
+              {/* Language Selector */}
+              <div className="flex items-center gap-1 bg-slate-950 p-1 rounded-xl border border-slate-800">
+                <button
+                  type="button"
+                  onClick={() => setApiSnippetLang('python')}
+                  className={`px-3 py-1 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
+                    apiSnippetLang === 'python'
+                      ? 'bg-purple-600 text-white shadow'
+                      : 'text-slate-400 hover:text-white'
+                  }`}
+                >
+                  Python (Muse Bot)
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setApiSnippetLang('curl')}
+                  className={`px-3 py-1 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
+                    apiSnippetLang === 'curl'
+                      ? 'bg-purple-600 text-white shadow'
+                      : 'text-slate-400 hover:text-white'
+                  }`}
+                >
+                  cURL (Terminal)
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setApiSnippetLang('nodejs')}
+                  className={`px-3 py-1 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
+                    apiSnippetLang === 'nodejs'
+                      ? 'bg-purple-600 text-white shadow'
+                      : 'text-slate-400 hover:text-white'
+                  }`}
+                >
+                  Node.js (Fetch)
+                </button>
+              </div>
+            </div>
+
+            {/* Snippet Code Viewer */}
+            <div className="relative bg-slate-950 border border-slate-800 rounded-xl p-4 font-mono text-xs text-slate-300">
+              <button
+                type="button"
+                onClick={() => {
+                  const currentOrigin = typeof window !== 'undefined' ? window.location.origin : 'https://codegame.shop';
+                  const key = crawlerApiConfig.apiKey || 'wcg_muse_crawler_bot_2026_key';
+                  let codeToCopy = '';
+                  if (apiSnippetLang === 'python') {
+                    codeToCopy = `import requests
+
+API_URL = "${currentOrigin}/api/crawler/ingest-codes"
+API_KEY = "${key}"
+
+headers = {
+    "Content-Type": "application/json",
+    "Authorization": f"Bearer {API_KEY}"
+}
+
+payload = {
+    "gameName": "Mộng Thiên Kiếm",
+    "codes": [
+        {"code": "MONGTHIENKIEM", "rewards": "100 Kim Cương + 5 Vé Quay", "expiresAt": "2026-12-31"},
+        {"code": "VIP666", "rewards": "Rương trang bị hoàng kim"},
+        {"code": "VIP888", "rewards": "500K Vàng + Thú Cưỡi"},
+        {"code": "VIP999", "rewards": "Thời Trang Độc Quyền"}
+    ],
+    "source": "Muse Crawler Bot"
+}
+
+response = requests.post(API_URL, headers=headers, json=payload, timeout=15)
+print(response.status_code, response.json())`;
+                  } else if (apiSnippetLang === 'curl') {
+                    codeToCopy = `curl -X POST "${currentOrigin}/api/crawler/ingest-codes" \\
+  -H "Content-Type: application/json" \\
+  -H "Authorization: Bearer ${key}" \\
+  -d '{
+    "gameName": "Mộng Thiên Kiếm",
+    "codes": ["MONGTHIENKIEM", "VIP666", "VIP888", "VIP999"],
+    "rewards": "Quà tặng tân thủ độc quyền 2026",
+    "source": "Muse Bot"
+  }'`;
+                  } else {
+                    codeToCopy = `const res = await fetch('${currentOrigin}/api/crawler/ingest-codes', {
+  method: 'POST',
+  headers: {
+    'Content-Type': 'application/json',
+    'Authorization': 'Bearer ${key}',
+  },
+  body: JSON.stringify({
+    gameName: 'Mộng Thiên Kiếm',
+    codes: ['MONGTHIENKIEM', 'VIP666', 'VIP888'],
+    rewards: 'Quà tân thủ',
+    source: 'Muse Crawler Engine',
+  }),
+});
+const data = await res.json();
+console.log(data);`;
+                  }
+                  handleCopyText(codeToCopy, apiSnippetLang);
+                }}
+                className="absolute top-3 right-3 px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-medium flex items-center gap-1.5 transition-colors cursor-pointer border border-slate-700 shadow"
+              >
+                {copiedSnippet === apiSnippetLang ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
+                <span>{copiedSnippet === apiSnippetLang ? 'Đã sao chép' : 'Sao chép mã'}</span>
+              </button>
+
+              <pre className="overflow-x-auto leading-relaxed pt-2">
+                {apiSnippetLang === 'python' && `# 🐍 Python Script for Muse AI Agent / Bot
+import requests
+
+API_URL = "${typeof window !== 'undefined' ? window.location.origin : 'https://codegame.shop'}/api/crawler/ingest-codes"
+API_KEY = "${crawlerApiConfig.apiKey || 'wcg_muse_crawler_bot_2026_key'}"
+
+headers = {
+    "Content-Type": "application/json",
+    "Authorization": f"Bearer {API_KEY}"
+}
+
+payload = {
+    "gameName": "Mộng Thiên Kiếm",
+    "codes": [
+        {"code": "MONGTHIENKIEM", "rewards": "100 Kim Cương + 5 Vé Quay", "expiresAt": "2026-12-31"},
+        {"code": "VIP666", "rewards": "Rương trang bị hoàng kim"},
+        {"code": "VIP888", "rewards": "500K Vàng + Thú Cưỡi"},
+        {"code": "VIP999", "rewards": "Thời Trang Độc Quyền"}
+    ],
+    "source": "Muse Crawler Bot"
+}
+
+response = requests.post(API_URL, headers=headers, json=payload, timeout=15)
+print("HTTP Status:", response.status_code)
+print("API Response:", response.json())`}
+
+                {apiSnippetLang === 'curl' && `# 💻 cURL Terminal Command
+curl -X POST "${typeof window !== 'undefined' ? window.location.origin : 'https://codegame.shop'}/api/crawler/ingest-codes" \\
+  -H "Content-Type: application/json" \\
+  -H "Authorization: Bearer ${crawlerApiConfig.apiKey || 'wcg_muse_crawler_bot_2026_key'}" \\
+  -d '{
+    "gameName": "Mộng Thiên Kiếm",
+    "codes": ["MONGTHIENKIEM", "VIP666", "VIP888", "VIP999"],
+    "rewards": "Quà tặng tân thủ độc quyền 2026",
+    "source": "Muse Bot"
+  }'`}
+
+                {apiSnippetLang === 'nodejs' && `// 🚀 Node.js / TypeScript Fetch
+const res = await fetch('${typeof window !== 'undefined' ? window.location.origin : 'https://codegame.shop'}/api/crawler/ingest-codes', {
+  method: 'POST',
+  headers: {
+    'Content-Type': 'application/json',
+    'Authorization': 'Bearer ${crawlerApiConfig.apiKey || 'wcg_muse_crawler_bot_2026_key'}',
+  },
+  body: JSON.stringify({
+    gameName: 'Mộng Thiên Kiếm',
+    codes: ['MONGTHIENKIEM', 'VIP666', 'VIP888'],
+    rewards: 'Quà tân thủ',
+    source: 'Muse Crawler Engine',
+  }),
+});
+const data = await res.json();
+console.log(data);`}
+              </pre>
+            </div>
+          </div>
+
+          {/* Recent Ingestion Logs Table */}
+          <div className="bg-slate-900 border border-slate-800 rounded-2xl p-5 space-y-4">
+            <div className="flex items-center justify-between border-b border-slate-800 pb-3">
+              <div className="flex items-center gap-2">
+                <FileText className="w-4 h-4 text-purple-400" />
+                <h3 className="text-sm font-bold text-white">Nhật Ký Gọi API Gần Đây (API Ingestion History)</h3>
+                <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-slate-800 text-slate-300">
+                  {crawlerApiLogs.length} lần gọi
+                </span>
+              </div>
+
+              <button
+                type="button"
+                onClick={handleRefreshApiLogs}
+                disabled={isLoadingApiLogs}
+                className="px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-medium flex items-center gap-1.5 transition-colors cursor-pointer border border-slate-700"
+              >
+                <RefreshCw className={`w-3.5 h-3.5 ${isLoadingApiLogs ? 'animate-spin text-purple-400' : ''}`} />
+                <span>{isLoadingApiLogs ? 'Đang tải...' : 'Làm mới nhật ký'}</span>
+              </button>
+            </div>
+
+            {crawlerApiLogs.length === 0 ? (
+              <div className="text-center py-10 bg-slate-950/50 rounded-xl border border-slate-800/80">
+                <Terminal className="w-8 h-8 text-slate-600 mx-auto mb-2" />
+                <p className="text-xs text-slate-400">Chưa có giao dịch gọi API nào được ghi nhận gần đây.</p>
+                <p className="text-[11px] text-slate-500 mt-0.5">
+                  Khi Muse Bot hoặc công cụ ngoài gửi giftcode, toàn bộ lịch sử sẽ hiển thị tại đây.
+                </p>
+              </div>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full text-left text-xs">
+                  <thead className="bg-slate-950 text-slate-400 border-b border-slate-800 font-medium">
+                    <tr>
+                      <th className="py-2.5 px-3">Thời Gian</th>
+                      <th className="py-2.5 px-3">Bot Gửi</th>
+                      <th className="py-2.5 px-3">Tên Game & Khớp</th>
+                      <th className="py-2.5 px-3 text-center">Mã Nạp Mới</th>
+                      <th className="py-2.5 px-3 text-center">Trùng Lặp</th>
+                      <th className="py-2.5 px-3 text-center">Tự Động Đăng</th>
+                      <th className="py-2.5 px-3 text-right">Trạng Thái</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-800/60 font-mono">
+                    {crawlerApiLogs.map((log, idx) => (
+                      <tr key={log.id || idx} className="hover:bg-slate-850/50 transition-colors">
+                        <td className="py-2.5 px-3 text-slate-400 whitespace-nowrap">
+                          {log.timestamp ? new Date(log.timestamp).toLocaleString('vi-VN', {
+                            hour: '2-digit',
+                            minute: '2-digit',
+                            day: '2-digit',
+                            month: '2-digit',
+                          }) : 'Vừa xong'}
+                        </td>
+                        <td className="py-2.5 px-3 text-purple-300 font-sans font-semibold">
+                          {log.botName || 'Muse Bot'}
+                        </td>
+                        <td className="py-2.5 px-3 font-sans">
+                          {log.details && log.details.length > 0 ? (
+                            <div className="space-y-0.5">
+                              {log.details.slice(0, 2).map((d: any, dIdx: number) => (
+                                <div key={dIdx} className="text-slate-200 text-xs">
+                                  <span>{d.input}</span>
+                                  {d.matched && d.matched !== d.input && (
+                                    <span className="text-purple-400 text-[11px] ml-1">
+                                      ➔ {d.matched}
+                                    </span>
+                                  )}
+                                </div>
+                              ))}
+                              {log.details.length > 2 && (
+                                <span className="text-[10px] text-slate-500">+{log.details.length - 2} game khác</span>
+                              )}
+                            </div>
+                          ) : (
+                            <span className="text-slate-500">Nhiều mục</span>
+                          )}
+                        </td>
+                        <td className="py-2.5 px-3 text-center font-bold text-emerald-400">
+                          +{log.totalCodesAdded || 0}
+                        </td>
+                        <td className="py-2.5 px-3 text-center text-slate-400">
+                          {log.totalCodesReceived && log.totalCodesAdded !== undefined
+                            ? Math.max(0, log.totalCodesReceived - log.totalCodesAdded)
+                            : 0}
+                        </td>
+                        <td className="py-2.5 px-3 text-center">
+                          {log.autoPublishedGamesCount && log.autoPublishedGamesCount > 0 ? (
+                            <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
+                              🚀 {log.autoPublishedGamesCount} game
+                            </span>
+                          ) : (
+                            <span className="text-slate-600">-</span>
+                          )}
+                        </td>
+                        <td className="py-2.5 px-3 text-right">
+                          <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
+                            SUCCESS
+                          </span>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
         </div>
       )}
 

@@ -17,6 +17,8 @@ import {
   UserRole,
   PendingCrawlerGame,
   CrawlerAutoPublishConfig,
+  CrawlerApiConfig,
+  CrawlerApiLogEntry,
 } from '../types/adminTypes';
 import type { GiveawayCampaign, StoreProduct, UtilityProduct, UtilityCategory, StoreCategory, CrawlerSource } from '../../types/game';
 import defaultCrawlerSources from '../../data/crawler_sources.json';
@@ -56,6 +58,13 @@ class AdminDataService {
     autoDownloadIcons: true,
     autoAddCrawlerSource: true,
   };
+  private crawlerApiConfig: CrawlerApiConfig = {
+    enabled: true,
+    apiKey: 'wcg_muse_crawler_bot_2026_key',
+    botName: 'Muse Master Bot',
+    autoPublish: true,
+  };
+  private crawlerApiLogs: CrawlerApiLogEntry[] = [];
 
   private saveCustomFreeCodes() {
     if (typeof window === 'undefined') return;
@@ -168,6 +177,8 @@ class AdminDataService {
     ADMIN_USER: 'wcg_admin_user_v4',
     CRAWLER_PENDING_GAMES: 'wcg_crawler_pending_games_v1',
     CRAWLER_AUTO_PUBLISH_CONFIG: 'wcg_crawler_auto_publish_games_v1',
+    CRAWLER_API_CONFIG: 'wcg_crawler_api_config_v1',
+    CRAWLER_API_LOGS: 'wcg_crawler_api_logs_v1',
   };
 
   constructor() {
@@ -351,6 +362,24 @@ class AdminDataService {
           if (parsed && typeof parsed.enabled === 'boolean') {
             this.crawlerAutoPublishGamesConfig = { ...this.crawlerAutoPublishGamesConfig, ...parsed };
           }
+        } catch {}
+      }
+
+      const savedApiConfig = localStorage.getItem('wcg_crawler_api_config_v1');
+      if (savedApiConfig) {
+        try {
+          const parsed = JSON.parse(savedApiConfig);
+          if (parsed && typeof parsed === 'object') {
+            this.crawlerApiConfig = { ...this.crawlerApiConfig, ...parsed };
+          }
+        } catch {}
+      }
+
+      const savedApiLogs = localStorage.getItem('wcg_crawler_api_logs_v1');
+      if (savedApiLogs) {
+        try {
+          const parsed = JSON.parse(savedApiLogs);
+          if (Array.isArray(parsed)) this.crawlerApiLogs = parsed;
         } catch {}
       }
 
@@ -1385,6 +1414,29 @@ class AdminDataService {
                         if (json.crawlerSources && Array.isArray(json.crawlerSources)) {
               this.crawlerSources = json.crawlerSources;
               this.safeSetItem('wcg_admin_crawler_sources_v1', JSON.stringify(this.crawlerSources));
+              hasUpdates = true;
+            }
+
+            if (json.crawlerPendingGames && Array.isArray(json.crawlerPendingGames)) {
+              this.pendingGames = json.crawlerPendingGames;
+              this.safeSetItem(this.KEYS.CRAWLER_PENDING_GAMES, JSON.stringify(this.pendingGames));
+              hasUpdates = true;
+            }
+
+            if (json.crawlerAutoPublishGamesConfig && typeof json.crawlerAutoPublishGamesConfig === 'object') {
+              this.crawlerAutoPublishGamesConfig = { ...this.crawlerAutoPublishGamesConfig, ...json.crawlerAutoPublishGamesConfig };
+              this.safeSetItem(this.KEYS.CRAWLER_AUTO_PUBLISH_CONFIG, JSON.stringify(this.crawlerAutoPublishGamesConfig));
+            }
+
+            if (json.crawlerApiConfig && typeof json.crawlerApiConfig === 'object') {
+              this.crawlerApiConfig = { ...this.crawlerApiConfig, ...json.crawlerApiConfig };
+              this.safeSetItem(this.KEYS.CRAWLER_API_CONFIG, JSON.stringify(this.crawlerApiConfig));
+              hasUpdates = true;
+            }
+
+            if (json.crawlerApiLogs && Array.isArray(json.crawlerApiLogs)) {
+              this.crawlerApiLogs = json.crawlerApiLogs;
+              this.safeSetItem(this.KEYS.CRAWLER_API_LOGS, JSON.stringify(this.crawlerApiLogs));
               hasUpdates = true;
             }
 
@@ -3984,6 +4036,8 @@ class AdminDataService {
       storeCategories: this.getStoreCategories(),
       crawlerPendingGames: this.pendingGames,
       crawlerAutoPublishGamesConfig: this.crawlerAutoPublishGamesConfig,
+      crawlerApiConfig: this.crawlerApiConfig,
+      crawlerApiLogs: this.crawlerApiLogs,
       isInitialized: true,
       timestamp: new Date().toISOString(),
     };
@@ -4120,6 +4174,50 @@ class AdminDataService {
     const remainingSources = this.crawlerSources.filter((s) => s.targetGameSlug !== gameSlug);
     return await this.saveCrawlerSources(remainingSources);
   }
+
+  public getCrawlerApiConfig(): CrawlerApiConfig {
+    return { ...this.crawlerApiConfig };
+  }
+
+  public async saveCrawlerApiConfig(config: CrawlerApiConfig): Promise<boolean> {
+    this.crawlerApiConfig = { ...config };
+    try {
+      this.safeSetItem(this.KEYS.CRAWLER_API_CONFIG, JSON.stringify(this.crawlerApiConfig));
+      crossOriginSync.setItem(this.KEYS.CRAWLER_API_CONFIG, this.crawlerApiConfig);
+      this.broadcastSync('CRAWLER_API_CONFIG_UPDATED', this.crawlerApiConfig);
+      await this.syncToCloudflareKV(this.KEYS.CRAWLER_API_CONFIG, this.crawlerApiConfig);
+      return true;
+    } catch (e) {
+      console.warn('[AdminDataService] Lỗi lưu crawler api config:', e);
+      return false;
+    }
+  }
+
+  public getCrawlerApiLogs(): CrawlerApiLogEntry[] {
+    return [...this.crawlerApiLogs];
+  }
+
+  public async fetchLiveCrawlerApiLogs(): Promise<CrawlerApiLogEntry[]> {
+    try {
+      const syncRes = await fetch('/api/sync?fast=true', {
+        headers: {
+          'Authorization': `Bearer ${this.crawlerApiConfig.apiKey || 'wcg_muse_crawler_bot_2026_key'}`,
+        },
+      });
+      if (syncRes.ok) {
+        const data = await syncRes.json();
+        if (data.crawlerApiLogs && Array.isArray(data.crawlerApiLogs)) {
+          this.crawlerApiLogs = data.crawlerApiLogs;
+          this.safeSetItem(this.KEYS.CRAWLER_API_LOGS, JSON.stringify(data.crawlerApiLogs));
+          return this.crawlerApiLogs;
+        }
+      }
+    } catch (e) {
+      console.warn('[AdminDataService] Lỗi fetch live crawler api logs:', e);
+    }
+    return this.crawlerApiLogs;
+  }
+
 
 }
 
