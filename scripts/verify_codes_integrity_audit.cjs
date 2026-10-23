@@ -319,6 +319,7 @@ async function runIntegrityAudit() {
     }
 
     // 5.2. Thiết lập game test trong pending queue để test luồng Auto-Publish & Publish Game
+    await sleep(500);
     console.log(`   ⚙️ [5.2] Khởi tạo game test trong hàng chờ: "${testPendingName}" (${testPendingSlug})...`);
     const pendingFetch = await fetchJson('/api/sync?key=wcg_crawler_pending_games_v1', {
       headers: { 'X-Sync-Key': ADMIN_SYNC_SECRET }
@@ -336,7 +337,7 @@ async function runIntegrityAudit() {
       status: 'PENDING',
       crawledAt: new Date().toISOString()
     };
-    await fetchJson('/api/sync', {
+    const postSyncRes = await fetchJson('/api/sync', {
       method: 'POST',
       body: JSON.stringify({
         key: 'wcg_crawler_pending_games_v1',
@@ -347,6 +348,9 @@ async function runIntegrityAudit() {
         'X-Sync-Key': ADMIN_SYNC_SECRET
       }
     });
+    if (!postSyncRes.data?.success) {
+      console.warn('   ⚠️ Không lưu được game test vào pending qua /api/sync:', postSyncRes.raw?.slice(0, 150));
+    }
 
     // 5.3. Ingest mã test vào game test đang chờ -> Xác nhận autoPublished = true và xuất hiện trên web
     console.log(`   📥 [5.3] Nạp mã "${testPendingCode}" vào game chờ duyệt -> Kiểm tra Auto-Publish...`);

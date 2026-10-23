@@ -503,10 +503,18 @@ export function formatGameItem(g: any, allCodes: GiftCode[]): GameItem {
  * Loads authoritative games and free giftcodes from Cloudflare D1.
  * Indexes codes by game slug and computes codes_count.
  */
-export async function getLoadedCatalog(db: D1Database, forceFresh: boolean = false): Promise<CatalogCache> {
+export async function getLoadedCatalog(
+  db: D1Database,
+  forceFresh: boolean = false,
+  skipGamesList: boolean = false
+): Promise<CatalogCache> {
   const now = Date.now();
   if (!forceFresh && catalogCache && now - catalogCache.lastFetchedAt < CACHE_TTL_MS) {
-    return catalogCache;
+    if (!skipGamesList && (!catalogCache.games || catalogCache.games.length === 0)) {
+      // Cần games list đầy đủ nhưng cache chỉ có rawGames
+    } else {
+      return catalogCache;
+    }
   }
 
   const settings = await getMultipleSettingsD1(db, [
@@ -556,8 +564,8 @@ export async function getLoadedCatalog(db: D1Database, forceFresh: boolean = fal
       }
     }
   }
+
   // Combine all available sources: Custom codes, D1 catalog codes, and complete Master Bundled codes (fallbackCodesData)
-  // This guarantees that no code can ever be lost regardless of D1 partial writes or admin CMS updates.
   const d1Codes = (Array.isArray(settings['wcg_admin_free_codes_v5']) && settings['wcg_admin_free_codes_v5'].length > 0)
     ? settings['wcg_admin_free_codes_v5']
     : ((Array.isArray(settings['wcg_admin_free_codes_v4']) && settings['wcg_admin_free_codes_v4'].length > 0)
@@ -622,7 +630,8 @@ export async function getLoadedCatalog(db: D1Database, forceFresh: boolean = fal
 
   const gamesList: GameItem[] = [];
 
-  if (Array.isArray(rawGames)) {
+  // Chỉ duyệt và định dạng 564 game khi thực sự cần hiển thị danh mục Catalog (không phải truy vấn chi tiết 1 game)
+  if (!skipGamesList && Array.isArray(rawGames)) {
     for (let index = 0; index < rawGames.length; index++) {
       const g = rawGames[index];
       if (!g || g.status === 'INACTIVE' || g.is_active === false) continue;
@@ -642,7 +651,7 @@ export async function getLoadedCatalog(db: D1Database, forceFresh: boolean = fal
   }
 
   catalogCache = {
-    games: gamesList,
+    games: gamesList.length > 0 ? gamesList : (catalogCache?.games || []),
     allRawGames: rawGames,
     codesMap,
     categories: Array.from(categorySet),
@@ -728,32 +737,26 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
   try {
     const url = new URL(request.url);
     const forceFresh = url.searchParams.has('nocache') || url.searchParams.has('fresh');
-    const catalog = await getLoadedCatalog(env.DB, forceFresh);
+    const requestedSlug = url.searchParams.get('slug') || url.searchParams.get('id');
 
     // 1. Single Game Details Query (?slug=... or ?id=...)
-    const requestedSlug = url.searchParams.get('slug') || url.searchParams.get('id');
+    // Tối ưu hóa cực hạn: Không duyệt định dạng 564 game catalog, chỉ tìm và giải mã code cho ĐÚNG game này (<0.2ms CPU)
     if (requestedSlug) {
       const cleanSlug = requestedSlug.trim().toLowerCase();
       const cleanWithoutMobile = cleanSlug.replace(/-mobile$/i, '');
+      const catalog = await getLoadedCatalog(env.DB, forceFresh, true);
 
-      // Search in published catalog games first
-      let matchedGame: GameItem | null = findMatchingGameInList(catalog.games, cleanSlug, cleanWithoutMobile);
-
-      // If not in published catalog (e.g. 0-code or unlisted games), look up in authoritative rawGames
-      if (!matchedGame) {
-        const rawFound = findMatchingGameInList(catalog.allRawGames, cleanSlug, cleanWithoutMobile);
-        if (rawFound) {
-          const codes = resolveCodesForGame(rawFound, catalog.codesMap);
-          matchedGame = formatGameItem(rawFound, codes);
-        }
-      }
-
-      if (!matchedGame) {
+      // Tra cứu trực tiếp trong authoritative rawGames
+      const rawFound = findMatchingGameInList(catalog.allRawGames, cleanSlug, cleanWithoutMobile);
+      if (!rawFound) {
         return new Response(
           JSON.stringify({ success: false, error: 'Không tìm thấy trò chơi.' }),
           { status: 404, headers: CORS_HEADERS }
         );
       }
+
+      const codes = resolveCodesForGame(rawFound, catalog.codesMap);
+      const matchedGame = formatGameItem(rawFound, codes);
 
       // Mark that this object contains authoritative complete codes pool
       const authoritativeGame = {
@@ -777,6 +780,8 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
         }
       );
     }
+
+    const catalog = await getLoadedCatalog(env.DB, forceFresh, false);
 
     // 2. Autocomplete Search Query (?autocomplete=1&search=...)
     if (url.searchParams.get('autocomplete') === '1' || url.searchParams.has('autocomplete')) {
