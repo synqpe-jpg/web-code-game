@@ -9,6 +9,32 @@ Mỗi mục sửa lỗi đều ghi nhận **Nguyên nhân gốc rễ (Root Cause
 
 ## [2026-10-23]
 
+### 155. Tinh Gọn Giao Diện Mobile Khối Game Đang Theo Dõi & Game Sắp Ra Mắt (Mobile Compact Card & Single-Line Header Streamline)
+- **Mô tả & Yêu cầu người dùng**:
+  - *"Đây là giao diện tên mobile, bạn có phương án tin gọn nào cho dễ nhìn hơn không?"*
+- **Nguyên nhân gốc rễ (Root Cause)**:
+  - Trên màn hình di động (màn hình hẹp 360-420px), tiêu đề "Game Chuẩn Bị Ra Mắt & Đếm Ngược Giờ G" bị vỡ thành 5 dòng chữ to chiếm hơn 120px chiều cao.
+  - Dòng mô tả phụ bị cắt cụt ("Đồng hồ đếm...").
+  - Thẻ card game quá to (`min-w-[250px]`) và quá cao (~260px) do padding dày, hộp đếm ngược to và nhiều khối thông tin xếp chồng, khiến người dùng chỉ nhìn thấy 1 thẻ duy nhất và 2 khối này cộng lại chiếm trọn 80% màn hình, che khuất toàn bộ danh mục game chính bên dưới.
+- **Giải pháp đã triển khai (Solution)**:
+  - `src/components/UpcomingGamesBanner.tsx`:
+    - **Header 1 dòng siêu gọn**: Trên mobile rút ngắn thành "🚀 Game Sắp Ra Mắt", ẩn hoàn toàn dòng mô tả dài (`hidden sm:block`). Nút "Xem tất cả" thu nhỏ tinh tế (`px-2.5 py-1 text-[11px]`).
+    - **Thẻ Card Mobile Compact**: Bề rộng thu về `min-w-[170px] max-w-[185px]` (hiển thị 1.8 card trên điện thoại, tạo độ trượt vuốt ngang tự nhiên).
+    - **Hộp đếm ngược tối ưu**: Thu nhỏ chiều cao, trên mobile ẩn bớt chữ thừa "Mở server sau:", hiển thị trực diện chuỗi đếm lùi `05d : 12h : 30m : 15s` trên 1 dòng duy nhất.
+    - **Nút Báo Code & Nhãn thông tin**: Tinh gọn kích thước, rút gọn chữ phụ (`2.8k lưu`), nút Báo Code bo tròn mềm mại vừa tay bấm.
+  - `src/components/PinnedGamesBar.tsx`:
+    - **Header 1 dòng**: Tiêu đề mobile "🔖 Game Đang Theo Dõi" + badge số lượng, ẩn mô tả dài.
+    - **Thẻ Card theo dõi compact**: `min-w-[165px] max-w-[180px]`, icon 36x36px, nút X góc trên nhỏ gọn, badge mã code ngắn gọn.
+    - Tiết kiệm hơn 45% chiều cao tổng thể, người dùng mobile nhìn thấy ngay thanh lọc game và danh sách game chính mà không cần cuộn quá nhiều.
+- **Files Modified**:
+  - `src/components/UpcomingGamesBanner.tsx`
+  - `src/components/PinnedGamesBar.tsx`
+  - `CHANGELOG.md`
+- **Verification**:
+  - `npm run build` thành công 100%, 0 lỗi TypeScript, 0 test artifact.
+
+---
+
 ### 154. Khắc Phục Lỗi Đè Mặc Định Ngày Giờ/Thể Loại Khi Cập Nhật API, Bổ Sung Action Đổi Trạng Thái Game, Xóa Mã Dự Kiến Rác & Tự Bảo Toàn Dữ Liệu Chuẩn (Upcoming Games Partial API Ingest Protection, Set Status Action, Clear Expected Codes & Self-Healing Safeguards)
 - **Mô tả & Yêu cầu người dùng**:
   - *"Hiện tại Cho bot API tự đặt lại ngày giờ/thể loại/nền tảng về mặc định nếu gửi thiếu trường — hai mục Strinova và Hiệp Khách Hành đã bị ảnh hưởng trong giây lát (ngày Hiệp Khách Hành nhảy về hôm nay, thể loại thành "Game Mới"). game mới thêm đang ở trạng thái chờ duyệt (PENDING) nên chưa hiện ra web khách, cần API hỗ trợ đổi trạng thái (hiện chưa thấy), Đảm bảo cho tôi dù thêm game thủ công hay qua API cũng không bị lỗi này nữa. Vài điểm tồn đọng từ dữ liệu mẫu cũ: link đăng ký trước của Strinova và Hiệp Khách Hành vẫn trỏ về tên miền VPlay/VTC như bản mẫu (mình giữ nguyên vì chưa có link chính thức thay thế), cột "code dự kiến" của các game cũ vẫn là các mã đoán sẵn chưa xác nhận được — API không cho xoá bằng danh sách rỗng như mình đã báo. Giờ mở server của Monster Hunter Outlanders hiện chưa được NPH công bố chính thức, mình tạm để 00:00 ngày 29/10, có thông báo chính thức mình sẽ cập nhật ngay."*

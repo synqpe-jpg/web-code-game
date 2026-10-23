@@ -109,46 +109,47 @@ export const UpcomingGamesBanner: React.FC<UpcomingGamesBannerProps> = ({
   };
 
   return (
-    <section className="mb-6 sm:mb-8 rounded-2xl bg-gradient-to-br from-card via-card/95 to-secondary/30 border border-cyan-500/25 p-3.5 sm:p-5 backdrop-blur-md shadow-lg shadow-cyan-500/5 transition-all relative overflow-hidden">
+    <section className="mb-4 sm:mb-8 rounded-2xl bg-gradient-to-br from-card via-card/95 to-secondary/30 border border-cyan-500/25 p-3 sm:p-5 backdrop-blur-md shadow-lg shadow-cyan-500/5 transition-all relative overflow-hidden">
       {/* Background ambient lighting */}
       <div className="absolute top-0 left-1/4 w-96 h-32 bg-cyan-500/10 rounded-full blur-3xl pointer-events-none -mt-16" />
       <div className="absolute bottom-0 right-1/4 w-80 h-32 bg-blue-600/10 rounded-full blur-3xl pointer-events-none -mb-16" />
 
-      {/* Header Row */}
-      <div className="flex items-center justify-between gap-3 mb-4 pb-3 border-b border-border/50 relative z-10">
-        <div className="flex items-center gap-2.5">
-          <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-xl bg-gradient-to-br from-cyan-400 to-blue-600 flex items-center justify-center text-slate-950 shadow-md shadow-cyan-500/20 shrink-0">
-            <Rocket className="w-4 h-4 sm:w-5 sm:h-5 text-slate-950" />
+      {/* Header Row: 1 dòng thanh thoát trên Mobile */}
+      <div className="flex items-center justify-between gap-2.5 mb-2.5 sm:mb-4 pb-2 sm:pb-3 border-b border-border/50 relative z-10">
+        <div className="flex items-center gap-2 sm:gap-2.5 min-w-0">
+          <div className="w-7 h-7 sm:w-9 sm:h-9 rounded-xl bg-gradient-to-br from-cyan-400 to-blue-600 flex items-center justify-center text-slate-950 shadow-md shadow-cyan-500/20 shrink-0">
+            <Rocket className="w-3.5 h-3.5 sm:w-5 sm:h-5 text-slate-950" />
           </div>
-          <div>
-            <div className="flex items-center gap-2">
-              <h2 className="font-heading font-bold text-sm sm:text-base md:text-lg text-foreground tracking-tight flex items-center gap-2">
-                Game Chuẩn Bị Ra Mắt & Đếm Ngược Giờ G
+          <div className="min-w-0">
+            <div className="flex items-center gap-1.5 sm:gap-2">
+              <h2 className="font-heading font-bold text-xs sm:text-base md:text-lg text-foreground tracking-tight truncate flex items-center gap-1.5">
+                <span className="sm:hidden">Game Sắp Ra Mắt</span>
+                <span className="hidden sm:inline">Game Chuẩn Bị Ra Mắt & Đếm Ngược Giờ G</span>
               </h2>
               <span className="hidden sm:inline-flex px-2 py-0.5 rounded-full text-xs font-bold bg-cyan-500/15 text-cyan-300 border border-cyan-500/30">
                 Lịch Mở Server
               </span>
             </div>
-            <p className="text-[11px] sm:text-xs text-muted-foreground line-clamp-1">
+            <p className="hidden sm:block text-[11px] sm:text-xs text-muted-foreground line-clamp-1">
               Đồng hồ đếm ngược sống • Quà tân thủ dự kiến • Nhận code ngay khi mở server
             </p>
           </div>
         </div>
 
-        {/* View All Button */}
+        {/* View All Button: Gọn gàng trên Mobile */}
         <button
           onClick={onOpenAllUpcomingModal}
-          className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-cyan-500/15 hover:bg-cyan-500/25 text-cyan-300 hover:text-cyan-200 border border-cyan-500/30 text-xs font-semibold transition-all cursor-pointer whitespace-nowrap shrink-0 shadow-sm hover:scale-[1.02] active:scale-95"
+          className="flex items-center gap-1 px-2.5 py-1 sm:px-3 sm:py-1.5 rounded-xl bg-cyan-500/15 hover:bg-cyan-500/25 text-cyan-300 hover:text-cyan-200 border border-cyan-500/30 text-[11px] sm:text-xs font-semibold transition-all cursor-pointer whitespace-nowrap shrink-0 shadow-sm hover:scale-[1.02] active:scale-95"
           title="Xem toàn bộ lịch ra mắt game sắp tới"
         >
-          <Calendar className="w-3.5 h-3.5 text-cyan-400" />
+          <Calendar className="w-3 h-3 sm:w-3.5 sm:h-3.5 text-cyan-400" />
           <span>Xem tất cả ({upcomingGames.length})</span>
-          <ChevronRight className="w-3.5 h-3.5" />
+          <ChevronRight className="w-3 h-3 sm:w-3.5 sm:h-3.5" />
         </button>
       </div>
 
-      {/* Cards Layout: Desktop 6 cols, Mobile smooth horizontal snap-scroll */}
-      <div className="flex lg:grid lg:grid-cols-6 gap-3.5 overflow-x-auto pb-2 lg:pb-0 scrollbar-none snap-x snap-mandatory relative z-10">
+      {/* Cards Layout: Mobile compact 175px (hiển thị 1.8 card tạo affordance vuốt ngang), Desktop 6 cols */}
+      <div className="flex lg:grid lg:grid-cols-6 gap-2.5 sm:gap-3.5 overflow-x-auto pb-1.5 lg:pb-0 scrollbar-none snap-x snap-mandatory relative z-10">
         {activeUpcoming.map((game) => {
           const isSaved = bookmarkedSet.has((game.slug || game.id).toLowerCase());
           const time = calculateTimeRemaining(game.releaseDate);
@@ -159,22 +160,22 @@ export const UpcomingGamesBanner: React.FC<UpcomingGamesBannerProps> = ({
             <div
               key={game.id || game.slug}
               onClick={() => onSelectUpcomingGame ? onSelectUpcomingGame(game) : onOpenAllUpcomingModal()}
-              className="min-w-[250px] max-w-[270px] lg:min-w-0 lg:max-w-none shrink-0 bg-background/90 hover:bg-background border border-border/80 hover:border-cyan-500/60 rounded-xl p-3 flex flex-col justify-between transition-all duration-200 shadow-sm hover:shadow-lg hover:shadow-cyan-500/10 group cursor-pointer snap-start relative"
+              className="min-w-[170px] max-w-[185px] sm:min-w-[240px] sm:max-w-[260px] lg:min-w-0 lg:max-w-none shrink-0 bg-background/90 hover:bg-background border border-border/80 hover:border-cyan-500/60 rounded-xl p-2.5 sm:p-3 flex flex-col justify-between transition-all duration-200 shadow-sm hover:shadow-lg hover:shadow-cyan-500/10 group cursor-pointer snap-start relative"
             >
               <div>
-                {/* Platform tag & status */}
-                <div className="flex items-center justify-between gap-1 mb-2">
-                  <span className="text-[10px] font-semibold text-muted-foreground line-clamp-1">
+                {/* Platform tag & category */}
+                <div className="flex items-center justify-between gap-1 mb-1.5 sm:mb-2">
+                  <span className="text-[10px] font-semibold text-muted-foreground truncate max-w-[100px]">
                     {game.category}
                   </span>
-                  <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-cyan-500/10 text-cyan-400 border border-cyan-500/20 shrink-0">
+                  <span className="px-1.5 py-0.5 rounded text-[9px] sm:text-[10px] font-bold bg-cyan-500/10 text-cyan-400 border border-cyan-500/20 shrink-0">
                     {game.platform?.split(',')[0] || 'Mobile'}
                   </span>
                 </div>
 
                 {/* Game Icon + Title + Publisher */}
-                <div className="flex items-center gap-2.5 mb-2.5">
-                  <div className="w-11 h-11 rounded-xl overflow-hidden bg-slate-800 border border-cyan-500/30 shrink-0 shadow-sm group-hover:scale-105 transition-transform">
+                <div className="flex items-center gap-2 sm:gap-2.5 mb-2 sm:mb-2.5">
+                  <div className="w-9 h-9 sm:w-11 sm:h-11 rounded-lg sm:rounded-xl overflow-hidden bg-slate-800 border border-cyan-500/30 shrink-0 shadow-sm group-hover:scale-105 transition-transform">
                     <img
                       src={iconSrc}
                       alt={game.name}
@@ -186,34 +187,34 @@ export const UpcomingGamesBanner: React.FC<UpcomingGamesBannerProps> = ({
                     />
                   </div>
                   <div className="min-w-0 flex-1">
-                    <h3 className="font-heading font-bold text-xs sm:text-sm text-foreground line-clamp-1 group-hover:text-cyan-400 transition-colors">
+                    <h3 className="font-heading font-bold text-xs sm:text-sm text-foreground truncate group-hover:text-cyan-400 transition-colors">
                       {game.name}
                     </h3>
-                    <p className="text-[11px] text-muted-foreground line-clamp-1">
+                    <p className="text-[10px] sm:text-[11px] text-muted-foreground truncate">
                       {game.publisher}
                     </p>
                   </div>
                 </div>
 
-                {/* Live Countdown Box */}
-                <div className="mb-2.5 rounded-lg bg-slate-900/90 border border-cyan-500/30 p-2 text-center shadow-inner">
+                {/* Live Countdown Box: Thu gọn chiều cao tối ưu */}
+                <div className="mb-2 p-1.5 sm:p-2 rounded-lg bg-slate-900/90 border border-cyan-500/30 text-center shadow-inner">
                   {time.isReleased ? (
                     <div className="py-0.5">
-                      <div className="flex items-center justify-center gap-1.5 text-emerald-400 font-bold text-xs animate-pulse">
-                        <Sparkles className="w-3.5 h-3.5 text-amber-400" />
-                        <span>ĐÃ MỞ SERVER HÔM NAY!</span>
+                      <div className="flex items-center justify-center gap-1 text-emerald-400 font-bold text-[10px] sm:text-xs animate-pulse">
+                        <Sparkles className="w-3 h-3 text-amber-400" />
+                        <span>ĐÃ MỞ SERVER!</span>
                       </div>
-                      <div className="text-[10px] text-cyan-300/80 mt-0.5 font-medium">
-                        ⏳ Còn {time.bannerRemainingHours}h {time.bannerRemainingMinutes}m trên banner
+                      <div className="text-[9px] sm:text-[10px] text-cyan-300/80 mt-0.5 font-medium truncate">
+                        ⏳ Còn {time.bannerRemainingHours}h {time.bannerRemainingMinutes}m
                       </div>
                     </div>
                   ) : (
                     <div>
-                      <div className="flex items-center justify-center gap-1 text-[10px] text-cyan-300/80 mb-0.5">
+                      <div className="hidden sm:flex items-center justify-center gap-1 text-[10px] text-cyan-300/80 mb-0.5">
                         <Clock className="w-3 h-3 text-cyan-400 animate-spin-slow" />
                         <span>Mở server sau:</span>
                       </div>
-                      <div className="font-mono font-bold text-xs sm:text-[13px] text-cyan-300 tracking-wider flex items-center justify-center gap-1">
+                      <div className="font-mono font-bold text-[11px] sm:text-[13px] text-cyan-300 tracking-tight flex items-center justify-center gap-0.5 sm:gap-1">
                         <span className="px-1 py-0.5 bg-cyan-950/70 rounded text-cyan-200">
                           {String(time.days).padStart(2, '0')}d
                         </span>
@@ -235,22 +236,22 @@ export const UpcomingGamesBanner: React.FC<UpcomingGamesBannerProps> = ({
                 </div>
 
                 {/* Expected Giftcode Badge */}
-                <div className="mb-3 flex items-center justify-between text-[11px]">
-                  <span className="inline-flex items-center gap-1 text-amber-400 font-medium">
-                    <Gift className="w-3 h-3" />
+                <div className="mb-2 sm:mb-3 flex items-center justify-between text-[10px] sm:text-[11px]">
+                  <span className="inline-flex items-center gap-1 text-amber-400 font-medium truncate">
+                    <Gift className="w-3 h-3 shrink-0" />
                     <span>Dự kiến {expectedCount} code</span>
                   </span>
-                  <span className="text-[10px] text-muted-foreground">
-                    {(game.subscribersCount || 1000).toLocaleString('vi-VN')} theo dõi
+                  <span className="text-[9px] sm:text-[10px] text-muted-foreground shrink-0">
+                    {(game.subscribersCount || 1000).toLocaleString('vi-VN')} lưu
                   </span>
                 </div>
               </div>
 
               {/* Bottom Actions: "Báo Code" button & "Tải trước" */}
-              <div className="pt-2 border-t border-border/50 flex items-center gap-2">
+              <div className="pt-1.5 sm:pt-2 border-t border-border/50 flex items-center gap-1.5 sm:gap-2">
                 <button
                   onClick={(e) => handleNotifyClick(game, e)}
-                  className={`flex-1 py-1.5 px-2 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 transition-all cursor-pointer shadow-sm active:scale-95 ${
+                  className={`flex-1 py-1 sm:py-1.5 px-1.5 sm:px-2 rounded-lg sm:rounded-xl text-[11px] sm:text-xs font-bold flex items-center justify-center gap-1 transition-all cursor-pointer shadow-sm active:scale-95 ${
                     isSaved
                       ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 hover:bg-emerald-500/30'
                       : 'bg-gradient-to-r from-cyan-400 to-blue-500 hover:from-cyan-300 hover:to-blue-400 text-slate-950 shadow-cyan-500/25 hover:shadow-cyan-500/40'
@@ -259,12 +260,12 @@ export const UpcomingGamesBanner: React.FC<UpcomingGamesBannerProps> = ({
                 >
                   {isSaved ? (
                     <>
-                      <Check className="w-3.5 h-3.5 text-emerald-400" />
-                      <span>Đã Báo Code</span>
+                      <Check className="w-3 h-3 sm:w-3.5 sm:h-3.5 text-emerald-400" />
+                      <span>Đã Báo</span>
                     </>
                   ) : (
                     <>
-                      <Bell className="w-3.5 h-3.5 text-slate-950" />
+                      <Bell className="w-3 h-3 sm:w-3.5 sm:h-3.5 text-slate-950" />
                       <span>Báo Code</span>
                     </>
                   )}
@@ -276,10 +277,10 @@ export const UpcomingGamesBanner: React.FC<UpcomingGamesBannerProps> = ({
                     target="_blank"
                     rel="noopener noreferrer"
                     onClick={(e) => e.stopPropagation()}
-                    className="p-1.5 rounded-xl bg-secondary hover:bg-secondary/80 text-muted-foreground hover:text-foreground border border-border/60 transition-colors"
+                    className="p-1 sm:p-1.5 rounded-lg sm:rounded-xl bg-secondary hover:bg-secondary/80 text-muted-foreground hover:text-foreground border border-border/60 transition-colors shrink-0"
                     title="Đăng ký trước tại trang chủ NPH"
                   >
-                    <ExternalLink className="w-3.5 h-3.5" />
+                    <ExternalLink className="w-3 h-3 sm:w-3.5 sm:h-3.5" />
                   </a>
                 )}
               </div>
