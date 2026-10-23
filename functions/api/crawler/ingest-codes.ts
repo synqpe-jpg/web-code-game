@@ -955,6 +955,40 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
       await setSettingD1(env.DB, 'wcg_admin_games_v5', activeGames);
       await setSettingD1(env.DB, 'wcg_crawler_pending_games_v1', pendingGames);
 
+      // Cập nhật trực tiếp bảng games trên D1 (P1 Precomputed Columns & Instant SQL)
+      try {
+        await env.DB.prepare(`
+          INSERT INTO games (
+            id, name, slug, publisher, category, rating, icon_url, banner_url,
+            description, instructions, platform, release_date, download_android,
+            google_play_url, app_store_url, android_package_name, redeem_url,
+            is_featured, is_hot, is_new, is_active, status, active_codes_count, total_codes_count, last_code_at
+          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))
+          ON CONFLICT(slug) DO UPDATE SET
+            name = excluded.name,
+            publisher = excluded.publisher,
+            category = excluded.category,
+            rating = excluded.rating,
+            icon_url = excluded.icon_url,
+            description = excluded.description,
+            instructions = excluded.instructions,
+            is_active = 1,
+            status = 'ACTIVE',
+            active_codes_count = (SELECT COUNT(*) FROM codes WHERE codes.game_slug = games.slug AND (codes.status = 'active' OR codes.status = 'verified') AND (codes.expires_at IS NULL OR codes.expires_at = '' OR codes.expires_at >= date('now'))),
+            total_codes_count = (SELECT COUNT(*) FROM codes WHERE codes.game_slug = games.slug),
+            last_code_at = datetime('now'),
+            updated_at = datetime('now');
+        `).bind(
+          finalSlug, finalName, finalSlug, finalDeveloper, publishedRecord.category, publishedRecord.rating,
+          publishedRecord.icon_url, publishedRecord.banner_url, publishedRecord.description, publishedRecord.instructions,
+          publishedRecord.platform, publishedRecord.release_date, publishedRecord.download_android,
+          publishedRecord.google_play_url, publishedRecord.app_store_url, publishedRecord.android_package_name,
+          publishedRecord.redeem_url, 0, 0, 1, 1, 'ACTIVE', realCodesCount, realCodesCount
+        ).run().catch(() => {});
+      } catch (d1Err) {
+        console.warn('[PublishGame D1 Table Sync Warning]', d1Err);
+      }
+
       invalidateGamesCatalogCache();
       const specificUrls = [
         `https://codegame.shop/api/games?slug=${finalSlug}`,
@@ -1738,6 +1772,57 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
 
       // LUÔN LƯU freshActiveGames mỗi khi có mã được nạp hoặc game được xuất bản!
       await setSettingD1(env.DB, 'wcg_admin_games_v5', freshActiveGames);
+
+      // 5.2b. Cập nhật trực tiếp vào bảng codes và games trên D1 (P1 Precomputed Columns & Instant SQL)
+      try {
+        const codeStmts = [];
+        for (const nc of newlyAddedCodes) {
+          const s = String(nc.gameSlug || nc.slug || nc.gameId || '').trim().toLowerCase();
+          const c = String(nc.code || nc.codeValue || '').trim().toUpperCase();
+          if (!s || !c) continue;
+          const id = nc.id || `code_${s}_${c}`;
+          const rewards = nc.rewards || nc.description || 'Quà tân thủ & vật phẩm ingame';
+          const isExp = isCodeExpired(nc);
+          const status = nc.status === 'expired' || isExp ? 'expired' : 'active';
+          const expiresAt = nc.expires_at || nc.expiresAt || nc.expiry || '';
+          const source = nc.source || auth.botName || 'crawler';
+          const addedAt = nc.added_at || nc.updated_at || nc.created_at || nowIso;
+
+          codeStmts.push(
+            env.DB.prepare(`
+              INSERT INTO codes (id, game_slug, code, rewards, status, expires_at, source, added_at)
+              VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+              ON CONFLICT(game_slug, code) DO UPDATE SET
+                rewards = COALESCE(excluded.rewards, codes.rewards),
+                status = excluded.status,
+                expires_at = COALESCE(excluded.expires_at, codes.expires_at)
+            `).bind(id, s, c, rewards, status, expiresAt, source, addedAt)
+          );
+        }
+        if (codeStmts.length > 0) {
+          for (let i = 0; i < codeStmts.length; i += 50) {
+            await env.DB.batch(codeStmts.slice(i, i + 50)).catch(() => {});
+          }
+        }
+
+        // Cập nhật precomputed counter cho từng game bị ảnh hưởng
+        for (const res of executionResults) {
+          if (!res || !res.matchedGame) continue;
+          const slug = String(res.matchedGame.slug).trim().toLowerCase();
+          await env.DB.prepare(`
+            UPDATE games SET
+              total_codes_count = (SELECT COUNT(*) FROM codes WHERE codes.game_slug = games.slug),
+              active_codes_count = (SELECT COUNT(*) FROM codes WHERE codes.game_slug = games.slug AND (codes.status = 'active' OR codes.status = 'verified') AND (codes.expires_at IS NULL OR codes.expires_at = '' OR codes.expires_at >= date('now'))),
+              last_code_at = datetime('now'),
+              status = 'ACTIVE',
+              is_active = 1,
+              updated_at = datetime('now')
+            WHERE slug = ?;
+          `).bind(slug).run().catch(() => {});
+        }
+      } catch (err) {
+        console.warn('[IngestCodes D1 Table Sync Warning]', err);
+      }
 
       // 5.3. Loại bỏ game đã xuất bản khỏi freshPendingGames
       if (publishedSlugsSet.size > 0) {

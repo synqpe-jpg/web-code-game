@@ -1296,21 +1296,16 @@ class DataService {
           if (Array.isArray(json.categories) && json.categories.length > 0) {
             this.categories = json.categories;
           }
-          // Enrich and cache retrieved games into memory with complete code lists
+          // Enrich and cache retrieved games into memory (P0/P1: High-speed, avoids slow getCodesForGame scan)
           const enrichedGames = json.games.map((g: any) => {
             if (!g || !g.slug) return g;
-            const localCodes = this.getCodesForGame(g);
-            // Authoritative count from serverless D1 Edge calculation
             const authoritativeCount = typeof g.codes_count === 'number'
               ? g.codes_count
-              : Math.max(g.codes?.length || 0, localCodes?.length || 0);
-
-            // Preview codes on cards: 3 preview codes from server or top 3 local codes
-            const previewCodes = (g.codes && g.codes.length > 0) ? g.codes : localCodes.slice(0, 3);
+              : (typeof g.active_codes_count === 'number' ? g.active_codes_count : (Array.isArray(g.codes) ? g.codes.length : 0));
 
             const enriched: GameItem = {
               ...g,
-              codes: previewCodes,
+              codes: Array.isArray(g.codes) ? g.codes : [],
               codes_count: authoritativeCount,
               icon_url: g.icon_url || `/game_icons/${g.slug}.webp`,
               is_partial_preview: true,

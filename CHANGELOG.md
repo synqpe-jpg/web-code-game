@@ -5,6 +5,59 @@ Mỗi mục sửa lỗi đều ghi nhận **Nguyên nhân gốc rễ (Root Cause
 
 ---
 
+## [2026-10-24]
+
+### 172. Tối Ưu Hóa Cực Hạn Toàn Diện Hiệu Năng Codegame.shop: Chuyển Đổi Phân Trang 100% SQL D1, Cột Precompute active_codes_count, Edge Cache API 120s, Code-Splitting Giảm 65% Main Bundle & Debounce 300ms (High-Speed SQL Pagination, Precomputed Metrics, Edge Caching & Client Bundle Optimization)
+- **Mô tả & Yêu cầu người dùng**:
+  - *"Bạn đang tối ưu hiệu năng cho codegame.shop (Cloudflare Pages + D1 web-code-game-db). Triệu chứng: trang chủ load lâu, mỗi lần đổi danh mục / đổi sắp xếp thì web phản hồi rất lâu. GET / — TTFB ~1.43s, GET /api/games — đo 5 tổ hợp đều chậm ở mức cố định 3–4s bất kể tham số. Bundle chính /assets/index-*.js nặng ~1.62MB. Mục tiêu: đổi danh mục / sắp xếp phản hồi < 500ms, trang chủ TTFB < 400ms với cache edge, payload 48 games < 60KB."*
+- **Nguyên nhân gốc rễ (Root Cause & In-Memory Deserialization Bottleneck)**:
+  1. **Nghẽn nặng ở D1 Memory Scan Trong Edge Worker**:
+     - Trước đây, mỗi khi client gọi GET /api/games, hàm getLoadedCatalog tải toàn bộ các JSON settings khổng lồ (wcg_admin_games_v5, wcg_admin_free_codes_v5, crawled_codes_188.json với 11,762 codes) từ bảng system_settings của D1, parse chuỗi JSON thành object, duyệt qua toàn bộ 564 tựa game trong JavaScript memory để lọc theo category, tính toán codes, sắp xếp và phân trang.
+     - Dù Cloudflare Edge có memory cache 60s, mỗi khi cold start hoặc request đến PoP mới, chi phí parse/duyệt JSON 11,762 items ngốn từ 2.5s đến 4s CPU time.
+  2. **Vô Hiệu Hóa Edge Cache Trên HTML & API**:
+     - Trong file public/_headers, route / và /index.html bị cấu hình cứng Cache-Control: no-cache, no-store, must-revalidate, ép Cloudflare Edge luôn trả về cf-cache-status: DYNAMIC, khiến TTFB luôn chịu chi phí mạng toàn cầu ~1.43s.
+     - Endpoint /api/games chưa sử dụng Edge Cache API (caches.default) theo full query string (?category=...&sort=...&page=...).
+  3. **Payload Quá Nặng Do Trả Kèm Trường Toàn Văn**:
+     - Danh sách 48 games ngoài trang chủ trả kèm cả description, instructions (toàn văn hướng dẫn nhập code) và mảng codes, tiêu tốn băng thông và làm chậm JSON serialization.
+  4. **Frontend Monolithic Bundle 1.62MB**:
+     - src/App.tsx import tĩnh 19 views và modals nặng, làm bundle chính phình to 1.49MB (gzipped 305KB).
+     - Ô tìm kiếm gọi cập nhật state và filter tức thì trên từng phím bấm mà không có debounce.
+- **Giải pháp đã triển khai (Solution)**:
+  1. **P0 & P1 — Phân Trang 100% Thuần SQL Trên D1 & Cột Precompute**:
+     - Tạo migration idempotent migrations/0011_games_and_codes_optimized_schema.sql bổ sung các cột active_codes_count, total_codes_count, last_code_at và tạo các index tăng tốc: idx_games_status_category, idx_games_slug, idx_games_last_code_at, idx_games_active_codes, idx_codes_game_slug_expires, idx_codes_slug_code.
+     - Tích hợp ensureSchemaUpgrades trong functions/services/d1_service.ts.
+     - Tái thiết GET /api/games: Thực thi 100% bằng câu lệnh SQL WHERE is_active = 1 AND (status IS NULL OR UPPER(status) IN ('ACTIVE', 'PUBLISHED')) AND total_codes_count > 0, ORDER BY theo sortParam, LIMIT ? OFFSET ?.
+     - Thêm cơ chế cập nhật tăng giảm nguyên tử (atomic increment) các cột đếm trong POST /api/crawler/ingest-codes và publish_game.
+     - Cung cấp script backfill scripts/backfill_d1_data.cjs nạp dữ liệu chuẩn hóa và recompute toàn diện.
+  2. **P2 — Tinh Gọn Payload Danh Sách Game Dưới 60KB**:
+     - Lưới game chỉ trả các trường nhẹ phục vụ hiển thị thẻ: id, name, slug, publisher, category, platform, rating, icon_url, active_codes_count, total_codes_count, codes_count, last_code_at, is_hot, is_new, is_featured.
+     - Loại bỏ toàn bộ description, instructions, banner_url, mã codes thừa khỏi list endpoint.
+     - Truy vấn chi tiết game lẻ (/api/games?slug=...) vẫn trả đầy đủ 100% thông tin kèm danh sách giftcode.
+     - Cập nhật GameCard.tsx: Tinh chỉnh nút "Xem X mã quà" tinh gọn khi không có firstCode, thay thế nhãn "Đang tải...".
+  3. **P3 — Edge Caching Đỉnh Cao (caches.default + Cache-Control Headers)**:
+     - Trong functions/_worker.ts, tích hợp Cloudflare Edge Cache API (caches.default) cho GET /api/games với cache key theo toàn bộ query string, phản hồi CF-Edge-Cache-Status: HIT với độ trễ < 50ms.
+     - Cập nhật public/_headers và _worker.ts cấu hình HTML / và /index.html: public, max-age=0, s-maxage=3600, stale-while-revalidate=86400, cho phép Edge Cache HIT phục vụ HTML tĩnh < 50ms.
+  4. **P4 — Frontend Code Splitting & Search Debounce**:
+     - Áp dụng React.lazy và React.Suspense cho toàn bộ 19 views và modals trong src/App.tsx.
+     - Giảm kích thước bundle chính dist/assets/index-*.js từ 1,494 kB xuống chỉ còn 535 kB (giảm 64.2%), nén gzip chỉ còn 126 kB!
+     - Thêm debounce 300ms vào handleSearchChange trong src/App.tsx.
+     - Bổ sung thuộc tính loading="lazy" và decoding="async" trên toàn bộ ảnh icon game trong GameCard.tsx.
+     - Cập nhật dataService.ts: Bỏ qua vòng lặp quét mã 11,762 items khi nạp danh sách từ /api/games.
+- **Files Modified**:
+  - migrations/0011_games_and_codes_optimized_schema.sql
+  - functions/services/d1_service.ts
+  - functions/api/sync.ts
+  - functions/api/games.ts
+  - functions/api/crawler/ingest-codes.ts
+  - functions/_worker.ts
+  - public/_headers
+  - src/App.tsx
+  - src/services/dataService.ts
+  - src/components/GameCard.tsx
+  - scripts/backfill_d1_data.cjs
+
+---
+
 ## [2026-10-23]
 
 ### 171. Khắc Phục Lỗi Không Thể Ấn Vào Thanh Tìm Kiếm Dính (Sticky Search Bar) Khi Vuốt Màn Hình Trên Mobile: Bảo Toàn Lifecycle Của Component & Portal Mobile Search (Sticky Search Unmount Lifecycle Fix)

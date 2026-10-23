@@ -740,13 +740,88 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
     const requestedSlug = url.searchParams.get('slug') || url.searchParams.get('id');
 
     // 1. Single Game Details Query (?slug=... or ?id=...)
-    // Tối ưu hóa cực hạn: Không duyệt định dạng 564 game catalog, chỉ tìm và giải mã code cho ĐÚNG game này (<0.2ms CPU)
+    // Tối ưu hóa D1 Direct SQL trước, fallback in-memory nếu chưa nạp vào table games
     if (requestedSlug) {
       const cleanSlug = requestedSlug.trim().toLowerCase();
       const cleanWithoutMobile = cleanSlug.replace(/-mobile$/i, '');
-      const catalog = await getLoadedCatalog(env.DB, forceFresh, true);
 
-      // Tra cứu trực tiếp trong authoritative rawGames
+      // Tra cứu trực tiếp trong bảng games trên D1
+      const gameRow = await env.DB.prepare(
+        'SELECT * FROM games WHERE slug = ? OR id = ? OR slug = ? LIMIT 1'
+      ).bind(cleanSlug, cleanSlug, cleanWithoutMobile).first<any>().catch(() => null);
+
+      if (gameRow) {
+        // Lấy toàn bộ mã giftcode từ bảng codes trên D1
+        const codesRes = await env.DB.prepare(
+          `SELECT code, rewards, status, expires_at, source, added_at 
+           FROM codes 
+           WHERE game_slug = ? 
+           ORDER BY 
+             CASE WHEN status = 'active' OR status = 'verified' THEN 0 ELSE 1 END,
+             added_at DESC`
+        ).bind(gameRow.slug).all<any>().catch(() => ({ results: [] as any[] }));
+
+        const codesList: GiftCode[] = (codesRes?.results || []).map((c: any) => ({
+          code: c.code,
+          rewards: c.rewards || 'Quà tân thủ & vật phẩm ingame',
+          status: isCodeExpired(c) ? 'expired' : (c.status || 'active'),
+          expiry: c.expires_at || '',
+          source: c.source || 'NPH Chính Thức',
+          added_at: c.added_at || '2026-10-09T00:00:00Z',
+        }));
+
+        let iconUrl = gameRow.icon_url || '';
+        if (!iconUrl || iconUrl.includes('codemoi.net') || iconUrl.startsWith('/game-icons')) {
+          iconUrl = `/game_icons/${gameRow.slug}.webp`;
+        }
+
+        const authoritativeGame: GameItem = {
+          id: String(gameRow.id || gameRow.slug),
+          name: String(gameRow.name),
+          slug: String(gameRow.slug),
+          publisher: gameRow.publisher || 'NPH Chính Thức',
+          category: gameRow.category || 'Game Hot',
+          rating: typeof gameRow.rating === 'number' ? gameRow.rating : 4.8,
+          icon_url: iconUrl,
+          banner_url: gameRow.banner_url || '',
+          description: gameRow.description || '',
+          instructions: gameRow.instructions || '',
+          platform: gameRow.platform || 'Mobile / PC',
+          so_giay_phep: gameRow.so_giay_phep || '',
+          ngay_cap_phep: gameRow.ngay_cap_phep || '',
+          release_date: gameRow.release_date || '',
+          download_android: gameRow.download_android || gameRow.google_play_url || '',
+          download_ios: gameRow.download_ios || gameRow.app_store_url || '',
+          download_pc: gameRow.download_pc || '',
+          google_play_url: gameRow.google_play_url || gameRow.download_android || '',
+          app_store_url: gameRow.app_store_url || gameRow.download_ios || '',
+          android_package_name: gameRow.android_package_name || '',
+          redeem_url: gameRow.redeem_url || '',
+          is_featured: Boolean(gameRow.is_featured),
+          is_hot: Boolean(gameRow.is_hot),
+          is_new: Boolean(gameRow.is_new),
+          is_active: gameRow.is_active !== undefined ? Boolean(gameRow.is_active) : true,
+          codes_count: codesList.length,
+          codes: codesList,
+          codes_pool_complete: true,
+        };
+
+        return new Response(
+          JSON.stringify({
+            success: true,
+            game: authoritativeGame,
+          }),
+          {
+            headers: {
+              ...CORS_HEADERS,
+              'Cache-Control': forceFresh ? 'no-cache, no-store, must-revalidate' : 'public, max-age=60, s-maxage=120, stale-while-revalidate=300',
+            },
+          }
+        );
+      }
+
+      // Fallback nếu game chưa có trong bảng games D1
+      const catalog = await getLoadedCatalog(env.DB, forceFresh, true);
       const rawFound = findMatchingGameInList(catalog.allRawGames, cleanSlug, cleanWithoutMobile);
       if (!rawFound) {
         return new Response(
@@ -758,30 +833,23 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
       const codes = resolveCodesForGame(rawFound, catalog.codesMap);
       const matchedGame = formatGameItem(rawFound, codes);
 
-      // Mark that this object contains authoritative complete codes pool
-      const authoritativeGame = {
-        ...matchedGame,
-        codes_pool_complete: true,
-      };
-
-      // Return full game with all its codes
       return new Response(
         JSON.stringify({
           success: true,
-          game: authoritativeGame,
+          game: { ...matchedGame, codes_pool_complete: true },
         }),
         {
           headers: {
             ...CORS_HEADERS,
             'Cache-Control': 'no-cache, no-store, must-revalidate',
-            'Pragma': 'no-cache',
-            'Expires': '0',
           },
         }
       );
     }
 
-    const catalog = await getLoadedCatalog(env.DB, forceFresh, false);
+    // Kiểm tra số lượng game trong bảng D1 games để phân nhánh SQL hoặc Fallback
+    const d1GamesCountCheck = await env.DB.prepare('SELECT COUNT(*) as cnt FROM games WHERE is_active = 1 AND total_codes_count > 0').first<any>().catch(() => null);
+    const d1GamesCount = Number(d1GamesCountCheck?.cnt || 0);
 
     // 2. Autocomplete Search Query (?autocomplete=1&search=...)
     if (url.searchParams.get('autocomplete') === '1' || url.searchParams.has('autocomplete')) {
@@ -794,6 +862,70 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
           { headers: CORS_HEADERS }
         );
       }
+
+      if (d1GamesCount >= 10) {
+        const pattern = `%${q}%`;
+        const prefixPattern = `${q}%`;
+
+        const [gamesRes, codesRes] = await Promise.all([
+          env.DB.prepare(`
+            SELECT id, name, slug, publisher, category, icon_url, active_codes_count, total_codes_count, is_hot, is_featured
+            FROM games
+            WHERE is_active = 1 AND (status IS NULL OR UPPER(status) IN ('ACTIVE', 'PUBLISHED')) AND (name LIKE ? OR slug LIKE ? OR publisher LIKE ?)
+            ORDER BY
+              CASE WHEN name LIKE ? THEN 1 WHEN name LIKE ? THEN 2 ELSE 3 END,
+              active_codes_count DESC
+            LIMIT ?
+          `).bind(pattern, pattern, pattern, q, prefixPattern, limit).all<any>().catch(() => ({ results: [] as any[] })),
+
+          env.DB.prepare(`
+            SELECT codes.code, codes.rewards, codes.status, codes.expires_at, games.slug as game_slug, games.name as game_name, games.icon_url as game_icon_url
+            FROM codes
+            JOIN games ON games.slug = codes.game_slug
+            WHERE (codes.code LIKE ? OR codes.rewards LIKE ?) AND games.is_active = 1
+            LIMIT ?
+          `).bind(pattern, pattern, limit).all<any>().catch(() => ({ results: [] as any[] })),
+        ]);
+
+        const topGames = (gamesRes?.results || []).map((g: any) => ({
+          ...g,
+          codes_count: Number(g.active_codes_count || g.total_codes_count || 0),
+          icon_url: g.icon_url || `/game_icons/${g.slug}.webp`,
+          codes: [],
+        }));
+
+        const topCodes = (codesRes?.results || []).map((c: any) => ({
+          game: {
+            slug: c.game_slug,
+            name: c.game_name,
+            icon_url: c.game_icon_url || `/game_icons/${c.game_slug}.webp`,
+          },
+          code: {
+            code: c.code,
+            rewards: c.rewards,
+            status: c.status,
+            expiry: c.expires_at,
+          },
+        }));
+
+        return new Response(
+          JSON.stringify({
+            success: true,
+            games: topGames,
+            codes: topCodes,
+            totalMatches: topGames.length + topCodes.length,
+          }),
+          {
+            headers: {
+              ...CORS_HEADERS,
+              'Cache-Control': 'public, max-age=15, s-maxage=30, stale-while-revalidate=60',
+            },
+          }
+        );
+      }
+
+      // Fallback in-memory
+      const catalog = await getLoadedCatalog(env.DB, forceFresh, false);
 
       const scoredGames: Array<{ game: GameItem; score: number }> = [];
       const matchedCodes: Array<{ game: GameItem; code: GiftCode; score: number }> = [];
@@ -881,6 +1013,46 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
         .filter(Boolean);
       const slugSet = new Set(slugList);
 
+      if (d1GamesCount >= 10 && slugList.length > 0) {
+        const placeholders = slugList.map(() => '?').join(',');
+        const bookmarkedRowsRes = await env.DB.prepare(`
+          SELECT id, name, slug, publisher, category, platform, rating, icon_url,
+                 active_codes_count, total_codes_count, last_code_at, is_hot, is_new, is_featured
+          FROM games
+          WHERE slug IN (${placeholders}) OR id IN (${placeholders})
+        `).bind(...slugList, ...slugList).all<any>().catch(() => ({ results: [] as any[] }));
+
+        const bookmarkedGames = (bookmarkedRowsRes?.results || []).map((r: any) => ({
+          id: String(r.id || r.slug),
+          name: String(r.name),
+          slug: String(r.slug),
+          publisher: r.publisher || 'NPH Chính Thức',
+          category: r.category || 'Game Hot',
+          platform: r.platform || 'Mobile / PC',
+          rating: typeof r.rating === 'number' ? r.rating : 4.8,
+          icon_url: r.icon_url || `/game_icons/${r.slug}.webp`,
+          codes_count: Number(r.active_codes_count || r.total_codes_count || 0),
+          codes: [],
+          is_hot: Boolean(r.is_hot),
+          is_new: Boolean(r.is_new),
+        }));
+
+        return new Response(
+          JSON.stringify({
+            success: true,
+            games: bookmarkedGames,
+            total: bookmarkedGames.length,
+          }),
+          {
+            headers: {
+              ...CORS_HEADERS,
+              'Cache-Control': 'public, max-age=30, s-maxage=60, stale-while-revalidate=120',
+            },
+          }
+        );
+      }
+
+      const catalog = await getLoadedCatalog(env.DB, forceFresh, false);
       const bookmarkedGames = catalog.games
         .filter((g) => slugSet.has(g.slug.toLowerCase()) || slugSet.has(g.id.toLowerCase()))
         .map((g) => ({
@@ -903,12 +1075,131 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
       );
     }
 
-    // 4. Server-Side Paginated Catalog Query
+    // 4. Server-Side Paginated Catalog Query (P0, P1, P2: 100% SQL on D1, No heavy fields, Precomputed codes_count)
     const page = Math.max(1, parseInt(url.searchParams.get('page') || '1', 10));
-    const limit = Math.min(60, Math.max(1, parseInt(url.searchParams.get('limit') || '24', 10)));
+    // Limit: mặc định 24, tối đa 48 theo đúng yêu cầu P0
+    const rawLimit = parseInt(url.searchParams.get('limit') || '24', 10);
+    const limit = Math.min(48, Math.max(1, isNaN(rawLimit) ? 24 : rawLimit));
     const searchQuery = (url.searchParams.get('search') || url.searchParams.get('q') || '').trim();
     const category = (url.searchParams.get('category') || 'all').trim();
     const tag = (url.searchParams.get('tag') || 'all').trim();
+    // Hỗ trợ cả 2 chuẩn tham số sort: mới (sort=newest|name_asc|name_desc|most_codes|rating) và cũ (sortBy & sortOrder)
+    const sortParam = (url.searchParams.get('sort') || url.searchParams.get('sortBy') || '').trim().toLowerCase();
+    const sortOrderParam = (url.searchParams.get('sortOrder') || '').trim().toLowerCase();
+
+    if (d1GamesCount >= 10) {
+      // 100% PURE SQL ON D1
+      const whereConditions: string[] = ["is_active = 1 AND (status IS NULL OR UPPER(status) IN ('ACTIVE', 'PUBLISHED')) AND total_codes_count > 0"];
+      const bindParams: any[] = [];
+
+      // Category filter
+      if (category && category !== 'all' && category !== 'Tất cả') {
+        whereConditions.push('category = ?');
+        bindParams.push(category);
+      }
+
+      // Search filter
+      if (searchQuery) {
+        whereConditions.push('(name LIKE ? OR slug LIKE ? OR publisher LIKE ?)');
+        const searchPattern = `%${searchQuery}%`;
+        bindParams.push(searchPattern, searchPattern, searchPattern);
+      }
+
+      // Tag filter
+      if (tag === 'hot') {
+        whereConditions.push('is_hot = 1');
+      } else if (tag === 'new') {
+        whereConditions.push('is_new = 1');
+      } else if (tag === 'has_codes') {
+        whereConditions.push('active_codes_count > 0');
+      }
+
+      const whereClause = `WHERE ${whereConditions.join(' AND ')}`;
+
+      // Order By
+      let orderByClause = 'ORDER BY last_code_at DESC, release_date DESC';
+      if (sortParam === 'newest' || sortParam === 'release_date') {
+        orderByClause = 'ORDER BY release_date DESC, last_code_at DESC';
+      } else if (sortParam === 'name_asc' || (sortParam === 'name' && sortOrderParam === 'asc')) {
+        orderByClause = 'ORDER BY name COLLATE NOCASE ASC';
+      } else if (sortParam === 'name_desc' || (sortParam === 'name' && sortOrderParam === 'desc')) {
+        orderByClause = 'ORDER BY name COLLATE NOCASE DESC';
+      } else if (sortParam === 'most_codes' || sortParam === 'codes_count') {
+        orderByClause = 'ORDER BY active_codes_count DESC, total_codes_count DESC';
+      } else if (sortParam === 'rating') {
+        orderByClause = 'ORDER BY rating DESC, active_codes_count DESC';
+      } else if (sortParam === 'updated') {
+        orderByClause = 'ORDER BY last_code_at DESC';
+      }
+
+      // Truy vấn đếm tổng số bản ghi khớp điều kiện
+      const countRes = await env.DB.prepare(
+        `SELECT COUNT(*) as total FROM games ${whereClause}`
+      ).bind(...bindParams).first<any>();
+      const total = Number(countRes?.total || 0);
+      const totalPages = Math.max(1, Math.ceil(total / limit));
+      const safePage = Math.min(Math.max(1, page), totalPages);
+      const offset = (safePage - 1) * limit;
+
+      // P2: List API CHỈ trả các trường nhẹ phục vụ lưới game, KHÔNG trả description/instructions/codes array
+      const listQuery = `
+        SELECT
+          id, name, slug, publisher, category, platform, rating, icon_url,
+          active_codes_count, total_codes_count, last_code_at,
+          is_hot, is_new, is_featured
+        FROM games
+        ${whereClause}
+        ${orderByClause}
+        LIMIT ? OFFSET ?
+      `;
+      const rowsRes = await env.DB.prepare(listQuery).bind(...bindParams, limit, offset).all<any>();
+      const rows = (rowsRes?.results || []).map((r: any) => ({
+        id: String(r.id || r.slug),
+        name: String(r.name),
+        slug: String(r.slug),
+        publisher: r.publisher || 'NPH Chính Thức',
+        category: r.category || 'Game Hot',
+        platform: r.platform || 'Mobile / PC',
+        rating: typeof r.rating === 'number' ? r.rating : 4.8,
+        icon_url: r.icon_url || `/game_icons/${r.slug}.webp`,
+        active_codes_count: Number(r.active_codes_count || 0),
+        total_codes_count: Number(r.total_codes_count || 0),
+        codes_count: Number(r.active_codes_count || r.total_codes_count || 0),
+        last_code_at: r.last_code_at || null,
+        is_hot: Boolean(r.is_hot),
+        is_new: Boolean(r.is_new),
+        is_featured: Boolean(r.is_featured),
+      }));
+
+      // Lấy danh mục distinct cho filter bar
+      const catRes = await env.DB.prepare(
+        "SELECT DISTINCT category FROM games WHERE is_active = 1 AND (status IS NULL OR UPPER(status) IN ('ACTIVE', 'PUBLISHED')) AND total_codes_count > 0 AND category IS NOT NULL AND category != '' ORDER BY category ASC"
+      ).all<any>().catch(() => ({ results: [] as any[] }));
+      const categories = ['Tất cả', ...(catRes?.results || []).map((c: any) => c.category).filter(Boolean)];
+
+      return new Response(
+        JSON.stringify({
+          success: true,
+          page: safePage,
+          limit,
+          total,
+          totalPages,
+          hasMore: safePage < totalPages,
+          games: rows,
+          categories,
+          timestamp: new Date().toISOString(),
+        }),
+        {
+          headers: {
+            ...CORS_HEADERS,
+            'Cache-Control': 'public, max-age=60, s-maxage=120, stale-while-revalidate=600',
+          },
+        }
+      );
+    }
+
+    // Fallback in-memory catalog
+    const catalog = await getLoadedCatalog(env.DB, forceFresh, false);
     const sortBy = (url.searchParams.get('sortBy') || 'release_date').trim();
     const sortOrder = (url.searchParams.get('sortOrder') || 'desc').trim().toLowerCase();
 

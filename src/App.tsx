@@ -1,41 +1,42 @@
-import React, { useState, useEffect, useCallback, useTransition } from 'react';
+import React, { useState, useEffect, useCallback, useTransition, useRef, Suspense, lazy } from 'react';
 import { Header } from './components/Header';
 import { AnnouncementBar } from './components/AnnouncementBar';
 import { TopEventBanner } from './components/countdown/TopEventBanner';
 import { HeroBanner } from './components/HeroBanner';
 import { CategoryFilter } from './components/CategoryFilter';
 import { GameGrid } from './components/GameGrid';
-import { GameDetailModal } from './components/GameDetailModal';
-import { SubmitCodeModal } from './components/SubmitCodeModal';
-import { BookmarkDrawer } from './components/BookmarkDrawer';
 import { PinnedGamesBar } from './components/PinnedGamesBar';
 import { UpcomingGamesBanner } from './components/UpcomingGamesBanner';
-import { AllUpcomingGamesModal } from './components/AllUpcomingGamesModal';
-import { CodePlaygroundModal } from './components/CodePlaygroundModal';
-import { GrowthCenterModal } from './components/GrowthCenterModal';
-import { ShareModal } from './components/ShareModal';
-import { NewsView } from './components/NewsView';
-import { GiveawaysView } from './components/GiveawaysView';
-import { StoreView } from './components/StoreView';
-import { UtilitiesView } from './components/UtilitiesView';
-import { ProductDetailModal } from './components/ProductDetailModal';
-import { ProductCheckoutModal } from './components/ProductCheckoutModal';
-import { AuthModal } from './components/AuthModal';
-import { UserWalletModal } from './components/UserWalletModal';
-import { MyReceivedCodesModal } from './components/MyReceivedCodesModal';
-import { UserProfileModal } from './components/UserProfileModal';
-import { DownloadAppModal } from './components/DownloadAppModal';
 import { MobileBottomNav } from './components/MobileBottomNav';
 import { CyberLoader } from './components/CyberLoader';
 import { SearchAutocomplete } from './components/SearchAutocomplete';
 import { ArrowUp } from 'lucide-react';
-
-const AdminApp = React.lazy(() => import('./admin/AdminApp'));
 import { Footer } from './components/Footer';
 import { ToastContainer, type ToastMessage } from './components/Toast';
 import { MarketingNotificationToast } from './components/MarketingNotificationToast';
 import { FloatingAnnouncement } from './components/FloatingAnnouncement';
-import { EmailSubscriptionModal } from './components/notification/EmailSubscriptionModal';
+
+// P4: Code Splitting & Lazy Loaded Views / Modals to shrink initial JS bundle
+const AdminApp = lazy(() => import('./admin/AdminApp'));
+const NewsView = lazy(() => import('./components/NewsView').then((m) => ({ default: m.NewsView })));
+const GiveawaysView = lazy(() => import('./components/GiveawaysView').then((m) => ({ default: m.GiveawaysView })));
+const StoreView = lazy(() => import('./components/StoreView').then((m) => ({ default: m.StoreView })));
+const UtilitiesView = lazy(() => import('./components/UtilitiesView').then((m) => ({ default: m.UtilitiesView })));
+const GameDetailModal = lazy(() => import('./components/GameDetailModal').then((m) => ({ default: m.GameDetailModal })));
+const SubmitCodeModal = lazy(() => import('./components/SubmitCodeModal').then((m) => ({ default: m.SubmitCodeModal })));
+const BookmarkDrawer = lazy(() => import('./components/BookmarkDrawer').then((m) => ({ default: m.BookmarkDrawer })));
+const AllUpcomingGamesModal = lazy(() => import('./components/AllUpcomingGamesModal').then((m) => ({ default: m.AllUpcomingGamesModal })));
+const CodePlaygroundModal = lazy(() => import('./components/CodePlaygroundModal').then((m) => ({ default: m.CodePlaygroundModal })));
+const GrowthCenterModal = lazy(() => import('./components/GrowthCenterModal').then((m) => ({ default: m.GrowthCenterModal })));
+const ShareModal = lazy(() => import('./components/ShareModal').then((m) => ({ default: m.ShareModal })));
+const ProductDetailModal = lazy(() => import('./components/ProductDetailModal').then((m) => ({ default: m.ProductDetailModal })));
+const ProductCheckoutModal = lazy(() => import('./components/ProductCheckoutModal').then((m) => ({ default: m.ProductCheckoutModal })));
+const AuthModal = lazy(() => import('./components/AuthModal').then((m) => ({ default: m.AuthModal })));
+const UserWalletModal = lazy(() => import('./components/UserWalletModal').then((m) => ({ default: m.UserWalletModal })));
+const MyReceivedCodesModal = lazy(() => import('./components/MyReceivedCodesModal').then((m) => ({ default: m.MyReceivedCodesModal })));
+const UserProfileModal = lazy(() => import('./components/UserProfileModal').then((m) => ({ default: m.UserProfileModal })));
+const DownloadAppModal = lazy(() => import('./components/DownloadAppModal').then((m) => ({ default: m.DownloadAppModal })));
+const EmailSubscriptionModal = lazy(() => import('./components/notification/EmailSubscriptionModal').then((m) => ({ default: m.EmailSubscriptionModal })));
 import { dataService } from './services/dataService';
 import { marketingService } from './services/marketingService';
 import { authService } from './services/authService';
@@ -728,16 +729,31 @@ export const App: React.FC = () => {
     };
   }, []);
 
-  // Sync Search Query with Filter
+  const searchDebounceTimerRef = useRef<any>(null);
+
+  // Sync Search Query with Filter (P4: 300ms Debounce to prevent server hammering)
   const handleSearchChange = (q: string) => {
     setSearchQuery(q);
     if (currentTab !== 'catalog') {
       handleSelectTab('catalog');
     }
-    startTransition(() => {
-      setFilter((prev) => ({ ...prev, search: q }));
-      setCurrentPage(1);
-    });
+    if (searchDebounceTimerRef.current) {
+      clearTimeout(searchDebounceTimerRef.current);
+    }
+    // Instant clear when emptied, otherwise debounce 300ms
+    if (!q || !q.trim()) {
+      startTransition(() => {
+        setFilter((prev) => ({ ...prev, search: '' }));
+        setCurrentPage(1);
+      });
+    } else {
+      searchDebounceTimerRef.current = setTimeout(() => {
+        startTransition(() => {
+          setFilter((prev) => ({ ...prev, search: q }));
+          setCurrentPage(1);
+        });
+      }, 300);
+    }
   };
 
   // Filter Updates
@@ -1454,48 +1470,50 @@ export const App: React.FC = () => {
             </>
           )}
 
-          {currentTab === 'news' && (
-            <NewsView
-              onShowToast={showToast}
-              onSelectGameSlug={handleSelectGameSlug}
-              initialArticleSlug={initialNewsSlug}
-            />
-          )}
+          <Suspense fallback={<div className="py-20 flex justify-center"><CyberLoader title="ĐANG TẢI GIAO DIỆN..." subText="Đang nạp dữ liệu..." /></div>}>
+            {currentTab === 'news' && (
+              <NewsView
+                onShowToast={showToast}
+                onSelectGameSlug={handleSelectGameSlug}
+                initialArticleSlug={initialNewsSlug}
+              />
+            )}
 
-          {currentTab === 'giveaways' && (
-            <GiveawaysView
-              onShowToast={showToast}
-              onSelectGameSlug={handleSelectGameSlug}
-              currentUser={currentUser}
-              onOpenAuth={() => setIsAuthModalOpen(true)}
-              onShareGiveaway={handleOpenShareGiveaway}
-              initialGiveawayId={initialGiveawayId}
-              onClearInitialGiveawayId={() => setInitialGiveawayId(null)}
-            />
-          )}
+            {currentTab === 'giveaways' && (
+              <GiveawaysView
+                onShowToast={showToast}
+                onSelectGameSlug={handleSelectGameSlug}
+                currentUser={currentUser}
+                onOpenAuth={() => setIsAuthModalOpen(true)}
+                onShareGiveaway={handleOpenShareGiveaway}
+                initialGiveawayId={initialGiveawayId}
+                onClearInitialGiveawayId={() => setInitialGiveawayId(null)}
+              />
+            )}
 
-          {currentTab === 'store' && (
-            <StoreView
-              onSelectProduct={(prod) => setSelectedProduct(prod)}
-              onShowToast={showToast}
-              currentUser={currentUser}
-              onOpenAuth={() => setIsAuthModalOpen(true)}
-              onOpenShare={handleOpenShareProduct}
-            />
-          )}
+            {currentTab === 'store' && (
+              <StoreView
+                onSelectProduct={(prod) => setSelectedProduct(prod)}
+                onShowToast={showToast}
+                currentUser={currentUser}
+                onOpenAuth={() => setIsAuthModalOpen(true)}
+                onOpenShare={handleOpenShareProduct}
+              />
+            )}
 
-          {currentTab === 'utilities' && (
-            <UtilitiesView
-              onShowToast={showToast}
-              currentUser={currentUser}
-              onUpdateUser={handleUpdateUser}
-              onOpenAuth={() => setIsAuthModalOpen(true)}
-              onOpenShare={handleOpenShareUtility}
-              onOpenWallet={() => setIsWalletModalOpen(true)}
-              selectedUtilityId={selectedUtilityId}
-              onClearSelectedUtility={() => setSelectedUtilityId(null)}
-            />
-          )}
+            {currentTab === 'utilities' && (
+              <UtilitiesView
+                onShowToast={showToast}
+                currentUser={currentUser}
+                onUpdateUser={handleUpdateUser}
+                onOpenAuth={() => setIsAuthModalOpen(true)}
+                onOpenShare={handleOpenShareUtility}
+                onOpenWallet={() => setIsWalletModalOpen(true)}
+                selectedUtilityId={selectedUtilityId}
+                onClearSelectedUtility={() => setSelectedUtilityId(null)}
+              />
+            )}
+          </Suspense>
         </main>
 
         {/* Footer */}
@@ -1522,177 +1540,179 @@ export const App: React.FC = () => {
         />
       </div>
 
-      {/* Modals & Drawers */}
-      {selectedGame && (
-        <GameDetailModal
-          game={selectedGame}
-          onClose={() => {
-            setSelectedGame(null);
-            if (typeof window !== 'undefined' && window.location.pathname.startsWith('/game/')) {
-              window.history.replaceState(null, '', '/');
+      {/* Modals & Drawers (P4: Lazy loaded via Suspense to keep main bundle tiny) */}
+      <Suspense fallback={null}>
+        {selectedGame && (
+          <GameDetailModal
+            game={selectedGame}
+            onClose={() => {
+              setSelectedGame(null);
+              if (typeof window !== 'undefined' && window.location.pathname.startsWith('/game/')) {
+                window.history.replaceState(null, '', '/');
+              }
+            }}
+            isBookmarked={
+              bookmarks.includes(selectedGame.id) || bookmarks.includes(selectedGame.slug)
+            }
+            onToggleBookmark={(id) => handleToggleBookmark(id)}
+            onOpenShare={(g) => handleOpenShareGame(g)}
+            onShowToast={showToast}
+            currentUser={currentUser}
+            onOpenAuth={() => setIsAuthModalOpen(true)}
+          />
+        )}
+
+        <ShareModal
+          isOpen={Boolean(sharePayload)}
+          onClose={() => setSharePayload(null)}
+          title={sharePayload?.title || ''}
+          subtitle={sharePayload?.subtitle}
+          shareUrl={sharePayload?.shareUrl || ''}
+          itemType={sharePayload?.itemType || 'game'}
+          onShowToast={showToast}
+        />
+
+        <ProductDetailModal
+          product={selectedProduct}
+          currentUser={currentUser}
+          onOpenAuth={() => setIsAuthModalOpen(true)}
+          onOpenShare={handleOpenShareProduct}
+          onClose={() => setSelectedProduct(null)}
+          onShowToast={showToast}
+          onBuyNow={(prod, pkg, qty) => {
+            setSelectedProduct(null);
+            if (!currentUser) {
+              setIsAuthModalOpen(true);
+            } else {
+              setCheckoutProduct(prod);
+              setCheckoutPackage(pkg || null);
+              setCheckoutQuantity(qty || 1);
             }
           }}
-          isBookmarked={
-            bookmarks.includes(selectedGame.id) || bookmarks.includes(selectedGame.slug)
-          }
-          onToggleBookmark={(id) => handleToggleBookmark(id)}
-          onOpenShare={(g) => handleOpenShareGame(g)}
-          onShowToast={showToast}
-          currentUser={currentUser}
-          onOpenAuth={() => setIsAuthModalOpen(true)}
         />
-      )}
 
-      <ShareModal
-        isOpen={Boolean(sharePayload)}
-        onClose={() => setSharePayload(null)}
-        title={sharePayload?.title || ''}
-        subtitle={sharePayload?.subtitle}
-        shareUrl={sharePayload?.shareUrl || ''}
-        itemType={sharePayload?.itemType || 'game'}
-        onShowToast={showToast}
-      />
-
-      <ProductDetailModal
-        product={selectedProduct}
-        currentUser={currentUser}
-        onOpenAuth={() => setIsAuthModalOpen(true)}
-        onOpenShare={handleOpenShareProduct}
-        onClose={() => setSelectedProduct(null)}
-        onShowToast={showToast}
-        onBuyNow={(prod, pkg, qty) => {
-          setSelectedProduct(null);
-          if (!currentUser) {
-            setIsAuthModalOpen(true);
-          } else {
-            setCheckoutProduct(prod);
-            setCheckoutPackage(pkg || null);
-            setCheckoutQuantity(qty || 1);
-          }
-        }}
-      />
-
-      <ProductCheckoutModal
-        product={checkoutProduct}
-        selectedPackage={checkoutPackage}
-        initialQuantity={checkoutQuantity}
-        currentUser={currentUser}
-        onUpdateUser={handleUpdateUser}
-        onOpenAuth={() => setIsAuthModalOpen(true)}
-        onOpenWallet={() => setIsWalletModalOpen(true)}
-        onClose={() => {
-          setCheckoutProduct(null);
-          setCheckoutPackage(null);
-        }}
-        onShowToast={showToast}
-      />
-
-      <SubmitCodeModal
-        isOpen={isSubmitModalOpen}
-        onClose={() => setIsSubmitModalOpen(false)}
-        games={allGamesList}
-        onSuccess={(_slug, code) => {
-          showToast('Đóng góp mã code thành công!', `Mã ${code} đã được nạp vào hệ thống.`, 'success');
-          handleFilterChange({});
-        }}
-      />
-
-      <BookmarkDrawer
-        isOpen={isBookmarkDrawerOpen}
-        onClose={() => setIsBookmarkDrawerOpen(false)}
-        bookmarkedGames={bookmarkedGamesList}
-        onRemoveBookmark={(id) => handleToggleBookmark(id)}
-        onSelectGame={handleSelectGame}
-        onClearAll={handleClearAllBookmarks}
-      />
-
-      <AllUpcomingGamesModal
-        isOpen={isAllUpcomingModalOpen}
-        onClose={() => {
-          setIsAllUpcomingModalOpen(false);
-          setSelectedUpcomingSlug(null);
-        }}
-        upcomingGames={upcomingGames}
-        bookmarkedSlugs={bookmarks}
-        onToggleBookmark={handleToggleBookmark}
-        onShowToast={showToast}
-        initialSelectedSlug={selectedUpcomingSlug}
-      />
-
-      <CodePlaygroundModal
-        isOpen={isPlaygroundModalOpen}
-        onClose={() => setIsPlaygroundModalOpen(false)}
-        games={allGamesList}
-        onSelectGame={handleSelectGame}
-        onShowToast={showToast}
-      />
-
-      {isGrowthEnabled && (
-        <GrowthCenterModal
-          isOpen={isGrowthCenterOpen}
-          onClose={() => setIsGrowthCenterOpen(false)}
+        <ProductCheckoutModal
+          product={checkoutProduct}
+          selectedPackage={checkoutPackage}
+          initialQuantity={checkoutQuantity}
           currentUser={currentUser}
+          onUpdateUser={handleUpdateUser}
           onOpenAuth={() => setIsAuthModalOpen(true)}
           onOpenWallet={() => setIsWalletModalOpen(true)}
-          onShowToast={showToast}
-          initialTab={growthInitialTab}
-        />
-      )}
-
-      <AuthModal
-        isOpen={isAuthModalOpen}
-        onClose={() => setIsAuthModalOpen(false)}
-        onSuccess={handleUpdateUser}
-        onShowToast={showToast}
-      />
-
-      <UserWalletModal
-        isOpen={isWalletModalOpen}
-        onClose={() => setIsWalletModalOpen(false)}
-        user={currentUser}
-        onUpdateUser={handleUpdateUser}
-        onShowToast={showToast}
-        onOpenAuth={() => setIsAuthModalOpen(true)}
-      />
-
-      <MyReceivedCodesModal
-        isOpen={isReceivedCodesOpen}
-        onClose={() => setIsReceivedCodesOpen(false)}
-        onShowToast={showToast}
-      />
-
-      <UserProfileModal
-        isOpen={isProfileModalOpen}
-        onClose={() => setIsProfileModalOpen(false)}
-        currentUser={currentUser}
-        onUpdateUser={handleUpdateUser}
-        onOpenWallet={() => setIsWalletModalOpen(true)}
-        onLogout={handleLogout}
-        onShowToast={showToast}
-      />
-
-      <DownloadAppModal
-        isOpen={isDownloadModalOpen}
-        onClose={() => setIsDownloadModalOpen(false)}
-      />
-
-      {/* Email Subscription & Notification Preferences Modal (2 Cột: Bảng 1 Code Mới & Chia Sẻ, Bảng 2 Đăng Ký) */}
-      {isEmailModalOpen && (
-        <EmailSubscriptionModal
-          isOpen={isEmailModalOpen}
-          onClose={() => setIsEmailModalOpen(false)}
-          currentUser={currentUser}
-          bookmarks={bookmarks}
-          bookmarkedGames={bookmarkedGamesList}
-          upcomingGames={upcomingGames}
-          onToggleBookmark={(slug) => handleToggleBookmark(slug)}
-          onSelectGame={(game) => {
-            setIsEmailModalOpen(false);
-            handleSelectGame(game);
+          onClose={() => {
+            setCheckoutProduct(null);
+            setCheckoutPackage(null);
           }}
           onShowToast={showToast}
         />
-      )}
+
+        <SubmitCodeModal
+          isOpen={isSubmitModalOpen}
+          onClose={() => setIsSubmitModalOpen(false)}
+          games={allGamesList}
+          onSuccess={(_slug, code) => {
+            showToast('Đóng góp mã code thành công!', `Mã ${code} đã được nạp vào hệ thống.`, 'success');
+            handleFilterChange({});
+          }}
+        />
+
+        <BookmarkDrawer
+          isOpen={isBookmarkDrawerOpen}
+          onClose={() => setIsBookmarkDrawerOpen(false)}
+          bookmarkedGames={bookmarkedGamesList}
+          onRemoveBookmark={(id) => handleToggleBookmark(id)}
+          onSelectGame={handleSelectGame}
+          onClearAll={handleClearAllBookmarks}
+        />
+
+        <AllUpcomingGamesModal
+          isOpen={isAllUpcomingModalOpen}
+          onClose={() => {
+            setIsAllUpcomingModalOpen(false);
+            setSelectedUpcomingSlug(null);
+          }}
+          upcomingGames={upcomingGames}
+          bookmarkedSlugs={bookmarks}
+          onToggleBookmark={handleToggleBookmark}
+          onShowToast={showToast}
+          initialSelectedSlug={selectedUpcomingSlug}
+        />
+
+        <CodePlaygroundModal
+          isOpen={isPlaygroundModalOpen}
+          onClose={() => setIsPlaygroundModalOpen(false)}
+          games={allGamesList}
+          onSelectGame={handleSelectGame}
+          onShowToast={showToast}
+        />
+
+        {isGrowthEnabled && (
+          <GrowthCenterModal
+            isOpen={isGrowthCenterOpen}
+            onClose={() => setIsGrowthCenterOpen(false)}
+            currentUser={currentUser}
+            onOpenAuth={() => setIsAuthModalOpen(true)}
+            onOpenWallet={() => setIsWalletModalOpen(true)}
+            onShowToast={showToast}
+            initialTab={growthInitialTab}
+          />
+        )}
+
+        <AuthModal
+          isOpen={isAuthModalOpen}
+          onClose={() => setIsAuthModalOpen(false)}
+          onSuccess={handleUpdateUser}
+          onShowToast={showToast}
+        />
+
+        <UserWalletModal
+          isOpen={isWalletModalOpen}
+          onClose={() => setIsWalletModalOpen(false)}
+          user={currentUser}
+          onUpdateUser={handleUpdateUser}
+          onShowToast={showToast}
+          onOpenAuth={() => setIsAuthModalOpen(true)}
+        />
+
+        <MyReceivedCodesModal
+          isOpen={isReceivedCodesOpen}
+          onClose={() => setIsReceivedCodesOpen(false)}
+          onShowToast={showToast}
+        />
+
+        <UserProfileModal
+          isOpen={isProfileModalOpen}
+          onClose={() => setIsProfileModalOpen(false)}
+          currentUser={currentUser}
+          onUpdateUser={handleUpdateUser}
+          onOpenWallet={() => setIsWalletModalOpen(true)}
+          onLogout={handleLogout}
+          onShowToast={showToast}
+        />
+
+        <DownloadAppModal
+          isOpen={isDownloadModalOpen}
+          onClose={() => setIsDownloadModalOpen(false)}
+        />
+
+        {/* Email Subscription & Notification Preferences Modal (2 Cột: Bảng 1 Code Mới & Chia Sẻ, Bảng 2 Đăng Ký) */}
+        {isEmailModalOpen && (
+          <EmailSubscriptionModal
+            isOpen={isEmailModalOpen}
+            onClose={() => setIsEmailModalOpen(false)}
+            currentUser={currentUser}
+            bookmarks={bookmarks}
+            bookmarkedGames={bookmarkedGamesList}
+            upcomingGames={upcomingGames}
+            onToggleBookmark={(slug) => handleToggleBookmark(slug)}
+            onSelectGame={(game) => {
+              setIsEmailModalOpen(false);
+              handleSelectGame(game);
+            }}
+            onShowToast={showToast}
+          />
+        )}
+      </Suspense>
 
       {/* Social Proof Marketing Notifications Toast (Customer Web tabs) */}
       <MarketingNotificationToast

@@ -296,9 +296,52 @@ export default {
         }
       }
 
-      // 1d. /api/games (Server-Side Pagination, Infinite Scroll & Single Game Lookup)
+      // 1d. /api/games (Server-Side Pagination, Edge Cache API with Full Query String)
       if (pathname === '/api/games') {
-        if (method === 'GET' && gamesApi.onRequestGet) return await gamesApi.onRequestGet(context);
+        if (method === 'GET' && gamesApi.onRequestGet) {
+          const reqUrl = new URL(request.url);
+          const isNoCache = reqUrl.searchParams.has('nocache') ||
+                            reqUrl.searchParams.has('fresh') ||
+                            request.headers.get('Cache-Control')?.includes('no-cache') ||
+                            request.headers.get('Pragma')?.includes('no-cache');
+
+          // Edge Cache API: caches.default with cache key by full query string
+          if (!isNoCache && typeof caches !== 'undefined' && (caches as any).default) {
+            const cache = (caches as any).default;
+            const cacheKey = new Request(request.url, { method: 'GET' });
+
+            const cached = await cache.match(cacheKey);
+            if (cached) {
+              const res = new Response(cached.body, cached);
+              res.headers.set('CF-Edge-Cache-Status', 'HIT');
+              return res;
+            }
+
+            const response = await gamesApi.onRequestGet(context);
+            if (response.status === 200) {
+              const responseText = await response.text();
+              const headers = new Headers(response.headers);
+              // Cache at edge for 120s, stale-while-revalidate for 600s
+              headers.set('Cache-Control', 'public, max-age=60, s-maxage=120, stale-while-revalidate=600');
+
+              const cacheToPut = new Response(responseText, {
+                status: response.status,
+                headers,
+              });
+              ctx.waitUntil(cache.put(cacheKey, cacheToPut));
+
+              const resOut = new Response(responseText, {
+                status: response.status,
+                headers,
+              });
+              resOut.headers.set('CF-Edge-Cache-Status', 'MISS');
+              return resOut;
+            }
+            return response;
+          }
+
+          return await gamesApi.onRequestGet(context);
+        }
         if (method === 'OPTIONS' && gamesApi.onRequestOptions) return await gamesApi.onRequestOptions(context);
       }
 
@@ -482,6 +525,14 @@ export default {
       const assetResponse = await env.ASSETS.fetch(request);
       if (assetResponse.status === 404 && request.method === 'GET' && !pathname.match(/\.[a-zA-Z0-9]+$/)) {
         return await renderSeoHtml(request, env, pathname);
+      }
+      if (assetResponse.status === 200 && (pathname === '/' || pathname === '/index.html')) {
+        const headers = new Headers(assetResponse.headers);
+        headers.set('Cache-Control', 'public, max-age=0, s-maxage=3600, stale-while-revalidate=86400');
+        return new Response(assetResponse.body, {
+          status: assetResponse.status,
+          headers,
+        });
       }
       return assetResponse;
     } catch (err: any) {

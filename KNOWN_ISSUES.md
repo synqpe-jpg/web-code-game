@@ -10,6 +10,31 @@
 
 ## 1. DANH MỤC LỖI & CÁC BẪY ĐÃ THẤT BẠI (DO NOT REPEAT)
 
+### ISSUE-098: Bẫy Tải Toàn Bộ JSON Blob Lên RAM Phân Trang Trong JS, Bẫy Header no-store Trên HTML Phá Hủy Edge Cache & Bẫy Cồng Kềnh Main Bundle 1.5MB (Heavy In-Memory Catalog Scan, Edge Cache Bypass & Bundle Bloat Trap)
+- **Triệu chứng**:
+  - Trang chủ load lâu (TTFB ~1.43s), header Cache-Control: no-cache, no-store, must-revalidate và cf-cache-status: DYNAMIC khiến HTML không bao giờ được cache ở Edge.
+  - API GET /api/games mất cố định 3–4s trên mọi request bất kể lọc hay sắp xếp gì.
+  - File bundle chính index-*.js phình to tới 1.62MB chưa nén.
+  - Thẻ game khi omit codes array bị hiện nhãn "Đang tải..." thay vì nút hành động.
+- **Nguyên nhân gốc rễ**:
+  1. Trên mỗi request /api/games, Edge Worker đọc blob JSON hàng chục megabyte từ system_settings D1 (564 games và 11,762 codes), deserialize JSON và duyệt lọc trong RAM JavaScript.
+  2. public/_headers cấu hình no-store trên root /, triệt tiêu hoàn toàn khả năng Edge Cache HIT của Cloudflare.
+  3. Payload danh sách game gửi kèm trường toàn văn nặng (description, instructions).
+  4. src/App.tsx import tĩnh 19 modals và views không cần thiết cho trang chủ đầu tiên.
+- **Giải pháp chuẩn đã kiểm chứng**:
+  - Chuyển 100% phân trang, lọc và sắp xếp sang thuần SQL trên bảng games D1 với các index chuyên dụng.
+  - Precompute active_codes_count, total_codes_count và last_code_at trên bảng games, cập nhật atomic increment khi nạp code mới.
+  - Cắt giảm trường nặng trong list mode, giữ payload 48 games < 60KB.
+  - Cấu hình Edge Cache API (caches.default) cho /api/games và cấu hình s-maxage=3600 trên static HTML /.
+  - Code-splitting qua React.lazy và React.Suspense cho 19 views/modals, giảm 65% kích thước main bundle từ 1.49MB xuống 535KB.
+  - Thêm debounce 300ms cho input tìm kiếm.
+- ⛔ **CÁCH SỬA ĐÃ THẤT BẠI - TUYỆT ĐỐI KHÔNG LẶP LẠI**:
+  - ❌ *Không duyệt qua toàn bộ games/codes trong JS memory rồi mới slice/filter*: Chi phí JSON.parse và JS iteration trên Edge Worker rất chậm và dễ gây Worker Error 1102.
+  - ❌ *Không cấu hình no-store cho toàn bộ trang tĩnh*: Khiến Cloudflare Edge luôn bỏ qua cache và TTFB bị đẩy lên hơn 1.4s.
+  - ❌ *Không gọi N+1 queries đếm code*: Luôn dùng cột precompute active_codes_count.
+
+---
+
 ### ISSUE-097: Bẫy Unmount Component Chứa createPortal Phá Hủy Giao Diện Mobile Search Trong 0ms (Sticky Search Portal Unmount Collision Trap)
 - **Triệu chứng**:
   - Trên thiết bị di động (màn hình < 768px), khi người dùng cuộn xuống danh mục game ở trang chủ, thanh tìm kiếm dính (sticky floating search bar) xuất hiện dưới header.

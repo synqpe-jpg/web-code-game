@@ -1417,6 +1417,204 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
       }
     }
 
+    // Action: Backfill games batch vào D1 table games
+    if (body.action === 'backfill_d1_games' && env.DB && Array.isArray(body.games)) {
+      try {
+        await ensureSchemaUpgrades(env.DB);
+        const games = body.games;
+        const stmts: any[] = [];
+        for (const g of games) {
+          if (!g || !g.slug) continue;
+          const slug = String(g.slug).trim().toLowerCase();
+          const id = String(g.id || slug).trim();
+          const name = String(g.name || slug).trim();
+          const publisher = g.publisher || 'NPH Chính Thức';
+          const category = g.category || 'Game Hot';
+          const rating = typeof g.rating === 'number' ? g.rating : 4.8;
+          let iconUrl = g.icon_url || g.iconUrl || '';
+          if (!iconUrl || iconUrl.includes('codemoi.net') || iconUrl.startsWith('/game-icons')) {
+            iconUrl = `/game_icons/${slug}.webp`;
+          }
+          const bannerUrl = g.banner_url || g.bannerUrl || '';
+          const description = g.description || '';
+          const instructions = g.instructions || '';
+          const platform = g.platform || 'Mobile / PC';
+          const soGiayPhep = g.so_giay_phep || g.license_number || '';
+          const ngayCapPhep = g.ngay_cap_phep || g.license_date || '';
+          const releaseDate = g.release_date || g.gp_release_date || '';
+          const doTuoi = g.do_tuoi || '12+';
+          const trangThaiGp = g.trang_thai_gp || 'Đang hoạt động';
+          const websiteG1 = g.website_g1 || '';
+          const linkCodemoi = g.link_codemoi || '';
+          const dlAndroid = g.download_android || g.google_play_url || '';
+          const dlIos = g.download_ios || g.app_store_url || '';
+          const dlPc = g.download_pc || '';
+          const gpUrl = g.google_play_url || dlAndroid;
+          const asUrl = g.app_store_url || dlIos;
+          const pkgName = g.android_package_name || '';
+          const redeemUrl = g.redeem_url || g.redeemUrl || '';
+          const isFeatured = g.is_featured ? 1 : 0;
+          const isHot = g.is_hot ? 1 : 0;
+          const isNew = g.is_new ? 1 : 0;
+          const isActive = g.is_active !== undefined ? (g.is_active ? 1 : 0) : 1;
+          const status = g.status || 'ACTIVE';
+
+          stmts.push(
+            env.DB.prepare(`
+              INSERT INTO games (
+                id, name, slug, publisher, category, rating, icon_url, banner_url,
+                description, instructions, platform, so_giay_phep, ngay_cap_phep, release_date,
+                do_tuoi, trang_thai_gp, website_g1, link_codemoi, download_android, download_ios,
+                download_pc, google_play_url, app_store_url, android_package_name, redeem_url,
+                is_featured, is_hot, is_new, is_active, status
+              ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+              ON CONFLICT(slug) DO UPDATE SET
+                name = excluded.name,
+                publisher = excluded.publisher,
+                category = excluded.category,
+                rating = excluded.rating,
+                icon_url = excluded.icon_url,
+                banner_url = excluded.banner_url,
+                description = excluded.description,
+                instructions = excluded.instructions,
+                platform = excluded.platform,
+                so_giay_phep = excluded.so_giay_phep,
+                ngay_cap_phep = excluded.ngay_cap_phep,
+                release_date = excluded.release_date,
+                download_android = excluded.download_android,
+                download_ios = excluded.download_ios,
+                download_pc = excluded.download_pc,
+                google_play_url = excluded.google_play_url,
+                app_store_url = excluded.app_store_url,
+                android_package_name = excluded.android_package_name,
+                redeem_url = excluded.redeem_url,
+                is_featured = excluded.is_featured,
+                is_hot = excluded.is_hot,
+                is_new = excluded.is_new,
+                is_active = excluded.is_active,
+                status = excluded.status,
+                updated_at = datetime('now')
+            `).bind(
+              id, name, slug, publisher, category, rating, iconUrl, bannerUrl,
+              description, instructions, platform, soGiayPhep, ngayCapPhep, releaseDate,
+              doTuoi, trangThaiGp, websiteG1, linkCodemoi, dlAndroid, dlIos,
+              dlPc, gpUrl, asUrl, pkgName, redeemUrl,
+              isFeatured, isHot, isNew, isActive, status
+            )
+          );
+        }
+
+        if (stmts.length > 0) {
+          const chunkSize = 50;
+          for (let i = 0; i < stmts.length; i += chunkSize) {
+            await env.DB.batch(stmts.slice(i, i + chunkSize));
+          }
+        }
+
+        return new Response(
+          JSON.stringify({ success: true, count: stmts.length }),
+          { headers: CORS_HEADERS }
+        );
+      } catch (e: any) {
+        return new Response(JSON.stringify({ success: false, error: String(e) }), { status: 500, headers: CORS_HEADERS });
+      }
+    }
+
+    // Action: Backfill codes batch vào D1 table codes
+    if (body.action === 'backfill_d1_codes' && env.DB && Array.isArray(body.codes)) {
+      try {
+        await ensureSchemaUpgrades(env.DB);
+        const codes = body.codes;
+        const stmts: any[] = [];
+        for (const c of codes) {
+          if (!c) continue;
+          const slug = String(c.game_slug || c.gameSlug || c.slug || c.gameId || '').trim().toLowerCase();
+          const codeVal = String(c.code || c.codeValue || c.code_value || c.gift_code || '').trim().toUpperCase();
+          if (!slug || !codeVal) continue;
+          const id = c.id || `code_${slug}_${codeVal}`;
+          const rewards = c.rewards || c.description || 'Quà tân thủ & vật phẩm ingame';
+          const isExp = isCodeExpired(c);
+          const status = c.status === 'expired' || isExp ? 'expired' : 'active';
+          const expiresAt = c.expires_at || c.expiresAt || c.expiry || '';
+          const source = c.source || 'crawler';
+          const addedAt = c.added_at || c.updated_at || c.created_at || new Date().toISOString();
+
+          stmts.push(
+            env.DB.prepare(`
+              INSERT INTO codes (id, game_slug, code, rewards, status, expires_at, source, added_at)
+              VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+              ON CONFLICT(game_slug, code) DO UPDATE SET
+                rewards = COALESCE(excluded.rewards, codes.rewards),
+                status = excluded.status,
+                expires_at = COALESCE(excluded.expires_at, codes.expires_at)
+            `).bind(id, slug, codeVal, rewards, status, expiresAt, source, addedAt)
+          );
+        }
+
+        if (stmts.length > 0) {
+          const chunkSize = 50;
+          for (let i = 0; i < stmts.length; i += chunkSize) {
+            await env.DB.batch(stmts.slice(i, i + chunkSize));
+          }
+        }
+
+        return new Response(
+          JSON.stringify({ success: true, count: stmts.length }),
+          { headers: CORS_HEADERS }
+        );
+      } catch (e: any) {
+        return new Response(JSON.stringify({ success: false, error: String(e) }), { status: 500, headers: CORS_HEADERS });
+      }
+    }
+
+    // Action: Recompute active_codes_count, total_codes_count, last_code_at cho toàn bộ game trên D1
+    if (body.action === 'recompute_d1_counts' && env.DB) {
+      try {
+        await ensureSchemaUpgrades(env.DB);
+        const updateRes = await env.DB.prepare(`
+          UPDATE games SET
+            total_codes_count = (SELECT COUNT(*) FROM codes WHERE codes.game_slug = games.slug),
+            active_codes_count = (SELECT COUNT(*) FROM codes WHERE codes.game_slug = games.slug AND (codes.status = 'active' OR codes.status = 'verified') AND (codes.expires_at IS NULL OR codes.expires_at = '' OR codes.expires_at >= date('now'))),
+            last_code_at = (SELECT MAX(added_at) FROM codes WHERE codes.game_slug = games.slug);
+        `).run();
+
+        const stats = await env.DB.prepare(`
+          SELECT
+            (SELECT COUNT(*) FROM games) as total_games,
+            (SELECT COUNT(*) FROM games WHERE is_active = 1 AND total_codes_count > 0) as published_games,
+            (SELECT COUNT(*) FROM codes) as total_codes,
+            (SELECT COUNT(*) FROM codes WHERE status = 'active' AND (expires_at IS NULL OR expires_at = '' OR expires_at >= date('now'))) as active_codes;
+        `).first();
+
+        return new Response(
+          JSON.stringify({ success: true, updateRes, stats }),
+          { headers: CORS_HEADERS }
+        );
+      } catch (e: any) {
+        return new Response(JSON.stringify({ success: false, error: String(e) }), { status: 500, headers: CORS_HEADERS });
+      }
+    }
+
+    // Action: Lấy thống kê D1 catalog
+    if (body.action === 'get_d1_catalog_stats' && env.DB) {
+      try {
+        await ensureSchemaUpgrades(env.DB);
+        const stats = await env.DB.prepare(`
+          SELECT
+            (SELECT COUNT(*) FROM games) as total_games,
+            (SELECT COUNT(*) FROM games WHERE is_active = 1 AND total_codes_count > 0) as published_games,
+            (SELECT COUNT(*) FROM codes) as total_codes;
+        `).first();
+
+        return new Response(
+          JSON.stringify({ success: true, stats }),
+          { headers: CORS_HEADERS }
+        );
+      } catch (e: any) {
+        return new Response(JSON.stringify({ success: false, error: String(e) }), { status: 500, headers: CORS_HEADERS });
+      }
+    }
+
     // Action: Duyệt giftcode từ Crawler đưa lên hệ thống chính thức
     if (body.action === 'approve_crawler_code' && env.DB) {
       try {

@@ -199,6 +199,7 @@ export const GameCard: React.FC<GameCardProps> = ({
           src={currentIconSrc}
           alt={game.name}
           referrerPolicy="no-referrer"
+          loading="lazy"
           decoding="async"
           onLoad={() => setImageLoaded(true)}
           onError={handleImageError}
@@ -584,9 +585,18 @@ export const GameCard: React.FC<GameCardProps> = ({
               )}
             </div>
           </button>
+        ) : totalCodes > 0 ? (
+          <button
+            onClick={() => onSelectGame(game)}
+            className="flex-1 min-h-[44px] flex items-center justify-center px-3 py-2 rounded-xl bg-slate-900/60 dark:bg-slate-950/60 hover:bg-slate-800/80 border border-emerald-500/20 hover:border-emerald-400/50 transition-all cursor-pointer text-emerald-400 font-bold text-xs active:scale-98 shadow-sm"
+            title={t.gameCard.viewCodes}
+          >
+            <Gift className="w-3.5 h-3.5 mr-1.5" />
+            <span>Xem {totalCodes} mã quà</span>
+          </button>
         ) : (
           <span className="text-[11px] sm:text-xs text-slate-300 dark:text-slate-400 italic py-2">
-            {t.common.loading}
+            Chưa có mã mới
           </span>
         )}
 

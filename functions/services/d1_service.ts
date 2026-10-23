@@ -311,8 +311,8 @@ export async function ensureSchemaUpgrades(db: D1Database): Promise<void> {
     }
 
     try {
-      // Fast 1-subrequest check: If download_links_and_clicks_v1 exists, all schema migrations are already done
-      const check = await db.prepare("SELECT 1 FROM schema_migrations WHERE id = 'download_links_and_clicks_v1' LIMIT 1").first().catch(() => null);
+      // Fast 1-subrequest check: If games_and_codes_optimized_v1 exists, all schema migrations are already done
+      const check = await db.prepare("SELECT 1 FROM schema_migrations WHERE id = 'games_and_codes_optimized_v1' LIMIT 1").first().catch(() => null);
       if (check !== null) {
         schemaUpgradesDone = true;
         return;
@@ -897,6 +897,96 @@ export async function ensureSchemaUpgrades(db: D1Database): Promise<void> {
     }
   } catch (err: any) {
     console.warn('[Download migration error]', err?.message);
+  }
+
+  // Migration 0011: Precomputed games & codes tables with high-speed indexes (Idempotent)
+  try {
+    const gamesCodesCheck = await db.prepare("SELECT 1 FROM schema_migrations WHERE id = 'games_and_codes_optimized_v1' LIMIT 1;").first<any>().catch(() => null);
+    if (!gamesCodesCheck) {
+      // 1. Create games table if not exists
+      await db.prepare(`
+        CREATE TABLE IF NOT EXISTS games (
+          id TEXT PRIMARY KEY,
+          name TEXT NOT NULL,
+          slug TEXT NOT NULL UNIQUE,
+          publisher TEXT,
+          category TEXT,
+          rating REAL DEFAULT 5,
+          icon_url TEXT,
+          banner_url TEXT,
+          description TEXT,
+          instructions TEXT,
+          platform TEXT DEFAULT 'Mobile / PC',
+          so_giay_phep TEXT,
+          ngay_cap_phep TEXT,
+          release_date TEXT,
+          do_tuoi TEXT,
+          trang_thai_gp TEXT,
+          website_g1 TEXT,
+          link_codemoi TEXT,
+          download_android TEXT,
+          download_ios TEXT,
+          download_pc TEXT,
+          google_play_url TEXT,
+          app_store_url TEXT,
+          android_package_name TEXT,
+          redeem_url TEXT,
+          is_featured INTEGER DEFAULT 0,
+          is_hot INTEGER DEFAULT 0,
+          is_new INTEGER DEFAULT 0,
+          is_active INTEGER DEFAULT 1,
+          status TEXT DEFAULT 'ACTIVE',
+          active_codes_count INTEGER DEFAULT 0,
+          total_codes_count INTEGER DEFAULT 0,
+          last_code_at TEXT,
+          created_at TEXT DEFAULT (datetime('now')),
+          updated_at TEXT DEFAULT (datetime('now'))
+        );
+      `).run().catch(() => {});
+
+      // Safe column additions if table already existed without them
+      await db.prepare('ALTER TABLE games ADD COLUMN active_codes_count INTEGER DEFAULT 0;').run().catch(() => {});
+      await db.prepare('ALTER TABLE games ADD COLUMN total_codes_count INTEGER DEFAULT 0;').run().catch(() => {});
+      await db.prepare('ALTER TABLE games ADD COLUMN last_code_at TEXT;').run().catch(() => {});
+      await db.prepare('ALTER TABLE games ADD COLUMN status TEXT DEFAULT "ACTIVE";').run().catch(() => {});
+      await db.prepare('ALTER TABLE games ADD COLUMN platform TEXT DEFAULT "Mobile / PC";').run().catch(() => {});
+      await db.prepare('ALTER TABLE games ADD COLUMN rating REAL DEFAULT 5;').run().catch(() => {});
+      await db.prepare('ALTER TABLE games ADD COLUMN is_featured INTEGER DEFAULT 0;').run().catch(() => {});
+      await db.prepare('ALTER TABLE games ADD COLUMN is_hot INTEGER DEFAULT 0;').run().catch(() => {});
+      await db.prepare('ALTER TABLE games ADD COLUMN is_new INTEGER DEFAULT 0;').run().catch(() => {});
+      await db.prepare('ALTER TABLE games ADD COLUMN is_active INTEGER DEFAULT 1;').run().catch(() => {});
+
+      // 2. Create codes table if not exists
+      await db.prepare(`
+        CREATE TABLE IF NOT EXISTS codes (
+          id TEXT PRIMARY KEY,
+          game_slug TEXT NOT NULL,
+          code TEXT NOT NULL,
+          rewards TEXT,
+          status TEXT NOT NULL DEFAULT 'active',
+          expires_at TEXT,
+          source TEXT DEFAULT 'crawler',
+          added_at TEXT DEFAULT (datetime('now')),
+          created_at TEXT DEFAULT (datetime('now')),
+          UNIQUE(game_slug, code)
+        );
+      `).run().catch(() => {});
+
+      // 3. Create all indexes
+      await db.prepare('CREATE INDEX IF NOT EXISTS idx_games_status_category ON games(status, category);').run().catch(() => {});
+      await db.prepare('CREATE UNIQUE INDEX IF NOT EXISTS idx_games_slug ON games(slug);').run().catch(() => {});
+      await db.prepare('CREATE INDEX IF NOT EXISTS idx_games_last_code_at ON games(last_code_at DESC);').run().catch(() => {});
+      await db.prepare('CREATE INDEX IF NOT EXISTS idx_games_active_codes ON games(active_codes_count DESC);').run().catch(() => {});
+      await db.prepare('CREATE INDEX IF NOT EXISTS idx_games_is_active ON games(is_active);').run().catch(() => {});
+      await db.prepare('CREATE INDEX IF NOT EXISTS idx_games_rating ON games(rating DESC);').run().catch(() => {});
+      await db.prepare('CREATE INDEX IF NOT EXISTS idx_codes_game_slug_expires ON codes(game_slug, expires_at);').run().catch(() => {});
+      await db.prepare('CREATE INDEX IF NOT EXISTS idx_codes_status ON codes(status);').run().catch(() => {});
+      await db.prepare('CREATE UNIQUE INDEX IF NOT EXISTS idx_codes_slug_code ON codes(game_slug, code);').run().catch(() => {});
+
+      await db.prepare("INSERT OR IGNORE INTO schema_migrations (id) VALUES ('games_and_codes_optimized_v1');").run().catch(() => {});
+    }
+  } catch (err: any) {
+    console.warn('[Migration 0011 error]', err?.message);
   }
 
   schemaUpgradesDone = true;
