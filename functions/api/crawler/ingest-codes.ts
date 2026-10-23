@@ -309,9 +309,21 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
       'Tự động kích hoạt & đăng game lên Web Khách nếu game đang ở Hàng Chờ Duyệt (Auto-Publish on Code arrival).',
       'Tự động lọc trùng lặp mã code (Deduplication) và nạp mã mới vào đúng game.',
       'Toàn quyền chỉnh sửa Cách Nhập Code (instructions / guide) và Link đổi quà (redeemUrl): hỗ trợ cập nhật độc lập hoặc kèm giftcode.',
+      'Quản lý hàng chờ game chưa đăng: action "list_pending_games" và action "publish_game".',
+      'Quản lý hàng chờ mã giftcode: action "list_pending_codes", action "approve_codes" và action "reject_codes".',
       'Tự động chuẩn hóa Hạn Sử Dụng (expiresAt) đa định dạng: YYYY-MM-DD, DD/MM/YYYY, timestamp, hoặc "Hết hạn" / "Vĩnh viễn".',
       'Tự động phân loại trạng thái: Khi mã hết hạn (hoặc ngày hết hạn < hiện tại), hệ thống tự động gán status: EXPIRED và chuyển sang mục Đã hết hạn của game.',
       'Cập nhật bộ đếm codes_count và tự động xóa cache biên CDN.',
+    ],
+    supportedActions: [
+      { action: 'ingest_codes', description: 'Nạp mã giftcode mới vào game (mặc định nếu không chỉ định action)' },
+      { action: 'update_instructions', description: 'Cập nhật hướng dẫn nhập code và link redeem của game' },
+      { action: 'list_pending_games', description: 'Lấy toàn bộ danh sách game chưa đăng lên web khách (hỗ trợ limit, offset)' },
+      { action: 'publish_game', description: 'Chuyển một game từ hàng chờ sang đã đăng công khai theo slug hoặc id (idempotent)' },
+      { action: 'list_pending_codes', description: 'Lấy toàn bộ mã giftcode đang chờ duyệt (hỗ trợ limit, offset)' },
+      { action: 'approve_codes', description: 'Duyệt mảng mã chờ duyệt (ids: string[]) và kích hoạt lên web khách' },
+      { action: 'reject_codes', description: 'Từ chối và loại bỏ mảng mã khỏi hàng chờ duyệt (ids: string[])' },
+      { action: 'cleanup_test_codes', description: 'Dọn dẹp sạch sẽ mã test theo Rule 7 (Zero Test Artifacts)' },
     ],
     sampleCurl: `curl -X POST "${urlObj.origin}/api/crawler/ingest-codes" \\
   -H "Content-Type: application/json" \\
@@ -333,6 +345,26 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
     "instructions": "Bước 1: Mở game > Đạt cấp 51 > Vào Sảnh Phúc Lợi.\\nBước 2: Chọn mục Mã Quà Tặng.\\nBước 3: Dán mã và nhấn Xác nhận.",
     "redeemUrl": "https://nap.vplay.vn"
   }'`,
+    sampleListPendingGamesCurl: `curl -X POST "${urlObj.origin}/api/crawler/ingest-codes" \\
+  -H "Content-Type: application/json" \\
+  -H "Authorization: Bearer <API_KEY>" \\
+  -d '{"action": "list_pending_games", "limit": 50, "offset": 0}'`,
+    samplePublishGameCurl: `curl -X POST "${urlObj.origin}/api/crawler/ingest-codes" \\
+  -H "Content-Type: application/json" \\
+  -H "Authorization: Bearer <API_KEY>" \\
+  -d '{"action": "publish_game", "slug": "dau-nho-noi-gian"}'`,
+    sampleListPendingCodesCurl: `curl -X POST "${urlObj.origin}/api/crawler/ingest-codes" \\
+  -H "Content-Type: application/json" \\
+  -H "Authorization: Bearer <API_KEY>" \\
+  -d '{"action": "list_pending_codes"}'`,
+    sampleApproveCodesCurl: `curl -X POST "${urlObj.origin}/api/crawler/ingest-codes" \\
+  -H "Content-Type: application/json" \\
+  -H "Authorization: Bearer <API_KEY>" \\
+  -d '{"action": "approve_codes", "ids": ["pending_code_id_1", "pending_code_id_2"]}'`,
+    sampleRejectCodesCurl: `curl -X POST "${urlObj.origin}/api/crawler/ingest-codes" \\
+  -H "Content-Type: application/json" \\
+  -H "Authorization: Bearer <API_KEY>" \\
+  -d '{"action": "reject_codes", "ids": ["pending_code_id_1"]}'`,
     samplePython: `import requests
 
 url = "${urlObj.origin}/api/crawler/ingest-codes"
@@ -398,23 +430,6 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
     );
   }
 
-  // 2. Chuẩn hóa payload thành mảng các mục cần nạp
-  const rawItems: any[] = [];
-  if (Array.isArray(body)) {
-    rawItems.push(...body);
-  } else if (Array.isArray(body.items)) {
-    rawItems.push(...body.items);
-  } else if (body && typeof body === 'object') {
-    rawItems.push(body);
-  }
-
-  if (rawItems.length === 0) {
-    return new Response(
-      JSON.stringify({ success: false, error: 'Payload không chứa dữ liệu game hoặc mã giftcode.' }),
-      { status: 400, headers: CORS_HEADERS }
-    );
-  }
-
   try {
     // 3. Tải danh mục games, pending games và free codes hiện tại
     const settings = await getMultipleSettingsD1(env.DB, [
@@ -423,7 +438,448 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
       'wcg_admin_free_codes_v5',
       'wcg_admin_custom_free_codes_v1',
       'wcg_crawler_api_logs_v1',
+      'wcg_crawler_pending_codes_v1',
+      'wcg_admin_submissions_v4',
     ]);
+
+    // =========================================================================
+    // ACTION 1: Lấy toàn bộ danh sách game chưa đăng lên web khách
+    // =========================================================================
+    if (body && body.action === 'list_pending_games') {
+      const pendingGamesRaw = Array.isArray(settings['wcg_crawler_pending_games_v1'])
+        ? settings['wcg_crawler_pending_games_v1']
+        : [];
+
+      const activeGamesRaw = Array.isArray(settings['wcg_admin_games_v5'])
+        ? settings['wcg_admin_games_v5']
+        : [];
+      const unpublishedInCatalog = activeGamesRaw.filter((g: any) => g && (g.is_active === false || g.status === 'PENDING'));
+
+      const seenSlugs = new Set<string>();
+      const combinedList: any[] = [];
+
+      const addGame = (g: any) => {
+        if (!g) return;
+        const slug = String(g.slug || g.id || '').trim().toLowerCase();
+        if (!slug || seenSlugs.has(slug)) return;
+        seenSlugs.add(slug);
+
+        combinedList.push({
+          id: String(g.id || slug),
+          name: String(g.name || slug),
+          slug: String(g.slug || slug),
+          publisher: String(g.developer || g.publisher || 'NPH Chính Thức'),
+          platform: String(g.platform || 'Android, iOS'),
+          packageName: g.packageId || g.packageName || g.android_package_name || null,
+          source: g.source || g.sourceType || (g.sourceUrl?.includes('codemoi') ? 'Code Mới' : 'Google Play Store VN'),
+          status: g.status || 'PENDING',
+          codes_count: Number(g.activeCodesCount || g.codes_count || 0),
+          created_at: g.crawledAt || g.created_at || g.releaseDate || new Date().toISOString(),
+        });
+      };
+
+      pendingGamesRaw.forEach(addGame);
+      unpublishedInCatalog.forEach(addGame);
+
+      const total = combinedList.length;
+      const limit = body.limit !== undefined ? Math.max(1, parseInt(body.limit, 10)) : total;
+      const offset = body.offset !== undefined ? Math.max(0, parseInt(body.offset, 10)) : 0;
+      const pagedGames = combinedList.slice(offset, offset + limit);
+
+      return new Response(
+        JSON.stringify({
+          success: true,
+          action: 'list_pending_games',
+          total,
+          count: pagedGames.length,
+          limit,
+          offset,
+          games: pagedGames,
+        }),
+        { headers: CORS_HEADERS }
+      );
+    }
+
+    // =========================================================================
+    // ACTION 2: Chuyển một game từ chờ duyệt sang đã đăng (published) trên web khách (idempotent)
+    // =========================================================================
+    if (body && body.action === 'publish_game') {
+      const targetSlug = String(body.slug || body.id || '').trim().toLowerCase();
+      if (!targetSlug) {
+        return new Response(
+          JSON.stringify({ success: false, error: 'Thiếu tham số slug hoặc id của game cần publish.' }),
+          { status: 400, headers: CORS_HEADERS }
+        );
+      }
+
+      const activeGames: any[] = Array.isArray(settings['wcg_admin_games_v5'])
+        ? [...settings['wcg_admin_games_v5']]
+        : [...(fallbackGamesData as any[])];
+
+      const pendingGames: any[] = Array.isArray(settings['wcg_crawler_pending_games_v1'])
+        ? [...settings['wcg_crawler_pending_games_v1']]
+        : [];
+
+      // Kiểm tra xem game đã được publish trong activeGames chưa (Idempotent)
+      const existingPublishedIdx = activeGames.findIndex(
+        (g: any) => g && (String(g.slug).toLowerCase() === targetSlug || String(g.id).toLowerCase() === targetSlug)
+      );
+
+      if (existingPublishedIdx !== -1 && activeGames[existingPublishedIdx].is_active !== false && activeGames[existingPublishedIdx].status !== 'PENDING') {
+        return new Response(
+          JSON.stringify({
+            success: true,
+            slug: activeGames[existingPublishedIdx].slug || targetSlug,
+            status: 'published',
+            message: 'Game đã được đăng trước đó (idempotent)',
+            game: activeGames[existingPublishedIdx],
+          }),
+          { headers: CORS_HEADERS }
+        );
+      }
+
+      // Tìm trong pending games
+      const pendingIdx = pendingGames.findIndex(
+        (g: any) => g && (String(g.slug).toLowerCase() === targetSlug || String(g.id).toLowerCase() === targetSlug)
+      );
+
+      let gameToPublish: any = null;
+      if (pendingIdx !== -1) {
+        gameToPublish = pendingGames[pendingIdx];
+        pendingGames.splice(pendingIdx, 1);
+      } else if (existingPublishedIdx !== -1) {
+        gameToPublish = activeGames[existingPublishedIdx];
+      }
+
+      if (!gameToPublish) {
+        return new Response(
+          JSON.stringify({ success: false, error: `Không tìm thấy game với slug hoặc id "${targetSlug}" trong hàng chờ duyệt.` }),
+          { status: 404, headers: CORS_HEADERS }
+        );
+      }
+
+      const finalSlug = String(gameToPublish.slug || gameToPublish.id || targetSlug).trim().toLowerCase();
+      const finalName = String(gameToPublish.name || finalSlug).trim();
+      const finalDeveloper = String(gameToPublish.developer || gameToPublish.publisher || 'NPH Chính Thức').trim();
+
+      const isCodeMoi = gameToPublish.sourceType === 'codemoi' || (gameToPublish.sourceUrl && gameToPublish.sourceUrl.includes('codemoi.net'));
+      let targetIcon = gameToPublish.iconUrl || gameToPublish.localIconPath || `/game_icons/${finalSlug}.webp`;
+      if (!targetIcon || targetIcon.includes('codemoi.net')) {
+        targetIcon = `/game_icons/${finalSlug}.webp`;
+      }
+
+      const publishedRecord = {
+        id: finalSlug,
+        slug: finalSlug,
+        name: finalName,
+        publisher: finalDeveloper,
+        category: gameToPublish.category || 'Nhập Vai',
+        rating: Number(gameToPublish.rating || 4.8),
+        icon_url: targetIcon,
+        cover_image_url: targetIcon,
+        banner_url: gameToPublish.banner_url || '',
+        description: gameToPublish.description || `${finalName} là tựa game mobile mới phát hành chính thức bởi ${finalDeveloper}.`,
+        short_description: `${finalName} - Game Mobile Mới`,
+        instructions: gameToPublish.instructions || 'Bước 1: Mở game > Nhấn Avatar nhân vật\nBước 2: Chọn Cài đặt > Nhập Giftcode\nBước 3: Dán mã và nhấn Xác nhận.',
+        platform: gameToPublish.platform || 'Android, iOS, PC',
+        release_date: gameToPublish.releaseDate || new Date().toISOString().split('T')[0],
+        download_android: gameToPublish.playStoreUrl || (gameToPublish.packageId ? `https://play.google.com/store/apps/details?id=${gameToPublish.packageId}` : ''),
+        google_play_url: gameToPublish.playStoreUrl || '',
+        app_store_url: gameToPublish.app_store_url || '',
+        android_package_name: gameToPublish.packageId || gameToPublish.packageName || '',
+        redeem_url: gameToPublish.redeem_url || '',
+        is_featured: false,
+        is_hot: false,
+        is_new: true,
+        is_active: true,
+        status: 'ACTIVE',
+        codes_count: Number(gameToPublish.codes_count || gameToPublish.activeCodesCount || 0),
+        free_codes_count: Number(gameToPublish.codes_count || gameToPublish.activeCodesCount || 0),
+        source: isCodeMoi ? 'Code Mới (codemoi.net)' : 'Google Play Store VN',
+        created_at: gameToPublish.crawledAt || gameToPublish.created_at || new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      };
+
+      if (existingPublishedIdx !== -1) {
+        activeGames[existingPublishedIdx] = { ...activeGames[existingPublishedIdx], ...publishedRecord };
+      } else {
+        activeGames.unshift(publishedRecord);
+      }
+
+      await setSettingD1(env.DB, 'wcg_admin_games_v5', activeGames);
+      await setSettingD1(env.DB, 'wcg_crawler_pending_games_v1', pendingGames);
+
+      await invalidateGamesCatalogCache(env);
+      await invalidateCatalogEdgeCache();
+
+      return new Response(
+        JSON.stringify({
+          success: true,
+          slug: finalSlug,
+          status: 'published',
+          message: `Đã đăng thành công game "${finalName}" lên web khách!`,
+          game: publishedRecord,
+        }),
+        { headers: CORS_HEADERS }
+      );
+    }
+
+    // =========================================================================
+    // ACTION 3: Lấy toàn bộ mã giftcode đang chờ duyệt
+    // =========================================================================
+    if (body && body.action === 'list_pending_codes') {
+      const pendingCodesRaw = Array.isArray(settings['wcg_crawler_pending_codes_v1'])
+        ? settings['wcg_crawler_pending_codes_v1']
+        : [];
+
+      const submissionsRaw = Array.isArray(settings['wcg_admin_submissions_v4'])
+        ? settings['wcg_admin_submissions_v4']
+        : [];
+      const pendingSubmissions = submissionsRaw.filter((s: any) => s && s.status === 'PENDING');
+
+      const combinedCodes: any[] = [];
+      const seenIds = new Set<string>();
+
+      for (const item of pendingCodesRaw) {
+        if (!item) continue;
+        const id = String(item.id || `pending_${Date.now()}`);
+        if (seenIds.has(id)) continue;
+        seenIds.add(id);
+
+        combinedCodes.push({
+          id,
+          gameSlug: String(item.gameSlug || item.gameId || '').trim(),
+          gameName: String(item.gameName || item.gameSlug || '').trim(),
+          code: String(item.code || item.codeValue || '').trim().toUpperCase(),
+          rewards: item.rewards || item.description || null,
+          source: item.sourceName || item.sourceUrl || item.sourceType || item.source || 'Crawler',
+          created_at: item.createdAt || item.created_at || new Date().toISOString(),
+          expires_at: item.expiresAt || item.expires_at || '2026-12-31',
+        });
+      }
+
+      for (const item of pendingSubmissions) {
+        if (!item) continue;
+        const id = String(item.id || `sub_${Date.now()}`);
+        if (seenIds.has(id)) continue;
+        seenIds.add(id);
+
+        combinedCodes.push({
+          id,
+          gameSlug: String(item.gameSlug || '').trim(),
+          gameName: String(item.gameName || item.gameSlug || '').trim(),
+          code: String(item.codeValue || item.code || '').trim().toUpperCase(),
+          rewards: item.rewards || null,
+          source: `Đóng góp bởi ${item.submitterName || 'Thành viên'}`,
+          created_at: item.createdAt || new Date().toISOString(),
+          expires_at: item.expiresAt || '2026-12-31',
+        });
+      }
+
+      const total = combinedCodes.length;
+      const limit = body.limit !== undefined ? Math.max(1, parseInt(body.limit, 10)) : total;
+      const offset = body.offset !== undefined ? Math.max(0, parseInt(body.offset, 10)) : 0;
+      const pagedCodes = combinedCodes.slice(offset, offset + limit);
+
+      return new Response(
+        JSON.stringify({
+          success: true,
+          action: 'list_pending_codes',
+          total,
+          count: pagedCodes.length,
+          limit,
+          offset,
+          codes: pagedCodes,
+        }),
+        { headers: CORS_HEADERS }
+      );
+    }
+
+    // =========================================================================
+    // ACTION 4 & 5: Duyệt (approve_codes) hoặc Từ chối (reject_codes) mã chờ duyệt
+    // =========================================================================
+    if (body && (body.action === 'approve_codes' || body.action === 'reject_codes')) {
+      let targetIds: string[] = [];
+      if (Array.isArray(body.ids)) {
+        targetIds = body.ids.map((x: any) => typeof x === 'object' ? String(x.id || '') : String(x)).filter(Boolean);
+      } else if (Array.isArray(body.items)) {
+        targetIds = body.items.map((x: any) => typeof x === 'object' ? String(x.id || '') : String(x)).filter(Boolean);
+      } else if (body.id) {
+        targetIds = [String(body.id)];
+      }
+
+      if (targetIds.length === 0) {
+        return new Response(
+          JSON.stringify({ success: false, error: 'Thiếu danh sách ids mã cần duyệt hoặc từ chối (ids: string[])' }),
+          { status: 400, headers: CORS_HEADERS }
+        );
+      }
+
+      const targetIdSet = new Set(targetIds.map(String));
+
+      const pendingCodesList: any[] = Array.isArray(settings['wcg_crawler_pending_codes_v1'])
+        ? [...settings['wcg_crawler_pending_codes_v1']]
+        : [];
+
+      const customCodesList: any[] = Array.isArray(settings['wcg_admin_custom_free_codes_v1'])
+        ? [...settings['wcg_admin_custom_free_codes_v1']]
+        : [];
+
+      const activeGamesList: any[] = Array.isArray(settings['wcg_admin_games_v5'])
+        ? [...settings['wcg_admin_games_v5']]
+        : [...(fallbackGamesData as any[])];
+
+      if (body.action === 'approve_codes') {
+        const results: any[] = [];
+        const approvedCustomRecords: any[] = [];
+        const remainingPending: any[] = [];
+        const affectedGameSlugs = new Set<string>();
+
+        for (const item of pendingCodesList) {
+          if (item && targetIdSet.has(String(item.id))) {
+            const targetSlug = String(item.gameSlug || item.gameId || '').trim().toLowerCase();
+            const finalCode = String(item.code || item.codeValue || '').trim().toUpperCase();
+
+            const rawExpiry = item.expiresAt || item.expires_at || '2026-12-31';
+            const parsedExp = parseExpirationDate(rawExpiry);
+            const isExp = parsedExp.isExpired || (item.status && String(item.status).toLowerCase() === 'expired');
+
+            const approvedItem = {
+              id: `code_${targetSlug}_${finalCode}_${Date.now().toString(36)}`,
+              gameId: targetSlug,
+              gameSlug: targetSlug,
+              slug: targetSlug,
+              gameName: item.gameName || targetSlug,
+              code: finalCode,
+              codeValue: finalCode,
+              code_value: finalCode,
+              gift_code: finalCode,
+              rewards: item.rewards || item.description || 'Quà tặng tân thủ & sự kiện',
+              description: item.rewards || item.description || 'Quà tặng tân thủ & sự kiện',
+              status: isExp ? 'EXPIRED' : 'ACTIVE',
+              is_active: !isExp,
+              is_verified: true,
+              isVerified: true,
+              expires_at: parsedExp.formatted || rawExpiry,
+              expiresAt: parsedExp.formatted || rawExpiry,
+              expiry: parsedExp.formatted || rawExpiry,
+              sourceUrl: item.sourceUrl || `https://codegame.shop/game/${targetSlug}`,
+              source: item.sourceName || item.sourceUrl || item.sourceType || 'Crawler Approved',
+              copyCount: 0,
+              createdAt: new Date().toISOString(),
+              created_at: new Date().toISOString(),
+              added_at: new Date().toISOString(),
+            };
+
+            approvedCustomRecords.push(approvedItem);
+            if (targetSlug) affectedGameSlugs.add(targetSlug);
+
+            results.push({
+              id: item.id,
+              success: true,
+              code: finalCode,
+              gameSlug: targetSlug,
+              status: 'approved',
+            });
+          } else if (item) {
+            remainingPending.push(item);
+          }
+        }
+
+        // Kiểm tra các ids không có trong pending (idempotent: nếu đã có trong customCodesList)
+        for (const id of targetIds) {
+          if (!results.some((r) => r.id === id)) {
+            const alreadyApproved = customCodesList.some((c: any) => String(c.id).includes(id) || String(c.code) === id);
+            if (alreadyApproved) {
+              results.push({ id, success: true, status: 'already_approved', message: 'Mã đã được duyệt trước đó' });
+            } else {
+              results.push({ id, success: false, error: 'Không tìm thấy mã trong hàng chờ duyệt' });
+            }
+          }
+        }
+
+        if (approvedCustomRecords.length > 0) {
+          const mergedCustom = [...approvedCustomRecords, ...customCodesList];
+          await setSettingD1(env.DB, 'wcg_admin_custom_free_codes_v1', mergedCustom);
+          await setSettingD1(env.DB, 'wcg_crawler_pending_codes_v1', remainingPending);
+
+          // Cập nhật codes_count cho các game
+          for (const slug of affectedGameSlugs) {
+            const gIdx = activeGamesList.findIndex((g: any) => g && (String(g.slug).toLowerCase() === slug || String(g.id).toLowerCase() === slug));
+            if (gIdx !== -1) {
+              const currentCount = Number(activeGamesList[gIdx].codes_count || 0);
+              const addedForGame = approvedCustomRecords.filter((c) => c.gameSlug === slug).length;
+              activeGamesList[gIdx] = {
+                ...activeGamesList[gIdx],
+                codes_count: currentCount + addedForGame,
+                free_codes_count: currentCount + addedForGame,
+                updated_at: new Date().toISOString(),
+              };
+            }
+          }
+          await setSettingD1(env.DB, 'wcg_admin_games_v5', activeGamesList);
+
+          await invalidateGamesCatalogCache(env);
+          await invalidateCatalogEdgeCache();
+        }
+
+        return new Response(
+          JSON.stringify({
+            success: true,
+            action: 'approve_codes',
+            totalRequested: targetIds.length,
+            approvedCount: results.filter((r) => r.success).length,
+            results,
+            remainingPendingCount: remainingPending.length,
+          }),
+          { headers: CORS_HEADERS }
+        );
+      }
+
+      // action === 'reject_codes'
+      if (body.action === 'reject_codes') {
+        const results: any[] = [];
+        const remainingPending: any[] = [];
+        let rejectedCount = 0;
+
+        for (const item of pendingCodesList) {
+          if (item && targetIdSet.has(String(item.id))) {
+            rejectedCount++;
+            results.push({
+              id: item.id,
+              success: true,
+              code: item.code || item.codeValue,
+              status: 'rejected',
+              message: 'Đã loại bỏ mã khỏi hàng chờ duyệt',
+            });
+          } else if (item) {
+            remainingPending.push(item);
+          }
+        }
+
+        for (const id of targetIds) {
+          if (!results.some((r) => r.id === id)) {
+            results.push({ id, success: true, status: 'already_rejected', message: 'Mã không còn trong hàng chờ' });
+          }
+        }
+
+        if (rejectedCount > 0) {
+          await setSettingD1(env.DB, 'wcg_crawler_pending_codes_v1', remainingPending);
+        }
+
+        return new Response(
+          JSON.stringify({
+            success: true,
+            action: 'reject_codes',
+            totalRequested: targetIds.length,
+            rejectedCount,
+            results,
+            remainingPendingCount: remainingPending.length,
+          }),
+          { headers: CORS_HEADERS }
+        );
+      }
+    }
 
     // Xử lý action đặc biệt: Dọn dẹp sạch mã test theo Rule 7 (Zero Test Artifacts on Production)
     if (body && body.action === 'cleanup_test_codes') {
@@ -452,6 +908,23 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
           removedCount,
         }),
         { headers: CORS_HEADERS }
+      );
+    }
+
+    // 2. Chuẩn hóa payload thành mảng các mục cần nạp (cho luồng nạp mã giftcode thông thường)
+    const rawItems: any[] = [];
+    if (Array.isArray(body)) {
+      rawItems.push(...body);
+    } else if (Array.isArray(body.items)) {
+      rawItems.push(...body.items);
+    } else if (body && typeof body === 'object') {
+      rawItems.push(body);
+    }
+
+    if (rawItems.length === 0) {
+      return new Response(
+        JSON.stringify({ success: false, error: 'Payload không chứa dữ liệu game hoặc mã giftcode.' }),
+        { status: 400, headers: CORS_HEADERS }
       );
     }
 

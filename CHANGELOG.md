@@ -7,6 +7,39 @@ Mỗi mục sửa lỗi đều ghi nhận **Nguyên nhân gốc rễ (Root Cause
 
 ## [2026-10-23]
 
+### 168. Mở Rộng API Crawler Ingest — Bổ Sung 4 Action Quản Lý Hàng Chờ Game Chưa Đăng & Phê Duyệt Giftcode Tự Động Cho Bot Muse (Pine Assistant RPC Queue Management)
+- **Mô tả & Yêu cầu người dùng**:
+  - *"Hiện tại bot Muse (Trợ lý Pine) chỉ nạp được giftcode qua POST /api/crawler/ingest-codes. Tôi cần mở rộng API crawler này, dùng lại đúng API key hiện tại (lưu trong D1 config wcg_crawler_api_config_v1, xác thực Bearer như cũ), thêm 4 action sau để bot quản lý hàng chờ thay tôi: (1) action list_pending_games, (2) action publish_game, (3) action list_pending_codes, (4) action approve_codes và reject_codes."*
+  - Yêu cầu bắt buộc: Chỉ 4 action trên, không cấp quyền xóa game, không đụng vào members/orders/sepay. Giữ nguyên 401 khi không có key hoặc key sai. Tự kiểm thử thực tế trên production từng action, cập nhật tài liệu mẫu curl cho bot.
+- **Nguyên nhân gốc rễ & Phân tích kiến trúc (Root Cause & Architecture)**:
+  - Trước đây `POST /api/crawler/ingest-codes` chỉ hỗ trợ nạp mã mới (`ingest_codes`), cập nhật hướng dẫn (`update_instructions`) và dọn test code (`cleanup_test_codes`).
+  - Toàn bộ dữ liệu game chờ duyệt (cào từ Google Play Store VN và CodeMoi) lưu trong D1 key `wcg_crawler_pending_games_v1` nhưng bot ngoài không có API để tra cứu hoặc kích hoạt đăng lên web khách, buộc quản trị viên phải thao tác thủ công trên web admin.
+  - Các mã giftcode cào về cần kiểm tra (Tier 3) nằm trong `wcg_crawler_pending_codes_v1` và `wcg_admin_submissions_v4` chưa có endpoint programmatic để bot Muse duyệt hoặc từ chối theo lô.
+- **Giải pháp đã triển khai (Solution)**:
+  1. **Action `list_pending_games`**:
+     - Đọc và gộp toàn bộ game chưa đăng từ `wcg_crawler_pending_games_v1` và các game unpublished trong `wcg_admin_games_v5` (loại trừ trùng lặp).
+     - Trả về chuẩn cấu trúc: `id`, `name`, `slug`, `publisher`, `platform`, `packageName`, `source`, `status`, `codes_count`, `created_at`.
+     - Hỗ trợ phân trang mượt mà qua `limit` và `offset` (mặc định trả hết).
+  2. **Action `publish_game` (Idempotent)**:
+     - Nhận `slug` hoặc `id`. Chuyển game từ hàng chờ duyệt sang danh mục chính thức `wcg_admin_games_v5` với đầy đủ thông tin store, platform, icon, và kích hoạt `status: 'ACTIVE'`, `is_active: true`.
+     - Idempotent: Nếu game đã đăng trước đó, trả về `{ success: true, slug, status: 'published', message: 'Game đã được đăng trước đó' }`, không gây lỗi.
+     - Tự động xóa khỏi pending list và xóa cache biên Edge CDN tức thì.
+  3. **Action `list_pending_codes`**:
+     - Trích xuất toàn bộ mã chờ duyệt từ `wcg_crawler_pending_codes_v1` và `wcg_admin_submissions_v4` (`status === 'PENDING'`).
+     - Trả về danh sách chuẩn: `id`, `gameSlug`, `gameName`, `code`, `rewards`, `source`, `created_at`, `expires_at`.
+     - Hỗ trợ `limit` và `offset`.
+  4. **Action `approve_codes` & `reject_codes`**:
+     - Nhận mảng `ids: string[]`.
+     - `approve_codes`: Đưa các mã hợp lệ vào `wcg_admin_custom_free_codes_v1` (`status: 'ACTIVE'`), cập nhật `codes_count` cho từng game trong `wcg_admin_games_v5`, loại bỏ mã khỏi pending queue, xóa cache CDN. Trả về kết quả xử lý chi tiết theo từng id.
+     - `reject_codes`: Loại bỏ các mã khỏi hàng chờ duyệt và trả về kết quả từng id.
+  5. **Cập nhật tài liệu GET /api/crawler/ingest-codes & Bảo mật**:
+     - Bổ sung tài liệu JSON, danh sách `supportedActions` và cURL mẫu cho cả 4 action mới trong endpoint GET.
+     - Giữ nguyên `authenticateRequest` bảo vệ nghiêm ngặt bằng API key cấu hình trong D1, trả 401 khi không có key hoặc key sai.
+- **Files Modified**:
+  - `functions/api/crawler/ingest-codes.ts`
+
+---
+
 ### 167. Tinh Giản & Khoa Học Hóa Giao Diện Modal Game Sắp Ra Mắt Trên Mobile — High-Density UI, Siêu Gọn Gàng, Mạch Lạc & Focus Trực Tiếp Vào Game Đang Chọn (Mobile Compact Upcoming Games Redesign)
 - **Mô tả & Yêu cầu người dùng**:
   - *"Khi tôi ấn vào game trong mục gae sắp ra mắt thì khá to, chioees diện tích và rối, tinh giản, gọn, dễ nhìn, khoa học giúp tôi."*
