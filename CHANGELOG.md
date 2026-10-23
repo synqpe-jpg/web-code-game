@@ -7,6 +7,42 @@ Mỗi mục sửa lỗi đều ghi nhận **Nguyên nhân gốc rễ (Root Cause
 
 ## [2026-10-23]
 
+### 164. Tinh Giản Giao Diện Mobile — Thu Gọn Khối Sắp Ra Mắt, Khối Đang Theo Dõi & Tối Ưu Tầm Nhìn Danh Mục Game (Mobile Layout Streamline & Compact Viewports)
+- **Mô tả & Yêu cầu người dùng**:
+  - *"Đây là giao diện trên mobile, bạn tùy chọn tinh giản giao diện giúp tôi cho gọn dễ nhìn."*
+- **Nguyên nhân gốc rễ (Root Cause)**:
+  1. **Khối Game Sắp Ra Mắt Quá Cồng Kềnh Trên Mobile**:
+     - Tiêu đề "Game Chuẩn Bị Ra Mắt & Đếm Ngược Giờ G" quá dài bị bẻ thành 5 dòng trên mobile màn hình hẹp, chèn ép nút "Xem tất cả".
+     - Thẻ game sắp ra mắt chiếm chiều cao gần 320px với quá nhiều chi tiết phụ (dòng theo dõi, hộp đếm ngược 3 tầng, tag PC/Anime...).
+  2. **Khối Game Đang Theo Dõi Chiếm Chiều Cao Lớn**:
+     - Thẻ ghim hiển thị nhiều tầng văn bản và nút xem code riêng biệt khiến cả khối chiếm gần 180px.
+  3. **Vượt Quá Tầm Mắt Mobile (Below The Fold Issue)**:
+     - Tổng chiều cao các khối trên mobile lên tới ~800px, đẩy toàn bộ danh mục game chính (`GameCard`) xuống đáy màn hình, khiến người dùng phải cuộn qua 2-3 màn hình mới tiếp cận được giftcode.
+- **Giải pháp đã triển khai (Solution)**:
+  1. **Tinh Giản Khối Sắp Ra Mắt (`UpcomingGamesBanner`)**:
+     - Tiêu đề ngắn gọn: `Game Sắp Ra Mắt` trên 1 dòng duy nhất, không ngắt dòng.
+     - Thẻ game compact `min-w-[145px] max-w-[155px]`, padding `p-2`, icon 32x32px.
+     - Hộp đếm ngược tinh gọn thành 1 dòng mini pill (`✨ ĐÃ MỞ SERVER` hoặc `02d : 14h : 20m`).
+     - Chiều cao cả khối giảm từ 320px xuống chỉ còn ~145px (tiết kiệm 175px).
+  2. **Tinh Giản Khối Đang Theo Dõi (`PinnedGamesBar`)**:
+     - Tiêu đề gọn gàng: `Game Đang Theo Dõi` + badge đếm số lượng.
+     - Thẻ ghim compact `min-w-[135px] max-w-[145px]`, icon 32x32px, badge code nhỏ xinh `🎁 X Code`.
+     - Ẩn nút "Xem Code" dưới đáy trên mobile vì toàn bộ thẻ đã hỗ trợ chạm để mở chi tiết.
+     - Chiều cao cả khối giảm từ 180px xuống chỉ còn ~85px (tiết kiệm 95px).
+  3. **Tối Ưu `HeroBanner` & Container Lề Trang**:
+     - Giảm padding `HeroBanner` trên mobile xuống `pt-1 pb-1.5`, tiêu đề thu nhỏ `text-sm xs:text-base`.
+     - Tối ưu lề `px-3 py-1.5` trong `App.tsx`.
+     - Tiết kiệm tổng cộng hơn 310px chiều dọc, đưa danh sách game chính lên ngay màn hình đầu tiên (Above The Fold).
+- **Files Modified**:
+  - `src/components/UpcomingGamesBanner.tsx`
+  - `src/components/PinnedGamesBar.tsx`
+  - `src/components/HeroBanner.tsx`
+  - `src/App.tsx`
+
+---
+
+## [2026-10-23]
+
 ### 163. Khắc Phục Lỗi Hiển Thị 0 Code Trên Thẻ Game Nhưng Khi Mở Modal Lại Có Đầy Đủ Code (Sync Fallback Codes to this.games & Preserve Baseline Codes Count)
 - **Mô tả & Yêu cầu người dùng**:
   - *"Trêmn web của tôi đang hiển thị 0 code một số game, tuy nhiên khi ấn vào có game 0 code thật, có game lại có code, trong khi trước đó tôi có thấy đầy đủ code, không có lỗi."*
@@ -38,6 +74,78 @@ Mỗi mục sửa lỗi đều ghi nhận **Nguyên nhân gốc rễ (Root Cause
 
 ## [2026-10-23]
 
+### 164. Tinh Giản Giao Diện Mobile — Thu Gọn Khối Sắp Ra Mắt, Khối Đang Theo Dõi & Tối Ưu Tầm Nhìn Danh Mục Game (Mobile Layout Streamline & Compact Viewports)
+- **Mô tả & Yêu cầu người dùng**:
+  - *"Đây là giao diện trên mobile, bạn tùy chọn tinh giản giao diện giúp tôi cho gọn dễ nhìn."*
+- **Nguyên nhân gốc rễ (Root Cause)**:
+  1. **Khối Game Sắp Ra Mắt Quá Cồng Kềnh Trên Mobile**:
+     - Tiêu đề "Game Chuẩn Bị Ra Mắt & Đếm Ngược Giờ G" quá dài bị bẻ thành 5 dòng trên mobile màn hình hẹp, chèn ép nút "Xem tất cả".
+     - Thẻ game sắp ra mắt chiếm chiều cao gần 320px với quá nhiều chi tiết phụ (dòng theo dõi, hộp đếm ngược 3 tầng, tag PC/Anime...).
+  2. **Khối Game Đang Theo Dõi Chiếm Chiều Cao Lớn**:
+     - Thẻ ghim hiển thị nhiều tầng văn bản và nút xem code riêng biệt khiến cả khối chiếm gần 180px.
+  3. **Vượt Quá Tầm Mắt Mobile (Below The Fold Issue)**:
+     - Tổng chiều cao các khối trên mobile lên tới ~800px, đẩy toàn bộ danh mục game chính (`GameCard`) xuống đáy màn hình, khiến người dùng phải cuộn qua 2-3 màn hình mới tiếp cận được giftcode.
+- **Giải pháp đã triển khai (Solution)**:
+  1. **Tinh Giản Khối Sắp Ra Mắt (`UpcomingGamesBanner`)**:
+     - Tiêu đề ngắn gọn: `Game Sắp Ra Mắt` trên 1 dòng duy nhất, không ngắt dòng.
+     - Thẻ game compact `min-w-[145px] max-w-[155px]`, padding `p-2`, icon 32x32px.
+     - Hộp đếm ngược tinh gọn thành 1 dòng mini pill (`✨ ĐÃ MỞ SERVER` hoặc `02d : 14h : 20m`).
+     - Chiều cao cả khối giảm từ 320px xuống chỉ còn ~145px (tiết kiệm 175px).
+  2. **Tinh Giản Khối Đang Theo Dõi (`PinnedGamesBar`)**:
+     - Tiêu đề gọn gàng: `Game Đang Theo Dõi` + badge đếm số lượng.
+     - Thẻ ghim compact `min-w-[135px] max-w-[145px]`, icon 32x32px, badge code nhỏ xinh `🎁 X Code`.
+     - Ẩn nút "Xem Code" dưới đáy trên mobile vì toàn bộ thẻ đã hỗ trợ chạm để mở chi tiết.
+     - Chiều cao cả khối giảm từ 180px xuống chỉ còn ~85px (tiết kiệm 95px).
+  3. **Tối Ưu `HeroBanner` & Container Lề Trang**:
+     - Giảm padding `HeroBanner` trên mobile xuống `pt-1 pb-1.5`, tiêu đề thu nhỏ `text-sm xs:text-base`.
+     - Tối ưu lề `px-3 py-1.5` trong `App.tsx`.
+     - Tiết kiệm tổng cộng hơn 310px chiều dọc, đưa danh sách game chính lên ngay màn hình đầu tiên (Above The Fold).
+- **Files Modified**:
+  - `src/components/UpcomingGamesBanner.tsx`
+  - `src/components/PinnedGamesBar.tsx`
+  - `src/components/HeroBanner.tsx`
+  - `src/App.tsx`
+
+---
+
+## [2026-10-23]
+
+## [2026-10-23]
+
+### 164. Tinh Giản Giao Diện Mobile — Thu Gọn Khối Sắp Ra Mắt, Khối Đang Theo Dõi & Tối Ưu Tầm Nhìn Danh Mục Game (Mobile Layout Streamline & Compact Viewports)
+- **Mô tả & Yêu cầu người dùng**:
+  - *"Đây là giao diện trên mobile, bạn tùy chọn tinh giản giao diện giúp tôi cho gọn dễ nhìn."*
+- **Nguyên nhân gốc rễ (Root Cause)**:
+  1. **Khối Game Sắp Ra Mắt Quá Cồng Kềnh Trên Mobile**:
+     - Tiêu đề "Game Chuẩn Bị Ra Mắt & Đếm Ngược Giờ G" quá dài bị bẻ thành 5 dòng trên mobile màn hình hẹp, chèn ép nút "Xem tất cả".
+     - Thẻ game sắp ra mắt chiếm chiều cao gần 320px với quá nhiều chi tiết phụ (dòng theo dõi, hộp đếm ngược 3 tầng, tag PC/Anime...).
+  2. **Khối Game Đang Theo Dõi Chiếm Chiều Cao Lớn**:
+     - Thẻ ghim hiển thị nhiều tầng văn bản và nút xem code riêng biệt khiến cả khối chiếm gần 180px.
+  3. **Vượt Quá Tầm Mắt Mobile (Below The Fold Issue)**:
+     - Tổng chiều cao các khối trên mobile lên tới ~800px, đẩy toàn bộ danh mục game chính (`GameCard`) xuống đáy màn hình, khiến người dùng phải cuộn qua 2-3 màn hình mới tiếp cận được giftcode.
+- **Giải pháp đã triển khai (Solution)**:
+  1. **Tinh Giản Khối Sắp Ra Mắt (`UpcomingGamesBanner`)**:
+     - Tiêu đề ngắn gọn: `Game Sắp Ra Mắt` trên 1 dòng duy nhất, không ngắt dòng.
+     - Thẻ game compact `min-w-[145px] max-w-[155px]`, padding `p-2`, icon 32x32px.
+     - Hộp đếm ngược tinh gọn thành 1 dòng mini pill (`✨ ĐÃ MỞ SERVER` hoặc `02d : 14h : 20m`).
+     - Chiều cao cả khối giảm từ 320px xuống chỉ còn ~145px (tiết kiệm 175px).
+  2. **Tinh Giản Khối Đang Theo Dõi (`PinnedGamesBar`)**:
+     - Tiêu đề gọn gàng: `Game Đang Theo Dõi` + badge đếm số lượng.
+     - Thẻ ghim compact `min-w-[135px] max-w-[145px]`, icon 32x32px, badge code nhỏ xinh `🎁 X Code`.
+     - Ẩn nút "Xem Code" dưới đáy trên mobile vì toàn bộ thẻ đã hỗ trợ chạm để mở chi tiết.
+     - Chiều cao cả khối giảm từ 180px xuống chỉ còn ~85px (tiết kiệm 95px).
+  3. **Tối Ưu `HeroBanner` & Container Lề Trang**:
+     - Giảm padding `HeroBanner` trên mobile xuống `pt-1 pb-1.5`, tiêu đề thu nhỏ `text-sm xs:text-base`.
+     - Tối ưu lề `px-3 py-1.5` trong `App.tsx`.
+     - Tiết kiệm tổng cộng hơn 310px chiều dọc, đưa danh sách game chính lên ngay màn hình đầu tiên (Above The Fold).
+- **Files Modified**:
+  - `src/components/UpcomingGamesBanner.tsx`
+  - `src/components/PinnedGamesBar.tsx`
+  - `src/components/HeroBanner.tsx`
+  - `src/App.tsx`
+
+---
+
 ## [2026-10-23]
 
 ### 163. Khắc Phục Lỗi Hiển Thị 0 Code Trên Thẻ Game Nhưng Khi Mở Modal Lại Có Đầy Đủ Code (Sync Fallback Codes to this.games & Preserve Baseline Codes Count)
@@ -66,6 +174,42 @@ Mỗi mục sửa lỗi đều ghi nhận **Nguyên nhân gốc rễ (Root Cause
      - Chỉ chuyển game khi thực sự đã phát hành (`target <= now`) và có ít nhất 1 mã giftcode hoạt động (`finalCodes.length > 0`).
 - **Files Modified**:
   - `src/services/dataService.ts`
+
+---
+
+## [2026-10-23]
+
+### 164. Tinh Giản Giao Diện Mobile — Thu Gọn Khối Sắp Ra Mắt, Khối Đang Theo Dõi & Tối Ưu Tầm Nhìn Danh Mục Game (Mobile Layout Streamline & Compact Viewports)
+- **Mô tả & Yêu cầu người dùng**:
+  - *"Đây là giao diện trên mobile, bạn tùy chọn tinh giản giao diện giúp tôi cho gọn dễ nhìn."*
+- **Nguyên nhân gốc rễ (Root Cause)**:
+  1. **Khối Game Sắp Ra Mắt Quá Cồng Kềnh Trên Mobile**:
+     - Tiêu đề "Game Chuẩn Bị Ra Mắt & Đếm Ngược Giờ G" quá dài bị bẻ thành 5 dòng trên mobile màn hình hẹp, chèn ép nút "Xem tất cả".
+     - Thẻ game sắp ra mắt chiếm chiều cao gần 320px với quá nhiều chi tiết phụ (dòng theo dõi, hộp đếm ngược 3 tầng, tag PC/Anime...).
+  2. **Khối Game Đang Theo Dõi Chiếm Chiều Cao Lớn**:
+     - Thẻ ghim hiển thị nhiều tầng văn bản và nút xem code riêng biệt khiến cả khối chiếm gần 180px.
+  3. **Vượt Quá Tầm Mắt Mobile (Below The Fold Issue)**:
+     - Tổng chiều cao các khối trên mobile lên tới ~800px, đẩy toàn bộ danh mục game chính (`GameCard`) xuống đáy màn hình, khiến người dùng phải cuộn qua 2-3 màn hình mới tiếp cận được giftcode.
+- **Giải pháp đã triển khai (Solution)**:
+  1. **Tinh Giản Khối Sắp Ra Mắt (`UpcomingGamesBanner`)**:
+     - Tiêu đề ngắn gọn: `Game Sắp Ra Mắt` trên 1 dòng duy nhất, không ngắt dòng.
+     - Thẻ game compact `min-w-[145px] max-w-[155px]`, padding `p-2`, icon 32x32px.
+     - Hộp đếm ngược tinh gọn thành 1 dòng mini pill (`✨ ĐÃ MỞ SERVER` hoặc `02d : 14h : 20m`).
+     - Chiều cao cả khối giảm từ 320px xuống chỉ còn ~145px (tiết kiệm 175px).
+  2. **Tinh Giản Khối Đang Theo Dõi (`PinnedGamesBar`)**:
+     - Tiêu đề gọn gàng: `Game Đang Theo Dõi` + badge đếm số lượng.
+     - Thẻ ghim compact `min-w-[135px] max-w-[145px]`, icon 32x32px, badge code nhỏ xinh `🎁 X Code`.
+     - Ẩn nút "Xem Code" dưới đáy trên mobile vì toàn bộ thẻ đã hỗ trợ chạm để mở chi tiết.
+     - Chiều cao cả khối giảm từ 180px xuống chỉ còn ~85px (tiết kiệm 95px).
+  3. **Tối Ưu `HeroBanner` & Container Lề Trang**:
+     - Giảm padding `HeroBanner` trên mobile xuống `pt-1 pb-1.5`, tiêu đề thu nhỏ `text-sm xs:text-base`.
+     - Tối ưu lề `px-3 py-1.5` trong `App.tsx`.
+     - Tiết kiệm tổng cộng hơn 310px chiều dọc, đưa danh sách game chính lên ngay màn hình đầu tiên (Above The Fold).
+- **Files Modified**:
+  - `src/components/UpcomingGamesBanner.tsx`
+  - `src/components/PinnedGamesBar.tsx`
+  - `src/components/HeroBanner.tsx`
+  - `src/App.tsx`
 
 ---
 
@@ -124,6 +268,42 @@ Mỗi mục sửa lỗi đều ghi nhận **Nguyên nhân gốc rễ (Root Cause
 
 ## [2026-10-23]
 
+### 164. Tinh Giản Giao Diện Mobile — Thu Gọn Khối Sắp Ra Mắt, Khối Đang Theo Dõi & Tối Ưu Tầm Nhìn Danh Mục Game (Mobile Layout Streamline & Compact Viewports)
+- **Mô tả & Yêu cầu người dùng**:
+  - *"Đây là giao diện trên mobile, bạn tùy chọn tinh giản giao diện giúp tôi cho gọn dễ nhìn."*
+- **Nguyên nhân gốc rễ (Root Cause)**:
+  1. **Khối Game Sắp Ra Mắt Quá Cồng Kềnh Trên Mobile**:
+     - Tiêu đề "Game Chuẩn Bị Ra Mắt & Đếm Ngược Giờ G" quá dài bị bẻ thành 5 dòng trên mobile màn hình hẹp, chèn ép nút "Xem tất cả".
+     - Thẻ game sắp ra mắt chiếm chiều cao gần 320px với quá nhiều chi tiết phụ (dòng theo dõi, hộp đếm ngược 3 tầng, tag PC/Anime...).
+  2. **Khối Game Đang Theo Dõi Chiếm Chiều Cao Lớn**:
+     - Thẻ ghim hiển thị nhiều tầng văn bản và nút xem code riêng biệt khiến cả khối chiếm gần 180px.
+  3. **Vượt Quá Tầm Mắt Mobile (Below The Fold Issue)**:
+     - Tổng chiều cao các khối trên mobile lên tới ~800px, đẩy toàn bộ danh mục game chính (`GameCard`) xuống đáy màn hình, khiến người dùng phải cuộn qua 2-3 màn hình mới tiếp cận được giftcode.
+- **Giải pháp đã triển khai (Solution)**:
+  1. **Tinh Giản Khối Sắp Ra Mắt (`UpcomingGamesBanner`)**:
+     - Tiêu đề ngắn gọn: `Game Sắp Ra Mắt` trên 1 dòng duy nhất, không ngắt dòng.
+     - Thẻ game compact `min-w-[145px] max-w-[155px]`, padding `p-2`, icon 32x32px.
+     - Hộp đếm ngược tinh gọn thành 1 dòng mini pill (`✨ ĐÃ MỞ SERVER` hoặc `02d : 14h : 20m`).
+     - Chiều cao cả khối giảm từ 320px xuống chỉ còn ~145px (tiết kiệm 175px).
+  2. **Tinh Giản Khối Đang Theo Dõi (`PinnedGamesBar`)**:
+     - Tiêu đề gọn gàng: `Game Đang Theo Dõi` + badge đếm số lượng.
+     - Thẻ ghim compact `min-w-[135px] max-w-[145px]`, icon 32x32px, badge code nhỏ xinh `🎁 X Code`.
+     - Ẩn nút "Xem Code" dưới đáy trên mobile vì toàn bộ thẻ đã hỗ trợ chạm để mở chi tiết.
+     - Chiều cao cả khối giảm từ 180px xuống chỉ còn ~85px (tiết kiệm 95px).
+  3. **Tối Ưu `HeroBanner` & Container Lề Trang**:
+     - Giảm padding `HeroBanner` trên mobile xuống `pt-1 pb-1.5`, tiêu đề thu nhỏ `text-sm xs:text-base`.
+     - Tối ưu lề `px-3 py-1.5` trong `App.tsx`.
+     - Tiết kiệm tổng cộng hơn 310px chiều dọc, đưa danh sách game chính lên ngay màn hình đầu tiên (Above The Fold).
+- **Files Modified**:
+  - `src/components/UpcomingGamesBanner.tsx`
+  - `src/components/PinnedGamesBar.tsx`
+  - `src/components/HeroBanner.tsx`
+  - `src/App.tsx`
+
+---
+
+## [2026-10-23]
+
 ### 163. Khắc Phục Lỗi Hiển Thị 0 Code Trên Thẻ Game Nhưng Khi Mở Modal Lại Có Đầy Đủ Code (Sync Fallback Codes to this.games & Preserve Baseline Codes Count)
 - **Mô tả & Yêu cầu người dùng**:
   - *"Trêmn web của tôi đang hiển thị 0 code một số game, tuy nhiên khi ấn vào có game 0 code thật, có game lại có code, trong khi trước đó tôi có thấy đầy đủ code, không có lỗi."*
@@ -150,6 +330,42 @@ Mỗi mục sửa lỗi đều ghi nhận **Nguyên nhân gốc rễ (Root Cause
      - Chỉ chuyển game khi thực sự đã phát hành (`target <= now`) và có ít nhất 1 mã giftcode hoạt động (`finalCodes.length > 0`).
 - **Files Modified**:
   - `src/services/dataService.ts`
+
+---
+
+## [2026-10-23]
+
+### 164. Tinh Giản Giao Diện Mobile — Thu Gọn Khối Sắp Ra Mắt, Khối Đang Theo Dõi & Tối Ưu Tầm Nhìn Danh Mục Game (Mobile Layout Streamline & Compact Viewports)
+- **Mô tả & Yêu cầu người dùng**:
+  - *"Đây là giao diện trên mobile, bạn tùy chọn tinh giản giao diện giúp tôi cho gọn dễ nhìn."*
+- **Nguyên nhân gốc rễ (Root Cause)**:
+  1. **Khối Game Sắp Ra Mắt Quá Cồng Kềnh Trên Mobile**:
+     - Tiêu đề "Game Chuẩn Bị Ra Mắt & Đếm Ngược Giờ G" quá dài bị bẻ thành 5 dòng trên mobile màn hình hẹp, chèn ép nút "Xem tất cả".
+     - Thẻ game sắp ra mắt chiếm chiều cao gần 320px với quá nhiều chi tiết phụ (dòng theo dõi, hộp đếm ngược 3 tầng, tag PC/Anime...).
+  2. **Khối Game Đang Theo Dõi Chiếm Chiều Cao Lớn**:
+     - Thẻ ghim hiển thị nhiều tầng văn bản và nút xem code riêng biệt khiến cả khối chiếm gần 180px.
+  3. **Vượt Quá Tầm Mắt Mobile (Below The Fold Issue)**:
+     - Tổng chiều cao các khối trên mobile lên tới ~800px, đẩy toàn bộ danh mục game chính (`GameCard`) xuống đáy màn hình, khiến người dùng phải cuộn qua 2-3 màn hình mới tiếp cận được giftcode.
+- **Giải pháp đã triển khai (Solution)**:
+  1. **Tinh Giản Khối Sắp Ra Mắt (`UpcomingGamesBanner`)**:
+     - Tiêu đề ngắn gọn: `Game Sắp Ra Mắt` trên 1 dòng duy nhất, không ngắt dòng.
+     - Thẻ game compact `min-w-[145px] max-w-[155px]`, padding `p-2`, icon 32x32px.
+     - Hộp đếm ngược tinh gọn thành 1 dòng mini pill (`✨ ĐÃ MỞ SERVER` hoặc `02d : 14h : 20m`).
+     - Chiều cao cả khối giảm từ 320px xuống chỉ còn ~145px (tiết kiệm 175px).
+  2. **Tinh Giản Khối Đang Theo Dõi (`PinnedGamesBar`)**:
+     - Tiêu đề gọn gàng: `Game Đang Theo Dõi` + badge đếm số lượng.
+     - Thẻ ghim compact `min-w-[135px] max-w-[145px]`, icon 32x32px, badge code nhỏ xinh `🎁 X Code`.
+     - Ẩn nút "Xem Code" dưới đáy trên mobile vì toàn bộ thẻ đã hỗ trợ chạm để mở chi tiết.
+     - Chiều cao cả khối giảm từ 180px xuống chỉ còn ~85px (tiết kiệm 95px).
+  3. **Tối Ưu `HeroBanner` & Container Lề Trang**:
+     - Giảm padding `HeroBanner` trên mobile xuống `pt-1 pb-1.5`, tiêu đề thu nhỏ `text-sm xs:text-base`.
+     - Tối ưu lề `px-3 py-1.5` trong `App.tsx`.
+     - Tiết kiệm tổng cộng hơn 310px chiều dọc, đưa danh sách game chính lên ngay màn hình đầu tiên (Above The Fold).
+- **Files Modified**:
+  - `src/components/UpcomingGamesBanner.tsx`
+  - `src/components/PinnedGamesBar.tsx`
+  - `src/components/HeroBanner.tsx`
+  - `src/App.tsx`
 
 ---
 

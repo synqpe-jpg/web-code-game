@@ -74,7 +74,7 @@ export const HeroBanner: React.FC<HeroBannerProps> = ({
   const heroDescription = cmsHero?.content || t.hero.subtitle;
 
   return (
-    <div className="relative overflow-hidden pt-2.5 pb-2.5 sm:pt-7 sm:pb-7 border-b border-border/50">
+    <div className="relative overflow-hidden pt-1 pb-1.5 sm:pt-7 sm:pb-7 border-b border-border/50">
       {/* Ambient background glow effects */}
       <div className="absolute top-1/2 left-1/4 -translate-y-1/2 -translate-x-1/2 w-80 h-80 bg-primary/15 rounded-full blur-3xl pointer-events-none -z-10" />
       <div className="absolute top-1/3 right-1/4 -translate-y-1/2 translate-x-1/2 w-80 h-80 bg-accent/15 rounded-full blur-3xl pointer-events-none -z-10" />
@@ -83,19 +83,19 @@ export const HeroBanner: React.FC<HeroBannerProps> = ({
       <div className="max-w-5xl mx-auto px-3 sm:px-6 lg:px-8">
         <div className="text-center max-w-2xl mx-auto">
           {/* Top Pill Badge (Single-line guaranteed without wrapping bugs) */}
-          <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 sm:px-3 sm:py-1 rounded-full bg-primary/10 border border-primary/30 text-primary-light text-[10px] sm:text-xs font-semibold uppercase tracking-wider mb-1.5 sm:mb-3 shadow-sm max-w-full whitespace-nowrap overflow-hidden">
-            <Sparkles className="w-3 h-3 text-amber-400 animate-spin shrink-0" style={{ animationDuration: '6s' }} />
+          <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 sm:px-3 sm:py-1 rounded-full bg-primary/10 border border-primary/30 text-primary-light text-[9px] sm:text-xs font-semibold uppercase tracking-wider mb-1 sm:mb-3 shadow-sm max-w-full whitespace-nowrap overflow-hidden">
+            <Sparkles className="w-2.5 h-2.5 sm:w-3 sm:h-3 text-amber-400 animate-spin shrink-0" style={{ animationDuration: '6s' }} />
             <span className="truncate">{heroBadgeText}</span>
             <span className="text-primary/30 shrink-0">•</span>
             <span className="text-emerald-400 font-bold font-mono inline-flex items-center gap-1 shrink-0">
-              <Zap className="w-3 h-3 text-emerald-400 animate-pulse shrink-0" />
+              <Zap className="w-2.5 h-2.5 sm:w-3 sm:h-3 text-emerald-400 animate-pulse shrink-0" />
               <span>{liveCopies.toLocaleString('vi-VN')}</span>
-              <span className="text-[10px] text-slate-300 font-normal lowercase hidden xs:inline">lượt tải</span>
+              <span className="text-[9px] sm:text-[10px] text-slate-300 font-normal lowercase hidden xs:inline">lượt tải</span>
             </span>
           </div>
 
           {/* Main Title - Compact on mobile */}
-          <h1 className="text-base sm:text-3xl lg:text-4xl font-display font-extrabold tracking-tight text-foreground leading-snug mb-1 sm:mb-2.5">
+          <h1 className="text-sm xs:text-base sm:text-3xl lg:text-4xl font-display font-extrabold tracking-tight text-foreground leading-snug mb-1 sm:mb-2.5">
             {heroMainTitle}{' '}
             {heroHighlight && (
               <span className="bg-gradient-to-r from-purple-400 via-primary-light to-cyan-400 bg-clip-text text-transparent">
@@ -111,7 +111,7 @@ export const HeroBanner: React.FC<HeroBannerProps> = ({
 
           {/* Smart Autocomplete Search Bar */}
           {onSearchChange && (
-            <div id="hero-search-container" className="max-w-xl mx-auto mb-1.5 sm:mb-3.5">
+            <div id="hero-search-container" className="max-w-xl mx-auto mb-1 sm:mb-3.5">
               <SearchAutocomplete
                 searchQuery={searchQuery}
                 onSearchChange={onSearchChange}
