@@ -7,6 +7,33 @@ Mỗi mục sửa lỗi đều ghi nhận **Nguyên nhân gốc rễ (Root Cause
 
 ## [2026-10-23]
 
+### 169. Nâng Cấp Nút "Copy Tất Cả" Thành Tiện Ích Thành Viên & Hiển Thị Trọn Vẹn 100% Mã Code Khi Đăng Nhập — Giao Diện Mobile Siêu Tinh Gọn (VIP Member Copy All & Masked Code Security Flow)
+- **Mô tả & Yêu cầu người dùng**:
+  - *"Hiện tại tôi muốn thiết kế, nếu người dùng nút copy tất cả thì cần đăng nhập, nếu ấn vào nút copy tất cả mà chưa đăng nhập thì sẽ bâth lên bảng thông báo và dẫn tới mục đăng nhập. Sau khi đăng nhập ngoài việc copy tất cả thì cũng sẽ hiện toàn vẹn mã trên giao diện chứ không bị che 1 phần nữa, nhưng vẫn đảm bảo giao diện tinh gọn như hiện tại được không? Trả lời tôi trước."*
+- **Nguyên nhân gốc rễ (Root Cause & Ergonomics)**:
+  - Trên màn hình di động hẹp (~360-390px), trước đây hàng ngang của thẻ code nhét cả cụm Vote (Up/Down) và nút Sao chép (~170px) ở bên phải, trong khi bên trái lại có huy hiệu badge `• Còn hạn` cồng kềnh (~65px) nằm ngay cạnh chuỗi code. Khoảng trống còn lại cho mã code chỉ còn ~50-60px, khiến CSS `truncate` tự động cắt đuôi thành `DFG...`, `VIP...`.
+  - Chưa có cơ chế phân quyền trải nghiệm giữa khách vãng lai và thành viên đã đăng nhập: Khách có thể copy hàng loạt mà không cần tài khoản, làm giảm tỷ lệ đăng ký tài khoản (conversion rate).
+- **Giải pháp đã triển khai (Solution)**:
+  1. **Quy trình Phân Quyền Thành Viên (Member Auth Prompt Flow)**:
+     - Khi người dùng **CHƯA ĐĂNG NHẬP** bấm nút "Copy tất cả" (cả ở thanh công cụ sticky và header danh sách code):
+       - Hệ thống tự động kích hoạt Modal VIP Popup sang trọng: giới thiệu 3 đặc quyền thành viên (Copy 1-chạm toàn bộ mã, hiện trọn vẹn 100% mã không che, lưu game yêu thích).
+       - Nút "Đăng nhập / Đăng ký ngay" chuyển mượt mà tới `AuthModal` sẵn có của hệ thống.
+       - Nút "Để sau" đóng modal nhanh chóng.
+     - Khi người dùng **ĐÃ ĐĂNG NHẬP**:
+       - Mở khóa toàn quyền nút "Copy tất cả", sao chép toàn bộ danh sách mã vào clipboard và kích hoạt hiệu ứng pháo hoa giấy confetti chúc mừng rực rỡ.
+  2. **Hiển Thị Mã Code Thông Minh (Masking & Full Unmasking)**:
+     - **Chưa đăng nhập**: Chuỗi mã được che một phần có chủ đích (ví dụ `DFG•••`, `VIP••••` kèm icon ổ khóa nhỏ `🔒`), kích thích tính tò mò và khuyến khích đăng nhập. Khách vẫn có thể bấm nút "Sao chép" lẻ từng mã bình thường để đảm bảo tính hữu ích.
+     - **Đã đăng nhập**: Mã hiển thị trọn vẹn 100% in hoa sắc nét trong font monospace emerald (`break-all sm:break-normal`), không còn bất kỳ dấu ba chấm hay che giấu nào.
+  3. **Tối Ưu Giao Diện Siêu Tinh Gọn Trên Mobile (Zero Overflow & High Density)**:
+     - Trên mobile: Thay thế badge `• Còn hạn` chiếm 65px bằng chấm tròn LED phát sáng xanh ngọc `w-2 h-2 rounded-full bg-emerald-400 animate-pulse` gọn gàng ngay cạnh tên code (trên desktop vẫn hiển thị badge đầy đủ).
+     - Cụm Vote và nút "Sao chép" bên phải được tinh chỉnh padding chuẩn di động (`px-1 sm:px-1.5`, nút sao chép `h-7 sm:h-8 px-2 sm:px-3 text-[11px] sm:text-xs`).
+     - Giải phóng hơn 100px không gian ngang, đảm bảo ngay cả mã dài 12–15 ký tự vẫn hiển thị đầy đủ, không bao giờ bị cắt ngắn hay tràn dòng.
+- **Files Modified**:
+  - `src/App.tsx`
+  - `src/components/GameDetailModal.tsx`
+
+---
+
 ### 168. Mở Rộng API Crawler Ingest — Bổ Sung 4 Action Quản Lý Hàng Chờ Game Chưa Đăng & Phê Duyệt Giftcode Tự Động Cho Bot Muse (Pine Assistant RPC Queue Management)
 - **Mô tả & Yêu cầu người dùng**:
   - *"Hiện tại bot Muse (Trợ lý Pine) chỉ nạp được giftcode qua POST /api/crawler/ingest-codes. Tôi cần mở rộng API crawler này, dùng lại đúng API key hiện tại (lưu trong D1 config wcg_crawler_api_config_v1, xác thực Bearer như cũ), thêm 4 action sau để bot quản lý hàng chờ thay tôi: (1) action list_pending_games, (2) action publish_game, (3) action list_pending_codes, (4) action approve_codes và reject_codes."*

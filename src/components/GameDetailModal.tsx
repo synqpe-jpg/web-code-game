@@ -23,6 +23,10 @@ import {
   Globe,
   Bell,
   BellRing,
+  Lock,
+  Unlock,
+  LogIn,
+  Bookmark,
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
 import type { GameItem, GiftCode, UserProfile } from '../types/game';
@@ -44,6 +48,7 @@ interface GameDetailModalProps {
   onOpenShare: (game: GameItem) => void;
   onShowToast: (title: string, message?: string, type?: 'success' | 'error' | 'info') => void;
   currentUser?: UserProfile | null;
+  onOpenAuth?: () => void;
 }
 
 export const GameDetailModal: React.FC<GameDetailModalProps> = ({
@@ -54,6 +59,7 @@ export const GameDetailModal: React.FC<GameDetailModalProps> = ({
   onOpenShare,
   onShowToast,
   currentUser,
+  onOpenAuth,
 }) => {
   const { t } = useLanguage();
   useLockBodyScroll(true);
@@ -66,6 +72,7 @@ export const GameDetailModal: React.FC<GameDetailModalProps> = ({
   const [modalImageLoaded, setModalImageLoaded] = useState(false);
   const [modalFallbackStage, setModalFallbackStage] = useState(0); // 0: webp, 1: jpg, 2: edge proxy, 3: initials
   const [isEmailModalOpen, setIsEmailModalOpen] = useState(false);
+  const [isAuthPromptOpen, setIsAuthPromptOpen] = useState(false);
   const [isGameFollowed, setIsGameFollowed] = useState(false);
   const prevGameSlugRef = React.useRef<string | null>(game ? (game.slug || game.id || null) : null);
 
@@ -171,6 +178,16 @@ export const GameDetailModal: React.FC<GameDetailModalProps> = ({
   const activeCodes = allCodes.filter((c) => !isExpired(c));
   const expiredCodes = allCodes.filter((c) => isExpired(c));
 
+  const formatMaskedCode = (code: string): string => {
+    if (!code) return '';
+    const clean = code.trim();
+    const len = clean.length;
+    if (len <= 3) return clean.slice(0, 1) + '••';
+    if (len <= 5) return clean.slice(0, 2) + '•••';
+    if (len <= 8) return clean.slice(0, 3) + '••••';
+    return clean.slice(0, 4) + '••••••';
+  };
+
   const copyToClipboard = async (text: string): Promise<boolean> => {
     try {
       if (navigator.clipboard && window.isSecureContext) {
@@ -199,6 +216,11 @@ export const GameDetailModal: React.FC<GameDetailModalProps> = ({
   };
 
   const handleCopyAll = async (targetCodes: GiftCode[], typeKey: string) => {
+    if (!activeUser) {
+      setIsAuthPromptOpen(true);
+      return;
+    }
+
     if (!targetCodes || targetCodes.length === 0) {
       onShowToast('Không có mã nào', 'Mục này hiện chưa có mã code để sao chép.', 'info');
       return;
@@ -251,7 +273,11 @@ export const GameDetailModal: React.FC<GameDetailModalProps> = ({
     if (isExpired) {
       onShowToast(`Đã chép mã: ${code}`, `${t.modal.expiredNotice}`, 'info');
     } else {
-      onShowToast(`Đã chép: ${code}`, 'Sẵn sàng dán vào game', 'success');
+      if (!activeUser) {
+        onShowToast(`Đã chép mã: ${code}`, 'Mẹo: Đăng nhập để mở khóa Copy tất cả và xem mã trọn vẹn.', 'info');
+      } else {
+        onShowToast(`Đã chép: ${code}`, 'Sẵn sàng dán vào game', 'success');
+      }
       confetti({
         particleCount: 30,
         spread: 50,
@@ -439,7 +465,7 @@ export const GameDetailModal: React.FC<GameDetailModalProps> = ({
                     ? 'bg-emerald-600 text-white border-emerald-500 shadow-neon-emerald'
                     : 'bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 hover:to-teal-400 text-slate-950 border-emerald-400 font-extrabold shadow-sm'
                 }`}
-                title={`Sao chép toàn bộ ${activeCodes.length} mã còn hạn`}
+                title={!activeUser ? "Đăng nhập để sao chép toàn bộ mã" : `Sao chép toàn bộ ${activeCodes.length} mã còn hạn`}
               >
                 {copiedType === 'active' ? (
                   <>
@@ -448,7 +474,11 @@ export const GameDetailModal: React.FC<GameDetailModalProps> = ({
                   </>
                 ) : (
                   <>
-                    <Copy className="w-3.5 h-3.5 text-slate-950" />
+                    {!activeUser ? (
+                      <Lock className="w-3.5 h-3.5 text-slate-950/80" />
+                    ) : (
+                      <Copy className="w-3.5 h-3.5 text-slate-950" />
+                    )}
                     <span>{t.modal.copyAll} ({activeCodes.length})</span>
                   </>
                 )}
@@ -564,7 +594,7 @@ export const GameDetailModal: React.FC<GameDetailModalProps> = ({
                           ? 'bg-emerald-600 text-white border-emerald-500 ring-2 ring-emerald-500/30'
                           : 'bg-emerald-500/15 hover:bg-emerald-500/30 text-emerald-400 hover:text-white border-emerald-500/35'
                       }`}
-                      title={`Sao chép toàn bộ ${activeCodes.length} mã còn hạn`}
+                      title={!activeUser ? "Đăng nhập để sao chép toàn bộ mã" : `Sao chép toàn bộ ${activeCodes.length} mã còn hạn`}
                     >
                       {copiedType === 'active' ? (
                         <>
@@ -573,7 +603,11 @@ export const GameDetailModal: React.FC<GameDetailModalProps> = ({
                         </>
                       ) : (
                         <>
-                          <Copy className="w-3.5 h-3.5" />
+                          {!activeUser ? (
+                            <Lock className="w-3.5 h-3.5 text-emerald-400/90" />
+                          ) : (
+                            <Copy className="w-3.5 h-3.5" />
+                          )}
                           <span>{t.modal.copyAll} ({activeCodes.length})</span>
                         </>
                       )}
@@ -606,29 +640,44 @@ export const GameDetailModal: React.FC<GameDetailModalProps> = ({
                         }`}
                       >
                         {/* Main Touch / Click Area */}
-                        <div className="p-2.5 sm:p-3.5 flex items-center justify-between gap-2.5 sm:gap-4">
-                          {/* Left: Code + Metadata (Click to Copy) */}
+                        <div className="p-2 sm:p-3 flex items-center justify-between gap-2 sm:gap-3">
+                          {/* Left: Code + Metadata (Click to Copy or View Full) */}
                           <div
-                            onClick={() => handleCopy(codeItem.code)}
+                            onClick={() => {
+                              if (!activeUser) {
+                                setIsAuthPromptOpen(true);
+                              } else {
+                                handleCopy(codeItem.code);
+                              }
+                            }}
                             className="flex-1 min-w-0 cursor-pointer select-none"
-                            title="Nhấn để sao chép mã"
+                            title={!activeUser ? "Đăng nhập để xem trọn vẹn mã" : "Nhấn để sao chép mã"}
                           >
                             {/* Row 1: Code Text + Badges */}
                             <div className="flex items-center gap-1.5 sm:gap-2">
-                              <span className="font-mono text-sm sm:text-base font-black tracking-wider text-emerald-400 group-hover:text-emerald-300 truncate">
-                                {codeItem.code}
+                              <span className="font-mono text-xs xs:text-sm sm:text-base font-black tracking-wider text-emerald-400 group-hover:text-emerald-300 break-all sm:break-normal">
+                                {activeUser ? (
+                                  codeItem.code
+                                ) : (
+                                  <span className="inline-flex items-center gap-1 text-emerald-400/90">
+                                    <span>{formatMaskedCode(codeItem.code)}</span>
+                                    <Lock className="w-3 h-3 text-amber-400/80 inline shrink-0" />
+                                  </span>
+                                )}
                               </span>
 
-                              <span className="inline-flex items-center gap-1 text-[9px] sm:text-[10px] font-semibold px-2 py-0.5 rounded-full bg-emerald-500/15 text-emerald-400 border border-emerald-500/30 shrink-0">
+                              {/* Desktop: Badge Còn Hạn đầy đủ; Mobile: Chấm LED phát sáng */}
+                              <span className="hidden sm:inline-flex items-center gap-1 text-[9px] sm:text-[10px] font-semibold px-2 py-0.5 rounded-full bg-emerald-500/15 text-emerald-400 border border-emerald-500/30 shrink-0">
                                 <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
                                 {t.modal.activeCodes}
                               </span>
+                              <span className="sm:hidden w-2 h-2 rounded-full bg-emerald-400 animate-pulse shrink-0" title="Còn hạn" />
                             </div>
 
                             {/* Row 2: Rewards & Expiry */}
                             <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 mt-0.5 text-[11px] sm:text-xs text-muted-foreground">
                               {codeItem.rewards && (
-                                <span className="truncate max-w-[180px] xs:max-w-[260px] sm:max-w-md text-slate-300 font-sans">
+                                <span className="truncate max-w-[160px] xs:max-w-[220px] sm:max-w-md text-slate-300 font-sans">
                                   🎁 {codeItem.rewards}
                                 </span>
                               )}
@@ -642,7 +691,7 @@ export const GameDetailModal: React.FC<GameDetailModalProps> = ({
                           </div>
 
                           {/* Right: Quick Thumb Actions (Vote & Copy Button) */}
-                          <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
+                          <div className="flex items-center gap-1 sm:gap-2 shrink-0">
                             {/* Votes: Compact pill */}
                             <div className="flex items-center bg-card/90 border border-border/80 rounded-xl p-0.5 shadow-xs">
                               <button
@@ -651,10 +700,10 @@ export const GameDetailModal: React.FC<GameDetailModalProps> = ({
                                   e.stopPropagation();
                                   handleVote(codeItem.code, 'up');
                                 }}
-                                className="flex items-center gap-0.5 px-1.5 py-1 rounded-lg hover:bg-emerald-500/20 text-[10px] sm:text-[11px] font-mono text-muted-foreground hover:text-emerald-400 transition-colors cursor-pointer active:scale-90"
+                                className="flex items-center gap-0.5 px-1 sm:px-1.5 py-0.5 sm:py-1 rounded-lg hover:bg-emerald-500/20 text-[10px] sm:text-[11px] font-mono text-muted-foreground hover:text-emerald-400 transition-colors cursor-pointer active:scale-90"
                                 title={t.modal.reportWorking}
                               >
-                                <ThumbsUp className="w-3 h-3 text-emerald-400/90" />
+                                <ThumbsUp className="w-2.5 h-2.5 sm:w-3 sm:h-3 text-emerald-400/90" />
                                 <span>{voteInfo.up}</span>
                               </button>
                               <div className="w-[1px] h-3 bg-border/80" />
@@ -664,10 +713,10 @@ export const GameDetailModal: React.FC<GameDetailModalProps> = ({
                                   e.stopPropagation();
                                   handleVote(codeItem.code, 'down');
                                 }}
-                                className="flex items-center gap-0.5 px-1.5 py-1 rounded-lg hover:bg-rose-500/20 text-[10px] sm:text-[11px] font-mono text-muted-foreground hover:text-rose-400 transition-colors cursor-pointer active:scale-90"
+                                className="flex items-center gap-0.5 px-1 sm:px-1.5 py-0.5 sm:py-1 rounded-lg hover:bg-rose-500/20 text-[10px] sm:text-[11px] font-mono text-muted-foreground hover:text-rose-400 transition-colors cursor-pointer active:scale-90"
                                 title={t.modal.reportExpired}
                               >
-                                <ThumbsDown className="w-3 h-3 text-rose-400/90" />
+                                <ThumbsDown className="w-2.5 h-2.5 sm:w-3 sm:h-3 text-rose-400/90" />
                                 <span>{voteInfo.down}</span>
                               </button>
                             </div>
@@ -679,7 +728,7 @@ export const GameDetailModal: React.FC<GameDetailModalProps> = ({
                                 e.stopPropagation();
                                 handleCopy(codeItem.code);
                               }}
-                              className={`h-8 sm:h-9 px-2.5 sm:px-3.5 rounded-xl text-xs sm:text-xs font-bold flex items-center justify-center gap-1.5 transition-all cursor-pointer active:scale-95 shrink-0 shadow-sm ${
+                              className={`h-7 sm:h-8 px-2 sm:px-3 rounded-xl text-[11px] sm:text-xs font-bold flex items-center justify-center gap-1 transition-all cursor-pointer active:scale-95 shrink-0 shadow-sm ${
                                 isThisCopied
                                   ? 'bg-emerald-600 text-white shadow-neon-emerald ring-1 ring-emerald-400'
                                   : 'bg-emerald-500/20 hover:bg-emerald-500 text-emerald-400 hover:text-white border border-emerald-500/40 hover:shadow-md'
@@ -688,12 +737,12 @@ export const GameDetailModal: React.FC<GameDetailModalProps> = ({
                             >
                               {isThisCopied ? (
                                 <>
-                                  <Check className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-white stroke-[2.5]" />
+                                  <Check className="w-3.5 h-3.5 text-white stroke-[2.5]" />
                                   <span>{t.gameCard.copied}</span>
                                 </>
                               ) : (
                                 <>
-                                  <Copy className="w-3.5 h-3.5" />
+                                  <Copy className="w-3 h-3 sm:w-3.5 sm:h-3.5" />
                                   <span>{t.modal.copy}</span>
                                 </>
                               )}
@@ -739,7 +788,7 @@ export const GameDetailModal: React.FC<GameDetailModalProps> = ({
                           ? 'bg-rose-600 text-white border-rose-500 ring-2 ring-rose-500/30'
                           : 'bg-rose-500/15 hover:bg-rose-500/30 text-rose-400 hover:text-white border-rose-500/35'
                       }`}
-                      title={`Sao chép toàn bộ ${expiredCodes.length} mã hết hạn`}
+                      title={!activeUser ? "Đăng nhập để sao chép toàn bộ mã" : `Sao chép toàn bộ ${expiredCodes.length} mã hết hạn`}
                     >
                       {copiedType === 'expired' ? (
                         <>
@@ -748,7 +797,11 @@ export const GameDetailModal: React.FC<GameDetailModalProps> = ({
                         </>
                       ) : (
                         <>
-                          <Copy className="w-3.5 h-3.5" />
+                          {!activeUser ? (
+                            <Lock className="w-3.5 h-3.5 text-rose-400/90" />
+                          ) : (
+                            <Copy className="w-3.5 h-3.5" />
+                          )}
                           <span>{t.modal.copyAll} ({expiredCodes.length})</span>
                         </>
                       )}
@@ -778,7 +831,7 @@ export const GameDetailModal: React.FC<GameDetailModalProps> = ({
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center gap-2 flex-wrap">
                             <span className="font-mono text-xs sm:text-sm font-semibold line-through text-muted-foreground bg-muted/50 px-2.5 py-1 rounded-lg border border-border/60">
-                              {codeItem.code}
+                              {activeUser ? codeItem.code : formatMaskedCode(codeItem.code)}
                             </span>
                             <span className="inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-full bg-rose-500/15 text-rose-400 border border-rose-500/30">
                               <XCircle className="w-3 h-3" /> {t.modal.expiredCodes}
@@ -858,6 +911,93 @@ export const GameDetailModal: React.FC<GameDetailModalProps> = ({
           targetGameName={currentGame.name}
           onShowToast={onShowToast}
         />
+      )}
+
+      {/* Modal Nhắc Nhở Đăng Nhập Mở Khóa Tính Năng VIP & Copy Tất Cả */}
+      {isAuthPromptOpen && (
+        <div
+          className="fixed inset-0 z-[80] flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm animate-fade-in"
+          onClick={(e) => {
+            e.stopPropagation();
+            setIsAuthPromptOpen(false);
+          }}
+        >
+          <div
+            className="relative w-full max-w-sm rounded-3xl bg-slate-900 border border-emerald-500/30 p-5 sm:p-6 shadow-2xl text-center space-y-4"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Nút đóng */}
+            <button
+              type="button"
+              onClick={() => setIsAuthPromptOpen(false)}
+              className="absolute top-3.5 right-3.5 w-8 h-8 rounded-full bg-slate-800/80 text-muted-foreground hover:text-foreground flex items-center justify-center transition-colors cursor-pointer"
+              title="Đóng"
+            >
+              <X className="w-4 h-4" />
+            </button>
+
+            {/* Icon VIP */}
+            <div className="w-14 h-14 mx-auto rounded-2xl bg-gradient-to-tr from-emerald-500/20 to-teal-500/20 border border-emerald-500/40 flex items-center justify-center text-emerald-400 shadow-inner">
+              <Sparkles className="w-7 h-7 text-emerald-400 animate-pulse" />
+            </div>
+
+            {/* Tiêu đề & Giới thiệu */}
+            <div className="space-y-1.5">
+              <h3 className="text-base sm:text-lg font-black font-heading text-white tracking-tight">
+                Mở Khóa Tính Năng VIP
+              </h3>
+              <p className="text-xs text-slate-300 leading-relaxed">
+                Đăng nhập hoàn toàn miễn phí chỉ trong 5 giây để sử dụng toàn bộ tiện ích:
+              </p>
+            </div>
+
+            {/* Danh sách quyền lợi */}
+            <div className="bg-slate-950/70 rounded-2xl p-3 border border-border/60 text-left space-y-2 text-xs">
+              <div className="flex items-center gap-2.5 text-slate-200">
+                <span className="w-6 h-6 rounded-lg bg-emerald-500/20 text-emerald-400 flex items-center justify-center shrink-0 border border-emerald-500/30">
+                  <Copy className="w-3.5 h-3.5" />
+                </span>
+                <span><strong>Copy 1-chạm</strong> toàn bộ {activeCodes.length} mã giftcode</span>
+              </div>
+              <div className="flex items-center gap-2.5 text-slate-200">
+                <span className="w-6 h-6 rounded-lg bg-teal-500/20 text-teal-400 flex items-center justify-center shrink-0 border border-teal-500/30">
+                  <Unlock className="w-3.5 h-3.5" />
+                </span>
+                <span><strong>Hiện trọn vẹn 100%</strong> mã code, không bị che ký tự</span>
+              </div>
+              <div className="flex items-center gap-2.5 text-slate-200">
+                <span className="w-6 h-6 rounded-lg bg-primary/20 text-primary-light flex items-center justify-center shrink-0 border border-primary/30">
+                  <Bookmark className="w-3.5 h-3.5" />
+                </span>
+                <span>Lưu game yêu thích & nhận thông báo code mới</span>
+              </div>
+            </div>
+
+            {/* Nút hành động */}
+            <div className="space-y-2 pt-1">
+              <button
+                type="button"
+                onClick={() => {
+                  setIsAuthPromptOpen(false);
+                  if (onOpenAuth) {
+                    onOpenAuth();
+                  }
+                }}
+                className="w-full py-2.5 px-4 rounded-xl bg-gradient-to-r from-emerald-500 via-teal-500 to-emerald-600 hover:from-emerald-400 hover:to-teal-400 text-slate-950 font-black text-xs sm:text-sm tracking-wide shadow-lg shadow-emerald-500/25 active:scale-95 transition-all flex items-center justify-center gap-2 cursor-pointer"
+              >
+                <LogIn className="w-4 h-4 text-slate-950" />
+                <span>Đăng nhập / Đăng ký ngay</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setIsAuthPromptOpen(false)}
+                className="w-full py-1.5 text-xs text-muted-foreground hover:text-slate-300 font-medium transition-colors cursor-pointer"
+              >
+                Để sau
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </div>,
     document.body

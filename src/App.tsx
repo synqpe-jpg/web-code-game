@@ -1547,6 +1547,7 @@ export const App: React.FC = () => {
           onOpenShare={(g) => handleOpenShareGame(g)}
           onShowToast={showToast}
           currentUser={currentUser}
+          onOpenAuth={() => setIsAuthModalOpen(true)}
         />
       )}
 
