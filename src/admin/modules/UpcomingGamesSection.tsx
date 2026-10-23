@@ -28,6 +28,12 @@ import {
   X,
   Search,
   Filter,
+  ArrowUp,
+  ArrowDown,
+  Star,
+  PauseCircle,
+  Layers,
+  ListOrdered,
 } from 'lucide-react';
 import { adminDataService } from '../services/adminDataService';
 import { UpcomingGameAdminRecord, UpcomingGameApiLogEntry } from '../types/adminTypes';
@@ -80,11 +86,11 @@ function getCountdownDetails(releaseDateStr?: string): { text: string; isPast: b
 export const UpcomingGamesSection: React.FC<UpcomingGamesSectionProps> = ({ onShowToast, onGameLaunched }) => {
   const [upcomingGames, setUpcomingGames] = useState<UpcomingGameAdminRecord[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
-  const [statusFilter, setStatusFilter] = useState<'ALL' | 'UPCOMING' | 'LAUNCHED'>('ALL');
+  const [activeListTab, setActiveListTab] = useState<'LIVE' | 'PENDING' | 'API'>('LIVE');
+  const [liveSubFilter, setLiveSubFilter] = useState<'ALL' | 'TOP6' | 'UPCOMING' | 'LAUNCHED'>('ALL');
   const [isLoading, setIsLoading] = useState(false);
 
   // API Config & Test Console State
-  const [isApiSectionOpen, setIsApiSectionOpen] = useState(false);
   const [apiSnippetLang, setApiSnippetLang] = useState<'python' | 'curl' | 'js'>('python');
   const [testPayloadJson, setTestPayloadJson] = useState('');
   const [isExecutingApiTest, setIsExecutingApiTest] = useState(false);
@@ -136,11 +142,12 @@ export const UpcomingGamesSection: React.FC<UpcomingGamesSectionProps> = ({ onSh
     };
   }, []);
 
-  // Initialize sample test payload
+  // Initialize sample test payload for Pine Assistant & Muse Bot
   useEffect(() => {
     const sample = {
       apiKey: crawlerConfig.apiKey || 'YOUR_API_KEY',
-      botName: 'Muse Upcoming Games Bot',
+      botName: 'Trợ lý Pine',
+      action: 'ingest',
       games: [
         {
           name: 'Strinova VN',
@@ -154,7 +161,8 @@ export const UpcomingGamesSection: React.FC<UpcomingGamesSectionProps> = ({ onSh
           description: 'Game bắn súng chiến thuật biến hình Anime 3D góc nhìn thứ ba đỉnh cao 2026.',
           preRegUrl: 'https://strinova.vplay.vn',
           expectedCodes: ['STRINOVAOB', 'STRINOVAVN', 'VIP999'],
-          status: 'UPCOMING',
+          status: 'PENDING', // 'PENDING' để vào hàng chờ duyệt, hoặc 'UPCOMING' để duyệt thẳng lên web
+          displayOrder: 1,
         },
       ],
     };
@@ -170,10 +178,12 @@ export const UpcomingGamesSection: React.FC<UpcomingGamesSectionProps> = ({ onSh
 
   const handleOpenCreateModal = () => {
     const now = new Date();
-    // Default 3 days in future at 10:00 AM
     now.setDate(now.getDate() + 3);
     const dateStr = now.toISOString().slice(0, 10);
     const defaultDatetime = `${dateStr}T10:00`;
+
+    // Next display order
+    const maxOrder = Math.max(0, ...upcomingGames.map((g) => g.displayOrder || 0));
 
     setEditingGame({
       name: '',
@@ -187,6 +197,8 @@ export const UpcomingGamesSection: React.FC<UpcomingGamesSectionProps> = ({ onSh
       description: '',
       preRegUrl: '',
       status: 'UPCOMING',
+      displayOrder: maxOrder + 1,
+      source: 'Admin Console',
       expectedCodes: [],
     });
     setExpectedCodesInput('');
@@ -221,112 +233,187 @@ export const UpcomingGamesSection: React.FC<UpcomingGamesSectionProps> = ({ onSh
     const codes = expectedCodesInput
       .split(/[,;\n]+/)
       .map((c) => c.trim().toUpperCase())
-      .filter(Boolean);
+      .filter((c) => c.length > 0);
 
     const record: UpcomingGameAdminRecord = {
-      id: editingGame.id || `ug_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
+      id: editingGame.id || `ug_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
       name,
       slug,
-      publisher: editingGame.publisher?.trim() || 'Nhà phát hành chính thức',
-      category: editingGame.category?.trim() || 'Game Mới',
-      platform: editingGame.platform?.trim() || 'Android, iOS, PC',
+      publisher: editingGame.publisher?.trim() || 'Nhà phát hành',
       releaseDate: editingGame.releaseDate || new Date().toISOString(),
+      category: editingGame.category?.trim() || 'Game Mới',
+      platform: editingGame.platform?.trim() || 'Android, iOS',
       iconUrl: editingGame.iconUrl?.trim() || `/game_icons/${slug}.webp`,
       bannerUrl: editingGame.bannerUrl?.trim() || undefined,
-      description: editingGame.description?.trim() || `Game sắp ra mắt ${name}.`,
+      description: editingGame.description?.trim() || undefined,
       preRegUrl: editingGame.preRegUrl?.trim() || undefined,
       expectedCodes: codes,
-      status: editingGame.status || 'UPCOMING',
+      subscribersCount: typeof editingGame.subscribersCount === 'number' ? editingGame.subscribersCount : 1000,
       source: editingGame.source || 'Admin Console',
+      status: editingGame.status || 'UPCOMING',
+      displayOrder: typeof editingGame.displayOrder === 'number' ? editingGame.displayOrder : 999,
       createdAt: editingGame.createdAt || new Date().toISOString(),
       updatedAt: new Date().toISOString(),
     };
 
     await adminDataService.saveUpcomingGame(record);
-    onShowToast('Thành công', `Đã lưu thông tin game sắp ra mắt ${record.name}!`, 'success');
+    loadData();
     setIsFormOpen(false);
     setEditingGame(null);
-    loadData();
+    onShowToast(
+      'Thành công',
+      `Đã ${editingGame.id ? 'cập nhật' : 'thêm'} game "${record.name}" vào danh sách.`,
+      'success'
+    );
   };
 
   const handleDeleteConfirm = async () => {
     if (!deletingGame) return;
     await adminDataService.deleteUpcomingGame(deletingGame.id);
-    onShowToast('Đã xóa', `Đã xóa game ${deletingGame.name} khỏi danh sách sắp ra mắt.`, 'info');
+    loadData();
     setIsDeleteOpen(false);
     setDeletingGame(null);
+    onShowToast('Đã xóa', `Đã xóa game "${deletingGame.name}".`, 'info');
+  };
+
+  // Reorder actions
+  const handleMoveUp = async (gameId: string) => {
+    const liveList = upcomingGames
+      .filter((g) => g.status === 'UPCOMING' || g.status === 'APPROVED' || g.status === 'LAUNCHED')
+      .sort((a, b) => (a.displayOrder || 999) - (b.displayOrder || 999));
+
+    const index = liveList.findIndex((g) => g.id === gameId);
+    if (index <= 0) return;
+
+    // Swap with item before
+    const temp = liveList[index - 1];
+    liveList[index - 1] = liveList[index];
+    liveList[index] = temp;
+
+    const orderedIds = liveList.map((g) => g.id);
+    await adminDataService.reorderUpcomingGames(orderedIds);
     loadData();
+    onShowToast('Đã đổi thứ tự', `Đã đẩy "${liveList[index - 1].name}" lên vị trí ${index}.`, 'info');
+  };
+
+  const handleMoveDown = async (gameId: string) => {
+    const liveList = upcomingGames
+      .filter((g) => g.status === 'UPCOMING' || g.status === 'APPROVED' || g.status === 'LAUNCHED')
+      .sort((a, b) => (a.displayOrder || 999) - (b.displayOrder || 999));
+
+    const index = liveList.findIndex((g) => g.id === gameId);
+    if (index < 0 || index >= liveList.length - 1) return;
+
+    // Swap with item after
+    const temp = liveList[index + 1];
+    liveList[index + 1] = liveList[index];
+    liveList[index] = temp;
+
+    const orderedIds = liveList.map((g) => g.id);
+    await adminDataService.reorderUpcomingGames(orderedIds);
+    loadData();
+    onShowToast('Đã đổi thứ tự', `Đã chuyển "${liveList[index + 1].name}" xuống vị trí ${index + 2}.`, 'info');
+  };
+
+  const handlePinTop1 = async (gameId: string) => {
+    const liveList = upcomingGames
+      .filter((g) => g.status === 'UPCOMING' || g.status === 'APPROVED' || g.status === 'LAUNCHED')
+      .sort((a, b) => (a.displayOrder || 999) - (b.displayOrder || 999));
+
+    const targetGame = liveList.find((g) => g.id === gameId);
+    if (!targetGame) return;
+
+    const remaining = liveList.filter((g) => g.id !== gameId);
+    const reordered = [targetGame, ...remaining];
+    const orderedIds = reordered.map((g) => g.id);
+
+    await adminDataService.reorderUpcomingGames(orderedIds);
+    loadData();
+    onShowToast('Đã ghim Top 1', `Đã đưa "${targetGame.name}" lên vị trí đầu tiên của Web Khách!`, 'success');
+  };
+
+  // Moderation Queue Actions
+  const handleApproveGame = async (gameId: string, pinToTop = false) => {
+    await adminDataService.approveUpcomingGame(gameId, pinToTop);
+    loadData();
+    const g = upcomingGames.find((x) => x.id === gameId);
+    onShowToast(
+      'Đã duyệt đưa lên Web Khách!',
+      `Tựa game "${g?.name || gameId}" đã xuất bản ra sàn${pinToTop ? ' và ghim lên Top đầu' : ''}.`,
+      'success'
+    );
+  };
+
+  const handleApproveAllPending = async () => {
+    const count = await adminDataService.approveAllUpcomingGames();
+    loadData();
+    onShowToast(
+      'Duyệt hàng loạt thành công!',
+      `Đã duyệt và xuất bản toàn bộ ${count} tựa game trong hàng chờ lên Web Khách.`,
+      'success'
+    );
+  };
+
+  const handleMoveToPending = async (gameId: string) => {
+    await adminDataService.moveUpcomingGameToPending(gameId);
+    loadData();
+    const g = upcomingGames.find((x) => x.id === gameId);
+    onShowToast('Đã chuyển về hàng chờ', `Game "${g?.name || gameId}" đã được đưa vào hàng chờ duyệt.`, 'info');
   };
 
   const handleLaunchGame = async (game: UpcomingGameAdminRecord) => {
     const res = await adminDataService.launchUpcomingGame(game.id);
     if (res.success) {
-      onShowToast(
-        'Phát Hành Thành Công!',
-        `Đã chuyển ${res.gameName} lên sàn chính thức và kích hoạt ${res.codesAdded} mã giftcode tân thủ vào kho!`,
-        'success'
-      );
       loadData();
       if (onGameLaunched) onGameLaunched();
+      onShowToast(
+        '🚀 Phát Hành Thành Công!',
+        `Đã tạo game chính thức "${res.gameName}" trên sàn & tự động nạp ${res.codesAdded} giftcode tân thủ.`,
+        'success'
+      );
     } else {
-      onShowToast('Thất bại', 'Không thể phát hành game.', 'error');
+      onShowToast('Lỗi', 'Không thể kích hoạt phát hành game.', 'error');
     }
   };
 
-  const handleExecuteApiTest = async () => {
+  // Execute API test call
+  const handleRunApiTest = async () => {
     setIsExecutingApiTest(true);
     setApiTestResponse(null);
     try {
-      let parsedPayload: any;
+      let parsed: any;
       try {
-        parsedPayload = JSON.parse(testPayloadJson);
+        parsed = JSON.parse(testPayloadJson);
       } catch {
-        throw new Error('Dữ liệu JSON trong khung thử nghiệm không đúng định dạng cú pháp.');
+        throw new Error('Dữ liệu JSON trong khung soạn thảo không hợp lệ.');
       }
 
-      if (!parsedPayload.apiKey && crawlerConfig.apiKey) {
-        parsedPayload.apiKey = crawlerConfig.apiKey;
-      }
-
-      const res = await fetch('/api/crawler/ingest-upcoming-games', {
+      const res = await fetch(apiEndpointUrl, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          Authorization: `Bearer ${crawlerConfig.apiKey || ''}`,
+          'X-API-Key': crawlerConfig.apiKey || '',
         },
-        body: JSON.stringify(parsedPayload),
+        body: JSON.stringify(parsed),
       });
 
       const json = await res.json();
       setApiTestResponse({
-        httpStatus: res.status,
+        status: res.status,
         statusText: res.statusText,
         ok: res.ok,
         data: json,
       });
 
-      if (res.ok && json.success) {
-        onShowToast('API Phản Hồi Thành Công!', `Đã nạp thành công từ ${json.botName || 'Muse Bot'}!`, 'success');
-        // Add log
-        const logEntry: UpcomingGameApiLogEntry = {
-          id: `log_${Date.now()}`,
-          botName: json.botName || 'Muse Upcoming Games Bot',
-          sourceIp: json.sourceIp || '127.0.0.1',
-          totalGamesProcessed: json.totalReceived || 1,
-          totalGamesAdded: json.totalAdded || 0,
-          totalGamesUpdated: json.totalUpdated || 0,
-          status: 'SUCCESS',
-          details: json.details,
-          timestamp: new Date().toISOString(),
-        };
-        adminDataService.addUpcomingGameLog(logEntry);
+      if (res.ok) {
+        onShowToast('API Test Thành Công', json.message || 'Đã thực thi yêu cầu qua API.', 'success');
         loadData();
       } else {
-        onShowToast('API Báo Lỗi', json.error || 'Yêu cầu không được chấp thuận.', 'error');
+        onShowToast('API Test Báo Lỗi', json.error || 'Yêu cầu bị từ chối.', 'error');
       }
     } catch (err: any) {
       setApiTestResponse({
-        httpStatus: 0,
+        status: 0,
         statusText: 'Client Network Error',
         ok: false,
         data: { error: err.message || 'Lỗi kết nối tới endpoint' },
@@ -337,9 +424,17 @@ export const UpcomingGamesSection: React.FC<UpcomingGamesSectionProps> = ({ onSh
     }
   };
 
-  // Filtered upcoming games
-  const filteredGames = upcomingGames.filter((g) => {
-    if (statusFilter !== 'ALL' && g.status !== statusFilter) return false;
+  // Filter 2 separate lists
+  const liveGamesRaw = upcomingGames
+    .filter((g) => g.status === 'UPCOMING' || g.status === 'APPROVED' || g.status === 'LAUNCHED')
+    .sort((a, b) => (a.displayOrder || 999) - (b.displayOrder || 999));
+
+  const pendingGamesRaw = upcomingGames
+    .filter((g) => g.status === 'PENDING')
+    .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+
+  // Apply search query
+  const matchesSearch = (g: UpcomingGameAdminRecord) => {
     if (!searchQuery.trim()) return true;
     const q = searchQuery.toLowerCase().trim();
     return (
@@ -349,16 +444,21 @@ export const UpcomingGamesSection: React.FC<UpcomingGamesSectionProps> = ({ onSh
       g.category.toLowerCase().includes(q) ||
       (g.expectedCodes && g.expectedCodes.some((c) => c.toLowerCase().includes(q)))
     );
+  };
+
+  const filteredLiveGames = liveGamesRaw.filter((g) => {
+    if (!matchesSearch(g)) return false;
+    if (liveSubFilter === 'TOP6') {
+      const idx = liveGamesRaw.findIndex((x) => x.id === g.id);
+      return idx >= 0 && idx < 6;
+    }
+    if (liveSubFilter === 'UPCOMING') return g.status !== 'LAUNCHED';
+    if (liveSubFilter === 'LAUNCHED') return g.status === 'LAUNCHED';
+    return true;
   });
 
-  // Calculate statistics
-  const nowMs = Date.now();
-  const next7DaysMs = nowMs + 7 * 24 * 60 * 60 * 1000;
-  const inNext7DaysCount = upcomingGames.filter((g) => {
-    if (g.status === 'LAUNCHED') return false;
-    const t = new Date(g.releaseDate).getTime();
-    return !isNaN(t) && t > nowMs && t <= next7DaysMs;
-  }).length;
+  const filteredPendingGames = pendingGamesRaw.filter(matchesSearch);
+
   const totalExpectedCodes = upcomingGames.reduce((acc, g) => acc + (g.expectedCodes?.length || 0), 0);
 
   return (
@@ -372,11 +472,11 @@ export const UpcomingGamesSection: React.FC<UpcomingGamesSectionProps> = ({ onSh
                 <Rocket className="w-5 h-5 text-amber-400 animate-bounce" style={{ animationDuration: '3s' }} />
               </span>
               <h2 className="text-lg sm:text-xl font-display font-extrabold text-white tracking-tight">
-                Quản Lý Game Chuẩn Bị Ra Mắt & Cổng API Muse
+                Quản Lý Game Chuẩn Bị Ra Mắt & Cổng API Trợ Lý Pine / Muse
               </h2>
             </div>
-            <p className="text-xs sm:text-sm text-slate-300 max-w-2xl">
-              Lên lịch mở server, đồng hồ đếm ngược sống, tập hợp giftcode tân thủ dự kiến & cung cấp Cổng API chuẩn RESTful cho Muse Bot tự động quản lý 24/7.
+            <p className="text-xs sm:text-sm text-slate-300 max-w-3xl">
+              Quản lý 2 danh sách rõ ràng: <strong className="text-cyan-300">Đang Hiển Thị Trên Web</strong> (Top 6 game trưng bày trực tiếp, các game còn lại hiện khi ấn xem thêm) và <strong className="text-amber-300">Hàng Chờ Duyệt</strong> (duyệt xong mới lên web). Cấp quyền toàn diện cho Trợ lý Pine & Muse Bot qua API.
             </p>
           </div>
 
@@ -392,15 +492,15 @@ export const UpcomingGamesSection: React.FC<UpcomingGamesSectionProps> = ({ onSh
 
             <button
               type="button"
-              onClick={() => setIsApiSectionOpen(!isApiSectionOpen)}
+              onClick={() => setActiveListTab(activeListTab === 'API' ? 'LIVE' : 'API')}
               className={`px-3.5 py-2 rounded-xl border text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer ${
-                isApiSectionOpen
+                activeListTab === 'API'
                   ? 'bg-purple-600/30 border-purple-400 text-purple-200 shadow-sm'
                   : 'bg-card hover:bg-card-hover border-border text-slate-200'
               }`}
             >
               <Bot className="w-4 h-4 text-purple-400" />
-              <span>{isApiSectionOpen ? 'Đóng Cổng API Muse' : '📡 Cổng API & Webhook (Muse Bot)'}</span>
+              <span>📡 Cổng API Trợ Lý Pine & Muse</span>
             </button>
 
             <button
@@ -418,24 +518,36 @@ export const UpcomingGamesSection: React.FC<UpcomingGamesSectionProps> = ({ onSh
         </div>
       </div>
 
-      {/* 4 Stat Cards */}
+      {/* 4 Stat Overview Cards */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3.5">
-        <div className="p-4 rounded-2xl bg-card border border-border shadow-sm">
+        <div
+          onClick={() => setActiveListTab('LIVE')}
+          className={`p-4 rounded-2xl bg-card border shadow-sm cursor-pointer transition-all ${
+            activeListTab === 'LIVE' ? 'border-cyan-500 ring-1 ring-cyan-500/30 bg-cyan-950/20' : 'border-border hover:border-slate-600'
+          }`}
+        >
           <div className="flex items-center justify-between text-slate-400 mb-1">
-            <span className="text-xs font-medium">Tổng Game Sắp Ra Mắt</span>
-            <Rocket className="w-4 h-4 text-purple-400" />
+            <span className="text-xs font-medium">Hiện Trên Web Khách</span>
+            <Globe className="w-4 h-4 text-cyan-400" />
           </div>
-          <div className="text-2xl font-bold font-display text-white">{upcomingGames.length}</div>
-          <div className="text-[11px] text-slate-400 mt-1">Đang theo dõi lịch phát hành</div>
+          <div className="text-2xl font-bold font-display text-cyan-400">{liveGamesRaw.length}</div>
+          <div className="text-[11px] text-slate-400 mt-1">
+            Top 6 trưng bày • {Math.max(0, liveGamesRaw.length - 6)} ở mục Xem Thêm
+          </div>
         </div>
 
-        <div className="p-4 rounded-2xl bg-card border border-border shadow-sm">
+        <div
+          onClick={() => setActiveListTab('PENDING')}
+          className={`p-4 rounded-2xl bg-card border shadow-sm cursor-pointer transition-all ${
+            activeListTab === 'PENDING' ? 'border-amber-500 ring-1 ring-amber-500/30 bg-amber-950/20' : 'border-border hover:border-slate-600'
+          }`}
+        >
           <div className="flex items-center justify-between text-slate-400 mb-1">
-            <span className="text-xs font-medium">Ra Mắt Trong 7 Ngày Tới</span>
-            <Clock className="w-4 h-4 text-amber-400 animate-pulse" />
+            <span className="text-xs font-medium">Hàng Chờ Duyệt</span>
+            <Clock className={`w-4 h-4 text-amber-400 ${pendingGamesRaw.length > 0 ? 'animate-pulse' : ''}`} />
           </div>
-          <div className="text-2xl font-bold font-display text-amber-400">{inNext7DaysCount}</div>
-          <div className="text-[11px] text-slate-400 mt-1">Có đồng hồ đếm ngược sống</div>
+          <div className="text-2xl font-bold font-display text-amber-400">{pendingGamesRaw.length}</div>
+          <div className="text-[11px] text-slate-400 mt-1">Chờ Pine / Admin duyệt lên web</div>
         </div>
 
         <div className="p-4 rounded-2xl bg-card border border-border shadow-sm">
@@ -447,142 +559,780 @@ export const UpcomingGamesSection: React.FC<UpcomingGamesSectionProps> = ({ onSh
           <div className="text-[11px] text-slate-400 mt-1">Sẵn sàng mở khóa giờ G</div>
         </div>
 
-        <div className="p-4 rounded-2xl bg-card border border-border shadow-sm">
+        <div
+          onClick={() => setActiveListTab('API')}
+          className={`p-4 rounded-2xl bg-card border shadow-sm cursor-pointer transition-all ${
+            activeListTab === 'API' ? 'border-purple-500 ring-1 ring-purple-500/30 bg-purple-950/20' : 'border-border hover:border-slate-600'
+          }`}
+        >
           <div className="flex items-center justify-between text-slate-400 mb-1">
-            <span className="text-xs font-medium">Cổng API Muse Bot</span>
-            <Bot className="w-4 h-4 text-indigo-400" />
+            <span className="text-xs font-medium">Cổng API Trợ Lý Pine & Muse</span>
+            <ShieldCheck className="w-4 h-4 text-purple-400" />
           </div>
-          <div className="flex items-center gap-2">
-            <span className="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-ping" />
-            <span className="text-base font-bold font-display text-emerald-400">Đang Hoạt Động</span>
+          <div className="text-sm font-bold font-mono text-emerald-400 mt-1 flex items-center gap-1.5">
+            <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping" />
+            <span>Đang Hoạt Động</span>
           </div>
-          <div className="text-[11px] text-slate-400 mt-1 font-mono truncate">POST /api/crawler/ingest-upcoming-games</div>
+          <div className="text-[11px] text-slate-400 mt-1 truncate">POST /api/crawler/ingest-upcoming-games</div>
         </div>
       </div>
 
-      {/* CỔNG API & WEBHOOK CHO MUSE BOT (GIỐNG BÊN QUÉT CODE) */}
-      {isApiSectionOpen && (
-        <div className="p-5 sm:p-6 rounded-2xl bg-gradient-to-br from-slate-900 via-indigo-950/30 to-purple-950/30 border border-purple-500/30 shadow-xl space-y-6">
-          <div className="flex items-center justify-between border-b border-border/60 pb-4">
-            <div className="flex items-center gap-2.5">
-              <span className="p-2 rounded-xl bg-purple-500/20 text-purple-400 border border-purple-500/30">
-                <Bot className="w-5 h-5 text-purple-400" />
-              </span>
-              <div>
-                <h3 className="text-sm sm:text-base font-bold text-white flex items-center gap-2">
-                  <span>Cổng API Tự Động Hóa Cho Muse Bot (Upcoming Games Ingest API)</span>
-                  <span className="px-2 py-0.5 rounded-full text-[10px] bg-purple-500/20 text-purple-300 font-mono border border-purple-500/40">
-                    REST API v1
-                  </span>
-                </h3>
-                <p className="text-xs text-slate-300 mt-0.5">
-                  Dành riêng cho Muse Bot hoặc Script Python để tự động cập nhật game sắp ra mắt và giftcode tân thủ lên sàn 24/7.
-                </p>
-              </div>
-            </div>
+      {/* Main 2 Lists Tab Switcher */}
+      <div className="flex items-center justify-between gap-3 border-b border-border/80 pb-2">
+        <div className="flex items-center gap-2">
+          {/* Tab 1: Hiện Trên Web */}
+          <button
+            type="button"
+            onClick={() => setActiveListTab('LIVE')}
+            className={`px-4 py-2.5 rounded-xl text-xs sm:text-sm font-bold flex items-center gap-2 transition-all cursor-pointer ${
+              activeListTab === 'LIVE'
+                ? 'bg-gradient-to-r from-cyan-600 to-blue-600 text-white shadow-md shadow-cyan-600/25'
+                : 'bg-card hover:bg-card-hover text-slate-400 hover:text-white border border-border'
+            }`}
+          >
+            <Globe className="w-4 h-4 text-cyan-300" />
+            <span>🌐 Đang Hiển Thị Trên Web</span>
+            <span className="px-2 py-0.5 rounded-full text-xs bg-slate-900/60 text-cyan-200 border border-cyan-400/30">
+              {liveGamesRaw.length}
+            </span>
+          </button>
 
-            <button
-              type="button"
-              onClick={() => setIsApiSectionOpen(false)}
-              className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition-all cursor-pointer"
+          {/* Tab 2: Hàng Chờ Duyệt */}
+          <button
+            type="button"
+            onClick={() => setActiveListTab('PENDING')}
+            className={`px-4 py-2.5 rounded-xl text-xs sm:text-sm font-bold flex items-center gap-2 transition-all cursor-pointer relative ${
+              activeListTab === 'PENDING'
+                ? 'bg-gradient-to-r from-amber-600 to-orange-600 text-white shadow-md shadow-amber-600/25'
+                : 'bg-card hover:bg-card-hover text-slate-400 hover:text-white border border-border'
+            }`}
+          >
+            <Clock className="w-4 h-4 text-amber-300" />
+            <span>⏳ Hàng Chờ Duyệt</span>
+            <span
+              className={`px-2 py-0.5 rounded-full text-xs font-bold ${
+                pendingGamesRaw.length > 0
+                  ? 'bg-amber-400 text-slate-950 font-extrabold animate-pulse'
+                  : 'bg-slate-900/60 text-amber-200 border border-amber-400/30'
+              }`}
             >
-              <X className="w-5 h-5" />
-            </button>
-          </div>
+              {pendingGamesRaw.length}
+            </span>
+          </button>
 
-          {/* Endpoint URL & API Key */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {/* Endpoint */}
-            <div className="space-y-1.5">
-              <label className="text-xs font-semibold text-slate-300 flex items-center justify-between">
-                <span>Endpoint Tiếp Nhận (URL)</span>
-                <span className="text-[10px] font-mono text-emerald-400 bg-emerald-500/10 px-1.5 py-0.5 rounded">
-                  POST & GET
+          {/* Tab 3: API & Webhook */}
+          <button
+            type="button"
+            onClick={() => setActiveListTab('API')}
+            className={`px-4 py-2.5 rounded-xl text-xs sm:text-sm font-bold flex items-center gap-2 transition-all cursor-pointer ${
+              activeListTab === 'API'
+                ? 'bg-gradient-to-r from-purple-600 to-indigo-600 text-white shadow-md shadow-purple-600/25'
+                : 'bg-card hover:bg-card-hover text-slate-400 hover:text-white border border-border'
+            }`}
+          >
+            <Bot className="w-4 h-4 text-purple-300" />
+            <span>📡 Cổng API & Webhook</span>
+          </button>
+        </div>
+
+        {/* Quick action button based on active tab */}
+        {activeListTab === 'PENDING' && pendingGamesRaw.length > 0 && (
+          <button
+            type="button"
+            onClick={handleApproveAllPending}
+            className="px-3.5 py-1.5 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white text-xs font-bold flex items-center gap-1.5 shadow-md shadow-emerald-600/20 active:scale-95 transition-all cursor-pointer"
+          >
+            <CheckCircle2 className="w-4 h-4" />
+            <span>Duyệt Tất Cả ({pendingGamesRaw.length}) Lên Web</span>
+          </button>
+        )}
+      </div>
+
+      {/* ============================================================== */}
+      {/* TAB 1: DANH SÁCH GAME ĐANG HIỂN THỊ TRÊN WEB KHÁCH             */}
+      {/* ============================================================== */}
+      {activeListTab === 'LIVE' && (
+        <div className="space-y-4">
+          {/* Information & Reordering Guide Bar */}
+          <div className="p-3.5 sm:p-4 rounded-2xl bg-gradient-to-r from-cyan-950/30 via-slate-900 to-card border border-cyan-500/30 flex flex-col md:flex-row items-start md:items-center justify-between gap-3">
+            <div className="flex items-center gap-3">
+              <div className="w-9 h-9 rounded-xl bg-cyan-500/20 border border-cyan-500/30 flex items-center justify-center text-cyan-400 shrink-0">
+                <ListOrdered className="w-5 h-5" />
+              </div>
+              <div className="text-xs text-slate-300">
+                <span className="font-bold text-white text-sm block mb-0.5">
+                  Quy Tắc Trưng Bày Web Khách:
                 </span>
-              </label>
-              <div className="flex items-center gap-2">
-                <input
-                  type="text"
-                  readOnly
-                  value={apiEndpointUrl}
-                  className="flex-1 bg-slate-950 border border-border rounded-xl px-3 py-2 text-xs font-mono text-purple-300 focus:outline-none"
-                />
-                <button
-                  type="button"
-                  onClick={() => handleCopyText(apiEndpointUrl, 'api-url')}
-                  className="px-3 py-2 rounded-xl bg-purple-600 hover:bg-purple-500 text-white text-xs font-semibold flex items-center gap-1 transition-all cursor-pointer shrink-0"
-                >
-                  {copiedKey === 'api-url' ? <Check className="w-4 h-4 text-emerald-300" /> : <Copy className="w-4 h-4" />}
-                  <span>{copiedKey === 'api-url' ? 'Đã chép' : 'Sao chép'}</span>
-                </button>
-              </div>
-            </div>
-
-            {/* API Key */}
-            <div className="space-y-1.5">
-              <label className="text-xs font-semibold text-slate-300 flex items-center justify-between">
-                <span>Khóa Xác Thực (API Key của Muse)</span>
-                <span className="text-[10px] text-slate-400">Dùng chung với bộ Crawler</span>
-              </label>
-              <div className="flex items-center gap-2">
-                <input
-                  type="password"
-                  readOnly
-                  value={crawlerConfig.apiKey || 'wcg_sec_muse_crawler_key'}
-                  className="flex-1 bg-slate-950 border border-border rounded-xl px-3 py-2 text-xs font-mono text-emerald-400 focus:outline-none"
-                />
-                <button
-                  type="button"
-                  onClick={() => handleCopyText(crawlerConfig.apiKey || '', 'api-key')}
-                  className="px-3 py-2 rounded-xl bg-card hover:bg-card-hover border border-border text-slate-200 text-xs font-semibold flex items-center gap-1 transition-all cursor-pointer shrink-0"
-                >
-                  {copiedKey === 'api-key' ? <Check className="w-4 h-4 text-emerald-400" /> : <Copy className="w-4 h-4" />}
-                  <span>{copiedKey === 'api-key' ? 'Đã chép' : 'Sao chép'}</span>
-                </button>
+                Mặc định <span className="text-amber-300 font-bold">6 tựa game đầu tiên (Top 1 - 6)</span> do Admin chỉnh sẽ hiển thị trực tiếp ngay trên Banner trang chủ Web Khách. Các tựa game từ vị trí thứ 7 trở đi sẽ xuất hiện cùng danh sách 6 game này khi khách bấm <span className="text-cyan-300 font-bold">"Xem tất cả"</span>. Sử dụng nút <span className="text-cyan-300 font-bold">▲ / ▼</span> hoặc <span className="text-amber-400 font-bold">"Ghim Top 1"</span> để tùy chỉnh thứ tự.
               </div>
             </div>
           </div>
 
-          {/* Quy Chuẩn Payload JSON */}
-          <div className="p-4 rounded-xl bg-indigo-950/40 border border-indigo-500/30 text-xs text-slate-300 space-y-2">
-            <div className="flex items-center gap-2 font-bold text-indigo-300">
-              <Sparkles className="w-4 h-4 text-amber-400" />
-              <span>Quy Chuẩn JSON Muse Bot Gửi Lên Hệ Thống:</span>
+          {/* Search & Sub-Filter Bar */}
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 p-3 rounded-2xl bg-card border border-border">
+            <div className="relative flex-1 max-w-md">
+              <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+              <input
+                type="text"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="Tìm theo tên game, slug, nhà phát hành, mã code..."
+                className="w-full bg-slate-900 border border-border rounded-xl pl-9 pr-3 py-1.5 text-xs text-white placeholder-slate-400 focus:outline-none focus:border-cyan-500"
+              />
             </div>
-            <ul className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-1 list-disc list-inside text-slate-300">
-              <li><code className="text-purple-300 font-bold">name</code> (Bắt buộc): Tên game (ví dụ: "Strinova VN")</li>
-              <li><code className="text-purple-300 font-bold">slug</code> (Tùy chọn): Tự động sinh nếu để trống</li>
-              <li><code className="text-purple-300 font-bold">releaseDate</code> (Bắt buộc): ISO format <code className="text-amber-300">YYYY-MM-DDTHH:mm:ss+07:00</code></li>
-              <li><code className="text-purple-300 font-bold">publisher</code>: Nhà phát hành (VNG, VPlay, SohaGame...)</li>
-              <li><code className="text-purple-300 font-bold">expectedCodes</code>: Mảng code tân thủ <code className="text-emerald-300">["VIP666", "STRINOVA"]</code></li>
-              <li><code className="text-purple-300 font-bold">preRegUrl</code>: Link đăng ký trước / Tải trước</li>
-            </ul>
+
+            <div className="flex items-center gap-1 bg-slate-900 p-1 rounded-xl border border-border text-xs overflow-x-auto">
+              <button
+                type="button"
+                onClick={() => setLiveSubFilter('ALL')}
+                className={`px-2.5 py-1 rounded-lg font-medium transition-all cursor-pointer whitespace-nowrap ${
+                  liveSubFilter === 'ALL' ? 'bg-cyan-600 text-white font-bold' : 'text-slate-400 hover:text-white'
+                }`}
+              >
+                Tất Cả ({liveGamesRaw.length})
+              </button>
+              <button
+                type="button"
+                onClick={() => setLiveSubFilter('TOP6')}
+                className={`px-2.5 py-1 rounded-lg font-medium transition-all cursor-pointer whitespace-nowrap flex items-center gap-1 ${
+                  liveSubFilter === 'TOP6' ? 'bg-amber-500 text-slate-950 font-extrabold' : 'text-slate-400 hover:text-white'
+                }`}
+              >
+                <Star className="w-3 h-3" />
+                <span>Top 6 Trưng Bày Web ({Math.min(6, liveGamesRaw.length)})</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setLiveSubFilter('UPCOMING')}
+                className={`px-2.5 py-1 rounded-lg font-medium transition-all cursor-pointer whitespace-nowrap ${
+                  liveSubFilter === 'UPCOMING' ? 'bg-cyan-600 text-white font-bold' : 'text-slate-400 hover:text-white'
+                }`}
+              >
+                Sắp Ra Mắt ({liveGamesRaw.filter((g) => g.status !== 'LAUNCHED').length})
+              </button>
+              <button
+                type="button"
+                onClick={() => setLiveSubFilter('LAUNCHED')}
+                className={`px-2.5 py-1 rounded-lg font-medium transition-all cursor-pointer whitespace-nowrap ${
+                  liveSubFilter === 'LAUNCHED' ? 'bg-cyan-600 text-white font-bold' : 'text-slate-400 hover:text-white'
+                }`}
+              >
+                Đã Mở Server ({liveGamesRaw.filter((g) => g.status === 'LAUNCHED').length})
+              </button>
+            </div>
           </div>
 
-          {/* Code Snippets & Test Console */}
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
-            {/* Snippets Tab */}
-            <div className="space-y-2.5">
+          {/* Cards Grid */}
+          {filteredLiveGames.length === 0 ? (
+            <div className="p-12 text-center rounded-2xl bg-card border border-border border-dashed space-y-3">
+              <Rocket className="w-10 h-10 text-slate-500 mx-auto" />
+              <div className="text-sm font-bold text-white">Chưa có tựa game nào trong danh sách hiển thị</div>
+              <p className="text-xs text-slate-400 max-w-sm mx-auto">
+                Bấm vào "Thêm Game Mới" hoặc duyệt các tựa game từ "Hàng Chờ Duyệt" để đưa lên Web Khách.
+              </p>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+              {filteredLiveGames.map((game) => {
+                const globalIndex = liveGamesRaw.findIndex((x) => x.id === game.id);
+                const isTop6 = globalIndex >= 0 && globalIndex < 6;
+                const countdown = getCountdownDetails(game.releaseDate);
+                const dateObj = new Date(game.releaseDate);
+                const formattedDate = !isNaN(dateObj.getTime())
+                  ? dateObj.toLocaleString('vi-VN', {
+                      hour: '2-digit',
+                      minute: '2-digit',
+                      day: '2-digit',
+                      month: '2-digit',
+                      year: 'numeric',
+                    })
+                  : game.releaseDate;
+
+                return (
+                  <div
+                    key={game.id}
+                    className={`group relative rounded-2xl bg-card border transition-all duration-200 overflow-hidden shadow-sm flex flex-col justify-between ${
+                      isTop6 ? 'border-amber-500/50 shadow-amber-500/5 ring-1 ring-amber-500/20' : 'border-border hover:border-indigo-500/50'
+                    }`}
+                  >
+                    {/* Header: Position Badge & Reorder Controls */}
+                    <div className="p-4 space-y-3">
+                      <div className="flex items-center justify-between gap-2 pb-2 border-b border-border/50">
+                        {/* Position Badge */}
+                        <div className="flex items-center gap-1.5">
+                          {isTop6 ? (
+                            <span className="px-2.5 py-1 rounded-lg text-xs font-extrabold bg-gradient-to-r from-amber-500/20 to-cyan-500/20 text-amber-300 border border-amber-500/40 flex items-center gap-1.5 shadow-sm">
+                              <Star className="w-3.5 h-3.5 text-amber-400 fill-amber-400" />
+                              <span>TOP {globalIndex + 1} • TRƯNG BÀY WEB KHÁCH</span>
+                            </span>
+                          ) : (
+                            <span className="px-2.5 py-1 rounded-lg text-xs font-bold bg-indigo-500/20 text-indigo-300 border border-indigo-500/30 flex items-center gap-1.5">
+                              <Layers className="w-3.5 h-3.5 text-indigo-400" />
+                              <span>VỊ TRÍ {globalIndex + 1} • XEM THÊM (MODAL)</span>
+                            </span>
+                          )}
+                        </div>
+
+                        {/* Order Navigation Controls */}
+                        <div className="flex items-center gap-1">
+                          <button
+                            type="button"
+                            onClick={() => handleMoveUp(game.id)}
+                            disabled={globalIndex <= 0}
+                            className={`p-1 rounded-lg border text-xs transition-colors ${
+                              globalIndex <= 0
+                                ? 'opacity-30 border-transparent text-slate-600 cursor-not-allowed'
+                                : 'border-border bg-slate-900 hover:bg-slate-800 text-slate-300 hover:text-white cursor-pointer'
+                            }`}
+                            title="Di chuyển lên trên 1 nấc"
+                          >
+                            <ArrowUp className="w-3.5 h-3.5" />
+                          </button>
+
+                          <button
+                            type="button"
+                            onClick={() => handleMoveDown(game.id)}
+                            disabled={globalIndex >= liveGamesRaw.length - 1}
+                            className={`p-1 rounded-lg border text-xs transition-colors ${
+                              globalIndex >= liveGamesRaw.length - 1
+                                ? 'opacity-30 border-transparent text-slate-600 cursor-not-allowed'
+                                : 'border-border bg-slate-900 hover:bg-slate-800 text-slate-300 hover:text-white cursor-pointer'
+                            }`}
+                            title="Di chuyển xuống dưới 1 nấc"
+                          >
+                            <ArrowDown className="w-3.5 h-3.5" />
+                          </button>
+
+                          {globalIndex > 0 && (
+                            <button
+                              type="button"
+                              onClick={() => handlePinTop1(game.id)}
+                              className="px-2 py-1 rounded-lg border border-amber-500/40 bg-amber-500/10 hover:bg-amber-500/20 text-amber-300 text-[11px] font-bold transition-all cursor-pointer flex items-center gap-1"
+                              title="Ghim lên vị trí Top 1 đầu bảng"
+                            >
+                              <Star className="w-3 h-3 text-amber-400 fill-amber-400" />
+                              <span>Top 1</span>
+                            </button>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* Game Info */}
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="flex items-center gap-3">
+                          <div className="w-12 h-12 rounded-xl overflow-hidden bg-slate-900 border border-border shrink-0 flex items-center justify-center shadow-inner">
+                            {game.iconUrl ? (
+                              <img
+                                src={game.iconUrl}
+                                alt={game.name}
+                                className="w-full h-full object-cover"
+                                onError={(e) => {
+                                  (e.target as HTMLElement).style.display = 'none';
+                                }}
+                              />
+                            ) : (
+                              <Rocket className="w-6 h-6 text-indigo-400" />
+                            )}
+                          </div>
+
+                          <div className="min-w-0">
+                            <div className="flex items-center gap-1.5 flex-wrap">
+                              <h4 className="font-bold text-sm text-white group-hover:text-cyan-400 transition-colors truncate">
+                                {game.name}
+                              </h4>
+                              {game.status === 'LAUNCHED' ? (
+                                <span className="px-1.5 py-0.5 rounded text-[10px] bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 font-semibold">
+                                  Đã Mở Server
+                                </span>
+                              ) : (
+                                <span className="px-1.5 py-0.5 rounded text-[10px] bg-cyan-500/20 text-cyan-300 border border-cyan-500/30 font-semibold">
+                                  Sắp Ra Mắt
+                                </span>
+                              )}
+                            </div>
+                            <div className="text-[11px] text-slate-400 flex items-center gap-2 mt-0.5">
+                              <span className="truncate">{game.publisher}</span>
+                              <span>•</span>
+                              <span className="truncate text-cyan-300">{game.category}</span>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Countdown Badge */}
+                      <div className={`p-2.5 rounded-xl border flex items-center justify-between text-xs ${countdown.badgeBg}`}>
+                        <div className="flex items-center gap-1.5 font-medium">
+                          <Calendar className="w-3.5 h-3.5 shrink-0" />
+                          <span>{formattedDate}</span>
+                        </div>
+                        <div className={`text-xs font-bold ${countdown.color}`}>{countdown.text}</div>
+                      </div>
+
+                      {/* Description */}
+                      {game.description && (
+                        <p className="text-xs text-slate-300 line-clamp-2 leading-relaxed">
+                          {game.description}
+                        </p>
+                      )}
+
+                      {/* Expected Giftcodes */}
+                      <div className="space-y-1.5 pt-1">
+                        <div className="flex items-center justify-between text-[11px] text-slate-400">
+                          <span className="font-medium flex items-center gap-1 text-slate-300">
+                            <Gift className="w-3.5 h-3.5 text-accent" />
+                            <span>Code Tân Thủ Dự Kiến ({game.expectedCodes?.length || 0}):</span>
+                          </span>
+                          {game.source && (
+                            <span className="text-[10px] text-purple-300 font-mono bg-purple-950/40 px-1.5 py-0.5 rounded border border-purple-500/20">
+                              {game.source}
+                            </span>
+                          )}
+                        </div>
+
+                        {game.expectedCodes && game.expectedCodes.length > 0 ? (
+                          <div className="flex flex-wrap gap-1.5">
+                            {game.expectedCodes.map((codeStr, cIdx) => (
+                              <button
+                                key={cIdx}
+                                type="button"
+                                onClick={() => handleCopyText(codeStr, `code-${game.id}-${cIdx}`)}
+                                className="px-2 py-0.5 rounded-lg bg-slate-900 hover:bg-slate-800 border border-border text-[11px] font-mono text-emerald-400 font-bold flex items-center gap-1 transition-all cursor-pointer active:scale-95"
+                                title="Bấm để chép code"
+                              >
+                                <span>{codeStr}</span>
+                                {copiedKey === `code-${game.id}-${cIdx}` ? (
+                                  <Check className="w-3 h-3 text-emerald-400" />
+                                ) : (
+                                  <Copy className="w-3 h-3 text-slate-500 hover:text-slate-300" />
+                                )}
+                              </button>
+                            ))}
+                          </div>
+                        ) : (
+                          <div className="text-[11px] text-slate-500 italic">Chưa có mã code dự kiến nào</div>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Footer Actions */}
+                    <div className="p-3 bg-slate-950/60 border-t border-border flex items-center justify-between gap-2">
+                      <div className="flex items-center gap-1.5">
+                        {game.preRegUrl && (
+                          <a
+                            href={game.preRegUrl}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="px-2.5 py-1 rounded-lg bg-slate-900 hover:bg-slate-800 text-[11px] text-cyan-400 hover:text-cyan-300 border border-border flex items-center gap-1 transition-colors"
+                          >
+                            <Globe className="w-3 h-3" />
+                            <span>Đăng Ký</span>
+                            <ExternalLink className="w-2.5 h-2.5" />
+                          </a>
+                        )}
+
+                        <button
+                          type="button"
+                          onClick={() => handleMoveToPending(game.id)}
+                          className="px-2.5 py-1 rounded-lg bg-slate-900 hover:bg-amber-950/40 text-[11px] text-amber-300 hover:text-amber-200 border border-border hover:border-amber-500/40 flex items-center gap-1 transition-colors cursor-pointer"
+                          title="Chuyển game về lại Hàng Chờ Duyệt"
+                        >
+                          <PauseCircle className="w-3 h-3 text-amber-400" />
+                          <span>Về Chờ Duyệt</span>
+                        </button>
+                      </div>
+
+                      <div className="flex items-center gap-1.5">
+                        {game.status !== 'LAUNCHED' && (
+                          <button
+                            type="button"
+                            onClick={() => handleLaunchGame(game)}
+                            className="px-2.5 py-1 rounded-lg bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-bold text-[11px] flex items-center gap-1 shadow-sm transition-all cursor-pointer active:scale-95"
+                            title="Đẩy thành Game Chính Thức trên sàn khi mở server"
+                          >
+                            <Rocket className="w-3 h-3" />
+                            <span>Phát Hành</span>
+                          </button>
+                        )}
+
+                        <button
+                          type="button"
+                          onClick={() => handleOpenEditModal(game)}
+                          className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition-colors cursor-pointer"
+                          title="Sửa thông tin"
+                        >
+                          <Edit2 className="w-3.5 h-3.5" />
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setDeletingGame(game);
+                            setIsDeleteOpen(true);
+                          }}
+                          className="p-1.5 rounded-lg text-slate-400 hover:text-rose-400 hover:bg-rose-950/30 transition-colors cursor-pointer"
+                          title="Xóa game sắp ra mắt"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* ============================================================== */}
+      {/* TAB 2: HÀNG CHỜ DUYỆT (CHỜ PINE / ADMIN DUYỆT)                 */}
+      {/* ============================================================== */}
+      {activeListTab === 'PENDING' && (
+        <div className="space-y-4">
+          {/* Information & Explanation */}
+          <div className="p-4 rounded-2xl bg-gradient-to-r from-amber-950/30 via-slate-900 to-card border border-amber-500/30 flex flex-col md:flex-row items-start md:items-center justify-between gap-3">
+            <div className="flex items-center gap-3">
+              <div className="w-9 h-9 rounded-xl bg-amber-500/20 border border-amber-500/30 flex items-center justify-center text-amber-400 shrink-0">
+                <Clock className="w-5 h-5 animate-pulse" />
+              </div>
+              <div className="text-xs text-slate-300">
+                <span className="font-bold text-white text-sm block mb-0.5">
+                  Hàng Chờ Duyệt (Chưa Hiển Thị Trên Web Khách):
+                </span>
+                Danh sách các tựa game do <strong className="text-amber-300">Trợ lý Pine</strong>, <strong className="text-purple-300">Muse Bot</strong> hoặc Admin nạp vào nhưng chưa được duyệt. Các game này <strong className="text-rose-400">hoàn toàn chưa xuất hiện trên web khách</strong>. Bấm <span className="text-emerald-300 font-bold">"Duyệt Đưa Lên Web"</span> để xuất bản ra sàn.
+              </div>
+            </div>
+
+            {pendingGamesRaw.length > 0 && (
+              <button
+                type="button"
+                onClick={handleApproveAllPending}
+                className="px-4 py-2 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-bold text-xs flex items-center gap-1.5 shadow-md shadow-emerald-600/20 active:scale-95 transition-all cursor-pointer whitespace-nowrap self-end md:self-auto shrink-0"
+              >
+                <CheckCircle2 className="w-4 h-4" />
+                <span>Duyệt Toàn Bộ ({pendingGamesRaw.length}) Game</span>
+              </button>
+            )}
+          </div>
+
+          {/* Pending Cards */}
+          {filteredPendingGames.length === 0 ? (
+            <div className="p-12 text-center rounded-2xl bg-card border border-border border-dashed space-y-3">
+              <CheckCircle2 className="w-10 h-10 text-emerald-400 mx-auto" />
+              <div className="text-sm font-bold text-white">Hàng chờ duyệt đang trống!</div>
+              <p className="text-xs text-slate-400 max-w-sm mx-auto">
+                Tất cả các tựa game sắp ra mắt đã được duyệt lên web. Khi Trợ lý Pine hoặc Muse Bot quét và nạp game mới, chúng sẽ xuất hiện tại đây để chờ bạn duyệt.
+              </p>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+              {filteredPendingGames.map((game) => {
+                const countdown = getCountdownDetails(game.releaseDate);
+                const dateObj = new Date(game.releaseDate);
+                const formattedDate = !isNaN(dateObj.getTime())
+                  ? dateObj.toLocaleString('vi-VN', {
+                      hour: '2-digit',
+                      minute: '2-digit',
+                      day: '2-digit',
+                      month: '2-digit',
+                      year: 'numeric',
+                    })
+                  : game.releaseDate;
+
+                return (
+                  <div
+                    key={game.id}
+                    className="group relative rounded-2xl bg-card border border-amber-500/30 hover:border-amber-400/60 transition-all duration-200 overflow-hidden shadow-sm flex flex-col justify-between"
+                  >
+                    <div className="p-4 space-y-3">
+                      <div className="flex items-center justify-between gap-2 pb-2 border-b border-border/50">
+                        <span className="px-2.5 py-1 rounded-lg text-xs font-bold bg-amber-500/20 text-amber-300 border border-amber-500/30 flex items-center gap-1.5">
+                          <Clock className="w-3.5 h-3.5 text-amber-400" />
+                          <span>⏳ ĐANG CHỜ DUYỆT</span>
+                        </span>
+
+                        <span className="text-[10px] text-slate-400 font-mono">
+                          Nguồn: <span className="text-purple-300 font-semibold">{game.source || 'Trợ lý Pine'}</span>
+                        </span>
+                      </div>
+
+                      {/* Game Info */}
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="flex items-center gap-3">
+                          <div className="w-12 h-12 rounded-xl overflow-hidden bg-slate-900 border border-border shrink-0 flex items-center justify-center shadow-inner">
+                            {game.iconUrl ? (
+                              <img
+                                src={game.iconUrl}
+                                alt={game.name}
+                                className="w-full h-full object-cover"
+                                onError={(e) => {
+                                  (e.target as HTMLElement).style.display = 'none';
+                                }}
+                              />
+                            ) : (
+                              <Rocket className="w-6 h-6 text-amber-400" />
+                            )}
+                          </div>
+
+                          <div className="min-w-0">
+                            <h4 className="font-bold text-sm text-white group-hover:text-amber-400 transition-colors truncate">
+                              {game.name}
+                            </h4>
+                            <div className="text-[11px] text-slate-400 flex items-center gap-2 mt-0.5">
+                              <span className="truncate">{game.publisher}</span>
+                              <span>•</span>
+                              <span className="truncate text-amber-300">{game.category}</span>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Countdown badge */}
+                      <div className={`p-2.5 rounded-xl border flex items-center justify-between text-xs ${countdown.badgeBg}`}>
+                        <div className="flex items-center gap-1.5 font-medium">
+                          <Calendar className="w-3.5 h-3.5 shrink-0" />
+                          <span>{formattedDate}</span>
+                        </div>
+                        <div className={`text-xs font-bold ${countdown.color}`}>{countdown.text}</div>
+                      </div>
+
+                      {/* Expected codes */}
+                      {game.expectedCodes && game.expectedCodes.length > 0 && (
+                        <div className="space-y-1">
+                          <div className="text-[11px] text-slate-400 font-medium">
+                            Giftcode dự kiến ({game.expectedCodes.length}):
+                          </div>
+                          <div className="flex flex-wrap gap-1">
+                            {game.expectedCodes.map((codeStr, cIdx) => (
+                              <span
+                                key={cIdx}
+                                className="px-1.5 py-0.5 rounded bg-slate-900 border border-border text-[10px] font-mono text-emerald-400"
+                              >
+                                {codeStr}
+                              </span>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Footer Actions in Pending */}
+                    <div className="p-3 bg-slate-950/60 border-t border-border flex items-center justify-between gap-2">
+                      <div className="flex items-center gap-1.5">
+                        <button
+                          type="button"
+                          onClick={() => handleApproveGame(game.id, false)}
+                          className="px-3 py-1.5 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-bold text-xs flex items-center gap-1 shadow-sm transition-all cursor-pointer active:scale-95"
+                          title="Duyệt đưa lên Web Khách"
+                        >
+                          <CheckCircle2 className="w-3.5 h-3.5" />
+                          <span>Duyệt Lên Web</span>
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={() => handleApproveGame(game.id, true)}
+                          className="px-2.5 py-1.5 rounded-xl bg-amber-500/15 hover:bg-amber-500/25 border border-amber-500/30 text-amber-300 font-bold text-xs flex items-center gap-1 transition-all cursor-pointer active:scale-95"
+                          title="Duyệt và ghim luôn lên vị trí Top đầu"
+                        >
+                          <Star className="w-3 h-3 text-amber-400 fill-amber-400" />
+                          <span>Duyệt & Ghim Top 6</span>
+                        </button>
+                      </div>
+
+                      <div className="flex items-center gap-1.5">
+                        <button
+                          type="button"
+                          onClick={() => handleOpenEditModal(game)}
+                          className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition-colors cursor-pointer"
+                          title="Sửa thông tin trước khi duyệt"
+                        >
+                          <Edit2 className="w-3.5 h-3.5" />
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setDeletingGame(game);
+                            setIsDeleteOpen(true);
+                          }}
+                          className="p-1.5 rounded-lg text-slate-400 hover:text-rose-400 hover:bg-rose-950/30 transition-colors cursor-pointer"
+                          title="Từ chối / Xóa game khỏi hàng chờ"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* ============================================================== */}
+      {/* TAB 3: CỔNG API TRỢ LÝ PINE & MUSE BOT                          */}
+      {/* ============================================================== */}
+      {activeListTab === 'API' && (
+        <div className="space-y-6">
+          {/* API Credentials Card */}
+          <div className="p-5 rounded-2xl bg-card border border-purple-500/30 shadow-md space-y-4">
+            <div className="flex items-center justify-between gap-3 border-b border-border/80 pb-3">
+              <div className="flex items-center gap-2.5">
+                <div className="p-2 rounded-xl bg-purple-500/20 text-purple-400">
+                  <Key className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="text-sm sm:text-base font-bold text-white">
+                    Thông Tin Cấp Quyền Cho Trợ Lý Pine & Muse Bot
+                  </h3>
+                  <p className="text-xs text-slate-400">
+                    Sử dụng API Key này để trợ lý Pine hoặc Muse Bot tự động nạp lịch mở server, duyệt game hoặc sắp xếp thứ tự 24/7.
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="space-y-1.5">
+                <label className="text-xs font-semibold text-slate-300">Endpoint Nhận Dữ Liệu (POST & GET)</label>
+                <div className="flex items-center gap-2">
+                  <input
+                    type="text"
+                    readOnly
+                    value={apiEndpointUrl}
+                    className="w-full bg-slate-900 border border-border rounded-xl px-3 py-2 text-xs font-mono text-cyan-300 select-all"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => handleCopyText(apiEndpointUrl, 'endpoint')}
+                    className="p-2 rounded-xl bg-slate-900 hover:bg-slate-800 border border-border text-slate-300 hover:text-white transition-all cursor-pointer"
+                    title="Sao chép URL"
+                  >
+                    {copiedKey === 'endpoint' ? <Check className="w-4 h-4 text-emerald-400" /> : <Copy className="w-4 h-4" />}
+                  </button>
+                </div>
+              </div>
+
+              <div className="space-y-1.5">
+                <label className="text-xs font-semibold text-slate-300 flex items-center justify-between">
+                  <span>API Key Xác Thực (Hệ Thống / Trợ Lý Pine)</span>
+                  <span className="text-[10px] text-emerald-400 font-mono">Dùng chung cho Crawler & Upcoming</span>
+                </label>
+                <div className="flex items-center gap-2">
+                  <input
+                    type="text"
+                    readOnly
+                    value={crawlerConfig.apiKey || 'CHƯA_CẤU_HÌNH'}
+                    className="w-full bg-slate-900 border border-border rounded-xl px-3 py-2 text-xs font-mono text-emerald-400 select-all"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => handleCopyText(crawlerConfig.apiKey || '', 'key')}
+                    className="p-2 rounded-xl bg-slate-900 hover:bg-slate-800 border border-border text-slate-300 hover:text-white transition-all cursor-pointer"
+                    title="Sao chép API Key"
+                  >
+                    {copiedKey === 'key' ? <Check className="w-4 h-4 text-emerald-400" /> : <Copy className="w-4 h-4" />}
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            {/* Supported Actions Guide */}
+            <div className="p-3 rounded-xl bg-slate-900/80 border border-border/80 text-xs text-slate-300 space-y-2">
+              <div className="font-bold text-white flex items-center gap-1.5">
+                <Terminal className="w-4 h-4 text-purple-400" />
+                <span>Các Action API Hỗ Trợ Cho Trợ Lý Pine & Muse Bot:</span>
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2 text-[11px]">
+                <div className="p-2 rounded-lg bg-card border border-border">
+                  <div className="font-bold text-cyan-400 font-mono">action: "ingest"</div>
+                  <div className="text-slate-400 mt-0.5">Nạp game mới vào Hàng Chờ Duyệt (status: 'PENDING') hoặc duyệt ngay (status: 'UPCOMING').</div>
+                </div>
+                <div className="p-2 rounded-lg bg-card border border-border">
+                  <div className="font-bold text-emerald-400 font-mono">action: "approve"</div>
+                  <div className="text-slate-400 mt-0.5">Duyệt game từ hàng chờ đưa lên web ({'{ id, pinToTop?: true }'}).</div>
+                </div>
+                <div className="p-2 rounded-lg bg-card border border-border">
+                  <div className="font-bold text-amber-400 font-mono">action: "reorder"</div>
+                  <div className="text-slate-400 mt-0.5">Sắp xếp thứ tự các game trên web ({'{ orderedIds: [...] }'}).</div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Test Console & Code Snippets */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+            {/* Interactive Test Console */}
+            <div className="p-4 rounded-2xl bg-card border border-border space-y-3">
               <div className="flex items-center justify-between">
                 <span className="text-xs font-bold text-white flex items-center gap-1.5">
-                  <Code2 className="w-4 h-4 text-purple-400" />
-                  <span>Mẫu Mã Lệnh Cho Muse & Python:</span>
+                  <Play className="w-4 h-4 text-emerald-400" />
+                  <span>Thực Thi Test API Trực Tiếp</span>
                 </span>
+                <button
+                  type="button"
+                  onClick={handleRunApiTest}
+                  disabled={isExecutingApiTest}
+                  className="px-3.5 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 text-white text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer shadow-sm active:scale-95"
+                >
+                  {isExecutingApiTest ? (
+                    <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                  ) : (
+                    <Send className="w-3.5 h-3.5" />
+                  )}
+                  <span>Gửi Thử Nghiệm</span>
+                </button>
+              </div>
 
-                <div className="flex items-center gap-1 bg-slate-950 p-1 rounded-lg border border-border text-[11px]">
+              <textarea
+                rows={12}
+                value={testPayloadJson}
+                onChange={(e) => setTestPayloadJson(e.target.value)}
+                className="w-full bg-slate-950 border border-border rounded-xl p-3 text-xs font-mono text-cyan-300 focus:outline-none focus:border-purple-500 resize-none"
+              />
+
+              {apiTestResponse && (
+                <div className="p-3 rounded-xl bg-slate-950 border border-border space-y-1.5">
+                  <div className="flex items-center justify-between text-xs">
+                    <span className="font-bold text-slate-300">Kết quả phản hồi:</span>
+                    <span
+                      className={`font-mono font-bold ${
+                        apiTestResponse.ok ? 'text-emerald-400' : 'text-rose-400'
+                      }`}
+                    >
+                      HTTP {apiTestResponse.status} {apiTestResponse.statusText}
+                    </span>
+                  </div>
+                  <pre className="text-[11px] font-mono text-slate-300 max-h-40 overflow-y-auto whitespace-pre-wrap">
+                    {JSON.stringify(apiTestResponse.data, null, 2)}
+                  </pre>
+                </div>
+              )}
+            </div>
+
+            {/* Code Snippets */}
+            <div className="p-4 rounded-2xl bg-card border border-border space-y-3">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-bold text-white flex items-center gap-1.5">
+                  <Code2 className="w-4 h-4 text-cyan-400" />
+                  <span>Mẫu Mã Nguồn Tích Hợp (Trợ Lý Pine)</span>
+                </span>
+                <div className="flex items-center gap-1 bg-slate-900 p-0.5 rounded-lg border border-border text-xs">
                   <button
                     type="button"
                     onClick={() => setApiSnippetLang('python')}
-                    className={`px-2 py-0.5 rounded cursor-pointer ${
+                    className={`px-2 py-0.5 rounded font-mono ${
                       apiSnippetLang === 'python' ? 'bg-purple-600 text-white font-bold' : 'text-slate-400'
                     }`}
                   >
-                    Python (Muse)
+                    Python
                   </button>
                   <button
                     type="button"
                     onClick={() => setApiSnippetLang('curl')}
-                    className={`px-2 py-0.5 rounded cursor-pointer ${
+                    className={`px-2 py-0.5 rounded font-mono ${
                       apiSnippetLang === 'curl' ? 'bg-purple-600 text-white font-bold' : 'text-slate-400'
                     }`}
                   >
@@ -591,26 +1341,30 @@ export const UpcomingGamesSection: React.FC<UpcomingGamesSectionProps> = ({ onSh
                   <button
                     type="button"
                     onClick={() => setApiSnippetLang('js')}
-                    className={`px-2 py-0.5 rounded cursor-pointer ${
+                    className={`px-2 py-0.5 rounded font-mono ${
                       apiSnippetLang === 'js' ? 'bg-purple-600 text-white font-bold' : 'text-slate-400'
                     }`}
                   >
-                    JavaScript
+                    JS/TS
                   </button>
                 </div>
               </div>
 
               <div className="relative">
-                <pre className="p-3.5 rounded-xl bg-slate-950 border border-border text-[11px] font-mono text-slate-300 overflow-x-auto max-h-64 leading-relaxed">
-                  {apiSnippetLang === 'python' && `# 🐍 Python Script cho Muse AI Agent
-import requests
+                <pre className="p-3 rounded-xl bg-slate-950 border border-border text-[11px] font-mono text-slate-300 overflow-x-auto max-h-[360px] leading-relaxed">
+                  {apiSnippetLang === 'python' &&
+`import requests
 
-API_URL = "${apiEndpointUrl}"
-API_KEY = "${crawlerConfig.apiKey || 'YOUR_API_KEY'}"
+url = "${apiEndpointUrl}"
+headers = {
+    "Content-Type": "application/json",
+    "X-API-Key": "${crawlerConfig.apiKey || 'YOUR_API_KEY'}"
+}
 
+# 1. Nạp game mới vào Hàng Chờ Duyệt (hoặc duyệt ngay)
 payload = {
-    "apiKey": API_KEY,
-    "botName": "Muse Upcoming Games Bot",
+    "botName": "Trợ lý Pine",
+    "action": "ingest",
     "games": [
         {
             "name": "Strinova VN",
@@ -619,364 +1373,90 @@ payload = {
             "releaseDate": "2026-10-23T10:00:00+07:00",
             "category": "Bắn Súng Anime 3D",
             "platform": "PC, Android, iOS",
-            "preRegUrl": "https://strinova.vplay.vn",
-            "expectedCodes": ["STRINOVAOB", "VIP999"],
-            "status": "UPCOMING"
+            "iconUrl": "/game_icons/strinova-vn.webp",
+            "expectedCodes": ["STRINOVAOB", "STRINOVAVN", "VIP999"],
+            "status": "PENDING"  # 'PENDING' để chờ admin duyệt hoặc 'UPCOMING' để duyệt ngay
         }
     ]
 }
 
-res = requests.post(API_URL, json=payload, headers={"Authorization": f"Bearer {API_KEY}"})
-print(res.status_code, res.json())`}
+# 2. Hoặc Duyệt Game Đưa Lên Web:
+# payload = {"action": "approve", "id": "ug_strinova_vn", "pinToTop": True}
 
-                  {apiSnippetLang === 'curl' && `curl -X POST "${apiEndpointUrl}" \\
+response = requests.post(url, json=payload, headers=headers)
+print("Response:", response.status_code, response.json())`}
+
+                  {apiSnippetLang === 'curl' &&
+`curl -X POST "${apiEndpointUrl}" \\
   -H "Content-Type: application/json" \\
-  -H "Authorization: Bearer ${crawlerConfig.apiKey || 'YOUR_API_KEY'}" \\
+  -H "X-API-Key: ${crawlerConfig.apiKey || 'YOUR_API_KEY'}" \\
   -d '{
-    "botName": "Muse Bot",
+    "botName": "Trợ lý Pine",
+    "action": "ingest",
     "games": [
       {
-        "name": "Strinova VN",
-        "releaseDate": "2026-10-23T10:00:00+07:00",
-        "publisher": "VPlay",
-        "expectedCodes": ["STRINOVAOB", "VIP666"]
+        "name": "Tiên Giới",
+        "slug": "tien-gioi",
+        "publisher": "SohaGame",
+        "releaseDate": "2026-10-28T10:00:00+07:00",
+        "category": "Nhập Vai Tiên Hiệp",
+        "expectedCodes": ["TIENGIOI2026", "VIP666"],
+        "status": "PENDING"
       }
     ]
   }'`}
 
-                  {apiSnippetLang === 'js' && `const res = await fetch('${apiEndpointUrl}', {
-  method: 'POST',
-  headers: {
-    'Content-Type': 'application/json',
-    'Authorization': 'Bearer ${crawlerConfig.apiKey || 'YOUR_API_KEY'}'
-  },
-  body: JSON.stringify({
-    botName: 'Muse Upcoming Games Bot',
-    games: [
-      {
-        name: 'Strinova VN',
-        releaseDate: '2026-10-23T10:00:00+07:00',
-        publisher: 'VPlay',
-        expectedCodes: ['STRINOVAOB', 'VIP999']
-      }
-    ]
-  })
-});
-const data = await res.json();
-console.log(data);`}
+                  {apiSnippetLang === 'js' &&
+`async function ingestUpcomingGame() {
+  const res = await fetch("${apiEndpointUrl}", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "X-API-Key": "${crawlerConfig.apiKey || 'YOUR_API_KEY'}"
+    },
+    body: JSON.stringify({
+      botName: "Trợ lý Pine",
+      action: "ingest",
+      games: [
+        {
+          name: "Hiệp Khách Hành",
+          slug: "hiep-khach-hanh",
+          publisher: "VTC Mobile",
+          releaseDate: "2026-11-01T10:00:00+07:00",
+          category: "Kiếm Hiệp Kim Dung",
+          expectedCodes: ["HIEPKHACHHANH", "TANTHU"],
+          status: "PENDING"
+        }
+      ]
+    })
+  });
+  const data = await res.json();
+  console.log(data);
+}`}
                 </pre>
-
                 <button
                   type="button"
                   onClick={() => {
-                    const code =
+                    const snippet =
                       apiSnippetLang === 'python'
-                        ? `# 🐍 Python Script cho Muse AI Agent\nimport requests\n\nAPI_URL = "${apiEndpointUrl}"\nAPI_KEY = "${crawlerConfig.apiKey || 'YOUR_API_KEY'}"\n\npayload = {\n    "apiKey": API_KEY,\n    "botName": "Muse Upcoming Games Bot",\n    "games": [\n        {\n            "name": "Strinova VN",\n            "slug": "strinova-vn",\n            "publisher": "iDreamSky / VPlay",\n            "releaseDate": "2026-10-23T10:00:00+07:00",\n            "category": "Bắn Súng Anime 3D",\n            "platform": "PC, Android, iOS",\n            "preRegUrl": "https://strinova.vplay.vn",\n            "expectedCodes": ["STRINOVAOB", "VIP999"],\n            "status": "UPCOMING"\n        }\n    ]\n}\n\nres = requests.post(API_URL, json=payload, headers={"Authorization": f"Bearer {API_KEY}"})\nprint(res.status_code, res.json())`
-                        : apiSnippetLang === 'curl'
-                        ? `curl -X POST "${apiEndpointUrl}" -H "Content-Type: application/json" -H "Authorization: Bearer ${crawlerConfig.apiKey || 'YOUR_API_KEY'}" -d '{"botName":"Muse Bot","games":[{"name":"Strinova VN","releaseDate":"2026-10-23T10:00:00+07:00","publisher":"VPlay","expectedCodes":["STRINOVAOB","VIP666"]}]}'`
-                        : `const res = await fetch('${apiEndpointUrl}', { method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ${crawlerConfig.apiKey || 'YOUR_API_KEY'}' }, body: JSON.stringify({ botName: 'Muse Upcoming Games Bot', games: [{ name: 'Strinova VN', releaseDate: '2026-10-23T10:00:00+07:00', publisher: 'VPlay', expectedCodes: ['STRINOVAOB', 'VIP999'] }] }) });`;
-                    handleCopyText(code, 'snippet');
+                        ? `import requests\n\nurl = "${apiEndpointUrl}"\nheaders = {"Content-Type": "application/json", "X-API-Key": "${crawlerConfig.apiKey}"}\npayload = {"botName": "Trợ lý Pine", "action": "ingest", "games": [{"name": "Strinova VN", "slug": "strinova-vn", "publisher": "iDreamSky / VPlay", "releaseDate": "2026-10-23T10:00:00+07:00", "status": "PENDING", "expectedCodes": ["STRINOVAOB"]}]}\nres = requests.post(url, json=payload, headers=headers)\nprint(res.json())`
+                        : `curl -X POST "${apiEndpointUrl}" -H "Content-Type: application/json" -H "X-API-Key: ${crawlerConfig.apiKey}" -d '{"botName": "Trợ lý Pine", "action": "ingest", "games": [{"name": "Strinova VN", "slug": "strinova-vn", "status": "PENDING"}]}'`;
+                    handleCopyText(snippet, 'snippet');
                   }}
-                  className="absolute top-2.5 right-2.5 px-2 py-1 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 text-[10px] flex items-center gap-1 cursor-pointer transition-all border border-border"
+                  className="absolute top-2 right-2 p-1.5 rounded-lg bg-slate-900 hover:bg-slate-800 border border-border text-slate-300 transition-all cursor-pointer"
+                  title="Sao chép mã nguồn"
                 >
-                  {copiedKey === 'snippet' ? <Check className="w-3 h-3 text-emerald-400" /> : <Copy className="w-3 h-3" />}
-                  <span>{copiedKey === 'snippet' ? 'Đã chép' : 'Sao chép'}</span>
+                  <Copy className="w-3.5 h-3.5" />
                 </button>
               </div>
-            </div>
-
-            {/* Test Console */}
-            <div className="space-y-2.5">
-              <div className="flex items-center justify-between">
-                <span className="text-xs font-bold text-white flex items-center gap-1.5">
-                  <Terminal className="w-4 h-4 text-emerald-400" />
-                  <span>Khung Gửi Thử Nghiệm API Trực Tiếp:</span>
-                </span>
-                <span className="text-[10px] text-slate-400">Tự động chèn API Key khi gửi</span>
-              </div>
-
-              <textarea
-                value={testPayloadJson}
-                onChange={(e) => setTestPayloadJson(e.target.value)}
-                rows={8}
-                className="w-full p-3 bg-slate-950 border border-border rounded-xl text-[11px] font-mono text-emerald-300 focus:outline-none focus:border-purple-500 transition-all resize-none"
-                placeholder="Nhập JSON payload..."
-              />
-
-              <div className="flex items-center justify-between gap-3">
-                <button
-                  type="button"
-                  onClick={handleExecuteApiTest}
-                  disabled={isExecutingApiTest}
-                  className="px-4 py-2 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-bold text-xs flex items-center gap-1.5 shadow-md shadow-emerald-950/30 transition-all cursor-pointer disabled:opacity-50"
-                >
-                  <Play className="w-3.5 h-3.5 fill-current" />
-                  <span>{isExecutingApiTest ? 'Đang gửi tới API...' : '⚡ Gửi Thử Tới API (POST)'}</span>
-                </button>
-
-                {apiTestResponse && (
-                  <span
-                    className={`text-xs font-bold font-mono px-2.5 py-1 rounded-lg border ${
-                      apiTestResponse.ok
-                        ? 'bg-emerald-950/40 border-emerald-500/50 text-emerald-300'
-                        : 'bg-rose-950/40 border-rose-500/50 text-rose-300'
-                    }`}
-                  >
-                    HTTP {apiTestResponse.httpStatus} {apiTestResponse.statusText}
-                  </span>
-                )}
-              </div>
-
-              {apiTestResponse && (
-                <div className="p-3 rounded-xl bg-slate-950 border border-border text-[11px] font-mono text-slate-300 overflow-x-auto max-h-36">
-                  <pre>{JSON.stringify(apiTestResponse.data, null, 2)}</pre>
-                </div>
-              )}
             </div>
           </div>
         </div>
       )}
 
-      {/* Filter & Search Bar */}
-      <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 p-3 rounded-2xl bg-card border border-border">
-        <div className="relative flex-1 max-w-md">
-          <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-          <input
-            type="text"
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder="Tìm theo tên game, slug, nhà phát hành, mã code..."
-            className="w-full bg-slate-900 border border-border rounded-xl pl-9 pr-3 py-1.5 text-xs text-white placeholder-slate-400 focus:outline-none focus:border-indigo-500"
-          />
-        </div>
-
-        <div className="flex items-center gap-2">
-          <div className="flex items-center gap-1 bg-slate-900 p-1 rounded-xl border border-border text-xs">
-            <button
-              type="button"
-              onClick={() => setStatusFilter('ALL')}
-              className={`px-2.5 py-1 rounded-lg font-medium transition-all cursor-pointer ${
-                statusFilter === 'ALL' ? 'bg-indigo-600 text-white font-bold' : 'text-slate-400 hover:text-white'
-              }`}
-            >
-              Tất Cả ({upcomingGames.length})
-            </button>
-            <button
-              type="button"
-              onClick={() => setStatusFilter('UPCOMING')}
-              className={`px-2.5 py-1 rounded-lg font-medium transition-all cursor-pointer ${
-                statusFilter === 'UPCOMING' ? 'bg-indigo-600 text-white font-bold' : 'text-slate-400 hover:text-white'
-              }`}
-            >
-              Sắp Ra Mắt ({upcomingGames.filter((g) => g.status === 'UPCOMING').length})
-            </button>
-            <button
-              type="button"
-              onClick={() => setStatusFilter('LAUNCHED')}
-              className={`px-2.5 py-1 rounded-lg font-medium transition-all cursor-pointer ${
-                statusFilter === 'LAUNCHED' ? 'bg-indigo-600 text-white font-bold' : 'text-slate-400 hover:text-white'
-              }`}
-            >
-              Đã Mở Server ({upcomingGames.filter((g) => g.status === 'LAUNCHED').length})
-            </button>
-          </div>
-        </div>
-      </div>
-
-      {/* Danh Sách Game Chuẩn Bị Ra Mắt (Cards / Table) */}
-      {filteredGames.length === 0 ? (
-        <div className="p-12 text-center rounded-2xl bg-card border border-border border-dashed space-y-3">
-          <Rocket className="w-10 h-10 text-slate-500 mx-auto" />
-          <div className="text-sm font-bold text-white">Chưa có tựa game sắp ra mắt nào phù hợp</div>
-          <p className="text-xs text-slate-400 max-w-sm mx-auto">
-            Bấm vào nút "Thêm Game Mới" hoặc kích hoạt Muse Bot qua API để tự động nạp lịch mở server.
-          </p>
-          <button
-            type="button"
-            onClick={handleOpenCreateModal}
-            className="px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold inline-flex items-center gap-1.5 transition-all cursor-pointer"
-          >
-            <Plus className="w-4 h-4" />
-            <span>Thêm Game Đầu Tiên</span>
-          </button>
-        </div>
-      ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-          {filteredGames.map((game) => {
-            const countdown = getCountdownDetails(game.releaseDate);
-            const dateObj = new Date(game.releaseDate);
-            const formattedDate = !isNaN(dateObj.getTime())
-              ? dateObj.toLocaleString('vi-VN', {
-                  hour: '2-digit',
-                  minute: '2-digit',
-                  day: '2-digit',
-                  month: '2-digit',
-                  year: 'numeric',
-                })
-              : game.releaseDate;
-
-            return (
-              <div
-                key={game.id}
-                className="group relative rounded-2xl bg-card border border-border hover:border-indigo-500/50 transition-all duration-200 overflow-hidden shadow-sm flex flex-col justify-between"
-              >
-                {/* Header with Icon and Countdown */}
-                <div className="p-4 space-y-3">
-                  <div className="flex items-start justify-between gap-3">
-                    <div className="flex items-center gap-3">
-                      <div className="w-12 h-12 rounded-xl overflow-hidden bg-slate-900 border border-border shrink-0 flex items-center justify-center shadow-inner">
-                        {game.iconUrl ? (
-                          <img
-                            src={game.iconUrl}
-                            alt={game.name}
-                            className="w-full h-full object-cover"
-                            onError={(e) => {
-                              (e.target as HTMLElement).style.display = 'none';
-                            }}
-                          />
-                        ) : (
-                          <Rocket className="w-6 h-6 text-indigo-400" />
-                        )}
-                      </div>
-
-                      <div className="min-w-0">
-                        <div className="flex items-center gap-1.5 flex-wrap">
-                          <h4 className="font-bold text-sm text-white group-hover:text-indigo-400 transition-colors truncate">
-                            {game.name}
-                          </h4>
-                          {game.status === 'LAUNCHED' ? (
-                            <span className="px-1.5 py-0.5 rounded text-[10px] bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 font-semibold">
-                              Đã Mở Server
-                            </span>
-                          ) : (
-                            <span className="px-1.5 py-0.5 rounded text-[10px] bg-purple-500/20 text-purple-300 border border-purple-500/30 font-semibold">
-                              Sắp Ra Mắt
-                            </span>
-                          )}
-                        </div>
-                        <div className="text-[11px] text-slate-400 flex items-center gap-2 mt-0.5">
-                          <span className="truncate">{game.publisher}</span>
-                          <span>•</span>
-                          <span className="truncate text-indigo-300">{game.category}</span>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Countdown Badge */}
-                  <div className={`p-2.5 rounded-xl border flex items-center justify-between text-xs ${countdown.badgeBg}`}>
-                    <div className="flex items-center gap-1.5 font-medium">
-                      <Calendar className="w-3.5 h-3.5 shrink-0" />
-                      <span>{formattedDate}</span>
-                    </div>
-                    <div className={`text-xs font-bold ${countdown.color}`}>{countdown.text}</div>
-                  </div>
-
-                  {/* Description */}
-                  {game.description && (
-                    <p className="text-xs text-slate-300 line-clamp-2 leading-relaxed">
-                      {game.description}
-                    </p>
-                  )}
-
-                  {/* Expected Giftcodes */}
-                  <div className="space-y-1.5 pt-1">
-                    <div className="flex items-center justify-between text-[11px] text-slate-400">
-                      <span className="font-medium flex items-center gap-1 text-slate-300">
-                        <Gift className="w-3.5 h-3.5 text-accent" />
-                        <span>Code Tân Thủ Dự Kiến ({game.expectedCodes?.length || 0}):</span>
-                      </span>
-                      {game.source && (
-                        <span className="text-[10px] text-purple-300 font-mono bg-purple-950/40 px-1.5 py-0.5 rounded border border-purple-500/20">
-                          {game.source}
-                        </span>
-                      )}
-                    </div>
-
-                    {game.expectedCodes && game.expectedCodes.length > 0 ? (
-                      <div className="flex flex-wrap gap-1.5">
-                        {game.expectedCodes.map((codeStr, cIdx) => (
-                          <button
-                            key={cIdx}
-                            type="button"
-                            onClick={() => handleCopyText(codeStr, `code-${game.id}-${cIdx}`)}
-                            className="px-2 py-0.5 rounded-lg bg-slate-900 hover:bg-slate-800 border border-border text-[11px] font-mono text-emerald-400 font-bold flex items-center gap-1 transition-all cursor-pointer active:scale-95"
-                            title="Bấm để chép code"
-                          >
-                            <span>{codeStr}</span>
-                            {copiedKey === `code-${game.id}-${cIdx}` ? (
-                              <Check className="w-3 h-3 text-emerald-400" />
-                            ) : (
-                              <Copy className="w-3 h-3 text-slate-500 hover:text-slate-300" />
-                            )}
-                          </button>
-                        ))}
-                      </div>
-                    ) : (
-                      <div className="text-[11px] text-slate-500 italic">Chưa có mã code dự kiến nào</div>
-                    )}
-                  </div>
-                </div>
-
-                {/* Footer Actions */}
-                <div className="p-3 bg-slate-950/60 border-t border-border flex items-center justify-between gap-2">
-                  <div className="flex items-center gap-1.5">
-                    {game.preRegUrl && (
-                      <a
-                        href={game.preRegUrl}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="px-2.5 py-1 rounded-lg bg-slate-900 hover:bg-slate-800 text-[11px] text-indigo-400 hover:text-indigo-300 border border-border flex items-center gap-1 transition-colors"
-                      >
-                        <Globe className="w-3 h-3" />
-                        <span>Đăng Ký Trước</span>
-                        <ExternalLink className="w-2.5 h-2.5" />
-                      </a>
-                    )}
-                  </div>
-
-                  <div className="flex items-center gap-1.5">
-                    {game.status !== 'LAUNCHED' && (
-                      <button
-                        type="button"
-                        onClick={() => handleLaunchGame(game)}
-                        className="px-2.5 py-1 rounded-lg bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-bold text-[11px] flex items-center gap-1 shadow-sm transition-all cursor-pointer active:scale-95"
-                        title="Đẩy thành Game Chính Thức trên sàn khi mở server"
-                      >
-                        <Rocket className="w-3 h-3" />
-                        <span>Phát Hành Lên Sàn</span>
-                      </button>
-                    )}
-
-                    <button
-                      type="button"
-                      onClick={() => handleOpenEditModal(game)}
-                      className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition-colors cursor-pointer"
-                      title="Sửa thông tin"
-                    >
-                      <Edit2 className="w-3.5 h-3.5" />
-                    </button>
-
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setDeletingGame(game);
-                        setIsDeleteOpen(true);
-                      }}
-                      className="p-1.5 rounded-lg text-slate-400 hover:text-rose-400 hover:bg-rose-950/30 transition-colors cursor-pointer"
-                      title="Xóa game sắp ra mắt"
-                    >
-                      <Trash2 className="w-3.5 h-3.5" />
-                    </button>
-                  </div>
-                </div>
-              </div>
-            );
-          })}
-        </div>
-      )}
-
-      {/* Modal Thêm / Chỉnh Sửa Game Sắp Ra Mắt */}
+      {/* ============================================================== */}
+      {/* FORM MODAL: THÊM / CHỈNH SỬA GAME CHUẨN BỊ RA MẮT             */}
+      {/* ============================================================== */}
       <FormModal
         isOpen={isFormOpen}
         onClose={() => {
@@ -984,7 +1464,7 @@ console.log(data);`}
           setEditingGame(null);
         }}
         title={editingGame?.id ? 'Chỉnh Sửa Game Sắp Ra Mắt' : 'Thêm Game Chuẩn Bị Ra Mắt Mới'}
-        subtitle="Cập nhật lịch mở server, NPH và gom giftcode tân thủ dự kiến."
+        subtitle="Cập nhật lịch mở server, NPH, thứ tự hiển thị và gom giftcode tân thủ dự kiến."
         maxWidth="2xl"
       >
         <form onSubmit={handleFormSubmit} className="space-y-4">
@@ -1000,7 +1480,7 @@ console.log(data);`}
                 value={editingGame?.name || ''}
                 onChange={(e) => setEditingGame((prev) => ({ ...prev, name: e.target.value }))}
                 placeholder="Ví dụ: Strinova VN"
-                className="w-full bg-slate-900 border border-border rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-indigo-500"
+                className="w-full bg-slate-900 border border-border rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-cyan-500"
               />
             </div>
 
@@ -1012,7 +1492,7 @@ console.log(data);`}
                 value={editingGame?.slug || ''}
                 onChange={(e) => setEditingGame((prev) => ({ ...prev, slug: e.target.value }))}
                 placeholder="Tự động sinh nếu để trống"
-                className="w-full bg-slate-900 border border-border rounded-xl px-3 py-2 text-xs text-white font-mono focus:outline-none focus:border-indigo-500"
+                className="w-full bg-slate-900 border border-border rounded-xl px-3 py-2 text-xs text-white font-mono focus:outline-none focus:border-cyan-500"
               />
             </div>
 
@@ -1024,7 +1504,7 @@ console.log(data);`}
                 value={editingGame?.publisher || ''}
                 onChange={(e) => setEditingGame((prev) => ({ ...prev, publisher: e.target.value }))}
                 placeholder="Ví dụ: VNG, VPlay, SohaGame, Funtap..."
-                className="w-full bg-slate-900 border border-border rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-indigo-500"
+                className="w-full bg-slate-900 border border-border rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-cyan-500"
               />
             </div>
 
@@ -1038,7 +1518,7 @@ console.log(data);`}
                 required
                 value={editingGame?.releaseDate ? editingGame.releaseDate.slice(0, 16) : ''}
                 onChange={(e) => setEditingGame((prev) => ({ ...prev, releaseDate: e.target.value }))}
-                className="w-full bg-slate-900 border border-border rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-indigo-500"
+                className="w-full bg-slate-900 border border-border rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-cyan-500"
               />
             </div>
 
@@ -1050,7 +1530,7 @@ console.log(data);`}
                 value={editingGame?.category || ''}
                 onChange={(e) => setEditingGame((prev) => ({ ...prev, category: e.target.value }))}
                 placeholder="Nhập Vai, Bắn Súng, Tiên Hiệp, Chiến Thuật..."
-                className="w-full bg-slate-900 border border-border rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-indigo-500"
+                className="w-full bg-slate-900 border border-border rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-cyan-500"
               />
             </div>
 
@@ -1062,7 +1542,7 @@ console.log(data);`}
                 value={editingGame?.platform || ''}
                 onChange={(e) => setEditingGame((prev) => ({ ...prev, platform: e.target.value }))}
                 placeholder="Android, iOS, PC"
-                className="w-full bg-slate-900 border border-border rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-indigo-500"
+                className="w-full bg-slate-900 border border-border rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-cyan-500"
               />
             </div>
           </div>
@@ -1085,7 +1565,7 @@ console.log(data);`}
                 value={editingGame?.preRegUrl || ''}
                 onChange={(e) => setEditingGame((prev) => ({ ...prev, preRegUrl: e.target.value }))}
                 placeholder="https://game.vn hoặc link TapTap, Google Play..."
-                className="w-full bg-slate-900 border border-border rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-indigo-500"
+                className="w-full bg-slate-900 border border-border rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-cyan-500"
               />
             </div>
           </div>
@@ -1101,7 +1581,7 @@ console.log(data);`}
               value={expectedCodesInput}
               onChange={(e) => setExpectedCodesInput(e.target.value)}
               placeholder="Ví dụ: STRINOVAOB, VIP666, TANTHU2026"
-              className="w-full bg-slate-900 border border-border rounded-xl px-3 py-2 text-xs font-mono text-emerald-400 focus:outline-none focus:border-indigo-500 resize-none"
+              className="w-full bg-slate-900 border border-border rounded-xl px-3 py-2 text-xs font-mono text-emerald-400 focus:outline-none focus:border-cyan-500 resize-none"
             />
           </div>
 
@@ -1109,26 +1589,46 @@ console.log(data);`}
           <div className="space-y-1">
             <label className="text-xs font-semibold text-slate-300">Mô Tả & Điểm Nổi Bật</label>
             <textarea
-              rows={3}
+              rows={2}
               value={editingGame?.description || ''}
               onChange={(e) => setEditingGame((prev) => ({ ...prev, description: e.target.value }))}
               placeholder="Giới thiệu tóm tắt tính năng, cốt truyện, điểm nhấn của tựa game..."
-              className="w-full bg-slate-900 border border-border rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-indigo-500 resize-none"
+              className="w-full bg-slate-900 border border-border rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-cyan-500 resize-none"
             />
           </div>
 
-          {/* Trạng thái */}
-          <div className="space-y-1">
-            <label className="text-xs font-semibold text-slate-300">Trạng Thái</label>
-            <select
-              value={editingGame?.status || 'UPCOMING'}
-              onChange={(e) => setEditingGame((prev) => ({ ...prev, status: e.target.value as any }))}
-              className="w-full bg-slate-900 border border-border rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-indigo-500"
-            >
-              <option value="UPCOMING">🚀 Sắp Ra Mắt (Hiển thị đồng hồ đếm ngược)</option>
-              <option value="LAUNCHED">🟢 Đã Mở Server (Đã phát hành)</option>
-              <option value="CANCELLED">⚪ Tạm Hoãn / Hủy Lịch</option>
-            </select>
+          {/* Phân loại danh sách & Thứ tự hiển thị */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 p-3 rounded-xl bg-slate-900/60 border border-border">
+            {/* Trạng thái danh sách */}
+            <div className="space-y-1">
+              <label className="text-xs font-semibold text-slate-300">Danh Sách Phân Loại</label>
+              <select
+                value={editingGame?.status || 'UPCOMING'}
+                onChange={(e) => setEditingGame((prev) => ({ ...prev, status: e.target.value as any }))}
+                className="w-full bg-slate-900 border border-border rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-cyan-500"
+              >
+                <option value="UPCOMING">🌐 Đưa Lên Web Ngay (Đã duyệt - Top 6 hoặc xem thêm)</option>
+                <option value="PENDING">⏳ Cho Vào Hàng Chờ Duyệt (Chưa hiện lên web khách)</option>
+                <option value="LAUNCHED">🟢 Đã Mở Server (Đã phát hành)</option>
+                <option value="CANCELLED">⚪ Tạm Hoãn / Hủy Lịch</option>
+              </select>
+            </div>
+
+            {/* Thứ tự hiển thị */}
+            <div className="space-y-1">
+              <label className="text-xs font-semibold text-slate-300 flex items-center justify-between">
+                <span>Thứ Tự Hiển Thị (Display Order)</span>
+                <span className="text-[10px] text-amber-300">1..6 là Top Banner Web</span>
+              </label>
+              <input
+                type="number"
+                min={1}
+                max={999}
+                value={editingGame?.displayOrder || 1}
+                onChange={(e) => setEditingGame((prev) => ({ ...prev, displayOrder: parseInt(e.target.value, 10) || 1 }))}
+                className="w-full bg-slate-900 border border-border rounded-xl px-3 py-2 text-xs text-white font-mono focus:outline-none focus:border-cyan-500"
+              />
+            </div>
           </div>
 
           {/* Buttons */}
@@ -1145,9 +1645,9 @@ console.log(data);`}
             </button>
             <button
               type="submit"
-              className="px-5 py-2 rounded-xl bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 text-white text-xs font-bold shadow-md shadow-indigo-600/20 transition-all cursor-pointer"
+              className="px-5 py-2 rounded-xl bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-500 hover:to-blue-500 text-white text-xs font-bold shadow-md shadow-cyan-600/20 transition-all cursor-pointer"
             >
-              {editingGame?.id ? 'Lưu Thay Đổi' : 'Thêm Game Sắp Ra Mắt'}
+              {editingGame?.id ? 'Lưu Thay Đổi' : 'Thêm Game Mới'}
             </button>
           </div>
         </form>

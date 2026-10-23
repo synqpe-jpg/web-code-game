@@ -359,7 +359,11 @@ export interface UpcomingGame {
   expectedCodes?: string[];
   subscribersCount?: number;
   source?: string;
-  status: 'UPCOMING' | 'LAUNCHED' | 'CANCELLED';
+  status: 'UPCOMING' | 'APPROVED' | 'PENDING' | 'LAUNCHED' | 'CANCELLED';
+  displayOrder?: number; // 1..6: Top 6 hiển thị ngay trên banner web khách; 7+: Hiển thị khi bấm Xem Thêm
+  isPinned?: boolean;
+  approvedAt?: string;
+  approvedBy?: string;
   createdAt?: string;
   updatedAt?: string;
 }
@@ -379,8 +383,9 @@ export const DEFAULT_UPCOMING_GAMES: UpcomingGame[] = [
     preRegUrl: 'https://strinova.vplay.vn',
     expectedCodes: ['STRINOVAOB', 'STRINOVAVN', 'VIP999', 'OPENBETA2026'],
     subscribersCount: 2840,
-    source: 'Muse Bot',
+    source: 'Trợ lý Pine & Muse Bot',
     status: 'UPCOMING',
+    displayOrder: 1,
     createdAt: '2026-10-20T08:00:00Z',
     updatedAt: '2026-10-22T14:00:00Z',
   },
@@ -398,8 +403,9 @@ export const DEFAULT_UPCOMING_GAMES: UpcomingGame[] = [
     preRegUrl: 'https://tiengioi.sohagame.vn',
     expectedCodes: ['TIENGIOI2026', 'TIENGIOISOHA', 'VIP666', 'TANTHU2026'],
     subscribersCount: 1950,
-    source: 'Muse Bot',
+    source: 'Trợ lý Pine & Muse Bot',
     status: 'UPCOMING',
+    displayOrder: 2,
     createdAt: '2026-10-21T09:30:00Z',
     updatedAt: '2026-10-22T16:00:00Z',
   },
@@ -417,8 +423,9 @@ export const DEFAULT_UPCOMING_GAMES: UpcomingGame[] = [
     preRegUrl: 'https://hiepkhachhanh.vtc.vn',
     expectedCodes: ['HIEPKHACHHANH', 'HKHVTC', 'TANTHU', 'TRIAN2026'],
     subscribersCount: 1420,
-    source: 'Muse Bot',
+    source: 'Trợ lý Pine & Muse Bot',
     status: 'UPCOMING',
+    displayOrder: 3,
     createdAt: '2026-10-21T11:00:00Z',
     updatedAt: '2026-10-22T17:00:00Z',
   },
@@ -435,8 +442,9 @@ export const DEFAULT_UPCOMING_GAMES: UpcomingGame[] = [
     description: 'Bom tấn võ hiệp thế giới mở thời Ngũ Đại Thập Quốc với đồ họa ray-tracing đỉnh cao.',
     expectedCodes: ['WHEREWINDSMEET', 'WWMOPENBETA', 'VIP888'],
     subscribersCount: 5630,
-    source: 'Muse Bot',
+    source: 'Trợ lý Pine & Muse Bot',
     status: 'UPCOMING',
+    displayOrder: 4,
     createdAt: '2026-10-18T10:00:00Z',
     updatedAt: '2026-10-22T12:00:00Z',
   },
@@ -454,8 +462,9 @@ export const DEFAULT_UPCOMING_GAMES: UpcomingGame[] = [
     preRegUrl: 'https://df.vnggames.com',
     expectedCodes: ['DELTAFORCE2026', 'DFVNGGAMES', 'VIP777', 'OPERATIONS'],
     subscribersCount: 4210,
-    source: 'Muse Bot',
+    source: 'Trợ lý Pine & Muse Bot',
     status: 'UPCOMING',
+    displayOrder: 5,
     createdAt: '2026-10-22T08:00:00Z',
     updatedAt: '2026-10-22T18:00:00Z',
   },
@@ -472,8 +481,9 @@ export const DEFAULT_UPCOMING_GAMES: UpcomingGame[] = [
     description: 'Phiên bản đại cập nhật 3.0 mở ra hành tinh mới Amphoreus và dàn nhân vật 5 sao giới hạn mới.',
     expectedCodes: ['HSRVER30', 'STARRAIL30', 'AMPHOREUS'],
     subscribersCount: 8900,
-    source: 'Muse Bot',
+    source: 'Trợ lý Pine & Muse Bot',
     status: 'UPCOMING',
+    displayOrder: 6,
     createdAt: '2026-10-19T14:00:00Z',
     updatedAt: '2026-10-22T18:00:00Z',
   },

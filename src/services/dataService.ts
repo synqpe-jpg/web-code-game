@@ -1738,18 +1738,31 @@ class DataService {
   // --- UPCOMING GAMES SYSTEM ---
   /**
    * Retrieves upcoming games from Serverless API / LocalStorage / Fallback
+   * Only returns approved games (excludes pending moderation queue) and sorts by admin display order
    */
   async getUpcomingGames(): Promise<UpcomingGame[]> {
+    const sortAndFilter = (list: any[]): UpcomingGame[] => {
+      return list
+        .filter((g) => (g.status === 'UPCOMING' || g.status === 'APPROVED') && g.status !== 'PENDING' && g.status !== 'CANCELLED')
+        .sort((a, b) => {
+          const orderA = typeof a.displayOrder === 'number' ? a.displayOrder : 999;
+          const orderB = typeof b.displayOrder === 'number' ? b.displayOrder : 999;
+          if (orderA !== orderB) return orderA - orderB;
+          return new Date(a.releaseDate).getTime() - new Date(b.releaseDate).getTime();
+        });
+    };
+
     // 1. Try fetching from Cloudflare Pages API
     try {
       const res = await fetch('/api/crawler/ingest-upcoming-games?status=UPCOMING');
       if (res.ok) {
         const json = await res.json();
         if (json && json.success && Array.isArray(json.games) && json.games.length > 0) {
+          const processed = sortAndFilter(json.games);
           try {
-            localStorage.setItem('wcg_cached_upcoming_games_v1', JSON.stringify(json.games));
+            localStorage.setItem('wcg_cached_upcoming_games_v1', JSON.stringify(processed));
           } catch {}
-          return json.games;
+          return processed;
         }
       }
     } catch {}
@@ -1760,29 +1773,40 @@ class DataService {
       if (cached) {
         const parsed = JSON.parse(cached);
         if (Array.isArray(parsed) && parsed.length > 0) {
-          return parsed.filter((g: any) => g.status !== 'CANCELLED');
+          return sortAndFilter(parsed);
         }
       }
     } catch {}
 
     // 3. Fallback to DEFAULT_UPCOMING_GAMES
-    return DEFAULT_UPCOMING_GAMES;
+    return sortAndFilter(DEFAULT_UPCOMING_GAMES);
   }
 
   /**
    * Get cached upcoming games synchronously for 0ms initial render
    */
   getUpcomingGamesSync(): UpcomingGame[] {
+    const sortAndFilter = (list: any[]): UpcomingGame[] => {
+      return list
+        .filter((g) => (g.status === 'UPCOMING' || g.status === 'APPROVED') && g.status !== 'PENDING' && g.status !== 'CANCELLED')
+        .sort((a, b) => {
+          const orderA = typeof a.displayOrder === 'number' ? a.displayOrder : 999;
+          const orderB = typeof b.displayOrder === 'number' ? b.displayOrder : 999;
+          if (orderA !== orderB) return orderA - orderB;
+          return new Date(a.releaseDate).getTime() - new Date(b.releaseDate).getTime();
+        });
+    };
+
     try {
       const cached = localStorage.getItem('wcg_cached_upcoming_games_v1') || localStorage.getItem('wcg_admin_upcoming_games_v1');
       if (cached) {
         const parsed = JSON.parse(cached);
         if (Array.isArray(parsed) && parsed.length > 0) {
-          return parsed.filter((g: any) => g.status !== 'CANCELLED');
+          return sortAndFilter(parsed);
         }
       }
     } catch {}
-    return DEFAULT_UPCOMING_GAMES;
+    return sortAndFilter(DEFAULT_UPCOMING_GAMES);
   }
 
   // --- GIVEAWAYS SYSTEM ---

@@ -291,8 +291,12 @@ export interface UpcomingGameAdminRecord {
   preRegUrl?: string;
   expectedCodes: string[];
   subscribersCount?: number;
-  source?: string; // 'Muse Bot' | 'Admin Console'
-  status: 'UPCOMING' | 'LAUNCHED' | 'CANCELLED';
+  source?: string; // 'Trợ lý Pine' | 'Muse Bot' | 'Admin Console'
+  status: 'UPCOMING' | 'APPROVED' | 'PENDING' | 'LAUNCHED' | 'CANCELLED';
+  displayOrder?: number; // 1..6: Top 6 hiển thị ngay trên Web Khách; 7+: Hiển thị khi bấm Xem Thêm
+  isPinned?: boolean;
+  approvedAt?: string;
+  approvedBy?: string;
   createdAt: string;
   updatedAt: string;
 }

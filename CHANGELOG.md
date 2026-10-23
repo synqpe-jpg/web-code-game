@@ -7,6 +7,48 @@ Mỗi mục sửa lỗi đều ghi nhận **Nguyên nhân gốc rễ (Root Cause
 
 ## [2026-10-23]
 
+### 150. Nâng Cấp Quản Lý Game Chuẩn Bị Ra Mắt & Phân Quyền Cổng API Cho Trợ Lý Pine & Muse Bot (Two-Tier Moderation Lists & Pine Assistant API Permissions)
+- **Mô tả & Yêu cầu người dùng**:
+  - *"Quản Lý Game Chuẩn Bị Ra Mắt & Cổng API Muse trong trang admin, Mặc định mục này sẽ quản lý tất cả các game chuẩn bị ra mắt trong mục game sắp ra mắt trên trang khách, thêm mục tùy chỉnh các tựa game để admin tự sắp xếp các game, mặc định có 6 game admin chỉnh sẽ được hiển thị ngay trên web khách, các game được duyệt còn lại sẽ xuất hiện cùng danh sách 6 game trưng sẵn khi khách ấn xem thêm. Trong mục quản lý có 2 danh sách, 1 danh sách là hiện trên web, 1 danh sách cho vào hàng chờ duyệt, duyệt xong mới được đưa lên web. Tất cả mục này có thể cấp quyền cho API của trợ lý Pine của tôi thực hiện."*
+- **Nguyên nhân gốc rễ & Phân tích nghiệp vụ**:
+  - Cần quy trình kiểm duyệt 2 lớp an toàn (Two-tier moderation) cho các tựa game sắp ra mắt: Game do bot hoặc trợ lý tự động nạp cần có hàng chờ duyệt (Pending Moderation Queue) để Admin hoặc Trợ lý Pine kiểm duyệt thông tin trước khi xuất bản ra ngoài Web Khách.
+  - Cần cơ chế tùy chỉnh sắp xếp thứ tự hiển thị (`displayOrder`): 6 game đầu tiên (Top 1 - 6) do Admin sắp xếp sẽ được ghim nổi bật trên Banner trang chủ Web Khách, trong khi các game từ vị trí thứ 7 trở đi sẽ xuất hiện đầy đủ khi khách bấm "Xem thêm / Xem tất cả".
+  - Trợ lý Pine cần được cấp quyền qua API đầy đủ các chức năng: nạp game mới, duyệt game, duyệt hàng loạt, thay đổi thứ tự sắp xếp và xóa/từ chối game.
+- **Giải pháp đã triển khai (Solution)**:
+  1. *Phân Chia 2 Danh Sách Độc Lập Trong Admin (`UpcomingGamesSection.tsx`)*:
+     - **Danh Sách 1: Đang Hiển Thị Trên Web**:
+       - Lọc các game đã duyệt (`status === 'UPCOMING' | 'APPROVED' | 'LAUNCHED'`), sắp xếp theo `displayOrder`.
+       - Huy hiệu trực quan: Top 1..6 mang nhãn `[⭐ TOP {x} • TRƯNG BÀY WEB KHÁCH]`, vị trí 7+ mang nhãn `[📂 VỊ TRÍ {x} • XEM THÊM (MODAL)]`.
+       - Công cụ sắp xếp thứ tự: Nút `▲ Lên`, `▼ Xuống` và `⭐ Ghim Top 1` ngay trên từng thẻ game, tự động lưu và đồng bộ tức thì.
+       - Nút chuyển về hàng chờ duyệt (`⏸️ Về Chờ Duyệt`), sửa thông tin và phát hành lên sàn (`🚀 Phát Hành`).
+     - **Danh Sách 2: Hàng Chờ Duyệt (Chờ Pine / Admin duyệt)**:
+       - Lọc các game ở trạng thái `status: 'PENDING'` (game do bot/trợ lý nạp nhưng chưa xuất bản).
+       - Badge cảnh báo màu cam nhấp nháy trên Tab khi có game mới trong hàng chờ.
+       - Nút "Duyệt Toàn Bộ Game Lên Web" (Bulk approve) chỉ bằng 1 chạm.
+       - Thao tác trên từng game: `✅ Duyệt Lên Web`, `⭐ Duyệt & Ghim Top 6`, `✏️ Sửa Trước Khi Duyệt`, `❌ Từ Chối / Xóa`.
+  2. *Cấp Quyền Cho Cổng API Trợ Lý Pine & Muse Bot (`ingest-upcoming-games.ts`)*:
+     - Hỗ trợ đầy đủ các Action:
+       - `action: "ingest"`: Nạp game mới vào hàng chờ duyệt (`status: 'PENDING'`) hoặc duyệt ngay (`status: 'UPCOMING'`).
+       - `action: "approve"`: Duyệt 1 hoặc nhiều game từ hàng chờ đưa lên web (hỗ trợ cờ `pinToTop: true`).
+       - `action: "approve_all"`: Duyệt toàn bộ hàng chờ.
+       - `action: "reorder"`: Cập nhật thứ tự sắp xếp (`orderedIds: [...]`).
+       - `action: "reject"` / `"delete"`: Xóa hoặc từ chối game.
+       - `action: "move_to_pending"`: Chuyển game về lại hàng chờ.
+     - Xác thực API Key: Nhận diện `botName` của Trợ lý Pine và Muse Bot qua header (`x-api-key`, Bearer Token) hoặc query param.
+     - Cung cấp tài liệu, hướng dẫn và mã nguồn mẫu (Python, cURL, JS/TS) riêng cho Trợ lý Pine ngay trong Tab API của Admin.
+  3. *Đồng Bộ Tuyệt Đối Với Web Khách (`dataService.ts`)*:
+     - Web Khách lọc triệt để các game `PENDING` (chỉ nạp các game đã duyệt `UPCOMING` hoặc `APPROVED`).
+     - Sắp xếp theo `displayOrder`: Banner trang chủ lấy đúng Top 6 game đầu tiên, Modal xem thêm lấy toàn bộ danh sách đã duyệt.
+- **Files Modified**:
+  - `functions/api/crawler/ingest-upcoming-games.ts`
+  - `src/admin/modules/UpcomingGamesSection.tsx`
+  - `src/admin/services/adminDataService.ts`
+  - `src/admin/types/adminTypes.ts`
+  - `src/services/dataService.ts`
+  - `src/types/game.ts`
+  - `CHANGELOG.md`
+
+
 ### 149. Triển Khai Khối Game Bạn Đang Theo Dõi & Khối Game Sắp Ra Mắt Đếm Ngược Giờ G (Pinned Followed Games Bar & Upcoming Games Live Countdown Hub)
 - **Mô tả & Yêu cầu người dùng**:
   - *"bắt đầu triển khai 2 khối giao diện đã thống nhất: Khối Game Bạn Đang Theo Dõi: Tự động ghim lên đầu trang chủ ngay khi người dùng bấm Lưu/Theo dõi game (kèm badge code mới cập nhật). Khối Game Sắp Ra Mắt (5-6 game đếm ngược giờ G): Đồng hồ đếm ngược sống, quà tân thủ dự kiến, nút 'Báo code' kết nối thẳng vào khối theo dõi, tối ưu mượt mà cho cả Desktop và Mobile. Đại diện là 5-6 game, có nút xem thêm nhỏ gọn, khi ấn vào sẽ ra danh sách toàn bộ các game chuẩn bị ra mắt. Mục này sẽ được quản lý trong admin, Quản lý game, game chuẩn bị ra mắt."*

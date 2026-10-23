@@ -4354,11 +4354,13 @@ class AdminDataService {
         category: 'Chiến Thuật Theo Lượt',
         platform: 'PC, Android, iOS',
         iconUrl: '/game_icons/honkai-star-rail.webp',
+        bannerUrl: 'https://images.unsplash.com/photo-1563089145-599997674d42?auto=format&fit=crop&w=1200&q=80',
         description: 'Phiên bản đại cập nhật 3.0 mở ra hành tinh mới Amphoreus và dàn nhân vật 5 sao giới hạn mới.',
         expectedCodes: ['HSRVER30', 'STARRAIL30', 'AMPHOREUS'],
         subscribersCount: 8900,
-        source: 'Muse Bot',
+        source: 'Trợ lý Pine & Muse Bot',
         status: 'UPCOMING',
+        displayOrder: 6,
         createdAt: '2026-10-19T14:00:00Z',
         updatedAt: '2026-10-22T18:00:00Z',
       },
@@ -4400,6 +4402,107 @@ class AdminDataService {
 
   public async setUpcomingGames(games: UpcomingGameAdminRecord[]): Promise<void> {
     this.upcomingGames = [...games];
+    this.safeSetItem(this.KEYS.UPCOMING_GAMES, JSON.stringify(this.upcomingGames));
+    crossOriginSync.setItem(this.KEYS.UPCOMING_GAMES, this.upcomingGames);
+    this.broadcastSync('UPCOMING_GAMES_UPDATED', this.upcomingGames);
+    await this.syncToCloudflareKV(this.KEYS.UPCOMING_GAMES, this.upcomingGames);
+  }
+
+  /**
+   * Tùy chỉnh sắp xếp thứ tự các game hiển thị trên Web Khách
+   * (Top 6 game đầu tiên hiển thị ngay trên Banner, còn lại hiển thị khi bấm Xem Thêm)
+   */
+  public async reorderUpcomingGames(orderedIds: string[]): Promise<void> {
+    const orderMap = new Map<string, number>();
+    orderedIds.forEach((id, idx) => {
+      orderMap.set(id.toLowerCase(), idx + 1);
+    });
+
+    for (const g of this.upcomingGames) {
+      const idKey = (g.id || '').toLowerCase();
+      const slugKey = (g.slug || '').toLowerCase();
+      if (orderMap.has(idKey)) {
+        g.displayOrder = orderMap.get(idKey);
+      } else if (orderMap.has(slugKey)) {
+        g.displayOrder = orderMap.get(slugKey);
+      }
+    }
+
+    // Sort by displayOrder
+    this.upcomingGames.sort((a, b) => (a.displayOrder || 999) - (b.displayOrder || 999));
+    this.safeSetItem(this.KEYS.UPCOMING_GAMES, JSON.stringify(this.upcomingGames));
+    crossOriginSync.setItem(this.KEYS.UPCOMING_GAMES, this.upcomingGames);
+    this.broadcastSync('UPCOMING_GAMES_UPDATED', this.upcomingGames);
+    await this.syncToCloudflareKV(this.KEYS.UPCOMING_GAMES, this.upcomingGames);
+  }
+
+  /**
+   * Duyệt game từ hàng chờ đưa lên Web Khách
+   */
+  public async approveUpcomingGame(id: string, pinToTop = false): Promise<void> {
+    const ug = this.upcomingGames.find((g) => g.id === id || g.slug === id);
+    if (!ug) return;
+
+    const now = new Date().toISOString();
+    ug.status = 'UPCOMING';
+    ug.approvedAt = now;
+    ug.approvedBy = 'Admin Quản Trị';
+    ug.updatedAt = now;
+
+    if (pinToTop) {
+      ug.displayOrder = 1;
+      let order = 2;
+      for (const item of this.upcomingGames) {
+        if (item.id !== ug.id && (item.status === 'UPCOMING' || item.status === 'APPROVED')) {
+          item.displayOrder = order++;
+        }
+      }
+    } else if (!ug.displayOrder || ug.displayOrder <= 0) {
+      const maxOrder = Math.max(0, ...this.upcomingGames.filter((g) => g.status === 'UPCOMING' || g.status === 'APPROVED').map((g) => g.displayOrder || 0));
+      ug.displayOrder = maxOrder + 1;
+    }
+
+    this.safeSetItem(this.KEYS.UPCOMING_GAMES, JSON.stringify(this.upcomingGames));
+    crossOriginSync.setItem(this.KEYS.UPCOMING_GAMES, this.upcomingGames);
+    this.broadcastSync('UPCOMING_GAMES_UPDATED', this.upcomingGames);
+    await this.syncToCloudflareKV(this.KEYS.UPCOMING_GAMES, this.upcomingGames);
+  }
+
+  /**
+   * Duyệt toàn bộ game trong hàng chờ
+   */
+  public async approveAllUpcomingGames(): Promise<number> {
+    const now = new Date().toISOString();
+    let count = 0;
+    let maxOrder = Math.max(0, ...this.upcomingGames.filter((g) => g.status === 'UPCOMING' || g.status === 'APPROVED').map((g) => g.displayOrder || 0));
+
+    for (const ug of this.upcomingGames) {
+      if (ug.status === 'PENDING') {
+        ug.status = 'UPCOMING';
+        ug.approvedAt = now;
+        ug.approvedBy = 'Admin Quản Trị';
+        ug.updatedAt = now;
+        ug.displayOrder = ++maxOrder;
+        count++;
+      }
+    }
+
+    this.safeSetItem(this.KEYS.UPCOMING_GAMES, JSON.stringify(this.upcomingGames));
+    crossOriginSync.setItem(this.KEYS.UPCOMING_GAMES, this.upcomingGames);
+    this.broadcastSync('UPCOMING_GAMES_UPDATED', this.upcomingGames);
+    await this.syncToCloudflareKV(this.KEYS.UPCOMING_GAMES, this.upcomingGames);
+    return count;
+  }
+
+  /**
+   * Chuyển game về hàng chờ duyệt
+   */
+  public async moveUpcomingGameToPending(id: string): Promise<void> {
+    const ug = this.upcomingGames.find((g) => g.id === id || g.slug === id);
+    if (!ug) return;
+    ug.status = 'PENDING';
+    ug.updatedAt = new Date().toISOString();
+
     this.safeSetItem(this.KEYS.UPCOMING_GAMES, JSON.stringify(this.upcomingGames));
     crossOriginSync.setItem(this.KEYS.UPCOMING_GAMES, this.upcomingGames);
     this.broadcastSync('UPCOMING_GAMES_UPDATED', this.upcomingGames);
