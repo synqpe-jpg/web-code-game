@@ -10,6 +10,23 @@
 
 ## 1. DANH MỤC LỖI & CÁC BẪY ĐÃ THẤT BẠI (DO NOT REPEAT)
 
+### ISSUE-095: Bẫy Thiếu Request Khi Gọi InvalidateCatalogEdgeCache Gây Ra TypeError 'url' of undefined Và Bẫy Bỏ Sót Mã Test Trên Production Khi Mở Rộng API Crawler (EdgeCache Request Signature Trap & Zero Test Artifacts in Crawler RPC)
+- **Triệu chứng**:
+  - Khi mở rộng endpoint `POST /api/crawler/ingest-codes` với các action mới (`publish_game`, `approve_codes`), lệnh gọi Edge cache purge bị lỗi: `TypeError: Cannot read properties of undefined (reading 'url')`.
+  - Quá trình test thực tế trên production có nguy cơ để sót mã test (`TESTAPPR*`, `TESTREJECT*`) hoặc làm lệch danh mục game công khai nếu không có cơ chế hoàn tác và dọn dẹp nguyên tử.
+- **Nguyên nhân gốc rễ**:
+  1. Trong `functions/api/games.ts`, hàm `invalidateCatalogEdgeCache(ctx: ExecutionContext, request: Request, env: any, extraUrls?: string[])` nhận tham số thứ hai là `request`. Trong `ingest-codes.ts`, hàm được gọi theo dạng cũ `invalidateCatalogEdgeCache(context as any, env)`, dẫn đến `request` bị `undefined`, khi hàm truy cập `request.url` sẽ văng ngoại lệ runtime.
+  2. Các thao tác test phê duyệt mã tự động (`approve_codes`) sẽ chèn trực tiếp mã code vào D1 database. Nếu không có lệnh dọn dẹp chuyên biệt, mã test sẽ hiển thị vĩnh viễn trên trang web công khai của khách hàng, vi phạm nghiêm trọng Rule 7 (Zero Test Artifacts on Production).
+- **Giải pháp chuẩn đã kiểm chứng**:
+  - Luôn gọi đúng signature: `invalidateCatalogEdgeCache(context as any, request, env).catch(() => {})`.
+  - Cung cấp thêm action nội bộ bảo vệ `cleanup_test_codes` để cho phép test script dọn dẹp sạch sẽ 100% mã test trong D1 ngay trong khối `finally`.
+  - Mọi thao tác thử nghiệm xuất bản game (`publish_game`) trên production phải được hoàn tác an toàn (`status: 'pending'`, `is_active: false`) ngay sau khi kiểm tra xong tính idempotent.
+- ⛔ **CÁCH SỬA ĐÃ THẤT BẠI - TUYỆT ĐỐI KHÔNG LẶP LẠI**:
+  - ❌ *Không gọi invalidateCatalogEdgeCache thiếu tham số request*: Luôn truyền đủ `(context, request, env)`.
+  - ❌ *Tuyệt đối không để sót bất kỳ mã test nào trên production*: Tuân thủ nghiêm ngặt Rule 7, luôn dọn dẹp sạch trong khối `finally`.
+
+---
+
 ### ISSUE-094: Bẫy Trang Tĩnh Prerender Lệch Số Mã Do Dữ Liệu Đóng Gói Cũ & Bẫy Khớp Lỏng Substring, Bẫy Cache Client Length > 3 Trong App.tsx Và Bẫy Không Đồng Bộ Thẻ Game Trang Chủ (Prerender Divergence, App Cache Trap & Card Badge Desync)
 - **Triệu chứng**:
   - Trang chi tiết tĩnh `https://codegame.shop/game/thuc-than-ky` hiển thị "10 mã khả dụng" dù API đã có 12 mã.
