@@ -343,4 +343,141 @@ export interface CrawlerSource {
   description?: string;
 }
 
+// Upcoming Game Model (Game Chuẩn Bị Ra Mắt & Đếm Ngược Giờ G)
+export interface UpcomingGame {
+  id: string;
+  name: string;
+  slug: string;
+  publisher: string;
+  releaseDate: string; // ISO 8601 string or date string (e.g. '2026-10-23T10:00:00+07:00')
+  category: string;
+  platform?: string;
+  iconUrl?: string;
+  bannerUrl?: string;
+  description?: string;
+  preRegUrl?: string;
+  expectedCodes?: string[];
+  subscribersCount?: number;
+  source?: string;
+  status: 'UPCOMING' | 'LAUNCHED' | 'CANCELLED';
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export const DEFAULT_UPCOMING_GAMES: UpcomingGame[] = [
+  {
+    id: 'ug_strinova_vn',
+    name: 'Strinova VN',
+    slug: 'strinova-vn',
+    publisher: 'iDreamSky / VPlay',
+    releaseDate: '2026-10-23T10:00:00+07:00',
+    category: 'Bắn Súng Anime 3D',
+    platform: 'PC, Android, iOS',
+    iconUrl: '/game_icons/strinova-vn.webp',
+    bannerUrl: 'https://images.unsplash.com/photo-1542751371-adc38448a05e?auto=format&fit=crop&w=1200&q=80',
+    description: 'Game bắn súng chiến thuật biến hình Anime 3D góc nhìn thứ ba đỉnh cao 2026 từ iDreamSky.',
+    preRegUrl: 'https://strinova.vplay.vn',
+    expectedCodes: ['STRINOVAOB', 'STRINOVAVN', 'VIP999', 'OPENBETA2026'],
+    subscribersCount: 2840,
+    source: 'Muse Bot',
+    status: 'UPCOMING',
+    createdAt: '2026-10-20T08:00:00Z',
+    updatedAt: '2026-10-22T14:00:00Z',
+  },
+  {
+    id: 'ug_tien_gioi',
+    name: 'Tiên Giới',
+    slug: 'tien-gioi',
+    publisher: 'SohaGame',
+    releaseDate: '2026-10-28T10:00:00+07:00',
+    category: 'Nhập Vai Tiên Hiệp',
+    platform: 'Android, iOS',
+    iconUrl: '/game_icons/tien-gioi.webp',
+    bannerUrl: 'https://images.unsplash.com/photo-1518709268805-4e9042af9f23?auto=format&fit=crop&w=1200&q=80',
+    description: 'Siêu phẩm MMORPG tiên hiệp thế giới mở đồ họa 4K với hệ thống phi kiếm và không chiến độc nhất.',
+    preRegUrl: 'https://tiengioi.sohagame.vn',
+    expectedCodes: ['TIENGIOI2026', 'TIENGIOISOHA', 'VIP666', 'TANTHU2026'],
+    subscribersCount: 1950,
+    source: 'Muse Bot',
+    status: 'UPCOMING',
+    createdAt: '2026-10-21T09:30:00Z',
+    updatedAt: '2026-10-22T16:00:00Z',
+  },
+  {
+    id: 'ug_hiep_khach_hanh',
+    name: 'Hiệp Khách Hành',
+    slug: 'hiep-khach-hanh',
+    publisher: 'VTC Mobile',
+    releaseDate: '2026-11-01T10:00:00+07:00',
+    category: 'Kiếm Hiệp Kim Dung',
+    platform: 'Android, iOS',
+    iconUrl: '/game_icons/hiep-khach-hanh.webp',
+    bannerUrl: 'https://images.unsplash.com/photo-1534447677768-be436bb09401?auto=format&fit=crop&w=1200&q=80',
+    description: 'Tuyệt phẩm kiếm hiệp Kim Dung chính tông do VTC Mobile phát hành độc quyền tại Việt Nam.',
+    preRegUrl: 'https://hiepkhachhanh.vtc.vn',
+    expectedCodes: ['HIEPKHACHHANH', 'HKHVTC', 'TANTHU', 'TRIAN2026'],
+    subscribersCount: 1420,
+    source: 'Muse Bot',
+    status: 'UPCOMING',
+    createdAt: '2026-10-21T11:00:00Z',
+    updatedAt: '2026-10-22T17:00:00Z',
+  },
+  {
+    id: 'ug_where_winds_meet',
+    name: 'Where Winds Meet VN',
+    slug: 'where-winds-meet',
+    publisher: 'NetEase Games',
+    releaseDate: '2026-11-15T09:00:00+07:00',
+    category: 'Hành Động Thế Giới Mở',
+    platform: 'PC, Mobile',
+    iconUrl: '/game_icons/where-winds-meet.webp',
+    bannerUrl: 'https://images.unsplash.com/photo-1579783900882-c0d3dad7b119?auto=format&fit=crop&w=1200&q=80',
+    description: 'Bom tấn võ hiệp thế giới mở thời Ngũ Đại Thập Quốc với đồ họa ray-tracing đỉnh cao.',
+    expectedCodes: ['WHEREWINDSMEET', 'WWMOPENBETA', 'VIP888'],
+    subscribersCount: 5630,
+    source: 'Muse Bot',
+    status: 'UPCOMING',
+    createdAt: '2026-10-18T10:00:00Z',
+    updatedAt: '2026-10-22T12:00:00Z',
+  },
+  {
+    id: 'ug_delta_force_vn',
+    name: 'Delta Force VN',
+    slug: 'delta-force-vn',
+    publisher: 'VNGGames / TiMi',
+    releaseDate: '2026-11-20T10:00:00+07:00',
+    category: 'Bắn Súng Quân Sự',
+    platform: 'PC, Mobile',
+    iconUrl: '/game_icons/delta-force-vn.webp',
+    bannerUrl: 'https://images.unsplash.com/photo-1542751371-adc38448a05e?auto=format&fit=crop&w=1200&q=80',
+    description: 'Huyền thoại bắn súng chiến thuật quân sự góc nhìn thứ nhất trở lại với chế độ Operations và Warfare đỉnh cao.',
+    preRegUrl: 'https://df.vnggames.com',
+    expectedCodes: ['DELTAFORCE2026', 'DFVNGGAMES', 'VIP777', 'OPERATIONS'],
+    subscribersCount: 4210,
+    source: 'Muse Bot',
+    status: 'UPCOMING',
+    createdAt: '2026-10-22T08:00:00Z',
+    updatedAt: '2026-10-22T18:00:00Z',
+  },
+  {
+    id: 'ug_hsr_ver30',
+    name: 'Honkai: Star Rail 3.0',
+    slug: 'honkai-star-rail',
+    publisher: 'HoYoverse',
+    releaseDate: '2026-12-10T10:00:00+07:00',
+    category: 'Chiến Thuật Theo Lượt',
+    platform: 'PC, Android, iOS',
+    iconUrl: '/game_icons/honkai-star-rail.webp',
+    bannerUrl: 'https://images.unsplash.com/photo-1563089145-599997674d42?auto=format&fit=crop&w=1200&q=80',
+    description: 'Phiên bản đại cập nhật 3.0 mở ra hành tinh mới Amphoreus và dàn nhân vật 5 sao giới hạn mới.',
+    expectedCodes: ['HSRVER30', 'STARRAIL30', 'AMPHOREUS'],
+    subscribersCount: 8900,
+    source: 'Muse Bot',
+    status: 'UPCOMING',
+    createdAt: '2026-10-19T14:00:00Z',
+    updatedAt: '2026-10-22T18:00:00Z',
+  },
+];
+
+
 

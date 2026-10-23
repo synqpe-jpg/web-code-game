@@ -11,7 +11,9 @@ import type {
   UserProfile,
   UtilityCategory,
   StoreCategory,
+  UpcomingGame,
 } from '../types/game';
+import { DEFAULT_UPCOMING_GAMES } from '../types/game';
 import { smartVietnameseMatch, calculateGameSearchScore } from '../utils/textUtils';
 import { isCodeExpired, parseExpirationDate } from '../utils/codeUtils';
 
@@ -1731,6 +1733,56 @@ class DataService {
     } catch {}
 
     return this.searchAllGamesAndCodes(query, limit);
+  }
+
+  // --- UPCOMING GAMES SYSTEM ---
+  /**
+   * Retrieves upcoming games from Serverless API / LocalStorage / Fallback
+   */
+  async getUpcomingGames(): Promise<UpcomingGame[]> {
+    // 1. Try fetching from Cloudflare Pages API
+    try {
+      const res = await fetch('/api/crawler/ingest-upcoming-games?status=UPCOMING');
+      if (res.ok) {
+        const json = await res.json();
+        if (json && json.success && Array.isArray(json.games) && json.games.length > 0) {
+          try {
+            localStorage.setItem('wcg_cached_upcoming_games_v1', JSON.stringify(json.games));
+          } catch {}
+          return json.games;
+        }
+      }
+    } catch {}
+
+    // 2. Try reading from cached or admin storage in LocalStorage
+    try {
+      const cached = localStorage.getItem('wcg_cached_upcoming_games_v1') || localStorage.getItem('wcg_admin_upcoming_games_v1');
+      if (cached) {
+        const parsed = JSON.parse(cached);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          return parsed.filter((g: any) => g.status !== 'CANCELLED');
+        }
+      }
+    } catch {}
+
+    // 3. Fallback to DEFAULT_UPCOMING_GAMES
+    return DEFAULT_UPCOMING_GAMES;
+  }
+
+  /**
+   * Get cached upcoming games synchronously for 0ms initial render
+   */
+  getUpcomingGamesSync(): UpcomingGame[] {
+    try {
+      const cached = localStorage.getItem('wcg_cached_upcoming_games_v1') || localStorage.getItem('wcg_admin_upcoming_games_v1');
+      if (cached) {
+        const parsed = JSON.parse(cached);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          return parsed.filter((g: any) => g.status !== 'CANCELLED');
+        }
+      }
+    } catch {}
+    return DEFAULT_UPCOMING_GAMES;
   }
 
   // --- GIVEAWAYS SYSTEM ---

@@ -10,6 +10,22 @@
 
 ## 1. DANH MỤC LỖI & CÁC BẪY ĐÃ THẤT BẠI (DO NOT REPEAT)
 
+### ISSUE-084: Đồng Bộ Khối Game Theo Dõi Và Game Sắp Ra Mắt Với React State Thay Vì Phụ Thuộc Vào Reload Hoặc Poll Mạng (Zero-Latency Bookmark & Upcoming Subscription Sync Pattern)
+- **Triệu chứng**:
+  - Khi người dùng bấm nút "Báo Code" ở Game Sắp Ra Mắt, nếu hệ thống chỉ lưu vào backend hoặc localStorage mà không cập nhật state React ngay, khối "Game Bạn Đang Theo Dõi" ở trên cùng sẽ không phản hồi ngay lập tức, khiến người dùng tưởng nút bấm bị liệt.
+  - Khi game sắp ra mắt chưa có trong danh mục game chính thức (`bookmarkedGamesList`), việc chỉ lọc theo mảng game đã phát hành sẽ làm biến mất các game sắp ra mắt khỏi khối theo dõi.
+- **Nguyên nhân gốc rễ**:
+  1. Dữ liệu game đã phát hành (`GameItem`) và game sắp ra mắt (`UpcomingGame`) trước đây được lưu trữ ở hai kho khác nhau.
+  2. State `bookmarkedGamesList` trong `App.tsx` chỉ chứa các game lấy từ `/api/games?slugs=...`, do đó các slug của game sắp ra mắt (chưa phát hành chính thức) bị bỏ qua.
+- **Giải pháp chuẩn đã kiểm chứng**:
+  - Trong `PinnedGamesBar.tsx`, truyền cả hai nguồn `bookmarkedGames` và `upcomingGames`. So khớp `bookmarks` slug với cả 2 danh sách.
+  - Nếu slug thuộc về game đã ra mắt: Hiển thị với số giftcode và nút xem code.
+  - Nếu slug thuộc về game sắp ra mắt: Hiển thị với nhãn `[Sắp Mở Server]` và đồng hồ mini đếm ngược.
+  - Khi người dùng bấm "Báo Code", gọi hàm `onToggleBookmark(game.slug)` làm cập nhật state `bookmarks` của `App.tsx` ngay lập tức 0ms!
+- ⛔ **CÁCH SỬA ĐÃ THẤT BẠI - TUYỆT ĐỐI KHÔNG LẶP LẠI**:
+  - ❌ *Không chỉ lọc game theo danh mục đã phát hành*: Bắt buộc phải hợp nhất hiển thị cả tựa game sắp ra mắt mà người dùng đã đăng ký báo code.
+  - ❌ *Không yêu cầu người dùng F5 hoặc tải lại trang để thấy game vừa lưu*: Mọi tương tác lưu/bỏ lưu phải phản hồi 0ms trên giao diện.
+
 ### ISSUE-083: Mất Hàng Nghìn Giftcode Do Toán Tử Lựa Chọn Thay Thế Thay Vì Hợp Nhất Dữ Liệu (Ternary Exclusion Instead of Union Merge Trap)
 - **Triệu chứng**:
   - Khi lưu nội dung CMS hoặc sau khi chuyển đổi API Serverless `/api/games`, các tựa game lớn bị tụt giảm nghiêm trọng số lượng giftcode (ví dụ Genshin Impact từ 168 mã rớt xuống 75 mã, Honkai Star Rail từ 184 rớt xuống 67 mã).

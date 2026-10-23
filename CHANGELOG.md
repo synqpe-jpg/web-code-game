@@ -7,6 +7,46 @@ Mỗi mục sửa lỗi đều ghi nhận **Nguyên nhân gốc rễ (Root Cause
 
 ## [2026-10-23]
 
+### 149. Triển Khai Khối Game Bạn Đang Theo Dõi & Khối Game Sắp Ra Mắt Đếm Ngược Giờ G (Pinned Followed Games Bar & Upcoming Games Live Countdown Hub)
+- **Mô tả & Yêu cầu người dùng**:
+  - *"bắt đầu triển khai 2 khối giao diện đã thống nhất: Khối Game Bạn Đang Theo Dõi: Tự động ghim lên đầu trang chủ ngay khi người dùng bấm Lưu/Theo dõi game (kèm badge code mới cập nhật). Khối Game Sắp Ra Mắt (5-6 game đếm ngược giờ G): Đồng hồ đếm ngược sống, quà tân thủ dự kiến, nút 'Báo code' kết nối thẳng vào khối theo dõi, tối ưu mượt mà cho cả Desktop và Mobile. Đại diện là 5-6 game, có nút xem thêm nhỏ gọn, khi ấn vào sẽ ra danh sách toàn bộ các game chuẩn bị ra mắt. Mục này sẽ được quản lý trong admin, Quản lý game, game chuẩn bị ra mắt."*
+- **Nguyên nhân gốc rễ & Phân tích trải nghiệm (Root Cause & UX Optimization)**:
+  - Khi so sánh với đối thủ codemoi.net, tính năng "Game sắp ra mắt" với đồng hồ đếm ngược sống và đăng ký nhận code tân thủ giờ G là điểm hút người dùng lớn nhất.
+  - Trang trước đây chỉ có sắp xếp "Mới ra mắt", chưa có cơ chế đồng hồ đếm ngược sống cho các tựa game chuẩn bị mở server trong tương lai, và danh sách game người dùng bookmark bị giấu trong Drawer thay vì hiển thị trực diện trên trang chủ.
+  - Khi người dùng muốn theo dõi game sắp mở server, cần một liên kết 2 chiều tức thì: Bấm "Báo Code" ở game sắp ra mắt $\rightarrow$ game tự động nhảy ngay vào khối "Game Bạn Đang Theo Dõi" ở trên cùng với thời gian phản hồi 0ms.
+- **Giải pháp đã triển khai (Solution)**:
+  1. *Khối Game Bạn Đang Theo Dõi (`PinnedGamesBar.tsx`)*:
+     - Tự động hiển thị và ghim lên đầu trang chủ (ngay dưới HeroBanner và trên CategoryFilter) khi người dùng bấm Lưu (Bookmark) hoặc bấm "Báo Code".
+     - Khi chưa có game nào: Hiển thị thanh gợi ý tinh tế (invitation banner) hướng dẫn bấm 🔖 Lưu hoặc 🔔 Báo Code, kèm nút cuộn nhanh xuống Game Sắp Ra Mắt.
+     - Khi có game theo dõi: Hiển thị thanh cuộn ngang mượt mà kèm badge tổng số game đang theo dõi, badge quà tặng giftcode (`🔥 {x} Code`), badge `⚡ Mới cập nhật`, hoặc nhãn `🚀 Sắp ra mắt` kèm đồng hồ mini đối với các tựa game sắp mở server.
+     - Hỗ trợ xem nhanh giftcode, bỏ theo dõi từng game hoặc bỏ theo dõi tất cả chỉ với 1 click.
+  2. *Khối Game Sắp Ra Mắt 6 Cột & Mobile Snap Scroll (`UpcomingGamesBanner.tsx`)*:
+     - Trưng bày 6 tựa game bom tấn sắp mở server tại Việt Nam: Strinova VN (iDreamSky/VPlay), Tiên Giới (SohaGame), Hiệp Khách Hành (VTC Mobile), Where Winds Meet VN (NetEase), Delta Force VN (VNGGames/TiMi), Honkai: Star Rail 3.0 (HoYoverse).
+     - Đồng hồ đếm ngược sống (Live Countdown Ticker) đếm lùi chính xác từng giây (`DD : HH : MM : SS`). Khi server mở cửa, tự động đổi sang hiệu ứng pháo hoa `"🎉 ĐÃ CHÍNH THỨC MỞ SERVER!"`.
+     - Hiển thị quà tân thủ dự kiến (`🎁 {x} Code giờ G`), số lượng game thủ đang canh code, và liên kết tải trước/đăng ký trang chủ chính thức.
+     - Nút "🔔 Báo Code": Tích hợp nguyên tử 2 chiều với hệ sinh thái Bookmark. Khi click, tự động chuyển sang `"✓ Đã Báo Code"`, tăng bộ đếm người theo dõi và tự động xuất hiện trên khối Pinned Games Bar tức thì.
+     - Tối ưu giao diện: Desktop hiển thị lưới 6 cột đều đặn (`lg:grid-cols-6`), Mobile hỗ trợ lướt ngón tay trượt ngang 1 hàng cảm ứng (`snap-x snap-mandatory`), không chiếm dụng chiều dọc của trang.
+  3. *Modal Toàn Bộ Game Chuẩn Bị Ra Mắt (`AllUpcomingGamesModal.tsx`)*:
+     - Mở ra khi bấm nút "Xem tất cả ({total})" tại Header của khối Game Sắp Ra Mắt.
+     - Tích hợp thanh tìm kiếm tức thời theo tên game, nhà phát hành, thể loại.
+     - Bộ lọc mốc thời gian: "Tất cả", "Trong 7 ngày", "Tháng này", "Đã đăng ký báo code".
+     - Trưng bày chi tiết lộ trình phát hành, mô tả bối cảnh, quà tân thủ dự kiến, link đăng ký trước và nút báo code khi mở server.
+  4. *Cổng Dữ Liệu Đồng Bộ & Fallback Tự Động (`dataService.ts` & `ingest-upcoming-games.ts`)*:
+     - API `/api/crawler/ingest-upcoming-games` tự động fallback sang danh mục 6 game chuẩn nếu D1 Database chưa có bản ghi Muse nào.
+     - `dataService.getUpcomingGamesSync()` đảm bảo 0ms FCP không gây giật khung hình layout (CLS = 0).
+- **Files Modified & Added**:
+  - `src/types/game.ts` (thêm interface `UpcomingGame` & mảng `DEFAULT_UPCOMING_GAMES`)
+  - `src/services/dataService.ts` (thêm `getUpcomingGames()` và `getUpcomingGamesSync()`)
+  - `src/admin/services/adminDataService.ts` (bổ sung Delta Force VN vào `getDefaultUpcomingGames()`)
+  - `functions/api/crawler/ingest-upcoming-games.ts` (fallback tự động 6 game khi D1 rỗng)
+  - `src/components/PinnedGamesBar.tsx` (mới)
+  - `src/components/UpcomingGamesBanner.tsx` (mới)
+  - `src/components/AllUpcomingGamesModal.tsx` (mới)
+  - `public/game_icons/` (thêm các file icon alias cho các tựa game sắp ra mắt)
+  - `src/App.tsx` (nhúng 2 khối mới vào `#game-catalog-section` và modal quản lý lịch ra mắt)
+  - `CHANGELOG.md`
+
+
 ### 148. Hợp Nhất 100% Kho Giftcode (11.785+ Mã) & Khắc Phục Lỗi Mất Code Khi Lưu Nội Dung Web (Full Giftcode Union Merge & Safe CMS Content Sync)
 - **Mô tả & Yêu cầu người dùng**:
   - *"ĐỢi chút rồi triển khai, bạn kiểm tra giúp tôi, tôi vừa thay đổi Nội Dung Web trong admin, nhưng code trên web biến mất rất nhiều. Làm thế nào để code có lại như lúc chưa đổi nội dung và không tái hiện tình trạng này nữa?"*

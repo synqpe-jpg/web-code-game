@@ -8,6 +8,9 @@ import { GameGrid } from './components/GameGrid';
 import { GameDetailModal } from './components/GameDetailModal';
 import { SubmitCodeModal } from './components/SubmitCodeModal';
 import { BookmarkDrawer } from './components/BookmarkDrawer';
+import { PinnedGamesBar } from './components/PinnedGamesBar';
+import { UpcomingGamesBanner } from './components/UpcomingGamesBanner';
+import { AllUpcomingGamesModal } from './components/AllUpcomingGamesModal';
 import { CodePlaygroundModal } from './components/CodePlaygroundModal';
 import { GrowthCenterModal } from './components/GrowthCenterModal';
 import { ShareModal } from './components/ShareModal';
@@ -37,7 +40,7 @@ import { dataService } from './services/dataService';
 import { marketingService } from './services/marketingService';
 import { authService } from './services/authService';
 import { growthService } from './services/growthService';
-import type { GameItem, FilterState, StoreProduct, UserProfile, GiveawayCampaign, UtilityProduct, ProductPackageVariant } from './types/game';
+import type { GameItem, FilterState, StoreProduct, UserProfile, GiveawayCampaign, UtilityProduct, ProductPackageVariant, UpcomingGame } from './types/game';
 import { saveRecentSearch } from './utils/recentSearchUtils';
 import { groupStoreProductsByGame } from './utils/productPackageUtils';
 
@@ -130,6 +133,8 @@ export const App: React.FC = () => {
   const [currentUser, setCurrentUser] = useState<UserProfile | null>(() => dataService.getCurrentUser());
   const [bookmarks, setBookmarks] = useState<string[]>([]);
   const [bookmarkedGamesList, setBookmarkedGamesList] = useState<GameItem[]>([]);
+  const [upcomingGames, setUpcomingGames] = useState<UpcomingGame[]>(() => dataService.getUpcomingGamesSync());
+  const [isAllUpcomingModalOpen, setIsAllUpcomingModalOpen] = useState(false);
 
   // Modals & Drawers
   const [selectedGame, setSelectedGame] = useState<GameItem | null>(null);
@@ -387,6 +392,9 @@ export const App: React.FC = () => {
       const bmarks = dataService.getBookmarks();
       setBookmarks(bmarks);
       dataService.getBookmarkedGames(bmarks).then((bList) => setBookmarkedGamesList(bList));
+      dataService.getUpcomingGames().then((uList) => {
+        if (uList && uList.length > 0) setUpcomingGames(uList);
+      });
       const pCfg = dataService.getPaginationConfig();
       setPaginationConfig(pCfg);
 
@@ -1355,6 +1363,34 @@ export const App: React.FC = () => {
               />
 
               <div id="game-catalog-section" className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-2.5 sm:py-8">
+                {/* 1. Khối Game Bạn Đang Theo Dõi (Pinned Games Bar) */}
+                <PinnedGamesBar
+                  bookmarks={bookmarks}
+                  bookmarkedGames={bookmarkedGamesList}
+                  upcomingGames={upcomingGames}
+                  onToggleBookmark={handleToggleBookmark}
+                  onSelectGame={handleSelectGame}
+                  onSelectUpcomingGame={() => setIsAllUpcomingModalOpen(true)}
+                  onClearAll={handleClearAllBookmarks}
+                  onOpenBookmarksDrawer={() => setIsBookmarkDrawerOpen(true)}
+                  onScrollToUpcoming={() => {
+                    const elem = document.getElementById('upcoming-games-banner-section');
+                    elem?.scrollIntoView({ behavior: 'smooth' });
+                  }}
+                />
+
+                {/* 2. Khối Game Sắp Ra Mắt (Upcoming Games Banner) */}
+                <div id="upcoming-games-banner-section">
+                  <UpcomingGamesBanner
+                    upcomingGames={upcomingGames}
+                    bookmarkedSlugs={bookmarks}
+                    onToggleBookmark={handleToggleBookmark}
+                    onOpenAllUpcomingModal={() => setIsAllUpcomingModalOpen(true)}
+                    onSelectUpcomingGame={() => setIsAllUpcomingModalOpen(true)}
+                    onShowToast={showToast}
+                  />
+                </div>
+
                 <CategoryFilter
                   filter={filter}
                   onFilterChange={handleFilterChange}
@@ -1542,6 +1578,15 @@ export const App: React.FC = () => {
         onRemoveBookmark={(id) => handleToggleBookmark(id)}
         onSelectGame={handleSelectGame}
         onClearAll={handleClearAllBookmarks}
+      />
+
+      <AllUpcomingGamesModal
+        isOpen={isAllUpcomingModalOpen}
+        onClose={() => setIsAllUpcomingModalOpen(false)}
+        upcomingGames={upcomingGames}
+        bookmarkedSlugs={bookmarks}
+        onToggleBookmark={handleToggleBookmark}
+        onShowToast={showToast}
       />
 
       <CodePlaygroundModal
