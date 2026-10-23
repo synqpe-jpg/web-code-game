@@ -10,6 +10,25 @@
 
 ## 1. DANH MỤC LỖI & CÁC BẪY ĐÃ THẤT BẠI (DO NOT REPEAT)
 
+### ISSUE-096: Bẫy Race Condition Ghi Đè Snapshot Stale Khi Ingest Đồng Thời Hàng Chờ Pending Games & Bẫy Copy codes_count = 0 Trong publish_game (Concurrent Ingest Overwrite & Zero Code Snapshot Trap)
+- **Triệu chứng**:
+  - Khi bot Muse hoặc quy trình tự động nạp giftcode hàng loạt qua API `POST /api/crawler/ingest-codes`, API trả về `added > 0` và `autoPublished = true`, nhưng sau đó gọi `GET /api/games?slug=...` lại nhận HTTP 404 và game vẫn nằm trong hàng chờ `list_pending_games` (xảy ra trên 8 game: `mini-world-royale`, `gunbound-legend-vua-toa-do`, `vo-lam-truyen-ky`, `srom-huyen-thoai-lu-khach`, `mobile-legends-adventure`, `league-of-masters-auto-chess`, `thien-long-bat-bo-2`, `lineage2m`).
+  - Khi gọi action `publish_game`, game lên sóng nhưng mang `codes_count = 0` dù trước đó vừa báo nạp mã thành công. Nạp lại cùng payload thì báo added lần nữa, chứng tỏ lần nạp đầu đã bị ghi đè mất.
+  - Phản hồi của `publish_game` trả snapshot cũ mang `codes_count: 0` thay vì số lượng thực tế trong cơ sở dữ liệu.
+- **Nguyên nhân gốc rễ**:
+  1. Trong `functions/api/crawler/ingest-codes.ts`, danh mục game `wcg_admin_games_v5`, mã code `wcg_admin_custom_free_codes_v1` và pending games `wcg_crawler_pending_games_v1` được đọc một lần lúc đầu hàm. Khi nhiều request chạy gần như đồng thời hoặc liên tiếp: request chạy sau mang snapshot cũ hơn và ghi đè lên D1, làm mất sạch thay đổi (mã code và game đã auto-publish) của request trước đó!
+  2. Action `publish_game` sao chép trực tiếp `codes_count` từ bản ghi pending (`gameToPublish.codes_count || 0`) vốn luôn bằng 0, thay vì truy vấn đếm số lượng mã thực tế đang có trong kho code cho slug đó.
+  3. Thiếu bộ lọc loại bỏ các ứng dụng tiện ích / xác thực / cổng web không phải game và thiếu thuật toán khử trùng đa tầng với 564 live games trong danh mục.
+- **Giải pháp chuẩn đã kiểm chứng**:
+  - Triển khai **Atomic Delta Re-Fetch Merge**: Trước khi ghi bất kỳ key nào xuống D1 (`wcg_admin_custom_free_codes_v1`, `wcg_admin_games_v5`, `wcg_crawler_pending_games_v1`), BẮT BUỘC đọc lại snapshot tươi mới nhất từ D1 và hợp nhất delta theo Map `${slug}_${code}`, unshift/update game, và lọc bỏ pending slugs đã xuất bản.
+  - Hàm `countRealCodesForGame`: tính toán chính xác số lượng giftcode từ cả 3 nguồn (Custom codes + D1 catalog codes + Master bundled codes) để phản hồi và lưu `codes_count` chuẩn 100%. Tự động sửa các bản ghi cũ bị kẹt số 0 trong nhánh idempotent.
+  - Bộ lọc `isNonGameApplication` và `detectDuplicateOf` phân tầng 5 cấp độ loại trừ triệt để app rác và game trùng.
+- ⛔ **CÁCH SỬA ĐÃ THẤT BẠI - TUYỆT ĐỐI KHÔNG LẶP LẠI**:
+  - ❌ *Không ghi đè mù quáng JSON blob settings mà không re-fetch snapshot tươi*: Khi nhiều worker chạy song song trên Edge CDN, ghi đè snapshot cũ sẽ phá hủy toàn bộ dữ liệu của các request trước đó.
+  - ❌ *Không copy codes_count từ pending item sang live game*: Pending item không lưu mã code; số lượng code chỉ được xác định khi đếm từ kho code thực tế.
+
+---
+
 ### ISSUE-095: Bẫy Thiếu Request Khi Gọi InvalidateCatalogEdgeCache Gây Ra TypeError 'url' of undefined Và Bẫy Bỏ Sót Mã Test Trên Production Khi Mở Rộng API Crawler (EdgeCache Request Signature Trap & Zero Test Artifacts in Crawler RPC)
 - **Triệu chứng**:
   - Khi mở rộng endpoint `POST /api/crawler/ingest-codes` với các action mới (`publish_game`, `approve_codes`), lệnh gọi Edge cache purge bị lỗi: `TypeError: Cannot read properties of undefined (reading 'url')`.

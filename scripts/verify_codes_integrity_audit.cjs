@@ -242,6 +242,214 @@ async function runIntegrityAudit() {
     }
   }
 
+  // 5. Kiểm toán chuyên sâu luồng Hàng Chờ Pending Games & Auto-Publish / Publish Game
+  console.log('\n▶ [5/5] Kiểm toán luồng Hàng Chờ Pending Games & Publish Game (Kiểm tra Non-game, Duplicate & Codes Count)...');
+  const testPendingSlug = `test-audit-${Date.now()}`;
+  const testPendingName = `Test Audit Pending Game ${Date.now()}`;
+  const testPendingCode = `TESTPUB${Date.now().toString().slice(-4)}`;
+
+  try {
+    // 5.1. Kiểm tra list_pending_games: lọc non-game apps và trường duplicate_of
+    console.log('   🔍 [5.1] Gọi list_pending_games kiểm tra lọc non-game apps & duplicate detection...');
+    const listPendingRes = await fetchJson('/api/crawler/ingest-codes', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${API_KEY}`
+      },
+      body: JSON.stringify({ action: 'list_pending_games' })
+    });
+
+    if (listPendingRes.data?.success && Array.isArray(listPendingRes.data?.games)) {
+      const nonGameAppsFound = listPendingRes.data.games.filter(g => {
+        const pkg = String(g.packageName || '').toLowerCase();
+        const n = String(g.name || '').toLowerCase();
+        return (
+          pkg.includes('authenticator') ||
+          pkg.includes('portal') ||
+          pkg.includes('gamifications') ||
+          pkg.includes('pretendland') ||
+          n.includes('authenticator') ||
+          n.includes('gokko world') ||
+          n.includes('gosu one')
+        );
+      });
+
+      if (nonGameAppsFound.length === 0) {
+        console.log(`   ✅ BỘ LỌC ĐẠT: Đã lọc sạch 100% ứng dụng không phải game (non_games_filtered: ${listPendingRes.data.non_games_filtered || 0}).`);
+      } else {
+        console.error(`   ❌ THẤT BẠI: Vẫn còn ${nonGameAppsFound.length} ứng dụng không phải game trong hàng chờ:`, nonGameAppsFound.map(x => x.name));
+        passed = false;
+      }
+
+      // Kiểm tra trường duplicate_of
+      const hasDuplicateOfField = listPendingRes.data.games.every(g => 'duplicate_of' in g);
+      if (hasDuplicateOfField) {
+        console.log(`   ✅ SCHEMA ĐẠT: 100% game trong hàng chờ đều có trường "duplicate_of" (duplicates_count: ${listPendingRes.data.duplicates_count || 0}).`);
+      } else {
+        console.error(`   ❌ THẤT BẠI: Một số game thiếu trường "duplicate_of".`);
+        passed = false;
+      }
+    } else {
+      console.error(`   ❌ THẤT BẠI khi gọi action list_pending_games:`, listPendingRes.data || listPendingRes.raw);
+      passed = false;
+    }
+
+    // 5.2. Thiết lập game test trong pending queue để test luồng Auto-Publish & Publish Game
+    console.log(`   ⚙️ [5.2] Khởi tạo game test trong hàng chờ: "${testPendingName}" (${testPendingSlug})...`);
+    const pendingFetch = await fetchJson('/api/sync?key=wcg_crawler_pending_games_v1', {
+      headers: { 'X-Sync-Key': ADMIN_SYNC_SECRET }
+    });
+    const currentPending = Array.isArray(pendingFetch.data?.data) ? pendingFetch.data.data : [];
+    
+    // Thêm game test vào pending
+    const testPendingItem = {
+      id: testPendingSlug,
+      slug: testPendingSlug,
+      name: testPendingName,
+      developer: 'Test Studio Audit',
+      platform: 'Android, iOS',
+      category: 'Chiến Thuật',
+      status: 'PENDING',
+      crawledAt: new Date().toISOString()
+    };
+    await fetchJson('/api/sync', {
+      method: 'POST',
+      body: JSON.stringify({
+        key: 'wcg_crawler_pending_games_v1',
+        data: [testPendingItem, ...currentPending]
+      }),
+      headers: {
+        'Content-Type': 'application/json',
+        'X-Sync-Key': ADMIN_SYNC_SECRET
+      }
+    });
+
+    // 5.3. Ingest mã test vào game test đang chờ -> Xác nhận autoPublished = true và xuất hiện trên web
+    console.log(`   📥 [5.3] Nạp mã "${testPendingCode}" vào game chờ duyệt -> Kiểm tra Auto-Publish...`);
+    const ingestPendingRes = await fetchJson('/api/crawler/ingest-codes', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${API_KEY}`
+      },
+      body: JSON.stringify({
+        gameName: testPendingName,
+        codes: [
+          { code: testPendingCode, rewards: 'Quà thử nghiệm Auto-Publish' }
+        ],
+        source: 'Auto-Publish Regression Test'
+      })
+    });
+
+    const isAutoPub = ingestPendingRes.data?.results?.[0]?.autoPublished || ingestPendingRes.data?.autoPublishedGamesCount > 0;
+    if (ingestPendingRes.data?.success && isAutoPub) {
+      console.log(`   ✅ API Ingest báo autoPublished = true thành công!`);
+
+      // Kiểm tra xem game có thực sự xuất hiện trên GET /api/games?slug=... không
+      await sleep(500);
+      const verifyPubRes = await fetchJson(`/api/games?slug=${testPendingSlug}&nocache=1`);
+      if (verifyPubRes.data?.success && verifyPubRes.data?.game) {
+        const pubCodes = (verifyPubRes.data.game.codes || []).map(c => c.code);
+        if (pubCodes.includes(testPendingCode) && verifyPubRes.data.game.codes_count >= 1) {
+          console.log(`   ✅ XÁC NHẬN CÔNG KHAI THẬT: Game đã lên web tức thì với codes_count = ${verifyPubRes.data.game.codes_count}!`);
+        } else {
+          console.error(`   ❌ THẤT BẠI: Game lên web nhưng không có mã hoặc codes_count = 0!`);
+          passed = false;
+        }
+      } else {
+        console.error(`   ❌ THẤT BẠI: Game báo autoPublished = true nhưng GET trả về lỗi:`, verifyPubRes.data || verifyPubRes.raw);
+        passed = false;
+      }
+    } else {
+      console.error(`   ❌ THẤT BẠI: Ingest không kích hoạt auto-publish:`, ingestPendingRes.data);
+      passed = false;
+    }
+
+    // 5.4. Kiểm tra action publish_game: phản hồi trả về codes_count chuẩn xác sau đăng
+    console.log(`   🚀 [5.4] Kiểm tra action publish_game và tính Idempotent...`);
+    const pubActionRes = await fetchJson('/api/crawler/ingest-codes', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${API_KEY}`
+      },
+      body: JSON.stringify({
+        action: 'publish_game',
+        slug: testPendingSlug
+      })
+    });
+
+    if (pubActionRes.data?.success && pubActionRes.data?.codes_count >= 1) {
+      console.log(`   ✅ PHẢN HỒI CHUẨN XÁC: publish_game trả về codes_count = ${pubActionRes.data.codes_count} (khớp kho code thật, không bị 0)!`);
+    } else {
+      console.error(`   ❌ THẤT BẠI: publish_game phản hồi codes_count không chính xác:`, pubActionRes.data);
+      passed = false;
+    }
+
+  } finally {
+    // KHỐI FINALLY BẮT BUỘC THEO RULE 7: Dọn dẹp sạch sẽ 100% test pending game và test code khỏi D1
+    console.log('   🧹 Đang dọn dẹp sạch sẽ toàn bộ test game và test code theo Rule 7...');
+    try {
+      // 1. Dọn dẹp mã test
+      await fetchJson('/api/crawler/ingest-codes', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${API_KEY}`
+        },
+        body: JSON.stringify({
+          action: 'cleanup_test_codes',
+          prefix: 'TESTPUB'
+        })
+      });
+
+      // 2. Dọn dẹp game test khỏi wcg_admin_games_v5
+      const activeFetch = await fetchJson('/api/sync?key=wcg_admin_games_v5', {
+        headers: { 'X-Sync-Key': ADMIN_SYNC_SECRET }
+      });
+      const activeList = activeFetch.data?.data || [];
+      const cleanActive = activeList.filter(g => g && g.slug !== testPendingSlug && g.id !== testPendingSlug);
+      if (cleanActive.length !== activeList.length) {
+        await fetchJson('/api/sync', {
+          method: 'POST',
+          body: JSON.stringify({
+            key: 'wcg_admin_games_v5',
+            data: cleanActive
+          }),
+          headers: {
+            'Content-Type': 'application/json',
+            'X-Sync-Key': ADMIN_SYNC_SECRET
+          }
+        });
+      }
+
+      // 3. Dọn dẹp game test khỏi wcg_crawler_pending_games_v1
+      const pendingFetch2 = await fetchJson('/api/sync?key=wcg_crawler_pending_games_v1', {
+        headers: { 'X-Sync-Key': ADMIN_SYNC_SECRET }
+      });
+      const pendingList2 = pendingFetch2.data?.data || [];
+      const cleanPending2 = pendingList2.filter(p => p && p.slug !== testPendingSlug && p.id !== testPendingSlug);
+      if (cleanPending2.length !== pendingList2.length) {
+        await fetchJson('/api/sync', {
+          method: 'POST',
+          body: JSON.stringify({
+            key: 'wcg_crawler_pending_games_v1',
+            data: cleanPending2
+          }),
+          headers: {
+            'Content-Type': 'application/json',
+            'X-Sync-Key': ADMIN_SYNC_SECRET
+          }
+        });
+      }
+
+      console.log(`   ✅ HOÀN TẤT DỌN DẸP GAME & MÃ TEST: Dữ liệu production sạch sẽ 100%!`);
+    } catch (cleanErr) {
+      console.warn(`   ⚠️ Cảnh báo dọn dẹp game test:`, cleanErr.message);
+    }
+  }
+
   console.log('\n========================================================================================');
   if (passed) {
     console.log('🎉 TẤT CẢ CÁC BÀI KIỂM THỬ ĐỒNG BỘ ĐÃ ĐẠT 100%! HỆ THỐNG ĐỒNG BỘ NGUYÊN TỬ!');

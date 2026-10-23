@@ -7,6 +7,45 @@ Mỗi mục sửa lỗi đều ghi nhận **Nguyên nhân gốc rễ (Root Cause
 
 ## [2026-10-23]
 
+### 170. Sửa Dứt Điểm 4 Lỗi Cốt Lõi Tầng Gốc Của API Crawler Ingestion & Quản Lý Hàng Chờ: Chống Race Condition Bằng Atomic Delta Re-Fetch, Chuẩn Hóa Codes Count Đa Tầng, Lọc 100% Ứng Dụng Rác & Khử Trùng Thông Minh (Authoritative Queue Sync, Concurrency Guard & Multi-Tier Deduplication)
+- **Mô tả & Yêu cầu người dùng**:
+  - *"Tối 23/10/2026, bot Muse xử lý toàn bộ 96 game trong hàng chờ qua API crawler (nạp code + publish_game). Quá trình làm lộ 4 vấn đề ở luồng game chờ cần bạn sửa ở tầng gốc: (1) Ingest báo autoPublished = true nhưng game không lên web (trả 404) và vẫn nằm trong list_pending_games; (2) Sau publish_game, một số game lên sóng với 0 mã dù trước đó ingest báo đã nạp; (3) Phản hồi publish_game trả snapshot cũ (codes_count: 0); (4) Hàng chờ lẫn 15 bản ghi trùng với game live và 5 ứng dụng không phải game."*
+- **Nguyên nhân gốc rễ (Root Cause & Architectural Failure)**:
+  1. **Race Condition / Read-Modify-Write Overwrite (Vấn đề 1 & 2)**:
+     - Khi bot Muse gửi các request nạp code hoặc xuất bản game liên tiếp, mỗi request đọc snapshot ban đầu của `wcg_admin_games_v5`, `wcg_crawler_pending_games_v1` và `wcg_admin_custom_free_codes_v1` từ D1.
+     - Request 1 xử lý xong, lưu mã và đưa game lên web. Nhưng Request 2 hoàn thành sau đó lại ghi đè snapshot cũ của nó lên D1, xóa sạch mã code và xóa luôn trạng thái đã xuất bản của Request 1.
+     - Ngoài ra, điều kiện `shouldSaveGamesCatalog` trước đây chỉ kích hoạt khi `autoPublishedCount > 0` hoặc có cập nhật hướng dẫn, khiến các mã nạp cho game đang hoạt động (`source === 'active'`) không bao giờ lưu bộ đếm `codes_count` mới vào `wcg_admin_games_v5`.
+  2. **Codes Count Copy Trap Trong `publish_game` (Vấn đề 2 & 3)**:
+     - Trong action `publish_game`, `publishedRecord.codes_count` được gán bằng `Number(gameToPublish.codes_count || gameToPublish.activeCodesCount || 0)`. Trong hàng chờ pending, trường này luôn bằng 0, dẫn đến phản hồi trả về `codes_count: 0` và lưu `0` vào catalog dù trong kho code đã có hàng chục mã.
+  3. **Thiếu Bộ Lọc Non-Game & Index Khử Trùng Đa Tầng (Vấn đề 4)**:
+     - Hàng chờ pending lưu cả các app tiện ích, xác thực, cổng web không phải game (`Garena Authenticator`, `tv.kidsstar.app.vn.PretendLand`, `vn.choingay.portal`, `com.erp.gamifications`, `com.gmt.playee`).
+     - Chưa có bộ lọc khử trùng đa tầng theo `android_package_name`, tên chuẩn hóa, base slug và prefix slug giữa hàng chờ và 564 game live đang hoạt động.
+- **Giải pháp đã triển khai (Solution)**:
+  1. **Atomic Delta Re-Fetch Merge Chống Ghi Đè Đồng Thời**:
+     - Ngay trước khi ghi dữ liệu xuống D1 trong `ingest_codes` và `publish_game`: luôn đọc lại snapshot tươi mới nhất từ D1 (`getMultipleSettingsD1`).
+     - Hợp nhất mã code mới theo Map `${slug}_${code}`, bảo toàn 100% mã của các request chạy đồng thời.
+     - Cập nhật đồng bộ `freshActiveGames` và loại bỏ slug đã xuất bản khỏi `freshPendingGames`.
+  2. **Tính Toán Bộ Đếm Codes Count Thực Tế (`countRealCodesForGame`)**:
+     - Tích hợp `resolveCodesForGame` vào `publish_game` và `ingest_codes` để tính toán chính xác số lượng giftcode từ cả 3 nguồn (Custom codes + D1 catalog codes + Master bundled codes).
+     - Phản hồi của `publish_game` và `ingest_codes` luôn phản ánh chuẩn xác số mã thật sau khi xuất bản.
+     - Cung cấp cơ chế tự sửa (self-healing): nếu game đã publish trước đó nhưng mang `codes_count: 0` do snapshot cũ, hệ thống tự động cập nhật lại số mã thật ngay trong nhánh idempotent.
+  3. **Bộ Lọc Ứng Dụng Tiện Ích (`isNonGameApplication`)**:
+     - Nhận diện và lọc bỏ 100% ứng dụng không phải game dựa trên package blacklist, package fragments và keyword tiếng Việt/Anh.
+     - Loại trừ ngay từ khâu cào dữ liệu (`google_play_crawler.cjs` và `codemoi_game_scraper.cjs`) và trong endpoint `list_pending_games`.
+     - Chặn thao tác `publish_game` đối với non-game apps (trừ khi có cờ `force: true`).
+  4. **Thuật Toán Khử Trùng Đa Tầng (`detectDuplicateOf`)**:
+     - Phân tầng 5 cấp độ: Package ID (khớp tuyệt đối) $\rightarrow$ Slug/ID $\rightarrow$ Tên chuẩn hóa sau làm sạch $\rightarrow$ Base Slug $\rightarrow$ Prefix Slug dài.
+     - `list_pending_games` bổ sung trường `duplicate_of: string | null`, hỗ trợ cờ `exclude_duplicates: true` và thống kê `duplicates_count`, `non_games_filtered`.
+  5. **Mở Rộng Kiểm Toán Tự Động 5 Tầng & Rule 7 Cleanup**:
+     - Cập nhật `scripts/verify_codes_integrity_audit.cjs` bổ sung kiểm toán luồng pending queue, auto-publish, publish_game, và kiểm tra tính dọn dẹp sạch sẽ 100% mã và game test trong khối `finally`.
+- **Files Modified**:
+  - `functions/api/crawler/ingest-codes.ts`
+  - `scripts/crawler/google_play_crawler.cjs`
+  - `scripts/crawler/scrapers/codemoi_game_scraper.cjs`
+  - `scripts/verify_codes_integrity_audit.cjs`
+
+---
+
 ### 169. Nâng Cấp Nút "Copy Tất Cả" Thành Tiện Ích Thành Viên & Hiển Thị Trọn Vẹn 100% Mã Code Khi Đăng Nhập — Giao Diện Mobile Siêu Tinh Gọn (VIP Member Copy All & Masked Code Security Flow)
 - **Mô tả & Yêu cầu người dùng**:
   - *"Hiện tại tôi muốn thiết kế, nếu người dùng nút copy tất cả thì cần đăng nhập, nếu ấn vào nút copy tất cả mà chưa đăng nhập thì sẽ bâth lên bảng thông báo và dẫn tới mục đăng nhập. Sau khi đăng nhập ngoài việc copy tất cả thì cũng sẽ hiện toàn vẹn mã trên giao diện chứ không bị che 1 phần nữa, nhưng vẫn đảm bảo giao diện tinh gọn như hiện tại được không? Trả lời tôi trước."*

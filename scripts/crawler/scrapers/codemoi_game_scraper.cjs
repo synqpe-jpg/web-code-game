@@ -100,6 +100,22 @@ function getBaseSlug(str) {
     .replace(/^-+|-+$/g, '');
 }
 
+function isNonGameApplication(pkg, name) {
+  const p = String(pkg || '').toLowerCase();
+  const n = String(name || '').toLowerCase();
+  const nonGamePackages = [
+    'com.garena.android.authenticator',
+    'vn.choingay.portal',
+    'com.erp.gamifications',
+    'com.gmt.playee',
+    'tv.kidsstar.app.vn.pretendland',
+  ];
+  if (nonGamePackages.some(pkgId => p.includes(pkgId))) return true;
+  if (p.includes('.authenticator') || p.includes('.portal') || p.includes('.gamifications') || p.includes('pretendland')) return true;
+  const kw = ['authenticator', 'xác thực', 'chơi ngay game vui vẻ', 'cổng chơi ngay', 'gosu one', 'gig - gamota', 'gokko world'];
+  return kw.some(k => n.includes(k));
+}
+
 function decodeHtmlEntities(str) {
   if (!str) return '';
   return str
@@ -411,6 +427,10 @@ async function runCodemoiGameCrawler(options = {}) {
   const newCrawlerSources = [];
 
   for (const item of codemoiGames) {
+    if (isNonGameApplication(item.slug || '', item.name || '')) {
+      console.log(`[Filter] 🚫 Bỏ qua ứng dụng không phải game: "${item.name}"`);
+      continue;
+    }
     const slug = cleanSlug(item.slug || item.name);
     const baseSlug = getBaseSlug(slug);
     const normName = stripAccents(item.name);

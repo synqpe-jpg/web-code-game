@@ -74,8 +74,23 @@ const EXCLUDED_PACKAGES = new Set([
   'com.netflix.mediaclient',
   'com.kakao.talk',
   'org.telegram.messenger',
-  'com.whatsapp'
+  'com.whatsapp',
+  'com.garena.android.authenticator',
+  'vn.choingay.portal',
+  'com.erp.gamifications',
+  'com.gmt.playee',
+  'tv.kidsstar.app.vn.PretendLand',
+  'tv.kidsstar.app.vn.pretendland'
 ]);
+
+function isNonGameApplication(pkg, name) {
+  const p = String(pkg || '').toLowerCase();
+  const n = String(name || '').toLowerCase();
+  if (EXCLUDED_PACKAGES.has(p)) return true;
+  if (p.includes('.authenticator') || p.includes('.portal') || p.includes('.gamifications') || p.includes('pretendland')) return true;
+  const kw = ['authenticator', 'xác thực', 'chơi ngay game vui vẻ', 'cổng chơi ngay', 'gosu one', 'gig - gamota', 'gokko world'];
+  return kw.some(k => n.includes(k));
+}
 
 function stripAccents(str) {
   if (!str) return '';
@@ -447,6 +462,10 @@ async function runGooglePlayCrawler() {
     try {
       const details = await fetchGameDetails(pkg);
       if (!details || !details.name) continue;
+      if (isNonGameApplication(pkg, details.name)) {
+        console.log(`[Filter] 🚫 Bỏ qua ứng dụng không phải game: "${details.name}" (${pkg})`);
+        continue;
+      }
 
       const slug = cleanSlug(details.name);
       const normName = stripAccents(details.name);

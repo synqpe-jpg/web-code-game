@@ -11,7 +11,7 @@
  */
 
 import { getSettingD1, setSettingD1, getMultipleSettingsD1 } from '../../services/d1_service';
-import { normalizeVietnamese, stripAccents, GAME_ACRONYM_MAP, invalidateGamesCatalogCache } from '../games';
+import { normalizeVietnamese, stripAccents, GAME_ACRONYM_MAP, invalidateGamesCatalogCache, resolveCodesForGame } from '../games';
 import { invalidateCatalogEdgeCache } from '../../services/cache_service';
 import { parseExpirationDate, isCodeExpired } from '../../../src/utils/codeUtils';
 import fallbackGamesData from '../../../src/data/games188.json';
@@ -65,19 +65,215 @@ async function authenticateRequest(request: Request, env: Env): Promise<{ author
 }
 
 /**
- * Chuẩn hóa chuỗi tìm kiếm game (bỏ tiền tố / hậu tố rác)
+ * Chuẩn hóa chuỗi tìm kiếm game (bỏ tiền tố / hậu tố rác, NPH, nền tảng)
  */
-function cleanGameSearchTerm(str: string): string {
+export function cleanGameSearchTerm(str: string): string {
   if (!str) return '';
   return str
     .replace(/^giftcode\s+/i, '')
     .replace(/^code\s+/i, '')
     .replace(/^nhan\s+code\s+/i, '')
-    .replace(/\s*-\s*(VN|Mobile|Online|Gzone|VTC|VPlay|SohaGame|Funtap|Gosu|Gamota|VNG|DigiGames).*$/i, '')
-    .replace(/\s*(mới nhất|moi nhat|2026|full code|vip)\s*$/i, '')
+    .replace(/[\(\[\{][^\)\]\}]*[\)\]\}]/g, ' ')
+    .replace(/[\s\-_:]+(VN|Mobile|Online|Gzone|VTC\s*Mobile|VTC\s*Game|VTC|VPlay|SohaGame|Soha|Funtap|Gosu|Gamota|VNG|DigiGames|JoyGames|Kplay|ZingPlay|Game Tam Quốc|BigUpdate|3 Kingdoms|Chuẩn Audition|FT|Lite).*$/i, '')
+    .replace(/\s*x\s*(naruto|one piece|dragon ball|shippuden).*$/i, '')
+    .replace(/\s*(mới nhất|moi nhat|2024|2025|2026|full code|vip)\s*$/i, '')
     .replace(/[\(\)\[\]:!]/g, ' ')
     .replace(/\s+/g, ' ')
     .trim();
+}
+
+/**
+ * Nhận diện các ứng dụng tiện ích, cổng game, app xác thực hoặc phần mềm không phải trò chơi độc lập
+ */
+export function isNonGameApplication(item: any): boolean {
+  if (!item) return false;
+  const pkg = String(item.packageId || item.packageName || item.android_package_name || '').trim().toLowerCase();
+  const name = String(item.name || item.title || item.slug || '').trim().toLowerCase();
+  const normName = normalizeVietnamese(name);
+
+  // Blacklist package IDs
+  const nonGamePackages = [
+    'com.garena.android.authenticator',
+    'vn.choingay.portal',
+    'com.erp.gamifications',
+    'com.gmt.playee',
+    'tv.kidsstar.app.vn.pretendland',
+  ];
+  if (nonGamePackages.some((p) => pkg === p || pkg.includes(p))) {
+    return true;
+  }
+
+  // Blacklist package fragments
+  if (
+    pkg.includes('.authenticator') ||
+    pkg.endsWith('.authenticator') ||
+    pkg.includes('.portal') ||
+    pkg.includes('.gamifications') ||
+    pkg.includes('pretendland')
+  ) {
+    return true;
+  }
+
+  // Blacklist name keywords
+  const nonGameKeywords = [
+    'authenticator',
+    'xac thuc',
+    'choi ngay game vui ve',
+    'cong choi ngay',
+    'gosu one',
+    'gig gamota',
+    'gig - gamota',
+    'cong gig',
+    'gokko world',
+    'tro choi tre em gokko world',
+  ];
+  if (nonGameKeywords.some((kw) => normName.includes(kw) || name.includes(kw))) {
+    return true;
+  }
+
+  return false;
+}
+
+/**
+ * Trích xuất Base Slug chuẩn hóa (bỏ hậu tố nền tảng / NPH / collab)
+ */
+export function getBaseSlug(str: string): string {
+  if (!str) return '';
+  return stripAccents(str)
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/-(vplay|vtc|gosu|gamota|soha|sohagame|funtap|vng|garena|vn|mobile|joygames|efun|online|game-tam-quoc|ft|lite|3-kingdoms|bigupdate)$/g, '')
+    .replace(/-(x-naruto|x-naruto-shippuden|naruto|shippuden)$/g, '')
+    .replace(/^-+|-+$/g, '');
+}
+
+/**
+ * Phát hiện trùng lặp giữa game chờ duyệt và danh mục game live đang hoạt động
+ * Ưu tiên:
+ * 1. android_package_name (khớp tuyệt đối)
+ * 2. Exact slug hoặc ID
+ * 3. Tên chuẩn hóa (Normalized Name) sau khi loại bỏ NPH/hậu tố
+ * 4. Base Slug (bỏ hậu tố -mobile, -vng, -vtc, v.v.)
+ * 5. Prefix Slug dài (cho các bản spin-off / lite / mở rộng)
+ */
+export function detectDuplicateOf(pendingItem: any, liveGames: any[]): string | null {
+  if (!pendingItem || !Array.isArray(liveGames)) return null;
+  const pkg = String(pendingItem.packageName || pendingItem.packageId || pendingItem.android_package_name || '').trim().toLowerCase();
+  const slug = String(pendingItem.slug || pendingItem.id || '').trim().toLowerCase();
+  const cleanName = cleanGameSearchTerm(pendingItem.name || '');
+  const normName = normalizeVietnamese(cleanName);
+  const baseSlug = getBaseSlug(slug);
+
+  // 1. Khớp theo android_package_name (độ tin cậy tuyệt đối 100%)
+  if (pkg && pkg.length > 3) {
+    for (const live of liveGames) {
+      if (!live || live.is_active === false || live.status === 'PENDING') continue;
+      const livePkg = String(live.android_package_name || live.packageId || live.packageName || '').trim().toLowerCase();
+      const livePlayStoreUrl = String(live.google_play_url || live.download_android || '').toLowerCase();
+      if (livePkg && livePkg === pkg) {
+        return live.slug || live.id;
+      }
+      if (livePlayStoreUrl && livePlayStoreUrl.includes('id=' + pkg)) {
+        return live.slug || live.id;
+      }
+    }
+  }
+
+  // 2. Khớp tuyệt đối theo slug hoặc id
+  for (const live of liveGames) {
+    if (!live || live.is_active === false || live.status === 'PENDING') continue;
+    const liveSlug = String(live.slug || '').trim().toLowerCase();
+    const liveId = String(live.id || '').trim().toLowerCase();
+    if (liveSlug === slug || liveId === slug) {
+      return live.slug || live.id;
+    }
+  }
+
+  // 3. Khớp theo tên chuẩn hóa sau khi làm sạch (Normalized Name)
+  if (normName && normName.length >= 3) {
+    for (const live of liveGames) {
+      if (!live || live.is_active === false || live.status === 'PENDING') continue;
+      const liveCleanName = cleanGameSearchTerm(live.name || '');
+      const liveNormName = normalizeVietnamese(liveCleanName);
+      if (liveNormName && liveNormName === normName) {
+        return live.slug || live.id;
+      }
+    }
+  }
+
+  // 4. Khớp theo Base Slug
+  if (baseSlug && baseSlug.length >= 4) {
+    for (const live of liveGames) {
+      if (!live || live.is_active === false || live.status === 'PENDING') continue;
+      const liveSlug = String(live.slug || '').trim().toLowerCase();
+      const liveBaseSlug = getBaseSlug(liveSlug);
+      if (liveBaseSlug && liveBaseSlug === baseSlug) {
+        return live.slug || live.id;
+      }
+    }
+  }
+
+  // 5. Khớp theo Prefix Slug dài (cho series / editions / lite)
+  if (baseSlug && baseSlug.length >= 6) {
+    for (const live of liveGames) {
+      if (!live || live.is_active === false || live.status === 'PENDING') continue;
+      const liveSlug = String(live.slug || '').trim().toLowerCase();
+      const liveBaseSlug = getBaseSlug(liveSlug);
+      if (!liveBaseSlug || liveBaseSlug.length < 5) continue;
+
+      const tokenCount = liveBaseSlug.split('-').length;
+      const isKnownFranchise =
+        liveBaseSlug.startsWith('free-fire') ||
+        liveBaseSlug.startsWith('crossfire') ||
+        liveBaseSlug.startsWith('arena-breakout') ||
+        liveBaseSlug.startsWith('mobile-legends') ||
+        liveBaseSlug.startsWith('revelation') ||
+        liveBaseSlug.startsWith('kiem-rong') ||
+        liveBaseSlug.startsWith('omg-3q');
+
+      if (tokenCount >= 3 || isKnownFranchise) {
+        if (baseSlug.startsWith(liveBaseSlug + '-') || liveBaseSlug.startsWith(baseSlug + '-')) {
+          return live.slug || live.id;
+        }
+      }
+    }
+  }
+
+  return null;
+}
+
+/**
+ * Xây dựng Map mã giftcode phục vụ đếm chính xác số lượng mã thật
+ */
+export function buildCodesMap(customCodes: any[] = [], d1Codes: any[] = [], bundledCodes: any[] = []): Map<string, any[]> {
+  const map = new Map<string, any[]>();
+  const addCode = (item: any) => {
+    if (!item) return;
+    const slug = String(item.gameSlug || item.game_slug || item.slug || item.gameId || '').trim().toLowerCase();
+    const codeVal = String(item.codeValue || item.code_value || item.code || item.gift_code || '').trim().toUpperCase();
+    if (!slug || !codeVal) return;
+    const list = map.get(slug) || [];
+    list.push({
+      code: codeVal,
+      rewards: item.rewards || item.description || '',
+      status: (item.status && String(item.status).toLowerCase() === 'expired') ? 'expired' : 'active',
+      expiry: item.expiresAt || item.expires_at || item.expiry || '',
+      added_at: item.createdAt || item.created_at || item.added_at || '',
+    });
+    map.set(slug, list);
+  };
+  (customCodes || []).forEach(addCode);
+  (d1Codes || []).forEach(addCode);
+  (bundledCodes || []).forEach(addCode);
+  return map;
+}
+
+/**
+ * Đếm số lượng giftcode THỰC TẾ của một game sử dụng resolveCodesForGame
+ */
+export function countRealCodesForGame(gameObj: any, codesMap: Map<string, any[]>): number {
+  if (!gameObj) return 0;
+  const codes = resolveCodesForGame(gameObj, codesMap);
+  return codes.length;
 }
 
 /**
@@ -457,12 +653,19 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
 
       const seenSlugs = new Set<string>();
       const combinedList: any[] = [];
+      let nonGamesFilteredCount = 0;
 
       const addGame = (g: any) => {
         if (!g) return;
+        if (isNonGameApplication(g)) {
+          nonGamesFilteredCount++;
+          return;
+        }
         const slug = String(g.slug || g.id || '').trim().toLowerCase();
         if (!slug || seenSlugs.has(slug)) return;
         seenSlugs.add(slug);
+
+        const duplicateOf = detectDuplicateOf(g, activeGamesRaw);
 
         combinedList.push({
           id: String(g.id || slug),
@@ -474,6 +677,7 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
           source: g.source || g.sourceType || (g.sourceUrl?.includes('codemoi') ? 'Code Mới' : 'Google Play Store VN'),
           status: g.status || 'PENDING',
           codes_count: Number(g.activeCodesCount || g.codes_count || 0),
+          duplicate_of: duplicateOf || null,
           created_at: g.crawledAt || g.created_at || g.releaseDate || new Date().toISOString(),
         });
       };
@@ -481,10 +685,17 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
       pendingGamesRaw.forEach(addGame);
       unpublishedInCatalog.forEach(addGame);
 
-      const total = combinedList.length;
+      const duplicatesCount = combinedList.filter((g) => g.duplicate_of !== null).length;
+
+      let filteredList = combinedList;
+      if (body.exclude_duplicates === true) {
+        filteredList = combinedList.filter((g) => g.duplicate_of === null);
+      }
+
+      const total = filteredList.length;
       const limit = body.limit !== undefined ? Math.max(1, parseInt(body.limit, 10)) : total;
       const offset = body.offset !== undefined ? Math.max(0, parseInt(body.offset, 10)) : 0;
-      const pagedGames = combinedList.slice(offset, offset + limit);
+      const pagedGames = filteredList.slice(offset, offset + limit);
 
       return new Response(
         JSON.stringify({
@@ -492,6 +703,8 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
           action: 'list_pending_games',
           total,
           count: pagedGames.length,
+          duplicates_count: duplicatesCount,
+          non_games_filtered: nonGamesFilteredCount,
           limit,
           offset,
           games: pagedGames,
@@ -512,13 +725,35 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
         );
       }
 
-      const activeGames: any[] = Array.isArray(settings['wcg_admin_games_v5'])
-        ? [...settings['wcg_admin_games_v5']]
+      // Re-fetch FRESH settings from D1 để chống triệt để Race Condition / Overwrite
+      const freshSettings = await getMultipleSettingsD1(env.DB, [
+        'wcg_admin_games_v5',
+        'wcg_crawler_pending_games_v1',
+        'wcg_admin_custom_free_codes_v1',
+        'wcg_admin_free_codes_v5',
+      ]);
+
+      const activeGames: any[] = Array.isArray(freshSettings['wcg_admin_games_v5'])
+        ? [...freshSettings['wcg_admin_games_v5']]
         : [...(fallbackGamesData as any[])];
 
-      const pendingGames: any[] = Array.isArray(settings['wcg_crawler_pending_games_v1'])
-        ? [...settings['wcg_crawler_pending_games_v1']]
+      const pendingGames: any[] = Array.isArray(freshSettings['wcg_crawler_pending_games_v1'])
+        ? [...freshSettings['wcg_crawler_pending_games_v1']]
         : [];
+
+      const customCodes: any[] = Array.isArray(freshSettings['wcg_admin_custom_free_codes_v1'])
+        ? [...freshSettings['wcg_admin_custom_free_codes_v1']]
+        : [];
+
+      const d1Codes: any[] = Array.isArray(freshSettings['wcg_admin_free_codes_v5'])
+        ? [...freshSettings['wcg_admin_free_codes_v5']]
+        : [];
+
+      const bundledCodes: any[] = Array.isArray(fallbackCodesData)
+        ? (fallbackCodesData as any[])
+        : [];
+
+      const codesMap = buildCodesMap(customCodes, d1Codes, bundledCodes);
 
       // Kiểm tra xem game đã được publish trong activeGames chưa (Idempotent)
       const existingPublishedIdx = activeGames.findIndex(
@@ -526,11 +761,33 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
       );
 
       if (existingPublishedIdx !== -1 && activeGames[existingPublishedIdx].is_active !== false && activeGames[existingPublishedIdx].status !== 'PENDING') {
+        const publishedGame = activeGames[existingPublishedIdx];
+        const realCount = countRealCodesForGame(publishedGame, codesMap);
+
+        // Cập nhật lại codes_count nếu trước đó bị snapshot cũ lưu sai thành 0
+        if (publishedGame.codes_count !== realCount || publishedGame.free_codes_count !== realCount) {
+          activeGames[existingPublishedIdx] = {
+            ...publishedGame,
+            codes_count: realCount,
+            free_codes_count: realCount,
+            updated_at: new Date().toISOString(),
+          };
+          await setSettingD1(env.DB, 'wcg_admin_games_v5', activeGames);
+          invalidateGamesCatalogCache();
+          await invalidateCatalogEdgeCache(context as any, request, env, [
+            `https://codegame.shop/api/games?slug=${targetSlug}`,
+            `https://codegame.shop/api/games?id=${targetSlug}`,
+            new URL(`/api/games?slug=${targetSlug}`, request.url).toString(),
+            `https://codegame.shop/game/${targetSlug}`,
+          ]).catch(() => {});
+        }
+
         return new Response(
           JSON.stringify({
             success: true,
             slug: activeGames[existingPublishedIdx].slug || targetSlug,
             status: 'published',
+            codes_count: realCount,
             message: 'Game đã được đăng trước đó (idempotent)',
             game: activeGames[existingPublishedIdx],
           }),
@@ -546,7 +803,6 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
       let gameToPublish: any = null;
       if (pendingIdx !== -1) {
         gameToPublish = pendingGames[pendingIdx];
-        pendingGames.splice(pendingIdx, 1);
       } else if (existingPublishedIdx !== -1) {
         gameToPublish = activeGames[existingPublishedIdx];
       }
@@ -558,6 +814,35 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
         );
       }
 
+      // Chặn đăng app tiện ích/xác thực/cổng không phải game độc lập
+      if (isNonGameApplication(gameToPublish) && !body.force) {
+        return new Response(
+          JSON.stringify({
+            success: false,
+            error: `Không thể đăng ứng dụng "${gameToPublish.name || targetSlug}" vì đây là tiện ích/xác thực/cổng không phải game độc lập. Dùng { force: true } nếu vẫn muốn đăng.`,
+          }),
+          { status: 400, headers: CORS_HEADERS }
+        );
+      }
+
+      // Chặn đăng trùng lặp với game live đã có
+      const duplicateOf = detectDuplicateOf(gameToPublish, activeGames);
+      if (duplicateOf && duplicateOf !== targetSlug && !body.force) {
+        return new Response(
+          JSON.stringify({
+            success: false,
+            error: `Game này bị trùng với game đang hoạt động "${duplicateOf}". Vui lòng gộp hoặc sử dụng { force: true } nếu muốn đăng riêng.`,
+            duplicate_of: duplicateOf,
+          }),
+          { status: 400, headers: CORS_HEADERS }
+        );
+      }
+
+      // Loại bỏ khỏi pending games
+      if (pendingIdx !== -1) {
+        pendingGames.splice(pendingIdx, 1);
+      }
+
       const finalSlug = String(gameToPublish.slug || gameToPublish.id || targetSlug).trim().toLowerCase();
       const finalName = String(gameToPublish.name || finalSlug).trim();
       const finalDeveloper = String(gameToPublish.developer || gameToPublish.publisher || 'NPH Chính Thức').trim();
@@ -567,6 +852,10 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
       if (!targetIcon || targetIcon.includes('codemoi.net')) {
         targetIcon = `/game_icons/${finalSlug}.webp`;
       }
+
+      // Tính số mã code THỰC TẾ từ toàn bộ kho code
+      const tempGameForCounting = { id: finalSlug, slug: finalSlug, name: finalName };
+      const realCodesCount = countRealCodesForGame(tempGameForCounting, codesMap);
 
       const publishedRecord = {
         id: finalSlug,
@@ -593,8 +882,8 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
         is_new: true,
         is_active: true,
         status: 'ACTIVE',
-        codes_count: Number(gameToPublish.codes_count || gameToPublish.activeCodesCount || 0),
-        free_codes_count: Number(gameToPublish.codes_count || gameToPublish.activeCodesCount || 0),
+        codes_count: realCodesCount,
+        free_codes_count: realCodesCount,
         source: isCodeMoi ? 'Code Mới (codemoi.net)' : 'Google Play Store VN',
         created_at: gameToPublish.crawledAt || gameToPublish.created_at || new Date().toISOString(),
         updated_at: new Date().toISOString(),
@@ -610,13 +899,28 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
       await setSettingD1(env.DB, 'wcg_crawler_pending_games_v1', pendingGames);
 
       invalidateGamesCatalogCache();
-      await invalidateCatalogEdgeCache(context as any, request, env).catch(() => {});
+      const specificUrls = [
+        `https://codegame.shop/api/games?slug=${finalSlug}`,
+        `https://codegame.shop/api/games?id=${finalSlug}`,
+        `https://web-code-game.pages.dev/api/games?slug=${finalSlug}`,
+        `https://web-code-game.pages.dev/api/games?id=${finalSlug}`,
+        new URL(`/api/games?slug=${finalSlug}`, request.url).toString(),
+        new URL(`/api/games?id=${finalSlug}`, request.url).toString(),
+        `https://codegame.shop/game/${finalSlug}`,
+        `https://web-code-game.pages.dev/game/${finalSlug}`,
+        new URL(`/game/${finalSlug}`, request.url).toString(),
+        'https://codegame.shop/api/games',
+        'https://web-code-game.pages.dev/api/games',
+        new URL('/api/games', request.url).toString(),
+      ];
+      await invalidateCatalogEdgeCache(context as any, request, env, specificUrls).catch(() => {});
 
       return new Response(
         JSON.stringify({
           success: true,
           slug: finalSlug,
           status: 'published',
+          codes_count: realCodesCount,
           message: `Đã đăng thành công game "${finalName}" lên web khách!`,
           game: publishedRecord,
         }),
@@ -1248,20 +1552,134 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
       });
     }
 
-    // 5. LƯU VÀO D1 DATABASE & ĐỒNG BỘ NGUYÊN TỬ
+    // 5. LƯU VÀO D1 DATABASE & ĐỒNG BỘ NGUYÊN TỬ (ATOMIC DELTA RE-FETCH MERGE)
     if (stateModified) {
-      // 5.1. Lưu mã code mới vào D1 Custom Free Codes
-      await setSettingD1(env.DB, 'wcg_admin_custom_free_codes_v1', existingCustomCodes);
+      // 5.0. Re-fetch FRESH settings from D1 ngay trước khi lưu để chống Race Condition / Overwrite
+      const freshD1Settings = await getMultipleSettingsD1(env.DB, [
+        'wcg_admin_custom_free_codes_v1',
+        'wcg_admin_games_v5',
+        'wcg_crawler_pending_games_v1',
+        'wcg_admin_free_codes_v5',
+      ]);
 
-      // 5.2. Chỉ lưu lại Games Catalog nếu có game được auto-publish hoặc có hướng dẫn nhập code được cập nhật
-      const shouldSaveGamesCatalog = autoPublishedCount > 0 || executionResults.some((r) => r.instructionsUpdated || r.redeemUrlUpdated);
-      if (shouldSaveGamesCatalog) {
-        await setSettingD1(env.DB, 'wcg_admin_games_v5', activeGamesList);
+      // 5.1. Merge mã code mới vào danh sách tươi từ D1
+      const freshCustomCodes: any[] = Array.isArray(freshD1Settings['wcg_admin_custom_free_codes_v1'])
+        ? [...freshD1Settings['wcg_admin_custom_free_codes_v1']]
+        : [];
+
+      const customCodesMap = new Map<string, any>();
+      for (const fc of freshCustomCodes) {
+        if (!fc) continue;
+        const s = String(fc.gameSlug || fc.slug || fc.gameId || '').trim().toLowerCase();
+        const c = String(fc.code || fc.codeValue || '').trim().toUpperCase();
+        if (s && c) {
+          customCodesMap.set(`${s}_${c}`, fc);
+        }
       }
 
-      // 5.3. Nếu có game rời khỏi hàng chờ duyệt -> Lưu Pending Games Catalog
-      if (autoPublishedCount > 0) {
-        await setSettingD1(env.DB, 'wcg_crawler_pending_games_v1', pendingGamesList);
+      for (const nc of newlyAddedCodes) {
+        const s = String(nc.gameSlug || nc.slug || nc.gameId || '').trim().toLowerCase();
+        const c = String(nc.code || nc.codeValue || '').trim().toUpperCase();
+        if (s && c) {
+          customCodesMap.set(`${s}_${c}`, nc);
+        }
+      }
+
+      const mergedCustomCodesList = Array.from(customCodesMap.values());
+      await setSettingD1(env.DB, 'wcg_admin_custom_free_codes_v1', mergedCustomCodesList);
+
+      // Build updated codesMap để tính authoritative codes count
+      const freshCodesMap = buildCodesMap(
+        mergedCustomCodesList,
+        Array.isArray(freshD1Settings['wcg_admin_free_codes_v5']) ? freshD1Settings['wcg_admin_free_codes_v5'] : [],
+        Array.isArray(fallbackCodesData) ? (fallbackCodesData as any[]) : []
+      );
+
+      // 5.2. Merge Active Games & Auto-Published Games vào freshActiveGames
+      const freshActiveGames: any[] = Array.isArray(freshD1Settings['wcg_admin_games_v5'])
+        ? [...freshD1Settings['wcg_admin_games_v5']]
+        : [...(fallbackGamesData as any[])];
+
+      const freshPendingGames: any[] = Array.isArray(freshD1Settings['wcg_crawler_pending_games_v1'])
+        ? [...freshD1Settings['wcg_crawler_pending_games_v1']]
+        : [];
+
+      const publishedSlugsSet = new Set<string>();
+
+      for (const res of executionResults) {
+        if (!res || !res.matchedGame) continue;
+        const slug = String(res.matchedGame.slug).trim().toLowerCase();
+
+        // Tính số lượng mã THỰC TẾ
+        const realCount = countRealCodesForGame({ slug, id: slug, name: res.matchedGame.name }, freshCodesMap);
+
+        const activeIdx = freshActiveGames.findIndex((g) => g && (String(g.slug).toLowerCase() === slug || String(g.id).toLowerCase() === slug));
+
+        if (res.autoPublished) {
+          publishedSlugsSet.add(slug);
+          const pGame = freshPendingGames.find((p) => p && (String(p.slug).toLowerCase() === slug || String(p.id).toLowerCase() === slug));
+          const pDeveloper = pGame?.developer || pGame?.publisher || res.matchedGame.publisher || 'NPH Chính Thức';
+          const pIcon = pGame?.localIconPath || pGame?.iconUrl || `/game_icons/${slug}.webp`;
+
+          const publishedRecord = {
+            id: slug,
+            slug,
+            name: res.matchedGame.name,
+            publisher: pDeveloper,
+            category: pGame?.category || 'Nhập Vai',
+            rating: Number(pGame?.rating || 4.8),
+            icon_url: pIcon,
+            cover_image_url: pIcon,
+            banner_url: pGame?.banner_url || '',
+            description: pGame?.description || `${res.matchedGame.name} là tựa game mobile mới phát hành chính thức.`,
+            short_description: `${res.matchedGame.name} - Đã cập nhật ${realCount} giftcode mới`,
+            instructions: res.matchedGame.instructions || pGame?.instructions || 'Bước 1: Mở game > Nhấn Avatar nhân vật\nBước 2: Chọn Cài đặt > Nhập Giftcode\nBước 3: Dán mã và nhấn Xác nhận.',
+            redeem_url: res.matchedGame.redeem_url || pGame?.redeemUrl || '',
+            platform: 'Android, iOS, PC',
+            release_date: pGame?.releaseDate || nowIso.split('T')[0],
+            download_android: pGame?.playStoreUrl || (pGame?.packageId ? `https://play.google.com/store/apps/details?id=${pGame.packageId}` : ''),
+            google_play_url: pGame?.playStoreUrl || '',
+            app_store_url: pGame?.app_store_url || '',
+            android_package_name: pGame?.packageId || pGame?.packageName || '',
+            is_featured: false,
+            is_hot: true,
+            is_new: true,
+            is_active: true,
+            status: 'ACTIVE',
+            codes_count: realCount,
+            free_codes_count: realCount,
+            source: auth.botName || 'Muse External Ingest API',
+            created_at: nowIso,
+            updated_at: nowIso,
+          };
+
+          if (activeIdx !== -1) {
+            freshActiveGames[activeIdx] = { ...freshActiveGames[activeIdx], ...publishedRecord };
+          } else {
+            freshActiveGames.unshift(publishedRecord);
+          }
+        } else if (activeIdx !== -1) {
+          // Game đã active: LUÔN LUÔN cập nhật codes_count và instructions
+          freshActiveGames[activeIdx] = {
+            ...freshActiveGames[activeIdx],
+            codes_count: realCount,
+            free_codes_count: realCount,
+            instructions: res.matchedGame.instructions || freshActiveGames[activeIdx].instructions,
+            redeem_url: res.matchedGame.redeem_url || freshActiveGames[activeIdx].redeem_url,
+            updated_at: nowIso,
+          };
+        }
+      }
+
+      // LUÔN LƯU freshActiveGames mỗi khi có mã được nạp hoặc game được xuất bản!
+      await setSettingD1(env.DB, 'wcg_admin_games_v5', freshActiveGames);
+
+      // 5.3. Loại bỏ game đã xuất bản khỏi freshPendingGames
+      if (publishedSlugsSet.size > 0) {
+        const remainingFreshPending = freshPendingGames.filter(
+          (p) => p && !publishedSlugsSet.has(String(p.slug || p.id || '').trim().toLowerCase())
+        );
+        await setSettingD1(env.DB, 'wcg_crawler_pending_games_v1', remainingFreshPending);
       }
 
       // 5.4. Xóa Cache Biên (Edge Cache)
@@ -1275,7 +1693,10 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
           `https://web-code-game.pages.dev/api/games?slug=${s}`,
           `https://web-code-game.pages.dev/api/games?id=${s}`,
           new URL(`/api/games?slug=${s}`, request.url).toString(),
-          new URL(`/api/games?id=${s}`, request.url).toString()
+          new URL(`/api/games?id=${s}`, request.url).toString(),
+          `https://codegame.shop/game/${s}`,
+          `https://web-code-game.pages.dev/game/${s}`,
+          new URL(`/game/${s}`, request.url).toString()
         );
       }
       specificGameUrls.push(
