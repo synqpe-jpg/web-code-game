@@ -17,7 +17,12 @@ interface TimeRemaining {
   minutes: number;
   seconds: number;
   isReleased: boolean;
+  isRolledOver: boolean;
+  bannerRemainingHours: number;
+  bannerRemainingMinutes: number;
 }
+
+const ONE_DAY_MS = 24 * 60 * 60 * 1000; // 24 giờ
 
 function calculateTimeRemaining(targetDateStr: string): TimeRemaining {
   try {
@@ -25,8 +30,17 @@ function calculateTimeRemaining(targetDateStr: string): TimeRemaining {
     const now = Date.now();
     const diff = target - now;
 
-    if (isNaN(target) || diff <= 0) {
-      return { days: 0, hours: 0, minutes: 0, seconds: 0, isReleased: true };
+    if (isNaN(target)) {
+      return { days: 0, hours: 0, minutes: 0, seconds: 0, isReleased: false, isRolledOver: false, bannerRemainingHours: 0, bannerRemainingMinutes: 0 };
+    }
+
+    if (diff <= 0) {
+      const elapsed = now - target;
+      const isRolledOver = elapsed > ONE_DAY_MS;
+      const remainingMs = Math.max(0, ONE_DAY_MS - elapsed);
+      const bannerRemainingHours = Math.floor(remainingMs / (1000 * 60 * 60));
+      const bannerRemainingMinutes = Math.floor((remainingMs % (1000 * 60 * 60)) / (1000 * 60));
+      return { days: 0, hours: 0, minutes: 0, seconds: 0, isReleased: true, isRolledOver, bannerRemainingHours, bannerRemainingMinutes };
     }
 
     const days = Math.floor(diff / (1000 * 60 * 60 * 24));
@@ -34,9 +48,9 @@ function calculateTimeRemaining(targetDateStr: string): TimeRemaining {
     const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
     const seconds = Math.floor((diff % (1000 * 60)) / 1000);
 
-    return { days, hours, minutes, seconds, isReleased: false };
+    return { days, hours, minutes, seconds, isReleased: false, isRolledOver: false, bannerRemainingHours: 0, bannerRemainingMinutes: 0 };
   } catch {
-    return { days: 0, hours: 0, minutes: 0, seconds: 0, isReleased: true };
+    return { days: 0, hours: 0, minutes: 0, seconds: 0, isReleased: true, isRolledOver: true, bannerRemainingHours: 0, bannerRemainingMinutes: 0 };
   }
 }
 
@@ -59,10 +73,19 @@ export const UpcomingGamesBanner: React.FC<UpcomingGamesBannerProps> = ({
   }, []);
 
   const bookmarkedSet = new Set(bookmarkedSlugs.map((s) => s.toLowerCase()));
+  const now = Date.now();
 
   // Filter to show active upcoming games, take first 5-6 games
+  // Các game ra mắt trong ngày chỉ nằm trên mục này tối đa 1 ngày (24h) rồi tự động chuyển xuống bên dưới
   const activeUpcoming = upcomingGames
-    .filter((g) => g.status !== 'CANCELLED')
+    .filter((g) => {
+      if (g.status === 'CANCELLED' || g.status === 'PENDING') return false;
+      if (!g.releaseDate) return true;
+      const target = new Date(g.releaseDate).getTime();
+      if (isNaN(target)) return true;
+      const elapsed = now - target;
+      return elapsed <= ONE_DAY_MS;
+    })
     .slice(0, 6);
 
   if (activeUpcoming.length === 0) return null;
@@ -175,9 +198,14 @@ export const UpcomingGamesBanner: React.FC<UpcomingGamesBannerProps> = ({
                 {/* Live Countdown Box */}
                 <div className="mb-2.5 rounded-lg bg-slate-900/90 border border-cyan-500/30 p-2 text-center shadow-inner">
                   {time.isReleased ? (
-                    <div className="flex items-center justify-center gap-1.5 text-emerald-400 font-bold text-xs animate-pulse">
-                      <Sparkles className="w-3.5 h-3.5 text-amber-400" />
-                      <span>ĐÃ MỞ SERVER!</span>
+                    <div className="py-0.5">
+                      <div className="flex items-center justify-center gap-1.5 text-emerald-400 font-bold text-xs animate-pulse">
+                        <Sparkles className="w-3.5 h-3.5 text-amber-400" />
+                        <span>ĐÃ MỞ SERVER HÔM NAY!</span>
+                      </div>
+                      <div className="text-[10px] text-cyan-300/80 mt-0.5 font-medium">
+                        ⏳ Còn {time.bannerRemainingHours}h {time.bannerRemainingMinutes}m trên banner
+                      </div>
                     </div>
                   ) : (
                     <div>

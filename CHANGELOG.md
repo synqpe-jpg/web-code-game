@@ -7,6 +7,54 @@ Mỗi mục sửa lỗi đều ghi nhận **Nguyên nhân gốc rễ (Root Cause
 
 ## [2026-10-23]
 
+### 151. Đồng Bộ Tuyệt Đối Game Sắp Ra Mắt Với Trang Admin, Quy Tắc 24H Sau Giờ G Tự Động Chuyển Xuống Sàn & Toàn Quyền Phân Phối Cổng API (Exact Admin-Client Upcoming Sync, 24-Hour Launch Rollover & Full API Distribution Authority)
+- **Mô tả & Yêu cầu người dùng**:
+  - *"Trong admin mới có 5 game mà bên ngoài có 6 game là chưa đồng bộ chính xác, mặc định những game trong trang admin mới được xuất hiện trên mục game sắp ra mắt. Các game ra mắt trong ngày chỉ nằm trên mục này 1 ngày rồi tự động chuyển xuống bên dưới. Đảm bảo api có toàn quyền phân phối mục game sắp ra mắt này"*
+- **Nguyên nhân gốc rễ (Root Cause)**:
+  1. *Lệch dữ liệu 5 vs 6 game giữa Admin và Web Khách*:
+     - Trước đây trong `src/types/game.ts` và fallback Edge API khai báo 6 game (chứa `Delta Force VN`), trong khi LocalStorage trên trình duyệt Admin của người dùng chỉ lưu 5 game ban đầu (`Strinova VN`, `Tiên Giới`, `Hiệp Khách Hành`, `Where Winds Meet VN`, `Honkai: Star Rail 3.0`).
+     - File `functions/api/sync.ts` chưa xử lý key `wcg_admin_upcoming_games_v1` khi Admin bấm lưu, và `adminDataService.ts` chưa chủ động fetch dữ liệu từ Cloudflare D1 Serverless API (`/api/crawler/ingest-upcoming-games?status=ALL`) khi mount, khiến dữ liệu giữa Admin và Client bị phân mảnh.
+  2. *Thiếu quy tắc 24h tự động chuyển game xuống sàn sau khi mở server (Post-Launch Grace Period & Auto-Rollover Rule)*:
+     - Các tựa game mở server trong ngày (như `Strinova VN` mở lúc 10:00 ngày 23/10) chỉ nên nằm trên banner sắp ra mắt trong tối đa 1 ngày (24 giờ) kèm trạng thái thông báo mở server và quà tân thủ; sau 24h phải tự động chuyển xuống danh mục sàn game chính thức bên dưới (`#game-catalog-section`).
+  3. *Cổng API cần toàn quyền phân phối và đồng bộ nguyên tử 2 chiều*:
+     - Cổng `/api/crawler/ingest-upcoming-games` cần action `set_display_list` (lưu nguyên tử toàn bộ mảng do Admin / Pine Bot điều phối) và `rollover` (tự động chuyển trạng thái `LAUNCHED` cho các game quá 24h).
+- **Giải pháp đã triển khai (Solution)**:
+  1. *Chuẩn Hóa Danh Sách 5 Game Đồng Nhất Tuyệt Đối Giữa Admin & Web Khách*:
+     - Đồng bộ `DEFAULT_UPCOMING_GAMES` trong `src/types/game.ts`, `DEFAULT_UPCOMING_GAMES_FALLBACK` trong `functions/api/crawler/ingest-upcoming-games.ts` và `getDefaultUpcomingGames()` trong `adminDataService.ts` về đúng 5 game chuẩn:
+       1. Strinova VN (`ug_strinova_vn`) — Vị trí 1
+       2. Tiên Giới (`ug_tien_gioi`) — Vị trí 2
+       3. Hiệp Khách Hành (`ug_hiep_khach_hanh`) — Vị trí 3
+       4. Where Winds Meet VN (`ug_where_winds_meet`) — Vị trí 4
+       5. Honkai: Star Rail 3.0 (`ug_hsr_ver30`) — Vị trí 5
+     - Loại bỏ `Delta Force VN` khỏi default để chỉ xuất hiện khi Admin hoặc Trợ lý Pine duyệt đưa lên web.
+  2. *Triển Khai Quy Tắc 24H Tự Động Chuyển Xuống Sàn (24-Hour Rollover Rule)*:
+     - Tính toán chênh lệch: `elapsed = Date.now() - new Date(game.releaseDate).getTime()`.
+     - Nếu `elapsed < 0`: Đang đếm ngược tới giờ G $\rightarrow$ Nằm trên Banner Sắp Ra Mắt.
+     - Nếu `0 <= elapsed <= 24h`: Ra mắt trong ngày $\rightarrow$ Vẫn nằm trên Banner với nhãn `🎉 ĐÃ MỞ SERVER HÔM NAY!` kèm đồng hồ đếm lùi thời gian còn lại trên banner (`Còn Xh Ym trên banner`).
+     - Nếu `elapsed > 24h`: Quá 24 giờ $\rightarrow$ Tự động loại khỏi Banner/Modal Sắp Ra Mắt và tự động chuyển xuống sàn game chính thức (`dataService.ts` và `functions/api/games.ts` tự động sinh `GameItem` kèm giftcode tân thủ).
+  3. *Toàn Quyền Phân Phối Cho Cổng API & Đồng Bộ Nguyên Tử Admin $\leftrightarrow$ D1*:
+     - `functions/api/crawler/ingest-upcoming-games.ts`:
+       - Thêm action `set_display_list` / `save_all`: Cấp toàn quyền cho Admin và Trợ lý Pine ghi đè/sắp xếp trực tiếp danh sách vào CSDL D1.
+       - Thêm action `rollover`: Tự động quét và cập nhật trạng thái `LAUNCHED` cho các game đã quá 24h.
+       - Bộ lọc `GET`: Tự động lọc bỏ các game quá 24h khi client truy vấn `status=UPCOMING` hoặc `status=WEB`.
+     - `src/admin/services/adminDataService.ts`:
+       - Bổ sung `fetchUpcomingGamesFromServer()` và `syncUpcomingGamesToServer()`.
+       - Mọi thao tác lưu, xóa, sắp xếp, duyệt game trong Admin đều gọi đồng thời cả `/api/sync` và POST `/api/crawler/ingest-upcoming-games`.
+     - `UpcomingGamesSection.tsx`:
+       - Tự động gọi `fetchUpcomingGamesFromServer()` khi mở tab và bổ sung nút `⚡ Đồng Bộ Server D1` để cưỡng bức đồng bộ 2 chiều tức thì.
+       - Huy hiệu trạng thái 3 cấp độ: `⏳ Đang đếm ngược` vs `🎉 Đã mở hôm nay (còn Xh Ym)` vs `✅ Đã chuyển xuống sàn (> 24h)`.
+- **Files Modified**:
+  - `src/types/game.ts`
+  - `functions/api/crawler/ingest-upcoming-games.ts`
+  - `functions/api/games.ts`
+  - `functions/api/sync.ts`
+  - `src/services/dataService.ts`
+  - `src/admin/services/adminDataService.ts`
+  - `src/admin/modules/UpcomingGamesSection.tsx`
+  - `src/components/UpcomingGamesBanner.tsx`
+  - `src/components/AllUpcomingGamesModal.tsx`
+  - `CHANGELOG.md`
+
 ### 150. Nâng Cấp Quản Lý Game Chuẩn Bị Ra Mắt & Phân Quyền Cổng API Cho Trợ Lý Pine & Muse Bot (Two-Tier Moderation Lists & Pine Assistant API Permissions)
 - **Mô tả & Yêu cầu người dùng**:
   - *"Quản Lý Game Chuẩn Bị Ra Mắt & Cổng API Muse trong trang admin, Mặc định mục này sẽ quản lý tất cả các game chuẩn bị ra mắt trong mục game sắp ra mắt trên trang khách, thêm mục tùy chỉnh các tựa game để admin tự sắp xếp các game, mặc định có 6 game admin chỉnh sẽ được hiển thị ngay trên web khách, các game được duyệt còn lại sẽ xuất hiện cùng danh sách 6 game trưng sẵn khi khách ấn xem thêm. Trong mục quản lý có 2 danh sách, 1 danh sách là hiện trên web, 1 danh sách cho vào hàng chờ duyệt, duyệt xong mới được đưa lên web. Tất cả mục này có thể cấp quyền cho API của trợ lý Pine của tôi thực hiện."*

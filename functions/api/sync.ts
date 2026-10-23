@@ -754,6 +754,7 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
       newsAutoSources: d1Settings['wcg_news_auto_sources_v1'] || masterState.newsAutoSources || [],
       newsScheduleConfig: d1Settings['wcg_news_schedule_config_v1'] || masterState.newsScheduleConfig || null,
       eventSchedules: d1Settings['wcg_event_schedules_v1'] || masterState.eventSchedules || [],
+      upcomingGames: d1Settings['wcg_admin_upcoming_games_v1'] || masterState.upcomingGames || [],
     };
 
     if (authorized) {
@@ -2627,6 +2628,7 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
       else if (vKey === 'wcg_news_articles_v1') currentMaster.newsArticles = body.data;
       else if (vKey === 'wcg_crawler_sources_v1' || vKey === 'wcg_admin_crawler_sources_v5') currentMaster.crawlerSources = body.data;
       else if (vKey === 'wcg_event_schedules_v1') currentMaster.eventSchedules = body.data;
+      else if (vKey === 'wcg_admin_upcoming_games_v1' || vKey === 'wcg_upcoming_games_v1') currentMaster.upcomingGames = body.data;
     }
 
     if (body.deletedStoreProducts !== undefined) currentMaster.deletedStoreProducts = body.deletedStoreProducts;
@@ -3024,6 +3026,13 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
         if (body.newsAutoSources !== undefined) await setSettingD1(env.DB, 'wcg_news_auto_sources_v1', body.newsAutoSources);
         if (body.newsScheduleConfig !== undefined) await setSettingD1(env.DB, 'wcg_news_schedule_config_v1', body.newsScheduleConfig);
         if (body.eventSchedules !== undefined || body.key === 'wcg_event_schedules_v1') await setSettingD1(env.DB, 'wcg_event_schedules_v1', body.eventSchedules ?? body.data);
+        if (body.upcomingGames !== undefined || body.key === 'wcg_admin_upcoming_games_v1' || body.key === 'wcg_upcoming_games_v1') {
+          const uGames = body.upcomingGames ?? body.data;
+          if (Array.isArray(uGames)) {
+            currentMaster.upcomingGames = uGames;
+            await setSettingD1(env.DB, 'wcg_admin_upcoming_games_v1', uGames);
+          }
+        }
         if (body.utilitiesGlobalShowSold !== undefined || body.key === 'wcg_utilities_global_show_sold') {
           const val = body.utilitiesGlobalShowSold !== undefined ? Boolean(body.utilitiesGlobalShowSold) : Boolean(body.data);
           currentMaster.utilitiesGlobalShowSold = val;

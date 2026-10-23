@@ -449,26 +449,6 @@ export const DEFAULT_UPCOMING_GAMES: UpcomingGame[] = [
     updatedAt: '2026-10-22T12:00:00Z',
   },
   {
-    id: 'ug_delta_force_vn',
-    name: 'Delta Force VN',
-    slug: 'delta-force-vn',
-    publisher: 'VNGGames / TiMi',
-    releaseDate: '2026-11-20T10:00:00+07:00',
-    category: 'Bắn Súng Quân Sự',
-    platform: 'PC, Mobile',
-    iconUrl: '/game_icons/delta-force-vn.webp',
-    bannerUrl: 'https://images.unsplash.com/photo-1542751371-adc38448a05e?auto=format&fit=crop&w=1200&q=80',
-    description: 'Huyền thoại bắn súng chiến thuật quân sự góc nhìn thứ nhất trở lại với chế độ Operations và Warfare đỉnh cao.',
-    preRegUrl: 'https://df.vnggames.com',
-    expectedCodes: ['DELTAFORCE2026', 'DFVNGGAMES', 'VIP777', 'OPERATIONS'],
-    subscribersCount: 4210,
-    source: 'Trợ lý Pine & Muse Bot',
-    status: 'UPCOMING',
-    displayOrder: 5,
-    createdAt: '2026-10-22T08:00:00Z',
-    updatedAt: '2026-10-22T18:00:00Z',
-  },
-  {
     id: 'ug_hsr_ver30',
     name: 'Honkai: Star Rail 3.0',
     slug: 'honkai-star-rail',
@@ -483,11 +463,58 @@ export const DEFAULT_UPCOMING_GAMES: UpcomingGame[] = [
     subscribersCount: 8900,
     source: 'Trợ lý Pine & Muse Bot',
     status: 'UPCOMING',
-    displayOrder: 6,
+    displayOrder: 5,
     createdAt: '2026-10-19T14:00:00Z',
     updatedAt: '2026-10-22T18:00:00Z',
   },
 ];
+
+// 24-Hour Post-Launch Grace Period & Rollover Utilities
+export const UPCOMING_ROLLOVER_WINDOW_MS = 24 * 60 * 60 * 1000; // 24 Giờ
+
+export function isUpcomingGameActiveOnBanner(game: UpcomingGame, now = Date.now()): boolean {
+  if (game.status === 'CANCELLED' || game.status === 'PENDING') return false;
+  if (!game.releaseDate) return true;
+  const target = new Date(game.releaseDate).getTime();
+  if (isNaN(target)) return true;
+  const elapsed = now - target;
+  // If target is in future: elapsed < 0 -> Active
+  // If target passed <= 24h: 0 <= elapsed <= 24h -> Active (Released today)
+  // If target passed > 24h: elapsed > 24h -> Inactive on banner (moves down to catalog)
+  return elapsed <= UPCOMING_ROLLOVER_WINDOW_MS;
+}
+
+export function isUpcomingGameRolledOver(game: UpcomingGame, now = Date.now()): boolean {
+  if (!game.releaseDate) return false;
+  const target = new Date(game.releaseDate).getTime();
+  if (isNaN(target)) return false;
+  return (now - target) > UPCOMING_ROLLOVER_WINDOW_MS;
+}
+
+export function getUpcomingGameHoursRemaining(
+  game: UpcomingGame,
+  now = Date.now()
+): { isReleased: boolean; isRolledOver: boolean; hours: number; minutes: number } {
+  if (!game.releaseDate) {
+    return { isReleased: false, isRolledOver: false, hours: 0, minutes: 0 };
+  }
+  const target = new Date(game.releaseDate).getTime();
+  if (isNaN(target)) {
+    return { isReleased: false, isRolledOver: false, hours: 0, minutes: 0 };
+  }
+  const diff = target - now;
+  if (diff > 0) {
+    return { isReleased: false, isRolledOver: false, hours: 0, minutes: 0 };
+  }
+  const elapsed = now - target;
+  if (elapsed > UPCOMING_ROLLOVER_WINDOW_MS) {
+    return { isReleased: true, isRolledOver: true, hours: 0, minutes: 0 };
+  }
+  const remainingMs = UPCOMING_ROLLOVER_WINDOW_MS - elapsed;
+  const hours = Math.floor(remainingMs / (1000 * 60 * 60));
+  const minutes = Math.floor((remainingMs % (1000 * 60 * 60)) / (1000 * 60));
+  return { isReleased: true, isRolledOver: false, hours, minutes };
+}
 
 
 

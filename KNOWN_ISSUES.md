@@ -10,6 +10,25 @@
 
 ## 1. DANH MỤC LỖI & CÁC BẪY ĐÃ THẤT BẠI (DO NOT REPEAT)
 
+### ISSUE-085: Phân Mảnh Dữ Liệu Game Sắp Ra Mắt Giữa Admin LocalStorage và Web Khách Fallback, Và Thiếu Cơ Chế Tự Động Chuyển Xuống Sàn Sau 24H (Upcoming Games Admin SSOT & 24-Hour Post-Launch Grace Period Trap)
+- **Triệu chứng**:
+  - Trang Quản Trị chỉ có 5 game sắp ra mắt trong khi ngoài Web Khách lại hiển thị 6 game (thừa tựa game `Delta Force VN`). Admin thay đổi thứ tự hay duyệt game nhưng Web Khách không cập nhật chính xác danh sách.
+  - Các tựa game đã đến giờ mở server tiếp tục nằm lì trên Banner Game Sắp Ra Mắt vô thời hạn thay vì tự động chuyển xuống danh mục game chính thức bên dưới sau 1 ngày (24 giờ).
+- **Nguyên nhân gốc rễ**:
+  1. Thiếu cơ chế đồng bộ 2 chiều nguyên tử: `adminDataService.ts` chỉ lưu mảng `this.upcomingGames` vào LocalStorage của trình duyệt và gọi `/api/sync` nhưng backend `functions/api/sync.ts` chưa xử lý key `wcg_admin_upcoming_games_v1` để lưu vào CSDL Cloudflare D1 `settings`.
+  2. Web Khách khi fetch `/api/crawler/ingest-upcoming-games` gặp D1 rỗng đã rơi vào fallback tĩnh 6 game, trong khi Admin của người dùng chỉ có 5 game.
+  3. Logic hiển thị trên Banner không có bộ lọc thời gian đã trôi qua sau giờ G: Bất kỳ game nào chưa bị xóa đều hiển thị trên banner dù đã mở server từ nhiều ngày trước.
+- **Giải pháp chuẩn đã kiểm chứng**:
+  - **Admin & D1 là Single Source of Truth (SSOT)**: Chuẩn hóa toàn bộ default fallback (`DEFAULT_UPCOMING_GAMES`, `DEFAULT_UPCOMING_GAMES_FALLBACK`, `getDefaultUpcomingGames`) về đúng 5 game chuẩn: Strinova VN, Tiên Giới, Hiệp Khách Hành, Where Winds Meet VN, Honkai: Star Rail 3.0.
+  - **Quy tắc 24h Post-Launch Rollover**:
+    - Khi `0 <= elapsed <= 24h` (ra mắt trong ngày): Vẫn hiển thị trên Banner với nhãn `🎉 ĐÃ MỞ SERVER HÔM NAY!` và đồng hồ đếm lùi thời gian còn lại trên banner.
+    - Khi `elapsed > 24h`: Tự động loại khỏi Banner & Modal Sắp Ra Mắt, đồng thời tự động chuyển xuống danh mục sàn game bên dưới (tạo `GameItem` và kích hoạt giftcode tân thủ).
+  - **Toàn quyền phân phối API**: Cổng `/api/crawler/ingest-upcoming-games` hỗ trợ `action: "set_display_list"` và `action: "rollover"`. Admin Data Service tự động fetch từ D1 khi khởi tạo và gửi mảng game lên D1 ngay khi lưu/sắp xếp.
+- ⛔ **CÁCH SỬA ĐÃ THẤT BẠI - TUYỆT ĐỐI KHÔNG LẶP LẠI**:
+  - ❌ *Không định nghĩa số lượng game mặc định khác nhau giữa types, fallback API và Admin*: Phải thống nhất 100% cùng 1 danh sách 5 game.
+  - ❌ *Không để game đã mở server nằm mãi trên Banner sắp ra mắt*: Phải áp dụng công thức `elapsed <= 24 * 60 * 60 * 1000` để tự động rollover xuống sàn sau đúng 1 ngày.
+  - ❌ *Không chỉ lưu dữ liệu Admin vào LocalStorage*: Phải gọi POST lên API Serverless D1 để Web Khách cập nhật tức thì.
+
 ### ISSUE-084: Đồng Bộ Khối Game Theo Dõi Và Game Sắp Ra Mắt Với React State Thay Vì Phụ Thuộc Vào Reload Hoặc Poll Mạng (Zero-Latency Bookmark & Upcoming Subscription Sync Pattern)
 - **Triệu chứng**:
   - Khi người dùng bấm nút "Báo Code" ở Game Sắp Ra Mắt, nếu hệ thống chỉ lưu vào backend hoặc localStorage mà không cập nhật state React ngay, khối "Game Bạn Đang Theo Dõi" ở trên cùng sẽ không phản hồi ngay lập tức, khiến người dùng tưởng nút bấm bị liệt.

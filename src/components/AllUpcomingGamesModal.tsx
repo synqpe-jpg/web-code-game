@@ -18,7 +18,12 @@ interface TimeRemaining {
   minutes: number;
   seconds: number;
   isReleased: boolean;
+  isRolledOver: boolean;
+  bannerRemainingHours: number;
+  bannerRemainingMinutes: number;
 }
+
+const ONE_DAY_MS = 24 * 60 * 60 * 1000; // 24 giờ
 
 function calculateTimeRemaining(targetDateStr: string): TimeRemaining {
   try {
@@ -26,8 +31,17 @@ function calculateTimeRemaining(targetDateStr: string): TimeRemaining {
     const now = Date.now();
     const diff = target - now;
 
-    if (isNaN(target) || diff <= 0) {
-      return { days: 0, hours: 0, minutes: 0, seconds: 0, isReleased: true };
+    if (isNaN(target)) {
+      return { days: 0, hours: 0, minutes: 0, seconds: 0, isReleased: false, isRolledOver: false, bannerRemainingHours: 0, bannerRemainingMinutes: 0 };
+    }
+
+    if (diff <= 0) {
+      const elapsed = now - target;
+      const isRolledOver = elapsed > ONE_DAY_MS;
+      const remainingMs = Math.max(0, ONE_DAY_MS - elapsed);
+      const bannerRemainingHours = Math.floor(remainingMs / (1000 * 60 * 60));
+      const bannerRemainingMinutes = Math.floor((remainingMs % (1000 * 60 * 60)) / (1000 * 60));
+      return { days: 0, hours: 0, minutes: 0, seconds: 0, isReleased: true, isRolledOver, bannerRemainingHours, bannerRemainingMinutes };
     }
 
     const days = Math.floor(diff / (1000 * 60 * 60 * 24));
@@ -35,9 +49,9 @@ function calculateTimeRemaining(targetDateStr: string): TimeRemaining {
     const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
     const seconds = Math.floor((diff % (1000 * 60)) / 1000);
 
-    return { days, hours, minutes, seconds, isReleased: false };
+    return { days, hours, minutes, seconds, isReleased: false, isRolledOver: false, bannerRemainingHours: 0, bannerRemainingMinutes: 0 };
   } catch {
-    return { days: 0, hours: 0, minutes: 0, seconds: 0, isReleased: true };
+    return { days: 0, hours: 0, minutes: 0, seconds: 0, isReleased: true, isRolledOver: true, bannerRemainingHours: 0, bannerRemainingMinutes: 0 };
   }
 }
 
@@ -91,6 +105,14 @@ export const AllUpcomingGamesModal: React.FC<AllUpcomingGamesModalProps> = ({
   const now = Date.now();
 
   const filteredGames = upcomingGames.filter((game) => {
+    // 0. Rollover check: các game đã mở server > 24h tự động chuyển xuống catalog
+    if (game.releaseDate) {
+      const target = new Date(game.releaseDate).getTime();
+      if (!isNaN(target) && (now - target) > ONE_DAY_MS) {
+        return false;
+      }
+    }
+
     // 1. Search term match
     if (searchTerm.trim()) {
       const q = searchTerm.toLowerCase();
@@ -312,9 +334,14 @@ export const AllUpcomingGamesModal: React.FC<AllUpcomingGamesModalProps> = ({
                         </div>
 
                         {time.isReleased ? (
-                          <div className="flex items-center justify-center gap-1.5 text-emerald-400 font-bold text-xs py-1 animate-pulse">
-                            <Sparkles className="w-4 h-4 text-amber-400" />
-                            <span>ĐÃ CHÍNH THỨC MỞ SERVER!</span>
+                          <div className="py-1">
+                            <div className="flex items-center justify-center gap-1.5 text-emerald-400 font-bold text-xs animate-pulse">
+                              <Sparkles className="w-4 h-4 text-amber-400" />
+                              <span>ĐÃ CHÍNH THỨC MỞ SERVER HÔM NAY!</span>
+                            </div>
+                            <div className="text-[10px] text-cyan-300/80 text-center mt-0.5">
+                              ⏳ Còn {time.bannerRemainingHours}h {time.bannerRemainingMinutes}m trên danh sách trước khi chuyển xuống sàn
+                            </div>
                           </div>
                         ) : (
                           <div className="font-mono font-bold text-xs sm:text-sm text-cyan-300 tracking-wider flex items-center justify-center gap-1.5 py-0.5">

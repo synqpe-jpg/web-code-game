@@ -400,6 +400,7 @@ class AdminDataService {
         this.upcomingGames = this.getDefaultUpcomingGames();
         this.safeSetItem(this.KEYS.UPCOMING_GAMES, JSON.stringify(this.upcomingGames));
       }
+      this.fetchUpcomingGamesFromServer().catch(() => {});
 
       const savedUpcomingLogs = localStorage.getItem(this.KEYS.UPCOMING_GAMES_LOGS);
       if (savedUpcomingLogs) {
@@ -4321,29 +4322,11 @@ class AdminDataService {
         description: 'Bom tấn võ hiệp thế giới mở thời Ngũ Đại Thập Quốc với đồ họa ray-tracing đỉnh cao.',
         expectedCodes: ['WHEREWINDSMEET', 'WWMOPENBETA', 'VIP888'],
         subscribersCount: 5630,
-        source: 'Muse Bot',
+        source: 'Trợ lý Pine & Muse Bot',
         status: 'UPCOMING',
+        displayOrder: 4,
         createdAt: '2026-10-18T10:00:00Z',
         updatedAt: '2026-10-22T12:00:00Z',
-      },
-      {
-        id: 'ug_delta_force_vn',
-        name: 'Delta Force VN',
-        slug: 'delta-force-vn',
-        publisher: 'VNGGames / TiMi',
-        releaseDate: '2026-11-20T10:00:00+07:00',
-        category: 'Bắn Súng Quân Sự',
-        platform: 'PC, Mobile',
-        iconUrl: '/game_icons/delta-force-vn.webp',
-        bannerUrl: 'https://images.unsplash.com/photo-1542751371-adc38448a05e?auto=format&fit=crop&w=1200&q=80',
-        description: 'Huyền thoại bắn súng chiến thuật quân sự góc nhìn thứ nhất trở lại với chế độ Operations và Warfare đỉnh cao.',
-        preRegUrl: 'https://df.vnggames.com',
-        expectedCodes: ['DELTAFORCE2026', 'DFVNGGAMES', 'VIP777', 'OPERATIONS'],
-        subscribersCount: 4210,
-        source: 'Muse Bot',
-        status: 'UPCOMING',
-        createdAt: '2026-10-22T08:00:00Z',
-        updatedAt: '2026-10-22T18:00:00Z',
       },
       {
         id: 'ug_hsr_ver30',
@@ -4360,7 +4343,7 @@ class AdminDataService {
         subscribersCount: 8900,
         source: 'Trợ lý Pine & Muse Bot',
         status: 'UPCOMING',
-        displayOrder: 6,
+        displayOrder: 5,
         createdAt: '2026-10-19T14:00:00Z',
         updatedAt: '2026-10-22T18:00:00Z',
       },
@@ -4389,7 +4372,10 @@ class AdminDataService {
     this.safeSetItem(this.KEYS.UPCOMING_GAMES, JSON.stringify(this.upcomingGames));
     crossOriginSync.setItem(this.KEYS.UPCOMING_GAMES, this.upcomingGames);
     this.broadcastSync('UPCOMING_GAMES_UPDATED', this.upcomingGames);
-    await this.syncToCloudflareKV(this.KEYS.UPCOMING_GAMES, this.upcomingGames);
+    await Promise.allSettled([
+      this.syncToCloudflareKV(this.KEYS.UPCOMING_GAMES, this.upcomingGames),
+      this.syncUpcomingGamesToServer(),
+    ]);
   }
 
   public async deleteUpcomingGame(id: string): Promise<void> {
@@ -4397,7 +4383,10 @@ class AdminDataService {
     this.safeSetItem(this.KEYS.UPCOMING_GAMES, JSON.stringify(this.upcomingGames));
     crossOriginSync.setItem(this.KEYS.UPCOMING_GAMES, this.upcomingGames);
     this.broadcastSync('UPCOMING_GAMES_UPDATED', this.upcomingGames);
-    await this.syncToCloudflareKV(this.KEYS.UPCOMING_GAMES, this.upcomingGames);
+    await Promise.allSettled([
+      this.syncToCloudflareKV(this.KEYS.UPCOMING_GAMES, this.upcomingGames),
+      this.syncUpcomingGamesToServer(),
+    ]);
   }
 
   public async setUpcomingGames(games: UpcomingGameAdminRecord[]): Promise<void> {
@@ -4405,7 +4394,10 @@ class AdminDataService {
     this.safeSetItem(this.KEYS.UPCOMING_GAMES, JSON.stringify(this.upcomingGames));
     crossOriginSync.setItem(this.KEYS.UPCOMING_GAMES, this.upcomingGames);
     this.broadcastSync('UPCOMING_GAMES_UPDATED', this.upcomingGames);
-    await this.syncToCloudflareKV(this.KEYS.UPCOMING_GAMES, this.upcomingGames);
+    await Promise.allSettled([
+      this.syncToCloudflareKV(this.KEYS.UPCOMING_GAMES, this.upcomingGames),
+      this.syncUpcomingGamesToServer(),
+    ]);
   }
 
   /**
@@ -4433,7 +4425,10 @@ class AdminDataService {
     this.safeSetItem(this.KEYS.UPCOMING_GAMES, JSON.stringify(this.upcomingGames));
     crossOriginSync.setItem(this.KEYS.UPCOMING_GAMES, this.upcomingGames);
     this.broadcastSync('UPCOMING_GAMES_UPDATED', this.upcomingGames);
-    await this.syncToCloudflareKV(this.KEYS.UPCOMING_GAMES, this.upcomingGames);
+    await Promise.allSettled([
+      this.syncToCloudflareKV(this.KEYS.UPCOMING_GAMES, this.upcomingGames),
+      this.syncUpcomingGamesToServer(),
+    ]);
   }
 
   /**
@@ -4465,7 +4460,10 @@ class AdminDataService {
     this.safeSetItem(this.KEYS.UPCOMING_GAMES, JSON.stringify(this.upcomingGames));
     crossOriginSync.setItem(this.KEYS.UPCOMING_GAMES, this.upcomingGames);
     this.broadcastSync('UPCOMING_GAMES_UPDATED', this.upcomingGames);
-    await this.syncToCloudflareKV(this.KEYS.UPCOMING_GAMES, this.upcomingGames);
+    await Promise.allSettled([
+      this.syncToCloudflareKV(this.KEYS.UPCOMING_GAMES, this.upcomingGames),
+      this.syncUpcomingGamesToServer(),
+    ]);
   }
 
   /**
@@ -4490,7 +4488,10 @@ class AdminDataService {
     this.safeSetItem(this.KEYS.UPCOMING_GAMES, JSON.stringify(this.upcomingGames));
     crossOriginSync.setItem(this.KEYS.UPCOMING_GAMES, this.upcomingGames);
     this.broadcastSync('UPCOMING_GAMES_UPDATED', this.upcomingGames);
-    await this.syncToCloudflareKV(this.KEYS.UPCOMING_GAMES, this.upcomingGames);
+    await Promise.allSettled([
+      this.syncToCloudflareKV(this.KEYS.UPCOMING_GAMES, this.upcomingGames),
+      this.syncUpcomingGamesToServer(),
+    ]);
     return count;
   }
 
@@ -4506,7 +4507,10 @@ class AdminDataService {
     this.safeSetItem(this.KEYS.UPCOMING_GAMES, JSON.stringify(this.upcomingGames));
     crossOriginSync.setItem(this.KEYS.UPCOMING_GAMES, this.upcomingGames);
     this.broadcastSync('UPCOMING_GAMES_UPDATED', this.upcomingGames);
-    await this.syncToCloudflareKV(this.KEYS.UPCOMING_GAMES, this.upcomingGames);
+    await Promise.allSettled([
+      this.syncToCloudflareKV(this.KEYS.UPCOMING_GAMES, this.upcomingGames),
+      this.syncUpcomingGamesToServer(),
+    ]);
   }
 
   /**
@@ -4578,6 +4582,71 @@ class AdminDataService {
     }
 
     return { success: true, gameName: ug.name, codesAdded };
+  }
+
+  /**
+   * Đồng bộ trực tiếp danh sách upcoming games của Admin lên Cloudflare D1
+   */
+  public async syncUpcomingGamesToServer(): Promise<boolean> {
+    const currentHost = typeof window !== 'undefined' ? window.location.hostname : '';
+    const isLocalhost = currentHost === 'localhost' || currentHost === '127.0.0.1';
+    const endpoints = isLocalhost
+      ? ['https://admin-code-game-shop.pages.dev/api/crawler/ingest-upcoming-games', '/api/crawler/ingest-upcoming-games']
+      : ['/api/crawler/ingest-upcoming-games', 'https://admin-code-game-shop.pages.dev/api/crawler/ingest-upcoming-games'];
+
+    const payload = {
+      action: 'set_display_list',
+      apiKey: this.crawlerApiConfig.apiKey || 'WCG_PROD_SYNC_SECURE_KEY_2026_988776',
+      botName: 'Admin Quản Trị',
+      games: this.upcomingGames,
+    };
+
+    let synced = false;
+    for (const url of endpoints) {
+      try {
+        const res = await fetch(url, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'X-API-Key': this.crawlerApiConfig.apiKey || 'WCG_PROD_SYNC_SECURE_KEY_2026_988776',
+          },
+          body: JSON.stringify(payload),
+        });
+        if (res.ok) {
+          synced = true;
+          break;
+        }
+      } catch {}
+    }
+    return synced;
+  }
+
+  /**
+   * Tải toàn bộ danh sách upcoming games mới nhất từ server Cloudflare D1
+   */
+  public async fetchUpcomingGamesFromServer(): Promise<UpcomingGameAdminRecord[]> {
+    const currentHost = typeof window !== 'undefined' ? window.location.hostname : '';
+    const isLocalhost = currentHost === 'localhost' || currentHost === '127.0.0.1';
+    const endpoints = isLocalhost
+      ? ['https://admin-code-game-shop.pages.dev/api/crawler/ingest-upcoming-games?status=ALL', '/api/crawler/ingest-upcoming-games?status=ALL']
+      : ['/api/crawler/ingest-upcoming-games?status=ALL', 'https://admin-code-game-shop.pages.dev/api/crawler/ingest-upcoming-games?status=ALL'];
+
+    for (const url of endpoints) {
+      try {
+        const res = await fetch(url);
+        if (res.ok) {
+          const data = await res.json();
+          if (data && data.success && Array.isArray(data.games) && data.games.length > 0) {
+            this.upcomingGames = data.games;
+            this.safeSetItem(this.KEYS.UPCOMING_GAMES, JSON.stringify(this.upcomingGames));
+            crossOriginSync.setItem(this.KEYS.UPCOMING_GAMES, this.upcomingGames);
+            this.broadcastSync('UPCOMING_GAMES_UPDATED', this.upcomingGames);
+            return [...this.upcomingGames];
+          }
+        }
+      } catch {}
+    }
+    return [...this.upcomingGames];
   }
 
   public getUpcomingGamesLogs(): UpcomingGameApiLogEntry[] {

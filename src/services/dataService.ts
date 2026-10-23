@@ -1738,12 +1738,59 @@ class DataService {
   // --- UPCOMING GAMES SYSTEM ---
   /**
    * Retrieves upcoming games from Serverless API / LocalStorage / Fallback
-   * Only returns approved games (excludes pending moderation queue) and sorts by admin display order
+   * Only returns approved games (excludes pending moderation queue) and sorts by admin display order.
+   * Games released > 24 hours ago are automatically rolled over into the catalog below.
    */
   async getUpcomingGames(): Promise<UpcomingGame[]> {
+    const ONE_DAY_MS = 24 * 60 * 60 * 1000;
+    const now = Date.now();
+
     const sortAndFilter = (list: any[]): UpcomingGame[] => {
+      // 1. Tự động chuyển các game đã mở server > 24h xuống catalog bên dưới
+      list.forEach((g) => {
+        if (!g || !g.slug || !g.releaseDate) return;
+        const target = new Date(g.releaseDate).getTime();
+        if (!isNaN(target) && (now - target) > ONE_DAY_MS) {
+          const slugLower = g.slug.toLowerCase();
+          const exists = this.games.some((gm) => (gm.slug || '').toLowerCase() === slugLower || (gm.id || '').toLowerCase() === slugLower);
+          if (!exists) {
+            this.games.unshift({
+              id: g.slug,
+              slug: g.slug,
+              name: g.name,
+              publisher: g.publisher,
+              category: g.category || 'Game Mới',
+              platform: g.platform || 'Android, iOS, PC',
+              icon_url: g.iconUrl || `/game_icons/${g.slug}.webp`,
+              banner_url: g.bannerUrl,
+              description: g.description,
+              is_new: true,
+              is_hot: true,
+              release_date: g.releaseDate?.split('T')[0] || new Date().toISOString().split('T')[0],
+              codes_count: g.expectedCodes?.length || 0,
+              codes: (g.expectedCodes || []).map((c: string) => ({
+                code: c.toUpperCase(),
+                rewards: 'Thưởng của NPH',
+                status: 'active',
+                expiry: '31/12/2026',
+              })),
+            });
+          }
+        }
+      });
+
+      // 2. Chỉ giữ lại trên banner các game đang đếm ngược hoặc ra mắt trong ngày (<= 24h)
       return list
-        .filter((g) => (g.status === 'UPCOMING' || g.status === 'APPROVED') && g.status !== 'PENDING' && g.status !== 'CANCELLED')
+        .filter((g) => {
+          if (g.status === 'CANCELLED' || g.status === 'PENDING') return false;
+          const isApproved = g.status === 'UPCOMING' || g.status === 'APPROVED';
+          if (!isApproved) return false;
+          if (!g.releaseDate) return true;
+          const target = new Date(g.releaseDate).getTime();
+          if (isNaN(target)) return true;
+          const elapsed = now - target;
+          return elapsed <= ONE_DAY_MS;
+        })
         .sort((a, b) => {
           const orderA = typeof a.displayOrder === 'number' ? a.displayOrder : 999;
           const orderB = typeof b.displayOrder === 'number' ? b.displayOrder : 999;
@@ -1786,9 +1833,21 @@ class DataService {
    * Get cached upcoming games synchronously for 0ms initial render
    */
   getUpcomingGamesSync(): UpcomingGame[] {
+    const ONE_DAY_MS = 24 * 60 * 60 * 1000;
+    const now = Date.now();
+
     const sortAndFilter = (list: any[]): UpcomingGame[] => {
       return list
-        .filter((g) => (g.status === 'UPCOMING' || g.status === 'APPROVED') && g.status !== 'PENDING' && g.status !== 'CANCELLED')
+        .filter((g) => {
+          if (g.status === 'CANCELLED' || g.status === 'PENDING') return false;
+          const isApproved = g.status === 'UPCOMING' || g.status === 'APPROVED';
+          if (!isApproved) return false;
+          if (!g.releaseDate) return true;
+          const target = new Date(g.releaseDate).getTime();
+          if (isNaN(target)) return true;
+          const elapsed = now - target;
+          return elapsed <= ONE_DAY_MS;
+        })
         .sort((a, b) => {
           const orderA = typeof a.displayOrder === 'number' ? a.displayOrder : 999;
           const orderB = typeof b.displayOrder === 'number' ? b.displayOrder : 999;

@@ -394,13 +394,46 @@ export async function getLoadedCatalog(db: D1Database, forceFresh: boolean = fal
     'wcg_admin_free_codes_v4',
     'wcg_admin_custom_free_codes_v1',
     'wcg_deleted_free_codes',
+    'wcg_admin_upcoming_games_v1',
   ]);
 
-  const rawGames = (Array.isArray(settings['wcg_admin_games_v5']) && settings['wcg_admin_games_v5'].length > 0)
+  const baseGames = (Array.isArray(settings['wcg_admin_games_v5']) && settings['wcg_admin_games_v5'].length > 0)
     ? settings['wcg_admin_games_v5']
     : ((Array.isArray(settings['wcg_admin_games_v4']) && settings['wcg_admin_games_v4'].length > 0)
       ? settings['wcg_admin_games_v4']
       : (fallbackGamesData as any[]));
+
+  // Tự động chuyển các game sắp ra mắt đã mở server quá 24h xuống sàn game chính thức
+  const rawGames = Array.isArray(baseGames) ? [...baseGames] : [];
+  const upcomingList = settings['wcg_admin_upcoming_games_v1'];
+  if (Array.isArray(upcomingList)) {
+    const ONE_DAY_MS = 24 * 60 * 60 * 1000;
+    const now = Date.now();
+    for (const ug of upcomingList) {
+      if (!ug || !ug.slug) continue;
+      const target = new Date(ug.releaseDate).getTime();
+      if (!isNaN(target) && (now - target) > ONE_DAY_MS) {
+        const slugLower = ug.slug.toLowerCase();
+        if (!rawGames.some((g: any) => (g.slug || '').toLowerCase() === slugLower || (g.id || '').toLowerCase() === slugLower)) {
+          rawGames.unshift({
+            id: ug.slug,
+            slug: ug.slug,
+            name: ug.name,
+            publisher: ug.publisher || 'Nhà phát hành',
+            category: ug.category || 'Game Mới',
+            platform: ug.platform || 'Android, iOS, PC',
+            icon_url: ug.iconUrl || `/game_icons/${ug.slug}.webp`,
+            banner_url: ug.bannerUrl,
+            description: ug.description || `Tổng hợp giftcode ${ug.name} mới nhất mừng mở server.`,
+            instructions: 'Bước 1: Mở game > Nhấn Avatar nhân vật\nBước 2: Chọn Cài đặt > Nhập Giftcode\nBước 3: Dán mã và nhấn Xác nhận.',
+            is_new: true,
+            is_hot: true,
+            release_date: ug.releaseDate ? ug.releaseDate.split('T')[0] : new Date().toISOString().split('T')[0],
+          });
+        }
+      }
+    }
+  }
   // Combine all available sources: Custom codes, D1 catalog codes, and complete Master Bundled codes (fallbackCodesData)
   // This guarantees that no code can ever be lost regardless of D1 partial writes or admin CMS updates.
   const d1Codes = (Array.isArray(settings['wcg_admin_free_codes_v5']) && settings['wcg_admin_free_codes_v5'].length > 0)

@@ -54,14 +54,29 @@ function getCountdownDetails(releaseDateStr?: string): { text: string; isPast: b
   if (isNaN(target)) {
     return { text: releaseDateStr, isPast: false, color: 'text-slate-400', badgeBg: 'bg-slate-800/80 border-slate-700' };
   }
-  const diff = target - Date.now();
+  const ONE_DAY_MS = 24 * 60 * 60 * 1000;
+  const now = Date.now();
+  const diff = target - now;
   if (diff <= 0) {
-    return {
-      text: '🟢 Đã đến giờ mở server!',
-      isPast: true,
-      color: 'text-emerald-400 font-bold',
-      badgeBg: 'bg-emerald-950/40 border-emerald-500/40 text-emerald-300',
-    };
+    const elapsed = now - target;
+    if (elapsed <= ONE_DAY_MS) {
+      const remainingMs = ONE_DAY_MS - elapsed;
+      const remHours = Math.floor(remainingMs / (1000 * 60 * 60));
+      const remMins = Math.floor((remainingMs % (1000 * 60 * 60)) / (1000 * 60));
+      return {
+        text: `🎉 Đã mở hôm nay (còn ${remHours}h ${remMins}m trên banner)`,
+        isPast: true,
+        color: 'text-emerald-400 font-bold',
+        badgeBg: 'bg-emerald-950/40 border-emerald-500/40 text-emerald-300',
+      };
+    } else {
+      return {
+        text: '✅ Đã chuyển xuống sàn chính thức (> 24h)',
+        isPast: true,
+        color: 'text-indigo-400 font-bold',
+        badgeBg: 'bg-indigo-950/40 border-indigo-500/40 text-indigo-300',
+      };
+    }
   }
   const days = Math.floor(diff / (1000 * 60 * 60 * 24));
   const hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
@@ -109,6 +124,7 @@ export const UpcomingGamesSection: React.FC<UpcomingGamesSectionProps> = ({ onSh
 
   // Live timer tick every 30 seconds for accurate countdowns
   const [, setTick] = useState(0);
+  const [isSyncingServer, setIsSyncingServer] = useState(false);
 
   const crawlerConfig = adminDataService.getCrawlerApiConfig();
   const currentOrigin = typeof window !== 'undefined' ? window.location.origin : 'https://codegame.shop';
@@ -122,8 +138,26 @@ export const UpcomingGamesSection: React.FC<UpcomingGamesSectionProps> = ({ onSh
     setIsLoading(false);
   };
 
+  const handleSyncServerD1 = async () => {
+    setIsSyncingServer(true);
+    try {
+      const serverList = await adminDataService.fetchUpcomingGamesFromServer();
+      setUpcomingGames(serverList);
+      onShowToast('Đã đồng bộ Server D1', `Đã cập nhật danh sách ${serverList.length} game chuẩn bị ra mắt từ Cloudflare D1.`, 'success');
+    } catch {
+      onShowToast('Lỗi đồng bộ', 'Không thể kết nối đến máy chủ Cloudflare D1.', 'error');
+    } finally {
+      setIsSyncingServer(false);
+    }
+  };
+
   useEffect(() => {
     loadData();
+    // Proactively pull latest list from Server D1
+    adminDataService.fetchUpcomingGamesFromServer().then((list) => {
+      if (list && list.length > 0) setUpcomingGames(list);
+    }).catch(() => {});
+
     const timer = setInterval(() => {
       setTick((t) => t + 1);
     }, 30000);
@@ -501,6 +535,17 @@ export const UpcomingGamesSection: React.FC<UpcomingGamesSectionProps> = ({ onSh
             >
               <Bot className="w-4 h-4 text-purple-400" />
               <span>📡 Cổng API Trợ Lý Pine & Muse</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={handleSyncServerD1}
+              disabled={isSyncingServer}
+              className="px-3.5 py-2 rounded-xl bg-cyan-600/20 hover:bg-cyan-600/30 border border-cyan-500/40 text-cyan-300 font-bold text-xs flex items-center gap-1.5 shadow-sm active:scale-95 transition-all cursor-pointer disabled:opacity-50"
+              title="Đồng bộ 2 chiều tức thì với cơ sở dữ liệu Cloudflare D1"
+            >
+              <RefreshCw className={`w-3.5 h-3.5 ${isSyncingServer ? 'animate-spin text-cyan-400' : 'text-cyan-400'}`} />
+              <span>{isSyncingServer ? 'Đang đồng bộ...' : '⚡ Đồng Bộ Server D1'}</span>
             </button>
 
             <button

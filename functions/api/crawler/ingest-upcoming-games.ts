@@ -114,26 +114,6 @@ const DEFAULT_UPCOMING_GAMES_FALLBACK = [
     updatedAt: '2026-10-22T12:00:00Z',
   },
   {
-    id: 'ug_delta_force_vn',
-    name: 'Delta Force VN',
-    slug: 'delta-force-vn',
-    publisher: 'VNGGames / TiMi',
-    releaseDate: '2026-11-20T10:00:00+07:00',
-    category: 'Bắn Súng Quân Sự',
-    platform: 'PC, Mobile',
-    iconUrl: '/game_icons/delta-force-vn.webp',
-    bannerUrl: 'https://images.unsplash.com/photo-1542751371-adc38448a05e?auto=format&fit=crop&w=1200&q=80',
-    description: 'Huyền thoại bắn súng chiến thuật quân sự góc nhìn thứ nhất trở lại với chế độ Operations và Warfare đỉnh cao.',
-    preRegUrl: 'https://df.vnggames.com',
-    expectedCodes: ['DELTAFORCE2026', 'DFVNGGAMES', 'VIP777', 'OPERATIONS'],
-    subscribersCount: 4210,
-    source: 'Trợ lý Pine & Muse Bot',
-    status: 'UPCOMING',
-    displayOrder: 5,
-    createdAt: '2026-10-22T08:00:00Z',
-    updatedAt: '2026-10-22T18:00:00Z',
-  },
-  {
     id: 'ug_hsr_ver30',
     name: 'Honkai: Star Rail 3.0',
     slug: 'honkai-star-rail',
@@ -148,7 +128,7 @@ const DEFAULT_UPCOMING_GAMES_FALLBACK = [
     subscribersCount: 8900,
     source: 'Trợ lý Pine & Muse Bot',
     status: 'UPCOMING',
-    displayOrder: 6,
+    displayOrder: 5,
     createdAt: '2026-10-19T14:00:00Z',
     updatedAt: '2026-10-22T18:00:00Z',
   },
@@ -254,30 +234,99 @@ export async function onRequestGet(context: { request: Request; env: Env }): Pro
     });
   }
 
+  const ONE_DAY_MS = 24 * 60 * 60 * 1000; // 24 Giờ Grace Period trên Banner
+  const now = Date.now();
+
   let filtered = upcomingGames;
   if (statusFilter === 'UPCOMING' || statusFilter === 'APPROVED' || statusFilter === 'WEB') {
-    // Only return games approved for display on web
-    filtered = upcomingGames.filter((g) => g.status === 'UPCOMING' || g.status === 'APPROVED');
+    // Chỉ trả về các game đã duyệt và chưa quá hạn 24h sau khi mở server (Game ra mắt trong ngày hoặc đang đếm ngược)
+    filtered = upcomingGames.filter((g) => {
+      const isApproved = g.status === 'UPCOMING' || g.status === 'APPROVED';
+      if (!isApproved) return false;
+      if (!g.releaseDate) return true;
+      const target = new Date(g.releaseDate).getTime();
+      if (isNaN(target)) return true;
+      const elapsed = now - target;
+      return elapsed <= ONE_DAY_MS;
+    });
   } else if (statusFilter === 'PENDING') {
-    // Only return games waiting in the moderation queue
+    // Chỉ trả về hàng chờ duyệt
     filtered = upcomingGames.filter((g) => g.status === 'PENDING');
+  } else if (statusFilter === 'LAUNCHED' || statusFilter === 'ROLLED_OVER') {
+    // Trả về các game đã mở server quá 24h hoặc đã chuyển xuống sàn
+    filtered = upcomingGames.filter((g) => {
+      if (g.status === 'LAUNCHED') return true;
+      if (!g.releaseDate) return false;
+      const target = new Date(g.releaseDate).getTime();
+      return !isNaN(target) && (now - target) > ONE_DAY_MS;
+    });
   } else if (statusFilter !== 'ALL') {
     filtered = upcomingGames.filter((g) => g.status === statusFilter);
   }
 
+  // Làm giàu dữ liệu với các chỉ số trạng thái 24h và thời gian còn lại trên banner
+  const enriched = filtered.map((g) => {
+    let rolloverStatus = 'COUNTDOWN';
+    let hoursRemainingOnBanner = 0;
+    let minutesRemainingOnBanner = 0;
+    if (g.releaseDate) {
+      const target = new Date(g.releaseDate).getTime();
+      if (!isNaN(target)) {
+        const elapsed = now - target;
+        if (elapsed < 0) {
+          rolloverStatus = 'COUNTDOWN';
+        } else if (elapsed <= ONE_DAY_MS) {
+          rolloverStatus = 'TODAY_LAUNCH';
+          const remainingMs = ONE_DAY_MS - elapsed;
+          hoursRemainingOnBanner = Math.floor(remainingMs / (1000 * 60 * 60));
+          minutesRemainingOnBanner = Math.floor((remainingMs % (1000 * 60 * 60)) / (1000 * 60));
+        } else {
+          rolloverStatus = 'ROLLED_OVER';
+        }
+      }
+    }
+    return {
+      ...g,
+      rolloverStatus,
+      hoursRemainingOnBanner,
+      minutesRemainingOnBanner,
+      isLaunched: rolloverStatus !== 'COUNTDOWN',
+      isRolledOver: rolloverStatus === 'ROLLED_OVER',
+    };
+  });
+
   // Sort by displayOrder ascending, then by releaseDate
-  filtered.sort((a, b) => {
+  enriched.sort((a, b) => {
     const orderA = typeof a.displayOrder === 'number' ? a.displayOrder : 999;
     const orderB = typeof b.displayOrder === 'number' ? b.displayOrder : 999;
     if (orderA !== orderB) return orderA - orderB;
     return new Date(a.releaseDate).getTime() - new Date(b.releaseDate).getTime();
   });
 
+  const liveCount = upcomingGames.filter((g) => {
+    const isApproved = g.status === 'UPCOMING' || g.status === 'APPROVED';
+    if (!isApproved) return false;
+    if (!g.releaseDate) return true;
+    const target = new Date(g.releaseDate).getTime();
+    return isNaN(target) || (now - target) <= ONE_DAY_MS;
+  }).length;
+  const pendingCount = upcomingGames.filter((g) => g.status === 'PENDING').length;
+  const launchedCount = upcomingGames.filter((g) => {
+    if (g.status === 'LAUNCHED') return true;
+    if (!g.releaseDate) return false;
+    const target = new Date(g.releaseDate).getTime();
+    return !isNaN(target) && (now - target) > ONE_DAY_MS;
+  }).length;
+
   return new Response(
     JSON.stringify({
       success: true,
-      total: filtered.length,
-      games: filtered,
+      total: enriched.length,
+      liveCount,
+      top6Count: Math.min(6, liveCount),
+      pendingCount,
+      launchedCount,
+      games: enriched,
       timestamp: new Date().toISOString(),
     }),
     { headers: CORS_HEADERS }
@@ -328,6 +377,68 @@ export async function onRequestPost(context: { request: Request; env: Env }): Pr
     }
   } else {
     currentUpcomingGames = [...DEFAULT_UPCOMING_GAMES_FALLBACK];
+  }
+
+  // ACTION 0A: SET_DISPLAY_LIST / SAVE_ALL (Admin & Pine Bot Toàn Quyền Đồng Bộ / Phân Phối Trực Tiếp Danh Sách)
+  if (action === 'set_display_list' || action === 'save_all' || action === 'sync_all') {
+    const incomingGames = payload?.games;
+    if (!Array.isArray(incomingGames)) {
+      return new Response(
+        JSON.stringify({ success: false, error: 'Thiếu mảng "games" hợp lệ.' }),
+        { status: 400, headers: CORS_HEADERS }
+      );
+    }
+
+    currentUpcomingGames = incomingGames;
+    if (env.DB) {
+      await setSettingD1(env.DB, 'wcg_admin_upcoming_games_v1', currentUpcomingGames);
+    }
+
+    return new Response(
+      JSON.stringify({
+        success: true,
+        message: `Đã đồng bộ toàn bộ ${currentUpcomingGames.length} tựa game lên cơ sở dữ liệu D1 thành công.`,
+        total: currentUpcomingGames.length,
+        games: currentUpcomingGames,
+      }),
+      { headers: CORS_HEADERS }
+    );
+  }
+
+  // ACTION 0B: ROLLOVER (Kiểm tra và tự động chuyển các game đã mở quá 24h xuống sàn)
+  if (action === 'rollover' || action === 'check_rollover') {
+    const ONE_DAY_MS = 24 * 60 * 60 * 1000;
+    const now = Date.now();
+    let rolledOverCount = 0;
+    const rolledOverItems: any[] = [];
+
+    for (const item of currentUpcomingGames) {
+      if ((item.status === 'UPCOMING' || item.status === 'APPROVED') && item.releaseDate) {
+        const target = new Date(item.releaseDate).getTime();
+        if (!isNaN(target) && (now - target) > ONE_DAY_MS) {
+          item.status = 'LAUNCHED';
+          item.rolledOverAt = nowIso;
+          item.updatedAt = nowIso;
+          rolledOverCount++;
+          rolledOverItems.push({ id: item.id, name: item.name, slug: item.slug, releaseDate: item.releaseDate });
+        }
+      }
+    }
+
+    if (rolledOverCount > 0 && env.DB) {
+      await setSettingD1(env.DB, 'wcg_admin_upcoming_games_v1', currentUpcomingGames);
+    }
+
+    return new Response(
+      JSON.stringify({
+        success: true,
+        message: `Đã kiểm tra và chuyển ${rolledOverCount} game đã mở quá 24h xuống sàn.`,
+        rolledOverCount,
+        rolledOverItems,
+        games: currentUpcomingGames,
+      }),
+      { headers: CORS_HEADERS }
+    );
   }
 
   // ACTION 1: APPROVE (Duyệt game từ hàng chờ đưa lên Web)
