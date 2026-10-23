@@ -689,6 +689,25 @@ export async function onRequestPost(context: { request: Request; env: Env }): Pr
     const bannerUrl = raw.bannerUrl || raw.banner_url || raw.banner || undefined;
     const description = raw.description || `Thông tin ngày mở server và giftcode tân thủ tựa game ${name}.`;
     const preRegUrl = raw.preRegUrl || raw.pre_reg_url || raw.downloadUrl || undefined;
+    const instructions = String(
+      raw.instructions ||
+      raw.instructionsText ||
+      raw.instructions_text ||
+      raw.guide ||
+      raw.guideText ||
+      raw.huongDan ||
+      raw.huong_dan ||
+      raw.cachNhapCode ||
+      raw.cach_nhap_code ||
+      ''
+    ).trim() || undefined;
+    const redeemUrl = String(
+      raw.redeemUrl ||
+      raw.redeem_url ||
+      raw.link_nhap_code ||
+      raw.linkNhapCode ||
+      ''
+    ).trim() || undefined;
 
     // Status: default to PENDING if not specified or unless directPublish=true
     let status = 'PENDING';
@@ -722,6 +741,8 @@ export async function onRequestPost(context: { request: Request; env: Env }): Pr
       if (bannerUrl) existing.bannerUrl = bannerUrl;
       if (description) existing.description = description;
       if (preRegUrl) existing.preRegUrl = preRegUrl;
+      if (instructions !== undefined) existing.instructions = instructions;
+      if (redeemUrl !== undefined) existing.redeemUrl = redeemUrl;
       if (raw.status) existing.status = status;
       if (typeof raw.displayOrder === 'number') existing.displayOrder = raw.displayOrder;
       if (raw.subscribersCount) existing.subscribersCount = Number(raw.subscribersCount);
@@ -746,6 +767,8 @@ export async function onRequestPost(context: { request: Request; env: Env }): Pr
         iconUrl,
         bannerUrl,
         description,
+        instructions,
+        redeemUrl,
         preRegUrl,
         expectedCodes,
         subscribersCount: Number(raw.subscribersCount || 0),

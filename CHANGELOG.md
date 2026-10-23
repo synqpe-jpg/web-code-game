@@ -7,6 +7,45 @@ Mỗi mục sửa lỗi đều ghi nhận **Nguyên nhân gốc rễ (Root Cause
 
 ## [2026-10-23]
 
+## [2026-10-23]
+
+### 152. Cấp Quyền Chỉnh Sửa Cách Nhập Code Cho API (Dedicated & Unified Game Redemption Instructions Ingestion Authority)
+- **Mô tả & Yêu cầu người dùng**:
+  - *"Thêm quyền chỉnh sửa cách nhập code cho API."*
+- **Nguyên nhân gốc rễ (Root Cause)**:
+  1. *Cổng API `/api/crawler/ingest-codes` trước đây chỉ tập trung vào mã giftcode (`codes`)*:
+     - Dòng 470-478 từ chối ngay lập tức nếu `codesToIngest.length === 0`, khiến các bot ngoại vi (Muse Bot, Trợ lý Pine, Python crawler, cURL) hoàn toàn không thể gửi hoặc cập nhật hướng dẫn cách nhập code đặc thù của game nếu không có mã quà tặng mới.
+     - Khi tự động kích hoạt game từ Hàng Chờ Duyệt (`pendingGamesList`), hệ thống dùng chuỗi template 3 bước mặc định thay vì lấy hướng dẫn do bot gửi kèm.
+     - Khi cập nhật game đang hoạt động (`activeGamesList`), hệ thống chỉ cộng dồn `codes_count` mà bỏ qua hoàn toàn trường `instructions` và `redeem_url`.
+  2. *Thiếu giao diện thử nghiệm trực quan và tài liệu SDK cho lập trình viên*:
+     - Bàn Thử Nghiệm API trong Admin (`CrawlerModule.tsx`) trước đây chỉ có ô nhập danh sách mã code, thiếu ô nhập hướng dẫn cách nhập code và đường dẫn đổi quà.
+- **Giải pháp đã triển khai (Solution)**:
+  1. *Toàn Quyền Cập Nhật Cách Nhập Code (instructions) Độc Lập Hoặc Kèm Mã Code*:
+     - `functions/api/crawler/ingest-codes.ts`:
+       - Tự động bóc tách các alias linh hoạt: `instructions`, `instructionsText`, `guide`, `huongDan`, `huong_dan`, `cachNhapCode`, `cach_nhap_code`, `redeemUrl`, `redeem_url`, `link_nhap_code`.
+       - Hỗ trợ gửi cập nhật độc lập không cần giftcode: Cho phép payload `{ "gameName": "Ta Là Hắc Ngộ Không", "instructions": "Bước 1: ...", "redeemUrl": "..." }` hoặc kèm cờ `action: "update_instructions"`.
+       - Hỗ trợ gửi kèm khi nạp giftcode mới: Vừa nạp code vào kho vừa cập nhật hướng dẫn chuẩn của NPH.
+       - Tự động áp dụng khi xuất bản game mới từ hàng chờ: Áp dụng trực tiếp `instructions` do bot cung cấp thay vì mẫu mặc định.
+       - Lưu thẳng vào CSDL Cloudflare D1 `wcg_admin_games_v5`, cập nhật cache danh mục và tự động xóa Edge Cache để Web Khách cập nhật 0ms trong popup chi tiết game (`GameDetailModal.tsx`).
+  2. *Đồng Bộ Hỗ Trợ Với Game Chuẩn Bị Ra Mắt (`ingest-upcoming-games.ts` & `src/types/game.ts`)*:
+     - Bổ sung trường `instructions?: string;` và `redeemUrl?: string;` vào interface `UpcomingGame`.
+     - Cho phép bot nạp và cập nhật hướng dẫn ngay từ giai đoạn đếm ngược, chuẩn bị sẵn sàng khi game ra mắt chính thức.
+  3. *Nâng Cấp Bàn Thử Nghiệm API (Test Console) & SDK Snippets Trong Admin (`CrawlerModule.tsx`)*:
+     - Bổ sung ô nhập textarea "Cách Nhập Giftcode (Instructions / Guide)" hỗ trợ ngắt dòng và ô input "Link Đổi Quà (Redeem URL)".
+     - Cho phép Admin thử gửi API chỉ cập nhật cách nhập code mà không cần nhập code.
+     - Cập nhật SDK Snippets cho Python (Muse Bot), cURL và Node.js với cả 2 kịch bản (kèm code hoặc độc lập).
+     - Bổ sung hộp quy chuẩn "Toàn Quyền Chỉnh Sửa Cách Nhập Code (instructions) Cho Bot / API" và gắn huy hiệu `📖 Hướng dẫn` trong bảng nhật ký API.
+- **Files Modified**:
+  - `functions/api/crawler/ingest-codes.ts`
+  - `functions/api/crawler/ingest-upcoming-games.ts`
+  - `src/types/game.ts`
+  - `src/admin/modules/CrawlerModule.tsx`
+- **Verification**:
+  - Build kiểm thử `npm run build` thành công 100% (Edge Worker compiled, Zero test artifacts audit passed).
+  - Đã kiểm tra bóc tách chuỗi đa alias và xử lý độc lập thành công.
+
+---
+
 ### 151. Đồng Bộ Tuyệt Đối Game Sắp Ra Mắt Với Trang Admin, Quy Tắc 24H Sau Giờ G Tự Động Chuyển Xuống Sàn & Toàn Quyền Phân Phối Cổng API (Exact Admin-Client Upcoming Sync, 24-Hour Launch Rollover & Full API Distribution Authority)
 - **Mô tả & Yêu cầu người dùng**:
   - *"Trong admin mới có 5 game mà bên ngoài có 6 game là chưa đồng bộ chính xác, mặc định những game trong trang admin mới được xuất hiện trên mục game sắp ra mắt. Các game ra mắt trong ngày chỉ nằm trên mục này 1 ngày rồi tự động chuyển xuống bên dưới. Đảm bảo api có toàn quyền phân phối mục game sắp ra mắt này"*

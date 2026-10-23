@@ -355,6 +355,8 @@ export interface UpcomingGame {
   iconUrl?: string;
   bannerUrl?: string;
   description?: string;
+  instructions?: string;
+  redeemUrl?: string;
   preRegUrl?: string;
   expectedCodes?: string[];
   subscribersCount?: number;

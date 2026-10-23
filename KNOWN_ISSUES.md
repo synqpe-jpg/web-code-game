@@ -10,6 +10,24 @@
 
 ## 1. DANH MỤC LỖI & CÁC BẪY ĐÃ THẤT BẠI (DO NOT REPEAT)
 
+### ISSUE-086: Chặn Request Cập Nhật Hướng Dẫn Nhập Code Do Ràng Buộc Bắt Buộc Mảng Codes Phải Khác Rỗng (Instructions Ingestion Blocked by Mandatory Codes Array Trap)
+- **Triệu chứng**:
+  - Khi bot (Muse Bot, Trợ lý Pine hoặc các script crawler) gửi yêu cầu cập nhật cách nhập code chuẩn của NPH cho một tựa game (ví dụ Ta Là Hắc Ngộ Không: "Bước 1: Cấp 51 mở Sảnh Phúc Lợi..."), API `/api/crawler/ingest-codes` báo lỗi `Không tìm thấy mã code hợp lệ trong payload` và từ chối toàn bộ request.
+  - Khi nạp code mới cho game trong Hàng Chờ Duyệt hoặc game đang hoạt động, nội dung cách nhập code (`instructions`) và đường dẫn đổi quà (`redeemUrl`) do bot gửi bị phớt lờ, khiến Web Khách tiếp tục hiển thị câu hướng dẫn 3 bước chung chung không đúng thực tế của game.
+- **Nguyên nhân gốc rễ**:
+  1. Điều kiện chặn sớm tại dòng 470-478 của `ingest-codes.ts` chỉ kiểm tra `codesToIngest.length === 0` mà không nhận diện trường `instructions` hoặc `redeemUrl`.
+  2. Khi tự động kích hoạt game từ hàng chờ sang danh mục chính thức, trường `instructions` bị gán cứng một chuỗi template 3 bước mặc định.
+  3. Khi game đã hoạt động, logic chỉ cộng dồn `codes_count` mà không lưu đè `instructions` hoặc `redeem_url` mới nhất.
+- **Giải pháp chuẩn đã kiểm chứng**:
+  - Trích xuất toàn bộ các biến thể tên trường: `instructions`, `instructionsText`, `guide`, `huongDan`, `cachNhapCode`, `redeemUrl`, `redeem_url`.
+  - Phân nhánh độc lập: Nếu `codesToIngest.length === 0` nhưng có `extractedInstructions` hoặc `action === 'update_instructions'`, tiến hành cập nhật trực tiếp `instructions` và `redeem_url` cho game khớp (`matchedGame`), trả về kết quả `INSTRUCTIONS_UPDATED` thành công và xóa Edge Cache.
+  - Phân nhánh kết hợp: Nếu có cả `codes` và `instructions`, nạp mã vào kho đồng thời cập nhật luôn hướng dẫn nhập code của game.
+- ⛔ **CÁCH SỬA ĐÃ THẤT BẠI - TUYỆT ĐỐI KHÔNG LẶP LẠI**:
+  - ❌ *Không chặn request nếu payload không có codes*: Phải cho phép bot gửi cập nhật hướng dẫn độc lập mà không bắt buộc người dùng hay bot phải gửi kèm mã giả / mã rác.
+  - ❌ *Không gán cứng template instructions khi auto-publish game mới*: Luôn ưu tiên dùng `instructions` do bot cung cấp trước khi fallback về mẫu chung.
+
+---
+
 ### ISSUE-085: Phân Mảnh Dữ Liệu Game Sắp Ra Mắt Giữa Admin LocalStorage và Web Khách Fallback, Và Thiếu Cơ Chế Tự Động Chuyển Xuống Sàn Sau 24H (Upcoming Games Admin SSOT & 24-Hour Post-Launch Grace Period Trap)
 - **Triệu chứng**:
   - Trang Quản Trị chỉ có 5 game sắp ra mắt trong khi ngoài Web Khách lại hiển thị 6 game (thừa tựa game `Delta Force VN`). Admin thay đổi thứ tự hay duyệt game nhưng Web Khách không cập nhật chính xác danh sách.

@@ -308,6 +308,7 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
       'Tự động lọc và khớp tên game tiếng Việt thông minh (Fuzzy Vietnamese Accent Matching).',
       'Tự động kích hoạt & đăng game lên Web Khách nếu game đang ở Hàng Chờ Duyệt (Auto-Publish on Code arrival).',
       'Tự động lọc trùng lặp mã code (Deduplication) và nạp mã mới vào đúng game.',
+      'Toàn quyền chỉnh sửa Cách Nhập Code (instructions / guide) và Link đổi quà (redeemUrl): hỗ trợ cập nhật độc lập hoặc kèm giftcode.',
       'Tự động chuẩn hóa Hạn Sử Dụng (expiresAt) đa định dạng: YYYY-MM-DD, DD/MM/YYYY, timestamp, hoặc "Hết hạn" / "Vĩnh viễn".',
       'Tự động phân loại trạng thái: Khi mã hết hạn (hoặc ngày hết hạn < hiện tại), hệ thống tự động gán status: EXPIRED và chuyển sang mục Đã hết hạn của game.',
       'Cập nhật bộ đếm codes_count và tự động xóa cache biên CDN.',
@@ -316,11 +317,21 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
   -H "Content-Type: application/json" \\
   -H "Authorization: Bearer <API_KEY>" \\
   -d '{
-    "gameName": "Mộng Thiên Kiếm",
-    "codes": ["MONGTHIENKIEM", "VIP666", "VIP888"],
+    "gameName": "Ta Là Hắc Ngộ Không",
+    "instructions": "Bước 1: Nhân vật đạt Cấp 51 mở Sảnh Phúc Lợi.\\nBước 2: Chọn Đổi Mã Quà Tặng.\\nBước 3: Nhập mã và nhận quà qua Hộp Thư.",
+    "codes": ["TALAHACNGOKHONG", "VIP666", "VIP888"],
     "rewards": "Quà tặng tân thủ độc quyền",
     "expiresAt": "2026-12-31",
     "source": "Muse Crawler Bot"
+  }'`,
+    sampleUpdateInstructionsCurl: `curl -X POST "${urlObj.origin}/api/crawler/ingest-codes" \\
+  -H "Content-Type: application/json" \\
+  -H "Authorization: Bearer <API_KEY>" \\
+  -d '{
+    "action": "update_instructions",
+    "gameName": "Ta Là Hắc Ngộ Không",
+    "instructions": "Bước 1: Mở game > Đạt cấp 51 > Vào Sảnh Phúc Lợi.\\nBước 2: Chọn mục Mã Quà Tặng.\\nBước 3: Dán mã và nhấn Xác nhận.",
+    "redeemUrl": "https://nap.vplay.vn"
   }'`,
     samplePython: `import requests
 
@@ -330,9 +341,10 @@ headers = {
     "Authorization": "Bearer <API_KEY>"
 }
 payload = {
-    "gameName": "Mộng Thiên Kiếm",
+    "gameName": "Ta Là Hắc Ngộ Không",
+    "instructions": "Bước 1: Mở game > Đạt Cấp 51 > Sảnh Phúc Lợi\\nBước 2: Đổi Quà Tặng\\nBước 3: Nhận thư",
     "codes": [
-        {"code": "MONGTHIENKIEM", "rewards": "100 Kim Cương + 5 Vé Quay"},
+        {"code": "NGOKHONGVIP", "rewards": "100 Kim Cương + 5 Vé Quay"},
         {"code": "VIP666", "rewards": "Rương trang bị hoàng kim"}
     ],
     "source": "Muse Python Crawler"
@@ -457,6 +469,34 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
       const inputGameName = String(rawItem.gameName || rawItem.name || rawItem.game || rawItem.slug || '').trim();
       const codesToIngest = extractCodesFromPayload(rawItem);
 
+      // Trích xuất Cách Nhập Code (instructions) và Link nhập quà (redeemUrl)
+      const extractedInstructions = String(
+        rawItem.instructions !== undefined ? rawItem.instructions :
+        rawItem.instructionsText !== undefined ? rawItem.instructionsText :
+        rawItem.instructions_text !== undefined ? rawItem.instructions_text :
+        rawItem.guide !== undefined ? rawItem.guide :
+        rawItem.guideText !== undefined ? rawItem.guideText :
+        rawItem.huongDan !== undefined ? rawItem.huongDan :
+        rawItem.huong_dan !== undefined ? rawItem.huong_dan :
+        rawItem.cachNhapCode !== undefined ? rawItem.cachNhapCode :
+        rawItem.cach_nhap_code !== undefined ? rawItem.cach_nhap_code :
+        rawItem.howToRedeem !== undefined ? rawItem.howToRedeem :
+        rawItem.how_to_redeem !== undefined ? rawItem.how_to_redeem :
+        ''
+      ).trim();
+
+      const extractedRedeemUrl = String(
+        rawItem.redeemUrl !== undefined ? rawItem.redeemUrl :
+        rawItem.redeem_url !== undefined ? rawItem.redeem_url :
+        rawItem.link_nhap_code !== undefined ? rawItem.link_nhap_code :
+        rawItem.linkNhapCode !== undefined ? rawItem.linkNhapCode :
+        rawItem.redemption_url !== undefined ? rawItem.redemption_url :
+        ''
+      ).trim();
+
+      const isUpdateInstructionsAction = rawItem.action === 'update_instructions' || rawItem.action === 'set_instructions' || body.action === 'update_instructions';
+      const hasInstructionsUpdate = Boolean(extractedInstructions || extractedRedeemUrl);
+
       if (!inputGameName) {
         executionResults.push({
           success: false,
@@ -467,10 +507,11 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
         continue;
       }
 
-      if (codesToIngest.length === 0) {
+      // Nếu không có mã code VÀ không có nội dung hướng dẫn nhập code hợp lệ
+      if (codesToIngest.length === 0 && !hasInstructionsUpdate && !isUpdateInstructionsAction) {
         executionResults.push({
           success: false,
-          error: 'Không tìm thấy mã code hợp lệ trong payload',
+          error: 'Không tìm thấy mã giftcode hoặc nội dung hướng dẫn nhập code trong payload.',
           inputName: inputGameName,
           codesCount: 0,
         });
@@ -493,13 +534,62 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
       const { game: matchedGame, source, matchConfidence, matchType } = matchResult;
       const gameSlug = String(matchedGame.slug || matchedGame.id).trim().toLowerCase();
       const gameName = String(matchedGame.name || inputGameName).trim();
+      const nowIso = new Date().toISOString();
+
+      // 4.2. TRƯỜNG HỢP: CHỈ CẬP NHẬT CÁCH NHẬP CODE (Không có mã code đính kèm)
+      if (codesToIngest.length === 0 && (hasInstructionsUpdate || isUpdateInstructionsAction)) {
+        if (source === 'active') {
+          const activeIdx = activeGamesList.findIndex((g) => g && (g.slug === gameSlug || g.id === gameSlug));
+          if (activeIdx !== -1) {
+            activeGamesList[activeIdx] = {
+              ...activeGamesList[activeIdx],
+              instructions: extractedInstructions || activeGamesList[activeIdx].instructions,
+              redeem_url: extractedRedeemUrl || activeGamesList[activeIdx].redeem_url,
+              updated_at: nowIso,
+            };
+            stateModified = true;
+          }
+        } else if (source === 'pending') {
+          const pendingIdx = pendingGamesList.findIndex((p) => p && (p.slug === gameSlug || p.id === gameSlug));
+          if (pendingIdx !== -1) {
+            pendingGamesList[pendingIdx] = {
+              ...pendingGamesList[pendingIdx],
+              instructions: extractedInstructions || pendingGamesList[pendingIdx].instructions,
+              redeemUrl: extractedRedeemUrl || pendingGamesList[pendingIdx].redeemUrl,
+              updated_at: nowIso,
+            };
+            stateModified = true;
+          }
+        }
+
+        executionResults.push({
+          success: true,
+          action: 'INSTRUCTIONS_UPDATED',
+          inputName: inputGameName,
+          matchedGame: {
+            id: gameSlug,
+            slug: gameSlug,
+            name: gameName,
+            publisher: matchedGame.publisher || matchedGame.developer || 'NPH Chính Thức',
+            icon_url: matchedGame.icon_url || `/game_icons/${gameSlug}.webp`,
+            instructions: extractedInstructions,
+            redeem_url: extractedRedeemUrl || undefined,
+          },
+          sourceBeforeIngest: source,
+          matchType,
+          matchConfidence,
+          instructionsUpdated: Boolean(extractedInstructions),
+          redeemUrlUpdated: Boolean(extractedRedeemUrl),
+          message: `Đã cập nhật cách nhập code cho game "${gameName}" thành công!`,
+        });
+        continue;
+      }
 
       const existingCodesSet = existingCodeValuesBySlug.get(gameSlug) || new Set<string>();
       const addedForThisGame: string[] = [];
       const duplicateCodes: string[] = [];
 
-      // 4.2. LỌC TRÙNG & TẠO BẢN GHI MÃ CODE MỚI
-      const nowIso = new Date().toISOString();
+      // 4.3. LỌC TRÙNG & TẠO BẢN GHI MÃ CODE MỚI
       for (const c of codesToIngest) {
         const isExp = c.isExpired || (c.rawStatus && (String(c.rawStatus).toLowerCase() === 'expired' || String(c.rawStatus).toLowerCase() === 'hết hạn'));
         const codeStatus = isExp ? 'EXPIRED' : 'ACTIVE';
@@ -565,7 +655,7 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
         stateModified = true;
       }
 
-      // 4.3. NẾU GAME NẰM TRONG HÀNG CHỜ DUYỆT (CHƯA CÓ CODE TRƯỚC ĐÓ) -> TỰ ĐỘNG XUẤT BẢN LÊN WEB KHÁCH!
+      // 4.4. NẾU GAME NẰM TRONG HÀNG CHỜ DUYỆT (CHƯA CÓ CODE TRƯỚC ĐÓ) -> TỰ ĐỘNG XUẤT BẢN LÊN WEB KHÁCH!
       let wasAutoPublished = false;
       if (source === 'pending' && addedForThisGame.length > 0) {
         const pendingIdx = pendingGamesList.findIndex((p) => p && (p.slug === gameSlug || p.id === gameSlug));
@@ -583,7 +673,8 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
             banner_url: '',
             description: pGame.description || `${gameName} là tựa game mobile mới phát hành chính thức.`,
             short_description: `${gameName} - Đã cập nhật ${addedForThisGame.length} giftcode mới`,
-            instructions: 'Bước 1: Mở game > Nhấn Avatar nhân vật\nBước 2: Chọn Cài đặt > Nhập Giftcode\nBước 3: Dán mã và nhấn Xác nhận.',
+            instructions: extractedInstructions || pGame.instructions || 'Bước 1: Mở game > Nhấn Avatar nhân vật\nBước 2: Chọn Cài đặt > Nhập Giftcode\nBước 3: Dán mã và nhấn Xác nhận.',
+            redeem_url: extractedRedeemUrl || pGame.redeemUrl || '',
             platform: 'Android, iOS, PC',
             release_date: pGame.releaseDate || nowIso.split('T')[0],
             download_android: pGame.playStoreUrl || '',
@@ -606,17 +697,24 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
           autoPublishedCount++;
           stateModified = true;
         }
-      } else if (source === 'active' && addedForThisGame.length > 0) {
-        // Cập nhật bộ đếm code của game đang hoạt động
+      } else if (source === 'active') {
+        // Cập nhật bộ đếm code của game đang hoạt động và cập nhật cách nhập code nếu có
         const activeIdx = activeGamesList.findIndex((g) => g && (g.slug === gameSlug || g.id === gameSlug));
         if (activeIdx !== -1) {
           const currentCount = Number(activeGamesList[activeIdx].codes_count || 0);
-          activeGamesList[activeIdx] = {
+          const updatedActiveGame: any = {
             ...activeGamesList[activeIdx],
             codes_count: currentCount + addedForThisGame.length,
             free_codes_count: Number(activeGamesList[activeIdx].free_codes_count || currentCount) + addedForThisGame.length,
             updated_at: nowIso,
           };
+          if (extractedInstructions) {
+            updatedActiveGame.instructions = extractedInstructions;
+          }
+          if (extractedRedeemUrl) {
+            updatedActiveGame.redeem_url = extractedRedeemUrl;
+          }
+          activeGamesList[activeIdx] = updatedActiveGame;
           stateModified = true;
         }
       }
@@ -630,11 +728,15 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
           name: gameName,
           publisher: matchedGame.publisher || matchedGame.developer || 'NPH Chính Thức',
           icon_url: matchedGame.icon_url || `/game_icons/${gameSlug}.webp`,
+          instructions: extractedInstructions || matchedGame.instructions,
+          redeem_url: extractedRedeemUrl || matchedGame.redeem_url,
         },
         sourceBeforeIngest: source,
         matchType,
         matchConfidence,
         autoPublished: wasAutoPublished,
+        instructionsUpdated: Boolean(extractedInstructions),
+        redeemUrlUpdated: Boolean(extractedRedeemUrl),
         receivedCount: codesToIngest.length,
         addedCount: addedForThisGame.length,
         duplicateCount: duplicateCodes.length,
@@ -665,6 +767,7 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
     try {
       const existingLogs = (await getSettingD1(env.DB, 'wcg_crawler_api_logs_v1')) || [];
       const logsArray = Array.isArray(existingLogs) ? existingLogs : [];
+      const totalInstructionsUpdated = executionResults.filter((r) => r.instructionsUpdated).length;
       const newLogEntry = {
         id: `api_log_${Date.now()}`,
         botName: auth.botName,
@@ -672,11 +775,13 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
         totalItemsProcessed: rawItems.length,
         totalCodesReceived: rawItems.reduce((acc, it) => acc + extractCodesFromPayload(it).length, 0),
         totalCodesAdded: newlyAddedCodes.length,
+        totalInstructionsUpdated,
         autoPublishedGamesCount: autoPublishedCount,
         details: executionResults.map((r) => ({
           input: r.inputName,
           matched: r.matchedGame?.name,
           added: r.addedCount || 0,
+          instructionsUpdated: Boolean(r.instructionsUpdated),
           status: r.success ? 'SUCCESS' : 'FAILED',
         })),
         timestamp: new Date().toISOString(),
@@ -688,15 +793,24 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
 
     const totalAdded = newlyAddedCodes.length;
     const totalDuplicates = executionResults.reduce((acc, r) => acc + (r.duplicateCount || 0), 0);
+    const totalInstructionsUpdated = executionResults.filter((r) => r.instructionsUpdated).length;
+
+    let summaryMessage = `Đã xử lý thành công! Nạp mới ${totalAdded} mã code, bỏ qua ${totalDuplicates} mã trùng lặp.`;
+    if (totalAdded === 0 && totalInstructionsUpdated > 0) {
+      summaryMessage = `Đã cập nhật cách nhập code thành công cho ${totalInstructionsUpdated} tựa game!`;
+    } else if (totalAdded > 0 && totalInstructionsUpdated > 0) {
+      summaryMessage = `Đã xử lý thành công! Nạp mới ${totalAdded} mã code và cập nhật cách nhập code cho ${totalInstructionsUpdated} tựa game.`;
+    }
 
     return new Response(
       JSON.stringify(
         {
           success: true,
-          message: `Đã xử lý thành công! Nạp mới ${totalAdded} mã code, bỏ qua ${totalDuplicates} mã trùng lặp.`,
+          message: summaryMessage,
           botName: auth.botName,
           totalAdded,
           totalDuplicates,
+          totalInstructionsUpdated,
           autoPublishedGamesCount: autoPublishedCount,
           results: executionResults,
           timestamp: new Date().toISOString(),

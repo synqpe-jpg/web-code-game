@@ -45,6 +45,7 @@ import {
   Server,
   Lock,
   ArrowUpRight,
+  BookOpen,
 } from 'lucide-react';
 import { FormModal } from '../components/ui/FormModal';
 import { ConfirmModal } from '../components/ui/ConfirmModal';
@@ -269,6 +270,8 @@ export const CrawlerModule: React.FC<CrawlerModuleProps> = ({ onShowToast }) => 
 
   // Test Console State
   const [testGameInput, setTestGameInput] = useState('Mộng Thiên Kiếm');
+  const [testInstructionsInput, setTestInstructionsInput] = useState('Bước 1: Mở game > Nhấp vào Avatar nhân vật ở góc trái trên cùng.\nBước 2: Chọn mục "Cài Đặt" > Nhấp nút "Đổi Giftcode".\nBước 3: Dán mã quà tặng và nhấn "Xác Nhận" để nhận quà qua Thư in-game.');
+  const [testRedeemUrlInput, setTestRedeemUrlInput] = useState('');
   const [testCodesInput, setTestCodesInput] = useState('MONGTHIENKIEM\nVIP666\nVIP888\nVIP999\nTIEULONGNU\nHUTRUC');
   const [testRewardsInput, setTestRewardsInput] = useState('Quà tặng tân thủ độc quyền 2026');
   const [testBotNameInput, setTestBotNameInput] = useState('Muse Crawler Bot');
@@ -1575,8 +1578,10 @@ export const CrawlerModule: React.FC<CrawlerModuleProps> = ({ onShowToast }) => 
       .map((c) => c.trim().toUpperCase().replace(/^#/, ''))
       .filter(Boolean);
 
-    if (rawLines.length === 0) {
-      onShowToast('Vui lòng nhập ít nhất 1 mã giftcode!', 'error');
+    const hasInstructions = Boolean(testInstructionsInput.trim() || testRedeemUrlInput.trim());
+
+    if (rawLines.length === 0 && !hasInstructions) {
+      onShowToast('Vui lòng nhập ít nhất 1 mã giftcode HOẶC nội dung cách nhập code!', 'error');
       return;
     }
 
@@ -1585,12 +1590,23 @@ export const CrawlerModule: React.FC<CrawlerModuleProps> = ({ onShowToast }) => 
     setApiTestResponse(null);
 
     try {
-      const payload = {
+      const payload: any = {
         gameName: testGameInput.trim(),
-        codes: rawLines,
-        rewards: testRewardsInput.trim() || 'Quà tặng tân thủ độc quyền 2026',
         source: testBotNameInput.trim() || 'Muse Admin Test Console',
       };
+
+      if (rawLines.length > 0) {
+        payload.codes = rawLines;
+        payload.rewards = testRewardsInput.trim() || 'Quà tặng tân thủ độc quyền 2026';
+      }
+
+      if (testInstructionsInput.trim()) {
+        payload.instructions = testInstructionsInput.trim();
+      }
+
+      if (testRedeemUrlInput.trim()) {
+        payload.redeemUrl = testRedeemUrlInput.trim();
+      }
 
       const res = await fetch('/api/crawler/ingest-codes', {
         method: 'POST',
@@ -1605,7 +1621,8 @@ export const CrawlerModule: React.FC<CrawlerModuleProps> = ({ onShowToast }) => 
       setApiTestResponse(data);
 
       if (data && data.success) {
-        onShowToast(`Thành công! Đã thêm ${data.totalAdded} mã mới, ${data.totalDuplicates} mã trùng.`, 'success');
+        const msg = data.message || `Thành công! Đã nạp ${data.totalAdded || 0} mã mới.`;
+        onShowToast(msg, 'success');
         loadData();
       } else {
         setApiTestError(data?.error || 'Yêu cầu API không thành công');
@@ -3540,11 +3557,14 @@ export const CrawlerModule: React.FC<CrawlerModuleProps> = ({ onShowToast }) => 
                 </div>
 
                 <div>
-                  <label className="block text-xs font-semibold text-slate-300 mb-1">
-                    Danh Sách Mã Giftcode (Mỗi dòng một mã hoặc cách nhau bằng dấu phẩy) <span className="text-rose-400">*</span>
-                  </label>
+                  <div className="flex items-center justify-between mb-1">
+                    <label className="block text-xs font-semibold text-slate-300">
+                      Danh Sách Mã Giftcode (Mỗi dòng một mã hoặc cách nhau bằng dấu phẩy)
+                    </label>
+                    <span className="text-[10px] text-slate-400">Có thể để trống nếu chỉ cập nhật cách nhập code</span>
+                  </div>
                   <textarea
-                    rows={4}
+                    rows={3}
                     value={testCodesInput}
                     onChange={(e) => setTestCodesInput(e.target.value)}
                     placeholder="MONGTHIENKIEM&#10;VIP666&#10;VIP888&#10;VIP999"
@@ -3552,7 +3572,37 @@ export const CrawlerModule: React.FC<CrawlerModuleProps> = ({ onShowToast }) => 
                   />
                 </div>
 
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <div className="flex items-center justify-between mb-1">
+                    <label className="block text-xs font-semibold text-slate-300">
+                      Cách Nhập Giftcode (Instructions / Guide) <span className="text-purple-400 font-normal">(Cấp quyền API chỉnh sửa)</span>
+                    </label>
+                    <span className="text-[10px] text-purple-400 font-medium">Hỗ trợ ngắt dòng</span>
+                  </div>
+                  <textarea
+                    rows={3}
+                    value={testInstructionsInput}
+                    onChange={(e) => setTestInstructionsInput(e.target.value)}
+                    placeholder="Bước 1: Mở game > Nhấp vào Avatar nhân vật...&#10;Bước 2: Chọn Cài đặt > Nhập Giftcode...&#10;Bước 3: Dán mã và nhấn Xác nhận..."
+                    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-slate-200 focus:outline-none focus:border-purple-500 font-sans"
+                  />
+                  <p className="text-[10px] text-slate-500 mt-1">
+                    Trường này sẽ hiển thị trực tiếp trong popup chi tiết game ngoài Web Khách. Bot có thể gửi độc lập để sửa hướng dẫn mà không cần gửi kèm code.
+                  </p>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-300 mb-1">Link Đổi Quà (Redeem URL)</label>
+                    <input
+                      type="url"
+                      value={testRedeemUrlInput}
+                      onChange={(e) => setTestRedeemUrlInput(e.target.value)}
+                      placeholder="https://nap.vplay.vn..."
+                      className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-slate-200 focus:outline-none focus:border-purple-500 font-mono"
+                    />
+                  </div>
+
                   <div>
                     <label className="block text-xs font-semibold text-slate-300 mb-1">Phần Thưởng</label>
                     <input
@@ -3580,11 +3630,11 @@ export const CrawlerModule: React.FC<CrawlerModuleProps> = ({ onShowToast }) => 
                   <button
                     type="button"
                     onClick={handleExecuteApiTest}
-                    disabled={isExecutingApiTest || !testGameInput.trim() || !testCodesInput.trim()}
+                    disabled={isExecutingApiTest || !testGameInput.trim() || (!testCodesInput.trim() && !testInstructionsInput.trim() && !testRedeemUrlInput.trim())}
                     className="w-full py-2.5 rounded-xl bg-gradient-to-r from-purple-600 via-indigo-600 to-blue-600 hover:from-purple-500 hover:to-blue-500 text-white font-semibold text-xs flex items-center justify-center gap-2 transition-all shadow-md shadow-purple-600/20 active:scale-98 cursor-pointer disabled:opacity-50"
                   >
                     <Send className={`w-3.5 h-3.5 ${isExecutingApiTest ? 'animate-spin' : ''}`} />
-                    <span>{isExecutingApiTest ? 'Đang gửi và xử lý API...' : '⚡ Gửi Thử Tới API (POST /api/crawler/ingest-codes)'}</span>
+                    <span>{isExecutingApiTest ? 'Đang gửi và xử lý API...' : '⚡ Gửi Thử Tới API (Nạp Mã / Chỉnh Sửa Cách Nhập Code)'}</span>
                   </button>
                 </div>
               </div>
@@ -3644,9 +3694,21 @@ export const CrawlerModule: React.FC<CrawlerModuleProps> = ({ onShowToast }) => 
                       </div>
                     </div>
                     <div className="flex items-center gap-2 text-[11px]">
-                      <span className="text-emerald-400 font-semibold">
-                        +{apiTestResponse.results[0].addedCount || 0} mã mới
-                      </span>
+                      {apiTestResponse.results[0].instructionsUpdated && (
+                        <span className="px-1.5 py-0.5 rounded bg-purple-500/20 text-purple-300 font-bold text-[10px] border border-purple-500/30">
+                          📖 Đã cập nhật cách nhập
+                        </span>
+                      )}
+                      {apiTestResponse.results[0].redeemUrlUpdated && (
+                        <span className="px-1.5 py-0.5 rounded bg-sky-500/20 text-sky-300 font-bold text-[10px] border border-sky-500/30">
+                          🔗 Có Link đổi quà
+                        </span>
+                      )}
+                      {(apiTestResponse.results[0].addedCount !== undefined && apiTestResponse.results[0].addedCount > 0) && (
+                        <span className="text-emerald-400 font-semibold">
+                          +{apiTestResponse.results[0].addedCount} mã mới
+                        </span>
+                      )}
                       {apiTestResponse.results[0].duplicateCount > 0 && (
                         <span className="text-amber-400">
                           ({apiTestResponse.results[0].duplicateCount} trùng)
@@ -3719,7 +3781,8 @@ export const CrawlerModule: React.FC<CrawlerModuleProps> = ({ onShowToast }) => 
                   const key = crawlerApiConfig.apiKey || '<API_KEY>';
                   let codeToCopy = '';
                   if (apiSnippetLang === 'python') {
-                    codeToCopy = `import requests
+                    codeToCopy = `# 🐍 Python Script for Muse AI Agent / Bot
+import requests
 
 API_URL = "${currentOrigin}/api/crawler/ingest-codes"
 API_KEY = "${key}"
@@ -3729,39 +3792,65 @@ headers = {
     "Authorization": f"Bearer {API_KEY}"
 }
 
-payload = {
-    "gameName": "Mộng Thiên Kiếm",
+# Cách 1: Nạp Giftcode mới ĐỒNG THỜI cập nhật Cách Nhập Code đặc thù
+payload_with_codes = {
+    "gameName": "Ta Là Hắc Ngộ Không",
+    "instructions": "Bước 1: Trong game, đạt Cấp 51 trở lên mở Sảnh Phúc Lợi.\\nBước 2: Chọn mục Đổi Mã Quà Tặng.\\nBước 3: Nhập code và nhận quà tại Hộp Thư.",
+    "redeemUrl": "https://nap.vplay.vn",
     "codes": [
-        {"code": "MONGTHIENKIEM", "rewards": "100 Kim Cương + 5 Vé Quay", "expiresAt": "2026-12-31"},
-        {"code": "VIP666", "rewards": "Rương trang bị hoàng kim"},
-        {"code": "VIP888", "rewards": "500K Vàng + Thú Cưỡi"},
-        {"code": "VIP999", "rewards": "Thời Trang Độc Quyền"}
+        {"code": "TALAHACNGOKHONG", "rewards": "100 Kim Cương + 5 Vé Quay", "expiresAt": "2026-12-31"},
+        {"code": "VIP666", "rewards": "Rương pháp bảo hoàng kim"}
     ],
     "source": "Muse Crawler Bot"
 }
 
-response = requests.post(API_URL, headers=headers, json=payload, timeout=15)
+# Cách 2: CHỈ CẬP NHẬT CÁCH NHẬP CODE (Không cần gửi kèm mã giftcode)
+payload_instructions_only = {
+    "action": "update_instructions",
+    "gameName": "Ta Là Hắc Ngộ Không",
+    "instructions": "Bước 1: Đăng nhập game > Đạt Cấp 51 mở Sảnh Phúc Lợi.\\nBước 2: Chọn mục Đổi Mã Quà Tặng.\\nBước 3: Dán mã quà và nhận tại Thư in-game.",
+    "redeemUrl": "https://nap.vplay.vn"
+}
+
+response = requests.post(API_URL, headers=headers, json=payload_with_codes, timeout=15)
 print(response.status_code, response.json())`;
                   } else if (apiSnippetLang === 'curl') {
-                    codeToCopy = `curl -X POST "${currentOrigin}/api/crawler/ingest-codes" \\
+                    codeToCopy = `# 💻 cURL Terminal Command: Vừa nạp code vừa cập nhật Cách Nhập Code
+curl -X POST "${currentOrigin}/api/crawler/ingest-codes" \\
   -H "Content-Type: application/json" \\
   -H "Authorization: Bearer ${key}" \\
   -d '{
-    "gameName": "Mộng Thiên Kiếm",
-    "codes": ["MONGTHIENKIEM", "VIP666", "VIP888", "VIP999"],
+    "gameName": "Ta Là Hắc Ngộ Không",
+    "instructions": "Bước 1: Mở game > Đạt Cấp 51 > Vào Sảnh Phúc Lợi.\\nBước 2: Chọn Đổi Mã Quà Tặng.\\nBước 3: Dán mã và nhấn Xác Nhận.",
+    "redeemUrl": "https://nap.vplay.vn",
+    "codes": ["TALAHACNGOKHONG", "VIP666", "VIP888"],
     "rewards": "Quà tặng tân thủ độc quyền 2026",
     "source": "Muse Bot"
+  }'
+
+# 💻 cURL Terminal Command: CHỈ CẬP NHẬT CÁCH NHẬP CODE (Độc Lập)
+curl -X POST "${currentOrigin}/api/crawler/ingest-codes" \\
+  -H "Content-Type: application/json" \\
+  -H "Authorization: Bearer ${key}" \\
+  -d '{
+    "action": "update_instructions",
+    "gameName": "Ta Là Hắc Ngộ Không",
+    "instructions": "Bước 1: Đăng nhập game > Cấp 51 mở Sảnh Phúc Lợi.\\nBước 2: Chọn Đổi Mã Quà Tặng.\\nBước 3: Nhập code và nhận quà tại Thư.",
+    "redeemUrl": "https://nap.vplay.vn"
   }'`;
                   } else {
-                    codeToCopy = `const res = await fetch('${currentOrigin}/api/crawler/ingest-codes', {
+                    codeToCopy = `// 🚀 Node.js / TypeScript: Cập nhật cách nhập code và nạp giftcode
+const res = await fetch('${currentOrigin}/api/crawler/ingest-codes', {
   method: 'POST',
   headers: {
     'Content-Type': 'application/json',
     'Authorization': 'Bearer ${key}',
   },
   body: JSON.stringify({
-    gameName: 'Mộng Thiên Kiếm',
-    codes: ['MONGTHIENKIEM', 'VIP666', 'VIP888'],
+    gameName: 'Ta Là Hắc Ngộ Không',
+    instructions: 'Bước 1: Đạt cấp 51 mở Sảnh Phúc Lợi\\nBước 2: Chọn Đổi Quà\\nBước 3: Dán mã code',
+    redeemUrl: 'https://nap.vplay.vn',
+    codes: ['TALAHACNGOKHONG', 'VIP666'],
     rewards: 'Quà tân thủ',
     source: 'Muse Crawler Engine',
   }),
@@ -3789,33 +3878,55 @@ headers = {
     "Authorization": f"Bearer {API_KEY}"
 }
 
+# 1. Vừa nạp Giftcode vừa cập nhật Cách Nhập Code đặc thù của game
 payload = {
-    "gameName": "Mộng Thiên Kiếm",
+    "gameName": "Ta Là Hắc Ngộ Không",
+    "instructions": "Bước 1: Mở game > Nhân vật đạt cấp 51 mở Sảnh Phúc Lợi.\\nBước 2: Chọn mục Đổi Mã Quà Tặng.\\nBước 3: Nhập code và nhận quà tại Hộp Thư.",
+    "redeemUrl": "https://nap.vplay.vn",
     "codes": [
-        {"code": "MONGTHIENKIEM", "rewards": "100 Kim Cương + 5 Vé Quay", "expiresAt": "2026-12-31"},
-        {"code": "VIP666", "rewards": "Rương trang bị hoàng kim"},
-        {"code": "VIP888", "rewards": "500K Vàng + Thú Cưỡi"},
-        {"code": "VIP999", "rewards": "Thời Trang Độc Quyền"}
+        {"code": "TALAHACNGOKHONG", "rewards": "100 Kim Cương + 5 Vé Quay", "expiresAt": "2026-12-31"},
+        {"code": "VIP666", "rewards": "Rương trang bị hoàng kim"}
     ],
     "source": "Muse Crawler Bot"
 }
+
+# 2. Hoặc CHỈ CẬP NHẬT CÁCH NHẬP CODE (Không cần nạp thêm mã)
+# payload = {
+#     "action": "update_instructions",
+#     "gameName": "Ta Là Hắc Ngộ Không",
+#     "instructions": "Bước 1: Cấp 51 mở Sảnh Phúc Lợi...\\nBước 2: Nhập code...\\nBước 3: Nhận quà",
+#     "redeemUrl": "https://nap.vplay.vn"
+# }
 
 response = requests.post(API_URL, headers=headers, json=payload, timeout=15)
 print("HTTP Status:", response.status_code)
 print("API Response:", response.json())`}
 
-                {apiSnippetLang === 'curl' && `# 💻 cURL Terminal Command
+                {apiSnippetLang === 'curl' && `# 💻 cURL: Vừa nạp mã code vừa cập nhật Cách Nhập Code
 curl -X POST "${typeof window !== 'undefined' ? window.location.origin : 'https://codegame.shop'}/api/crawler/ingest-codes" \\
   -H "Content-Type: application/json" \\
   -H "Authorization: Bearer ${crawlerApiConfig.apiKey || '<API_KEY>'}" \\
   -d '{
-    "gameName": "Mộng Thiên Kiếm",
-    "codes": ["MONGTHIENKIEM", "VIP666", "VIP888", "VIP999"],
+    "gameName": "Ta Là Hắc Ngộ Không",
+    "instructions": "Bước 1: Cấp 51 mở Sảnh Phúc Lợi.\\nBước 2: Chọn Đổi Mã Quà Tặng.\\nBước 3: Dán mã và nhấn Xác Nhận.",
+    "redeemUrl": "https://nap.vplay.vn",
+    "codes": ["TALAHACNGOKHONG", "VIP666", "VIP888"],
     "rewards": "Quà tặng tân thủ độc quyền 2026",
     "source": "Muse Bot"
+  }'
+
+# 💻 cURL: CHỈ CẬP NHẬT CÁCH NHẬP CODE (Độc lập không cần mã)
+curl -X POST "${typeof window !== 'undefined' ? window.location.origin : 'https://codegame.shop'}/api/crawler/ingest-codes" \\
+  -H "Content-Type: application/json" \\
+  -H "Authorization: Bearer ${crawlerApiConfig.apiKey || '<API_KEY>'}" \\
+  -d '{
+    "action": "update_instructions",
+    "gameName": "Ta Là Hắc Ngộ Không",
+    "instructions": "Bước 1: Mở game > Đạt Cấp 51 > Vào Sảnh Phúc Lợi.\\nBước 2: Nhập code.\\nBước 3: Nhận quà qua Thư in-game.",
+    "redeemUrl": "https://nap.vplay.vn"
   }'`}
 
-                {apiSnippetLang === 'nodejs' && `// 🚀 Node.js / TypeScript Fetch
+                {apiSnippetLang === 'nodejs' && `// 🚀 Node.js / TypeScript Fetch: Nạp code & cập nhật cách nhập
 const res = await fetch('${typeof window !== 'undefined' ? window.location.origin : 'https://codegame.shop'}/api/crawler/ingest-codes', {
   method: 'POST',
   headers: {
@@ -3823,8 +3934,10 @@ const res = await fetch('${typeof window !== 'undefined' ? window.location.origi
     'Authorization': 'Bearer ${crawlerApiConfig.apiKey || '<API_KEY>'}',
   },
   body: JSON.stringify({
-    gameName: 'Mộng Thiên Kiếm',
-    codes: ['MONGTHIENKIEM', 'VIP666', 'VIP888'],
+    gameName: 'Ta Là Hắc Ngộ Không',
+    instructions: 'Bước 1: Mở game > Đạt cấp 51 mở Sảnh Phúc Lợi\\nBước 2: Đổi quà tặng\\nBước 3: Nhận thư',
+    redeemUrl: 'https://nap.vplay.vn',
+    codes: ['TALAHACNGOKHONG', 'VIP666'],
     rewards: 'Quà tân thủ',
     source: 'Muse Crawler Engine',
   }),
@@ -3845,6 +3958,20 @@ console.log(data);`}
               <li><strong className="text-slate-200">Định dạng hỗ trợ:</strong> ISO <code className="text-purple-300 font-mono">YYYY-MM-DD</code> (VD: 2026-12-31), ngày Việt Nam <code className="text-purple-300 font-mono">DD/MM/YYYY</code> (VD: 31/12/2026), timestamp, hoặc chữ <code className="text-purple-300 font-mono">"Hết hạn"</code> / <code className="text-purple-300 font-mono">"Vĩnh viễn"</code>.</li>
               <li><strong className="text-slate-200">Tự động chuyển mục Hết hạn:</strong> Khi mã nạp vào có hạn sử dụng trước ngày hiện tại hoặc mang nhãn <code className="text-rose-400 font-mono">"Hết hạn"</code>, hệ thống tự động gán <code className="text-rose-400 font-mono">status: "EXPIRED"</code> và chuyển sang tab "Đã hết hạn" của game đó.</li>
               <li><strong className="text-slate-200">Cập nhật mã đã có:</strong> Nếu gửi lại một mã code đã tồn tại kèm ngày hết hạn mới, hệ thống tự động cập nhật HSD và đồng bộ trạng thái ngay lập tức.</li>
+            </ul>
+          </div>
+
+          {/* Note on Instructions Editing Permission for Muse / Bot */}
+          <div className="p-3.5 rounded-xl bg-indigo-950/30 border border-indigo-500/30 text-xs text-slate-300 space-y-1.5">
+            <div className="flex items-center gap-2 font-bold text-indigo-300">
+              <BookOpen className="w-4 h-4 text-indigo-400" />
+              <span>Toàn Quyền Chỉnh Sửa Cách Nhập Code (instructions) Cho Bot / API:</span>
+            </div>
+            <ul className="list-disc list-inside space-y-1 text-slate-400 pl-1 text-[11px]">
+              <li><strong className="text-slate-200">Cập nhật độc lập:</strong> Bot có thể gửi payload chỉ chứa <code className="text-indigo-300 font-mono">"gameName"</code> và <code className="text-indigo-300 font-mono">"instructions"</code> (kèm <code className="text-indigo-300 font-mono">"redeemUrl"</code> tùy chọn) để cập nhật cách nhập code chuẩn cho game mà không cần gửi kèm bất kỳ giftcode nào.</li>
+              <li><strong className="text-slate-200">Tên trường linh hoạt:</strong> Hệ thống tự động nhận diện các khóa: <code className="text-indigo-300 font-mono">instructions</code>, <code className="text-indigo-300 font-mono">guide</code>, <code className="text-indigo-300 font-mono">huongDan</code>, <code className="text-indigo-300 font-mono">cachNhapCode</code>.</li>
+              <li><strong className="text-slate-200">Đồng bộ tức thì 0ms ra Web Khách:</strong> Dữ liệu cập nhật được lưu trực tiếp vào CSDL Cloudflare D1 và xóa cache biên (Edge Cache) để người dùng xem popup chi tiết game thấy ngay hướng dẫn mới nhất.</li>
+              <li><strong className="text-slate-200">Tự động áp dụng khi duyệt game mới:</strong> Khi bot nạp code đầu tiên kèm <code className="text-indigo-300 font-mono">instructions</code> cho game đang nằm trong Hàng Chờ Duyệt, hệ thống sẽ tự động xuất bản game lên web với đúng hướng dẫn này thay vì dùng mẫu 3 bước mặc định.</li>
             </ul>
           </div>
 
@@ -3910,11 +4037,16 @@ console.log(data);`}
                           {log.details && log.details.length > 0 ? (
                             <div className="space-y-0.5">
                               {log.details.slice(0, 2).map((d: any, dIdx: number) => (
-                                <div key={dIdx} className="text-slate-200 text-xs">
+                                <div key={dIdx} className="text-slate-200 text-xs flex items-center gap-1.5 flex-wrap">
                                   <span>{d.input}</span>
                                   {d.matched && d.matched !== d.input && (
-                                    <span className="text-purple-400 text-[11px] ml-1">
+                                    <span className="text-purple-400 text-[11px]">
                                       ➔ {d.matched}
+                                    </span>
+                                  )}
+                                  {d.instructionsUpdated && (
+                                    <span className="px-1 py-0.2 rounded text-[9px] bg-purple-500/20 text-purple-300 font-bold border border-purple-500/30">
+                                      📖 Hướng dẫn
                                     </span>
                                   )}
                                 </div>
