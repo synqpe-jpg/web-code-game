@@ -522,17 +522,42 @@ export default {
         return await renderSeoHtml(request, env, pathname);
       }
 
+      // Fast Edge Cache for Root Homepage HTML
+      if (request.method === 'GET' && (pathname === '/' || pathname === '/index.html')) {
+        const cache = typeof caches !== 'undefined' ? (caches as any).default : null;
+        const cacheKey = cache ? new Request(new URL('/', request.url).toString(), { method: 'GET' }) : null;
+        const isFresh = request.headers.get('Cache-Control')?.includes('no-cache') ||
+                        request.headers.get('Pragma')?.includes('no-cache') ||
+                        url.searchParams.has('fresh') || url.searchParams.has('_t');
+
+        if (cache && cacheKey && !isFresh) {
+          const cached = await cache.match(cacheKey);
+          if (cached) {
+            const res = new Response(cached.body, cached);
+            res.headers.set('CF-Edge-Cache-Status', 'HIT');
+            return res;
+          }
+        }
+
+        const assetResponse = await env.ASSETS.fetch(request);
+        if (assetResponse.status === 200) {
+          const responseText = await assetResponse.text();
+          const headers = new Headers(assetResponse.headers);
+          headers.set('Cache-Control', 'public, max-age=0, s-maxage=3600, stale-while-revalidate=86400');
+          if (cache && cacheKey) {
+            const cacheToPut = new Response(responseText, { status: 200, headers });
+            ctx.waitUntil(cache.put(cacheKey, cacheToPut));
+          }
+          const resOut = new Response(responseText, { status: 200, headers });
+          resOut.headers.set('CF-Edge-Cache-Status', 'MISS');
+          return resOut;
+        }
+        return assetResponse;
+      }
+
       const assetResponse = await env.ASSETS.fetch(request);
       if (assetResponse.status === 404 && request.method === 'GET' && !pathname.match(/\.[a-zA-Z0-9]+$/)) {
         return await renderSeoHtml(request, env, pathname);
-      }
-      if (assetResponse.status === 200 && (pathname === '/' || pathname === '/index.html')) {
-        const headers = new Headers(assetResponse.headers);
-        headers.set('Cache-Control', 'public, max-age=0, s-maxage=3600, stale-while-revalidate=86400');
-        return new Response(assetResponse.body, {
-          status: assetResponse.status,
-          headers,
-        });
       }
       return assetResponse;
     } catch (err: any) {

@@ -1790,12 +1790,8 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
 
           codeStmts.push(
             env.DB.prepare(`
-              INSERT INTO codes (id, game_slug, code, rewards, status, expires_at, source, added_at)
+              INSERT OR REPLACE INTO codes (id, game_slug, code, rewards, status, expires_at, source, added_at)
               VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-              ON CONFLICT(game_slug, code) DO UPDATE SET
-                rewards = COALESCE(excluded.rewards, codes.rewards),
-                status = excluded.status,
-                expires_at = COALESCE(excluded.expires_at, codes.expires_at)
             `).bind(id, s, c, rewards, status, expiresAt, source, addedAt)
           );
         }
