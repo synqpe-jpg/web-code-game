@@ -66,6 +66,22 @@ async function runIntegrityAudit() {
 
   let passed = true;
 
+  // 0. Tiền xử lý & Dọn dẹp tàn dư kiểm thử trước đó nếu có (Zero Test Artifacts Pre-flight)
+  try {
+    await fetchJson('/api/crawler/ingest-codes', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${API_KEY}`
+      },
+      body: JSON.stringify({
+        action: 'cleanup_test_codes',
+        prefix: 'TEST'
+      })
+    });
+    await sleep(600);
+  } catch {}
+
   // 1. Kiểm tra chi tiết Thực Thần Ký (12 mã)
   console.log('▶ [1/4] Kiểm tra chuyên sâu tựa game "Thực Thần Ký" (thuc-than-ky)...');
   const ttRes = await fetchJson('/api/games?slug=thuc-than-ky&nocache=1');
