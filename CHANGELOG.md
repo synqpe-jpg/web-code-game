@@ -19,6 +19,7 @@ Mỗi mục sửa lỗi đều ghi nhận **Nguyên nhân gốc rễ (Root Cause
        - Hệ thống tự động kích hoạt Modal VIP Popup sang trọng: giới thiệu 3 đặc quyền thành viên (Copy 1-chạm toàn bộ mã, hiện trọn vẹn 100% mã không che, lưu game yêu thích).
        - Nút "Đăng nhập / Đăng ký ngay" chuyển mượt mà tới `AuthModal` sẵn có của hệ thống.
        - Nút "Để sau" đóng modal nhanh chóng.
+     - Sửa dứt điểm lỗi `ReferenceError: Sparkles is not defined`: Bổ sung `Sparkles` vào danh sách import từ `lucide-react` trong `GameDetailModal.tsx` và xóa bỏ `Bookmark` bị khai báo trùng lặp.
      - Khi người dùng **ĐÃ ĐĂNG NHẬP**:
        - Mở khóa toàn quyền nút "Copy tất cả", sao chép toàn bộ danh sách mã vào clipboard và kích hoạt hiệu ứng pháo hoa giấy confetti chúc mừng rực rỡ.
   2. **Hiển Thị Mã Code Thông Minh (Masking & Full Unmasking)**:
