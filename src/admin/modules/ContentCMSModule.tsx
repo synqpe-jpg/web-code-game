@@ -516,7 +516,7 @@ export const ContentCMSModule: React.FC<ContentCMSModuleProps> = ({ onShowToast 
           break;
       }
 
-      await adminDataService.pushFullStateToKV(true);
+      await adminDataService.syncToCloudflareKV('wcg_admin_content_v4', adminDataService.getContentItems());
       onShowToast('Đã Lưu Thành Công!', 'Nội dung đã được cập nhật và đồng bộ Real-time lên Web Khách.', 'success');
     } catch (err: any) {
       console.error('Error saving CMS section:', err);
@@ -662,7 +662,7 @@ export const ContentCMSModule: React.FC<ContentCMSModuleProps> = ({ onShowToast 
         type: 'PRIVACY',
       });
 
-      await adminDataService.pushFullStateToKV(true);
+      await adminDataService.syncToCloudflareKV('wcg_admin_content_v4', adminDataService.getContentItems());
 
       onShowToast(
         'Đã Lưu Tất Cả Nội Dung & Thiết Lập Web!',

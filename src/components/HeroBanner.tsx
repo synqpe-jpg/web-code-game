@@ -162,7 +162,7 @@ export const HeroBanner: React.FC<HeroBannerProps> = ({
             <div className="p-3 rounded-xl bg-card/70 border border-border text-center shadow-sm">
               <div className="flex items-center justify-center gap-1 text-secondary mb-0.5">
                 <Zap className="w-3.5 h-3.5 text-secondary" />
-                <span className="font-display font-bold text-base text-foreground">4,300+</span>
+                <span className="font-display font-bold text-base text-foreground">11,700+</span>
               </div>
               <span className="text-[11px] text-slate-300 font-medium">{t.hero.statCodes}</span>
             </div>

@@ -671,25 +671,43 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
             ? masterState.games
             : (fallbackGamesData as any[]),
       freeCodes: authorized ? (() => {
-        const rawFc = (Array.isArray(d1Settings['wcg_admin_free_codes_v5']) && d1Settings['wcg_admin_free_codes_v5'].length > 0)
+        const d1Fc = (Array.isArray(d1Settings['wcg_admin_free_codes_v5']) && d1Settings['wcg_admin_free_codes_v5'].length > 0)
           ? d1Settings['wcg_admin_free_codes_v5']
           : ((Array.isArray(d1Settings['wcg_admin_free_codes_v4']) && d1Settings['wcg_admin_free_codes_v4'].length > 0)
             ? d1Settings['wcg_admin_free_codes_v4']
-            : ((Array.isArray(masterState.freeCodes) && masterState.freeCodes.length > 0)
-              ? masterState.freeCodes
-              : (fallbackCodesData as any[])));
+            : []);
+        const bundledFc = Array.isArray(fallbackCodesData) ? (fallbackCodesData as any[]) : [];
         const customFc = d1Settings['wcg_admin_custom_free_codes_v1'] || masterState.customFreeCodes || [];
         const deletedFc = new Set<string>(d1Settings['wcg_deleted_free_codes'] || masterState.deletedFreeCodes || []);
-        const customMap = new Map<string, any>();
+        const mergedMap = new Map<string, any>();
+        // 1. Custom codes (highest priority)
         if (Array.isArray(customFc)) {
           customFc.forEach((c: any) => {
-            if (c && c.id && !deletedFc.has(c.id)) customMap.set(c.id, c);
+            if (c && c.id && !deletedFc.has(c.id)) {
+              const key = `${(c.gameSlug || c.gameId || '').toLowerCase()}___${(c.codeValue || c.code || '').trim().toUpperCase()}`;
+              mergedMap.set(key, c);
+            }
           });
         }
-        const filteredCatalog = (Array.isArray(rawFc) ? rawFc : []).filter(
-          (c: any) => c && c.id && !deletedFc.has(c.id) && !customMap.has(c.id)
-        );
-        return [...Array.from(customMap.values()), ...filteredCatalog];
+        // 2. D1 catalog codes
+        if (Array.isArray(d1Fc)) {
+          d1Fc.forEach((c: any) => {
+            if (c && c.id && !deletedFc.has(c.id)) {
+              const key = `${(c.gameSlug || c.gameId || '').toLowerCase()}___${(c.codeValue || c.code || '').trim().toUpperCase()}`;
+              if (!mergedMap.has(key)) mergedMap.set(key, c);
+            }
+          });
+        }
+        // 3. Bundled Master codes (11,762 codes baseline archive)
+        if (Array.isArray(bundledFc)) {
+          bundledFc.forEach((c: any) => {
+            if (c && c.id && !deletedFc.has(c.id)) {
+              const key = `${(c.gameSlug || c.gameId || '').toLowerCase()}___${(c.codeValue || c.code || '').trim().toUpperCase()}`;
+              if (!mergedMap.has(key)) mergedMap.set(key, c);
+            }
+          });
+        }
+        return Array.from(mergedMap.values());
       })() : undefined,
       customFreeCodes: d1Settings['wcg_admin_custom_free_codes_v1'] || masterState.customFreeCodes || [],
       deletedFreeCodes: d1Settings['wcg_deleted_free_codes'] || masterState.deletedFreeCodes || [],

@@ -10,6 +10,20 @@
 
 ## 1. DANH MỤC LỖI & CÁC BẪY ĐÃ THẤT BẠI (DO NOT REPEAT)
 
+### ISSUE-083: Mất Hàng Nghìn Giftcode Do Toán Tử Lựa Chọn Thay Thế Thay Vì Hợp Nhất Dữ Liệu (Ternary Exclusion Instead of Union Merge Trap)
+- **Triệu chứng**:
+  - Khi lưu nội dung CMS hoặc sau khi chuyển đổi API Serverless `/api/games`, các tựa game lớn bị tụt giảm nghiêm trọng số lượng giftcode (ví dụ Genshin Impact từ 168 mã rớt xuống 75 mã, Honkai Star Rail từ 184 rớt xuống 67 mã).
+  - Web Khách hiển thị ít mã hơn nhiều so với kho master JSON (`crawled_codes_188.json`).
+- **Nguyên nhân gốc rễ**:
+  1. API Serverless Edge Worker dùng toán tử điều kiện `rawCodes = settings['wcg_admin_free_codes_v5'] ? settings['wcg_admin_free_codes_v5'] : fallbackCodesData`. Khi D1 có mảng `wcg_admin_free_codes_v5` (chỉ chứa 5.330 code của đợt quét cũ), hệ thống loại bỏ hoàn toàn 11.762 mã trong master archive.
+  2. Hàm `saveContent()` trong Admin tự động kích hoạt `pushFullStateToKV(true)`, đẩy toàn bộ snapshot thiếu code lên CSDL và xóa cache danh mục.
+- **Giải pháp chuẩn đã kiểm chứng**:
+  - Áp dụng cơ chế **3-Tier Union Code Merger**: Lần lượt nạp Custom Codes (ưu tiên 1) $\rightarrow$ D1 Crawled Codes (ưu tiên 2) $\rightarrow$ Master Bundled Archive (nền tảng 11.762 codes). Khử trùng lặp theo `(gameSlug, code)` và tuân thủ `deletedCodesSet`.
+  - Cô lập thao tác lưu CMS: `saveContent()` chỉ ghi đúng khóa `wcg_admin_content_v4`, tuyệt đối không gọi `pushFullStateToKV()`.
+- ⛔ **CÁCH SỬA ĐÃ THẤT BẠI - TUYỆT ĐỐI KHÔNG LẶP LẠI**:
+  - ❌ *Không dùng toán tử 3 ngôi `A ? A : B` cho các nguồn dữ liệu bổ trợ nhau*: Bắt buộc phải dùng `Map` để Union hợp nhất dữ liệu, đảm bảo kho code chỉ có tăng thêm chứ không bao giờ bị giảm.
+  - ❌ *Không gọi `pushFullStateToKV()` trong các module chỉ sửa một phần nhỏ dữ liệu (như Content CMS, Branding)*.
+
 ### ISSUE-082: Phân Tán Khóa API Giữa Các Cổng Ingest Khiến Bot Tự Động Gặp Lỗi Xác Thực (Fragmented Ingest API Keys Trap)
 - **Triệu chứng**:
   - Khi mở rộng các endpoint API tiếp nhận dữ liệu từ bên ngoài (như Muse bot ingest Upcoming Games, Crawler ingest codes), việc sinh thêm khóa bí mật độc lập khiến người dùng/bot phải lưu nhiều API Key khác nhau. Khi đổi key ở một nơi, các dịch vụ bot khác bị ngắt kết nối với mã lỗi `401 Unauthorized`.

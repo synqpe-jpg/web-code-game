@@ -401,11 +401,14 @@ export async function getLoadedCatalog(db: D1Database, forceFresh: boolean = fal
     : ((Array.isArray(settings['wcg_admin_games_v4']) && settings['wcg_admin_games_v4'].length > 0)
       ? settings['wcg_admin_games_v4']
       : (fallbackGamesData as any[]));
-  const rawCodes = (Array.isArray(settings['wcg_admin_free_codes_v5']) && settings['wcg_admin_free_codes_v5'].length > 0)
+  // Combine all available sources: Custom codes, D1 catalog codes, and complete Master Bundled codes (fallbackCodesData)
+  // This guarantees that no code can ever be lost regardless of D1 partial writes or admin CMS updates.
+  const d1Codes = (Array.isArray(settings['wcg_admin_free_codes_v5']) && settings['wcg_admin_free_codes_v5'].length > 0)
     ? settings['wcg_admin_free_codes_v5']
     : ((Array.isArray(settings['wcg_admin_free_codes_v4']) && settings['wcg_admin_free_codes_v4'].length > 0)
       ? settings['wcg_admin_free_codes_v4']
-      : (fallbackCodesData as any[]));
+      : []);
+  const bundledCodes = Array.isArray(fallbackCodesData) ? (fallbackCodesData as any[]) : [];
   const customCodes = settings['wcg_admin_custom_free_codes_v1'] || [];
   const deletedCodesSet = new Set<string>(
     Array.isArray(settings['wcg_deleted_free_codes']) ? settings['wcg_deleted_free_codes'] : []
@@ -437,9 +440,37 @@ export async function getLoadedCatalog(db: D1Database, forceFresh: boolean = fal
     }
   }
 
-  // 2. Process crawled/catalog codes, skipping any deleted or already added
-  if (Array.isArray(rawCodes)) {
-    for (const item of rawCodes) {
+  // 2. Process D1 catalog codes (from crawlers / admin pushes), skipping any deleted or already added
+  if (Array.isArray(d1Codes)) {
+    for (const item of d1Codes) {
+      if (!item || (item.id && deletedCodesSet.has(item.id))) continue;
+      const slug = item.gameSlug || item.game_slug || item.slug || item.gameId;
+      const codeVal = item.codeValue || item.code_value || item.code || item.gift_code;
+      if (!slug || !codeVal) continue;
+
+      const normSlug = String(slug).trim().toLowerCase();
+      const codeStr = String(codeVal).trim();
+      const isExp = isCodeExpired(item);
+
+      const list = codesMap.get(normSlug) || [];
+      if (list.some((existing) => existing.code.toUpperCase() === codeStr.toUpperCase())) {
+        continue;
+      }
+
+      list.push({
+        code: codeStr,
+        rewards: item.rewards || item.description || 'Quà tân thủ & vật phẩm ingame',
+        status: isExp ? 'expired' : 'active',
+        expiry: item.expiresAt || item.expires_at || item.expiry || '',
+        added_at: item.createdAt || item.created_at || item.added_at || '2026-10-09T00:00:00Z',
+      });
+      codesMap.set(normSlug, list);
+    }
+  }
+
+  // 3. Process complete Master Bundled codes (11,762 codes), preserving full baseline archive
+  if (Array.isArray(bundledCodes)) {
+    for (const item of bundledCodes) {
       if (!item || (item.id && deletedCodesSet.has(item.id))) continue;
       const slug = item.gameSlug || item.game_slug || item.slug || item.gameId;
       const codeVal = item.codeValue || item.code_value || item.code || item.gift_code;

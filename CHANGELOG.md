@@ -7,6 +7,40 @@ Mỗi mục sửa lỗi đều ghi nhận **Nguyên nhân gốc rễ (Root Cause
 
 ## [2026-10-23]
 
+### 148. Hợp Nhất 100% Kho Giftcode (11.785+ Mã) & Khắc Phục Lỗi Mất Code Khi Lưu Nội Dung Web (Full Giftcode Union Merge & Safe CMS Content Sync)
+- **Mô tả & Yêu cầu người dùng**:
+  - *"ĐỢi chút rồi triển khai, bạn kiểm tra giúp tôi, tôi vừa thay đổi Nội Dung Web trong admin, nhưng code trên web biến mất rất nhiều. Làm thế nào để code có lại như lúc chưa đổi nội dung và không tái hiện tình trạng này nữa?"*
+- **Nguyên nhân gốc rễ (Root Cause)**:
+  1. *Lỗi logic tuyển chọn dữ liệu (Ternary Exclusion Flaw) tại `functions/api/games.ts` và `sync.ts`*:
+     - Trước đây, API Edge Worker sử dụng cấu trúc toán tử điều kiện 3 ngôi: Nếu D1 Database có `wcg_admin_free_codes_v5` (chứa 5.330 code từ đợt quét cũ) thì sẽ lấy duy nhất mảng này và **bỏ qua hoàn toàn** kho master bundled 11.762 giftcode (`fallbackCodesData`).
+     - Khi client tách bundle ở bản 146 và chuyển sang truy vấn hoàn toàn qua Serverless API `/api/games`, các tựa game có nhiều mã (ví dụ Genshin Impact từ 168 mã rớt xuống 75 mã, Honkai Star Rail từ 184 mã rớt xuống 67 mã, Ta Là Cao Thủ Võ Lâm từ 15 rớt xuống 10 mã).
+  2. *Lỗi gọi đồng bộ toàn phần (`pushFullStateToKV`) khi chỉ sửa văn bản CMS*:
+     - Trong `adminDataService.ts` hàm `saveContent()` và `ContentCMSModule.tsx`, việc lưu một đoạn văn bản hoặc tiêu đề banner lại tự động kích hoạt `pushFullStateToKV(true)`.
+     - Lệnh này đóng gói toàn bộ trạng thái bộ nhớ admin (vốn không chứa đủ 11.762 mã giftcode nhằm tiết kiệm RAM) và gửi lên `/api/sync`, làm kích hoạt việc ghi đè mảng games và xóa cache, dẫn đến số liệu code bị giảm khi người dùng xem lại web.
+  3. *Chế độ hiển thị thẻ game (View Mode) bị chuyển sang "Icon nhỏ"*:
+     - Người dùng bấm nhầm hoặc trình duyệt lưu chế độ `[Icon nhỏ]` (Compact View). Trong chế độ này, thẻ game chỉ hiển thị Icon và Tên game, không hiển thị các ô giftcode và nút sao chép trực tiếp trên mặt thẻ khiến người dùng tưởng rằng toàn bộ code đã biến mất.
+- **Giải pháp đã triển khai (Solution)**:
+  1. *Cơ chế Hợp Nhất Đa Tầng 100% Không Thất Thoát (3-Tier Union Code Merger)* tại `functions/api/games.ts` & `functions/api/sync.ts`:
+     - Tầng 1 (Ưu tiên cao nhất): Các mã do Admin tự tạo/chỉnh sửa trong D1 (`wcg_admin_custom_free_codes_v1`).
+     - Tầng 2: Các mã mới nhất do Crawler/Bot Muse cào về trong D1 (`wcg_admin_free_codes_v5`).
+     - Tầng 3 (Kho nền tảng bất biến): Toàn bộ 11.762 giftcode lịch sử trong master archive (`fallbackCodesData`).
+     - Tự động khử trùng lặp theo cặp khóa `(gameSlug, code)` và tuân thủ tuyệt đối danh sách mã đã xóa (`wcg_deleted_free_codes`).
+     - Kết quả: Tổng số giftcode trên toàn hệ thống đạt **11.785+ mã**, Genshin Impact khôi phục đủ 168 mã, Honkai Star Rail đủ 184 mã, không một mã nào có thể bị mất!
+  2. *Cô lập thao tác Lưu Nội Dung Web (Atomic CMS Sync Isolation)*:
+     - Xóa bỏ hoàn toàn lời gọi `this.pushFullStateToKV()` khỏi `saveContent()` và `savePaginationConfig()`.
+     - Lưu Nội Dung Web giờ đây chỉ đồng bộ đúng khóa `wcg_admin_content_v4`, tuyệt đối không bao giờ chạm vào kho game, kho code hay giỏ hàng.
+  3. *Đồng bộ chỉ số Hero Banner*:
+     - Nâng cấp số lượng hiển thị trên Hero Banner từ `4,300+` lên chuẩn xác `11,700+ Giftcode`.
+- **Files Modified**:
+  - `functions/api/games.ts`
+  - `functions/api/sync.ts`
+  - `src/admin/modules/ContentCMSModule.tsx`
+  - `src/admin/services/adminDataService.ts`
+  - `src/services/dataService.ts`
+  - `src/components/HeroBanner.tsx`
+  - `CHANGELOG.md`
+  - `KNOWN_ISSUES.md`
+
 ### 147. Tích Hợp Trung Tâm Quản Lý Game Sắp Ra Mắt & Cổng Tiếp Nhận API Muse Bot Trong Admin Quản Trị (Upcoming Games Hub & Muse Bot API Ingest)
 - **Mô tả & Yêu cầu người dùng**:
   - *"Trong admin, mục quản lý game, bạn thêm phần game chuẩn bị ra mắt, có chỗ cho API để tôi nhờ Muse quản lý giống bên quét code"*

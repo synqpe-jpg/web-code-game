@@ -1601,7 +1601,6 @@ class AdminDataService {
       crossOriginSync.setItem(this.KEYS.CONTENT, this.contentItems);
       this.broadcastSync('CONTENT_UPDATED');
       this.syncToCloudflareKV(this.KEYS.CONTENT, this.contentItems);
-      this.pushFullStateToKV();
     } catch {}
   }
   private async saveSePay(): Promise<void> {
@@ -2936,7 +2935,6 @@ class AdminDataService {
         pageSize: config.pageSize || 24,
       },
     });
-    this.pushFullStateToKV();
   }
 
   public getFloatingNotificationConfig(): FloatingNotificationConfig {

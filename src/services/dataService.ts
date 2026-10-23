@@ -1277,9 +1277,9 @@ class DataService {
           const enrichedGames = json.games.map((g: any) => {
             if (!g || !g.slug) return g;
             const localCodes = this.getCodesForGame(g);
-            const fullCodes = (localCodes && localCodes.length > (g.codes?.length || 0))
-              ? localCodes
-              : (g.codes || []);
+            const fullCodes = (g.codes && g.codes.length > (localCodes?.length || 0))
+              ? g.codes
+              : (localCodes && localCodes.length > 0 ? localCodes : (g.codes || []));
             const enriched: GameItem = {
               ...g,
               codes: fullCodes,
