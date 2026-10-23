@@ -1646,12 +1646,20 @@ export const App: React.FC = () => {
         onClose={() => setIsDownloadModalOpen(false)}
       />
 
-      {/* Email Subscription & Notification Preferences Modal */}
+      {/* Email Subscription & Notification Preferences Modal (2 Cột: Bảng 1 Code Mới & Chia Sẻ, Bảng 2 Đăng Ký) */}
       {isEmailModalOpen && (
         <EmailSubscriptionModal
           isOpen={isEmailModalOpen}
           onClose={() => setIsEmailModalOpen(false)}
           currentUser={currentUser}
+          bookmarks={bookmarks}
+          bookmarkedGames={bookmarkedGames}
+          upcomingGames={upcomingGames}
+          onToggleBookmark={(slug) => handleToggleBookmark(slug)}
+          onSelectGame={(game) => {
+            setIsEmailModalOpen(false);
+            handleSelectGame(game);
+          }}
           onShowToast={showToast}
         />
       )}

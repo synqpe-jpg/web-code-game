@@ -9,6 +9,37 @@ Mỗi mục sửa lỗi đều ghi nhận **Nguyên nhân gốc rễ (Root Cause
 
 ## [2026-10-23]
 
+### 156. Nâng Cấp Nút Thông Báo Thành Trung Tâm Thông Báo 2 Cột: Bảng 1 Code Mới & Chia Sẻ Kèm Nguồn, Bảng 2 Đăng Ký Email (2-Column Notification Center, Followed Games Giftcode Feed & Viral Share Integration)
+- **Mô tả & Yêu cầu người dùng**:
+  - *"Trên nút thông báo, chia là 2 cột, cột thứ 2 chính là bảng đăng ký hiện tại. Bảng 1 mặc định hiện khi ấn vào. Bảng 1 chính là bảng thông báo khi có code mới mà người dùng ấn Theo Dõi và nút chia sẻ, khi người dùng chia sẻ sẽ bao gồm mã code, game và nguồn từ web của tôi."*
+- **Nguyên nhân gốc rễ (Root Cause)**:
+  - Trước đây khi ấn vào nút quả chuông Thông Báo trên Header (`onOpenNotificationModal`), hệ thống chỉ mở một hộp thoại đơn điệu (`EmailSubscriptionModal.tsx`) chứa form nhập email và 3 checkbox đăng ký nhận tin.
+  - Người dùng không có nơi nào để xem trực tiếp danh sách các mã code mới phát hành của các tựa game mà mình đã bấm "Theo Dõi" (Lưu) ngay trong cửa sổ thông báo.
+  - Thiếu nút Chia Sẻ (Share) mã quà tặng tiện lợi kèm tự động đính kèm thương hiệu và link nguồn web `CodeGame.Shop` để lan tỏa mạng xã hội (Zalo, Facebook, Messenger, Telegram).
+- **Giải pháp đã triển khai (Solution)**:
+  - `src/components/notification/EmailSubscriptionModal.tsx`:
+    - **Kiến trúc Layout 2 Cột / 2 Tab Thông Minh**:
+      - Trên Desktop (`lg:`): Mở rộng modal lên `max-w-5xl`, hiển thị song song 2 cột side-by-side cực kỳ hiện đại: Cột 1 (Bảng 1 - chiếm 7/12) và Cột 2 (Bảng 2 - chiếm 5/12).
+      - Trên Mobile: Cung cấp thanh chuyển đổi 2 Tab thanh thoát, **Mặc định hiển thị Bảng 1 (Code Mới) khi người dùng ấn vào nút Thông Báo**.
+    - **Bảng 1: Bảng Thông Báo Mã Giftcode Mới Của Game Đang Theo Dõi**:
+      - Tự động trích xuất các mã giftcode còn hạn mới nhất từ các tựa game trong danh sách theo dõi của người dùng (`bookmarks`), đồng thời tích hợp cả các giftcode giờ G của game sắp ra mắt.
+      - Nếu người dùng chưa theo dõi game nào: Tự động hiển thị các mã giftcode HOT nhất toàn sàn kèm thông báo hướng dẫn và nút 1 chạm để theo dõi game ngay lập tức.
+      - Mỗi mã code hiển thị to rõ (font-mono emerald), kèm quà tặng, hạn dùng và cụm 2 nút hành động:
+        + **Nút Sao Chép Mã**: Copy mã vào clipboard kèm toast thông báo tức thì.
+        + **Nút Chia Sẻ (Share)**: Tích hợp Web Share API (chia sẻ trực tiếp qua Zalo, Messenger, Facebook trên điện thoại) và tự động sao chép nội dung chia sẻ chuẩn format bao gồm: Tên game, Mã Code, Phần thưởng và Nguồn link chính thức từ web `CodeGame.Shop` (`https://codegame.shop/game/[slug]`).
+    - **Bảng 2: Bảng Đăng Ký Email Hiện Tại**:
+      - Giữ nguyên 100% các trường cấu hình: Ô nhập email, cam kết bảo mật 100%, 3 checkbox nhận tin (Giftcode game theo dõi, Phát code giờ G, Khuyến mãi & Flash sale), danh sách tags game theo dõi, nút Hủy đăng ký và Lưu cài đặt.
+  - `src/App.tsx`:
+    - Truyền `bookmarks`, `bookmarkedGames`, `upcomingGames`, `onToggleBookmark`, `onSelectGame` vào `EmailSubscriptionModal`.
+- **Files Modified**:
+  - `src/components/notification/EmailSubscriptionModal.tsx`
+  - `src/App.tsx`
+  - `CHANGELOG.md`
+- **Verification**:
+  - `npm run build` thành công 100%, 0 lỗi TypeScript, 0 test artifact.
+
+---
+
 ### 155. Tinh Gọn Giao Diện Mobile Khối Game Đang Theo Dõi & Game Sắp Ra Mắt (Mobile Compact Card & Single-Line Header Streamline)
 - **Mô tả & Yêu cầu người dùng**:
   - *"Đây là giao diện tên mobile, bạn có phương án tin gọn nào cho dễ nhìn hơn không?"*
