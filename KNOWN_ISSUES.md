@@ -10,6 +10,23 @@
 
 ## 1. DANH MỤC LỖI & CÁC BẪY ĐÃ THẤT BẠI (DO NOT REPEAT)
 
+### ISSUE-089: Không Thể Đẩy Hoặc Cập Nhật Icon Cho Game Sắp Ra Mắt Qua API Do Bó Hẹp Tên Trường Và Thiếu Action Cập Nhật Icon Riêng Biệt (Upcoming Games API Icon Ingest & Action Missing Trap)
+- **Triệu chứng**:
+  - Khi bot Pine AI, Muse bot hoặc crawler đẩy icon mới cho game trong mục Game Sắp Ra Mắt qua API `/api/crawler/ingest-upcoming-games`, icon không được cập nhật trên web khách và trang quản trị, vẫn hiển thị icon mặc định hoặc logo cũ.
+  - Khi bot muốn cập nhật riêng icon cho một tựa game đã có sẵn, API không có action hỗ trợ và từ chối request.
+- **Nguyên nhân gốc rễ**:
+  1. API chỉ kiểm tra cứng 3 trường `iconUrl`, `icon_url`, `icon`. Các biến thể như `gameIcon`, `avatar`, `imageUrl`, `logo`, `cover`, `localIconPath` bị bỏ qua.
+  2. Thiếu `action: "update_icon"` độc lập để cập nhật icon nhanh theo tên game / slug / id.
+  3. Thiếu cơ chế đồng bộ song hành cả 2 thuộc tính `iconUrl` và `icon_url` trên đối tượng game.
+- **Giải pháp chuẩn đã kiểm chứng**:
+  - Tạo hàm trích xuất toàn diện `extractIconUrl` bao quát tất cả các biến thể tên trường và chuẩn hóa URL.
+  - Bổ sung `action: "update_icon"` / `"set_icon"` / `"change_icon"`.
+  - Luôn gán đồng thời `existing.iconUrl = rawIcon; existing.icon_url = rawIcon;` khi lưu trữ.
+- ⛔ **CÁCH SỬA ĐÃ THẤT BẠI - TUYỆT ĐỐI KHÔNG LẶP LẠI**:
+  - ❌ *Không chỉ kiểm tra duy nhất trường iconUrl*: Mọi bot và crawler đều có thể gửi các biến thể như `gameIcon`, `imageUrl`, `icon_url` hay `logo`. Phải luôn hỗ trợ đa hình trường icon.
+
+---
+
 ### ISSUE-088: Lỗi Sai Tên Biến State Khi Truyền Props Khiến Modal Thông Báo Gặp ReferenceError và Crash Màn Hình (Notification Modal ReferenceError State Prop Mismatch Trap)
 - **Triệu chứng**:
   - Người dùng bấm vào nút quả chuông Thông Báo trên Header thì màn hình bị lỗi crash giao diện ErrorBoundary: *"Đã có sự cố hiển thị nhỏ xảy ra"* kèm lỗi `ReferenceError: bookmarkedGames is not defined`.

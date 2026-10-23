@@ -205,6 +205,61 @@ function slugify(text: string): string {
 }
 
 /**
+ * Trích xuất và chuẩn hóa URL icon từ mọi biến thể tên trường mà bot / crawler có thể gửi
+ */
+function extractIconUrl(item: any, fallbackSlug?: string): string {
+  if (!item || typeof item !== 'object') {
+    return fallbackSlug ? `/game_icons/${fallbackSlug}.webp` : '';
+  }
+
+  const candidate =
+    item.iconUrl ||
+    item.icon_url ||
+    item.icon ||
+    item.gameIcon ||
+    item.game_icon ||
+    item.avatar ||
+    item.avatarUrl ||
+    item.avatar_url ||
+    item.imageUrl ||
+    item.image_url ||
+    item.image ||
+    item.logo ||
+    item.logoUrl ||
+    item.logo_url ||
+    item.thumbnail ||
+    item.thumb ||
+    item.cover ||
+    item.cover_image ||
+    item.cover_image_url ||
+    item.localIconPath ||
+    item.iconPath;
+
+  if (candidate && typeof candidate === 'string') {
+    let trimmed = candidate.trim();
+    if (trimmed) {
+      // Chuẩn hóa giao thức không an toàn nếu có
+      if (trimmed.startsWith('//')) {
+        trimmed = 'https:' + trimmed;
+      }
+      // Giữ nguyên các URL hợp lệ (https, http, absolute path, data URL)
+      if (
+        trimmed.startsWith('http://') ||
+        trimmed.startsWith('https://') ||
+        trimmed.startsWith('/') ||
+        trimmed.startsWith('data:image/')
+      ) {
+        return trimmed;
+      }
+      // Nếu là tên file như "strinova.webp" hoặc "strinova.png"
+      return `/game_icons/${trimmed}`;
+    }
+  }
+
+  return fallbackSlug ? `/game_icons/${fallbackSlug}.webp` : '';
+}
+
+/**
  * Tự động bảo vệ & phục hồi dữ liệu gốc chuẩn xác (Self-Healing Safeguard)
  * Ngăn chặn tuyệt đối việc bot hoặc API gửi thiếu trường làm đè mất ngày giờ mở server hoặc thể loại chuẩn của game.
  */
@@ -303,11 +358,14 @@ export async function onRequestGet(context: { request: Request; env: Env }): Pro
     setSettingD1(env.DB, 'wcg_admin_upcoming_games_v1', upcomingGames).catch(() => {});
   }
 
-  // Ensure default displayOrder if missing
+  // Ensure default displayOrder & valid icons if missing
   upcomingGames.forEach((g, idx) => {
     if (typeof g.displayOrder !== 'number') {
       g.displayOrder = idx + 1;
     }
+    const ic = extractIconUrl(g, g.slug);
+    if (!g.iconUrl) g.iconUrl = ic;
+    if (!g.icon_url) g.icon_url = ic;
   });
 
   if (targetSlug) {
@@ -480,6 +538,15 @@ export async function onRequestPost(context: { request: Request; env: Env }): Pr
         { status: 400, headers: CORS_HEADERS }
       );
     }
+
+    // Chuẩn hóa icon cho từng game trong mảng
+    incomingGames.forEach((g: any) => {
+      const ic = extractIconUrl(g, g.slug);
+      if (ic) {
+        g.iconUrl = ic;
+        g.icon_url = ic;
+      }
+    });
 
     currentUpcomingGames = incomingGames;
     if (env.DB) {
@@ -749,6 +816,88 @@ export async function onRequestPost(context: { request: Request; env: Env }): Pr
     );
   }
 
+  // ACTION 1D: UPDATE_ICON / SET_ICON (Pine Bot & Muse Bot cập nhật icon chính xác cho game)
+  if (action === 'update_icon' || action === 'set_icon' || action === 'change_icon') {
+    const rawTarget = payload?.id || payload?.slug || payload?.name;
+    const incomingIcon = extractIconUrl(payload);
+
+    if (!rawTarget) {
+      return new Response(
+        JSON.stringify({
+          success: false,
+          error: 'Thiếu trường "id", "slug" hoặc "name" để xác định tựa game cần cập nhật icon.',
+        }),
+        { status: 400, headers: CORS_HEADERS }
+      );
+    }
+
+    if (!incomingIcon) {
+      return new Response(
+        JSON.stringify({
+          success: false,
+          error: 'Thiếu URL icon hợp lệ. Vui lòng gửi trường "iconUrl", "icon_url", "icon", "gameIcon" hoặc "imageUrl".',
+        }),
+        { status: 400, headers: CORS_HEADERS }
+      );
+    }
+
+    const targetKey = String(rawTarget).trim().toLowerCase();
+    const targetSlug = slugify(targetKey);
+
+    let updatedGame: any = null;
+    for (const item of currentUpcomingGames) {
+      const idLower = String(item.id || '').toLowerCase();
+      const slugLower = String(item.slug || '').toLowerCase();
+      const nameLower = String(item.name || '').toLowerCase();
+      const itemSlug = slugify(nameLower);
+
+      if (
+        idLower === targetKey ||
+        slugLower === targetKey ||
+        slugLower === targetSlug ||
+        nameLower === targetKey ||
+        itemSlug === targetSlug ||
+        nameLower.includes(targetKey) ||
+        slugLower.includes(targetKey)
+      ) {
+        item.iconUrl = incomingIcon;
+        item.icon_url = incomingIcon;
+        item.updatedAt = nowIso;
+        item.source = botName;
+        updatedGame = item;
+        break;
+      }
+    }
+
+    if (!updatedGame) {
+      return new Response(
+        JSON.stringify({ success: false, error: `Không tìm thấy tựa game sắp ra mắt khớp với "${rawTarget}".` }),
+        { status: 404, headers: CORS_HEADERS }
+      );
+    }
+
+    // Lưu vào cơ sở dữ liệu D1
+    if (env.DB) {
+      await setSettingD1(env.DB, 'wcg_admin_upcoming_games_v1', currentUpcomingGames);
+    }
+
+    return new Response(
+      JSON.stringify({
+        success: true,
+        message: `Đã cập nhật icon chuẩn xác cho tựa game "${updatedGame.name}".`,
+        game: {
+          id: updatedGame.id,
+          name: updatedGame.name,
+          slug: updatedGame.slug,
+          iconUrl: updatedGame.iconUrl,
+          icon_url: updatedGame.icon_url,
+          status: updatedGame.status,
+        },
+      }),
+      { headers: CORS_HEADERS }
+    );
+  }
+
   // ACTION 2: APPROVE_ALL (Duyệt toàn bộ hàng chờ)
   if (action === 'approve_all') {
     let approvedCount = 0;
@@ -939,8 +1088,35 @@ export async function onRequestPost(context: { request: Request; env: Env }): Pr
     const hasPlatform = Boolean(raw.platform && String(raw.platform).trim());
     const rawPlatform = hasPlatform ? String(raw.platform).trim() : '';
 
-    const hasIcon = Boolean(raw.iconUrl || raw.icon_url || raw.icon);
-    const rawIcon = hasIcon ? String(raw.iconUrl || raw.icon_url || raw.icon).trim() : '';
+    const rawIcon = extractIconUrl(raw, slug) || extractIconUrl(payload, slug);
+    const hasExplicitIcon = Boolean(
+      raw.iconUrl ||
+      raw.icon_url ||
+      raw.icon ||
+      raw.gameIcon ||
+      raw.game_icon ||
+      raw.avatar ||
+      raw.avatarUrl ||
+      raw.avatar_url ||
+      raw.imageUrl ||
+      raw.image_url ||
+      raw.image ||
+      raw.logo ||
+      raw.logoUrl ||
+      raw.logo_url ||
+      raw.thumbnail ||
+      raw.thumb ||
+      raw.cover ||
+      raw.cover_image ||
+      raw.cover_image_url ||
+      raw.localIconPath ||
+      raw.iconPath ||
+      payload?.iconUrl ||
+      payload?.icon_url ||
+      payload?.icon ||
+      payload?.gameIcon ||
+      payload?.imageUrl
+    );
 
     const hasBanner = Boolean(raw.bannerUrl || raw.banner_url || raw.banner);
     const rawBanner = hasBanner ? String(raw.bannerUrl || raw.banner_url || raw.banner).trim() : '';
@@ -1022,8 +1198,16 @@ export async function onRequestPost(context: { request: Request; env: Env }): Pr
       if (hasPlatform && rawPlatform) {
         existing.platform = rawPlatform;
       }
-      if (hasIcon && rawIcon) {
+      if (hasExplicitIcon && rawIcon) {
         existing.iconUrl = rawIcon;
+        existing.icon_url = rawIcon;
+      } else {
+        if (!existing.iconUrl && existing.icon_url) existing.iconUrl = existing.icon_url;
+        if (!existing.icon_url && existing.iconUrl) existing.icon_url = existing.iconUrl;
+        if (!existing.iconUrl && !existing.icon_url) {
+          existing.iconUrl = `/game_icons/${slug}.webp`;
+          existing.icon_url = `/game_icons/${slug}.webp`;
+        }
       }
       if (hasBanner && rawBanner) {
         existing.bannerUrl = rawBanner;
@@ -1092,7 +1276,8 @@ export async function onRequestPost(context: { request: Request; env: Env }): Pr
         releaseDate: hasRelDate && rawRelDate ? rawRelDate : nowIso,
         category: hasCategory && rawCategory ? rawCategory : 'Game Mới',
         platform: hasPlatform && rawPlatform ? rawPlatform : 'Android, iOS, PC',
-        iconUrl: hasIcon && rawIcon ? rawIcon : `/game_icons/${slug}.webp`,
+        iconUrl: rawIcon || `/game_icons/${slug}.webp`,
+        icon_url: rawIcon || `/game_icons/${slug}.webp`,
         bannerUrl: hasBanner && rawBanner ? rawBanner : undefined,
         description: hasDescription && rawDescription ? rawDescription : `Thông tin ngày mở server và giftcode tân thủ tựa game ${name}.`,
         instructions: hasInstructions && rawInstructions ? String(rawInstructions).trim() : undefined,

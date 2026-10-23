@@ -9,6 +9,36 @@ Mỗi mục sửa lỗi đều ghi nhận **Nguyên nhân gốc rễ (Root Cause
 
 ## [2026-10-23]
 
+### 160. Nâng Cấp Toàn Diện Cơ Chế Nạp & Đồng Bộ Icon Cho Game Sắp Ra Mắt Qua Cổng API (Upcoming Games API Icon Ingest & Update Normalization)
+- **Mô tả & Yêu cầu người dùng**:
+  - *"hiện tại đường API không thể đẩy icon cho game lên ở mục game sắp ra mắt, bạn hãy đảm bảo giúp tôi từ bây giờ icone được nạp đầy đủ chính xác qua API."*
+- **Nguyên nhân gốc rễ (Root Cause)**:
+  - Trong `functions/api/crawler/ingest-upcoming-games.ts`, logic nhận diện icon chỉ kiểm tra 3 trường hạn hẹp (`iconUrl`, `icon_url`, `icon`). Khi các bot crawler hoặc trợ lý Pine / Muse gửi payload chứa các biến thể phổ biến (`gameIcon`, `game_icon`, `avatar`, `avatarUrl`, `imageUrl`, `logo`, `cover`, `localIconPath`...), API không nhận diện được và bỏ qua trường icon.
+  - Thiếu `action: "update_icon"` độc lập để bot có thể cập nhật nhanh icon của game mà không cần gửi toàn bộ payload game.
+  - Action `set_display_list` / `save_all` lưu thẳng mảng games vào D1 mà không qua chuẩn hóa tên trường icon.
+  - Thiếu cơ chế đồng bộ song song cả 2 trường `iconUrl` và `icon_url`, dẫn đến việc một số module frontend hoặc admin truy cập thuộc tính khác nhau bị thiếu ảnh.
+- **Giải pháp đã triển khai (Solution)**:
+  - `functions/api/crawler/ingest-upcoming-games.ts`:
+    - **Hàm Chuẩn Hóa `extractIconUrl` Toàn Diện**: Nhận diện tất cả các biến thể: `iconUrl`, `icon_url`, `icon`, `gameIcon`, `game_icon`, `avatar`, `avatarUrl`, `imageUrl`, `image_url`, `logo`, `thumbnail`, `cover`, `cover_image`, `localIconPath`, `iconPath`... Chuẩn hóa giao thức `https://`, đường dẫn tuyệt đối hoặc tên file.
+    - **Bổ Sung ACTION `update_icon` / `set_icon` / `change_icon`**: Cho phép Pine Bot, Muse Bot hoặc crawler cập nhật icon trực tiếp cho bất kỳ tựa game nào theo `name`, `slug` hoặc `id` và lưu ngay vào D1.
+    - **Đồng Bộ Song Song `iconUrl` và `icon_url`**: Đảm bảo cả hai trường luôn được gán đồng thời khi ingest, update hoặc get danh sách game, tương thích 100% với cả Web Khách và Web Quản Trị.
+    - Chuẩn hóa icon trong `ACTION 0A: set_display_list` và `onRequestGet`.
+  - `src/components/UpcomingGamesBanner.tsx`, `AllUpcomingGamesModal.tsx`, `PinnedGamesBar.tsx`:
+    - Cập nhật logic hiển thị fallback linh hoạt: `game.iconUrl || game.icon_url || '/game_icons/${game.slug}.webp'`.
+  - `src/admin/modules/UpcomingGamesSection.tsx`:
+    - Bổ sung tài liệu API hướng dẫn action `update_icon` và mẫu test trực tiếp trong Test Console.
+- **Files Modified**:
+  - `functions/api/crawler/ingest-upcoming-games.ts`
+  - `src/admin/modules/UpcomingGamesSection.tsx`
+  - `src/components/UpcomingGamesBanner.tsx`
+  - `src/components/AllUpcomingGamesModal.tsx`
+  - `src/components/PinnedGamesBar.tsx`
+  - `CHANGELOG.md`
+- **Verification**:
+  - `npm run build` thành công 100%, 0 lỗi TypeScript, 0 test artifact.
+
+---
+
 ### 159. Chia Trung Tâm Thông Báo Thành 2 Tab Riêng Biệt Trên Toàn Bộ Thiết Bị, Mặc Định Hiện Bảng Bên Trái (Two Dedicated Notification Center Tabs & Left Tab Default View)
 - **Mô tả & Yêu cầu người dùng**:
   - *"Chia mục thông báo này thành 2 tab riêng biệt giúp tôi, khi ấn vào cái nào thì hiện ra cái đó, mặc định hiện bảng bên trái."*

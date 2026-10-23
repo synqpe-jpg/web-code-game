@@ -1374,6 +1374,12 @@ export const UpcomingGamesSection: React.FC<UpcomingGamesSectionProps> = ({ onSh
                   </div>
                 </div>
                 <div className="p-2.5 rounded-lg bg-card border border-border">
+                  <div className="font-bold text-blue-400 font-mono">action: "update_icon"</div>
+                  <div className="text-slate-400 mt-1">
+                    Nạp và cập nhật icon chính xác cho game qua <code className="text-blue-300">iconUrl</code>, <code className="text-blue-300">icon</code> hoặc <code className="text-blue-300">gameIcon</code> theo <code className="text-blue-300">name</code> / <code className="text-blue-300">slug</code>.
+                  </div>
+                </div>
+                <div className="p-2.5 rounded-lg bg-card border border-border">
                   <div className="font-bold text-teal-400 font-mono">action: "approve"</div>
                   <div className="text-slate-400 mt-1">
                     Duyệt game từ hàng chờ đưa lên Web Khách theo <code className="text-teal-300">id</code>, <code className="text-teal-300">slug</code> hoặc <code className="text-teal-300">name</code> (có cờ <code className="text-amber-300">pinToTop: true</code>).
@@ -1452,6 +1458,14 @@ export const UpcomingGamesSection: React.FC<UpcomingGamesSectionProps> = ({ onSh
                           action: 'reorder',
                           orderedIds: ['ug_strinova_vn', 'ug_tien_gioi', 'ug_hiep_khach_hanh', 'ug_monster_hunter_outlanders']
                         }, null, 2));
+                      } else if (val === 'update_icon') {
+                        setTestPayloadJson(JSON.stringify({
+                          apiKey: rawKey,
+                          botName: 'Trợ lý Pine',
+                          action: 'update_icon',
+                          name: 'Hiệp Khách Hành',
+                          iconUrl: '/game_icons/hiep-khach-hanh.webp'
+                        }, null, 2));
                       }
                     }}
                     className="bg-slate-900 border border-border rounded-lg px-2 py-1 text-[11px] text-slate-300 focus:outline-none"
@@ -1461,6 +1475,7 @@ export const UpcomingGamesSection: React.FC<UpcomingGamesSectionProps> = ({ onSh
                     <option value="set_status_upcoming">Mẫu 2: Set Status (Duyệt Lên Web)</option>
                     <option value="clear_codes">Mẫu 3: Clear Codes (Xóa Mã Code Rác)</option>
                     <option value="reorder">Mẫu 4: Reorder (Sắp Xếp Top 6 Banner)</option>
+                    <option value="update_icon">Mẫu 5: Update Icon (Cập Nhật Logo Chuẩn)</option>
                   </select>
 
                   <button

@@ -272,7 +272,7 @@ export const AllUpcomingGamesModal: React.FC<AllUpcomingGamesModalProps> = ({
               {filteredGames.map((game) => {
                 const isSaved = bookmarkedSet.has((game.slug || game.id).toLowerCase());
                 const time = calculateTimeRemaining(game.releaseDate);
-                const iconSrc = game.iconUrl || `/game_icons/${game.slug}.webp`;
+                const iconSrc = game.iconUrl || (game as any).icon_url || `/game_icons/${game.slug}.webp`;
                 const expectedCodes = game.expectedCodes || ['TANTHU2026', 'VIP999', 'OPENBETA'];
 
                 return (

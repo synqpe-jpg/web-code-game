@@ -153,7 +153,7 @@ export const UpcomingGamesBanner: React.FC<UpcomingGamesBannerProps> = ({
         {activeUpcoming.map((game) => {
           const isSaved = bookmarkedSet.has((game.slug || game.id).toLowerCase());
           const time = calculateTimeRemaining(game.releaseDate);
-          const iconSrc = game.iconUrl || `/game_icons/${game.slug}.webp`;
+          const iconSrc = game.iconUrl || (game as any).icon_url || `/game_icons/${game.slug}.webp`;
           const expectedCount = game.expectedCodes?.length || 4;
 
           return (

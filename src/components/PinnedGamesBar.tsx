@@ -195,7 +195,7 @@ export const PinnedGamesBar: React.FC<PinnedGamesBarProps> = ({
 
         {/* 2. Subscribed Upcoming Games */}
         {subscribedUpcoming.map((ug) => {
-          const iconSrc = ug.iconUrl || `/game_icons/${ug.slug}.webp`;
+          const iconSrc = ug.iconUrl || (ug as any).icon_url || `/game_icons/${ug.slug}.webp`;
           const expectedCount = ug.expectedCodes?.length || 4;
 
           return (
