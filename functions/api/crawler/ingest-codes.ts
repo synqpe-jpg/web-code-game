@@ -609,8 +609,8 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
       await setSettingD1(env.DB, 'wcg_admin_games_v5', activeGames);
       await setSettingD1(env.DB, 'wcg_crawler_pending_games_v1', pendingGames);
 
-      await invalidateGamesCatalogCache(env);
-      await invalidateCatalogEdgeCache();
+      invalidateGamesCatalogCache();
+      await invalidateCatalogEdgeCache(context as any, request, env).catch(() => {});
 
       return new Response(
         JSON.stringify({
@@ -819,8 +819,8 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
           }
           await setSettingD1(env.DB, 'wcg_admin_games_v5', activeGamesList);
 
-          await invalidateGamesCatalogCache(env);
-          await invalidateCatalogEdgeCache();
+          invalidateGamesCatalogCache();
+          await invalidateCatalogEdgeCache(context as any, request, env).catch(() => {});
         }
 
         return new Response(
@@ -897,8 +897,8 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
 
       if (removedCount > 0) {
         await setSettingD1(env.DB, 'wcg_admin_custom_free_codes_v1', cleanCustomCodes);
-        await invalidateGamesCatalogCache(env);
-        await invalidateCatalogEdgeCache();
+        invalidateGamesCatalogCache();
+        await invalidateCatalogEdgeCache(context as any, request, env).catch(() => {});
       }
 
       return new Response(
