@@ -500,7 +500,7 @@ export const SearchAutocomplete: React.FC<SearchAutocompleteProps> = ({
   return (
     <div
       ref={containerRef}
-      className={`relative w-full ${className}`}
+      className={`relative w-full ${className} ${isMobile ? 'touch-manipulation' : ''}`}
       onClick={() => {
         if (isMobile) handleOpenMobileSearch();
       }}
@@ -531,8 +531,9 @@ export const SearchAutocomplete: React.FC<SearchAutocompleteProps> = ({
               setIsOpen(true);
             }
           }}
-          onClick={() => {
+          onClick={(e) => {
             if (isMobile) {
+              e.stopPropagation();
               handleOpenMobileSearch();
             } else {
               setIsOpen(true);
@@ -542,7 +543,7 @@ export const SearchAutocomplete: React.FC<SearchAutocompleteProps> = ({
           autoFocus={autoFocus && !isMobile}
           placeholder={placeholder || t.hero.searchPlaceholder}
           className={`w-full border border-border focus:border-primary focus:ring-2 focus:ring-primary/40 text-foreground placeholder-slate-400 shadow-xl transition-all outline-none bg-card hover:bg-card-hover ${
-            isMobile ? 'cursor-pointer select-none' : ''
+            isMobile ? 'cursor-pointer select-none touch-manipulation' : ''
           } ${
             isFloating
               ? 'py-2 sm:py-2.5 text-xs sm:text-sm pl-9 sm:pl-10 pr-16 sm:pr-20 rounded-xl'

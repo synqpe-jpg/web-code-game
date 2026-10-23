@@ -7,6 +7,33 @@ Mỗi mục sửa lỗi đều ghi nhận **Nguyên nhân gốc rễ (Root Cause
 
 ## [2026-10-23]
 
+### 171. Khắc Phục Lỗi Không Thể Ấn Vào Thanh Tìm Kiếm Dính (Sticky Search Bar) Khi Vuốt Màn Hình Trên Mobile: Bảo Toàn Lifecycle Của Component & Portal Mobile Search (Sticky Search Unmount Lifecycle Fix)
+- **Mô tả & Yêu cầu người dùng**:
+  - *"Trên giao diện mobile, khi vuốt xuống, tôi không thể ấn vào thanh tìm kiếm để tìm game."*
+- **Nguyên nhân gốc rễ (Root Cause & Lifecycle Collision)**:
+  - Trong `src/App.tsx`, thanh tìm kiếm dính (`Sticky Floating Search Bar`) được render theo điều kiện:
+    `{currentTab === 'catalog' && !isMobileSearchActive && (`.
+  - Khi người dùng chạm (tap) vào thanh tìm kiếm dính trên mobile, component `SearchAutocomplete` kích hoạt `handleOpenMobileSearch()` -> phát sự kiện `wcg_mobile_search_toggled` với `{ isOpen: true }`.
+  - `App.tsx` lắng nghe sự kiện này và cập nhật state `isMobileSearchActive = true`.
+  - Do điều kiện `!isMobileSearchActive` trở thành `false`, React lập tức unmount toàn bộ container chứa `<SearchAutocomplete isFloating={true} />`.
+  - Vì modal tìm kiếm toàn màn hình trên mobile được render dưới dạng `createPortal` ngay từ bên trong component `SearchAutocomplete`, việc unmount `SearchAutocomplete` đã lập tức phá hủy (destroy) portal đó trong 0ms.
+  - Đồng thời, hook cleanup unmount của `SearchAutocomplete` lại phát tiếp sự kiện `wcg_mobile_search_toggled` với `{ isOpen: false }`. Kết quả là người dùng bấm vào thanh tìm kiếm nhưng giao diện tìm kiếm không bao giờ mở lên được.
+- **Giải pháp đã triển khai (Solution)**:
+  1. **Bảo Toàn Lifecycle Của SearchAutocomplete Trong Tab Catalog**:
+     - Trong `src/App.tsx`, loại bỏ điều kiện `!isMobileSearchActive` khỏi câu lệnh render component:
+       `{currentTab === 'catalog' && (`.
+     - Ẩn/hiện thanh tìm kiếm nền bằng CSS classes mượt mà thay vì unmount React node:
+       `isStickySearchVisible && !isMobileSearchActive ? 'translate-y-0 opacity-100 pointer-events-auto' : '-translate-y-4 opacity-0 pointer-events-none'`.
+     - Giúp portal tìm kiếm di động (`z-[100]`) luôn được duy trì toàn vẹn trong DOM, phản hồi tức thì 0ms khi chạm.
+  2. **Tối Ưu Hóa Tương Tác Cảm Ứng (Touch Ergonomics)**:
+     - Thêm lớp CSS `touch-manipulation` vào container và ô input tìm kiếm để loại bỏ độ trễ tap 300ms trên trình duyệt mobile.
+     - Bổ sung `e.stopPropagation()` trong sự kiện `onClick` của input để ngăn chặn việc kích hoạt kép sự kiện mở tìm kiếm.
+- **Files Modified**:
+  - `src/App.tsx`
+  - `src/components/SearchAutocomplete.tsx`
+
+---
+
 ### 170. Sửa Dứt Điểm 4 Lỗi Cốt Lõi Tầng Gốc Của API Crawler Ingestion & Quản Lý Hàng Chờ: Chống Race Condition Bằng Atomic Delta Re-Fetch, Chuẩn Hóa Codes Count Đa Tầng, Lọc 100% Ứng Dụng Rác & Khử Trùng Thông Minh (Authoritative Queue Sync, Concurrency Guard & Multi-Tier Deduplication)
 - **Mô tả & Yêu cầu người dùng**:
   - *"Tối 23/10/2026, bot Muse xử lý toàn bộ 96 game trong hàng chờ qua API crawler (nạp code + publish_game). Quá trình làm lộ 4 vấn đề ở luồng game chờ cần bạn sửa ở tầng gốc: (1) Ingest báo autoPublished = true nhưng game không lên web (trả 404) và vẫn nằm trong list_pending_games; (2) Sau publish_game, một số game lên sóng với 0 mã dù trước đó ingest báo đã nạp; (3) Phản hồi publish_game trả snapshot cũ (codes_count: 0); (4) Hàng chờ lẫn 15 bản ghi trùng với game live và 5 ứng dụng không phải game."*

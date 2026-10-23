@@ -10,6 +10,29 @@
 
 ## 1. DANH MỤC LỖI & CÁC BẪY ĐÃ THẤT BẠI (DO NOT REPEAT)
 
+### ISSUE-097: Bẫy Unmount Component Chứa createPortal Phá Hủy Giao Diện Mobile Search Trong 0ms (Sticky Search Portal Unmount Collision Trap)
+- **Triệu chứng**:
+  - Trên thiết bị di động (màn hình < 768px), khi người dùng cuộn xuống danh mục game ở trang chủ, thanh tìm kiếm dính (sticky floating search bar) xuất hiện dưới header.
+  - Tuy nhiên, khi chạm/ấn vào thanh tìm kiếm này, không có gì xảy ra, hoặc modal tìm kiếm chỉ chớp nháy rồi biến mất ngay lập tức, không thể nhập từ khóa để tìm game.
+- **Nguyên nhân gốc rễ**:
+  1. Trong `src/App.tsx`, thanh tìm kiếm dính được bọc trong điều kiện:
+     `{currentTab === 'catalog' && !isMobileSearchActive && (`.
+  2. Khi người dùng bấm vào thanh tìm kiếm, component `SearchAutocomplete` gọi `handleOpenMobileSearch()` và phát CustomEvent `wcg_mobile_search_toggled` với `{ isOpen: true }`.
+  3. `App.tsx` nhận sự kiện và set `isMobileSearchActive = true`.
+  4. Điều này khiến điều kiện `!isMobileSearchActive` trở thành `false`, React unmount toàn bộ `SearchAutocomplete`.
+  5. Vì modal tìm kiếm toàn màn hình trên mobile được render bằng `createPortal` từ chính component `SearchAutocomplete`, việc unmount đã tiêu diệt portal đó ngay tức khắc.
+  6. Thêm vào đó, cleanup effect của `SearchAutocomplete` khi unmount lại phát `wcg_mobile_search_toggled` với `{ isOpen: false }`, khiến state quay về false, tạo ra một vòng lặp huỷ hoại trải nghiệm người dùng.
+- **Giải pháp chuẩn đã kiểm chứng**:
+  - Không unmount component `SearchAutocomplete` khi mở tìm kiếm di động. Giữ component được render chừng nào `currentTab === 'catalog'`.
+  - Ẩn/hiện thanh tìm kiếm nổi bằng Tailwind CSS classes:
+    `isStickySearchVisible && !isMobileSearchActive ? 'translate-y-0 opacity-100 pointer-events-auto' : '-translate-y-4 opacity-0 pointer-events-none'`.
+  - Áp dụng `touch-manipulation` để loại bỏ độ trễ tap 300ms trên mobile touch screens.
+- ⛔ **CÁCH SỬA ĐÃ THẤT BẠI - TUYỆT ĐỐI KHÔNG LẶP LẠI**:
+  - ❌ *Không dùng state con (như isMobileSearchActive) để conditional render unmount component cha đang nắm giữ portal của chính modal đó*: Khi modal mở, component cha bị unmount kéo theo portal bị destroy ngay lập tức.
+  - ❌ *Không đặt setIsStickySearchVisible(false) vội vã khi isMobileSearchActive = true*: Khi đóng modal tìm kiếm, người dùng vẫn đang ở vị trí cuộn bên dưới; thanh sticky cần tự động hiện lại nguyên vẹn mà không cần người dùng phải cuộn lại trang.
+
+---
+
 ### ISSUE-096: Bẫy Race Condition Ghi Đè Snapshot Stale Khi Ingest Đồng Thời Hàng Chờ, Bẫy Copy codes_count = 0 Trong publish_game, Bẫy Khớp Substring Chuỗi Ngắn (<4 ký tự) & Bẫy Vượt Giới Hạn CPU Cloudflare Worker Error 1102 (Concurrent Ingest Overwrite, Short Substring Trap & Edge Worker CPU Limit)
 - **Triệu chứng**:
   - Khi bot Muse hoặc quy trình tự động nạp giftcode hàng loạt qua API `POST /api/crawler/ingest-codes`, API trả về `added > 0` và `autoPublished = true`, nhưng sau đó gọi `GET /api/games?slug=...` lại nhận HTTP 404 và game vẫn nằm trong hàng chờ `list_pending_games` (xảy ra trên 8 game: `mini-world-royale`, `gunbound-legend-vua-toa-do`, `vo-lam-truyen-ky`, `srom-huyen-thoai-lu-khach`, `mobile-legends-adventure`, `league-of-masters-auto-chess`, `thien-long-bat-bo-2`, `lineage2m`).

@@ -249,9 +249,6 @@ export const App: React.FC = () => {
     const handleMobileSearchToggle = (e: any) => {
       const active = Boolean(e?.detail?.isOpen);
       setIsMobileSearchActive(active);
-      if (active) {
-        setIsStickySearchVisible(false);
-      }
     };
     window.addEventListener('wcg_mobile_search_toggled', handleMobileSearchToggle);
 
@@ -263,11 +260,6 @@ export const App: React.FC = () => {
     }
 
     const checkStickyVisibility = () => {
-      if (isMobileSearchActive) {
-        setIsStickySearchVisible(false);
-        return;
-      }
-
       const heroSearchEl = document.getElementById('hero-search-container');
       if (!heroSearchEl) {
         setIsStickySearchVisible(false);
@@ -296,7 +288,7 @@ export const App: React.FC = () => {
       window.removeEventListener('scroll', checkStickyVisibility);
       window.removeEventListener('resize', checkStickyVisibility);
     };
-  }, [currentTab, isMobileSearchActive]);
+  }, [currentTab]);
 
   // Toast Helper
   const showToast = useCallback(
@@ -1328,10 +1320,10 @@ export const App: React.FC = () => {
         />
 
         {/* Sticky Floating Search Bar for Catalog on Scroll */}
-        {currentTab === 'catalog' && !isMobileSearchActive && (
+        {currentTab === 'catalog' && (
           <div
             className={`fixed top-14 sm:top-[72px] left-0 right-0 z-40 bg-background/95 backdrop-blur-xl border-b border-border shadow-xl shadow-black/25 py-2 sm:py-2.5 transition-all duration-300 ease-in-out ${
-              isStickySearchVisible
+              isStickySearchVisible && !isMobileSearchActive
                 ? 'translate-y-0 opacity-100 pointer-events-auto'
                 : '-translate-y-4 opacity-0 pointer-events-none'
             }`}
