@@ -106,8 +106,17 @@ async function runPrerender() {
     // Replace <div id="root"> content and preserve all scripts before </body>
     const rootStartIdx = html.indexOf('<div id="root">');
     const bodyEndIdx = html.indexOf('</body>');
+    const bodyStartIdx = html.indexOf('<body');
+    let preRootHtml = html.slice(0, rootStartIdx);
+    if (bodyStartIdx !== -1) {
+      const bodyTagEndIdx = html.indexOf('>', bodyStartIdx);
+      if (bodyTagEndIdx !== -1 && rootStartIdx > bodyTagEndIdx) {
+        // Strip #app-preloader from prerendered static HTML so the static content paints at 0ms
+        preRootHtml = html.slice(0, bodyTagEndIdx + 1) + '\n    ';
+      }
+    }
     if (rootStartIdx !== -1 && bodyEndIdx !== -1) {
-      html = html.slice(0, rootStartIdx) + `<div id="root">${bodyContent}</div>\n  ${scriptTags}\n` + html.slice(bodyEndIdx);
+      html = preRootHtml + `<div id="root">${bodyContent}</div>\n  ${scriptTags}\n` + html.slice(bodyEndIdx);
     } else {
       html = html.replace(/<div id="root">[\s\S]*<\/div>/i, `<div id="root">${bodyContent}</div>\n  ${scriptTags}`);
     }
@@ -198,11 +207,12 @@ async function runPrerender() {
         </div>
 
         <!-- Navbar Header -->
-        <header class="sticky top-0 z-40 w-full border-b border-gray-800/80 bg-dark-950/85 backdrop-blur-md px-4 sm:px-8 py-3.5 flex items-center justify-between">
-          <a href="/" class="flex items-center space-x-2.5 text-brand-400 font-extrabold text-lg sm:text-xl">
-            <span>🎮 CodeGame.shop</span>
+        <header class="site-header sticky top-0 z-40 w-full border-b border-gray-800/80 bg-[#0B0D19]/95 backdrop-blur-md px-3 sm:px-6 lg:px-8 py-2.5 sm:py-3.5 flex items-center justify-between">
+          <a href="/" class="header-logo flex items-center gap-2 text-brand-400 font-extrabold text-base sm:text-lg">
+            <img src="/logo.png" alt="CodeGame.shop" width="32" height="32" class="w-8 h-8 rounded-lg object-cover" />
+            <span class="text-white font-bold">CodeGame.Shop</span>
           </a>
-          <nav class="flex items-center space-x-3 sm:space-x-6 text-xs sm:text-sm font-bold text-gray-300">
+          <nav class="header-nav-tabs hidden md:flex items-center space-x-3 sm:space-x-6 text-xs sm:text-sm font-bold text-gray-300">
             <a href="/" class="text-brand-400 font-black">Mã Miễn Phí</a>
             <a href="/giveaways" class="hover:text-white transition-colors">Đợt Phát Code</a>
             <a href="/store" class="hover:text-white transition-colors">Chợ Code VIP</a>
@@ -210,16 +220,16 @@ async function runPrerender() {
         </header>
 
         <!-- Hero Section -->
-        <section class="py-8 sm:py-14 px-4 sm:px-6 lg:px-8 text-center bg-gradient-to-b from-[#dcf0df] to-[#e8f5e9] text-emerald-950 border-b border-[#c8e6c9]">
-          <div class="max-w-4xl mx-auto space-y-4">
-            <div class="inline-block px-3.5 py-1 rounded-full bg-emerald-800/10 text-emerald-900 text-xs font-bold border border-emerald-600/30">
+        <section class="critical-hero-banner py-6 sm:py-10 px-4 sm:px-6 lg:px-8 text-center bg-[#0e1222] text-gray-100 border-b border-gray-800/80">
+          <div class="max-w-4xl mx-auto space-y-3">
+            <div class="inline-block px-3 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 text-xs font-bold border border-emerald-500/30">
               ✨ Cập nhật liên tục 24/7 từ các Nhà phát hành Game
             </div>
-            <h1 class="text-2xl sm:text-4xl md:text-5xl font-black tracking-tight text-emerald-950">
+            <h1 class="text-xl sm:text-3xl md:text-4xl font-black tracking-tight text-white">
               Kho Giftcode Game Mobile & Webgame Bản Quyền G1 Mới Nhất 2026
             </h1>
-            <p class="text-xs sm:text-base text-emerald-900/80 max-w-2xl mx-auto font-medium">
-              Tìm kiếm và nhận mã thưởng game mới nhất. Cộng đồng bình chọn tỷ lệ hoạt động trực tiếp giúp bạn không mất thời gian thử code hỏng.
+            <p class="text-xs sm:text-sm text-gray-400 max-w-2xl mx-auto font-normal">
+              Tìm kiếm và nhận mã thưởng game mới nhất. Đối chiếu minh bạch Giấy phép G1 từ Cục PTTH&TTĐT.
             </p>
           </div>
         </section>
@@ -234,14 +244,18 @@ async function runPrerender() {
             <span>Danh Sách 188+ Tựa Game Bản Quyền Có Giftcode Hoạt Động</span>
           </h2>
 
-          <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-3 sm:gap-4">
+          <div class="critical-cards-grid grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-2.5 sm:gap-4">
             ${homeTopGames
               .map(
                 (g) => `
-              <a href="/game/${escapeHtml(g.slug)}" class="flex flex-col bg-dark-900 hover:bg-dark-850 p-3 rounded-2xl border border-gray-800 hover:border-brand-500/40 transition-all text-left group">
-                <img src="${escapeHtml(g.icon_url || g.cover_image_url || `/game_icons/${g.slug}.webp`)}" alt="${escapeHtml(g.name)}" loading="lazy" class="w-full aspect-square rounded-xl object-cover border border-gray-700/60 mb-2.5">
-                <h3 class="font-bold text-xs sm:text-sm text-gray-100 group-hover:text-brand-400 line-clamp-1">${escapeHtml(g.name)}</h3>
-                <span class="text-[11px] text-gray-400 truncate mt-0.5">${escapeHtml(g.publisher || 'NPH Việt Nam')}</span>
+              <a href="/game/${escapeHtml(g.slug)}" class="critical-card-item flex flex-col justify-between bg-[#11162B] hover:bg-[#161D36] p-2.5 sm:p-3 rounded-xl sm:rounded-2xl border border-gray-800/80 hover:border-emerald-500/40 transition-all text-left group">
+                <div>
+                  <div class="flex items-start justify-between gap-1 mb-2">
+                    <img src="${escapeHtml(g.icon_url || `/game_icons/${g.slug}.webp`)}" alt="${escapeHtml(g.name)}" width="48" height="48" loading="lazy" decoding="async" class="w-10 h-10 sm:w-12 sm:h-12 rounded-xl object-cover border border-gray-700/60 shrink-0">
+                  </div>
+                  <h3 class="font-bold text-xs sm:text-sm text-gray-100 group-hover:text-emerald-400 line-clamp-1">${escapeHtml(g.name)}</h3>
+                  <span class="text-[11px] text-gray-400 truncate block mt-0.5">${escapeHtml(g.publisher || 'NPH Việt Nam')}</span>
+                </div>
                 <div class="mt-2 text-[10px] font-bold text-emerald-400 bg-emerald-950/60 px-2 py-0.5 rounded-md self-start border border-emerald-500/30">
                   🎁 ${g.free_codes_count || 10}+ Giftcode
                 </div>
@@ -308,11 +322,12 @@ async function runPrerender() {
     ],
     bodyContent: `
       <div class="min-h-screen flex flex-col bg-slate-950 text-slate-100">
-        <header class="sticky top-0 z-40 w-full border-b border-slate-800 bg-slate-900/90 backdrop-blur-md px-4 sm:px-8 py-3.5 flex items-center justify-between">
-          <a href="/" class="flex items-center space-x-2.5 text-blue-500 font-extrabold text-lg sm:text-xl">
-            <span>🎮 CodeGame.shop</span>
+        <header class="site-header sticky top-0 z-40 w-full border-b border-slate-800 bg-slate-900/90 backdrop-blur-md px-3 sm:px-6 lg:px-8 py-2.5 sm:py-3.5 flex items-center justify-between">
+          <a href="/" class="header-logo flex items-center gap-2 text-blue-500 font-extrabold text-base sm:text-lg">
+            <img src="/logo.png" alt="CodeGame.shop" width="32" height="32" class="w-8 h-8 rounded-lg object-cover" />
+            <span class="text-white font-bold">CodeGame.Shop</span>
           </a>
-          <nav class="flex items-center space-x-3 sm:space-x-6 text-xs sm:text-sm font-bold text-slate-300">
+          <nav class="header-nav-tabs hidden md:flex items-center space-x-3 sm:space-x-6 text-xs sm:text-sm font-bold text-slate-300">
             <a href="/" class="hover:text-blue-400 transition-colors">Tra Cứu Code</a>
             <a href="/news" class="text-blue-400 font-black">Tin Tức Game</a>
             <a href="/giveaways" class="hover:text-blue-400 transition-colors">Săn Giveaway</a>
@@ -406,11 +421,12 @@ async function runPrerender() {
       ],
       bodyContent: `
         <div class="min-h-screen flex flex-col bg-slate-950 text-slate-100 font-sans">
-          <header class="sticky top-0 z-40 w-full border-b border-slate-800 bg-slate-900/90 backdrop-blur-md px-4 sm:px-8 py-3.5 flex items-center justify-between">
-            <a href="/" class="flex items-center space-x-2.5 text-blue-500 font-extrabold text-lg sm:text-xl">
-              <span>🎮 CodeGame.shop</span>
+          <header class="site-header sticky top-0 z-40 w-full border-b border-slate-800 bg-slate-900/90 backdrop-blur-md px-3 sm:px-6 lg:px-8 py-2.5 sm:py-3.5 flex items-center justify-between">
+            <a href="/" class="header-logo flex items-center gap-2 text-blue-500 font-extrabold text-base sm:text-lg">
+              <img src="/logo.png" alt="CodeGame.shop" width="32" height="32" class="w-8 h-8 rounded-lg object-cover" />
+              <span class="text-white font-bold">CodeGame.Shop</span>
             </a>
-            <nav class="flex items-center space-x-3 sm:space-x-6 text-xs sm:text-sm font-bold text-slate-300">
+            <nav class="header-nav-tabs hidden md:flex items-center space-x-3 sm:space-x-6 text-xs sm:text-sm font-bold text-slate-300">
               <a href="/" class="hover:text-blue-400 transition-colors">Tra Cứu Code</a>
               <a href="/news" class="text-blue-400 font-black">Tin Tức Game</a>
               <a href="/giveaways" class="hover:text-blue-400 transition-colors">Săn Giveaway</a>
@@ -520,11 +536,12 @@ async function runPrerender() {
     ],
     bodyContent: `
       <div class="min-h-screen flex flex-col bg-dark-950 text-[#431407]" style="background-color: var(--bg-sourcecode, #FFF3E0);">
-        <header class="sticky top-0 z-40 w-full border-b border-orange-200 bg-white/90 backdrop-blur-md px-4 sm:px-8 py-3.5 flex items-center justify-between">
-          <a href="/" class="flex items-center space-x-2.5 text-orange-600 font-extrabold text-lg sm:text-xl">
-            <span>🎮 CodeGame.shop</span>
+        <header class="site-header sticky top-0 z-40 w-full border-b border-orange-200 bg-white/90 backdrop-blur-md px-3 sm:px-6 lg:px-8 py-2.5 sm:py-3.5 flex items-center justify-between">
+          <a href="/" class="header-logo flex items-center gap-2 text-orange-600 font-extrabold text-base sm:text-lg">
+            <img src="/logo.png" alt="CodeGame.shop" width="32" height="32" class="w-8 h-8 rounded-lg object-cover" />
+            <span class="font-bold">CodeGame.Shop</span>
           </a>
-          <nav class="flex items-center space-x-3 sm:space-x-6 text-xs sm:text-sm font-bold text-amber-900">
+          <nav class="header-nav-tabs hidden md:flex items-center space-x-3 sm:space-x-6 text-xs sm:text-sm font-bold text-amber-900">
             <a href="/" class="hover:text-orange-600 transition-colors">Mã Miễn Phí</a>
             <a href="/giveaways" class="text-orange-600 font-black">Đợt Phát Code</a>
             <a href="/store" class="hover:text-orange-600 transition-colors">Chợ Code VIP</a>
@@ -621,11 +638,12 @@ async function runPrerender() {
       ],
       bodyContent: `
         <div class="min-h-screen flex flex-col bg-dark-950 text-[#431407]" style="background-color: var(--bg-sourcecode, #FFF3E0);">
-          <header class="sticky top-0 z-40 w-full border-b border-orange-200 bg-white/90 backdrop-blur-md px-4 sm:px-8 py-3.5 flex items-center justify-between">
-            <a href="/" class="flex items-center space-x-2.5 text-orange-600 font-extrabold text-lg sm:text-xl">
-              <span>🎮 CodeGame.shop</span>
+          <header class="site-header sticky top-0 z-40 w-full border-b border-orange-200 bg-white/90 backdrop-blur-md px-3 sm:px-6 lg:px-8 py-2.5 sm:py-3.5 flex items-center justify-between">
+            <a href="/" class="header-logo flex items-center gap-2 text-orange-600 font-extrabold text-base sm:text-lg">
+              <img src="/logo.png" alt="CodeGame.shop" width="32" height="32" class="w-8 h-8 rounded-lg object-cover" />
+              <span class="font-bold">CodeGame.Shop</span>
             </a>
-            <nav class="flex items-center space-x-3 sm:space-x-6 text-xs sm:text-sm font-bold text-amber-900">
+            <nav class="header-nav-tabs hidden md:flex items-center space-x-3 sm:space-x-6 text-xs sm:text-sm font-bold text-amber-900">
               <a href="/" class="hover:text-orange-600 transition-colors">Mã Miễn Phí</a>
               <a href="/giveaways" class="text-orange-600 font-black">Đợt Phát Code</a>
               <a href="/store" class="hover:text-orange-600 transition-colors">Chợ Code VIP</a>
@@ -692,11 +710,12 @@ async function runPrerender() {
     ],
     bodyContent: `
       <div class="min-h-screen flex flex-col bg-[var(--bg-market,#E3F2FD)] text-[#082f49]">
-        <header class="sticky top-0 z-40 w-full border-b border-sky-200 bg-white/90 backdrop-blur-md px-4 sm:px-8 py-3.5 flex items-center justify-between">
-          <a href="/" class="flex items-center space-x-2.5 text-sky-600 font-extrabold text-lg sm:text-xl">
-            <span>🎮 CodeGame.shop</span>
+        <header class="site-header sticky top-0 z-40 w-full border-b border-sky-200 bg-white/90 backdrop-blur-md px-3 sm:px-6 lg:px-8 py-2.5 sm:py-3.5 flex items-center justify-between">
+          <a href="/" class="header-logo flex items-center gap-2 text-sky-600 font-extrabold text-base sm:text-lg">
+            <img src="/logo.png" alt="CodeGame.shop" width="32" height="32" class="w-8 h-8 rounded-lg object-cover" />
+            <span class="font-bold">CodeGame.Shop</span>
           </a>
-          <nav class="flex items-center space-x-3 sm:space-x-6 text-xs sm:text-sm font-bold text-sky-950">
+          <nav class="header-nav-tabs hidden md:flex items-center space-x-3 sm:space-x-6 text-xs sm:text-sm font-bold text-sky-950">
             <a href="/" class="hover:text-sky-600 transition-colors">Mã Miễn Phí</a>
             <a href="/giveaways" class="hover:text-sky-600 transition-colors">Đợt Phát Code</a>
             <a href="/store" class="text-sky-600 font-black">Chợ Code VIP</a>
@@ -871,11 +890,12 @@ async function runPrerender() {
         const isG1 = (game.trang_thai_gp && /G1\b/i.test(game.trang_thai_gp)) || /(QĐ|QD)-(BTTTT|PTTH&TTĐT|BVHTTDL)/i.test(game.so_giay_phep || '');
         return `
         <div class="min-h-screen flex flex-col bg-dark-950 text-gray-100">
-          <header class="sticky top-0 z-40 w-full border-b border-gray-800/80 bg-dark-950/85 backdrop-blur-md px-4 sm:px-8 py-3.5 flex items-center justify-between">
-            <a href="/" class="flex items-center space-x-2.5 text-brand-400 font-extrabold text-lg sm:text-xl">
-              <span>🎮 CodeGame.shop</span>
+          <header class="site-header sticky top-0 z-40 w-full border-b border-gray-800/80 bg-dark-950/85 backdrop-blur-md px-3 sm:px-6 lg:px-8 py-2.5 sm:py-3.5 flex items-center justify-between">
+            <a href="/" class="header-logo flex items-center gap-2 text-brand-400 font-extrabold text-base sm:text-lg">
+              <img src="/logo.png" alt="CodeGame.shop" width="32" height="32" class="w-8 h-8 rounded-lg object-cover" />
+              <span class="text-white font-bold">CodeGame.Shop</span>
             </a>
-            <nav class="flex items-center space-x-3 sm:space-x-6 text-xs sm:text-sm font-bold text-gray-300">
+            <nav class="header-nav-tabs hidden md:flex items-center space-x-3 sm:space-x-6 text-xs sm:text-sm font-bold text-gray-300">
               <a href="/" class="text-brand-400 font-black">Mã Miễn Phí</a>
               <a href="/giveaways" class="hover:text-white transition-colors">Đợt Phát Code</a>
               <a href="/store" class="hover:text-white transition-colors">Chợ Code VIP</a>

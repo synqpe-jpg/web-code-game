@@ -10,6 +10,31 @@
 
 ## 1. DANH MỤC LỖI & CÁC BẪY ĐÃ THẤT BẠI (DO NOT REPEAT)
 
+### ISSUE-100: Bẫy Phụ Thuộc CSS Ngoài Khiến Header Bị Vỡ Layout Trên Mạng Chậm, Bẫy Render-Blocking Font Google & Bẫy CLS Khi Tải Game Không Có Skeleton (FOUC Header Layout Shift, Blocking Web Fonts & Unbounded Catalog Sync Trap)
+- **Triệu chứng**:
+  - Khi mở `codegame.shop` trên thiết bị di động với kết nối mạng chậm (4.7–24 KB/s hoặc Slow 3G/4G), giao diện bị vỡ layout kéo dài trong nhiều giây: Chữ menu "Mã Miễn Phí / Đợt Phát Code / Chợ Code VIP" đè chồng lên logo "CodeGame.shop".
+  - Nội dung trang xếp lộn xộn rồi giật mạnh (CLS) khi file CSS ngoài `index-*.css` (202KB) tải xong.
+  - Spinner tải trang biến mất đột ngột làm danh sách game bung ra làm dịch chuyển toàn bộ trang web.
+- **Nguyên nhân gốc rễ**:
+  1. Header prerender trong static HTML có thẻ `<nav>` chứa 3 link điều hướng nhưng thiếu hoàn toàn class ẩn trên mobile (`hidden md:flex`).
+  2. Trang HTML ban đầu không có Critical CSS cho header, flexbox và kích thước responsive. Khi file CSS 202KB chưa về kịp, các thẻ block tự nhiên bung tràn và đè lên logo.
+  3. Thẻ `<link rel="stylesheet">` tải cùng lúc 11 mức đậm font Google Fonts (Inter + JetBrains Mono) tạo thành rào cản chặn hiển thị (render-blocking) từ bên thứ ba.
+  4. Client khách vãng lai bị kích hoạt tác vụ nền `syncWithCloudflareKV()` tải toàn bộ JSON blob 559 game qua `/api/sync`, bóp nghẹt đường truyền di động.
+  5. Thẻ game không có kích thước ảnh `width`/`height` cố định và không có component skeleton giữ chỗ khi đang fetch.
+- **Giải pháp chuẩn đã kiểm chứng**:
+  - Nhúng trực tiếp Critical CSS vào `<head>` của `index.html`: Khóa cứng chiều cao header 56px (mobile) / 72px (desktop), áp dụng `display: none !important;` cho `header nav` và `.header-nav-tabs` trên màn hình < 768px.
+  - Chuẩn hóa toàn bộ 7 mẫu header prerender trong `scripts/prerender.js` với `site-header` và `header-nav-tabs hidden md:flex`.
+  - Tải Google Fonts bất đồng bộ (`media="print" onload="this.media='all'"`) rút gọn 4 mức đậm Inter (400, 600, 700, 800) và fallback tức thì font hệ thống (`-apple-system, BlinkMacSystemFont, sans-serif`).
+  - Xây dựng component `GameCardSkeleton` và hiển thị `<GameGridSkeleton count={24} />` giữ chỗ chuẩn xác tỉ lệ aspect-ratio.
+  - Khai báo rõ ràng `width={48} height={48}` trên thẻ `<img>` của `GameCard.tsx`.
+  - Giới hạn client vãng lai: chỉ tải 4KB CMS branding qua `syncBrandingAndContentOnly()`, không tải blob 559 game.
+- ⛔ **CÁCH SỬA ĐÃ THẤT BẠI - TUYỆT ĐỐI KHÔNG LẶP LẠI**:
+  - ❌ *Không để `<nav>` trần không có class ẩn mobile trong prerender HTML*: Khi CSS chưa tải xong, thẻ `nav` sẽ render dạng block đè trực tiếp lên logo.
+  - ❌ *Không tải 11 mức đậm font Google Fonts qua thẻ link stylesheet đồng bộ*: Luôn dùng preload và tải async không chặn render.
+  - ❌ *Không cho khách vãng lai gọi `/api/sync` kéo toàn bộ catalog*: Luôn ưu tiên phân trang server qua `/api/games` 24 item/lần.
+
+---
+
 ### ISSUE-099: Bẫy Gán Đường Dẫn Icon Tĩnh Local Không Xác Minh Tồn Tại Đĩa & Thiếu Cơ Chế Dự Phòng Remote Store Edge Proxy (Speculative Local Icon Path & Missing Store Proxy Trap)
 - **Triệu chứng**:
   - Trên giao diện web công khai, một số thẻ game mới đăng (ví dụ `vo-lam-truyen-ky`, `gunbound-legend-vua-toa-do`, `the-gioi-nuoc-sinh-ton`) hiển thị avatar chữ cái thay vì logo thực tế của game.

@@ -445,6 +445,11 @@ class DataService {
           Boolean(sessionStorage.getItem('wcg_admin_session')) ||
           Boolean(localStorage.getItem('wcg_auth_token'))
         );
+        if (!isAdmin) {
+          // Non-admin public visitors: strictly avoid downloading full 559-games blob over slow mobile network
+          await this.syncBrandingAndContentOnly();
+          return;
+        }
         const shouldBypass = forceFresh && isAdmin;
         const fetchOpts: RequestInit = shouldBypass ? { headers: { 'Cache-Control': 'no-cache, no-store' } } : {};
         const url = shouldBypass ? '/api/sync?fresh=1' : '/api/sync';

@@ -13,10 +13,11 @@ import { SearchAutocomplete } from './components/SearchAutocomplete';
 import { ArrowUp } from 'lucide-react';
 import { Footer } from './components/Footer';
 import { ToastContainer, type ToastMessage } from './components/Toast';
-import { MarketingNotificationToast } from './components/MarketingNotificationToast';
-import { FloatingAnnouncement } from './components/FloatingAnnouncement';
+import { GameGridSkeleton } from './components/GameCardSkeleton';
 
 // P4: Code Splitting & Lazy Loaded Views / Modals to shrink initial JS bundle
+const FloatingAnnouncement = lazy(() => import('./components/FloatingAnnouncement').then((m) => ({ default: m.FloatingAnnouncement })));
+const MarketingNotificationToast = lazy(() => import('./components/MarketingNotificationToast').then((m) => ({ default: m.MarketingNotificationToast })));
 const AdminApp = lazy(() => import('./admin/AdminApp'));
 const NewsView = lazy(() => import('./components/NewsView').then((m) => ({ default: m.NewsView })));
 const GiveawaysView = lazy(() => import('./components/GiveawaysView').then((m) => ({ default: m.GiveawaysView })));
@@ -1440,11 +1441,8 @@ export const App: React.FC = () => {
                 />
 
                 {isLoading ? (
-                  <div className="py-20 flex flex-col items-center justify-center">
-                    <CyberLoader
-                      title="ĐANG TẢI DỮ LIỆU..."
-                      subText="Đang kết nối hơn 340+ tựa game từ Cloudflare Edge Network..."
-                    />
+                  <div className="py-2 w-full">
+                    <GameGridSkeleton count={24} viewMode="compact" />
                   </div>
                 ) : (
                   <GameGrid
@@ -1715,32 +1713,34 @@ export const App: React.FC = () => {
       </Suspense>
 
       {/* Social Proof Marketing Notifications Toast (Customer Web tabs) */}
-      <MarketingNotificationToast
-        onSelectGameSlug={handleSelectGameSlug}
-        onSelectProduct={handleSelectProductById}
-        onSelectUtility={(utilityId) => {
-          handleSelectTab('utilities');
-          setSelectedUtilityId(utilityId);
-          window.location.hash = `#utility=${utilityId}`;
-        }}
-        onSelectGiveaway={(giveawayId) => {
-          handleSelectTab('giveaways');
-          window.location.hash = `#gw=${giveawayId}`;
-        }}
-        onOpenWallet={() => setIsWalletModalOpen(true)}
-        onExploreClick={() => {
-          handleSelectTab('catalog');
-          const target = document.getElementById('game-catalog-section');
-          if (target) {
-            target.scrollIntoView({ behavior: 'smooth' });
-          }
-        }}
-      />
+      <Suspense fallback={null}>
+        <MarketingNotificationToast
+          onSelectGameSlug={handleSelectGameSlug}
+          onSelectProduct={handleSelectProductById}
+          onSelectUtility={(utilityId) => {
+            handleSelectTab('utilities');
+            setSelectedUtilityId(utilityId);
+            window.location.hash = `#utility=${utilityId}`;
+          }}
+          onSelectGiveaway={(giveawayId) => {
+            handleSelectTab('giveaways');
+            window.location.hash = `#gw=${giveawayId}`;
+          }}
+          onOpenWallet={() => setIsWalletModalOpen(true)}
+          onExploreClick={() => {
+            handleSelectTab('catalog');
+            const target = document.getElementById('game-catalog-section');
+            if (target) {
+              target.scrollIntoView({ behavior: 'smooth' });
+            }
+          }}
+        />
 
-      {/* Floating Announcement (Configured via Admin) */}
-      {currentTab !== 'admin' && (
-        <FloatingAnnouncement onNavigateTab={(tab) => handleSelectTab(tab as any)} />
-      )}
+        {/* Floating Announcement (Configured via Admin) */}
+        {currentTab !== 'admin' && (
+          <FloatingAnnouncement onNavigateTab={(tab) => handleSelectTab(tab as any)} />
+        )}
+      </Suspense>
 
       {/* Toast Notifications */}
       <ToastContainer toasts={toasts} onDismiss={dismissToast} maxVisible={3} />

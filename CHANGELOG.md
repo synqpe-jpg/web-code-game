@@ -7,6 +7,50 @@ Mỗi mục sửa lỗi đều ghi nhận **Nguyên nhân gốc rễ (Root Cause
 
 ## [2026-10-24]
 
+### 174. Triệt Tiêu Vỡ Layout (FOUC & CLS) Trên Mạng Chậm: Nhúng Critical CSS Header/Hero/Grid Vào HTML, Tải Font Bất Đồng Bộ, Skeleton Giữ Chỗ & Tách Chunk Qrcode (Critical CSS Inline Ingestion, Zero CLS Skeleton Grid, Async Font Swap & Batched Client Sync)
+- **Mô tả & Yêu cầu người dùng**:
+  - *"Sửa lỗi vỡ layout khi tải trang (FOUC/CLS trang chủ). Người dùng phản ánh: khi mở codegame.shop trên điện thoại (đặc biệt mạng chậm 4.7–24 KB/s), trang thường xuyên hiện trạng thái vỡ layout trong lúc tải — chữ menu 'Mã Miễn Phí / Đợt Phát Code / Chợ Code VIP' đè chồng lên logo CodeGame.shop, nội dung xếp lộn xộn, sau đó 'nhảy' về đúng giao diện khi tải xong. Việc 1: CSS tối thiểu cho phần trên màn hình (critical CSS) nhúng vào `<head>`, header khóa chiều cao cố định 56px/72px, menu không bao giờ đè lên logo. Việc 2: Khung xương (skeleton) giữ chỗ đúng kích thước thẻ thật, icon có width/height/aspect-ratio chống nhảy layout. Việc 3: Tách gói JS, tối ưu font Google Fonts 4 weights tải bất đồng bộ `media=\"print\" onload=\"this.media='all'\"`. Việc 4: Khách vãng lai chỉ nạp đợt đầu 24 game, không kéo 559 game. Việc 5: Xác nhận cache immutable và Brotli compression."*
+- **Nguyên nhân gốc rễ (Root Cause)**:
+  1. **Thiếu Critical CSS & Prerender Navbar Thiếu Thuộc Tính Ẩn Trên Mobile**:
+     - HTML trang chủ prerender tạo ra cấu trúc `<header>` với thẻ `<nav>` chứa 3 link điều hướng nhưng thiếu hoàn toàn class `hidden md:flex`.
+     - Đồng thời, trang chủ không có Critical CSS cho flexbox, chiều cao header và responsive display. Khi ở mạng di động chậm (4.7–24 KB/s), trình duyệt mất 10–40s để tải file CSS ngoài 202KB. Trong thời gian này, các phần tử block/inline của HTML thô render chồng lấn, chữ menu đè trực diện lên logo `CodeGame.shop`.
+  2. **Font Google Fonts Chặn Quá Trình Render (Render-blocking 11 Weights)**:
+     - Thẻ `<link rel="stylesheet">` tải cùng lúc 9 weights Inter và 4 weights JetBrains Mono qua kết nối chặn hiển thị đến bên thứ ba, khiến First Paint bị trì hoãn hàng giây trên mạng chậm.
+  3. **Khách Vãng Lai Bị Kích Hoạt Tải Toàn Bộ 559 Game Qua Background KV Sync**:
+     - `dataService.ts` hẹn giờ 1.2s gọi `syncWithCloudflareKV()` tải `/api/sync` chứa trọn vẹn 559 game, chiếm dụng toàn bộ băng thông hẹp của thiết bị di động.
+  4. **Thiếu Skeleton Giữ Chỗ & Thiếu Kích Thước Width/Height Cố Định Cho Ảnh Icon**:
+     - Khi React khởi tạo và bắt đầu nạp dữ liệu game, spinner toàn màn hình biến mất đột ngột và danh sách game bung ra làm dịch chuyển toàn bộ layout (CLS cao).
+- **Giải pháp đã triển khai (Solution)**:
+  1. **Việc 1 — Nhúng Critical CSS Vào `<head>` & Chuẩn Hóa Header/Hero/Grid Prerender**:
+     - Nhúng Critical CSS trực tiếp vào `<head>` của `index.html`: Khóa cứng chiều cao `header, .site-header` ở `56px` (mobile) và `72px` (desktop), kích hoạt flexbox và `overflow: hidden`.
+     - Đặt quy tắc bắt buộc: `header nav, .site-header nav, .header-nav-tabs { display: none !important; }` trên thiết bị < 768px; chỉ hiển thị flex ở `>= 768px`.
+     - Chuẩn hóa toàn bộ 7 vị trí prerender `<header>` trong `scripts/prerender.js`: bổ sung `site-header`, `<img src="/logo.png" width="32" height="32">` và `header-nav-tabs hidden md:flex`.
+     - Cập nhật Hero Section prerender sang dark theme `#0e1222`, loại bỏ nền xanh sáng cũ; định hình lưới `.critical-cards-grid` (2 cột trên mobile, 6 cột trên PC) và `.critical-card-item` với min-height chuẩn.
+  2. **Việc 2 — Khung Xương `GameCardSkeleton` & Khai Báo Kích Thước Ảnh Chống CLS**:
+     - Tạo component `src/components/GameCardSkeleton.tsx` với 3 chế độ: `compact` (min-height 148px mobile, 168px desktop), `grid` và `list`.
+     - Thay thế spinner `CyberLoader` bằng `<GameGridSkeleton count={24} viewMode="compact" />` khi `isLoading`, loại bỏ hoàn toàn hiện tượng layout shift khi dữ liệu game cập bến.
+     - Khai báo rõ ràng `width={48} height={48}` trên thẻ `<img>` của `GameCard.tsx` và trong template prerender.
+  3. **Việc 3 — Tải Font Bất Đồng Bộ & Tách Thư Viện Nặng (Code-Splitting)**:
+     - Giảm tải font Google Fonts xuống 4 mức đậm thiết yếu (Inter 400, 600, 700, 800), bỏ JetBrains Mono khỏi critical path.
+     - Tải font bất đồng bộ qua `<link rel="preload" as="style">` và `<link rel="stylesheet" media="print" onload="this.media='all'">` kết hợp fallback system font `-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif`.
+     - Tách riêng chunk `dist/assets/qrcode-vendor-*.js` (24.54 kB) trong `vite.config.ts`.
+     - Chuyển `MarketingNotificationToast` và `FloatingAnnouncement` sang lazy-load bọc trong `Suspense`. Bundle chính `index-*.js` giảm từ 556KB xuống 506KB.
+  4. **Việc 4 — Chặn Sync Toàn Bộ Catalog Cho Khách Vãng Lai**:
+     - Trong `dataService.ts`: Nếu người dùng không phải admin (`!isAdmin`), chỉ gọi `syncBrandingAndContentOnly()` (~4KB) thay vì kéo toàn bộ blob 559 game qua `/api/sync`.
+     - Người dùng chỉ tải đợt đầu 24 game qua `/api/games` có phân trang SQL D1. Số đếm mã authoritative và badge giữ độ chính xác tuyệt đối 100%.
+  5. **Việc 5 — Xác Nhận Cache Immutable & Brotli Nén**:
+     - Kiểm tra và xác nhận header Cloudflare Pages: `/assets/*` có `Cache-Control: public, max-age=31536000, immutable`, `Content-Encoding: br` và `cf-cache-status: HIT`.
+- **Files Modified**:
+  - `index.html`
+  - `scripts/prerender.js`
+  - `src/components/GameCardSkeleton.tsx` (Mới)
+  - `src/components/GameCard.tsx`
+  - `src/App.tsx`
+  - `src/services/dataService.ts`
+  - `vite.config.ts`
+
+---
+
 ### 173. Sửa Tận Gốc Lỗi Thiếu Icon Catalog: Sinh Bổ Sung 3 Icon Google Play Chuẩn WebP/JPG, Khắc Phục Pipeline Xác Minh File Tồn Tại Thật, Edge Proxy On-the-fly Theo Package & Tích Hợp Kiểm Toán 562 Icon Vào Regression Suite (Catalog Icon Self-Healing, Storage Integrity & Edge Proxy Fallback)
 - **Mô tả & Yêu cầu người dùng**:
   - *"Kiểm toán toàn bộ catalog lúc ~01:00 ngày 24/10/2026 cho thấy: cả 559 game đang sống đều có icon_url dạng /game_icons/<slug>.webp, nhưng có đúng 3 file icon không tồn tại trên server (mở trực tiếp trả 404), khiến thẻ game hiển thị avatar chữ cái: vo-lam-truyen-ky (com.vng.vltkm), gunbound-legend-vua-toa-do (com.vtc.gunbound), the-gioi-nuoc-sinh-ton (com.thegioinuoc.vn). Việc 1: Sinh ngay 3 file icon còn thiếu đúng chuẩn WebP 256×256. Việc 2: Sửa tầng gốc trong pipeline tạo icon, kiểm tra file tồn tại thật > 500B trước khi gán path local. Việc 3: Dự phòng ở tầng hiển thị, tự chuyển sang icon remote store / Edge proxy theo package. Việc 4: Bổ sung kiểm toán icon vào script kiểm thử."*

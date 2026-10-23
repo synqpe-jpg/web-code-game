@@ -208,6 +208,8 @@ export const GameCard: React.FC<GameCardProps> = ({
           }}
           src={currentIconSrc}
           alt={game.name}
+          width={48}
+          height={48}
           referrerPolicy="no-referrer"
           loading="lazy"
           decoding="async"
