@@ -570,85 +570,51 @@ export async function getLoadedCatalog(db: D1Database, forceFresh: boolean = fal
   );
 
   const codesMap = new Map<string, GiftCode[]>();
+  const seenCodesBySlug = new Map<string, Set<string>>();
+
+  const addCode = (item: any, source: 'custom' | 'd1' | 'bundled') => {
+    if (!item || (item.id && deletedCodesSet.has(item.id))) return;
+    const slug = item.gameSlug || item.game_slug || item.slug || item.gameId;
+    const codeVal = item.codeValue || item.code_value || item.code || item.gift_code;
+    if (!slug || !codeVal) return;
+
+    const normSlug = String(slug).trim().toLowerCase();
+    const codeStr = String(codeVal).trim();
+    const upperCode = codeStr.toUpperCase();
+
+    let seenSet = seenCodesBySlug.get(normSlug);
+    if (!seenSet) {
+      seenSet = new Set<string>();
+      seenCodesBySlug.set(normSlug, seenSet);
+    }
+    if (seenSet.has(upperCode)) return;
+    seenSet.add(upperCode);
+
+    const isExp = isCodeExpired(item);
+    const list = codesMap.get(normSlug) || [];
+    list.push({
+      code: codeStr,
+      rewards: item.rewards || item.description || 'Quà tân thủ & vật phẩm ingame',
+      status: isExp ? 'expired' : 'active',
+      expiry: item.expiresAt || item.expires_at || item.expiry || '',
+      added_at: item.updatedAt || item.updated_at || item.createdAt || item.created_at || (source === 'custom' ? new Date().toISOString() : '2026-10-09T00:00:00Z'),
+    });
+    codesMap.set(normSlug, list);
+  };
 
   // 1. Process custom codes FIRST (highest priority: newly created or edited by admin)
   if (Array.isArray(customCodes)) {
-    for (const item of customCodes) {
-      if (!item || (item.id && deletedCodesSet.has(item.id))) continue;
-      const slug = item.gameSlug || item.game_slug || item.slug || item.gameId;
-      const codeVal = item.codeValue || item.code_value || item.code || item.gift_code;
-      if (!slug || !codeVal) continue;
-
-      const normSlug = String(slug).trim().toLowerCase();
-      const codeStr = String(codeVal).trim();
-      const isExp = isCodeExpired(item);
-
-      const list = codesMap.get(normSlug) || [];
-      list.push({
-        code: codeStr,
-        rewards: item.rewards || item.description || 'Quà tân thủ & vật phẩm ingame',
-        status: isExp ? 'expired' : 'active',
-        expiry: item.expiresAt || item.expires_at || item.expiry || '',
-        added_at: item.updatedAt || item.updated_at || item.createdAt || item.created_at || new Date().toISOString(),
-      });
-      codesMap.set(normSlug, list);
-    }
+    for (const item of customCodes) addCode(item, 'custom');
   }
 
   // 2. Process D1 catalog codes (from crawlers / admin pushes), skipping any deleted or already added
   if (Array.isArray(d1Codes)) {
-    for (const item of d1Codes) {
-      if (!item || (item.id && deletedCodesSet.has(item.id))) continue;
-      const slug = item.gameSlug || item.game_slug || item.slug || item.gameId;
-      const codeVal = item.codeValue || item.code_value || item.code || item.gift_code;
-      if (!slug || !codeVal) continue;
-
-      const normSlug = String(slug).trim().toLowerCase();
-      const codeStr = String(codeVal).trim();
-      const isExp = isCodeExpired(item);
-
-      const list = codesMap.get(normSlug) || [];
-      if (list.some((existing) => existing.code.toUpperCase() === codeStr.toUpperCase())) {
-        continue;
-      }
-
-      list.push({
-        code: codeStr,
-        rewards: item.rewards || item.description || 'Quà tân thủ & vật phẩm ingame',
-        status: isExp ? 'expired' : 'active',
-        expiry: item.expiresAt || item.expires_at || item.expiry || '',
-        added_at: item.createdAt || item.created_at || item.added_at || '2026-10-09T00:00:00Z',
-      });
-      codesMap.set(normSlug, list);
-    }
+    for (const item of d1Codes) addCode(item, 'd1');
   }
 
   // 3. Process complete Master Bundled codes (11,762 codes), preserving full baseline archive
   if (Array.isArray(bundledCodes)) {
-    for (const item of bundledCodes) {
-      if (!item || (item.id && deletedCodesSet.has(item.id))) continue;
-      const slug = item.gameSlug || item.game_slug || item.slug || item.gameId;
-      const codeVal = item.codeValue || item.code_value || item.code || item.gift_code;
-      if (!slug || !codeVal) continue;
-
-      const normSlug = String(slug).trim().toLowerCase();
-      const codeStr = String(codeVal).trim();
-      const isExp = isCodeExpired(item);
-
-      const list = codesMap.get(normSlug) || [];
-      if (list.some((existing) => existing.code.toUpperCase() === codeStr.toUpperCase())) {
-        continue;
-      }
-
-      list.push({
-        code: codeStr,
-        rewards: item.rewards || item.description || 'Quà tân thủ & vật phẩm ingame',
-        status: isExp ? 'expired' : 'active',
-        expiry: item.expiresAt || item.expires_at || item.expiry || '',
-        added_at: item.createdAt || item.created_at || item.added_at || '2026-10-09T00:00:00Z',
-      });
-      codesMap.set(normSlug, list);
-    }
+    for (const item of bundledCodes) addCode(item, 'bundled');
   }
 
   const categorySet = new Set<string>();

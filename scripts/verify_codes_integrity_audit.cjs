@@ -4,23 +4,38 @@ const API_KEY = 'wcg_muse_f7d252dd57426a7a';
 const ADMIN_SYNC_SECRET = process.env.ADMIN_SYNC_SECRET || 'b4e08494bf1c3fd6a0c965dd2411780c60513f7f87001bc955d7496331b2faef';
 const BASE_URL = 'https://codegame.shop';
 
-async function fetchJson(path, options = {}) {
+async function fetchJson(path, options = {}, retries = 2) {
   const url = `${BASE_URL}${path}`;
-  const res = await fetch(url, {
-    ...options,
-    headers: {
-      'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) CodeGameAudit/1.0',
-      'Cache-Control': 'no-cache',
-      'Pragma': 'no-cache',
-      ...(options.headers || {})
-    },
-    signal: AbortSignal.timeout(30000)
-  });
-  const text = await res.text();
-  try {
-    return { status: res.status, data: JSON.parse(text), raw: text };
-  } catch {
-    return { status: res.status, raw: text };
+  for (let attempt = 0; attempt <= retries; attempt++) {
+    try {
+      const res = await fetch(url, {
+        ...options,
+        headers: {
+          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) CodeGameAudit/1.0',
+          'Cache-Control': 'no-cache',
+          'Pragma': 'no-cache',
+          ...(options.headers || {})
+        },
+        signal: AbortSignal.timeout(30000)
+      });
+      const text = await res.text();
+      try {
+        const data = JSON.parse(text);
+        return { status: res.status, data, raw: text };
+      } catch {
+        if (attempt < retries && (res.status >= 500 || text.includes('cf-error'))) {
+          await sleep(1000);
+          continue;
+        }
+        return { status: res.status, raw: text };
+      }
+    } catch (err) {
+      if (attempt < retries) {
+        await sleep(1000);
+        continue;
+      }
+      return { status: 500, raw: err.message };
+    }
   }
 }
 
@@ -106,6 +121,9 @@ async function runIntegrityAudit() {
 
       // 1. API count
       const apiRes = await fetchJson(`/api/games?slug=${item.slug}&nocache=1`);
+      if (!apiRes.data) {
+        console.warn(`   ⚠️ [${item.slug}] API /api/games trả về status ${apiRes.status}:`, apiRes.raw?.slice(0, 150));
+      }
       const apiCount = apiRes.data?.game?.codes_count ?? (apiRes.data?.game?.codes?.length || 0);
 
       // 2. HTML rendered count
@@ -334,6 +352,7 @@ async function runIntegrityAudit() {
         'Authorization': `Bearer ${API_KEY}`
       },
       body: JSON.stringify({
+        gameSlug: testPendingSlug,
         gameName: testPendingName,
         codes: [
           { code: testPendingCode, rewards: 'Quà thử nghiệm Auto-Publish' }

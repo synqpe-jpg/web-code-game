@@ -386,11 +386,15 @@ function findBestMatchingGame(
       if (gWords.length === 0) continue;
 
       const gWordSet = new Set(gWords);
-      const matchedWords = inputWords.filter((w) => gWordSet.has(w) || gWords.some((gw) => gw.startsWith(w) || w.startsWith(gw)));
+      const matchedWords = inputWords.filter((w) => 
+        gWordSet.has(w) || 
+        gWords.some((gw) => (gw.length >= 4 && w.length >= 4) && (gw.startsWith(w) || w.startsWith(gw)))
+      );
       const overlapRatio = matchedWords.length / Math.max(inputWords.length, 1);
 
-      // Nếu chứa toàn bộ tên hoặc tỷ lệ từ khóa >= 70%
-      const isSub = gNorm.includes(normCleanInput) || normCleanInput.includes(gNorm);
+      // Nếu chứa toàn bộ tên hoặc tỷ lệ từ khóa >= 70% (chỉ chấp nhận substring nếu độ dài >= 4 để tránh chuỗi 2 ký tự như "au" khớp bừa)
+      const isSub = (gNorm.length >= 4 && normCleanInput.includes(gNorm)) || 
+                    (normCleanInput.length >= 4 && gNorm.includes(normCleanInput));
       const confidence = isSub ? 0.9 : overlapRatio;
 
       if (confidence >= 0.7 && confidence > highestScore) {
@@ -665,16 +669,31 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
   }
 
   try {
-    // 3. Tải danh mục games, pending games và free codes hiện tại
-    const settings = await getMultipleSettingsD1(env.DB, [
-      'wcg_admin_games_v5',
-      'wcg_crawler_pending_games_v1',
-      'wcg_admin_free_codes_v5',
-      'wcg_admin_custom_free_codes_v1',
-      'wcg_crawler_api_logs_v1',
-      'wcg_crawler_pending_codes_v1',
-      'wcg_admin_submissions_v4',
-    ]);
+    // 3. Tối ưu hóa tải cài đặt từ D1 theo từng Action nhằm triệt tiêu lãng phí CPU & I/O (Error 1102)
+    const requiredKeys = ['wcg_admin_games_v5'];
+    if (body?.action === 'cleanup_test_codes') {
+      requiredKeys.push('wcg_admin_custom_free_codes_v1');
+    } else if (body?.action === 'list_pending_games') {
+      requiredKeys.push('wcg_crawler_pending_games_v1');
+    } else if (body?.action === 'list_pending_codes') {
+      requiredKeys.push('wcg_crawler_pending_codes_v1', 'wcg_admin_submissions_v4');
+    } else if (body?.action === 'approve_codes' || body?.action === 'reject_codes') {
+      requiredKeys.push('wcg_crawler_pending_codes_v1', 'wcg_admin_submissions_v4', 'wcg_admin_custom_free_codes_v1');
+    } else if (body?.action === 'publish_game') {
+      requiredKeys.push('wcg_crawler_pending_games_v1', 'wcg_admin_free_codes_v5', 'wcg_admin_custom_free_codes_v1');
+    } else {
+      // Luồng nạp mã giftcode chính
+      requiredKeys.push(
+        'wcg_crawler_pending_games_v1',
+        'wcg_admin_free_codes_v5',
+        'wcg_admin_custom_free_codes_v1',
+        'wcg_crawler_api_logs_v1',
+        'wcg_crawler_pending_codes_v1',
+        'wcg_admin_submissions_v4'
+      );
+    }
+
+    const settings = await getMultipleSettingsD1(env.DB, requiredKeys);
 
     // =========================================================================
     // ACTION 1: Lấy toàn bộ danh sách game chưa đăng lên web khách
