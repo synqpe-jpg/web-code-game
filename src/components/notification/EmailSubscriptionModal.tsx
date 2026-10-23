@@ -338,7 +338,7 @@ export const EmailSubscriptionModal: React.FC<EmailSubscriptionModalProps> = ({
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/80 backdrop-blur-md animate-fade-in">
       <div
-        className="relative w-full max-w-5xl bg-card border border-border/80 rounded-2xl sm:rounded-3xl shadow-cyber-card overflow-hidden flex flex-col max-h-[92vh]"
+        className="relative w-full max-w-4xl bg-card border border-border/80 rounded-2xl sm:rounded-3xl shadow-cyber-card overflow-hidden flex flex-col max-h-[92vh]"
         onClick={(e) => e.stopPropagation()}
       >
         {/* ============================================================== */}
@@ -364,59 +364,69 @@ export const EmailSubscriptionModal: React.FC<EmailSubscriptionModalProps> = ({
             </div>
           </div>
 
-          <div className="flex items-center gap-2 shrink-0">
-            {/* Tab Switcher: Hiển thị trên Mobile & Tablet để chuyển giữa 2 bảng */}
-            <div className="flex lg:hidden items-center gap-1 p-0.5 sm:p-1 bg-slate-900 rounded-xl border border-border/80">
-              <button
-                type="button"
-                onClick={() => setActiveTab('notifications')}
-                className={`px-2.5 py-1 rounded-lg text-xs font-bold transition-all cursor-pointer flex items-center gap-1 ${
-                  activeTab === 'notifications'
-                    ? 'bg-gradient-to-r from-secondary to-blue-600 text-white shadow-sm'
-                    : 'text-muted-foreground hover:text-foreground'
-                }`}
-              >
-                <Bell className="w-3 h-3 text-cyan-400" />
-                <span>Code Mới ({displayCodes.length})</span>
-              </button>
-
-              <button
-                type="button"
-                onClick={() => setActiveTab('subscription')}
-                className={`px-2.5 py-1 rounded-lg text-xs font-bold transition-all cursor-pointer flex items-center gap-1 ${
-                  activeTab === 'subscription'
-                    ? 'bg-gradient-to-r from-secondary to-blue-600 text-white shadow-sm'
-                    : 'text-muted-foreground hover:text-foreground'
-                }`}
-              >
-                <Mail className="w-3 h-3 text-amber-400" />
-                <span>Đăng Ký</span>
-              </button>
-            </div>
-
-            <button
-              onClick={onClose}
-              className="p-1.5 rounded-xl text-muted-foreground hover:text-foreground hover:bg-muted transition-all cursor-pointer"
-              aria-label="Đóng"
-            >
-              <X className="w-5 h-5" />
-            </button>
-          </div>
+          <button
+            onClick={onClose}
+            className="p-1.5 sm:p-2 rounded-xl text-muted-foreground hover:text-foreground hover:bg-muted transition-all cursor-pointer"
+            aria-label="Đóng"
+          >
+            <X className="w-5 h-5" />
+          </button>
         </div>
 
         {/* ============================================================== */}
-        {/* 2 CỘT SONG SONG TRÊN DESKTOP / 2 TAB CHUYỂN ĐỔI TRÊN MOBILE     */}
+        {/* 2 TAB RIÊNG BIỆT: MẶC ĐỊNH HIỆN BẢNG BÊN TRÁI (CODE MỚI)       */}
         {/* ============================================================== */}
-        <div className="grid grid-cols-1 lg:grid-cols-12 flex-1 overflow-hidden divide-y lg:divide-y-0 lg:divide-x divide-border/60">
-          {/* ============================================================ */}
-          {/* CỘT 1 (BẢNG 1): THÔNG BÁO CODE MỚI & CHIA SẺ KÈM NGUỒN       */}
-          {/* Mặc định hiển thị khi ấn vào                                 */}
-          {/* ============================================================ */}
-          <div
-            className={`lg:col-span-7 flex flex-col overflow-hidden bg-background/50 ${
-              activeTab === 'notifications' ? 'flex' : 'hidden lg:flex'
+        <div className="px-3 sm:px-5 py-2.5 bg-slate-900/60 border-b border-border/70 flex items-center gap-2 shrink-0">
+          {/* TAB 1 (BÊN TRÁI): THÔNG BÁO GIFTCODE MỚI */}
+          <button
+            type="button"
+            onClick={() => setActiveTab('notifications')}
+            className={`flex-1 sm:flex-initial flex items-center justify-center gap-2 px-3.5 sm:px-5 py-2 rounded-xl font-heading font-bold text-xs sm:text-sm transition-all cursor-pointer ${
+              activeTab === 'notifications'
+                ? 'bg-gradient-to-r from-cyan-500 to-blue-600 text-white shadow-lg shadow-cyan-500/20 ring-1 ring-cyan-400/50'
+                : 'bg-card hover:bg-muted text-muted-foreground hover:text-foreground border border-border/70'
             }`}
           >
+            <Bell className={`w-3.5 h-3.5 sm:w-4 sm:h-4 ${activeTab === 'notifications' ? 'text-white animate-bounce-subtle' : 'text-cyan-400'}`} />
+            <span>Bảng Thông Báo Giftcode Mới</span>
+            <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
+              activeTab === 'notifications' ? 'bg-white/20 text-white' : 'bg-cyan-500/15 text-cyan-300 border border-cyan-500/30'
+            }`}>
+              {displayCodes.length} mã
+            </span>
+          </button>
+
+          {/* TAB 2 (BÊN PHẢI): BẢNG ĐĂNG KÝ EMAIL */}
+          <button
+            type="button"
+            onClick={() => setActiveTab('subscription')}
+            className={`flex-1 sm:flex-initial flex items-center justify-center gap-2 px-3.5 sm:px-5 py-2 rounded-xl font-heading font-bold text-xs sm:text-sm transition-all cursor-pointer ${
+              activeTab === 'subscription'
+                ? 'bg-gradient-to-r from-amber-500 to-amber-600 text-white shadow-lg shadow-amber-500/20 ring-1 ring-amber-400/50'
+                : 'bg-card hover:bg-muted text-muted-foreground hover:text-foreground border border-border/70'
+            }`}
+          >
+            <Mail className={`w-3.5 h-3.5 sm:w-4 sm:h-4 ${activeTab === 'subscription' ? 'text-white' : 'text-amber-400'}`} />
+            <span>Bảng Đăng Ký Nhận Email</span>
+            {hasExistingSub && (
+              <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
+                activeTab === 'subscription' ? 'bg-white/20 text-white' : 'bg-emerald-500/15 text-emerald-400 border border-emerald-500/30'
+              }`}>
+                Đang bật
+              </span>
+            )}
+          </button>
+        </div>
+
+        {/* ============================================================== */}
+        {/* NỘI DUNG TỪNG TAB: KHI ẤN VÀO CÁI NÀO THÌ HIỆN RA CÁI ĐÓ       */}
+        {/* ============================================================== */}
+        <div className="flex-1 overflow-hidden flex flex-col min-h-0">
+          {/* ============================================================ */}
+          {/* BẢNG 1: THÔNG BÁO CODE MỚI & CHIA SẺ KÈM NGUỒN (MẶC ĐỊNH)    */}
+          {/* ============================================================ */}
+          {activeTab === 'notifications' && (
+            <div className="flex-1 flex flex-col overflow-hidden bg-background/50">
             {/* Column 1 Header & Quick Search */}
             <div className="p-3.5 sm:p-4 border-b border-border/50 bg-slate-900/40 space-y-2.5 shrink-0">
               <div className="flex items-center justify-between gap-2">
@@ -615,16 +625,29 @@ export const EmailSubscriptionModal: React.FC<EmailSubscriptionModalProps> = ({
                 })
               )}
             </div>
-          </div>
 
-          {/* ============================================================ */}
-          {/* CỘT 2 (BẢNG 2): BẢNG ĐĂNG KÝ HIỆN TẠI (FORM EMAIL & CHECKBOX) */}
-          {/* ============================================================ */}
-          <div
-            className={`lg:col-span-5 flex flex-col overflow-hidden bg-card ${
-              activeTab === 'subscription' ? 'flex' : 'hidden lg:flex'
-            }`}
-          >
+            {/* Bảng 1 Footer Action Bar */}
+            <div className="p-3 sm:p-3.5 border-t border-border/60 bg-slate-900/40 flex items-center justify-between gap-2 shrink-0">
+              <p className="text-[11px] text-muted-foreground flex items-center gap-1.5 truncate">
+                <Sparkles className="w-3.5 h-3.5 text-cyan-400 shrink-0" />
+                <span className="truncate">Cập nhật mã quà tặng tự động 24/7 từ nhà phát hành</span>
+              </p>
+              <button
+                type="button"
+                onClick={onClose}
+                className="px-4 py-1.5 rounded-xl text-xs font-bold text-muted-foreground hover:text-foreground hover:bg-muted transition-all cursor-pointer shrink-0"
+              >
+                Đóng
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* ============================================================ */}
+        {/* BẢNG 2: BẢNG ĐĂNG KÝ HIỆN TẠI (FORM EMAIL & CHECKBOX)        */}
+        {/* ============================================================ */}
+        {activeTab === 'subscription' && (
+          <div className="flex-1 flex flex-col overflow-hidden bg-card">
             {/* Column 2 Header */}
             <div className="p-3.5 sm:p-4 border-b border-border/50 bg-slate-900/40 flex items-center justify-between shrink-0">
               <div className="flex items-center gap-2">
@@ -842,6 +865,7 @@ export const EmailSubscriptionModal: React.FC<EmailSubscriptionModalProps> = ({
               </div>
             </form>
           </div>
+        )}
         </div>
       </div>
     </div>

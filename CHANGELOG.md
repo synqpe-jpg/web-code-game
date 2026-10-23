@@ -9,6 +9,26 @@ Mỗi mục sửa lỗi đều ghi nhận **Nguyên nhân gốc rễ (Root Cause
 
 ## [2026-10-23]
 
+### 159. Chia Trung Tâm Thông Báo Thành 2 Tab Riêng Biệt Trên Toàn Bộ Thiết Bị, Mặc Định Hiện Bảng Bên Trái (Two Dedicated Notification Center Tabs & Left Tab Default View)
+- **Mô tả & Yêu cầu người dùng**:
+  - *"Chia mục thông báo này thành 2 tab riêng biệt giúp tôi, khi ấn vào cái nào thì hiện ra cái đó, mặc định hiện bảng bên trái."*
+- **Nguyên nhân gốc rễ (Root Cause)**:
+  - Trước đây trên màn hình Desktop (`lg:`), modal hiển thị đồng thời 2 cột side-by-side (Cột 1 là danh sách giftcode mới, Cột 2 là form đăng ký email) khiến giao diện bị rộng quá mức (`max-w-5xl`) và phân tán sự tập trung của người dùng.
+- **Giải pháp đã triển khai (Solution)**:
+  - `src/components/notification/EmailSubscriptionModal.tsx`:
+    - **Thanh Điều Hướng 2 Tab Riêng Biệt (Dedicated Tab Bar)**: Thiết kế thanh chuyển đổi 2 Tab to rõ, sang trọng, hiển thị trên tất cả thiết bị (cả Mobile, Tablet lẫn Desktop).
+    - **Tab 1 (Bên trái): "Bảng Thông Báo Giftcode Mới"** — Mặc định được kích hoạt khi mở modal, hiển thị badge số lượng mã code (`{displayCodes.length} mã`), ô tìm kiếm nhanh, trạng thái game theo dõi, nút Sao Chép mã và nút Chia Sẻ kèm nguồn `CodeGame.Shop`.
+    - **Tab 2 (Bên phải): "Bảng Đăng Ký Nhận Email"** — Khi người dùng ấn vào Tab này mới hiển thị toàn bộ form nhập email, cam kết bảo mật 100%, 3 checkbox nhận tin và danh sách tags game đã chọn.
+    - **Cơ Chế Switch Tab Độc Lập**: Khi ấn vào tab nào thì chỉ hiển thị đúng nội dung của tab đó (`activeTab === 'notifications'` hoặc `activeTab === 'subscription'`).
+    - Điều chỉnh kích thước modal tinh gọn `max-w-4xl`, bổ sung thanh Footer bar kèm nút Đóng nhanh cho Tab 1.
+- **Files Modified**:
+  - `src/components/notification/EmailSubscriptionModal.tsx`
+  - `CHANGELOG.md`
+- **Verification**:
+  - `npm run build` thành công 100%, 0 lỗi TypeScript, 0 test artifact.
+
+---
+
 ### 158. Chuyển Nút Tủ Game (Thông Tin Đã Lưu) Vào Danh Sách Khi Ấn Vào Đại Diện Nhân Vật (Avatar Menu Saved Games Integration)
 - **Mô tả & Yêu cầu người dùng**:
   - *"Chuyển nút Tủ game thông tin đã lưu đang hiển thị trên web vào danh sách khi ấn vào đại diện nhân vật."*
