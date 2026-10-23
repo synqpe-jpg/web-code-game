@@ -40,6 +40,7 @@ Mỗi mục sửa lỗi đều ghi nhận **Nguyên nhân gốc rễ (Root Cause
      - Cập nhật `scripts/verify_codes_integrity_audit.cjs` bổ sung kiểm toán luồng pending queue, auto-publish, publish_game, và kiểm tra tính dọn dẹp sạch sẽ 100% mã và game test trong khối `finally`.
 - **Files Modified**:
   - `functions/api/crawler/ingest-codes.ts`
+  - `functions/api/games.ts`
   - `scripts/crawler/google_play_crawler.cjs`
   - `scripts/crawler/scrapers/codemoi_game_scraper.cjs`
   - `scripts/verify_codes_integrity_audit.cjs`

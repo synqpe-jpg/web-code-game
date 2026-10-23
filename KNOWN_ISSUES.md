@@ -10,22 +10,31 @@
 
 ## 1. DANH MỤC LỖI & CÁC BẪY ĐÃ THẤT BẠI (DO NOT REPEAT)
 
-### ISSUE-096: Bẫy Race Condition Ghi Đè Snapshot Stale Khi Ingest Đồng Thời Hàng Chờ Pending Games & Bẫy Copy codes_count = 0 Trong publish_game (Concurrent Ingest Overwrite & Zero Code Snapshot Trap)
+### ISSUE-096: Bẫy Race Condition Ghi Đè Snapshot Stale Khi Ingest Đồng Thời Hàng Chờ, Bẫy Copy codes_count = 0 Trong publish_game, Bẫy Khớp Substring Chuỗi Ngắn (<4 ký tự) & Bẫy Vượt Giới Hạn CPU Cloudflare Worker Error 1102 (Concurrent Ingest Overwrite, Short Substring Trap & Edge Worker CPU Limit)
 - **Triệu chứng**:
   - Khi bot Muse hoặc quy trình tự động nạp giftcode hàng loạt qua API `POST /api/crawler/ingest-codes`, API trả về `added > 0` và `autoPublished = true`, nhưng sau đó gọi `GET /api/games?slug=...` lại nhận HTTP 404 và game vẫn nằm trong hàng chờ `list_pending_games` (xảy ra trên 8 game: `mini-world-royale`, `gunbound-legend-vua-toa-do`, `vo-lam-truyen-ky`, `srom-huyen-thoai-lu-khach`, `mobile-legends-adventure`, `league-of-masters-auto-chess`, `thien-long-bat-bo-2`, `lineage2m`).
   - Khi gọi action `publish_game`, game lên sóng nhưng mang `codes_count = 0` dù trước đó vừa báo nạp mã thành công. Nạp lại cùng payload thì báo added lần nữa, chứng tỏ lần nạp đầu đã bị ghi đè mất.
   - Phản hồi của `publish_game` trả snapshot cũ mang `codes_count: 0` thay vì số lượng thực tế trong cơ sở dữ liệu.
+  - Cloudflare Worker ngắt quãng trả về HTTP 503 với `Error 1102: Worker exceeded resource limits` khi nạp mã hoặc truy vấn API dồn dập.
+  - Game test hoặc game mới có tên chứa từ "Audit" hay "Auto" bị khớp nhầm sang game "Au Mobile VTC: BigUpdate" do chữ "au" (2 ký tự) khớp chuỗi con lỏng lẻo.
 - **Nguyên nhân gốc rễ**:
   1. Trong `functions/api/crawler/ingest-codes.ts`, danh mục game `wcg_admin_games_v5`, mã code `wcg_admin_custom_free_codes_v1` và pending games `wcg_crawler_pending_games_v1` được đọc một lần lúc đầu hàm. Khi nhiều request chạy gần như đồng thời hoặc liên tiếp: request chạy sau mang snapshot cũ hơn và ghi đè lên D1, làm mất sạch thay đổi (mã code và game đã auto-publish) của request trước đó!
   2. Action `publish_game` sao chép trực tiếp `codes_count` từ bản ghi pending (`gameToPublish.codes_count || 0`) vốn luôn bằng 0, thay vì truy vấn đếm số lượng mã thực tế đang có trong kho code cho slug đó.
   3. Thiếu bộ lọc loại bỏ các ứng dụng tiện ích / xác thực / cổng web không phải game và thiếu thuật toán khử trùng đa tầng với 564 live games trong danh mục.
+  4. Trong `functions/api/games.ts`, hàm `getLoadedCatalog` háu ăn (eager) duyệt qua 11,762 codes và định dạng toàn bộ 564 games mỗi khi có request `nocache=1` (dù client chỉ hỏi thông tin chi tiết của 1 game duy nhất qua `?slug=...`). Điều này tiêu tốn 40-50ms CPU, làm sập giới hạn tài nguyên của Cloudflare Worker (Error 1102).
+  5. Trong `findBestMatchingGame`, điều kiện `isSub` cho phép so khớp chuỗi con không giới hạn độ dài (`gNorm.includes(input)`), khiến game có tên ngắn 2 ký tự như "au" (từ "Au Mobile VTC") khớp bừa với bất kỳ từ nào chứa "au" ("audit", "auto", "aurora", ...).
 - **Giải pháp chuẩn đã kiểm chứng**:
   - Triển khai **Atomic Delta Re-Fetch Merge**: Trước khi ghi bất kỳ key nào xuống D1 (`wcg_admin_custom_free_codes_v1`, `wcg_admin_games_v5`, `wcg_crawler_pending_games_v1`), BẮT BUỘC đọc lại snapshot tươi mới nhất từ D1 và hợp nhất delta theo Map `${slug}_${code}`, unshift/update game, và lọc bỏ pending slugs đã xuất bản.
-  - Hàm `countRealCodesForGame`: tính toán chính xác số lượng giftcode từ cả 3 nguồn (Custom codes + D1 catalog codes + Master bundled codes) để phản hồi và lưu `codes_count` chuẩn 100%. Tự động sửa các bản ghi cũ bị kẹt số 0 trong nhánh idempotent.
+  - Hàm `countRealCodesForSlug`: tính toán chính xác số lượng giftcode siêu tốc O(1) bằng `Set<string>` (chỉ duyệt mã khớp slug, không build Map toàn bộ 11,762 codes).
+  - Tối ưu hóa **Lazy Single Game Retrieval** trong `functions/api/games.ts`: Thêm cờ `skipGamesList: true` khi client chỉ truy vấn 1 game (`?slug=...` hoặc `?id=...`), bỏ qua hoàn toàn vòng lặp 564 game của catalog, giảm thời gian CPU từ 50ms xuống <0.2ms.
+  - Giới hạn độ dài chuỗi con tối thiểu $\ge 4$ ký tự cho cả substring và token prefix matching trong `findBestMatchingGame`, triệt tiêu hoàn toàn false positive.
+  - Tối ưu hóa nạp cài đặt D1: Mỗi action (`list_pending_games`, `cleanup_test_codes`, v.v.) chỉ tải đúng các key D1 cần thiết thay vì tải mù quáng toàn bộ 7 keys.
   - Bộ lọc `isNonGameApplication` và `detectDuplicateOf` phân tầng 5 cấp độ loại trừ triệt để app rác và game trùng.
 - ⛔ **CÁCH SỬA ĐÃ THẤT BẠI - TUYỆT ĐỐI KHÔNG LẶP LẠI**:
   - ❌ *Không ghi đè mù quáng JSON blob settings mà không re-fetch snapshot tươi*: Khi nhiều worker chạy song song trên Edge CDN, ghi đè snapshot cũ sẽ phá hủy toàn bộ dữ liệu của các request trước đó.
   - ❌ *Không copy codes_count từ pending item sang live game*: Pending item không lưu mã code; số lượng code chỉ được xác định khi đếm từ kho code thực tế.
+  - ❌ *Không build toàn bộ danh mục 564 games khi client chỉ hỏi 1 game*: Luôn phân nhánh và lấy trực tiếp từ `allRawGames` cho truy vấn đơn lẻ để tránh Error 1102.
+  - ❌ *Không cho phép khớp chuỗi con với token dưới 4 ký tự*: Rất dễ gây nhầm lẫn game hàng loạt.
 
 ---
 

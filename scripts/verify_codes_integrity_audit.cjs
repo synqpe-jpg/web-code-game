@@ -353,6 +353,7 @@ async function runIntegrityAudit() {
     }
 
     // 5.3. Ingest mã test vào game test đang chờ -> Xác nhận autoPublished = true và xuất hiện trên web
+    await sleep(800);
     console.log(`   📥 [5.3] Nạp mã "${testPendingCode}" vào game chờ duyệt -> Kiểm tra Auto-Publish...`);
     const ingestPendingRes = await fetchJson('/api/crawler/ingest-codes', {
       method: 'POST',
@@ -390,11 +391,12 @@ async function runIntegrityAudit() {
         passed = false;
       }
     } else {
-      console.error(`   ❌ THẤT BẠI: Ingest không kích hoạt auto-publish:`, ingestPendingRes.data);
+      console.error(`   ❌ THẤT BẠI: Ingest không kích hoạt auto-publish:`, ingestPendingRes.data || ingestPendingRes.raw);
       passed = false;
     }
 
     // 5.4. Kiểm tra action publish_game: phản hồi trả về codes_count chuẩn xác sau đăng
+    await sleep(600);
     console.log(`   🚀 [5.4] Kiểm tra action publish_game và tính Idempotent...`);
     const pubActionRes = await fetchJson('/api/crawler/ingest-codes', {
       method: 'POST',
@@ -411,7 +413,7 @@ async function runIntegrityAudit() {
     if (pubActionRes.data?.success && pubActionRes.data?.codes_count >= 1) {
       console.log(`   ✅ PHẢN HỒI CHUẨN XÁC: publish_game trả về codes_count = ${pubActionRes.data.codes_count} (khớp kho code thật, không bị 0)!`);
     } else {
-      console.error(`   ❌ THẤT BẠI: publish_game phản hồi codes_count không chính xác:`, pubActionRes.data);
+      console.error(`   ❌ THẤT BẠI: publish_game phản hồi codes_count không chính xác:`, pubActionRes.data || pubActionRes.raw);
       passed = false;
     }
 
