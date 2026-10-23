@@ -4347,6 +4347,25 @@ class AdminDataService {
         createdAt: '2026-10-19T14:00:00Z',
         updatedAt: '2026-10-22T18:00:00Z',
       },
+      {
+        id: 'ug_monster_hunter_outlanders',
+        name: 'Monster Hunter Outlanders',
+        slug: 'monster-hunter-outlanders',
+        publisher: 'TiMi Studio / Capcom',
+        releaseDate: '2026-10-29T00:00:00+07:00',
+        category: 'Săn Quái Thế Giới Mở',
+        platform: 'Android, iOS',
+        iconUrl: '/game_icons/monster-hunter-outlanders.webp',
+        bannerUrl: 'https://images.unsplash.com/photo-1542751371-adc38448a05e?auto=format&fit=crop&w=1200&q=80',
+        description: 'Siêu phẩm săn quái vật co-op thế giới mở đỉnh cao giữa Capcom và TiMi Studio Group trên di động.',
+        expectedCodes: [],
+        subscribersCount: 3200,
+        source: 'Trợ lý Pine & Muse Bot',
+        status: 'UPCOMING',
+        displayOrder: 6,
+        createdAt: '2026-10-22T10:00:00Z',
+        updatedAt: '2026-10-23T10:00:00Z',
+      },
     ];
   }
 
@@ -4502,6 +4521,56 @@ class AdminDataService {
     const ug = this.upcomingGames.find((g) => g.id === id || g.slug === id);
     if (!ug) return;
     ug.status = 'PENDING';
+    ug.updatedAt = new Date().toISOString();
+
+    this.safeSetItem(this.KEYS.UPCOMING_GAMES, JSON.stringify(this.upcomingGames));
+    crossOriginSync.setItem(this.KEYS.UPCOMING_GAMES, this.upcomingGames);
+    this.broadcastSync('UPCOMING_GAMES_UPDATED', this.upcomingGames);
+    await Promise.allSettled([
+      this.syncToCloudflareKV(this.KEYS.UPCOMING_GAMES, this.upcomingGames),
+      this.syncUpcomingGamesToServer(),
+    ]);
+  }
+
+  /**
+   * Đổi trạng thái game sắp ra mắt bất kỳ (UPCOMING, PENDING, LAUNCHED, CANCELLED)
+   */
+  public async updateUpcomingGameStatus(id: string, status: 'UPCOMING' | 'PENDING' | 'APPROVED' | 'LAUNCHED' | 'CANCELLED', pinToTop = false): Promise<void> {
+    const ug = this.upcomingGames.find((g) => g.id === id || g.slug === id);
+    if (!ug) return;
+    const now = new Date().toISOString();
+    ug.status = status;
+    ug.updatedAt = now;
+    if (status === 'UPCOMING' || status === 'APPROVED') {
+      ug.approvedAt = now;
+      ug.approvedBy = 'Admin Quản Trị';
+      if (pinToTop) {
+        let orderIndex = 2;
+        this.upcomingGames.forEach((item) => {
+          if (item.id !== ug.id && (item.status === 'UPCOMING' || item.status === 'APPROVED')) {
+            item.displayOrder = orderIndex++;
+          }
+        });
+        ug.displayOrder = 1;
+      }
+    }
+
+    this.safeSetItem(this.KEYS.UPCOMING_GAMES, JSON.stringify(this.upcomingGames));
+    crossOriginSync.setItem(this.KEYS.UPCOMING_GAMES, this.upcomingGames);
+    this.broadcastSync('UPCOMING_GAMES_UPDATED', this.upcomingGames);
+    await Promise.allSettled([
+      this.syncToCloudflareKV(this.KEYS.UPCOMING_GAMES, this.upcomingGames),
+      this.syncUpcomingGamesToServer(),
+    ]);
+  }
+
+  /**
+   * Xóa sạch mã code dự kiến (reset danh sách mã đoán)
+   */
+  public async clearUpcomingGameExpectedCodes(id: string): Promise<void> {
+    const ug = this.upcomingGames.find((g) => g.id === id || g.slug === id);
+    if (!ug) return;
+    ug.expectedCodes = [];
     ug.updatedAt = new Date().toISOString();
 
     this.safeSetItem(this.KEYS.UPCOMING_GAMES, JSON.stringify(this.upcomingGames));

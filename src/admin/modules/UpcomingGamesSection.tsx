@@ -402,6 +402,13 @@ export const UpcomingGamesSection: React.FC<UpcomingGamesSectionProps> = ({ onSh
     onShowToast('Đã chuyển về hàng chờ', `Game "${g?.name || gameId}" đã được đưa vào hàng chờ duyệt.`, 'info');
   };
 
+  const handleClearExpectedCodes = async (gameId: string) => {
+    const g = upcomingGames.find((x) => x.id === gameId);
+    await adminDataService.clearUpcomingGameExpectedCodes(gameId);
+    loadData();
+    onShowToast('Đã xóa mã dự kiến', `Đã xóa sạch mã code dự kiến của "${g?.name || gameId}".`, 'info');
+  };
+
   const handleLaunchGame = async (game: UpcomingGameAdminRecord) => {
     const res = await adminDataService.launchUpcomingGame(game.id);
     if (res.success) {
@@ -939,11 +946,24 @@ export const UpcomingGamesSection: React.FC<UpcomingGamesSectionProps> = ({ onSh
                             <Gift className="w-3.5 h-3.5 text-accent" />
                             <span>Code Tân Thủ Dự Kiến ({game.expectedCodes?.length || 0}):</span>
                           </span>
-                          {game.source && (
-                            <span className="text-[10px] text-purple-300 font-mono bg-purple-950/40 px-1.5 py-0.5 rounded border border-purple-500/20">
-                              {game.source}
-                            </span>
-                          )}
+                          <div className="flex items-center gap-2">
+                            {game.expectedCodes && game.expectedCodes.length > 0 && (
+                              <button
+                                type="button"
+                                onClick={() => handleClearExpectedCodes(game.id)}
+                                className="text-[10px] text-slate-400 hover:text-rose-400 flex items-center gap-0.5 transition-colors cursor-pointer"
+                                title="Xóa toàn bộ mã code dự kiến của game này"
+                              >
+                                <Trash2 className="w-2.5 h-2.5" />
+                                <span>Xóa mã</span>
+                              </button>
+                            )}
+                            {game.source && (
+                              <span className="text-[10px] text-purple-300 font-mono bg-purple-950/40 px-1.5 py-0.5 rounded border border-purple-500/20">
+                                {game.source}
+                              </span>
+                            )}
+                          </div>
                         </div>
 
                         {game.expectedCodes && game.expectedCodes.length > 0 ? (
@@ -1156,8 +1176,17 @@ export const UpcomingGamesSection: React.FC<UpcomingGamesSectionProps> = ({ onSh
                       {/* Expected codes */}
                       {game.expectedCodes && game.expectedCodes.length > 0 && (
                         <div className="space-y-1">
-                          <div className="text-[11px] text-slate-400 font-medium">
-                            Giftcode dự kiến ({game.expectedCodes.length}):
+                          <div className="flex items-center justify-between text-[11px] text-slate-400 font-medium">
+                            <span>Giftcode dự kiến ({game.expectedCodes.length}):</span>
+                            <button
+                              type="button"
+                              onClick={() => handleClearExpectedCodes(game.id)}
+                              className="text-[10px] text-slate-400 hover:text-rose-400 flex items-center gap-0.5 transition-colors cursor-pointer"
+                              title="Xóa toàn bộ mã code dự kiến của game này"
+                            >
+                              <Trash2 className="w-2.5 h-2.5" />
+                              <span>Xóa mã</span>
+                            </button>
                           </div>
                           <div className="flex flex-wrap gap-1">
                             {game.expectedCodes.map((codeStr, cIdx) => (
@@ -1317,23 +1346,50 @@ export const UpcomingGamesSection: React.FC<UpcomingGamesSectionProps> = ({ onSh
             </div>
 
             {/* Supported Actions Guide */}
-            <div className="p-3 rounded-xl bg-slate-900/80 border border-border/80 text-xs text-slate-300 space-y-2">
-              <div className="font-bold text-white flex items-center gap-1.5">
-                <Terminal className="w-4 h-4 text-purple-400" />
-                <span>Các Action API Hỗ Trợ Cho Trợ Lý Pine & Muse Bot:</span>
+            <div className="p-3.5 rounded-xl bg-slate-900/80 border border-border/80 text-xs text-slate-300 space-y-2.5">
+              <div className="font-bold text-white flex items-center justify-between">
+                <div className="flex items-center gap-1.5">
+                  <Terminal className="w-4 h-4 text-purple-400" />
+                  <span>Các Action API Hỗ Trợ Toàn Diện Cho Trợ Lý Pine & Muse Bot:</span>
+                </div>
+                <span className="text-[11px] text-emerald-400 font-mono font-medium">✨ Tự động bảo toàn dữ liệu chuẩn (Anti-Defaulting)</span>
               </div>
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2 text-[11px]">
-                <div className="p-2 rounded-lg bg-card border border-border">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2.5 text-[11px]">
+                <div className="p-2.5 rounded-lg bg-card border border-border">
                   <div className="font-bold text-cyan-400 font-mono">action: "ingest"</div>
-                  <div className="text-slate-400 mt-0.5">Nạp game mới vào Hàng Chờ Duyệt (status: 'PENDING') hoặc duyệt ngay (status: 'UPCOMING').</div>
+                  <div className="text-slate-400 mt-1">
+                    Thêm hoặc cập nhật game an toàn. <strong>Không bao giờ tự đè mất ngày giờ hoặc thể loại cũ khi gửi thiếu trường</strong>. Gửi kèm <code className="text-cyan-300">"status": "UPCOMING"</code> hoặc <code className="text-cyan-300">"directPublish": true</code> để xuất bản ngay ra Web Khách.
+                  </div>
                 </div>
-                <div className="p-2 rounded-lg bg-card border border-border">
-                  <div className="font-bold text-emerald-400 font-mono">action: "approve"</div>
-                  <div className="text-slate-400 mt-0.5">Duyệt game từ hàng chờ đưa lên web ({'{ id, pinToTop?: true }'}).</div>
+                <div className="p-2.5 rounded-lg bg-card border border-border">
+                  <div className="font-bold text-emerald-400 font-mono">action: "set_status"</div>
+                  <div className="text-slate-400 mt-1">
+                    Đổi trạng thái game theo <code className="text-emerald-300">name</code>, <code className="text-emerald-300">slug</code> hoặc <code className="text-emerald-300">id</code> sang <code className="text-emerald-300">'UPCOMING'</code> (lên Web) hoặc <code className="text-amber-300">'PENDING'</code> (về hàng chờ).
+                  </div>
                 </div>
-                <div className="p-2 rounded-lg bg-card border border-border">
+                <div className="p-2.5 rounded-lg bg-card border border-border">
+                  <div className="font-bold text-rose-400 font-mono">action: "clear_expected_codes"</div>
+                  <div className="text-slate-400 mt-1">
+                    Xóa sạch toàn bộ giftcode dự kiến rác / đoán sai bằng danh sách rỗng hoặc gọi action xóa theo tên game / slug / id.
+                  </div>
+                </div>
+                <div className="p-2.5 rounded-lg bg-card border border-border">
+                  <div className="font-bold text-teal-400 font-mono">action: "approve"</div>
+                  <div className="text-slate-400 mt-1">
+                    Duyệt game từ hàng chờ đưa lên Web Khách theo <code className="text-teal-300">id</code>, <code className="text-teal-300">slug</code> hoặc <code className="text-teal-300">name</code> (có cờ <code className="text-amber-300">pinToTop: true</code>).
+                  </div>
+                </div>
+                <div className="p-2.5 rounded-lg bg-card border border-border">
                   <div className="font-bold text-amber-400 font-mono">action: "reorder"</div>
-                  <div className="text-slate-400 mt-0.5">Sắp xếp thứ tự các game trên web ({'{ orderedIds: [...] }'}).</div>
+                  <div className="text-slate-400 mt-1">
+                    Sắp xếp thứ tự các game trên Web Khách theo mảng <code className="text-amber-300">orderedIds</code> (Top 6 game đầu tiên sẽ trưng bày trên banner).
+                  </div>
+                </div>
+                <div className="p-2.5 rounded-lg bg-card border border-border">
+                  <div className="font-bold text-purple-400 font-mono">action: "delete" / "reject"</div>
+                  <div className="text-slate-400 mt-1">
+                    Xóa hoàn toàn game khỏi danh sách hoặc từ chối bản ghi trong hàng chờ duyệt.
+                  </div>
                 </div>
               </div>
             </div>
@@ -1343,24 +1399,84 @@ export const UpcomingGamesSection: React.FC<UpcomingGamesSectionProps> = ({ onSh
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
             {/* Interactive Test Console */}
             <div className="p-4 rounded-2xl bg-card border border-border space-y-3">
-              <div className="flex items-center justify-between">
+              <div className="flex items-center justify-between gap-2 flex-wrap">
                 <span className="text-xs font-bold text-white flex items-center gap-1.5">
                   <Play className="w-4 h-4 text-emerald-400" />
                   <span>Thực Thi Test API Trực Tiếp</span>
                 </span>
-                <button
-                  type="button"
-                  onClick={handleRunApiTest}
-                  disabled={isExecutingApiTest}
-                  className="px-3.5 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 text-white text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer shadow-sm active:scale-95"
-                >
-                  {isExecutingApiTest ? (
-                    <RefreshCw className="w-3.5 h-3.5 animate-spin" />
-                  ) : (
-                    <Send className="w-3.5 h-3.5" />
-                  )}
-                  <span>Gửi Thử Nghiệm</span>
-                </button>
+
+                <div className="flex items-center gap-1.5 flex-wrap">
+                  <select
+                    onChange={(e) => {
+                      const val = e.target.value;
+                      const rawKey = showApiKey ? (crawlerConfig.apiKey || 'YOUR_API_KEY') : '••••••••••••••••';
+                      if (val === 'ingest_safe') {
+                        setTestPayloadJson(JSON.stringify({
+                          apiKey: rawKey,
+                          botName: 'Trợ lý Pine',
+                          action: 'ingest',
+                          directPublish: true,
+                          games: [
+                            {
+                              name: 'Hiệp Khách Hành',
+                              slug: 'hiep-khach-hanh',
+                              publisher: 'VTC Mobile',
+                              releaseDate: '2026-11-01T10:00:00+07:00',
+                              category: 'Kiếm Hiệp Kim Dung',
+                              platform: 'Android, iOS',
+                              status: 'UPCOMING',
+                              expectedCodes: ['HIEPKHACHHANH', 'HKHVTC']
+                            }
+                          ]
+                        }, null, 2));
+                      } else if (val === 'set_status_upcoming') {
+                        setTestPayloadJson(JSON.stringify({
+                          apiKey: rawKey,
+                          botName: 'Trợ lý Pine',
+                          action: 'set_status',
+                          name: 'Hiệp Khách Hành',
+                          status: 'UPCOMING',
+                          pinToTop: true
+                        }, null, 2));
+                      } else if (val === 'clear_codes') {
+                        setTestPayloadJson(JSON.stringify({
+                          apiKey: rawKey,
+                          botName: 'Trợ lý Pine',
+                          action: 'clear_expected_codes',
+                          name: 'Monster Hunter Outlanders'
+                        }, null, 2));
+                      } else if (val === 'reorder') {
+                        setTestPayloadJson(JSON.stringify({
+                          apiKey: rawKey,
+                          botName: 'Trợ lý Pine',
+                          action: 'reorder',
+                          orderedIds: ['ug_strinova_vn', 'ug_tien_gioi', 'ug_hiep_khach_hanh', 'ug_monster_hunter_outlanders']
+                        }, null, 2));
+                      }
+                    }}
+                    className="bg-slate-900 border border-border rounded-lg px-2 py-1 text-[11px] text-slate-300 focus:outline-none"
+                    defaultValue="ingest_safe"
+                  >
+                    <option value="ingest_safe">Mẫu 1: Ingest Game (Xuất Bản Trực Tiếp)</option>
+                    <option value="set_status_upcoming">Mẫu 2: Set Status (Duyệt Lên Web)</option>
+                    <option value="clear_codes">Mẫu 3: Clear Codes (Xóa Mã Code Rác)</option>
+                    <option value="reorder">Mẫu 4: Reorder (Sắp Xếp Top 6 Banner)</option>
+                  </select>
+
+                  <button
+                    type="button"
+                    onClick={handleRunApiTest}
+                    disabled={isExecutingApiTest}
+                    className="px-3 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 text-white text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer shadow-sm active:scale-95"
+                  >
+                    {isExecutingApiTest ? (
+                      <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                    ) : (
+                      <Send className="w-3.5 h-3.5" />
+                    )}
+                    <span>Gửi Test</span>
+                  </button>
+                </div>
               </div>
 
               <textarea
@@ -1438,53 +1554,60 @@ headers = {
     "X-API-Key": "${displayedApiKey}"
 }
 
-# 1. Nạp game mới vào Hàng Chờ Duyệt (hoặc duyệt ngay)
+# 1. Nạp game mới xuất bản thẳng lên Web Khách (hoặc cập nhật an toàn không đè dữ liệu cũ):
 payload = {
     "botName": "Trợ lý Pine",
     "action": "ingest",
+    "directPublish": True,  # True để lên Web ngay, False để vào Hàng Chờ Duyệt
     "games": [
         {
-            "name": "Strinova VN",
-            "slug": "strinova-vn",
-            "publisher": "iDreamSky / VPlay",
-            "releaseDate": "2026-10-23T10:00:00+07:00",
-            "category": "Bắn Súng Anime 3D",
-            "platform": "PC, Android, iOS",
-            "iconUrl": "/game_icons/strinova-vn.webp",
-            "expectedCodes": ["STRINOVAOB", "STRINOVAVN", "VIP999"],
-            "status": "PENDING"  # 'PENDING' để chờ admin duyệt hoặc 'UPCOMING' để duyệt ngay
+            "name": "Hiệp Khách Hành",
+            "slug": "hiep-khach-hanh",
+            "publisher": "VTC Mobile",
+            "releaseDate": "2026-11-01T10:00:00+07:00",
+            "category": "Kiếm Hiệp Kim Dung",
+            "platform": "Android, iOS",
+            "status": "UPCOMING",
+            "expectedCodes": []  # Gửi mảng rỗng để xóa sạch mã dự đoán cũ
         }
     ]
 }
 
-# 2. Hoặc Duyệt Game Đưa Lên Web:
-# payload = {"action": "approve", "id": "ug_strinova_vn", "pinToTop": True}
+# 2. Hoặc Đổi trạng thái game sang UPCOMING / PENDING theo Tên hoặc Slug:
+# payload = {"action": "set_status", "name": "Hiệp Khách Hành", "status": "UPCOMING", "pinToTop": True}
+
+# 3. Hoặc Xóa sạch mã code dự kiến:
+# payload = {"action": "clear_expected_codes", "name": "Monster Hunter Outlanders"}
 
 response = requests.post(url, json=payload, headers=headers)
 print("Response:", response.status_code, response.json())`}
 
                   {apiSnippetLang === 'curl' &&
-`curl -X POST "${apiEndpointUrl}" \\
+`# 1. Nạp game & xuất bản thẳng lên Web Khách (hoặc xóa sạch mã dự kiến rỗng)
+curl -X POST "${apiEndpointUrl}" \\
   -H "Content-Type: application/json" \\
   -H "X-API-Key: ${displayedApiKey}" \\
   -d '{
     "botName": "Trợ lý Pine",
     "action": "ingest",
+    "directPublish": true,
     "games": [
       {
-        "name": "Tiên Giới",
-        "slug": "tien-gioi",
-        "publisher": "SohaGame",
-        "releaseDate": "2026-10-28T10:00:00+07:00",
-        "category": "Nhập Vai Tiên Hiệp",
-        "expectedCodes": ["TIENGIOI2026", "VIP666"],
-        "status": "PENDING"
+        "name": "Hiệp Khách Hành",
+        "slug": "hiep-khach-hanh",
+        "publisher": "VTC Mobile",
+        "releaseDate": "2026-11-01T10:00:00+07:00",
+        "category": "Kiếm Hiệp Kim Dung",
+        "expectedCodes": []
       }
     ]
-  }'`}
+  }'
+
+# 2. Đổi trạng thái game theo Tên sang UPCOMING
+# curl -X POST "${apiEndpointUrl}" -H "Content-Type: application/json" -H "X-API-Key: ${displayedApiKey}" -d '{"action": "set_status", "name": "Hiệp Khách Hành", "status": "UPCOMING"}'`}
 
                   {apiSnippetLang === 'js' &&
-`async function ingestUpcomingGame() {
+`async function manageUpcomingGame() {
   const res = await fetch("${apiEndpointUrl}", {
     method: "POST",
     headers: {
@@ -1493,18 +1616,10 @@ print("Response:", response.status_code, response.json())`}
     },
     body: JSON.stringify({
       botName: "Trợ lý Pine",
-      action: "ingest",
-      games: [
-        {
-          name: "Hiệp Khách Hành",
-          slug: "hiep-khach-hanh",
-          publisher: "VTC Mobile",
-          releaseDate: "2026-11-01T10:00:00+07:00",
-          category: "Kiếm Hiệp Kim Dung",
-          expectedCodes: ["HIEPKHACHHANH", "TANTHU"],
-          status: "PENDING"
-        }
-      ]
+      action: "set_status",
+      name: "Hiệp Khách Hành",
+      status: "UPCOMING", // 'UPCOMING' để duyệt ngay ra Web Khách
+      pinToTop: true
     })
   });
   const data = await res.json();

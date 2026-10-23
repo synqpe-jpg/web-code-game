@@ -132,6 +132,25 @@ const DEFAULT_UPCOMING_GAMES_FALLBACK = [
     createdAt: '2026-10-19T14:00:00Z',
     updatedAt: '2026-10-22T18:00:00Z',
   },
+  {
+    id: 'ug_monster_hunter_outlanders',
+    name: 'Monster Hunter Outlanders',
+    slug: 'monster-hunter-outlanders',
+    publisher: 'TiMi Studio / Capcom',
+    releaseDate: '2026-10-29T00:00:00+07:00',
+    category: 'Săn Quái Thế Giới Mở',
+    platform: 'Android, iOS',
+    iconUrl: '/game_icons/monster-hunter-outlanders.webp',
+    bannerUrl: 'https://images.unsplash.com/photo-1542751371-adc38448a05e?auto=format&fit=crop&w=1200&q=80',
+    description: 'Siêu phẩm săn quái vật co-op thế giới mở đỉnh cao giữa Capcom và TiMi Studio Group trên di động.',
+    expectedCodes: [],
+    subscribersCount: 3200,
+    source: 'Trợ lý Pine & Muse Bot',
+    status: 'UPCOMING',
+    displayOrder: 6,
+    createdAt: '2026-10-22T10:00:00Z',
+    updatedAt: '2026-10-23T10:00:00Z',
+  },
 ];
 
 async function authenticateRequest(request: Request, env: Env, bodyApiKey?: string): Promise<{ authorized: boolean; botName: string; error?: string }> {
@@ -185,6 +204,70 @@ function slugify(text: string): string {
     .replace(/^-+|-+$/g, '');
 }
 
+/**
+ * Tự động bảo vệ & phục hồi dữ liệu gốc chuẩn xác (Self-Healing Safeguard)
+ * Ngăn chặn tuyệt đối việc bot hoặc API gửi thiếu trường làm đè mất ngày giờ mở server hoặc thể loại chuẩn của game.
+ */
+function sanitizeAndSafeguardUpcomingGames(list: any[]): { list: any[]; changed: boolean } {
+  let changed = false;
+  for (const g of list) {
+    if (!g || typeof g !== 'object') continue;
+    const slugLower = String(g.slug || '').toLowerCase();
+    const nameLower = String(g.name || '').toLowerCase();
+
+    // 1. Strinova VN: Phục hồi ngày 23/10 10:00, category Bắn Súng Anime 3D, platform PC, Android, iOS
+    if (slugLower.includes('strinova') || nameLower.includes('strinova')) {
+      if (!g.releaseDate || !g.releaseDate.includes('10:00') || g.category === 'Game Mới' || g.publisher === 'Nhà phát hành') {
+        g.name = 'Strinova VN';
+        g.publisher = 'iDreamSky / VPlay';
+        g.releaseDate = '2026-10-23T10:00:00+07:00';
+        g.category = 'Bắn Súng Anime 3D';
+        g.platform = 'PC, Android, iOS';
+        if (!g.preRegUrl) g.preRegUrl = 'https://strinova.vplay.vn';
+        changed = true;
+      }
+    }
+
+    // 2. Hiệp Khách Hành: Phục hồi ngày 01/11 10:00, category Kiếm Hiệp Kim Dung, platform Android, iOS
+    if (slugLower.includes('hiep-khach-hanh') || nameLower.includes('hiep khach hanh') || nameLower.includes('hiệp khách hành')) {
+      if (!g.releaseDate || g.releaseDate.startsWith('2026-10-23') || g.category === 'Game Mới' || g.publisher === 'Nhà phát hành') {
+        g.name = 'Hiệp Khách Hành';
+        g.publisher = 'VTC Mobile';
+        g.releaseDate = '2026-11-01T10:00:00+07:00';
+        g.category = 'Kiếm Hiệp Kim Dung';
+        g.platform = 'Android, iOS';
+        if (!g.preRegUrl) g.preRegUrl = 'https://hiepkhachhanh.vtc.vn';
+        changed = true;
+      }
+    }
+
+    // 3. Tiên Giới: Ngày 28/10 10:00, category Nhập Vai Tiên Hiệp
+    if (slugLower.includes('tien-gioi') || nameLower.includes('tien gioi') || nameLower.includes('tiên giới')) {
+      if (!g.releaseDate || g.category === 'Game Mới' || g.publisher === 'Nhà phát hành') {
+        g.name = 'Tiên Giới';
+        g.publisher = 'SohaGame';
+        g.releaseDate = '2026-10-28T10:00:00+07:00';
+        g.category = 'Nhập Vai Tiên Hiệp';
+        g.platform = 'Android, iOS';
+        changed = true;
+      }
+    }
+
+    // 4. Monster Hunter Outlanders: Giờ mở server 00:00 ngày 29/10/2026
+    if (slugLower.includes('monster-hunter') || nameLower.includes('monster hunter')) {
+      if (!g.releaseDate || g.releaseDate.startsWith('2026-10-23') || g.category === 'Game Mới') {
+        g.name = 'Monster Hunter Outlanders';
+        g.publisher = (g.publisher && g.publisher !== 'Nhà phát hành') ? g.publisher : 'TiMi Studio / Capcom';
+        g.releaseDate = '2026-10-29T00:00:00+07:00';
+        g.category = (g.category && g.category !== 'Game Mới') ? g.category : 'Săn Quái Thế Giới Mở';
+        g.platform = g.platform || 'Android, iOS';
+        changed = true;
+      }
+    }
+  }
+  return { list, changed };
+}
+
 export async function onRequestOptions(): Promise<Response> {
   return new Response(null, {
     status: 204,
@@ -212,6 +295,12 @@ export async function onRequestGet(context: { request: Request; env: Env }): Pro
 
   if (upcomingGames.length === 0) {
     upcomingGames = DEFAULT_UPCOMING_GAMES_FALLBACK;
+  }
+
+  // Tự động kiểm tra và chữa lành tính toàn vẹn dữ liệu
+  const { changed: getChanged } = sanitizeAndSafeguardUpcomingGames(upcomingGames);
+  if (getChanged && env.DB) {
+    setSettingD1(env.DB, 'wcg_admin_upcoming_games_v1', upcomingGames).catch(() => {});
   }
 
   // Ensure default displayOrder if missing
@@ -379,6 +468,9 @@ export async function onRequestPost(context: { request: Request; env: Env }): Pr
     currentUpcomingGames = [...DEFAULT_UPCOMING_GAMES_FALLBACK];
   }
 
+  // Tự động bảo vệ & phục hồi dữ liệu gốc trước mọi thao tác
+  sanitizeAndSafeguardUpcomingGames(currentUpcomingGames);
+
   // ACTION 0A: SET_DISPLAY_LIST / SAVE_ALL (Admin & Pine Bot Toàn Quyền Đồng Bộ / Phân Phối Trực Tiếp Danh Sách)
   if (action === 'set_display_list' || action === 'save_all' || action === 'sync_all') {
     const incomingGames = payload?.games;
@@ -443,15 +535,17 @@ export async function onRequestPost(context: { request: Request; env: Env }): Pr
 
   // ACTION 1: APPROVE (Duyệt game từ hàng chờ đưa lên Web)
   if (action === 'approve') {
-    const targetId = payload?.id || payload?.slug;
+    const rawTarget = payload?.id || payload?.slug || payload?.name;
     const targetIds: string[] = Array.isArray(payload?.ids)
-      ? payload.ids.map((x: any) => String(x).toLowerCase())
-      : (targetId ? [String(targetId).toLowerCase()] : []);
+      ? payload.ids.map((x: any) => String(x).toLowerCase().trim())
+      : (Array.isArray(payload?.names)
+          ? payload.names.map((x: any) => String(x).toLowerCase().trim())
+          : (rawTarget ? [String(rawTarget).toLowerCase().trim()] : []));
     const pinToTop = Boolean(payload?.pinToTop);
 
     if (targetIds.length === 0) {
       return new Response(
-        JSON.stringify({ success: false, error: 'Thiếu trường "id" hoặc "ids" để duyệt game.' }),
+        JSON.stringify({ success: false, error: 'Thiếu trường "id", "slug" hoặc "name" để duyệt game.' }),
         { status: 400, headers: CORS_HEADERS }
       );
     }
@@ -466,9 +560,16 @@ export async function onRequestPost(context: { request: Request; env: Env }): Pr
     });
 
     for (const item of currentUpcomingGames) {
-      const idLower = (item.id || '').toLowerCase();
-      const slugLower = (item.slug || '').toLowerCase();
-      if (targetIds.includes(idLower) || targetIds.includes(slugLower)) {
+      const idLower = String(item.id || '').toLowerCase();
+      const slugLower = String(item.slug || '').toLowerCase();
+      const nameLower = String(item.name || '').toLowerCase();
+      const itemSlug = slugify(nameLower);
+
+      const isMatched = targetIds.some(
+        (t) => idLower === t || slugLower === t || itemSlug === t || nameLower === t || nameLower.includes(t)
+      );
+
+      if (isMatched) {
         item.status = 'UPCOMING';
         item.approvedAt = nowIso;
         item.approvedBy = botName;
@@ -484,14 +585,15 @@ export async function onRequestPost(context: { request: Request; env: Env }): Pr
 
     if (pinToTop) {
       // Re-index all approved games so the newly pinned game sits at order 1
-      let orderIndex = 1;
+      let orderIndex = 2;
       currentUpcomingGames.forEach((item) => {
-        if (item.status === 'UPCOMING' || item.status === 'APPROVED') {
+        if (item.displayOrder !== 1 && (item.status === 'UPCOMING' || item.status === 'APPROVED')) {
           item.displayOrder = orderIndex++;
         }
       });
     }
 
+    sanitizeAndSafeguardUpcomingGames(currentUpcomingGames);
     if (env.DB) await setSettingD1(env.DB, 'wcg_admin_upcoming_games_v1', currentUpcomingGames);
 
     return new Response(
@@ -499,6 +601,148 @@ export async function onRequestPost(context: { request: Request; env: Env }): Pr
         success: true,
         message: `Đã duyệt thành công ${approvedCount} game đưa lên Web Khách.`,
         approvedCount,
+        games: currentUpcomingGames,
+      }),
+      { headers: CORS_HEADERS }
+    );
+  }
+
+  // ACTION 1B: SET_STATUS / UPDATE_STATUS (Đổi trạng thái game theo id, slug hoặc name)
+  if (action === 'set_status' || action === 'update_status' || action === 'change_status') {
+    const rawTarget = payload?.id || payload?.slug || payload?.name;
+    const targetStatus = String(payload?.status || 'UPCOMING').toUpperCase();
+    const pinToTop = Boolean(payload?.pinToTop);
+
+    if (!rawTarget) {
+      return new Response(
+        JSON.stringify({
+          success: false,
+          error: 'Thiếu trường "id", "slug" hoặc "name" để cập nhật trạng thái.',
+          validStatuses: ['UPCOMING', 'APPROVED', 'PENDING', 'LAUNCHED', 'ROLLED_OVER', 'CANCELLED'],
+        }),
+        { status: 400, headers: CORS_HEADERS }
+      );
+    }
+
+    const targetKey = String(rawTarget).trim().toLowerCase();
+    const targetSlug = slugify(targetKey);
+
+    let updatedGame: any = null;
+    let maxOrder = 0;
+    currentUpcomingGames.forEach((g) => {
+      if (typeof g.displayOrder === 'number' && g.displayOrder > maxOrder) {
+        maxOrder = g.displayOrder;
+      }
+    });
+
+    for (const item of currentUpcomingGames) {
+      const idLower = String(item.id || '').toLowerCase();
+      const slugLower = String(item.slug || '').toLowerCase();
+      const nameLower = String(item.name || '').toLowerCase();
+      const itemSlug = slugify(nameLower);
+
+      if (
+        idLower === targetKey ||
+        slugLower === targetKey ||
+        slugLower === targetSlug ||
+        nameLower === targetKey ||
+        itemSlug === targetSlug ||
+        nameLower.includes(targetKey)
+      ) {
+        item.status = targetStatus;
+        item.updatedAt = nowIso;
+        if (targetStatus === 'UPCOMING' || targetStatus === 'APPROVED') {
+          item.approvedAt = nowIso;
+          item.approvedBy = botName;
+          if (pinToTop) {
+            item.displayOrder = 1;
+          } else if (!item.displayOrder || item.displayOrder <= 0) {
+            item.displayOrder = ++maxOrder;
+          }
+        }
+        updatedGame = item;
+        break;
+      }
+    }
+
+    if (!updatedGame) {
+      return new Response(
+        JSON.stringify({ success: false, error: `Không tìm thấy tựa game khớp với "${rawTarget}".` }),
+        { status: 404, headers: CORS_HEADERS }
+      );
+    }
+
+    if (pinToTop && (targetStatus === 'UPCOMING' || targetStatus === 'APPROVED')) {
+      let orderIndex = 2;
+      currentUpcomingGames.forEach((item) => {
+        if (item.id !== updatedGame.id && (item.status === 'UPCOMING' || item.status === 'APPROVED')) {
+          item.displayOrder = orderIndex++;
+        }
+      });
+      updatedGame.displayOrder = 1;
+    }
+
+    sanitizeAndSafeguardUpcomingGames(currentUpcomingGames);
+    if (env.DB) await setSettingD1(env.DB, 'wcg_admin_upcoming_games_v1', currentUpcomingGames);
+
+    return new Response(
+      JSON.stringify({
+        success: true,
+        message: `Đã đổi trạng thái game "${updatedGame.name}" sang "${targetStatus}" thành công.`,
+        game: updatedGame,
+        games: currentUpcomingGames,
+      }),
+      { headers: CORS_HEADERS }
+    );
+  }
+
+  // ACTION 1C: CLEAR_EXPECTED_CODES / CLEAR_CODES (Xóa sạch cột mã code dự kiến)
+  if (action === 'clear_expected_codes' || action === 'clear_codes' || action === 'reset_codes') {
+    const rawTarget = payload?.id || payload?.slug || payload?.name;
+    const targetIds: string[] = Array.isArray(payload?.ids)
+      ? payload.ids.map((x: any) => String(x).toLowerCase().trim())
+      : (Array.isArray(payload?.names)
+          ? payload.names.map((x: any) => String(x).toLowerCase().trim())
+          : (rawTarget ? [String(rawTarget).toLowerCase().trim()] : []));
+
+    if (targetIds.length === 0) {
+      return new Response(
+        JSON.stringify({ success: false, error: 'Thiếu trường "id", "slug" hoặc "name" để xóa code dự kiến.' }),
+        { status: 400, headers: CORS_HEADERS }
+      );
+    }
+
+    let clearedCount = 0;
+    const affectedNames: string[] = [];
+
+    for (const item of currentUpcomingGames) {
+      const idLower = String(item.id || '').toLowerCase();
+      const slugLower = String(item.slug || '').toLowerCase();
+      const nameLower = String(item.name || '').toLowerCase();
+      const itemSlug = slugify(nameLower);
+
+      const matched = targetIds.some(
+        (t) => idLower === t || slugLower === t || itemSlug === t || nameLower === t || nameLower.includes(t) || slugLower.includes(t)
+      );
+
+      if (matched) {
+        item.expectedCodes = [];
+        item.updatedAt = nowIso;
+        clearedCount++;
+        affectedNames.push(item.name);
+      }
+    }
+
+    if (clearedCount > 0 && env.DB) {
+      await setSettingD1(env.DB, 'wcg_admin_upcoming_games_v1', currentUpcomingGames);
+    }
+
+    return new Response(
+      JSON.stringify({
+        success: true,
+        message: `Đã xóa sạch mã code dự kiến của ${clearedCount} game: ${affectedNames.join(', ')}.`,
+        clearedCount,
+        affectedGames: affectedNames,
         games: currentUpcomingGames,
       }),
       { headers: CORS_HEADERS }
@@ -645,6 +889,7 @@ export async function onRequestPost(context: { request: Request; env: Env }): Pr
           apiKey: 'YOUR_API_KEY',
           botName: 'Trợ lý Pine',
           action: 'ingest',
+          directPublish: true, // Đặt true để xuất bản thẳng ra Web Khách (status: UPCOMING) mà không cần chờ duyệt
           games: [
             {
               name: 'Strinova VN',
@@ -654,7 +899,7 @@ export async function onRequestPost(context: { request: Request; env: Env }): Pr
               category: 'Bắn Súng Anime 3D',
               platform: 'PC, Android, iOS',
               iconUrl: '/game_icons/strinova-vn.webp',
-              status: 'PENDING', // 'PENDING' để vào Hàng chờ duyệt, hoặc 'UPCOMING' để duyệt ngay
+              status: 'UPCOMING', // 'PENDING' để vào Hàng chờ duyệt, hoặc 'UPCOMING' để duyệt ngay
               expectedCodes: ['STRINOVAOB', 'VIP999'],
             },
           ],
@@ -681,15 +926,32 @@ export async function onRequestPost(context: { request: Request; env: Env }): Pr
     const slug = raw.slug ? slugify(String(raw.slug).trim()) : slugify(name);
     if (!slug) continue;
 
-    const publisher = raw.publisher ? String(raw.publisher).trim() : 'Nhà phát hành';
-    const releaseDate = raw.releaseDate || raw.release_date || raw.launchDate || raw.launch_date || nowIso;
-    const category = raw.category ? String(raw.category).trim() : 'Game Mới';
-    const platform = raw.platform ? String(raw.platform).trim() : 'Android, iOS, PC';
-    const iconUrl = raw.iconUrl || raw.icon_url || raw.icon || `/game_icons/${slug}.webp`;
-    const bannerUrl = raw.bannerUrl || raw.banner_url || raw.banner || undefined;
-    const description = raw.description || `Thông tin ngày mở server và giftcode tân thủ tựa game ${name}.`;
-    const preRegUrl = raw.preRegUrl || raw.pre_reg_url || raw.downloadUrl || undefined;
-    const instructions = String(
+    // Kiểm tra chính xác xem các trường có được cung cấp trong payload không
+    const hasRelDate = Boolean(raw.releaseDate || raw.release_date || raw.launchDate || raw.launch_date);
+    const rawRelDate = String(raw.releaseDate || raw.release_date || raw.launchDate || raw.launch_date || '').trim();
+
+    const hasPublisher = Boolean(raw.publisher && String(raw.publisher).trim());
+    const rawPublisher = hasPublisher ? String(raw.publisher).trim() : '';
+
+    const hasCategory = Boolean(raw.category && String(raw.category).trim());
+    const rawCategory = hasCategory ? String(raw.category).trim() : '';
+
+    const hasPlatform = Boolean(raw.platform && String(raw.platform).trim());
+    const rawPlatform = hasPlatform ? String(raw.platform).trim() : '';
+
+    const hasIcon = Boolean(raw.iconUrl || raw.icon_url || raw.icon);
+    const rawIcon = hasIcon ? String(raw.iconUrl || raw.icon_url || raw.icon).trim() : '';
+
+    const hasBanner = Boolean(raw.bannerUrl || raw.banner_url || raw.banner);
+    const rawBanner = hasBanner ? String(raw.bannerUrl || raw.banner_url || raw.banner).trim() : '';
+
+    const hasPreReg = Boolean(raw.preRegUrl || raw.pre_reg_url || raw.downloadUrl);
+    const rawPreReg = hasPreReg ? String(raw.preRegUrl || raw.pre_reg_url || raw.downloadUrl).trim() : '';
+
+    const hasDescription = Boolean(raw.description && String(raw.description).trim());
+    const rawDescription = hasDescription ? String(raw.description).trim() : '';
+
+    const rawInstructions =
       raw.instructions ||
       raw.instructionsText ||
       raw.instructions_text ||
@@ -698,28 +960,14 @@ export async function onRequestPost(context: { request: Request; env: Env }): Pr
       raw.huongDan ||
       raw.huong_dan ||
       raw.cachNhapCode ||
-      raw.cach_nhap_code ||
-      ''
-    ).trim() || undefined;
-    const redeemUrl = String(
-      raw.redeemUrl ||
-      raw.redeem_url ||
-      raw.link_nhap_code ||
-      raw.linkNhapCode ||
-      ''
-    ).trim() || undefined;
+      raw.cach_nhap_code;
+    const hasInstructions = rawInstructions !== undefined && rawInstructions !== null;
 
-    // Status: default to PENDING if not specified or unless directPublish=true
-    let status = 'PENDING';
-    if (raw.status === 'UPCOMING' || raw.status === 'APPROVED' || payload?.directPublish === true) {
-      status = 'UPCOMING';
-    } else if (raw.status === 'LAUNCHED' || raw.status === 'CANCELLED') {
-      status = raw.status;
-    } else if (raw.status === 'PENDING') {
-      status = 'PENDING';
-    }
+    const rawRedeemUrl = raw.redeemUrl || raw.redeem_url || raw.link_nhap_code || raw.linkNhapCode;
+    const hasRedeemUrl = rawRedeemUrl !== undefined && rawRedeemUrl !== null;
 
-    // Parse expected giftcodes
+    // Nhận biết rõ ràng khi bot/admin muốn xóa hoặc cập nhật mã code dự kiến
+    const hasExplicitCodesField = ('expectedCodes' in raw) || ('codes' in raw) || (raw.clearCodes === true);
     let expectedCodes: string[] = [];
     if (Array.isArray(raw.expectedCodes)) {
       expectedCodes = raw.expectedCodes.map((c: any) => String(c).trim().toUpperCase()).filter(Boolean);
@@ -729,51 +977,133 @@ export async function onRequestPost(context: { request: Request; env: Env }): Pr
       expectedCodes = raw.expectedCodes.split(/[,;\n]+/).map((s: string) => s.trim().toUpperCase()).filter(Boolean);
     }
 
-    const existing = existingMap.get(slug.toLowerCase()) || (raw.id ? existingMap.get(String(raw.id).toLowerCase()) : null);
+    // Status: default to PENDING if not specified, unless directPublish=true hoặc autoApprove=true
+    let initialStatus = 'PENDING';
+    if (
+      raw.status === 'UPCOMING' ||
+      raw.status === 'APPROVED' ||
+      payload?.directPublish === true ||
+      payload?.autoApprove === true ||
+      raw.directPublish === true ||
+      raw.autoApprove === true
+    ) {
+      initialStatus = 'UPCOMING';
+    } else if (raw.status === 'LAUNCHED' || raw.status === 'CANCELLED') {
+      initialStatus = String(raw.status).toUpperCase();
+    } else if (raw.status === 'PENDING') {
+      initialStatus = 'PENDING';
+    }
+
+    // Tìm record đã có qua slug, id hoặc tên game tương đồng
+    const existing =
+      existingMap.get(slug.toLowerCase()) ||
+      (raw.id ? existingMap.get(String(raw.id).toLowerCase()) : null) ||
+      currentUpcomingGames.find((g) => {
+        const gSlug = String(g.slug || '').toLowerCase();
+        const gName = String(g.name || '').toLowerCase();
+        return gSlug === slug || gName === name.toLowerCase() || slugify(gName) === slug;
+      });
 
     if (existing) {
+      // 1. Cập nhật tên game
       existing.name = name;
-      existing.publisher = publisher;
-      existing.releaseDate = releaseDate;
-      existing.category = category;
-      existing.platform = platform;
-      if (iconUrl) existing.iconUrl = iconUrl;
-      if (bannerUrl) existing.bannerUrl = bannerUrl;
-      if (description) existing.description = description;
-      if (preRegUrl) existing.preRegUrl = preRegUrl;
-      if (instructions !== undefined) existing.instructions = instructions;
-      if (redeemUrl !== undefined) existing.redeemUrl = redeemUrl;
-      if (raw.status) existing.status = status;
+
+      // 2. CHỈ CẬP NHẬT các trường ngày giờ / thể loại / NPH khi payload CÓ GIÁ TRỊ HỢP LỆ
+      // Tuyệt đối không bao giờ tự ý gán đè fallback mặc định (nowIso, 'Game Mới', 'Nhà phát hành') lên dữ liệu chuẩn cũ!
+      if (hasRelDate && rawRelDate) {
+        existing.releaseDate = rawRelDate;
+      }
+      if (hasPublisher && rawPublisher && rawPublisher !== 'Nhà phát hành') {
+        existing.publisher = rawPublisher;
+      }
+      if (hasCategory && rawCategory && rawCategory !== 'Game Mới') {
+        existing.category = rawCategory;
+      }
+      if (hasPlatform && rawPlatform) {
+        existing.platform = rawPlatform;
+      }
+      if (hasIcon && rawIcon) {
+        existing.iconUrl = rawIcon;
+      }
+      if (hasBanner && rawBanner) {
+        existing.bannerUrl = rawBanner;
+      }
+      if (hasDescription && rawDescription) {
+        existing.description = rawDescription;
+      }
+      if (hasPreReg && rawPreReg) {
+        existing.preRegUrl = rawPreReg;
+      }
+      if (hasInstructions) {
+        existing.instructions = rawInstructions ? String(rawInstructions).trim() : undefined;
+      }
+      if (hasRedeemUrl) {
+        existing.redeemUrl = rawRedeemUrl ? String(rawRedeemUrl).trim() : undefined;
+      }
+
+      // 3. Xử lý trạng thái (status): nếu có chỉ định trạng thái mới hoặc yêu cầu xuất bản thẳng
+      if (raw.status) {
+        const st = String(raw.status).toUpperCase();
+        existing.status = st;
+        if (st === 'UPCOMING' || st === 'APPROVED') {
+          existing.approvedAt = nowIso;
+          existing.approvedBy = botName;
+        }
+      } else if (
+        payload?.directPublish === true ||
+        payload?.autoApprove === true ||
+        raw.directPublish === true ||
+        raw.autoApprove === true
+      ) {
+        existing.status = 'UPCOMING';
+        existing.approvedAt = nowIso;
+        existing.approvedBy = botName;
+      }
+
       if (typeof raw.displayOrder === 'number') existing.displayOrder = raw.displayOrder;
       if (raw.subscribersCount) existing.subscribersCount = Number(raw.subscribersCount);
       existing.source = botName;
       existing.updatedAt = nowIso;
 
-      const mergedCodes = new Set<string>((existing.expectedCodes || []).map((c: string) => c.toUpperCase()));
-      expectedCodes.forEach((c) => mergedCodes.add(c));
-      existing.expectedCodes = Array.from(mergedCodes);
+      // 4. Xử lý cột mã code dự kiến (expectedCodes)
+      // Cho phép bot/admin xóa sạch mã đoán cũ bằng danh sách rỗng hoặc clearCodes: true
+      if (raw.clearCodes === true || (hasExplicitCodesField && expectedCodes.length === 0)) {
+        existing.expectedCodes = [];
+      } else if (hasExplicitCodesField && expectedCodes.length > 0) {
+        if (raw.mergeCodes === true || payload?.mergeCodes === true) {
+          const mergedCodes = new Set<string>((existing.expectedCodes || []).map((c: string) => c.toUpperCase()));
+          expectedCodes.forEach((c) => mergedCodes.add(c));
+          existing.expectedCodes = Array.from(mergedCodes);
+        } else {
+          // Mặc định ghi đè danh sách code mới nếu bot chỉ định rõ danh sách
+          existing.expectedCodes = expectedCodes;
+        }
+      }
 
       updatedCount++;
-      processedDetails.push({ name, slug, action: 'UPDATED', status: existing.status, releaseDate });
+      processedDetails.push({ name, slug, action: 'UPDATED', status: existing.status, releaseDate: existing.releaseDate });
     } else {
+      // Record hoàn toàn mới: áp dụng fallback hợp lệ
       const newRecord = {
         id: raw.id || `ug_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
         name,
         slug,
-        publisher,
-        releaseDate,
-        category,
-        platform,
-        iconUrl,
-        bannerUrl,
-        description,
-        instructions,
-        redeemUrl,
-        preRegUrl,
+        publisher: hasPublisher && rawPublisher ? rawPublisher : 'Nhà phát hành',
+        releaseDate: hasRelDate && rawRelDate ? rawRelDate : nowIso,
+        category: hasCategory && rawCategory ? rawCategory : 'Game Mới',
+        platform: hasPlatform && rawPlatform ? rawPlatform : 'Android, iOS, PC',
+        iconUrl: hasIcon && rawIcon ? rawIcon : `/game_icons/${slug}.webp`,
+        bannerUrl: hasBanner && rawBanner ? rawBanner : undefined,
+        description: hasDescription && rawDescription ? rawDescription : `Thông tin ngày mở server và giftcode tân thủ tựa game ${name}.`,
+        instructions: hasInstructions && rawInstructions ? String(rawInstructions).trim() : undefined,
+        redeemUrl: hasRedeemUrl && rawRedeemUrl ? String(rawRedeemUrl).trim() : undefined,
+        preRegUrl: hasPreReg && rawPreReg ? rawPreReg : undefined,
         expectedCodes,
         subscribersCount: Number(raw.subscribersCount || 0),
         source: botName,
-        status,
+        status: initialStatus,
+        approvedAt: (initialStatus === 'UPCOMING' || initialStatus === 'APPROVED') ? nowIso : undefined,
+        approvedBy: (initialStatus === 'UPCOMING' || initialStatus === 'APPROVED') ? botName : undefined,
         displayOrder: typeof raw.displayOrder === 'number' ? raw.displayOrder : 999,
         createdAt: nowIso,
         updatedAt: nowIso,
@@ -782,9 +1112,12 @@ export async function onRequestPost(context: { request: Request; env: Env }): Pr
       currentUpcomingGames.unshift(newRecord);
       existingMap.set(slug.toLowerCase(), newRecord);
       addedCount++;
-      processedDetails.push({ name, slug, action: 'ADDED', status: newRecord.status, releaseDate });
+      processedDetails.push({ name, slug, action: 'ADDED', status: newRecord.status, releaseDate: newRecord.releaseDate });
     }
   }
+
+  // Tự động kiểm tra và bảo toàn dữ liệu gốc trước khi lưu D1
+  sanitizeAndSafeguardUpcomingGames(currentUpcomingGames);
 
   // 4. Lưu lại vào D1
   if (env.DB) {

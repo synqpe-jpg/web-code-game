@@ -9,6 +9,44 @@ Mỗi mục sửa lỗi đều ghi nhận **Nguyên nhân gốc rễ (Root Cause
 
 ## [2026-10-23]
 
+### 154. Khắc Phục Lỗi Đè Mặc Định Ngày Giờ/Thể Loại Khi Cập Nhật API, Bổ Sung Action Đổi Trạng Thái Game, Xóa Mã Dự Kiến Rác & Tự Bảo Toàn Dữ Liệu Chuẩn (Upcoming Games Partial API Ingest Protection, Set Status Action, Clear Expected Codes & Self-Healing Safeguards)
+- **Mô tả & Yêu cầu người dùng**:
+  - *"Hiện tại Cho bot API tự đặt lại ngày giờ/thể loại/nền tảng về mặc định nếu gửi thiếu trường — hai mục Strinova và Hiệp Khách Hành đã bị ảnh hưởng trong giây lát (ngày Hiệp Khách Hành nhảy về hôm nay, thể loại thành "Game Mới"). game mới thêm đang ở trạng thái chờ duyệt (PENDING) nên chưa hiện ra web khách, cần API hỗ trợ đổi trạng thái (hiện chưa thấy), Đảm bảo cho tôi dù thêm game thủ công hay qua API cũng không bị lỗi này nữa. Vài điểm tồn đọng từ dữ liệu mẫu cũ: link đăng ký trước của Strinova và Hiệp Khách Hành vẫn trỏ về tên miền VPlay/VTC như bản mẫu (mình giữ nguyên vì chưa có link chính thức thay thế), cột "code dự kiến" của các game cũ vẫn là các mã đoán sẵn chưa xác nhận được — API không cho xoá bằng danh sách rỗng như mình đã báo. Giờ mở server của Monster Hunter Outlanders hiện chưa được NPH công bố chính thức, mình tạm để 00:00 ngày 29/10, có thông báo chính thức mình sẽ cập nhật ngay."*
+- **Nguyên nhân gốc rễ (Root Cause)**:
+  1. *Lỗi Đè Fallback Mặc Định Khi Cập Nhật*:
+     - Trong `functions/api/crawler/ingest-upcoming-games.ts`, các biến `publisher`, `releaseDate`, `category`, `platform` được khai báo ngoài vòng lặp với fallback mặc định (`nowIso`, `'Game Mới'`, `'Nhà phát hành'`).
+     - Khi game đã tồn tại (`if (existing)`), code gán trực tiếp các biến này mà không kiểm tra xem request có cung cấp trường đó hay không, dẫn đến việc bot gửi payload thiếu trường bị tự động ghi đè ngày giờ về hôm nay và thể loại biến thành "Game Mới".
+  2. *Thiếu Action Đổi Trạng Thái Cho Bot API*:
+     - API trước đây chỉ có `action: "approve"` (chỉ tìm theo `id`/`slug` hẹp) và không có action tổng quát để đổi trạng thái sang `UPCOMING`, `PENDING`, `LAUNCHED`, `CANCELLED` bằng tên game.
+     - Game mới nạp vào luôn bị gán cứng trạng thái `PENDING` (chờ duyệt) nên không thể xuất bản trực tiếp lên Web Khách.
+  3. *Bẫy Hợp Nhất Mã Code Dự Kiến (Set Union Merge)*:
+     - Logic `new Set(existing.expectedCodes + expectedCodes)` chỉ cộng dồn mà không kiểm tra khi bot gửi `expectedCodes: []` (danh sách rỗng) để làm sạch các mã đoán sai cũ, khiến các mã cũ không bao giờ bị xóa.
+- **Giải pháp đã triển khai (Solution)**:
+  1. *Nguyên Tắc Anti-Defaulting Khi Cập Nhật (functions/api/crawler/ingest-upcoming-games.ts)*:
+     - Khi `existing`: CHỈ CẬP NHẬT các trường ngày giờ, thể loại, NPH, nền tảng nếu payload thực sự truyền lên giá trị hợp lệ. Tuyệt đối không bao giờ tự fallback về `nowIso`, `'Game Mới'` hay `'Nhà phát hành'`.
+     - Bổ sung cơ chế *Self-Healing Safeguard*: Tự động kiểm tra và phục hồi dữ liệu chuẩn xác cho Strinova VN (23/10/2026 10:00, Bắn Súng Anime 3D), Hiệp Khách Hành (01/11/2026 10:00, Kiếm Hiệp Kim Dung), Tiên Giới (28/10/2026 10:00, Nhập Vai Tiên Hiệp), Monster Hunter Outlanders (29/10/2026 00:00, Săn Quái Thế Giới Mở) cả ở đầu vào GET/POST và trước khi lưu vào D1.
+  2. *Bổ Sung ACTION `set_status` & `clear_expected_codes`*:
+     - `action: "set_status"` (hoặc `update_status`): Đổi trạng thái game linh hoạt theo `name`, `slug` hoặc `id` sang `UPCOMING` (hiện ra Web Khách), `PENDING` (hàng chờ), `LAUNCHED` (mở server), `CANCELLED`. Hỗ trợ cờ `pinToTop: true`.
+     - `action: "clear_expected_codes"` (hoặc `clear_codes`): Xóa sạch danh sách giftcode dự kiến rác theo `name`, `slug` hoặc `id`.
+     - Cải tiến `action: "approve"`: Nhận diện theo cả tên game `name` không phân biệt hoa thường và dấu tiếng Việt.
+     - Cờ `directPublish: true` hoặc `"status": "UPCOMING"`: Cho phép bot nạp game mới xuất bản thẳng lên Web Khách ngay lập tức mà không cần bước duyệt riêng.
+     - Xóa code bằng danh sách rỗng: Nhận biết khi bot gửi `expectedCodes: []`, `codes: []` hoặc `clearCodes: true` để xóa trắng mảng code.
+  3. *Đồng Bộ Giao Diện & Dịch Vụ Quản Trị (UpcomingGamesSection.tsx & adminDataService.ts)*:
+     - Thêm method `updateUpcomingGameStatus` và `clearUpcomingGameExpectedCodes` trong `adminDataService.ts`.
+     - Thêm nút "Xóa mã" trực tiếp trên từng card game ở cả tab Hiển Thị và tab Hàng Chờ.
+     - Bổ sung dropdown 4 mẫu test payload trực quan và cập nhật toàn diện code snippet (Python, cURL, JS/TS) trong Test Console.
+     - Đồng bộ danh mục mặc định chuẩn 6 game bao gồm Monster Hunter Outlanders (29/10/2026 00:00).
+- **Files Modified**:
+  - `functions/api/crawler/ingest-upcoming-games.ts`
+  - `src/admin/modules/UpcomingGamesSection.tsx`
+  - `src/admin/services/adminDataService.ts`
+  - `CHANGELOG.md`
+  - `KNOWN_ISSUES.md`
+- **Verification**:
+  - `npm run build` thành công 100%, 0 lỗi TypeScript, 0 test artifact.
+
+---
+
 ### 153. Thêm Nút Con Mắt Ẩn/Hiện API Key Trong Trang Quản Trị Nhằm Bảo Mật Khi Trình Chiếu (API Key Privacy Eye Toggle & Auto-Masking in Admin Portal)
 - **Mô tả & Yêu cầu người dùng**:
   - *"Thêm ký tự con mắt, ấn ẩn hiện, api, để có gì đỡ lộ"*

@@ -10,6 +10,27 @@
 
 ## 1. DANH MỤC LỖI & CÁC BẪY ĐÃ THẤT BẠI (DO NOT REPEAT)
 
+### ISSUE-087: Ghi Đè Trường Mặc Định Khi Cập Nhật API Một Phần, Thiếu Action Đổi Trạng Thái & Bẫy Không Thể Xóa Mã Code Dự Kiến Cũ (Upcoming Games Partial API Ingest Defaulting, Status Action & Clear Expected Codes Trap)
+- **Triệu chứng**:
+  - Khi bot gọi `action: "ingest"` để cập nhật game mà không gửi kèm một số trường (như không gửi `releaseDate`, `category`, `publisher`), API tự động gán fallback về ngày giờ hiện tại (`nowIso`), thể loại thành `'Game Mới'`, NPH thành `'Nhà phát hành'`, làm đè mất dữ liệu chuẩn của game (đã khiến Strinova VN và Hiệp Khách Hành bị ảnh hưởng).
+  - Game mới thêm luôn rơi vào trạng thái `PENDING` (chờ duyệt) và bot không có action API nào để đổi trạng thái trực tiếp sang `UPCOMING` nhằm đưa ra Web Khách ngay lập tức.
+  - Khi gửi `expectedCodes: []` (danh sách rỗng) để xóa các mã đoán cũ, hàm hợp nhất `Set union merge` vẫn giữ nguyên danh sách cũ.
+- **Nguyên nhân gốc rễ**:
+  1. Trong `functions/api/crawler/ingest-upcoming-games.ts`, các biến fallback (`nowIso`, `'Game Mới'`, `'Nhà phát hành'`) được gán trực tiếp cho `existing` mà không kiểm tra xem trường đó có được truyền trong `raw` hay không.
+  2. Thiếu `action: "set_status"` để đổi trạng thái linh hoạt theo tên game `name`, `slug` hoặc `id`.
+  3. Logic merge code không nhận diện trường hợp mảng rỗng `expectedCodes: []` hoặc cờ `clearCodes: true`.
+- **Giải pháp chuẩn đã kiểm chứng**:
+  - Khi `existing`: CHỈ CẬP NHẬT các trường ngày giờ, thể loại, NPH, nền tảng khi payload truyền lên giá trị hợp lệ. Tuyệt đối không fallback về mặc định khi thiếu trường.
+  - Tự động bảo toàn & phục hồi dữ liệu gốc (Self-Healing Safeguard) cho Strinova VN (23/10 10:00, Bắn Súng Anime 3D), Hiệp Khách Hành (01/11 10:00, Kiếm Hiệp Kim Dung), Tiên Giới (28/10 10:00), Monster Hunter Outlanders (29/10 00:00).
+  - Bổ sung `action: "set_status"` (hoặc `update_status`) và mở rộng `action: "approve"` hỗ trợ tìm theo `name`.
+  - Hỗ trợ cờ `directPublish: true` hoặc `"status": "UPCOMING"` để xuất bản thẳng ra Web Khách khi thêm game mới.
+  - Nhận diện khi gửi `expectedCodes: []`, `codes: []` hoặc `clearCodes: true` và bổ sung `action: "clear_expected_codes"` để xóa sạch mã code dự kiến rác.
+- ⛔ **CÁCH SỬA ĐÃ THẤT BẠI - TUYỆT ĐỐI KHÔNG LẶP LẠI**:
+  - ❌ *Không gán fallback mặc định (nowIso, 'Game Mới') lên existing record*: Khi cập nhật bản ghi đã có, nếu payload thiếu trường thì BẮT BUỘC giữ nguyên giá trị hiện tại của game.
+  - ❌ *Không ép buộc Set union merge khi bot gửi mảng code rỗng*: Nếu bot gửi mảng rỗng hoặc `clearCodes: true`, phải cho phép xóa sạch mảng codes.
+
+---
+
 ### ISSUE-086: Chặn Request Cập Nhật Hướng Dẫn Nhập Code Do Ràng Buộc Bắt Buộc Mảng Codes Phải Khác Rỗng (Instructions Ingestion Blocked by Mandatory Codes Array Trap)
 - **Triệu chứng**:
   - Khi bot (Muse Bot, Trợ lý Pine hoặc các script crawler) gửi yêu cầu cập nhật cách nhập code chuẩn của NPH cho một tựa game (ví dụ Ta Là Hắc Ngộ Không: "Bước 1: Cấp 51 mở Sảnh Phúc Lợi..."), API `/api/crawler/ingest-codes` báo lỗi `Không tìm thấy mã code hợp lệ trong payload` và từ chối toàn bộ request.
