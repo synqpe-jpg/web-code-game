@@ -15,6 +15,7 @@ import type { GameItem } from '../types/game';
 import { useLanguage } from '../context/LanguageContext';
 import { isG1Licensed } from '../utils/licenseUtils';
 import { isCodeExpired } from '../utils/codeUtils';
+import { dataService } from '../services/dataService';
 
 export interface GameCardProps {
   game: GameItem;
@@ -73,14 +74,18 @@ export const GameCard: React.FC<GameCardProps> = ({
   const [copiedLink, setCopiedLink] = useState(false);
 
   const isExpired = (c: { status?: string; code: string; expiry?: string; expiresAt?: string }) => isCodeExpired(c);
-  const activeCodes = (game.codes || []).filter((c) => !isExpired(c));
+  const cachedServer = game.slug ? dataService.getCachedServerGame(game.slug) : null;
+  const displayCodes = (cachedServer?.codes && cachedServer.codes.length > 0) ? cachedServer.codes : (game.codes || []);
+  const activeCodes = displayCodes.filter((c) => !isExpired(c));
   const firstCode =
     activeCodes.length > 0
       ? activeCodes[0].code
-      : game.codes && game.codes.length > 0
-      ? game.codes[0].code
+      : displayCodes.length > 0
+      ? displayCodes[0].code
       : null;
-  const totalCodes = game.codes_count || (game.codes ? game.codes.length : 0);
+  const totalCodes = (cachedServer && typeof cachedServer.codes_count === 'number')
+    ? cachedServer.codes_count
+    : (typeof game.codes_count === 'number' ? game.codes_count : displayCodes.length);
 
   const getSafeIcon = (rawUrl?: string, slug?: string) => {
     if (!rawUrl || rawUrl.includes('codemoi.net') || rawUrl.startsWith('/game-icons')) {

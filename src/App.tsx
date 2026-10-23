@@ -537,9 +537,16 @@ export const App: React.FC = () => {
           const pathSlug = window.location.pathname.replace(/^\/(?:game|g)\//i, '').replace(/\/$/, '').trim();
           if (pathSlug) {
             setCurrentTab('catalog');
-            const game = await dataService.getGameBySlug(pathSlug);
+            const game = await dataService.getGameBySlug(pathSlug, false);
             if (game) {
               setSelectedGame(game);
+              setGames((prev) =>
+                prev.map((g) =>
+                  g.slug === game.slug || g.id === game.id
+                    ? { ...g, codes_count: game.codes_count, codes: (game.codes || []).slice(0, 3) }
+                    : g
+                )
+              );
               return;
             }
           }
@@ -1064,7 +1071,7 @@ export const App: React.FC = () => {
     // 1. Immediately enrich with complete code list from dataService so the modal opens with full codes on the VERY FIRST RENDER
     const localCodes = dataService.getCodesForGame(game);
     const cachedGame = dataService.getCachedServerGame(game.slug);
-    const fullCodes = (cachedGame?.codes && cachedGame.codes.length > 3)
+    const fullCodes = (cachedGame?.codes && cachedGame.codes.length > 0)
       ? cachedGame.codes
       : (localCodes && localCodes.length > (game.codes?.length || 0) ? localCodes : (game.codes || []));
 
@@ -1078,7 +1085,7 @@ export const App: React.FC = () => {
 
     // 2. Background verify with serverless API without forceFresh bypass unless needed
     const fullGame = await dataService.getGameBySlug(game.slug, false);
-    if (fullGame && fullGame.codes && fullGame.codes.length >= initialEnrichedGame.codes.length) {
+    if (fullGame && fullGame.codes) {
       setSelectedGame((prev) => {
         if (!prev || (prev.slug !== game.slug && prev.id !== game.id)) return prev;
         return {
@@ -1087,17 +1094,33 @@ export const App: React.FC = () => {
           icon_url: fullGame.icon_url || prev.icon_url || `/game_icons/${game.slug}.webp`,
         };
       });
+      // Synchronize back to games list state so homepage card badge immediately reflects authoritative codes_count!
+      setGames((prev) =>
+        prev.map((g) =>
+          g.slug === fullGame.slug || g.id === fullGame.id
+            ? { ...g, codes_count: fullGame.codes_count, codes: (fullGame.codes || []).slice(0, 3) }
+            : g
+        )
+      );
     }
   };
 
   const handleSelectGameSlug = async (slug: string) => {
     const cachedGame = dataService.getCachedServerGame(slug);
-    if (cachedGame && cachedGame.codes && cachedGame.codes.length > 3) {
+    if (cachedGame && (cachedGame as any).is_full_detail && !cachedGame.is_partial_preview) {
       setSelectedGame(cachedGame);
-      return;
     }
     const fullGame = await dataService.getGameBySlug(slug, false);
-    if (fullGame) setSelectedGame(fullGame);
+    if (fullGame) {
+      setSelectedGame(fullGame);
+      setGames((prev) =>
+        prev.map((g) =>
+          g.slug === fullGame.slug || g.id === fullGame.id
+            ? { ...g, codes_count: fullGame.codes_count, codes: (fullGame.codes || []).slice(0, 3) }
+            : g
+        )
+      );
+    }
   };
 
   const handleSelectProductById = (productId: string) => {

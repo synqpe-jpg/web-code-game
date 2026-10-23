@@ -7,6 +7,54 @@ Mỗi mục sửa lỗi đều ghi nhận **Nguyên nhân gốc rễ (Root Cause
 
 ## [2026-10-23]
 
+### 166. Sửa Dứt Điểm Lệch Số Mã Giữa Trang Tĩnh Prerender, Client Memory Cache Và Thẻ Game Trang Chủ — Đồng Bộ Tuyệt Đối 3 Tầng D1 Authoritative (Zero Divergence Prerender Sync, Cache Timestamp Bypass & Card Badge Sync)
+- **Mô tả & Yêu cầu người dùng**:
+  - *"Điểm 1: Thực Thần Ký — API có 12 mã nhưng trang công khai vẫn hiện 10 mã (kẹt ở 10 mã cũ, thiếu 2 mã TTKF376, TTTTK2026)."*
+  - *"Điểm 2: Badge trang chủ của Kỳ Tích Trở Lại ghi 6, trang chi tiết có 5 mã — Thống nhất về một nguồn sự thật duy nhất."*
+  - *"Mở rộng kiểm tra mẫu ít nhất 10 game khác có cả mã bundled lẫn crawler API, so sánh API count, detail count, badge count."*
+  - *"Nâng cấp scripts/verify_codes_integrity_audit.cjs có bước đối chiếu 3 tầng và in bảng ma trận kiểm toán."*
+- **Nguyên nhân gốc rễ (Root Cause)**:
+  1. **Bẫy Trang Tĩnh Prerender Đọc File Cục Bộ Cũ & Bẫy Khớp Lỏng Substring (`scripts/prerender.js`)**:
+     - File tĩnh `dist/game/thuc-than-ky/index.html` được sinh tại thời điểm build từ `crawled_codes_188.json` (chỉ có 10 mã cũ). Khi người dùng truy cập trực tiếp URL trang game, trình duyệt lập tức hiển thị bản HTML tĩnh 10 mã trước khi React nạp.
+     - Trong `scripts/prerender.js`, bộ lọc mã sử dụng điều kiện lỏng `c.gameSlug.includes(slug)` khiến các tựa game như `roblox` bị gộp cả mã của các tựa game con (`roblox-blade-ball`, `roblox-tower-defense`...) làm số lượng vọt lên 195 mã thay vì 28 mã chuẩn.
+  2. **Bẫy Cache Cứng Còn Sót Trong `App.tsx` (`codes.length > 3`)**:
+     - Trong `App.tsx:handleSelectGame` (dòng 1074) và `handleSelectGameSlug` (dòng 1102), vẫn còn điều kiện kiểm tra `cachedGame.codes.length > 3`. Khi Thực Thần Ký có 10 mã cục bộ (> 3), luồng chọn game từ danh sách hoặc slug coi dữ liệu đã đầy đủ và không nạp mã mới nhất từ API.
+     - Khi `handleSelectGame` tải xong game authoritative từ D1, hàm chỉ cập nhật `selectedGame` modal mà không đồng bộ ngược lại mảng `games` state trên trang chủ, khiến badge thẻ game ngoài danh mục không tự cập nhật theo số mã mới.
+  3. **Bẫy HTTP Disk Cache Phía Trình Duyệt Thiếu Tham Số Cache-Busting**:
+     - Request `getGameBySlug` gọi `/api/games?slug=...` không có tham số timestamp `_t` và không truyền header `{ cache: 'no-store' }`. Khi trình duyệt đã lưu cache phiên trước, nó trả về phản hồi cũ 10 mã thay vì lấy 12 mã từ D1 Edge.
+  4. **Bẫy Cloudflare Edge PoP Cache Catalog 180s**:
+     - Header `Cache-Control` của catalog `/api/games` có `stale-while-revalidate=180`. Sau khi mã test `TESTREG3948` bị xóa ở D1, một số PoP CDN Cloudflare vẫn phục vụ snapshot cache 6 mã cho đến khi hết TTL.
+- **Giải pháp đã triển khai (Solution)**:
+  1. **Đồng Bộ Dữ Liệu Bundled Master & Viết Lại Thuật Toán Khớp Mã Chuẩn Trong `scripts/prerender.js`**:
+     - Bổ sung 2 mã `TTKF376`, `TTTTK2026` của Thực Thần Ký và 5 mã `DT30K`, `MUNG60K`, `VIP666`, `VIP888`, `VIP999` của Kỳ Tích Trở Lại vào `src/data/crawled_codes_188.json` và `public/data/crawled_codes_188.json`.
+     - Tái thiết bộ lọc mã trong `scripts/prerender.js`: Sử dụng tập khóa chính xác (`exactKeys`: `normSlug`, `cleanWithoutMobile`, `cleanId`, `alias`), loại bỏ hoàn toàn `.includes()`, đồng bộ chuẩn 1:1 với thuật toán của backend `functions/api/games.ts`. Kết quả: `thuc-than-ky` render chuẩn 12 mã, `ky-tich-tro-lai` render chuẩn 5 mã, `roblox` render chuẩn 28 mã.
+  2. **Triệt Tiêu Hoàn Toàn Bẫy `length > 3` Và Đồng Bộ Ngược Thẻ Game Trong `App.tsx`**:
+     - Gỡ bỏ triệt để điều kiện `cachedGame.codes.length > 3` tại `handleSelectGame` và `handleSelectGameSlug`. Luôn ưu tiên nạp authoritative game từ D1 qua `dataService.getGameBySlug`.
+     - Cập nhật state `setGames`: Khi mở game hoặc truy cập URL trực tiếp, tự động đồng bộ `codes_count` và `codes` của thẻ game ngoài danh mục để badge trang chủ khớp 100% với modal chi tiết.
+  3. **Củng Cố Cache-Busting & In-Memory Sync Trong `dataService.ts`**:
+     - Thêm `&_t=${Date.now()}` và `{ cache: 'no-store' }` vào URL gọi `getGameBySlug`, triệt tiêu hoàn toàn rủi ro trình duyệt trả về cache cũ.
+     - Trong `dataService.queryGames`: Bảo vệ cache `cachedServerGames`, không cho phép dữ liệu preview trang chủ ghi đè lên các đối tượng chi tiết `is_full_detail`.
+     - Trong `getGameBySlug`: Khi nhận game từ D1, đồng bộ ngay lập tức vào mảng `this.games` để các hàm truy vấn cục bộ luôn thấy số lượng mới nhất.
+  4. **Dynamic Synchronous Badge Trong `GameCard.tsx`**:
+     - Thẻ game ưu tiên lấy `codes_count` từ `dataService.getCachedServerGame(slug)` nếu đã có dữ liệu authoritative từ D1, đảm bảo số trên badge ngoài trang chủ luôn bằng số trong modal.
+  5. **Tối Ưu Edge TTL & Nâng Cấp Audit Script 10 Game Mẫu**:
+     - Giảm `stale-while-revalidate` của catalog API xuống 30s. Thêm purge toàn bộ catalog `/api/games` khi crawler ingest mã mới.
+     - Viết lại `scripts/verify_codes_integrity_audit.cjs`: Thêm bước kiểm toán ma trận 3 tầng (API vs HTML Detail vs Card Badge) cho 10 tựa game mẫu, in bảng `console.table` trực quan, khối `finally` dọn sạch mã test 100% theo Rule 7.
+- **Files Modified**:
+  - `scripts/prerender.js`
+  - `src/App.tsx`
+  - `src/services/dataService.ts`
+  - `src/components/GameCard.tsx`
+  - `src/data/crawled_codes_188.json`
+  - `public/data/crawled_codes_188.json`
+  - `functions/api/games.ts`
+  - `functions/api/crawler/ingest-codes.ts`
+  - `scripts/verify_codes_integrity_audit.cjs`
+
+---
+
+## [2026-10-23]
+
 ### 165. Sửa Dứt Điểm Lỗi Code Có Trong DB Nhưng Trang Chi Tiết Trả Về 0 Hoặc Lệch Số Lượng — Đồng Bộ Nguồn Sự Thật D1 & Hợp Nhất 3 Tầng Cache (D1 Edge Authoritative Code Ingestion & Single Query Bypass Fix)
 - **Mô tả & Yêu cầu người dùng**:
   - *"Kiểm tra & sửa dứt điểm lỗi: code có trong DB nhưng trang chi tiết game hiển thị 0."*

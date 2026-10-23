@@ -10,6 +10,31 @@
 
 ## 1. DANH MỤC LỖI & CÁC BẪY ĐÃ THẤT BẠI (DO NOT REPEAT)
 
+### ISSUE-094: Bẫy Trang Tĩnh Prerender Lệch Số Mã Do Dữ Liệu Đóng Gói Cũ & Bẫy Khớp Lỏng Substring, Bẫy Cache Client Length > 3 Trong App.tsx Và Bẫy Không Đồng Bộ Thẻ Game Trang Chủ (Prerender Divergence, App Cache Trap & Card Badge Desync)
+- **Triệu chứng**:
+  - Trang chi tiết tĩnh `https://codegame.shop/game/thuc-than-ky` hiển thị "10 mã khả dụng" dù API đã có 12 mã.
+  - Game `roblox` hoặc `blox-fruits` trên trang tĩnh hiển thị hàng trăm mã do gom cả mã của các game con có cùng chữ `roblox`.
+  - Thẻ game Kỳ Tích Trở Lại trên trang chủ hiển thị badge "6 Có mã code", trong khi API và modal chi tiết là 5 mã.
+- **Nguyên nhân gốc rễ**:
+  1. `scripts/prerender.js` chỉ đọc `crawled_codes_188.json` khi build, nếu file này chưa được nạp mã mới từ D1 thì toàn bộ 529 file HTML tĩnh sinh ra sẽ giữ mã cũ.
+  2. Thuật toán lọc mã trong `prerender.js` dùng `c.gameSlug.includes(slug)` lỏng lẻo thay vì so khớp chính xác danh sách khóa (`exactKeys`).
+  3. `App.tsx` vẫn còn bẫy kiểm tra `codes.length > 3` tại `handleSelectGame` và `handleSelectGameSlug`, làm bỏ qua việc fetch serverless API khi đã có dữ liệu local.
+  4. Sau khi fetch chi tiết game, hàm `handleSelectGame` chỉ cập nhật modal mà không cập nhật state mảng `games`, khiến badge thẻ game ngoài trang chủ không tự đồng bộ với modal.
+  5. Request gọi `/api/games?slug=...` thiếu tham số timestamp `_t` khiến trình duyệt có thể phục vụ cache HTTP cũ.
+- **Giải pháp chuẩn đã kiểm chứng**:
+  - Đồng bộ ngay các mã mới vào `crawled_codes_188.json` cả ở `src/data/` và `public/data/`.
+  - Tái thiết `scripts/prerender.js`: Dùng `exactKeys` (`normSlug`, `cleanWithoutMobile`, `cleanId`, `alias`) và Set deduplicate theo mã code, khớp 100% với backend Edge API.
+  - Xóa sạch mọi điều kiện `length > 3` trong `App.tsx`.
+  - Khi mở game hoặc truy cập URL trực tiếp trong `App.tsx`, cập nhật đồng thời cả `selectedGame` và `setGames` để thẻ game ngoài danh mục khớp ngay lập tức.
+  - Bổ sung `_t=${Date.now()}` và `{ cache: 'no-store' }` vào `getGameBySlug`.
+  - Cho phép `GameCard.tsx` tự động ưu tiên lấy `codes_count` từ `dataService.getCachedServerGame(slug)` nếu đã có snapshot authoritative từ D1.
+- ⛔ **CÁCH SỬA ĐÃ THẤT BẠI - TUYỆT ĐỐI KHÔNG LẶP LẠI**:
+  - ❌ *Không dùng `c.gameSlug.includes(slug)` để lọc mã cho tựa game*: Gây ô nhiễm mã của các game có tên tương tự (như roblox, liên quân, võ lâm...).
+  - ❌ *Không để lại bất kỳ điều kiện `length > 3` nào trong App.tsx hoặc client components*: Dữ liệu local chỉ là fallback tạm thời, D1 Edge mới là nguồn sự thật duy nhất.
+  - ❌ *Không cập nhật modal mà quên đồng bộ mảng games state ngoài trang chủ*: Khách hàng thấy số trên badge khác số trong modal sẽ tưởng web bị lỗi số liệu.
+
+---
+
 ### ISSUE-093: Bẫy Chặn Fetch Server Khi Client Đã Có Trên 3 Mã Cũ, Bẫy Lọc Bỏ Game 0 Code Trong Edge Catalog Và Bẫy Timeout Đồng Bộ Cấu Hình D1 (Client Memory Cache > 3 Trap, Single Query Edge 404 & Sync Fast-Path)
 - **Triệu chứng**:
   - Tựa game "Thực Thần Ký" (`thuc-than-ky`): Trong DB có 12 mã (bao gồm 2 mã mới `TTTTK2026` và `TTKF376`), nhưng khi người dùng mở trang chi tiết game ngoài web thì chỉ thấy 10 mã cũ, 2 mã mới không bao giờ xuất hiện.

@@ -772,6 +772,11 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
           new URL(`/api/games?id=${s}`, request.url).toString()
         );
       }
+      specificGameUrls.push(
+        'https://codegame.shop/api/games',
+        'https://web-code-game.pages.dev/api/games',
+        new URL('/api/games', request.url).toString()
+      );
       await invalidateCatalogEdgeCache(context as any, request, env, specificGameUrls).catch(() => {});
     }
 

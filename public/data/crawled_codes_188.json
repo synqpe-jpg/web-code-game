@@ -310360,5 +310360,89 @@
     "tier": 1,
     "isCrawlerAutoApproved": true,
     "updatedAt": "2026-10-21T04:50:27.336Z"
+  },
+  {
+    "id": "code_thuc-than-ky_TTKF376",
+    "gameId": "thuc-than-ky",
+    "gameSlug": "thuc-than-ky",
+    "gameName": "Thực Thần Ký",
+    "code": "TTKF376",
+    "codeValue": "TTKF376",
+    "rewards": "Quà tân thủ Thức Thần Ký",
+    "status": "active",
+    "expiresAt": "2026-12-31",
+    "source": "Crawler Ingest API"
+  },
+  {
+    "id": "code_thuc-than-ky_TTTTK2026",
+    "gameId": "thuc-than-ky",
+    "gameSlug": "thuc-than-ky",
+    "gameName": "Thực Thần Ký",
+    "code": "TTTTK2026",
+    "codeValue": "TTTTK2026",
+    "rewards": "Quà mừng năm mới 2026",
+    "status": "active",
+    "expiresAt": "2026-12-31",
+    "source": "Crawler Ingest API"
+  },
+  {
+    "id": "code_ky-tich-tro-lai_DT30K",
+    "gameId": "ky-tich-tro-lai",
+    "gameSlug": "ky-tich-tro-lai",
+    "gameName": "Kỳ Tích Trở Lại",
+    "code": "DT30K",
+    "codeValue": "DT30K",
+    "rewards": "Gói quà đăng ký trước 30.000 lượt (Kim Cương + Vé Tầm Bảo)",
+    "status": "active",
+    "expiresAt": "2026-12-31",
+    "source": "Crawler Ingest API"
+  },
+  {
+    "id": "code_ky-tich-tro-lai_MUNG60K",
+    "gameId": "ky-tich-tro-lai",
+    "gameSlug": "ky-tich-tro-lai",
+    "gameName": "Kỳ Tích Trở Lại",
+    "code": "MUNG60K",
+    "codeValue": "MUNG60K",
+    "rewards": "Gói quà mừng 60.000 người chơi (Rương Trang Bị Hoàng Kim)",
+    "status": "active",
+    "expiresAt": "2026-12-31",
+    "source": "Crawler Ingest API"
+  },
+  {
+    "id": "code_ky-tich-tro-lai_VIP666",
+    "gameId": "ky-tich-tro-lai",
+    "gameSlug": "ky-tich-tro-lai",
+    "gameName": "Kỳ Tích Trở Lại",
+    "code": "VIP666",
+    "codeValue": "VIP666",
+    "rewards": "Giftcode VIP tân thủ khởi đầu (Vé Quay Tướng + Vàng)",
+    "status": "active",
+    "expiresAt": "2026-12-31",
+    "source": "Crawler Ingest API"
+  },
+  {
+    "id": "code_ky-tich-tro-lai_VIP888",
+    "gameId": "ky-tich-tro-lai",
+    "gameSlug": "ky-tich-tro-lai",
+    "gameName": "Kỳ Tích Trở Lại",
+    "code": "VIP888",
+    "codeValue": "VIP888",
+    "rewards": "Giftcode tài lộc cao cấp (Đá Nâng Cấp + KNB)",
+    "status": "active",
+    "expiresAt": "2026-12-31",
+    "source": "Crawler Ingest API"
+  },
+  {
+    "id": "code_ky-tich-tro-lai_VIP999",
+    "gameId": "ky-tich-tro-lai",
+    "gameSlug": "ky-tich-tro-lai",
+    "gameName": "Kỳ Tích Trở Lại",
+    "code": "VIP999",
+    "codeValue": "VIP999",
+    "rewards": "Giftcode tri ân máy chủ mới (Bảo Rương Thần Binh)",
+    "status": "active",
+    "expiresAt": "2026-12-31",
+    "source": "Crawler Ingest API"
   }
 ]

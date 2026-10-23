@@ -1062,8 +1062,8 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
         headers: {
           ...CORS_HEADERS,
           'Cache-Control': isFiltered
-            ? 'public, max-age=15, s-maxage=30, stale-while-revalidate=60'
-            : 'public, max-age=30, s-maxage=60, stale-while-revalidate=180',
+            ? 'public, max-age=5, s-maxage=10, stale-while-revalidate=20'
+            : 'public, max-age=10, s-maxage=15, stale-while-revalidate=30',
         },
       }
     );

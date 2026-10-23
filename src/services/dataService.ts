@@ -1315,8 +1315,11 @@ class DataService {
               icon_url: g.icon_url || `/game_icons/${g.slug}.webp`,
               is_partial_preview: true,
             };
-            this.cachedServerGames.set(g.slug.toLowerCase(), enriched);
-            if (g.id) this.cachedServerGames.set(String(g.id).toLowerCase(), enriched);
+            const existingCache = this.cachedServerGames.get(g.slug.toLowerCase());
+            if (!existingCache || !(existingCache as any).is_full_detail) {
+              this.cachedServerGames.set(g.slug.toLowerCase(), enriched);
+              if (g.id) this.cachedServerGames.set(String(g.id).toLowerCase(), enriched);
+            }
             return enriched;
           });
           return {
@@ -1650,10 +1653,8 @@ class DataService {
 
     // 2. Fetch full game details with complete giftcode pool from Serverless D1 API
     try {
-      const fetchUrl = forceFresh
-        ? `/api/games?slug=${encodeURIComponent(slug)}&fresh=1`
-        : `/api/games?slug=${encodeURIComponent(slug)}`;
-      const res = await fetch(fetchUrl);
+      const fetchUrl = `/api/games?slug=${encodeURIComponent(slug)}&_t=${Date.now()}${forceFresh ? '&fresh=1' : ''}`;
+      const res = await fetch(fetchUrl, { cache: 'no-store' });
       if (res.ok) {
         const json = await res.json();
         if (json && json.success && json.game) {
@@ -1698,6 +1699,16 @@ class DataService {
           if (game.id) this.cachedServerGames.set(String(game.id).toLowerCase(), finalGame);
           this.cachedGameFetchTime.set(game.slug.toLowerCase(), Date.now());
           if (game.id) this.cachedGameFetchTime.set(String(game.id).toLowerCase(), Date.now());
+
+          // Synchronize back to this.games array
+          const inMemory = this.games.find(
+            (g) => (g.slug && g.slug.toLowerCase() === normSlug) || (g.id && g.id.toLowerCase() === normSlug)
+          );
+          if (inMemory) {
+            inMemory.codes = fullCodes.slice(0, 3);
+            inMemory.codes_count = fullCodes.length;
+          }
+
           return finalGame;
         }
       }

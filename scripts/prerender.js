@@ -751,14 +751,34 @@ async function runPrerender() {
     const gameDir = path.join(distDir, 'game', slug);
     if (!fs.existsSync(gameDir)) fs.mkdirSync(gameDir, { recursive: true });
 
-    // Filter codes for this game
-    const gameCodes = crawledCodes.filter(
-      (c) =>
-        c.gameSlug === slug ||
-        c.gameId === game.id ||
-        (c.gameSlug && (c.gameSlug.includes(slug) || slug.includes(c.gameSlug))) ||
-        (c.gameName && game.name && (c.gameName.toLowerCase() === game.name.toLowerCase() || c.gameName.toLowerCase().includes(game.name.toLowerCase())))
-    );
+    // Filter codes for this game with exact matching consistent with functions/api/games.ts
+    const normSlug = String(slug).toLowerCase().trim();
+    const cleanWithoutMobile = normSlug.replace(/-mobile$/i, '');
+    const cleanId = String(game.id || '').toLowerCase().trim();
+    const exactKeys = new Set([
+      normSlug,
+      cleanWithoutMobile,
+      cleanId,
+      cleanId.replace(/-mobile$/i, ''),
+      ...(normSlug === 'huyen-thoai-hai-tac' || normSlug === 'pirate-legends' ? ['huyen-thoai-hai-tac', 'pirate-legends'] : []),
+    ]);
+
+    const seenCodeVals = new Set();
+    const gameCodes = [];
+    for (const c of crawledCodes) {
+      if (!c) continue;
+      const cSlug = String(c.gameSlug || c.slug || c.gameId || '').toLowerCase().trim();
+      const cName = String(c.gameName || '').toLowerCase().trim();
+      const gName = String(game.name || '').toLowerCase().trim();
+      const isMatch = exactKeys.has(cSlug) || (cName && gName && cName === gName);
+      if (isMatch) {
+        const val = String(c.codeValue || c.code_value || c.code || '').trim().toUpperCase();
+        if (val && !seenCodeVals.has(val)) {
+          seenCodeVals.add(val);
+          gameCodes.push(c);
+        }
+      }
+    }
 
     const activeCodes = gameCodes.filter((c) => (c.status || 'approved') !== 'expired' && c.status !== 'rejected');
     const displayCodes = activeCodes.length > 0 ? activeCodes : gameCodes.slice(0, 10);
