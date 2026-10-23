@@ -9,6 +9,25 @@ Mỗi mục sửa lỗi đều ghi nhận **Nguyên nhân gốc rễ (Root Cause
 
 ## [2026-10-23]
 
+### 157. Khắc Phục Lỗi Runtime ReferenceError `bookmarkedGames is not defined` Khi Mở Hộp Thoại Thông Báo (Notification Modal Crash Fix)
+- **Mô tả & Yêu cầu người dùng**:
+  - *"Tôi ấn vào nút thông báo báo lỗi như ảnh."* (ErrorBoundary kích hoạt lỗi `bookmarkedGames is not defined`).
+- **Nguyên nhân gốc rễ (Root Cause)**:
+  - Trong `src/App.tsx`, state quản lý danh sách object các game được bookmark có tên là `bookmarkedGamesList` (`const [bookmarkedGamesList, setBookmarkedGamesList] = useState<GameItem[]>([]);`).
+  - Khi truyền props cho `EmailSubscriptionModal`, code đã vô tình gõ `bookmarkedGames={bookmarkedGames}` thay vì `bookmarkedGames={bookmarkedGamesList}`.
+  - Do biến `bookmarkedGames` không tồn tại trong lexical scope của `App.tsx`, khi người dùng bấm vào nút Thông Báo khiến `isEmailModalOpen` chuyển thành `true`, React render khối JSX và gặp lỗi `ReferenceError: bookmarkedGames is not defined`, làm văng vào ErrorBoundary.
+- **Giải pháp đã triển khai (Solution)**:
+  - `src/App.tsx`: Chỉnh sửa prop truyền vào `EmailSubscriptionModal`: `bookmarkedGames={bookmarkedGamesList}`.
+- **Files Modified**:
+  - `src/App.tsx`
+  - `CHANGELOG.md`
+  - `KNOWN_ISSUES.md`
+- **Verification**:
+  - Kiểm tra `audit_zero_test_artifacts.cjs`: 100% sạch.
+  - Build hoàn thành 100%, prerender 529 trang và Edge Worker bundle thành công.
+
+---
+
 ### 156. Nâng Cấp Nút Thông Báo Thành Trung Tâm Thông Báo 2 Cột: Bảng 1 Code Mới & Chia Sẻ Kèm Nguồn, Bảng 2 Đăng Ký Email (2-Column Notification Center, Followed Games Giftcode Feed & Viral Share Integration)
 - **Mô tả & Yêu cầu người dùng**:
   - *"Trên nút thông báo, chia là 2 cột, cột thứ 2 chính là bảng đăng ký hiện tại. Bảng 1 mặc định hiện khi ấn vào. Bảng 1 chính là bảng thông báo khi có code mới mà người dùng ấn Theo Dõi và nút chia sẻ, khi người dùng chia sẻ sẽ bao gồm mã code, game và nguồn từ web của tôi."*

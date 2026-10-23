@@ -10,6 +10,18 @@
 
 ## 1. DANH MỤC LỖI & CÁC BẪY ĐÃ THẤT BẠI (DO NOT REPEAT)
 
+### ISSUE-088: Lỗi Sai Tên Biến State Khi Truyền Props Khiến Modal Thông Báo Gặp ReferenceError và Crash Màn Hình (Notification Modal ReferenceError State Prop Mismatch Trap)
+- **Triệu chứng**:
+  - Người dùng bấm vào nút quả chuông Thông Báo trên Header thì màn hình bị lỗi crash giao diện ErrorBoundary: *"Đã có sự cố hiển thị nhỏ xảy ra"* kèm lỗi `ReferenceError: bookmarkedGames is not defined`.
+- **Nguyên nhân gốc rễ**:
+  - Trong `src/App.tsx`, state lưu trữ danh sách object game theo dõi được đặt tên là `bookmarkedGamesList`, nhưng khi truyền prop cho `EmailSubscriptionModal`, code ghi nhầm thành `bookmarkedGames={bookmarkedGames}`. Do biến `bookmarkedGames` không được khai báo trong scope của `App.tsx`, JavaScript ném ra ngoại lệ `ReferenceError`.
+- **Giải pháp chuẩn đã kiểm chứng**:
+  - Luôn kiểm tra chính xác tên biến state trong `App.tsx`: `bookmarkedGames={bookmarkedGamesList}`.
+- ⛔ **CÁCH SỬA ĐÃ THẤT BẠI - TUYỆT ĐỐI KHÔNG LẶP LẠI**:
+  - ❌ *Không truyền biến không được định nghĩa vào JSX props mà không qua khai báo*: Luôn kiểm tra đối chiếu danh sách biến trong component trước khi render props.
+
+---
+
 ### ISSUE-087: Ghi Đè Trường Mặc Định Khi Cập Nhật API Một Phần, Thiếu Action Đổi Trạng Thái & Bẫy Không Thể Xóa Mã Code Dự Kiến Cũ (Upcoming Games Partial API Ingest Defaulting, Status Action & Clear Expected Codes Trap)
 - **Triệu chứng**:
   - Khi bot gọi `action: "ingest"` để cập nhật game mà không gửi kèm một số trường (như không gửi `releaseDate`, `category`, `publisher`), API tự động gán fallback về ngày giờ hiện tại (`nowIso`), thể loại thành `'Game Mới'`, NPH thành `'Nhà phát hành'`, làm đè mất dữ liệu chuẩn của game (đã khiến Strinova VN và Hiệp Khách Hành bị ảnh hưởng).

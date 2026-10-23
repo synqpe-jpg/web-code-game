@@ -1653,7 +1653,7 @@ export const App: React.FC = () => {
           onClose={() => setIsEmailModalOpen(false)}
           currentUser={currentUser}
           bookmarks={bookmarks}
-          bookmarkedGames={bookmarkedGames}
+          bookmarkedGames={bookmarkedGamesList}
           upcomingGames={upcomingGames}
           onToggleBookmark={(slug) => handleToggleBookmark(slug)}
           onSelectGame={(game) => {
