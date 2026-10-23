@@ -750,8 +750,11 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
       // 5.1. Lưu mã code mới vào D1 Custom Free Codes
       await setSettingD1(env.DB, 'wcg_admin_custom_free_codes_v1', existingCustomCodes);
 
-      // 5.2. Nếu có game được tự động đăng hoặc cập nhật bộ đếm -> Lưu Games Catalog
-      await setSettingD1(env.DB, 'wcg_admin_games_v5', activeGamesList);
+      // 5.2. Chỉ lưu lại Games Catalog nếu có game được auto-publish hoặc có hướng dẫn nhập code được cập nhật
+      const shouldSaveGamesCatalog = autoPublishedCount > 0 || executionResults.some((r) => r.instructionsUpdated || r.redeemUrlUpdated);
+      if (shouldSaveGamesCatalog) {
+        await setSettingD1(env.DB, 'wcg_admin_games_v5', activeGamesList);
+      }
 
       // 5.3. Nếu có game rời khỏi hàng chờ duyệt -> Lưu Pending Games Catalog
       if (autoPublishedCount > 0) {
