@@ -1122,8 +1122,8 @@ class DataService {
             is_hot: Boolean(g.is_hot || g.isHot || g.status === 'HOT' || existingCodes.length > 5),
             is_new: Boolean(g.is_new || g.isNew || relDate.startsWith('2026-09')),
             is_active: true,
-            codes_count: existingCodes.length,
-            codes: existingCodes,
+            codes_count: Math.max(typeof g.codes_count === 'number' ? g.codes_count : 0, existingCodes.length),
+            codes: existingCodes.length > 0 ? existingCodes : (Array.isArray(g.codes) ? g.codes : []),
           };
         });
 
@@ -1179,14 +1179,18 @@ class DataService {
             added_at: c.createdAt || (c as any).created_at || new Date().toISOString(),
           };
 
-          const list = this.codesMap.get(slug) || [];
+          const normSlug = slug.toLowerCase();
+          const list = this.codesMap.get(normSlug) || [];
           if (!list.some((existing) => existing.code.toUpperCase() === codeItem.code.toUpperCase())) {
             list.push(codeItem);
-            this.codesMap.set(slug, list);
+            this.codesMap.set(normSlug, list);
+            if (slug !== normSlug) {
+              this.codesMap.set(slug, list);
+            }
           }
 
-          if (slug === 'pirate-legends' || slug === 'huyen-thoai-hai-tac') {
-            const altSlug = slug === 'pirate-legends' ? 'huyen-thoai-hai-tac' : 'pirate-legends';
+          if (slug === 'pirate-legends' || slug === 'huyen-thoai-hai-tac' || normSlug === 'pirate-legends' || normSlug === 'huyen-thoai-hai-tac') {
+            const altSlug = normSlug === 'pirate-legends' ? 'huyen-thoai-hai-tac' : 'pirate-legends';
             const altList = this.codesMap.get(altSlug) || [];
             if (!altList.some((x) => x.code.toUpperCase() === codeItem.code.toUpperCase())) {
               altList.push(codeItem);
@@ -1194,6 +1198,16 @@ class DataService {
             }
           }
         }
+
+        // Đồng bộ hóa tức thì toàn bộ mảng this.games với mã code vừa nạp
+        for (const game of this.games) {
+          const gameCodes = this.getCodesForGame(game);
+          if (gameCodes && gameCodes.length > 0) {
+            game.codes = gameCodes;
+            game.codes_count = Math.max(gameCodes.length, Number(game.codes_count) || 0);
+          }
+        }
+
         this.codesFallbackLoaded = true;
       } catch (err) {
         console.warn('[dataService] Fallback codes load error:', err);
@@ -1209,6 +1223,7 @@ class DataService {
     if (!this.isLoaded) {
       await this.processData();
     }
+    await this.ensureFallbackCodesLoaded();
     try {
       if (typeof window !== 'undefined' && !sessionStorage.getItem('wcg_ip_checked')) {
         sessionStorage.setItem('wcg_ip_checked', '1');
@@ -1422,7 +1437,18 @@ class DataService {
     const totalPages = Math.max(1, Math.ceil(total / pageSize));
     const safePage = Math.min(Math.max(1, page), totalPages);
     const startIdx = (safePage - 1) * pageSize;
-    const paginatedItems = list.slice(startIdx, startIdx + pageSize);
+    const paginatedItems = list.slice(startIdx, startIdx + pageSize).map((g) => {
+      const localCodes = this.getCodesForGame(g);
+      const fullCodes = (localCodes && localCodes.length > (g.codes?.length || 0))
+        ? localCodes
+        : (g.codes && g.codes.length > 0 ? g.codes : localCodes);
+      return {
+        ...g,
+        codes: fullCodes,
+        codes_count: Math.max(Number(g.codes_count) || 0, fullCodes.length),
+        icon_url: g.icon_url || `/game_icons/${g.slug}.webp`,
+      };
+    });
 
     return {
       items: paginatedItems,
@@ -1554,17 +1580,22 @@ class DataService {
     const slug = game.slug || game.id || '';
     const rawId = game.id || slug;
     const name = (game as any).name || '';
+    const cleanSlug = (slug || '').toLowerCase();
+    const cleanId = (rawId || '').toLowerCase();
+    const cleanName = (name || '').toLowerCase();
 
     const possibleKeys = [
       slug,
+      cleanSlug,
       rawId,
-      slug.replace(/-mobile$/i, ''),
-      `${slug}-mobile`,
-      slug.replace(/_/g, '-'),
-      name ? name.toLowerCase().replace(/[^a-z0-9]+/g, '-') : '',
-      name ? name.toLowerCase().replace(/[^a-z0-9]+/g, '_') : '',
-      (slug === 'huyen-thoai-hai-tac' || slug === 'pirate-legends' || rawId === 'huyen-thoai-hai-tac' || rawId === 'pirate-legends') ? 'huyen-thoai-hai-tac' : '',
-      (slug === 'huyen-thoai-hai-tac' || slug === 'pirate-legends' || rawId === 'huyen-thoai-hai-tac' || rawId === 'pirate-legends') ? 'pirate-legends' : '',
+      cleanId,
+      cleanSlug.replace(/-mobile$/i, ''),
+      `${cleanSlug}-mobile`,
+      cleanSlug.replace(/_/g, '-'),
+      cleanName ? cleanName.replace(/[^a-z0-9]+/g, '-') : '',
+      cleanName ? cleanName.replace(/[^a-z0-9]+/g, '_') : '',
+      (cleanSlug === 'huyen-thoai-hai-tac' || cleanSlug === 'pirate-legends' || cleanId === 'huyen-thoai-hai-tac' || cleanId === 'pirate-legends') ? 'huyen-thoai-hai-tac' : '',
+      (cleanSlug === 'huyen-thoai-hai-tac' || cleanSlug === 'pirate-legends' || cleanId === 'huyen-thoai-hai-tac' || cleanId === 'pirate-legends') ? 'pirate-legends' : '',
     ].filter(Boolean) as string[];
 
     const mergedMap = new Map<string, GiftCode>();
@@ -1756,31 +1787,36 @@ class DataService {
       list.forEach((g) => {
         if (!g || !g.slug || !g.releaseDate) return;
         const target = new Date(g.releaseDate).getTime();
-        if (!isNaN(target) && (now - target) > ONE_DAY_MS) {
+        if (!isNaN(target) && target <= now && (now - target) > ONE_DAY_MS) {
           const slugLower = g.slug.toLowerCase();
           const exists = this.games.some((gm) => (gm.slug || '').toLowerCase() === slugLower || (gm.id || '').toLowerCase() === slugLower);
           if (!exists) {
-            this.games.unshift({
-              id: g.slug,
-              slug: g.slug,
-              name: g.name,
-              publisher: g.publisher,
-              category: g.category || 'Game Mới',
-              platform: g.platform || 'Android, iOS, PC',
-              icon_url: getUpcomingGameIconUrl(g),
-              banner_url: g.bannerUrl,
-              description: g.description,
-              is_new: true,
-              is_hot: true,
-              release_date: g.releaseDate?.split('T')[0] || new Date().toISOString().split('T')[0],
-              codes_count: g.expectedCodes?.length || 0,
-              codes: (g.expectedCodes || []).map((c: string) => ({
-                code: c.toUpperCase(),
-                rewards: 'Thưởng của NPH',
-                status: 'active',
-                expiry: '31/12/2026',
-              })),
-            });
+            const mappedCodes = this.getCodesForGame({ slug: g.slug, name: g.name });
+            const expected = (g.expectedCodes || []).map((c: any) => ({
+              code: typeof c === 'string' ? c.toUpperCase() : (c?.code || '').toUpperCase(),
+              rewards: (typeof c === 'object' && c?.rewards) || 'Thưởng của NPH',
+              status: 'active' as const,
+              expiry: '31/12/2026',
+            })).filter((c: any) => Boolean(c.code));
+            const finalCodes = mappedCodes.length > 0 ? mappedCodes : expected;
+            if (finalCodes.length > 0) {
+              this.games.unshift({
+                id: g.slug,
+                slug: g.slug,
+                name: g.name,
+                publisher: g.publisher || 'NPH Chính Thức',
+                category: g.category || 'Game Mới',
+                platform: g.platform || 'Android, iOS, PC',
+                icon_url: getUpcomingGameIconUrl(g),
+                banner_url: g.bannerUrl,
+                description: g.description,
+                is_new: true,
+                is_hot: true,
+                release_date: g.releaseDate?.split('T')[0] || new Date().toISOString().split('T')[0],
+                codes_count: finalCodes.length,
+                codes: finalCodes,
+              });
+            }
           }
         }
       });

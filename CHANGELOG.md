@@ -7,6 +7,68 @@ Mỗi mục sửa lỗi đều ghi nhận **Nguyên nhân gốc rễ (Root Cause
 
 ## [2026-10-23]
 
+### 163. Khắc Phục Lỗi Hiển Thị 0 Code Trên Thẻ Game Nhưng Khi Mở Modal Lại Có Đầy Đủ Code (Sync Fallback Codes to this.games & Preserve Baseline Codes Count)
+- **Mô tả & Yêu cầu người dùng**:
+  - *"Trêmn web của tôi đang hiển thị 0 code một số game, tuy nhiên khi ấn vào có game 0 code thật, có game lại có code, trong khi trước đó tôi có thấy đầy đủ code, không có lỗi."*
+- **Nguyên nhân gốc rễ (Root Cause)**:
+  1. **Bẫy Ghi Đè `codes_count` Khi Khởi Tạo Đồng Bộ Trong `processData()`**:
+     - File `crawled_codes_188.json` (11MB) được tải lười bất đồng bộ (`dynamic import`). Do đó, khi `processData()` khởi tạo mảng `this.games` ở 0ms đầu tiên, `this.codesMap` chưa nạp mã fallback và `existingCodes.length` là `0`.
+     - Code cũ gán thẳng `codes_count: existingCodes.length` $\rightarrow$ ghi đè xóa sạch toàn bộ `codes_count` chuẩn từ `games188.json` (ví dụ: `Shadow Fight 4` có 2 code, `Super Sus` có 4 code, `ONE PUNCH MAN` có 7 code...) thành `0`.
+  2. **Bẫy `ensureFallbackCodesLoaded()` Không Đồng Bộ Ngược Lại `this.games`**:
+     - Khi `ensureFallbackCodesLoaded()` hoàn tất nạp 11,762 mã giftcode vào `this.codesMap`, hàm này chỉ lưu vào Map mà **HOÀN TOÀN KHÔNG CẬP NHẬT LẠI** danh mục `this.games`.
+     - Hậu quả: `this.games` vẫn giữ nguyên `codes_count: 0` và `codes: []`. Khi client dùng `queryGames()`, `getGames()` hoặc client-side fallback, thẻ `GameCard` nhận `game.codes_count = 0` nên hiển thị badge **"0 code"**.
+     - Khi người dùng click vào thẻ game, modal gọi `getGameBySlug()` (đọc trực tiếp từ `this.codesMap`) $\rightarrow$ modal lại hiển thị đầy đủ 2, 4, 7 mã code, gây ra sự không nhất quán giữa thẻ game và modal.
+  3. **Bẫy Rollover Game Sắp Ra Mắt Unshift Game 0 Code Lên Đầu Trang**:
+     - Trong `getUpcomingGames()`, logic chuyển game mở server xuống catalog `this.games.unshift(...)` thiếu kiểm tra `target <= now` và không tra cứu code từ `this.codesMap`, dẫn đến game sắp ra mắt bị đẩy lên đầu sàn với 0 code.
+- **Giải pháp đã triển khai (Solution)**:
+  1. **Bảo Toàn `codes_count` Gốc Trong `processData()`**:
+     - Giữ nguyên số lượng code có sẵn từ dataset ban đầu: `codes_count: Math.max(typeof g.codes_count === 'number' ? g.codes_count : 0, existingCodes.length)`.
+  2. **Đồng Bộ Hóa Hai Chiều Tức Thì Trong `ensureFallbackCodesLoaded()`**:
+     - Ngay sau khi nạp mã code vào `this.codesMap`, duyệt qua toàn bộ `this.games` và cập nhật tức thì `game.codes = mappedCodes` và `game.codes_count = Math.max(mappedCodes.length, Number(game.codes_count) || 0)`.
+     - Chuẩn hóa lưu cả slug lowercase vào `this.codesMap` để tra cứu case-insensitive tuyệt đối.
+  3. **Đảm Bảo Hydrate Trong `init()` & `queryGames()`**:
+     - Gọi `await this.ensureFallbackCodesLoaded()` ngay trong `init()`.
+     - Trong `queryGames()` (nhánh client fallback), hydrate từng item trong `paginatedItems` bằng `this.getCodesForGame(g)` trước khi trả về view.
+  4. **Siết Chặt Rollover Game Sắp Ra Mắt**:
+     - Chỉ chuyển game khi thực sự đã phát hành (`target <= now`) và có ít nhất 1 mã giftcode hoạt động (`finalCodes.length > 0`).
+- **Files Modified**:
+  - `src/services/dataService.ts`
+
+---
+
+## [2026-10-23]
+
+## [2026-10-23]
+
+### 163. Khắc Phục Lỗi Hiển Thị 0 Code Trên Thẻ Game Nhưng Khi Mở Modal Lại Có Đầy Đủ Code (Sync Fallback Codes to this.games & Preserve Baseline Codes Count)
+- **Mô tả & Yêu cầu người dùng**:
+  - *"Trêmn web của tôi đang hiển thị 0 code một số game, tuy nhiên khi ấn vào có game 0 code thật, có game lại có code, trong khi trước đó tôi có thấy đầy đủ code, không có lỗi."*
+- **Nguyên nhân gốc rễ (Root Cause)**:
+  1. **Bẫy Ghi Đè `codes_count` Khi Khởi Tạo Đồng Bộ Trong `processData()`**:
+     - File `crawled_codes_188.json` (11MB) được tải lười bất đồng bộ (`dynamic import`). Do đó, khi `processData()` khởi tạo mảng `this.games` ở 0ms đầu tiên, `this.codesMap` chưa nạp mã fallback và `existingCodes.length` là `0`.
+     - Code cũ gán thẳng `codes_count: existingCodes.length` $\rightarrow$ ghi đè xóa sạch toàn bộ `codes_count` chuẩn từ `games188.json` (ví dụ: `Shadow Fight 4` có 2 code, `Super Sus` có 4 code, `ONE PUNCH MAN` có 7 code...) thành `0`.
+  2. **Bẫy `ensureFallbackCodesLoaded()` Không Đồng Bộ Ngược Lại `this.games`**:
+     - Khi `ensureFallbackCodesLoaded()` hoàn tất nạp 11,762 mã giftcode vào `this.codesMap`, hàm này chỉ lưu vào Map mà **HOÀN TOÀN KHÔNG CẬP NHẬT LẠI** danh mục `this.games`.
+     - Hậu quả: `this.games` vẫn giữ nguyên `codes_count: 0` và `codes: []`. Khi client dùng `queryGames()`, `getGames()` hoặc client-side fallback, thẻ `GameCard` nhận `game.codes_count = 0` nên hiển thị badge **"0 code"**.
+     - Khi người dùng click vào thẻ game, modal gọi `getGameBySlug()` (đọc trực tiếp từ `this.codesMap`) $\rightarrow$ modal lại hiển thị đầy đủ 2, 4, 7 mã code, gây ra sự không nhất quán giữa thẻ game và modal.
+  3. **Bẫy Rollover Game Sắp Ra Mắt Unshift Game 0 Code Lên Đầu Trang**:
+     - Trong `getUpcomingGames()`, logic chuyển game mở server xuống catalog `this.games.unshift(...)` thiếu kiểm tra `target <= now` và không tra cứu code từ `this.codesMap`, dẫn đến game sắp ra mắt bị đẩy lên đầu sàn với 0 code.
+- **Giải pháp đã triển khai (Solution)**:
+  1. **Bảo Toàn `codes_count` Gốc Trong `processData()`**:
+     - Giữ nguyên số lượng code có sẵn từ dataset ban đầu: `codes_count: Math.max(typeof g.codes_count === 'number' ? g.codes_count : 0, existingCodes.length)`.
+  2. **Đồng Bộ Hóa Hai Chiều Tức Thì Trong `ensureFallbackCodesLoaded()`**:
+     - Ngay sau khi nạp mã code vào `this.codesMap`, duyệt qua toàn bộ `this.games` và cập nhật tức thì `game.codes = mappedCodes` và `game.codes_count = Math.max(mappedCodes.length, Number(game.codes_count) || 0)`.
+     - Chuẩn hóa lưu cả slug lowercase vào `this.codesMap` để tra cứu case-insensitive tuyệt đối.
+  3. **Đảm Bảo Hydrate Trong `init()` & `queryGames()`**:
+     - Gọi `await this.ensureFallbackCodesLoaded()` ngay trong `init()`.
+     - Trong `queryGames()` (nhánh client fallback), hydrate từng item trong `paginatedItems` bằng `this.getCodesForGame(g)` trước khi trả về view.
+  4. **Siết Chặt Rollover Game Sắp Ra Mắt**:
+     - Chỉ chuyển game khi thực sự đã phát hành (`target <= now`) và có ít nhất 1 mã giftcode hoạt động (`finalCodes.length > 0`).
+- **Files Modified**:
+  - `src/services/dataService.ts`
+
+---
+
 ## [2026-10-23]
 
 ### 162. Khắc Phục Lỗi Hiển Thị Icon Link Ngoài Trên Mục Game Sắp Ra Mắt Bằng Cloudflare Edge Proxy & Fallback Phân Tầng (Upcoming Games External Icon Edge Proxy & Multi-Stage Fallback Fix)
@@ -57,6 +119,37 @@ Mỗi mục sửa lỗi đều ghi nhận **Nguyên nhân gốc rễ (Root Cause
 - **Verification**:
   - Kiểm thử trực tiếp 5 game qua Edge Proxy trên `codegame.shop`: Monster Hunter Outlanders (200 OK, 103KB), Đậu Nhỏ Nổi Giận (200 OK, 106KB), Sword x Staff (200 OK, 96KB), Mộng Cảnh Tam Quốc (200 OK, 83KB), ANANTA (200 OK, 90KB).
   - `npm run build`: Zero test artifacts audit passed 100%, 2102 modules transformed, 529 trang prerendered thành công, Worker compiled 100%.
+
+---
+
+## [2026-10-23]
+
+### 163. Khắc Phục Lỗi Hiển Thị 0 Code Trên Thẻ Game Nhưng Khi Mở Modal Lại Có Đầy Đủ Code (Sync Fallback Codes to this.games & Preserve Baseline Codes Count)
+- **Mô tả & Yêu cầu người dùng**:
+  - *"Trêmn web của tôi đang hiển thị 0 code một số game, tuy nhiên khi ấn vào có game 0 code thật, có game lại có code, trong khi trước đó tôi có thấy đầy đủ code, không có lỗi."*
+- **Nguyên nhân gốc rễ (Root Cause)**:
+  1. **Bẫy Ghi Đè `codes_count` Khi Khởi Tạo Đồng Bộ Trong `processData()`**:
+     - File `crawled_codes_188.json` (11MB) được tải lười bất đồng bộ (`dynamic import`). Do đó, khi `processData()` khởi tạo mảng `this.games` ở 0ms đầu tiên, `this.codesMap` chưa nạp mã fallback và `existingCodes.length` là `0`.
+     - Code cũ gán thẳng `codes_count: existingCodes.length` $\rightarrow$ ghi đè xóa sạch toàn bộ `codes_count` chuẩn từ `games188.json` (ví dụ: `Shadow Fight 4` có 2 code, `Super Sus` có 4 code, `ONE PUNCH MAN` có 7 code...) thành `0`.
+  2. **Bẫy `ensureFallbackCodesLoaded()` Không Đồng Bộ Ngược Lại `this.games`**:
+     - Khi `ensureFallbackCodesLoaded()` hoàn tất nạp 11,762 mã giftcode vào `this.codesMap`, hàm này chỉ lưu vào Map mà **HOÀN TOÀN KHÔNG CẬP NHẬT LẠI** danh mục `this.games`.
+     - Hậu quả: `this.games` vẫn giữ nguyên `codes_count: 0` và `codes: []`. Khi client dùng `queryGames()`, `getGames()` hoặc client-side fallback, thẻ `GameCard` nhận `game.codes_count = 0` nên hiển thị badge **"0 code"**.
+     - Khi người dùng click vào thẻ game, modal gọi `getGameBySlug()` (đọc trực tiếp từ `this.codesMap`) $\rightarrow$ modal lại hiển thị đầy đủ 2, 4, 7 mã code, gây ra sự không nhất quán giữa thẻ game và modal.
+  3. **Bẫy Rollover Game Sắp Ra Mắt Unshift Game 0 Code Lên Đầu Trang**:
+     - Trong `getUpcomingGames()`, logic chuyển game mở server xuống catalog `this.games.unshift(...)` thiếu kiểm tra `target <= now` và không tra cứu code từ `this.codesMap`, dẫn đến game sắp ra mắt bị đẩy lên đầu sàn với 0 code.
+- **Giải pháp đã triển khai (Solution)**:
+  1. **Bảo Toàn `codes_count` Gốc Trong `processData()`**:
+     - Giữ nguyên số lượng code có sẵn từ dataset ban đầu: `codes_count: Math.max(typeof g.codes_count === 'number' ? g.codes_count : 0, existingCodes.length)`.
+  2. **Đồng Bộ Hóa Hai Chiều Tức Thì Trong `ensureFallbackCodesLoaded()`**:
+     - Ngay sau khi nạp mã code vào `this.codesMap`, duyệt qua toàn bộ `this.games` và cập nhật tức thì `game.codes = mappedCodes` và `game.codes_count = Math.max(mappedCodes.length, Number(game.codes_count) || 0)`.
+     - Chuẩn hóa lưu cả slug lowercase vào `this.codesMap` để tra cứu case-insensitive tuyệt đối.
+  3. **Đảm Bảo Hydrate Trong `init()` & `queryGames()`**:
+     - Gọi `await this.ensureFallbackCodesLoaded()` ngay trong `init()`.
+     - Trong `queryGames()` (nhánh client fallback), hydrate từng item trong `paginatedItems` bằng `this.getCodesForGame(g)` trước khi trả về view.
+  4. **Siết Chặt Rollover Game Sắp Ra Mắt**:
+     - Chỉ chuyển game khi thực sự đã phát hành (`target <= now`) và có ít nhất 1 mã giftcode hoạt động (`finalCodes.length > 0`).
+- **Files Modified**:
+  - `src/services/dataService.ts`
 
 ---
 

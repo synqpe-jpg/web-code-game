@@ -10,6 +10,24 @@
 
 ## 1. DANH MỤC LỖI & CÁC BẪY ĐÃ THẤT BẠI (DO NOT REPEAT)
 
+### ISSUE-092: Bẫy Mất Số Lượng Code Khi Dynamic Import Lazy Load Và Không Đồng Bộ Ngược Lại Danh Mục Game Khiến Thẻ Báo 0 Code Nhưng Modal Có Đủ Mã (Lazy Fallback Codes Sync Trap)
+- **Triệu chứng**:
+  - Trên web khách hàng, một số game (như Shadow Fight 4, Super Sus, ONE PUNCH MAN, Girls Echo...) hiển thị badge "0 code" trên thẻ game ngoài danh mục. Nhưng khi người dùng click vào xem chi tiết, modal lại hiển thị đầy đủ 2, 4, 7 mã giftcode. Trong khi một số game mới thực sự chưa có code (Archer Castle, Narco Empire...) thì hiển thị 0 code là đúng.
+- **Nguyên nhân gốc rễ**:
+  1. Trong `dataService.ts:processData()`, khi khởi tạo đồng bộ lúc đầu, file `crawled_codes_188.json` chưa được nạp. Biến `existingCodes` là mảng rỗng `[]`. Việc gán `codes_count: existingCodes.length` đã ghi đè toàn bộ `codes_count` chuẩn của dataset gốc về `0`.
+  2. Khi `ensureFallbackCodesLoaded()` tải xong 11,762 mã giftcode, hàm này chỉ đưa vào `this.codesMap` mà không cập nhật lại mảng `this.games`. Kết quả là `this.games` vẫn mang `codes_count: 0`.
+  3. Logic rollover trong `getUpcomingGames()` chuyển game sắp ra mắt xuống catalog mà không kiểm tra `target <= now` và không nạp code, dẫn đến game bị đẩy lên đầu trang với 0 code.
+- **Giải pháp chuẩn đã kiểm chứng**:
+  - Bảo toàn `codes_count` gốc: `Math.max(typeof g.codes_count === 'number' ? g.codes_count : 0, existingCodes.length)`.
+  - Trong `ensureFallbackCodesLoaded()`: Lặp qua toàn bộ `this.games` để cập nhật `game.codes` và `game.codes_count = Math.max(mappedCodes.length, Number(game.codes_count) || 0)`.
+  - Trong `queryGames()`: Hydrate `codes` và `codes_count` cho từng item trong `paginatedItems`.
+  - Trong `getUpcomingGames()`: Chỉ rollover khi `target <= now` và `finalCodes.length > 0`.
+- ⛔ **CÁCH SỬA ĐÃ THẤT BẠI - TUYỆT ĐỐI KHÔNG LẶP LẠI**:
+  - ❌ *Không gán đè codes_count bằng existingCodes.length khi dataset mã code chưa load*: Luôn dùng `Math.max(rawCount, existingLength)` để không làm mất số lượng code ban đầu.
+  - ❌ *Không nạp code vào Map mà quên đồng bộ ngược lại mảng items*: Map và mảng danh mục phải luôn nhất quán 100%.
+
+---
+
 ### ISSUE-091: Bẫy Icon Link Ngoài Của Game Sắp Ra Mắt Bị Thay Bằng Logo Mặc Định Do Chặn Referrer CDN Và Thiếu Cơ Chế Định Tuyến Edge Proxy (Upcoming Games External Icon Referrer & Edge Proxy Trap)
 - **Triệu chứng**:
   - Khi bot Pine AI hoặc Muse Bot đẩy icon từ CDN bên ngoài (như Apple App Store `is1-ssl.mzstatic.com` hoặc Google Play) cho các tựa game sắp ra mắt (Monster Hunter Outlanders, Đậu Nhỏ Nổi Giận, Sword x Staff, Mộng Cảnh Tam Quốc, ANANTA...), API xác nhận đã lưu dữ liệu thành công nhưng trên trang chủ và modal danh sách đầy đủ, các game này lại hiển thị logo mặc định của trang (`/logo.png`).
