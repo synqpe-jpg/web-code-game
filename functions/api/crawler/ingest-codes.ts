@@ -1330,7 +1330,16 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
 
     // 4. Xử lý từng game được gửi tới
     for (const rawItem of rawItems) {
-      const inputGameName = String(rawItem.gameName || rawItem.name || rawItem.game || rawItem.slug || '').trim();
+      const inputGameName = String(
+        rawItem.gameSlug ||
+        rawItem.game_slug ||
+        rawItem.slug ||
+        rawItem.gameName ||
+        rawItem.game_name ||
+        rawItem.name ||
+        rawItem.game ||
+        ''
+      ).trim();
       const codesToIngest = extractCodesFromPayload(rawItem);
 
       // Trích xuất Cách Nhập Code (instructions) và Link nhập quà (redeemUrl)

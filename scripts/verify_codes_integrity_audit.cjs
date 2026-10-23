@@ -117,14 +117,16 @@ async function runIntegrityAudit() {
   const auditMatrix = [];
   for (const item of sampleGames) {
     try {
-      await sleep(500);
+      await sleep(1200);
 
       // 1. API count
-      const apiRes = await fetchJson(`/api/games?slug=${item.slug}&nocache=1`);
+      const apiRes = await fetchJson(`/api/games?slug=${item.slug}&nocache=1&t=${Date.now()}`);
       if (!apiRes.data) {
         console.warn(`   ⚠️ [${item.slug}] API /api/games trả về status ${apiRes.status}:`, apiRes.raw?.slice(0, 150));
       }
       const apiCount = apiRes.data?.game?.codes_count ?? (apiRes.data?.game?.codes?.length || 0);
+
+      await sleep(300);
 
       // 2. HTML rendered count
       const htmlText = await fetchText(`/game/${item.slug}`);
@@ -133,6 +135,8 @@ async function runIntegrityAudit() {
         const match = htmlText.match(/(\d+)\s+mã khả dụng/);
         if (match) htmlCount = parseInt(match[1], 10);
       }
+
+      await sleep(300);
 
       // 3. Card Badge count from catalog search query
       const catRes = await fetchJson(`/api/games?search=${encodeURIComponent(item.slug)}`);
@@ -180,6 +184,7 @@ async function runIntegrityAudit() {
   console.log('\n▶ [4/4] Kiểm thử hồi quy Ingest & Rule 7 Zero Test Artifacts (Khối finally đảm bảo 100% dọn sạch)...');
   const testCode = `TESTREG${Date.now().toString().slice(-4)}`;
   const ingestPayload = {
+    gameSlug: 'ky-tich-tro-lai',
     gameName: 'Kỳ Tích Trở Lại',
     codes: [
       { code: testCode, rewards: 'Mã kiểm thử hồi quy tự động chống lệch count' }
@@ -201,8 +206,8 @@ async function runIntegrityAudit() {
       console.log(`   ✅ API Ingest đã nạp mã tạm thời: ${testCode}`);
       
       // Kiểm tra ngay trên API chi tiết game
-      await sleep(300);
-      const verifyRes = await fetchJson('/api/games?slug=ky-tich-tro-lai&nocache=1');
+      await sleep(600);
+      const verifyRes = await fetchJson(`/api/games?slug=ky-tich-tro-lai&nocache=1&t=${Date.now()}`);
       const verifyCodes = (verifyRes.data?.game?.codes || []).map(c => c.code);
       if (verifyCodes.includes(testCode)) {
         console.log(`   ✅ XÁC NHẬN: Mã ${testCode} đã xuất hiện ngay lập tức trên API chi tiết game!`);
@@ -366,8 +371,8 @@ async function runIntegrityAudit() {
       console.log(`   ✅ API Ingest báo autoPublished = true thành công!`);
 
       // Kiểm tra xem game có thực sự xuất hiện trên GET /api/games?slug=... không
-      await sleep(500);
-      const verifyPubRes = await fetchJson(`/api/games?slug=${testPendingSlug}&nocache=1`);
+      await sleep(600);
+      const verifyPubRes = await fetchJson(`/api/games?slug=${testPendingSlug}&nocache=1&t=${Date.now()}`);
       if (verifyPubRes.data?.success && verifyPubRes.data?.game) {
         const pubCodes = (verifyPubRes.data.game.codes || []).map(c => c.code);
         if (pubCodes.includes(testPendingCode) && verifyPubRes.data.game.codes_count >= 1) {
