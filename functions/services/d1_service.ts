@@ -311,8 +311,8 @@ export async function ensureSchemaUpgrades(db: D1Database): Promise<void> {
     }
 
     try {
-      // Fast 1-subrequest check: If heal_and_restore_wallets_v6 exists, all schema migrations are already done
-      const check = await db.prepare("SELECT 1 FROM schema_migrations WHERE id = 'heal_and_restore_wallets_v6' LIMIT 1").first().catch(() => null);
+      // Fast 1-subrequest check: If download_links_and_clicks_v1 exists, all schema migrations are already done
+      const check = await db.prepare("SELECT 1 FROM schema_migrations WHERE id = 'download_links_and_clicks_v1' LIMIT 1").first().catch(() => null);
       if (check !== null) {
         schemaUpgradesDone = true;
         return;
@@ -852,6 +852,52 @@ export async function ensureSchemaUpgrades(db: D1Database): Promise<void> {
   try {
     await db.prepare("INSERT OR IGNORE INTO schema_migrations (id) VALUES ('schema_v5_full_upgrades');").run().catch(() => {});
   } catch {}
+
+  // Migration 0010: Game download links and click tracking (Idempotent)
+  try {
+    const dlCheck = await db.prepare("SELECT 1 FROM schema_migrations WHERE id = 'download_links_and_clicks_v1' LIMIT 1;").first<any>().catch(() => null);
+    if (!dlCheck) {
+      // 1. Create download_clicks table
+      await db.prepare(`
+        CREATE TABLE IF NOT EXISTS download_clicks (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          game_slug TEXT NOT NULL,
+          store TEXT NOT NULL CHECK (store IN ('google_play', 'app_store')),
+          platform_detected TEXT NOT NULL CHECK (platform_detected IN ('android', 'ios', 'desktop', 'other')),
+          via TEXT NOT NULL CHECK (via IN ('button', 'qr_scan')),
+          created_at TEXT NOT NULL DEFAULT (datetime('now'))
+        );
+      `).run().catch(() => {});
+
+      await db.prepare('CREATE INDEX IF NOT EXISTS idx_download_clicks_game ON download_clicks(game_slug);').run().catch(() => {});
+      await db.prepare('CREATE INDEX IF NOT EXISTS idx_download_clicks_created ON download_clicks(created_at);').run().catch(() => {});
+      await db.prepare('CREATE INDEX IF NOT EXISTS idx_download_clicks_store ON download_clicks(store);').run().catch(() => {});
+
+      // 2. Safe Alter table games to add columns if table exists
+      await db.prepare('ALTER TABLE games ADD COLUMN google_play_url TEXT;').run().catch(() => {});
+      await db.prepare('ALTER TABLE games ADD COLUMN app_store_url TEXT;').run().catch(() => {});
+      await db.prepare('ALTER TABLE games ADD COLUMN android_package_name TEXT;').run().catch(() => {});
+
+      // 3. Sync existing download_android / download_ios to google_play_url / app_store_url
+      await db.prepare(`
+        UPDATE games 
+        SET google_play_url = download_android 
+        WHERE (google_play_url IS NULL OR google_play_url = '') 
+          AND (download_android IS NOT NULL AND download_android != '');
+      `).run().catch(() => {});
+
+      await db.prepare(`
+        UPDATE games 
+        SET app_store_url = download_ios 
+        WHERE (app_store_url IS NULL OR app_store_url = '') 
+          AND (download_ios IS NOT NULL AND download_ios != '');
+      `).run().catch(() => {});
+
+      await db.prepare("INSERT OR IGNORE INTO schema_migrations (id) VALUES ('download_links_and_clicks_v1');").run().catch(() => {});
+    }
+  } catch (err: any) {
+    console.warn('[Download migration error]', err?.message);
+  }
 
   schemaUpgradesDone = true;
   })();
@@ -2566,4 +2612,115 @@ export async function syncTransactionsToD1(db: D1Database, transactions: any[]):
     }
   }
 }
+
+export interface RecordDownloadClickParams {
+  gameSlug: string;
+  store: 'google_play' | 'app_store';
+  platformDetected: 'android' | 'ios' | 'desktop' | 'other';
+  via: 'button' | 'qr_scan';
+}
+
+export async function recordDownloadClick(
+  db: D1Database,
+  params: RecordDownloadClickParams
+): Promise<boolean> {
+  await ensureSchemaUpgrades(db);
+  try {
+    await db.prepare(`
+      INSERT INTO download_clicks (game_slug, store, platform_detected, via, created_at)
+      VALUES (?, ?, ?, ?, datetime('now'))
+    `).bind(
+      params.gameSlug,
+      params.store,
+      params.platformDetected,
+      params.via
+    ).run();
+    return true;
+  } catch (err: any) {
+    console.warn('[recordDownloadClick error]', err?.message);
+    return false;
+  }
+}
+
+export async function getDownloadStats(
+  db: D1Database,
+  gameSlug?: string
+): Promise<{
+  success: boolean;
+  total: number;
+  googlePlay: number;
+  appStore: number;
+  byGame?: Record<string, { google_play: number; app_store: number; total: number }>;
+}> {
+  await ensureSchemaUpgrades(db);
+  try {
+    if (gameSlug) {
+      const res = await db.prepare(`
+        SELECT store, COUNT(*) as cnt 
+        FROM download_clicks 
+        WHERE game_slug = ? 
+        GROUP BY store
+      `).bind(gameSlug).all();
+
+      let googlePlay = 0;
+      let appStore = 0;
+      for (const row of (res.results || []) as any[]) {
+        if (row.store === 'google_play') googlePlay = Number(row.cnt) || 0;
+        if (row.store === 'app_store') appStore = Number(row.cnt) || 0;
+      }
+      return {
+        success: true,
+        total: googlePlay + appStore,
+        googlePlay,
+        appStore,
+      };
+    }
+
+    // Overall summary and by-game breakdown
+    const rows = await db.prepare(`
+      SELECT game_slug, store, COUNT(*) as cnt 
+      FROM download_clicks 
+      GROUP BY game_slug, store
+    `).all();
+
+    const byGame: Record<string, { google_play: number; app_store: number; total: number }> = {};
+    let totalGp = 0;
+    let totalIos = 0;
+
+    for (const row of (rows.results || []) as any[]) {
+      const gSlug = String(row.game_slug || '');
+      const store = String(row.store || '');
+      const cnt = Number(row.cnt) || 0;
+      if (!byGame[gSlug]) {
+        byGame[gSlug] = { google_play: 0, app_store: 0, total: 0 };
+      }
+      if (store === 'google_play') {
+        byGame[gSlug].google_play += cnt;
+        totalGp += cnt;
+      } else if (store === 'app_store') {
+        byGame[gSlug].app_store += cnt;
+        totalIos += cnt;
+      }
+      byGame[gSlug].total += cnt;
+    }
+
+    return {
+      success: true,
+      total: totalGp + totalIos,
+      googlePlay: totalGp,
+      appStore: totalIos,
+      byGame,
+    };
+  } catch (err: any) {
+    console.warn('[getDownloadStats error]', err?.message);
+    return {
+      success: false,
+      total: 0,
+      googlePlay: 0,
+      appStore: 0,
+      byGame: {},
+    };
+  }
+}
+
 

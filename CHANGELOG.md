@@ -9,7 +9,53 @@ Mỗi mục sửa lỗi đều ghi nhận **Nguyên nhân gốc rễ (Root Cause
 
 ## [2026-10-23]
 
-### 160. Nâng Cấp Toàn Diện Cơ Chế Nạp & Đồng Bộ Icon Cho Game Sắp Ra Mắt Qua Cổng API (Upcoming Games API Icon Ingest & Update Normalization)
+### 161. Bổ Sung Khối "Tải Game" Tự Nhận Diện Thiết Bị (Android/iOS/Desktop QR), Quản Lý Link Store Admin & Tracking Lượt Tải (Game Store Download Links & Device-Adaptive Section)
+- **Mô tả & Yêu cầu người dùng**:
+  - Thêm vào trang chi tiết game một khối "Tải game" chuyển hướng thẳng tới CH Play (Android) hoặc App Store (iOS):
+    1. Tự nhận thiết bị khách: Android ưu tiên CH Play, iOS ưu tiên App Store, desktop hiện cả 2 nút + mã QR quét trực tiếp bằng camera điện thoại.
+    2. Game chỉ có 1 link thì chỉ hiện 1 nền tảng. Game chưa có link nào thì không hiện khối này (không render nút disabled hoặc trang trống).
+    3. Trang Admin có nơi nhập/sửa 2 link store, validation URL chuẩn (`play.google.com` với `id=`, `apps.apple.com` với `id<số>`), nút "Mở thử", bộ lọc 4 trạng thái link store và thống kê lượt tải. Nhập hàng loạt qua CSV 3 cột.
+    4. Không nhúng/proxy/host file APK/IPA; QR sinh client-side không qua bên thứ 3; text ghi chú giới hạn vùng cố định nguyên văn; tracking không chặn chuyển hướng.
+- **Giải pháp đã triển khai (Solution)**:
+  - **Database D1 (`web-code-game-db`)**:
+    - Tạo migration idempotent `migrations/0010_game_download_links_and_tracking.sql` và tích hợp vào `functions/services/d1_service.ts`:
+      - Bảng `download_clicks` (id, game_slug, store, platform_detected, via, created_at) kèm các index tối ưu.
+      - Idempotent `ALTER TABLE games ADD COLUMN google_play_url TEXT`, `app_store_url TEXT`, `android_package_name TEXT`.
+      - Đồng bộ 2 chiều tương thích hoàn toàn với các trường sẵn có `download_android` và `download_ios`.
+  - **Backend API Tracking & SEO**:
+    - `functions/api/track-download.ts`: Endpoint ghi nhận lượt bấm tải (POST) qua `navigator.sendBeacon` hoặc `fetch(keepalive: true)` và truy vấn thống kê (GET) phục vụ Admin.
+    - `functions/_worker.ts`: Đăng ký endpoint `/api/track-download` và bổ sung pre-rendered HTML noscript store links cho bot SEO và khách không bật JS.
+    - `functions/api/games.ts`: Cung cấp `google_play_url`, `app_store_url`, `android_package_name` trong dữ liệu game.
+    - `scripts/prerender.js`: Bổ sung khối store links trong HTML tĩnh cho toàn bộ 529 trang chi tiết game.
+  - **Giao Diện Khách (Frontend)**:
+    - Tạo component `src/components/game/GameDownloadSection.tsx`:
+      - Nhận diện thiết bị: Android, iOS (iPhone/iPad/iPadOS 13+ với `maxTouchPoints > 1`), Desktop.
+      - Logo SVG chính thức Google Play (đa màu) và Apple App Store.
+      - Chèn tham số tracking chuẩn: Android thêm `referrer=utm_source%3Dcodegame.shop...`, iOS thêm `mt=8`.
+      - Mã QR client-side sinh qua thư viện `qrcode` đã bundle, kèm 2 tab chuyển đổi [CH Play | App Store] và tham số `via=qr`.
+      - Ghi chú giới hạn vùng cố định nguyên văn.
+    - Tích hợp vào `src/components/GameDetailModal.tsx` ngay dưới header và trên danh sách giftcode.
+  - **Trang Quản Trị (Admin)**:
+    - `src/admin/modules/GamesModule.tsx`:
+      - 2 ô nhập "Link CH Play (Android)" và "Link App Store (iOS)" có validation regex nghiêm ngặt, tự động trích xuất `android_package_name`.
+      - Nút "Mở thử" mở tab mới để kiểm tra link.
+      - Bộ lọc danh sách game theo trạng thái link tải: "Tất cả link tải", "Chưa có link tải", "Thiếu Android", "Thiếu iOS", "Đủ 2 link".
+      - Cột hiển thị badge Store & số liệu lượt tải theo từng game.
+      - Modal "Nhập CSV Link Tải" hàng loạt với 3 cột `slug,google_play_url,app_store_url`.
+- **Files Modified/Created**:
+  - `migrations/0010_game_download_links_and_tracking.sql`
+  - `functions/services/d1_service.ts`
+  - `functions/api/track-download.ts`
+  - `functions/_worker.ts`
+  - `functions/api/games.ts`
+  - `src/types/game.ts`
+  - `src/admin/types/adminTypes.ts`
+  - `src/admin/services/adminDataService.ts`
+  - `src/admin/modules/GamesModule.tsx`
+  - `src/services/dataService.ts`
+  - `src/components/game/GameDownloadSection.tsx`
+  - `src/components/GameDetailModal.tsx`
+  - `scripts/prerender.js`
 - **Mô tả & Yêu cầu người dùng**:
   - *"hiện tại đường API không thể đẩy icon cho game lên ở mục game sắp ra mắt, bạn hãy đảm bảo giúp tôi từ bây giờ icone được nạp đầy đủ chính xác qua API."*
 - **Nguyên nhân gốc rễ (Root Cause)**:

@@ -19,8 +19,13 @@ import {
   Sparkles,
   Rocket,
   Gamepad2,
+  FileText,
+  Download,
+  AlertCircle,
+  Upload,
 } from 'lucide-react';
 import type { CrawlerSource } from '../../types/game';
+import { GooglePlaySvg, AppleSvg } from '../../components/game/GameDownloadSection';
 import { DataTable, Column } from '../components/ui/DataTable';
 import { StatusBadge } from '../components/ui/StatusBadge';
 import { ConfirmModal } from '../components/ui/ConfirmModal';
@@ -29,6 +34,61 @@ import { ImageUploadInput } from '../components/ui/ImageUploadInput';
 import { adminDataService } from '../services/adminDataService';
 import { GameAdminRecord } from '../types/adminTypes';
 import { UpcomingGamesSection } from './UpcomingGamesSection';
+
+/**
+ * Validates Google Play Store URL
+ * Format: https://play.google.com/store/apps/details?id=<package_name>
+ */
+export function validateGooglePlayUrl(url: string): { valid: boolean; error?: string; packageName?: string } {
+  if (!url || !url.trim()) return { valid: true };
+  const trimmed = url.trim();
+  try {
+    const parsed = new URL(trimmed);
+    if (parsed.protocol !== 'https:') {
+      return { valid: false, error: 'Link CH Play phải bắt đầu bằng https://' };
+    }
+    if (parsed.hostname !== 'play.google.com') {
+      return { valid: false, error: 'Host phải là play.google.com' };
+    }
+    if (!parsed.pathname.includes('/store/apps/details')) {
+      return { valid: false, error: 'Đường dẫn phải chứa /store/apps/details' };
+    }
+    const id = parsed.searchParams.get('id');
+    if (!id || !/^[a-zA-Z0-9._]+$/.test(id)) {
+      return { valid: false, error: 'Thiếu tham số id=<tên_gói> hoặc tên gói không hợp lệ' };
+    }
+    return { valid: true, packageName: id };
+  } catch {
+    return { valid: false, error: 'Định dạng URL Google Play không hợp lệ' };
+  }
+}
+
+/**
+ * Validates Apple App Store URL
+ * Format: https://apps.apple.com/vn/app/<slug>/id<numeric_id>
+ */
+export function validateAppStoreUrl(url: string): { valid: boolean; normalizedUrl?: string; error?: string } {
+  if (!url || !url.trim()) return { valid: true };
+  let trimmed = url.trim();
+  if (trimmed.includes('itunes.apple.com')) {
+    trimmed = trimmed.replace('itunes.apple.com', 'apps.apple.com');
+  }
+  try {
+    const parsed = new URL(trimmed);
+    if (parsed.protocol !== 'https:') {
+      return { valid: false, error: 'Link App Store phải bắt đầu bằng https://' };
+    }
+    if (parsed.hostname !== 'apps.apple.com') {
+      return { valid: false, error: 'Host phải là apps.apple.com' };
+    }
+    if (!/\/id\d+/i.test(parsed.pathname)) {
+      return { valid: false, error: 'Đường dẫn App Store phải chứa id<chữ_số> (VD: /id1517783697)' };
+    }
+    return { valid: true, normalizedUrl: trimmed };
+  } catch {
+    return { valid: false, error: 'Định dạng URL App Store không hợp lệ' };
+  }
+}
 
 interface GamesModuleProps {
   onShowToast: (title: string, desc?: string, type?: 'success' | 'error' | 'info') => void;
@@ -44,6 +104,30 @@ export const GamesModule: React.FC<GamesModuleProps> = ({ onShowToast, onOpenGam
   const [statusFilter, setStatusFilter] = useState('ALL');
   const [isLoading, setIsLoading] = useState(false);
   const [pendingGamesCount, setPendingGamesCount] = useState(0);
+  const [storeLinkFilter, setStoreLinkFilter] = useState<'ALL' | 'NO_LINKS' | 'MISSING_ANDROID' | 'MISSING_IOS' | 'BOTH_LINKS'>('ALL');
+  const [downloadStats, setDownloadStats] = useState<Record<string, { google_play: number; app_store: number; total: number }>>({});
+
+  // CSV Modal State
+  const [isCsvModalOpen, setIsCsvModalOpen] = useState(false);
+  const [csvText, setCsvText] = useState('');
+  const [csvLog, setCsvLog] = useState<string[]>([]);
+  const [isImportingCsv, setIsImportingCsv] = useState(false);
+
+  // Form link inline errors
+  const [formPlayError, setFormPlayError] = useState<string | null>(null);
+  const [formIosError, setFormIosError] = useState<string | null>(null);
+
+  // Fetch download tracking stats on mount
+  useEffect(() => {
+    fetch('/api/track-download')
+      .then((r) => r.json())
+      .then((data) => {
+        if (data && data.success && data.byGame) {
+          setDownloadStats(data.byGame);
+        }
+      })
+      .catch(() => {});
+  }, []);
 
   // Edit / Create Form Modal State
   const [isFormOpen, setIsFormOpen] = useState(false);
@@ -80,7 +164,7 @@ export const GamesModule: React.FC<GamesModuleProps> = ({ onShowToast, onOpenGam
       window.removeEventListener('wcg_admin_data_updated', handleSync);
       window.removeEventListener('storage', handleSync);
     };
-  }, [categoryFilter, statusFilter]);
+  }, [categoryFilter, statusFilter, storeLinkFilter]);
 
   const loadGames = () => {
     setIsLoading(true);
@@ -88,7 +172,19 @@ export const GamesModule: React.FC<GamesModuleProps> = ({ onShowToast, onOpenGam
     if (categoryFilter !== 'ALL') filterObj.category = categoryFilter;
     if (statusFilter !== 'ALL') filterObj.status = statusFilter;
 
-    const data = adminDataService.getGames(filterObj);
+    let data = adminDataService.getGames(filterObj);
+
+    // Apply store links filter
+    if (storeLinkFilter === 'NO_LINKS') {
+      data = data.filter((g) => !(g.google_play_url || g.download_android) && !(g.app_store_url || g.download_ios));
+    } else if (storeLinkFilter === 'MISSING_ANDROID') {
+      data = data.filter((g) => !(g.google_play_url || g.download_android));
+    } else if (storeLinkFilter === 'MISSING_IOS') {
+      data = data.filter((g) => !(g.app_store_url || g.download_ios));
+    } else if (storeLinkFilter === 'BOTH_LINKS') {
+      data = data.filter((g) => Boolean(g.google_play_url || g.download_android) && Boolean(g.app_store_url || g.download_ios));
+    }
+
     setGames(data);
     setPendingGamesCount(adminDataService.getPendingGames().length);
     setIsLoading(false);
@@ -119,7 +215,15 @@ export const GamesModule: React.FC<GamesModuleProps> = ({ onShowToast, onOpenGam
       release_date: new Date().toISOString().split('T')[0],
       so_giay_phep: '',
       ngay_cap_phep: '',
+      google_play_url: '',
+      app_store_url: '',
+      android_package_name: '',
+      download_android: '',
+      download_ios: '',
+      download_pc: '',
     });
+    setFormPlayError(null);
+    setFormIosError(null);
     setOriginalSlug('');
     setGameSources([]);
     setIsAddingSource(false);
@@ -128,7 +232,24 @@ export const GamesModule: React.FC<GamesModuleProps> = ({ onShowToast, onOpenGam
   };
 
   const handleEdit = (game: GameAdminRecord) => {
-    setEditingGame({ ...game });
+    const playUrl = game.google_play_url || game.download_android || '';
+    const iosUrl = game.app_store_url || game.download_ios || '';
+    let pkg = game.android_package_name || '';
+    if (!pkg && playUrl) {
+      const match = playUrl.match(/[?&]id=([a-zA-Z0-9._]+)/);
+      if (match) pkg = match[1];
+    }
+
+    setEditingGame({
+      ...game,
+      google_play_url: playUrl,
+      download_android: playUrl,
+      app_store_url: iosUrl,
+      download_ios: iosUrl,
+      android_package_name: pkg,
+    });
+    setFormPlayError(null);
+    setFormIosError(null);
     setOriginalSlug(game.slug || '');
     const currentSources = adminDataService.getGameCrawlerSources(game.slug || '');
     setGameSources(currentSources);
@@ -206,6 +327,35 @@ export const GamesModule: React.FC<GamesModuleProps> = ({ onShowToast, onOpenGam
       editingGame.slug = targetSlug;
     }
 
+    // Validate Google Play URL
+    const rawPlay = (editingGame.google_play_url || '').trim();
+    const playCheck = validateGooglePlayUrl(rawPlay);
+    if (!playCheck.valid) {
+      setFormPlayError(playCheck.error || 'Link CH Play không đúng định dạng');
+      onShowToast('Link CH Play không hợp lệ', playCheck.error, 'error');
+      return;
+    }
+    setFormPlayError(null);
+
+    // Validate App Store URL
+    const rawIos = (editingGame.app_store_url || '').trim();
+    const iosCheck = validateAppStoreUrl(rawIos);
+    if (!iosCheck.valid) {
+      setFormIosError(iosCheck.error || 'Link App Store không đúng định dạng');
+      onShowToast('Link App Store không hợp lệ', iosCheck.error, 'error');
+      return;
+    }
+    setFormIosError(null);
+
+    // Synchronize fields & auto-populate package name
+    editingGame.google_play_url = rawPlay;
+    editingGame.download_android = rawPlay;
+    editingGame.android_package_name = playCheck.packageName || '';
+
+    const finalIos = iosCheck.normalizedUrl || rawIos;
+    editingGame.app_store_url = finalIos;
+    editingGame.download_ios = finalIos;
+
     try {
       if (editingGame.id && games.some((g) => g.id === editingGame.id)) {
         // Update
@@ -238,6 +388,100 @@ export const GamesModule: React.FC<GamesModuleProps> = ({ onShowToast, onOpenGam
       loadGames();
     } catch (err: any) {
       onShowToast('Thao tác thất bại', err?.message || 'Có lỗi xảy ra', 'error');
+    }
+  };
+
+  const handleCsvImport = () => {
+    if (!csvText.trim()) {
+      onShowToast('Chưa có dữ liệu', 'Vui lòng dán nội dung CSV hoặc chọn file.', 'error');
+      return;
+    }
+
+    setIsImportingCsv(true);
+    const logs: string[] = [];
+    const lines = csvText.split(/\r?\n/).map((l) => l.trim()).filter(Boolean);
+
+    let successCount = 0;
+    let failCount = 0;
+
+    const allGames = adminDataService.getGames();
+    const gameMap = new Map<string, GameAdminRecord>();
+    allGames.forEach((g) => {
+      if (g.slug) gameMap.set(g.slug.toLowerCase(), g);
+    });
+
+    lines.forEach((line, index) => {
+      const lineNum = index + 1;
+      // Skip header line if first line
+      if (index === 0 && (line.toLowerCase().startsWith('slug') || line.toLowerCase().startsWith('tên'))) {
+        return;
+      }
+
+      const parts = line.split(',').map((p) => p.trim());
+      if (parts.length < 2) {
+        logs.push(`❌ Dòng ${lineNum}: Thiếu cột dữ liệu (cần format: slug,google_play_url,app_store_url)`);
+        failCount++;
+        return;
+      }
+
+      const [rowSlug, rawPlay = '', rawIos = ''] = parts;
+      const game = gameMap.get(rowSlug.toLowerCase());
+
+      if (!game) {
+        logs.push(`❌ Dòng ${lineNum}: Slug "${rowSlug}" không tồn tại trong hệ thống.`);
+        failCount++;
+        return;
+      }
+
+      // Validate Google Play URL if present
+      let playPackage = '';
+      if (rawPlay) {
+        const playRes = validateGooglePlayUrl(rawPlay);
+        if (!playRes.valid) {
+          logs.push(`❌ Dòng ${lineNum} [${rowSlug}]: Link CH Play không hợp lệ (${playRes.error})`);
+          failCount++;
+          return;
+        }
+        playPackage = playRes.packageName || '';
+      }
+
+      // Validate App Store URL if present
+      let finalIos = '';
+      if (rawIos) {
+        const iosRes = validateAppStoreUrl(rawIos);
+        if (!iosRes.valid) {
+          logs.push(`❌ Dòng ${lineNum} [${rowSlug}]: Link App Store không hợp lệ (${iosRes.error})`);
+          failCount++;
+          return;
+        }
+        finalIos = iosRes.normalizedUrl || rawIos;
+      }
+
+      // Apply update
+      adminDataService.updateGame(game.id, {
+        google_play_url: rawPlay,
+        download_android: rawPlay,
+        app_store_url: finalIos,
+        download_ios: finalIos,
+        android_package_name: playPackage,
+      });
+
+      logs.push(`✅ Dòng ${lineNum} [${rowSlug}]: Cập nhật thành công.`);
+      successCount++;
+    });
+
+    setIsImportingCsv(false);
+    setCsvLog(logs);
+    loadGames();
+
+    if (successCount > 0) {
+      onShowToast(
+        'Nhập CSV hoàn tất 🎉',
+        `Đã cập nhật ${successCount} game thành công.${failCount > 0 ? ` Có ${failCount} dòng bị lỗi.` : ''}`,
+        'success'
+      );
+    } else {
+      onShowToast('Nhập CSV thất bại', `Không có game nào được cập nhật. Vui lòng kiểm tra nhật ký lỗi.`, 'error');
     }
   };
 
@@ -359,17 +603,55 @@ export const GamesModule: React.FC<GamesModuleProps> = ({ onShowToast, onOpenGam
     },
     {
       key: 'platform',
-      header: 'Nền Tảng / CH Play',
-      render: (item) => (
-        <div className="text-xs">
-          <p className="text-slate-700 dark:text-slate-300">{item.platform || 'Android, iOS'}</p>
-          {item.so_giay_phep ? (
-            <p className="text-[10px] text-slate-400 font-mono">GP: {item.so_giay_phep}</p>
-          ) : (
-            <p className="text-[10px] text-emerald-500 font-mono">CH Play Global</p>
-          )}
-        </div>
-      ),
+      header: 'Store / Lượt Tải',
+      render: (item) => {
+        const hasPlay = Boolean(item.google_play_url || item.download_android);
+        const hasIos = Boolean(item.app_store_url || item.download_ios);
+        const stats = item.slug ? downloadStats[item.slug] : undefined;
+
+        return (
+          <div className="text-xs space-y-1">
+            <div className="flex items-center gap-1.5 flex-wrap">
+              {hasPlay ? (
+                <span
+                  title={item.google_play_url || item.download_android}
+                  className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md text-[10px] font-bold bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-800"
+                >
+                  <GooglePlaySvg className="w-2.5 h-2.5 shrink-0" />
+                  <span>CH Play</span>
+                </span>
+              ) : (
+                <span className="text-[10px] text-slate-400 dark:text-slate-500 font-mono">
+                  - CH Play
+                </span>
+              )}
+
+              {hasIos ? (
+                <span
+                  title={item.app_store_url || item.download_ios}
+                  className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md text-[10px] font-bold bg-slate-100 text-slate-800 dark:bg-slate-800 dark:text-slate-300 border border-slate-300 dark:border-slate-700"
+                >
+                  <AppleSvg className="w-2.5 h-2.5 text-slate-700 dark:text-slate-300 shrink-0" />
+                  <span>App Store</span>
+                </span>
+              ) : (
+                <span className="text-[10px] text-slate-400 dark:text-slate-500 font-mono">
+                  - iOS
+                </span>
+              )}
+            </div>
+
+            {stats && stats.total > 0 ? (
+              <p className="text-[10px] text-indigo-600 dark:text-indigo-400 font-bold flex items-center gap-1">
+                <Download className="w-3 h-3 shrink-0" />
+                <span>{stats.total} lượt tải (GP: {stats.google_play} | iOS: {stats.app_store})</span>
+              </p>
+            ) : item.so_giay_phep ? (
+              <p className="text-[10px] text-slate-400 font-mono">GP: {item.so_giay_phep}</p>
+            ) : null}
+          </div>
+        );
+      },
     },
     {
       key: 'actions',
@@ -545,15 +827,45 @@ export const GamesModule: React.FC<GamesModuleProps> = ({ onShowToast, onOpenGam
             ],
             onChange: setStatusFilter,
           },
+          {
+            key: 'storeLinks',
+            label: 'Link tải store',
+            selectedValue: storeLinkFilter,
+            options: [
+              { label: 'Tất cả link tải', value: 'ALL' },
+              { label: 'Chưa có link tải', value: 'NO_LINKS' },
+              { label: 'Thiếu Android', value: 'MISSING_ANDROID' },
+              { label: 'Thiếu iOS', value: 'MISSING_IOS' },
+              { label: 'Đủ 2 link', value: 'BOTH_LINKS' },
+            ],
+            onChange: (val) => setStoreLinkFilter(val as any),
+          },
         ]}
         actions={
-          <button
-            onClick={handleCreateNew}
-            className="inline-flex items-center gap-1.5 rounded-xl bg-indigo-600 px-3.5 py-2 text-xs font-bold text-white shadow-sm hover:bg-indigo-700 transition-all"
-          >
-            <Plus className="h-4 w-4" />
-            <span>Thêm Game Mới</span>
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => {
+                setCsvText('');
+                setCsvLog([]);
+                setIsCsvModalOpen(true);
+              }}
+              className="inline-flex items-center gap-1.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 px-3 py-2 text-xs font-bold text-slate-700 dark:text-slate-300 shadow-sm hover:bg-slate-50 dark:hover:bg-slate-700 transition-all cursor-pointer"
+              title="Nhập hàng loạt link store qua file CSV (slug, google_play_url, app_store_url)"
+            >
+              <FileText className="h-4 w-4 text-indigo-500" />
+              <span>Nhập CSV Link Tải</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={handleCreateNew}
+              className="inline-flex items-center gap-1.5 rounded-xl bg-indigo-600 px-3.5 py-2 text-xs font-bold text-white shadow-sm hover:bg-indigo-700 transition-all cursor-pointer"
+            >
+              <Plus className="h-4 w-4" />
+              <span>Thêm Game Mới</span>
+            </button>
+          </div>
         }
         batchActions={[
           {
@@ -731,6 +1043,154 @@ export const GamesModule: React.FC<GamesModuleProps> = ({ onShowToast, onOpenGam
                 className="mt-1 w-full rounded-xl border border-slate-200 bg-white p-2.5 text-xs text-slate-900 focus:border-indigo-500 focus:outline-none dark:border-slate-700 dark:bg-slate-800 dark:text-white"
               />
             </div>
+          </div>
+
+          {/* LIÊN KẾT STORE CHÍNH THỨC (CH PLAY & APP STORE) */}
+          <div className="rounded-2xl border border-emerald-200/80 bg-emerald-50/40 p-4 dark:border-emerald-900/60 dark:bg-emerald-950/20 space-y-3.5">
+            <div className="flex items-center gap-2">
+              <div className="p-1.5 rounded-lg bg-emerald-600 text-white shadow-sm">
+                <Download className="w-4 h-4" />
+              </div>
+              <div>
+                <h4 className="text-xs font-bold text-slate-900 dark:text-white">
+                  Liên Kết Tải Game Chính Thức (CH Play & App Store)
+                </h4>
+                <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">
+                  Tự động chuyển tiếp khách vào Store chuẩn. Bấm &quot;Mở thử&quot; để kiểm tra đường dẫn trước khi lưu.
+                </p>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+              {/* Google Play Store Link */}
+              <div>
+                <label className="text-xs font-bold text-slate-700 dark:text-slate-300 flex items-center justify-between">
+                  <span className="flex items-center gap-1.5">
+                    <GooglePlaySvg className="w-3.5 h-3.5" />
+                    <span>Link CH Play (Android)</span>
+                  </span>
+                  {editingGame?.google_play_url && validateGooglePlayUrl(editingGame.google_play_url).valid && (
+                    <button
+                      type="button"
+                      onClick={() => window.open(editingGame.google_play_url, '_blank')}
+                      className="inline-flex items-center gap-1 text-[11px] font-bold text-indigo-600 dark:text-indigo-400 hover:underline cursor-pointer"
+                    >
+                      <ExternalLink className="w-3 h-3" />
+                      <span>Mở thử</span>
+                    </button>
+                  )}
+                </label>
+                <div className="mt-1 flex items-center gap-1.5">
+                  <input
+                    type="url"
+                    value={editingGame?.google_play_url || ''}
+                    onChange={(e) => {
+                      const val = e.target.value;
+                      setEditingGame((prev) => (prev ? { ...prev, google_play_url: val } : null));
+                      if (formPlayError) setFormPlayError(null);
+                    }}
+                    placeholder="https://play.google.com/store/apps/details?id=..."
+                    className={`w-full rounded-xl border bg-white p-2.5 text-xs text-slate-900 focus:outline-none dark:bg-slate-800 dark:text-white ${
+                      formPlayError
+                        ? 'border-rose-500 focus:border-rose-500'
+                        : 'border-slate-200 focus:border-emerald-500 dark:border-slate-700'
+                    }`}
+                  />
+                  {editingGame?.google_play_url && (
+                    <button
+                      type="button"
+                      disabled={!validateGooglePlayUrl(editingGame.google_play_url).valid}
+                      onClick={() => window.open(editingGame.google_play_url, '_blank')}
+                      className="px-2.5 py-2.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 text-xs font-bold disabled:opacity-40 disabled:cursor-not-allowed shrink-0 transition-all cursor-pointer"
+                      title="Mở thử link CH Play"
+                    >
+                      <ExternalLink className="w-4 h-4" />
+                    </button>
+                  )}
+                </div>
+                {formPlayError ? (
+                  <p className="mt-1 text-[11px] font-semibold text-rose-500 flex items-center gap-1">
+                    <AlertCircle className="w-3 h-3 shrink-0" />
+                    <span>{formPlayError}</span>
+                  </p>
+                ) : editingGame?.google_play_url && validateGooglePlayUrl(editingGame.google_play_url).packageName ? (
+                  <p className="mt-1 text-[11px] text-emerald-600 dark:text-emerald-400 font-mono">
+                    Package ID: {validateGooglePlayUrl(editingGame.google_play_url).packageName}
+                  </p>
+                ) : null}
+              </div>
+
+              {/* Apple App Store Link */}
+              <div>
+                <label className="text-xs font-bold text-slate-700 dark:text-slate-300 flex items-center justify-between">
+                  <span className="flex items-center gap-1.5">
+                    <AppleSvg className="w-3.5 h-3.5 text-slate-900 dark:text-white" />
+                    <span>Link App Store (iOS)</span>
+                  </span>
+                  {editingGame?.app_store_url && validateAppStoreUrl(editingGame.app_store_url).valid && (
+                    <button
+                      type="button"
+                      onClick={() => window.open(editingGame.app_store_url, '_blank')}
+                      className="inline-flex items-center gap-1 text-[11px] font-bold text-indigo-600 dark:text-indigo-400 hover:underline cursor-pointer"
+                    >
+                      <ExternalLink className="w-3 h-3" />
+                      <span>Mở thử</span>
+                    </button>
+                  )}
+                </label>
+                <div className="mt-1 flex items-center gap-1.5">
+                  <input
+                    type="url"
+                    value={editingGame?.app_store_url || ''}
+                    onChange={(e) => {
+                      const val = e.target.value;
+                      setEditingGame((prev) => (prev ? { ...prev, app_store_url: val } : null));
+                      if (formIosError) setFormIosError(null);
+                    }}
+                    placeholder="https://apps.apple.com/vn/app/slug/id..."
+                    className={`w-full rounded-xl border bg-white p-2.5 text-xs text-slate-900 focus:outline-none dark:bg-slate-800 dark:text-white ${
+                      formIosError
+                        ? 'border-rose-500 focus:border-rose-500'
+                        : 'border-slate-200 focus:border-cyan-500 dark:border-slate-700'
+                    }`}
+                  />
+                  {editingGame?.app_store_url && (
+                    <button
+                      type="button"
+                      disabled={!validateAppStoreUrl(editingGame.app_store_url).valid}
+                      onClick={() => window.open(editingGame.app_store_url, '_blank')}
+                      className="px-2.5 py-2.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 text-xs font-bold disabled:opacity-40 disabled:cursor-not-allowed shrink-0 transition-all cursor-pointer"
+                      title="Mở thử link App Store"
+                    >
+                      <ExternalLink className="w-4 h-4" />
+                    </button>
+                  )}
+                </div>
+                {formIosError ? (
+                  <p className="mt-1 text-[11px] font-semibold text-rose-500 flex items-center gap-1">
+                    <AlertCircle className="w-3 h-3 shrink-0" />
+                    <span>{formIosError}</span>
+                  </p>
+                ) : null}
+              </div>
+            </div>
+
+            {/* Click statistics for this game if available */}
+            {editingGame?.slug && downloadStats[editingGame.slug] && (
+              <div className="p-2.5 rounded-xl bg-white/80 dark:bg-slate-900/80 border border-emerald-200 dark:border-emerald-900/60 flex items-center gap-4 text-xs">
+                <span className="font-semibold text-slate-700 dark:text-slate-300 flex items-center gap-1.5">
+                  <Download className="w-3.5 h-3.5 text-emerald-500" />
+                  <span>Tổng lượt tải:</span>
+                  <strong className="text-emerald-600 dark:text-emerald-400 font-bold">{downloadStats[editingGame.slug].total}</strong>
+                </span>
+                <span className="text-slate-500 dark:text-slate-400">
+                  CH Play: <strong className="text-slate-800 dark:text-slate-200">{downloadStats[editingGame.slug].google_play}</strong>
+                </span>
+                <span className="text-slate-500 dark:text-slate-400">
+                  App Store: <strong className="text-slate-800 dark:text-slate-200">{downloadStats[editingGame.slug].app_store}</strong>
+                </span>
+              </div>
+            )}
           </div>
 
           <div>
@@ -1036,6 +1496,107 @@ export const GamesModule: React.FC<GamesModuleProps> = ({ onShowToast, onOpenGam
             </button>
           </div>
         </form>
+      </FormModal>
+
+      {/* CSV Batch Store Links Import Modal */}
+      <FormModal
+        isOpen={isCsvModalOpen}
+        onClose={() => {
+          setIsCsvModalOpen(false);
+          setCsvLog([]);
+        }}
+        title="Nhập Hàng Loạt Link Store (CSV)"
+        subtitle="Cập nhật nhanh link tải Google Play & App Store cho danh sách game bằng file CSV."
+        maxWidth="2xl"
+      >
+        <div className="space-y-4">
+          <div className="p-3 rounded-xl bg-indigo-50/60 dark:bg-indigo-950/30 border border-indigo-200 dark:border-indigo-800/60 text-xs text-slate-700 dark:text-slate-300 space-y-1">
+            <p className="font-bold flex items-center gap-1.5 text-indigo-700 dark:text-indigo-300">
+              <FileText className="w-4 h-4" />
+              <span>Quy cách định dạng CSV (3 cột, phân tách bằng dấu phẩy):</span>
+            </p>
+            <p className="font-mono text-[11px] bg-white dark:bg-slate-900 p-2 rounded-lg border border-slate-200 dark:border-slate-800 select-all">
+              slug,google_play_url,app_store_url
+            </p>
+            <p className="text-[11px] text-slate-500 dark:text-slate-400">
+              Ví dụ: <code className="text-slate-800 dark:text-slate-200">genshin-impact,https://play.google.com/store/apps/details?id=com.miHoYo.GenshinImpact,https://apps.apple.com/vn/app/genshin-impact/id1517783697</code>
+            </p>
+            <p className="text-[11px] text-amber-600 dark:text-amber-400 font-semibold">
+              * Khớp theo slug chính xác. Dòng nào slug không tồn tại hoặc link sai định dạng sẽ được ghi vào nhật ký lỗi và bỏ qua, không dừng cả file.
+            </p>
+          </div>
+
+          <div>
+            <div className="flex items-center justify-between mb-1">
+              <label className="text-xs font-bold text-slate-700 dark:text-slate-300">
+                Nội dung CSV
+              </label>
+              <label className="inline-flex items-center gap-1 text-[11px] font-bold text-indigo-600 dark:text-indigo-400 hover:underline cursor-pointer">
+                <Upload className="w-3 h-3" />
+                <span>Chọn file .csv</span>
+                <input
+                  type="file"
+                  accept=".csv,text/csv,text/plain"
+                  className="hidden"
+                  onChange={(e) => {
+                    const file = e.target.files?.[0];
+                    if (file) {
+                      const reader = new FileReader();
+                      reader.onload = (event) => {
+                        const content = String(event.target?.result || '');
+                        setCsvText(content);
+                      };
+                      reader.readAsText(file);
+                    }
+                  }}
+                />
+              </label>
+            </div>
+            <textarea
+              rows={8}
+              value={csvText}
+              onChange={(e) => setCsvText(e.target.value)}
+              placeholder="Dán nội dung CSV vào đây (mỗi game 1 dòng)&#10;genshin-impact,https://play.google.com/store/apps/details?id=com.miHoYo.GenshinImpact,https://apps.apple.com/vn/app/genshin-impact/id1517783697&#10;super-sus,https://play.google.com/store/apps/details?id=com.je.supersus,"
+              className="w-full rounded-xl border border-slate-200 bg-white p-3 font-mono text-xs text-slate-900 focus:border-indigo-500 focus:outline-none dark:border-slate-700 dark:bg-slate-800 dark:text-white"
+            />
+          </div>
+
+          {/* Log kết quả */}
+          {csvLog.length > 0 && (
+            <div className="p-3 rounded-xl bg-slate-900 text-slate-200 text-xs font-mono max-h-48 overflow-y-auto space-y-1">
+              <p className="font-bold text-white border-b border-slate-700 pb-1 mb-1">
+                Nhật ký xử lý:
+              </p>
+              {csvLog.map((log, idx) => (
+                <div key={idx} className={log.startsWith('❌') ? 'text-rose-400' : 'text-emerald-400'}>
+                  {log}
+                </div>
+              ))}
+            </div>
+          )}
+
+          <div className="flex items-center justify-end gap-3 pt-3 border-t border-slate-100 dark:border-slate-800">
+            <button
+              type="button"
+              onClick={() => {
+                setIsCsvModalOpen(false);
+                setCsvLog([]);
+              }}
+              className="rounded-xl border border-slate-200 bg-white px-4 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300"
+            >
+              Đóng
+            </button>
+            <button
+              type="button"
+              disabled={isImportingCsv || !csvText.trim()}
+              onClick={handleCsvImport}
+              className="inline-flex items-center gap-1.5 rounded-xl bg-indigo-600 px-5 py-2 text-xs font-bold text-white shadow-sm hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              <Check className="h-4 w-4" />
+              <span>{isImportingCsv ? 'Đang xử lý...' : 'Thực Hiện Cập Nhật'}</span>
+            </button>
+          </div>
+        </div>
       </FormModal>
 
       {/* Delete Confirmation Modal */}

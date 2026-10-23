@@ -36,6 +36,9 @@ export interface GameItem {
   download_android?: string;
   download_ios?: string;
   download_pc?: string;
+  google_play_url?: string;
+  app_store_url?: string;
+  android_package_name?: string;
   redeem_url?: string;
   is_featured?: boolean | number;
   is_hot?: boolean | number;
@@ -628,9 +631,14 @@ export async function getLoadedCatalog(db: D1Database, forceFresh: boolean = fal
         so_giay_phep: g.so_giay_phep || g.license_number || '',
         ngay_cap_phep: g.ngay_cap_phep || g.license_date || '',
         release_date: g.release_date || g.gp_release_date || '',
-        download_android: g.download_android || g.downloadLinks?.android || '',
-        download_ios: g.download_ios || g.downloadLinks?.ios || '',
+        download_android: g.download_android || g.google_play_url || g.downloadLinks?.android || '',
+        download_ios: g.download_ios || g.app_store_url || g.downloadLinks?.ios || '',
         download_pc: g.download_pc || g.downloadLinks?.pc || '',
+        google_play_url: g.google_play_url || g.download_android || g.downloadLinks?.android || '',
+        app_store_url: g.app_store_url || g.download_ios || g.downloadLinks?.ios || '',
+        android_package_name: g.android_package_name || (
+          (g.google_play_url || g.download_android || '').match(/[?&]id=([a-zA-Z0-9._]+)/)?.[1] || ''
+        ),
         redeem_url: g.redeem_url || g.redeemUrl || '',
         is_featured: Boolean(g.is_featured || g.isFeatured),
         is_hot: Boolean(g.is_hot || g.isHot),

@@ -1108,9 +1108,14 @@ class DataService {
             license_date: (g as any).license_date || g.ngay_cap_phep || undefined,
             trang_thai_gp: (g as any).trang_thai_gp || (g.so_giay_phep ? 'Đã cấp phép (ABEI)' : undefined),
             release_date: relDate,
-            download_android: g.download_android || undefined,
-            download_ios: g.download_ios || undefined,
+            download_android: g.download_android || (g as any).google_play_url || undefined,
+            download_ios: g.download_ios || (g as any).app_store_url || undefined,
             download_pc: g.download_pc || undefined,
+            google_play_url: (g as any).google_play_url || g.download_android || undefined,
+            app_store_url: (g as any).app_store_url || g.download_ios || undefined,
+            android_package_name: (g as any).android_package_name || (
+              (g.download_android || (g as any).google_play_url || '').match(/[?&]id=([a-zA-Z0-9._]+)/)?.[1] || undefined
+            ),
             redeem_url: g.redeem_url || undefined,
             is_featured: Boolean(g.is_featured || g.isFeatured || g.status === 'HOT'),
             is_hot: Boolean(g.is_hot || g.isHot || g.status === 'HOT' || existingCodes.length > 5),

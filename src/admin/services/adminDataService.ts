@@ -479,6 +479,14 @@ class AdminDataService {
             ngay_cap_phep: g.ngay_cap_phep,
             release_date: g.gp_release_date || g.release_date || '2026-09-01',
             status: status,
+            google_play_url: g.google_play_url || g.download_android || g.downloadLinks?.android || '',
+            app_store_url: g.app_store_url || g.download_ios || g.downloadLinks?.ios || '',
+            android_package_name: g.android_package_name || (
+              (g.google_play_url || g.download_android || '').match(/[?&]id=([a-zA-Z0-9._]+)/)?.[1] || ''
+            ),
+            download_android: g.download_android || g.google_play_url || g.downloadLinks?.android || '',
+            download_ios: g.download_ios || g.app_store_url || g.downloadLinks?.ios || '',
+            download_pc: g.download_pc || g.downloadLinks?.pc || '',
             created_at: g.created_at || '2026-08-01T00:00:00Z',
             updated_at: g.updated_at || '2026-09-27T00:00:00Z',
           };
@@ -1855,8 +1863,21 @@ class AdminDataService {
 
   public createGame(game: Omit<GameAdminRecord, 'id'>): GameAdminRecord {
     const id = game.slug || `game_${Date.now()}`;
+    const playUrl = game.google_play_url || game.download_android || '';
+    const iosUrl = game.app_store_url || game.download_ios || '';
+    let pkgName = game.android_package_name || '';
+    if (!pkgName && playUrl) {
+      const match = playUrl.match(/[?&]id=([a-zA-Z0-9._]+)/);
+      if (match) pkgName = match[1];
+    }
+
     const newGame: GameAdminRecord = {
       ...game,
+      google_play_url: playUrl,
+      download_android: playUrl,
+      app_store_url: iosUrl,
+      download_ios: iosUrl,
+      android_package_name: pkgName,
       id,
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
@@ -1871,9 +1892,26 @@ class AdminDataService {
     const idx = this.games.findIndex((g) => g.id === id || g.slug === id);
     if (idx === -1) return null;
 
+    const playUrl = data.google_play_url !== undefined 
+      ? data.google_play_url 
+      : (data.download_android !== undefined ? data.download_android : this.games[idx].google_play_url || this.games[idx].download_android || '');
+    const iosUrl = data.app_store_url !== undefined 
+      ? data.app_store_url 
+      : (data.download_ios !== undefined ? data.download_ios : this.games[idx].app_store_url || this.games[idx].download_ios || '');
+    let pkgName = data.android_package_name !== undefined ? data.android_package_name : this.games[idx].android_package_name;
+    if (!pkgName && playUrl) {
+      const match = playUrl.match(/[?&]id=([a-zA-Z0-9._]+)/);
+      if (match) pkgName = match[1];
+    }
+
     this.games[idx] = {
       ...this.games[idx],
       ...data,
+      google_play_url: playUrl,
+      download_android: playUrl,
+      app_store_url: iosUrl,
+      download_ios: iosUrl,
+      android_package_name: pkgName,
       updated_at: new Date().toISOString(),
     };
     this.saveGames();

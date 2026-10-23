@@ -32,6 +32,9 @@ export interface GameItem {
   download_android?: string;
   download_ios?: string;
   download_pc?: string;
+  google_play_url?: string;
+  app_store_url?: string;
+  android_package_name?: string;
   redeem_url?: string;
   is_featured?: boolean | number;
   is_hot?: boolean | number;

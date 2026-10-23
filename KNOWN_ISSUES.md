@@ -10,6 +10,26 @@
 
 ## 1. DANH MỤC LỖI & CÁC BẪY ĐÃ THẤT BẠI (DO NOT REPEAT)
 
+### ISSUE-090: Bẫy Đặt Tên Cột Trùng Lặp Link Store, Lỗi Nhận Diện Thiết Bị iPadOS Và Bẫy Chặn Chuyển Hướng Tracking Khi Khách Bấm Nút Tải (Store Links Duplicate Column, iPadOS Detection & Download Tracking Beacon Trap)
+- **Triệu chứng**:
+  - Khi thêm tính năng nút tải game CH Play và App Store, tạo thêm cột mới trùng lặp với các trường đã có trong cơ sở dữ liệu (`download_android`, `download_ios`).
+  - Thiết bị iPadOS 13+ bị nhận nhầm thành Desktop do User-Agent khai báo là "Macintosh", khiến iPad hiển thị cả 2 nút và mã QR thay vì nút App Store to chính.
+  - Khi ghi nhận lượt tải game (`download_clicks`), nếu gọi API bằng fetch thông thường và chặn chuyển hướng hoặc làm chậm quá trình mở store, người dùng bị gián đoạn trải nghiệm hoặc mất lượt tracking khi tab chuyển hướng.
+- **Nguyên nhân gốc rễ**:
+  1. Trong schema D1 và các model cũ đã có sẵn `download_android` và `download_ios`. Nếu không ánh xạ 2 chiều thì dữ liệu cũ và dữ liệu mới sẽ bị phân mảnh.
+  2. Apple trên iPadOS 13+ đặt User-Agent giống hệt macOS desktop (`Macintosh; Intel Mac OS X...`) nhưng có cảm ứng đa điểm (`navigator.maxTouchPoints > 1`). Nếu chỉ kiểm tra `/iPad/i.test(ua)` thì iPad bị nhận diện là desktop.
+  3. Khi khách bấm tải trên mobile, trình duyệt có thể ngắt request HTTP nếu không dùng `navigator.sendBeacon` hoặc cờ `keepalive: true`.
+- **Giải pháp chuẩn đã kiểm chứng**:
+  - Tích hợp 2 chiều đồng bộ: `google_play_url` $\leftrightarrow$ `download_android`, `app_store_url` $\leftrightarrow$ `download_ios`, và tự động trích xuất `android_package_name` từ `id=`.
+  - Nhận diện thiết bị toàn diện: Kiểm tra `navigator.userAgentData`, `navigator.userAgent`, và xử lý trường hợp đặc thù iPadOS qua `/Macintosh/i.test(ua) && navigator.maxTouchPoints > 1`.
+  - Sử dụng `navigator.sendBeacon('/api/track-download', ...)` với fallback `fetch(..., { keepalive: true })` chạy bất đồng bộ ngầm, không chặn sự kiện click.
+- ⛔ **CÁCH SỬA ĐÃ THẤT BẠI - TUYỆT ĐỐI KHÔNG LẶP LẠI**:
+  - ❌ *Không tạo cột mới mà không tương thích với download_android / download_ios sẵn có*: Luôn đảm bảo tương thích 2 chiều cho cả dữ liệu cũ và mới.
+  - ❌ *Không quên kiểm tra navigator.maxTouchPoints cho iPadOS*: Nếu bỏ qua kiểm tra này, toàn bộ người dùng iPad sẽ bị hiển thị giao diện desktop kèm mã QR thay vì nút App Store.
+  - ❌ *Không gọi dịch vụ tạo QR bên thứ ba (api.qrserver.com, goqr.me)*: Bắt buộc sinh client-side bằng thư viện `qrcode` bundle cục bộ để bảo mật và chống rò rỉ dữ liệu.
+
+---
+
 ### ISSUE-089: Không Thể Đẩy Hoặc Cập Nhật Icon Cho Game Sắp Ra Mắt Qua API Do Bó Hẹp Tên Trường Và Thiếu Action Cập Nhật Icon Riêng Biệt (Upcoming Games API Icon Ingest & Action Missing Trap)
 - **Triệu chứng**:
   - Khi bot Pine AI, Muse bot hoặc crawler đẩy icon mới cho game trong mục Game Sắp Ra Mắt qua API `/api/crawler/ingest-upcoming-games`, icon không được cập nhật trên web khách và trang quản trị, vẫn hiển thị icon mặc định hoặc logo cũ.

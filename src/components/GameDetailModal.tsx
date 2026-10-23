@@ -34,6 +34,7 @@ import { useLanguage } from '../context/LanguageContext';
 import { useLockBodyScroll } from '../hooks/useLockBodyScroll';
 import { isG1Licensed } from '../utils/licenseUtils';
 import { isCodeExpired } from '../utils/codeUtils';
+import { GameDownloadSection } from './game/GameDownloadSection';
 
 interface GameDetailModalProps {
   game: GameItem | null;
@@ -519,30 +520,6 @@ export const GameDetailModal: React.FC<GameDetailModalProps> = ({
               </a>
             )}
 
-            {currentGame.download_android && (
-              <a
-                href={currentGame.download_android}
-                target="_blank"
-                rel="noreferrer"
-                className="flex items-center gap-1 px-2.5 py-1 rounded-xl text-[11px] sm:text-xs font-medium bg-card hover:bg-card-hover border border-border text-muted-foreground hover:text-foreground transition-all shrink-0 active:scale-95"
-              >
-                <Download className="w-3 h-3 sm:w-3.5 sm:h-3.5 text-emerald-400" />
-                <span>Google Play</span>
-              </a>
-            )}
-
-            {currentGame.download_ios && (
-              <a
-                href={currentGame.download_ios}
-                target="_blank"
-                rel="noreferrer"
-                className="flex items-center gap-1 px-2.5 py-1 rounded-xl text-[11px] sm:text-xs font-medium bg-card hover:bg-card-hover border border-border text-muted-foreground hover:text-foreground transition-all shrink-0 active:scale-95"
-              >
-                <Download className="w-3 h-3 sm:w-3.5 sm:h-3.5 text-secondary" />
-                <span>App Store</span>
-              </a>
-            )}
-
             {currentGame.download_pc && (
               <a
                 href={currentGame.download_pc}
@@ -559,6 +536,9 @@ export const GameDetailModal: React.FC<GameDetailModalProps> = ({
 
         {/* Modal Body (Scrollable) */}
         <div className="flex-1 min-h-0 overflow-y-auto touch-pan-y p-4 sm:p-6 space-y-5 pb-[max(env(safe-area-inset-bottom,0px),1.5rem)]">
+          {/* KHỐI TẢI GAME TỰ NHẬN THIẾT BỊ (CH PLAY / APP STORE / QR DESKTOP) */}
+          <GameDownloadSection game={currentGame} />
+
           {/* ========================================================================= */}
           {/* PHẦN 1: DANH SÁCH MÃ GIFTCODE CÒN HOẠT ĐỘNG (ACTIVE CODES)               */}
           {/* ========================================================================= */}

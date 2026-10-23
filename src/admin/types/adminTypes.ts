@@ -55,6 +55,12 @@ export interface GameAdminRecord {
   ngay_cap_phep?: string;
   release_date: string;
   status: 'ACTIVE' | 'HOT' | 'INACTIVE';
+  google_play_url?: string;
+  app_store_url?: string;
+  android_package_name?: string;
+  download_android?: string;
+  download_ios?: string;
+  download_pc?: string;
   created_at?: string;
   updated_at?: string;
 }

@@ -24,6 +24,7 @@ import * as notifSubscribersApi from './api/notifications/subscribers';
 import * as notifSettingsApi from './api/notifications/settings';
 import * as notifSendApi from './api/notifications/send';
 import * as notifLogsApi from './api/notifications/logs';
+import * as trackDownloadApi from './api/track-download';
 import { invalidateCatalogEdgeCache } from './services/cache_service';
 import fallbackGiveawaysData from '../src/data/giveaways.json';
 
@@ -448,6 +449,13 @@ export default {
         return await notifLogsApi.onRequestGet(context);
       }
 
+      // 12. /api/track-download (Download click tracking & stats)
+      if (pathname === '/api/track-download') {
+        if (method === 'OPTIONS') return await trackDownloadApi.onRequestOptions();
+        if (method === 'POST') return await trackDownloadApi.onRequestPost(context);
+        if (method === 'GET') return await trackDownloadApi.onRequestGet(context);
+      }
+
       // Fallback for any unknown /api route
       if (pathname.startsWith('/api')) {
         return new Response(
@@ -598,6 +606,14 @@ async function renderSeoHtml(
       };
 
       replaceTitleAndMeta(title, description, `/game/${game.slug}`, iconUrl, gameSchema);
+
+      // Pre-render accessible store download links for SEO bots and non-JS clients
+      const playUrl = game.google_play_url || game.download_android || '';
+      const iosUrl = game.app_store_url || game.download_ios || '';
+      if (playUrl || iosUrl) {
+        const noscriptHtml = `\n    <noscript>\n      <div style="max-width:600px;margin:20px auto;padding:16px;background:#0f172a;border:1px solid #334155;border-radius:12px;color:#f8fafc;text-align:center;font-family:sans-serif;">\n        <h3 style="margin-bottom:12px;">Tải game chính thức: ${game.name}</h3>\n        <div style="display:flex;gap:12px;justify-content:center;flex-wrap:wrap;">\n          ${playUrl ? `<a href="${playUrl}" style="display:inline-block;padding:10px 20px;background:#10b981;color:#022c22;border-radius:8px;text-decoration:none;font-weight:bold;">Tải trên CH Play</a>` : ''}\n          ${iosUrl ? `<a href="${iosUrl}" style="display:inline-block;padding:10px 20px;background:#38bdf8;color:#082f49;border-radius:8px;text-decoration:none;font-weight:bold;">Tải trên App Store</a>` : ''}\n        </div>\n        <p style="font-size:12px;color:#94a3b8;margin-top:12px;">Nếu CH Play/App Store báo &quot;không có ở quốc gia của bạn&quot;, đó là giới hạn vùng theo tài khoản của bạn — link tải vẫn đúng. Hãy thử tài khoản thuộc vùng game đã phát hành.</p>\n      </div>\n    </noscript>`;
+        html = html.replace('<div id="root"></div>', `<div id="root"></div>${noscriptHtml}`);
+      }
     }
   } else if (pathname === '/news' || pathname.startsWith('/news/')) {
     const newsSlug = pathname.replace(/^\/news\//i, '').replace(/\/$/, '').trim().toLowerCase();

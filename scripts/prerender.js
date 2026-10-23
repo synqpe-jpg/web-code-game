@@ -900,6 +900,25 @@ async function runPrerender() {
             </div>`
             }
 
+            ${(() => {
+              const playUrl = game.google_play_url || game.download_android;
+              const iosUrl = game.app_store_url || game.download_ios;
+              if (!playUrl && !iosUrl) return '';
+              return `
+            <!-- Download Section (Pre-rendered for SEO & no-JS) -->
+            <div class="p-5 rounded-2xl bg-dark-900 border border-gray-800 space-y-3">
+              <h2 class="text-base sm:text-lg font-bold text-white flex items-center justify-between">
+                <span>📲 Tải Game Chính Thức</span>
+                <span class="text-xs text-emerald-400 font-semibold">Official Store</span>
+              </h2>
+              <div class="flex items-center gap-3 flex-wrap">
+                ${playUrl ? `<a href="${escapeHtml(playUrl)}" target="_blank" rel="noopener noreferrer" class="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs sm:text-sm shadow-md">Tải trên CH Play</a>` : ''}
+                ${iosUrl ? `<a href="${escapeHtml(iosUrl)}" target="_blank" rel="noopener noreferrer" class="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-sky-600 hover:bg-sky-500 text-white font-bold text-xs sm:text-sm shadow-md">Tải trên App Store</a>` : ''}
+              </div>
+              <p class="text-xs text-gray-400">Nếu CH Play/App Store báo &quot;không có ở quốc gia của bạn&quot;, đó là giới hạn vùng theo tài khoản của bạn — link tải vẫn đúng. Hãy thử tài khoản thuộc vùng game đã phát hành.</p>
+            </div>`;
+            })()}
+
             <!-- Codes List -->
             <div class="p-5 rounded-2xl bg-dark-900 border border-gray-800 space-y-3">
               <h2 class="text-base sm:text-lg font-bold text-white flex items-center justify-between">
