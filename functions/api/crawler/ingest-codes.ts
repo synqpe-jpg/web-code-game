@@ -146,99 +146,126 @@ export function getBaseSlug(str: string): string {
     .replace(/^-+|-+$/g, '');
 }
 
+export interface LiveGameIndex {
+  packagesMap: Map<string, string>;
+  exactSlugsMap: Map<string, string>;
+  normNamesMap: Map<string, string>;
+  baseSlugsMap: Map<string, string>;
+  franchisePrefixes: Array<{ prefix: string; slug: string }>;
+}
+
 /**
- * Phát hiện trùng lặp giữa game chờ duyệt và danh mục game live đang hoạt động
- * Ưu tiên:
- * 1. android_package_name (khớp tuyệt đối)
- * 2. Exact slug hoặc ID
- * 3. Tên chuẩn hóa (Normalized Name) sau khi loại bỏ NPH/hậu tố
- * 4. Base Slug (bỏ hậu tố -mobile, -vng, -vtc, v.v.)
- * 5. Prefix Slug dài (cho các bản spin-off / lite / mở rộng)
+ * Xây dựng Index O(1) cho live games để kiểm tra trùng lặp siêu tốc (<1ms) không gây quá tải Worker CPU
  */
-export function detectDuplicateOf(pendingItem: any, liveGames: any[]): string | null {
-  if (!pendingItem || !Array.isArray(liveGames)) return null;
-  const pkg = String(pendingItem.packageName || pendingItem.packageId || pendingItem.android_package_name || '').trim().toLowerCase();
-  const slug = String(pendingItem.slug || pendingItem.id || '').trim().toLowerCase();
-  const cleanName = cleanGameSearchTerm(pendingItem.name || '');
-  const normName = normalizeVietnamese(cleanName);
-  const baseSlug = getBaseSlug(slug);
+export function buildLiveGameIndex(liveGames: any[]): LiveGameIndex {
+  const index: LiveGameIndex = {
+    packagesMap: new Map(),
+    exactSlugsMap: new Map(),
+    normNamesMap: new Map(),
+    baseSlugsMap: new Map(),
+    franchisePrefixes: [],
+  };
 
-  // 1. Khớp theo android_package_name (độ tin cậy tuyệt đối 100%)
-  if (pkg && pkg.length > 3) {
-    for (const live of liveGames) {
-      if (!live || live.is_active === false || live.status === 'PENDING') continue;
-      const livePkg = String(live.android_package_name || live.packageId || live.packageName || '').trim().toLowerCase();
-      const livePlayStoreUrl = String(live.google_play_url || live.download_android || '').toLowerCase();
-      if (livePkg && livePkg === pkg) {
-        return live.slug || live.id;
-      }
-      if (livePlayStoreUrl && livePlayStoreUrl.includes('id=' + pkg)) {
-        return live.slug || live.id;
-      }
-    }
-  }
+  if (!Array.isArray(liveGames)) return index;
 
-  // 2. Khớp tuyệt đối theo slug hoặc id
   for (const live of liveGames) {
     if (!live || live.is_active === false || live.status === 'PENDING') continue;
-    const liveSlug = String(live.slug || '').trim().toLowerCase();
+    const liveSlug = String(live.slug || live.id || '').trim().toLowerCase();
+    if (!liveSlug) continue;
+
+    const livePkg = String(live.android_package_name || live.packageId || live.packageName || '').trim().toLowerCase();
+    if (livePkg && livePkg.length > 3) {
+      index.packagesMap.set(livePkg, liveSlug);
+    }
+    const playUrl = String(live.google_play_url || live.download_android || '').toLowerCase();
+    const pkgMatch = playUrl.match(/[?&]id=([a-zA-Z0-9._]+)/);
+    if (pkgMatch && pkgMatch[1]) {
+      index.packagesMap.set(pkgMatch[1].toLowerCase(), liveSlug);
+    }
+
+    index.exactSlugsMap.set(liveSlug, liveSlug);
     const liveId = String(live.id || '').trim().toLowerCase();
-    if (liveSlug === slug || liveId === slug) {
-      return live.slug || live.id;
+    if (liveId) index.exactSlugsMap.set(liveId, liveSlug);
+
+    const cleanName = cleanGameSearchTerm(live.name || '');
+    const normName = normalizeVietnamese(cleanName);
+    if (normName && normName.length >= 3) {
+      index.normNamesMap.set(normName, liveSlug);
     }
-  }
 
-  // 3. Khớp theo tên chuẩn hóa sau khi làm sạch (Normalized Name)
-  if (normName && normName.length >= 3) {
-    for (const live of liveGames) {
-      if (!live || live.is_active === false || live.status === 'PENDING') continue;
-      const liveCleanName = cleanGameSearchTerm(live.name || '');
-      const liveNormName = normalizeVietnamese(liveCleanName);
-      if (liveNormName && liveNormName === normName) {
-        return live.slug || live.id;
-      }
-    }
-  }
+    const baseSlug = getBaseSlug(liveSlug);
+    if (baseSlug && baseSlug.length >= 4) {
+      index.baseSlugsMap.set(baseSlug, liveSlug);
 
-  // 4. Khớp theo Base Slug
-  if (baseSlug && baseSlug.length >= 4) {
-    for (const live of liveGames) {
-      if (!live || live.is_active === false || live.status === 'PENDING') continue;
-      const liveSlug = String(live.slug || '').trim().toLowerCase();
-      const liveBaseSlug = getBaseSlug(liveSlug);
-      if (liveBaseSlug && liveBaseSlug === baseSlug) {
-        return live.slug || live.id;
-      }
-    }
-  }
-
-  // 5. Khớp theo Prefix Slug dài (cho series / editions / lite)
-  if (baseSlug && baseSlug.length >= 6) {
-    for (const live of liveGames) {
-      if (!live || live.is_active === false || live.status === 'PENDING') continue;
-      const liveSlug = String(live.slug || '').trim().toLowerCase();
-      const liveBaseSlug = getBaseSlug(liveSlug);
-      if (!liveBaseSlug || liveBaseSlug.length < 5) continue;
-
-      const tokenCount = liveBaseSlug.split('-').length;
+      const tokenCount = baseSlug.split('-').length;
       const isKnownFranchise =
-        liveBaseSlug.startsWith('free-fire') ||
-        liveBaseSlug.startsWith('crossfire') ||
-        liveBaseSlug.startsWith('arena-breakout') ||
-        liveBaseSlug.startsWith('mobile-legends') ||
-        liveBaseSlug.startsWith('revelation') ||
-        liveBaseSlug.startsWith('kiem-rong') ||
-        liveBaseSlug.startsWith('omg-3q');
+        baseSlug.startsWith('free-fire') ||
+        baseSlug.startsWith('crossfire') ||
+        baseSlug.startsWith('arena-breakout') ||
+        baseSlug.startsWith('mobile-legends') ||
+        baseSlug.startsWith('revelation') ||
+        baseSlug.startsWith('kiem-rong') ||
+        baseSlug.startsWith('omg-3q');
 
       if (tokenCount >= 3 || isKnownFranchise) {
-        if (baseSlug.startsWith(liveBaseSlug + '-') || liveBaseSlug.startsWith(baseSlug + '-')) {
-          return live.slug || live.id;
-        }
+        index.franchisePrefixes.push({ prefix: baseSlug, slug: liveSlug });
+      }
+    }
+  }
+
+  return index;
+}
+
+/**
+ * Phát hiện trùng lặp siêu tốc O(1) qua LiveGameIndex
+ */
+export function detectDuplicateOfIndexed(pendingItem: any, index: LiveGameIndex): string | null {
+  if (!pendingItem || !index) return null;
+  const pkg = String(pendingItem.packageName || pendingItem.packageId || pendingItem.android_package_name || '').trim().toLowerCase();
+  const slug = String(pendingItem.slug || pendingItem.id || '').trim().toLowerCase();
+
+  // 1. Khớp theo android_package_name (O(1))
+  if (pkg && index.packagesMap.has(pkg)) {
+    return index.packagesMap.get(pkg)!;
+  }
+
+  // 2. Khớp tuyệt đối theo slug hoặc id (O(1))
+  if (slug && index.exactSlugsMap.has(slug)) {
+    return index.exactSlugsMap.get(slug)!;
+  }
+
+  // 3. Khớp theo tên chuẩn hóa sau khi làm sạch (O(1))
+  const cleanName = cleanGameSearchTerm(pendingItem.name || '');
+  const normName = normalizeVietnamese(cleanName);
+  if (normName && index.normNamesMap.has(normName)) {
+    return index.normNamesMap.get(normName)!;
+  }
+
+  // 4. Khớp theo Base Slug (O(1))
+  const baseSlug = getBaseSlug(slug);
+  if (baseSlug && index.baseSlugsMap.has(baseSlug)) {
+    return index.baseSlugsMap.get(baseSlug)!;
+  }
+
+  // 5. Khớp theo Franchise Prefixes (~15 phần tử)
+  if (baseSlug && baseSlug.length >= 6) {
+    for (const { prefix, slug: liveSlug } of index.franchisePrefixes) {
+      if (baseSlug.startsWith(prefix + '-') || prefix.startsWith(baseSlug + '-')) {
+        return liveSlug;
       }
     }
   }
 
   return null;
+}
+
+/**
+ * Phát hiện trùng lặp giữa game chờ duyệt và danh mục game live đang hoạt động
+ */
+export function detectDuplicateOf(pendingItem: any, liveGames: any[]): string | null {
+  if (!pendingItem || !Array.isArray(liveGames)) return null;
+  const index = buildLiveGameIndex(liveGames);
+  return detectDuplicateOfIndexed(pendingItem, index);
 }
 
 /**
@@ -654,6 +681,7 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
       const seenSlugs = new Set<string>();
       const combinedList: any[] = [];
       let nonGamesFilteredCount = 0;
+      const liveIndex = buildLiveGameIndex(activeGamesRaw);
 
       const addGame = (g: any) => {
         if (!g) return;
@@ -665,7 +693,7 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
         if (!slug || seenSlugs.has(slug)) return;
         seenSlugs.add(slug);
 
-        const duplicateOf = detectDuplicateOf(g, activeGamesRaw);
+        const duplicateOf = detectDuplicateOfIndexed(g, liveIndex);
 
         combinedList.push({
           id: String(g.id || slug),
@@ -826,7 +854,8 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
       }
 
       // Chặn đăng trùng lặp với game live đã có
-      const duplicateOf = detectDuplicateOf(gameToPublish, activeGames);
+      const liveIndex = buildLiveGameIndex(activeGames);
+      const duplicateOf = detectDuplicateOfIndexed(gameToPublish, liveIndex);
       if (duplicateOf && duplicateOf !== targetSlug && !body.force) {
         return new Response(
           JSON.stringify({
@@ -1554,6 +1583,7 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
 
     // 5. LƯU VÀO D1 DATABASE & ĐỒNG BỘ NGUYÊN TỬ (ATOMIC DELTA RE-FETCH MERGE)
     if (stateModified) {
+      const nowIso = new Date().toISOString();
       // 5.0. Re-fetch FRESH settings from D1 ngay trước khi lưu để chống Race Condition / Overwrite
       const freshD1Settings = await getMultipleSettingsD1(env.DB, [
         'wcg_admin_custom_free_codes_v1',
