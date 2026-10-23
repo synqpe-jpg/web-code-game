@@ -1,5 +1,5 @@
 import React from 'react';
-import { Bookmark, Sparkles, X, Gift, ChevronRight, Clock, Trash2, Bell, ExternalLink, Gamepad2 } from 'lucide-react';
+import { Bookmark, Sparkles, X, Gift, ChevronRight, Clock, Trash2, Bell, ExternalLink } from 'lucide-react';
 import type { GameItem, UpcomingGame } from '../types/game';
 
 interface PinnedGamesBarProps {
@@ -110,17 +110,6 @@ export const PinnedGamesBar: React.FC<PinnedGamesBarProps> = ({
         </div>
 
         <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
-          {onOpenBookmarksDrawer && (
-            <button
-              onClick={onOpenBookmarksDrawer}
-              className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-secondary hover:bg-secondary/80 text-foreground text-xs font-semibold border border-border/60 transition-all cursor-pointer shadow-sm hover:scale-[1.02] active:scale-95"
-              title="Mở toàn bộ danh sách tủ game"
-            >
-              <Gamepad2 className="w-3.5 h-3.5 text-primary-light" />
-              <span>Tủ Game</span>
-            </button>
-          )}
-
           <button
             onClick={onClearAll}
             className="flex items-center gap-1 px-2 py-1 sm:px-2.5 sm:py-1.5 rounded-xl text-muted-foreground hover:text-rose-400 hover:bg-rose-500/10 text-[11px] sm:text-xs font-medium transition-all cursor-pointer border border-transparent hover:border-rose-500/20 active:scale-95"

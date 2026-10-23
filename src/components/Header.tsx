@@ -288,20 +288,22 @@ export const Header: React.FC<HeaderProps> = ({
               <LanguageSelector variant="header" />
             </div>
 
-            {/* Bookmark Button (Desktop & Mobile) */}
-            <button
-              onClick={onOpenBookmarks}
-              className="relative p-1.5 sm:p-2.5 min-w-[32px] min-h-[32px] sm:min-w-[42px] sm:min-h-[42px] flex items-center justify-center rounded-xl bg-card hover:bg-card-hover border border-border text-slate-300 hover:text-foreground transition-all cursor-pointer active:scale-95 shadow-sm shrink-0"
-              title={t.header.bookmarksTitle}
-              aria-label={t.header.bookmarksTitle}
-            >
-              <Bookmark className="w-4 h-4 text-amber-400" />
-              {bookmarkCount > 0 && (
-                <span className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-accent text-white text-[9px] font-bold flex items-center justify-center shadow-sm">
-                  {bookmarkCount}
-                </span>
-              )}
-            </button>
+            {/* Bookmark Button (Desktop & Mobile) - Chỉ hiển thị cho khách vãng lai chưa đăng nhập */}
+            {!currentUser && (
+              <button
+                onClick={onOpenBookmarks}
+                className="relative p-1.5 sm:p-2.5 min-w-[32px] min-h-[32px] sm:min-w-[42px] sm:min-h-[42px] flex items-center justify-center rounded-xl bg-card hover:bg-card-hover border border-border text-slate-300 hover:text-foreground transition-all cursor-pointer active:scale-95 shadow-sm shrink-0"
+                title={t.header.bookmarksTitle}
+                aria-label={t.header.bookmarksTitle}
+              >
+                <Bookmark className="w-4 h-4 text-amber-400" />
+                {bookmarkCount > 0 && (
+                  <span className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-accent text-white text-[9px] font-bold flex items-center justify-center shadow-sm">
+                    {bookmarkCount}
+                  </span>
+                )}
+              </button>
+            )}
 
             {/* User Account / Wallet Menu / Thông Tin Nhân Vật */}
             <div ref={userMenuRef} className="relative shrink-0">
@@ -313,7 +315,7 @@ export const Header: React.FC<HeaderProps> = ({
                       e.stopPropagation();
                       setIsUserMenuOpen((prev) => !prev);
                     }}
-                    className="flex items-center gap-1.5 p-1 sm:p-1.5 rounded-xl bg-card hover:bg-card-hover border border-border text-xs transition-all cursor-pointer shadow-sm active:scale-95 group shrink-0"
+                    className="relative flex items-center gap-1.5 p-1 sm:p-1.5 rounded-xl bg-card hover:bg-card-hover border border-border text-xs transition-all cursor-pointer shadow-sm active:scale-95 group shrink-0"
                     title={`${currentUser.displayName || currentUser.username} • ${formatCore(currentUser.wallet_balance)}`}
                     aria-label="Thông tin nhân vật"
                   >
@@ -332,6 +334,11 @@ export const Header: React.FC<HeaderProps> = ({
                       )}
                       <span className="absolute bottom-0 right-0 w-2 h-2 rounded-full bg-emerald-400 border border-card" />
                     </div>
+                    {bookmarkCount > 0 && (
+                      <span className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-accent text-white text-[9px] font-bold flex items-center justify-center shadow-sm pointer-events-none">
+                        {bookmarkCount}
+                      </span>
+                    )}
                   </button>
 
                   {isUserMenuOpen && (
@@ -428,6 +435,31 @@ export const Header: React.FC<HeaderProps> = ({
                       >
                         <Package className="w-4 h-4 text-emerald-400" />
                         <span>{t.header.myCodes}</span>
+                      </button>
+
+                      {/* 2.1 Tủ Game Thông Tin Đã Lưu */}
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setIsUserMenuOpen(false);
+                          onOpenBookmarks();
+                        }}
+                        className="w-full flex items-center justify-between p-2 rounded-xl hover:bg-muted text-foreground cursor-pointer text-left group"
+                        title="Xem danh sách game đã lưu và theo dõi"
+                      >
+                        <span className="flex items-center gap-2">
+                          <Bookmark className="w-4 h-4 text-amber-400 group-hover:scale-110 transition-transform" />
+                          <span className="font-medium">Tủ Game Đã Lưu</span>
+                        </span>
+                        {bookmarkCount > 0 ? (
+                          <span className="text-[10px] text-amber-300 font-bold bg-amber-500/20 px-2 py-0.5 rounded-full border border-amber-500/30 flex items-center gap-1">
+                            <span className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse" />
+                            {bookmarkCount} game
+                          </span>
+                        ) : (
+                          <span className="text-[10px] text-slate-400 font-medium">Trống</span>
+                        )}
                       </button>
 
                       {/* 2.1 Cài Đặt Thông Báo Email */}

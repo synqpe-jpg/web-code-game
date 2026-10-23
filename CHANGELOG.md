@@ -9,6 +9,27 @@ Mỗi mục sửa lỗi đều ghi nhận **Nguyên nhân gốc rễ (Root Cause
 
 ## [2026-10-23]
 
+### 158. Chuyển Nút Tủ Game (Thông Tin Đã Lưu) Vào Danh Sách Khi Ấn Vào Đại Diện Nhân Vật (Avatar Menu Saved Games Integration)
+- **Mô tả & Yêu cầu người dùng**:
+  - *"Chuyển nút Tủ game thông tin đã lưu đang hiển thị trên web vào danh sách khi ấn vào đại diện nhân vật."*
+- **Nguyên nhân gốc rễ (Root Cause)**:
+  - Trước đây nút Tủ Game (Bookmark) nằm độc lập trên thanh Header ngay sát đại diện nhân vật (avatar) và có thêm một nút "Tủ Game" phụ ở khối Game Đang Theo Dõi, làm giao diện web bị rối và phân tán các mục quản lý cá nhân của người dùng.
+- **Giải pháp đã triển khai (Solution)**:
+  - `src/components/Header.tsx`:
+    - Chuyển mục **"Tủ Game Đã Lưu"** vào danh sách dropdown menu của đại diện nhân vật (đặt ngay liền kề mục "Kho mã của tôi"), hiển thị icon Bookmark vàng nổi bật và badge đếm số lượng game đang lưu (`{bookmarkCount} game` / `Trống`).
+    - Nút đại diện nhân vật trên thanh Header hiển thị huy hiệu badge số đỏ trực tiếp khi có game được lưu.
+    - Ẩn nút Bookmark độc lập trên thanh Header khi người dùng đã đăng nhập (chỉ giữ cho khách vãng lai nếu chưa đăng nhập).
+  - `src/components/PinnedGamesBar.tsx`:
+    - Loại bỏ nút "Tủ Game" trùng lặp trên thanh bar "Game Bạn Đang Theo Dõi", giữ giao diện tinh gọn, thoáng đãng.
+- **Files Modified**:
+  - `src/components/Header.tsx`
+  - `src/components/PinnedGamesBar.tsx`
+  - `CHANGELOG.md`
+- **Verification**:
+  - `npm run build` thành công 100%, 0 lỗi TypeScript, 0 test artifact.
+
+---
+
 ### 157. Khắc Phục Lỗi Runtime ReferenceError `bookmarkedGames is not defined` Khi Mở Hộp Thoại Thông Báo (Notification Modal Crash Fix)
 - **Mô tả & Yêu cầu người dùng**:
   - *"Tôi ấn vào nút thông báo báo lỗi như ảnh."* (ErrorBoundary kích hoạt lỗi `bookmarkedGames is not defined`).
