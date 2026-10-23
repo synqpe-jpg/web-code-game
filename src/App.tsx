@@ -135,6 +135,7 @@ export const App: React.FC = () => {
   const [bookmarkedGamesList, setBookmarkedGamesList] = useState<GameItem[]>([]);
   const [upcomingGames, setUpcomingGames] = useState<UpcomingGame[]>(() => dataService.getUpcomingGamesSync());
   const [isAllUpcomingModalOpen, setIsAllUpcomingModalOpen] = useState(false);
+  const [selectedUpcomingSlug, setSelectedUpcomingSlug] = useState<string | null>(null);
 
   // Modals & Drawers
   const [selectedGame, setSelectedGame] = useState<GameItem | null>(null);
@@ -1393,7 +1394,10 @@ export const App: React.FC = () => {
                   upcomingGames={upcomingGames}
                   onToggleBookmark={handleToggleBookmark}
                   onSelectGame={handleSelectGame}
-                  onSelectUpcomingGame={() => setIsAllUpcomingModalOpen(true)}
+                  onSelectUpcomingGame={(game) => {
+                    setSelectedUpcomingSlug(game ? (game.slug || game.id) : null);
+                    setIsAllUpcomingModalOpen(true);
+                  }}
                   onClearAll={handleClearAllBookmarks}
                   onOpenBookmarksDrawer={() => setIsBookmarkDrawerOpen(true)}
                   onScrollToUpcoming={() => {
@@ -1408,8 +1412,14 @@ export const App: React.FC = () => {
                     upcomingGames={upcomingGames}
                     bookmarkedSlugs={bookmarks}
                     onToggleBookmark={handleToggleBookmark}
-                    onOpenAllUpcomingModal={() => setIsAllUpcomingModalOpen(true)}
-                    onSelectUpcomingGame={() => setIsAllUpcomingModalOpen(true)}
+                    onOpenAllUpcomingModal={() => {
+                      setSelectedUpcomingSlug(null);
+                      setIsAllUpcomingModalOpen(true);
+                    }}
+                    onSelectUpcomingGame={(game) => {
+                      setSelectedUpcomingSlug(game ? (game.slug || game.id) : null);
+                      setIsAllUpcomingModalOpen(true);
+                    }}
                     onShowToast={showToast}
                   />
                 </div>
@@ -1605,11 +1615,15 @@ export const App: React.FC = () => {
 
       <AllUpcomingGamesModal
         isOpen={isAllUpcomingModalOpen}
-        onClose={() => setIsAllUpcomingModalOpen(false)}
+        onClose={() => {
+          setIsAllUpcomingModalOpen(false);
+          setSelectedUpcomingSlug(null);
+        }}
         upcomingGames={upcomingGames}
         bookmarkedSlugs={bookmarks}
         onToggleBookmark={handleToggleBookmark}
         onShowToast={showToast}
+        initialSelectedSlug={selectedUpcomingSlug}
       />
 
       <CodePlaygroundModal

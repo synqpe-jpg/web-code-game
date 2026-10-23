@@ -7,6 +7,33 @@ Mỗi mục sửa lỗi đều ghi nhận **Nguyên nhân gốc rễ (Root Cause
 
 ## [2026-10-23]
 
+### 167. Tinh Giản & Khoa Học Hóa Giao Diện Modal Game Sắp Ra Mắt Trên Mobile — High-Density UI, Siêu Gọn Gàng, Mạch Lạc & Focus Trực Tiếp Vào Game Đang Chọn (Mobile Compact Upcoming Games Redesign)
+- **Mô tả & Yêu cầu người dùng**:
+  - *"Khi tôi ấn vào game trong mục gae sắp ra mắt thì khá to, chioees diện tích và rối, tinh giản, gọn, dễ nhìn, khoa học giúp tôi."*
+  - Ảnh chụp thực tế: Mỗi thẻ game cao hơn 420px, choán toàn bộ màn hình điện thoại, hộp đếm ngược 2 tầng cồng kềnh, đoạn văn mô tả thừa thãi lặp lại tên game, các nút và header chiếm quá nhiều diện tích dọc.
+- **Nguyên nhân gốc rễ (Root Cause)**:
+  - Bố cục `AllUpcomingGamesModal.tsx` thiết kế theo dạng desktop-heavy: Header modal padding `p-6` với mô tả dài 2-3 dòng; thẻ game bên trong có padding `p-4`, tách rời thể loại, icon, mô tả, countdown box 2 tầng và quà tân thủ ra quá nhiều hàng dọc độc lập.
+  - Khi click vào 1 game cụ thể trên banner `UpcomingGamesBanner`, hàm `onSelectUpcomingGame` trước đó không truyền `game` object sang `App.tsx`, chỉ mở toang danh sách tất cả 7 game và luôn hiển thị game đầu tiên, không focus hay highlight game mà người dùng vừa chọn.
+- **Giải pháp đã triển khai (Solution)**:
+  1. **Tái thiết kế Thẻ Game Siêu Tinh Gọn (High-Density & Clean Architecture)**:
+     - Giảm chiều cao mỗi thẻ game từ ~420px xuống chỉ còn ~150px (tiết kiệm hơn 60% không gian dọc, hiển thị được 2-3 game cùng lúc trên màn hình điện thoại).
+     - **Hàng 1**: Gom Icon game (`w-10 h-10`), Tên game font đậm nét, Tag Thể loại nhỏ gọn (`text-[10px]`) và Nhà phát hành trên cùng 1 hàng.
+     - **Loại bỏ Description thừa**: Bỏ văn bản mô tả tự sinh dài dòng gây loãng giao diện.
+     - **Hàng 2 (Countdown Giờ G siêu gọn 1 dòng)**: Banner ngang tinh tế (`10:00 • 28/10` | `⏱️ 04d : 14h : 04m : 07s` font mono cyan). Khi mở server, hiển thị badge xanh lá `✨ ĐÃ MỞ SERVER`.
+     - **Hàng 3 (Quà Tân Thủ Dự Kiến)**: Dàn chip mã quà gọn gàng (`[TIENGIOI2026] [VIP666]...`), đính kèm số người canh code tinh tế.
+     - **Hàng 4 (Nút Hành Động)**: Nút "Báo Code Khi Mở" (`py-1.5 px-2.5 text-xs`) + Nút "Trang Chủ" nhỏ gọn.
+  2. **Tối ưu Header Modal & Thanh Tìm Kiếm**:
+     - Header thu nhỏ từ `p-6` xuống `px-3.5 py-2.5`, ẩn mô tả dài dòng trên mobile, nút đóng `[X]` gọn gàng `w-8 h-8`.
+     - Thanh tìm kiếm và bộ lọc tabs pill co giãn mượt mà, siêu nhẹ.
+  3. **Đồng Bộ Focus Game Được Chọn (`initialSelectedSlug`)**:
+     - Trong `App.tsx`: Lưu `selectedUpcomingSlug` khi người dùng click vào bất kỳ game nào trên `UpcomingGamesBanner` hoặc `PinnedGamesBar`.
+     - Trong `AllUpcomingGamesModal.tsx`: Tự động đưa game được chọn lên đầu danh sách và highlight viền cyan phát sáng cùng badge `Đang chọn` để người dùng nhận diện ngay lập tức.
+- **Files Modified**:
+  - `src/components/AllUpcomingGamesModal.tsx`
+  - `src/App.tsx`
+
+---
+
 ### 166. Sửa Dứt Điểm Lệch Số Mã Giữa Trang Tĩnh Prerender, Client Memory Cache Và Thẻ Game Trang Chủ — Đồng Bộ Tuyệt Đối 3 Tầng D1 Authoritative (Zero Divergence Prerender Sync, Cache Timestamp Bypass & Card Badge Sync)
 - **Mô tả & Yêu cầu người dùng**:
   - *"Điểm 1: Thực Thần Ký — API có 12 mã nhưng trang công khai vẫn hiện 10 mã (kẹt ở 10 mã cũ, thiếu 2 mã TTKF376, TTTTK2026)."*
