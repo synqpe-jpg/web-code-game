@@ -9,6 +9,26 @@ Mỗi mục sửa lỗi đều ghi nhận **Nguyên nhân gốc rễ (Root Cause
 
 ## [2026-10-23]
 
+### 153. Thêm Nút Con Mắt Ẩn/Hiện API Key Trong Trang Quản Trị Nhằm Bảo Mật Khi Trình Chiếu (API Key Privacy Eye Toggle & Auto-Masking in Admin Portal)
+- **Mô tả & Yêu cầu người dùng**:
+  - *"Thêm ký tự con mắt, ấn ẩn hiện, api, để có gì đỡ lộ"*
+- **Nguyên nhân gốc rễ (Root Cause)**:
+  - Trong tab "Cổng API & Webhook" của Quản Lý Danh Mục Game (`UpcomingGamesSection.tsx`), ô API Key và các mẫu mã tích hợp (Python, cURL, JS/TS) hiển thị khóa xác thực dạng plain text không che chắn (`wcg_muse_...`). Khi người dùng livestream, chụp màn hình hoặc chia sẻ màn hình làm việc thì khóa API rất dễ bị lộ.
+- **Giải pháp đã triển khai (Solution)**:
+  - `src/admin/modules/UpcomingGamesSection.tsx`:
+    - Bổ sung nút icon con mắt `Eye` / `EyeOff` trực tiếp bên trong ô input API Key và nút bấm toggle nhanh tại Header Card.
+    - Mặc định khởi tạo ở trạng thái ẩn (`showApiKey = false`), ô input hiển thị dạng `type="password"` với các dấu chấm tròn bảo mật.
+    - Trong code mẫu tích hợp (Python, cURL, JS) và khung soạn thảo Test API: Tự động che giấu dạng masked `wcg_muse_••••••••••••`.
+    - Khi người dùng bấm icon con mắt, toàn bộ trường input và code mẫu hiển thị rõ ràng để đối chiếu; bấm lại thì lập tức ẩn đi.
+    - Nút Sao chép (Copy) luôn thông minh sao chép giá trị API Key THẬT 100% để người dùng dán vào công cụ khác dùng được ngay mà không cần phải mở hiện khóa trước.
+- **Files Modified**:
+  - `src/admin/modules/UpcomingGamesSection.tsx`
+  - `CHANGELOG.md`
+- **Verification**:
+  - Build `npm run build` thành công 100%.
+
+---
+
 ### 152. Cấp Quyền Chỉnh Sửa Cách Nhập Code Cho API (Dedicated & Unified Game Redemption Instructions Ingestion Authority)
 - **Mô tả & Yêu cầu người dùng**:
   - *"Thêm quyền chỉnh sửa cách nhập code cho API."*

@@ -21,6 +21,7 @@ import {
   ShieldCheck,
   ChevronRight,
   Eye,
+  EyeOff,
   Bot,
   Globe,
   Sliders,
@@ -112,6 +113,7 @@ export const UpcomingGamesSection: React.FC<UpcomingGamesSectionProps> = ({ onSh
   const [apiTestResponse, setApiTestResponse] = useState<any>(null);
   const [apiLogs, setApiLogs] = useState<UpcomingGameApiLogEntry[]>([]);
   const [copiedKey, setCopiedKey] = useState<string | null>(null);
+  const [showApiKey, setShowApiKey] = useState(false);
 
   // Form Modal State (Add / Edit)
   const [isFormOpen, setIsFormOpen] = useState(false);
@@ -129,6 +131,9 @@ export const UpcomingGamesSection: React.FC<UpcomingGamesSectionProps> = ({ onSh
   const crawlerConfig = adminDataService.getCrawlerApiConfig();
   const currentOrigin = typeof window !== 'undefined' ? window.location.origin : 'https://codegame.shop';
   const apiEndpointUrl = `${currentOrigin}/api/crawler/ingest-upcoming-games`;
+  const displayedApiKey = showApiKey
+    ? (crawlerConfig.apiKey || 'YOUR_API_KEY')
+    : (crawlerConfig.apiKey && crawlerConfig.apiKey.length > 8 ? `${crawlerConfig.apiKey.slice(0, 8)}••••••••••••` : '••••••••••••••••');
 
   const loadData = () => {
     setIsLoading(true);
@@ -178,8 +183,10 @@ export const UpcomingGamesSection: React.FC<UpcomingGamesSectionProps> = ({ onSh
 
   // Initialize sample test payload for Pine Assistant & Muse Bot
   useEffect(() => {
+    const rawKey = crawlerConfig.apiKey || 'YOUR_API_KEY';
+    const keyToDisplay = showApiKey ? rawKey : (rawKey.length > 8 ? `${rawKey.slice(0, 8)}••••••••••••` : '••••••••••••••••');
     const sample = {
-      apiKey: crawlerConfig.apiKey || 'YOUR_API_KEY',
+      apiKey: keyToDisplay,
       botName: 'Trợ lý Pine',
       action: 'ingest',
       games: [
@@ -201,7 +208,7 @@ export const UpcomingGamesSection: React.FC<UpcomingGamesSectionProps> = ({ onSh
       ],
     };
     setTestPayloadJson(JSON.stringify(sample, null, 2));
-  }, [crawlerConfig.apiKey]);
+  }, [crawlerConfig.apiKey, showApiKey]);
 
   const handleCopyText = (text: string, type: string) => {
     navigator.clipboard.writeText(text);
@@ -420,6 +427,11 @@ export const UpcomingGamesSection: React.FC<UpcomingGamesSectionProps> = ({ onSh
         parsed = JSON.parse(testPayloadJson);
       } catch {
         throw new Error('Dữ liệu JSON trong khung soạn thảo không hợp lệ.');
+      }
+
+      // Tự động khôi phục API Key thật nếu đang ở chế độ hiển thị che giấu (masked)
+      if (parsed && typeof parsed.apiKey === 'string' && parsed.apiKey.includes('•')) {
+        parsed.apiKey = crawlerConfig.apiKey || '';
       }
 
       const res = await fetch(apiEndpointUrl, {
@@ -1237,6 +1249,16 @@ export const UpcomingGamesSection: React.FC<UpcomingGamesSectionProps> = ({ onSh
                   </p>
                 </div>
               </div>
+
+              <button
+                type="button"
+                onClick={() => setShowApiKey(!showApiKey)}
+                className="px-2.5 py-1.5 rounded-xl bg-slate-900 hover:bg-slate-800 text-slate-300 hover:text-white text-xs font-medium flex items-center gap-1.5 transition-colors cursor-pointer border border-border shrink-0"
+                title={showApiKey ? 'Ẩn API Key (che giấu)' : 'Hiện API Key'}
+              >
+                {showApiKey ? <EyeOff className="w-3.5 h-3.5 text-amber-400" /> : <Eye className="w-3.5 h-3.5 text-slate-400" />}
+                <span>{showApiKey ? 'Ẩn Khóa API' : 'Hiện Khóa API'}</span>
+              </button>
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -1266,16 +1288,26 @@ export const UpcomingGamesSection: React.FC<UpcomingGamesSectionProps> = ({ onSh
                   <span className="text-[10px] text-emerald-400 font-mono">Dùng chung cho Crawler & Upcoming</span>
                 </label>
                 <div className="flex items-center gap-2">
-                  <input
-                    type="text"
-                    readOnly
-                    value={crawlerConfig.apiKey || 'CHƯA_CẤU_HÌNH'}
-                    className="w-full bg-slate-900 border border-border rounded-xl px-3 py-2 text-xs font-mono text-emerald-400 select-all"
-                  />
+                  <div className="relative flex-1 flex items-center">
+                    <input
+                      type={showApiKey ? 'text' : 'password'}
+                      readOnly
+                      value={crawlerConfig.apiKey || 'CHƯA_CẤU_HÌNH'}
+                      className="w-full bg-slate-900 border border-border rounded-xl px-3 py-2 pr-10 text-xs font-mono text-emerald-400 select-all font-semibold tracking-wider"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowApiKey(!showApiKey)}
+                      className="absolute right-2 p-1.5 rounded-lg text-slate-400 hover:text-slate-200 hover:bg-slate-800 transition-colors cursor-pointer"
+                      title={showApiKey ? 'Ẩn API Key (che giấu)' : 'Hiện API Key'}
+                    >
+                      {showApiKey ? <EyeOff className="w-4 h-4 text-amber-400" /> : <Eye className="w-4 h-4 text-slate-400" />}
+                    </button>
+                  </div>
                   <button
                     type="button"
                     onClick={() => handleCopyText(crawlerConfig.apiKey || '', 'key')}
-                    className="p-2 rounded-xl bg-slate-900 hover:bg-slate-800 border border-border text-slate-300 hover:text-white transition-all cursor-pointer"
+                    className="p-2 rounded-xl bg-slate-900 hover:bg-slate-800 border border-border text-slate-300 hover:text-white transition-all cursor-pointer shrink-0"
                     title="Sao chép API Key"
                   >
                     {copiedKey === 'key' ? <Check className="w-4 h-4 text-emerald-400" /> : <Copy className="w-4 h-4" />}
@@ -1403,7 +1435,7 @@ export const UpcomingGamesSection: React.FC<UpcomingGamesSectionProps> = ({ onSh
 url = "${apiEndpointUrl}"
 headers = {
     "Content-Type": "application/json",
-    "X-API-Key": "${crawlerConfig.apiKey || 'YOUR_API_KEY'}"
+    "X-API-Key": "${displayedApiKey}"
 }
 
 # 1. Nạp game mới vào Hàng Chờ Duyệt (hoặc duyệt ngay)
@@ -1434,7 +1466,7 @@ print("Response:", response.status_code, response.json())`}
                   {apiSnippetLang === 'curl' &&
 `curl -X POST "${apiEndpointUrl}" \\
   -H "Content-Type: application/json" \\
-  -H "X-API-Key: ${crawlerConfig.apiKey || 'YOUR_API_KEY'}" \\
+  -H "X-API-Key: ${displayedApiKey}" \\
   -d '{
     "botName": "Trợ lý Pine",
     "action": "ingest",
@@ -1457,7 +1489,7 @@ print("Response:", response.status_code, response.json())`}
     method: "POST",
     headers: {
       "Content-Type": "application/json",
-      "X-API-Key": "${crawlerConfig.apiKey || 'YOUR_API_KEY'}"
+      "X-API-Key": "${displayedApiKey}"
     },
     body: JSON.stringify({
       botName: "Trợ lý Pine",
