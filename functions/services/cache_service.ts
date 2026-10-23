@@ -79,7 +79,8 @@ export async function purgeCloudflareGlobalCache(
 export async function invalidateCatalogEdgeCache(
   ctx: ExecutionContext,
   request: Request,
-  env: any
+  env: any,
+  extraUrls: string[] = []
 ): Promise<void> {
   const url = new URL(request.url);
   url.search = '';
@@ -120,6 +121,7 @@ export async function invalidateCatalogEdgeCache(
       'https://admin-code-game-shop.pages.dev/api/metrics/synced',
       'https://admin-code-game-shop.pages.dev/api/stats',
       'https://admin-code-game-shop.pages.dev/api/realtime-events',
+      ...extraUrls,
     ];
     for (const u of localKeys) {
       try {

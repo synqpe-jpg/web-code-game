@@ -7,6 +7,56 @@ Mỗi mục sửa lỗi đều ghi nhận **Nguyên nhân gốc rễ (Root Cause
 
 ## [2026-10-23]
 
+### 165. Sửa Dứt Điểm Lỗi Code Có Trong DB Nhưng Trang Chi Tiết Trả Về 0 Hoặc Lệch Số Lượng — Đồng Bộ Nguồn Sự Thật D1 & Hợp Nhất 3 Tầng Cache (D1 Edge Authoritative Code Ingestion & Single Query Bypass Fix)
+- **Mô tả & Yêu cầu người dùng**:
+  - *"Kiểm tra & sửa dứt điểm lỗi: code có trong DB nhưng trang chi tiết game hiển thị 0."*
+  - Game "Kỳ Tích Trở Lại" (`ky-tich-tro-lai`): Crawler đã nạp 5 mã (`DT30K`, `MUNG60K`, `VIP666`, `VIP888`, `VIP999`) nhưng trang chi tiết công khai hiển thị "Tất cả (0)", thẻ trang chủ báo badge "10+ Giftcode".
+  - Game "Thực Thần Ký" (`thuc-than-ky`): 2 mã mới `TTTK2026`, `TTKF376` có trong DB nhưng trang công khai chỉ hiện 10 mã cũ từ file bundled data.
+  - Yêu cầu sửa tận gốc ở tầng dùng chung (shared logic) cho toàn bộ hệ thống, badge trang chủ và modal chi tiết phải khớp nhau 100%, bổ sung kiểm thử hồi quy và cơ chế chống tái phát.
+- **Nguyên nhân gốc rễ (Root Cause)**:
+  1. **Bẫy Client Cache `memCached.codes.length > 3` Trong `dataService.ts` (Lỗi Thực Thần Ký)**:
+     - Thẻ game trang chủ tải mã preview (tối đa 3 mã) hoặc hydrate mã từ file bundled tĩnh offline (`crawled_codes_188.json` có 10 mã cũ của Thực Thần Ký).
+     - Khi người dùng click vào thẻ game để mở chi tiết, hàm `getGameBySlug()` kiểm tra điều kiện `if (!forceFresh && memCached && memCached.codes && memCached.codes.length > 3) return memCached;`. Vì 10 > 3, code cho rằng dữ liệu đã đủ nên **hoàn toàn bỏ qua request fetch serverless `/api/games?slug=...`**. Kết quả là 2 mã mới `TTTTK2026` và `TTKF376` trên D1 không bao giờ được tải về máy khách.
+  2. **Bẫy Single Game Query Bị Loại Khỏi Catalog Khi Có 0 Code Hoặc Chưa Xuất Bản Sàn (`functions/api/games.ts`)**:
+     - Trong Backend Edge API `functions/api/games.ts:607`, vòng lặp catalog chứa điều kiện: `if (allCodes.length === 0) continue;`. Game nào có 0 code sẽ bị loại bỏ khỏi mảng `catalog.games`.
+     - Khi người dùng truy cập trực tiếp URL `/game/ky-tich-tro-lai`, endpoint `GET /api/games?slug=ky-tich-tro-lai` chỉ tìm trong `catalog.games`. Do không tìm thấy, Edge API trả về **HTTP 404: Không tìm thấy trò chơi**.
+     - Phía máy khách nhận 404 nên fallback về dữ liệu tĩnh cục bộ `games188.json` (nơi game có 0 mã), dẫn đến modal hiển thị "Tất cả (0)". Đồng thời, 5 mã nạp trước đó bị mất do các lần sync đè trước khi triển khai fast-path.
+  3. **Bẫy Cache Cứng TTL Trên Edge Worker Phía PoP Cloudflare**:
+     - Endpoint `/api/games?slug=...` trước đây trả về header `Cache-Control: public, max-age=15, s-maxage=60, stale-while-revalidate=120`, khiến Edge cache lưu bản ghi rỗng/cũ tới 60s kể cả khi crawler vừa nạp mã mới vào D1.
+  4. **Bẫy Khối POST `/api/sync` Quá Tải Khi Cập Nhật Cấu Hình Đơn Lẻ (`functions/api/sync.ts`)**:
+     - Khi lưu mảng `wcg_admin_games_v5` hoặc `wcg_admin_custom_free_codes_v1`, API chạy qua luồng Full Sync quét toàn bộ schema, bảng sản phẩm và tồn kho dẫn tới timeout `ECONNRESET`.
+- **Giải pháp đã triển khai (Solution)**:
+  1. **Tái Thiết Client Caching Trong `dataService.ts`**:
+     - Đánh dấu các item hiển thị trên trang chủ là `is_partial_preview: true`.
+     - Xóa bỏ hoàn toàn điều kiện sai lầm `memCached.codes.length > 3`. Chỉ dùng memory cache khi đối tượng mang cờ `is_full_detail && !is_partial_preview` và được fetch trong vòng 30 giây gần nhất.
+     - Luôn fetch `/api/games?slug=:slug`, sau đó hợp nhất (merge) tập mã authoritative từ D1 server với mã cục bộ, sắp xếp mã còn hạn lên đầu và mới nhất lên trước.
+  2. **Nâng Cấp Backend Single Game Query Khắc Phục 404 Cho Mọi Tựa Game**:
+     - Bổ sung `allRawGames` vào `catalogCache`.
+     - Trong Single Game Query (`?slug=...`): Tìm kiếm phân tầng 5 cấp trong `catalog.games`, nếu chưa có sẽ tìm trong `catalog.allRawGames` và định dạng đầy đủ thông qua `resolveCodesForGame` và `formatGameItem`. Bất kỳ game nào có trong hệ thống dù có 0 code hay vừa thêm mới đều trả về HTTP 200 thành công với thông tin NPH, link store và danh sách mã.
+     - Thiết lập header `Cache-Control: no-cache, no-store, must-revalidate` và `Pragma: no-cache` cho Single Game Query để khách xem chi tiết luôn nhận dữ liệu D1 Edge tức thì trong 0 giây.
+  3. **Khớp Số Lượng Badge Trang Chủ Và Modal 100% (`GameDetailModal.tsx`)**:
+     - Đồng bộ `liveGame` nhận từ serverless Edge, gán `codes_count = bestCodes.length` để số lượng hiển thị trên badge, tab "Tất cả", tab "Còn hạn" và danh sách code luôn bằng nhau tuyệt đối.
+  4. **Bổ Sung Fast-Path Atomic Update Trong `functions/api/sync.ts`**:
+     - Thêm luồng xử lý riêng biệt cho `wcg_admin_games_v5` và `wcg_admin_custom_free_codes_v1`, ghi thẳng vào D1 settings và xóa Edge Cache trong <100ms.
+  5. **Purge Cache Tức Thì Cho Từng Game Khi Crawler Ingest (`ingest-codes.ts`)**:
+     - Khi nạp mã thành công, tự động xóa cache cho URL cụ thể `/api/games?slug=:slug` trên mạng lưới Cloudflare.
+  6. **Tạo Script Kiểm Thử Hồi Quy Tự Động & Chống Tái Phát (`scripts/verify_codes_integrity_audit.cjs`)**:
+     - Tự động kiểm tra Ky Tich Tro Lai, Thuc Than Ky, nạp thử mã test qua API crawler, xác nhận xuất hiện tức thì và tự động dọn dẹp sạch sẽ theo Rule 7.
+- **Files Modified**:
+  - `functions/api/games.ts`
+  - `functions/api/sync.ts`
+  - `functions/api/crawler/ingest-codes.ts`
+  - `functions/services/cache_service.ts`
+  - `src/services/dataService.ts`
+  - `src/components/GameDetailModal.tsx`
+  - `scripts/verify_codes_integrity_audit.cjs`
+  - `scripts/reseed_ky_tich_tro_lai_codes.cjs`
+  - `scripts/rebalance_all_game_codes_d1.cjs`
+
+---
+
+## [2026-10-23]
+
 ### 164. Tinh Giản Giao Diện Mobile — Thu Gọn Khối Sắp Ra Mắt, Khối Đang Theo Dõi & Tối Ưu Tầm Nhìn Danh Mục Game (Mobile Layout Streamline & Compact Viewports)
 - **Mô tả & Yêu cầu người dùng**:
   - *"Đây là giao diện trên mobile, bạn tùy chọn tinh giản giao diện giúp tôi cho gọn dễ nhìn."*

@@ -10,6 +10,28 @@
 
 ## 1. DANH MỤC LỖI & CÁC BẪY ĐÃ THẤT BẠI (DO NOT REPEAT)
 
+### ISSUE-093: Bẫy Chặn Fetch Server Khi Client Đã Có Trên 3 Mã Cũ, Bẫy Lọc Bỏ Game 0 Code Trong Edge Catalog Và Bẫy Timeout Đồng Bộ Cấu Hình D1 (Client Memory Cache > 3 Trap, Single Query Edge 404 & Sync Fast-Path)
+- **Triệu chứng**:
+  - Tựa game "Thực Thần Ký" (`thuc-than-ky`): Trong DB có 12 mã (bao gồm 2 mã mới `TTTTK2026` và `TTKF376`), nhưng khi người dùng mở trang chi tiết game ngoài web thì chỉ thấy 10 mã cũ, 2 mã mới không bao giờ xuất hiện.
+  - Tựa game "Kỳ Tích Trở Lại" (`ky-tich-tro-lai`): API crawler báo đã nạp 5 mã (`DT30K`, `MUNG60K`, `VIP666`, `VIP888`, `VIP999`), nhưng khi truy cập `/game/ky-tich-tro-lai` thì hiển thị 0 code, trong khi thẻ trang chủ báo badge "10+ Giftcode".
+- **Nguyên nhân gốc rễ**:
+  1. Trong `dataService.ts:getGameBySlug()`, có điều kiện `if (!forceFresh && memCached && memCached.codes && memCached.codes.length > 3) return memCached;`. Vì Thực Thần Ký đã nạp 10 mã cũ từ file bundled data lúc khởi tạo, điều kiện này lập tức trả về cache cũ mà **không bao giờ gọi API serverless** để lấy mã mới từ D1.
+  2. Trong `functions/api/games.ts:607`, vòng lặp catalog chứa `if (allCodes.length === 0) continue;`. Bất kỳ game nào chưa có mã được liên kết trong D1 sẽ bị loại bỏ khỏi `catalog.games`. Khi người dùng truy cập trực tiếp `GET /api/games?slug=ky-tich-tro-lai`, Edge API chỉ tìm trong `catalog.games` và trả về `HTTP 404: Không tìm thấy trò chơi`. Máy khách nhận 404 nên fallback về dữ liệu tĩnh 0 code.
+  3. Header `Cache-Control` trên single game query trước đây có TTL 60s trên Edge Worker khiến client hoặc Edge cache lưu bản ghi cũ.
+  4. Endpoint `/api/sync` chạy qua luồng kiểm tra schema và hàng tồn kho nặng nề khi chỉ cần cập nhật một key cấu hình D1 đơn lẻ (`wcg_admin_games_v5`, `wcg_admin_custom_free_codes_v1`), dẫn đến timeout `ECONNRESET`.
+- **Giải pháp chuẩn đã kiểm chứng**:
+  - Gỡ bỏ hoàn toàn điều kiện `memCached.codes.length > 3`. Chỉ dùng client memory cache nếu là `is_full_detail && !is_partial_preview` và fetch trong vòng 30 giây.
+  - Luôn hợp nhất (merge) mã từ server Edge API (nguồn sự thật) với mã local, ưu tiên mã server D1.
+  - Thêm `allRawGames` vào `catalogCache`. Trong Single Game Query (`?slug=...`), tìm kiếm cả trong `catalog.games` và `catalog.allRawGames` qua `findMatchingGameInList()`, format đầy đủ thông tin kể cả khi game có 0 code (không bao giờ trả về 404 nếu game tồn tại trong hệ thống).
+  - Đặt `Cache-Control: no-cache, no-store, must-revalidate` cho Single Game Query.
+  - Bổ sung Fast-Path trong `functions/api/sync.ts` cho các key cấu hình D1 để ghi nguyên tử trong <100ms.
+- ⛔ **CÁCH SỬA ĐÃ THẤT BẠI - TUYỆT ĐỐI KHÔNG LẶP LẠI**:
+  - ❌ *Không dùng số lượng mã code (length > 3) làm điều kiện đánh giá dữ liệu đã đầy đủ*: Danh sách code trong D1 liên tục được crawler bổ sung. Chỉ server D1 mới là nguồn sự thật (SSOT).
+  - ❌ *Không loại bỏ game có 0 code khỏi bộ nhớ catalog của Edge Worker*: Nếu loại bỏ, khi người dùng xem trang chi tiết game mới ra mắt hoặc chưa có code, API sẽ trả về 404 và làm vỡ trải nghiệm người dùng.
+  - ❌ *Không để Single Game Query bị Edge Cache giữ lâu*: Chi tiết game cần phản hồi tức thì các mã mới nạp từ crawler.
+
+---
+
 ### ISSUE-092: Bẫy Mất Số Lượng Code Khi Dynamic Import Lazy Load Và Không Đồng Bộ Ngược Lại Danh Mục Game Khiến Thẻ Báo 0 Code Nhưng Modal Có Đủ Mã (Lazy Fallback Codes Sync Trap)
 - **Triệu chứng**:
   - Trên web khách hàng, một số game (như Shadow Fight 4, Super Sus, ONE PUNCH MAN, Girls Echo...) hiển thị badge "0 code" trên thẻ game ngoài danh mục. Nhưng khi người dùng click vào xem chi tiết, modal lại hiển thị đầy đủ 2, 4, 7 mã giftcode. Trong khi một số game mới thực sự chưa có code (Archer Castle, Narco Empire...) thì hiển thị 0 code là đúng.

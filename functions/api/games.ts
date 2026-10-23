@@ -368,6 +368,7 @@ export function calculateGameSearchScore(
 // In-Memory Isolation Cache in Cloudflare Workers
 interface CatalogCache {
   games: GameItem[];
+  allRawGames: any[];
   codesMap: Map<string, GiftCode[]>;
   categories: string[];
   lastFetchedAt: number;
@@ -378,6 +379,124 @@ const CACHE_TTL_MS = 60 * 1000; // 60 seconds fast in-worker cache to protect Cl
 
 export function invalidateGamesCatalogCache(): void {
   catalogCache = null;
+}
+
+/**
+ * Trích xuất và hợp nhất toàn bộ mã giftcode khớp với game dựa trên mọi biến thể slug, id và tên game
+ */
+export function resolveCodesForGame(g: any, codesMap: Map<string, GiftCode[]>): GiftCode[] {
+  if (!g) return [];
+  const slug = String(g.slug || g.id || '').trim();
+  const rawId = String(g.id || slug).trim();
+  const normSlug = slug.toLowerCase();
+
+  const possibleKeys = [
+    normSlug,
+    rawId.toLowerCase(),
+    normSlug.replace(/-mobile$/i, ''),
+    `${normSlug}-mobile`,
+    normSlug.replace(/_/g, '-'),
+  ];
+
+  if (
+    normSlug === 'pirate-legends' ||
+    normSlug === 'huyen-thoai-hai-tac' ||
+    rawId.toLowerCase() === 'pirate-legends' ||
+    rawId.toLowerCase() === 'huyen-thoai-hai-tac'
+  ) {
+    possibleKeys.push('pirate-legends', 'huyen-thoai-hai-tac');
+  }
+
+  if (g.name) {
+    const nameSlug = stripAccents(g.name).toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+    possibleKeys.push(nameSlug);
+    const nameParts = g.name.split(/[:\-–]/).map((p: string) => stripAccents(p).toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '')).filter(Boolean);
+    possibleKeys.push(...nameParts);
+  }
+
+  const mergedCodesMap = new Map<string, GiftCode>();
+  for (const k of possibleKeys) {
+    const found = codesMap.get(k);
+    if (found) {
+      for (const c of found) {
+        const cleanCode = String(c.code || '').trim().toUpperCase();
+        if (cleanCode && !mergedCodesMap.has(cleanCode)) {
+          mergedCodesMap.set(cleanCode, c);
+        }
+      }
+    }
+  }
+
+  // If game object itself already carries codes
+  if (Array.isArray(g.codes)) {
+    for (const c of g.codes) {
+      if (c && c.code) {
+        const cleanCode = String(c.code).trim().toUpperCase();
+        if (cleanCode && !mergedCodesMap.has(cleanCode)) {
+          mergedCodesMap.set(cleanCode, c);
+        }
+      }
+    }
+  }
+
+  const allCodes = Array.from(mergedCodesMap.values());
+  allCodes.sort((a, b) => {
+    const aActive = !isCodeExpired(a) ? 1 : 0;
+    const bActive = !isCodeExpired(b) ? 1 : 0;
+    if (aActive !== bActive) return bActive - aActive;
+
+    const timeA = a.added_at ? new Date(a.added_at).getTime() : 0;
+    const timeB = b.added_at ? new Date(b.added_at).getTime() : 0;
+    return timeB - timeA;
+  });
+
+  return allCodes;
+}
+
+/**
+ * Chuẩn hóa đối tượng GameItem với đầy đủ thông tin pháp lý, link store và danh sách mã
+ */
+export function formatGameItem(g: any, allCodes: GiftCode[]): GameItem {
+  const slug = String(g.slug || g.id || '').trim();
+  const rawId = String(g.id || slug).trim();
+  const cat = g.category ? String(g.category).trim() : 'Game Hot';
+
+  let iconUrl = g.icon_url || g.iconUrl || g.cover_image_url || '';
+  if (!iconUrl || iconUrl.includes('codemoi.net') || iconUrl.includes('googleusercontent.com') || iconUrl.startsWith('/game-icons') || iconUrl.startsWith('game-icons')) {
+    iconUrl = `/game_icons/${slug}.webp`;
+  }
+
+  return {
+    id: String(rawId),
+    name: String(g.name || 'Game chưa đặt tên'),
+    slug: String(slug),
+    publisher: g.publisher || 'NPH Chính Thức',
+    category: cat,
+    rating: typeof g.rating === 'number' ? g.rating : 4.8,
+    icon_url: iconUrl,
+    banner_url: g.banner_url || g.bannerUrl || '',
+    description: g.description || '',
+    instructions: g.instructions || '',
+    platform: g.platform || 'Mobile / PC',
+    so_giay_phep: g.so_giay_phep || g.license_number || '',
+    ngay_cap_phep: g.ngay_cap_phep || g.license_date || '',
+    release_date: g.release_date || g.gp_release_date || '',
+    download_android: g.download_android || g.google_play_url || g.downloadLinks?.android || '',
+    download_ios: g.download_ios || g.app_store_url || g.downloadLinks?.ios || '',
+    download_pc: g.download_pc || g.downloadLinks?.pc || '',
+    google_play_url: g.google_play_url || g.download_android || g.downloadLinks?.android || '',
+    app_store_url: g.app_store_url || g.download_ios || g.downloadLinks?.ios || '',
+    android_package_name: g.android_package_name || (
+      (g.google_play_url || g.download_android || '').match(/[?&]id=([a-zA-Z0-9._]+)/)?.[1] || ''
+    ),
+    redeem_url: g.redeem_url || g.redeemUrl || '',
+    is_featured: Boolean(g.is_featured || g.isFeatured),
+    is_hot: Boolean(g.is_hot || g.isHot),
+    is_new: Boolean(g.is_new || g.isNew),
+    is_active: g.is_active !== undefined ? Boolean(g.is_active) : true,
+    codes_count: allCodes.length,
+    codes: allCodes,
+  };
 }
 
 /**
@@ -542,122 +661,85 @@ export async function getLoadedCatalog(db: D1Database, forceFresh: boolean = fal
       const g = rawGames[index];
       if (!g || g.status === 'INACTIVE' || g.is_active === false) continue;
 
-      const slug = g.slug || g.id || `game-${index + 1}`;
-      const rawId = g.id || slug;
-      const normSlug = slug.toLowerCase();
+      const allCodes = resolveCodesForGame(g, codesMap);
 
-      // Look up codes matching slug variations
-      const possibleKeys = [
-        normSlug,
-        rawId.toLowerCase(),
-        normSlug.replace(/-mobile$/i, ''),
-        `${normSlug}-mobile`,
-        normSlug.replace(/_/g, '-'),
-      ];
-
-      if (
-        normSlug === 'pirate-legends' ||
-        normSlug === 'huyen-thoai-hai-tac' ||
-        rawId.toLowerCase() === 'pirate-legends' ||
-        rawId.toLowerCase() === 'huyen-thoai-hai-tac'
-      ) {
-        possibleKeys.push('pirate-legends', 'huyen-thoai-hai-tac');
-      }
-
-      if (g.name) {
-        const nameSlug = stripAccents(g.name).toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
-        possibleKeys.push(nameSlug);
-        const nameParts = g.name.split(/[:\-–]/).map((p: string) => stripAccents(p).toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '')).filter(Boolean);
-        possibleKeys.push(...nameParts);
-      }
-
-      const mergedCodesMap = new Map<string, GiftCode>();
-      for (const k of possibleKeys) {
-        const found = codesMap.get(k);
-        if (found) {
-          for (const c of found) {
-            if (!mergedCodesMap.has(c.code)) {
-              mergedCodesMap.set(c.code, c);
-            }
-          }
-        }
-      }
-
-      // If game object itself already carries codes
-      if (Array.isArray(g.codes)) {
-        for (const c of g.codes) {
-          if (c && c.code && !mergedCodesMap.has(c.code)) {
-            mergedCodesMap.set(c.code, c);
-          }
-        }
-      }
-
-      const allCodes = Array.from(mergedCodesMap.values());
-      allCodes.sort((a, b) => {
-        const aActive = !isCodeExpired(a) ? 1 : 0;
-        const bActive = !isCodeExpired(b) ? 1 : 0;
-        if (aActive !== bActive) return bActive - aActive;
-
-        const timeA = a.added_at ? new Date(a.added_at).getTime() : 0;
-        const timeB = b.added_at ? new Date(b.added_at).getTime() : 0;
-        return timeB - timeA;
-      });
       // Strict Business Rule: CHỈ xuất bản game CÓ MÃ GIFTCODE HOẠT ĐỘNG lên Web Khách
       // Các game không có mã code (0 code) được giữ trong Hàng Chờ Duyệt (wcg_crawler_pending_games_v1)
       if (allCodes.length === 0) {
         continue;
       }
 
-      const cat = g.category ? String(g.category).trim() : 'Game Hot';
-      if (cat) categorySet.add(cat);
-
-      let iconUrl = g.icon_url || g.iconUrl || g.cover_image_url || '';
-      if (!iconUrl || iconUrl.includes('codemoi.net') || iconUrl.includes('googleusercontent.com') || iconUrl.startsWith('/game-icons') || iconUrl.startsWith('game-icons')) {
-        iconUrl = `/game_icons/${slug}.webp`;
-      }
-
-      gamesList.push({
-        id: String(rawId),
-        name: String(g.name || 'Game chưa đặt tên'),
-        slug: String(slug),
-        publisher: g.publisher || 'NPH Chính Thức',
-        category: cat,
-        rating: typeof g.rating === 'number' ? g.rating : 4.8,
-        icon_url: iconUrl,
-        banner_url: g.banner_url || g.bannerUrl || '',
-        description: g.description || '',
-        instructions: g.instructions || '',
-        platform: g.platform || 'Mobile / PC',
-        so_giay_phep: g.so_giay_phep || g.license_number || '',
-        ngay_cap_phep: g.ngay_cap_phep || g.license_date || '',
-        release_date: g.release_date || g.gp_release_date || '',
-        download_android: g.download_android || g.google_play_url || g.downloadLinks?.android || '',
-        download_ios: g.download_ios || g.app_store_url || g.downloadLinks?.ios || '',
-        download_pc: g.download_pc || g.downloadLinks?.pc || '',
-        google_play_url: g.google_play_url || g.download_android || g.downloadLinks?.android || '',
-        app_store_url: g.app_store_url || g.download_ios || g.downloadLinks?.ios || '',
-        android_package_name: g.android_package_name || (
-          (g.google_play_url || g.download_android || '').match(/[?&]id=([a-zA-Z0-9._]+)/)?.[1] || ''
-        ),
-        redeem_url: g.redeem_url || g.redeemUrl || '',
-        is_featured: Boolean(g.is_featured || g.isFeatured),
-        is_hot: Boolean(g.is_hot || g.isHot),
-        is_new: Boolean(g.is_new || g.isNew),
-        is_active: g.is_active !== undefined ? Boolean(g.is_active) : true,
-        codes_count: allCodes.length,
-        codes: allCodes,
-      });
+      const formatted = formatGameItem(g, allCodes);
+      if (formatted.category) categorySet.add(formatted.category);
+      gamesList.push(formatted);
     }
   }
 
   catalogCache = {
     games: gamesList,
+    allRawGames: rawGames,
     codesMap,
     categories: Array.from(categorySet),
     lastFetchedAt: Date.now(),
   };
 
   return catalogCache;
+}
+
+/**
+ * Tìm kiếm game khớp theo phân tầng 5 Tiers trong bất kỳ danh sách nào
+ */
+export function findMatchingGameInList(list: any[], cleanSlug: string, cleanWithoutMobile: string): any | null {
+  if (!Array.isArray(list) || !cleanSlug) return null;
+
+  // Tier 1: Exact Match on slug or id (Highest Priority)
+  let found = list.find((g) => {
+    if (!g) return false;
+    const gSlug = (g.slug || '').toLowerCase();
+    const gId = (g.id || '').toLowerCase();
+    return gSlug === cleanSlug || gId === cleanSlug;
+  });
+  if (found) return found;
+
+  // Tier 2: Exact Match on generated nameSlug
+  found = list.find((g) => {
+    if (!g || !g.name) return false;
+    const nameSlug = stripAccents(g.name).toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+    return nameSlug === cleanSlug;
+  });
+  if (found) return found;
+
+  // Tier 3: Known Specific Aliases
+  if (cleanSlug === 'huyen-thoai-hai-tac' || cleanSlug === 'pirate-legends') {
+    found = list.find((g) => {
+      if (!g) return false;
+      const gSlug = (g.slug || '').toLowerCase();
+      const gId = (g.id || '').toLowerCase();
+      return gSlug === 'pirate-legends' || gSlug === 'huyen-thoai-hai-tac' || gId === 'pirate-legends' || gId === 'huyen-thoai-hai-tac';
+    });
+    if (found) return found;
+  }
+
+  // Tier 4: Exact Match without -mobile suffix (Only if no exact match found above)
+  found = list.find((g) => {
+    if (!g) return false;
+    const gSlug = (g.slug || '').toLowerCase();
+    const gId = (g.id || '').toLowerCase();
+    return (
+      gSlug.replace(/-mobile$/i, '') === cleanWithoutMobile ||
+      gId.replace(/-mobile$/i, '') === cleanWithoutMobile
+    );
+  });
+  if (found) return found;
+
+  // Tier 5: Sub-parts of game title (Last resort fallback)
+  found = list.find((g) => {
+    if (!g || !g.name) return false;
+    const parts = g.name.split(/[:\-–]/).map((p: string) => stripAccents(p).toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '')).filter(Boolean);
+    return parts.includes(cleanSlug) || parts.includes(cleanWithoutMobile);
+  });
+
+  return found || null;
 }
 
 export const onRequestOptions: PagesFunction = async () => {
@@ -688,69 +770,43 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
       const cleanSlug = requestedSlug.trim().toLowerCase();
       const cleanWithoutMobile = cleanSlug.replace(/-mobile$/i, '');
 
-      // Tier 1: Exact Match on slug or id (Highest Priority)
-      let foundGame = catalog.games.find((g) => {
-        const gSlug = (g.slug || '').toLowerCase();
-        const gId = (g.id || '').toLowerCase();
-        return gSlug === cleanSlug || gId === cleanSlug;
-      });
+      // Search in published catalog games first
+      let matchedGame: GameItem | null = findMatchingGameInList(catalog.games, cleanSlug, cleanWithoutMobile);
 
-      // Tier 2: Exact Match on generated nameSlug
-      if (!foundGame) {
-        foundGame = catalog.games.find((g) => {
-          const nameSlug = stripAccents(g.name || '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
-          return nameSlug === cleanSlug;
-        });
-      }
-
-      // Tier 3: Known Specific Aliases
-      if (!foundGame) {
-        if (cleanSlug === 'huyen-thoai-hai-tac' || cleanSlug === 'pirate-legends') {
-          foundGame = catalog.games.find((g) => {
-            const gSlug = (g.slug || '').toLowerCase();
-            const gId = (g.id || '').toLowerCase();
-            return gSlug === 'pirate-legends' || gSlug === 'huyen-thoai-hai-tac' || gId === 'pirate-legends' || gId === 'huyen-thoai-hai-tac';
-          });
+      // If not in published catalog (e.g. 0-code or unlisted games), look up in authoritative rawGames
+      if (!matchedGame) {
+        const rawFound = findMatchingGameInList(catalog.allRawGames, cleanSlug, cleanWithoutMobile);
+        if (rawFound) {
+          const codes = resolveCodesForGame(rawFound, catalog.codesMap);
+          matchedGame = formatGameItem(rawFound, codes);
         }
       }
 
-      // Tier 4: Exact Match without -mobile suffix (Only if no exact match found above)
-      if (!foundGame) {
-        foundGame = catalog.games.find((g) => {
-          const gSlug = (g.slug || '').toLowerCase();
-          const gId = (g.id || '').toLowerCase();
-          return (
-            gSlug.replace(/-mobile$/i, '') === cleanWithoutMobile ||
-            gId.replace(/-mobile$/i, '') === cleanWithoutMobile
-          );
-        });
-      }
-
-      // Tier 5: Sub-parts of game title (Last resort fallback)
-      if (!foundGame) {
-        foundGame = catalog.games.find((g) => {
-          const parts = (g.name || '').split(/[:\-–]/).map((p: string) => stripAccents(p).toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '')).filter(Boolean);
-          return parts.includes(cleanSlug) || parts.includes(cleanWithoutMobile);
-        });
-      }
-
-      if (!foundGame) {
+      if (!matchedGame) {
         return new Response(
           JSON.stringify({ success: false, error: 'Không tìm thấy trò chơi.' }),
           { status: 404, headers: CORS_HEADERS }
         );
       }
 
+      // Mark that this object contains authoritative complete codes pool
+      const authoritativeGame = {
+        ...matchedGame,
+        codes_pool_complete: true,
+      };
+
       // Return full game with all its codes
       return new Response(
         JSON.stringify({
           success: true,
-          game: foundGame,
+          game: authoritativeGame,
         }),
         {
           headers: {
             ...CORS_HEADERS,
-            'Cache-Control': 'public, max-age=15, s-maxage=60, stale-while-revalidate=120',
+            'Cache-Control': 'no-cache, no-store, must-revalidate',
+            'Pragma': 'no-cache',
+            'Expires': '0',
           },
         }
       );

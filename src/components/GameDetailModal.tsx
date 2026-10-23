@@ -120,15 +120,8 @@ export const GameDetailModal: React.FC<GameDetailModalProps> = ({
     if (!game?.slug) return;
     let isCancelled = false;
     dataService.getGameBySlug(game.slug, false).then((fresh) => {
-      if (!isCancelled && fresh && fresh.codes && fresh.codes.length > (game.codes?.length || 0)) {
-        setLiveGame((prev) => {
-          if (!prev || (prev.slug !== fresh.slug && prev.id !== fresh.id)) return prev;
-          return {
-            ...prev,
-            ...fresh,
-            icon_url: fresh.icon_url || prev.icon_url || `/game_icons/${fresh.slug}.webp`,
-          };
-        });
+      if (!isCancelled && fresh && (fresh.slug === game.slug || fresh.id === game.id)) {
+        setLiveGame(fresh);
       }
     });
     return () => {
@@ -152,13 +145,14 @@ export const GameDetailModal: React.FC<GameDetailModalProps> = ({
     const base = liveGame && (liveGame.slug === game.slug || liveGame.id === game.id) ? liveGame : game;
     const baseCodes = base.codes || [];
     const propCodes = game.codes || [];
-    const bestCodes = propCodes.length >= baseCodes.length ? propCodes : baseCodes;
+    // Prioritize authoritative server detail codes, fallback to prop codes if base is empty
+    const bestCodes = baseCodes.length > 0 ? baseCodes : propCodes;
     return {
-      ...base,
       ...game,
+      ...base,
       codes: bestCodes,
-      codes_count: Math.max(base.codes_count || 0, game.codes_count || 0, bestCodes.length),
-      icon_url: game.icon_url || base.icon_url || `/game_icons/${game.slug}.webp`,
+      codes_count: bestCodes.length,
+      icon_url: base.icon_url || game.icon_url || `/game_icons/${game.slug}.webp`,
     };
   }, [game, liveGame]);
 

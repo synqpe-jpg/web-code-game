@@ -760,7 +760,19 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
 
       // 5.4. Xóa Cache Biên (Edge Cache)
       invalidateGamesCatalogCache();
-      await invalidateCatalogEdgeCache(context as any, request, env).catch(() => {});
+      const ingestedSlugs = executionResults.map((r) => r.matchedGame?.slug).filter(Boolean);
+      const specificGameUrls: string[] = [];
+      for (const s of ingestedSlugs) {
+        specificGameUrls.push(
+          `https://codegame.shop/api/games?slug=${s}`,
+          `https://codegame.shop/api/games?id=${s}`,
+          `https://web-code-game.pages.dev/api/games?slug=${s}`,
+          `https://web-code-game.pages.dev/api/games?id=${s}`,
+          new URL(`/api/games?slug=${s}`, request.url).toString(),
+          new URL(`/api/games?id=${s}`, request.url).toString()
+        );
+      }
+      await invalidateCatalogEdgeCache(context as any, request, env, specificGameUrls).catch(() => {});
     }
 
     // 6. Ghi nhật ký API Log

@@ -1300,14 +1300,20 @@ class DataService {
           const enrichedGames = json.games.map((g: any) => {
             if (!g || !g.slug) return g;
             const localCodes = this.getCodesForGame(g);
-            const fullCodes = (g.codes && g.codes.length > (localCodes?.length || 0))
-              ? g.codes
-              : (localCodes && localCodes.length > 0 ? localCodes : (g.codes || []));
+            // Authoritative count from serverless D1 Edge calculation
+            const authoritativeCount = typeof g.codes_count === 'number'
+              ? g.codes_count
+              : Math.max(g.codes?.length || 0, localCodes?.length || 0);
+
+            // Preview codes on cards: 3 preview codes from server or top 3 local codes
+            const previewCodes = (g.codes && g.codes.length > 0) ? g.codes : localCodes.slice(0, 3);
+
             const enriched: GameItem = {
               ...g,
-              codes: fullCodes,
-              codes_count: Math.max(g.codes_count || 0, fullCodes.length, g.codes?.length || 0),
+              codes: previewCodes,
+              codes_count: authoritativeCount,
               icon_url: g.icon_url || `/game_icons/${g.slug}.webp`,
+              is_partial_preview: true,
             };
             this.cachedServerGames.set(g.slug.toLowerCase(), enriched);
             if (g.id) this.cachedServerGames.set(String(g.id).toLowerCase(), enriched);
@@ -1633,9 +1639,12 @@ class DataService {
     const normSlug = slug.toLowerCase().trim();
     const cleanWithoutMobile = normSlug.replace(/-mobile$/i, '');
 
-    // 1. Check if cached game has full codes list (> 3 codes or verified complete)
+    // 1. Check if cached game has full details and was recently fetched from server
     const memCached = this.cachedServerGames.get(normSlug) || this.cachedServerGames.get(cleanWithoutMobile);
-    if (!forceFresh && memCached && memCached.codes && memCached.codes.length > 3) {
+    const lastFetch = this.cachedGameFetchTime.get(normSlug) || this.cachedGameFetchTime.get(cleanWithoutMobile) || 0;
+    const isRecentlyFetched = Date.now() - lastFetch < 30000; // 30 seconds fresh cache
+
+    if (!forceFresh && memCached && (memCached as any).is_full_detail && !memCached.is_partial_preview && isRecentlyFetched) {
       return memCached;
     }
 
@@ -1649,15 +1658,41 @@ class DataService {
         const json = await res.json();
         if (json && json.success && json.game) {
           const game = json.game;
+          const serverCodes = Array.isArray(game.codes) ? game.codes : [];
           const localCodes = this.getCodesForGame(game);
-          const fullCodes = (game.codes && game.codes.length >= (localCodes?.length || 0))
-            ? game.codes
-            : (localCodes || game.codes || []);
+
+          // Merge server authoritative codes with local backup codes
+          const mergedCodesMap = new Map<string, GiftCode>();
+          serverCodes.forEach((c: any) => {
+            const codeVal = String(c.code || c.codeValue || '').trim().toUpperCase();
+            if (codeVal && !mergedCodesMap.has(codeVal)) {
+              mergedCodesMap.set(codeVal, c);
+            }
+          });
+          localCodes.forEach((c: any) => {
+            const codeVal = String(c.code || c.codeValue || '').trim().toUpperCase();
+            if (codeVal && !mergedCodesMap.has(codeVal)) {
+              mergedCodesMap.set(codeVal, c);
+            }
+          });
+
+          const fullCodes = Array.from(mergedCodesMap.values());
+          fullCodes.sort((a, b) => {
+            const aExp = isCodeExpired(a) ? 1 : 0;
+            const bExp = isCodeExpired(b) ? 1 : 0;
+            if (aExp !== bExp) return aExp - bExp;
+            const timeA = a.added_at ? new Date(a.added_at).getTime() : 0;
+            const timeB = b.added_at ? new Date(b.added_at).getTime() : 0;
+            return timeB - timeA;
+          });
+
           const finalGame: GameItem = {
             ...game,
             codes: fullCodes,
-            codes_count: Math.max(game.codes_count || 0, fullCodes.length, game.codes?.length || 0),
+            codes_count: fullCodes.length,
             icon_url: game.icon_url || `/game_icons/${game.slug}.webp`,
+            is_full_detail: true,
+            is_partial_preview: false,
           };
           this.cachedServerGames.set(game.slug.toLowerCase(), finalGame);
           if (game.id) this.cachedServerGames.set(String(game.id).toLowerCase(), finalGame);
@@ -1716,8 +1751,11 @@ class DataService {
       codes: finalCodes,
       codes_count: finalCodes.length,
       icon_url: game.icon_url || `/game_icons/${game.slug}.webp`,
+      is_full_detail: true,
+      is_partial_preview: false,
     };
     this.cachedServerGames.set(normSlug, localResult);
+    this.cachedGameFetchTime.set(normSlug, Date.now());
     return localResult;
   }
 

@@ -1379,6 +1379,28 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
       );
     }
 
+    // FAST PATH: Atomic single-key settings update (e.g. wcg_admin_games_v5, wcg_admin_custom_free_codes_v1)
+    // Avoids heavy full-table scans, schema upgrades and race conditions when only updating a specific configuration
+    if (body.key && body.data !== undefined && env.DB && !body.fullSync && !body.isFullState && !body.action) {
+      const vKey = body.key;
+      if (vKey === 'wcg_admin_games_v5' && Array.isArray(body.data)) {
+        await setSettingD1(env.DB, 'wcg_admin_games_v5', body.data);
+        invalidateGamesCatalogCache();
+        return new Response(
+          JSON.stringify({ success: true, message: 'Đã cập nhật danh mục games_v5 vào D1 thành công!' }),
+          { headers: CORS_HEADERS }
+        );
+      }
+      if (vKey === 'wcg_admin_custom_free_codes_v1' && Array.isArray(body.data)) {
+        await setSettingD1(env.DB, 'wcg_admin_custom_free_codes_v1', body.data);
+        invalidateGamesCatalogCache();
+        return new Response(
+          JSON.stringify({ success: true, message: 'Đã cập nhật custom_free_codes_v1 vào D1 thành công!' }),
+          { headers: CORS_HEADERS }
+        );
+      }
+    }
+
     // Action: Xóa toàn bộ khóa IP rate limit (mở khóa ngay lập tức cho người dùng bị khóa)
     if ((body.action === 'clear_ip_rate_limits' || body.action === 'unlock_all_ips') && env.DB) {
       try {
