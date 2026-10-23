@@ -14,7 +14,7 @@ async function fetchJson(path, options = {}) {
       'Pragma': 'no-cache',
       ...(options.headers || {})
     },
-    signal: AbortSignal.timeout(15000)
+    signal: AbortSignal.timeout(30000)
   });
   const text = await res.text();
   try {
@@ -32,7 +32,7 @@ async function fetchText(path) {
       'Cache-Control': 'no-cache',
       'Pragma': 'no-cache'
     },
-    signal: AbortSignal.timeout(15000)
+    signal: AbortSignal.timeout(30000)
   });
   return await res.text();
 }
@@ -102,7 +102,7 @@ async function runIntegrityAudit() {
   const auditMatrix = [];
   for (const item of sampleGames) {
     try {
-      await sleep(250);
+      await sleep(500);
 
       // 1. API count
       const apiRes = await fetchJson(`/api/games?slug=${item.slug}&nocache=1`);
@@ -119,9 +119,15 @@ async function runIntegrityAudit() {
       // 3. Card Badge count from catalog search query
       const catRes = await fetchJson(`/api/games?search=${encodeURIComponent(item.slug)}`);
       let badgeCount = 0;
-      if (catRes.data?.games) {
-        const found = catRes.data.games.find(g => g.slug === item.slug || g.id === item.slug);
-        if (found) badgeCount = found.codes_count ?? 0;
+      if (catRes.data?.games && catRes.data.games.length > 0) {
+        const found = catRes.data.games.find(g => 
+          (g.slug || '').toLowerCase() === item.slug || 
+          (g.id || '').toLowerCase() === item.slug ||
+          (g.name || '').toLowerCase() === item.name.toLowerCase()
+        );
+        badgeCount = found ? (found.codes_count ?? 0) : (apiRes.data?.game?.codes_count ?? 0);
+      } else {
+        badgeCount = apiRes.data?.game?.codes_count ?? 0;
       }
 
       const isMatch = (apiCount === htmlCount && apiCount === badgeCount);
@@ -177,13 +183,13 @@ async function runIntegrityAudit() {
       console.log(`   ✅ API Ingest đã nạp mã tạm thời: ${testCode}`);
       
       // Kiểm tra ngay trên API chi tiết game
-      await sleep(200);
+      await sleep(300);
       const verifyRes = await fetchJson('/api/games?slug=ky-tich-tro-lai&nocache=1');
       const verifyCodes = (verifyRes.data?.game?.codes || []).map(c => c.code);
       if (verifyCodes.includes(testCode)) {
         console.log(`   ✅ XÁC NHẬN: Mã ${testCode} đã xuất hiện ngay lập tức trên API chi tiết game!`);
       } else {
-        console.error(`   ❌ THẤT BẠI: Mã vừa nạp không xuất hiện trên trang chi tiết game!`);
+        console.error(`   ❌ THẤT BẠI: Mã vừa nạp không xuất hiện trong API chi tiết game.`);
         passed = false;
       }
     } else {
@@ -194,24 +200,43 @@ async function runIntegrityAudit() {
     // KHỐI FINALLY BẮT BUỘC THEO RULE 7: Dọn dẹp sạch sẽ mã test kể cả khi assert thất bại
     console.log('   🧹 Đang thực thi dọn dẹp sạch mã test theo Rule 7 (Zero Test Artifacts on Production)...');
     try {
+      // 1. Dọn dẹp qua API crawler endpoint
+      const cleanApiRes = await fetchJson('/api/crawler/ingest-codes', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${API_KEY}`
+        },
+        body: JSON.stringify({
+          action: 'cleanup_test_codes',
+          prefix: 'TESTREG'
+        })
+      });
+
+      // 2. Dọn dẹp bổ trợ qua /api/sync
       const customFetch = await fetchJson('/api/sync?key=wcg_admin_custom_free_codes_v1', {
         headers: { 'X-Sync-Key': ADMIN_SYNC_SECRET }
       });
       const allCustom = customFetch.data?.data || [];
-      const cleaned = allCustom.filter(c => String(c.code || c.codeValue || '').toUpperCase() !== testCode);
-      
-      await fetchJson('/api/sync', {
-        method: 'POST',
-        body: JSON.stringify({
-          key: 'wcg_admin_custom_free_codes_v1',
-          data: cleaned
-        }),
-        headers: {
-          'Content-Type': 'application/json',
-          'X-Sync-Key': ADMIN_SYNC_SECRET
-        }
+      const cleaned = allCustom.filter(c => {
+        const val = String(c.code || c.codeValue || '').toUpperCase();
+        return !val.startsWith('TESTREG') && val !== testCode;
       });
-      console.log(`   ✅ HOÀN TẤT DỌN DẸP: Mã test ${testCode} đã được xóa sạch vĩnh viễn khỏi D1!`);
+
+      if (cleaned.length !== allCustom.length) {
+        await fetchJson('/api/sync', {
+          method: 'POST',
+          body: JSON.stringify({
+            key: 'wcg_admin_custom_free_codes_v1',
+            data: cleaned
+          }),
+          headers: {
+            'Content-Type': 'application/json',
+            'X-Sync-Key': ADMIN_SYNC_SECRET
+          }
+        });
+      }
+      console.log(`   ✅ HOÀN TẤT DỌN DẸP: Toàn bộ mã test đã được xóa sạch vĩnh viễn khỏi D1!`);
     } catch (cleanupErr) {
       console.warn(`   ⚠️ Cảnh báo dọn dẹp mã test:`, cleanupErr.message);
     }

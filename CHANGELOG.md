@@ -37,8 +37,10 @@ Mỗi mục sửa lỗi đều ghi nhận **Nguyên nhân gốc rễ (Root Cause
      - Trong `getGameBySlug`: Khi nhận game từ D1, đồng bộ ngay lập tức vào mảng `this.games` để các hàm truy vấn cục bộ luôn thấy số lượng mới nhất.
   4. **Dynamic Synchronous Badge Trong `GameCard.tsx`**:
      - Thẻ game ưu tiên lấy `codes_count` từ `dataService.getCachedServerGame(slug)` nếu đã có dữ liệu authoritative từ D1, đảm bảo số trên badge ngoài trang chủ luôn bằng số trong modal.
-  5. **Tối Ưu Edge TTL & Nâng Cấp Audit Script 10 Game Mẫu**:
+  5. **Tối Ưu Edge TTL, Nâng Cấp Audit Script 10 Game Mẫu & Cơ Chế Dọn Dẹp Mã Test Tức Thì**:
      - Giảm `stale-while-revalidate` của catalog API xuống 30s. Thêm purge toàn bộ catalog `/api/games` khi crawler ingest mã mới.
+     - Bổ sung action `cleanup_test_codes` vào `functions/api/crawler/ingest-codes.ts` để tự động dọn dẹp sạch mã test có tiền tố `TEST*` theo Rule 7 (Zero Test Artifacts on Production) chỉ trong vài phần nghìn giây.
+     - Đồng bộ 3 mã livestream phiên bản mới của Genshin Impact (`PHOTOTIME`, `EXPERTMITYA`, `HOUROFRUIN`) vào `src/data/crawled_codes_188.json` và `public/data/crawled_codes_188.json` để trang prerender HTML tĩnh khớp tuyệt đối 171 mã với D1 API.
      - Viết lại `scripts/verify_codes_integrity_audit.cjs`: Thêm bước kiểm toán ma trận 3 tầng (API vs HTML Detail vs Card Badge) cho 10 tựa game mẫu, in bảng `console.table` trực quan, khối `finally` dọn sạch mã test 100% theo Rule 7.
 - **Files Modified**:
   - `scripts/prerender.js`

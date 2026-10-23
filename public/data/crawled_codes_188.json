@@ -1,5 +1,41 @@
 [
   {
+    "id": "code_genshin-impact_HOUROFRUIN",
+    "gameId": "genshin-impact",
+    "gameSlug": "genshin-impact",
+    "gameName": "Genshin Impact",
+    "code": "HOUROFRUIN",
+    "rewards": "100 Primogems, 10 Mystic Enhancement Ore",
+    "status": "ACTIVE",
+    "expires_at": "2026-10-26",
+    "source": "Genshin Impact 7.2 Special Program livestream (23/10/2026)",
+    "added_at": "2026-10-23T14:33:46.551Z"
+  },
+  {
+    "id": "code_genshin-impact_EXPERTMITYA",
+    "gameId": "genshin-impact",
+    "gameSlug": "genshin-impact",
+    "gameName": "Genshin Impact",
+    "code": "EXPERTMITYA",
+    "rewards": "100 Primogems, 5 Hero's Wit",
+    "status": "ACTIVE",
+    "expires_at": "2026-10-26",
+    "source": "Genshin Impact 7.2 Special Program livestream (23/10/2026)",
+    "added_at": "2026-10-23T14:33:46.551Z"
+  },
+  {
+    "id": "code_genshin-impact_PHOTOTIME",
+    "gameId": "genshin-impact",
+    "gameSlug": "genshin-impact",
+    "gameName": "Genshin Impact",
+    "code": "PHOTOTIME",
+    "rewards": "100 Primogems, 50.000 Mora",
+    "status": "ACTIVE",
+    "expires_at": "2026-10-26",
+    "source": "Genshin Impact 7.2 Special Program livestream (23/10/2026)",
+    "added_at": "2026-10-23T14:33:46.551Z"
+  },
+  {
     "id": "code_mong-thien-kiem_MONGTHIENKIEM",
     "gameId": "mong-thien-kiem",
     "gameSlug": "mong-thien-kiem",

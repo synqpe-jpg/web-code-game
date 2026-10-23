@@ -425,6 +425,36 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
       'wcg_crawler_api_logs_v1',
     ]);
 
+    // Xử lý action đặc biệt: Dọn dẹp sạch mã test theo Rule 7 (Zero Test Artifacts on Production)
+    if (body && body.action === 'cleanup_test_codes') {
+      const prefix = String(body.prefix || 'TEST').toUpperCase();
+      const existingCustomCodes = Array.isArray(settings['wcg_admin_custom_free_codes_v1'])
+        ? [...settings['wcg_admin_custom_free_codes_v1']]
+        : [];
+
+      const beforeCount = existingCustomCodes.length;
+      const cleanCustomCodes = existingCustomCodes.filter((c: any) => {
+        const val = String(c.code || c.codeValue || c.gift_code || '').trim().toUpperCase();
+        return !val.startsWith(prefix);
+      });
+      const removedCount = beforeCount - cleanCustomCodes.length;
+
+      if (removedCount > 0) {
+        await setSettingD1(env.DB, 'wcg_admin_custom_free_codes_v1', cleanCustomCodes);
+        await invalidateGamesCatalogCache(env);
+        await invalidateCatalogEdgeCache();
+      }
+
+      return new Response(
+        JSON.stringify({
+          success: true,
+          message: `Đã dọn dẹp ${removedCount} mã test có tiền tố "${prefix}".`,
+          removedCount,
+        }),
+        { headers: CORS_HEADERS }
+      );
+    }
+
     const activeGamesList: any[] = Array.isArray(settings['wcg_admin_games_v5'])
       ? [...settings['wcg_admin_games_v5']]
       : [...(fallbackGamesData as any[])];
