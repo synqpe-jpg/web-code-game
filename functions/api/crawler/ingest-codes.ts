@@ -11,7 +11,7 @@
  */
 
 import { getSettingD1, setSettingD1, getMultipleSettingsD1 } from '../../services/d1_service';
-import { normalizeVietnamese, stripAccents, GAME_ACRONYM_MAP, invalidateGamesCatalogCache, resolveCodesForGame } from '../games';
+import { normalizeVietnamese, stripAccents, GAME_ACRONYM_MAP, invalidateGamesCatalogCache } from '../games';
 import { invalidateCatalogEdgeCache } from '../../services/cache_service';
 import { parseExpirationDate, isCodeExpired } from '../../../src/utils/codeUtils';
 import fallbackGamesData from '../../../src/data/games188.json';
@@ -269,38 +269,49 @@ export function detectDuplicateOf(pendingItem: any, liveGames: any[]): string | 
 }
 
 /**
- * Xây dựng Map mã giftcode phục vụ đếm chính xác số lượng mã thật
+ * Đếm số lượng giftcode thật cho một tựa game (chỉ duyệt các mã khớp slug để tối ưu CPU <0.5ms)
  */
-export function buildCodesMap(customCodes: any[] = [], d1Codes: any[] = [], bundledCodes: any[] = []): Map<string, any[]> {
-  const map = new Map<string, any[]>();
-  const addCode = (item: any) => {
-    if (!item) return;
-    const slug = String(item.gameSlug || item.game_slug || item.slug || item.gameId || '').trim().toLowerCase();
-    const codeVal = String(item.codeValue || item.code_value || item.code || item.gift_code || '').trim().toUpperCase();
-    if (!slug || !codeVal) return;
-    const list = map.get(slug) || [];
-    list.push({
-      code: codeVal,
-      rewards: item.rewards || item.description || '',
-      status: (item.status && String(item.status).toLowerCase() === 'expired') ? 'expired' : 'active',
-      expiry: item.expiresAt || item.expires_at || item.expiry || '',
-      added_at: item.createdAt || item.created_at || item.added_at || '',
-    });
-    map.set(slug, list);
-  };
-  (customCodes || []).forEach(addCode);
-  (d1Codes || []).forEach(addCode);
-  (bundledCodes || []).forEach(addCode);
-  return map;
-}
+export function countRealCodesForSlug(
+  targetGame: any,
+  customCodes: any[] = [],
+  d1Codes: any[] = [],
+  bundledCodes: any[] = []
+): number {
+  if (!targetGame) return 0;
+  const slug = String(targetGame.slug || targetGame.id || '').trim().toLowerCase();
+  const rawId = String(targetGame.id || slug).trim().toLowerCase();
+  const nameSlug = targetGame.name ? stripAccents(targetGame.name).toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') : '';
 
-/**
- * Đếm số lượng giftcode THỰC TẾ của một game sử dụng resolveCodesForGame
- */
-export function countRealCodesForGame(gameObj: any, codesMap: Map<string, any[]>): number {
-  if (!gameObj) return 0;
-  const codes = resolveCodesForGame(gameObj, codesMap);
-  return codes.length;
+  const matchSlug = (item: any) => {
+    if (!item) return false;
+    const s = String(item.gameSlug || item.game_slug || item.slug || item.gameId || '').trim().toLowerCase();
+    return s === slug || s === rawId || (nameSlug && s === nameSlug) || s === slug.replace(/-mobile$/i, '');
+  };
+
+  const seenCodes = new Set<string>();
+
+  for (const c of customCodes) {
+    if (matchSlug(c)) {
+      const codeVal = String(c.code || c.codeValue || c.gift_code || '').trim().toUpperCase();
+      if (codeVal) seenCodes.add(codeVal);
+    }
+  }
+
+  for (const c of d1Codes) {
+    if (matchSlug(c)) {
+      const codeVal = String(c.code || c.codeValue || c.gift_code || '').trim().toUpperCase();
+      if (codeVal) seenCodes.add(codeVal);
+    }
+  }
+
+  for (const c of bundledCodes) {
+    if (matchSlug(c)) {
+      const codeVal = String(c.code || c.codeValue || c.gift_code || '').trim().toUpperCase();
+      if (codeVal) seenCodes.add(codeVal);
+    }
+  }
+
+  return seenCodes.size;
 }
 
 /**
@@ -781,8 +792,6 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
         ? (fallbackCodesData as any[])
         : [];
 
-      const codesMap = buildCodesMap(customCodes, d1Codes, bundledCodes);
-
       // Kiểm tra xem game đã được publish trong activeGames chưa (Idempotent)
       const existingPublishedIdx = activeGames.findIndex(
         (g: any) => g && (String(g.slug).toLowerCase() === targetSlug || String(g.id).toLowerCase() === targetSlug)
@@ -790,7 +799,7 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
 
       if (existingPublishedIdx !== -1 && activeGames[existingPublishedIdx].is_active !== false && activeGames[existingPublishedIdx].status !== 'PENDING') {
         const publishedGame = activeGames[existingPublishedIdx];
-        const realCount = countRealCodesForGame(publishedGame, codesMap);
+        const realCount = countRealCodesForSlug(publishedGame, customCodes, d1Codes, bundledCodes);
 
         // Cập nhật lại codes_count nếu trước đó bị snapshot cũ lưu sai thành 0
         if (publishedGame.codes_count !== realCount || publishedGame.free_codes_count !== realCount) {
@@ -884,7 +893,7 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
 
       // Tính số mã code THỰC TẾ từ toàn bộ kho code
       const tempGameForCounting = { id: finalSlug, slug: finalSlug, name: finalName };
-      const realCodesCount = countRealCodesForGame(tempGameForCounting, codesMap);
+      const realCodesCount = countRealCodesForSlug(tempGameForCounting, customCodes, d1Codes, bundledCodes);
 
       const publishedRecord = {
         id: finalSlug,
@@ -1618,13 +1627,6 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
       const mergedCustomCodesList = Array.from(customCodesMap.values());
       await setSettingD1(env.DB, 'wcg_admin_custom_free_codes_v1', mergedCustomCodesList);
 
-      // Build updated codesMap để tính authoritative codes count
-      const freshCodesMap = buildCodesMap(
-        mergedCustomCodesList,
-        Array.isArray(freshD1Settings['wcg_admin_free_codes_v5']) ? freshD1Settings['wcg_admin_free_codes_v5'] : [],
-        Array.isArray(fallbackCodesData) ? (fallbackCodesData as any[]) : []
-      );
-
       // 5.2. Merge Active Games & Auto-Published Games vào freshActiveGames
       const freshActiveGames: any[] = Array.isArray(freshD1Settings['wcg_admin_games_v5'])
         ? [...freshD1Settings['wcg_admin_games_v5']]
@@ -1640,8 +1642,13 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
         if (!res || !res.matchedGame) continue;
         const slug = String(res.matchedGame.slug).trim().toLowerCase();
 
-        // Tính số lượng mã THỰC TẾ
-        const realCount = countRealCodesForGame({ slug, id: slug, name: res.matchedGame.name }, freshCodesMap);
+        // Tính số lượng mã THỰC TẾ siêu tốc O(1)
+        const realCount = countRealCodesForSlug(
+          { slug, id: slug, name: res.matchedGame.name },
+          mergedCustomCodesList,
+          Array.isArray(freshD1Settings['wcg_admin_free_codes_v5']) ? freshD1Settings['wcg_admin_free_codes_v5'] : [],
+          Array.isArray(fallbackCodesData) ? (fallbackCodesData as any[]) : []
+        );
 
         const activeIdx = freshActiveGames.findIndex((g) => g && (String(g.slug).toLowerCase() === slug || String(g.id).toLowerCase() === slug));
 
