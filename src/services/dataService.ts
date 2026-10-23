@@ -14,6 +14,7 @@ import type {
   UpcomingGame,
 } from '../types/game';
 import { DEFAULT_UPCOMING_GAMES } from '../types/game';
+import { getUpcomingGameIconUrl } from '../utils/upcomingGameIconUtils';
 import { smartVietnameseMatch, calculateGameSearchScore } from '../utils/textUtils';
 import { isCodeExpired, parseExpirationDate } from '../utils/codeUtils';
 
@@ -1766,7 +1767,7 @@ class DataService {
               publisher: g.publisher,
               category: g.category || 'Game Mới',
               platform: g.platform || 'Android, iOS, PC',
-              icon_url: g.iconUrl || `/game_icons/${g.slug}.webp`,
+              icon_url: getUpcomingGameIconUrl(g),
               banner_url: g.bannerUrl,
               description: g.description,
               is_new: true,

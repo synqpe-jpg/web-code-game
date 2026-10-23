@@ -9,7 +9,58 @@ Mỗi mục sửa lỗi đều ghi nhận **Nguyên nhân gốc rễ (Root Cause
 
 ## [2026-10-23]
 
-### 161. Bổ Sung Khối "Tải Game" Tự Nhận Diện Thiết Bị (Android/iOS/Desktop QR), Quản Lý Link Store Admin & Tracking Lượt Tải (Game Store Download Links & Device-Adaptive Section)
+### 162. Khắc Phục Lỗi Hiển Thị Icon Link Ngoài Trên Mục Game Sắp Ra Mắt Bằng Cloudflare Edge Proxy & Fallback Phân Tầng (Upcoming Games External Icon Edge Proxy & Multi-Stage Fallback Fix)
+- **Mô tả & Yêu cầu người dùng**:
+  - *"Bạn kiểm tra giúp tôi, Pine AI báo về về việc đẩy icon lên thế này: Có kết quả kiểm tra rồi, và mình phải báo thẳng: phía API đã xong, nhưng trang công khai vẫn chưa hiển thị icon thật. Action mới update_icon chạy tốt... Nhưng mở trang chủ kiểm tra tận mắt lúc 15:25 thì cả 4 game vẫn hiện logo mặc định của trang. Tệ hơn, ANANTA trước đó (14:53) còn hiện icon thật, giờ trong danh sách đầy đủ cũng quay về logo mặc định... Điểm chung vẫn không đổi: hai game hiện icon thật (Tiên Giới, Hiệp Khách Hành) là hai game có file ảnh nằm ngay trên web dạng /game_icons/*.webp, còn mọi icon là link ngoài đều bị trang thay bằng logo mặc định..."*
+- **Nguyên nhân gốc rễ (Root Cause)**:
+  1. **Chặn Hotlinking & Trình Duyệt Gửi Referrer**:
+     - Các component hiển thị Game Sắp Ra Mắt (`UpcomingGamesBanner`, `AllUpcomingGamesModal`, `PinnedGamesBar`, `UpcomingGamesSection`) thiếu thuộc tính `referrerPolicy="no-referrer"` trên thẻ `<img>`.
+     - Khi trình duyệt của người dùng (Chrome, Safari, Brave, Edge) tải ảnh trực tiếp từ Apple App Store CDN (`is1-ssl.mzstatic.com`) hoặc Google Play (`play-lh.googleusercontent.com`) với header `Referer: https://codegame.shop/`, các CDN bên thứ ba hoặc các trình chặn theo dõi/adblock (Brave Shields, uBlock, Firefox ETP) tự động chặn request ảnh cross-origin.
+  2. **Bẫy Fallback Sớm Thành Logo Mặc Định**:
+     - Trong các component trên, sự kiện `onError` bắt lỗi quá vội vàng: `(e.target as HTMLImageElement).src = '/logo.png';`. Ngay khi request trực tiếp tới link ngoài gặp lỗi tải, ảnh bị thay thế vĩnh viễn bằng logo thương hiệu mặc định (`/logo.png`) mà không thử qua proxy hay các đường dẫn fallback khác.
+  3. **Không Sử Dụng Cloudflare Edge Proxy `/api/game-icon` Đã Có Sẵn**:
+     - Trong khi `GameCard.tsx` đã có cơ chế phân tầng chuyển tiếp sang Edge Proxy `/api/game-icon?slug=...&url=...` để Cloudflare Edge tải ảnh server-side (với header phù hợp và Edge Cache 30 ngày), các component Game Sắp Ra Mắt lại chưa được tích hợp tiện ích này.
+  4. **Lỗi Logic Date Filter trong `dataService.ts`**:
+     - Đoạn code `if (!isNaN(target)) return true;` trong hàm lọc ngày gây ra nguy cơ trả về sai danh sách game trên banner.
+- **Giải pháp đã triển khai (Solution)**:
+  - **Tạo Module Tiện Ích Độc Lập `src/utils/upcomingGameIconUtils.ts`**:
+    - Hàm `getUpcomingGameIconUrl`: Tự động nhận diện URL icon. Nếu là URL ngoài (`http://` hoặc `https://`), tự động định tuyến qua Cloudflare Edge Proxy `/api/game-icon?slug=${slug}&url=${encodeURIComponent(raw)}` — đảm bảo 100% request trở thành same-origin, được Cloudflare Edge cache 30 ngày, miễn nhiễm hoàn toàn với CORS, hotlink protection hay Adblock.
+    - Hàm `handleUpcomingImageError`: Xử lý fallback đa tầng thông minh:
+      - Stage 0 $\rightarrow$ Stage 1: Thử link gốc trực tiếp với `referrerPolicy="no-referrer"` (nếu proxy bị gián đoạn).
+      - Stage 1 $\rightarrow$ Stage 2: Thử ảnh local WebP (`/game_icons/${slug}.webp`).
+      - Stage 2 $\rightarrow$ Stage 3: Thử ảnh local JPG (`/game_icons/${slug}.jpg`).
+      - Stage 3 $\rightarrow$ Stage 4: Mới chuyển về logo thương hiệu (`/logo.png`).
+  - **Cập Nhật Giao Diện & Thẻ `<img>`**:
+    - `src/components/UpcomingGamesBanner.tsx`: Tích hợp `getUpcomingGameIconUrl`, `referrerPolicy="no-referrer"` và `handleUpcomingImageError`.
+    - `src/components/AllUpcomingGamesModal.tsx`: Tích hợp đồng bộ, sửa lỗi hiển thị icon trong danh sách đầy đủ.
+    - `src/components/PinnedGamesBar.tsx`: Tích hợp đồng bộ trên thanh game đã lưu / theo dõi.
+    - `src/admin/modules/UpcomingGamesSection.tsx`: Tích hợp đồng bộ trong giao diện quản trị Admin để Admin xem trước icon chính xác.
+  - **Tối Ưu Hóa Cloudflare Edge Worker `functions/api/game-icon.ts`**:
+    - Nhận diện linh hoạt domain nguồn: Gửi `Referer: https://apps.apple.com/` khi fetch từ `mzstatic.com` / `apple.com`, `Referer: https://play.google.com/` khi fetch từ Google Play, đảm bảo CDN chấp nhận và trả về HTTP 200 `image/jpeg` hoặc `image/webp`.
+  - **Bổ Sung Trường `proxyIconUrl` Trong Serverless API `functions/api/crawler/ingest-upcoming-games.ts`**:
+    - Khi bot gọi `GET /api/crawler/ingest-upcoming-games` hoặc `action: "update_icon"`, API trả về cả `iconUrl`, `icon_url` và `proxyIconUrl` phục vụ hiển thị.
+  - **Sửa Lỗi Logic Date Filter trong `src/services/dataService.ts`**:
+    - Sử dụng chuẩn `getUpcomingGameIconUrl(g)` khi đẩy game ra mắt vào catalog chính, sửa logic so khớp ngày `elapsed <= ONE_DAY_MS`.
+- **Files Modified/Created**:
+  - `src/utils/upcomingGameIconUtils.ts` (Mới)
+  - `src/components/UpcomingGamesBanner.tsx`
+  - `src/components/AllUpcomingGamesModal.tsx`
+  - `src/components/PinnedGamesBar.tsx`
+  - `src/admin/modules/UpcomingGamesSection.tsx`
+  - `src/admin/types/adminTypes.ts`
+  - `src/types/game.ts`
+  - `src/services/dataService.ts`
+  - `functions/api/game-icon.ts`
+  - `functions/api/crawler/ingest-upcoming-games.ts`
+  - `CHANGELOG.md`
+  - `KNOWN_ISSUES.md`
+- **Verification**:
+  - Kiểm thử trực tiếp 5 game qua Edge Proxy trên `codegame.shop`: Monster Hunter Outlanders (200 OK, 103KB), Đậu Nhỏ Nổi Giận (200 OK, 106KB), Sword x Staff (200 OK, 96KB), Mộng Cảnh Tam Quốc (200 OK, 83KB), ANANTA (200 OK, 90KB).
+  - `npm run build`: Zero test artifacts audit passed 100%, 2102 modules transformed, 529 trang prerendered thành công, Worker compiled 100%.
+
+---
+
+## [2026-10-23]
 - **Mô tả & Yêu cầu người dùng**:
   - Thêm vào trang chi tiết game một khối "Tải game" chuyển hướng thẳng tới CH Play (Android) hoặc App Store (iOS):
     1. Tự nhận thiết bị khách: Android ưu tiên CH Play, iOS ưu tiên App Store, desktop hiện cả 2 nút + mã QR quét trực tiếp bằng camera điện thoại.

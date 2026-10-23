@@ -51,11 +51,18 @@ export const onRequestGet = async (context: { request: Request; env: Env }) => {
 
   try {
     // 2. Fetch ảnh từ nguồn với User-Agent chuẩn
+    let referer = 'https://play.google.com/';
+    if (fetchUrl.includes('codemoi.net')) {
+      referer = 'https://codemoi.net/';
+    } else if (fetchUrl.includes('apple.com') || fetchUrl.includes('mzstatic.com')) {
+      referer = 'https://apps.apple.com/';
+    }
+
     const response = await fetch(fetchUrl, {
       headers: {
         'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
         'Accept': 'image/avif,image/webp,image/apng,image/svg+xml,image/*,*/*;q=0.8',
-        'Referer': fetchUrl.includes('codemoi.net') ? 'https://codemoi.net/' : 'https://play.google.com/',
+        'Referer': referer,
       },
     });
 

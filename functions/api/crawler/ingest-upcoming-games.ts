@@ -366,6 +366,9 @@ export async function onRequestGet(context: { request: Request; env: Env }): Pro
     const ic = extractIconUrl(g, g.slug);
     if (!g.iconUrl) g.iconUrl = ic;
     if (!g.icon_url) g.icon_url = ic;
+    if (g.iconUrl && (g.iconUrl.startsWith('http://') || g.iconUrl.startsWith('https://'))) {
+      (g as any).proxyIconUrl = `/api/game-icon?slug=${encodeURIComponent(g.slug)}&url=${encodeURIComponent(g.iconUrl)}`;
+    }
   });
 
   if (targetSlug) {
@@ -891,6 +894,7 @@ export async function onRequestPost(context: { request: Request; env: Env }): Pr
           slug: updatedGame.slug,
           iconUrl: updatedGame.iconUrl,
           icon_url: updatedGame.icon_url,
+          proxyIconUrl: `/api/game-icon?slug=${encodeURIComponent(updatedGame.slug)}&url=${encodeURIComponent(updatedGame.iconUrl)}`,
           status: updatedGame.status,
         },
       }),

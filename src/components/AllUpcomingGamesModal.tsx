@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { X, Rocket, Clock, Bell, Check, ExternalLink, Gift, Search, Calendar, Sparkles } from 'lucide-react';
 import type { UpcomingGame } from '../types/game';
+import { getUpcomingGameIconUrl, handleUpcomingImageError } from '../utils/upcomingGameIconUtils';
 
 interface AllUpcomingGamesModalProps {
   isOpen: boolean;
@@ -272,7 +273,7 @@ export const AllUpcomingGamesModal: React.FC<AllUpcomingGamesModalProps> = ({
               {filteredGames.map((game) => {
                 const isSaved = bookmarkedSet.has((game.slug || game.id).toLowerCase());
                 const time = calculateTimeRemaining(game.releaseDate);
-                const iconSrc = game.iconUrl || (game as any).icon_url || `/game_icons/${game.slug}.webp`;
+                const iconSrc = getUpcomingGameIconUrl(game);
                 const expectedCodes = game.expectedCodes || ['TANTHU2026', 'VIP999', 'OPENBETA'];
 
                 return (
@@ -299,9 +300,8 @@ export const AllUpcomingGamesModal: React.FC<AllUpcomingGamesModalProps> = ({
                             alt={game.name}
                             className="w-full h-full object-cover"
                             loading="lazy"
-                            onError={(e) => {
-                              (e.target as HTMLImageElement).src = '/logo.png';
-                            }}
+                            referrerPolicy="no-referrer"
+                            onError={(e) => handleUpcomingImageError(e, game)}
                           />
                         </div>
                         <div className="min-w-0 flex-1">

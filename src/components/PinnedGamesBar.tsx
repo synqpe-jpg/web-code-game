@@ -1,6 +1,7 @@
 import React from 'react';
 import { Bookmark, Sparkles, X, Gift, ChevronRight, Clock, Trash2, Bell, ExternalLink } from 'lucide-react';
 import type { GameItem, UpcomingGame } from '../types/game';
+import { getUpcomingGameIconUrl, handleUpcomingImageError } from '../utils/upcomingGameIconUtils';
 
 interface PinnedGamesBarProps {
   bookmarks: string[];
@@ -195,7 +196,7 @@ export const PinnedGamesBar: React.FC<PinnedGamesBarProps> = ({
 
         {/* 2. Subscribed Upcoming Games */}
         {subscribedUpcoming.map((ug) => {
-          const iconSrc = ug.iconUrl || (ug as any).icon_url || `/game_icons/${ug.slug}.webp`;
+          const iconSrc = getUpcomingGameIconUrl(ug);
           const expectedCount = ug.expectedCodes?.length || 4;
 
           return (
@@ -224,9 +225,8 @@ export const PinnedGamesBar: React.FC<PinnedGamesBarProps> = ({
                       alt={ug.name}
                       className="w-full h-full object-cover"
                       loading="lazy"
-                      onError={(e) => {
-                        (e.target as HTMLImageElement).src = '/logo.png';
-                      }}
+                      referrerPolicy="no-referrer"
+                      onError={(e) => handleUpcomingImageError(e, ug)}
                     />
                   </div>
                   <div className="min-w-0 flex-1">

@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Rocket, Clock, Bell, Check, ExternalLink, Gift, Sparkles, ChevronRight, Calendar } from 'lucide-react';
 import type { UpcomingGame } from '../types/game';
+import { getUpcomingGameIconUrl, handleUpcomingImageError } from '../utils/upcomingGameIconUtils';
 
 interface UpcomingGamesBannerProps {
   upcomingGames: UpcomingGame[];
@@ -153,7 +154,7 @@ export const UpcomingGamesBanner: React.FC<UpcomingGamesBannerProps> = ({
         {activeUpcoming.map((game) => {
           const isSaved = bookmarkedSet.has((game.slug || game.id).toLowerCase());
           const time = calculateTimeRemaining(game.releaseDate);
-          const iconSrc = game.iconUrl || (game as any).icon_url || `/game_icons/${game.slug}.webp`;
+          const iconSrc = getUpcomingGameIconUrl(game);
           const expectedCount = game.expectedCodes?.length || 4;
 
           return (
@@ -181,9 +182,8 @@ export const UpcomingGamesBanner: React.FC<UpcomingGamesBannerProps> = ({
                       alt={game.name}
                       className="w-full h-full object-cover"
                       loading="lazy"
-                      onError={(e) => {
-                        (e.target as HTMLImageElement).src = '/logo.png';
-                      }}
+                      referrerPolicy="no-referrer"
+                      onError={(e) => handleUpcomingImageError(e, game)}
                     />
                   </div>
                   <div className="min-w-0 flex-1">

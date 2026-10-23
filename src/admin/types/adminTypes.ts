@@ -292,6 +292,8 @@ export interface UpcomingGameAdminRecord {
   category: string;
   platform: string; // e.g. 'PC, Android, iOS'
   iconUrl?: string;
+  icon_url?: string;
+  proxyIconUrl?: string;
   bannerUrl?: string;
   description?: string;
   preRegUrl?: string;

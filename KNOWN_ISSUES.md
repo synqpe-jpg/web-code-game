@@ -10,6 +10,25 @@
 
 ## 1. DANH MỤC LỖI & CÁC BẪY ĐÃ THẤT BẠI (DO NOT REPEAT)
 
+### ISSUE-091: Bẫy Icon Link Ngoài Của Game Sắp Ra Mắt Bị Thay Bằng Logo Mặc Định Do Chặn Referrer CDN Và Thiếu Cơ Chế Định Tuyến Edge Proxy (Upcoming Games External Icon Referrer & Edge Proxy Trap)
+- **Triệu chứng**:
+  - Khi bot Pine AI hoặc Muse Bot đẩy icon từ CDN bên ngoài (như Apple App Store `is1-ssl.mzstatic.com` hoặc Google Play) cho các tựa game sắp ra mắt (Monster Hunter Outlanders, Đậu Nhỏ Nổi Giận, Sword x Staff, Mộng Cảnh Tam Quốc, ANANTA...), API xác nhận đã lưu dữ liệu thành công nhưng trên trang chủ và modal danh sách đầy đủ, các game này lại hiển thị logo mặc định của trang (`/logo.png`).
+  - Chỉ 2 game có file tĩnh cục bộ sẵn trên web (`/game_icons/*.webp`) mới hiển thị icon thật.
+- **Nguyên nhân gốc rễ**:
+  1. Thẻ `<img>` trong các component `UpcomingGamesBanner`, `AllUpcomingGamesModal`, `PinnedGamesBar` và Admin thiếu thuộc tính `referrerPolicy="no-referrer"`. Khi trình duyệt người dùng gửi kèm header `Referer: https://codegame.shop/`, CDN của Apple/Google hoặc các tiện ích bảo vệ quyền riêng tư (Brave Shields, uBlock, Firefox ETP) tự động chặn request ảnh cross-origin.
+  2. Sự kiện `onError` trên thẻ `<img>` xử lý quá vội vàng: bắt lỗi và lập tức gán `src = '/logo.png'`, khiến ảnh bị thay thế vĩnh viễn bằng logo thương hiệu mà không thử qua proxy hay các đường dẫn khác.
+  3. Dự án đã có sẵn Edge Proxy `/api/game-icon?slug=...&url=...` tối ưu hóa Cloudflare Edge Cache 30 ngày và fetch server-side, nhưng các component Game Sắp Ra Mắt lại chưa tận dụng.
+- **Giải pháp chuẩn đã kiểm chứng**:
+  - Tạo module `src/utils/upcomingGameIconUtils.ts` với hàm `getUpcomingGameIconUrl`: tự động định tuyến toàn bộ URL ngoài (`http://`, `https://`) qua Cloudflare Edge Proxy `/api/game-icon` biến request thành same-origin an toàn 100%.
+  - Bổ sung `referrerPolicy="no-referrer"` trên tất cả các thẻ `<img>` liên quan.
+  - Sử dụng hàm `handleUpcomingImageError` phân tầng 4 cấp: Stage 0 (Thử trực tiếp/proxy) $\rightarrow$ Stage 1 (Thử local WebP) $\rightarrow$ Stage 2 (Thử local JPG) $\rightarrow$ Stage 3 (Mới dùng Logo mặc định).
+  - Tối ưu header `Referer` trong `functions/api/game-icon.ts` (`apps.apple.com` cho mzstatic, `play.google.com` cho CH Play).
+- ⛔ **CÁCH SỬA ĐÃ THẤT BẠI - TUYỆT ĐỐI KHÔNG LẶP LẠI**:
+  - ❌ *Không gán trực tiếp e.target.src = '/logo.png' khi onError vừa kích hoạt*: Luôn có cơ chế phân tầng thử lại qua Edge Proxy và các định dạng file local trước khi đầu hàng về logo thương hiệu.
+  - ❌ *Không để thẻ <img> tải ảnh cross-origin từ Apple/Google CDN mà thiếu referrerPolicy="no-referrer"*: Tránh bị CDN hotlink blocking và trình duyệt chặn rò rỉ referrer.
+
+---
+
 ### ISSUE-090: Bẫy Đặt Tên Cột Trùng Lặp Link Store, Lỗi Nhận Diện Thiết Bị iPadOS Và Bẫy Chặn Chuyển Hướng Tracking Khi Khách Bấm Nút Tải (Store Links Duplicate Column, iPadOS Detection & Download Tracking Beacon Trap)
 - **Triệu chứng**:
   - Khi thêm tính năng nút tải game CH Play và App Store, tạo thêm cột mới trùng lặp với các trường đã có trong cơ sở dữ liệu (`download_android`, `download_ios`).

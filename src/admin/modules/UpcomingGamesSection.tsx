@@ -41,6 +41,7 @@ import { UpcomingGameAdminRecord, UpcomingGameApiLogEntry } from '../types/admin
 import { FormModal } from '../components/ui/FormModal';
 import { ConfirmModal } from '../components/ui/ConfirmModal';
 import { ImageUploadInput } from '../components/ui/ImageUploadInput';
+import { getUpcomingGameIconUrl, handleUpcomingImageError } from '../../utils/upcomingGameIconUtils';
 
 interface UpcomingGamesSectionProps {
   onShowToast: (title: string, desc?: string, type?: 'success' | 'error' | 'info') => void;
@@ -885,14 +886,14 @@ export const UpcomingGamesSection: React.FC<UpcomingGamesSectionProps> = ({ onSh
                       <div className="flex items-start justify-between gap-3">
                         <div className="flex items-center gap-3">
                           <div className="w-12 h-12 rounded-xl overflow-hidden bg-slate-900 border border-border shrink-0 flex items-center justify-center shadow-inner">
-                            {game.iconUrl ? (
+                            {game.iconUrl || (game as any).icon_url ? (
                               <img
-                                src={game.iconUrl}
+                                src={getUpcomingGameIconUrl(game)}
                                 alt={game.name}
                                 className="w-full h-full object-cover"
-                                onError={(e) => {
-                                  (e.target as HTMLElement).style.display = 'none';
-                                }}
+                                loading="lazy"
+                                referrerPolicy="no-referrer"
+                                onError={(e) => handleUpcomingImageError(e, game)}
                               />
                             ) : (
                               <Rocket className="w-6 h-6 text-indigo-400" />
@@ -1137,14 +1138,14 @@ export const UpcomingGamesSection: React.FC<UpcomingGamesSectionProps> = ({ onSh
                       <div className="flex items-start justify-between gap-3">
                         <div className="flex items-center gap-3">
                           <div className="w-12 h-12 rounded-xl overflow-hidden bg-slate-900 border border-border shrink-0 flex items-center justify-center shadow-inner">
-                            {game.iconUrl ? (
+                            {game.iconUrl || (game as any).icon_url ? (
                               <img
-                                src={game.iconUrl}
+                                src={getUpcomingGameIconUrl(game)}
                                 alt={game.name}
                                 className="w-full h-full object-cover"
-                                onError={(e) => {
-                                  (e.target as HTMLElement).style.display = 'none';
-                                }}
+                                loading="lazy"
+                                referrerPolicy="no-referrer"
+                                onError={(e) => handleUpcomingImageError(e, game)}
                               />
                             ) : (
                               <Rocket className="w-6 h-6 text-amber-400" />

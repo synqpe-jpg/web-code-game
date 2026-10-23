@@ -356,6 +356,8 @@ export interface UpcomingGame {
   category: string;
   platform?: string;
   iconUrl?: string;
+  icon_url?: string;
+  proxyIconUrl?: string;
   bannerUrl?: string;
   description?: string;
   instructions?: string;
