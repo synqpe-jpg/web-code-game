@@ -905,7 +905,9 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
       const finalDeveloper = String(gameToPublish.developer || gameToPublish.publisher || 'NPH Chính Thức').trim();
 
       const isCodeMoi = gameToPublish.sourceType === 'codemoi' || (gameToPublish.sourceUrl && gameToPublish.sourceUrl.includes('codemoi.net'));
-      let targetIcon = gameToPublish.iconUrl || gameToPublish.localIconPath || `/game_icons/${finalSlug}.webp`;
+      let targetIcon = (gameToPublish.iconUrl && gameToPublish.iconUrl.startsWith('http') && !gameToPublish.iconUrl.includes('codemoi.net'))
+        ? gameToPublish.iconUrl
+        : (gameToPublish.localIconPath || `/game_icons/${finalSlug}.webp`);
       if (!targetIcon || targetIcon.includes('codemoi.net')) {
         targetIcon = `/game_icons/${finalSlug}.webp`;
       }
@@ -1290,8 +1292,25 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
       });
       const removedCount = beforeCount - cleanCustomCodes.length;
 
-      if (removedCount > 0) {
-        await setSettingD1(env.DB, 'wcg_admin_custom_free_codes_v1', cleanCustomCodes);
+      let dbDeletedCount = 0;
+      if (env.DB) {
+        try {
+          const dbRes: any = await env.DB.prepare('DELETE FROM codes WHERE UPPER(code) LIKE ?').bind(`${prefix}%`).run();
+          dbDeletedCount = dbRes?.meta?.changes || 0;
+          await env.DB.prepare(`
+            UPDATE games 
+            SET active_codes_count = (SELECT COUNT(*) FROM codes WHERE codes.game_slug = games.slug AND (codes.expires_at IS NULL OR codes.expires_at > datetime('now'))),
+                total_codes_count = (SELECT COUNT(*) FROM codes WHERE codes.game_slug = games.slug)
+          `).run().catch(() => {});
+        } catch (dbErr) {
+          console.warn('[Cleanup] Lỗi dọn dẹp codes table D1:', dbErr);
+        }
+      }
+
+      if (removedCount > 0 || dbDeletedCount > 0) {
+        if (removedCount > 0) {
+          await setSettingD1(env.DB, 'wcg_admin_custom_free_codes_v1', cleanCustomCodes);
+        }
         invalidateGamesCatalogCache();
         await invalidateCatalogEdgeCache(context as any, request, env).catch(() => {});
       }
@@ -1299,8 +1318,8 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
       return new Response(
         JSON.stringify({
           success: true,
-          message: `Đã dọn dẹp ${removedCount} mã test có tiền tố "${prefix}".`,
-          removedCount,
+          message: `Đã dọn dẹp ${removedCount} mã trong settings và ${dbDeletedCount} mã trong D1 codes có tiền tố "${prefix}".`,
+          removedCount: removedCount + dbDeletedCount,
         }),
         { headers: CORS_HEADERS }
       );
@@ -1568,6 +1587,9 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
         const pendingIdx = pendingGamesList.findIndex((p) => p && (p.slug === gameSlug || p.id === gameSlug));
         if (pendingIdx !== -1) {
           const pGame = pendingGamesList[pendingIdx];
+          const resolvedPIcon = (pGame.iconUrl && pGame.iconUrl.startsWith('http') && !pGame.iconUrl.includes('codemoi.net'))
+            ? pGame.iconUrl
+            : (pGame.localIconPath || `/game_icons/${gameSlug}.webp`);
           const publishedGameRecord = {
             id: gameSlug,
             slug: gameSlug,
@@ -1575,8 +1597,8 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
             publisher: pGame.developer || pGame.publisher || 'NPH Chính Thức',
             category: pGame.category || 'Nhập Vai',
             rating: pGame.rating || 4.8,
-            icon_url: pGame.localIconPath || pGame.iconUrl || `/game_icons/${gameSlug}.webp`,
-            cover_image_url: pGame.localIconPath || pGame.iconUrl || `/game_icons/${gameSlug}.webp`,
+            icon_url: resolvedPIcon,
+            cover_image_url: resolvedPIcon,
             banner_url: '',
             description: pGame.description || `${gameName} là tựa game mobile mới phát hành chính thức.`,
             short_description: `${gameName} - Đã cập nhật ${addedForThisGame.length} giftcode mới`,
@@ -1584,7 +1606,9 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
             redeem_url: extractedRedeemUrl || pGame.redeemUrl || '',
             platform: 'Android, iOS, PC',
             release_date: pGame.releaseDate || nowIso.split('T')[0],
-            download_android: pGame.playStoreUrl || '',
+            download_android: pGame.playStoreUrl || (pGame.packageId ? `https://play.google.com/store/apps/details?id=${pGame.packageId}` : ''),
+            google_play_url: pGame.playStoreUrl || '',
+            android_package_name: pGame.packageId || pGame.packageName || (pGame.playStoreUrl ? (pGame.playStoreUrl.match(/id=([a-zA-Z0-9._]+)/) || [])[1] : '') || '',
             is_featured: false,
             is_hot: true,
             is_new: true,
@@ -1718,7 +1742,9 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
           publishedSlugsSet.add(slug);
           const pGame = freshPendingGames.find((p) => p && (String(p.slug).toLowerCase() === slug || String(p.id).toLowerCase() === slug));
           const pDeveloper = pGame?.developer || pGame?.publisher || res.matchedGame.publisher || 'NPH Chính Thức';
-          const pIcon = pGame?.localIconPath || pGame?.iconUrl || `/game_icons/${slug}.webp`;
+          const pIcon = (pGame?.iconUrl && pGame.iconUrl.startsWith('http') && !pGame.iconUrl.includes('codemoi.net'))
+            ? pGame.iconUrl
+            : (pGame?.localIconPath || `/game_icons/${slug}.webp`);
 
           const publishedRecord = {
             id: slug,

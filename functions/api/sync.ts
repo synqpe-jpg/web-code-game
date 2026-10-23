@@ -1393,6 +1393,16 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
       }
       if (vKey === 'wcg_admin_custom_free_codes_v1' && Array.isArray(body.data)) {
         await setSettingD1(env.DB, 'wcg_admin_custom_free_codes_v1', body.data);
+        if (env.DB) {
+          try {
+            await env.DB.prepare("DELETE FROM codes WHERE UPPER(code) LIKE 'TEST%'").run();
+            await env.DB.prepare(`
+              UPDATE games 
+              SET active_codes_count = (SELECT COUNT(*) FROM codes WHERE codes.game_slug = games.slug AND (codes.expires_at IS NULL OR codes.expires_at > datetime('now'))),
+                  total_codes_count = (SELECT COUNT(*) FROM codes WHERE codes.game_slug = games.slug)
+            `).run().catch(() => {});
+          } catch {}
+        }
         invalidateGamesCatalogCache();
         return new Response(
           JSON.stringify({ success: true, message: 'Đã cập nhật custom_free_codes_v1 vào D1 thành công!' }),

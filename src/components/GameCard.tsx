@@ -106,15 +106,25 @@ export const GameCard: React.FC<GameCardProps> = ({
 
   const handleImageError = () => {
     const slug = game.slug;
+    const pkg = (game as any).android_package_name ||
+      ((game as any).google_play_url ? (((game as any).google_play_url.match(/id=([a-zA-Z0-9._]+)/) || [])[1] || '') : '') ||
+      ((game as any).download_android ? (((game as any).download_android.match(/id=([a-zA-Z0-9._]+)/) || [])[1] || '') : '') || '';
+
     if (fallbackStage === 0) {
       // Stage 1: Try JPG version of the icon
       setFallbackStage(1);
       setCurrentIconSrc(`/game_icons/${slug}.jpg`);
     } else if (fallbackStage === 1) {
-      // Stage 2: Try Edge Proxy endpoint
+      // Stage 2: Try remote store icon or Edge Proxy endpoint
       setFallbackStage(2);
-      const rawUrl = game.icon_url && game.icon_url.startsWith('http') ? game.icon_url : '';
-      setCurrentIconSrc(`/api/game-icon?slug=${encodeURIComponent(slug)}${rawUrl ? `&url=${encodeURIComponent(rawUrl)}` : ''}`);
+      const rawUrl = game.icon_url && game.icon_url.startsWith('http') && !game.icon_url.includes('codemoi.net')
+        ? game.icon_url
+        : ((game as any).cover_image_url && (game as any).cover_image_url.startsWith('http') && !(game as any).cover_image_url.includes('codemoi.net') ? (game as any).cover_image_url : '');
+      const queryParams = new URLSearchParams();
+      if (slug) queryParams.set('slug', slug);
+      if (rawUrl) queryParams.set('url', rawUrl);
+      if (pkg) queryParams.set('pkg', pkg);
+      setCurrentIconSrc(`/api/game-icon?${queryParams.toString()}`);
     } else {
       // Stage 3: Cleanly fallback to colorful branded gradient avatar with initials
       setFallbackStage(3);

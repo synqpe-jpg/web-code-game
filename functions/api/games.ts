@@ -889,7 +889,7 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
 
         const topGames = (gamesRes?.results || []).map((g: any) => ({
           ...g,
-          codes_count: Number(g.active_codes_count || g.total_codes_count || 0),
+          codes_count: Number(g.total_codes_count || g.active_codes_count || 0),
           icon_url: g.icon_url || `/game_icons/${g.slug}.webp`,
           codes: [],
         }));
@@ -1031,7 +1031,7 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
           platform: r.platform || 'Mobile / PC',
           rating: typeof r.rating === 'number' ? r.rating : 4.8,
           icon_url: r.icon_url || `/game_icons/${r.slug}.webp`,
-          codes_count: Number(r.active_codes_count || r.total_codes_count || 0),
+          codes_count: Number(r.total_codes_count || r.active_codes_count || 0),
           codes: [],
           is_hot: Boolean(r.is_hot),
           is_new: Boolean(r.is_new),
@@ -1164,7 +1164,7 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
         icon_url: r.icon_url || `/game_icons/${r.slug}.webp`,
         active_codes_count: Number(r.active_codes_count || 0),
         total_codes_count: Number(r.total_codes_count || 0),
-        codes_count: Number(r.active_codes_count || r.total_codes_count || 0),
+        codes_count: Number(r.total_codes_count || r.active_codes_count || 0),
         last_code_at: r.last_code_at || null,
         is_hot: Boolean(r.is_hot),
         is_new: Boolean(r.is_new),

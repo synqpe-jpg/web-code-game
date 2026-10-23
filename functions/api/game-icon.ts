@@ -27,9 +27,10 @@ export const onRequestGet = async (context: { request: Request; env: Env }) => {
   const urlObj = new URL(context.request.url);
   const targetUrl = urlObj.searchParams.get('url') || '';
   const slug = urlObj.searchParams.get('slug') || '';
+  let pkg = urlObj.searchParams.get('pkg') || '';
 
-  if (!targetUrl && !slug) {
-    return new Response('Thiếu tham số url hoặc slug', { status: 400, headers: CORS_HEADERS });
+  if (!targetUrl && !slug && !pkg) {
+    return new Response('Thiếu tham số url, slug hoặc pkg', { status: 400, headers: CORS_HEADERS });
   }
 
   // 1. Kiểm tra Cloudflare Edge Cache
@@ -42,75 +43,164 @@ export const onRequestGet = async (context: { request: Request; env: Env }) => {
     }
   } catch {}
 
-  let fetchUrl = targetUrl;
+  // 2. Nếu có targetUrl trực tiếp (URL remote hợp lệ)
+  if (targetUrl && targetUrl.startsWith('http') && !targetUrl.includes('codemoi.net')) {
+    try {
+      let referer = 'https://play.google.com/';
+      if (targetUrl.includes('apple.com') || targetUrl.includes('mzstatic.com')) {
+        referer = 'https://apps.apple.com/';
+      }
 
-  // Nếu không có URL hoặc URL là đường dẫn tương đối, trỏ tới icon nội bộ
-  if (!fetchUrl && slug) {
-    fetchUrl = `${urlObj.origin}/game_icons/${slug}.webp`;
+      const res = await fetch(targetUrl, {
+        headers: {
+          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
+          'Accept': 'image/avif,image/webp,image/apng,image/svg+xml,image/*,*/*;q=0.8',
+          'Referer': referer,
+        },
+      });
+
+      if (res.ok) {
+        const contentType = res.headers.get('content-type') || 'image/webp';
+        const proxyResponse = new Response(res.body, {
+          status: 200,
+          headers: new Headers({
+            ...CORS_HEADERS,
+            'Content-Type': contentType,
+            'Cache-Control': 'public, max-age=604800, s-maxage=2592000, stale-while-revalidate=86400',
+            'X-Image-Proxy-By': 'CodeGame-Edge-CDN',
+          }),
+        });
+        try {
+          cache.put(cacheKey, proxyResponse.clone());
+        } catch {}
+        return proxyResponse;
+      }
+    } catch {}
   }
 
-  try {
-    // 2. Fetch ảnh từ nguồn với User-Agent chuẩn
-    let referer = 'https://play.google.com/';
-    if (fetchUrl.includes('codemoi.net')) {
-      referer = 'https://codemoi.net/';
-    } else if (fetchUrl.includes('apple.com') || fetchUrl.includes('mzstatic.com')) {
-      referer = 'https://apps.apple.com/';
-    }
-
-    const response = await fetch(fetchUrl, {
-      headers: {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
-        'Accept': 'image/avif,image/webp,image/apng,image/svg+xml,image/*,*/*;q=0.8',
-        'Referer': referer,
-      },
-    });
-
-    if (response.ok) {
-      const contentType = response.headers.get('content-type') || 'image/webp';
-      const imageHeaders = new Headers({
-        ...CORS_HEADERS,
-        'Content-Type': contentType,
-        'Cache-Control': 'public, max-age=604800, s-maxage=2592000, stale-while-revalidate=86400',
-        'X-Image-Proxy-By': 'CodeGame-Edge-CDN',
-      });
-
-      const proxyResponse = new Response(response.body, {
-        status: 200,
-        headers: imageHeaders,
-      });
-
-      // Lưu vào Cloudflare Edge Cache
-      try {
-        context.request.signal ? null : null;
-        // Cache không đồng bộ
-        cache.put(cacheKey, proxyResponse.clone());
-      } catch {}
-
-      return proxyResponse;
-    }
-
-    // Nếu fetchUrl ban đầu thất bại và có slug, thử fallback sang file tĩnh của trang web
-    if (slug && !fetchUrl.includes(slug)) {
-      const fallbackLocalUrl = `${urlObj.origin}/game_icons/${slug}.webp`;
-      const fallbackRes = await fetch(fallbackLocalUrl);
-      if (fallbackRes.ok) {
-        return new Response(fallbackRes.body, {
+  // 3. Nếu có slug, thử nạp file tĩnh cục bộ (.webp hoặc .jpg)
+  if (slug) {
+    try {
+      const localWebpUrl = `${urlObj.origin}/game_icons/${slug}.webp`;
+      const localRes = await fetch(localWebpUrl);
+      if (localRes.ok) {
+        const contentType = localRes.headers.get('content-type') || 'image/webp';
+        const proxyResponse = new Response(localRes.body, {
           status: 200,
-          headers: {
+          headers: new Headers({
             ...CORS_HEADERS,
-            'Content-Type': fallbackRes.headers.get('content-type') || 'image/webp',
-            'Cache-Control': 'public, max-age=604800',
-          },
+            'Content-Type': contentType,
+            'Cache-Control': 'public, max-age=604800, s-maxage=2592000',
+            'X-Image-Proxy-By': 'CodeGame-Local-Static',
+          }),
         });
+        try {
+          cache.put(cacheKey, proxyResponse.clone());
+        } catch {}
+        return proxyResponse;
+      }
+
+      // Thử file .jpg
+      const localJpgUrl = `${urlObj.origin}/game_icons/${slug}.jpg`;
+      const localJpgRes = await fetch(localJpgUrl);
+      if (localJpgRes.ok) {
+        const proxyResponse = new Response(localJpgRes.body, {
+          status: 200,
+          headers: new Headers({
+            ...CORS_HEADERS,
+            'Content-Type': 'image/jpeg',
+            'Cache-Control': 'public, max-age=604800, s-maxage=2592000',
+            'X-Image-Proxy-By': 'CodeGame-Local-JPG',
+          }),
+        });
+        try {
+          cache.put(cacheKey, proxyResponse.clone());
+        } catch {}
+        return proxyResponse;
+      }
+    } catch {}
+  }
+
+  // 4. Fallback: Tra cứu Google Play Store theo package (từ param hoặc tra cứu D1)
+  try {
+    if (!pkg && slug && context.env?.DB) {
+      try {
+        const row: any = await context.env.DB.prepare(
+          'SELECT android_package_name, google_play_url, icon_url FROM games WHERE slug = ? LIMIT 1'
+        ).bind(slug).first();
+        if (row) {
+          if (row.android_package_name) {
+            pkg = row.android_package_name;
+          } else if (row.google_play_url) {
+            const m = row.google_play_url.match(/id=([a-zA-Z0-9._]+)/);
+            if (m) pkg = m[1];
+          }
+          if (row.icon_url && row.icon_url.startsWith('http') && !row.icon_url.includes('codemoi.net')) {
+            const remoteRes = await fetch(row.icon_url);
+            if (remoteRes.ok) {
+              const proxyResponse = new Response(remoteRes.body, {
+                status: 200,
+                headers: new Headers({
+                  ...CORS_HEADERS,
+                  'Content-Type': remoteRes.headers.get('content-type') || 'image/webp',
+                  'Cache-Control': 'public, max-age=604800, s-maxage=2592000',
+                  'X-Image-Proxy-By': 'CodeGame-D1-RemoteIcon',
+                }),
+              });
+              try {
+                cache.put(cacheKey, proxyResponse.clone());
+              } catch {}
+              return proxyResponse;
+            }
+          }
+        }
+      } catch {}
+    }
+
+    if (pkg) {
+      const gpUrl = `https://play.google.com/store/apps/details?id=${encodeURIComponent(pkg)}&hl=vi&gl=VN`;
+      const gpRes = await fetch(gpUrl, {
+        headers: {
+          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
+          'Accept-Language': 'vi,en;q=0.9',
+        },
+      });
+
+      if (gpRes.ok) {
+        const html = await gpRes.text();
+        const iconMatch = html.match(/<img[^>]+src="(https:\/\/play-lh\.googleusercontent\.com\/[^"=]+)"[^>]+(?:itemprop="image"|alt="Biểu tượng ảnh"|alt="Icon image")/i) ||
+                          html.match(/"(https:\/\/play-lh\.googleusercontent\.com\/[^"=]+)=s/i);
+        if (iconMatch) {
+          const playIconUrl = `${iconMatch[1]}=s256-rw`;
+          const iconRes = await fetch(playIconUrl, {
+            headers: {
+              'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
+              'Referer': 'https://play.google.com/',
+            },
+          });
+          if (iconRes.ok) {
+            const contentType = iconRes.headers.get('content-type') || 'image/webp';
+            const proxyResponse = new Response(iconRes.body, {
+              status: 200,
+              headers: new Headers({
+                ...CORS_HEADERS,
+                'Content-Type': contentType,
+                'Cache-Control': 'public, max-age=604800, s-maxage=2592000, stale-while-revalidate=86400',
+                'X-Image-Proxy-By': 'CodeGame-Edge-GooglePlay',
+              }),
+            });
+            try {
+              cache.put(cacheKey, proxyResponse.clone());
+            } catch {}
+            return proxyResponse;
+          }
+        }
       }
     }
+  } catch {}
 
-    // Fallback trả về placeholder SVG tinh tế (thay vì lỗi hay DiceBear identicon)
-    return generateFallbackSvgResponse(slug);
-  } catch (err: any) {
-    return generateFallbackSvgResponse(slug);
-  }
+  // 5. Fallback cuối cùng: Trả về placeholder SVG tinh tế
+  return generateFallbackSvgResponse(slug);
 };
 
 function generateFallbackSvgResponse(seed: string) {

@@ -212,7 +212,9 @@ async function downloadAndSaveGameIcon(slug, iconUrl) {
           .jpeg({ quality: 85 })
           .toFile(jpgPath);
 
-        return `/game_icons/${slug}.webp`;
+        if (fs.existsSync(webpPath) && fs.statSync(webpPath).size > 500) {
+          return `/game_icons/${slug}.webp`;
+        }
       } catch (err) {
         console.warn(`[Logo Resolver] Sharp error for ${slug}, falling back to raw write:`, err.message);
       }
@@ -220,7 +222,10 @@ async function downloadAndSaveGameIcon(slug, iconUrl) {
 
     // Fallback: ghi trực tiếp nếu sharp không chạy
     fs.writeFileSync(webpPath, buffer);
-    return `/game_icons/${slug}.webp`;
+    if (fs.existsSync(webpPath) && fs.statSync(webpPath).size > 500) {
+      return `/game_icons/${slug}.webp`;
+    }
+    return null;
   } catch (err) {
     console.warn(`[Logo Resolver] ⚠️ Lỗi lưu icon ${slug}:`, err.message);
     return null;
@@ -256,20 +261,28 @@ async function resolveAndPersistGameLogo(game) {
   }
 
   // 2. Tải và lưu ảnh vào public/game_icons/
+  let localIconPath = null;
   if (targetIconUrl && targetIconUrl.startsWith('http')) {
     const savedPath = await downloadAndSaveGameIcon(slug, targetIconUrl);
     if (savedPath) {
       console.log(`[Logo Resolver] 💾 Đã lưu thành công icon nội bộ: ${savedPath}`);
+      localIconPath = savedPath;
     }
+  }
+
+  // Xác minh lại nếu file local đã có sẵn trước đó
+  const existingWebp = path.join(ICONS_DIR, `${slug}.webp`);
+  if (!localIconPath && fs.existsSync(existingWebp) && fs.statSync(existingWebp).size > 500) {
+    localIconPath = `/game_icons/${slug}.webp`;
   }
 
   return {
     ...game,
-    iconUrl: targetIconUrl,
+    iconUrl: targetIconUrl || (localIconPath ? localIconPath : ''),
     packageId: packageId || game.packageId,
     playStoreUrl: playStoreUrl || game.playStoreUrl,
-    localIconPath: `/game_icons/${slug}.webp`,
-    hasAccurateLogo: true,
+    localIconPath: localIconPath, // null nếu không có file local thật sự
+    hasAccurateLogo: Boolean(localIconPath || (targetIconUrl && targetIconUrl.startsWith('http'))),
   };
 }
 

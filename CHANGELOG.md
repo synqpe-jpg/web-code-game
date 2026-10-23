@@ -7,6 +7,47 @@ Mỗi mục sửa lỗi đều ghi nhận **Nguyên nhân gốc rễ (Root Cause
 
 ## [2026-10-24]
 
+### 173. Sửa Tận Gốc Lỗi Thiếu Icon Catalog: Sinh Bổ Sung 3 Icon Google Play Chuẩn WebP/JPG, Khắc Phục Pipeline Xác Minh File Tồn Tại Thật, Edge Proxy On-the-fly Theo Package & Tích Hợp Kiểm Toán 562 Icon Vào Regression Suite (Catalog Icon Self-Healing, Storage Integrity & Edge Proxy Fallback)
+- **Mô tả & Yêu cầu người dùng**:
+  - *"Kiểm toán toàn bộ catalog lúc ~01:00 ngày 24/10/2026 cho thấy: cả 559 game đang sống đều có icon_url dạng /game_icons/<slug>.webp, nhưng có đúng 3 file icon không tồn tại trên server (mở trực tiếp trả 404), khiến thẻ game hiển thị avatar chữ cái: vo-lam-truyen-ky (com.vng.vltkm), gunbound-legend-vua-toa-do (com.vtc.gunbound), the-gioi-nuoc-sinh-ton (com.thegioinuoc.vn). Việc 1: Sinh ngay 3 file icon còn thiếu đúng chuẩn WebP 256×256. Việc 2: Sửa tầng gốc trong pipeline tạo icon, kiểm tra file tồn tại thật > 500B trước khi gán path local. Việc 3: Dự phòng ở tầng hiển thị, tự chuyển sang icon remote store / Edge proxy theo package. Việc 4: Bổ sung kiểm toán icon vào script kiểm thử."*
+- **Nguyên nhân gốc rễ (Root Cause)**:
+  1. **Hardcode `localIconPath` Bất Chấp Lỗi Tải Trong Resolver**:
+     - Trong `scripts/crawler/engine/game_logo_resolver.cjs`, hàm `resolveAndPersistGameLogo` trả về thuộc tính `localIconPath: \`/game_icons/${slug}.webp\`` một cách mặc định mà không kiểm tra kết quả trả về của hàm `downloadAndSaveGameIcon` hay xác nhận file đã thực sự được ghi thành công trên đĩa.
+     - Khi một game được tạo hoặc nạp mã, nếu quá trình tải ảnh bị gián đoạn mạng hoặc chưa ghi file thành công, pipeline vẫn gán đường dẫn tĩnh `/game_icons/${slug}.webp` vào hồ sơ game, dẫn đến việc Cloudflare Pages trả về HTTP 404 khi người dùng truy cập.
+  2. **Worker Edge Không Ghi Được File Tĩnh Vào Cloudflare Pages Runtime**:
+     - Khi bot nạp mã hoặc kích hoạt action `publish_game` tại runtime thông qua Edge Worker (`/api/crawler/ingest-codes`), môi trường serverless không thể ghi thêm file vào thư mục assets tĩnh (`public/game_icons`) của Cloudflare Pages.
+     - Do đó, nếu game chưa có file tĩnh từ lúc build và `targetIcon` bị ghi đè thành `/game_icons/${slug}.webp`, trình duyệt sẽ nhận 404 và rơi về avatar chữ cái do thiếu tầng dự phòng store remote icon.
+  3. **Thiếu Cơ Chế Tự Động Phục Hồi (Auto-Heal) & Kiểm Toán Catalog**:
+     - Script kiểm thử hồi quy `scripts/verify_codes_integrity_audit.cjs` trước đây chỉ kiểm tra giftcodes và số đếm, không có bước kiểm tra tính toàn vẹn của các tệp tài nguyên icon trên toàn bộ danh mục game.
+- **Giải pháp đã triển khai (Solution)**:
+  1. **Việc 1 — Sinh Bổ Sung 3 File Icon Thiếu Chuẩn Xác**:
+     - Lấy icon chính thức độ phân giải cao từ Google Play theo package name: `com.vng.vltkm`, `com.vtc.gunbound`, `com.thegioinuoc.vn`.
+     - Sử dụng `sharp` chuyển đổi thành WebP 256×256 (quality: 90) và JPG 512×512 (quality: 85): `vo-lam-truyen-ky.webp` (27KB), `gunbound-legend-vua-toa-do.webp` (26KB), `the-gioi-nuoc-sinh-ton.webp` (25KB). Lưu vào `public/game_icons/` và `dist/game_icons/`.
+  2. **Việc 2 — Sửa Tầng Gốc Pipeline Tạo Icon**:
+     - Trong `scripts/crawler/engine/game_logo_resolver.cjs`: Trong `downloadAndSaveGameIcon`, bắt buộc kiểm tra `fs.existsSync(webpPath) && fs.statSync(webpPath).size > 500`. Trong `resolveAndPersistGameLogo`, chỉ gán `localIconPath` khi file tồn tại thực tế và hợp lệ; nếu không, gán `localIconPath: null` và giữ lại URL store remote hợp lệ.
+     - Trong `functions/api/crawler/ingest-codes.ts`: Ưu tiên giữ lại URL remote store (`iconUrl`) nếu file local chưa được xác nhận, đồng thời lưu trữ đầy đủ `android_package_name` và `google_play_url` vào bảng games D1.
+  3. **Việc 3 — Dự Phòng Tầng Hiển Thị & Nâng Cấp Edge Proxy `/api/game-icon`**:
+     - Nâng cấp `functions/api/game-icon.ts`: Hỗ trợ tham số `pkg`. Nếu file local 404 hoặc không có URL remote, Edge Worker tự động tra cứu D1 lấy package name, cào icon chuẩn từ Google Play Store, stream ảnh về cho người dùng và lưu vào Cloudflare Edge Cache (`caches.default`) với `s-maxage=2592000` (30 ngày).
+     - Cập nhật `src/components/GameCard.tsx` và `src/components/GameDetailModal.tsx`: Khi icon local lỗi tải (`onError`), kích hoạt chuỗi fallback thông minh: Thử JPG cục bộ -> Thử URL store remote / Edge proxy với `pkg` -> Chỉ rơi về avatar gradient chữ cái khi cả hai đều không khả dụng.
+  4. **Việc 4 — Tích Hợp Kiểm Toán Icon Catalog Vào Regression Suite**:
+     - Bổ sung bước `[6/6]` vào `scripts/verify_codes_integrity_audit.cjs`: Quét toàn diện 562 game từ API catalog và dữ liệu hệ thống, kiểm tra tính tồn tại và kích thước hợp lệ của từng file icon. Tự động auto-heal từ Google Play nếu phát hiện thiếu và xác nhận 0 icon thiếu.
+  5. **Dọn Dẹp Triệt Để Mã Test Trong D1 SQL**:
+     - Cập nhật action `cleanup_test_codes` trong `functions/api/crawler/ingest-codes.ts` và `/api/sync`: Thực hiện `DELETE FROM codes WHERE UPPER(code) LIKE ?` và tự động recompute `active_codes_count`, `total_codes_count` trên bảng `games` D1, tuân thủ nghiêm ngặt Rule 7.
+- **Files Modified**:
+  - `public/game_icons/vo-lam-truyen-ky.webp` & `.jpg`
+  - `public/game_icons/gunbound-legend-vua-toa-do.webp` & `.jpg`
+  - `public/game_icons/the-gioi-nuoc-sinh-ton.webp` & `.jpg`
+  - `scripts/crawler/engine/game_logo_resolver.cjs`
+  - `functions/api/crawler/ingest-codes.ts`
+  - `functions/api/game-icon.ts`
+  - `functions/api/games.ts`
+  - `functions/api/sync.ts`
+  - `src/components/GameCard.tsx`
+  - `src/components/GameDetailModal.tsx`
+  - `scripts/verify_codes_integrity_audit.cjs`
+
+---
+
 ### 172. Tối Ưu Hóa Cực Hạn Toàn Diện Hiệu Năng Codegame.shop: Chuyển Đổi Phân Trang 100% SQL D1, Cột Precompute active_codes_count, Edge Cache API 120s, Code-Splitting Giảm 65% Main Bundle & Debounce 300ms (High-Speed SQL Pagination, Precomputed Metrics, Edge Caching & Client Bundle Optimization)
 - **Mô tả & Yêu cầu người dùng**:
   - *"Bạn đang tối ưu hiệu năng cho codegame.shop (Cloudflare Pages + D1 web-code-game-db). Triệu chứng: trang chủ load lâu, mỗi lần đổi danh mục / đổi sắp xếp thì web phản hồi rất lâu. GET / — TTFB ~1.43s, GET /api/games — đo 5 tổ hợp đều chậm ở mức cố định 3–4s bất kể tham số. Bundle chính /assets/index-*.js nặng ~1.62MB. Mục tiêu: đổi danh mục / sắp xếp phản hồi < 500ms, trang chủ TTFB < 400ms với cache edge, payload 48 games < 60KB."*

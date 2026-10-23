@@ -1,4 +1,7 @@
 require('dotenv').config();
+const fs = require('fs');
+const path = require('path');
+const { searchGooglePlayForLogo, downloadAndSaveGameIcon } = require('./crawler/engine/game_logo_resolver.cjs');
 
 const API_KEY = 'wcg_muse_f7d252dd57426a7a';
 const ADMIN_SYNC_SECRET = process.env.ADMIN_SYNC_SECRET || 'b4e08494bf1c3fd6a0c965dd2411780c60513f7f87001bc955d7496331b2faef';
@@ -478,6 +481,132 @@ async function runIntegrityAudit() {
     } catch (cleanErr) {
       console.warn(`   ⚠️ Cảnh báo dọn dẹp game test:`, cleanErr.message);
     }
+  }
+
+  // 6. Kiểm toán toàn diện Logo / Icon của toàn bộ Catalog (~559 game) & Auto-heal
+  console.log('\n▶ [6/6] Kiểm toán toàn diện Logo / Icon của toàn bộ Catalog & Auto-Heal (Mục tiêu 0 icon thiếu)...');
+  try {
+    const allGamesMap = new Map();
+    // 1. Nạp từ public/data/games_database.json nếu có
+    const localGamesJsonPath = path.resolve(__dirname, '../public/data/games_database.json');
+    if (fs.existsSync(localGamesJsonPath)) {
+      try {
+        const localGames = JSON.parse(fs.readFileSync(localGamesJsonPath, 'utf8'));
+        if (Array.isArray(localGames)) {
+          for (const g of localGames) {
+            const s = (g.slug || g.id || '').trim().toLowerCase();
+            if (s) allGamesMap.set(s, g);
+          }
+        }
+      } catch {}
+    }
+
+    // 2. Nạp từ API phân trang /api/games
+    let page = 1;
+    while (page <= 25) {
+      const pRes = await fetchJson(`/api/games?page=${page}&limit=48&nocache=1`);
+      const list = pRes.data?.games || [];
+      if (list.length === 0) break;
+      for (const g of list) {
+        const s = (g.slug || g.id || '').trim().toLowerCase();
+        if (s) allGamesMap.set(s, g);
+      }
+      if (page >= (pRes.data?.totalPages || 1)) break;
+      page++;
+      await sleep(100);
+    }
+
+    const gamesList = Array.from(allGamesMap.values());
+    console.log(`   📊 Đã tải toàn diện danh sách ${gamesList.length} game từ API catalog & dữ liệu hệ thống.`);
+
+    const iconsDir = path.resolve(__dirname, '../public/game_icons');
+    const missingIcons = [];
+    const healedIcons = [];
+
+    for (const g of gamesList) {
+      const slug = (g.slug || g.id || '').trim().toLowerCase();
+      if (!slug) continue;
+
+      const webpPath = path.join(iconsDir, `${slug}.webp`);
+      const exists = fs.existsSync(webpPath) && fs.statSync(webpPath).size > 500;
+
+      if (!exists) {
+        missingIcons.push({ slug, name: g.name, g });
+      }
+    }
+
+    console.log(`   🔍 Kết quả quét đợt 1: Có ${missingIcons.length} game thiếu icon local.`);
+
+    if (missingIcons.length > 0) {
+      console.log(`   🩹 Đang tiến hành tự động bù đắp (Auto-Heal) cho ${missingIcons.length} game thiếu icon...`);
+      for (const item of missingIcons) {
+        const { slug, name, g } = item;
+        let healed = false;
+
+        // 1. Thử lấy từ g.icon_url nếu là remote URL
+        if (g.icon_url && g.icon_url.startsWith('http') && !g.icon_url.includes('codemoi.net')) {
+          const res = await downloadAndSaveGameIcon(slug, g.icon_url);
+          if (res) healed = true;
+        }
+
+        // 2. Thử lấy từ Google Play theo package name
+        if (!healed) {
+          const pkg = g.android_package_name ||
+            (g.google_play_url ? (g.google_play_url.match(/id=([a-zA-Z0-9._]+)/) || [])[1] : '') ||
+            (g.download_android ? (g.download_android.match(/id=([a-zA-Z0-9._]+)/) || [])[1] : '');
+          if (pkg) {
+            const gpResult = await searchGooglePlayForLogo(name, g.publisher);
+            if (gpResult && gpResult.iconUrl) {
+              const res = await downloadAndSaveGameIcon(slug, gpResult.iconUrl);
+              if (res) healed = true;
+            }
+          }
+        }
+
+        // 3. Tìm kiếm Google Play theo tên game
+        if (!healed) {
+          const gpResult = await searchGooglePlayForLogo(name, g.publisher);
+          if (gpResult && gpResult.iconUrl) {
+            const res = await downloadAndSaveGameIcon(slug, gpResult.iconUrl);
+            if (res) healed = true;
+          }
+        }
+
+        if (healed) {
+          healedIcons.push(slug);
+          console.log(`      ✅ Đã bù đắp thành công icon cho "${name}" (${slug})`);
+        } else {
+          console.warn(`      ⚠️ Không thể tự động bù đắp icon cho "${name}" (${slug})`);
+        }
+      }
+    }
+
+    // Đếm lại số icon còn thiếu sau khi bù đắp
+    let remainingMissing = 0;
+    for (const g of gamesList) {
+      const slug = (g.slug || g.id || '').trim().toLowerCase();
+      if (!slug) continue;
+      const webpPath = path.join(iconsDir, `${slug}.webp`);
+      if (!fs.existsSync(webpPath) || fs.statSync(webpPath).size <= 500) {
+        remainingMissing++;
+      }
+    }
+
+    console.log(`\n   📋 TỔNG KẾT BƯỚC [6/6] KIỂM TOÁN ICON CATALOG:`);
+    console.log(`      - Tổng số game đã kiểm tra: ${gamesList.length}`);
+    console.log(`      - Số icon thiếu phát hiện ban đầu: ${missingIcons.length}`);
+    console.log(`      - Số icon đã tự động bù đắp thành công: ${healedIcons.length}`);
+    console.log(`      - Số icon còn thiếu sau kiểm toán: ${remainingMissing}`);
+
+    if (remainingMissing === 0) {
+      console.log(`   ✅ KIỂM TOÁN ICON HOÀN HẢO: 100% game trong catalog đều có file icon local hợp lệ!`);
+    } else {
+      console.error(`   ❌ THẤT BẠI: Vẫn còn ${remainingMissing} game thiếu file icon local.`);
+      passed = false;
+    }
+  } catch (iconAuditErr) {
+    console.error('   ❌ Lỗi khi thực hiện kiểm toán icon:', iconAuditErr.message);
+    passed = false;
   }
 
   console.log('\n========================================================================================');

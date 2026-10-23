@@ -10,6 +10,25 @@
 
 ## 1. DANH MỤC LỖI & CÁC BẪY ĐÃ THẤT BẠI (DO NOT REPEAT)
 
+### ISSUE-099: Bẫy Gán Đường Dẫn Icon Tĩnh Local Không Xác Minh Tồn Tại Đĩa & Thiếu Cơ Chế Dự Phòng Remote Store Edge Proxy (Speculative Local Icon Path & Missing Store Proxy Trap)
+- **Triệu chứng**:
+  - Trên giao diện web công khai, một số thẻ game mới đăng (ví dụ `vo-lam-truyen-ky`, `gunbound-legend-vua-toa-do`, `the-gioi-nuoc-sinh-ton`) hiển thị avatar chữ cái thay vì logo thực tế của game.
+  - Kiểm tra mạng cho thấy URL `/game_icons/<slug>.webp` trả về HTTP 404 Not Found.
+- **Nguyên nhân gốc rễ**:
+  1. Trong pipeline cào và nạp game (`game_logo_resolver.cjs` và `/api/crawler/ingest-codes`), hàm resolver luôn gán `localIconPath: /game_icons/${slug}.webp` một cách suy đoán mà không kiểm tra xem file đã được ghi thành công trên đĩa (`fs.existsSync` và `size > 500`) hay chưa.
+  2. Tại runtime, Cloudflare Pages Edge Worker không thể tạo file tĩnh mới vào thư mục assets của Pages. Nếu game được publish qua API tại runtime mà chưa có file từ lúc build, đường dẫn `/game_icons/...` sẽ lập tức trả về 404.
+  3. Ở tầng component UI (`GameCard.tsx`, `GameDetailModal.tsx`), khi ảnh lỗi tải (`onError`), giao diện rơi ngay về avatar chữ cái thay vì thử nạp URL remote store chính thức từ Google Play Store.
+- **Giải pháp chuẩn đã kiểm chứng**:
+  - Trong resolver, bắt buộc kiểm tra `fs.existsSync(path) && fs.statSync(path).size > 500` trước khi trả về `localIconPath`. Nếu chưa ghi thành công, giữ nguyên URL store remote trong `iconUrl`.
+  - Nâng cấp endpoint Edge Proxy `/api/game-icon`: Nhận tham số `pkg` hoặc tự tra cứu D1, cào logo chuẩn từ Google Play Store, stream về người dùng và cache 30 ngày trên Cloudflare Edge Cache.
+  - Tích hợp chuỗi fallback 4 giai đoạn trong UI: WebP local -> JPG local -> Store Remote / Edge Proxy `pkg` -> Initials Avatar.
+  - Bổ sung bước kiểm toán tự động [6/6] trong `verify_codes_integrity_audit.cjs` kiểm tra 100% 562 game catalog và auto-heal khi phát hiện thiếu.
+- ⛔ **CÁCH SỬA ĐÃ THẤT BẠI - TUYỆT ĐỐI KHÔNG LẶP LẠI**:
+  - ❌ *Không gán cứng `/game_icons/${slug}.webp` khi file chưa chắc chắn tồn tại*: Nếu quá trình ghi đĩa thất bại, người dùng sẽ nhận 404.
+  - ❌ *Không ghi đè URL remote store bằng đường dẫn local ảo*: Luôn giữ lại URL remote store để làm nguồn dữ liệu dự phòng.
+
+---
+
 ### ISSUE-098: Bẫy Tải Toàn Bộ JSON Blob Lên RAM Phân Trang Trong JS, Bẫy Header no-store Trên HTML Phá Hủy Edge Cache & Bẫy Cồng Kềnh Main Bundle 1.5MB (Heavy In-Memory Catalog Scan, Edge Cache Bypass & Bundle Bloat Trap)
 - **Triệu chứng**:
   - Trang chủ load lâu (TTFB ~1.43s), header Cache-Control: no-cache, no-store, must-revalidate và cf-cache-status: DYNAMIC khiến HTML không bao giờ được cache ở Edge.

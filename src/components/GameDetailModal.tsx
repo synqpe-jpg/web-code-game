@@ -339,7 +339,19 @@ export const GameDetailModal: React.FC<GameDetailModalProps> = ({
                       modalFallbackStage === 1
                         ? `/game_icons/${currentGame.slug}.jpg`
                         : modalFallbackStage === 2
-                        ? `/api/game-icon?slug=${encodeURIComponent(currentGame.slug)}${currentGame.icon_url && currentGame.icon_url.startsWith('http') ? `&url=${encodeURIComponent(currentGame.icon_url)}` : ''}`
+                        ? (() => {
+                            const pkg = (currentGame as any).android_package_name ||
+                              (currentGame.google_play_url ? (((currentGame.google_play_url.match(/id=([a-zA-Z0-9._]+)/) || [])[1] || '')) : '') ||
+                              ((currentGame as any).download_android ? (((currentGame as any).download_android.match(/id=([a-zA-Z0-9._]+)/) || [])[1] || '') : '') || '';
+                            const rawUrl = currentGame.icon_url && currentGame.icon_url.startsWith('http') && !currentGame.icon_url.includes('codemoi.net')
+                              ? currentGame.icon_url
+                              : ((currentGame as any).cover_image_url && (currentGame as any).cover_image_url.startsWith('http') && !(currentGame as any).cover_image_url.includes('codemoi.net') ? (currentGame as any).cover_image_url : '');
+                            const queryParams = new URLSearchParams();
+                            if (currentGame.slug) queryParams.set('slug', currentGame.slug);
+                            if (rawUrl) queryParams.set('url', rawUrl);
+                            if (pkg) queryParams.set('pkg', pkg);
+                            return `/api/game-icon?${queryParams.toString()}`;
+                          })()
                         : (!currentGame.icon_url || currentGame.icon_url.includes('codemoi.net') || currentGame.icon_url.startsWith('/game-icons')
                             ? `/game_icons/${currentGame.slug}.webp`
                             : (currentGame.icon_url || `/game_icons/${currentGame.slug}.webp`))
