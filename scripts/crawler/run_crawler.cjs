@@ -218,6 +218,9 @@ async function main() {
   let lowScoreCount = 0;
   let completedSources = 0;
 
+  // Tập hợp gom nhóm các ứng viên để đối chiếu chéo (Cross-check aggregation)
+  const candidateGroups = new Map();
+
   async function processSingleSource(src, index) {
     let scrapedResult = null;
     try {
@@ -285,78 +288,32 @@ async function main() {
         continue;
       }
 
-      // Kiểm tra trùng lặp
+      // Kiểm tra trùng lặp với kho code đã có từ trước
       const isDuplicate = knownCodesSet.has(cleanCode) || knownCodesSet.has(`${gameSlug}:::${cleanCode}`);
       if (isDuplicate) {
         duplicatesCount++;
         continue;
       }
 
-      // Đánh giá và chấm điểm mã theo thuật toán 4 Cấp Bậc (0 - 100 điểm)
-      const scoreResult = calculateCodeScore({
-        code: cleanCode,
-        gameMatchConfidence: matchConfidence,
-        sourceType: src.type || 'reputable_web',
-        rewards: codeItem.rewards,
-        expiresAt: codeItem.expiresAt,
-        isDuplicate: false,
-        contextText: scrapedResult.title || src.name,
+      // Đưa vào bảng gom nhóm ứng viên để đối chiếu chéo giữa các nguồn
+      const groupKey = `${gameSlug}:::${cleanCode}`;
+      if (!candidateGroups.has(groupKey)) {
+        candidateGroups.set(groupKey, {
+          code: cleanCode,
+          gameSlug,
+          gameName,
+          matchedGame,
+          matchConfidence,
+          sightings: [],
+        });
+      }
+
+      candidateGroups.get(groupKey).sightings.push({
+        src,
+        codeItem,
+        isStaleSource: Boolean(scrapedResult.isStaleSource),
+        title: scrapedResult.title || src.name,
       });
-
-      console.log(`   -> [${scoreResult.score}đ] Mã "${cleanCode}" | Game: ${gameName} | ${scoreResult.tierLabel} (từ: ${src.name})`);
-
-      // Phân luồng:
-      // - BẬC 1 (90 - 100 điểm): TỰ ĐỘNG ĐĂNG THẲNG LÊN WEB
-      if (scoreResult.canAutoPublish) {
-        const publishedItem = {
-          id: `fc_auto_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
-          gameId: matchedGame?.id || gameSlug,
-          gameSlug: gameSlug,
-          gameName: gameName,
-          code: cleanCode,
-          codeValue: cleanCode,
-          rewards: codeItem.rewards || 'Quà tân thủ & vật phẩm ingame',
-          status: 'ACTIVE',
-          type: 'EVENT',
-          sourceUrl: src.url,
-          sourceType: src.type,
-          score: scoreResult.score,
-          tier: 1,
-          isCrawlerAutoApproved: true,
-          expiresAt: codeItem.expiresAt || null,
-          createdAt: new Date().toISOString(),
-          updatedAt: new Date().toISOString(),
-        };
-
-        autoApprovedList.push(publishedItem);
-        registerCode(cleanCode, gameSlug);
-      }
-      // - BẬC 2, 3 (<90 điểm & >= 50 điểm): LƯU VÀO HÀNG ĐỢI CHO ADMIN DUYỆT (Chỉ nhận mã có game xác định)
-      else if (scoreResult.score >= 50 && gameSlug !== 'unknown-game') {
-        const pendingItem = {
-          id: `pending_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
-          gameId: matchedGame?.id || gameSlug,
-          gameSlug: gameSlug,
-          gameName: gameName,
-          code: cleanCode,
-          rewards: codeItem.rewards || 'Chưa xác định',
-          sourceUrl: src.url,
-          sourceType: src.type,
-          sourceName: src.name,
-          score: scoreResult.score,
-          tier: scoreResult.tier,
-          tierLabel: scoreResult.tierLabel,
-          reasons: scoreResult.reasons,
-          status: 'PENDING',
-          expiresAt: codeItem.expiresAt || null,
-          createdAt: new Date().toISOString(),
-        };
-
-        newPendingList.push(pendingItem);
-        registerCode(cleanCode, gameSlug);
-      } else {
-        lowScoreCount++;
-      }
     }
   }
 
@@ -375,6 +332,123 @@ async function main() {
     () => workerPool()
   );
   await Promise.all(poolWorkers);
+
+  // ĐỐI CHIẾU CHÉO & ĐÁNH GIÁ 4 CẤP BẬC CHO TOÀN BỘ ỨNG VIÊN
+  console.log(`\n🔍 Đang đối chiếu chéo và chấm điểm ${candidateGroups.size} mã ứng viên duy nhất...`);
+
+  for (const [groupKey, group] of candidateGroups.entries()) {
+    const cleanCode = group.code;
+    const gameSlug = group.gameSlug;
+    const gameName = group.gameName;
+    const matchedGame = group.matchedGame;
+
+    // Tính toán đối chiếu chéo
+    const crossCheckCount = group.sightings.length;
+    const crossCheckSources = group.sightings.map((s) => s.src.name || s.src.url);
+
+    // Kiểm tra xung đột trạng thái giữa các nguồn (Conflicted Status)
+    const hasExpiredSighting = group.sightings.some((s) => s.codeItem.isExpired);
+    const hasActiveSighting = group.sightings.some((s) => !s.codeItem.isExpired);
+    const isConflicted = hasExpiredSighting && hasActiveSighting;
+    const conflictNote = isConflicted ? 'Xung đột trạng thái: có nguồn báo hết hạn, nguồn khác báo còn hạn' : '';
+    const isExpired = hasExpiredSighting && !hasActiveSighting;
+
+    // Kiểm tra độ tươi: nếu tất cả nguồn cào đều là bài viết cũ > 6 tháng
+    const isStaleSource = group.sightings.every((s) => s.isStaleSource);
+
+    // Ưu tiên chọn nguồn chính thức hoặc nguồn có thông tin quà chi tiết nhất làm Primary Sighting
+    const officialSighting = group.sightings.find((s) => s.src.type === 'official_fb' || s.src.type === 'official_site');
+    const primarySighting = officialSighting || group.sightings[0];
+    const extractionMethod = primarySighting.codeItem.extractionMethod || 'table_list';
+
+    // Đánh giá và chấm điểm mã theo thuật toán 4 Cấp Bậc (0 - 100 điểm)
+    const scoreResult = calculateCodeScore({
+      code: cleanCode,
+      gameMatchConfidence: group.matchConfidence,
+      sourceType: primarySighting.src.type || 'reputable_web',
+      rewards: primarySighting.codeItem.rewards,
+      expiresAt: primarySighting.codeItem.expiresAt,
+      isDuplicate: false,
+      contextText: primarySighting.title,
+      crossCheckCount,
+      crossCheckSources,
+      isConflicted,
+      conflictNote,
+      isStaleSource,
+      extractionMethod,
+      isExpired,
+    });
+
+    console.log(`   -> [${scoreResult.score}đ] Mã "${cleanCode}" | Game: ${gameName} | ${scoreResult.tierLabel} (Nguồn: ${primarySighting.src.name}, Đối chiếu: ${crossCheckCount})`);
+
+    // Phân luồng:
+    // - BẬC 1 (90 - 100 điểm): TỰ ĐỘNG ĐĂNG THẲNG LÊN WEB
+    if (scoreResult.canAutoPublish) {
+      const publishedItem = {
+        id: `fc_auto_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
+        gameId: matchedGame?.id || gameSlug,
+        gameSlug: gameSlug,
+        gameName: gameName,
+        code: cleanCode,
+        codeValue: cleanCode,
+        rewards: primarySighting.codeItem.rewards || 'Quà tân thủ & vật phẩm ingame',
+        status: 'ACTIVE',
+        type: 'EVENT',
+        sourceUrl: primarySighting.src.url,
+        sourceType: primarySighting.src.type,
+        sourceName: primarySighting.src.name,
+        score: scoreResult.score,
+        tier: 1,
+        isCrawlerAutoApproved: true,
+        expiresAt: primarySighting.codeItem.expiresAt || null,
+        extractionMethod,
+        crossCheckCount,
+        crossCheckSources,
+        scoreReasons: scoreResult.reasons,
+        isConflicted: scoreResult.isConflicted,
+        conflictNote: scoreResult.conflictNote,
+        isStaleSource: scoreResult.isStaleSource,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      };
+
+      autoApprovedList.push(publishedItem);
+      registerCode(cleanCode, gameSlug);
+    }
+    // - BẬC 2, 3 (<90 điểm & >= 50 điểm): LƯU VÀO HÀNG ĐỢI CHO ADMIN DUYỆT (Chỉ nhận mã có game xác định)
+    else if (scoreResult.score >= 50 && gameSlug !== 'unknown-game') {
+      const pendingItem = {
+        id: `pending_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
+        gameId: matchedGame?.id || gameSlug,
+        gameSlug: gameSlug,
+        gameName: gameName,
+        code: cleanCode,
+        rewards: primarySighting.codeItem.rewards || 'Chưa xác định',
+        sourceUrl: primarySighting.src.url,
+        sourceType: primarySighting.src.type,
+        sourceName: primarySighting.src.name,
+        score: scoreResult.score,
+        tier: scoreResult.tier,
+        tierLabel: scoreResult.tierLabel,
+        reasons: scoreResult.reasons,
+        status: 'PENDING',
+        expiresAt: primarySighting.codeItem.expiresAt || null,
+        extractionMethod,
+        crossCheckCount,
+        crossCheckSources,
+        scoreReasons: scoreResult.reasons,
+        isConflicted: scoreResult.isConflicted,
+        conflictNote: scoreResult.conflictNote,
+        isStaleSource: scoreResult.isStaleSource,
+        createdAt: new Date().toISOString(),
+      };
+
+      newPendingList.push(pendingItem);
+      registerCode(cleanCode, gameSlug);
+    } else {
+      lowScoreCount++;
+    }
+  }
 
   console.log('\n' + '='.repeat(65));
   console.log('📈 TỔNG KẾT KẾT QUẢ QUÉT:');

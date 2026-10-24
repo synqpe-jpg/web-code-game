@@ -10,6 +10,29 @@
 
 ## 1. DANH MỤC LỖI & CÁC BẪY ĐÃ THẤT BẠI (DO NOT REPEAT)
 
+### ISSUE-106: Bẫy Bóc Tách Trực Tiếp HTML Thô Khiến Tên Ảnh Thumbnail / Đường Dẫn URL Bị Cào Nhầm Thành Mã Giftcode & Bẫy Chấm Điểm Đơn Lẻ Không Đối Chiếu Chéo (Raw HTML Attribute Extraction Trap & Single-Source Scoring Trap)
+- **Triệu chứng**:
+  - Crawler thường xuyên cào trúng các mã "rác" không đổi thưởng được: các mảnh OCR từ ảnh (`ROLL-FISHERMAN-MOI-NHAT`, `ROLL-A-FISHERMAN-THUMBNAIL`, `FISHING-MASTER-THUMBNAIL`, `DREAM-CAR-COLLECTION-`, `COMMAND-AN-ARMY-THUMBNAIL`, `DEEP-FISHING-THUMB`), mã kiểu máy tạo (`PM360...`, `TGB...`, hex dài), mã bị gán nhầm sang tựa game khác có tên chứa chuỗi con (*Hero Clash* vs *Gear Hero Clash*), hoặc mã đã hết hạn nhưng vẫn hiển thị như mã mới.
+- **Nguyên nhân gốc rễ**:
+  1. Regex trích xuất văn bản trong `web_scraper.cjs` chạy trực tiếp trên HTML thô chưa làm sạch. Thẻ `<img>` hoặc thẻ `<a>` có đường dẫn chứa `/code-roll-a-fisherman-thumbnail.jpg` bị regex khớp nhầm `/code-` thành tiền tố giftcode.
+  2. `code_filter.cjs` coi mọi chuỗi có dấu gạch ngang và độ dài $\ge 7$ là giftcode hợp lệ, khiến các slug bài viết (kebab-case text) không bị chặn.
+  3. Crawler chấm điểm và phân loại từng mã ngay khi cào xong từng nguồn riêng lẻ, không có bước tổng hợp đối chiếu chéo (Cross-check aggregation) để biết mã có xuất hiện trên $\ge 2$ nguồn độc lập hay không.
+  4. `GameMatcher` so khớp bằng `cleanInput.includes(g.cleanName)`, khiến game có tên ngắn bị khớp nhầm khi bài viết nói về một game khác có chứa tên đó (ví dụ *Hero Clash* bị gán nhầm mã của *Gear Hero Clash*).
+- **Giải pháp chuẩn đã kiểm chứng**:
+  - Làm sạch toàn bộ thẻ `<img>`, `<picture>`, `<svg>`, `<script>`, `<style>` và các thuộc tính `src`, `href`, `class`, `style` trước khi chạy regex ngữ cảnh văn bản trong `web_scraper.cjs`.
+  - Bổ sung ranh giới chặt chẽ `(?:^|[^\w/.-])(?:code|giftcode...)` để không bao giờ khớp chuỗi nằm trong đường dẫn URL hoặc tên file.
+  - Cập nhật `code_filter.cjs`: Thêm blacklist hậu tố rác (`JUNK_SUFFIXES`), đuôi file ảnh (`FILE_EXTENSIONS`), URL path (`URL_PATTERNS`), và mẫu mã máy tạo (`MACHINE_GENERATED_PATTERNS`). Chặn toàn bộ chuỗi có $\ge 2$ dấu gạch nối không có chữ số (slug bài viết).
+  - Triển khai cơ chế gom nhóm ứng viên (`candidateGroups`) trong `run_crawler.cjs` để tính toán `crossCheckCount`. Quy định: Bậc 1 (90-100đ, Tự động đăng) BẮT BUỘC là nguồn chính thức HOẶC `crossCheckCount >= 2` và không bị xung đột, không hết hạn, không quá 6 tháng.
+  - Xử lý mã tranh cãi trạng thái (`isConflicted = true`, `conflictNote`): Khóa trần < 70 điểm (Bậc 3), bắt buộc đưa vào hàng chờ để Admin duyệt.
+  - Nâng cấp `GameMatcher`: So khớp theo ranh giới từ, ưu tiên tựa game có nhiều từ khóa trùng khớp hơn, thưởng điểm khi khớp NPH (+0.2đ) và phạt điểm khi xung đột Global vs VN (-0.4đ).
+  - Bổ sung trường lưu vết kiểm toán (`extractionMethod`, `crossCheckCount`, `crossCheckSources`, `scoreReasons`, `isConflicted`, `conflictNote`, `isStaleSource`) trên cả Ingest API và giao diện quản trị Admin `CrawlerModule.tsx`.
+- ⛔ **CÁCH SỬA ĐÃ THẤT BẠI - TUYỆT ĐỐI KHÔNG LẶP LẠI**:
+  - ❌ *Không chạy regex tìm code trực tiếp trên HTML thô chứa thuộc tính `src`, `href`*: Mọi văn bản phải được bóc tách sạch sẽ thẻ ảnh và URL attributes trước khi phân tích.
+  - ❌ *Không chấm điểm và phân luồng cục bộ trên từng nguồn đơn lẻ mà không gom nhóm đối chiếu chéo*: Luôn gom nhóm ứng viên để tính `crossCheckCount` trước khi quyết định tự động đăng.
+  - ❌ *Không chặn toàn bộ mã thuần chữ cái (all-letter words)*: Các game Roblox và quốc tế thường có mã là từ in hoa hợp lệ (`COSMETIC`, `MONGOLS`, `BATTLEREADY`). Chỉ chặn khi từ gốc là chữ thường (prose text) hoặc chứa hậu tố ngữ pháp tiếng Anh.
+
+---
+
 ### ISSUE-105: Bẫy Không Thể Tạo / Nạp Mã Cho Game Mới Chưa Có Trong Catalog Hoặc Hàng Chờ Duyệt (Missing queue_game Action & New Game Ingestion Trap)
 - **Triệu chứng**:
   - Khi bot ngoài hoặc quản trị viên gửi mã giftcode cho một tựa game mới toanh (chẳng hạn game Roblox, web game, hoặc game chưa cào từ Google Play VN), API crawler ingest trả về lỗi:

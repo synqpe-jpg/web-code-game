@@ -87,6 +87,7 @@ class FacebookScraper {
           code: rawCode,
           rewards: `Quà tặng sự kiện Fanpage ${pageName || ''}`.trim(),
           expiresAt: null,
+          extractionMethod: 'official_post',
         });
       }
     }
@@ -102,6 +103,7 @@ class FacebookScraper {
           code: rawCode,
           rewards: rawReward || `Quà tặng Fanpage ${pageName || ''}`.trim(),
           expiresAt: null,
+          extractionMethod: 'official_post',
         });
       }
     }
@@ -122,6 +124,7 @@ class FacebookScraper {
               code: rawCode,
               rewards: `Quà tặng sự kiện Fanpage ${pageName || ''}`.trim(),
               expiresAt: null,
+              extractionMethod: 'official_post',
             });
           }
         }
@@ -212,7 +215,7 @@ class FacebookScraper {
         const res = await fetchHttp(fbUrl, 5000);
         if (res && res.status === 200 && res.body && res.body.length > 500) {
           // Chỉ trích xuất từ bảng HTML mã giftcode thực sự (extractCodesFromHtml), không parse thô toàn trang HTML
-          const tableCodes = extractCodesFromHtml(res.body);
+          const tableCodes = extractCodesFromHtml(res.body, { gameSlug, gameName });
           if (Array.isArray(tableCodes)) {
             for (const c of tableCodes) {
               if (this.isValidCode(c.code, gameSlug, gameName) && !seenCodes.has(c.code)) {
@@ -221,6 +224,8 @@ class FacebookScraper {
                   code: c.code,
                   rewards: c.rewards || `Quà tặng sự kiện Fanpage ${pageName}`,
                   expiresAt: c.expiresAt || null,
+                  extractionMethod: c.extractionMethod || 'table_list',
+                  isExpired: Boolean(c.isExpired),
                 });
               }
             }

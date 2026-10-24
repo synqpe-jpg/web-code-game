@@ -73,6 +73,13 @@ interface PendingCrawlerCode {
   status: 'PENDING' | 'APPROVED' | 'REJECTED';
   expiresAt?: string;
   createdAt: string;
+  extractionMethod?: string;
+  crossCheckCount?: number;
+  crossCheckSources?: string[];
+  scoreReasons?: string[];
+  isConflicted?: boolean;
+  conflictNote?: string;
+  isStaleSource?: boolean;
 }
 
 // CrawlerSource imported from types/game
@@ -2155,6 +2162,27 @@ export const CrawlerModule: React.FC<CrawlerModuleProps> = ({ onShowToast }) => 
                           <td className="py-2.5 px-3">
                             <div className="space-y-0.5">
                               {getTierBadge(item.tier, item.score)}
+                              {item.isConflicted && (
+                                <div>
+                                  <span className="inline-block text-[9px] bg-amber-500/20 text-amber-300 border border-amber-500/30 px-1.5 py-0.5 rounded font-medium" title={item.conflictNote || 'Tranh cãi trạng thái'}>
+                                    ⚠️ Tranh cãi
+                                  </span>
+                                </div>
+                              )}
+                              {item.isStaleSource && (
+                                <div>
+                                  <span className="inline-block text-[9px] bg-slate-800 text-slate-400 border border-slate-700 px-1.5 py-0.5 rounded font-medium">
+                                    ⏳ Nguồn cũ (&gt;6th)
+                                  </span>
+                                </div>
+                              )}
+                              {Boolean(item.crossCheckCount && item.crossCheckCount >= 2) && (
+                                <div>
+                                  <span className="inline-block text-[9px] bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 px-1.5 py-0.5 rounded font-medium" title={item.crossCheckSources?.join(', ')}>
+                                    ✓ Đối chiếu {item.crossCheckCount} nguồn
+                                  </span>
+                                </div>
+                              )}
                               {isJunkCrawlerCode(item) && (
                                 <div>
                                   <span className="inline-block text-[9px] bg-rose-500/20 text-rose-300 border border-rose-500/30 px-1.5 py-0.5 rounded font-medium">
@@ -2162,8 +2190,8 @@ export const CrawlerModule: React.FC<CrawlerModuleProps> = ({ onShowToast }) => 
                                   </span>
                                 </div>
                               )}
-                              <div className="text-[10px] text-slate-400 truncate max-w-[110px]" title={item.reasons?.join(', ')}>
-                                {item.reasons?.[0] || 'Cần kiểm tra'}
+                              <div className="text-[10px] text-slate-400 truncate max-w-[120px]" title={(item.scoreReasons || item.reasons)?.join(', ')}>
+                                {(item.scoreReasons || item.reasons)?.[0] || 'Cần kiểm tra'}
                               </div>
                             </div>
                           </td>
@@ -2221,30 +2249,39 @@ export const CrawlerModule: React.FC<CrawlerModuleProps> = ({ onShowToast }) => 
                               const sourceInfo = getCrawlerSourceInfo(item);
                               const isCurrentFilter = pendingSourceFilter === sourceInfo.key;
                               return (
-                                <div className="flex items-center gap-1 text-xs text-slate-400 min-w-0">
-                                  <div className="shrink-0">{getSourceIcon(item.sourceType)}</div>
-                                  <button
-                                    type="button"
-                                    onClick={() => setPendingSourceFilter(isCurrentFilter ? 'ALL' : sourceInfo.key)}
-                                    className={`truncate text-[11px] text-left transition-colors cursor-pointer ${
-                                      isCurrentFilter
-                                        ? 'text-indigo-300 font-bold underline'
-                                        : 'hover:text-indigo-300 hover:underline'
-                                    }`}
-                                    title={`Click để ${isCurrentFilter ? 'bỏ lọc' : `lọc tất cả mã từ ${sourceInfo.label}`}`}
-                                  >
-                                    {item.sourceName || sourceInfo.label}
-                                  </button>
-                                  {item.sourceUrl && (
-                                    <a
-                                      href={item.sourceUrl}
-                                      target="_blank"
-                                      rel="noreferrer"
-                                      className="text-slate-500 hover:text-indigo-400 shrink-0 p-0.5"
-                                      title="Mở nguồn cào"
+                                <div className="flex flex-col gap-0.5 min-w-0">
+                                  <div className="flex items-center gap-1 text-xs text-slate-400 min-w-0">
+                                    <div className="shrink-0">{getSourceIcon(item.sourceType)}</div>
+                                    <button
+                                      type="button"
+                                      onClick={() => setPendingSourceFilter(isCurrentFilter ? 'ALL' : sourceInfo.key)}
+                                      className={`truncate text-[11px] text-left transition-colors cursor-pointer ${
+                                        isCurrentFilter
+                                          ? 'text-indigo-300 font-bold underline'
+                                          : 'hover:text-indigo-300 hover:underline'
+                                      }`}
+                                      title={`Click để ${isCurrentFilter ? 'bỏ lọc' : `lọc tất cả mã từ ${sourceInfo.label}`}`}
                                     >
-                                      <ExternalLink className="w-3 h-3" />
-                                    </a>
+                                      {item.sourceName || sourceInfo.label}
+                                    </button>
+                                    {item.sourceUrl && (
+                                      <a
+                                        href={item.sourceUrl}
+                                        target="_blank"
+                                        rel="noreferrer"
+                                        className="text-slate-500 hover:text-indigo-400 shrink-0 p-0.5"
+                                        title="Mở nguồn cào"
+                                      >
+                                        <ExternalLink className="w-3 h-3" />
+                                      </a>
+                                    )}
+                                  </div>
+                                  {item.extractionMethod && (
+                                    <div>
+                                      <span className="text-[9px] px-1.5 py-0.5 rounded bg-slate-800 text-slate-400 border border-slate-700 font-mono">
+                                        {item.extractionMethod === 'official_post' ? 'NPH Official' : item.extractionMethod === 'table_list' ? 'Bảng mã' : 'Ngữ cảnh'}
+                                      </span>
+                                    </div>
                                   )}
                                 </div>
                               );

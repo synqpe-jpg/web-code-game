@@ -11,7 +11,7 @@
 
 // 1. TẬP HỢP TỪ CẤM & TỪ VỰNG THÔNG DỤNG (STOP WORDS / JUNK WORDS)
 const JUNK_WORDS_SET = new Set([
-  // The 4 culprits and common false positives from game guides
+  // The culprits and common false positives from game guides
   'HELPER', 'ALREADY', 'MEANS', 'WITHOUT', 'SYSTEM', 'WARRIOR', 'FEATURE', 'FEATURES',
   'ACCOUNT', 'OPTION', 'OPTIONS', 'CHOOSE', 'SELECT', 'CREATE', 'SETTING', 'SETTINGS',
   'REQUIRE', 'REQUIRES', 'FOLLOW', 'MESSAGE', 'COMMENT', 'ANSWER', 'ANSWERS', 'QUESTION', 'QUESTIONS',
@@ -34,6 +34,9 @@ const JUNK_WORDS_SET = new Set([
   'CHECKLIST', 'EXCHANGE', 'REVIEW', 'REVIEWING', 'READING', 'BELIEVE', 'SOMEBODY', 'BESIDE',
   'REDEEMING', 'REDEEMED', 'TRIED', 'FLAGGED', 'UNUSED', 'EXPIRED', 'EXPIRES', 'ACTIVE',
   'INACTIVE', 'UNLOCKED', 'LOCKED', 'COMING', 'SOON', 'TOOLS', 'TOOL', 'SEARCH', 'SEARCHING',
+  'THUMBNAIL', 'THUMB', 'THUMBS', 'COVER', 'BANNER', 'AVATAR', 'PICTURE', 'IMAGE', 'IMAGES',
+  'SCREENSHOT', 'PHOTO', 'PREVIEW', 'ICON', 'ICONS', 'SLUG', 'ARTICLE', 'POST', 'POSTS',
+  'FISHING', 'FISHERMAN', 'COLLECTION', 'MASTER', 'BUILD', 'KILL',
 
   // UI Actions & Prepositions (English)
   'TYPE', 'BELOW', 'OFFERS', 'OFFER', 'FROM', 'WITH', 'WITHIN', 'WILL', 'MIGHT', 'WORKS', 'WORKING', 'WORK',
@@ -78,6 +81,18 @@ const JUNK_WORDS_SET = new Set([
 // Tiền tố giftcode chuẩn được công nhận
 const VALID_CODE_PREFIXES = /^(VIP|SVIP|CODE|GIFT|TANTHU|TRIAN|FREE|NEW|HOT|PROMO|KAME|HAPPY|WELCOME|DISCORD|FB|LUCKY|REWARD|LAUNCH|RELEASE|SPECIAL|SUMMER|WINTER|SPRING|AUTUMN|XMAS|CHRISTMAS|HALLOWEEN|ANNIVERSARY|UPDATE|OPEN|BETA|ALPHA)/i;
 
+// Hậu tố rác và định dạng file/thumbnail thường bị cào nhầm từ ảnh/URL
+const JUNK_SUFFIXES = /-(?:THUMBNAIL|THUMB|THUMBS|MOI-NHAT|HOM-NAY|NGAY-HOM-NAY|MOI|APK|IOS|ANDROID|MOD|HACK|FULL|BANNER|COVER|LOGO|ICON|ICONS|IMAGE|IMAGES|PHOTO|PIC|PICS|AVATAR|PREVIEW|POST|DETAIL|CARD|SAMPLE)$/i;
+
+// Định dạng đuôi file ảnh, trang web
+const FILE_EXTENSIONS = /\.(?:JPG|PNG|WEBP|GIF|JPEG|SVG|HTML|HTM|PHP|ASPX|JS|CSS)$/i;
+
+// Dấu hiệu URL / web path
+const URL_PATTERNS = /(?:HTTP|HTTPS|WWW|\.COM|\.VN|\.NET|\.ORG|\.IO|\.ME|STORAGE|MEDIA|WP-CONTENT|UPLOADS|IMAGES\/|TAG\/|CATEGORY\/|BLOG\/|SFORUM|CELLPHONES)/i;
+
+// Mẫu mã máy tạo (Machine-generated hex / fake codes)
+const MACHINE_GENERATED_PATTERNS = /^(?:PM360|TGB|DOWNLOAD|CRACK|KEYGEN|SERIAL|FREECODE)[0-9A-F]{6,}$/i;
+
 // Hậu tố từ loại tiếng Anh thông dụng (Suffixes)
 const ENGLISH_WORD_SUFFIXES = /(?:TION|SION|MENT|NESS|ABLE|IBLE|LESS|FULLY|FULL|INGS|ING|ED|EST|IST|ISM|ITY|SHIP|HOOD|WARD|WISE|ERS|ORS|ER|OR|LY|OUS|IVE|ANCE|ENCE)$/i;
 
@@ -111,6 +126,22 @@ function isValidGiftCode(rawCode, options = {}) {
   // 2. Ký tự hợp lệ (chỉ gồm chữ in hoa, số, dấu gạch ngang hoặc gạch dưới)
   if (!/^[A-Z0-9_-]+$/.test(clean)) return false;
 
+  // Loại trừ ký tự gạch đầu hoặc gạch đuôi (vd: DREAM-CAR-COLLECTION-)
+  if (/^[_-]|[_-]$/.test(clean)) return false;
+
+  // Loại trừ hậu tố rác (vd: -THUMBNAIL, -MOI-NHAT, -THUMB, -AVATAR)
+  if (JUNK_SUFFIXES.test(clean)) return false;
+
+  // Loại trừ phần mở rộng file (vd: .jpg, .png, .webp, .html)
+  if (FILE_EXTENSIONS.test(clean) || FILE_EXTENSIONS.test(rawTrimmed)) return false;
+
+  // Loại trừ dấu hiệu URL / web path (vd: sforum, storage, http, .com)
+  if (URL_PATTERNS.test(clean) || URL_PATTERNS.test(rawTrimmed)) return false;
+
+  // Loại trừ mã máy tạo giả mạo (vd: PM360..., TGB..., hex hash dài >= 14 ký tự)
+  if (MACHINE_GENERATED_PATTERNS.test(clean)) return false;
+  if (/^[0-9A-F]{14,}$/i.test(clean) && !VALID_CODE_PREFIXES.test(clean)) return false;
+
   // 3. Không nằm trong Blacklist / Stop words
   if (JUNK_WORDS_SET.has(clean)) return false;
 
@@ -129,32 +160,32 @@ function isValidGiftCode(rawCode, options = {}) {
   // 6. Loại trừ chuỗi lặp ký tự đơn điệu (như AAAAA, 11111, -----)
   if (/^(.)\1{3,}$/.test(clean)) return false;
 
-  // 7. KIỂM TRA NGHIÊM NGẶT MÃ THUẦN CHỮ CÁI (KHÔNG CÓ CHỮ SỐ):
+  // 7. KIỂM TRA MÃ CÓ DẤU PHÂN CÁCH (HYPHENATED SLUG VS REAL CODE):
+  if ((clean.includes('-') || clean.includes('_')) && !/\d/.test(clean)) {
+    const delimiterCount = (clean.match(/[-_]/g) || []).length;
+    // Có từ 2 dấu phân cách trở lên mà không có số -> 100% là slug bài viết / tiêu đề (vd: huong-dan-nhap-code, roll-a-fisherman)
+    if (delimiterCount >= 2) {
+      return false;
+    }
+    // Có 1 dấu phân cách: chỉ chấp nhận nếu bắt đầu bằng tiền tố quà tặng chuẩn và không chứa từ rác
+    const hasPrefix = VALID_CODE_PREFIXES.test(clean);
+    const parts = clean.split(/[-_]/);
+    if (!hasPrefix || parts.some(p => JUNK_WORDS_SET.has(p))) {
+      return false;
+    }
+  }
+
+  // 8. KIỂM TRA NGHIÊM NGẶT MÃ THUẦN CHỮ CÁI (KHÔNG CÓ CHỮ SỐ):
   const isAllLetters = !/\d/.test(clean);
   if (isAllLetters) {
-    // Có tiền tố quà tặng chuẩn không? (VIP, SVIP, GIFT, CODE, TANTHU, LAUNCH...)
-    const hasPrefix = VALID_CODE_PREFIXES.test(clean);
-
-    // Có chứa dấu phân cách '-' hoặc '_' và độ dài >= 7 không?
-    const hasDelimiter = (clean.includes('-') || clean.includes('_')) && clean.length >= 7;
-
-    // Có bắt đầu bằng chữ viết tắt của game không? (Ví dụ: WWM cho Where Winds Meet)
-    const gameName = (options.gameName || '').trim();
-    const gameAcronym = extractGameAcronym(gameName);
-    const hasGameAcronym = Boolean(gameAcronym && gameAcronym.length >= 3 && clean.startsWith(gameAcronym));
-
-    // NẾU MÃ THUẦN CHỮ CÁI MÀ:
-    // - Không có tiền tố quà tặng chuẩn
-    // - Không có dấu phân cách
-    // - Không bắt đầu bằng viết tắt tựa game
-    // -> 100% LÀ TỪ VỰNG TIẾNG ANH / VIỆT THÔNG THƯỜNG -> TỪ CHỐI NGAY LẬP TỨC!
-    if (!hasPrefix && !hasDelimiter && !hasGameAcronym) {
+    // Nếu từ gốc là chữ thường (như 'already', 'means', 'without', 'warrior') -> đó là từ văn xuôi (prose), loại ngay
+    if (isOriginalAllLowercase) {
       return false;
     }
 
-    // Nếu mang hậu tố ngữ pháp tiếng Anh thông dụng (như -ER, -LY, -ING, -TION, -ED...)
-    // mà không có tiền tố quà tặng chuẩn hoặc viết tắt game:
-    if (ENGLISH_WORD_SUFFIXES.test(clean) && !hasPrefix && !hasGameAcronym) {
+    // Nếu mang hậu tố ngữ pháp tiếng Anh thông dụng (như -TION, -SION, -MENT, -NESS, -ABLE, -FULLY...)
+    // mà không có tiền tố quà tặng chuẩn:
+    if (ENGLISH_WORD_SUFFIXES.test(clean) && !VALID_CODE_PREFIXES.test(clean)) {
       return false;
     }
   }
@@ -163,6 +194,15 @@ function isValidGiftCode(rawCode, options = {}) {
   const gameSlug = (options.gameSlug || '').toUpperCase();
   if (gameSlug) {
     if (clean === gameSlug || clean === gameSlug.replace(/-/g, '')) return false;
+
+    // Loại trừ ảnh đánh số theo slug game (vd: GUN-X-MOBILE-1, GUN-X-MOBILE-2)
+    if (clean.startsWith(gameSlug + '-') || clean.startsWith(gameSlug.replace(/-/g, '') + '-')) {
+      const remainder = clean.replace(gameSlug, '').replace(gameSlug.replace(/-/g, ''), '').replace(/^[-_]+/, '');
+      if (/^\d+$/.test(remainder) || JUNK_WORDS_SET.has(remainder)) {
+        return false;
+      }
+    }
+
     const slugParts = gameSlug.split('-');
     if (slugParts.some(p => p.length >= 3 && clean === p)) return false;
   }

@@ -418,6 +418,13 @@ interface ExtractedCodeItem {
   expiresAt: string | null;
   isExpired: boolean;
   rawStatus?: string;
+  extractionMethod?: string;
+  crossCheckCount?: number;
+  crossCheckSources?: string[];
+  scoreReasons?: string[];
+  isConflicted?: boolean;
+  conflictNote?: string;
+  isStaleSource?: boolean;
 }
 
 /**
@@ -438,7 +445,7 @@ function extractCodesFromPayload(item: any): Array<ExtractedCodeItem> {
     item.hsd ||
     item.han_su_dung;
 
-  const parseItemCode = (rawCode: any, rawReward?: any, rawExp?: any, rawStatus?: any) => {
+  const parseItemCode = (rawCode: any, rawReward?: any, rawExp?: any, rawStatus?: any, extra: any = {}) => {
     const val = String(rawCode || '').trim().toUpperCase().replace(/^#/, '');
     if (val.length < 3 || val.length > 40) return;
 
@@ -461,6 +468,13 @@ function extractCodesFromPayload(item: any): Array<ExtractedCodeItem> {
       expiresAt: formattedExpiry,
       isExpired,
       rawStatus: explicitStatus ? String(explicitStatus) : undefined,
+      extractionMethod: extra.extractionMethod || item.extractionMethod || 'api',
+      crossCheckCount: extra.crossCheckCount || item.crossCheckCount || 1,
+      crossCheckSources: extra.crossCheckSources || item.crossCheckSources || [],
+      scoreReasons: extra.scoreReasons || extra.reasons || item.scoreReasons || item.reasons || [],
+      isConflicted: extra.isConflicted !== undefined ? Boolean(extra.isConflicted) : Boolean(item.isConflicted),
+      conflictNote: extra.conflictNote || item.conflictNote || '',
+      isStaleSource: extra.isStaleSource !== undefined ? Boolean(extra.isStaleSource) : Boolean(item.isStaleSource),
     });
   };
 
@@ -484,14 +498,14 @@ function extractCodesFromPayload(item: any): Array<ExtractedCodeItem> {
           c.han_su_dung ||
           c.hanSuDung;
         const status = c.status || c.statusValue || c.trangThai || c.trang_thai;
-        parseItemCode(val, rewards, exp, status);
+        parseItemCode(val, rewards, exp, status, c);
       }
     }
   }
 
   // Trường hợp 2: Single code property
   if (item.code && typeof item.code === 'string') {
-    parseItemCode(item.code, item.rewards, defaultRawExp, item.status);
+    parseItemCode(item.code, item.rewards, defaultRawExp, item.status, item);
   }
 
   // Trường hợp 3: Khối văn bản thô (rawText) chứa nhiều code cách nhau bằng dấu phẩy hoặc xuống dòng
@@ -503,7 +517,7 @@ function extractCodesFromPayload(item: any): Array<ExtractedCodeItem> {
 
     for (const val of tokens) {
       if (!result.some((r) => r.code === val)) {
-        parseItemCode(val, item.rewards, defaultRawExp, item.status);
+        parseItemCode(val, item.rewards, defaultRawExp, item.status, item);
       }
     }
   }
@@ -1424,6 +1438,16 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
           source: item.sourceName || item.sourceUrl || item.sourceType || item.source || 'Crawler',
           created_at: item.createdAt || item.created_at || new Date().toISOString(),
           expires_at: item.expiresAt || item.expires_at || null,
+          score: item.score,
+          tier: item.tier,
+          tierLabel: item.tierLabel,
+          reasons: item.reasons || item.scoreReasons,
+          extractionMethod: item.extractionMethod,
+          crossCheckCount: item.crossCheckCount,
+          crossCheckSources: item.crossCheckSources,
+          isConflicted: item.isConflicted,
+          conflictNote: item.conflictNote,
+          isStaleSource: item.isStaleSource,
         });
       }
 
@@ -2255,6 +2279,13 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
           expiry: c.expiresAt,
           sourceUrl: rawItem.sourceUrl || `https://codegame.shop/game/${gameSlug}`,
           source: rawItem.source || auth.botName || 'Muse External Ingest API',
+          extractionMethod: c.extractionMethod || 'api',
+          crossCheckCount: c.crossCheckCount || 1,
+          crossCheckSources: c.crossCheckSources || (rawItem.source ? [rawItem.source] : []),
+          scoreReasons: c.scoreReasons || [],
+          isConflicted: Boolean(c.isConflicted),
+          conflictNote: c.conflictNote || '',
+          isStaleSource: Boolean(c.isStaleSource),
           copyCount: 100 + Math.floor(Math.random() * 200),
           createdAt: nowIso,
           created_at: nowIso,
