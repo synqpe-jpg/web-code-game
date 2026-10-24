@@ -108,8 +108,15 @@ async function authenticateRequest(request: Request, env: Env): Promise<CrawlerA
       if (configuredKey && token === configuredKey) {
         return { authorized: true, botName: apiConfig?.botName || 'External Bot', role: 'crawler_writer' };
       }
-    } catch (err) {
+    } catch (err: any) {
       console.error('[IngestCodes] Lỗi đọc cấu hình API từ D1:', err);
+      return {
+        authorized: false,
+        botName: '',
+        role: 'crawler_writer',
+        status: 503,
+        error: 'Không xác minh được key do kho dữ liệu tạm thời không đọc được (D1 database unavailable / quota exceeded). Dữ liệu được bảo toàn an toàn, vui lòng không xoay key.',
+      };
     }
   }
 
@@ -780,7 +787,7 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
         error: auth.error || 'Truy cập bị từ chối.',
         hint: 'Cung cấp API Key qua Header "Authorization: Bearer <KEY>" hoặc "X-API-Key: <KEY>"',
       }),
-      { status: 401, headers: CORS_HEADERS }
+      { status: auth.status || 401, headers: CORS_HEADERS }
     );
   }
 

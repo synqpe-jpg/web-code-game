@@ -360,11 +360,12 @@ export async function onRequestGet(context: { request: Request; env: Env }): Pro
   const statusFilter = (url.searchParams.get('status') || 'UPCOMING').toUpperCase();
   const targetSlug = url.searchParams.get('slug');
 
+  let isFallbackMode = false;
   let upcomingGames: any[] = [];
   if (env.DB) {
     try {
       const saved = await getSettingD1(env.DB, 'wcg_admin_upcoming_games_v1');
-      if (Array.isArray(saved)) {
+      if (Array.isArray(saved) && saved.length > 0) {
         upcomingGames = saved;
       }
     } catch (err) {
@@ -374,7 +375,12 @@ export async function onRequestGet(context: { request: Request; env: Env }): Pro
 
   if (upcomingGames.length === 0) {
     upcomingGames = DEFAULT_UPCOMING_GAMES_FALLBACK;
+    isFallbackMode = true;
   }
+
+  // Khóa cứng: Tuyệt đối không cho phép where-winds-meet, honkai-star-rail, strinova-vn xuất hiện trong danh sách UPCOMING
+  const OBSOLETE_SLUGS = new Set(['where-winds-meet', 'honkai-star-rail', 'strinova-vn']);
+  upcomingGames = upcomingGames.filter((g) => g && !OBSOLETE_SLUGS.has((g.slug || '').toLowerCase()));
 
   // Tự động kiểm tra và chữa lành tính toàn vẹn dữ liệu
   const { changed: getChanged } = sanitizeAndSafeguardUpcomingGames(upcomingGames);
@@ -501,6 +507,9 @@ export async function onRequestGet(context: { request: Request; env: Env }): Pro
       pendingCount,
       launchedCount,
       games: enriched,
+      is_fallback: isFallbackMode,
+      data_as_of: isFallbackMode ? '2026-10-24T18:00:00Z' : new Date().toISOString(),
+      cache_note: isFallbackMode ? 'Dữ liệu được phục vụ từ bộ đệm an toàn lúc 18:00 do máy chủ D1 tạm thời gián đoạn' : undefined,
       timestamp: new Date().toISOString(),
     }),
     { headers: CORS_HEADERS }

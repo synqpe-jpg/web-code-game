@@ -1598,10 +1598,22 @@ export function getCanonicalSettingFallback<T = any>(key: string): T | null {
   return null;
 }
 
+interface SettingMemoryCacheEntry {
+  val: any;
+  cachedAt: number;
+}
+const settingMemoryCache = new Map<string, SettingMemoryCacheEntry>();
+const SETTING_MEMORY_CACHE_TTL = 60 * 1000; // 60 seconds
+
 /**
- * Read system setting / document from D1 with durable authoritative fallback
+ * Read system setting / document from D1 with durable authoritative fallback and memory cache
  */
 export async function getSettingD1<T = any>(db: D1Database, key: string, defaultValue: T | null = null): Promise<T | null> {
+  const mem = settingMemoryCache.get(key);
+  if (mem && Date.now() - mem.cachedAt < SETTING_MEMORY_CACHE_TTL) {
+    return mem.val as T;
+  }
+
   const fallback = getCanonicalSettingFallback<T>(key);
   try {
     await ensureSchemaUpgrades(db);
@@ -1610,23 +1622,31 @@ export async function getSettingD1<T = any>(db: D1Database, key: string, default
       try {
         const parsed = JSON.parse(row.value) as T;
         if (Array.isArray(parsed) && parsed.length === 0 && fallback && Array.isArray(fallback) && fallback.length > 0) {
+          settingMemoryCache.set(key, { val: fallback, cachedAt: Date.now() });
           return fallback;
         }
+        settingMemoryCache.set(key, { val: parsed, cachedAt: Date.now() });
         return parsed;
       } catch {
+        settingMemoryCache.set(key, { val: row.value, cachedAt: Date.now() });
         return row.value as unknown as T;
       }
     }
   } catch (err: any) {
     console.warn('[getSettingD1 error]', key, err?.message);
   }
-  return fallback !== null ? fallback : defaultValue;
+  const finalVal = fallback !== null ? fallback : defaultValue;
+  if (finalVal !== null) {
+    settingMemoryCache.set(key, { val: finalVal, cachedAt: Date.now() });
+  }
+  return finalVal;
 }
 
 /**
  * Write / Upsert system setting into D1 (Zero KV write)
  */
 export async function setSettingD1(db: D1Database, key: string, value: any): Promise<void> {
+  settingMemoryCache.set(key, { val: value, cachedAt: Date.now() });
   try {
     await ensureSchemaUpgrades(db);
     const strVal = typeof value === 'string' ? value : JSON.stringify(value);
@@ -1643,24 +1663,36 @@ export async function setSettingD1(db: D1Database, key: string, value: any): Pro
 }
 
 /**
- * Read multiple system settings from D1 in one go with durable authoritative fallback
+ * Read multiple system settings from D1 in one go with durable authoritative fallback and memory cache
  */
 export async function getMultipleSettingsD1(db: D1Database, keys: string[]): Promise<Record<string, any>> {
   const result: Record<string, any> = {};
   if (!keys || keys.length === 0) return result;
 
-  // Pre-seed with authoritative fallbacks
+  const missingKeys: string[] = [];
+  const now = Date.now();
+
   for (const k of keys) {
-    const fb = getCanonicalSettingFallback(k);
-    if (fb !== null) {
-      result[k] = fb;
+    const mem = settingMemoryCache.get(k);
+    if (mem && now - mem.cachedAt < SETTING_MEMORY_CACHE_TTL) {
+      result[k] = mem.val;
+    } else {
+      missingKeys.push(k);
+      const fb = getCanonicalSettingFallback(k);
+      if (fb !== null) {
+        result[k] = fb;
+      }
     }
+  }
+
+  if (missingKeys.length === 0) {
+    return result;
   }
 
   try {
     await ensureSchemaUpgrades(db);
-    const placeholders = keys.map(() => '?').join(',');
-    const rows = await db.prepare(`SELECT key, value FROM system_settings WHERE key IN (${placeholders})`).bind(...keys).all<any>();
+    const placeholders = missingKeys.map(() => '?').join(',');
+    const rows = await db.prepare(`SELECT key, value FROM system_settings WHERE key IN (${placeholders})`).bind(...missingKeys).all<any>();
     if (rows && rows.results) {
       for (const r of rows.results) {
         if (r && r.key) {
@@ -1668,17 +1700,20 @@ export async function getMultipleSettingsD1(db: D1Database, keys: string[]): Pro
             const parsed = JSON.parse(r.value);
             if (Array.isArray(parsed) && parsed.length === 0 && result[r.key] && Array.isArray(result[r.key]) && result[r.key].length > 0) {
               // Retain durable fallback
+              settingMemoryCache.set(r.key, { val: result[r.key], cachedAt: now });
             } else {
               result[r.key] = parsed;
+              settingMemoryCache.set(r.key, { val: parsed, cachedAt: now });
             }
           } catch {
             result[r.key] = r.value;
+            settingMemoryCache.set(r.key, { val: r.value, cachedAt: now });
           }
         }
       }
     }
   } catch (err: any) {
-    console.warn('[getMultipleSettingsD1 error]', err?.message);
+    console.warn('[getMultipleSettingsD1 error]', missingKeys.join(','), err?.message);
   }
   return result;
 }

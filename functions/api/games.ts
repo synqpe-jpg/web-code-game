@@ -88,10 +88,14 @@ interface CatalogCache {
 }
 
 let catalogCache: CatalogCache | null = null;
-const CACHE_TTL_MS = 60 * 1000; // 60 seconds fast in-worker cache to protect Cloudflare D1 quota
+const CACHE_TTL_MS = 120 * 1000; // 120 seconds fast in-worker cache to protect Cloudflare D1 quota
+
+// Single-game in-memory cache to eliminate repeated D1 queries on game detail pages
+const singleGameCache = new Map<string, { game: GameItem; expiresAt: number }>();
 
 export function invalidateGamesCatalogCache(): void {
   catalogCache = null;
+  singleGameCache.clear();
 }
 
 /**
@@ -465,6 +469,25 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
       const cleanSlug = requestedSlug.trim().toLowerCase();
       const cleanWithoutMobile = cleanSlug.replace(/-mobile$/i, '');
 
+      if (!forceFresh) {
+        const cached = singleGameCache.get(cleanSlug) || singleGameCache.get(cleanWithoutMobile);
+        if (cached && Date.now() < cached.expiresAt) {
+          return new Response(
+            JSON.stringify({
+              success: true,
+              game: cached.game,
+            }),
+            {
+              headers: {
+                ...CORS_HEADERS,
+                'Cache-Control': 'public, max-age=60, s-maxage=300, stale-while-revalidate=600',
+                'X-Cache-Source': 'edge-memory',
+              },
+            }
+          );
+        }
+      }
+
       // Tra cứu trực tiếp trong bảng games trên D1
       const gameRow = await env.DB.prepare(
         'SELECT * FROM games WHERE slug = ? OR id = ? OR slug = ? LIMIT 1'
@@ -596,6 +619,9 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
           codes_pool_complete: true,
         };
 
+        singleGameCache.set(cleanSlug, { game: authoritativeGame, expiresAt: Date.now() + 120000 });
+        singleGameCache.set(cleanWithoutMobile, { game: authoritativeGame, expiresAt: Date.now() + 120000 });
+
         return new Response(
           JSON.stringify({
             success: true,
@@ -604,7 +630,7 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
           {
             headers: {
               ...CORS_HEADERS,
-              'Cache-Control': forceFresh ? 'no-cache, no-store, must-revalidate' : 'public, max-age=60, s-maxage=120, stale-while-revalidate=300',
+              'Cache-Control': forceFresh ? 'no-cache, no-store, must-revalidate' : 'public, max-age=60, s-maxage=300, stale-while-revalidate=600',
             },
           }
         );
@@ -614,6 +640,30 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
       const catalog = await getLoadedCatalog(env.DB, forceFresh, true);
       const rawFound = findMatchingGameInList(catalog.allRawGames, cleanSlug, cleanWithoutMobile);
       if (!rawFound) {
+        // Fallback khẩn cấp từ Canonical Datasets khi D1 mất kết nối hoặc chạm trần đọc
+        const staticGame = (fallbackGamesData as any[]).find((g: any) =>
+          (g.slug || '').toLowerCase() === cleanSlug ||
+          (g.id || '').toLowerCase() === cleanSlug ||
+          (g.slug || '').toLowerCase() === cleanWithoutMobile
+        );
+        if (staticGame) {
+          const matchedGame = formatGameItem(staticGame, staticGame.codes || []);
+          const finalGame = { ...matchedGame, codes_pool_complete: true };
+          singleGameCache.set(cleanSlug, { game: finalGame, expiresAt: Date.now() + 120000 });
+          return new Response(
+            JSON.stringify({
+              success: true,
+              game: finalGame,
+              note: 'Dữ liệu được bảo toàn từ bản sao lưu hợp lệ (D1 offline safeguard)',
+            }),
+            {
+              headers: {
+                ...CORS_HEADERS,
+                'Cache-Control': 'public, max-age=60, s-maxage=300',
+              },
+            }
+          );
+        }
         return new Response(
           JSON.stringify({ success: false, error: 'Không tìm thấy trò chơi.' }),
           { status: 404, headers: CORS_HEADERS }
