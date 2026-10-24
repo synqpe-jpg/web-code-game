@@ -109,9 +109,9 @@ export const Header: React.FC<HeaderProps> = ({
     };
   }, []);
 
-  // Click outside listener for User dropdown
+  // Click outside listener for User dropdown (supports mouse and touch)
   useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
+    const handleClickOutside = (event: MouseEvent | TouchEvent) => {
       if (
         userMenuRef.current &&
         !userMenuRef.current.contains(event.target as Node)
@@ -120,13 +120,17 @@ export const Header: React.FC<HeaderProps> = ({
       }
     };
     document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
+    document.addEventListener('touchstart', handleClickOutside, { passive: true });
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+      document.removeEventListener('touchstart', handleClickOutside);
+    };
   }, []);
 
   return (
     <header
-      className="sticky top-0 z-50 w-full max-w-full box-border bg-background/95 backdrop-blur-md border-b border-border shadow-md shadow-black/10 transition-all"
-      style={{ position: 'sticky', top: 0, zIndex: 50 }}
+      className="sticky top-0 z-50 w-full max-w-full box-border bg-background/95 backdrop-blur-md border-b border-border shadow-md shadow-black/10 transition-all overflow-visible"
+      style={{ position: 'sticky', top: 0, zIndex: 50, overflow: 'visible' }}
     >
       <div className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8">
         <div className="flex items-center justify-between h-14 sm:h-18 gap-2 sm:gap-4">
@@ -343,7 +347,7 @@ export const Header: React.FC<HeaderProps> = ({
 
                   {isUserMenuOpen && (
                     <div
-                      className="absolute right-0 mt-2 w-64 bg-card border border-border/90 rounded-2xl shadow-2xl p-2 z-[100] animate-scale-in text-xs space-y-1"
+                      className="absolute right-0 mt-2 w-64 max-h-[calc(100vh-5rem)] max-w-[calc(100vw-1rem)] overflow-y-auto bg-card border border-border/90 rounded-2xl shadow-2xl p-2 z-[100] animate-scale-in text-xs space-y-1 scrollbar-thin"
                     >
                       {/* User Info Header - Clickable to open Profile */}
                       <button

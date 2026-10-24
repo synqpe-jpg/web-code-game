@@ -10,6 +10,22 @@
 
 ## 1. DANH MỤC LỖI & CÁC BẪY ĐÃ THẤT BẠI (DO NOT REPEAT)
 
+### ISSUE-102: Bẫy Đặt `overflow: hidden` và `max-height` Trên Header Khiến Các Menu Thả Xuống (Dropdowns) Bị Cắt Bỏ & Che Khuất (Header Overflow Hidden Dropdown Clipping Trap)
+- **Triệu chứng**:
+  - Khi người dùng nhấp vào avatar nhân vật trên thanh header (`codegame.shop`), menu thả xuống hiển thị thông tin nhân vật, số dư ví, tủ game, nạp code, đổi ảnh đại diện bị che khuất / cắt bỏ (clip), chỉ nhìn thấy một phần nhỏ hoặc không thấy nội dung. Menu ngôn ngữ `LanguageSelector` cũng gặp tình trạng tương tự.
+- **Nguyên nhân gốc rễ**:
+  - Khi tối ưu CSS chống vỡ layout (FOUC/CLS), thuộc tính `overflow: hidden; max-height: 56px;` (mobile) và `max-height: 72px;` (desktop) được đặt thẳng vào bộ chọn `header, .site-header` trong `<head><style>`.
+  - Trong CSS, bất kỳ phần tử con có vị trí tuyệt đối (`position: absolute`) nằm bên trong vùng chứa có `overflow: hidden` đều bị cắt bỏ ở ranh giới của vùng chứa đó. Do đó, menu có chiều cao ~400px bị cắt ngang ở đúng mức 56px/72px của header.
+- **Giải pháp chuẩn đã kiểm chứng**:
+  - Giữ cố định chiều cao của header bằng `height: 56px; min-height: 56px;` (mobile) và `height: 72px; min-height: 72px;` (desktop) để đảm bảo CLS = 0, nhưng **BẮT BUỘC** đặt `overflow: visible;` để các menu con thả xuống tự do.
+  - Loại bỏ hoàn toàn `max-height` và `overflow: hidden` trên bộ chọn `header, .site-header`.
+  - Bổ sung `max-h-[calc(100vh-5rem)] max-w-[calc(100vw-1rem)] overflow-y-auto` trên dropdown menu để chống tràn màn hình trên các thiết bị thấp/xoay ngang.
+  - Bổ sung sự kiện `touchstart` cho các trình xử lý click outside để tăng độ nhạy trên thiết bị di động.
+- ⛔ **CÁCH SỬA ĐÃ THẤT BẠI - TUYỆT ĐỐI KHÔNG LẶP LẠI**:
+  - ❌ *Không bao giờ đặt `overflow: hidden` lên thẻ `<header>`*: Header là nơi chứa nhiều menu thả xuống (dropdown menu nhân vật, ngôn ngữ, tìm kiếm gợi ý). Việc đặt `overflow: hidden` sẽ cắt đứt mọi dropdown menu.
+
+---
+
 ### ISSUE-101: Bẫy Split-Brain Lưu Trữ Hướng Dẫn Nhập Code (KV Blob vs D1 Table), Bẫy Falsy Logic `||` Chặn Xóa Hướng Dẫn & Bẫy UI/Prerender Ép Buộc Văn Mẫu (Split-Brain Instructions Storage, Falsy Or Guide Deletion Trap & UI Fallback Trap)
 - **Triệu chứng**:
   - Khi gọi action `update_instructions` của API crawler, phản hồi báo thành công (`totalInstructionsUpdated: 1`) nhưng khi truy vấn công khai qua `GET /api/games?slug=` hoặc xem HTML trang game `/game/:slug`, giao diện vẫn hiển thị văn mẫu mặc định chung chung (`Bước 1: Mở game > Nhấn Avatar nhân vật...`) hoặc `redeem_url` trống.

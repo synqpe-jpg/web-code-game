@@ -7,6 +7,35 @@ Mỗi mục sửa lỗi đều ghi nhận **Nguyên nhân gốc rễ (Root Cause
 
 ## [2026-10-24]
 
+### 176. Khắc Phục Lỗi Che Khuất Menu Nhân Vật & Hồ Sơ (Header Overflow Clipping Fix, Mobile Safe Height & Touch Outside Support)
+- **Mô tả & Yêu cầu người dùng**:
+  - *"Khi tôi chọn vào đại diện nhân vật, các thông tin hiện ra đang bị che khuất, giúp tôi khiến nó hoạt động bình thường."*
+- **Nguyên nhân gốc rễ (Root Cause)**:
+  1. **Bẫy `overflow: hidden` và Khóa `max-height` trong Critical CSS Header (`index.html`)**:
+     - Trong đợt tối ưu FOUC/CLS trước đó, CSS nội dòng trong `<head>` đã áp dụng `overflow: hidden; max-height: 56px;` (mobile) và `max-height: 72px;` (desktop) trực tiếp lên bộ chọn `header, .site-header`.
+     - Vì menu thả xuống của đại diện nhân vật (`userMenuRef`) là phần tử con tuyệt đối (`position: absolute; right: 0; mt-2;`) nằm bên trong `<header>`, khi mở ra, toàn bộ phần menu vượt quá chiều cao 56px/72px của header (~400px chứa thông tin tài khoản, số dư ví, tủ game, nạp code, đổi avatar, đăng xuất) bị trình duyệt cắt bỏ (clip) hoàn toàn, khiến thông tin bị che khuất.
+     - Lỗi tương tự cũng ảnh hưởng đến menu chọn ngôn ngữ `LanguageSelector`.
+  2. **Thiếu giới hạn chiều cao an toàn trên màn hình di động**:
+     - Menu thả xuống thiếu `max-h-[calc(100vh-5rem)]` và `overflow-y-auto`, có thể tràn ra ngoài cạnh dưới màn hình trên các thiết bị di động có chiều cao hạn chế hoặc xoay ngang.
+  3. **Sự kiện click outside thiếu hỗ trợ TouchEvent**:
+     - `useEffect` lắng nghe click outside chỉ bắt sự kiện `mousedown`, không bắt `touchstart`, gây trễ hoặc thiếu ổn định trên một số trình duyệt di động (iOS Safari / Chrome Android).
+- **Giải pháp đã triển khai (Solution)**:
+  1. **Mở `overflow: visible` cho Header trong Critical CSS (`index.html`)**:
+     - Xóa bỏ hoàn toàn `overflow: hidden`, `max-height: 56px`, và `max-height: 72px` trong thẻ `<style>` của `index.html`.
+     - Đặt `overflow: visible;` để cho phép các menu dropdown mở tràn ra ngoài thanh header một cách tự nhiên mà không ảnh hưởng đến CLS (chiều cao thanh header vẫn được khóa chuẩn bởi `height: 56px; min-height: 56px` trên mobile và `height: 72px; min-height: 72px` trên desktop).
+  2. **Tăng cường thuộc tính an toàn cho `<header>` trong `Header.tsx`**:
+     - Bổ sung class `overflow-visible` và `style={{ overflow: 'visible' }}` vào thẻ `<header>`.
+  3. **Tối ưu Dropdown Menu trong `Header.tsx`**:
+     - Bổ sung `max-h-[calc(100vh-5rem)] max-w-[calc(100vw-1rem)] overflow-y-auto scrollbar-thin` vào vùng chứa menu người dùng để đảm bảo cuộn mượt mà trên mọi thiết bị.
+  4. **Bổ sung `touchstart` cho sự kiện đóng menu khi click ra ngoài**:
+     - Cập nhật click outside listener trong cả `Header.tsx` và `LanguageSelector.tsx` hỗ trợ đồng thời cả `mousedown` và `touchstart`.
+- **Files Modified**:
+  - `index.html`
+  - `src/components/Header.tsx`
+  - `src/components/LanguageSelector.tsx`
+  - `CHANGELOG.md`
+  - `KNOWN_ISSUES.md`
+
 ### 175. Khắc Phục Lệch Pha Hướng Dẫn Nhập Code (Instructions & Redeem URL): Đồng Bộ Nguyên Tử Bảng D1 Games, Mở Khả Năng Xóa Rỗng Có Chủ Đích, SSR Dynamic Prerender & Triệt Tiêu Văn Mẫu Ép Buộc (D1 Direct Games Instructions Sync, Explicit Empty Guides Ingestion, SSR Edge Prerendering & Clean UI Zero Fallback)
 - **Mô tả & Yêu cầu người dùng**:
   - *"Xử lý 2 vấn đề liên quan tới trường hướng dẫn nhập giftcode (instructions / redeem_url): Vấn đề 1: Dữ liệu hướng dẫn ghi thành công qua update_instructions của API crawler (HTTP 200, totalInstructionsUpdated: 1) nhưng trang công khai (GET /api/games?slug= và HTML /game/:slug) vẫn hiển thị văn mẫu mặc định chung chung (Bước 1: Mở game > Nhấn Avatar nhân vật...) hoặc redeem_url trống. Sửa để sau khi update_instructions ghi xong, bản ghi công khai và trang chi tiết game hiển thị đúng nội dung mới ngay lập tức. Chứng minh bằng 3 game cụ thể: dot-kich-vtc (nhóm 23/10), vo-lam-truyen-ky và gunny-mobi (nhóm 24/10). Vấn đề 2: Cho phép gửi instructions: \"\" (hoặc null tường minh) để xóa sạch cả instructions và redeem_url, báo đúng totalInstructionsUpdated: 1. Áp dụng ngay cho mini-world-royale và arena-breakout (xóa cả instructions lẫn redeem_url), xác minh bằng GET công khai trả về rỗng, không đụng vào 31 game còn lại."*
