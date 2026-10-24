@@ -97,6 +97,19 @@ export function parseExpirationDate(rawInput: any, nowMs?: number): ParsedExpira
     return { formatted: 'Vĩnh viễn', isExpired: false, dateObj: null };
   }
 
+  // Keyword check: Unknown / Chưa rõ hạn
+  if (
+    clean === 'null' ||
+    clean === 'undefined' ||
+    clean === 'chưa rõ hạn' ||
+    clean === 'chua ro han' ||
+    clean === 'chưa rõ hạn dùng' ||
+    clean === 'chua ro han dung' ||
+    clean === 'unknown'
+  ) {
+    return { formatted: '', isExpired: false, dateObj: null };
+  }
+
   // Pattern 1: Vietnamese format: DD/MM/YYYY or DD-MM-YYYY (e.g. 20/10/2026, 5/4/2026)
   const vnMatch = str.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})(?:\s+(\d{1,2}):(\d{1,2})(?::(\d{1,2}))?)?$/);
   if (vnMatch) {
@@ -219,3 +232,32 @@ export function isCodeExpired(codeObj: any, nowMs?: number): boolean {
 
   return false;
 }
+
+/**
+ * So sánh 2 mã giftcode theo hạn sử dụng phục vụ các chế độ xem "sắp hết hạn":
+ * 1. Mã đã hết hạn: luôn xếp sau mã còn hạn.
+ * 2. Giữa các mã còn hạn:
+ *    - Mã có hạn cụ thể còn hiệu lực: xếp TRƯỚC mã chưa rõ hạn.
+ *    - Giữa các mã có hạn cụ thể: mã nào hết hạn sớm hơn (gần hiện tại hơn) xếp trước (tăng dần theo ngày).
+ *    - Mã chưa rõ hạn (NULL / rỗng): xếp sau các mã có ngày cụ thể, không bị đẩy lên đầu và không coi là 31/12/2026.
+ */
+export function compareCodesByExpiry(a: any, b: any, nowMs?: number): number {
+  const isExpA = isCodeExpired(a, nowMs);
+  const isExpB = isCodeExpired(b, nowMs);
+  if (isExpA !== isExpB) return isExpA ? 1 : -1;
+
+  const parsedA = parseExpirationDate(a?.expiresAt ?? a?.expires_at ?? a?.expiry, nowMs);
+  const parsedB = parseExpirationDate(b?.expiresAt ?? b?.expires_at ?? b?.expiry, nowMs);
+
+  const hasDateA = Boolean(parsedA.dateObj);
+  const hasDateB = Boolean(parsedB.dateObj);
+
+  if (hasDateA && hasDateB) {
+    return parsedA.dateObj!.getTime() - parsedB.dateObj!.getTime();
+  }
+  if (hasDateA && !hasDateB) return -1; // Có ngày cụ thể xếp trước Chưa rõ hạn
+  if (!hasDateA && hasDateB) return 1;  // Chưa rõ hạn xếp sau
+
+  return 0;
+}
+

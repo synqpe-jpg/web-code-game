@@ -693,10 +693,15 @@ export const GameDetailModal: React.FC<GameDetailModalProps> = ({
                                   🎁 {codeItem.rewards}
                                 </span>
                               )}
-                              {codeItem.expiry && (
+                              {codeItem.expiry && codeItem.expiry.trim() !== '' && codeItem.expiry.trim().toLowerCase() !== 'null' ? (
                                 <span className="text-[10px] font-mono text-muted-foreground/80 shrink-0 flex items-center gap-0.5">
                                   <Clock className="w-2.5 h-2.5 text-amber-400/80" />
                                   {codeItem.expiry}
+                                </span>
+                              ) : (
+                                <span className="text-[10px] text-slate-400/80 italic shrink-0 flex items-center gap-0.5" title="Chưa rõ thời điểm hết hạn">
+                                  <Clock className="w-2.5 h-2.5 text-slate-400/60" />
+                                  Chưa rõ hạn dùng
                                 </span>
                               )}
                             </div>
@@ -848,7 +853,7 @@ export const GameDetailModal: React.FC<GameDetailModalProps> = ({
                             <span className="inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-full bg-rose-500/15 text-rose-400 border border-rose-500/30">
                               <XCircle className="w-3 h-3" /> {t.modal.expiredCodes}
                             </span>
-                            {codeItem.expiry && (
+                            {codeItem.expiry && codeItem.expiry.trim() !== '' && codeItem.expiry.trim().toLowerCase() !== 'null' && (
                               <span className="inline-flex items-center gap-1 text-[10px] font-mono text-muted-foreground bg-muted/40 px-2 py-0.5 rounded-full border border-border/40">
                                 <Clock className="w-2.5 h-2.5 text-rose-400/80" />
                                 HSD: {codeItem.expiry}

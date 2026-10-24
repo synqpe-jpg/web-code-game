@@ -86,7 +86,7 @@ class FacebookScraper {
         codes.push({
           code: rawCode,
           rewards: `Quà tặng sự kiện Fanpage ${pageName || ''}`.trim(),
-          expiresAt: '2026-12-31',
+          expiresAt: null,
         });
       }
     }
@@ -101,7 +101,7 @@ class FacebookScraper {
         codes.push({
           code: rawCode,
           rewards: rawReward || `Quà tặng Fanpage ${pageName || ''}`.trim(),
-          expiresAt: '2026-12-31',
+          expiresAt: null,
         });
       }
     }
@@ -121,7 +121,7 @@ class FacebookScraper {
             codes.push({
               code: rawCode,
               rewards: `Quà tặng sự kiện Fanpage ${pageName || ''}`.trim(),
-              expiresAt: '2026-12-31',
+              expiresAt: null,
             });
           }
         }
@@ -220,7 +220,7 @@ class FacebookScraper {
                 fallbackCodes.push({
                   code: c.code,
                   rewards: c.rewards || `Quà tặng sự kiện Fanpage ${pageName}`,
-                  expiresAt: c.expiresAt || '2026-12-31',
+                  expiresAt: c.expiresAt || null,
                 });
               }
             }

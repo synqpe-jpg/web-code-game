@@ -1639,8 +1639,8 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
         const customListRaw = await getSettingD1(env.DB, 'wcg_admin_custom_free_codes_v1') || [];
         const customList: any[] = Array.isArray(customListRaw) ? customListRaw : [];
 
-        const approvedExpiry = editedCode.expiresAt || sourceItem.expiresAt || '2026-12-31';
-        const parsedExp = parseExpirationDate(approvedExpiry);
+        const approvedExpiry = editedCode.expiresAt || sourceItem.expiresAt || null;
+        const parsedExp = approvedExpiry ? parseExpirationDate(approvedExpiry) : { formatted: '', isExpired: false, dateObj: null };
         const isExp = parsedExp.isExpired || (editedCode.status && String(editedCode.status).toLowerCase() === 'expired');
         const approvedItem = {
           id: `fc_custom_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
@@ -1656,9 +1656,9 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
           sourceType: sourceItem.sourceType || 'reputable_web',
           score: sourceItem.score || 85,
           tier: sourceItem.tier || 2,
-          expiresAt: parsedExp.formatted || approvedExpiry,
-          expires_at: parsedExp.formatted || approvedExpiry,
-          expiry: parsedExp.formatted || approvedExpiry,
+          expiresAt: parsedExp.formatted || approvedExpiry || null,
+          expires_at: parsedExp.formatted || approvedExpiry || null,
+          expiry: parsedExp.formatted || approvedExpiry || null,
           createdAt: new Date().toISOString(),
           updatedAt: new Date().toISOString(),
         };
@@ -1719,8 +1719,8 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
 
         for (const item of pendingList) {
           if (item && targetIds.has(item.id)) {
-            const batchExpiry = item.expiresAt || '2026-12-31';
-            const parsedBatchExp = parseExpirationDate(batchExpiry);
+            const batchExpiry = item.expiresAt || null;
+            const parsedBatchExp = batchExpiry ? parseExpirationDate(batchExpiry) : { formatted: '', isExpired: false, dateObj: null };
             const isBatchExp = parsedBatchExp.isExpired || (item.status && String(item.status).toLowerCase() === 'expired');
             approvedItems.push({
               id: `fc_custom_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
@@ -1736,9 +1736,9 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
               sourceType: item.sourceType || 'reputable_web',
               score: item.score || 85,
               tier: item.tier || 2,
-              expiresAt: parsedBatchExp.formatted || batchExpiry,
-              expires_at: parsedBatchExp.formatted || batchExpiry,
-              expiry: parsedBatchExp.formatted || batchExpiry,
+              expiresAt: parsedBatchExp.formatted || batchExpiry || null,
+              expires_at: parsedBatchExp.formatted || batchExpiry || null,
+              expiry: parsedBatchExp.formatted || batchExpiry || null,
               createdAt: new Date().toISOString(),
               updatedAt: new Date().toISOString(),
             });
@@ -2535,8 +2535,8 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
               status: 'ACTIVE',
               is_active: true,
               is_verified: true,
-              expires_at: '2026-12-31',
-              expiresAt: '2026-12-31',
+              expires_at: null,
+              expiresAt: null,
               source: 'Nhà phát hành chính thức',
               created_at: new Date().toISOString(),
               added_at: new Date().toISOString(),

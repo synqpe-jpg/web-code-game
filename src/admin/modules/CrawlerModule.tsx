@@ -318,7 +318,7 @@ export const CrawlerModule: React.FC<CrawlerModuleProps> = ({ onShowToast }) => 
   const [editCodeValue, setEditCodeValue] = useState('');
   const [editGameSlug, setEditGameSlug] = useState('');
   const [editRewards, setEditRewards] = useState('');
-  const [editExpiresAt, setEditExpiresAt] = useState('2026-12-31');
+  const [editExpiresAt, setEditExpiresAt] = useState('');
 
   // Quick Fanpage Post Ingest States
   const [isQuickIngestOpen, setIsQuickIngestOpen] = useState(false);
@@ -1134,7 +1134,7 @@ export const CrawlerModule: React.FC<CrawlerModuleProps> = ({ onShowToast }) => 
     setEditCodeValue(item.code);
     setEditGameSlug(item.gameSlug);
     setEditRewards(item.rewards);
-    setEditExpiresAt(item.expiresAt || '2026-12-31');
+    setEditExpiresAt(item.expiresAt || '');
   };
 
   // Submit Edit & Approve
@@ -1303,7 +1303,7 @@ export const CrawlerModule: React.FC<CrawlerModuleProps> = ({ onShowToast }) => 
           results.push({
             code: raw,
             rewards: `Quà tặng sự kiện Fanpage ${gameLabel}`.trim(),
-            expiresAt: '2026-12-31',
+            expiresAt: '',
             isDuplicate: false,
             score: 95,
             tier: 1,
@@ -1321,7 +1321,7 @@ export const CrawlerModule: React.FC<CrawlerModuleProps> = ({ onShowToast }) => 
           results.push({
             code: raw,
             rewards: rawReward || `Quà tặng sự kiện Fanpage ${gameLabel}`.trim(),
-            expiresAt: '2026-12-31',
+            expiresAt: '',
             isDuplicate: false,
             score: 90,
             tier: 1,
@@ -1343,7 +1343,7 @@ export const CrawlerModule: React.FC<CrawlerModuleProps> = ({ onShowToast }) => 
             results.push({
               code: raw,
               rewards: `Quà tặng sự kiện Fanpage ${gameLabel}`.trim(),
-              expiresAt: '2026-12-31',
+              expiresAt: '',
               isDuplicate: false,
               score: 85,
               tier: 2,
@@ -2161,7 +2161,7 @@ export const CrawlerModule: React.FC<CrawlerModuleProps> = ({ onShowToast }) => 
                               </div>
                               <div className="text-[10px] text-slate-500 mt-0.5 flex items-center gap-1 font-mono">
                                 <Clock className="w-2.5 h-2.5 text-slate-500" />
-                                <span>HSD: {item.expiresAt || 'Không giới hạn'}</span>
+                                <span>HSD: {item.expiresAt || 'Chưa rõ hạn dùng'}</span>
                               </div>
                             </div>
                           </td>
@@ -4224,13 +4224,29 @@ console.log(data);`}
           </div>
 
           <div>
-            <label className="block text-xs font-semibold text-slate-300 mb-1">Hạn Sử Dụng</label>
+            <div className="flex items-center justify-between mb-1">
+              <label className="block text-xs font-semibold text-slate-300">Hạn Sử Dụng</label>
+              <button
+                type="button"
+                onClick={() => setEditExpiresAt('')}
+                className={`px-2 py-0.5 rounded text-[10px] font-medium border transition-colors cursor-pointer ${
+                  !editExpiresAt
+                    ? 'bg-indigo-600 text-white border-indigo-500'
+                    : 'bg-slate-800 text-slate-400 border-slate-700 hover:text-slate-200'
+                }`}
+              >
+                Chưa rõ hạn
+              </button>
+            </div>
             <input
               type="date"
               value={editExpiresAt}
               onChange={(e) => setEditExpiresAt(e.target.value)}
               className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-sm text-slate-200 focus:outline-none focus:border-indigo-500"
             />
+            {!editExpiresAt && (
+              <p className="text-[11px] text-slate-400 italic mt-1">Đang chọn: Chưa rõ hạn dùng (lưu NULL)</p>
+            )}
           </div>
 
           <div className="flex justify-end gap-3 pt-3 border-t border-slate-800">

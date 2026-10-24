@@ -600,11 +600,15 @@ export async function getLoadedCatalog(
 
     const isExp = isCodeExpired(item);
     const list = codesMap.get(normSlug) || [];
+    let expVal = item.expiresAt || item.expires_at || item.expiry || '';
+    if (expVal === '2026-12-31' || expVal === '2026-12-31T23:59:59Z' || expVal === '31/12/2026') {
+      expVal = '';
+    }
     list.push({
       code: codeStr,
       rewards: item.rewards || item.description || 'Quà tân thủ & vật phẩm ingame',
       status: isExp ? 'expired' : 'active',
-      expiry: item.expiresAt || item.expires_at || item.expiry || '',
+      expiry: expVal,
       added_at: item.updatedAt || item.updated_at || item.createdAt || item.created_at || (source === 'custom' ? new Date().toISOString() : '2026-10-09T00:00:00Z'),
     });
     codesMap.set(normSlug, list);
@@ -761,14 +765,18 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
              added_at DESC`
         ).bind(gameRow.slug).all<any>().catch(() => ({ results: [] as any[] }));
 
-        const codesList: GiftCode[] = (codesRes?.results || []).map((c: any) => ({
-          code: c.code,
-          rewards: c.rewards || 'Quà tân thủ & vật phẩm ingame',
-          status: isCodeExpired(c) ? 'expired' : (c.status || 'active'),
-          expiry: c.expires_at || '',
-          source: c.source || 'NPH Chính Thức',
-          added_at: c.added_at || '2026-10-09T00:00:00Z',
-        }));
+        const codesList: GiftCode[] = (codesRes?.results || []).map((c: any) => {
+          const rawExp = c.expires_at || '';
+          const isFakeExp = rawExp === '2026-12-31' || rawExp === '2026-12-31T23:59:59Z' || rawExp === '31/12/2026';
+          return {
+            code: c.code,
+            rewards: c.rewards || 'Quà tân thủ & vật phẩm ingame',
+            status: isCodeExpired(c) ? 'expired' : (c.status || 'active'),
+            expiry: isFakeExp ? '' : rawExp,
+            source: c.source || 'NPH Chính Thức',
+            added_at: c.added_at || '2026-10-09T00:00:00Z',
+          };
+        });
 
         let iconUrl = gameRow.icon_url || '';
         if (!iconUrl || iconUrl.includes('codemoi.net') || iconUrl.startsWith('/game-icons')) {
@@ -929,7 +937,7 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
             code: c.code,
             rewards: c.rewards,
             status: c.status,
-            expiry: c.expires_at,
+            expiry: (c.expires_at === '2026-12-31' || c.expires_at === '2026-12-31T23:59:59Z' || c.expires_at === '31/12/2026') ? '' : (c.expires_at || ''),
           },
         }));
 

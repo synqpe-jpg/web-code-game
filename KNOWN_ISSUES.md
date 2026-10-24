@@ -10,6 +10,25 @@
 
 ## 1. DANH MỤC LỖI & CÁC BẪY ĐÃ THẤT BẠI (DO NOT REPEAT)
 
+### ISSUE-104: Bẫy Tự Gán Hạn Giả Định 2026-12-31 Khi Không Biết Hạn & Bẫy UI Ép Buộc Chọn Ngày (Fake 2026-12-31 Expiry Fallback Trap & UI Mandatory Date Picker Trap)
+- **Triệu chứng**:
+  - Gần như toàn bộ mã giftcode trên website (89.4%) hiển thị hạn sử dụng là `31/12/2026`, gây hiểu nhầm nghiêm trọng cho người dùng rằng mã còn hiệu lực lâu dài, trong khi thực tế mã không có hạn công bố hoặc có thể đã hết hạn.
+  - Khi xem chi tiết game hoặc lọc mã, các mã không rõ hạn bị xếp lẫn lộn hoặc bị gán hạn giả cuối năm.
+- **Nguyên nhân gốc rễ**:
+  1. Trong API ingest và các pipeline scraper, khi payload không truyền `expiresAt` hoặc không xác định được ngày, code fallback tự động gán `parsedExp.formatted || (isExpired ? 'Hết hạn' : '2026-12-31')`.
+  2. Giao diện quản trị Admin không có nút bấm chọn "Chưa rõ hạn" tách biệt với ô input ngày tháng, dẫn đến việc quản trị viên bị ép phải chọn một ngày hoặc để nguyên giá trị mặc định.
+- **Giải pháp chuẩn đã kiểm chứng**:
+  - Quy ước dữ liệu toàn hệ thống: `NULL` / rỗng = Chưa rõ hạn. Bỏ trống `expiresAt` -> lưu `NULL`. Chỉ lưu ngày cụ thể khi có dữ liệu xác thực rõ ràng.
+  - Cung cấp action di dời `migrate_remove_fake_expiry_dates` trên API Crawler Ingest để chuyển đổi sạch sẽ toàn bộ bản ghi có hạn giả `2026-12-31` sang `NULL` trên cả bảng SQL `codes` và các kho cài đặt `system_settings` (`wcg_admin_custom_free_codes_v1`, `wcg_admin_free_codes_v5`, `wcg_crawler_pending_codes_v1`), bảo toàn 100% số lượng mã.
+  - Giao diện người dùng (`GameDetailModal.tsx`): Hiển thị nhãn trung tính `"Chưa rõ hạn dùng"` (`text-slate-400 italic` kèm icon Clock mờ, không màu đỏ).
+  - Thuật toán sắp xếp (`compareCodesByExpiry`): Mã có ngày cụ thể còn hạn xếp trước; mã chưa rõ hạn xếp sau các mã có ngày cụ thể, không bị đẩy lên đầu như mã sắp hết hạn.
+  - Giao diện Admin: Bổ sung nút bấm `"Chưa rõ hạn"` tách biệt với date picker để người dùng chọn nhanh chỉ với 1 click.
+- ⛔ **CÁCH SỬA ĐÃ THẤT BẠI - TUYỆT ĐỐI KHÔNG LẶP LẠI**:
+  - ❌ *Không tự ý gán ngày giả định cuối năm (`2026-12-31`) khi không biết hạn*: Mọi dữ liệu không rõ hạn phải lưu `NULL` và thể hiện trung thực là "Chưa rõ hạn dùng".
+  - ❌ *Không ép buộc chọn ngày trên giao diện Admin*: Luôn cung cấp tùy chọn rõ ràng cho phép bỏ trống hạn hoặc đánh dấu Chưa rõ hạn.
+
+---
+
 ### ISSUE-103: Bẫy Sai Tên Bảng SQL D1 (Truy Vấn Bảng `settings` Không Tồn Tại Thay Vì `system_settings`) & Bẫy Chữa Theo Lượt Truy Cập Thay Vì Đồng Bộ Cưỡng Bức Toàn Bộ Catalog (D1 Non-existent Settings Table Trap & Full Catalog Forced Sync)
 - **Triệu chứng**:
   - Khi API cần đối chiếu hoặc đồng bộ dự phòng giữa kho cài đặt JSON blob (`wcg_admin_games_v5`, `wcg_news_articles_v1`, `wcg_admin_giveaways_v4`) và các bảng SQL D1, câu lệnh truy vấn luôn trả về `null` hoặc thất bại âm thầm.

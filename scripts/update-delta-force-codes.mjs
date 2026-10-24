@@ -83,7 +83,7 @@ async function updateDeltaForceCodes() {
       rewards: getRewards(code, isSpecial),
       status: 'approved',
       isVerified: true,
-      expiresAt: '2026-12-31',
+      expiresAt: null,
       sourceUrl: 'https://xemgi.today/codes',
       createdAt: nowIso,
     };

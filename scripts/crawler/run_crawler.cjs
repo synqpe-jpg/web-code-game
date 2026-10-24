@@ -323,7 +323,7 @@ async function main() {
           score: scoreResult.score,
           tier: 1,
           isCrawlerAutoApproved: true,
-          expiresAt: codeItem.expiresAt || '2026-12-31',
+          expiresAt: codeItem.expiresAt || null,
           createdAt: new Date().toISOString(),
           updatedAt: new Date().toISOString(),
         };
@@ -348,7 +348,7 @@ async function main() {
           tierLabel: scoreResult.tierLabel,
           reasons: scoreResult.reasons,
           status: 'PENDING',
-          expiresAt: codeItem.expiresAt || '2026-12-31',
+          expiresAt: codeItem.expiresAt || null,
           createdAt: new Date().toISOString(),
         };
 

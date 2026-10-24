@@ -132,7 +132,7 @@ async function runFullSync() {
             codeValue: val,
             rewards: c.rewards || existing.rewards || 'Quà tặng tân thủ',
             status: c.status || existing.status || 'ACTIVE',
-            expiresAt: c.expiresAt || existing.expiresAt || '2026-12-31',
+            expiresAt: c.expiresAt || existing.expiresAt || null,
           });
         } else {
           codeMap.set(k, {
@@ -141,7 +141,7 @@ async function runFullSync() {
             codeValue: val,
             rewards: c.rewards || 'Quà tặng tân thủ',
             status: c.status || 'ACTIVE',
-            expiresAt: c.expiresAt || '2026-12-31',
+            expiresAt: c.expiresAt || null,
             createdAt: c.createdAt || new Date().toISOString(),
           });
         }

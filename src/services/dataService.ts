@@ -1845,7 +1845,7 @@ class DataService {
               code: typeof c === 'string' ? c.toUpperCase() : (c?.code || '').toUpperCase(),
               rewards: (typeof c === 'object' && c?.rewards) || 'Thưởng của NPH',
               status: 'active' as const,
-              expiry: '31/12/2026',
+              expiry: (typeof c === 'object' && (c?.expiresAt || c?.expires_at || c?.expiry)) || '',
             })).filter((c: any) => Boolean(c.code));
             const finalCodes = mappedCodes.length > 0 ? mappedCodes : expected;
             if (finalCodes.length > 0) {

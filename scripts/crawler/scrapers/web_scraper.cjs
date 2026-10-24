@@ -44,7 +44,7 @@ function extractCodesFromHtml(html = '', options = {}) {
 
   const seenCodes = new Set();
 
-  function addCandidate(code, rewards = 'Quà tặng tân thủ & vật phẩm ingame', expiresAt = '2026-12-31') {
+  function addCandidate(code, rewards = 'Quà tặng tân thủ & vật phẩm ingame', expiresAt = null) {
     const c = cleanCodeCandidate(code);
     if (!c || seenCodes.has(c.toUpperCase())) return;
 
@@ -53,7 +53,7 @@ function extractCodesFromHtml(html = '', options = {}) {
       extracted.push({
         code: c,
         rewards: rewards.replace(/<[^>]+>/g, '').trim() || 'Quà tân thủ & vật phẩm ingame',
-        expiresAt: expiresAt && expiresAt.includes('202') ? expiresAt : '2026-12-31',
+        expiresAt: expiresAt && expiresAt.includes('202') && expiresAt !== '2026-12-31' ? expiresAt : null,
       });
     }
   }
@@ -148,7 +148,7 @@ class WebScraper {
             const codes = list.slice(0, 15).map(item => ({
               code: `GP-${item.id}-${(item.title || '').replace(/[^A-Za-z0-9]/g, '').slice(0, 8).toUpperCase()}`,
               rewards: `${item.title}: ${item.platforms || 'PC/Mobile'} Free Loot Pack`,
-              expiresAt: '2026-12-31',
+              expiresAt: item.end_date || null,
             }));
             return {
               url: sourceUrl,

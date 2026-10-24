@@ -155,7 +155,7 @@ async function run() {
     rewards: rewards,
     status: 'approved',
     isVerified: true,
-    expiresAt: '2026-12-31',
+    expiresAt: null,
     sourceUrl: 'https://wwm.funtap.games/',
     createdAt: new Date().toISOString()
   }));

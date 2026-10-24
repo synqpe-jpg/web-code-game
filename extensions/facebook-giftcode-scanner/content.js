@@ -241,7 +241,7 @@ function extractGiftcodesFromText(text = '', pageName = '', postUrl = '') {
       codes.push({
         code: raw,
         rewards: reward || `Quà tặng sự kiện Fanpage ${pageName}`.trim(),
-        expiresAt: '2026-12-31',
+        expiresAt: null,
         sourceUrl: postUrl || window.location.href,
         score: isHigh ? 98 : score || 85,
         isHighConfidence: isHigh
@@ -323,7 +323,7 @@ function extractCurrentPostsAndElements(pageName = '') {
         codes.push({
           code: c,
           rewards: `Mã nhận từ đường link: ${cleanUrl.substring(0, 35)}...`,
-          expiresAt: '2026-12-31',
+          expiresAt: null,
           sourceUrl: cleanUrl,
           score: 95,
           isHighConfidence: isHighConfidenceCode(c)

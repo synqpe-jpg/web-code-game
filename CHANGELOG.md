@@ -7,6 +7,51 @@ Mỗi mục sửa lỗi đều ghi nhận **Nguyên nhân gốc rễ (Root Cause
 
 ## [2026-10-24]
 
+### 178. Loại Bỏ Hạn Dùng Mặc Định Giả 2026-12-31, Quy Ước NULL = Chưa Rõ Hạn Dùng & Di Dời Toàn Bộ Catalog An Toàn (Default Fake 2026-12-31 Expiry Removal, Null Unknown Expiry Convention, Full Database Migration & UI Neutral Labeling)
+- **Mô tả & Yêu cầu người dùng**:
+  - *"Trang đang hiển thị hạn dùng 31/12/2026 cho gần như mọi mã code, dù đa số mã đó chưa từng được công bố hạn dùng. Người dùng tin rằng mã còn sống tới cuối năm 2026, trong khi thực tế mã có thể đã hết hạn từ lâu — đây là thông tin sai lệch ở quy mô toàn web, không phải lỗi hiển thị của vài game. Mẫu 288 game / 7.467 mã: 6.672 mã (89,4%) mang hạn 2026-12-31, chỉ 795 mã có hạn thật khác ngày đó. Ví dụ: Kỳ Tích Trở Lại — cả 5 mã đều hiển thị 2026-12-31 dù không mã nào từng được công bố hạn; Đạo Hữu Tu Tiên — mã mới hôm nay 16699NUYET hiển thị đúng hạn thật 2026-10-24, trong khi các mã cũ DHVUIVE11, BACK2SCHOOL hiển thị 2026-12-31 giả. Yêu cầu: Việc 1: Chặn hạn mặc định ngay từ nguồn; Việc 2: Di dời dữ liệu cũ; Việc 3: Hiển thị & sắp xếp đúng nghĩa (nhãn Chưa rõ hạn dùng, mã NULL xếp sau mã có ngày cụ thể); Việc 4: Tài liệu & công cụ admin (tùy chọn Chưa rõ hạn); Nghiệm thu 4 tiêu chí."*
+- **Nguyên nhân gốc rễ (Root Cause)**:
+  1. **Bẫy Tự Gán Hạn Giả Định Trong Pipeline Crawler & Ingest**:
+     - Trong `functions/api/crawler/ingest-codes.ts` (dòng 456), logic gán hạn sử dụng viết: `const formattedExpiry = parsedExp.formatted || (isExpired ? 'Hết hạn' : '2026-12-31');`. Khi payload không truyền `expiresAt` hoặc không xác định được hạn, hệ thống tự động ép ngày `2026-12-31`.
+     - Tình trạng tương tự cũng xảy ra tại các điểm phê duyệt mã chờ (`sync.ts`, `ingest-codes.ts`), các scraper crawler (`web_scraper.cjs`, `facebook_scraper.cjs`, `discord_scraper.cjs`, `run_crawler.cjs`) và các script nạp dữ liệu.
+     - Trong `src/services/dataService.ts` (dòng 1848), hàm chuyển đổi game mở server cũng gán cứng `expiry: '31/12/2026'`.
+  2. **Trường UI Admin Bắt Buộc Chọn Ngày**:
+     - Các form nhập/sửa giftcode trong `FreeCodesModule` và `CrawlerModule` không có tùy chọn "Chưa rõ hạn" tách biệt với ô chọn ngày, buộc quản trị viên phải chọn ngày hoặc giữ giá trị mặc định.
+- **Giải pháp đã triển khai (Solution)**:
+  1. **Chặn hạn mặc định ngay từ nguồn (Data Convention: NULL = Chưa rõ hạn)**:
+     - Chuẩn hóa toàn bộ codebase: Khi không rõ hạn, `expiresAt` / `expires_at` / `expiry` lưu `NULL` (hoặc chuỗi rỗng trên client). Tuyệt đối không tự gán ngày giả định. Khi có hạn rõ ràng (kể cả 31/12/2026 thật) thì lưu đúng ngày đó.
+     - Cập nhật tài liệu API Crawler Ingest và các scraper tự động.
+  2. **Cung cấp Action Di Dời Dữ Liệu `migrate_remove_fake_expiry_dates`**:
+     - Tạo endpoint action nguyên tử chuyển toàn bộ bản ghi có `expires_at = '2026-12-31'` trên D1 `codes` table, `wcg_admin_custom_free_codes_v1`, `wcg_admin_free_codes_v5`, `wcg_crawler_pending_codes_v1` sang `NULL`.
+     - Cập nhật lại bộ đếm `active_codes_count` trên bảng `games` D1, bảo toàn 100% số lượng mã (0 codes lost).
+  3. **Hiển thị & Sắp xếp đúng nghĩa**:
+     - `GameDetailModal.tsx`: Khi mã có hạn `NULL` / rỗng: hiển thị nhãn trung tính `"Chưa rõ hạn dùng"` (`text-slate-400 italic` kèm icon Clock mờ, không màu đỏ gây hoang mang, không gây nhầm còn hạn dài). Mã có ngày cụ thể hiển thị bình thường.
+     - Bổ sung hàm tiện ích `compareCodesByExpiry` trong `src/utils/codeUtils.ts`: Mã có ngày cụ thể xếp trước mã chưa rõ hạn; mã chưa rõ hạn không bị đẩy lên đầu.
+     - Cập nhật `DataTable.tsx` để các giá trị rỗng/null luôn xếp xuống cuối khi sắp xếp theo cột hạn dùng.
+  4. **Nâng cấp công cụ Admin Portal**:
+     - Bổ sung nút bấm `"Chưa rõ hạn"` trực quan tách biệt trong `FreeCodesModule` và `CrawlerModule`, cho phép admin chọn nhanh chế độ không có hạn dùng chỉ với 1 click.
+- **Files Modified**:
+  - `functions/api/crawler/ingest-codes.ts`
+  - `functions/api/sync.ts`
+  - `functions/api/games.ts`
+  - `src/utils/codeUtils.ts`
+  - `src/components/GameDetailModal.tsx`
+  - `src/admin/modules/FreeCodesModule.tsx`
+  - `src/admin/modules/CrawlerModule.tsx`
+  - `src/admin/services/adminDataService.ts`
+  - `src/admin/components/ui/DataTable.tsx`
+  - `src/services/dataService.ts`
+  - `scripts/crawler/run_crawler.cjs`
+  - `scripts/crawler/scrapers/web_scraper.cjs`
+  - `scripts/crawler/scrapers/facebook_scraper.cjs`
+  - `scripts/crawler/scrapers/discord_scraper.cjs`
+  - `scripts/sync_all_admin_and_client_data.cjs`
+  - `scripts/sync_source_codes.cjs`
+  - `extensions/facebook-giftcode-scanner/background.js`
+  - `extensions/facebook-giftcode-scanner/content.js`
+  - `CHANGELOG.md`
+  - `KNOWN_ISSUES.md`
+
 ### 177. Chuẩn Hóa Bảng Cài Đặt D1 (system_settings), Thực Thi Đồng Bộ Cưỡng Bức Toàn Bộ Catalog 565 Game (sync_all_instructions_to_d1) & Xác Minh 11 Game Công Khai (D1 Canonical system_settings Table Fix, Full Catalog Forced Sync & Verified 11 Public Endpoints)
 - **Mô tả & Yêu cầu người dùng**:
   - *"Sau bản sửa lệch pha instructions/redeem_url, tôi kiểm chứng lại toàn bộ 31 game được ghi hướng dẫn ngày 24/10: 20 game đã hiển thị đúng hướng dẫn đã lưu, nhưng 11 game sau vẫn trả văn mẫu chung chung trên bản ghi công khai (GET /api/games?slug=) dù dữ liệu đúng đã có trong kho wcg_admin_games_v5: 2024-god-of-highschool, abyssal-soul-card-roguelike, dai-tien-minh-di-dau-the, dau-pha, evony-vi-vua-tro-lai, gale-knights-idle-rpg, league-of-masters-auto-chess, mobile-legends-adventure, srom-huyen-thoai-lu-khach, ticket-hero-idle-rpg, top-war-battle-game. Yêu cầu: chạy đồng bộ cưỡng bức (sync_all_instructions_to_d1 hoặc cơ chế tương đương) cho toàn bộ catalog thay vì chỉ chữa theo lượt truy cập, sau đó xác minh TỪNG bản ghi trong danh sách 11 game này bằng GET công khai và báo lại kết quả từng game. Không thay đổi nội dung hướng dẫn đã lưu. Cập nhật CHANGELOG/KNOWN_ISSUES, commit, deploy cả hai Pages, kèm commit ID."*

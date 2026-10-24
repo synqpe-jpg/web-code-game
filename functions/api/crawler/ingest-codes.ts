@@ -415,7 +415,7 @@ function findBestMatchingGame(
 interface ExtractedCodeItem {
   code: string;
   rewards: string;
-  expiresAt: string;
+  expiresAt: string | null;
   isExpired: boolean;
   rawStatus?: string;
 }
@@ -453,7 +453,7 @@ function extractCodesFromPayload(item: any): Array<ExtractedCodeItem> {
     );
 
     const isExpired = parsedExp.isExpired || Boolean(explicitExpired);
-    const formattedExpiry = parsedExp.formatted || (isExpired ? 'Hết hạn' : '2026-12-31');
+    const formattedExpiry = parsedExp.formatted || (isExpired ? 'Hết hạn' : null);
 
     result.push({
       code: val,
@@ -549,7 +549,7 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
       'Toàn quyền chỉnh sửa Cách Nhập Code (instructions / guide) và Link đổi quà (redeemUrl): hỗ trợ cập nhật độc lập hoặc kèm giftcode.',
       'Quản lý hàng chờ game chưa đăng: action "list_pending_games" và action "publish_game".',
       'Quản lý hàng chờ mã giftcode: action "list_pending_codes", action "approve_codes" và action "reject_codes".',
-      'Tự động chuẩn hóa Hạn Sử Dụng (expiresAt) đa định dạng: YYYY-MM-DD, DD/MM/YYYY, timestamp, hoặc "Hết hạn" / "Vĩnh viễn".',
+      'Tự động chuẩn hóa Hạn Sử Dụng (expiresAt) đa định dạng: YYYY-MM-DD, DD/MM/YYYY, timestamp, hoặc "Hết hạn" / "Vĩnh viễn". Nếu bỏ trống hoặc null: hệ thống lưu NULL (Chưa rõ hạn), không bao giờ tự gán hạn giả.',
       'Tự động phân loại trạng thái: Khi mã hết hạn (hoặc ngày hết hạn < hiện tại), hệ thống tự động gán status: EXPIRED và chuyển sang mục Đã hết hạn của game.',
       'Cập nhật bộ đếm codes_count và tự động xóa cache biên CDN.',
     ],
@@ -562,6 +562,7 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
       { action: 'approve_codes', description: 'Duyệt mảng mã chờ duyệt (ids: string[]) và kích hoạt lên web khách' },
       { action: 'reject_codes', description: 'Từ chối và loại bỏ mảng mã khỏi hàng chờ duyệt (ids: string[])' },
       { action: 'cleanup_test_codes', description: 'Dọn dẹp sạch sẽ mã test theo Rule 7 (Zero Test Artifacts)' },
+      { action: 'migrate_remove_fake_expiry_dates', description: 'Di dời dữ liệu cũ: chuyển toàn bộ mã có hạn giả 2026-12-31 sang NULL' },
     ],
     sampleCurl: `curl -X POST "${urlObj.origin}/api/crawler/ingest-codes" \\
   -H "Content-Type: application/json" \\
@@ -571,7 +572,7 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
     "instructions": "Bước 1: Nhân vật đạt Cấp 51 mở Sảnh Phúc Lợi.\\nBước 2: Chọn Đổi Mã Quà Tặng.\\nBước 3: Nhập mã và nhận quà qua Hộp Thư.",
     "codes": ["TALAHACNGOKHONG", "VIP666", "VIP888"],
     "rewards": "Quà tặng tân thủ độc quyền",
-    "expiresAt": "2026-12-31",
+    "expiresAt": null,
     "source": "Muse Crawler Bot"
   }'`,
     sampleUpdateInstructionsCurl: `curl -X POST "${urlObj.origin}/api/crawler/ingest-codes" \\
@@ -1057,7 +1058,7 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
           rewards: item.rewards || item.description || null,
           source: item.sourceName || item.sourceUrl || item.sourceType || item.source || 'Crawler',
           created_at: item.createdAt || item.created_at || new Date().toISOString(),
-          expires_at: item.expiresAt || item.expires_at || '2026-12-31',
+          expires_at: item.expiresAt || item.expires_at || null,
         });
       }
 
@@ -1075,7 +1076,7 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
           rewards: item.rewards || null,
           source: `Đóng góp bởi ${item.submitterName || 'Thành viên'}`,
           created_at: item.createdAt || new Date().toISOString(),
-          expires_at: item.expiresAt || '2026-12-31',
+          expires_at: item.expiresAt || null,
         });
       }
 
@@ -1143,8 +1144,8 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
             const targetSlug = String(item.gameSlug || item.gameId || '').trim().toLowerCase();
             const finalCode = String(item.code || item.codeValue || '').trim().toUpperCase();
 
-            const rawExpiry = item.expiresAt || item.expires_at || '2026-12-31';
-            const parsedExp = parseExpirationDate(rawExpiry);
+            const rawExpiry = item.expiresAt || item.expires_at || null;
+            const parsedExp = rawExpiry ? parseExpirationDate(rawExpiry) : { formatted: '', isExpired: false, dateObj: null };
             const isExp = parsedExp.isExpired || (item.status && String(item.status).toLowerCase() === 'expired');
 
             const approvedItem = {
@@ -1163,9 +1164,9 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
               is_active: !isExp,
               is_verified: true,
               isVerified: true,
-              expires_at: parsedExp.formatted || rawExpiry,
-              expiresAt: parsedExp.formatted || rawExpiry,
-              expiry: parsedExp.formatted || rawExpiry,
+              expires_at: parsedExp.formatted || rawExpiry || null,
+              expiresAt: parsedExp.formatted || rawExpiry || null,
+              expiry: parsedExp.formatted || rawExpiry || null,
               sourceUrl: item.sourceUrl || `https://codegame.shop/game/${targetSlug}`,
               source: item.sourceName || item.sourceUrl || item.sourceType || 'Crawler Approved',
               copyCount: 0,
@@ -1371,6 +1372,175 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
           success: true,
           message: `Đã đồng bộ toàn bộ hướng dẫn của ${updatedCount} game từ wcg_admin_games_v5 vào bảng games D1 thành công!`,
           totalGamesSynced: updatedCount,
+        }),
+        { headers: CORS_HEADERS }
+      );
+    }
+
+    // =========================================================================
+    // ACTION: Di dời dữ liệu cũ - Xóa bỏ hạn giả 2026-12-31 chuyển sang NULL
+    // =========================================================================
+    if (body && body.action === 'migrate_remove_fake_expiry_dates') {
+      if (!env.DB) {
+        return new Response(
+          JSON.stringify({ success: false, error: 'Database D1 không khả dụng.' }),
+          { status: 500, headers: CORS_HEADERS }
+        );
+      }
+
+      // 1. Kiểm tra số lượng bản ghi trong bảng codes trước khi di dời
+      const totalCodesBefore = await env.DB.prepare('SELECT COUNT(*) as total FROM codes').first<any>().catch(() => ({ total: 0 }));
+      const fakeCodesBefore = await env.DB.prepare(
+        "SELECT COUNT(*) as cnt FROM codes WHERE expires_at = '2026-12-31' OR expires_at = '2026-12-31T23:59:59Z' OR expires_at = '31/12/2026' OR expires_at LIKE '2026-12-31%'"
+      ).first<any>().catch(() => ({ cnt: 0 }));
+
+      // 2. Cập nhật bảng codes: chuyển toàn bộ 2026-12-31 sang NULL
+      await env.DB.prepare(
+        "UPDATE codes SET expires_at = NULL WHERE expires_at = '2026-12-31' OR expires_at = '2026-12-31T23:59:59Z' OR expires_at = '31/12/2026' OR expires_at LIKE '2026-12-31%'"
+      ).run().catch((err: any) => ({ error: String(err) }));
+
+      // Cập nhật lại active_codes_count trên bảng games để đảm bảo tính nhất quán
+      await env.DB.prepare(`
+        UPDATE games 
+        SET active_codes_count = (
+          SELECT COUNT(*) FROM codes 
+          WHERE codes.game_slug = games.slug 
+            AND (codes.status = 'active' OR codes.status = 'verified') 
+            AND (codes.expires_at IS NULL OR codes.expires_at = '' OR codes.expires_at >= date('now'))
+        )
+      `).run().catch(() => {});
+
+      // 3. Cập nhật trong system_settings: wcg_admin_custom_free_codes_v1
+      let updatedCustomCount = 0;
+      const customCodesRaw = await getSettingD1(env.DB, 'wcg_admin_custom_free_codes_v1');
+      if (Array.isArray(customCodesRaw)) {
+        let modified = false;
+        const newCustomCodes = customCodesRaw.map((c: any) => {
+          if (!c) return c;
+          const exp = c.expiresAt || c.expires_at || c.expiry;
+          if (exp === '2026-12-31' || exp === '2026-12-31T23:59:59Z' || exp === '31/12/2026' || (typeof exp === 'string' && exp.startsWith('2026-12-31'))) {
+            updatedCustomCount++;
+            modified = true;
+            return {
+              ...c,
+              expiresAt: null,
+              expires_at: null,
+              expiry: null,
+            };
+          }
+          return c;
+        });
+        if (modified) {
+          await setSettingD1(env.DB, 'wcg_admin_custom_free_codes_v1', newCustomCodes);
+        }
+      }
+
+      // 4. Cập nhật trong system_settings: wcg_admin_free_codes_v5
+      let updatedCatalogCount = 0;
+      const catalogCodesRaw = await getSettingD1(env.DB, 'wcg_admin_free_codes_v5');
+      if (Array.isArray(catalogCodesRaw)) {
+        let modified = false;
+        const newCatalogCodes = catalogCodesRaw.map((c: any) => {
+          if (!c) return c;
+          const exp = c.expiresAt || c.expires_at || c.expiry;
+          if (exp === '2026-12-31' || exp === '2026-12-31T23:59:59Z' || exp === '31/12/2026' || (typeof exp === 'string' && exp.startsWith('2026-12-31'))) {
+            updatedCatalogCount++;
+            modified = true;
+            return {
+              ...c,
+              expiresAt: null,
+              expires_at: null,
+              expiry: null,
+            };
+          }
+          return c;
+        });
+        if (modified) {
+          await setSettingD1(env.DB, 'wcg_admin_free_codes_v5', newCatalogCodes);
+        }
+      }
+
+      // 5. Cập nhật trong system_settings: wcg_admin_free_codes_v4 (nếu có)
+      let updatedV4Count = 0;
+      const v4CodesRaw = await getSettingD1(env.DB, 'wcg_admin_free_codes_v4');
+      if (Array.isArray(v4CodesRaw)) {
+        let modified = false;
+        const newV4Codes = v4CodesRaw.map((c: any) => {
+          if (!c) return c;
+          const exp = c.expiresAt || c.expires_at || c.expiry;
+          if (exp === '2026-12-31' || exp === '2026-12-31T23:59:59Z' || exp === '31/12/2026' || (typeof exp === 'string' && exp.startsWith('2026-12-31'))) {
+            updatedV4Count++;
+            modified = true;
+            return {
+              ...c,
+              expiresAt: null,
+              expires_at: null,
+              expiry: null,
+            };
+          }
+          return c;
+        });
+        if (modified) {
+          await setSettingD1(env.DB, 'wcg_admin_free_codes_v4', newV4Codes);
+        }
+      }
+
+      // 6. Cập nhật trong system_settings: wcg_crawler_pending_codes_v1
+      let updatedPendingCount = 0;
+      const pendingCodesRaw = await getSettingD1(env.DB, 'wcg_crawler_pending_codes_v1');
+      if (Array.isArray(pendingCodesRaw)) {
+        let modified = false;
+        const newPendingCodes = pendingCodesRaw.map((c: any) => {
+          if (!c) return c;
+          const exp = c.expiresAt || c.expires_at || c.expiry;
+          if (exp === '2026-12-31' || exp === '2026-12-31T23:59:59Z' || exp === '31/12/2026' || (typeof exp === 'string' && exp.startsWith('2026-12-31'))) {
+            updatedPendingCount++;
+            modified = true;
+            return {
+              ...c,
+              expiresAt: null,
+              expires_at: null,
+              expiry: null,
+            };
+          }
+          return c;
+        });
+        if (modified) {
+          await setSettingD1(env.DB, 'wcg_crawler_pending_codes_v1', newPendingCodes);
+        }
+      }
+
+      // 7. Xóa cache biên và cache runtime
+      invalidateGamesCatalogCache();
+      await invalidateCatalogEdgeCache(context as any, request, env).catch(() => {});
+
+      // 8. Thống kê kiểm toán sau di dời
+      const totalCodesAfter = await env.DB.prepare('SELECT COUNT(*) as total FROM codes').first<any>().catch(() => ({ total: 0 }));
+      const remainingFakeCodes = await env.DB.prepare(
+        "SELECT COUNT(*) as cnt FROM codes WHERE expires_at = '2026-12-31' OR expires_at = '2026-12-31T23:59:59Z' OR expires_at = '31/12/2026' OR expires_at LIKE '2026-12-31%'"
+      ).first<any>().catch(() => ({ cnt: 0 }));
+      const nullExpiryCodes = await env.DB.prepare(
+        "SELECT COUNT(*) as cnt FROM codes WHERE expires_at IS NULL OR expires_at = ''"
+      ).first<any>().catch(() => ({ cnt: 0 }));
+      const realExpiryCodes = await env.DB.prepare(
+        "SELECT COUNT(*) as cnt FROM codes WHERE expires_at IS NOT NULL AND expires_at != ''"
+      ).first<any>().catch(() => ({ cnt: 0 }));
+
+      return new Response(
+        JSON.stringify({
+          success: true,
+          action: 'migrate_remove_fake_expiry_dates',
+          totalCodesBefore: Number(totalCodesBefore?.total || 0),
+          totalCodesAfter: Number(totalCodesAfter?.total || 0),
+          codesLost: Number(totalCodesBefore?.total || 0) - Number(totalCodesAfter?.total || 0),
+          updatedCodesTableCount: Number(fakeCodesBefore?.cnt || 0),
+          updatedCustomCount,
+          updatedCatalogCount,
+          updatedV4Count,
+          updatedPendingCount,
+          remainingFakeCodes: Number(remainingFakeCodes?.cnt || 0),
+          nullExpiryCodes: Number(nullExpiryCodes?.cnt || 0),
+          realExpiryCodes: Number(realExpiryCodes?.cnt || 0),
         }),
         { headers: CORS_HEADERS }
       );
@@ -1927,7 +2097,7 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
           const rewards = nc.rewards || nc.description || 'Quà tân thủ & vật phẩm ingame';
           const isExp = isCodeExpired(nc);
           const status = nc.status === 'expired' || isExp ? 'expired' : 'active';
-          const expiresAt = nc.expires_at || nc.expiresAt || nc.expiry || '';
+          const expiresAt = nc.expires_at || nc.expiresAt || nc.expiry || null;
           const source = nc.source || auth.botName || 'crawler';
           const addedAt = nc.added_at || nc.updated_at || nc.created_at || nowIso;
 

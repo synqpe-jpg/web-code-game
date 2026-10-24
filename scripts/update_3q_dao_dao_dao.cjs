@@ -77,7 +77,7 @@ function run() {
       existing.code_value = item.code;
       existing.rewards = item.reward;
       existing.status = 'approved';
-      existing.expiresAt = '2026-12-31';
+      existing.expiresAt = null;
       existing.isVerified = true;
       updatedCount++;
     } else {
@@ -91,7 +91,7 @@ function run() {
         rewards: item.reward,
         status: 'approved',
         isVerified: true,
-        expiresAt: '2026-12-31',
+        expiresAt: null,
         sourceUrl: 'https://joyplay.vn',
         createdAt: new Date().toISOString()
       });

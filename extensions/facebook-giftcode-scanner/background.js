@@ -56,7 +56,7 @@ async function handlePushCodes({ codes, gameSlug, gameName, sourceLinks }) {
             gameSlug: gameSlug,
             gameName: gameName || gameSlug,
             rewards: item.rewards || `Quà tặng sự kiện Fanpage ${gameName || ''}`.trim(),
-            expiresAt: item.expiresAt || '2026-12-31',
+            expiresAt: item.expiresAt || null,
             sourceUrl: item.sourceUrl || item.postUrl || '',
             sourceType: 'official_fb',
             score: item.score || 95,

@@ -128,7 +128,7 @@ export const FreeCodesModule: React.FC<FreeCodesModuleProps> = ({
       codeValue: '',
       rewards: '100 Kim Cương, 50k Vàng, Rương Trang Bị SSR',
       status: 'ACTIVE',
-      expiresAt: '2026-12-31',
+      expiresAt: '',
       isVerified: true,
       notes: '',
     });
@@ -202,7 +202,7 @@ export const FreeCodesModule: React.FC<FreeCodesModuleProps> = ({
       const parts = line.split(/[|,\t-]+/).map((p) => p.trim());
       const code = parts[0];
       const rewards = parts[1] || 'Quà tặng tân thủ';
-      const expiresAt = parts[2] || '2026-12-31';
+      const expiresAt = parts[2] ? parts[2].trim() : '';
       if (code) {
         itemsToImport.push({ code, rewards, expiresAt });
       }
@@ -329,9 +329,15 @@ export const FreeCodesModule: React.FC<FreeCodesModuleProps> = ({
       header: 'Hạn Dùng',
       render: (item) => (
         <div className="text-xs whitespace-nowrap">
-          <p className="font-mono text-slate-600 dark:text-slate-300">
-            {item.expiresAt || 'Vĩnh viễn'}
-          </p>
+          {item.expiresAt ? (
+            <p className="font-mono text-slate-600 dark:text-slate-300">
+              {item.expiresAt}
+            </p>
+          ) : (
+            <p className="text-[11px] text-slate-400 italic">
+              Chưa rõ hạn dùng
+            </p>
+          )}
           <p className="text-[10px] text-slate-400">
             {item.copyCount || 0} lượt copy
           </p>
@@ -577,18 +583,47 @@ export const FreeCodesModule: React.FC<FreeCodesModuleProps> = ({
 
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <div>
-              <label className="text-xs font-bold text-slate-700 dark:text-slate-300">
-                Ngày Hết Hạn
-              </label>
+              <div className="flex items-center justify-between mb-1">
+                <label className="text-xs font-bold text-slate-700 dark:text-slate-300">
+                  Ngày Hết Hạn
+                </label>
+                <div className="flex items-center gap-1">
+                  <button
+                    type="button"
+                    onClick={() => setEditingCode((prev) => (prev ? { ...prev, expiresAt: '' } : null))}
+                    className={`px-2 py-0.5 rounded text-[10px] font-medium border transition-colors cursor-pointer ${
+                      !editingCode?.expiresAt
+                        ? 'bg-indigo-600 text-white border-indigo-500'
+                        : 'bg-slate-100 text-slate-600 border-slate-300 dark:bg-slate-800 dark:text-slate-400 dark:border-slate-700 hover:text-slate-900 dark:hover:text-slate-200'
+                    }`}
+                  >
+                    Chưa rõ hạn
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setEditingCode((prev) => (prev ? { ...prev, expiresAt: 'Vĩnh viễn' } : null))}
+                    className={`px-2 py-0.5 rounded text-[10px] font-medium border transition-colors cursor-pointer ${
+                      editingCode?.expiresAt === 'Vĩnh viễn'
+                        ? 'bg-emerald-600 text-white border-emerald-500'
+                        : 'bg-slate-100 text-slate-600 border-slate-300 dark:bg-slate-800 dark:text-slate-400 dark:border-slate-700 hover:text-slate-900 dark:hover:text-slate-200'
+                    }`}
+                  >
+                    Vĩnh viễn
+                  </button>
+                </div>
+              </div>
               <input
                 type="text"
                 value={editingCode?.expiresAt || ''}
                 onChange={(e) =>
                   setEditingCode((prev) => (prev ? { ...prev, expiresAt: e.target.value } : null))
                 }
-                placeholder="2026-12-31 hoặc Vĩnh viễn"
+                placeholder="Để trống = Chưa rõ hạn (hoặc nhập YYYY-MM-DD)"
                 className="mt-1 w-full rounded-xl border border-slate-200 bg-white p-2.5 text-xs text-slate-900 focus:border-indigo-500 focus:outline-none dark:border-slate-700 dark:bg-slate-800 dark:text-white"
               />
+              {!editingCode?.expiresAt && (
+                <p className="text-[11px] text-slate-400 italic mt-1">Đang chọn: Chưa rõ hạn dùng (lưu NULL)</p>
+              )}
             </div>
 
             <div>
@@ -684,7 +719,7 @@ export const FreeCodesModule: React.FC<FreeCodesModuleProps> = ({
               required
               value={bulkRawText}
               onChange={(e) => setBulkRawText(e.target.value)}
-              placeholder={`VIP999 | 500 Kim Cương | 2026-12-31\nTANTHU888 | 100k Vàng | Vĩnh viễn\nCODEGAME2026`}
+              placeholder={`VIP999 | 500 Kim Cương | 2026-11-20\nTANTHU888 | 100k Vàng | Vĩnh viễn\nCODEGAME2026 (bỏ trống hạn = Chưa rõ hạn)`}
               className="mt-1 w-full font-mono text-xs rounded-xl border border-slate-200 bg-white p-3 text-slate-900 focus:border-indigo-500 focus:outline-none dark:border-slate-700 dark:bg-slate-800 dark:text-white"
             />
           </div>

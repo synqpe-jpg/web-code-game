@@ -26,7 +26,7 @@ class DiscordScraper {
         codes.push({
           code: c,
           rewards: 'Phần thưởng phát sóng qua Discord',
-          expiresAt: '2026-12-31',
+          expiresAt: null,
         });
       }
     }
@@ -41,7 +41,7 @@ class DiscordScraper {
           codes.push({
             code: c,
             rewards: 'Phần thưởng thông báo Discord',
-            expiresAt: '2026-12-31',
+            expiresAt: null,
           });
         }
       }
