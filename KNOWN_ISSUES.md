@@ -10,6 +10,24 @@
 
 ## 1. DANH MỤC LỖI & CÁC BẪY ĐÃ THẤT BẠI (DO NOT REPEAT)
 
+### ISSUE-111: Bẫy Tràn Chiều Ngang & Cắt Cụt Nút Thao Tác (Bỏ Qua, Duyệt) Trong Bảng Quét Hàng Chờ Do Thiếu Ghim Cột Cố Định (Horizontal Overflow & Cut-off Action Buttons Trap in Pending Queue Table)
+- **Triệu chứng**:
+  - Trên màn hình chuẩn 1366x768 hoặc khi sidebar quản trị mở, bảng danh sách game chờ duyệt bị tràn chiều ngang.
+  - Cột "THAO TÁC" bị đẩy ra sát mép phải và cắt cụt các nút bấm hành động ("Bỏ qua", "Duyệt", "Đăng Ngay" bị che khuất một nửa).
+  - Quản trị viên phải cuộn thanh cuộn ngang qua lại mới thấy và bấm được nút duyệt/bỏ qua, gây chậm trễ và khó chịu khi duyệt hàng loạt.
+- **Nguyên nhân gốc rễ**:
+  1. Đặt `min-w-[950px]` cùng các cột có min-width lớn vượt quá không gian nội dung của viewport desktop tiêu chuẩn.
+  2. Cột "Thao Tác" không có `sticky right-0` nên bị trôi ra khỏi màn hình khi bảng cuộn ngang.
+- **Giải pháp chuẩn đã kiểm chứng**:
+  - Gán `sticky right-0` cho cả `<th>` và `<td>` cột Thao Tác kèm bóng đổ `shadow-[-8px_0_12px_rgba(0,0,0,0.5)]` và nền `bg-slate-950/95` / `bg-slate-900/95` để cột luôn luôn hiển thị 100% trong màn hình.
+  - Tối ưu kích thước bảng `min-w-[820px]` để hiển thị vừa vặn tự nhiên không cần cuộn ngang trên màn hình từ 1280px trở lên.
+  - Gán `sticky top-2 z-30` cho thanh thao tác hàng loạt (Bulk Bar) khi quản trị viên chọn nhiều game.
+- ⛔ **CÁCH SỬA ĐÃ THẤT BẠI - TUYỆT ĐỐI KHÔNG LẶP LẠI**:
+  - ❌ *Không để cột thao tác trôi tự do (non-sticky) ở cuối bảng rộng*: Trong các bảng quản trị có nút hành động trọng yếu (duyệt, xóa, sửa), cột Thao Tác BẮT BUỘC phải là `sticky right-0`.
+  - ❌ *Không dùng nút văn bản dài hoặc icon cồng kềnh*: Các nút thao tác cần gọn gàng, có `whitespace-nowrap shrink-0` để không bao giờ bị rớt dòng hay tràn cột.
+
+---
+
 ### ISSUE-110: Bẫy Phình Số Lượng codes_count & Lệch Bảng Xếp Hạng Do Đếm Gộp Cả Mã Đã Hết Hạn Và Trùng Lặp Bản Ghi (Code Count Inflation & Leaderboard Skew Trap Due to Counting Expired Codes & Internal Duplicates)
 - **Triệu chứng**:
   - Số lượng giftcode hiển thị trên web bị phình to bất thường ở một số game (ví dụ: Where Winds Meet 598 mã, Yến Vân Thập Lục Thanh 588 mã, Delta Force 280 mã).

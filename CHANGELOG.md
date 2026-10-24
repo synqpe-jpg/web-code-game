@@ -7,7 +7,32 @@ Mỗi mục sửa lỗi đều ghi nhận **Nguyên nhân gốc rễ (Root Cause
 
 ## [2026-10-24]
 
-### 184. Tái Cân Bằng Toàn Diện & Chuẩn Hóa Số Đếm Mã Khả Dụng (codes_count), Khử Trùng Lặp Bản Ghi & Phân Tách Tuyệt Đối Mã Hết Hạn Khỏi Bảng Xếp Hạng (Deflated Active Code Count, Deduplication & Strict Separation of Expired Codes from Badges/Leaderboard)
+### 185. Cố Định Cột Thao Tác (Sticky Right Column) & Tối Ưu Bố Cục Bảng Quét Game Mới & Hàng Chờ Duyệt (Sticky Actions Viewport Guarantee for Pending Games Table)
+- **Mô tả & Yêu cầu người dùng**:
+  - *"trong mục Quét Game Mới & Hàng Chờ Duyệt giúp tôi đảm bảo các thao tác đều nằm trong cùng 1 màn hình, đặc biệt là các thao tác bỏ và duyệt."*
+  - Ảnh đính kèm: Trên màn hình chuẩn 1366x768, chế độ Danh Sách (List View) bị tràn chiều ngang (`overflow-x`), cột "THAO TÁC" bị đẩy ra sát mép phải màn hình khiến nút "Bỏ qua", "Duyệt" và "Đăng Ngay" bị cắt cụt một nửa ("THA...", "D...", "Đ N..."). Quản trị viên phải cuộn ngang bất tiện mới bấm được nút duyệt/bỏ qua.
+- **Nguyên nhân gốc rễ (Root Cause)**:
+  1. Bảng `<table>` đặt `min-w-[950px]`, kết hợp với các cột có `min-w` quá lớn (`min-w-[220px]` tên game, `min-w-[170px]` ngày phát hành, `min-w-[200px]` thao tác), tổng chiều rộng tối thiểu vượt quá khoảng không gian nội dung khả dụng (~1046px trên màn hình 1366px khi có sidebar quản trị 256px).
+  2. Cột "Thao Tác" trong `<thead>` và `<tbody>` thiếu thuộc tính ghim cố định `sticky right-0`, khiến cột bị trượt khỏi khung nhìn khi vùng chứa cuộn ngang.
+  3. Thanh thao tác hàng loạt (Bulk Bar: Duyệt tất cả / Bỏ qua) không ghim cố định (`sticky`), khiến khi quản trị viên cuộn xuống các game phía dưới thì thanh thao tác bị trôi mất lên trên.
+- **Giải pháp đã triển khai (Solution)**:
+  1. **Ghim cố định cột Thao Tác bên phải (Sticky Right Column)**:
+     - Gán `sticky right-0 bg-slate-950/95 backdrop-blur-md border-l border-slate-800 shadow-[-8px_0_12px_rgba(0,0,0,0.5)] z-20` cho `<th>`.
+     - Gán `sticky right-0 backdrop-blur-md border-l border-slate-800/80 shadow-[-8px_0_12px_rgba(0,0,0,0.5)] z-10 bg-slate-900/95 group-hover/row:bg-slate-800/95` cho `<td>`.
+     - Đảm bảo 100% cột Thao Tác với các nút **[ Bỏ qua ]** và **[ Duyệt ]** / **[ Đăng Ngay ]** luôn luôn ghim chặt trong tầm mắt người dùng trên mọi kích thước màn hình.
+  2. **Tối ưu co giãn vừa vặn 1 màn hình (Responsive Table Layout)**:
+     - Tinh chỉnh `min-w-[820px]` (giảm từ 950px), thu gọn padding và kích thước logo (40x40px).
+     - Chiều rộng các cột tự co giãn mượt mà: Checkbox (36px), Logo (48px), Tên game (170-220px), Ngày phát hành (130px), NPH (115px), Thể loại (105px), Giftcode (85px), Thao tác (160px). Bảng hiển thị trọn vẹn 100% trên màn hình desktop chuẩn mà không cần cuộn ngang.
+  3. **Thiết kế nút thao tác sắc nét, không gãy dòng**:
+     - Nút **[ Bỏ qua ]**: Tông màu hồng sẫm `bg-rose-950/40 text-rose-300 hover:bg-rose-600 hover:text-white` nổi bật và nhận diện nhanh.
+     - Nút **[ ✏️ ]** (Logo): Thu gọn thành icon button tinh tế, có tooltip rõ ràng.
+     - Nút **[ ✓ Duyệt ]** / **[ ⚡ Đăng Ngay ]**: Nút chính nổi bật, `whitespace-nowrap shrink-0` đảm bảo không bao giờ bị cắt cụt hay rớt dòng.
+  4. **Thanh thao tác hàng loạt Ghim Nổi (Sticky Floating Bulk Bar)**:
+     - Gán `sticky top-2 z-30` cho thanh thao tác hàng loạt để khi chọn nhiều game và cuộn trang, quản trị viên có thể bấm "Duyệt & Đăng Tất Cả" hoặc "Bỏ qua" ngay lập tức tại bất kỳ vị trí nào trên màn hình.
+- **Kết quả nghiệm thu**:
+  - Biên dịch Vite & Worker: Thành công 100%.
+  - Kiểm thử hồi quy tự động: Đạt 100%.
+  - Giao diện thực tế: Toàn bộ thao tác Bỏ qua và Duyệt hiển thị trọn vẹn 100% trong cùng một màn hình, không bị che khuất.
 - **Mô tả & Yêu cầu người dùng**:
   - *"Số lượng mã code hiển thị trên web đang bị phình ở một số game, làm sai lệch huy hiệu số mã và bảng xếp hạng 'nhiều mã nhất'. Đã đo trực tiếp trên production: Where Winds Meet: 598 mã, Yến Vân Thập Lục Thanh: 588 mã, Delta Force: 280 mã. Toàn site: 11.964 mã công khai (1.068 mã hết hạn thật, 10.883 mã chưa rõ hạn). Việc 1: Kiểm toán toàn diện các game có trên 100 mã (13 game), kèm bảng phân tích (tổng bản ghi, còn hạn + chưa rõ hạn, hết hạn thật, trùng lặp nội bộ, trùng lặp chéo game, nguồn gốc và ngày quét). Việc 2: Thống nhất quy tắc hiển thị số đếm (codes_count = mã còn dùng được; mã hết hạn không được tính vào codes_count/huy hiệu/sắp xếp; giữ mã hết hạn ở trang chi tiết có nhãn Hết hạn rõ ràng; chi tiết game ghi rõ 'X mã còn dùng được (Y hết hạn)'). Việc 3: Khử trùng lặp bản ghi trong cùng game, siết crawler không nạp lại mã hết hạn (anti-resurrection), bảo toàn cặp game trùng catalog Where Winds Meet & Yến Vân Thập Lục Thanh theo lệnh chủ site."*
 - **Nguyên nhân gốc rễ (Root Cause)**:

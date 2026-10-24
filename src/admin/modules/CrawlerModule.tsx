@@ -3111,9 +3111,9 @@ export const CrawlerModule: React.FC<CrawlerModuleProps> = ({ onShowToast }) => 
               </div>
             </div>
 
-            {/* Bulk Selection Bar */}
+            {/* Bulk Selection Bar (Ghim cố định khi cuộn để duyệt / bỏ qua hàng loạt tức thì) */}
             {selectedGameIds.length > 0 && (
-              <div className="pt-2.5 border-t border-slate-800/80 flex items-center justify-between gap-2 flex-wrap">
+              <div className="pt-2.5 border-t border-slate-800/80 flex items-center justify-between gap-2 flex-wrap sticky top-2 z-30 bg-slate-900/95 backdrop-blur-md p-2.5 rounded-xl border border-emerald-500/40 shadow-xl shadow-emerald-950/30">
                 <div className="flex items-center gap-2 flex-wrap">
                   <span className="text-xs text-emerald-300 font-medium">
                     Đã chọn <strong className="text-white">{selectedGameIds.length}</strong> game:
@@ -3191,10 +3191,10 @@ export const CrawlerModule: React.FC<CrawlerModuleProps> = ({ onShowToast }) => 
               {gameViewMode === 'list' ? (
                 <div className="bg-slate-900 border border-slate-800 rounded-2xl overflow-hidden shadow-lg">
                   <div className="overflow-x-auto">
-                    <table className="w-full text-left border-collapse text-xs min-w-[950px]">
+                    <table className="w-full text-left border-collapse text-xs min-w-[820px]">
                       <thead>
-                        <tr className="border-b border-slate-800 bg-slate-950/80 text-slate-400 font-semibold uppercase tracking-wider text-[11px]">
-                          <th className="py-3 px-3 w-10 text-center">
+                        <tr className="border-b border-slate-800 bg-slate-950/90 text-slate-400 font-semibold uppercase tracking-wider text-[11px]">
+                          <th className="py-2.5 px-2 w-9 text-center">
                             <button
                               type="button"
                               onClick={() => {
@@ -3216,18 +3216,20 @@ export const CrawlerModule: React.FC<CrawlerModuleProps> = ({ onShowToast }) => 
                               )}
                             </button>
                           </th>
-                          <th className="py-3 px-2 w-14 text-center">Logo</th>
-                          <th className="py-3 px-3 min-w-[220px]">Tên Game</th>
-                          <th className="py-3 px-3 min-w-[170px] text-amber-300">
+                          <th className="py-2.5 px-1.5 w-12 text-center">Logo</th>
+                          <th className="py-2.5 px-3 min-w-[170px]">Tên Game</th>
+                          <th className="py-2.5 px-3 w-[135px] min-w-[130px] text-amber-300">
                             <div className="flex items-center gap-1.5 font-bold">
-                              <Calendar className="w-4 h-4 text-amber-400" />
+                              <Calendar className="w-3.5 h-3.5 text-amber-400" />
                               <span>Ngày Phát Hành</span>
                             </div>
                           </th>
-                          <th className="py-3 px-3 min-w-[140px]">NPH / Nguồn</th>
-                          <th className="py-3 px-3 min-w-[120px]">Thể loại / Nền tảng</th>
-                          <th className="py-3 px-3 min-w-[100px] text-center">Giftcode</th>
-                          <th className="py-3 px-3 min-w-[200px] text-right">Thao Tác</th>
+                          <th className="py-2.5 px-3 w-[125px] min-w-[115px]">NPH / Nguồn</th>
+                          <th className="py-2.5 px-3 w-[115px] min-w-[105px]">Thể loại / Nền tảng</th>
+                          <th className="py-2.5 px-3 w-[88px] min-w-[80px] text-center">Giftcode</th>
+                          <th className="py-2.5 px-3 w-44 text-right sticky right-0 bg-slate-950/95 backdrop-blur-md border-l border-slate-800 shadow-[-8px_0_12px_rgba(0,0,0,0.5)] z-20">
+                            Thao Tác
+                          </th>
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-slate-800/60">
@@ -3239,7 +3241,7 @@ export const CrawlerModule: React.FC<CrawlerModuleProps> = ({ onShowToast }) => 
                           return (
                             <tr
                               key={game.id}
-                              className={`transition-colors hover:bg-slate-800/40 ${
+                              className={`group/row transition-colors hover:bg-slate-800/40 ${
                                 isSelected ? 'bg-emerald-950/20' : ''
                               }`}
                             >
@@ -3263,8 +3265,8 @@ export const CrawlerModule: React.FC<CrawlerModuleProps> = ({ onShowToast }) => 
                               </td>
 
                               {/* Logo with safe fallback & edit overlay */}
-                              <td className="py-3 px-2 text-center align-middle">
-                                <div className="w-12 h-12 rounded-xl overflow-hidden bg-slate-950 border border-slate-700/60 mx-auto relative group/icon shrink-0 shadow-sm">
+                              <td className="py-2.5 px-1.5 text-center align-middle">
+                                <div className="w-10 h-10 rounded-xl overflow-hidden bg-slate-950 border border-slate-700/60 mx-auto relative group/icon shrink-0 shadow-sm">
                                   <img
                                     src={
                                       game.missing_icon || (!game.iconUrl && !game.localIconPath)
@@ -3305,9 +3307,9 @@ export const CrawlerModule: React.FC<CrawlerModuleProps> = ({ onShowToast }) => 
                               </td>
 
                               {/* Game Title & Links */}
-                              <td className="py-3 px-3 align-middle">
+                              <td className="py-2 px-3 align-middle">
                                 <div className="flex items-center gap-1.5 flex-wrap">
-                                  <span className="font-bold text-white text-sm hover:text-emerald-300 transition-colors leading-snug">
+                                  <span className="font-bold text-white text-xs hover:text-emerald-300 transition-colors leading-snug">
                                     {cleanGameTitle(game.name)}
                                   </span>
                                   {isFromCodeMoi ? (
@@ -3332,28 +3334,28 @@ export const CrawlerModule: React.FC<CrawlerModuleProps> = ({ onShowToast }) => 
                                     </a>
                                   )}
                                 </div>
-                                <div className="text-[11px] text-slate-400 font-mono mt-0.5 flex items-center gap-2 flex-wrap">
+                                <div className="text-[10px] text-slate-400 font-mono mt-0.5 flex items-center gap-1.5 flex-wrap">
                                   <span>slug: <strong className="text-slate-300">{game.slug}</strong></span>
-                                  {game.packageId && <span className="text-slate-500">• {game.packageId}</span>}
+                                  {game.packageId && <span className="text-slate-500 truncate max-w-[130px]">• {game.packageId}</span>}
                                 </div>
                               </td>
 
                               {/* NGÀY PHÁT HÀNH — CỰC KỲ RÕ RÀNG */}
-                              <td className="py-3 px-3 align-middle">
-                                <div className="flex flex-col gap-1">
-                                  <div className="flex items-center gap-1.5">
-                                    <Calendar className="w-4 h-4 text-amber-400 shrink-0" />
-                                    <span className="font-bold text-amber-300 text-xs sm:text-[13px] tracking-wide whitespace-nowrap">
+                              <td className="py-2 px-3 align-middle">
+                                <div className="flex flex-col gap-0.5">
+                                  <div className="flex items-center gap-1">
+                                    <Calendar className="w-3.5 h-3.5 text-amber-400 shrink-0" />
+                                    <span className="font-bold text-amber-300 text-xs tracking-wide whitespace-nowrap">
                                       {dateInfo.formattedDate}
                                     </span>
                                   </div>
                                   {dateInfo.badgeText && (
-                                    <span className="inline-block self-start px-2 py-0.5 rounded text-[10px] font-semibold bg-amber-500/20 text-amber-200 border border-amber-500/30 whitespace-nowrap">
+                                    <span className="inline-block self-start px-1.5 py-0.2 rounded text-[9px] font-semibold bg-amber-500/20 text-amber-200 border border-amber-500/30 whitespace-nowrap">
                                       {dateInfo.badgeText}
                                     </span>
                                   )}
                                   {dateInfo.crawledDate && (
-                                    <span className="text-[10px] text-slate-500 whitespace-nowrap">
+                                    <span className="text-[9px] text-slate-500 whitespace-nowrap">
                                       Quét: {dateInfo.crawledDate}
                                     </span>
                                   )}
@@ -3361,22 +3363,22 @@ export const CrawlerModule: React.FC<CrawlerModuleProps> = ({ onShowToast }) => 
                               </td>
 
                               {/* NPH & Nguồn */}
-                              <td className="py-3 px-3 align-middle">
-                                <div className="text-xs text-slate-200 font-semibold truncate max-w-[150px]" title={cleanGameTitle(game.developer || game.publisher)}>
+                              <td className="py-2 px-3 align-middle">
+                                <div className="text-xs text-slate-200 font-semibold truncate max-w-[120px]" title={cleanGameTitle(game.developer || game.publisher)}>
                                   {cleanGameTitle(game.developer || game.publisher) || <em className="text-slate-500 font-normal">Chưa rõ</em>}
                                 </div>
-                                <div className="flex items-center gap-1 mt-1 flex-wrap">
+                                <div className="flex items-center gap-1 mt-0.5 flex-wrap">
                                   {isFromCodeMoi ? (
-                                    <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-purple-500/20 text-purple-300 border border-purple-500/30">
+                                    <span className="px-1.5 py-0.2 rounded text-[9px] font-bold bg-purple-500/20 text-purple-300 border border-purple-500/30">
                                       🌐 CodeMoi
                                     </span>
                                   ) : (
-                                    <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
+                                    <span className="px-1.5 py-0.2 rounded text-[9px] font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
                                       📱 Google Play
                                     </span>
                                   )}
                                   {(game.missing_icon || (!game.iconUrl && !game.localIconPath)) && (
-                                    <span className="px-1.5 py-0.5 rounded text-[10px] font-semibold bg-rose-500/20 text-rose-300 border border-rose-500/40">
+                                    <span className="px-1.5 py-0.2 rounded text-[9px] font-semibold bg-rose-500/20 text-rose-300 border border-rose-500/40">
                                       ⚠️ Thiếu icon
                                     </span>
                                   )}
@@ -3384,12 +3386,12 @@ export const CrawlerModule: React.FC<CrawlerModuleProps> = ({ onShowToast }) => 
                               </td>
 
                               {/* Thể loại & Nền tảng */}
-                              <td className="py-3 px-3 align-middle text-slate-300">
-                                <div className="text-xs font-medium truncate max-w-[130px]" title={game.category || game.platform || 'Chưa rõ'}>
+                              <td className="py-2 px-3 align-middle text-slate-300">
+                                <div className="text-xs font-medium truncate max-w-[110px]" title={game.category || game.platform || 'Chưa rõ'}>
                                   {game.category || game.platform || <em className="text-slate-500 font-normal">Chưa rõ</em>}
                                 </div>
                                 {!isFromCodeMoi && (
-                                  <div className="flex items-center gap-1 text-[11px] text-slate-400 mt-1">
+                                  <div className="flex items-center gap-1 text-[10px] text-slate-400 mt-0.5">
                                     <span className="flex items-center text-amber-400 font-semibold gap-0.5">
                                       <Star className="w-2.5 h-2.5 fill-amber-400 text-amber-400" />
                                       {game.rating || 4.8}
@@ -3401,54 +3403,58 @@ export const CrawlerModule: React.FC<CrawlerModuleProps> = ({ onShowToast }) => 
                               </td>
 
                               {/* Giftcode Count */}
-                              <td className="py-3 px-3 text-center align-middle">
+                              <td className="py-2 px-3 text-center align-middle">
                                 {(game.activeCodesCount || 0) > 0 ? (
-                                  <span className="inline-flex px-2.5 py-1 rounded-full text-xs font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 whitespace-nowrap shadow-sm shadow-emerald-950">
+                                  <span className="inline-flex px-2 py-0.5 rounded-full text-[11px] font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 whitespace-nowrap shadow-sm shadow-emerald-950">
                                     🎁 {game.activeCodesCount} code
                                   </span>
                                 ) : (
-                                  <span className="text-slate-500 text-[11px] italic">Chưa có code</span>
+                                  <span className="text-slate-500 text-[10px] italic">Chưa có code</span>
                                 )}
                               </td>
 
-                              {/* Action Buttons */}
-                              <td className="py-3 px-3 text-right align-middle">
-                                <div className="flex items-center justify-end gap-1.5 flex-wrap sm:flex-nowrap">
+                              {/* Action Buttons: CỘT GHIM CỐ ĐỊNH BÊN PHẢI (STICKY RIGHT) — LUÔN NẰM TRÊN MÀN HÌNH */}
+                              <td className={`py-2 px-3 text-right align-middle sticky right-0 backdrop-blur-md border-l border-slate-800/80 shadow-[-8px_0_12px_rgba(0,0,0,0.5)] z-10 transition-colors ${
+                                isSelected
+                                  ? 'bg-slate-900/95 group-hover/row:bg-slate-800/95'
+                                  : 'bg-slate-900/95 group-hover/row:bg-slate-800/95'
+                              }`}>
+                                <div className="flex items-center justify-end gap-1.5 whitespace-nowrap">
                                   <button
                                     type="button"
                                     onClick={() => handleRejectGame(game.id)}
-                                    className="px-2 py-1 rounded-lg bg-slate-800 hover:bg-rose-950/60 hover:text-rose-300 text-slate-400 text-xs font-medium transition-colors cursor-pointer"
-                                    title="Bỏ qua game này"
+                                    className="px-2.5 py-1 rounded-lg bg-rose-950/40 hover:bg-rose-600 text-rose-300 hover:text-white border border-rose-800/50 text-[11px] font-semibold transition-all cursor-pointer whitespace-nowrap active:scale-95 shrink-0"
+                                    title="Bỏ qua game này (Loại khỏi hàng chờ)"
                                   >
                                     Bỏ qua
                                   </button>
                                   <button
                                     type="button"
                                     onClick={() => handleEditGameLogo(game.id)}
-                                    className="px-2 py-1 rounded-lg bg-slate-800/80 hover:bg-slate-700 text-slate-300 text-xs font-medium transition-colors cursor-pointer flex items-center gap-1 border border-slate-700/50"
-                                    title="Chỉnh sửa hoặc đổi URL logo"
+                                    className="p-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-emerald-300 border border-slate-700/60 transition-colors cursor-pointer shrink-0"
+                                    title="Đổi URL / Chỉnh sửa logo game"
                                   >
-                                    <Edit className="w-3 h-3 text-emerald-400" />
-                                    <span>Logo</span>
+                                    <Edit className="w-3.5 h-3.5" />
                                   </button>
                                   <button
                                     type="button"
                                     onClick={() => handleApproveGame(game.id)}
-                                    className={`px-3 py-1 rounded-xl text-white text-xs font-bold transition-all shadow-sm active:scale-95 cursor-pointer flex items-center gap-1 ${
+                                    className={`px-3 py-1 rounded-lg text-white text-[11px] font-bold transition-all shadow-md active:scale-95 cursor-pointer flex items-center gap-1 whitespace-nowrap shrink-0 ${
                                       (game.activeCodesCount || 0) > 0
-                                        ? 'bg-gradient-to-r from-amber-600 to-orange-600 hover:from-amber-500 hover:to-orange-500 shadow-amber-600/20 ring-1 ring-amber-400/50'
-                                        : 'bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 shadow-emerald-600/20'
+                                        ? 'bg-gradient-to-r from-amber-600 to-orange-600 hover:from-amber-500 hover:to-orange-500 shadow-amber-950/30 ring-1 ring-amber-400/40'
+                                        : 'bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 shadow-emerald-950/30'
                                     }`}
+                                    title={(game.activeCodesCount || 0) > 0 ? "Duyệt và đăng ngay game có mã giftcode lên web" : "Duyệt game vào kho chính thức"}
                                   >
                                     {(game.activeCodesCount || 0) > 0 ? (
                                       <>
-                                        <Zap className="w-3 h-3 text-amber-200" />
-                                        <span>⚡ Đăng Ngay</span>
+                                        <Zap className="w-3 h-3 text-amber-200 fill-amber-300" />
+                                        <span>Đăng Ngay</span>
                                       </>
                                     ) : (
                                       <>
                                         <CheckCircle2 className="w-3 h-3" />
-                                        <span>Duyệt & Đăng</span>
+                                        <span>Duyệt</span>
                                       </>
                                     )}
                                   </button>
@@ -3628,11 +3634,11 @@ export const CrawlerModule: React.FC<CrawlerModuleProps> = ({ onShowToast }) => 
                             {game.crawledAt ? new Date(game.crawledAt).toLocaleDateString('vi-VN') : ''}
                           </span>
 
-                          <div className="flex items-center gap-1.5 shrink-0">
+                          <div className="flex items-center gap-1.5 shrink-0 whitespace-nowrap">
                             <button
                               type="button"
                               onClick={() => handleRejectGame(game.id)}
-                              className="px-2 py-1 rounded-lg bg-slate-800 hover:bg-rose-950/60 hover:text-rose-300 text-slate-400 text-xs font-medium transition-colors cursor-pointer"
+                              className="px-2.5 py-1 rounded-lg bg-rose-950/40 hover:bg-rose-600 text-rose-300 hover:text-white border border-rose-800/50 text-xs font-semibold transition-all cursor-pointer whitespace-nowrap active:scale-95"
                               title="Bỏ qua game này"
                             >
                               Bỏ qua
@@ -3641,31 +3647,30 @@ export const CrawlerModule: React.FC<CrawlerModuleProps> = ({ onShowToast }) => 
                             <button
                               type="button"
                               onClick={() => handleEditGameLogo(game.id)}
-                              className="px-2 py-1 rounded-lg bg-slate-800/80 hover:bg-slate-700 text-slate-300 text-xs font-medium transition-colors cursor-pointer flex items-center gap-1 border border-slate-700/50"
+                              className="p-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-emerald-300 text-xs font-medium transition-colors cursor-pointer flex items-center border border-slate-700/60 shrink-0"
                               title="Chỉnh sửa hoặc đổi URL logo"
                             >
-                              <Edit className="w-3 h-3 text-emerald-400" />
-                              <span>Logo</span>
+                              <Edit className="w-3.5 h-3.5" />
                             </button>
 
                             <button
                               type="button"
                               onClick={() => handleApproveGame(game.id)}
-                              className={`px-3 py-1 rounded-xl text-white text-xs font-bold transition-all shadow-sm active:scale-95 cursor-pointer flex items-center gap-1 ${
+                              className={`px-3 py-1 rounded-xl text-white text-xs font-bold transition-all shadow-md active:scale-95 cursor-pointer flex items-center gap-1 whitespace-nowrap shrink-0 ${
                                 (game.activeCodesCount || 0) > 0
-                                  ? 'bg-gradient-to-r from-amber-600 to-orange-600 hover:from-amber-500 hover:to-orange-500 shadow-amber-600/20 ring-1 ring-amber-400/50'
-                                  : 'bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 shadow-emerald-600/20'
+                                  ? 'bg-gradient-to-r from-amber-600 to-orange-600 hover:from-amber-500 hover:to-orange-500 shadow-amber-950/30 ring-1 ring-amber-400/50'
+                                  : 'bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 shadow-emerald-950/30'
                               }`}
                             >
                               {(game.activeCodesCount || 0) > 0 ? (
                                 <>
-                                  <Zap className="w-3 h-3 text-amber-200" />
-                                  <span>⚡ Đăng Ngay</span>
+                                  <Zap className="w-3.5 h-3.5 text-amber-200 fill-amber-300" />
+                                  <span>Đăng Ngay</span>
                                 </>
                               ) : (
                                 <>
-                                  <CheckCircle2 className="w-3 h-3" />
-                                  <span>Duyệt & Đăng</span>
+                                  <CheckCircle2 className="w-3.5 h-3.5" />
+                                  <span>Duyệt</span>
                                 </>
                               )}
                             </button>
