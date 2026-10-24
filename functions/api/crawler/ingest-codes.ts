@@ -972,8 +972,14 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
             category = excluded.category,
             rating = excluded.rating,
             icon_url = excluded.icon_url,
+            banner_url = excluded.banner_url,
             description = excluded.description,
             instructions = excluded.instructions,
+            redeem_url = excluded.redeem_url,
+            download_android = excluded.download_android,
+            google_play_url = excluded.google_play_url,
+            app_store_url = excluded.app_store_url,
+            android_package_name = excluded.android_package_name,
             is_active = 1,
             status = 'ACTIVE',
             active_codes_count = (SELECT COUNT(*) FROM codes WHERE codes.game_slug = games.slug AND (codes.status = 'active' OR codes.status = 'verified') AND (codes.expires_at IS NULL OR codes.expires_at = '' OR codes.expires_at >= date('now'))),
@@ -1325,6 +1331,51 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
       );
     }
 
+    // Xử lý action đặc biệt: Đồng bộ toàn bộ hướng dẫn nhập code từ wcg_admin_games_v5 vào bảng games D1
+    if (body && body.action === 'sync_all_instructions_to_d1') {
+      const activeGamesRaw = Array.isArray(settings['wcg_admin_games_v5'])
+        ? settings['wcg_admin_games_v5']
+        : [];
+      let updatedCount = 0;
+      if (env.DB) {
+        try {
+          const stmts: any[] = [];
+          for (const g of activeGamesRaw) {
+            if (!g || !g.slug) continue;
+            const slug = String(g.slug).trim().toLowerCase();
+            const inst = g.instructions !== undefined && g.instructions !== null ? String(g.instructions) : '';
+            const redeem = g.redeem_url || g.redeemUrl || '';
+            stmts.push(
+              env.DB.prepare(`
+                UPDATE games SET
+                  instructions = ?,
+                  redeem_url = ?,
+                  updated_at = datetime('now')
+                WHERE slug = ? OR id = ?;
+              `).bind(inst, redeem, slug, slug)
+            );
+          }
+          for (let i = 0; i < stmts.length; i += 50) {
+            await env.DB.batch(stmts.slice(i, i + 50)).catch(() => {});
+          }
+          updatedCount = activeGamesRaw.length;
+        } catch (syncErr) {
+          console.warn('[SyncInstructions D1 Warning]', syncErr);
+        }
+      }
+      invalidateGamesCatalogCache();
+      await invalidateCatalogEdgeCache(context as any, request, env).catch(() => {});
+
+      return new Response(
+        JSON.stringify({
+          success: true,
+          message: `Đã đồng bộ toàn bộ hướng dẫn của ${updatedCount} game từ wcg_admin_games_v5 vào bảng games D1 thành công!`,
+          totalGamesSynced: updatedCount,
+        }),
+        { headers: CORS_HEADERS }
+      );
+    }
+
     // 2. Chuẩn hóa payload thành mảng các mục cần nạp (cho luồng nạp mã giftcode thông thường)
     const rawItems: any[] = [];
     if (Array.isArray(body)) {
@@ -1396,32 +1447,74 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
       const codesToIngest = extractCodesFromPayload(rawItem);
 
       // Trích xuất Cách Nhập Code (instructions) và Link nhập quà (redeemUrl)
-      const extractedInstructions = String(
-        rawItem.instructions !== undefined ? rawItem.instructions :
-        rawItem.instructionsText !== undefined ? rawItem.instructionsText :
-        rawItem.instructions_text !== undefined ? rawItem.instructions_text :
-        rawItem.guide !== undefined ? rawItem.guide :
-        rawItem.guideText !== undefined ? rawItem.guideText :
-        rawItem.huongDan !== undefined ? rawItem.huongDan :
-        rawItem.huong_dan !== undefined ? rawItem.huong_dan :
-        rawItem.cachNhapCode !== undefined ? rawItem.cachNhapCode :
-        rawItem.cach_nhap_code !== undefined ? rawItem.cach_nhap_code :
-        rawItem.howToRedeem !== undefined ? rawItem.howToRedeem :
-        rawItem.how_to_redeem !== undefined ? rawItem.how_to_redeem :
-        ''
-      ).trim();
+      const hasExplicitInstructions =
+        rawItem.instructions !== undefined ||
+        rawItem.instructionsText !== undefined ||
+        rawItem.instructions_text !== undefined ||
+        rawItem.guide !== undefined ||
+        rawItem.guideText !== undefined ||
+        rawItem.huongDan !== undefined ||
+        rawItem.huong_dan !== undefined ||
+        rawItem.cachNhapCode !== undefined ||
+        rawItem.cach_nhap_code !== undefined ||
+        rawItem.howToRedeem !== undefined ||
+        rawItem.how_to_redeem !== undefined ||
+        body.instructions !== undefined ||
+        body.instructionsText !== undefined ||
+        body.instructions_text !== undefined ||
+        body.huongDan !== undefined;
 
-      const extractedRedeemUrl = String(
-        rawItem.redeemUrl !== undefined ? rawItem.redeemUrl :
-        rawItem.redeem_url !== undefined ? rawItem.redeem_url :
-        rawItem.link_nhap_code !== undefined ? rawItem.link_nhap_code :
-        rawItem.linkNhapCode !== undefined ? rawItem.linkNhapCode :
-        rawItem.redemption_url !== undefined ? rawItem.redemption_url :
-        ''
-      ).trim();
+      let extractedInstructions: string | undefined = undefined;
+      if (hasExplicitInstructions) {
+        const rawVal =
+          rawItem.instructions !== undefined ? rawItem.instructions :
+          rawItem.instructionsText !== undefined ? rawItem.instructionsText :
+          rawItem.instructions_text !== undefined ? rawItem.instructions_text :
+          rawItem.guide !== undefined ? rawItem.guide :
+          rawItem.guideText !== undefined ? rawItem.guideText :
+          rawItem.huongDan !== undefined ? rawItem.huongDan :
+          rawItem.huong_dan !== undefined ? rawItem.huong_dan :
+          rawItem.cachNhapCode !== undefined ? rawItem.cachNhapCode :
+          rawItem.cach_nhap_code !== undefined ? rawItem.cach_nhap_code :
+          rawItem.howToRedeem !== undefined ? rawItem.howToRedeem :
+          rawItem.how_to_redeem !== undefined ? rawItem.how_to_redeem :
+          body.instructions !== undefined ? body.instructions :
+          body.instructionsText !== undefined ? body.instructionsText :
+          body.instructions_text !== undefined ? body.instructions_text :
+          body.huongDan !== undefined ? body.huongDan :
+          '';
+        extractedInstructions = (rawVal === null || rawVal === undefined) ? '' : String(rawVal).trim();
+      }
 
-      const isUpdateInstructionsAction = rawItem.action === 'update_instructions' || rawItem.action === 'set_instructions' || body.action === 'update_instructions';
-      const hasInstructionsUpdate = Boolean(extractedInstructions || extractedRedeemUrl);
+      const hasExplicitRedeemUrl =
+        rawItem.redeemUrl !== undefined ||
+        rawItem.redeem_url !== undefined ||
+        rawItem.link_nhap_code !== undefined ||
+        rawItem.linkNhapCode !== undefined ||
+        rawItem.redemption_url !== undefined ||
+        body.redeemUrl !== undefined ||
+        body.redeem_url !== undefined;
+
+      let extractedRedeemUrl: string | undefined = undefined;
+      if (hasExplicitRedeemUrl) {
+        const rawVal =
+          rawItem.redeemUrl !== undefined ? rawItem.redeemUrl :
+          rawItem.redeem_url !== undefined ? rawItem.redeem_url :
+          rawItem.link_nhap_code !== undefined ? rawItem.link_nhap_code :
+          rawItem.linkNhapCode !== undefined ? rawItem.linkNhapCode :
+          rawItem.redemption_url !== undefined ? rawItem.redemption_url :
+          body.redeemUrl !== undefined ? body.redeemUrl :
+          body.redeem_url !== undefined ? body.redeem_url :
+          '';
+        extractedRedeemUrl = (rawVal === null || rawVal === undefined) ? '' : String(rawVal).trim();
+      }
+
+      const isUpdateInstructionsAction =
+        rawItem.action === 'update_instructions' ||
+        rawItem.action === 'set_instructions' ||
+        body.action === 'update_instructions' ||
+        body.action === 'set_instructions';
+      const hasInstructionsUpdate = Boolean(hasExplicitInstructions || hasExplicitRedeemUrl);
 
       if (!inputGameName) {
         executionResults.push({
@@ -1462,15 +1555,37 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
       const gameName = String(matchedGame.name || inputGameName).trim();
       const nowIso = new Date().toISOString();
 
-      // 4.2. TRƯỜNG HỢP: CHỈ CẬP NHẬT CÁCH NHẬP CODE (Không có mã code đính kèm)
+      // 4.2. TRƯỜNG HỢP: CHỈ CẬP NHẬT HOẶC XÓA CÁCH NHẬP CODE (Không có mã code đính kèm)
       if (codesToIngest.length === 0 && (hasInstructionsUpdate || isUpdateInstructionsAction)) {
+        let targetInstructions: string;
+        let targetRedeemUrl: string;
+
+        // Vấn đề 2: Cho phép gửi instructions: "" hoặc null tường minh để xóa sạch cả instructions và redeem_url
+        if (hasExplicitInstructions && extractedInstructions === '') {
+          targetInstructions = '';
+          targetRedeemUrl = (hasExplicitRedeemUrl && extractedRedeemUrl) ? extractedRedeemUrl : '';
+        } else if (hasExplicitInstructions) {
+          targetInstructions = extractedInstructions!;
+          const currentRedeem = source === 'active'
+            ? (activeGamesList.find(g => g && (g.slug === gameSlug || g.id === gameSlug))?.redeem_url || '')
+            : (pendingGamesList.find(p => p && (p.slug === gameSlug || p.id === gameSlug))?.redeemUrl || '');
+          targetRedeemUrl = hasExplicitRedeemUrl ? extractedRedeemUrl! : currentRedeem;
+        } else {
+          // Chỉ cập nhật redeemUrl
+          const currentInst = source === 'active'
+            ? (activeGamesList.find(g => g && (g.slug === gameSlug || g.id === gameSlug))?.instructions || '')
+            : (pendingGamesList.find(p => p && (p.slug === gameSlug || p.id === gameSlug))?.instructions || '');
+          targetInstructions = currentInst;
+          targetRedeemUrl = extractedRedeemUrl || '';
+        }
+
         if (source === 'active') {
           const activeIdx = activeGamesList.findIndex((g) => g && (g.slug === gameSlug || g.id === gameSlug));
           if (activeIdx !== -1) {
             activeGamesList[activeIdx] = {
               ...activeGamesList[activeIdx],
-              instructions: extractedInstructions || activeGamesList[activeIdx].instructions,
-              redeem_url: extractedRedeemUrl || activeGamesList[activeIdx].redeem_url,
+              instructions: targetInstructions,
+              redeem_url: targetRedeemUrl,
               updated_at: nowIso,
             };
             stateModified = true;
@@ -1480,8 +1595,8 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
           if (pendingIdx !== -1) {
             pendingGamesList[pendingIdx] = {
               ...pendingGamesList[pendingIdx],
-              instructions: extractedInstructions || pendingGamesList[pendingIdx].instructions,
-              redeemUrl: extractedRedeemUrl || pendingGamesList[pendingIdx].redeemUrl,
+              instructions: targetInstructions,
+              redeemUrl: targetRedeemUrl,
               updated_at: nowIso,
             };
             stateModified = true;
@@ -1498,15 +1613,17 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
             name: gameName,
             publisher: matchedGame.publisher || matchedGame.developer || 'NPH Chính Thức',
             icon_url: matchedGame.icon_url || `/game_icons/${gameSlug}.webp`,
-            instructions: extractedInstructions,
-            redeem_url: extractedRedeemUrl || undefined,
+            instructions: targetInstructions,
+            redeem_url: targetRedeemUrl,
           },
           sourceBeforeIngest: source,
           matchType,
           matchConfidence,
-          instructionsUpdated: Boolean(extractedInstructions),
-          redeemUrlUpdated: Boolean(extractedRedeemUrl),
-          message: `Đã cập nhật cách nhập code cho game "${gameName}" thành công!`,
+          instructionsUpdated: true,
+          redeemUrlUpdated: Boolean(targetRedeemUrl),
+          message: targetInstructions === ''
+            ? `Đã xóa hướng dẫn nhập code của game "${gameName}" theo yêu cầu.`
+            : `Đã cập nhật cách nhập code cho game "${gameName}" thành công!`,
         });
         continue;
       }
@@ -1639,11 +1756,11 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
             free_codes_count: Number(activeGamesList[activeIdx].free_codes_count || currentCount) + addedForThisGame.length,
             updated_at: nowIso,
           };
-          if (extractedInstructions) {
-            updatedActiveGame.instructions = extractedInstructions;
+          if (hasExplicitInstructions) {
+            updatedActiveGame.instructions = extractedInstructions === '' ? '' : extractedInstructions!;
           }
-          if (extractedRedeemUrl) {
-            updatedActiveGame.redeem_url = extractedRedeemUrl;
+          if (hasExplicitRedeemUrl) {
+            updatedActiveGame.redeem_url = extractedRedeemUrl === '' ? '' : extractedRedeemUrl!;
           }
           activeGamesList[activeIdx] = updatedActiveGame;
           stateModified = true;
@@ -1659,15 +1776,15 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
           name: gameName,
           publisher: matchedGame.publisher || matchedGame.developer || 'NPH Chính Thức',
           icon_url: matchedGame.icon_url || `/game_icons/${gameSlug}.webp`,
-          instructions: extractedInstructions || matchedGame.instructions,
-          redeem_url: extractedRedeemUrl || matchedGame.redeem_url,
+          instructions: hasExplicitInstructions ? (extractedInstructions === '' ? '' : extractedInstructions!) : matchedGame.instructions,
+          redeem_url: hasExplicitRedeemUrl ? (extractedRedeemUrl === '' ? '' : extractedRedeemUrl!) : matchedGame.redeem_url,
         },
         sourceBeforeIngest: source,
         matchType,
         matchConfidence,
         autoPublished: wasAutoPublished,
-        instructionsUpdated: Boolean(extractedInstructions),
-        redeemUrlUpdated: Boolean(extractedRedeemUrl),
+        instructionsUpdated: Boolean(hasExplicitInstructions),
+        redeemUrlUpdated: Boolean(hasExplicitRedeemUrl),
         receivedCount: codesToIngest.length,
         addedCount: addedForThisGame.length,
         duplicateCount: duplicateCodes.length,
@@ -1789,8 +1906,8 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
             ...freshActiveGames[activeIdx],
             codes_count: realCount,
             free_codes_count: realCount,
-            instructions: res.matchedGame.instructions || freshActiveGames[activeIdx].instructions,
-            redeem_url: res.matchedGame.redeem_url || freshActiveGames[activeIdx].redeem_url,
+            instructions: res.matchedGame.instructions !== undefined ? res.matchedGame.instructions : freshActiveGames[activeIdx].instructions,
+            redeem_url: res.matchedGame.redeem_url !== undefined ? res.matchedGame.redeem_url : freshActiveGames[activeIdx].redeem_url,
             updated_at: nowIso,
           };
         }
@@ -1827,20 +1944,52 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
           }
         }
 
-        // Cập nhật precomputed counter cho từng game bị ảnh hưởng
+        // Cập nhật precomputed counter, instructions và redeem_url cho từng game bị ảnh hưởng
         for (const res of executionResults) {
           if (!res || !res.matchedGame) continue;
           const slug = String(res.matchedGame.slug).trim().toLowerCase();
-          await env.DB.prepare(`
+          const targetInst = res.matchedGame.instructions !== undefined ? res.matchedGame.instructions : null;
+          const targetRedeem = res.matchedGame.redeem_url !== undefined ? res.matchedGame.redeem_url : null;
+
+          const updateRes: any = await env.DB.prepare(`
             UPDATE games SET
               total_codes_count = (SELECT COUNT(*) FROM codes WHERE codes.game_slug = games.slug),
               active_codes_count = (SELECT COUNT(*) FROM codes WHERE codes.game_slug = games.slug AND (codes.status = 'active' OR codes.status = 'verified') AND (codes.expires_at IS NULL OR codes.expires_at = '' OR codes.expires_at >= date('now'))),
+              instructions = CASE WHEN ? IS NOT NULL THEN ? ELSE instructions END,
+              redeem_url = CASE WHEN ? IS NOT NULL THEN ? ELSE redeem_url END,
               last_code_at = datetime('now'),
               status = 'ACTIVE',
               is_active = 1,
               updated_at = datetime('now')
-            WHERE slug = ?;
-          `).bind(slug).run().catch(() => {});
+            WHERE slug = ? OR id = ?;
+          `).bind(targetInst, targetInst, targetRedeem, targetRedeem, slug, slug).run().catch(() => null);
+
+          // Nếu game chưa có trong bảng games D1, thêm mới vào bảng games
+          if (!updateRes || updateRes.meta?.changes === 0) {
+            const activeRec = freshActiveGames.find(g => g && (String(g.slug).toLowerCase() === slug || String(g.id).toLowerCase() === slug));
+            if (activeRec) {
+              await env.DB.prepare(`
+                INSERT INTO games (
+                  id, name, slug, publisher, category, rating, icon_url, banner_url,
+                  description, instructions, platform, release_date, download_android,
+                  google_play_url, app_store_url, android_package_name, redeem_url,
+                  is_featured, is_hot, is_new, is_active, status, active_codes_count, total_codes_count, last_code_at
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))
+                ON CONFLICT(slug) DO UPDATE SET
+                  instructions = excluded.instructions,
+                  redeem_url = excluded.redeem_url,
+                  updated_at = datetime('now');
+              `).bind(
+                activeRec.id || slug, activeRec.name || slug, slug, activeRec.publisher || 'NPH Chính Thức',
+                activeRec.category || 'Game Hot', activeRec.rating || 4.8, activeRec.icon_url || `/game_icons/${slug}.webp`,
+                activeRec.banner_url || '', activeRec.description || '', activeRec.instructions || '',
+                activeRec.platform || 'Mobile / PC', activeRec.release_date || '', activeRec.download_android || '',
+                activeRec.google_play_url || '', activeRec.app_store_url || '', activeRec.android_package_name || '',
+                activeRec.redeem_url || '', 0, 0, 1, 1, 'ACTIVE',
+                activeRec.codes_count || 0, activeRec.codes_count || 0
+              ).run().catch(() => {});
+            }
+          }
         }
       } catch (err) {
         console.warn('[IngestCodes D1 Table Sync Warning]', err);

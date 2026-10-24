@@ -988,11 +988,14 @@ async function runPrerender() {
 
             <!-- Instructions -->
             ${
-              game.instructions
+              game.instructions && game.instructions.trim().length > 0
                 ? `
             <div class="p-5 rounded-2xl bg-dark-900 border border-gray-800 space-y-2">
-              <h2 class="text-base sm:text-lg font-bold text-white">📖 Hướng Dẫn Nhập Code ${escapeHtml(game.name)}</h2>
-              <div class="text-xs sm:text-sm text-gray-300 whitespace-pre-line leading-relaxed">${escapeHtml(game.instructions)}</div>
+              <div class="flex items-center justify-between flex-wrap gap-2">
+                <h2 class="text-base sm:text-lg font-bold text-white">📖 Hướng Dẫn Nhập Code ${escapeHtml(game.name)}</h2>
+                ${game.redeem_url ? `<a href="${escapeHtml(game.redeem_url)}" target="_blank" rel="noopener noreferrer" class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold bg-emerald-600 hover:bg-emerald-500 text-white shadow-sm transition-all">🌐 Mở Trang Đổi Code</a>` : ''}
+              </div>
+              <div class="text-xs sm:text-sm text-gray-300 whitespace-pre-line leading-relaxed">${escapeHtml(game.instructions.trim())}</div>
             </div>`
                 : ''
             }

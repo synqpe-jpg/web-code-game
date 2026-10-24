@@ -888,16 +888,17 @@ export const GameDetailModal: React.FC<GameDetailModalProps> = ({
           )}
 
           {/* Instructions */}
-          <div className="p-4 sm:p-5 rounded-2xl bg-card border border-border/80 space-y-2.5">
-            <div className="flex items-center gap-2 text-foreground font-heading font-bold text-sm sm:text-base">
-              <BookOpen className="w-4 h-4 text-secondary" />
-              <h4>{t.modal.instructions} - {currentGame.name}</h4>
+          {Boolean(currentGame.instructions && currentGame.instructions.trim().length > 0) && (
+            <div className="p-4 sm:p-5 rounded-2xl bg-card border border-border/80 space-y-2.5">
+              <div className="flex items-center gap-2 text-foreground font-heading font-bold text-sm sm:text-base">
+                <BookOpen className="w-4 h-4 text-secondary" />
+                <h4>{t.modal.instructions} - {currentGame.name}</h4>
+              </div>
+              <p className="text-xs sm:text-sm text-muted-foreground leading-relaxed whitespace-pre-line">
+                {currentGame.instructions.trim()}
+              </p>
             </div>
-            <p className="text-xs sm:text-sm text-muted-foreground leading-relaxed whitespace-pre-line">
-              {currentGame.instructions ||
-                '1. Đăng nhập vào game và hoàn thành phần tân thủ.\n2. Vào mục Cài đặt (Settings) hoặc Avatar nhân vật.\n3. Chọn mục "Đổi Giftcode / Mã Quà Tặng".\n4. Dán mã code đã sao chép ở trên và nhấn Xác nhận để nhận quà qua Thư in-game.'}
-            </p>
-          </div>
+          )}
 
           {/* Description */}
           {currentGame.description && (

@@ -10,6 +10,28 @@
 
 ## 1. DANH MỤC LỖI & CÁC BẪY ĐÃ THẤT BẠI (DO NOT REPEAT)
 
+### ISSUE-101: Bẫy Split-Brain Lưu Trữ Hướng Dẫn Nhập Code (KV Blob vs D1 Table), Bẫy Falsy Logic `||` Chặn Xóa Hướng Dẫn & Bẫy UI/Prerender Ép Buộc Văn Mẫu (Split-Brain Instructions Storage, Falsy Or Guide Deletion Trap & UI Fallback Trap)
+- **Triệu chứng**:
+  - Khi gọi action `update_instructions` của API crawler, phản hồi báo thành công (`totalInstructionsUpdated: 1`) nhưng khi truy vấn công khai qua `GET /api/games?slug=` hoặc xem HTML trang game `/game/:slug`, giao diện vẫn hiển thị văn mẫu mặc định chung chung (`Bước 1: Mở game > Nhấn Avatar nhân vật...`) hoặc `redeem_url` trống.
+  - Khi gửi `instructions: ""` hoặc `null` để xóa hướng dẫn cho game không kiểm chứng được, API báo `totalInstructionsUpdated: 0` và trang vẫn giữ văn mẫu cũ.
+- **Nguyên nhân gốc rễ**:
+  1. API `update_instructions` chỉ cập nhật vào mảng in-memory rồi lưu vào D1 Settings `wcg_admin_games_v5`, nhưng hoàn toàn bỏ qua câu lệnh UPDATE cột `instructions` và `redeem_url` trong bảng `games` D1. Trong khi đó `GET /api/games?slug=` lại đọc trực tiếp từ bảng `games` D1.
+  2. Dòng code `instructions: extractedInstructions || oldInstructions` khiến giá trị chuỗi rỗng `""` bị đánh giá falsy và bị ghi đè ngược lại bởi văn mẫu cũ. Thống kê `totalInstructionsUpdated` dùng `Boolean(extractedInstructions)` khiến số lượng cập nhật bị tính là 0 khi xóa rỗng.
+  3. Frontend `GameDetailModal.tsx` dùng fallback `currentGame.instructions || '1. Đăng nhập...'` cưỡng ép hiển thị văn mẫu khi instructions rỗng.
+  4. Pages phục vụ file tĩnh cũ `dist/game/<slug>/index.html` hoặc `renderSeoHtml` không nhúng khối HTML Hướng Dẫn vào `<div id="root">`.
+- **Giải pháp chuẩn đã kiểm chứng**:
+  1. Đồng bộ nguyên tử D1 `games` table: Trong `ingest-codes.ts`, cập nhật `instructions = CASE WHEN ? IS NOT NULL THEN ? ELSE instructions END, redeem_url = CASE WHEN ? IS NOT NULL THEN ? ELSE redeem_url END` trong bảng `games` D1.
+  2. Bổ sung action `sync_all_instructions_to_d1` để đồng bộ toàn bộ catalog từ `wcg_admin_games_v5` vào bảng `games`.
+  3. Hỗ trợ xóa rỗng có chủ đích: Khi `hasExplicitInstructions && extractedInstructions === ''`, xóa sạch cả `instructions = ''` và `redeem_url = ''`, báo đúng `totalInstructionsUpdated: 1`.
+  4. Xóa bỏ fallback văn mẫu trong `GameDetailModal.tsx`: Chỉ render khối Hướng Dẫn khi `currentGame.instructions && currentGame.instructions.trim().length > 0`.
+  5. Đưa toàn bộ request `/game/:slug` qua `renderSeoHtml`, nhúng cấu trúc HTML đầy đủ kèm `<h2>📖 Hướng Dẫn Nhập Code</h2>` và nút Redeem Web vào `<div id="root">`.
+- ⛔ **CÁCH SỬA ĐÃ THẤT BẠI - TUYỆT ĐỐI KHÔNG LẶP LẠI**:
+  - ❌ *Không chỉ cập nhật `wcg_admin_games_v5` mà quên bảng `games` D1*: Bất kỳ thay đổi metadata game nào phải cập nhật đồng thời cả D1 settings blob và bảng SQL `games`.
+  - ❌ *Không dùng toán tử logic `||` cho các trường chuỗi có thể xóa rỗng*: Luôn kiểm tra `!== undefined` thay vì dựa vào truthy/falsy.
+  - ❌ *Không dùng văn mẫu fallback cứng trong component UI*: Nếu dữ liệu rỗng có chủ đích, ẩn hoàn toàn khối UI tương ứng.
+
+---
+
 ### ISSUE-100: Bẫy Phụ Thuộc CSS Ngoài Khiến Header Bị Vỡ Layout Trên Mạng Chậm, Bẫy Render-Blocking Font Google & Bẫy CLS Khi Tải Game Không Có Skeleton (FOUC Header Layout Shift, Blocking Web Fonts & Unbounded Catalog Sync Trap)
 - **Triệu chứng**:
   - Khi mở `codegame.shop` trên thiết bị di động với kết nối mạng chậm (4.7–24 KB/s hoặc Slow 3G/4G), giao diện bị vỡ layout kéo dài trong nhiều giây: Chữ menu "Mã Miễn Phí / Đợt Phát Code / Chợ Code VIP" đè chồng lên logo "CodeGame.shop".

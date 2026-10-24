@@ -7,6 +7,47 @@ Mỗi mục sửa lỗi đều ghi nhận **Nguyên nhân gốc rễ (Root Cause
 
 ## [2026-10-24]
 
+### 175. Khắc Phục Lệch Pha Hướng Dẫn Nhập Code (Instructions & Redeem URL): Đồng Bộ Nguyên Tử Bảng D1 Games, Mở Khả Năng Xóa Rỗng Có Chủ Đích, SSR Dynamic Prerender & Triệt Tiêu Văn Mẫu Ép Buộc (D1 Direct Games Instructions Sync, Explicit Empty Guides Ingestion, SSR Edge Prerendering & Clean UI Zero Fallback)
+- **Mô tả & Yêu cầu người dùng**:
+  - *"Xử lý 2 vấn đề liên quan tới trường hướng dẫn nhập giftcode (instructions / redeem_url): Vấn đề 1: Dữ liệu hướng dẫn ghi thành công qua update_instructions của API crawler (HTTP 200, totalInstructionsUpdated: 1) nhưng trang công khai (GET /api/games?slug= và HTML /game/:slug) vẫn hiển thị văn mẫu mặc định chung chung (Bước 1: Mở game > Nhấn Avatar nhân vật...) hoặc redeem_url trống. Sửa để sau khi update_instructions ghi xong, bản ghi công khai và trang chi tiết game hiển thị đúng nội dung mới ngay lập tức. Chứng minh bằng 3 game cụ thể: dot-kich-vtc (nhóm 23/10), vo-lam-truyen-ky và gunny-mobi (nhóm 24/10). Vấn đề 2: Cho phép gửi instructions: \"\" (hoặc null tường minh) để xóa sạch cả instructions và redeem_url, báo đúng totalInstructionsUpdated: 1. Áp dụng ngay cho mini-world-royale và arena-breakout (xóa cả instructions lẫn redeem_url), xác minh bằng GET công khai trả về rỗng, không đụng vào 31 game còn lại."*
+- **Nguyên nhân gốc rễ (Root Cause)**:
+  1. **Lệch Pha Kho Dữ Liệu (Split-Brain giữa D1 Settings `wcg_admin_games_v5` và Bảng SQL D1 `games`)**:
+     - Endpoint `update_instructions` trong `functions/api/crawler/ingest-codes.ts` chỉ ghi vào mảng `activeGamesList` rồi lưu vào JSON blob `wcg_admin_games_v5`.
+     - Vòng lặp SQL D1 chỉ cập nhật `total_codes_count` và `active_codes_count`, **hoàn toàn bỏ quên** các cột `instructions` và `redeem_url` trong bảng `games`.
+     - Khi `GET /api/games?slug=` được gọi, API đọc trực tiếp từ bảng `games` D1 (`SELECT * FROM games WHERE slug = ?`) nên luôn trả về văn mẫu cũ hoặc rỗng được nạp từ lúc tạo game ban đầu.
+     - Lệnh `publish_game` thiếu `redeem_url = excluded.redeem_url` trong mệnh đề `ON CONFLICT(slug) DO UPDATE SET`.
+  2. **Bẫy Falsy Logic `||` và Đếm Cờ Boolean Khi Xóa Rỗng**:
+     - Các dòng gán `instructions: extractedInstructions || oldInstructions` khiến giá trị chuỗi rỗng `""` bị coi là falsy, dẫn đến hệ thống giữ nguyên văn mẫu cũ.
+     - Khâu thống kê kết quả dùng `Boolean(extractedInstructions)` khiến thao tác xóa rỗng không được tính vào `totalInstructionsUpdated` (luôn báo 0).
+  3. **Frontend Cưỡng Ép Fallback Văn Mẫu**:
+     - `GameDetailModal.tsx` sử dụng fallback `currentGame.instructions || '1. Đăng nhập vào game và hoàn thành...'` khiến giao diện người dùng luôn hiển thị văn mẫu chung chung ngay cả khi cơ sở dữ liệu đã xóa rỗng instructions.
+  4. **Phục Vụ File Tĩnh Cũ & Thiếu Prerender Hướng Dẫn Trong SSR**:
+     - Cloudflare Pages phục vụ trực tiếp file tĩnh build-time `dist/game/<slug>/index.html` của các game cũ trước khi crawler chạy.
+     - Hàm `renderSeoHtml` trong `functions/_worker.ts` chỉ render thẻ meta và `<noscript>` link tải mà để trống `<div id="root"></div>`, không prerender khối Hướng Dẫn và nút Redeem Web vào mã nguồn HTML.
+- **Giải pháp đã triển khai (Solution)**:
+  1. **Đồng Bộ Nguyên Tử Bảng D1 `games` Trong `ingest-codes.ts`**:
+     - Trong vòng lặp D1 SQL, bổ sung câu lệnh cập nhật trực tiếp:
+       `instructions = CASE WHEN ? IS NOT NULL THEN ? ELSE instructions END, redeem_url = CASE WHEN ? IS NOT NULL THEN ? ELSE redeem_url END` kèm kiểm tra `INSERT` dự phòng nếu game chưa có trong bảng `games`.
+     - Bổ sung `redeem_url = excluded.redeem_url` vào `publish_game`.
+     - Bổ sung action chuyên dụng `sync_all_instructions_to_d1` để đồng bộ tức thì toàn bộ 565 game từ `wcg_admin_games_v5` vào bảng `games` D1.
+  2. **Hỗ Trợ Xóa Rỗng Có Chủ Đích (Explicit Empty Guide Ingestion)**:
+     - Phân biệt rõ ràng giữa "không truyền trường" (`undefined`) với "truyền chuỗi rỗng / null" (`hasExplicitInstructions && extractedInstructions === ''`).
+     - Khi nhận `instructions: ""` hoặc `null`: Xóa sạch cả `instructions = ''` và `redeem_url = ''` trên cả `wcg_admin_games_v5` lẫn bảng `games` D1.
+     - Luôn đánh dấu `instructionsUpdated: true` và báo đúng `totalInstructionsUpdated: 1`.
+  3. **Tự Động Đối Chiếu Fallback Thông Minh Trong `functions/api/games.ts`**:
+     - Trong `GET /api/games?slug=`: Nếu bảng `games` D1 còn giữ văn mẫu `Avatar nhân vật`, tự động đối chiếu với `wcg_admin_games_v5`, lấy hướng dẫn chuẩn đã cào và đồng bộ ngược vào D1 trong nền.
+  4. **Triệt Tiêu Văn Mẫu Trong `GameDetailModal.tsx`**:
+     - Chỉ render khối Hướng Dẫn khi `currentGame.instructions && currentGame.instructions.trim().length > 0`. Nếu rỗng, tuyệt đối không hiển thị khối hướng dẫn và không hiện văn mẫu.
+  5. **Dynamic SSR Prerendering Trong `functions/_worker.ts` & `scripts/prerender.js`**:
+     - Điều hướng toàn bộ request `/game/:slug` qua `renderSeoHtml` trước khi truy xuất static assets, nạp dữ liệu tươi nhất từ D1.
+     - Nhúng trọn vẹn cấu trúc HTML (Breadcrumbs, Game Header, Codes List, `<h2>📖 Hướng Dẫn Nhập Code</h2>` và nút Đổi Quà Web `redeem_url`) vào `<div id="root">`.
+- **Files Modified**:
+  - `functions/api/crawler/ingest-codes.ts`
+  - `functions/api/games.ts`
+  - `src/components/GameDetailModal.tsx`
+  - `functions/_worker.ts`
+  - `scripts/prerender.js`
+
 ### 174. Triệt Tiêu Vỡ Layout (FOUC & CLS) Trên Mạng Chậm: Nhúng Critical CSS Header/Hero/Grid Vào HTML, Tải Font Bất Đồng Bộ, Skeleton Giữ Chỗ & Tách Chunk Qrcode (Critical CSS Inline Ingestion, Zero CLS Skeleton Grid, Async Font Swap & Batched Client Sync)
 - **Mô tả & Yêu cầu người dùng**:
   - *"Sửa lỗi vỡ layout khi tải trang (FOUC/CLS trang chủ). Người dùng phản ánh: khi mở codegame.shop trên điện thoại (đặc biệt mạng chậm 4.7–24 KB/s), trang thường xuyên hiện trạng thái vỡ layout trong lúc tải — chữ menu 'Mã Miễn Phí / Đợt Phát Code / Chợ Code VIP' đè chồng lên logo CodeGame.shop, nội dung xếp lộn xộn, sau đó 'nhảy' về đúng giao diện khi tải xong. Việc 1: CSS tối thiểu cho phần trên màn hình (critical CSS) nhúng vào `<head>`, header khóa chiều cao cố định 56px/72px, menu không bao giờ đè lên logo. Việc 2: Khung xương (skeleton) giữ chỗ đúng kích thước thẻ thật, icon có width/height/aspect-ratio chống nhảy layout. Việc 3: Tách gói JS, tối ưu font Google Fonts 4 weights tải bất đồng bộ `media=\"print\" onload=\"this.media='all'\"`. Việc 4: Khách vãng lai chỉ nạp đợt đầu 24 game, không kéo 559 game. Việc 5: Xác nhận cache immutable và Brotli compression."*

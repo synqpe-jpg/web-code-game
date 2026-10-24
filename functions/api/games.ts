@@ -775,6 +775,31 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
           iconUrl = `/game_icons/${gameRow.slug}.webp`;
         }
 
+        let currentInstructions = gameRow.instructions !== undefined && gameRow.instructions !== null ? String(gameRow.instructions) : '';
+        let currentRedeemUrl = gameRow.redeem_url !== undefined && gameRow.redeem_url !== null ? String(gameRow.redeem_url) : '';
+
+        // Tự động đối chiếu với wcg_admin_games_v5 nếu bảng games D1 còn giữ văn mẫu Avatar cũ
+        if (currentInstructions.includes('Avatar nhân vật')) {
+          try {
+            const rawGamesSetting = await env.DB.prepare("SELECT value FROM settings WHERE key = 'wcg_admin_games_v5' LIMIT 1").first<any>().catch(() => null);
+            if (rawGamesSetting?.value) {
+              const list = JSON.parse(rawGamesSetting.value);
+              if (Array.isArray(list)) {
+                const foundInSettings = list.find((x: any) => x && (x.slug === cleanSlug || x.id === cleanSlug || x.slug === gameRow.slug));
+                if (foundInSettings && foundInSettings.instructions && !foundInSettings.instructions.includes('Avatar nhân vật')) {
+                  currentInstructions = foundInSettings.instructions;
+                  if (foundInSettings.redeem_url || foundInSettings.redeemUrl) {
+                    currentRedeemUrl = foundInSettings.redeem_url || foundInSettings.redeemUrl;
+                  }
+                  // Đồng bộ ngược lại vào bảng games trên D1 trong nền
+                  env.DB.prepare('UPDATE games SET instructions = ?, redeem_url = ?, updated_at = datetime(\'now\') WHERE slug = ?')
+                    .bind(currentInstructions, currentRedeemUrl, gameRow.slug).run().catch(() => {});
+                }
+              }
+            }
+          } catch {}
+        }
+
         const authoritativeGame: GameItem = {
           id: String(gameRow.id || gameRow.slug),
           name: String(gameRow.name),
@@ -785,7 +810,7 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
           icon_url: iconUrl,
           banner_url: gameRow.banner_url || '',
           description: gameRow.description || '',
-          instructions: gameRow.instructions || '',
+          instructions: currentInstructions,
           platform: gameRow.platform || 'Mobile / PC',
           so_giay_phep: gameRow.so_giay_phep || '',
           ngay_cap_phep: gameRow.ngay_cap_phep || '',
@@ -796,7 +821,7 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
           google_play_url: gameRow.google_play_url || gameRow.download_android || '',
           app_store_url: gameRow.app_store_url || gameRow.download_ios || '',
           android_package_name: gameRow.android_package_name || '',
-          redeem_url: gameRow.redeem_url || '',
+          redeem_url: currentRedeemUrl,
           is_featured: Boolean(gameRow.is_featured),
           is_hot: Boolean(gameRow.is_hot),
           is_new: Boolean(gameRow.is_new),

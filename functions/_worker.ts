@@ -555,6 +555,11 @@ export default {
         return assetResponse;
       }
 
+      // Luôn phục vụ trang game qua renderSeoHtml để phản ánh tức thì hướng dẫn và mã code tươi mới nhất từ D1
+      if (request.method === 'GET' && (pathname.startsWith('/game/') || pathname.startsWith('/g/'))) {
+        return await renderSeoHtml(request, env, pathname);
+      }
+
       const assetResponse = await env.ASSETS.fetch(request);
       if (assetResponse.status === 404 && request.method === 'GET' && !pathname.match(/\.[a-zA-Z0-9]+$/)) {
         return await renderSeoHtml(request, env, pathname);
@@ -635,18 +640,63 @@ async function renderSeoHtml(
 
   if (pathname.startsWith('/game/') || pathname.startsWith('/g/')) {
     const slug = pathname.replace(/^\/(?:game|g)\//i, '').replace(/\/$/, '').trim().toLowerCase();
+    const cleanWithoutMobile = slug.replace(/-mobile$/i, '');
     let game: any = null;
+    let displayCodes: any[] = [];
+
     if (env.DB) {
       try {
-        const catalog = await gamesApi.getLoadedCatalog(env.DB);
-        // Prioritize exact match on slug or id first
-        game = catalog.games.find((g) => g.slug.toLowerCase() === slug || g.id.toLowerCase() === slug) ||
-               catalog.games.find((g) => g.slug.toLowerCase().replace(/-mobile$/i, '') === slug.replace(/-mobile$/i, ''));
+        // 1. Tra cứu trực tiếp từ bảng games D1
+        const gameRow = await env.DB.prepare(
+          'SELECT * FROM games WHERE slug = ? OR id = ? OR slug = ? LIMIT 1'
+        ).bind(slug, slug, cleanWithoutMobile).first<any>().catch(() => null);
+
+        if (gameRow) {
+          game = { ...gameRow };
+          const codesRes = await env.DB.prepare(
+            `SELECT code, rewards, status, expires_at FROM codes WHERE game_slug = ? ORDER BY CASE WHEN status = 'active' OR status = 'verified' THEN 0 ELSE 1 END, added_at DESC`
+          ).bind(gameRow.slug).all<any>().catch(() => ({ results: [] as any[] }));
+          displayCodes = codesRes?.results || [];
+          game.codes = displayCodes;
+          game.codes_count = displayCodes.length;
+        }
+
+        // Tự động đối chiếu với wcg_admin_games_v5 nếu bảng games D1 còn giữ văn mẫu Avatar cũ
+        let currentInst = game?.instructions || '';
+        let currentRedeem = game?.redeem_url || '';
+        if (game && (!currentInst || currentInst.includes('Avatar nhân vật'))) {
+          const rawGamesSetting = await env.DB.prepare("SELECT value FROM settings WHERE key = 'wcg_admin_games_v5' LIMIT 1").first<any>().catch(() => null);
+          if (rawGamesSetting?.value) {
+            const list = JSON.parse(rawGamesSetting.value);
+            if (Array.isArray(list)) {
+              const foundInSettings = list.find((x: any) => x && (x.slug === slug || x.id === slug || x.slug === game.slug));
+              if (foundInSettings && foundInSettings.instructions && !foundInSettings.instructions.includes('Avatar nhân vật')) {
+                currentInst = foundInSettings.instructions;
+                if (foundInSettings.redeem_url || foundInSettings.redeemUrl) {
+                  currentRedeem = foundInSettings.redeem_url || foundInSettings.redeemUrl;
+                }
+                game.instructions = currentInst;
+                game.redeem_url = currentRedeem;
+              }
+            }
+          }
+        }
+
+        // 2. Fallback sang catalog nếu bảng games chưa có
+        if (!game) {
+          const catalog = await gamesApi.getLoadedCatalog(env.DB);
+          game = catalog.allRawGames?.find((g: any) => g && (String(g.slug || '').toLowerCase() === slug || String(g.id || '').toLowerCase() === slug || String(g.slug || '').toLowerCase().replace(/-mobile$/i, '') === cleanWithoutMobile));
+          if (game) {
+            displayCodes = gamesApi.resolveCodesForGame(game, catalog.codesMap) || [];
+            game.codes = displayCodes;
+            game.codes_count = displayCodes.length;
+          }
+        }
       } catch {}
     }
 
     if (game) {
-      const codeCount = game.codes_count || game.codes?.length || 0;
+      const codeCount = game.codes_count || game.codes?.length || displayCodes.length || 0;
       const countSuffix = codeCount > 0 ? `Nhận ${codeCount} Mã Code ` : '';
       const title = `Giftcode ${game.name} Mới Nhất 2026 - ${countSuffix}| CodeGame.shop`;
       const description = `Tổng hợp ${codeCount > 0 ? codeCount + ' ' : ''}mã giftcode ${game.name} còn hạn mới nhất 2026. Hướng dẫn nhập code chi tiết và phần thưởng tân thủ bản quyền G1.`;
@@ -683,13 +733,93 @@ async function renderSeoHtml(
 
       replaceTitleAndMeta(title, description, `/game/${game.slug}`, iconUrl, gameSchema);
 
-      // Pre-render accessible store download links for SEO bots and non-JS clients
       const playUrl = game.google_play_url || game.download_android || '';
       const iosUrl = game.app_store_url || game.download_ios || '';
-      if (playUrl || iosUrl) {
-        const noscriptHtml = `\n    <noscript>\n      <div style="max-width:600px;margin:20px auto;padding:16px;background:#0f172a;border:1px solid #334155;border-radius:12px;color:#f8fafc;text-align:center;font-family:sans-serif;">\n        <h3 style="margin-bottom:12px;">Tải game chính thức: ${game.name}</h3>\n        <div style="display:flex;gap:12px;justify-content:center;flex-wrap:wrap;">\n          ${playUrl ? `<a href="${playUrl}" style="display:inline-block;padding:10px 20px;background:#10b981;color:#022c22;border-radius:8px;text-decoration:none;font-weight:bold;">Tải trên CH Play</a>` : ''}\n          ${iosUrl ? `<a href="${iosUrl}" style="display:inline-block;padding:10px 20px;background:#38bdf8;color:#082f49;border-radius:8px;text-decoration:none;font-weight:bold;">Tải trên App Store</a>` : ''}\n        </div>\n        <p style="font-size:12px;color:#94a3b8;margin-top:12px;">Nếu CH Play/App Store báo &quot;không có ở quốc gia của bạn&quot;, đó là giới hạn vùng theo tài khoản của bạn — link tải vẫn đúng. Hãy thử tài khoản thuộc vùng game đã phát hành.</p>\n      </div>\n    </noscript>`;
-        html = html.replace('<div id="root"></div>', `<div id="root"></div>${noscriptHtml}`);
-      }
+      const instructions = (game.instructions || '').trim();
+      const redeemUrl = (game.redeem_url || '').trim();
+
+      const escape = (str: any) => String(str || '')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#039;');
+
+      const ssrBodyHtml = `
+      <div class="min-h-screen flex flex-col bg-dark-950 text-gray-100 font-sans">
+        <div class="max-w-4xl mx-auto px-4 py-6 w-full space-y-6">
+          <!-- Breadcrumb -->
+          <nav class="flex items-center gap-2 text-xs text-gray-400">
+            <a href="/" class="hover:text-brand-400">Trang chủ</a>
+            <span>/</span>
+            <span class="text-white">${escape(game.name)}</span>
+          </nav>
+
+          <!-- Game Card Header -->
+          <div class="flex items-start gap-4 p-5 rounded-2xl bg-dark-900 border border-gray-800">
+            <img src="${escape(iconUrl)}" alt="${escape(game.name)}" width="64" height="64" class="w-16 h-16 rounded-2xl object-cover shrink-0" loading="eager" />
+            <div class="min-w-0 flex-1">
+              <div class="flex items-center gap-2 flex-wrap">
+                <h1 class="text-xl sm:text-2xl font-bold text-white tracking-tight">${escape(game.name)}</h1>
+                <span class="px-2 py-0.5 text-xs font-semibold rounded-md bg-brand-600/20 text-brand-400 border border-brand-500/30">${escape(game.category || 'Game Hot')}</span>
+              </div>
+              <p class="text-xs sm:text-sm text-gray-400 font-semibold mt-0.5">${escape(game.publisher || 'NPH Chính Thức VN')}</p>
+            </div>
+          </div>
+
+          ${(playUrl || iosUrl) ? `
+          <!-- Download Section -->
+          <div class="p-5 rounded-2xl bg-dark-900 border border-gray-800 space-y-3">
+            <h2 class="text-base sm:text-lg font-bold text-white flex items-center justify-between">
+              <span>📲 Tải Game Chính Thức</span>
+              <span class="text-xs text-emerald-400 font-semibold">Official Store</span>
+            </h2>
+            <div class="flex items-center gap-3 flex-wrap">
+              ${playUrl ? `<a href="${escape(playUrl)}" target="_blank" rel="noopener noreferrer" class="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs sm:text-sm shadow-md">Tải trên CH Play</a>` : ''}
+              ${iosUrl ? `<a href="${escape(iosUrl)}" target="_blank" rel="noopener noreferrer" class="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-sky-600 hover:bg-sky-500 text-white font-bold text-xs sm:text-sm shadow-md">Tải trên App Store</a>` : ''}
+            </div>
+          </div>` : ''}
+
+          <!-- Codes List -->
+          <div class="p-5 rounded-2xl bg-dark-900 border border-gray-800 space-y-3">
+            <h2 class="text-base sm:text-lg font-bold text-white flex items-center justify-between">
+              <span>🎁 Danh Sách Giftcode ${escape(game.name)} Còn Hạn</span>
+              <span class="text-xs text-brand-400 font-semibold">${displayCodes.length} mã khả dụng</span>
+            </h2>
+            <div class="space-y-2">
+              ${displayCodes.length > 0 ? displayCodes.map((c: any) => `
+                <div class="flex items-center justify-between p-3 rounded-xl bg-dark-850 border border-gray-800">
+                  <div>
+                    <code class="font-mono font-bold text-brand-400 text-sm sm:text-base">${escape(c.code || c.codeValue || c.code_value)}</code>
+                    <div class="text-xs text-gray-400 mt-0.5">${escape(c.rewards || 'Giftcode tân thủ / Sự kiện')}</div>
+                  </div>
+                  <span class="text-xs px-2.5 py-1 rounded-lg bg-brand-600/20 text-brand-400 border border-brand-500/30 font-bold">Mới nhất</span>
+                </div>
+              `).join('') : '<p class="text-xs text-gray-400">Đang cập nhật thêm mã mới cho tựa game này...</p>'}
+            </div>
+          </div>
+
+          <!-- Instructions (Chỉ render khi có hướng dẫn và không rỗng) -->
+          ${instructions && instructions.length > 0 ? `
+          <div class="p-5 rounded-2xl bg-dark-900 border border-gray-800 space-y-2">
+            <div class="flex items-center justify-between flex-wrap gap-2">
+              <h2 class="text-base sm:text-lg font-bold text-white">📖 Hướng Dẫn Nhập Code ${escape(game.name)}</h2>
+              ${redeemUrl ? `<a href="${escape(redeemUrl)}" target="_blank" rel="noopener noreferrer" class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold bg-emerald-600 hover:bg-emerald-500 text-white shadow-sm transition-all">🌐 Mở Trang Đổi Code</a>` : ''}
+            </div>
+            <div class="text-xs sm:text-sm text-gray-300 whitespace-pre-line leading-relaxed">${escape(instructions)}</div>
+          </div>` : ''}
+
+          <!-- Description -->
+          ${game.description ? `
+          <div class="p-5 rounded-2xl bg-dark-900 border border-gray-800 space-y-2">
+            <h2 class="text-base sm:text-lg font-bold text-white">ℹ️ Giới Thiệu Trò Chơi</h2>
+            <p class="text-xs sm:text-sm text-gray-300 leading-relaxed">${escape(game.description)}</p>
+          </div>` : ''}
+        </div>
+      </div>
+      `;
+
+      html = html.replace('<div id="root"></div>', `<div id="root">${ssrBodyHtml}</div>`);
     }
   } else if (pathname === '/news' || pathname.startsWith('/news/')) {
     const newsSlug = pathname.replace(/^\/news\//i, '').replace(/\/$/, '').trim().toLowerCase();
