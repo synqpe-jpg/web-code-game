@@ -18,6 +18,7 @@ import * as crawlArticleApi from './api/crawl-article';
 import * as gameIconApi from './api/game-icon';
 import * as ingestCodesApi from './api/crawler/ingest-codes';
 import * as ingestUpcomingGamesApi from './api/crawler/ingest-upcoming-games';
+import * as marketingApi from './api/crawler/marketing';
 import * as notifSubscribeApi from './api/notifications/subscribe';
 import * as notifUnsubscribeApi from './api/notifications/unsubscribe';
 import * as notifSubscribersApi from './api/notifications/subscribers';
@@ -455,6 +456,13 @@ export default {
         if (method === 'OPTIONS') return await ingestUpcomingGamesApi.onRequestOptions();
         if (method === 'POST') return await ingestUpcomingGamesApi.onRequestPost(context);
         return await ingestUpcomingGamesApi.onRequestGet(context);
+      }
+
+      // 8h. /api/crawler/marketing (Muse Bot Marketing & FOMO Independent Audit API)
+      if (pathname === '/api/crawler/marketing') {
+        if (method === 'OPTIONS') return await marketingApi.onRequestOptions();
+        if (method === 'POST') return await marketingApi.onRequestPost(context);
+        return await marketingApi.onRequestGet(context);
       }
 
       // 9. /api/notifications/* (Email Notification Hub)
