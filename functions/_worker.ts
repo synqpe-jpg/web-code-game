@@ -819,7 +819,11 @@ async function renderSeoHtml(
       </div>
       `;
 
-      html = html.replace('<div id="root"></div>', `<div id="root">${ssrBodyHtml}</div>`);
+      if (html.includes('<div id="root"></div>')) {
+        html = html.replace('<div id="root"></div>', `<div id="root">${ssrBodyHtml}</div>`);
+      } else {
+        html = html.replace(/<div\s+id="root">[\s\S]*?<\/div>\s*<\/div>\s*(<script)/i, `<div id="root">${ssrBodyHtml}</div>\n  $1`);
+      }
     }
   } else if (pathname === '/news' || pathname.startsWith('/news/')) {
     const newsSlug = pathname.replace(/^\/news\//i, '').replace(/\/$/, '').trim().toLowerCase();
