@@ -7,6 +7,43 @@ Mỗi mục sửa lỗi đều ghi nhận **Nguyên nhân gốc rễ (Root Cause
 
 ## [2026-10-24]
 
+### 187. Tối Ưu Bố Cục Toàn Bộ 6 Mục Cài Đặt Marketing & FOMO Vừa Khít 1 Màn Hình (All 6 Settings Sections in Single Viewport Guarantee & Clear Final-Section Roadmap)
+- **Mô tả & Yêu cầu người dùng**:
+  - *"Trong admin, Bảng Thông Báo Marketing & FOMO, đảm bảo tất cả các phần cài đặt đều hiển thị trong 1 màn hình để tôi có thể nhấn. Ví như hiện tại tôi nhìn tháy mục cài đặt cuối cùng là Trình Giả Lập & Thử Nghiệm cũng không biét sau đó còn mục nào không."*
+  - Ảnh đính kèm: Trên màn hình chuẩn 1366x768, thanh tab điều hướng dùng `flex` ngang bị tràn chiều ngang, tab thứ 6 "Trình Giả Lập & Thử Nghiệm" bị cắt cụt ở mép phải ("Trình Giả Lập & Thử..."). Thanh cuộn bị ẩn (`scrollbar-none`) khiến quản trị viên không thể xác định sau mục này còn mục cài đặt nào khác hay không. Huy hiệu hiển thị `7/6 ĐANG BẬT` do mẫu số hardcode cũ.
+- **Nguyên nhân gốc rễ (Root Cause)**:
+  1. Thanh sub-tab navigation sử dụng `flex items-center gap-1 overflow-x-auto scrollbar-none` với mỗi tab có `shrink-0` và tên văn bản dài, tổng chiều rộng đạt ~1120px vượt quá không gian nội dung khả dụng (~1046px trên màn hình 1366px khi có sidebar 256px).
+  2. Tab thứ 6 bị tràn mép phải và cắt cụt chữ. Thiếu chỉ số thứ tự (`1/6`, ..., `6/6`) và thiếu nhãn báo hiệu kết thúc ("Mục cuối"), gây tâm lý hoang mang cho người dùng không biết hệ thống có bao nhiêu phần cài đặt.
+  3. Mẫu số đếm số loại thông báo hardcode `/6` trong khi hệ thống có 7 loại (`copyCode`, `buyStore`, `buyUtility`, `claimGiveaway`, `depositWallet`, `statsCopy`, `restockProduct`), sinh ra hiển thị bất thường `7/6 ĐANG BẬT`.
+  4. Thiếu thanh điều hướng chân trang (Bottom Stepper) để chuyển tiếp giữa các phần cài đặt.
+- **Giải pháp đã triển khai (Solution)**:
+  1. **Tái cấu trúc thanh điều hướng thành Lưới thích ứng 6 Cột (Responsive 6-Grid Sub-tab Bar)**:
+     - Chuyển sang `grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-6 gap-1.5 sm:gap-2 p-2 sm:p-2.5 rounded-2xl bg-card/95 backdrop-blur-md border border-border/90 shadow-md sticky top-2 z-30`.
+     - Trên desktop: Cả 6 mục cài đặt chia đều tỷ lệ 6 cột hoàn hảo (~168px/cột), hiển thị vừa vặn 100% trong khung nhìn màn hình, không tràn dù chỉ 1 pixel, không cắt cụt chữ, có thể click ngay lập tức.
+     - Trên tablet/mobile: Tự động chia 2 hoặc 3 cột gọn gàng, mọi tab đều hiển thị trọn vẹn trước mắt người dùng.
+  2. **Đánh số thứ tự minh bạch & Làm rõ mục kết thúc (1/6 đến 6/6)**:
+     - **Mục 1/6**: Chung & Tần Suất (`Bật/tắt, vị trí & chu kỳ`)
+     - **Mục 2/6**: Bật/Tắt Loại Tin (`Tỷ lệ % phân bổ 7 loại` — sửa chuẩn `7/7 Bật`)
+     - **Mục 3/6**: Tài Khoản Ảo (`Bốc ngẫu nhiên tạo FOMO` — badge `90 nick`)
+     - **Mục 4/6**: Sản Phẩm & Kho (`Trọng số xuất hiện & tồn`)
+     - **Mục 5/6**: Bình Chọn Code (`Giả lập vote hoạt động` — badge `92% Uy tín`)
+     - **Mục 6/6**: Giả Lập & Test (`Trình Giả Lập & Bắn Thử` — mang badge nổi bật `Mục cuối (6/6)`).
+  3. **Thanh chỉ báo lộ trình cài đặt (Roadmap Status Pill)**:
+     - Bổ sung thanh thông tin ở đầu: `Bản Đồ 6 Mục Cài Đặt FOMO • Đang xem: Mục X/6 — [Tên đầy đủ] • Tổng cộng: Đúng 6 mục (Không có mục ẩn) • Mục 6/6 là mục kết thúc`.
+  4. **Thanh điều hướng chân trang (Bottom Navigation Stepper)**:
+     - Thêm thanh chuyển mục ở cuối mỗi trang cài đặt:
+       - Nút `[← Quay lại: Mục X/6]` (tự cuộn mượt lên đầu trang).
+       - Chỉ số trung tâm `Mục X / 6`.
+       - Nút `[Mục tiếp theo: Mục Y/6 →]`.
+       - Tại mục 6/6: Hiển thị trạng thái `[✓ Mục cuối cùng (6/6) • Đã xem hết tất cả các mục]` cùng nút `[Lưu Tất Cả Cấu Hình]`.
+  5. **Sửa lỗi hiển thị `7/6` thành `7/7`**:
+     - Cập nhật cả ở tiêu đề section (`{activeTypesCount}/7 ĐANG BẬT`) và cảnh báo khi tắt toàn bộ (`Bạn đã tắt toàn bộ 7 loại thông báo`).
+- **Kết quả nghiệm thu**:
+  - Biên dịch Vite & Worker: Thành công 100%.
+  - Toàn bộ 6 mục cài đặt hiển thị vừa khít 100% trong 1 màn hình, không bị che khuất, người dùng biết chắc chắn có đúng 6 mục và mục 6 là mục kết thúc.
+
+---
+
 ### 186. Khắc Phục Triệt Để Lệch Tầng Đọc Mã Giftcode Limbo (Avatar Land) & Bỏ Hoàn Toàn Giá Trị Mặc Định Bịa Đặt Khi Tạo / Publish Game
 - **Mô tả & Yêu cầu người dùng (Sự cố Production khẩn cấp 24/10/2026)**:
   - *"Chủ site đã quyết định đăng game Avatar Land lên web trong tối nay vì mã AL-PNVN26 hết hạn ngày 25/10/2026. Luồng đăng đã chạy đủ bước nhưng mã vẫn KHÔNG hiển thị công khai. queue_game tạo game vào hàng chờ thành công; publish_game slug avatar-land thành công, status ACTIVE, codes: 1; approve_codes mã AL-PNVN26 thành công. Nhưng API chi tiết GET /api/games?slug=avatar-land trả về codes_count: 0, codes: []; trang game 0 lần xuất hiện chuỗi AL-PNVN26; đẩy lại qua ingest báo duplicateCount: 1. Mã đang kẹt ở trạng thái limbo — tồn tại trong kho live nhưng vô hình với khách. Việc 1: Tìm và sửa lệch tầng đọc cho Avatar Land, đồng bộ cưỡng bức bản ghi trên mọi tầng đọc. Sau khi sửa, mã AL-PNVN26 phải hiển thị công khai với hạn dùng 2026-10-25, hướng dẫn nhập code để trống, icon để trống. Việc 2: publish_game không được tiêm lại giá trị giả đã dọn ở ISSUE-107 (không tiêm NPH Chính Thức, Nhập Vai, Android, iOS, PC, icon 404; không có thì để rỗng)."*

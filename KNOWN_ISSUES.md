@@ -10,6 +10,33 @@
 
 ## 1. DANH MỤC LỖI & CÁC BẪY ĐÃ THẤT BẠI (DO NOT REPEAT)
 
+### ISSUE-113: Bẫy Tràn Chiều Ngang Khiến Thanh Điều Hướng Sub-Tabs Bị Cắt Cụt Mép Phải & Che Giấu Mục Cài Đặt Cuối Cùng Trong Module Marketing & FOMO (Horizontal Sub-Tab Overflow & Hidden Final Settings Section Trap)
+- **Triệu chứng**:
+  - Tại trang quản trị Module Marketing & FOMO (`admin#/marketing`), thanh tab điều hướng các mục cài đặt dùng `flex items-center gap-1 overflow-x-auto scrollbar-none`.
+  - Trên màn hình chuẩn 1366x768 hoặc màn hình laptop phổ thông, 6 tab với tên dài (`Cấu hình Chung & Tần suất`, `Bật/Tắt Loại Thông Báo`, `Tài khoản Hệ thống`, `Ưu tiên Sản phẩm & Kho ảo`, `Tỉ lệ Bình chọn Code`, `Trình Giả Lập & Thử Nghiệm`) có tổng chiều rộng ~1120px, vượt quá khoảng không gian khả dụng của content area (~1046px khi có sidebar 256px).
+  - Tab thứ 6 `Trình Giả Lập & Thử Nghiệm` bị cắt cụt ở mép phải màn hình ("Trình Giả Lập & Thử..."). Đồng thời do cờ `scrollbar-none` ẩn thanh cuộn ngang, quản trị viên không thể biết sau mục thứ 6 còn có mục cài đặt nào khác bị khuất hay không.
+  - Ngoài ra, huy hiệu số lượng loại thông báo bị gán cứng `/6` trong khi hệ thống có 7 loại (`copyCode`, `buyStore`, `buyUtility`, `claimGiveaway`, `depositWallet`, `statsCopy`, `restockProduct`), dẫn đến lỗi hiển thị `7/6 ĐANG BẬT`.
+- **Nguyên nhân gốc rễ**:
+  1. Dùng flex hàng ngang đơn độc với `shrink-0` và ẩn thanh cuộn (`scrollbar-none`) thay vì lưới thích ứng responsive.
+  2. Thiếu thông tin số đếm thứ tự rõ ràng (`1/6`, `2/6`, ..., `6/6`), thiếu nhãn báo hiệu mục kết thúc (Final section).
+  3. Thiếu thanh điều hướng chân trang (Bottom Stepper) giúp di chuyển giữa các phần cài đặt.
+- **Giải pháp chuẩn đã kiểm chứng**:
+  - **Lưới thích ứng 6 cột cân bằng 100% trong 1 màn hình**: Đặt `grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-6 gap-1.5 sm:gap-2` kèm `sticky top-2 z-30 backdrop-blur-md bg-card/95`. Cả 6 tab chia đều tỷ lệ trên desktop, không tràn, không cắt cụt, hiển thị trọn vẹn 100% trước mắt người dùng.
+  - **Đánh số thứ tự minh bạch `1/6` đến `6/6`**:
+    - Mục 1: `1/6` • Chung & Tần Suất
+    - Mục 2: `2/6` • Bật/Tắt Loại Tin (sửa hiển thị chuẩn `7/7 Bật`)
+    - Mục 3: `3/6` • Tài Khoản Ảo (90 nick)
+    - Mục 4: `4/6` • Sản Phẩm & Kho
+    - Mục 5: `5/6` • Bình Chọn Code
+    - Mục 6: `6/6` • Giả Lập & Test kèm huy hiệu nổi bật `Mục cuối (6/6)` khẳng định 100% không còn mục nào ẩn phía sau.
+  - **Thanh trạng thái bản đồ cài đặt**: Hiển thị rõ `Bản Đồ 6 Mục Cài Đặt FOMO • Đang xem: Mục X/6 • Mục 6/6 là mục kết thúc`.
+  - **Thanh điều hướng chân trang (Bottom Stepper)**: Bổ sung 2 nút `[← Quay lại: Mục X/6]` và `[Mục tiếp theo: Mục Y/6 →]`, tại mục 6/6 hiển thị `[✓ Đã xem hết 6/6 mục • Lưu Tất Cả Cấu Hình]`.
+- ⛔ **CÁCH SỬA ĐÃ THẤT BẠI - TUYỆT ĐỐI KHÔNG LẶP LẠI**:
+  - ❌ *Không dùng `overflow-x-auto scrollbar-none` cho các thanh tab quan trọng*: Khi ẩn thanh cuộn, người dùng không thể biết còn tab nào bị ẩn phía sau mép màn hình. BẮT BUỘC dùng responsive grid hoặc hiển thị rõ số lượng `X/Y`.
+  - ❌ *Không hardcode mẫu số typesCount (ví dụ `/6`)*: Khi bổ sung loại thông báo mới (như `restockProduct`), phải dùng tổng số thực tế (`/7`).
+
+---
+
 ### ISSUE-112: Bẫy Lệch Tầng Đọc Khiến Mã Giftcode Đã Duyệt Bị Kẹt Ở Trạng Thái Limbo & Bẫy Tự Động Tiêm Placeholder Giả Mạo (Approved Codes Limbo State & Fabricated Placeholder Injection Trap)
 - **Triệu chứng**:
   - Game sau khi duyệt (publish_game) và duyệt mã (approve_codes) xuất hiện trên catalog và tìm kiếm báo có code, nhưng khi vào trang chi tiết `/game/:slug` hoặc gọi API `GET /api/games?slug=:slug` thì `codes_count: 0`, danh sách mã rỗng `[]`, mã biến mất hoàn toàn đối với người dùng (trường hợp thực tế Avatar Land với mã `AL-PNVN26`).

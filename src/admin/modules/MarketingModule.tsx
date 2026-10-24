@@ -29,6 +29,8 @@ import {
   BarChart3,
   PackageX,
   PackagePlus,
+  ChevronLeft,
+  ChevronRight,
 } from 'lucide-react';
 import type {
   MarketingConfig,
@@ -747,7 +749,7 @@ export const MarketingModule: React.FC<MarketingModuleProps> = ({ onShowToast })
                     : 'bg-rose-500/15 text-rose-400 border-rose-500/30'
                 }`}
               >
-                {activeTypesCount}/6 ĐANG BẬT
+                {activeTypesCount}/7 ĐANG BẬT
               </span>
             </div>
             <p className="text-xs text-muted-foreground">
@@ -789,7 +791,7 @@ export const MarketingModule: React.FC<MarketingModuleProps> = ({ onShowToast })
           <div className="flex items-center gap-2.5 p-3.5 rounded-xl bg-rose-500/10 border border-rose-500/25 text-rose-300 text-xs">
             <AlertTriangle className="w-4 h-4 shrink-0 text-rose-400" />
             <span>
-              <b>Cảnh báo:</b> Bạn đã tắt toàn bộ 6 loại thông báo. Web khách sẽ không hiển thị bất kỳ thông báo nào cho đến khi bạn bật lại ít nhất 1 loại.
+              <b>Cảnh báo:</b> Bạn đã tắt toàn bộ 7 loại thông báo. Web khách sẽ không hiển thị bất kỳ thông báo nào cho đến khi bạn bật lại ít nhất 1 loại.
             </span>
           </div>
         )}
@@ -1152,6 +1154,92 @@ export const MarketingModule: React.FC<MarketingModuleProps> = ({ onShowToast })
     a.toLowerCase().includes(accountSearch.toLowerCase())
   );
 
+  const MARKETING_SUB_TABS: Array<{
+    id: 'general' | 'types' | 'accounts' | 'products' | 'votes' | 'preview';
+    index: number;
+    total: number;
+    shortTitle: string;
+    fullTitle: string;
+    subtext: string;
+    icon: React.ComponentType<{ className?: string }>;
+    badge?: string;
+    badgeTone?: 'emerald' | 'amber' | 'primary' | 'muted';
+    isLast?: boolean;
+  }> = [
+    {
+      id: 'general',
+      index: 1,
+      total: 6,
+      shortTitle: 'Chung & Tần Suất',
+      fullTitle: 'Cấu hình Chung & Tần suất',
+      subtext: 'Bật/tắt, vị trí & chu kỳ',
+      icon: Settings,
+      badge: config.isEnabled ? 'Đang Bật' : 'Đang Tắt',
+      badgeTone: config.isEnabled ? 'emerald' : 'muted',
+    },
+    {
+      id: 'types',
+      index: 2,
+      total: 6,
+      shortTitle: 'Bật/Tắt Loại Tin',
+      fullTitle: 'Bật/Tắt Từng Loại Thông Báo',
+      subtext: 'Tỷ lệ % phân bổ 7 loại',
+      icon: SlidersHorizontal,
+      badge: `${activeTypesCount}/7 Bật`,
+      badgeTone: activeTypesCount > 0 ? 'emerald' : 'amber',
+    },
+    {
+      id: 'accounts',
+      index: 3,
+      total: 6,
+      shortTitle: 'Tài Khoản Ảo',
+      fullTitle: 'Quản Lý Tài Khoản Hệ Thống',
+      subtext: 'Bốc ngẫu nhiên tạo FOMO',
+      icon: Users,
+      badge: `${config.virtualAccounts.length} nick`,
+      badgeTone: 'primary',
+    },
+    {
+      id: 'products',
+      index: 4,
+      total: 6,
+      shortTitle: 'Sản Phẩm & Kho',
+      fullTitle: 'Ưu Tiên Sản Phẩm & Kho Ảo',
+      subtext: 'Trọng số xuất hiện & tồn',
+      icon: ShoppingBag,
+      badge: 'Store/Tool',
+      badgeTone: 'muted',
+    },
+    {
+      id: 'votes',
+      index: 5,
+      total: 6,
+      shortTitle: 'Bình Chọn Code',
+      fullTitle: 'Tỉ Lệ Bình Chọn Code',
+      subtext: 'Giả lập vote hoạt động',
+      icon: TrendingUp,
+      badge: `${config.codeVoteRatio.workingPercentage}% Uy tín`,
+      badgeTone: 'emerald',
+    },
+    {
+      id: 'preview',
+      index: 6,
+      total: 6,
+      shortTitle: 'Giả Lập & Test',
+      fullTitle: 'Trình Giả Lập & Bắn Thử',
+      subtext: 'Mục cuối cùng (6/6)',
+      icon: Eye,
+      badge: 'Mục cuối (6/6)',
+      badgeTone: 'amber',
+      isLast: true,
+    },
+  ];
+
+  const currentTabIndex = MARKETING_SUB_TABS.findIndex((t) => t.id === activeSubTab);
+  const currentTab = MARKETING_SUB_TABS[currentTabIndex !== -1 ? currentTabIndex : 0];
+  const prevTab = currentTabIndex > 0 ? MARKETING_SUB_TABS[currentTabIndex - 1] : null;
+  const nextTab = currentTabIndex < MARKETING_SUB_TABS.length - 1 ? MARKETING_SUB_TABS[currentTabIndex + 1] : null;
+
   return (
     <div className="space-y-6">
       {/* Header Bar */}
@@ -1204,85 +1292,106 @@ export const MarketingModule: React.FC<MarketingModuleProps> = ({ onShowToast })
         </div>
       </div>
 
-      {/* Sub-tab Navigation */}
-      <div className="flex items-center gap-1 p-1 rounded-2xl bg-card border border-border/80 overflow-x-auto scrollbar-none shadow-sm">
-        <button
-          type="button"
-          onClick={() => setActiveSubTab('general')}
-          className={`flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold transition-all shrink-0 cursor-pointer ${
-            activeSubTab === 'general'
-              ? 'bg-primary text-white shadow-sm'
-              : 'text-muted-foreground hover:text-foreground hover:bg-muted/60'
-          }`}
-        >
-          <Settings className="w-4 h-4" />
-          <span>Cấu hình Chung & Tần suất</span>
-        </button>
+      {/* ==================================================================== */}
+      {/* THANH ĐIỀU HƯỚNG 6 MỤC CÀI ĐẶT: 100% HIỂN THỊ TRỌN VẸN TRONG 1 MÀN HÌNH */}
+      {/* ==================================================================== */}
+      <div className="sticky top-2 z-30 space-y-2 p-2 sm:p-2.5 rounded-2xl bg-card/95 backdrop-blur-md border border-border/90 shadow-md">
+        {/* Thanh trạng thái tổng quan: Làm rõ chính xác có 6/6 mục cài đặt, không có mục ẩn */}
+        <div className="flex flex-wrap items-center justify-between gap-2 px-1 text-xs">
+          <div className="flex items-center gap-2 flex-wrap">
+            <span className="font-heading font-extrabold text-foreground flex items-center gap-1.5">
+              <SlidersHorizontal className="w-4 h-4 text-primary" />
+              <span>Bản Đồ 6 Mục Cài Đặt FOMO</span>
+            </span>
+            <span className="text-[11px] px-2.5 py-0.5 rounded-full bg-primary/15 text-primary-light border border-primary/30 font-mono font-bold">
+              Đang xem: Mục {currentTabIndex + 1}/6 — {currentTab.fullTitle}
+            </span>
+          </div>
 
-        <button
-          type="button"
-          onClick={() => setActiveSubTab('types')}
-          className={`flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold transition-all shrink-0 cursor-pointer ${
-            activeSubTab === 'types'
-              ? 'bg-primary text-white shadow-sm'
-              : 'text-muted-foreground hover:text-foreground hover:bg-muted/60'
-          }`}
-        >
-          <SlidersHorizontal className="w-4 h-4" />
-          <span>Bật/Tắt Loại Thông Báo ({activeTypesCount}/6)</span>
-        </button>
+          <div className="flex items-center gap-2 text-[11px] text-muted-foreground font-mono">
+            <span className="hidden sm:inline">Tổng cộng: Đúng 6 mục cài đặt (Không có mục ẩn)</span>
+            <span className="px-2 py-0.5 rounded-md bg-amber-500/15 text-amber-300 border border-amber-500/30 font-bold">
+              Mục 6/6 là mục kết thúc
+            </span>
+          </div>
+        </div>
 
-        <button
-          type="button"
-          onClick={() => setActiveSubTab('accounts')}
-          className={`flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold transition-all shrink-0 cursor-pointer ${
-            activeSubTab === 'accounts'
-              ? 'bg-primary text-white shadow-sm'
-              : 'text-muted-foreground hover:text-foreground hover:bg-muted/60'
-          }`}
-        >
-          <Users className="w-4 h-4" />
-          <span>Tài khoản Hệ thống ({config.virtualAccounts.length})</span>
-        </button>
+        {/* Lưới 6 Tab Cân Bằng Hoàn Hảo (Grid 6 Columns on Desktop) */}
+        <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-6 gap-1.5 sm:gap-2">
+          {MARKETING_SUB_TABS.map((tab) => {
+            const isActive = activeSubTab === tab.id;
+            const Icon = tab.icon;
 
-        <button
-          type="button"
-          onClick={() => setActiveSubTab('products')}
-          className={`flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold transition-all shrink-0 cursor-pointer ${
-            activeSubTab === 'products'
-              ? 'bg-primary text-white shadow-sm'
-              : 'text-muted-foreground hover:text-foreground hover:bg-muted/60'
-          }`}
-        >
-          <ShoppingBag className="w-4 h-4" />
-          <span>Ưu tiên Sản phẩm & Kho ảo</span>
-        </button>
+            return (
+              <button
+                key={tab.id}
+                type="button"
+                onClick={() => setActiveSubTab(tab.id)}
+                title={`${tab.index}/6: ${tab.fullTitle} • ${tab.subtext}`}
+                className={`group relative flex flex-col justify-between p-2 sm:p-2.5 rounded-xl text-left transition-all cursor-pointer border select-none ${
+                  isActive
+                    ? 'bg-gradient-to-br from-primary via-primary to-primary-hover text-white border-primary shadow-md shadow-primary/25 ring-2 ring-primary/40'
+                    : 'bg-muted/30 hover:bg-muted/70 text-muted-foreground hover:text-foreground border-border/70 hover:border-border'
+                }`}
+              >
+                {/* Dòng 1: Huy hiệu số thứ tự 1/6 -> 6/6 và nhãn trạng thái */}
+                <div className="flex items-center justify-between w-full gap-1 mb-1">
+                  <span
+                    className={`inline-flex items-center gap-1 text-[10px] font-mono font-extrabold px-1.5 py-0.5 rounded-md ${
+                      isActive
+                        ? 'bg-white/20 text-white'
+                        : 'bg-card text-foreground border border-border/60'
+                    }`}
+                  >
+                    <Icon className={`w-3 h-3 shrink-0 ${isActive ? 'text-white' : 'text-primary'}`} />
+                    <span>{tab.index}/6</span>
+                  </span>
 
-        <button
-          type="button"
-          onClick={() => setActiveSubTab('votes')}
-          className={`flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold transition-all shrink-0 cursor-pointer ${
-            activeSubTab === 'votes'
-              ? 'bg-primary text-white shadow-sm'
-              : 'text-muted-foreground hover:text-foreground hover:bg-muted/60'
-          }`}
-        >
-          <TrendingUp className="w-4 h-4" />
-          <span>Tỉ lệ Bình chọn Code</span>
-        </button>
+                  {tab.badge && (
+                    <span
+                      className={`text-[9px] font-mono font-extrabold px-1.5 py-0.5 rounded-md border shrink-0 ${
+                        isActive
+                          ? 'bg-white/25 text-white border-white/40'
+                          : tab.badgeTone === 'emerald'
+                          ? 'bg-emerald-500/15 text-emerald-400 border-emerald-500/30'
+                          : tab.badgeTone === 'amber'
+                          ? 'bg-amber-500/20 text-amber-300 border-amber-500/40 font-bold'
+                          : tab.badgeTone === 'primary'
+                          ? 'bg-primary/15 text-primary-light border-primary/30'
+                          : 'bg-muted text-muted-foreground border-border/60'
+                      }`}
+                    >
+                      {tab.badge}
+                    </span>
+                  )}
+                </div>
 
-        <button
-          type="button"
-          onClick={() => setActiveSubTab('preview')}
-          className={`flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold transition-all shrink-0 cursor-pointer ${
-            activeSubTab === 'preview'
-              ? 'bg-primary text-white shadow-sm'
-              : 'text-muted-foreground hover:text-foreground hover:bg-muted/60'
-          }`}
-        >
-          <Eye className="w-4 h-4" />
-          <span>Trình Giả Lập & Thử Nghiệm</span>
-        </button>
+                {/* Dòng 2: Tên mục sắc nét, không gãy dòng */}
+                <div className="w-full">
+                  <div
+                    className={`font-heading font-extrabold text-[11px] sm:text-xs leading-tight truncate ${
+                      isActive ? 'text-white' : 'text-foreground group-hover:text-primary-light'
+                    }`}
+                  >
+                    {tab.shortTitle}
+                  </div>
+                  <div
+                    className={`text-[9px] sm:text-[10px] leading-tight truncate mt-0.5 ${
+                      isActive ? 'text-white/80' : 'text-muted-foreground'
+                    }`}
+                  >
+                    {tab.subtext}
+                  </div>
+                </div>
+
+                {/* Dấu gạch active indicator */}
+                {isActive && (
+                  <span className="absolute -bottom-1 left-1/2 -translate-x-1/2 w-5 h-1 rounded-full bg-white shadow-sm" />
+                )}
+              </button>
+            );
+          })}
+        </div>
       </div>
 
       {/* ==================================================================== */}
@@ -2238,7 +2347,7 @@ export const MarketingModule: React.FC<MarketingModuleProps> = ({ onShowToast })
       {/* SUB-TAB: BẬT / TẮT TỪNG LOẠI THÔNG BÁO                              */}
       {/* ==================================================================== */}
       {activeSubTab === 'types' && (
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
+        <div className="space-y-5">
           {renderNotificationTypesSection()}
         </div>
       )}
@@ -3021,6 +3130,85 @@ export const MarketingModule: React.FC<MarketingModuleProps> = ({ onShowToast })
           </div>
         </div>
       )}
+
+      {/* ==================================================================== */}
+      {/* THANH ĐIỀU HƯỚNG CHÂN TRANG (BOTTOM STEPPER: QUAY LẠI / TIẾP THEO)   */}
+      {/* ==================================================================== */}
+      <div className="flex flex-col sm:flex-row items-center justify-between gap-3 p-4 rounded-2xl bg-card border border-border/80 shadow-sm mt-6">
+        <div className="flex items-center gap-2 w-full sm:w-auto">
+          {prevTab ? (
+            <button
+              type="button"
+              onClick={() => {
+                setActiveSubTab(prevTab.id);
+                window.scrollTo({ top: 0, behavior: 'smooth' });
+              }}
+              className="flex items-center justify-center gap-2 px-3.5 py-2.5 rounded-xl text-xs font-bold bg-muted hover:bg-muted/80 text-foreground border border-border transition-all cursor-pointer w-full sm:w-auto active:scale-95 shadow-sm"
+            >
+              <ChevronLeft className="w-4 h-4 text-primary" />
+              <span>← Quay lại: Mục {prevTab.index}/6 ({prevTab.shortTitle})</span>
+            </button>
+          ) : (
+            <span className="text-xs text-muted-foreground font-mono px-3 py-2 bg-muted/40 rounded-xl border border-border/50">
+              Đang ở Mục đầu tiên (1/6)
+            </span>
+          )}
+        </div>
+
+        <div className="flex items-center gap-2 text-xs text-muted-foreground font-mono">
+          <span className="px-2.5 py-1 rounded-lg bg-muted border border-border/60 text-foreground font-bold">
+            Mục {currentTabIndex + 1} / 6
+          </span>
+          {currentTabIndex === 5 ? (
+            <span className="text-emerald-400 font-extrabold flex items-center gap-1.5 px-2 py-0.5 rounded-md bg-emerald-500/15 border border-emerald-500/30">
+              <CheckCircle2 className="w-3.5 h-3.5" />
+              Mục cuối cùng (6/6) • Đã xem hết tất cả các mục
+            </span>
+          ) : (
+            <span>Còn {5 - currentTabIndex} mục phía sau</span>
+          )}
+        </div>
+
+        <div className="flex items-center gap-2 w-full sm:w-auto justify-end">
+          {nextTab ? (
+            <button
+              type="button"
+              onClick={() => {
+                setActiveSubTab(nextTab.id);
+                window.scrollTo({ top: 0, behavior: 'smooth' });
+              }}
+              className="flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold bg-primary hover:bg-primary-hover text-white shadow-md shadow-primary/25 transition-all cursor-pointer w-full sm:w-auto active:scale-95"
+            >
+              <span>Mục tiếp theo: {nextTab.index}/6 ({nextTab.shortTitle}) →</span>
+              <ChevronRight className="w-4 h-4" />
+            </button>
+          ) : (
+            <div className="flex items-center gap-2 w-full sm:w-auto">
+              <button
+                type="button"
+                onClick={() => {
+                  setActiveSubTab('general');
+                  window.scrollTo({ top: 0, behavior: 'smooth' });
+                }}
+                className="flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold bg-muted hover:bg-muted/80 text-foreground border border-border cursor-pointer transition-colors"
+                title="Quay lại mục 1: Chung & Tần Suất"
+              >
+                <RotateCcw className="w-3.5 h-3.5 text-primary" />
+                <span>Về Mục 1</span>
+              </button>
+              <button
+                type="button"
+                onClick={handleSaveConfig}
+                disabled={isSaving}
+                className="flex items-center justify-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold bg-emerald-600 hover:bg-emerald-500 text-white shadow-md shadow-emerald-600/30 cursor-pointer transition-all active:scale-95"
+              >
+                <CheckCircle2 className="w-4 h-4" />
+                <span>{isSaving ? 'Đang lưu...' : 'Lưu Tất Cả Cấu Hình'}</span>
+              </button>
+            </div>
+          )}
+        </div>
+      </div>
     </div>
   );
 };
