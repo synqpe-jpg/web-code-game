@@ -1438,17 +1438,17 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
           const slug = String(g.slug).trim().toLowerCase();
           const id = String(g.id || slug).trim();
           const name = String(g.name || slug).trim();
-          const publisher = g.publisher || 'NPH Chính Thức';
-          const category = g.category || 'Game Hot';
+          const publisher = g.publisher || '';
+          const category = g.category || '';
           const rating = typeof g.rating === 'number' ? g.rating : 4.8;
           let iconUrl = g.icon_url || g.iconUrl || '';
-          if (!iconUrl || iconUrl.includes('codemoi.net') || iconUrl.startsWith('/game-icons')) {
-            iconUrl = `/game_icons/${slug}.webp`;
+          if (iconUrl.includes('codemoi.net') || iconUrl.startsWith('/game-icons')) {
+            iconUrl = '';
           }
           const bannerUrl = g.banner_url || g.bannerUrl || '';
           const description = g.description || '';
           const instructions = g.instructions || '';
-          const platform = g.platform || 'Mobile / PC';
+          const platform = g.platform || '';
           const soGiayPhep = g.so_giay_phep || g.license_number || '';
           const ngayCapPhep = g.ngay_cap_phep || g.license_date || '';
           const releaseDate = g.release_date || g.gp_release_date || '';
@@ -1800,7 +1800,8 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
         const sourceItem = targetIndex !== -1 ? pendingList[targetIndex] : (body.pendingGame || {});
         const finalSlug = String(editedGame.slug || sourceItem.slug || '').trim() || `game-${Date.now()}`;
         const finalName = String(editedGame.name || sourceItem.name || '').trim();
-        const finalDeveloper = String(editedGame.developer || sourceItem.developer || editedGame.publisher || 'NPH Chính Thức').trim();
+        const rawDev = editedGame.developer || sourceItem.developer || editedGame.publisher || '';
+        const finalDeveloper = (rawDev && rawDev !== 'NPH Chính Thức' && rawDev !== 'Chưa rõ') ? String(rawDev).trim() : '';
 
         // Lấy danh sách games hiện tại trên D1
         const rawGames = await getSettingD1(env.DB, 'wcg_admin_games_v5') || await getSettingD1(env.DB, 'wcg_admin_games_v4') || (fallbackGamesData as any[]);
@@ -1809,16 +1810,18 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
         const existingGameIndex = gamesList.findIndex((g: any) => g && (g.slug === finalSlug || g.id === finalSlug));
 
         const isCodeMoi = sourceItem.sourceType === 'codemoi' || (sourceItem.sourceUrl && sourceItem.sourceUrl.includes('codemoi.net'));
-        let targetIcon = editedGame.iconUrl || sourceItem.localIconPath || `/game_icons/${finalSlug}.webp`;
-        if (!targetIcon || targetIcon.includes('codemoi.net')) {
-          targetIcon = `/game_icons/${finalSlug}.webp`;
+        let targetIcon = editedGame.iconUrl || sourceItem.localIconPath || '';
+        if (targetIcon.includes('codemoi.net')) {
+          targetIcon = '';
         }
+        const rawCat = editedGame.category || sourceItem.category || '';
+        const finalCategory = (rawCat && rawCat !== 'Nhập Vai' && rawCat !== 'Chưa rõ' && rawCat !== 'Game Mới') ? String(rawCat).trim() : '';
         const newGameRecord = {
           id: finalSlug,
           slug: finalSlug,
           name: finalName,
           publisher: finalDeveloper,
-          category: editedGame.category || sourceItem.category || 'Nhập Vai',
+          category: finalCategory,
           rating: Number(editedGame.rating || sourceItem.rating || 4.8),
           icon_url: targetIcon,
           cover_image_url: targetIcon,
@@ -2037,27 +2040,33 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
           if (item && (targetIds.has(String(item.id)) || targetIds.has(String(item.slug)))) {
             const finalSlug = String(item.slug || `game-${Date.now()}`);
             const finalName = String(item.name || '').trim();
-            const finalDeveloper = String(item.developer || 'NPH Chính Thức').trim();
+            const rawDev = item.developer || item.publisher || '';
+            const finalDeveloper = (rawDev && rawDev !== 'NPH Chính Thức' && rawDev !== 'Chưa rõ') ? String(rawDev).trim() : '';
 
             const isCodeMoi = item.sourceType === 'codemoi' || (item.sourceUrl && item.sourceUrl.includes('codemoi.net'));
-            let targetBatchIcon = item.localIconPath || (item.iconUrl && item.iconUrl.startsWith('/') ? item.iconUrl : `/game_icons/${finalSlug}.webp`);
-            if (!targetBatchIcon || targetBatchIcon.includes('codemoi.net')) {
-              targetBatchIcon = `/game_icons/${finalSlug}.webp`;
+            let targetBatchIcon = item.localIconPath || (item.iconUrl && item.iconUrl.startsWith('/') ? item.iconUrl : '');
+            if (targetBatchIcon.includes('codemoi.net')) {
+              targetBatchIcon = '';
             }
+            const rawCat = item.category || '';
+            const finalCat = (rawCat && rawCat !== 'Nhập Vai' && rawCat !== 'Chưa rõ' && rawCat !== 'Game Mới') ? String(rawCat).trim() : '';
+            const rawPlat = item.platform || '';
+            const finalPlat = (rawPlat && rawPlat !== 'Android, iOS, PC' && rawPlat !== 'Chưa rõ') ? String(rawPlat).trim() : '';
+
             const newGameRecord = {
               id: finalSlug,
               slug: finalSlug,
               name: finalName,
               publisher: finalDeveloper,
-              category: item.category || 'Nhập Vai',
+              category: finalCat,
               rating: Number(item.rating || 4.8),
               icon_url: targetBatchIcon,
               cover_image_url: targetBatchIcon,
               banner_url: '',
-              description: item.description || `${finalName} là tựa game mobile mới phát hành chính thức bởi ${finalDeveloper}.`,
+              description: item.description || '',
               short_description: `${finalName} - Game Mobile Mới`,
-              instructions: 'Bước 1: Mở game > Nhấn Avatar nhân vật\nBước 2: Chọn Cài đặt > Nhập Giftcode\nBước 3: Dán mã và nhấn Xác nhận.',
-              platform: 'Android, iOS, PC',
+              instructions: item.instructions || '',
+              platform: finalPlat,
               release_date: item.releaseDate || new Date().toISOString().split('T')[0],
               download_android: item.playStoreUrl || (item.packageId ? `https://play.google.com/store/apps/details?id=${item.packageId}` : ''),
               is_featured: false,
@@ -2428,7 +2437,7 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
                 const name = decodeEntities(nameMatch[1]);
 
                 const devMatch = inner.match(/<span[^>]*class="wMUdtb"[^>]*>([^<]+)<\/span>/i);
-                const developer = decodeEntities(devMatch ? devMatch[1] : 'NPH Chính Thức');
+                const developer = devMatch ? decodeEntities(devMatch[1]).trim() : '';
 
                 const iconMatch = inner.match(/<img[^>]*class="[^"]*stzEZd[^"]*"[^>]*src="([^"]+)"/i) ||
                                   inner.match(/<img[^>]*src="([^"]+)"[^>]*alt="(?:Hnh thu nh?|Hình thu nhỏ|Biểu tượng ảnh)"/i) ||
@@ -2702,20 +2711,28 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
           const codeCount = codeCountsBySlug.get(pSlug) || codeCountsBySlug.get(bSlug) || Number(p.activeCodesCount || 0);
           if (codeCount > 0) {
             // AUTO PUBLISH
+            const rawDev = p.developer || p.publisher || '';
+            const finalDev = (rawDev && rawDev !== 'NPH Chính Thức' && rawDev !== 'Chưa rõ') ? decodeEntities(String(rawDev)).trim() : '';
+            const rawCat = p.category || '';
+            const finalCat = (rawCat && rawCat !== 'Nhập Vai' && rawCat !== 'Chưa rõ' && rawCat !== 'Game Mới') ? String(rawCat).trim() : '';
+            const rawPlat = p.platform || '';
+            const finalPlat = (rawPlat && rawPlat !== 'Android, iOS, PC' && rawPlat !== 'Chưa rõ') ? String(rawPlat).trim() : '';
+            const targetIcon = p.localIconPath || (p.iconUrl && p.iconUrl.startsWith('/') ? p.iconUrl : '');
+
             const newGame = {
               id: p.slug,
               slug: p.slug,
               name: cleanName,
-              publisher: decodeEntities(p.developer || 'NPH Chính Thức'),
-              category: p.category || 'Nhập Vai',
+              publisher: finalDev,
+              category: finalCat,
               rating: p.rating || 4.8,
-              icon_url: `/game_icons/${p.slug}.webp`,
-              cover_image_url: `/game_icons/${p.slug}.webp`,
+              icon_url: targetIcon,
+              cover_image_url: targetIcon,
               banner_url: '',
-              description: p.description || `${cleanName} là tựa game mobile mới phát hành chính thức bởi ${p.developer}.`,
+              description: p.description || '',
               short_description: `${cleanName} - Game Mobile Mới`,
-              instructions: 'Bước 1: Mở game > Nhấn Avatar nhân vật\nBước 2: Chọn Cài đặt > Nhập Giftcode\nBước 3: Dán mã và nhấn Xác nhận.',
-              platform: 'Android, iOS, PC',
+              instructions: p.instructions || '',
+              platform: finalPlat,
               release_date: p.releaseDate || new Date().toISOString().split('T')[0],
               download_android: p.playStoreUrl || (p.packageId ? `https://play.google.com/store/apps/details?id=${p.packageId}` : ''),
               is_featured: false,

@@ -662,6 +662,25 @@ async function renderSeoHtml(
             `SELECT code, rewards, status, expires_at FROM codes WHERE game_slug = ? ORDER BY CASE WHEN status = 'active' OR status = 'verified' THEN 0 ELSE 1 END, added_at DESC`
           ).bind(gameRow.slug).all<any>().catch(() => ({ results: [] as any[] }));
           displayCodes = codesRes?.results || [];
+          if (displayCodes.length === 0) {
+            try {
+              const rawCustom = await env.DB.prepare("SELECT value FROM system_settings WHERE key = 'wcg_admin_custom_free_codes_v1' LIMIT 1").first<any>().catch(() => null);
+              if (rawCustom?.value) {
+                const customArr = JSON.parse(rawCustom.value);
+                if (Array.isArray(customArr)) {
+                  const matched = customArr.filter((c: any) => c && (String(c.gameSlug || c.slug || c.gameId || '').toLowerCase() === slug || String(c.gameSlug || c.slug || c.gameId || '').toLowerCase() === gameRow.slug));
+                  if (matched.length > 0) {
+                    displayCodes = matched.map((c: any) => ({
+                      code: String(c.code || c.codeValue || '').trim().toUpperCase(),
+                      rewards: c.rewards || c.description || null,
+                      status: 'active',
+                      expires_at: c.expires_at || c.expiresAt || c.expiry || null,
+                    })).filter((c: any) => Boolean(c.code));
+                  }
+                }
+              }
+            } catch {}
+          }
           game.codes = displayCodes;
           game.codes_count = displayCodes.length;
         }
@@ -705,7 +724,7 @@ async function renderSeoHtml(
       const countSuffix = codeCount > 0 ? `Nhận ${codeCount} Mã Code ` : '';
       const title = `Giftcode ${game.name} Mới Nhất 2026 - ${countSuffix}| CodeGame.shop`;
       const description = `Tổng hợp ${codeCount > 0 ? codeCount + ' ' : ''}mã giftcode ${game.name} còn hạn mới nhất 2026. Hướng dẫn nhập code chi tiết và phần thưởng tân thủ bản quyền G1.`;
-      const rawIcon = game.icon_url || `/game_icons/${game.slug}.jpg`;
+      const rawIcon = game.icon_url || '/og-image.jpg';
       const jpgIcon = rawIcon.replace(/\.webp$/i, '.jpg');
       const iconUrl = jpgIcon.startsWith('http') ? jpgIcon : `${origin}${jpgIcon.startsWith('/') ? jpgIcon : `/${jpgIcon}`}`;
 
@@ -716,11 +735,11 @@ async function renderSeoHtml(
         "url": `${origin}/game/${game.slug}`,
         "image": iconUrl,
         "description": game.description || description,
-        "gamePlatform": game.platform || "Mobile / PC",
+        "gamePlatform": game.platform || "PC / Mobile",
         "applicationCategory": "Game",
         "publisher": {
           "@type": "Organization",
-          "name": game.publisher || "NPH Chính Thức"
+          "name": game.publisher || game.name
         },
         "aggregateRating": {
           "@type": "AggregateRating",
@@ -766,9 +785,9 @@ async function renderSeoHtml(
             <div class="min-w-0 flex-1">
               <div class="flex items-center gap-2 flex-wrap">
                 <h1 class="text-xl sm:text-2xl font-bold text-white tracking-tight">${escape(game.name)}</h1>
-                <span class="px-2 py-0.5 text-xs font-semibold rounded-md bg-brand-600/20 text-brand-400 border border-brand-500/30">${escape(game.category || 'Game Hot')}</span>
+                ${game.category ? `<span class="px-2 py-0.5 text-xs font-semibold rounded-md bg-brand-600/20 text-brand-400 border border-brand-500/30">${escape(game.category)}</span>` : ''}
               </div>
-              <p class="text-xs sm:text-sm text-gray-400 font-semibold mt-0.5">${escape(game.publisher || 'NPH Chính Thức VN')}</p>
+              ${game.publisher ? `<p class="text-xs sm:text-sm text-gray-400 font-semibold mt-0.5">${escape(game.publisher)}</p>` : ''}
             </div>
           </div>
 
@@ -797,6 +816,7 @@ async function renderSeoHtml(
                   <div>
                     <code class="font-mono font-bold text-brand-400 text-sm sm:text-base">${escape(c.code || c.codeValue || c.code_value)}</code>
                     <div class="text-xs text-gray-400 mt-0.5">${escape(c.rewards || 'Giftcode tân thủ / Sự kiện')}</div>
+                    ${(c.expires_at || c.expiresAt || c.expiry) ? `<div class="text-[11px] text-amber-400/90 font-medium mt-0.5">HSD: ${escape(c.expires_at || c.expiresAt || c.expiry)}</div>` : ''}
                   </div>
                   <span class="text-xs px-2.5 py-1 rounded-lg bg-brand-600/20 text-brand-400 border border-brand-500/30 font-bold">Mới nhất</span>
                 </div>

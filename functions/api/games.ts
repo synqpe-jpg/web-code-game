@@ -172,25 +172,25 @@ export function resolveCodesForGame(g: any, codesMap: Map<string, GiftCode[]>): 
 export function formatGameItem(g: any, allCodes: GiftCode[]): GameItem {
   const slug = String(g.slug || g.id || '').trim();
   const rawId = String(g.id || slug).trim();
-  const cat = g.category ? String(g.category).trim() : 'Game Hot';
+  const cat = g.category ? String(g.category).trim() : '';
 
   let iconUrl = g.icon_url || g.iconUrl || g.cover_image_url || '';
-  if (!iconUrl || iconUrl.includes('codemoi.net') || iconUrl.includes('googleusercontent.com') || iconUrl.startsWith('/game-icons') || iconUrl.startsWith('game-icons')) {
-    iconUrl = `/game_icons/${slug}.webp`;
+  if (iconUrl.includes('codemoi.net') || iconUrl.includes('googleusercontent.com') || iconUrl.startsWith('/game-icons') || iconUrl.startsWith('game-icons')) {
+    iconUrl = '';
   }
 
   return {
     id: String(rawId),
     name: String(g.name || 'Game chưa đặt tên'),
     slug: String(slug),
-    publisher: g.publisher || 'NPH Chính Thức',
+    publisher: g.publisher || '',
     category: cat,
     rating: typeof g.rating === 'number' ? g.rating : 4.8,
     icon_url: iconUrl,
     banner_url: g.banner_url || g.bannerUrl || '',
     description: g.description || '',
     instructions: g.instructions || '',
-    platform: g.platform || 'Mobile / PC',
+    platform: g.platform || '',
     so_giay_phep: g.so_giay_phep || g.license_number || '',
     ngay_cap_phep: g.ngay_cap_phep || g.license_date || '',
     release_date: g.release_date || g.gp_release_date || '',
@@ -481,7 +481,7 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
              added_at DESC`
         ).bind(gameRow.slug).all<any>().catch(() => ({ results: [] as any[] }));
 
-        const codesList: GiftCode[] = (codesRes?.results || []).map((c: any) => {
+        let codesList: GiftCode[] = (codesRes?.results || []).map((c: any) => {
           const rawExp = c.expires_at || '';
           const isFakeExp = rawExp === '2026-12-31' || rawExp === '2026-12-31T23:59:59Z' || rawExp === '31/12/2026';
           return {
@@ -489,14 +489,52 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
             rewards: c.rewards || 'Quà tân thủ & vật phẩm ingame',
             status: isCodeExpired(c) ? 'expired' : (c.status || 'active'),
             expiry: isFakeExp ? '' : rawExp,
-            source: c.source || 'NPH Chính Thức',
+            source: c.source || '',
             added_at: c.added_at || '2026-10-09T00:00:00Z',
           };
         });
 
+        // Tự động đối chiếu khẩn cấp với wcg_admin_custom_free_codes_v1 nếu bảng codes D1 chưa có mã (ISSUE-112: Auto-healing)
+        if (codesList.length === 0) {
+          try {
+            const rawCustom = await env.DB.prepare("SELECT value FROM system_settings WHERE key = 'wcg_admin_custom_free_codes_v1' LIMIT 1").first<any>().catch(() => null);
+            if (rawCustom?.value) {
+              const customArr = JSON.parse(rawCustom.value);
+              if (Array.isArray(customArr)) {
+                const matchedCustom = customArr.filter((c: any) => c && (String(c.gameSlug || c.slug || c.gameId || '').toLowerCase() === cleanSlug || String(c.gameSlug || c.slug || c.gameId || '').toLowerCase() === gameRow.slug));
+                if (matchedCustom.length > 0) {
+                  codesList = matchedCustom.map((c: any) => {
+                    const cExp = c.expires_at || c.expiresAt || c.expiry || '';
+                    const isFakeExp = cExp === '2026-12-31' || cExp === '2026-12-31T23:59:59Z' || cExp === '31/12/2026';
+                    return {
+                      code: String(c.code || c.codeValue || '').trim().toUpperCase(),
+                      rewards: c.rewards || c.description || 'Quà tân thủ & vật phẩm ingame',
+                      status: isCodeExpired(c) ? 'expired' : 'active',
+                      expiry: isFakeExp ? '' : cExp,
+                      source: c.source || 'Crawler Approved',
+                      added_at: c.added_at || c.createdAt || new Date().toISOString(),
+                    };
+                  }).filter((c: any) => Boolean(c.code));
+
+                  // Tự động chữa lành (auto-heal) nạp vào bảng codes D1 trong nền
+                  for (const mc of codesList) {
+                    const cId = `code_${gameRow.slug}_${mc.code}`;
+                    env.DB.prepare(`
+                      INSERT OR REPLACE INTO codes (id, game_slug, code, rewards, status, expires_at, source, added_at)
+                      VALUES (?, ?, ?, ?, ?, ?, ?, datetime('now'))
+                    `).bind(cId, gameRow.slug, mc.code, mc.rewards, mc.status, mc.expiry || null, mc.source).run().catch(() => {});
+                  }
+                }
+              }
+            }
+          } catch (healErr) {
+            console.warn('[Auto-heal custom codes warning]', healErr);
+          }
+        }
+
         let iconUrl = gameRow.icon_url || '';
-        if (!iconUrl || iconUrl.includes('codemoi.net') || iconUrl.startsWith('/game-icons')) {
-          iconUrl = `/game_icons/${gameRow.slug}.webp`;
+        if (iconUrl.includes('codemoi.net') || iconUrl.startsWith('/game-icons')) {
+          iconUrl = '';
         }
 
         let currentInstructions = gameRow.instructions !== undefined && gameRow.instructions !== null ? String(gameRow.instructions) : '';
@@ -528,14 +566,14 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
           id: String(gameRow.id || gameRow.slug),
           name: String(gameRow.name),
           slug: String(gameRow.slug),
-          publisher: gameRow.publisher || 'NPH Chính Thức',
-          category: gameRow.category || 'Game Hot',
+          publisher: gameRow.publisher || '',
+          category: gameRow.category || '',
           rating: typeof gameRow.rating === 'number' ? gameRow.rating : 4.8,
           icon_url: iconUrl,
           banner_url: gameRow.banner_url || '',
           description: gameRow.description || '',
           instructions: currentInstructions,
-          platform: gameRow.platform || 'Mobile / PC',
+          platform: gameRow.platform || '',
           so_giay_phep: gameRow.so_giay_phep || '',
           ngay_cap_phep: gameRow.ngay_cap_phep || '',
           release_date: gameRow.release_date || '',
@@ -786,11 +824,11 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
           id: String(r.id || r.slug),
           name: String(r.name),
           slug: String(r.slug),
-          publisher: r.publisher || 'NPH Chính Thức',
-          category: r.category || 'Game Hot',
-          platform: r.platform || 'Mobile / PC',
+          publisher: r.publisher || '',
+          category: r.category || '',
+          platform: r.platform || '',
           rating: typeof r.rating === 'number' ? r.rating : 4.8,
-          icon_url: r.icon_url || `/game_icons/${r.slug}.webp`,
+          icon_url: r.icon_url || '',
           codes_count: Number(r.active_codes_count !== undefined && r.active_codes_count !== null ? r.active_codes_count : (r.codes_count || r.total_codes_count || 0)),
           codes: [],
           is_hot: Boolean(r.is_hot),
@@ -916,11 +954,11 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
             id: String(r.id || r.slug),
             name: String(r.name),
             slug: String(r.slug),
-            publisher: r.publisher || 'NPH Chính Thức',
-            category: r.category || 'Game Hot',
-            platform: r.platform || 'Mobile / PC',
+            publisher: r.publisher || '',
+            category: r.category || '',
+            platform: r.platform || '',
             rating: typeof r.rating === 'number' ? r.rating : 4.8,
-            icon_url: r.icon_url || `/game_icons/${r.slug}.webp`,
+            icon_url: r.icon_url || '',
             active_codes_count: Number(r.active_codes_count !== undefined && r.active_codes_count !== null ? r.active_codes_count : 0),
             total_codes_count: Number(r.total_codes_count || 0),
             codes_count: Number(r.active_codes_count !== undefined && r.active_codes_count !== null ? r.active_codes_count : (r.codes_count || r.total_codes_count || 0)),
@@ -1019,11 +1057,11 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
         id: String(r.id || r.slug),
         name: String(r.name),
         slug: String(r.slug),
-        publisher: r.publisher || 'NPH Chính Thức',
-        category: r.category || 'Game Hot',
-        platform: r.platform || 'Mobile / PC',
+        publisher: r.publisher || '',
+        category: r.category || '',
+        platform: r.platform || '',
         rating: typeof r.rating === 'number' ? r.rating : 4.8,
-        icon_url: r.icon_url || `/game_icons/${r.slug}.webp`,
+        icon_url: r.icon_url || '',
         active_codes_count: Number(r.active_codes_count !== undefined && r.active_codes_count !== null ? r.active_codes_count : 0),
         total_codes_count: Number(r.total_codes_count || 0),
         codes_count: Number(r.active_codes_count !== undefined && r.active_codes_count !== null ? r.active_codes_count : (r.codes_count || r.total_codes_count || 0)),

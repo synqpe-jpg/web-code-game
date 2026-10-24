@@ -10,6 +10,26 @@
 
 ## 1. DANH MỤC LỖI & CÁC BẪY ĐÃ THẤT BẠI (DO NOT REPEAT)
 
+### ISSUE-112: Bẫy Lệch Tầng Đọc Khiến Mã Giftcode Đã Duyệt Bị Kẹt Ở Trạng Thái Limbo & Bẫy Tự Động Tiêm Placeholder Giả Mạo (Approved Codes Limbo State & Fabricated Placeholder Injection Trap)
+- **Triệu chứng**:
+  - Game sau khi duyệt (publish_game) và duyệt mã (approve_codes) xuất hiện trên catalog và tìm kiếm báo có code, nhưng khi vào trang chi tiết `/game/:slug` hoặc gọi API `GET /api/games?slug=:slug` thì `codes_count: 0`, danh sách mã rỗng `[]`, mã biến mất hoàn toàn đối với người dùng (trường hợp thực tế Avatar Land với mã `AL-PNVN26`).
+  - Đẩy lại mã qua API ingest báo `duplicateCount: 1, addedCount: 0` (mã đã có trong kho), nhưng trang game vẫn không hiển thị (mã kẹt ở trạng thái limbo vô hình).
+  - Tự động điền các giá trị mặc định bịa đặt: Nhà phát hành "NPH Chính Thức" / "Roblox", thể loại "Nhập Vai" / "Roblox", nền tảng "Android, iOS, PC" / "Roblox / PC, Mobile", mô tả và hướng dẫn nhập code "Avatar nhân vật" / Roblox 3 bước, icon trỏ vào file không tồn tại `/game_icons/:slug.webp` (HTTP 404).
+- **Nguyên nhân gốc rễ**:
+  1. *Lệch tầng lưu trữ (Split Brain)*: `approve_codes` chỉ ghi mã vào JSON blob `wcg_admin_custom_free_codes_v1` trong `system_settings`, không gọi câu lệnh SQL `INSERT INTO codes` trên D1. Trong khi đó, API chi tiết game và SSR HTML (`_worker.ts`) chỉ đọc trực tiếp từ bảng SQL `codes`. Nếu bảng SQL `codes` không có dòng nào, nó trả về rỗng mà không có cơ chế fallback / auto-healing.
+  2. *Lỗi cú pháp SQL ngầm trong `queue_game`*: Câu lệnh SQL chèn vào bảng `codes` gọi các cột không tồn tại (`is_active`, `is_verified`, `copy_count`, `updated_at`), bị nuốt ngoại lệ âm thầm trong khối try/catch khiến bảng `codes` không được nạp dữ liệu.
+  3. *Tự ý tiêm placeholder giả mạo*: Trong các hàm `publish_game`, `approve_pending_game`, `batch_approve_pending_games`, và `sync_google_play_crawler`, khi trường dữ liệu rỗng, mã nguồn tự động fallback sang chuỗi văn mẫu ('NPH Chính Thức', 'Nhập Vai', 'Android, iOS, PC', icon `.webp`).
+- **Giải pháp chuẩn đã kiểm chứng**:
+  - **Đồng bộ nguyên tử 2 chiều**: Trong `approve_codes`, `publish_game`, `queue_game`, luôn ghi đồng thời vào JSON blob `system_settings` VÀ bảng SQLite `codes` của D1 bằng schema chuẩn (`id, game_slug, code, rewards, status, expires_at, source, added_at`).
+  - **Cơ chế tự động chữa lành (Auto-healing Fallback)**: Tại API chi tiết game (`functions/api/games.ts`) và SSR Worker (`functions/_worker.ts`), nếu truy vấn bảng `codes` trả về rỗng nhưng `system_settings` (`wcg_admin_custom_free_codes_v1`) có mã của game, lập tức lấy mã từ `system_settings` trả về cho client đồng thời ghi ngược vào bảng `codes` D1 trong nền.
+  - **Xóa bỏ 100% placeholder bịa đặt**: Khi người gọi hoặc crawler không cung cấp NPH, thể loại, nền tảng, mô tả, hướng dẫn: lưu rỗng `""` và hiển thị "Chưa rõ" ở admin. Hướng dẫn nhập code chỉ điền khi game đã xác nhận nguồn hoặc admin nhập tay. Icon chỉ gán khi file thực tế tồn tại trên ổ đĩa; nếu chưa có để rỗng `""`, SSR HTML fallback an toàn về `/og-image.jpg` thay vì 404.
+- ⛔ **CÁCH SỬA ĐÃ THẤT BẠI - TUYỆT ĐỐI KHÔNG LẶP LẠI**:
+  - ❌ *Không chỉ ghi vào `system_settings` mà bỏ quên bảng SQL `codes`*: Mọi thao tác nạp/duyệt mã BẮT BUỘC phải ghi đồng bộ vào bảng SQLite `codes` của D1.
+  - ❌ *Không dùng các cột không có trong schema bảng `codes`*: Bảng `codes` chỉ có các cột: `id, game_slug, code, rewards, status, expires_at, source, added_at, created_at`. Không được SELECT/INSERT các cột `is_active`, `is_verified`, `copy_count`.
+  - ❌ *Tuyệt đối không điền placeholder giả mạo*: Không có dữ liệu thật thì để rỗng `""`, không được bịa "NPH Chính Thức", "Nhập Vai", "Android, iOS, PC", "Roblox" hay văn mẫu "Avatar nhân vật".
+
+---
+
 ### ISSUE-111: Bẫy Tràn Chiều Ngang & Cắt Cụt Nút Thao Tác (Bỏ Qua, Duyệt) Trong Bảng Quét Hàng Chờ Do Thiếu Ghim Cột Cố Định (Horizontal Overflow & Cut-off Action Buttons Trap in Pending Queue Table)
 - **Triệu chứng**:
   - Trên màn hình chuẩn 1366x768 hoặc khi sidebar quản trị mở, bảng danh sách game chờ duyệt bị tràn chiều ngang.

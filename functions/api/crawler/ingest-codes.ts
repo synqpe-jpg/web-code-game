@@ -990,12 +990,50 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
 
       const finalSlug = String(gameToPublish.slug || gameToPublish.id || targetSlug).trim().toLowerCase();
       const finalName = String(gameToPublish.name || finalSlug).trim();
-      const finalDeveloper = String(gameToPublish.developer || gameToPublish.publisher || 'NPH Chính Thức').trim();
+
+      // ISSUE-107 & Fix: TUYỆT ĐỐI không điền placeholder generic giả mạo khi chưa có thông tin kiểm chứng
+      const rawDev = gameToPublish.developer || gameToPublish.publisher || '';
+      const finalDeveloper = (rawDev && rawDev !== 'NPH Chính Thức' && rawDev !== 'Chưa rõ') ? String(rawDev).trim() : '';
+
+      const rawCat = gameToPublish.category || '';
+      const finalCategory = (rawCat && rawCat !== 'Nhập Vai' && rawCat !== 'Chưa rõ' && rawCat !== 'Game Mới') ? String(rawCat).trim() : '';
+
+      const rawPlat = gameToPublish.platform || '';
+      const finalPlatform = (rawPlat && rawPlat !== 'Android, iOS, PC' && rawPlat !== 'Chưa rõ') ? String(rawPlat).trim() : '';
 
       const isCodeMoi = gameToPublish.sourceType === 'codemoi' || (gameToPublish.sourceUrl && gameToPublish.sourceUrl.includes('codemoi.net'));
-      let targetIcon = (gameToPublish.iconUrl && gameToPublish.iconUrl.startsWith('http') && !gameToPublish.iconUrl.includes('codemoi.net'))
-        ? gameToPublish.iconUrl
-        : (gameToPublish.localIconPath || (gameToPublish.has_icon ? `/game_icons/${finalSlug}.webp` : ''));
+      let targetIcon = '';
+      if (gameToPublish.iconUrl && gameToPublish.iconUrl.startsWith('http') && !gameToPublish.iconUrl.includes('codemoi.net')) {
+        targetIcon = gameToPublish.iconUrl;
+      } else if (gameToPublish.localIconPath && gameToPublish.localIconPath.startsWith('/') && !gameToPublish.missing_icon) {
+        targetIcon = gameToPublish.localIconPath;
+      }
+
+      // Đồng bộ toàn bộ mã của game này từ customCodes và d1Codes vào bảng codes trên D1
+      const codesToSync = [
+        ...customCodes.filter((c: any) => c && (String(c.gameSlug || c.slug || c.gameId || '').toLowerCase() === finalSlug)),
+        ...d1Codes.filter((c: any) => c && (String(c.gameSlug || c.slug || c.gameId || '').toLowerCase() === finalSlug)),
+      ];
+
+      for (const c of codesToSync) {
+        const cVal = String(c.code || c.codeValue || c.code_value || c.gift_code || '').trim().toUpperCase();
+        if (!cVal) continue;
+        const cId = c.id || `code_${finalSlug}_${cVal}`;
+        const isExp = isCodeExpired(c);
+        const expVal = c.expiresAt || c.expires_at || c.expiry || null;
+        await env.DB.prepare(`
+          INSERT OR REPLACE INTO codes (id, game_slug, code, rewards, status, expires_at, source, added_at)
+          VALUES (?, ?, ?, ?, ?, ?, ?, datetime('now'))
+        `).bind(
+          cId,
+          finalSlug,
+          cVal,
+          c.rewards || c.description || null,
+          isExp ? 'expired' : 'active',
+          expVal,
+          c.source || 'Publish Game Sync'
+        ).run().catch(() => {});
+      }
 
       // Tính số mã code THỰC TẾ từ toàn bộ kho code
       const tempGameForCounting = { id: finalSlug, slug: finalSlug, name: finalName };
@@ -1006,7 +1044,7 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
         slug: finalSlug,
         name: finalName,
         publisher: finalDeveloper,
-        category: gameToPublish.category || 'Nhập Vai',
+        category: finalCategory,
         rating: Number(gameToPublish.rating || 4.8),
         icon_url: targetIcon,
         cover_image_url: targetIcon,
@@ -1014,7 +1052,7 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
         description: gameToPublish.description || '',
         short_description: `${finalName} - Game Mobile Mới`,
         instructions: gameToPublish.instructions || '',
-        platform: gameToPublish.platform || 'Android, iOS, PC',
+        platform: finalPlatform,
         release_date: gameToPublish.releaseDate || new Date().toISOString().split('T')[0],
         download_android: gameToPublish.playStoreUrl || (gameToPublish.packageId ? `https://play.google.com/store/apps/details?id=${gameToPublish.packageId}` : ''),
         google_play_url: gameToPublish.playStoreUrl || '',
@@ -1456,26 +1494,17 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
             const batchStmts = codesToInsertInD1.map((nc) => {
               const expiresAt = nc.expires_at || nc.expiresAt || nc.expiry || null;
               return env.DB.prepare(`
-                INSERT INTO codes (
-                  id, game_slug, code, rewards, status, is_active, is_verified, expires_at, source, copy_count, created_at, updated_at
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'), datetime('now'))
-                ON CONFLICT(game_slug, code) DO UPDATE SET
-                  rewards = excluded.rewards,
-                  status = excluded.status,
-                  is_active = excluded.is_active,
-                  expires_at = excluded.expires_at,
-                  updated_at = datetime('now');
+                INSERT OR REPLACE INTO codes (
+                  id, game_slug, code, rewards, status, expires_at, source, added_at
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, datetime('now'))
               `).bind(
                 nc.id,
                 nc.gameSlug,
                 nc.code,
                 nc.rewards || null,
-                nc.status || 'ACTIVE',
-                nc.is_active ? 1 : 0,
-                nc.is_verified ? 1 : 0,
+                nc.status === 'EXPIRED' ? 'expired' : 'active',
                 expiresAt,
-                nc.source || 'Queue Game API',
-                nc.copyCount || 100
+                nc.source || 'Queue Game API'
               );
             });
 
@@ -1693,7 +1722,7 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
           await setSettingD1(env.DB, 'wcg_admin_custom_free_codes_v1', mergedCustom);
           await setSettingD1(env.DB, 'wcg_crawler_pending_codes_v1', remainingPending);
 
-          // Cập nhật codes_count cho các game
+          // Cập nhật codes_count cho các game trong system_settings
           for (const slug of affectedGameSlugs) {
             const gIdx = activeGamesList.findIndex((g: any) => g && (String(g.slug).toLowerCase() === slug || String(g.id).toLowerCase() === slug));
             if (gIdx !== -1) {
@@ -1708,6 +1737,41 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
             }
           }
           await setSettingD1(env.DB, 'wcg_admin_games_v5', activeGamesList);
+
+          // Đồng bộ trực tiếp vào bảng codes và cập nhật bảng games trên SQLite D1 (ISSUE-112: Tránh lệch tầng đọc)
+          if (env.DB) {
+            try {
+              const codeStmts = approvedCustomRecords.map((rec) => {
+                const cSlug = String(rec.gameSlug || '').trim().toLowerCase();
+                const cCode = String(rec.code || '').trim().toUpperCase();
+                const cId = rec.id || `code_${cSlug}_${cCode}`;
+                const cExp = rec.expires_at || rec.expiresAt || rec.expiry || null;
+                const cRewards = rec.rewards || rec.reward || rec.description || null;
+                const cSource = rec.source || 'Crawler Approved';
+                return env.DB.prepare(`
+                  INSERT OR REPLACE INTO codes (id, game_slug, code, rewards, status, expires_at, source, added_at)
+                  VALUES (?, ?, ?, ?, 'active', ?, ?, datetime('now'))
+                `).bind(cId, cSlug, cCode, cRewards, cExp, cSource);
+              });
+
+              for (let i = 0; i < codeStmts.length; i += 50) {
+                await env.DB.batch(codeStmts.slice(i, i + 50));
+              }
+
+              for (const slug of affectedGameSlugs) {
+                await env.DB.prepare(`
+                  UPDATE games
+                  SET active_codes_count = (SELECT COUNT(*) FROM codes WHERE codes.game_slug = games.slug AND (codes.status = 'active' OR codes.status = 'verified') AND (codes.expires_at IS NULL OR codes.expires_at = '' OR codes.expires_at >= date('now'))),
+                      total_codes_count = (SELECT COUNT(*) FROM codes WHERE codes.game_slug = games.slug),
+                      last_code_at = datetime('now'),
+                      updated_at = datetime('now')
+                  WHERE slug = ?
+                `).bind(slug).run().catch(() => {});
+              }
+            } catch (d1ApproveErr) {
+              console.warn('[ApproveCodes D1 SQL Sync Warning]', d1ApproveErr);
+            }
+          }
 
           invalidateGamesCatalogCache();
           await invalidateCatalogEdgeCache(context as any, request, env).catch(() => {});

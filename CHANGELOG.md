@@ -7,6 +7,40 @@ Mỗi mục sửa lỗi đều ghi nhận **Nguyên nhân gốc rễ (Root Cause
 
 ## [2026-10-24]
 
+### 186. Khắc Phục Triệt Để Lệch Tầng Đọc Mã Giftcode Limbo (Avatar Land) & Bỏ Hoàn Toàn Giá Trị Mặc Định Bịa Đặt Khi Tạo / Publish Game
+- **Mô tả & Yêu cầu người dùng (Sự cố Production khẩn cấp 24/10/2026)**:
+  - *"Chủ site đã quyết định đăng game Avatar Land lên web trong tối nay vì mã AL-PNVN26 hết hạn ngày 25/10/2026. Luồng đăng đã chạy đủ bước nhưng mã vẫn KHÔNG hiển thị công khai. queue_game tạo game vào hàng chờ thành công; publish_game slug avatar-land thành công, status ACTIVE, codes: 1; approve_codes mã AL-PNVN26 thành công. Nhưng API chi tiết GET /api/games?slug=avatar-land trả về codes_count: 0, codes: []; trang game 0 lần xuất hiện chuỗi AL-PNVN26; đẩy lại qua ingest báo duplicateCount: 1. Mã đang kẹt ở trạng thái limbo — tồn tại trong kho live nhưng vô hình với khách. Việc 1: Tìm và sửa lệch tầng đọc cho Avatar Land, đồng bộ cưỡng bức bản ghi trên mọi tầng đọc. Sau khi sửa, mã AL-PNVN26 phải hiển thị công khai với hạn dùng 2026-10-25, hướng dẫn nhập code để trống, icon để trống. Việc 2: publish_game không được tiêm lại giá trị giả đã dọn ở ISSUE-107 (không tiêm NPH Chính Thức, Nhập Vai, Android, iOS, PC, icon 404; không có thì để rỗng)."*
+- **Nguyên nhân gốc rễ (Root Cause)**:
+  1. **Lệch tầng đọc (Storage Layer Split / Limbo State)**:
+     - Dữ liệu mã giftcode trong hệ thống được quản lý ở 2 tầng: JSON blob `wcg_admin_custom_free_codes_v1` trong `system_settings` VÀ bảng SQLite `codes` của Cloudflare D1.
+     - Hàm `approve_codes` chỉ ghi vào `wcg_admin_custom_free_codes_v1` và cập nhật danh sách game `wcg_admin_games_v5`, KHÔNG gọi câu lệnh SQL `INSERT INTO codes` trên D1.
+     - Trong khi đó, API chi tiết game (`functions/api/games.ts`) và SSR Worker (`functions/_worker.ts`) chỉ thực hiện câu lệnh `SELECT * FROM codes WHERE game_slug = ?`. Khi bảng SQL `codes` không có dòng nào của `avatar-land`, API trả về `codes_count: 0, codes: []` và HTML không thể render mã giftcode.
+     - Hàm `queue_game` trước đó chứa lỗi SQL ngầm do cố chèn các cột không có trong schema bảng `codes` (`is_active`, `is_verified`, `copy_count`), bị nuốt ngoại lệ âm thầm khiến bảng `codes` không được nạp dữ liệu.
+  2. **Tiêm placeholder giả mạo trong luồng `publish_game`, `sync.ts` và API format**:
+     - Trong `publish_game`, `approve_pending_game`, `batch_approve_pending_games` và `sync_google_play_crawler`, mã nguồn có các fallback cứng: `developer || 'NPH Chính Thức'`, `category || 'Nhập Vai'`, `platform || 'Android, iOS, PC'`, `icon_url || /game_icons/${slug}.webp` (HTTP 404), và văn mẫu hướng dẫn "Avatar nhân vật".
+     - Trong `functions/api/games.ts`, các hàm format và danh sách cũng tự động gán `'NPH Chính Thức'`, `'Game Hot'`, `'Mobile / PC'`.
+- **Giải pháp đã triển khai (Solution)**:
+  1. **Đồng bộ nguyên tử 2 chiều cho `approve_codes`, `publish_game`, `queue_game`**:
+     - Cập nhật `approve_codes`: Chèn trực tiếp mảng mã được duyệt vào bảng SQLite `codes` qua `INSERT OR REPLACE INTO codes (id, game_slug, code, rewards, status, expires_at, source, added_at)` và cập nhật tức thì `active_codes_count`, `total_codes_count`, `last_code_at` trên bảng `games` D1.
+     - Cập nhật `publish_game`: Tự động gom mã từ `customCodes` và `d1Codes` nạp vào bảng SQLite `codes` trước khi publish; tự động đếm số mã thực tế bằng `countRealCodesForSlug`.
+     - Sửa triệt để schema SQL trong `queue_game` khớp 100% với D1 schema migration (`0011_games_and_codes_optimized_schema.sql`).
+  2. **Cơ chế Tự Động Chữa Lành (Multi-Layer Auto-Healing Fallback)**:
+     - Tại `functions/api/games.ts` (API chi tiết game) và `functions/_worker.ts` (SSR Worker): Nếu bảng SQLite `codes` trả về rỗng nhưng `system_settings` (`wcg_admin_custom_free_codes_v1`) có mã của tựa game này, hệ thống lập tức map mã trả về cho client/SSR và tự động chữa lành (auto-heal) nạp vào bảng SQLite `codes` trong nền.
+     - Đảm bảo 100% không bao giờ xảy ra tình trạng mã đã duyệt bị kẹt ở trạng thái limbo vô hình.
+  3. **Xóa bỏ 100% placeholder giả mạo trên toàn hệ thống**:
+     - Không có NPH, thể loại, nền tảng, mô tả: Lưu rỗng `""` và hiển thị "Chưa rõ" ở admin, không bao giờ tự bịa "NPH Chính Thức", "Nhập Vai", "Android, iOS, PC", "Roblox".
+     - Hướng dẫn nhập code: Không tự sinh văn mẫu "Avatar nhân vật" nếu chưa có hướng dẫn đã kiểm chứng.
+     - Icon: Nếu file chưa có trên disk thì lưu rỗng `""`, không trỏ vào `/game_icons/${slug}.webp` gây lỗi 404. SSR Worker fallback an toàn về `/og-image.jpg`.
+  4. **Cập nhật dữ liệu Avatar Land trên live D1**:
+     - Thực thi cập nhật `wcg_admin_games_v5` và D1 `games` table: `publisher: ""`, `category: ""`, `platform: ""`, `icon_url: ""`, `instructions: ""`, `description: ""`.
+     - Đồng bộ mã `AL-PNVN26` còn hạn đến `2026-10-25` vào cả 3 tầng (D1 `codes`, `system_settings`, HTML SSR).
+- **Kết quả kiểm thử & Nghiệm thu thực tế**:
+  - `GET /api/games?slug=avatar-land&nocache=1`: Trả về `codes_count: 1`, `codes: [{ code: "AL-PNVN26", expiry: "2026-10-25" }]`.
+  - `https://codegame.shop/game/avatar-land`: Render HTTP 200, hiển thị đầy đủ mã `AL-PNVN26`, hạn sử dụng `2026-10-25`, không có văn mẫu giả mạo.
+  - Kiểm thử hồi quy `scripts/verify_codes_integrity_audit.cjs`: Đạt 100% tất cả các bài kiểm thử (Thực Thần Ký 12 mã, Kỳ Tích Trở Lại 5 mã, Rule 7 Zero Test Artifacts).
+
+---
+
 ### 185. Cố Định Cột Thao Tác (Sticky Right Column) & Tối Ưu Bố Cục Bảng Quét Game Mới & Hàng Chờ Duyệt (Sticky Actions Viewport Guarantee for Pending Games Table)
 - **Mô tả & Yêu cầu người dùng**:
   - *"trong mục Quét Game Mới & Hàng Chờ Duyệt giúp tôi đảm bảo các thao tác đều nằm trong cùng 1 màn hình, đặc biệt là các thao tác bỏ và duyệt."*

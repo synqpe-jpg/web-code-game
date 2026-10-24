@@ -1134,7 +1134,7 @@ export const SearchAutocomplete: React.FC<SearchAutocompleteProps> = ({
                                 )}
                               </div>
                               <p className="text-xs text-slate-400 truncate mt-0.5">
-                                {game.publisher || 'NPH chính thức'} • {game.category || 'Game'}
+                                {[game.publisher, game.category].filter(Boolean).join(' • ') || 'Game'}
                               </p>
                             </div>
                           </div>
@@ -1192,9 +1192,11 @@ export const SearchAutocomplete: React.FC<SearchAutocompleteProps> = ({
                                     </span>
                                   ) : null}
                                 </div>
-                                <p className="text-xs text-slate-400 truncate mt-0.5">
-                                  {game.publisher || 'NPH chính thức'}
-                                </p>
+                                {game.publisher && (
+                                  <p className="text-xs text-slate-400 truncate mt-0.5">
+                                    {game.publisher}
+                                  </p>
+                                )}
                               </div>
                             </div>
                             <div className="flex items-center gap-2 shrink-0">

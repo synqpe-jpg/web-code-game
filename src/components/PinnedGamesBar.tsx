@@ -164,9 +164,11 @@ export const PinnedGamesBar: React.FC<PinnedGamesBarProps> = ({
                     <h3 className="font-heading font-bold text-[11px] sm:text-sm text-foreground truncate group-hover:text-primary transition-colors">
                       {game.name}
                     </h3>
-                    <p className="text-[9px] sm:text-[11px] text-muted-foreground truncate">
-                      {game.publisher || 'NPH Chính Thức'}
-                    </p>
+                    {game.publisher && (
+                      <p className="text-[9px] sm:text-[11px] text-muted-foreground truncate">
+                        {game.publisher}
+                      </p>
+                    )}
                   </div>
                 </div>
 
