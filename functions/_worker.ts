@@ -528,14 +528,19 @@ export default {
         const cacheKey = cache ? new Request(new URL('/', request.url).toString(), { method: 'GET' }) : null;
         const isFresh = request.headers.get('Cache-Control')?.includes('no-cache') ||
                         request.headers.get('Pragma')?.includes('no-cache') ||
-                        url.searchParams.has('fresh') || url.searchParams.has('_t');
+                        url.searchParams.has('fresh') || url.searchParams.has('_t') ||
+                        url.searchParams.has('nocache');
 
-        if (cache && cacheKey && !isFresh) {
-          const cached = await cache.match(cacheKey);
-          if (cached) {
-            const res = new Response(cached.body, cached);
-            res.headers.set('CF-Edge-Cache-Status', 'HIT');
-            return res;
+        if (cache && cacheKey) {
+          if (isFresh) {
+            ctx.waitUntil(cache.delete(cacheKey));
+          } else {
+            const cached = await cache.match(cacheKey);
+            if (cached) {
+              const res = new Response(cached.body, cached);
+              res.headers.set('CF-Edge-Cache-Status', 'HIT');
+              return res;
+            }
           }
         }
 
@@ -543,7 +548,7 @@ export default {
         if (assetResponse.status === 200) {
           const responseText = await assetResponse.text();
           const headers = new Headers(assetResponse.headers);
-          headers.set('Cache-Control', 'public, max-age=0, s-maxage=3600, stale-while-revalidate=86400');
+          headers.set('Cache-Control', 'public, max-age=0, s-maxage=60, stale-while-revalidate=120');
           if (cache && cacheKey) {
             const cacheToPut = new Response(responseText, { status: 200, headers });
             ctx.waitUntil(cache.put(cacheKey, cacheToPut));
