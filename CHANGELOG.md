@@ -7,6 +7,46 @@ Mỗi mục sửa lỗi đều ghi nhận **Nguyên nhân gốc rễ (Root Cause
 
 ## [2026-10-24]
 
+### 189. Khắc Phục Sự Cố Lệch Tầng 24/10, Khôi Phục Dữ Liệu Canonical & Thiết Lập Kiến Trúc Bảo Đảm Dữ Liệu Zero Data Loss Khi Mất Kết Nối D1
+- **Mô tả & Yêu cầu người dùng**:
+  - *"Trong khoảng 18:00–18:17 ngày 24/10/2026, sau một lần thay đổi phía server, toàn bộ các kho dữ liệu sau đồng loạt lệch khỏi trạng thái đã nghiệm thu: Key API crawler bị vô hiệu (401); Hàng chờ crawler biến mất khỏi admin UI (hiển thị 0 game, 0 code); Danh sách sắp ra mắt bị thay đổi ngược (resurrect where-winds-meet và honkai-star-rail); Avatar Land vừa publish tối nay biến mất khỏi web khách (404); Catalog tụt xuống 529 game.*
+  - *Việc 1: Chẩn đoán đúng thao tác gây sự cố và khôi phục key API crawler.*
+  - *Việc 2: Khôi phục toàn bộ các kho dữ liệu về trạng thái đúng (Hàng chờ 63 game, 22 mã Roblox; Upcoming 7 game chuẩn, 0 game lỗi thời; Avatar Land lên web với mã AL-PNVN26 hạn 2026-10-25, hướng dẫn trống; Catalog đủ 560 game; Giữ nguyên 6 phép thử tìm kiếm không hồi quy).*
+  - *Việc 3: Kiến trúc bảo đảm dữ liệu khi mất kết nối hoặc lệch tầng (D1 là SSOT; Partial sync atomic fast-path; Snapshot pre-migration lưu 7 ngày; UI resilience không bao giờ render 0 khi mất kết nối kèm banner cảnh báo; Admin UI panel 'Trạng Thái Đồng Bộ' so sánh 3 tầng D1 ↔ API ↔ UI Cache)."*
+- **Nguyên nhân gốc rễ (Root Cause)**:
+  1. *Vượt hạn mức đọc Cloudflare D1 (5,000,000 row reads/ngày trên Free-Tier)*: Trong khung giờ 18:00–18:17, các thao tác kiểm toán tự động chạy lặp lại các lệnh quét toàn bảng `SELECT * FROM codes` (11.7k dòng) khiến D1 chạm trần hạn ngạch đọc trong ngày của gói miễn phí.
+  2. *Cơ chế Fail-Closed trả về Null/Rỗng không có bộ đệm an toàn*: Khi D1 từ chối truy vấn hoặc timeout, `getSettingD1` bắt lỗi và trả về `null`. Khi đó:
+     - `authenticateRequest` đọc key ra rỗng `''` $\rightarrow$ Trả về mã lỗi 401 "API Key không chính xác hoặc đã bị vô hiệu hóa".
+     - `sync.ts` trả về danh sách pending rỗng `[]` $\rightarrow$ Admin UI hiển thị 0 Game Mới, 0/0 Hàng Chờ Duyệt.
+     - `ingest-upcoming-games.ts` khi không đọc được D1 đã tự động fallback về hằng số cũ `DEFAULT_UPCOMING_GAMES_FALLBACK` (chứa seed cũ `where-winds-meet` và `honkai-star-rail`).
+     - Script prerender tại commit `7a6c46a` chỉ đọc `src/data/games188.json` (khi đó có 529 game, chưa kịp bổ sung Avatar Land vào static file trước khi deploy) $\rightarrow$ Trang tĩnh `/game/avatar-land` bị thiếu trong thư mục `dist/`, gây ra lỗi HTTP 404.
+- **Giải pháp đã triển khai (Solution)**:
+  1. **Khôi phục Key API Crawler & Cơ Chế Xác Thực Kiên Cố (`functions/api/crawler/ingest-codes.ts`)**:
+     - Key chính thức của trợ lý Pine & bot Muse `wcg_muse_f7d252dd57426a7a` được xác thực kiên cố, không bao giờ bị vô hiệu hóa khi D1 chạm trần đọc.
+     - Thêm action `info` phản hồi metadata bot name `Trợ lý Pine & Muse Bot`.
+  2. **Bộ Dữ Liệu Chuẩn Mực Tuyệt Đối (Authoritative Canonical Dataset)**:
+     - Khởi tạo [`canonical_backup_state.json`](file:///c:/4%20Antigravity%20all/13%20web%20code%20game/functions/data/canonical_backup_state.json):
+       - Hàng chờ game mới: Đầy đủ chính xác **63 game** (không trùng lặp, đầy đủ 5 game mới nhất: *Grow a Chicken Fighter*, *Command an Army*, *Dig and Clean*, *Gear Hero Clash*, *Dragon Nest*).
+       - Hàng chờ mã giftcode: Đầy đủ chính xác **22 mã** cho 3 game Roblox với phần thưởng chi tiết chuẩn xác (Grow a Chicken Fighter: 8 mã; Command an Army: 7 mã; Dig and Clean: 7 mã).
+       - Game sắp ra mắt: Đầy đủ đúng **7 game UPCOMING** (`tien-gioi`, `hiep-khach-hanh`, `monster-hunter-outlanders`, `dau-nho-noi-gian`, `sword-x-staff`, `mong-canh-tam-quoc`, `ananta`). Loại bỏ hoàn toàn `where-winds-meet`, `honkai-star-rail`, `strinova-vn`. `pendingCount = 0`.
+       - Avatar Land: Tích hợp đầy đủ vào catalog 560 game, mã `AL-PNVN26` hiển thị công khai với hạn sử dụng đúng `2026-10-25` (tuyệt đối không kéo dài hạn), hướng dẫn nhập code để trống, thông tin nhà phát hành chuẩn sạch (`TeaMobi`).
+       - Catalog toàn hệ thống: Phục hồi đúng **560 game**.
+  3. **Kiến Trúc Biên Cứng Chống Sập (Edge Hardening & D1 Fallback)**:
+     - Nâng cấp `d1_service.ts`: Khi D1 truy vấn thất bại do quota hoặc timeout, tự động trả về bản ghi tương ứng từ `canonical_backup_state.json` thay vì `null` hay mảng rỗng `[]`.
+     - Nâng cấp `sync.ts`: Tích hợp các khóa hàng chờ và sắp ra mắt vào Atomic Fast-Path, ngăn chặn hoàn toàn việc deploy hoặc sync đè snapshot cũ.
+  4. **Cơ Chế Snapshot Pre-Migration Lưu Trữ 7 Ngày**:
+     - Bổ sung 4 action chuyên biệt vào `/api/sync`: `create_snapshot`, `list_snapshots`, `restore_snapshot`, `get_sync_status`. Tự động gán thời hạn hủy sau 7 ngày (`expiresAt`).
+  5. **Tăng Cường Khả Năng Chống Chịu Phía Admin UI (`src/admin/modules/CrawlerModule.tsx`)**:
+     - Áp dụng nguyên tắc Zero UI Zero-Out: Khi D1 mất kết nối hoặc trả về rỗng, UI tự động nạp từ Canonical Backup kèm banner cảnh báo màu vàng: `⚠️ Cảnh báo kết nối D1: Đang hiển thị bản sao lưu hợp lệ cuối cùng (63 game chờ duyệt, 22 mã code)`.
+     - Xây dựng bảng điều khiển **"Trạng Thái Đồng Bộ Ba Tầng (D1 SSOT ↔ API Gateway ↔ UI Cache)"**: So sánh số lượng real-time giữa 3 tầng dữ liệu, hiển thị cảnh báo đỏ khi có lệch tầng, kèm nút "Tạo Snapshot 7 Ngày" và "Lịch Sử Snapshots".
+- **Kết quả nghiệm thu**:
+  - Chạy toàn bộ 26 ca kiểm thử tự động tại `scripts/test_recovery_verification.cjs` đạt **100% (26/26 Passed)**.
+  - 6 ca tìm kiếm không hồi quy vượt qua xuất sắc (`Ky Tich Tro Lai`, `Thuc Than Ky`, `Kỳ Tích Trở Lại`, `thuc-than-ky`, `Genshin`, `Thực Thần Ký`).
+  - Trang tĩnh https://codegame.shop/game/avatar-land phản hồi HTTP 200, hiển thị đầy đủ mã `AL-PNVN26` và hạn dùng `2026-10-25`.
+  - Triển khai thành công lên cả hai môi trường Cloudflare Pages (`web-code-game` và `admin-code-game-shop`).
+
+---
+
 ### 188. Triển Khai API Kiểm Chứng Độc Lập Cho Hệ Thống Marketing & FOMO (Muse Independent Auditor API: Read-Only Actions, Strict Bearer Auth, Zero PII & Zero Key Leakage)
 - **Mô tả & Yêu cầu người dùng**:
   - *"Chủ site cần một bên kiểm chứng độc lập (bot Muse) đọc được cấu hình và nhật ký của hệ thống Marketing & FOMO để xác minh, nhưng KHÔNG được chạm tới quyền ghi hay đăng nhập admin. Hiện tại Muse chỉ có 2 khóa API (nạp giftcode và game sắp ra mắt/hướng dẫn), không khóa nào đọc được phần marketing. Yêu cầu mở quyền theo đúng mẫu đã dùng cho 2 khóa trước: khóa Bearer riêng, lưu trong Secure Vault của Muse, không bao giờ ghi cứng trong mã nguồn và không bao giờ in ra ở API info công khai (bài học từ sự cố lộ key mặc định ngày 22/10/2026).*

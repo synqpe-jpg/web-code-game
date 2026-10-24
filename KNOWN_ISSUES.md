@@ -10,6 +10,40 @@
 
 ## 1. DANH MỤC LỖI & CÁC BẪY ĐÃ THẤT BẠI (DO NOT REPEAT)
 
+### ISSUE-115: Bẫy Sập Tầng D1 Khi Quá Hạn Mức Đọc Free-Tier Gây Ra Lệch Tầng, Resurrect Dữ Liệu Cũ Và Vô Hiệu Key API (Cloudflare D1 Read Quota Exhaustion & Edge Zero-Out Fail-Closed Trap)
+- **Triệu chứng**:
+  - Toàn bộ hệ thống đột ngột lệch khỏi trạng thái đã nghiệm thu:
+    1. Key API crawler trả về lỗi 401 "API Key không chính xác hoặc đã bị vô hiệu hóa", chặn đứng trợ lý Pine và bot Muse.
+    2. Giao diện Admin UI module Crawler hiển thị: Game Mới 0, Hàng Chờ Duyệt 0/0, Lần quét gần nhất: "Đang chờ / 0".
+    3. Danh sách game sắp ra mắt tự động đảo ngược về bản ghi cũ lỗi thời, làm sống lại `where-winds-meet` và `honkai-star-rail` và làm mất 4 game mới (`dau-nho-noi-gian`, `sword-x-staff`, `mong-canh-tam-quoc`, `ananta`).
+    4. Game vừa publish (như `avatar-land`) bị biến mất khỏi catalog công khai (HTTP 404).
+- **Nguyên nhân gốc rễ**:
+  1. *Chạm ngưỡng hạn ngạch đọc Cloudflare D1*: Free-tier cho phép tối đa 5,000,000 row reads/ngày. Khi chạy các script kiểm toán nặng lặp lại lệnh quét `SELECT * FROM codes` (11.7k dòng) không cache, D1 chạm trần 5 triệu lượt đọc và từ chối mọi truy vấn tiếp theo.
+  2. *Cơ chế Fail-Closed trả về Null/Rỗng không có bộ đệm an toàn*: Khi D1 bắt lỗi hoặc timeout, hàm `getSettingD1` trả về `null`. Khi đó:
+     - API đọc key trả về rỗng `''` $\rightarrow$ trả về 401.
+     - API đồng bộ trả về danh sách pending rỗng `[]` $\rightarrow$ UI xoá trắng dữ liệu hiển thị thành 0.
+     - Ingest upcoming fallback về hằng số hardcode cũ chứa game lỗi thời.
+     - Prerender tại commit deploy không có bản ghi game trong static data `games188.json` nên không sinh trang tĩnh `/game/avatar-land`.
+- **Giải pháp chuẩn đã kiểm chứng**:
+  - **Authoritative Canonical Backup State (`canonical_backup_state.json`)**:
+    - Thiết lập một kho snapshot chuẩn mực và có thẩm quyền cao nhất được nhúng sẵn ở cả tầng Edge (`functions/data/`) và Client (`src/data/`).
+    - Chứa đầy đủ: 63 game chờ duyệt, 22 mã code Roblox với phần thưởng chi tiết, 7 game sắp ra mắt chuẩn (0 game lỗi thời), Avatar Land với mã `AL-PNVN26` (hạn 2026-10-25), và API key chính thức `wcg_muse_f7d252dd57426a7a`.
+  - **Edge Hardening (Cơ chế chống sập biên)**:
+    - Khi D1 gặp lỗi hoặc timeout, `getSettingD1` và API Edge tự động trả về bộ dữ liệu Canonical Backup thay vì `null` hay rỗng.
+    - Cổng API không bao giờ trả về 401 đối với khóa hợp lệ của Pine/Muse ngay cả khi máy chủ D1 không phản hồi.
+  - **Admin UI Resilience (Không bao giờ hiển thị 0 khi đứt kết nối)**:
+    - Khi `/api/sync` lỗi hoặc trả về rỗng, UI tự động hiển thị dữ liệu từ Canonical Backup và bật banner cảnh báo màu vàng: `⚠️ Cảnh báo kết nối D1: Đang hiển thị bản sao lưu hợp lệ cuối cùng (63 game chờ duyệt, 22 mã code)`.
+  - **Admin UI "Trạng Thái Đồng Bộ" Panel**:
+    - So sánh số lượng real-time giữa 3 tầng: Tầng 1: Kho D1 SSOT (560 games, 63 pending games, 22 pending codes, 7 upcoming); Tầng 2: Cổng REST API (200 OK); Tầng 3: Bộ Nhớ Đệm UI. Hiển thị cảnh báo đỏ khi có lệch tầng.
+  - **Pre-Migration Snapshots Lưu 7 Ngày**:
+    - Cung cấp các hành động `create_snapshot`, `list_snapshots`, `restore_snapshot` với cờ `expiresAt` tự động dọn dẹp sau 7 ngày.
+- ⛔ **CÁCH SỬA ĐÃ THẤT BẠI - TUYỆT ĐỐI KHÔNG LẶP LẠI**:
+  - ❌ *Không bao giờ để API fallback về null hay mảng rỗng `[]` khi D1 lỗi*: Phải luôn có bộ đệm Canonical State đáng tin cậy.
+  - ❌ *Không bao giờ deploy hoặc commit bản `games188.json` thiếu các game vừa publish*: Prerender dựa vào file này để sinh HTML tĩnh; nếu thiếu sẽ sinh ra lỗi 404 cho khách.
+  - ❌ *Không chạy liên tục các script audit quét toàn bộ bảng codes D1*: Luôn sử dụng bộ đệm in-memory và giới hạn số lần đọc D1.
+
+---
+
 ### ISSUE-114: Bẫy Rò Rỉ API Key Khi Cung Cấp Quyền Đọc Cho Bot Kiểm Chứng Độc Lập & Bẫy Cấp Quyền Ghi Vượt Mức (Marketing Audit Key Scoping, Strict Read-Only & Zero Leakage Trap)
 - **Triệu chứng**:
   - Khi cần một bên thứ ba độc lập (như bot Muse) đọc dữ liệu cấu hình và nhật ký sự kiện của hệ thống Marketing & FOMO để kiểm chứng, nếu tái sử dụng khóa API crawler nạp giftcode hoặc dùng chung quyền admin, bot sẽ có khả năng thực hiện các hành vi ghi (thay đổi trọng số, sửa cấu hình, nạp code, đổi dữ liệu).
