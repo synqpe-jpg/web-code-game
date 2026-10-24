@@ -7,6 +7,38 @@ Mỗi mục sửa lỗi đều ghi nhận **Nguyên nhân gốc rễ (Root Cause
 
 ## [2026-10-24]
 
+### 182. Cung Cấp Giao Diện Dạng Danh Sách (List View) & Hiển Thị Nổi Bật Ngày Phát Hành Trong Quét Game Mới & Hàng Chờ Duyệt (Dense Responsive List View & Prominent Release Date Display in Admin Pending Games Crawler)
+- **Mô tả & Yêu cầu người dùng**:
+  - *"Quét Game Mới & Hàng Chờ Duyệt trong trang admin, cho hiện dạng danh sách cho tôi dễ quan sát, các game này ghi rõ ngày phát hành giúp tôi để tôi duyệt cho chính xác."*
+- **Nguyên nhân gốc rễ (Root Cause)**:
+  1. Giao diện trước đây chỉ có chế độ dạng Lưới Thẻ 3 cột (Grid View). Với số lượng game lớn trong hàng chờ (63–69 game), các thẻ game chiếm diện tích lớn, tiêu đề game bị cắt ngắn (`truncate`, gây hiện tượng cụt chữ như "To...", "Tr...", "Ki..."), khiến quản trị viên phải cuộn trang nhiều lần và khó so sánh đối chiếu nhanh.
+  2. Ngày phát hành (`releaseDate` / `releaseInfo`) chưa được hiển thị như một cột thông tin trọng tâm, độc lập, nổi bật để quản trị viên đối chiếu độ tươi và thời điểm ra mắt của game trước khi duyệt.
+  3. Phân trang bị cố định ở mức 20 game/trang, không có tùy chọn xem 50, 100 hay tất cả game trên một màn hình duy nhất.
+- **Giải pháp đã triển khai (Solution)**:
+  1. **Triển khai Chế độ Xem Danh Sách (List View) mặc định**:
+     - Thiết kế giao diện bảng trực quan, mật độ thông tin tối ưu (dense responsive table), hiển thị trọn vẹn tên game đầy đủ không bị cắt cụt chữ.
+     - Cung cấp nút chuyển đổi linh hoạt giữa `[ LayoutList Danh Sách ]` (mặc định) và `[ LayoutGrid Lưới Thẻ ]`.
+  2. **Cột Ngày Phát Hành Nổi Bật & Chuẩn Hóa**:
+     - Bổ sung helper `formatReleaseDateDisplay(game)` chuẩn hóa định dạng ngày phát hành `DD/MM/YYYY` kết hợp biểu tượng lịch `Calendar` màu hổ phách (amber).
+     - Hiển thị đầy đủ 3 cấp độ thông tin thời gian:
+       + Ngày phát hành chính thức (`📅 DD/MM/YYYY`)
+       + Huy hiệu trạng thái / giai đoạn ra mắt (ví dụ: `Ra mắt 20-10`, `Phát hành chính thức`, `Open Beta`)
+       + Thời điểm crawler quét (`Quét: DD/MM/YYYY`)
+     - Cập nhật cả ở chế độ Lưới Thẻ (Grid View) với banner ngày phát hành nổi bật trên từng thẻ game.
+  3. **Bộ chọn số lượng hiển thị trên mỗi trang (Page Size Selector)**:
+     - Tùy chọn `20 game / trang`, `50 game / trang`, `100 game / trang`, hoặc `Tất cả ({total} game)`. Cho phép quản trị viên xem trọn vẹn toàn bộ 69 game trong hàng chờ chỉ trên 1 trang duy nhất để duyệt hàng loạt 1 chạm.
+  4. **Bảo toàn dữ liệu `releaseDate` & `releaseInfo` trên API Cloudflare Pages Worker**:
+     - Cập nhật `functions/api/crawler/ingest-codes.ts` để `list_pending_games`, `queue_game`, và `update_pending_game` luôn lưu trữ, cập nhật và trả về đầy đủ `releaseDate` và `releaseInfo`.
+     - Điền đầy đủ ngày phát hành cho toàn bộ 69 game trong hàng chờ trên production D1.
+- **Kết quả kiểm toán & Nghiệm thu**:
+  - `npm run build`: Hoàn tất 100%, bundle Vite và Cloudflare Pages Edge Worker biên dịch thành công.
+  - `test_queue_game_anti_fake_defaults.cjs`: Đạt 100% (5/5 bài kiểm tra).
+  - `verify_codes_integrity_audit.cjs`: Đạt 100% (6/6 bài kiểm tra).
+  - Giao diện Admin Hàng Chờ Duyệt (`admin-code-game-shop.pages.dev/admin#/crawler` tab "Game Mới Chờ Duyệt"):
+    + Mặc định hiển thị Dạng Danh Sách (List View) bảng rõ ràng, đẹp mắt, không cắt chữ.
+    + Cột "Ngày Phát Hành" nổi bật với icon Calendar và định dạng ngày chính xác.
+    + Cho phép chọn số lượng hiển thị linh hoạt (20, 50, 100, Tất cả).
+
 ### 181. Triệt Tiêu 100% Giá Trị Mặc Định Bịa Đặt (Fake Defaults) Trong Toàn Bộ Luồng Tạo & Xếp Hàng Game Chờ Duyệt, Sửa Bản Ghi Avatar Land & Chống Trỏ Tới Icon 404 (Anti-Fake Defaults Guard in Game Queuing & Ingestion Pathways, Avatar Land Production Remediation & Missing Icon Fallback)
 - **Mô tả & Yêu cầu người dùng**:
   - *"Action queue_game (API crawler) mắc lỗi mặc định bịa đặt: khi người gọi không truyền nhà phát hành / thể loại / nền tảng, hệ thống tự điền toàn bộ thành Roblox. Ca thực tế đã kiểm chứng: game Avatar Land (mã AL-PNVN26 từ fanpage chính thức) bị ghi thành developer 'Roblox', publisher 'Roblox', category 'Roblox', platform 'Roblox / PC, Mobile', mô tả bịa đặt trên nền tảng Roblox, hướng dẫn 3 bước Roblox, icon trỏ tới file 404 /game_icons/avatar-land.webp. Đây cùng họ lỗi với ISSUE-104 (ngày hết hạn giả 2026-12-31): giá trị chưa rõ bị thay bằng giá trị trông có vẻ thật. Yêu cầu: Việc 1: Bỏ mọi giá trị mặc định bịa đặt trong luồng tạo game (queue_game, add_crawler_pending_game, form Admin, autoQueueNewGame); Việc 2: Sửa bản ghi Avatar Land trên production về NULL/rỗng ('Chưa rõ'), icon rỗng, missing_icon = true, giữ nguyên mã AL-PNVN26 hạn 2026-10-25 và trạng thái PENDING; Việc 3: Thêm regression test tự động; Việc 4: Kiểm chứng 3 game Roblox thật giữ nguyên metadata hợp lệ."*

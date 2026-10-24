@@ -46,6 +46,9 @@ import {
   Lock,
   ArrowUpRight,
   BookOpen,
+  LayoutList,
+  LayoutGrid,
+  Calendar,
 } from 'lucide-react';
 import { FormModal } from '../components/ui/FormModal';
 import { ConfirmModal } from '../components/ui/ConfirmModal';
@@ -237,6 +240,41 @@ export const cleanGameTitle = (str: string) => {
     .trim();
 };
 
+export const formatReleaseDateDisplay = (game: PendingCrawlerGame) => {
+  let dateStr = game.releaseDate || '';
+  let badge = game.releaseInfo || '';
+
+  let formatted = '';
+  if (dateStr) {
+    const parts = dateStr.split('-');
+    if (parts.length === 3) {
+      formatted = `${parts[2]}/${parts[1]}/${parts[0]}`;
+    } else {
+      formatted = dateStr;
+    }
+  }
+
+  if (!formatted && badge) {
+    const match = badge.match(/(\d{1,2})[-/](\d{1,2})([-/\d]*)/);
+    if (match) {
+      formatted = match[0].replace(/-/g, '/');
+    }
+  }
+
+  if (!formatted && game.crawledAt) {
+    const d = new Date(game.crawledAt);
+    if (!isNaN(d.getTime())) {
+      formatted = d.toLocaleDateString('vi-VN');
+    }
+  }
+
+  return {
+    formattedDate: formatted || 'Chưa rõ',
+    badgeText: badge || (formatted ? 'Phát hành chính thức' : ''),
+    crawledDate: game.crawledAt ? new Date(game.crawledAt).toLocaleDateString('vi-VN') : '',
+  };
+};
+
 export const CrawlerModule: React.FC<CrawlerModuleProps> = ({ onShowToast }) => {
   const [activeTab, setActiveTab] = useState<'pending' | 'games_pending' | 'sources' | 'logs' | 'scoring' | 'api'>('pending');
   const [isLoading, setIsLoading] = useState(false);
@@ -247,7 +285,8 @@ export const CrawlerModule: React.FC<CrawlerModuleProps> = ({ onShowToast }) => 
   const [gameSearchQuery, setGameSearchQuery] = useState('');
   const [gamePublisherFilter, setGamePublisherFilter] = useState('ALL');
   const [gamePage, setGamePage] = useState(1);
-  const PENDING_GAMES_PER_PAGE = 20;
+  const [gameViewMode, setGameViewMode] = useState<'list' | 'grid'>('list');
+  const [gamePageSize, setGamePageSize] = useState<number>(20);
   const gamesContainerRef = useRef<HTMLDivElement>(null);
   const [isScanningGooglePlay, setIsScanningGooglePlay] = useState(false);
   const [isScanningCodeMoi, setIsScanningCodeMoi] = useState(false);
@@ -889,12 +928,13 @@ export const CrawlerModule: React.FC<CrawlerModuleProps> = ({ onShowToast }) => 
     });
   }, [pendingGames, gamePublisherFilter, gameSearchQuery]);
 
-  const totalGamePages = Math.max(1, Math.ceil(filteredPendingGames.length / PENDING_GAMES_PER_PAGE));
+  const totalGamePages = Math.max(1, Math.ceil(filteredPendingGames.length / gamePageSize));
 
   const paginatedPendingGames = useMemo(() => {
-    const start = (gamePage - 1) * PENDING_GAMES_PER_PAGE;
-    return filteredPendingGames.slice(start, start + PENDING_GAMES_PER_PAGE);
-  }, [filteredPendingGames, gamePage]);
+    if (gamePageSize >= 9999) return filteredPendingGames;
+    const start = (gamePage - 1) * gamePageSize;
+    return filteredPendingGames.slice(start, start + gamePageSize);
+  }, [filteredPendingGames, gamePage, gamePageSize]);
 
   // Reset page when filter or search changes
   useEffect(() => {
@@ -2976,8 +3016,56 @@ export const CrawlerModule: React.FC<CrawlerModuleProps> = ({ onShowToast }) => 
                   <option value="Dzogame">Dzogame</option>
                 </select>
 
-                <span className="text-xs text-slate-400 whitespace-nowrap">
-                  Hiển thị: <strong className="text-emerald-400">{filteredPendingGames.length}</strong> / {pendingGames.length} game
+                {/* View Mode Toggle: Danh Sách / Lưới Thẻ */}
+                <div className="flex items-center bg-slate-950 border border-slate-800 rounded-xl p-0.5 shadow-inner">
+                  <button
+                    type="button"
+                    onClick={() => setGameViewMode('list')}
+                    className={`flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
+                      gameViewMode === 'list'
+                        ? 'bg-emerald-600 text-white shadow-sm'
+                        : 'text-slate-400 hover:text-slate-200'
+                    }`}
+                    title="Chế độ Danh Sách (Khuyên dùng - hiển thị đầy đủ tên & ngày phát hành)"
+                  >
+                    <LayoutList className="w-3.5 h-3.5" />
+                    <span>Danh Sách</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setGameViewMode('grid')}
+                    className={`flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
+                      gameViewMode === 'grid'
+                        ? 'bg-emerald-600 text-white shadow-sm'
+                        : 'text-slate-400 hover:text-slate-200'
+                    }`}
+                    title="Chế độ Lưới Thẻ"
+                  >
+                    <LayoutGrid className="w-3.5 h-3.5" />
+                    <span>Lưới Thẻ</span>
+                  </button>
+                </div>
+
+                {/* Page Size Selector */}
+                <div className="flex items-center gap-1.5 text-xs text-slate-400">
+                  <select
+                    value={gamePageSize}
+                    onChange={(e) => {
+                      setGamePageSize(Number(e.target.value));
+                      setGamePage(1);
+                    }}
+                    className="bg-slate-950 border border-slate-800 rounded-xl px-2.5 py-1.5 text-xs text-slate-200 focus:outline-none focus:border-emerald-500 cursor-pointer font-medium"
+                    title="Số lượng game trên mỗi trang"
+                  >
+                    <option value={20}>20 game / trang</option>
+                    <option value={50}>50 game / trang</option>
+                    <option value={100}>100 game / trang</option>
+                    <option value={9999}>Tất cả ({filteredPendingGames.length} game)</option>
+                  </select>
+                </div>
+
+                <span className="text-xs text-slate-400 whitespace-nowrap hidden sm:inline">
+                  Tổng: <strong className="text-emerald-400">{filteredPendingGames.length}</strong> / {pendingGames.length} game
                 </span>
               </div>
 
@@ -3064,7 +3152,7 @@ export const CrawlerModule: React.FC<CrawlerModuleProps> = ({ onShowToast }) => 
                     ) : (
                       <Square className="w-3.5 h-3.5" />
                     )}
-                    <span>Chọn 20 game trang này</span>
+                    <span>Chọn {paginatedPendingGames.length} game trang này</span>
                   </button>
                 </div>
                 <button
@@ -3099,216 +3187,501 @@ export const CrawlerModule: React.FC<CrawlerModuleProps> = ({ onShowToast }) => 
             </div>
           ) : paginatedPendingGames.length > 0 ? (
             <div className="space-y-4">
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3.5">
-                {paginatedPendingGames.map((game) => {
-                  const isSelected = selectedGameIds.includes(game.id);
-                  const isFromCodeMoi = game.sourceType === 'codemoi' || (game.sourceUrl && game.sourceUrl.includes('codemoi.net'));
-                  return (
-                    <div
-                      key={game.id}
-                      className={`bg-slate-900 border rounded-2xl p-3.5 sm:p-4 transition-all hover:border-emerald-500/50 flex flex-col justify-between ${
-                        isSelected
-                          ? 'border-emerald-500/80 bg-emerald-950/10 shadow-lg shadow-emerald-950/20'
-                          : 'border-slate-800'
-                      }`}
-                    >
-                      <div>
-                        {/* Card Header: Select Checkbox, Game Icon, Name, Developer */}
-                        <div className="flex items-start gap-2.5">
-                          {/* Select Checkbox */}
-                          <button
-                            type="button"
-                            onClick={() => {
-                              setSelectedGameIds((prev) =>
-                                isSelected ? prev.filter((id) => id !== game.id) : [...prev, game.id]
-                              );
-                            }}
-                            className="mt-0.5 text-slate-500 hover:text-emerald-400 cursor-pointer"
-                          >
-                            {isSelected ? (
-                              <CheckSquare className="w-4 h-4 text-emerald-400" />
-                            ) : (
-                              <Square className="w-4 h-4" />
-                            )}
-                          </button>
-
-                          {/* Game Icon */}
-                          <div className="w-13 h-13 rounded-xl overflow-hidden bg-slate-950 border border-slate-700/60 shrink-0 shadow-md relative group/icon">
-                            <img
-                              src={
-                                game.missing_icon || (!game.iconUrl && !game.localIconPath)
-                                  ? `data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64"><rect width="64" height="64" rx="16" fill="%230f172a"/><rect x="2" y="2" width="60" height="60" rx="14" fill="none" stroke="%23334155" stroke-width="2"/><text x="50%" y="54%" font-family="sans-serif" font-size="20" font-weight="bold" fill="%23f43f5e" text-anchor="middle" dominant-baseline="middle">${encodeURIComponent((cleanGameTitle(game.name) || 'G').slice(0, 2).toUpperCase())}</text></svg>`
-                                  : (game.localIconPath && game.localIconPath.startsWith('/')
-                                      ? game.localIconPath
-                                      : (game.iconUrl || `/game_icons/${game.slug}.webp`))
-                              }
-                              alt={cleanGameTitle(game.name)}
-                              referrerPolicy="no-referrer"
-                              loading="lazy"
-                              className="w-full h-full object-cover"
-                              onError={(e: any) => {
-                                const el = e.currentTarget;
-                                const stage = Number(el.dataset.stage || '0');
-                                if (stage === 0 && game.iconUrl && !game.missing_icon) {
-                                  el.dataset.stage = '1';
-                                  el.src = `/api/game-icon?slug=${game.slug}&url=${encodeURIComponent(game.iconUrl)}`;
-                                  return;
+              {/* CHẾ ĐỘ 1: DẠNG DANH SÁCH (BẢNG TRỰC QUAN, RÕ NGÀY PHÁT HÀNH) */}
+              {gameViewMode === 'list' ? (
+                <div className="bg-slate-900 border border-slate-800 rounded-2xl overflow-hidden shadow-lg">
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-left border-collapse text-xs min-w-[950px]">
+                      <thead>
+                        <tr className="border-b border-slate-800 bg-slate-950/80 text-slate-400 font-semibold uppercase tracking-wider text-[11px]">
+                          <th className="py-3 px-3 w-10 text-center">
+                            <button
+                              type="button"
+                              onClick={() => {
+                                const pageIds = paginatedPendingGames.map((g) => g.id);
+                                const allSelected = pageIds.length > 0 && pageIds.every((id) => selectedGameIds.includes(id));
+                                if (allSelected) {
+                                  setSelectedGameIds((prev) => prev.filter((id) => !pageIds.includes(id)));
+                                } else {
+                                  setSelectedGameIds((prev) => Array.from(new Set([...prev, ...pageIds])));
                                 }
-                                if (stage <= 1 && game.iconUrl && game.iconUrl.startsWith('http')) {
-                                  el.dataset.stage = '2';
-                                  el.src = game.iconUrl;
-                                  return;
-                                }
-                                el.src = `data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64"><rect width="64" height="64" rx="16" fill="%230f172a"/><rect x="2" y="2" width="60" height="60" rx="14" fill="none" stroke="%23334155" stroke-width="2"/><text x="50%" y="54%" font-family="sans-serif" font-size="20" font-weight="bold" fill="%2334d399" text-anchor="middle" dominant-baseline="middle">${encodeURIComponent((cleanGameTitle(game.name) || 'G').slice(0, 2).toUpperCase())}</text></svg>`;
                               }}
-                            />
+                              className="text-slate-500 hover:text-emerald-400 cursor-pointer"
+                              title="Chọn / Hủy chọn tất cả game trang này"
+                            >
+                              {paginatedPendingGames.length > 0 && paginatedPendingGames.every((g) => selectedGameIds.includes(g.id)) ? (
+                                <CheckSquare className="w-4 h-4 text-emerald-400" />
+                              ) : (
+                                <Square className="w-4 h-4" />
+                              )}
+                            </button>
+                          </th>
+                          <th className="py-3 px-2 w-14 text-center">Logo</th>
+                          <th className="py-3 px-3 min-w-[220px]">Tên Game</th>
+                          <th className="py-3 px-3 min-w-[170px] text-amber-300">
+                            <div className="flex items-center gap-1.5 font-bold">
+                              <Calendar className="w-4 h-4 text-amber-400" />
+                              <span>Ngày Phát Hành</span>
+                            </div>
+                          </th>
+                          <th className="py-3 px-3 min-w-[140px]">NPH / Nguồn</th>
+                          <th className="py-3 px-3 min-w-[120px]">Thể loại / Nền tảng</th>
+                          <th className="py-3 px-3 min-w-[100px] text-center">Giftcode</th>
+                          <th className="py-3 px-3 min-w-[200px] text-right">Thao Tác</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-800/60">
+                        {paginatedPendingGames.map((game) => {
+                          const isSelected = selectedGameIds.includes(game.id);
+                          const isFromCodeMoi = game.sourceType === 'codemoi' || (game.sourceUrl && game.sourceUrl.includes('codemoi.net'));
+                          const dateInfo = formatReleaseDateDisplay(game);
+
+                          return (
+                            <tr
+                              key={game.id}
+                              className={`transition-colors hover:bg-slate-800/40 ${
+                                isSelected ? 'bg-emerald-950/20' : ''
+                              }`}
+                            >
+                              {/* Select Checkbox */}
+                              <td className="py-3 px-3 text-center align-middle">
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setSelectedGameIds((prev) =>
+                                      isSelected ? prev.filter((id) => id !== game.id) : [...prev, game.id]
+                                    );
+                                  }}
+                                  className="text-slate-500 hover:text-emerald-400 cursor-pointer"
+                                >
+                                  {isSelected ? (
+                                    <CheckSquare className="w-4 h-4 text-emerald-400" />
+                                  ) : (
+                                    <Square className="w-4 h-4" />
+                                  )}
+                                </button>
+                              </td>
+
+                              {/* Logo with safe fallback & edit overlay */}
+                              <td className="py-3 px-2 text-center align-middle">
+                                <div className="w-12 h-12 rounded-xl overflow-hidden bg-slate-950 border border-slate-700/60 mx-auto relative group/icon shrink-0 shadow-sm">
+                                  <img
+                                    src={
+                                      game.missing_icon || (!game.iconUrl && !game.localIconPath)
+                                        ? `data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64"><rect width="64" height="64" rx="16" fill="%230f172a"/><rect x="2" y="2" width="60" height="60" rx="14" fill="none" stroke="%23334155" stroke-width="2"/><text x="50%" y="54%" font-family="sans-serif" font-size="20" font-weight="bold" fill="%23f43f5e" text-anchor="middle" dominant-baseline="middle">${encodeURIComponent((cleanGameTitle(game.name) || 'G').slice(0, 2).toUpperCase())}</text></svg>`
+                                        : (game.localIconPath && game.localIconPath.startsWith('/')
+                                            ? game.localIconPath
+                                            : (game.iconUrl || `/game_icons/${game.slug}.webp`))
+                                    }
+                                    alt={cleanGameTitle(game.name)}
+                                    referrerPolicy="no-referrer"
+                                    loading="lazy"
+                                    className="w-full h-full object-cover"
+                                    onError={(e: any) => {
+                                      const el = e.currentTarget;
+                                      const stage = Number(el.dataset.stage || '0');
+                                      if (stage === 0 && game.iconUrl && !game.missing_icon) {
+                                        el.dataset.stage = '1';
+                                        el.src = `/api/game-icon?slug=${game.slug}&url=${encodeURIComponent(game.iconUrl)}`;
+                                        return;
+                                      }
+                                      if (stage <= 1 && game.iconUrl && game.iconUrl.startsWith('http')) {
+                                        el.dataset.stage = '2';
+                                        el.src = game.iconUrl;
+                                        return;
+                                      }
+                                      el.src = `data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64"><rect width="64" height="64" rx="16" fill="%230f172a"/><rect x="2" y="2" width="60" height="60" rx="14" fill="none" stroke="%23334155" stroke-width="2"/><text x="50%" y="54%" font-family="sans-serif" font-size="20" font-weight="bold" fill="%2334d399" text-anchor="middle" dominant-baseline="middle">${encodeURIComponent((cleanGameTitle(game.name) || 'G').slice(0, 2).toUpperCase())}</text></svg>`;
+                                    }}
+                                  />
+                                  <button
+                                    type="button"
+                                    onClick={() => handleEditGameLogo(game.id)}
+                                    className="absolute inset-0 bg-black/60 opacity-0 group-hover/icon:opacity-100 flex items-center justify-center transition-opacity cursor-pointer text-white"
+                                    title="Nhấn để đổi logo game này"
+                                  >
+                                    <Edit className="w-3.5 h-3.5 text-emerald-400" />
+                                  </button>
+                                </div>
+                              </td>
+
+                              {/* Game Title & Links */}
+                              <td className="py-3 px-3 align-middle">
+                                <div className="flex items-center gap-1.5 flex-wrap">
+                                  <span className="font-bold text-white text-sm hover:text-emerald-300 transition-colors leading-snug">
+                                    {cleanGameTitle(game.name)}
+                                  </span>
+                                  {isFromCodeMoi ? (
+                                    <a
+                                      href={game.sourceUrl || `https://codemoi.net/games/${game.slug}/`}
+                                      target="_blank"
+                                      rel="noopener noreferrer"
+                                      className="text-slate-400 hover:text-purple-400 inline-flex items-center shrink-0"
+                                      title="Mở trang game trên CodeMoi.net"
+                                    >
+                                      <ExternalLink className="w-3.5 h-3.5" />
+                                    </a>
+                                  ) : (
+                                    <a
+                                      href={game.playStoreUrl || (game.packageId ? `https://play.google.com/store/apps/details?id=${game.packageId}` : '#')}
+                                      target="_blank"
+                                      rel="noopener noreferrer"
+                                      className="text-slate-400 hover:text-emerald-400 inline-flex items-center shrink-0"
+                                      title="Mở Google Play Store"
+                                    >
+                                      <ExternalLink className="w-3.5 h-3.5" />
+                                    </a>
+                                  )}
+                                </div>
+                                <div className="text-[11px] text-slate-400 font-mono mt-0.5 flex items-center gap-2 flex-wrap">
+                                  <span>slug: <strong className="text-slate-300">{game.slug}</strong></span>
+                                  {game.packageId && <span className="text-slate-500">• {game.packageId}</span>}
+                                </div>
+                              </td>
+
+                              {/* NGÀY PHÁT HÀNH — CỰC KỲ RÕ RÀNG */}
+                              <td className="py-3 px-3 align-middle">
+                                <div className="flex flex-col gap-1">
+                                  <div className="flex items-center gap-1.5">
+                                    <Calendar className="w-4 h-4 text-amber-400 shrink-0" />
+                                    <span className="font-bold text-amber-300 text-xs sm:text-[13px] tracking-wide whitespace-nowrap">
+                                      {dateInfo.formattedDate}
+                                    </span>
+                                  </div>
+                                  {dateInfo.badgeText && (
+                                    <span className="inline-block self-start px-2 py-0.5 rounded text-[10px] font-semibold bg-amber-500/20 text-amber-200 border border-amber-500/30 whitespace-nowrap">
+                                      {dateInfo.badgeText}
+                                    </span>
+                                  )}
+                                  {dateInfo.crawledDate && (
+                                    <span className="text-[10px] text-slate-500 whitespace-nowrap">
+                                      Quét: {dateInfo.crawledDate}
+                                    </span>
+                                  )}
+                                </div>
+                              </td>
+
+                              {/* NPH & Nguồn */}
+                              <td className="py-3 px-3 align-middle">
+                                <div className="text-xs text-slate-200 font-semibold truncate max-w-[150px]" title={cleanGameTitle(game.developer || game.publisher)}>
+                                  {cleanGameTitle(game.developer || game.publisher) || <em className="text-slate-500 font-normal">Chưa rõ</em>}
+                                </div>
+                                <div className="flex items-center gap-1 mt-1 flex-wrap">
+                                  {isFromCodeMoi ? (
+                                    <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-purple-500/20 text-purple-300 border border-purple-500/30">
+                                      🌐 CodeMoi
+                                    </span>
+                                  ) : (
+                                    <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
+                                      📱 Google Play
+                                    </span>
+                                  )}
+                                  {(game.missing_icon || (!game.iconUrl && !game.localIconPath)) && (
+                                    <span className="px-1.5 py-0.5 rounded text-[10px] font-semibold bg-rose-500/20 text-rose-300 border border-rose-500/40">
+                                      ⚠️ Thiếu icon
+                                    </span>
+                                  )}
+                                </div>
+                              </td>
+
+                              {/* Thể loại & Nền tảng */}
+                              <td className="py-3 px-3 align-middle text-slate-300">
+                                <div className="text-xs font-medium truncate max-w-[130px]" title={game.category || game.platform || 'Chưa rõ'}>
+                                  {game.category || game.platform || <em className="text-slate-500 font-normal">Chưa rõ</em>}
+                                </div>
+                                {!isFromCodeMoi && (
+                                  <div className="flex items-center gap-1 text-[11px] text-slate-400 mt-1">
+                                    <span className="flex items-center text-amber-400 font-semibold gap-0.5">
+                                      <Star className="w-2.5 h-2.5 fill-amber-400 text-amber-400" />
+                                      {game.rating || 4.8}
+                                    </span>
+                                    <span>•</span>
+                                    <span>{game.installs || '50.000+'}</span>
+                                  </div>
+                                )}
+                              </td>
+
+                              {/* Giftcode Count */}
+                              <td className="py-3 px-3 text-center align-middle">
+                                {(game.activeCodesCount || 0) > 0 ? (
+                                  <span className="inline-flex px-2.5 py-1 rounded-full text-xs font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 whitespace-nowrap shadow-sm shadow-emerald-950">
+                                    🎁 {game.activeCodesCount} code
+                                  </span>
+                                ) : (
+                                  <span className="text-slate-500 text-[11px] italic">Chưa có code</span>
+                                )}
+                              </td>
+
+                              {/* Action Buttons */}
+                              <td className="py-3 px-3 text-right align-middle">
+                                <div className="flex items-center justify-end gap-1.5 flex-wrap sm:flex-nowrap">
+                                  <button
+                                    type="button"
+                                    onClick={() => handleRejectGame(game.id)}
+                                    className="px-2 py-1 rounded-lg bg-slate-800 hover:bg-rose-950/60 hover:text-rose-300 text-slate-400 text-xs font-medium transition-colors cursor-pointer"
+                                    title="Bỏ qua game này"
+                                  >
+                                    Bỏ qua
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => handleEditGameLogo(game.id)}
+                                    className="px-2 py-1 rounded-lg bg-slate-800/80 hover:bg-slate-700 text-slate-300 text-xs font-medium transition-colors cursor-pointer flex items-center gap-1 border border-slate-700/50"
+                                    title="Chỉnh sửa hoặc đổi URL logo"
+                                  >
+                                    <Edit className="w-3 h-3 text-emerald-400" />
+                                    <span>Logo</span>
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => handleApproveGame(game.id)}
+                                    className={`px-3 py-1 rounded-xl text-white text-xs font-bold transition-all shadow-sm active:scale-95 cursor-pointer flex items-center gap-1 ${
+                                      (game.activeCodesCount || 0) > 0
+                                        ? 'bg-gradient-to-r from-amber-600 to-orange-600 hover:from-amber-500 hover:to-orange-500 shadow-amber-600/20 ring-1 ring-amber-400/50'
+                                        : 'bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 shadow-emerald-600/20'
+                                    }`}
+                                  >
+                                    {(game.activeCodesCount || 0) > 0 ? (
+                                      <>
+                                        <Zap className="w-3 h-3 text-amber-200" />
+                                        <span>⚡ Đăng Ngay</span>
+                                      </>
+                                    ) : (
+                                      <>
+                                        <CheckCircle2 className="w-3 h-3" />
+                                        <span>Duyệt & Đăng</span>
+                                      </>
+                                    )}
+                                  </button>
+                                </div>
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              ) : (
+                /* CHẾ ĐỘ 2: LƯỚI THẺ (GRID VIEW NÂNG CẤP KÈM BANNER NGÀY PHÁT HÀNH) */
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3.5">
+                  {paginatedPendingGames.map((game) => {
+                    const isSelected = selectedGameIds.includes(game.id);
+                    const isFromCodeMoi = game.sourceType === 'codemoi' || (game.sourceUrl && game.sourceUrl.includes('codemoi.net'));
+                    const dateInfo = formatReleaseDateDisplay(game);
+
+                    return (
+                      <div
+                        key={game.id}
+                        className={`bg-slate-900 border rounded-2xl p-3.5 sm:p-4 transition-all hover:border-emerald-500/50 flex flex-col justify-between ${
+                          isSelected
+                            ? 'border-emerald-500/80 bg-emerald-950/10 shadow-lg shadow-emerald-950/20'
+                            : 'border-slate-800'
+                        }`}
+                      >
+                        <div>
+                          {/* Card Header: Select Checkbox, Game Icon, Name, Developer */}
+                          <div className="flex items-start gap-2.5">
+                            {/* Select Checkbox */}
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setSelectedGameIds((prev) =>
+                                  isSelected ? prev.filter((id) => id !== game.id) : [...prev, game.id]
+                                );
+                              }}
+                              className="mt-0.5 text-slate-500 hover:text-emerald-400 cursor-pointer"
+                            >
+                              {isSelected ? (
+                                <CheckSquare className="w-4 h-4 text-emerald-400" />
+                              ) : (
+                                <Square className="w-4 h-4" />
+                              )}
+                            </button>
+
+                            {/* Game Icon */}
+                            <div className="w-13 h-13 rounded-xl overflow-hidden bg-slate-950 border border-slate-700/60 shrink-0 shadow-md relative group/icon">
+                              <img
+                                src={
+                                  game.missing_icon || (!game.iconUrl && !game.localIconPath)
+                                    ? `data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64"><rect width="64" height="64" rx="16" fill="%230f172a"/><rect x="2" y="2" width="60" height="60" rx="14" fill="none" stroke="%23334155" stroke-width="2"/><text x="50%" y="54%" font-family="sans-serif" font-size="20" font-weight="bold" fill="%23f43f5e" text-anchor="middle" dominant-baseline="middle">${encodeURIComponent((cleanGameTitle(game.name) || 'G').slice(0, 2).toUpperCase())}</text></svg>`
+                                    : (game.localIconPath && game.localIconPath.startsWith('/')
+                                        ? game.localIconPath
+                                        : (game.iconUrl || `/game_icons/${game.slug}.webp`))
+                                }
+                                alt={cleanGameTitle(game.name)}
+                                referrerPolicy="no-referrer"
+                                loading="lazy"
+                                className="w-full h-full object-cover"
+                                onError={(e: any) => {
+                                  const el = e.currentTarget;
+                                  const stage = Number(el.dataset.stage || '0');
+                                  if (stage === 0 && game.iconUrl && !game.missing_icon) {
+                                    el.dataset.stage = '1';
+                                    el.src = `/api/game-icon?slug=${game.slug}&url=${encodeURIComponent(game.iconUrl)}`;
+                                    return;
+                                  }
+                                  if (stage <= 1 && game.iconUrl && game.iconUrl.startsWith('http')) {
+                                    el.dataset.stage = '2';
+                                    el.src = game.iconUrl;
+                                    return;
+                                  }
+                                  el.src = `data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64"><rect width="64" height="64" rx="16" fill="%230f172a"/><rect x="2" y="2" width="60" height="60" rx="14" fill="none" stroke="%23334155" stroke-width="2"/><text x="50%" y="54%" font-family="sans-serif" font-size="20" font-weight="bold" fill="%2334d399" text-anchor="middle" dominant-baseline="middle">${encodeURIComponent((cleanGameTitle(game.name) || 'G').slice(0, 2).toUpperCase())}</text></svg>`;
+                                }}
+                              />
+                              <button
+                                type="button"
+                                onClick={() => handleEditGameLogo(game.id)}
+                                className="absolute inset-0 bg-black/60 opacity-0 group-hover/icon:opacity-100 flex items-center justify-center transition-opacity cursor-pointer text-white"
+                                title="Nhấn để đổi logo game này"
+                              >
+                                <Edit className="w-3.5 h-3.5 text-emerald-400" />
+                              </button>
+                            </div>
+
+                            {/* Title & Developer */}
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center gap-1.5">
+                                <h3 className="font-bold text-white text-sm truncate" title={cleanGameTitle(game.name)}>
+                                  {cleanGameTitle(game.name)}
+                                </h3>
+                                {isFromCodeMoi ? (
+                                  <a
+                                    href={game.sourceUrl || `https://codemoi.net/games/${game.slug}/`}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="text-slate-400 hover:text-purple-400 shrink-0"
+                                    title="Mở trang game trên CodeMoi.net"
+                                  >
+                                    <ExternalLink className="w-3.5 h-3.5" />
+                                  </a>
+                                ) : (
+                                  <a
+                                    href={game.playStoreUrl || (game.packageId ? `https://play.google.com/store/apps/details?id=${game.packageId}` : '#')}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="text-slate-400 hover:text-emerald-400 shrink-0"
+                                    title="Mở Google Play Store"
+                                  >
+                                    <ExternalLink className="w-3.5 h-3.5" />
+                                  </a>
+                                )}
+                              </div>
+
+                              <div className="text-xs text-slate-400 truncate mt-0.5" title={cleanGameTitle(game.developer)}>
+                                NPH: <span className="text-slate-200 font-medium">{cleanGameTitle(game.developer) || <em className="text-slate-500 font-normal">Chưa rõ</em>}</span>
+                              </div>
+
+                              <div className="flex flex-wrap items-center gap-1.5 mt-1.5 text-[11px] text-slate-400">
+                                {(game.missing_icon || (!game.iconUrl && !game.localIconPath)) && (
+                                  <span className="px-1.5 py-0.5 rounded-md text-[10px] font-semibold bg-rose-500/20 text-rose-300 border border-rose-500/40">
+                                    ⚠️ Thiếu icon
+                                  </span>
+                                )}
+                                {isFromCodeMoi ? (
+                                  <span className="px-1.5 py-0.5 rounded-md text-[10px] font-bold bg-purple-500/20 text-purple-300 border border-purple-500/30">
+                                    🌐 CodeMoi
+                                  </span>
+                                ) : (
+                                  <span className="px-1.5 py-0.5 rounded-md text-[10px] font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
+                                    📱 Google Play
+                                  </span>
+                                )}
+                                {(game.activeCodesCount || 0) > 0 && (
+                                  <span className="px-1.5 py-0.5 rounded-md text-[10px] font-semibold bg-emerald-500/20 text-emerald-300 border border-emerald-500/40">
+                                    🎁 {game.activeCodesCount} code
+                                  </span>
+                                )}
+                                {!isFromCodeMoi && (
+                                  <>
+                                    <span className="flex items-center text-amber-400 font-semibold gap-0.5 text-[10px]">
+                                      <Star className="w-2.5 h-2.5 fill-amber-400 text-amber-400" />
+                                      {game.rating || 4.8}
+                                    </span>
+                                    <span>•</span>
+                                    <span className="text-[10px]">{game.installs || '50.000+'}</span>
+                                  </>
+                                )}
+                              </div>
+                            </div>
+                          </div>
+
+                          {/* Release Date Prominent Banner on Grid Card */}
+                          <div className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-amber-950/40 border border-amber-500/30 text-amber-300 text-xs font-semibold mt-2.5 shadow-sm">
+                            <Calendar className="w-3.5 h-3.5 text-amber-400 shrink-0" />
+                            <span>Phát hành: <strong className="text-white">{dateInfo.formattedDate}</strong></span>
+                            {dateInfo.badgeText && (
+                              <span className="ml-auto text-[10px] px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-300 border border-amber-500/30 font-medium">
+                                {dateInfo.badgeText}
+                              </span>
+                            )}
+                          </div>
+
+                          {/* Description */}
+                          <p className="text-slate-400 text-xs mt-2.5 line-clamp-2 leading-relaxed">
+                            {cleanGameTitle(game.description) || `${cleanGameTitle(game.name)} là tựa game mobile mới phát hành chính thức.`}
+                          </p>
+                        </div>
+
+                        {/* Actions Toolbar */}
+                        <div className="mt-3.5 pt-2.5 border-t border-slate-800/80 flex items-center justify-between gap-2">
+                          <span className="text-[10px] text-slate-500 font-mono truncate max-w-[120px]">
+                            {game.crawledAt ? new Date(game.crawledAt).toLocaleDateString('vi-VN') : ''}
+                          </span>
+
+                          <div className="flex items-center gap-1.5 shrink-0">
+                            <button
+                              type="button"
+                              onClick={() => handleRejectGame(game.id)}
+                              className="px-2 py-1 rounded-lg bg-slate-800 hover:bg-rose-950/60 hover:text-rose-300 text-slate-400 text-xs font-medium transition-colors cursor-pointer"
+                              title="Bỏ qua game này"
+                            >
+                              Bỏ qua
+                            </button>
+
                             <button
                               type="button"
                               onClick={() => handleEditGameLogo(game.id)}
-                              className="absolute inset-0 bg-black/60 opacity-0 group-hover/icon:opacity-100 flex items-center justify-center transition-opacity cursor-pointer text-white"
-                              title="Nhấn để đổi logo game này"
+                              className="px-2 py-1 rounded-lg bg-slate-800/80 hover:bg-slate-700 text-slate-300 text-xs font-medium transition-colors cursor-pointer flex items-center gap-1 border border-slate-700/50"
+                              title="Chỉnh sửa hoặc đổi URL logo"
                             >
-                              <Edit className="w-3.5 h-3.5 text-emerald-400" />
+                              <Edit className="w-3 h-3 text-emerald-400" />
+                              <span>Logo</span>
                             </button>
-                          </div>
 
-                          {/* Title & Developer */}
-                          <div className="flex-1 min-w-0">
-                            <div className="flex items-center gap-1.5">
-                              <h3 className="font-bold text-white text-sm truncate" title={cleanGameTitle(game.name)}>
-                                {cleanGameTitle(game.name)}
-                              </h3>
-                              {isFromCodeMoi ? (
-                                <a
-                                  href={game.sourceUrl || `https://codemoi.net/games/${game.slug}/`}
-                                  target="_blank"
-                                  rel="noopener noreferrer"
-                                  className="text-slate-400 hover:text-purple-400 shrink-0"
-                                  title="Mở trang game trên CodeMoi.net"
-                                >
-                                  <ExternalLink className="w-3.5 h-3.5" />
-                                </a>
-                              ) : (
-                                <a
-                                  href={game.playStoreUrl || (game.packageId ? `https://play.google.com/store/apps/details?id=${game.packageId}` : '#')}
-                                  target="_blank"
-                                  rel="noopener noreferrer"
-                                  className="text-slate-400 hover:text-emerald-400 shrink-0"
-                                  title="Mở Google Play Store"
-                                >
-                                  <ExternalLink className="w-3.5 h-3.5" />
-                                </a>
-                              )}
-                            </div>
-
-                            <div className="text-xs text-slate-400 truncate mt-0.5" title={cleanGameTitle(game.developer)}>
-                              NPH: <span className="text-slate-200 font-medium">{cleanGameTitle(game.developer) || <em className="text-slate-500 font-normal">Chưa rõ</em>}</span>
-                            </div>
-
-                            <div className="flex flex-wrap items-center gap-1.5 mt-1.5 text-[11px] text-slate-400">
-                              {(game.missing_icon || (!game.iconUrl && !game.localIconPath)) && (
-                                <span className="px-1.5 py-0.5 rounded-md text-[10px] font-semibold bg-rose-500/20 text-rose-300 border border-rose-500/40">
-                                  ⚠️ Thiếu icon
-                                </span>
-                              )}
-                              {isFromCodeMoi ? (
-                                <span className="px-1.5 py-0.5 rounded-md text-[10px] font-bold bg-purple-500/20 text-purple-300 border border-purple-500/30">
-                                  🌐 CodeMoi
-                                </span>
-                              ) : (
-                                <span className="px-1.5 py-0.5 rounded-md text-[10px] font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
-                                  📱 Google Play
-                                </span>
-                              )}
-                              {game.releaseInfo && (
-                                <span className="px-1.5 py-0.5 rounded-md text-[10px] font-medium bg-amber-500/10 text-amber-300 border border-amber-500/20">
-                                  {game.releaseInfo}
-                                </span>
-                              )}
-                              {(game.activeCodesCount || 0) > 0 && (
-                                <span className="px-1.5 py-0.5 rounded-md text-[10px] font-semibold bg-emerald-500/20 text-emerald-300 border border-emerald-500/40">
-                                  🎁 {game.activeCodesCount} code
-                                </span>
-                              )}
-                              {!isFromCodeMoi && (
+                            <button
+                              type="button"
+                              onClick={() => handleApproveGame(game.id)}
+                              className={`px-3 py-1 rounded-xl text-white text-xs font-bold transition-all shadow-sm active:scale-95 cursor-pointer flex items-center gap-1 ${
+                                (game.activeCodesCount || 0) > 0
+                                  ? 'bg-gradient-to-r from-amber-600 to-orange-600 hover:from-amber-500 hover:to-orange-500 shadow-amber-600/20 ring-1 ring-amber-400/50'
+                                  : 'bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 shadow-emerald-600/20'
+                              }`}
+                            >
+                              {(game.activeCodesCount || 0) > 0 ? (
                                 <>
-                                  <span className="flex items-center text-amber-400 font-semibold gap-0.5 text-[10px]">
-                                    <Star className="w-2.5 h-2.5 fill-amber-400 text-amber-400" />
-                                    {game.rating || 4.8}
-                                  </span>
-                                  <span>•</span>
-                                  <span className="text-[10px]">{game.installs || '50.000+'}</span>
+                                  <Zap className="w-3 h-3 text-amber-200" />
+                                  <span>⚡ Đăng Ngay</span>
+                                </>
+                              ) : (
+                                <>
+                                  <CheckCircle2 className="w-3 h-3" />
+                                  <span>Duyệt & Đăng</span>
                                 </>
                               )}
-                            </div>
+                            </button>
                           </div>
                         </div>
-
-                        {/* Description */}
-                        <p className="text-slate-400 text-xs mt-2.5 line-clamp-2 leading-relaxed">
-                          {cleanGameTitle(game.description) || `${cleanGameTitle(game.name)} là tựa game mobile mới phát hành chính thức.`}
-                        </p>
                       </div>
+                    );
+                  })}
+                </div>
+              )}
 
-                      {/* Actions Toolbar */}
-                      <div className="mt-3.5 pt-2.5 border-t border-slate-800/80 flex items-center justify-between gap-2">
-                        <span className="text-[10px] text-slate-500 font-mono truncate max-w-[120px]">
-                          {game.crawledAt ? new Date(game.crawledAt).toLocaleDateString('vi-VN') : ''}
-                        </span>
-
-                        <div className="flex items-center gap-1.5 shrink-0">
-                          <button
-                            type="button"
-                            onClick={() => handleRejectGame(game.id)}
-                            className="px-2 py-1 rounded-lg bg-slate-800 hover:bg-rose-950/60 hover:text-rose-300 text-slate-400 text-xs font-medium transition-colors cursor-pointer"
-                            title="Bỏ qua game này"
-                          >
-                            Bỏ qua
-                          </button>
-
-                          <button
-                            type="button"
-                            onClick={() => handleEditGameLogo(game.id)}
-                            className="px-2 py-1 rounded-lg bg-slate-800/80 hover:bg-slate-700 text-slate-300 text-xs font-medium transition-colors cursor-pointer flex items-center gap-1 border border-slate-700/50"
-                            title="Chỉnh sửa hoặc đổi URL logo"
-                          >
-                            <Edit className="w-3 h-3 text-emerald-400" />
-                            <span>Logo</span>
-                          </button>
-
-                          <button
-                            type="button"
-                            onClick={() => handleApproveGame(game.id)}
-                            className={`px-3 py-1 rounded-xl text-white text-xs font-bold transition-all shadow-sm active:scale-95 cursor-pointer flex items-center gap-1 ${
-                              (game.activeCodesCount || 0) > 0
-                                ? 'bg-gradient-to-r from-amber-600 to-orange-600 hover:from-amber-500 hover:to-orange-500 shadow-amber-600/20 ring-1 ring-amber-400/50'
-                                : 'bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 shadow-emerald-600/20'
-                            }`}
-                          >
-                            {(game.activeCodesCount || 0) > 0 ? (
-                              <>
-                                <Zap className="w-3 h-3 text-amber-200" />
-                                <span>⚡ Đăng Ngay</span>
-                              </>
-                            ) : (
-                              <>
-                                <CheckCircle2 className="w-3 h-3" />
-                                <span>Duyệt & Đăng</span>
-                              </>
-                            )}
-                          </button>
-                        </div>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-
-              {/* Pagination Bar - Exactly 20 games / page */}
+              {/* Pagination Bar */}
               {totalGamePages > 1 && (
                 <div className="bg-slate-900 border border-slate-800 rounded-xl p-3 flex flex-col sm:flex-row items-center justify-between gap-3">
                   <span className="text-xs text-slate-400">
-                    Hiển thị <strong className="text-emerald-400">{(gamePage - 1) * PENDING_GAMES_PER_PAGE + 1} - {Math.min(gamePage * PENDING_GAMES_PER_PAGE, filteredPendingGames.length)}</strong> trong số <strong>{filteredPendingGames.length}</strong> game (Trang {gamePage}/{totalGamePages})
+                    Hiển thị <strong className="text-emerald-400">{(gamePage - 1) * gamePageSize + 1} - {Math.min(gamePage * gamePageSize, filteredPendingGames.length)}</strong> trong số <strong>{filteredPendingGames.length}</strong> game (Trang {gamePage}/{totalGamePages})
                   </span>
 
                   <div className="flex items-center gap-1.5 flex-wrap">

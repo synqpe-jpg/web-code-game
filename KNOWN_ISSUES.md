@@ -10,6 +10,26 @@
 
 ## 1. DANH MỤC LỖI & CÁC BẪY ĐÃ THẤT BẠI (DO NOT REPEAT)
 
+### ISSUE-108: Bẫy Trình Bày Hàng Chờ Duyệt Chỉ Dưới Dạng Lưới Thẻ Gây Cụt Tên Game & Thiếu Trường Ngày Phát Hành Trực Quan (Truncated Card Grid View Trap & Missing Prominent Release Date Display)
+- **Triệu chứng**:
+  - Khi hàng chờ duyệt crawler có nhiều game (63–69 game), chế độ hiển thị dạng Lưới Thẻ 3 cột (Grid View) làm tiêu đề game bị cắt ngắn (`truncate`, gây hiện tượng cụt chữ như "To...", "Tr...", "Ki..."). Quản trị viên không thể nhận biết tên game nếu không rê chuột vào từng thẻ.
+  - Ngày phát hành (`releaseDate` / `releaseInfo`) bị ẩn hoặc hiển thị mờ nhạt, khiến quản trị viên không thể đánh giá chính xác độ tươi và thời điểm ra mắt của game để đưa ra quyết định duyệt.
+  - Phân trang bị gán cứng 20 game/trang, buộc người dùng phải lật trang 4 lần để duyệt hết 69 game.
+- **Nguyên nhân gốc rễ**:
+  1. Chỉ cung cấp duy nhất dạng giao diện thẻ (Card Grid), không có chế độ xem dạng Bảng/Danh sách (List View).
+  2. `releaseDate` và `releaseInfo` không được chuẩn hóa thành cột dữ liệu trọng tâm độc lập trong giao diện hàng chờ.
+  3. Giá trị phân trang `PENDING_GAMES_PER_PAGE = 20` bị fix cứng trong code.
+- **Giải pháp chuẩn đã kiểm chứng**:
+  - Cung cấp chế độ xem Danh Sách (List View) mặc định dạng bảng trực quan (dense responsive table), hiển thị trọn vẹn tên game đầy đủ không bị cắt cụt.
+  - Cung cấp nút chuyển đổi `[ LayoutList Danh Sách ]` vs `[ LayoutGrid Lưới Thẻ ]`.
+  - Chuẩn hóa cột "Ngày Phát Hành" (`formatReleaseDateDisplay`) hiển thị nổi bật với biểu tượng `Calendar`, ngày `DD/MM/YYYY` màu hổ phách (amber), huy hiệu trạng thái ra mắt (ví dụ: `Ra mắt 20-10`, `Phát hành chính thức`), và thời điểm quét.
+  - Bổ sung bộ chọn số lượng game hiển thị trên mỗi trang (`20`, `50`, `100`, `Tất cả`).
+- ⛔ **CÁCH SỬA ĐÃ THẤT BẠI - TUYỆT ĐỐI KHÔNG LẶP LẠI**:
+  - ❌ *Không ép buộc người dùng chỉ dùng duy nhất dạng thẻ lưới*: Dạng bảng (List View) là bắt buộc cho các màn hình quản trị và duyệt dữ liệu hàng loạt.
+  - ❌ *Không cắt ngắn (truncate) tên game trong chế độ danh sách*: Quản trị viên cần đọc trọn vẹn tên game để duyệt chính xác.
+
+---
+
 ### ISSUE-107: Bẫy Tự Động Điền Giá Trị Mặc Định Bịa Đặt ("Roblox", Hướng Dẫn Giả, Icon 404) Khi Thiếu Metadata Game (Fabricated Defaults & 404 Icon Trap in Game Ingestion)
 - **Triệu chứng**:
   - Khi bot ngoài hoặc quản trị viên tạo game mới vào Hàng Chờ Duyệt (`queue_game`, `add_crawler_pending_game`, hoặc `autoQueueNewGame`) mà không truyền đầy đủ metadata (`developer`, `category`, `platform`, `description`, `instructions`, `iconUrl`):
