@@ -781,7 +781,7 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
         // Tự động đối chiếu với wcg_admin_games_v5 nếu bảng games D1 còn giữ văn mẫu Avatar cũ
         if (currentInstructions.includes('Avatar nhân vật')) {
           try {
-            const rawGamesSetting = await env.DB.prepare("SELECT value FROM settings WHERE key = 'wcg_admin_games_v5' LIMIT 1").first<any>().catch(() => null);
+            const rawGamesSetting = await env.DB.prepare("SELECT value FROM system_settings WHERE key = 'wcg_admin_games_v5' LIMIT 1").first<any>().catch(() => null);
             if (rawGamesSetting?.value) {
               const list = JSON.parse(rawGamesSetting.value);
               if (Array.isArray(list)) {

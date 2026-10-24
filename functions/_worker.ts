@@ -670,7 +670,7 @@ async function renderSeoHtml(
         let currentInst = game?.instructions || '';
         let currentRedeem = game?.redeem_url || '';
         if (game && (!currentInst || currentInst.includes('Avatar nhân vật'))) {
-          const rawGamesSetting = await env.DB.prepare("SELECT value FROM settings WHERE key = 'wcg_admin_games_v5' LIMIT 1").first<any>().catch(() => null);
+          const rawGamesSetting = await env.DB.prepare("SELECT value FROM system_settings WHERE key = 'wcg_admin_games_v5' LIMIT 1").first<any>().catch(() => null);
           if (rawGamesSetting?.value) {
             const list = JSON.parse(rawGamesSetting.value);
             if (Array.isArray(list)) {
@@ -835,9 +835,9 @@ async function renderSeoHtml(
     let article: any = null;
     if (newsSlug && env.DB) {
       try {
-        const stmt = env.DB.prepare("SELECT value FROM settings WHERE key = 'wcg_news_articles_v1' LIMIT 1");
+        const stmt = env.DB.prepare("SELECT value FROM system_settings WHERE key = 'wcg_news_articles_v1' LIMIT 1");
         const row: any = await stmt.first();
-        const delStmt = env.DB.prepare("SELECT value FROM settings WHERE key = 'wcg_deleted_news_articles_v1' LIMIT 1");
+        const delStmt = env.DB.prepare("SELECT value FROM system_settings WHERE key = 'wcg_deleted_news_articles_v1' LIMIT 1");
         const delRow: any = await delStmt.first();
         const delSet = new Set(delRow?.value ? JSON.parse(delRow.value) : []);
 
@@ -879,7 +879,7 @@ async function renderSeoHtml(
       // 1. Thử lấy từ Cloudflare D1
       if (env.DB) {
         try {
-          const stmt = env.DB.prepare("SELECT value FROM settings WHERE key = 'wcg_admin_giveaways_v4' LIMIT 1");
+          const stmt = env.DB.prepare("SELECT value FROM system_settings WHERE key = 'wcg_admin_giveaways_v4' LIMIT 1");
           const row: any = await stmt.first();
           if (row?.value) {
             const list = JSON.parse(row.value);

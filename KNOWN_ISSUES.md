@@ -10,6 +10,22 @@
 
 ## 1. DANH MỤC LỖI & CÁC BẪY ĐÃ THẤT BẠI (DO NOT REPEAT)
 
+### ISSUE-103: Bẫy Sai Tên Bảng SQL D1 (Truy Vấn Bảng `settings` Không Tồn Tại Thay Vì `system_settings`) & Bẫy Chữa Theo Lượt Truy Cập Thay Vì Đồng Bộ Cưỡng Bức Toàn Bộ Catalog (D1 Non-existent Settings Table Trap & Full Catalog Forced Sync)
+- **Triệu chứng**:
+  - Khi API cần đối chiếu hoặc đồng bộ dự phòng giữa kho cài đặt JSON blob (`wcg_admin_games_v5`, `wcg_news_articles_v1`, `wcg_admin_giveaways_v4`) và các bảng SQL D1, câu lệnh truy vấn luôn trả về `null` hoặc thất bại âm thầm.
+  - Các tựa game trong catalog chỉ được chữa lẻ tẻ khi có request truy cập thay vì được đồng bộ đồng loạt 100% trên toàn bộ cơ sở dữ liệu.
+- **Nguyên nhân gốc rễ**:
+  - Bảng lưu trữ cấu hình hệ thống trong D1 được khởi tạo và quản lý trong `functions/services/d1_service.ts` với tên gọi chính thức là `system_settings`.
+  - Một số file (`functions/api/games.ts`, `functions/_worker.ts`, `functions/services/telegram_service.ts`) lại viết truy vấn SQL trực tiếp `SELECT value FROM settings ...`. Do SQLite D1 không có bảng tên `settings`, truy vấn luôn ném lỗi `no such table: settings` và bị khối `.catch(() => null)` dập tắt, dẫn đến dữ liệu không thể tự phục hồi.
+- **Giải pháp chuẩn đã kiểm chứng**:
+  - Chuẩn hóa toàn bộ câu truy vấn SQL đọc/ghi cấu hình trong codebase trỏ chính xác về bảng `system_settings` (hoặc thông qua hàm `getSettingD1` / `getMultipleSettingsD1` trong `d1_service.ts`).
+  - Sử dụng action `sync_all_instructions_to_d1` của API Crawler Ingest để thực thi đồng bộ cưỡng bức toàn bộ 565 tựa game từ `wcg_admin_games_v5` vào bảng SQL `games` D1 theo lô 50 bản ghi.
+- ⛔ **CÁCH SỬA ĐÃ THẤT BẠI - TUYỆT ĐỐI KHÔNG LẶP LẠI**:
+  - ❌ *Không viết câu lệnh SQL trực tiếp `FROM settings`*: Luôn kiểm tra schema `d1_service.ts` để dùng đúng tên bảng `system_settings`.
+  - ❌ *Không chỉ trông cậy vào cơ chế chữa lẻ tẻ theo từng request*: Với các đợt phát hành hoặc cập nhật hàng loạt, luôn thực thi đồng bộ cưỡng bức toàn bộ catalog để đảm bảo tính nhất quán dữ liệu 100%.
+
+---
+
 ### ISSUE-102: Bẫy Đặt `overflow: hidden` và `max-height` Trên Header Khiến Các Menu Thả Xuống (Dropdowns) Bị Cắt Bỏ & Che Khuất (Header Overflow Hidden Dropdown Clipping Trap)
 - **Triệu chứng**:
   - Khi người dùng nhấp vào avatar nhân vật trên thanh header (`codegame.shop`), menu thả xuống hiển thị thông tin nhân vật, số dư ví, tủ game, nạp code, đổi ảnh đại diện bị che khuất / cắt bỏ (clip), chỉ nhìn thấy một phần nhỏ hoặc không thấy nội dung. Menu ngôn ngữ `LanguageSelector` cũng gặp tình trạng tương tự.

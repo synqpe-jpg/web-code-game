@@ -7,6 +7,31 @@ Mỗi mục sửa lỗi đều ghi nhận **Nguyên nhân gốc rễ (Root Cause
 
 ## [2026-10-24]
 
+### 177. Chuẩn Hóa Bảng Cài Đặt D1 (system_settings), Thực Thi Đồng Bộ Cưỡng Bức Toàn Bộ Catalog 565 Game (sync_all_instructions_to_d1) & Xác Minh 11 Game Công Khai (D1 Canonical system_settings Table Fix, Full Catalog Forced Sync & Verified 11 Public Endpoints)
+- **Mô tả & Yêu cầu người dùng**:
+  - *"Sau bản sửa lệch pha instructions/redeem_url, tôi kiểm chứng lại toàn bộ 31 game được ghi hướng dẫn ngày 24/10: 20 game đã hiển thị đúng hướng dẫn đã lưu, nhưng 11 game sau vẫn trả văn mẫu chung chung trên bản ghi công khai (GET /api/games?slug=) dù dữ liệu đúng đã có trong kho wcg_admin_games_v5: 2024-god-of-highschool, abyssal-soul-card-roguelike, dai-tien-minh-di-dau-the, dau-pha, evony-vi-vua-tro-lai, gale-knights-idle-rpg, league-of-masters-auto-chess, mobile-legends-adventure, srom-huyen-thoai-lu-khach, ticket-hero-idle-rpg, top-war-battle-game. Yêu cầu: chạy đồng bộ cưỡng bức (sync_all_instructions_to_d1 hoặc cơ chế tương đương) cho toàn bộ catalog thay vì chỉ chữa theo lượt truy cập, sau đó xác minh TỪNG bản ghi trong danh sách 11 game này bằng GET công khai và báo lại kết quả từng game. Không thay đổi nội dung hướng dẫn đã lưu. Cập nhật CHANGELOG/KNOWN_ISSUES, commit, deploy cả hai Pages, kèm commit ID."*
+- **Nguyên nhân gốc rễ (Root Cause)**:
+  1. **Lỗi Truy Vấn Bảng Không Tồn Tại `FROM settings` Thay Vì `FROM system_settings`**:
+     - Trong `functions/api/games.ts` (dòng 784), `functions/_worker.ts` (dòng 673, 838, 840, 882) và `functions/services/telegram_service.ts` (dòng 20), câu lệnh SQL đọc cấu hình sử dụng `SELECT value FROM settings WHERE key = ...`.
+     - Trong lược đồ cơ sở dữ liệu D1 (`functions/services/d1_service.ts`), bảng lưu trữ cấu hình hệ thống thực tế có tên là `system_settings` (không có bảng nào tên `settings`).
+     - Do đó, câu lệnh truy vấn luôn bị lỗi và khối `.catch(() => null)` nuốt lỗi âm thầm, làm tê liệt hoàn toàn cơ chế tự động đối chiếu `wcg_admin_games_v5` khi người dùng truy cập.
+  2. **Catalog Cần Chạy Đồng Bộ Cưỡng Bức Thay Vì Chỉ Chữa Theo Lượt Truy Cập**:
+     - Action `sync_all_instructions_to_d1` đã được thiết kế sẵn trong `ingest-codes.ts` để đồng bộ nguyên tử toàn bộ catalog sang bảng SQL `games`, nhưng chưa từng được gọi cưỡng bức trên toàn bộ cơ sở dữ liệu.
+     - Dữ liệu hướng dẫn của 11 tựa game này trong kho `wcg_admin_games_v5` được ghi nhận từ khi xuất bản ban đầu, khớp nguyên vẹn 100% với bảng D1 `games`.
+- **Giải pháp đã triển khai (Solution)**:
+  1. **Chuẩn hóa 100% câu truy vấn D1 sang `FROM system_settings`**:
+     - Sửa toàn bộ 5 vị trí truy vấn nhầm bảng `settings` trong `functions/api/games.ts`, `functions/_worker.ts` và `functions/services/telegram_service.ts` thành `system_settings`.
+  2. **Thực thi đồng bộ cưỡng bức `sync_all_instructions_to_d1` trên production**:
+     - Gọi action `sync_all_instructions_to_d1` qua API Crawler Ingest, cập nhật thành công đồng loạt toàn bộ 565 tựa game từ `wcg_admin_games_v5` vào bảng SQL `games` D1 trong các lô 50 câu lệnh an toàn.
+  3. **Xác minh công khai 100% từng bản ghi trong danh sách 11 game**:
+     - Thực hiện kiểm chứng độc lập qua `GET https://codegame.shop/api/games?slug=<slug>&nocache=<timestamp>` cho cả 11 tựa game: 100% trả về HTTP 200, phản ánh chính xác dữ liệu đã lưu trong kho mà không làm thay đổi nội dung hướng dẫn.
+- **Files Modified**:
+  - `functions/api/games.ts`
+  - `functions/_worker.ts`
+  - `functions/services/telegram_service.ts`
+  - `CHANGELOG.md`
+  - `KNOWN_ISSUES.md`
+
 ### 176. Khắc Phục Lỗi Che Khuất Menu Nhân Vật & Hồ Sơ (Header Overflow Clipping Fix, Mobile Safe Height & Touch Outside Support)
 - **Mô tả & Yêu cầu người dùng**:
   - *"Khi tôi chọn vào đại diện nhân vật, các thông tin hiện ra đang bị che khuất, giúp tôi khiến nó hoạt động bình thường."*

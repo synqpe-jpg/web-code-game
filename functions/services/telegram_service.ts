@@ -17,7 +17,7 @@ async function getTelegramCredentials(env: TelegramEnv): Promise<{ botToken: str
 
   if (!botToken && env.DB) {
     try {
-      const stmt = env.DB.prepare("SELECT value FROM settings WHERE key = 'wcg_news_schedule_config_v1' LIMIT 1");
+      const stmt = env.DB.prepare("SELECT value FROM system_settings WHERE key = 'wcg_news_schedule_config_v1' LIMIT 1");
       const row: any = await stmt.first();
       if (row?.value) {
         const cfg = typeof row.value === 'string' ? JSON.parse(row.value) : row.value;
