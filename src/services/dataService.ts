@@ -15,7 +15,7 @@ import type {
 } from '../types/game';
 import { DEFAULT_UPCOMING_GAMES } from '../types/game';
 import { getUpcomingGameIconUrl } from '../utils/upcomingGameIconUtils';
-import { smartVietnameseMatch, calculateGameSearchScore } from '../utils/textUtils';
+import { smartVietnameseMatch, calculateGameSearchScore, matchGameSearch } from '../utils/textUtils';
 import { isCodeExpired, parseExpirationDate } from '../utils/codeUtils';
 
 import { DEFAULT_STORE_PRODUCTS, DEFAULT_UTILITY_PRODUCTS, DEFAULT_GIVEAWAYS } from '../data/seedData';
@@ -1341,26 +1341,27 @@ class DataService {
 
     let list = this.games;
 
-    // 1. Smart Vietnamese Non-accent / Diacritic Search + Relevance Engine + Fuse.js
+    // 1. Smart Vietnamese Non-accent / Diacritic Search + Relevance Engine
     const searchScores = new Map<string, number>();
     if (filter.search.trim()) {
       const q = filter.search.trim();
       const scored = list
         .map((g) => {
           const scoreRes = calculateGameSearchScore(g, q);
-          if (scoreRes.score > 0) {
-            searchScores.set(g.slug, scoreRes.score);
+          const isMatch = scoreRes.score > 0 || matchGameSearch(g, q);
+          const score = isMatch ? (scoreRes.score > 0 ? scoreRes.score : 5000) : 0;
+          if (score > 0) {
+            searchScores.set(g.slug, score);
           }
-          return { game: g, score: scoreRes.score };
+          return { game: g, score };
         })
         .filter((item) => item.score > 0)
         .sort((a, b) => b.score - a.score);
 
       if (scored.length > 0) {
         list = scored.map((item) => item.game);
-      } else if (this.fuseInstance) {
-        const searchResults = this.fuseInstance.search(q);
-        list = searchResults.map((r) => r.item);
+      } else {
+        list = [];
       }
     }
 
@@ -1490,8 +1491,10 @@ class DataService {
     // 1. Score all games by relevance
     for (const game of this.games) {
       const scoreRes = calculateGameSearchScore(game, q);
-      if (scoreRes.score > 0) {
-        scoredGames.push({ game, score: scoreRes.score });
+      const isMatch = scoreRes.score > 0 || matchGameSearch(game, q);
+      const score = isMatch ? (scoreRes.score > 0 ? scoreRes.score : 5000) : 0;
+      if (score > 0) {
+        scoredGames.push({ game, score });
       }
 
       // 2. Search giftcodes within game

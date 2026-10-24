@@ -10,11 +10,27 @@ export function stripAccents(str: string): string {
     .trim();
 }
 
+// Check if a string contains any Vietnamese accented characters (diacritics)
+export function hasVietnameseDiacritics(str: string): boolean {
+  if (!str) return false;
+  return /[àáảãạăằắẳẵặâầấẩẫậèéẻẽẹêềếểễệìíỉĩịòóỏõọôồốổỗộơờớởỡợùúủũụưừứửữựỳýỷỹỵđĐ]/i.test(str);
+}
+
 // Normalize Vietnamese string: removes accents, converts non-alphanumeric to spaces, trims duplicate spaces
 export function normalizeVietnamese(str: string): string {
   if (!str) return '';
   return stripAccents(str)
     .replace(/[^a-z0-9]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+// Normalize text for search: removes accents, converts hyphens/separators/non-alphanumeric to spaces, trims duplicate spaces
+export function normalizeSearchText(str: string): string {
+  if (!str) return '';
+  return stripAccents(str)
+    .replace(/[-_]+/g, ' ')
+    .replace(/[^a-z0-9\s]/g, ' ')
     .replace(/\s+/g, ' ')
     .trim();
 }
@@ -100,19 +116,129 @@ export interface GameSearchScoreResult {
 }
 
 /**
+ * Core Shared Game Search Matcher:
+ * Single Source of Truth used across:
+ * 1. Autocomplete Dropdown (SearchAutocomplete)
+ * 2. Main Game Catalog Grid (App.tsx / dataService.ts)
+ * 3. Public API /api/games?search= and /api/games?autocomplete=1 (functions/api/games.ts)
+ */
+export function matchGameSearch(
+  game: {
+    name?: string | null;
+    slug?: string | null;
+    publisher?: string | null;
+    category?: string | null;
+    description?: string | null;
+  },
+  searchQuery: string
+): boolean {
+  if (!searchQuery || !searchQuery.trim()) return true;
+
+  const rawQuery = searchQuery.trim().toLowerCase();
+  const queryNorm = normalizeSearchText(rawQuery);
+  if (!queryNorm) return true;
+
+  const rawName = (game.name || '').trim().toLowerCase();
+  const rawSlug = (game.slug || '').trim().toLowerCase();
+  const rawPublisher = (game.publisher || '').trim().toLowerCase();
+
+  // If query contains explicit Vietnamese diacritics (e.g. 'Thực Thần Ký' or 'Kỳ Tích Trở Lại'):
+  // MUST match with diacritics respected! If diacritics conflict (e.g. 'Thực' vs 'Thức'), it must NOT match.
+  if (hasVietnameseDiacritics(rawQuery)) {
+    const cleanRawQ = rawQuery.replace(/[-_]+/g, ' ');
+    const cleanRawName = rawName.replace(/[-_]+/g, ' ');
+    const cleanRawSlug = rawSlug.replace(/[-_]+/g, ' ');
+    const cleanRawPub = rawPublisher.replace(/[-_]+/g, ' ');
+
+    if (
+      cleanRawName.includes(cleanRawQ) ||
+      cleanRawSlug.includes(cleanRawQ) ||
+      cleanRawPub.includes(cleanRawQ)
+    ) {
+      return true;
+    }
+
+    // Also check token-by-token if all accented words match
+    const qTokens = cleanRawQ.split(/\s+/).filter(Boolean);
+    if (qTokens.length > 1) {
+      const nameTokens = cleanRawName.split(/\s+/).filter(Boolean);
+      const allTokensInName = qTokens.every(
+        (qTok) => nameTokens.some((nTok) => nTok.startsWith(qTok) || nTok === qTok)
+      );
+      if (allTokensInName) return true;
+    }
+
+    return false;
+  }
+
+  // If query has NO diacritics (e.g. 'thuc than ky', 'ky tich tro lai', 'genshin', 'thuc-than-ky'):
+  // Compare normalized versions (diacritics stripped, hyphens and spaces equivalent)
+  const nameNorm = normalizeSearchText(game.name || '');
+  const slugNorm = normalizeSearchText(game.slug || '');
+  const pubNorm = normalizeSearchText(game.publisher || '');
+
+  // 1. Exact match
+  if (nameNorm === queryNorm || slugNorm === queryNorm) return true;
+
+  // 2. Substring match
+  if (nameNorm.includes(queryNorm) || slugNorm.includes(queryNorm) || pubNorm.includes(queryNorm)) {
+    return true;
+  }
+
+  // 3. Compact text match (spaces stripped: e.g. 'thucthanky' matches 'thuc than ky')
+  const qCompact = queryNorm.replace(/\s+/g, '');
+  if (qCompact.length >= 3) {
+    const nameCompact = nameNorm.replace(/\s+/g, '');
+    const slugCompact = slugNorm.replace(/\s+/g, '');
+    if (nameCompact.includes(qCompact) || slugCompact.includes(qCompact)) {
+      return true;
+    }
+  }
+
+  // 4. Token-by-token all-words match
+  const qWords = queryNorm.split(/\s+/).filter(Boolean);
+  if (qWords.length > 1) {
+    const nameWords = nameNorm.split(/\s+/).filter(Boolean);
+    const allWordsPresent = qWords.every(
+      (qw) => nameWords.some((nw) => nw.startsWith(qw) || nw === qw)
+    );
+    if (allWordsPresent) return true;
+  }
+
+  // 5. Gaming Acronym / Initials match (e.g. "lq", "vltk", "hsr", "htd")
+  if (qCompact.length >= 2 && qCompact.length <= 6) {
+    const mapped = GAME_ACRONYM_MAP[qCompact];
+    if (mapped) {
+      for (const phrase of mapped) {
+        const normPhrase = normalizeSearchText(phrase);
+        if (nameNorm.includes(normPhrase) || slugNorm.includes(normPhrase)) {
+          return true;
+        }
+      }
+    }
+    const initials = nameNorm.split(/\s+/).filter(Boolean).map((w) => w[0]).join('');
+    if (initials === qCompact || initials.startsWith(qCompact)) {
+      return true;
+    }
+  }
+
+  return false;
+}
+
+/**
  * Intelligent game search scoring & relevance engine:
  * Ranks games so that direct name matches appear first, followed by prefixes,
  * acronyms, word-matches, publisher matches, and lastly category/description matches.
  */
 export function calculateGameSearchScore(
   game: {
-    name?: string;
-    slug?: string;
-    publisher?: string;
-    category?: string;
-    description?: string;
-    is_hot?: boolean;
-    is_featured?: boolean;
+    name?: string | null;
+    slug?: string | null;
+    publisher?: string | null;
+    category?: string | null;
+    description?: string | null;
+    is_hot?: boolean | number;
+    is_featured?: boolean | number;
     codes_count?: number;
   },
   searchQuery: string
@@ -122,23 +248,53 @@ export function calculateGameSearchScore(
   }
 
   const rawQuery = searchQuery.trim().toLowerCase();
-  const queryNorm = normalizeVietnamese(rawQuery);
+  const queryNorm = normalizeSearchText(rawQuery);
   const queryCompact = queryNorm.replace(/\s+/g, '');
   if (!queryNorm && !queryCompact) return { score: 0, matchType: 'none' };
 
   const nameRaw = (game.name || '').trim().toLowerCase();
-  const nameNorm = normalizeVietnamese(game.name || '');
+  const nameNorm = normalizeSearchText(game.name || '');
   const nameCompact = nameNorm.replace(/\s+/g, '');
 
   const slugRaw = (game.slug || '').trim().toLowerCase();
-  const slugNorm = normalizeVietnamese(slugRaw);
+  const slugNorm = normalizeSearchText(slugRaw);
   const slugCompact = slugNorm.replace(/[\s-]+/g, '');
 
   const publisherRaw = (game.publisher || '').trim().toLowerCase();
-  const publisherNorm = normalizeVietnamese(game.publisher || '');
+  const publisherNorm = normalizeSearchText(game.publisher || '');
 
   const categoryRaw = (game.category || '').trim().toLowerCase();
-  const categoryNorm = normalizeVietnamese(game.category || '');
+  const categoryNorm = normalizeSearchText(game.category || '');
+
+  // Guard: If query contains explicit Vietnamese diacritics, verify accented compatibility!
+  // If user typed "Thực Thần Ký", it will NOT match "Thức Thần Ký" because "Thực" != "Thức".
+  if (hasVietnameseDiacritics(rawQuery)) {
+    const cleanRawQ = rawQuery.replace(/[-_]+/g, ' ');
+    const cleanRawName = nameRaw.replace(/[-_]+/g, ' ');
+    const cleanRawSlug = slugRaw.replace(/[-_]+/g, ' ');
+    const cleanRawPub = publisherRaw.replace(/[-_]+/g, ' ');
+
+    let hasAccentedMatch = false;
+    if (cleanRawName === cleanRawQ) {
+      hasAccentedMatch = true;
+    } else if (cleanRawName.startsWith(cleanRawQ)) {
+      hasAccentedMatch = true;
+    } else if (cleanRawName.includes(cleanRawQ) || cleanRawSlug.includes(cleanRawQ) || cleanRawPub.includes(cleanRawQ)) {
+      hasAccentedMatch = true;
+    } else {
+      const qTokens = cleanRawQ.split(/\s+/).filter(Boolean);
+      if (qTokens.length > 1) {
+        const nameTokens = cleanRawName.split(/\s+/).filter(Boolean);
+        if (qTokens.every((qTok) => nameTokens.some((nTok) => nTok.startsWith(qTok) || nTok === qTok))) {
+          hasAccentedMatch = true;
+        }
+      }
+    }
+
+    if (!hasAccentedMatch) {
+      return { score: 0, matchType: 'none' };
+    }
+  }
 
   let score = 0;
   let matchType: GameSearchScoreResult['matchType'] = 'none';

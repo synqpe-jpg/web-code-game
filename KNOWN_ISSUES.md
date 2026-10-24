@@ -10,6 +10,24 @@
 
 ## 1. DANH MỤC LỖI & CÁC BẪY ĐÃ THẤT BẠI (DO NOT REPEAT)
 
+### ISSUE-109: Bẫy Lệch Pha Tìm Kiếm Giữa Dropdown Gợi Ý & Lưới Game/API Do SQLite SQL LIKE Không Chuẩn Hóa Tiếng Việt (Search Desync Trap Between Client In-Memory & Server SQLite LIKE)
+- **Triệu chứng**:
+  - Gõ từ khóa không dấu như "Ky Tich Tro Lai" hoặc "Thuc Than Ky": Dropdown gợi ý trên trang chủ hiển thị đúng game ("Kỳ Tích Trở Lại", "Thức Thần Ký"), nhưng khi nhìn xuống lưới game chính hoặc gọi API `/api/games?search=` thì nhận về `total: 0` và thông báo "Không tìm thấy tựa game nào phù hợp".
+  - Nhấn nút "Xem tất cả kết quả" hoặc "Tìm kiếm" làm dropdown đóng lại nhưng lưới game vẫn trống trơn.
+- **Nguyên nhân gốc rễ**:
+  1. Dropdown gợi ý chạy trên mảng JavaScript in-memory có bóc tách dấu (`stripAccents`), trong khi API `/api/games` trên Cloudflare Worker chạy câu lệnh SQL thô: `WHERE (name LIKE ? OR slug LIKE ? OR publisher LIKE ?)`. SQLite `LIKE` so sánh theo byte ASCII, không hiểu dấu tiếng Việt (`'y' != 'ỳ'`, `'i' != 'í'`), và khoảng trắng không khớp gạch nối slug.
+  2. Nút "Xem tất cả kết quả" không truyền ngay `searchQuery` vừa nhập vào `filter.search` mà phụ thuộc vào debounce 300ms.
+- **Giải pháp chuẩn đã kiểm chứng**:
+  - Độc bản hóa logic tìm kiếm trong `src/utils/textUtils.ts` (`matchGameSearch` và `calculateGameSearchScore`), dùng chung cho cả 3 nơi: dropdown gợi ý, bộ lọc lưới game, và API `/api/games`.
+  - Trên API Cloudflare Worker: Khi có `searchQuery`, truy vấn các game active từ D1 và áp dụng bộ lọc `matchGameSearch` trong bộ nhớ Worker (sub-millisecond execution).
+  - Tích hợp Conflicting Diacritics Guard: Khi người dùng gõ từ khóa có dấu rõ ràng (`Thực Thần Ký`), kiểm tra dấu nghiêm ngặt để trả về đúng 0 kết quả (không đoán mò hay nhầm sang `Thức Thần Ký`).
+  - Nút "Xem tất cả kết quả" và nút "Tìm kiếm" gọi `handleExploreOrSubmitSearch(searchQuery)` hủy debounce, gán ngay truy vấn vào bộ lọc, và cuộn mượt xuống lưới game.
+- ⛔ **CÁCH SỬA ĐÃ THẤT BẠI - TUYỆT ĐỐI KHÔNG LẶP LẠI**:
+  - ❌ *Không dùng SQL `LIKE` thô trên D1 cho tìm kiếm tiếng Việt*: SQLite không hỗ trợ NFD diacritics stripping. Phải dùng bộ lọc in-memory `matchGameSearch` trên tập candidate active games.
+  - ❌ *Không dùng fuzzy search (Fuse.js) đoán mò tên game khi người dùng gõ sai dấu*: Truy vấn có dấu sai ("Thực Thần Ký") phải trả về 0 kết quả theo đúng nguyên tắc bảo toàn tính chính xác.
+
+---
+
 ### ISSUE-108: Bẫy Trình Bày Hàng Chờ Duyệt Chỉ Dưới Dạng Lưới Thẻ Gây Cụt Tên Game & Thiếu Trường Ngày Phát Hành Trực Quan (Truncated Card Grid View Trap & Missing Prominent Release Date Display)
 - **Triệu chứng**:
   - Khi hàng chờ duyệt crawler có nhiều game (63–69 game), chế độ hiển thị dạng Lưới Thẻ 3 cột (Grid View) làm tiêu đề game bị cắt ngắn (`truncate`, gây hiện tượng cụt chữ như "To...", "Tr...", "Ki..."). Quản trị viên không thể nhận biết tên game nếu không rê chuột vào từng thẻ.

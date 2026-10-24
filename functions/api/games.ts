@@ -55,315 +55,28 @@ const CORS_HEADERS = {
   'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-Sync-Key, X-Requested-With',
 };
 
-// Vietnamese text normalization utilities
-export function stripAccents(str: string): string {
-  if (!str) return '';
-  return str
-    .normalize('NFD')
-    .replace(/[\u0300-\u036f]/g, '')
-    .replace(/đ/g, 'd')
-    .replace(/Đ/g, 'D')
-    .toLowerCase()
-    .trim();
-}
+// Shared Vietnamese text normalization & search matching engine
+import {
+  stripAccents,
+  normalizeVietnamese,
+  normalizeSearchText,
+  hasVietnameseDiacritics,
+  matchGameSearch,
+  calculateGameSearchScore,
+  smartVietnameseMatch,
+  GAME_ACRONYM_MAP,
+} from '../../src/utils/textUtils';
 
-export function normalizeVietnamese(str: string): string {
-  if (!str) return '';
-  return stripAccents(str)
-    .replace(/[^a-z0-9]/g, ' ')
-    .replace(/\s+/g, ' ')
-    .trim();
-}
-
-export const GAME_ACRONYM_MAP: Record<string, string[]> = {
-  lq: ['lien quan', 'lien quan mobile', 'arena of valor', 'aov'],
-  lqmb: ['lien quan mobile', 'lien quan'],
-  lqm: ['lien quan mobile', 'lien quan'],
-  hsr: ['honkai star rail', 'star rail'],
-  hi3: ['honkai impact 3', 'honkai impact 3rd'],
-  gi: ['genshin impact', 'genshin'],
-  ff: ['free fire', 'garena free fire'],
-  ffmax: ['free fire max'],
-  vltk: ['vo lam truyen ky'],
-  vltkm: ['vo lam truyen ky mobile'],
-  vltk1: ['vo lam truyen ky 1'],
-  lmht: ['lien minh huyen thoai', 'league of legends', 'lol'],
-  lol: ['lien minh huyen thoai', 'league of legends'],
-  tft: ['dau truong chan ly', 'teamfight tactics', 'dtcl'],
-  dtcl: ['dau truong chan ly', 'teamfight tactics', 'tft'],
-  fo4: ['fifa online 4', 'ea sports fc online', 'fc online'],
-  fc: ['ea sports fc online', 'fc online', 'fifa online 4'],
-  pubg: ['pubg mobile', 'pubg'],
-  pubgm: ['pubg mobile'],
-  nr: ['ngoc rong online', 'chu be rong', 'ngoc rong'],
-  nro: ['ngoc rong online', 'ngoc rong'],
-  htd: ['hac tay du chuong cam', 'hac tay du'],
-  tlbb: ['thien long bat bo'],
-  kt: ['kiem the'],
-  ktm: ['kiem the mobile'],
-  td: ['tay du'],
-  tq: ['tam quoc'],
-  op: ['outerplane', 'one piece'],
-  bns: ['blade and soul'],
-  dnf: ['dungeon and fighter', 'dungeon fighter'],
-  zzz: ['zenless zone zero'],
-  ww: ['wuthering waves'],
-  mc: ['minecraft'],
-  roblox: ['roblox'],
+export {
+  stripAccents,
+  normalizeVietnamese,
+  normalizeSearchText,
+  hasVietnameseDiacritics,
+  matchGameSearch,
+  calculateGameSearchScore,
+  smartVietnameseMatch,
+  GAME_ACRONYM_MAP,
 };
-
-export function smartVietnameseMatch(
-  targets: (string | number | null | undefined) | (string | number | null | undefined)[],
-  searchQuery: string
-): boolean {
-  if (!searchQuery || !searchQuery.trim()) return true;
-
-  const rawQuery = searchQuery.trim();
-  const queryNorm = normalizeVietnamese(rawQuery);
-  if (!queryNorm) return true;
-
-  const targetArr = Array.isArray(targets) ? targets : [targets];
-  const validStrings = targetArr
-    .filter((t) => t !== null && t !== undefined && t !== '')
-    .map((t) => String(t));
-
-  if (validStrings.length === 0) return false;
-
-  // 1. Direct raw check
-  const rawQueryLower = rawQuery.toLowerCase();
-  for (const raw of validStrings) {
-    if (raw.toLowerCase().includes(rawQueryLower)) return true;
-  }
-
-  // 2. Normalized full text check
-  const targetNorm = validStrings.map((s) => normalizeVietnamese(s)).join(' ');
-  if (targetNorm.includes(queryNorm)) return true;
-
-  // 3. Compact text check (no spaces, dashes, or symbols)
-  const targetCompact = targetNorm.replace(/\s+/g, '');
-  const queryCompact = queryNorm.replace(/\s+/g, '');
-  if (targetCompact.includes(queryCompact)) return true;
-
-  // 4. Multi-token match: requires whole words or word prefixes to prevent false positive substrings
-  const queryWords = queryNorm.split(/\s+/).filter(Boolean);
-  if (queryWords.length > 1) {
-    const targetWords = targetNorm.split(/\s+/).filter(Boolean);
-    const targetWordSet = new Set(targetWords);
-    const allWordsPresent = queryWords.every(
-      (word) => targetWordSet.has(word) || targetWords.some((tw) => tw.startsWith(word))
-    );
-    if (allWordsPresent) return true;
-  }
-
-  // 5. Gaming Acronym / Nickname expansion
-  const queryKey = queryCompact.toLowerCase();
-  const expansions = GAME_ACRONYM_MAP[queryKey];
-  if (expansions && expansions.length > 0) {
-    for (const exp of expansions) {
-      const expNorm = normalizeVietnamese(exp);
-      if (targetNorm.includes(expNorm)) return true;
-      const expCompact = expNorm.replace(/\s+/g, '');
-      if (targetCompact.includes(expCompact)) return true;
-    }
-  }
-
-  // 6. Initials Matching (exact match or prefix match on whole initials)
-  const targetWords = targetNorm.split(/\s+/).filter(Boolean);
-  const initials = targetWords.map((w) => w[0]).join('');
-  if (initials === queryCompact || initials.startsWith(queryCompact)) return true;
-
-  return false;
-}
-
-export function calculateGameSearchScore(
-  game: {
-    name?: string;
-    slug?: string;
-    publisher?: string;
-    category?: string;
-    description?: string;
-    is_hot?: boolean | number;
-    is_featured?: boolean | number;
-    codes_count?: number;
-  },
-  searchQuery: string
-): { score: number; matchType: string } {
-  if (!searchQuery || !searchQuery.trim()) {
-    return { score: 0, matchType: 'none' };
-  }
-
-  const rawQuery = searchQuery.trim().toLowerCase();
-  const queryNorm = normalizeVietnamese(rawQuery);
-  const queryCompact = queryNorm.replace(/\s+/g, '');
-  if (!queryNorm && !queryCompact) return { score: 0, matchType: 'none' };
-
-  const nameRaw = (game.name || '').trim().toLowerCase();
-  const nameNorm = normalizeVietnamese(game.name || '');
-  const nameCompact = nameNorm.replace(/\s+/g, '');
-
-  const slugRaw = (game.slug || '').trim().toLowerCase();
-  const slugNorm = normalizeVietnamese(slugRaw);
-  const slugCompact = slugNorm.replace(/\s+/g, '');
-
-  const publisherRaw = (game.publisher || '').trim().toLowerCase();
-  const publisherNorm = normalizeVietnamese(game.publisher || '');
-
-  const categoryRaw = (game.category || '').trim().toLowerCase();
-  const categoryNorm = normalizeVietnamese(game.category || '');
-
-  let score = 0;
-  let matchType = 'none';
-
-  // 1. Exact match with game name
-  if (nameRaw === rawQuery || nameNorm === queryNorm || nameCompact === queryCompact) {
-    score = 10000;
-    matchType = 'exact_name';
-  }
-  // 2. Exact match with slug
-  else if (slugRaw === rawQuery || slugNorm === queryNorm || slugCompact === queryCompact) {
-    score = 9500;
-    matchType = 'exact_slug';
-  }
-  // 3. Name starts with query
-  else if (nameNorm.startsWith(queryNorm) || nameRaw.startsWith(rawQuery) || nameCompact.startsWith(queryCompact)) {
-    score = 8500;
-    matchType = 'name_prefix';
-  }
-  // 4. Slug starts with query
-  else if (slugNorm.startsWith(queryNorm) || slugRaw.startsWith(rawQuery) || slugCompact.startsWith(queryCompact)) {
-    score = 8000;
-    matchType = 'slug_match';
-  }
-  // 5. Gaming Acronym / Abbreviation Match
-  else if (queryCompact.length >= 2 && queryCompact.length <= 6) {
-    const mapped = GAME_ACRONYM_MAP[queryCompact];
-    if (mapped) {
-      for (const phrase of mapped) {
-        const normPhrase = normalizeVietnamese(phrase);
-        if (nameNorm.includes(normPhrase) || slugNorm.includes(normPhrase)) {
-          score = 7800;
-          matchType = 'acronym';
-          break;
-        }
-      }
-    }
-    if (score === 0) {
-      const initials = nameNorm.split(/[\s\-:_]+/).filter(Boolean).map((w) => w[0]).join('');
-      if (initials === queryCompact) {
-        score = 7500;
-        matchType = 'acronym';
-      } else if (initials.startsWith(queryCompact)) {
-        score = 7000;
-        matchType = 'acronym';
-      }
-    }
-  }
-
-  // 6. Name contains query phrase (require word boundary or length >= 3 to prevent short noise like "ff" in "Offline")
-  if (score === 0) {
-    const isWordBounded =
-      nameNorm.startsWith(queryNorm + ' ') ||
-      nameNorm.includes(' ' + queryNorm + ' ') ||
-      nameNorm.endsWith(' ' + queryNorm) ||
-      nameRaw.startsWith(rawQuery + ' ') ||
-      nameRaw.includes(' ' + rawQuery + ' ') ||
-      nameRaw.endsWith(' ' + rawQuery);
-
-    if (queryNorm.length >= 3 && (nameNorm.includes(queryNorm) || nameRaw.includes(rawQuery) || nameCompact.includes(queryCompact))) {
-      score = 6800;
-      matchType = 'name_sub';
-    } else if (queryNorm.length < 3 && isWordBounded) {
-      score = 6800;
-      matchType = 'name_sub';
-    } else if (slugNorm.includes(queryNorm) || slugRaw.includes(rawQuery)) {
-      if (queryNorm.length >= 3 || slugRaw.startsWith(rawQuery + '-') || slugRaw.includes('-' + rawQuery + '-') || slugRaw.endsWith('-' + rawQuery)) {
-        score = 6500;
-        matchType = 'slug_match';
-      }
-    }
-  }
-
-  // 7. Word boundary match in name
-  if (score === 0) {
-    const wordsInName = nameNorm.split(/[\s\-:_]+/).filter(Boolean);
-    const nameWordSet = new Set(wordsInName);
-    const qTokens = queryNorm.split(' ').filter(Boolean);
-    if (qTokens.length > 1 && qTokens.every((tok) => nameWordSet.has(tok) || wordsInName.some((w) => w.startsWith(tok)))) {
-      score = 6200;
-      matchType = 'name_word';
-    } else if (wordsInName.some((w) => w === queryNorm)) {
-      score = 5500;
-      matchType = 'name_word';
-    } else if (wordsInName.some((w) => w.startsWith(queryNorm))) {
-      score = 5000;
-      matchType = 'name_word';
-    }
-  }
-
-  // 8. Secondary initials
-  if (score === 0 && queryCompact.length >= 2 && queryCompact.length <= 6) {
-    const initials = nameNorm.split(/[\s\-:_]+/).filter(Boolean).map((w) => w[0]).join('');
-    if (initials.includes(queryCompact)) {
-      score = 4000;
-      matchType = 'acronym';
-    }
-  }
-
-  // 9. Publisher match
-  if (score === 0) {
-    if (publisherRaw === rawQuery || publisherNorm === queryNorm) {
-      score = 2500;
-      matchType = 'publisher';
-    } else if (publisherNorm.startsWith(queryNorm) || publisherRaw.startsWith(rawQuery)) {
-      score = 2000;
-      matchType = 'publisher';
-    } else if (publisherNorm.includes(queryNorm) || publisherRaw.includes(rawQuery)) {
-      score = 1500;
-      matchType = 'publisher';
-    }
-  }
-
-  // 10. Category match
-  if (score === 0) {
-    if (categoryRaw === rawQuery || categoryNorm === queryNorm) {
-      score = 1000;
-      matchType = 'category';
-    } else if (categoryNorm.includes(queryNorm) || categoryRaw.includes(rawQuery)) {
-      score = 800;
-      matchType = 'category';
-    }
-  }
-
-  // 11. Description match
-  if (score === 0 && game.description) {
-    const descNorm = normalizeVietnamese(game.description);
-    if (descNorm.includes(queryNorm)) {
-      score = 1200;
-      matchType = 'description';
-    } else {
-      const qTokens = queryNorm.split(' ').filter(Boolean);
-      const descWords = descNorm.split(/[\s\-:_]+/).filter(Boolean);
-      const descWordSet = new Set(descWords);
-      if (qTokens.length > 1 && qTokens.every((tok) => descWordSet.has(tok) || descWords.some((w) => w.startsWith(tok)))) {
-        score = 800;
-        matchType = 'description';
-      }
-    }
-  }
-
-  // Quality bonuses & length penalty
-  if (score > 0) {
-    if (score >= 6000 && nameNorm) {
-      const lengthDiff = Math.max(0, nameNorm.length - queryNorm.length);
-      score -= Math.min(300, lengthDiff * 2);
-    }
-    if (game.is_hot) score += 30;
-    if (game.is_featured) score += 20;
-    if ((game.codes_count || 0) > 0) score += 50;
-  }
-
-  return { score, matchType };
-}
 
 // In-Memory Isolation Cache in Cloudflare Workers
 interface CatalogCache {
@@ -898,18 +611,13 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
 
       if (d1GamesCount >= 10) {
         const pattern = `%${q}%`;
-        const prefixPattern = `${q}%`;
 
         const [gamesRes, codesRes] = await Promise.all([
           env.DB.prepare(`
-            SELECT id, name, slug, publisher, category, icon_url, active_codes_count, total_codes_count, is_hot, is_featured
+            SELECT id, name, slug, publisher, category, icon_url, active_codes_count, total_codes_count, is_hot, is_featured, is_new
             FROM games
-            WHERE is_active = 1 AND (status IS NULL OR UPPER(status) IN ('ACTIVE', 'PUBLISHED')) AND (name LIKE ? OR slug LIKE ? OR publisher LIKE ?)
-            ORDER BY
-              CASE WHEN name LIKE ? THEN 1 WHEN name LIKE ? THEN 2 ELSE 3 END,
-              active_codes_count DESC
-            LIMIT ?
-          `).bind(pattern, pattern, pattern, q, prefixPattern, limit).all<any>().catch(() => ({ results: [] as any[] })),
+            WHERE is_active = 1 AND (status IS NULL OR UPPER(status) IN ('ACTIVE', 'PUBLISHED'))
+          `).all<any>().catch(() => ({ results: [] as any[] })),
 
           env.DB.prepare(`
             SELECT codes.code, codes.rewards, codes.status, codes.expires_at, games.slug as game_slug, games.name as game_name, games.icon_url as game_icon_url
@@ -920,12 +628,25 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
           `).bind(pattern, pattern, limit).all<any>().catch(() => ({ results: [] as any[] })),
         ]);
 
-        const topGames = (gamesRes?.results || []).map((g: any) => ({
-          ...g,
-          codes_count: Number(g.total_codes_count || g.active_codes_count || 0),
-          icon_url: g.icon_url || `/game_icons/${g.slug}.webp`,
-          codes: [],
-        }));
+        const rawList = gamesRes?.results || [];
+        const topGames = rawList
+          .map((g: any) => {
+            const scoreRes = calculateGameSearchScore(g, q);
+            const isMatch = scoreRes.score > 0 || matchGameSearch(g, q);
+            return {
+              game: g,
+              score: isMatch ? (scoreRes.score > 0 ? scoreRes.score : 5000) : 0,
+            };
+          })
+          .filter((item) => item.score > 0)
+          .sort((a, b) => b.score - a.score)
+          .slice(0, limit)
+          .map((item) => ({
+            ...item.game,
+            codes_count: Number(item.game.total_codes_count || item.game.active_codes_count || 0),
+            icon_url: item.game.icon_url || `/game_icons/${item.game.slug}.webp`,
+            codes: [],
+          }));
 
         const topCodes = (codesRes?.results || []).map((c: any) => ({
           game: {
@@ -1121,7 +842,116 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
     const sortOrderParam = (url.searchParams.get('sortOrder') || '').trim().toLowerCase();
 
     if (d1GamesCount >= 10) {
-      // 100% PURE SQL ON D1
+      // When searchQuery is present: execute unified matchGameSearch & calculateGameSearchScore
+      if (searchQuery) {
+        const whereConditions: string[] = ["is_active = 1 AND (status IS NULL OR UPPER(status) IN ('ACTIVE', 'PUBLISHED')) AND total_codes_count > 0"];
+        const bindParams: any[] = [];
+
+        if (category && category !== 'all' && category !== 'Tất cả') {
+          whereConditions.push('category = ?');
+          bindParams.push(category);
+        }
+        if (tag === 'hot') {
+          whereConditions.push('is_hot = 1');
+        } else if (tag === 'new') {
+          whereConditions.push('is_new = 1');
+        } else if (tag === 'has_codes') {
+          whereConditions.push('active_codes_count > 0');
+        }
+
+        const whereClause = `WHERE ${whereConditions.join(' AND ')}`;
+        const candidatesRes = await env.DB.prepare(`
+          SELECT
+            id, name, slug, publisher, category, platform, rating, icon_url,
+            active_codes_count, total_codes_count, last_code_at,
+            is_hot, is_new, is_featured, release_date
+          FROM games
+          ${whereClause}
+        `).bind(...bindParams).all<any>().catch(() => ({ results: [] as any[] }));
+
+        const candidates = candidatesRes?.results || [];
+
+        // Score and filter using unified shared search logic
+        const scored = candidates
+          .map((g: any) => {
+            const scoreRes = calculateGameSearchScore(g, searchQuery);
+            const isMatch = scoreRes.score > 0 || matchGameSearch(g, searchQuery);
+            const score = isMatch ? (scoreRes.score > 0 ? scoreRes.score : 5000) : 0;
+            return { game: g, score };
+          })
+          .filter((item) => item.score > 0);
+
+        // Sorting
+        if (sortParam === 'newest' || sortParam === 'release_date') {
+          scored.sort((a, b) => (b.game.release_date || '').localeCompare(a.game.release_date || ''));
+        } else if (sortParam === 'name_asc' || (sortParam === 'name' && sortOrderParam === 'asc')) {
+          scored.sort((a, b) => (a.game.name || '').localeCompare(b.game.name || ''));
+        } else if (sortParam === 'name_desc' || (sortParam === 'name' && sortOrderParam === 'desc')) {
+          scored.sort((a, b) => (b.game.name || '').localeCompare(a.game.name || ''));
+        } else if (sortParam === 'most_codes' || sortParam === 'codes_count') {
+          scored.sort((a, b) => Number(b.game.active_codes_count || 0) - Number(a.game.active_codes_count || 0));
+        } else if (sortParam === 'rating') {
+          scored.sort((a, b) => Number(b.game.rating || 0) - Number(a.game.rating || 0));
+        } else {
+          scored.sort((a, b) => {
+            if (b.score !== a.score) return b.score - a.score;
+            return Number(b.game.active_codes_count || 0) - Number(a.game.active_codes_count || 0);
+          });
+        }
+
+        const total = scored.length;
+        const totalPages = Math.max(1, Math.ceil(total / limit));
+        const safePage = Math.min(Math.max(1, page), totalPages);
+        const offset = (safePage - 1) * limit;
+
+        const rows = scored.slice(offset, offset + limit).map((item) => {
+          const r = item.game;
+          return {
+            id: String(r.id || r.slug),
+            name: String(r.name),
+            slug: String(r.slug),
+            publisher: r.publisher || 'NPH Chính Thức',
+            category: r.category || 'Game Hot',
+            platform: r.platform || 'Mobile / PC',
+            rating: typeof r.rating === 'number' ? r.rating : 4.8,
+            icon_url: r.icon_url || `/game_icons/${r.slug}.webp`,
+            active_codes_count: Number(r.active_codes_count || 0),
+            total_codes_count: Number(r.total_codes_count || 0),
+            codes_count: Number(r.total_codes_count || r.active_codes_count || 0),
+            last_code_at: r.last_code_at || null,
+            is_hot: Boolean(r.is_hot),
+            is_new: Boolean(r.is_new),
+            is_featured: Boolean(r.is_featured),
+          };
+        });
+
+        const catRes = await env.DB.prepare(
+          "SELECT DISTINCT category FROM games WHERE is_active = 1 AND (status IS NULL OR UPPER(status) IN ('ACTIVE', 'PUBLISHED')) AND total_codes_count > 0 AND category IS NOT NULL AND category != '' ORDER BY category ASC"
+        ).all<any>().catch(() => ({ results: [] as any[] }));
+        const categories = ['Tất cả', ...(catRes?.results || []).map((c: any) => c.category).filter(Boolean)];
+
+        return new Response(
+          JSON.stringify({
+            success: true,
+            page: safePage,
+            limit,
+            total,
+            totalPages,
+            hasMore: safePage < totalPages,
+            games: rows,
+            categories,
+            timestamp: new Date().toISOString(),
+          }),
+          {
+            headers: {
+              ...CORS_HEADERS,
+              'Cache-Control': 'public, max-age=60, s-maxage=120, stale-while-revalidate=600',
+            },
+          }
+        );
+      }
+
+      // 100% PURE SQL ON D1 (when no search query)
       const whereConditions: string[] = ["is_active = 1 AND (status IS NULL OR UPPER(status) IN ('ACTIVE', 'PUBLISHED')) AND total_codes_count > 0"];
       const bindParams: any[] = [];
 
@@ -1129,13 +959,6 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
       if (category && category !== 'all' && category !== 'Tất cả') {
         whereConditions.push('category = ?');
         bindParams.push(category);
-      }
-
-      // Search filter
-      if (searchQuery) {
-        whereConditions.push('(name LIKE ? OR slug LIKE ? OR publisher LIKE ?)');
-        const searchPattern = `%${searchQuery}%`;
-        bindParams.push(searchPattern, searchPattern, searchPattern);
       }
 
       // Tag filter

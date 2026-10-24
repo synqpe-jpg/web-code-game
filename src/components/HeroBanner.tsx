@@ -13,7 +13,7 @@ interface HeroBannerProps {
   onSelectGame?: (game: GameItem) => void;
   onShowToast?: (title: string, message?: string, type?: 'success' | 'error' | 'info') => void;
   onSelectQuickTag: (tag: string) => void;
-  onExploreClick?: () => void;
+  onExploreClick?: (q?: string) => void;
   isFloatingActive?: boolean;
 }
 
@@ -118,12 +118,12 @@ export const HeroBanner: React.FC<HeroBannerProps> = ({
                 onSelectGame={onSelectGame || (() => {})}
                 onShowToast={onShowToast}
                 isActive={!isFloatingActive}
-                onExploreClick={() => {
+                onExploreClick={(q) => {
                   const target = document.getElementById('game-catalog-section');
                   if (target) {
                     target.scrollIntoView({ behavior: 'smooth' });
                   }
-                  if (onExploreClick) onExploreClick();
+                  if (onExploreClick) onExploreClick(q);
                 }}
               />
             </div>

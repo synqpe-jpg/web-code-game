@@ -7,6 +7,41 @@ Mỗi mục sửa lỗi đều ghi nhận **Nguyên nhân gốc rễ (Root Cause
 
 ## [2026-10-24]
 
+### 183. Thống Nhất Độc Bản Công Thức Tìm Kiếm Game Không Dấu & Sửa Triệt Để Luồng "Xem Tất Cả Kết Quả" (Unified Single-Source-of-Truth Vietnamese Search Engine Across Autocomplete, Main Grid & API)
+- **Mô tả & Yêu cầu người dùng**:
+  - *"Tìm kiếm game trên web đang lệch nhau giữa hai bộ phận, đã kiểm chứng trực tiếp trên production: Dropdown gợi ý chạy ĐÚNG (gõ 'Ky Tich Tro Lai' ra Kỳ Tích Trở Lại, gõ 'Thuc Than Ky' ra Thức Thần Ký), trong khi Lưới game chính và API /api/games?search= trả về 0 kết quả (báo 'Không tìm thấy tựa game nào phù hợp'). Nút chuyển trang 'Xem tất cả kết quả' hoặc 'Tìm kiếm' sau truy vấn không dấu bị rơi vào trang trống dù game có tồn tại. Yêu cầu: Việc 1: Thống nhất logic so khớp tìm kiếm thành một hàm dùng chung cho cả 3 nơi (dropdown, lưới game, API /api/games); Việc 2: Sửa luồng 'Xem tất cả kết quả' và nút 'Tìm kiếm'; Việc 3: Không hồi quy các ca đang đúng ('Ky Tich Tro Lai', 'Thuc Than Ky', 'Kỳ Tích Trở Lại', 'thuc-than-ky', 'Genshin', và 'Thực Thần Ký' ra 0 kết quả chuẩn xác không đoán mò)."*
+- **Nguyên nhân gốc rễ (Root Cause)**:
+  1. **Lệch pha giữa Client In-Memory Search và Server SQLite SQL LIKE**:
+     - Dropdown gợi ý (`SearchAutocomplete.tsx`) chạy tìm kiếm in-memory cục bộ bằng `calculateGameSearchScore` và `smartVietnameseMatch` (có bóc tách dấu tiếng Việt bằng NFD regex `stripAccents`), nên khi gõ không dấu "Ky Tich Tro Lai", client tìm thấy ngay game "Kỳ Tích Trở Lại".
+     - Tuy nhiên, API công khai `/api/games?search=` (và khi `autocomplete=1`) trên Cloudflare Worker khi `d1GamesCount >= 10` lại chạy câu lệnh SQL thô trên Cloudflare D1: `WHERE (name LIKE ? OR slug LIKE ? OR publisher LIKE ?)`.
+     - SQLite `LIKE` so sánh theo mã byte ASCII, không có khả năng bóc tách dấu tiếng Việt (`'y' != 'ỳ'`, `'i' != 'í'`, `'o' != 'ở'`), đồng thời khoảng trắng trong truy vấn không khớp với dấu gạch ngang trong `slug` (`'ky tich tro lai' != 'ky-tich-tro-lai'`). Do đó, SQLite trả về `total: 0, games: []`.
+  2. **Debounce Delay và Thiếu Flush Query Trong Luồng "Xem tất cả kết quả"**:
+     - Khi người dùng nhấn nút "Xem tất cả kết quả" hoặc Enter/Tìm kiếm, `onExploreClick` chỉ thực hiện cuộn trang mà không truyền trực tiếp `searchQuery` vừa nhập vào bộ lọc `filter.search`, khiến bộ lọc bị trễ theo debounce 300ms hoặc bị kẹt kết quả 0 từ API.
+- **Giải pháp đã triển khai (Solution)**:
+  1. **Độc bản hóa logic tìm kiếm dùng chung (`src/utils/textUtils.ts`)**:
+     - Xây dựng hàm `matchGameSearch` và nâng cấp `calculateGameSearchScore` thành Single Source of Truth duy nhất cho toàn hệ thống:
+       + Chuẩn hóa không dấu: Bóc tách toàn bộ dấu tiếng Việt (`Thức` → `thuc`, `Kỳ` → `ky`, `Ẩn` → `an`), không phân biệt hoa thường.
+       + Đồng nhất khoảng trắng và dấu gạch nối (`thuc than ky` ≡ `thuc-than-ky`).
+       + Chống xung đột dấu (Conflicting Diacritics Guard): Nếu truy vấn có dấu tiếng Việt tường minh (ví dụ: `Thực Thần Ký` với dấu nặng), hàm kiểm tra sự tương thích dấu chặt chẽ — do `Thực` khác `Thức`, truy vấn `Thực Thần Ký` trả về đúng 0 kết quả, tuyệt đối không đoán bừa hoặc làm sai lệch tên game.
+  2. **Tái cấu trúc API `/api/games` trên Cloudflare Worker (`functions/api/games.ts`)**:
+     - Xóa bỏ việc nhân bản hàm, import trực tiếp `matchGameSearch` và `calculateGameSearchScore` từ `src/utils/textUtils.ts`.
+     - Với các truy vấn có `searchQuery` hoặc `autocomplete=1`: Lấy danh sách game active từ D1 và áp dụng bộ lọc `matchGameSearch` + xếp hạng điểm số liên quan `calculateGameSearchScore` trong bộ nhớ Worker (tốc độ < 0.5ms). Đảm bảo API trả về chính xác 100% tập kết quả giống hệt như dropdown gợi ý và lưới game.
+  3. **Hoàn thiện luồng "Xem tất cả kết quả" và nút "Tìm kiếm" (`App.tsx`, `HeroBanner.tsx`, `SearchAutocomplete.tsx`)**:
+     - Bổ sung `handleExploreOrSubmitSearch(explicitQuery)` trong `App.tsx`: Khi người dùng nhấn Enter, bấm "Xem tất cả kết quả" hoặc nút "Tìm kiếm", hệ thống lập tức hủy bộ đếm debounce và flush ngay `q` vào `filter.search`, chuyển tab về `catalog`, cuộn mượt đến `#game-catalog-section`.
+     - Lưới game lập tức hiển thị đầy đủ danh sách game khớp với từ khóa tìm kiếm không dấu.
+- **Kết quả kiểm toán & Nghiệm thu**:
+  - `scripts/test_unified_search.cjs`: Đạt 100% (8/8 test cases chuẩn xác):
+    + `"Ky Tich Tro Lai"` → Top #1: `Kỳ Tích Trở Lại`
+    + `"Thuc Than Ky"` → Top #1: `Thức Thần Ký`
+    + `"Kỳ Tích Trở Lại"` → Top #1: `Kỳ Tích Trở Lại`
+    + `"thuc-than-ky"` → Top #1: `Thức Thần Ký`
+    + `"Genshin"` → Top #1: `Genshin Impact`
+    + `"Thực Thần Ký"` → Đúng 0 kết quả (không đoán bừa)
+    + `"Kỳ Tích"` → Ra cả `Kỳ Tích Trở Lại` và `Kỳ Tích Atlans`
+    + `"Ký"` → Ra `Thức Thần Ký`
+  - `npm run build`: 100% thành công.
+  - `scripts/verify_codes_integrity_audit.cjs`: 100% thành công (559 game, 10/10 game đối chiếu khớp).
+
 ### 182. Cung Cấp Giao Diện Dạng Danh Sách (List View) & Hiển Thị Nổi Bật Ngày Phát Hành Trong Quét Game Mới & Hàng Chờ Duyệt (Dense Responsive List View & Prominent Release Date Display in Admin Pending Games Crawler)
 - **Mô tả & Yêu cầu người dùng**:
   - *"Quét Game Mới & Hàng Chờ Duyệt trong trang admin, cho hiện dạng danh sách cho tôi dễ quan sát, các game này ghi rõ ngày phát hành giúp tôi để tôi duyệt cho chính xác."*

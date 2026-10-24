@@ -757,6 +757,26 @@ export const App: React.FC = () => {
     }
   };
 
+  // Immediate search submit handler for "Xem tất cả kết quả" / Search button / Enter
+  const handleExploreOrSubmitSearch = (explicitQuery?: string) => {
+    const q = explicitQuery !== undefined ? explicitQuery : searchQuery;
+    if (searchDebounceTimerRef.current) {
+      clearTimeout(searchDebounceTimerRef.current);
+    }
+    setSearchQuery(q);
+    startTransition(() => {
+      setFilter((prev) => ({ ...prev, search: q }));
+      setCurrentPage(1);
+    });
+    if (currentTab !== 'catalog') {
+      handleSelectTab('catalog');
+    }
+    const target = document.getElementById('game-catalog-section');
+    if (target) {
+      target.scrollIntoView({ behavior: 'smooth' });
+    }
+  };
+
   // Filter Updates
   const handleFilterChange = (newFilter: Partial<FilterState>) => {
     startTransition(() => {
@@ -1355,9 +1375,7 @@ export const App: React.FC = () => {
                   isActive={isStickySearchVisible}
                   isFloating={true}
                   placeholder="Tìm nhanh tên game, giftcode mới nhất..."
-                  onExploreClick={() => {
-                    document.getElementById('game-catalog-section')?.scrollIntoView({ behavior: 'smooth' });
-                  }}
+                  onExploreClick={handleExploreOrSubmitSearch}
                 />
               </div>
               <button
@@ -1388,10 +1406,7 @@ export const App: React.FC = () => {
                   saveRecentSearch(tag);
                   handleSearchChange(tag);
                 }}
-                onExploreClick={() => {
-                  const gridElem = document.getElementById('game-catalog-section');
-                  gridElem?.scrollIntoView({ behavior: 'smooth' });
-                }}
+                onExploreClick={handleExploreOrSubmitSearch}
                 isFloatingActive={isStickySearchVisible}
               />
 
@@ -1727,13 +1742,7 @@ export const App: React.FC = () => {
             window.location.hash = `#gw=${giveawayId}`;
           }}
           onOpenWallet={() => setIsWalletModalOpen(true)}
-          onExploreClick={() => {
-            handleSelectTab('catalog');
-            const target = document.getElementById('game-catalog-section');
-            if (target) {
-              target.scrollIntoView({ behavior: 'smooth' });
-            }
-          }}
+          onExploreClick={handleExploreOrSubmitSearch}
         />
 
         {/* Floating Announcement (Configured via Admin) */}

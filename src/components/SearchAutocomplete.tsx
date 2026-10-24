@@ -37,7 +37,7 @@ interface SearchAutocompleteProps {
   onSearchChange: (q: string) => void;
   onSelectGame: (game: GameItem) => void;
   onShowToast?: (title: string, message?: string, type?: 'success' | 'error' | 'info') => void;
-  onExploreClick?: () => void;
+  onExploreClick?: (query?: string) => void;
   className?: string;
   autoFocus?: boolean;
   isFloating?: boolean;
@@ -480,7 +480,7 @@ export const SearchAutocomplete: React.FC<SearchAutocompleteProps> = ({
           saveRecentSearch(searchQuery.trim());
         }
         handleCloseMobileSearch();
-        if (onExploreClick) onExploreClick();
+        if (onExploreClick) onExploreClick(searchQuery);
       }
     } else if (e.key === 'Escape') {
       handleCloseMobileSearch();
@@ -579,7 +579,7 @@ export const SearchAutocomplete: React.FC<SearchAutocompleteProps> = ({
                 saveRecentSearch(searchQuery.trim());
               }
               handleCloseMobileSearch();
-              if (onExploreClick) onExploreClick();
+              if (onExploreClick) onExploreClick(searchQuery);
             }}
             className="px-2.5 py-1 rounded-xl bg-primary hover:bg-primary-hover text-white text-xs font-bold transition-all cursor-pointer shadow-sm active:scale-95 hidden sm:block"
           >
@@ -916,7 +916,7 @@ export const SearchAutocomplete: React.FC<SearchAutocompleteProps> = ({
               type="button"
               onClick={() => {
                 setIsOpen(false);
-                if (onExploreClick) onExploreClick();
+                if (onExploreClick) onExploreClick(searchQuery);
               }}
               className="ml-auto text-primary-light hover:text-primary font-bold flex items-center gap-1 cursor-pointer transition-colors"
             >
@@ -1002,14 +1002,14 @@ export const SearchAutocomplete: React.FC<SearchAutocompleteProps> = ({
                   saveRecentSearch(searchQuery.trim());
                 }
                 handleCloseMobileSearch();
-                if (onExploreClick) onExploreClick();
+                if (onExploreClick) onExploreClick(searchQuery);
               }}
               onClick={() => {
                 if ((searchQuery || '').trim()) {
                   saveRecentSearch(searchQuery.trim());
                 }
                 handleCloseMobileSearch();
-                if (onExploreClick) onExploreClick();
+                if (onExploreClick) onExploreClick(searchQuery);
               }}
               className="px-3 h-10 rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white text-xs font-bold shrink-0 flex items-center justify-center shadow-md active:scale-95 cursor-pointer border border-blue-400/40 touch-manipulation"
             >
