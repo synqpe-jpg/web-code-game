@@ -47,6 +47,19 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
   const urlObj = new URL(request.url);
   const authHeader = request.headers.get('Authorization') || '';
 
+  // 0. Nghiêm cấm truyền api_key qua URL query để chống rò rỉ token trong server logs
+  const queryKey = urlObj.searchParams.get('api_key') || urlObj.searchParams.get('key');
+  if (queryKey) {
+    return new Response(
+      JSON.stringify({
+        success: false,
+        error: 'Xác thực qua URL (?api_key=...) bị nghiêm cấm vì nguy cơ rò rỉ log. Vui lòng cung cấp khóa Bearer qua Header "Authorization: Bearer <KEY>".',
+        status: 401,
+      }),
+      { status: 401, headers: CORS_HEADERS }
+    );
+  }
+
   // 1. Nếu có gửi Bearer token -> Thực hiện xác thực và trả dữ liệu kiểm chứng
   if (authHeader.startsWith('Bearer ')) {
     const auth = await authenticateMarketingAuditor(request, env);
@@ -156,6 +169,20 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
  */
 export const onRequestPost: PagesFunction<Env> = async (context) => {
   const { request, env } = context;
+  const urlObj = new URL(request.url);
+
+  // 0. Nghiêm cấm truyền api_key qua URL query để chống rò rỉ token trong server logs
+  const queryKey = urlObj.searchParams.get('api_key') || urlObj.searchParams.get('key');
+  if (queryKey) {
+    return new Response(
+      JSON.stringify({
+        success: false,
+        error: 'Xác thực qua URL (?api_key=...) bị nghiêm cấm vì nguy cơ rò rỉ log. Vui lòng cung cấp khóa Bearer qua Header "Authorization: Bearer <KEY>".',
+        status: 401,
+      }),
+      { status: 401, headers: CORS_HEADERS }
+    );
+  }
 
   // 1. Xác thực Bearer Key
   const auth = await authenticateMarketingAuditor(request, env);
