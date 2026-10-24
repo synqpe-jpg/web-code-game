@@ -10,6 +10,24 @@
 
 ## 1. DANH MỤC LỖI & CÁC BẪY ĐÃ THẤT BẠI (DO NOT REPEAT)
 
+### ISSUE-107: Bẫy Tự Động Điền Giá Trị Mặc Định Bịa Đặt ("Roblox", Hướng Dẫn Giả, Icon 404) Khi Thiếu Metadata Game (Fabricated Defaults & 404 Icon Trap in Game Ingestion)
+- **Triệu chứng**:
+  - Khi bot ngoài hoặc quản trị viên tạo game mới vào Hàng Chờ Duyệt (`queue_game`, `add_crawler_pending_game`, hoặc `autoQueueNewGame`) mà không truyền đầy đủ metadata (`developer`, `category`, `platform`, `description`, `instructions`, `iconUrl`):
+  - Hệ thống tự động gán toàn bộ trường thành "Roblox", tự sinh mô tả bịa đặt "là tựa game hấp dẫn trên nền tảng Roblox...", tự sinh hướng dẫn 3 bước Roblox, và gán đường dẫn icon `/game_icons/[slug].webp` dẫn tới mã lỗi HTTP 404 (ví dụ thực tế: game *Avatar Land* từ fanpage chính thức bị biến thành game Roblox với icon 404).
+- **Nguyên nhân gốc rễ**:
+  1. Thiếu tư duy "NULL = Chưa rõ": Thay vì lưu `null` hoặc chuỗi rỗng khi không có dữ liệu, code sử dụng toán tử fallback `|| 'Roblox'` và chuỗi mô tả/hướng dẫn cố định.
+  2. Gán cứng đường dẫn local icon mà không kiểm tra sự tồn tại của file vật lý.
+- **Giải pháp chuẩn đã kiểm chứng**:
+  - Khi không có dữ liệu: Lưu `null` (hiển thị "Chưa rõ" ở Admin) và chuỗi rỗng `""`. TUYỆT ĐỐI không điền "Roblox" hay bất kỳ giá trị cụ thể nào khác.
+  - Hướng dẫn nhập code mặc định CHỈ được kích hoạt khi game đã được xác nhận là Roblox (`isConfirmedRobloxGame(item)` trả về `true`). Với game chưa xác nhận nền tảng: để trống hướng dẫn `""`.
+  - Không tự sinh mô tả từ tên game + nền tảng giả định. Để trống nếu không có mô tả thật.
+  - Kiểm tra file vật lý qua HEAD request trước khi gán `localIconPath` / `iconUrl`. Nếu không có file: để trống `iconUrl: ""`, gắn cờ `missing_icon: true`, `has_icon: false`, hiển thị huy hiệu `⚠️ Thiếu icon` trên Admin.
+- ⛔ **CÁCH SỬA ĐÃ THẤT BẠI - TUYỆT ĐỐI KHÔNG LẶP LẠI**:
+  - ❌ *Không tự tiện gán giá trị mặc định cho các trường chưa rõ*: "Chưa rõ" (NULL/rỗng) là nguồn chân lý duy nhất cho dữ liệu chưa được kiểm chứng, giống như quy tắc hạn dùng (ISSUE-104).
+  - ❌ *Không trỏ icon vào file cục bộ chưa tồn tại*: Trỏ icon tới file 404 làm hỏng trải nghiệm người dùng và làm giảm điểm SEO/Core Web Vitals.
+
+---
+
 ### ISSUE-106: Bẫy Bóc Tách Trực Tiếp HTML Thô Khiến Tên Ảnh Thumbnail / Đường Dẫn URL Bị Cào Nhầm Thành Mã Giftcode & Bẫy Chấm Điểm Đơn Lẻ Không Đối Chiếu Chéo (Raw HTML Attribute Extraction Trap & Single-Source Scoring Trap)
 - **Triệu chứng**:
   - Crawler thường xuyên cào trúng các mã "rác" không đổi thưởng được: các mảnh OCR từ ảnh (`ROLL-FISHERMAN-MOI-NHAT`, `ROLL-A-FISHERMAN-THUMBNAIL`, `FISHING-MASTER-THUMBNAIL`, `DREAM-CAR-COLLECTION-`, `COMMAND-AN-ARMY-THUMBNAIL`, `DEEP-FISHING-THUMB`), mã kiểu máy tạo (`PM360...`, `TGB...`, hex dài), mã bị gán nhầm sang tựa game khác có tên chứa chuỗi con (*Hero Clash* vs *Gear Hero Clash*), hoặc mã đã hết hạn nhưng vẫn hiển thị như mã mới.

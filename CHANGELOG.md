@@ -7,6 +7,40 @@ Mỗi mục sửa lỗi đều ghi nhận **Nguyên nhân gốc rễ (Root Cause
 
 ## [2026-10-24]
 
+### 181. Triệt Tiêu 100% Giá Trị Mặc Định Bịa Đặt (Fake Defaults) Trong Toàn Bộ Luồng Tạo & Xếp Hàng Game Chờ Duyệt, Sửa Bản Ghi Avatar Land & Chống Trỏ Tới Icon 404 (Anti-Fake Defaults Guard in Game Queuing & Ingestion Pathways, Avatar Land Production Remediation & Missing Icon Fallback)
+- **Mô tả & Yêu cầu người dùng**:
+  - *"Action queue_game (API crawler) mắc lỗi mặc định bịa đặt: khi người gọi không truyền nhà phát hành / thể loại / nền tảng, hệ thống tự điền toàn bộ thành Roblox. Ca thực tế đã kiểm chứng: game Avatar Land (mã AL-PNVN26 từ fanpage chính thức) bị ghi thành developer 'Roblox', publisher 'Roblox', category 'Roblox', platform 'Roblox / PC, Mobile', mô tả bịa đặt trên nền tảng Roblox, hướng dẫn 3 bước Roblox, icon trỏ tới file 404 /game_icons/avatar-land.webp. Đây cùng họ lỗi với ISSUE-104 (ngày hết hạn giả 2026-12-31): giá trị chưa rõ bị thay bằng giá trị trông có vẻ thật. Yêu cầu: Việc 1: Bỏ mọi giá trị mặc định bịa đặt trong luồng tạo game (queue_game, add_crawler_pending_game, form Admin, autoQueueNewGame); Việc 2: Sửa bản ghi Avatar Land trên production về NULL/rỗng ('Chưa rõ'), icon rỗng, missing_icon = true, giữ nguyên mã AL-PNVN26 hạn 2026-10-25 và trạng thái PENDING; Việc 3: Thêm regression test tự động; Việc 4: Kiểm chứng 3 game Roblox thật giữ nguyên metadata hợp lệ."*
+- **Nguyên nhân gốc rễ (Root Cause)**:
+  1. **Tự động gán cứng "Roblox" khi thiếu tham số đầu vào**:
+     - Trong `functions/api/crawler/ingest-codes.ts` (`queue_game` và `autoQueueNewGame`), `functions/api/sync.ts` (`add_crawler_pending_game`), và `src/admin/modules/CrawlerModule.tsx`: Khi người gọi không truyền `developer`, `category`, `platform`, hệ thống fallback tự động thành `'Roblox'`.
+     - Hướng dẫn nhập code (`instructions`) tự sinh 3 bước Roblox cho mọi game dù chưa xác nhận nền tảng.
+     - Mô tả (`description`) tự sinh chuỗi "...là tựa game hấp dẫn trên nền tảng Roblox...".
+  2. **Tự động gán đường dẫn icon cục bộ mà không kiểm tra file vật lý tồn tại**:
+     - Hệ thống luôn gán `iconUrl: /game_icons/${slug}.webp` và `localIconPath: /game_icons/${slug}.webp`. Đối với các game mới chưa có file icon trên server (như Avatar Land), đường dẫn này trả về lỗi HTTP 404.
+  3. **Tầng hiển thị `list_pending_games` và Admin UI tự điền giá trị giả**:
+     - `list_pending_games` tự fallback `publisher: 'NPH Chính Thức'`, `platform: 'Android, iOS'`.
+     - `CrawlerModule.tsx` có state khởi tạo `useState('Roblox')` và fallback gán lại 'Roblox' khi gửi lên server.
+- **Giải pháp đã triển khai (Solution)**:
+  1. **Triệt tiêu toàn diện giá trị mặc định bịa đặt (`ingest-codes.ts`, `sync.ts`)**:
+     - Bổ sung hàm kiểm tra nguồn gốc chặt chẽ `isConfirmedRobloxGame(item)`: Chỉ kích hoạt hướng dẫn và metadata Roblox khi `platform`, `category`, `developer`, `publisher`, hoặc `source` chứa rõ ranh giới `/roblox/i`.
+     - Khi người gọi hoặc crawler không cung cấp `developer`, `publisher`, `category`, `platform`: Lưu `null` (hiển thị "Chưa rõ" ở Admin) — TUYỆT ĐỐI không điền "Roblox" hay bất kỳ giá trị cụ thể nào khác.
+     - `description` và `instructions`: Nếu không có thông tin xác thực, lưu chuỗi rỗng `""`, không tự suy diễn.
+  2. **Cơ chế xác thực Icon chống lỗi 404 (`verifyLocalIconExists`)**:
+     - Trước khi gán icon cục bộ `/game_icons/${slug}.webp`: Thực hiện kiểm tra vật lý qua HEAD request tới `env.ASSETS` / CDN.
+     - Nếu không tồn tại: Lưu `iconUrl: ""`, `localIconPath: ""`, gắn cờ `missing_icon: true`, `has_icon: false`.
+     - Trong Admin `CrawlerModule.tsx`: Hiển thị huy hiệu `⚠️ Thiếu icon` nổi bật và render avatar SVG an toàn, không kích hoạt request 404.
+  3. **Làm sạch bản ghi Avatar Land trên Production**:
+     - Đã cập nhật bản ghi `avatar-land` trong `wcg_crawler_pending_games_v1`: `developer: null`, `publisher: null`, `category: null`, `platform: null`, `description: ""`, `instructions: ""`, `iconUrl: ""`, `localIconPath: ""`, `missing_icon: true`, `has_icon: false`.
+     - GIỮ NGUYÊN 100% mã `AL-PNVN26`, hạn dùng chuẩn `2026-10-25`, và trạng thái `PENDING`.
+  4. **Bảo toàn 3 game Roblox thật**:
+     - Kiểm chứng *Grow a Chicken Fighter* (8 mã), *Command an Army* (7 mã), *Dig and Clean* (7 mã) giữ nguyên vẹn metadata Roblox hợp lệ.
+  5. **Bổ sung Regression Test tự động (`test_queue_game_anti_fake_defaults.cjs`)**:
+     - Kiểm thử tự động 5 giai đoạn: Game trung lập không metadata (đạt 100%), Game xác nhận Roblox (đạt 100%), Kiểm chứng Avatar Land (đạt 100%), Kiểm chứng 3 game Roblox thật (đạt 100%), Dọn dẹp sạch theo Rule 7 (đạt 100%).
+- **Kết quả kiểm toán & Nghiệm thu**:
+  - `test_queue_game_anti_fake_defaults.cjs`: Đạt 100%.
+  - `verify_codes_integrity_audit.cjs`: Đạt 100% (6/6 bài kiểm tra).
+  - Bản ghi Avatar Land trên production hoàn toàn sạch sẽ, không còn bất kỳ dấu vết Roblox nào, mã `AL-PNVN26` hạn `2026-10-25` nguyên vẹn.
+
 ### 180. Siết Chặt Toàn Diện Quy Tắc Trích Xuất & Chấm Điểm 4 Cấp Bậc Crawler, Triệt Tiêu 100% Mã Rác OCR / Thumbnail / Machine Hex & Lưu Vết Kiểm Toán Đa Nguồn (Strict Crawler Extraction, Anti-Junk Guard, Cross-Check Multi-Source Aggregation & Audit Trail Engine)
 - **Mô tả & Yêu cầu người dùng**:
   - *"Hệ thống crawler của web đang quét 1.221 nguồn, chạy mỗi giờ (phút 15), đa kênh (Web, Discord, Facebook), chấm điểm 4 cấp bậc: mã 90–100 điểm tự động lên web, mã dưới 90 điểm vào hàng chờ để admin duyệt 1 chạm. Vấn đề: crawler hay trúng mã rác — mã không đổi được thật nhưng vẫn lọt vào hàng chờ (thậm chí có nguy cơ lên web). Các ca mã rác đã được kiểm chứng thực tế: Gun X Mobile (7 mã toàn mảnh OCR từ thumbnail ảnh), mã kiểu máy tạo (PM360, TGB, hex dài), gán nhầm game (Hero Clash vs Gear Hero Clash, Global vs VN), mã đã hết hạn nhưng trình bày như mã mới (Fisch), mã tranh cãi trạng thái (RIVAL, LOVEJUNE), bài cũ >6 tháng. Yêu cầu: 1a. Lọc rác ngay khi trích xuất; 1b. Chuẩn hóa 4 cấp bậc chấm điểm & đối chiếu chéo; 1c. Chống gán nhầm game; 1d. Xử lý độ tươi nguồn & mã hết hạn; 1e. Lưu vết kiểm toán trên từng mã. Tiêu chí nghiệm thu: Chạy lại Gun X Mobile ra 0 mã rác; Báo cáo độ chính xác trên mẫu 100 mã; Kiểm thử hồi quy đạt 100%."*

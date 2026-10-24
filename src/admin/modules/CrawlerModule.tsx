@@ -256,9 +256,9 @@ export const CrawlerModule: React.FC<CrawlerModuleProps> = ({ onShowToast }) => 
   // State Thêm Game Chờ Duyệt Thủ Công
   const [isAddPendingGameOpen, setIsAddPendingGameOpen] = useState(false);
   const [newGameName, setNewGameName] = useState('');
-  const [newGameDeveloper, setNewGameDeveloper] = useState('Roblox');
-  const [newGameCategory, setNewGameCategory] = useState('Roblox');
-  const [newGamePlatform, setNewGamePlatform] = useState('Roblox / PC, Mobile');
+  const [newGameDeveloper, setNewGameDeveloper] = useState('');
+  const [newGameCategory, setNewGameCategory] = useState('');
+  const [newGamePlatform, setNewGamePlatform] = useState('');
   const [newGameIconUrl, setNewGameIconUrl] = useState('');
   const [newGameInstructions, setNewGameInstructions] = useState('');
   const [newGameCodes, setNewGameCodes] = useState('');
@@ -1054,9 +1054,9 @@ export const CrawlerModule: React.FC<CrawlerModuleProps> = ({ onShowToast }) => 
 
       const res = await adminDataService.addPendingGame({
         name: newGameName.trim(),
-        developer: newGameDeveloper.trim() || 'Roblox',
-        category: newGameCategory.trim() || 'Roblox',
-        platform: newGamePlatform.trim() || 'Roblox / PC, Mobile',
+        developer: newGameDeveloper.trim() || undefined,
+        category: newGameCategory.trim() || undefined,
+        platform: newGamePlatform.trim() || undefined,
         iconUrl: newGameIconUrl.trim() || undefined,
         instructions: newGameInstructions.trim() || undefined,
         codes: parsedCodesList,
@@ -3136,9 +3136,11 @@ export const CrawlerModule: React.FC<CrawlerModuleProps> = ({ onShowToast }) => 
                           <div className="w-13 h-13 rounded-xl overflow-hidden bg-slate-950 border border-slate-700/60 shrink-0 shadow-md relative group/icon">
                             <img
                               src={
-                                game.localIconPath && game.localIconPath.startsWith('/')
-                                  ? game.localIconPath
-                                  : `/game_icons/${game.slug}.webp`
+                                game.missing_icon || (!game.iconUrl && !game.localIconPath)
+                                  ? `data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64"><rect width="64" height="64" rx="16" fill="%230f172a"/><rect x="2" y="2" width="60" height="60" rx="14" fill="none" stroke="%23334155" stroke-width="2"/><text x="50%" y="54%" font-family="sans-serif" font-size="20" font-weight="bold" fill="%23f43f5e" text-anchor="middle" dominant-baseline="middle">${encodeURIComponent((cleanGameTitle(game.name) || 'G').slice(0, 2).toUpperCase())}</text></svg>`
+                                  : (game.localIconPath && game.localIconPath.startsWith('/')
+                                      ? game.localIconPath
+                                      : (game.iconUrl || `/game_icons/${game.slug}.webp`))
                               }
                               alt={cleanGameTitle(game.name)}
                               referrerPolicy="no-referrer"
@@ -3147,7 +3149,7 @@ export const CrawlerModule: React.FC<CrawlerModuleProps> = ({ onShowToast }) => 
                               onError={(e: any) => {
                                 const el = e.currentTarget;
                                 const stage = Number(el.dataset.stage || '0');
-                                if (stage === 0 && game.iconUrl) {
+                                if (stage === 0 && game.iconUrl && !game.missing_icon) {
                                   el.dataset.stage = '1';
                                   el.src = `/api/game-icon?slug=${game.slug}&url=${encodeURIComponent(game.iconUrl)}`;
                                   return;
@@ -3200,10 +3202,15 @@ export const CrawlerModule: React.FC<CrawlerModuleProps> = ({ onShowToast }) => 
                             </div>
 
                             <div className="text-xs text-slate-400 truncate mt-0.5" title={cleanGameTitle(game.developer)}>
-                              NPH: <span className="text-slate-200 font-medium">{cleanGameTitle(game.developer)}</span>
+                              NPH: <span className="text-slate-200 font-medium">{cleanGameTitle(game.developer) || <em className="text-slate-500 font-normal">Chưa rõ</em>}</span>
                             </div>
 
                             <div className="flex flex-wrap items-center gap-1.5 mt-1.5 text-[11px] text-slate-400">
+                              {(game.missing_icon || (!game.iconUrl && !game.localIconPath)) && (
+                                <span className="px-1.5 py-0.5 rounded-md text-[10px] font-semibold bg-rose-500/20 text-rose-300 border border-rose-500/40">
+                                  ⚠️ Thiếu icon
+                                </span>
+                              )}
                               {isFromCodeMoi ? (
                                 <span className="px-1.5 py-0.5 rounded-md text-[10px] font-bold bg-purple-500/20 text-purple-300 border border-purple-500/30">
                                   🌐 CodeMoi
@@ -4514,7 +4521,7 @@ console.log(data);`}
                 type="text"
                 value={newGameDeveloper}
                 onChange={(e) => setNewGameDeveloper(e.target.value)}
-                placeholder="Roblox"
+                placeholder="Chưa rõ (để trống nếu chưa biết)"
                 className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-sm text-slate-200 focus:outline-none focus:border-emerald-500"
               />
             </div>
@@ -4525,7 +4532,7 @@ console.log(data);`}
                 type="text"
                 value={newGameCategory}
                 onChange={(e) => setNewGameCategory(e.target.value)}
-                placeholder="Roblox"
+                placeholder="Chưa rõ (để trống nếu chưa biết)"
                 className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-sm text-slate-200 focus:outline-none focus:border-emerald-500"
               />
             </div>
@@ -4536,7 +4543,7 @@ console.log(data);`}
                 type="text"
                 value={newGamePlatform}
                 onChange={(e) => setNewGamePlatform(e.target.value)}
-                placeholder="Roblox / PC, Mobile"
+                placeholder="Chưa rõ (Android, iOS, PC, Roblox...)"
                 className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-sm text-slate-200 focus:outline-none focus:border-emerald-500"
               />
             </div>
@@ -4548,7 +4555,7 @@ console.log(data);`}
               type="text"
               value={newGameIconUrl}
               onChange={(e) => setNewGameIconUrl(e.target.value)}
-              placeholder="https://... hoặc để trống để dùng icon mặc định"
+              placeholder="https://... (để trống nếu chưa có)"
               className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-sm text-slate-200 focus:outline-none focus:border-emerald-500"
             />
           </div>
@@ -4559,7 +4566,7 @@ console.log(data);`}
               rows={3}
               value={newGameInstructions}
               onChange={(e) => setNewGameInstructions(e.target.value)}
-              placeholder="Bước 1: Mở Roblox và tham gia game...\nBước 2: Tìm nút Code..."
+              placeholder="Để trống nếu chưa có hướng dẫn đã kiểm chứng..."
               className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-sm text-slate-200 focus:outline-none focus:border-emerald-500"
             />
           </div>

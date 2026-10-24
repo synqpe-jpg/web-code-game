@@ -1823,10 +1823,10 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
           icon_url: targetIcon,
           cover_image_url: targetIcon,
           banner_url: '',
-          description: editedGame.description || sourceItem.description || `${finalName} là tựa game mobile mới phát hành chính thức bởi ${finalDeveloper}.`,
+          description: editedGame.description || sourceItem.description || '',
           short_description: `${finalName} - Game Mobile Mới`,
-          instructions: 'Bước 1: Mở game > Nhấn Avatar nhân vật\nBước 2: Chọn Cài đặt > Nhập Giftcode\nBước 3: Dán mã và nhấn Xác nhận.',
-          platform: 'Android, iOS, PC',
+          instructions: editedGame.instructions || sourceItem.instructions || '',
+          platform: editedGame.platform || sourceItem.platform || 'Android, iOS, PC',
           release_date: editedGame.releaseDate || sourceItem.releaseDate || new Date().toISOString().split('T')[0],
           download_android: sourceItem.playStoreUrl || (sourceItem.packageId ? `https://play.google.com/store/apps/details?id=${sourceItem.packageId}` : ''),
           is_featured: false,
@@ -1927,20 +1927,62 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
         const pendingList: any[] = Array.isArray(pendingListRaw) ? pendingListRaw : [];
         const existingIdx = pendingList.findIndex((p: any) => p && (p.id === finalSlug || p.slug === finalSlug));
 
+        const isRoblox = /roblox/i.test(String(gameItem.platform || '')) ||
+                         /roblox/i.test(String(gameItem.category || '')) ||
+                         /roblox/i.test(String(gameItem.developer || '')) ||
+                         /roblox/i.test(String(gameItem.publisher || '')) ||
+                         /roblox/i.test(String(gameItem.source || ''));
+
+        const devVal = gameItem.developer ? String(gameItem.developer).trim() : (gameItem.publisher ? String(gameItem.publisher).trim() : null);
+        const pubVal = gameItem.publisher ? String(gameItem.publisher).trim() : devVal;
+        const catVal = gameItem.category ? String(gameItem.category).trim() : null;
+        const platVal = gameItem.platform ? String(gameItem.platform).trim() : null;
+        const descVal = gameItem.description ? String(gameItem.description).trim() : '';
+        const instVal = (gameItem.instructions !== undefined && gameItem.instructions !== null)
+          ? String(gameItem.instructions).trim()
+          : (isRoblox ? `Bước 1: Mở Roblox và tham gia game ${finalName}.\nBước 2: Tìm biểu tượng Code / Twitter / Cài đặt.\nBước 3: Nhập chính xác mã giftcode và nhấn Đổi quà.` : '');
+
+        let syncIconUrl = '';
+        let syncLocalIconPath = '';
+        let syncMissingIcon = true;
+        let syncHasIcon = false;
+
+        const candidateIcon = String(gameItem.iconUrl || gameItem.icon_url || gameItem.icon || '').trim();
+        if (candidateIcon.startsWith('http://') || candidateIcon.startsWith('https://') || candidateIcon.startsWith('data:image')) {
+          syncIconUrl = candidateIcon;
+          syncHasIcon = true;
+          syncMissingIcon = false;
+        } else {
+          try {
+            const iconPath = `/game_icons/${finalSlug}.webp`;
+            const checkUrl = new URL(iconPath, request.url).toString();
+            const headRes = await fetch(checkUrl, { method: 'HEAD' });
+            if (headRes.status === 200) {
+              syncIconUrl = iconPath;
+              syncLocalIconPath = iconPath;
+              syncHasIcon = true;
+              syncMissingIcon = false;
+            }
+          } catch {}
+        }
+
         const pendingRecord = {
           id: finalSlug,
           name: finalName,
           slug: finalSlug,
           packageId: gameItem.packageId || gameItem.packageName || undefined,
-          developer: String(gameItem.developer || gameItem.publisher || 'Roblox').trim(),
-          category: String(gameItem.category || 'Roblox').trim(),
-          platform: String(gameItem.platform || 'Roblox / PC, Mobile').trim(),
+          developer: devVal,
+          publisher: pubVal,
+          category: catVal,
+          platform: platVal,
           rating: Number(gameItem.rating || 4.8),
-          installs: String(gameItem.installs || '50.000+').trim(),
-          iconUrl: String(gameItem.iconUrl || `/game_icons/${finalSlug}.webp`).trim(),
-          localIconPath: `/game_icons/${finalSlug}.webp`,
-          description: String(gameItem.description || `${finalName} là tựa game hấp dẫn trên Roblox.`).trim(),
-          instructions: String(gameItem.instructions || `Bước 1: Mở Roblox và tham gia game ${finalName}.\nBước 2: Tìm biểu tượng Code / Twitter / Cài đặt.\nBước 3: Nhập chính xác mã giftcode và nhấn Đổi quà.`).trim(),
+          installs: gameItem.installs ? String(gameItem.installs).trim() : null,
+          iconUrl: syncIconUrl,
+          localIconPath: syncLocalIconPath,
+          missing_icon: syncMissingIcon,
+          has_icon: syncHasIcon,
+          description: descVal,
+          instructions: instVal,
           redeemUrl: String(gameItem.redeemUrl || '').trim(),
           source: String(gameItem.source || 'Admin Manual Add').trim(),
           sourceType: 'manual_queue',
