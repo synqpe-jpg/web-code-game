@@ -2172,18 +2172,38 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
       ? [...settings['wcg_admin_free_codes_v5']]
       : [...(fallbackCodesData as any[])];
 
-    // Tạo tập hợp mã code hiện có theo gameSlug để chống trùng lặp (Deduplication)
+    // Tạo tập hợp mã code hiện có theo gameSlug để chống trùng lặp (Deduplication) và chống hồi sinh mã hết hạn
     const existingCodeValuesBySlug = new Map<string, Set<string>>();
+    const expiredCodeValuesBySlug = new Map<string, Set<string>>();
+
     const registerExisting = (list: any[]) => {
       for (const item of list) {
         if (!item) continue;
-        const slug = (item.gameSlug || item.game_slug || item.slug || item.gameId || '').toLowerCase().trim();
+        const rawSlug = (item.gameSlug || item.game_slug || item.slug || item.gameId || '').toLowerCase().trim();
         const val = String(item.code || item.codeValue || item.gift_code || '').trim().toUpperCase();
-        if (slug && val) {
-          if (!existingCodeValuesBySlug.has(slug)) {
-            existingCodeValuesBySlug.set(slug, new Set());
+        if (!rawSlug || !val) continue;
+
+        const aliases = [
+          rawSlug,
+          rawSlug.replace(/-mobile$/i, ''),
+          `${rawSlug}-mobile`,
+          rawSlug.replace(/_/g, '-')
+        ];
+
+        const isExp = isCodeExpired(item);
+
+        for (const alias of aliases) {
+          if (!existingCodeValuesBySlug.has(alias)) {
+            existingCodeValuesBySlug.set(alias, new Set());
           }
-          existingCodeValuesBySlug.get(slug)!.add(val);
+          existingCodeValuesBySlug.get(alias)!.add(val);
+
+          if (isExp) {
+            if (!expiredCodeValuesBySlug.has(alias)) {
+              expiredCodeValuesBySlug.set(alias, new Set());
+            }
+            expiredCodeValuesBySlug.get(alias)!.add(val);
+          }
         }
       }
     };
@@ -2453,11 +2473,13 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
 
       const existingCodesSet = existingCodeValuesBySlug.get(gameSlug) || new Set<string>();
       const addedForThisGame: string[] = [];
+      const addedUsableForThisGame: string[] = [];
       const duplicateCodes: string[] = [];
 
       // 4.3. LỌC TRÙNG & TẠO BẢN GHI MÃ CODE MỚI
       for (const c of codesToIngest) {
-        const isExp = c.isExpired || (c.rawStatus && (String(c.rawStatus).toLowerCase() === 'expired' || String(c.rawStatus).toLowerCase() === 'hết hạn'));
+        const wasKnownExpired = Boolean(expiredCodeValuesBySlug.get(gameSlug)?.has(c.code));
+        const isExp = c.isExpired || wasKnownExpired || (c.rawStatus && (String(c.rawStatus).toLowerCase() === 'expired' || String(c.rawStatus).toLowerCase() === 'hết hạn'));
         const codeStatus = isExp ? 'EXPIRED' : 'ACTIVE';
 
         if (existingCodesSet.has(c.code)) {
@@ -2522,6 +2544,13 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
 
         existingCodesSet.add(c.code);
         existingCodeValuesBySlug.set(gameSlug, existingCodesSet);
+        if (isExp) {
+          const expSet = expiredCodeValuesBySlug.get(gameSlug) || new Set<string>();
+          expSet.add(c.code);
+          expiredCodeValuesBySlug.set(gameSlug, expSet);
+        } else {
+          addedUsableForThisGame.push(c.code);
+        }
         newlyAddedCodes.push(newCodeRecord);
         existingCustomCodes.unshift(newCodeRecord);
         addedForThisGame.push(c.code);
@@ -2548,7 +2577,7 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
             cover_image_url: resolvedPIcon,
             banner_url: '',
             description: pGame.description || `${gameName} là tựa game mobile mới phát hành chính thức.`,
-            short_description: `${gameName} - Đã cập nhật ${addedForThisGame.length} giftcode mới`,
+            short_description: `${gameName} - Đã cập nhật ${addedUsableForThisGame.length} giftcode còn hạn`,
             instructions: extractedInstructions || pGame.instructions || 'Bước 1: Mở game > Nhấn Avatar nhân vật\nBước 2: Chọn Cài đặt > Nhập Giftcode\nBước 3: Dán mã và nhấn Xác nhận.',
             redeem_url: extractedRedeemUrl || pGame.redeemUrl || '',
             platform: 'Android, iOS, PC',
@@ -2561,8 +2590,10 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
             is_new: true,
             is_active: true,
             status: 'ACTIVE',
-            codes_count: addedForThisGame.length,
-            free_codes_count: addedForThisGame.length,
+            codes_count: addedUsableForThisGame.length,
+            active_codes_count: addedUsableForThisGame.length,
+            free_codes_count: addedUsableForThisGame.length,
+            total_codes_count: addedForThisGame.length,
             source: rawItem.source || auth.botName || 'Muse External Ingest API',
             created_at: nowIso,
             updated_at: nowIso,
@@ -2582,8 +2613,10 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
           const currentCount = Number(activeGamesList[activeIdx].codes_count || 0);
           const updatedActiveGame: any = {
             ...activeGamesList[activeIdx],
-            codes_count: currentCount + addedForThisGame.length,
-            free_codes_count: Number(activeGamesList[activeIdx].free_codes_count || currentCount) + addedForThisGame.length,
+            codes_count: currentCount + addedUsableForThisGame.length,
+            active_codes_count: Number(activeGamesList[activeIdx].active_codes_count || currentCount) + addedUsableForThisGame.length,
+            free_codes_count: Number(activeGamesList[activeIdx].free_codes_count || currentCount) + addedUsableForThisGame.length,
+            total_codes_count: Number(activeGamesList[activeIdx].total_codes_count || currentCount) + addedForThisGame.length,
             updated_at: nowIso,
           };
           if (hasExplicitInstructions) {

@@ -1452,10 +1452,14 @@ class DataService {
       const fullCodes = (localCodes && localCodes.length > (g.codes?.length || 0))
         ? localCodes
         : (g.codes && g.codes.length > 0 ? g.codes : localCodes);
+      const activeFullCodes = fullCodes.filter((c: any) => !isCodeExpired(c));
       return {
         ...g,
         codes: fullCodes,
-        codes_count: Math.max(Number(g.codes_count) || 0, fullCodes.length),
+        codes_count: typeof g.codes_count === 'number' ? g.codes_count : activeFullCodes.length,
+        active_codes_count: typeof g.active_codes_count === 'number' ? g.active_codes_count : activeFullCodes.length,
+        expired_codes_count: fullCodes.length - activeFullCodes.length,
+        total_codes_count: fullCodes.length,
         icon_url: g.icon_url || `/game_icons/${g.slug}.webp`,
       };
     });
@@ -1690,10 +1694,14 @@ class DataService {
             return timeB - timeA;
           });
 
+          const activeFullCodes = fullCodes.filter((c: any) => !isCodeExpired(c));
           const finalGame: GameItem = {
             ...game,
             codes: fullCodes,
-            codes_count: fullCodes.length,
+            codes_count: typeof game.codes_count === 'number' ? game.codes_count : activeFullCodes.length,
+            active_codes_count: typeof game.active_codes_count === 'number' ? game.active_codes_count : activeFullCodes.length,
+            expired_codes_count: fullCodes.length - activeFullCodes.length,
+            total_codes_count: fullCodes.length,
             icon_url: game.icon_url || `/game_icons/${game.slug}.webp`,
             is_full_detail: true,
             is_partial_preview: false,
@@ -1709,7 +1717,9 @@ class DataService {
           );
           if (inMemory) {
             inMemory.codes = fullCodes.slice(0, 3);
-            inMemory.codes_count = fullCodes.length;
+            inMemory.codes_count = finalGame.codes_count;
+            inMemory.active_codes_count = finalGame.active_codes_count;
+            inMemory.total_codes_count = finalGame.total_codes_count;
           }
 
           return finalGame;
@@ -1760,10 +1770,14 @@ class DataService {
 
     const codes = this.getCodesForGame(game);
     const finalCodes = codes.length > 0 ? codes : (game.codes || []);
+    const usableFinalCodes = finalCodes.filter((c: any) => !isCodeExpired(c));
     const localResult: GameItem = {
       ...game,
       codes: finalCodes,
-      codes_count: finalCodes.length,
+      codes_count: typeof game.codes_count === 'number' ? game.codes_count : usableFinalCodes.length,
+      active_codes_count: typeof game.active_codes_count === 'number' ? game.active_codes_count : usableFinalCodes.length,
+      expired_codes_count: finalCodes.length - usableFinalCodes.length,
+      total_codes_count: finalCodes.length,
       icon_url: game.icon_url || `/game_icons/${game.slug}.webp`,
       is_full_detail: true,
       is_partial_preview: false,
@@ -1865,7 +1879,7 @@ class DataService {
                 is_new: true,
                 is_hot: true,
                 release_date: g.releaseDate?.split('T')[0] || new Date().toISOString().split('T')[0],
-                codes_count: finalCodes.length,
+                codes_count: finalCodes.filter((c: any) => !isCodeExpired(c)).length,
                 codes: finalCodes,
               });
             }

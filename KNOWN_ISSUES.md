@@ -10,6 +10,27 @@
 
 ## 1. DANH MỤC LỖI & CÁC BẪY ĐÃ THẤT BẠI (DO NOT REPEAT)
 
+### ISSUE-110: Bẫy Phình Số Lượng codes_count & Lệch Bảng Xếp Hạng Do Đếm Gộp Cả Mã Đã Hết Hạn Và Trùng Lặp Bản Ghi (Code Count Inflation & Leaderboard Skew Trap Due to Counting Expired Codes & Internal Duplicates)
+- **Triệu chứng**:
+  - Số lượng giftcode hiển thị trên web bị phình to bất thường ở một số game (ví dụ: Where Winds Meet 598 mã, Yến Vân Thập Lục Thanh 588 mã, Delta Force 280 mã).
+  - Huy hiệu số mã và bảng xếp hạng "Nhiều mã nhất" bị sai lệch, ưu tiên đưa những game chứa hàng trăm mã hết hạn lên đầu trang.
+  - Trang chi tiết game hiển thị danh sách hỗn tạp cả mã còn dùng được và mã đã hết hạn mà không tách bạch, làm giảm uy tín của web đối với người dùng tìm mã.
+- **Nguyên nhân gốc rễ**:
+  1. `codes_count` được gán bằng `allCodes.length` hoặc `total_codes_count` thay vì chỉ đếm mã khả dụng (`active_codes_count` = mã có hạn tương lai + mã chưa rõ hạn).
+  2. Tồn tại bản ghi trùng mã nội bộ trong kho lưu trữ dữ liệu (D1 custom codes, free codes, bundled JSON) do nạp crawler nhiều đợt mà không dedup trước khi ghi.
+  3. Hiện tượng hồi sinh mã chết (Code Resurrection): Khi crawler quét qua trang tổng hợp bên thứ ba nạp lại mã đã hết hạn mà không mang mốc thời gian, crawler tự động gán trạng thái active.
+- **Giải pháp chuẩn đã kiểm chứng**:
+  - Độc bản hóa quy tắc đếm: `codes_count` = số mã còn dùng được (`!isCodeExpired(c)`). Tuyệt đối không tính mã hết hạn vào `codes_count`, huy hiệu và sắp xếp leaderboard.
+  - Giữ lại toàn bộ mã hết hạn trong trang chi tiết game dưới nhãn "Hết hạn" riêng biệt, hiển thị dòng trạng thái: `X mã còn dùng được (Y hết hạn)` và tab mặc định là `active`.
+  - Khử trùng lặp bản ghi nội bộ theo cặp `(slug, normalizedCode)`: Giữ lại 1 bản ghi duy nhất có mô tả phần thưởng phong phú nhất và mốc hạn chuẩn nhất.
+  - Siết chặt Anti-Resurrection Guard trong Crawler Ingest: Không cho phép nạp đè trạng thái active lên các mã đã được xác nhận hết hạn từ nguồn tin cậy; kiểm tra alias slug tương đương.
+- ⛔ **CÁCH SỬA ĐÃ THẤT BẠI - TUYỆT ĐỐI KHÔNG LẶP LẠI**:
+  - ❌ *Không xóa bản ghi game trùng catalog (ví dụ Where Winds Meet vs Yến Vân Thập Lục Thanh)*: Lệnh của chủ site là GIỮ CẢ HAI bản ghi để người dùng tra cứu cả hai từ khóa đều có trang đích. Chỉ khử trùng mã và chuẩn hóa số đếm bên trong từng bản ghi.
+  - ❌ *Không xóa vĩnh viễn mã đã hết hạn khỏi trang chi tiết*: Người dùng cần tra cứu lịch sử mã đã hết hạn để biết mã mình tìm đã quá hạn hay chưa. Phải giữ trong tab "Hết hạn", chỉ loại trừ khỏi `codes_count` và sắp xếp.
+  - ❌ *Không dùng `allCodes.length` làm `codes_count`*: Luôn luôn dùng `active_codes_count` hoặc `allCodes.filter(c => !isCodeExpired(c)).length`.
+
+---
+
 ### ISSUE-109: Bẫy Lệch Pha Tìm Kiếm Giữa Dropdown Gợi Ý & Lưới Game/API Do SQLite SQL LIKE Không Chuẩn Hóa Tiếng Việt (Search Desync Trap Between Client In-Memory & Server SQLite LIKE)
 - **Triệu chứng**:
   - Gõ từ khóa không dấu như "Ky Tich Tro Lai" hoặc "Thuc Than Ky": Dropdown gợi ý trên trang chủ hiển thị đúng game ("Kỳ Tích Trở Lại", "Thức Thần Ký"), nhưng khi nhìn xuống lưới game chính hoặc gọi API `/api/games?search=` thì nhận về `total: 0` và thông báo "Không tìm thấy tựa game nào phù hợp".

@@ -7,6 +7,50 @@ Mỗi mục sửa lỗi đều ghi nhận **Nguyên nhân gốc rễ (Root Cause
 
 ## [2026-10-24]
 
+### 184. Tái Cân Bằng Toàn Diện & Chuẩn Hóa Số Đếm Mã Khả Dụng (codes_count), Khử Trùng Lặp Bản Ghi & Phân Tách Tuyệt Đối Mã Hết Hạn Khỏi Bảng Xếp Hạng (Deflated Active Code Count, Deduplication & Strict Separation of Expired Codes from Badges/Leaderboard)
+- **Mô tả & Yêu cầu người dùng**:
+  - *"Số lượng mã code hiển thị trên web đang bị phình ở một số game, làm sai lệch huy hiệu số mã và bảng xếp hạng 'nhiều mã nhất'. Đã đo trực tiếp trên production: Where Winds Meet: 598 mã, Yến Vân Thập Lục Thanh: 588 mã, Delta Force: 280 mã. Toàn site: 11.964 mã công khai (1.068 mã hết hạn thật, 10.883 mã chưa rõ hạn). Việc 1: Kiểm toán toàn diện các game có trên 100 mã (13 game), kèm bảng phân tích (tổng bản ghi, còn hạn + chưa rõ hạn, hết hạn thật, trùng lặp nội bộ, trùng lặp chéo game, nguồn gốc và ngày quét). Việc 2: Thống nhất quy tắc hiển thị số đếm (codes_count = mã còn dùng được; mã hết hạn không được tính vào codes_count/huy hiệu/sắp xếp; giữ mã hết hạn ở trang chi tiết có nhãn Hết hạn rõ ràng; chi tiết game ghi rõ 'X mã còn dùng được (Y hết hạn)'). Việc 3: Khử trùng lặp bản ghi trong cùng game, siết crawler không nạp lại mã hết hạn (anti-resurrection), bảo toàn cặp game trùng catalog Where Winds Meet & Yến Vân Thập Lục Thanh theo lệnh chủ site."*
+- **Nguyên nhân gốc rễ (Root Cause)**:
+  1. **Đếm gộp toàn bộ mã hết hạn vào `codes_count`**:
+     - Trong `functions/api/games.ts` (`formatGameItem`) và các hàm mapping `dataService.ts`, trường `codes_count` được gán bằng `allCodes.length` hoặc lấy trực tiếp từ `total_codes_count` trong D1. Khi crawler nạp mã cũ hoặc mã chuyển trạng thái hết hạn, `codes_count` vẫn tăng lũy kế khiến số đếm bị phình to.
+  2. **Trùng lặp bản ghi mã thô trong kho lưu trữ**:
+     - Qua kiểm toán, toàn hệ thống có 17.582 bản ghi mã thô trên 3 tầng (D1 custom codes, D1 free codes, và bundled `crawled_codes_188.json`), chứa tới 5.318 bản ghi trùng chuỗi mã trong cùng game (ví dụ Delta Force lặp 236 bản ghi, Tam Quốc X lặp 217 bản ghi do nạp nhiều đợt).
+  3. **Lệch trạng thái hạn giữa các cặp game alias**:
+     - Cặp game *Where Winds Meet* (`where-winds-meet-mobile`) và *Yến Vân Thập Lục Thanh* (`yen-van-thap-luc-thanh`) cùng chung 588 mã từ nguồn `codes.yar.gg`. Tuy nhiên bản ghi Yến Vân lưu đủ mốc hết hạn thật (279 mã hết hạn), trong khi Where Winds Meet nạp từ nguồn tổng hợp bị mất mốc hạn (chỉ có 66 mã ghi nhận hết hạn). Việc đếm gộp `allCodes.length` khiến cả hai game hiển thị con số ảo gần 600 mã.
+  4. **Hiện tượng hồi sinh mã chết (Code Resurrection)**:
+     - Khi một mã đã được đánh dấu hết hạn từ nguồn chuẩn (ví dụ bài bóc tách Giftcode hoặc thông báo NPH), nếu crawler quét qua một trang tổng hợp bên thứ ba vẫn đăng lại mã đó mà không ghi hạn, crawler có thể vô tình nạp đè và chuyển trạng thái mã về ACTIVE.
+- **Giải pháp đã triển khai (Solution)**:
+  1. **Kiểm toán toàn diện 13 tựa game có $\ge 100$ mã (`scripts/deep_audit_13_high_games.cjs`)**:
+     - Xuất báo cáo chi tiết 13 game gồm Where Winds Meet, Yến Vân Thập Lục Thanh, Tam Quốc X, Mê Ta Tam Quốc, Delta Force, Honkai: Star Rail, Genshin Impact, Samkok Tam Quốc, Anime Vanguards, Chiến Giới 4D, Call of Duty: Mobile VN, Da Hood, Fisch. Phân loại chuẩn xác: mã còn hạn, mã chưa rõ hạn, mã hết hạn thật, trùng lặp nội bộ và trùng chéo game.
+  2. **Thống nhất công thức độc bản Single Source of Truth cho `codes_count`**:
+     - `codes_count` hiển thị ở mọi nơi (API `/api/games`, autocomplete, danh sách catalog, thẻ game, huy hiệu số mã, bảng xếp hạng "nhiều mã nhất", SSR prerender) **chỉ đếm mã khả dụng** (`active_codes_count` = mã có hạn tương lai + mã chưa rõ hạn).
+     - Tuyệt đối loại trừ toàn bộ mã đã hết hạn (`isCodeExpired(c) === true`) ra khỏi `codes_count`, huy hiệu và thuật toán sắp xếp.
+     - Cập nhật đồng bộ các file: `functions/api/games.ts`, `src/services/dataService.ts`, `scripts/prerender.js`, `src/App.tsx`.
+  3. **Tái cấu trúc Modal Chi Tiết Game (`src/components/GameDetailModal.tsx`)**:
+     - Đặt tab mặc định là `'active'` (Mã còn dùng được) thay vì `'all'`.
+     - Phân định rõ ràng: Khi game có mã hết hạn, dòng trạng thái hiển thị rõ: `X mã còn dùng được (Y hết hạn)`. Khi không có mã hết hạn, hiển thị `X mã khả dụng`.
+     - Người dùng vẫn có thể chuyển sang tab "Đã hết hạn" để tra cứu lịch sử mã mà không làm ô nhiễm danh sách mã chính.
+  4. **Dọn dẹp khử trùng lặp bản ghi & Tái cân bằng D1 (`scripts/clean_and_rebalance_codes.cjs`)**:
+     - Khử sạch 100% bản ghi trùng mã nội bộ trong từng game across D1 `wcg_admin_custom_free_codes_v1`, `wcg_admin_free_codes_v5` và `crawled_codes_188.json`. Khi trùng, thuật toán ưu tiên giữ lại bản ghi có thông tin phần thưởng đầy đủ nhất và có mốc hết hạn chuẩn.
+     - Tái cân bằng số liệu `codes_count` chuẩn xác cho toàn bộ 565 game trên D1:
+       + *Where Winds Meet*: từ 598 mã thô giảm về **532 mã khả dụng** (66 mã hết hạn).
+       + *Yến Vân Thập Lục Thanh*: từ 588 mã thô giảm về **309 mã khả dụng** (279 mã hết hạn).
+       + *Delta Force*: chuẩn hóa **280 mã khả dụng** (0 mã hết hạn, loại 236 bản ghi lặp).
+       + Bảo toàn 100% các game chuẩn: *Kỳ Tích Trở Lại* đúng 5 mã, *Thức Thần Ký* đúng 12 mã.
+  5. **Siết chặt bộ lọc nạp mã Ingest Chống Hồi Sinh Mã Hết Hạn (`functions/api/crawler/ingest-codes.ts`)**:
+     - Xây dựng bản đồ đối chiếu alias slug (`normSlug`, `normSlug-mobile`, `normSlug.replace(/-mobile$/i, '')`).
+     - Tích hợp Anti-Resurrection Guard: Nếu một mã đã được xác nhận hết hạn từ nguồn tin cậy trong hệ thống, crawler không thể nạp đè biến mã thành active (`codeStatus = 'EXPIRED'`).
+     - Chỉ có mã khả dụng mới được phép tăng `codes_count` trong luồng auto-publish và cập nhật game.
+- **Kết quả kiểm toán & Nghiệm thu**:
+  - `scripts/verify_codes_integrity_audit.cjs`: 100% bài kiểm tra đạt (6/6 checks):
+    + Check 1: Thức Thần Ký: 12 mã chuẩn xác.
+    + Check 2: Kỳ Tích Trở Lại: 5 mã chuẩn xác.
+    + Check 3: Ma trận 10 game mẫu khớp 100% giữa API, HTML Detail và Badge.
+    + Check 4: Ingest regression & Rule 7 (xóa sạch mã test) hoàn hảo.
+    + Check 5: Pending games audit & publish idempotent hoàn hảo.
+    + Check 6: 100% catalog (562 game) có icon chuẩn, 0 icon thiếu.
+  - `npm run build`: Hoàn tất 100% không cảnh báo (529 trang prerender).
+
 ### 183. Thống Nhất Độc Bản Công Thức Tìm Kiếm Game Không Dấu & Sửa Triệt Để Luồng "Xem Tất Cả Kết Quả" (Unified Single-Source-of-Truth Vietnamese Search Engine Across Autocomplete, Main Grid & API)
 - **Mô tả & Yêu cầu người dùng**:
   - *"Tìm kiếm game trên web đang lệch nhau giữa hai bộ phận, đã kiểm chứng trực tiếp trên production: Dropdown gợi ý chạy ĐÚNG (gõ 'Ky Tich Tro Lai' ra Kỳ Tích Trở Lại, gõ 'Thuc Than Ky' ra Thức Thần Ký), trong khi Lưới game chính và API /api/games?search= trả về 0 kết quả (báo 'Không tìm thấy tựa game nào phù hợp'). Nút chuyển trang 'Xem tất cả kết quả' hoặc 'Tìm kiếm' sau truy vấn không dấu bị rơi vào trang trống dù game có tồn tại. Yêu cầu: Việc 1: Thống nhất logic so khớp tìm kiếm thành một hàm dùng chung cho cả 3 nơi (dropdown, lưới game, API /api/games); Việc 2: Sửa luồng 'Xem tất cả kết quả' và nút 'Tìm kiếm'; Việc 3: Không hồi quy các ca đang đúng ('Ky Tich Tro Lai', 'Thuc Than Ky', 'Kỳ Tích Trở Lại', 'thuc-than-ky', 'Genshin', và 'Thực Thần Ký' ra 0 kết quả chuẩn xác không đoán mò)."*

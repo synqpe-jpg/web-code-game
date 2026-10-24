@@ -68,7 +68,7 @@ export const GameDetailModal: React.FC<GameDetailModalProps> = ({
   const [copiedCode, setCopiedCode] = useState<string | null>(null);
   const [copiedType, setCopiedType] = useState<string | null>(null);
   const [votes, setVotes] = useState<Record<string, { up: number; down: number }>>({});
-  const [selectedCodeTab, setSelectedCodeTab] = useState<'all' | 'active' | 'expired'>('all');
+  const [selectedCodeTab, setSelectedCodeTab] = useState<'all' | 'active' | 'expired'>('active');
   const [modalImageLoaded, setModalImageLoaded] = useState(false);
   const [modalFallbackStage, setModalFallbackStage] = useState(0); // 0: webp, 1: jpg, 2: edge proxy, 3: initials
   const [isEmailModalOpen, setIsEmailModalOpen] = useState(false);
@@ -154,11 +154,15 @@ export const GameDetailModal: React.FC<GameDetailModalProps> = ({
     const propCodes = game.codes || [];
     // Prioritize authoritative server detail codes, fallback to prop codes if base is empty
     const bestCodes = baseCodes.length > 0 ? baseCodes : propCodes;
+    const activeBestCodes = bestCodes.filter((c) => !isExpired(c));
     return {
       ...game,
       ...base,
       codes: bestCodes,
-      codes_count: bestCodes.length,
+      codes_count: activeBestCodes.length,
+      active_codes_count: activeBestCodes.length,
+      expired_codes_count: bestCodes.length - activeBestCodes.length,
+      total_codes_count: bestCodes.length,
       icon_url: base.icon_url || game.icon_url || `/game_icons/${game.slug}.webp`,
     };
   }, [game, liveGame]);
@@ -409,6 +413,14 @@ export const GameDetailModal: React.FC<GameDetailModalProps> = ({
                       {currentGame.release_date}
                     </span>
                   )}
+                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-emerald-500/10 text-emerald-400 font-bold border border-emerald-500/20 text-[10px] sm:text-[11px] shrink-0">
+                    <Gift className="w-3 h-3 text-emerald-400" />
+                    {expiredCodes.length > 0 ? (
+                      <span><strong>{activeCodes.length}</strong> mã còn dùng được <span className="opacity-75 font-normal">({expiredCodes.length} hết hạn)</span></span>
+                    ) : (
+                      <span><strong>{activeCodes.length}</strong> mã khả dụng</span>
+                    )}
+                  </span>
                 </p>
               </div>
             </div>

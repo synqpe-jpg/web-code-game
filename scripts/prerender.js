@@ -16,6 +16,21 @@ function escapeHtml(unsafe = '') {
     .replace(/'/g, '&#039;');
 }
 
+function isCodeExpired(c) {
+  if (!c) return false;
+  const status = String(c.status || '').toLowerCase();
+  if (status === 'expired' || status === 'rejected') return true;
+
+  const exp = c.expiresAt || c.expires_at || c.expiry || '';
+  if (!exp) return false;
+  if (exp === '2026-12-31' || exp === '2026-12-31T23:59:59Z' || exp === '31/12/2026') return false;
+
+  const now = new Date();
+  const d = new Date(exp);
+  if (isNaN(d.getTime())) return false;
+  return d < now;
+}
+
 async function runPrerender() {
   const distDir = path.resolve(__dirname, '../dist');
   const templatePath = path.join(distDir, 'index.html');
@@ -799,8 +814,8 @@ async function runPrerender() {
       }
     }
 
-    const activeCodes = gameCodes.filter((c) => (c.status || 'approved') !== 'expired' && c.status !== 'rejected');
-    const displayCodes = activeCodes.length > 0 ? activeCodes : gameCodes.slice(0, 10);
+    const activeCodes = gameCodes.filter((c) => !isCodeExpired(c));
+    const displayCodes = activeCodes;
 
     const rawImg = game.cover_image_url || game.icon_url || `/game_icons/${slug}.jpg`;
     const jpgImg = rawImg.replace(/\.webp$/i, '.jpg');

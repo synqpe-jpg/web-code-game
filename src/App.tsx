@@ -45,6 +45,7 @@ import { growthService } from './services/growthService';
 import type { GameItem, FilterState, StoreProduct, UserProfile, GiveawayCampaign, UtilityProduct, ProductPackageVariant, UpcomingGame } from './types/game';
 import { saveRecentSearch } from './utils/recentSearchUtils';
 import { groupStoreProductsByGame } from './utils/productPackageUtils';
+import { isCodeExpired } from './utils/codeUtils';
 
 export interface SharePayload {
   title: string;
@@ -1105,10 +1106,14 @@ export const App: React.FC = () => {
       ? cachedGame.codes
       : (localCodes && localCodes.length > (game.codes?.length || 0) ? localCodes : (game.codes || []));
 
+    const usableFullCodes = fullCodes.filter((c: any) => !isCodeExpired(c));
     const initialEnrichedGame: GameItem = {
       ...game,
       codes: fullCodes,
-      codes_count: Math.max(game.codes_count || 0, fullCodes.length, game.codes?.length || 0),
+      codes_count: typeof game.codes_count === 'number' ? game.codes_count : usableFullCodes.length,
+      active_codes_count: typeof game.active_codes_count === 'number' ? game.active_codes_count : usableFullCodes.length,
+      expired_codes_count: fullCodes.length - usableFullCodes.length,
+      total_codes_count: fullCodes.length,
       icon_url: game.icon_url || cachedGame?.icon_url || `/game_icons/${game.slug}.webp`,
     };
     setSelectedGame(initialEnrichedGame);

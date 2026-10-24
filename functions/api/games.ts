@@ -207,7 +207,10 @@ export function formatGameItem(g: any, allCodes: GiftCode[]): GameItem {
     is_hot: Boolean(g.is_hot || g.isHot),
     is_new: Boolean(g.is_new || g.isNew),
     is_active: g.is_active !== undefined ? Boolean(g.is_active) : true,
-    codes_count: allCodes.length,
+    codes_count: allCodes.filter((c) => !isCodeExpired(c)).length,
+    active_codes_count: allCodes.filter((c) => !isCodeExpired(c)).length,
+    expired_codes_count: allCodes.filter((c) => isCodeExpired(c)).length,
+    total_codes_count: allCodes.length,
     codes: allCodes,
   };
 }
@@ -547,7 +550,10 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
           is_hot: Boolean(gameRow.is_hot),
           is_new: Boolean(gameRow.is_new),
           is_active: gameRow.is_active !== undefined ? Boolean(gameRow.is_active) : true,
-          codes_count: codesList.length,
+          codes_count: codesList.filter((c) => !isCodeExpired(c)).length,
+          active_codes_count: codesList.filter((c) => !isCodeExpired(c)).length,
+          expired_codes_count: codesList.filter((c) => isCodeExpired(c)).length,
+          total_codes_count: codesList.length,
           codes: codesList,
           codes_pool_complete: true,
         };
@@ -643,7 +649,7 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
           .slice(0, limit)
           .map((item) => ({
             ...item.game,
-            codes_count: Number(item.game.total_codes_count || item.game.active_codes_count || 0),
+            codes_count: Number(item.game.active_codes_count !== undefined && item.game.active_codes_count !== null ? item.game.active_codes_count : (item.game.codes_count || item.game.total_codes_count || 0)),
             icon_url: item.game.icon_url || `/game_icons/${item.game.slug}.webp`,
             codes: [],
           }));
@@ -1018,9 +1024,9 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
         platform: r.platform || 'Mobile / PC',
         rating: typeof r.rating === 'number' ? r.rating : 4.8,
         icon_url: r.icon_url || `/game_icons/${r.slug}.webp`,
-        active_codes_count: Number(r.active_codes_count || 0),
+        active_codes_count: Number(r.active_codes_count !== undefined && r.active_codes_count !== null ? r.active_codes_count : 0),
         total_codes_count: Number(r.total_codes_count || 0),
-        codes_count: Number(r.total_codes_count || r.active_codes_count || 0),
+        codes_count: Number(r.active_codes_count !== undefined && r.active_codes_count !== null ? r.active_codes_count : (r.codes_count || r.total_codes_count || 0)),
         last_code_at: r.last_code_at || null,
         is_hot: Boolean(r.is_hot),
         is_new: Boolean(r.is_new),
