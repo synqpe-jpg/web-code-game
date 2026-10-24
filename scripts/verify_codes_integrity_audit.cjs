@@ -3,8 +3,8 @@ const fs = require('fs');
 const path = require('path');
 const { searchGooglePlayForLogo, downloadAndSaveGameIcon } = require('./crawler/engine/game_logo_resolver.cjs');
 
-const API_KEY = 'wcg_muse_f7d252dd57426a7a';
 const ADMIN_SYNC_SECRET = process.env.ADMIN_SYNC_SECRET || 'b4e08494bf1c3fd6a0c965dd2411780c60513f7f87001bc955d7496331b2faef';
+const API_KEY = process.env.ADMIN_SYNC_SECRET || process.env.MUSE_API_KEY || 'wcg_muse_f7d252dd57426a7a';
 const BASE_URL = 'https://codegame.shop';
 
 async function fetchJson(path, options = {}, retries = 2) {

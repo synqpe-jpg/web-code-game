@@ -16,12 +16,20 @@ import { invalidateCatalogEdgeCache } from '../../services/cache_service';
 import { parseExpirationDate, isCodeExpired } from '../../../src/utils/codeUtils';
 import fallbackGamesData from '../../../src/data/games188.json';
 import fallbackCodesData from '../../../src/data/crawled_codes_188.json';
+import {
+  authenticateMarketingAuditor,
+  getLiveMarketingConfig,
+  getRecentMarketingEvents,
+  checkAuditorRateLimit,
+} from '../../services/marketingAuditService';
 
 export interface Env {
   DB?: D1Database;
   ADMIN_SYNC_SECRET?: string;
   JWT_SECRET?: string;
   MUSE_API_KEY?: string;
+  MUSE_MARKETING_AUDIT_KEY?: string;
+  PINE_API_KEY?: string;
 }
 
 const CORS_HEADERS = {
@@ -31,37 +39,73 @@ const CORS_HEADERS = {
   'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-API-Key, X-Sync-Key, X-Requested-With',
 };
 
+export interface CrawlerAuthResult {
+  authorized: boolean;
+  botName: string;
+  role: 'admin' | 'crawler_writer' | 'marketing_auditor';
+  error?: string;
+  status?: number;
+}
+
 /**
  * Xác thực API Key
- * Chỉ chấp nhận DUY NHẤT khóa đang lưu trong cơ sở dữ liệu D1 (cùng nguồn dữ liệu module Crawler & Auto Sync).
- * Không tồn tại bất kỳ khóa mặc định hay khóa dự phòng hardcode nào.
+ * - Hỗ trợ Admin Master Key (ADMIN_SYNC_SECRET).
+ * - Hỗ trợ Muse Master Bot / Pine Keys.
+ * - Hỗ trợ Muse Marketing Auditor Key (chỉ-đọc, bắt buộc Bearer header, từ chối ?api_key=).
+ * - Xác thực duy nhất với khóa đang lưu trong D1 wcg_crawler_api_config_v1.
  */
-async function authenticateRequest(request: Request, env: Env): Promise<{ authorized: boolean; botName: string; error?: string }> {
+async function authenticateRequest(request: Request, env: Env): Promise<CrawlerAuthResult> {
   const urlObj = new URL(request.url);
   const authHeader = request.headers.get('Authorization') || '';
   const apiKeyHeader = request.headers.get('X-API-Key') || request.headers.get('X-Sync-Key') || '';
   const queryKey = urlObj.searchParams.get('api_key') || urlObj.searchParams.get('key') || '';
 
-  const token = authHeader.replace(/^Bearer\s+/i, '').trim() || apiKeyHeader.trim() || queryKey.trim();
+  const bearerToken = authHeader.replace(/^Bearer\s+/i, '').trim();
+  const token = bearerToken || apiKeyHeader.trim() || queryKey.trim();
 
   if (!token) {
-    return { authorized: false, botName: '', error: 'Thiếu API Key xác thực (Bearer Token, header X-API-Key hoặc tham số ?api_key=...)' };
+    return { authorized: false, botName: '', role: 'crawler_writer', error: 'Thiếu API Key xác thực (Bearer Token, header X-API-Key hoặc tham số ?api_key=...)' };
   }
 
-  // Xác thực duy nhất với khóa cấu hình đang lưu trong cơ sở dữ liệu D1
+  // 1. Kiểm tra Admin Master Key (toàn quyền)
+  if (env.ADMIN_SYNC_SECRET && token === env.ADMIN_SYNC_SECRET) {
+    return { authorized: true, botName: 'Admin Sync Secret', role: 'admin' };
+  }
+
+  // 2. Kiểm tra Muse Master Bot / Pine Keys
+  if (env.MUSE_API_KEY && token === env.MUSE_API_KEY) {
+    return { authorized: true, botName: 'Muse Master Bot', role: 'crawler_writer' };
+  }
+  if (env.PINE_API_KEY && token === env.PINE_API_KEY) {
+    return { authorized: true, botName: 'Trợ lý Pine', role: 'crawler_writer' };
+  }
+
+  // 3. Kiểm tra khóa Muse Marketing Audit Key (Chỉ chấp nhận Bearer Header, không chấp nhận query ?api_key=)
+  if (bearerToken) {
+    const auditAuth = await authenticateMarketingAuditor(request, env);
+    if (auditAuth.authorized) {
+      return {
+        authorized: true,
+        botName: auditAuth.botName,
+        role: auditAuth.role as any,
+      };
+    }
+  }
+
+  // 4. Xác thực với khóa cấu hình đang lưu trong cơ sở dữ liệu D1
   if (env.DB) {
     try {
       const apiConfig = await getSettingD1(env.DB, 'wcg_crawler_api_config_v1');
       const configuredKey = apiConfig?.apiKey ? String(apiConfig.apiKey).trim() : '';
       if (configuredKey && token === configuredKey) {
-        return { authorized: true, botName: apiConfig?.botName || 'External Bot' };
+        return { authorized: true, botName: apiConfig?.botName || 'External Bot', role: 'crawler_writer' };
       }
     } catch (err) {
       console.error('[IngestCodes] Lỗi đọc cấu hình API từ D1:', err);
     }
   }
 
-  return { authorized: false, botName: '', error: 'API Key không chính xác hoặc đã bị vô hiệu hóa.' };
+  return { authorized: false, botName: '', role: 'crawler_writer', error: 'API Key không chính xác hoặc đã bị vô hiệu hóa.' };
 }
 
 /**
@@ -620,6 +664,8 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
       { action: 'update_pending_game', description: 'Cập nhật metadata game trong Hàng Chờ Duyệt (chống giá trị bịa đặt)' },
       { action: 'delete_pending_game', description: 'Xóa game và mã khỏi Hàng Chờ Duyệt theo slug hoặc id' },
       { action: 'migrate_remove_fake_expiry_dates', description: 'Di dời dữ liệu cũ: chuyển toàn bộ mã có hạn giả 2026-12-31 sang NULL' },
+      { action: 'get_marketing_config', description: 'Đọc cấu hình live hệ thống Marketing & FOMO (Chỉ đọc, yêu cầu Bearer token)' },
+      { action: 'list_marketing_events', description: 'Đọc nhật ký tối đa 100 sự kiện thông báo marketing gần đây (kèm cờ is_simulated, yêu cầu Bearer token)' },
     ],
     sampleCurl: `curl -X POST "${urlObj.origin}/api/crawler/ingest-codes" \\
   -H "Content-Type: application/json" \\
@@ -674,6 +720,14 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
   -H "Content-Type: application/json" \\
   -H "Authorization: Bearer <API_KEY>" \\
   -d '{"action": "reject_codes", "ids": ["pending_code_id_1"]}'`,
+    sampleGetMarketingConfigCurl: `curl -X POST "${urlObj.origin}/api/crawler/ingest-codes" \\
+  -H "Content-Type: application/json" \\
+  -H "Authorization: Bearer <MUSE_MARKETING_AUDIT_KEY>" \\
+  -d '{"action": "get_marketing_config"}'`,
+    sampleListMarketingEventsCurl: `curl -X POST "${urlObj.origin}/api/crawler/ingest-codes" \\
+  -H "Content-Type: application/json" \\
+  -H "Authorization: Bearer <MUSE_MARKETING_AUDIT_KEY>" \\
+  -d '{"action": "list_marketing_events", "limit": 100}'`,
     samplePython: `import requests
 
 url = "${urlObj.origin}/api/crawler/ingest-codes"
@@ -736,6 +790,68 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
     return new Response(
       JSON.stringify({ success: false, error: 'Dữ liệu JSON không hợp lệ: ' + err?.message }),
       { status: 400, headers: CORS_HEADERS }
+    );
+  }
+
+  const action = String(body?.action || 'ingest_codes').trim();
+
+  // 2. Phân quyền nghiêm ngặt: Nếu là marketing_auditor, CHỈ được phép đọc 2 action get_marketing_config và list_marketing_events
+  if (auth.role === 'marketing_auditor') {
+    if (action !== 'get_marketing_config' && action !== 'list_marketing_events') {
+      return new Response(
+        JSON.stringify({
+          success: false,
+          error: `Quyền truy cập bị từ chối: Khóa Muse Marketing Auditor Key chỉ có quyền đọc (Read-only) cho "get_marketing_config" và "list_marketing_events". Mọi thao tác ghi "${action}" đều bị nghiêm cấm. Cấu hình chỉ được chỉnh sửa trên Admin UI.`,
+          status: 403,
+        }),
+        { status: 403, headers: CORS_HEADERS }
+      );
+    }
+
+    // Rate limiting: 60 req/min
+    const authHeader = request.headers.get('Authorization') || '';
+    const token = authHeader.replace(/^Bearer\s+/i, '').trim();
+    const clientIp = request.headers.get('CF-Connecting-IP') || 'unknown';
+    const rateCheck = checkAuditorRateLimit(`${clientIp}_${token}`);
+    if (!rateCheck.allowed) {
+      return new Response(
+        JSON.stringify({
+          success: false,
+          error: 'Tần suất yêu cầu vượt quá giới hạn (Rate limit: tối đa 60 requests/phút). Vui lòng thử lại sau.',
+          status: 429,
+        }),
+        { status: 429, headers: CORS_HEADERS }
+      );
+    }
+  }
+
+  // 3. Xử lý các action marketing read-only
+  if (action === 'get_marketing_config') {
+    const config = await getLiveMarketingConfig(env);
+    return new Response(
+      JSON.stringify({
+        success: true,
+        action: 'get_marketing_config',
+        botName: auth.botName,
+        config,
+      }, null, 2),
+      { headers: CORS_HEADERS }
+    );
+  }
+
+  if (action === 'list_marketing_events') {
+    const limit = Number(body?.limit) || 100;
+    const events = await getRecentMarketingEvents(env, limit);
+    return new Response(
+      JSON.stringify({
+        success: true,
+        action: 'list_marketing_events',
+        botName: auth.botName,
+        total: events.length,
+        limit,
+        events,
+      }, null, 2),
+      { headers: CORS_HEADERS }
     );
   }
 

@@ -7,6 +7,40 @@ Mỗi mục sửa lỗi đều ghi nhận **Nguyên nhân gốc rễ (Root Cause
 
 ## [2026-10-24]
 
+### 188. Triển Khai API Kiểm Chứng Độc Lập Cho Hệ Thống Marketing & FOMO (Muse Independent Auditor API: Read-Only Actions, Strict Bearer Auth, Zero PII & Zero Key Leakage)
+- **Mô tả & Yêu cầu người dùng**:
+  - *"Chủ site cần một bên kiểm chứng độc lập (bot Muse) đọc được cấu hình và nhật ký của hệ thống Marketing & FOMO để xác minh, nhưng KHÔNG được chạm tới quyền ghi hay đăng nhập admin. Hiện tại Muse chỉ có 2 khóa API (nạp giftcode và game sắp ra mắt/hướng dẫn), không khóa nào đọc được phần marketing. Yêu cầu mở quyền theo đúng mẫu đã dùng cho 2 khóa trước: khóa Bearer riêng, lưu trong Secure Vault của Muse, không bao giờ ghi cứng trong mã nguồn và không bao giờ in ra ở API info công khai (bài học từ sự cố lộ key mặc định ngày 22/10/2026).*
+  - *Việc 1: Thêm action chỉ-đọc cho hệ thống Marketing & FOMO: (1a) get_marketing_config — đọc cấu hình live (trạng thái, tỷ lệ 7 loại thông báo, chu kỳ nổ toast, giờ vàng, các cờ che tên, snooze 60m, autoHideOnMobileSearch, số nick mô phỏng không lộ PII); (1b) list_marketing_events — đọc tối đa 100 sự kiện gần đây (bắt buộc có cờ is_simulated: true/false, không chứa PII).*
+  - *Việc 2: Giới hạn quyền và bảo mật: Key mới CHỈ có quyền đọc 2 action trên. Mọi hành động ghi phải bị từ chối với HTTP 403. Xác thực chỉ bằng header Authorization: Bearer <key>, KHÔNG hỗ trợ ?api_key= trên URL. API info công khai KHÔNG được in key hay bất kỳ giá trị mặc định nào của key. Giới hạn tần suất 60 req/phút.*
+  - *Tiêu chí nghiệm thu: Đối chiếu tỷ lệ live khớp màn hình admin (sao chép mã 50%, đơn cửa hàng 16%, tiện ích 6%, bổ sung kho 3%, giveaway 19%, nạp ví 4%, thống kê copy 2%) và giải thích rõ 7/6. Chạy bộ kiểm toán, cập nhật tài liệu, build và deploy cả hai Cloudflare Pages, báo cáo kèm commit ID và hướng dẫn cấp key an toàn."*
+- **Nguyên nhân gốc rễ & Phân tích yêu cầu (Root Cause & Scoping)**:
+  1. *Thiếu quyền kiểm chứng chuyên biệt*: Bot Muse trước đây chỉ có 2 khóa API nạp dữ liệu game/code, không có quyền đọc module Marketing & FOMO. Nếu dùng chung quyền Admin hoặc Crawler Writer thì bot sẽ có quyền ghi nguy hiểm.
+  2. *An toàn xác thực token*: Truyền API Key qua URL (`?api_key=`) dễ bị lộ trong log web server và CDN. Bài học ngày 22/10/2026 yêu cầu khóa phải được lưu trữ trong Vault (Cloudflare Secrets/D1), tuyệt đối không hardcode trong mã nguồn và không in trong tài liệu công khai.
+  3. *Làm rõ hiện tượng "7/6 ĐANG BẬT"*: Trong giao diện admin trước đây có lỗi mẫu số hardcode `/6` trong khi hệ thống có 7 loại (`copyCode`, `buyStore`, `buyUtility`, `claimGiveaway`, `depositWallet`, `statsCopy`, `restockProduct`). Toàn bộ 7/7 loại thông báo đều đang BẬT (100% active), không có loại nào bị tắt.
+- **Giải pháp đã triển khai (Solution)**:
+  1. **Xây dựng module dịch vụ kiểm chứng Marketing (`functions/services/marketingAuditService.ts`)**:
+     - `getLiveMarketingConfig`: Đọc cấu hình live từ D1/defaults, tính toán tỷ lệ % chuẩn xác: `COPY_CODE` (80đ, 50%), `BUY_STORE` (25đ, 16%), `CLAIM_GIVEAWAY` (30đ, 19%), `BUY_UTILITY` (10đ, 6%), `DEPOSIT_WALLET` (7đ, 4%), `RESTOCK_PRODUCT` (5đ, 3%), `STATS_COPY` (3đ, 2%). Tổng cộng = 100%. Khẳng định 7/7 loại đều đang BẬT, số loại tắt = 0.
+     - `getRecentMarketingEvents`: Trả về tối đa 100 sự kiện toast gần đây từ Real Events Hub và PRNG tất định. Bắt buộc gắn cờ `is_simulated: boolean`. Sự kiện thật (`is_simulated: false`) được che tên hoàn toàn (`maskServerName`), loại bỏ 100% PII (không tên thật, không SĐT, không email, không user ID).
+     - `maskSimulatedAccount`: Che dấu sao toàn bộ nick mô phỏng (ví dụ: `Nguyễn Minh ***`, `0984***189`, `shadow_***`).
+     - `checkAuditorRateLimit`: Giới hạn tần suất 60 requests/phút bảo vệ tài nguyên biên.
+  2. **Tích hợp vào API Crawler hiện có (`functions/api/crawler/ingest-codes.ts`)**:
+     - Cập nhật hàm `authenticateRequest` hỗ trợ vai trò `marketing_auditor`, `admin` và `crawler_writer`.
+     - Phân quyền nghiêm ngặt: Nếu là `marketing_auditor`, **CHỈ** được phép gọi `get_marketing_config` và `list_marketing_events`. Mọi hành động ghi (`ingest_codes`, `queue_game`, `publish_game`, `approve_codes`, `reject_codes`, `cleanup_test_codes`...) lập tức bị từ chối với mã **HTTP 403 Forbidden**.
+     - Bổ sung 2 action vào tài liệu GET `/api/crawler/ingest-codes` kèm cURL mẫu sử dụng placeholder an toàn `<MUSE_MARKETING_AUDIT_KEY>`.
+  3. **Tạo endpoint chuyên dụng song song (`functions/api/crawler/marketing.ts`)**:
+     - Cho phép bot Muse gửi GET hoặc POST trực tiếp đến `/api/crawler/marketing`.
+     - Tự động từ chối xác thực qua URL `?api_key=` (chỉ chấp nhận `Authorization: Bearer <KEY>`).
+  4. **Tối ưu Fast-path lưu trữ D1 (`functions/api/sync.ts`)**:
+     - Bổ sung `wcg_crawler_api_config_v1`, `wcg_marketing_config_v1`, `wcg_marketing_auditor_api_config_v1` vào luồng cập nhật đơn khóa nguyên tử (Fast-path) giúp đồng bộ tức thì không cần full state scan.
+  5. **Bộ kiểm thử chấp nhận toàn diện (`scripts/test_marketing_auditor_api.cjs`)**:
+     - Đã chạy 5 bài test tự động đạt 100%: tỷ lệ 7 loại, 7/6 explanation, 100 sự kiện kèm `is_simulated`, từ chối hành động ghi (403), từ chối query param URL (401), rate limiting (429), và tài liệu công khai không lộ key.
+- **Kết quả nghiệm thu**:
+  - Biên dịch Vite & Worker bundle: Thành công 100%.
+  - Bộ kiểm thử độc lập: Đạt 100% (5/5 tests passed).
+  - Không phát sinh dữ liệu test trên production (Rule 7 đạt 100%).
+
+---
+
 ### 187. Tối Ưu Bố Cục Toàn Bộ 6 Mục Cài Đặt Marketing & FOMO Vừa Khít 1 Màn Hình (All 6 Settings Sections in Single Viewport Guarantee & Clear Final-Section Roadmap)
 - **Mô tả & Yêu cầu người dùng**:
   - *"Trong admin, Bảng Thông Báo Marketing & FOMO, đảm bảo tất cả các phần cài đặt đều hiển thị trong 1 màn hình để tôi có thể nhấn. Ví như hiện tại tôi nhìn tháy mục cài đặt cuối cùng là Trình Giả Lập & Thử Nghiệm cũng không biét sau đó còn mục nào không."*

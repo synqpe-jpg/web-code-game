@@ -10,6 +10,35 @@
 
 ## 1. DANH MỤC LỖI & CÁC BẪY ĐÃ THẤT BẠI (DO NOT REPEAT)
 
+### ISSUE-114: Bẫy Rò Rỉ API Key Khi Cung Cấp Quyền Đọc Cho Bot Kiểm Chứng Độc Lập & Bẫy Cấp Quyền Ghi Vượt Mức (Marketing Audit Key Scoping, Strict Read-Only & Zero Leakage Trap)
+- **Triệu chứng**:
+  - Khi cần một bên thứ ba độc lập (như bot Muse) đọc dữ liệu cấu hình và nhật ký sự kiện của hệ thống Marketing & FOMO để kiểm chứng, nếu tái sử dụng khóa API crawler nạp giftcode hoặc dùng chung quyền admin, bot sẽ có khả năng thực hiện các hành vi ghi (thay đổi trọng số, sửa cấu hình, nạp code, đổi dữ liệu).
+  - Nguy cơ rò rỉ khóa nếu cho phép truyền khóa qua tham số query `?api_key=` trên URL (bị lưu vào web server access logs và proxy logs).
+  - Nguy cơ để lộ khóa bí mật trong phản hồi GET công khai của API Info (tái diễn lỗ hổng ngày 22/10/2026).
+  - Người dùng hoặc bot hiểu lầm hệ thống có loại thông báo bị tắt khi thấy hiển thị "7/6 ĐANG BẬT" trong các bản ghi lịch sử.
+- **Nguyên nhân gốc rễ**:
+  1. Thiếu vai trò phân quyền chuyên biệt (Role Scoping): Trước đây hệ thống chỉ có `admin` hoặc `crawler_writer`, thiếu vai trò `marketing_auditor` chỉ-đọc (Read-only).
+  2. Truyền khóa qua URL query parameter `?api_key=`: Khiến token bị in vào access log của máy chủ và CDN.
+  3. Thiếu cơ chế kiểm soát tần suất (Rate Limiting) trên các endpoint kiểm chứng dữ liệu, tạo nguy cơ bị khai thác cào quét quá tải tài nguyên.
+  4. Mẫu số cứng `/6` trong giao diện cũ gây hiểu lầm là có loại thông báo đang tắt hoặc thừa loại so với mẫu.
+- **Giải pháp chuẩn đã kiểm chứng**:
+  - **Mở 2 Action Chỉ-Đọc Dành Riêng Cho Kiểm Chứng**:
+    1. `get_marketing_config`: Trả về trạng thái bật/tắt của module, tỷ lệ phần trăm phân bổ 7 loại thông báo (khớp 100% với admin: sao chép mã 50%, đơn cửa hàng 16%, tiện ích 6%, bổ sung kho 3%, giveaway 19%, nạp ví 4%, thống kê copy 2%), chu kỳ nổ toast, giờ vàng, các cờ che tên (masking), nút tắt chuông (snooze 60 phút), tự ẩn khi tìm kiếm mobile, và số lượng tài khoản mô phỏng (90 nick, chỉ trả về dạng đã che dấu sao, KHÔNG lộ PII). Giải thích minh bạch: 7/7 loại đều đang BẬT, không có loại nào bị tắt.
+    2. `list_marketing_events`: Đọc tối đa 100 sự kiện toast gần đây nhất, mỗi sự kiện bắt buộc có cờ `is_simulated: boolean`. Sự kiện thật (`is_simulated: false`) tuyệt đối không chứa thông tin định danh người dùng (không tên thật, không SĐT, không email, không ID tài khoản).
+  - **Giới hạn quyền nghiêm ngặt (Strict Read-Only Enforcement)**:
+    - Khóa kiểm chứng `marketing_auditor` CHỈ có quyền đọc 2 action trên. Mọi yêu cầu ghi (đổi trọng số, bật/tắt, bắn thử, ingest code, publish game...) đều bị từ chối với mã **HTTP 403 Forbidden**.
+  - **Phương thức xác thực an toàn tuyệt đối**:
+    - CHỈ chấp nhận header `Authorization: Bearer <KEY>`. TUYỆT ĐỐI KHÔNG hỗ trợ xác thực bằng `?api_key=` trên URL.
+    - Khóa được lưu trong Cloudflare Environment Secrets (`MUSE_MARKETING_AUDIT_KEY`) hoặc bảng `wcg_marketing_auditor_api_config_v1` trong D1. Tuyệt đối không hardcode khóa trong mã nguồn.
+  - **Bảo vệ tài liệu công khai (Zero Key Leakage)**: Phản hồi GET công khai tuyệt đối không chứa bất kỳ khóa thực tế nào (chỉ dùng placeholder `<MUSE_MARKETING_AUDIT_KEY>` hoặc `<API_KEY>`).
+  - **Giới hạn tần suất hợp lý**: Áp dụng Rate Limiting 60 requests/phút (trả về HTTP 429 nếu vượt quá).
+- ⛔ **CÁCH SỬA ĐÃ THẤT BẠI - TUYỆT ĐỐI KHÔNG LẶP LẠI**:
+  - ❌ *Không bao giờ cho phép xác thực bot qua `?api_key=` trên URL*: URL query params bị lưu vào access logs, proxy logs và browser history, dẫn đến rò rỉ khóa bảo mật.
+  - ❌ *Không bao giờ gán quyền ghi cho bot kiểm chứng độc lập*: Bot kiểm chứng chỉ được đọc dữ liệu snapshot và event log, mọi hành động ghi phải chặn đứng bằng HTTP 403.
+  - ❌ *Không bao giờ in khóa thật trong ví dụ curl của API Info công khai*: Bài học xương máu từ sự cố lộ key mặc định ngày 22/10/2026.
+
+---
+
 ### ISSUE-113: Bẫy Tràn Chiều Ngang Khiến Thanh Điều Hướng Sub-Tabs Bị Cắt Cụt Mép Phải & Che Giấu Mục Cài Đặt Cuối Cùng Trong Module Marketing & FOMO (Horizontal Sub-Tab Overflow & Hidden Final Settings Section Trap)
 - **Triệu chứng**:
   - Tại trang quản trị Module Marketing & FOMO (`admin#/marketing`), thanh tab điều hướng các mục cài đặt dùng `flex items-center gap-1 overflow-x-auto scrollbar-none`.

@@ -98,13 +98,13 @@ export const DEFAULT_TYPE_TOGGLES: NotificationTypeToggles = {
 };
 
 export const DEFAULT_TYPE_WEIGHTS: NotificationTypeWeights = {
-  copyCode: 20,
-  depositWallet: 25,
-  claimGiveaway: 15,
-  buyStore: 5,
-  buyUtility: 35,
-  statsCopy: 5,
-  restockProduct: 0,
+  copyCode: 80,       // 50%
+  buyStore: 25,       // 16%
+  buyUtility: 10,     // 6%
+  restockProduct: 5,  // 3%
+  claimGiveaway: 30,  // 19%
+  depositWallet: 7,   // 4%
+  statsCopy: 3,       // 2%
 };
 
 export const DEFAULT_DEPOSIT_PRESETS: number[] = [20000, 50000, 100000, 200000, 300000, 500000, 1000000];

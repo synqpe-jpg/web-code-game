@@ -1409,6 +1409,18 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
           { headers: CORS_HEADERS }
         );
       }
+      if (
+        vKey === 'wcg_crawler_api_config_v1' ||
+        vKey === 'wcg_marketing_config_v1' ||
+        vKey === 'wcg_marketing_auditor_api_config_v1' ||
+        vKey === 'wcg_crawler_sources_v1'
+      ) {
+        await setSettingD1(env.DB, vKey, body.data);
+        return new Response(
+          JSON.stringify({ success: true, message: `Đã cập nhật ${vKey} vào D1 thành công!` }),
+          { headers: CORS_HEADERS }
+        );
+      }
     }
 
     // Action: Xóa toàn bộ khóa IP rate limit (mở khóa ngay lập tức cho người dùng bị khóa)
