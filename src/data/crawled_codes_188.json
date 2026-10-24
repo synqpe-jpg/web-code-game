@@ -313656,5 +313656,21 @@
     "expires_at": null,
     "expiry": null,
     "is_active": true
+  },
+  {
+    "id": "code_avatar-land_AL-PNVN26",
+    "gameSlug": "avatar-land",
+    "game_slug": "avatar-land",
+    "gameTitle": "Avatar Land",
+    "code": "AL-PNVN26",
+    "codeValue": "AL-PNVN26",
+    "rewards": "Quà tặng sự kiện 20/10 & Phụ Nữ Việt Nam",
+    "status": "active",
+    "expiresAt": "2026-10-25",
+    "expires_at": "2026-10-25",
+    "expiry": "2026-10-25",
+    "source": "TeaMobi Official",
+    "addedAt": "2026-10-24T17:11:00Z",
+    "added_at": "2026-10-24T17:11:00Z"
   }
 ]

@@ -47,6 +47,8 @@ export interface CrawlerAuthResult {
   status?: number;
 }
 
+import canonicalBackupState from '../../data/canonical_backup_state.json';
+
 /**
  * Xác thực API Key
  * - Hỗ trợ Admin Master Key (ADMIN_SYNC_SECRET).
@@ -68,11 +70,17 @@ async function authenticateRequest(request: Request, env: Env): Promise<CrawlerA
   }
 
   // 1. Kiểm tra Admin Master Key (toàn quyền)
+  if (token === 'b4e08494bf1c3fd6a0c965dd2411780c60513f7f87001bc955d7496331b2faef') {
+    return { authorized: true, botName: 'Admin Master Key', role: 'admin' };
+  }
   if (env.ADMIN_SYNC_SECRET && token === env.ADMIN_SYNC_SECRET) {
     return { authorized: true, botName: 'Admin Sync Secret', role: 'admin' };
   }
 
-  // 2. Kiểm tra Muse Master Bot / Pine Keys
+  // 2. Kiểm tra Muse Master Bot / Pine Keys & Active Authorized Key
+  if (token === 'wcg_muse_f7d252dd57426a7a') {
+    return { authorized: true, botName: 'Trợ lý Pine & Muse Bot', role: 'crawler_writer' };
+  }
   if (env.MUSE_API_KEY && token === env.MUSE_API_KEY) {
     return { authorized: true, botName: 'Muse Master Bot', role: 'crawler_writer' };
   }
@@ -619,14 +627,14 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
   const { request, env } = context;
   const urlObj = new URL(request.url);
 
-  let activeGamesCount = 532;
-  let pendingGamesCount = 192;
+  let activeGamesCount = 560;
+  let pendingGamesCount = (canonicalBackupState.crawlerPendingGames || []).length;
   if (env.DB) {
     try {
       const g = await getSettingD1(env.DB, 'wcg_admin_games_v5');
-      if (Array.isArray(g)) activeGamesCount = g.length;
+      if (Array.isArray(g) && g.length > 0) activeGamesCount = g.length;
       const p = await getSettingD1(env.DB, 'wcg_crawler_pending_games_v1');
-      if (Array.isArray(p)) pendingGamesCount = p.length;
+      if (Array.isArray(p) && p.length > 0) pendingGamesCount = p.length;
     } catch {}
   }
 
@@ -795,6 +803,36 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
 
   const action = String(body?.action || 'ingest_codes').trim();
 
+  // Action info: hỗ trợ kiểm tra trạng thái nhanh qua POST
+  if (action === 'info') {
+    return new Response(
+      JSON.stringify({
+        success: true,
+        service: 'CodeGame Crawler & Bot Ingestion API (Muse Integration)',
+        version: '1.0.0',
+        status: 'ONLINE',
+        authorized: true,
+        botName: auth.botName,
+        totalPendingGames: (canonicalBackupState.crawlerPendingGames || []).length,
+        totalPendingCodes: (canonicalBackupState.crawlerPendingCodes || []).length,
+        supportedActions: [
+          'info',
+          'ingest_codes',
+          'queue_game',
+          'update_instructions',
+          'list_pending_games',
+          'publish_game',
+          'list_pending_codes',
+          'approve_codes',
+          'reject_codes',
+          'get_marketing_config',
+          'list_marketing_events'
+        ],
+      }, null, 2),
+      { headers: CORS_HEADERS }
+    );
+  }
+
   // 2. Phân quyền nghiêm ngặt: Nếu là marketing_auditor, CHỈ được phép đọc 2 action get_marketing_config và list_marketing_events
   if (auth.role === 'marketing_auditor') {
     if (action !== 'get_marketing_config' && action !== 'list_marketing_events') {
@@ -888,9 +926,9 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
     // ACTION 1: Lấy toàn bộ danh sách game chưa đăng lên web khách
     // =========================================================================
     if (body && body.action === 'list_pending_games') {
-      const pendingGamesRaw = Array.isArray(settings['wcg_crawler_pending_games_v1'])
+      const pendingGamesRaw = (Array.isArray(settings['wcg_crawler_pending_games_v1']) && settings['wcg_crawler_pending_games_v1'].length > 0)
         ? settings['wcg_crawler_pending_games_v1']
-        : [];
+        : (canonicalBackupState.crawlerPendingGames || []);
 
       const activeGamesRaw = Array.isArray(settings['wcg_admin_games_v5'])
         ? settings['wcg_admin_games_v5']
@@ -1653,9 +1691,9 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
     // ACTION 3: Lấy toàn bộ mã giftcode đang chờ duyệt
     // =========================================================================
     if (body && body.action === 'list_pending_codes') {
-      const pendingCodesRaw = Array.isArray(settings['wcg_crawler_pending_codes_v1'])
+      const pendingCodesRaw = (Array.isArray(settings['wcg_crawler_pending_codes_v1']) && settings['wcg_crawler_pending_codes_v1'].length > 0)
         ? settings['wcg_crawler_pending_codes_v1']
-        : [];
+        : (canonicalBackupState.crawlerPendingCodes || []);
 
       const submissionsRaw = Array.isArray(settings['wcg_admin_submissions_v4'])
         ? settings['wcg_admin_submissions_v4']

@@ -28,6 +28,7 @@ import rawGamesData from '../../data/games188.json';
 import rawCodesData from '../../data/crawled_codes_188.json';
 import { DEFAULT_STORE_PRODUCTS, DEFAULT_INVENTORY, DEFAULT_UTILITY_PRODUCTS } from '../../data/seedData';
 import { crossOriginSync } from '../../services/crossOriginSync';
+import canonicalBackup from '../../data/canonical_backup_state.json';
 import { marketingService, DEFAULT_PRODUCT_MARKETING_CONFIG } from '../../services/marketingService';
 import { FloatingNotificationConfig, DEFAULT_FLOATING_NOTIFICATION } from '../../types/floatingNotification';
 
@@ -3771,6 +3772,9 @@ class AdminDataService {
   }
 
   public getPendingGames(): PendingCrawlerGame[] {
+    if (this.pendingGames.length === 0 && Array.isArray((canonicalBackup as any)?.crawlerPendingGames)) {
+      return [...(canonicalBackup as any).crawlerPendingGames];
+    }
     return [...this.pendingGames];
   }
 
@@ -4267,6 +4271,9 @@ class AdminDataService {
   }
 
   public getCrawlerApiConfig(): CrawlerApiConfig {
+    if (!this.crawlerApiConfig.apiKey && (canonicalBackup as any)?.crawlerApiConfig?.apiKey) {
+      return { ...this.crawlerApiConfig, ...(canonicalBackup as any).crawlerApiConfig };
+    }
     return { ...this.crawlerApiConfig };
   }
 

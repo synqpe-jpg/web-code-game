@@ -2,6 +2,7 @@
  * D1 Database Service for web-code-game
  * Implements atomic batch operations, strict constraint validations, and schema management.
  */
+import canonicalBackupState from '../data/canonical_backup_state.json';
 
 export interface D1PurchaseParams {
   orderId: string;
@@ -1588,16 +1589,30 @@ export async function claimGiveawayD1(db: D1Database, params: D1ClaimGiveawayPar
   }
 }
 
+export function getCanonicalSettingFallback<T = any>(key: string): T | null {
+  if (key === 'wcg_crawler_api_config_v1') return (canonicalBackupState.crawlerApiConfig || null) as unknown as T;
+  if (key === 'wcg_crawler_pending_games_v1') return (canonicalBackupState.crawlerPendingGames || []) as unknown as T;
+  if (key === 'wcg_crawler_pending_codes_v1') return (canonicalBackupState.crawlerPendingCodes || []) as unknown as T;
+  if (key === 'wcg_admin_upcoming_games_v1') return (canonicalBackupState.upcomingGames || []) as unknown as T;
+  if (key === 'wcg_crawler_stats_v1') return (canonicalBackupState.crawlerStats || null) as unknown as T;
+  return null;
+}
+
 /**
- * Read system setting / document from D1
+ * Read system setting / document from D1 with durable authoritative fallback
  */
 export async function getSettingD1<T = any>(db: D1Database, key: string, defaultValue: T | null = null): Promise<T | null> {
+  const fallback = getCanonicalSettingFallback<T>(key);
   try {
     await ensureSchemaUpgrades(db);
     const row = await db.prepare('SELECT value FROM system_settings WHERE key = ?').bind(key).first<any>();
     if (row && row.value !== undefined && row.value !== null) {
       try {
-        return JSON.parse(row.value) as T;
+        const parsed = JSON.parse(row.value) as T;
+        if (Array.isArray(parsed) && parsed.length === 0 && fallback && Array.isArray(fallback) && fallback.length > 0) {
+          return fallback;
+        }
+        return parsed;
       } catch {
         return row.value as unknown as T;
       }
@@ -1605,7 +1620,7 @@ export async function getSettingD1<T = any>(db: D1Database, key: string, default
   } catch (err: any) {
     console.warn('[getSettingD1 error]', key, err?.message);
   }
-  return defaultValue;
+  return fallback !== null ? fallback : defaultValue;
 }
 
 /**
@@ -1628,11 +1643,20 @@ export async function setSettingD1(db: D1Database, key: string, value: any): Pro
 }
 
 /**
- * Read multiple system settings from D1 in one go
+ * Read multiple system settings from D1 in one go with durable authoritative fallback
  */
 export async function getMultipleSettingsD1(db: D1Database, keys: string[]): Promise<Record<string, any>> {
   const result: Record<string, any> = {};
   if (!keys || keys.length === 0) return result;
+
+  // Pre-seed with authoritative fallbacks
+  for (const k of keys) {
+    const fb = getCanonicalSettingFallback(k);
+    if (fb !== null) {
+      result[k] = fb;
+    }
+  }
+
   try {
     await ensureSchemaUpgrades(db);
     const placeholders = keys.map(() => '?').join(',');
@@ -1641,7 +1665,12 @@ export async function getMultipleSettingsD1(db: D1Database, keys: string[]): Pro
       for (const r of rows.results) {
         if (r && r.key) {
           try {
-            result[r.key] = JSON.parse(r.value);
+            const parsed = JSON.parse(r.value);
+            if (Array.isArray(parsed) && parsed.length === 0 && result[r.key] && Array.isArray(result[r.key]) && result[r.key].length > 0) {
+              // Retain durable fallback
+            } else {
+              result[r.key] = parsed;
+            }
           } catch {
             result[r.key] = r.value;
           }

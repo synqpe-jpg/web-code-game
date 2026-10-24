@@ -990,7 +990,7 @@ async function runPrerender() {
                   <div class="flex items-center justify-between p-3 rounded-xl bg-dark-850 border border-gray-800">
                     <div>
                       <code class="font-mono font-bold text-brand-400 text-sm sm:text-base">${escapeHtml(c.codeValue || c.code_value || c.code)}</code>
-                      <div class="text-xs text-gray-400 mt-0.5">${escapeHtml(c.rewards || 'Giftcode tân thủ / Sự kiện')}</div>
+                      <div class="text-xs text-gray-400 mt-0.5">${escapeHtml(c.rewards || 'Giftcode tân thủ / Sự kiện')}${(c.expiresAt || c.expires_at || c.expiry) ? ` • HSD: ${escapeHtml(c.expiresAt || c.expires_at || c.expiry)}` : ''}</div>
                     </div>
                     <span class="text-xs px-2.5 py-1 rounded-lg bg-brand-600/20 text-brand-400 border border-brand-500/30 font-bold">Mới nhất</span>
                   </div>`

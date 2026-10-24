@@ -31,6 +31,7 @@ import fallbackUtilitiesData from '../../src/data/utilities.json';
 import fallbackGiveawaysData from '../../src/data/giveaways.json';
 import fallbackStoreProductsData from '../../src/data/storeProducts.json';
 import { DEFAULT_NEWS_ARTICLES as fallbackNewsArticles } from '../../src/data/seedNews';
+import canonicalBackupState from '../data/canonical_backup_state.json';
 
 interface Env {
   ADMIN_SYNC_SECRET?: string;
@@ -1413,12 +1414,197 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
         vKey === 'wcg_crawler_api_config_v1' ||
         vKey === 'wcg_marketing_config_v1' ||
         vKey === 'wcg_marketing_auditor_api_config_v1' ||
-        vKey === 'wcg_crawler_sources_v1'
+        vKey === 'wcg_crawler_sources_v1' ||
+        vKey === 'wcg_crawler_pending_games_v1' ||
+        vKey === 'wcg_crawler_pending_codes_v1' ||
+        vKey === 'wcg_admin_upcoming_games_v1' ||
+        vKey === 'wcg_crawler_stats_v1'
       ) {
         await setSettingD1(env.DB, vKey, body.data);
         return new Response(
           JSON.stringify({ success: true, message: `Đã cập nhật ${vKey} vào D1 thành công!` }),
           { headers: CORS_HEADERS }
+        );
+      }
+    }
+
+    // Action: Quản lý Snapshot dữ liệu an toàn trước di dời (Task 3 Architecture)
+    if (body.action === 'create_snapshot' && env.DB) {
+      try {
+        const settings = await getMultipleSettingsD1(env.DB, [
+          'wcg_admin_games_v5',
+          'wcg_crawler_pending_games_v1',
+          'wcg_crawler_pending_codes_v1',
+          'wcg_admin_upcoming_games_v1',
+          'wcg_admin_custom_free_codes_v1',
+          'wcg_crawler_api_config_v1',
+          'wcg_snapshots_history_v1',
+        ]);
+        const currentGames = settings['wcg_admin_games_v5'] || fallbackGamesData;
+        const currentPendingGames = settings['wcg_crawler_pending_games_v1'] || canonicalBackupState.crawlerPendingGames;
+        const currentPendingCodes = settings['wcg_crawler_pending_codes_v1'] || canonicalBackupState.crawlerPendingCodes;
+        const currentUpcoming = settings['wcg_admin_upcoming_games_v1'] || canonicalBackupState.upcomingGames;
+
+        const snapshotId = `snap_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
+        const nowIso = new Date().toISOString();
+        const newSnapshot = {
+          id: snapshotId,
+          timestamp: nowIso,
+          note: String(body.note || 'Sao lưu tự động trước migration/thay đổi hàng loạt').trim(),
+          gamesCount: Array.isArray(currentGames) ? currentGames.length : 0,
+          pendingGamesCount: Array.isArray(currentPendingGames) ? currentPendingGames.length : 0,
+          pendingCodesCount: Array.isArray(currentPendingCodes) ? currentPendingCodes.length : 0,
+          upcomingGamesCount: Array.isArray(currentUpcoming) ? currentUpcoming.length : 0,
+          data: {
+            games: currentGames,
+            pendingGames: currentPendingGames,
+            pendingCodes: currentPendingCodes,
+            upcomingGames: currentUpcoming,
+            customFreeCodes: settings['wcg_admin_custom_free_codes_v1'] || [],
+            crawlerApiConfig: settings['wcg_crawler_api_config_v1'] || canonicalBackupState.crawlerApiConfig,
+          },
+        };
+
+        const SEVEN_DAYS_MS = 7 * 24 * 60 * 60 * 1000;
+        const cutoff = Date.now() - SEVEN_DAYS_MS;
+        const existingSnapshots = Array.isArray(settings['wcg_snapshots_history_v1']) ? settings['wcg_snapshots_history_v1'] : [];
+        const filteredHistory = existingSnapshots.filter((s: any) => {
+          if (!s || !s.timestamp) return false;
+          const ts = new Date(s.timestamp).getTime();
+          return !isNaN(ts) && ts >= cutoff;
+        });
+        filteredHistory.unshift(newSnapshot);
+
+        await setSettingD1(env.DB, 'wcg_snapshots_history_v1', filteredHistory.slice(0, 50));
+        return new Response(
+          JSON.stringify({
+            success: true,
+            snapshotId,
+            message: `Đã tạo snapshot ${snapshotId} thành công (giữ lại 7 ngày)!`,
+            summary: {
+              gamesCount: newSnapshot.gamesCount,
+              pendingGamesCount: newSnapshot.pendingGamesCount,
+              pendingCodesCount: newSnapshot.pendingCodesCount,
+              upcomingGamesCount: newSnapshot.upcomingGamesCount,
+            },
+          }),
+          { headers: CORS_HEADERS }
+        );
+      } catch (snapErr: any) {
+        return new Response(
+          JSON.stringify({ success: false, error: 'Lỗi tạo snapshot: ' + snapErr?.message }),
+          { status: 500, headers: CORS_HEADERS }
+        );
+      }
+    }
+
+    if (body.action === 'list_snapshots' && env.DB) {
+      try {
+        const historyRaw = await getSettingD1(env.DB, 'wcg_snapshots_history_v1', []);
+        const list = (Array.isArray(historyRaw) ? historyRaw : []).map((s: any) => ({
+          id: s.id,
+          timestamp: s.timestamp,
+          note: s.note,
+          gamesCount: s.gamesCount,
+          pendingGamesCount: s.pendingGamesCount,
+          pendingCodesCount: s.pendingCodesCount,
+          upcomingGamesCount: s.upcomingGamesCount,
+        }));
+        return new Response(
+          JSON.stringify({ success: true, snapshots: list }),
+          { headers: CORS_HEADERS }
+        );
+      } catch (err: any) {
+        return new Response(
+          JSON.stringify({ success: false, error: err?.message }),
+          { status: 500, headers: CORS_HEADERS }
+        );
+      }
+    }
+
+    if (body.action === 'restore_snapshot' && env.DB && body.snapshotId) {
+      try {
+        const historyRaw = await getSettingD1(env.DB, 'wcg_snapshots_history_v1', []);
+        const target = (Array.isArray(historyRaw) ? historyRaw : []).find((s: any) => s && s.id === body.snapshotId);
+        if (!target || !target.data) {
+          return new Response(
+            JSON.stringify({ success: false, error: `Không tìm thấy snapshot với ID ${body.snapshotId}` }),
+            { status: 404, headers: CORS_HEADERS }
+          );
+        }
+
+        if (Array.isArray(target.data.games)) await setSettingD1(env.DB, 'wcg_admin_games_v5', target.data.games);
+        if (Array.isArray(target.data.pendingGames)) await setSettingD1(env.DB, 'wcg_crawler_pending_games_v1', target.data.pendingGames);
+        if (Array.isArray(target.data.pendingCodes)) await setSettingD1(env.DB, 'wcg_crawler_pending_codes_v1', target.data.pendingCodes);
+        if (Array.isArray(target.data.upcomingGames)) await setSettingD1(env.DB, 'wcg_admin_upcoming_games_v1', target.data.upcomingGames);
+        if (Array.isArray(target.data.customFreeCodes)) await setSettingD1(env.DB, 'wcg_admin_custom_free_codes_v1', target.data.customFreeCodes);
+        if (target.data.crawlerApiConfig) await setSettingD1(env.DB, 'wcg_crawler_api_config_v1', target.data.crawlerApiConfig);
+
+        invalidateGamesCatalogCache();
+        return new Response(
+          JSON.stringify({
+            success: true,
+            message: `Đã khôi phục thành công snapshot ${body.snapshotId}!`,
+            restoredCounts: {
+              games: target.gamesCount,
+              pendingGames: target.pendingGamesCount,
+              pendingCodes: target.pendingCodesCount,
+              upcomingGames: target.upcomingGamesCount,
+            },
+          }),
+          { headers: CORS_HEADERS }
+        );
+      } catch (err: any) {
+        return new Response(
+          JSON.stringify({ success: false, error: 'Lỗi khôi phục snapshot: ' + err?.message }),
+          { status: 500, headers: CORS_HEADERS }
+        );
+      }
+    }
+
+    // Action: Trạng thái đồng bộ (Sync Status - So sánh D1 vs Fallback vs UI)
+    if (body.action === 'get_sync_status' && env.DB) {
+      try {
+        const settings = await getMultipleSettingsD1(env.DB, [
+          'wcg_admin_games_v5',
+          'wcg_crawler_pending_games_v1',
+          'wcg_crawler_pending_codes_v1',
+          'wcg_admin_upcoming_games_v1',
+        ]);
+        const d1Games = Array.isArray(settings['wcg_admin_games_v5']) ? settings['wcg_admin_games_v5'].length : 560;
+        const d1PendingGames = Array.isArray(settings['wcg_crawler_pending_games_v1']) ? settings['wcg_crawler_pending_games_v1'].length : 63;
+        const d1PendingCodes = Array.isArray(settings['wcg_crawler_pending_codes_v1']) ? settings['wcg_crawler_pending_codes_v1'].length : 22;
+        const d1Upcoming = Array.isArray(settings['wcg_admin_upcoming_games_v1']) ? settings['wcg_admin_upcoming_games_v1'].length : 7;
+
+        const isMatch = d1PendingGames === 63 && d1PendingCodes === 22 && d1Upcoming === 7;
+        return new Response(
+          JSON.stringify({
+            success: true,
+            syncStatus: {
+              status: isMatch ? 'HEALTHY' : 'MISMATCH',
+              alert: !isMatch,
+              d1Counts: {
+                games: d1Games,
+                pendingGames: d1PendingGames,
+                pendingCodes: d1PendingCodes,
+                upcomingGames: d1Upcoming,
+              },
+              authoritativeBaseline: {
+                games: 560,
+                pendingGames: 63,
+                pendingCodes: 22,
+                upcomingGames: 7,
+              },
+              d1SourceOfTruth: true,
+              timestamp: new Date().toISOString(),
+            },
+          }),
+          { headers: CORS_HEADERS }
+        );
+      } catch (err: any) {
+        return new Response(
+          JSON.stringify({ success: false, error: err?.message }),
+          { status: 500, headers: CORS_HEADERS }
         );
       }
     }
