@@ -7,6 +7,46 @@ Mỗi mục sửa lỗi đều ghi nhận **Nguyên nhân gốc rễ (Root Cause
 
 ## [2026-10-24]
 
+### 179. Xây Dựng Action `queue_game` Trong API Crawler Ingestion & Đưa 3 Game Roblox Mới Vào Hàng Chờ Duyệt Kèm 22 Mã Giftcode Đã Kiểm Chứng (Action `queue_game` Implementation, Robux / Roblox Game Ingestion, Auto-Queue Fallback & Multi-Code Moderation Sync)
+- **Mô tả & Yêu cầu người dùng**:
+  - *"3 game chờ đưa vào hàng chờ duyệt (đã kiểm chứng mã, ngày 24/10/2026). Dùng để nhập tay vào admin (hoặc qua action queue_game sau khi Antigravity xây xong). Các game này CHƯA có trên web và API nạp mã hiện tại không thể tự tạo game — đã kiểm chứng: đẩy mã Dig and Clean trả về lỗi 'Không tìm thấy game nào khớp... tạo trước trong Hàng Chờ Duyệt'. 1. Grow a Chicken Fighter (Roblox) — 8 mã (DINOCHICKEN, CHICKENCLASH, BATTLEREADY, ASCEND, EGGSCELLENT, LETMECOOK, WELCOME, SERGIOVERSE); 2. Command an Army (Roblox) — 7 mã (COSMETIC, LAESTRYGONIAN, UPDATE3, MONGOLS, SKILLTREE, OCTOBER3, SATURDAY); 3. Dig and Clean (Roblox) — 7 mã (UPDATE4, UPDATE5, UPDATE6, UPDATE1, UPDATE3, UPDATE2, SECRET10)."*
+- **Nguyên nhân gốc rễ (Root Cause)**:
+  1. **Thiếu Endpoint Tạo Game Chờ Duyệt Bằng API**:
+     - Trước đây, hệ thống chỉ hỗ trợ nạp giftcode (`ingest_codes`) vào các tựa game đã có sẵn trong danh mục chính thức (`wcg_admin_games_v5`) hoặc trong hàng chờ duyệt (`wcg_crawler_pending_games_v1`).
+     - Khi bot ngoài hoặc quản trị viên gửi mã cho một game mới hoàn toàn (như game Roblox hoặc web game mới), hàm `findBestMatchingGame` không tìm thấy và ném lỗi: *"Không tìm thấy game nào khớp... tạo trước trong Hàng Chờ Duyệt"*.
+     - Hệ thống hoàn toàn không có action API nào để đưa một game mới toanh vào Hàng Chờ Duyệt (`wcg_crawler_pending_games_v1`) kèm theo mã code và metadata khởi tạo, buộc phải nhập thủ công.
+  2. **Giao Diện Admin Thiếu Nút Tạo Nhanh Game Chờ Duyệt**:
+     - Trong `CrawlerModule.tsx`, tab "Game Chờ Duyệt" chỉ hiển thị các game do crawler tự động cào về từ Google Play VN hoặc CodeMoi, không có form/modal cho phép quản trị viên thêm game thủ công vào hàng chờ để kiểm duyệt.
+- **Giải pháp đã triển khai (Solution)**:
+  1. **Xây dựng Action `queue_game` / `queue_games` / `add_pending_game` Trong API Crawler Ingest**:
+     - Bổ sung action `queue_game` trong `functions/api/crawler/ingest-codes.ts` hỗ trợ cả payload đơn lẻ lẫn mảng `games: [...]`.
+     - Tự động chuẩn hóa metadata: Tự sinh slug tiếng Việt/Anh chuẩn (`stripAccents`), điền thông tin mặc định (NPH, Thể loại, Nền tảng, Hướng dẫn nhập code Roblox).
+     - Hỗ trợ nạp kèm danh sách giftcode: Tự động lưu vào `wcg_admin_custom_free_codes_v1`, `wcg_crawler_pending_codes_v1` và batch insert vào bảng SQL `codes` của D1.
+     - Tuân thủ nghiêm ngặt quy ước `NULL` = Chưa rõ hạn dùng (ISSUE-104), không tự gán ngày giả.
+     - Cơ chế Idempotent & Chống Race Condition: Tự động phát hiện nếu game đã có trong catalog hoặc pending queue để cập nhật số lượng mã mà không làm mất dữ liệu.
+  2. **Bổ Sung Cờ `autoQueueNewGame` Trong Luồng Nạp Mã Chính**:
+     - Khi gọi `POST /api/crawler/ingest-codes` với cờ `autoQueueNewGame: true` (hoặc `createIfNotFound: true`), nếu game chưa tồn tại ở bất kỳ đâu, hệ thống tự động đưa game vào Hàng Chờ Duyệt và tiếp tục luồng nạp mã mà không ném lỗi.
+     - Cập nhật thông báo lỗi thân thiện: Hướng dẫn người dùng sử dụng action `queue_game` hoặc cờ `autoQueueNewGame`.
+  3. **Bổ Sung Action `add_crawler_pending_game` Trên `/api/sync` & Nút "Thêm Game Chờ Duyệt" Trong Admin Portal**:
+     - Trong `functions/api/sync.ts` và `adminDataService.addPendingGame`: Bổ sung API lưu trữ game chờ duyệt từ client quản trị.
+     - Trong `CrawlerModule.tsx`: Thêm nút bấm nổi bật `"Thêm Game Chờ Duyệt"` trên toolbar và Modal Form đầy đủ trường thông tin (Tên game, NPH, Thể loại, Platform, Icon, Hướng dẫn, Danh sách giftcode).
+  4. **Tải & Chuẩn Hóa Bộ Icon 256×256 WebP / 512×512 JPG Cho 3 Game Roblox**:
+     - Lấy icon chính thức trực tiếp từ mạng CDN Roblox (`rbxcdn.com`) cho:
+       - `Grow a Chicken Fighter` (`grow-a-chicken-fighter.webp` & `.jpg`)
+       - `Command an Army` (`command-an-army.webp` & `.jpg`)
+       - `Dig and Clean` (`dig-and-clean.webp` & `.jpg`)
+     - Chuyển đổi và lưu trữ chuẩn mực trong `public/game_icons/` và `dist/game_icons/`, đảm bảo 0 icon thiếu khi kiểm toán catalog.
+- **Files Modified**:
+  - `functions/api/crawler/ingest-codes.ts`
+  - `functions/api/sync.ts`
+  - `src/admin/modules/CrawlerModule.tsx`
+  - `src/admin/services/adminDataService.ts`
+  - `public/game_icons/grow-a-chicken-fighter.webp` & `.jpg`
+  - `public/game_icons/command-an-army.webp` & `.jpg`
+  - `public/game_icons/dig-and-clean.webp` & `.jpg`
+  - `CHANGELOG.md`
+  - `KNOWN_ISSUES.md`
+
 ### 178. Loại Bỏ Hạn Dùng Mặc Định Giả 2026-12-31, Quy Ước NULL = Chưa Rõ Hạn Dùng & Di Dời Toàn Bộ Catalog An Toàn (Default Fake 2026-12-31 Expiry Removal, Null Unknown Expiry Convention, Full Database Migration & UI Neutral Labeling)
 - **Mô tả & Yêu cầu người dùng**:
   - *"Trang đang hiển thị hạn dùng 31/12/2026 cho gần như mọi mã code, dù đa số mã đó chưa từng được công bố hạn dùng. Người dùng tin rằng mã còn sống tới cuối năm 2026, trong khi thực tế mã có thể đã hết hạn từ lâu — đây là thông tin sai lệch ở quy mô toàn web, không phải lỗi hiển thị của vài game. Mẫu 288 game / 7.467 mã: 6.672 mã (89,4%) mang hạn 2026-12-31, chỉ 795 mã có hạn thật khác ngày đó. Ví dụ: Kỳ Tích Trở Lại — cả 5 mã đều hiển thị 2026-12-31 dù không mã nào từng được công bố hạn; Đạo Hữu Tu Tiên — mã mới hôm nay 16699NUYET hiển thị đúng hạn thật 2026-10-24, trong khi các mã cũ DHVUIVE11, BACK2SCHOOL hiển thị 2026-12-31 giả. Yêu cầu: Việc 1: Chặn hạn mặc định ngay từ nguồn; Việc 2: Di dời dữ liệu cũ; Việc 3: Hiển thị & sắp xếp đúng nghĩa (nhãn Chưa rõ hạn dùng, mã NULL xếp sau mã có ngày cụ thể); Việc 4: Tài liệu & công cụ admin (tùy chọn Chưa rõ hạn); Nghiệm thu 4 tiêu chí."*

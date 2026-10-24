@@ -1911,6 +1911,65 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
       }
     }
 
+    // Action: Thêm game vào hàng chờ duyệt qua Sync API
+    if (body.action === 'add_crawler_pending_game' && env.DB) {
+      try {
+        const gameItem = body.game || body;
+        const finalName = String(gameItem.name || gameItem.gameName || '').trim();
+        if (!finalName) {
+          return new Response(JSON.stringify({ success: false, error: 'Thiếu tên game' }), { status: 400, headers: CORS_HEADERS });
+        }
+        let finalSlug = String(gameItem.slug || gameItem.gameSlug || gameItem.id || '').trim().toLowerCase();
+        if (!finalSlug) {
+          finalSlug = finalName.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '') || `game-${Date.now()}`;
+        }
+        const pendingListRaw = await getSettingD1(env.DB, 'wcg_crawler_pending_games_v1') || [];
+        const pendingList: any[] = Array.isArray(pendingListRaw) ? pendingListRaw : [];
+        const existingIdx = pendingList.findIndex((p: any) => p && (p.id === finalSlug || p.slug === finalSlug));
+
+        const pendingRecord = {
+          id: finalSlug,
+          name: finalName,
+          slug: finalSlug,
+          packageId: gameItem.packageId || gameItem.packageName || undefined,
+          developer: String(gameItem.developer || gameItem.publisher || 'Roblox').trim(),
+          category: String(gameItem.category || 'Roblox').trim(),
+          platform: String(gameItem.platform || 'Roblox / PC, Mobile').trim(),
+          rating: Number(gameItem.rating || 4.8),
+          installs: String(gameItem.installs || '50.000+').trim(),
+          iconUrl: String(gameItem.iconUrl || `/game_icons/${finalSlug}.webp`).trim(),
+          localIconPath: `/game_icons/${finalSlug}.webp`,
+          description: String(gameItem.description || `${finalName} là tựa game hấp dẫn trên Roblox.`).trim(),
+          instructions: String(gameItem.instructions || `Bước 1: Mở Roblox và tham gia game ${finalName}.\nBước 2: Tìm biểu tượng Code / Twitter / Cài đặt.\nBước 3: Nhập chính xác mã giftcode và nhấn Đổi quà.`).trim(),
+          redeemUrl: String(gameItem.redeemUrl || '').trim(),
+          source: String(gameItem.source || 'Admin Manual Add').trim(),
+          sourceType: 'manual_queue',
+          status: 'PENDING',
+          activeCodesCount: Array.isArray(gameItem.codes) ? gameItem.codes.length : Number(gameItem.activeCodesCount || 0),
+          codes_count: Array.isArray(gameItem.codes) ? gameItem.codes.length : Number(gameItem.codes_count || 0),
+          crawledAt: new Date().toISOString(),
+          created_at: new Date().toISOString(),
+        };
+
+        if (existingIdx !== -1) {
+          pendingList[existingIdx] = { ...pendingList[existingIdx], ...pendingRecord };
+        } else {
+          pendingList.unshift(pendingRecord);
+        }
+
+        await setSettingD1(env.DB, 'wcg_crawler_pending_games_v1', pendingList);
+
+        return new Response(JSON.stringify({
+          success: true,
+          message: `Đã đưa game "${finalName}" vào hàng chờ duyệt thành công!`,
+          game: pendingRecord,
+          totalPending: pendingList.length
+        }), { headers: CORS_HEADERS });
+      } catch (e: any) {
+        return new Response(JSON.stringify({ success: false, error: String(e?.message || e) }), { status: 500, headers: CORS_HEADERS });
+      }
+    }
+
     // Action: Duyệt hàng loạt game từ Crawler
     if (body.action === 'batch_approve_crawler_games' && env.DB && Array.isArray(body.pendingIds)) {
       try {

@@ -10,6 +10,24 @@
 
 ## 1. DANH MỤC LỖI & CÁC BẪY ĐÃ THẤT BẠI (DO NOT REPEAT)
 
+### ISSUE-105: Bẫy Không Thể Tạo / Nạp Mã Cho Game Mới Chưa Có Trong Catalog Hoặc Hàng Chờ Duyệt (Missing queue_game Action & New Game Ingestion Trap)
+- **Triệu chứng**:
+  - Khi bot ngoài hoặc quản trị viên gửi mã giftcode cho một tựa game mới toanh (chẳng hạn game Roblox, web game, hoặc game chưa cào từ Google Play VN), API crawler ingest trả về lỗi:
+    *"Không tìm thấy game nào khớp với \"<Tên Game>\". Vui lòng kiểm tra lại tên game hoặc tạo trước trong Hàng Chờ Duyệt."*
+  - Tuy nhiên, API lại không có action nào để đưa game vào Hàng Chờ Duyệt theo phương thức tự động, buộc người dùng phải nhập tay vào trang quản trị.
+- **Nguyên nhân gốc rễ**:
+  1. API ingest chỉ hỗ trợ đối chiếu với các game đã tồn tại trong `wcg_admin_games_v5` hoặc `wcg_crawler_pending_games_v1`.
+  2. Chưa có action `queue_game` cho phép bot hoặc client gửi metadata game (name, slug, developer, category, platform, icon, instructions) và danh sách giftcode ban đầu vào Hàng Chờ Duyệt.
+  3. Giao diện `CrawlerModule.tsx` thiếu nút và modal để thêm game thủ công vào hàng chờ.
+- **Giải pháp chuẩn đã kiểm chứng**:
+  - Xây dựng action `queue_game` (và alias `queue_games`, `add_pending_game`) trong `functions/api/crawler/ingest-codes.ts` hỗ trợ đưa 1 hoặc nhiều game vào hàng chờ, kèm danh sách mã code và hướng dẫn.
+  - Hỗ trợ cờ `autoQueueNewGame: true` trong luồng ingest chính: Nếu game chưa có, tự động tạo trong hàng chờ và tiếp tục luồng nạp mã.
+  - Bổ sung action `add_crawler_pending_game` trên `/api/sync` và nút "Thêm Game Chờ Duyệt" trên giao diện Admin `CrawlerModule.tsx`.
+- ⛔ **CÁCH SỬA ĐÃ THẤT BẠI - TUYỆT ĐỐI KHÔNG LẶP LẠI**:
+  - ❌ *Không chỉ chặn lỗi và yêu cầu người dùng "tạo trước trong Hàng Chờ Duyệt" mà không cung cấp API tạo*: Mọi quy trình tự động hóa của bot ngoài đều cần endpoint rõ ràng để khởi tạo tài nguyên cần thiết.
+
+---
+
 ### ISSUE-104: Bẫy Tự Gán Hạn Giả Định 2026-12-31 Khi Không Biết Hạn & Bẫy UI Ép Buộc Chọn Ngày (Fake 2026-12-31 Expiry Fallback Trap & UI Mandatory Date Picker Trap)
 - **Triệu chứng**:
   - Gần như toàn bộ mã giftcode trên website (89.4%) hiển thị hạn sử dụng là `31/12/2026`, gây hiểu nhầm nghiêm trọng cho người dùng rằng mã còn hiệu lực lâu dài, trong khi thực tế mã không có hạn công bố hoặc có thể đã hết hạn.

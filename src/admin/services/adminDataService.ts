@@ -3856,6 +3856,30 @@ class AdminDataService {
     }
   }
 
+  public async addPendingGame(game: Partial<PendingCrawlerGame> & { name: string; codes?: string[] | any[] }): Promise<{ success: boolean; message?: string; game?: PendingCrawlerGame }> {
+    try {
+      const res = await fetch('/api/sync', {
+        method: 'POST',
+        headers: this.getAuthHeaders(),
+        body: JSON.stringify({
+          action: 'add_crawler_pending_game',
+          game,
+        }),
+      });
+      const data = await res.json();
+      if (data && data.success) {
+        if (data.game) {
+          this.pendingGames.unshift(data.game);
+          this.setPendingGames(this.pendingGames);
+        }
+        return { success: true, message: data.message, game: data.game };
+      }
+      return { success: false, message: data.error || 'Thêm game chờ thất bại' };
+    } catch (e: any) {
+      return { success: false, message: e?.message || 'Lỗi kết nối khi thêm game chờ' };
+    }
+  }
+
   public async rejectPendingGame(id: string): Promise<{ success: boolean; message?: string }> {
     try {
       const res = await fetch('/api/sync', {

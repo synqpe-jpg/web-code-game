@@ -245,6 +245,17 @@ export const CrawlerModule: React.FC<CrawlerModuleProps> = ({ onShowToast }) => 
   const [isScanningGooglePlay, setIsScanningGooglePlay] = useState(false);
   const [isScanningCodeMoi, setIsScanningCodeMoi] = useState(false);
   const [isAutoPublishing, setIsAutoPublishing] = useState(false);
+
+  // State Thêm Game Chờ Duyệt Thủ Công
+  const [isAddPendingGameOpen, setIsAddPendingGameOpen] = useState(false);
+  const [newGameName, setNewGameName] = useState('');
+  const [newGameDeveloper, setNewGameDeveloper] = useState('Roblox');
+  const [newGameCategory, setNewGameCategory] = useState('Roblox');
+  const [newGamePlatform, setNewGamePlatform] = useState('Roblox / PC, Mobile');
+  const [newGameIconUrl, setNewGameIconUrl] = useState('');
+  const [newGameInstructions, setNewGameInstructions] = useState('');
+  const [newGameCodes, setNewGameCodes] = useState('');
+  const [isSubmittingGame, setIsSubmittingGame] = useState(false);
   const [autoPublishConfig, setAutoPublishConfig] = useState<CrawlerAutoPublishConfig>({
     enabled: true,
     autoPublishWhenHasCodes: true,
@@ -1020,7 +1031,47 @@ export const CrawlerModule: React.FC<CrawlerModuleProps> = ({ onShowToast }) => 
     }
   };
 
-  // Bulk Approve Games
+  // Thêm Game Mới Vào Hàng Chờ Duyệt Thủ Công
+  const handleCreatePendingGame = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newGameName.trim()) {
+      onShowToast('Thiếu thông tin', 'Vui lòng nhập tên game.', 'error');
+      return;
+    }
+    setIsSubmittingGame(true);
+    try {
+      const parsedCodesList = newGameCodes
+        .split(/[\n,]+/)
+        .map((c) => c.trim().toUpperCase())
+        .filter((c) => c.length >= 2);
+
+      const res = await adminDataService.addPendingGame({
+        name: newGameName.trim(),
+        developer: newGameDeveloper.trim() || 'Roblox',
+        category: newGameCategory.trim() || 'Roblox',
+        platform: newGamePlatform.trim() || 'Roblox / PC, Mobile',
+        iconUrl: newGameIconUrl.trim() || undefined,
+        instructions: newGameInstructions.trim() || undefined,
+        codes: parsedCodesList,
+      });
+
+      if (res.success) {
+        onShowToast('Thêm game chờ duyệt thành công! 🎮', res.message || `Đã đưa game "${newGameName}" vào hàng chờ.`, 'success');
+        setIsAddPendingGameOpen(false);
+        setNewGameName('');
+        setNewGameIconUrl('');
+        setNewGameInstructions('');
+        setNewGameCodes('');
+        setPendingGames(adminDataService.getPendingGames());
+      } else {
+        onShowToast('Lỗi thêm game', res.message || 'Không thể thêm game vào hàng chờ.', 'error');
+      }
+    } catch (err: any) {
+      onShowToast('Lỗi kết nối', err?.message || 'Không thể kết nối đến máy chủ.', 'error');
+    } finally {
+      setIsSubmittingGame(false);
+    }
+  };
   const handleBulkApproveGames = async () => {
     if (selectedGameIds.length === 0) return;
     try {
@@ -2922,6 +2973,16 @@ export const CrawlerModule: React.FC<CrawlerModuleProps> = ({ onShowToast }) => 
                   <span className={`w-2 h-2 rounded-full ${autoPublishConfig.autoPublishWhenHasCodes !== false ? 'bg-amber-400' : 'bg-slate-600'}`} />
                   <span>Có Code Đăng Ngay: <strong>{autoPublishConfig.autoPublishWhenHasCodes !== false ? 'BẬT' : 'TẮT'}</strong></span>
                 </button>
+
+                <button
+                  type="button"
+                  onClick={() => setIsAddPendingGameOpen(true)}
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white text-xs font-semibold shadow-sm transition-all active:scale-95 cursor-pointer ml-auto"
+                  title="Thêm thủ công một game mới vào Hàng Chờ Duyệt"
+                >
+                  <Plus className="w-3.5 h-3.5" />
+                  <span>Thêm Game Chờ Duyệt</span>
+                </button>
               </div>
             </div>
 
@@ -4386,6 +4447,124 @@ console.log(data);`}
             </div>
           )}
         </div>
+      </FormModal>
+
+      {/* MODAL: Thêm Game Chờ Duyệt Thủ Công */}
+      <FormModal
+        isOpen={isAddPendingGameOpen}
+        onClose={() => setIsAddPendingGameOpen(false)}
+        title="Thêm Game Vào Hàng Chờ Duyệt"
+      >
+        <form onSubmit={handleCreatePendingGame} className="space-y-4">
+          <div>
+            <label className="block text-xs font-semibold text-slate-300 mb-1">
+              Tên Game <span className="text-rose-400">*</span>
+            </label>
+            <input
+              type="text"
+              required
+              value={newGameName}
+              onChange={(e) => setNewGameName(e.target.value)}
+              placeholder="VD: Grow a Chicken Fighter, Dig and Clean..."
+              className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-sm text-slate-200 focus:outline-none focus:border-emerald-500"
+            />
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+            <div>
+              <label className="block text-xs font-semibold text-slate-300 mb-1">NPH / Studio</label>
+              <input
+                type="text"
+                value={newGameDeveloper}
+                onChange={(e) => setNewGameDeveloper(e.target.value)}
+                placeholder="Roblox"
+                className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-sm text-slate-200 focus:outline-none focus:border-emerald-500"
+              />
+            </div>
+
+            <div>
+              <label className="block text-xs font-semibold text-slate-300 mb-1">Thể Loại</label>
+              <input
+                type="text"
+                value={newGameCategory}
+                onChange={(e) => setNewGameCategory(e.target.value)}
+                placeholder="Roblox"
+                className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-sm text-slate-200 focus:outline-none focus:border-emerald-500"
+              />
+            </div>
+
+            <div>
+              <label className="block text-xs font-semibold text-slate-300 mb-1">Nền Tảng</label>
+              <input
+                type="text"
+                value={newGamePlatform}
+                onChange={(e) => setNewGamePlatform(e.target.value)}
+                placeholder="Roblox / PC, Mobile"
+                className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-sm text-slate-200 focus:outline-none focus:border-emerald-500"
+              />
+            </div>
+          </div>
+
+          <div>
+            <label className="block text-xs font-semibold text-slate-300 mb-1">URL Icon / Logo (tùy chọn)</label>
+            <input
+              type="text"
+              value={newGameIconUrl}
+              onChange={(e) => setNewGameIconUrl(e.target.value)}
+              placeholder="https://... hoặc để trống để dùng icon mặc định"
+              className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-sm text-slate-200 focus:outline-none focus:border-emerald-500"
+            />
+          </div>
+
+          <div>
+            <label className="block text-xs font-semibold text-slate-300 mb-1">Hướng Dẫn Nhập Code (tùy chọn)</label>
+            <textarea
+              rows={3}
+              value={newGameInstructions}
+              onChange={(e) => setNewGameInstructions(e.target.value)}
+              placeholder="Bước 1: Mở Roblox và tham gia game...\nBước 2: Tìm nút Code..."
+              className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-sm text-slate-200 focus:outline-none focus:border-emerald-500"
+            />
+          </div>
+
+          <div>
+            <label className="block text-xs font-semibold text-slate-300 mb-1">Danh Sách Giftcode Kèm Theo (mỗi mã 1 dòng hoặc dấu phẩy)</label>
+            <textarea
+              rows={3}
+              value={newGameCodes}
+              onChange={(e) => setNewGameCodes(e.target.value)}
+              placeholder="CODE1&#10;CODE2&#10;CODE3"
+              className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-sm text-slate-200 font-mono focus:outline-none focus:border-emerald-500"
+            />
+          </div>
+
+          <div className="flex items-center justify-end gap-2 pt-3 border-t border-slate-800">
+            <button
+              type="button"
+              onClick={() => setIsAddPendingGameOpen(false)}
+              className="px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-sm font-medium transition-colors cursor-pointer"
+            >
+              Hủy
+            </button>
+            <button
+              type="submit"
+              disabled={isSubmittingGame}
+              className="px-5 py-2 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white text-sm font-bold shadow-lg shadow-emerald-600/20 active:scale-95 transition-all cursor-pointer flex items-center gap-1.5"
+            >
+              {isSubmittingGame ? (
+                <>
+                  <RefreshCw className="w-4 h-4 animate-spin" />
+                  <span>Đang lưu...</span>
+                </>
+              ) : (
+                <>
+                  <CheckCircle2 className="w-4 h-4" />
+                  <span>Đưa Vào Hàng Chờ</span>
+                </>
+              )}
+            </button>
+          </div>
+        </form>
       </FormModal>
 
       {/* CONFIRM MODAL: Xóa Nguồn */}
