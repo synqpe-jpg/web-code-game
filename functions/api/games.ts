@@ -562,13 +562,20 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
                     };
                   }).filter((c: any) => Boolean(c.code));
 
-                  // Tự động chữa lành (auto-heal) nạp vào bảng codes D1 trong nền
-                  for (const mc of codesList) {
-                    const cId = `code_${gameRow.slug}_${mc.code}`;
-                    env.DB.prepare(`
-                      INSERT OR REPLACE INTO codes (id, game_slug, code, rewards, status, expires_at, source, added_at)
-                      VALUES (?, ?, ?, ?, ?, ?, ?, datetime('now'))
-                    `).bind(cId, gameRow.slug, mc.code, mc.rewards, mc.status, mc.expiry || null, mc.source).run().catch(() => {});
+                  // Tự động chữa lành (auto-heal) nạp vào bảng codes D1 trong nền không chặn request
+                  const healTask = async () => {
+                    for (const mc of codesList) {
+                      const cId = `code_${gameRow.slug}_${mc.code}`;
+                      await env.DB.prepare(`
+                        INSERT OR REPLACE INTO codes (id, game_slug, code, rewards, status, expires_at, source, added_at)
+                        VALUES (?, ?, ?, ?, ?, ?, ?, datetime('now'))
+                      `).bind(cId, gameRow.slug, mc.code, mc.rewards, mc.status, mc.expiry || null, mc.source).run().catch(() => {});
+                    }
+                  };
+                  if (context.waitUntil) {
+                    context.waitUntil(healTask());
+                  } else {
+                    healTask().catch(() => {});
                   }
                 }
               }
@@ -599,9 +606,12 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
                   if (foundInSettings.redeem_url || foundInSettings.redeemUrl) {
                     currentRedeemUrl = foundInSettings.redeem_url || foundInSettings.redeemUrl;
                   }
-                  // Đồng bộ ngược lại vào bảng games trên D1 trong nền
-                  env.DB.prepare('UPDATE games SET instructions = ?, redeem_url = ?, updated_at = datetime(\'now\') WHERE slug = ?')
+                  // Đồng bộ ngược lại vào bảng games trên D1 trong nền không chặn request
+                  const updateTask = env.DB.prepare('UPDATE games SET instructions = ?, redeem_url = ?, updated_at = datetime(\'now\') WHERE slug = ?')
                     .bind(currentInstructions, currentRedeemUrl, gameRow.slug).run().catch(() => {});
+                  if (context.waitUntil) {
+                    context.waitUntil(updateTask);
+                  }
                 }
               }
             }
@@ -614,6 +624,24 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
         const finalPlatform = (gameRow.platform && String(gameRow.platform).trim()) ? gameRow.platform : (fbGame?.platform || 'Android, iOS, PC');
         const finalIconUrl = iconUrl || fbGame?.icon_url || `/game_icons/${gameRow.slug}.webp`;
         const finalName = gameRow.name === 'Thực Thần Ký' ? 'Thức Thần Ký' : (gameRow.name || fbGame?.name || '');
+
+        const finalPlay = (gameRow.google_play_url && String(gameRow.google_play_url).trim())
+          ? gameRow.google_play_url
+          : (gameRow.download_android && String(gameRow.download_android).trim())
+          ? gameRow.download_android
+          : (fbGame?.google_play_url || fbGame?.download_android || '');
+
+        const finalIos = (gameRow.app_store_url && String(gameRow.app_store_url).trim())
+          ? gameRow.app_store_url
+          : (gameRow.download_ios && String(gameRow.download_ios).trim())
+          ? gameRow.download_ios
+          : (fbGame?.app_store_url || fbGame?.download_ios || '');
+
+        const finalPc = (gameRow.download_pc && String(gameRow.download_pc).trim())
+          ? gameRow.download_pc
+          : (fbGame?.download_pc || '');
+
+        const finalPkg = gameRow.android_package_name || fbGame?.android_package_name || (finalPlay.match(/[?&]id=([a-zA-Z0-9._]+)/)?.[1] || '');
 
         const authoritativeGame: GameItem = {
           id: String(gameRow.id || gameRow.slug),
@@ -630,12 +658,12 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
           so_giay_phep: gameRow.so_giay_phep || '',
           ngay_cap_phep: gameRow.ngay_cap_phep || '',
           release_date: gameRow.release_date || '',
-          download_android: gameRow.download_android || gameRow.google_play_url || '',
-          download_ios: gameRow.download_ios || gameRow.app_store_url || '',
-          download_pc: gameRow.download_pc || '',
-          google_play_url: gameRow.google_play_url || gameRow.download_android || '',
-          app_store_url: gameRow.app_store_url || gameRow.download_ios || '',
-          android_package_name: gameRow.android_package_name || '',
+          download_android: finalPlay,
+          download_ios: finalIos,
+          download_pc: finalPc,
+          google_play_url: finalPlay,
+          app_store_url: finalIos,
+          android_package_name: finalPkg,
           redeem_url: currentRedeemUrl,
           is_featured: Boolean(gameRow.is_featured),
           is_hot: Boolean(gameRow.is_hot),
