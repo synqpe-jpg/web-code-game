@@ -10,22 +10,26 @@
 
 ## 1. DANH MỤC LỖI & CÁC BẪY ĐÃ THẤT BẠI (DO NOT REPEAT)
 
-### ISSUE-122: Sự Kiện Thiếu Nhãn Bắt Buộc (is_simulated, productId) & Drop Time-Slot Do Điều Kiện fireTimeMs > nowMs Trong virtualLayerService
+### ISSUE-122: Chuẩn Hóa Nhãn Sự Kiện Có Mục Tiêu / Toàn Sàn & Bản Chất Khoảng Lặng Máy Chủ Serverless
 - **Triệu chứng**:
-  - Sự kiện nhận quà thật `gw_1792909571892_h0hu` (thuộc chiến dịch df3) thiếu trường `productId` và cờ `is_simulated`, khiến phía kiểm toán không phân biệt được với sự kiện mô phỏng.
+  - Sự kiện nhận quà thật `gw_1792909571892_h0hu` (lúc 13:26:11 ngày 25/10/2026 UTC+7, thuộc chiến dịch df3) thiếu trường `productId` và cờ `is_simulated`.
   - Máy chủ có khoảng lặng 10 phút (12:19–12:29 ngày 25/10) không sinh sự kiện nào.
 - **Nguyên nhân gốc rễ**:
-  1. *Thiếu chuẩn hóa sự kiện thật*: Hàm `recordRealGiveawayClaim` và `recordRealOrder` chỉ gán `giveawayId` mà không gán `productId` / `targetId`, và bỏ quên `is_simulated: false`. Endpoint `sync.ts` và `virtualLayerService.ts` nạp trực tiếp mà không gắn giá trị mặc định nghiêm ngặt.
-  2. *Drop slot do `fireTimeMs > nowMs`*: Trong `processCurrentTimeSlot`, khi request rơi vào đầu slot, `fireTimeMs > nowMs` khiến vòng lặp `continue;` bỏ qua việc sinh event nhưng biến `state.lastProcessedSlot` lại bị cập nhật lên `currentSlotIndex`. Khi request kế tiếp đến thì slot đó đã bị đánh dấu xử lý rồi và vĩnh viễn không bao giờ được sinh sự kiện.
+  1. *Thiếu chuẩn hóa sự kiện thật*: Hàm `recordRealGiveawayClaim` và `recordRealOrder` chỉ gán `giveawayId` mà không gán `productId` / `targetId`, và bỏ quên `is_simulated: false`.
+  2. *Khoảng lặng 10 phút*:
+     - **Nguyên nhân chính**: Nền tảng Cloudflare Pages Worker serverless hoạt động theo mô hình on-demand request-driven (không có tiến trình nền độc lập). Khi client gián đoạn kết nối hoặc không có lượt truy cập, worker isolate rơi vào trạng thái ngủ đông (idle hibernation).
+     - **Nguyên nhân phụ**: Bẫy bỏ khe trong phiên bản cũ (`fireTimeMs > nowMs` khiến `continue` nhưng vẫn gán `lastProcessedSlot = currentSlotIndex`) chỉ làm mất tối đa 1 khe (~35s). Kích hoạt bởi đợt cold restart sau deploy commit `aa769d0` lúc 12:08:41.
 - **Giải pháp chuẩn đã kiểm chứng**:
-  1. *Gắn nhãn bắt buộc mọi nguồn*: 100% sự kiện (kể cả thật, ảo hay legacy) đều bắt buộc có:
-     * `productId`: mã sản phẩm hoặc mã chiến dịch quà tặng (tuyệt đối không để `undefined`).
-     * `targetId`: tương đương `productId`.
-     * `is_simulated`: boolean thuần túy (`true` hoặc `false`, không để trống/undefined).
+  1. *Gắn nhãn có mục tiêu vs toàn sàn*:
+     - 100% sự kiện có mục tiêu (sản phẩm, tiện ích, giveaway) đều mang đủ `productId` và `targetId`.
+     - Các sự kiện toàn sàn (`COPY_CODE`, `STATS_COPY`) không mang mã mặt hàng theo đúng thiết kế, tác động vào `master_copy` theo bảng quy đổi `CONVERSION_TABLE`.
+     - 100% sự kiện bắt buộc có `is_simulated: boolean` (`true` hoặc `false`).
   2. *Kẹp thời gian slot an toàn*: Sử dụng `fireTimeMs = Math.min(nowMs, slotBaseMs + Math.floor(rng() * 10000))` đảm bảo `fireTimeMs <= nowMs` và slot luôn được xử lý trọn vẹn, không bao giờ bị bỏ rơi.
   3. *Giám sát Stream Health*: Endpoint `/api/realtime-events` và `get_virtual_analytics` trả về `stream_health` kèm cờ `silence_warning: boolean` khi tuổi sự kiện mới nhất vượt quá 180s.
+  4. *Chuẩn hóa danh mục & Nhà phát hành*: 563 bản ghi gồm 560 game trong `games188.json` + 3 game Roblox đăng ngày 25/10 (*Grow a Chicken Fighter*, *Command an Army*, *Dig and Clean*). Nhà phát hành Strinova VN chuẩn hóa thành **Gzone**.
 - ⛔ **CÁCH SỬA ĐÃ THẤT BẠI - TUYỆT ĐỐI KHÔNG LẶP LẠI**:
-  - ❌ *Không dùng `continue;` bỏ qua slot mà vẫn cập nhật `lastProcessedSlot`*: Gây drop sự kiện vĩnh viễn của slot đó.
+  - ❌ *Không nhầm lẫn sự kiện toàn sàn với sự kiện thiếu nhãn*: `COPY_CODE` và `STATS_COPY` theo thiết kế tác động `master_copy` nên không có mã mặt hàng.
+  - ❌ *Không dùng `continue;` bỏ qua slot mà vẫn cập nhật `lastProcessedSlot`*: Gây drop sự kiện của slot đó.
   - ❌ *Không để trường `is_simulated` mang giá trị `undefined`*: Phải ép kiểu strictly boolean `is_simulated === true` hoặc `false`.
 
 ---

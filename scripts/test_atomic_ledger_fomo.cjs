@@ -219,20 +219,35 @@ assert.strictEqual(
 
 console.log('✓ TEST 5 PASSED: 100% sự kiện bắt buộc mang đủ productId, targetId và is_simulated (boolean).\n');
 
-console.log('--- TEST 6: Xác minh danh mục game 560 trang tĩnh vs 563 bản ghi D1 ---');
+console.log('--- TEST 6: Xác minh danh mục game 560 trang tĩnh vs 563 bản ghi danh mục (560 games188 + 3 Roblox) ---');
 const games188 = JSON.parse(fs.readFileSync('public/data/games188.json', 'utf8'));
 const upcomingCode = fs.readFileSync('functions/api/crawler/ingest-upcoming-games.ts', 'utf8');
+const backupState = JSON.parse(fs.readFileSync('src/data/canonical_backup_state.json', 'utf8'));
+
 assert.strictEqual(
   games188.length,
   560,
   `Lỗi: games188.json phải có đúng 560 game, nhưng lại có ${games188.length}`
 );
+
+// 3 game Roblox đăng ngày 25/10 đưa tổng danh mục lên 563:
+const robloxGames = ['grow-a-chicken-fighter', 'command-an-army', 'dig-and-clean'];
+const robloxFound = (backupState.crawlerPendingGames || []).filter(g => robloxGames.includes(g.slug));
 assert.strictEqual(
-  upcomingCode.includes('const DEFAULT_LAUNCHED_GAMES = ['),
-  true,
-  'Lỗi: ingest-upcoming-games.ts phải định nghĩa DEFAULT_LAUNCHED_GAMES để giải trình 3 game phụ trợ Upcoming!'
+  robloxFound.length,
+  3,
+  `Lỗi: Phải tìm thấy đủ 3 game Roblox đăng ngày 25/10 trong crawlerPendingGames, tìm thấy ${robloxFound.length}`
 );
-console.log(`✓ TEST 6 PASSED: Danh mục games188.json = ${games188.length} game. 3 game phụ trợ upcoming (+3: Strinova VN, Where Winds Meet, Honkai: Star Rail 3.0) tạo nên 563 bản ghi D1.\n`);
+
+// Kiểm tra nhà phát hành Strinova VN đã chuẩn hóa thành Gzone
+assert.strictEqual(
+  upcomingCode.includes("publisher: 'Gzone'"),
+  true,
+  'Lỗi: Nhà phát hành Strinova VN trong ingest-upcoming-games.ts phải là Gzone!'
+);
+
+console.log(`✓ TEST 6 PASSED: Danh mục games188 = ${games188.length} game + 3 game Roblox (Grow a Chicken Fighter, Command an Army, Dig and Clean) đăng 25/10 = 563 bản ghi danh mục chuẩn xác.`);
+console.log(`✓ Nhà phát hành của Strinova VN đã được chuẩn hóa chính xác thành "Gzone".\n`);
 
 console.log('====================================================');
 console.log('ALL ATOMIC LEDGER FOMO & HEALTH TESTS PASSED 100%!');

@@ -4326,7 +4326,7 @@ class AdminDataService {
         id: 'ug_strinova_vn',
         name: 'Strinova VN',
         slug: 'strinova-vn',
-        publisher: 'iDreamSky / VPlay',
+        publisher: 'Gzone',
         releaseDate: '2026-10-23T10:00:00+07:00',
         category: 'Bắn Súng Anime 3D',
         platform: 'PC, Android, iOS',

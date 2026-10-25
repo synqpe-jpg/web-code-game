@@ -176,7 +176,7 @@ const DEFAULT_LAUNCHED_GAMES = [
     id: 'ug_strinova_vn',
     name: 'Strinova VN',
     slug: 'strinova-vn',
-    publisher: 'iDreamSky / VPlay',
+    publisher: 'Gzone',
     releaseDate: '2026-10-23T10:00:00+07:00',
     category: 'Bắn Súng Anime 3D',
     platform: 'PC, Android, iOS',
@@ -365,7 +365,7 @@ function sanitizeAndSafeguardUpcomingGames(list: any[]): { list: any[]; changed:
     if (slugLower.includes('strinova') || nameLower.includes('strinova')) {
       if (!g.releaseDate || !g.releaseDate.includes('10:00') || g.category === 'Game Mới' || g.publisher === 'Nhà phát hành') {
         g.name = 'Strinova VN';
-        g.publisher = 'iDreamSky / VPlay';
+        g.publisher = 'Gzone';
         g.releaseDate = '2026-10-23T10:00:00+07:00';
         g.category = 'Bắn Súng Anime 3D';
         g.platform = 'PC, Android, iOS';
@@ -1180,7 +1180,7 @@ export async function onRequestPost(context: { request: Request; env: Env }): Pr
             {
               name: 'Strinova VN',
               slug: 'strinova-vn',
-              publisher: 'iDreamSky / VPlay',
+              publisher: 'Gzone',
               releaseDate: '2026-10-23T10:00:00+07:00',
               category: 'Bắn Súng Anime 3D',
               platform: 'PC, Android, iOS',

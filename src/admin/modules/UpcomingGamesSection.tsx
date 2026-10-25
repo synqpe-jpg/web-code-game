@@ -194,7 +194,7 @@ export const UpcomingGamesSection: React.FC<UpcomingGamesSectionProps> = ({ onSh
         {
           name: 'Strinova VN',
           slug: 'strinova-vn',
-          publisher: 'iDreamSky / VPlay',
+          publisher: 'Gzone',
           releaseDate: '2026-10-23T10:00:00+07:00',
           category: 'Bắn Súng Anime 3D',
           platform: 'PC, Android, iOS',
@@ -1647,7 +1647,7 @@ curl -X POST "${apiEndpointUrl}" \\
                   onClick={() => {
                     const snippet =
                       apiSnippetLang === 'python'
-                        ? `import requests\n\nurl = "${apiEndpointUrl}"\nheaders = {"Content-Type": "application/json", "X-API-Key": "${crawlerConfig.apiKey}"}\npayload = {"botName": "Trợ lý Pine", "action": "ingest", "games": [{"name": "Strinova VN", "slug": "strinova-vn", "publisher": "iDreamSky / VPlay", "releaseDate": "2026-10-23T10:00:00+07:00", "status": "PENDING", "expectedCodes": ["STRINOVAOB"]}]}\nres = requests.post(url, json=payload, headers=headers)\nprint(res.json())`
+                        ? `import requests\n\nurl = "${apiEndpointUrl}"\nheaders = {"Content-Type": "application/json", "X-API-Key": "${crawlerConfig.apiKey}"}\npayload = {"botName": "Trợ lý Pine", "action": "ingest", "games": [{"name": "Strinova VN", "slug": "strinova-vn", "publisher": "Gzone", "releaseDate": "2026-10-23T10:00:00+07:00", "status": "PENDING", "expectedCodes": ["STRINOVAOB"]}]}\nres = requests.post(url, json=payload, headers=headers)\nprint(res.json())`
                         : `curl -X POST "${apiEndpointUrl}" -H "Content-Type: application/json" -H "X-API-Key: ${crawlerConfig.apiKey}" -d '{"botName": "Trợ lý Pine", "action": "ingest", "games": [{"name": "Strinova VN", "slug": "strinova-vn", "status": "PENDING"}]}'`;
                     handleCopyText(snippet, 'snippet');
                   }}
