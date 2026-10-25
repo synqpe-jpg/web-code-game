@@ -48,9 +48,9 @@ interface UpcomingGamesSectionProps {
   onGameLaunched?: () => void;
 }
 
-function getCountdownDetails(releaseDateStr?: string): { text: string; isPast: boolean; color: string; badgeBg: string } {
+function getCountdownDetails(releaseDateStr?: string | null): { text: string; isPast: boolean; color: string; badgeBg: string } {
   if (!releaseDateStr) {
-    return { text: 'Chưa công bố giờ', isPast: false, color: 'text-slate-400', badgeBg: 'bg-slate-800/80 border-slate-700' };
+    return { text: 'Chưa rõ ngày ra mắt', isPast: false, color: 'text-amber-400/90 font-medium', badgeBg: 'bg-amber-950/30 border-amber-500/30 text-amber-300' };
   }
   const target = new Date(releaseDateStr).getTime();
   if (isNaN(target)) {
@@ -282,7 +282,7 @@ export const UpcomingGamesSection: React.FC<UpcomingGamesSectionProps> = ({ onSh
       name,
       slug,
       publisher: editingGame.publisher?.trim() || 'Nhà phát hành',
-      releaseDate: editingGame.releaseDate || new Date().toISOString(),
+      releaseDate: editingGame.releaseDate?.trim() ? editingGame.releaseDate.trim() : null,
       category: editingGame.category?.trim() || 'Game Mới',
       platform: editingGame.platform?.trim() || 'Android, iOS',
       iconUrl: editingGame.iconUrl?.trim() || `/game_icons/${slug}.webp`,
@@ -802,8 +802,9 @@ export const UpcomingGamesSection: React.FC<UpcomingGamesSectionProps> = ({ onSh
                 const globalIndex = liveGamesRaw.findIndex((x) => x.id === game.id);
                 const isTop6 = globalIndex >= 0 && globalIndex < 6;
                 const countdown = getCountdownDetails(game.releaseDate);
-                const dateObj = new Date(game.releaseDate);
-                const formattedDate = !isNaN(dateObj.getTime())
+                const hasDate = Boolean(game.releaseDate);
+                const dateObj = hasDate ? new Date(game.releaseDate as string) : null;
+                const formattedDate = (dateObj && !isNaN(dateObj.getTime()))
                   ? dateObj.toLocaleString('vi-VN', {
                       hour: '2-digit',
                       minute: '2-digit',
@@ -811,7 +812,7 @@ export const UpcomingGamesSection: React.FC<UpcomingGamesSectionProps> = ({ onSh
                       month: '2-digit',
                       year: 'numeric',
                     })
-                  : game.releaseDate;
+                  : (game.releaseDate || 'Chưa rõ ngày');
 
                 return (
                   <div
@@ -1106,8 +1107,9 @@ export const UpcomingGamesSection: React.FC<UpcomingGamesSectionProps> = ({ onSh
             <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
               {filteredPendingGames.map((game) => {
                 const countdown = getCountdownDetails(game.releaseDate);
-                const dateObj = new Date(game.releaseDate);
-                const formattedDate = !isNaN(dateObj.getTime())
+                const hasDate = Boolean(game.releaseDate);
+                const dateObj = hasDate ? new Date(game.releaseDate as string) : null;
+                const formattedDate = (dateObj && !isNaN(dateObj.getTime()))
                   ? dateObj.toLocaleString('vi-VN', {
                       hour: '2-digit',
                       minute: '2-digit',
@@ -1115,7 +1117,7 @@ export const UpcomingGamesSection: React.FC<UpcomingGamesSectionProps> = ({ onSh
                       month: '2-digit',
                       year: 'numeric',
                     })
-                  : game.releaseDate;
+                  : (game.releaseDate || 'Chưa rõ ngày');
 
                 return (
                   <div
@@ -1719,11 +1721,10 @@ curl -X POST "${apiEndpointUrl}" \\
             {/* Thời gian mở server */}
             <div className="space-y-1">
               <label className="text-xs font-semibold text-slate-300">
-                Ngày Giờ Mở Server <span className="text-rose-400">*</span>
+                Ngày Giờ Mở Server <span className="text-slate-400 font-normal">(để trống nếu chưa rõ ngày)</span>
               </label>
               <input
                 type="datetime-local"
-                required
                 value={editingGame?.releaseDate ? editingGame.releaseDate.slice(0, 16) : ''}
                 onChange={(e) => setEditingGame((prev) => ({ ...prev, releaseDate: e.target.value }))}
                 className="w-full bg-slate-900 border border-border rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-cyan-500"

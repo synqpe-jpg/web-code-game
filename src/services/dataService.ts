@@ -1900,10 +1900,25 @@ class DataService {
           return elapsed <= ONE_DAY_MS;
         })
         .sort((a, b) => {
+          const timeA = a.releaseDate ? new Date(a.releaseDate).getTime() : NaN;
+          const timeB = b.releaseDate ? new Date(b.releaseDate).getTime() : NaN;
+          const hasDateA = !isNaN(timeA);
+          const hasDateB = !isNaN(timeB);
+
+          if (hasDateA && !hasDateB) return -1;
+          if (!hasDateA && hasDateB) return 1;
+
+          if (hasDateA && hasDateB) {
+            if (timeA !== timeB) return timeA - timeB;
+            const orderA = typeof a.displayOrder === 'number' ? a.displayOrder : 999;
+            const orderB = typeof b.displayOrder === 'number' ? b.displayOrder : 999;
+            return orderA - orderB;
+          }
+
           const orderA = typeof a.displayOrder === 'number' ? a.displayOrder : 999;
           const orderB = typeof b.displayOrder === 'number' ? b.displayOrder : 999;
           if (orderA !== orderB) return orderA - orderB;
-          return new Date(a.releaseDate).getTime() - new Date(b.releaseDate).getTime();
+          return String(a.name || '').localeCompare(String(b.name || ''), 'vi');
         });
     };
 
@@ -1957,10 +1972,25 @@ class DataService {
           return elapsed <= ONE_DAY_MS;
         })
         .sort((a, b) => {
+          const timeA = a.releaseDate ? new Date(a.releaseDate).getTime() : NaN;
+          const timeB = b.releaseDate ? new Date(b.releaseDate).getTime() : NaN;
+          const hasDateA = !isNaN(timeA);
+          const hasDateB = !isNaN(timeB);
+
+          if (hasDateA && !hasDateB) return -1;
+          if (!hasDateA && hasDateB) return 1;
+
+          if (hasDateA && hasDateB) {
+            if (timeA !== timeB) return timeA - timeB;
+            const orderA = typeof a.displayOrder === 'number' ? a.displayOrder : 999;
+            const orderB = typeof b.displayOrder === 'number' ? b.displayOrder : 999;
+            return orderA - orderB;
+          }
+
           const orderA = typeof a.displayOrder === 'number' ? a.displayOrder : 999;
           const orderB = typeof b.displayOrder === 'number' ? b.displayOrder : 999;
           if (orderA !== orderB) return orderA - orderB;
-          return new Date(a.releaseDate).getTime() - new Date(b.releaseDate).getTime();
+          return String(a.name || '').localeCompare(String(b.name || ''), 'vi');
         });
     };
 

@@ -25,7 +25,10 @@ interface TimeRemaining {
 
 const ONE_DAY_MS = 24 * 60 * 60 * 1000; // 24 giờ
 
-function calculateTimeRemaining(targetDateStr: string): TimeRemaining {
+function calculateTimeRemaining(targetDateStr?: string | null): TimeRemaining {
+  if (!targetDateStr) {
+    return { days: 0, hours: 0, minutes: 0, seconds: 0, isReleased: false, isRolledOver: false, bannerRemainingHours: 0, bannerRemainingMinutes: 0 };
+  }
   try {
     const target = new Date(targetDateStr).getTime();
     const now = Date.now();
@@ -78,12 +81,13 @@ export const UpcomingGamesBanner: React.FC<UpcomingGamesBannerProps> = ({
 
   // Filter to show active upcoming games, take first 5-6 games
   // Các game ra mắt trong ngày chỉ nằm trên mục này tối đa 1 ngày (24h) rồi tự động chuyển xuống bên dưới
+  // Top 6 banner chỉ lấy các game CÓ NGÀY CỤ THỂ đang đếm ngược (game chưa rõ ngày không chiếm suất)
   const activeUpcoming = upcomingGames
     .filter((g) => {
       if (g.status === 'CANCELLED' || g.status === 'PENDING' || g.status === 'LAUNCHED') return false;
-      if (!g.releaseDate) return true;
+      if (!g.releaseDate) return false;
       const target = new Date(g.releaseDate).getTime();
-      if (isNaN(target)) return true;
+      if (isNaN(target)) return false;
       const elapsed = now - target;
       return elapsed <= ONE_DAY_MS;
     })
@@ -197,7 +201,14 @@ export const UpcomingGamesBanner: React.FC<UpcomingGamesBannerProps> = ({
 
                 {/* Live Countdown Box: Thu gọn chiều cao tối đa cho Mobile */}
                 <div className="mb-1.5 sm:mb-2 p-1 sm:p-2 rounded-lg bg-slate-900/90 border border-cyan-500/30 text-center shadow-inner">
-                  {time.isReleased ? (
+                  {!game.releaseDate ? (
+                    <div className="py-0.5 sm:py-1">
+                      <div className="flex items-center justify-center gap-1 text-amber-400 font-medium text-[9px] sm:text-xs">
+                        <Calendar className="w-2.5 h-2.5 sm:w-3 sm:h-3 text-amber-400" />
+                        <span>Chưa rõ ngày ra mắt</span>
+                      </div>
+                    </div>
+                  ) : time.isReleased ? (
                     <div className="py-0.2 sm:py-0.5">
                       <div className="flex items-center justify-center gap-1 text-emerald-400 font-bold text-[9px] sm:text-xs animate-pulse">
                         <Sparkles className="w-2.5 h-2.5 sm:w-3 sm:h-3 text-amber-400" />

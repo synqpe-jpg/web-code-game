@@ -10,6 +10,32 @@
 
 ## 1. DANH MỤC LỖI & CÁC BẪY ĐÃ THẤT BẠI (DO NOT REPEAT)
 
+### ISSUE-130: Bẫy Tự Động Gán Ngày Hiện Tại Cho Game Sắp Ra Mắt Chưa Có Ngày (Omitted/Null ReleaseDate Fallback Trap)
+- **Triệu chứng**:
+  - Khi bot cào dữ liệu hoặc người dùng tạo một game sắp ra mắt mới qua API `POST /api/crawler/ingest-upcoming-games` mà không gửi trường `releaseDate` (hoặc gửi `null`, `""`), hệ thống tự động gán `releaseDate` thành thời điểm hiện tại (`nowIso`).
+  - Hệ quả là bản ghi bị suy diễn sai thành `rolloverStatus = "TODAY_LAUNCH"`, `isLaunched = true`, `hoursRemainingOnBanner = 23`. Game chưa ra mắt bị hiển thị thành "ĐÃ MỞ SERVER" / "ra mắt hôm nay" với đếm ngược giả, làm sai lệch toàn bộ danh sách và khiến 22 game chưa có ngày không thể nhập vào hệ thống.
+  - Ngoài ra, khi cập nhật từng phần một game có sẵn mà không gửi trường `releaseDate`, nếu logic không phân biệt giữa trường bị bỏ qua (omitted) và giá trị rỗng/null, ngày cũ có thể bị mất.
+- **Nguyên nhân gốc rễ (Root Cause)**:
+  1. *Fallback `nowIso` khi tạo mới*: Trong `ingest-upcoming-games.ts`, dòng khởi tạo `releaseDate` gán `hasRelDate && rawRelDate ? rawRelDate : nowIso`.
+  2. *Không kiểm tra sự tồn tại của trường (`in` operator)*: Logic chỉ dùng `raw.releaseDate || ...` (truthy), không phân biệt giữa không gửi trường (giữ nguyên ngày) và gửi `null` (xóa ngày).
+  3. *Hàm sort bị `NaN`*: `new Date(a.releaseDate).getTime() - new Date(b.releaseDate).getTime()` trả về `NaN` khi `releaseDate` là `null`, khiến thứ tự sắp xếp bị xáo trộn lung tung.
+- **Giải pháp chuẩn đã kiểm chứng**:
+  1. *Phân biệt 3 trạng thái của `releaseDate`*:
+     - Kiểm tra `hasExplicitRelDateField = ('releaseDate' in raw) || ('release_date' in raw) || ('launchDate' in raw) || ('launch_date' in raw)`.
+     - Nếu tạo mới: `releaseDate: cleanRelDate` (lưu `null` nếu không có ngày, tuyệt đối không gán `nowIso`).
+     - Nếu cập nhật: Nếu có trường thì cập nhật (`cleanRelDate` hoặc `null`); nếu không có trường thì giữ nguyên `existing.releaseDate`.
+  2. *Suy diễn trung thực trong GET API*:
+     - Khi `!g.releaseDate`: gán `releaseDate: null`, `rolloverStatus = 'TBA'`, `isLaunched = false`, `isRolledOver = false`, `hoursRemainingOnBanner = 0`, `minutesRemainingOnBanner = 0`.
+  3. *Thuật toán sắp xếp 2 tầng*:
+     - Game có ngày tăng dần xếp trước; game `null` ngày xếp sau theo `displayOrder` rồi tên A-Z.
+     - Top 6 banner chỉ lấy game có ngày cụ thể (`liveWithDateCount`), game `null` ngày không chiếm suất đếm ngược.
+  4. *Giao diện hiển thị rõ ràng*: Thẻ game không có ngày hiển thị nhãn "Chưa rõ ngày ra mắt" thay vì đếm ngược.
+- ⛔ **CÁCH SỬA ĐÃ THẤT BẠI - TUYỆT ĐỐI KHÔNG LẶP LẠI**:
+  - ❌ *Không dùng `nowIso` làm fallback cho `releaseDate`*: Không có ngày thì bắt buộc phải lưu `null`.
+  - ❌ *Không dùng `new Date(a.releaseDate).getTime() - new Date(b.releaseDate).getTime()`*: Phải kiểm tra `!isNaN(time)` trước khi trừ, xếp game có ngày trước và game `null` ngày sau.
+
+---
+
 ### ISSUE-129: Bẫy Ép Số Đã Bán / Đã Giật Về 0 Khi Hàng Thật Hết (Zeroing Historical Counters In Out-Of-Stock Products)
 - **Triệu chứng**:
   - Khi một sản phẩm tiện ích hoặc chiến dịch giveaway hết hàng thật trong kho (`realStock = 0` hoặc `realRemaining = 0`), thẻ sản phẩm và giveaway trên web khách hiển thị `Đã giật: 0 mã        Còn lại: 0 mã` hoặc `Đã bán: 0`.

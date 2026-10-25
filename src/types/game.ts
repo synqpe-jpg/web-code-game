@@ -352,7 +352,7 @@ export interface UpcomingGame {
   name: string;
   slug: string;
   publisher: string;
-  releaseDate: string; // ISO 8601 string or date string (e.g. '2026-10-23T10:00:00+07:00')
+  releaseDate?: string | null; // ISO 8601 string or date string (e.g. '2026-10-23T10:00:00+07:00') or null if TBA
   category: string;
   platform?: string;
   iconUrl?: string;
@@ -480,10 +480,10 @@ export const DEFAULT_UPCOMING_GAMES: UpcomingGame[] = [
 export const UPCOMING_ROLLOVER_WINDOW_MS = 24 * 60 * 60 * 1000; // 24 Giờ
 
 export function isUpcomingGameActiveOnBanner(game: UpcomingGame, now = Date.now()): boolean {
-  if (game.status === 'CANCELLED' || game.status === 'PENDING') return false;
-  if (!game.releaseDate) return true;
+  if (game.status === 'CANCELLED' || game.status === 'PENDING' || game.status === 'LAUNCHED') return false;
+  if (!game.releaseDate) return false;
   const target = new Date(game.releaseDate).getTime();
-  if (isNaN(target)) return true;
+  if (isNaN(target)) return false;
   const elapsed = now - target;
   // If target is in future: elapsed < 0 -> Active
   // If target passed <= 24h: 0 <= elapsed <= 24h -> Active (Released today)

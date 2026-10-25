@@ -530,7 +530,7 @@ export async function onRequestGet(context: { request: Request; env: Env }): Pro
 
   // Làm giàu dữ liệu với các chỉ số trạng thái 24h và thời gian còn lại trên banner
   const enriched = filtered.map((g) => {
-    let rolloverStatus = 'COUNTDOWN';
+    let rolloverStatus = 'TBA';
     let hoursRemainingOnBanner = 0;
     let minutesRemainingOnBanner = 0;
     if (g.releaseDate) {
@@ -549,23 +549,50 @@ export async function onRequestGet(context: { request: Request; env: Env }): Pro
         }
       }
     }
+    const isLaunched = rolloverStatus === 'TODAY_LAUNCH' || rolloverStatus === 'ROLLED_OVER' || g.status === 'LAUNCHED';
+    const isRolledOver = rolloverStatus === 'ROLLED_OVER' || g.status === 'LAUNCHED';
+
     return {
       ...g,
+      releaseDate: g.releaseDate || null,
       rolloverStatus,
       hoursRemainingOnBanner,
       minutesRemainingOnBanner,
-      isLaunched: rolloverStatus !== 'COUNTDOWN',
-      isRolledOver: rolloverStatus === 'ROLLED_OVER',
+      isLaunched,
+      isRolledOver,
     };
   });
 
-  // Sort by displayOrder ascending, then by releaseDate
+  // Sort: Game có ngày xếp trước theo ngày tăng dần; Game chưa rõ ngày (null) xếp sau (theo displayOrder rồi tên A-Z)
   enriched.sort((a, b) => {
+    const timeA = a.releaseDate ? new Date(a.releaseDate).getTime() : NaN;
+    const timeB = b.releaseDate ? new Date(b.releaseDate).getTime() : NaN;
+    const hasDateA = !isNaN(timeA);
+    const hasDateB = !isNaN(timeB);
+
+    if (hasDateA && !hasDateB) return -1;
+    if (!hasDateA && hasDateB) return 1;
+
+    if (hasDateA && hasDateB) {
+      if (timeA !== timeB) return timeA - timeB;
+      const orderA = typeof a.displayOrder === 'number' ? a.displayOrder : 999;
+      const orderB = typeof b.displayOrder === 'number' ? b.displayOrder : 999;
+      return orderA - orderB;
+    }
+
     const orderA = typeof a.displayOrder === 'number' ? a.displayOrder : 999;
     const orderB = typeof b.displayOrder === 'number' ? b.displayOrder : 999;
     if (orderA !== orderB) return orderA - orderB;
-    return new Date(a.releaseDate).getTime() - new Date(b.releaseDate).getTime();
+    return String(a.name || '').localeCompare(String(b.name || ''), 'vi');
   });
+
+  const liveWithDateCount = upcomingGames.filter((g) => {
+    const isApproved = g.status === 'UPCOMING' || g.status === 'APPROVED';
+    if (!isApproved) return false;
+    if (!g.releaseDate) return false;
+    const target = new Date(g.releaseDate).getTime();
+    return !isNaN(target) && (now - target) <= ONE_DAY_MS;
+  }).length;
 
   const liveCount = upcomingGames.filter((g) => {
     const isApproved = g.status === 'UPCOMING' || g.status === 'APPROVED';
@@ -587,7 +614,7 @@ export async function onRequestGet(context: { request: Request; env: Env }): Pro
       success: true,
       total: enriched.length,
       liveCount,
-      top6Count: Math.min(6, liveCount),
+      top6Count: Math.min(6, liveWithDateCount),
       pendingCount,
       launchedCount,
       games: enriched,
@@ -1213,8 +1240,9 @@ export async function onRequestPost(context: { request: Request; env: Env }): Pr
     if (!slug) continue;
 
     // Kiểm tra chính xác xem các trường có được cung cấp trong payload không
-    const hasRelDate = Boolean(raw.releaseDate || raw.release_date || raw.launchDate || raw.launch_date);
-    const rawRelDate = String(raw.releaseDate || raw.release_date || raw.launchDate || raw.launch_date || '').trim();
+    const hasExplicitRelDateField = ('releaseDate' in raw) || ('release_date' in raw) || ('launchDate' in raw) || ('launch_date' in raw);
+    const rawRelVal = raw.releaseDate !== undefined ? raw.releaseDate : (raw.release_date !== undefined ? raw.release_date : (raw.launchDate !== undefined ? raw.launchDate : raw.launch_date));
+    const cleanRelDate = (rawRelVal !== null && rawRelVal !== undefined && String(rawRelVal).trim() !== '') ? String(rawRelVal).trim() : null;
 
     const hasPublisher = Boolean(raw.publisher && String(raw.publisher).trim());
     const rawPublisher = hasPublisher ? String(raw.publisher).trim() : '';
@@ -1321,10 +1349,17 @@ export async function onRequestPost(context: { request: Request; env: Env }): Pr
       // 1. Cập nhật tên game
       existing.name = name;
 
-      // 2. CHỈ CẬP NHẬT các trường ngày giờ / thể loại / NPH khi payload CÓ GIÁ TRỊ HỢP LỆ
-      // Tuyệt đối không bao giờ tự ý gán đè fallback mặc định (nowIso, 'Game Mới', 'Nhà phát hành') lên dữ liệu chuẩn cũ!
-      if (hasRelDate && rawRelDate) {
-        existing.releaseDate = rawRelDate;
+      // 2. CHỈ CẬP NHẬT các trường ngày giờ / thể loại / NPH khi payload CÓ GIÁ TRỊ HỢP LỆ HOẶC CÓ CHỈ ĐỊNH XÓA RÕ RÀNG
+      // Nếu có gửi trường releaseDate:
+      // - Nếu gửi chuỗi ngày hợp lệ -> Cập nhật ngày mới
+      // - Nếu gửi null hoặc chuỗi rỗng -> Xóa ngày thành null
+      // Nếu KHÔNG gửi trường releaseDate (omitted) -> GIỮ NGUYÊN ngày đã lưu!
+      if (hasExplicitRelDateField) {
+        if (cleanRelDate) {
+          existing.releaseDate = cleanRelDate;
+        } else {
+          existing.releaseDate = null;
+        }
       }
       if (hasPublisher && rawPublisher && rawPublisher !== 'Nhà phát hành') {
         existing.publisher = rawPublisher;
@@ -1410,7 +1445,7 @@ export async function onRequestPost(context: { request: Request; env: Env }): Pr
         name,
         slug,
         publisher: hasPublisher && rawPublisher ? rawPublisher : 'Nhà phát hành',
-        releaseDate: hasRelDate && rawRelDate ? rawRelDate : nowIso,
+        releaseDate: cleanRelDate, // Lưu null nếu không gửi hoặc null/rỗng. TUYỆT ĐỐI KHÔNG tự gán nowIso!
         category: hasCategory && rawCategory ? rawCategory : 'Game Mới',
         platform: hasPlatform && rawPlatform ? rawPlatform : 'Android, iOS, PC',
         iconUrl: rawIcon || `/game_icons/${slug}.webp`,

@@ -27,7 +27,10 @@ interface TimeRemaining {
 
 const ONE_DAY_MS = 24 * 60 * 60 * 1000; // 24 giờ
 
-function calculateTimeRemaining(targetDateStr: string): TimeRemaining {
+function calculateTimeRemaining(targetDateStr?: string | null): TimeRemaining {
+  if (!targetDateStr) {
+    return { days: 0, hours: 0, minutes: 0, seconds: 0, isReleased: false, isRolledOver: false, bannerRemainingHours: 0, bannerRemainingMinutes: 0 };
+  }
   try {
     const target = new Date(targetDateStr).getTime();
     const now = Date.now();
@@ -57,7 +60,8 @@ function calculateTimeRemaining(targetDateStr: string): TimeRemaining {
   }
 }
 
-function formatReleaseDate(dateStr: string): string {
+function formatReleaseDate(dateStr?: string | null): string {
+  if (!dateStr) return 'Chưa rõ ngày';
   try {
     const d = new Date(dateStr);
     if (isNaN(d.getTime())) return dateStr;
@@ -127,23 +131,25 @@ export const AllUpcomingGamesModal: React.FC<AllUpcomingGamesModalProps> = ({
     }
 
     // 2. Filter tabs
-    const targetTime = new Date(game.releaseDate).getTime();
-    const diffMs = targetTime - now;
+    const hasDate = Boolean(game.releaseDate);
+    const targetTime = hasDate ? new Date(game.releaseDate as string).getTime() : NaN;
+    const diffMs = !isNaN(targetTime) ? targetTime - now : NaN;
 
     if (activeFilter === 'BOOKMARKED') {
       return bookmarkedSet.has((game.slug || game.id).toLowerCase());
     }
     if (activeFilter === 'WEEK') {
-      return diffMs > 0 && diffMs <= 7 * 24 * 60 * 60 * 1000;
+      return !isNaN(diffMs) && diffMs > 0 && diffMs <= 7 * 24 * 60 * 60 * 1000;
     }
     if (activeFilter === 'MONTH') {
-      return diffMs > 0 && diffMs <= 30 * 24 * 60 * 60 * 1000;
+      return !isNaN(diffMs) && diffMs > 0 && diffMs <= 30 * 24 * 60 * 60 * 1000;
     }
 
     return true;
   });
 
   // Ưu tiên đưa game người dùng vừa click lên đầu
+  // Sắp xếp: Game có ngày xếp trước theo ngày tăng dần; Game chưa rõ ngày (null) xếp sau (theo displayOrder rồi tên A-Z)
   const sortedGames = [...filteredGames].sort((a, b) => {
     if (initialSelectedSlug) {
       const aSlug = (a.slug || a.id).toLowerCase();
@@ -152,9 +158,25 @@ export const AllUpcomingGamesModal: React.FC<AllUpcomingGamesModalProps> = ({
       if (aSlug === target && bSlug !== target) return -1;
       if (bSlug === target && aSlug !== target) return 1;
     }
-    const timeA = new Date(a.releaseDate).getTime() || Infinity;
-    const timeB = new Date(b.releaseDate).getTime() || Infinity;
-    return timeA - timeB;
+    const timeA = a.releaseDate ? new Date(a.releaseDate).getTime() : NaN;
+    const timeB = b.releaseDate ? new Date(b.releaseDate).getTime() : NaN;
+    const hasDateA = !isNaN(timeA);
+    const hasDateB = !isNaN(timeB);
+
+    if (hasDateA && !hasDateB) return -1;
+    if (!hasDateA && hasDateB) return 1;
+
+    if (hasDateA && hasDateB) {
+      if (timeA !== timeB) return timeA - timeB;
+      const orderA = typeof a.displayOrder === 'number' ? a.displayOrder : 999;
+      const orderB = typeof b.displayOrder === 'number' ? b.displayOrder : 999;
+      return orderA - orderB;
+    }
+
+    const orderA = typeof a.displayOrder === 'number' ? a.displayOrder : 999;
+    const orderB = typeof b.displayOrder === 'number' ? b.displayOrder : 999;
+    if (orderA !== orderB) return orderA - orderB;
+    return String(a.name || '').localeCompare(String(b.name || ''), 'vi');
   });
 
   const handleNotifyClick = (game: UpcomingGame, e: React.MouseEvent) => {
@@ -339,26 +361,40 @@ export const AllUpcomingGamesModal: React.FC<AllUpcomingGamesModalProps> = ({
 
                       {/* Giờ G mở server & Countdown trực quan 1 dòng ngang siêu gọn */}
                       <div className="mb-2 px-2.5 py-1.5 rounded-lg bg-slate-900/90 border border-cyan-500/25 flex items-center justify-between gap-1.5 text-xs">
-                        <div className="flex items-center gap-1 text-[11px] text-muted-foreground truncate">
-                          <Calendar className="w-3 h-3 text-cyan-400 shrink-0" />
-                          <span className="font-semibold text-slate-200 truncate">{formatReleaseDate(game.releaseDate)}</span>
-                        </div>
-
-                        {time.isReleased ? (
-                          <span className="text-[10px] font-bold text-emerald-400 flex items-center gap-1 shrink-0 animate-pulse">
-                            <Sparkles className="w-3 h-3 text-amber-400" />
-                            ĐÃ MỞ SERVER
-                          </span>
-                        ) : (
-                          <div className="font-mono font-bold text-[11px] text-cyan-300 flex items-center gap-0.5 shrink-0">
-                            <span className="text-cyan-200">{String(time.days).padStart(2, '0')}d</span>
-                            <span className="text-cyan-500">:</span>
-                            <span className="text-cyan-200">{String(time.hours).padStart(2, '0')}h</span>
-                            <span className="text-cyan-500">:</span>
-                            <span className="text-cyan-200">{String(time.minutes).padStart(2, '0')}m</span>
-                            <span className="text-cyan-500">:</span>
-                            <span className="text-amber-300">{String(time.seconds).padStart(2, '0')}s</span>
+                        {!game.releaseDate ? (
+                          <div className="flex items-center justify-between w-full">
+                            <div className="flex items-center gap-1.5 text-[11px] text-amber-300 font-medium">
+                              <Calendar className="w-3.5 h-3.5 text-amber-400 shrink-0" />
+                              <span>Chưa rõ ngày ra mắt</span>
+                            </div>
+                            <span className="text-[10px] font-semibold text-slate-400 bg-slate-800/80 px-2 py-0.5 rounded border border-slate-700/60">
+                              Đang cập nhật
+                            </span>
                           </div>
+                        ) : (
+                          <>
+                            <div className="flex items-center gap-1 text-[11px] text-muted-foreground truncate">
+                              <Calendar className="w-3 h-3 text-cyan-400 shrink-0" />
+                              <span className="font-semibold text-slate-200 truncate">{formatReleaseDate(game.releaseDate)}</span>
+                            </div>
+
+                            {time.isReleased ? (
+                              <span className="text-[10px] font-bold text-emerald-400 flex items-center gap-1 shrink-0 animate-pulse">
+                                <Sparkles className="w-3 h-3 text-amber-400" />
+                                ĐÃ MỞ SERVER
+                              </span>
+                            ) : (
+                              <div className="font-mono font-bold text-[11px] text-cyan-300 flex items-center gap-0.5 shrink-0">
+                                <span className="text-cyan-200">{String(time.days).padStart(2, '0')}d</span>
+                                <span className="text-cyan-500">:</span>
+                                <span className="text-cyan-200">{String(time.hours).padStart(2, '0')}h</span>
+                                <span className="text-cyan-500">:</span>
+                                <span className="text-cyan-200">{String(time.minutes).padStart(2, '0')}m</span>
+                                <span className="text-cyan-500">:</span>
+                                <span className="text-amber-300">{String(time.seconds).padStart(2, '0')}s</span>
+                              </div>
+                            )}
+                          </>
                         )}
                       </div>
 

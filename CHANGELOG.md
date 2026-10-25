@@ -7,6 +7,52 @@ Mỗi mục sửa lỗi đều ghi nhận **Nguyên nhân gốc rễ (Root Cause
 
 ## [2026-10-25]
 
+### 205. Hỗ Trợ Game Sắp Ra Mắt Chưa Có Ngày (Ngày Trống/NULL, Không Tự Gán Ngày Hiện Tại)
+- **Mô tả & Bối cảnh người dùng**:
+  - Người dùng yêu cầu: *"Hỗ trợ game sắp ra mắt CHƯA CÓ NGÀY (ngày trống, không tự gán ngày hiện tại)"*.
+  - Bằng chứng thực tế: Bản ghi test *BLEACH Mirrors High* (`bleach-mirrors-high`) khi tạo không gửi `releaseDate` đã bị endpoint `POST /api/crawler/ingest-upcoming-games` tự động gán ngày hiện tại (`2026-10-25 19:45 +07`), kèm `rolloverStatus = "TODAY_LAUNCH"`, `isLaunched = true`, `hoursRemainingOnBanner = 23`.
+  - Hậu quả: Game chưa rõ ngày bị hiển thị sai thành "ra mắt hôm nay" kèm đếm ngược về thời điểm hiện tại. Khiến 22 game sắp ra mắt chưa có ngày cụ thể không thể đăng lên bảng được.
+- **Nguyên nhân gốc rễ (Root Cause)**:
+  1. *Fallback `nowIso` khi tạo mới trong `functions/api/crawler/ingest-upcoming-games.ts`*:
+     - Dòng 1413 có biểu thức: `releaseDate: hasRelDate && rawRelDate ? rawRelDate : nowIso`. Khi tạo game mới không gửi `releaseDate`, API tự gán thời điểm hiện tại (`nowIso`).
+  2. *Không phân biệt giữa "omitted" (cập nhật từng phần) và "explicit null/empty" (xóa ngày)*:
+     - Logic `Boolean(raw.releaseDate || ...)` chỉ kiểm tra truthy. Khi client gửi `releaseDate: null` hoặc `""` để xóa ngày thì API bỏ qua; còn khi update từng phần (không gửi trường) thì lại có nguy cơ bị gán đè.
+  3. *GET endpoint suy diễn sai khi `releaseDate` là `null`*:
+     - Khởi tạo mặc định `rolloverStatus = 'COUNTDOWN'`, dẫn đến khi so sánh thời gian bị lỗi hoặc nếu gán ngày hiện tại thì biến thành `'TODAY_LAUNCH'` và `isLaunched = true`.
+  4. *Thuật toán sắp xếp bị `NaN` khi `releaseDate` là `null`*:
+     - Biểu thức `new Date(a.releaseDate).getTime() - new Date(b.releaseDate).getTime()` trả về `NaN` khi cả 2 game đều chưa có ngày, làm đảo lộn thứ tự ngẫu nhiên.
+- **Giải pháp triển khai (Solution)**:
+  1. *Server Layer Ingest (`functions/api/crawler/ingest-upcoming-games.ts`)*:
+     - Nhận diện tường minh qua `hasExplicitRelDateField = ('releaseDate' in raw) || ('release_date' in raw) || ...`.
+     - Khi TẠO MỚI: `releaseDate: cleanRelDate` (lưu `null` nếu không gửi hoặc rỗng/null, tuyệt đối không dùng `nowIso`).
+     - Khi CẬP NHẬT: Nếu có gửi trường thì cập nhật (`cleanRelDate` hoặc `null`), nếu KHÔNG gửi trường (omitted) thì **GIỮ NGUYÊN** ngày đã lưu.
+     - Trong GET `onRequestGet`: Khi `!g.releaseDate` $\rightarrow$ gán `releaseDate: null`, `rolloverStatus = 'TBA'`, `isLaunched = false`, `isRolledOver = false`, `hoursRemainingOnBanner = 0`, `minutesRemainingOnBanner = 0`.
+     - Sắp xếp chuẩn: Game có ngày tăng dần xếp trước; game `null` ngày xếp sau (theo `displayOrder` rồi tên A-Z).
+     - `top6Count: Math.min(6, liveWithDateCount)`: Banner Top 6 chỉ dành cho game có ngày đếm ngược, game `null` ngày không chiếm suất.
+  2. *Banner Web Khách (`UpcomingGamesBanner.tsx`)*:
+     - Lọc `activeUpcoming`: `if (!g.releaseDate) return false;` đảm bảo chỉ hiển thị game có ngày cụ thể.
+     - Hỗ trợ fallback hiển thị nhãn trung thực "Chưa rõ ngày ra mắt" nếu có game lọt vào.
+  3. *Modal Danh Sách Đầy Đủ (`AllUpcomingGamesModal.tsx`)*:
+     - Sắp xếp: Game có ngày xếp trước theo thời gian tăng dần; game `null` ngày xếp sau theo `displayOrder` rồi tên A-Z.
+     - Giao diện thẻ: Game `null` ngày hiển thị khung giờ G gọn gàng với nhãn **"Chưa rõ ngày ra mắt"** (icon `Calendar`, badge "Đang cập nhật"), không đếm ngược và không hiện badge "ĐÃ MỞ SERVER".
+     - Bộ lọc Tuần/Tháng: Tự động loại bỏ game chưa rõ ngày khỏi tab Tuần/Tháng, vẫn hiển thị ở tab Tất Cả và Đã Lưu.
+  4. *Trang Quản Trị Admin (`UpcomingGamesSection.tsx`)*:
+     - `getCountdownDetails(releaseDateStr)` trả về badge và text `Chưa rõ ngày ra mắt` khi `!releaseDateStr`.
+     - Form thêm/sửa game: Bỏ thuộc tính `required`, cho phép để trống trường ngày mở server để lưu `null`.
+  5. *Đồng bộ Types & Data Layer (`dataService.ts`, `game.ts`, `adminTypes.ts`)*:
+     - Cập nhật kiểu `releaseDate?: string | null;`.
+     - Đồng bộ thuật toán sắp xếp 2 tầng nhất quán trên toàn hệ thống.
+- **Kết quả kiểm thử & xác minh**:
+  - Script test mới `scripts/test_upcoming_no_date_support.cjs` đạt 8/8 bài kiểm tra PASS 100%.
+  - Toàn bộ 7 bài kiểm tra trong `scripts/test_upcoming_launched_count.cjs` đạt 100% PASS.
+  - Toàn bộ các test suite hồi quy (số ảo fomo, khử trùng lặp giftcode, chống spam toast 20s) đạt 100% PASS.
+  - `npm run build` xuất bản thành công 560 game + 163 bài viết + 32 giveaway HTML tĩnh và bundle Cloudflare Pages Worker (`dist/_worker.js` 13.3mb).
+- ⛔ **Cách sửa đã thất bại cần tránh**:
+  - ❌ *Không gán fallback `nowIso` cho `releaseDate` khi payload không gửi ngày*: Sẽ biến game chưa rõ ngày thành game ra mắt hôm nay.
+  - ❌ *Không dùng `new Date(a.releaseDate).getTime() - new Date(b.releaseDate).getTime()` trực tiếp*: Sẽ sinh ra `NaN` khi `releaseDate` là `null`, phá hỏng thứ tự hiển thị.
+
+---
+
 ### 204. Bổ Sung Số Ảo Giveaways (52–112) & Các Mục Đã Bán Dưới 10 (32–212) Kèm Nút Thao Tác Nhanh Trong Admin
 - **Mô tả & Bối cảnh người dùng**:
   - Người dùng yêu cầu: *"Bạn giúp tôi bổ sung số ảo cho các mục code đã giật trong admin ngẫu nhiên các giá trị từ 52-112 giúp tôi nhé. Các mục đã bán có số lượn dưới 10 bổ sung từ 32-212."* kèm 2 ảnh chụp màn hình trang Giật Code `https://codegame.shop/giveaways` hiển thị hàng loạt thẻ sự kiện (như *Clash of Critters*, *Tiểu Cường 3Q*, *Tam Quốc: Tranh Bá Thiên Hạ*, *Đội Tướng Nhí Nhố*...) với trạng thái `Đã giật: 0 mã        Còn lại: 0 mã` (Hết Code), tạo cảm giác vắng vẻ, thiếu uy tín và thiếu social proof.

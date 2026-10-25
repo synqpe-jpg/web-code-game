@@ -294,7 +294,7 @@ export interface UpcomingGameAdminRecord {
   name: string;
   slug: string;
   publisher: string;
-  releaseDate: string; // ISO date string or YYYY-MM-DD or YYYY-MM-DDTHH:mm:ss
+  releaseDate?: string | null; // ISO date string or YYYY-MM-DD or YYYY-MM-DDTHH:mm:ss or null if TBA
   category: string;
   platform: string; // e.g. 'PC, Android, iOS'
   iconUrl?: string;
@@ -327,7 +327,7 @@ export interface UpcomingGameApiLogEntry {
     name: string;
     slug: string;
     status: string;
-    releaseDate?: string;
+    releaseDate?: string | null;
   }>;
   timestamp: string;
 }
