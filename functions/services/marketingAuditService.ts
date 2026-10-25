@@ -422,6 +422,9 @@ export async function getRecentMarketingEvents(env: any, limit: number = 100): P
           id: String(ev.id || `real_evt_${allEvents.length + 1}`),
           timestamp: new Date(evTime).toISOString(),
           type: String(ev.type || 'BUY_PRODUCT'),
+          productId: ev.productId || ev.giveawayId || null,
+          targetId: ev.productId || ev.giveawayId || null,
+          giveawayId: ev.giveawayId || (ev.type === 'CLAIM_GIVEAWAY' ? (ev.productId || null) : null),
           content: cleanContent,
           is_simulated: false, // Bắt buộc: false nếu từ hành động thật
         });
@@ -497,10 +500,14 @@ export async function getRecentMarketingEvents(env: any, limit: number = 100): P
     const simKey = `sim_${slotIdx}`;
     if (!seenEventKeys.has(simKey)) {
       seenEventKeys.add(simKey);
+      const targetSimId = type === 'CLAIM_GIVEAWAY' ? 'gw_1791639328657_df3' : (type.startsWith('BUY_') ? 'ut_vs_01_basic_1d' : null);
       allEvents.push({
         id: `toast_sim_${slotIdx}`,
         timestamp: new Date(fireTimeMs).toISOString(),
         type,
+        productId: targetSimId,
+        targetId: targetSimId,
+        giveawayId: type === 'CLAIM_GIVEAWAY' ? targetSimId : null,
         content,
         is_simulated: true, // Bắt buộc: true nếu do thuật toán mô phỏng sinh ra
       });

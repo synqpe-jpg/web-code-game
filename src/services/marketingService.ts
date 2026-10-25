@@ -1611,7 +1611,9 @@ class MarketingService {
   }
 
   /**
-   * Đồng bộ nguyên tử 1 - 1: Lấy số liệu SSOT từ server payload đã gắn liền với sự kiện nổ toast
+   * @deprecated Zero callers in live flow.
+   * Giữ lại làm fallback/tương thích ngược và phục vụ nút bấm "Bắn thử thông báo" từ Admin UI.
+   * Trong luồng tự động của khách hàng, số liệu được điều khiển hoàn toàn bởi Server SSOT Ledger.
    */
   public recordVirtualSale(productId: string, notifId?: string): { stock: number; sold: number } {
     if (this.serverProductCounters.has(productId)) {
@@ -1624,7 +1626,9 @@ class MarketingService {
   }
 
   /**
-   * Đồng bộ nguyên tử 1 - 1: Lấy số liệu SSOT từ server payload đã gắn liền với sự kiện nổ toast
+   * @deprecated Zero callers in live flow.
+   * Giữ lại làm fallback/tương thích ngược và phục vụ nút bấm "Bắn thử thông báo" từ Admin UI.
+   * Trong luồng tự động của khách hàng, số liệu được điều khiển hoàn toàn bởi Server SSOT Ledger.
    */
   public recordVirtualGiveawayClaim(campaignId: string, notifId?: string): { remaining: number; claimed: number } {
     if (this.serverGiveawayCounters.has(campaignId)) {
@@ -3488,7 +3492,10 @@ class MarketingService {
         userName: masked,
         gameName,
         gameSlug,
+        productId: null as any,
+        targetId: null as any,
         isRealUser: true,
+        is_simulated: false, // Bắt buộc: boolean false cho sự kiện thật
         timestamp: now,
         scheduledFireTime: now,
       };
@@ -3531,10 +3538,12 @@ class MarketingService {
       timeAgo: 'vừa xong',
       userName: masked,
       productId,
+      targetId: productId,
       productName: productTitle,
       productPrice: price,
       itemType,
       isRealUser: true,
+      is_simulated: false, // Bắt buộc: boolean false cho sự kiện thật
       timestamp: now,
       scheduledFireTime: now,
     };
@@ -3573,8 +3582,11 @@ class MarketingService {
       message: `${masked} vừa nạp thành công ${amount.toLocaleString('vi-VN')}đ qua SePay`,
       timeAgo: 'vừa xong',
       userName: masked,
+      productId: null as any,
+      targetId: null as any,
       depositAmount: amount,
       isRealUser: true,
+      is_simulated: false, // Bắt buộc: boolean false cho sự kiện thật
       timestamp: now,
       scheduledFireTime: now,
     };
@@ -3602,12 +3614,15 @@ class MarketingService {
       message: `${masked} vừa nhận mã quà tặng sự kiện ${campaignTitle}`,
       timeAgo: 'vừa xong',
       userName: masked,
+      productId: campaignId, // BẮT BUỘC: luôn gán productId cho Giveaway
+      targetId: campaignId, // BẮT BUỘC: luôn gán targetId cho Giveaway
       giveawayId: campaignId,
       giveawayTitle: campaignTitle,
       gameName,
       gameSlug,
       itemType: 'giveaway',
       isRealUser: true,
+      is_simulated: false, // BẮT BUỘC: boolean false cho sự kiện thật
       timestamp: now,
       scheduledFireTime: now,
     };
@@ -3669,6 +3684,11 @@ class MarketingService {
   }
 
   // --- Globally Synchronized Notification Engine for Slot ---
+  /**
+   * @deprecated Zero callers in live flow.
+   * Giữ lại làm fallback/tương thích ngược và phục vụ nút bấm "Bắn thử thông báo" từ Admin UI.
+   * Trong luồng tự động của khách hàng, sự kiện được phát ra trực tiếp từ Server SSOT Ledger (/api/realtime-events).
+   */
   public getDeterministicNotification(
     slotIndexOrTimestampMs: number,
     games: GameItem[],
@@ -4201,6 +4221,11 @@ class MarketingService {
   }
 
   // Backwards compatibility generator
+  /**
+   * @deprecated Zero callers in live flow.
+   * Giữ lại làm fallback/tương thích ngược và phục vụ nút bấm "Bắn thử thông báo" từ Admin UI.
+   * Trong luồng tự động của khách hàng, sự kiện được phát ra trực tiếp từ Server SSOT Ledger (/api/realtime-events).
+   */
   public generateNextNotification(
     games: GameItem[],
     storeProducts: StoreProduct[],

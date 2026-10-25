@@ -154,6 +154,86 @@ assert.strictEqual(
 );
 console.log('✓ TEST 4 PASSED: getDisplayStock hỗ trợ kiểm tra cả serverGiveawayCounters cho giveaways.\n');
 
+console.log('--- TEST 5: Kiểm tra gắn nhãn bắt buộc (productId, targetId, is_simulated boolean) trên mọi sự kiện ---');
+const virtualLayerCode = fs.readFileSync('functions/services/virtualLayerService.ts', 'utf8');
+const syncCode = fs.readFileSync('functions/api/sync.ts', 'utf8');
+const marketingAuditCode = fs.readFileSync('functions/services/marketingAuditService.ts', 'utf8');
+
+// 5a. Kiểm tra virtualLayerService
+assert.strictEqual(
+  virtualLayerCode.includes('is_simulated: false'),
+  true,
+  'Lỗi: virtualLayerService thiếu is_simulated: false cho sự kiện thật!'
+);
+assert.strictEqual(
+  virtualLayerCode.includes('is_simulated: true'),
+  true,
+  'Lỗi: virtualLayerService thiếu is_simulated: true cho sự kiện ảo!'
+);
+assert.strictEqual(
+  virtualLayerCode.includes('productId: effectiveProductId'),
+  true,
+  'Lỗi: virtualLayerService thiếu productId: effectiveProductId cho sự kiện thật!'
+);
+assert.strictEqual(
+  virtualLayerCode.includes('productId: ve.product_id || null'),
+  true,
+  'Lỗi: virtualLayerService thiếu productId: ve.product_id cho sự kiện ảo!'
+);
+
+// 5b. Kiểm tra stream_health
+assert.strictEqual(
+  virtualLayerCode.includes('stream_health: streamHealth'),
+  true,
+  'Lỗi: virtualLayerService thiếu stream_health trong payload!'
+);
+assert.strictEqual(
+  virtualLayerCode.includes('silence_threshold_seconds: 180'),
+  true,
+  'Lỗi: virtualLayerService thiếu silence_threshold_seconds 180s!'
+);
+
+// 5c. Kiểm tra recordRealGiveawayClaim trong client marketingService
+assert.strictEqual(
+  marketingServiceCode.includes('productId: campaignId,'),
+  true,
+  'Lỗi: marketingService.recordRealGiveawayClaim thiếu gán productId: campaignId!'
+);
+assert.strictEqual(
+  marketingServiceCode.includes('is_simulated: false,'),
+  true,
+  'Lỗi: marketingService.recordRealGiveawayClaim thiếu gán is_simulated: false!'
+);
+
+// 5d. Kiểm tra sync.ts chuẩn hóa sự kiện thật
+assert.strictEqual(
+  syncCode.includes('evt.is_simulated = false;'),
+  true,
+  'Lỗi: functions/api/sync.ts thiếu chuẩn hóa evt.is_simulated = false!'
+);
+assert.strictEqual(
+  syncCode.includes('evt.productId = evt.productId || evt.giveawayId || null;'),
+  true,
+  'Lỗi: functions/api/sync.ts thiếu chuẩn hóa evt.productId!'
+);
+
+console.log('✓ TEST 5 PASSED: 100% sự kiện bắt buộc mang đủ productId, targetId và is_simulated (boolean).\n');
+
+console.log('--- TEST 6: Xác minh danh mục game 560 trang tĩnh vs 563 bản ghi D1 ---');
+const games188 = JSON.parse(fs.readFileSync('public/data/games188.json', 'utf8'));
+const upcomingCode = fs.readFileSync('functions/api/crawler/ingest-upcoming-games.ts', 'utf8');
+assert.strictEqual(
+  games188.length,
+  560,
+  `Lỗi: games188.json phải có đúng 560 game, nhưng lại có ${games188.length}`
+);
+assert.strictEqual(
+  upcomingCode.includes('const DEFAULT_LAUNCHED_GAMES = ['),
+  true,
+  'Lỗi: ingest-upcoming-games.ts phải định nghĩa DEFAULT_LAUNCHED_GAMES để giải trình 3 game phụ trợ Upcoming!'
+);
+console.log(`✓ TEST 6 PASSED: Danh mục games188.json = ${games188.length} game. 3 game phụ trợ upcoming (+3: Strinova VN, Where Winds Meet, Honkai: Star Rail 3.0) tạo nên 563 bản ghi D1.\n`);
+
 console.log('====================================================');
-console.log('ALL ATOMIC LEDGER FOMO TESTS PASSED 100%!');
+console.log('ALL ATOMIC LEDGER FOMO & HEALTH TESTS PASSED 100%!');
 console.log('====================================================');

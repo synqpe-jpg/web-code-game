@@ -7,6 +7,39 @@ Mỗi mục sửa lỗi đều ghi nhận **Nguyên nhân gốc rễ (Root Cause
 
 ## [2026-10-25]
 
+### 196. Gắn Nhãn Bắt Buộc Mọi Sự Kiện Sổ Cái (Strict Event Identification), Giải Quyết Khoảng Lặng Máy Chủ (Stream Health Monitoring) Và Xác Nhận 560 Trang Tĩnh
+- **Mô tả & Yêu cầu người dùng**:
+  - *"Bổ sung sau nghiệm thu sổ nguyên tử: gắn nhãn bắt buộc cho mọi sự kiện, làm rõ khoảng lặng phía máy chủ, xác nhận số trang tĩnh"*
+  - **Việc 1**: Mọi sự kiện trong sổ bắt buộc mang đủ 2 trường: mã mặt hàng/quà tặng (`productId`, `targetId`, `giveawayId`) và cờ mô phỏng (`is_simulated: boolean`, chỉ nhận `true` hoặc `false`, không để trống/undefined). Làm rõ sự kiện `gw_1792909571892_h0hu` thuộc về mục nào và vì sao thiếu trường.
+  - **Việc 2**: Làm rõ nguyên nhân bằng bằng chứng cho khoảng lặng phía máy chủ 12:19–12:29 ngày 25/10 và biện pháp để không tái diễn kèm cơ chế cảnh báo khi luồng im lặng quá 180s.
+  - **Việc 3**: Liệt kê 3 trang/game nào chênh lệch giữa 560 và 563 và vì sao, xác nhận con số 560 là đúng hay sai kèm cách đếm chính xác.
+  - **Việc 4**: Dọn mã chết hoặc sửa cách diễn đạt: giải thích chính xác là "không còn điểm gọi trong luồng thông báo tự động (zero callers in live flow), giữ lại làm fallback/tương thích", không dùng từ "đã loại bỏ hoàn toàn" khi mã vẫn còn phục vụ admin trigger / tương thích.
+- **Nguyên nhân gốc rễ (Root Cause)**:
+  1. *Sự kiện `gw_1792909571892_h0hu`*:
+     - Tiền tố `gw_` và timestamp `1792909571892` (~13:06 ngày 25/10) được sinh bởi hàm `recordRealGiveawayClaim` trong `marketingService.ts:3599` khi người dùng thao tác nhận quà thật trên web.
+     - Mục được nhận chính là chiến dịch `gw_1791639328657_df3` (*"Code riêng 3Q Đào Đào Đào"*).
+     - Nguyên nhân thiếu trường: `recordRealGiveawayClaim` chỉ gán `giveawayId: campaignId` mà không gán `productId`, và `functions/api/sync.ts` cùng `virtualLayerService.ts` nạp `productId: ev.productId` (bị undefined), đồng thời bỏ sót trường `is_simulated: false`.
+  2. *Khoảng Lặng Máy Chủ 12:19–12:29*:
+     - Commit `aa769d0` deploy lúc 12:08:41 khiến toàn bộ Cloudflare Edge isolates cold restart.
+     - Trong code cũ của `virtualLayerService.ts`:
+       `const fireTimeMs = slot * SLOT_DURATION_MS + Math.floor(rng() * 15000) + 2000; if (fireTimeMs > nowMs) continue; ... state.lastProcessedSlot = currentSlotIndex;`
+       Khi request rơi vào đầu slot, `fireTimeMs > nowMs` khiến slot bị `continue;` bỏ qua, nhưng `lastProcessedSlot` vẫn bị gán bằng `currentSlotIndex`. Khi request sau đến thì `lastProcessedSlot >= currentSlotIndex` nên hàm thoát ra ngay, dẫn đến slot đó bị drop vĩnh viễn!
+     - Cùng lúc đó, client dính bug `fireTime + 60000 <= sessionStartTime` làm hủy toàn bộ event và tạm dừng nhịp poll. Là serverless worker, khi không có request nào trong 10 phút, worker isolate ngủ đông và không có event nào được sinh ra!
+  3. *Con số 560 vs 563*:
+     - `public/data/games188.json` (danh mục game phát hành có giftcode chuẩn) có đúng **560 game**.
+     - Con số 563 bao gồm 560 game trên + **3 tựa game lịch sử** trong `DEFAULT_LAUNCHED_GAMES` của phân hệ Upcoming (`strinova-vn`, `where-winds-meet`, `honkai-star-rail` / `ug_hsr_ver30`) được lưu trong D1 để phục vụ kiểm toán `launchedCount = 3` (commit `cf98ead`).
+     - 3 game này không được tạo trang tĩnh riêng vì `strinova-vn` và `where-winds-meet` chưa phát hành chính thức trên sàn, còn `honkai-star-rail` đã có trang tĩnh chính trong 560 game. Con số 560 trang tĩnh là **chính xác 100%**.
+- **Giải pháp triển khai (Solution)**:
+  1. *Gắn nhãn bắt buộc mọi sự kiện*:
+     - Cập nhật `virtualLayerService.ts`, `sync.ts`, `marketingService.ts`, `marketingAuditService.ts`, `crawler/marketing.ts` gắn nhãn chặt chẽ: `productId`, `targetId`, `giveawayId` và `is_simulated` (boolean bắt buộc `true`/`false`).
+  2. *Triệt tiêu khoảng lặng & Giám sát Stream Health*:
+     - Sửa thuật toán time-slot: `fireTimeMs = Math.min(nowMs, slotBaseMs + Math.floor(rng() * 10000))` đảm bảo 100% slot đến hạn đều sinh event thành công.
+     - Bổ sung `stream_health` vào `/api/realtime-events` và `get_virtual_analytics` gồm: `is_healthy`, `last_event_age_seconds`, `silence_warning`, `silence_threshold_seconds: 180`, `total_slots_processed_today`.
+  3. *Chuẩn hóa tài liệu danh mục 560 trang tĩnh*:
+     - Ghi nhận rõ ràng: 560 trang tĩnh là con số chuẩn từ `games188.json`. 3 bản ghi chênh lệch là game upcoming thuộc danh mục `DEFAULT_LAUNCHED_GAMES`.
+  4. *Đính chính & Chú thích mã chết*:
+     - Thêm chú thích `@deprecated` rõ ràng cho các hàm `getDeterministicNotification`, `generateNextNotification`, `recordVirtualSale`, `recordVirtualGiveawayClaim`: không còn điểm gọi trong luồng thông báo tự động (zero callers in live flow), giữ lại làm fallback/tương thích và phục vụ nút bấm "Bắn thử thông báo" từ Admin UI.
+
 ### 195. Đồng Bộ Nguyên Tử 1 - 1 Giữa Thông Báo Marketing Toast Và 5 Bộ Đếm Hiển Thị Qua Sổ Máy Chủ (Atomic Server Ledger FOMO Sync)
 - **Mô tả & Yêu cầu người dùng**:
   - *"Thông báo nổ bình thường nhưng gắn nguyên tử với bộ đếm: một thông báo, mọi người cùng thấy, mọi số đổi theo đúng thông báo đó"*

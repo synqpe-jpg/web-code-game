@@ -1153,6 +1153,16 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
               evt.serverTimestamp = nowMs;
               evt.scheduledFireTime = nowMs; // Nổ luôn lập tức
               evt.isRealUser = true;
+              evt.is_simulated = false; // Bắt buộc: false cho sự kiện thật từ client
+              if (evt.type === 'CLAIM_GIVEAWAY') {
+                evt.productId = evt.productId || evt.giveawayId || null;
+                evt.targetId = evt.productId || evt.giveawayId || null;
+              } else if (evt.type === 'BUY_PRODUCT') {
+                evt.targetId = evt.productId || null;
+              } else {
+                evt.productId = evt.productId || null;
+                evt.targetId = evt.targetId || null;
+              }
 
               // Layer 2: Server Priority Gate & Anti-Spam (Cho phép người dùng thật lan tỏa tức thì)
               let allowEventIntoQueue = true;

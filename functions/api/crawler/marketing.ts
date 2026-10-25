@@ -124,6 +124,8 @@ export async function buildVirtualAnalyticsPayload(
       id: ev.id,
       type: ev.type,
       product_id: ev.product_id || '',
+      productId: ev.product_id || '',
+      targetId: ev.product_id || '',
       item_name: ev.item_name || '',
       amount: ev.amount || 1,
       details: detailsObj,
@@ -133,6 +135,18 @@ export async function buildVirtualAnalyticsPayload(
   });
 
   const quotaStatus = getD1QuotaStatus();
+  const newestSimEvent = layerState.recentVirtualEvents[0];
+  const lastEventAgeSeconds = newestSimEvent
+    ? Math.max(0, Math.floor((Date.now() - new Date(newestSimEvent.created_at).getTime()) / 1000))
+    : 0;
+
+  const streamHealth = {
+    is_healthy: lastEventAgeSeconds <= 90,
+    last_event_age_seconds: lastEventAgeSeconds,
+    silence_warning: lastEventAgeSeconds > 180,
+    silence_threshold_seconds: 180,
+    total_slots_processed_today: layerState.lastProcessedSlot + 1,
+  };
 
   return {
     success: true,
@@ -141,6 +155,7 @@ export async function buildVirtualAnalyticsPayload(
     timestamp: new Date().toISOString(),
     rejectPeakReports: true,
     d1_quota: quotaStatus,
+    stream_health: streamHealth,
     products: products3Col,
     giveaways: giveaways3Col,
     master_copy: {

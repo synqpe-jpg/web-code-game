@@ -10,6 +10,26 @@
 
 ## 1. DANH MỤC LỖI & CÁC BẪY ĐÃ THẤT BẠI (DO NOT REPEAT)
 
+### ISSUE-122: Sự Kiện Thiếu Nhãn Bắt Buộc (is_simulated, productId) & Drop Time-Slot Do Điều Kiện fireTimeMs > nowMs Trong virtualLayerService
+- **Triệu chứng**:
+  - Sự kiện nhận quà thật `gw_1792909571892_h0hu` (thuộc chiến dịch df3) thiếu trường `productId` và cờ `is_simulated`, khiến phía kiểm toán không phân biệt được với sự kiện mô phỏng.
+  - Máy chủ có khoảng lặng 10 phút (12:19–12:29 ngày 25/10) không sinh sự kiện nào.
+- **Nguyên nhân gốc rễ**:
+  1. *Thiếu chuẩn hóa sự kiện thật*: Hàm `recordRealGiveawayClaim` và `recordRealOrder` chỉ gán `giveawayId` mà không gán `productId` / `targetId`, và bỏ quên `is_simulated: false`. Endpoint `sync.ts` và `virtualLayerService.ts` nạp trực tiếp mà không gắn giá trị mặc định nghiêm ngặt.
+  2. *Drop slot do `fireTimeMs > nowMs`*: Trong `processCurrentTimeSlot`, khi request rơi vào đầu slot, `fireTimeMs > nowMs` khiến vòng lặp `continue;` bỏ qua việc sinh event nhưng biến `state.lastProcessedSlot` lại bị cập nhật lên `currentSlotIndex`. Khi request kế tiếp đến thì slot đó đã bị đánh dấu xử lý rồi và vĩnh viễn không bao giờ được sinh sự kiện.
+- **Giải pháp chuẩn đã kiểm chứng**:
+  1. *Gắn nhãn bắt buộc mọi nguồn*: 100% sự kiện (kể cả thật, ảo hay legacy) đều bắt buộc có:
+     * `productId`: mã sản phẩm hoặc mã chiến dịch quà tặng (tuyệt đối không để `undefined`).
+     * `targetId`: tương đương `productId`.
+     * `is_simulated`: boolean thuần túy (`true` hoặc `false`, không để trống/undefined).
+  2. *Kẹp thời gian slot an toàn*: Sử dụng `fireTimeMs = Math.min(nowMs, slotBaseMs + Math.floor(rng() * 10000))` đảm bảo `fireTimeMs <= nowMs` và slot luôn được xử lý trọn vẹn, không bao giờ bị bỏ rơi.
+  3. *Giám sát Stream Health*: Endpoint `/api/realtime-events` và `get_virtual_analytics` trả về `stream_health` kèm cờ `silence_warning: boolean` khi tuổi sự kiện mới nhất vượt quá 180s.
+- ⛔ **CÁCH SỬA ĐÃ THẤT BẠI - TUYỆT ĐỐI KHÔNG LẶP LẠI**:
+  - ❌ *Không dùng `continue;` bỏ qua slot mà vẫn cập nhật `lastProcessedSlot`*: Gây drop sự kiện vĩnh viễn của slot đó.
+  - ❌ *Không để trường `is_simulated` mang giá trị `undefined`*: Phải ép kiểu strictly boolean `is_simulated === true` hoặc `false`.
+
+---
+
 ### ISSUE-121: Thông Báo Toast Và Bộ Đếm Không Đồng Bộ, Số Ảo Nhảy Giật Do Client Sinh Ghost Notification & Bỏ Quên Giveaway Trong getDisplayStock
 - **Triệu chứng**:
   - Thông báo nổ trên web nhưng không có dòng sổ tương ứng trên server (ghost notifications).

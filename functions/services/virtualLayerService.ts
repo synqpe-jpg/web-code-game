@@ -421,8 +421,9 @@ export function processCurrentTimeSlot(state: VirtualLayerState, nowMs: number =
   for (let slot = startSlot; slot <= currentSlotIndex; slot++) {
     const slotSeed = (Math.imul(slot, 0x9e3779b9) ^ 0x85ebca6b) >>> 0;
     const rng = createPRNG(slotSeed);
-    const fireTimeMs = dayStartMs + slot * SLOT_DURATION_MS + Math.floor(rng() * 15000) + 2000;
-    if (fireTimeMs > nowMs) continue; // Slot fire time is later within current 30s window
+    // Base slot timestamp + small natural jitter, guaranteed <= nowMs so no slot is ever skipped
+    const slotBaseMs = dayStartMs + slot * SLOT_DURATION_MS;
+    const fireTimeMs = Math.min(nowMs, slotBaseMs + Math.floor(rng() * 10000));
 
     const typeRoll = rng();
     const accountIdx = Math.floor(rng() * PRESET_VIRTUAL_ACCOUNTS.length);
@@ -690,7 +691,9 @@ export async function getUnifiedRealtimePayload(env: any, waitUntil?: (p: Promis
       if (!ev || !ev.id || seenEventIds.has(ev.id)) continue;
       seenEventIds.add(ev.id);
 
-      const targetId = ev.productId || ev.giveawayId || undefined;
+      const targetId = ev.productId || ev.giveawayId || null;
+      const effectiveProductId = ev.productId || ev.giveawayId || null;
+      const effectiveGiveawayId = ev.giveawayId || (ev.type === 'CLAIM_GIVEAWAY' ? (ev.productId || undefined) : undefined);
       const realDelta: { sold?: number; stock?: number; claimed?: number; remaining?: number; copyClicks?: number } = {};
       if (ev.type === 'BUY_STORE' || ev.type === 'BUY_UTILITY' || ev.type === 'BUY_PRODUCT') {
         realDelta.sold = 1;
@@ -712,8 +715,9 @@ export async function getUnifiedRealtimePayload(env: any, waitUntil?: (p: Promis
         timeAgo: 'Vừa xong',
         timestamp: ev.timestamp || now,
         isRealUser: true,
-        productId: ev.productId,
-        giveawayId: ev.giveawayId,
+        is_simulated: false, // Bắt buộc boolean false cho sự kiện thật
+        productId: effectiveProductId,
+        giveawayId: effectiveGiveawayId,
         targetId: targetId,
         delta: realDelta,
       });
@@ -763,6 +767,7 @@ export async function getUnifiedRealtimePayload(env: any, waitUntil?: (p: Promis
       }
     }
 
+    const targetId = ve.product_id || null;
     combinedEvents.push({
       id: ve.id,
       type: ve.type,
@@ -771,10 +776,10 @@ export async function getUnifiedRealtimePayload(env: any, waitUntil?: (p: Promis
       timeAgo: 'Vừa xong',
       timestamp: new Date(ve.created_at).getTime(),
       isRealUser: false,
-      is_simulated: true,
-      productId: ve.product_id,
+      is_simulated: true, // Bắt buộc boolean true cho sự kiện ảo
+      productId: ve.product_id || null,
       giveawayId: ve.type === 'CLAIM_GIVEAWAY' ? ve.product_id : undefined,
-      targetId: ve.product_id,
+      targetId: targetId,
       delta: simDelta,
     });
   }
@@ -834,9 +839,25 @@ export async function getUnifiedRealtimePayload(env: any, waitUntil?: (p: Promis
 
   const masterCopyTotal = state.masterCopy.realClicks + state.masterCopy.virtualCopy;
 
+  // Stream Health & Silence Gap Monitoring
+  const newestEventTimestamp = combinedEvents[0]?.timestamp || now;
+  const lastEventAgeSeconds = Math.max(0, Math.floor((now - newestEventTimestamp) / 1000));
+  const isHealthy = lastEventAgeSeconds <= 90; // <= 3 time slots (30s each)
+  const silenceWarning = lastEventAgeSeconds > 180; // Warning if stream silent for > 3 minutes
+
+  const streamHealth = {
+    is_healthy: isHealthy,
+    last_event_age_seconds: lastEventAgeSeconds,
+    silence_warning: silenceWarning,
+    silence_threshold_seconds: 180,
+    current_slot_index: Math.max(0, Math.floor((now - getVnDayAnchor(now).dayStartMs) / SLOT_DURATION_MS)),
+    total_slots_processed_today: state.lastProcessedSlot + 1,
+  };
+
   return {
     success: true,
     server_time: now,
+    stream_health: streamHealth,
     events: combinedEvents.slice(0, 15),
     active_event: combinedEvents[0] || null,
     conversion_table: CONVERSION_TABLE,

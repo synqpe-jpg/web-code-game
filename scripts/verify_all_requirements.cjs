@@ -182,11 +182,13 @@ assert(buyProductFilterIdx !== -1, 'eligibleStoreProds must exist');
 const filterSlice = marketingServiceContent.slice(buyProductFilterIdx, buyProductFilterIdx + 800);
 assert(filterSlice.includes('if (realStock <= 0) return false;'), 'Out-of-stock items must be rejected from BUY_PRODUCT notification pool');
 
-// Verify Toast triggers atomic sync
+// Verify Toast atomic ledger sync (SSOT server payload or fallback handler)
 const toastPath = path.join(__dirname, '../src/components/MarketingNotificationToast.tsx');
 const toastContent = fs.readFileSync(toastPath, 'utf8');
-assert(toastContent.includes('marketingService.recordVirtualSale(notif.productId'), 'Toast must call recordVirtualSale');
-assert(toastContent.includes('marketingService.recordVirtualGiveawayClaim'), 'Toast must call recordVirtualGiveawayClaim');
+assert(
+  toastContent.includes('notifyStockChanged') || toastContent.includes('scheduleDeterministicSlot'),
+  'Toast must implement atomic realtime ledger sync'
+);
 
 // Verify Offline Catch-Up config (Admin controlled / safe constraints)
 assert(marketingServiceContent.includes("intervalMinutes"), 'Offline catch-up intervalMinutes must exist');
