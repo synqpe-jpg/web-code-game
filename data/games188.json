@@ -125,7 +125,7 @@
     "ngay_cap_phep": "",
     "release_date": "2026-10-10",
     "download_android": "https://play.google.com/store/apps/details?id=com.hhkb.rpg.gp&hl=vi&gl=VN",
-    "download_ios": "",
+    "download_ios": "https://apps.apple.com/vn/app/h%E1%BA%A3i-t%E1%BA%B7c-truy%E1%BB%81n-k%E1%BB%B3/id6758935182?uo=4",
     "download_pc": "",
     "redeem_url": "",
     "is_featured": false,
@@ -297,7 +297,9 @@
         "created_at": "2026-10-19T00:00:00.000Z",
         "added_at": "2026-10-19T00:00:00.000Z"
       }
-    ]
+    ],
+    "app_store_url": "https://apps.apple.com/vn/app/h%E1%BA%A3i-t%E1%BA%B7c-truy%E1%BB%81n-k%E1%BB%B3/id6758935182?uo=4",
+    "ios_bundle_id": "com.hhkb.rpg.ios"
   },
   {
     "id": "tarot-vinh-hang-than-ngu",
@@ -315,7 +317,7 @@
     "ngay_cap_phep": "",
     "release_date": "2026-10-15",
     "download_android": "https://play.google.com/store/apps/details?id=tarot-vinh-hang-than-ngu",
-    "download_ios": "",
+    "download_ios": "https://apps.apple.com/vn/app/tarot-v%C4%A9nh-h%E1%BA%B1ng-th%E1%BA%A7n-ng%E1%BB%AF/id6768233176?uo=4",
     "download_pc": "",
     "redeem_url": "",
     "is_featured": false,
@@ -939,7 +941,9 @@
         "added_at": "2026-10-20T00:00:00.000Z",
         "notes": "Code tân thủ chính thức Tarot: Vĩnh Hằng Thần Ngữ"
       }
-    ]
+    ],
+    "app_store_url": "https://apps.apple.com/vn/app/tarot-v%C4%A9nh-h%E1%BA%B1ng-th%E1%BA%A7n-ng%E1%BB%AF/id6768233176?uo=4",
+    "ios_bundle_id": "com.bxzyvn.pg"
   },
   {
     "id": "tien-gioi-nhan-kiem-hop-nhat",
@@ -2196,7 +2200,10 @@
         "copyCount": 0,
         "code": "MYNHANNGOKHONG"
       }
-    ]
+    ],
+    "app_store_url": "https://apps.apple.com/vn/app/ta-l%C3%A0-h%E1%BA%AFc-ng%E1%BB%99-kh%C3%B4ng-vplay/id6762586387?uo=4",
+    "download_ios": "https://apps.apple.com/vn/app/ta-l%C3%A0-h%E1%BA%AFc-ng%E1%BB%99-kh%C3%B4ng-vplay/id6762586387?uo=4",
+    "ios_bundle_id": "vn.vplay.taydu.t031i"
   },
   {
     "id": "pirate-legends",
@@ -3586,7 +3593,10 @@
         "notes": "",
         "code": "TANGQUABOA"
       }
-    ]
+    ],
+    "app_store_url": "https://apps.apple.com/vn/app/pirate-legend-the-rogue-sea/id6757737539?uo=4",
+    "download_ios": "https://apps.apple.com/vn/app/pirate-legend-the-rogue-sea/id6757737539?uo=4",
+    "ios_bundle_id": "com.bd.glpirate"
   },
   {
     "id": "di-gioi-sinh-ton-oeg",
@@ -4292,7 +4302,13 @@
         "created_at": "2026-10-03T00:00:00Z",
         "added_at": "2026-10-03T05:26:11.480Z"
       }
-    ]
+    ],
+    "google_play_url": "https://play.google.com/store/apps/details?id=com.digioisinhton.gp.vn",
+    "download_android": "https://play.google.com/store/apps/details?id=com.digioisinhton.gp.vn",
+    "android_package_name": "com.digioisinhton.gp.vn",
+    "app_store_url": "https://apps.apple.com/vn/app/d%E1%BB%8B-gi%E1%BB%9Bi-sinh-t%E1%BB%93n-oeg/id6762583524?uo=4",
+    "download_ios": "https://apps.apple.com/vn/app/d%E1%BB%8B-gi%E1%BB%9Bi-sinh-t%E1%BB%93n-oeg/id6762583524?uo=4",
+    "ios_bundle_id": "com.digioisinhton.ios.vn"
   },
   {
     "id": "yen-van-thap-luc-thanh",
@@ -19629,7 +19645,14 @@
         "copyCount": 0,
         "code": "EARXAYMEJA"
       }
-    ]
+    ],
+    "google_play_url": "https://play.google.com/store/apps/details?id=com.netease.yyvn",
+    "download_android": "https://play.google.com/store/apps/details?id=com.netease.yyvn",
+    "android_package_name": "com.netease.yyvn",
+    "app_store_url": "https://apps.apple.com/vn/app/y%E1%BA%BFn-v%C3%A2n-th%E1%BA%ADp-l%E1%BB%A5c-thanh/id6762607072",
+    "download_ios": "https://apps.apple.com/vn/app/y%E1%BA%BFn-v%C3%A2n-th%E1%BA%ADp-l%E1%BB%A5c-thanh/id6762607072",
+    "ios_bundle_id": "com.netease.yyslsvn",
+    "download_pc": "https://www.wherewindsmeetgame.com/"
   },
   {
     "id": "3q-dao-dao-dao",
@@ -20310,7 +20333,13 @@
         "copyCount": 0,
         "code": "GCT5DQNCN"
       }
-    ]
+    ],
+    "google_play_url": "https://play.google.com/store/apps/details?id=com.joyplay.tamquoc",
+    "download_android": "https://play.google.com/store/apps/details?id=com.joyplay.tamquoc",
+    "android_package_name": "com.joyplay.tamquoc",
+    "app_store_url": "https://apps.apple.com/vn/app/3q-%C4%91%C3%A0o-%C4%91%C3%A0o-%C4%91%C3%A0o/id6766807336?uo=4",
+    "download_ios": "https://apps.apple.com/vn/app/3q-%C4%91%C3%A0o-%C4%91%C3%A0o-%C4%91%C3%A0o/id6766807336?uo=4",
+    "ios_bundle_id": "com.joyplay.tamquoc.ios"
   },
   {
     "id": "long-tuong-tam-quoc",
@@ -21089,7 +21118,13 @@
         "isCrawlerAutoApproved": true,
         "updatedAt": "2026-10-11T12:04:29.129Z"
       }
-    ]
+    ],
+    "google_play_url": "https://play.google.com/store/apps/details?id=ngoa.long.minh.chu",
+    "download_android": "https://play.google.com/store/apps/details?id=ngoa.long.minh.chu",
+    "android_package_name": "ngoa.long.minh.chu",
+    "app_store_url": "https://apps.apple.com/vn/app/long-t%C6%B0%E1%BB%9Bng-tam-qu%E1%BB%91c/id6761753471?uo=4",
+    "download_ios": "https://apps.apple.com/vn/app/long-t%C6%B0%E1%BB%9Bng-tam-qu%E1%BB%91c/id6761753471?uo=4",
+    "ios_bundle_id": "ngoa.long.minh.chu"
   },
   {
     "id": "thuong-lam-canh-gioi",
@@ -21633,7 +21668,13 @@
         "created_at": "2026-10-03T00:00:00Z",
         "added_at": "2026-10-03T05:26:11.068Z"
       }
-    ]
+    ],
+    "google_play_url": "https://play.google.com/store/apps/details?id=com.vlplay.g02",
+    "download_android": "https://play.google.com/store/apps/details?id=com.vlplay.g02",
+    "android_package_name": "com.vlplay.g02",
+    "app_store_url": "https://apps.apple.com/vn/app/th%C6%B0%C6%A1ng-lam-c%E1%BA%A3nh-gi%E1%BB%9Bi-vlg/id6782806676?uo=4",
+    "download_ios": "https://apps.apple.com/vn/app/th%C6%B0%C6%A1ng-lam-c%E1%BA%A3nh-gi%E1%BB%9Bi-vlg/id6782806676?uo=4",
+    "ios_bundle_id": "vn.vlplay.thuonglam"
   },
   {
     "id": "soul-strike",
@@ -22366,7 +22407,13 @@
         "created_at": "2026-10-03T00:00:00Z",
         "added_at": "2026-09-30T11:30:49.611Z"
       }
-    ]
+    ],
+    "google_play_url": "https://play.google.com/store/apps/details?id=com.com2usholdings.soulstrike.android.google.global.normal.vn",
+    "download_android": "https://play.google.com/store/apps/details?id=com.com2usholdings.soulstrike.android.google.global.normal.vn",
+    "android_package_name": "com.com2usholdings.soulstrike.android.google.global.normal.vn",
+    "app_store_url": "https://apps.apple.com/vn/app/soul-strike-idle-rpg/id6766190033?uo=4",
+    "download_ios": "https://apps.apple.com/vn/app/soul-strike-idle-rpg/id6766190033?uo=4",
+    "ios_bundle_id": "com.com2usholdings.soulstrike.ios.apple.global.normal.vn"
   },
   {
     "id": "skyblock-ba-chu-luc-dia",
@@ -23287,7 +23334,13 @@
         "isCrawlerAutoApproved": true,
         "updatedAt": "2026-10-11T12:04:29.381Z"
       }
-    ]
+    ],
+    "google_play_url": "https://play.google.com/store/apps/details?id=com.dawudao.gp",
+    "download_android": "https://play.google.com/store/apps/details?id=com.dawudao.gp",
+    "android_package_name": "com.dawudao.gp",
+    "app_store_url": "https://apps.apple.com/vn/app/ti%C3%AAn-ngh%E1%BB%8Bch-t%C3%A2n-t%C3%ACnh-ki%E1%BA%BFm/id6775419635?uo=4",
+    "download_ios": "https://apps.apple.com/vn/app/ti%C3%AAn-ngh%E1%BB%8Bch-t%C3%A2n-t%C3%ACnh-ki%E1%BA%BFm/id6775419635?uo=4",
+    "ios_bundle_id": "com.dawudao.ios"
   },
   {
     "id": "gun-x-mobile",
@@ -23815,141 +23868,14 @@
         "createdAt": "2026-10-03T00:00:00Z",
         "created_at": "2026-10-03T00:00:00Z",
         "added_at": "2026-10-03T05:26:11.939Z"
-      },
-      {
-        "id": "fc_auto_1792455703926_tqlf",
-        "gameSlug": "gun-x-mobile",
-        "codeValue": "GUN-X-MOBILE-1",
-        "rewards": "Quà tặng tân thủ",
-        "status": "ACTIVE",
-        "expiresAt": "2026-12-31",
-        "createdAt": "2026-10-20T00:21:43.926Z",
-        "gameId": "gun-x-mobile",
-        "gameName": "Gun X Mobile",
-        "code": "GUN-X-MOBILE-1",
-        "type": "EVENT",
-        "sourceUrl": "https://www.facebook.com/gunxmobile.vn/",
-        "sourceType": "official_fb",
-        "score": 100,
-        "tier": 1,
-        "isCrawlerAutoApproved": true,
-        "updatedAt": "2026-10-20T00:21:43.926Z"
-      },
-      {
-        "id": "fc_auto_1792455703926_5xq7",
-        "gameSlug": "gun-x-mobile",
-        "codeValue": "GUN-X-MOBILE-2",
-        "rewards": "Quà tặng tân thủ",
-        "status": "ACTIVE",
-        "expiresAt": "2026-12-31",
-        "createdAt": "2026-10-20T00:21:43.926Z",
-        "gameId": "gun-x-mobile",
-        "gameName": "Gun X Mobile",
-        "code": "GUN-X-MOBILE-2",
-        "type": "EVENT",
-        "sourceUrl": "https://www.facebook.com/gunxmobile.vn/",
-        "sourceType": "official_fb",
-        "score": 100,
-        "tier": 1,
-        "isCrawlerAutoApproved": true,
-        "updatedAt": "2026-10-20T00:21:43.926Z"
-      },
-      {
-        "id": "fc_auto_1792455703927_569d",
-        "gameSlug": "gun-x-mobile",
-        "codeValue": "GUN-X-MOBILE-3",
-        "rewards": "Quà tặng tân thủ",
-        "status": "ACTIVE",
-        "expiresAt": "2026-12-31",
-        "createdAt": "2026-10-20T00:21:43.927Z",
-        "gameId": "gun-x-mobile",
-        "gameName": "Gun X Mobile",
-        "code": "GUN-X-MOBILE-3",
-        "type": "EVENT",
-        "sourceUrl": "https://www.facebook.com/gunxmobile.vn/",
-        "sourceType": "official_fb",
-        "score": 100,
-        "tier": 1,
-        "isCrawlerAutoApproved": true,
-        "updatedAt": "2026-10-20T00:21:43.927Z"
-      },
-      {
-        "id": "fc_auto_1792455703927_qur1",
-        "gameSlug": "gun-x-mobile",
-        "codeValue": "GUN-X-MOBILE-4",
-        "rewards": "Quà tặng tân thủ",
-        "status": "ACTIVE",
-        "expiresAt": "2026-12-31",
-        "createdAt": "2026-10-20T00:21:43.927Z",
-        "gameId": "gun-x-mobile",
-        "gameName": "Gun X Mobile",
-        "code": "GUN-X-MOBILE-4",
-        "type": "EVENT",
-        "sourceUrl": "https://www.facebook.com/gunxmobile.vn/",
-        "sourceType": "official_fb",
-        "score": 100,
-        "tier": 1,
-        "isCrawlerAutoApproved": true,
-        "updatedAt": "2026-10-20T00:21:43.927Z"
-      },
-      {
-        "id": "fc_auto_1792455703927_09vt",
-        "gameSlug": "gun-x-mobile",
-        "codeValue": "GUN-X-MOBILE-5",
-        "rewards": "Quà tặng tân thủ",
-        "status": "ACTIVE",
-        "expiresAt": "2026-12-31",
-        "createdAt": "2026-10-20T00:21:43.927Z",
-        "gameId": "gun-x-mobile",
-        "gameName": "Gun X Mobile",
-        "code": "GUN-X-MOBILE-5",
-        "type": "EVENT",
-        "sourceUrl": "https://www.facebook.com/gunxmobile.vn/",
-        "sourceType": "official_fb",
-        "score": 100,
-        "tier": 1,
-        "isCrawlerAutoApproved": true,
-        "updatedAt": "2026-10-20T00:21:43.927Z"
-      },
-      {
-        "id": "fc_auto_1792455703927_nkmw",
-        "gameSlug": "gun-x-mobile",
-        "codeValue": "SLAYERS-2-ROBLOX",
-        "rewards": "Quà tặng tân thủ",
-        "status": "ACTIVE",
-        "expiresAt": "2026-12-31",
-        "createdAt": "2026-10-20T00:21:43.927Z",
-        "gameId": "gun-x-mobile",
-        "gameName": "Gun X Mobile",
-        "code": "SLAYERS-2-ROBLOX",
-        "type": "EVENT",
-        "sourceUrl": "https://www.facebook.com/gunxmobile.vn/",
-        "sourceType": "official_fb",
-        "score": 100,
-        "tier": 1,
-        "isCrawlerAutoApproved": true,
-        "updatedAt": "2026-10-20T00:21:43.927Z"
-      },
-      {
-        "id": "fc_auto_1792455703927_wrth",
-        "gameSlug": "gun-x-mobile",
-        "codeValue": "SLAYERS-2-THUMB",
-        "rewards": "Quà tặng tân thủ",
-        "status": "ACTIVE",
-        "expiresAt": "2026-12-31",
-        "createdAt": "2026-10-20T00:21:43.927Z",
-        "gameId": "gun-x-mobile",
-        "gameName": "Gun X Mobile",
-        "code": "SLAYERS-2-THUMB",
-        "type": "EVENT",
-        "sourceUrl": "https://www.facebook.com/gunxmobile.vn/",
-        "sourceType": "official_fb",
-        "score": 100,
-        "tier": 1,
-        "isCrawlerAutoApproved": true,
-        "updatedAt": "2026-10-20T00:21:43.927Z"
       }
-    ]
+    ],
+    "app_store_url": "https://apps.apple.com/vn/app/gun-x-mobile/id6444932771",
+    "download_ios": "https://apps.apple.com/vn/app/gun-x-mobile/id6444932771",
+    "ios_bundle_id": "com.sohagame.sg381",
+    "google_play_url": "https://play.google.com/store/apps/details?id=com.sohagame.sg381",
+    "download_android": "https://play.google.com/store/apps/details?id=com.sohagame.sg381",
+    "android_package_name": "com.sohagame.sg381"
   },
   {
     "id": "cau-ca-van-can",
@@ -24196,7 +24122,10 @@
         "created_at": "2026-10-03T00:00:00Z",
         "added_at": "2026-10-03T05:26:11.969Z"
       }
-    ]
+    ],
+    "google_play_url": "https://play.google.com/store/apps/details?id=com.vn.monsterfishing.lingyou",
+    "download_android": "https://play.google.com/store/apps/details?id=com.vn.monsterfishing.lingyou",
+    "android_package_name": "com.vn.monsterfishing.lingyou"
   },
   {
     "id": "tam-quoc-tu-thoi-ca",
@@ -26598,7 +26527,13 @@
         "isCrawlerAutoApproved": true,
         "updatedAt": "2026-10-12T15:28:03.642Z"
       }
-    ]
+    ],
+    "google_play_url": "https://play.google.com/store/apps/details?id=com.shg.sg451",
+    "download_android": "https://play.google.com/store/apps/details?id=com.shg.sg451",
+    "android_package_name": "com.shg.sg451",
+    "app_store_url": "https://apps.apple.com/vn/app/tam-qu%E1%BB%91c-t%E1%BB%A9-th%E1%BB%9Di-ca-sohagame/id6761509222?uo=4",
+    "download_ios": "https://apps.apple.com/vn/app/tam-qu%E1%BB%91c-t%E1%BB%A9-th%E1%BB%9Di-ca-sohagame/id6761509222?uo=4",
+    "ios_bundle_id": "com.sohagame.sg451"
   },
   {
     "id": "apex-girls",
@@ -27520,7 +27455,13 @@
         "created_at": "2026-10-03T00:00:00Z",
         "added_at": "2026-09-30T11:30:49.674Z"
       }
-    ]
+    ],
+    "google_play_url": "https://play.google.com/store/apps/details?id=com.neorigin.apexgirls",
+    "download_android": "https://play.google.com/store/apps/details?id=com.neorigin.apexgirls",
+    "android_package_name": "com.neorigin.apexgirls",
+    "app_store_url": "https://apps.apple.com/vn/app/scarlet-girls-elite-edition/id6476643375?uo=4",
+    "download_ios": "https://apps.apple.com/vn/app/scarlet-girls-elite-edition/id6476643375?uo=4",
+    "ios_bundle_id": "com.neorigin.apexgirls.ios"
   },
   {
     "id": "nam-quoc-son-ha",
@@ -27827,7 +27768,13 @@
         "created_at": "2026-09-18T09:45:52.093Z",
         "added_at": "2026-10-03T00:00:00Z"
       }
-    ]
+    ],
+    "google_play_url": "https://play.google.com/store/apps/details?id=co.imba.namquocsonha",
+    "download_android": "https://play.google.com/store/apps/details?id=co.imba.namquocsonha",
+    "android_package_name": "co.imba.namquocsonha",
+    "app_store_url": "https://apps.apple.com/vn/app/nam-qu%E1%BB%91c-s%C6%A1n-h%C3%A0/id6762727879?uo=4",
+    "download_ios": "https://apps.apple.com/vn/app/nam-qu%E1%BB%91c-s%C6%A1n-h%C3%A0/id6762727879?uo=4",
+    "ios_bundle_id": "co.imba.namquocsonha"
   },
   {
     "id": "loan-chien-3q",
@@ -28479,7 +28426,13 @@
         "created_at": "2026-09-12T20:30:00.000Z",
         "added_at": "2026-10-03T00:00:00Z"
       }
-    ]
+    ],
+    "google_play_url": "https://play.google.com/store/apps/details?id=com.and.cjys.vn",
+    "download_android": "https://play.google.com/store/apps/details?id=com.and.cjys.vn",
+    "android_package_name": "com.and.cjys.vn",
+    "app_store_url": "https://apps.apple.com/vn/app/lo%E1%BA%A1n-chi%E1%BA%BFn-3q-ggames/id1624877617?uo=4",
+    "download_ios": "https://apps.apple.com/vn/app/lo%E1%BA%A1n-chi%E1%BA%BFn-3q-ggames/id1624877617?uo=4",
+    "ios_bundle_id": "vn.ggames.loanchien.lc3q"
   },
   {
     "id": "kiem-khach-truyen-ky",
@@ -29050,7 +29003,13 @@
         "created_at": "2026-09-29T00:00:00Z",
         "added_at": "2026-10-03T00:00:00Z"
       }
-    ]
+    ],
+    "google_play_url": "https://play.google.com/store/apps/details?id=com.vlplay.game01",
+    "download_android": "https://play.google.com/store/apps/details?id=com.vlplay.game01",
+    "android_package_name": "com.vlplay.game01",
+    "app_store_url": "https://apps.apple.com/vn/app/ki%E1%BA%BFm-kh%C3%A1ch-truy%E1%BB%81n-k%E1%BB%B3-mobile/id6782804680?uo=4",
+    "download_ios": "https://apps.apple.com/vn/app/ki%E1%BA%BFm-kh%C3%A1ch-truy%E1%BB%81n-k%E1%BB%B3-mobile/id6782804680?uo=4",
+    "ios_bundle_id": "vn.vlplay.truyenky"
   },
   {
     "id": "pixel-defenders-merge-td-game",
@@ -29491,7 +29450,13 @@
         "created_at": "2026-09-29T00:00:00Z",
         "added_at": "2026-10-03T00:00:00Z"
       }
-    ]
+    ],
+    "google_play_url": "https://play.google.com/store/apps/details?id=com.ondi.fortias.defense",
+    "download_android": "https://play.google.com/store/apps/details?id=com.ondi.fortias.defense",
+    "android_package_name": "com.ondi.fortias.defense",
+    "app_store_url": "https://apps.apple.com/vn/app/pixel-defenders-merge-td-game/id6761761522?uo=4",
+    "download_ios": "https://apps.apple.com/vn/app/pixel-defenders-merge-td-game/id6761761522?uo=4",
+    "ios_bundle_id": "com.ondi.fortias.defense"
   },
   {
     "id": "loan-xi-ngau-3q-oeg",
@@ -30419,7 +30384,10 @@
         "isCrawlerAutoApproved": true,
         "updatedAt": "2026-10-11T12:04:30.144Z"
       }
-    ]
+    ],
+    "google_play_url": "https://play.google.com/store/apps/details?id=com.and.cjys.vn",
+    "download_android": "https://play.google.com/store/apps/details?id=com.and.cjys.vn",
+    "android_package_name": "com.and.cjys.vn"
   },
   {
     "id": "tam-quoc-tranh-ba-thien-ha",
@@ -31719,7 +31687,13 @@
         "created_at": "2026-09-29T00:00:00Z",
         "added_at": "2026-10-03T00:00:00Z"
       }
-    ]
+    ],
+    "google_play_url": "https://play.google.com/store/apps/details?id=com.gp.slg3q.moc",
+    "download_android": "https://play.google.com/store/apps/details?id=com.gp.slg3q.moc",
+    "android_package_name": "com.gp.slg3q.moc",
+    "app_store_url": "https://apps.apple.com/vn/app/tam-qu%E1%BB%91c-tranh-b%C3%A1-thi%C3%AAn-h%E1%BA%A1/id6761252325?uo=4",
+    "download_ios": "https://apps.apple.com/vn/app/tam-qu%E1%BB%91c-tranh-b%C3%A1-thi%C3%AAn-h%E1%BA%A1/id6761252325?uo=4",
+    "ios_bundle_id": "com.ios.slg3q.moc"
   },
   {
     "id": "titan-rush-chien-than-thuc-tinh",
@@ -32128,7 +32102,10 @@
         "created_at": "2026-10-03T00:00:00Z",
         "added_at": "2026-09-30T11:30:49.628Z"
       }
-    ]
+    ],
+    "app_store_url": "https://apps.apple.com/vn/app/tokyo-ghoul-th%E1%BB%A9c-t%E1%BB%89nh/id6751103382?uo=4",
+    "download_ios": "https://apps.apple.com/vn/app/tokyo-ghoul-th%E1%BB%A9c-t%E1%BB%89nh/id6751103382?uo=4",
+    "ios_bundle_id": "com.tgbtcvn.appstore"
   },
   {
     "id": "girls-frontline-2-luu-day",
@@ -32564,7 +32541,10 @@
         "created_at": "2026-10-03T00:00:00Z",
         "added_at": "2026-10-03T05:26:12.588Z"
       }
-    ]
+    ],
+    "google_play_url": "https://play.google.com/store/apps/details?id=com.thsgame.gf2vn",
+    "download_android": "https://play.google.com/store/apps/details?id=com.thsgame.gf2vn",
+    "android_package_name": "com.thsgame.gf2vn"
   },
   {
     "id": "quan-nhi-ca",
@@ -33108,7 +33088,13 @@
         "created_at": "2026-10-03T00:00:00Z",
         "added_at": "2026-10-03T05:26:12.620Z"
       }
-    ]
+    ],
+    "google_play_url": "https://play.google.com/store/apps/details?id=com.zalogame.quannhica",
+    "download_android": "https://play.google.com/store/apps/details?id=com.zalogame.quannhica",
+    "android_package_name": "com.zalogame.quannhica",
+    "app_store_url": "https://apps.apple.com/vn/app/quan-nh%E1%BB%8B-ca/id6761987786?uo=4",
+    "download_ios": "https://apps.apple.com/vn/app/quan-nh%E1%BB%8B-ca/id6761987786?uo=4",
+    "ios_bundle_id": "com.zalogame.quannhica"
   },
   {
     "id": "doi-tuong-nhi-nho",
@@ -34212,7 +34198,13 @@
         "created_at": "2026-09-12T20:30:00.000Z",
         "added_at": "2026-10-03T00:00:00Z"
       }
-    ]
+    ],
+    "google_play_url": "https://play.google.com/store/apps/details?id=com.gameyk.mavn",
+    "download_android": "https://play.google.com/store/apps/details?id=com.gameyk.mavn",
+    "android_package_name": "com.gameyk.mavn",
+    "app_store_url": "https://apps.apple.com/vn/app/%C4%91%E1%BB%99i-t%C6%B0%E1%BB%9Bng-nh%C3%AD-nh%E1%BB%91/id6769701683?uo=4",
+    "download_ios": "https://apps.apple.com/vn/app/%C4%91%E1%BB%99i-t%C6%B0%E1%BB%9Bng-nh%C3%AD-nh%E1%BB%91/id6769701683?uo=4",
+    "ios_bundle_id": "com.gameyk.mavn"
   },
   {
     "id": "hac-tay-du-chuong-cam",
@@ -35338,7 +35330,13 @@
         "copyCount": 0,
         "code": "HACTAYDU88"
       }
-    ]
+    ],
+    "google_play_url": "https://play.google.com/store/apps/details?id=vn.ftg.hactaydu",
+    "download_android": "https://play.google.com/store/apps/details?id=vn.ftg.hactaydu",
+    "android_package_name": "vn.ftg.hactaydu",
+    "app_store_url": "https://apps.apple.com/vn/app/h%E1%BA%AFc-t%C3%A2y-du-ch%C6%B0%C6%A1ng-c%E1%BA%A5m/id6772117224?uo=4",
+    "download_ios": "https://apps.apple.com/vn/app/h%E1%BA%AFc-t%C3%A2y-du-ch%C6%B0%C6%A1ng-c%E1%BA%A5m/id6772117224?uo=4",
+    "ios_bundle_id": "com.loinguyen.nguoigiuuuuu.ftg"
   },
   {
     "id": "huyen-thoai-huong-cang",
@@ -35801,7 +35799,13 @@
         "created_at": "2026-09-29T00:00:00Z",
         "added_at": "2026-10-03T00:00:00Z"
       }
-    ]
+    ],
+    "google_play_url": "https://play.google.com/store/apps/details?id=com.velagame.hthc.gp",
+    "download_android": "https://play.google.com/store/apps/details?id=com.velagame.hthc.gp",
+    "android_package_name": "com.velagame.hthc.gp",
+    "app_store_url": "https://apps.apple.com/vn/app/huy%E1%BB%81n-tho%E1%BA%A1i-h%C6%B0%C6%A1ng-c%E1%BA%A3ng/id6778374291?uo=4",
+    "download_ios": "https://apps.apple.com/vn/app/huy%E1%BB%81n-tho%E1%BA%A1i-h%C6%B0%C6%A1ng-c%E1%BA%A3ng/id6778374291?uo=4",
+    "ios_bundle_id": "com.velagame.hthc.ios"
   },
   {
     "id": "giang-ho-trong-tay",
@@ -36585,7 +36589,13 @@
         "isCrawlerAutoApproved": true,
         "updatedAt": "2026-10-11T12:04:30.710Z"
       }
-    ]
+    ],
+    "google_play_url": "https://play.google.com/store/apps/details?id=com.gianghotrongtay.gamesvn",
+    "download_android": "https://play.google.com/store/apps/details?id=com.gianghotrongtay.gamesvn",
+    "android_package_name": "com.gianghotrongtay.gamesvn",
+    "app_store_url": "https://apps.apple.com/vn/app/giang-h%E1%BB%93-trong-tay/id6758706577?uo=4",
+    "download_ios": "https://apps.apple.com/vn/app/giang-h%E1%BB%93-trong-tay/id6758706577?uo=4",
+    "ios_bundle_id": "com.qswd.zsios"
   },
   {
     "id": "diet-quy-origin",
@@ -36886,7 +36896,10 @@
         "created_at": "2026-10-03T00:00:00Z",
         "added_at": "2026-09-30T11:30:50.404Z"
       }
-    ]
+    ],
+    "google_play_url": "https://play.google.com/store/apps/details?id=com.demonhunter.hnx",
+    "download_android": "https://play.google.com/store/apps/details?id=com.demonhunter.hnx",
+    "android_package_name": "com.demonhunter.hnx"
   },
   {
     "id": "co-lau-loan-the",
@@ -38225,7 +38238,13 @@
         "isCrawlerAutoApproved": true,
         "updatedAt": "2026-10-13T19:18:45.152Z"
       }
-    ]
+    ],
+    "google_play_url": "https://play.google.com/store/apps/details?id=com.and.cjys.vn",
+    "download_android": "https://play.google.com/store/apps/details?id=com.and.cjys.vn",
+    "android_package_name": "com.and.cjys.vn",
+    "app_store_url": "https://apps.apple.com/vn/app/lo%E1%BA%A1n-th%E1%BA%BF-3q-th%E1%BA%A7n-ma-l%E1%BB%87nh-oeg/id6775778491?uo=4",
+    "download_ios": "https://apps.apple.com/vn/app/lo%E1%BA%A1n-th%E1%BA%BF-3q-th%E1%BA%A7n-ma-l%E1%BB%87nh-oeg/id6775778491?uo=4",
+    "ios_bundle_id": "com.ios.cjys.vn"
   },
   {
     "id": "shenzhou-m",
@@ -38526,7 +38545,13 @@
         "created_at": "2026-10-03T00:00:00Z",
         "added_at": "2026-10-03T05:26:13.225Z"
       }
-    ]
+    ],
+    "google_play_url": "https://play.google.com/store/apps/details?id=com.userjoy.szmg",
+    "download_android": "https://play.google.com/store/apps/details?id=com.userjoy.szmg",
+    "android_package_name": "com.userjoy.szmg",
+    "app_store_url": "https://apps.apple.com/vn/app/shenzhou-m/id6759091034?uo=4",
+    "download_ios": "https://apps.apple.com/vn/app/shenzhou-m/id6759091034?uo=4",
+    "ios_bundle_id": "com.userjoy.szmg"
   },
   {
     "id": "phi-kiem-tru-thien-ma",
@@ -39070,7 +39095,13 @@
         "created_at": "2026-10-03T00:00:00Z",
         "added_at": "2026-10-03T05:26:13.251Z"
       }
-    ]
+    ],
+    "google_play_url": "https://play.google.com/store/apps/details?id=com.atgame.fm.gp",
+    "download_android": "https://play.google.com/store/apps/details?id=com.atgame.fm.gp",
+    "android_package_name": "com.atgame.fm.gp",
+    "app_store_url": "https://apps.apple.com/vn/app/phi-ki%E1%BA%BFm-c%E1%BB%ADu-long-d%E1%BA%ABn-quan/id6763988156?uo=4",
+    "download_ios": "https://apps.apple.com/vn/app/phi-ki%E1%BA%BFm-c%E1%BB%ADu-long-d%E1%BA%ABn-quan/id6763988156?uo=4",
+    "ios_bundle_id": "com.atgame.fm.ios"
   },
   {
     "id": "afk-three-kingdoms",
@@ -39371,7 +39402,13 @@
         "created_at": "2026-10-03T00:00:00Z",
         "added_at": "2026-10-03T05:26:13.213Z"
       }
-    ]
+    ],
+    "google_play_url": "https://play.google.com/store/apps/details?id=com.cookapps.bm.threekingdomsrising",
+    "download_android": "https://play.google.com/store/apps/details?id=com.cookapps.bm.threekingdomsrising",
+    "android_package_name": "com.cookapps.bm.threekingdomsrising",
+    "app_store_url": "https://apps.apple.com/vn/app/afk-three-kingdoms-idle-rpg/id1600896275?uo=4",
+    "download_ios": "https://apps.apple.com/vn/app/afk-three-kingdoms-idle-rpg/id1600896275?uo=4",
+    "ios_bundle_id": "com.cookapps.bm.threekingdomsrising"
   },
   {
     "id": "khe-uoc-rong",
@@ -40015,7 +40052,13 @@
         "isCrawlerAutoApproved": true,
         "updatedAt": "2026-10-11T12:04:31.086Z"
       }
-    ]
+    ],
+    "google_play_url": "https://play.google.com/store/apps/details?id=vn.dev.anh.hung.luc.dia",
+    "download_android": "https://play.google.com/store/apps/details?id=vn.dev.anh.hung.luc.dia",
+    "android_package_name": "vn.dev.anh.hung.luc.dia",
+    "app_store_url": "https://apps.apple.com/vn/app/kh%E1%BA%BF-%C6%B0%E1%BB%9Bc-r%E1%BB%93ng/id6758699179?uo=4",
+    "download_ios": "https://apps.apple.com/vn/app/kh%E1%BA%BF-%C6%B0%E1%BB%9Bc-r%E1%BB%93ng/id6758699179?uo=4",
+    "ios_bundle_id": "vn.dev.anh.hung.luc.dia"
   },
   {
     "id": "tuyet-dinh-chien-gioi-vplay",
@@ -40208,7 +40251,10 @@
         "created_at": "2026-10-03T00:00:00Z",
         "added_at": "2026-10-03T05:26:13.246Z"
       }
-    ]
+    ],
+    "google_play_url": "https://play.google.com/store/apps/details?id=vn.vplay.kiemvutienthanh.t032a",
+    "download_android": "https://play.google.com/store/apps/details?id=vn.vplay.kiemvutienthanh.t032a",
+    "android_package_name": "vn.vplay.kiemvutienthanh.t032a"
   },
   {
     "id": "dao-huu-tu-tien",
@@ -40839,7 +40885,13 @@
         "created_at": "2026-10-03T00:00:00Z",
         "added_at": "2026-09-30T11:30:51.705Z"
       }
-    ]
+    ],
+    "google_play_url": "https://play.google.com/store/apps/details?id=com.joyplay.daohuuxindungbuoc",
+    "download_android": "https://play.google.com/store/apps/details?id=com.joyplay.daohuuxindungbuoc",
+    "android_package_name": "com.joyplay.daohuuxindungbuoc",
+    "app_store_url": "https://apps.apple.com/vn/app/%C4%91%E1%BA%A1o-h%E1%BB%AFu-xin-d%E1%BB%ABng-b%C6%B0%E1%BB%9Bc-tu-ti%C3%AAn/id6746827417?uo=4",
+    "download_ios": "https://apps.apple.com/vn/app/%C4%91%E1%BA%A1o-h%E1%BB%AFu-xin-d%E1%BB%ABng-b%C6%B0%E1%BB%9Bc-tu-ti%C3%AAn/id6746827417?uo=4",
+    "ios_bundle_id": "com.joyplay.daohuuxindungbuoc.ios"
   },
   {
     "id": "anime-fighting-simulator-endless",
@@ -41447,7 +41499,13 @@
         "tier": 2,
         "updatedAt": "2026-10-14T07:02:57.348Z"
       }
-    ]
+    ],
+    "google_play_url": "https://play.google.com/store/apps/details?id=com.roomstudios.animethemultiversewar",
+    "download_android": "https://play.google.com/store/apps/details?id=com.roomstudios.animethemultiversewar",
+    "android_package_name": "com.roomstudios.animethemultiversewar",
+    "app_store_url": "https://apps.apple.com/vn/app/anime-ninja-fighting-samurai-struggle/id1241234243?uo=4",
+    "download_ios": "https://apps.apple.com/vn/app/anime-ninja-fighting-samurai-struggle/id1241234243?uo=4",
+    "ios_bundle_id": "com.actionteam.animefightingfree"
   },
   {
     "id": "anime-vanguards",
@@ -43979,7 +44037,13 @@
         "isCrawlerAutoApproved": true,
         "updatedAt": "2026-10-13T19:18:45.648Z"
       }
-    ]
+    ],
+    "google_play_url": "https://play.google.com/store/apps/details?id=com.DOT.VangPro",
+    "download_android": "https://play.google.com/store/apps/details?id=com.DOT.VangPro",
+    "android_package_name": "com.DOT.VangPro",
+    "app_store_url": "https://apps.apple.com/vn/app/toolkit-for-anime-vanguards/id6763304473?uo=4",
+    "download_ios": "https://apps.apple.com/vn/app/toolkit-for-anime-vanguards/id6763304473?uo=4",
+    "ios_bundle_id": "com.toolkit.animevanguards"
   },
   {
     "id": "3q-goi-tuong-di",
@@ -45217,7 +45281,13 @@
         "isCrawlerAutoApproved": true,
         "updatedAt": "2026-10-12T15:28:07.016Z"
       }
-    ]
+    ],
+    "google_play_url": "https://play.google.com/store/apps/details?id=vn.game3q.goituongdi.tamquoc",
+    "download_android": "https://play.google.com/store/apps/details?id=vn.game3q.goituongdi.tamquoc",
+    "android_package_name": "vn.game3q.goituongdi.tamquoc",
+    "app_store_url": "https://apps.apple.com/vn/app/3q-g%E1%BB%8Di-t%C6%B0%E1%BB%9Bng-%C4%91i/id6773619868?uo=4",
+    "download_ios": "https://apps.apple.com/vn/app/3q-g%E1%BB%8Di-t%C6%B0%E1%BB%9Bng-%C4%91i/id6773619868?uo=4",
+    "ios_bundle_id": "vn.game3q.goituongdi.tamquoc"
   },
   {
     "id": "blade-ball",
@@ -46091,7 +46161,13 @@
         "created_at": "2026-10-03T00:00:00Z",
         "added_at": "2026-10-03T05:26:13.352Z"
       }
-    ]
+    ],
+    "google_play_url": "https://play.google.com/store/apps/details?id=com.TivanGameStudio.Bladeball2",
+    "download_android": "https://play.google.com/store/apps/details?id=com.TivanGameStudio.Bladeball2",
+    "android_package_name": "com.TivanGameStudio.Bladeball2",
+    "app_store_url": "https://apps.apple.com/vn/app/blade-ball-deflect-master-game/id6476590194?uo=4",
+    "download_ios": "https://apps.apple.com/vn/app/blade-ball-deflect-master-game/id6476590194?uo=4",
+    "ios_bundle_id": "com.ball.battle.knife"
   },
   {
     "id": "tam-quoc-chi-vuong-chien",
@@ -46257,7 +46333,13 @@
         "created_at": "2026-10-03T00:00:00Z",
         "added_at": "2026-10-03T05:26:13.220Z"
       }
-    ]
+    ],
+    "google_play_url": "https://play.google.com/store/apps/details?id=com.esgame.threekingswar.vn",
+    "download_android": "https://play.google.com/store/apps/details?id=com.esgame.threekingswar.vn",
+    "android_package_name": "com.esgame.threekingswar.vn",
+    "app_store_url": "https://apps.apple.com/vn/app/chi%E1%BA%BFn-lo%E1%BA%A1n-tam-qu%E1%BB%91c/id6747229494?uo=4",
+    "download_ios": "https://apps.apple.com/vn/app/chi%E1%BA%BFn-lo%E1%BA%A1n-tam-qu%E1%BB%91c/id6747229494?uo=4",
+    "ios_bundle_id": "vn.cmn.chienloan"
   },
   {
     "id": "nhat-luan-kiem",
@@ -46666,7 +46748,10 @@
         "created_at": "2026-09-12T20:30:00.000Z",
         "added_at": "2026-10-03T00:00:00Z"
       }
-    ]
+    ],
+    "google_play_url": "https://play.google.com/store/apps/details?id=vn.gteam.nhatluankiem",
+    "download_android": "https://play.google.com/store/apps/details?id=vn.gteam.nhatluankiem",
+    "android_package_name": "vn.gteam.nhatluankiem"
   },
   {
     "id": "ark-recode",
@@ -46913,7 +46998,10 @@
         "created_at": "2026-10-03T00:00:00Z",
         "added_at": "2026-10-03T05:26:13.358Z"
       }
-    ]
+    ],
+    "google_play_url": "https://play.google.com/store/apps/details?id=com.apollohealth.recode",
+    "download_android": "https://play.google.com/store/apps/details?id=com.apollohealth.recode",
+    "android_package_name": "com.apollohealth.recode"
   },
   {
     "id": "aniimo",
@@ -47376,7 +47464,10 @@
         "created_at": "2026-10-03T00:00:00Z",
         "added_at": "2026-10-03T05:26:13.358Z"
       }
-    ]
+    ],
+    "google_play_url": "https://play.google.com/store/apps/details?id=com.vewointeractive.nexomon.extinction",
+    "download_android": "https://play.google.com/store/apps/details?id=com.vewointeractive.nexomon.extinction",
+    "android_package_name": "com.vewointeractive.nexomon.extinction"
   },
   {
     "id": "tieu-tien-ta-vo-dich",
@@ -48055,7 +48146,13 @@
         "created_at": "2026-09-29T00:00:00Z",
         "added_at": "2026-10-03T00:00:00Z"
       }
-    ]
+    ],
+    "google_play_url": "https://play.google.com/store/apps/details?id=com.slime.gp.vn",
+    "download_android": "https://play.google.com/store/apps/details?id=com.slime.gp.vn",
+    "android_package_name": "com.slime.gp.vn",
+    "app_store_url": "https://apps.apple.com/vn/app/ti%E1%BB%83u-ti%C3%AAn-ta-v%C3%B4-%C4%91%E1%BB%8Bch-oeg/id6760692589?uo=4",
+    "download_ios": "https://apps.apple.com/vn/app/ti%E1%BB%83u-ti%C3%AAn-ta-v%C3%B4-%C4%91%E1%BB%8Bch-oeg/id6760692589?uo=4",
+    "ios_bundle_id": "com.slime.ios.vn"
   },
   {
     "id": "giac-ngo-thuat-chu",
@@ -48410,7 +48507,13 @@
         "created_at": "2026-10-03T00:00:00Z",
         "added_at": "2026-10-03T05:26:13.465Z"
       }
-    ]
+    ],
+    "google_play_url": "https://play.google.com/store/apps/details?id=com.ewhjgfkz.ewjdlkz",
+    "download_android": "https://play.google.com/store/apps/details?id=com.ewhjgfkz.ewjdlkz",
+    "android_package_name": "com.ewhjgfkz.ewjdlkz",
+    "app_store_url": "https://apps.apple.com/vn/app/ch%C3%BA-thu%E1%BA%ADt-%C4%91%E1%BA%A1i-chi%E1%BA%BFn/id6741671815?uo=4",
+    "download_ios": "https://apps.apple.com/vn/app/ch%C3%BA-thu%E1%BA%ADt-%C4%91%E1%BA%A1i-chi%E1%BA%BFn/id6741671815?uo=4",
+    "ios_bundle_id": "com.chuthuatdaichien.app"
   },
   {
     "id": "fairy-tamer",
@@ -48959,7 +49062,10 @@
         "created_at": "2026-09-18T09:45:52.102Z",
         "added_at": "2026-10-03T00:00:00Z"
       }
-    ]
+    ],
+    "google_play_url": "https://play.google.com/store/apps/details?id=com.frtam.hf",
+    "download_android": "https://play.google.com/store/apps/details?id=com.frtam.hf",
+    "android_package_name": "com.frtam.hf"
   },
   {
     "id": "hoi-tho-hai-tac",
@@ -49773,7 +49879,10 @@
         "created_at": "2026-10-03T00:00:00Z",
         "added_at": "2026-10-03T05:26:13.463Z"
       }
-    ]
+    ],
+    "google_play_url": "https://play.google.com/store/apps/details?id=com.sora.hoithohaitac",
+    "download_android": "https://play.google.com/store/apps/details?id=com.sora.hoithohaitac",
+    "android_package_name": "com.sora.hoithohaitac"
   },
   {
     "id": "capybara-go",
@@ -50643,7 +50752,13 @@
         "isCrawlerAutoApproved": true,
         "updatedAt": "2026-10-13T19:18:46.353Z"
       }
-    ]
+    ],
+    "google_play_url": "https://play.google.com/store/apps/details?id=com.yibu.CapybaraSurvivorGOGOGO",
+    "download_android": "https://play.google.com/store/apps/details?id=com.yibu.CapybaraSurvivorGOGOGO",
+    "android_package_name": "com.yibu.CapybaraSurvivorGOGOGO",
+    "app_store_url": "https://apps.apple.com/vn/app/capybara-tower-go-rush-2d/id6740405028?uo=4",
+    "download_ios": "https://apps.apple.com/vn/app/capybara-tower-go-rush-2d/id6740405028?uo=4",
+    "ios_bundle_id": "playense.capybara.go"
   },
   {
     "id": "king-legacy",
@@ -51441,7 +51556,13 @@
         "created_at": "2026-10-03T00:00:00Z",
         "added_at": "2026-10-03T05:26:13.442Z"
       }
-    ]
+    ],
+    "google_play_url": "https://play.google.com/store/apps/details?id=com.cateia.kingslegacy2.android",
+    "download_android": "https://play.google.com/store/apps/details?id=com.cateia.kingslegacy2.android",
+    "android_package_name": "com.cateia.kingslegacy2.android",
+    "app_store_url": "https://apps.apple.com/vn/app/stick-war-legacy/id1001780528?uo=4",
+    "download_ios": "https://apps.apple.com/vn/app/stick-war-legacy/id1001780528?uo=4",
+    "ios_bundle_id": "com.stickpage.stickwar"
   },
   {
     "id": "chaos-zero-nightmare",
@@ -51774,7 +51895,10 @@
         "created_at": "2026-10-03T00:00:00Z",
         "added_at": "2026-10-03T05:26:13.336Z"
       }
-    ]
+    ],
+    "google_play_url": "https://play.google.com/store/apps/details?id=com.rayark.sdorica",
+    "download_android": "https://play.google.com/store/apps/details?id=com.rayark.sdorica",
+    "android_package_name": "com.rayark.sdorica"
   },
   {
     "id": "cookie-run-kingdom",
@@ -52561,7 +52685,10 @@
         "created_at": "2026-10-03T00:00:00Z",
         "added_at": "2026-10-03T05:26:13.337Z"
       }
-    ]
+    ],
+    "google_play_url": "https://play.google.com/store/apps/details?id=com.devsisters.cookiepuzzle",
+    "download_android": "https://play.google.com/store/apps/details?id=com.devsisters.cookiepuzzle",
+    "android_package_name": "com.devsisters.cookiepuzzle"
   },
   {
     "id": "gangstar-mirage-city-online",
@@ -52921,7 +53048,13 @@
         "created_at": "2026-10-03T00:00:00Z",
         "added_at": "2026-10-03T05:26:13.459Z"
       }
-    ]
+    ],
+    "google_play_url": "https://play.google.com/store/apps/details?id=com.al.mirage.gangster.crime.city.game",
+    "download_android": "https://play.google.com/store/apps/details?id=com.al.mirage.gangster.crime.city.game",
+    "android_package_name": "com.al.mirage.gangster.crime.city.game",
+    "app_store_url": "https://apps.apple.com/vn/app/gangstar-smirage-city-crime-3d/id1489632158?uo=4",
+    "download_ios": "https://apps.apple.com/vn/app/gangstar-smirage-city-crime-3d/id1489632158?uo=4",
+    "ios_bundle_id": "com.gameobject.gang.beasts.zombie.shooting"
   },
   {
     "id": "ez-pz-byte-heroes",
@@ -53249,7 +53382,10 @@
         "created_at": "2026-10-03T00:00:00Z",
         "added_at": "2026-10-03T05:26:13.337Z"
       }
-    ]
+    ],
+    "google_play_url": "https://play.google.com/store/apps/details?id=com.szqdgames.android.arzhg",
+    "download_android": "https://play.google.com/store/apps/details?id=com.szqdgames.android.arzhg",
+    "android_package_name": "com.szqdgames.android.arzhg"
   },
   {
     "id": "lost-sword",
@@ -53631,7 +53767,13 @@
         "created_at": "2026-10-03T00:00:00Z",
         "added_at": "2026-10-03T05:26:13.446Z"
       }
-    ]
+    ],
+    "google_play_url": "https://play.google.com/store/apps/details?id=org.maxbytes.lfs",
+    "download_android": "https://play.google.com/store/apps/details?id=org.maxbytes.lfs",
+    "android_package_name": "org.maxbytes.lfs",
+    "app_store_url": "https://apps.apple.com/vn/app/touhou-lostword/id1540955084?uo=4",
+    "download_ios": "https://apps.apple.com/vn/app/touhou-lostword/id1540955084?uo=4",
+    "ios_bundle_id": "jp.goodsmile.touhoulostwordglobal"
   },
   {
     "id": "genesis-war",
@@ -53856,7 +53998,13 @@
         "created_at": "2026-10-03T00:00:00Z",
         "added_at": "2026-10-03T05:26:13.461Z"
       }
-    ]
+    ],
+    "google_play_url": "https://play.google.com/store/apps/details?id=com.joycity.gnss",
+    "download_android": "https://play.google.com/store/apps/details?id=com.joycity.gnss",
+    "android_package_name": "com.joycity.gnss",
+    "app_store_url": "https://apps.apple.com/vn/app/the-war-of-genesis/id1128647648?uo=4",
+    "download_ios": "https://apps.apple.com/vn/app/the-war-of-genesis/id1128647648?uo=4",
+    "ios_bundle_id": "com.joycity.gnss"
   },
   {
     "id": "neo-artifacts",
@@ -54157,7 +54305,10 @@
         "created_at": "2026-10-03T00:00:00Z",
         "added_at": "2026-10-03T05:26:13.432Z"
       }
-    ]
+    ],
+    "google_play_url": "https://play.google.com/store/apps/details?id=com.pockettrend.neomonsters",
+    "download_android": "https://play.google.com/store/apps/details?id=com.pockettrend.neomonsters",
+    "android_package_name": "com.pockettrend.neomonsters"
   },
   {
     "id": "mongil-star-dive",
@@ -54593,7 +54744,10 @@
         "created_at": "2026-10-03T00:00:00Z",
         "added_at": "2026-09-30T11:30:52.434Z"
       }
-    ]
+    ],
+    "google_play_url": "https://play.google.com/store/apps/details?id=com.haegin.lasthunterk",
+    "download_android": "https://play.google.com/store/apps/details?id=com.haegin.lasthunterk",
+    "android_package_name": "com.haegin.lasthunterk"
   },
   {
     "id": "kiem-vu-son-ha",
@@ -55110,7 +55264,13 @@
         "created_at": "2026-09-12T20:30:00.000Z",
         "added_at": "2026-10-03T00:00:00Z"
       }
-    ]
+    ],
+    "google_play_url": "https://play.google.com/store/apps/details?id=com.broga.kiemvusonha",
+    "download_android": "https://play.google.com/store/apps/details?id=com.broga.kiemvusonha",
+    "android_package_name": "com.broga.kiemvusonha",
+    "app_store_url": "https://apps.apple.com/vn/app/ki%E1%BA%BFm-v%C5%A9-s%C6%A1n-h%C3%A0/id6759868348?uo=4",
+    "download_ios": "https://apps.apple.com/vn/app/ki%E1%BA%BFm-v%C5%A9-s%C6%A1n-h%C3%A0/id6759868348?uo=4",
+    "ios_bundle_id": "com.broga.kiemvu"
   },
   {
     "id": "greedy-cave-rebirth",
@@ -55627,7 +55787,13 @@
         "created_at": "2026-10-03T00:00:00Z",
         "added_at": "2026-10-03T05:26:13.502Z"
       }
-    ]
+    ],
+    "google_play_url": "https://play.google.com/store/apps/details?id=com.avalon.c1p.googleplay",
+    "download_android": "https://play.google.com/store/apps/details?id=com.avalon.c1p.googleplay",
+    "android_package_name": "com.avalon.c1p.googleplay",
+    "app_store_url": "https://apps.apple.com/vn/app/greedy-cave-rebirth/id6680191526?uo=4",
+    "download_ios": "https://apps.apple.com/vn/app/greedy-cave-rebirth/id6680191526?uo=4",
+    "ios_bundle_id": "com.avalon.c1p.global"
   },
   {
     "id": "seven-deadly-sins-origin",
@@ -56036,7 +56202,10 @@
         "created_at": "2026-10-03T00:00:00Z",
         "added_at": "2026-10-03T05:26:13.607Z"
       }
-    ]
+    ],
+    "google_play_url": "https://play.google.com/store/apps/details?id=com.ea.game.starwarscapital_row",
+    "download_android": "https://play.google.com/store/apps/details?id=com.ea.game.starwarscapital_row",
+    "android_package_name": "com.ea.game.starwarscapital_row"
   },
   {
     "id": "star-sailors",
@@ -56418,7 +56587,10 @@
         "created_at": "2026-10-03T00:00:00Z",
         "added_at": "2026-10-03T05:26:13.578Z"
       }
-    ]
+    ],
+    "google_play_url": "https://play.google.com/store/apps/details?id=com.com2usholdings.starsailors.android.google.global.normal",
+    "download_android": "https://play.google.com/store/apps/details?id=com.com2usholdings.starsailors.android.google.global.normal",
+    "android_package_name": "com.com2usholdings.starsailors.android.google.global.normal"
   },
   {
     "id": "ragnarok-huyen-thoai-mmo",
@@ -56719,7 +56891,13 @@
         "created_at": "2026-10-03T00:00:00Z",
         "added_at": "2026-10-03T05:26:13.602Z"
       }
-    ]
+    ],
+    "google_play_url": "https://play.google.com/store/apps/details?id=com.thsgame.ror",
+    "download_android": "https://play.google.com/store/apps/details?id=com.thsgame.ror",
+    "android_package_name": "com.thsgame.ror",
+    "app_store_url": "https://apps.apple.com/vn/app/ragnarok-huy%E1%BB%81n-tho%E1%BA%A1i-mmo/id6760520315?uo=4",
+    "download_ios": "https://apps.apple.com/vn/app/ragnarok-huy%E1%BB%81n-tho%E1%BA%A1i-mmo/id6760520315?uo=4",
+    "ios_bundle_id": "com.thsgame.ror"
   },
   {
     "id": "rogue-legend",
@@ -57155,7 +57333,13 @@
         "created_at": "2026-10-03T00:00:00Z",
         "added_at": "2026-10-03T05:26:13.592Z"
       }
-    ]
+    ],
+    "google_play_url": "https://play.google.com/store/apps/details?id=com.GalacticSlice.OneBitAdventure",
+    "download_android": "https://play.google.com/store/apps/details?id=com.GalacticSlice.OneBitAdventure",
+    "android_package_name": "com.GalacticSlice.OneBitAdventure",
+    "app_store_url": "https://apps.apple.com/vn/app/hero-adventure-roguelike-rpg/id1633987367?uo=4",
+    "download_ios": "https://apps.apple.com/vn/app/hero-adventure-roguelike-rpg/id1633987367?uo=4",
+    "ios_bundle_id": "com.pgstudio.heroadventure"
   },
   {
     "id": "where-winds-meet-mobile",
@@ -74581,7 +74765,14 @@
         "isCrawlerAutoApproved": true,
         "updatedAt": "2026-10-21T04:50:27.336Z"
       }
-    ]
+    ],
+    "google_play_url": "https://play.google.com/store/apps/details?id=com.netease.yyvn",
+    "download_android": "https://play.google.com/store/apps/details?id=com.netease.yyvn",
+    "android_package_name": "com.netease.yyvn",
+    "app_store_url": "https://apps.apple.com/vn/app/y%E1%BA%BFn-v%C3%A2n-th%E1%BA%ADp-l%E1%BB%A5c-thanh/id6762607072",
+    "download_ios": "https://apps.apple.com/vn/app/y%E1%BA%BFn-v%C3%A2n-th%E1%BA%ADp-l%E1%BB%A5c-thanh/id6762607072",
+    "ios_bundle_id": "com.netease.yyslsvn",
+    "download_pc": "https://www.wherewindsmeetgame.com/"
   },
   {
     "id": "outerplane",
@@ -75287,7 +75478,13 @@
         "created_at": "2026-10-03T00:00:00Z",
         "added_at": "2026-10-03T05:26:13.604Z"
       }
-    ]
+    ],
+    "google_play_url": "https://play.google.com/store/apps/details?id=com.ea.game.starwarscapital_row",
+    "download_android": "https://play.google.com/store/apps/details?id=com.ea.game.starwarscapital_row",
+    "android_package_name": "com.ea.game.starwarscapital_row",
+    "app_store_url": "https://apps.apple.com/vn/app/outerplane-strategy-anime/id1630880836?uo=4",
+    "download_ios": "https://apps.apple.com/vn/app/outerplane-strategy-anime/id1630880836?uo=4",
+    "ios_bundle_id": "com.smilegate.outerplane.stove.ios"
   },
   {
     "id": "wuthering-waves-cyberpunk",
@@ -76101,7 +76298,10 @@
         "created_at": "2026-10-03T00:00:00Z",
         "added_at": "2026-10-03T05:26:13.612Z"
       }
-    ]
+    ],
+    "google_play_url": "https://play.google.com/store/apps/details?id=com.hippopenny.wuther",
+    "download_android": "https://play.google.com/store/apps/details?id=com.hippopenny.wuther",
+    "android_package_name": "com.hippopenny.wuther"
   },
   {
     "id": "pham-tran-tien-lo",
@@ -76888,7 +77088,13 @@
         "created_at": "2026-10-03T00:00:00Z",
         "added_at": "2026-10-03T05:26:13.779Z"
       }
-    ]
+    ],
+    "google_play_url": "https://play.google.com/store/apps/details?id=com.vnpttl.gp",
+    "download_android": "https://play.google.com/store/apps/details?id=com.vnpttl.gp",
+    "android_package_name": "com.vnpttl.gp",
+    "app_store_url": "https://apps.apple.com/vn/app/ph%C3%A0m-tr%E1%BA%A7n-ti%C3%AAn-l%E1%BB%99/id6760999420?uo=4",
+    "download_ios": "https://apps.apple.com/vn/app/ph%C3%A0m-tr%E1%BA%A7n-ti%C3%AAn-l%E1%BB%99/id6760999420?uo=4",
+    "ios_bundle_id": "com.vnpttl.as"
   },
   {
     "id": "vo-lam-hac-dao",
@@ -77351,7 +77557,10 @@
         "created_at": "2026-10-03T00:00:00Z",
         "added_at": "2026-10-03T05:26:13.587Z"
       }
-    ]
+    ],
+    "google_play_url": "https://play.google.com/store/apps/details?id=com.shg.sg432",
+    "download_android": "https://play.google.com/store/apps/details?id=com.shg.sg432",
+    "android_package_name": "com.shg.sg432"
   },
   {
     "id": "chi-huy-toi-thuong",
@@ -77652,7 +77861,13 @@
         "created_at": "2026-09-18T09:45:52.093Z",
         "added_at": "2026-10-03T00:00:00Z"
       }
-    ]
+    ],
+    "google_play_url": "https://play.google.com/store/apps/details?id=com.game.warvow",
+    "download_android": "https://play.google.com/store/apps/details?id=com.game.warvow",
+    "android_package_name": "com.game.warvow",
+    "app_store_url": "https://apps.apple.com/vn/app/ch%E1%BB%89-huy-t%E1%BB%91i-th%C6%B0%E1%BB%A3ng/id6758197876?uo=4",
+    "download_ios": "https://apps.apple.com/vn/app/ch%E1%BB%89-huy-t%E1%BB%91i-th%C6%B0%E1%BB%A3ng/id6758197876?uo=4",
+    "ios_bundle_id": "com.ynwdzz.warvow"
   },
   {
     "id": "tap-tap-heroes",
@@ -78061,7 +78276,13 @@
         "created_at": "2026-10-03T00:00:00Z",
         "added_at": "2026-10-03T05:26:13.621Z"
       }
-    ]
+    ],
+    "google_play_url": "https://play.google.com/store/apps/details?id=com.kongregate.mobile.bitheroes.google",
+    "download_android": "https://play.google.com/store/apps/details?id=com.kongregate.mobile.bitheroes.google",
+    "android_package_name": "com.kongregate.mobile.bitheroes.google",
+    "app_store_url": "https://apps.apple.com/vn/app/taptap-heroes-idle-rpg/id1369678805?uo=4",
+    "download_ios": "https://apps.apple.com/vn/app/taptap-heroes-idle-rpg/id1369678805?uo=4",
+    "ios_bundle_id": "com.westbund.taptapheroes"
   },
   {
     "id": "van-tien-chien",
@@ -78281,7 +78502,10 @@
         "created_at": "2026-10-03T00:00:00Z",
         "added_at": "2026-10-03T05:26:13.745Z"
       }
-    ]
+    ],
+    "google_play_url": "https://play.google.com/store/apps/details?id=vn.cmplay.vantienchien",
+    "download_android": "https://play.google.com/store/apps/details?id=vn.cmplay.vantienchien",
+    "android_package_name": "vn.cmplay.vantienchien"
   },
   {
     "id": "tieu-cuong-3q",
@@ -79375,7 +79599,13 @@
         "isCrawlerAutoApproved": true,
         "updatedAt": "2026-10-11T12:04:32.461Z"
       }
-    ]
+    ],
+    "google_play_url": "https://play.google.com/store/apps/details?id=com.dawang3g.vn.google",
+    "download_android": "https://play.google.com/store/apps/details?id=com.dawang3g.vn.google",
+    "android_package_name": "com.dawang3g.vn.google",
+    "app_store_url": "https://apps.apple.com/vn/app/ti%E1%BB%83u-c%C6%B0%E1%BB%9Dng-3q/id6761410095?uo=4",
+    "download_ios": "https://apps.apple.com/vn/app/ti%E1%BB%83u-c%C6%B0%E1%BB%9Dng-3q/id6761410095?uo=4",
+    "ios_bundle_id": "com.dawang3g.vn.ios"
   },
   {
     "id": "tan-vo-lam",
@@ -79703,7 +79933,10 @@
         "created_at": "2026-10-03T00:00:00Z",
         "added_at": "2026-09-30T11:30:52.973Z"
       }
-    ]
+    ],
+    "google_play_url": "https://play.google.com/store/apps/details?id=com.gigantic.volam.vltk",
+    "download_android": "https://play.google.com/store/apps/details?id=com.gigantic.volam.vltk",
+    "android_package_name": "com.gigantic.volam.vltk"
   },
   {
     "id": "pokemon-champions",
@@ -79923,7 +80156,10 @@
         "created_at": "2026-10-03T00:00:00Z",
         "added_at": "2026-10-03T05:26:13.590Z"
       }
-    ]
+    ],
+    "google_play_url": "https://play.google.com/store/apps/details?id=gg.op.pokemonchampionsapp",
+    "download_android": "https://play.google.com/store/apps/details?id=gg.op.pokemonchampionsapp",
+    "android_package_name": "gg.op.pokemonchampionsapp"
   },
   {
     "id": "light-and-night",
@@ -80305,7 +80541,13 @@
         "created_at": "2026-10-03T00:00:00Z",
         "added_at": "2026-10-03T05:26:13.887Z"
       }
-    ]
+    ],
+    "google_play_url": "https://play.google.com/store/apps/details?id=vng.games.lightandnight",
+    "download_android": "https://play.google.com/store/apps/details?id=vng.games.lightandnight",
+    "android_package_name": "vng.games.lightandnight",
+    "app_store_url": "https://apps.apple.com/vn/app/light-and-night/id6751398995?uo=4",
+    "download_ios": "https://apps.apple.com/vn/app/light-and-night/id6751398995?uo=4",
+    "ios_bundle_id": "vng.games.lightandnight"
   },
   {
     "id": "dragon-raja-thuc-tinh",
@@ -80903,7 +81145,13 @@
         "created_at": "2026-10-03T00:00:00Z",
         "added_at": "2026-10-03T05:26:13.873Z"
       }
-    ]
+    ],
+    "google_play_url": "https://play.google.com/store/apps/details?id=com.vnlz.gp",
+    "download_android": "https://play.google.com/store/apps/details?id=com.vnlz.gp",
+    "android_package_name": "com.vnlz.gp",
+    "app_store_url": "https://apps.apple.com/vn/app/dragon-raja-th%E1%BB%A9c-t%E1%BB%89nh/id6756608951?uo=4",
+    "download_ios": "https://apps.apple.com/vn/app/dragon-raja-th%E1%BB%A9c-t%E1%BB%89nh/id6756608951?uo=4",
+    "ios_bundle_id": "com.vnlz.ios"
   },
   {
     "id": "phuong-hoang-tru-tien",
@@ -81744,7 +81992,10 @@
         "created_at": "2026-10-03T00:00:00Z",
         "added_at": "2026-10-03T05:26:13.733Z"
       }
-    ]
+    ],
+    "google_play_url": "https://play.google.com/store/apps/details?id=vn.vplay.mongkiem2.t029a",
+    "download_android": "https://play.google.com/store/apps/details?id=vn.vplay.mongkiem2.t029a",
+    "android_package_name": "vn.vplay.mongkiem2.t029a"
   },
   {
     "id": "hao-khi-du-hiep",
@@ -82315,7 +82566,13 @@
         "created_at": "2026-09-29T00:00:00Z",
         "added_at": "2026-10-03T00:00:00Z"
       }
-    ]
+    ],
+    "google_play_url": "https://play.google.com/store/apps/details?id=vn.migamejsc.hkvl",
+    "download_android": "https://play.google.com/store/apps/details?id=vn.migamejsc.hkvl",
+    "android_package_name": "vn.migamejsc.hkvl",
+    "app_store_url": "https://apps.apple.com/vn/app/h%C3%A0o-kh%C3%AD-du-hi%E1%BB%87p/id6768583318?uo=4",
+    "download_ios": "https://apps.apple.com/vn/app/h%C3%A0o-kh%C3%AD-du-hi%E1%BB%87p/id6768583318?uo=4",
+    "ios_bundle_id": "vn.migamejsc.haokhiduhiep"
   },
   {
     "id": "bo-lac-3q",
@@ -83436,7 +83693,13 @@
         "copyCount": 0,
         "code": "GOPSV2610"
       }
-    ]
+    ],
+    "google_play_url": "https://play.google.com/store/apps/details?id=vn.cmn.bolac3q",
+    "download_android": "https://play.google.com/store/apps/details?id=vn.cmn.bolac3q",
+    "android_package_name": "vn.cmn.bolac3q",
+    "app_store_url": "https://apps.apple.com/vn/app/b%E1%BB%99-l%E1%BA%A1c-3q/id6763512084?uo=4",
+    "download_ios": "https://apps.apple.com/vn/app/b%E1%BB%99-l%E1%BA%A1c-3q/id6763512084?uo=4",
+    "ios_bundle_id": "vn.cmn.bolac3q"
   },
   {
     "id": "thai-cuc-vo-dao-x-arena",
@@ -83683,7 +83946,10 @@
         "created_at": "2026-10-03T00:00:00Z",
         "added_at": "2026-09-30T11:30:53.858Z"
       }
-    ]
+    ],
+    "google_play_url": "https://play.google.com/store/apps/details?id=com.xarena06.app",
+    "download_android": "https://play.google.com/store/apps/details?id=com.xarena06.app",
+    "android_package_name": "com.xarena06.app"
   },
   {
     "id": "dao-si-bat-truong-phi",
@@ -84038,7 +84304,13 @@
         "created_at": "2026-10-03T00:00:00Z",
         "added_at": "2026-10-03T05:26:13.861Z"
       }
-    ]
+    ],
+    "google_play_url": "https://play.google.com/store/apps/details?id=com.vtcmobile.daosibattruongphi",
+    "download_android": "https://play.google.com/store/apps/details?id=com.vtcmobile.daosibattruongphi",
+    "android_package_name": "com.vtcmobile.daosibattruongphi",
+    "app_store_url": "https://apps.apple.com/vn/app/%C4%91%E1%BA%A1o-s%C4%A9-b%E1%BA%AFt-tr%C6%B0%C6%A1ng-phi-vtc/id6754586618?uo=4",
+    "download_ios": "https://apps.apple.com/vn/app/%C4%91%E1%BA%A1o-s%C4%A9-b%E1%BA%AFt-tr%C6%B0%C6%A1ng-phi-vtc/id6754586618?uo=4",
+    "ios_bundle_id": "com.vtcmobile.daosibattruongphi"
   },
   {
     "id": "ever-night-thuc-tinh-oeg",
@@ -84933,7 +85205,10 @@
         "created_at": "2026-10-03T00:00:00Z",
         "added_at": "2026-10-03T05:26:13.864Z"
       }
-    ]
+    ],
+    "google_play_url": "https://play.google.com/store/apps/details?id=com.yongyevn.az",
+    "download_android": "https://play.google.com/store/apps/details?id=com.yongyevn.az",
+    "android_package_name": "com.yongyevn.az"
   },
   {
     "id": "dau-la-dai-luc",
@@ -86311,7 +86586,10 @@
         "created_at": "2026-09-12T20:30:00.000Z",
         "added_at": "2026-10-03T00:00:00Z"
       }
-    ]
+    ],
+    "google_play_url": "https://play.google.com/store/apps/details?id=com.global.vn.slmmo",
+    "download_android": "https://play.google.com/store/apps/details?id=com.global.vn.slmmo",
+    "android_package_name": "com.global.vn.slmmo"
   },
   {
     "id": "top-football-club",
@@ -87197,7 +87475,13 @@
         "isCrawlerAutoApproved": true,
         "updatedAt": "2026-10-11T12:04:33.162Z"
       }
-    ]
+    ],
+    "google_play_url": "https://play.google.com/store/apps/details?id=com.gg.lyqj.vn.moc",
+    "download_android": "https://play.google.com/store/apps/details?id=com.gg.lyqj.vn.moc",
+    "android_package_name": "com.gg.lyqj.vn.moc",
+    "app_store_url": "https://apps.apple.com/vn/app/top-football-club/id6761526081?uo=4",
+    "download_ios": "https://apps.apple.com/vn/app/top-football-club/id6761526081?uo=4",
+    "ios_bundle_id": "com.ios.lyqj.vn.moc"
   },
   {
     "id": "tien-nghich-mobile",
@@ -88558,7 +88842,13 @@
         "copyCount": 0,
         "code": "TOIYEUPHUNU2010"
       }
-    ]
+    ],
+    "google_play_url": "https://play.google.com/store/apps/details?id=com.joyplay.tiennghich",
+    "download_android": "https://play.google.com/store/apps/details?id=com.joyplay.tiennghich",
+    "android_package_name": "com.joyplay.tiennghich",
+    "app_store_url": "https://apps.apple.com/vn/app/ti%C3%AAn-ngh%E1%BB%8Bch-mobile-joygames/id6756594278?uo=4",
+    "download_ios": "https://apps.apple.com/vn/app/ti%C3%AAn-ngh%E1%BB%8Bch-mobile-joygames/id6756594278?uo=4",
+    "ios_bundle_id": "com.joyplay.tiennghich.ios"
   },
   {
     "id": "ts-origin",
@@ -88805,7 +89095,13 @@
         "created_at": "2026-10-03T00:00:00Z",
         "added_at": "2026-10-03T05:26:13.868Z"
       }
-    ]
+    ],
+    "google_play_url": "https://play.google.com/store/apps/details?id=com.vtcmobile.gz06",
+    "download_android": "https://play.google.com/store/apps/details?id=com.vtcmobile.gz06",
+    "android_package_name": "com.vtcmobile.gz06",
+    "app_store_url": "https://apps.apple.com/vn/app/ts-origin-vtc/id6757032233?uo=4",
+    "download_ios": "https://apps.apple.com/vn/app/ts-origin-vtc/id6757032233?uo=4",
+    "ios_bundle_id": "com.vtcmobile.gz06"
   },
   {
     "id": "thu-cung-bao-dan",
@@ -89557,7 +89853,10 @@
         "isCrawlerAutoApproved": true,
         "updatedAt": "2026-10-11T20:07:38.331Z"
       }
-    ]
+    ],
+    "google_play_url": "https://play.google.com/store/apps/details?id=com.towerpet.vn.and",
+    "download_android": "https://play.google.com/store/apps/details?id=com.towerpet.vn.and",
+    "android_package_name": "com.towerpet.vn.and"
   },
   {
     "id": "skyria-dao-ky-bi",
@@ -89912,7 +90211,10 @@
         "created_at": "2026-10-03T00:00:00Z",
         "added_at": "2026-10-03T05:26:13.760Z"
       }
-    ]
+    ],
+    "google_play_url": "https://play.google.com/store/apps/details?id=com.skyvn.gp",
+    "download_android": "https://play.google.com/store/apps/details?id=com.skyvn.gp",
+    "android_package_name": "com.skyvn.gp"
   },
   {
     "id": "kiem-linh-du-ky",
@@ -90564,7 +90866,13 @@
         "created_at": "2026-09-12T20:30:00.000Z",
         "added_at": "2026-10-03T00:00:00Z"
       }
-    ]
+    ],
+    "google_play_url": "https://play.google.com/store/apps/details?id=com.opengame.and.kiemlinh",
+    "download_android": "https://play.google.com/store/apps/details?id=com.opengame.and.kiemlinh",
+    "android_package_name": "com.opengame.and.kiemlinh",
+    "app_store_url": "https://apps.apple.com/vn/app/ki%E1%BA%BFm-linh-du-k%C3%BD/id6759956453?uo=4",
+    "download_ios": "https://apps.apple.com/vn/app/ki%E1%BA%BFm-linh-du-k%C3%BD/id6759956453?uo=4",
+    "ios_bundle_id": "com.opengame.ios.kiemlinh"
   },
   {
     "id": "infinity-kingdom",
@@ -91297,7 +91605,10 @@
         "created_at": "2026-10-03T00:00:00Z",
         "added_at": "2026-09-30T11:30:54.364Z"
       }
-    ]
+    ],
+    "google_play_url": "https://play.google.com/store/apps/details?id=vn.funtap.infinitykingdom",
+    "download_android": "https://play.google.com/store/apps/details?id=vn.funtap.infinitykingdom",
+    "android_package_name": "vn.funtap.infinitykingdom"
   },
   {
     "id": "van-thang-nam-de",
@@ -91598,7 +91909,10 @@
         "created_at": "2026-10-03T00:00:00Z",
         "added_at": "2026-10-03T05:26:13.991Z"
       }
-    ]
+    ],
+    "google_play_url": "https://play.google.com/store/apps/details?id=vn.com.vanthangnamde",
+    "download_android": "https://play.google.com/store/apps/details?id=vn.com.vanthangnamde",
+    "android_package_name": "vn.com.vanthangnamde"
   },
   {
     "id": "kiem-chi-giang-ho-khai-thien",
@@ -92115,7 +92429,13 @@
         "created_at": "2026-10-03T00:00:00Z",
         "added_at": "2026-09-30T11:30:54.312Z"
       }
-    ]
+    ],
+    "google_play_url": "https://play.google.com/store/apps/details?id=com.xyvn.az",
+    "download_android": "https://play.google.com/store/apps/details?id=com.xyvn.az",
+    "android_package_name": "com.xyvn.az",
+    "app_store_url": "https://apps.apple.com/vn/app/ki%E1%BA%BFm-ch%E1%BB%89-giang-h%E1%BB%93-khai-thi%C3%AAn/id6761166974?uo=4",
+    "download_ios": "https://apps.apple.com/vn/app/ki%E1%BA%BFm-ch%E1%BB%89-giang-h%E1%BB%93-khai-thi%C3%AAn/id6761166974?uo=4",
+    "ios_bundle_id": "com.xyvn.pg"
   },
   {
     "id": "lineage-w",
@@ -92497,7 +92817,13 @@
         "created_at": "2026-10-03T00:00:00Z",
         "added_at": "2026-10-03T05:26:13.984Z"
       }
-    ]
+    ],
+    "google_play_url": "https://play.google.com/store/apps/details?id=com.vng.lineagewvn",
+    "download_android": "https://play.google.com/store/apps/details?id=com.vng.lineagewvn",
+    "android_package_name": "com.vng.lineagewvn",
+    "app_store_url": "https://apps.apple.com/vn/app/lineage-w/id6754081597?uo=4",
+    "download_ios": "https://apps.apple.com/vn/app/lineage-w/id6754081597?uo=4",
+    "ios_bundle_id": "com.vng.lineagewvn"
   },
   {
     "id": "dau-la-the-gioi-san-hon",
@@ -93167,7 +93493,10 @@
         "created_at": "2026-09-29T00:00:00Z",
         "added_at": "2026-10-03T00:00:00Z"
       }
-    ]
+    ],
+    "google_play_url": "https://play.google.com/store/apps/details?id=com.global.vn.slmmo",
+    "download_android": "https://play.google.com/store/apps/details?id=com.global.vn.slmmo",
+    "android_package_name": "com.global.vn.slmmo"
   },
   {
     "id": "van-dinh-tam-quoc",
@@ -93468,7 +93797,10 @@
         "created_at": "2026-10-03T00:00:00Z",
         "added_at": "2026-10-03T05:26:14.143Z"
       }
-    ]
+    ],
+    "google_play_url": "https://play.google.com/store/apps/details?id=com.shg.sg445",
+    "download_android": "https://play.google.com/store/apps/details?id=com.shg.sg445",
+    "android_package_name": "com.shg.sg445"
   },
   {
     "id": "giang-ho-ky-ngo",
@@ -95384,7 +95716,10 @@
         "isCrawlerAutoApproved": true,
         "updatedAt": "2026-10-13T19:18:48.799Z"
       }
-    ]
+    ],
+    "google_play_url": "https://play.google.com/store/apps/details?id=vn.vplay.batluongnhan.t030a",
+    "download_android": "https://play.google.com/store/apps/details?id=vn.vplay.batluongnhan.t030a",
+    "android_package_name": "vn.vplay.batluongnhan.t030a"
   },
   {
     "id": "anh-kiet-tam-quoc",
@@ -95766,7 +96101,10 @@
         "created_at": "2026-10-03T00:00:00Z",
         "added_at": "2026-10-03T05:26:13.971Z"
       }
-    ]
+    ],
+    "google_play_url": "https://play.google.com/store/apps/details?id=vn.cmn.anhkiettamquoc",
+    "download_android": "https://play.google.com/store/apps/details?id=vn.cmn.anhkiettamquoc",
+    "android_package_name": "vn.cmn.anhkiettamquoc"
   },
   {
     "id": "than-thu-origin",
@@ -96175,7 +96513,10 @@
         "created_at": "2026-09-12T20:30:00.000Z",
         "added_at": "2026-10-03T00:00:00Z"
       }
-    ]
+    ],
+    "google_play_url": "https://play.google.com/store/apps/details?id=com.fungames.thanthu",
+    "download_android": "https://play.google.com/store/apps/details?id=com.fungames.thanthu",
+    "android_package_name": "com.fungames.thanthu"
   },
   {
     "id": "dao-mong-anh-hung-2",
@@ -96611,7 +96952,13 @@
         "created_at": "2026-10-03T00:00:00Z",
         "added_at": "2026-09-30T11:30:54.381Z"
       }
-    ]
+    ],
+    "google_play_url": "https://play.google.com/store/apps/details?id=com.mechanist.dream2.aos.vn",
+    "download_android": "https://play.google.com/store/apps/details?id=com.mechanist.dream2.aos.vn",
+    "android_package_name": "com.mechanist.dream2.aos.vn",
+    "app_store_url": "https://apps.apple.com/vn/app/%C4%91%E1%BA%A1o-m%E1%BB%99ng-anh-h%C3%B9ng-2-%E1%BA%A3o-m%E1%BB%99ng/id6760399653?uo=4",
+    "download_ios": "https://apps.apple.com/vn/app/%C4%91%E1%BA%A1o-m%E1%BB%99ng-anh-h%C3%B9ng-2-%E1%BA%A3o-m%E1%BB%99ng/id6760399653?uo=4",
+    "ios_bundle_id": "com.mechanist.dream2.ios.vn"
   },
   {
     "id": "vuon-hoa-hanh-phuc",
@@ -96885,7 +97232,10 @@
         "created_at": "2026-10-03T00:00:00Z",
         "added_at": "2026-09-30T11:30:54.363Z"
       }
-    ]
+    ],
+    "google_play_url": "https://play.google.com/store/apps/details?id=com.gzone.mhg.vn.gp",
+    "download_android": "https://play.google.com/store/apps/details?id=com.gzone.mhg.vn.gp",
+    "android_package_name": "com.gzone.mhg.vn.gp"
   },
   {
     "id": "co-giap-vo-han",
@@ -97429,7 +97779,10 @@
         "created_at": "2026-10-03T00:00:00Z",
         "added_at": "2026-09-30T11:30:54.758Z"
       }
-    ]
+    ],
+    "google_play_url": "https://play.google.com/store/apps/details?id=com.and.monstergo.vn",
+    "download_android": "https://play.google.com/store/apps/details?id=com.and.monstergo.vn",
+    "android_package_name": "com.and.monstergo.vn"
   },
   {
     "id": "lordnine-cuu-vuong-tranh-ba",
@@ -97919,7 +98272,13 @@
         "created_at": "2026-10-03T00:00:00Z",
         "added_at": "2026-09-30T11:30:54.351Z"
       }
-    ]
+    ],
+    "google_play_url": "https://play.google.com/store/apps/details?id=com.stovevn.l9asia.google",
+    "download_android": "https://play.google.com/store/apps/details?id=com.stovevn.l9asia.google",
+    "android_package_name": "com.stovevn.l9asia.google",
+    "app_store_url": "https://apps.apple.com/vn/app/lordnine-c%E1%BB%ADu-v%C6%B0%C6%A1ng-tranh-b%C3%A1/id6760332490?uo=4",
+    "download_ios": "https://apps.apple.com/vn/app/lordnine-c%E1%BB%ADu-v%C6%B0%C6%A1ng-tranh-b%C3%A1/id6760332490?uo=4",
+    "ios_bundle_id": "com.stovevn.l9asia.ios"
   },
   {
     "id": "tinh-kiem-truyen-ky-mobile",
@@ -98220,7 +98579,10 @@
         "created_at": "2026-10-03T00:00:00Z",
         "added_at": "2026-09-30T11:30:54.747Z"
       }
-    ]
+    ],
+    "google_play_url": "https://play.google.com/store/apps/details?id=com.titanstudio.tkcm",
+    "download_android": "https://play.google.com/store/apps/details?id=com.titanstudio.tkcm",
+    "android_package_name": "com.titanstudio.tkcm"
   },
   {
     "id": "bloodline-dong-mau-anh-hung",
@@ -98980,7 +99342,10 @@
         "created_at": "2026-09-29T00:00:00Z",
         "added_at": "2026-10-03T00:00:00Z"
       }
-    ]
+    ],
+    "google_play_url": "https://play.google.com/store/apps/details?id=vn.zoneplay.gp01",
+    "download_android": "https://play.google.com/store/apps/details?id=vn.zoneplay.gp01",
+    "android_package_name": "vn.zoneplay.gp01"
   },
   {
     "id": "total-football-vng",
@@ -99470,7 +99835,13 @@
         "created_at": "2026-10-03T00:00:00Z",
         "added_at": "2026-10-03T05:26:14.091Z"
       }
-    ]
+    ],
+    "google_play_url": "https://play.google.com/store/apps/details?id=com.vnggames.totalfootball",
+    "download_android": "https://play.google.com/store/apps/details?id=com.vnggames.totalfootball",
+    "android_package_name": "com.vnggames.totalfootball",
+    "app_store_url": "https://apps.apple.com/vn/app/total-football-vng/id6754236292?uo=4",
+    "download_ios": "https://apps.apple.com/vn/app/total-football-vng/id6754236292?uo=4",
+    "ios_bundle_id": "com.vnggames.totalfootball"
   },
   {
     "id": "lac-than-chien-ca",
@@ -99717,7 +100088,13 @@
         "created_at": "2026-10-03T00:00:00Z",
         "added_at": "2026-10-03T05:26:14.241Z"
       }
-    ]
+    ],
+    "google_play_url": "https://play.google.com/store/apps/details?id=vn.com.lacthanchienca",
+    "download_android": "https://play.google.com/store/apps/details?id=vn.com.lacthanchienca",
+    "android_package_name": "vn.com.lacthanchienca",
+    "app_store_url": "https://apps.apple.com/vn/app/l%E1%BA%A1c-th%E1%BA%A7n-chi%E1%BA%BFn-ca/id6753707827?uo=4",
+    "download_ios": "https://apps.apple.com/vn/app/l%E1%BA%A1c-th%E1%BA%A7n-chi%E1%BA%BFn-ca/id6753707827?uo=4",
+    "ios_bundle_id": "vn.gosu.lacthanchienca"
   },
   {
     "id": "cookierun-banh-quy",
@@ -100045,7 +100422,13 @@
         "created_at": "2026-09-12T20:30:00.000Z",
         "added_at": "2026-10-03T00:00:00Z"
       }
-    ]
+    ],
+    "google_play_url": "https://play.google.com/store/apps/details?id=com.vng.cookierun.oven.smash.vn",
+    "download_android": "https://play.google.com/store/apps/details?id=com.vng.cookierun.oven.smash.vn",
+    "android_package_name": "com.vng.cookierun.oven.smash.vn",
+    "app_store_url": "https://apps.apple.com/vn/app/cookierun-b%C3%A1nh-quy-%C4%91%E1%BA%A1i-chi%E1%BA%BFn/id6739695237?uo=4",
+    "download_ios": "https://apps.apple.com/vn/app/cookierun-b%C3%A1nh-quy-%C4%91%E1%BA%A1i-chi%E1%BA%BFn/id6739695237?uo=4",
+    "ios_bundle_id": "com.vng.cookierun.oven.smash.vn"
   },
   {
     "id": "nhat-niem-son-hai",
@@ -100454,7 +100837,13 @@
         "created_at": "2026-10-03T00:00:00Z",
         "added_at": "2026-10-03T05:26:14.117Z"
       }
-    ]
+    ],
+    "google_play_url": "https://play.google.com/store/apps/details?id=com.ynsh.vn.google",
+    "download_android": "https://play.google.com/store/apps/details?id=com.ynsh.vn.google",
+    "android_package_name": "com.ynsh.vn.google",
+    "app_store_url": "https://apps.apple.com/vn/app/nh%E1%BA%A5t-ni%E1%BB%87m-s%C6%A1n-h%E1%BA%A3i-oeg/id6759076995?uo=4",
+    "download_ios": "https://apps.apple.com/vn/app/nh%E1%BA%A5t-ni%E1%BB%87m-s%C6%A1n-h%E1%BA%A3i-oeg/id6759076995?uo=4",
+    "ios_bundle_id": "com.ynsh.vn.ios"
   },
   {
     "id": "thu-thanh-dai-chien",
@@ -100701,7 +101090,10 @@
         "created_at": "2026-10-03T00:00:00Z",
         "added_at": "2026-09-30T11:30:55.073Z"
       }
-    ]
+    ],
+    "google_play_url": "https://play.google.com/store/apps/details?id=my.arena.vietnam",
+    "download_android": "https://play.google.com/store/apps/details?id=my.arena.vietnam",
+    "android_package_name": "my.arena.vietnam"
   },
   {
     "id": "vo-hiep-origin",
@@ -101110,7 +101502,10 @@
         "created_at": "2026-10-03T00:00:00Z",
         "added_at": "2026-09-30T11:30:54.680Z"
       }
-    ]
+    ],
+    "google_play_url": "https://play.google.com/store/apps/details?id=com.fungames.vohiep",
+    "download_android": "https://play.google.com/store/apps/details?id=com.fungames.vohiep",
+    "android_package_name": "com.fungames.vohiep"
   },
   {
     "id": "haunted-room",
@@ -101949,7 +102344,13 @@
         "isCrawlerAutoApproved": true,
         "updatedAt": "2026-10-11T12:04:33.776Z"
       }
-    ]
+    ],
+    "google_play_url": "https://play.google.com/store/apps/details?id=com.ygjszvn.google",
+    "download_android": "https://play.google.com/store/apps/details?id=com.ygjszvn.google",
+    "android_package_name": "com.ygjszvn.google",
+    "app_store_url": "https://apps.apple.com/vn/app/haunted-room-ng%C3%B4i-nh%C3%A0-h%E1%BA%AFc-%C3%A1m/id6757224416?uo=4",
+    "download_ios": "https://apps.apple.com/vn/app/haunted-room-ng%C3%B4i-nh%C3%A0-h%E1%BA%AFc-%C3%A1m/id6757224416?uo=4",
+    "ios_bundle_id": "com.vn.ygjsz.ios"
   },
   {
     "id": "tam-quoc-36-ke",
@@ -102493,7 +102894,13 @@
         "created_at": "2026-10-03T00:00:00Z",
         "added_at": "2026-10-03T05:26:14.224Z"
       }
-    ]
+    ],
+    "google_play_url": "https://play.google.com/store/apps/details?id=com.vtc.tt15",
+    "download_android": "https://play.google.com/store/apps/details?id=com.vtc.tt15",
+    "android_package_name": "com.vtc.tt15",
+    "app_store_url": "https://apps.apple.com/vn/app/tam-qu%E1%BB%91c-36-k%E1%BA%BF-vtc/id6748180269?uo=4",
+    "download_ios": "https://apps.apple.com/vn/app/tam-qu%E1%BB%91c-36-k%E1%BA%BF-vtc/id6748180269?uo=4",
+    "ios_bundle_id": "com.vtc.tt15"
   },
   {
     "id": "ta-la-cao-thu-vo-lam",
@@ -102929,7 +103336,10 @@
         "created_at": "2026-10-03T00:00:00Z",
         "added_at": "2026-09-30T11:30:54.678Z"
       }
-    ]
+    ],
+    "google_play_url": "https://play.google.com/store/apps/details?id=com.joyplay.hiepkhach",
+    "download_android": "https://play.google.com/store/apps/details?id=com.joyplay.hiepkhach",
+    "android_package_name": "com.joyplay.hiepkhach"
   },
   {
     "id": "vuong-gia-chien-quoc",
@@ -103392,7 +103802,13 @@
         "created_at": "2026-10-03T00:00:00Z",
         "added_at": "2026-10-03T05:26:14.227Z"
       }
-    ]
+    ],
+    "google_play_url": "https://play.google.com/store/apps/details?id=vn.adnx.chinhdo",
+    "download_android": "https://play.google.com/store/apps/details?id=vn.adnx.chinhdo",
+    "android_package_name": "vn.adnx.chinhdo",
+    "app_store_url": "https://apps.apple.com/vn/app/v%C6%B0%C6%A1ng-qu%E1%BB%91c-ki%E1%BA%BFn-gamota/id6444060858?uo=4",
+    "download_ios": "https://apps.apple.com/vn/app/v%C6%B0%C6%A1ng-qu%E1%BB%91c-ki%E1%BA%BFn-gamota/id6444060858?uo=4",
+    "ios_bundle_id": "com.allstarunion.ta.ios.vn"
   },
   {
     "id": "kanban-musume",
@@ -103720,7 +104136,10 @@
         "created_at": "2026-10-03T00:00:00Z",
         "added_at": "2026-10-03T05:26:14.097Z"
       }
-    ]
+    ],
+    "google_play_url": "https://play.google.com/store/apps/details?id=com.uonegame.kanbanmusume",
+    "download_android": "https://play.google.com/store/apps/details?id=com.uonegame.kanbanmusume",
+    "android_package_name": "com.uonegame.kanbanmusume"
   },
   {
     "id": "phap-su-hac-am",
@@ -104075,7 +104494,13 @@
         "created_at": "2026-10-03T00:00:00Z",
         "added_at": "2026-10-03T05:26:14.248Z"
       }
-    ]
+    ],
+    "google_play_url": "https://play.google.com/store/apps/details?id=com.ygjszvn.google",
+    "download_android": "https://play.google.com/store/apps/details?id=com.ygjszvn.google",
+    "android_package_name": "com.ygjszvn.google",
+    "app_store_url": "https://apps.apple.com/vn/app/h%E1%BA%AFc-%E1%BA%A3nh-v%E1%BB%87-th%E1%BA%A7n/id6447539837?uo=4",
+    "download_ios": "https://apps.apple.com/vn/app/h%E1%BA%AFc-%E1%BA%A3nh-v%E1%BB%87-th%E1%BA%A7n/id6447539837?uo=4",
+    "ios_bundle_id": "com.allstarunion.myths.ios.vn"
   },
   {
     "id": "sieu-hai-tac",
@@ -104592,7 +105017,10 @@
         "created_at": "2026-10-03T00:00:00Z",
         "added_at": "2026-10-03T05:26:14.230Z"
       }
-    ]
+    ],
+    "google_play_url": "https://play.google.com/store/apps/details?id=com.truyenthuyet.haitacgame",
+    "download_android": "https://play.google.com/store/apps/details?id=com.truyenthuyet.haitacgame",
+    "android_package_name": "com.truyenthuyet.haitacgame"
   },
   {
     "id": "than-ma-arena",
@@ -105055,7 +105483,10 @@
         "created_at": "2026-10-03T00:00:00Z",
         "added_at": "2026-10-03T05:26:14.237Z"
       }
-    ]
+    ],
+    "google_play_url": "https://play.google.com/store/apps/details?id=vn.cmn.thanmaarena",
+    "download_android": "https://play.google.com/store/apps/details?id=vn.cmn.thanmaarena",
+    "android_package_name": "vn.cmn.thanmaarena"
   },
   {
     "id": "ballistic-hero",
@@ -106055,7 +106486,13 @@
         "isCrawlerAutoApproved": true,
         "updatedAt": "2026-10-11T12:04:33.963Z"
       }
-    ]
+    ],
+    "google_play_url": "https://play.google.com/store/apps/details?id=com.vnggames.ballisticherovn",
+    "download_android": "https://play.google.com/store/apps/details?id=com.vnggames.ballisticherovn",
+    "android_package_name": "com.vnggames.ballisticherovn",
+    "app_store_url": "https://apps.apple.com/vn/app/ballistic-hero-vng/id6754264117?uo=4",
+    "download_ios": "https://apps.apple.com/vn/app/ballistic-hero-vng/id6754264117?uo=4",
+    "ios_bundle_id": "com.vnggames.ballisticherovn"
   },
   {
     "id": "vlcm-origin",
@@ -106383,7 +106820,10 @@
         "created_at": "2026-10-03T00:00:00Z",
         "added_at": "2026-10-03T05:26:14.348Z"
       }
-    ]
+    ],
+    "google_play_url": "https://play.google.com/store/apps/details?id=com.tepaylink.vlcm",
+    "download_android": "https://play.google.com/store/apps/details?id=com.tepaylink.vlcm",
+    "android_package_name": "com.tepaylink.vlcm"
   },
   {
     "id": "bang-bang-dai-chien",
@@ -106792,7 +107232,13 @@
         "created_at": "2026-10-03T00:00:00Z",
         "added_at": "2026-10-03T05:26:14.363Z"
       }
-    ]
+    ],
+    "google_play_url": "https://play.google.com/store/apps/details?id=com.lastshelter.gpvi",
+    "download_android": "https://play.google.com/store/apps/details?id=com.lastshelter.gpvi",
+    "android_package_name": "com.lastshelter.gpvi",
+    "app_store_url": "https://apps.apple.com/vn/app/bang-bang-%C4%91%E1%BA%A1i-chi%E1%BA%BFn/id6758991276?uo=4",
+    "download_ios": "https://apps.apple.com/vn/app/bang-bang-%C4%91%E1%BA%A1i-chi%E1%BA%BFn/id6758991276?uo=4",
+    "ios_bundle_id": "com.lastshelter.iosvi"
   },
   {
     "id": "vo-danh-giang-ho",
@@ -107417,7 +107863,13 @@
         "created_at": "2026-10-03T00:00:00Z",
         "added_at": "2026-09-30T11:30:55.496Z"
       }
-    ]
+    ],
+    "google_play_url": "https://play.google.com/store/apps/details?id=com.joyplay.vodanhgiangho",
+    "download_android": "https://play.google.com/store/apps/details?id=com.joyplay.vodanhgiangho",
+    "android_package_name": "com.joyplay.vodanhgiangho",
+    "app_store_url": "https://apps.apple.com/vn/app/v%C3%B4-danh-giang-h%E1%BB%93-joygames/id6746827282?uo=4",
+    "download_ios": "https://apps.apple.com/vn/app/v%C3%B4-danh-giang-h%E1%BB%93-joygames/id6746827282?uo=4",
+    "ios_bundle_id": "com.joyplay.vodanhgiangho.ios"
   },
   {
     "id": "ludus-quyet-dau",
@@ -107799,7 +108251,10 @@
         "created_at": "2026-09-29T00:00:00Z",
         "added_at": "2026-10-03T00:00:00Z"
       }
-    ]
+    ],
+    "google_play_url": "https://play.google.com/store/apps/details?id=com.topapp.viludus",
+    "download_android": "https://play.google.com/store/apps/details?id=com.topapp.viludus",
+    "android_package_name": "com.topapp.viludus"
   },
   {
     "id": "tan-3q-max",
@@ -108127,7 +108582,10 @@
         "created_at": "2026-10-03T00:00:00Z",
         "added_at": "2026-10-03T05:26:14.382Z"
       }
-    ]
+    ],
+    "google_play_url": "https://play.google.com/store/apps/details?id=vn.funtap.tan3qmax",
+    "download_android": "https://play.google.com/store/apps/details?id=vn.funtap.tan3qmax",
+    "android_package_name": "vn.funtap.tan3qmax"
   },
   {
     "id": "hoan-my-tam-quoc",
@@ -108617,7 +109075,13 @@
         "created_at": "2026-10-03T00:00:00Z",
         "added_at": "2026-10-03T05:26:14.936Z"
       }
-    ]
+    ],
+    "google_play_url": "https://play.google.com/store/apps/details?id=vn.dev.tam.quoc",
+    "download_android": "https://play.google.com/store/apps/details?id=vn.dev.tam.quoc",
+    "android_package_name": "vn.dev.tam.quoc",
+    "app_store_url": "https://apps.apple.com/vn/app/ho%C3%A0n-m%E1%BB%B9-tam-qu%E1%BB%91c/id6748054739?uo=4",
+    "download_ios": "https://apps.apple.com/vn/app/ho%C3%A0n-m%E1%BB%B9-tam-qu%E1%BB%91c/id6748054739?uo=4",
+    "ios_bundle_id": "vn.dev.tam.quoc"
   },
   {
     "id": "de-che-bong-da",
@@ -108891,7 +109355,13 @@
         "created_at": "2026-10-03T00:00:00Z",
         "added_at": "2026-09-30T11:30:55.578Z"
       }
-    ]
+    ],
+    "google_play_url": "https://play.google.com/store/apps/details?id=com.fifa.football.bongda.game.manager.vn",
+    "download_android": "https://play.google.com/store/apps/details?id=com.fifa.football.bongda.game.manager.vn",
+    "android_package_name": "com.fifa.football.bongda.game.manager.vn",
+    "app_store_url": "https://apps.apple.com/vn/app/%C4%91%E1%BA%BF-ch%E1%BA%BF-b%C3%B3ng-%C4%91%C3%A1/id6756001651?uo=4",
+    "download_ios": "https://apps.apple.com/vn/app/%C4%91%E1%BA%BF-ch%E1%BA%BF-b%C3%B3ng-%C4%91%C3%A1/id6756001651?uo=4",
+    "ios_bundle_id": "com.fifa.football.bongda.game.manager.ios"
   },
   {
     "id": "legends-reborn",
@@ -109138,7 +109608,13 @@
         "created_at": "2026-10-03T00:00:00Z",
         "added_at": "2026-10-03T05:26:14.358Z"
       }
-    ]
+    ],
+    "google_play_url": "https://play.google.com/store/apps/details?id=com.Knight.MagnumQuest.VN",
+    "download_android": "https://play.google.com/store/apps/details?id=com.Knight.MagnumQuest.VN",
+    "android_package_name": "com.Knight.MagnumQuest.VN",
+    "app_store_url": "https://apps.apple.com/vn/app/legends-reborn-funtap/id6759997109?uo=4",
+    "download_ios": "https://apps.apple.com/vn/app/legends-reborn-funtap/id6759997109?uo=4",
+    "ios_bundle_id": "com.Knight.MagnumQuest.VN"
   },
   {
     "id": "huyen-tuong-phong-than",
@@ -109628,7 +110104,10 @@
         "created_at": "2026-10-03T00:00:00Z",
         "added_at": "2026-09-30T11:30:55.480Z"
       }
-    ]
+    ],
+    "google_play_url": "https://play.google.com/store/apps/details?id=com.pt.tqm",
+    "download_android": "https://play.google.com/store/apps/details?id=com.pt.tqm",
+    "android_package_name": "com.pt.tqm"
   },
   {
     "id": "kiem-de-origin",
@@ -110082,7 +110561,13 @@
         "isCrawlerAutoApproved": true,
         "updatedAt": "2026-10-11T12:04:34.197Z"
       }
-    ]
+    ],
+    "google_play_url": "https://play.google.com/store/apps/details?id=com.fungames.kiemde",
+    "download_android": "https://play.google.com/store/apps/details?id=com.fungames.kiemde",
+    "android_package_name": "com.fungames.kiemde",
+    "app_store_url": "https://apps.apple.com/vn/app/ki%E1%BA%BFm-%C4%91%E1%BA%BF-mobile-fungames/id6480434985?uo=4",
+    "download_ios": "https://apps.apple.com/vn/app/ki%E1%BA%BFm-%C4%91%E1%BA%BF-mobile-fungames/id6480434985?uo=4",
+    "ios_bundle_id": "com.psm.kiemsihoaphung"
   },
   {
     "id": "phong-hau-tam-quoc",
@@ -110491,7 +110976,13 @@
         "created_at": "2026-09-12T20:30:00.000Z",
         "added_at": "2026-10-03T00:00:00Z"
       }
-    ]
+    ],
+    "google_play_url": "https://play.google.com/store/apps/details?id=com.shg.sg443",
+    "download_android": "https://play.google.com/store/apps/details?id=com.shg.sg443",
+    "android_package_name": "com.shg.sg443",
+    "app_store_url": "https://apps.apple.com/vn/app/phong-h%E1%BA%A7u-tam-qu%E1%BB%91c/id6754582854?uo=4",
+    "download_ios": "https://apps.apple.com/vn/app/phong-h%E1%BA%A7u-tam-qu%E1%BB%91c/id6754582854?uo=4",
+    "ios_bundle_id": "com.sohagame.sg443"
   },
   {
     "id": "phong-than",
@@ -111714,7 +112205,13 @@
         "created_at": "2026-10-03T00:00:00Z",
         "added_at": "2026-10-03T05:26:14.911Z"
       }
-    ]
+    ],
+    "google_play_url": "https://play.google.com/store/apps/details?id=com.rainbow.bomber.bomb.man.classic.adventure.free.mobile.game",
+    "download_android": "https://play.google.com/store/apps/details?id=com.rainbow.bomber.bomb.man.classic.adventure.free.mobile.game",
+    "android_package_name": "com.rainbow.bomber.bomb.man.classic.adventure.free.mobile.game",
+    "app_store_url": "https://apps.apple.com/vn/app/bomber-classic-bomberman/id1526277864?uo=4",
+    "download_ios": "https://apps.apple.com/vn/app/bomber-classic-bomberman/id1526277864?uo=4",
+    "ios_bundle_id": "com.emma.stone.boomber.classic.supr"
   },
   {
     "id": "vuot-tuong-thep",
@@ -112123,7 +112620,10 @@
         "created_at": "2026-09-29T00:00:00Z",
         "added_at": "2026-10-03T00:00:00Z"
       }
-    ]
+    ],
+    "google_play_url": "https://play.google.com/store/apps/details?id=com.vuottuongthep.vn",
+    "download_android": "https://play.google.com/store/apps/details?id=com.vuottuongthep.vn",
+    "android_package_name": "com.vuottuongthep.vn"
   },
   {
     "id": "phong-than-ta-dinh-doat",
@@ -112721,7 +113221,10 @@
         "created_at": "2026-10-03T00:00:00Z",
         "added_at": "2026-10-03T05:26:14.354Z"
       }
-    ]
+    ],
+    "google_play_url": "https://play.google.com/store/apps/details?id=com.pt.tqm",
+    "download_android": "https://play.google.com/store/apps/details?id=com.pt.tqm",
+    "android_package_name": "com.pt.tqm"
   },
   {
     "id": "ngao-kiem-vo-song-mobile",
@@ -113076,7 +113579,10 @@
         "created_at": "2026-09-29T00:00:00Z",
         "added_at": "2026-10-03T00:00:00Z"
       }
-    ]
+    ],
+    "google_play_url": "https://play.google.com/store/apps/details?id=com.fungames.kiemde",
+    "download_android": "https://play.google.com/store/apps/details?id=com.fungames.kiemde",
+    "android_package_name": "com.fungames.kiemde"
   },
   {
     "id": "quai-thu-phong-thu",
@@ -113296,7 +113802,10 @@
         "created_at": "2026-10-03T00:00:00Z",
         "added_at": "2026-09-30T11:30:56.352Z"
       }
-    ]
+    ],
+    "google_play_url": "https://play.google.com/store/apps/details?id=games.playwind.palgo.vn",
+    "download_android": "https://play.google.com/store/apps/details?id=games.playwind.palgo.vn",
+    "android_package_name": "games.playwind.palgo.vn"
   },
   {
     "id": "the-gioi-hoa-vien-cua-toi",
@@ -113867,7 +114376,13 @@
         "created_at": "2026-10-03T00:00:00Z",
         "added_at": "2026-10-03T05:26:14.917Z"
       }
-    ]
+    ],
+    "google_play_url": "https://play.google.com/store/apps/details?id=com.myflower.gp",
+    "download_android": "https://play.google.com/store/apps/details?id=com.myflower.gp",
+    "android_package_name": "com.myflower.gp",
+    "app_store_url": "https://apps.apple.com/vn/app/th%E1%BA%BF-gi%E1%BB%9Bi-hoa-vi%C3%AAn-c%E1%BB%A7a-t%C3%B4i/id6757736102?uo=4",
+    "download_ios": "https://apps.apple.com/vn/app/th%E1%BA%BF-gi%E1%BB%9Bi-hoa-vi%C3%AAn-c%E1%BB%A7a-t%C3%B4i/id6757736102?uo=4",
+    "ios_bundle_id": "com.myflowervn.as"
   },
   {
     "id": "tho-san-sieu-cap",
@@ -114195,7 +114710,13 @@
         "created_at": "2026-10-03T00:00:00Z",
         "added_at": "2026-10-03T05:26:15.010Z"
       }
-    ]
+    ],
+    "google_play_url": "https://play.google.com/store/apps/details?id=tho.san.sieu.cap",
+    "download_android": "https://play.google.com/store/apps/details?id=tho.san.sieu.cap",
+    "android_package_name": "tho.san.sieu.cap",
+    "app_store_url": "https://apps.apple.com/vn/app/th%E1%BB%A3-s%C4%83n-si%C3%AAu-c%E1%BA%A5p/id6756402599?uo=4",
+    "download_ios": "https://apps.apple.com/vn/app/th%E1%BB%A3-s%C4%83n-si%C3%AAu-c%E1%BA%A5p/id6756402599?uo=4",
+    "ios_bundle_id": "tho.san.sieu.cap"
   },
   {
     "id": "nhip-dieu-than-tuong-oeg",
@@ -114550,7 +115071,13 @@
         "created_at": "2026-10-03T00:00:00Z",
         "added_at": "2026-10-03T05:26:15.046Z"
       }
-    ]
+    ],
+    "google_play_url": "https://play.google.com/store/apps/details?id=spranki.kpop.monster.mix.beat",
+    "download_android": "https://play.google.com/store/apps/details?id=spranki.kpop.monster.mix.beat",
+    "android_package_name": "spranki.kpop.monster.mix.beat",
+    "app_store_url": "https://apps.apple.com/vn/app/nh%E1%BB%8Bp-%C4%91i%E1%BB%87u-th%E1%BA%A7n-t%C6%B0%E1%BB%A3ng/id6755798536?uo=4",
+    "download_ios": "https://apps.apple.com/vn/app/nh%E1%BB%8Bp-%C4%91i%E1%BB%87u-th%E1%BA%A7n-t%C6%B0%E1%BB%A3ng/id6755798536?uo=4",
+    "ios_bundle_id": "com.xipu.cwoxzy.vn.ios"
   },
   {
     "id": "samkok-tam-quoc",
@@ -118372,7 +118899,10 @@
         "isCrawlerAutoApproved": true,
         "updatedAt": "2026-10-11T12:04:34.541Z"
       }
-    ]
+    ],
+    "google_play_url": "https://play.google.com/store/apps/details?id=vn.vplay.thiethan3q.t028a",
+    "download_android": "https://play.google.com/store/apps/details?id=vn.vplay.thiethan3q.t028a",
+    "android_package_name": "vn.vplay.thiethan3q.t028a"
   },
   {
     "id": "dragon-city",
@@ -118619,7 +119149,13 @@
         "created_at": "2026-10-03T00:00:00Z",
         "added_at": "2026-10-03T05:26:15.033Z"
       }
-    ]
+    ],
+    "google_play_url": "https://play.google.com/store/apps/details?id=com.moonlight.dragoncity",
+    "download_android": "https://play.google.com/store/apps/details?id=com.moonlight.dragoncity",
+    "android_package_name": "com.moonlight.dragoncity",
+    "app_store_url": "https://apps.apple.com/vn/app/dragon-village-a-city-builder/id807014595?uo=4",
+    "download_ios": "https://apps.apple.com/vn/app/dragon-village-a-city-builder/id807014595?uo=4",
+    "ios_bundle_id": "com.ziau.magicdragonvillage"
   },
   {
     "id": "tho-san-quy",
@@ -119410,7 +119946,13 @@
         "isCrawlerAutoApproved": true,
         "updatedAt": "2026-10-13T19:18:51.308Z"
       }
-    ]
+    ],
+    "google_play_url": "https://play.google.com/store/apps/details?id=com.dlw.vn.google",
+    "download_android": "https://play.google.com/store/apps/details?id=com.dlw.vn.google",
+    "android_package_name": "com.dlw.vn.google",
+    "app_store_url": "https://apps.apple.com/vn/app/th%E1%BB%A3-s%C4%83n-qu%E1%BB%B7-%C4%91%E1%BA%A1i-chi%E1%BA%BFn-d%E1%BB%8B-gi%E1%BB%9Bi/id6751942351?uo=4",
+    "download_ios": "https://apps.apple.com/vn/app/th%E1%BB%A3-s%C4%83n-qu%E1%BB%B7-%C4%91%E1%BA%A1i-chi%E1%BA%BFn-d%E1%BB%8B-gi%E1%BB%9Bi/id6751942351?uo=4",
+    "ios_bundle_id": "com.dlw.vn.ios"
   },
   {
     "id": "vu-tru-than-thoai",
@@ -119630,7 +120172,10 @@
         "created_at": "2026-10-03T00:00:00Z",
         "added_at": "2026-09-30T11:30:56.704Z"
       }
-    ]
+    ],
+    "google_play_url": "https://play.google.com/store/apps/details?id=com.appakia.mythicuniverse",
+    "download_android": "https://play.google.com/store/apps/details?id=com.appakia.mythicuniverse",
+    "android_package_name": "com.appakia.mythicuniverse"
   },
   {
     "id": "truyen-thuyet-haki",
@@ -119958,7 +120503,10 @@
         "created_at": "2026-10-03T00:00:00Z",
         "added_at": "2026-09-30T11:30:55.875Z"
       }
-    ]
+    ],
+    "google_play_url": "https://play.google.com/store/apps/details?id=com.epg.truyenthuyethaki",
+    "download_android": "https://play.google.com/store/apps/details?id=com.epg.truyenthuyethaki",
+    "android_package_name": "com.epg.truyenthuyethaki"
   },
   {
     "id": "truyen-thuyet-than-khi",
@@ -120313,7 +120861,10 @@
         "created_at": "2026-10-03T00:00:00Z",
         "added_at": "2026-10-03T05:26:14.908Z"
       }
-    ]
+    ],
+    "google_play_url": "https://play.google.com/store/apps/details?id=com.epg.truyenthuyethaki",
+    "download_android": "https://play.google.com/store/apps/details?id=com.epg.truyenthuyethaki",
+    "android_package_name": "com.epg.truyenthuyethaki"
   },
   {
     "id": "tran-thi-hang-quy",
@@ -120803,7 +121354,10 @@
         "isCrawlerAutoApproved": true,
         "updatedAt": "2026-10-11T12:04:34.770Z"
       }
-    ]
+    ],
+    "google_play_url": "https://play.google.com/store/apps/details?id=com.dlw.vn.google",
+    "download_android": "https://play.google.com/store/apps/details?id=com.dlw.vn.google",
+    "android_package_name": "com.dlw.vn.google"
   },
   {
     "id": "vu-tru-dai-chien",
@@ -121023,7 +121577,10 @@
         "created_at": "2026-10-03T00:00:00Z",
         "added_at": "2026-09-30T11:30:56.260Z"
       }
-    ]
+    ],
+    "google_play_url": "https://play.google.com/store/apps/details?id=com.GTeamTechnology.VTriChin",
+    "download_android": "https://play.google.com/store/apps/details?id=com.GTeamTechnology.VTriChin",
+    "android_package_name": "com.GTeamTechnology.VTriChin"
   },
   {
     "id": "forsaken-world-2",
@@ -121621,7 +122178,10 @@
         "created_at": "2026-10-03T00:00:00Z",
         "added_at": "2026-09-30T11:30:56.369Z"
       }
-    ]
+    ],
+    "google_play_url": "https://play.google.com/store/apps/details?id=com.dlw.vn.google",
+    "download_android": "https://play.google.com/store/apps/details?id=com.dlw.vn.google",
+    "android_package_name": "com.dlw.vn.google"
   },
   {
     "id": "anh-hung-tien-len",
@@ -123290,7 +123850,10 @@
         "isCrawlerAutoApproved": true,
         "updatedAt": "2026-10-13T19:18:51.504Z"
       }
-    ]
+    ],
+    "google_play_url": "https://play.google.com/store/apps/details?id=vn.cmn.anhhungtienlen",
+    "download_android": "https://play.google.com/store/apps/details?id=vn.cmn.anhhungtienlen",
+    "android_package_name": "vn.cmn.anhhungtienlen"
   },
   {
     "id": "arcane-hunter",
@@ -123591,7 +124154,10 @@
         "created_at": "2026-10-03T00:00:00Z",
         "added_at": "2026-10-03T05:26:15.147Z"
       }
-    ]
+    ],
+    "google_play_url": "https://play.google.com/store/apps/details?id=com.itcgamestudio.arcane.hunter.soul.survivor.monster.action.shooter.rpg",
+    "download_android": "https://play.google.com/store/apps/details?id=com.itcgamestudio.arcane.hunter.soul.survivor.monster.action.shooter.rpg",
+    "android_package_name": "com.itcgamestudio.arcane.hunter.soul.survivor.monster.action.shooter.rpg"
   },
   {
     "id": "3q-chess-ky-thu-tam-quoc",
@@ -124054,7 +124620,10 @@
         "created_at": "2026-10-03T00:00:00Z",
         "added_at": "2026-10-03T05:26:15.142Z"
       }
-    ]
+    ],
+    "google_play_url": "https://play.google.com/store/apps/details?id=com.shg.sg430new",
+    "download_android": "https://play.google.com/store/apps/details?id=com.shg.sg430new",
+    "android_package_name": "com.shg.sg430new"
   },
   {
     "id": "cherry-tale",
@@ -124382,7 +124951,10 @@
         "created_at": "2026-10-03T00:00:00Z",
         "added_at": "2026-10-03T05:26:15.139Z"
       }
-    ]
+    ],
+    "google_play_url": "https://play.google.com/store/apps/details?id=com.chillyroom.hanksbar.gp",
+    "download_android": "https://play.google.com/store/apps/details?id=com.chillyroom.hanksbar.gp",
+    "android_package_name": "com.chillyroom.hanksbar.gp"
   },
   {
     "id": "quy-mon-quan",
@@ -124872,7 +125444,10 @@
         "created_at": "2026-10-03T00:00:00Z",
         "added_at": "2026-10-03T05:26:15.154Z"
       }
-    ]
+    ],
+    "google_play_url": "https://play.google.com/store/apps/details?id=vn.vplay.quymonquan.r015a",
+    "download_android": "https://play.google.com/store/apps/details?id=vn.vplay.quymonquan.r015a",
+    "android_package_name": "vn.vplay.quymonquan.r015a"
   },
   {
     "id": "huyen-thoai-phuc-yeu",
@@ -125524,7 +126099,10 @@
         "created_at": "2026-10-03T00:00:00Z",
         "added_at": "2026-09-30T11:30:57.051Z"
       }
-    ]
+    ],
+    "google_play_url": "https://play.google.com/store/apps/details?id=com.vietnamhtpy.game",
+    "download_android": "https://play.google.com/store/apps/details?id=com.vietnamhtpy.game",
+    "android_package_name": "com.vietnamhtpy.game"
   },
   {
     "id": "hoi-uc-kiem-the",
@@ -125906,7 +126484,10 @@
         "created_at": "2026-10-03T00:00:00Z",
         "added_at": "2026-09-30T11:30:57.143Z"
       }
-    ]
+    ],
+    "google_play_url": "https://play.google.com/store/apps/details?id=vn.zoneplay.g65vn",
+    "download_android": "https://play.google.com/store/apps/details?id=vn.zoneplay.g65vn",
+    "android_package_name": "vn.zoneplay.g65vn"
   },
   {
     "id": "tam-quoc-dong-khoi",
@@ -126219,7 +126800,10 @@
         "isCrawlerAutoApproved": true,
         "updatedAt": "2026-10-11T12:04:35.114Z"
       }
-    ]
+    ],
+    "google_play_url": "https://play.google.com/store/apps/details?id=com.zalogame.dongkhoi3q",
+    "download_android": "https://play.google.com/store/apps/details?id=com.zalogame.dongkhoi3q",
+    "android_package_name": "com.zalogame.dongkhoi3q"
   },
   {
     "id": "minh-chu-vo-lam",
@@ -127171,7 +127755,10 @@
         "isCrawlerAutoApproved": true,
         "updatedAt": "2026-10-13T19:18:51.816Z"
       }
-    ]
+    ],
+    "google_play_url": "https://play.google.com/store/apps/details?id=vn.vplay.llkd.t026a",
+    "download_android": "https://play.google.com/store/apps/details?id=vn.vplay.llkd.t026a",
+    "android_package_name": "vn.vplay.llkd.t026a"
   },
   {
     "id": "kiem-hiep-tinh",
@@ -127985,7 +128572,10 @@
         "created_at": "2026-09-12T20:30:00.000Z",
         "added_at": "2026-10-03T00:00:00Z"
       }
-    ]
+    ],
+    "google_play_url": "https://play.google.com/store/apps/details?id=com.mbox.khtinh1mobile",
+    "download_android": "https://play.google.com/store/apps/details?id=com.mbox.khtinh1mobile",
+    "android_package_name": "com.mbox.khtinh1mobile"
   },
   {
     "id": "arknights-endfield",
@@ -128448,7 +129038,10 @@
         "created_at": "2026-10-03T00:00:00Z",
         "added_at": "2026-09-30T11:30:57.882Z"
       }
-    ]
+    ],
+    "google_play_url": "https://play.google.com/store/apps/details?id=com.gryphline.endfield.gp.vn",
+    "download_android": "https://play.google.com/store/apps/details?id=com.gryphline.endfield.gp.vn",
+    "android_package_name": "com.gryphline.endfield.gp.vn"
   },
   {
     "id": "bleach-soul-resonance",
@@ -128965,7 +129558,10 @@
         "created_at": "2026-10-03T00:00:00Z",
         "added_at": "2026-09-30T11:30:57.036Z"
       }
-    ]
+    ],
+    "google_play_url": "https://play.google.com/store/apps/details?id=com.blade.vn",
+    "download_android": "https://play.google.com/store/apps/details?id=com.blade.vn",
+    "android_package_name": "com.blade.vn"
   },
   {
     "id": "tan-kiem-hiep-tinh-1",
@@ -129428,7 +130024,10 @@
         "created_at": "2026-10-03T00:00:00Z",
         "added_at": "2026-09-30T11:30:57.031Z"
       }
-    ]
+    ],
+    "google_play_url": "https://play.google.com/store/apps/details?id=com.mbox.khtinh1mobile",
+    "download_android": "https://play.google.com/store/apps/details?id=com.mbox.khtinh1mobile",
+    "android_package_name": "com.mbox.khtinh1mobile"
   },
   {
     "id": "ngoi-sao-thoi-trang",
@@ -129864,7 +130463,10 @@
         "created_at": "2026-10-03T00:00:00Z",
         "added_at": "2026-10-03T05:26:15.257Z"
       }
-    ]
+    ],
+    "google_play_url": "https://play.google.com/store/apps/details?id=com.vng.ngoisaothoitrang",
+    "download_android": "https://play.google.com/store/apps/details?id=com.vng.ngoisaothoitrang",
+    "android_package_name": "com.vng.ngoisaothoitrang"
   },
   {
     "id": "na-tra-phong-than-ky",
@@ -130300,7 +130902,10 @@
         "created_at": "2026-10-03T00:00:00Z",
         "added_at": "2026-10-03T05:26:15.254Z"
       }
-    ]
+    ],
+    "google_play_url": "https://play.google.com/store/apps/details?id=com.zalogame.phongthan",
+    "download_android": "https://play.google.com/store/apps/details?id=com.zalogame.phongthan",
+    "android_package_name": "com.zalogame.phongthan"
   },
   {
     "id": "ven-nguyen-ky-uc-mobile",
@@ -130547,7 +131152,10 @@
         "created_at": "2026-10-03T00:00:00Z",
         "added_at": "2026-10-03T05:26:15.122Z"
       }
-    ]
+    ],
+    "google_play_url": "https://play.google.com/store/apps/details?id=com.vennguyenkyuc.jxmobi",
+    "download_android": "https://play.google.com/store/apps/details?id=com.vennguyenkyuc.jxmobi",
+    "android_package_name": "com.vennguyenkyuc.jxmobi"
   },
   {
     "id": "thieu-nien-ca-hanh-khoi-dong",
@@ -130902,7 +131510,10 @@
         "created_at": "2026-10-03T00:00:00Z",
         "added_at": "2026-09-30T11:30:57.770Z"
       }
-    ]
+    ],
+    "google_play_url": "https://play.google.com/store/apps/details?id=com.sngxandvn.gp",
+    "download_android": "https://play.google.com/store/apps/details?id=com.sngxandvn.gp",
+    "android_package_name": "com.sngxandvn.gp"
   },
   {
     "id": "tokyo-ghoul-thuc-tinh",
@@ -132088,7 +132699,10 @@
         "isCrawlerAutoApproved": true,
         "updatedAt": "2026-10-11T12:04:35.368Z"
       }
-    ]
+    ],
+    "google_play_url": "https://play.google.com/store/apps/details?id=com.tgbtcvn.google",
+    "download_android": "https://play.google.com/store/apps/details?id=com.tgbtcvn.google",
+    "android_package_name": "com.tgbtcvn.google"
   },
   {
     "id": "mu-vinh-hang",
@@ -132686,7 +133300,10 @@
         "created_at": "2026-10-03T00:00:00Z",
         "added_at": "2026-10-03T05:26:15.241Z"
       }
-    ]
+    ],
+    "google_play_url": "https://play.google.com/store/apps/details?id=com.vnyh.gp",
+    "download_android": "https://play.google.com/store/apps/details?id=com.vnyh.gp",
+    "android_package_name": "com.vnyh.gp"
   },
   {
     "id": "phi-kiem-tu-tien",
@@ -133068,7 +133685,10 @@
         "created_at": "2026-09-12T20:30:00.000Z",
         "added_at": "2026-10-03T00:00:00Z"
       }
-    ]
+    ],
+    "google_play_url": "https://play.google.com/store/apps/details?id=com.pktt.vlg.vn",
+    "download_android": "https://play.google.com/store/apps/details?id=com.pktt.vlg.vn",
+    "android_package_name": "com.pktt.vlg.vn"
   },
   {
     "id": "x-wukong",
@@ -133801,7 +134421,10 @@
         "created_at": "2026-10-03T00:00:00Z",
         "added_at": "2026-09-30T11:30:58.182Z"
       }
-    ]
+    ],
+    "google_play_url": "https://play.google.com/store/apps/details?id=com.picklight.wukong",
+    "download_android": "https://play.google.com/store/apps/details?id=com.picklight.wukong",
+    "android_package_name": "com.picklight.wukong"
   },
   {
     "id": "kiem-linh-nhap-vai-tu-tien",
@@ -134210,7 +134833,10 @@
         "created_at": "2026-10-03T00:00:00Z",
         "added_at": "2026-10-03T05:26:15.380Z"
       }
-    ]
+    ],
+    "google_play_url": "https://play.google.com/store/apps/details?id=vn.cmn.kiemlinh",
+    "download_android": "https://play.google.com/store/apps/details?id=vn.cmn.kiemlinh",
+    "android_package_name": "vn.cmn.kiemlinh"
   },
   {
     "id": "thieu-nien-3q-khoi-nguyen",
@@ -134565,7 +135191,10 @@
         "created_at": "2026-09-29T00:00:00Z",
         "added_at": "2026-10-03T00:00:00Z"
       }
-    ]
+    ],
+    "google_play_url": "https://play.google.com/store/apps/details?id=com.gmt.tn3q",
+    "download_android": "https://play.google.com/store/apps/details?id=com.gmt.tn3q",
+    "android_package_name": "com.gmt.tn3q"
   },
   {
     "id": "sieu-tien-hoa",
@@ -135109,7 +135738,10 @@
         "created_at": "2026-10-03T00:00:00Z",
         "added_at": "2026-09-30T11:30:58.151Z"
       }
-    ]
+    ],
+    "google_play_url": "https://play.google.com/store/apps/details?id=com.zjghrja.ohjdhz",
+    "download_android": "https://play.google.com/store/apps/details?id=com.zjghrja.ohjdhz",
+    "android_package_name": "com.zjghrja.ohjdhz"
   },
   {
     "id": "dragon-traveler-vn",
@@ -136085,7 +136717,10 @@
         "created_at": "2026-09-18T09:45:52.101Z",
         "added_at": "2026-10-03T00:00:00Z"
       }
-    ]
+    ],
+    "google_play_url": "https://play.google.com/store/apps/details?id=com.gametree.lhlr.vi.gp",
+    "download_android": "https://play.google.com/store/apps/details?id=com.gametree.lhlr.vi.gp",
+    "android_package_name": "com.gametree.lhlr.vi.gp"
   },
   {
     "id": "drift-racing-3v3",
@@ -136413,7 +137048,10 @@
         "created_at": "2026-10-03T00:00:00Z",
         "added_at": "2026-10-03T05:26:15.351Z"
       }
-    ]
+    ],
+    "google_play_url": "https://play.google.com/store/apps/details?id=com.ncgames.race.anvn",
+    "download_android": "https://play.google.com/store/apps/details?id=com.ncgames.race.anvn",
+    "android_package_name": "com.ncgames.race.anvn"
   },
   {
     "id": "shinkai-impact-khoi-nguyen",
@@ -136882,7 +137520,10 @@
         "created_at": "2026-10-03T00:00:00Z",
         "added_at": "2026-10-03T05:26:15.377Z"
       }
-    ]
+    ],
+    "google_play_url": "https://play.google.com/store/apps/details?id=com.shg.sg437",
+    "download_android": "https://play.google.com/store/apps/details?id=com.shg.sg437",
+    "android_package_name": "com.shg.sg437"
   },
   {
     "id": "phong-ma-tam-quoc",
@@ -137264,7 +137905,10 @@
         "created_at": "2026-10-03T00:00:00Z",
         "added_at": "2026-10-03T05:26:15.238Z"
       }
-    ]
+    ],
+    "google_play_url": "https://play.google.com/store/apps/details?id=vn.zoneplay.g40vn",
+    "download_android": "https://play.google.com/store/apps/details?id=vn.zoneplay.g40vn",
+    "android_package_name": "vn.zoneplay.g40vn"
   },
   {
     "id": "chien-hoa-tam-gioi-vtc",
@@ -137631,7 +138275,10 @@
         "created_at": "2026-10-03T00:00:00Z",
         "added_at": "2026-10-03T05:26:15.354Z"
       }
-    ]
+    ],
+    "google_play_url": "https://play.google.com/store/apps/details?id=com.vtcmobile.mn19",
+    "download_android": "https://play.google.com/store/apps/details?id=com.vtcmobile.mn19",
+    "android_package_name": "com.vtcmobile.mn19"
   },
   {
     "id": "hai-tac-loan-dau",
@@ -138013,7 +138660,10 @@
         "created_at": "2026-10-03T00:00:00Z",
         "added_at": "2026-09-30T11:30:58.225Z"
       }
-    ]
+    ],
+    "google_play_url": "https://play.google.com/store/apps/details?id=com.bd.glpirate",
+    "download_android": "https://play.google.com/store/apps/details?id=com.bd.glpirate",
+    "android_package_name": "com.bd.glpirate"
   },
   {
     "id": "crossfire-legends-mobile-vng",
@@ -139043,7 +139693,10 @@
         "created_at": "2026-10-03T00:00:00Z",
         "added_at": "2026-10-03T05:26:15.368Z"
       }
-    ]
+    ],
+    "google_play_url": "https://play.google.com/store/apps/details?id=com.vnggames.cfl.crossfirelegends",
+    "download_android": "https://play.google.com/store/apps/details?id=com.vnggames.cfl.crossfirelegends",
+    "android_package_name": "com.vnggames.cfl.crossfirelegends"
   },
   {
     "id": "ta-lam-tong-su-trong-tien-mon",
@@ -139452,7 +140105,10 @@
         "created_at": "2026-10-03T00:00:00Z",
         "added_at": "2026-09-30T11:30:58.691Z"
       }
-    ]
+    ],
+    "google_play_url": "https://play.google.com/store/apps/details?id=com.vnzqzs.and",
+    "download_android": "https://play.google.com/store/apps/details?id=com.vnzqzs.and",
+    "android_package_name": "com.vnzqzs.and"
   },
   {
     "id": "chien-than-mini",
@@ -140293,7 +140949,10 @@
         "created_at": "2026-10-03T00:00:00Z",
         "added_at": "2026-09-30T11:30:58.149Z"
       }
-    ]
+    ],
+    "google_play_url": "https://play.google.com/store/apps/details?id=com.vnxxzs.gp",
+    "download_android": "https://play.google.com/store/apps/details?id=com.vnxxzs.gp",
+    "android_package_name": "com.vnxxzs.gp"
   },
   {
     "id": "anh-hung-bat-diet",
@@ -140654,7 +141313,10 @@
         "isCrawlerAutoApproved": true,
         "updatedAt": "2026-10-11T12:04:35.785Z"
       }
-    ]
+    ],
+    "google_play_url": "https://play.google.com/store/apps/details?id=com.gg.yxmys.vn",
+    "download_android": "https://play.google.com/store/apps/details?id=com.gg.yxmys.vn",
+    "android_package_name": "com.gg.yxmys.vn"
   },
   {
     "id": "chien-binh-devias",
@@ -140955,7 +141617,10 @@
         "created_at": "2026-10-03T00:00:00Z",
         "added_at": "2026-10-03T05:26:15.499Z"
       }
-    ]
+    ],
+    "google_play_url": "https://play.google.com/store/apps/details?id=vn.adnx.cbdevias",
+    "download_android": "https://play.google.com/store/apps/details?id=vn.adnx.cbdevias",
+    "android_package_name": "vn.adnx.cbdevias"
   },
   {
     "id": "fc-mobile-vn",
@@ -142463,7 +143128,10 @@
         "isCrawlerAutoApproved": true,
         "updatedAt": "2026-10-11T12:04:35.856Z"
       }
-    ]
+    ],
+    "google_play_url": "https://play.google.com/store/apps/details?id=com.garena.game.fcmobilevn",
+    "download_android": "https://play.google.com/store/apps/details?id=com.garena.game.fcmobilevn",
+    "android_package_name": "com.garena.game.fcmobilevn"
   },
   {
     "id": "lang-tieu-chi",
@@ -142708,7 +143376,10 @@
         "isCrawlerAutoApproved": true,
         "updatedAt": "2026-10-13T19:18:53.571Z"
       }
-    ]
+    ],
+    "google_play_url": "https://play.google.com/store/apps/details?id=com.psvmd.ahhmnlngtiuch",
+    "download_android": "https://play.google.com/store/apps/details?id=com.psvmd.ahhmnlngtiuch",
+    "android_package_name": "com.psvmd.ahhmnlngtiuch"
   },
   {
     "id": "thao-tung-tam-quoc",
@@ -143549,7 +144220,10 @@
         "created_at": "2026-10-03T00:00:00Z",
         "added_at": "2026-10-03T05:26:15.507Z"
       }
-    ]
+    ],
+    "google_play_url": "https://play.google.com/store/apps/details?id=vn.vplay.thaotungtamquoc.r005a",
+    "download_android": "https://play.google.com/store/apps/details?id=vn.vplay.thaotungtamquoc.r005a",
+    "android_package_name": "vn.vplay.thaotungtamquoc.r005a"
   },
   {
     "id": "mu-hong-hoa-dao",
@@ -143958,7 +144632,10 @@
         "created_at": "2026-10-03T00:00:00Z",
         "added_at": "2026-09-30T11:30:58.624Z"
       }
-    ]
+    ],
+    "google_play_url": "https://play.google.com/store/apps/details?id=com.tg.zhzr.vn",
+    "download_android": "https://play.google.com/store/apps/details?id=com.tg.zhzr.vn",
+    "android_package_name": "com.tg.zhzr.vn"
   },
   {
     "id": "tay-du-tam-bao",
@@ -144286,7 +144963,10 @@
         "created_at": "2026-10-03T00:00:00Z",
         "added_at": "2026-10-03T05:26:15.493Z"
       }
-    ]
+    ],
+    "google_play_url": "https://play.google.com/store/apps/details?id=com.shg.sg441",
+    "download_android": "https://play.google.com/store/apps/details?id=com.shg.sg441",
+    "android_package_name": "com.shg.sg441"
   },
   {
     "id": "lu-khach-dai-luc-idle-rpg",
@@ -144884,7 +145564,10 @@
         "created_at": "2026-10-03T00:00:00Z",
         "added_at": "2026-09-30T11:30:58.617Z"
       }
-    ]
+    ],
+    "google_play_url": "https://play.google.com/store/apps/details?id=com.realmsofpixel.ng.sea.vn",
+    "download_android": "https://play.google.com/store/apps/details?id=com.realmsofpixel.ng.sea.vn",
+    "android_package_name": "com.realmsofpixel.ng.sea.vn"
   },
   {
     "id": "thanh-long-huyen-thoai",
@@ -145185,7 +145868,10 @@
         "created_at": "2026-10-03T00:00:00Z",
         "added_at": "2026-10-03T05:26:15.622Z"
       }
-    ]
+    ],
+    "google_play_url": "https://play.google.com/store/apps/details?id=vn.slgplay.thanhlong",
+    "download_android": "https://play.google.com/store/apps/details?id=vn.slgplay.thanhlong",
+    "android_package_name": "vn.slgplay.thanhlong"
   },
   {
     "id": "mieu-de-tam-quoc",
@@ -145793,7 +146479,10 @@
         "isCrawlerAutoApproved": true,
         "updatedAt": "2026-10-13T19:18:53.819Z"
       }
-    ]
+    ],
+    "google_play_url": "https://play.google.com/store/apps/details?id=com.tamquoc.meo3q.vn",
+    "download_android": "https://play.google.com/store/apps/details?id=com.tamquoc.meo3q.vn",
+    "android_package_name": "com.tamquoc.meo3q.vn"
   },
   {
     "id": "soul-land-time-reversed",
@@ -146175,7 +146864,10 @@
         "created_at": "2026-10-03T00:00:00Z",
         "added_at": "2026-10-03T05:26:15.626Z"
       }
-    ]
+    ],
+    "google_play_url": "https://play.google.com/store/apps/details?id=com.gg.dlnzsk.vn",
+    "download_android": "https://play.google.com/store/apps/details?id=com.gg.dlnzsk.vn",
+    "android_package_name": "com.gg.dlnzsk.vn"
   },
   {
     "id": "palmon",
@@ -146692,7 +147384,10 @@
         "created_at": "2026-10-03T00:00:00Z",
         "added_at": "2026-09-30T11:30:59.459Z"
       }
-    ]
+    ],
+    "google_play_url": "https://play.google.com/store/apps/details?id=com.funfizz.palmon.gp.vn",
+    "download_android": "https://play.google.com/store/apps/details?id=com.funfizz.palmon.gp.vn",
+    "android_package_name": "com.funfizz.palmon.gp.vn"
   },
   {
     "id": "chien-tuyen-huong-duong",
@@ -146993,7 +147688,10 @@
         "created_at": "2026-10-03T00:00:00Z",
         "added_at": "2026-10-03T05:26:15.490Z"
       }
-    ]
+    ],
+    "google_play_url": "https://play.google.com/store/apps/details?id=com.sunflowergp.vn",
+    "download_android": "https://play.google.com/store/apps/details?id=com.sunflowergp.vn",
+    "android_package_name": "com.sunflowergp.vn"
   },
   {
     "id": "atlan-origin-luc-dia-troi-day",
@@ -147537,7 +148235,10 @@
         "created_at": "2026-09-12T20:30:00.000Z",
         "added_at": "2026-10-03T00:00:00Z"
       }
-    ]
+    ],
+    "google_play_url": "https://play.google.com/store/apps/details?id=vn.dev.atlan.origin.luc.dia.troi.day",
+    "download_android": "https://play.google.com/store/apps/details?id=vn.dev.atlan.origin.luc.dia.troi.day",
+    "android_package_name": "vn.dev.atlan.origin.luc.dia.troi.day"
   },
   {
     "id": "samkok-new-force",
@@ -147865,7 +148566,10 @@
         "created_at": "2026-10-03T00:00:00Z",
         "added_at": "2026-10-03T05:26:15.592Z"
       }
-    ]
+    ],
+    "google_play_url": "https://play.google.com/store/apps/details?id=co.imba.threekingdoms.towerdefense",
+    "download_android": "https://play.google.com/store/apps/details?id=co.imba.threekingdoms.towerdefense",
+    "android_package_name": "co.imba.threekingdoms.towerdefense"
   },
   {
     "id": "quan-anh-phong-hoa-luc",
@@ -148652,7 +149356,10 @@
         "created_at": "2026-09-29T00:00:00Z",
         "added_at": "2026-10-03T00:00:00Z"
       }
-    ]
+    ],
+    "google_play_url": "https://play.google.com/store/apps/details?id=vn.vplay.qaphl1.t023a",
+    "download_android": "https://play.google.com/store/apps/details?id=vn.vplay.qaphl1.t023a",
+    "android_package_name": "vn.vplay.qaphl1.t023a"
   },
   {
     "id": "chien-loan-tam-quoc",
@@ -149142,7 +149849,10 @@
         "created_at": "2026-10-03T00:00:00Z",
         "added_at": "2026-10-03T05:26:15.726Z"
       }
-    ]
+    ],
+    "google_play_url": "https://play.google.com/store/apps/details?id=com.gamexdd.yuenan1",
+    "download_android": "https://play.google.com/store/apps/details?id=com.gamexdd.yuenan1",
+    "android_package_name": "com.gamexdd.yuenan1"
   },
   {
     "id": "phu-sinh-mong",
@@ -149605,7 +150315,10 @@
         "created_at": "2026-10-03T00:00:00Z",
         "added_at": "2026-10-03T05:26:15.609Z"
       }
-    ]
+    ],
+    "google_play_url": "https://play.google.com/store/apps/details?id=com.thsgame.nguyetmong",
+    "download_android": "https://play.google.com/store/apps/details?id=com.thsgame.nguyetmong",
+    "android_package_name": "com.thsgame.nguyetmong"
   },
   {
     "id": "thien-ha-ngu-tuyet",
@@ -150122,7 +150835,10 @@
         "created_at": "2026-10-03T00:00:00Z",
         "added_at": "2026-09-30T11:30:59.366Z"
       }
-    ]
+    ],
+    "google_play_url": "https://play.google.com/store/apps/details?id=com.thienha.ngutuyet",
+    "download_android": "https://play.google.com/store/apps/details?id=com.thienha.ngutuyet",
+    "android_package_name": "com.thienha.ngutuyet"
   },
   {
     "id": "cong-thanh-truyen-ky-tam-quoc",
@@ -150423,7 +151139,10 @@
         "created_at": "2026-09-29T00:00:00Z",
         "added_at": "2026-10-03T00:00:00Z"
       }
-    ]
+    ],
+    "google_play_url": "https://play.google.com/store/apps/details?id=com.tamquoc.congthanh.slg",
+    "download_android": "https://play.google.com/store/apps/details?id=com.tamquoc.congthanh.slg",
+    "android_package_name": "com.tamquoc.congthanh.slg"
   },
   {
     "id": "tam-quoc-huyen-tuong-vng",
@@ -151075,7 +151794,10 @@
         "created_at": "2026-10-03T00:00:00Z",
         "added_at": "2026-10-03T05:26:15.723Z"
       }
-    ]
+    ],
+    "google_play_url": "https://play.google.com/store/apps/details?id=vng.games.tamquochuyentuong3q",
+    "download_android": "https://play.google.com/store/apps/details?id=vng.games.tamquochuyentuong3q",
+    "android_package_name": "vng.games.tamquochuyentuong3q"
   },
   {
     "id": "chu-thuat-dai-chien",
@@ -151511,7 +152233,10 @@
         "created_at": "2026-09-29T00:00:00Z",
         "added_at": "2026-10-03T00:00:00Z"
       }
-    ]
+    ],
+    "google_play_url": "https://play.google.com/store/apps/details?id=com.ewhjgfkz.ewjdlkz",
+    "download_android": "https://play.google.com/store/apps/details?id=com.ewhjgfkz.ewjdlkz",
+    "android_package_name": "com.ewhjgfkz.ewjdlkz"
   },
   {
     "id": "ky-nguyen-bang-ha-3q",
@@ -152001,7 +152726,10 @@
         "created_at": "2026-09-29T00:00:00Z",
         "added_at": "2026-10-03T00:00:00Z"
       }
-    ]
+    ],
+    "google_play_url": "https://play.google.com/store/apps/details?id=com.starlight.sg.oversea.vn",
+    "download_android": "https://play.google.com/store/apps/details?id=com.starlight.sg.oversea.vn",
+    "android_package_name": "com.starlight.sg.oversea.vn"
   },
   {
     "id": "samkok-kingdom-crush",
@@ -152302,7 +153030,10 @@
         "created_at": "2026-10-03T00:00:00Z",
         "added_at": "2026-10-03T05:26:15.607Z"
       }
-    ]
+    ],
+    "google_play_url": "https://play.google.com/store/apps/details?id=co.imba.threekingdoms.towerdefense",
+    "download_android": "https://play.google.com/store/apps/details?id=co.imba.threekingdoms.towerdefense",
+    "android_package_name": "co.imba.threekingdoms.towerdefense"
   },
   {
     "id": "quy-tuong-3q-thuc-tinh-oeg",
@@ -152528,7 +153259,10 @@
         "isCrawlerAutoApproved": true,
         "updatedAt": "2026-10-11T12:04:36.760Z"
       }
-    ]
+    ],
+    "google_play_url": "https://play.google.com/store/apps/details?id=com.honor.gp.vn",
+    "download_android": "https://play.google.com/store/apps/details?id=com.honor.gp.vn",
+    "android_package_name": "com.honor.gp.vn"
   },
   {
     "id": "tam-quoc-khoi-dong",
@@ -152856,7 +153590,10 @@
         "created_at": "2026-10-03T00:00:00Z",
         "added_at": "2026-10-03T05:26:15.713Z"
       }
-    ]
+    ],
+    "google_play_url": "https://play.google.com/store/apps/details?id=com.jsjsvn.google",
+    "download_android": "https://play.google.com/store/apps/details?id=com.jsjsvn.google",
+    "android_package_name": "com.jsjsvn.google"
   },
   {
     "id": "tam-quoc-chi-chien-luoc-tth",
@@ -153238,7 +153975,10 @@
         "created_at": "2026-10-03T00:00:00Z",
         "added_at": "2026-10-03T05:26:15.717Z"
       }
-    ]
+    ],
+    "google_play_url": "https://play.google.com/store/apps/details?id=com.gamexdd.yuenan1",
+    "download_android": "https://play.google.com/store/apps/details?id=com.gamexdd.yuenan1",
+    "android_package_name": "com.gamexdd.yuenan1"
   },
   {
     "id": "manga-ba-chay",
@@ -154341,7 +155081,10 @@
         "isCrawlerAutoApproved": true,
         "updatedAt": "2026-10-12T15:28:15.820Z"
       }
-    ]
+    ],
+    "google_play_url": "https://play.google.com/store/apps/details?id=dev.manga.bachay",
+    "download_android": "https://play.google.com/store/apps/details?id=dev.manga.bachay",
+    "android_package_name": "dev.manga.bachay"
   },
   {
     "id": "delta-force",
@@ -161980,7 +162723,10 @@
         "created_at": "2026-09-27T00:00:00Z",
         "added_at": "2026-10-09T04:53:01.444Z"
       }
-    ]
+    ],
+    "google_play_url": "https://play.google.com/store/apps/details?id=com.garena.game.df",
+    "download_android": "https://play.google.com/store/apps/details?id=com.garena.game.df",
+    "android_package_name": "com.garena.game.df"
   },
   {
     "id": "hoa-son-kiem-the-vtc",
@@ -162335,7 +163081,10 @@
         "created_at": "2026-10-03T00:00:00Z",
         "added_at": "2026-10-03T05:26:15.854Z"
       }
-    ]
+    ],
+    "google_play_url": "https://play.google.com/store/apps/details?id=com.vtcmobile.hoasonkiemthe",
+    "download_android": "https://play.google.com/store/apps/details?id=com.vtcmobile.hoasonkiemthe",
+    "android_package_name": "com.vtcmobile.hoasonkiemthe"
   },
   {
     "id": "tan-chan-long-oeg",
@@ -162696,7 +163445,10 @@
         "isCrawlerAutoApproved": true,
         "updatedAt": "2026-10-11T12:04:36.638Z"
       }
-    ]
+    ],
+    "google_play_url": "https://play.google.com/store/apps/details?id=com.sxdvn.gp",
+    "download_android": "https://play.google.com/store/apps/details?id=com.sxdvn.gp",
+    "android_package_name": "com.sxdvn.gp"
   },
   {
     "id": "stickman-go",
@@ -163186,7 +163938,10 @@
         "created_at": "2026-10-03T00:00:00Z",
         "added_at": "2026-09-30T11:31:00.328Z"
       }
-    ]
+    ],
+    "google_play_url": "https://play.google.com/store/apps/details?id=com.gp.hcr.moc",
+    "download_android": "https://play.google.com/store/apps/details?id=com.gp.hcr.moc",
+    "android_package_name": "com.gp.hcr.moc"
   },
   {
     "id": "huyen-anh-vo-lam",
@@ -163568,7 +164323,10 @@
         "created_at": "2026-10-03T00:00:00Z",
         "added_at": "2026-10-03T05:26:15.826Z"
       }
-    ]
+    ],
+    "google_play_url": "https://play.google.com/store/apps/details?id=vn.vplay.vohiep.t027a",
+    "download_android": "https://play.google.com/store/apps/details?id=vn.vplay.vohiep.t027a",
+    "android_package_name": "vn.vplay.vohiep.t027a"
   },
   {
     "id": "vo-hiep-truyen-ky-2",
@@ -163950,7 +164708,10 @@
         "created_at": "2026-09-29T00:00:00Z",
         "added_at": "2026-10-03T00:00:00Z"
       }
-    ]
+    ],
+    "google_play_url": "https://play.google.com/store/apps/details?id=com.blackhole.jx2mobile",
+    "download_android": "https://play.google.com/store/apps/details?id=com.blackhole.jx2mobile",
+    "android_package_name": "com.blackhole.jx2mobile"
   },
   {
     "id": "tiem-tap-hoa-thoi-gian",
@@ -164512,7 +165273,10 @@
         "created_at": "2026-09-29T00:00:00Z",
         "added_at": "2026-10-03T00:00:00Z"
       }
-    ]
+    ],
+    "google_play_url": "https://play.google.com/store/apps/details?id=com.phzhd.vn",
+    "download_android": "https://play.google.com/store/apps/details?id=com.phzhd.vn",
+    "android_package_name": "com.phzhd.vn"
   },
   {
     "id": "x-samkok-sieu-nang-tam-quoc",
@@ -165218,7 +165982,10 @@
         "created_at": "2026-10-03T00:00:00Z",
         "added_at": "2026-10-03T05:26:16.051Z"
       }
-    ]
+    ],
+    "google_play_url": "https://play.google.com/store/apps/details?id=com.shg.sg433",
+    "download_android": "https://play.google.com/store/apps/details?id=com.shg.sg433",
+    "android_package_name": "com.shg.sg433"
   },
   {
     "id": "pet-samkok-bao-thu-3q",
@@ -165708,7 +166475,10 @@
         "created_at": "2026-10-03T00:00:00Z",
         "added_at": "2026-10-03T05:26:16.059Z"
       }
-    ]
+    ],
+    "google_play_url": "https://play.google.com/store/apps/details?id=com.shg.sg433",
+    "download_android": "https://play.google.com/store/apps/details?id=com.shg.sg433",
+    "android_package_name": "com.shg.sg433"
   },
   {
     "id": "tan-binh-thuc-tinh",
@@ -166036,7 +166806,10 @@
         "created_at": "2026-10-03T00:00:00Z",
         "added_at": "2026-10-03T05:26:15.833Z"
       }
-    ]
+    ],
+    "google_play_url": "https://play.google.com/store/apps/details?id=com.yhzlq.cthvlanghuynb",
+    "download_android": "https://play.google.com/store/apps/details?id=com.yhzlq.cthvlanghuynb",
+    "android_package_name": "com.yhzlq.cthvlanghuynb"
   },
   {
     "id": "great-sky-dai-thien-the-gioi",
@@ -166337,7 +167110,10 @@
         "created_at": "2026-10-03T00:00:00Z",
         "added_at": "2026-09-30T11:31:00.683Z"
       }
-    ]
+    ],
+    "google_play_url": "https://play.google.com/store/apps/details?id=com.SoFun.DAITHIENTHEGIOISOFUN",
+    "download_android": "https://play.google.com/store/apps/details?id=com.SoFun.DAITHIENTHEGIOISOFUN",
+    "android_package_name": "com.SoFun.DAITHIENTHEGIOISOFUN"
   },
   {
     "id": "me-ta-tam-quoc",
@@ -175548,7 +176324,10 @@
         "created_at": "2026-09-12T20:30:00.000Z",
         "added_at": "2026-10-03T00:00:00Z"
       }
-    ]
+    ],
+    "google_play_url": "https://play.google.com/store/apps/details?id=vn.vplay.tamquocchi.t025a",
+    "download_android": "https://play.google.com/store/apps/details?id=vn.vplay.tamquocchi.t025a",
+    "android_package_name": "vn.vplay.tamquocchi.t025a"
   },
   {
     "id": "dau-pha-thuong-khung-2d",
@@ -176149,7 +176928,10 @@
         "isCrawlerAutoApproved": true,
         "updatedAt": "2026-10-13T19:18:55.197Z"
       }
-    ]
+    ],
+    "google_play_url": "https://play.google.com/store/apps/details?id=com.tg.dpcq2.vn",
+    "download_android": "https://play.google.com/store/apps/details?id=com.tg.dpcq2.vn",
+    "android_package_name": "com.tg.dpcq2.vn"
   },
   {
     "id": "kiem-hiep-auto-chess",
@@ -176994,7 +177776,10 @@
         "created_at": "2026-10-03T00:00:00Z",
         "added_at": "2026-10-03T05:26:16.048Z"
       }
-    ]
+    ],
+    "google_play_url": "https://play.google.com/store/apps/details?id=vn.dev.thuc.than.ky",
+    "download_android": "https://play.google.com/store/apps/details?id=vn.dev.thuc.than.ky",
+    "android_package_name": "vn.dev.thuc.than.ky"
   },
   {
     "id": "ts3-chien-than-ky",
@@ -177457,7 +178242,10 @@
         "created_at": "2026-10-03T00:00:00Z",
         "added_at": "2026-09-30T11:31:01.038Z"
       }
-    ]
+    ],
+    "google_play_url": "https://play.google.com/store/apps/details?id=com.a.one.tsvn",
+    "download_android": "https://play.google.com/store/apps/details?id=com.a.one.tsvn",
+    "android_package_name": "com.a.one.tsvn"
   },
   {
     "id": "tay-du-truyen-ky-cmn",
@@ -177920,7 +178708,10 @@
         "created_at": "2026-09-29T00:00:00Z",
         "added_at": "2026-10-03T00:00:00Z"
       }
-    ]
+    ],
+    "google_play_url": "https://play.google.com/store/apps/details?id=com.dainaotaydu.mobile",
+    "download_android": "https://play.google.com/store/apps/details?id=com.dainaotaydu.mobile",
+    "android_package_name": "com.dainaotaydu.mobile"
   },
   {
     "id": "kiem-khach-phong-lang",
@@ -178356,7 +179147,10 @@
         "created_at": "2026-10-03T00:00:00Z",
         "added_at": "2026-10-03T05:26:16.195Z"
       }
-    ]
+    ],
+    "google_play_url": "https://play.google.com/store/apps/details?id=vn.vgp.kiem.khach.phong.lang",
+    "download_android": "https://play.google.com/store/apps/details?id=vn.vgp.kiem.khach.phong.lang",
+    "android_package_name": "vn.vgp.kiem.khach.phong.lang"
   },
   {
     "id": "ngao-the-vo-lam",
@@ -179093,7 +179887,10 @@
         "created_at": "2026-09-29T00:00:00Z",
         "added_at": "2026-10-03T00:00:00Z"
       }
-    ]
+    ],
+    "google_play_url": "https://play.google.com/store/apps/details?id=com.nkpm.vnaz",
+    "download_android": "https://play.google.com/store/apps/details?id=com.nkpm.vnaz",
+    "android_package_name": "com.nkpm.vnaz"
   },
   {
     "id": "titan-awakening",
@@ -179340,7 +180137,10 @@
         "created_at": "2026-10-03T00:00:00Z",
         "added_at": "2026-10-03T05:26:16.184Z"
       }
-    ]
+    ],
+    "google_play_url": "https://play.google.com/store/apps/details?id=com.ANU.TitanSouls",
+    "download_android": "https://play.google.com/store/apps/details?id=com.ANU.TitanSouls",
+    "android_package_name": "com.ANU.TitanSouls"
   },
   {
     "id": "thieu-hiep-xin-dung-buoc",
@@ -179668,7 +180468,10 @@
         "created_at": "2026-10-03T00:00:00Z",
         "added_at": "2026-09-30T11:31:00.967Z"
       }
-    ]
+    ],
+    "google_play_url": "https://play.google.com/store/apps/details?id=com.vnwmjh.and",
+    "download_android": "https://play.google.com/store/apps/details?id=com.vnwmjh.and",
+    "android_package_name": "com.vnwmjh.and"
   },
   {
     "id": "souls",
@@ -180239,7 +181042,10 @@
         "created_at": "2026-10-03T00:00:00Z",
         "added_at": "2026-09-30T11:31:00.944Z"
       }
-    ]
+    ],
+    "google_play_url": "https://play.google.com/store/apps/details?id=com.teamoceangames.RevenantsSoul",
+    "download_android": "https://play.google.com/store/apps/details?id=com.teamoceangames.RevenantsSoul",
+    "android_package_name": "com.teamoceangames.RevenantsSoul"
   },
   {
     "id": "magic-chess-go-go",
@@ -180567,7 +181373,10 @@
         "created_at": "2026-10-03T00:00:00Z",
         "added_at": "2026-09-30T11:31:00.973Z"
       }
-    ]
+    ],
+    "google_play_url": "https://play.google.com/store/apps/details?id=com.hhgame.mcggvn",
+    "download_android": "https://play.google.com/store/apps/details?id=com.hhgame.mcggvn",
+    "android_package_name": "com.hhgame.mcggvn"
   },
   {
     "id": "tay-du-mobile-tam-gioi-chien",
@@ -181003,7 +181812,10 @@
         "created_at": "2026-10-03T00:00:00Z",
         "added_at": "2026-10-03T05:26:16.189Z"
       }
-    ]
+    ],
+    "google_play_url": "https://play.google.com/store/apps/details?id=com.dainaotaydu.mobile",
+    "download_android": "https://play.google.com/store/apps/details?id=com.dainaotaydu.mobile",
+    "android_package_name": "com.dainaotaydu.mobile"
   },
   {
     "id": "anh-hung-cam-dia",
@@ -181439,7 +182251,10 @@
         "created_at": "2026-09-18T09:45:52.093Z",
         "added_at": "2026-10-03T00:00:00Z"
       }
-    ]
+    ],
+    "google_play_url": "https://play.google.com/store/apps/details?id=com.ddup.zombiewaves.zw.vn",
+    "download_android": "https://play.google.com/store/apps/details?id=com.ddup.zombiewaves.zw.vn",
+    "android_package_name": "com.ddup.zombiewaves.zw.vn"
   },
   {
     "id": "thoi-khong-chi-mong",
@@ -182394,7 +183209,10 @@
         "isCrawlerAutoApproved": true,
         "updatedAt": "2026-10-11T12:04:37.355Z"
       }
-    ]
+    ],
+    "google_play_url": "https://play.google.com/store/apps/details?id=vn.vplay.chuongmon.t022a",
+    "download_android": "https://play.google.com/store/apps/details?id=vn.vplay.chuongmon.t022a",
+    "android_package_name": "vn.vplay.chuongmon.t022a"
   },
   {
     "id": "tam-quoc-phan-cong-vng",
@@ -182614,7 +183432,10 @@
         "created_at": "2026-10-03T00:00:00Z",
         "added_at": "2026-10-03T05:26:16.166Z"
       }
-    ]
+    ],
+    "google_play_url": "https://play.google.com/store/apps/details?id=vng.games.tamquoc.idle.rpg",
+    "download_android": "https://play.google.com/store/apps/details?id=vng.games.tamquoc.idle.rpg",
+    "android_package_name": "vng.games.tamquoc.idle.rpg"
   },
   {
     "id": "tieu-tuyet-linh-chu",
@@ -182942,7 +183763,10 @@
         "created_at": "2026-10-03T00:00:00Z",
         "added_at": "2026-10-03T05:26:16.179Z"
       }
-    ]
+    ],
+    "google_play_url": "https://play.google.com/store/apps/details?id=com.vnlord.happy",
+    "download_android": "https://play.google.com/store/apps/details?id=com.vnlord.happy",
+    "android_package_name": "com.vnlord.happy"
   },
   {
     "id": "tay-du-phuc-ma",
@@ -183648,7 +184472,10 @@
         "created_at": "2026-09-29T00:00:00Z",
         "added_at": "2026-10-03T00:00:00Z"
       }
-    ]
+    ],
+    "google_play_url": "https://play.google.com/store/apps/details?id=com.dainaotaydu.mobile",
+    "download_android": "https://play.google.com/store/apps/details?id=com.dainaotaydu.mobile",
+    "android_package_name": "com.dainaotaydu.mobile"
   },
   {
     "id": "yeu-thu-van-dao",
@@ -184030,7 +184857,10 @@
         "created_at": "2026-10-03T00:00:00Z",
         "added_at": "2026-09-30T11:31:01.897Z"
       }
-    ]
+    ],
+    "google_play_url": "https://play.google.com/store/apps/details?id=com.vnshanhai.gp",
+    "download_android": "https://play.google.com/store/apps/details?id=com.vnshanhai.gp",
+    "android_package_name": "com.vnshanhai.gp"
   },
   {
     "id": "dau-than-tuyet-the",
@@ -184547,7 +185377,10 @@
         "created_at": "2026-10-03T00:00:00Z",
         "added_at": "2026-09-30T11:31:01.775Z"
       }
-    ]
+    ],
+    "google_play_url": "https://play.google.com/store/apps/details?id=vn.vplhn.game.thanma.a2",
+    "download_android": "https://play.google.com/store/apps/details?id=vn.vplhn.game.thanma.a2",
+    "android_package_name": "vn.vplhn.game.thanma.a2"
   },
   {
     "id": "than-ma-pk",
@@ -185223,7 +186056,10 @@
         "isCrawlerAutoApproved": true,
         "updatedAt": "2026-10-11T12:04:37.512Z"
       }
-    ]
+    ],
+    "google_play_url": "https://play.google.com/store/apps/details?id=vn.vplhn.game.thanma.a2",
+    "download_android": "https://play.google.com/store/apps/details?id=vn.vplhn.game.thanma.a2",
+    "android_package_name": "vn.vplhn.game.thanma.a2"
   },
   {
     "id": "ky-nguyen-icarus",
@@ -185524,7 +186360,10 @@
         "created_at": "2026-10-03T00:00:00Z",
         "added_at": "2026-09-30T11:31:01.821Z"
       }
-    ]
+    ],
+    "google_play_url": "https://play.google.com/store/apps/details?id=com.icpgroup.icarusblue",
+    "download_android": "https://play.google.com/store/apps/details?id=com.icpgroup.icarusblue",
+    "android_package_name": "com.icpgroup.icarusblue"
   },
   {
     "id": "mobile-armor-storm",
@@ -185897,7 +186736,10 @@
         "isCrawlerAutoApproved": true,
         "updatedAt": "2026-10-11T12:04:37.564Z"
       }
-    ]
+    ],
+    "google_play_url": "https://play.google.com/store/apps/details?id=armor.attack.shooting.games.world.of.multiplayer.robots.war.tanks",
+    "download_android": "https://play.google.com/store/apps/details?id=armor.attack.shooting.games.world.of.multiplayer.robots.war.tanks",
+    "android_package_name": "armor.attack.shooting.games.world.of.multiplayer.robots.war.tanks"
   },
   {
     "id": "cuc-toc-tam-quoc",
@@ -186387,7 +187229,10 @@
         "created_at": "2026-10-03T00:00:00Z",
         "added_at": "2026-09-30T11:31:01.352Z"
       }
-    ]
+    ],
+    "google_play_url": "https://play.google.com/store/apps/details?id=com.global.byvn.google",
+    "download_android": "https://play.google.com/store/apps/details?id=com.global.byvn.google",
+    "android_package_name": "com.global.byvn.google"
   },
   {
     "id": "anh-hung-pixel",
@@ -187012,7 +187857,10 @@
         "created_at": "2026-10-03T00:00:00Z",
         "added_at": "2026-09-30T11:31:01.865Z"
       }
-    ]
+    ],
+    "google_play_url": "https://play.google.com/store/apps/details?id=vi.weplay.game.gp.hero",
+    "download_android": "https://play.google.com/store/apps/details?id=vi.weplay.game.gp.hero",
+    "android_package_name": "vi.weplay.game.gp.hero"
   },
   {
     "id": "endless-nightmare-6-reborn",
@@ -188447,7 +189295,10 @@
         "created_at": "2026-09-29T00:00:00Z",
         "added_at": "2026-10-03T00:00:00Z"
       }
-    ]
+    ],
+    "google_play_url": "https://play.google.com/store/apps/details?id=com.endless.nightmare.reborn.android",
+    "download_android": "https://play.google.com/store/apps/details?id=com.endless.nightmare.reborn.android",
+    "android_package_name": "com.endless.nightmare.reborn.android"
   },
   {
     "id": "thoi-dai-anh-hung",
@@ -189537,7 +190388,10 @@
         "isCrawlerAutoApproved": true,
         "updatedAt": "2026-10-11T12:04:37.701Z"
       }
-    ]
+    ],
+    "google_play_url": "https://play.google.com/store/apps/details?id=com.greenmushroom.boomblitz.gp.vn",
+    "download_android": "https://play.google.com/store/apps/details?id=com.greenmushroom.boomblitz.gp.vn",
+    "android_package_name": "com.greenmushroom.boomblitz.gp.vn"
   },
   {
     "id": "tro-ve-tuoi-tho",
@@ -189757,7 +190611,10 @@
         "created_at": "2026-10-03T00:00:00Z",
         "added_at": "2026-10-03T05:26:16.274Z"
       }
-    ]
+    ],
+    "google_play_url": "https://play.google.com/store/apps/details?id=vn.corochti.returntochildhood",
+    "download_android": "https://play.google.com/store/apps/details?id=vn.corochti.returntochildhood",
+    "android_package_name": "vn.corochti.returntochildhood"
   },
   {
     "id": "tien-len-alita",
@@ -190139,7 +190996,10 @@
         "created_at": "2026-10-03T00:00:00Z",
         "added_at": "2026-10-03T05:26:16.276Z"
       }
-    ]
+    ],
+    "google_play_url": "https://play.google.com/store/apps/details?id=com.shg.sg423",
+    "download_android": "https://play.google.com/store/apps/details?id=com.shg.sg423",
+    "android_package_name": "com.shg.sg423"
   },
   {
     "id": "than-ma-loan-vu",
@@ -190845,7 +191705,10 @@
         "created_at": "2026-10-03T00:00:00Z",
         "added_at": "2026-10-03T05:26:16.405Z"
       }
-    ]
+    ],
+    "google_play_url": "https://play.google.com/store/apps/details?id=vn.vplhn.game.thanma.a2",
+    "download_android": "https://play.google.com/store/apps/details?id=vn.vplhn.game.thanma.a2",
+    "android_package_name": "vn.vplhn.game.thanma.a2"
   },
   {
     "id": "vo-lam-dai-minh-tinh",
@@ -191611,7 +192474,10 @@
         "isCrawlerAutoApproved": true,
         "updatedAt": "2026-10-13T19:18:56.582Z"
       }
-    ]
+    ],
+    "google_play_url": "https://play.google.com/store/apps/details?id=com.arts.bigstar",
+    "download_android": "https://play.google.com/store/apps/details?id=com.arts.bigstar",
+    "android_package_name": "com.arts.bigstar"
   },
   {
     "id": "than-ma-ao-hoa",
@@ -192510,7 +193376,10 @@
         "created_at": "2026-09-12T20:30:00.000Z",
         "added_at": "2026-10-03T00:00:00Z"
       }
-    ]
+    ],
+    "google_play_url": "https://play.google.com/store/apps/details?id=vn.vplay.huyentuong.t021a",
+    "download_android": "https://play.google.com/store/apps/details?id=vn.vplay.huyentuong.t021a",
+    "android_package_name": "vn.vplay.huyentuong.t021a"
   },
   {
     "id": "zenless-zone-zero",
@@ -193343,7 +194212,10 @@
         "isCrawlerAutoApproved": true,
         "updatedAt": "2026-10-13T19:18:56.553Z"
       }
-    ]
+    ],
+    "google_play_url": "https://play.google.com/store/apps/details?id=com.HoYoverse.NapVn",
+    "download_android": "https://play.google.com/store/apps/details?id=com.HoYoverse.NapVn",
+    "android_package_name": "com.HoYoverse.NapVn"
   },
   {
     "id": "roblox",
@@ -194944,7 +195816,10 @@
         "created_at": "2026-09-29T00:00:00Z",
         "added_at": "2026-10-03T00:00:00Z"
       }
-    ]
+    ],
+    "google_play_url": "https://play.google.com/store/apps/details?id=com.roblox.client.vnggames",
+    "download_android": "https://play.google.com/store/apps/details?id=com.roblox.client.vnggames",
+    "android_package_name": "com.roblox.client.vnggames"
   },
   {
     "id": "tay-du-beo-vng",
@@ -195461,7 +196336,10 @@
         "created_at": "2026-09-29T00:00:00Z",
         "added_at": "2026-10-03T00:00:00Z"
       }
-    ]
+    ],
+    "google_play_url": "https://play.google.com/store/apps/details?id=vng.games.taydu.ngokhong.idle.rpg",
+    "download_android": "https://play.google.com/store/apps/details?id=vng.games.taydu.ngokhong.idle.rpg",
+    "android_package_name": "vng.games.taydu.ngokhong.idle.rpg"
   },
   {
     "id": "3q-trieu-hoan-su",
@@ -195897,7 +196775,10 @@
         "created_at": "2026-10-03T00:00:00Z",
         "added_at": "2026-09-30T11:31:02.195Z"
       }
-    ]
+    ],
+    "google_play_url": "https://play.google.com/store/apps/details?id=vn.funzy.trieuhoansu3q",
+    "download_android": "https://play.google.com/store/apps/details?id=vn.funzy.trieuhoansu3q",
+    "android_package_name": "vn.funzy.trieuhoansu3q"
   },
   {
     "id": "hero-clash",
@@ -196333,7 +197214,10 @@
         "created_at": "2026-10-03T00:00:00Z",
         "added_at": "2026-09-30T11:31:02.172Z"
       }
-    ]
+    ],
+    "google_play_url": "https://play.google.com/store/apps/details?id=com.xgamenew.happytime.vn.gp",
+    "download_android": "https://play.google.com/store/apps/details?id=com.xgamenew.happytime.vn.gp",
+    "android_package_name": "com.xgamenew.happytime.vn.gp"
   },
   {
     "id": "thu-ky-huyen",
@@ -196742,7 +197626,10 @@
         "created_at": "2026-09-29T00:00:00Z",
         "added_at": "2026-10-03T00:00:00Z"
       }
-    ]
+    ],
+    "google_play_url": "https://play.google.com/store/apps/details?id=com.sh3d.vn.google",
+    "download_android": "https://play.google.com/store/apps/details?id=com.sh3d.vn.google",
+    "android_package_name": "com.sh3d.vn.google"
   },
   {
     "id": "vo-hon",
@@ -197614,7 +198501,10 @@
         "created_at": "2026-10-03T00:00:00Z",
         "added_at": "2026-09-30T11:31:02.627Z"
       }
-    ]
+    ],
+    "google_play_url": "https://play.google.com/store/apps/details?id=com.shg.sg401new",
+    "download_android": "https://play.google.com/store/apps/details?id=com.shg.sg401new",
+    "android_package_name": "com.shg.sg401new"
   },
   {
     "id": "dislyte",
@@ -198185,7 +199075,10 @@
         "created_at": "2026-10-03T00:00:00Z",
         "added_at": "2026-09-30T11:31:02.637Z"
       }
-    ]
+    ],
+    "google_play_url": "https://play.google.com/store/apps/details?id=com.farlightgames.xgame.gp.vn",
+    "download_android": "https://play.google.com/store/apps/details?id=com.farlightgames.xgame.gp.vn",
+    "android_package_name": "com.farlightgames.xgame.gp.vn"
   },
   {
     "id": "ghost-story-thien-nu",
@@ -198648,7 +199541,10 @@
         "created_at": "2026-10-03T00:00:00Z",
         "added_at": "2026-10-03T05:26:16.386Z"
       }
-    ]
+    ],
+    "google_play_url": "https://play.google.com/store/apps/details?id=com.vnggames.ghoststory",
+    "download_android": "https://play.google.com/store/apps/details?id=com.vnggames.ghoststory",
+    "android_package_name": "com.vnggames.ghoststory"
   },
   {
     "id": "hoc-vien-ninja-g4m",
@@ -199003,7 +199899,10 @@
         "created_at": "2026-09-12T20:30:00.000Z",
         "added_at": "2026-10-03T00:00:00Z"
       }
-    ]
+    ],
+    "google_play_url": "https://play.google.com/store/apps/details?id=com.g4m.hocvienninja",
+    "download_android": "https://play.google.com/store/apps/details?id=com.g4m.hocvienninja",
+    "android_package_name": "com.g4m.hocvienninja"
   },
   {
     "id": "neverness-to-everness",
@@ -199358,7 +200257,10 @@
         "created_at": "2026-10-03T00:00:00Z",
         "added_at": "2026-10-03T05:26:16.506Z"
       }
-    ]
+    ],
+    "google_play_url": "https://play.google.com/store/apps/details?id=com.HoYoverse.NapVn",
+    "download_android": "https://play.google.com/store/apps/details?id=com.HoYoverse.NapVn",
+    "android_package_name": "com.HoYoverse.NapVn"
   },
   {
     "id": "hanh-trinh-afk",
@@ -200145,7 +201047,10 @@
         "created_at": "2026-10-03T00:00:00Z",
         "added_at": "2026-09-30T11:31:02.760Z"
       }
-    ]
+    ],
+    "google_play_url": "https://play.google.com/store/apps/details?id=com.farlightgames.igame.gp.vn",
+    "download_android": "https://play.google.com/store/apps/details?id=com.farlightgames.igame.gp.vn",
+    "android_package_name": "com.farlightgames.igame.gp.vn"
   },
   {
     "id": "luc-tung-tam-quoc",
@@ -200932,7 +201837,10 @@
         "created_at": "2026-10-03T00:00:00Z",
         "added_at": "2026-09-30T11:31:02.237Z"
       }
-    ]
+    ],
+    "google_play_url": "https://play.google.com/store/apps/details?id=vn.luctungtamquoc.sauphe.a",
+    "download_android": "https://play.google.com/store/apps/details?id=vn.luctungtamquoc.sauphe.a",
+    "android_package_name": "vn.luctungtamquoc.sauphe.a"
   },
   {
     "id": "fortias-saga",
@@ -201233,7 +202141,10 @@
         "created_at": "2026-10-03T00:00:00Z",
         "added_at": "2026-10-03T05:26:16.615Z"
       }
-    ]
+    ],
+    "google_play_url": "https://play.google.com/store/apps/details?id=com.ondi.fortias.saga",
+    "download_android": "https://play.google.com/store/apps/details?id=com.ondi.fortias.saga",
+    "android_package_name": "com.ondi.fortias.saga"
   },
   {
     "id": "vo-dich-tu-tien-gioi-vtc",
@@ -201918,7 +202829,10 @@
         "created_at": "2026-10-03T00:00:00Z",
         "added_at": "2026-10-03T05:26:16.661Z"
       }
-    ]
+    ],
+    "google_play_url": "https://play.google.com/store/apps/details?id=com.vtc.tlvd",
+    "download_android": "https://play.google.com/store/apps/details?id=com.vtc.tlvd",
+    "android_package_name": "com.vtc.tlvd"
   },
   {
     "id": "mobile-legends-bang-bang",
@@ -202813,7 +203727,10 @@
         "created_at": "2026-10-03T00:00:00Z",
         "added_at": "2026-09-30T11:31:03.057Z"
       }
-    ]
+    ],
+    "google_play_url": "https://play.google.com/store/apps/details?id=com.hhgame.mlbbvn",
+    "download_android": "https://play.google.com/store/apps/details?id=com.hhgame.mlbbvn",
+    "android_package_name": "com.hhgame.mlbbvn"
   },
   {
     "id": "huyet-canh-chi-vuc",
@@ -203114,7 +204031,10 @@
         "created_at": "2026-10-03T00:00:00Z",
         "added_at": "2026-10-03T05:26:16.626Z"
       }
-    ]
+    ],
+    "google_play_url": "https://play.google.com/store/apps/details?id=com.hass.az",
+    "download_android": "https://play.google.com/store/apps/details?id=com.hass.az",
+    "android_package_name": "com.hass.az"
   },
   {
     "id": "dau-truong-chan-ly",
@@ -204981,7 +205901,10 @@
         "created_at": "2026-10-03T00:00:00Z",
         "added_at": "2026-09-30T11:31:03.573Z"
       }
-    ]
+    ],
+    "google_play_url": "https://play.google.com/store/apps/details?id=com.riotgames.league.teamfighttacticsvn",
+    "download_android": "https://play.google.com/store/apps/details?id=com.riotgames.league.teamfighttacticsvn",
+    "android_package_name": "com.riotgames.league.teamfighttacticsvn"
   },
   {
     "id": "huyen-thoai-lang-la",
@@ -205633,7 +206556,10 @@
         "created_at": "2026-09-29T00:00:00Z",
         "added_at": "2026-10-03T00:00:00Z"
       }
-    ]
+    ],
+    "google_play_url": "https://play.google.com/store/apps/details?id=com.huyenthoailangla.gg",
+    "download_android": "https://play.google.com/store/apps/details?id=com.huyenthoailangla.gg",
+    "android_package_name": "com.huyenthoailangla.gg"
   },
   {
     "id": "thap-tuyet-tran",
@@ -207585,7 +208511,10 @@
         "created_at": "2026-09-12T20:45:00.000Z",
         "added_at": "2026-10-03T00:00:00Z"
       }
-    ]
+    ],
+    "google_play_url": "https://play.google.com/store/apps/details?id=com.mxdzz.sea",
+    "download_android": "https://play.google.com/store/apps/details?id=com.mxdzz.sea",
+    "android_package_name": "com.mxdzz.sea"
   },
   {
     "id": "tay-du-vng",
@@ -208561,7 +209490,10 @@
         "created_at": "2026-10-03T00:00:00Z",
         "added_at": "2026-09-30T11:31:03.547Z"
       }
-    ]
+    ],
+    "google_play_url": "https://play.google.com/store/apps/details?id=vng.games.taydu.chienthuat.online",
+    "download_android": "https://play.google.com/store/apps/details?id=vng.games.taydu.chienthuat.online",
+    "android_package_name": "vng.games.taydu.chienthuat.online"
   },
   {
     "id": "tieu-yeu-tam-dao",
@@ -209753,7 +210685,10 @@
         "created_at": "2026-10-03T00:00:00Z",
         "added_at": "2026-09-30T11:31:03.034Z"
       }
-    ]
+    ],
+    "google_play_url": "https://play.google.com/store/apps/details?id=com.global.dqvn",
+    "download_android": "https://play.google.com/store/apps/details?id=com.global.dqvn",
+    "android_package_name": "com.global.dqvn"
   },
   {
     "id": "super-snail",
@@ -210324,7 +211259,10 @@
         "created_at": "2026-09-29T00:00:00Z",
         "added_at": "2026-10-03T00:00:00Z"
       }
-    ]
+    ],
+    "google_play_url": "https://play.google.com/store/apps/details?id=com.qcplay.snail.android.sea",
+    "download_android": "https://play.google.com/store/apps/details?id=com.qcplay.snail.android.sea",
+    "android_package_name": "com.qcplay.snail.android.sea"
   },
   {
     "id": "nam-dai-chien-tpl",
@@ -210544,7 +211482,10 @@
         "created_at": "2026-10-03T00:00:00Z",
         "added_at": "2026-09-30T11:31:03.042Z"
       }
-    ]
+    ],
+    "google_play_url": "https://play.google.com/store/apps/details?id=com.mpr.vn",
+    "download_android": "https://play.google.com/store/apps/details?id=com.mpr.vn",
+    "android_package_name": "com.mpr.vn"
   },
   {
     "id": "kiem-vuc-3d",
@@ -211010,7 +211951,10 @@
         "isCrawlerAutoApproved": true,
         "updatedAt": "2026-10-11T12:04:38.562Z"
       }
-    ]
+    ],
+    "google_play_url": "https://play.google.com/store/apps/details?id=com.mmovn.gp.kiemvuc",
+    "download_android": "https://play.google.com/store/apps/details?id=com.mmovn.gp.kiemvuc",
+    "android_package_name": "com.mmovn.gp.kiemvuc"
   },
   {
     "id": "jx2-origin",
@@ -211473,7 +212417,10 @@
         "created_at": "2026-10-03T00:00:00Z",
         "added_at": "2026-10-03T05:26:16.607Z"
       }
-    ]
+    ],
+    "google_play_url": "https://play.google.com/store/apps/details?id=vn.adnx.jx2",
+    "download_android": "https://play.google.com/store/apps/details?id=vn.adnx.jx2",
+    "android_package_name": "vn.adnx.jx2"
   },
   {
     "id": "phong-van-truyen-ky-2",
@@ -211720,7 +212667,10 @@
         "created_at": "2026-10-03T00:00:00Z",
         "added_at": "2026-10-03T05:26:16.773Z"
       }
-    ]
+    ],
+    "google_play_url": "https://play.google.com/store/apps/details?id=vn.cmn.bokinhvan",
+    "download_android": "https://play.google.com/store/apps/details?id=vn.cmn.bokinhvan",
+    "android_package_name": "vn.cmn.bokinhvan"
   },
   {
     "id": "chu-cong-xung-xung-xung",
@@ -212075,7 +213025,10 @@
         "created_at": "2026-10-03T00:00:00Z",
         "added_at": "2026-09-30T11:31:03.465Z"
       }
-    ]
+    ],
+    "google_play_url": "https://play.google.com/store/apps/details?id=com.game.zgcccvn.an",
+    "download_android": "https://play.google.com/store/apps/details?id=com.game.zgcccvn.an",
+    "android_package_name": "com.game.zgcccvn.an"
   },
   {
     "id": "tam-quoc-x",
@@ -221313,7 +222266,10 @@
         "created_at": "2026-09-12T20:30:00.000Z",
         "added_at": "2026-10-03T00:00:00Z"
       }
-    ]
+    ],
+    "google_play_url": "https://play.google.com/store/apps/details?id=vn.funtap.tamquocx",
+    "download_android": "https://play.google.com/store/apps/details?id=vn.funtap.tamquocx",
+    "android_package_name": "vn.funtap.tamquocx"
   },
   {
     "id": "swordash",
@@ -221620,7 +222576,10 @@
         "isCrawlerAutoApproved": true,
         "updatedAt": "2026-10-13T19:18:58.057Z"
       }
-    ]
+    ],
+    "google_play_url": "https://play.google.com/store/apps/details?id=com.fattoy.swordash.android",
+    "download_android": "https://play.google.com/store/apps/details?id=com.fattoy.swordash.android",
+    "android_package_name": "com.fattoy.swordash.android"
   },
   {
     "id": "genshin-impact",
@@ -226080,7 +227039,11 @@
         "copyCount": 0,
         "code": "OKTCV81F9H8D"
       }
-    ]
+    ],
+    "google_play_url": "https://play.google.com/store/apps/details?id=com.miHoYo.GenshinImpact",
+    "download_android": "https://play.google.com/store/apps/details?id=com.miHoYo.GenshinImpact",
+    "android_package_name": "com.miHoYo.GenshinImpact",
+    "download_pc": "https://genshin.hoyoverse.com/"
   },
   {
     "id": "call-of-dragons",
@@ -226381,7 +227344,10 @@
         "created_at": "2026-10-03T00:00:00Z",
         "added_at": "2026-09-30T11:31:03.978Z"
       }
-    ]
+    ],
+    "google_play_url": "https://play.google.com/store/apps/details?id=com.farlightgames.samo.gp.vn",
+    "download_android": "https://play.google.com/store/apps/details?id=com.farlightgames.samo.gp.vn",
+    "android_package_name": "com.farlightgames.samo.gp.vn"
   },
   {
     "id": "kiem-the-origin",
@@ -227438,7 +228404,10 @@
         "created_at": "2026-10-03T00:00:00Z",
         "added_at": "2026-10-03T05:26:16.881Z"
       }
-    ]
+    ],
+    "google_play_url": "https://play.google.com/store/apps/details?id=vnggames.volam.kiemthe.origin",
+    "download_android": "https://play.google.com/store/apps/details?id=vnggames.volam.kiemthe.origin",
+    "android_package_name": "vnggames.volam.kiemthe.origin"
   },
   {
     "id": "honkai-star-rail",
@@ -232437,7 +233406,11 @@
         "created_at": "2026-10-03T00:00:00Z",
         "added_at": "2026-09-30T11:31:03.308Z"
       }
-    ]
+    ],
+    "google_play_url": "https://play.google.com/store/apps/details?id=com.HoYoverse.hkrpgvn",
+    "download_android": "https://play.google.com/store/apps/details?id=com.HoYoverse.hkrpgvn",
+    "android_package_name": "com.HoYoverse.hkrpgvn",
+    "download_pc": "https://hsr.hoyoverse.com/"
   },
   {
     "id": "kiem-hiep-tinh-2-mobile",
@@ -233008,7 +233981,10 @@
         "created_at": "2026-09-18T09:45:52.106Z",
         "added_at": "2026-10-03T00:00:00Z"
       }
-    ]
+    ],
+    "google_play_url": "https://play.google.com/store/apps/details?id=com.tepaylink.kiemhieptinh2mobile",
+    "download_android": "https://play.google.com/store/apps/details?id=com.tepaylink.kiemhieptinh2mobile",
+    "android_package_name": "com.tepaylink.kiemhieptinh2mobile"
   },
   {
     "id": "immortal-rising-2",
@@ -233363,7 +234339,10 @@
         "created_at": "2026-10-03T00:00:00Z",
         "added_at": "2026-10-03T05:26:16.885Z"
       }
-    ]
+    ],
+    "google_play_url": "https://play.google.com/store/apps/details?id=com.badbeans.DarkIdle",
+    "download_android": "https://play.google.com/store/apps/details?id=com.badbeans.DarkIdle",
+    "android_package_name": "com.badbeans.DarkIdle"
   },
   {
     "id": "dai-hiep-chay-di",
@@ -234129,7 +235108,10 @@
         "created_at": "2026-09-12T20:30:00.000Z",
         "added_at": "2026-10-03T00:00:00Z"
       }
-    ]
+    ],
+    "google_play_url": "https://play.google.com/store/apps/details?id=com.xpgh.vnxxzy",
+    "download_android": "https://play.google.com/store/apps/details?id=com.xpgh.vnxxzy",
+    "android_package_name": "com.xpgh.vnxxzy"
   },
   {
     "id": "vo-cuc-tien-do-cmn",
@@ -234538,7 +235520,10 @@
         "created_at": "2026-10-03T00:00:00Z",
         "added_at": "2026-09-30T11:31:03.927Z"
       }
-    ]
+    ],
+    "google_play_url": "https://play.google.com/store/apps/details?id=com.windforce.wjxt.yuenan",
+    "download_android": "https://play.google.com/store/apps/details?id=com.windforce.wjxt.yuenan",
+    "android_package_name": "com.windforce.wjxt.yuenan"
   },
   {
     "id": "lang-rong-3",
@@ -234785,7 +235770,10 @@
         "created_at": "2026-10-03T00:00:00Z",
         "added_at": "2026-10-03T05:26:16.902Z"
       }
-    ]
+    ],
+    "google_play_url": "https://play.google.com/store/apps/details?id=com.highbrow.games.dv",
+    "download_android": "https://play.google.com/store/apps/details?id=com.highbrow.games.dv",
+    "android_package_name": "com.highbrow.games.dv"
   },
   {
     "id": "giang-ho-bat-phai-phan-tranh",
@@ -235356,7 +236344,10 @@
         "created_at": "2026-10-03T00:00:00Z",
         "added_at": "2026-10-03T05:26:16.876Z"
       }
-    ]
+    ],
+    "google_play_url": "https://play.google.com/store/apps/details?id=com.vtcmobile.ghbp",
+    "download_android": "https://play.google.com/store/apps/details?id=com.vtcmobile.ghbp",
+    "android_package_name": "com.vtcmobile.ghbp"
   },
   {
     "id": "chronicle-of-infinity",
@@ -235738,7 +236729,10 @@
         "created_at": "2026-10-03T00:00:00Z",
         "added_at": "2026-10-03T05:26:16.893Z"
       }
-    ]
+    ],
+    "google_play_url": "https://play.google.com/store/apps/details?id=com.emagroups.coi",
+    "download_android": "https://play.google.com/store/apps/details?id=com.emagroups.coi",
+    "android_package_name": "com.emagroups.coi"
   },
   {
     "id": "mech-arena",
@@ -236255,7 +237249,10 @@
         "created_at": "2026-10-03T00:00:00Z",
         "added_at": "2026-10-03T05:26:17.154Z"
       }
-    ]
+    ],
+    "google_play_url": "https://play.google.com/store/apps/details?id=mecha.robot.mech.arena.fighting.games",
+    "download_android": "https://play.google.com/store/apps/details?id=mecha.robot.mech.arena.fighting.games",
+    "android_package_name": "mecha.robot.mech.arena.fighting.games"
   },
   {
     "id": "play-together",
@@ -238230,7 +239227,10 @@
         "created_at": "2026-09-12T20:45:00.000Z",
         "added_at": "2026-10-03T00:00:00Z"
       }
-    ]
+    ],
+    "google_play_url": "https://play.google.com/store/apps/details?id=com.vng.playtogether",
+    "download_android": "https://play.google.com/store/apps/details?id=com.vng.playtogether",
+    "android_package_name": "com.vng.playtogether"
   },
   {
     "id": "afk-arena",
@@ -239300,7 +240300,10 @@
         "isCrawlerAutoApproved": true,
         "updatedAt": "2026-10-13T19:18:58.765Z"
       }
-    ]
+    ],
+    "google_play_url": "https://play.google.com/store/apps/details?id=com.hgame.gp.vn",
+    "download_android": "https://play.google.com/store/apps/details?id=com.hgame.gp.vn",
+    "android_package_name": "com.hgame.gp.vn"
   },
   {
     "id": "de-quoc-quat-khoi-tan-the-ky",
@@ -240793,7 +241796,10 @@
         "created_at": "2026-10-03T00:00:00Z",
         "added_at": "2026-09-30T11:31:03.934Z"
       }
-    ]
+    ],
+    "google_play_url": "https://play.google.com/store/apps/details?id=com.m71.android.vn",
+    "download_android": "https://play.google.com/store/apps/details?id=com.m71.android.vn",
+    "android_package_name": "com.m71.android.vn"
   },
   {
     "id": "chien-gioi-4d",
@@ -244199,7 +245205,10 @@
         "created_at": "2026-09-12T20:30:00.000Z",
         "added_at": "2026-10-03T00:00:00Z"
       }
-    ]
+    ],
+    "google_play_url": "https://play.google.com/store/apps/details?id=vn.vplay.chiengioi4d.t002a",
+    "download_android": "https://play.google.com/store/apps/details?id=vn.vplay.chiengioi4d.t002a",
+    "android_package_name": "vn.vplay.chiengioi4d.t002a"
   },
   {
     "id": "rise-of-kingdoms",
@@ -245877,7 +246886,10 @@
         "created_at": "2026-09-12T20:45:00.000Z",
         "added_at": "2026-10-03T00:00:00Z"
       }
-    ]
+    ],
+    "google_play_url": "https://play.google.com/store/apps/details?id=com.rok.gp.vn",
+    "download_android": "https://play.google.com/store/apps/details?id=com.rok.gp.vn",
+    "android_package_name": "com.rok.gp.vn"
   },
   {
     "id": "hanh-trinh-bat-tan-sinh-ton",
@@ -246448,7 +247460,10 @@
         "created_at": "2026-10-03T00:00:00Z",
         "added_at": "2026-10-03T05:26:17.026Z"
       }
-    ]
+    ],
+    "google_play_url": "https://play.google.com/store/apps/details?id=com.mechanist.poi.vn",
+    "download_android": "https://play.google.com/store/apps/details?id=com.mechanist.poi.vn",
+    "android_package_name": "com.mechanist.poi.vn"
   },
   {
     "id": "goi-ta-dai-chuong-quy",
@@ -247127,7 +248142,10 @@
         "created_at": "2026-10-03T00:00:00Z",
         "added_at": "2026-09-30T11:31:04.347Z"
       }
-    ]
+    ],
+    "google_play_url": "https://play.google.com/store/apps/details?id=com.global.dcq.vn",
+    "download_android": "https://play.google.com/store/apps/details?id=com.global.dcq.vn",
+    "android_package_name": "com.global.dcq.vn"
   },
   {
     "id": "vuong-quoc-kien",
@@ -249079,7 +250097,10 @@
         "created_at": "2026-10-03T00:00:00Z",
         "added_at": "2026-10-03T05:26:17.150Z"
       }
-    ]
+    ],
+    "google_play_url": "https://play.google.com/store/apps/details?id=vng.game.gunny.mobi.classic.original",
+    "download_android": "https://play.google.com/store/apps/details?id=vng.game.gunny.mobi.classic.original",
+    "android_package_name": "vng.game.gunny.mobi.classic.original"
   },
   {
     "id": "mini-world-creata",
@@ -249704,7 +250725,10 @@
         "created_at": "2026-10-03T00:00:00Z",
         "added_at": "2026-09-30T11:31:04.426Z"
       }
-    ]
+    ],
+    "google_play_url": "https://play.google.com/store/apps/details?id=com.miniworldgame.creata.vn",
+    "download_android": "https://play.google.com/store/apps/details?id=com.miniworldgame.creata.vn",
+    "android_package_name": "com.miniworldgame.creata.vn"
   },
   {
     "id": "idle-gog",
@@ -250140,7 +251164,10 @@
         "created_at": "2026-10-03T00:00:00Z",
         "added_at": "2026-10-03T05:26:17.001Z"
       }
-    ]
+    ],
+    "google_play_url": "https://play.google.com/store/apps/details?id=com.redriver.shjjc",
+    "download_android": "https://play.google.com/store/apps/details?id=com.redriver.shjjc",
+    "android_package_name": "com.redriver.shjjc"
   },
   {
     "id": "pew-pew-slime-idle-rpg",
@@ -250657,7 +251684,10 @@
         "created_at": "2026-10-03T00:00:00Z",
         "added_at": "2026-10-03T05:26:17.167Z"
       }
-    ]
+    ],
+    "google_play_url": "https://play.google.com/store/apps/details?id=com.loadcomplete.slimeidle",
+    "download_android": "https://play.google.com/store/apps/details?id=com.loadcomplete.slimeidle",
+    "android_package_name": "com.loadcomplete.slimeidle"
   },
   {
     "id": "meo-may-sieu-quay",
@@ -250958,7 +251988,10 @@
         "created_at": "2026-10-03T00:00:00Z",
         "added_at": "2026-09-30T11:31:04.770Z"
       }
-    ]
+    ],
+    "google_play_url": "https://play.google.com/store/apps/details?id=com.sinyee.babybus.cat",
+    "download_android": "https://play.google.com/store/apps/details?id=com.sinyee.babybus.cat",
+    "android_package_name": "com.sinyee.babybus.cat"
   },
   {
     "id": "na-tra-nao-hai",
@@ -251259,7 +252292,10 @@
         "created_at": "2026-10-03T00:00:00Z",
         "added_at": "2026-10-03T05:26:17.142Z"
       }
-    ]
+    ],
+    "google_play_url": "https://play.google.com/store/apps/details?id=com.FireSword.FengShen",
+    "download_android": "https://play.google.com/store/apps/details?id=com.FireSword.FengShen",
+    "android_package_name": "com.FireSword.FengShen"
   },
   {
     "id": "tan-omg3q-vng",
@@ -252004,7 +253040,10 @@
         "isCrawlerAutoApproved": true,
         "updatedAt": "2026-10-13T19:18:59.760Z"
       }
-    ]
+    ],
+    "google_play_url": "https://play.google.com/store/apps/details?id=com.vng.tanomg3q",
+    "download_android": "https://play.google.com/store/apps/details?id=com.vng.tanomg3q",
+    "android_package_name": "com.vng.tanomg3q"
   },
   {
     "id": "dai-chien-tam-quoc",
@@ -253169,7 +254208,10 @@
         "created_at": "2026-10-03T00:00:00Z",
         "added_at": "2026-10-03T05:26:17.288Z"
       }
-    ]
+    ],
+    "google_play_url": "https://play.google.com/store/apps/details?id=com.daichien.mobile",
+    "download_android": "https://play.google.com/store/apps/details?id=com.daichien.mobile",
+    "android_package_name": "com.daichien.mobile"
   },
   {
     "id": "doi-hinh-toi-thuong",
@@ -253524,7 +254566,10 @@
         "created_at": "2026-10-03T00:00:00Z",
         "added_at": "2026-09-30T11:31:04.788Z"
       }
-    ]
+    ],
+    "google_play_url": "https://play.google.com/store/apps/details?id=com.galasports.championsfc.vn",
+    "download_android": "https://play.google.com/store/apps/details?id=com.galasports.championsfc.vn",
+    "android_package_name": "com.galasports.championsfc.vn"
   },
   {
     "id": "mong-huyen-giang-ho",
@@ -254095,7 +255140,10 @@
         "created_at": "2026-10-03T00:00:00Z",
         "added_at": "2026-09-30T11:31:05.219Z"
       }
-    ]
+    ],
+    "google_play_url": "https://play.google.com/store/apps/details?id=mobi.mgh.mong.daihiep",
+    "download_android": "https://play.google.com/store/apps/details?id=mobi.mgh.mong.daihiep",
+    "android_package_name": "mobi.mgh.mong.daihiep"
   },
   {
     "id": "thanh-quang-thien-su",
@@ -254477,7 +255525,10 @@
         "created_at": "2026-10-03T00:00:00Z",
         "added_at": "2026-10-03T05:26:17.257Z"
       }
-    ]
+    ],
+    "google_play_url": "https://play.google.com/store/apps/details?id=com.vgm.muh5",
+    "download_android": "https://play.google.com/store/apps/details?id=com.vgm.muh5",
+    "android_package_name": "com.vgm.muh5"
   },
   {
     "id": "thieu-nien-3q-vng",
@@ -255534,7 +256585,10 @@
         "created_at": "2026-09-29T00:00:00Z",
         "added_at": "2026-10-03T00:00:00Z"
       }
-    ]
+    ],
+    "google_play_url": "https://play.google.com/store/apps/details?id=com.vng.thieunien3qvng",
+    "download_android": "https://play.google.com/store/apps/details?id=com.vng.thieunien3qvng",
+    "android_package_name": "com.vng.thieunien3qvng"
   },
   {
     "id": "mong-canh-tam-quoc",
@@ -257099,7 +258153,10 @@
         "tier": 2,
         "updatedAt": "2026-10-15T08:12:00.888Z"
       }
-    ]
+    ],
+    "google_play_url": "https://play.google.com/store/apps/details?id=com.igg.android.lordsmobilevn",
+    "download_android": "https://play.google.com/store/apps/details?id=com.igg.android.lordsmobilevn",
+    "android_package_name": "com.igg.android.lordsmobilevn"
   },
   {
     "id": "giang-ho-ngu-tuyet-mobile",
@@ -257805,7 +258862,10 @@
         "created_at": "2026-10-03T00:00:00Z",
         "added_at": "2026-10-03T05:26:17.146Z"
       }
-    ]
+    ],
+    "google_play_url": "https://play.google.com/store/apps/details?id=com.mobigame.cuongma2",
+    "download_android": "https://play.google.com/store/apps/details?id=com.mobigame.cuongma2",
+    "android_package_name": "com.mobigame.cuongma2"
   },
   {
     "id": "vo-lam-truyen-ky-1-mobile",
@@ -258241,7 +259301,10 @@
         "created_at": "2026-10-03T00:00:00Z",
         "added_at": "2026-10-03T05:26:17.262Z"
       }
-    ]
+    ],
+    "google_play_url": "https://play.google.com/store/apps/details?id=vn.pg1.vltk1m",
+    "download_android": "https://play.google.com/store/apps/details?id=vn.pg1.vltk1m",
+    "android_package_name": "vn.pg1.vltk1m"
   },
   {
     "id": "dicero",
@@ -258569,7 +259632,10 @@
         "created_at": "2026-10-03T00:00:00Z",
         "added_at": "2026-10-03T05:26:17.244Z"
       }
-    ]
+    ],
+    "google_play_url": "https://play.google.com/store/apps/details?id=com.percent.royaldice",
+    "download_android": "https://play.google.com/store/apps/details?id=com.percent.royaldice",
+    "android_package_name": "com.percent.royaldice"
   },
   {
     "id": "call-of-duty-mobile-vn",
@@ -261786,7 +262852,10 @@
         "created_at": "2026-10-03T00:00:00Z",
         "added_at": "2026-10-03T05:26:17.271Z"
       }
-    ]
+    ],
+    "google_play_url": "https://play.google.com/store/apps/details?id=com.vng.codmvn",
+    "download_android": "https://play.google.com/store/apps/details?id=com.vng.codmvn",
+    "android_package_name": "com.vng.codmvn"
   },
   {
     "id": "dau-truong-huyen-thoai",
@@ -262249,7 +263318,10 @@
         "created_at": "2026-10-03T00:00:00Z",
         "added_at": "2026-10-03T05:26:17.284Z"
       }
-    ]
+    ],
+    "google_play_url": "https://play.google.com/store/apps/details?id=com.riotgames.legendsofruneterravn",
+    "download_android": "https://play.google.com/store/apps/details?id=com.riotgames.legendsofruneterravn",
+    "android_package_name": "com.riotgames.legendsofruneterravn"
   },
   {
     "id": "lien-quan-mobile",
@@ -263360,7 +264432,10 @@
         "created_at": "2026-09-29T00:00:00Z",
         "added_at": "2026-10-03T00:00:00Z"
       }
-    ]
+    ],
+    "google_play_url": "https://play.google.com/store/apps/details?id=com.garena.game.kgvn",
+    "download_android": "https://play.google.com/store/apps/details?id=com.garena.game.kgvn",
+    "android_package_name": "com.garena.game.kgvn"
   },
   {
     "id": "pubg-mobile",
@@ -264450,7 +265525,10 @@
         "created_at": "2026-10-03T00:00:00Z",
         "added_at": "2026-09-30T11:31:05.729Z"
       }
-    ]
+    ],
+    "google_play_url": "https://play.google.com/store/apps/details?id=com.vng.pubgmobile",
+    "download_android": "https://play.google.com/store/apps/details?id=com.vng.pubgmobile",
+    "android_package_name": "com.vng.pubgmobile"
   },
   {
     "id": "the-seven-deadly-sins-grand-cross",
@@ -265243,7 +266321,10 @@
         "isCrawlerAutoApproved": true,
         "updatedAt": "2026-10-11T12:04:39.806Z"
       }
-    ]
+    ],
+    "google_play_url": "https://play.google.com/store/apps/details?id=com.sega.d2megaten.en",
+    "download_android": "https://play.google.com/store/apps/details?id=com.sega.d2megaten.en",
+    "android_package_name": "com.sega.d2megaten.en"
   },
   {
     "id": "khu-vuon-tren-may",
@@ -265463,7 +266544,10 @@
         "created_at": "2026-10-03T00:00:00Z",
         "added_at": "2026-09-30T11:31:05.724Z"
       }
-    ]
+    ],
+    "google_play_url": "https://play.google.com/store/apps/details?id=vn.kvtm.js",
+    "download_android": "https://play.google.com/store/apps/details?id=vn.kvtm.js",
+    "android_package_name": "vn.kvtm.js"
   },
   {
     "id": "ngoa-long-vng",
@@ -266169,7 +267253,10 @@
         "created_at": "2026-10-03T00:00:00Z",
         "added_at": "2026-10-03T05:26:17.519Z"
       }
-    ]
+    ],
+    "google_play_url": "https://play.google.com/store/apps/details?id=vn.zalo.ngoalongmb",
+    "download_android": "https://play.google.com/store/apps/details?id=vn.zalo.ngoalongmb",
+    "android_package_name": "vn.zalo.ngoalongmb"
   },
   {
     "id": "tam-gioi-anh-hung",
@@ -266767,7 +267854,10 @@
         "created_at": "2026-10-03T00:00:00Z",
         "added_at": "2026-09-30T11:31:05.729Z"
       }
-    ]
+    ],
+    "google_play_url": "https://play.google.com/store/apps/details?id=vn.tamgioi.anhhung",
+    "download_android": "https://play.google.com/store/apps/details?id=vn.tamgioi.anhhung",
+    "android_package_name": "vn.tamgioi.anhhung"
   },
   {
     "id": "danh-tuong-3q-vng",
@@ -268040,7 +269130,10 @@
         "created_at": "2026-10-03T00:00:00Z",
         "added_at": "2026-09-30T11:31:05.205Z"
       }
-    ]
+    ],
+    "google_play_url": "https://play.google.com/store/apps/details?id=vn.pp.dt3q",
+    "download_android": "https://play.google.com/store/apps/details?id=vn.pp.dt3q",
+    "android_package_name": "vn.pp.dt3q"
   },
   {
     "id": "grand-blue",
@@ -268638,7 +269731,10 @@
         "created_at": "2026-10-03T00:00:00Z",
         "added_at": "2026-10-03T05:26:17.529Z"
       }
-    ]
+    ],
+    "google_play_url": "https://play.google.com/store/apps/details?id=com.facebook.orca",
+    "download_android": "https://play.google.com/store/apps/details?id=com.facebook.orca",
+    "android_package_name": "com.facebook.orca"
   },
   {
     "id": "dragon-village-m",
@@ -269971,7 +271067,10 @@
         "created_at": "2026-09-29T00:00:00Z",
         "added_at": "2026-10-03T00:00:00Z"
       }
-    ]
+    ],
+    "google_play_url": "https://play.google.com/store/apps/details?id=com.perplelab.dragonvillagem.kr",
+    "download_android": "https://play.google.com/store/apps/details?id=com.perplelab.dragonvillagem.kr",
+    "android_package_name": "com.perplelab.dragonvillagem.kr"
   },
   {
     "id": "omg-3q",
@@ -271352,7 +272451,10 @@
         "created_at": "2026-09-12T20:45:00.000Z",
         "added_at": "2026-10-03T00:00:00Z"
       }
-    ]
+    ],
+    "google_play_url": "https://play.google.com/store/apps/details?id=com.gs2.omg",
+    "download_android": "https://play.google.com/store/apps/details?id=com.gs2.omg",
+    "android_package_name": "com.gs2.omg"
   },
   {
     "id": "zingspeed-mobile",
@@ -273597,7 +274699,10 @@
         "created_at": "2026-09-12T20:45:00.000Z",
         "added_at": "2026-10-03T00:00:00Z"
       }
-    ]
+    ],
+    "google_play_url": "https://play.google.com/store/apps/details?id=com.vng.speedvn",
+    "download_android": "https://play.google.com/store/apps/details?id=com.vng.speedvn",
+    "android_package_name": "com.vng.speedvn"
   },
   {
     "id": "x-wukong-dai-chien-tam-gioi",
@@ -275009,7 +276114,10 @@
         "created_at": "2026-10-03T00:00:00Z",
         "added_at": "2026-10-03T05:26:17.376Z"
       }
-    ]
+    ],
+    "google_play_url": "https://play.google.com/store/apps/details?id=com.gs2.omg",
+    "download_android": "https://play.google.com/store/apps/details?id=com.gs2.omg",
+    "android_package_name": "com.gs2.omg"
   },
   {
     "id": "buu-boi-truyen-ky",
@@ -275418,7 +276526,10 @@
         "created_at": "2026-10-03T00:00:00Z",
         "added_at": "2026-10-03T05:26:17.523Z"
       }
-    ]
+    ],
+    "google_play_url": "https://play.google.com/store/apps/details?id=com.vng.vltkm",
+    "download_android": "https://play.google.com/store/apps/details?id=com.vng.vltkm",
+    "android_package_name": "com.vng.vltkm"
   },
   {
     "id": "free-fire",
@@ -276529,7 +277640,10 @@
         "created_at": "2026-10-03T00:00:00Z",
         "added_at": "2026-10-03T05:25:51.850Z"
       }
-    ]
+    ],
+    "google_play_url": "https://play.google.com/store/apps/details?id=com.dts.freefireth",
+    "download_android": "https://play.google.com/store/apps/details?id=com.dts.freefireth",
+    "android_package_name": "com.dts.freefireth"
   },
   {
     "id": "gunpow",

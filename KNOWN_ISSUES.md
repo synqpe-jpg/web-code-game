@@ -10,6 +10,29 @@
 
 ## 1. DANH MỤC LỖI & CÁC BẪY ĐÃ THẤT BẠI (DO NOT REPEAT)
 
+### ISSUE-133: Bẫy TypeError Khi Gọi Hàm Chưa Khai Báo Trong Toast Loop & Bẫy 0/563 Game Trống Link Store
+- **Triệu chứng**:
+  - Không có bất kỳ toast nhỏ nào xuất hiện ở góc màn hình trong suốt 125 giây (kể cả sau khi đóng popup chào mừng giữa màn hình).
+  - Khối tải game ("Tải Game Chính Thức") không xuất hiện trên trang Where Winds Meet và toàn bộ catalog (0/563 game có link store).
+  - Tồn dư 7 mã rác bot test trong `public/data/codes_database.json` và `data/games188.json`.
+- **Nguyên nhân gốc rễ (Root Cause)**:
+  1. *Thiếu phương thức `getLatestLedgerEvent()`*: `MarketingNotificationToast.tsx` gọi `marketingService.getLatestLedgerEvent()` nhưng phương thức này chưa được định nghĩa trên `MarketingService`. Runtime ném `TypeError: marketingService.getLatestLedgerEvent is not a function`, làm vỡ unhandled timeout ở `initialWelcomeTimerRef` và đưa `scheduleDeterministicSlot` vào vòng lặp retry 5000ms vô tận.
+  2. *Bẫy anti-spam cooldown gom chung key 'Khách'*: `functions/services/virtualLayerService.ts` tạo sự kiện ảo nhưng không gắn trường `userName: user` vào `combinedEvents`. Client nhận được sự kiện không có `userName`, gán mặc định `userName = 'Khách'`. Sự kiện đầu tiên ghi nhận cooldown 20s cho key `'Khách_COPY_CODE'`, dẫn đến việc 100% các sự kiện sao chép tiếp theo của TẤT CẢ các người dùng ảo đều bị khóa chặt.
+  3. *Bẫy slot-skipping lặp vô tận*: Khi `getCurrentSlotEvent(currentSlotIndex)` trả về `null`, client liên tục bỏ qua khe hiện tại và dời sang khe sau, gây ra tình trạng bế tắc không hiển thị bất kỳ thông báo nào.
+  4. *Trống dữ liệu store links & bỏ qua PC link*: Dữ liệu catalog chưa được điền link CH Play / App Store; `GameDownloadSection.tsx` kiểm tra `if (!hasPlay && !hasIos) return null;` bỏ qua `download_pc`, làm ẩn cả game có bản PC như Where Winds Meet.
+- **Giải pháp chuẩn đã kiểm chứng**:
+  1. *Định nghĩa đầy đủ `getLatestLedgerEvent()`*: Cài đặt trên `MarketingService` trả về sự kiện mới nhất chưa xử lý từ hàng đợi sổ máy chủ hoặc bộ nhớ đệm sự kiện.
+  2. *Gắn định danh người dùng và chỉ số khe cho sự kiện ảo*: `userName: user` và `slotIndex: nowSlotIndex` trong `virtualLayerService.ts`.
+  3. *Fallback hàng đợi sổ máy chủ khi lệch khe*: Nếu `getCurrentSlotEvent(currentSlotIndex)` trả về `null`, tự động lấy `getNextLedgerEvent() || getLatestLedgerEvent()`.
+  4. *Điền link store hàng loạt (344/560 game)*: Sử dụng `scripts/enrich_store_links.cjs` nạp package ID từ `gp_cache.json` và iTunes Search API kèm bộ lọc precision; hỗ trợ `download_pc` và hiển thị nút "Bản PC (Windows)".
+  5. *Thanh lọc triệt để 7 mã rác*: Xóa sạch khỏi `public/data/codes_database.json` và `data/games188.json`.
+- ⛔ **CÁCH SỬA ĐÃ THẤT BẠI - TUYỆT ĐỐI KHÔNG LẶP LẠI**:
+  - ❌ *Không bao giờ gọi phương thức trên service khi chưa kiểm tra khai báo*: Luôn kiểm tra định nghĩa phương thức trên class TypeScript trước khi gọi trong component.
+  - ❌ *Không gộp chung toàn bộ sự kiện ảo vào một tên người dùng mặc định*: Mỗi sự kiện ảo phải mang `userName` riêng biệt để không kích hoạt nhầm cơ chế cooldown chống spam toàn cục.
+  - ❌ *Không ẩn khối tải game nếu game có liên kết PC*: Phải kiểm tra cả `hasPc` bên cạnh `hasPlay` và `hasIos`.
+
+---
+
 ### ISSUE-132: Bẫy Lọc Bỏ Âm Thầm Mã Ngắn Dưới 3-4 Ký Tự & Sai Lệch Tên Game Trong Event Mô Phỏng
 - **Triệu chứng**:
   - Các giftcode ngắn chính thức của Roblox DOORS (`W`, `41`, `54`, `67`) bị bộ lọc API nuốt âm thầm không báo lỗi.

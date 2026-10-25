@@ -336,7 +336,12 @@ export const MarketingNotificationToast: React.FC<MarketingNotificationToastProp
 
       // B.2: Đang nằm trong cửa sổ hiển thị hợp lệ của khe hiện tại (từ 1.5s đến 8.0s của khe 10s)
       if (calibratedNow >= slotFireTimeMs && calibratedNow < slotEndMs - 2000) {
-        const currentSlotEvt = marketingService.getCurrentSlotEvent(currentSlotIndex);
+        let currentSlotEvt = marketingService.getCurrentSlotEvent(currentSlotIndex);
+        // Fallback: Nếu chưa khớp slotIndex, lấy sự kiện kế tiếp trong hàng đợi sổ máy chủ để đảm bảo không bị rỗng khe
+        if (!currentSlotEvt) {
+          currentSlotEvt = marketingService.getNextLedgerEvent() || marketingService.getLatestLedgerEvent();
+        }
+
         if (currentSlotEvt) {
           const datasets = getDatasets();
           let isValid = true;
@@ -399,10 +404,10 @@ export const MarketingNotificationToast: React.FC<MarketingNotificationToastProp
           }
         } else {
           // Chưa có sự kiện cho khe hiện tại từ sổ máy chủ:
-          // Thử lại nhanh sau 300ms nếu vẫn còn trong cửa sổ khe để chờ poller tải về bù
+          // Thử lại nhanh sau 500ms nếu vẫn còn trong cửa sổ khe để chờ poller tải về bù
           if (calibratedNow < slotEndMs - 2500) {
             if (timerRef.current) clearTimeout(timerRef.current);
-            timerRef.current = setTimeout(() => scheduleRef.current(), 300);
+            timerRef.current = setTimeout(() => scheduleRef.current(), 500);
             return;
           }
         }

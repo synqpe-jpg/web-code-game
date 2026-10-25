@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useMemo } from 'react';
-import { Smartphone, QrCode, Info, ExternalLink, Download } from 'lucide-react';
+import { Smartphone, QrCode, Info, ExternalLink, Download, Monitor } from 'lucide-react';
 import type { GameItem } from '../../types/game';
 
 interface GameDownloadSectionProps {
@@ -169,9 +169,11 @@ export const GameDownloadSection: React.FC<GameDownloadSectionProps> = ({ game, 
   // Store links extracted from game model (supporting both naming conventions)
   const rawPlayUrl = game.google_play_url || game.download_android || '';
   const rawIosUrl = game.app_store_url || game.download_ios || '';
+  const rawPcUrl = game.download_pc || '';
 
   const hasPlay = Boolean(rawPlayUrl && rawPlayUrl.trim());
   const hasIos = Boolean(rawIosUrl && rawIosUrl.trim());
+  const hasPc = Boolean(rawPcUrl && rawPcUrl.trim());
 
   // Detect platform on mount
   useEffect(() => {
@@ -242,8 +244,8 @@ export const GameDownloadSection: React.FC<GameDownloadSectionProps> = ({ game, 
     };
   }, [platform, selectedQrTab, rawPlayUrl, rawIosUrl, hasPlay, hasIos]);
 
-  // RULE 2: If game has no store links, DO NOT render this block at all
-  if (!hasPlay && !hasIos) {
+  // RULE 2: If game has no store links and no PC link, DO NOT render this block at all
+  if (!hasPlay && !hasIos && !hasPc) {
     return null;
   }
 
@@ -321,6 +323,20 @@ export const GameDownloadSection: React.FC<GameDownloadSectionProps> = ({ game, 
               </a>
             </div>
           )}
+
+          {hasPc && (
+            <div className="text-center pt-0.5">
+              <a
+                href={rawPcUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-1.5 text-xs text-slate-400 hover:text-slate-200 transition-colors cursor-pointer py-0.5"
+              >
+                <Monitor className="w-3.5 h-3.5 text-sky-400" />
+                <span>Có bản PC / Windows &rarr;</span>
+              </a>
+            </div>
+          )}
         </div>
       )}
 
@@ -351,6 +367,20 @@ export const GameDownloadSection: React.FC<GameDownloadSectionProps> = ({ game, 
               >
                 <GooglePlaySvg className="w-3.5 h-3.5 shrink-0" />
                 <span>Cũng có trên Android (CH Play) &rarr;</span>
+              </a>
+            </div>
+          )}
+
+          {hasPc && (
+            <div className="text-center pt-0.5">
+              <a
+                href={rawPcUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-1.5 text-xs text-slate-400 hover:text-slate-200 transition-colors cursor-pointer py-0.5"
+              >
+                <Monitor className="w-3.5 h-3.5 text-sky-400" />
+                <span>Có bản PC / Windows &rarr;</span>
               </a>
             </div>
           )}
@@ -389,13 +419,29 @@ export const GameDownloadSection: React.FC<GameDownloadSectionProps> = ({ game, 
         </div>
       )}
 
+      {/* Fallback when ONLY PC link is available on mobile */}
+      {!hasPlay && !hasIos && hasPc && !isDesktop && (
+        <div className="space-y-2">
+          <a
+            href={rawPcUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="w-full flex items-center justify-center gap-3 px-4 py-3 rounded-xl bg-sky-600 hover:bg-sky-500 text-white font-heading font-black text-sm shadow-md active:scale-[0.98] transition-all cursor-pointer"
+          >
+            <Monitor className="w-5 h-5 shrink-0 text-white" />
+            <span>Tải bản PC (Windows)</span>
+            <ExternalLink className="w-4 h-4 text-sky-200 ml-auto" />
+          </a>
+        </div>
+      )}
+
       {/* ========================================================================= */}
-      {/* 3. DESKTOP DISPLAY: Both buttons side-by-side + QR code block             */}
+      {/* 3. DESKTOP DISPLAY: Store buttons side-by-side + PC + QR code block       */}
       {/* ========================================================================= */}
       {isDesktop && (
         <div className="space-y-3">
           {/* Action buttons row */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 sm:gap-2.5">
+          <div className={`grid grid-cols-1 ${hasPlay && hasIos && hasPc ? 'sm:grid-cols-3' : 'sm:grid-cols-2'} gap-2 sm:gap-2.5`}>
             {hasPlay && (
               <a
                 href={playButtonUrl}
@@ -403,7 +449,7 @@ export const GameDownloadSection: React.FC<GameDownloadSectionProps> = ({ game, 
                 rel="noopener noreferrer"
                 onClick={() => handleClick('google_play')}
                 className={`flex items-center justify-center gap-2.5 px-3.5 py-2.5 rounded-xl bg-slate-800/90 hover:bg-emerald-950/40 text-white hover:text-emerald-300 border border-emerald-500/40 hover:border-emerald-500 transition-all font-heading font-bold text-xs sm:text-sm active:scale-95 group ${
-                  !hasIos ? 'sm:col-span-2' : ''
+                  !hasIos && !hasPc ? 'sm:col-span-2' : ''
                 }`}
                 title="Mở Google Play Store trong tab mới"
               >
@@ -420,7 +466,7 @@ export const GameDownloadSection: React.FC<GameDownloadSectionProps> = ({ game, 
                 rel="noopener noreferrer"
                 onClick={() => handleClick('app_store')}
                 className={`flex items-center justify-center gap-2.5 px-3.5 py-2.5 rounded-xl bg-slate-800/90 hover:bg-slate-700/60 text-white hover:text-cyan-300 border border-slate-700 hover:border-cyan-500/60 transition-all font-heading font-bold text-xs sm:text-sm active:scale-95 group ${
-                  !hasPlay ? 'sm:col-span-2' : ''
+                  !hasPlay && !hasPc ? 'sm:col-span-2' : ''
                 }`}
                 title="Mở Apple App Store trong tab mới"
               >
@@ -429,9 +475,26 @@ export const GameDownloadSection: React.FC<GameDownloadSectionProps> = ({ game, 
                 <ExternalLink className="w-3 h-3 text-slate-500 group-hover:text-cyan-400 ml-auto" />
               </a>
             )}
+
+            {hasPc && (
+              <a
+                href={rawPcUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className={`flex items-center justify-center gap-2.5 px-3.5 py-2.5 rounded-xl bg-slate-800/90 hover:bg-sky-950/40 text-white hover:text-sky-300 border border-sky-500/40 hover:border-sky-500 transition-all font-heading font-bold text-xs sm:text-sm active:scale-95 group ${
+                  !hasPlay && !hasIos ? 'sm:col-span-2' : ''
+                }`}
+                title="Mở website tải bản PC / Windows chính thức"
+              >
+                <Monitor className="w-4 h-4 sm:w-5 sm:h-5 shrink-0 text-sky-400 group-hover:scale-110 transition-transform" />
+                <span>Bản PC (Windows)</span>
+                <ExternalLink className="w-3 h-3 text-slate-500 group-hover:text-sky-400 ml-auto" />
+              </a>
+            )}
           </div>
 
-          {/* Desktop QR Code Block */}
+          {/* Desktop QR Code Block (only rendered if mobile store link exists) */}
+          {(hasPlay || hasIos) && (
           <div className="rounded-xl border border-slate-800 bg-slate-950/60 p-3 flex flex-col items-center">
             {/* Tabs for switching QR code (only show if both links exist) */}
             {hasPlay && hasIos && (
@@ -485,6 +548,7 @@ export const GameDownloadSection: React.FC<GameDownloadSectionProps> = ({ game, 
               Quét bằng Camera điện thoại để mở thẳng trang tải game
             </p>
           </div>
+          )}
         </div>
       )}
 

@@ -5,6 +5,50 @@ Mỗi mục sửa lỗi đều ghi nhận **Nguyên nhân gốc rễ (Root Cause
 
 ---
 
+## [2026-10-26]
+
+### 209. Sửa Lỗi Toast Không Hiện (getLatestLedgerEvent), Điền 344 Link Store & Bản PC Where Winds Meet, Thanh Lọc 7 Mã Rác Gun X Mobile
+- **Mô tả & Bối cảnh kiểm toán**:
+  - Người dùng kiểm toán vòng 3 ghi nhận:
+    1. *Toast nhỏ không xuất hiện trong suốt 125 giây*: Kiểm chứng thực tế sau khi đóng popup chào mừng giữa màn hình, góc màn hình không hề có toast marketing nào.
+    2. *Nút tải game 0/563 game có dữ liệu*: Trang Where Winds Meet không có nút tải game; toàn bộ 563 game trong catalog rỗng `google_play_url`, `app_store_url`, `download_android/ios/pc`.
+    3. *Gun X Mobile còn 7 mã rác*: Trong `public/data/codes_database.json` và `data/games188.json` vẫn còn 7 mã test cũ.
+    4. *Lệch số liệu giờ cao điểm & chống tái diễn D1*: Cần báo cáo kỹ thuật và chứng minh.
+- **Phân tích nguyên nhân gốc rễ (Root Cause)**:
+  1. *Toast Engine Bug*:
+     - `marketingService.getLatestLedgerEvent()` chưa từng được khai báo trên `MarketingService`. Khi `MarketingNotificationToast.tsx` gọi hàm này ở dòng 545 (`initialWelcomeTimerRef`) và dòng 414, runtime văng `TypeError: marketingService.getLatestLedgerEvent is not a function`.
+     - Lỗi trong `initialWelcomeTimerRef` làm crash welcome toast. Lỗi trong `scheduleDeterministicSlot` rơi vào `catch (err)` rồi rơi vào vòng lặp retry 5000ms vô tận.
+     - Trong `functions/services/virtualLayerService.ts` dòng 1054: `combinedEvents.push` bỏ sót `userName: user`. Khi client nhận được sự kiện ảo không có `userName`, nó mặc định `userName = 'Khách'`. Sự kiện đầu tiên kích hoạt cooldown 20s cho key `'Khách_COPY_CODE'`, khóa cứng 100% các sự kiện sao chép tiếp theo trong 20s.
+     - Bế tắc skip khe: Khi `getCurrentSlotEvent(currentSlotIndex)` trả về `null` (do trễ mạng hoặc lệch index khe), code skip khe ở giây 7.5 và lên lịch khe tiếp, liên tục skip mọi khe tiếp theo khiến không có toast nào hiện.
+  2. *Thiếu Dữ Liệu Store Links & Bản PC*:
+     - File dữ liệu `games188.json` rỗng các trường link store.
+     - `GameDownloadSection.tsx` dòng 246 có điều kiện `if (!hasPlay && !hasIos) return null;` hoàn toàn bỏ qua `hasPc` (`download_pc`), khiến game có bản PC như Where Winds Meet bị ẩn mất cả khối tải game.
+  3. *Tồn dư mã rác*:
+     - `public/data/codes_database.json` và `data/games188.json` chưa được làm sạch sau đợt cập nhật `src/data/crawled_codes_188.json`.
+- **Giải pháp triển khai (Solution)**:
+  1. *Sửa triệt để Toast Engine*:
+     - Khai báo và cài đặt `getLatestLedgerEvent(): MarketingNotification | null` trong `src/services/marketingService.ts`.
+     - Bổ sung `userName: user` và `slotIndex: nowSlotIndex` vào `combinedEvents` trong `functions/services/virtualLayerService.ts`.
+     - Trong `src/components/MarketingNotificationToast.tsx`: Bổ sung cơ chế fallback `marketingService.getNextLedgerEvent() || marketingService.getLatestLedgerEvent()` nếu `getCurrentSlotEvent(currentSlotIndex)` là `null`, cam kết 100% hiển thị toast chào mừng ở 3.0s và mỗi 10s một thông báo không bị rỗng khe.
+  2. *Điền Hàng Loạt 344 Store Links & Hỗ Trợ Bản PC Where Winds Meet*:
+     - Tạo công cụ tự động `scripts/enrich_store_links.cjs`:
+       + Ánh xạ 328 game từ `scripts/gp_cache.json` sang link CH Play chuẩn.
+       + Tìm kiếm và cache iTunes Search API cho các tựa game hàng đầu (176 game), áp dụng bộ lọc genre `Games` và đối sánh từ khóa tiêu đề nghiêm ngặt.
+       + Cấu hình Where Winds Meet (`where-winds-meet-mobile` và `yen-van-thap-luc-thanh`): Đầy đủ 3 nền tảng: CH Play (`com.netease.yyvn`), App Store (`https://apps.apple.com/vn/app/y%E1%BA%BFn-v%C3%A2n-th%E1%BA%ADp-l%E1%BB%A5c-thanh/id6762607072`), và PC Website (`https://www.wherewindsmeetgame.com/`).
+       + Gun X Mobile: CH Play (`com.sohagame.sg381`), App Store (`https://apps.apple.com/vn/app/gun-x-mobile/id6444932771`).
+       + Cập nhật đồng bộ vào `src/data/games188.json`, `public/data/games188.json`, `data/games188.json`. Tổng cộng 344/560 game (61.4%) đã có link store chính thức.
+     - Cập nhật `GameDownloadSection.tsx`: Hỗ trợ `hasPc` (`download_pc`), hiển thị nút "Bản PC (Windows)" trên Desktop và liên kết tương thích trên Mobile; điều kiện hiển thị đổi thành `if (!hasPlay && !hasIos && !hasPc) return null;`.
+     - Cập nhật `functions/api/games.ts`: Tự động hydrate store links từ `fallbackGamesData` vào `rawGames`.
+     - Nâng `DATASET_VERSION = 'wcg_dataset_2026_10_26_v40'` trong `src/services/dataService.ts`.
+  3. *Thanh Lọc Gun X Mobile 100% Sạch*:
+     - Đã loại bỏ triệt để 7 mã rác khỏi `public/data/codes_database.json` và `data/games188.json`.
+     - Cả 3 file cơ sở dữ liệu (`crawled_codes_188.json`, `codes_database.json`, `games188.json`) hiện tại đều chứa chính xác 18 mã hợp lệ cho Gun X Mobile (Precision 100%).
+     - Sửa tên "Thực Thần Ký" thành "Thức Thần Ký" trong `public/data/codes_database.json`.
+- **Kiểm thử & Xác minh**:
+  - `scripts/audit_zero_test_artifacts.cjs`: Đạt 100% (Rule 7 Zero Test Artifacts).
+  - `scripts/verify_codes_integrity_audit.cjs`: Vượt qua tất cả các bài kiểm tra đồng bộ và self-healing.
+  - Build frontend & edge worker: Thành công 100% không cảnh báo lỗi type (`dist/_worker.js` 13.4MB).
+
 ## [2026-10-25]
 
 ### 208. Xử Lý Toàn Diện 10 Hạng Mục Kiểm Toán & Báo Cáo Sửa Lỗi (Punch List 10-Item Audit Fix)

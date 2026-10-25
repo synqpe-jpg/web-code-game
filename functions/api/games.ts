@@ -255,6 +255,26 @@ export async function getLoadedCatalog(
 
   // Tự động chuyển các game sắp ra mắt đã mở server quá 24h xuống sàn game chính thức
   const rawGames = Array.isArray(baseGames) ? [...baseGames] : [];
+
+  // Đồng bộ hóa liên kết tải ứng dụng chính thức (Google Play, App Store, PC) từ fallbackGamesData
+  const fallbackMap = new Map<string, any>();
+  if (Array.isArray(fallbackGamesData)) {
+    for (const fg of fallbackGamesData as any[]) {
+      if (fg && fg.slug) fallbackMap.set(String(fg.slug).toLowerCase(), fg);
+    }
+  }
+  rawGames.forEach((g: any) => {
+    if (!g || !g.slug) return;
+    const fg = fallbackMap.get(String(g.slug).toLowerCase());
+    if (fg) {
+      if (!g.google_play_url && fg.google_play_url) g.google_play_url = fg.google_play_url;
+      if (!g.download_android && fg.download_android) g.download_android = fg.download_android;
+      if (!g.app_store_url && fg.app_store_url) g.app_store_url = fg.app_store_url;
+      if (!g.download_ios && fg.download_ios) g.download_ios = fg.download_ios;
+      if (!g.download_pc && fg.download_pc) g.download_pc = fg.download_pc;
+      if (!g.android_package_name && fg.android_package_name) g.android_package_name = fg.android_package_name;
+    }
+  });
   const upcomingList = settings['wcg_admin_upcoming_games_v1'];
   if (Array.isArray(upcomingList)) {
     const ONE_DAY_MS = 24 * 60 * 60 * 1000;

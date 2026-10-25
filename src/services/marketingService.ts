@@ -3064,6 +3064,32 @@ class MarketingService {
   }
 
   /**
+   * Lấy sự kiện mới nhất từ sổ máy chủ (dành cho thông báo chào mừng ban đầu <= 20s hoặc khi cần sự kiện gần nhất).
+   * Không làm thay đổi hàng đợi (peek).
+   */
+  public getLatestLedgerEvent(): MarketingNotification | null {
+    // 1. Kiểm tra hàng đợi sự kiện máy chủ (ưu tiên sự kiện mới nhất chưa hiển thị)
+    for (let i = this.serverLedgerEventQueue.length - 1; i >= 0; i--) {
+      const evt = this.serverLedgerEventQueue[i];
+      if (evt && this.isTypeEnabled(evt.type, evt.itemType)) {
+        if (!evt.id || !this.isNotificationProcessed(evt.id)) {
+          return evt;
+        }
+      }
+    }
+    // 2. Kiểm tra bộ nhớ đệm sự kiện sổ máy chủ
+    for (let i = this.cachedLedgerEvents.length - 1; i >= 0; i--) {
+      const evt = this.cachedLedgerEvents[i];
+      if (evt && this.isTypeEnabled(evt.type, evt.itemType)) {
+        if (!evt.id || !this.isNotificationProcessed(evt.id)) {
+          return evt;
+        }
+      }
+    }
+    return null;
+  }
+
+  /**
    * Tính toán neo ngày (00:00:00+07:00 giờ VN) và chỉ số khe (currentSlotIndex)
    * đồng bộ tuyệt đối với máy chủ theo chu kỳ 10 giây / khe (SLOT_DURATION_MS).
    */

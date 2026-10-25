@@ -997,6 +997,7 @@ export async function getUnifiedRealtimePayload(env: any, waitUntil?: (p: Promis
         message: ev.message ? maskServerName(ev.message) : 'Khách hàng vừa thực hiện giao dịch',
         timeAgo: 'Vừa xong',
         timestamp: ev.timestamp || now,
+        userName: ev.userName || (ev.user ? ev.user.name : undefined),
         isRealUser: true,
         is_simulated: false, // Bắt buộc boolean false cho sự kiện thật
         productId: effectiveProductId,
@@ -1051,6 +1052,7 @@ export async function getUnifiedRealtimePayload(env: any, waitUntil?: (p: Promis
     }
 
     const targetId = ve.product_id || null;
+    const { currentSlotIndex: nowSlotIndex } = getVnDayAnchor(now);
     combinedEvents.push({
       id: ve.id,
       type: ve.type,
@@ -1058,8 +1060,10 @@ export async function getUnifiedRealtimePayload(env: any, waitUntil?: (p: Promis
       message,
       timeAgo: 'Vừa xong',
       timestamp: new Date(ve.created_at).getTime(),
+      userName: user,
       isRealUser: false,
       is_simulated: true, // Bắt buộc boolean true cho sự kiện ảo
+      slotIndex: nowSlotIndex,
       productId: ve.product_id || null,
       giveawayId: ve.type === 'CLAIM_GIVEAWAY' ? ve.product_id : undefined,
       targetId: targetId,

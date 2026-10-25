@@ -113,7 +113,7 @@ class DataService {
     this.processData().catch(() => {});
   }
 
-  private readonly DATASET_VERSION = 'wcg_dataset_2026_10_19_v39';
+  private readonly DATASET_VERSION = 'wcg_dataset_2026_10_26_v40';
 
   private cleanupLegacyV3Data(): void {
     if (typeof window === 'undefined') return;
