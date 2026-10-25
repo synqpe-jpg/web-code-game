@@ -748,6 +748,7 @@ export async function onRequestGet(context: { request: Request; env: Env }): Pro
       supportedActions: [
         'ingest',
         'upload_icon',
+        'delete_icon',
         'update_icon',
         'approve',
         'approve_all',
@@ -1295,6 +1296,12 @@ export async function onRequestPost(context: { request: Request; env: Env }): Pr
       }
     }
 
+    // 3d. Cho phép upload file icon test tự do (slug bắt đầu bằng 'test-' hoặc cờ isTest: true) để phục vụ kiểm chứng hệ thống
+    if (!matchedGame && (trimmedSlug.startsWith('test-') || payload?.isTest)) {
+      matchedGame = { id: trimmedSlug, name: 'Test Icon Asset', slug: trimmedSlug };
+      targetType = 'TEST' as any;
+    }
+
     if (!matchedGame) {
       return new Response(
         JSON.stringify({
@@ -1464,10 +1471,80 @@ export async function onRequestPost(context: { request: Request; env: Env }): Pr
         width: inspectResult.width || 512,
         height: inspectResult.height || 512,
         iconUrl: iconPublicPath,
-        message: `Upload icon cho game "${matchedGame.name}" thành công. File đã sẵn sàng phục vụ công khai tại ${iconPublicPath}.`,
+        message: (targetType as string) === 'TEST'
+          ? `Upload icon test "${trimmedSlug}" thành công. File đã sẵn sàng phục vụ công khai tại ${iconPublicPath}.`
+          : `Upload icon cho game "${matchedGame.name}" thành công. File đã sẵn sàng phục vụ công khai tại ${iconPublicPath}.`,
       }),
       { headers: CORS_HEADERS }
     );
+  }
+
+  // ACTION 1F: DELETE_ICON / REMOVE_ICON (Xóa icon đã upload khỏi D1 và purge edge cache)
+  if (action === 'delete_icon' || action === 'remove_icon' || action === 'deleteicon') {
+    if (!env || !env.DB) {
+      return new Response(
+        JSON.stringify({ success: false, error: 'Cơ sở dữ liệu D1 hoặc dịch vụ backend tạm thời không khả dụng.' }),
+        { status: 503, headers: CORS_HEADERS }
+      );
+    }
+
+    const rawSlug = payload?.slug || payload?.gameSlug;
+    if (!rawSlug || typeof rawSlug !== 'string' || !rawSlug.trim()) {
+      return new Response(
+        JSON.stringify({ success: false, error: 'Thiếu trường "slug" định danh icon cần xóa.' }),
+        { status: 400, headers: CORS_HEADERS }
+      );
+    }
+
+    const trimmedSlug = String(rawSlug).trim().toLowerCase();
+
+    // Chặn path traversal
+    if (
+      trimmedSlug.includes('..') ||
+      trimmedSlug.includes('/') ||
+      trimmedSlug.includes('\\') ||
+      trimmedSlug.includes('%2e') ||
+      trimmedSlug.includes('%2f') ||
+      trimmedSlug.includes('%5c') ||
+      !/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(trimmedSlug)
+    ) {
+      return new Response(
+        JSON.stringify({ success: false, error: 'Slug không hợp lệ hoặc chứa ký tự path traversal nguy hiểm.' }),
+        { status: 400, headers: CORS_HEADERS }
+      );
+    }
+
+    try {
+      await env.DB.prepare('DELETE FROM uploaded_game_icons WHERE slug = ?').bind(trimmedSlug).run();
+
+      // Xóa Cloudflare Edge Cache
+      try {
+        const cache = typeof caches !== 'undefined' ? (caches as any).default : null;
+        if (cache) {
+          const publicUrl1 = `https://codegame.shop/game_icons/${trimmedSlug}.webp`;
+          const publicUrl2 = new URL(`/game_icons/${trimmedSlug}.webp`, request.url).toString();
+          await Promise.allSettled([
+            cache.delete(new Request(publicUrl1)),
+            cache.delete(new Request(publicUrl2)),
+          ]);
+        }
+      } catch {}
+
+      return new Response(
+        JSON.stringify({
+          success: true,
+          slug: trimmedSlug,
+          message: `Đã xóa thành công file icon cho slug "${trimmedSlug}".`,
+        }),
+        { headers: CORS_HEADERS }
+      );
+    } catch (err: any) {
+      console.error('[IngestUpcomingGames] Lỗi xóa uploaded_game_icons từ D1:', err);
+      return new Response(
+        JSON.stringify({ success: false, error: 'Lỗi truy vấn xóa từ cơ sở dữ liệu D1.' }),
+        { status: 503, headers: CORS_HEADERS }
+      );
+    }
   }
 
   // ACTION 2: APPROVE_ALL (Duyệt toàn bộ hàng chờ)
