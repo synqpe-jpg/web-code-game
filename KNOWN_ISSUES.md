@@ -10,6 +10,29 @@
 
 ## 1. DANH MỤC LỖI & CÁC BẪY ĐÃ THẤT BẠI (DO NOT REPEAT)
 
+### ISSUE-117: Quên Khai Báo Route Mới Trong functions/_worker.ts Khi Thêm Endpoint Serverless API (Centralized Worker Router Bypass Trap)
+- **Triệu chứng**:
+  - Khi thêm một endpoint API mới trong thư mục `functions/api/...` (ví dụ: `functions/api/admin/temporary-token.ts`), dù code trong file API đã viết đúng chuẩn Pages Function, client gọi đến vẫn nhận được phản hồi HTTP 404 `Endpoint not found`.
+- **Nguyên nhân gốc rễ**:
+  - Kiến trúc dự án `web-code-game` sử dụng một Worker tập trung `functions/_worker.ts` làm Entry Point xử lý toàn bộ các yêu cầu HTTP (Custom Router). Worker này tự bắt mọi request `/api/*` và điều phối (dispatch) dựa trên danh sách import thủ công, thay vì dựa vào cơ chế tự động quét file (file-based routing) mặc định của Cloudflare Pages.
+  - Do đó, nếu tạo file API mới mà quên khai báo `import` và `if (pathname === '/api/...')` trong `functions/_worker.ts`, Worker sẽ chạy đến cuối danh sách route và trả về lỗi 404 mặc định:
+    `return new Response(JSON.stringify({ error: 'ENDPOINT_NOT_FOUND', message: 'Tuyến đường API không tồn tại: ' + pathname }), { status: 404 });`
+- **Giải pháp chuẩn đã kiểm chứng**:
+  - Luôn nhớ quy tắc: **Bất kỳ file API mới nào nằm trong `functions/api/` đều BẮT BUỘC phải được đăng ký trong `functions/_worker.ts`**:
+    1. Import module: `import * as myNewApi from './api/...';`
+    2. Thêm routing block trong khối `try`:
+       ```typescript
+       if (pathname === '/api/my-new-endpoint') {
+         if (method === 'GET') return await myNewApi.onRequestGet(context);
+         if (method === 'POST') return await myNewApi.onRequestPost(context);
+         if (method === 'OPTIONS') return await myNewApi.onRequestOptions(context);
+       }
+       ```
+- ⛔ **CÁCH SỬA ĐÃ THẤT BẠI - TUYỆT ĐỐI KHÔNG LẶP LẠI**:
+  - ❌ *Không ỷ lại vào file-based routing của Cloudflare Pages*: Vì dự án có `_worker.ts`, Cloudflare Pages sẽ ưu tiên thực thi `_worker.ts` duy nhất và bỏ qua toàn bộ cấu trúc thư mục của Pages Functions. Phải luôn định tuyến trong `_worker.ts`.
+
+---
+
 ### ISSUE-116: Bẫy Lọc Bỏ Triệt Để Khi Khóa Cứng Slugs Làm Mất Trạng Thái Lịch Sử Game Đã Mở Server (Overly Aggressive Slugs Exclusion Purging Historical Launched Games & Zeroing launchedCount)
 - **Triệu chứng**:
   - Khi gọi `GET /api/crawler/ingest-upcoming-games`, chỉ số `launchedCount` trả về bằng `0`, trong khi trước đây (ngày 23/10) số lượng game đã mở server là `3`.

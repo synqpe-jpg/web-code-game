@@ -7,6 +7,43 @@ Mỗi mục sửa lỗi đều ghi nhận **Nguyên nhân gốc rễ (Root Cause
 
 ## [2026-10-25]
 
+### 191. Khóa Kiểm Toán Tạm Thời (Temporary Read-Only Audit Token) Có Thời Hạn & Bảo Vệ 2FA Xác Thực Bước 2 (Step 2 Verification)
+- **Mô tả & Yêu cầu người dùng**:
+  - *"Trong mục đếm số khi nổ thông báo và thống kê tự động số hàng còn, đã bán... tổng số còn lại hiển thị trên web... Thì tôi cần cung cấp cho API quyền nào để AI bên ngoài xem và kiểm chứng xem vấn đề ở đâu?"*
+  - *"Có cách nào để khóa này chỉ cấp quyền trong 2 giờ không?"*
+  - *"Bạn có thể tạo 1 mục cho mã này không? Khi cần đổi mã hay tạo thời hạn, cấp quyền cần bước xác thực 2 giống như mã khi thay đổi số dư ví."*
+- **Nguyên nhân gốc rễ (Root Cause)**:
+  - Khi chủ shop cần cung cấp quyền cho AI hoặc đối tác kỹ thuật độc lập bên ngoài để rà soát lỗi chênh lệch số liệu kho và bộ đếm thông báo FOMO, nếu đưa Master API Key (`ADMIN_SYNC_SECRET`) thì đối tác bên ngoài sẽ có toàn quyền (POST/PUT/DELETE) chỉnh sửa kho hàng và thay đổi cấu hình, tạo rủi ro an ninh nghiêm trọng.
+  - Ngược lại, nếu không có cơ chế cấp quyền tạm thời, việc đối soát số liệu thực tế qua API gặp bế tắc vì các endpoint nhạy cảm đều yêu cầu xác thực.
+  - Thao tác cấp mã hoặc gia hạn quyền cần phải được kiểm soát nghiêm ngặt với quy trình bảo mật 2 lớp để tránh trường hợp thao tác nhầm hoặc bị lợi dụng.
+- **Giải pháp đã triển khai (Solution)**:
+  1. *Đặc tả định dạng Khóa Kiểm Toán Tạm Thời (Mật mã HMAC-SHA256 & Tự Hủy)*:
+     - Token định dạng: `wcg_audit_temp_<expiresAtMs>_<randomHex>_<signature>`.
+     - Chữ ký HMAC-SHA256 băm trên `wcg_audit_temp_<expiresAtMs>_<randomHex>` bằng secret hệ thống.
+     - Thời gian sống linh hoạt: 1h, 2h, 4h, 12h, 24h. Hết hạn sẽ tự động bị từ chối 401 ngay tức thì mà không cần cron job dọn dẹp.
+     - Hỗ trợ Thu hồi khẩn cấp: Lưu trạng thái thu hồi trong D1 (`wcg_active_temp_audit_token_v1`), cho phép Admin vô hiệu hóa token ngay lập tức chỉ với 1 click.
+  2. *Quyền hạn Phân Quyền Tối Thiểu (Strict Read-Only Enforcement)*:
+     - Token chỉ được cấp role `marketing_auditor` / `temporary_auditor`.
+     - Cho phép đọc: `GET /api/sync` (xem kho hàng, catalog, inventory thực tế), `GET /api/crawler/marketing?action=get_metrics_snapshot` (xem snapshot số liệu thật vs số hiển thị), `GET /api/admin/audit-counters` (xem chênh lệch bộ đếm).
+     - Tuyệt đối cấm ghi: Mọi request `POST`, `PUT`, `DELETE` sử dụng token này đều bị chặn đứng với mã lỗi `403 Forbidden` ("Khóa kiểm toán tạm thời chỉ có quyền ĐỌC (GET). Mọi thao tác ghi/sửa dữ liệu đều bị nghiêm cấm.").
+  3. *Tích hợp Giao diện Quản trị & Xác thực Bước 2 (Step 2 Verification)*:
+     - Tạo component `TemporaryAuditTokenManager.tsx` với giao diện trực quan: Đồng hồ đếm ngược thời gian thực (realtime countdown), bộ chọn thời hạn (1h, 2h, 4h, 12h, 24h), nút Đổi / Tạo mã và nút Thu hồi.
+     - Tích hợp `Step2VerificationModal` giống hệt cơ chế đổi số dư ví: Bất kỳ thao tác Tạo mã, Đổi thời hạn, hoặc Thu hồi đều bắt buộc người dùng nhập đúng Mã bảo mật bước 2 của Admin (`verifyStep2SecurityCode`).
+     - Tích hợp thẻ quản lý vào cả 2 vị trí tiện lợi:
+       + Tab "Thông Báo Marketing" $\rightarrow$ Sub-tab "Khóa Kiểm Toán (2FA)".
+       + Tab "Cổng API & Webhook (Muse Bot)" $\rightarrow$ Khối "Khóa Kiểm Toán Tạm Thời (2FA Security)".
+  4. *Đăng ký Định tuyến Cloudflare Edge Worker (`functions/_worker.ts`)*:
+     - Khai báo import và định tuyến chuẩn cho endpoint `/api/admin/temporary-token` trên Cloudflare Pages Worker router tập trung.
+- **Kết quả nghiệm thu**:
+  - `GET /api/admin/temporary-token`: Trả về 200 OK với trạng thái token và thời gian còn lại.
+  - `POST /api/admin/temporary-token` (action: generate): Sinh token mới với thời hạn chỉ định thành công.
+  - Test quyền hạn thực tế:
+    + `GET /api/crawler/marketing?action=get_metrics_snapshot` $\rightarrow$ 200 OK ("Pine / Muse Temp Auditor (Còn 120 phút)").
+    + `GET /api/sync` $\rightarrow$ 200 OK.
+    + `POST /api/sync` $\rightarrow$ 403 Forbidden (chặn đứng mọi hành vi ghi/sửa dữ liệu).
+  - Kiểm thử tự động `scripts/test_temporary_audit_token.cjs` đạt 100% (4/4 PASS).
+  - Triển khai thành công lên cả Web Khách và Web Quản trị.
+
 ### 190. Khôi Phục launchedCount = 3, Bảo Toàn Lịch Sử Game Đã Mở Server & Đảm Bảo Không Ô Nhiễm Banner Web Khách (Historical Launched Games State Preservation & Active Upcoming Banner Isolation)
 - **Mô tả & Yêu cầu người dùng**:
   - *"launchedCount hiện là 0, trong khi ngày 23/10 là 3, bạn xem giúp tôi."*
