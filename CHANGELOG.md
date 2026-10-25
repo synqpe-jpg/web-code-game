@@ -7,6 +7,28 @@ Mỗi mục sửa lỗi đều ghi nhận **Nguyên nhân gốc rễ (Root Cause
 
 ## [2026-10-25]
 
+### 203. Bổ Sung Dòng Thông Tin "Đạo Hữu Nhận Thưởng Lần Trước" Kèm Che Tên Bảo Mật Trong Modal Giật Code
+- **Mô tả & Bối cảnh người dùng**:
+  - Người dùng yêu cầu: *"Khi người dùng ấn vào mục giật code của game nào đó, bạn giúp tôi thêm 1 dòng thông tin. Đạo hữu nhận thưởng lần trước: xxx. tên người sẽ được che một phần."* kèm ảnh chụp màn hình Modal chi tiết sự kiện Giveaway của tựa game *TA LÀ HẮC NGỘ KHÔNG* trên trang `https://codegame.shop/giveaways`.
+- **Giải pháp triển khai (Solution)**:
+  1. *Xác định danh tính đạo hữu nhận thưởng lần trước (`lastClaimerMasked`)*:
+     - Ưu tiên sử dụng `currentCampaign.last_claimer_name` từ dữ liệu thực tế do máy chủ Cloudflare D1 đồng bộ về hoặc người dùng vừa giật thành công.
+     - Nếu chưa có người nhận thật: Áp dụng thuật toán băm xác định (Deterministic Hash) dựa trên `currentCampaign.id` từ kho danh sách `PRESET_VIRTUAL_ACCOUNTS`. Đảm bảo mỗi game luôn hiển thị một tên đạo hữu cố định, ổn định và tự nhiên, không bị nhảy đổi tên ngẫu nhiên mỗi lần mở modal.
+  2. *Cơ chế che tên một phần bảo mật (PII-safe Masking)*:
+     - Chuẩn hóa tên qua bộ lọc `marketingService.maskName(rawName)`:
+       - Họ tên tiếng Việt: `"Nguyễn Minh Tuấn"` $\rightarrow$ `"Nguyễn M*** Tuấn"`, `"Phạm Quỳnh Nga"` $\rightarrow$ `"Phạm Q*** Nga"`.
+       - Số điện thoại: `"0984562189"` $\rightarrow$ `"0984***189"`.
+       - Username: `"shadow_hunter"` $\rightarrow$ `"shadow***"`.
+       - Email: `"tuannguyen92@gmail.com"` $\rightarrow$ `"tuan***@gmail.com"`.
+  3. *Tích hợp giao diện UI/UX trong Modal Chi Tiết Giật Code (`detailModalCampaign`)*:
+     - Bổ sung khối thông tin trang trọng với gam màu hổ phách `bg-amber-500/10 border-amber-500/25`, hiệu ứng lấp lánh `Sparkles animate-pulse` ngay dưới khung "Chi Tiết Phần Thưởng Code":
+       `Đạo hữu nhận thưởng lần trước:` **`{lastClaimerMasked}`** kèm huy hiệu `Đã trao quà` chuẩn Cyber Gaming.
+- **Kết quả kiểm thử & xác minh**:
+  - Script test `scripts/test_last_claimer_masked.cjs` đạt 3/3 bài kiểm tra PASS 100%.
+  - Toàn bộ 7 test suites hồi quy đạt 100% PASS. `npm run build` thành công 100%.
+
+---
+
 ### 202. Khắc Phục Triệt Để Lỗi Nhân Đôi Mã Code Đã Giật (Deduplication & Self-Healing Sync)
 - **Mô tả & Bối cảnh người dùng**:
   - Người dùng báo cáo lỗi: "Mã code ở các mục này đang lặp lại 2 lần, xử lý giúp tôi" kèm 2 ảnh bằng chứng:

@@ -37,7 +37,7 @@ import { LuckyWheelSection } from './LuckyWheelSection';
 import confetti from 'canvas-confetti';
 import { CyberLoader } from './CyberLoader';
 import { dataService } from '../services/dataService';
-import { marketingService } from '../services/marketingService';
+import { marketingService, PRESET_VIRTUAL_ACCOUNTS } from '../services/marketingService';
 import type { GiveawayCampaign, ClaimedCodeRecord, UserProfile, GiveawayRewardPackage } from '../types/game';
 import { groupGiveawaysByGame, getGiveawayPackages } from '../utils/productPackageUtils';
 import { formatRelativeDate, formatFullDateTime } from '../utils/textUtils';
@@ -1976,6 +1976,23 @@ export const GiveawaysView: React.FC<GiveawaysViewProps> = ({
             (new Date(currentCampaign.last_global_claim_at).getTime() + currentCampaign.global_cooldown_seconds * 1000) > Date.now()
           );
 
+          // Xác định đạo hữu nhận thưởng lần trước (kèm che tên một phần)
+          const lastClaimerMasked = (() => {
+            const rawName = String(currentCampaign.last_claimer_name || '').trim();
+            if (rawName && rawName.toLowerCase() !== 'người chơi trước' && rawName.toLowerCase() !== 'đồng đạo trước') {
+              return marketingService.maskName(rawName);
+            }
+            // Deterministic Fallback theo ID của campaign từ kho tài khoản mẫu
+            const campId = String(currentCampaign.id || '');
+            let hash = 0;
+            for (let i = 0; i < campId.length; i++) {
+              hash = (hash << 5) - hash + campId.charCodeAt(i);
+              hash |= 0;
+            }
+            const fallbackRaw = PRESET_VIRTUAL_ACCOUNTS[Math.abs(hash) % PRESET_VIRTUAL_ACCOUNTS.length];
+            return marketingService.maskName(fallbackRaw);
+          })();
+
           return (
             <div
               onClick={handleCloseDetailModal}
@@ -2112,6 +2129,26 @@ export const GiveawaysView: React.FC<GiveawaysViewProps> = ({
                         {currentCampaign.description}
                       </p>
                     )}
+                  </div>
+
+                  {/* Đạo hữu nhận thưởng lần trước */}
+                  <div className="p-3 rounded-2xl bg-amber-500/10 border border-amber-500/25 flex items-center justify-between gap-2.5 shadow-sm">
+                    <div className="flex items-center gap-2 min-w-0">
+                      <div className="w-7 h-7 rounded-xl bg-amber-500/20 border border-amber-500/35 flex items-center justify-center shrink-0">
+                        <Sparkles className="w-3.5 h-3.5 text-amber-300 animate-pulse" />
+                      </div>
+                      <div className="min-w-0">
+                        <span className="text-xs text-foreground/90 font-medium truncate block">
+                          Đạo hữu nhận thưởng lần trước:{' '}
+                          <strong className="text-amber-300 font-bold font-mono tracking-wide">
+                            {lastClaimerMasked}
+                          </strong>
+                        </span>
+                      </div>
+                    </div>
+                    <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-500/15 text-emerald-400 border border-emerald-500/30 shrink-0">
+                      Đã trao quà
+                    </span>
                   </div>
 
                   {/* Time Window */}
