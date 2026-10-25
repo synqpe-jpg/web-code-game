@@ -7,6 +7,29 @@ Mỗi mục sửa lỗi đều ghi nhận **Nguyên nhân gốc rễ (Root Cause
 
 ## [2026-10-25]
 
+### 197. Triệt Tiêu Vòng Lặp Re-render Vô Tận (React Error #301) Trên Trang Giật Code (/giveaways)
+- **Mô tả & Yêu cầu người dùng**:
+  - Người dùng phản ánh: *"Tôi ấn vào give ây 1 lúc thì hiện ra lỗi này"* kèm ảnh chụp màn hình Error Boundary bắt được `Minified React error #301` ("Too many re-renders. React limits the number of renders to prevent an infinite loop").
+- **Nguyên nhân gốc rễ (Root Cause)**:
+  1. *Hook `useEventCountdown.ts` gọi `onExpire` đồng bộ trong render phase*: Hàm `tick()` chạy đồng bộ ngay ở lần mount đầu tiên trong `useEffect`. Khi `targetDate` đã qua hoặc đếm về 0, nó gọi ngay `onExpireRef.current()`. Trong `GiveawaysView.tsx`, `onExpire` gọi `setGiveaways([...dataService.getGiveaways()])`, kích hoạt re-render ngay lập tức cho component cha. Khi cha re-render, component con lại mount/tick lại và tiếp tục kích hoạt chuỗi re-render liên tiếp (>50 lần) khiến React văng Invariant #301.
+  2. *Inline callbacks `setGiveaways` tạo reference mới vô điều kiện*: Các prop `onExpire` trong `GlobalReleaseBadge`, `EventCountdownBadge`, `ModalGlobalCooldownSection` truyền inline `() => setGiveaways([...dataService.getGiveaways()])`.
+  3. *Bão sự kiện Realtime FOMO không có Debounce*: Sau mỗi đợt nổ toast (~30-35s), `marketingService` đồng thời bắn 4-6 sự kiện (`stockListeners`, `soldCountListeners`, `wcg_virtual_stock_updated`, `wcg_sold_count_updated`, `storage`). Mỗi sự kiện đều gọi `loadData()` và tạo mới mảng `giveaways` qua `groupGiveawaysByGame`.
+  4. *Bẫy Auto-Open Modal trong `checkTargetGiveaway`*: `useEffect(..., [giveaways, initialGiveawayId])` không xóa `initialGiveawayId` sau khi đã tìm thấy và mở modal, khiến mỗi lần `giveaways` nhận mảng mới từ realtime update lại tiếp tục gọi `handleOpenDetailModal` và `setActiveTab`.
+- **Giải pháp triển khai (Solution)**:
+  1. *Gia cố `useEventCountdown.ts`*:
+     - Nếu `initialDiff <= 0` (thời gian đã nằm trong quá khứ ngay khi mount): Đánh dấu `hasExpiredTriggeredRef.current = true;` và **tuyệt đối không gọi `onExpire`**.
+     - Khi chuyển trạng thái từ đang chạy sang hết hạn: Luôn gọi `onExpireRef.current` bên trong `setTimeout(..., 50)` ngoài React render phase.
+  2. *Debounce & So sánh dữ liệu trong `GiveawaysView.tsx`*:
+     - Bọc `handleUpdate` với debounce 150ms gom toàn bộ cụm sự kiện realtime thành một lần cập nhật duy nhất.
+     - So sánh `list` với `prev` trong `setGiveaways`: nếu không có thay đổi về id, remaining, claimed, last_global_claim_at, status, is_active thì giữ nguyên reference cũ `prev`, ngăn ngừa re-render thừa.
+     - Tạo `handleExpireRefresh` có throttle 300ms thay thế toàn bộ inline callbacks `setGiveaways([...])`.
+     - Chuyển `targetDate` trong các badge thành timestamp dạng số (`lastMs + globalSec * 1000`) tránh tạo chuỗi string mới liên tục.
+     - Thêm `handledTargetIdRef` và gọi `onClearInitialGiveawayId?.()` trong `checkTargetGiveaway` để triệt tiêu hoàn toàn vòng lặp mở modal.
+- **Kết quả kiểm thử**:
+  - `npm run build`: Hoàn thành xuất sắc 100%, 0 lỗi TypeScript, 0 lỗi bundle.
+  - Toàn bộ 5 test suites (`test_atomic_ledger_fomo.cjs`, `test_two_layer_fomo.cjs`, `test_audit_key_analytics.cjs`, `audit_zero_test_artifacts.cjs`, `verify_all_requirements.cjs`) đều đạt 100% PASS.
+  - Trang Giật Code (`/giveaways`) hoạt động trơn tru, đếm ngược chính xác, không còn hiện tượng crash hay màn hình Error Boundary sau thời gian dài lưu lại trang.
+
 ### 196. Chuẩn Hóa Nhãn Sự Kiện (Strict Event & Target Identification), Làm Rõ Bản Chất Khoảng Lặng Máy Chủ Và Đính Chính Danh Mục 563 Game
 - **Mô tả & Yêu cầu người dùng**:
   - Sửa lại báo cáo và dữ liệu gốc về 4 hạng mục sau nghiệm thu sổ nguyên tử theo số liệu đo trực tiếp trên môi trường live ngày 25/10/2026:

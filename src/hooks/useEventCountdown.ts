@@ -27,12 +27,23 @@ export function useEventCountdown(
   useEffect(() => {
     if (!targetDate) {
       setRemainingMs(0);
+      hasExpiredTriggeredRef.current = true;
       return;
     }
 
     const targetMs = new Date(targetDate).getTime();
     if (isNaN(targetMs)) {
       setRemainingMs(0);
+      hasExpiredTriggeredRef.current = true;
+      return;
+    }
+
+    // Nếu thời gian mục tiêu đã hết hạn ngay từ khi khởi tạo effect:
+    // Đánh dấu đã hết hạn và KHÔNG gọi onExpire đồng bộ (ngăn chặn cascading re-render loop - React Error #301)
+    const initialDiff = targetMs - Date.now();
+    if (initialDiff <= 0) {
+      setRemainingMs(0);
+      hasExpiredTriggeredRef.current = true;
       return;
     }
 
@@ -45,8 +56,11 @@ export function useEventCountdown(
 
       if (diff <= 0 && !hasExpiredTriggeredRef.current) {
         hasExpiredTriggeredRef.current = true;
+        // Trì hoãn gọi onExpire sang macrotask để không can thiệp đồng bộ vào React render phase
         if (onExpireRef.current) {
-          onExpireRef.current();
+          setTimeout(() => {
+            onExpireRef.current?.();
+          }, 50);
         }
       }
     };

@@ -10,6 +10,27 @@
 
 ## 1. DANH MỤC LỖI & CÁC BẪY ĐÃ THẤT BẠI (DO NOT REPEAT)
 
+### ISSUE-123: Vòng Lặp Re-render Vô Tận (React Invariant #301) Khi Lưu Lại Trang Giật Code (/giveaways)
+- **Triệu chứng**:
+  - Người dùng mở trang `/giveaways` một lúc (khoảng 30 giây đến 1 phút) thì giao diện bị lỗi và rơi vào `<ErrorBoundary>`: `Minified React error #301: Too many re-renders. React limits the number of renders to prevent an infinite loop.`
+- **Nguyên nhân gốc rễ**:
+  1. *Hook `useEventCountdown.ts` gọi `onExpire` đồng bộ trong initial tick*: Khi component mount hoặc render với mốc thời gian đã trôi qua hoặc vừa chạm 0, `tick()` gọi `onExpireRef.current()` đồng bộ ngay bên trong effect.
+  2. *Parent gọi `setGiveaways` tạo mảng mới*: Hàm `onExpire` gọi `setGiveaways([...dataService.getGiveaways()])`, làm component cha `GiveawaysView` render lại.
+  3. *Cascading Re-render Loop*: Parent render lại tạo ra reference props mới, component con lại re-evaluate và gọi lại `onExpire` $\rightarrow$ vượt quá 50 lần render liên tiếp của React trong 1 microtask.
+  4. *Bão sự kiện FOMO nổ toast định kỳ (~35s)*: Bắn 4-6 CustomEvent/Listener cùng lúc gọi `loadData()` không có debounce, làm trầm trọng thêm chuỗi re-render.
+  5. *Deep link effect `checkTargetGiveaway` không dọn `initialGiveawayId`*: Khiến modal liên tục bị mở lại mỗi khi danh sách giveaways cập nhật.
+- **Giải pháp chuẩn đã kiểm chứng**:
+  1. *Khử gọi đồng bộ trong `useEventCountdown.ts`*: Nếu `targetMs <= Date.now()` ngay khi khởi tạo hook, đánh dấu `hasExpiredTriggeredRef.current = true;` và tuyệt đối KHÔNG gọi `onExpire`. Khi chuyển trạng thái từ đang chạy sang hết hạn, luôn bọc `onExpireRef.current` trong `setTimeout(..., 50)` để thoát khỏi React render phase.
+  2. *Debounce 150ms & So sánh dữ liệu trong `GiveawaysView.tsx`*: Gom toàn bộ các sự kiện realtime dồn dập thành 1 lần update. So sánh nông các trường thực tế trước khi `setGiveaways`, nếu dữ liệu không đổi thì giữ nguyên reference cũ `prev`.
+  3. *Tạo `handleExpireRefresh` có throttle 300ms*: Thay thế toàn bộ các inline callback `() => setGiveaways([...])`.
+  4. *Ghi nhận `handledTargetIdRef` và gọi `onClearInitialGiveawayId?.()`*: Ngăn ngừa việc mở lại modal vô tận khi URL hoặc state mang ID giveaway.
+- ⛔ **CÁCH SỬA ĐÃ THẤT BẠI - TUYỆT ĐỐI KHÔNG LẶP LẠI**:
+  - ❌ *Không bao giờ gọi hàm setState của cha trực tiếp/đồng bộ từ trong `tick()` của hook đếm ngược*: Luôn phải defer qua `setTimeout(..., 0)` hoặc microtask.
+  - ❌ *Không gọi `onExpire` khi thời gian mục tiêu đã nằm trong quá khứ ngay từ khi mount*: Chỉ gọi khi có transition thực sự từ > 0 sang <= 0.
+  - ❌ *Không truyền inline function tạo array mới vô điều kiện vào `onExpire`*: Ví dụ `onExpire={() => setGiveaways([...dataService.getGiveaways()])}`.
+
+---
+
 ### ISSUE-122: Chuẩn Hóa Nhãn Sự Kiện Có Mục Tiêu / Toàn Sàn & Bản Chất Khoảng Lặng Máy Chủ Serverless
 - **Triệu chứng**:
   - Sự kiện nhận quà thật `gw_1792909571892_h0hu` (lúc 13:26:11 ngày 25/10/2026 UTC+7, thuộc chiến dịch df3) thiếu trường `productId` và cờ `is_simulated`.

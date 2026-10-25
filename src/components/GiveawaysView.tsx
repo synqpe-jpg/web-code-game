@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import {
   Gift,
@@ -128,7 +128,7 @@ const GlobalReleaseBadge: React.FC<{
     if (globalSec <= 0 || !lastClaimAt) return null;
     const lastMs = new Date(lastClaimAt).getTime();
     if (isNaN(lastMs)) return null;
-    return new Date(lastMs + globalSec * 1000).toISOString();
+    return lastMs + globalSec * 1000;
   }, [globalSec, lastClaimAt]);
 
   const { minutes, seconds, isExpired } = useEventCountdown(targetDate, onExpire);
@@ -161,7 +161,7 @@ const ModalGlobalCooldownSection: React.FC<{
     if (globalSec <= 0 || !lastClaimAt) return null;
     const lastMs = new Date(lastClaimAt).getTime();
     if (isNaN(lastMs)) return null;
-    return new Date(lastMs + globalSec * 1000).toISOString();
+    return lastMs + globalSec * 1000;
   }, [globalSec, lastClaimAt]);
 
   const { minutes, seconds, isExpired } = useEventCountdown(targetDate, onExpire);
@@ -279,14 +279,43 @@ export const GiveawaysView: React.FC<GiveawaysViewProps> = ({
 
   const [isUnboxing, setIsUnboxing] = useState(false);
 
-  const loadData = () => {
+  const updateDebounceTimerRef = useRef<any>(null);
+  const expireThrottleTimerRef = useRef<any>(null);
+  const handledTargetIdRef = useRef<string | null>(null);
+
+  const loadData = useCallback(() => {
     const rawList = dataService.getGiveaways();
     const list = groupGiveawaysByGame(rawList);
-    setGiveaways(list);
+    setGiveaways((prev) => {
+      if (prev.length === list.length) {
+        const isIdentical = list.every((item, idx) => {
+          const p = prev[idx];
+          return (
+            p &&
+            p.id === item.id &&
+            p.remaining_codes === item.remaining_codes &&
+            p.claimed_codes === item.claimed_codes &&
+            p.last_global_claim_at === item.last_global_claim_at &&
+            p.status === item.status &&
+            p.is_active === item.is_active
+          );
+        });
+        if (isIdentical) return prev;
+      }
+      return list;
+    });
     const myCodes = dataService.getClaimedCodes();
     setClaimedList(myCodes);
     setCmsIntro(dataService.getContentByKey('giveaway_section'));
-  };
+  }, []);
+
+  const handleExpireRefresh = useCallback(() => {
+    if (expireThrottleTimerRef.current) return;
+    expireThrottleTimerRef.current = setTimeout(() => {
+      expireThrottleTimerRef.current = null;
+      loadData();
+    }, 300);
+  }, [loadData]);
 
   useEffect(() => {
     loadData();
@@ -295,7 +324,12 @@ export const GiveawaysView: React.FC<GiveawaysViewProps> = ({
       loadData();
     });
     const handleUpdate = () => {
-      loadData();
+      if (updateDebounceTimerRef.current) {
+        clearTimeout(updateDebounceTimerRef.current);
+      }
+      updateDebounceTimerRef.current = setTimeout(() => {
+        loadData();
+      }, 150);
     };
     const unsubStock = marketingService.subscribeStockChange(handleUpdate);
     const unsubSold = marketingService.subscribeSoldCountChange(handleUpdate);
@@ -304,6 +338,12 @@ export const GiveawaysView: React.FC<GiveawaysViewProps> = ({
     window.addEventListener('wcg_sold_count_updated', handleUpdate);
     window.addEventListener('storage', handleUpdate);
     return () => {
+      if (updateDebounceTimerRef.current) {
+        clearTimeout(updateDebounceTimerRef.current);
+      }
+      if (expireThrottleTimerRef.current) {
+        clearTimeout(expireThrottleTimerRef.current);
+      }
       unsub();
       unsubStock();
       unsubSold();
@@ -312,7 +352,7 @@ export const GiveawaysView: React.FC<GiveawaysViewProps> = ({
       window.removeEventListener('wcg_sold_count_updated', handleUpdate);
       window.removeEventListener('storage', handleUpdate);
     };
-  }, []);
+  }, [loadData]);
 
   const handleOpenDetailModal = (campaign: GiveawayCampaign) => {
     setDetailModalCampaign(campaign);
@@ -323,6 +363,7 @@ export const GiveawaysView: React.FC<GiveawaysViewProps> = ({
   const handleCloseDetailModal = () => {
     setDetailModalCampaign(null);
     setSelectedRewardPackageId(null);
+    handledTargetIdRef.current = null;
     onClearInitialGiveawayId?.();
     try {
       if (window.location.hash.includes('gw=') || window.location.hash.includes('giveaway=')) {
@@ -348,19 +389,33 @@ export const GiveawaysView: React.FC<GiveawaysViewProps> = ({
         (path.startsWith('/giveaways/') ? path.replace(/^\/giveaways\//i, '').split('/')[0] : null) ||
         (path.startsWith('/giveaway/') ? path.replace(/^\/giveaway\//i, '').split('/')[0] : null);
 
-      if (targetId && giveaways.length > 0) {
-        const cleanId = decodeURIComponent(targetId).trim().toLowerCase();
+      const cleanTarget = targetId ? decodeURIComponent(targetId).trim().toLowerCase() : null;
+
+      if (
+        cleanTarget &&
+        cleanTarget.length > 0 &&
+        cleanTarget !== 'all' &&
+        cleanTarget !== 'hot' &&
+        cleanTarget !== 'available' &&
+        cleanTarget !== 'mine' &&
+        giveaways.length > 0
+      ) {
+        if (handledTargetIdRef.current === cleanTarget) return;
+
         const found = groupedCampaigns.find(
           (g) =>
-            g.id.toLowerCase() === cleanId ||
-            (g.game_slug && g.game_slug.toLowerCase() === cleanId) ||
-            (g.packages && g.packages.some((p) => p.id.toLowerCase() === cleanId))
+            g.id.toLowerCase() === cleanTarget ||
+            (g.game_slug && g.game_slug.toLowerCase() === cleanTarget) ||
+            (g.packages && g.packages.some((p) => p.id.toLowerCase() === cleanTarget))
         ) || giveaways.find(
-          (g) => g.id.toLowerCase() === cleanId || (g.game_slug && g.game_slug.toLowerCase() === cleanId)
+          (g) => g.id.toLowerCase() === cleanTarget || (g.game_slug && g.game_slug.toLowerCase() === cleanTarget)
         );
+
         if (found) {
+          handledTargetIdRef.current = cleanTarget;
           handleOpenDetailModal(found);
           setActiveTab('campaigns');
+          onClearInitialGiveawayId?.();
         }
       }
     };
@@ -372,7 +427,7 @@ export const GiveawaysView: React.FC<GiveawaysViewProps> = ({
       window.removeEventListener('hashchange', checkTargetGiveaway);
       window.removeEventListener('popstate', checkTargetGiveaway);
     };
-  }, [giveaways, initialGiveawayId]);
+  }, [giveaways, initialGiveawayId, groupedCampaigns, onClearInitialGiveawayId]);
 
 
 
@@ -927,7 +982,7 @@ export const GiveawaysView: React.FC<GiveawaysViewProps> = ({
                         <div className="mb-2.5">
                           <GlobalReleaseBadge
                             campaign={campaign}
-                            onExpire={() => setGiveaways([...dataService.getGiveaways()])}
+                            onExpire={handleExpireRefresh}
                           />
                         </div>
                       )}
@@ -942,7 +997,7 @@ export const GiveawaysView: React.FC<GiveawaysViewProps> = ({
                             variant="compact"
                             onExpire={() => {
                               playClaimVictorySound();
-                              setGiveaways([...dataService.getGiveaways()]);
+                              handleExpireRefresh();
                             }}
                           />
                         </div>
@@ -2266,7 +2321,7 @@ export const GiveawaysView: React.FC<GiveawaysViewProps> = ({
                             onExpire={() => {
                               playClaimVictorySound();
                               confetti({ particleCount: 60, spread: 70, origin: { y: 0.6 } });
-                              setGiveaways([...dataService.getGiveaways()]);
+                              handleExpireRefresh();
                             }}
                           />
                         </div>
@@ -2342,7 +2397,7 @@ export const GiveawaysView: React.FC<GiveawaysViewProps> = ({
                     <div className="space-y-2">
                       <ModalGlobalCooldownSection
                         campaign={currentCampaign}
-                        onExpire={() => setGiveaways([...dataService.getGiveaways()])}
+                        onExpire={handleExpireRefresh}
                       />
                       {isAdmin && (
                         <button
