@@ -45,3 +45,7 @@ interface EventContext<Env = unknown, Params extends string = any, Data extends 
 type PagesFunction<Env = unknown, Params extends string = any, Data extends Record<string, unknown> = Record<string, unknown>> = (
   context: EventContext<Env, Params, Data>
 ) => Response | Promise<Response>;
+
+
+declare const __BUILD_ID__: string;
+declare const __BUILD_TIME__: string;

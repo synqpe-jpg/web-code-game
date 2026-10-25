@@ -29,6 +29,28 @@ import * as notifLogsApi from './api/notifications/logs';
 import * as trackDownloadApi from './api/track-download';
 import { invalidateCatalogEdgeCache } from './services/cache_service';
 import fallbackGiveawaysData from '../src/data/giveaways.json';
+import fallbackGamesData from '../src/data/games188.json';
+import fallbackCodesData from '../src/data/crawled_codes_188.json';
+
+function attachBuildHeaders(res: Response): Response {
+  try {
+    const headers = new Headers(res.headers);
+    if (typeof __BUILD_ID__ !== 'undefined' && __BUILD_ID__) {
+      headers.set('X-Build-Id', __BUILD_ID__);
+      headers.set('X-Version', `1.0.0-${__BUILD_ID__}`);
+    }
+    if (typeof __BUILD_TIME__ !== 'undefined' && __BUILD_TIME__) {
+      headers.set('X-Build-Time', __BUILD_TIME__);
+    }
+    return new Response(res.body, {
+      status: res.status,
+      statusText: res.statusText,
+      headers,
+    });
+  } catch {
+    return res;
+  }
+}
 
 interface Env {
   DB?: D1Database;
@@ -43,8 +65,7 @@ interface Env {
   CLOUDFLARE_API_TOKEN?: string;
 }
 
-export default {
-  async fetch(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
+async function handleWorkerRequest(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
     const url = new URL(request.url);
     const pathname = url.pathname.replace(/\/$/, '') || '/';
     const method = request.method.toUpperCase();
@@ -604,6 +625,12 @@ export default {
         }
       );
     }
+}
+
+export default {
+  async fetch(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
+    const res = await handleWorkerRequest(request, env, ctx);
+    return attachBuildHeaders(res);
   },
 };
 
@@ -685,46 +712,30 @@ async function renderSeoHtml(
           ).bind(gameRow.slug).all<any>().catch(() => ({ results: [] as any[] }));
           displayCodes = codesRes?.results || [];
           if (displayCodes.length === 0) {
-            try {
-              const rawCustom = await env.DB.prepare("SELECT value FROM system_settings WHERE key = 'wcg_admin_custom_free_codes_v1' LIMIT 1").first<any>().catch(() => null);
-              if (rawCustom?.value) {
-                const customArr = JSON.parse(rawCustom.value);
-                if (Array.isArray(customArr)) {
-                  const matched = customArr.filter((c: any) => c && (String(c.gameSlug || c.slug || c.gameId || '').toLowerCase() === slug || String(c.gameSlug || c.slug || c.gameId || '').toLowerCase() === gameRow.slug));
-                  if (matched.length > 0) {
-                    displayCodes = matched.map((c: any) => ({
-                      code: String(c.code || c.codeValue || '').trim().toUpperCase(),
-                      rewards: c.rewards || c.description || null,
-                      status: 'active',
-                      expires_at: c.expires_at || c.expiresAt || c.expiry || null,
-                    })).filter((c: any) => Boolean(c.code));
-                  }
-                }
-              }
-            } catch {}
+            const fbList = (fallbackCodesData as any)?.[gameRow.slug] || (fallbackCodesData as any)?.[slug] || (fallbackCodesData as any)?.[cleanWithoutMobile];
+            if (Array.isArray(fbList) && fbList.length > 0) {
+              displayCodes = fbList.map((c: any) => ({
+                code: String(c.code || '').trim().toUpperCase(),
+                rewards: c.rewards || c.description || null,
+                status: 'active',
+                expires_at: c.expires_at || c.expiry || null,
+              })).filter((c: any) => Boolean(c.code));
+            }
           }
           game.codes = displayCodes;
           game.codes_count = displayCodes.length;
         }
 
-        // Tự động đối chiếu với wcg_admin_games_v5 nếu bảng games D1 còn giữ văn mẫu Avatar cũ
+        // Tự động đối chiếu với fallbackGamesData nếu bảng games D1 còn giữ văn mẫu Avatar cũ
         let currentInst = game?.instructions || '';
         let currentRedeem = game?.redeem_url || '';
         if (game && (!currentInst || currentInst.includes('Avatar nhân vật'))) {
-          const rawGamesSetting = await env.DB.prepare("SELECT value FROM system_settings WHERE key = 'wcg_admin_games_v5' LIMIT 1").first<any>().catch(() => null);
-          if (rawGamesSetting?.value) {
-            const list = JSON.parse(rawGamesSetting.value);
-            if (Array.isArray(list)) {
-              const foundInSettings = list.find((x: any) => x && (x.slug === slug || x.id === slug || x.slug === game.slug));
-              if (foundInSettings && foundInSettings.instructions && !foundInSettings.instructions.includes('Avatar nhân vật')) {
-                currentInst = foundInSettings.instructions;
-                if (foundInSettings.redeem_url || foundInSettings.redeemUrl) {
-                  currentRedeem = foundInSettings.redeem_url || foundInSettings.redeemUrl;
-                }
-                game.instructions = currentInst;
-                game.redeem_url = currentRedeem;
-              }
-            }
+          const fbG = (fallbackGamesData as any[]).find((x: any) => x && (x.slug === slug || x.id === slug || x.slug === game.slug));
+          if (fbG?.instructions && !fbG.instructions.includes('Avatar nhân vật')) {
+            currentInst = fbG.instructions;
+            currentRedeem = fbG.redeem_url || '';
+            game.instructions = currentInst;
+            game.redeem_url = currentRedeem;
           }
         }
 

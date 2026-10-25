@@ -540,48 +540,38 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
           };
         });
 
-        // Tự động đối chiếu khẩn cấp với wcg_admin_custom_free_codes_v1 nếu bảng codes D1 chưa có mã (ISSUE-112: Auto-healing)
+        // Tự động đối chiếu với fallbackCodesData nếu bảng codes D1 chưa có mã (tránh scan D1 system_settings chậm)
         if (codesList.length === 0) {
-          try {
-            const rawCustom = await env.DB.prepare("SELECT value FROM system_settings WHERE key = 'wcg_admin_custom_free_codes_v1' LIMIT 1").first<any>().catch(() => null);
-            if (rawCustom?.value) {
-              const customArr = JSON.parse(rawCustom.value);
-              if (Array.isArray(customArr)) {
-                const matchedCustom = customArr.filter((c: any) => c && (String(c.gameSlug || c.slug || c.gameId || '').toLowerCase() === cleanSlug || String(c.gameSlug || c.slug || c.gameId || '').toLowerCase() === gameRow.slug));
-                if (matchedCustom.length > 0) {
-                  codesList = matchedCustom.map((c: any) => {
-                    const cExp = c.expires_at || c.expiresAt || c.expiry || '';
-                    const isFakeExp = cExp === '2026-12-31' || cExp === '2026-12-31T23:59:59Z' || cExp === '31/12/2026';
-                    return {
-                      code: String(c.code || c.codeValue || '').trim().toUpperCase(),
-                      rewards: c.rewards || c.description || 'Quà tân thủ & vật phẩm ingame',
-                      status: isCodeExpired(c) ? 'expired' : 'active',
-                      expiry: isFakeExp ? '' : cExp,
-                      source: c.source || 'Crawler Approved',
-                      added_at: c.added_at || c.createdAt || new Date().toISOString(),
-                    };
-                  }).filter((c: any) => Boolean(c.code));
+          const fallbackList = (fallbackCodesData as any)?.[gameRow.slug] || 
+                               (fallbackCodesData as any)?.[cleanSlug] || 
+                               (fallbackCodesData as any)?.[cleanWithoutMobile];
+          if (Array.isArray(fallbackList) && fallbackList.length > 0) {
+            codesList = fallbackList.map((c: any) => {
+              const rawExp = c.expiry || c.expires_at || '';
+              const isFakeExp = rawExp === '2026-12-31' || rawExp === '2026-12-31T23:59:59Z' || rawExp === '31/12/2026';
+              return {
+                code: String(c.code || '').trim().toUpperCase(),
+                rewards: c.rewards || 'Quà tân thủ & vật phẩm ingame',
+                status: isCodeExpired(c) ? 'expired' : 'active',
+                expiry: isFakeExp ? '' : rawExp,
+                source: c.source || 'Fallback Catalog',
+                added_at: c.added_at || '2026-10-09T00:00:00Z',
+              };
+            }).filter((c: any) => Boolean(c.code));
 
-                  // Tự động chữa lành (auto-heal) nạp vào bảng codes D1 trong nền không chặn request
-                  const healTask = async () => {
-                    for (const mc of codesList) {
-                      const cId = `code_${gameRow.slug}_${mc.code}`;
-                      await env.DB.prepare(`
-                        INSERT OR REPLACE INTO codes (id, game_slug, code, rewards, status, expires_at, source, added_at)
-                        VALUES (?, ?, ?, ?, ?, ?, ?, datetime('now'))
-                      `).bind(cId, gameRow.slug, mc.code, mc.rewards, mc.status, mc.expiry || null, mc.source).run().catch(() => {});
-                    }
-                  };
-                  if (context.waitUntil) {
-                    context.waitUntil(healTask());
-                  } else {
-                    healTask().catch(() => {});
-                  }
+            // Tự động chữa lành (auto-heal) nạp vào bảng codes D1 trong nền không chặn request
+            if (context.waitUntil) {
+              const healTask = async () => {
+                for (const mc of codesList) {
+                  const cId = `code_${gameRow.slug}_${mc.code}`;
+                  await env.DB.prepare(`
+                    INSERT OR REPLACE INTO codes (id, game_slug, code, rewards, status, expires_at, source, added_at)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, datetime('now'))
+                  `).bind(cId, gameRow.slug, mc.code, mc.rewards, mc.status, mc.expiry || null, mc.source).run().catch(() => {});
                 }
-              }
+              };
+              context.waitUntil(healTask());
             }
-          } catch (healErr) {
-            console.warn('[Auto-heal custom codes warning]', healErr);
           }
         }
 
@@ -593,32 +583,23 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
         let currentInstructions = gameRow.instructions !== undefined && gameRow.instructions !== null ? String(gameRow.instructions) : '';
         let currentRedeemUrl = gameRow.redeem_url !== undefined && gameRow.redeem_url !== null ? String(gameRow.redeem_url) : '';
 
-        // Tự động đối chiếu với wcg_admin_games_v5 nếu bảng games D1 còn giữ văn mẫu Avatar cũ
-        if (currentInstructions.includes('Avatar nhân vật')) {
-          try {
-            const rawGamesSetting = await env.DB.prepare("SELECT value FROM system_settings WHERE key = 'wcg_admin_games_v5' LIMIT 1").first<any>().catch(() => null);
-            if (rawGamesSetting?.value) {
-              const list = JSON.parse(rawGamesSetting.value);
-              if (Array.isArray(list)) {
-                const foundInSettings = list.find((x: any) => x && (x.slug === cleanSlug || x.id === cleanSlug || x.slug === gameRow.slug));
-                if (foundInSettings && foundInSettings.instructions && !foundInSettings.instructions.includes('Avatar nhân vật')) {
-                  currentInstructions = foundInSettings.instructions;
-                  if (foundInSettings.redeem_url || foundInSettings.redeemUrl) {
-                    currentRedeemUrl = foundInSettings.redeem_url || foundInSettings.redeemUrl;
-                  }
-                  // Đồng bộ ngược lại vào bảng games trên D1 trong nền không chặn request
-                  const updateTask = env.DB.prepare('UPDATE games SET instructions = ?, redeem_url = ?, updated_at = datetime(\'now\') WHERE slug = ?')
-                    .bind(currentInstructions, currentRedeemUrl, gameRow.slug).run().catch(() => {});
-                  if (context.waitUntil) {
-                    context.waitUntil(updateTask);
-                  }
-                }
-              }
-            }
-          } catch {}
-        }
-
         const fbGame = (fallbackGamesData as any[]).find((x: any) => x && (x.slug === gameRow.slug || x.id === gameRow.id || (gameRow.slug === 'doors-roblox' && x.slug === 'doors-roblox')));
+
+        // Tự động lấy hướng dẫn chuẩn từ fallbackGamesData nếu bảng games D1 còn giữ văn mẫu Avatar cũ
+        if (currentInstructions.includes('Avatar nhân vật')) {
+          if (fbGame?.instructions && !fbGame.instructions.includes('Avatar nhân vật')) {
+            currentInstructions = fbGame.instructions;
+            if (fbGame.redeem_url) {
+              currentRedeemUrl = fbGame.redeem_url;
+            }
+            // Đồng bộ ngược lại vào bảng games trên D1 trong nền không chặn request
+            if (context.waitUntil) {
+              const updateTask = env.DB.prepare('UPDATE games SET instructions = ?, redeem_url = ?, updated_at = datetime(\'now\') WHERE slug = ?')
+                .bind(currentInstructions, currentRedeemUrl, gameRow.slug).run().catch(() => {});
+              context.waitUntil(updateTask);
+            }
+          }
+        }
         const finalPublisher = (gameRow.publisher && String(gameRow.publisher).trim()) ? gameRow.publisher : (fbGame?.publisher || '');
         const finalCategory = (gameRow.category && String(gameRow.category).trim()) ? gameRow.category : (fbGame?.category || '');
         const finalPlatform = (gameRow.platform && String(gameRow.platform).trim()) ? gameRow.platform : (fbGame?.platform || 'Android, iOS, PC');
@@ -694,34 +675,41 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
         );
       }
 
-      // Fallback nếu game chưa có trong bảng games D1
+      // Fallback siêu tốc từ Canonical Datasets nếu game chưa có trong bảng games D1 (0 D1 reads)
+      const staticGame = (fallbackGamesData as any[]).find((g: any) =>
+        (g.slug || '').toLowerCase() === cleanSlug ||
+        (g.id || '').toLowerCase() === cleanSlug ||
+        (g.slug || '').toLowerCase() === cleanWithoutMobile
+      );
+      if (staticGame) {
+        const matchedCodesRaw = (fallbackCodesData as any)?.[staticGame.slug] || 
+                                (fallbackCodesData as any)?.[cleanSlug] || 
+                                (fallbackCodesData as any)?.[cleanWithoutMobile] || 
+                                staticGame.codes || [];
+        const matchedGame = formatGameItem(staticGame, matchedCodesRaw);
+        const finalGame = { ...matchedGame, codes_pool_complete: true };
+        singleGameCache.set(cleanSlug, { game: finalGame, expiresAt: Date.now() + 120000 });
+        singleGameCache.set(cleanWithoutMobile, { game: finalGame, expiresAt: Date.now() + 120000 });
+        return new Response(
+          JSON.stringify({
+            success: true,
+            game: finalGame,
+            note: 'Dữ liệu được bảo toàn từ bản sao lưu hợp lệ (In-Memory Fast Delivery)',
+          }),
+          {
+            headers: {
+              ...CORS_HEADERS,
+              'Cache-Control': 'public, max-age=60, s-maxage=300, stale-while-revalidate=600',
+              'X-Cache-Source': 'edge-in-memory',
+            },
+          }
+        );
+      }
+
+      // Fallback cuối cùng nếu không có trong static datasets
       const catalog = await getLoadedCatalog(env.DB, forceFresh, true);
       const rawFound = findMatchingGameInList(catalog.allRawGames, cleanSlug, cleanWithoutMobile);
       if (!rawFound) {
-        // Fallback khẩn cấp từ Canonical Datasets khi D1 mất kết nối hoặc chạm trần đọc
-        const staticGame = (fallbackGamesData as any[]).find((g: any) =>
-          (g.slug || '').toLowerCase() === cleanSlug ||
-          (g.id || '').toLowerCase() === cleanSlug ||
-          (g.slug || '').toLowerCase() === cleanWithoutMobile
-        );
-        if (staticGame) {
-          const matchedGame = formatGameItem(staticGame, staticGame.codes || []);
-          const finalGame = { ...matchedGame, codes_pool_complete: true };
-          singleGameCache.set(cleanSlug, { game: finalGame, expiresAt: Date.now() + 120000 });
-          return new Response(
-            JSON.stringify({
-              success: true,
-              game: finalGame,
-              note: 'Dữ liệu được bảo toàn từ bản sao lưu hợp lệ (D1 offline safeguard)',
-            }),
-            {
-              headers: {
-                ...CORS_HEADERS,
-                'Cache-Control': 'public, max-age=60, s-maxage=300',
-              },
-            }
-          );
-        }
         return new Response(
           JSON.stringify({ success: false, error: 'Không tìm thấy trò chơi.' }),
           { status: 404, headers: CORS_HEADERS }
