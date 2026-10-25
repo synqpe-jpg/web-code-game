@@ -1,5 +1,5 @@
 import { auditAndRebalanceStockCounters } from '../../services/d1_service';
-import { verifyToken } from '../../services/auth_service';
+import { verifyToken, verifyTemporaryAuditToken } from '../../services/auth_service';
 
 interface Env {
   DB: D1Database;
@@ -23,6 +23,20 @@ async function isAuthorizedAdmin(request: Request, env: Env): Promise<boolean> {
   if (configuredSecret && configuredSecret.length >= 16) {
     if (syncKeyHeader && syncKeyHeader === configuredSecret) return true;
     if (authHeader.startsWith('Bearer ') && authHeader.replace('Bearer ', '').trim() === configuredSecret) return true;
+  }
+
+  // 1.5. Khóa Kiểm Toán Tạm Thời (Tự hủy sau 2 giờ - CHỈ CHO PHÉP GET)
+  const incomingAuthToken = (syncKeyHeader || authHeader.replace(/^Bearer\s+/i, '')).trim();
+  if (incomingAuthToken.startsWith('wcg_audit_temp_')) {
+    const candidateSecrets = [env.ADMIN_SYNC_SECRET, env.JWT_SECRET];
+    const auditCheck = await verifyTemporaryAuditToken(incomingAuthToken, candidateSecrets);
+    if (auditCheck.valid) {
+      // Chỉ cho phép GET (DRY_RUN audit)
+      if (request.method === 'GET' || request.method === 'HEAD' || request.method === 'OPTIONS') {
+        return true;
+      }
+    }
+    return false;
   }
 
   // 2. Bearer Admin Token

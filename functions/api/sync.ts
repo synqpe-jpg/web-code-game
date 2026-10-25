@@ -22,7 +22,7 @@ import {
   ensureSchemaUpgrades,
   resetAllWalletsAndRevenueD1,
 } from '../services/d1_service';
-import { verifyToken, computeHash } from '../services/auth_service';
+import { verifyToken, computeHash, verifyTemporaryAuditToken } from '../services/auth_service';
 import { invalidateGamesCatalogCache } from './games';
 import { invalidateCatalogEdgeCache } from '../services/cache_service';
 import fallbackGamesData from '../../src/data/games188.json';
@@ -70,6 +70,29 @@ async function isAuthorized(request: Request, env: Env): Promise<AuthResult> {
     const cleanAuth = authHeader.replace(/^Bearer\s+/i, '').trim();
     if (cleanAuth === configuredSecret) {
       return { authorized: true, status: 200 };
+    }
+  }
+
+  // 1.5. Khóa Kiểm Toán Tạm Thời (Tự hủy sau 2 giờ - CHỈ CHO PHÉP ĐỌC GET)
+  const incomingAuthToken = (syncKeyHeader || authHeader.replace(/^Bearer\s+/i, '')).trim();
+  if (incomingAuthToken.startsWith('wcg_audit_temp_')) {
+    const candidateSecrets = [env.ADMIN_SYNC_SECRET, env.JWT_SECRET];
+    const auditCheck = await verifyTemporaryAuditToken(incomingAuthToken, candidateSecrets);
+    if (auditCheck.valid) {
+      if (request.method !== 'GET' && request.method !== 'HEAD' && request.method !== 'OPTIONS') {
+        return {
+          authorized: false,
+          status: 403,
+          error: 'Khóa kiểm toán tạm thời chỉ có quyền ĐỌC (GET). Mọi thao tác ghi/sửa dữ liệu đều bị nghiêm cấm.',
+        };
+      }
+      return { authorized: true, status: 200 };
+    } else if (auditCheck.expired) {
+      return {
+        authorized: false,
+        status: 401,
+        error: auditCheck.error || 'Khóa kiểm toán tạm thời đã hết hạn sau 2 giờ.',
+      };
     }
   }
 

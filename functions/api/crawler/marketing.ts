@@ -16,6 +16,7 @@ import {
   getRecentMarketingEvents,
   checkAuditorRateLimit,
 } from '../../services/marketingAuditService';
+import { getOrRefreshSnapshot } from '../../services/snapshotService';
 
 export interface Env {
   DB?: D1Database;
@@ -89,6 +90,19 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
     }
 
     const action = urlObj.searchParams.get('action') || 'get_marketing_config';
+    if (action === 'get_metrics_snapshot') {
+      const snapshot = await getOrRefreshSnapshot(env, undefined, true);
+      return new Response(
+        JSON.stringify({
+          success: true,
+          action: 'get_metrics_snapshot',
+          botName: auth.botName,
+          snapshot,
+        }, null, 2),
+        { headers: { ...CORS_HEADERS, 'Cache-Control': 'no-cache' } }
+      );
+    }
+
     if (action === 'list_marketing_events') {
       const limit = Number(urlObj.searchParams.get('limit')) || 100;
       const events = await getRecentMarketingEvents(env, limit);
@@ -231,18 +245,33 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
     'update_instructions', 'cleanup_test_codes', 'delete_pending_game'
   ];
 
-  if (writeActions.includes(action) || (auth.role === 'marketing_auditor' && action !== 'get_marketing_config' && action !== 'list_marketing_events')) {
+  const allowedAuditActions = ['get_marketing_config', 'list_marketing_events', 'get_metrics_snapshot'];
+  if (writeActions.includes(action) || (auth.role === 'marketing_auditor' && !allowedAuditActions.includes(action))) {
     return new Response(
       JSON.stringify({
         success: false,
-        error: `Quyền truy cập bị từ chối: Khóa Muse Marketing Auditor Key chỉ có quyền đọc (Read-only) cho "get_marketing_config" và "list_marketing_events". Mọi thao tác ghi "${action}" đều bị nghiêm cấm. Cấu hình chỉ được chỉnh sửa trên Admin UI.`,
+        error: `Quyền truy cập bị từ chối: Khóa kiểm toán chỉ có quyền đọc (Read-only) cho ${allowedAuditActions.join(', ')}. Mọi thao tác ghi "${action}" đều bị nghiêm cấm. Cấu hình chỉ được chỉnh sửa trên Admin UI.`,
         status: 403,
       }),
       { status: 403, headers: CORS_HEADERS }
     );
   }
 
-  // 5. Action: get_marketing_config
+  // 5. Action: get_metrics_snapshot
+  if (action === 'get_metrics_snapshot') {
+    const snapshot = await getOrRefreshSnapshot(env, undefined, true);
+    return new Response(
+      JSON.stringify({
+        success: true,
+        action: 'get_metrics_snapshot',
+        botName: auth.botName,
+        snapshot,
+      }, null, 2),
+      { headers: CORS_HEADERS }
+    );
+  }
+
+  // 6. Action: get_marketing_config
   if (action === 'get_marketing_config') {
     const config = await getLiveMarketingConfig(env);
     return new Response(
@@ -256,7 +285,7 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
     );
   }
 
-  // 6. Action: list_marketing_events
+  // 7. Action: list_marketing_events
   if (action === 'list_marketing_events') {
     const limit = Number(body.limit) || 100;
     const events = await getRecentMarketingEvents(env, limit);
@@ -276,7 +305,7 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
   return new Response(
     JSON.stringify({
       success: false,
-      error: `Hành động "${action}" không được hỗ trợ. Chỉ hỗ trợ "get_marketing_config" và "list_marketing_events".`,
+      error: `Hành động "${action}" không được hỗ trợ. Chỉ hỗ trợ "get_marketing_config", "list_marketing_events", và "get_metrics_snapshot".`,
       status: 400,
     }),
     { status: 400, headers: CORS_HEADERS }

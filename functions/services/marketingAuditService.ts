@@ -7,6 +7,8 @@
 
 import { getSettingD1 } from './d1_service';
 import { getRealEventsHub, maskServerName } from './realEventsHub';
+import { verifyTemporaryAuditToken } from './auth_service';
+import { getOrRefreshSnapshot } from './snapshotService';
 import { PRESET_VIRTUAL_ACCOUNTS } from '../../src/services/marketingService';
 
 export const CANONICAL_TYPE_WEIGHTS = {
@@ -165,6 +167,28 @@ export async function authenticateMarketingAuditor(request: Request, env: any): 
       role: 'admin',
       botName: 'Admin Master Key',
     };
+  }
+
+  // 1.5. Kiểm tra Khóa Kiểm Toán Tạm Thời (Tự hủy sau 2 giờ)
+  if (token.startsWith('wcg_audit_temp_')) {
+    const candidateSecrets = [env.ADMIN_SYNC_SECRET, env.JWT_SECRET, env.MUSE_MARKETING_AUDIT_KEY];
+    const auditCheck = await verifyTemporaryAuditToken(token, candidateSecrets);
+    if (auditCheck.valid) {
+      const minsLeft = Math.max(1, Math.round(auditCheck.remainingSeconds / 60));
+      return {
+        authorized: true,
+        role: 'marketing_auditor',
+        botName: `Pine / Muse Temp Auditor (Còn ${minsLeft} phút)`,
+      };
+    } else if (auditCheck.expired) {
+      return {
+        authorized: false,
+        role: 'none',
+        botName: '',
+        status: 401,
+        error: auditCheck.error || 'Khóa kiểm toán tạm thời đã hết hạn sau 2 giờ.',
+      };
+    }
   }
 
   // 2. Kiểm tra Environment Secret dành riêng cho Muse Marketing Auditor
