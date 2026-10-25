@@ -80,7 +80,7 @@ export const UpcomingGamesBanner: React.FC<UpcomingGamesBannerProps> = ({
   // Các game ra mắt trong ngày chỉ nằm trên mục này tối đa 1 ngày (24h) rồi tự động chuyển xuống bên dưới
   const activeUpcoming = upcomingGames
     .filter((g) => {
-      if (g.status === 'CANCELLED' || g.status === 'PENDING') return false;
+      if (g.status === 'CANCELLED' || g.status === 'PENDING' || g.status === 'LAUNCHED') return false;
       if (!g.releaseDate) return true;
       const target = new Date(g.releaseDate).getTime();
       if (isNaN(target)) return true;

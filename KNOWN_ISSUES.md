@@ -10,6 +10,30 @@
 
 ## 1. DANH MỤC LỖI & CÁC BẪY ĐÃ THẤT BẠI (DO NOT REPEAT)
 
+### ISSUE-116: Bẫy Lọc Bỏ Triệt Để Khi Khóa Cứng Slugs Làm Mất Trạng Thái Lịch Sử Game Đã Mở Server (Overly Aggressive Slugs Exclusion Purging Historical Launched Games & Zeroing launchedCount)
+- **Triệu chứng**:
+  - Khi gọi `GET /api/crawler/ingest-upcoming-games`, chỉ số `launchedCount` trả về bằng `0`, trong khi trước đây (ngày 23/10) số lượng game đã mở server là `3`.
+  - Quản trị viên và bot kiểm chứng dữ liệu bị mất dấu các tựa game đã chuyển trạng thái mở server (`LAUNCHED`), không thể đối soát lịch sử ra mắt game.
+- **Nguyên nhân gốc rễ**:
+  1. *Lọc bỏ quá đà (Overly Aggressive Exclusion)*:
+     - Để ngăn chặn các game cũ (`where-winds-meet`, `honkai-star-rail`, `strinova-vn`) tự động quay lại mục sắp ra mắt khi D1 gặp sự cố, code đã áp dụng lệnh:
+       `upcomingGames = upcomingGames.filter((g) => g && !OBSOLETE_SLUGS.has((g.slug || '').toLowerCase()));`
+     - Việc loại bỏ thô bạo này đã xóa sạch các bản ghi ngay từ đầu vào của hàm xử lý, khiến chúng biến mất khỏi toàn bộ hệ thống kể cả khi người dùng truy vấn `status=LAUNCHED` hoặc xem tổng kết `launchedCount`.
+  2. *Đồng nhất hoá sai giữa "Không hiện trên banner sắp ra mắt" và "Không tồn tại trong hệ thống"*:
+     - Các game đã mở server chỉ không được phép xuất hiện trên banner đếm ngược của Web Khách (`status: 'UPCOMING'`). Chúng vẫn phải tồn tại hợp lệ trong cơ sở dữ liệu với trạng thái `status: 'LAUNCHED'` để phục vụ báo cáo, phân loại quản trị và đối soát API.
+- **Giải pháp chuẩn đã kiểm chứng**:
+  1. *Nguyên Tắc Ép Trạng Thái Thay Vì Xoá Bản Ghi (State Coercion Over Deletion)*:
+     - Không dùng `filter` để loại bỏ slug. Thay vào đó, duyệt qua mảng và nếu phát hiện bất kỳ game nào trong danh sách bảo vệ (`where-winds-meet`, `honkai-star-rail`, `strinova-vn`) mang trạng thái `UPCOMING` hoặc `APPROVED`, lập tức cưỡng chế chuyển thành `status = 'LAUNCHED'`.
+  2. *Bảo Toàn Danh Mục Lịch Sử `DEFAULT_LAUNCHED_GAMES`*:
+     - Định nghĩa rõ ràng 3 game mở server lịch sử (`Strinova VN`, `Where Winds Meet VN`, `Honkai: Star Rail 3.0`) trong cả Edge fallback và Authoritative Snapshot `canonical_backup_state.json`.
+  3. *Cách Ly Hiển Thị Trên Frontend*:
+     - `UpcomingGamesBanner.tsx` và `AllUpcomingGamesModal.tsx` chủ động lọc `g.status === 'LAUNCHED'` để tuyệt đối không hiển thị game đã mở server lên banner đếm ngược.
+     - `functions/api/games.ts` bỏ qua các game `status === 'LAUNCHED'` để không làm tăng số lượng catalog chuẩn 560 game.
+- ⛔ **CÁCH SỬA ĐÃ THẤT BẠI - TUYỆT ĐỐI KHÔNG LẶP LẠI**:
+  - ❌ *Không dùng `filter` loại bỏ slug toàn diện khỏi danh sách upcoming games*: Khi cần ngăn game hiển thị trên banner, hãy chuyển trạng thái sang `LAUNCHED`, không được xóa hoàn toàn bản ghi khỏi CSDL vì sẽ làm mất số đếm `launchedCount` của bot và admin.
+
+---
+
 ### ISSUE-115: Bẫy Sập Tầng D1 Khi Quá Hạn Mức Đọc Free-Tier Gây Ra Lệch Tầng, Resurrect Dữ Liệu Cũ Và Vô Hiệu Key API (Cloudflare D1 Read Quota Exhaustion & Edge Zero-Out Fail-Closed Trap)
 - **Triệu chứng**:
   - Toàn bộ hệ thống đột ngột lệch khỏi trạng thái đã nghiệm thu:

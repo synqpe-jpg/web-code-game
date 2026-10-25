@@ -171,6 +171,73 @@ const DEFAULT_UPCOMING_GAMES_FALLBACK = [
   }
 ];
 
+const DEFAULT_LAUNCHED_GAMES = [
+  {
+    id: 'ug_strinova_vn',
+    name: 'Strinova VN',
+    slug: 'strinova-vn',
+    publisher: 'iDreamSky / VPlay',
+    releaseDate: '2026-10-23T10:00:00+07:00',
+    category: 'Bắn Súng Anime 3D',
+    platform: 'PC, Android, iOS',
+    iconUrl: '/game_icons/strinova-vn.webp',
+    icon_url: '/game_icons/strinova-vn.webp',
+    proxyIconUrl: '/game_icons/strinova-vn.webp',
+    bannerUrl: 'https://images.unsplash.com/photo-1542751371-adc38448a05e?auto=format&fit=crop&w=1200&q=80',
+    description: 'Game bắn súng chiến thuật biến hình Anime 3D góc nhìn thứ ba đỉnh cao 2026 từ iDreamSky.',
+    preRegUrl: 'https://strinova.vplay.vn',
+    expectedCodes: ['STRINOVAOB', 'STRINOVAVN', 'VIP999', 'OPENBETA2026'],
+    subscribersCount: 2840,
+    source: 'Trợ lý Pine & Muse Bot',
+    status: 'LAUNCHED',
+    displayOrder: 101,
+    createdAt: '2026-10-20T08:00:00Z',
+    updatedAt: '2026-10-23T10:00:00Z',
+  },
+  {
+    id: 'ug_where_winds_meet',
+    name: 'Where Winds Meet VN',
+    slug: 'where-winds-meet',
+    publisher: 'NetEase Games',
+    releaseDate: '2026-09-10T10:00:00+07:00',
+    category: 'Hành Động Thế Giới Mở',
+    platform: 'PC, Mobile',
+    iconUrl: '/game_icons/where-winds-meet.webp',
+    icon_url: '/game_icons/where-winds-meet.webp',
+    proxyIconUrl: '/game_icons/where-winds-meet.webp',
+    bannerUrl: 'https://images.unsplash.com/photo-1579783900882-c0d3dad7b119?auto=format&fit=crop&w=1200&q=80',
+    description: 'Bom tấn võ hiệp thế giới mở thời Ngũ Đại Thập Quốc với đồ họa ray-tracing đỉnh cao.',
+    expectedCodes: ['WHEREWINDSMEET', 'WWMOPENBETA', 'VIP888'],
+    subscribersCount: 5630,
+    source: 'Trợ lý Pine & Muse Bot',
+    status: 'LAUNCHED',
+    displayOrder: 102,
+    createdAt: '2026-10-18T10:00:00Z',
+    updatedAt: '2026-10-23T10:00:00Z',
+  },
+  {
+    id: 'ug_hsr_ver30',
+    name: 'Honkai: Star Rail 3.0',
+    slug: 'honkai-star-rail',
+    publisher: 'HoYoverse',
+    releaseDate: '2026-04-26T10:00:00+07:00',
+    category: 'Chiến Thuật Theo Lượt',
+    platform: 'PC, Android, iOS',
+    iconUrl: '/game_icons/honkai-star-rail.webp',
+    icon_url: '/game_icons/honkai-star-rail.webp',
+    proxyIconUrl: '/game_icons/honkai-star-rail.webp',
+    bannerUrl: 'https://images.unsplash.com/photo-1563089145-599997674d42?auto=format&fit=crop&w=1200&q=80',
+    description: 'Phiên bản đại cập nhật mở ra thế giới mới và dàn nhân vật 5 sao giới hạn mới.',
+    expectedCodes: ['HSRVER30', 'STARRAIL30'],
+    subscribersCount: 8900,
+    source: 'Trợ lý Pine & Muse Bot',
+    status: 'LAUNCHED',
+    displayOrder: 103,
+    createdAt: '2026-10-19T14:00:00Z',
+    updatedAt: '2026-10-23T10:00:00Z',
+  },
+];
+
 async function authenticateRequest(request: Request, env: Env, bodyApiKey?: string): Promise<{ authorized: boolean; botName: string; error?: string }> {
   const urlObj = new URL(request.url);
   const authHeader = request.headers.get('Authorization') || '';
@@ -374,17 +441,34 @@ export async function onRequestGet(context: { request: Request; env: Env }): Pro
   }
 
   if (upcomingGames.length === 0) {
-    upcomingGames = DEFAULT_UPCOMING_GAMES_FALLBACK;
+    upcomingGames = [...DEFAULT_UPCOMING_GAMES_FALLBACK, ...DEFAULT_LAUNCHED_GAMES];
     isFallbackMode = true;
   }
 
-  // Khóa cứng: Tuyệt đối không cho phép where-winds-meet, honkai-star-rail, strinova-vn xuất hiện trong danh sách UPCOMING
+  // Đảm bảo 3 game lịch sử đã ra mắt (LAUNCHED) luôn được bảo toàn đầy đủ
+  const existingSlugs = new Set(upcomingGames.map((g) => (g.slug || '').toLowerCase()));
+  let hasMissingLaunched = false;
+  for (const lg of DEFAULT_LAUNCHED_GAMES) {
+    if (!existingSlugs.has(lg.slug.toLowerCase())) {
+      upcomingGames.push({ ...lg });
+      hasMissingLaunched = true;
+    }
+  }
+
+  // Khóa cứng: Tuyệt đối không cho phép where-winds-meet, honkai-star-rail, strinova-vn xuất hiện dưới dạng UPCOMING trên banner
+  // Bất kỳ bản ghi nào của 3 game này bắt buộc phải mang trạng thái LAUNCHED
   const OBSOLETE_SLUGS = new Set(['where-winds-meet', 'honkai-star-rail', 'strinova-vn']);
-  upcomingGames = upcomingGames.filter((g) => g && !OBSOLETE_SLUGS.has((g.slug || '').toLowerCase()));
+  let statusCoerced = false;
+  upcomingGames.forEach((g) => {
+    if (g && OBSOLETE_SLUGS.has((g.slug || '').toLowerCase()) && (g.status === 'UPCOMING' || g.status === 'APPROVED' || !g.status)) {
+      g.status = 'LAUNCHED';
+      statusCoerced = true;
+    }
+  });
 
   // Tự động kiểm tra và chữa lành tính toàn vẹn dữ liệu
   const { changed: getChanged } = sanitizeAndSafeguardUpcomingGames(upcomingGames);
-  if (getChanged && env.DB) {
+  if ((getChanged || hasMissingLaunched || statusCoerced) && env.DB && !isFallbackMode) {
     setSettingD1(env.DB, 'wcg_admin_upcoming_games_v1', upcomingGames).catch(() => {});
   }
 
@@ -552,15 +636,31 @@ export async function onRequestPost(context: { request: Request; env: Env }): Pr
       if (Array.isArray(saved) && saved.length > 0) {
         currentUpcomingGames = saved;
       } else {
-        currentUpcomingGames = [...DEFAULT_UPCOMING_GAMES_FALLBACK];
+        currentUpcomingGames = [...DEFAULT_UPCOMING_GAMES_FALLBACK, ...DEFAULT_LAUNCHED_GAMES];
       }
     } catch (e) {
       console.warn('[IngestUpcomingGames] Warning reading existing upcoming games:', e);
-      currentUpcomingGames = [...DEFAULT_UPCOMING_GAMES_FALLBACK];
+      currentUpcomingGames = [...DEFAULT_UPCOMING_GAMES_FALLBACK, ...DEFAULT_LAUNCHED_GAMES];
     }
   } else {
-    currentUpcomingGames = [...DEFAULT_UPCOMING_GAMES_FALLBACK];
+    currentUpcomingGames = [...DEFAULT_UPCOMING_GAMES_FALLBACK, ...DEFAULT_LAUNCHED_GAMES];
   }
+
+  // Đảm bảo 3 game lịch sử đã ra mắt (LAUNCHED) luôn được bảo toàn
+  const existingPostSlugs = new Set(currentUpcomingGames.map((g) => (g.slug || '').toLowerCase()));
+  for (const lg of DEFAULT_LAUNCHED_GAMES) {
+    if (!existingPostSlugs.has(lg.slug.toLowerCase())) {
+      currentUpcomingGames.push({ ...lg });
+    }
+  }
+
+  // Khóa cứng: Tuyệt đối không cho phép where-winds-meet, honkai-star-rail, strinova-vn mang trạng thái UPCOMING
+  const OBSOLETE_SLUGS = new Set(['where-winds-meet', 'honkai-star-rail', 'strinova-vn']);
+  currentUpcomingGames.forEach((g) => {
+    if (g && OBSOLETE_SLUGS.has((g.slug || '').toLowerCase()) && (g.status === 'UPCOMING' || g.status === 'APPROVED' || !g.status)) {
+      g.status = 'LAUNCHED';
+    }
+  });
 
   // Tự động bảo vệ & phục hồi dữ liệu gốc trước mọi thao tác
   sanitizeAndSafeguardUpcomingGames(currentUpcomingGames);

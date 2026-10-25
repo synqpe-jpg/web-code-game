@@ -43,6 +43,15 @@ function runTests() {
     'Upcoming games does not contain obsolete games (where-winds-meet, honkai-star-rail, strinova-vn)',
     `Slugs: ${upcomingSlugs.join(', ')}`);
 
+  assert(canonical.launchedGames && canonical.launchedGames.length === 3,
+    'Canonical launched games count === 3',
+    `Found: ${canonical.launchedGames?.length}`);
+
+  const launchedSlugs = (canonical.launchedGames || []).map(g => g.slug);
+  assert(launchedSlugs.includes('strinova-vn') && launchedSlugs.includes('where-winds-meet') && launchedSlugs.includes('honkai-star-rail'),
+    'Launched games contains exactly strinova-vn, where-winds-meet, honkai-star-rail',
+    `Slugs: ${launchedSlugs.join(', ')}`);
+
   // 2. Check 3 Roblox Games & Exact Codes
   const chickenCodes = canonical.crawlerPendingCodes.filter(c => c.gameSlug === 'grow-a-chicken-fighter');
   const armyCodes = canonical.crawlerPendingCodes.filter(c => c.gameSlug === 'command-an-army');

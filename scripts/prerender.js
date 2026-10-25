@@ -25,10 +25,21 @@ function isCodeExpired(c) {
   if (!exp) return false;
   if (exp === '2026-12-31' || exp === '2026-12-31T23:59:59Z' || exp === '31/12/2026') return false;
 
-  const now = new Date();
+  const isoMatch = String(exp).trim().match(/^(\d{4})[\/\-](\d{1,2})[\/\-](\d{1,2})(?:[T\s](\d{1,2}):(\d{1,2})(?::(\d{1,2}))?)?/);
+  if (isoMatch) {
+    const year = parseInt(isoMatch[1], 10);
+    const month = parseInt(isoMatch[2], 10);
+    const day = parseInt(isoMatch[3], 10);
+    const hours = isoMatch[4] !== undefined ? parseInt(isoMatch[4], 10) : 23;
+    const minutes = isoMatch[5] !== undefined ? parseInt(isoMatch[5], 10) : 59;
+    const seconds = isoMatch[6] !== undefined ? parseInt(isoMatch[6], 10) : 59;
+    const d = new Date(year, month - 1, day, hours, minutes, seconds, 999);
+    return d.getTime() < Date.now();
+  }
+
   const d = new Date(exp);
   if (isNaN(d.getTime())) return false;
-  return d < now;
+  return d.getTime() < Date.now();
 }
 
 async function runPrerender() {

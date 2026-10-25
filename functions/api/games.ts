@@ -261,6 +261,8 @@ export async function getLoadedCatalog(
     const now = Date.now();
     for (const ug of upcomingList) {
       if (!ug || !ug.slug) continue;
+      // Bỏ qua các game lịch sử đã LAUNCHED để bảo toàn danh mục chuẩn 560 game
+      if (ug.status === 'LAUNCHED') continue;
       const target = new Date(ug.releaseDate).getTime();
       if (!isNaN(target) && (now - target) > ONE_DAY_MS) {
         const slugLower = ug.slug.toLowerCase();

@@ -107,7 +107,9 @@ export const AllUpcomingGamesModal: React.FC<AllUpcomingGamesModalProps> = ({
   const now = Date.now();
 
   const filteredGames = upcomingGames.filter((game) => {
-    // 0. Rollover check: các game đã mở server > 24h tự động chuyển xuống catalog
+    // 0. Bỏ qua các game đã phát hành, hủy hoặc đang chờ duyệt
+    if (game.status === 'CANCELLED' || game.status === 'PENDING' || game.status === 'LAUNCHED') return false;
+    // Rollover check: các game đã mở server > 24h tự động chuyển xuống catalog
     if (game.releaseDate) {
       const target = new Date(game.releaseDate).getTime();
       if (!isNaN(target) && (now - target) > ONE_DAY_MS) {

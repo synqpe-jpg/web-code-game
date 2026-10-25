@@ -1881,6 +1881,84 @@
       "updatedAt": "2026-10-24T18:00:00Z"
     }
   ],
+  "launchedGames": [
+    {
+      "id": "ug_strinova_vn",
+      "name": "Strinova VN",
+      "slug": "strinova-vn",
+      "publisher": "iDreamSky / VPlay",
+      "releaseDate": "2026-10-23T10:00:00+07:00",
+      "category": "Bắn Súng Anime 3D",
+      "platform": "PC, Android, iOS",
+      "iconUrl": "/game_icons/strinova-vn.webp",
+      "icon_url": "/game_icons/strinova-vn.webp",
+      "proxyIconUrl": "/game_icons/strinova-vn.webp",
+      "bannerUrl": "https://images.unsplash.com/photo-1542751371-adc38448a05e?auto=format&fit=crop&w=1200&q=80",
+      "description": "Game bắn súng chiến thuật biến hình Anime 3D góc nhìn thứ ba đỉnh cao 2026 từ iDreamSky.",
+      "preRegUrl": "https://strinova.vplay.vn",
+      "expectedCodes": [
+        "STRINOVAOB",
+        "STRINOVAVN",
+        "VIP999",
+        "OPENBETA2026"
+      ],
+      "subscribersCount": 2840,
+      "source": "Trợ lý Pine & Muse Bot",
+      "status": "LAUNCHED",
+      "displayOrder": 101,
+      "createdAt": "2026-10-20T08:00:00Z",
+      "updatedAt": "2026-10-23T10:00:00Z"
+    },
+    {
+      "id": "ug_where_winds_meet",
+      "name": "Where Winds Meet VN",
+      "slug": "where-winds-meet",
+      "publisher": "NetEase Games",
+      "releaseDate": "2026-09-10T10:00:00+07:00",
+      "category": "Hành Động Thế Giới Mở",
+      "platform": "PC, Mobile",
+      "iconUrl": "/game_icons/where-winds-meet.webp",
+      "icon_url": "/game_icons/where-winds-meet.webp",
+      "proxyIconUrl": "/game_icons/where-winds-meet.webp",
+      "bannerUrl": "https://images.unsplash.com/photo-1579783900882-c0d3dad7b119?auto=format&fit=crop&w=1200&q=80",
+      "description": "Bom tấn võ hiệp thế giới mở thời Ngũ Đại Thập Quốc với đồ họa ray-tracing đỉnh cao.",
+      "expectedCodes": [
+        "WHEREWINDSMEET",
+        "WWMOPENBETA",
+        "VIP888"
+      ],
+      "subscribersCount": 5630,
+      "source": "Trợ lý Pine & Muse Bot",
+      "status": "LAUNCHED",
+      "displayOrder": 102,
+      "createdAt": "2026-10-18T10:00:00Z",
+      "updatedAt": "2026-10-23T10:00:00Z"
+    },
+    {
+      "id": "ug_hsr_ver30",
+      "name": "Honkai: Star Rail 3.0",
+      "slug": "honkai-star-rail",
+      "publisher": "HoYoverse",
+      "releaseDate": "2026-04-26T10:00:00+07:00",
+      "category": "Chiến Thuật Theo Lượt",
+      "platform": "PC, Android, iOS",
+      "iconUrl": "/game_icons/honkai-star-rail.webp",
+      "icon_url": "/game_icons/honkai-star-rail.webp",
+      "proxyIconUrl": "/game_icons/honkai-star-rail.webp",
+      "bannerUrl": "https://images.unsplash.com/photo-1563089145-599997674d42?auto=format&fit=crop&w=1200&q=80",
+      "description": "Phiên bản đại cập nhật mở ra thế giới mới và dàn nhân vật 5 sao giới hạn mới.",
+      "expectedCodes": [
+        "HSRVER30",
+        "STARRAIL30"
+      ],
+      "subscribersCount": 8900,
+      "source": "Trợ lý Pine & Muse Bot",
+      "status": "LAUNCHED",
+      "displayOrder": 103,
+      "createdAt": "2026-10-19T14:00:00Z",
+      "updatedAt": "2026-10-23T10:00:00Z"
+    }
+  ],
   "avatarLand": {
     "id": "avatar-land",
     "slug": "avatar-land",

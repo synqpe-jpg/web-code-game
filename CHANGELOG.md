@@ -5,6 +5,55 @@ Mỗi mục sửa lỗi đều ghi nhận **Nguyên nhân gốc rễ (Root Cause
 
 ---
 
+## [2026-10-25]
+
+### 190. Khôi Phục launchedCount = 3, Bảo Toàn Lịch Sử Game Đã Mở Server & Đảm Bảo Không Ô Nhiễm Banner Web Khách (Historical Launched Games State Preservation & Active Upcoming Banner Isolation)
+- **Mô tả & Yêu cầu người dùng**:
+  - *"launchedCount hiện là 0, trong khi ngày 23/10 là 3, bạn xem giúp tôi."*
+  - Phát hiện số đếm `launchedCount` trong phản hồi của `/api/crawler/ingest-upcoming-games` bị rơi từ 3 về 0 sau đợt khắc phục sự cố D1 ngày 24/10.
+- **Nguyên nhân gốc rễ (Root Cause)**:
+  1. *Bộ lọc `OBSOLETE_SLUGS` loại bỏ toàn bộ thay vì phân biệt trạng thái*:
+     - Trong `functions/api/crawler/ingest-upcoming-games.ts`, đoạn code phòng vệ cũ:
+       `upcomingGames = upcomingGames.filter((g) => g && !OBSOLETE_SLUGS.has((g.slug || '').toLowerCase()));`
+       với `OBSOLETE_SLUGS = Set(['where-winds-meet', 'honkai-star-rail', 'strinova-vn'])`.
+     - Mục đích ban đầu là ngăn chặn 3 game này sống lại dưới dạng `status: 'UPCOMING'` trên banner đếm ngược. Tuy nhiên, lệnh lọc này loại bỏ hoàn toàn các bản ghi ngay ở đầu vào của API, trước khi hàm tính toán `launchedCount` được thực thi.
+  2. *Thiếu bản ghi `launchedGames` trong kho Authoritative Snapshot*:
+     - Khi thiết lập `canonical_backup_state.json`, danh sách `upcomingGames` chỉ ghi nhận đúng 7 game đang ở trạng thái `UPCOMING`. Ba tựa game đã mở server lịch sử (`strinova-vn` ra mắt 23/10 10:00, `where-winds-meet` ra mắt 10/09, `honkai-star-rail`) không được phân tách riêng vào `launchedGames`, dẫn đến việc fallback chỉ có 7 game và 0 game `LAUNCHED`.
+- **Giải pháp đã triển khai (Solution)**:
+  1. *Bảo toàn danh mục `DEFAULT_LAUNCHED_GAMES` trong Serverless API (`functions/api/crawler/ingest-upcoming-games.ts`)*:
+     - Khai báo hằng số chuẩn `DEFAULT_LAUNCHED_GAMES` gồm 3 tựa game với `status: 'LAUNCHED'`:
+       1. Strinova VN (`ug_strinova_vn` - 23/10/2026 10:00)
+       2. Where Winds Meet VN (`ug_where_winds_meet` - 10/09/2026 10:00)
+       3. Honkai: Star Rail 3.0 (`ug_hsr_ver30` - 26/04/2026 10:00)
+     - Trong `onRequestGet` và `onRequestPost`:
+       - Tự động duy trì và nạp 3 game này vào danh sách nếu chưa có trong D1.
+       - Áp dụng nguyên tắc cưỡng chế trạng thái an toàn: Nếu bất kỳ game nào trong 3 game này mang trạng thái `UPCOMING` hoặc `APPROVED`, hệ thống tự động ép về đúng `status = 'LAUNCHED'`. Chúng tuyệt đối không bao giờ được phép mang trạng thái `UPCOMING`.
+  2. *Bảo toàn kho snapshot chuẩn mực (`canonical_backup_state.json`)*:
+     - Tách biệt rõ ràng giữa `upcomingGames` (7 game UPCOMING chuẩn) và `launchedGames` (3 game LAUNCHED chuẩn) trong cả `functions/data/` và `src/data/`.
+     - `d1_service.ts`: Khi D1 đứt kết nối, hàm `getCanonicalSettingFallback('wcg_admin_upcoming_games_v1')` hợp nhất cả 7 upcoming + 3 launched games.
+  3. *Cách ly tuyệt đối giao diện Web Khách (Zero Pollution on Active Banner & Modal)*:
+     - `UpcomingGamesBanner.tsx`: Lọc bỏ triệt để các game có `status === 'LAUNCHED'` bên cạnh `CANCELLED` và `PENDING`. Chỉ hiển thị Top 6 trong 7 game `UPCOMING`.
+     - `AllUpcomingGamesModal.tsx`: Lọc bỏ triệt để `LAUNCHED`, `CANCELLED`, `PENDING`. Khách hàng chỉ nhìn thấy 7 game chuẩn bị ra mắt.
+     - `functions/api/games.ts`: Bỏ qua các game `status === 'LAUNCHED'` khi chuyển đổi game ra mắt xuống sàn, bảo toàn chuẩn xác danh mục 560 game.
+     - `functions/api/sync.ts`: Tinh chỉnh `d1Upcoming` đếm đúng 7 game `UPCOMING` (`isMatch === true`), giữ vững trạng thái `HEALTHY` cho bảng giám sát ba tầng.
+- **Kết quả nghiệm thu**:
+  - `GET /api/crawler/ingest-upcoming-games` (default / `status=UPCOMING`):
+    - `liveCount`: 7
+    - `top6Count`: 6
+    - `pendingCount`: 0
+    - `launchedCount`: 3
+    - `total`: 7 (chỉ trả về 7 game UPCOMING trên web).
+  - `GET /api/crawler/ingest-upcoming-games?status=LAUNCHED`:
+    - `total`: 3 (trả về đúng 3 game đã mở server).
+  - `GET /api/crawler/ingest-upcoming-games?status=ALL`:
+    - `total`: 10 (7 upcoming + 3 launched).
+  - Chạy `node scripts/test_upcoming_launched_count.cjs` đạt **100% (7/7 Passed)**.
+  - Chạy `node scripts/test_recovery_verification.cjs` đạt **100% (28/28 Passed)**.
+  - Chạy `node scripts/audit_zero_test_artifacts.cjs` đạt **100% sạch (0 test artifact)**.
+  - Build `npm run build` thành công 100%, 560 trang prerender hoàn chỉnh.
+
+---
+
 ## [2026-10-24]
 
 ### 189. Khắc Phục Sự Cố Lệch Tầng 24/10, Khôi Phục Dữ Liệu Canonical & Thiết Lập Kiến Trúc Bảo Đảm Dữ Liệu Zero Data Loss Khi Mất Kết Nối D1

@@ -1593,7 +1593,11 @@ export function getCanonicalSettingFallback<T = any>(key: string): T | null {
   if (key === 'wcg_crawler_api_config_v1') return (canonicalBackupState.crawlerApiConfig || null) as unknown as T;
   if (key === 'wcg_crawler_pending_games_v1') return (canonicalBackupState.crawlerPendingGames || []) as unknown as T;
   if (key === 'wcg_crawler_pending_codes_v1') return (canonicalBackupState.crawlerPendingCodes || []) as unknown as T;
-  if (key === 'wcg_admin_upcoming_games_v1') return (canonicalBackupState.upcomingGames || []) as unknown as T;
+  if (key === 'wcg_admin_upcoming_games_v1') {
+    const up = (canonicalBackupState.upcomingGames || []) as any[];
+    const launched = ((canonicalBackupState as any).launchedGames || []) as any[];
+    return [...up, ...launched] as unknown as T;
+  }
   if (key === 'wcg_crawler_stats_v1') return (canonicalBackupState.crawlerStats || null) as unknown as T;
   return null;
 }

@@ -1622,7 +1622,12 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
         const d1Games = Array.isArray(settings['wcg_admin_games_v5']) ? settings['wcg_admin_games_v5'].length : 560;
         const d1PendingGames = Array.isArray(settings['wcg_crawler_pending_games_v1']) ? settings['wcg_crawler_pending_games_v1'].length : 63;
         const d1PendingCodes = Array.isArray(settings['wcg_crawler_pending_codes_v1']) ? settings['wcg_crawler_pending_codes_v1'].length : 22;
-        const d1Upcoming = Array.isArray(settings['wcg_admin_upcoming_games_v1']) ? settings['wcg_admin_upcoming_games_v1'].length : 7;
+        const d1Upcoming = Array.isArray(settings['wcg_admin_upcoming_games_v1'])
+          ? settings['wcg_admin_upcoming_games_v1'].filter((g: any) => g && (g.status === 'UPCOMING' || g.status === 'APPROVED')).length
+          : 7;
+        const d1Launched = Array.isArray(settings['wcg_admin_upcoming_games_v1'])
+          ? settings['wcg_admin_upcoming_games_v1'].filter((g: any) => g && g.status === 'LAUNCHED').length
+          : 3;
 
         const isMatch = d1PendingGames === 63 && d1PendingCodes === 22 && d1Upcoming === 7;
         return new Response(
@@ -1636,12 +1641,14 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
                 pendingGames: d1PendingGames,
                 pendingCodes: d1PendingCodes,
                 upcomingGames: d1Upcoming,
+                launchedGames: d1Launched,
               },
               authoritativeBaseline: {
                 games: 560,
                 pendingGames: 63,
                 pendingCodes: 22,
                 upcomingGames: 7,
+                launchedGames: 3,
               },
               d1SourceOfTruth: true,
               timestamp: new Date().toISOString(),
