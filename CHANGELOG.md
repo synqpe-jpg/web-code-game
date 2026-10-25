@@ -7,6 +7,32 @@ Mỗi mục sửa lỗi đều ghi nhận **Nguyên nhân gốc rễ (Root Cause
 
 ## [2026-10-25]
 
+### 206. Thêm API Upload File Icon Game (Action upload_icon) Với Magic Bytes Validation & Dynamic Servicing
+- **Mô tả & Bối cảnh người dùng**:
+  - Người dùng yêu cầu: *"Thêm API upload file icon game (action upload_icon)"*.
+  - Bối cảnh: Client crawler (Muse) đang lưu giữ 16 file icon WebP 512x512 đã kiểm chứng và 10 game sắp ra mắt đủ điều kiện đăng, nhưng bị kẹt ở bước đưa file icon lên server. Trước đây, API crawler ingest chỉ có `action: "update_icon"` nhận chuỗi URL ngoài, trong khi web chỉ render icon local trong `/game_icons/`, dẫn đến fallback `/logo.png`.
+- **Yêu cầu & Tiêu chí kỹ thuật**:
+  - Action mới `upload_icon` trên `POST /api/crawler/ingest-upcoming-games` (hỗ trợ Bearer Token, `X-API-Key`, payload `apiKey`).
+  - Phân biệt mã lỗi chính xác: 401 Unauthorized khi thiếu/sai key; 503 Service Unavailable khi backend/D1 lỗi/sập (không nhầm lẫn).
+  - Kiểm tra và chống triệt để path traversal trong slug (`..`, `/`, `\`, `%2e`, `%2f`, `%5c`, chỉ cho phép `[a-z0-9-]`); resolve slug trong upcoming game (ưu tiên) hoặc catalog game $\rightarrow$ 400 nếu không tìm thấy.
+  - Kiểm tra magic bytes thật của file ảnh (tuyệt đối không tin `contentType` gửi kèm): chỉ nhận WebP, PNG, JPG; chặn triệt để SVG/HTML/XML/script (nguy cơ XSS) $\rightarrow$ 400; chặn file > 500KB $\rightarrow$ 400.
+  - Lưu trữ vào D1 bảng `uploaded_game_icons`, tự động tạo bảng nếu chưa có, decode base64 thành binary phục vụ công khai tại `https://codegame.shop/game_icons/<slug>.webp`.
+  - Phục vụ ảnh qua Edge Worker (`functions/_worker.ts`) và Pages Function (`functions/game_icons/[file].ts`):
+    - Chống path traversal.
+    - Kiểm tra Cloudflare Edge Cache (`caches.default`) $\rightarrow$ cache hit trả ngay, 0 D1 read.
+    - Thử `env.ASSETS.fetch(request)` trước $\rightarrow$ phục vụ hơn 560 game tĩnh có sẵn trong static dist với 0 D1 read, bảo vệ nghiêm ngặt hạn mức D1.
+    - Khi static asset 404: tra cứu D1 bảng `uploaded_game_icons`, decode base64 sang binary `Uint8Array`, trả về `image/webp` với header `Cache-Control: public, max-age=2592000, s-maxage=2592000, immutable`, lưu vào `caches.default`.
+  - Ghi đè idempotent: Upload lại cùng slug sẽ cập nhật bản ghi D1 và purge Edge Cache để fetch ra ảnh mới.
+  - Tự động đồng bộ `iconUrl` và `icon_url` của game trong upcoming list thành `/game_icons/<slug>.webp`.
+  - Bổ sung `upload_icon` vào `supportedActions` trong GET endpoint info.
+- **Kết quả kiểm thử & xác minh**:
+  - `scripts/test_upload_icon_action.cjs`: 12/12 bài kiểm tra PASS 100%.
+  - Regression tests: `test_upcoming_no_date_support.cjs` (8/8 PASS), `test_upcoming_launched_count.cjs` (7/7 PASS), `test_virtual_fomo_boost.cjs` (4/4 PASS).
+  - Build & Pre-render: 560 game, 163 tin tức, 32 giveaway, Edge Worker bundle 13.3mb PASS 100%.
+- ⛔ **Cách sửa đã thất bại cần tránh**:
+  - Không được chỉ ghi URL ngoài vào D1 mà không phục vụ file cục bộ, vì client web chỉ render icon local từ `/game_icons/`.
+  - Không được đọc D1 cho tất cả các request ảnh icon tĩnh, vì 560 game tĩnh sẽ làm cạn kiệt quota 5 triệu lượt đọc D1/ngày. Phải ưu tiên `env.ASSETS.fetch(request)` trước và bật Edge Cache 30 ngày cho dynamic icons.
+
 ### 205. Hỗ Trợ Game Sắp Ra Mắt Chưa Có Ngày (Ngày Trống/NULL, Không Tự Gán Ngày Hiện Tại)
 - **Mô tả & Bối cảnh người dùng**:
   - Người dùng yêu cầu: *"Hỗ trợ game sắp ra mắt CHƯA CÓ NGÀY (ngày trống, không tự gán ngày hiện tại)"*.

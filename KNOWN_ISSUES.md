@@ -10,6 +10,35 @@
 
 ## 1. DANH MỤC LỖI & CÁC BẪY ĐÃ THẤT BẠI (DO NOT REPEAT)
 
+### ISSUE-131: Bẫy Dynamic Game Icon Servicing Qua D1 & Tiêu Hao Quota Đọc D1 (Static vs Dynamic Icon Route Trap)
+- **Triệu chứng**:
+  - Bot cào tự động (Muse) tải được file icon WebP 512x512 thực tế nhưng không có cách nào đưa file lên server ngoài việc deploy lại site hoặc upload thủ công qua GUI.
+  - Nếu API chỉ lưu URL ngoài vào D1, trang web vẫn fallback về logo mặc định `/logo.png` vì web chỉ render ảnh cục bộ từ `/game_icons/<slug>.webp`.
+  - Nếu xây dựng dynamic route `/game_icons/:file` mà truy vấn D1 trực tiếp cho mọi request, hơn 560 game tĩnh có sẵn trong thư mục static dist sẽ phát sinh hàng chục ngàn query D1 vô ích mỗi ngày, làm cạn kiệt nhanh chóng hạn mức 5 triệu dòng đọc/ngày của Cloudflare D1.
+- **Nguyên nhân gốc rễ (Root Cause)**:
+  1. *Thiếu action ingest nhị phân*: API crawler ingest chỉ hỗ trợ `action: "update_icon"` nhận chuỗi URL ngoài, không nhận nội dung file ảnh.
+  2. *Bẫy bảo mật XSS qua SVG*: Cho phép upload ảnh mà không kiểm tra magic bytes thực tế có thể bị lợi dụng tải lên file SVG chứa mã JavaScript độc hại (`<script>alert(1)</script>`).
+  3. *Không tận dụng Pipeline Cloudflare Pages ASSETS*: Pages Worker bundle (`_worker.ts`) chặn mọi request, nếu không chuyển tiếp cho `env.ASSETS` thì tài nguyên tĩnh đã build trong `dist/game_icons/` sẽ không được phục vụ trực tiếp.
+- **Giải pháp chuẩn đã kiểm chứng**:
+  1. *Triển khai action `upload_icon` trên `POST /api/crawler/ingest-upcoming-games`*:
+     - Xác thực Bearer Token / `X-API-Key` / payload `apiKey` (`401` nếu thiếu hoặc sai; `503` nếu D1 backend lỗi/sập).
+     - Kiểm tra magic bytes thực tế: Hỗ trợ WebP (RIFF/WEBP, VP8/VP8L/VP8X), PNG (89 50 4E 47), JPEG (FF D8 FF). Từ chối dứt khoát SVG/XML/HTML (`400`).
+     - Giới hạn dung lượng tối đa 500KB. Trích xuất kích thước width/height (chuẩn 512x512).
+     - Slug chỉ nhận `[a-z0-9-]`, chặn triệt để path traversal (`..`, `/`, `\`, `%2e`, `%2f`, `%5c`). Tra cứu slug trong upcoming hoặc catalog.
+  2. *Pipeline phục vụ tối ưu 0 D1 Read cho tài nguyên tĩnh*:
+     - Kiểm tra Cloudflare Edge Cache (`caches.default`) $\rightarrow$ Cache HIT trả về ngay, 0 D1 read.
+     - Thử `env.ASSETS.fetch(request)` trước $\rightarrow$ hơn 560 game tĩnh có sẵn phục vụ trực tiếp từ CDN với 0 D1 read.
+     - Chỉ khi `ASSETS.fetch` trả về 404 (ảnh cào mới chưa có trong bản build): Tra cứu D1 bảng `uploaded_game_icons`, decode base64 sang binary `Uint8Array`, trả về `image/webp` với header `Cache-Control: public, max-age=2592000, s-maxage=2592000, immutable`, đồng thời lưu vào `caches.default`.
+  3. *Ghi đè Idempotent & Đồng bộ bản ghi*:
+     - Tự động đồng bộ `iconUrl` và `icon_url` của game thành `/game_icons/<slug>.webp`.
+     - Cho phép upload lại cùng slug để cập nhật ảnh mới và purge cache.
+- ⛔ **CÁCH SỬA ĐÃ THẤT BẠI - TUYỆT ĐỐI KHÔNG LẶP LẠI**:
+  - ❌ *Không truy vấn D1 cho tất cả request icon*: Phải ưu tiên `env.ASSETS.fetch` trước.
+  - ❌ *Không tin tưởng header `contentType` từ client*: Bắt buộc phải đọc magic bytes của file nhị phân.
+  - ❌ *Không chấp nhận SVG*: Nguy cơ bảo mật XSS thực thi mã độc.
+
+---
+
 ### ISSUE-130: Bẫy Tự Động Gán Ngày Hiện Tại Cho Game Sắp Ra Mắt Chưa Có Ngày (Omitted/Null ReleaseDate Fallback Trap)
 - **Triệu chứng**:
   - Khi bot cào dữ liệu hoặc người dùng tạo một game sắp ra mắt mới qua API `POST /api/crawler/ingest-upcoming-games` mà không gửi trường `releaseDate` (hoặc gửi `null`, `""`), hệ thống tự động gán `releaseDate` thành thời điểm hiện tại (`nowIso`).

@@ -350,6 +350,134 @@ function extractIconUrl(item: any, fallbackSlug?: string): string {
   return fallbackSlug ? `/game_icons/${fallbackSlug}.webp` : '';
 }
 
+interface ImageCheckResult {
+  valid: boolean;
+  contentType: 'image/webp' | 'image/png' | 'image/jpeg';
+  width: number;
+  height: number;
+  error?: string;
+}
+
+/**
+ * Kiểm tra magic bytes thực tế của file ảnh (không tin contentType gửi kèm)
+ * Ngăn chặn tuyệt đối file thực thi, script, và SVG (nguy cơ XSS)
+ */
+function validateAndInspectImageBytes(bytes: Uint8Array): ImageCheckResult {
+  const len = bytes.length;
+  if (len < 12) {
+    return {
+      valid: false,
+      contentType: 'image/webp',
+      width: 0,
+      height: 0,
+      error: 'Dữ liệu file quá ngắn, không phải file ảnh hợp lệ.',
+    };
+  }
+
+  // 1. Chống SVG / XML / HTML (nguy cơ XSS)
+  const headLen = Math.min(len, 512);
+  let headStr = '';
+  for (let i = 0; i < headLen; i++) {
+    headStr += String.fromCharCode(bytes[i]);
+  }
+  const headLower = headStr.toLowerCase();
+  if (
+    headLower.includes('<svg') ||
+    headLower.includes('<?xml') ||
+    headLower.includes('<html') ||
+    headLower.includes('<script') ||
+    headLower.includes('xmlns=')
+  ) {
+    return {
+      valid: false,
+      contentType: 'image/webp',
+      width: 0,
+      height: 0,
+      error: 'Định dạng SVG bị từ chối do nguy cơ bảo mật XSS. Vui lòng sử dụng WebP, PNG hoặc JPG.',
+    };
+  }
+
+  // 2. WEBP Magic Bytes (RIFF .... WEBP)
+  if (
+    bytes[0] === 0x52 && bytes[1] === 0x49 && bytes[2] === 0x46 && bytes[3] === 0x46 &&
+    bytes[8] === 0x57 && bytes[9] === 0x45 && bytes[10] === 0x42 && bytes[11] === 0x50
+  ) {
+    let width = 512;
+    let height = 512;
+
+    // VP8 (lossy)
+    if (len >= 30 && bytes[12] === 0x56 && bytes[13] === 0x50 && bytes[14] === 0x38 && bytes[15] === 0x20) {
+      width = ((bytes[26] | (bytes[27] << 8)) & 0x3fff);
+      height = ((bytes[28] | (bytes[29] << 8)) & 0x3fff);
+    }
+    // VP8L (lossless)
+    else if (len >= 25 && bytes[12] === 0x56 && bytes[13] === 0x50 && bytes[14] === 0x38 && bytes[15] === 0x4c) {
+      if (bytes[20] === 0x2f) {
+        const b1 = bytes[21];
+        const b2 = bytes[22];
+        const b3 = bytes[23];
+        const b4 = bytes[24];
+        width = 1 + (((b2 & 0x3f) << 8) | b1);
+        height = 1 + (((b4 & 0x0f) << 10) | (b3 << 2) | ((b2 & 0xc0) >> 6));
+      }
+    }
+    // VP8X (extended)
+    else if (len >= 30 && bytes[12] === 0x56 && bytes[13] === 0x50 && bytes[14] === 0x38 && bytes[15] === 0x58) {
+      width = 1 + (bytes[24] | (bytes[25] << 8) | (bytes[26] << 16));
+      height = 1 + (bytes[27] | (bytes[28] << 8) | (bytes[29] << 16));
+    }
+
+    return { valid: true, contentType: 'image/webp', width: width || 512, height: height || 512 };
+  }
+
+  // 3. PNG Magic Bytes (89 50 4E 47 0D 0A 1A 0A)
+  if (
+    bytes[0] === 0x89 && bytes[1] === 0x50 && bytes[2] === 0x4E && bytes[3] === 0x47 &&
+    bytes[4] === 0x0D && bytes[5] === 0x0A && bytes[6] === 0x1A && bytes[7] === 0x0A
+  ) {
+    let width = 512;
+    let height = 512;
+    if (len >= 24) {
+      width = (bytes[16] << 24) | (bytes[17] << 16) | (bytes[18] << 8) | bytes[19];
+      height = (bytes[20] << 24) | (bytes[21] << 16) | (bytes[22] << 8) | bytes[23];
+    }
+    return { valid: true, contentType: 'image/png', width: width || 512, height: height || 512 };
+  }
+
+  // 4. JPEG/JPG Magic Bytes (FF D8 FF)
+  if (bytes[0] === 0xFF && bytes[1] === 0xD8 && bytes[2] === 0xFF) {
+    let width = 512;
+    let height = 512;
+    let offset = 2;
+    while (offset < len - 8) {
+      if (bytes[offset] === 0xFF) {
+        const marker = bytes[offset + 1];
+        if (marker === 0xC0 || marker === 0xC2) {
+          height = (bytes[offset + 5] << 8) | bytes[offset + 6];
+          width = (bytes[offset + 7] << 8) | bytes[offset + 8];
+          break;
+        } else if (marker === 0xD9 || marker === 0xDA) {
+          break;
+        } else {
+          const markerLen = (bytes[offset + 2] << 8) | bytes[offset + 3];
+          offset += 2 + markerLen;
+          continue;
+        }
+      }
+      offset++;
+    }
+    return { valid: true, contentType: 'image/jpeg', width: width || 512, height: height || 512 };
+  }
+
+  return {
+    valid: false,
+    contentType: 'image/webp',
+    width: 0,
+    height: 0,
+    error: 'Định dạng file không hợp lệ. Chỉ chấp nhận WebP, PNG, JPG dựa trên kiểm tra magic bytes thực tế.',
+  };
+}
+
 /**
  * Tự động bảo vệ & phục hồi dữ liệu gốc chuẩn xác (Self-Healing Safeguard)
  * Ngăn chặn tuyệt đối việc bot hoặc API gửi thiếu trường làm đè mất ngày giờ mở server hoặc thể loại chuẩn của game.
@@ -617,6 +745,21 @@ export async function onRequestGet(context: { request: Request; env: Env }): Pro
       top6Count: Math.min(6, liveWithDateCount),
       pendingCount,
       launchedCount,
+      supportedActions: [
+        'ingest',
+        'upload_icon',
+        'update_icon',
+        'approve',
+        'approve_all',
+        'set_status',
+        'clear_expected_codes',
+        'reorder',
+        'rollover',
+        'reject',
+        'delete',
+        'move_to_pending',
+        'sync_all'
+      ],
       games: enriched,
       is_fallback: isFallbackMode,
       data_as_of: isFallbackMode ? '2026-10-24T18:00:00Z' : new Date().toISOString(),
@@ -1062,6 +1205,261 @@ export async function onRequestPost(context: { request: Request; env: Env }): Pr
     );
   }
 
+  // ACTION 1E: UPLOAD_ICON (Upload file icon game base64 WebP/PNG/JPG, lưu trữ D1 và phục vụ công khai tại /game_icons/<slug>.webp)
+  if (action === 'upload_icon' || action === 'uploadicon') {
+    // 1. Phân biệt lỗi Backend/D1: Trả về 503 nếu D1 không khả dụng
+    if (!env.DB) {
+      return new Response(
+        JSON.stringify({
+          success: false,
+          error: 'Cơ sở dữ liệu D1 hoặc dịch vụ backend tạm thời không khả dụng.',
+        }),
+        { status: 503, headers: CORS_HEADERS }
+      );
+    }
+
+    // 2. Resolve và kiểm tra an toàn slug
+    const rawSlug = payload?.slug || payload?.gameSlug || payload?.id;
+    if (!rawSlug || typeof rawSlug !== 'string' || !rawSlug.trim()) {
+      return new Response(
+        JSON.stringify({
+          success: false,
+          error: 'Thiếu trường "slug" định danh tựa game cần upload icon.',
+        }),
+        { status: 400, headers: CORS_HEADERS }
+      );
+    }
+
+    const trimmedSlug = String(rawSlug).trim().toLowerCase();
+
+    // Chặn Path Traversal: Từ chối ../, /, \, %2e, %2f, %5c và các ký tự ngoài [a-z0-9-]
+    if (
+      trimmedSlug.includes('..') ||
+      trimmedSlug.includes('/') ||
+      trimmedSlug.includes('\\') ||
+      trimmedSlug.includes('%2e') ||
+      trimmedSlug.includes('%2f') ||
+      trimmedSlug.includes('%5c') ||
+      !/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(trimmedSlug)
+    ) {
+      return new Response(
+        JSON.stringify({
+          success: false,
+          error: 'Slug không hợp lệ hoặc chứa ký tự path traversal nguy hiểm. Chỉ cho phép các ký tự [a-z0-9-].',
+        }),
+        { status: 400, headers: CORS_HEADERS }
+      );
+    }
+
+    // 3. Resolve slug trong danh sách Upcoming (ưu tiên) hoặc Catalog
+    let matchedGame: any = null;
+    let targetType: 'UPCOMING' | 'CATALOG' = 'UPCOMING';
+
+    // 3a. Ưu tiên tìm trong upcoming games
+    for (const item of currentUpcomingGames) {
+      const idLower = String(item.id || '').toLowerCase();
+      const slugLower = String(item.slug || '').toLowerCase();
+      const nameLower = String(item.name || '').toLowerCase();
+      const itemSlug = slugify(nameLower);
+
+      if (slugLower === trimmedSlug || idLower === trimmedSlug || itemSlug === trimmedSlug) {
+        matchedGame = item;
+        targetType = 'UPCOMING';
+        break;
+      }
+    }
+
+    // 3b. Nếu chưa thấy, tìm trong catalog D1 (chỉ 1 lookup resolve slug duy nhất)
+    if (!matchedGame) {
+      try {
+        const catRow: any = await env.DB.prepare(
+          'SELECT id, name, slug FROM games WHERE slug = ? LIMIT 1'
+        ).bind(trimmedSlug).first();
+        if (catRow) {
+          matchedGame = catRow;
+          targetType = 'CATALOG';
+        }
+      } catch (d1Err) {
+        console.warn('[IngestUpcomingGames] Lỗi tra cứu catalog D1:', d1Err);
+      }
+    }
+
+    // 3c. Nếu vẫn không thấy, kiểm tra catalog fallback tĩnh
+    if (!matchedGame) {
+      const inFallback = [...DEFAULT_UPCOMING_GAMES_FALLBACK, ...DEFAULT_LAUNCHED_GAMES].find(
+        (g) => (g.slug && g.slug.toLowerCase() === trimmedSlug) || slugify(g.name) === trimmedSlug
+      );
+      if (inFallback) {
+        matchedGame = inFallback;
+        targetType = 'UPCOMING';
+      }
+    }
+
+    if (!matchedGame) {
+      return new Response(
+        JSON.stringify({
+          success: false,
+          error: `Không tìm thấy tựa game nào khớp với slug "${trimmedSlug}" trong danh sách sắp ra mắt hoặc danh mục game.`,
+        }),
+        { status: 400, headers: CORS_HEADERS }
+      );
+    }
+
+    // 4. Kiểm tra dữ liệu ảnh Base64
+    const rawBase64 = payload?.imageBase64 || payload?.image_base64 || payload?.image || payload?.data;
+    if (!rawBase64 || typeof rawBase64 !== 'string' || !rawBase64.trim()) {
+      return new Response(
+        JSON.stringify({
+          success: false,
+          error: 'Thiếu dữ liệu ảnh "imageBase64" (chuỗi base64).',
+        }),
+        { status: 400, headers: CORS_HEADERS }
+      );
+    }
+
+    // 5. Giải mã Base64 sang binary bytes
+    let imageBytes: Uint8Array;
+    let cleanBase64: string;
+    try {
+      cleanBase64 = String(rawBase64).replace(/^data:image\/[a-zA-Z+]+;base64,/, '').trim();
+      const binaryStr = atob(cleanBase64);
+      const len = binaryStr.length;
+      imageBytes = new Uint8Array(len);
+      for (let i = 0; i < len; i++) {
+        imageBytes[i] = binaryStr.charCodeAt(i);
+      }
+    } catch {
+      return new Response(
+        JSON.stringify({
+          success: false,
+          error: 'Dữ liệu imageBase64 không đúng định dạng Base64 hợp lệ.',
+        }),
+        { status: 400, headers: CORS_HEADERS }
+      );
+    }
+
+    // 6. Kiểm tra dung lượng tối đa 500KB (512,000 bytes)
+    const MAX_ICON_SIZE_BYTES = 500 * 1024;
+    if (imageBytes.length > MAX_ICON_SIZE_BYTES) {
+      return new Response(
+        JSON.stringify({
+          success: false,
+          error: `Dung lượng file (${Math.round(imageBytes.length / 1024)}KB) vượt quá giới hạn tối đa cho phép là 500KB.`,
+        }),
+        { status: 400, headers: CORS_HEADERS }
+      );
+    }
+
+    // 7. Kiểm tra Magic Bytes thực tế (Không tin contentType gửi kèm; từ chối SVG/HTML)
+    const inspectResult = validateAndInspectImageBytes(imageBytes);
+    if (!inspectResult.valid) {
+      return new Response(
+        JSON.stringify({
+          success: false,
+          error: inspectResult.error || 'Định dạng file không hợp lệ.',
+        }),
+        { status: 400, headers: CORS_HEADERS }
+      );
+    }
+
+    // 8. Tạo bảng D1 uploaded_game_icons nếu chưa tồn tại
+    try {
+      await env.DB.prepare(`
+        CREATE TABLE IF NOT EXISTS uploaded_game_icons (
+          slug TEXT PRIMARY KEY,
+          content_type TEXT NOT NULL DEFAULT 'image/webp',
+          image_base64 TEXT NOT NULL,
+          size_bytes INTEGER NOT NULL,
+          width INTEGER NOT NULL DEFAULT 512,
+          height INTEGER NOT NULL DEFAULT 512,
+          created_at TEXT NOT NULL,
+          updated_at TEXT NOT NULL
+        );
+      `).run();
+    } catch (err: any) {
+      console.error('[IngestUpcomingGames] Lỗi tạo bảng uploaded_game_icons:', err);
+      return new Response(
+        JSON.stringify({ success: false, error: 'Lỗi khởi tạo bảng lưu trữ D1.' }),
+        { status: 503, headers: CORS_HEADERS }
+      );
+    }
+
+    // 9. Lưu trữ / Ghi đè (Idempotent) vào D1
+    try {
+      await env.DB.prepare(`
+        INSERT INTO uploaded_game_icons (slug, content_type, image_base64, size_bytes, width, height, created_at, updated_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+        ON CONFLICT(slug) DO UPDATE SET
+          content_type = excluded.content_type,
+          image_base64 = excluded.image_base64,
+          size_bytes = excluded.size_bytes,
+          width = excluded.width,
+          height = excluded.height,
+          updated_at = excluded.updated_at;
+      `).bind(
+        trimmedSlug,
+        'image/webp',
+        cleanBase64,
+        imageBytes.length,
+        inspectResult.width || 512,
+        inspectResult.height || 512,
+        nowIso,
+        nowIso
+      ).run();
+    } catch (err: any) {
+      console.error('[IngestUpcomingGames] Lỗi lưu uploaded_game_icons vào D1:', err);
+      return new Response(
+        JSON.stringify({ success: false, error: 'Không thể lưu trữ file icon vào cơ sở dữ liệu D1.' }),
+        { status: 503, headers: CORS_HEADERS }
+      );
+    }
+
+    // 10. Tự động đồng bộ bản ghi game (cả hai trường iconUrl và icon_url thành /game_icons/<slug>.webp)
+    const iconPublicPath = `/game_icons/${trimmedSlug}.webp`;
+    if (targetType === 'UPCOMING' && matchedGame) {
+      matchedGame.iconUrl = iconPublicPath;
+      matchedGame.icon_url = iconPublicPath;
+      matchedGame.updatedAt = nowIso;
+      matchedGame.source = botName;
+      await setSettingD1(env.DB, 'wcg_admin_upcoming_games_v1', currentUpcomingGames);
+    } else if (targetType === 'CATALOG') {
+      try {
+        await env.DB.prepare('UPDATE games SET icon_url = ? WHERE slug = ?')
+          .bind(iconPublicPath, trimmedSlug)
+          .run();
+      } catch {}
+    }
+
+    // 11. Xóa Cloudflare Edge Cache của URL icon để ảnh mới hiển thị tức thì (ghi đè thật)
+    try {
+      const cache = typeof caches !== 'undefined' ? (caches as any).default : null;
+      if (cache) {
+        const publicUrl1 = `https://codegame.shop/game_icons/${trimmedSlug}.webp`;
+        const publicUrl2 = new URL(`/game_icons/${trimmedSlug}.webp`, request.url).toString();
+        await Promise.allSettled([
+          cache.delete(new Request(publicUrl1)),
+          cache.delete(new Request(publicUrl2)),
+        ]);
+      }
+    } catch {}
+
+    const fullPublicUrl = `https://codegame.shop/game_icons/${trimmedSlug}.webp`;
+
+    return new Response(
+      JSON.stringify({
+        success: true,
+        slug: trimmedSlug,
+        publicUrl: fullPublicUrl,
+        bytes: imageBytes.length,
+        width: inspectResult.width || 512,
+        height: inspectResult.height || 512,
+        iconUrl: iconPublicPath,
+        message: `Upload icon cho game "${matchedGame.name}" thành công. File đã sẵn sàng phục vụ công khai tại ${iconPublicPath}.`,
+      }),
+      { headers: CORS_HEADERS }
+    );
+  }
+
   // ACTION 2: APPROVE_ALL (Duyệt toàn bộ hàng chờ)
   if (action === 'approve_all') {
     let approvedCount = 0;
@@ -1216,6 +1614,13 @@ export async function onRequestPost(context: { request: Request; env: Env }): Pr
               expectedCodes: ['STRINOVAOB', 'VIP999'],
             },
           ],
+        },
+        uploadIconSample: {
+          apiKey: 'YOUR_API_KEY',
+          action: 'upload_icon',
+          slug: 'azur-promilia',
+          imageBase64: 'UklGR...',
+          contentType: 'image/webp',
         },
       }),
       { status: 400, headers: CORS_HEADERS }

@@ -581,6 +581,11 @@ export default {
         return await renderSeoHtml(request, env, pathname);
       }
 
+      // Phục vụ icon game động và tĩnh tại /game_icons/<slug>.<ext>
+      if (pathname.startsWith('/game_icons/') && (method === 'GET' || method === 'HEAD')) {
+        return await handleGameIconRequest(request, env, ctx, pathname);
+      }
+
       const assetResponse = await env.ASSETS.fetch(request);
       if (assetResponse.status === 404 && request.method === 'GET' && !pathname.match(/\.[a-zA-Z0-9]+$/)) {
         return await renderSeoHtml(request, env, pathname);
@@ -983,4 +988,95 @@ async function renderSeoHtml(
       'Cache-Control': 'public, max-age=60, s-maxage=120, stale-while-revalidate=600',
     },
   });
+}
+
+/**
+ * Phục vụ trực tiếp file icon game từ static asset của Cloudflare Pages hoặc Cloudflare D1
+ * Route: /game_icons/<slug>.<ext>
+ * Đảm bảo 100% hình ảnh hiển thị ngay sau khi upload mà không cần redeploy.
+ * Hỗ trợ Edge Cache 30 ngày (zero D1 reads cho các request lặp lại).
+ */
+async function handleGameIconRequest(
+  request: Request,
+  env: Env,
+  ctx: ExecutionContext,
+  pathname: string
+): Promise<Response> {
+  const filename = pathname.replace(/^\/game_icons\//, '').trim();
+
+  // Chống path traversal: từ chối .., /, \, %2f, %5c
+  if (
+    !filename ||
+    filename.includes('..') ||
+    filename.includes('/') ||
+    filename.includes('\\') ||
+    filename.includes('%2e') ||
+    filename.includes('%2f') ||
+    filename.includes('%5c')
+  ) {
+    return new Response('Not Found', { status: 404 });
+  }
+
+  const dotIndex = filename.lastIndexOf('.');
+  const slug = (dotIndex >= 0 ? filename.slice(0, dotIndex) : filename).toLowerCase().trim();
+
+  // 1. Kiểm tra Cloudflare Edge Cache trước (zero D1 read for repeated requests)
+  const cache = typeof caches !== 'undefined' ? (caches as any).default : null;
+  const cacheKey = cache ? new Request(request.url, { method: 'GET' }) : null;
+  if (cache && cacheKey) {
+    try {
+      const cached = await cache.match(cacheKey);
+      if (cached) {
+        return cached;
+      }
+    } catch {}
+  }
+
+  // 2. Thử static assets trước (zero D1 read cho 560+ game có sẵn trong dist)
+  try {
+    const assetRes = await env.ASSETS.fetch(request);
+    if (assetRes && assetRes.status === 200) {
+      return assetRes;
+    }
+  } catch {}
+
+  // 3. Nếu static asset không có (404), kiểm tra trong D1 bảng uploaded_game_icons
+  if (env.DB) {
+    try {
+      const row: any = await env.DB.prepare(
+        'SELECT content_type, image_base64, size_bytes FROM uploaded_game_icons WHERE slug = ? LIMIT 1'
+      ).bind(slug).first();
+
+      if (row && row.image_base64) {
+        const cleanB64 = String(row.image_base64).replace(/^data:image\/[a-zA-Z+]+;base64,/, '').trim();
+        const binaryStr = atob(cleanB64);
+        const len = binaryStr.length;
+        const bytes = new Uint8Array(len);
+        for (let i = 0; i < len; i++) {
+          bytes[i] = binaryStr.charCodeAt(i);
+        }
+
+        const contentType = row.content_type || 'image/webp';
+        const headers = new Headers({
+          'Content-Type': contentType,
+          'Content-Length': len.toString(),
+          'Cache-Control': 'public, max-age=604800, s-maxage=2592000, stale-while-revalidate=86400',
+          'Access-Control-Allow-Origin': '*',
+          'X-Icon-Source': 'd1-uploaded',
+        });
+
+        const iconResponse = new Response(bytes, { status: 200, headers });
+
+        if (cache && cacheKey) {
+          ctx.waitUntil(cache.put(cacheKey, iconResponse.clone()));
+        }
+
+        return iconResponse;
+      }
+    } catch (err) {
+      console.warn('[GameIconRoute] Lỗi đọc uploaded_game_icons từ D1:', err);
+    }
+  }
+
+  return new Response('Icon not found', { status: 404 });
 }
