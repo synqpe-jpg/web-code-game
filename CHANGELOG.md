@@ -7,6 +7,40 @@ Mỗi mục sửa lỗi đều ghi nhận **Nguyên nhân gốc rễ (Root Cause
 
 ## [2026-10-25]
 
+### 202. Khắc Phục Triệt Để Lỗi Nhân Đôi Mã Code Đã Giật (Deduplication & Self-Healing Sync)
+- **Mô tả & Bối cảnh người dùng**:
+  - Người dùng báo cáo lỗi: "Mã code ở các mục này đang lặp lại 2 lần, xử lý giúp tôi" kèm 2 ảnh bằng chứng:
+    1. *Modal Kho Mã Code Của Tôi*: Tab "Sự Kiện" hiển thị 14 mã (mỗi tựa game như *TA LÀ HẮC NGỘ KHÔNG*, *Pirate Legends*, *Yến Vân Thập Lục Thanh* đều hiển thị 2 lần cùng một mã code và cùng mốc thời gian nhận).
+    2. *Modal Chi Tiết Giveaway*: Mục "Mã bạn đã giật tại sự kiện này (2 mã)" hiển thị 2 dòng giống hệt nhau cho cùng 1 giftcode `AE1059E7D634FC88` kèm nút CTA "Xem lại mã bạn đã nhận (2)".
+- **Nguyên nhân gốc rễ (Root Cause)**:
+  1. *Lỗi xung đột định danh khi đồng bộ D1 Server (`refreshCurrentUserBalance`)*:
+     - Khi người dùng giật mã cục bộ, client lưu bản ghi với ID dạng chuỗi client-generated: `id: 'claim_' + Date.now()`.
+     - Khi gọi `refreshCurrentUserBalance()`, server Cloudflare D1 trả về danh sách `giveawayClaims` từ database D1 SQLite với `id` là khóa chính kiểu số/UUID (ví dụ `id: 14`).
+     - Đoạn code merge trước đây: `const key = c?.id || `${c?.campaign_id}_${c?.code_value}`;`. Do cả bản ghi client lẫn bản ghi server đều có `c.id` (truthy), toán tử `||` không bao giờ rơi vào vế sau (`${campaign_id}_${code_value}`). Kết quả: 2 bản ghi cùng mã quà tặng nhưng khác ID đều được thêm vào `claimMap`, ghi đè ngược vào `localStorage` key `wcg_claimed_giveaways` làm nhân đôi số lượng mã.
+  2. *Thiếu cơ chế khử trùng lặp và tự phục hồi tại tầng dữ liệu (`getClaimedCodes`, `getOrders`)*:
+     - `getClaimedCodes()` chỉ lọc bỏ các mã lỗi hệ thống (`OUT_OF_STOCK`, v.v.) mà không khử trùng lặp theo mã code thực tế. Do đó, các mã đã lỡ bị lưu đúp trong `localStorage` tiếp tục được trả về nguyên vẹn 2 lần.
+  3. *Thiếu lớp phòng thủ tầng giao diện (UI Defense-in-Depth)*:
+     - `MyReceivedCodesModal.tsx` và `GiveawaysView.tsx` trực tiếp render theo mảng `claimedList` thô và đếm `.length` trực tiếp mà không có bộ lọc khử trùng lặp bảo vệ.
+- **Giải pháp triển khai (Solution)**:
+  1. *Chuẩn hóa khóa định danh duy nhất (Unique Identity Key) trong `refreshCurrentUserBalance`*:
+     - Thay đổi thuật toán ghép khóa: `getClaimUniqueKey(c)` ưu tiên dùng `${campId}_${cleanCode}` (chuẩn hóa trim và uppercase).
+     - Khi server D1 trả về dữ liệu, bản ghi server sẽ cập nhật thông tin (merge) vào đúng bản ghi có sẵn trong Map thay vì sinh thêm bản ghi thứ 2.
+  2. *Cơ chế tự phục hồi (Self-Healing Deduplication) trong `getClaimedCodes` & `getOrders`*:
+     - `getClaimedCodes()` duyệt qua `list` với `Set<uniqueKey>`. Chỉ giữ lại 1 bản ghi duy nhất cho mỗi cặp `campaign_id` + `code_value`.
+     - Nếu phát hiện trùng lặp (`deduplicated.length !== list.length`), lập tức ghi đè danh sách sạch trở lại `localStorage.setItem(this.CLAIMED_CODES_KEY, JSON.stringify(deduplicated))`. Dọn sạch toàn bộ dữ liệu trùng cũ ngay lần đầu người dùng mở web!
+     - Áp dụng cơ chế tương tự cho `getOrders()` để bảo vệ tab "Đã Mua".
+  3. *Chuẩn hóa kiểm tra không phân biệt hoa thường trong `claimGiveaway`*:
+     - Khi lưu mã mới, so sánh `cleanReturnedCode` với `claimedList` đã chuẩn hóa để không bao giờ thêm mã trùng khi người dùng bấm lại.
+  4. *Phòng thủ đa tầng tại UI Component*:
+     - `MyReceivedCodesModal.tsx`: Sử dụng `displayClaimedList` và `displayOrdersList` bọc qua `useMemo` với `Set<uniqueKey>`. Số đếm tab "Sự Kiện" hiển thị đúng số lượng mã thực tế (từ 14 giảm về đúng 7 mã).
+     - `GiveawaysView.tsx`: Trang bị `uniqueClaimedList` cho toàn bộ các vị trí: tab "Mã Đã Giật", tab lọc "Đã Nhận", khung chi tiết giveaway "Mã bạn đã giật tại sự kiện này (1 mã)", nút CTA "Xem lại mã bạn đã nhận (1)", và modal Mystery Box `allMyCampaignCodes`.
+- **Kết quả kiểm thử & xác minh**:
+  - Script test tự động `scripts/test_dedup_claimed_codes.cjs` chạy 4/4 bài kiểm tra PASS 100% (kiểm thử 14 mã trùng lặp tự động làm sạch về 7 mã, đồng bộ D1 không nhân đôi, chuẩn hóa case/whitespace, lọc mã lỗi rác).
+  - Toàn bộ 6 test suite hồi quy chạy đồng thời đạt 100% PASS.
+  - `npm run build` thành công 100% không cảnh báo lỗi.
+
+---
+
 ### 201. Tách Số Ảo Khỏi Số Khe, Khôi Phục Quỹ Đạo Số Liệu & Xóa Bỏ Khoảng Lặng Đầu Phiên Trình Duyệt Thật
 - **Mô tả & Yêu cầu người dùng**:
   - Người dùng yêu cầu giải quyết 3 phần việc cốt lõi sau bản nghiệm thu nhịp 10 giây:

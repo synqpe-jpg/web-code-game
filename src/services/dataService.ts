@@ -2303,7 +2303,9 @@ class DataService {
           } catch {}
 
           const claimedList = this.getClaimedCodes();
-          if (!claimedList.some((c) => c.code_value === returnedCode && c.campaign_id === campaignId)) {
+          const cleanReturnedCode = String(returnedCode || '').trim().toUpperCase();
+          const cleanCampaignId = String(campaignId || '').trim();
+          if (!claimedList.some((c) => String(c.code_value || '').trim().toUpperCase() === cleanReturnedCode && String(c.campaign_id || '').trim() === cleanCampaignId)) {
             const newRecord: ClaimedCodeRecord = {
               id: `claim_${Date.now()}`,
               campaign_id: campaignId,
@@ -2404,11 +2406,28 @@ class DataService {
       const data = localStorage.getItem(this.CLAIMED_CODES_KEY);
       const list: ClaimedCodeRecord[] = data ? JSON.parse(data) : [];
       const invalidErrorCodes = new Set(['OUT_OF_STOCK', 'CAMPAIGN_NOT_STARTED', 'CAMPAIGN_ENDED', 'ACCOUNT_TOO_NEW', 'COOLDOWN_ACTIVE', 'MISSING_CLIENT_IP']);
-      const filtered = list.filter((c) => c && c.code_value && !invalidErrorCodes.has(c.code_value.trim().toUpperCase()));
-      if (filtered.length !== list.length) {
-        localStorage.setItem(this.CLAIMED_CODES_KEY, JSON.stringify(filtered));
+      
+      const seenKeys = new Set<string>();
+      const deduplicated: ClaimedCodeRecord[] = [];
+      
+      for (const c of list) {
+        if (!c || !c.code_value) continue;
+        const cleanCode = String(c.code_value).trim().toUpperCase();
+        if (invalidErrorCodes.has(cleanCode)) continue;
+        
+        const campId = String(c.campaign_id || '').trim();
+        const uniqueKey = `${campId}_${cleanCode}`;
+        
+        if (!seenKeys.has(uniqueKey)) {
+          seenKeys.add(uniqueKey);
+          deduplicated.push(c);
+        }
       }
-      return filtered;
+
+      if (deduplicated.length !== list.length) {
+        localStorage.setItem(this.CLAIMED_CODES_KEY, JSON.stringify(deduplicated));
+      }
+      return deduplicated;
     } catch {
       return [];
     }
@@ -2685,7 +2704,21 @@ class DataService {
   getOrders(): OrderRecord[] {
     try {
       const data = localStorage.getItem(this.ORDERS_KEY);
-      return data ? JSON.parse(data) : [];
+      const list: OrderRecord[] = data ? JSON.parse(data) : [];
+      const seenKeys = new Set<string>();
+      const deduplicated: OrderRecord[] = [];
+      for (const o of list) {
+        if (!o) continue;
+        const key = String(o.id || o.orderCode || '').trim();
+        if (key && !seenKeys.has(key)) {
+          seenKeys.add(key);
+          deduplicated.push(o);
+        }
+      }
+      if (deduplicated.length !== list.length) {
+        localStorage.setItem(this.ORDERS_KEY, JSON.stringify(deduplicated));
+      }
+      return deduplicated;
     } catch {
       return [];
     }
@@ -3752,26 +3785,37 @@ class DataService {
                 const claimRaw = localStorage.getItem(this.CLAIMED_CODES_KEY);
                 let existingClaims: any[] = claimRaw ? JSON.parse(claimRaw) : [];
                 const claimMap = new Map<string, any>();
+                
+                const getClaimUniqueKey = (c: any) => {
+                  if (!c) return '';
+                  const campId = String(c.campaign_id || '').trim();
+                  const codeVal = String(c.code_value || '').trim().toUpperCase();
+                  if (campId && codeVal) return `${campId}_${codeVal}`;
+                  return c.id ? String(c.id).trim() : '';
+                };
+
                 existingClaims.forEach((c) => {
-                  const key = c?.id || `${c?.campaign_id}_${c?.code_value}`;
+                  const key = getClaimUniqueKey(c);
                   if (key) claimMap.set(key, c);
                 });
+
                 data.giveawayClaims.forEach((c: any) => {
-                  const key = c?.id || `${c?.campaign_id}_${c?.code_value}`;
+                  const key = getClaimUniqueKey(c);
                   if (key) {
                     const existing = claimMap.get(key);
                     claimMap.set(key, {
-                      id: c.id || `claim_${Date.now()}`,
-                      campaign_id: c.campaign_id,
+                      id: c.id || existing?.id || `claim_${Date.now()}`,
+                      campaign_id: c.campaign_id || existing?.campaign_id,
                       game_name: c.game_name || existing?.game_name || 'Sự Kiện',
                       game_slug: c.game_slug || existing?.game_slug || '',
                       game_icon_url: c.game_icon_url || existing?.game_icon_url || '',
-                      code_value: c.code_value,
+                      code_value: c.code_value || existing?.code_value,
                       rewards: c.rewards || existing?.rewards || 'Quà tặng sự kiện',
                       claimed_at: c.claimed_at || existing?.claimed_at || new Date().toISOString(),
                     });
                   }
                 });
+
                 const mergedClaims = Array.from(claimMap.values()).sort(
                   (a, b) => new Date(b.claimed_at || 0).getTime() - new Date(a.claimed_at || 0).getTime()
                 );

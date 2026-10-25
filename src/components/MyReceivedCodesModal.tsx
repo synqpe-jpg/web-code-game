@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { createPortal } from 'react-dom';
 import {
   X,
@@ -40,6 +40,30 @@ export const MyReceivedCodesModal: React.FC<MyReceivedCodesModalProps> = ({
   const [lookupEmail, setLookupEmail] = useState<string>('');
 
   const currentUser = dataService.getCurrentUser();
+
+  const displayClaimedList = useMemo(() => {
+    const seen = new Set<string>();
+    return claimedList.filter((c) => {
+      if (!c || !c.code_value) return false;
+      const cleanCode = String(c.code_value).trim().toUpperCase();
+      const campId = String(c.campaign_id || '').trim();
+      const key = `${campId}_${cleanCode}`;
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
+  }, [claimedList]);
+
+  const displayOrdersList = useMemo(() => {
+    const seen = new Set<string>();
+    return ordersList.filter((o) => {
+      if (!o) return false;
+      const key = String(o.id || o.orderCode || '').trim();
+      if (!key || seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
+  }, [ordersList]);
 
   const loadAll = () => {
     setClaimedList(dataService.getClaimedCodes());
@@ -144,7 +168,7 @@ export const MyReceivedCodesModal: React.FC<MyReceivedCodesModalProps> = ({
             }`}
           >
             <Gift className="w-3.5 h-3.5" />
-            <span>Sự Kiện ({claimedList.length})</span>
+            <span>Sự Kiện ({displayClaimedList.length})</span>
           </button>
 
           <button
@@ -156,7 +180,7 @@ export const MyReceivedCodesModal: React.FC<MyReceivedCodesModalProps> = ({
             }`}
           >
             <ShoppingBag className="w-3.5 h-3.5" />
-            <span>Đã Mua ({ordersList.length})</span>
+            <span>Đã Mua ({displayOrdersList.length})</span>
           </button>
 
           <button
@@ -175,14 +199,14 @@ export const MyReceivedCodesModal: React.FC<MyReceivedCodesModalProps> = ({
         {/* Content Body */}
         <div className="flex-1 overflow-y-auto p-4 sm:p-5 space-y-3">
           {tab === 'giveaways' && (
-            claimedList.length === 0 ? (
+            displayClaimedList.length === 0 ? (
               <div className="py-12 text-center text-muted-foreground">
                 <Gift className="w-10 h-10 mx-auto mb-2 opacity-30" />
                 <p className="text-xs">Bạn chưa nhận mã quà tặng nào từ sự kiện giveaway.</p>
                 <p className="text-[11px] text-muted-foreground/70 mt-1">Hãy vào mục "Săn Giveaway" để giật giftcode miễn phí!</p>
               </div>
             ) : (
-              claimedList.map((item) => (
+              displayClaimedList.map((item) => (
                 <div
                   key={item.id}
                   className="p-4 rounded-2xl bg-muted/40 border border-border flex flex-col sm:flex-row sm:items-center justify-between gap-3 hover:border-border-hover transition-colors"
@@ -227,14 +251,14 @@ export const MyReceivedCodesModal: React.FC<MyReceivedCodesModalProps> = ({
           )}
 
           {tab === 'orders' && (
-            ordersList.length === 0 ? (
+            displayOrdersList.length === 0 ? (
               <div className="py-12 text-center text-muted-foreground">
                 <ShoppingBag className="w-10 h-10 mx-auto mb-2 opacity-30" />
                 <p className="text-xs">Bạn chưa có đơn hàng mua gói code nào.</p>
                 <p className="text-[11px] text-muted-foreground/70 mt-1">Truy cập "Cửa Hàng Code" để mua gói nạp và giftcode chiết khấu.</p>
               </div>
             ) : (
-              ordersList.map((order) => (
+              displayOrdersList.map((order) => (
                 <div
                   key={order.id}
                   className="p-4 rounded-2xl bg-muted/40 border border-border flex flex-col sm:flex-row sm:items-center justify-between gap-3 hover:border-border-hover transition-colors"

@@ -254,6 +254,16 @@ export const GiveawaysView: React.FC<GiveawaysViewProps> = ({
   // Gom nhóm các chiến dịch Giveaway cùng Tựa Game thành chiến dịch đại diện
   const groupedCampaigns = useMemo(() => groupGiveawaysByGame(giveaways), [giveaways]);
   const [claimedList, setClaimedList] = useState<ClaimedCodeRecord[]>([]);
+  const uniqueClaimedList = useMemo(() => {
+    const seen = new Set<string>();
+    return claimedList.filter((c) => {
+      if (!c || !c.code_value) return false;
+      const key = `${c.campaign_id || ''}_${String(c.code_value).trim().toUpperCase()}`;
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
+  }, [claimedList]);
   const [activeTab, setActiveTab] = useState<'campaigns' | 'my_codes' | 'wheel'>('campaigns');
   const [copiedCode, setCopiedCode] = useState<string | null>(null);
   const [cmsIntro, setCmsIntro] = useState(() => dataService.getContentByKey('giveaway_section'));
@@ -539,7 +549,7 @@ export const GiveawaysView: React.FC<GiveawaysViewProps> = ({
   };
 
   const handleOpenLimitNotice = (campaign: GiveawayCampaign, customMsg?: string) => {
-    const existing = claimedList.filter((c) => c.campaign_id === campaign.id);
+    const existing = uniqueClaimedList.filter((c) => c.campaign_id === campaign.id);
     const maxUser = campaign.max_per_user || 1;
     let msg = customMsg;
     if (!msg) {
@@ -564,22 +574,22 @@ export const GiveawaysView: React.FC<GiveawaysViewProps> = ({
   };
 
   const handleCopyAllCodes = () => {
-    if (claimedList.length === 0) return;
+    if (uniqueClaimedList.length === 0) return;
     const text =
-      claimedList
+      uniqueClaimedList
         .map(
           (c, idx) =>
             `${idx + 1}. [${c.game_name}] Mã: ${c.code_value} | Thưởng: ${c.rewards} (Nhận: ${formatFullDateTime(c.claimed_at)})`
         )
         .join('\n') + '\n\n📌 Nguồn: CodeGame.shop - Săn Giftcode VIP Miễn Phí tại https://codegame.shop';
     navigator.clipboard.writeText(text);
-    onShowToast('Đã sao chép tất cả mã!', `Đã chép toàn bộ ${claimedList.length} giftcode vào clipboard.`, 'success');
+    onShowToast('Đã sao chép tất cả mã!', `Đã chép toàn bộ ${uniqueClaimedList.length} giftcode vào clipboard.`, 'success');
   };
 
   const handleExportTxtFile = () => {
-    if (claimedList.length === 0) return;
-    const header = `=== DANH SÁCH GIFTCODE ĐÃ SĂN - CODEGAME.SHOP ===\nThời gian xuất: ${new Date().toLocaleString('vi-VN')}\nTổng số mã: ${claimedList.length}\nTra cứu thêm mã mới: https://codegame.shop\n\n`;
-    const body = claimedList
+    if (uniqueClaimedList.length === 0) return;
+    const header = `=== DANH SÁCH GIFTCODE ĐÃ SĂN - CODEGAME.SHOP ===\nThời gian xuất: ${new Date().toLocaleString('vi-VN')}\nTổng số mã: ${uniqueClaimedList.length}\nTra cứu thêm mã mới: https://codegame.shop\n\n`;
+    const body = uniqueClaimedList
       .map(
         (c, idx) =>
           `[MÃ #${idx + 1}]\nGame: ${c.game_name}\nMã Code: ${c.code_value}\nPhần Thưởng: ${c.rewards}\nThời Gian Nhận: ${formatFullDateTime(c.claimed_at)}\n----------------------------------------`
@@ -630,7 +640,7 @@ export const GiveawaysView: React.FC<GiveawaysViewProps> = ({
         return (c.claimed_codes || 0) >= 5 || (c.show_claimed_count !== false);
       }
       if (filterCategory === 'mine') {
-        return claimedList.some((my) => my.campaign_id === c.id || (c.packages && c.packages.some((p) => p.id === my.campaign_id)));
+        return uniqueClaimedList.some((my) => my.campaign_id === c.id || (c.packages && c.packages.some((p) => p.id === my.campaign_id)));
       }
       return true;
     })
@@ -717,7 +727,7 @@ export const GiveawaysView: React.FC<GiveawaysViewProps> = ({
               }`}
             >
               <History className="w-3.5 h-3.5" />
-              <span>Mã Đã Giật ({claimedList.length})</span>
+              <span>Mã Đã Giật ({uniqueClaimedList.length})</span>
             </button>
           </div>
         </div>
@@ -774,7 +784,7 @@ export const GiveawaysView: React.FC<GiveawaysViewProps> = ({
                   }`}
                 >
                   <PackageCheck className="w-3.5 h-3.5" />
-                  <span>Đã Nhận ({claimedList.length})</span>
+                  <span>Đã Nhận ({uniqueClaimedList.length})</span>
                 </button>
               </div>
               <div className="pointer-events-none absolute right-0 top-0 bottom-0 w-6 bg-gradient-to-l from-background to-transparent sm:hidden z-10" />
@@ -846,7 +856,7 @@ export const GiveawaysView: React.FC<GiveawaysViewProps> = ({
                 const isUnlimitedUser = rawMaxPerUser === 0 || rawMaxPerUser >= 999999;
                 const effectiveMaxPerUser = isUnlimitedUser ? 999999 : (rawMaxPerUser > 0 ? rawMaxPerUser : 1);
 
-                const userCampaignClaims = claimedList.filter((c) => c.campaign_id === campaign.id);
+                const userCampaignClaims = uniqueClaimedList.filter((c) => c.campaign_id === campaign.id);
                 const userClaimCount = userCampaignClaims.length;
 
                 // Multi-claim & Admin permission evaluation
@@ -1167,7 +1177,7 @@ export const GiveawaysView: React.FC<GiveawaysViewProps> = ({
                             <button
                               onClick={(e) => {
                                 e.stopPropagation();
-                                const existing = claimedList.find((c) => c.campaign_id === campaign.id);
+                                const existing = uniqueClaimedList.find((c) => c.campaign_id === campaign.id);
                                 if (existing?.code_value) {
                                   setClaimedRewardModal({
                                     campaign,
@@ -1261,7 +1271,7 @@ export const GiveawaysView: React.FC<GiveawaysViewProps> = ({
                           <button
                             onClick={(e) => {
                               e.stopPropagation();
-                              const existing = claimedList.find((c) => c.campaign_id === campaign.id);
+                              const existing = uniqueClaimedList.find((c) => c.campaign_id === campaign.id);
                               if (existing?.code_value) {
                                 setClaimedRewardModal({
                                   campaign,
@@ -1374,7 +1384,7 @@ export const GiveawaysView: React.FC<GiveawaysViewProps> = ({
                 <span>Đăng Nhập / Đăng Ký Ngay</span>
               </button>
             </div>
-          ) : claimedList.length === 0 ? (
+          ) : uniqueClaimedList.length === 0 ? (
             <div className="py-16 text-center rounded-3xl bg-card border border-border p-8">
               <Gift className="w-12 h-12 mx-auto mb-3 text-muted-foreground/40" />
               <h3 className="font-heading font-bold text-lg text-foreground mb-1">
@@ -1397,7 +1407,7 @@ export const GiveawaysView: React.FC<GiveawaysViewProps> = ({
                 <div className="flex items-center gap-2 text-xs font-semibold text-foreground">
                   <PackageCheck className="w-4 h-4 text-emerald-400" />
                   <span>
-                    Tổng cộng: <strong className="text-primary-light font-bold">{claimedList.length}</strong> giftcode đã lưu trong ví của bạn
+                    Tổng cộng: <strong className="text-primary-light font-bold">{uniqueClaimedList.length}</strong> giftcode đã lưu trong ví của bạn
                   </span>
                 </div>
                 <div className="flex items-center gap-2 self-stretch sm:self-auto">
@@ -1422,7 +1432,7 @@ export const GiveawaysView: React.FC<GiveawaysViewProps> = ({
 
               {/* Codes Grid */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {claimedList.map((item) => (
+                {uniqueClaimedList.map((item) => (
                   <div
                     key={item.id}
                     className="p-4 sm:p-5 rounded-2xl bg-card border border-border/80 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 shadow-sm"
@@ -1499,7 +1509,7 @@ export const GiveawaysView: React.FC<GiveawaysViewProps> = ({
       {claimedRewardModal && typeof document !== 'undefined' && createPortal(
         (() => {
           const targetCampaign = claimedRewardModal.campaign;
-          const allMyCampaignCodes = claimedList.filter((c) => c.campaign_id === targetCampaign.id);
+          const allMyCampaignCodes = uniqueClaimedList.filter((c) => c.campaign_id === targetCampaign.id);
           const poolCount = Array.isArray(targetCampaign.codes_pool) ? targetCampaign.codes_pool.length : (typeof targetCampaign.remaining_codes === 'number' ? targetCampaign.remaining_codes : 0);
           const remaining = marketingService.getDisplayStock(targetCampaign.id, poolCount);
           const rawMaxPerUser = Number(targetCampaign.max_per_user);
@@ -1743,7 +1753,7 @@ export const GiveawaysView: React.FC<GiveawaysViewProps> = ({
                           className="py-2 px-2.5 rounded-xl bg-muted hover:bg-card text-muted-foreground hover:text-foreground border border-border text-[11px] font-semibold transition-colors cursor-pointer flex items-center justify-center gap-1 truncate text-center"
                         >
                           <History className="w-3 h-3 shrink-0" />
-                          <span className="truncate">Kho Mã ({claimedList.length})</span>
+                          <span className="truncate">Kho Mã ({uniqueClaimedList.length})</span>
                         </button>
                       </div>
                     </div>
@@ -1911,7 +1921,7 @@ export const GiveawaysView: React.FC<GiveawaysViewProps> = ({
           const isUnlimitedUser = rawMaxPerUser === 0 || rawMaxPerUser >= 999999;
           const effectiveMaxPerUser = isUnlimitedUser ? 999999 : (rawMaxPerUser > 0 ? rawMaxPerUser : 1);
 
-          const userCampaignClaims = claimedList.filter((c) => c.campaign_id === currentCampaign.id);
+          const userCampaignClaims = uniqueClaimedList.filter((c) => c.campaign_id === currentCampaign.id);
           const userClaimCount = userCampaignClaims.length;
           const canClaimMore = (isAdmin || isUnlimitedUser || userClaimCount < effectiveMaxPerUser) && remaining > 0;
           const isMaxReached = !canClaimMore && remaining > 0;
@@ -2353,7 +2363,7 @@ export const GiveawaysView: React.FC<GiveawaysViewProps> = ({
                         <button
                           onClick={() => {
                             setDetailModalCampaign(null);
-                            const existing = claimedList.find((c) => c.campaign_id === currentCampaign.id);
+                            const existing = uniqueClaimedList.find((c) => c.campaign_id === currentCampaign.id);
                             if (existing?.code_value) {
                               setClaimedRewardModal({
                                 campaign: currentCampaign,
@@ -2375,7 +2385,7 @@ export const GiveawaysView: React.FC<GiveawaysViewProps> = ({
                       <button
                         onClick={() => {
                           setDetailModalCampaign(null);
-                          const existing = claimedList.find((c) => c.campaign_id === currentCampaign.id);
+                          const existing = uniqueClaimedList.find((c) => c.campaign_id === currentCampaign.id);
                           if (existing?.code_value) {
                             setClaimedRewardModal({
                               campaign: currentCampaign,

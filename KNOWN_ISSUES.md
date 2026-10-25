@@ -10,6 +10,35 @@
 
 ## 1. DANH MỤC LỖI & CÁC BẪY ĐÃ THẤT BẠI (DO NOT REPEAT)
 
+### ISSUE-128: Bẫy Nhân Đôi Bản Ghi Mã Code Khi Đồng Bộ Client/Server D1 (ID Format Mismatch & Missing Deduplication)
+- **Triệu chứng**:
+  - Người dùng xem Modal "Kho Mã Code Của Tôi", tab "Sự Kiện" thấy số lượng mã bị nhân đôi (ví dụ 14 mã thay vì 7 mã). Mỗi tựa game (như *TA LÀ HẮC NGỘ KHÔNG*, *Pirate Legends*, *Yến Vân Thập Lục Thanh*) xuất hiện 2 dòng cùng mã code và cùng thời gian nhận.
+  - Khi mở Modal chi tiết Giveaway của tựa game đã nhận, mục "Mã bạn đã giật tại sự kiện này" hiển thị 2 dòng code y hệt nhau kèm nhãn "(2 mã)", và nút bấm hiển thị "Xem lại mã bạn đã nhận (2)".
+- **Nguyên nhân gốc rễ (Root Cause)**:
+  1. *Lỗi định dạng khóa khi merge Map trong `refreshCurrentUserBalance`*:
+     - Client khi giật mã lưu bản ghi với ID chuỗi: `id: 'claim_1792...'`.
+     - Server Cloudflare D1 khi đồng bộ trả về mảng `giveawayClaims` từ bảng SQLite D1 với `id` kiểu số/UUID: `id: 14`.
+     - Biểu thức merge trước đây: `const key = c?.id || `${c?.campaign_id}_${c?.code_value}`;`. Vì `c?.id` luôn truthy ở cả hai nguồn, toán tử `||` không bao giờ rơi vào vế sau (`${c?.campaign_id}_${c?.code_value}`). Hai ID khác nhau (`claim_1792...` vs `14`) tạo ra 2 key khác nhau trong Map, dẫn đến việc lưu cả 2 bản ghi cho cùng 1 giftcode vào `localStorage` key `wcg_claimed_giveaways`.
+  2. *Tầng đọc dữ liệu `getClaimedCodes()` và `getOrders()` không có cơ chế khử trùng lặp*:
+     - Chỉ filter các mã lỗi hệ thống (`OUT_OF_STOCK`, v.v.) mà hoàn toàn không deduplicate theo `${campaign_id}_${cleanCode}`.
+  3. *Tầng giao diện thiếu lớp phòng thủ (UI Defense-in-Depth)*:
+     - `MyReceivedCodesModal.tsx` và `GiveawaysView.tsx` render trực tiếp theo mảng `claimedList` thô.
+- **Giải pháp chuẩn đã kiểm chứng**:
+  1. *Chuẩn hóa Unique Key khi merge Map trong `refreshCurrentUserBalance`*:
+     - Sử dụng hàm ghép khóa chuẩn: `${campId}_${cleanCode}` (với `cleanCode = c.code_value.trim().toUpperCase()`).
+     - Bản ghi từ D1 server sẽ cập nhật thông tin đè lên bản ghi cục bộ của cùng một mã quà thay vì sinh thêm dòng mới.
+  2. *Cơ chế tự phục hồi (Self-Healing Deduplication) trong `getClaimedCodes()` & `getOrders()`*:
+     - Duyệt Set theo `${campId}_${cleanCode}` và chỉ giữ 1 bản ghi duy nhất.
+     - Nếu `deduplicated.length !== list.length`, lập tức tự động ghi đè bản ghi sạch trở lại `localStorage`. Toàn bộ dữ liệu trùng cũ trên trình duyệt khách hàng được dọn sạch 100% ngay lần đầu mở web.
+  3. *Phòng thủ đa tầng tại UI Component*:
+     - `MyReceivedCodesModal.tsx`: dùng `useMemo` tính `displayClaimedList` và `displayOrdersList`, hiển thị đúng số lượng mã thực (từ 14 về đúng 7 mã).
+     - `GiveawaysView.tsx`: áp dụng `uniqueClaimedList` cho toàn bộ danh sách, đưa số mã đã giật tại sự kiện về đúng 1 mã duy nhất.
+- ⛔ **CÁCH SỬA ĐÃ THẤT BẠI - TUYỆT ĐỐI KHÔNG LẶP LẠI**:
+  - ❌ *Không dùng `c?.id || ...` để làm khóa định danh khi merge dữ liệu giữa Client và Server*: Client sinh ID tạm thời còn Server dùng Auto-increment ID / UUID của Database. Bắt buộc phải dùng khóa nghiệp vụ duy nhất (Business Unique Key) là `${campaign_id}_${code_value}`.
+  - ❌ *Không phụ thuộc duy nhất vào việc sửa tầng lưu trữ*: Bắt buộc phải có cả cơ chế Self-healing ở hàm đọc (`getClaimedCodes`) và UI Defense-in-Depth (`useMemo`) để làm sạch dữ liệu cũ đã lưu trên hàng ngàn trình duyệt người dùng.
+
+---
+
 ### ISSUE-127: Bẫy Nhân Số Ảo Khi Đổi Nhịp Khe (Replay Loop Desync Trap) & Khoảng Lặng Đầu Phiên Trình Duyệt Thật
 - **Triệu chứng**:
   1. *Số ảo nhảy vọt gấp 3–4 lần khi đổi nhịp khe*: VIP 7 Days VS Phone đang hiển thị đã bán 415 / còn 433 / nhập lại 41 bỗng nhảy vọt lên đã bán 1387 / còn 2001 / nhập lại 168 sau khi chuyển từ nhịp 30s sang 10s. Rotwood nhận 86 / còn 31 (pool 117) nhảy lên nhận 286 / còn 31 (pool 317).
