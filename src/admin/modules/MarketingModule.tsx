@@ -1154,7 +1154,7 @@ export const MarketingModule: React.FC<MarketingModuleProps> = ({ onShowToast })
     );
   };
 
-  const filteredAccounts = config.virtualAccounts.filter((a) =>
+  const filteredAccounts = (config?.virtualAccounts || []).filter((a) =>
     a.toLowerCase().includes(accountSearch.toLowerCase())
   );
 
@@ -1200,7 +1200,7 @@ export const MarketingModule: React.FC<MarketingModuleProps> = ({ onShowToast })
       fullTitle: 'Quản Lý Tài Khoản Hệ Thống',
       subtext: 'Bốc ngẫu nhiên tạo FOMO',
       icon: Users,
-      badge: `${config.virtualAccounts.length} nick`,
+      badge: `${(config?.virtualAccounts || []).length} nick`,
       badgeTone: 'primary',
     },
     {
@@ -1222,7 +1222,7 @@ export const MarketingModule: React.FC<MarketingModuleProps> = ({ onShowToast })
       fullTitle: 'Tỉ Lệ Bình Chọn Code',
       subtext: 'Giả lập vote hoạt động',
       icon: TrendingUp,
-      badge: `${config.codeVoteRatio.workingPercentage}% Uy tín`,
+      badge: `${config?.voteConfig?.activeRate ?? 96}% Uy tín`,
       badgeTone: 'emerald',
     },
     {
@@ -2438,7 +2438,7 @@ export const MarketingModule: React.FC<MarketingModuleProps> = ({ onShowToast })
               className="max-w-xs px-3 py-1.5 rounded-xl bg-muted/60 border border-border text-xs text-foreground"
             />
             <span className="text-xs text-muted-foreground font-mono">
-              Hiển thị {filteredAccounts.length} / {config.virtualAccounts.length} tài khoản
+              Hiển thị {filteredAccounts.length} / {(config?.virtualAccounts || []).length} tài khoản
             </span>
           </div>
 

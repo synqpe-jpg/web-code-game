@@ -10,6 +10,20 @@
 
 ## 1. DANH MỤC LỖI & CÁC BẪY ĐÃ THẤT BẠI (DO NOT REPEAT)
 
+### ISSUE-119: Bẫy Truy Cập Thuộc Tính Cấu Hình Không Tồn Tại Khi Render Tab Gây Sập Toàn Bộ Module (Unchecked Nested Property Access on Missing Sub-Config Objects)
+- **Triệu chứng**:
+  - Khi người dùng bấm vào một Module trên Web Quản Trị (ví dụ: `admin-code-game-shop.pages.dev/admin#/marketing`), màn hình hiển thị lỗi sập phân hệ: `Cannot read properties of undefined (reading 'workingPercentage')`.
+- **Nguyên nhân gốc rễ**:
+  - Trong mảng khai báo danh sách tab con (`MARKETING_SUB_TABS`), thuộc tính `badge` của tab con truy cập trực tiếp `config.codeVoteRatio.workingPercentage`. Do đối tượng cấu hình `config` không có trường `codeVoteRatio` (trường đúng trong `MarketingConfig` là `voteConfig.activeRate`), việc truy cập thuộc tính trên một giá trị `undefined` làm phát sinh `TypeError` ngay trong chu kỳ render đầu tiên của React.
+- **Giải pháp chuẩn đã kiểm chứng**:
+  - Luôn luôn sử dụng **Optional Chaining (`?.`)** và **Nullish Coalescing (`??`)** khi tính toán nhãn/badge hoặc giá trị render từ đối tượng cấu hình:
+    `badge: \`${config?.voteConfig?.activeRate ?? 96}% Uy tín\``
+  - Với các mảng, luôn bọc `(config?.myArray || []).length` hoặc `(config?.myArray || []).filter(...)` để phòng vệ trường hợp dữ liệu tải từ server bị thiếu key hoặc chưa sẵn sàng.
+- ⛔ **CÁCH SỬA ĐÃ THẤT BẠI - TUYỆT ĐỐI KHÔNG LẶP LẠI**:
+  - ❌ *Không truy cập lồng sâu trực tiếp (`a.b.c`) mà không có `?.` trong mảng định nghĩa tab*: Dữ liệu cấu hình tải từ localStorage hoặc API có thể thiếu thuộc tính phụ tùy phiên bản.
+
+---
+
 ### ISSUE-118: Vòng Lặp Báo Peak (Client Peak Feedback Loop) Làm Nhảy Loạn Số Ảo Giữa Các Trình Duyệt Và Cạn Kiệt Hạn Mức D1
 - **Triệu chứng**:
   - Số lượng bán ảo, số tồn kho hiển thị nhảy thất thường giữa các thiết bị khác nhau: lúc vài trăm, lúc vọt lên hàng ngàn, lúc lại tụt về vài trăm.

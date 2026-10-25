@@ -7,6 +7,24 @@ Mỗi mục sửa lỗi đều ghi nhận **Nguyên nhân gốc rễ (Root Cause
 
 ## [2026-10-25]
 
+### 193. Sửa Lỗi Sập Phân Hệ Thông Báo Marketing Do Truy Cập Thuộc Tính Chưa Khai Báo (Fix TypeError: Cannot read properties of undefined reading 'workingPercentage')
+- **Mô tả & Yêu cầu người dùng**:
+  - *"Tôi vào Thông báo Marketing bị lỗi."*
+  - Màn hình Web Quản trị tại `admin-code-game-shop.pages.dev/admin#/marketing` hiển thị thông báo lỗi sập phân hệ: `Cannot read properties of undefined (reading 'workingPercentage')`.
+- **Nguyên nhân gốc rễ (Root Cause)**:
+  - Trong file `src/admin/modules/MarketingModule.tsx`, tại dòng 1225 trong mảng cấu hình `MARKETING_SUB_TABS` cho tab `votes`:
+    `badge: \`${config.codeVoteRatio.workingPercentage}% Uy tín\`,`
+  - Đối tượng cấu hình `MarketingConfig` không có thuộc tính `codeVoteRatio` (thuộc tính chuẩn quản lý tỉ lệ bình chọn code là `voteConfig.activeRate`).
+  - Do `config.codeVoteRatio` là `undefined`, khi React render mảng tab con, việc truy cập `.workingPercentage` ném ra ngoại lệ `TypeError: Cannot read properties of undefined (reading 'workingPercentage')`, khiến toàn bộ phân hệ MarketingModule bị ErrorBoundary bắt và hiển thị màn hình sự cố.
+- **Giải pháp đã triển khai (Solution)**:
+  1. *Sửa thuộc tính truy cập chuẩn và thêm toán tử an toàn (Optional Chaining & Fallback)*:
+     - Thay thế bằng: `badge: \`${config?.voteConfig?.activeRate ?? 96}% Uy tín\`` trong `MARKETING_SUB_TABS`.
+  2. *Phòng vệ an toàn cho các thuộc tính mảng*:
+     - Thay thế `config.virtualAccounts.filter(...)` bằng `(config?.virtualAccounts || []).filter(...)`.
+     - Thay thế `config.virtualAccounts.length` bằng `(config?.virtualAccounts || []).length` ở cả tab header và bộ đếm danh sách tài khoản.
+- **Kết quả nghiệm thu**:
+  - Phân hệ MarketingModule tải mượt mà 100%, tất cả 8 mục (Chung & Tần Suất, Bật/Tắt Loại Tin, Tài Khoản Ảo, Sản Phẩm & Kho, Bình Chọn Code, Giả Lập & Test, Khóa Kiểm Toán 2FA, Thống Kê Ảo SSOT) hoạt động hoàn hảo không còn bất kỳ lỗi nào.
+
 ### 192. Kiến Trúc FOMO Hai Lớp (Two-Layer SSOT FOMO Engine), Tách Biệt Dữ Liệu Gốc, Bộ Đệm Ảo & Restock Tự Động, Triệt Tiêu Vòng Lặp Báo Peak Và Tối Ưu Quota Cloudflare D1
 - **Mô tả & Yêu cầu người dùng**:
   - *"FOMO hai lớp: giữ dữ liệu gốc, thống kê ảo riêng, restock ảo theo cài đặt, tiết kiệm quota Cloudflare"*
