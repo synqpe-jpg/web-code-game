@@ -334,8 +334,8 @@ export const MarketingNotificationToast: React.FC<MarketingNotificationToastProp
         return;
       }
 
-      // B.2: Đang nằm trong cửa sổ hiển thị hợp lệ của khe hiện tại (trước giây 7.0 của khe)
-      if (calibratedNow >= slotFireTimeMs && calibratedNow < slotHideTimeMs + 1500) {
+      // B.2: Đang nằm trong cửa sổ hiển thị hợp lệ của khe hiện tại (từ 1.5s đến 8.0s của khe 10s)
+      if (calibratedNow >= slotFireTimeMs && calibratedNow < slotEndMs - 2000) {
         const currentSlotEvt = marketingService.getCurrentSlotEvent(currentSlotIndex);
         if (currentSlotEvt) {
           const datasets = getDatasets();
@@ -389,7 +389,8 @@ export const MarketingNotificationToast: React.FC<MarketingNotificationToastProp
 
           if (isValid) {
             lastDisplayedSlotRef.current = currentSlotIndex;
-            const remainingDurationMs = Math.min(displayDurationMs, Math.max(2000, slotHideTimeMs - calibratedNow));
+            // Bù hiển thị ngay trong cửa sổ còn lại của khe (tối thiểu 2s, tối đa 4s)
+            const remainingDurationMs = Math.min(displayDurationMs, Math.max(2000, slotEndMs - calibratedNow - 500));
             displayNotification(currentSlotEvt, remainingDurationMs);
             const msToNextSlot = Math.max(1000, slotEndMs - calibratedNow + 1500);
             if (timerRef.current) clearTimeout(timerRef.current);
@@ -398,16 +399,16 @@ export const MarketingNotificationToast: React.FC<MarketingNotificationToastProp
           }
         } else {
           // Chưa có sự kiện cho khe hiện tại từ sổ máy chủ:
-          // Thử lại sau 500ms nếu vẫn trong 2s đầu của khe để chờ poller tải về
-          if (calibratedNow - slotFireTimeMs < 2000) {
+          // Thử lại nhanh sau 300ms nếu vẫn còn trong cửa sổ khe để chờ poller tải về bù
+          if (calibratedNow < slotEndMs - 2500) {
             if (timerRef.current) clearTimeout(timerRef.current);
-            timerRef.current = setTimeout(() => scheduleRef.current(), 500);
+            timerRef.current = setTimeout(() => scheduleRef.current(), 300);
             return;
           }
         }
       }
 
-      // B.3: Đã quá cửa sổ hiển thị của khe hiện tại (hoặc không có sự kiện cho khe hiện tại)
+      // B.3: Đã thực sự quá cửa sổ hiển thị của khe hiện tại (sau giây 8.0 của khe)
       // Đánh dấu bỏ qua khe này để TUYỆT ĐỐI KHÔNG PHÁT LẠI (chống trùng theo khe, không replay ngẫu nhiên)
       lastDisplayedSlotRef.current = currentSlotIndex;
       const msToNextSlot = Math.max(500, slotEndMs - calibratedNow + 1500);
@@ -502,7 +503,8 @@ export const MarketingNotificationToast: React.FC<MarketingNotificationToastProp
       if (isTabHiddenRef.current || isSnoozed()) return;
       if (!currentNotificationIdRef.current) {
         if (timerRef.current) clearTimeout(timerRef.current);
-        timerRef.current = setTimeout(() => scheduleRef.current(), 100);
+        // Bù hiển thị ngay lập tức trong cửa sổ khe khi sự kiện sổ máy chủ vừa về
+        scheduleRef.current();
       }
     };
 
@@ -531,15 +533,15 @@ export const MarketingNotificationToast: React.FC<MarketingNotificationToastProp
       }
     }, initDelaySec * 1000);
 
-    // 2. Calibrate atomic clock and sync stats immediately from edge server
-    fetch('/api/stats', { cache: 'no-store' })
+    // 2. Calibrate atomic clock and sync stats & events immediately from edge server (/api/realtime-events)
+    fetch(`/api/realtime-events?t=${Date.now()}`, { cache: 'no-store' })
       .then((r) => r.json())
       .then((data) => {
         if (!isMounted) return;
         if (data && typeof data.server_time === 'number') {
           marketingService.calibrateServerTime(data.server_time);
         }
-        if (data && (typeof data.master_copy_clicks === 'number' || data.real_product_sold_counts || data.real_giveaway_claimed_counts || data.peak_product_sold_counts || data.counters)) {
+        if (data && data.success) {
           marketingService.syncFromHub(
             data.events,
             data.master_copy_clicks,

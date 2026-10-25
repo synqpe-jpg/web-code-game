@@ -27,8 +27,11 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
     return new Response(JSON.stringify(payload), {
       headers: {
         ...CORS_HEADERS,
-        // Edge response: cached for 8s at Edge CDN to protect D1 under 10s slot rhythm
-        'Cache-Control': 'public, max-age=5, s-maxage=8, stale-while-revalidate=15',
+        // Chống lệch pha khe thời gian & chống dính cache cũ trên Cloudflare Edge CDN:
+        // Đảm bảo mỗi lượt poll của client nhận được sự kiện chính xác và tươi mới nhất của khe hiện tại
+        'Cache-Control': 'no-cache, no-store, must-revalidate, max-age=0',
+        'Pragma': 'no-cache',
+        'Expires': '0',
       },
     });
   } catch (err: any) {

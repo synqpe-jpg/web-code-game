@@ -1551,7 +1551,7 @@ class MarketingService {
       }
 
       try {
-        const res = await fetch('/api/realtime-events');
+        const res = await fetch(`/api/realtime-events?t=${Date.now()}`, { cache: 'no-store' });
         if (res.ok) {
           const data: any = await res.json();
           if (data && data.success) {

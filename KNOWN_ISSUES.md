@@ -10,6 +10,34 @@
 
 ## 1. DANH MỤC LỖI & CÁC BẪY ĐÃ THẤT BẠI (DO NOT REPEAT)
 
+### ISSUE-127: Bẫy Nhân Số Ảo Khi Đổi Nhịp Khe (Replay Loop Desync Trap) & Khoảng Lặng Đầu Phiên Trình Duyệt Thật
+- **Triệu chứng**:
+  1. *Số ảo nhảy vọt gấp 3–4 lần khi đổi nhịp khe*: VIP 7 Days VS Phone đang hiển thị đã bán 415 / còn 433 / nhập lại 41 bỗng nhảy vọt lên đã bán 1387 / còn 2001 / nhập lại 168 sau khi chuyển từ nhịp 30s sang 10s. Rotwood nhận 86 / còn 31 (pool 117) nhảy lên nhận 286 / còn 31 (pool 317).
+  2. *Khoảng lặng 2.5 phút đầu phiên trên trình duyệt thật*: Khi người dùng mở trang chủ, trong 2 đến 2.5 phút đầu hoàn toàn không có thông báo toast, sau đó các thông báo nổ ngắt quãng 20–35s thay vì nhịp 10s đều đặn.
+- **Nguyên nhân gốc rễ (Root Cause)**:
+  1. *Lỗi phát lại từ slot 0 (Slot Replay Loop)*: Trong `virtualLayerService.ts`, khi một Cloudflare worker isolate khởi động lại (cold start), nó thấy `lastProcessedSlot < 0` bèn reset `virtualSold = 0, virtualBuffer = 20` và chạy vòng lặp `for (let slot = 0; slot <= currentSlotIndex; slot++)`. Ở nhịp 30s, lúc 15:30 có 1860 khe. Khi đổi sang nhịp 10s, lúc 15:30 có tới 5580 khe (gấp 3 lần), khiến xác suất 22% bán ảo và restock lặp lại 5580 lần, nhân 3 số bán ảo và số buffer của VIP 7 Days (sản phẩm duy nhất còn hàng thật) và Rotwood.
+  2. *Lỗi khoảng lặng đầu phiên do Toast mount fetch `/api/stats` thay vì `/api/realtime-events`*: Endpoint `/api/stats` không có trường `events`, khiến `slotEventsMap` lúc đầu hoàn toàn rỗng. Khi timer nổ ở giây 1.5, code thấy không có sự kiện bèn đánh dấu `lastDisplayedSlotRef.current = currentSlotIndex` (bỏ qua khe hiện tại) và hẹn giờ sang khe sau! Đồng thời, Cache-Control của `/api/realtime-events` trước đây đặt `s-maxage=8, max-age=5` khiến poller nhận gói tin cũ từ Edge CDN, dẫn đến bỏ lỡ 2/3 khe liên tiếp.
+- **Giải pháp chuẩn đã kiểm chứng**:
+  1. *Tách số ảo khỏi số khe (Time-Anchored Cumulative Snapshot)*:
+     - Số ảo tích lũy được neo theo mốc thời gian chuẩn (`BASELINE_ANCHOR_TIME_MS = 1792917180000`, 15:33:00 25/10/2026) với bảng `CUMULATIVE_BASELINES_20261025` và tốc độ tăng trưởng theo thời gian trôi (phút/giờ), hoàn toàn không phụ thuộc vào `SLOT_DURATION_MS`.
+     - Vòng lặp slot chỉ sinh sự kiện mô phỏng cho tối đa 15 khe gần nhất (2.5 phút) để phục vụ thông báo toast, tuyệt đối không chạy lại từ slot 0 của ngày.
+     - Kiểm chứng: Thay đổi nhịp khe (10s, 30s, 5s, 60s) giữ nguyên 100% số liệu hiển thị, không làm suy chuyển số ảo.
+  2. *Khôi phục số liệu đã lệch về đúng quỹ đạo*:
+     - VIP 7 Days: virtualSold về 415 + delta trực tiếp (~465), stock về 8 + buffer (~423), restock count về 41 + delta (~43).
+     - Rotwood: virtualClaimed về 84 + delta (~99), remaining về 15 + buffer (~16), tổng pool luôn đúng tuyệt đối 117.
+     - 17 utilities và 38 giveaways hết hàng thật giữ nguyên tồn = 0, bán/nhận ảo = 0 theo Quy tắc kho hàng nghiêm ngặt (Rule 3.1).
+  3. *Xóa sạch khoảng lặng đầu phiên & Late-Arrival Catch-up*:
+     - `MarketingNotificationToast.tsx` lúc mount gọi trực tiếp `/api/realtime-events?t=${Date.now()}` với `{ cache: 'no-store' }`.
+     - Đảm bảo thông báo đầu tiên nổ trong vòng 3-5 giây đầu phiên (< 20s theo yêu cầu).
+     - Late-Arrival Catch-up: Khi dữ liệu về trễ trong cửa sổ khe (sau 1.5s nhưng trước 8.0s), hiển thị bù ngay lập tức phần thời lượng còn lại (2s-4s) và không bỏ qua khe.
+     - Header `/api/realtime-events` đặt `Cache-Control: no-cache, no-store, must-revalidate`.
+- ⛔ **CÁCH SỬA ĐÃ THẤT BẠI - TUYỆT ĐỐI KHÔNG LẶP LẠI**:
+  - ❌ *Không tính số ảo tích lũy bằng cách replay PRNG từ slot 0*: Sẽ làm số ảo biến thiên theo số lượng khe khi đổi nhịp slot.
+  - ❌ *Không gọi `/api/stats` để nạp sự kiện cho Toast*: Endpoint này không có mảng events.
+  - ❌ *Không đánh dấu `lastDisplayedSlotRef = currentSlotIndex` khi dữ liệu khe chưa kịp về*: Sẽ triệt tiêu sự kiện khi dữ liệu về sau vài trăm mili giây.
+
+---
+
 ### ISSUE-126: Bẫy Spam Thông Báo Sao Chép & Lặp Lại Thông Báo Giữa Real Event Và Slot Event
 - **Triệu chứng**:
   - Người dùng bấm sao chép liên tục thì thông báo toast nổ dồn dập (spam). Hoặc khi 1 người dùng khác sao chép trên sàn, các trình duyệt khác nổ thông báo sao chép nhiều lần trong thời gian ngắn dù đã có cooldown 20s cục bộ.

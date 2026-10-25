@@ -7,6 +7,35 @@ Mỗi mục sửa lỗi đều ghi nhận **Nguyên nhân gốc rễ (Root Cause
 
 ## [2026-10-25]
 
+### 201. Tách Số Ảo Khỏi Số Khe, Khôi Phục Quỹ Đạo Số Liệu & Xóa Bỏ Khoảng Lặng Đầu Phiên Trình Duyệt Thật
+- **Mô tả & Yêu cầu người dùng**:
+  - Người dùng yêu cầu giải quyết 3 phần việc cốt lõi sau bản nghiệm thu nhịp 10 giây:
+    1. *Phần 1 — Sửa khoảng lặng 2.5 phút đầu phiên & Hiển thị đúng nhịp 10 giây*: Lần thông báo đầu tiên phải xuất hiện trong vòng 20 giây đầu sau khi mở trang. Mọi khe có sự kiện đều phải hiển thị; nếu dữ liệu về trễ thì bù ngay khi dữ liệu về trong cửa sổ hiển thị, không bỏ qua chờ sang khe sau.
+    2. *Phần 2 — Tách số ảo khỏi số khe & Khôi phục số đã lệch*: Đổi nhịp khe không được làm nhân số ảo hay phát lại từ slot 0. Khôi phục VIP 7 Days VS Phone về đã bán ~415 + delta trực tiếp từ 15:33 đến nay (thay vì 1387), Rotwood về nhận ~86 + delta trực tiếp (tổng pool 117 thay vì 317). Rà soát toàn bộ 18 utilities + 42 giveaways + master_copy. Kiểm tra chống tái phát: đổi nhịp khe trong môi trường test không làm thay đổi số ảo đang hiển thị.
+    3. *Phần 3 — Làm rõ 32 mục quà tặng kết xuất (prerender) so với 42 bộ đếm server*: Xác nhận 32 là số chiến dịch có `is_active !== false` đang mở trang chi tiết tĩnh, còn 10 mục kia là gì trong database.
+- **Nguyên nhân gốc rễ (Root Cause)**:
+  1. *Nhân số ảo do vòng lặp phát lại từ slot 0*: Trong `virtualLayerService.ts`, khi isolate khởi động lại (cold start), nó chạy vòng lặp từ slot 0 đến `currentSlotIndex`. Khi đổi từ 30s sang 10s, số lượng khe lúc 15:30 tăng từ 1860 lên 5580 khe, khiến 22% bán ảo và restock lặp lại 5580 lần, nhân 3-4 lần số ảo của sản phẩm duy nhất còn hàng thật (`ut_vs_05_vip_7d`) và giveaway Rotwood.
+  2. *Khoảng lặng 2.5 phút đầu phiên*: `MarketingNotificationToast.tsx` lúc mount gọi `/api/stats` (không có mảng `events`), khiến `slotEventsMap` rỗng. Ở giây 1.5, code thấy không có sự kiện bèn đánh dấu `lastDisplayedSlotRef = currentSlotIndex` và bỏ qua khe. Kèm theo đó, Cache-Control của `/api/realtime-events` là `s-maxage=8, max-age=5` khiến poller nhận gói tin cache cũ, bỏ lỡ liên tiếp 2/3 khe.
+- **Giải pháp triển khai (Solution)**:
+  1. *Tách số ảo khỏi số khe (Time-Anchored Cumulative Snapshot)*:
+     - Định nghĩa `BASELINE_ANCHOR_TIME_MS = 1792917180000` (15:33:00 25/10/2026) với bảng snapshot `CUMULATIVE_BASELINES_20261025`.
+     - Số ảo tích lũy được tính toán dựa trên thời gian trôi tự nhiên (phút/giờ) từ mốc neo, hoàn toàn không phụ thuộc vào `SLOT_DURATION_MS`. Vòng lặp slot chỉ sinh sự kiện cho tối đa 15 khe gần nhất (2.5 phút) để render thông báo toast.
+     - Khôi phục VIP 7 Days VS Phone về đã bán 415 + delta (~465), tồn hiển thị về 8 + 415 = 423, restock 41 + 2 = 43.
+     - Khôi phục Rotwood về đã nhận 86 + delta (~101), tồn hiển thị về 15 + 1 = 16, tổng pool bảo toàn nghiêm ngặt 117.
+     - Đổi nhịp khe thử nghiệm (10s, 30s, 5s, 60s) giữ nguyên 100% số ảo hiển thị (Rhythm-Invariant).
+  2. *Xóa sạch khoảng lặng đầu phiên & Late-Arrival Catch-up*:
+     - `MarketingNotificationToast.tsx` mount gọi trực tiếp `/api/realtime-events?t=${Date.now()}` với `{ cache: 'no-store' }`. Thông báo đầu tiên xuất hiện trong vòng 3-5 giây đầu phiên (< 20s theo yêu cầu).
+     - Late-Arrival Catch-up: Khi sự kiện về trễ trong cửa sổ khe (sau 1.5s nhưng trước 8.0s), toast kích hoạt bù ngay lập tức thời lượng còn lại (2s-4s) và không bỏ qua khe.
+     - Header `/api/realtime-events` cấu hình `Cache-Control: no-cache, no-store, must-revalidate`.
+  3. *Làm rõ 32 prerender vs 42 giveaways*:
+     - File `src/data/giveaways.json` có đúng 32 chiến dịch chuẩn SEO đang active (`is_active: true`) để Prerender sinh 32 trang chi tiết tĩnh `/giveaways/...`.
+     - 10 mục còn lại trong bộ đếm 42 mục của D1 là các chiến dịch lưu trữ trong cơ sở dữ liệu SQLite D1: gồm 9 sự kiện giveaway tạo động (ID `gw_1791...`) và 1 giveaway `gw_gamerpower_rotwood`.
+- **Kết quả kiểm thử**:
+  - `test_decoupling_and_realtime_toast.cjs`: 8/8 bài kiểm tra PASS 100%.
+  - Toàn bộ 6 test suite hồi quy đều đạt 100% PASS. `npm run build` thành công 100%.
+
+---
+
 ### 200. Cơ Chế Chống Spam Sao Chép (20 Giây Tối Đa 1 Thông Báo / Mỗi User) & Triệt Tiêu Lặp Lại Thông Báo Trên Cùng Trình Duyệt
 - **Mô tả & Yêu cầu người dùng**:
   - Người dùng yêu cầu khắc phục triệt để hiện tượng spam thông báo sao chép và nguy cơ lặp lại thông báo của cùng 1 thao tác:

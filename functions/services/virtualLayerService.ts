@@ -134,6 +134,48 @@ export const SLOT_DURATION_MS = 10000; // 10s per deterministic time slot (Nhị
 export const BATCH_FLUSH_INTERVAL_MS = 5 * 60 * 1000; // 5 minutes
 export const BATCH_FLUSH_EVENT_THRESHOLD = 200;
 
+// Mốc thời gian neo và bảng snapshot số liệu lũy kế tại 15:33 25/10/2026 (trước khi triển khai bản 10 giây)
+export const BASELINE_ANCHOR_TIME_MS = 1792917180000; // 15:33:00 25/10/2026 (GMT+7)
+
+export interface ItemBaseline {
+  virtualSold?: number;
+  virtualBuffer?: number;
+  virtualRestockCount?: number;
+  virtualClaimed?: number;
+  virtualRemainingBuffer?: number;
+}
+
+export const CUMULATIVE_BASELINES_20261025: Record<string, ItemBaseline> = {
+  // VIP 7 Days VS Phone (ut_vs_05_vip_7d): tại 15:33 là 415 đã bán, 433 còn (8 thật + 425 buffer), 41 lần nhập lại
+  'ut_vs_05_vip_7d': {
+    virtualSold: 415,
+    virtualBuffer: 425,
+    virtualRestockCount: 41,
+  },
+  // Rotwood Giveaway (gw_gamerpower_rotwood): tại 15:33 là 86 đã săn (2 thật + 84 ảo), 31 còn lại (15 thật + 16 buffer), tổng pool 117
+  'gw_gamerpower_rotwood': {
+    virtualClaimed: 84,
+    virtualRemainingBuffer: 16,
+    virtualRestockCount: 0,
+  },
+  // Các giveaway active khác trong kho D1 (Delta Force df3, 4tb, wee)
+  'gw_1791639328657_df3': {
+    virtualClaimed: 85,
+    virtualRemainingBuffer: 20,
+    virtualRestockCount: 0,
+  },
+  'gw_1791639448099_4tb': {
+    virtualClaimed: 85,
+    virtualRemainingBuffer: 20,
+    virtualRestockCount: 0,
+  },
+  'gw_1792235539701_wee': {
+    virtualClaimed: 85,
+    virtualRemainingBuffer: 20,
+    virtualRestockCount: 0,
+  },
+};
+
 export function getVnDayAnchor(nowMs: number = Date.now()) {
   const vnDateStr = new Date(nowMs + 7 * 3600 * 1000).toISOString().slice(0, 10);
   const dayStartMs = new Date(vnDateStr + 'T00:00:00+07:00').getTime();
@@ -379,32 +421,74 @@ export function processCurrentTimeSlot(state: VirtualLayerState, nowMs: number =
     return; // Already up to date for this slot
   }
 
-  // Determine starting slot
-  let startSlot = 0;
-  if (state.lastProcessedSlot >= 0) {
-    startSlot = state.lastProcessedSlot + 1;
-  } else {
-    // Cold start in this isolate: catch up from slot 0 of today
-    state.masterCopy.virtualCopy = 0;
-    state.products.forEach((p) => {
+  // =========================================================================
+  // BƯỚC 1: TÁCH SỐ ẢO KHỎI SỐ KHE (TIME-ANCHORED CUMULATIVE SNAPSHOT)
+  // Khi đổi nhịp khe (SLOT_DURATION_MS), số ảo tích lũy được bảo toàn tuyệt đối,
+  // không bị nhân lên hay phát lại từ slot 0 của ngày.
+  // =========================================================================
+  const elapsedSinceAnchorMs = Math.max(0, nowMs - BASELINE_ANCHOR_TIME_MS);
+  const elapsedMinutes = elapsedSinceAnchorMs / 60000;
+
+  // Tốc độ tăng trưởng tự nhiên độc lập với nhịp khe:
+  // VIP 7 Days: ~26 đơn/giờ toàn sàn -> 0.4333 đơn/phút
+  const deltaSold = Math.floor(elapsedMinutes * 0.4333);
+  const deltaRestocks = Math.floor(deltaSold / 20);
+
+  // Giveaways: ~7.75 mã/giờ cho mỗi giveaway active -> 0.1292 mã/phút
+  const deltaClaims = Math.floor(elapsedMinutes * 0.1292);
+
+  // Master Copy: ~1 click sao chép/phút
+  const baseVirtualCopy = 930;
+  const deltaCopy = Math.floor(elapsedMinutes * 1.0);
+  state.masterCopy.virtualCopy = baseVirtualCopy + deltaCopy;
+
+  // Cập nhật số liệu tích lũy cho Products / Utilities
+  state.products.forEach((p, id) => {
+    if (p.realStock <= 0) {
+      // Quy tắc kho hàng nghiêm ngặt (Rule 3.1): Hết hàng thật thì số ảo = 0
+      p.virtualBuffer = 0;
       p.virtualSold = 0;
-      p.virtualBuffer = p.realStock > 0 ? (p.autoRestockAmount || 20) : 0;
       p.virtualRestockCount = 0;
-    });
-    state.giveaways.forEach((g) => {
+      return;
+    }
+
+    const b = CUMULATIVE_BASELINES_20261025[id];
+    if (b) {
+      p.virtualSold = (b.virtualSold || 0) + deltaSold;
+      p.virtualRestockCount = (b.virtualRestockCount || 0) + deltaRestocks;
+      p.virtualBuffer = Math.max(0, (b.virtualBuffer || 20) - deltaSold + deltaRestocks * 20);
+    } else {
+      p.virtualBuffer = Math.max(0, p.autoRestockAmount || 20);
+    }
+    state.dirtyAggregateIds.add(id);
+  });
+
+  // Cập nhật số liệu tích lũy cho Giveaways
+  state.giveaways.forEach((g, id) => {
+    if (g.realRemaining <= 0) {
+      // Quy tắc kho hàng: Hết mã thật thì tồn ảo = 0
+      g.virtualRemainingBuffer = 0;
       g.virtualClaimed = 0;
-      g.virtualRemainingBuffer = g.realRemaining > 0 ? (g.autoRestockAmount || 20) : 0;
       g.virtualRestockCount = 0;
-    });
-    state.recentVirtualEvents = [];
-    startSlot = 0;
-  }
+      return;
+    }
 
-  if (startSlot > currentSlotIndex) {
-    return;
-  }
+    const b = CUMULATIVE_BASELINES_20261025[id];
+    if (b) {
+      g.virtualClaimed = (b.virtualClaimed || 0) + deltaClaims;
+      g.virtualRemainingBuffer = Math.max(0, (b.virtualRemainingBuffer || 20) - deltaClaims);
+      g.virtualRestockCount = b.virtualRestockCount || 0;
+    } else {
+      g.virtualRemainingBuffer = Math.max(0, g.autoRestockAmount || 20);
+    }
+    state.dirtyAggregateIds.add(id);
+  });
 
-  // Deterministically sorted lists for deterministic selection
+  // =========================================================================
+  // BƯỚC 2: SINH SỰ KIỆN MÔ PHỎNG THEO KHE CHO CÁC KHE GẦN NHẤT (TOAST NOTIFICATIONS)
+  // Chỉ sinh cho các khe gần nhất (tối đa 15 khe ~ 2.5 phút) để phục vụ thông báo
+  // Tuyệt đối không vòng lặp hàng nghìn slot từ đầu ngày.
+  // =========================================================================
   const sortedProducts = Array.from(state.products.values())
     .filter((p) => p.realStock > 0 && p.priority !== 'off')
     .sort((a, b) => a.productId.localeCompare(b.productId));
@@ -418,10 +502,16 @@ export function processCurrentTimeSlot(state: VirtualLayerState, nowMs: number =
     'Roblox', 'Blox Fruits', 'Thực Thần Ký', 'Kỳ Tích Trở Lại'
   ];
 
+  const startSlot = Math.max(0, currentSlotIndex - 15);
+
   for (let slot = startSlot; slot <= currentSlotIndex; slot++) {
+    const slotEvtPrefix = `sim_slot_${slot}`;
+    if (state.recentVirtualEvents.some((e) => e && e.id && e.id.startsWith(slotEvtPrefix))) {
+      continue; // Khe này đã có sự kiện trong bộ nhớ đệm
+    }
+
     const slotSeed = (Math.imul(slot, 0x9e3779b9) ^ 0x85ebca6b) >>> 0;
     const rng = createPRNG(slotSeed);
-    // Base slot timestamp + small natural jitter, guaranteed <= nowMs so no slot is ever skipped
     const slotBaseMs = dayStartMs + slot * SLOT_DURATION_MS;
     const fireTimeMs = Math.min(nowMs, slotBaseMs + Math.floor(rng() * 1500));
 
@@ -429,9 +519,8 @@ export function processCurrentTimeSlot(state: VirtualLayerState, nowMs: number =
     const accountIdx = Math.floor(rng() * PRESET_VIRTUAL_ACCOUNTS.length);
     const maskedUser = maskSimulatedAccount(PRESET_VIRTUAL_ACCOUNTS[accountIdx]);
 
-    if (typeRoll < 0.50) {
-      // 50% COPY_CODE
-      state.masterCopy.virtualCopy += 1;
+    if (typeRoll < 0.55) {
+      // 55% COPY_CODE
       const game = games[Math.floor(rng() * games.length)];
       const ev: VirtualEventRow = {
         id: `sim_slot_${slot}`,
@@ -445,15 +534,10 @@ export function processCurrentTimeSlot(state: VirtualLayerState, nowMs: number =
       };
       state.recentVirtualEvents.unshift(ev);
       state.pendingFlushEvents.push(ev);
-    } else if (typeRoll < 0.72) {
-      // 22% BUY_STORE / BUY_UTILITY (Bán ảo)
+    } else if (typeRoll < 0.75) {
+      // 20% BUY_STORE / BUY_UTILITY
       if (sortedProducts.length > 0) {
         const prod = sortedProducts[Math.floor(rng() * sortedProducts.length)];
-        // Luật Tồn Ảo: Trừ 1 vào bộ đệm ảo, cộng 1 vào bán ảo. Tồn gốc và bán thật KHÔNG ĐỔI!
-        prod.virtualSold += 1;
-        prod.virtualBuffer -= 1;
-        state.dirtyAggregateIds.add(prod.productId);
-
         const buyEv: VirtualEventRow = {
           id: `sim_slot_${slot}_buy_${prod.productId}`,
           type: prod.itemType === 'store' ? 'BUY_STORE' : 'BUY_UTILITY',
@@ -468,37 +552,11 @@ export function processCurrentTimeSlot(state: VirtualLayerState, nowMs: number =
         };
         state.recentVirtualEvents.unshift(buyEv);
         state.pendingFlushEvents.push(buyEv);
-
-        // Luật Restock Ảo: Khi bộ đệm ảo về <= 0 (số hiển thị chạm đúng tồn gốc), tự động cộng thêm mức restock cài đặt
-        if (prod.virtualBuffer <= 0 && prod.realStock > 0) {
-          const restockAmount = Math.max(1, prod.autoRestockAmount || 20);
-          prod.virtualBuffer += restockAmount;
-          prod.virtualRestockCount += 1;
-          prod.lastRestockAt = new Date(fireTimeMs).toISOString();
-
-          const restockEv: VirtualEventRow = {
-            id: `sim_slot_${slot}_restock_${prod.productId}`,
-            type: 'RESTOCK_PRODUCT',
-            product_id: prod.productId,
-            item_name: prod.title,
-            amount: restockAmount,
-            details: JSON.stringify({ restockAmount, productTitle: prod.title }),
-            is_simulated: 1,
-            created_at: new Date(fireTimeMs + 500).toISOString(),
-            delta_stock: restockAmount,
-          };
-          state.recentVirtualEvents.unshift(restockEv);
-          state.pendingFlushEvents.push(restockEv);
-        }
       }
-    } else if (typeRoll < 0.91) {
-      // 19% CLAIM_GIVEAWAY (Săn quà ảo)
+    } else if (typeRoll < 0.90) {
+      // 15% CLAIM_GIVEAWAY
       if (sortedGiveaways.length > 0) {
         const gw = sortedGiveaways[Math.floor(rng() * sortedGiveaways.length)];
-        gw.virtualClaimed += 1;
-        gw.virtualRemainingBuffer -= 1;
-        state.dirtyAggregateIds.add(gw.campaignId);
-
         const gwEv: VirtualEventRow = {
           id: `sim_slot_${slot}_gw_${gw.campaignId}`,
           type: 'CLAIM_GIVEAWAY',
@@ -513,31 +571,9 @@ export function processCurrentTimeSlot(state: VirtualLayerState, nowMs: number =
         };
         state.recentVirtualEvents.unshift(gwEv);
         state.pendingFlushEvents.push(gwEv);
-
-        // Auto restock for giveaway if buffer depleted
-        if (gw.virtualRemainingBuffer <= 0 && gw.realRemaining > 0) {
-          const restockAmount = Math.max(1, gw.autoRestockAmount || 20);
-          gw.virtualRemainingBuffer += restockAmount;
-          gw.virtualRestockCount += 1;
-          gw.lastRestockAt = new Date(fireTimeMs).toISOString();
-
-          const restockEv: VirtualEventRow = {
-            id: `sim_slot_${slot}_restock_gw_${gw.campaignId}`,
-            type: 'RESTOCK_PRODUCT',
-            product_id: gw.campaignId,
-            item_name: gw.title,
-            amount: restockAmount,
-            details: JSON.stringify({ restockAmount, giveawayTitle: gw.title }),
-            is_simulated: 1,
-            created_at: new Date(fireTimeMs + 500).toISOString(),
-            delta_remaining: restockAmount,
-          };
-          state.recentVirtualEvents.unshift(restockEv);
-          state.pendingFlushEvents.push(restockEv);
-        }
       }
-    } else if (typeRoll < 0.95) {
-      // 4% DEPOSIT_WALLET
+    } else if (typeRoll < 0.96) {
+      // 6% DEPOSIT_WALLET
       const amounts = [50000, 100000, 200000, 500000];
       const amount = amounts[Math.floor(rng() * amounts.length)];
       const depEv: VirtualEventRow = {
@@ -550,32 +586,8 @@ export function processCurrentTimeSlot(state: VirtualLayerState, nowMs: number =
       };
       state.recentVirtualEvents.unshift(depEv);
       state.pendingFlushEvents.push(depEv);
-    } else if (typeRoll < 0.98) {
-      // 3% RESTOCK_PRODUCT standalone
-      if (sortedProducts.length > 0) {
-        const prod = sortedProducts[Math.floor(rng() * sortedProducts.length)];
-        const rAmount = Math.max(1, prod.autoRestockAmount || 20);
-        prod.virtualBuffer += rAmount;
-        prod.virtualRestockCount += 1;
-        prod.lastRestockAt = new Date(fireTimeMs).toISOString();
-        state.dirtyAggregateIds.add(prod.productId);
-
-        const rEv: VirtualEventRow = {
-          id: `sim_slot_${slot}_manual_restock_${prod.productId}`,
-          type: 'RESTOCK_PRODUCT',
-          product_id: prod.productId,
-          item_name: prod.title,
-          amount: rAmount,
-          details: JSON.stringify({ restockAmount: rAmount, productTitle: prod.title }),
-          is_simulated: 1,
-          created_at: new Date(fireTimeMs).toISOString(),
-          delta_stock: rAmount,
-        };
-        state.recentVirtualEvents.unshift(rEv);
-        state.pendingFlushEvents.push(rEv);
-      }
     } else {
-      // 2% STATS_COPY
+      // 4% STATS_COPY
       const totalCount = 1200 + state.masterCopy.realClicks + state.masterCopy.virtualCopy;
       const statsEv: VirtualEventRow = {
         id: `sim_slot_${slot}_stats`,
@@ -591,7 +603,7 @@ export function processCurrentTimeSlot(state: VirtualLayerState, nowMs: number =
     }
   }
 
-  // Keep recent events buffer to max 50
+  // Giữ buffer sự kiện gần nhất tối đa 50 mục
   if (state.recentVirtualEvents.length > 50) {
     state.recentVirtualEvents = state.recentVirtualEvents.slice(0, 50);
   }
