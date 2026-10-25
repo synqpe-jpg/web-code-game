@@ -80,15 +80,73 @@ export interface VirtualLayerState {
   lastProcessedSlot: number;
 }
 
+export const CONVERSION_TABLE: Record<string, {
+  name: string;
+  target: 'product' | 'giveaway' | 'master_copy' | 'none';
+  delta: { sold?: number; stock?: number; claimed?: number; remaining?: number; copyClicks?: number; restock?: number };
+  description: string;
+}> = {
+  BUY_STORE: {
+    name: 'Đơn hàng Cửa Hàng',
+    target: 'product',
+    delta: { sold: 1, stock: -1 },
+    description: 'Số bán tăng +1, kho còn giảm -1 trên toàn bộ hệ thống.'
+  },
+  BUY_UTILITY: {
+    name: 'Đơn hàng Tiện Ích',
+    target: 'product',
+    delta: { sold: 1, stock: -1 },
+    description: 'Số bán tăng +1, kho còn giảm -1 trên toàn bộ hệ thống.'
+  },
+  CLAIM_GIVEAWAY: {
+    name: 'Săn quà sự kiện Giveaway',
+    target: 'giveaway',
+    delta: { claimed: 1, remaining: -1 },
+    description: 'Đã giật tăng +1, code còn giảm -1 trên toàn bộ hệ thống.'
+  },
+  COPY_CODE: {
+    name: 'Sao chép mã Giftcode',
+    target: 'master_copy',
+    delta: { copyClicks: 1 },
+    description: 'Lượt sao chép tăng +1 trên toàn bộ hệ thống.'
+  },
+  STATS_COPY: {
+    name: 'Thống kê tổng lượt sao chép',
+    target: 'master_copy',
+    delta: { copyClicks: 1 },
+    description: 'Cột mốc thống kê tương tác, lượt sao chép tăng +1.'
+  },
+  RESTOCK_PRODUCT: {
+    name: 'Bổ sung tồn kho / code mới',
+    target: 'product',
+    delta: { restock: 20 },
+    description: 'Kho còn hoặc code còn tăng thêm đúng mức cài đặt autoRestockAmount.'
+  },
+  DEPOSIT_WALLET: {
+    name: 'Nạp tiền vào ví Core',
+    target: 'none',
+    delta: {},
+    description: 'Chỉ hiển thị kích hoạt tương tác, KHÔNG làm thay đổi 5 bộ đếm hàng hóa.'
+  },
+};
+
+export const SLOT_DURATION_MS = 30000; // 30s per deterministic time slot
+export const BATCH_FLUSH_INTERVAL_MS = 5 * 60 * 1000; // 5 minutes
+export const BATCH_FLUSH_EVENT_THRESHOLD = 200;
+
+export function getVnDayAnchor(nowMs: number = Date.now()) {
+  const vnDateStr = new Date(nowMs + 7 * 3600 * 1000).toISOString().slice(0, 10);
+  const dayStartMs = new Date(vnDateStr + 'T00:00:00+07:00').getTime();
+  const currentSlotIndex = Math.max(0, Math.floor((nowMs - dayStartMs) / SLOT_DURATION_MS));
+  return { vnDateStr, dayStartMs, currentSlotIndex };
+}
+
 const globalScope = globalThis as any;
-const SLOT_DURATION_MS = 30000; // 30s per deterministic time slot
-const BATCH_FLUSH_INTERVAL_MS = 5 * 60 * 1000; // 5 minutes
-const BATCH_FLUSH_EVENT_THRESHOLD = 200;
 
 if (!globalScope.__wcg_virtual_layer_state) {
-  const vnToday = new Date(Date.now() + 7 * 3600 * 1000).toISOString().slice(0, 10);
+  const { vnDateStr } = getVnDayAnchor();
   globalScope.__wcg_virtual_layer_state = {
-    date: vnToday,
+    date: vnDateStr,
     initialized: false,
     lastInitializedAt: 0,
     products: new Map(),
@@ -97,13 +155,13 @@ if (!globalScope.__wcg_virtual_layer_state) {
       realClicks: 0,
       virtualCopy: 0,
       dailyMaxCopy: 0,
-      date: vnToday,
+      date: vnDateStr,
     },
     recentVirtualEvents: [],
     pendingFlushEvents: [],
     dirtyAggregateIds: new Set(),
     lastFlushTime: Date.now(),
-    lastProcessedSlot: 0,
+    lastProcessedSlot: -1,
   } as VirtualLayerState;
 }
 
@@ -182,8 +240,7 @@ export async function initializeVirtualLayer(env: any, forceRefresh: boolean = f
       const hubSold = Number(realHub?.realProductSoldCounts?.[id]) || 0;
       const effectiveRealSold = Math.max(serverSold, hubSold);
 
-      // Check existing virtual aggregate in D1 or memory
-      const d1Agg = d1Aggregates[id];
+      // Check existing virtual state in memory
       const memState = state.products.get(id);
 
       const defaultBonus = pw.virtualStockBonus !== undefined ? Number(pw.virtualStockBonus) : 20;
@@ -192,18 +249,13 @@ export async function initializeVirtualLayer(env: any, forceRefresh: boolean = f
       const priority = pw.priority || 'normal';
 
       // Virtual buffer: seeded from FOMO config virtualStockBonus, floor = 0 if realStock = 0
-      let virtualBuffer = defaultBonus;
-      let virtualSold = Number(p.virtual_sold_count || 0);
+      let virtualBuffer = realStock > 0 ? defaultBonus : 0;
+      let virtualSold = 0;
       let restockCount = 0;
       let lastRestock = undefined;
 
-      if (d1Agg) {
-        virtualSold = Math.max(virtualSold, Number(d1Agg.virtual_sold) || 0);
-        virtualBuffer = d1Agg.virtual_buffer !== undefined ? Number(d1Agg.virtual_buffer) : defaultBonus;
-        restockCount = Number(d1Agg.virtual_restock_count) || 0;
-        lastRestock = d1Agg.last_restock_at;
-      } else if (memState) {
-        virtualSold = Math.max(virtualSold, memState.virtualSold);
+      if (memState && state.lastProcessedSlot >= 0) {
+        virtualSold = memState.virtualSold;
         virtualBuffer = memState.virtualBuffer;
         restockCount = memState.virtualRestockCount;
         lastRestock = memState.lastRestockAt;
@@ -240,7 +292,6 @@ export async function initializeVirtualLayer(env: any, forceRefresh: boolean = f
       const hubClaimed = Number(realHub?.realGiveawayClaimedCounts?.[id]) || 0;
       const effectiveRealClaimed = Math.max(serverClaimed, hubClaimed);
 
-      const d1Agg = d1Aggregates[id];
       const memState = state.giveaways.get(id);
 
       const defaultBonus = pw.virtualStockBonus !== undefined ? Number(pw.virtualStockBonus) : 20;
@@ -248,18 +299,13 @@ export async function initializeVirtualLayer(env: any, forceRefresh: boolean = f
       const defaultRestock = Math.max(1, Number(pw.autoRestockAmount) || 20);
       const priority = pw.priority || 'normal';
 
-      let virtualBuffer = defaultBonus;
-      let virtualClaimed = Number(gw.virtual_claimed_offset || 0);
+      let virtualBuffer = realRemaining > 0 ? defaultBonus : 0;
+      let virtualClaimed = 0;
       let restockCount = 0;
       let lastRestock = undefined;
 
-      if (d1Agg) {
-        virtualClaimed = Math.max(virtualClaimed, Number(d1Agg.virtual_claimed) || 0);
-        virtualBuffer = d1Agg.virtual_buffer !== undefined ? Number(d1Agg.virtual_buffer) : defaultBonus;
-        restockCount = Number(d1Agg.virtual_restock_count) || 0;
-        lastRestock = d1Agg.last_restock_at;
-      } else if (memState) {
-        virtualClaimed = Math.max(virtualClaimed, memState.virtualClaimed);
+      if (memState && state.lastProcessedSlot >= 0) {
+        virtualClaimed = memState.virtualClaimed;
         virtualBuffer = memState.virtualRemainingBuffer;
         restockCount = memState.virtualRestockCount;
         lastRestock = memState.lastRestockAt;
@@ -304,19 +350,79 @@ export async function initializeVirtualLayer(env: any, forceRefresh: boolean = f
  * Execute Deterministic Time-Slot Generation & Buffer Updates
  */
 export function processCurrentTimeSlot(state: VirtualLayerState, nowMs: number = Date.now()): void {
-  const currentSlotIndex = Math.floor(nowMs / SLOT_DURATION_MS);
-  if (state.lastProcessedSlot >= currentSlotIndex) {
-    return; // Already processed this slot
+  const { vnDateStr, dayStartMs, currentSlotIndex } = getVnDayAnchor(nowMs);
+
+  // Day rollover check
+  if (state.date !== vnDateStr) {
+    state.date = vnDateStr;
+    state.lastProcessedSlot = -1;
+    state.recentVirtualEvents = [];
+    state.pendingFlushEvents = [];
+    state.dirtyAggregateIds.clear();
+    state.masterCopy.virtualCopy = 0;
+    state.masterCopy.date = vnDateStr;
+
+    // Reset base virtual buffers
+    state.products.forEach((p) => {
+      p.virtualSold = 0;
+      p.virtualBuffer = p.realStock > 0 ? (p.autoRestockAmount || 20) : 0;
+      p.virtualRestockCount = 0;
+    });
+    state.giveaways.forEach((g) => {
+      g.virtualClaimed = 0;
+      g.virtualRemainingBuffer = g.realRemaining > 0 ? (g.autoRestockAmount || 20) : 0;
+      g.virtualRestockCount = 0;
+    });
   }
 
-  // Process any missed slots (limit to last 3 slots to avoid spikes)
-  const startSlot = Math.max(state.lastProcessedSlot > 0 ? state.lastProcessedSlot + 1 : currentSlotIndex, currentSlotIndex - 2);
+  if (state.lastProcessedSlot >= currentSlotIndex) {
+    return; // Already up to date for this slot
+  }
+
+  // Determine starting slot
+  let startSlot = 0;
+  if (state.lastProcessedSlot >= 0) {
+    startSlot = state.lastProcessedSlot + 1;
+  } else {
+    // Cold start in this isolate: catch up from slot 0 of today
+    state.masterCopy.virtualCopy = 0;
+    state.products.forEach((p) => {
+      p.virtualSold = 0;
+      p.virtualBuffer = p.realStock > 0 ? (p.autoRestockAmount || 20) : 0;
+      p.virtualRestockCount = 0;
+    });
+    state.giveaways.forEach((g) => {
+      g.virtualClaimed = 0;
+      g.virtualRemainingBuffer = g.realRemaining > 0 ? (g.autoRestockAmount || 20) : 0;
+      g.virtualRestockCount = 0;
+    });
+    state.recentVirtualEvents = [];
+    startSlot = 0;
+  }
+
+  if (startSlot > currentSlotIndex) {
+    return;
+  }
+
+  // Deterministically sorted lists for deterministic selection
+  const sortedProducts = Array.from(state.products.values())
+    .filter((p) => p.realStock > 0 && p.priority !== 'off')
+    .sort((a, b) => a.productId.localeCompare(b.productId));
+
+  const sortedGiveaways = Array.from(state.giveaways.values())
+    .filter((g) => g.realRemaining > 0 && g.priority !== 'off')
+    .sort((a, b) => a.campaignId.localeCompare(b.campaignId));
+
+  const games = [
+    'Free Fire', 'Liên Quân Mobile', 'Genshin Impact', 'Honkai: Star Rail',
+    'Roblox', 'Blox Fruits', 'Thực Thần Ký', 'Kỳ Tích Trở Lại'
+  ];
 
   for (let slot = startSlot; slot <= currentSlotIndex; slot++) {
     const slotSeed = (Math.imul(slot, 0x9e3779b9) ^ 0x85ebca6b) >>> 0;
     const rng = createPRNG(slotSeed);
-    const fireTimeMs = slot * SLOT_DURATION_MS + Math.floor(rng() * 15000) + 2000;
-    if (fireTimeMs > nowMs) continue; // Not fired yet
+    const fireTimeMs = dayStartMs + slot * SLOT_DURATION_MS + Math.floor(rng() * 15000) + 2000;
+    if (fireTimeMs > nowMs) continue; // Slot fire time is later within current 30s window
 
     const typeRoll = rng();
     const accountIdx = Math.floor(rng() * PRESET_VIRTUAL_ACCOUNTS.length);
@@ -325,31 +431,30 @@ export function processCurrentTimeSlot(state: VirtualLayerState, nowMs: number =
     if (typeRoll < 0.50) {
       // 50% COPY_CODE
       state.masterCopy.virtualCopy += 1;
-      const games = ['Free Fire', 'Liên Quân Mobile', 'Genshin Impact', 'Honkai: Star Rail', 'Roblox', 'Blox Fruits', 'Thực Thần Ký', 'Kỳ Tích Trở Lại'];
       const game = games[Math.floor(rng() * games.length)];
       const ev: VirtualEventRow = {
-        id: `vevt_copy_${slot}`,
+        id: `sim_slot_${slot}`,
         type: 'COPY_CODE',
         item_name: game,
         amount: 1,
         details: JSON.stringify({ userName: maskedUser, gameName: game }),
         is_simulated: 1,
         created_at: new Date(fireTimeMs).toISOString(),
+        delta_copy_clicks: 1,
       };
       state.recentVirtualEvents.unshift(ev);
       state.pendingFlushEvents.push(ev);
     } else if (typeRoll < 0.72) {
       // 22% BUY_STORE / BUY_UTILITY (Bán ảo)
-      const availableProducts = Array.from(state.products.values()).filter(p => p.realStock > 0 && p.priority !== 'off');
-      if (availableProducts.length > 0) {
-        const prod = availableProducts[Math.floor(rng() * availableProducts.length)];
+      if (sortedProducts.length > 0) {
+        const prod = sortedProducts[Math.floor(rng() * sortedProducts.length)];
         // Luật Tồn Ảo: Trừ 1 vào bộ đệm ảo, cộng 1 vào bán ảo. Tồn gốc và bán thật KHÔNG ĐỔI!
         prod.virtualSold += 1;
         prod.virtualBuffer -= 1;
         state.dirtyAggregateIds.add(prod.productId);
 
         const buyEv: VirtualEventRow = {
-          id: `vevt_buy_${slot}_${prod.productId}`,
+          id: `sim_slot_${slot}_buy_${prod.productId}`,
           type: prod.itemType === 'store' ? 'BUY_STORE' : 'BUY_UTILITY',
           product_id: prod.productId,
           item_name: prod.title,
@@ -357,6 +462,8 @@ export function processCurrentTimeSlot(state: VirtualLayerState, nowMs: number =
           details: JSON.stringify({ userName: maskedUser, productTitle: prod.title }),
           is_simulated: 1,
           created_at: new Date(fireTimeMs).toISOString(),
+          delta_sold: 1,
+          delta_stock: -1,
         };
         state.recentVirtualEvents.unshift(buyEv);
         state.pendingFlushEvents.push(buyEv);
@@ -369,7 +476,7 @@ export function processCurrentTimeSlot(state: VirtualLayerState, nowMs: number =
           prod.lastRestockAt = new Date(fireTimeMs).toISOString();
 
           const restockEv: VirtualEventRow = {
-            id: `vevt_restock_${slot}_${prod.productId}`,
+            id: `sim_slot_${slot}_restock_${prod.productId}`,
             type: 'RESTOCK_PRODUCT',
             product_id: prod.productId,
             item_name: prod.title,
@@ -377,6 +484,7 @@ export function processCurrentTimeSlot(state: VirtualLayerState, nowMs: number =
             details: JSON.stringify({ restockAmount, productTitle: prod.title }),
             is_simulated: 1,
             created_at: new Date(fireTimeMs + 500).toISOString(),
+            delta_stock: restockAmount,
           };
           state.recentVirtualEvents.unshift(restockEv);
           state.pendingFlushEvents.push(restockEv);
@@ -384,15 +492,14 @@ export function processCurrentTimeSlot(state: VirtualLayerState, nowMs: number =
       }
     } else if (typeRoll < 0.91) {
       // 19% CLAIM_GIVEAWAY (Săn quà ảo)
-      const availableGw = Array.from(state.giveaways.values()).filter(g => g.realRemaining > 0 && g.priority !== 'off');
-      if (availableGw.length > 0) {
-        const gw = availableGw[Math.floor(rng() * availableGw.length)];
+      if (sortedGiveaways.length > 0) {
+        const gw = sortedGiveaways[Math.floor(rng() * sortedGiveaways.length)];
         gw.virtualClaimed += 1;
         gw.virtualRemainingBuffer -= 1;
         state.dirtyAggregateIds.add(gw.campaignId);
 
         const gwEv: VirtualEventRow = {
-          id: `vevt_gw_${slot}_${gw.campaignId}`,
+          id: `sim_slot_${slot}_gw_${gw.campaignId}`,
           type: 'CLAIM_GIVEAWAY',
           product_id: gw.campaignId,
           item_name: gw.title,
@@ -400,6 +507,8 @@ export function processCurrentTimeSlot(state: VirtualLayerState, nowMs: number =
           details: JSON.stringify({ userName: maskedUser, giveawayTitle: gw.title }),
           is_simulated: 1,
           created_at: new Date(fireTimeMs).toISOString(),
+          delta_claimed: 1,
+          delta_remaining: -1,
         };
         state.recentVirtualEvents.unshift(gwEv);
         state.pendingFlushEvents.push(gwEv);
@@ -410,6 +519,20 @@ export function processCurrentTimeSlot(state: VirtualLayerState, nowMs: number =
           gw.virtualRemainingBuffer += restockAmount;
           gw.virtualRestockCount += 1;
           gw.lastRestockAt = new Date(fireTimeMs).toISOString();
+
+          const restockEv: VirtualEventRow = {
+            id: `sim_slot_${slot}_restock_gw_${gw.campaignId}`,
+            type: 'RESTOCK_PRODUCT',
+            product_id: gw.campaignId,
+            item_name: gw.title,
+            amount: restockAmount,
+            details: JSON.stringify({ restockAmount, giveawayTitle: gw.title }),
+            is_simulated: 1,
+            created_at: new Date(fireTimeMs + 500).toISOString(),
+            delta_remaining: restockAmount,
+          };
+          state.recentVirtualEvents.unshift(restockEv);
+          state.pendingFlushEvents.push(restockEv);
         }
       }
     } else if (typeRoll < 0.95) {
@@ -417,7 +540,7 @@ export function processCurrentTimeSlot(state: VirtualLayerState, nowMs: number =
       const amounts = [50000, 100000, 200000, 500000];
       const amount = amounts[Math.floor(rng() * amounts.length)];
       const depEv: VirtualEventRow = {
-        id: `vevt_dep_${slot}`,
+        id: `sim_slot_${slot}_dep`,
         type: 'DEPOSIT_WALLET',
         amount,
         details: JSON.stringify({ userName: maskedUser, amount }),
@@ -428,9 +551,8 @@ export function processCurrentTimeSlot(state: VirtualLayerState, nowMs: number =
       state.pendingFlushEvents.push(depEv);
     } else if (typeRoll < 0.98) {
       // 3% RESTOCK_PRODUCT standalone
-      const availableProducts = Array.from(state.products.values()).filter(p => p.realStock > 0);
-      if (availableProducts.length > 0) {
-        const prod = availableProducts[Math.floor(rng() * availableProducts.length)];
+      if (sortedProducts.length > 0) {
+        const prod = sortedProducts[Math.floor(rng() * sortedProducts.length)];
         const rAmount = Math.max(1, prod.autoRestockAmount || 20);
         prod.virtualBuffer += rAmount;
         prod.virtualRestockCount += 1;
@@ -438,7 +560,7 @@ export function processCurrentTimeSlot(state: VirtualLayerState, nowMs: number =
         state.dirtyAggregateIds.add(prod.productId);
 
         const rEv: VirtualEventRow = {
-          id: `vevt_manual_restock_${slot}_${prod.productId}`,
+          id: `sim_slot_${slot}_manual_restock_${prod.productId}`,
           type: 'RESTOCK_PRODUCT',
           product_id: prod.productId,
           item_name: prod.title,
@@ -446,6 +568,7 @@ export function processCurrentTimeSlot(state: VirtualLayerState, nowMs: number =
           details: JSON.stringify({ restockAmount: rAmount, productTitle: prod.title }),
           is_simulated: 1,
           created_at: new Date(fireTimeMs).toISOString(),
+          delta_stock: rAmount,
         };
         state.recentVirtualEvents.unshift(rEv);
         state.pendingFlushEvents.push(rEv);
@@ -454,12 +577,13 @@ export function processCurrentTimeSlot(state: VirtualLayerState, nowMs: number =
       // 2% STATS_COPY
       const totalCount = 1200 + state.masterCopy.realClicks + state.masterCopy.virtualCopy;
       const statsEv: VirtualEventRow = {
-        id: `vevt_stats_${slot}`,
+        id: `sim_slot_${slot}_stats`,
         type: 'STATS_COPY',
         amount: totalCount,
         details: JSON.stringify({ count: totalCount }),
         is_simulated: 1,
         created_at: new Date(fireTimeMs).toISOString(),
+        delta_copy_clicks: 1,
       };
       state.recentVirtualEvents.unshift(statsEv);
       state.pendingFlushEvents.push(statsEv);
@@ -565,6 +689,21 @@ export async function getUnifiedRealtimePayload(env: any, waitUntil?: (p: Promis
     for (const ev of realHub.events.slice(0, 10)) {
       if (!ev || !ev.id || seenEventIds.has(ev.id)) continue;
       seenEventIds.add(ev.id);
+
+      const targetId = ev.productId || ev.giveawayId || undefined;
+      const realDelta: { sold?: number; stock?: number; claimed?: number; remaining?: number; copyClicks?: number } = {};
+      if (ev.type === 'BUY_STORE' || ev.type === 'BUY_UTILITY' || ev.type === 'BUY_PRODUCT') {
+        realDelta.sold = 1;
+        realDelta.stock = -1;
+      } else if (ev.type === 'CLAIM_GIVEAWAY') {
+        realDelta.claimed = 1;
+        realDelta.remaining = -1;
+      } else if (ev.type === 'COPY_CODE' || ev.type === 'STATS_COPY') {
+        realDelta.copyClicks = 1;
+      } else if (ev.type === 'RESTOCK_PRODUCT') {
+        realDelta.stock = ev.amount || 20;
+      }
+
       combinedEvents.push({
         id: ev.id,
         type: ev.type,
@@ -575,6 +714,8 @@ export async function getUnifiedRealtimePayload(env: any, waitUntil?: (p: Promis
         isRealUser: true,
         productId: ev.productId,
         giveawayId: ev.giveawayId,
+        targetId: targetId,
+        delta: realDelta,
       });
     }
   }
@@ -602,6 +743,26 @@ export async function getUnifiedRealtimePayload(env: any, waitUntil?: (p: Promis
       message = `Hệ thống vừa ghi nhận ${(ve.amount || 1200).toLocaleString('vi-VN')} lượt sao chép giftcode hôm nay!`;
     }
 
+    const simDelta: { sold?: number; stock?: number; claimed?: number; remaining?: number; copyClicks?: number } = {};
+    if (typeof ve.delta_sold === 'number') simDelta.sold = ve.delta_sold;
+    if (typeof ve.delta_stock === 'number') simDelta.stock = ve.delta_stock;
+    if (typeof ve.delta_claimed === 'number') simDelta.claimed = ve.delta_claimed;
+    if (typeof ve.delta_remaining === 'number') simDelta.remaining = ve.delta_remaining;
+    if (typeof ve.delta_copy_clicks === 'number') simDelta.copyClicks = ve.delta_copy_clicks;
+
+    // Fallback from CONVERSION_TABLE if not explicitly set
+    if (Object.keys(simDelta).length === 0) {
+      const conv = CONVERSION_TABLE[ve.type];
+      if (conv && conv.delta) {
+        if (typeof conv.delta.sold === 'number') simDelta.sold = conv.delta.sold;
+        if (typeof conv.delta.stock === 'number') simDelta.stock = conv.delta.stock;
+        if (typeof conv.delta.claimed === 'number') simDelta.claimed = conv.delta.claimed;
+        if (typeof conv.delta.remaining === 'number') simDelta.remaining = conv.delta.remaining;
+        if (typeof conv.delta.copyClicks === 'number') simDelta.copyClicks = conv.delta.copyClicks;
+        if (typeof conv.delta.restock === 'number') simDelta.stock = ve.amount || conv.delta.restock;
+      }
+    }
+
     combinedEvents.push({
       id: ve.id,
       type: ve.type,
@@ -612,6 +773,9 @@ export async function getUnifiedRealtimePayload(env: any, waitUntil?: (p: Promis
       isRealUser: false,
       is_simulated: true,
       productId: ve.product_id,
+      giveawayId: ve.type === 'CLAIM_GIVEAWAY' ? ve.product_id : undefined,
+      targetId: ve.product_id,
+      delta: simDelta,
     });
   }
 
@@ -674,6 +838,8 @@ export async function getUnifiedRealtimePayload(env: any, waitUntil?: (p: Promis
     success: true,
     server_time: now,
     events: combinedEvents.slice(0, 15),
+    active_event: combinedEvents[0] || null,
+    conversion_table: CONVERSION_TABLE,
     counters: {
       products: productCounters,
       giveaways: giveawayCounters,

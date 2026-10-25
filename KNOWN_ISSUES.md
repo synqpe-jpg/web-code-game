@@ -10,6 +10,29 @@
 
 ## 1. DANH MỤC LỖI & CÁC BẪY ĐÃ THẤT BẠI (DO NOT REPEAT)
 
+### ISSUE-121: Thông Báo Toast Và Bộ Đếm Không Đồng Bộ, Số Ảo Nhảy Giật Do Client Sinh Ghost Notification & Bỏ Quên Giveaway Trong getDisplayStock
+- **Triệu chứng**:
+  - Thông báo nổ trên web nhưng không có dòng sổ tương ứng trên server (ghost notifications).
+  - Quà tặng Rotwood nhảy đảo ngược: (1, 19) $\rightarrow$ (2, 18) $\rightarrow$ (1, 19) $\rightarrow$ (3, 17).
+  - Luồng sự kiện im lặng gần 10 phút sau khi mở trang web.
+- **Nguyên nhân gốc rễ**:
+  1. *Lệch Edge Isolate & Tra cứu thiếu Giveaway trong `getDisplayStock`*: `getDisplayStock` chỉ tra cứu `serverProductCounters` mà bỏ qua `serverGiveawayCounters`, làm giveaway rơi về fallback tính toán cục bộ.
+  2. *Ghost Notifications Trên Client*: `MarketingNotificationToast.tsx` chạy timer PRNG sinh thông báo ảo cục bộ độc lập với server ledger.
+  3. *Client-side Counter Mutate*: Khi toast nổ, client gọi `recordVirtualSale` / `recordVirtualGiveawayClaim` làm biến thiên số cục bộ trên client độc lập với server.
+  4. *Discard sự kiện cũ quá ngắn*: Client kiểm tra `fireTime + 60000 <= sessionStartTime` làm mất toàn bộ sự kiện khi mở tab mới.
+- **Giải pháp chuẩn đã kiểm chứng**:
+  1. *Sổ Cái Máy Chủ Duy Nhất*: Máy chủ sinh sự kiện theo slot thời gian neo đầu ngày (`getVnDayAnchor`), gắn kèm `delta` chuẩn (`sold`, `stock`, `claimed`, `remaining`, `copyClicks`).
+  2. *Triệt Tiêu Isolate Drift*: Thuật toán replay xác định từ baseline đầu ngày với danh sách sort cố định giúp 100% isolate cho cùng một kết quả.
+  3. *Bổ sung tra cứu Giveaway*: `getDisplayStock` kiểm tra cả `serverGiveawayCounters.has(productId)`.
+  4. *Client Chỉ Tiêu Thụ Sổ Cái*: Toast chỉ hiển thị từ `serverLedgerEventQueue`. Khi mất mạng > 60s, chỉ phát lại sự kiện đã nhận, không tự sinh mới.
+  5. *Vô hiệu hóa Local Mutation*: Không trừ/cộng dồn số cục bộ khi đã có server SSOT.
+- ⛔ **CÁCH SỬA ĐÃ THẤT BẠI - TUYỆT ĐỐI KHÔNG LẶP LẠI**:
+  - ❌ *Không để client tự sinh thông báo bằng PRNG cục bộ*: Mọi thông báo phải bắt nguồn từ server ledger.
+  - ❌ *Không bỏ quên `serverGiveawayCounters` trong `getDisplayStock`*: Cả sản phẩm và quà tặng đều phải được đọc từ SSOT.
+  - ❌ *Không để client mutate trừ số đếm khi đã có server SSOT*: Dễ gây trừ 2 lần (double deduction).
+
+---
+
 ### ISSUE-120: Phân Loại Sai Action Đọc Thành Thao Tác Ghi & Lệch Router Khi Gọi Endpoint Ingest Bằng Khóa Kiểm Toán / Crawler
 - **Triệu chứng**:
   - Khi khóa kiểm toán tạm thời (prefix `wcg_audit_temp_`) gọi `get_virtual_analytics`, server trả về HTTP 403 Forbidden với thông điệp: *"Thao tác ghi 'get_virtual_analytics' bị nghiêm cấm đối với khóa kiểm toán"*.

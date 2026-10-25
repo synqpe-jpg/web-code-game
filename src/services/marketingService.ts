@@ -262,6 +262,11 @@ class MarketingService {
     virtual: 0,
   };
 
+  // Authoritative Server Ledger Event Queue
+  private serverLedgerEventQueue: MarketingNotification[] = [];
+  private cachedLedgerEvents: MarketingNotification[] = [];
+  private lastLedgerSyncTime: number = 0;
+
   constructor() {
     // Purge legacy client-side drift keys (Rule: Client displays SSOT numbers from server, zero localStorage drift)
     if (typeof window !== 'undefined') {
@@ -1706,6 +1711,10 @@ class MarketingService {
       const copyKey = `copy_${notifId}`;
       if (this.processedStockNotifIds.has(copyKey)) return;
       this.processedStockNotifIds.add(copyKey);
+      if (this.serverMasterCopy && this.serverMasterCopy.count > 0) {
+        // Authoritative server master copy already incorporates this event
+        return;
+      }
     }
     const today = this.getTodayDateKey();
     if (this.currentClickDate && this.currentClickDate !== today) {
@@ -2052,6 +2061,9 @@ class MarketingService {
 
   public boostProductStock(productId: string, amount: number = 20, notifId?: string): number {
     if (!productId) return 0;
+    if (this.serverProductCounters.has(productId) || this.serverGiveawayCounters.has(productId)) {
+      return this.getDisplayStock(productId);
+    }
     if (notifId) {
       const restockKey = notifId.startsWith('restock_') ? notifId : `restock_${notifId}`;
       if (this.processedStockNotifIds.has(restockKey)) {
@@ -2150,6 +2162,11 @@ class MarketingService {
       const serverItem = this.serverProductCounters.get(productId)!;
       // Floor rule: display_stock >= baseStock (Bộ đệm ảo không âm, không thấp hơn tồn gốc)
       return Math.max(baseStock, serverItem.stock);
+    }
+    if (productId && this.serverGiveawayCounters.has(productId)) {
+      const serverGw = this.serverGiveawayCounters.get(productId)!;
+      // Floor rule: display_remaining >= baseStock (Bộ đệm ảo quà tặng không âm, không thấp hơn mã gốc)
+      return Math.max(baseStock, serverGw.remaining);
     }
 
     // 2. Safe Fallback before first server poll response
@@ -2900,6 +2917,46 @@ class MarketingService {
     return 'Khách vãng lai';
   }
 
+  // --- Authoritative Server Ledger Event Queue ---
+  public hasPendingLedgerEvent(): boolean {
+    return this.peekLedgerEvent() !== null;
+  }
+
+  public peekLedgerEvent(): MarketingNotification | null {
+    while (this.serverLedgerEventQueue.length > 0) {
+      const evt = this.serverLedgerEventQueue[0];
+      if (evt && this.isTypeEnabled(evt.type, evt.itemType)) {
+        return evt;
+      }
+      this.serverLedgerEventQueue.shift();
+    }
+    return null;
+  }
+
+  public getNextLedgerEvent(): MarketingNotification | null {
+    // 1. Fresh event from server ledger queue
+    while (this.serverLedgerEventQueue.length > 0) {
+      const evt = this.serverLedgerEventQueue.shift();
+      if (evt && this.isTypeEnabled(evt.type, evt.itemType)) {
+        return evt;
+      }
+    }
+
+    // 2. Offline fallback: replay previously verified events from server ledger if disconnected > 60s
+    const now = Date.now();
+    if (this.cachedLedgerEvents.length > 0 && (now - this.lastLedgerSyncTime > 60000)) {
+      const replayEvt = this.cachedLedgerEvents[Math.floor(Math.random() * this.cachedLedgerEvents.length)];
+      if (replayEvt && this.isTypeEnabled(replayEvt.type, replayEvt.itemType)) {
+        return {
+          ...replayEvt,
+          id: `replay_${replayEvt.id}_${now}`,
+        };
+      }
+    }
+
+    return null;
+  }
+
   // --- Real Event Queue ---
   public hasPendingRealEvent(): boolean {
     return this.peekRealEvent() !== null;
@@ -3204,8 +3261,8 @@ class MarketingService {
       this.notifyStockChanged('*', 0);
     }
 
-    // Synchronize lowest stock for products from Hub across all devices instantly (3s)
-    if (lowestProductStock && typeof lowestProductStock === 'object') {
+    // Synchronize lowest stock for products from Hub across all devices instantly (3s) - ONLY if counters not present
+    if (!counters && lowestProductStock && typeof lowestProductStock === 'object') {
       let stockChanged = false;
       const nowMs = Date.now();
       Object.entries(lowestProductStock).forEach(([k, v]) => {
@@ -3250,8 +3307,8 @@ class MarketingService {
       }
     }
 
-    // Synchronize lowest giveaway remaining from Hub across all devices instantly (3s)
-    if (lowestGiveawayRemaining && typeof lowestGiveawayRemaining === 'object') {
+    // Synchronize lowest giveaway remaining from Hub across all devices instantly (3s) - ONLY if counters not present
+    if (!counters && lowestGiveawayRemaining && typeof lowestGiveawayRemaining === 'object') {
       let gwStockChanged = false;
       const nowMs = Date.now();
       Object.entries(lowestGiveawayRemaining).forEach(([k, v]) => {
@@ -3295,7 +3352,8 @@ class MarketingService {
     }
 
     if (Array.isArray(serverEvents) && serverEvents.length > 0) {
-      const TTL_MS = 5 * 60 * 1000; // 5 minutes TTL for real events
+      this.lastLedgerSyncTime = Date.now();
+      const TTL_MS = 10 * 60 * 1000; // 10 minutes TTL for ledger events
 
       let deletedStoreSet = new Set<string>();
       let deletedUtilSet = new Set<string>();
@@ -3320,6 +3378,19 @@ class MarketingService {
         }
       } catch {}
 
+      // Cache all received valid events for offline replay
+      serverEvents.forEach((evt) => {
+        if (!evt || !evt.id) return;
+        if (evt.type === 'BUY_PRODUCT' && evt.productId && (deletedStoreSet.has(evt.productId) || deletedUtilSet.has(evt.productId))) return;
+        if (evt.type === 'CLAIM_GIVEAWAY' && evt.giveawayId && deletedGwSet.has(evt.giveawayId)) return;
+        if (!this.cachedLedgerEvents.some(c => c.id === evt.id)) {
+          this.cachedLedgerEvents.push(evt);
+        }
+      });
+      if (this.cachedLedgerEvents.length > 30) {
+        this.cachedLedgerEvents = this.cachedLedgerEvents.slice(this.cachedLedgerEvents.length - 30);
+      }
+
       // Process from earliest scheduled fire time to latest
       const sorted = [...serverEvents].sort(
         (a, b) => (Number(a.scheduledFireTime || a.timestamp || 0)) - (Number(b.scheduledFireTime || b.timestamp || 0))
@@ -3332,16 +3403,8 @@ class MarketingService {
 
         const fireTime = Number(evt.scheduledFireTime) || Number(evt.timestamp) || calibratedNow;
 
-        // TTL check: discard events older than 5 mins
+        // TTL check: discard events older than 10 mins
         if (calibratedNow - fireTime > TTL_MS) return;
-
-        // PAST EVENTS CHECK: Cho phép hiển thị các sự kiện thật vừa diễn ra trong vòng 60 giây gần đây
-        // ngay cả khi người dùng vừa mới tải lại trang hoặc mở trình duyệt mới, để giữ hiệu ứng FOMO sôi động.
-        // Chỉ loại bỏ các sự kiện đã diễn ra hơn 60 giây trước khi phiên web hiện tại bắt đầu.
-        if (fireTime + 60000 <= this.sessionStartTime) {
-          this.markNotificationProcessed(evt.id);
-          return;
-        }
 
         // Deleted check: discard deleted products/giveaways
         if (evt.type === 'BUY_PRODUCT' && evt.productId) {
@@ -3357,24 +3420,7 @@ class MarketingService {
           }
         }
 
-        // Semantic deduplication: ignore if same product/giveaway action within realUserCooldownSec window
-        const targetId = evt.productId || evt.giveawayId || evt.gameSlug || '';
-        const cdMs = Math.max(5, Number(this.config.realUserCooldownSec) || 20) * 1000;
-        if (targetId) {
-          const isDuplicateAction = this.recentRealEvents.some((r) => {
-            if (!r) return false;
-            const rTarget = r.productId || r.giveawayId || r.gameSlug || '';
-            const rTime = Number(r.scheduledFireTime) || Number(r.timestamp) || 0;
-            return r.type === evt.type && rTarget === targetId && Math.abs(rTime - fireTime) < cdMs;
-          });
-          if (isDuplicateAction) {
-            this.markNotificationProcessed(evt.id);
-            return;
-          }
-        }
-
         evt.scheduledFireTime = fireTime;
-        evt.isRealUser = true;
         if (!evt.timeAgo || evt.timeAgo.includes('trước')) {
           evt.timeAgo = 'vừa xong';
         }
@@ -3382,21 +3428,30 @@ class MarketingService {
         // Ensure name and message are masked if config.isNameMasked is active
         evt = this.sanitizeNotificationMasking(evt);
 
-        const existing = this.recentRealEvents.find((e) => e && e.id === evt.id);
-        if (!existing) {
-          this.recentRealEvents.push(evt);
+        // Add to authoritative server ledger event queue
+        if (!this.serverLedgerEventQueue.some((e) => e && e.id === evt.id)) {
+          this.serverLedgerEventQueue.push(evt);
           newEventsAdded = true;
-        } else {
-          existing.scheduledFireTime = fireTime;
-          existing.isRealUser = true;
-          existing.userName = evt.userName;
-          existing.message = evt.message;
+        }
+
+        // Also update recentRealEvents for backwards-compatibility if marked real
+        if (evt.isRealUser) {
+          const existing = this.recentRealEvents.find((e) => e && e.id === evt.id);
+          if (!existing) {
+            this.recentRealEvents.push(evt);
+          }
         }
       });
+
+      // Keep serverLedgerEventQueue to max 20 events
+      if (this.serverLedgerEventQueue.length > 20) {
+        this.serverLedgerEventQueue = this.serverLedgerEventQueue.slice(this.serverLedgerEventQueue.length - 20);
+      }
 
       if (newEventsAdded) {
         this.sortAndPruneRealEventQueue();
         if (typeof window !== 'undefined') {
+          window.dispatchEvent(new CustomEvent('wcg_new_ledger_events_available'));
           window.dispatchEvent(new CustomEvent('wcg_new_real_events_available'));
         }
       }

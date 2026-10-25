@@ -197,17 +197,16 @@ export const MarketingNotificationToast: React.FC<MarketingNotificationToastProp
 
     // Luôn ưu tiên tăng giảm số lượng của web theo thông báo nổ (bảo toàn 1 - 1 tuyệt đối cho cả thật và ảo):
     marketingService.recordToastFiredTime();
-    if (notif.type === 'BUY_PRODUCT' && notif.productId) {
-      marketingService.recordVirtualSale(notif.productId, notif.id);
-    } else if (notif.type === 'CLAIM_GIVEAWAY' && (notif.giveawayId || notif.productId)) {
-      const gwId = notif.giveawayId || notif.productId;
-      if (gwId) {
-        marketingService.recordVirtualGiveawayClaim(gwId, notif.id);
-      }
-    } else if (notif.type === 'COPY_CODE') {
-      marketingService.incrementLiveCounter(1, notif.id);
-    } else if (notif.type === 'RESTOCK_PRODUCT' && notif.productId) {
-      marketingService.boostProductStock(notif.productId, notif.restockAmount || 20, notif.id);
+    if (notif.productId) {
+      marketingService.notifyStockChanged(notif.productId, marketingService.getDisplayStock(notif.productId));
+      marketingService.notifySoldCountChanged(notif.productId, marketingService.getSoldDisplay({ id: notif.productId }));
+    }
+    if (notif.giveawayId) {
+      marketingService.notifyStockChanged(notif.giveawayId, marketingService.getDisplayStock(notif.giveawayId));
+      marketingService.notifySoldCountChanged(notif.giveawayId, marketingService.getClaimedDisplay({ id: notif.giveawayId }));
+    }
+    if (notif.type === 'COPY_CODE') {
+      marketingService.broadcastCurrentCount();
     }
 
     const config = marketingService.getConfig();
@@ -236,7 +235,7 @@ export const MarketingNotificationToast: React.FC<MarketingNotificationToastProp
     return { games, storeProducts, utilityProducts, giveaways, inventory };
   }, []);
 
-  // Globally Synchronized Deterministic Slot Scheduler
+  // Globally Synchronized Server Ledger Scheduler
   const scheduleDeterministicSlot = useCallback(() => {
     try {
       const config = marketingService.getConfig();
@@ -248,28 +247,28 @@ export const MarketingNotificationToast: React.FC<MarketingNotificationToastProp
         return;
       }
 
-      const now = marketingService.getCalibratedNow();
+      const displayDurationMs = Math.max(3, Number(config.displayDuration) || 5) * 1000;
 
       // =========================================================================
-      // 1. REAL USER EVENTS (Luồng thông báo riêng cho Người Dùng Thật - Top Priority)
+      // 1. LOCAL REAL USER EVENTS (Local click feedback - Top Priority)
       // =========================================================================
       if (marketingService.hasPendingRealEvent()) {
         const nextRealEvent = marketingService.peekRealEvent();
         if (nextRealEvent) {
-          const evtTimeMs = Number(nextRealEvent.scheduledFireTime) || Number(nextRealEvent.timestamp) || now;
-          const displayDurationMs = Math.max(3, Number(config.displayDuration) || 5) * 1000;
-
-          // Case 1: Event was created more than 180s ago -> discard stale event
-          if (now - evtTimeMs > 180000) {
-            marketingService.popRealEvent();
-            if (nextRealEvent.id) marketingService.markNotificationProcessed(nextRealEvent.id);
-            if (timerRef.current) clearTimeout(timerRef.current);
-            timerRef.current = setTimeout(() => scheduleRef.current(), 50);
-            return;
-          }
-
-          // Case 2: Fresh real user event -> NỔ LUÔN LẬP TỨC (0s delay)!
           marketingService.popRealEvent();
+          displayNotification(nextRealEvent, displayDurationMs);
+          if (timerRef.current) clearTimeout(timerRef.current);
+          timerRef.current = setTimeout(() => scheduleRef.current(), displayDurationMs + 1500);
+          return;
+        }
+      }
+
+      // =========================================================================
+      // 2. AUTHORITATIVE SERVER LEDGER EVENTS (Single Source of Truth)
+      // =========================================================================
+      if (marketingService.hasPendingLedgerEvent()) {
+        const nextLedgerEvent = marketingService.getNextLedgerEvent();
+        if (nextLedgerEvent) {
           const datasets = getDatasets();
           let isValid = true;
 
@@ -287,109 +286,48 @@ export const MarketingNotificationToast: React.FC<MarketingNotificationToastProp
             }
           } catch {}
 
-          if (nextRealEvent.type === 'BUY_PRODUCT' && nextRealEvent.productId) {
-            if (deletedStoreSet.has(nextRealEvent.productId) || deletedUtilSet.has(nextRealEvent.productId)) {
+          if (nextLedgerEvent.type === 'BUY_PRODUCT' && nextLedgerEvent.productId) {
+            if (deletedStoreSet.has(nextLedgerEvent.productId) || deletedUtilSet.has(nextLedgerEvent.productId)) {
               isValid = false;
             } else {
-              const storeProd = (datasets.storeProducts || []).find((p) => p && p.id === nextRealEvent.productId);
-              const utilProd = (datasets.utilityProducts || []).find((u) => u && u.id === nextRealEvent.productId);
+              const storeProd = (datasets.storeProducts || []).find((p) => p && p.id === nextLedgerEvent.productId);
+              const utilProd = (datasets.utilityProducts || []).find((u) => u && u.id === nextLedgerEvent.productId);
               const prod = storeProd || utilProd;
               if (prod && prod.is_active === false) {
                 isValid = false;
               }
             }
-          } else if (nextRealEvent.type === 'CLAIM_GIVEAWAY' && nextRealEvent.giveawayId) {
-            if (deletedGwSet.has(nextRealEvent.giveawayId)) {
+          } else if (nextLedgerEvent.type === 'CLAIM_GIVEAWAY' && nextLedgerEvent.giveawayId) {
+            if (deletedGwSet.has(nextLedgerEvent.giveawayId)) {
               isValid = false;
             } else {
-              const gw = (datasets.giveaways || []).find((g) => g && g.id === nextRealEvent.giveawayId);
+              const gw = (datasets.giveaways || []).find((g) => g && g.id === nextLedgerEvent.giveawayId);
               if (gw && gw.is_active === false) {
                 isValid = false;
               }
             }
           }
 
-          if (isValid && !marketingService.isTypeEnabled(nextRealEvent.type, nextRealEvent.itemType)) {
+          if (isValid && !marketingService.isTypeEnabled(nextLedgerEvent.type, nextLedgerEvent.itemType)) {
             isValid = false;
           }
 
           if (isValid) {
-            nextRealEvent.isRealUser = true;
-            displayNotification(nextRealEvent, displayDurationMs);
+            displayNotification(nextLedgerEvent, displayDurationMs);
+            const cycleIntervalMs = 25000 + Math.floor(Math.random() * 5000); // 25s - 30s rhythm
+            const waitToNextToast = Math.max(12000, cycleIntervalMs - displayDurationMs);
             if (timerRef.current) clearTimeout(timerRef.current);
-            timerRef.current = setTimeout(() => scheduleRef.current(), displayDurationMs + 1500);
-            return;
-          } else {
-            if (nextRealEvent.id) marketingService.markNotificationProcessed(nextRealEvent.id);
-            if (timerRef.current) clearTimeout(timerRef.current);
-            timerRef.current = setTimeout(() => scheduleRef.current(), 50);
+            timerRef.current = setTimeout(() => scheduleRef.current(), waitToNextToast);
             return;
           }
         }
       }
-      const slotDuration = marketingService.getSlotDurationMs(now);
-      const slotIndex = Math.floor(now / slotDuration);
-      const slotStartMs = slotIndex * slotDuration;
-      const datasets = getDatasets();
 
-      // Check notification for current time-slot
-      const currentSlotData = marketingService.getDeterministicNotification(
-        slotStartMs,
-        datasets.games,
-        datasets.storeProducts,
-        datasets.inventory,
-        datasets.utilityProducts,
-        datasets.giveaways
-      );
-
-      if (currentSlotData) {
-        const { notif, fireTimeMs, displayDurationMs } = currentSlotData;
-        const endTimeMs = fireTimeMs + displayDurationMs;
-        const isAlreadyProcessed = notif.id ? marketingService.isNotificationProcessed(notif.id) : false;
-
-        // 1. Toast is scheduled in the future of the current slot
-        if (now < fireTimeMs && !isAlreadyProcessed) {
-          const waitMs = Math.max(50, fireTimeMs - now);
-          if (timerRef.current) clearTimeout(timerRef.current);
-          timerRef.current = setTimeout(() => {
-            // Hiển thị đồng bộ 100% theo PRNG Dòng thời gian Unix UTC
-            displayNotification(notif, displayDurationMs);
-            const nextSlotStartMs = (slotIndex + 1) * slotDuration;
-            const timeUntilNextSlot = Math.max(100, nextSlotStartMs - marketingService.getCalibratedNow());
-            timerRef.current = setTimeout(() => {
-              scheduleRef.current();
-            }, timeUntilNextSlot);
-          }, waitMs);
-          return;
-        }
-
-        // 2. Toast is actively live right now in current slot
-        if (now >= fireTimeMs && now < endTimeMs && !isAlreadyProcessed) {
-          const remainingDisplayMs = Math.max(1000, endTimeMs - now);
-          const timeSinceLastDismiss = Date.now() - lastToastDismissedTimeRef.current;
-          if (remainingDisplayMs >= 2000 && timeSinceLastDismiss >= 3000) {
-            if (currentNotificationIdRef.current !== notif.id) {
-              displayNotification(notif, remainingDisplayMs);
-            }
-          }
-
-          const nextSlotStartMs = (slotIndex + 1) * slotDuration;
-          const timeUntilNextSlot = Math.max(100, nextSlotStartMs - marketingService.getCalibratedNow());
-          if (timerRef.current) clearTimeout(timerRef.current);
-          timerRef.current = setTimeout(() => {
-            scheduleRef.current();
-          }, timeUntilNextSlot);
-          return;
-        }
-      }
-
-      // 3. Past current slot window -> wait until exact next slot start
-      const nextSlotStartMs = (slotIndex + 1) * slotDuration;
-      const waitToNextSlotMs = Math.max(100, nextSlotStartMs - now);
+      // No pending event in ledger queue right now -> wait 10s for next poller cycle
       if (timerRef.current) clearTimeout(timerRef.current);
-      timerRef.current = setTimeout(() => scheduleRef.current(), waitToNextSlotMs);
+      timerRef.current = setTimeout(() => scheduleRef.current(), 10000);
     } catch (err) {
-      console.warn('[MarketingToast] Error scheduling deterministic slot:', err);
+      console.warn('[MarketingToast] Error scheduling ledger event:', err);
       if (timerRef.current) clearTimeout(timerRef.current);
       timerRef.current = setTimeout(() => scheduleRef.current(), 15000);
     }
@@ -446,59 +384,38 @@ export const MarketingNotificationToast: React.FC<MarketingNotificationToastProp
     return () => unsubscribe();
   }, [displayNotification, isSnoozed]);
 
-  // Listen for real events arriving from poller or edge sync (Luồng Người Dùng Thật)
+  // Listen for ledger events arriving from poller or edge sync
   useEffect(() => {
-    const handleNewRealEvents = () => {
+    const handleNewEvents = () => {
       if (isTabHiddenRef.current || isSnoozed()) return;
-      // If currently showing a simulated system event, dismiss it and display real user event after smooth transition!
-      const currId = currentNotificationIdRef.current;
-      const isSimulatedSystemEvent = currId && currId.startsWith('slot_');
-      if (isSimulatedSystemEvent) {
-        dismissNotification();
+      if (!currentNotificationIdRef.current) {
         if (timerRef.current) clearTimeout(timerRef.current);
-        timerRef.current = setTimeout(() => scheduleRef.current(), 320);
-      } else if (!currId) {
-        if (timerRef.current) clearTimeout(timerRef.current);
-        timerRef.current = setTimeout(() => scheduleRef.current(), 50);
+        timerRef.current = setTimeout(() => scheduleRef.current(), 100);
       }
     };
 
-    window.addEventListener('wcg_new_real_events_available', handleNewRealEvents);
-    return () => window.removeEventListener('wcg_new_real_events_available', handleNewRealEvents);
-  }, [dismissNotification, isSnoozed]);
+    window.addEventListener('wcg_new_ledger_events_available', handleNewEvents);
+    window.addEventListener('wcg_new_real_events_available', handleNewEvents);
+    return () => {
+      window.removeEventListener('wcg_new_ledger_events_available', handleNewEvents);
+      window.removeEventListener('wcg_new_real_events_available', handleNewEvents);
+    };
+  }, [isSnoozed]);
 
-  // Initial startup: calibrate with server atomic time, trigger welcome toast & kick off deterministic schedule
+  // Initial startup: calibrate with server atomic time, trigger welcome toast from server ledger & kick off schedule
   useEffect(() => {
     const config = marketingService.getConfig();
     if (!config.isEnabled) return;
 
     let isMounted = true;
 
-    // 1. Initial Welcome Toast: Kích hoạt ngay sau initialDelay để tạo độ sôi động tức thì
+    // 1. Initial Welcome Toast: Kích hoạt ngay sau initialDelay từ sự kiện sổ server
     const initDelaySec = Math.max(1, Math.min(60, Number(config.initialDelay) || 3));
     initialWelcomeTimerRef.current = setTimeout(() => {
       if (!isMounted || isTabHiddenRef.current || isSnoozed()) return;
       if (!marketingService.getConfig().isEnabled) return;
       if (!currentNotificationIdRef.current) {
-        const datasets = getDatasets();
-        const welcomeData = marketingService.getDeterministicNotification(
-          marketingService.getCalibratedNow(),
-          datasets.games,
-          datasets.storeProducts,
-          datasets.inventory,
-          datasets.utilityProducts,
-          datasets.giveaways
-        );
-        if (welcomeData && welcomeData.notif) {
-          // Welcome toast dynamically rotates a fresh random virtual account from the configured 90 pool
-          const welcomeAcc = marketingService.getRandomVirtualAccount();
-          const maskedWelcomeAcc = marketingService.maskName(welcomeAcc);
-          if (welcomeData.notif.userName && welcomeData.notif.message && welcomeData.notif.message.includes(welcomeData.notif.userName)) {
-            welcomeData.notif.message = welcomeData.notif.message.replace(welcomeData.notif.userName, maskedWelcomeAcc);
-          }
-          welcomeData.notif.userName = maskedWelcomeAcc;
-          displayNotification(welcomeData.notif, welcomeData.displayDurationMs);
-        }
+        scheduleRef.current();
       }
     }, initDelaySec * 1000);
 
@@ -510,13 +427,14 @@ export const MarketingNotificationToast: React.FC<MarketingNotificationToastProp
         if (data && typeof data.server_time === 'number') {
           marketingService.calibrateServerTime(data.server_time);
         }
-        if (data && (typeof data.master_copy_clicks === 'number' || data.real_product_sold_counts || data.real_giveaway_claimed_counts || data.peak_product_sold_counts)) {
+        if (data && (typeof data.master_copy_clicks === 'number' || data.real_product_sold_counts || data.real_giveaway_claimed_counts || data.peak_product_sold_counts || data.counters)) {
           marketingService.syncFromHub(
-            undefined,
+            data.events,
             data.master_copy_clicks,
             data.real_product_sold_counts,
             data.real_giveaway_claimed_counts,
             data.master_copy_clicks_date,
+            data.counters,
             data.peak_product_sold_counts,
             data.peak_giveaway_claimed_counts,
             data.lowest_product_stock,

@@ -7,6 +7,47 @@ Mỗi mục sửa lỗi đều ghi nhận **Nguyên nhân gốc rễ (Root Cause
 
 ## [2026-10-25]
 
+### 195. Đồng Bộ Nguyên Tử 1 - 1 Giữa Thông Báo Marketing Toast Và 5 Bộ Đếm Hiển Thị Qua Sổ Máy Chủ (Atomic Server Ledger FOMO Sync)
+- **Mô tả & Yêu cầu người dùng**:
+  - *"Thông báo nổ bình thường nhưng gắn nguyên tử với bộ đếm: một thông báo, mọi người cùng thấy, mọi số đổi theo đúng thông báo đó"*
+  - Khắc phục triệt để 3 triệu chứng đo đạc thực tế ngày 25/10/2026:
+    1. Quà tặng Rotwood tự nhảy số: (nhận ảo 1, đệm 19) $\rightarrow$ (2, 18) $\rightarrow$ (1, 19) $\rightarrow$ sau 1 thông báo thành (3, 17) (nhảy khi không có thông báo, đảo ngược lùi về số cũ, 1 thông báo đi kèm +2).
+    2. Có thông báo hiện trên trình duyệt mà không có dòng sổ tương ứng trên server (ví dụ thông báo mua VIP 7 Days lúc ~12:37, trong khi sổ server là 12:32 và 12:38) do trình duyệt tự sinh thông báo tách rời khỏi server ledger.
+    3. Luồng sự kiện từng im lặng gần 10 phút (12:19–12:29) trong khi nhịp chuẩn là ~35s.
+- **Nguyên nhân gốc rễ (Root Cause)**:
+  1. *Lệch Edge Isolate & Tra Cứu Thiếu Giveaway trong `getDisplayStock`*:
+     - `GiveawaysView.tsx` gọi `marketingService.getDisplayStock(campaign.id)`. Nhưng trong `marketingService.ts`, hàm này chỉ kiểm tra `serverProductCounters.has(id)` mà không kiểm tra `serverGiveawayCounters.has(id)`. Khiến quà tặng Rotwood bị rớt xuống fallback tính toán cục bộ, dẫn đến giá trị nhảy giật.
+  2. *Ghost Notifications Trên Client*:
+     - `MarketingNotificationToast.tsx` chạy timer riêng `scheduleDeterministicSlot` gọi `marketingService.getDeterministicNotification` sinh notification độc lập bằng PRNG trên client, tách rời hoàn toàn khỏi server ledger. Đồng thời, khi toast nổ nó gọi `recordVirtualSale` / `recordVirtualGiveawayClaim` làm biến thiên số cục bộ trên client độc lập với server.
+  3. *Nguyên Nhân Luồng Im Lặng 10 Phút*:
+     - Client so sánh `fireTime + 60000 <= this.sessionStartTime` và loại bỏ sạch toàn bộ event của server khi mới mở web.
+  4. *Ghi Đè Tồn Kho Cũ*:
+     - `syncFromHub` vẫn cho phép `lowestProductStock` và `lowestGiveawayRemaining` ghi đè `liveVirtualStockMap` ngay cả khi đã có `counters` (SSOT).
+- **Giải pháp đã triển khai (Solution)**:
+  1. *Sổ Cái Máy Chủ Duy Nhất (Single Source of Truth Server Ledger)*:
+     - Mở rộng `VirtualEventRow` bổ sung các trường delta nguyên tử: `delta_sold`, `delta_stock`, `delta_claimed`, `delta_remaining`, `delta_copy_clicks`.
+     - Công khai `CONVERSION_TABLE` chuẩn:
+       * `BUY_STORE` / `BUY_UTILITY`: `sold: 1, stock: -1`
+       * `CLAIM_GIVEAWAY`: `claimed: 1, remaining: -1`
+       * `COPY_CODE` / `STATS_COPY`: `copyClicks: 1`
+       * `RESTOCK_PRODUCT`: `stock` / `remaining: amount`
+       * `DEPOSIT_WALLET`: `{}`
+     - Neo slot thời gian theo đầu ngày theo giờ VN (`getVnDayAnchor`), replay xác định từ baseline đầu ngày với mảng sản phẩm/quà tặng được sắp xếp cố định (`sortedProducts`, `sortedGiveaways`) $\rightarrow$ 100% Edge isolate của Cloudflare cho cùng một slot $S$ đều tính ra cùng một trạng thái, triệt tiêu hoàn toàn Isolate Drift.
+  2. *Đồng Bộ Hóa Đầy Đủ Giveaway Trong `getDisplayStock`*:
+     - Bổ sung kiểm tra `this.serverGiveawayCounters.has(productId)` trả về `Math.max(baseStock, serverGw.remaining)`, chấm dứt việc Rotwood bị nhảy về fallback.
+  3. *Chấm Dứt Ghost Notification Client*:
+     - Xóa bỏ việc gọi `marketingService.getDeterministicNotification` trên client.
+     - `MarketingNotificationToast.tsx` hiển thị trực tiếp từ hàng đợi sổ cái máy chủ (`marketingService.getNextLedgerEvent()`).
+     - Khi mất mạng > 60s, chỉ phát lại (`replay`) các sự kiện đã nhận từ server ledger, tuyệt đối không tự bịa thêm.
+     - Vô hiệu hóa việc `recordVirtualSale`, `recordVirtualGiveawayClaim`, `boostProductStock`, `incrementLiveCounter` làm thay đổi số cục bộ khi đã có server SSOT.
+     - Ngăn `lowestProductStock` / `lowestGiveawayRemaining` ghi đè khi `counters` đã có mặt.
+  4. *Khắc Phục Luồng Im Lặng*:
+     - Nới lỏng TTL sự kiện lên 10 phút, cho phép hiển thị các sự kiện gần nhất từ sổ máy chủ ngay khi người dùng vừa vào trang web.
+- **Kết quả nghiệm thu**:
+  - Test suite `scripts/test_atomic_ledger_fomo.cjs` đạt 4/4 pass 100%.
+  - Toàn bộ 5 bộ test hồi quy (`audit_zero_test_artifacts`, `test_two_layer_fomo`, `test_temporary_audit_token`, `test_audit_key_analytics`, `test_atomic_ledger_fomo`) vượt qua 100%.
+  - Build frontend và Cloudflare edge worker bundle thành công 100%.
+
 ### 194. Cấp Quyền Đọc Phân Tích Ảo (get_virtual_analytics) & Giám Sát Quota D1 Cho Khóa Kiểm Toán Tạm Thời, Bổ Sung Cờ rejectPeakReports Và Khắc Phục Điều Hướng Router Crawler Key
 - **Mô tả & Yêu cầu người dùng**:
   - *"Mở quyền đọc analytics ảo + quota cho key kiểm toán (để Pine tự kiểm chứng, không cần đăng nhập admin)"*

@@ -3065,6 +3065,11 @@ export interface VirtualEventRow {
   details?: string;
   is_simulated: number;
   created_at: string;
+  delta_sold?: number;
+  delta_stock?: number;
+  delta_claimed?: number;
+  delta_remaining?: number;
+  delta_copy_clicks?: number;
 }
 
 /**
