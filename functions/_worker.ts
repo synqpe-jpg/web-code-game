@@ -11,6 +11,7 @@ import * as giveawaysClaimApi from './api/giveaways/claim';
 import * as adminMigrateApi from './api/admin/migrate';
 import * as adminAuditCountersApi from './api/admin/audit-counters';
 import * as adminSepayCreditApi from './api/admin/sepay-credit';
+import * as adminTemporaryTokenApi from './api/admin/temporary-token';
 import * as realtimeEventsApi from './api/realtime-events';
 import * as metricsSyncedApi from './api/metrics/synced';
 import * as gamesApi from './api/games';
@@ -431,6 +432,13 @@ export default {
       if (pathname === '/api/admin/sepay-credit') {
         if (method === 'POST') return await adminSepayCreditApi.onRequestPost(context);
         if (method === 'OPTIONS') return await adminSepayCreditApi.onRequestOptions(context);
+      }
+
+      // 8c-2. /api/admin/temporary-token (Temporary Audit Token Management)
+      if (pathname === '/api/admin/temporary-token') {
+        if (method === 'GET') return await adminTemporaryTokenApi.onRequestGet(context);
+        if (method === 'POST') return await adminTemporaryTokenApi.onRequestPost(context);
+        if (method === 'OPTIONS') return await adminTemporaryTokenApi.onRequestOptions(context);
       }
 
       // 8d. /api/crawl-article (AI Article Crawler & Extractor)
