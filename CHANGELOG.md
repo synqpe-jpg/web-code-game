@@ -7,6 +7,46 @@ Mỗi mục sửa lỗi đều ghi nhận **Nguyên nhân gốc rễ (Root Cause
 
 ## [2026-10-25]
 
+### 192. Kiến Trúc FOMO Hai Lớp (Two-Layer SSOT FOMO Engine), Tách Biệt Dữ Liệu Gốc, Bộ Đệm Ảo & Restock Tự Động, Triệt Tiêu Vòng Lặp Báo Peak Và Tối Ưu Quota Cloudflare D1
+- **Mô tả & Yêu cầu người dùng**:
+  - *"FOMO hai lớp: giữ dữ liệu gốc, thống kê ảo riêng, restock ảo theo cài đặt, tiết kiệm quota Cloudflare"*
+  - Khách cũ và khách mới, các thiết bị và trình duyệt khác nhau nhìn thấy số nhảy không đồng nhất (lúc vài trăm, lúc hơn ngàn rồi lại về vài trăm).
+  - Vòng lặp báo peak: Trình duyệt tự tính `high-water marks`, `getHourlyGrowth`, `getInHourProgression`, `liveFomo`, rồi liên tục gửi request `reportPeakMetrics` lên server làm cạn kiệt quota D1 ngày 24/10 (5.000.000 dòng đọc/ngày).
+  - Yêu cầu mới: Giữ nguyên 100% dữ liệu gốc để kiểm soát; số ảo thống kê riêng biệt trong bảng D1 riêng (`is_simulated: true`); lớp số ảo phủ trên sản phẩm (`virtual_buffer`) khi giảm chạm số tồn gốc trong kho (`floor = real_stock`) thì tự động tăng theo mức trong cài đặt FOMO (`autoRestockAmount`); toast và bộ đếm đồng bộ từ cùng 1 nguồn logic; tối ưu Cloudflare D1 không ghi theo từng toast, batch flush 5 phút/lần hoặc 200 sự kiện.
+- **Nguyên nhân gốc rễ (Root Cause)**:
+  1. *Tính toán phân tán và trôi số tại client*: Client tự tính số hiển thị bằng `Math.max(sold_count gốc, real) + virtual_sold_count + liveFomo delta + getHourlyGrowth + getInHourProgression` và lưu cục bộ vào `localStorage`. Các thiết bị truy cập ở thời điểm khác nhau có session anchor khác nhau dẫn đến con số hiển thị lệch nhau hoàn toàn giữa các máy.
+  2. *Vòng lặp báo peak (Peak Reporting Feedback Loop)*: Khi client mở web, bộ đếm tự tăng và gọi `reportPeakMetrics` gửi POST về `/api/sync`. Server nhận peak cao nhất rồi lưu vào `peak_product_sold_counts`, sau đó lại phân phối về cho các client khác. Điều này tạo ra chu trình tự thổi phồng số liệu (feedback loop) và làm phát sinh hàng triệu request đọc/ghi D1.
+  3. *Toast và bộ đếm chạy 2 luồng độc lập*: Toast phát sinh từ slot/feed riêng, trong khi bộ đếm tính từ hàm thời gian. Không có ràng buộc nguyên tử giữa toast bán hàng/restock và biến thiên bộ đệm.
+- **Giải pháp đã triển khai (Solution)**:
+  1. *Mô hình Dữ liệu Hai Lớp (Two-Layer Data Segregation)*:
+     - Lớp GỐC (Raw Layer): Lưu trữ bất biến trong `storeProducts.json`, `utilities.json`, `giveaways.json`, bảng D1 `orders`, `inventory_codes`. Tuyệt đối không bị can thiệp hay ghi đè bởi bất kỳ thao tác ảo nào.
+     - Lớp ẢO (Virtual Layer): Lưu trong 2 bảng D1 riêng biệt: `wcg_virtual_aggregates` (bán ảo, claim ảo, buffer ảo, restock count) và `wcg_virtual_events` (nhật ký dòng sổ ảo có cờ `is_simulated: 1`).
+     - Quản trị viên theo dõi minh bạch qua 3 cột riêng biệt: Thật (Real) | Ảo (Virtual) | Hiển thị (Display).
+  2. *Thuật toán Bộ Đệm Ảo & Tự Động Restock Khi Chạm Floor*:
+     - Số hiển thị còn lại: `display_stock = real_stock > 0 ? (real_stock + Math.max(0, virtual_buffer)) : 0`.
+     - Mỗi lượt bán ảo trừ 1 vào `virtual_buffer` và cộng 1 vào `virtual_sold`. Tồn gốc và bán thật không đổi.
+     - Luật Floor: Khi `virtual_buffer <= 0` (số hiển thị chạm đúng số tồn gốc), server tự động cộng thêm đúng mức cấu hình FOMO (`autoRestockAmount`, mặc định 20), tăng `virtual_restock_count += 1`, và phát sinh sự kiện companion toast `RESTOCK_PRODUCT` từ cùng một dòng sổ ảo.
+     - Luật Hết hàng thật: Khi `real_stock <= 0`, cưỡng chế `display_stock = 0`, `virtual_buffer = 0`, tuyệt đối không restock ảo.
+  3. *Đường Hiển Thị Thống Nhất (Single Source of Truth - Server-Driven)*:
+     - Xóa bỏ hoàn toàn ở client: `getHourlyGrowth` (trả về 0), `getInHourProgression` (trả về 0), `schedulePeakReport` và `reportPeakMetrics` (vô hiệu hóa vĩnh viễn, không gửi POST).
+     - Khởi động dọn dẹp (auto-purge) toàn bộ các key rác trong localStorage (`wcg_high_water_sold_counts_v1`, `wcg_admin_override_sold_v2`, v.v.).
+     - Endpoint `/api/realtime-events` trả về đồng thời cả `events` (danh sách toast) và `counters` (bộ đếm sản phẩm, tiện ích, giveaway, master_copy) trong cùng 1 payload theo nhịp 25-30 giây. Mọi trình duyệt đều nhận chung con số hiển thị đồng nhất 100%.
+     - Endpoint `/api/sync` từ chối xử lý `body.type === 'report_peak_metrics'` để bảo vệ D1.
+  4. *Tối Ưu Hạn Mức Cloudflare D1 Quota (5M Reads/ngày)*:
+     - Không ghi D1 theo từng toast. Dữ liệu ảo được giữ trong In-Memory Isolate State và chỉ flush xuống D1 theo lô (`db.batch()`) mỗi 5 phút hoặc khi tích lũy đủ 200 sự kiện.
+     - Endpoint kiểm toán đọc từ cache in-memory, có Cache-Control 10-15s để triệt tiêu tải D1.
+     - Hệ thống giám sát Quota D1 (`recordD1Read`, `recordD1Write`): Cảnh báo tại 70% (WARN_70 - 3.5M) và 90% (CRITICAL_90 - 4.5M), kèm Circuit Breaker ngắt D1 khi có lỗi quota.
+  5. *Giao Diện Quản Trị Đối Soát 3 Cột & Sổ Nhật Ký Ảo (Sub-tab 8)*:
+     - Tạo mới component `VirtualLayerAnalytics.tsx` tích hợp vào Sub-tab 8 của module "Thông Báo Marketing".
+     - Hiển thị thanh đo D1 Quota và trạng thái Circuit Breaker realtime.
+     - Bảng đối soát 3 cột trực quan (Thật vs Ảo vs Hiển Thị) cho Cửa Hàng, Tiện Ích, Giveaway và Master Copy Clicks.
+     - Bảng nhật ký sự kiện ảo phân trang (`/api/crawler/marketing?action=get_virtual_analytics&page=1&limit=15`).
+- **Kết quả nghiệm thu**:
+  - Kiểm thử chuyên dụng `scripts/test_two_layer_fomo.cjs` đạt 100% (9/9 PASS).
+  - Không còn hiện tượng số ảo nhảy giật lùi hay lệch nhau giữa các thiết bị khác nhau.
+  - Hạn mức D1 được bảo vệ an toàn tuyệt đối với cơ chế batch flush.
+  - Toàn bộ 4 bài test hồi quy (`audit_zero_test_artifacts.cjs`, `test_temporary_audit_token.cjs`, `test_recovery_verification.cjs`, `test_two_layer_fomo.cjs`) đạt 100% thành công.
+
 ### 191. Khóa Kiểm Toán Tạm Thời (Temporary Read-Only Audit Token) Có Thời Hạn & Bảo Vệ 2FA Xác Thực Bước 2 (Step 2 Verification)
 - **Mô tả & Yêu cầu người dùng**:
   - *"Trong mục đếm số khi nổ thông báo và thống kê tự động số hàng còn, đã bán... tổng số còn lại hiển thị trên web... Thì tôi cần cung cấp cho API quyền nào để AI bên ngoài xem và kiểm chứng xem vấn đề ở đâu?"*

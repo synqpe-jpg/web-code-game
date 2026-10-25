@@ -10,6 +10,31 @@
 
 ## 1. DANH MỤC LỖI & CÁC BẪY ĐÃ THẤT BẠI (DO NOT REPEAT)
 
+### ISSUE-118: Vòng Lặp Báo Peak (Client Peak Feedback Loop) Làm Nhảy Loạn Số Ảo Giữa Các Trình Duyệt Và Cạn Kiệt Hạn Mức D1
+- **Triệu chứng**:
+  - Số lượng bán ảo, số tồn kho hiển thị nhảy thất thường giữa các thiết bị khác nhau: lúc vài trăm, lúc vọt lên hàng ngàn, lúc lại tụt về vài trăm.
+  - Mỗi trình duyệt tự tính `high-water marks`, `getHourlyGrowth`, `getInHourProgression` và lưu vào `localStorage`, rồi tự động gửi POST `report_peak_metrics` lên server. Server lại cập nhật `peak_product_sold_counts`, phân phối số peak này cho các máy khác, gây ra chu trình hồi tiếp (feedback loop) và đốt sạch hạn mức đọc/ghi D1 (5.000.000 dòng/ngày).
+- **Nguyên nhân gốc rễ**:
+  1. *Thiếu Single Source of Truth (SSOT)*: Bộ đếm được tính toán phi tập trung tại máy khách (client-side drift). Máy nào mở lâu thì số tích lũy càng cao, máy mới mở thì số thấp hơn hoặc bị đồng bộ cưỡng bức từ peak report cũ.
+  2. *Ghi trực tiếp D1 theo từng sự kiện*: Nếu mỗi toast hoặc mỗi lần click/bán đều kích hoạt câu lệnh `db.prepare().run()` riêng lẻ, khi có hàng chục người online, số lượng lượt ghi sẽ nhanh chóng vượt quá hạn mức D1 hàng ngày.
+- **Giải pháp chuẩn đã kiểm chứng**:
+  1. *Chuyển toàn bộ việc tính toán sang Serverless SSOT (`virtualLayerService.ts`)*:
+     - Client chỉ đóng vai trò hiển thị (dumb display layer). Tất cả các biến thiên bán ảo, restock ảo, claim ảo được server tính toán theo nhịp slot cố định (time-slot PRNG) và phân phối qua endpoint `/api/realtime-events` (25-30s).
+  2. *Vô hiệu hóa vĩnh viễn Client Peak Reporting*:
+     - Vô hiệu hóa `schedulePeakReport` và `reportPeakMetrics` ở client.
+     - Vô hiệu hóa `getHourlyGrowth` và `getInHourProgression` (trả về 0).
+     - Server `/api/sync` từ chối xử lý `body.type === 'report_peak_metrics'`.
+  3. *Nguyên Tắc Bộ Đệm Ảo & Tự Động Restock*:
+     - `display_stock = real_stock > 0 ? (real_stock + Math.max(0, virtual_buffer)) : 0`.
+     - Số hiển thị không bao giờ thấp hơn số tồn kho thật (`floor = real_stock`). Khi `virtual_buffer <= 0`, server tự động cộng thêm mức `autoRestockAmount` và bắn companion event `RESTOCK_PRODUCT`. Khi hết hàng thật (`real_stock = 0`), hiển thị bắt buộc là `0`, không restock ảo.
+  4. *Batching Flush Quota Protection*:
+     - Không ghi D1 theo từng sự kiện. Chỉ gom lô (`db.batch()`) ghi xuống D1 mỗi 5 phút hoặc khi đủ 200 sự kiện tích lũy.
+- ⛔ **CÁCH SỬA ĐÃ THẤT BẠI - TUYỆT ĐỐI KHÔNG LẶP LẠI**:
+  - ❌ *Không để client tự tính số cộng dồn rồi báo peak về server*: Cơ chế này không bao giờ đạt được tính đồng nhất và sẽ làm bùng nổ request gây sập quota D1.
+  - ❌ *Không trộn lẫn trường ảo vào dữ liệu gốc*: Tuyệt đối không thêm `virtual_*` hay `is_simulated` vào `storeProducts.json`, `utilities.json`, `giveaways.json`. Lớp thật và lớp ảo phải được lưu trữ ở 2 bảng D1 riêng biệt.
+
+---
+
 ### ISSUE-117: Quên Khai Báo Route Mới Trong functions/_worker.ts Khi Thêm Endpoint Serverless API (Centralized Worker Router Bypass Trap)
 - **Triệu chứng**:
   - Khi thêm một endpoint API mới trong thư mục `functions/api/...` (ví dụ: `functions/api/admin/temporary-token.ts`), dù code trong file API đã viết đúng chuẩn Pages Function, client gọi đến vẫn nhận được phản hồi HTTP 404 `Endpoint not found`.

@@ -32,8 +32,10 @@ import {
   ChevronLeft,
   ChevronRight,
   KeyRound,
+  Layers,
 } from 'lucide-react';
 import { TemporaryAuditTokenManager } from '../components/TemporaryAuditTokenManager';
+import { VirtualLayerAnalytics } from '../components/VirtualLayerAnalytics';
 import type {
   MarketingConfig,
   NotificationTypeToggles,
@@ -60,7 +62,7 @@ interface MarketingModuleProps {
 
 export const MarketingModule: React.FC<MarketingModuleProps> = ({ onShowToast }) => {
   const [config, setConfig] = useState<MarketingConfig>(() => marketingService.getConfig());
-  const [activeSubTab, setActiveSubTab] = useState<'general' | 'types' | 'accounts' | 'products' | 'votes' | 'preview' | 'audit-token'>('general');
+  const [activeSubTab, setActiveSubTab] = useState<'general' | 'types' | 'accounts' | 'products' | 'votes' | 'preview' | 'audit-token' | 'virtual-stats'>('general');
   const [storeProducts, setStoreProducts] = useState<StoreProduct[]>(() => dataService.getStoreProducts());
   const [utilityProducts, setUtilityProducts] = useState<UtilityProduct[]>(() => dataService.getUtilityProducts());
   const [giveaways, setGiveaways] = useState<GiveawayCampaign[]>(() => dataService.getGiveaways());
@@ -1157,7 +1159,7 @@ export const MarketingModule: React.FC<MarketingModuleProps> = ({ onShowToast })
   );
 
   const MARKETING_SUB_TABS: Array<{
-    id: 'general' | 'types' | 'accounts' | 'products' | 'votes' | 'preview' | 'audit-token';
+    id: 'general' | 'types' | 'accounts' | 'products' | 'votes' | 'preview' | 'audit-token' | 'virtual-stats';
     index: number;
     total: number;
     shortTitle: string;
@@ -1171,7 +1173,7 @@ export const MarketingModule: React.FC<MarketingModuleProps> = ({ onShowToast })
     {
       id: 'general',
       index: 1,
-      total: 7,
+      total: 8,
       shortTitle: 'Chung & Tần Suất',
       fullTitle: 'Cấu hình Chung & Tần suất',
       subtext: 'Bật/tắt, vị trí & chu kỳ',
@@ -1182,7 +1184,7 @@ export const MarketingModule: React.FC<MarketingModuleProps> = ({ onShowToast })
     {
       id: 'types',
       index: 2,
-      total: 7,
+      total: 8,
       shortTitle: 'Bật/Tắt Loại Tin',
       fullTitle: 'Bật/Tắt Từng Loại Thông Báo',
       subtext: 'Tỷ lệ % phân bổ 7 loại',
@@ -1193,7 +1195,7 @@ export const MarketingModule: React.FC<MarketingModuleProps> = ({ onShowToast })
     {
       id: 'accounts',
       index: 3,
-      total: 7,
+      total: 8,
       shortTitle: 'Tài Khoản Ảo',
       fullTitle: 'Quản Lý Tài Khoản Hệ Thống',
       subtext: 'Bốc ngẫu nhiên tạo FOMO',
@@ -1204,7 +1206,7 @@ export const MarketingModule: React.FC<MarketingModuleProps> = ({ onShowToast })
     {
       id: 'products',
       index: 4,
-      total: 7,
+      total: 8,
       shortTitle: 'Sản Phẩm & Kho',
       fullTitle: 'Ưu Tiên Sản Phẩm & Kho Ảo',
       subtext: 'Trọng số xuất hiện & tồn',
@@ -1215,7 +1217,7 @@ export const MarketingModule: React.FC<MarketingModuleProps> = ({ onShowToast })
     {
       id: 'votes',
       index: 5,
-      total: 7,
+      total: 8,
       shortTitle: 'Bình Chọn Code',
       fullTitle: 'Tỉ Lệ Bình Chọn Code',
       subtext: 'Giả lập vote hoạt động',
@@ -1226,7 +1228,7 @@ export const MarketingModule: React.FC<MarketingModuleProps> = ({ onShowToast })
     {
       id: 'preview',
       index: 6,
-      total: 7,
+      total: 8,
       shortTitle: 'Giả Lập & Test',
       fullTitle: 'Trình Giả Lập & Bắn Thử',
       subtext: 'Bắn thử popup',
@@ -1237,12 +1239,23 @@ export const MarketingModule: React.FC<MarketingModuleProps> = ({ onShowToast })
     {
       id: 'audit-token',
       index: 7,
-      total: 7,
+      total: 8,
       shortTitle: 'Khóa Kiểm Toán (2FA)',
       fullTitle: 'Khóa Kiểm Toán Tạm Thời (2FA)',
       subtext: 'Cấp quyền Pine AI / Muse Bot',
       icon: KeyRound,
       badge: '2FA Bảo Mật',
+      badgeTone: 'primary',
+    },
+    {
+      id: 'virtual-stats',
+      index: 8,
+      total: 8,
+      shortTitle: 'Thống Kê Ảo (SSOT)',
+      fullTitle: 'Thống Kê Ảo & 3 Cột Đối Soát',
+      subtext: 'Thật vs Ảo vs Hiển Thị',
+      icon: Layers,
+      badge: '2 Lớp SSOT',
       badgeTone: 'primary',
       isLast: true,
     },
@@ -3152,6 +3165,13 @@ export const MarketingModule: React.FC<MarketingModuleProps> = ({ onShowToast })
       )}
 
       {/* ==================================================================== */}
+      {/* MỤC 8: THỐNG KÊ ẢO & ĐỐI SOÁT 3 CỘT (TWO-LAYER SSOT)                  */}
+      {/* ==================================================================== */}
+      {activeSubTab === 'virtual-stats' && (
+        <VirtualLayerAnalytics />
+      )}
+
+      {/* ==================================================================== */}
       {/* THANH ĐIỀU HƯỚNG CHÂN TRANG (BOTTOM STEPPER: QUAY LẠI / TIẾP THEO)   */}
       {/* ==================================================================== */}
       <div className="flex flex-col sm:flex-row items-center justify-between gap-3 p-4 rounded-2xl bg-card border border-border/80 shadow-sm mt-6">
@@ -3166,26 +3186,26 @@ export const MarketingModule: React.FC<MarketingModuleProps> = ({ onShowToast })
               className="flex items-center justify-center gap-2 px-3.5 py-2.5 rounded-xl text-xs font-bold bg-muted hover:bg-muted/80 text-foreground border border-border transition-all cursor-pointer w-full sm:w-auto active:scale-95 shadow-sm"
             >
               <ChevronLeft className="w-4 h-4 text-primary" />
-              <span>← Quay lại: Mục {prevTab.index}/6 ({prevTab.shortTitle})</span>
+              <span>← Quay lại: Mục {prevTab.index}/{MARKETING_SUB_TABS.length} ({prevTab.shortTitle})</span>
             </button>
           ) : (
             <span className="text-xs text-muted-foreground font-mono px-3 py-2 bg-muted/40 rounded-xl border border-border/50">
-              Đang ở Mục đầu tiên (1/6)
+              Đang ở Mục đầu tiên (1/{MARKETING_SUB_TABS.length})
             </span>
           )}
         </div>
 
         <div className="flex items-center gap-2 text-xs text-muted-foreground font-mono">
           <span className="px-2.5 py-1 rounded-lg bg-muted border border-border/60 text-foreground font-bold">
-            Mục {currentTabIndex + 1} / 6
+            Mục {currentTabIndex + 1} / {MARKETING_SUB_TABS.length}
           </span>
-          {currentTabIndex === 5 ? (
+          {currentTabIndex === MARKETING_SUB_TABS.length - 1 ? (
             <span className="text-emerald-400 font-extrabold flex items-center gap-1.5 px-2 py-0.5 rounded-md bg-emerald-500/15 border border-emerald-500/30">
               <CheckCircle2 className="w-3.5 h-3.5" />
-              Mục cuối cùng (6/6) • Đã xem hết tất cả các mục
+              Mục cuối cùng ({MARKETING_SUB_TABS.length}/{MARKETING_SUB_TABS.length}) • Đã xem hết tất cả các mục
             </span>
           ) : (
-            <span>Còn {5 - currentTabIndex} mục phía sau</span>
+            <span>Còn {MARKETING_SUB_TABS.length - 1 - currentTabIndex} mục phía sau</span>
           )}
         </div>
 
@@ -3199,7 +3219,7 @@ export const MarketingModule: React.FC<MarketingModuleProps> = ({ onShowToast })
               }}
               className="flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold bg-primary hover:bg-primary-hover text-white shadow-md shadow-primary/25 transition-all cursor-pointer w-full sm:w-auto active:scale-95"
             >
-              <span>Mục tiếp theo: {nextTab.index}/6 ({nextTab.shortTitle}) →</span>
+              <span>Mục tiếp theo: {nextTab.index}/{MARKETING_SUB_TABS.length} ({nextTab.shortTitle}) →</span>
               <ChevronRight className="w-4 h-4" />
             </button>
           ) : (

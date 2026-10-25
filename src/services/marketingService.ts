@@ -238,7 +238,42 @@ class MarketingService {
   private localSessionCopyClicks: number = 0;
   private lastToastFiredTime: number = 0;
 
+  // Authoritative Two-Layer Server Counters (SSOT - Single Source of Truth)
+  public serverProductCounters = new Map<string, {
+    sold: number;
+    stock: number;
+    real_sold: number;
+    real_stock: number;
+    virtual_sold: number;
+    virtual_buffer: number;
+    virtual_restock_count: number;
+  }>();
+  public serverGiveawayCounters = new Map<string, {
+    claimed: number;
+    remaining: number;
+    real_claimed: number;
+    real_remaining: number;
+    virtual_claimed: number;
+    virtual_buffer: number;
+  }>();
+  public serverMasterCopy = {
+    count: 0,
+    real: 0,
+    virtual: 0,
+  };
+
   constructor() {
+    // Purge legacy client-side drift keys (Rule: Client displays SSOT numbers from server, zero localStorage drift)
+    if (typeof window !== 'undefined') {
+      try {
+        localStorage.removeItem('wcg_high_water_sold_counts_v1');
+        localStorage.removeItem('wcg_high_water_claimed_counts_v1');
+        localStorage.removeItem('wcg_admin_override_sold_v2');
+        localStorage.removeItem('wcg_admin_override_claimed_v2');
+        localStorage.removeItem('wcg_fomo_session_anchor_v2');
+      } catch {}
+    }
+
     this.config = this.loadConfig();
     this.initProcessedNotifIds();
     this.initMasterCopyClicks();
@@ -620,126 +655,13 @@ class MarketingService {
   }
 
   public schedulePeakReport(immediate: boolean = false): void {
-    if (typeof window === 'undefined') return;
-    if (immediate) {
-      if (this.peakReportTimer) {
-        clearTimeout(this.peakReportTimer);
-        this.peakReportTimer = null;
-      }
-      this.reportPeakMetrics();
-      return;
-    }
-    if (this.peakReportTimer) return;
-
-    this.peakReportTimer = setTimeout(async () => {
-      this.peakReportTimer = null;
-      await this.reportPeakMetrics();
-    }, 15000); // 15s gentle debounce to protect server resources
+    // Permanently disabled in Two-Layer model (Zero client-side peak reporting to server)
+    return;
   }
 
   public async reportPeakMetrics(): Promise<void> {
-    if (typeof window === 'undefined') return;
-    const nowMs = Date.now();
-    if (nowMs - this.lastPeakReportSentTime < 12000) return;
-    this.lastPeakReportSentTime = nowMs;
-    try {
-      const peakSold: Record<string, number> = {};
-      const peakClaimed: Record<string, number> = {};
-      const lowestStock: Record<string, number> = {};
-      const lowestRemaining: Record<string, number> = {};
-      let hasNewPeak = false;
-
-      // 1. Check local sold peaks from highWaterSoldCountMap (Bảo toàn tuyệt đối số lượng đã bán lũy kế)
-      this.highWaterSoldCountMap.forEach((val, id) => {
-        const last = this.lastReportedPeaks.sold[id] || 0;
-        const details = this.findItemDetails(id);
-        const virtualBase = Number(details?.virtual_sold_count || 0);
-        const realSold = Number(details?.sold_count || 0);
-        const maxAllowed = Math.max(50000, realSold + virtualBase + 5000);
-        if (val > last && val <= maxAllowed) {
-          peakSold[id] = val;
-          hasNewPeak = true;
-        }
-      });
-
-      // 2. Check local claimed peaks from highWaterClaimedCountMap (Bảo toàn tuyệt đối quà đã nhận lũy kế)
-      this.highWaterClaimedCountMap.forEach((val, id) => {
-        const last = this.lastReportedPeaks.claimed[id] || 0;
-        const details = this.findGiveawayDetails(id);
-        const virtualBase = Number(details?.virtual_claimed_offset || 0);
-        const realClaimed = Number(details?.claimed_codes || 0);
-        const maxAllowed = Math.max(50000, realClaimed + virtualBase + 5000);
-        if (val > last && val <= maxAllowed) {
-          peakClaimed[id] = val;
-          hasNewPeak = true;
-        }
-      });
-
-      // 3. Check copy count peak
-      const currentCopy = this.getLiveCopyCount();
-      let peakCopy: number | undefined = undefined;
-      if (currentCopy > this.lastReportedPeaks.copy) {
-        peakCopy = currentCopy;
-        hasNewPeak = true;
-      }
-
-      let peakMasterClicks: number | undefined = undefined;
-      if (this.masterCopyClicks > ((this.lastReportedPeaks as any).masterClicks || 0)) {
-        peakMasterClicks = this.masterCopyClicks;
-        hasNewPeak = true;
-      }
-
-      // 4. Check lowest stock across all live products and giveaways
-      this.liveVirtualStockMap.forEach((val, id) => {
-        if (typeof val === 'number' && !isNaN(val) && val > 0) {
-          const last = this.lastReportedPeaks.stock[id];
-          const isRestockJump = last !== undefined && val > last;
-          if (last === undefined || val < last || isRestockJump) {
-            lowestStock[id] = val;
-            lowestRemaining[id] = val;
-            hasNewPeak = true;
-          }
-        }
-      });
-
-      if (!hasNewPeak) return;
-
-      const res = await fetch('/api/sync', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          type: 'report_peak_metrics',
-          peakSold: Object.keys(peakSold).length > 0 ? peakSold : undefined,
-          peakClaimed: Object.keys(peakClaimed).length > 0 ? peakClaimed : undefined,
-          peakCopy,
-          peakMasterClicks,
-          lowestStock: Object.keys(lowestStock).length > 0 ? lowestStock : undefined,
-          lowestRemaining: Object.keys(lowestRemaining).length > 0 ? lowestRemaining : undefined,
-        }),
-      }).catch(() => null);
-
-      if (res && res.ok) {
-        // Record successfully reported peaks
-        Object.entries(peakSold).forEach(([id, val]) => {
-          this.lastReportedPeaks.sold[id] = Math.max(this.lastReportedPeaks.sold[id] || 0, val);
-        });
-        Object.entries(peakClaimed).forEach(([id, val]) => {
-          this.lastReportedPeaks.claimed[id] = Math.max(this.lastReportedPeaks.claimed[id] || 0, val);
-        });
-        Object.entries(lowestStock).forEach(([id, val]) => {
-          this.lastReportedPeaks.stock[id] = val;
-        });
-        Object.entries(lowestRemaining).forEach(([id, val]) => {
-          this.lastReportedPeaks.remaining[id] = val;
-        });
-        if (peakCopy !== undefined) {
-          this.lastReportedPeaks.copy = Math.max(this.lastReportedPeaks.copy, peakCopy);
-        }
-        if (peakMasterClicks !== undefined) {
-          (this.lastReportedPeaks as any).masterClicks = Math.max((this.lastReportedPeaks as any).masterClicks || 0, peakMasterClicks);
-        }
-      }
-    } catch {}
+    // Permanently disabled in Two-Layer model (Zero client-side peak reporting to server)
+    return;
   }
 
   public getTodayDateKey(timestampMs: number = this.getCalibratedNow()): string {
@@ -1557,6 +1479,7 @@ class MarketingService {
               data.real_product_sold_counts,
               data.real_giveaway_claimed_counts,
               data.master_copy_clicks_date,
+              data.counters,
               data.peak_product_sold_counts,
               data.peak_giveaway_claimed_counts,
               data.lowest_product_stock,
@@ -1683,18 +1606,26 @@ class MarketingService {
   }
 
   /**
-   * Đồng bộ nguyên tử 1 - 1: Giảm kho hiển thị đúng 1 đơn & Tăng số đã bán đúng 1 đơn
+   * Đồng bộ nguyên tử 1 - 1: Lấy số liệu SSOT từ server payload đã gắn liền với sự kiện nổ toast
    */
   public recordVirtualSale(productId: string, notifId?: string): { stock: number; sold: number } {
+    if (this.serverProductCounters.has(productId)) {
+      const p = this.serverProductCounters.get(productId)!;
+      return { stock: p.stock, sold: p.sold };
+    }
     const stock = this.decrementProductStock(productId, 1, notifId);
     const sold = this.incrementLiveSoldCount(productId, 1, notifId);
     return { stock, sold };
   }
 
   /**
-   * Đồng bộ nguyên tử 1 - 1: Giảm mã còn lại đúng 1 đơn & Tăng mã đã giật đúng 1 đơn
+   * Đồng bộ nguyên tử 1 - 1: Lấy số liệu SSOT từ server payload đã gắn liền với sự kiện nổ toast
    */
   public recordVirtualGiveawayClaim(campaignId: string, notifId?: string): { remaining: number; claimed: number } {
+    if (this.serverGiveawayCounters.has(campaignId)) {
+      const g = this.serverGiveawayCounters.get(campaignId)!;
+      return { remaining: g.remaining, claimed: g.claimed };
+    }
     const remaining = this.decrementProductStock(campaignId, 1, notifId);
     const claimed = this.incrementLiveClaimedCount(campaignId, 1, notifId);
     return { remaining, claimed };
@@ -1722,6 +1653,16 @@ class MarketingService {
       this.masterCopyClicks = 0;
       this.currentClickDate = dateKey;
       this.saveMasterCopyClicks();
+    }
+
+    // Authoritative Server Master Copy Counter (Two-Layer SSOT)
+    if (this.serverMasterCopy && this.serverMasterCopy.count > 0) {
+      const serverVal = this.serverMasterCopy.count + this.localSessionCopyClicks;
+      if (serverVal > this.dailyMaxCopyCount) {
+        this.dailyMaxCopyCount = serverVal;
+        this.saveDailyMaxCopyCount();
+      }
+      return Math.max(serverVal, this.dailyMaxCopyCount);
     }
 
     let calculated = 0;
@@ -2204,146 +2145,25 @@ class MarketingService {
     // Ghi nhớ tồn kho thật
     this.productRealStockMap.set(productId, baseStock);
 
+    // 1. Authoritative Server Counter from Two-Layer Engine
+    if (productId && this.serverProductCounters.has(productId)) {
+      const serverItem = this.serverProductCounters.get(productId)!;
+      // Floor rule: display_stock >= baseStock (Bộ đệm ảo không âm, không thấp hơn tồn gốc)
+      return Math.max(baseStock, serverItem.stock);
+    }
+
+    // 2. Safe Fallback before first server poll response
     const pw = this.getProductConfig(productId);
-    const rawThreshold = Math.max(1, Number(pw.autoRestockThreshold) || 1);
-    const restockAmount = Math.max(1, Number(pw.autoRestockAmount) || 20);
-    const effectiveThreshold = (baseStock > 0 && rawThreshold < baseStock)
-      ? baseStock
-      : rawThreshold;
-
-    const maxAllowedStock = (pw.priority === 'off' || !pw.virtualStockBonus || pw.virtualStockBonus <= 0)
-      ? baseStock
-      : Math.max(baseStock + Number(pw.virtualStockBonus || 0), effectiveThreshold + restockAmount);
-
-    // Lấy tồn kho sống động:
-    let liveStock = this.liveVirtualStockMap.get(productId);
-    if (typeof liveStock !== 'number' || isNaN(liveStock) || liveStock <= 0 || liveStock > maxAllowedStock) {
-      if (this.activeSnapshot?.products?.[productId]?.stock && this.activeSnapshot.products[productId].stock <= maxAllowedStock) {
-        liveStock = this.activeSnapshot.products[productId].stock;
-      } else if (this.activeSnapshot?.giveaways?.[productId]?.remaining && this.activeSnapshot.giveaways[productId].remaining <= maxAllowedStock) {
-        liveStock = this.activeSnapshot.giveaways[productId].remaining;
-      } else {
-        liveStock = baseStock + (pw.virtualStockBonus && pw.virtualStockBonus > 0 ? Number(pw.virtualStockBonus) : 0);
-      }
-      liveStock = Math.min(liveStock, maxAllowedStock);
-      this.liveVirtualStockMap.set(productId, liveStock);
-      this.saveLiveVirtualStock();
-    }
-
-    // Auto-restock check ngay khi đọc tồn kho hiển thị:
-    if (pw.virtualStockBonus && pw.virtualStockBonus > 0 && baseStock > 0 && liveStock <= effectiveThreshold) {
-      liveStock = effectiveThreshold + restockAmount;
-      this.recentRestockTimestampsMap.set(productId, Date.now());
-      this.liveVirtualStockMap.set(productId, liveStock);
-      this.saveLiveVirtualStock();
-      this.notifyStockChanged(productId, liveStock);
-      if (this.lastReportedPeaks) {
-        if (this.lastReportedPeaks.stock?.[productId] !== undefined) {
-          delete this.lastReportedPeaks.stock[productId];
-        }
-        if (this.lastReportedPeaks.remaining?.[productId] !== undefined) {
-          delete this.lastReportedPeaks.remaining[productId];
-        }
-      }
-      this.schedulePeakReport();
-    }
-
-    return Math.max(1, Math.min(liveStock, maxAllowedStock));
+    const bonus = Number(pw.virtualStockBonus || 0);
+    return baseStock + (pw.priority !== 'off' && bonus > 0 ? bonus : 0);
   }
 
   public getHourlyGrowth(id: string, createdAt?: string, priority?: string, anchorTime?: string): number {
-    if (!id) return 0;
-    const pw = this.getProductConfig(id);
-    const p = priority || pw?.priority || 'normal';
-    if (p === 'off') return 0;
-
-    let parsedAnchorMs: number | null = null;
-    if (anchorTime) {
-      let str = String(anchorTime).trim();
-      if (/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/.test(str)) {
-        str = str.replace(' ', 'T') + 'Z';
-      }
-      const t = new Date(str).getTime();
-      if (!isNaN(t) && t > 0) {
-        parsedAnchorMs = Math.min(t, this.getCalibratedNow());
-      }
-    }
-
-    if (!parsedAnchorMs) {
-      const sessionAnchor = this.sessionAnchorMap.get(id);
-      if (sessionAnchor && sessionAnchor.lastTimestamp > 0) {
-        parsedAnchorMs = sessionAnchor.lastTimestamp;
-      }
-    }
-    if (!parsedAnchorMs) {
-      return 0;
-    }
-
-    const nowMs = this.getCalibratedNow();
-    const safeStart = Math.min(parsedAnchorMs, nowMs);
-    const elapsedMinutes = Math.max(0, Math.floor((nowMs - safeStart) / 60000));
-    if (elapsedMinutes <= 0) return 0;
-
-    const elapsedHours = elapsedMinutes / 60;
-    let rate = p === 'high' ? 1.5 : p === 'low' ? 0.2 : 0.5;
-    const catchUp = this.config.offlineCatchUp || DEFAULT_OFFLINE_CATCHUP_CONFIG;
-    if (catchUp.enabled && catchUp.mode === 'custom') {
-      const interval = Math.max(1, Number(catchUp.intervalMinutes) || 60);
-      const step = Math.max(1, Number(catchUp.incrementStep) || 1);
-      rate = Math.min(2.5, (60 / interval) * step);
-    } else if (this.isCurrentPeakHour()) {
-      const mult = Math.max(1, Number(this.config.peakHours?.multiplier) || 1.5);
-      rate = Math.min(2.5, rate * mult);
-    }
-    let baseGrowth = Math.floor(elapsedHours * rate);
-    const maxCap = Math.max(1, Math.min(30, Number(catchUp.maxCatchUpUnits) || 30));
-    baseGrowth = Math.min(baseGrowth, maxCap);
-
-    return baseGrowth;
+    return 0; // Pure server calculation in Two-Layer model (Zero client-side artificial drift)
   }
 
   public getInHourProgression(id: string, createdAt?: string, priority?: string, anchorTime?: string): number {
-    if (!id) return 0;
-    const pw = this.getProductConfig(id);
-    const p = priority || pw?.priority || 'normal';
-    if (p === 'off') return 0;
-
-    let parsedAnchorMs: number | null = null;
-    if (anchorTime) {
-      let str = String(anchorTime).trim();
-      if (/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/.test(str)) {
-        str = str.replace(' ', 'T') + 'Z';
-      }
-      const t = new Date(str).getTime();
-      if (!isNaN(t) && t > 0) {
-        parsedAnchorMs = Math.min(t, this.getCalibratedNow());
-      }
-    }
-    if (!parsedAnchorMs) {
-      return 0;
-    }
-
-    const nowMs = this.getCalibratedNow();
-    // Items within 15 minutes of anchor start at clean baseline without artificial in-hour jump
-    if (nowMs - parsedAnchorMs < 15 * 60 * 1000) {
-      return 0;
-    }
-
-    const currentHourIndex = Math.floor(nowMs / this.ONE_HOUR_MS);
-    const vnDate = new Date(nowMs + 7 * 3600 * 1000);
-    const minuteInHour = vnDate.getUTCMinutes(); // 0 to 59
-
-    const maxHourInc = p === 'high' ? 2 : p === 'low' ? 0 : 1;
-    if (maxHourInc <= 0) return 0;
-
-    const seed = (stringHash(id) ^ (currentHourIndex * 1664525)) >>> 0;
-    const triggerMinute1 = 12 + (seed % 22);
-    const triggerMinute2 = 36 + ((seed >> 8) % 20);
-
-    let inc = 0;
-    if (minuteInHour >= triggerMinute1) inc += 1;
-    if (maxHourInc >= 2 && minuteInHour >= triggerMinute2) inc += 1;
-    return inc;
+    return 0; // Pure server calculation in Two-Layer model (Zero client-side artificial drift)
   }
 
   public findItemDetails(id: string): { sold_count?: number; virtual_sold_count?: number; created_at?: string; fomo_anchor_time?: string; virtual_sold_updated_at?: string } | null {
@@ -2463,9 +2283,12 @@ class MarketingService {
     }
 
     const id = item.id || '';
-    const details = id && (item.sold_count === undefined || item.virtual_sold_count === undefined) ? this.findItemDetails(id) : null;
+    // 1. Authoritative Two-Layer Server Counter (SSOT)
+    if (id && this.serverProductCounters.has(id)) {
+      return this.serverProductCounters.get(id)!.sold;
+    }
 
-    const pw = this.getProductConfig(id);
+    const details = id && (item.sold_count === undefined || item.virtual_sold_count === undefined) ? this.findItemDetails(id) : null;
     const realSold = Number(item.sold_count !== undefined ? item.sold_count : (details?.sold_count ?? 0)) || 0;
     const realFromHub = id ? (this.realProductSoldCountsMap.get(id) || 0) : 0;
     const effectiveRealSold = Math.max(realSold, realFromHub);
@@ -2473,41 +2296,13 @@ class MarketingService {
     const virtualBaseRaw = item.virtual_sold_count !== undefined ? item.virtual_sold_count : (details?.virtual_sold_count ?? 0);
     const virtualBase = Number(virtualBaseRaw || 0);
 
-    let effectiveBaseTarget = effectiveRealSold + virtualBase;
-    if (id && this.adminOverrideSoldMap.has(id)) {
-      effectiveBaseTarget = Math.max(effectiveRealSold, this.adminOverrideSoldMap.get(id)!);
-    }
-
-    // CỐ ĐỊNH 1 CON SỐ CƠ SỞ DUY NHẤT:
-    // Con số cơ sở cố định theo đúng cấu hình kho; chỉ tăng trưởng đều 1 đơn vị khi có 1 thông báo toast nổ ra (+1, +2...)
-    let recordedMax = id ? (this.highWaterSoldCountMap.get(id) || 0) : 0;
-
-    // Tự động thanh lọc các con số rác cũ bị thổi phồng bất thường do lỗi cộng dồn kép (> effectiveBaseTarget + 500)
-    if (id && recordedMax > effectiveBaseTarget + 2000) {
-      recordedMax = effectiveBaseTarget;
-      this.highWaterSoldCountMap.set(id, recordedMax);
-      this.saveHighWaterCounts();
-    }
-
-    if (effectiveBaseTarget > 0 && recordedMax < effectiveBaseTarget) {
-      recordedMax = effectiveBaseTarget;
-      if (id) {
-        this.highWaterSoldCountMap.set(id, recordedMax);
-        this.liveFomoSoldCountMap.set(id, Math.max(0, recordedMax - effectiveRealSold));
-        this.saveHighWaterCounts();
-        this.saveLiveFomoCounts();
-      }
-    }
-
-    return Math.max(effectiveBaseTarget, recordedMax);
+    return effectiveRealSold + virtualBase;
   }
 
   public getClaimedDisplay(campaign: { id?: string; claimed_codes?: number; virtual_claimed_offset?: number; created_at?: string; createdAt?: string; fomo_anchor_time?: string; virtual_claimed_updated_at?: string; packages?: any[] } | null | undefined): number {
     if (!campaign) return 0;
 
     // NẾU LÀ CHIẾN DỊCH GOM NHÓM CÓ NHIỀU GÓI QUÀ (PACKAGES):
-    // Cố định 1 con số duy nhất chính là TỔNG của toàn bộ các gói quà cộng lại!
-    // Tuyệt đối không ghi đè tổng này vào highWaterClaimedCountMap của gói quà đơn lẻ.
     if (Array.isArray((campaign as any)?.packages) && (campaign as any).packages.length > 1) {
       const sumVariantClaimed = (campaign as any).packages.reduce((sum: number, pkg: any) => {
         const singlePkg = {
@@ -2523,9 +2318,12 @@ class MarketingService {
     }
 
     const id = campaign.id || '';
-    const details = id && (campaign.claimed_codes === undefined || campaign.virtual_claimed_offset === undefined) ? this.findGiveawayDetails(id) : null;
+    // 1. Authoritative Two-Layer Server Counter (SSOT)
+    if (id && this.serverGiveawayCounters.has(id)) {
+      return this.serverGiveawayCounters.get(id)!.claimed;
+    }
 
-    const pw = this.getProductConfig(id);
+    const details = id && (campaign.claimed_codes === undefined || campaign.virtual_claimed_offset === undefined) ? this.findGiveawayDetails(id) : null;
     const realClaimed = Number(campaign.claimed_codes !== undefined ? campaign.claimed_codes : (details?.claimed_codes ?? 0)) || 0;
     const realFromHub = id ? (this.realGiveawayClaimedCountsMap.get(id) || 0) : 0;
     const effectiveRealClaimed = Math.max(realClaimed, realFromHub);
@@ -2533,31 +2331,7 @@ class MarketingService {
     const virtualBaseRaw = campaign.virtual_claimed_offset !== undefined ? campaign.virtual_claimed_offset : (details?.virtual_claimed_offset ?? 0);
     const virtualBase = Number(virtualBaseRaw || 0);
 
-    let effectiveBaseTarget = effectiveRealClaimed + virtualBase;
-    if (id && this.adminOverrideClaimedMap.has(id)) {
-      effectiveBaseTarget = Math.max(effectiveRealClaimed, this.adminOverrideClaimedMap.get(id)!);
-    }
-
-    let recordedMax = id ? (this.highWaterClaimedCountMap.get(id) || 0) : 0;
-
-    // Tự động thanh lọc các con số rác cũ bị thổi phồng bất thường do lỗi cộng dồn kép (> effectiveBaseTarget + 500)
-    if (id && recordedMax > effectiveBaseTarget + 2000) {
-      recordedMax = effectiveBaseTarget;
-      this.highWaterClaimedCountMap.set(id, recordedMax);
-      this.saveHighWaterCounts();
-    }
-
-    if (effectiveBaseTarget > 0 && recordedMax < effectiveBaseTarget) {
-      recordedMax = effectiveBaseTarget;
-      if (id) {
-        this.highWaterClaimedCountMap.set(id, recordedMax);
-        this.liveFomoClaimedCountMap.set(id, Math.max(0, recordedMax - effectiveRealClaimed));
-        this.saveHighWaterCounts();
-        this.saveLiveFomoCounts();
-      }
-    }
-
-    return Math.max(effectiveBaseTarget, recordedMax);
+    return effectiveRealClaimed + virtualBase;
   }
 
   public syncProductVirtualSold(productId: string, virtualCount: number, forceReset: boolean = true, exactTargetDisplay?: number, anchorTime?: string): void {
@@ -3338,6 +3112,7 @@ class MarketingService {
     realProductSoldCounts?: Record<string, number>,
     realGiveawayClaimedCounts?: Record<string, number>,
     masterCopyClicksDate?: string,
+    counters?: any,
     peakProductSoldCounts?: Record<string, number>,
     peakGiveawayClaimedCounts?: Record<string, number>,
     lowestProductStock?: Record<string, number>,
@@ -3380,56 +3155,53 @@ class MarketingService {
       if (changed) this.notifySoldCountChanged('*', 0);
     }
 
-    // Synchronize peak sold counts from Hub across all devices instantly (3s)
-    if (peakProductSoldCounts && typeof peakProductSoldCounts === 'object') {
-      let peakSoldChanged = false;
-      const oosEnabled = Boolean(this.config.offlineCatchUp?.outOfStockEnabled);
-      Object.entries(peakProductSoldCounts).forEach(([k, v]) => {
-        if (typeof v === 'number' && !isNaN(v) && v > 0) {
-          const realStock = this.getRealStockFor(k);
-          const details = this.findItemDetails(k);
-          const hasVirtual = Number(details?.virtual_sold_count || 0) > 0;
-          if (realStock <= 0 && !oosEnabled && !hasVirtual) return;
-          const cur = this.highWaterSoldCountMap.get(k) || 0;
-          const baseTarget = Number((details as any)?.virtual_sold_count || 0);
-          if (v > cur && (baseTarget <= 0 || v <= baseTarget + 2000)) {
-            this.highWaterSoldCountMap.set(k, v);
-            this.liveFomoSoldCountMap.set(k, v);
-            peakSoldChanged = true;
+    // Authoritative Server Counters Synchronization (Two-Layer SSOT)
+    if (counters && typeof counters === 'object') {
+      if (counters.products && typeof counters.products === 'object') {
+        Object.entries(counters.products).forEach(([pId, info]: [string, any]) => {
+          if (info && typeof info === 'object') {
+            this.serverProductCounters.set(pId, {
+              sold: Number(info.sold) || 0,
+              stock: Number(info.stock) || 0,
+              real_sold: Number(info.real_sold) || 0,
+              real_stock: Number(info.real_stock) || 0,
+              virtual_sold: Number(info.virtual_sold) || 0,
+              virtual_buffer: Number(info.virtual_buffer) || 0,
+              virtual_restock_count: Number(info.virtual_restock_count) || 0,
+            });
+            this.productRealStockMap.set(pId, Number(info.real_stock) || 0);
           }
-        }
-      });
-      if (peakSoldChanged) {
-        this.saveHighWaterCounts();
-        this.saveLiveFomoCounts();
-        this.notifySoldCountChanged('*', 0);
+        });
       }
-    }
-
-    // Synchronize peak claimed counts from Hub across all devices instantly (3s)
-    if (peakGiveawayClaimedCounts && typeof peakGiveawayClaimedCounts === 'object') {
-      let peakClaimedChanged = false;
-      const oosEnabled = Boolean(this.config.offlineCatchUp?.outOfStockEnabled);
-      Object.entries(peakGiveawayClaimedCounts).forEach(([k, v]) => {
-        if (typeof v === 'number' && !isNaN(v) && v > 0) {
-          const realRemaining = this.getRealStockFor(k);
-          const details = this.findGiveawayDetails(k);
-          const hasVirtual = Number(details?.virtual_claimed_offset || 0) > 0;
-          if (realRemaining <= 0 && !oosEnabled && !hasVirtual) return;
-          const cur = this.highWaterClaimedCountMap.get(k) || 0;
-          const baseTarget = Number(details?.virtual_claimed_offset || 0);
-          if (v > cur && (baseTarget <= 0 || v <= baseTarget + 2000)) {
-            this.highWaterClaimedCountMap.set(k, v);
-            this.liveFomoClaimedCountMap.set(k, v);
-            peakClaimedChanged = true;
+      if (counters.giveaways && typeof counters.giveaways === 'object') {
+        Object.entries(counters.giveaways).forEach(([gId, info]: [string, any]) => {
+          if (info && typeof info === 'object') {
+            this.serverGiveawayCounters.set(gId, {
+              claimed: Number(info.claimed) || 0,
+              remaining: Number(info.remaining) || 0,
+              real_claimed: Number(info.real_claimed) || 0,
+              real_remaining: Number(info.real_remaining) || 0,
+              virtual_claimed: Number(info.virtual_claimed) || 0,
+              virtual_buffer: Number(info.virtual_buffer) || 0,
+            });
+            this.productRealStockMap.set(gId, Number(info.real_remaining) || 0);
           }
-        }
-      });
-      if (peakClaimedChanged) {
-        this.saveHighWaterCounts();
-        this.saveLiveFomoCounts();
-        this.notifySoldCountChanged('*', 0);
+        });
       }
+      if (counters.master_copy && typeof counters.master_copy === 'object') {
+        const mc = counters.master_copy;
+        this.serverMasterCopy = {
+          count: Number(mc.count) || 0,
+          real: Number(mc.real) || 0,
+          virtual: Number(mc.virtual) || 0,
+        };
+        if (this.serverMasterCopy.count > this.dailyMaxCopyCount) {
+          this.dailyMaxCopyCount = this.serverMasterCopy.count;
+          this.broadcastCurrentCount();
+        }
+      }
+      this.notifySoldCountChanged('*', 0);
+      this.notifyStockChanged('*', 0);
     }
 
     // Synchronize lowest stock for products from Hub across all devices instantly (3s)

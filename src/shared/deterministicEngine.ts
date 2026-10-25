@@ -437,7 +437,8 @@ export function calculateGlobalSnapshot(
     const effectivePeakSold = (peakSold > maxAllowedPeak || peakSold < (effectiveRealSold + baseTarget))
       ? rawDisplaySold
       : peakSold;
-    const displaySold = Math.max(rawDisplaySold, effectivePeakSold);
+    // Two-Layer SSOT: display_sold = real_sold + virtual_sold
+    const displaySold = rawDisplaySold;
 
     productSnapshots[prod.id] = {
       stock: displayStock,
@@ -541,7 +542,8 @@ export function calculateGlobalSnapshot(
     const effectivePeakClaimed = (peakClaimed > maxAllowedPeakGw || peakClaimed < (effectiveRealClaimed + baseTargetGw))
       ? rawDisplayClaimed
       : peakClaimed;
-    const displayClaimed = Math.max(rawDisplayClaimed, effectivePeakClaimed);
+    // Two-Layer SSOT: display_claimed = real_claimed + virtual_claimed
+    const displayClaimed = rawDisplayClaimed;
 
     const displayTotal = displayRemaining + displayClaimed;
     const percentClaimed = displayTotal > 0

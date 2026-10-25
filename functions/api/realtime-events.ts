@@ -1,4 +1,4 @@
-import { getRealEventsHub } from '../services/realEventsHub';
+import { getUnifiedRealtimePayload } from '../services/virtualLayerService';
 
 interface Env {
   DB?: D1Database;
@@ -19,30 +19,27 @@ export const onRequestOptions: PagesFunction = async () => {
 };
 
 export const onRequestGet: PagesFunction<Env> = async (context) => {
-  const { env } = context;
-  const nowMs = Date.now();
-  const hub = await getRealEventsHub(env);
-  const vnToday = new Date(nowMs + 7 * 3600 * 1000).toISOString().slice(0, 10);
+  const { env, waitUntil } = context;
 
-  const payload = {
-    success: true,
-    server_time: nowMs,
-    events: hub.events.slice(0, 15),
-    master_copy_clicks: (hub.date === vnToday && typeof hub.masterCopyClicks === 'number') ? hub.masterCopyClicks : 0,
-    master_copy_clicks_date: vnToday,
-    real_product_sold_counts: hub.realProductSoldCounts || {},
-    real_giveaway_claimed_counts: hub.realGiveawayClaimedCounts || {},
-    peak_product_sold_counts: hub.peakProductSoldCounts || {},
-    peak_giveaway_claimed_counts: hub.peakGiveawayClaimedCounts || {},
-    lowest_product_stock: hub.lowestProductStock || {},
-    lowest_giveaway_remaining: hub.lowestGiveawayRemaining || {},
-  };
+  try {
+    const payload = await getUnifiedRealtimePayload(env, waitUntil ? (p) => waitUntil(p) : undefined);
 
-  return new Response(JSON.stringify(payload), {
-    headers: {
-      ...CORS_HEADERS,
-      // Edge response: cached for 15s at Edge CDN to protect D1, invalidated instantly on Admin updates
-      'Cache-Control': 'public, max-age=10, s-maxage=15, stale-while-revalidate=30',
-    },
-  });
+    return new Response(JSON.stringify(payload), {
+      headers: {
+        ...CORS_HEADERS,
+        // Edge response: cached for 15s at Edge CDN to protect D1, invalidated instantly on Admin updates
+        'Cache-Control': 'public, max-age=10, s-maxage=15, stale-while-revalidate=30',
+      },
+    });
+  } catch (err: any) {
+    console.error('[API /api/realtime-events error]', err?.message);
+    return new Response(
+      JSON.stringify({
+        success: false,
+        error: 'Failed to retrieve realtime events',
+        message: err?.message,
+      }),
+      { status: 500, headers: CORS_HEADERS }
+    );
+  }
 };

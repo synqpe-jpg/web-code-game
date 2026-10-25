@@ -17,6 +17,8 @@ import {
   checkAuditorRateLimit,
 } from '../../services/marketingAuditService';
 import { getOrRefreshSnapshot } from '../../services/snapshotService';
+import { initializeVirtualLayer, processCurrentTimeSlot } from '../../services/virtualLayerService';
+import { getD1QuotaStatus, getPaginatedVirtualEventsD1 } from '../../services/d1_service';
 
 export interface Env {
   DB?: D1Database;
@@ -114,6 +116,63 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
           total: events.length,
           limit,
           events,
+        }, null, 2),
+        { headers: { ...CORS_HEADERS, 'Cache-Control': 'no-cache' } }
+      );
+    }
+
+    if (action === 'get_virtual_analytics') {
+      const page = Number(urlObj.searchParams.get('page')) || 1;
+      const limit = Number(urlObj.searchParams.get('limit')) || 20;
+
+      const layerState = await initializeVirtualLayer(env);
+      processCurrentTimeSlot(layerState);
+
+      const products3Col = Array.from(layerState.products.values()).map(p => ({
+        id: p.productId,
+        title: p.title,
+        item_type: p.itemType,
+        real_sold: p.realSold,
+        real_stock: p.realStock,
+        virtual_sold: p.virtualSold,
+        virtual_buffer: p.virtualBuffer,
+        virtual_restock_count: p.virtualRestockCount,
+        display_sold: p.realSold + p.virtualSold,
+        display_stock: p.realStock > 0 ? (p.realStock + p.virtualBuffer) : 0,
+        last_restock_at: p.lastRestockAt,
+      }));
+
+      const giveaways3Col = Array.from(layerState.giveaways.values()).map(g => ({
+        id: g.campaignId,
+        title: g.title,
+        real_claimed: g.realClaimed,
+        real_remaining: g.realRemaining,
+        virtual_claimed: g.virtualClaimed,
+        virtual_buffer: g.virtualRemainingBuffer,
+        virtual_restock_count: g.virtualRestockCount,
+        display_claimed: g.realClaimed + g.virtualClaimed,
+        display_remaining: g.realRemaining > 0 ? (g.realRemaining + g.virtualRemainingBuffer) : 0,
+        last_restock_at: g.lastRestockAt,
+      }));
+
+      const paginatedEvents = env.DB ? await getPaginatedVirtualEventsD1(env.DB, page, limit) : { events: [], total: 0, page, limit, totalPages: 1 };
+      const quotaStatus = getD1QuotaStatus();
+
+      return new Response(
+        JSON.stringify({
+          success: true,
+          action: 'get_virtual_analytics',
+          botName: auth.botName,
+          timestamp: new Date().toISOString(),
+          d1_quota: quotaStatus,
+          products: products3Col,
+          giveaways: giveaways3Col,
+          master_copy: {
+            real_clicks: layerState.masterCopy.realClicks,
+            virtual_copy: layerState.masterCopy.virtualCopy,
+            total_display: layerState.masterCopy.realClicks + layerState.masterCopy.virtualCopy,
+          },
+          paginated_events: paginatedEvents,
         }, null, 2),
         { headers: { ...CORS_HEADERS, 'Cache-Control': 'no-cache' } }
       );
@@ -245,7 +304,7 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
     'update_instructions', 'cleanup_test_codes', 'delete_pending_game'
   ];
 
-  const allowedAuditActions = ['get_marketing_config', 'list_marketing_events', 'get_metrics_snapshot'];
+  const allowedAuditActions = ['get_marketing_config', 'list_marketing_events', 'get_metrics_snapshot', 'get_virtual_analytics'];
   if (writeActions.includes(action) || (auth.role === 'marketing_auditor' && !allowedAuditActions.includes(action))) {
     return new Response(
       JSON.stringify({
@@ -297,6 +356,64 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
         total: events.length,
         limit,
         events,
+      }, null, 2),
+      { headers: CORS_HEADERS }
+    );
+  }
+
+  // 8. Action: get_virtual_analytics
+  if (action === 'get_virtual_analytics') {
+    const page = Number(body.page) || 1;
+    const limit = Number(body.limit) || 20;
+
+    const layerState = await initializeVirtualLayer(env);
+    processCurrentTimeSlot(layerState);
+
+    const products3Col = Array.from(layerState.products.values()).map(p => ({
+      id: p.productId,
+      title: p.title,
+      item_type: p.itemType,
+      real_sold: p.realSold,
+      real_stock: p.realStock,
+      virtual_sold: p.virtualSold,
+      virtual_buffer: p.virtualBuffer,
+      virtual_restock_count: p.virtualRestockCount,
+      display_sold: p.realSold + p.virtualSold,
+      display_stock: p.realStock > 0 ? (p.realStock + p.virtualBuffer) : 0,
+      last_restock_at: p.lastRestockAt,
+    }));
+
+    const giveaways3Col = Array.from(layerState.giveaways.values()).map(g => ({
+      id: g.campaignId,
+      title: g.title,
+      real_claimed: g.realClaimed,
+      real_remaining: g.realRemaining,
+      virtual_claimed: g.virtualClaimed,
+      virtual_buffer: g.virtualRemainingBuffer,
+      virtual_restock_count: g.virtualRestockCount,
+      display_claimed: g.realClaimed + g.virtualClaimed,
+      display_remaining: g.realRemaining > 0 ? (g.realRemaining + g.virtualRemainingBuffer) : 0,
+      last_restock_at: g.lastRestockAt,
+    }));
+
+    const paginatedEvents = env.DB ? await getPaginatedVirtualEventsD1(env.DB, page, limit) : { events: [], total: 0, page, limit, totalPages: 1 };
+    const quotaStatus = getD1QuotaStatus();
+
+    return new Response(
+      JSON.stringify({
+        success: true,
+        action: 'get_virtual_analytics',
+        botName: auth.botName,
+        timestamp: new Date().toISOString(),
+        d1_quota: quotaStatus,
+        products: products3Col,
+        giveaways: giveaways3Col,
+        master_copy: {
+          real_clicks: layerState.masterCopy.realClicks,
+          virtual_copy: layerState.masterCopy.virtualCopy,
+          total_display: layerState.masterCopy.realClicks + layerState.masterCopy.virtualCopy,
+        },
+        paginated_events: paginatedEvents,
       }, null, 2),
       { headers: CORS_HEADERS }
     );

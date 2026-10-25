@@ -266,6 +266,29 @@ CREATE TABLE IF NOT EXISTS system_snapshots (
   payload TEXT NOT NULL,
   updated_at INTEGER NOT NULL
 );
+
+CREATE TABLE IF NOT EXISTS wcg_virtual_aggregates (
+  product_id TEXT PRIMARY KEY,
+  virtual_sold INTEGER NOT NULL DEFAULT 0,
+  virtual_buffer INTEGER NOT NULL DEFAULT 0,
+  virtual_claimed INTEGER NOT NULL DEFAULT 0,
+  virtual_copy INTEGER NOT NULL DEFAULT 0,
+  virtual_restock_count INTEGER NOT NULL DEFAULT 0,
+  last_restock_at TEXT,
+  updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
+CREATE TABLE IF NOT EXISTS wcg_virtual_events (
+  id TEXT PRIMARY KEY,
+  type TEXT NOT NULL,
+  product_id TEXT,
+  item_name TEXT,
+  amount INTEGER DEFAULT 1,
+  details TEXT,
+  is_simulated INTEGER NOT NULL DEFAULT 1,
+  created_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+CREATE INDEX IF NOT EXISTS idx_wcg_virtual_events_created ON wcg_virtual_events(created_at DESC);
 `;
 
 export const INITIAL_DATA_SQL = `
@@ -312,8 +335,8 @@ export async function ensureSchemaUpgrades(db: D1Database): Promise<void> {
     }
 
     try {
-      // Fast 1-subrequest check: If games_and_codes_optimized_v1 exists, all schema migrations are already done
-      const check = await db.prepare("SELECT 1 FROM schema_migrations WHERE id = 'games_and_codes_optimized_v1' LIMIT 1").first().catch(() => null);
+      // Fast 1-subrequest check: If wcg_virtual_layer_tables_v1 exists, all schema migrations are already done
+      const check = await db.prepare("SELECT 1 FROM schema_migrations WHERE id = 'wcg_virtual_layer_tables_v1' LIMIT 1").first().catch(() => null);
       if (check !== null) {
         schemaUpgradesDone = true;
         return;
@@ -988,6 +1011,41 @@ export async function ensureSchemaUpgrades(db: D1Database): Promise<void> {
     }
   } catch (err: any) {
     console.warn('[Migration 0011 error]', err?.message);
+  }
+
+  // 12. Create Virtual Layer Tables (Zero pollution on raw tables)
+  try {
+    await db.prepare(`
+      CREATE TABLE IF NOT EXISTS wcg_virtual_aggregates (
+        product_id TEXT PRIMARY KEY,
+        virtual_sold INTEGER NOT NULL DEFAULT 0,
+        virtual_buffer INTEGER NOT NULL DEFAULT 0,
+        virtual_claimed INTEGER NOT NULL DEFAULT 0,
+        virtual_copy INTEGER NOT NULL DEFAULT 0,
+        virtual_restock_count INTEGER NOT NULL DEFAULT 0,
+        last_restock_at TEXT,
+        updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+      );
+    `).run().catch(() => {});
+
+    await db.prepare(`
+      CREATE TABLE IF NOT EXISTS wcg_virtual_events (
+        id TEXT PRIMARY KEY,
+        type TEXT NOT NULL,
+        product_id TEXT,
+        item_name TEXT,
+        amount INTEGER DEFAULT 1,
+        details TEXT,
+        is_simulated INTEGER NOT NULL DEFAULT 1,
+        created_at TEXT NOT NULL DEFAULT (datetime('now'))
+      );
+    `).run().catch(() => {});
+
+    await db.prepare('CREATE INDEX IF NOT EXISTS idx_wcg_virtual_events_created ON wcg_virtual_events(created_at DESC);').run().catch(() => {});
+
+    await db.prepare("INSERT OR IGNORE INTO schema_migrations (id) VALUES ('wcg_virtual_layer_tables_v1');").run().catch(() => {});
+  } catch (err: any) {
+    console.warn('[Migration wcg_virtual_layer_tables_v1 error]', err?.message);
   }
 
   schemaUpgradesDone = true;
@@ -2880,5 +2938,307 @@ export async function getDownloadStats(
     };
   }
 }
+
+// ============================================================================
+// D1 QUOTA MONITOR & CIRCUIT BREAKER
+// ============================================================================
+
+interface D1QuotaState {
+  date: string;
+  estimatedReads: number;
+  estimatedWrites: number;
+  circuitBreakerUntil: number;
+  lastQuotaError?: string;
+}
+
+const globalScope = globalThis as any;
+if (!globalScope.__wcg_d1_quota) {
+  const vnToday = new Date(Date.now() + 7 * 3600 * 1000).toISOString().slice(0, 10);
+  globalScope.__wcg_d1_quota = {
+    date: vnToday,
+    estimatedReads: 0,
+    estimatedWrites: 0,
+    circuitBreakerUntil: 0,
+  };
+}
+
+export function recordD1Read(count: number = 1): void {
+  const vnToday = new Date(Date.now() + 7 * 3600 * 1000).toISOString().slice(0, 10);
+  const q: D1QuotaState = globalScope.__wcg_d1_quota;
+  if (q.date !== vnToday) {
+    q.date = vnToday;
+    q.estimatedReads = 0;
+    q.estimatedWrites = 0;
+  }
+  q.estimatedReads += Math.max(1, count);
+}
+
+export function recordD1Write(count: number = 1): void {
+  const vnToday = new Date(Date.now() + 7 * 3600 * 1000).toISOString().slice(0, 10);
+  const q: D1QuotaState = globalScope.__wcg_d1_quota;
+  if (q.date !== vnToday) {
+    q.date = vnToday;
+    q.estimatedReads = 0;
+    q.estimatedWrites = 0;
+  }
+  q.estimatedWrites += Math.max(1, count);
+}
+
+export function triggerD1CircuitBreaker(durationMs: number = 15 * 60 * 1000, reason?: string): void {
+  const q: D1QuotaState = globalScope.__wcg_d1_quota;
+  q.circuitBreakerUntil = Math.max(q.circuitBreakerUntil, Date.now() + durationMs);
+  if (reason) q.lastQuotaError = reason;
+  console.warn('[D1 Quota Circuit Breaker Triggered]', reason || 'Quota Exhaustion', `Locked for ${Math.round(durationMs / 1000)}s`);
+}
+
+export function isD1CircuitBreakerActive(): boolean {
+  const q: D1QuotaState = globalScope.__wcg_d1_quota;
+  return Date.now() < q.circuitBreakerUntil;
+}
+
+export function getD1QuotaStatus(): {
+  date: string;
+  estimatedReads: number;
+  estimatedWrites: number;
+  readLimit: number;
+  percentUsed: number;
+  alertLevel: 'NORMAL' | 'WARN_70' | 'CRITICAL_90' | 'CIRCUIT_BREAKER';
+  circuitBreakerActive: boolean;
+  circuitBreakerRemainingSec: number;
+  lastError?: string;
+} {
+  const vnToday = new Date(Date.now() + 7 * 3600 * 1000).toISOString().slice(0, 10);
+  const q: D1QuotaState = globalScope.__wcg_d1_quota;
+  if (q.date !== vnToday) {
+    q.date = vnToday;
+    q.estimatedReads = 0;
+    q.estimatedWrites = 0;
+  }
+  const readLimit = 5000000;
+  const percentUsed = Math.min(100, Math.round((q.estimatedReads / readLimit) * 1000) / 10);
+  const circuitBreakerActive = Date.now() < q.circuitBreakerUntil;
+  const circuitBreakerRemainingSec = circuitBreakerActive ? Math.ceil((q.circuitBreakerUntil - Date.now()) / 1000) : 0;
+
+  let alertLevel: 'NORMAL' | 'WARN_70' | 'CRITICAL_90' | 'CIRCUIT_BREAKER' = 'NORMAL';
+  if (circuitBreakerActive) {
+    alertLevel = 'CIRCUIT_BREAKER';
+  } else if (percentUsed >= 90) {
+    alertLevel = 'CRITICAL_90';
+  } else if (percentUsed >= 70) {
+    alertLevel = 'WARN_70';
+  }
+
+  return {
+    date: q.date,
+    estimatedReads: q.estimatedReads,
+    estimatedWrites: q.estimatedWrites,
+    readLimit,
+    percentUsed,
+    alertLevel,
+    circuitBreakerActive,
+    circuitBreakerRemainingSec,
+    lastError: q.lastQuotaError,
+  };
+}
+
+// ============================================================================
+// VIRTUAL LAYER D1 HELPERS (TWO-LAYER SEPARATION)
+// ============================================================================
+
+export interface VirtualAggregateRow {
+  product_id: string;
+  virtual_sold: number;
+  virtual_buffer: number;
+  virtual_claimed: number;
+  virtual_copy: number;
+  virtual_restock_count: number;
+  last_restock_at?: string;
+  updated_at?: string;
+}
+
+export interface VirtualEventRow {
+  id: string;
+  type: string;
+  product_id?: string;
+  item_name?: string;
+  amount: number;
+  details?: string;
+  is_simulated: number;
+  created_at: string;
+}
+
+/**
+ * Load all virtual aggregates from D1
+ */
+export async function loadVirtualAggregatesD1(db: D1Database): Promise<Record<string, VirtualAggregateRow>> {
+  if (isD1CircuitBreakerActive()) return {};
+  try {
+    await ensureSchemaUpgrades(db);
+    recordD1Read(50);
+    const rows = await db.prepare('SELECT * FROM wcg_virtual_aggregates').all<VirtualAggregateRow>();
+    const map: Record<string, VirtualAggregateRow> = {};
+    if (rows && rows.results) {
+      for (const r of rows.results) {
+        if (r && r.product_id) map[r.product_id] = r;
+      }
+    }
+    return map;
+  } catch (err: any) {
+    console.warn('[loadVirtualAggregatesD1 error]', err?.message);
+    if (err?.message?.includes('quota') || err?.message?.includes('503')) {
+      triggerD1CircuitBreaker(15 * 60 * 1000, err.message);
+    }
+    return {};
+  }
+}
+
+/**
+ * Batch flush virtual layer aggregates & events into D1 in 1 single subrequest batch
+ */
+export async function batchFlushVirtualLayerD1(
+  db: D1Database,
+  aggregates: VirtualAggregateRow[],
+  events: VirtualEventRow[]
+): Promise<boolean> {
+  if (isD1CircuitBreakerActive()) return false;
+  if ((!aggregates || aggregates.length === 0) && (!events || events.length === 0)) return true;
+
+  try {
+    await ensureSchemaUpgrades(db);
+    const statements: D1PreparedStatement[] = [];
+
+    // 1. Upsert aggregates
+    for (const agg of aggregates) {
+      statements.push(
+        db.prepare(`
+          INSERT INTO wcg_virtual_aggregates (
+            product_id, virtual_sold, virtual_buffer, virtual_claimed, virtual_copy, virtual_restock_count, last_restock_at, updated_at
+          ) VALUES (?, ?, ?, ?, ?, ?, ?, datetime('now'))
+          ON CONFLICT(product_id) DO UPDATE SET
+            virtual_sold = excluded.virtual_sold,
+            virtual_buffer = excluded.virtual_buffer,
+            virtual_claimed = excluded.virtual_claimed,
+            virtual_copy = excluded.virtual_copy,
+            virtual_restock_count = excluded.virtual_restock_count,
+            last_restock_at = excluded.last_restock_at,
+            updated_at = excluded.updated_at
+        `).bind(
+          agg.product_id,
+          agg.virtual_sold || 0,
+          agg.virtual_buffer || 0,
+          agg.virtual_claimed || 0,
+          agg.virtual_copy || 0,
+          agg.virtual_restock_count || 0,
+          agg.last_restock_at || null
+        )
+      );
+    }
+
+    // 2. Insert new virtual events (limit to max 50 per batch)
+    const recentEvents = (events || []).slice(0, 50);
+    for (const ev of recentEvents) {
+      statements.push(
+        db.prepare(`
+          INSERT OR IGNORE INTO wcg_virtual_events (
+            id, type, product_id, item_name, amount, details, is_simulated, created_at
+          ) VALUES (?, ?, ?, ?, ?, ?, 1, ?)
+        `).bind(
+          ev.id,
+          ev.type,
+          ev.product_id || null,
+          ev.item_name || null,
+          ev.amount || 1,
+          ev.details || null,
+          ev.created_at || new Date().toISOString()
+        )
+      );
+    }
+
+    if (statements.length > 0) {
+      recordD1Write(statements.length);
+      await db.batch(statements);
+    }
+    return true;
+  } catch (err: any) {
+    console.warn('[batchFlushVirtualLayerD1 error]', err?.message);
+    if (err?.message?.includes('quota') || err?.message?.includes('503')) {
+      triggerD1CircuitBreaker(15 * 60 * 1000, err.message);
+    }
+    return false;
+  }
+}
+
+/**
+ * Get paginated virtual events for Admin
+ */
+export async function getPaginatedVirtualEventsD1(
+  db: D1Database,
+  page: number = 1,
+  limit: number = 20
+): Promise<{ events: any[]; total: number; page: number; limit: number; totalPages: number }> {
+  const p = Math.max(1, Number(page) || 1);
+  const l = Math.max(1, Math.min(100, Number(limit) || 20));
+  const offset = (p - 1) * l;
+
+  try {
+    await ensureSchemaUpgrades(db);
+    recordD1Read(l + 1);
+    const countRow = await db.prepare('SELECT COUNT(*) as cnt FROM wcg_virtual_events').first<any>();
+    const total = Number(countRow?.cnt || 0);
+    const totalPages = Math.ceil(total / l) || 1;
+
+    const rows = await db.prepare(
+      'SELECT * FROM wcg_virtual_events ORDER BY created_at DESC LIMIT ? OFFSET ?'
+    ).bind(l, offset).all<any>();
+
+    return {
+      events: rows.results || [],
+      total,
+      page: p,
+      limit: l,
+      totalPages,
+    };
+  } catch (err: any) {
+    console.warn('[getPaginatedVirtualEventsD1 error]', err?.message);
+    return { events: [], total: 0, page: p, limit: l, totalPages: 1 };
+  }
+}
+
+/**
+ * Get paginated virtual aggregates for Admin
+ */
+export async function getPaginatedVirtualAggregatesD1(
+  db: D1Database,
+  page: number = 1,
+  limit: number = 20
+): Promise<{ aggregates: any[]; total: number; page: number; limit: number; totalPages: number }> {
+  const p = Math.max(1, Number(page) || 1);
+  const l = Math.max(1, Math.min(100, Number(limit) || 20));
+  const offset = (p - 1) * l;
+
+  try {
+    await ensureSchemaUpgrades(db);
+    recordD1Read(l + 1);
+    const countRow = await db.prepare('SELECT COUNT(*) as cnt FROM wcg_virtual_aggregates').first<any>();
+    const total = Number(countRow?.cnt || 0);
+    const totalPages = Math.ceil(total / l) || 1;
+
+    const rows = await db.prepare(
+      'SELECT * FROM wcg_virtual_aggregates ORDER BY updated_at DESC LIMIT ? OFFSET ?'
+    ).bind(l, offset).all<any>();
+
+    return {
+      aggregates: rows.results || [],
+      total,
+      page: p,
+      limit: l,
+      totalPages,
+    };
+  } catch (err: any) {
+    console.warn('[getPaginatedVirtualAggregatesD1 error]', err?.message);
+    return { aggregates: [], total: 0, page: p, limit: l, totalPages: 1 };
+  }
+}
+
 
 

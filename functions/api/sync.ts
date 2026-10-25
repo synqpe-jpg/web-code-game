@@ -1218,157 +1218,19 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
         );
       }
 
-      // 2. Public endpoint for debounced client peak metrics reporting (Two-way rollup to D1)
+      // 2. Public endpoint for debounced client peak metrics reporting (DEPRECATED & NEUTRALIZED)
       if (body.type === 'report_peak_metrics') {
-        const hub = await getRealEventsHub(env);
-        const vnToday = new Date(Date.now() + 7 * 3600 * 1000).toISOString().slice(0, 10);
-        if (hub.date !== vnToday) {
-          hub.date = vnToday;
-          hub.masterCopyClicks = 0;
-          hub.peakCopyClicks = 0;
-        }
-        if (!hub.peakProductSoldCounts || typeof hub.peakProductSoldCounts !== 'object') hub.peakProductSoldCounts = {};
-        if (!hub.peakGiveawayClaimedCounts || typeof hub.peakGiveawayClaimedCounts !== 'object') hub.peakGiveawayClaimedCounts = {};
-        if (!hub.lowestProductStock || typeof hub.lowestProductStock !== 'object') hub.lowestProductStock = {};
-        if (!hub.lowestGiveawayRemaining || typeof hub.lowestGiveawayRemaining !== 'object') hub.lowestGiveawayRemaining = {};
-
-        let changed = false;
-        const isForceReset = Boolean(body.forceReset || body.forceResetSold || body.forceResetClaimed || body.forceResetStock);
-
-        // Peak sold: Keep max, but auto-heal or force-reset if admin explicitly updated
-        if (body.peakSold && typeof body.peakSold === 'object') {
-          for (const [pId, val] of Object.entries(body.peakSold)) {
-            const num = Number(val);
-            if (!isNaN(num) && num >= 0 && num < 1000000) {
-              const cur = hub.peakProductSoldCounts[pId] || 0;
-              if (body.forceResetSold || body.forceReset || isForceReset) {
-                hub.peakProductSoldCounts[pId] = num;
-                changed = true;
-              } else if (cur === 0 || num > cur) {
-                hub.peakProductSoldCounts[pId] = num;
-                changed = true;
-              }
-            }
-          }
-        }
-
-        // Peak claimed: Keep max, but auto-heal or force-reset if admin explicitly updated
-        if (body.peakClaimed && typeof body.peakClaimed === 'object') {
-          for (const [gId, val] of Object.entries(body.peakClaimed)) {
-            const num = Number(val);
-            if (!isNaN(num) && num >= 0 && num < 1000000) {
-              const cur = hub.peakGiveawayClaimedCounts[gId] || 0;
-              if (body.forceResetClaimed || body.forceReset || isForceReset) {
-                hub.peakGiveawayClaimedCounts[gId] = num;
-                changed = true;
-              } else if (cur === 0 || num > cur) {
-                hub.peakGiveawayClaimedCounts[gId] = num;
-                changed = true;
-              }
-            }
-          }
-        }
-
-        // Peak copy count: Keep max
-        if (typeof body.peakCopy === 'number' && body.peakCopy > 0) {
-          const num = Math.min(1000000, Math.floor(body.peakCopy));
-          const cur = hub.peakCopyClicks || 0;
-          if (num > cur) {
-            hub.peakCopyClicks = num;
-            changed = true;
-          }
-        }
-
-        // Peak master real clicks
-        if (typeof body.peakMasterClicks === 'number' && body.peakMasterClicks > 0) {
-          const num = Math.min(1000000, Math.floor(body.peakMasterClicks));
-          const cur = hub.masterCopyClicks || 0;
-          if (num > cur) {
-            hub.masterCopyClicks = num;
-            changed = true;
-          }
-        }
-
-        // Lowest stock: Keep min (stock decreases when bought), allow restock jump
-        if (body.lowestStock && typeof body.lowestStock === 'object') {
-          for (const [pId, val] of Object.entries(body.lowestStock)) {
-            const num = Number(val);
-            if (num >= 0 && num < 1000000) {
-              const cur = hub.lowestProductStock[pId];
-              const isRestockJump = cur !== undefined && num > cur;
-              const isDownwardHeal = cur !== undefined && cur > 50 && num < cur;
-              if (body.forceResetStock || cur === undefined || num < cur || isRestockJump || isDownwardHeal) {
-                hub.lowestProductStock[pId] = num;
-                changed = true;
-              }
-            }
-          }
-        }
-
-        // Lowest remaining giveaway: Keep min, allow restock jump
-        if (body.lowestRemaining && typeof body.lowestRemaining === 'object') {
-          for (const [gId, val] of Object.entries(body.lowestRemaining)) {
-            const num = Number(val);
-            if (num >= 0 && num < 1000000) {
-              const cur = hub.lowestGiveawayRemaining[gId];
-              const isRestockJump = cur !== undefined && num > cur;
-              const isDownwardHeal = cur !== undefined && cur > 50 && num < cur;
-              if (body.forceResetStock || cur === undefined || num < cur || isRestockJump || isDownwardHeal) {
-                hub.lowestGiveawayRemaining[gId] = num;
-                changed = true;
-              }
-            }
-          }
-        }
-
-        if (changed || isForceReset) {
-          hub.updatedAt = new Date().toISOString();
-          await saveRealEventsHub(env, hub, isForceReset);
-
-          // CHỈ xóa cache và snapshot khi có yêu cầu cưỡng chế forceReset từ Admin
-          // Client report peak metric không được phép phá vỡ Edge CDN Cache
-          if (isForceReset) {
-            const gScope = globalThis as any;
-            gScope.__wcg_metrics_snapshot = null;
-
-            if (env && env.DB) {
-              await setSettingD1(env.DB, 'wcg_hourly_fomo_stats', null).catch(() => {});
-              await env.DB.prepare('DELETE FROM system_snapshots').run().catch(() => {});
-            }
-
-            // Invalidate edge cache for /api/metrics/synced, /api/stats, and /api/realtime-events
-            try {
-              if (typeof caches !== 'undefined' && (caches as any).default) {
-                const cache = (caches as any).default;
-                const cacheUrl = new URL(request.url);
-                cacheUrl.pathname = '/api/metrics/synced';
-                cacheUrl.search = '';
-                await cache.delete(new Request(cacheUrl.toString(), { method: 'GET' }));
-
-                const statsUrl = new URL(request.url);
-                statsUrl.pathname = '/api/stats';
-                statsUrl.search = '';
-                await cache.delete(new Request(statsUrl.toString(), { method: 'GET' }));
-
-                const eventsUrl = new URL(request.url);
-                eventsUrl.pathname = '/api/realtime-events';
-                eventsUrl.search = '';
-                await cache.delete(new Request(eventsUrl.toString(), { method: 'GET' }));
-              }
-            } catch {}
-          }
-        }
-
         return new Response(
           JSON.stringify({
             success: true,
-            masterCopyClicks: hub.masterCopyClicks,
-            peakCopyClicks: hub.peakCopyClicks,
+            deprecated: true,
+            message: 'Client peak reporting is permanently disabled. All display counters are served authoritative from Edge Two-Layer Engine.',
             server_time: Date.now(),
           }),
           { headers: CORS_HEADERS }
         );
       }
+
 
       if (body.key === 'wcg_admin_submissions_v4' && body.data) {
         let existing: any[] = [];
