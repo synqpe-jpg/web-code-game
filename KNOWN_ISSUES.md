@@ -10,6 +10,31 @@
 
 ## 1. DANH MỤC LỖI & CÁC BẪY ĐÃ THẤT BẠI (DO NOT REPEAT)
 
+### ISSUE-124: Lệch Pha Hiển Thị Thông Báo Marketing Đa Thiết Bị Do Polling Skew & Xả Hàng Đợi FIFO Cũ
+- **Triệu chứng**:
+  - Khi mở nhiều thiết bị (máy tính, điện thoại, các trình duyệt khác nhau) cùng lúc, thông báo toast góc dưới trái không đồng nhất: máy có máy không, loại thông báo và nội dung không khớp nhau tại cùng một thời điểm.
+- **Nguyên nhân gốc rễ**:
+  1. *Lệch chu kỳ hỏi dữ liệu (Polling Phase Skew)*: Client hẹn giờ định kỳ kiểu `25000 + Math.random() * 5000` kể từ thời điểm mở trang. Máy A mở lúc giây 00 hỏi lúc giây 25, máy B mở lúc giây 15 hỏi lúc giây 40 $\rightarrow$ thời điểm nổ toast bị lệch nhau tới 15–20 giây.
+  2. *Hàng đợi FIFO xả quá khứ*: Trình duyệt mới mở nhận mảng 15 sự kiện của 7.5 phút trước từ server, hàm `getNextLedgerEvent()` gọi `shift()` lấy sự kiện cũ nhất ra hiển thị, trong khi máy đã mở lâu hiển thị sự kiện mới.
+  3. *Replay ngẫu nhiên độc lập*: Khi queue rỗng, client tự gọi `cachedLedgerEvents[Math.floor(Math.random() * length)]` gắn `id: replay_*` $\rightarrow$ mỗi máy chọn một mặt hàng ngẫu nhiên khác nhau.
+- **Giải pháp chuẩn đã kiểm chứng**:
+  1. *Cơ chế Slot Clock Synchronized Engine*:
+     - Đồng bộ hóa hiển thị theo đồng hồ khe đã hiệu chuẩn (`calibratedNow`) dựa vào `slotIndex = Math.floor((calibratedNow - dayStartMs) / 30000)`.
+     - `MarketingNotificationToast.tsx`: Giờ nổ cố định tại giây thứ 1.5 của khe (`slotFireTimeMs = slotStartMs + 1500`). Thời lượng hiển thị cố định 5s (`slotHideTimeMs = slotFireTimeMs + 5000`).
+     - Mọi trình duyệt tại cùng một khe $K$ đều hiển thị đúng 1 sự kiện duy nhất từ `slotEventsMap.get(K)`.
+     - Chống trùng lặp theo khe (`lastDisplayedSlotRef`): Mỗi khe chỉ hiển thị đúng 1 lần, bất kể số lần re-render.
+     - Trình duyệt mới mở / Tab ẩn quay lại: Bắt đầu ngay từ khe hiện tại, nếu đã qua thời lượng hiển thị (> 9s) thì đánh dấu bỏ qua và chờ khe tiếp theo, tuyệt đối không xả lại sự kiện cũ trong quá khứ.
+     - Xóa vĩnh viễn nhánh `replay_`: Trả về `null` khi hàng đợi rỗng.
+     - Sự kiện thật của người dùng: Ưu tiên cao nhất, hiển thị ngay lập tức (vượt khe).
+  2. *Phân biệt rõ ràng cài đặt cục bộ (Local Preference)*:
+     - Nút "Không hiện 1h" lưu trong `localStorage.getItem('wcg_marketing_toast_snooze_until')` của riêng trình duyệt đó (browser-scoped). Thiết bị bấm nút sẽ tạm ẩn, thiết bị khác không bấm vẫn nổ theo khe bình thường.
+- ⛔ **CÁCH SỬA ĐÃ THẤT BẠI - TUYỆT ĐỐI KHÔNG LẶP LẠI**:
+  - ❌ *Không dùng mảng FIFO `shift()` xả sự kiện cũ khi người dùng mở trang mới*: Phải hiển thị theo đồng hồ khe hiện tại.
+  - ❌ *Không chọn ngẫu nhiên sự kiện cũ trong cache (`cachedLedgerEvents[random]`) để replay*: Gây lệch pha nội dung giữa các máy.
+  - ❌ *Không hẹn giờ hiển thị phụ thuộc vào thời điểm fetch API*: Phải dùng `setTimeout` chờ đến đúng `slotFireTimeMs` của đồng hồ khe.
+
+---
+
 ### ISSUE-123: Vòng Lặp Re-render Vô Tận (React Invariant #301) Khi Lưu Lại Trang Giật Code (/giveaways)
 - **Triệu chứng**:
   - Người dùng mở trang `/giveaways` một lúc (khoảng 30 giây đến 1 phút) thì giao diện bị lỗi và rơi vào `<ErrorBoundary>`: `Minified React error #301: Too many re-renders. React limits the number of renders to prevent an infinite loop.`

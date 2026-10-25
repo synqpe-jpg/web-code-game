@@ -265,6 +265,7 @@ class MarketingService {
   // Authoritative Server Ledger Event Queue
   private serverLedgerEventQueue: MarketingNotification[] = [];
   private cachedLedgerEvents: MarketingNotification[] = [];
+  private slotEventsMap: Map<number, MarketingNotification> = new Map();
   private lastLedgerSyncTime: number = 0;
 
   constructor() {
@@ -2921,7 +2922,7 @@ class MarketingService {
     return 'Khách vãng lai';
   }
 
-  // --- Authoritative Server Ledger Event Queue ---
+  // --- Authoritative Server Ledger Event Queue & Slot Clock Helpers ---
   public hasPendingLedgerEvent(): boolean {
     return this.peekLedgerEvent() !== null;
   }
@@ -2946,18 +2947,66 @@ class MarketingService {
       }
     }
 
-    // 2. Offline fallback: replay previously verified events from server ledger if disconnected > 60s
-    const now = Date.now();
-    if (this.cachedLedgerEvents.length > 0 && (now - this.lastLedgerSyncTime > 60000)) {
-      const replayEvt = this.cachedLedgerEvents[Math.floor(Math.random() * this.cachedLedgerEvents.length)];
-      if (replayEvt && this.isTypeEnabled(replayEvt.type, replayEvt.itemType)) {
-        return {
-          ...replayEvt,
-          id: `replay_${replayEvt.id}_${now}`,
-        };
+    // 2. Tuân thủ nghiêm ngặt Yêu cầu 2: Bỏ phát lại ngẫu nhiên.
+    // Khi hàng đợi rỗng, không tự chọn ngẫu nhiên sự kiện cũ trong bộ nhớ đệm để phát lại.
+    // Tuyệt đối không sinh id dạng replay_*. Trả về null để không hiển thị gì cả.
+    return null;
+  }
+
+  /**
+   * Tính toán neo ngày (00:00:00+07:00 giờ VN) và chỉ số khe (currentSlotIndex)
+   * đồng bộ tuyệt đối với máy chủ theo chu kỳ 30 giây / khe.
+   */
+  public getVnDayAnchor(nowMs: number = this.getCalibratedNow()): { vnDateStr: string; dayStartMs: number; currentSlotIndex: number } {
+    const vnDateStr = new Date(nowMs + 7 * 3600 * 1000).toISOString().slice(0, 10);
+    const dayStartMs = new Date(vnDateStr + 'T00:00:00+07:00').getTime();
+    const currentSlotIndex = Math.max(0, Math.floor((nowMs - dayStartMs) / 30000));
+    return { vnDateStr, dayStartMs, currentSlotIndex };
+  }
+
+  /**
+   * Trích xuất chỉ số khe (slotIndex) từ một sự kiện sổ máy chủ.
+   * Nhận dạng theo id: sim_slot_NNNN hoặc slot_xxx_NNNN hoặc thuộc tính slotIndex/timestamp.
+   */
+  public extractSlotIndex(evt: any, dayStartMs?: number): number | null {
+    if (!evt) return null;
+    if (typeof evt.slotIndex === 'number' && !isNaN(evt.slotIndex)) {
+      return evt.slotIndex;
+    }
+    if (typeof evt.id === 'string') {
+      const match = evt.id.match(/^(?:sim_)?slot_(\d+)/);
+      if (match) {
+        return parseInt(match[1], 10);
       }
     }
+    const anchor = dayStartMs || this.getVnDayAnchor().dayStartMs;
+    const ts = Number(evt.timestamp || evt.scheduledFireTime);
+    if (!isNaN(ts) && ts > 0 && anchor > 0) {
+      return Math.floor((ts - anchor) / 30000);
+    }
+    return null;
+  }
 
+  /**
+   * Lấy sự kiện mô phỏng của KHE HIỆN TẠI từ sổ máy chủ.
+   * Cùng một khe thì mọi trình duyệt đều nhận cùng một sự kiện duy nhất.
+   * Nếu chưa có sự kiện cho khe hiện tại -> trả về null (không hiển thị gì).
+   */
+  public getCurrentSlotEvent(currentSlotIndex: number): MarketingNotification | null {
+    const { dayStartMs } = this.getVnDayAnchor();
+
+    // 1. Tìm trực tiếp trong bảng ánh xạ khe slotEventsMap
+    let evt = this.slotEventsMap.get(currentSlotIndex) || null;
+
+    // 2. Tìm trong serverLedgerEventQueue hoặc cachedLedgerEvents nếu chưa kịp map
+    if (!evt) {
+      evt = this.serverLedgerEventQueue.find((e) => this.extractSlotIndex(e, dayStartMs) === currentSlotIndex) ||
+            this.cachedLedgerEvents.find((e) => this.extractSlotIndex(e, dayStartMs) === currentSlotIndex) || null;
+    }
+
+    if (evt && this.isTypeEnabled(evt.type, evt.itemType)) {
+      return evt;
+    }
     return null;
   }
 
@@ -3382,15 +3431,28 @@ class MarketingService {
         }
       } catch {}
 
-      // Cache all received valid events for offline replay
+      this.lastLedgerSyncTime = Date.now();
+      const { dayStartMs } = this.getVnDayAnchor();
+
+      // Lưu trữ sự kiện vào slotEventsMap theo slotIndex để phục vụ hiển thị theo đồng hồ khe
       serverEvents.forEach((evt) => {
         if (!evt || !evt.id) return;
         if (evt.type === 'BUY_PRODUCT' && evt.productId && (deletedStoreSet.has(evt.productId) || deletedUtilSet.has(evt.productId))) return;
         if (evt.type === 'CLAIM_GIVEAWAY' && evt.giveawayId && deletedGwSet.has(evt.giveawayId)) return;
+        
+        const slotIdx = this.extractSlotIndex(evt, dayStartMs);
+        if (slotIdx !== null) {
+          this.slotEventsMap.set(slotIdx, evt);
+        }
         if (!this.cachedLedgerEvents.some(c => c.id === evt.id)) {
           this.cachedLedgerEvents.push(evt);
         }
       });
+      if (this.slotEventsMap.size > 120) {
+        const sortedKeys = Array.from(this.slotEventsMap.keys()).sort((a, b) => a - b);
+        const keysToRemove = sortedKeys.slice(0, sortedKeys.length - 100);
+        keysToRemove.forEach((k) => this.slotEventsMap.delete(k));
+      }
       if (this.cachedLedgerEvents.length > 30) {
         this.cachedLedgerEvents = this.cachedLedgerEvents.slice(this.cachedLedgerEvents.length - 30);
       }
@@ -3403,7 +3465,7 @@ class MarketingService {
       const calibratedNow = this.getCalibratedNow();
 
       sorted.forEach((evt) => {
-        if (!evt || !evt.id || this.isNotificationProcessed(evt.id)) return;
+        if (!evt || !evt.id) return;
 
         const fireTime = Number(evt.scheduledFireTime) || Number(evt.timestamp) || calibratedNow;
 

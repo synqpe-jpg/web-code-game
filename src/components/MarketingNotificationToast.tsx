@@ -69,6 +69,7 @@ export const MarketingNotificationToast: React.FC<MarketingNotificationToastProp
   const isHoveredRef = useRef(false);
   const lastToastDismissedTimeRef = useRef<number>(0);
   const currentNotificationIdRef = useRef<string | null>(null);
+  const lastDisplayedSlotRef = useRef<number>(-1);
   isHoveredRef.current = isHovered;
 
   // Check if user has snoozed notifications within the last 1 hour
@@ -235,7 +236,7 @@ export const MarketingNotificationToast: React.FC<MarketingNotificationToastProp
     return { games, storeProducts, utilityProducts, giveaways, inventory };
   }, []);
 
-  // Globally Synchronized Server Ledger Scheduler
+  // Globally Synchronized Server Ledger Scheduler (Slot Clock Synchronized Engine)
   const scheduleDeterministicSlot = useCallback(() => {
     try {
       const config = marketingService.getConfig();
@@ -250,7 +251,7 @@ export const MarketingNotificationToast: React.FC<MarketingNotificationToastProp
       const displayDurationMs = Math.max(3, Number(config.displayDuration) || 5) * 1000;
 
       // =========================================================================
-      // 1. LOCAL REAL USER EVENTS (Local click feedback - Top Priority)
+      // 1. LOCAL REAL USER EVENTS (Local click feedback - Top Priority, vượt khe)
       // =========================================================================
       if (marketingService.hasPendingRealEvent()) {
         const nextRealEvent = marketingService.peekRealEvent();
@@ -264,11 +265,42 @@ export const MarketingNotificationToast: React.FC<MarketingNotificationToastProp
       }
 
       // =========================================================================
-      // 2. AUTHORITATIVE SERVER LEDGER EVENTS (Single Source of Truth)
+      // 2. AUTHORITATIVE SERVER LEDGER EVENTS (Slot Clock Synchronized Engine)
+      // Mọi trình duyệt hiển thị sự kiện của KHE HIỆN TẠI theo đồng hồ đã hiệu chuẩn.
+      // Cùng một khe thì cùng một thông báo trên mọi máy. Không phát lại ngẫu nhiên.
+      // Trình duyệt mới mở và tab ẩn quay lại đều bắt đầu từ khe hiện tại.
       // =========================================================================
-      if (marketingService.hasPendingLedgerEvent()) {
-        const nextLedgerEvent = marketingService.getNextLedgerEvent();
-        if (nextLedgerEvent) {
+      const calibratedNow = marketingService.getCalibratedNow();
+      const { dayStartMs, currentSlotIndex } = marketingService.getVnDayAnchor(calibratedNow);
+      const slotDurationMs = 30000; // Chu kỳ khe 30s
+      const slotStartMs = dayStartMs + currentSlotIndex * slotDurationMs;
+      const slotEndMs = slotStartMs + slotDurationMs;
+      const slotFireTimeMs = slotStartMs + 1500; // Giây 1.5 của khe
+      const slotHideTimeMs = slotFireTimeMs + displayDurationMs; // Giây 6.5 (với duration 5s)
+
+      // Trường hợp A: Khe này ĐÃ ĐƯỢC HIỂN THỊ trên trình duyệt này
+      if (lastDisplayedSlotRef.current === currentSlotIndex) {
+        // Đã hiển thị trong khe này -> Chờ tới giây 1.5 của khe kế tiếp
+        const msToNextSlot = Math.max(500, slotEndMs - calibratedNow + 1500);
+        if (timerRef.current) clearTimeout(timerRef.current);
+        timerRef.current = setTimeout(() => scheduleRef.current(), msToNextSlot);
+        return;
+      }
+
+      // Trường hợp B: Khe này CHƯA HIỂN THỊ trên trình duyệt này
+      // B.1: Chưa đến giờ nổ của khe hiện tại
+      if (calibratedNow < slotFireTimeMs) {
+        const msWait = Math.max(100, slotFireTimeMs - calibratedNow);
+        if (timerRef.current) clearTimeout(timerRef.current);
+        timerRef.current = setTimeout(() => scheduleRef.current(), msWait);
+        return;
+      }
+
+      // B.2: Đang nằm trong cửa sổ hiển thị hợp lệ của khe hiện tại
+      // Cho phép hiển thị nếu chưa trôi qua quá 4 giây sau slotHideTimeMs (tức trước giây 10.5 của khe 30s)
+      if (calibratedNow >= slotFireTimeMs && calibratedNow < slotHideTimeMs + 4000) {
+        const currentSlotEvt = marketingService.getCurrentSlotEvent(currentSlotIndex);
+        if (currentSlotEvt) {
           const datasets = getDatasets();
           let isValid = true;
 
@@ -286,48 +318,56 @@ export const MarketingNotificationToast: React.FC<MarketingNotificationToastProp
             }
           } catch {}
 
-          if (nextLedgerEvent.type === 'BUY_PRODUCT' && nextLedgerEvent.productId) {
-            if (deletedStoreSet.has(nextLedgerEvent.productId) || deletedUtilSet.has(nextLedgerEvent.productId)) {
+          if (currentSlotEvt.type === 'BUY_PRODUCT' && currentSlotEvt.productId) {
+            if (deletedStoreSet.has(currentSlotEvt.productId) || deletedUtilSet.has(currentSlotEvt.productId)) {
               isValid = false;
             } else {
-              const storeProd = (datasets.storeProducts || []).find((p) => p && p.id === nextLedgerEvent.productId);
-              const utilProd = (datasets.utilityProducts || []).find((u) => u && u.id === nextLedgerEvent.productId);
+              const storeProd = (datasets.storeProducts || []).find((p) => p && p.id === currentSlotEvt.productId);
+              const utilProd = (datasets.utilityProducts || []).find((u) => u && u.id === currentSlotEvt.productId);
               const prod = storeProd || utilProd;
-              if (prod && prod.is_active === false) {
-                isValid = false;
-              }
+              if (prod && prod.is_active === false) isValid = false;
             }
-          } else if (nextLedgerEvent.type === 'CLAIM_GIVEAWAY' && nextLedgerEvent.giveawayId) {
-            if (deletedGwSet.has(nextLedgerEvent.giveawayId)) {
+          } else if (currentSlotEvt.type === 'CLAIM_GIVEAWAY' && currentSlotEvt.giveawayId) {
+            if (deletedGwSet.has(currentSlotEvt.giveawayId)) {
               isValid = false;
             } else {
-              const gw = (datasets.giveaways || []).find((g) => g && g.id === nextLedgerEvent.giveawayId);
-              if (gw && gw.is_active === false) {
-                isValid = false;
-              }
+              const gw = (datasets.giveaways || []).find((g) => g && g.id === currentSlotEvt.giveawayId);
+              if (gw && gw.is_active === false) isValid = false;
             }
           }
 
-          if (isValid && !marketingService.isTypeEnabled(nextLedgerEvent.type, nextLedgerEvent.itemType)) {
+          if (isValid && !marketingService.isTypeEnabled(currentSlotEvt.type, currentSlotEvt.itemType)) {
             isValid = false;
           }
 
           if (isValid) {
-            displayNotification(nextLedgerEvent, displayDurationMs);
-            const cycleIntervalMs = 25000 + Math.floor(Math.random() * 5000); // 25s - 30s rhythm
-            const waitToNextToast = Math.max(12000, cycleIntervalMs - displayDurationMs);
+            lastDisplayedSlotRef.current = currentSlotIndex;
+            const remainingDurationMs = Math.max(2500, displayDurationMs - Math.max(0, calibratedNow - slotFireTimeMs));
+            displayNotification(currentSlotEvt, remainingDurationMs);
+            const msToNextSlot = Math.max(1500, slotEndMs - calibratedNow + 1500);
             if (timerRef.current) clearTimeout(timerRef.current);
-            timerRef.current = setTimeout(() => scheduleRef.current(), waitToNextToast);
+            timerRef.current = setTimeout(() => scheduleRef.current(), msToNextSlot);
+            return;
+          }
+        } else {
+          // Chưa có sự kiện cho khe hiện tại từ sổ máy chủ:
+          // Thử lại sau 1.5 giây nếu vẫn trong 5s đầu của khe để chờ poller tải về
+          if (calibratedNow - slotFireTimeMs < 5000) {
+            if (timerRef.current) clearTimeout(timerRef.current);
+            timerRef.current = setTimeout(() => scheduleRef.current(), 1500);
             return;
           }
         }
       }
 
-      // No pending event in ledger queue right now -> wait 10s for next poller cycle
+      // B.3: Đã quá cửa sổ hiển thị của khe hiện tại (hoặc không có sự kiện cho khe hiện tại)
+      // Đánh dấu bỏ qua khe này để TUYỆT ĐỐI KHÔNG PHÁT LẠI (chống trùng theo khe, không replay ngẫu nhiên)
+      lastDisplayedSlotRef.current = currentSlotIndex;
+      const msToNextSlot = Math.max(1000, slotEndMs - calibratedNow + 1500);
       if (timerRef.current) clearTimeout(timerRef.current);
-      timerRef.current = setTimeout(() => scheduleRef.current(), 10000);
+      timerRef.current = setTimeout(() => scheduleRef.current(), msToNextSlot);
     } catch (err) {
-      console.warn('[MarketingToast] Error scheduling ledger event:', err);
+      console.warn('[MarketingToast] Error scheduling slot event:', err);
       if (timerRef.current) clearTimeout(timerRef.current);
       timerRef.current = setTimeout(() => scheduleRef.current(), 15000);
     }

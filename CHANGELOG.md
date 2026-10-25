@@ -7,6 +7,33 @@ Mỗi mục sửa lỗi đều ghi nhận **Nguyên nhân gốc rễ (Root Cause
 
 ## [2026-10-25]
 
+### 198. Hiển Thị Thông Báo Theo Đồng Hồ Khe (Slot Clock Engine), Triệt Tiêu Phát Lại Ngẫu Nhiên (Zero Replay) & Đồng Bộ Hoá Đa Thiết Bị
+- **Mô tả & Yêu cầu người dùng**:
+  - Người dùng kiểm tra trực tiếp trên nhiều thiết bị ngày 25/10/2026 và phát hiện thông báo toast góc dưới trái KHÔNG đồng nhất giữa các máy: máy có máy không, loại thông báo không khớp nhau. Phần bộ đếm sổ nguyên tử đã nghiệm thu chuẩn xác, vấn đề nằm ở tầng hiển thị client.
+  - Yêu cầu cốt lõi:
+    1. *Hiển thị theo đồng hồ khe*: Mọi trình duyệt hiển thị sự kiện của khe HIỆN TẠI theo đồng hồ đã hiệu chuẩn (`calibratedNow`). Cùng một khe thì cùng một thông báo trên mọi máy, độc lập với chu kỳ hỏi dữ liệu. Sự kiện thật của người dùng được hiển thị ngay lập tức (ưu tiên, vượt khe).
+    2. *Bỏ phát lại ngẫu nhiên (Zero replay_)*: Xóa hẳn việc tự chọn ngẫu nhiên sự kiện cũ trong bộ nhớ đệm (`replay_`) khi hàng đợi rỗng. Nếu chưa có sự kiện cho khe hiện tại thì không hiển thị gì.
+    3. *Trình duyệt mới mở & Tab ẩn quay lại*: Bắt đầu từ khe hiện tại, không phát lại sự kiện cũ trong quá khứ. Một khe đã qua thì không hiển thị lại (chống trùng theo khe `lastDisplayedSlotRef`).
+    4. *Làm rõ nút tạm ẩn 1 giờ*: Xác nhận nút "Không hiện 1h" lưu trong `localStorage` cục bộ theo từng trình duyệt cá nhân (browser-scoped local preference), không lưu theo tài khoản máy chủ.
+    5. *Giữ nguyên tầng số liệu*: Không đổi sổ nguyên tử, mức đổi số, công thức bộ đếm, gắn nhãn sự kiện và giám sát stream health.
+- **Nguyên nhân gốc rễ (Root Cause)**:
+  1. *Lệch chu kỳ hỏi dữ liệu (Polling Phase Skew)*: Client hẹn giờ hỏi dữ liệu dạng `25000 + Math.random() * 5000` bắt đầu từ thời điểm mở trang. Máy A hỏi ở giây 02, máy B hỏi ở giây 17 khiến thời điểm nổ toast bị lệch nhau tới 15s.
+  2. *Hàng đợi FIFO xả quá khứ*: Trình duyệt mới mở nhận mảng 15 sự kiện của 7.5 phút trước, hàm `getNextLedgerEvent()` gọi `shift()` lấy sự kiện cũ nhất ra hiển thị, trong khi máy mở lâu hiển thị sự kiện mới.
+  3. *Replay ngẫu nhiên độc lập*: Khi queue rỗng, client tự gọi `cachedLedgerEvents[Math.floor(Math.random() * length)]` gắn `id: replay_*` khiến mỗi máy hiển thị một mặt hàng ngẫu nhiên khác nhau.
+- **Giải pháp triển khai (Solution)**:
+  1. *Cơ chế Slot Clock Synchronized Engine*:
+     - `marketingService.ts`: Thêm `slotEventsMap`, `getVnDayAnchor`, `extractSlotIndex` và `getCurrentSlotEvent(currentSlotIndex)`. Mọi sự kiện sổ máy chủ từ `/api/realtime-events` được ánh xạ trực tiếp theo `slotIndex`.
+     - Xóa triệt để nhánh `replay_` trong `getNextLedgerEvent()`: trả về `null` khi hàng đợi rỗng, triệt tiêu 100% hiện tượng tự bịa ID `replay_`.
+     - `MarketingNotificationToast.tsx`: Thay thế toàn bộ logic hẹn giờ cũ bằng `scheduleDeterministicSlot`:
+       - Ưu tiên 1: Sự kiện thật (`peekRealEvent` / `popRealEvent`) hiển thị tức thì.
+       - Ưu tiên 2: Sự kiện theo khe: tính `slotFireTimeMs = slotStartMs + 1500`, nổ vào giây 1.5 của khe 30s. Nếu người dùng mở tab giữa khe (trong vòng 5s thời lượng hiển thị + 4s buffer), hiển thị phần thời gian còn lại. Nếu quá cửa sổ hiển thị thì đánh dấu đã qua và bỏ qua, tuyệt đối không xả lại sự kiện cũ trong quá khứ.
+       - Sử dụng `lastDisplayedSlotRef` chống trùng lặp theo khe (slot-level deduplication).
+  2. *Bảo toàn dữ liệu & Cấu trúc tầng số liệu*:
+     - Giữ nguyên toàn bộ sổ nguyên tử, `CONVERSION_TABLE`, cơ chế Two-layer SSOT và các endpoint API.
+- **Kết quả kiểm thử**:
+  - Script kiểm thử đa trình duyệt `test_slot_clock_multi_browser.cjs`: Đạt 5/5 bài test (Đa trình duyệt hỏi lệch pha nhưng khớp 100% thông báo theo khe; Zero `replay_`; Trình duyệt mới mở không xả sự kiện cũ; Quá hạn bỏ qua an toàn; Sự kiện thật ưu tiên hiển thị ngay).
+  - Toàn bộ các test suite hồi quy (`test_atomic_ledger_fomo.cjs`, `test_two_layer_fomo.cjs`, `test_audit_key_analytics.cjs`, `audit_zero_test_artifacts.cjs`, `verify_all_requirements.cjs`) đều đạt 100% PASS.
+
 ### 197. Triệt Tiêu Vòng Lặp Re-render Vô Tận (React Error #301) Trên Trang Giật Code (/giveaways)
 - **Mô tả & Yêu cầu người dùng**:
   - Người dùng phản ánh: *"Tôi ấn vào give ây 1 lúc thì hiện ra lỗi này"* kèm ảnh chụp màn hình Error Boundary bắt được `Minified React error #301` ("Too many re-renders. React limits the number of renders to prevent an infinite loop").
