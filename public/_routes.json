@@ -5,7 +5,6 @@
   ],
   "exclude": [
     "/assets/*",
-    "/game_icons/*",
     "/game_banners/*",
     "/data/*",
     "/favicon.ico",

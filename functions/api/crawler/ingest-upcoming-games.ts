@@ -1317,11 +1317,22 @@ export async function onRequestPost(context: { request: Request; env: Env }): Pr
       );
     }
 
-    // 5. Giải mã Base64 sang binary bytes
+    // 5. Giải mã Base64 sang binary bytes (kèm pre-check độ dài chống tràn bộ nhớ)
+    const MAX_ICON_SIZE_BYTES = 500 * 1024;
     let imageBytes: Uint8Array;
     let cleanBase64: string;
     try {
       cleanBase64 = String(rawBase64).replace(/^data:image\/[a-zA-Z+]+;base64,/, '').trim();
+      // Base64 phình 4/3 so với binary: 500KB * 4/3 ~ 682.6KB. Vượt quá ngưỡng này chắc chắn > 500KB.
+      if (cleanBase64.length > Math.ceil(MAX_ICON_SIZE_BYTES * 4 / 3) + 32) {
+        return new Response(
+          JSON.stringify({
+            success: false,
+            error: `Dung lượng file vượt quá giới hạn tối đa cho phép là 500KB.`,
+          }),
+          { status: 400, headers: CORS_HEADERS }
+        );
+      }
       const binaryStr = atob(cleanBase64);
       const len = binaryStr.length;
       imageBytes = new Uint8Array(len);
@@ -1339,7 +1350,6 @@ export async function onRequestPost(context: { request: Request; env: Env }): Pr
     }
 
     // 6. Kiểm tra dung lượng tối đa 500KB (512,000 bytes)
-    const MAX_ICON_SIZE_BYTES = 500 * 1024;
     if (imageBytes.length > MAX_ICON_SIZE_BYTES) {
       return new Response(
         JSON.stringify({
