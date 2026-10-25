@@ -7,6 +7,35 @@ Mỗi mục sửa lỗi đều ghi nhận **Nguyên nhân gốc rễ (Root Cause
 
 ## [2026-10-25]
 
+### 194. Cấp Quyền Đọc Phân Tích Ảo (get_virtual_analytics) & Giám Sát Quota D1 Cho Khóa Kiểm Toán Tạm Thời, Bổ Sung Cờ rejectPeakReports Và Khắc Phục Điều Hướng Router Crawler Key
+- **Mô tả & Yêu cầu người dùng**:
+  - *"Mở quyền đọc analytics ảo + quota cho key kiểm toán (để Pine tự kiểm chứng, không cần đăng nhập admin)"*
+  - Key kiểm toán tạm thời "Pine / Muse Temp Auditor" (prefix `wcg_audit_temp_`) khi gọi `get_virtual_analytics` bị server trả 403 với thông điệp gán nhãn action đọc này là "thao tác ghi" và cấm hẳn.
+  - Khi gọi cùng action qua đường key crawler tại `/api/crawler/ingest-codes` thì endpoint rơi về nhánh ingest và báo `"Thiếu tên game (gameName)"`.
+  - Yêu cầu mở quyền đọc analytics ảo và quota D1 cho key kiểm toán (scoped read-only); cung cấp cờ `rejectPeakReports: true` đọc được mà không cần bơm peak giả; giữ key kiểm toán chỉ-đọc và cấm 100% thao tác ghi (trả 403); che sạch thông tin người dùng (PII: email, phone, raw_code, mask tên dạng `***`).
+- **Nguyên nhân gốc rễ (Root Cause)**:
+  1. *Phân loại nhầm action đọc*: Trong `functions/api/crawler/ingest-codes.ts` line 844 và `marketing.ts`, danh sách action được phép đọc của auditor cũ chỉ khóa cứng 2 mục (`get_marketing_config` và `list_marketing_events`). Bất kỳ action nào khác (kể cả `get_virtual_analytics`) đều bị gộp chung vào thông điệp từ chối thao tác ghi.
+  2. *Lệch router tại endpoint ingest-codes*: Khi crawler key (`role: 'crawler_writer'`) gọi `get_virtual_analytics` tại `/api/crawler/ingest-codes`, endpoint không kiểm tra action này trong các action marketing mà để rơi xuống luồng xử lý nạp mã giftcode chính yêu cầu `body.gameName`.
+  3. *Thiếu cờ xác nhận từ chối peak reports*: Cơ chế từ chối `report_peak_metrics` đã hoạt động tại `/api/sync` nhưng chưa được công bố qua trường đọc được trong API cấu hình / phân tích ảo.
+- **Giải pháp đã triển khai (Solution)**:
+  1. *Khai báo và mở quyền đọc `get_virtual_analytics`*:
+     - Trong `functions/api/crawler/marketing.ts` và `functions/api/crawler/ingest-codes.ts`: Bổ sung `get_virtual_analytics` và `get_metrics_snapshot` vào danh sách `allowedAuditActions`.
+     - Phân định rõ ràng: Nếu action nằm trong danh sách `writeActions`, trả về 403: *"Thao tác ghi '${action}' bị nghiêm cấm đối với khóa kiểm toán (Read-only)..."*. Nếu action không hỗ trợ, trả về 403: *"Khóa kiểm toán chỉ có quyền đọc cho các action: ..."* (không đánh đồng là thao tác ghi).
+  2. *Chuẩn hóa Payload Phân Tích Ảo (buildVirtualAnalyticsPayload)*:
+     - Giám sát Quota D1: `d1_quota` gồm `estimatedReads`, `estimatedWrites`, `readLimit` (5.000.000), `alertLevel`, `circuitBreakerActive`.
+     - 3 cột Sản phẩm & Giveaway: Cung cấp đầy đủ cả `sold` & `display_sold`, `stock` & `display_stock` theo đúng tầng `/api/realtime-events`.
+     - Sổ ảo phân trang: Hỗ trợ `page`, `limit` (mặc định 15), kèm `total` và `totalPages`.
+     - Che giấu PII: Tên người dùng được mask dạng `***`, tự động xóa sạch `email`, `phone`, và `raw_code`.
+     - Thêm cờ `rejectPeakReports: true` trong cả `get_virtual_analytics` và `get_marketing_config`.
+  3. *Điều hướng Router thông minh tại `functions/api/crawler/ingest-codes.ts`*:
+     - Cả GET và POST đều chặn bắt và xử lý 4 action marketing kiểm toán trước khi chuyển xuống luồng giftcode, xử lý được cả crawler key (`role: 'crawler_writer'`), temp audit key (`role: 'marketing_auditor'`) và admin key.
+  4. *Mở rộng xác thực trong `functions/services/marketingAuditService.ts`*:
+     - Nhận diện các crawler key (`wcg_muse_...`, `MUSE_API_KEY`, `PINE_API_KEY`) với vai trò `role: 'marketing_auditor'` khi gọi các endpoint kiểm toán.
+- **Kết quả nghiệm thu**:
+  - Test suite `scripts/test_audit_key_analytics.cjs` đạt 5/5 pass 100%.
+  - Toàn bộ 4 bộ test hồi quy (`audit_zero_test_artifacts`, `test_two_layer_fomo`, `test_temporary_audit_token`, `test_audit_key_analytics`) vượt qua 100%.
+  - Thao tác ghi với audit key bị chặn 403 chính xác, thao tác đọc thành công 200, router crawler key không còn bị lỗi "Thiếu tên game".
+
 ### 193. Sửa Lỗi Sập Phân Hệ Thông Báo Marketing Do Truy Cập Thuộc Tính Chưa Khai Báo (Fix TypeError: Cannot read properties of undefined reading 'workingPercentage')
 - **Mô tả & Yêu cầu người dùng**:
   - *"Tôi vào Thông báo Marketing bị lỗi."*

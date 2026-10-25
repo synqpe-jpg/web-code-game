@@ -10,6 +10,28 @@
 
 ## 1. DANH MỤC LỖI & CÁC BẪY ĐÃ THẤT BẠI (DO NOT REPEAT)
 
+### ISSUE-120: Phân Loại Sai Action Đọc Thành Thao Tác Ghi & Lệch Router Khi Gọi Endpoint Ingest Bằng Khóa Kiểm Toán / Crawler
+- **Triệu chứng**:
+  - Khi khóa kiểm toán tạm thời (prefix `wcg_audit_temp_`) gọi `get_virtual_analytics`, server trả về HTTP 403 Forbidden với thông điệp: *"Thao tác ghi 'get_virtual_analytics' bị nghiêm cấm đối với khóa kiểm toán"*.
+  - Khi gọi cùng action `get_virtual_analytics` qua endpoint `/api/crawler/ingest-codes` bằng crawler key, server trả về lỗi: *"Thiếu tên game (gameName)"*.
+- **Nguyên nhân gốc rễ**:
+  1. *Khóa cứng danh sách action được phép đọc*: Bộ lọc quyền hạn trong `ingest-codes.ts` và `marketing.ts` chỉ cho phép `get_marketing_config` và `list_marketing_events`. Mọi action khác đều bị gom chung vào nhánh từ chối với thông điệp gán nhãn là "thao tác ghi".
+  2. *Lệch router tại ingest-codes*: Khi crawler key gọi `/api/crawler/ingest-codes`, endpoint không kiểm tra action `get_virtual_analytics` trong nhóm marketing read-only mà để rơi xuống luồng nạp mã giftcode chính, nơi yêu cầu trường `body.gameName`.
+- **Giải pháp chuẩn đã kiểm chứng**:
+  1. *Định nghĩa rõ danh mục quyền hạn*:
+     - `allowedAuditActions`: `['get_marketing_config', 'list_marketing_events', 'get_metrics_snapshot', 'get_virtual_analytics']`.
+     - `writeActions`: `['update_marketing_config', 'save_marketing_config', 'test_trigger', 'ingest_codes', 'queue_game', 'publish_game', 'approve_codes', 'reject_codes', 'update_instructions', 'cleanup_test_codes', 'delete_pending_game']`.
+     - Chỉ trả về thông điệp "thao tác ghi" khi action thuộc `writeActions`.
+  2. *Xử lý triệt để tại tầng đầu của ingest-codes*:
+     - Trước khi đi vào luồng nạp giftcode, cả GET và POST đều kiểm tra và xử lý 4 action marketing kiểm toán độc lập.
+  3. *Cung cấp cờ `rejectPeakReports: true`*:
+     - Trả về cờ này trong cấu hình và phân tích ảo để bên kiểm toán có thể kiểm chứng cơ chế từ chối peak reports từ client mà không cần gửi payload giả.
+- ⛔ **CÁCH SỬA ĐÃ THẤT BẠI - TUYỆT ĐỐI KHÔNG LẶP LẠI**:
+  - ❌ *Không dùng `if (action !== 'get_marketing_config' && action !== 'list_marketing_events')` để phán quyết toàn bộ action khác là ghi*: Khi mở thêm tính năng phân tích chỉ-đọc mới (như `get_virtual_analytics`), phải thêm vào danh sách `allowedAuditActions`.
+  - ❌ *Không để router của ingest-codes rơi xuống luồng giftcode khi gặp action marketing*: Phải chặn và phản hồi ngay ở tầng đầu của router.
+
+---
+
 ### ISSUE-119: Bẫy Truy Cập Thuộc Tính Cấu Hình Không Tồn Tại Khi Render Tab Gây Sập Toàn Bộ Module (Unchecked Nested Property Access on Missing Sub-Config Objects)
 - **Triệu chứng**:
   - Khi người dùng bấm vào một Module trên Web Quản Trị (ví dụ: `admin-code-game-shop.pages.dev/admin#/marketing`), màn hình hiển thị lỗi sập phân hệ: `Cannot read properties of undefined (reading 'workingPercentage')`.

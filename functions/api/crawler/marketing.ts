@@ -41,6 +41,123 @@ export const onRequestOptions: PagesFunction = async () => {
   });
 };
 
+function maskAuditorUserName(name: string): string {
+  if (!name) return 'Khách hàng';
+  const trimmed = name.trim();
+  if (trimmed.includes('*')) return trimmed;
+  if (trimmed.length <= 3) return trimmed.charAt(0) + '***';
+  return trimmed.slice(0, 3) + '***' + (trimmed.length > 6 ? trimmed.slice(-2) : '');
+}
+
+export async function buildVirtualAnalyticsPayload(
+  env: Env,
+  auth: { botName: string; role: string },
+  pageParam?: any,
+  limitParam?: any
+) {
+  const page = Math.max(1, Number(pageParam) || 1);
+  const limit = Math.max(1, Math.min(100, Number(limitParam) || 15));
+
+  const layerState = await initializeVirtualLayer(env);
+  processCurrentTimeSlot(layerState);
+
+  const products3Col = Array.from(layerState.products.values()).map(p => {
+    const soldVal = p.realSold + p.virtualSold;
+    const stockVal = p.realStock > 0 ? (p.realStock + Math.max(0, p.virtualBuffer)) : 0;
+    return {
+      id: p.productId,
+      title: p.title,
+      item_type: p.itemType,
+      real_sold: p.realSold,
+      real_stock: p.realStock,
+      virtual_sold: p.virtualSold,
+      virtual_buffer: Math.max(0, p.virtualBuffer),
+      virtual_restock_count: p.virtualRestockCount,
+      sold: soldVal,
+      stock: stockVal,
+      display_sold: soldVal,
+      display_stock: stockVal,
+      last_restock_at: p.lastRestockAt || null,
+    };
+  });
+
+  const giveaways3Col = Array.from(layerState.giveaways.values()).map(g => {
+    const claimedVal = g.realClaimed + g.virtualClaimed;
+    const remainingVal = g.realRemaining > 0 ? (g.realRemaining + Math.max(0, g.virtualRemainingBuffer)) : 0;
+    return {
+      id: g.campaignId,
+      title: g.title,
+      real_claimed: g.realClaimed,
+      real_remaining: g.realRemaining,
+      virtual_claimed: g.virtualClaimed,
+      virtual_buffer: Math.max(0, g.virtualRemainingBuffer),
+      virtual_restock_count: g.virtualRestockCount,
+      claimed: claimedVal,
+      remaining: remainingVal,
+      display_claimed: claimedVal,
+      display_remaining: remainingVal,
+      last_restock_at: g.lastRestockAt || null,
+    };
+  });
+
+  const rawPaginated = env.DB
+    ? await getPaginatedVirtualEventsD1(env.DB, page, limit)
+    : { events: [], total: 0, page, limit, totalPages: 1 };
+
+  const cleanEvents = (rawPaginated.events || []).map((ev: any) => {
+    let detailsObj: any = ev.details;
+    if (typeof detailsObj === 'string') {
+      try {
+        detailsObj = JSON.parse(detailsObj);
+      } catch {
+        detailsObj = {};
+      }
+    }
+    if (detailsObj && typeof detailsObj === 'object') {
+      if (detailsObj.userName) detailsObj.userName = maskAuditorUserName(detailsObj.userName);
+      if (detailsObj.customerName) detailsObj.customerName = maskAuditorUserName(detailsObj.customerName);
+      delete detailsObj.phone;
+      delete detailsObj.email;
+      delete detailsObj.raw_code;
+    }
+    return {
+      id: ev.id,
+      type: ev.type,
+      product_id: ev.product_id || '',
+      item_name: ev.item_name || '',
+      amount: ev.amount || 1,
+      details: detailsObj,
+      is_simulated: Boolean(ev.is_simulated),
+      created_at: ev.created_at,
+    };
+  });
+
+  const quotaStatus = getD1QuotaStatus();
+
+  return {
+    success: true,
+    action: 'get_virtual_analytics',
+    botName: auth.botName,
+    timestamp: new Date().toISOString(),
+    rejectPeakReports: true,
+    d1_quota: quotaStatus,
+    products: products3Col,
+    giveaways: giveaways3Col,
+    master_copy: {
+      real_clicks: layerState.masterCopy.realClicks,
+      virtual_copy: layerState.masterCopy.virtualCopy,
+      total_display: layerState.masterCopy.realClicks + layerState.masterCopy.virtualCopy,
+    },
+    paginated_events: {
+      events: cleanEvents,
+      total: rawPaginated.total,
+      page: rawPaginated.page,
+      limit: rawPaginated.limit,
+      totalPages: rawPaginated.totalPages,
+    },
+  };
+}
+
 /**
  * GET: Hỗ trợ đọc nhanh cấu hình live nếu có Bearer token,
  * hoặc trả về tài liệu hướng dẫn công khai nếu không có token.
@@ -122,58 +239,12 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
     }
 
     if (action === 'get_virtual_analytics') {
-      const page = Number(urlObj.searchParams.get('page')) || 1;
-      const limit = Number(urlObj.searchParams.get('limit')) || 20;
-
-      const layerState = await initializeVirtualLayer(env);
-      processCurrentTimeSlot(layerState);
-
-      const products3Col = Array.from(layerState.products.values()).map(p => ({
-        id: p.productId,
-        title: p.title,
-        item_type: p.itemType,
-        real_sold: p.realSold,
-        real_stock: p.realStock,
-        virtual_sold: p.virtualSold,
-        virtual_buffer: p.virtualBuffer,
-        virtual_restock_count: p.virtualRestockCount,
-        display_sold: p.realSold + p.virtualSold,
-        display_stock: p.realStock > 0 ? (p.realStock + p.virtualBuffer) : 0,
-        last_restock_at: p.lastRestockAt,
-      }));
-
-      const giveaways3Col = Array.from(layerState.giveaways.values()).map(g => ({
-        id: g.campaignId,
-        title: g.title,
-        real_claimed: g.realClaimed,
-        real_remaining: g.realRemaining,
-        virtual_claimed: g.virtualClaimed,
-        virtual_buffer: g.virtualRemainingBuffer,
-        virtual_restock_count: g.virtualRestockCount,
-        display_claimed: g.realClaimed + g.virtualClaimed,
-        display_remaining: g.realRemaining > 0 ? (g.realRemaining + g.virtualRemainingBuffer) : 0,
-        last_restock_at: g.lastRestockAt,
-      }));
-
-      const paginatedEvents = env.DB ? await getPaginatedVirtualEventsD1(env.DB, page, limit) : { events: [], total: 0, page, limit, totalPages: 1 };
-      const quotaStatus = getD1QuotaStatus();
+      const page = urlObj.searchParams.get('page');
+      const limit = urlObj.searchParams.get('limit');
+      const payload = await buildVirtualAnalyticsPayload(env, auth, page, limit);
 
       return new Response(
-        JSON.stringify({
-          success: true,
-          action: 'get_virtual_analytics',
-          botName: auth.botName,
-          timestamp: new Date().toISOString(),
-          d1_quota: quotaStatus,
-          products: products3Col,
-          giveaways: giveaways3Col,
-          master_copy: {
-            real_clicks: layerState.masterCopy.realClicks,
-            virtual_copy: layerState.masterCopy.virtualCopy,
-            total_display: layerState.masterCopy.realClicks + layerState.masterCopy.virtualCopy,
-          },
-          paginated_events: paginatedEvents,
-        }, null, 2),
+        JSON.stringify(payload, null, 2),
         { headers: { ...CORS_HEADERS, 'Cache-Control': 'no-cache' } }
       );
     }
@@ -185,7 +256,11 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
         success: true,
         action: 'get_marketing_config',
         botName: auth.botName,
-        config,
+        rejectPeakReports: true,
+        config: {
+          ...config,
+          rejectPeakReports: true,
+        },
       }, null, 2),
       { headers: { ...CORS_HEADERS, 'Cache-Control': 'no-cache' } }
     );
@@ -206,30 +281,46 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
       {
         action: 'get_marketing_config',
         method: 'POST hoặc GET',
-        description: 'Đọc cấu hình live hệ thống Marketing & FOMO (Trạng thái, tỷ lệ 7 loại, chu kỳ nổ toast, giờ vàng, số nick mô phỏng).',
+        description: 'Đọc cấu hình live hệ thống Marketing & FOMO (Trạng thái, tỷ lệ 7 loại, chu kỳ nổ toast, giờ vàng, số nick mô phỏng, rejectPeakReports).',
       },
       {
         action: 'list_marketing_events',
         method: 'POST hoặc GET',
         description: 'Đọc nhật ký tối đa 100 sự kiện toast gần đây (mỗi sự kiện có cờ bắt buộc is_simulated: true/false, không lộ PII người dùng thật).',
       },
+      {
+        action: 'get_virtual_analytics',
+        method: 'POST hoặc GET',
+        description: 'Đọc phân tích hai lớp (Two-Layer FOMO): Giám sát quota D1 (5.000.000 limit/ngày, circuitBreakerActive), số liệu 3 cột sản phẩm/giveaway (real/virtual/display), sổ ảo phân trang (page, limit 15, total), và cờ rejectPeakReports.',
+      },
+      {
+        action: 'get_metrics_snapshot',
+        method: 'POST hoặc GET',
+        description: 'Đọc snapshot tổng quan số lượng game và mã giftcode được cache tại Edge.',
+      },
     ],
     permissionsPolicy: {
       role: 'READ_ONLY_AUDITOR',
-      allowedActions: ['get_marketing_config', 'list_marketing_events'],
+      allowedActions: ['get_marketing_config', 'list_marketing_events', 'get_virtual_analytics', 'get_metrics_snapshot'],
       writeActions: 'STRICTLY_FORBIDDEN (HTTP 403)',
       rateLimit: '60 requests / phút',
     },
     sampleCurlGetConfig: `curl -X GET "${urlObj.origin}/api/crawler/marketing" \\
   -H "Authorization: Bearer <MUSE_MARKETING_AUDIT_KEY>"`,
+    sampleCurlGetVirtualAnalytics: `curl -X GET "${urlObj.origin}/api/crawler/marketing?action=get_virtual_analytics&page=1&limit=15" \\
+  -H "Authorization: Bearer <MUSE_MARKETING_AUDIT_KEY>"`,
     sampleCurlListEvents: `curl -X POST "${urlObj.origin}/api/crawler/marketing" \\
   -H "Content-Type: application/json" \\
   -H "Authorization: Bearer <MUSE_MARKETING_AUDIT_KEY>" \\
   -d '{"action": "list_marketing_events", "limit": 100}'`,
+    sampleCurlPostVirtualAnalytics: `curl -X POST "${urlObj.origin}/api/crawler/marketing" \\
+  -H "Content-Type: application/json" \\
+  -H "Authorization: Bearer <MUSE_MARKETING_AUDIT_KEY>" \\
+  -d '{"action": "get_virtual_analytics", "page": 1, "limit": 15}'`,
     sampleIngestAlternativeCurl: `curl -X POST "${urlObj.origin}/api/crawler/ingest-codes" \\
   -H "Content-Type: application/json" \\
   -H "Authorization: Bearer <MUSE_MARKETING_AUDIT_KEY>" \\
-  -d '{"action": "get_marketing_config"}'`,
+  -d '{"action": "get_virtual_analytics", "page": 1, "limit": 15}'`,
   };
 
   return new Response(JSON.stringify(doc, null, 2), {
@@ -305,11 +396,22 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
   ];
 
   const allowedAuditActions = ['get_marketing_config', 'list_marketing_events', 'get_metrics_snapshot', 'get_virtual_analytics'];
-  if (writeActions.includes(action) || (auth.role === 'marketing_auditor' && !allowedAuditActions.includes(action))) {
+  if (writeActions.includes(action)) {
     return new Response(
       JSON.stringify({
         success: false,
-        error: `Quyền truy cập bị từ chối: Khóa kiểm toán chỉ có quyền đọc (Read-only) cho ${allowedAuditActions.join(', ')}. Mọi thao tác ghi "${action}" đều bị nghiêm cấm. Cấu hình chỉ được chỉnh sửa trên Admin UI.`,
+        error: `Quyền truy cập bị từ chối: Thao tác ghi "${action}" bị nghiêm cấm đối với khóa kiểm toán (Read-only). Cấu hình và dữ liệu chỉ được chỉnh sửa trên Admin UI.`,
+        status: 403,
+      }),
+      { status: 403, headers: CORS_HEADERS }
+    );
+  }
+
+  if (auth.role === 'marketing_auditor' && !allowedAuditActions.includes(action)) {
+    return new Response(
+      JSON.stringify({
+        success: false,
+        error: `Quyền truy cập bị từ chối: Khóa kiểm toán chỉ có quyền đọc (Read-only) cho các action: ${allowedAuditActions.join(', ')}. Action "${action}" không được phép thực thi.`,
         status: 403,
       }),
       { status: 403, headers: CORS_HEADERS }
@@ -338,7 +440,11 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
         success: true,
         action: 'get_marketing_config',
         botName: auth.botName,
-        config,
+        rejectPeakReports: true,
+        config: {
+          ...config,
+          rejectPeakReports: true,
+        },
       }, null, 2),
       { headers: CORS_HEADERS }
     );
@@ -363,58 +469,9 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
 
   // 8. Action: get_virtual_analytics
   if (action === 'get_virtual_analytics') {
-    const page = Number(body.page) || 1;
-    const limit = Number(body.limit) || 20;
-
-    const layerState = await initializeVirtualLayer(env);
-    processCurrentTimeSlot(layerState);
-
-    const products3Col = Array.from(layerState.products.values()).map(p => ({
-      id: p.productId,
-      title: p.title,
-      item_type: p.itemType,
-      real_sold: p.realSold,
-      real_stock: p.realStock,
-      virtual_sold: p.virtualSold,
-      virtual_buffer: p.virtualBuffer,
-      virtual_restock_count: p.virtualRestockCount,
-      display_sold: p.realSold + p.virtualSold,
-      display_stock: p.realStock > 0 ? (p.realStock + p.virtualBuffer) : 0,
-      last_restock_at: p.lastRestockAt,
-    }));
-
-    const giveaways3Col = Array.from(layerState.giveaways.values()).map(g => ({
-      id: g.campaignId,
-      title: g.title,
-      real_claimed: g.realClaimed,
-      real_remaining: g.realRemaining,
-      virtual_claimed: g.virtualClaimed,
-      virtual_buffer: g.virtualRemainingBuffer,
-      virtual_restock_count: g.virtualRestockCount,
-      display_claimed: g.realClaimed + g.virtualClaimed,
-      display_remaining: g.realRemaining > 0 ? (g.realRemaining + g.virtualRemainingBuffer) : 0,
-      last_restock_at: g.lastRestockAt,
-    }));
-
-    const paginatedEvents = env.DB ? await getPaginatedVirtualEventsD1(env.DB, page, limit) : { events: [], total: 0, page, limit, totalPages: 1 };
-    const quotaStatus = getD1QuotaStatus();
-
+    const payload = await buildVirtualAnalyticsPayload(env, auth, body.page, body.limit);
     return new Response(
-      JSON.stringify({
-        success: true,
-        action: 'get_virtual_analytics',
-        botName: auth.botName,
-        timestamp: new Date().toISOString(),
-        d1_quota: quotaStatus,
-        products: products3Col,
-        giveaways: giveaways3Col,
-        master_copy: {
-          real_clicks: layerState.masterCopy.realClicks,
-          virtual_copy: layerState.masterCopy.virtualCopy,
-          total_display: layerState.masterCopy.realClicks + layerState.masterCopy.virtualCopy,
-        },
-        paginated_events: paginatedEvents,
-      }, null, 2),
+      JSON.stringify(payload, null, 2),
       { headers: CORS_HEADERS }
     );
   }
@@ -422,7 +479,7 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
   return new Response(
     JSON.stringify({
       success: false,
-      error: `Hành động "${action}" không được hỗ trợ. Chỉ hỗ trợ "get_marketing_config", "list_marketing_events", và "get_metrics_snapshot".`,
+      error: `Hành động "${action}" không được hỗ trợ. Chỉ hỗ trợ "get_marketing_config", "list_marketing_events", "get_metrics_snapshot", và "get_virtual_analytics".`,
       status: 400,
     }),
     { status: 400, headers: CORS_HEADERS }

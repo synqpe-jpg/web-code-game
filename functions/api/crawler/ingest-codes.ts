@@ -22,6 +22,8 @@ import {
   getRecentMarketingEvents,
   checkAuditorRateLimit,
 } from '../../services/marketingAuditService';
+import { getOrRefreshSnapshot } from '../../services/snapshotService';
+import { buildVirtualAnalyticsPayload } from './marketing';
 
 export interface Env {
   DB?: D1Database;
@@ -634,6 +636,114 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
   const { request, env } = context;
   const urlObj = new URL(request.url);
 
+  const action = urlObj.searchParams.get('action');
+  const allowedMarketingActions = [
+    'get_marketing_config',
+    'list_marketing_events',
+    'get_metrics_snapshot',
+    'get_virtual_analytics',
+  ];
+
+  // Nếu người dùng yêu cầu action marketing đọc qua GET
+  if (action && allowedMarketingActions.includes(action)) {
+    // 0. Nghiêm cấm query key
+    const queryKey = urlObj.searchParams.get('api_key') || urlObj.searchParams.get('key');
+    if (queryKey) {
+      return new Response(
+        JSON.stringify({
+          success: false,
+          error: 'Xác thực qua URL (?api_key=...) bị nghiêm cấm vì nguy cơ rò rỉ log. Vui lòng cung cấp khóa Bearer qua Header "Authorization: Bearer <KEY>".',
+          status: 401,
+        }),
+        { status: 401, headers: CORS_HEADERS }
+      );
+    }
+
+    const auth = await authenticateRequest(request, env);
+    if (!auth.authorized) {
+      return new Response(
+        JSON.stringify({
+          success: false,
+          error: auth.error || 'Quyền truy cập bị từ chối.',
+          status: auth.status || 401,
+        }),
+        { status: auth.status || 401, headers: CORS_HEADERS }
+      );
+    }
+
+    if (auth.role === 'marketing_auditor') {
+      const authHeader = request.headers.get('Authorization') || '';
+      const token = authHeader.replace(/^Bearer\s+/i, '').trim();
+      const clientIp = request.headers.get('CF-Connecting-IP') || 'unknown';
+      const rateCheck = checkAuditorRateLimit(`${clientIp}_${token}`);
+      if (!rateCheck.allowed) {
+        return new Response(
+          JSON.stringify({
+            success: false,
+            error: 'Tần suất yêu cầu vượt quá giới hạn (Rate limit: tối đa 60 requests/phút). Vui lòng thử lại sau.',
+            status: 429,
+          }),
+          { status: 429, headers: CORS_HEADERS }
+        );
+      }
+    }
+
+    if (action === 'get_metrics_snapshot') {
+      const snapshot = await getOrRefreshSnapshot(env, undefined, true);
+      return new Response(
+        JSON.stringify({
+          success: true,
+          action: 'get_metrics_snapshot',
+          botName: auth.botName,
+          snapshot,
+        }, null, 2),
+        { headers: { ...CORS_HEADERS, 'Cache-Control': 'no-cache' } }
+      );
+    }
+
+    if (action === 'list_marketing_events') {
+      const limit = Number(urlObj.searchParams.get('limit')) || 100;
+      const events = await getRecentMarketingEvents(env, limit);
+      return new Response(
+        JSON.stringify({
+          success: true,
+          action: 'list_marketing_events',
+          botName: auth.botName,
+          total: events.length,
+          limit,
+          events,
+        }, null, 2),
+        { headers: { ...CORS_HEADERS, 'Cache-Control': 'no-cache' } }
+      );
+    }
+
+    if (action === 'get_virtual_analytics') {
+      const page = urlObj.searchParams.get('page');
+      const limit = urlObj.searchParams.get('limit');
+      const payload = await buildVirtualAnalyticsPayload(env, auth, page, limit);
+      return new Response(
+        JSON.stringify(payload, null, 2),
+        { headers: { ...CORS_HEADERS, 'Cache-Control': 'no-cache' } }
+      );
+    }
+
+    // Mặc định: get_marketing_config
+    const config = await getLiveMarketingConfig(env);
+    return new Response(
+      JSON.stringify({
+        success: true,
+        action: 'get_marketing_config',
+        botName: auth.botName,
+        rejectPeakReports: true,
+        config: {
+          ...config,
+          rejectPeakReports: true,
+        },
+      }, null, 2),
+      { headers: { ...CORS_HEADERS, 'Cache-Control': 'no-cache' } }
+    );
+  }
+
   let activeGamesCount = 560;
   let pendingGamesCount = (canonicalBackupState.crawlerPendingGames || []).length;
   if (env.DB) {
@@ -681,6 +791,8 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
       { action: 'migrate_remove_fake_expiry_dates', description: 'Di dời dữ liệu cũ: chuyển toàn bộ mã có hạn giả 2026-12-31 sang NULL' },
       { action: 'get_marketing_config', description: 'Đọc cấu hình live hệ thống Marketing & FOMO (Chỉ đọc, yêu cầu Bearer token)' },
       { action: 'list_marketing_events', description: 'Đọc nhật ký tối đa 100 sự kiện thông báo marketing gần đây (kèm cờ is_simulated, yêu cầu Bearer token)' },
+      { action: 'get_virtual_analytics', description: 'Đọc phân tích hai lớp FOMO: quota D1, số liệu 3 cột sản phẩm/giveaway, sổ ảo phân trang và cờ rejectPeakReports (Chỉ đọc, yêu cầu Bearer token)' },
+      { action: 'get_metrics_snapshot', description: 'Đọc snapshot tổng quan số lượng game và mã giftcode được cache tại Edge (Chỉ đọc, yêu cầu Bearer token)' },
     ],
     sampleCurl: `curl -X POST "${urlObj.origin}/api/crawler/ingest-codes" \\
   -H "Content-Type: application/json" \\
@@ -739,6 +851,10 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
   -H "Content-Type: application/json" \\
   -H "Authorization: Bearer <MUSE_MARKETING_AUDIT_KEY>" \\
   -d '{"action": "get_marketing_config"}'`,
+    sampleGetVirtualAnalyticsCurl: `curl -X POST "${urlObj.origin}/api/crawler/ingest-codes" \\
+  -H "Content-Type: application/json" \\
+  -H "Authorization: Bearer <MUSE_MARKETING_AUDIT_KEY>" \\
+  -d '{"action": "get_virtual_analytics", "page": 1, "limit": 15}'`,
     sampleListMarketingEventsCurl: `curl -X POST "${urlObj.origin}/api/crawler/ingest-codes" \\
   -H "Content-Type: application/json" \\
   -H "Authorization: Bearer <MUSE_MARKETING_AUDIT_KEY>" \\
@@ -833,20 +949,46 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
           'approve_codes',
           'reject_codes',
           'get_marketing_config',
-          'list_marketing_events'
+          'list_marketing_events',
+          'get_virtual_analytics',
+          'get_metrics_snapshot'
         ],
       }, null, 2),
       { headers: CORS_HEADERS }
     );
   }
 
-  // 2. Phân quyền nghiêm ngặt: Nếu là marketing_auditor, CHỈ được phép đọc 2 action get_marketing_config và list_marketing_events
+  // 2. Phân quyền nghiêm ngặt: Nếu là marketing_auditor, CHỈ được phép đọc 4 action kiểm toán
+  const allowedAuditActions = [
+    'get_marketing_config',
+    'list_marketing_events',
+    'get_metrics_snapshot',
+    'get_virtual_analytics',
+  ];
+
+  const writeActions = [
+    'update_marketing_config', 'save_marketing_config', 'test_trigger',
+    'ingest_codes', 'queue_game', 'publish_game', 'approve_codes', 'reject_codes',
+    'update_instructions', 'cleanup_test_codes', 'delete_pending_game'
+  ];
+
   if (auth.role === 'marketing_auditor') {
-    if (action !== 'get_marketing_config' && action !== 'list_marketing_events') {
+    if (writeActions.includes(action)) {
       return new Response(
         JSON.stringify({
           success: false,
-          error: `Quyền truy cập bị từ chối: Khóa Muse Marketing Auditor Key chỉ có quyền đọc (Read-only) cho "get_marketing_config" và "list_marketing_events". Mọi thao tác ghi "${action}" đều bị nghiêm cấm. Cấu hình chỉ được chỉnh sửa trên Admin UI.`,
+          error: `Quyền truy cập bị từ chối: Thao tác ghi "${action}" bị nghiêm cấm đối với khóa kiểm toán (Read-only). Cấu hình và dữ liệu chỉ được chỉnh sửa trên Admin UI.`,
+          status: 403,
+        }),
+        { status: 403, headers: CORS_HEADERS }
+      );
+    }
+
+    if (!allowedAuditActions.includes(action)) {
+      return new Response(
+        JSON.stringify({
+          success: false,
+          error: `Quyền truy cập bị từ chối: Khóa kiểm toán chỉ có quyền đọc (Read-only) cho các action: ${allowedAuditActions.join(', ')}. Action "${action}" không được phép thực thi.`,
           status: 403,
         }),
         { status: 403, headers: CORS_HEADERS }
@@ -870,7 +1012,20 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
     }
   }
 
-  // 3. Xử lý các action marketing read-only
+  // 3. Xử lý các action marketing read-only (áp dụng cho cả marketing_auditor, crawler_writer, và admin)
+  if (action === 'get_metrics_snapshot') {
+    const snapshot = await getOrRefreshSnapshot(env, undefined, true);
+    return new Response(
+      JSON.stringify({
+        success: true,
+        action: 'get_metrics_snapshot',
+        botName: auth.botName,
+        snapshot,
+      }, null, 2),
+      { headers: CORS_HEADERS }
+    );
+  }
+
   if (action === 'get_marketing_config') {
     const config = await getLiveMarketingConfig(env);
     return new Response(
@@ -878,7 +1033,11 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
         success: true,
         action: 'get_marketing_config',
         botName: auth.botName,
-        config,
+        rejectPeakReports: true,
+        config: {
+          ...config,
+          rejectPeakReports: true,
+        },
       }, null, 2),
       { headers: CORS_HEADERS }
     );
@@ -896,6 +1055,14 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
         limit,
         events,
       }, null, 2),
+      { headers: CORS_HEADERS }
+    );
+  }
+
+  if (action === 'get_virtual_analytics') {
+    const payload = await buildVirtualAnalyticsPayload(env, auth, body?.page, body?.limit);
+    return new Response(
+      JSON.stringify(payload, null, 2),
       { headers: CORS_HEADERS }
     );
   }

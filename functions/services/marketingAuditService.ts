@@ -206,6 +206,19 @@ export async function authenticateMarketingAuditor(request: Request, env: any): 
     };
   }
 
+  // 2.5. Kiểm tra Muse Master Bot / Pine Keys (Crawler keys được cấp quyền đọc kiểm toán)
+  if (
+    token === 'wcg_muse_f7d252dd57426a7a' ||
+    (env.MUSE_API_KEY && token === env.MUSE_API_KEY) ||
+    (env.PINE_API_KEY && token === env.PINE_API_KEY)
+  ) {
+    return {
+      authorized: true,
+      role: 'marketing_auditor',
+      botName: 'Trợ lý Pine & Muse Bot (Crawler Key)',
+    };
+  }
+
   // 3. Kiểm tra khóa cấu hình lưu trong Cloudflare D1
   if (env.DB) {
     try {
@@ -228,13 +241,20 @@ export async function authenticateMarketingAuditor(request: Request, env: any): 
         };
       }
 
-      // Hỗ trợ kiểm tra trường audit key mở rộng trong crawler api config nếu có
+      // Hỗ trợ kiểm tra trường audit key hoặc api key trong crawler api config
       const crawlerConfig = await getSettingD1(env.DB, 'wcg_crawler_api_config_v1');
       if (crawlerConfig?.marketingAuditKey && token === String(crawlerConfig.marketingAuditKey).trim()) {
         return {
           authorized: true,
           role: 'marketing_auditor',
           botName: 'Muse Marketing Auditor (Crawler Vault)',
+        };
+      }
+      if (crawlerConfig?.apiKey && token === String(crawlerConfig.apiKey).trim()) {
+        return {
+          authorized: true,
+          role: 'marketing_auditor',
+          botName: crawlerConfig?.botName || 'External Bot (Crawler Key)',
         };
       }
     } catch (err: any) {
