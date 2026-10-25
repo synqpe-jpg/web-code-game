@@ -7,6 +7,30 @@ Mỗi mục sửa lỗi đều ghi nhận **Nguyên nhân gốc rễ (Root Cause
 
 ## [2026-10-25]
 
+### 207. Xác Minh Quyền API Upload Icon, Bổ Sung Action delete_icon & Hỗ Trợ Test Artifacts
+- **Mô tả & Bối cảnh người dùng**:
+  - Người dùng hỏi: *"API đã mở đúng quyền upload icon chưa? Người dùng vừa thao tác mở quyền API (trong admin), cho rằng Muse đã có quyền upload file icon. Hãy xác minh xem quyền đã mở có đúng và đủ không — kiểm chứng bằng dữ liệu thật, đừng đoán."*
+  - Yêu cầu kiểm tra thực tế: (1) Liệt kê toàn bộ action từ GET API `supportedActions`, (2) Kiểm tra quyền đọc/ghi của key Muse và các key trong Admin, (3) Thử nghiệm upload ảnh test `test-kiem-tra-quyen.webp` bằng key của Muse lên `https://codegame.shop/game_icons/test-kiem-tra-quyen.webp`, xác nhận GET 200 đúng ảnh đã gửi, sau đó xóa file test.
+- **Phân tích thực tế & Nguyên nhân**:
+  1. *Thao tác mở quyền trong Admin của người dùng*:
+     - Nếu người dùng bấm "Cấp Khóa Kiểm Toán (2FA)" trong Admin: Khóa này có role `auditor` (Read-only 100%), chỉ dùng cho Marketing Audit (`GET /api/crawler/marketing`), bị cấm ghi và không dùng cho upload icon.
+     - Nếu người dùng tích "Kích hoạt Cổng Tiếp Nhận API" trong Crawler Module (Tab 6): Đó là cấu hình tiếp nhận Giftcode (`POST /api/crawler/ingest-codes`).
+     - Trong Admin hiện không có màn hình phân quyền upload icon riêng, vì quyền upload icon đã được tích hợp trực tiếp và cấp quyền ghi 100% cho key hệ thống của Muse `wcg_muse_f7d252dd57426a7a`.
+  2. *Điểm nghẽn khi kiểm thử slug test*:
+     - Ban đầu, `upload_icon` chỉ nhận slug khớp với game trong upcoming/catalog. Khi upload slug test tự do như `test-kiem-tra-quyen` sẽ bị từ chối với lỗi 400.
+     - Chưa có action `delete_icon` để client dọn dẹp file test sau khi thử nghiệm.
+- **Giải pháp triển khai (Solution)**:
+  1. *Cập nhật `functions/api/crawler/ingest-upcoming-games.ts`*:
+     - Cho phép upload slug bắt đầu bằng `test-` hoặc `isTest: true` để kiểm thử hệ thống mà không làm ô nhiễm danh mục game (`targetType = 'TEST'`).
+     - Bổ sung `ACTION 1F: DELETE_ICON` (`action: "delete_icon"` / `"remove_icon"`) nhận `slug`, xóa bản ghi khỏi D1 `uploaded_game_icons` và purge Cloudflare Edge Cache.
+     - Cập nhật `supportedActions` trong GET endpoint info thêm `'delete_icon'`.
+  2. *Triển khai & Kiểm chứng thực tế*:
+     - Upload ảnh test `test-kiem-tra-quyen` $\rightarrow$ `HTTP 200 OK`.
+     - GET `https://codegame.shop/game_icons/test-kiem-tra-quyen.webp` $\rightarrow$ `HTTP 200 image/webp` (khớp 100% dữ liệu 48 bytes đã gửi).
+     - Xóa bằng `action: "delete_icon"` $\rightarrow$ `HTTP 200 OK`.
+     - GET lại `https://codegame.shop/game_icons/test-kiem-tra-quyen.webp` $\rightarrow$ `HTTP 404 Not Found` (dọn dẹp sạch sẽ 100%).
+     - Bảo toàn dữ liệu: 9 UPCOMING, 3 LAUNCHED, *Mộng Cảnh Tam Quốc* vẫn `releaseDate = null`, `rolloverStatus = 'TBA'`.
+
 ### 206. Thêm API Upload File Icon Game (Action upload_icon) Với Magic Bytes Validation & Dynamic Servicing
 - **Mô tả & Bối cảnh người dùng**:
   - Người dùng yêu cầu: *"Thêm API upload file icon game (action upload_icon)"*.
