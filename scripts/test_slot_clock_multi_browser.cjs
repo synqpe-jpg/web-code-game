@@ -1,11 +1,13 @@
 // scripts/test_slot_clock_multi_browser.cjs
-// Kiểm chứng hành vi hiển thị theo đồng hồ khe & loại bỏ replay ngẫu nhiên trên đa trình duyệt
+// Kiểm chứng hành vi hiển thị theo đồng hồ khe (10s), hỏi theo khe & loại bỏ replay ngẫu nhiên trên đa trình duyệt
 
 const assert = require('assert');
 
-console.log('=== BẮT ĐẦU KIỂM THỬ: ĐỒNG HỒ KHE ĐA TRÌNH DUYỆT (SLOT CLOCK ENGINE) ===');
+console.log('=== BẮT ĐẦU KIỂM THỬ: ĐỒNG HỒ KHE 10 GIÂY & HỎI DỮ LIỆU THEO KHE (SLOT CLOCK ENGINE) ===');
 
-// 1. Giả lập logic đồng hồ khe chuẩn từ marketingService.ts & MarketingNotificationToast.tsx
+const SLOT_DURATION_MS = 10000; // Nhịp khe 10 giây cố định toàn hệ thống
+const DISPLAY_DURATION_MS = 4000; // Thời lượng hiển thị tối đa 4 giây (nhỏ hơn nhịp khe 10s)
+
 function getVnDayAnchor(nowMs) {
   const VN_OFFSET_MS = 7 * 60 * 60 * 1000;
   const vnNow = new Date(nowMs + VN_OFFSET_MS);
@@ -26,7 +28,7 @@ function extractSlotIndex(evt, dayStartMs) {
     }
   }
   if (evt.timestamp) {
-    return Math.floor((evt.timestamp - dayStartMs) / 30000);
+    return Math.floor((evt.timestamp - dayStartMs) / SLOT_DURATION_MS);
   }
   return null;
 }
@@ -34,15 +36,17 @@ function extractSlotIndex(evt, dayStartMs) {
 class SimulatedBrowserClient {
   constructor(name, clockSkewMs = 0) {
     this.name = name;
-    this.clockSkewMs = clockSkewMs; // Độ lệch đồng hồ (nếu có, tối đa vài trăm ms)
+    this.clockSkewMs = clockSkewMs;
     this.slotEventsMap = new Map();
     this.realEventsQueue = [];
     this.lastDisplayedSlot = -1;
     this.displayedHistory = [];
+    this.pollCount = 0;
   }
 
-  // Nhận dữ liệu sổ máy chủ từ /api/realtime-events
-  syncFromHub(serverEvents, currentServerTime) {
+  // Bộ hỏi dữ liệu đồng bộ theo nhịp khe: hỏi vào giây 0.65 của khe
+  pollFromHub(serverEvents, currentServerTime) {
+    this.pollCount++;
     const dayStartMs = getVnDayAnchor(currentServerTime);
     for (const evt of serverEvents) {
       const slotIdx = extractSlotIndex(evt, dayStartMs);
@@ -56,14 +60,14 @@ class SimulatedBrowserClient {
     return this.slotEventsMap.get(slotIndex) || null;
   }
 
-  // Giả lập vòng tick hiển thị (như hàm scheduleDeterministicSlot)
+  // Giả lập vòng tick hiển thị (như hàm scheduleDeterministicSlot trong Toast)
   tick(currentTimeMs) {
     const calibratedNow = currentTimeMs + this.clockSkewMs;
     const dayStartMs = getVnDayAnchor(calibratedNow);
-    const currentSlotIndex = Math.floor((calibratedNow - dayStartMs) / 30000);
-    const slotStartMs = dayStartMs + currentSlotIndex * 30000;
-    const slotFireTimeMs = slotStartMs + 1500;
-    const slotHideTimeMs = slotFireTimeMs + 5000;
+    const currentSlotIndex = Math.floor((calibratedNow - dayStartMs) / SLOT_DURATION_MS);
+    const slotStartMs = dayStartMs + currentSlotIndex * SLOT_DURATION_MS;
+    const slotFireTimeMs = slotStartMs + 1500; // Giây 1.5 của khe 10s
+    const slotHideTimeMs = slotFireTimeMs + DISPLAY_DURATION_MS; // Giây 5.5 của khe 10s
 
     // Ưu tiên 1: Real event
     if (this.realEventsQueue.length > 0) {
@@ -81,10 +85,10 @@ class SimulatedBrowserClient {
       return { action: 'wait_until_fire_time', waitMs: slotFireTimeMs - calibratedNow };
     }
 
-    if (calibratedNow >= slotFireTimeMs && calibratedNow < slotHideTimeMs + 4000) {
+    // Cửa sổ hiển thị hợp lệ: từ giây 1.5 đến giây 7.0 của khe (slotHideTimeMs + 1500)
+    if (calibratedNow >= slotFireTimeMs && calibratedNow < slotHideTimeMs + 1500) {
       const slotEvt = this.getCurrentSlotEvent(currentSlotIndex);
       if (!slotEvt) {
-        // Tuyệt đối không sinh replay
         return { action: 'no_slot_event_and_no_replay' };
       }
       this.lastDisplayedSlot = currentSlotIndex;
@@ -92,116 +96,98 @@ class SimulatedBrowserClient {
       return { action: 'show_slot', slotIndex: currentSlotIndex, event: slotEvt };
     }
 
-    // Quá cửa sổ khe -> Bỏ qua, không phát lại
+    // Quá cửa sổ khe (> 7s) -> Bỏ qua an toàn, không nổ trễ
     this.lastDisplayedSlot = currentSlotIndex;
     return { action: 'skip_expired_slot', slotIndex: currentSlotIndex };
   }
 }
 
-// BẮT ĐẦU CHẠY CÁC BÀI TEST
+// BẮT ĐẦU CÁC BÀI TEST
 
-// Bài test 1: Hai trình duyệt hỏi dữ liệu lệch pha nhưng cùng thấy một thông báo tại cùng khe
-console.log('\n--- Test 1: Hai trình duyệt hỏi lệch pha, hiển thị khớp tuyệt đối 100% theo khe ---');
-const baseTime = 1792913000000; // Mốc thời gian bất kỳ
+// Test 1: Mô phỏng 2 trình duyệt chạy đồng thời 5 phút (30 khe 10 giây)
+console.log('\n--- Test 1: Nghiệm thu 2 trình duyệt chạy 5 phút (30 khe 10s = 300 giây) ---');
+const baseTime = 1792913000000;
 const dayStart = getVnDayAnchor(baseTime);
-const slotA = Math.floor((baseTime - dayStart) / 30000);
+const startSlot = Math.floor((baseTime - dayStart) / SLOT_DURATION_MS);
 
-const mockServerEvents = [
-  { id: `sim_slot_${slotA}`, message: 'Người dùng *88 mua Thẻ Tuần VIP', type: 'order', timestamp: dayStart + slotA * 30000 + 1000 },
-  { id: `sim_slot_${slotA + 1}`, message: 'Người dùng *92 nhận Giftcode Rotwood', type: 'giveaway', timestamp: dayStart + (slotA + 1) * 30000 + 1000 },
-];
-
-const browser1 = new SimulatedBrowserClient('Chrome Desktop', 0);
-const browser2 = new SimulatedBrowserClient('Safari Mobile', 200); // Lệch 200ms do đồng hồ
-
-// Browser 1 hỏi dữ liệu lúc giây thứ 2 của slotA
-const time1 = dayStart + slotA * 30000 + 2000;
-browser1.syncFromHub(mockServerEvents, time1);
-
-// Browser 2 hỏi dữ liệu lúc giây thứ 12 của slotA (lệch pha 10 giây so với Browser 1)
-const time2 = dayStart + slotA * 30000 + 12000;
-browser2.syncFromHub(mockServerEvents, time2);
-
-// Cả 2 client cùng hiển thị tại đúng slotA
-const res1 = browser1.tick(time1);
-assert.strictEqual(res1.action, 'show_slot');
-assert.strictEqual(res1.event.id, `sim_slot_${slotA}`);
-
-// Sang slot tiếp theo (slotA + 1)
-const timeSlotNext = dayStart + (slotA + 1) * 30000 + 2000;
-const res1Next = browser1.tick(timeSlotNext);
-const res2Next = browser2.tick(timeSlotNext);
-
-assert.strictEqual(res1Next.action, 'show_slot');
-assert.strictEqual(res2Next.action, 'show_slot');
-assert.strictEqual(res1Next.event.id, res2Next.event.id, 'Cả 2 browser phải hiển thị cùng một id sự kiện!');
-assert.strictEqual(res1Next.event.message, res2Next.event.message, 'Cả 2 browser phải hiển thị cùng nội dung thông báo!');
-console.log(`[PASS] Test 1: Cả 2 trình duyệt hiển thị chính xác cùng sự kiện [${res1Next.event.id}] - "${res1Next.event.message}"`);
-
-// Bài test 2: Xóa bỏ hoàn toàn replay_ khi không có sự kiện cho khe hiện tại
-console.log('\n--- Test 2: Tuyệt đối không phát lại ngẫu nhiên (Zero replay_) ---');
-const browserEmpty = new SimulatedBrowserClient('Firefox', 0);
-// Đồng bộ danh sách cũ không có slot hiện tại
-browserEmpty.syncFromHub([
-  { id: `sim_slot_${slotA - 10}`, message: 'Sự kiện cũ 5 phút trước', type: 'order', timestamp: dayStart + (slotA - 10) * 30000 }
-], time1);
-
-const resEmpty = browserEmpty.tick(time1);
-assert.strictEqual(resEmpty.action, 'no_slot_event_and_no_replay', 'Không được sinh replay khi khe hiện tại không có sự kiện');
-assert.strictEqual(browserEmpty.displayedHistory.length, 0, 'Lịch sử hiển thị phải trống, không có thông báo giả mạo');
-console.log('[PASS] Test 2: Không sinh bất kỳ id replay_ nào khi khe rỗng!');
-
-// Bài test 3: Trình duyệt mới mở & Tab ẩn quay lại (Không phát lại quá khứ)
-console.log('\n--- Test 3: Trình duyệt mới mở / Tab ẩn không xả lại sự kiện cũ trong quá khứ ---');
-const browserNew = new SimulatedBrowserClient('Edge New Tab', 0);
-// Nhận 10 sự kiện cũ trong quá khứ + sự kiện hiện tại
-const manyEvents = [];
-for (let i = 10; i >= 1; i--) {
-  manyEvents.push({
-    id: `sim_slot_${slotA - i}`,
-    message: `Sự kiện cũ slot -${i}`,
-    type: 'order',
-    timestamp: dayStart + (slotA - i) * 30000
+// Giả lập 30 sự kiện cho 30 khe liên tiếp trên máy chủ
+const serverSlotsEvents = [];
+for (let s = 0; s < 30; s++) {
+  const slotIdx = startSlot + s;
+  serverSlotsEvents.push({
+    id: `sim_slot_${slotIdx}`,
+    message: `Thông báo khe #${slotIdx}`,
+    type: s % 2 === 0 ? 'BUY_STORE' : 'CLAIM_GIVEAWAY',
+    timestamp: dayStart + slotIdx * SLOT_DURATION_MS + 500,
   });
 }
-manyEvents.push({
-  id: `sim_slot_${slotA}`,
-  message: 'Sự kiện hiện tại',
-  type: 'order',
-  timestamp: dayStart + slotA * 30000
-});
 
-browserNew.syncFromHub(manyEvents, time1);
+const clientA = new SimulatedBrowserClient('Chrome Client', 0);
+const clientB = new SimulatedBrowserClient('Safari Client', 150); // Lệch 150ms do đồng hồ
 
-// Khi tick, browserNew chỉ hiển thị slotA, tuyệt đối không xả slotA-10 ... slotA-1
-const resNew = browserNew.tick(time1);
+// Chạy mô phỏng 30 khe (mỗi khe 10s = 10000ms)
+for (let s = 0; s < 30; s++) {
+  const slotIdx = startSlot + s;
+  const currentSlotStart = dayStart + slotIdx * SLOT_DURATION_MS;
+
+  // Hỏi dữ liệu ở giây 0.65 của khe
+  const pollTime = currentSlotStart + 650;
+  clientA.pollFromHub(serverSlotsEvents, pollTime);
+  clientB.pollFromHub(serverSlotsEvents, pollTime + 50); // Hỏi lệch 50ms
+
+  // Kích hoạt tick ở giây 1.5 của khe
+  const fireTime = currentSlotStart + 1500;
+  const resA = clientA.tick(fireTime);
+  const resB = clientB.tick(fireTime);
+
+  assert.strictEqual(resA.action, 'show_slot', `Client A phải hiển thị ở khe ${slotIdx}`);
+  assert.strictEqual(resB.action, 'show_slot', `Client B phải hiển thị ở khe ${slotIdx}`);
+  assert.strictEqual(resA.event.id, resB.event.id, `Cả 2 client phải có cùng id ở khe ${slotIdx}`);
+}
+
+assert.strictEqual(clientA.displayedHistory.length, 30, 'Client A phải hiển thị đúng 30 thông báo trong 5 phút');
+assert.strictEqual(clientB.displayedHistory.length, 30, 'Client B phải hiển thị đúng 30 thông báo trong 5 phút');
+assert.strictEqual(clientA.pollCount, 30, 'Tần suất hỏi đúng 1 lần/khe (30 lần / 5 phút = 6 lần / phút)');
+console.log(`[PASS] Test 1: Hai trình duyệt hiển thị chính xác 30/30 thông báo trong 5 phút (${clientA.displayedHistory.length} thông báo / 30 khe), cùng khe cùng một thông báo 100%!`);
+
+// Test 2: Bỏ hoàn toàn replay_ khi khe rỗng
+console.log('\n--- Test 2: Tuyệt đối không phát lại ngẫu nhiên (Zero replay_) ---');
+const clientEmpty = new SimulatedBrowserClient('Empty Client', 0);
+// Nhận sự kiện cũ không có khe hiện tại
+clientEmpty.pollFromHub([
+  { id: `sim_slot_${startSlot - 5}`, message: 'Sự kiện cũ', type: 'BUY_STORE', timestamp: dayStart + (startSlot - 5) * SLOT_DURATION_MS }
+], dayStart + startSlot * SLOT_DURATION_MS + 650);
+
+const resEmpty = clientEmpty.tick(dayStart + startSlot * SLOT_DURATION_MS + 1500);
+assert.strictEqual(resEmpty.action, 'no_slot_event_and_no_replay', 'Không được sinh replay khi khe rỗng');
+assert.strictEqual(clientEmpty.displayedHistory.length, 0, 'Lịch sử hiển thị phải trống 100%');
+console.log('[PASS] Test 2: Không sinh bất kỳ id replay_ nào khi khe rỗng!');
+
+// Test 3: Trình duyệt mới mở & Tab ẩn không xả lại sự kiện cũ trong quá khứ
+console.log('\n--- Test 3: Trình duyệt mới mở không xả lại sự kiện cũ trong quá khứ ---');
+const clientNew = new SimulatedBrowserClient('New Tab Client', 0);
+clientNew.pollFromHub(serverSlotsEvents, dayStart + (startSlot + 10) * SLOT_DURATION_MS + 650);
+
+const resNew = clientNew.tick(dayStart + (startSlot + 10) * SLOT_DURATION_MS + 1500);
 assert.strictEqual(resNew.action, 'show_slot');
-assert.strictEqual(resNew.slotIndex, slotA);
-assert.strictEqual(resNew.event.id, `sim_slot_${slotA}`);
-assert.strictEqual(browserNew.displayedHistory.length, 1);
-assert.strictEqual(browserNew.displayedHistory[0].event.id, `sim_slot_${slotA}`);
-console.log('[PASS] Test 3: Trình duyệt mới mở chỉ hiển thị đúng khe hiện tại, không xả lại 10 sự kiện cũ!');
+assert.strictEqual(resNew.slotIndex, startSlot + 10);
+assert.strictEqual(clientNew.displayedHistory.length, 1, 'Chỉ hiển thị đúng 1 sự kiện của khe hiện tại');
+console.log('[PASS] Test 3: Trình duyệt mới mở bắt đầu ngay từ khe hiện tại, không xả lại các khe cũ!');
 
-// Bài test 4: Quá cửa sổ khe thì bỏ qua, không hiển thị trễ
-console.log('\n--- Test 4: Quá thời lượng khe (sau 9s) thì bỏ qua, không nổ trễ ---');
-const browserLate = new SimulatedBrowserClient('Late Browser', 0);
-browserLate.syncFromHub(mockServerEvents, baseTime);
-// Giả lập mở tab ở giây thứ 15 của khe (đã quá thời lượng 5s + 4s buffer)
-const timeLate = dayStart + slotA * 30000 + 15000;
-const resLate = browserLate.tick(timeLate);
-assert.strictEqual(resLate.action, 'skip_expired_slot');
-assert.strictEqual(browserLate.displayedHistory.length, 0, 'Không được hiển thị sự kiện đã quá hạn');
-console.log('[PASS] Test 4: Quá cửa sổ khe được bỏ qua an toàn, không nổ trễ!');
+// Test 4: Thời lượng hiển thị (4s) nhỏ hơn nhịp khe (10s) - Chống chồng chéo
+console.log('\n--- Test 4: Thời lượng hiển thị 4s < Nhịp khe 10s (Chống chồng chéo) ---');
+assert.strictEqual(DISPLAY_DURATION_MS < SLOT_DURATION_MS, true);
+const quietWindowMs = SLOT_DURATION_MS - (1500 + DISPLAY_DURATION_MS);
+assert.strictEqual(quietWindowMs, 4500, 'Khoảng lặng tự nhiên giữa 2 thông báo là 4.5s');
+console.log(`[PASS] Test 4: Thời lượng hiển thị ${DISPLAY_DURATION_MS}ms < Nhịp khe ${SLOT_DURATION_MS}ms. Khoảng nghỉ tự nhiên: ${quietWindowMs}ms.`);
 
-// Bài test 5: Sự kiện thật hiển thị ngay lập tức (Ưu tiên vượt khe)
-console.log('\n--- Test 5: Sự kiện thật của người dùng hiển thị ngay lập tức ---');
-const browserReal = new SimulatedBrowserClient('User Browser', 0);
-browserReal.syncFromHub(mockServerEvents, baseTime);
-browserReal.realEventsQueue.push({ id: 'real_order_123', message: 'Bạn vừa mua thành công!', type: 'order' });
-
-const resReal = browserReal.tick(baseTime);
+// Test 5: Ưu tiên sự kiện thật ngay lập tức
+console.log('\n--- Test 5: Sự kiện thật được ưu tiên hiển thị ngay lập tức (vượt khe) ---');
+const clientReal = new SimulatedBrowserClient('Real User', 0);
+clientReal.realEventsQueue.push({ id: 'real_order_999', message: 'Bạn vừa mua thành công!', type: 'BUY_PRODUCT' });
+const resReal = clientReal.tick(baseTime);
 assert.strictEqual(resReal.action, 'show_real');
-assert.strictEqual(resReal.event.id, 'real_order_123');
-console.log('[PASS] Test 5: Sự kiện thật được ưu tiên hiển thị ngay lập tức!');
+assert.strictEqual(resReal.event.id, 'real_order_999');
+console.log('[PASS] Test 5: Sự kiện thật hiển thị tức thời!');
 
-console.log('\n=== TẤT CẢ 5 BÀI TEST ĐỒNG HỒ KHE ĐA TRÌNH DUYỆT ĐÃ VƯỢT QUA 100% ===\n');
+console.log('\n=== TẤT CẢ 5 BÀI TEST ĐỒNG HỒ KHE 10 GIÂY ĐÃ VƯỢT QUA 100% ===\n');

@@ -7,6 +7,34 @@ Mỗi mục sửa lỗi đều ghi nhận **Nguyên nhân gốc rễ (Root Cause
 
 ## [2026-10-25]
 
+### 199. Chuyển Đổi Nhịp Khe Toàn Hệ Thống Sang 10 Giây Cố Định & Hỏi Dữ Liệu Đồng Bộ Theo Khe (Slot-Aligned Polling Engine)
+- **Mô tả & Yêu cầu người dùng**:
+  - Người dùng yêu cầu tăng mật độ thông báo trong khoảng 5–15 giây (chọn giá trị cố định **10 giây - 10000ms** cho toàn hệ thống) kèm giải pháp hỏi dữ liệu đồng bộ theo nhịp khe để khắc phục triệt để hiện tượng lệch pha bỏ qua khe.
+  - Các yêu cầu cốt lõi:
+    1. *Đổi nhịp khe sang 10 giây cố định toàn hệ thống*: Triển khai đồng bộ cả máy chủ và trình duyệt (sinh sự kiện, đánh số khe, neo ngày, trích xuất khe, bộ lập lịch hiển thị).
+    2. *Hỏi dữ liệu theo nhịp khe*: Mỗi khe hỏi 1 lần vào giây thứ 0.65 (đầu khe) để dữ liệu có sẵn trước giây nổ 1.5s. Giữ lần hỏi bù khi tab quay lại hiển thị. Tần suất: đúng 1 lần/khe (6 lần/phút).
+    3. *Mọi khe đều có thông báo, không chồng chéo*: Thời lượng hiển thị tối đa 4 giây (`4000ms` < 10000ms), kết thúc ở giây 5.5 của khe, tạo khoảng nghỉ tự nhiên 4.5s trước khe kế tiếp.
+    4. *Co ngưỡng cảnh báo im lặng*: Giảm từ 180s xuống 60s (tương đương 6 khe 10s).
+    5. *Bảo toàn kiến trúc*: Giữ nguyên Two-Layer SSOT, sổ nguyên tử, bảng quy đổi delta, chống replay ngẫu nhiên, sự kiện thật ưu tiên hiển thị ngay, chi phí D1 an toàn tuyệt đối.
+- **Nguyên nhân gốc rễ (Root Cause)**:
+  - Nhịp khe cũ 30s khá thưa; đồng thời bộ hỏi dữ liệu cũ chạy độc lập 25–30s không khớp với mốc khe, dẫn tới độ trễ ngẫu nhiên khiến nhiều khe bị bỏ qua do chưa tải kịp sự kiện trước giờ nổ.
+- **Giải pháp triển khai (Solution)**:
+  1. *Đổi hằng số nhịp khe toàn hệ thống (`SLOT_DURATION_MS = 10000`)*:
+     - Phía máy chủ: `virtualLayerService.ts`, `marketingAuditService.ts`, `marketing.ts` đồng loạt đổi từ 30s/35s sang 10s. Jitter thời gian sinh sự kiện được kẹp trong 1.5s đầu khe (`Math.floor(rng() * 1500)`).
+     - Phía trình duyệt: `marketingService.ts` và `MarketingNotificationToast.tsx` đồng bộ tính toán khe theo nhịp 10s.
+  2. *Bộ hỏi dữ liệu đồng bộ theo khe (Slot Clock Poller)*:
+     - Lập lịch gọi `/api/realtime-events` vào đúng giây `0.65` của mỗi khe (`slotStartMs + 650`), đảm bảo dữ liệu về trước giây nổ `1.5s`.
+     - Sự kiện `visibilitychange` gọi hỏi bù ngay khi người dùng quay lại tab đang mở.
+     - Cập nhật Edge Cache-Control: `public, max-age=5, s-maxage=8, stale-while-revalidate=15`.
+  3. *Khống chế thời lượng hiển thị & Chống chồng chéo*:
+     - `maxDisplayDurationMs = 4000` (4 giây): Nổ ở giây 1.5, ẩn ở giây 5.5, hoàn toàn cách biệt với khe kế tiếp ở giây 11.5.
+  4. *Co ngưỡng im lặng Stream Health*:
+     - Ngưỡng im lặng `silence_threshold_seconds: 60`, cảnh báo khi tuổi sự kiện > 60s.
+- **Kết quả kiểm thử**:
+  - `test_slot_clock_multi_browser.cjs`: Nghiệm thu 2 trình duyệt chạy liên tục 5 phút (30 khe 10s) hiển thị chính xác 30/30 thông báo, khớp cùng khe cùng một thông báo 100%, 0 id `replay_`, 0 chồng chéo.
+  - Toàn bộ 5 test suites của dự án (`test_atomic_ledger_fomo.cjs`, `test_two_layer_fomo.cjs`, `test_audit_key_analytics.cjs`, `audit_zero_test_artifacts.cjs`, `verify_all_requirements.cjs`) đều đạt 100% PASS.
+  - `npm run build`: Hoàn tất 100%, 0 lỗi.
+
 ### 198. Hiển Thị Thông Báo Theo Đồng Hồ Khe (Slot Clock Engine), Triệt Tiêu Phát Lại Ngẫu Nhiên (Zero Replay) & Đồng Bộ Hoá Đa Thiết Bị
 - **Mô tả & Yêu cầu người dùng**:
   - Người dùng kiểm tra trực tiếp trên nhiều thiết bị ngày 25/10/2026 và phát hiện thông báo toast góc dưới trái KHÔNG đồng nhất giữa các máy: máy có máy không, loại thông báo không khớp nhau. Phần bộ đếm sổ nguyên tử đã nghiệm thu chuẩn xác, vấn đề nằm ở tầng hiển thị client.

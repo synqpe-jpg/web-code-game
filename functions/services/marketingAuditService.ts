@@ -435,7 +435,7 @@ export async function getRecentMarketingEvents(env: any, limit: number = 100): P
   }
 
   // 2. Bù đắp các sự kiện mô phỏng tất định (Deterministic simulated toast events) cho các time-slot gần đây
-  const slotDurationMs = 35000; // trung bình 35s mỗi slot
+  const slotDurationMs = 10000; // cố định 10s mỗi slot
   const currentSlotIndex = Math.floor(now / slotDurationMs);
   const sampleGames = [
     'Free Fire', 'Liên Quân Mobile', 'Genshin Impact', 'Honkai: Star Rail',
@@ -452,7 +452,7 @@ export async function getRecentMarketingEvents(env: any, limit: number = 100): P
     const slotSeed = (Math.imul(slotIdx, 0x9e3779b9) ^ 0x85ebca6b) >>> 0;
     const rng = createSimplePRNG(slotSeed);
 
-    const fireTimeMs = slotStartMs + 2000 + Math.floor(rng() * 15000);
+    const fireTimeMs = slotStartMs + 1000 + Math.floor(rng() * 1500);
     if (fireTimeMs > now) continue; // Chưa tới giờ nổ
 
     const typeRoll = rng();

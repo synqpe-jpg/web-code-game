@@ -141,10 +141,10 @@ export async function buildVirtualAnalyticsPayload(
     : 0;
 
   const streamHealth = {
-    is_healthy: lastEventAgeSeconds <= 90,
+    is_healthy: lastEventAgeSeconds <= 30,
     last_event_age_seconds: lastEventAgeSeconds,
-    silence_warning: lastEventAgeSeconds > 180,
-    silence_threshold_seconds: 180,
+    silence_warning: lastEventAgeSeconds > 60,
+    silence_threshold_seconds: 60,
     total_slots_processed_today: layerState.lastProcessedSlot + 1,
   };
 

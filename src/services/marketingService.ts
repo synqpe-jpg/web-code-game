@@ -109,6 +109,8 @@ export const DEFAULT_TYPE_WEIGHTS: NotificationTypeWeights = {
 
 export const DEFAULT_DEPOSIT_PRESETS: number[] = [20000, 50000, 100000, 200000, 300000, 500000, 1000000];
 
+export const SLOT_DURATION_MS = 10000; // Nhịp khe 10 giây cố định toàn hệ thống
+
 export const DEFAULT_MARKETING_CONFIG: MarketingConfig = {
   isEnabled: true,
   typeToggles: DEFAULT_TYPE_TOGGLES,
@@ -1496,26 +1498,52 @@ class MarketingService {
       } catch {}
     };
 
-    // First background poll after 1 second for snappy start
-    setTimeout(poll, 1000);
+    // Khởi tạo poll đầu tiên ngay khi mở trang để hiệu chuẩn giờ và tải dữ liệu tức thì
+    setTimeout(poll, 300);
 
-    // Periodic poll (25s to 30s) for smooth real-user sync with Cloudflare Edge Cache
-    const scheduleNextPoll = () => {
-      const intervalMs = 25000 + Math.floor(Math.random() * 5000);
+    // Bộ hỏi dữ liệu đồng bộ theo nhịp khe (Slot Clock Poller Engine)
+    // Mỗi khe hỏi 1 lần vào khoảng giây 0.65 sau điểm bắt đầu khe để sự kiện có sẵn trước giây nổ 1.5s
+    const scheduleNextSlotPoll = () => {
+      if (!this.isPollerRunning) return;
+      if (this.realtimePollerTimer) {
+        clearTimeout(this.realtimePollerTimer);
+        this.realtimePollerTimer = null;
+      }
+
+      const calibratedNow = this.getCalibratedNow();
+      const { dayStartMs, currentSlotIndex } = this.getVnDayAnchor(calibratedNow);
+      const slotStartMs = dayStartMs + currentSlotIndex * SLOT_DURATION_MS;
+      // Mục tiêu: hỏi vào giây 0.65 của khe (trước giây 1.5 nổ toast)
+      const currentSlotPollTargetMs = slotStartMs + 650;
+
+      let waitMs = 0;
+      if (calibratedNow < currentSlotPollTargetMs) {
+        waitMs = Math.max(50, currentSlotPollTargetMs - calibratedNow);
+      } else {
+        const nextSlotStartMs = dayStartMs + (currentSlotIndex + 1) * SLOT_DURATION_MS;
+        waitMs = Math.max(50, (nextSlotStartMs + 650) - calibratedNow);
+      }
+
       this.realtimePollerTimer = setTimeout(async () => {
         await poll();
         if (this.isPollerRunning) {
-          scheduleNextPoll();
+          scheduleNextSlotPoll();
         }
-      }, intervalMs);
+      }, waitMs);
     };
-    scheduleNextPoll();
 
-    // Fetch immediately when tab resumes active visibility
+    // Bắt đầu lập lịch hỏi theo khe sau khi poll đầu tiên khởi chạy
+    setTimeout(scheduleNextSlotPoll, 800);
+
+    // Hỏi bù ngay lập tức khi tab quay lại hiển thị (Visibility Change)
     if (typeof document !== 'undefined') {
       document.addEventListener('visibilitychange', () => {
         if (document.visibilityState === 'visible') {
-          poll();
+          poll().then(() => {
+            if (this.isPollerRunning) {
+              scheduleNextSlotPoll();
+            }
+          });
         }
       });
     }
@@ -2955,12 +2983,12 @@ class MarketingService {
 
   /**
    * Tính toán neo ngày (00:00:00+07:00 giờ VN) và chỉ số khe (currentSlotIndex)
-   * đồng bộ tuyệt đối với máy chủ theo chu kỳ 30 giây / khe.
+   * đồng bộ tuyệt đối với máy chủ theo chu kỳ 10 giây / khe (SLOT_DURATION_MS).
    */
   public getVnDayAnchor(nowMs: number = this.getCalibratedNow()): { vnDateStr: string; dayStartMs: number; currentSlotIndex: number } {
     const vnDateStr = new Date(nowMs + 7 * 3600 * 1000).toISOString().slice(0, 10);
     const dayStartMs = new Date(vnDateStr + 'T00:00:00+07:00').getTime();
-    const currentSlotIndex = Math.max(0, Math.floor((nowMs - dayStartMs) / 30000));
+    const currentSlotIndex = Math.max(0, Math.floor((nowMs - dayStartMs) / SLOT_DURATION_MS));
     return { vnDateStr, dayStartMs, currentSlotIndex };
   }
 
@@ -2982,7 +3010,7 @@ class MarketingService {
     const anchor = dayStartMs || this.getVnDayAnchor().dayStartMs;
     const ts = Number(evt.timestamp || evt.scheduledFireTime);
     if (!isNaN(ts) && ts > 0 && anchor > 0) {
-      return Math.floor((ts - anchor) / 30000);
+      return Math.floor((ts - anchor) / SLOT_DURATION_MS);
     }
     return null;
   }

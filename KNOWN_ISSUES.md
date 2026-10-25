@@ -10,6 +10,30 @@
 
 ## 1. DANH MỤC LỖI & CÁC BẪY ĐÃ THẤT BẠI (DO NOT REPEAT)
 
+### ISSUE-125: Bẫy Lệch Pha Giữa Chu Kỳ Hỏi Dữ Liệu Và Nhịp Khe Thời Gian (Slot vs Poller Desync Trap)
+- **Triệu chứng**:
+  - Khi tăng mật độ thông báo lên nhịp ngắn (5–15s / khe 10s), nếu bộ hỏi dữ liệu (poller) vẫn chạy chu kỳ độc lập ngẫu nhiên (25–30s) thì trình duyệt sẽ bỏ lỡ 2 trong 3 khe liên tiếp do chưa tải kịp sự kiện mới từ máy chủ về bảng khe (`slotEventsMap`). Toast im lặng vài phút dù mô-đun đang bật.
+- **Nguyên nhân gốc rễ**:
+  1. *Lệch pha giữa Poller và Slot Engine*: Bộ hỏi chạy chu kỳ riêng không bám theo ranh giới khe. Giờ nổ của khe là giây 1.5, nhưng dữ liệu có thể phải đến giây 25 mới được hỏi, khiến khe trôi qua mà không có thông báo.
+  2. *Thời lượng hiển thị lớn hơn hoặc bằng nhịp khe*: Nếu nhịp khe 10s mà thời lượng hiển thị là 5s hoặc 10s, thông báo của khe sau sẽ đè lên hoặc bị hoãn lại, tạo hàng đợi dồn ứ.
+- **Giải pháp chuẩn đã kiểm chứng**:
+  1. *Hỏi dữ liệu theo nhịp khe (Slot-Aligned Poller Engine)*:
+     - Hằng số nhịp khe cố định `SLOT_DURATION_MS = 10000` (10 giây) đồng bộ 100% toàn hệ sinh thái (Server + Client).
+     - Bộ hỏi dữ liệu luôn hẹn giờ fetch vào khoảng giây `0.65` sau điểm bắt đầu khe (`slotStartMs + 650`), đảm bảo dữ liệu sự kiện đã có sẵn trong `slotEventsMap` trước giây nổ `1.5s`.
+     - Sự kiện `visibilitychange` kích hoạt hỏi bù ngay khi tab hiển thị trở lại.
+     - Tần suất hỏi: đúng 1 lần/khe/trình duyệt (6 lần/phút).
+  2. *Khống chế thời lượng hiển thị nhỏ hơn nhịp khe (Chống chồng chéo)*:
+     - Thời lượng hiển thị tối đa `4 giây` (`4000ms`), nổ ở giây 1.5, tự động đóng ở giây 5.5 của khe 10s, để lại khoảng nghỉ tự nhiên 4.5 giây trước khi khe tiếp theo bắt đầu.
+     - Thông báo mới luôn thay thế ngay thông báo trước, không xếp hàng tồn đọng.
+  3. *Co ngưỡng cảnh báo im lặng*:
+     - Giảm `silence_threshold_seconds` từ 180s xuống 60s (tương đương 6 khe 10s).
+- ⛔ **CÁCH SỬA ĐÃ THẤT BẠI - TUYỆT ĐỐI KHÔNG LẶP LẠI**:
+  - ❌ *Không dùng chu kỳ hỏi ngẫu nhiên lệch pha với ranh giới khe*: Phải tính toán `nextSlotStartMs + 650` từ đồng hồ hiệu chuẩn.
+  - ❌ *Không để thời lượng hiển thị >= nhịp khe*: Gây lỗi chồng chéo hoặc mất thông báo.
+  - ❌ *Không để lệch hằng số nhịp khe giữa Client và Server*: Cả 2 phải cùng dùng 10000ms.
+
+---
+
 ### ISSUE-124: Lệch Pha Hiển Thị Thông Báo Marketing Đa Thiết Bị Do Polling Skew & Xả Hàng Đợi FIFO Cũ
 - **Triệu chứng**:
   - Khi mở nhiều thiết bị (máy tính, điện thoại, các trình duyệt khác nhau) cùng lúc, thông báo toast góc dưới trái không đồng nhất: máy có máy không, loại thông báo và nội dung không khớp nhau tại cùng một thời điểm.

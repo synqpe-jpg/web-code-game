@@ -244,11 +244,13 @@ export const MarketingNotificationToast: React.FC<MarketingNotificationToastProp
       if (isTabHiddenRef.current) return;
       if (isSnoozed()) {
         if (timerRef.current) clearTimeout(timerRef.current);
-        timerRef.current = setTimeout(() => scheduleRef.current(), 30000);
+        timerRef.current = setTimeout(() => scheduleRef.current(), 10000);
         return;
       }
 
-      const displayDurationMs = Math.max(3, Number(config.displayDuration) || 5) * 1000;
+      // Thời lượng hiển thị phải nhỏ hơn nhịp khe 10s: tối đa 4 giây để chống chồng chéo
+      const maxDisplayDurationMs = 4000;
+      const displayDurationMs = Math.min(maxDisplayDurationMs, Math.max(2500, Number(config.displayDuration) * 1000 || 4000));
 
       // =========================================================================
       // 1. LOCAL REAL USER EVENTS (Local click feedback - Top Priority, vượt khe)
@@ -259,7 +261,7 @@ export const MarketingNotificationToast: React.FC<MarketingNotificationToastProp
           marketingService.popRealEvent();
           displayNotification(nextRealEvent, displayDurationMs);
           if (timerRef.current) clearTimeout(timerRef.current);
-          timerRef.current = setTimeout(() => scheduleRef.current(), displayDurationMs + 1500);
+          timerRef.current = setTimeout(() => scheduleRef.current(), displayDurationMs + 1000);
           return;
         }
       }
@@ -272,16 +274,16 @@ export const MarketingNotificationToast: React.FC<MarketingNotificationToastProp
       // =========================================================================
       const calibratedNow = marketingService.getCalibratedNow();
       const { dayStartMs, currentSlotIndex } = marketingService.getVnDayAnchor(calibratedNow);
-      const slotDurationMs = 30000; // Chu kỳ khe 30s
+      const slotDurationMs = 10000; // Chu kỳ khe 10s cố định toàn hệ thống
       const slotStartMs = dayStartMs + currentSlotIndex * slotDurationMs;
       const slotEndMs = slotStartMs + slotDurationMs;
       const slotFireTimeMs = slotStartMs + 1500; // Giây 1.5 của khe
-      const slotHideTimeMs = slotFireTimeMs + displayDurationMs; // Giây 6.5 (với duration 5s)
+      const slotHideTimeMs = slotFireTimeMs + displayDurationMs; // Giây 5.5 (thời lượng 4s)
 
       // Trường hợp A: Khe này ĐÃ ĐƯỢC HIỂN THỊ trên trình duyệt này
       if (lastDisplayedSlotRef.current === currentSlotIndex) {
         // Đã hiển thị trong khe này -> Chờ tới giây 1.5 của khe kế tiếp
-        const msToNextSlot = Math.max(500, slotEndMs - calibratedNow + 1500);
+        const msToNextSlot = Math.max(300, slotEndMs - calibratedNow + 1500);
         if (timerRef.current) clearTimeout(timerRef.current);
         timerRef.current = setTimeout(() => scheduleRef.current(), msToNextSlot);
         return;
@@ -290,15 +292,14 @@ export const MarketingNotificationToast: React.FC<MarketingNotificationToastProp
       // Trường hợp B: Khe này CHƯA HIỂN THỊ trên trình duyệt này
       // B.1: Chưa đến giờ nổ của khe hiện tại
       if (calibratedNow < slotFireTimeMs) {
-        const msWait = Math.max(100, slotFireTimeMs - calibratedNow);
+        const msWait = Math.max(50, slotFireTimeMs - calibratedNow);
         if (timerRef.current) clearTimeout(timerRef.current);
         timerRef.current = setTimeout(() => scheduleRef.current(), msWait);
         return;
       }
 
-      // B.2: Đang nằm trong cửa sổ hiển thị hợp lệ của khe hiện tại
-      // Cho phép hiển thị nếu chưa trôi qua quá 4 giây sau slotHideTimeMs (tức trước giây 10.5 của khe 30s)
-      if (calibratedNow >= slotFireTimeMs && calibratedNow < slotHideTimeMs + 4000) {
+      // B.2: Đang nằm trong cửa sổ hiển thị hợp lệ của khe hiện tại (trước giây 7.0 của khe)
+      if (calibratedNow >= slotFireTimeMs && calibratedNow < slotHideTimeMs + 1500) {
         const currentSlotEvt = marketingService.getCurrentSlotEvent(currentSlotIndex);
         if (currentSlotEvt) {
           const datasets = getDatasets();
@@ -342,19 +343,19 @@ export const MarketingNotificationToast: React.FC<MarketingNotificationToastProp
 
           if (isValid) {
             lastDisplayedSlotRef.current = currentSlotIndex;
-            const remainingDurationMs = Math.max(2500, displayDurationMs - Math.max(0, calibratedNow - slotFireTimeMs));
+            const remainingDurationMs = Math.min(displayDurationMs, Math.max(2000, slotHideTimeMs - calibratedNow));
             displayNotification(currentSlotEvt, remainingDurationMs);
-            const msToNextSlot = Math.max(1500, slotEndMs - calibratedNow + 1500);
+            const msToNextSlot = Math.max(1000, slotEndMs - calibratedNow + 1500);
             if (timerRef.current) clearTimeout(timerRef.current);
             timerRef.current = setTimeout(() => scheduleRef.current(), msToNextSlot);
             return;
           }
         } else {
           // Chưa có sự kiện cho khe hiện tại từ sổ máy chủ:
-          // Thử lại sau 1.5 giây nếu vẫn trong 5s đầu của khe để chờ poller tải về
-          if (calibratedNow - slotFireTimeMs < 5000) {
+          // Thử lại sau 500ms nếu vẫn trong 2s đầu của khe để chờ poller tải về
+          if (calibratedNow - slotFireTimeMs < 2000) {
             if (timerRef.current) clearTimeout(timerRef.current);
-            timerRef.current = setTimeout(() => scheduleRef.current(), 1500);
+            timerRef.current = setTimeout(() => scheduleRef.current(), 500);
             return;
           }
         }
@@ -363,13 +364,13 @@ export const MarketingNotificationToast: React.FC<MarketingNotificationToastProp
       // B.3: Đã quá cửa sổ hiển thị của khe hiện tại (hoặc không có sự kiện cho khe hiện tại)
       // Đánh dấu bỏ qua khe này để TUYỆT ĐỐI KHÔNG PHÁT LẠI (chống trùng theo khe, không replay ngẫu nhiên)
       lastDisplayedSlotRef.current = currentSlotIndex;
-      const msToNextSlot = Math.max(1000, slotEndMs - calibratedNow + 1500);
+      const msToNextSlot = Math.max(500, slotEndMs - calibratedNow + 1500);
       if (timerRef.current) clearTimeout(timerRef.current);
       timerRef.current = setTimeout(() => scheduleRef.current(), msToNextSlot);
     } catch (err) {
       console.warn('[MarketingToast] Error scheduling slot event:', err);
       if (timerRef.current) clearTimeout(timerRef.current);
-      timerRef.current = setTimeout(() => scheduleRef.current(), 15000);
+      timerRef.current = setTimeout(() => scheduleRef.current(), 5000);
     }
   }, [displayNotification, getDatasets, isSnoozed]);
 

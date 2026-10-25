@@ -130,7 +130,7 @@ export const CONVERSION_TABLE: Record<string, {
   },
 };
 
-export const SLOT_DURATION_MS = 30000; // 30s per deterministic time slot
+export const SLOT_DURATION_MS = 10000; // 10s per deterministic time slot (Nhịp 10 giây cố định toàn hệ thống)
 export const BATCH_FLUSH_INTERVAL_MS = 5 * 60 * 1000; // 5 minutes
 export const BATCH_FLUSH_EVENT_THRESHOLD = 200;
 
@@ -423,7 +423,7 @@ export function processCurrentTimeSlot(state: VirtualLayerState, nowMs: number =
     const rng = createPRNG(slotSeed);
     // Base slot timestamp + small natural jitter, guaranteed <= nowMs so no slot is ever skipped
     const slotBaseMs = dayStartMs + slot * SLOT_DURATION_MS;
-    const fireTimeMs = Math.min(nowMs, slotBaseMs + Math.floor(rng() * 10000));
+    const fireTimeMs = Math.min(nowMs, slotBaseMs + Math.floor(rng() * 1500));
 
     const typeRoll = rng();
     const accountIdx = Math.floor(rng() * PRESET_VIRTUAL_ACCOUNTS.length);
@@ -839,17 +839,17 @@ export async function getUnifiedRealtimePayload(env: any, waitUntil?: (p: Promis
 
   const masterCopyTotal = state.masterCopy.realClicks + state.masterCopy.virtualCopy;
 
-  // Stream Health & Silence Gap Monitoring
+  // Stream Health & Silence Gap Monitoring (Đồng bộ theo nhịp khe 10 giây mới)
   const newestEventTimestamp = combinedEvents[0]?.timestamp || now;
   const lastEventAgeSeconds = Math.max(0, Math.floor((now - newestEventTimestamp) / 1000));
-  const isHealthy = lastEventAgeSeconds <= 90; // <= 3 time slots (30s each)
-  const silenceWarning = lastEventAgeSeconds > 180; // Warning if stream silent for > 3 minutes
+  const isHealthy = lastEventAgeSeconds <= 30; // <= 3 time slots (10s each)
+  const silenceWarning = lastEventAgeSeconds > 60; // Warning if stream silent for > 6 slots (60s)
 
   const streamHealth = {
     is_healthy: isHealthy,
     last_event_age_seconds: lastEventAgeSeconds,
     silence_warning: silenceWarning,
-    silence_threshold_seconds: 180,
+    silence_threshold_seconds: 60,
     current_slot_index: Math.max(0, Math.floor((now - getVnDayAnchor(now).dayStartMs) / SLOT_DURATION_MS)),
     total_slots_processed_today: state.lastProcessedSlot + 1,
   };

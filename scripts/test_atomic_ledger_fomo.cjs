@@ -188,9 +188,9 @@ assert.strictEqual(
   'Lỗi: virtualLayerService thiếu stream_health trong payload!'
 );
 assert.strictEqual(
-  virtualLayerCode.includes('silence_threshold_seconds: 180'),
+  virtualLayerCode.includes('silence_threshold_seconds: 60'),
   true,
-  'Lỗi: virtualLayerService thiếu silence_threshold_seconds 180s!'
+  'Lỗi: virtualLayerService thiếu silence_threshold_seconds 60s!'
 );
 
 // 5c. Kiểm tra recordRealGiveawayClaim trong client marketingService
