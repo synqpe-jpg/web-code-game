@@ -10,6 +10,30 @@
 
 ## 1. DANH MỤC LỖI & CÁC BẪY ĐÃ THẤT BẠI (DO NOT REPEAT)
 
+### ISSUE-126: Bẫy Spam Thông Báo Sao Chép & Lặp Lại Thông Báo Giữa Real Event Và Slot Event
+- **Triệu chứng**:
+  - Người dùng bấm sao chép liên tục thì thông báo toast nổ dồn dập (spam). Hoặc khi 1 người dùng khác sao chép trên sàn, các trình duyệt khác nổ thông báo sao chép nhiều lần trong thời gian ngắn dù đã có cooldown 20s cục bộ.
+  - Một thao tác thật (mua hàng, giật code, sao chép) nổ 2 lần trên cùng một trình duyệt: Lần 1 nổ qua đường ưu tiên sự kiện thật (Real Event), sau đó 5–10s nổ lại lần 2 qua đường sự kiện theo khe (Slot Event).
+- **Nguyên nhân gốc rễ**:
+  1. *Cooldown chỉ áp dụng ở tầng sinh cục bộ*: `REAL_COPY_TOAST_COOLDOWN_MS = 20s` trước đây chỉ được đặt trong hàm `recordRealCopy`, hoàn toàn không kiểm tra ở đường hiển thị sự kiện thật từ máy chủ, đường nhận đẩy trực tiếp, hay đường sự kiện theo khe.
+  2. *Đường khe không kiểm tra `isNotificationProcessed` trước khi hiển thị*: Chỉ đánh dấu sau khi hiển thị.
+  3. *Đường sự kiện thật không đánh dấu `lastDisplayedSlotRef`*: Khi sự kiện thật nổ ở giây 1.5, slot hiện tại không được đánh dấu là "đã phục vụ", dẫn đến lần tick kế tiếp vẫn lấy sự kiện khe đó ra hiển thị lại lần 2.
+- **Giải pháp chuẩn đã kiểm chứng**:
+  1. *Hệ thống Cooldown Chống Spam Tập Trung*:
+     - `canDisplayActionNotification(maskedUser, 'COPY_CODE', 20000)`: Khóa định danh dựa trên tên đã che (`${safeUser}_COPY_CODE`).
+     - Áp dụng kiểm tra cooldown 20s tại TẤT CẢ các cửa ngõ: `recordRealCopy`, `peekRealEvent`, `popRealEvent`, `pushRealEvent`, `displayNotification`, và nhánh Slot Event trong `scheduleDeterministicSlot`.
+     - Bộ đếm `incrementLiveCounter(count)` và đồng bộ máy chủ `schedulePushRealEvent(event, count)` luôn chạy đủ 100% (không chặn đếm).
+  2. *Chống Lặp Tuyệt Đối Mọi Đường & Đánh Dấu Khe*:
+     - Trước khi hiển thị bất kỳ sự kiện nào: Kiểm tra `isNotificationProcessed(notif.id)`. Nếu `true` $\rightarrow$ bỏ qua ngay lập tức.
+     - Khi sự kiện thật hiển thị: Lập tức gán `lastDisplayedSlotRef.current = currentSlotIndex;` và `marketingService.removeSlotEvent(nextRealEvent.id);`.
+     - Đồng bộ đa tab: Phát thông điệp `NOTIF_PROCESSED_BROADCAST` qua `BroadcastChannel`. Các tab khác lắng nghe qua `wcg_notif_processed` và cập nhật `lastDisplayedSlotRef.current = slotIndex;` và `processedNotifIds.add(notifId)`.
+- ⛔ **CÁCH SỬA ĐÃ THẤT BẠI - TUYỆT ĐỐI KHÔNG LẶP LẠI**:
+  - ❌ *Không chỉ chặn cooldown trong `recordRealCopy`*: Phải chặn tại `displayNotification` và toàn bộ bộ lập lịch để chống cả sự kiện từ máy chủ/tab khác.
+  - ❌ *Không chặn tăng bộ đếm khi cooldown thông báo toast*: Bộ đếm phải đếm đủ mọi lần thao tác của khách hàng.
+  - ❌ *Không quên gán `lastDisplayedSlotRef.current = currentSlotIndex` khi sự kiện thật nổ*: Gây lặp lại sự kiện qua đường khe.
+
+---
+
 ### ISSUE-125: Bẫy Lệch Pha Giữa Chu Kỳ Hỏi Dữ Liệu Và Nhịp Khe Thời Gian (Slot vs Poller Desync Trap)
 - **Triệu chứng**:
   - Khi tăng mật độ thông báo lên nhịp ngắn (5–15s / khe 10s), nếu bộ hỏi dữ liệu (poller) vẫn chạy chu kỳ độc lập ngẫu nhiên (25–30s) thì trình duyệt sẽ bỏ lỡ 2 trong 3 khe liên tiếp do chưa tải kịp sự kiện mới từ máy chủ về bảng khe (`slotEventsMap`). Toast im lặng vài phút dù mô-đun đang bật.

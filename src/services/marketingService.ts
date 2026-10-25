@@ -214,6 +214,7 @@ class MarketingService {
   private readonly COPY_PUSH_COOLDOWN_MS = 5000; // 5s debounce for copy clicks to batch & protect KV write quota
   private lastRealCopyToastTime: number = 0;
   private readonly REAL_COPY_TOAST_COOLDOWN_MS = 20000; // 20s cooldown for real user copy notification toasts
+  private userActionCooldownMap: Map<string, number> = new Map(); // Quản lý cooldown chống spam thông báo theo người dùng (20s)
   private realtimePollerTimer: any = null;
   private isPollerRunning: boolean = false;
   private hourlyServerStatsMap: Map<string, any> = new Map();
@@ -753,7 +754,7 @@ class MarketingService {
     } catch {}
   }
 
-  public markNotificationProcessed(notifId: string): void {
+  public markNotificationProcessed(notifId: string, slotIndex?: number): void {
     if (!notifId) return;
     this.processedNotifIds.add(notifId);
     if (this.processedNotifIds.size > 500) {
@@ -767,11 +768,76 @@ class MarketingService {
         localStorage.setItem(MARKETING_PROCESSED_IDS_KEY, JSON.stringify(arr));
       } catch {}
     }
+
+    // Đồng bộ đa tab: Broadcast để các tab khác trên cùng trình duyệt không bao giờ hiển thị lại ID này
+    if (this.broadcastChannel) {
+      try {
+        this.broadcastChannel.postMessage({
+          type: 'NOTIF_PROCESSED_BROADCAST',
+          payload: { notifId, slotIndex },
+        });
+      } catch {}
+    }
   }
 
   public isNotificationProcessed(notifId: string): boolean {
     if (!notifId) return false;
-    return this.processedNotifIds.has(notifId);
+    if (this.processedNotifIds.has(notifId)) return true;
+    // Fallback: kiểm tra trong localStorage phòng trường hợp tab khác vừa xử lý
+    if (typeof window !== 'undefined') {
+      try {
+        const saved = localStorage.getItem(MARKETING_PROCESSED_IDS_KEY);
+        if (saved && saved.includes(notifId)) {
+          this.processedNotifIds.add(notifId);
+          return true;
+        }
+      } catch {}
+    }
+    return false;
+  }
+
+  public removeSlotEvent(notifId: string): void {
+    if (!notifId) return;
+    for (const [slot, evt] of this.slotEventsMap.entries()) {
+      if (evt && evt.id === notifId) {
+        this.slotEventsMap.delete(slot);
+      }
+    }
+    this.serverLedgerEventQueue = this.serverLedgerEventQueue.filter((e) => e && e.id !== notifId);
+    this.recentRealEvents = this.recentRealEvents.filter((e) => e && e.id !== notifId);
+  }
+
+  /**
+   * Quản lý chống spam thông báo sao chép: 20 giây tối đa 1 thông báo cho mỗi người dùng.
+   * Khóa định danh = maskedUserName + actionType (bảo mật PII, chỉ dùng tên đã che).
+   */
+  public canDisplayActionNotification(maskedUserName: string, actionType: string = 'COPY_CODE', cooldownMs: number = 20000): boolean {
+    if (actionType !== 'COPY_CODE') return true;
+    const safeUser = (maskedUserName || 'Khách').trim();
+    const key = `${safeUser}_${actionType}`;
+    const now = this.getCalibratedNow();
+    const lastTime = this.userActionCooldownMap.get(key) || 0;
+    if (now - lastTime < cooldownMs) {
+      return false; // Đang trong cửa sổ 20 giây -> Chặn hiển thị thông báo mới
+    }
+    return true;
+  }
+
+  public recordActionNotificationDisplayed(maskedUserName: string, actionType: string = 'COPY_CODE'): void {
+    const safeUser = (maskedUserName || 'Khách').trim();
+    const key = `${safeUser}_${actionType}`;
+    const now = this.getCalibratedNow();
+    this.userActionCooldownMap.set(key, now);
+
+    // Đồng bộ sang các tab khác trên cùng trình duyệt qua BroadcastChannel
+    if (this.broadcastChannel) {
+      try {
+        this.broadcastChannel.postMessage({
+          type: 'USER_ACTION_COOLDOWN_BROADCAST',
+          payload: { key, timestamp: now },
+        });
+      } catch {}
+    }
   }
 
   private initBroadcastChannel(): void {
@@ -781,7 +847,18 @@ class MarketingService {
       this.broadcastChannel.onmessage = (event) => {
         if (!event || !event.data) return;
         const { type, payload } = event.data;
-        if (type === 'REAL_EVENT_BROADCAST' && payload) {
+        if (type === 'NOTIF_PROCESSED_BROADCAST' && payload) {
+          if (payload.notifId) {
+            this.processedNotifIds.add(payload.notifId);
+            if (typeof window !== 'undefined') {
+              window.dispatchEvent(new CustomEvent('wcg_notif_processed', { detail: payload }));
+            }
+          }
+        } else if (type === 'USER_ACTION_COOLDOWN_BROADCAST' && payload) {
+          if (payload.key && typeof payload.timestamp === 'number') {
+            this.userActionCooldownMap.set(payload.key, payload.timestamp);
+          }
+        } else if (type === 'REAL_EVENT_BROADCAST' && payload) {
           this.handleIncomingRealEvent(payload, false);
         } else if (type === 'REAL_EVENT_SCHEDULED' && payload) {
           const match = this.recentRealEvents.find((e) => e && e.id === payload.id);
@@ -3018,7 +3095,7 @@ class MarketingService {
   /**
    * Lấy sự kiện mô phỏng của KHE HIỆN TẠI từ sổ máy chủ.
    * Cùng một khe thì mọi trình duyệt đều nhận cùng một sự kiện duy nhất.
-   * Nếu chưa có sự kiện cho khe hiện tại -> trả về null (không hiển thị gì).
+   * Nếu chưa có sự kiện cho khe hiện tại hoặc sự kiện đã hiển thị/bị spam -> trả về null.
    */
   public getCurrentSlotEvent(currentSlotIndex: number): MarketingNotification | null {
     const { dayStartMs } = this.getVnDayAnchor();
@@ -3033,6 +3110,14 @@ class MarketingService {
     }
 
     if (evt && this.isTypeEnabled(evt.type, evt.itemType)) {
+      // Chống lặp ID: Bỏ qua nếu sự kiện này đã hiển thị trên trình duyệt này
+      if (evt.id && this.isNotificationProcessed(evt.id)) {
+        return null;
+      }
+      // Chống spam sao chép: Bỏ qua nếu người dùng này đang trong cooldown 20s
+      if (evt.type === 'COPY_CODE' && !this.canDisplayActionNotification(evt.userName || '', 'COPY_CODE', 20000)) {
+        return null;
+      }
       return evt;
     }
     return null;
@@ -3046,7 +3131,21 @@ class MarketingService {
   public peekRealEvent(): MarketingNotification | null {
     while (this.recentRealEvents.length > 0) {
       const evt = this.recentRealEvents[0];
-      if (evt && this.isTypeEnabled(evt.type, evt.itemType)) {
+      if (!evt) {
+        this.recentRealEvents.shift();
+        continue;
+      }
+      // Bỏ qua nếu sự kiện đã được hiển thị trên trình duyệt này
+      if (evt.id && this.isNotificationProcessed(evt.id)) {
+        this.recentRealEvents.shift();
+        continue;
+      }
+      // Bỏ qua nếu là sự kiện sao chép đang trong cooldown 20s của người dùng đó
+      if (evt.type === 'COPY_CODE' && !this.canDisplayActionNotification(evt.userName || '', 'COPY_CODE', 20000)) {
+        this.recentRealEvents.shift();
+        continue;
+      }
+      if (this.isTypeEnabled(evt.type, evt.itemType)) {
         return evt;
       }
       this.recentRealEvents.shift(); // remove disabled or invalid event
@@ -3057,7 +3156,10 @@ class MarketingService {
   public popRealEvent(): MarketingNotification | null {
     while (this.recentRealEvents.length > 0) {
       const evt = this.recentRealEvents.shift();
-      if (evt && this.isTypeEnabled(evt.type, evt.itemType)) {
+      if (!evt) continue;
+      if (evt.id && this.isNotificationProcessed(evt.id)) continue;
+      if (evt.type === 'COPY_CODE' && !this.canDisplayActionNotification(evt.userName || '', 'COPY_CODE', 20000)) continue;
+      if (this.isTypeEnabled(evt.type, evt.itemType)) {
         return evt;
       }
     }
@@ -3115,6 +3217,11 @@ class MarketingService {
     // Persistent deduplication check
     if (this.isNotificationProcessed(event.id)) return;
 
+    // Chống spam sao chép: Kiểm tra cửa sổ cooldown 20s theo người dùng cho mọi đường hiển thị
+    if (event.type === 'COPY_CODE' && !this.canDisplayActionNotification(event.userName || '', 'COPY_CODE', 20000)) {
+      return;
+    }
+
     // Ensure name & message are masked according to config
     event = this.sanitizeNotificationMasking(event);
 
@@ -3126,6 +3233,9 @@ class MarketingService {
 
     if (notifyImmediately) {
       this.markNotificationProcessed(event.id);
+      if (event.type === 'COPY_CODE') {
+        this.recordActionNotificationDisplayed(event.userName || '', 'COPY_CODE');
+      }
       this.notificationListeners.forEach((cb) => {
         try { cb(event); } catch {}
       });
@@ -3561,14 +3671,14 @@ class MarketingService {
     const rawName = this.resolveUserName(userOrName);
     const masked = this.maskName(rawName);
 
-    // 1. Luôn tăng bộ đếm số lượt sao chép
+    // 1. Luôn tăng bộ đếm số lượt sao chép (đếm đủ mọi lần thao tác)
     this.incrementLiveCounter(count);
 
     const now = this.getCalibratedNow();
-    // 2. Giới hạn thông báo: Chỉ thông báo lần đầu trong khoảng CD (mặc định 20s) đối với việc sao chép code
+    // 2. Chống spam thông báo: 20 giây tối đa 1 thông báo cho mỗi người dùng (khóa theo tên đã che)
     const cdSec = Math.max(5, Number(this.config.realUserCooldownSec) || 20);
     const cooldownMs = cdSec * 1000;
-    const shouldShowToast = (now - this.lastRealCopyToastTime) >= cooldownMs;
+    const shouldShowToast = this.canDisplayActionNotification(masked, 'COPY_CODE', cooldownMs);
 
     let event: MarketingNotification | null = null;
     if (shouldShowToast) {

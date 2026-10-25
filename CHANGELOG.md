@@ -7,6 +7,32 @@ Mỗi mục sửa lỗi đều ghi nhận **Nguyên nhân gốc rễ (Root Cause
 
 ## [2026-10-25]
 
+### 200. Cơ Chế Chống Spam Sao Chép (20 Giây Tối Đa 1 Thông Báo / Mỗi User) & Triệt Tiêu Lặp Lại Thông Báo Trên Cùng Trình Duyệt
+- **Mô tả & Yêu cầu người dùng**:
+  - Người dùng yêu cầu khắc phục triệt để hiện tượng spam thông báo sao chép và nguy cơ lặp lại thông báo của cùng 1 thao tác:
+    1. *Chống spam sao chép*: 20 giây tối đa 1 thông báo cho mỗi người dùng, áp dụng trên mọi đường hiển thị (cục bộ, sự kiện thật từ máy chủ, đường đẩy trực tiếp). Khóa định danh = `tên đã che + loại thao tác` (PII-safe, không lộ tên thật). Lần đầu hiện ngay, các lần sau trong 20s không hiện thông báo mới. Hết 20s, lần tiếp theo nổ bình thường. Bộ đếm vẫn đếm đủ mọi lần sao chép (không chặn đếm). Không chặn nhầm 2 người dùng khác nhau.
+    2. *Một thao tác chỉ lên 1 lần, không lặp lại (phạm vi: mỗi trình duyệt, kể cả các tab của nó)*:
+       - Đường hiển thị theo khe phải kiểm tra ID đã hiển thị (`isNotificationProcessed`) trước khi hiển thị.
+       - Đường hiển thị sự kiện thật phải đánh dấu khe hiện tại đã được phục vụ (`lastDisplayedSlotRef.current = currentSlotIndex`) và loại sự kiện thật khỏi bảng khe (`removeSlotEvent`) để không nổ lần 2 qua đường khe.
+       - Cùng 1 ID sự kiện không bao giờ hiển thị 2 lần trên cùng một trình duyệt, qua bất kỳ đường nào. Đồng bộ trạng thái đã hiển thị qua `BroadcastChannel` giữa các tab trong cùng trình duyệt.
+- **Nguyên nhân gốc rễ (Root Cause)**:
+  1. *Cooldown cục bộ bị hở ở các đường khác*: `REAL_COPY_TOAST_COOLDOWN_MS = 20s` trước đây chỉ nằm ở hàm `recordRealCopy`, không áp dụng ở đường ưu tiên sự kiện thật trong bộ lập lịch, đường nhận đẩy trực tiếp, và đường sự kiện khe từ máy chủ.
+  2. *Lỗ hổng lặp lại thông báo*: Đường hiển thị theo khe chỉ gọi `markNotificationProcessed` sau khi hiển thị mà không kiểm tra trước; đường hiển thị sự kiện thật không đánh dấu `lastDisplayedSlotRef`, khiến cùng 1 thao tác thật có thể nổ lần 1 qua đường sự kiện thật và nổ lần 2 qua đường khe.
+- **Giải pháp triển khai (Solution)**:
+  1. *Hệ thống Cooldown Chống Spam Tập Trung*:
+     - `marketingService.ts`: Bổ sung `userActionCooldownMap`, `canDisplayActionNotification(maskedUser, actionType, cooldownMs = 20000)`, `recordActionNotificationDisplayed(maskedUser, actionType)`.
+     - Đồng bộ cooldown đa tab qua `BroadcastChannel` (`USER_ACTION_COOLDOWN_BROADCAST`).
+     - `recordRealCopy`: Luôn gọi `incrementLiveCounter(count)` và `schedulePushRealEvent(event, count)` để bộ đếm tăng đủ 100%, chỉ chặn hiển thị thông báo toast nếu đang trong 20s cooldown.
+  2. *Chống Lặp Tuyệt Đối Mọi Đường & Đánh Dấu Khe*:
+     - `MarketingNotificationToast.tsx`:
+       - `displayNotification`: Kiểm tra `if (notif.id && isNotificationProcessed(notif.id)) return;` và kiểm tra cooldown 20s trước khi render.
+       - Nhánh Sự Kiện Thật: Đánh dấu ngay `lastDisplayedSlotRef.current = currentSlotIndex;` và `marketingService.removeSlotEvent(nextRealEvent.id);`.
+       - Nhánh Sự Kiện Khe: Kiểm tra `isNotificationProcessed(currentSlotEvt.id)` và `canDisplayActionNotification` trước khi duyệt hiển thị.
+       - Đa tab: Bổ sung event listener `wcg_notif_processed` nhận broadcast từ `BroadcastChannel` (`NOTIF_PROCESSED_BROADCAST`), cập nhật `processedNotifIds` và `lastDisplayedSlotRef` trên tất cả các tab đang mở.
+- **Kết quả kiểm thử**:
+  - `test_anti_spam_and_dedup.cjs`: 5/5 bài test PASS 100% (Sao chép 10 lần trong 20s $\rightarrow$ bộ đếm = 10, thông báo = 1; sau 20s nổ lại bình thường; 2 user khác nhau không bị chặn nhầm; cùng 1 ID không bao giờ lên 2 lần; tab A nổ thì tab B không lặp lại).
+  - Toàn bộ 5 test suites hồi quy đều đạt 100% PASS. `npm run build` hoàn tất 100%, 0 lỗi.
+
 ### 199. Chuyển Đổi Nhịp Khe Toàn Hệ Thống Sang 10 Giây Cố Định & Hỏi Dữ Liệu Đồng Bộ Theo Khe (Slot-Aligned Polling Engine)
 - **Mô tả & Yêu cầu người dùng**:
   - Người dùng yêu cầu tăng mật độ thông báo trong khoảng 5–15 giây (chọn giá trị cố định **10 giây - 10000ms** cho toàn hệ thống) kèm giải pháp hỏi dữ liệu đồng bộ theo nhịp khe để khắc phục triệt để hiện tượng lệch pha bỏ qua khe.

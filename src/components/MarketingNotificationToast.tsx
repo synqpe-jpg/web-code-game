@@ -139,6 +139,20 @@ export const MarketingNotificationToast: React.FC<MarketingNotificationToastProp
     const isTest = Boolean(notif.id && notif.id.startsWith('test_'));
     if (!isTest && !marketingService.isTypeEnabled(notif.type, notif.itemType)) return;
 
+    // Yêu cầu 2: Bỏ qua tuyệt đối nếu ID sự kiện này đã từng hiển thị trên trình duyệt này
+    if (notif.id && marketingService.isNotificationProcessed(notif.id)) {
+      return;
+    }
+
+    // Yêu cầu 1: Chống spam sao chép 20 giây tối đa 1 thông báo cho mỗi người dùng (khóa = tên đã che + loại thao tác)
+    if (notif.type === 'COPY_CODE') {
+      const userKey = notif.userName || 'Khách';
+      if (!marketingService.canDisplayActionNotification(userKey, 'COPY_CODE', 20000)) {
+        return; // Chặn hiển thị thông báo do đang trong cooldown 20s
+      }
+      marketingService.recordActionNotificationDisplayed(userKey, 'COPY_CODE');
+    }
+
     if (dismissTimerRef.current) {
       clearTimeout(dismissTimerRef.current);
       dismissTimerRef.current = null;
@@ -193,7 +207,9 @@ export const MarketingNotificationToast: React.FC<MarketingNotificationToastProp
 
     // Mark as processed in marketingService so it is NEVER duplicated or replayed
     if (finalNotif.id) {
-      marketingService.markNotificationProcessed(finalNotif.id);
+      const { currentSlotIndex } = marketingService.getVnDayAnchor();
+      marketingService.markNotificationProcessed(finalNotif.id, currentSlotIndex);
+      marketingService.removeSlotEvent(finalNotif.id);
     }
 
     // Luôn ưu tiên tăng giảm số lượng của web theo thông báo nổ (bảo toàn 1 - 1 tuyệt đối cho cả thật và ảo):
@@ -255,10 +271,32 @@ export const MarketingNotificationToast: React.FC<MarketingNotificationToastProp
       // =========================================================================
       // 1. LOCAL REAL USER EVENTS (Local click feedback - Top Priority, vượt khe)
       // =========================================================================
+      const calibratedNow = marketingService.getCalibratedNow();
+      const { dayStartMs, currentSlotIndex } = marketingService.getVnDayAnchor(calibratedNow);
+
       if (marketingService.hasPendingRealEvent()) {
         const nextRealEvent = marketingService.peekRealEvent();
         if (nextRealEvent) {
           marketingService.popRealEvent();
+          // Kiểm tra chống lặp: Không hiển thị nếu ID sự kiện thật đã từng hiển thị
+          if (nextRealEvent.id && marketingService.isNotificationProcessed(nextRealEvent.id)) {
+            if (timerRef.current) clearTimeout(timerRef.current);
+            timerRef.current = setTimeout(() => scheduleRef.current(), 100);
+            return;
+          }
+          // Kiểm tra chống spam sao chép 20s theo người dùng
+          if (nextRealEvent.type === 'COPY_CODE' && !marketingService.canDisplayActionNotification(nextRealEvent.userName || '', 'COPY_CODE', 20000)) {
+            if (timerRef.current) clearTimeout(timerRef.current);
+            timerRef.current = setTimeout(() => scheduleRef.current(), 100);
+            return;
+          }
+
+          // Yêu cầu 2: Đánh dấu khe hiện tại đã được phục vụ bởi sự kiện thật & loại khỏi bảng khe để không hiện lần 2 qua đường khe
+          lastDisplayedSlotRef.current = currentSlotIndex;
+          if (nextRealEvent.id) {
+            marketingService.removeSlotEvent(nextRealEvent.id);
+          }
+
           displayNotification(nextRealEvent, displayDurationMs);
           if (timerRef.current) clearTimeout(timerRef.current);
           timerRef.current = setTimeout(() => scheduleRef.current(), displayDurationMs + 1000);
@@ -272,8 +310,6 @@ export const MarketingNotificationToast: React.FC<MarketingNotificationToastProp
       // Cùng một khe thì cùng một thông báo trên mọi máy. Không phát lại ngẫu nhiên.
       // Trình duyệt mới mở và tab ẩn quay lại đều bắt đầu từ khe hiện tại.
       // =========================================================================
-      const calibratedNow = marketingService.getCalibratedNow();
-      const { dayStartMs, currentSlotIndex } = marketingService.getVnDayAnchor(calibratedNow);
       const slotDurationMs = 10000; // Chu kỳ khe 10s cố định toàn hệ thống
       const slotStartMs = dayStartMs + currentSlotIndex * slotDurationMs;
       const slotEndMs = slotStartMs + slotDurationMs;
@@ -304,6 +340,16 @@ export const MarketingNotificationToast: React.FC<MarketingNotificationToastProp
         if (currentSlotEvt) {
           const datasets = getDatasets();
           let isValid = true;
+
+          // Yêu cầu 2: Bỏ qua tuyệt đối nếu sự kiện này đã hiển thị trên trình duyệt này
+          if (currentSlotEvt.id && marketingService.isNotificationProcessed(currentSlotEvt.id)) {
+            isValid = false;
+          }
+
+          // Yêu cầu 1: Bỏ qua nếu là sự kiện sao chép đang trong cooldown 20s của người dùng đó
+          if (currentSlotEvt.type === 'COPY_CODE' && !marketingService.canDisplayActionNotification(currentSlotEvt.userName || '', 'COPY_CODE', 20000)) {
+            isValid = false;
+          }
 
           let deletedStoreSet = new Set<string>();
           let deletedUtilSet = new Set<string>();
@@ -409,17 +455,42 @@ export const MarketingNotificationToast: React.FC<MarketingNotificationToastProp
     return () => window.removeEventListener('wcg_clear_marketing_snooze', handleClearSnooze);
   }, []);
 
+  // Đồng bộ đa tab: Lắng nghe sự kiện đã hiển thị từ các tab khác trong cùng trình duyệt
+  useEffect(() => {
+    const handleNotifProcessed = (e: any) => {
+      const detail = e.detail;
+      if (!detail) return;
+      if (typeof detail.slotIndex === 'number') {
+        lastDisplayedSlotRef.current = detail.slotIndex;
+      }
+      if (detail.notifId && currentNotificationIdRef.current === detail.notifId) {
+        dismissNotification();
+      }
+    };
+    window.addEventListener('wcg_notif_processed', handleNotifProcessed);
+    return () => window.removeEventListener('wcg_notif_processed', handleNotifProcessed);
+  }, [dismissNotification]);
+
   // Subscribe to real actions (local or broadcast)
   useEffect(() => {
     const unsubscribe = marketingService.subscribeNotification((event) => {
       if (event && !isTabHiddenRef.current && !isSnoozed()) {
+        if (event.id && marketingService.isNotificationProcessed(event.id)) return;
+        if (event.type === 'COPY_CODE' && !marketingService.canDisplayActionNotification(event.userName || '', 'COPY_CODE', 20000)) return;
+
+        const { currentSlotIndex } = marketingService.getVnDayAnchor();
+        lastDisplayedSlotRef.current = currentSlotIndex;
+        if (event.id) {
+          marketingService.removeSlotEvent(event.id);
+        }
+
         const config = marketingService.getConfig();
-        const displayDurationMs = Math.max(3, Number(config.displayDuration) || 5) * 1000;
+        const displayDurationMs = Math.min(4000, Math.max(2500, Number(config.displayDuration) * 1000 || 4000));
         displayNotification(event, displayDurationMs);
         if (timerRef.current) clearTimeout(timerRef.current);
         timerRef.current = setTimeout(() => {
           scheduleRef.current();
-        }, displayDurationMs + 1500);
+        }, displayDurationMs + 1000);
       }
     });
     return () => unsubscribe();
