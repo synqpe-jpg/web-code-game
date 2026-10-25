@@ -53,6 +53,7 @@ import {
 import { FormModal } from '../components/ui/FormModal';
 import { ConfirmModal } from '../components/ui/ConfirmModal';
 import { SearchableGameSelect } from '../components/ui/SearchableGameSelect';
+import { TemporaryAuditTokenManager } from '../components/TemporaryAuditTokenManager';
 import { adminDataService } from '../services/adminDataService';
 import { GameAdminRecord, PendingCrawlerGame, CrawlerAutoPublishConfig, CrawlerApiConfig, CrawlerApiLogEntry } from '../types/adminTypes';
 import { smartVietnameseMatch } from '../../utils/textUtils';
@@ -4428,6 +4429,9 @@ export const CrawlerModule: React.FC<CrawlerModuleProps> = ({ onShowToast }) => 
               </div>
             </div>
           </div>
+
+          {/* MỤC QUẢN LÝ KHÓA KIỂM TOÁN TẠM THỜI (2FA BẢO MẬT) */}
+          <TemporaryAuditTokenManager onShowToast={onShowToast} />
 
           {/* 3 Core Architecture Pillars */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">

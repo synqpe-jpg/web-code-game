@@ -4799,6 +4799,60 @@ class AdminDataService {
     this.safeSetItem(this.KEYS.UPCOMING_GAMES_LOGS, JSON.stringify(this.upcomingGamesLogs));
   }
 
+  // --- TEMPORARY AUDIT TOKEN MANAGEMENT (2FA PROTECTED) ---
+  public async getTemporaryAuditTokenStatus(): Promise<any> {
+    try {
+      const res = await fetch('/api/admin/temporary-token', {
+        headers: this.getAuthHeaders(),
+        cache: 'no-store',
+      });
+      if (res.ok) {
+        return await res.json();
+      }
+    } catch {}
+    return { success: false, hasActiveToken: false, tokenData: null };
+  }
+
+  public async generateTemporaryAuditToken(expiresInHours: number = 2): Promise<any> {
+    try {
+      const res = await fetch('/api/admin/temporary-token', {
+        method: 'POST',
+        headers: {
+          ...this.getAuthHeaders(),
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ action: 'generate', expiresInHours }),
+      });
+      if (res.ok) {
+        return await res.json();
+      }
+      const err = await res.json().catch(() => ({}));
+      return { success: false, error: err?.error || 'Lỗi tạo token' };
+    } catch (e: any) {
+      return { success: false, error: e?.message || 'Lỗi mạng khi tạo token' };
+    }
+  }
+
+  public async revokeTemporaryAuditToken(): Promise<any> {
+    try {
+      const res = await fetch('/api/admin/temporary-token', {
+        method: 'POST',
+        headers: {
+          ...this.getAuthHeaders(),
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ action: 'revoke' }),
+      });
+      if (res.ok) {
+        return await res.json();
+      }
+      const err = await res.json().catch(() => ({}));
+      return { success: false, error: err?.error || 'Lỗi thu hồi token' };
+    } catch (e: any) {
+      return { success: false, error: e?.message || 'Lỗi mạng khi thu hồi token' };
+    }
+  }
+
 
 }
 

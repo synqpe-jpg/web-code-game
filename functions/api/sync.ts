@@ -77,7 +77,7 @@ async function isAuthorized(request: Request, env: Env): Promise<AuthResult> {
   const incomingAuthToken = (syncKeyHeader || authHeader.replace(/^Bearer\s+/i, '')).trim();
   if (incomingAuthToken.startsWith('wcg_audit_temp_')) {
     const candidateSecrets = [env.ADMIN_SYNC_SECRET, env.JWT_SECRET];
-    const auditCheck = await verifyTemporaryAuditToken(incomingAuthToken, candidateSecrets);
+    const auditCheck = await verifyTemporaryAuditToken(incomingAuthToken, candidateSecrets, env.DB);
     if (auditCheck.valid) {
       if (request.method !== 'GET' && request.method !== 'HEAD' && request.method !== 'OPTIONS') {
         return {

@@ -3,6 +3,8 @@
  * Centralizes SHA-256 hashing, HMAC-style signed tokens, and secret management.
  */
 
+import { getSettingD1 } from './d1_service';
+
 export async function computeHash(
   password: string,
   salt: string,
@@ -157,7 +159,8 @@ export async function createTemporaryAuditToken(
  */
 export async function verifyTemporaryAuditToken(
   token: string,
-  secrets: (string | undefined)[] | string
+  secrets: (string | undefined)[] | string,
+  db?: any
 ): Promise<{ valid: boolean; expired: boolean; remainingSeconds: number; error?: string }> {
   if (!token || typeof token !== 'string') {
     return { valid: false, expired: false, remainingSeconds: 0 };
@@ -209,6 +212,21 @@ export async function verifyTemporaryAuditToken(
       const expectedSig = hashArray.map((b) => b.toString(16).padStart(2, '0')).join('').substring(0, 20);
 
       if (sig === expectedSig) {
+        // Kiểm tra trạng thái thu hồi trong D1 nếu có kết nối DB
+        if (db) {
+          try {
+            const activeData = await getSettingD1<any>(db, 'wcg_active_temp_audit_token_v1');
+            if (activeData && activeData.token === clean && activeData.isRevoked) {
+              return {
+                valid: false,
+                expired: false,
+                remainingSeconds: 0,
+                error: 'Khóa kiểm toán này đã bị Quản trị viên thu hồi/vô hiệu hóa.',
+              };
+            }
+          } catch {}
+        }
+
         return {
           valid: true,
           expired: false,

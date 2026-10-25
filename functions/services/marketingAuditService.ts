@@ -172,7 +172,7 @@ export async function authenticateMarketingAuditor(request: Request, env: any): 
   // 1.5. Kiểm tra Khóa Kiểm Toán Tạm Thời (Tự hủy sau 2 giờ)
   if (token.startsWith('wcg_audit_temp_')) {
     const candidateSecrets = [env.ADMIN_SYNC_SECRET, env.JWT_SECRET, env.MUSE_MARKETING_AUDIT_KEY];
-    const auditCheck = await verifyTemporaryAuditToken(token, candidateSecrets);
+    const auditCheck = await verifyTemporaryAuditToken(token, candidateSecrets, env.DB);
     if (auditCheck.valid) {
       const minsLeft = Math.max(1, Math.round(auditCheck.remainingSeconds / 60));
       return {

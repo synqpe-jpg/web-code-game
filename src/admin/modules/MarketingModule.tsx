@@ -31,7 +31,9 @@ import {
   PackagePlus,
   ChevronLeft,
   ChevronRight,
+  KeyRound,
 } from 'lucide-react';
+import { TemporaryAuditTokenManager } from '../components/TemporaryAuditTokenManager';
 import type {
   MarketingConfig,
   NotificationTypeToggles,
@@ -58,7 +60,7 @@ interface MarketingModuleProps {
 
 export const MarketingModule: React.FC<MarketingModuleProps> = ({ onShowToast }) => {
   const [config, setConfig] = useState<MarketingConfig>(() => marketingService.getConfig());
-  const [activeSubTab, setActiveSubTab] = useState<'general' | 'types' | 'accounts' | 'products' | 'votes' | 'preview'>('general');
+  const [activeSubTab, setActiveSubTab] = useState<'general' | 'types' | 'accounts' | 'products' | 'votes' | 'preview' | 'audit-token'>('general');
   const [storeProducts, setStoreProducts] = useState<StoreProduct[]>(() => dataService.getStoreProducts());
   const [utilityProducts, setUtilityProducts] = useState<UtilityProduct[]>(() => dataService.getUtilityProducts());
   const [giveaways, setGiveaways] = useState<GiveawayCampaign[]>(() => dataService.getGiveaways());
@@ -1155,7 +1157,7 @@ export const MarketingModule: React.FC<MarketingModuleProps> = ({ onShowToast })
   );
 
   const MARKETING_SUB_TABS: Array<{
-    id: 'general' | 'types' | 'accounts' | 'products' | 'votes' | 'preview';
+    id: 'general' | 'types' | 'accounts' | 'products' | 'votes' | 'preview' | 'audit-token';
     index: number;
     total: number;
     shortTitle: string;
@@ -1169,7 +1171,7 @@ export const MarketingModule: React.FC<MarketingModuleProps> = ({ onShowToast })
     {
       id: 'general',
       index: 1,
-      total: 6,
+      total: 7,
       shortTitle: 'Chung & Tần Suất',
       fullTitle: 'Cấu hình Chung & Tần suất',
       subtext: 'Bật/tắt, vị trí & chu kỳ',
@@ -1180,7 +1182,7 @@ export const MarketingModule: React.FC<MarketingModuleProps> = ({ onShowToast })
     {
       id: 'types',
       index: 2,
-      total: 6,
+      total: 7,
       shortTitle: 'Bật/Tắt Loại Tin',
       fullTitle: 'Bật/Tắt Từng Loại Thông Báo',
       subtext: 'Tỷ lệ % phân bổ 7 loại',
@@ -1191,7 +1193,7 @@ export const MarketingModule: React.FC<MarketingModuleProps> = ({ onShowToast })
     {
       id: 'accounts',
       index: 3,
-      total: 6,
+      total: 7,
       shortTitle: 'Tài Khoản Ảo',
       fullTitle: 'Quản Lý Tài Khoản Hệ Thống',
       subtext: 'Bốc ngẫu nhiên tạo FOMO',
@@ -1202,7 +1204,7 @@ export const MarketingModule: React.FC<MarketingModuleProps> = ({ onShowToast })
     {
       id: 'products',
       index: 4,
-      total: 6,
+      total: 7,
       shortTitle: 'Sản Phẩm & Kho',
       fullTitle: 'Ưu Tiên Sản Phẩm & Kho Ảo',
       subtext: 'Trọng số xuất hiện & tồn',
@@ -1213,7 +1215,7 @@ export const MarketingModule: React.FC<MarketingModuleProps> = ({ onShowToast })
     {
       id: 'votes',
       index: 5,
-      total: 6,
+      total: 7,
       shortTitle: 'Bình Chọn Code',
       fullTitle: 'Tỉ Lệ Bình Chọn Code',
       subtext: 'Giả lập vote hoạt động',
@@ -1224,13 +1226,24 @@ export const MarketingModule: React.FC<MarketingModuleProps> = ({ onShowToast })
     {
       id: 'preview',
       index: 6,
-      total: 6,
+      total: 7,
       shortTitle: 'Giả Lập & Test',
       fullTitle: 'Trình Giả Lập & Bắn Thử',
-      subtext: 'Mục cuối cùng (6/6)',
+      subtext: 'Bắn thử popup',
       icon: Eye,
-      badge: 'Mục cuối (6/6)',
+      badge: 'Test Live',
       badgeTone: 'amber',
+    },
+    {
+      id: 'audit-token',
+      index: 7,
+      total: 7,
+      shortTitle: 'Khóa Kiểm Toán (2FA)',
+      fullTitle: 'Khóa Kiểm Toán Tạm Thời (2FA)',
+      subtext: 'Cấp quyền Pine AI / Muse Bot',
+      icon: KeyRound,
+      badge: '2FA Bảo Mật',
+      badgeTone: 'primary',
       isLast: true,
     },
   ];
@@ -3129,6 +3142,13 @@ export const MarketingModule: React.FC<MarketingModuleProps> = ({ onShowToast })
             </button>
           </div>
         </div>
+      )}
+
+      {/* ==================================================================== */}
+      {/* MỤC 7: CỔNG API KIỂM TOÁN & KHÓA TẠM THỜI (2FA BẢO MẬT)              */}
+      {/* ==================================================================== */}
+      {activeSubTab === 'audit-token' && (
+        <TemporaryAuditTokenManager onShowToast={onShowToast} />
       )}
 
       {/* ==================================================================== */}
