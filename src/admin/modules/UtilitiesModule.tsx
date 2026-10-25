@@ -167,6 +167,40 @@ export const UtilitiesModule: React.FC<UtilitiesModuleProps> = ({ onShowToast })
     onShowToast('Đã sao chép mã / tài khoản', val, 'info');
   };
 
+  const handleRandomizeVirtualSoldUnder10 = () => {
+    const currentList = adminDataService.getUtilities();
+    let updatedCount = 0;
+    currentList.forEach((u) => {
+      // Chỉ áp dụng cho các mục có số lượng bán thật < 10 (hoặc chưa đạt 32, ngoại trừ VIP 7D)
+      const currentRealSold = Number(u.sold_count) || 0;
+      if (currentRealSold < 10 && u.id !== 'ut_vs_05_vip_7d') {
+        const randomSold = Math.floor(Math.random() * (212 - 32 + 1)) + 32;
+        const updatedUtil: UtilityProduct = {
+          ...u,
+          virtual_sold_count: randomSold,
+          show_sold_count: true,
+          virtual_sold_updated_at: new Date().toISOString(),
+        };
+        adminDataService.saveUtilityItem(updatedUtil);
+        const targetDisp = randomSold + currentRealSold;
+        marketingService.syncProductVirtualSold(
+          updatedUtil.id,
+          randomSold,
+          true,
+          targetDisp,
+          updatedUtil.virtual_sold_updated_at
+        );
+        updatedCount++;
+      }
+    });
+    setUtilities(adminDataService.getUtilities());
+    onShowToast?.(
+      'Bổ sung số ảo thành công',
+      `Đã cập nhật số ảo đã bán ngẫu nhiên (32–212) cho ${updatedCount} mục có số lượng dưới 10!`,
+      'success'
+    );
+  };
+
   // --- PRODUCT FORM HANDLERS ---
   const handleOpenCreateProduct = () => {
     const defaultCat = categoriesList[0] || { id: 'account', label: 'Tài khoản Premium' };
@@ -858,6 +892,17 @@ export const UtilitiesModule: React.FC<UtilitiesModuleProps> = ({ onShowToast })
                 <span>Tất cả gói lẻ</span>
               </button>
             </div>
+
+            {/* Bổ Sung Số Ảo Ngẫu Nhiên (32-212) */}
+            <button
+              type="button"
+              onClick={handleRandomizeVirtualSoldUnder10}
+              className="inline-flex items-center gap-1.5 rounded-xl border border-purple-200 bg-purple-50 hover:bg-purple-100 dark:border-purple-800 dark:bg-purple-950/50 dark:hover:bg-purple-900/50 px-3.5 py-2 text-xs font-bold text-purple-700 dark:text-purple-300 shadow-sm cursor-pointer transition-colors active:scale-95"
+              title="Bổ sung số lượng bán ảo ngẫu nhiên từ 32 đến 212 cho các mặt hàng có số lượng đã bán dưới 10"
+            >
+              <Sparkles className="h-4 w-4" />
+              <span>Bổ Sung Số Ảo (32–212)</span>
+            </button>
 
             {/* Create Category Button */}
             <button

@@ -440,6 +440,37 @@ export const PrivateCodesModule: React.FC<PrivateCodesModuleProps> = ({ onShowTo
     }
   };
 
+  const handleRandomizeVirtualClaimed = () => {
+    const currentList = adminDataService.getGiveaways();
+    let updatedCount = 0;
+    currentList.forEach((gw) => {
+      // Bổ sung số ảo đã giật ngẫu nhiên từ 52 đến 112
+      const randomOffset = Math.floor(Math.random() * (112 - 52 + 1)) + 52;
+      const updatedGw: GiveawayCampaign = {
+        ...gw,
+        virtual_claimed_offset: randomOffset,
+        show_claimed_count: true,
+        virtual_claimed_updated_at: new Date().toISOString(),
+      };
+      adminDataService.saveGiveawayItem(updatedGw);
+      const targetDisp = randomOffset + (Number(updatedGw.claimed_codes) || 0);
+      marketingService.syncGiveawayVirtualClaimed(
+        updatedGw.id,
+        randomOffset,
+        true,
+        targetDisp,
+        updatedGw.virtual_claimed_updated_at
+      );
+      updatedCount++;
+    });
+    loadData();
+    onShowToast?.(
+      'Bổ sung số ảo thành công',
+      `Đã cập nhật số ảo đã giật ngẫu nhiên (52–112) cho toàn bộ ${updatedCount} đợt phát code!`,
+      'success'
+    );
+  };
+
   const activeCount = giveaways.filter((g) => g.is_active !== false).length;
   const inactiveCount = giveaways.filter((g) => g.is_active === false).length;
 
@@ -577,6 +608,17 @@ export const PrivateCodesModule: React.FC<PrivateCodesModuleProps> = ({ onShowTo
             >
               <RotateCcw className={`h-3.5 w-3.5 ${isResettingAllFomo ? 'animate-spin' : ''}`} />
               <span>Reset Tất Cả Về Số Thật</span>
+            </button>
+
+            {/* Nút Bổ Sung Số Ảo Ngẫu Nhiên (52-112) */}
+            <button
+              type="button"
+              onClick={handleRandomizeVirtualClaimed}
+              className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold bg-purple-500/10 hover:bg-purple-500/20 text-purple-600 dark:text-purple-400 border border-purple-500/30 transition-all cursor-pointer shadow-sm active:scale-95"
+              title="Bổ sung số ảo đã giật ngẫu nhiên từ 52 đến 112 cho toàn bộ các mục code giveaway"
+            >
+              <Sparkles className="h-3.5 w-3.5" />
+              <span>Bổ Sung Số Ảo (52–112)</span>
             </button>
 
             {/* Nút Mở tất cả */}

@@ -26,7 +26,7 @@ import type { GiveawayCampaign, StoreProduct, UtilityProduct, UtilityCategory, S
 import defaultCrawlerSources from '../../data/crawler_sources.json';
 import rawGamesData from '../../data/games188.json';
 import rawCodesData from '../../data/crawled_codes_188.json';
-import { DEFAULT_STORE_PRODUCTS, DEFAULT_INVENTORY, DEFAULT_UTILITY_PRODUCTS } from '../../data/seedData';
+import { DEFAULT_STORE_PRODUCTS, DEFAULT_INVENTORY, DEFAULT_UTILITY_PRODUCTS, DEFAULT_GIVEAWAYS } from '../../data/seedData';
 import { crossOriginSync } from '../../services/crossOriginSync';
 import canonicalBackup from '../../data/canonical_backup_state.json';
 import { marketingService, DEFAULT_PRODUCT_MARKETING_CONFIG } from '../../services/marketingService';
@@ -3063,6 +3063,10 @@ class AdminDataService {
 
   // --- MODULE 13: GIVEAWAY CAMPAIGNS ---
   public getGiveaways(): GiveawayCampaign[] {
+    if (this.giveaways.length === 0 && Array.isArray(DEFAULT_GIVEAWAYS) && DEFAULT_GIVEAWAYS.length > 0) {
+      this.giveaways = DEFAULT_GIVEAWAYS.filter((g) => g && g.id && !this.deletedGiveawayIds.has(g.id));
+      this.saveGiveaways();
+    }
     return this.giveaways.filter(
       (g) =>
         g &&
@@ -3350,6 +3354,10 @@ class AdminDataService {
 
   // --- MODULE 15: UTILITIES & DIGITAL SERVICES ---
   public getUtilities(): UtilityProduct[] {
+    if (this.utilities.length === 0 && Array.isArray(DEFAULT_UTILITY_PRODUCTS) && DEFAULT_UTILITY_PRODUCTS.length > 0) {
+      this.utilities = DEFAULT_UTILITY_PRODUCTS.filter((u) => u && u.id && !this.deletedUtilityIds.has(u.id));
+      this.saveUtilities();
+    }
     return this.utilities.filter((u) => u && u.id && !u.id.startsWith('sp_')).map((u) => {
       const matchingCodes = this.inventory.filter(
         (i) => (i.sku === u.id || (u.sku && i.sku === u.sku) || (i.productName && u.title && String(i.productName).trim().toLowerCase() === String(u.title).trim().toLowerCase()))

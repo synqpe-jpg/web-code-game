@@ -146,11 +146,97 @@ export interface ItemBaseline {
 }
 
 export const CUMULATIVE_BASELINES_20261025: Record<string, ItemBaseline> = {
-  // VIP 7 Days VS Phone (ut_vs_05_vip_7d): tại 15:33 là 415 đã bán, 433 còn (8 thật + 425 buffer), 41 lần nhập lại
+  // Flagship Product VIP 7 Days VS Phone (ut_vs_05_vip_7d): tại 15:33 là 415 đã bán, 433 còn (8 thật + 425 buffer), 41 lần nhập lại
   'ut_vs_05_vip_7d': {
     virtualSold: 415,
     virtualBuffer: 425,
     virtualRestockCount: 41,
+  },
+  // 17 Utilities còn lại (mục đã bán có số lượng < 10, bổ sung ngẫu nhiên 32-212)
+  'ut_vs_01_basic_1d': {
+    virtualSold: 187,
+    virtualBuffer: 0,
+    virtualRestockCount: 0,
+  },
+  'ut_vs_02_basic_7d': {
+    virtualSold: 34,
+    virtualBuffer: 0,
+    virtualRestockCount: 0,
+  },
+  'ut_vs_03_basic_30d': {
+    virtualSold: 141,
+    virtualBuffer: 0,
+    virtualRestockCount: 0,
+  },
+  'ut_vs_04_vip_1d': {
+    virtualSold: 133,
+    virtualBuffer: 0,
+    virtualRestockCount: 0,
+  },
+  'ut_vs_06_vip_30d': {
+    virtualSold: 35,
+    virtualBuffer: 0,
+    virtualRestockCount: 0,
+  },
+  'ut_vs_07_kvip_1d': {
+    virtualSold: 132,
+    virtualBuffer: 0,
+    virtualRestockCount: 0,
+  },
+  'ut_vs_08_kvip_7d': {
+    virtualSold: 86,
+    virtualBuffer: 0,
+    virtualRestockCount: 0,
+  },
+  'ut_vs_09_kvip_30d': {
+    virtualSold: 123,
+    virtualBuffer: 0,
+    virtualRestockCount: 0,
+  },
+  'ut_vs_10_svip_1d': {
+    virtualSold: 161,
+    virtualBuffer: 0,
+    virtualRestockCount: 0,
+  },
+  'ut_vs_11_svip_7d': {
+    virtualSold: 42,
+    virtualBuffer: 0,
+    virtualRestockCount: 0,
+  },
+  'ut_vs_12_svip_30d': {
+    virtualSold: 150,
+    virtualBuffer: 0,
+    virtualRestockCount: 0,
+  },
+  'ut_vs_13_xvip_1d': {
+    virtualSold: 62,
+    virtualBuffer: 0,
+    virtualRestockCount: 0,
+  },
+  'ut_vs_14_xvip_7d': {
+    virtualSold: 99,
+    virtualBuffer: 0,
+    virtualRestockCount: 0,
+  },
+  'ut_vs_15_xvip_30d': {
+    virtualSold: 130,
+    virtualBuffer: 0,
+    virtualRestockCount: 0,
+  },
+  'ut_vs_16_mvip_1d': {
+    virtualSold: 209,
+    virtualBuffer: 0,
+    virtualRestockCount: 0,
+  },
+  'ut_vs_17_mvip_7d': {
+    virtualSold: 198,
+    virtualBuffer: 0,
+    virtualRestockCount: 0,
+  },
+  'ut_vs_18_mvip_30d': {
+    virtualSold: 204,
+    virtualBuffer: 0,
+    virtualRestockCount: 0,
   },
   // Rotwood Giveaway (gw_gamerpower_rotwood): tại 15:33 là 86 đã săn (2 thật + 84 ảo), 31 còn lại (15 thật + 16 buffer), tổng pool 117
   'gw_gamerpower_rotwood': {
@@ -158,20 +244,165 @@ export const CUMULATIVE_BASELINES_20261025: Record<string, ItemBaseline> = {
     virtualRemainingBuffer: 16,
     virtualRestockCount: 0,
   },
-  // Các giveaway active khác trong kho D1 (Delta Force df3, 4tb, wee)
+  // 32 Chiến dịch Giveaway chuẩn SEO (bổ sung số ảo đã giật ngẫu nhiên 52-112)
   'gw_1791639328657_df3': {
-    virtualClaimed: 85,
-    virtualRemainingBuffer: 20,
+    virtualClaimed: 87,
+    virtualRemainingBuffer: 0,
     virtualRestockCount: 0,
   },
   'gw_1791639448099_4tb': {
     virtualClaimed: 85,
-    virtualRemainingBuffer: 20,
+    virtualRemainingBuffer: 0,
+    virtualRestockCount: 0,
+  },
+  'gw_1791639381997_w49': {
+    virtualClaimed: 79,
+    virtualRemainingBuffer: 0,
+    virtualRestockCount: 0,
+  },
+  'gw_1791786741665_k5q': {
+    virtualClaimed: 77,
+    virtualRemainingBuffer: 0,
+    virtualRestockCount: 0,
+  },
+  'gw_khe_uoc_rong': {
+    virtualClaimed: 78,
+    virtualRemainingBuffer: 0,
+    virtualRestockCount: 0,
+  },
+  'gw_chien_thu_hon_chien': {
+    virtualClaimed: 99,
+    virtualRemainingBuffer: 0,
+    virtualRestockCount: 0,
+  },
+  'gw_tam_quoc_thu_hoa': {
+    virtualClaimed: 111,
+    virtualRemainingBuffer: 0,
+    virtualRestockCount: 0,
+  },
+  'gw_chinh_phuc_cuu_chau': {
+    virtualClaimed: 64,
+    virtualRemainingBuffer: 0,
+    virtualRestockCount: 0,
+  },
+  'gw_clash_of_critters': {
+    virtualClaimed: 84,
+    virtualRemainingBuffer: 0,
+    virtualRestockCount: 0,
+  },
+  'gw_long_tuong_tam_quoc': {
+    virtualClaimed: 97,
+    virtualRemainingBuffer: 0,
+    virtualRestockCount: 0,
+  },
+  'gw_tieu_cuong_3q': {
+    virtualClaimed: 97,
+    virtualRemainingBuffer: 0,
+    virtualRestockCount: 0,
+  },
+  'gw_tam_quoc_tranh_ba_thien_ha': {
+    virtualClaimed: 79,
+    virtualRemainingBuffer: 0,
+    virtualRestockCount: 0,
+  },
+  'gw_doi_tuong_nhi_nho': {
+    virtualClaimed: 66,
+    virtualRemainingBuffer: 0,
+    virtualRestockCount: 0,
+  },
+  'gw_quan_nhi_ca': {
+    virtualClaimed: 96,
+    virtualRemainingBuffer: 0,
+    virtualRestockCount: 0,
+  },
+  'gw_quan_anh_phong_hoa_luc': {
+    virtualClaimed: 81,
+    virtualRemainingBuffer: 0,
+    virtualRestockCount: 0,
+  },
+  'gw_3q_thanh_chu_tieu_dao': {
+    virtualClaimed: 63,
+    virtualRemainingBuffer: 0,
+    virtualRestockCount: 0,
+  },
+  'gw_dynasty_warriors_overlords': {
+    virtualClaimed: 107,
+    virtualRemainingBuffer: 0,
+    virtualRestockCount: 0,
+  },
+  'gw_giang_ho_ky_ngo': {
+    virtualClaimed: 82,
+    virtualRemainingBuffer: 0,
+    virtualRestockCount: 0,
+  },
+  'gw_samkok_tam_quoc': {
+    virtualClaimed: 106,
+    virtualRemainingBuffer: 0,
+    virtualRestockCount: 0,
+  },
+  'gw_bo_lac_3q': {
+    virtualClaimed: 102,
+    virtualRemainingBuffer: 0,
+    virtualRestockCount: 0,
+  },
+  'gw_thu_cung_bao_dan': {
+    virtualClaimed: 103,
+    virtualRemainingBuffer: 0,
+    virtualRestockCount: 0,
+  },
+  'gw_tam_quoc_tu_thoi_ca': {
+    virtualClaimed: 67,
+    virtualRemainingBuffer: 0,
+    virtualRestockCount: 0,
+  },
+  'gw_fc_mobile_vn': {
+    virtualClaimed: 83,
+    virtualRemainingBuffer: 0,
+    virtualRestockCount: 0,
+  },
+  'gw_lien_quan_mobile': {
+    virtualClaimed: 63,
+    virtualRemainingBuffer: 0,
+    virtualRestockCount: 0,
+  },
+  'gw_roblox': {
+    virtualClaimed: 65,
+    virtualRemainingBuffer: 0,
+    virtualRestockCount: 0,
+  },
+  'gw_pubg_mobile_vn': {
+    virtualClaimed: 63,
+    virtualRemainingBuffer: 0,
+    virtualRestockCount: 0,
+  },
+  'gw_play_together_vng': {
+    virtualClaimed: 108,
+    virtualRemainingBuffer: 0,
+    virtualRestockCount: 0,
+  },
+  'gw_mobile_legends_mlbb': {
+    virtualClaimed: 93,
+    virtualRemainingBuffer: 0,
+    virtualRestockCount: 0,
+  },
+  'gw_genshin_impact': {
+    virtualClaimed: 102,
+    virtualRemainingBuffer: 0,
+    virtualRestockCount: 0,
+  },
+  'gw_honkai_star_rail': {
+    virtualClaimed: 85,
+    virtualRemainingBuffer: 0,
+    virtualRestockCount: 0,
+  },
+  'gw_free_fire_max': {
+    virtualClaimed: 69,
+    virtualRemainingBuffer: 0,
     virtualRestockCount: 0,
   },
   'gw_1792235539701_wee': {
-    virtualClaimed: 85,
-    virtualRemainingBuffer: 20,
+    virtualClaimed: 84,
+    virtualRemainingBuffer: 0,
     virtualRestockCount: 0,
   },
 };
@@ -296,6 +527,19 @@ export async function initializeVirtualLayer(env: any, forceRefresh: boolean = f
       let restockCount = 0;
       let lastRestock = undefined;
 
+      const baseline = CUMULATIVE_BASELINES_20261025[id];
+      if (baseline && baseline.virtualSold !== undefined) {
+        virtualSold = baseline.virtualSold;
+        if (realStock > 0 && baseline.virtualBuffer !== undefined) {
+          virtualBuffer = baseline.virtualBuffer;
+        }
+        if (baseline.virtualRestockCount !== undefined) {
+          restockCount = baseline.virtualRestockCount;
+        }
+      } else if (p.virtual_sold_count !== undefined) {
+        virtualSold = Math.max(0, Number(p.virtual_sold_count) || 0);
+      }
+
       if (memState && state.lastProcessedSlot >= 0) {
         virtualSold = memState.virtualSold;
         virtualBuffer = memState.virtualBuffer;
@@ -345,6 +589,19 @@ export async function initializeVirtualLayer(env: any, forceRefresh: boolean = f
       let virtualClaimed = 0;
       let restockCount = 0;
       let lastRestock = undefined;
+
+      const baseline = CUMULATIVE_BASELINES_20261025[id];
+      if (baseline && baseline.virtualClaimed !== undefined) {
+        virtualClaimed = baseline.virtualClaimed;
+        if (realRemaining > 0 && baseline.virtualRemainingBuffer !== undefined) {
+          virtualBuffer = baseline.virtualRemainingBuffer;
+        }
+        if (baseline.virtualRestockCount !== undefined) {
+          restockCount = baseline.virtualRestockCount;
+        }
+      } else if (gw.virtual_claimed_offset !== undefined) {
+        virtualClaimed = Math.max(0, Number(gw.virtual_claimed_offset) || 0);
+      }
 
       if (memState && state.lastProcessedSlot >= 0) {
         virtualClaimed = memState.virtualClaimed;
@@ -405,13 +662,15 @@ export function processCurrentTimeSlot(state: VirtualLayerState, nowMs: number =
     state.masterCopy.date = vnDateStr;
 
     // Reset base virtual buffers
-    state.products.forEach((p) => {
-      p.virtualSold = 0;
+    state.products.forEach((p, id) => {
+      const b = CUMULATIVE_BASELINES_20261025[id];
+      p.virtualSold = b?.virtualSold !== undefined ? b.virtualSold : 0;
       p.virtualBuffer = p.realStock > 0 ? (p.autoRestockAmount || 20) : 0;
       p.virtualRestockCount = 0;
     });
-    state.giveaways.forEach((g) => {
-      g.virtualClaimed = 0;
+    state.giveaways.forEach((g, id) => {
+      const b = CUMULATIVE_BASELINES_20261025[id];
+      g.virtualClaimed = b?.virtualClaimed !== undefined ? b.virtualClaimed : 0;
       g.virtualRemainingBuffer = g.realRemaining > 0 ? (g.autoRestockAmount || 20) : 0;
       g.virtualRestockCount = 0;
     });
@@ -445,10 +704,14 @@ export function processCurrentTimeSlot(state: VirtualLayerState, nowMs: number =
   // Cập nhật số liệu tích lũy cho Products / Utilities
   state.products.forEach((p, id) => {
     if (p.realStock <= 0) {
-      // Quy tắc kho hàng nghiêm ngặt (Rule 3.1): Hết hàng thật thì số ảo = 0
+      // Quy tắc kho hàng nghiêm ngặt (Rule 3.1): Hết hàng thật thì tồn kho ảo = 0
       p.virtualBuffer = 0;
-      p.virtualSold = 0;
       p.virtualRestockCount = 0;
+      const b = CUMULATIVE_BASELINES_20261025[id];
+      if (b && b.virtualSold !== undefined) {
+        p.virtualSold = b.virtualSold;
+      }
+      state.dirtyAggregateIds.add(id);
       return;
     }
 
@@ -468,8 +731,12 @@ export function processCurrentTimeSlot(state: VirtualLayerState, nowMs: number =
     if (g.realRemaining <= 0) {
       // Quy tắc kho hàng: Hết mã thật thì tồn ảo = 0
       g.virtualRemainingBuffer = 0;
-      g.virtualClaimed = 0;
       g.virtualRestockCount = 0;
+      const b = CUMULATIVE_BASELINES_20261025[id];
+      if (b && b.virtualClaimed !== undefined) {
+        g.virtualClaimed = b.virtualClaimed;
+      }
+      state.dirtyAggregateIds.add(id);
       return;
     }
 

@@ -10,6 +10,26 @@
 
 ## 1. DANH MỤC LỖI & CÁC BẪY ĐÃ THẤT BẠI (DO NOT REPEAT)
 
+### ISSUE-129: Bẫy Ép Số Đã Bán / Đã Giật Về 0 Khi Hàng Thật Hết (Zeroing Historical Counters In Out-Of-Stock Products)
+- **Triệu chứng**:
+  - Khi một sản phẩm tiện ích hoặc chiến dịch giveaway hết hàng thật trong kho (`realStock = 0` hoặc `realRemaining = 0`), thẻ sản phẩm và giveaway trên web khách hiển thị `Đã giật: 0 mã        Còn lại: 0 mã` hoặc `Đã bán: 0`.
+  - Trên web quản trị Admin: Cột Web FOMO hiển thị `Giật 0` và `Bán 0`, dù trước đó đã cấu hình `virtual_claimed_offset` hay `virtual_sold_count`.
+- **Nguyên nhân gốc rễ (Root Cause)**:
+  - Hiểu sai Quy tắc kho hàng 3.1: Quy tắc kho hàng nghiêm ngặt quy định: "HÀNG THẬT TRONG KHO = 0 -> HIỂN THỊ TỒN KHO = 0 (`displayStock = 0`, nút Disabled)".
+  - Tuy nhiên, trong `virtualLayerService.ts`, tác nhân đã gán `p.virtualSold = 0;` và `g.virtualClaimed = 0;` cùng với `p.virtualBuffer = 0`. Thao tác này đã xóa sạch lịch sử giao dịch và số lượng đã trao quà tích lũy, biến tất cả các mặt hàng đã hết thành "chưa từng có ai mua/giật" (0 đã giật, 0 đã bán), phá hủy toàn bộ Social Proof và uy tín của sàn.
+- **Giải pháp chuẩn đã kiểm chứng**:
+  1. *Phân tách rạch ròi giữa Tồn Kho (Stock / Remaining) và Lịch Sử Đã Bán / Đã Giật (Sold / Claimed)*:
+     - Khi `realStock <= 0` hoặc `realRemaining <= 0`: Bắt buộc chỉ gán `virtualBuffer = 0` và `virtualRemainingBuffer = 0`. Điều này đảm bảo `displayStock = 0` và `displayRemaining = 0` tuân thủ 100% Rule 3.1.
+     - Giữ nguyên `virtualSold` và `virtualClaimed` từ baseline (`CUMULATIVE_BASELINES_20261025`) hoặc offset (`virtual_claimed_offset` 52–112, `virtual_sold_count` 32–212).
+  2. *Bổ sung số ảo ngẫu nhiên tự nhiên*:
+     - Toàn bộ 32 chiến dịch Giveaway có `virtual_claimed_offset` ngẫu nhiên $\in [52, 112]$.
+     - Toàn bộ 17 tiện ích có số lượng bán < 10 có `virtual_sold_count` ngẫu nhiên $\in [32, 212]$.
+     - Admin trang bị 2 nút tiện ích một chạm: "🎲 Bổ Sung Số Ảo (52–112)" trong `PrivateCodesModule.tsx` và "🎲 Bổ Sung Số Ảo (32–212)" trong `UtilitiesModule.tsx`.
+- ⛔ **CÁCH SỬA ĐÃ THẤT BẠI - TUYỆT ĐỐI KHÔNG LẶP LẠI**:
+  - ❌ *Tuyệt đối không gán `virtualSold = 0` hay `virtualClaimed = 0` khi `realStock <= 0`*: Rule 3.1 chỉ quản lý TỒN KHO (Còn: 0), không được can thiệp xóa số đã bán và đã giật.
+
+---
+
 ### ISSUE-128: Bẫy Nhân Đôi Bản Ghi Mã Code Khi Đồng Bộ Client/Server D1 (ID Format Mismatch & Missing Deduplication)
 - **Triệu chứng**:
   - Người dùng xem Modal "Kho Mã Code Của Tôi", tab "Sự Kiện" thấy số lượng mã bị nhân đôi (ví dụ 14 mã thay vì 7 mã). Mỗi tựa game (như *TA LÀ HẮC NGỘ KHÔNG*, *Pirate Legends*, *Yến Vân Thập Lục Thanh*) xuất hiện 2 dòng cùng mã code và cùng thời gian nhận.

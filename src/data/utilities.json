@@ -16,7 +16,7 @@
     "current_price": 11240,
     "stock_quantity": 0,
     "sold_count": 0,
-    "virtual_sold_count": 48,
+    "virtual_sold_count": 187,
     "show_sold_count": true,
     "is_active": true,
     "badge": "Đại Lý Chính Thức",
@@ -33,7 +33,8 @@
     "show_guide_link": true,
     "warranty_text": "Bảo hành 1 đổi 1 suốt thời gian thuê",
     "show_warranty": true,
-    "created_at": "2026-10-10T14:20:16.851Z"
+    "created_at": "2026-10-10T14:20:16.851Z",
+    "virtual_sold_updated_at": "2026-10-25T15:33:00.000Z"
   },
   {
     "id": "ut_vs_02_basic_7d",
@@ -52,7 +53,7 @@
     "current_price": 24729,
     "stock_quantity": 0,
     "sold_count": 0,
-    "virtual_sold_count": 72,
+    "virtual_sold_count": 34,
     "show_sold_count": true,
     "is_active": true,
     "badge": "Đại Lý Chính Thức",
@@ -69,7 +70,8 @@
     "show_guide_link": true,
     "warranty_text": "Bảo hành 1 đổi 1 suốt thời gian thuê",
     "show_warranty": true,
-    "created_at": "2026-10-10T14:20:16.852Z"
+    "created_at": "2026-10-10T14:20:16.852Z",
+    "virtual_sold_updated_at": "2026-10-25T15:33:00.000Z"
   },
   {
     "id": "ut_vs_03_basic_30d",
@@ -88,7 +90,7 @@
     "current_price": 74684,
     "stock_quantity": 0,
     "sold_count": 0,
-    "virtual_sold_count": 125,
+    "virtual_sold_count": 141,
     "show_sold_count": true,
     "is_active": true,
     "badge": "Đại Lý Chính Thức",
@@ -105,7 +107,8 @@
     "show_guide_link": true,
     "warranty_text": "Bảo hành 1 đổi 1 suốt thời gian thuê",
     "show_warranty": true,
-    "created_at": "2026-10-10T14:20:16.852Z"
+    "created_at": "2026-10-10T14:20:16.852Z",
+    "virtual_sold_updated_at": "2026-10-25T15:33:00.000Z"
   },
   {
     "id": "ut_vs_04_vip_1d",
@@ -124,7 +127,7 @@
     "current_price": 12489,
     "stock_quantity": 0,
     "sold_count": 0,
-    "virtual_sold_count": 39,
+    "virtual_sold_count": 133,
     "show_sold_count": true,
     "is_active": true,
     "badge": "Đại Lý Chính Thức",
@@ -141,7 +144,8 @@
     "show_guide_link": true,
     "warranty_text": "Bảo hành 1 đổi 1 suốt thời gian thuê",
     "show_warranty": true,
-    "created_at": "2026-10-10T14:20:16.852Z"
+    "created_at": "2026-10-10T14:20:16.852Z",
+    "virtual_sold_updated_at": "2026-10-25T15:33:00.000Z"
   },
   {
     "id": "ut_vs_05_vip_7d",
@@ -196,7 +200,7 @@
     "current_price": 84925,
     "stock_quantity": 0,
     "sold_count": 0,
-    "virtual_sold_count": 110,
+    "virtual_sold_count": 35,
     "show_sold_count": true,
     "is_active": true,
     "badge": "Đại Lý Chính Thức",
@@ -213,7 +217,8 @@
     "show_guide_link": true,
     "warranty_text": "Bảo hành 1 đổi 1 suốt thời gian thuê",
     "show_warranty": true,
-    "created_at": "2026-10-10T14:20:16.852Z"
+    "created_at": "2026-10-10T14:20:16.852Z",
+    "virtual_sold_updated_at": "2026-10-25T15:33:00.000Z"
   },
   {
     "id": "ut_vs_07_kvip_1d",
@@ -232,7 +237,7 @@
     "current_price": 18734,
     "stock_quantity": 0,
     "sold_count": 0,
-    "virtual_sold_count": 35,
+    "virtual_sold_count": 132,
     "show_sold_count": true,
     "is_active": true,
     "badge": "Đại Lý Chính Thức",
@@ -249,7 +254,8 @@
     "show_guide_link": true,
     "warranty_text": "Bảo hành 1 đổi 1 suốt thời gian thuê",
     "show_warranty": true,
-    "created_at": "2026-10-10T14:20:16.852Z"
+    "created_at": "2026-10-10T14:20:16.852Z",
+    "virtual_sold_updated_at": "2026-10-25T15:33:00.000Z"
   },
   {
     "id": "ut_vs_08_kvip_7d",
@@ -268,7 +274,7 @@
     "current_price": 39965,
     "stock_quantity": 0,
     "sold_count": 0,
-    "virtual_sold_count": 58,
+    "virtual_sold_count": 86,
     "show_sold_count": true,
     "is_active": true,
     "badge": "Đại Lý Chính Thức",
@@ -285,7 +291,8 @@
     "show_guide_link": true,
     "warranty_text": "Bảo hành 1 đổi 1 suốt thời gian thuê",
     "show_warranty": true,
-    "created_at": "2026-10-10T14:20:16.852Z"
+    "created_at": "2026-10-10T14:20:16.852Z",
+    "virtual_sold_updated_at": "2026-10-25T15:33:00.000Z"
   },
   {
     "id": "ut_vs_09_kvip_30d",
@@ -304,7 +311,7 @@
     "current_price": 112401,
     "stock_quantity": 0,
     "sold_count": 0,
-    "virtual_sold_count": 92,
+    "virtual_sold_count": 123,
     "show_sold_count": true,
     "is_active": true,
     "badge": "Đại Lý Chính Thức",
@@ -321,7 +328,8 @@
     "show_guide_link": true,
     "warranty_text": "Bảo hành 1 đổi 1 suốt thời gian thuê",
     "show_warranty": true,
-    "created_at": "2026-10-10T14:20:16.852Z"
+    "created_at": "2026-10-10T14:20:16.852Z",
+    "virtual_sold_updated_at": "2026-10-25T15:33:00.000Z"
   },
   {
     "id": "ut_vs_10_svip_1d",
@@ -340,7 +348,7 @@
     "current_price": 22480,
     "stock_quantity": 0,
     "sold_count": 0,
-    "virtual_sold_count": 29,
+    "virtual_sold_count": 161,
     "show_sold_count": true,
     "is_active": true,
     "badge": "Đại Lý Chính Thức",
@@ -357,7 +365,8 @@
     "show_guide_link": true,
     "warranty_text": "Bảo hành 1 đổi 1 suốt thời gian thuê",
     "show_warranty": true,
-    "created_at": "2026-10-10T14:20:16.852Z"
+    "created_at": "2026-10-10T14:20:16.852Z",
+    "virtual_sold_updated_at": "2026-10-25T15:33:00.000Z"
   },
   {
     "id": "ut_vs_11_svip_7d",
@@ -376,7 +385,7 @@
     "current_price": 64943,
     "stock_quantity": 0,
     "sold_count": 0,
-    "virtual_sold_count": 45,
+    "virtual_sold_count": 42,
     "show_sold_count": true,
     "is_active": true,
     "badge": "Đại Lý Chính Thức",
@@ -393,7 +402,8 @@
     "show_guide_link": true,
     "warranty_text": "Bảo hành 1 đổi 1 suốt thời gian thuê",
     "show_warranty": true,
-    "created_at": "2026-10-10T14:20:16.852Z"
+    "created_at": "2026-10-10T14:20:16.852Z",
+    "virtual_sold_updated_at": "2026-10-25T15:33:00.000Z"
   },
   {
     "id": "ut_vs_12_svip_30d",
@@ -412,7 +422,7 @@
     "current_price": 174597,
     "stock_quantity": 0,
     "sold_count": 0,
-    "virtual_sold_count": 76,
+    "virtual_sold_count": 150,
     "show_sold_count": true,
     "is_active": true,
     "badge": "Đại Lý Chính Thức",
@@ -429,7 +439,8 @@
     "show_guide_link": true,
     "warranty_text": "Bảo hành 1 đổi 1 suốt thời gian thuê",
     "show_warranty": true,
-    "created_at": "2026-10-10T14:20:16.852Z"
+    "created_at": "2026-10-10T14:20:16.852Z",
+    "virtual_sold_updated_at": "2026-10-25T15:33:00.000Z"
   },
   {
     "id": "ut_vs_13_xvip_1d",
@@ -448,7 +459,7 @@
     "current_price": 37467,
     "stock_quantity": 0,
     "sold_count": 0,
-    "virtual_sold_count": 22,
+    "virtual_sold_count": 62,
     "show_sold_count": true,
     "is_active": true,
     "badge": "Đại Lý Chính Thức",
@@ -465,7 +476,8 @@
     "show_guide_link": true,
     "warranty_text": "Bảo hành 1 đổi 1 suốt thời gian thuê",
     "show_warranty": true,
-    "created_at": "2026-10-10T14:20:16.852Z"
+    "created_at": "2026-10-10T14:20:16.852Z",
+    "virtual_sold_updated_at": "2026-10-25T15:33:00.000Z"
   },
   {
     "id": "ut_vs_14_xvip_7d",
@@ -484,7 +496,7 @@
     "current_price": 92169,
     "stock_quantity": 0,
     "sold_count": 0,
-    "virtual_sold_count": 38,
+    "virtual_sold_count": 99,
     "show_sold_count": true,
     "is_active": true,
     "badge": "Đại Lý Chính Thức",
@@ -501,7 +513,8 @@
     "show_guide_link": true,
     "warranty_text": "Bảo hành 1 đổi 1 suốt thời gian thuê",
     "show_warranty": true,
-    "created_at": "2026-10-10T14:20:16.852Z"
+    "created_at": "2026-10-10T14:20:16.852Z",
+    "virtual_sold_updated_at": "2026-10-25T15:33:00.000Z"
   },
   {
     "id": "ut_vs_15_xvip_30d",
@@ -520,7 +533,7 @@
     "current_price": 249531,
     "stock_quantity": 0,
     "sold_count": 0,
-    "virtual_sold_count": 61,
+    "virtual_sold_count": 130,
     "show_sold_count": true,
     "is_active": true,
     "badge": "Đại Lý Chính Thức",
@@ -537,7 +550,8 @@
     "show_guide_link": true,
     "warranty_text": "Bảo hành 1 đổi 1 suốt thời gian thuê",
     "show_warranty": true,
-    "created_at": "2026-10-10T14:20:16.852Z"
+    "created_at": "2026-10-10T14:20:16.852Z",
+    "virtual_sold_updated_at": "2026-10-25T15:33:00.000Z"
   },
   {
     "id": "ut_vs_16_mvip_1d",
@@ -556,7 +570,7 @@
     "current_price": 51705,
     "stock_quantity": 0,
     "sold_count": 0,
-    "virtual_sold_count": 18,
+    "virtual_sold_count": 209,
     "show_sold_count": true,
     "is_active": true,
     "badge": "Đại Lý Chính Thức",
@@ -573,7 +587,8 @@
     "show_guide_link": true,
     "warranty_text": "Bảo hành 1 đổi 1 suốt thời gian thuê",
     "show_warranty": true,
-    "created_at": "2026-10-10T14:20:16.852Z"
+    "created_at": "2026-10-10T14:20:16.852Z",
+    "virtual_sold_updated_at": "2026-10-25T15:33:00.000Z"
   },
   {
     "id": "ut_vs_17_mvip_7d",
@@ -592,7 +607,7 @@
     "current_price": 124641,
     "stock_quantity": 0,
     "sold_count": 0,
-    "virtual_sold_count": 31,
+    "virtual_sold_count": 198,
     "show_sold_count": true,
     "is_active": true,
     "badge": "Đại Lý Chính Thức",
@@ -609,7 +624,8 @@
     "show_guide_link": true,
     "warranty_text": "Bảo hành 1 đổi 1 suốt thời gian thuê",
     "show_warranty": true,
-    "created_at": "2026-10-10T14:20:16.852Z"
+    "created_at": "2026-10-10T14:20:16.852Z",
+    "virtual_sold_updated_at": "2026-10-25T15:33:00.000Z"
   },
   {
     "id": "ut_vs_18_mvip_30d",
@@ -628,7 +644,7 @@
     "current_price": 472086,
     "stock_quantity": 0,
     "sold_count": 0,
-    "virtual_sold_count": 47,
+    "virtual_sold_count": 204,
     "show_sold_count": true,
     "is_active": true,
     "badge": "Đại Lý Chính Thức",
@@ -645,6 +661,7 @@
     "show_guide_link": true,
     "warranty_text": "Bảo hành 1 đổi 1 suốt thời gian thuê",
     "show_warranty": true,
-    "created_at": "2026-10-10T14:20:16.852Z"
+    "created_at": "2026-10-10T14:20:16.852Z",
+    "virtual_sold_updated_at": "2026-10-25T15:33:00.000Z"
   }
 ]
