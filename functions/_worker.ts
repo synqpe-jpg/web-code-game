@@ -665,7 +665,8 @@ async function renderSeoHtml(
   };
 
   if (pathname.startsWith('/game/') || pathname.startsWith('/g/')) {
-    const slug = pathname.replace(/^\/(?:game|g)\//i, '').replace(/\/$/, '').trim().toLowerCase();
+    let slug = pathname.replace(/^\/(?:game|g)\//i, '').replace(/\/$/, '').trim().toLowerCase();
+    if (slug === 'doors') slug = 'doors-roblox';
     const cleanWithoutMobile = slug.replace(/-mobile$/i, '');
     let game: any = null;
     let displayCodes: any[] = [];

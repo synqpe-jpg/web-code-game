@@ -1646,7 +1646,8 @@ class DataService {
 
   async getGameBySlug(slug: string, forceFresh: boolean = false): Promise<GameItem | null> {
     if (!slug) return null;
-    const normSlug = slug.toLowerCase().trim();
+    let normSlug = slug.toLowerCase().trim();
+    if (normSlug === 'doors') normSlug = 'doors-roblox';
     const cleanWithoutMobile = normSlug.replace(/-mobile$/i, '');
 
     // 1. Check if cached game has full details and was recently fetched from server

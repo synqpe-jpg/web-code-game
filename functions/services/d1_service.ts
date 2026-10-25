@@ -334,6 +334,45 @@ export async function ensureSchemaUpgrades(db: D1Database): Promise<void> {
       console.error('[SchemaUpgrade] Migration table error:', e);
     }
 
+    // Migration 0013: Self-healing for Avatar Land metadata, Thức Thần Ký, and Giveaway offsets
+    try {
+      const fixCheck = await db.prepare("SELECT 1 FROM schema_migrations WHERE id = 'fix_metadata_and_giveaways_v2' LIMIT 1").first().catch(() => null);
+      if (!fixCheck) {
+        // 1. Fix Thức Thần Ký
+        await db.prepare("UPDATE games SET name = 'Thức Thần Ký' WHERE slug = 'thuc-than-ky' OR name = 'Thực Thần Ký'").run().catch(() => {});
+        await db.prepare("UPDATE codes SET game_name = 'Thức Thần Ký' WHERE game_slug = 'thuc-than-ky'").run().catch(() => {});
+        await db.prepare("UPDATE wcg_virtual_events SET item_name = 'Thức Thần Ký' WHERE item_name = 'Thực Thần Ký'").run().catch(() => {});
+
+        // 2. Fix Avatar Land metadata (TeaMobi, Nông Trại & Xã Hội, Android, iOS, PC, /game_icons/avatar-land.webp)
+        await db.prepare(`
+          UPDATE games 
+          SET publisher = CASE WHEN publisher IS NULL OR publisher = '' THEN 'TeaMobi' ELSE publisher END,
+              category = CASE WHEN category IS NULL OR category = '' THEN 'Nông Trại & Xã Hội' ELSE category END,
+              platform = CASE WHEN platform IS NULL OR platform = '' THEN 'Android, iOS, PC' ELSE platform END,
+              icon_url = CASE WHEN icon_url IS NULL OR icon_url = '' THEN '/game_icons/avatar-land.webp' ELSE icon_url END
+          WHERE slug = 'avatar-land'
+        `).run().catch(() => {});
+
+        // 3. Purge Gun X Mobile 7 junk codes from D1 table codes
+        await db.prepare(`
+          DELETE FROM codes 
+          WHERE game_slug = 'gun-x-mobile' 
+            AND code IN ('GUN-X-MOBILE-1', 'GUN-X-MOBILE-2', 'GUN-X-MOBILE-3', 'GUN-X-MOBILE-4', 'GUN-X-MOBILE-5', 'SLAYERS-2-ROBLOX', 'SLAYERS-2-THUMB')
+        `).run().catch(() => {});
+
+        // 4. Update Giveaways with virtual_claimed_offset in 52-112 if 0 or null
+        await db.prepare(`
+          UPDATE giveaways 
+          SET virtual_claimed_offset = 52 + (abs(random()) % 61) 
+          WHERE virtual_claimed_offset IS NULL OR virtual_claimed_offset <= 0
+        `).run().catch(() => {});
+
+        await db.prepare("INSERT OR IGNORE INTO schema_migrations (id) VALUES ('fix_metadata_and_giveaways_v2')").run().catch(() => {});
+      }
+    } catch (e) {
+      console.warn('[Migration fix_metadata_and_giveaways_v2 error]', e);
+    }
+
     try {
       // Fast 1-subrequest check: If wcg_virtual_layer_tables_v1 exists, all schema migrations are already done
       const check = await db.prepare("SELECT 1 FROM schema_migrations WHERE id = 'wcg_virtual_layer_tables_v1' LIMIT 1").first().catch(() => null);

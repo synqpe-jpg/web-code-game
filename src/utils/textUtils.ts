@@ -68,6 +68,7 @@ export const GAME_ACRONYM_MAP: Record<string, string[]> = {
   bns: ['blade and soul'],
   dnf: ['dungeon and fighter', 'dungeon fighter'],
   zzz: ['zenless zone zero'],
+  doors: ['doors roblox', 'doors'],
   ww: ['wuthering waves'],
   mc: ['minecraft'],
   roblox: ['roblox', 'roblox viet nam', 'roblox vng'],

@@ -599,8 +599,12 @@ export async function initializeVirtualLayer(env: any, forceRefresh: boolean = f
         if (baseline.virtualRestockCount !== undefined) {
           restockCount = baseline.virtualRestockCount;
         }
-      } else if (gw.virtual_claimed_offset !== undefined) {
-        virtualClaimed = Math.max(0, Number(gw.virtual_claimed_offset) || 0);
+      } else if (gw.virtual_claimed_offset !== undefined && Number(gw.virtual_claimed_offset) > 0) {
+        virtualClaimed = Number(gw.virtual_claimed_offset);
+      } else {
+        // Tự nhiên ngẫu nhiên 52-112 cho bất kỳ chiến dịch giveaway nào chưa có offset (tránh kẹt 0/0)
+        const idSeed = id.split('').reduce((acc, char) => (acc * 31 + char.charCodeAt(0)) >>> 0, 0);
+        virtualClaimed = 52 + (idSeed % (112 - 52 + 1));
       }
 
       if (memState && state.lastProcessedSlot >= 0) {
@@ -766,7 +770,7 @@ export function processCurrentTimeSlot(state: VirtualLayerState, nowMs: number =
 
   const games = [
     'Free Fire', 'Liên Quân Mobile', 'Genshin Impact', 'Honkai: Star Rail',
-    'Roblox', 'Blox Fruits', 'Thực Thần Ký', 'Kỳ Tích Trở Lại'
+    'Roblox', 'Blox Fruits', 'Thức Thần Ký', 'Kỳ Tích Trở Lại'
   ];
 
   const startSlot = Math.max(0, currentSlotIndex - 15);

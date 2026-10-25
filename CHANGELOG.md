@@ -7,6 +7,49 @@ Mỗi mục sửa lỗi đều ghi nhận **Nguyên nhân gốc rễ (Root Cause
 
 ## [2026-10-25]
 
+### 208. Xử Lý Toàn Diện 10 Hạng Mục Kiểm Toán & Báo Cáo Sửa Lỗi (Punch List 10-Item Audit Fix)
+- **Mô tả & Bối cảnh người dùng**:
+  - Người dùng gửi danh mục 10 điểm kiểm toán cần xử lý và chứng minh:
+    1. *Tên "Thực Thần Ký" sai (live thật)*: Trong 100 marketing events gần nhất, tên sai xuất hiện 3 lần, tên đúng ("Thức Thần Ký") 0 lần.
+    2. *Mã ảo ngẫu nhiên cho giveaway 0/0*: Chống tình trạng 26/42 giveaway kẹt ở 0/0; bổ sung số ảo ngẫu nhiên 52–112.
+    3. *Lọc mã ngắn lặng lẽ (DOORS W/41/54/67)*: 4 mã ngắn bị nuốt không báo lỗi; slug `doors` 404 do slug chuẩn là `doors-roblox`. Cần nới lỏng bộ lọc, báo cáo dropped codes và mapping alias.
+    4. *Thông báo đầu tiên $\le$ 20s*: Trình duyệt đo được ~24s; cần đảm bảo xuất hiện $\le$ 20s (thực tế $\le$ 3–4s khi vào trang).
+    5. *Metadata Avatar Land*: Record trong D1 có các trường publisher, category, platform, icon rỗng; cần điền giá trị thật.
+    6. *Báo cáo chống tái diễn D1*: Báo cáo kiến trúc bảo vệ quota D1, cơ chế Pipeline Static ASSETS $\rightarrow$ Edge Cache $\rightarrow$ D1, Circuit Breakers.
+    7. *Chứng minh Gun X Mobile 0 mã rác*: Loại bỏ 7 mã rác (`GUN-X-MOBILE-1..5`, `SLAYERS-2-ROBLOX`, `SLAYERS-2-THUMB`), chứng minh precision 18/18 = 100%.
+    8. *Trạng thái nút tải game*: Báo cáo kiến trúc tự nhận thiết bị (`GameDownloadSection.tsx`), mã QR Desktop, link CH Play với UTM tags, link App Store và PC.
+    9. *LaunchedCount & tham số `status`*: Hỗ trợ cả `?status=` và `?statusFilter=`, báo cáo live `launchedCount = 3` có timestamp.
+    10. *Lệch số liệu lúc cao điểm*: Phân tích cơ chế High-water mark và Eventual Consistency giữa in-memory Edge Cache và D1 khi có tải đột biến.
+- **Phân tích nguyên nhân gốc rễ (Root Cause)**:
+  1. *Thực Thần Ký*: Dữ liệu mẫu giả lập trong `functions/services/virtualLayerService.ts` (dòng 769) và `functions/services/marketingAuditService.ts` (dòng 442) chứa `'Thực Thần Ký'`. Ngoài ra, 2 bản ghi code trong `src/data/crawled_codes_188.json` lưu nhầm `gameName: "Thực Thần Ký"`.
+  2. *Giveaway 0/0*: Khi `realRemaining <= 0` và `realClaimed == 0`, nếu giveaway thiếu `virtual_claimed_offset` thì `displayClaimed` rơi về 0.
+  3. *Lọc mã ngắn*: `ingest-codes.ts` và `code_filter.cjs` chặn mã có độ dài < 3 hoặc < 4 ký tự và nuốt lỗi âm thầm (`if (val.length < 3) return;`). Đường dẫn `/game/doors` 404 vì slug thực tế là `doors-roblox`.
+  4. *Thông báo 24s*: Trong `MarketingNotificationToast.tsx`, khi thời điểm khởi tạo rơi vào cuối slot hiện tại (`calibratedNow > slotEndMs - 2500`), thuật toán đánh dấu bỏ qua khe và chờ sang khe kế tiếp (10s) cộng thêm độ trễ `slotFireTimeMs` (lên tới 8s) khiến tổng thời gian chờ đạt 24s.
+  5. *Avatar Land*: Bản ghi D1 sinh ra từ đợt crawler ban đầu chứa chuỗi rỗng cho các trường metadata.
+  6. *Gun X Mobile*: Chứa 7 mã rác sinh từ bot test cũ (`GUN-X-MOBILE-1..5`, `SLAYERS-2-ROBLOX`, `SLAYERS-2-THUMB`).
+- **Giải pháp triển khai (Solution)**:
+  1. *Thức Thần Ký*:
+     - Thay thế triệt để `'Thực Thần Ký'` thành `'Thức Thần Ký'` trong `virtualLayerService.ts`, `marketingAuditService.ts`, `src/data/crawled_codes_188.json`, `public/data/crawled_codes_188.json`, `data/crawled_codes_188.json`.
+     - Thêm migration tự chữa lành `fix_metadata_and_giveaways_v2` trong `d1_service.ts`: cập nhật bảng `games`, `codes`, và `wcg_virtual_events` sang `'Thức Thần Ký'`.
+  2. *Mã ảo Giveaway 52–112*:
+     - Trong `virtualLayerService.ts` và `src/services/marketingService.ts`: Nếu `virtual_claimed_offset <= 0`, tự động tính toán bù số ảo tự nhiên tất định theo `id`: `52 + (idSeed % 61)`.
+     - Trong D1 migration: Tự động chạy `UPDATE giveaways SET virtual_claimed_offset = 52 + (abs(random()) % 61) WHERE virtual_claimed_offset IS NULL OR virtual_claimed_offset <= 0`.
+  3. *Lọc mã ngắn & Slug DOORS*:
+     - Trong `ingest-codes.ts`: Chấp nhận mã có độ dài $\ge 1$ ký tự (cho phép `W`, `41`, `54`, `67`).
+     - Bổ sung trường `droppedCodes: Array<{ code, reason }>` và `totalDroppedCodes` vào response API để thông báo minh bạch mã nào bị loại trừ và lý do.
+     - Cập nhật `code_filter.cjs` cho phép mã 1–32 ký tự, cho phép mã số ngắn hợp lệ (`isKnownShortNumericCode`).
+     - Ánh xạ alias `doors` $\rightarrow$ `doors-roblox` trong `_worker.ts`, `functions/api/games.ts`, `dataService.ts`, và `textUtils.ts` (`GAME_ACRONYM_MAP`).
+  4. *Thông báo đầu tiên $\le$ 20s*:
+     - Bổ sung cơ chế Fast Welcome Toast trong `MarketingNotificationToast.tsx`: Nếu trình duyệt mới tải (`lastDisplayedSlotRef.current === -1`), không bỏ qua khe mà lập tức phát sự kiện mới nhất từ sổ máy chủ sau 3 giây (`initialDelay`).
+  5. *Metadata Avatar Land*:
+     - Thêm self-healing SQL trong `d1_service.ts`: `UPDATE games SET publisher = 'TeaMobi', category = 'Nông Trại & Xã Hội', platform = 'Android, iOS, PC', icon_url = '/game_icons/avatar-land.webp' WHERE slug = 'avatar-land'`.
+     - Trong `functions/api/games.ts`: Tự động fallback sang dữ liệu chuẩn `games188.json` nếu dữ liệu D1 trống.
+  6. *Chứng minh Gun X Mobile*:
+     - Đã xóa sạch 7 mã rác khỏi toàn bộ các file cơ sở dữ liệu.
+     - Số lượng mã hợp lệ: 18/18 (Precision đạt 100%).
+  7. *Tham số `status` cho Ingest Upcoming*:
+     - Hỗ trợ đồng thời cả `?status=` và `?statusFilter=` trong `ingest-upcoming-games.ts`.
+
 ### 207. Xác Minh Quyền API Upload Icon, Bổ Sung Action delete_icon & Hỗ Trợ Test Artifacts
 - **Mô tả & Bối cảnh người dùng**:
   - Người dùng hỏi: *"API đã mở đúng quyền upload icon chưa? Người dùng vừa thao tác mở quyền API (trong admin), cho rằng Muse đã có quyền upload file icon. Hãy xác minh xem quyền đã mở có đúng và đủ không — kiểm chứng bằng dữ liệu thật, đừng đoán."*

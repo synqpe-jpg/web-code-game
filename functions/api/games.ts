@@ -468,7 +468,8 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
     // 1. Single Game Details Query (?slug=... or ?id=...)
     // Tối ưu hóa D1 Direct SQL trước, fallback in-memory nếu chưa nạp vào table games
     if (requestedSlug) {
-      const cleanSlug = requestedSlug.trim().toLowerCase();
+      let cleanSlug = requestedSlug.trim().toLowerCase();
+      if (cleanSlug === 'doors') cleanSlug = 'doors-roblox';
       const cleanWithoutMobile = cleanSlug.replace(/-mobile$/i, '');
 
       if (!forceFresh) {
@@ -587,18 +588,25 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
           } catch {}
         }
 
+        const fbGame = (fallbackGamesData as any[]).find((x: any) => x && (x.slug === gameRow.slug || x.id === gameRow.id || (gameRow.slug === 'doors-roblox' && x.slug === 'doors-roblox')));
+        const finalPublisher = (gameRow.publisher && String(gameRow.publisher).trim()) ? gameRow.publisher : (fbGame?.publisher || '');
+        const finalCategory = (gameRow.category && String(gameRow.category).trim()) ? gameRow.category : (fbGame?.category || '');
+        const finalPlatform = (gameRow.platform && String(gameRow.platform).trim()) ? gameRow.platform : (fbGame?.platform || 'Android, iOS, PC');
+        const finalIconUrl = iconUrl || fbGame?.icon_url || `/game_icons/${gameRow.slug}.webp`;
+        const finalName = gameRow.name === 'Thực Thần Ký' ? 'Thức Thần Ký' : (gameRow.name || fbGame?.name || '');
+
         const authoritativeGame: GameItem = {
           id: String(gameRow.id || gameRow.slug),
-          name: String(gameRow.name),
+          name: String(finalName),
           slug: String(gameRow.slug),
-          publisher: gameRow.publisher || '',
-          category: gameRow.category || '',
-          rating: typeof gameRow.rating === 'number' ? gameRow.rating : 4.8,
-          icon_url: iconUrl,
-          banner_url: gameRow.banner_url || '',
-          description: gameRow.description || '',
-          instructions: currentInstructions,
-          platform: gameRow.platform || '',
+          publisher: finalPublisher,
+          category: finalCategory,
+          rating: typeof gameRow.rating === 'number' ? gameRow.rating : (fbGame?.rating || 4.8),
+          icon_url: finalIconUrl,
+          banner_url: gameRow.banner_url || fbGame?.banner_url || '',
+          description: gameRow.description || fbGame?.description || '',
+          instructions: currentInstructions || fbGame?.instructions || '',
+          platform: finalPlatform,
           so_giay_phep: gameRow.so_giay_phep || '',
           ngay_cap_phep: gameRow.ngay_cap_phep || '',
           release_date: gameRow.release_date || '',

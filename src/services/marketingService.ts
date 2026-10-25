@@ -2456,7 +2456,12 @@ class MarketingService {
     const effectiveRealClaimed = Math.max(realClaimed, realFromHub);
 
     const virtualBaseRaw = campaign.virtual_claimed_offset !== undefined ? campaign.virtual_claimed_offset : (details?.virtual_claimed_offset ?? 0);
-    const virtualBase = Number(virtualBaseRaw || 0);
+    let virtualBase = Number(virtualBaseRaw || 0);
+    if (virtualBase <= 0 && id) {
+      // Deterministic natural offset 52-112 to prevent any giveaway from displaying 0/0
+      const idSeed = id.split('').reduce((acc, char) => (acc * 31 + char.charCodeAt(0)) >>> 0, 0);
+      virtualBase = 52 + (idSeed % (112 - 52 + 1));
+    }
 
     return effectiveRealClaimed + virtualBase;
   }

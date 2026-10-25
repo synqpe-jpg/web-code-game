@@ -120,8 +120,8 @@ function isValidGiftCode(rawCode, options = {}) {
   const rawTrimmed = String(rawCode).trim();
   const clean = rawTrimmed.toUpperCase().replace(/^[^A-Z0-9_-]+|[^A-Z0-9_-]+$/g, '');
 
-  // 1. Kiểm tra độ dài cơ bản (4 - 28 ký tự)
-  if (clean.length < 4 || clean.length > 28) return false;
+  // 1. Kiểm tra độ dài cơ bản (1 - 32 ký tự)
+  if (clean.length < 1 || clean.length > 32) return false;
 
   // 2. Ký tự hợp lệ (chỉ gồm chữ in hoa, số, dấu gạch ngang hoặc gạch dưới)
   if (!/^[A-Z0-9_-]+$/.test(clean)) return false;
@@ -153,7 +153,9 @@ function isValidGiftCode(rawCode, options = {}) {
   }
 
   // 5. Loại trừ chuỗi số nguyên thuần túy (như ngày tháng 0401, timestamp, số ID bài viết)
-  if (/^\d+$/.test(clean)) {
+  // Ngoại lệ: Cho phép mã số ngắn hợp lệ (như 41, 54, 67 của DOORS Roblox) hoặc khi options cho phép
+  const isKnownShortNumericCode = (clean.length <= 3 && options.allowNumericCodes !== false) || (options.gameSlug && String(options.gameSlug).toUpperCase().includes('DOORS'));
+  if (/^\d+$/.test(clean) && !isKnownShortNumericCode) {
     return false;
   }
 

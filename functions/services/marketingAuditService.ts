@@ -439,7 +439,7 @@ export async function getRecentMarketingEvents(env: any, limit: number = 100): P
   const currentSlotIndex = Math.floor(now / slotDurationMs);
   const sampleGames = [
     'Free Fire', 'Liên Quân Mobile', 'Genshin Impact', 'Honkai: Star Rail',
-    'Play Together', 'Roblox', 'Blox Fruits', 'Thực Thần Ký', 'Kỳ Tích Trở Lại'
+    'Play Together', 'Roblox', 'Blox Fruits', 'Thức Thần Ký', 'Kỳ Tích Trở Lại'
   ];
   const sampleProducts = [
     'Gói 2.000 Robux Vip', 'VIP 7 Days VS Phone', 'Netflix Premium 1 Tháng',

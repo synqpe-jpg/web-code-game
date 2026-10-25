@@ -10,6 +10,31 @@
 
 ## 1. DANH MỤC LỖI & CÁC BẪY ĐÃ THẤT BẠI (DO NOT REPEAT)
 
+### ISSUE-132: Bẫy Lọc Bỏ Âm Thầm Mã Ngắn Dưới 3-4 Ký Tự & Sai Lệch Tên Game Trong Event Mô Phỏng
+- **Triệu chứng**:
+  - Các giftcode ngắn chính thức của Roblox DOORS (`W`, `41`, `54`, `67`) bị bộ lọc API nuốt âm thầm không báo lỗi.
+  - Khi người dùng truy cập `/game/doors` bị 404 do slug chuẩn mực là `doors-roblox`.
+  - Tên game "Thực Thần Ký" (viết sai) xuất hiện trong các sự kiện marketing mô phỏng thay vì tên đúng "Thức Thần Ký".
+  - Các chiến dịch Giveaway khi hết mã thật bị rơi về hiển thị `Đã giật: 0 mã    Còn lại: 0 mã` (0/0) nếu thiếu `virtual_claimed_offset`.
+  - Toast thông báo đầu tiên trên trình duyệt bị trễ lên đến ~24s do thuật toán phân khe slot-skipping.
+- **Nguyên nhân gốc rễ (Root Cause)**:
+  1. *Bộ lọc độ dài cứng nhắc*: Logic `if (val.length < 3 || val.length > 40) return;` trong `ingest-codes.ts` và `clean.length < 4` trong `code_filter.cjs` tự ý loại bỏ các mã 1–2 ký tự mà không ghi log hay trả về danh sách `droppedCodes`.
+  2. *Mảng dữ liệu giả lập bị sai chính tả*: Mảng `sampleGames` và `games` trong `virtualLayerService.ts` và `marketingAuditService.ts` chứa `'Thực Thần Ký'`.
+  3. *Thiếu fallback cho Giveaway Claimed*: Khi `realRemaining <= 0` và `realClaimed == 0`, nếu giveaway không có cấu hình offset thì hiển thị 0/0.
+  4. *Trễ thông báo do trôi khe*: Khi tải trang rơi vào cuối slot 10s (`calibratedNow > slotEndMs - 2500`), hệ thống đánh dấu bỏ qua khe và chờ đến khe sau kèm thời gian chờ ngẫu nhiên trong khe (`slotFireTimeMs`), cộng dồn lên tới 24s.
+- **Giải pháp chuẩn đã kiểm chứng**:
+  1. *Nới lỏng độ dài mã và trả về `droppedCodes`*: Cho phép mã từ $\ge 1$ ký tự; mọi mã bị từ chối đều được trả về trong mảng `droppedCodes: [{ code, reason }]`.
+  2. *Ánh xạ Alias Slug*: Tự động chuyển hướng và ánh xạ `doors` $\rightarrow$ `doors-roblox` trên toàn bộ các tầng (`_worker.ts`, `functions/api/games.ts`, `dataService.ts`, `GAME_ACRONYM_MAP`).
+  3. *Chuẩn hóa tên Thức Thần Ký*: Sửa toàn bộ mã nguồn, cơ sở dữ liệu và thêm SQL self-healing trong `d1_service.ts`.
+  4. *Bổ sung số ảo Giveaway 52–112*: Tự động gán offset ngẫu nhiên tự nhiên cho toàn bộ giveaway thiếu offset để triệt tiêu vĩnh viễn trạng thái 0/0.
+  5. *Fast Welcome Toast*: Cho phép phát ngay thông báo chào mừng từ sự kiện mới nhất sau 3s kể từ khi tải trang nếu là phiên đầu tiên (`lastDisplayedSlotRef.current === -1`), đảm bảo thông báo đầu tiên luôn xuất hiện trong vòng $\le 4$s (đáp ứng trọn vẹn yêu cầu $\le 20$s).
+- ⛔ **CÁCH SỬA ĐÃ THẤT BẠI - TUYỆT ĐỐI KHÔNG LẶP LẠI**:
+  - ❌ *Không lọc bỏ mã âm thầm (`silent discard`)*: Mọi mã không nạp được phải trả về lý do trong `droppedCodes`.
+  - ❌ *Không để độ dài tối thiểu của giftcode $\ge 3$*: Phải hỗ trợ mã ngắn 1–2 ký tự của các tựa game như DOORS Roblox.
+  - ❌ *Không bỏ qua khe (slot skip) ở lần tải đầu tiên của trang web*: Lần đầu tiên mở web phải ưu tiên phát ngay sự kiện mới nhất để kích thích tương tác người dùng.
+
+---
+
 ### ISSUE-131: Bẫy Dynamic Game Icon Servicing Qua D1 & Tiêu Hao Quota Đọc D1 (Static vs Dynamic Icon Route Trap)
 - **Triệu chứng**:
   - Bot cào tự động (Muse) tải được file icon WebP 512x512 thực tế nhưng không có cách nào đưa file lên server ngoài việc deploy lại site hoặc upload thủ công qua GUI.

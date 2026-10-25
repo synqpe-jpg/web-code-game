@@ -247,6 +247,10 @@ export function buildLiveGameIndex(liveGames: any[]): LiveGameIndex {
     index.exactSlugsMap.set(liveSlug, liveSlug);
     const liveId = String(live.id || '').trim().toLowerCase();
     if (liveId) index.exactSlugsMap.set(liveId, liveSlug);
+    if (liveSlug === 'doors-roblox') {
+      index.exactSlugsMap.set('doors', 'doors-roblox');
+      index.baseSlugsMap.set('doors', 'doors-roblox');
+    }
 
     const cleanName = cleanGameSearchTerm(live.name || '');
     const normName = normalizeVietnamese(cleanName);
@@ -440,7 +444,12 @@ function findBestMatchingGame(
   for (const { game, source } of allCandidates) {
     const slug = (game.slug || '').toLowerCase();
     const id = (game.id || '').toLowerCase();
-    if (slug === rawInputLower || id === rawInputLower || slug === cleanSlug) {
+    if (
+      slug === rawInputLower ||
+      id === rawInputLower ||
+      slug === cleanSlug ||
+      (slug === 'doors-roblox' && (rawInputLower === 'doors' || cleanSlug === 'doors'))
+    ) {
       return { game, source, matchConfidence: 1.0, matchType: 'exact_slug' };
     }
   }
@@ -530,7 +539,7 @@ interface ExtractedCodeItem {
 /**
  * Trích xuất và làm sạch danh sách mã code từ input (chuẩn hóa Hạn Sử Dụng & Trạng Thái)
  */
-function extractCodesFromPayload(item: any): Array<ExtractedCodeItem> {
+function extractCodesFromPayload(item: any, droppedCodes?: Array<{ code: string; reason: string }>): Array<ExtractedCodeItem> {
   const result: Array<ExtractedCodeItem> = [];
 
   const defaultReward = item.rewards || item.description || 'Thưởng của NPH';
@@ -547,7 +556,19 @@ function extractCodesFromPayload(item: any): Array<ExtractedCodeItem> {
 
   const parseItemCode = (rawCode: any, rawReward?: any, rawExp?: any, rawStatus?: any, extra: any = {}) => {
     const val = String(rawCode || '').trim().toUpperCase().replace(/^#/, '');
-    if (val.length < 3 || val.length > 40) return;
+    if (!val || val.length < 1 || val.length > 40) {
+      if (droppedCodes) {
+        droppedCodes.push({ code: String(rawCode || ''), reason: 'Độ dài mã không hợp lệ (yêu cầu từ 1 đến 40 ký tự)' });
+      }
+      return;
+    }
+
+    if (!/^[A-Z0-9_\-]+$/.test(val)) {
+      if (droppedCodes) {
+        droppedCodes.push({ code: val, reason: 'Chứa ký tự đặc biệt không hợp lệ' });
+      }
+      return;
+    }
 
     const expInput = rawExp !== undefined && rawExp !== null && rawExp !== '' ? rawExp : defaultRawExp;
     const parsedExp = parseExpirationDate(expInput);
@@ -610,14 +631,18 @@ function extractCodesFromPayload(item: any): Array<ExtractedCodeItem> {
 
   // Trường hợp 3: Khối văn bản thô (rawText) chứa nhiều code cách nhau bằng dấu phẩy hoặc xuống dòng
   if (typeof item.rawText === 'string' && item.rawText.trim()) {
-    const tokens = item.rawText
-      .split(/[\r\n,;|\s]+/)
-      .map((t: string) => t.trim().toUpperCase().replace(/^#/, ''))
-      .filter((t: string) => t.length >= 3 && t.length <= 40 && /^[A-Z0-9_\-]+$/.test(t));
-
-    for (const val of tokens) {
-      if (!result.some((r) => r.code === val)) {
-        parseItemCode(val, item.rewards, defaultRawExp, item.status, item);
+    const rawTokens = item.rawText.split(/[\r\n,;|\s]+/);
+    for (const rawToken of rawTokens) {
+      const t = rawToken.trim().toUpperCase().replace(/^#/, '');
+      if (!t) continue;
+      if (t.length < 1 || t.length > 40 || !/^[A-Z0-9_\-]+$/.test(t)) {
+        if (droppedCodes) {
+          droppedCodes.push({ code: t, reason: 'Ký tự hoặc độ dài không hợp lệ' });
+        }
+        continue;
+      }
+      if (!result.some((r) => r.code === t)) {
+        parseItemCode(t, item.rewards, defaultRawExp, item.status, item);
       }
     }
   }
@@ -1617,7 +1642,7 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
             if (c.status) statusStr = String(c.status).toUpperCase();
           }
 
-          if (codeStr && codeStr.length >= 2 && !parsedCodes.some((p) => p.code === codeStr)) {
+          if (codeStr && codeStr.length >= 1 && !parsedCodes.some((p) => p.code === codeStr)) {
             parsedCodes.push({
               code: codeStr,
               rewards: rewardsStr,
@@ -2604,6 +2629,7 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
 
     const newlyAddedCodes: any[] = [];
     const executionResults: any[] = [];
+    const allDroppedCodes: Array<{ code: string; reason: string; gameInput?: string }> = [];
     let stateModified = false;
     let autoPublishedCount = 0;
 
@@ -2619,7 +2645,9 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
         rawItem.game ||
         ''
       ).trim();
-      const codesToIngest = extractCodesFromPayload(rawItem);
+      const itemDroppedCodes: Array<{ code: string; reason: string }> = [];
+      const codesToIngest = extractCodesFromPayload(rawItem, itemDroppedCodes);
+      itemDroppedCodes.forEach((d) => allDroppedCodes.push({ ...d, gameInput: inputGameName }));
 
       // Trích xuất Cách Nhập Code (instructions) và Link nhập quà (redeemUrl)
       const hasExplicitInstructions =
@@ -3043,8 +3071,10 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
         receivedCount: codesToIngest.length,
         addedCount: addedForThisGame.length,
         duplicateCount: duplicateCodes.length,
+        droppedCount: itemDroppedCodes.length,
         addedCodes: addedForThisGame,
         duplicateCodes,
+        droppedCodes: itemDroppedCodes,
       });
     }
 
@@ -3330,9 +3360,11 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
           botName: auth.botName,
           totalAdded,
           totalDuplicates,
+          totalDroppedCodes: allDroppedCodes.length,
           totalInstructionsUpdated,
           autoPublishedGamesCount: autoPublishedCount,
           results: executionResults,
+          droppedCodes: allDroppedCodes,
           timestamp: new Date().toISOString(),
         },
         null,

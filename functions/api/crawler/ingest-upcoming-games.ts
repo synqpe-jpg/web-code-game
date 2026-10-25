@@ -552,7 +552,7 @@ export async function onRequestOptions(): Promise<Response> {
 export async function onRequestGet(context: { request: Request; env: Env }): Promise<Response> {
   const { request, env } = context;
   const url = new URL(request.url);
-  const statusFilter = (url.searchParams.get('status') || 'UPCOMING').toUpperCase();
+  const statusFilter = (url.searchParams.get('status') || url.searchParams.get('statusFilter') || 'UPCOMING').toUpperCase();
   const targetSlug = url.searchParams.get('slug');
 
   let isFallbackMode = false;

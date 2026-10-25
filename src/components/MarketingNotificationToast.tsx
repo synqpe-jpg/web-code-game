@@ -409,6 +409,19 @@ export const MarketingNotificationToast: React.FC<MarketingNotificationToastProp
       }
 
       // B.3: Đã thực sự quá cửa sổ hiển thị của khe hiện tại (sau giây 8.0 của khe)
+      // Nếu là lần đầu mở web (chưa có thông báo nào hiển thị), lập tức phát sự kiện mới nhất để đảm bảo thông báo đầu tiên <= 20s (thực tế ~3-4s)
+      if (lastDisplayedSlotRef.current === -1) {
+        const welcomeEvt = marketingService.getLatestLedgerEvent() || marketingService.getCurrentSlotEvent(currentSlotIndex);
+        if (welcomeEvt && !marketingService.isNotificationProcessed(welcomeEvt.id || '')) {
+          lastDisplayedSlotRef.current = currentSlotIndex;
+          displayNotification(welcomeEvt, 3500);
+          const msToNextSlot = Math.max(1000, slotEndMs - calibratedNow + 1500);
+          if (timerRef.current) clearTimeout(timerRef.current);
+          timerRef.current = setTimeout(() => scheduleRef.current(), msToNextSlot);
+          return;
+        }
+      }
+
       // Đánh dấu bỏ qua khe này để TUYỆT ĐỐI KHÔNG PHÁT LẠI (chống trùng theo khe, không replay ngẫu nhiên)
       lastDisplayedSlotRef.current = currentSlotIndex;
       const msToNextSlot = Math.max(500, slotEndMs - calibratedNow + 1500);
@@ -523,12 +536,22 @@ export const MarketingNotificationToast: React.FC<MarketingNotificationToastProp
 
     let isMounted = true;
 
-    // 1. Initial Welcome Toast: Kích hoạt ngay sau initialDelay từ sự kiện sổ server
-    const initDelaySec = Math.max(1, Math.min(60, Number(config.initialDelay) || 3));
+    // 1. Initial Welcome Toast: Kích hoạt ngay sau initialDelay từ sự kiện sổ server (đảm bảo <= 20s, mặc định 3s)
+    const initDelaySec = Math.max(1, Math.min(10, Number(config.initialDelay) || 3));
     initialWelcomeTimerRef.current = setTimeout(() => {
       if (!isMounted || isTabHiddenRef.current || isSnoozed()) return;
       if (!marketingService.getConfig().isEnabled) return;
       if (!currentNotificationIdRef.current) {
+        const welcomeEvt = marketingService.getLatestLedgerEvent() || marketingService.getCurrentSlotEvent(marketingService.getVnDayAnchor().currentSlotIndex);
+        if (welcomeEvt && !marketingService.isNotificationProcessed(welcomeEvt.id || '')) {
+          const displayDurationMs = Math.min(4000, Math.max(2500, Number(config.displayDuration) * 1000 || 4000));
+          displayNotification(welcomeEvt, displayDurationMs);
+          const { currentSlotIndex } = marketingService.getVnDayAnchor();
+          lastDisplayedSlotRef.current = currentSlotIndex;
+          if (timerRef.current) clearTimeout(timerRef.current);
+          timerRef.current = setTimeout(() => scheduleRef.current(), displayDurationMs + 1000);
+          return;
+        }
         scheduleRef.current();
       }
     }, initDelaySec * 1000);
