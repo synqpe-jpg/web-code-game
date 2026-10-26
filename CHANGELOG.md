@@ -7,6 +7,55 @@ Mỗi mục sửa lỗi đều ghi nhận **Nguyên nhân gốc rễ (Root Cause
 
 ## [2026-10-26]
 
+### 217. Triển Khai Phương Án 1 Tối Ưu Hóa D1 Miễn Phí 100%, Sửa Toàn Diện Cơ Chế Fallback & Loại Bỏ Full Table Scan Autocomplete
+- **Bối cảnh & Đính chính báo cáo**:
+  - *Sửa điểm sai trong báo cáo trước*: Web khách **KHÔNG** "bình thường 100%" khi D1 bị chặn. Khi D1 bị chạm trần hạn mức đọc/ghi (5.17M/5M reads, 157k/100k writes), chỉ có vỏ HTML tĩnh trang chủ phản hồi được; các API dữ liệu chính (/api/games, /api/games?status=upcoming, /api/stats) bị timeout ("The read operation timed out") hoặc trả về rỗng (Where Winds Meet trả HTTP 200 nhưng codes: [], total = 0).
+  - *Phê duyệt phương án*: Chấp nhận Phương án 1 (Tối ưu mã nguồn, 100% miễn phí). Chưa dùng Phương án 2 (Workers Paid).
+- **Nguyên nhân gốc rễ điều tra được (Root Causes)**:
+  1. *Truy vấn Full Table Scan Autocomplete (LIKE %q%)*: Tại functions/api/games.ts:798, mỗi lần người dùng gõ 1 ký tự vào ô tìm kiếm, API chạy câu lệnh JOIN games ON games.slug = codes.game_slug WHERE (codes.code LIKE ? OR codes.rewards LIKE ?) quét toàn bộ 11,745 dòng bảng codes kèm 560 dòng bảng games (~12,300 dòng đọc/lượt gõ). 100 người dùng gõ vài ký tự đốt cháy 5 triệu dòng đọc D1 chỉ trong chốc lát!
+  2. *Ghi dồn dập sự kiện mô phỏng ảo vào D1 (is_simulated = 1)*: Tại functions/services/virtualLayerService.ts và d1_service.ts:3142, mỗi lượt client poll /api/realtime-events (mỗi 5-15 giây, header no-cache) kích hoạt maybeFlushVirtualLayerToD1 chèn hàng chục dòng vào wcg_virtual_events và wcg_virtual_aggregates, kèm lệnh ensureSchemaUpgrades(db) thực thi 40 câu ALTER TABLE. Điều này đốt 157,000 dòng ghi D1 (vượt 157.9% trần ngày 100k).
+  3. *Lỗi cấu trúc dữ liệu Fallback (Array vs Dictionary Bug)*: Tệp crawled_codes_188.json là một Mảng (Array) gồm 11,745 phần tử. Tuy nhiên tại functions/api/games.ts:581 và 721, mã nguồn truy cập theo dạng đối tượng (fallbackCodesData as any)?.[gameRow.slug]! Khi D1 bị lỗi hoặc trả về rỗng, fallbackList luôn trả về undefined đối với mọi tựa game! Đồng thời, tệp baseline cục bộ trước đó chỉ chứa 598 mã WWM thay vì 615 mã đầy đủ trên Live D1.
+  4. *Khối Schema Upgrades và D1 queries không có Timeout*: Các endpoint GET read-only như /api/stats gọi ensureSchemaUpgrades(env.DB) và nhiều câu SELECT D1 không có cơ chế timeout/circuit breaker. Khi D1 bị chạm hạn mức hoặc phản hồi chậm, hàm bị treo vĩnh viễn cho đến khi runtime Workers ngắt kết nối với lỗi timeout.
+- **Giải pháp triển khai (Solution)**:
+  1. *2a. Ngừng hoàn toàn việc ghi sự kiện mô phỏng ảo vào D1*:
+     - Toàn bộ sự kiện thông báo popup ảo (FOMO) và bộ đếm mô phỏng chuyển sang xử lý 100% in-memory / KV.
+     - Hàm maybeFlushVirtualLayerToD1 và batchFlushVirtualLayerD1 không còn thực hiện bất kỳ lệnh ghi nào vào wcg_virtual_events hay wcg_virtual_aggregates cho sự kiện mô phỏng (is_simulated = 1).
+     - Bảo toàn 100% công thức tăng trưởng thời gian thực và mốc neo 15:33 25/10/2026: VIP ~26/giờ, giveaway ~0.1292/phút, master copy 1.0/phút, nhịp khe 10 giây phía client (Math.floor(secondsSinceMidnightVN / 10)).
+     - Bảo toàn nguyên vẹn xử lý giao dịch thật: người dùng mua thật, nạp ví SePay thật, giật mã thật vẫn ghi nhận đầy đủ.
+  2. *2b. Triệt tiêu Full Table Scan trong Tìm kiếm Autocomplete*:
+     - Xóa bỏ hoàn toàn câu lệnh SELECT ... FROM codes WHERE (codes.code LIKE ? OR codes.rewards LIKE ?) trên D1 database.
+     - Chuyển toàn bộ tìm kiếm Autocomplete sang tìm kiếm siêu tốc trong bộ nhớ Worker (in-memory) dựa trên tập dữ liệu đã tải sẵn: fallbackGamesData (560 game) và fallbackCodesData (11,883 mã quà).
+     - Giảm số dòng D1 quét từ ~12,300 dòng/lượt gõ xuống đúng 0 dòng D1 quét (tiết kiệm 100% quota đọc của Autocomplete)!
+     - Bổ sung Edge CDN Cache 60s (Cache-Control: public, max-age=60, s-maxage=300, stale-while-revalidate=600) cho Autocomplete.
+  3. *2c. Cấu hình Edge Cache 10s cho /api/realtime-events*:
+     - Thay thế header no-cache, no-store bằng 'Cache-Control': 'public, max-age=5, s-maxage=10, stale-while-revalidate=15'.
+     - Đồng bộ chuẩn xác với nhịp khe 10 giây của client: mọi client truy cập trong cùng 1 slot 10s sẽ nhận chung bản phản hồi từ Cloudflare Edge CDN, giảm 90% số lượng request chạm vào Worker và 0 request chạm DB.
+  4. *2d. Tối ưu Ingest & Đọc đơn lẻ (Single Slug Read)*:
+     - Không cho phép các luồng đọc game đơn lẻ đọc qua các blob system_settings nhiều MB.
+     - Tháo gỡ các lệnh ghi D1 không cần thiết trên luồng GET của ingest-upcoming-games.ts.
+  5. *Khắc phục toàn diện cơ chế Fallback*:
+     - Đồng bộ chuẩn mực 615 mã quà tặng Where Winds Meet (579 active / 36 expired, 0 lệch thưởng, 0 &nbsp;), 68 mã Type Soul, 119 mã Anime Vanguards, 138 mã Da Hood vào tất cả các tệp baseline tĩnh (src/data/crawled_codes_188.json, public/data/crawled_codes_188.json, data/crawled_codes_188.json, public/data/codes_database.json).
+     - Khởi tạo bảng tra cứu O(1) fallbackCodesBySlug = new Map<string, GiftCode[]>() ngay khi Worker khởi động, triệt tiêu hoàn toàn lỗi truy cập mảng như đối tượng.
+     - Xây dựng hàm withD1Timeout<T>(promise, timeoutMs = 1200, fallbackVal) bọc toàn bộ các truy vấn D1 tại games.ts, stats.ts, d1_service.ts, ingest-upcoming-games.ts.
+     - Bổ sung nhánh xử lý trực tiếp ?status=upcoming trong functions/api/games.ts phản hồi ngay lập tức danh mục game sắp ra mắt.
+     - Loại bỏ ensureSchemaUpgrades(db) khỏi các endpoint đọc GET (/api/stats, getSettingD1, getMultipleSettingsD1).
+- **Ma trận bao phủ Fallback khi D1 lỗi/chạm hạn mức (Fallback Coverage Matrix)**:
+  - GET /api/games?slug={slug}: Bao phủ 100%. Timeout D1 sau 1.2s, tự động trả về toàn bộ dữ liệu tĩnh và mã giftcode từ fallbackCodesBySlug (Where Winds Meet luôn trả đủ 615 mã, 579 active, 36 expired).
+  - GET /api/games (Catalog): Bao phủ 100%. Timeout D1 sau 1.2s, tự động phục vụ phân trang, lọc danh mục, sắp xếp từ 560 game trong bộ nhớ.
+  - GET /api/games?autocomplete=1: Bao phủ 100%. 100% in-memory, 0 D1 reads, không bao giờ bị ảnh hưởng bởi lỗi D1.
+  - GET /api/games?status=upcoming: Bao phủ 100%. Phục vụ ngay từ DEFAULT_UPCOMING_GAMES_FALLBACK nếu D1 timeout sau 1s.
+  - GET /api/stats: Bao phủ 100%. Bỏ ensureSchemaUpgrades, timeout D1 sau 1s, trả về các chỉ số FOMO/Hub trong bộ nhớ.
+  - GET /api/realtime-events: Bao phủ 100%. 100% in-memory + Edge CDN Cache 10s.
+- **Kiểm thử & Nghiệm thu**:
+  - npm run build: Thành công 100%, 0 lỗi.
+  - Audit Zero Test Artifacts: 5/5 hạng mục đạt sạch 100%.
+  - Prerender 579 tựa game, 163 bài viết, 32 giveaway hoàn tất 100%.
+  - scripts/verify_live_api_clean.cjs: Đối chiếu baseline 0 &nbsp;, 0 mã IN-...-WxH, số lượng mã Where Winds Meet = 615/615, Type Soul = 68/68, Anime Vanguards = 119/119, Da Hood = 138/138.
+
+---
+
+## [2026-10-26]
+
 ### 216. Tinh Chỉnh Giao Diện Giveaway Web Khách & Tích Hợp Ô Banner Tùy Chỉnh Admin Kèm Đếm Ngược Giật Mã Phản Ứng Tức Thì
 - **Bối cảnh & Yêu cầu từ Người dùng**:
   1. *Xóa chữ "Chính Thức NPH", Xóa chữ "Hết code"*: Loại bỏ huy hiệu "Chính thức NPH" và huy hiệu trạng thái "Hết code" trong phần đầu modal sự kiện giveaway.

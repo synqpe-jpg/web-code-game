@@ -27,11 +27,9 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
     return new Response(JSON.stringify(payload), {
       headers: {
         ...CORS_HEADERS,
-        // Chống lệch pha khe thời gian & chống dính cache cũ trên Cloudflare Edge CDN:
-        // Đảm bảo mỗi lượt poll của client nhận được sự kiện chính xác và tươi mới nhất của khe hiện tại
-        'Cache-Control': 'no-cache, no-store, must-revalidate, max-age=0',
-        'Pragma': 'no-cache',
-        'Expires': '0',
+        // Edge Cache 10s matching the 10-second client slot index (Requirement 2c)
+        // Requests within the same 10-second slot are served directly from Cloudflare Edge CDN
+        'Cache-Control': 'public, max-age=5, s-maxage=10, stale-while-revalidate=15',
       },
     });
   } catch (err: any) {

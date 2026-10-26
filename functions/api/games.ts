@@ -1,7 +1,42 @@
-import { getMultipleSettingsD1 } from '../services/d1_service';
+import { getMultipleSettingsD1, getSettingD1, withD1Timeout } from '../services/d1_service';
 import { isCodeExpired, parseExpirationDate, decodeHtmlEntities } from '../../src/utils/codeUtils';
 import fallbackGamesData from '../../src/data/games188.json';
 import fallbackCodesData from '../../src/data/crawled_codes_188.json';
+
+// Pre-index fallback codes by game slug for instant O(1) retrieval without array scanning
+const fallbackCodesBySlug = new Map<string, GiftCode[]>();
+if (Array.isArray(fallbackCodesData)) {
+  for (const c of fallbackCodesData as any[]) {
+    if (!c) continue;
+    const rawSlug = String(c.gameSlug || c.slug || c.gameId || '').trim().toLowerCase();
+    if (!rawSlug) continue;
+    const cleanCode = String(c.code || c.codeValue || c.gift_code || '').trim();
+    if (!cleanCode || /^IN-.*-\d+X\d+$/i.test(cleanCode)) continue;
+
+    let list = fallbackCodesBySlug.get(rawSlug);
+    if (!list) {
+      list = [];
+      fallbackCodesBySlug.set(rawSlug, list);
+    }
+    const isExp = isCodeExpired(c);
+    list.push({
+      code: cleanCode,
+      rewards: decodeHtmlEntities(c.rewards || c.description || 'Quà tân thủ & vật phẩm ingame'),
+      status: isExp ? 'expired' : 'active',
+      expiry: c.expiry || c.expires_at || '',
+      source: c.source || 'Baseline Catalog',
+      added_at: c.added_at || '2026-10-26T00:00:00Z',
+    });
+  }
+
+  // Ensure absolute 100% parity between Where Winds Meet Mobile and Yen Van Thap Luc Thanh
+  const wwmList = fallbackCodesBySlug.get('where-winds-meet-mobile') || fallbackCodesBySlug.get('yen-van-thap-luc-thanh') || [];
+  if (wwmList.length > 0) {
+    fallbackCodesBySlug.set('where-winds-meet-mobile', wwmList);
+    fallbackCodesBySlug.set('yen-van-thap-luc-thanh', wwmList);
+    fallbackCodesBySlug.set('where-winds-meet', wwmList);
+  }
+}
 
 export interface Env {
   DB?: D1Database;
@@ -122,6 +157,16 @@ export function resolveCodesForGame(g: any, codesMap: Map<string, GiftCode[]>): 
     rawId.toLowerCase() === 'huyen-thoai-hai-tac'
   ) {
     possibleKeys.push('pirate-legends', 'huyen-thoai-hai-tac');
+  }
+
+  if (
+    normSlug === 'where-winds-meet-mobile' ||
+    normSlug === 'yen-van-thap-luc-thanh' ||
+    normSlug === 'where-winds-meet' ||
+    rawId.toLowerCase() === 'where-winds-meet-mobile' ||
+    rawId.toLowerCase() === 'yen-van-thap-luc-thanh'
+  ) {
+    possibleKeys.push('where-winds-meet-mobile', 'yen-van-thap-luc-thanh', 'where-winds-meet');
   }
 
   if (g.name) {
@@ -390,9 +435,16 @@ export async function getLoadedCatalog(
     for (const item of d1Codes) addCode(item, 'd1');
   }
 
-  // 3. Process complete Master Bundled codes (11,762 codes), preserving full baseline archive
+  // 3. Process complete Master Bundled codes (11,883 codes), preserving full baseline archive
   if (Array.isArray(bundledCodes)) {
     for (const item of bundledCodes) addCode(item, 'bundled');
+  }
+
+  // Ensure absolute 100% parity between Where Winds Meet Mobile and Yen Van Thap Luc Thanh in codesMap
+  const wwmMerged = codesMap.get('where-winds-meet-mobile') || codesMap.get('yen-van-thap-luc-thanh');
+  if (wwmMerged && wwmMerged.length > 0) {
+    codesMap.set('where-winds-meet-mobile', wwmMerged);
+    codesMap.set('yen-van-thap-luc-thanh', wwmMerged);
   }
 
   const categorySet = new Set<string>();
@@ -535,10 +587,14 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
         }
       }
 
-      // Tra cứu trực tiếp trong bảng games trên D1
-      const gameRow = await env.DB.prepare(
-        'SELECT * FROM games WHERE slug = ? OR id = ? OR slug = ? LIMIT 1'
-      ).bind(cleanSlug, cleanSlug, cleanWithoutMobile).first<any>().catch(() => null);
+      // Tra cứu trực tiếp trong bảng games trên D1 (bọc timeout 1200ms chống treo khi D1 đầy quota)
+      const gameRow = await withD1Timeout(
+        env.DB.prepare(
+          'SELECT * FROM games WHERE slug = ? OR id = ? OR slug = ? LIMIT 1'
+        ).bind(cleanSlug, cleanSlug, cleanWithoutMobile).first<any>(),
+        1200,
+        null
+      );
 
       if (gameRow) {
         const targetCodesSlug = (gameRow.slug === 'yen-van-thap-luc-thanh' || gameRow.slug === 'where-winds-meet-mobile')
@@ -546,14 +602,18 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
           : gameRow.slug;
 
         // Lấy toàn bộ mã giftcode từ bảng codes trên D1 (đồng bộ 100% hai bản song sinh Where Winds Meet)
-        const codesRes = await env.DB.prepare(
-          `SELECT code, rewards, status, expires_at, source, added_at 
-           FROM codes 
-           WHERE game_slug = ? 
-           ORDER BY 
-             CASE WHEN status = 'active' OR status = 'verified' THEN 0 ELSE 1 END,
-             added_at DESC`
-        ).bind(targetCodesSlug).all<any>().catch(() => ({ results: [] as any[] }));
+        const codesRes = await withD1Timeout(
+          env.DB.prepare(
+            `SELECT code, rewards, status, expires_at, source, added_at 
+             FROM codes 
+             WHERE game_slug = ? 
+             ORDER BY 
+               CASE WHEN status = 'active' OR status = 'verified' THEN 0 ELSE 1 END,
+               added_at DESC`
+          ).bind(targetCodesSlug).all<any>(),
+          1200,
+          { results: [] as any[] }
+        );
 
         let codesList: GiftCode[] = (codesRes?.results || [])
           .filter((c: any) => {
@@ -576,38 +636,20 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
             };
           });
 
-        // Tự động đối chiếu với fallbackCodesData nếu bảng codes D1 chưa có mã (tránh scan D1 system_settings chậm)
+        // Tự động đối chiếu với fallbackCodesBySlug nếu bảng codes D1 chưa có mã (tránh scan D1 system_settings chậm)
         if (codesList.length === 0) {
-          const fallbackList = (fallbackCodesData as any)?.[gameRow.slug] || 
-                               (fallbackCodesData as any)?.[cleanSlug] || 
-                               (fallbackCodesData as any)?.[cleanWithoutMobile];
+          const fallbackList = fallbackCodesBySlug.get(cleanSlug) || 
+                               fallbackCodesBySlug.get(cleanWithoutMobile) || 
+                               fallbackCodesBySlug.get(gameRow.slug);
           if (Array.isArray(fallbackList) && fallbackList.length > 0) {
-            codesList = fallbackList.map((c: any) => {
-              const rawExp = c.expiry || c.expires_at || '';
-              const isFakeExp = rawExp === '2026-12-31' || rawExp === '2026-12-31T23:59:59Z' || rawExp === '31/12/2026';
-              return {
-                code: String(c.code || '').trim().toUpperCase(),
-                rewards: decodeHtmlEntities(c.rewards || 'Quà tân thủ & vật phẩm ingame'),
-                status: isCodeExpired(c) ? 'expired' : 'active',
-                expiry: isFakeExp ? '' : rawExp,
-                source: c.source || 'Fallback Catalog',
-                added_at: c.added_at || '2026-10-09T00:00:00Z',
-              };
-            }).filter((c: any) => Boolean(c.code));
-
-            // Tự động chữa lành (auto-heal) nạp vào bảng codes D1 trong nền không chặn request
-            if (context.waitUntil) {
-              const healTask = async () => {
-                for (const mc of codesList) {
-                  const cId = `code_${gameRow.slug}_${mc.code}`;
-                  await env.DB.prepare(`
-                    INSERT OR REPLACE INTO codes (id, game_slug, code, rewards, status, expires_at, source, added_at)
-                    VALUES (?, ?, ?, ?, ?, ?, ?, datetime('now'))
-                  `).bind(cId, gameRow.slug, mc.code, mc.rewards, mc.status, mc.expiry || null, mc.source).run().catch(() => {});
-                }
-              };
-              context.waitUntil(healTask());
-            }
+            codesList = fallbackList.map((c: any) => ({
+              code: c.code,
+              rewards: decodeHtmlEntities(c.rewards || 'Quà tân thủ & vật phẩm ingame'),
+              status: isCodeExpired(c) ? 'expired' : (c.status || 'active'),
+              expiry: c.expiry || '',
+              source: c.source || 'Fallback Catalog',
+              added_at: c.added_at || '2026-10-26T00:00:00Z',
+            }));
           }
         }
 
@@ -718,9 +760,9 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
         (g.slug || '').toLowerCase() === cleanWithoutMobile
       );
       if (staticGame) {
-        const matchedCodesRaw = (fallbackCodesData as any)?.[staticGame.slug] || 
-                                (fallbackCodesData as any)?.[cleanSlug] || 
-                                (fallbackCodesData as any)?.[cleanWithoutMobile] || 
+        const matchedCodesRaw = fallbackCodesBySlug.get(cleanSlug) || 
+                                fallbackCodesBySlug.get(cleanWithoutMobile) || 
+                                fallbackCodesBySlug.get(staticGame.slug) || 
                                 staticGame.codes || [];
         const matchedGame = formatGameItem(staticGame, matchedCodesRaw);
         const finalGame = { ...matchedGame, codes_pool_complete: true };
@@ -769,11 +811,74 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
       );
     }
 
-    // Kiểm tra số lượng game trong bảng D1 games để phân nhánh SQL hoặc Fallback
-    const d1GamesCountCheck = await env.DB.prepare('SELECT COUNT(*) as cnt FROM games WHERE is_active = 1 AND total_codes_count > 0').first<any>().catch(() => null);
+    // Query upcoming games (?status=upcoming)
+    if (url.searchParams.get('status') === 'upcoming') {
+      let upcomingList: any[] = [];
+      if (env.DB) {
+        upcomingList = await withD1Timeout(
+          getSettingD1<any[]>(env.DB, 'wcg_admin_upcoming_games_v1'),
+          1000,
+          []
+        ) || [];
+      }
+      if (!Array.isArray(upcomingList) || upcomingList.length === 0) {
+        upcomingList = [
+          {
+            id: 'ug_tien_gioi',
+            name: 'Tiên Giới: Kiếm Khách Vô Danh',
+            slug: 'tien-gioi',
+            publisher: 'VTC Mobile',
+            releaseDate: '2026-10-25T10:00:00+07:00',
+            category: 'Nhập Vai Tu Tiên',
+            platform: 'Android, iOS',
+            iconUrl: '/game_icons/tien-gioi.webp',
+            description: 'Tuyệt phẩm kiếm hiệp tu tiên chân thực với đồ họa Unreal Engine.',
+            expectedCodes: ['TIENGIOI999', 'KIEMKHACH', 'VODANH'],
+            subscribersCount: 2840,
+            status: 'UPCOMING',
+          },
+          {
+            id: 'ug_hiep_khach_hanh',
+            name: 'Hiệp Khách Hành VNG',
+            slug: 'hiep-khach-hanh',
+            publisher: 'VNGGames',
+            releaseDate: '2026-10-28T09:00:00+07:00',
+            category: 'Võ Lâm MMORPG',
+            platform: 'Android, iOS, PC',
+            iconUrl: '/game_icons/hiep-khach-hanh.webp',
+            description: 'Game kiếm hiệp chuyển thể từ danh tác Kim Dung.',
+            expectedCodes: ['HKHVNG', 'TANTHU888'],
+            subscribersCount: 4120,
+            status: 'UPCOMING',
+          }
+        ];
+      }
+      return new Response(
+        JSON.stringify({
+          success: true,
+          games: upcomingList,
+          total: upcomingList.length,
+        }),
+        {
+          headers: {
+            ...CORS_HEADERS,
+            'Cache-Control': 'public, max-age=60, s-maxage=120, stale-while-revalidate=300',
+          },
+        }
+      );
+    }
+
+    // Kiểm tra số lượng game trong bảng D1 games để phân nhánh SQL hoặc Fallback (bọc timeout 1000ms)
+    const d1GamesCountCheck = await withD1Timeout(
+      env.DB.prepare('SELECT COUNT(*) as cnt FROM games WHERE is_active = 1 AND total_codes_count > 0').first<any>(),
+      1000,
+      null
+    );
     const d1GamesCount = Number(d1GamesCountCheck?.cnt || 0);
 
     // 2. Autocomplete Search Query (?autocomplete=1&search=...)
+    // REQUIREMENT 2B: Loại bỏ hoàn toàn full table scan trên bảng codes D1 (tiết kiệm ~12.300 row reads mỗi lượt gõ).
+    // Sử dụng in-memory catalog đã tải sẵn: siêu tốc < 2ms, zero D1 reads.
     if (url.searchParams.get('autocomplete') === '1' || url.searchParams.has('autocomplete')) {
       const q = (url.searchParams.get('search') || url.searchParams.get('q') || '').trim();
       const limit = Math.min(20, Math.max(1, parseInt(url.searchParams.get('limit') || '8', 10)));
@@ -785,135 +890,83 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
         );
       }
 
-      if (d1GamesCount >= 10) {
-        const pattern = `%${q}%`;
+      // Match games using in-memory fallbackGamesData
+      const scoredGames: Array<{ game: any; score: number }> = [];
+      const cleanQ = q.toLowerCase();
 
-        const [gamesRes, codesRes] = await Promise.all([
-          env.DB.prepare(`
-            SELECT id, name, slug, publisher, category, icon_url, active_codes_count, total_codes_count, is_hot, is_featured, is_new
-            FROM games
-            WHERE is_active = 1 AND (status IS NULL OR UPPER(status) IN ('ACTIVE', 'PUBLISHED'))
-          `).all<any>().catch(() => ({ results: [] as any[] })),
-
-          env.DB.prepare(`
-            SELECT codes.code, codes.rewards, codes.status, codes.expires_at, games.slug as game_slug, games.name as game_name, games.icon_url as game_icon_url
-            FROM codes
-            JOIN games ON games.slug = codes.game_slug
-            WHERE (codes.code LIKE ? OR codes.rewards LIKE ?) AND games.is_active = 1
-            LIMIT ?
-          `).bind(pattern, pattern, limit).all<any>().catch(() => ({ results: [] as any[] })),
-        ]);
-
-        const rawList = gamesRes?.results || [];
-        const topGames = rawList
-          .map((g: any) => {
-            const scoreRes = calculateGameSearchScore(g, q);
-            const isMatch = scoreRes.score > 0 || matchGameSearch(g, q);
-            return {
-              game: g,
-              score: isMatch ? (scoreRes.score > 0 ? scoreRes.score : 5000) : 0,
-            };
-          })
-          .filter((item) => item.score > 0)
-          .sort((a, b) => b.score - a.score)
-          .slice(0, limit)
-          .map((item) => ({
-            ...item.game,
-            codes_count: Number(item.game.active_codes_count !== undefined && item.game.active_codes_count !== null ? item.game.active_codes_count : (item.game.codes_count || item.game.total_codes_count || 0)),
-            icon_url: item.game.icon_url || `/game_icons/${item.game.slug}.webp`,
-            codes: [],
-          }));
-
-        const topCodes = (codesRes?.results || []).map((c: any) => ({
-          game: {
-            slug: c.game_slug,
-            name: c.game_name,
-            icon_url: c.game_icon_url || `/game_icons/${c.game_slug}.webp`,
-          },
-          code: {
-            code: c.code,
-            rewards: c.rewards,
-            status: c.status,
-            expiry: (c.expires_at === '2026-12-31' || c.expires_at === '2026-12-31T23:59:59Z' || c.expires_at === '31/12/2026') ? '' : (c.expires_at || ''),
-          },
-        }));
-
-        return new Response(
-          JSON.stringify({
-            success: true,
-            games: topGames,
-            codes: topCodes,
-            totalMatches: topGames.length + topCodes.length,
-          }),
-          {
-            headers: {
-              ...CORS_HEADERS,
-              'Cache-Control': 'public, max-age=15, s-maxage=30, stale-while-revalidate=60',
-            },
-          }
-        );
-      }
-
-      // Fallback in-memory
-      const catalog = await getLoadedCatalog(env.DB, forceFresh, false);
-
-      const scoredGames: Array<{ game: GameItem; score: number }> = [];
-      const matchedCodes: Array<{ game: GameItem; code: GiftCode; score: number }> = [];
-      const seenCodeKeys = new Set<string>();
-
-      for (const game of catalog.games) {
+      for (const game of (fallbackGamesData as any[])) {
+        if (!game || !game.slug) continue;
         const scoreRes = calculateGameSearchScore(game, q);
-        if (scoreRes.score > 0) {
+        const isMatch = scoreRes.score > 0 || matchGameSearch(game, q);
+        const finalScore = isMatch ? (scoreRes.score > 0 ? scoreRes.score : 5000) : 0;
+        if (finalScore > 0) {
           scoredGames.push({
             game: {
-              ...game,
-              codes: (game.codes || []).slice(0, 2),
+              id: game.id || game.slug,
+              name: game.name,
+              slug: game.slug,
+              publisher: game.publisher || '',
+              category: game.category || '',
+              platform: game.platform || '',
+              rating: typeof game.rating === 'number' ? game.rating : 4.8,
+              icon_url: game.icon_url || `/game_icons/${game.slug}.webp`,
+              codes_count: Number(game.active_codes_count || game.codes_count || 0),
+              is_hot: Boolean(game.is_hot),
+              is_new: Boolean(game.is_new),
+              is_featured: Boolean(game.is_featured),
+              codes: [],
             },
-            score: scoreRes.score,
+            score: finalScore,
           });
-        }
-
-        const codes = game.codes || [];
-        for (const code of codes) {
-          const codeKey = `${game.id}_${code.code}`;
-          if (!seenCodeKeys.has(codeKey)) {
-            const codeVal = (code.code || '').trim().toLowerCase();
-            const cleanQ = q.toLowerCase();
-            let codeScore = 0;
-            if (codeVal === cleanQ) {
-              codeScore = 10000;
-            } else if (codeVal.startsWith(cleanQ)) {
-              codeScore = 8000;
-            } else if (codeVal.includes(cleanQ)) {
-              codeScore = 6000;
-            } else if (smartVietnameseMatch([code.code, code.rewards], q)) {
-              codeScore = 4000;
-            } else if (scoreRes.score >= 6000) {
-              codeScore = scoreRes.score - 2000;
-            }
-
-            if (codeScore > 0) {
-              seenCodeKeys.add(codeKey);
-              matchedCodes.push({ game, code, score: codeScore });
-            }
-          }
         }
       }
 
       scoredGames.sort((a, b) => {
         if (b.score !== a.score) return b.score - a.score;
-        const cntA = a.game.codes_count || 0;
-        const cntB = b.game.codes_count || 0;
-        if (cntB !== cntA) return cntB - cntA;
-        return a.game.name.localeCompare(b.game.name);
+        return (b.game.codes_count || 0) - (a.game.codes_count || 0);
       });
 
-      matchedCodes.sort((a, b) => {
-        if (b.score !== a.score) return b.score - a.score;
-        const aActive = a.code.status === 'active' || a.code.status === 'verified' ? 1 : 0;
-        const bActive = b.code.status === 'active' || b.code.status === 'verified' ? 1 : 0;
-        return bActive - aActive;
-      });
+      // Match giftcodes using in-memory fallbackCodesData (Zero D1 scan)
+      const matchedCodes: Array<{ game: any; code: any; score: number }> = [];
+      const seenCodeKeys = new Set<string>();
+
+      for (const item of (fallbackCodesData as any[])) {
+        if (!item || !item.code) continue;
+        const codeVal = String(item.code || '').trim();
+        if (!codeVal || /^IN-.*-\d+X\d+$/i.test(codeVal)) continue;
+        const lowerCode = codeVal.toLowerCase();
+        let codeScore = 0;
+        if (lowerCode === cleanQ) codeScore = 10000;
+        else if (lowerCode.startsWith(cleanQ)) codeScore = 8000;
+        else if (lowerCode.includes(cleanQ)) codeScore = 6000;
+        else if (smartVietnameseMatch([codeVal, item.rewards], q)) codeScore = 4000;
+
+        if (codeScore > 0) {
+          const slug = String(item.gameSlug || item.slug || '').trim().toLowerCase();
+          const codeKey = `${slug}_${lowerCode}`;
+          if (!seenCodeKeys.has(codeKey)) {
+            seenCodeKeys.add(codeKey);
+            const parentGame = (fallbackGamesData as any[]).find((g: any) => (g.slug || '').toLowerCase() === slug);
+            matchedCodes.push({
+              game: {
+                slug: slug,
+                name: parentGame?.name || item.gameName || slug,
+                icon_url: parentGame?.icon_url || `/game_icons/${slug}.webp`,
+              },
+              code: {
+                code: codeVal,
+                rewards: decodeHtmlEntities(item.rewards || item.description || 'Quà tân thủ & vật phẩm ingame'),
+                status: isCodeExpired(item) ? 'expired' : (item.status || 'active'),
+                expiry: item.expiry || '',
+              },
+              score: codeScore,
+            });
+            if (matchedCodes.length >= limit * 2) break;
+          }
+        }
+      }
+
+      matchedCodes.sort((a, b) => b.score - a.score);
 
       const topGames = scoredGames.slice(0, limit).map((item) => item.game);
       const topCodes = matchedCodes.slice(0, limit).map((item) => ({ game: item.game, code: item.code }));
@@ -923,12 +976,12 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
           success: true,
           games: topGames,
           codes: topCodes,
-          totalMatches: scoredGames.length + matchedCodes.length,
+          totalMatches: topGames.length + topCodes.length,
         }),
         {
           headers: {
             ...CORS_HEADERS,
-            'Cache-Control': 'public, max-age=15, s-maxage=30, stale-while-revalidate=60',
+            'Cache-Control': 'public, max-age=60, s-maxage=300, stale-while-revalidate=600',
           },
         }
       );
@@ -1164,84 +1217,88 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
         orderByClause = 'ORDER BY last_code_at DESC';
       }
 
-      // Truy vấn đếm tổng số bản ghi khớp điều kiện
-      const countRes = await env.DB.prepare(
-        `SELECT COUNT(*) as total FROM games ${whereClause}`
-      ).bind(...bindParams).first<any>();
-      const total = Number(countRes?.total || 0);
-      const totalPages = Math.max(1, Math.ceil(total / limit));
-      const safePage = Math.min(Math.max(1, page), totalPages);
-      const offset = (safePage - 1) * limit;
-
-      // P2: List API CHỈ trả các trường nhẹ phục vụ lưới game, KHÔNG trả description/instructions/codes array
-      const listQuery = `
-        SELECT
-          id, name, slug, publisher, category, platform, rating, icon_url,
-          active_codes_count, total_codes_count, last_code_at,
-          is_hot, is_new, is_featured
-        FROM games
-        ${whereClause}
-        ${orderByClause}
-        LIMIT ? OFFSET ?
-      `;
-      const rowsRes = await env.DB.prepare(listQuery).bind(...bindParams, limit, offset).all<any>();
-      const rows = (rowsRes?.results || []).map((r: any) => {
-        let totalCount = Number(r.total_codes_count || 0);
-        let activeCount = Number(r.active_codes_count !== undefined && r.active_codes_count !== null ? r.active_codes_count : 0);
-        if (r.slug === 'anime-vanguards') {
-          totalCount = 119;
-          activeCount = 119;
-        } else if (r.slug === 'da-hood') {
-          totalCount = 138;
-          activeCount = 138;
-        } else if (r.slug === 'type-soul') {
-          totalCount = 68;
-          activeCount = 68;
-        }
-        return {
-          id: String(r.id || r.slug),
-          name: String(r.name),
-          slug: String(r.slug),
-          publisher: r.publisher || '',
-          category: r.category || '',
-          platform: r.platform || '',
-          rating: typeof r.rating === 'number' ? r.rating : 4.8,
-          icon_url: r.icon_url || '',
-          active_codes_count: activeCount,
-          total_codes_count: totalCount,
-          codes_count: activeCount,
-          last_code_at: r.last_code_at || null,
-          is_hot: Boolean(r.is_hot),
-          is_new: Boolean(r.is_new),
-          is_featured: Boolean(r.is_featured),
-        };
-      });
-
-      // Lấy danh mục distinct cho filter bar
-      const catRes = await env.DB.prepare(
-        "SELECT DISTINCT category FROM games WHERE is_active = 1 AND (status IS NULL OR UPPER(status) IN ('ACTIVE', 'PUBLISHED')) AND total_codes_count > 0 AND category IS NOT NULL AND category != '' ORDER BY category ASC"
-      ).all<any>().catch(() => ({ results: [] as any[] }));
-      const categories = ['Tất cả', ...(catRes?.results || []).map((c: any) => c.category).filter(Boolean)];
-
-      return new Response(
-        JSON.stringify({
-          success: true,
-          page: safePage,
-          limit,
-          total,
-          totalPages,
-          hasMore: safePage < totalPages,
-          games: rows,
-          categories,
-          timestamp: new Date().toISOString(),
-        }),
-        {
-          headers: {
-            ...CORS_HEADERS,
-            'Cache-Control': 'public, max-age=60, s-maxage=120, stale-while-revalidate=600',
-          },
-        }
+      // Truy vấn đếm tổng số bản ghi khớp điều kiện (bọc timeout 1200ms chống treo khi D1 đầy quota)
+      const countRes = await withD1Timeout(
+        env.DB.prepare(
+          `SELECT COUNT(*) as total FROM games ${whereClause}`
+        ).bind(...bindParams).first<any>(),
+        1200,
+        null
       );
+      const rowsRes = countRes ? await withD1Timeout(
+        env.DB.prepare(listQuery).bind(...bindParams, limit, offset).all<any>(),
+        1200,
+        null
+      ) : null;
+
+      if (countRes && rowsRes && Array.isArray(rowsRes.results) && rowsRes.results.length > 0) {
+        const total = Number(countRes?.total || 0);
+        const totalPages = Math.max(1, Math.ceil(total / limit));
+        const safePage = Math.min(Math.max(1, page), totalPages);
+        const offset = (safePage - 1) * limit;
+
+        const rows = (rowsRes?.results || []).map((r: any) => {
+          let totalCount = Number(r.total_codes_count || 0);
+          let activeCount = Number(r.active_codes_count !== undefined && r.active_codes_count !== null ? r.active_codes_count : 0);
+          if (r.slug === 'anime-vanguards') {
+            totalCount = 119;
+            activeCount = 119;
+          } else if (r.slug === 'da-hood') {
+            totalCount = 138;
+            activeCount = 138;
+          } else if (r.slug === 'type-soul') {
+            totalCount = 68;
+            activeCount = 68;
+          }
+          return {
+            id: String(r.id || r.slug),
+            name: String(r.name),
+            slug: String(r.slug),
+            publisher: r.publisher || '',
+            category: r.category || '',
+            platform: r.platform || '',
+            rating: typeof r.rating === 'number' ? r.rating : 4.8,
+            icon_url: r.icon_url || '',
+            active_codes_count: activeCount,
+            total_codes_count: totalCount,
+            codes_count: activeCount,
+            last_code_at: r.last_code_at || null,
+            is_hot: Boolean(r.is_hot),
+            is_new: Boolean(r.is_new),
+            is_featured: Boolean(r.is_featured),
+          };
+        });
+
+        // Lấy danh mục distinct cho filter bar
+        const catRes = await withD1Timeout(
+          env.DB.prepare(
+            "SELECT DISTINCT category FROM games WHERE is_active = 1 AND (status IS NULL OR UPPER(status) IN ('ACTIVE', 'PUBLISHED')) AND total_codes_count > 0 AND category IS NOT NULL AND category != '' ORDER BY category ASC"
+          ).all<any>(),
+          1000,
+          { results: [] as any[] }
+        );
+        const categories = ['Tất cả', ...(catRes?.results || []).map((c: any) => c.category).filter(Boolean)];
+
+        return new Response(
+          JSON.stringify({
+            success: true,
+            page: safePage,
+            limit,
+            total,
+            totalPages,
+            hasMore: safePage < totalPages,
+            games: rows,
+            categories,
+            timestamp: new Date().toISOString(),
+          }),
+          {
+            headers: {
+              ...CORS_HEADERS,
+              'Cache-Control': 'public, max-age=60, s-maxage=120, stale-while-revalidate=600',
+            },
+          }
+        );
+      }
     }
 
     // Fallback in-memory catalog

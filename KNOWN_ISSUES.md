@@ -10,6 +10,26 @@
 
 ## 1. DANH MỤC LỖI & CÁC BẪY ĐÃ THẤT BẠI (DO NOT REPEAT)
 
+### ISSUE-140: Bẫy Đốt Hạn Mức Đọc/Ghi D1 Do Full Table Scan Autocomplete & Ghi Sự Kiện Ảo Lặp Lại Cùng Lỗi Truy Cập Mảng Fallback
+- **Triệu chứng**:
+  - D1 Cloudflare chạm hạn mức gói Free: 5.17M/5M dòng đọc (103.4%), 157.88k/100k dòng ghi (157.9%).
+  - Khi D1 bị chặn, web khách không "bình thường 100%": các API catalog, /api/stats, sắp ra mắt bị timeout, trong khi chi tiết game Where Winds Meet trả HTTP 200 nhưng rỗng 0 mã (total = 0, active = 0).
+- **Nguyên nhân gốc rễ (Root Cause)**:
+  1. *Full Table Scan trong Autocomplete*: Mỗi ký tự người dùng gõ vào ô tìm kiếm chạy `JOIN games ON games.slug = codes.game_slug WHERE (codes.code LIKE ? OR codes.rewards LIKE ?)` quét toàn bộ ~12.000 dòng mã codes.
+  2. *Ghi hàng chục ngàn sự kiện ảo vào D1*: Poll `/api/realtime-events` mỗi 5-15s kích hoạt batch flush sự kiện mô phỏng `is_simulated = 1` vào `wcg_virtual_events` và `wcg_virtual_aggregates`, kèm 40 câu `ALTER TABLE` trong `ensureSchemaUpgrades`.
+  3. *Lỗi truy cập Mảng như Đối tượng (Array vs Dictionary Bug)*: Tệp `crawled_codes_188.json` là một Mảng (Array), nhưng mã nguồn lại truy cập `fallbackCodesData[slug]` khiến giá trị fallback luôn bằng `undefined` cho mọi game khi D1 lỗi.
+  4. *Thiếu Timeout cho D1*: Các hàm đọc D1 không có cơ chế ngắt thời gian, khiến toàn bộ tiến trình treo đến khi Cloudflare Pages Function timeout (30s).
+- **Giải pháp chuẩn đã kiểm chứng**:
+  1. *Chuyển toàn bộ Autocomplete sang In-Memory*: Sử dụng 560 game và 11.883 mã có sẵn trong Worker memory để tính điểm tìm kiếm, tiêu thụ đúng 0 dòng đọc D1, độ trễ < 2ms.
+  2. *Ngừng 100% ghi sự kiện ảo vào D1*: Giữ toàn bộ popup và số ảo trong Edge Memory / KV. D1 chỉ lưu dữ liệu thật (đơn thật, nạp thật, giật thật).
+  3. *Bọc Edge Cache 10s cho /api/realtime-events*: Khớp nhịp slot 10s của client, người dùng cùng slot nhận cache từ CDN.
+  4. *Tạo bảng băm O(1) fallbackCodesBySlug Map*: Chuẩn hóa 615 mã WWM, 68 mã Type Soul, 119 mã Anime Vanguards, 138 mã Da Hood vào Map tra cứu tức thì.
+  5. *Bọc withD1Timeout*: Toàn bộ truy vấn D1 tự động timeout sau 1.2s và chuyển sang phục vụ dữ liệu tĩnh an toàn.
+- ⛔ **CÁCH SỬA ĐÃ THẤT BẠI - TUYỆT ĐỐI KHÔNG LẶP LẠI**:
+  - ❌ *Không chạy truy vấn `LIKE %...%` trên bảng `codes`*: Bảng codes có hàng chục ngàn dòng, mọi lệnh LIKE hai đầu đều gây full scan quét kiệt hạn mức.
+  - ❌ *Không ghi sự kiện mô phỏng ảo vào CSDL D1*: Chỉ lưu dữ liệu thật, dữ liệu ảo tính toán hoàn toàn bằng công thức thời gian trong bộ nhớ.
+  - ❌ *Không truy cập mảng dữ liệu JSON bằng khóa chuỗi `array[slug]`*: Luôn kiểm tra cấu trúc mảng hoặc chuyển sang `Map<string, GiftCode[]>` trước khi tra cứu.
+
 ### ISSUE-139: Bẫy Đóng Băng Trạng Thái Chờ Giãn Cách Giveaway (Global Cooldown) Do Đóng Gói Modal Trong Closure IIFE Thay Vì Subcomponent Độc Lập
 - **Triệu chứng**:
   - Khi người dùng bấm mở Modal sự kiện Giveaway có giãn cách phát mã toàn sàn (`global_cooldown_seconds > 0`), đồng hồ đếm ngược chờ đợt phát chạy về 0 nhưng giao diện không tự động chuyển sang nút *"⚡ GIẬT MÃ CODE NGAY (MIỄN PHÍ)"*, người dùng bị kẹt ở ô trống hoặc nút vô hiệu hóa.

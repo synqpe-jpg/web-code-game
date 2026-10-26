@@ -5,7 +5,7 @@ import {
   loadAllStoreProductsD1,
   loadAllUtilitiesD1,
   loadAllGiveawaysD1,
-  ensureSchemaUpgrades,
+  withD1Timeout,
 } from '../services/d1_service';
 
 interface Env {
@@ -15,15 +15,15 @@ interface Env {
 export const onRequestGet: PagesFunction<Env> = async (context) => {
   const { env, request } = context;
 
-  if (env.DB) {
-    await ensureSchemaUpgrades(env.DB);
-  }
-
-  // 1. Total community votes from D1
+  // 1. Total community votes from D1 (non-blocking with timeout)
   let totalVotes = 1420;
   if (env.DB) {
     try {
-      const votesVal = await getSettingD1<number | string>(env.DB, 'wcg_stats_total_votes');
+      const votesVal = await withD1Timeout(
+        getSettingD1<number | string>(env.DB, 'wcg_stats_total_votes'),
+        1000,
+        1420
+      );
       if (votesVal) totalVotes = parseInt(String(votesVal), 10);
     } catch {}
   }
@@ -68,16 +68,20 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
     if (!hourlyStats) {
       try {
         const [products, utilities, giveaways] = await Promise.all([
-          loadAllStoreProductsD1(env.DB),
-          loadAllUtilitiesD1(env.DB),
-          loadAllGiveawaysD1(env.DB),
+          withD1Timeout(loadAllStoreProductsD1(env.DB), 1000, []),
+          withD1Timeout(loadAllUtilitiesD1(env.DB), 1000, []),
+          withD1Timeout(loadAllGiveawaysD1(env.DB), 1000, []),
         ]);
 
         // Count completed orders per item directly from D1 SQLite
         const orderCounts: Record<string, number> = {};
-        const d1OrderCounts = await env.DB.prepare(
-          "SELECT product_id, SUM(quantity) as total_sold FROM orders WHERE status = 'COMPLETED' GROUP BY product_id"
-        ).all();
+        const d1OrderCounts = await withD1Timeout(
+          env.DB.prepare(
+            "SELECT product_id, SUM(quantity) as total_sold FROM orders WHERE status = 'COMPLETED' GROUP BY product_id"
+          ).all(),
+          1000,
+          { results: [] as any[] }
+        );
         if (d1OrderCounts && d1OrderCounts.results) {
           for (const r of d1OrderCounts.results as any[]) {
             if (r && r.product_id) {

@@ -594,11 +594,8 @@ export async function onRequestGet(context: { request: Request; env: Env }): Pro
     }
   });
 
-  // Tự động kiểm tra và chữa lành tính toàn vẹn dữ liệu
-  const { changed: getChanged } = sanitizeAndSafeguardUpcomingGames(upcomingGames);
-  if ((getChanged || hasMissingLaunched || statusCoerced) && env.DB && !isFallbackMode) {
-    setSettingD1(env.DB, 'wcg_admin_upcoming_games_v1', upcomingGames).catch(() => {});
-  }
+  // Tự động kiểm tra và chữa lành tính toàn vẹn dữ liệu trong bộ nhớ (Zero D1 writes on GET)
+  sanitizeAndSafeguardUpcomingGames(upcomingGames);
 
   // Ensure default displayOrder & valid icons if missing
   upcomingGames.forEach((g, idx) => {

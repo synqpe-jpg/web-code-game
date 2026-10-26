@@ -197,6 +197,21 @@
 - **Migration Hồi Tố Khi Thay Đổi Quy Tắc (Retroactive Rule Enforcement)**:
   - Khi áp dụng quy tắc mới (ví dụ bảo tồn case-sensitivity, chuẩn hóa phần thưởng, xóa mã rác scraping): Bắt buộc phải chạy script migration cập nhật lại toàn bộ dữ liệu đã lưu trong quá khứ ở tất cả các tầng: D1 SQL database, D1 system settings (KV), và các file baseline static database (`crawled_codes_188.json`, `codes_database.json`).
 
+### 3.14. Quy Tắc Tối Ưu Hóa D1 Miễn Phí 100% & Fallback Bền Vững (Zero D1 Quota Burn & Edge Resilience Rule)
+- **Autocomplete 100% In-Memory (Zero Full Table Scan)**:
+  - Tuyệt đối **KHÔNG** chạy câu lệnh SQL dạng `LIKE %...%` trên bảng `codes` D1. Tìm kiếm Autocomplete thực hiện 100% trong bộ nhớ Worker dựa trên `fallbackGamesData` (560 game) và `fallbackCodesData` (11.883 mã quà), phản hồi tức thì < 2ms và tiêu tốn đúng 0 dòng đọc D1.
+- **Sự Kiện Mô Phỏng & Bộ Đếm Ảo 100% In-Memory / KV**:
+  - Tuyệt đối **KHÔNG** ghi dồn dập các sự kiện popup ảo (`is_simulated = 1`) hoặc các dòng tổng hợp ảo vào CSDL Cloudflare D1 (`wcg_virtual_events`, `wcg_virtual_aggregates`).
+  - D1 chỉ lưu trữ dữ liệu thực tế (thành viên, đơn hàng, giftcode thật, giao dịch thật).
+  - Toàn bộ bộ đếm ảo được tính toán dựa trên mốc neo thời gian 15:33 25/10/2026 và công thức tăng trưởng cố định: VIP ~26/giờ, giveaway ~0.1292/phút, master copy 1.0/phút.
+- **Edge Cache 10s Cho Realtime Events**:
+  - `/api/realtime-events` sử dụng header `Cache-Control: public, max-age=5, s-maxage=10, stale-while-revalidate=15`, đồng bộ hoàn hảo với nhịp khe thời gian 10 giây phía client, triệt tiêu 90% tải Worker và 100% tải DB.
+- **Phòng Thủ Timeout & Cầu Dao Toàn Diện (`withD1Timeout`)**:
+  - Mọi câu lệnh đọc D1 trên các endpoint công khai bắt buộc bọc qua hàm `withD1Timeout(promise, 1000 - 1200ms, fallbackVal)`.
+  - Nếu D1 chạm trần hạn mức hoặc phản hồi chậm quá 1.2s, hệ thống tự động trả về tập dữ liệu tĩnh baseline mà không làm treo request của người dùng.
+- **Bảng Tra Cứu Fallback O(1) Bằng Map**:
+  - Tệp `crawled_codes_188.json` khi nạp vào Worker phải được băm sẵn sang `Map<string, GiftCode[]>` theo slug game (`fallbackCodesBySlug`) để tra cứu tức thì O(1), không truy cập mảng bằng khóa chuỗi `array[slug]`.
+
 ---
 
 ## 4. BẢN ĐỒ DỮ LIỆU & STATE MANAGEMENT

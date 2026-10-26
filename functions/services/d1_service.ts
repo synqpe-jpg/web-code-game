@@ -1707,6 +1707,31 @@ const settingMemoryCache = new Map<string, SettingMemoryCacheEntry>();
 const SETTING_MEMORY_CACHE_TTL = 60 * 1000; // 60 seconds
 
 /**
+ * Wraps a D1 database promise with strict timeout and fallback
+ * Prevents Worker hangs or timeouts when D1 hits quota limits or is slow.
+ */
+export async function withD1Timeout<T>(
+  promise: Promise<T>,
+  timeoutMs: number = 1200,
+  fallbackVal: T
+): Promise<T> {
+  let timer: any;
+  const timeoutPromise = new Promise<T>((resolve) => {
+    timer = setTimeout(() => resolve(fallbackVal), timeoutMs);
+  });
+  return Promise.race([
+    promise.then((res) => {
+      clearTimeout(timer);
+      return res;
+    }).catch(() => {
+      clearTimeout(timer);
+      return fallbackVal;
+    }),
+    timeoutPromise,
+  ]);
+}
+
+/**
  * Read system setting / document from D1 with durable authoritative fallback and memory cache
  */
 export async function getSettingD1<T = any>(db: D1Database, key: string, defaultValue: T | null = null): Promise<T | null> {
@@ -1717,8 +1742,11 @@ export async function getSettingD1<T = any>(db: D1Database, key: string, default
 
   const fallback = getCanonicalSettingFallback<T>(key);
   try {
-    await ensureSchemaUpgrades(db);
-    const row = await db.prepare('SELECT value FROM system_settings WHERE key = ?').bind(key).first<any>();
+    const row = await withD1Timeout(
+      db.prepare('SELECT value FROM system_settings WHERE key = ?').bind(key).first<any>(),
+      1000,
+      null
+    );
     if (row && row.value !== undefined && row.value !== null) {
       try {
         const parsed = JSON.parse(row.value) as T;
@@ -1791,9 +1819,12 @@ export async function getMultipleSettingsD1(db: D1Database, keys: string[]): Pro
   }
 
   try {
-    await ensureSchemaUpgrades(db);
     const placeholders = missingKeys.map(() => '?').join(',');
-    const rows = await db.prepare(`SELECT key, value FROM system_settings WHERE key IN (${placeholders})`).bind(...missingKeys).all<any>();
+    const rows = await withD1Timeout(
+      db.prepare(`SELECT key, value FROM system_settings WHERE key IN (${placeholders})`).bind(...missingKeys).all<any>(),
+      1200,
+      { results: [] as any[] }
+    );
     if (rows && rows.results) {
       for (const r of rows.results) {
         if (r && r.key) {
@@ -3138,78 +3169,16 @@ export async function loadVirtualAggregatesD1(db: D1Database): Promise<Record<st
 
 /**
  * Batch flush virtual layer aggregates & events into D1 in 1 single subrequest batch
+ * REQUIREMENT 2A: Simulated events (is_simulated = 1) and virtual FOMO aggregates are 100% in-memory/KV.
+ * D1 strictly stores REAL data only. Zero simulated writes to D1.
  */
 export async function batchFlushVirtualLayerD1(
   db: D1Database,
   aggregates: VirtualAggregateRow[],
   events: VirtualEventRow[]
 ): Promise<boolean> {
-  if (isD1CircuitBreakerActive()) return false;
-  if ((!aggregates || aggregates.length === 0) && (!events || events.length === 0)) return true;
-
-  try {
-    await ensureSchemaUpgrades(db);
-    const statements: D1PreparedStatement[] = [];
-
-    // 1. Upsert aggregates
-    for (const agg of aggregates) {
-      statements.push(
-        db.prepare(`
-          INSERT INTO wcg_virtual_aggregates (
-            product_id, virtual_sold, virtual_buffer, virtual_claimed, virtual_copy, virtual_restock_count, last_restock_at, updated_at
-          ) VALUES (?, ?, ?, ?, ?, ?, ?, datetime('now'))
-          ON CONFLICT(product_id) DO UPDATE SET
-            virtual_sold = excluded.virtual_sold,
-            virtual_buffer = excluded.virtual_buffer,
-            virtual_claimed = excluded.virtual_claimed,
-            virtual_copy = excluded.virtual_copy,
-            virtual_restock_count = excluded.virtual_restock_count,
-            last_restock_at = excluded.last_restock_at,
-            updated_at = excluded.updated_at
-        `).bind(
-          agg.product_id,
-          agg.virtual_sold || 0,
-          agg.virtual_buffer || 0,
-          agg.virtual_claimed || 0,
-          agg.virtual_copy || 0,
-          agg.virtual_restock_count || 0,
-          agg.last_restock_at || null
-        )
-      );
-    }
-
-    // 2. Insert new virtual events (limit to max 50 per batch)
-    const recentEvents = (events || []).slice(0, 50);
-    for (const ev of recentEvents) {
-      statements.push(
-        db.prepare(`
-          INSERT OR IGNORE INTO wcg_virtual_events (
-            id, type, product_id, item_name, amount, details, is_simulated, created_at
-          ) VALUES (?, ?, ?, ?, ?, ?, 1, ?)
-        `).bind(
-          ev.id,
-          ev.type,
-          ev.product_id || null,
-          ev.item_name || null,
-          ev.amount || 1,
-          ev.details || null,
-          ev.created_at || new Date().toISOString()
-        )
-      );
-    }
-
-    if (statements.length > 0) {
-      recordD1Write(statements.length);
-      await db.batch(statements);
-    }
-    return true;
-  } catch (err: any) {
-    console.warn('[batchFlushVirtualLayerD1 error]', err?.message);
-    if (err?.message?.includes('quota') || err?.message?.includes('503')) {
-      triggerD1CircuitBreaker(15 * 60 * 1000, err.message);
-    }
-    return false;
-  }
+  // 100% In-Memory/KV for simulated events & aggregates: Zero D1 writes
+  return true;
 }
 
 /**

@@ -27,6 +27,7 @@ import {
   VirtualEventRow,
   isD1CircuitBreakerActive,
   recordD1Read,
+  withD1Timeout,
 } from './d1_service';
 import { getRealEventsHub, maskServerName } from './realEventsHub';
 import { PRESET_VIRTUAL_ACCOUNTS } from '../../src/services/marketingService';
@@ -488,13 +489,23 @@ export async function initializeVirtualLayer(env: any, forceRefresh: boolean = f
       try { mktConfig = typeof mktConfigRaw === 'string' ? JSON.parse(mktConfigRaw) : mktConfigRaw; } catch {}
     }
 
-    // 2. Load Real Products & Utilities
-    recordD1Read(10);
-    const [spRows, utRows, gwRows, d1Aggregates, realHub] = await Promise.all([
-      env.DB.prepare('SELECT id, title, stock_quantity, sold_count, virtual_sold_count, is_active FROM store_products WHERE is_active = 1').all().catch(() => ({ results: [] })),
-      env.DB.prepare('SELECT id, title, stock_quantity, sold_count, virtual_sold_count, is_active FROM utilities WHERE is_active = 1').all().catch(() => ({ results: [] })),
-      env.DB.prepare('SELECT id, title, remaining_codes, claimed_codes, virtual_claimed_offset, is_active FROM giveaways WHERE is_active = 1').all().catch(() => ({ results: [] })),
-      loadVirtualAggregatesD1(env.DB).catch(() => ({})),
+    // 2. Load Real Products & Utilities with timeout
+    const [spRows, utRows, gwRows, realHub] = await Promise.all([
+      withD1Timeout(
+        env.DB.prepare('SELECT id, title, stock_quantity, sold_count, virtual_sold_count, is_active FROM store_products WHERE is_active = 1').all().catch(() => ({ results: [] })),
+        1000,
+        { results: [] as any[] }
+      ),
+      withD1Timeout(
+        env.DB.prepare('SELECT id, title, stock_quantity, sold_count, virtual_sold_count, is_active FROM utilities WHERE is_active = 1').all().catch(() => ({ results: [] })),
+        1000,
+        { results: [] as any[] }
+      ),
+      withD1Timeout(
+        env.DB.prepare('SELECT id, title, remaining_codes, claimed_codes, virtual_claimed_offset, is_active FROM giveaways WHERE is_active = 1').all().catch(() => ({ results: [] })),
+        1000,
+        { results: [] as any[] }
+      ),
       getRealEventsHub(env).catch(() => ({ masterCopyClicks: 0, realProductSoldCounts: {}, realGiveawayClaimedCounts: {} })),
     ]);
 
@@ -884,70 +895,15 @@ export function processCurrentTimeSlot(state: VirtualLayerState, nowMs: number =
 
 /**
  * Trigger Batch Flush to D1 if batch window or threshold met
+ * REQUIREMENT 2A: Simulated events (is_simulated = 1) and virtual aggregates are 100% in-memory.
+ * D1 strictly stores REAL data only. Zero simulated writes to D1.
  */
 export async function maybeFlushVirtualLayerToD1(env: any, waitUntil?: (promise: Promise<any>) => void): Promise<void> {
   const state = getLayerState();
-  const now = Date.now();
-
-  const isTimeTriggered = (now - state.lastFlushTime) >= BATCH_FLUSH_INTERVAL_MS;
-  const isCountTriggered = state.pendingFlushEvents.length >= BATCH_FLUSH_EVENT_THRESHOLD;
-
-  if (!isTimeTriggered && !isCountTriggered) {
-    return;
-  }
-
-  if (isD1CircuitBreakerActive() || !env || !env.DB) {
-    return;
-  }
-
-  const dirtyAggregates: VirtualAggregateRow[] = [];
-  state.dirtyAggregateIds.forEach((id) => {
-    const prod = state.products.get(id);
-    if (prod) {
-      dirtyAggregates.push({
-        product_id: prod.productId,
-        virtual_sold: prod.virtualSold,
-        virtual_buffer: Math.max(0, prod.virtualBuffer),
-        virtual_claimed: 0,
-        virtual_copy: 0,
-        virtual_restock_count: prod.virtualRestockCount,
-        last_restock_at: prod.lastRestockAt,
-      });
-    }
-    const gw = state.giveaways.get(id);
-    if (gw) {
-      dirtyAggregates.push({
-        product_id: gw.campaignId,
-        virtual_sold: 0,
-        virtual_buffer: Math.max(0, gw.virtualRemainingBuffer),
-        virtual_claimed: gw.virtualClaimed,
-        virtual_copy: 0,
-        virtual_restock_count: gw.virtualRestockCount,
-        last_restock_at: gw.lastRestockAt,
-      });
-    }
-  });
-
-  const eventsToFlush = [...state.pendingFlushEvents];
-
-  const flushTask = async () => {
-    try {
-      const success = await batchFlushVirtualLayerD1(env.DB, dirtyAggregates, eventsToFlush);
-      if (success) {
-        state.dirtyAggregateIds.clear();
-        state.pendingFlushEvents = [];
-        state.lastFlushTime = Date.now();
-      }
-    } catch (err: any) {
-      console.warn('[maybeFlushVirtualLayerToD1 error]', err?.message);
-    }
-  };
-
-  if (waitUntil) {
-    waitUntil(flushTask());
-  } else {
-    await flushTask();
-  }
+  // Clear dirty in-memory structures without writing simulated events to D1
+  state.dirtyAggregateIds.clear();
+  state.pendingFlushEvents = [];
+  state.lastFlushTime = Date.now();
 }
 
 /**
