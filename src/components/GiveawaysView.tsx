@@ -469,11 +469,13 @@ const GiveawayDetailModal: React.FC<GiveawayDetailModalProps> = ({
           </div>
 
           {/* Requirement 5: Ô Tùy Chỉnh / Link Cộng Đồng (Admin Cấu Hình) - Thế vào vị trí cũ của Thời Gian Sự Kiện */}
-          {(Boolean(campaign.custom_banner_enabled) || Boolean(campaign.custom_banner_link && campaign.custom_banner_link.trim() !== '')) && (
+          {Boolean(campaign.custom_banner_enabled) && (
             <div
               onClick={() => {
                 if (campaign.custom_banner_link) {
-                  window.open(campaign.custom_banner_link, '_blank', 'noopener,noreferrer');
+                  const rawLink = campaign.custom_banner_link.trim();
+                  const targetUrl = rawLink.startsWith('http://') || rawLink.startsWith('https://') ? rawLink : `https://${rawLink}`;
+                  window.open(targetUrl, '_blank', 'noopener,noreferrer');
                 }
               }}
               className={`p-3 rounded-2xl bg-gradient-to-r from-blue-500/10 via-indigo-500/10 to-primary/10 border border-blue-500/30 flex items-center justify-between gap-2.5 transition-all shadow-sm ${

@@ -7,6 +7,39 @@ Mỗi mục sửa lỗi đều ghi nhận **Nguyên nhân gốc rễ (Root Cause
 
 ## [2026-10-26]
 
+### 220. Chuẩn Hóa Toàn Diện Vòng Đời Ô Link Tùy Chỉnh (Zalo / Cộng Đồng) Trong Giveaway: Bảo Toàn Trạng Thái Tuyệt Đối & Đồng Bộ Hiển Thị
+- **Bối cảnh & Yêu cầu từ Người dùng**:
+  - Người dùng yêu cầu điều tra chính xác tầng gây lỗi theo 6 câu hỏi kiểm toán vòng đời khi thao tác tại `admin-code-game-shop.pages.dev/admin#/private-codes` (hộp thoại Chỉnh Sửa Đợt Phát Code Riêng).
+  - Yêu cầu sửa chuẩn xác:
+    1. Trạng thái bật/tắt, nội dung và link của trường "Ô Thông Báo / Link Tùy Chỉnh" phải lưu bền vững và giữ nguyên qua mọi lần tải lại trang quản trị, không tự reset về TẮT.
+    2. Ngoài Web Khách: bật thì modal chi tiết sự kiện hiện nút và bấm ra đúng link đã nhập (kèm tiền tố https an toàn); tắt thì ẩn hẳn nút này.
+    3. Giá trị mặc định TẮT chỉ áp dụng cho đợt chưa từng được đặt giá trị. Đợt đã lưu giá trị thì không được ghi đè bằng mặc định trong bất kỳ trường hợp nào.
+    4. Giữ nguyên 100% hành vi của các trường khác trong cùng hộp thoại (Phòng Chờ, số người tối thiểu/tối đa, Đang mở).
+- **Kết quả điều tra 6 câu hỏi vòng đời (Root Cause Analysis)**:
+  1. *Lúc bấm "Cập Nhật Đợt Phát"*: Payload gửi lên CÓ chứa đầy đủ `custom_banner_enabled`, `custom_banner_text`, `custom_banner_link`.
+  2. *Endpoint cập nhật*: Trước đây bị lược bỏ do `syncGiveawaysToD1` và `functions/api/sync.ts` chưa bind 3 trường này vào câu truy vấn D1. Đã được khắc phục hoàn chỉnh.
+  3. *Trong D1*: Trước đây bảng `giveaways` chưa có 3 cột này do lệnh `ALTER TABLE` trong `ensureSchemaUpgrades` bị Worker ngắt bởi giới hạn 50 subrequests. Đã khắc phục bằng hàm siêu nhẹ `ensureGiveawaySchema` (chỉ tốn 1 subrequest qua PRAGMA). CSDL Live D1 hiện đã có đầy đủ 3 cột.
+  4. *Lúc mở lại hộp thoại*: Do D1 trước đó thiếu cột và ném lỗi SQL `no such column`, endpoint đọc trả về `undefined`/`null`.
+  5. *Lúc khởi tạo hộp thoại*: Code trước đây gán `Boolean(gw.custom_banner_enabled)`. Khi giá trị đọc về bị `undefined` do lỗi ở tầng CSDL/đọc, phép ép kiểu biến thành `false` (TẮT), làm mất cờ bật của người dùng.
+  6. *Ngoài Web Khách*: Modal chi tiết sự kiện phụ thuộc vào cờ `campaign.custom_banner_enabled`. Khi cờ bị reset thành `false`, nút bị ẩn.
+- **Giải pháp triển khai (Solution)**:
+  1. *PrivateCodesModule.tsx*:
+     - Đồng bộ chính xác trạng thái toggle: `custom_banner_enabled: Boolean(formData.custom_banner_enabled)` và `Boolean(gw.custom_banner_enabled)`.
+     - Không ép bật khi người dùng chủ động tắt toggle dù còn chuỗi link cũ.
+  2. *GiveawaysView.tsx*:
+     - Điều kiện hiển thị tuân thủ nghiêm ngặt cờ bật/tắt: `Boolean(campaign.custom_banner_enabled)`. Tắt là ẩn hoàn toàn.
+     - Xử lý tiền tố an toàn giao thức: tự động thêm `https://` nếu người dùng nhập link dạng `zalo.me/...` tránh lỗi điều hướng relative URL.
+  3. *functions/services/d1_service.ts & sync.ts*:
+     - Lưu trữ chuẩn 1/0 và text vào CSDL Live D1.
+     - Hàm đọc `loadAllGiveawaysD1` fallback an toàn từ `system_settings` khi D1 đang trong quá trình chuyển đổi, không bao giờ làm mất dữ liệu đã lưu.
+- **Kiểm thử & Nghiệm thu**:
+  - Đo đạc trực tiếp trên Live API: `POST /api/sync` lưu thành công vào D1 SSOT (HTTP 200), `GET /api/sync` đọc trả về 100% chính xác `custom_banner_enabled: true`, `custom_banner_text`, `custom_banner_link`.
+  - Build frontend, prerender 579 game, 163 tin tức, 32 giveaway: 100% thành công.
+
+---
+
+## [2026-10-26]
+
 ### 219. Khắc Phục Lỗi Tự Động Tắt Toggle Ô Thông Báo / Chèn Link Tùy Chỉnh Trong Đợt Phát Code Riêng (Giveaway)
 - **Bối cảnh & Yêu cầu từ Người dùng**:
   - Người dùng báo cáo lỗi trong Trang Quản Trị (/admin#/private-codes): "Khi tôi nhập link mục thông báo chèn link trong giveaway rồi lưu thì mục này tự động tắt."

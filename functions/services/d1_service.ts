@@ -2180,7 +2180,7 @@ export async function syncGiveawaysToD1(db: D1Database, giveaways: any[]): Promi
     const enableWaitingRoom = (gw.enable_waiting_room !== false && (gw as any).enableWaitingRoom !== false) ? 1 : 0;
     const waitingUsersMin = Math.max(0, Number(gw.waiting_users_min ?? gw.waitingUsersMin ?? 0));
     const waitingUsersMax = Math.max(0, Number(gw.waiting_users_max ?? gw.waitingUsersMax ?? 0));
-    const customBannerEnabled = (gw.custom_banner_enabled || (gw as any).customBannerEnabled || (gw.custom_banner_link && String(gw.custom_banner_link).trim() !== '')) ? 1 : 0;
+    const customBannerEnabled = (gw.custom_banner_enabled || (gw as any).customBannerEnabled) ? 1 : 0;
     const customBannerText = String(gw.custom_banner_text || (gw as any).customBannerText || 'Tham gia nhóm zalo của web tại đây').trim();
     const customBannerLink = String(gw.custom_banner_link || (gw as any).customBannerLink || '').trim();
     const showClaimed = (gw.show_claimed_count !== false && (gw as any).showClaimedCount !== false) ? 1 : 0;
