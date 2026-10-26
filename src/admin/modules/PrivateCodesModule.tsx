@@ -1286,6 +1286,9 @@ export const PrivateCodesModule: React.FC<PrivateCodesModuleProps> = ({ onShowTo
                   { label: '5 phút', val: 300 },
                   { label: '10 phút', val: 600 },
                   { label: '15 phút', val: 900 },
+                  { label: '30 phút', val: 1800 },
+                  { label: '45 phút', val: 2700 },
+                  { label: '1 giờ', val: 3600 },
                 ].map((item) => (
                   <button
                     key={item.val}

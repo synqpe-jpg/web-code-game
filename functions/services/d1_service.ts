@@ -782,6 +782,18 @@ export async function ensureSchemaUpgrades(db: D1Database): Promise<void> {
     await db.prepare("ALTER TABLE giveaways ADD COLUMN waiting_users_max INTEGER NOT NULL DEFAULT 0;").run().catch(() => {});
   } catch {}
   try {
+    await db.prepare("ALTER TABLE giveaways ADD COLUMN custom_banner_enabled INTEGER NOT NULL DEFAULT 0;").run().catch(() => {});
+  } catch {}
+  try {
+    await db.prepare("ALTER TABLE giveaways ADD COLUMN custom_banner_text TEXT DEFAULT 'Tham gia nhóm zalo của web tại đây';").run().catch(() => {});
+  } catch {}
+  try {
+    await db.prepare("ALTER TABLE giveaways ADD COLUMN custom_banner_link TEXT DEFAULT '';").run().catch(() => {});
+  } catch {}
+  try {
+    await db.prepare("UPDATE giveaways SET global_cooldown_seconds = 2700 WHERE id = 'gw_1792235539701_wee' AND (global_cooldown_seconds IS NULL OR global_cooldown_seconds = 0);").run().catch(() => {});
+  } catch {}
+  try {
     await db.prepare(`
       CREATE TABLE IF NOT EXISTS giveaways (
         id TEXT PRIMARY KEY,
@@ -806,6 +818,9 @@ export async function ensureSchemaUpgrades(db: D1Database): Promise<void> {
         enable_waiting_room INTEGER NOT NULL DEFAULT 1,
         waiting_users_min INTEGER NOT NULL DEFAULT 0,
         waiting_users_max INTEGER NOT NULL DEFAULT 0,
+        custom_banner_enabled INTEGER NOT NULL DEFAULT 0,
+        custom_banner_text TEXT DEFAULT 'Tham gia nhóm zalo của web tại đây',
+        custom_banner_link TEXT DEFAULT '',
         show_claimed_count INTEGER NOT NULL DEFAULT 1,
         virtual_claimed_offset INTEGER NOT NULL DEFAULT 0,
         start_time TEXT,
@@ -2133,6 +2148,9 @@ export async function syncGiveawaysToD1(db: D1Database, giveaways: any[]): Promi
     const enableWaitingRoom = (gw.enable_waiting_room !== false && (gw as any).enableWaitingRoom !== false) ? 1 : 0;
     const waitingUsersMin = Math.max(0, Number(gw.waiting_users_min ?? gw.waitingUsersMin ?? 0));
     const waitingUsersMax = Math.max(0, Number(gw.waiting_users_max ?? gw.waitingUsersMax ?? 0));
+    const customBannerEnabled = (gw.custom_banner_enabled || (gw as any).customBannerEnabled) ? 1 : 0;
+    const customBannerText = String(gw.custom_banner_text || (gw as any).customBannerText || 'Tham gia nhóm zalo của web tại đây').trim();
+    const customBannerLink = String(gw.custom_banner_link || (gw as any).customBannerLink || '').trim();
     const showClaimed = (gw.show_claimed_count !== false && (gw as any).showClaimedCount !== false) ? 1 : 0;
     const virtualOffset = Number(gw.virtual_claimed_offset ?? gw.virtualClaimedOffset ?? 0);
     const isActive = (gw.is_active !== false && (gw as any).isActive !== false) ? 1 : 0;
@@ -2152,11 +2170,12 @@ export async function syncGiveawaysToD1(db: D1Database, giveaways: any[]): Promi
         global_cooldown_seconds, last_global_claim_at, last_claimer_name,
         custom_success_msg, custom_cooldown_msg, custom_out_of_stock_msg,
         enable_waiting_room, waiting_users_min, waiting_users_max,
+        custom_banner_enabled, custom_banner_text, custom_banner_link,
         show_claimed_count, virtual_claimed_offset,
         start_time, end_time, is_active,
         cover_image_url, game_icon_url, status, created_at
       )
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       ON CONFLICT(id) DO UPDATE SET
         title = excluded.title,
         game_slug = excluded.game_slug,
@@ -2179,6 +2198,9 @@ export async function syncGiveawaysToD1(db: D1Database, giveaways: any[]): Promi
         enable_waiting_room = excluded.enable_waiting_room,
         waiting_users_min = excluded.waiting_users_min,
         waiting_users_max = excluded.waiting_users_max,
+        custom_banner_enabled = excluded.custom_banner_enabled,
+        custom_banner_text = excluded.custom_banner_text,
+        custom_banner_link = excluded.custom_banner_link,
         show_claimed_count = excluded.show_claimed_count,
         virtual_claimed_offset = excluded.virtual_claimed_offset,
         start_time = excluded.start_time,
@@ -2211,6 +2233,9 @@ export async function syncGiveawaysToD1(db: D1Database, giveaways: any[]): Promi
       enableWaitingRoom,
       waitingUsersMin,
       waitingUsersMax,
+      customBannerEnabled,
+      customBannerText,
+      customBannerLink,
       showClaimed,
       virtualOffset,
       startTime,
@@ -2704,6 +2729,18 @@ export async function loadAllGiveawaysD1(db: D1Database, includeCodes: boolean =
         COALESCE(g.max_per_user, 1) AS max_per_user, 
         COALESCE(g.max_per_ip, 1) AS max_per_ip, 
         COALESCE(g.cooldown_hours, 0) AS cooldown_hours, 
+        COALESCE(g.global_cooldown_seconds, 0) AS global_cooldown_seconds,
+        COALESCE(g.last_global_claim_at, '') AS last_global_claim_at,
+        COALESCE(g.last_claimer_name, '') AS last_claimer_name,
+        COALESCE(g.custom_cooldown_msg, '') AS custom_cooldown_msg,
+        COALESCE(g.custom_success_msg, '') AS custom_success_msg,
+        COALESCE(g.custom_out_of_stock_msg, '') AS custom_out_of_stock_msg,
+        COALESCE(g.enable_waiting_room, 1) AS enable_waiting_room,
+        COALESCE(g.waiting_users_min, 0) AS waiting_users_min,
+        COALESCE(g.waiting_users_max, 0) AS waiting_users_max,
+        COALESCE(g.custom_banner_enabled, 0) AS custom_banner_enabled,
+        COALESCE(g.custom_banner_text, '') AS custom_banner_text,
+        COALESCE(g.custom_banner_link, '') AS custom_banner_link,
         CASE WHEN g.show_claimed_count = 0 THEN 0 ELSE 1 END AS show_claimed_count,
         COALESCE(g.virtual_claimed_offset, 0) AS virtual_claimed_offset,
         g.start_time,
@@ -2734,6 +2771,18 @@ export async function loadAllGiveawaysD1(db: D1Database, includeCodes: boolean =
         ...meta,
         ...gw,
         remaining_codes: rem,
+        global_cooldown_seconds: gw.global_cooldown_seconds !== undefined ? Number(gw.global_cooldown_seconds) : Number(meta.global_cooldown_seconds || 0),
+        last_global_claim_at: gw.last_global_claim_at || meta.last_global_claim_at || '',
+        last_claimer_name: gw.last_claimer_name || meta.last_claimer_name || '',
+        custom_cooldown_msg: gw.custom_cooldown_msg || meta.custom_cooldown_msg || '',
+        custom_success_msg: gw.custom_success_msg || meta.custom_success_msg || '',
+        custom_out_of_stock_msg: gw.custom_out_of_stock_msg || meta.custom_out_of_stock_msg || '',
+        enable_waiting_room: gw.enable_waiting_room !== undefined ? Boolean(gw.enable_waiting_room) : (meta.enable_waiting_room !== false),
+        waiting_users_min: gw.waiting_users_min !== undefined ? Number(gw.waiting_users_min) : Number(meta.waiting_users_min || 0),
+        waiting_users_max: gw.waiting_users_max !== undefined ? Number(gw.waiting_users_max) : Number(meta.waiting_users_max || 0),
+        custom_banner_enabled: gw.custom_banner_enabled !== undefined ? Boolean(gw.custom_banner_enabled) : Boolean(meta.custom_banner_enabled),
+        custom_banner_text: gw.custom_banner_text || meta.custom_banner_text || 'Tham gia nhóm zalo của web tại đây',
+        custom_banner_link: gw.custom_banner_link || meta.custom_banner_link || '',
         virtual_claimed_offset: meta.virtual_claimed_offset !== undefined ? Math.max(0, Number(meta.virtual_claimed_offset) || 0) : Math.max(0, Number(gw.virtual_claimed_offset) || 0),
         fomo_anchor_time: meta.fomo_anchor_time || gw.fomo_anchor_time || null,
         show_claimed_count: gw.show_claimed_count !== undefined ? Boolean(gw.show_claimed_count) : (meta.show_claimed_count !== undefined ? Boolean(meta.show_claimed_count) : true),
