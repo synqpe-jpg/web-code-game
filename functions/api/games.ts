@@ -587,7 +587,7 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
               const isFakeExp = rawExp === '2026-12-31' || rawExp === '2026-12-31T23:59:59Z' || rawExp === '31/12/2026';
               return {
                 code: String(c.code || '').trim().toUpperCase(),
-                rewards: c.rewards || 'Quà tân thủ & vật phẩm ingame',
+                rewards: decodeHtmlEntities(c.rewards || 'Quà tân thủ & vật phẩm ingame'),
                 status: isCodeExpired(c) ? 'expired' : 'active',
                 expiry: isFakeExp ? '' : rawExp,
                 source: c.source || 'Fallback Catalog',

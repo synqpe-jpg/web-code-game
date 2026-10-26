@@ -31,13 +31,13 @@ export function decodeHtmlEntities(raw: any): string {
     .replace(/https:\/\/codegame\.store\/?/g, 'https://codegame.shop/');
 
   // Chữa lành tự động các mẫu phần thưởng tiếng Việt bị hỏng font (mojibake / uFFFD / ?)
-  if (/qu[^\s]*\s+t[^\s]*\s+t[^\s]*\s+th[^\s]*\s+&\s+v[^\s]*\s+ph[^\s]*\s+ingame/i.test(str)) {
+  if (/qu[^\s]*.*t[^\s]*n\s+th[^\s]*.*v[^\s]*t\s+ph[^\s]*m|qu[^\s]*.*ingame/i.test(str)) {
     return 'Quà tặng tân thủ & vật phẩm ingame';
   }
-  if (/ph[^\s]*n\s+th[^\s]*ng\s+t[^\s]*\s+nh[^\s]*\s+ph[^\s]*t\s+h[^\s]*nh/i.test(str)) {
+  if (/ph[^\s]*n\s+th[^\s]*ng.*ph[^\s]*t\s+h[^\s]*nh/i.test(str)) {
     return '🎁 Phần thưởng từ nhà phát hành';
   }
-  if (/^qu[^\s]*\s+t[^\s]*ng\s+t[^\s]*n\s+th[^\s]*$/i.test(str)) {
+  if (/qu[^\s]*\s+t[^\s]*ng.*t[^\s]*n\s+th[^\s]*/i.test(str)) {
     return 'Quà tặng tân thủ';
   }
 
