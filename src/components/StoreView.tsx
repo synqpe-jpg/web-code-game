@@ -17,6 +17,7 @@ import { getProductPackages, getProductMinPrice, groupStoreProductsByGame } from
 import type { StoreProduct, UserProfile } from '../types/game';
 import { EventCountdownBadge } from './countdown/EventCountdownBadge';
 import { eventSchedulerService } from '../services/eventSchedulerService';
+import { templateService } from '../services/templateService';
 
 interface StoreViewProps {
   onSelectProduct: (product: StoreProduct) => void;
@@ -35,7 +36,7 @@ export const StoreView: React.FC<StoreViewProps> = ({
   onOpenAuth,
   onOpenShare,
 }) => {
-  const [products, setProducts] = useState<StoreProduct[]>(() => dataService.getStoreProducts());
+  const [products, setProducts] = useState<StoreProduct[]>(() => dataService.getStoreProducts().map((p) => templateService.resolveStoreProduct(p)));
   const [categoriesList, setCategoriesList] = useState(() => dataService.getStoreCategories());
   const [filterType, setFilterType] = useState<string>('all');
   const [search, setSearch] = useState<string>('');
@@ -62,7 +63,7 @@ export const StoreView: React.FC<StoreViewProps> = ({
 
   useEffect(() => {
     const handleUpdate = () => {
-      setProducts([...dataService.getStoreProducts()]);
+      setProducts(dataService.getStoreProducts().map((p) => templateService.resolveStoreProduct(p)));
       setCmsIntro(dataService.getContentByKey('store_section'));
       setCategoriesList([...dataService.getStoreCategories()]);
       setIsGlobalSoldEnabled(
@@ -70,21 +71,25 @@ export const StoreView: React.FC<StoreViewProps> = ({
       );
     };
     const unsub = dataService.subscribe(handleUpdate);
+    const unsubTpl = templateService.subscribe(handleUpdate);
     const unsubStock = marketingService.subscribeStockChange(handleUpdate);
     const unsubSold = marketingService.subscribeSoldCountChange(handleUpdate);
     window.addEventListener('wcg_admin_data_updated', handleUpdate);
     window.addEventListener('wcg_virtual_stock_updated', handleUpdate);
     window.addEventListener('wcg_sold_count_updated', handleUpdate);
     window.addEventListener('wcg_store_settings_updated', handleUpdate);
+    window.addEventListener('wcg_universal_templates_updated', handleUpdate);
     window.addEventListener('storage', handleUpdate);
     return () => {
       unsub();
+      unsubTpl();
       unsubStock();
       unsubSold();
       window.removeEventListener('wcg_admin_data_updated', handleUpdate);
       window.removeEventListener('wcg_virtual_stock_updated', handleUpdate);
       window.removeEventListener('wcg_sold_count_updated', handleUpdate);
       window.removeEventListener('wcg_store_settings_updated', handleUpdate);
+      window.removeEventListener('wcg_universal_templates_updated', handleUpdate);
       window.removeEventListener('storage', handleUpdate);
     };
   }, []);

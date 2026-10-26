@@ -48,6 +48,7 @@ import { GuideLinksBanner } from './GuideLinksBanner';
 import { useLockBodyScroll } from '../hooks/useLockBodyScroll';
 import { EventCountdownBadge } from './countdown/EventCountdownBadge';
 import { eventSchedulerService } from '../services/eventSchedulerService';
+import { templateService } from '../services/templateService';
 
 interface UtilitiesViewProps {
   onShowToast: (title: string, message?: string, type?: 'success' | 'error' | 'info') => void;
@@ -70,7 +71,7 @@ export const UtilitiesView: React.FC<UtilitiesViewProps> = ({
   selectedUtilityId,
   onClearSelectedUtility,
 }) => {
-  const [utilities, setUtilities] = useState<UtilityProduct[]>(() => dataService.getUtilityProducts());
+  const [utilities, setUtilities] = useState<UtilityProduct[]>(() => dataService.getUtilityProducts().map((u) => templateService.resolveUtility(u)));
   const [activeMainTab, setActiveMainTab] = useState<'catalog' | 'wheel'>('catalog');
   const [selectedPackage, setSelectedPackage] = useState<ProductPackageVariant | null>(null);
   const [categoriesList, setCategoriesList] = useState<UtilityCategory[]>(() => dataService.getUtilityCategories());
@@ -165,7 +166,7 @@ export const UtilitiesView: React.FC<UtilitiesViewProps> = ({
     dataService.syncWithCloudflareKV();
 
     const handleUpdate = () => {
-      const rawLatest = dataService.getUtilityProducts();
+      const rawLatest = dataService.getUtilityProducts().map((u) => templateService.resolveUtility(u));
       const groupedLatest = groupUtilitiesByTheme(rawLatest);
       setUtilities([...rawLatest]);
       setCategoriesList(dataService.getUtilityCategories());
@@ -204,21 +205,25 @@ export const UtilitiesView: React.FC<UtilitiesViewProps> = ({
     };
 
     const unsub = dataService.subscribe(handleUpdate);
+    const unsubTpl = templateService.subscribe(handleUpdate);
     const unsubStock = marketingService.subscribeStockChange(handleUpdate);
     const unsubSold = marketingService.subscribeSoldCountChange(handleUpdate);
     window.addEventListener('wcg_admin_data_updated', handleUpdate);
     window.addEventListener('wcg_virtual_stock_updated', handleUpdate);
     window.addEventListener('wcg_sold_count_updated', handleUpdate);
     window.addEventListener('wcg_utilities_settings_updated', handleUpdate);
+    window.addEventListener('wcg_universal_templates_updated', handleUpdate);
     window.addEventListener('storage', handleUpdate);
     return () => {
       unsub();
+      unsubTpl();
       unsubStock();
       unsubSold();
       window.removeEventListener('wcg_admin_data_updated', handleUpdate);
       window.removeEventListener('wcg_virtual_stock_updated', handleUpdate);
       window.removeEventListener('wcg_sold_count_updated', handleUpdate);
       window.removeEventListener('wcg_utilities_settings_updated', handleUpdate);
+      window.removeEventListener('wcg_universal_templates_updated', handleUpdate);
       window.removeEventListener('storage', handleUpdate);
     };
   }, []);

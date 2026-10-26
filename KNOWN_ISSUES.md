@@ -10,6 +10,22 @@
 
 ## 1. DANH MỤC LỖI & CÁC BẪY ĐÃ THẤT BẠI (DO NOT REPEAT)
 
+### ISSUE-144: Bẫy Ghi Đè Hàng Loạt Khi Cập Nhật Chính Sách Chung Toàn Sàn (Tràn Hạn Mức D1 Writes & Mất Dữ Liệu Riêng Từng Đợt)
+- **Triệu chứng**:
+  - Khi cần cập nhật chính sách nhận quà (tuổi nick, max/user, max/IP, cooldown), link Zalo nhóm, nội dung thông báo hoặc thời gian giãn cách toàn sàn, quản trị viên phải chỉnh sửa thủ công lặp lại cho hơn 41 đợt giveaway và hàng chục sản phẩm tiện ích / cửa hàng.
+  - Nếu chạy script cập nhật hàng loạt vào D1, có nguy cơ làm cạn kiệt hạn mức ghi D1 (50k/ngày trên gói Free) và ghi đè mất các dữ liệu riêng tư (tựa game, icon, cover, số ảo bổ sung, danh sách mã trong kho).
+- **Nguyên nhân gốc rễ (Root Cause)**:
+  - Thiết kế trước đây lưu trữ toàn bộ các trường cấu hình lặp đi lặp lại trong từng bản ghi của từng đợt phát, thiếu cơ chế kế thừa mẫu chung (template inheritance).
+- **Giải pháp chuẩn đã kiểm chứng**:
+  1. *Kiến trúc 1-Write D1 SSOT*: Lưu 1 bản ghi `wcg_universal_templates_v1` duy nhất trong bảng `system_settings` của D1. Mỗi lần sửa mẫu chỉ tốn đúng 1 D1 write.
+  2. *Hợp nhất lúc chạy (Runtime Inheritance)*: Web Khách (`GiveawaysView`, `UtilitiesView`, `StoreView`, `GameDetailModal`) tự động kế thừa giá trị từ template khi render nếu `use_template !== false`.
+  3. *Bảo tồn tuyệt đối dữ liệu riêng*: Tựa game (`game_slug`, `game_name`), cover URL, con số ảo bổ sung (`virtual_claimed_offset`), trạng thái đang mở (`is_active`), kho mã (`codes_pool`, `claim_history`) không bao giờ bị ghi đè.
+  4. *Cơ chế an toàn phòng thủ*: Tính năng "Áp Đặt Toàn Bộ" bắt buộc qua Modal Xem Trước (Preview Diff), tự động tạo bản sao lưu Snapshot (`wcg_template_snapshots_v1`) trước khi thực hiện, cung cấp nút "Khôi Phục Bản Này" (Rollback) và ghi vết vào `TemplateAuditLog`.
+- ⛔ **CÁCH SỬA ĐÃ THẤT BẠI - TUYỆT ĐỐI KHÔNG LẶP LẠI**:
+  - ❌ *Không bao giờ chạy lệnh UPDATE SQL hàng loạt trên toàn bộ bảng*: Chỉ lưu cấu hình mẫu và để client tự động kế thừa lúc chạy (Runtime Inheritance).
+
+---
+
 ### ISSUE-143: Bẫy Ngắt Đồng Bộ Giveaway Cho Khách Vãng Lai & Lệch Kho Khi D1 Thiếu codes_pool
 - **Triệu chứng**:
   - Quản trị viên vào trang quản trị thấy 41 sự kiện (trong đó có các sự kiện còn hàng như 3Q Đảo Đào Đào còn 19 mã, Anh Hùng Tiến Lên còn 18 mã, và Ta Là Hắc Ngộ Không có hồi chiêu 45p).

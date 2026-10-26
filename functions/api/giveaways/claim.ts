@@ -1,4 +1,4 @@
-import { claimGiveawayD1, ensureSchemaUpgrades, getSettingD1, setSettingD1 } from '../../services/d1_service';
+import { claimGiveawayD1, getSettingD1, setSettingD1 } from '../../services/d1_service';
 import { verifyToken, extractUserIdFromToken } from '../../services/auth_service';
 import { getRealEventsHub, saveRealEventsHub } from '../../services/realEventsHub';
 
@@ -120,6 +120,26 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
         { status: 400, headers: CORS_HEADERS }
       );
     }
+
+    // Inherit from Universal Template if campaign uses template
+    try {
+      const universalTemplatesRaw: any = await getSettingD1(env.DB, 'wcg_universal_templates_v1');
+      if (universalTemplatesRaw && universalTemplatesRaw.giveaway) {
+        const gwTpl = universalTemplatesRaw.giveaway;
+        if (campaign.use_template !== 0 && campaign.use_template !== false) {
+          if (gwTpl.min_account_age_days !== undefined) campaign.min_account_age_days = gwTpl.min_account_age_days;
+          if (gwTpl.max_per_user !== undefined) campaign.max_per_user = gwTpl.max_per_user;
+          if (gwTpl.max_per_ip !== undefined) campaign.max_per_ip = gwTpl.max_per_ip;
+          if (gwTpl.cooldown_hours !== undefined) campaign.cooldown_hours = gwTpl.cooldown_hours;
+          if (gwTpl.custom_success_msg) campaign.custom_success_msg = gwTpl.custom_success_msg;
+          if (gwTpl.custom_cooldown_msg) campaign.custom_cooldown_msg = gwTpl.custom_cooldown_msg;
+          if (gwTpl.custom_out_of_stock_msg) campaign.custom_out_of_stock_msg = gwTpl.custom_out_of_stock_msg;
+        }
+        if (gwTpl.global_cooldown_seconds !== undefined) {
+          campaign.global_cooldown_seconds = gwTpl.global_cooldown_seconds;
+        }
+      }
+    } catch {}
 
     const nowMs = Date.now();
 

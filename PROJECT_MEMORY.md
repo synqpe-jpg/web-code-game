@@ -234,3 +234,35 @@
 - `src/services/marketingService.ts`: Bộ máy tính toán hiển thị tồn kho, lượt bán, lượt copy, tạo thông báo nổ ảo, điều phối auto-restock và offline catch-up.
 - `src/services/adminService.ts`: Xử lý phân quyền quản trị, đồng bộ dữ liệu lên Cloudflare KV/D1.
 - `src/services/authService.ts`: Xử lý đăng ký, đăng nhập, nạp tiền ví, lịch sử giao dịch.
+
+
+### 4.3. Universal Template System Keys
+| Key | Ý nghĩa & Dữ liệu chứa |
+| :--- | :--- |
+| `wcg_universal_templates_v1` | Cấu hình Mẫu Chung toàn sàn (Giveaway, Tra cứu, Tiện ích, Cửa hàng) |
+| `wcg_template_snapshots_v1` | Danh sách bản sao lưu Snapshot trước các lần áp đặt hoặc thay đổi lớn |
+| `wcg_template_audit_logs_v1` | Nhật ký kiểm toán thao tác mẫu chung (thời gian, người thực hiện, hành động, phạm vi) |
+
+---
+
+## 5. HỆ THỐNG MẪU CHUNG TOÀN SÀN (UNIVERSAL TEMPLATE SYSTEM)
+
+### 5.1. Triết Lý Thiết Kế: 1-Write D1 SSOT & Runtime Inheritance
+- **Không Ghi Đè Hàng Loạt (Zero Bulk Writes)**: Khi quản trị viên thay đổi Mẫu Chung (chính sách nhận giftcode, link Zalo, giãn cách phát code, tiêu đề mẫu...), hệ thống chỉ thực hiện đúng **1 lượt ghi (1 D1 write)** vào bảng `system_settings` với key `wcg_universal_templates_v1`.
+- **Hợp Nhất Lúc Chạy (Runtime Inheritance)**: Web Khách (`GiveawaysView`, `UtilitiesView`, `StoreView`, `GameDetailModal`) đọc cấu hình Mẫu Chung và tự động áp dụng vào các đợt phát / sản phẩm có `use_template !== false`.
+- **Tùy Chỉnh Riêng Biệt (`use_template: false`)**: Các đợt phát hoặc sản phẩm có nội dung đặc thù được gắn cờ `use_template: false`, giữ nguyên 100% giá trị tùy chỉnh và không bị ghi đè bởi Mẫu Chung.
+
+### 5.2. Các Khu Vực & Quy Tắc Kế Thừa
+1. **Khung Giveaway**:
+   - *Nhóm 1 (Chính sách & hiển thị)*: 3 điều kiện nhận giftcode (tuổi nick, max/user, max/IP, cooldown), Link Zalo/Cộng đồng, 3 thông báo giật mã (`{code}`, `{game_name}`, `{last_user}`, `{time_left}`), Waiting Room (Min, Max), Nút hiển thị số lượt đã giật.
+   - *Phát code giãn cách toàn sàn*: Cài đặt duy nhất toàn web (0s, 30s, 1m, 2m, 3m, 5m, 10m, 15m, 30m, 45m, 1h), đồng bộ cả ở Frontend và D1 Serverless Claim.
+   - *Nhóm 2 (Nội dung có chỗ trống)*: Tiêu đề `Code riêng + {game_name}`, phần thưởng `Code ngẫu nhiên`, quy định nhận `Code dùng cho 1 tài khoản, 1 loại dùng 1 lần.`.
+   - *Bảo tồn riêng từng đợt*: Tựa game (`game_slug`, `game_name`), icon/cover URL, con số lượt ảo bổ sung (`virtual_claimed_offset`), trạng thái đang mở (`is_active`), kho mã (`codes_pool`, `claim_history`).
+2. **Tra Cứu Code**: Hướng dẫn SEO chuẩn tự điền `{game_name}`, nhãn nút sao chép, nhãn còn hoạt động / hết hạn, huy hiệu.
+3. **Tiện Ích**: Tiêu đề mẫu `{title}`, mô tả bảo hành 1 đổi 1 tức thì, nút "Nhận Tiện Ích", huy hiệu "Chính Hãng".
+4. **Cửa Hàng Code**: Tiêu đề mẫu `{title}`, mô tả bản quyền giao ngay từ D1, nút "Mua Code Ngay", nhãn còn hàng / hết hàng, huy hiệu "Bản Quyền".
+
+### 5.3. Cơ Chế An Toàn: Snapshot & Rollback
+- Trước mỗi thao tác "Áp Đặt Toàn Bộ", hệ thống bắt buộc mở Modal Xem Trước (Preview Diff) và tự động tạo Snapshot lưu lại toàn bộ dữ liệu trước đó.
+- Nút "Khôi phục từ bản sao lưu này" cho phép người dùng rollback về trạng thái trước đó chỉ bằng 1 cú nhấp chuột.
+- Mọi thao tác đều được lưu vết trong Nhật ký kiểm toán `TemplateAuditLog`.

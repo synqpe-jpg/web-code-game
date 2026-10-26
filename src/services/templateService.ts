@@ -1,0 +1,712 @@
+/**
+ * Universal Template Service
+ * Implements runtime template inheritance for Giveaway, Catalog, Utilities, and Store Products.
+ * Guarantees zero bulk database writes on template updates, snapshot backups, and rollback capabilities.
+ */
+
+import type {
+  UniversalTemplatesConfig,
+  TemplateSnapshot,
+  TemplateAuditLog,
+} from '../types/template';
+import type { GiveawayCampaign, UtilityProduct, StoreProduct, GameItem } from '../types/game';
+
+export const DEFAULT_UNIVERSAL_TEMPLATES: UniversalTemplatesConfig = {
+  version: 1,
+  updated_at: '2026-10-27T00:00:00.000Z',
+  updated_by: 'System',
+
+  // 1. Mẫu đợt Giveaway
+  giveaway: {
+    // Nhóm 1: Chính sách & hiển thị chung
+    min_account_age_days: 0,
+    max_per_user: 1,
+    max_per_ip: 2,
+    cooldown_hours: 1,
+
+    custom_banner_enabled: true,
+    custom_banner_text: 'Tham gia nhóm zalo của web tại đây',
+    custom_banner_link: 'https://zalo.me/g/qdtlmj2tebfa0baraedg',
+
+    custom_success_msg: 'Chúc mừng đạo hữu nhận thành công mã {code}! Chúc đạo hữu chơi game {game_name} vui vẻ.',
+    custom_cooldown_msg: 'Đợt phát trước đạo hữu {last_user} đã nhanh tay đi trước, đạo hữu vui lòng đợi {time_left} rồi thử sức lại.',
+    custom_out_of_stock_msg: 'Kho mã của sự kiện này hiện đã hết. Đạo hữu vui lòng chờ đợt restock tiếp theo nhé!',
+
+    enable_waiting_room: true,
+    waiting_users_min: 0,
+    waiting_users_max: 0,
+
+    show_claimed_count: true,
+    global_cooldown_seconds: 0, // Phát code giãn cách toàn sàn (mặc định: tắt/0)
+
+    // Nhóm 2: Nội dung mẫu chung có chỗ trống
+    title_pattern: 'Code riêng + {game_name}',
+    rewards: 'Code ngẫu nhiên',
+    description: 'Code dùng cho 1 tài khoản, 1 loại dùng 1 lần.',
+  },
+
+  // 2. Mẫu Tra Cứu Code (Game Catalog & Giftcodes)
+  catalog: {
+    instruction_template: 'Đăng nhập vào game {game_name} -> Bấm vào Avatar nhân vật -> Chọn Cài Đặt -> Chọn Đổi Giftcode -> Nhập mã và xác nhận để nhận quà qua Thư.',
+    copy_button_label: 'Sao Chép',
+    active_status_label: 'Còn Hoạt Động',
+    expired_status_label: 'Hết Hạn',
+    default_badge: 'Chính Thức',
+  },
+
+  // 3. Mẫu Tiện Ích (Utilities)
+  utility: {
+    title_pattern: '{title}',
+    description_template: 'Sản phẩm số giao tức thì 100%. Bảo hành 1 đổi 1 trong suốt thời gian sử dụng gói. Hỗ trợ kích hoạt 24/7 qua Zalo/Telegram.',
+    action_button_label: 'Nhận Tiện Ích',
+    default_badge: 'Chính Hãng',
+  },
+
+  // 4. Mẫu Cửa Hàng Code (Store Products)
+  store: {
+    title_pattern: '{title}',
+    description_template: 'Mã quà tặng bản quyền phát trực tiếp từ kho Cloudflare D1. Nhận mã tức thì ngay sau khi xác nhận thanh toán.',
+    action_button_label: 'Mua Code Ngay',
+    in_stock_label: 'Còn Hàng',
+    out_of_stock_label: 'Tạm Hết Hàng',
+    default_badge: 'Bản Quyền',
+  },
+};
+
+const TEMPLATES_KEY = 'wcg_universal_templates_v1';
+const SNAPSHOTS_KEY = 'wcg_template_snapshots_v1';
+const AUDIT_LOGS_KEY = 'wcg_template_audit_logs_v1';
+
+class TemplateService {
+  private templates: UniversalTemplatesConfig | null = null;
+  private listeners: Array<(cfg: UniversalTemplatesConfig) => void> = [];
+
+  constructor() {
+    this.init();
+  }
+
+  private init() {
+    if (typeof window === 'undefined') return;
+    try {
+      const raw = localStorage.getItem(TEMPLATES_KEY);
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        this.templates = {
+          ...DEFAULT_UNIVERSAL_TEMPLATES,
+          ...parsed,
+          giveaway: { ...DEFAULT_UNIVERSAL_TEMPLATES.giveaway, ...(parsed?.giveaway || {}) },
+          catalog: { ...DEFAULT_UNIVERSAL_TEMPLATES.catalog, ...(parsed?.catalog || {}) },
+          utility: { ...DEFAULT_UNIVERSAL_TEMPLATES.utility, ...(parsed?.utility || {}) },
+          store: { ...DEFAULT_UNIVERSAL_TEMPLATES.store, ...(parsed?.store || {}) },
+        };
+      } else {
+        this.templates = { ...DEFAULT_UNIVERSAL_TEMPLATES };
+      }
+    } catch {
+      this.templates = { ...DEFAULT_UNIVERSAL_TEMPLATES };
+    }
+
+    window.addEventListener('storage', (e) => {
+      if (e.key === TEMPLATES_KEY && e.newValue) {
+        try {
+          this.templates = JSON.parse(e.newValue);
+          this.notify();
+        } catch {}
+      }
+    });
+
+    window.addEventListener('wcg_universal_templates_updated', () => {
+      this.reloadLocal();
+    });
+  }
+
+  public reloadLocal() {
+    if (typeof window === 'undefined') return;
+    try {
+      const raw = localStorage.getItem(TEMPLATES_KEY);
+      if (raw) {
+        this.templates = JSON.parse(raw);
+        this.notify();
+      }
+    } catch {}
+  }
+
+  public getTemplates(): UniversalTemplatesConfig {
+    if (!this.templates) {
+      this.init();
+    }
+    return this.templates || DEFAULT_UNIVERSAL_TEMPLATES;
+  }
+
+  public subscribe(cb: (cfg: UniversalTemplatesConfig) => void): () => void {
+    this.listeners.push(cb);
+    return () => {
+      this.listeners = this.listeners.filter((l) => l !== cb);
+    };
+  }
+
+  private notify() {
+    const current = this.getTemplates();
+    this.listeners.forEach((cb) => {
+      try {
+        cb(current);
+      } catch {}
+    });
+  }
+
+  /**
+   * Save updated templates. Only 1 record is persisted to D1/KV.
+   */
+  public saveTemplates(newTemplates: UniversalTemplatesConfig, author = 'Admin'): void {
+    const updated: UniversalTemplatesConfig = {
+      ...newTemplates,
+      version: (newTemplates.version || 1) + 1,
+      updated_at: new Date().toISOString(),
+      updated_by: author,
+    };
+    this.templates = updated;
+
+    if (typeof window !== 'undefined') {
+      try {
+        localStorage.setItem(TEMPLATES_KEY, JSON.stringify(updated));
+        window.dispatchEvent(new CustomEvent('wcg_universal_templates_updated', { detail: updated }));
+      } catch {}
+
+      // Push to Cloudflare KV / D1 as a single setting record
+      try {
+        const payload = { key: TEMPLATES_KEY, data: updated };
+        fetch('/api/sync', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload),
+        }).catch(() => {});
+      } catch {}
+    }
+
+    this.logAction({
+      action: 'UPDATE_TEMPLATE',
+      scope: 'all',
+      actor: author,
+      details: 'Cập nhật Mẫu Chung cho hệ thống (Giveaway, Tra cứu, Tiện ích, Cửa hàng)',
+    });
+
+    this.notify();
+  }
+
+  /**
+   * Sync templates from Cloudflare KV/D1
+   */
+  public async syncTemplates(): Promise<UniversalTemplatesConfig> {
+    try {
+      const res = await fetch(`/api/sync?key=${TEMPLATES_KEY}`);
+      if (res.ok) {
+        const json = await res.json();
+        if (json && json.success && json.data) {
+          const remote = json.data as UniversalTemplatesConfig;
+          this.templates = {
+            ...DEFAULT_UNIVERSAL_TEMPLATES,
+            ...remote,
+            giveaway: { ...DEFAULT_UNIVERSAL_TEMPLATES.giveaway, ...(remote.giveaway || {}) },
+            catalog: { ...DEFAULT_UNIVERSAL_TEMPLATES.catalog, ...(remote.catalog || {}) },
+            utility: { ...DEFAULT_UNIVERSAL_TEMPLATES.utility, ...(remote.utility || {}) },
+            store: { ...DEFAULT_UNIVERSAL_TEMPLATES.store, ...(remote.store || {}) },
+          };
+          if (typeof window !== 'undefined') {
+            localStorage.setItem(TEMPLATES_KEY, JSON.stringify(this.templates));
+          }
+          this.notify();
+          return this.templates;
+        }
+      }
+    } catch {}
+    return this.getTemplates();
+  }
+
+  // --- RUNTIME INHERITANCE RESOLVERS ---
+
+  /**
+   * Resolves a Giveaway campaign dynamically by applying template rules.
+   * Preserves per-campaign overrides and unique assets.
+   */
+  public resolveGiveaway(campaign: GiveawayCampaign, customTemplates?: UniversalTemplatesConfig): GiveawayCampaign {
+    if (!campaign) return campaign;
+    const tpl = (customTemplates || this.getTemplates()).giveaway;
+
+    // Explicitly customized campaigns skip template inheritance
+    const useTemplate = campaign.use_template !== false;
+    if (!useTemplate) {
+      return {
+        ...campaign,
+        // Global cooldown is site-wide policy unless campaign specifically opted out
+        global_cooldown_seconds: tpl.global_cooldown_seconds,
+      };
+    }
+
+    const gameName = campaign.game_name || campaign.title || 'Game';
+
+    // 1. Resolve Title (Group 2)
+    let effectiveTitle = campaign.title;
+    const isStandardTitle =
+      !effectiveTitle ||
+      effectiveTitle.startsWith('Code riêng') ||
+      effectiveTitle === `Code riêng ${gameName}` ||
+      effectiveTitle === `Code riêng + ${gameName}`;
+    if (isStandardTitle && tpl.title_pattern) {
+      effectiveTitle = tpl.title_pattern
+        .replace(/\{game_name\}|\{tên game\}|\{game\}|\{name\}/gi, gameName)
+        .replace(/\{title\}/gi, gameName);
+    }
+
+    // 2. Resolve Rewards (Group 2)
+    let effectiveRewards = campaign.rewards;
+    const isStandardRewards = !effectiveRewards || effectiveRewards === 'Code ngẫu nhiên' || effectiveRewards.trim() === '';
+    if (isStandardRewards && tpl.rewards) {
+      effectiveRewards = tpl.rewards;
+    }
+
+    // 3. Resolve Description (Group 2)
+    let effectiveDescription = campaign.description;
+    const isStandardDesc = !effectiveDescription || effectiveDescription === 'Code dùng cho 1 tài khoản, 1 loại dùng 1 lần.' || effectiveDescription.trim() === '';
+    if (isStandardDesc && tpl.description) {
+      effectiveDescription = tpl.description;
+    }
+
+    return {
+      ...campaign,
+      title: effectiveTitle,
+      rewards: effectiveRewards,
+      description: effectiveDescription,
+
+      // Nhóm 1: Chính sách & hiển thị kế thừa từ Mẫu Chung
+      min_account_age_days: tpl.min_account_age_days,
+      max_per_user: tpl.max_per_user,
+      max_per_ip: tpl.max_per_ip,
+      cooldown_hours: tpl.cooldown_hours,
+
+      custom_banner_enabled: tpl.custom_banner_enabled,
+      custom_banner_text: tpl.custom_banner_text || 'Tham gia nhóm zalo của web tại đây',
+      custom_banner_link: tpl.custom_banner_link || '',
+
+      custom_success_msg: tpl.custom_success_msg || campaign.custom_success_msg || '',
+      custom_cooldown_msg: tpl.custom_cooldown_msg || campaign.custom_cooldown_msg || '',
+      custom_out_of_stock_msg: tpl.custom_out_of_stock_msg || campaign.custom_out_of_stock_msg || '',
+
+      enable_waiting_room: tpl.enable_waiting_room,
+      waiting_users_min: tpl.waiting_users_min,
+      waiting_users_max: tpl.waiting_users_max,
+
+      show_claimed_count: tpl.show_claimed_count,
+      global_cooldown_seconds: tpl.global_cooldown_seconds,
+
+      // Giữ riêng từng đợt tuyệt đối:
+      // game_slug, game_name, cover_image_url, game_icon_url,
+      // virtual_claimed_offset, is_active, codes_pool, claim_history
+    };
+  }
+
+  /**
+   * Resolves a Utility item dynamically using the Utility template.
+   */
+  public resolveUtility(item: UtilityProduct, customTemplates?: UniversalTemplatesConfig): UtilityProduct & { effective_action_label: string; effective_badge: string } {
+    if (!item) return item as any;
+    const tpl = (customTemplates || this.getTemplates()).utility;
+    const useTemplate = (item as any).use_template !== false;
+
+    if (!useTemplate) {
+      return {
+        ...item,
+        effective_action_label: (item as any).custom_action_label || tpl.action_button_label || 'Nhận Tiện Ích',
+        effective_badge: (item as any).category_label || item.category || tpl.default_badge || 'Chính Hãng',
+      };
+    }
+
+    let effectiveTitle = item.title;
+    if (tpl.title_pattern && tpl.title_pattern !== '{title}') {
+      effectiveTitle = tpl.title_pattern.replace(/\{title\}/gi, item.title);
+    }
+
+    let effectiveDesc = item.description;
+    const isStandardDesc = !effectiveDesc || effectiveDesc.includes('bảo hành 1 đổi 1') || effectiveDesc.trim() === '';
+    if (isStandardDesc && tpl.description_template) {
+      effectiveDesc = tpl.description_template;
+    }
+
+    return {
+      ...item,
+      title: effectiveTitle,
+      description: effectiveDesc,
+      effective_action_label: tpl.action_button_label || 'Nhận Tiện Ích',
+      effective_badge: (item as any).category_label || item.category || tpl.default_badge || 'Chính Hãng',
+    };
+  }
+
+  /**
+   * Resolves a Store Product dynamically using the Store template.
+   */
+  public resolveStoreProduct(product: StoreProduct, customTemplates?: UniversalTemplatesConfig): StoreProduct & { effective_action_label: string; effective_stock_label: string; effective_badge: string } {
+    if (!product) return product as any;
+    const tpl = (customTemplates || this.getTemplates()).store;
+    const useTemplate = (product as any).use_template !== false;
+
+    if (!useTemplate) {
+      return {
+        ...product,
+        effective_action_label: (product as any).custom_action_label || tpl.action_button_label || 'Mua Code Ngay',
+        effective_stock_label: (product.stock_quantity || 0) > 0 ? (tpl.in_stock_label || 'Còn Hàng') : (tpl.out_of_stock_label || 'Tạm Hết Hàng'),
+        effective_badge: (product as any).badge || tpl.default_badge || 'Bản Quyền',
+      };
+    }
+
+    let effectiveTitle = product.title;
+    if (tpl.title_pattern && tpl.title_pattern !== '{title}') {
+      effectiveTitle = tpl.title_pattern.replace(/\{title\}/gi, product.title);
+    }
+
+    let effectiveDesc = product.description;
+    const isStandardDesc = !effectiveDesc || effectiveDesc.includes('Mã quà tặng bản quyền') || effectiveDesc.trim() === '';
+    if (isStandardDesc && tpl.description_template) {
+      effectiveDesc = tpl.description_template;
+    }
+
+    return {
+      ...product,
+      title: effectiveTitle,
+      description: effectiveDesc,
+      effective_action_label: tpl.action_button_label || 'Mua Code Ngay',
+      effective_stock_label: (product.stock_quantity || 0) > 0 ? (tpl.in_stock_label || 'Còn Hàng') : (tpl.out_of_stock_label || 'Tạm Hết Hàng'),
+      effective_badge: (product as any).badge || tpl.default_badge || 'Bản Quyền',
+    };
+  }
+
+  /**
+   * Resolves Game Catalog details with standard instruction and badge template.
+   */
+  public resolveCatalog(game: GameItem, customTemplates?: UniversalTemplatesConfig): {
+    instruction: string;
+    copyButtonLabel: string;
+    activeStatusLabel: string;
+    expiredStatusLabel: string;
+    defaultBadge: string;
+  } {
+    const tpl = (customTemplates || this.getTemplates()).catalog;
+    const gameName = game?.name || 'game';
+
+    let instruction = (game as any)?.guide_text || (game as any)?.instructions;
+    if (!instruction || instruction.trim() === '') {
+      instruction = tpl.instruction_template.replace(/\{game_name\}|\{tên game\}|\{game\}|\{name\}/gi, gameName);
+    }
+
+    return {
+      instruction,
+      copyButtonLabel: tpl.copy_button_label || 'Sao Chép',
+      activeStatusLabel: tpl.active_status_label || 'Còn Hoạt Động',
+      expiredStatusLabel: tpl.expired_status_label || 'Hết Hạn',
+      defaultBadge: tpl.default_badge || 'Chính Thức',
+    };
+  }
+
+  // --- SNAPSHOT & ROLLBACK CAPABILITIES ---
+
+  public getSnapshots(): TemplateSnapshot[] {
+    if (typeof window === 'undefined') return [];
+    try {
+      const raw = localStorage.getItem(SNAPSHOTS_KEY);
+      return raw ? JSON.parse(raw) : [];
+    } catch {
+      return [];
+    }
+  }
+
+  public createSnapshot(
+    scope: TemplateSnapshot['scope'],
+    note: string,
+    author: string,
+    affectedCount: number,
+    data: TemplateSnapshot['data']
+  ): TemplateSnapshot {
+    const snapshot: TemplateSnapshot = {
+      id: `snap_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
+      created_at: new Date().toISOString(),
+      created_by: author,
+      scope,
+      note,
+      affected_count: affectedCount,
+      data,
+    };
+
+    if (typeof window !== 'undefined') {
+      try {
+        const current = this.getSnapshots();
+        // Keep max 15 recent snapshots
+        const updated = [snapshot, ...current].slice(0, 15);
+        localStorage.setItem(SNAPSHOTS_KEY, JSON.stringify(updated));
+      } catch {}
+    }
+
+    return snapshot;
+  }
+
+  public restoreSnapshot(snapshotId: string, author = 'Admin'): boolean {
+    const snapshots = this.getSnapshots();
+    const target = snapshots.find((s) => s.id === snapshotId);
+    if (!target) return false;
+
+    try {
+      // 1. Restore templates
+      if (target.data.templates) {
+        this.saveTemplates(target.data.templates, `${author} (Khôi phục từ ${target.id})`);
+      }
+
+      // 2. Restore giveaways if captured
+      if (Array.isArray(target.data.giveaways) && target.data.giveaways.length > 0) {
+        localStorage.setItem('wcg_admin_giveaways_v4', JSON.stringify(target.data.giveaways));
+        localStorage.setItem('wcg_giveaways', JSON.stringify(target.data.giveaways));
+        window.dispatchEvent(new CustomEvent('wcg_giveaways_updated'));
+      }
+
+      // 3. Restore utilities if captured
+      if (Array.isArray(target.data.utilities) && target.data.utilities.length > 0) {
+        localStorage.setItem('wcg_admin_utilities_v4', JSON.stringify(target.data.utilities));
+        localStorage.setItem('wcg_utilities', JSON.stringify(target.data.utilities));
+        window.dispatchEvent(new CustomEvent('wcg_utilities_updated'));
+      }
+
+      // 4. Restore store products if captured
+      if (Array.isArray(target.data.store_products) && target.data.store_products.length > 0) {
+        localStorage.setItem('wcg_admin_store_products_v4', JSON.stringify(target.data.store_products));
+        localStorage.setItem('wcg_store_products', JSON.stringify(target.data.store_products));
+        window.dispatchEvent(new CustomEvent('wcg_store_products_updated'));
+      }
+
+      this.logAction({
+        action: 'RESTORE_SNAPSHOT',
+        scope: target.scope,
+        actor: author,
+        details: `Khôi phục thành công bản sao lưu snapshot ${target.id} (${target.note})`,
+      });
+
+      return true;
+    } catch {
+      return false;
+    }
+  }
+
+  // --- FORCE APPLY ALL & PREVIEW LOGIC ---
+
+  /**
+   * Generates a preview diff before force applying templates to all items in a scope
+   */
+  public generatePreviewDiff(
+    scope: 'giveaway' | 'catalog' | 'utility' | 'store' | 'all',
+    items: {
+      giveaways?: GiveawayCampaign[];
+      utilities?: UtilityProduct[];
+      storeProducts?: StoreProduct[];
+      games?: any[];
+    },
+    targetTemplates?: UniversalTemplatesConfig
+  ): Array<{
+    id: string;
+    title: string;
+    scope: string;
+    changes: Array<{ field: string; before: string; after: string }>;
+  }> {
+    const tpl = targetTemplates || this.getTemplates();
+    const diffList: Array<{
+      id: string;
+      title: string;
+      scope: string;
+      changes: Array<{ field: string; before: string; after: string }>;
+    }> = [];
+
+    if (scope === 'giveaway' || scope === 'all') {
+      const gws = items.giveaways || [];
+      gws.forEach((gw) => {
+        const resolved = this.resolveGiveaway(gw, tpl);
+        const changes: Array<{ field: string; before: string; after: string }> = [];
+
+        if (gw.title !== resolved.title) {
+          changes.push({ field: 'Tiêu đề đợt', before: gw.title || '(Trống)', after: resolved.title });
+        }
+        if (gw.rewards !== resolved.rewards) {
+          changes.push({ field: 'Phần thưởng', before: gw.rewards || '(Trống)', after: resolved.rewards });
+        }
+        if (gw.description !== resolved.description) {
+          changes.push({ field: 'Mô tả', before: gw.description || '(Trống)', after: resolved.description });
+        }
+        if (Number(gw.min_account_age_days || 0) !== resolved.min_account_age_days) {
+          changes.push({ field: 'Tuổi nick tối thiểu', before: `${gw.min_account_age_days || 0} ngày`, after: `${resolved.min_account_age_days} ngày` });
+        }
+        if (Number(gw.max_per_user || 1) !== resolved.max_per_user) {
+          changes.push({ field: 'Tối đa code / User', before: `${gw.max_per_user || 1}`, after: `${resolved.max_per_user}` });
+        }
+        if (Number(gw.max_per_ip || 1) !== resolved.max_per_ip) {
+          changes.push({ field: 'Tối đa code / IP', before: `${gw.max_per_ip || 1}`, after: `${resolved.max_per_ip}` });
+        }
+        if (Number(gw.cooldown_hours || 0) !== resolved.cooldown_hours) {
+          changes.push({ field: 'Hồi chiêu', before: `${gw.cooldown_hours || 0} giờ`, after: `${resolved.cooldown_hours} giờ` });
+        }
+        if (Boolean(gw.custom_banner_enabled) !== resolved.custom_banner_enabled) {
+          changes.push({ field: 'Link Zalo / Cộng đồng', before: gw.custom_banner_enabled ? 'Bật' : 'Tắt', after: resolved.custom_banner_enabled ? 'Bật' : 'Tắt' });
+        }
+
+        if (changes.length > 0 || gw.use_template === false) {
+          diffList.push({
+            id: gw.id,
+            title: gw.title || gw.game_name || 'Giveaway',
+            scope: 'giveaway',
+            changes: changes.length > 0 ? changes : [{ field: 'Chế độ mẫu', before: 'Tùy chỉnh riêng', after: 'Kế thừa Mẫu chung' }],
+          });
+        }
+      });
+    }
+
+    if (scope === 'utility' || scope === 'all') {
+      const utils = items.utilities || [];
+      utils.forEach((u) => {
+        const resolved = this.resolveUtility(u, tpl);
+        const changes: Array<{ field: string; before: string; after: string }> = [];
+        if (u.description !== resolved.description) {
+          changes.push({ field: 'Mô tả', before: u.description || '(Trống)', after: resolved.description });
+        }
+        if (changes.length > 0 || (u as any).use_template === false) {
+          diffList.push({
+            id: u.id,
+            title: u.title,
+            scope: 'utility',
+            changes: changes.length > 0 ? changes : [{ field: 'Chế độ mẫu', before: 'Tùy chỉnh riêng', after: 'Kế thừa Mẫu chung' }],
+          });
+        }
+      });
+    }
+
+    if (scope === 'store' || scope === 'all') {
+      const stores = items.storeProducts || [];
+      stores.forEach((p) => {
+        const resolved = this.resolveStoreProduct(p, tpl);
+        const changes: Array<{ field: string; before: string; after: string }> = [];
+        if (p.description !== resolved.description) {
+          changes.push({ field: 'Mô tả', before: p.description || '(Trống)', after: resolved.description });
+        }
+        if (changes.length > 0 || (p as any).use_template === false) {
+          diffList.push({
+            id: p.id,
+            title: p.title,
+            scope: 'store',
+            changes: changes.length > 0 ? changes : [{ field: 'Chế độ mẫu', before: 'Tùy chỉnh riêng', after: 'Kế thừa Mẫu chung' }],
+          });
+        }
+      });
+    }
+
+    return diffList;
+  }
+
+  /**
+   * Executes Force Apply All across the specified scope.
+   * Creates a snapshot FIRST, sets use_template = true, and records audit trail.
+   */
+  public executeForceApplyAll(
+    scope: 'giveaway' | 'catalog' | 'utility' | 'store' | 'all',
+    items: {
+      giveaways?: GiveawayCampaign[];
+      utilities?: UtilityProduct[];
+      storeProducts?: StoreProduct[];
+    },
+    author = 'Admin'
+  ): { snapshotId: string; affectedCount: number } {
+    const diffs = this.generatePreviewDiff(scope, items);
+    const affectedCount = diffs.length;
+
+    // 1. Mandatory snapshot creation BEFORE applying
+    const snapshot = this.createSnapshot(
+      scope,
+      `Tự động sao lưu trước khi Áp Đặt Toàn Bộ Mẫu Chung (${scope})`,
+      author,
+      affectedCount,
+      {
+        templates: this.getTemplates(),
+        giveaways: items.giveaways ? JSON.parse(JSON.stringify(items.giveaways)) : undefined,
+        utilities: items.utilities ? JSON.parse(JSON.stringify(items.utilities)) : undefined,
+        store_products: items.storeProducts ? JSON.parse(JSON.stringify(items.storeProducts)) : undefined,
+      }
+    );
+
+    // 2. Mark items as using template
+    if (scope === 'giveaway' || scope === 'all') {
+      if (items.giveaways && Array.isArray(items.giveaways)) {
+        items.giveaways.forEach((gw) => {
+          gw.use_template = true;
+        });
+        localStorage.setItem('wcg_admin_giveaways_v4', JSON.stringify(items.giveaways));
+        localStorage.setItem('wcg_giveaways', JSON.stringify(items.giveaways));
+        window.dispatchEvent(new CustomEvent('wcg_giveaways_updated'));
+      }
+    }
+
+    if (scope === 'utility' || scope === 'all') {
+      if (items.utilities && Array.isArray(items.utilities)) {
+        items.utilities.forEach((u) => {
+          (u as any).use_template = true;
+        });
+        localStorage.setItem('wcg_admin_utilities_v4', JSON.stringify(items.utilities));
+        localStorage.setItem('wcg_utilities', JSON.stringify(items.utilities));
+        window.dispatchEvent(new CustomEvent('wcg_utilities_updated'));
+      }
+    }
+
+    if (scope === 'store' || scope === 'all') {
+      if (items.storeProducts && Array.isArray(items.storeProducts)) {
+        items.storeProducts.forEach((p) => {
+          (p as any).use_template = true;
+        });
+        localStorage.setItem('wcg_admin_store_products_v4', JSON.stringify(items.storeProducts));
+        localStorage.setItem('wcg_store_products', JSON.stringify(items.storeProducts));
+        window.dispatchEvent(new CustomEvent('wcg_store_products_updated'));
+      }
+    }
+
+    // 3. Log audit action
+    this.logAction({
+      action: 'FORCE_APPLY_ALL',
+      scope,
+      actor: author,
+      affected_count: affectedCount,
+      details: `Đã áp đặt Mẫu Chung thành công cho ${affectedCount} mục thuộc phạm vi ${scope}. Bản snapshot an toàn: ${snapshot.id}`,
+    });
+
+    this.notify();
+
+    return { snapshotId: snapshot.id, affectedCount };
+  }
+
+  // --- AUDIT LOGS ---
+
+  public getAuditLogs(): TemplateAuditLog[] {
+    if (typeof window === 'undefined') return [];
+    try {
+      const raw = localStorage.getItem(AUDIT_LOGS_KEY);
+      return raw ? JSON.parse(raw) : [];
+    } catch {
+      return [];
+    }
+  }
+
+  public logAction(entry: Omit<TemplateAuditLog, 'id' | 'timestamp'>): void {
+    const log: TemplateAuditLog = {
+      id: `tpl_log_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
+      timestamp: new Date().toISOString(),
+      ...entry,
+    };
+
+    if (typeof window !== 'undefined') {
+      try {
+        const current = this.getAuditLogs();
+        const updated = [log, ...current].slice(0, 50); // Keep max 50 recent audit logs
+        localStorage.setItem(AUDIT_LOGS_KEY, JSON.stringify(updated));
+      } catch {}
+    }
+  }
+}
+
+export const templateService = new TemplateService();

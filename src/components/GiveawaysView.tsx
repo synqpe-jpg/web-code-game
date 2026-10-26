@@ -46,6 +46,7 @@ import { formatRelativeDate, formatFullDateTime } from '../utils/textUtils';
 import { EventCountdownBadge } from './countdown/EventCountdownBadge';
 import { useEventCountdown } from '../hooks/useEventCountdown';
 import { eventSchedulerService } from '../services/eventSchedulerService';
+import { templateService } from '../services/templateService';
 
 interface GiveawaysViewProps {
   onShowToast: (title: string, message?: string, type?: 'success' | 'error' | 'info') => void;
@@ -1020,7 +1021,7 @@ export const GiveawaysView: React.FC<GiveawaysViewProps> = ({
   const handledTargetIdRef = useRef<string | null>(null);
 
   const loadData = useCallback(() => {
-    const rawList = dataService.getGiveaways();
+    const rawList = dataService.getGiveaways().map((g) => templateService.resolveGiveaway(g));
     const list = groupGiveawaysByGame(rawList);
     setGiveaways((prev) => {
       if (prev.length === list.length) {
@@ -1059,7 +1060,11 @@ export const GiveawaysView: React.FC<GiveawaysViewProps> = ({
     dataService.syncWithCloudflareKV();
     const handleGwUpdated = () => loadData();
     window.addEventListener('wcg_giveaways_updated', handleGwUpdated);
+    window.addEventListener('wcg_universal_templates_updated', handleGwUpdated);
     const unsub = dataService.subscribe(() => {
+      loadData();
+    });
+    const unsubTpl = templateService.subscribe(() => {
       loadData();
     });
     const handleUpdate = () => {
@@ -1084,6 +1089,7 @@ export const GiveawaysView: React.FC<GiveawaysViewProps> = ({
         clearTimeout(expireThrottleTimerRef.current);
       }
       unsub();
+      unsubTpl();
       unsubStock();
       unsubSold();
       window.removeEventListener('wcg_admin_data_updated', handleUpdate);
@@ -1091,6 +1097,7 @@ export const GiveawaysView: React.FC<GiveawaysViewProps> = ({
       window.removeEventListener('wcg_sold_count_updated', handleUpdate);
       window.removeEventListener('storage', handleUpdate);
       window.removeEventListener('wcg_giveaways_updated', handleGwUpdated);
+      window.removeEventListener('wcg_universal_templates_updated', handleGwUpdated);
     };
   }, [loadData]);
 

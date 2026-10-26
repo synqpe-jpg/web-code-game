@@ -208,6 +208,9 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
       'wcg_news_auto_sources_v1',    // Public/admin auto crawler sources for news
       'wcg_news_schedule_config_v1', // Public/admin scheduler config for news
       'wcg_event_schedules_v1',      // Public event countdown & auto-schedule records
+      'wcg_universal_templates_v1',  // Public universal template system configuration
+      'wcg_template_snapshots_v1',   // Template system snapshots backup
+      'wcg_template_audit_logs_v1',  // Template system audit logs
     ]);
 
     // 1. Specific key query
@@ -380,6 +383,7 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
             'wcg_news_auto_sources_v1',
             'wcg_news_schedule_config_v1',
             'wcg_event_schedules_v1',
+            'wcg_universal_templates_v1',
           ]),
         ]);
 
@@ -850,6 +854,7 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
       newsScheduleConfig: d1Settings['wcg_news_schedule_config_v1'] || masterState.newsScheduleConfig || null,
       eventSchedules: d1Settings['wcg_event_schedules_v1'] || masterState.eventSchedules || [],
       upcomingGames: d1Settings['wcg_admin_upcoming_games_v1'] || masterState.upcomingGames || [],
+      universalTemplates: d1Settings['wcg_universal_templates_v1'] || masterState.universalTemplates || null,
     };
 
     if (authorized) {
@@ -1379,7 +1384,10 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
         vKey === 'wcg_crawler_pending_games_v1' ||
         vKey === 'wcg_crawler_pending_codes_v1' ||
         vKey === 'wcg_admin_upcoming_games_v1' ||
-        vKey === 'wcg_crawler_stats_v1'
+        vKey === 'wcg_crawler_stats_v1' ||
+        vKey === 'wcg_universal_templates_v1' ||
+        vKey === 'wcg_template_snapshots_v1' ||
+        vKey === 'wcg_template_audit_logs_v1'
       ) {
         await setSettingD1(env.DB, vKey, body.data);
         return new Response(
@@ -4323,6 +4331,9 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
           const val = body.storeGlobalShowSold !== undefined ? Boolean(body.storeGlobalShowSold) : Boolean(body.data);
           currentMaster.storeGlobalShowSold = val;
           await setSettingD1(env.DB, 'wcg_store_global_show_sold', val);
+        }
+        if (body.universalTemplates !== undefined || body.key === 'wcg_universal_templates_v1') {
+          await setSettingD1(env.DB, 'wcg_universal_templates_v1', body.universalTemplates ?? body.data);
         }
 
         // Consolidated Master State Snapshot in D1 system_settings

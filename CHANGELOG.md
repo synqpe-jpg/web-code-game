@@ -5,6 +5,49 @@ Mỗi mục sửa lỗi đều ghi nhận **Nguyên nhân gốc rễ (Root Cause
 
 ---
 
+## [2026-10-27]
+
+### 223. Triển Khai Hệ Thống Mẫu Chung Toàn Sàn (Universal Template System) Cho Khung Giveaway, Tra Cứu Code, Tiện Ích và Cửa Hàng Code
+- **Bối cảnh & Yêu cầu từ Người dùng**:
+  - Trong trang quản trị, hộp thoại "Chỉnh Sửa Đợt Phát Code Riêng" (mục Giveaway, đường dẫn `admin-code-game-shop.pages.dev/admin#/private-codes`) hiện có rất nhiều trường phải nhập lại thủ công cho từng đợt (hơn 41 đợt phát).
+  - Người dùng yêu cầu tạo **Mẫu Chung toàn sàn** cho 4 khu vực: (1) Khung Giveaway, (2) Mục Tra cứu code, (3) Mục Tiện ích, (4) Mục Cửa hàng code:
+    - *Đổi mẫu một chỗ, các đợt/sản phẩm dùng mẫu tự động đổi theo trên Web Khách.*
+    - Biến các "Mẫu chuẩn" (tiêu đề "Code riêng + Tên game", phần thưởng "Code ngẫu nhiên", mô tả quy định nhận "Code dùng cho 1 tài khoản...") thành mẫu chung thực thụ (lưu một chỗ, đổi là đổi theo).
+    - Cấu hình 3 điều kiện nhận giftcode mặc định (0 ngày tuổi nick, 1 code/user, 2 mã/IP, cooldown 1 giờ).
+    - Ô Thông báo / Link tùy chỉnh Zalo (bật, link nhóm Zalo dùng chung).
+    - 3 câu thông báo giật mã tùy chỉnh có chỗ trống: `{code}`, `{game_name}`, `{last_user}`, `{time_left}`.
+    - Phòng chờ & bộ đếm người đang chờ (Waiting Room): mặc định bật, min 0, max 0.
+    - Nút hiển thị số lượt đã giật: chỉ trạng thái bật/tắt làm mẫu; con số lượt ảo bổ sung (`virtual_claimed_offset`) được bảo tồn riêng từng đợt.
+    - Phát code giãn cách toàn sàn: chuyển thành 1 cài đặt chung duy nhất toàn web, không nằm riêng từng đợt nữa.
+    - Cơ chế an toàn: Runtime inheritance (chỉ lưu 1 bản ghi D1 cấu hình mẫu, không ghi đè hàng loạt DB), nút "Áp đặt toàn bộ" có modal xem trước (preview diff) + bắt buộc tự động tạo bản sao lưu snapshot + có nút rollback khôi phục.
+    - Giao diện Admin: Huy hiệu phân biệt `🔗 Mẫu chung` vs `🟡 Tùy chỉnh riêng`, nút "🎨 Mẫu Chung Toàn Sàn" trên thanh công cụ.
+- **Nguyên nhân gốc rễ & Phân tích kiến trúc (Root Cause)**:
+  - *Dữ liệu bị phân mảnh*: Mỗi bản ghi đợt phát / sản phẩm trong D1 lưu trữ toàn bộ chuỗi văn bản và số liệu cấu hình riêng lẻ. Khi đổi quy định (ví dụ link Zalo hay giãn cách phát code), quản trị viên phải chỉnh sửa lặp lại 41 lần. Nếu dùng script chạy update hàng loạt 41 rows, tài khoản gói Free có nguy cơ chạm trần hạn mức D1 writes (50k/ngày).
+  - *Trường Giãn cách toàn sàn đặt sai vị trí*: Vốn là quy định chung của toàn bộ sàn giao dịch, nhưng lại nằm trong form của từng đợt riêng, gây nhầm lẫn khi cấu hình.
+- **Giải pháp thành công (Solution)**:
+  1. *Kiến trúc 1-Write D1 SSOT & Runtime Inheritance*:
+     - Tạo `src/types/template.ts` và `src/services/templateService.ts`: Lưu trữ cấu hình `UniversalTemplatesConfig` (`wcg_universal_templates_v1`) trong bảng `system_settings` của D1. Mỗi lần cập nhật Mẫu Chung chỉ tốn duy nhất **1 D1 Write**.
+     - Web Khách (`GiveawaysView`, `UtilitiesView`, `StoreView`, `GameDetailModal`) tự động kết nối qua `templateService.resolveGiveaway`, `resolveUtility`, `resolveStoreProduct`, `resolveCatalog` và lắng nghe sự kiện để cập nhật giao diện ngay lập tức mà không cần tải lại trang.
+  2. *Quy chuẩn 4 khu vực*:
+     - **Giveaway**: Hỗ trợ Nhóm 1 (chính sách, Zalo, 3 thông báo, waiting room, global cooldown) và Nhóm 2 (tiêu đề `{game_name}`, quà tặng, quy định). Bảo tồn tuyệt đối tựa game, icon/cover, số ảo `virtual_claimed_offset`, trạng thái mở và kho mã.
+     - **Tra Cứu Code**: Hướng dẫn SEO tự điền `{game_name}`, nhãn nút Sao Chép, nhãn Còn Hoạt Động / Hết Hạn.
+     - **Tiện Ích**: Tiêu đề `{title}`, mô tả bảo hành 1 đổi 1 tức thì, nút "Nhận Tiện Ích", huy hiệu "Chính Hãng".
+     - **Cửa Hàng Code**: Tiêu đề `{title}`, mô tả bản quyền D1 giao ngay, nút "Mua Code Ngay", nhãn Còn Hàng / Tạm Hết Hàng, huy hiệu "Bản Quyền".
+  3. *An Toàn Tuyệt Đối với Snapshot & Audit Log*:
+     - Hàm `generatePreviewDiff` phân tích trước số lượng mục bị tác động và hiển thị diff Before/After.
+     - Khi bấm "Áp Đặt Toàn Bộ", hệ thống bắt buộc gọi `createSnapshot` trước khi áp dụng, lưu tối đa 15 bản snapshot gần nhất. Quản trị viên có thể bấm "Khôi Phục Bản Này" bất kỳ lúc nào để hoàn tác ngay lập tức.
+     - Mọi thao tác lưu mẫu, áp đặt và rollback đều được ghi vết vào `TemplateAuditLog` (lưu 50 bản ghi gần nhất).
+  4. *Tích hợp Admin UI `UniversalTemplateModal.tsx` & `PrivateCodesModule.tsx`*:
+     - Nút "🎨 Mẫu Chung Toàn Sàn" trên thanh công cụ cho phép mở trung tâm điều khiển Mẫu Chung với 6 tab (Giveaway, Tra cứu, Tiện ích, Cửa hàng, Bản sao lưu, Lịch sử).
+     - Huy hiệu `🔗 Mẫu chung` / `🟡 Tùy chỉnh riêng` hiển thị trực quan trong từng dòng bảng đợt phát.
+     - Trong form chỉnh sửa: Bộ chuyển đổi chế độ "🟢 Dùng Mẫu Chung" vs "🟡 Tùy Chỉnh Riêng" kèm hướng dẫn chi tiết.
+- **Kiểm thử & Nghiệm thu**:
+  - Test suite `scratch/test_universal_templates.cjs` chạy qua 5 kịch bản kiểm thử: 100% passed.
+  - Zero Test Artifacts Audit: 100% passed (không có bất kỳ sản phẩm/dữ liệu test nào tồn đọng).
+  - Build Vite Frontend + 779 trang tĩnh Prerender + Cloudflare Worker bundle: 100% success.
+
+---
+
 ## [2026-10-26]
 
 ### 222. Tích Hợp Tệp CSS Dùng Chung codegame-shop-buttons.css & Gắn Tên Lớp .cg-btn Cho Đúng 3 Nút (Tra Cứu Code, Săn Giveaway, Tiện Ích)

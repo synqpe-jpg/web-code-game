@@ -25,9 +25,13 @@ import {
   MessageSquare,
   ExternalLink,
   Dices,
+  Link2,
+  Sliders,
 } from 'lucide-react';
 import { LuckyWheelAdminManager } from '../components/LuckyWheelAdminManager';
 import { FormModal } from '../components/ui/FormModal';
+import { UniversalTemplateModal } from '../components/UniversalTemplateModal';
+import { templateService } from '../../services/templateService';
 import { ConfirmModal } from '../components/ui/ConfirmModal';
 import { ImageUploadInput } from '../components/ui/ImageUploadInput';
 import { SearchableGameSelect } from '../components/ui/SearchableGameSelect';
@@ -72,6 +76,7 @@ export const PrivateCodesModule: React.FC<PrivateCodesModuleProps> = ({ onShowTo
   const [isResettingAllFomo, setIsResettingAllFomo] = useState(false);
 
   // --- CREATE / EDIT GIVEAWAY MODAL STATE ---
+  const [isTemplateModalOpen, setIsTemplateModalOpen] = useState(false);
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [editingItem, setEditingItem] = useState<GiveawayCampaign | null>(null);
   const [formData, setFormData] = useState({
@@ -80,6 +85,7 @@ export const PrivateCodesModule: React.FC<PrivateCodesModuleProps> = ({ onShowTo
     game_name: 'Genshin Impact',
     description: 'Code dùng cho 1 tài khoản, 1 loại dùng 1 lần.',
     rewards: 'Code ngẫu nhiên',
+    use_template: true,
     total_codes: 0,
     claimed_codes: 0,
     min_account_age_days: 0,
@@ -160,6 +166,7 @@ export const PrivateCodesModule: React.FC<PrivateCodesModuleProps> = ({ onShowTo
       game_name: initialGameName,
       description: 'Code dùng cho 1 tài khoản, 1 loại dùng 1 lần.',
       rewards: 'Code ngẫu nhiên',
+      use_template: true,
       total_codes: 0,
       claimed_codes: 0,
       min_account_age_days: 0,
@@ -198,6 +205,7 @@ export const PrivateCodesModule: React.FC<PrivateCodesModuleProps> = ({ onShowTo
       game_name: gw.game_name,
       description: gw.description || '',
       rewards: gw.rewards || '',
+      use_template: gw.use_template !== false,
       total_codes: currentTotal,
       claimed_codes: gw.claimed_codes || 0,
       min_account_age_days: gw.min_account_age_days !== undefined ? Number(gw.min_account_age_days) : 0,
@@ -253,6 +261,7 @@ export const PrivateCodesModule: React.FC<PrivateCodesModuleProps> = ({ onShowTo
       game_name: formData.game_name.trim(),
       description: formData.description.trim(),
       rewards: formData.rewards.trim(),
+      use_template: formData.use_template !== false,
       total_codes: calculatedTotal,
       remaining_codes: poolLength,
       claimed_codes: safeClaimed,
@@ -656,6 +665,17 @@ export const PrivateCodesModule: React.FC<PrivateCodesModuleProps> = ({ onShowTo
               <span>Đóng tất cả</span>
             </button>
 
+            {/* Nút Mẫu Chung Toàn Sàn */}
+            <button
+              type="button"
+              onClick={() => setIsTemplateModalOpen(true)}
+              className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold bg-indigo-500/10 hover:bg-indigo-500/20 text-indigo-600 dark:text-indigo-400 border border-indigo-500/30 transition-all cursor-pointer shadow-sm active:scale-95"
+              title="Quản lý Mẫu Chung toàn sàn (Giveaway, Tra cứu code, Tiện ích, Cửa hàng code)"
+            >
+              <Sliders className="h-3.5 w-3.5" />
+              <span>🎨 Mẫu Chung Toàn Sàn</span>
+            </button>
+
             {/* Nút Tạo đợt phát mới */}
             <button
               onClick={handleOpenCreate}
@@ -794,6 +814,17 @@ export const PrivateCodesModule: React.FC<PrivateCodesModuleProps> = ({ onShowTo
                           <h4 className="font-bold text-xs text-slate-900 dark:text-white truncate" title={gw.title}>
                             {gw.title}
                           </h4>
+                          <div className="flex items-center gap-1 mt-0.5">
+                            {gw.use_template !== false ? (
+                              <span className="inline-flex items-center gap-0.5 px-1.5 py-0.2 rounded text-[9px] font-bold bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 border border-indigo-500/20" title="Đang đồng bộ tự động theo Mẫu Chung">
+                                <Link2 className="w-2.5 h-2.5" /> Mẫu chung
+                              </span>
+                            ) : (
+                              <span className="inline-flex items-center gap-0.5 px-1.5 py-0.2 rounded text-[9px] font-bold bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20" title="Đang dùng thiết lập tùy chỉnh riêng cho đợt này">
+                                <Sparkles className="w-2.5 h-2.5" /> Tùy chỉnh riêng
+                              </span>
+                            )}
+                          </div>
                           <p className="text-[10px] text-slate-500 dark:text-slate-400 truncate" title={gw.description}>
                             {gw.description}
                           </p>
@@ -1018,6 +1049,85 @@ export const PrivateCodesModule: React.FC<PrivateCodesModuleProps> = ({ onShowTo
         maxWidth="lg"
       >
         <form onSubmit={handleSubmitForm} className="space-y-4">
+          {/* TEMPLATE MODE SELECTOR CARD */}
+          <div className="p-3.5 rounded-2xl bg-indigo-50/70 dark:bg-indigo-950/30 border border-indigo-200/80 dark:border-indigo-900/50 space-y-2">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Sliders className="w-4 h-4 text-indigo-600 dark:text-indigo-400" />
+                <span className="text-xs font-bold text-indigo-900 dark:text-indigo-200">
+                  Chế Độ Cấu Hình:
+                </span>
+              </div>
+              <div className="flex items-center gap-1.5">
+                <button
+                  type="button"
+                  onClick={() => {
+                    const tpl = templateService.getTemplates().giveaway;
+                    setFormData((p) => ({
+                      ...p,
+                      use_template: true,
+                      title: tpl.title_pattern.replace(/\{game_name\}/gi, p.game_name || 'Game'),
+                      rewards: tpl.rewards,
+                      description: tpl.description,
+                      min_account_age_days: tpl.min_account_age_days,
+                      max_per_user: tpl.max_per_user,
+                      max_per_ip: tpl.max_per_ip,
+                      cooldown_hours: tpl.cooldown_hours,
+                      custom_banner_enabled: tpl.custom_banner_enabled,
+                      custom_banner_text: tpl.custom_banner_text,
+                      custom_banner_link: tpl.custom_banner_link,
+                      enable_waiting_room: tpl.enable_waiting_room,
+                      waiting_users_min: tpl.waiting_users_min,
+                      waiting_users_max: tpl.waiting_users_max,
+                      custom_success_msg: tpl.custom_success_msg,
+                      custom_cooldown_msg: tpl.custom_cooldown_msg,
+                      custom_out_of_stock_msg: tpl.custom_out_of_stock_msg,
+                    }));
+                  }}
+                  className={`px-2.5 py-1 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-1 ${
+                    formData.use_template
+                      ? 'bg-indigo-600 text-white shadow-xs'
+                      : 'bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-400 border border-slate-200 dark:border-slate-700'
+                  }`}
+                >
+                  <Link2 className="w-3 h-3" />
+                  <span>🟢 Dùng Mẫu Chung</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setFormData((p) => ({ ...p, use_template: false }))}
+                  className={`px-2.5 py-1 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-1 ${
+                    !formData.use_template
+                      ? 'bg-amber-600 text-white shadow-xs'
+                      : 'bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-400 border border-slate-200 dark:border-slate-700'
+                  }`}
+                >
+                  <Sparkles className="w-3 h-3" />
+                  <span>🟡 Tùy Chỉnh Riêng</span>
+                </button>
+              </div>
+            </div>
+
+            <p className="text-[11px] text-slate-500 dark:text-slate-400 leading-relaxed">
+              {formData.use_template ? (
+                <span>
+                  Đợt này đang <strong>kế thừa tự động</strong> từ Mẫu Chung. Khi bạn sửa Mẫu Chung toàn sàn, đợt này sẽ tự động đổi theo.{' '}
+                  <button
+                    type="button"
+                    onClick={() => setIsTemplateModalOpen(true)}
+                    className="text-indigo-600 dark:text-indigo-400 underline font-semibold hover:opacity-80 cursor-pointer inline-flex items-center gap-0.5"
+                  >
+                    Sửa Mẫu Chung tại đây <ExternalLink className="w-2.5 h-2.5 inline" />
+                  </button>
+                </span>
+              ) : (
+                <span>
+                  Đợt này đang sử dụng <strong>cấu hình riêng biệt</strong>. Các thay đổi trong Mẫu Chung toàn sàn sẽ không ghi đè lên đợt này.
+                </span>
+              )}
+            </p>
+          </div>
           <div className="grid grid-cols-2 gap-4">
             <div>
               <SearchableGameSelect
@@ -1857,6 +1967,20 @@ export const PrivateCodesModule: React.FC<PrivateCodesModuleProps> = ({ onShowTo
           onShowToast={onShowToast}
         />
       )}
+
+      {/* Universal Template Modal */}
+      <UniversalTemplateModal
+        isOpen={isTemplateModalOpen}
+        onClose={() => {
+          setIsTemplateModalOpen(false);
+          loadData();
+        }}
+        onShowToast={onShowToast}
+        giveaways={giveaways}
+        utilities={adminDataService.getUtilities()}
+        storeProducts={adminDataService.getStoreProducts()}
+        games={games}
+      />
     </div>
   );
 };

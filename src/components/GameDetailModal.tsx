@@ -39,6 +39,7 @@ import { useLockBodyScroll } from '../hooks/useLockBodyScroll';
 import { isG1Licensed } from '../utils/licenseUtils';
 import { isCodeExpired, decodeHtmlEntities } from '../utils/codeUtils';
 import { GameDownloadSection } from './game/GameDownloadSection';
+import { templateService } from '../services/templateService';
 
 interface GameDetailModalProps {
   game: GameItem | null;
@@ -905,17 +906,24 @@ export const GameDetailModal: React.FC<GameDetailModalProps> = ({
           )}
 
           {/* Instructions */}
-          {Boolean(currentGame.instructions && currentGame.instructions.trim().length > 0) && (
-            <div className="p-4 sm:p-5 rounded-2xl bg-card border border-border/80 space-y-2.5">
-              <div className="flex items-center gap-2 text-foreground font-heading font-bold text-sm sm:text-base">
-                <BookOpen className="w-4 h-4 text-secondary" />
-                <h4>{t.modal.instructions} - {currentGame.name}</h4>
+          {(() => {
+            const catalogTpl = templateService.resolveCatalog(currentGame);
+            const effectiveInstructions = (currentGame.instructions && currentGame.instructions.trim().length > 0)
+              ? currentGame.instructions.trim()
+              : catalogTpl.instruction;
+            if (!effectiveInstructions) return null;
+            return (
+              <div className="p-4 sm:p-5 rounded-2xl bg-card border border-border/80 space-y-2.5">
+                <div className="flex items-center gap-2 text-foreground font-heading font-bold text-sm sm:text-base">
+                  <BookOpen className="w-4 h-4 text-secondary" />
+                  <h4>{t.modal.instructions} - {currentGame.name}</h4>
+                </div>
+                <p className="text-xs sm:text-sm text-muted-foreground leading-relaxed whitespace-pre-line">
+                  {effectiveInstructions}
+                </p>
               </div>
-              <p className="text-xs sm:text-sm text-muted-foreground leading-relaxed whitespace-pre-line">
-                {currentGame.instructions.trim()}
-              </p>
-            </div>
-          )}
+            );
+          })()}
 
           {/* Description */}
           {currentGame.description && (

@@ -114,6 +114,10 @@ export interface GiveawayCampaign {
   virtual_claimed_updated_at?: string;
   codes_pool?: string[];
   remaining_codes?: number;
+  use_template?: boolean;
+  is_custom_title?: boolean;
+  is_custom_rewards?: boolean;
+  is_custom_description?: boolean;
   claim_history?: Array<{
     id: string;
     user?: string;
@@ -180,6 +184,7 @@ export interface StoreProduct {
   show_warranty?: boolean;
   warranty_text?: string;
   packages?: ProductPackageVariant[];
+  use_template?: boolean;
 }
 
 // Store Category Model (Danh Mục Gói Code / Cửa Hàng)
@@ -248,6 +253,7 @@ export interface UtilityProduct {
   show_warranty?: boolean;
   warranty_text?: string;
   packages?: ProductPackageVariant[];
+  use_template?: boolean;
 }
 
 // Utility Category Model (Danh Mục Tiện Ích)
