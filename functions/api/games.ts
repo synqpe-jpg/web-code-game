@@ -1225,6 +1225,23 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
         1200,
         null
       );
+
+      const total = Number(countRes?.total || 0);
+      const totalPages = Math.max(1, Math.ceil(total / limit));
+      const safePage = Math.min(Math.max(1, page), totalPages);
+      const offset = (safePage - 1) * limit;
+
+      const listQuery = `
+        SELECT
+          id, name, slug, publisher, category, platform, rating, icon_url,
+          active_codes_count, total_codes_count, last_code_at,
+          is_hot, is_new, is_featured
+        FROM games
+        ${whereClause}
+        ${orderByClause}
+        LIMIT ? OFFSET ?
+      `;
+
       const rowsRes = countRes ? await withD1Timeout(
         env.DB.prepare(listQuery).bind(...bindParams, limit, offset).all<any>(),
         1200,
@@ -1232,10 +1249,6 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
       ) : null;
 
       if (countRes && rowsRes && Array.isArray(rowsRes.results) && rowsRes.results.length > 0) {
-        const total = Number(countRes?.total || 0);
-        const totalPages = Math.max(1, Math.ceil(total / limit));
-        const safePage = Math.min(Math.max(1, page), totalPages);
-        const offset = (safePage - 1) * limit;
 
         const rows = (rowsRes?.results || []).map((r: any) => {
           let totalCount = Number(r.total_codes_count || 0);
