@@ -687,13 +687,35 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
       success: true,
       timestamp: masterState.timestamp || new Date().toISOString(),
       serverTime: new Date().toISOString(),
-      games: (Array.isArray(d1Settings['wcg_admin_games_v5']) && d1Settings['wcg_admin_games_v5'].length > 0)
-        ? d1Settings['wcg_admin_games_v5']
-        : (Array.isArray(d1Settings['wcg_admin_games_v4']) && d1Settings['wcg_admin_games_v4'].length > 0)
-          ? d1Settings['wcg_admin_games_v4']
-          : (Array.isArray(masterState.games) && masterState.games.length > 0)
-            ? masterState.games
-            : (fallbackGamesData as any[]),
+      games: (() => {
+        const rawGames = (Array.isArray(d1Settings['wcg_admin_games_v5']) && d1Settings['wcg_admin_games_v5'].length > 0)
+          ? d1Settings['wcg_admin_games_v5']
+          : (Array.isArray(d1Settings['wcg_admin_games_v4']) && d1Settings['wcg_admin_games_v4'].length > 0)
+            ? d1Settings['wcg_admin_games_v4']
+            : (Array.isArray(masterState.games) && masterState.games.length > 0)
+              ? masterState.games
+              : (fallbackGamesData as any[]);
+
+        let needsDbHealing = false;
+        const normalized = rawGames.map((g: any) => {
+          const slug = g.slug || g.id || '';
+          let icon = g.icon_url || g.iconUrl || '';
+          if (!icon || icon.includes('codemoi.net') || icon.includes('googleusercontent.com') || icon.startsWith('/game-icons')) {
+            icon = `/game_icons/${slug}.webp`;
+            needsDbHealing = true;
+          }
+          return {
+            ...g,
+            icon_url: icon,
+            iconUrl: icon,
+          };
+        });
+
+        if (needsDbHealing && env.DB) {
+          setSettingD1(env.DB, 'wcg_admin_games_v5', normalized).catch(() => {});
+        }
+        return normalized;
+      })(),
       freeCodes: authorized ? (() => {
         const d1Fc = (Array.isArray(d1Settings['wcg_admin_free_codes_v5']) && d1Settings['wcg_admin_free_codes_v5'].length > 0)
           ? d1Settings['wcg_admin_free_codes_v5']

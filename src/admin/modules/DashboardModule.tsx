@@ -153,14 +153,34 @@ export const DashboardModule: React.FC<DashboardModuleProps> = ({ onNavigate }) 
           <div className="mt-4 divide-y divide-slate-100 dark:divide-slate-800">
             {topGames.map((game) => (
               <div key={game.id} className="flex items-center gap-3 py-3">
-                <img
-                  src={game.icon_url}
-                  alt={game.name}
-                  className="h-10 w-10 rounded-xl object-cover border border-slate-200 dark:border-slate-700"
-                  onError={(e) => {
-                    (e.target as HTMLImageElement).src = '/icon-192.png';
-                  }}
-                />
+                <div className="relative h-10 w-10 flex-shrink-0 rounded-xl overflow-hidden border border-slate-200 dark:border-slate-700 bg-slate-900/10">
+                  <div className="absolute inset-0 w-full h-full bg-gradient-to-br from-indigo-500 via-purple-600 to-pink-600 flex items-center justify-center text-white text-xs font-bold select-none">
+                    {(game.name || 'G').replace(/[^\p{L}\p{N}\s]/gu, '').trim().slice(0, 2).toUpperCase() || 'GM'}
+                  </div>
+                  <img
+                    src={game.icon_url || `/game_icons/${game.slug}.webp`}
+                    alt={game.name}
+                    referrerPolicy="no-referrer"
+                    className="absolute inset-0 w-full h-full object-cover transition-opacity duration-200"
+                    onError={(e) => {
+                      const target = e.target as HTMLImageElement;
+                      const slug = game.slug || game.id;
+                      if (!target.dataset.triedLocal) {
+                        target.dataset.triedLocal = '1';
+                        target.src = `/game_icons/${slug}.webp`;
+                      } else if (!target.dataset.triedJpg) {
+                        target.dataset.triedJpg = '1';
+                        target.src = `/game_icons/${slug}.jpg`;
+                      } else if (!target.dataset.triedProxy) {
+                        target.dataset.triedProxy = '1';
+                        const raw = game.icon_url && game.icon_url.startsWith('http') ? game.icon_url : '';
+                        target.src = `/api/game-icon?slug=${encodeURIComponent(slug)}${raw ? `&url=${encodeURIComponent(raw)}` : ''}`;
+                      } else {
+                        target.style.opacity = '0';
+                      }
+                    }}
+                  />
+                </div>
                 <div className="flex-1 min-w-0">
                   <p className="truncate text-xs font-bold text-slate-900 dark:text-white">
                     {game.name}

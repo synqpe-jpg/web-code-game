@@ -446,7 +446,17 @@ class AdminDataService {
       const savedGames = localStorage.getItem(this.KEYS.GAMES);
       if (savedGames !== null) {
         try {
-          this.games = JSON.parse(savedGames);
+          const parsed = JSON.parse(savedGames);
+          this.games = Array.isArray(parsed)
+            ? parsed.map((g: any) => {
+                const slug = g.slug || g.id || '';
+                let icon = g.icon_url || g.iconUrl || '';
+                if (!icon || icon.includes('codemoi.net') || icon.includes('googleusercontent.com') || icon.startsWith('/game-icons')) {
+                  icon = `/game_icons/${slug}.webp`;
+                }
+                return { ...g, icon_url: icon, iconUrl: icon };
+              })
+            : [];
         } catch {
           this.games = [];
         }
@@ -1487,7 +1497,14 @@ class AdminDataService {
 
             // 14. Games (Catalog - ~660KB)
             if (json.games && Array.isArray(json.games) && json.games.length > 0) {
-              this.games = json.games;
+              this.games = json.games.map((g: any) => {
+                const slug = g.slug || g.id || '';
+                let icon = g.icon_url || g.iconUrl || '';
+                if (!icon || icon.includes('codemoi.net') || icon.includes('googleusercontent.com') || icon.startsWith('/game-icons')) {
+                  icon = `/game_icons/${slug}.webp`;
+                }
+                return { ...g, icon_url: icon, iconUrl: icon };
+              });
               this.safeSetItem(this.KEYS.GAMES, JSON.stringify(this.games));
               hasUpdates = true;
             }
@@ -1852,7 +1869,14 @@ class AdminDataService {
 
   // --- MODULE 2: GAMES CRUD ---
   public getGames(filter?: { category?: string; status?: string }): GameAdminRecord[] {
-    let list = [...this.games];
+    let list = this.games.map((g) => {
+      const slug = g.slug || g.id || '';
+      let icon = g.icon_url || g.iconUrl || '';
+      if (!icon || icon.includes('codemoi.net') || icon.includes('googleusercontent.com') || icon.startsWith('/game-icons')) {
+        icon = `/game_icons/${slug}.webp`;
+      }
+      return { ...g, icon_url: icon, iconUrl: icon };
+    });
     if (filter?.category && filter.category !== 'ALL') {
       list = list.filter((g) => g.category.toLowerCase() === filter.category?.toLowerCase());
     }

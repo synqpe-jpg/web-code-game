@@ -10,6 +10,24 @@
 
 ## 1. DANH MỤC LỖI & CÁC BẪY ĐÃ THẤT BẠI (DO NOT REPEAT)
 
+### ISSUE-138: Bẫy Ô Biểu Tượng Game Rỗng/Vỡ Trong Bảng Điều Khiển Admin (Dashboard) Do Thiếu File, Chặn Hotlink & Fallback 404 Kép
+- **Triệu chứng**:
+  - Tại trang Bảng Điều Khiển Tổng Quan Admin (`admin#/dashboard`), mục *"Game Nổi Bật Nhất"* xuất hiện các ô chữ nhật tối màu rỗng, không tải được logo game (`Phi Kiếm: Cửu Long Dẫn Quan`, `Command an Army`, `Grow a Chicken Fighter`, `Avatar Land`).
+- **Nguyên nhân gốc rễ (Root Cause)**:
+  1. *File icon WebP chưa có trên đĩa*: `phi-kiem-cuu-long-dan-quan.webp` chưa được tải về máy chủ.
+  2. *Dữ liệu `icon_url` rỗng*: Game `avatar-land` bị lưu chuỗi `""` trong D1 `wcg_admin_games_v5`.
+  3. *Chặn Referrer từ Google Play CDN*: Khi trình duyệt mở từ `admin-code-game-shop.pages.dev`, Google Play CDN (`play-lh.googleusercontent.com`) chặn hotlinking với mã 403 Forbidden.
+  4. *Fallback `onError` trỏ vào file 404*: `DashboardModule.tsx` gán `e.target.src = '/icon-192.png'`, nhưng file `/icon-192.png` không hề tồn tại trong thư mục `public/`, tạo ra lỗi 404 kép khiến ảnh bị vỡ hoàn toàn.
+- **Giải pháp chuẩn đã kiểm chứng**:
+  1. Tải logo chính thức độ nét cao chuẩn WebP cho toàn bộ game mới (`phi-kiem-cuu-long-dan-quan.webp`, `tan-y-thien-do-long-ky.webp`...).
+  2. Tạo sẵn `public/icon-192.png` và `public/icon-512.png` làm fallback tĩnh chống 404.
+  3. Nâng cấp `DashboardModule.tsx` sang mô hình container avatar 4 tầng: Avatar chữ thương hiệu (Brand initials) + `referrerPolicy="no-referrer"` + fallback 4 cấp (`.webp` $\rightarrow$ `.jpg` $\rightarrow$ edge proxy $\rightarrow$ `opacity = 0`).
+  4. Tự động chuẩn hóa và tự chữa lành (auto-heal) dữ liệu icon ở tầng API `/api/sync` và `functions/api/games.ts` luôn trỏ về `/game_icons/${slug}.webp`.
+- ⛔ **CÁCH SỬA ĐÃ THẤT BẠI - TUYỆT ĐỐI KHÔNG LẶP LẠI**:
+  - ❌ *Không dùng thẻ `<img>` trần mà không có fallback background*: Bắt buộc bọc container có gradient avatar chữ nổi bật phía sau để không bao giờ hiện ô đen rỗng.
+  - ❌ *Không gán fallback `src` vào file không tồn tại*: Luôn kiểm tra sự tồn tại của file fallback trên đĩa trước khi dùng.
+  - ❌ *Không để `icon_url` trỏ trực tiếp ra CDN bên ngoài khi đã có sẵn file cục bộ*: Luôn ưu tiên đường dẫn cục bộ `/game_icons/${slug}.webp` để đảm bảo tốc độ và tránh lỗi CORS/Referrer.
+
 ### ISSUE-137: Bẫy Tồn Dư Ký Tự Thực Thể HTML `&nbsp;` Trong Rewards & Sót Mã Rác WordPress Ở Anime Vanguards Và Da Hood
 - **Triệu chứng**:
   - 19 mã quà tặng ở cả hai bản Where Winds Meet (`where-winds-meet-mobile` và `yen-van-thap-luc-thanh`) chứa ký tự HTML entity thô `&nbsp;` trong chuỗi phần thưởng (ví dụ: `100 Echo Jade, 10,000 Coins, 5 Inner Way Pills&nbsp;`, `50 Echo Jade,&nbsp;10,000 Coins`).

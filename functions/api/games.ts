@@ -191,8 +191,8 @@ export function formatGameItem(g: any, allCodes: GiftCode[]): GameItem {
   const cat = g.category ? String(g.category).trim() : '';
 
   let iconUrl = g.icon_url || g.iconUrl || g.cover_image_url || '';
-  if (iconUrl.includes('codemoi.net') || iconUrl.includes('googleusercontent.com') || iconUrl.startsWith('/game-icons') || iconUrl.startsWith('game-icons')) {
-    iconUrl = '';
+  if (!iconUrl || iconUrl.includes('codemoi.net') || iconUrl.includes('googleusercontent.com') || iconUrl.startsWith('/game-icons') || iconUrl.startsWith('game-icons')) {
+    iconUrl = `/game_icons/${slug}.webp`;
   }
 
   const cleanCodes = (allCodes || [])

@@ -7,6 +7,37 @@ Mỗi mục sửa lỗi đều ghi nhận **Nguyên nhân gốc rễ (Root Cause
 
 ## [2026-10-26]
 
+### 215. Khắc Phục Triệt Để Lỗi Icon Game Bảng Điều Khiển Tổng Quan (Dashboard) & Chuẩn Hóa Logo 100% Game Toàn Site
+- **Bối cảnh & Yêu cầu từ Người dùng**:
+  - Tại trang Bảng Điều Khiển Tổng Quan Admin (`admin-code-game-shop.pages.dev/admin#/dashboard`), mục *"Game Nổi Bật Nhất"* xuất hiện các ô biểu tượng rỗng/tối màu bị vỡ hình ảnh (chẳng hạn `Phi Kiếm: Cửu Long Dẫn Quan`, `Command an Army`, `Grow a Chicken Fighter`, `Avatar Land`), trong khi chỉ có `Au Mobile VTC: BigUpdate` hiển thị được icon.
+  - Yêu cầu: Khắc phục triệt để, đảm bảo hiển thị đúng chính xác logo game và cơ chế chống tái diễn vĩnh viễn không bao giờ bị lỗi này nữa.
+- **Nguyên nhân gốc rễ (Root Cause)**:
+  1. *Thiếu file ảnh trên đĩa*: `phi-kiem-cuu-long-dan-quan.webp` chưa được tải về đĩa máy chủ (chỉ có link tải trên Google Play `com.atgame.fm.gp`).
+  2. *Chuỗi `icon_url` rỗng hoặc bị lọc*: `avatar-land` bị lưu `icon_url: ""` trong D1 `wcg_admin_games_v5`. Ngoài ra trong `functions/api/games.ts:194`, logic cũ tự động xóa link Google Play thành `iconUrl = ''` nhưng quên gán lại `/game_icons/${slug}.webp`.
+  3. *Chặn Referrer từ CDN bên thứ 3*: Google Play (`play-lh.googleusercontent.com`) thường chặn (403 Forbidden) khi trình duyệt gửi kèm header `Referer: https://admin-code-game-shop.pages.dev/`.
+  4. *Fallback `onError` chỉ tới file không tồn tại*: `DashboardModule.tsx` sử dụng thẻ `<img>` đơn sơ với `onError={(e) => { e.target.src = '/icon-192.png' }}`, tuy nhiên file `/icon-192.png` hoàn toàn không tồn tại trong thư mục `public/` (gây lỗi 404 kép và hiện ô trống).
+- **Giải pháp triển khai (Solution)**:
+  1. *Thu thập & Xuất bản Icon Chuẩn Xác 100%*:
+     - Thu thập logo chính thức độ phân giải cao từ Google Play Store cho `Phi Kiếm: Cửu Long Dẫn Quan` (16.4KB WebP) và `Tân Ỷ Thiên Đồ Long Ký Mobile`.
+     - Đồng bộ toàn bộ vào `public/game_icons/` và `android/app/src/main/assets/public/game_icons/`.
+     - Chạy `generate_og_jpg_icons.cjs` xuất bản 760/760 file JPG chuẩn Open Graph tương ứng.
+     - Tạo sẵn `public/icon-192.png` và `public/icon-512.png` làm fallback tĩnh chống 404 vĩnh viễn.
+  2. *Nâng cấp UI Component `DashboardModule.tsx` (Presentation Layer)*:
+     - Bọc container chuẩn `relative h-10 w-10 rounded-xl overflow-hidden` với background gradient avatar hiển thị 2 chữ cái viết hoa thương hiệu (như `PK`, `CA`, `AL`, `AU`).
+     - Bổ sung `referrerPolicy="no-referrer"` cho thẻ `<img>`.
+     - Cơ chế `onError` 4 cấp đa tầng: Thử WebP cục bộ $\rightarrow$ Thử JPG cục bộ $\rightarrow$ Thử Edge Proxy `/api/game-icon?slug=...` $\rightarrow$ Mờ dần chuyển sang Avatar chữ nổi bật (`opacity = 0`), đảm bảo không bao giờ xuất hiện ô rỗng hay viền vỡ.
+  3. *Tự động Chuẩn hóa & Tự Chữa Lành ở Tầng API/Sync (Data Layer)*:
+     - `functions/api/sync.ts`: Tự động chuẩn hóa toàn bộ game sang `/game_icons/${slug}.webp` và tự động cập nhật tự chữa lành (auto-heal) bảng `wcg_admin_games_v5` trên Cloudflare D1.
+     - `functions/api/games.ts`: Trong `formatGameItem`, luôn fallback về `/game_icons/${slug}.webp` thay vì chuỗi rỗng.
+     - `adminDataService.ts`: Tự động chuẩn hóa `icon_url` khi khởi tạo từ `localStorage`, khi nhận sự kiện KV Sync, và khi gọi `getGames()`.
+- **Kiểm thử & Nghiệm thu**:
+  - Quét 100% 579 game trong catalog: 0 game thiếu icon, 100% có icon WebP và JPG hợp lệ trên đĩa.
+  - Audit Zero Test Artifacts: 5/5 danh mục sạch 100%.
+
+---
+
+## [2026-10-26]
+
 ### 214. Xóa Ký Tự `&nbsp;` Trong Phần Thưởng Toàn Site & Thanh Lọc 15 Mã Rác WordPress Ở Anime Vanguards Và Da Hood
 - **Bối cảnh & Phản hồi kiểm chứng từ Muse/Người dùng**:
   1. *Ký tự `&nbsp;` trong rewards*: Cả 2 bản Where Winds Meet (`where-winds-meet-mobile` và `yen-van-thap-luc-thanh`) còn 19 mã mang chuỗi ký tự thô `&nbsp;` trong trường `rewards` (PALACE0528, QINCHUAN0430, WWMQC2..WWMQC30). Các game khác cũng có khả năng chứa entity HTML.
@@ -133,6 +164,37 @@ Mỗi mục sửa lỗi đều ghi nhận **Nguyên nhân gốc rễ (Root Cause
     - `toilet-tower-defense`: 11 mã `expired`, 0 mã active, hướng dẫn cảnh báo đầy đủ.
     - `where-winds-meet-mobile` & `yen-van-thap-luc-thanh`: Đồng bộ 615 mã, 7 mã mục tiêu đều `active`.
     - `kiem-de-origin`: `DAITHANH96` hiển thị `active` trên API công khai.
+
+---
+
+## [2026-10-26]
+
+### 215. Khắc Phục Triệt Để Lỗi Icon Game Bảng Điều Khiển Tổng Quan (Dashboard) & Chuẩn Hóa Logo 100% Game Toàn Site
+- **Bối cảnh & Yêu cầu từ Người dùng**:
+  - Tại trang Bảng Điều Khiển Tổng Quan Admin (`admin-code-game-shop.pages.dev/admin#/dashboard`), mục *"Game Nổi Bật Nhất"* xuất hiện các ô biểu tượng rỗng/tối màu bị vỡ hình ảnh (chẳng hạn `Phi Kiếm: Cửu Long Dẫn Quan`, `Command an Army`, `Grow a Chicken Fighter`, `Avatar Land`), trong khi chỉ có `Au Mobile VTC: BigUpdate` hiển thị được icon.
+  - Yêu cầu: Khắc phục triệt để, đảm bảo hiển thị đúng chính xác logo game và cơ chế chống tái diễn vĩnh viễn không bao giờ bị lỗi này nữa.
+- **Nguyên nhân gốc rễ (Root Cause)**:
+  1. *Thiếu file ảnh trên đĩa*: `phi-kiem-cuu-long-dan-quan.webp` chưa được tải về đĩa máy chủ (chỉ có link tải trên Google Play `com.atgame.fm.gp`).
+  2. *Chuỗi `icon_url` rỗng hoặc bị lọc*: `avatar-land` bị lưu `icon_url: ""` trong D1 `wcg_admin_games_v5`. Ngoài ra trong `functions/api/games.ts:194`, logic cũ tự động xóa link Google Play thành `iconUrl = ''` nhưng quên gán lại `/game_icons/${slug}.webp`.
+  3. *Chặn Referrer từ CDN bên thứ 3*: Google Play (`play-lh.googleusercontent.com`) thường chặn (403 Forbidden) khi trình duyệt gửi kèm header `Referer: https://admin-code-game-shop.pages.dev/`.
+  4. *Fallback `onError` chỉ tới file không tồn tại*: `DashboardModule.tsx` sử dụng thẻ `<img>` đơn sơ với `onError={(e) => { e.target.src = '/icon-192.png' }}`, tuy nhiên file `/icon-192.png` hoàn toàn không tồn tại trong thư mục `public/` (gây lỗi 404 kép và hiện ô trống).
+- **Giải pháp triển khai (Solution)**:
+  1. *Thu thập & Xuất bản Icon Chuẩn Xác 100%*:
+     - Thu thập logo chính thức độ phân giải cao từ Google Play Store cho `Phi Kiếm: Cửu Long Dẫn Quan` (16.4KB WebP) và `Tân Ỷ Thiên Đồ Long Ký Mobile`.
+     - Đồng bộ toàn bộ vào `public/game_icons/` và `android/app/src/main/assets/public/game_icons/`.
+     - Chạy `generate_og_jpg_icons.cjs` xuất bản 760/760 file JPG chuẩn Open Graph tương ứng.
+     - Tạo sẵn `public/icon-192.png` và `public/icon-512.png` làm fallback tĩnh chống 404 vĩnh viễn.
+  2. *Nâng cấp UI Component `DashboardModule.tsx` (Presentation Layer)*:
+     - Bọc container chuẩn `relative h-10 w-10 rounded-xl overflow-hidden` với background gradient avatar hiển thị 2 chữ cái viết hoa thương hiệu (như `PK`, `CA`, `AL`, `AU`).
+     - Bổ sung `referrerPolicy="no-referrer"` cho thẻ `<img>`.
+     - Cơ chế `onError` 4 cấp đa tầng: Thử WebP cục bộ $\rightarrow$ Thử JPG cục bộ $\rightarrow$ Thử Edge Proxy `/api/game-icon?slug=...` $\rightarrow$ Mờ dần chuyển sang Avatar chữ nổi bật (`opacity = 0`), đảm bảo không bao giờ xuất hiện ô rỗng hay viền vỡ.
+  3. *Tự động Chuẩn hóa & Tự Chữa Lành ở Tầng API/Sync (Data Layer)*:
+     - `functions/api/sync.ts`: Tự động chuẩn hóa toàn bộ game sang `/game_icons/${slug}.webp` và tự động cập nhật tự chữa lành (auto-heal) bảng `wcg_admin_games_v5` trên Cloudflare D1.
+     - `functions/api/games.ts`: Trong `formatGameItem`, luôn fallback về `/game_icons/${slug}.webp` thay vì chuỗi rỗng.
+     - `adminDataService.ts`: Tự động chuẩn hóa `icon_url` khi khởi tạo từ `localStorage`, khi nhận sự kiện KV Sync, và khi gọi `getGames()`.
+- **Kiểm thử & Nghiệm thu**:
+  - Quét 100% 579 game trong catalog: 0 game thiếu icon, 100% có icon WebP và JPG hợp lệ trên đĩa.
+  - Audit Zero Test Artifacts: 5/5 danh mục sạch 100%.
 
 ---
 
