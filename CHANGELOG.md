@@ -27,10 +27,24 @@ Mỗi mục sửa lỗi đều ghi nhận **Nguyên nhân gốc rễ (Root Cause
      - Tầng Render (Layer 2): `GameDetailModal.tsx` và `SearchAutocomplete.tsx` bọc `decodeHtmlEntities()` trước khi render ra màn hình.
      - D1 & KV Migration: Quét và cập nhật toàn bộ bản ghi có chứa entity HTML trong bảng `codes` D1 và KV `wcg_admin_custom_free_codes_v1`.
      - Hai bản Where Winds Meet: Đồng bộ 100% phần thưởng sạch entities, giữ nguyên 615 tổng, 579 active, 36 expired, 0 lệch.
-- **Kiểm thử & Nghiệm thu**:
+- **Kiểm thử & Nghiệm thu Live API (Build 5afa68b)**:
   - `clean_rewards_and_remove_junk.cjs`: Quét 5 file baseline, dọn sạch 22 mã rác ảnh, decode 819 entities. Toàn bộ 5 file baseline đạt 0 `&nbsp;`, 0 `IN-`.
   - `audit_zero_test_artifacts.cjs`: Đạt 100% (5/5 mục sạch, 0 mục test).
   - Build Vite & Prerender: 100% thành công với 560 trang game, 163 tin tức, 32 giveaways.
+  - Kiểm chứng độc lập trực tiếp trên Live API (`https://codegame.shop`):
+    - **Build ID**: `5afa68b` (Build Time: `2026-10-26T07:29:38.513Z`).
+    - **Việc 1 (Xóa `&nbsp;`)**:
+      - WWM Mobile: 19 mã mang `&nbsp;` trước đây $\rightarrow$ **0 mã**.
+      - WWM Yến Vân: 19 mã mang `&nbsp;` trước đây $\rightarrow$ **0 mã**.
+      - Toàn site: **0 mã mang `&nbsp;`**.
+      - Cả 2 bản WWM: Cùng giữ vững **615 tổng / 579 còn hạn / 36 hết hạn**.
+      - Độ lệch trạng thái giữa 2 bản: **0**.
+      - Độ lệch phần thưởng giữa 2 bản: **0**.
+      - Các mã cụ thể được nêu (`PALACE0528`, `QINCHUAN0430`, `WWMQC2`..`WWMQC30`): Phần thưởng đã sạch bóng không còn đuôi `&nbsp;`.
+    - **Việc 2 (Xóa 15 mã rác ảnh WordPress)**:
+      - Anime Vanguards (`anime-vanguards`): 128 $\rightarrow$ **119 mã** (0 mã `IN-`, 0 mã `&nbsp;`).
+      - Da Hood (`da-hood`): 144 $\rightarrow$ **138 mã** (0 mã `IN-`, 0 mã `&nbsp;`).
+      - Type Soul (`type-soul`): Giữ nguyên trạng thái hoàn hảo **68 mã** sạch (0 mã `IN-`, 0 mã `&nbsp;`).
 
 ---
 
@@ -144,10 +158,24 @@ Mỗi mục sửa lỗi đều ghi nhận **Nguyên nhân gốc rễ (Root Cause
      - Tầng Render (Layer 2): `GameDetailModal.tsx` và `SearchAutocomplete.tsx` bọc `decodeHtmlEntities()` trước khi render ra màn hình.
      - D1 & KV Migration: Quét và cập nhật toàn bộ bản ghi có chứa entity HTML trong bảng `codes` D1 và KV `wcg_admin_custom_free_codes_v1`.
      - Hai bản Where Winds Meet: Đồng bộ 100% phần thưởng sạch entities, giữ nguyên 615 tổng, 579 active, 36 expired, 0 lệch.
-- **Kiểm thử & Nghiệm thu**:
+- **Kiểm thử & Nghiệm thu Live API (Build 5afa68b)**:
   - `clean_rewards_and_remove_junk.cjs`: Quét 5 file baseline, dọn sạch 22 mã rác ảnh, decode 819 entities. Toàn bộ 5 file baseline đạt 0 `&nbsp;`, 0 `IN-`.
   - `audit_zero_test_artifacts.cjs`: Đạt 100% (5/5 mục sạch, 0 mục test).
   - Build Vite & Prerender: 100% thành công với 560 trang game, 163 tin tức, 32 giveaways.
+  - Kiểm chứng độc lập trực tiếp trên Live API (`https://codegame.shop`):
+    - **Build ID**: `5afa68b` (Build Time: `2026-10-26T07:29:38.513Z`).
+    - **Việc 1 (Xóa `&nbsp;`)**:
+      - WWM Mobile: 19 mã mang `&nbsp;` trước đây $\rightarrow$ **0 mã**.
+      - WWM Yến Vân: 19 mã mang `&nbsp;` trước đây $\rightarrow$ **0 mã**.
+      - Toàn site: **0 mã mang `&nbsp;`**.
+      - Cả 2 bản WWM: Cùng giữ vững **615 tổng / 579 còn hạn / 36 hết hạn**.
+      - Độ lệch trạng thái giữa 2 bản: **0**.
+      - Độ lệch phần thưởng giữa 2 bản: **0**.
+      - Các mã cụ thể được nêu (`PALACE0528`, `QINCHUAN0430`, `WWMQC2`..`WWMQC30`): Phần thưởng đã sạch bóng không còn đuôi `&nbsp;`.
+    - **Việc 2 (Xóa 15 mã rác ảnh WordPress)**:
+      - Anime Vanguards (`anime-vanguards`): 128 $\rightarrow$ **119 mã** (0 mã `IN-`, 0 mã `&nbsp;`).
+      - Da Hood (`da-hood`): 144 $\rightarrow$ **138 mã** (0 mã `IN-`, 0 mã `&nbsp;`).
+      - Type Soul (`type-soul`): Giữ nguyên trạng thái hoàn hảo **68 mã** sạch (0 mã `IN-`, 0 mã `&nbsp;`).
 
 ---
 
