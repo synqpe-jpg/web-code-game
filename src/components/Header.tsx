@@ -193,11 +193,7 @@ export const Header: React.FC<HeaderProps> = ({
             <button
               type="button"
               onClick={() => onSelectTab('catalog')}
-              className={`flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
-                currentTab === 'catalog'
-                  ? 'bg-primary text-white shadow-glow-primary'
-                  : 'text-slate-300 hover:text-white hover:bg-card'
-              }`}
+              className="cg-btn cg-btn--small"
             >
               <Gift className="w-4 h-4" />
               <span>{t.nav.catalog}</span>
@@ -219,11 +215,7 @@ export const Header: React.FC<HeaderProps> = ({
             <button
               type="button"
               onClick={() => onSelectTab('giveaways')}
-              className={`flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
-                currentTab === 'giveaways'
-                  ? 'bg-accent text-white shadow-glow-accent'
-                  : 'text-slate-300 hover:text-white hover:bg-card'
-              }`}
+              className="cg-btn cg-btn--small"
             >
               <Sparkles className="w-4 h-4 text-amber-400" />
               <span>{t.nav.giveaways}</span>
@@ -245,11 +237,7 @@ export const Header: React.FC<HeaderProps> = ({
             <button
               type="button"
               onClick={() => onSelectTab('utilities')}
-              className={`flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
-                currentTab === 'utilities'
-                  ? 'bg-teal-600 text-white shadow-sm'
-                  : 'text-slate-300 hover:text-white hover:bg-card'
-              }`}
+              className="cg-btn cg-btn--small"
             >
               <Wrench className="w-4 h-4 text-teal-400" />
               <span>{t.nav.utilities}</span>

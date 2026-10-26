@@ -4,6 +4,7 @@ import { App } from './App';
 import { LanguageProvider } from './context/LanguageContext';
 import { ErrorBoundary } from './components/ErrorBoundary';
 import './index.css';
+import './codegame-shop-buttons.css';
 
 // Automatically handle stale deployment chunks and reload to get fresh assets
 if (typeof window !== 'undefined') {

@@ -7,6 +7,35 @@ Mỗi mục sửa lỗi đều ghi nhận **Nguyên nhân gốc rễ (Root Cause
 
 ## [2026-10-26]
 
+### 222. Tích Hợp Tệp CSS Dùng Chung codegame-shop-buttons.css & Gắn Tên Lớp .cg-btn Cho Đúng 3 Nút (Tra Cứu Code, Săn Giveaway, Tiện Ích)
+- **Bối cảnh & Yêu cầu từ Người dùng**:
+  - Người dùng cung cấp tệp CSS dùng chung `codegame-shop-buttons.css` (viền cầu vồng với mặt nạ gradient chuyển màu conic-gradient, hỗ trợ phím, nút khóa, chế độ giảm chuyển động).
+  - Yêu cầu đưa tệp CSS vào trang và **chỉ thay đúng 3 nút**:
+    1. Nút Tra Cứu code
+    2. Nút Săn giveaway
+    3. Nút Tiện ích
+  - Mọi nút khác trên trang (Tin Tức, Cửa Hàng, sao chép mã, lọc, admin...) giữ nguyên 100%.
+  - Giữ nguyên chữ trên nút, vị trí, thứ tự, chức năng và các thẻ con (icon).
+  - Áp dụng biến thể phù hợp với thanh điều hướng (`cg-btn--small`) để không phá vỡ bố cục header.
+- **Vị trí tìm thấy & Triển khai (Solution)**:
+  1. *Đặt tệp CSS & Import duy nhất*:
+     - Tạo tệp `src/codegame-shop-buttons.css` với nội dung nguyên bản từ yêu cầu.
+     - Import duy nhất một lần tại điểm vào chính của ứng dụng: `src/main.tsx` (`import './codegame-shop-buttons.css';`).
+  2. *Gắn lớp .cg-btn cho đúng 3 nút tại Header Navigation*:
+     - Vị trí: `src/components/Header.tsx` (thanh điều hướng desktop navigation tabs, hàng ngang).
+     - Nút 1: `onClick={() => onSelectTab('catalog')}` ("Tra Cứu Code") $\rightarrow$ `className="cg-btn cg-btn--small"`.
+     - Nút 2: `onClick={() => onSelectTab('giveaways')}` ("Săn Giveaway") $\rightarrow$ `className="cg-btn cg-btn--small"`.
+     - Nút 3: `onClick={() => onSelectTab('utilities')}` ("Tiện Ích") $\rightarrow$ `className="cg-btn cg-btn--small"`.
+     - Giữ nguyên các nút xung quanh: "Tin Tức" và "Cửa Hàng" giữ nguyên class Tailwind cũ.
+- **Kiểm thử & Nghiệm thu**:
+  - Build frontend Vite, SSR Prerender 779 trang và Cloudflare Worker hoàn tất 100% không lỗi.
+  - Kiểm tra giao diện máy tính: 3 nút hiển thị viền cầu vồng xoay mượt mà khi hover/focus, kích thước gọn gàng trong navbar 72px.
+  - Kiểm tra giao diện di động (360px): Thanh điều hướng desktop ẩn theo lớp `hidden md:flex`, không gây tràn ngang giao diện điện thoại.
+  - Kiểm tra bàn phím: Hỗ trợ Tab focus viền xanh `#488cfb`, kích hoạt phím Space/Enter.
+  - Chế độ giảm chuyển động (`prefers-reduced-motion`): Tắt hiệu ứng xoay màu theo đúng quy định.
+
+---
+
 ### 221. Khắc Phục Lỗi Sự Kiện Giveaway Không Hiển Thị Trên Web Khách: Đồng Bộ Live D1 Cho Người Dùng Công Khai, Xóa Chữ "Chính Thức" & "Hết Code", Bật Đếm Ngược 45p
 - **Bối cảnh & Yêu cầu từ Người dùng**:
   - Người dùng gửi 2 ảnh chụp đối chiếu:
