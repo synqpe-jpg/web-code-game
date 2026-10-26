@@ -7,6 +7,42 @@ Mỗi mục sửa lỗi đều ghi nhận **Nguyên nhân gốc rễ (Root Cause
 
 ## [2026-10-26]
 
+### 213. Đồng Bộ 100% Trạng Thái & Phần Thưởng Hai Bản Where Winds Meet, Sửa Hồi Tố Case Type Soul & Dọn Dẹp Mã Rác
+- **Bối cảnh & Phản hồi kiểm chứng từ Muse/Người dùng**:
+  1. *Hai bản Where Winds Meet*: Tập mã giống nhau (615 mã) nhưng còn 26 mã lệch trạng thái (`expired` ở mobile, `active` ở Yến Vân, ví dụ `GOOSENEWS`, `HEXI0306`). Phần thưởng cùng mã còn khác nhau (35 mã lệch mô tả), một số mã active nhưng thưởng tự mâu thuẫn khi ghi `"Mã coupon WWM (Đã hết hạn)"`.
+  2. *Sửa case không có tác dụng ngược*: Các mã cũ vẫn giữ dạng HOA (ví dụ `CRISTI2026`, `PALACECOUNTDOWN` trên Type Soul — game này phân biệt hoa/thường nên không đổi thưởng được). Cần sửa hồi tố toàn bộ mã cũ trong D1, KV và static files.
+  3. *Tồn dư mã rác*: Phát hiện 22 mã rác kích thước ảnh từ WordPress (`IN-TYPE-SOUL-1024X576`, `IN-ANIME-VANGUARDS-*`, `IN-DA-HOOD-*`).
+- **Nguyên nhân gốc rễ (Root Cause)**:
+  1. *Lệch trạng thái do file baseline*: Trong `src/data/crawled_codes_188.json` và `public/data/codes_database.json`, 26 mã coupon WWM được gán `status: EXPIRED` ở mobile nhưng `status: ACTIVE` ở Yến Vân. Khi nạp vào cache và merge, mobile đọc bản expired và giữ lại phần thưởng `"Mã coupon WWM (Đã hết hạn)"`.
+  2. *Lệch phần thưởng giữa 2 game song sinh*: 35 mã WWM ở bản mobile có mô tả vật phẩm chi tiết (Echo Jade, Coins, Chest, v.v.), trong khi bản Yến Vân chỉ mang nhãn chung chung `"Quà tặng tân thủ"`.
+  3. *Cơ chế Ingest cũ ép hoa vĩnh viễn*: 57 mã Type Soul đẩy qua Muse API trong quá khứ bị ép thành chữ HOA, lưu vào D1 và KV mà chưa có script quét cập nhật hồi tố (retroactive migration).
+- **Giải pháp triển khai (Solution)**:
+  1. *Đồng bộ 1-1 Tuyệt Đối Hai Bản Where Winds Meet*:
+     - Đồng bộ trạng thái: Toàn bộ 26 mã (`CH8AJWFRRR`, `CYMWMFCJDH`, `DQJXNYQNJ4`, `FHHXEYRJAN`, `FSA7JNANTP`, `GOHOME123`, `GOOSENEWS`, `HEXI0306`, `HXY33FXEFM`, `HYXJRTA37F`, `JJXDTKCD8Y`, `KC6T677DRY`, `KPC346C44A`, `NK4AJFPDWC`, `PJCXEP4MFT`, `QMQW7RQJT6`, `QTNJP7P4PC`, `SWCQQQHWAE`, `SY3KQQE8KR`, `TPCF3FEN6Y`, `WM8E7JJF47`, `WWM251115`, `WWMDEVTALK`, `WWMGLTIKTOK`, `WWMGLYOUTUBE`, `WWMQC1`) được chuyển thành `active` ở cả 2 bản ghi.
+     - Triệt tiêu mâu thuẫn: Thay thế toàn bộ chuỗi `"Mã coupon WWM (Đã hết hạn)"` và `&nbsp;` bằng phần thưởng thực tế hoặc `"Quà tặng tân thủ"`.
+     - Đồng bộ phần thưởng phong phú: Toàn bộ 35 mã có phần thưởng vật phẩm chi tiết (Echo Jade, Coins) từ mobile được sao chép nguyên vẹn sang bản Yến Vân. Cả 2 bên sở hữu 100% phần thưởng đồng nhất.
+  2. *Sửa Hồi Tố Case Sensitivity Cho Type Soul*:
+     - Khảo sát wiki và hướng dẫn chính thức Roblox Type Soul, lập bảng mapping chuẩn xác cho 68 mã.
+     - Cập nhật hồi tố trong D1 SQL `codes` table, D1 `system_settings` (`wcg_admin_custom_free_codes_v1`), và các file static database: `Cristi2026`, `palacecountdown`, `almightycristishowcasev2`, `vilhalloweencode`, `PALACEUPDATE2060`, `BalanceStage`, `TheSecretIsInUpdateLogs`, `TypeSoulBurden`, `SmallPatchYay`, `TrueWorldbearer`, `TypeBugIsMYFavouriteGame`, `HotfixesThxForPlayingTypeSoul`, `armastorcode`, `armastorcode2`, `HiddensBLESSING`, `Kurtisatung`, `guys`, v.v.
+  3. *Thanh Lọc Triệt Để 22 Mã Rác Kích Thước Ảnh*:
+     - Xóa hoàn toàn các mã dạng `IN-...-1024X576`, `IN-...-367X206` khỏi D1, KV và baseline JSON.
+- **Kiểm thử & Nghiệm thu trên Production**:
+  - `where-winds-meet-mobile` & `yen-van-thap-luc-thanh`:
+    - Tổng số mã: 615 / 615 (khớp 100%).
+    - Số mã active: 579 / 579 (khớp 100%).
+    - Status diffs: **0** (ZERO).
+    - Reward diffs: **0** (ZERO).
+    - Mâu thuẫn "Đã hết hạn" khi active: **0** (ZERO).
+  - `type-soul`:
+    - Tổng số mã sạch: 68 mã (đã xóa 7 mã rác ảnh).
+    - `Cristi2026`: hiển thị đúng `Cristi2026` (active).
+    - `palacecountdown`: hiển thị đúng `palacecountdown` (active).
+    - Toàn bộ 68 mã giữ đúng 100% case gốc.
+
+---
+
+## [2026-10-26]
+
 ### 212. Khắc Phục Dữ Liệu Live (A1, A2) & Đại Tu Hệ Thống Ingest Giftcode (B1 - B5)
 - **Bối cảnh & Yêu cầu từ Muse/Người dùng**:
   1. *Phần A — Sửa trực tiếp dữ liệu live*:
@@ -54,6 +90,42 @@ Mỗi mục sửa lỗi đều ghi nhận **Nguyên nhân gốc rễ (Root Cause
     - `toilet-tower-defense`: 11 mã `expired`, 0 mã active, hướng dẫn cảnh báo đầy đủ.
     - `where-winds-meet-mobile` & `yen-van-thap-luc-thanh`: Đồng bộ 615 mã, 7 mã mục tiêu đều `active`.
     - `kiem-de-origin`: `DAITHANH96` hiển thị `active` trên API công khai.
+
+---
+
+## [2026-10-26]
+
+### 213. Đồng Bộ 100% Trạng Thái & Phần Thưởng Hai Bản Where Winds Meet, Sửa Hồi Tố Case Type Soul & Dọn Dẹp Mã Rác
+- **Bối cảnh & Phản hồi kiểm chứng từ Muse/Người dùng**:
+  1. *Hai bản Where Winds Meet*: Tập mã giống nhau (615 mã) nhưng còn 26 mã lệch trạng thái (`expired` ở mobile, `active` ở Yến Vân, ví dụ `GOOSENEWS`, `HEXI0306`). Phần thưởng cùng mã còn khác nhau (35 mã lệch mô tả), một số mã active nhưng thưởng tự mâu thuẫn khi ghi `"Mã coupon WWM (Đã hết hạn)"`.
+  2. *Sửa case không có tác dụng ngược*: Các mã cũ vẫn giữ dạng HOA (ví dụ `CRISTI2026`, `PALACECOUNTDOWN` trên Type Soul — game này phân biệt hoa/thường nên không đổi thưởng được). Cần sửa hồi tố toàn bộ mã cũ trong D1, KV và static files.
+  3. *Tồn dư mã rác*: Phát hiện 22 mã rác kích thước ảnh từ WordPress (`IN-TYPE-SOUL-1024X576`, `IN-ANIME-VANGUARDS-*`, `IN-DA-HOOD-*`).
+- **Nguyên nhân gốc rễ (Root Cause)**:
+  1. *Lệch trạng thái do file baseline*: Trong `src/data/crawled_codes_188.json` và `public/data/codes_database.json`, 26 mã coupon WWM được gán `status: EXPIRED` ở mobile nhưng `status: ACTIVE` ở Yến Vân. Khi nạp vào cache và merge, mobile đọc bản expired và giữ lại phần thưởng `"Mã coupon WWM (Đã hết hạn)"`.
+  2. *Lệch phần thưởng giữa 2 game song sinh*: 35 mã WWM ở bản mobile có mô tả vật phẩm chi tiết (Echo Jade, Coins, Chest, v.v.), trong khi bản Yến Vân chỉ mang nhãn chung chung `"Quà tặng tân thủ"`.
+  3. *Cơ chế Ingest cũ ép hoa vĩnh viễn*: 57 mã Type Soul đẩy qua Muse API trong quá khứ bị ép thành chữ HOA, lưu vào D1 và KV mà chưa có script quét cập nhật hồi tố (retroactive migration).
+- **Giải pháp triển khai (Solution)**:
+  1. *Đồng bộ 1-1 Tuyệt Đối Hai Bản Where Winds Meet*:
+     - Đồng bộ trạng thái: Toàn bộ 26 mã (`CH8AJWFRRR`, `CYMWMFCJDH`, `DQJXNYQNJ4`, `FHHXEYRJAN`, `FSA7JNANTP`, `GOHOME123`, `GOOSENEWS`, `HEXI0306`, `HXY33FXEFM`, `HYXJRTA37F`, `JJXDTKCD8Y`, `KC6T677DRY`, `KPC346C44A`, `NK4AJFPDWC`, `PJCXEP4MFT`, `QMQW7RQJT6`, `QTNJP7P4PC`, `SWCQQQHWAE`, `SY3KQQE8KR`, `TPCF3FEN6Y`, `WM8E7JJF47`, `WWM251115`, `WWMDEVTALK`, `WWMGLTIKTOK`, `WWMGLYOUTUBE`, `WWMQC1`) được chuyển thành `active` ở cả 2 bản ghi.
+     - Triệt tiêu mâu thuẫn: Thay thế toàn bộ chuỗi `"Mã coupon WWM (Đã hết hạn)"` và `&nbsp;` bằng phần thưởng thực tế hoặc `"Quà tặng tân thủ"`.
+     - Đồng bộ phần thưởng phong phú: Toàn bộ 35 mã có phần thưởng vật phẩm chi tiết (Echo Jade, Coins) từ mobile được sao chép nguyên vẹn sang bản Yến Vân. Cả 2 bên sở hữu 100% phần thưởng đồng nhất.
+  2. *Sửa Hồi Tố Case Sensitivity Cho Type Soul*:
+     - Khảo sát wiki và hướng dẫn chính thức Roblox Type Soul, lập bảng mapping chuẩn xác cho 68 mã.
+     - Cập nhật hồi tố trong D1 SQL `codes` table, D1 `system_settings` (`wcg_admin_custom_free_codes_v1`), và các file static database: `Cristi2026`, `palacecountdown`, `almightycristishowcasev2`, `vilhalloweencode`, `PALACEUPDATE2060`, `BalanceStage`, `TheSecretIsInUpdateLogs`, `TypeSoulBurden`, `SmallPatchYay`, `TrueWorldbearer`, `TypeBugIsMYFavouriteGame`, `HotfixesThxForPlayingTypeSoul`, `armastorcode`, `armastorcode2`, `HiddensBLESSING`, `Kurtisatung`, `guys`, v.v.
+  3. *Thanh Lọc Triệt Để 22 Mã Rác Kích Thước Ảnh*:
+     - Xóa hoàn toàn các mã dạng `IN-...-1024X576`, `IN-...-367X206` khỏi D1, KV và baseline JSON.
+- **Kiểm thử & Nghiệm thu trên Production**:
+  - `where-winds-meet-mobile` & `yen-van-thap-luc-thanh`:
+    - Tổng số mã: 615 / 615 (khớp 100%).
+    - Số mã active: 579 / 579 (khớp 100%).
+    - Status diffs: **0** (ZERO).
+    - Reward diffs: **0** (ZERO).
+    - Mâu thuẫn "Đã hết hạn" khi active: **0** (ZERO).
+  - `type-soul`:
+    - Tổng số mã sạch: 68 mã (đã xóa 7 mã rác ảnh).
+    - `Cristi2026`: hiển thị đúng `Cristi2026` (active).
+    - `palacecountdown`: hiển thị đúng `palacecountdown` (active).
+    - Toàn bộ 68 mã giữ đúng 100% case gốc.
 
 ---
 

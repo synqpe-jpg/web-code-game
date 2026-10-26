@@ -187,6 +187,16 @@
 - **Tự Động Cập Nhật Metadata Khi Đẩy Trùng**:
   - Khi mã đã tồn tại nhưng đối tác/crawler gửi thông tin hạn dùng mới, phần thưởng mới hoặc trạng thái mới, hệ thống tự động cập nhật bản ghi trong CSDL và KV, trả về `updatedMetadataCodes`.
 
+### 3.13. Quy Tắc Đồng Bộ Song Sinh 1 - 1 & Migration Hồi Tố (Twin Games 1-1 Sync & Retroactive Case Migration)
+- **Đồng Bộ Song Sinh Tuyệt Đối 1 - 1**:
+  - Đối với các tựa game có 2 bản ghi song sinh (như Where Winds Meet: `where-winds-meet-mobile` và `yen-van-thap-luc-thanh`):
+    1. Tập mã phải giống nhau 100%.
+    2. Trạng thái (`active`/`expired`) của từng mã phải khớp nhau 100%.
+    3. Phần thưởng (`rewards` / `description`) phải đồng nhất và lấy theo bản chi tiết nhất (vật phẩm, Echo Jade, Coin, v.v.).
+    4. Tuyệt đối không để xảy ra mâu thuẫn nội tại: Mã có trạng thái `active` không bao giờ được chứa chuỗi mô tả `"Đã hết hạn"` hay `"Mã coupon WWM (Đã hết hạn)"`.
+- **Migration Hồi Tố Khi Thay Đổi Quy Tắc (Retroactive Rule Enforcement)**:
+  - Khi áp dụng quy tắc mới (ví dụ bảo tồn case-sensitivity, chuẩn hóa phần thưởng, xóa mã rác scraping): Bắt buộc phải chạy script migration cập nhật lại toàn bộ dữ liệu đã lưu trong quá khứ ở tất cả các tầng: D1 SQL database, D1 system settings (KV), và các file baseline static database (`crawled_codes_188.json`, `codes_database.json`).
+
 ---
 
 ## 4. BẢN ĐỒ DỮ LIỆU & STATE MANAGEMENT

@@ -1835,42 +1835,64 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
         `).bind(ttdNotice).run().catch(() => {});
         results.ttdExpired = ttdRes;
 
-        // 4. A2.3 & A2.4: Where Winds Meet - Kích hoạt 6 mã còn hạn và đồng bộ 2 bản ghi song sinh
-        const wwmTargetActive = ['QINCHUAN0430', 'QINCHUANGOGO', 'MEETINHEXI', 'PALACE0528', 'HAPPY515', 'LIANGZHOUGO', 'XWCXEETKKE'];
-        for (const c of wwmTargetActive) {
-          await env.DB.prepare(`
-            UPDATE codes SET status = 'active', expires_at = NULL
-            WHERE (game_slug = 'where-winds-meet-mobile' OR game_slug = 'yen-van-thap-luc-thanh') AND UPPER(code) = ?
-          `).bind(c).run().catch(() => {});
-        }
+        // 4. A2.3 & A2.4: Where Winds Meet & Yên Vân Thập Lục Thanh 1-1 True Sync
+        const wwmTargetActive = new Set([
+          'CH8AJWFRRR', 'CYMWMFCJDH', 'DQJXNYQNJ4', 'FHHXEYRJAN', 'FSA7JNANTP',
+          'GOHOME123', 'GOOSENEWS', 'HEXI0306', 'HXY33FXEFM', 'HYXJRTA37F',
+          'JJXDTKCD8Y', 'KC6T677DRY', 'KPC346C44A', 'NK4AJFPDWC', 'PJCXEP4MFT',
+          'QMQW7RQJT6', 'QTNJP7P4PC', 'SWCQQQHWAE', 'SY3KQQE8KR', 'TPCF3FEN6Y',
+          'WM8E7JJF47', 'WWM251115', 'WWMDEVTALK', 'WWMGLTIKTOK', 'WWMGLYOUTUBE',
+          'WWMQC1', 'QINCHUAN0430', 'QINCHUANGOGO', 'MEETINHEXI', 'PALACE0528',
+          'HAPPY515', 'LIANGZHOUGO', 'XWCXEETKKE'
+        ]);
 
         const [wwmRes1, wwmRes2] = await Promise.all([
           env.DB.prepare("SELECT * FROM codes WHERE game_slug = 'where-winds-meet-mobile'").all<any>().catch(() => ({ results: [] })),
           env.DB.prepare("SELECT * FROM codes WHERE game_slug = 'yen-van-thap-luc-thanh'").all<any>().catch(() => ({ results: [] })),
         ]);
-        const wwmMap = new Map<string, any>();
-        for (const c of (wwmRes1.results || [])) {
-          if (!c || !c.code) continue;
-          wwmMap.set(c.code.toUpperCase(), { ...c });
-        }
-        for (const c of (wwmRes2.results || [])) {
+
+        const wwmCanonical = new Map<string, any>();
+        const isDetailedReward = (r: string) => r && r.length > 15 && !/hết hạn/i.test(r);
+
+        const allWwmCodes = [...(wwmRes1.results || []), ...(wwmRes2.results || [])];
+        for (const c of allWwmCodes) {
           if (!c || !c.code) continue;
           const upper = c.code.toUpperCase();
-          if (wwmMap.has(upper)) {
-            if (c.status === 'active' || c.status === 'verified') {
-              wwmMap.get(upper).status = 'active';
-            }
+          const existing = wwmCanonical.get(upper);
+
+          let status = (c.status || '').toLowerCase();
+          if (wwmTargetActive.has(upper) || status === 'active' || status === 'verified') {
+            status = 'active';
+          }
+
+          let rawRewards = String(c.rewards || '').trim();
+          if (/hết hạn/i.test(rawRewards) || !rawRewards) {
+            rawRewards = 'Quà tặng tân thủ';
+          }
+
+          if (!existing) {
+            wwmCanonical.set(upper, {
+              code: c.code,
+              status,
+              rewards: rawRewards,
+              expires_at: status === 'active' ? null : c.expires_at,
+              source: c.source || 'Where Winds Meet Official',
+              added_at: c.added_at || new Date().toISOString(),
+              isDetailed: isDetailedReward(rawRewards)
+            });
           } else {
-            wwmMap.set(upper, { ...c });
+            if (status === 'active') {
+              existing.status = 'active';
+              existing.expires_at = null;
+            }
+            if (isDetailedReward(rawRewards) && !existing.isDetailed) {
+              existing.rewards = rawRewards;
+              existing.isDetailed = true;
+            }
           }
         }
-        for (const c of wwmTargetActive) {
-          if (wwmMap.has(c)) {
-            wwmMap.get(c).status = 'active';
-            wwmMap.get(c).expires_at = null;
-          }
-        }
-        const syncedCodesList = Array.from(wwmMap.values());
+
+        const syncedCodesList = Array.from(wwmCanonical.values());
         const wwmBatchStmts: any[] = [];
         for (const sc of syncedCodesList) {
           for (const targetSlug of ['where-winds-meet-mobile', 'yen-van-thap-luc-thanh']) {
@@ -1882,7 +1904,7 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
                 `code_${targetSlug}_${encodeURIComponent(sc.code).replace(/[^a-zA-Z0-9_-]/g, '_')}`,
                 targetSlug,
                 sc.code,
-                sc.rewards || 'Quà tân thủ & vật phẩm ingame',
+                sc.rewards || 'Quà tặng tân thủ',
                 sc.status || 'active',
                 sc.expires_at || null,
                 sc.source || 'Sync Twin WWM',
@@ -1897,6 +1919,99 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
         results.wwmSyncedCount = syncedCodesList.length;
 
         // 5. B1: Đồng bộ hóa toàn bộ danh sách custom codes trong KV wcg_admin_custom_free_codes_v1 vào D1 codes table
+        const typeSoulCaseMap: Record<string, string> = {
+          'CRISTI2026': 'Cristi2026',
+          'PALACECOUNTDOWN': 'palacecountdown',
+          'ALMIGHTYCRISTISHOWCASEV2': 'almightycristishowcasev2',
+          'ARMASTORCODE': 'armastorcode',
+          'ARMASTORCODE2': 'armastorcode2',
+          'BALANCESTAGE': 'BalanceStage',
+          'BARAGGANINTORISINGSWALLOW': 'baragganintorisingswallow',
+          'CODEFORLASTWEEKEND': 'codeforlastweekend',
+          'CRISTIBDAY': 'cristibday',
+          'D1ATHLETE3XMROLYMPIAWINNERDCDECIIMO': 'd1athlete3xmrolympiawinnerdcdeciimo',
+          'EIDMUBARAK': 'eidmubarak',
+          'ERIKKIMONTH': 'ErikkiMonth',
+          'GREENGIANT': 'greengiant',
+          'GREENGIANTV': 'greengiantv',
+          'HEYITSMEVEGADODGEFRAME': 'heyitsmevegadodgeframe',
+          'HIDDENSBLESSING': 'HiddensBLESSING',
+          'HOTFIXESTHXFORPLAYINGTYPESOUL': 'HotfixesThxForPlayingTypeSoul',
+          'ICHIGO101010': 'ichigo101010',
+          'IGUESSTHETYPESOULWASINUSALLALONG': 'iguessthetypesoulwasinusallalong',
+          'ITNEARLYCAMEHOME': 'ItNearlyCameHome',
+          'ITSALMOSTTHATKINDOFSUMMER': 'itsalmostthatkindofsummer',
+          'JOSHISBACKANDADDINGSLOPTOTHEGAMETEEHEE': 'joshisbackandaddingsloptothegameteehee',
+          'KURTISATUNG': 'Kurtisatung',
+          'KYOKANERFSWEREDESERVEDLOL': 'kyokanerfsweredeservedlol',
+          'LETSFIXTYPE': 'letsfixtype',
+          'MINIERIKKIKT': 'minierikkikt',
+          'MORPHQUESTFIX': 'morphquestfix',
+          'NERDLANTERN': 'nerdlantern',
+          'NGLIMMATAKEANAPLMK': 'NglImmaTakeANapLmk',
+          'NOOBSOUL': 'noobsoul',
+          'PALACEUPDATE2060': 'PALACEUPDATE2060',
+          'RULESAREMADETOBEBROKE': 'rulesaremadetobebroke',
+          'RULESAREMADETOBROKEN': 'rulesaremadetobroken',
+          'SILLYHOLLOW': 'sillyhollow',
+          'SMALLINCONVENIENCE': 'smallinconvenience',
+          'SMALLPATCHYAY': 'SmallPatchYay',
+          'SORRY4DELAY': 'sorry4delay',
+          'SORRYDELAY1': 'sorrydelay1',
+          'SORRYDELAY2': 'sorrydelay2',
+          'SPAINWORLDCUPWINNERS26': 'SpainWorldCupWinners26',
+          'TEMISBURGER': 'temisburger',
+          'TEXBDAY': 'texbday',
+          'THEPRODIGY': 'theprodigy',
+          'THESECRETISINUPDATELOGS': 'TheSecretIsInUpdateLogs',
+          'THISISWHYWECLASH1M': 'thisiswhyweclash1m',
+          'TMRFRTHISTIMEONSHREDSYLIFE': 'tmrfrthistimeonshredsylife',
+          'TRIPLETBIRTHDAY': 'tripletbirthday',
+          'TRUEWORLDBEARER': 'TrueWorldbearer',
+          'TRULYBEENATYPESOUL': 'TrulyBeenATypeSoul',
+          'TYPEBUGISMYFAVOURITEGAME': 'TypeBugIsMYFavouriteGame',
+          'TYPESOULBURDEN': 'TypeSoulBurden',
+          'VDEKUGLOBALBAN': 'vdekuglobalban',
+          'VILHALLOWEENCODE': 'vilhalloweencode',
+          'VOIDZLATEBDAY': 'voidzlatebday',
+          'WAITTYPESOULISTILLNEEDYOU': 'waittypesoulistillneedyou',
+          'WEWANTSPIRAL': 'wewantspiral',
+          'YAYFIRSTWEEKLY': 'yayfirstweekly',
+          'BESTBDAY': 'BestBday',
+          'GROUNDHAKUDAMOGSAIRHAKUDA': 'groundhakudamogsairhakuda',
+          'GUYS': 'guys',
+          'LEAFYHORIZONCORE': 'leafyhorizoncore',
+          'THANKSGIVINGBREAKWOOHOO': 'thanksgivingbreakwoohoo',
+          'TYPEBUGILOVETYPEBUG': 'typebugilovetypebug',
+          'TYPEMEMORYLOSS': 'typememoryloss',
+          'TYPESOUL2026VVVKHOATICFENG': 'typesoul2026vvvkhoaticfeng',
+          'TYPESOULWORLDCUP2030': 'TypeSoulWorldCup2030',
+          'SOULREAPER': 'SoulReaper',
+          'TYPESOUL2026': 'TypeSoul2026',
+        };
+
+        // 6. Type Soul Retroactive Case Fix & Dọn Dẹp Mã Rác Kích Thước Ảnh
+        await env.DB.prepare(`
+          DELETE FROM codes
+          WHERE game_slug = 'type-soul' AND (
+            code LIKE 'IN-TYPE-SOUL-%' OR code LIKE 'IN-%-1024X576' OR code LIKE 'IN-%-367X206'
+          )
+        `).run().catch(() => {});
+
+        const tsUpdateStmts: any[] = [];
+        for (const [upper, exact] of Object.entries(typeSoulCaseMap)) {
+          tsUpdateStmts.push(
+            env.DB.prepare(`
+              UPDATE codes SET code = ?
+              WHERE game_slug = 'type-soul' AND UPPER(code) = ?
+            `).bind(exact, upper)
+          );
+        }
+        for (let i = 0; i < tsUpdateStmts.length; i += 50) {
+          await env.DB.batch(tsUpdateStmts.slice(i, i + 50)).catch(() => {});
+        }
+        results.typeSoulCaseFixed = Object.keys(typeSoulCaseMap).length;
+
         const customCodesRaw = await getSettingD1(env.DB, 'wcg_admin_custom_free_codes_v1', []);
         let customBackfilledCount = 0;
         if (Array.isArray(customCodesRaw) && customCodesRaw.length > 0) {
@@ -1906,6 +2021,7 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
             const s = String(c.gameSlug || c.slug || c.gameId || '').trim().toLowerCase();
             const upper = String(c.code || c.codeValue || '').trim().toUpperCase();
             if (s === 'zenless-zone-zero' && upper === 'SUNBRINGER') return false;
+            if (/^IN-.*-\d+X\d+$/i.test(upper)) return false;
             return true;
           });
           cleanCustom.unshift({
@@ -1941,11 +2057,45 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
               c.status = 'EXPIRED';
               c.is_active = false;
             }
-            if ((s === 'where-winds-meet-mobile' || s === 'yen-van-thap-luc-thanh') && wwmTargetActive.includes(upper)) {
+            if (s === 'type-soul' && typeSoulCaseMap[upper]) {
+              const exact = typeSoulCaseMap[upper];
+              c.code = exact;
+              c.codeValue = exact;
+            }
+            if ((s === 'where-winds-meet-mobile' || s === 'yen-van-thap-luc-thanh') && wwmTargetActive.has(upper)) {
               c.status = 'ACTIVE';
               c.is_active = true;
               c.expiresAt = null;
               c.expires_at = null;
+              if (/hết hạn/i.test(c.rewards || '') || !c.rewards || c.rewards === '&nbsp;') {
+                c.rewards = 'Quà tặng tân thủ';
+              }
+            }
+          });
+
+          // Đồng bộ phần thưởng phong phú giữa 2 bản song sinh Where Winds Meet
+          const wwmBestRewards = new Map<string, string>();
+          cleanCustom.forEach((c: any) => {
+            const s = String(c.gameSlug || c.slug || c.gameId || '').trim().toLowerCase();
+            const upper = String(c.code || c.codeValue || '').trim().toUpperCase();
+            if (s === 'where-winds-meet-mobile' || s === 'yen-van-thap-luc-thanh') {
+              const r = String(c.rewards || '').trim();
+              if (r && r.length > 15 && !/hết hạn/i.test(r) && r !== 'Quà tặng tân thủ' && r !== '&nbsp;') {
+                wwmBestRewards.set(upper, r);
+              }
+            }
+          });
+          cleanCustom.forEach((c: any) => {
+            const s = String(c.gameSlug || c.slug || c.gameId || '').trim().toLowerCase();
+            const upper = String(c.code || c.codeValue || '').trim().toUpperCase();
+            if (s === 'where-winds-meet-mobile' || s === 'yen-van-thap-luc-thanh') {
+              if (wwmBestRewards.has(upper)) {
+                c.rewards = wwmBestRewards.get(upper);
+                c.description = wwmBestRewards.get(upper);
+              } else if (!c.rewards || c.rewards === '&nbsp;' || /hết hạn/i.test(c.rewards)) {
+                c.rewards = 'Quà tặng tân thủ';
+                c.description = 'Quà tặng tân thủ';
+              }
             }
           });
 

@@ -10,6 +10,26 @@
 
 ## 1. DANH MỤC LỖI & CÁC BẪY ĐÃ THẤT BẠI (DO NOT REPEAT)
 
+### ISSUE-136: Bẫy Thiếu Đồng Bộ Trạng Thái/Phần Thưởng Giữa 2 Bản Game Song Sinh & Thiếu Sửa Hồi Tố Case Cho Dữ Liệu Cũ
+- **Triệu chứng**:
+  - Dù tổng số lượng mã giữa 2 bản Where Winds Meet (`where-winds-meet-mobile` và `yen-van-thap-luc-thanh`) bằng nhau (615 mã), nhưng vẫn còn 26 mã mang trạng thái `expired` ở bản mobile trong khi ở bản Yến Vân lại là `active`.
+  - Một số mã active nhưng chuỗi phần thưởng tự mâu thuẫn khi ghi `"Mã coupon WWM (Đã hết hạn)"`.
+  - 35 mã ở bản mobile có phần thưởng vật phẩm chi tiết nhưng bản Yến Vân chỉ ghi `"Quà tặng tân thủ"`.
+  - Sửa pipeline ingest giữ case chỉ có tác dụng với mã đẩy sau này; các mã cũ trong CSDL vẫn giữ dạng HOA (như `CRISTI2026`, `PALACECOUNTDOWN` của Type Soul) khiến người chơi không thể đổi thưởng trong game.
+  - Tồn dư 22 mã rác kích thước ảnh WordPress dạng `IN-...-1024X576` trong cơ sở dữ liệu.
+- **Nguyên nhân gốc rễ (Root Cause)**:
+  1. *Dữ liệu baseline không đồng nhất*: Trong `crawled_codes_188.json` và `codes_database.json`, 26 mã WWM bị đánh dấu expired ở bản mobile nhưng active ở Yến Vân. Khi API gộp mã (fallback), mobile nhận dữ liệu cũ.
+  2. *Thiếu bước sao chép phần thưởng chi tiết*: Khi đồng bộ 2 game song sinh, hệ thống chỉ kiểm tra mã tồn tại mà chưa sao chép phần thưởng giàu thông tin nhất sang bản còn lại.
+  3. *Thiếu migration sửa hồi tố (Retroactive Migration)*: Dữ liệu cũ trong D1 và KV đã bị lưu dạng chữ hoa từ trước, cần một script và action migration quét và cập nhật trực tiếp.
+- **Giải pháp chuẩn đã kiểm chứng**:
+  1. *Đồng bộ triệt để hai bản song sinh WWM*: Đặt toàn bộ 26 mã thành `active` ở cả 2 bên. Loại bỏ mọi chuỗi `"hết hạn"` khỏi phần thưởng của mã active. Sao chép phần thưởng chi tiết cho cả 35 mã.
+  2. *Sửa hồi tố case chữ hoa/thường*: Áp dụng bảng mapping chuẩn cho 68 mã Type Soul (`Cristi2026`, `palacecountdown`, `almightycristishowcasev2`, v.v.) trong cả D1 SQL, KV và static files.
+  3. *Lọc sạch 22 mã rác kích thước ảnh*: Xóa hoàn toàn các mã dạng `IN-...-1024X576` khỏi CSDL và file static.
+- ⛔ **CÁCH SỬA ĐÃ THẤT BẠI - TUYỆT ĐỐI KHÔNG LẶP LẠI**:
+  - ❌ *Không chỉ sửa logic cho mã mới mà bỏ quên dữ liệu cũ*: Khi sửa quy tắc (như case-sensitivity), luôn phải chạy migration hồi tố (retroactive update) cho các bản ghi đã lưu trong DB.
+  - ❌ *Không để trạng thái active đi kèm mô tả "Đã hết hạn"*: Luôn kiểm tra tính nhất quán giữa trường `status` và nội dung chuỗi `rewards`.
+  - ❌ *Không chỉ đồng bộ tập mã mà bỏ quên đồng bộ trạng thái và phần thưởng giữa các game song sinh*.
+
 ### ISSUE-135: Bẫy Lệch Kho D1/KV Gây Trùng Ảo, Ép Chữ Hoa Phá Vỡ Case-Sensitivity & Thiếu Đồng Bộ Dữ Liệu Live Ingest
 - **Triệu chứng**:
   - Khi đối tác/crawler đẩy giftcode vào API `/api/crawler/ingest-codes`, hệ thống báo trùng (`duplicate = 1, added = 0`), nhưng truy vấn công khai không thấy mã xuất hiện (như Zenless Zone Zero `Sunbringer`, Kiếm Đế Origin `DAITHANH96`).
