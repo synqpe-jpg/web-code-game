@@ -10,6 +10,29 @@ export interface ParsedExpiration {
 }
 
 /**
+ * Làm sạch và decode toàn bộ HTML entities trong chuỗi văn bản (phần thưởng, mô tả...)
+ * Chuyển &nbsp; thành khoảng trắng thường, xóa trailing entities / spaces, gộp khoảng trắng thừa.
+ */
+export function decodeHtmlEntities(raw: any): string {
+  if (!raw || typeof raw !== 'string') return '';
+  return String(raw)
+    .replace(/&nbsp;/gi, ' ')
+    .replace(/&ndash;/gi, '–')
+    .replace(/&mdash;/gi, '—')
+    .replace(/&amp;/gi, '&')
+    .replace(/&rsquo;/gi, "'")
+    .replace(/&lsquo;/gi, "'")
+    .replace(/&rdquo;/gi, '"')
+    .replace(/&ldquo;/gi, '"')
+    .replace(/&quot;/gi, '"')
+    .replace(/&#39;/gi, "'")
+    .replace(/&lt;/gi, '<')
+    .replace(/&gt;/gi, '>')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+/**
  * Parses and validates raw expiration date string or timestamp.
  * Supports:
  * - ISO date formats: 'YYYY-MM-DD', 'YYYY-MM-DDTHH:mm:ssZ'

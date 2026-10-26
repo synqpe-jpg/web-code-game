@@ -1,5 +1,5 @@
 import { getMultipleSettingsD1 } from '../services/d1_service';
-import { isCodeExpired, parseExpirationDate } from '../../src/utils/codeUtils';
+import { isCodeExpired, parseExpirationDate, decodeHtmlEntities } from '../../src/utils/codeUtils';
 import fallbackGamesData from '../../src/data/games188.json';
 import fallbackCodesData from '../../src/data/crawled_codes_188.json';
 
@@ -215,7 +215,10 @@ export function formatGameItem(g: any, allCodes: GiftCode[]): GameItem {
     active_codes_count: allCodes.filter((c) => !isCodeExpired(c)).length,
     expired_codes_count: allCodes.filter((c) => isCodeExpired(c)).length,
     total_codes_count: allCodes.length,
-    codes: allCodes,
+    codes: allCodes.map((c) => ({
+      ...c,
+      rewards: decodeHtmlEntities(c.rewards),
+    })),
   };
 }
 
@@ -348,7 +351,7 @@ export async function getLoadedCatalog(
     }
     list.push({
       code: codeStr,
-      rewards: item.rewards || item.description || 'Quà tân thủ & vật phẩm ingame',
+      rewards: decodeHtmlEntities(item.rewards || item.description || 'Quà tân thủ & vật phẩm ingame'),
       status: isExp ? 'expired' : 'active',
       expiry: expVal,
       added_at: item.updatedAt || item.updated_at || item.createdAt || item.created_at || (source === 'custom' ? new Date().toISOString() : '2026-10-09T00:00:00Z'),

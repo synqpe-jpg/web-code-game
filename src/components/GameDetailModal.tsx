@@ -37,7 +37,7 @@ import { EmailSubscriptionModal } from './notification/EmailSubscriptionModal';
 import { useLanguage } from '../context/LanguageContext';
 import { useLockBodyScroll } from '../hooks/useLockBodyScroll';
 import { isG1Licensed } from '../utils/licenseUtils';
-import { isCodeExpired } from '../utils/codeUtils';
+import { isCodeExpired, decodeHtmlEntities } from '../utils/codeUtils';
 import { GameDownloadSection } from './game/GameDownloadSection';
 
 interface GameDetailModalProps {
@@ -702,7 +702,7 @@ export const GameDetailModal: React.FC<GameDetailModalProps> = ({
                             <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 mt-0.5 text-[11px] sm:text-xs text-muted-foreground">
                               {codeItem.rewards && (
                                 <span className="truncate max-w-[160px] xs:max-w-[220px] sm:max-w-md text-slate-300 font-sans">
-                                  🎁 {codeItem.rewards}
+                                  🎁 {decodeHtmlEntities(codeItem.rewards)}
                                 </span>
                               )}
                               {codeItem.expiry && codeItem.expiry.trim() !== '' && codeItem.expiry.trim().toLowerCase() !== 'null' ? (
@@ -874,7 +874,7 @@ export const GameDetailModal: React.FC<GameDetailModalProps> = ({
                           </div>
                           {codeItem.rewards && (
                             <p className="text-[11px] sm:text-xs text-muted-foreground mt-1 truncate">
-                              🎁 {codeItem.rewards}
+                              🎁 {decodeHtmlEntities(codeItem.rewards)}
                             </p>
                           )}
                         </div>

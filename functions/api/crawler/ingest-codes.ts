@@ -13,7 +13,7 @@
 import { getSettingD1, setSettingD1, getMultipleSettingsD1 } from '../../services/d1_service';
 import { normalizeVietnamese, stripAccents, GAME_ACRONYM_MAP, invalidateGamesCatalogCache } from '../games';
 import { invalidateCatalogEdgeCache } from '../../services/cache_service';
-import { parseExpirationDate, isCodeExpired } from '../../../src/utils/codeUtils';
+import { parseExpirationDate, isCodeExpired, decodeHtmlEntities } from '../../../src/utils/codeUtils';
 import fallbackGamesData from '../../../src/data/games188.json';
 import fallbackCodesData from '../../../src/data/crawled_codes_188.json';
 import {
@@ -573,6 +573,14 @@ function extractCodesFromPayload(item: any, droppedCodes?: Array<{ code: string;
       return;
     }
 
+    // Chặn mã rác kích thước ảnh WordPress (ví dụ: IN-...-1024X576)
+    if (/^IN-.*-\d+X\d+$/i.test(val)) {
+      if (droppedCodes) {
+        droppedCodes.push({ code: val, reason: 'Mã rác kích thước ảnh WordPress không hợp lệ' });
+      }
+      return;
+    }
+
     const expInput = rawExp !== undefined && rawExp !== null && rawExp !== '' ? rawExp : defaultRawExp;
     const parsedExp = parseExpirationDate(expInput);
 
@@ -588,7 +596,7 @@ function extractCodesFromPayload(item: any, droppedCodes?: Array<{ code: string;
 
     result.push({
       code: val,
-      rewards: String(rawReward || defaultReward).trim(),
+      rewards: decodeHtmlEntities(rawReward || defaultReward),
       expiresAt: formattedExpiry,
       isExpired,
       rawStatus: explicitStatus ? String(explicitStatus) : undefined,
@@ -1928,7 +1936,9 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
       const parsedExp = rawExp !== undefined ? parseExpirationDate(rawExp) : undefined;
       const formattedExp = parsedExp ? (parsedExp.formatted || (parsedExp.isExpired ? 'Hết hạn' : null)) : undefined;
 
-      const newRewards = body.rewards !== undefined ? String(body.rewards).trim() : (body.description !== undefined ? String(body.description).trim() : undefined);
+      const newRewards = body.rewards !== undefined 
+        ? decodeHtmlEntities(body.rewards) 
+        : (body.description !== undefined ? decodeHtmlEntities(body.description) : undefined);
 
       let d1UpdatedCount = 0;
       if (env.DB) {
@@ -3505,7 +3515,7 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
           const c = String(nc.code || nc.codeValue || '').trim(); // B3: Giữ nguyên case phân biệt hoa/thường!
           if (!s || !c) continue;
           const id = nc.id || `code_${s}_${encodeURIComponent(c).replace(/[^a-zA-Z0-9_-]/g, '_')}`;
-          const rewards = nc.rewards || nc.description || 'Quà tân thủ & vật phẩm ingame';
+          const rewards = decodeHtmlEntities(nc.rewards || nc.description || 'Quà tân thủ & vật phẩm ingame');
           const isExp = isCodeExpired(nc);
           const status = nc.status === 'expired' || isExp ? 'expired' : 'active';
           const expiresAt = nc.expires_at || nc.expiresAt || nc.expiry || null;

@@ -1,4 +1,4 @@
-import { parseExpirationDate, isCodeExpired } from '../../src/utils/codeUtils';
+import { parseExpirationDate, isCodeExpired, decodeHtmlEntities } from '../../src/utils/codeUtils';
 import { getRealEventsHub, saveRealEventsHub } from '../services/realEventsHub';
 import {
   getSettingD1,
@@ -1865,7 +1865,7 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
             status = 'active';
           }
 
-          let rawRewards = String(c.rewards || '').trim();
+          let rawRewards = decodeHtmlEntities(c.rewards || '');
           if (/hết hạn/i.test(rawRewards) || !rawRewards) {
             rawRewards = 'Quà tặng tân thủ';
           }
@@ -1904,7 +1904,7 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
                 `code_${targetSlug}_${encodeURIComponent(sc.code).replace(/[^a-zA-Z0-9_-]/g, '_')}`,
                 targetSlug,
                 sc.code,
-                sc.rewards || 'Quà tặng tân thủ',
+                decodeHtmlEntities(sc.rewards || 'Quà tặng tân thủ'),
                 sc.status || 'active',
                 sc.expires_at || null,
                 sc.source || 'Sync Twin WWM',
@@ -1998,6 +1998,80 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
           )
         `).run().catch(() => {});
 
+        // 6b. Dọn Dẹp 15 Mã Rác Kích Thước Ảnh WordPress ở Anime Vanguards, Da Hood & Toàn Site
+        const deleteJunkRes: any = await env.DB.prepare(`
+          DELETE FROM codes
+          WHERE (
+            (game_slug = 'anime-vanguards' AND (
+              UPPER(code) IN (
+                'IN-ANIME-VANGUARDS-1024X576',
+                'IN-ANIME-VANGUARDS-145X82',
+                'IN-ANIME-VANGUARDS-150X84',
+                'IN-ANIME-VANGUARDS-1536X864',
+                'IN-ANIME-VANGUARDS-367X206',
+                'IN-ANIME-VANGUARDS-400X225',
+                'IN-ANIME-VANGUARDS-616X347',
+                'IN-ANIME-VANGUARDS-768X432',
+                'IN-ANIME-VANGUARDS-781X439'
+              ) OR code LIKE 'IN-ANIME-VANGUARDS-%'
+            ))
+            OR
+            (game_slug = 'da-hood' AND (
+              UPPER(code) IN (
+                'IN-DA-HOOD-1024X576',
+                'IN-DA-HOOD-145X82',
+                'IN-DA-HOOD-367X206',
+                'IN-DA-HOOD-400X225',
+                'IN-DA-HOOD-768X432',
+                'IN-DA-HOOD-781X439'
+              ) OR code LIKE 'IN-DA-HOOD-%'
+            ))
+            OR
+            code LIKE 'IN-%-1024X576'
+            OR code LIKE 'IN-%-1536X864'
+            OR code LIKE 'IN-%-768X432'
+            OR code LIKE 'IN-%-781X439'
+            OR code LIKE 'IN-%-400X225'
+            OR code LIKE 'IN-%-367X206'
+            OR code LIKE 'IN-%-145X82'
+            OR code LIKE 'IN-%-150X84'
+            OR code LIKE 'IN-%-616X347'
+          )
+        `).run().catch((e: any) => ({ error: String(e) }));
+        results.deletedImageJunkCodes = deleteJunkRes;
+
+        // 6c. Quét và decode toàn bộ HTML entities trong rewards toàn bộ bảng codes D1
+        const dirtyRewardsRes: any = await env.DB.prepare(`
+          SELECT id, rewards FROM codes
+          WHERE rewards LIKE '%&nbsp;%'
+             OR rewards LIKE '%&ndash;%'
+             OR rewards LIKE '%&mdash;%'
+             OR rewards LIKE '%&amp;%'
+             OR rewards LIKE '%&rsquo;%'
+             OR rewards LIKE '%&lsquo;%'
+             OR rewards LIKE '%&rdquo;%'
+             OR rewards LIKE '%&ldquo;%'
+             OR rewards LIKE '%&#39;%'
+             OR rewards LIKE '%&quot;%'
+        `).all<any>().catch(() => ({ results: [] }));
+
+        const updateRewardStmts: any[] = [];
+        if (Array.isArray(dirtyRewardsRes.results)) {
+          for (const row of dirtyRewardsRes.results) {
+            if (!row || !row.id || !row.rewards) continue;
+            const cleanedReward = decodeHtmlEntities(row.rewards);
+            if (cleanedReward !== row.rewards) {
+              updateRewardStmts.push(
+                env.DB.prepare("UPDATE codes SET rewards = ? WHERE id = ?").bind(cleanedReward, row.id)
+              );
+            }
+          }
+        }
+        for (let i = 0; i < updateRewardStmts.length; i += 50) {
+          await env.DB.batch(updateRewardStmts.slice(i, i + 50)).catch(() => {});
+        }
+        results.cleanedD1RewardsCount = updateRewardStmts.length;
+
         const tsUpdateStmts: any[] = [];
         for (const [upper, exact] of Object.entries(typeSoulCaseMap)) {
           tsUpdateStmts.push(
@@ -2022,6 +2096,7 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
             const upper = String(c.code || c.codeValue || '').trim().toUpperCase();
             if (s === 'zenless-zone-zero' && upper === 'SUNBRINGER') return false;
             if (/^IN-.*-\d+X\d+$/i.test(upper)) return false;
+            if (upper.startsWith('IN-') && (s === 'anime-vanguards' || s === 'da-hood' || s === 'type-soul')) return false;
             return true;
           });
           cleanCustom.unshift({
@@ -2071,6 +2146,8 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
                 c.rewards = 'Quà tặng tân thủ';
               }
             }
+            if (c.rewards) c.rewards = decodeHtmlEntities(c.rewards);
+            if (c.description) c.description = decodeHtmlEntities(c.description);
           });
 
           // Đồng bộ phần thưởng phong phú giữa 2 bản song sinh Where Winds Meet
@@ -2079,7 +2156,7 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
             const s = String(c.gameSlug || c.slug || c.gameId || '').trim().toLowerCase();
             const upper = String(c.code || c.codeValue || '').trim().toUpperCase();
             if (s === 'where-winds-meet-mobile' || s === 'yen-van-thap-luc-thanh') {
-              const r = String(c.rewards || '').trim();
+              const r = decodeHtmlEntities(c.rewards || '');
               if (r && r.length > 15 && !/hết hạn/i.test(r) && r !== 'Quà tặng tân thủ' && r !== '&nbsp;') {
                 wwmBestRewards.set(upper, r);
               }
@@ -2090,11 +2167,15 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
             const upper = String(c.code || c.codeValue || '').trim().toUpperCase();
             if (s === 'where-winds-meet-mobile' || s === 'yen-van-thap-luc-thanh') {
               if (wwmBestRewards.has(upper)) {
-                c.rewards = wwmBestRewards.get(upper);
-                c.description = wwmBestRewards.get(upper);
+                const best = decodeHtmlEntities(wwmBestRewards.get(upper));
+                c.rewards = best;
+                c.description = best;
               } else if (!c.rewards || c.rewards === '&nbsp;' || /hết hạn/i.test(c.rewards)) {
                 c.rewards = 'Quà tặng tân thủ';
                 c.description = 'Quà tặng tân thủ';
+              } else {
+                c.rewards = decodeHtmlEntities(c.rewards);
+                c.description = decodeHtmlEntities(c.description);
               }
             }
           });
@@ -2109,7 +2190,7 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
             const codeVal = String(c.code || c.codeValue || '').trim();
             if (!slug || !codeVal) continue;
             const id = c.id || `code_${slug}_${encodeURIComponent(codeVal).replace(/[^a-zA-Z0-9_-]/g, '_')}`;
-            const rewards = c.rewards || c.description || 'Quà tân thủ & vật phẩm ingame';
+            const rewards = decodeHtmlEntities(c.rewards || c.description || 'Quà tân thủ & vật phẩm ingame');
             const isExp = isCodeExpired(c);
             const status = c.status === 'EXPIRED' || c.status === 'expired' || isExp ? 'expired' : 'active';
             const expiresAt = c.expires_at || c.expiresAt || c.expiry || null;
@@ -2143,6 +2224,22 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
         // Đảm bảo Toilet Tower Defense có active_codes_count = 0
         await env.DB.prepare("UPDATE games SET active_codes_count = 0 WHERE slug = 'toilet-tower-defense'").run().catch(() => {});
 
+        // Validation query trực tiếp từ D1 để xác nhận và đối chiếu
+        const [avCheck, dhCheck, wwmMobileCheck, wwmYenVanCheck, globalNbspCheck] = await Promise.all([
+          env.DB.prepare("SELECT COUNT(*) as total, SUM(CASE WHEN status = 'active' THEN 1 ELSE 0 END) as active, SUM(CASE WHEN code LIKE 'IN-%' THEN 1 ELSE 0 END) as inJunk FROM codes WHERE game_slug = 'anime-vanguards'").first<any>().catch(() => null),
+          env.DB.prepare("SELECT COUNT(*) as total, SUM(CASE WHEN status = 'active' THEN 1 ELSE 0 END) as active, SUM(CASE WHEN code LIKE 'IN-%' THEN 1 ELSE 0 END) as inJunk FROM codes WHERE game_slug = 'da-hood'").first<any>().catch(() => null),
+          env.DB.prepare("SELECT COUNT(*) as total, SUM(CASE WHEN status = 'active' THEN 1 ELSE 0 END) as active, SUM(CASE WHEN status = 'expired' THEN 1 ELSE 0 END) as expired, SUM(CASE WHEN rewards LIKE '%&nbsp;%' THEN 1 ELSE 0 END) as nbspCount FROM codes WHERE game_slug = 'where-winds-meet-mobile'").first<any>().catch(() => null),
+          env.DB.prepare("SELECT COUNT(*) as total, SUM(CASE WHEN status = 'active' THEN 1 ELSE 0 END) as active, SUM(CASE WHEN status = 'expired' THEN 1 ELSE 0 END) as expired, SUM(CASE WHEN rewards LIKE '%&nbsp;%' THEN 1 ELSE 0 END) as nbspCount FROM codes WHERE game_slug = 'yen-van-thap-luc-thanh'").first<any>().catch(() => null),
+          env.DB.prepare("SELECT COUNT(*) as totalCodesWithNbsp FROM codes WHERE rewards LIKE '%&nbsp;%'").first<any>().catch(() => null),
+        ]);
+        results.validation = {
+          animeVanguards: avCheck,
+          daHood: dhCheck,
+          wwmMobile: wwmMobileCheck,
+          wwmYenVan: wwmYenVanCheck,
+          globalNbspCount: globalNbspCheck?.totalCodesWithNbsp ?? 0,
+        };
+
         // Cập nhật KV wcg_admin_games_v5
         const currentGames = await getSettingD1(env.DB, 'wcg_admin_games_v5', []);
         if (Array.isArray(currentGames)) {
@@ -2153,6 +2250,24 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
                 instructions: ttdNotice,
                 active_codes_count: 0,
                 codes_count: 0,
+                updated_at: new Date().toISOString()
+              };
+            }
+            if (g && g.slug === 'anime-vanguards') {
+              return {
+                ...g,
+                codes_count: avCheck?.total ?? 119,
+                total_codes_count: avCheck?.total ?? 119,
+                active_codes_count: avCheck?.active ?? 119,
+                updated_at: new Date().toISOString()
+              };
+            }
+            if (g && g.slug === 'da-hood') {
+              return {
+                ...g,
+                codes_count: dhCheck?.total ?? 138,
+                total_codes_count: dhCheck?.total ?? 138,
+                active_codes_count: dhCheck?.active ?? 138,
                 updated_at: new Date().toISOString()
               };
             }

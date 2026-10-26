@@ -24,7 +24,7 @@ import { marketingService } from '../services/marketingService';
 import { useLanguage } from '../context/LanguageContext';
 import { isG1Licensed } from '../utils/licenseUtils';
 import { calculateGameSearchScore } from '../utils/textUtils';
-import { isCodeExpired } from '../utils/codeUtils';
+import { isCodeExpired, decodeHtmlEntities } from '../utils/codeUtils';
 import {
   getRecentSearches,
   saveRecentSearch,
@@ -862,7 +862,7 @@ export const SearchAutocomplete: React.FC<SearchAutocompleteProps> = ({
                               </span>
                               {item.code.rewards && (
                                 <span className="text-[11px] text-slate-400 truncate max-w-[180px] sm:max-w-[260px]">
-                                  • {item.code.rewards}
+                                  • {decodeHtmlEntities(item.code.rewards)}
                                 </span>
                               )}
                             </div>
@@ -1257,7 +1257,7 @@ export const SearchAutocomplete: React.FC<SearchAutocompleteProps> = ({
                                 </span>
                                 {item.code.rewards && (
                                   <span className="text-[11px] text-slate-400 truncate max-w-[150px]">
-                                    • {item.code.rewards}
+                                    • {decodeHtmlEntities(item.code.rewards)}
                                   </span>
                                 )}
                               </div>

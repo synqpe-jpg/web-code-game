@@ -10,6 +10,31 @@
 
 ## 1. DANH MỤC LỖI & CÁC BẪY ĐÃ THẤT BẠI (DO NOT REPEAT)
 
+### ISSUE-137: Bẫy Tồn Dư Ký Tự Thực Thể HTML `&nbsp;` Trong Rewards & Sót Mã Rác WordPress Ở Anime Vanguards Và Da Hood
+- **Triệu chứng**:
+  - 19 mã quà tặng ở cả hai bản Where Winds Meet (`where-winds-meet-mobile` và `yen-van-thap-luc-thanh`) chứa ký tự HTML entity thô `&nbsp;` trong chuỗi phần thưởng (ví dụ: `100 Echo Jade, 10,000 Coins, 5 Inner Way Pills&nbsp;`, `50 Echo Jade,&nbsp;10,000 Coins`).
+  - Anime Vanguards hiển thị 128 mã thay vì 119 mã do còn sót 9 mã kích thước ảnh `IN-ANIME-VANGUARDS-*`.
+  - Da Hood hiển thị 144 mã thay vì 138 mã do còn sót 6 mã kích thước ảnh `IN-DA-HOOD-*`.
+  - Các tệp baseline `public/data/crawled_codes_188.json` và `data/crawled_codes_188.json` còn tồn dư 22 mã rác ảnh và 42 chuỗi `&nbsp;`.
+- **Nguyên nhân gốc rễ (Root Cause)**:
+  1. *Chưa chạy lệnh SQL DELETE trực tiếp trên bảng `codes` D1 cho Anime Vanguards và Da Hood*: Lần migration trước chỉ nhắm vào `game_slug = 'type-soul'`, khiến D1 `codes` vẫn lưu giữ các dòng dữ liệu rác cũ của 2 game này.
+  2. *Thiếu bộ giải mã HTML entities đa tầng*: Chuỗi cào từ nguồn web ngoài chứa ký tự `&nbsp;`, `&ndash;`, `&mdash;`, `&rsquo;` được lưu trực tiếp vào CSDL mà không qua bước decode/strip ở tầng Ingest; và tầng Render UI chưa có bộ lọc dự phòng.
+  3. *Tệp baseline cục bộ có bản sao phụ*: Ngoài `src/data/crawled_codes_188.json`, hệ thống còn có các bản sao tại `public/data/crawled_codes_188.json` và `data/crawled_codes_188.json` chưa được thanh lọc.
+- **Giải pháp chuẩn đã kiểm chứng**:
+  1. *Xóa triệt để 15 mã rác ảnh WordPress trên mọi tầng*:
+     - D1 SQL: Thực thi câu lệnh `DELETE FROM codes WHERE (game_slug IN ('anime-vanguards', 'da-hood') AND code LIKE 'IN-%') OR code LIKE 'IN-%-1024X576' ...`.
+     - KV: Lọc toàn bộ mã có pattern `/^IN-.*-\d+X\d+$/i` trong `wcg_admin_custom_free_codes_v1`.
+     - Toàn bộ 5 file baseline: Dọn sạch hoàn toàn, đưa Anime Vanguards về đúng 119 mã, Da Hood về đúng 138 mã, 0 mã bắt đầu bằng `IN-`.
+  2. *Làm sạch & Decode HTML Entities Đa Tầng (Layer 1 + Layer 2)*:
+     - Tầng Ingest (Layer 1): Tự động gọi `decodeHtmlEntities()` trước khi lưu vào CSDL cho mọi thao tác (`extractCodesFromPayload`, `update_code_metadata`, sync, v.v.).
+     - Tầng Render (Layer 2): `GameDetailModal.tsx` và `SearchAutocomplete.tsx` bọc `decodeHtmlEntities()` trước khi hiển thị lên giao diện người dùng.
+     - D1 Migration: Quét toàn bộ bảng `codes` D1, phát hiện các chuỗi chứa `&nbsp;`, `&ndash;`, `&amp;`, `&rsquo;` và cập nhật hàng loạt.
+     - Đồng bộ Where Winds Meet: Giữ nguyên 615 tổng, 579 active, 36 expired, 0 lệch phần thưởng, 0 ký tự `&nbsp;`.
+- ⛔ **CÁCH SỬA ĐÃ THẤT BẠI - TUYỆT ĐỐI KHÔNG LẶP LẠI**:
+  - ❌ *Không chỉ dọn dẹp mã rác cho một game cụ thể (như Type Soul) mà bỏ quên các game khác bị nhiễm cùng loại mã rác (như Anime Vanguards, Da Hood)*: Phải quét toàn bộ catalog với pattern tổng quát (`/^IN-.*-\d+X\d+$/i`).
+  - ❌ *Không chỉ dọn dẹp trong KV mà quên xóa bằng câu lệnh SQL `DELETE` trên bảng `codes` D1*: Bảng D1 là Single Source of Truth cho các truy vấn API công khai.
+  - ❌ *Không chỉ decode ở phía client hoặc phía server một cách đơn lẻ*: Phải xây dựng phòng vệ 2 tầng (Layer 1 Ingest sanitize + Layer 2 UI render decode) để triệt tiêu hoàn toàn lỗi hiển thị.
+
 ### ISSUE-136: Bẫy Thiếu Đồng Bộ Trạng Thái/Phần Thưởng Giữa 2 Bản Game Song Sinh & Thiếu Sửa Hồi Tố Case Cho Dữ Liệu Cũ
 - **Triệu chứng**:
   - Dù tổng số lượng mã giữa 2 bản Where Winds Meet (`where-winds-meet-mobile` và `yen-van-thap-luc-thanh`) bằng nhau (615 mã), nhưng vẫn còn 26 mã mang trạng thái `expired` ở bản mobile trong khi ở bản Yến Vân lại là `active`.
