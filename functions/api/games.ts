@@ -541,7 +541,11 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
       ).bind(cleanSlug, cleanSlug, cleanWithoutMobile).first<any>().catch(() => null);
 
       if (gameRow) {
-        // Lấy toàn bộ mã giftcode từ bảng codes trên D1
+        const targetCodesSlug = (gameRow.slug === 'yen-van-thap-luc-thanh' || gameRow.slug === 'where-winds-meet-mobile')
+          ? 'where-winds-meet-mobile'
+          : gameRow.slug;
+
+        // Lấy toàn bộ mã giftcode từ bảng codes trên D1 (đồng bộ 100% hai bản song sinh Where Winds Meet)
         const codesRes = await env.DB.prepare(
           `SELECT code, rewards, status, expires_at, source, added_at 
            FROM codes 
@@ -549,7 +553,7 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
            ORDER BY 
              CASE WHEN status = 'active' OR status = 'verified' THEN 0 ELSE 1 END,
              added_at DESC`
-        ).bind(gameRow.slug).all<any>().catch(() => ({ results: [] as any[] }));
+        ).bind(targetCodesSlug).all<any>().catch(() => ({ results: [] as any[] }));
 
         let codesList: GiftCode[] = (codesRes?.results || [])
           .filter((c: any) => {

@@ -15,7 +15,7 @@ export interface ParsedExpiration {
  */
 export function decodeHtmlEntities(raw: any): string {
   if (!raw || typeof raw !== 'string') return '';
-  let str = String(raw)
+  return String(raw)
     .replace(/&nbsp;/gi, ' ')
     .replace(/&ndash;/gi, '–')
     .replace(/&mdash;/gi, '—')
@@ -31,18 +31,6 @@ export function decodeHtmlEntities(raw: any): string {
     .replace(/https:\/\/codegame\.store\/?/g, 'https://codegame.shop/')
     .replace(/\s+/g, ' ')
     .trim();
-
-  if (str.includes('\uFFFD') || str.includes('')) {
-    if (str.toLowerCase().includes('vật phẩm') || str.toLowerCase().includes('tân thủ') || str.toLowerCase().includes('quà')) {
-      return 'Quà tặng tân thủ & vật phẩm ingame';
-    }
-    if (str.toLowerCase().includes('phần thưởng') || str.toLowerCase().includes('nhà phát hành')) {
-      return '🎁 Phần thưởng từ nhà phát hành';
-    }
-    return 'Quà tặng tân thủ';
-  }
-
-  return str;
 }
 
 /**
