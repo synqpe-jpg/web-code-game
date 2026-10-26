@@ -15,7 +15,7 @@ export interface ParsedExpiration {
  */
 export function decodeHtmlEntities(raw: any): string {
   if (!raw || typeof raw !== 'string') return '';
-  return String(raw)
+  let str = String(raw)
     .replace(/&nbsp;/gi, ' ')
     .replace(/&ndash;/gi, '–')
     .replace(/&mdash;/gi, '—')
@@ -28,13 +28,27 @@ export function decodeHtmlEntities(raw: any): string {
     .replace(/&#39;/gi, "'")
     .replace(/&lt;/gi, '<')
     .replace(/&gt;/gi, '>')
-    .replace(/https:\/\/codegame\.store\/?/g, 'https://codegame.shop/')
+    .replace(/https:\/\/codegame\.store\/?/g, 'https://codegame.shop/');
+
+  // Chữa lành tự động các mẫu phần thưởng tiếng Việt bị hỏng font (mojibake / uFFFD / ?)
+  if (/qu[^\s]*\s+t[^\s]*\s+t[^\s]*\s+th[^\s]*\s+&\s+v[^\s]*\s+ph[^\s]*\s+ingame/i.test(str)) {
+    return 'Quà tặng tân thủ & vật phẩm ingame';
+  }
+  if (/ph[^\s]*n\s+th[^\s]*ng\s+t[^\s]*\s+nh[^\s]*\s+ph[^\s]*t\s+h[^\s]*nh/i.test(str)) {
+    return '🎁 Phần thưởng từ nhà phát hành';
+  }
+  if (/^qu[^\s]*\s+t[^\s]*ng\s+t[^\s]*n\s+th[^\s]*$/i.test(str)) {
+    return 'Quà tặng tân thủ';
+  }
+
+  return str
     .replace(/v[\uFFFD\?]+t/gi, 'vật')
     .replace(/ph[\uFFFD\?]+m/gi, 'phẩm')
     .replace(/t[\uFFFD\?]+ng/gi, 'tặng')
     .replace(/th[\uFFFD\?]+ng/gi, 'thưởng')
     .replace(/ph[\uFFFD\?]+n/gi, 'phần')
     .replace(/t[\uFFFD\?]+\s+nhà/gi, 'từ nhà')
+    .replace(/ph[\uFFFD\?]*t\s+h[\uFFFD\?]*nh/gi, 'phát hành')
     .replace(/Qu[\uFFFD\?]+\s+tặng/gi, 'Quà tặng')
     .replace(/tân\s+th[\uFFFD\?]+/gi, 'tân thủ')
     .replace(/[\uFFFD]+/g, '')
