@@ -7,6 +7,39 @@ Mỗi mục sửa lỗi đều ghi nhận **Nguyên nhân gốc rễ (Root Cause
 
 ## [2026-10-26]
 
+### 218. Thiết Lập Hệ Thống Phòng Thủ 4 Lớp Triệt Tiêu Vĩnh Viễn Lỗi "Failed to fetch dynamically imported module" Khi Bấm Tab Giveaway & Chống Rớt Mã/Cấu Hình
+- **Bối cảnh & Yêu cầu từ Người dùng**:
+  - Người dùng báo cáo lỗi khi bấm vào mục Giveaway trên web khách: `Failed to fetch dynamically imported module: https://codegame.shop/assets/GiveawaysView-Dv07PyQ0.js` ("rất nhiều lần bị rồi, đảm bảo các lỗi tương tự không phát sinh nữa").
+  - Đồng thời yêu cầu: "Hãy đảm bảo lỗi rớt mã không xảy ra nữa" (liên quan đến việc rớt cấu hình và rớt mã trên các sự kiện như Ta Là Hắc Ngộ Không).
+- **Nguyên nhân gốc rễ (Root Cause)**:
+  1. *Lỗi Dynamic Import Mismatch*:
+     - File `public/_headers` và `functions/_worker.ts` cấu hình `/index.html` và `/` với `s-maxage=3600, stale-while-revalidate=86400`. Cloudflare Edge CDN cache lại tệp HTML gốc.
+     - Sau khi deploy bản mới, Vite sinh chunk hash mới (ví dụ `GiveawaysView-rNLPFpL0.js`). Nhưng khách truy cập nhận HTML cũ chứa hash `GiveawaysView-Dv07PyQ0.js`. Khi bấm sang tab Giveaway, trình duyệt gửi request tải hash cũ đã bị xóa khỏi Cloudflare Pages, nhận về HTTP 404 $\rightarrow$ Vite throw `TypeError: Failed to fetch dynamically imported module`.
+     - Tầng React sử dụng `React.lazy` trần không có cơ chế bọc retry hay tự làm mới.
+  2. *Lỗi rớt cấu hình & mã sự kiện (Ta Là Hắc Ngộ Không)*:
+     - Câu truy vấn SQL `loadAllGiveawaysD1` trong `d1_service.ts` và hàm map trong `functions/api/sync.ts` trước đó bị bỏ sót trường `global_cooldown_seconds` (và các trường banner tùy chỉnh), khiến mỗi khi D1 nạp lại chiến dịch, `global_cooldown_seconds` bị gán về `0` (mất mốc 45 phút). Đã được khắc phục trong commit `3841f69`.
+- **Giải pháp triển khai (Solution)**:
+  1. *Lớp 1 — Chuẩn hóa Cache-Control cho HTML trên toàn hệ thống*:
+     - Cập nhật `public/_headers`: `/index.html`, `/`, `/*.html` chuyển thành `Cache-Control: no-cache, no-store, must-revalidate, max-age=0`. Trình duyệt và CDN luôn nhận HTML mới nhất chứa đúng chunk hash của bản build hiện hành.
+     - Giữ nguyên `Cache-Control: public, max-age=31536000, immutable` cho các file tĩnh đã có hash `/assets/*`.
+  2. *Lớp 2 — Edge Worker Asset Self-Healing (Tự phục hồi cấp Edge Server)*:
+     - Trong `functions/_worker.ts`: Khi phát hiện request `GET /assets/*.js` bị 404 (do client còn giữ HTML cũ trước lúc sửa cache), Worker trả về HTTP 200 với một stub ES module JavaScript hợp lệ tự động gọi `window.location.reload()` (kèm lock session 8s), chuyển mượt người dùng sang bản mới mà không văng màn hình đỏ.
+     - Loại bỏ việc lưu cache HTML gốc vào `caches.default`, thiết lập `no-cache, no-store` cho trang chủ và các trang SEO SSR.
+  3. *Lớp 3 — Vite Engine Preload Error Interceptor*:
+     - Trong `src/main.tsx`: Đăng ký `window.addEventListener('vite:preloadError', ...)` để tự động phát hiện và reload trang ngay khi trình duyệt gặp lỗi tải trước module.
+  4. *Lớp 4 — React lazyWithRetry & ErrorBoundary Self-Recovery*:
+     - Xây dựng tiện ích `src/utils/lazyWithRetry.ts` bọc toàn bộ 22 component dynamic import trong `src/App.tsx` (`GiveawaysView`, `StoreView`, `UtilitiesView`, `NewsView`, `AdminApp`, v.v.). Tự động bắt các lỗi chunk (`dynamically imported module`, `Loading chunk`, `Failed to fetch`, `ChunkLoadError`) và tự reload trang với debounce 10s.
+     - Nâng cấp `src/components/ErrorBoundary.tsx` trong `componentDidCatch`: Nhận diện lỗi chunk và tự động reload trang, người dùng không bao giờ bị kẹt lại màn hình báo lỗi.
+- **Kiểm thử & Nghiệm thu**:
+  - `npm.cmd run build`: 100% thành công, 0 lỗi TypeScript, 0 lỗi Vite.
+  - Audit Zero Test Artifacts: 5/5 hạng mục đạt sạch 100%.
+  - Prerender 579 tựa game, 163 bài viết tin tức, 32 giveaway: 100% thành công.
+  - Kiểm tra `dist/_headers`: Header `no-cache, no-store, must-revalidate` đã được ghi nhận chuẩn xác cho mọi tệp HTML.
+
+---
+
+## [2026-10-26]
+
 ### 217. Triển Khai Phương Án 1 Tối Ưu Hóa D1 Miễn Phí 100%, Sửa Toàn Diện Cơ Chế Fallback & Loại Bỏ Full Table Scan Autocomplete
 - **Bối cảnh & Đính chính báo cáo**:
   - *Sửa điểm sai trong báo cáo trước*: Web khách **KHÔNG** "bình thường 100%" khi D1 bị chặn. Khi D1 bị chạm trần hạn mức đọc/ghi (5.17M/5M reads, 157k/100k writes), chỉ có vỏ HTML tĩnh trang chủ phản hồi được; các API dữ liệu chính (/api/games, /api/games?status=upcoming, /api/stats) bị timeout ("The read operation timed out") hoặc trả về rỗng (Where Winds Meet trả HTTP 200 nhưng codes: [], total = 0).

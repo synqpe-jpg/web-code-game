@@ -10,6 +10,26 @@
 
 ## 1. DANH MỤC LỖI & CÁC BẪY ĐÃ THẤT BẠI (DO NOT REPEAT)
 
+### ISSUE-141: Bẫy Lỗi "Failed to fetch dynamically imported module" Do Cache HTML Chứa Hash Cũ Khi Triển Khai Bản Mới (Stale Chunk Hash Mismatch)
+- **Triệu chứng**:
+  - Người dùng đang duyệt trang web khách, khi click sang tab Giveaways (hoặc mở các view/modal lazy-load như Cửa Hàng, Tiện Ích, Tin Tức, Nạp Ví), xuất hiện màn hình đỏ báo lỗi hoặc console văng lỗi:
+    `TypeError: Failed to fetch dynamically imported module: https://codegame.shop/assets/GiveawaysView-Dv07PyQ0.js`
+  - Lỗi này xuất hiện lặp đi lặp lại sau mỗi đợt deploy phiên bản mới.
+- **Nguyên nhân gốc rễ (Root Cause)**:
+  1. *Edge CDN & Browser Caching file HTML*: Trong `public/_headers` và `functions/_worker.ts`, tệp `/index.html` và `/` được cấu hình `Cache-Control: public, max-age=0, s-maxage=3600, stale-while-revalidate=86400` kèm `caches.default`. Cloudflare Edge CDN lưu giữ bản HTML cũ trong 1 đến 24 giờ.
+  2. *Vite Chunk Hash Invalidation*: Khi mã nguồn được build mới, Vite gán hash ngẫu nhiên theo nội dung tệp (ví dụ từ `GiveawaysView-Dv07PyQ0.js` đổi sang `GiveawaysView-rNLPFpL0.js`).
+  3. *Lệch pha giữa HTML cũ và Chunk mới*: Trình duyệt người dùng nhận HTML được CDN trả về chứa thẻ script trỏ đến hash cũ (`GiveawaysView-Dv07PyQ0.js`). Khi người dùng bấm tab, trình duyệt tải hash cũ này nhưng Cloudflare Pages đã xóa hash cũ khỏi hệ thống lưu trữ, trả về HTTP 404 $\rightarrow$ Vite Dynamic Import thất bại văng ngoại lệ.
+  4. *React.lazy không có cơ chế tự phục hồi (Self-Healing)*: Các component lazy-load trong `src/App.tsx` sử dụng `React.lazy` trần không bọc retry hay phát hiện lỗi chunk lỗi thời.
+- **Giải pháp chuẩn đã kiểm chứng (Hệ thống phòng thủ 4 lớp)**:
+  1. *Lớp 1 (Triệt tiêu cache HTML)*: Trong `public/_headers` và `functions/_worker.ts`, áp dụng `Cache-Control: no-cache, no-store, must-revalidate, max-age=0` cho `/index.html`, `/`, `/*.html`. Tuyệt đối không cache HTML ở CDN. Giữ nguyên cache vĩnh viễn `Cache-Control: public, max-age=31536000, immutable` cho các file tĩnh `/assets/*`.
+  2. *Lớp 2 (Edge Worker Asset Self-Healing)*: Trong `functions/_worker.ts`, nếu có yêu cầu tải `/assets/*.js` bị 404 (do client còn giữ HTML cũ trước lúc sửa cache), Worker không trả về lỗi 404 mà trả về một stub ES module JavaScript hợp lệ (HTTP 200) tự động gọi `window.location.reload()` để người dùng chuyển mượt sang bản mới nhất.
+  3. *Lớp 3 (Vite Engine Preload Error Interceptor)*: Đăng ký sự kiện chuẩn của Vite `window.addEventListener('vite:preloadError', ...)` trong `src/main.tsx` để tự động reload tức thì khi gặp sự cố tải chunk.
+  4. *Lớp 4 (React lazyWithRetry & ErrorBoundary Recovery)*: Bọc toàn bộ 22 component dynamic import trong `src/App.tsx` qua tiện ích `lazyWithRetry()`, đồng thời bổ sung logic nhận diện `dynamically imported module` trong `ErrorBoundary.componentDidCatch` để tự động tải lại trang an toàn có khóa chống lặp vô hạn (sessionStorage 10s debounce).
+- ⛔ **CÁCH SỬA ĐÃ THẤT BẠI - TUYỆT ĐỐI KHÔNG LẶP LẠI**:
+  - ❌ *Không bao giờ đặt `s-maxage` hoặc `stale-while-revalidate` cho tệp HTML trong ứng dụng SPA*: File HTML bắt buộc phải luôn luôn tươi mới (`no-cache, no-store`) để đồng bộ tuyệt đối với các chunk hash trên đĩa.
+  - ❌ *Không dùng `React.lazy` trần cho các màn hình/modal lớn mà không có hàm bọc retry phục hồi tự động*.
+
+
 ### ISSUE-140: Bẫy Đốt Hạn Mức Đọc/Ghi D1 Do Full Table Scan Autocomplete & Ghi Sự Kiện Ảo Lặp Lại Cùng Lỗi Truy Cập Mảng Fallback
 - **Triệu chứng**:
   - D1 Cloudflare chạm hạn mức gói Free: 5.17M/5M dòng đọc (103.4%), 157.88k/100k dòng ghi (157.9%).

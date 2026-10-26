@@ -559,40 +559,15 @@ async function handleWorkerRequest(request: Request, env: Env, ctx: ExecutionCon
         return await renderSeoHtml(request, env, pathname);
       }
 
-      // Fast Edge Cache for Root Homepage HTML
+      // Root Homepage HTML - Always fresh to guarantee chunk integrity
       if (request.method === 'GET' && (pathname === '/' || pathname === '/index.html')) {
-        const cache = typeof caches !== 'undefined' ? (caches as any).default : null;
-        const cacheKey = cache ? new Request(new URL('/', request.url).toString(), { method: 'GET' }) : null;
-        const isFresh = request.headers.get('Cache-Control')?.includes('no-cache') ||
-                        request.headers.get('Pragma')?.includes('no-cache') ||
-                        url.searchParams.has('fresh') || url.searchParams.has('_t') ||
-                        url.searchParams.has('nocache');
-
-        if (cache && cacheKey) {
-          if (isFresh) {
-            ctx.waitUntil(cache.delete(cacheKey));
-          } else {
-            const cached = await cache.match(cacheKey);
-            if (cached) {
-              const res = new Response(cached.body, cached);
-              res.headers.set('CF-Edge-Cache-Status', 'HIT');
-              return res;
-            }
-          }
-        }
-
         const assetResponse = await env.ASSETS.fetch(request);
         if (assetResponse.status === 200) {
-          const responseText = await assetResponse.text();
           const headers = new Headers(assetResponse.headers);
-          headers.set('Cache-Control', 'public, max-age=0, s-maxage=60, stale-while-revalidate=120');
-          if (cache && cacheKey) {
-            const cacheToPut = new Response(responseText, { status: 200, headers });
-            ctx.waitUntil(cache.put(cacheKey, cacheToPut));
-          }
-          const resOut = new Response(responseText, { status: 200, headers });
-          resOut.headers.set('CF-Edge-Cache-Status', 'MISS');
-          return resOut;
+          headers.set('Cache-Control', 'no-cache, no-store, must-revalidate, max-age=0');
+          headers.set('Pragma', 'no-cache');
+          headers.set('Expires', '0');
+          return new Response(assetResponse.body, { status: 200, headers });
         }
         return assetResponse;
       }
@@ -605,6 +580,37 @@ async function handleWorkerRequest(request: Request, env: Env, ctx: ExecutionCon
       // Phục vụ icon game động và tĩnh tại /game_icons/<slug>.<ext>
       if (pathname.startsWith('/game_icons/') && (method === 'GET' || method === 'HEAD')) {
         return await handleGameIconRequest(request, env, ctx, pathname);
+      }
+
+      // Server-side resilience layer for missing JS chunks (Stale deployments)
+      if (request.method === 'GET' && pathname.startsWith('/assets/') && pathname.endsWith('.js')) {
+        const assetResponse = await env.ASSETS.fetch(request);
+        if (assetResponse.status === 404) {
+          console.warn(`[Worker] Stale JS chunk requested: ${pathname}. Returning auto-recovery stub.`);
+          return new Response(
+            `/* Stale deployment chunk auto-recovery stub */
+console.warn('[AutoRecovery] Stale chunk requested: ${pathname}. Reloading page to load latest build...');
+if (typeof window !== 'undefined') {
+  const retryKey = 'wcg_edge_chunk_reload';
+  const last = sessionStorage.getItem(retryKey);
+  const now = Date.now();
+  if (!last || now - parseInt(last, 10) > 8000) {
+    sessionStorage.setItem(retryKey, String(now));
+    window.location.reload();
+  }
+}
+export default {};
+`,
+            {
+              status: 200,
+              headers: {
+                'Content-Type': 'application/javascript; charset=utf-8',
+                'Cache-Control': 'no-cache, no-store, must-revalidate, max-age=0',
+              },
+            }
+          );
+        }
+        return assetResponse;
       }
 
       const assetResponse = await env.ASSETS.fetch(request);
@@ -997,7 +1003,9 @@ async function renderSeoHtml(
     status: 200,
     headers: {
       'Content-Type': 'text/html; charset=utf-8',
-      'Cache-Control': 'public, max-age=60, s-maxage=120, stale-while-revalidate=600',
+      'Cache-Control': 'no-cache, no-store, must-revalidate, max-age=0',
+      'Pragma': 'no-cache',
+      'Expires': '0',
     },
   });
 }

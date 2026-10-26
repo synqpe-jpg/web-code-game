@@ -24,6 +24,26 @@ export class ErrorBoundary extends Component<Props, State> {
 
   public componentDidCatch(error: Error, errorInfo: ErrorInfo) {
     console.error('[Web ErrorBoundary caught error]:', error, errorInfo);
+
+    // Auto-reload on chunk loading error caused by new deployment
+    const isChunkError =
+      error?.message?.includes('dynamically imported module') ||
+      error?.message?.includes('Loading chunk') ||
+      error?.message?.includes('Failed to fetch') ||
+      (error as any)?.name === 'ChunkLoadError';
+
+    if (isChunkError && typeof window !== 'undefined') {
+      const retryKey = 'wcg_error_boundary_chunk_reload';
+      const last = sessionStorage.getItem(retryKey);
+      const now = Date.now();
+      if (!last || now - parseInt(last, 10) > 10000) {
+        sessionStorage.setItem(retryKey, String(now));
+        console.warn('[ErrorBoundary] Stale chunk detected after deployment. Auto-reloading...', error.message);
+        window.location.reload();
+        return;
+      }
+    }
+
     try {
       const preloader = document.getElementById('app-preloader');
       if (preloader) {
