@@ -10,6 +10,23 @@
 
 ## 1. DANH MỤC LỖI & CÁC BẪY ĐÃ THẤT BẠI (DO NOT REPEAT)
 
+### ISSUE-143: Bẫy Ngắt Đồng Bộ Giveaway Cho Khách Vãng Lai & Lệch Kho Khi D1 Thiếu codes_pool
+- **Triệu chứng**:
+  - Quản trị viên vào trang quản trị thấy 41 sự kiện (trong đó có các sự kiện còn hàng như 3Q Đảo Đào Đào còn 19 mã, Anh Hùng Tiến Lên còn 18 mã, và Ta Là Hắc Ngộ Không có hồi chiêu 45p).
+  - Web Khách (`/giveaways`) chỉ hiển thị 37 sự kiện (do tính năng gom gói theo game), các sự kiện còn hàng không hiển thị ở đầu mà bị đẩy xuống dưới hoặc báo 0 mã; đồng thời vẫn còn huy hiệu "Chính thức" và nút "Hết Code" bị khóa không bấm được.
+- **Nguyên nhân gốc rễ (Root Cause)**:
+  1. *Ngắt luồng đồng bộ khách vãng lai*: Trong `src/services/dataService.ts`, nhánh `if (!isAdmin)` ngắt sớm để tránh tải 1.3 MB catalog game nhưng vô tình chặn luôn việc đồng bộ Giveaway, khiến khách chỉ nhìn thấy dữ liệu `localStorage` cũ.
+  2. *Lệch kho D1 SQL Aggregation*: Truy vấn `SELECT ... CASE WHEN gc_agg.total_cnt > 0 THEN COALESCE(gc_agg.available_cnt, 0) ELSE g.remaining_codes END` trả về 0 nếu bảng `giveaway_codes` chưa được nạp mã từ `codes_pool` của file baseline `giveaways.json`.
+  3. *Thứ tự kiểm tra trong Modal chi tiết*: Điều kiện `remaining <= 0` được đặt trước `isModalGlobalCooling`, khiến sự kiện có hồi chiêu toàn web (như Ta Là Hắc Ngộ Không 45p) bị ẩn mất đồng hồ đếm ngược khi mã tạm thời bằng 0.
+- **Giải pháp chuẩn đã kiểm chứng**:
+  1. Bổ sung `dataService.syncGiveaways()` siêu nhẹ (chỉ ~43 KB) cho cả khách thường và admin khi tải `/giveaways`.
+  2. Nối smart merge từ `giveaways.json` vào `loadAllGiveawaysD1` và `functions/api/sync.ts`: nếu D1 có `remaining_codes = 0` nhưng `codes_pool` gốc có mã thì bảo toàn số lượng kho thực tế.
+  3. Sắp xếp ưu tiên sự kiện còn hàng lên đầu danh sách (`remaining_codes > 0`).
+  4. Đưa khối đếm ngược `isModalGlobalCooling` lên trên `remaining <= 0` trong `GiveawayDetailModal`.
+  5. Xóa hoàn toàn badge "Chính thức", đổi nút "Hết Code" thành "Chờ Đợt Mới" (mở modal chi tiết).
+- ⛔ **CÁCH SỬA ĐÃ THẤT BẠI - TUYỆT ĐỐI KHÔNG LẶP LẠI**:
+  - ❌ *Không bao giờ chặn toàn bộ đồng bộ dữ liệu của khách vãng lai*: Nếu cần tối ưu băng thông tải game, phải tách riêng các API nhẹ (`/api/sync?key=wcg_admin_giveaways_v4`) để khách luôn có dữ liệu sự kiện tươi mới nhất.
+
 ### ISSUE-142: Bẫy Tràn Hạn Mức Subrequests Worker (50 Subrequests/Event) Khi Chạy DDL Schema & Lỗi Tự Động Tắt Toggle Cấu Hình Giveaway
 - **Triệu chứng**:
   - Quản trị viên vào trang quản trị (/admin#/private-codes) bật công tắc "Ô Thông Báo / Link Tùy Chỉnh (Zalo / Cộng Đồng)", điền link và lưu lại. Sau khi tải lại trang, công tắc bị tự động gạt về trạng thái TẮT (OFF).

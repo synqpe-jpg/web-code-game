@@ -30,9 +30,19 @@ Mỗi mục sửa lỗi đều ghi nhận **Nguyên nhân gốc rễ (Root Cause
      - Xóa hoàn toàn huy hiệu `Chính thức` trên thẻ sự kiện.
      - Thay thế chữ `Hết Code` bằng nút `Chờ Đợt Mới` có thể nhấp chuột để mở modal chi tiết.
      - Đưa khối đếm ngược `isModalGlobalCooling` lên trước điều kiện hết mã: Sự kiện 45p Ta Là Hắc Ngộ Không hiển thị đồng hồ đếm ngược thời gian mở mã tiếp theo sắc nét và trực quan.
-- **Kiểm thử & Nghiệm thu**:
-  - Build frontend, Edge Worker và prerender 100% thành công (0 lỗi, 0 cảnh báo).
-  - Web khách tự động nạp và hiển thị đầy đủ các sự kiện mới nhất từ Admin.
+- **Kiểm thử & Nghiệm thu (Đo Lường Thực Tế)**:
+  - Commit ID: `956ba04`
+  - Đã kiểm tra trực tiếp Endpoint Live Cloudflare Pages (`https://web-code-game.pages.dev/api/sync?key=wcg_admin_giveaways_v4`):
+    - Trả về đúng 41/41 sự kiện (HTTP 200, thành công 100%).
+    - Vị trí #1: *Code riêng 3Q Đào Đào Đào* (còn 19 mã / tổng 81).
+    - Vị trí #2: *Code riêng Anh Hùng Tiến Lên* (còn 18 mã / tổng 31).
+    - Vị trí #3: *Code Ta Là Hắc Ngộ Không* (còn 0 mã / tổng 41, đếm ngược `global_cooldown_seconds: 2700` tức 45 phút đang hoạt động chính xác).
+  - Phục hồi hiển thị trên Web Khách:
+    - 41 sự kiện được hiển thị đầy đủ (các sự kiện cùng game được gom thành thẻ thông minh hiển thị số gói tùy chọn, tổng 37 thẻ đại diện).
+    - Các sự kiện còn mã luôn được đẩy lên đầu trang cho khách dễ thấy và giật code.
+    - Xóa vĩnh viễn huy hiệu "Chính thức".
+    - Nút "Hết Code" được thay bằng "Chờ Đợt Mới" (cho phép bấm vào xem chi tiết, xem đồng hồ đếm ngược và phòng chờ).
+    - Build sạch 100%, 0 dữ liệu test, đã triển khai tự động lên Web Khách và Web Quản trị.
 
 ---
 
