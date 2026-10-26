@@ -32,6 +32,8 @@ import {
   Box,
   Users,
   Dices,
+  MessageCircle,
+  ExternalLink,
 } from 'lucide-react';
 import { LuckyWheelSection } from './LuckyWheelSection';
 import confetti from 'canvas-confetti';
@@ -148,68 +150,763 @@ const GlobalReleaseBadge: React.FC<{
   );
 };
 
-/**
- * Component hiển thị đếm ngược mở mã tiếp theo trong Modal
- */
-const ModalGlobalCooldownSection: React.FC<{
+interface GiveawayDetailModalProps {
   campaign: GiveawayCampaign;
-  onExpire: () => void;
-}> = ({ campaign, onExpire }) => {
+  currentUser: UserProfile | null;
+  isAdmin: boolean;
+  uniqueClaimedList: ClaimedCodeRecord[];
+  claimingId: string | null;
+  selectedRewardPackageId: string | null;
+  setSelectedRewardPackageId: (id: string | null) => void;
+  onClose: () => void;
+  onOpenAuth: () => void;
+  onShowToast: (title: string, message?: string, type?: 'success' | 'error' | 'info') => void;
+  onSelectGameSlug: (slug: string) => void;
+  handleClaim: (campaign: GiveawayCampaign, packageId?: string) => Promise<void>;
+  handleOpenLimitNotice: (campaign: GiveawayCampaign, customMsg?: string) => void;
+  setClaimedRewardModal: (data: any) => void;
+  handleExpireRefresh: () => void;
+}
+
+const GiveawayDetailModal: React.FC<GiveawayDetailModalProps> = ({
+  campaign,
+  currentUser,
+  isAdmin,
+  uniqueClaimedList,
+  claimingId,
+  selectedRewardPackageId,
+  setSelectedRewardPackageId,
+  onClose,
+  onOpenAuth,
+  onShowToast,
+  onSelectGameSlug,
+  handleClaim,
+  handleOpenLimitNotice,
+  setClaimedRewardModal,
+  handleExpireRefresh,
+}) => {
+  const [copiedCode, setCopiedCode] = useState<string | null>(null);
+
+  const packages = getGiveawayPackages(campaign);
+  const activePackage = packages.find((p) => p.id === selectedRewardPackageId) || packages[0];
+  const effectivePool = activePackage?.codes_pool || campaign.codes_pool;
+  const poolCount = Array.isArray(effectivePool)
+    ? effectivePool.length
+    : (typeof activePackage?.remaining_codes === 'number'
+        ? activePackage.remaining_codes
+        : (typeof campaign.remaining_codes === 'number' ? campaign.remaining_codes : 0));
+  const displayRemaining = marketingService.getDisplayStock(campaign.id, poolCount);
+  const displayClaimed =
+    campaign.show_claimed_count !== false
+      ? marketingService.getClaimedDisplay(campaign)
+      : campaign.claimed_codes || 0;
+  const remaining = displayRemaining;
+  const displayTotal = displayRemaining + displayClaimed;
+  const percentClaimed =
+    displayTotal > 0
+      ? Math.min(100, Math.max(0, Math.round((displayClaimed / displayTotal) * 100)))
+      : displayRemaining <= 0
+      ? 100
+      : 0;
+
+  const rawMaxPerUser = Number(campaign.max_per_user);
+  const isUnlimitedUser = rawMaxPerUser === 0 || rawMaxPerUser >= 999999;
+  const effectiveMaxPerUser = isUnlimitedUser ? 999999 : (rawMaxPerUser > 0 ? rawMaxPerUser : 1);
+
+  const userCampaignClaims = uniqueClaimedList.filter((c) => c.campaign_id === campaign.id);
+  const userClaimCount = userCampaignClaims.length;
+  const canClaimMore = (isAdmin || isUnlimitedUser || userClaimCount < effectiveMaxPerUser) && remaining > 0;
+  const isMaxReached = !canClaimMore && remaining > 0;
+
+  // Personal Cooldown calculation
+  let cooldownRemainingMs = 0;
+  const cooldownHours = isAdmin ? 0 : (Number(campaign.cooldown_hours) || 0);
+  if (cooldownHours > 0 && userCampaignClaims.length > 0) {
+    const latestClaim = userCampaignClaims[0];
+    if (latestClaim && latestClaim.claimed_at) {
+      const lastClaimTime = new Date(latestClaim.claimed_at).getTime();
+      const cooldownMs = cooldownHours * 3600 * 1000;
+      cooldownRemainingMs = Math.max(0, lastClaimTime + cooldownMs - Date.now());
+    }
+  }
+  const isCooldownActive = cooldownRemainingMs > 0;
+  const remH = Math.floor(cooldownRemainingMs / (1000 * 3600));
+  const remM = Math.ceil((cooldownRemainingMs % (1000 * 3600)) / (1000 * 60));
+  const cooldownWaitText = remH > 0 ? `${remH} giờ ${remM} phút` : `${remM} phút`;
+
+  // Account age calculation
+  const minAccountAgeDays = isAdmin ? 0 : (Number(campaign.min_account_age_days) || 0);
+  let userAgeDays = 0;
+  let isAgeEligible = true;
+  if (currentUser && minAccountAgeDays > 0) {
+    const userCreatedAt = currentUser.created_at || (currentUser as any).createdAt;
+    if (userCreatedAt) {
+      const userCreatedMs = new Date(userCreatedAt).getTime();
+      if (!isNaN(userCreatedMs)) {
+        userAgeDays = Math.floor((Date.now() - userCreatedMs) / (1000 * 60 * 60 * 24));
+        isAgeEligible = userAgeDays >= minAccountAgeDays;
+      }
+    }
+  }
+
+  // Time window calculation
+  const nowMs = Date.now();
+  const isNotStarted = campaign.start_time
+    ? !isNaN(new Date(campaign.start_time).getTime()) && nowMs < new Date(campaign.start_time).getTime()
+    : false;
+  const isEnded =
+    (campaign.end_time
+      ? !isNaN(new Date(campaign.end_time).getTime()) && nowMs > new Date(campaign.end_time).getTime()
+      : false) ||
+    campaign.status === 'ENDED' ||
+    campaign.is_active === false;
+
+  // Global Cooldown real-time countdown (Requirement 6)
   const globalSec = Number(campaign.global_cooldown_seconds || 0);
   const lastClaimAt = campaign.last_global_claim_at;
-  const targetDate = React.useMemo(() => {
+  const targetGlobalCooldownDate = useMemo(() => {
     if (globalSec <= 0 || !lastClaimAt) return null;
     const lastMs = new Date(lastClaimAt).getTime();
     if (isNaN(lastMs)) return null;
     return lastMs + globalSec * 1000;
   }, [globalSec, lastClaimAt]);
 
-  const { minutes, seconds, isExpired } = useEventCountdown(targetDate, onExpire);
+  const {
+    minutes: cdMinutes,
+    seconds: cdSeconds,
+    isExpired: isCdExpired,
+    totalRemainingMs: cdRemainingMs
+  } = useEventCountdown(
+    targetGlobalCooldownDate,
+    () => {
+      try {
+        playClaimVictorySound();
+        confetti({ particleCount: 40, spread: 60, origin: { y: 0.7 } });
+      } catch {}
+      handleExpireRefresh();
+    }
+  );
 
-  if (globalSec <= 0 || !targetDate || isExpired) return null;
-
+  const isModalGlobalCooling = globalSec > 0 && !!targetGlobalCooldownDate && !isCdExpired && cdRemainingMs > 0;
   const pad = (n: number) => String(n).padStart(2, '0');
-  const waitText = `${pad(minutes)}:${pad(seconds)}`;
+  const globalCooldownWaitText = `${pad(cdMinutes)}:${pad(cdSeconds)}`;
+
+  // Masked recipient username
+  const lastClaimerMasked = (() => {
+    const rawName = String(campaign.last_claimer_name || '').trim();
+    if (rawName && rawName.toLowerCase() !== 'người chơi trước' && rawName.toLowerCase() !== 'đồng đạo trước') {
+      return marketingService.maskName(rawName);
+    }
+    const campId = String(campaign.id || '');
+    let hash = 0;
+    for (let i = 0; i < campId.length; i++) {
+      hash = (hash << 5) - hash + campId.charCodeAt(i);
+      hash |= 0;
+    }
+    const fallbackRaw = PRESET_VIRTUAL_ACCOUNTS[Math.abs(hash) % PRESET_VIRTUAL_ACCOUNTS.length];
+    return marketingService.maskName(fallbackRaw);
+  })();
+
+  const handleCopyCode = (code: string) => {
+    navigator.clipboard.writeText(code);
+    setCopiedCode(code);
+    onShowToast('Đã sao chép mã!', code, 'success');
+    setTimeout(() => setCopiedCode(null), 2000);
+  };
 
   return (
-    <div className="space-y-3">
-      <div className="p-4 rounded-2xl bg-gradient-to-r from-amber-950/70 via-orange-950/70 to-red-950/70 border border-amber-500/40 text-center space-y-2.5 shadow-lg">
-        <div className="text-xs font-bold text-amber-300 uppercase tracking-wider flex items-center justify-center gap-1.5">
-          <Clock className="w-4 h-4 text-amber-400 animate-pulse" />
-          <span>Mã Kế Tiếp Mở Cho Toàn Web Sau:</span>
-        </div>
-        <div className="text-3xl font-mono font-black text-amber-300 tracking-widest drop-shadow-md">
-          {waitText}
-        </div>
-        {campaign.enable_waiting_room !== false && (
-          <div className="pt-1 flex justify-center">
-            <LiveWaitingRoomBadge
-              minUsers={campaign.waiting_users_min}
-              maxUsers={campaign.waiting_users_max}
-              variant="card"
+    <div
+      onClick={onClose}
+      className="fixed inset-0 z-[105] flex items-end sm:items-center justify-center p-0 sm:p-4 bg-black/80 backdrop-blur-md overflow-hidden animate-fade-in"
+    >
+      <div
+        onClick={(e) => e.stopPropagation()}
+        className="relative w-full max-w-lg bg-card border-t sm:border border-border/90 rounded-t-[28px] sm:rounded-3xl overflow-hidden shadow-2xl p-4 sm:p-6 space-y-4 animate-scale-in h-[88dvh] sm:h-auto max-h-[88dvh] sm:max-h-[90vh] flex flex-col"
+      >
+        {/* Close button */}
+        <button
+          onClick={onClose}
+          className="absolute top-4 right-4 p-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-white border border-slate-700 hover:border-slate-600 shadow-md cursor-pointer transition-all active:scale-90 flex items-center justify-center shrink-0 z-10"
+          aria-label="Đóng"
+          title="Đóng"
+        >
+          <X className="w-5 h-5 text-white" />
+        </button>
+
+        {/* Modal Header: Game info */}
+        <div className="flex items-center gap-3.5 pr-10">
+          <div
+            onClick={() => {
+              onClose();
+              onSelectGameSlug(campaign.game_slug);
+            }}
+            className="w-14 h-14 rounded-2xl bg-muted overflow-hidden shrink-0 border border-border shadow-md cursor-pointer hover:opacity-90 transition-opacity"
+          >
+            <img
+              src={campaign.game_icon_url || `/game_icons/${campaign.game_slug}.webp`}
+              alt={campaign.game_name}
+              className="w-full h-full object-cover"
+              onError={(e) => {
+                const target = e.target as HTMLImageElement;
+                target.onerror = null;
+                target.src = '/vite.svg';
+              }}
             />
           </div>
-        )}
-        <p className="text-[11px] text-amber-200/80 leading-relaxed max-w-sm mx-auto">
-          {(() => {
-            const lastUser = campaign.last_claimer_name || 'người chơi trước';
-            const template =
-              campaign.custom_cooldown_msg ||
-              'Đợt phát trước đạo hữu {last_user} đã nhanh tay đi trước, đạo hữu vui lòng đợi {time_left} rồi thử sức lại.';
-            return template
-              .replace(/\{last_user\}|\{claimer\}|\{last_claimer\}|\{last_claimer_name\}|\{user\}/gi, lastUser)
-              .replace(/\{time_left\}|\{seconds\}|\{sec\}/gi, waitText);
-          })()}
-        </p>
-      </div>
+          <div className="min-w-0 flex-1">
+            <div className="flex items-center gap-2 mb-0.5">
+              {/* Requirement 1: Xóa chữ Chính Thức NPH, Xóa chữ Hết code */}
+              {isEnded ? (
+                <span className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-rose-500/15 text-rose-400 border border-rose-500/30">
+                  Đã kết thúc
+                </span>
+              ) : isNotStarted ? (
+                <span className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-amber-500/15 text-amber-400 border border-amber-500/30">
+                  Sắp mở
+                </span>
+              ) : remaining <= 0 ? null : (
+                <span className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-emerald-500/15 text-emerald-400 border border-emerald-500/30">
+                  Đang phát mã
+                </span>
+              )}
+            </div>
+            <h3 className="font-heading font-black text-base sm:text-lg text-foreground line-clamp-1">
+              {campaign.game_name}
+            </h3>
+            <p className="text-xs text-primary-light font-bold truncate">
+              {campaign.title}
+            </p>
+          </div>
+        </div>
 
-      <button
-        disabled
-        className="w-full py-3.5 rounded-2xl bg-amber-500/20 text-amber-300 border border-amber-500/40 text-xs font-bold flex items-center justify-center gap-2 cursor-not-allowed"
-      >
-        <Clock className="w-4 h-4 text-amber-400" />
-        <span>Đang Chờ Đợt Mã Tiếp Theo ({waitText})</span>
-      </button>
+        {/* Modal Scrollable Body */}
+        <div className="flex-1 min-h-0 overflow-y-auto touch-pan-y pr-1 space-y-3.5 custom-scrollbar text-xs">
+          {/* Package Selector if multiple packages */}
+          {packages.length > 1 && (
+            <div className="p-3.5 rounded-2xl bg-card-hover/90 border border-border/80 space-y-2">
+              <div className="flex items-center justify-between">
+                <span className="text-[11px] font-extrabold text-foreground uppercase tracking-wider flex items-center gap-1.5">
+                  <Gift className="w-4 h-4 text-accent" />
+                  <span>Chọn Gói Quà Tặng Bạn Muốn Giật ({packages.length} gói):</span>
+                </span>
+                <span className="text-[10px] text-accent font-bold font-mono">
+                  {activePackage?.name || 'Mặc định'}
+                </span>
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                {packages.map((pkg) => {
+                  const isSelected = activePackage?.id === pkg.id;
+                  const pkgStock = Array.isArray(pkg.codes_pool) ? pkg.codes_pool.length : (typeof pkg.remaining_codes === 'number' ? pkg.remaining_codes : 0);
+                  return (
+                    <button
+                      key={pkg.id}
+                      type="button"
+                      onClick={() => setSelectedRewardPackageId(pkg.id)}
+                      className={`p-2.5 rounded-xl border text-left transition-all cursor-pointer flex flex-col justify-between ${
+                        isSelected
+                          ? 'bg-accent/15 border-accent text-accent shadow-sm ring-1 ring-accent'
+                          : 'bg-muted/40 hover:bg-muted/70 border-border/70 text-foreground'
+                      }`}
+                    >
+                      <div className="flex items-center justify-between gap-1 mb-1">
+                        <span className="text-xs font-bold line-clamp-1">{pkg.name}</span>
+                        {pkg.badge && (
+                          <span className="text-[9px] font-bold px-1.5 py-0.2 rounded bg-amber-500/20 text-amber-300 border border-amber-500/30 shrink-0">
+                            {pkg.badge}
+                          </span>
+                        )}
+                      </div>
+                      <p className="text-[10px] text-muted-foreground line-clamp-1">{pkg.rewards}</p>
+                      <div className="mt-1.5 flex items-center justify-between text-[10px] font-mono">
+                        <span className={pkgStock > 0 ? 'text-emerald-400 font-bold' : 'text-rose-400 font-bold'}>
+                          {pkgStock > 0 ? `Còn ${pkgStock} mã` : 'Hết mã'}
+                        </span>
+                        {isSelected && <span className="text-[9px] text-accent font-bold">✓ Đang chọn</span>}
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
+          {/* Rewards Box */}
+          <div className="p-3.5 rounded-2xl bg-muted/60 border border-border/80 space-y-1.5">
+            <div className="flex items-center gap-1.5 text-xs font-bold text-accent">
+              <Gift className="w-4 h-4" />
+              <span>Chi Tiết Phần Thưởng Code{packages.length > 1 ? ` (${activePackage?.name || campaign.title})` : ''}:</span>
+            </div>
+            <p className="text-xs sm:text-sm text-foreground/90 font-medium leading-relaxed">
+              {activePackage?.rewards || campaign.rewards}
+            </p>
+            {campaign.description && (
+              <p className="text-[11px] text-muted-foreground pt-1 border-t border-border/40">
+                {campaign.description}
+              </p>
+            )}
+          </div>
+
+          {/* Requirement 2: Người nhận thưởng lần trước: tên lên trước, giới thiệu đi sau */}
+          <div className="p-3 rounded-2xl bg-amber-500/10 border border-amber-500/25 flex items-center justify-between gap-2.5 shadow-sm">
+            <div className="flex items-center gap-2 min-w-0">
+              <div className="w-7 h-7 rounded-xl bg-amber-500/20 border border-amber-500/35 flex items-center justify-center shrink-0">
+                <Sparkles className="w-3.5 h-3.5 text-amber-300 animate-pulse" />
+              </div>
+              <div className="min-w-0">
+                <span className="text-xs text-foreground/90 font-medium truncate block">
+                  <strong className="text-amber-300 font-bold font-mono tracking-wide mr-1.5">
+                    {lastClaimerMasked}
+                  </strong>
+                  <span className="text-foreground/80 font-normal">
+                    (Đạo hữu nhận thưởng lần trước)
+                  </span>
+                </span>
+              </div>
+            </div>
+            <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-500/15 text-emerald-400 border border-emerald-500/30 shrink-0">
+              Đã trao quà
+            </span>
+          </div>
+
+          {/* Requirement 5: Ô Tùy Chỉnh / Link Cộng Đồng (Admin Cấu Hình) - Thế vào vị trí cũ của Thời Gian Sự Kiện */}
+          {campaign.custom_banner_enabled && (
+            <div
+              onClick={() => {
+                if (campaign.custom_banner_link) {
+                  window.open(campaign.custom_banner_link, '_blank', 'noopener,noreferrer');
+                }
+              }}
+              className={`p-3 rounded-2xl bg-gradient-to-r from-blue-500/10 via-indigo-500/10 to-primary/10 border border-blue-500/30 flex items-center justify-between gap-2.5 transition-all shadow-sm ${
+                campaign.custom_banner_link
+                  ? 'cursor-pointer hover:bg-blue-500/20 hover:border-blue-500/50 hover:scale-[1.01] active:scale-[0.99]'
+                  : ''
+              }`}
+            >
+              <div className="flex items-center gap-2.5 min-w-0">
+                <div className="w-7 h-7 rounded-xl bg-blue-500/20 border border-blue-500/35 flex items-center justify-center shrink-0">
+                  <MessageCircle className="w-3.5 h-3.5 text-blue-400" />
+                </div>
+                <span className="text-xs font-semibold text-foreground truncate select-none">
+                  {campaign.custom_banner_text || 'Tham gia nhóm zalo của web tại đây'}
+                </span>
+              </div>
+              {campaign.custom_banner_link && (
+                <div className="flex items-center gap-1 text-[10px] font-bold text-blue-400 shrink-0">
+                  <span>Mở link</span>
+                  <ExternalLink className="w-3.5 h-3.5" />
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Conditions & Eligibility Checklist */}
+          <div className="p-3.5 rounded-2xl bg-card-hover/90 border border-border/80 space-y-2.5">
+            <div className="flex items-center justify-between">
+              <span className="text-[11px] font-extrabold text-foreground uppercase tracking-wider flex items-center gap-1.5">
+                <ShieldCheck className="w-4 h-4 text-emerald-400" />
+                <span>Điều kiện tham gia sự kiện:</span>
+              </span>
+              <span className="text-[10px] text-muted-foreground font-mono">
+                {currentUser ? 'Đã kiểm tra tài khoản' : 'Cần đăng nhập'}
+              </span>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-[11px]">
+              {/* Rule 1: Max per user */}
+              <div
+                className={`p-2.5 rounded-xl border flex items-center justify-between gap-2 ${
+                  isMaxReached
+                    ? 'bg-amber-500/10 border-amber-500/30 text-amber-300'
+                    : 'bg-muted/50 border-border/70 text-foreground'
+                }`}
+              >
+                <div className="flex items-center gap-2 min-w-0">
+                  <User className="w-3.5 h-3.5 text-primary-light shrink-0" />
+                  <span className="truncate">
+                    {isUnlimitedUser ? 'Không giới hạn mã/tài khoản' : `Tối đa ${rawMaxPerUser || 1} mã / TK`}
+                  </span>
+                </div>
+                <span className="text-[10px] font-bold shrink-0">
+                  ({userClaimCount}/{isUnlimitedUser ? '∞' : rawMaxPerUser || 1})
+                </span>
+              </div>
+
+              {/* Rule 2: Max per IP */}
+              <div className="p-2.5 rounded-xl bg-muted/50 border border-border/70 flex items-center justify-between gap-2 text-foreground">
+                <div className="flex items-center gap-2 min-w-0">
+                  <Globe className="w-3.5 h-3.5 text-teal-400 shrink-0" />
+                  <span className="truncate">Tối đa {campaign.max_per_ip || 1} mã / IP</span>
+                </div>
+                <span className="text-[10px] font-bold text-teal-400 shrink-0">Áp dụng</span>
+              </div>
+
+              {/* Rule 3: Cooldown */}
+              {Boolean(campaign.cooldown_hours && campaign.cooldown_hours > 0) && (
+                <div
+                  className={`p-2.5 rounded-xl border flex items-center justify-between gap-2 sm:col-span-2 ${
+                    isCooldownActive
+                      ? 'bg-amber-500/10 border-amber-500/30 text-amber-300'
+                      : 'bg-muted/50 border-border/70 text-foreground'
+                  }`}
+                >
+                  <div className="flex items-center gap-2 min-w-0">
+                    <Clock className="w-3.5 h-3.5 text-amber-400 shrink-0" />
+                    <span className="truncate">Hồi chiêu: {campaign.cooldown_hours}h giữa 2 lần nhận</span>
+                  </div>
+                  <span className="text-[10px] font-bold shrink-0">
+                    {isCooldownActive ? `Còn ${cooldownWaitText}` : 'Sẵn sàng'}
+                  </span>
+                </div>
+              )}
+
+              {/* Rule 4: Min account age */}
+              {Boolean(campaign.min_account_age_days && campaign.min_account_age_days > 0) && (
+                <div
+                  className={`p-2.5 rounded-xl border flex items-center justify-between gap-2 sm:col-span-2 ${
+                    currentUser && !isAgeEligible
+                      ? 'bg-rose-500/10 border-rose-500/30 text-rose-300'
+                      : 'bg-muted/50 border-border/70 text-foreground'
+                  }`}
+                >
+                  <div className="flex items-center gap-2 min-w-0">
+                    <ShieldCheck className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+                    <span className="truncate">
+                      Tuổi nick yêu cầu: ≥ {campaign.min_account_age_days} ngày
+                    </span>
+                  </div>
+                  <span className="text-[10px] font-bold shrink-0">
+                    {currentUser
+                      ? isAgeEligible
+                        ? `Đạt (${userAgeDays} ngày)`
+                        : `Chưa đạt (${userAgeDays}/${campaign.min_account_age_days} ngày)`
+                      : `≥ ${campaign.min_account_age_days} ngày`}
+                  </span>
+                </div>
+              )}
+
+              {/* Rule 5: Global release interval */}
+              {Boolean(campaign.global_cooldown_seconds && campaign.global_cooldown_seconds > 0) && (
+                <div
+                  className={`p-2.5 rounded-xl border flex items-center justify-between gap-2 sm:col-span-2 ${
+                    isModalGlobalCooling
+                      ? 'bg-amber-500/10 border-amber-500/30 text-amber-300'
+                      : 'bg-muted/50 border-border/70 text-foreground'
+                  }`}
+                >
+                  <div className="flex items-center gap-2 min-w-0">
+                    <Clock className="w-3.5 h-3.5 text-amber-400 shrink-0" />
+                    <span className="truncate">
+                      Giãn cách phát mã toàn sàn: {campaign.global_cooldown_seconds >= 60 ? `${Math.floor(campaign.global_cooldown_seconds / 60)} phút` : `${campaign.global_cooldown_seconds}s`} / 1 mã
+                    </span>
+                  </div>
+                  <span className="text-[10px] font-bold shrink-0">
+                    {isModalGlobalCooling ? '⏳ Đang chờ đợt tiếp' : '🟢 Sẵn sàng'}
+                  </span>
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Real-time Stock Progress */}
+          <div className="p-3.5 rounded-2xl bg-muted/50 border border-border/70 space-y-2">
+            <div className="flex items-center justify-between text-xs font-mono">
+              {campaign.show_claimed_count !== false ? (
+                <span>
+                  Đã trao: <strong className="text-amber-400">{displayClaimed} mã</strong>
+                </span>
+              ) : (
+                <span></span>
+              )}
+              {(campaign as any).show_remaining_count !== false && (
+                <span>
+                  Còn lại: <strong className="text-accent">{displayRemaining} mã</strong>
+                </span>
+              )}
+            </div>
+            <div className="w-full h-2.5 rounded-full bg-muted overflow-hidden border border-border/40">
+              <div
+                className="h-full bg-gradient-to-r from-primary to-accent transition-all duration-500 rounded-full"
+                style={{ width: `${percentClaimed}%` }}
+              />
+            </div>
+          </div>
+
+          {/* Requirement 4: Thời gian sự kiện (Đã chuyển xuống dưới mục đã trao: xx mã) */}
+          <div className="p-3 rounded-2xl bg-card-hover/80 border border-border/70 flex items-center justify-between gap-2">
+            <div className="flex items-center gap-2">
+              <Calendar className="w-4 h-4 text-primary-light shrink-0" />
+              <div>
+                <span className="text-[10px] font-bold text-muted-foreground uppercase block">
+                  Thời gian sự kiện:
+                </span>
+                <span className="text-xs font-mono text-foreground font-semibold">
+                  {campaign.start_time ? formatRelativeDate(campaign.start_time) : 'Đang mở'} →{' '}
+                  {campaign.end_time ? formatFullDateTime(campaign.end_time) : 'Đến khi hết mã'}
+                </span>
+              </div>
+            </div>
+          </div>
+
+          {/* Previously Claimed Codes for this campaign */}
+          {userCampaignClaims.length > 0 && (
+            <div className="p-3.5 rounded-2xl bg-emerald-500/10 border border-emerald-500/30 space-y-2">
+              <div className="flex items-center justify-between">
+                <span className="text-[11px] font-bold text-emerald-400 block">
+                  Mã bạn đã giật tại sự kiện này ({userCampaignClaims.length} mã):
+                </span>
+              </div>
+              <div className="space-y-1.5 max-h-28 overflow-y-auto pr-1">
+                {userCampaignClaims.map((c) => (
+                  <div
+                    key={c.id}
+                    className="p-2.5 rounded-xl bg-card border border-emerald-500/20 flex items-center justify-between gap-2"
+                  >
+                    <div className="min-w-0">
+                      <span className="font-mono font-bold text-xs text-foreground truncate block select-all">
+                        {c.code_value}
+                      </span>
+                      {c.claimed_at && (
+                        <span className="text-[10px] text-muted-foreground font-mono flex items-center gap-1 mt-0.5">
+                          <Clock className="w-3 h-3 text-emerald-400 shrink-0" />
+                          <span>Nhận lúc: {formatFullDateTime(c.claimed_at)}</span>
+                        </span>
+                      )}
+                    </div>
+                    <button
+                      onClick={() => handleCopyCode(c.code_value)}
+                      className="px-2.5 py-1.5 rounded-lg bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-400 text-[10px] font-bold flex items-center gap-1 transition-colors shrink-0 cursor-pointer"
+                    >
+                      {copiedCode === c.code_value ? <Check className="w-3 h-3" /> : <Copy className="w-3 h-3" />}
+                      <span>Sao chép</span>
+                    </button>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* Modal Sticky Footer CTA */}
+        <div className="pt-2 border-t border-border/60 space-y-2">
+          {!currentUser ? (
+            <button
+              onClick={() => {
+                onClose();
+                onOpenAuth();
+                onShowToast('Cần đăng nhập', 'Vui lòng đăng nhập hoặc đăng ký tài khoản để giật mã quà tặng.', 'info');
+              }}
+              className="w-full py-3.5 rounded-2xl bg-gradient-to-r from-primary to-accent text-white font-display font-bold text-xs sm:text-sm shadow-glow-primary hover:scale-[1.01] active:scale-[0.99] transition-all cursor-pointer flex items-center justify-center gap-2"
+            >
+              <LogIn className="w-4 h-4" />
+              <span>Đăng Nhập Ngay Để Giật Code</span>
+            </button>
+          ) : isNotStarted ? (
+            <div className="space-y-3">
+              <div className="p-3.5 sm:p-4 rounded-2xl bg-gradient-to-r from-red-950/60 via-orange-950/60 to-amber-950/60 border border-orange-500/30 text-center space-y-2">
+                <div className="text-xs font-bold text-orange-300 uppercase tracking-wider flex items-center justify-center gap-1.5">
+                  <Flame className="w-4 h-4 text-orange-400 fill-orange-400 animate-pulse" />
+                  <span>Sự Kiện Sắp Diễn Ra — Đếm Ngược Đến Giờ G:</span>
+                </div>
+                <div className="flex justify-center">
+                  <EventCountdownBadge
+                    targetDate={campaign.start_time}
+                    label="Mở sau:"
+                    theme="fire"
+                    variant="detailed"
+                    onExpire={() => {
+                      playClaimVictorySound();
+                      confetti({ particleCount: 60, spread: 70, origin: { y: 0.6 } });
+                      handleExpireRefresh();
+                    }}
+                  />
+                </div>
+              </div>
+              <button
+                disabled
+                className="w-full py-3.5 rounded-2xl bg-muted/60 text-muted-foreground border border-border text-xs font-bold flex items-center justify-center gap-2 cursor-not-allowed"
+              >
+                <Clock className="w-4 h-4" />
+                <span>Chờ Đến Giờ Mở Sự Kiện ({formatRelativeDate(campaign.start_time)})</span>
+              </button>
+            </div>
+          ) : isEnded ? (
+            <button
+              disabled
+              className="w-full py-3.5 rounded-2xl bg-muted/60 text-muted-foreground border border-border text-xs font-bold flex items-center justify-center gap-2 cursor-not-allowed"
+            >
+              <span>Sự Kiện Đã Kết Thúc</span>
+            </button>
+          ) : remaining <= 0 ? (
+            /* Requirement 3: Bỏ ô Toàn Bộ Phần Thưởng Đã Trao Hết */
+            userClaimCount > 0 ? (
+              <div className="space-y-2">
+                <button
+                  onClick={() => {
+                    onClose();
+                    const existing = uniqueClaimedList.find((c) => c.campaign_id === campaign.id);
+                    if (existing?.code_value) {
+                      setClaimedRewardModal({
+                        campaign,
+                        code: existing.code_value,
+                        isNew: false,
+                        isAdminBypass: isAdmin,
+                      });
+                    }
+                  }}
+                  className="w-full py-2.5 rounded-xl bg-emerald-500/15 hover:bg-emerald-500/25 text-emerald-400 border border-emerald-500/30 text-xs font-bold flex items-center justify-center gap-2 cursor-pointer transition-all"
+                >
+                  <CheckCircle2 className="w-4 h-4" />
+                  <span>Xem lại mã bạn đã nhận ({userClaimCount})</span>
+                </button>
+              </div>
+            ) : null
+          ) : isMaxReached ? (
+            <div className="space-y-1.5">
+              <button
+                onClick={() => {
+                  onClose();
+                  const existing = uniqueClaimedList.find((c) => c.campaign_id === campaign.id);
+                  if (existing?.code_value) {
+                    setClaimedRewardModal({
+                      campaign,
+                      code: existing.code_value,
+                      isNew: false,
+                      isAdminBypass: isAdmin,
+                    });
+                  } else {
+                    handleOpenLimitNotice(campaign);
+                  }
+                }}
+                className="w-full py-3.5 rounded-2xl bg-emerald-500/15 hover:bg-emerald-500/25 text-emerald-400 border border-emerald-500/30 text-xs font-bold flex items-center justify-center gap-2 cursor-pointer transition-all"
+              >
+                <CheckCircle2 className="w-4 h-4" />
+                <span>Xem {userClaimCount} Mã Đã Nhận & Sao Chép</span>
+              </button>
+            </div>
+          ) : isModalGlobalCooling ? (
+            /* Requirement 6: Đếm ngược mục giật mã, khi về 0 chuyển thành nút giật mã ngay */
+            <div className="space-y-2">
+              <div className="p-4 rounded-2xl bg-gradient-to-r from-amber-950/70 via-orange-950/70 to-red-950/70 border border-amber-500/40 text-center space-y-2.5 shadow-lg">
+                <div className="text-xs font-bold text-amber-300 uppercase tracking-wider flex items-center justify-center gap-1.5">
+                  <Clock className="w-4 h-4 text-amber-400 animate-pulse" />
+                  <span>Mã Kế Tiếp Mở Cho Toàn Web Sau:</span>
+                </div>
+                <div className="text-3xl font-mono font-black text-amber-300 tracking-widest drop-shadow-md">
+                  {globalCooldownWaitText}
+                </div>
+                {campaign.enable_waiting_room !== false && (
+                  <div className="pt-1 flex justify-center">
+                    <LiveWaitingRoomBadge
+                      minUsers={campaign.waiting_users_min}
+                      maxUsers={campaign.waiting_users_max}
+                      variant="card"
+                    />
+                  </div>
+                )}
+                <p className="text-[11px] text-amber-200/80 leading-relaxed max-w-sm mx-auto">
+                  {(() => {
+                    const lastUser = campaign.last_claimer_name || 'người chơi trước';
+                    const template =
+                      campaign.custom_cooldown_msg ||
+                      'Đợt phát trước đạo hữu {last_user} đã nhanh tay đi trước, đạo hữu vui lòng đợi {time_left} rồi thử sức lại.';
+                    return template
+                      .replace(/\{last_user\}|\{claimer\}|\{last_claimer\}|\{last_claimer_name\}|\{user\}/gi, lastUser)
+                      .replace(/\{time_left\}|\{seconds\}|\{sec\}/gi, globalCooldownWaitText);
+                  })()}
+                </p>
+              </div>
+
+              <button
+                disabled
+                className="w-full py-3.5 rounded-2xl bg-amber-500/20 text-amber-300 border border-amber-500/40 text-xs font-bold flex items-center justify-center gap-2 cursor-not-allowed"
+              >
+                <Clock className="w-4 h-4 text-amber-400" />
+                <span>Đang Chờ Đợt Mã Tiếp Theo ({globalCooldownWaitText})</span>
+              </button>
+
+              {isAdmin && (
+                <button
+                  onClick={() => handleClaim(campaign, activePackage?.id)}
+                  disabled={claimingId === campaign.id}
+                  className="w-full py-2.5 rounded-xl bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 border border-amber-500/40 text-xs font-bold flex items-center justify-center gap-1.5 cursor-pointer transition-all active:scale-95"
+                >
+                  <Sparkles className="w-3.5 h-3.5" />
+                  <span>👑 [Admin] Bỏ qua chờ đợt — Giật thử nghiệm ngay</span>
+                </button>
+              )}
+            </div>
+          ) : isCooldownActive ? (
+            <button
+              onClick={() => {
+                onClose();
+                handleOpenLimitNotice(
+                  campaign,
+                  `Bạn đang trong thời gian hồi chiêu (${cooldownHours}h). Vui lòng quay lại sau ${cooldownWaitText} để giật mã tiếp theo.`
+                );
+              }}
+              className="w-full py-3.5 rounded-2xl bg-amber-500/15 hover:bg-amber-500/25 text-amber-400 border border-amber-500/30 text-xs font-bold flex items-center justify-center gap-2 cursor-pointer transition-all"
+            >
+              <Clock className="w-4 h-4 animate-spin text-amber-400" />
+              <span>Đang Hồi Chiêu (Còn {cooldownWaitText})</span>
+            </button>
+          ) : !isAgeEligible ? (
+            <button
+              onClick={() => {
+                onClose();
+                handleOpenLimitNotice(
+                  campaign,
+                  `Tài khoản của bạn mới được tạo ${Math.max(0, userAgeDays)} ngày. Sự kiện này yêu cầu tài khoản tối thiểu ${minAccountAgeDays} ngày tuổi mới đủ điều kiện giật code.`
+                );
+              }}
+              className="w-full py-3.5 rounded-2xl bg-rose-500/15 hover:bg-rose-500/25 text-rose-400 border border-rose-500/30 text-xs font-bold flex items-center justify-center gap-2 cursor-pointer transition-all"
+            >
+              <ShieldCheck className="w-4 h-4 text-rose-400" />
+              <span>Chưa Đủ Điều Kiện Tuổi Nick ({userAgeDays}/{minAccountAgeDays} ngày)</span>
+            </button>
+          ) : (
+            <div className="space-y-2">
+              {campaign.enable_waiting_room !== false && (
+                <LiveWaitingRoomBadge
+                  minUsers={campaign.waiting_users_min}
+                  maxUsers={campaign.waiting_users_max}
+                  variant="modal"
+                  className="mb-1"
+                />
+              )}
+              <button
+                onClick={() => handleClaim(campaign, activePackage?.id)}
+                disabled={claimingId === campaign.id}
+                className="w-full py-3.5 rounded-2xl bg-gradient-to-r from-accent via-rose-500 to-amber-500 hover:opacity-95 text-white font-display font-black text-xs sm:text-sm tracking-wide shadow-glow-accent hover:scale-[1.01] active:scale-[0.99] transition-all cursor-pointer flex items-center justify-center gap-2 disabled:opacity-75 disabled:cursor-not-allowed"
+              >
+                {claimingId === campaign.id ? (
+                  <>
+                    <Loader2 className="w-5 h-5 animate-spin text-white" />
+                    <span>Đang Kết Nối Nhận Mã...</span>
+                  </>
+                ) : (
+                  <>
+                    <Sparkles className="w-5 h-5 animate-bounce" />
+                    <span>
+                      {userClaimCount > 0
+                        ? isAdmin
+                          ? `👑 [Admin] Giật Thêm Mã (Đã có ${userClaimCount} mã)`
+                          : `⚡ Giật Thêm Mã Mới (${userClaimCount}/${isUnlimitedUser ? '∞' : rawMaxPerUser || 1})`
+                        : '⚡ GIẬT MÃ CODE NGAY (MIỄN PHÍ)'}
+                    </span>
+                  </>
+                )}
+              </button>
+            </div>
+          )}
+
+          <button
+            onClick={onClose}
+            className="w-full py-2.5 rounded-xl bg-muted hover:bg-card text-muted-foreground hover:text-foreground text-xs font-semibold transition-colors cursor-pointer text-center"
+          >
+            Đóng cửa sổ
+          </button>
+        </div>
+      </div>
     </div>
   );
 };
@@ -1893,645 +2590,27 @@ export const GiveawaysView: React.FC<GiveawaysViewProps> = ({
 
       {/* CAMPAIGN DETAIL & CLAIM MODAL */}
       {detailModalCampaign && typeof document !== 'undefined' && createPortal(
-        (() => {
-          const currentCampaign = groupedCampaigns.find((g) => g.id === detailModalCampaign.id || (g.packages && g.packages.some((p) => p.id === detailModalCampaign.id))) || detailModalCampaign;
-          const packages = getGiveawayPackages(currentCampaign);
-          const activePackage = packages.find((p) => p.id === selectedRewardPackageId) || packages[0];
-          const effectivePool = activePackage?.codes_pool || currentCampaign.codes_pool;
-          const poolCount = Array.isArray(effectivePool)
-            ? effectivePool.length
-            : (typeof activePackage?.remaining_codes === 'number'
-                ? activePackage.remaining_codes
-                : (typeof currentCampaign.remaining_codes === 'number' ? currentCampaign.remaining_codes : 0));
-          const displayRemaining = marketingService.getDisplayStock(currentCampaign.id, poolCount);
-          const displayClaimed =
-            currentCampaign.show_claimed_count !== false
-              ? marketingService.getClaimedDisplay(currentCampaign)
-              : currentCampaign.claimed_codes || 0;
-          const remaining = displayRemaining;
-          const displayTotal = displayRemaining + displayClaimed;
-          const percentClaimed =
-            displayTotal > 0
-              ? Math.min(100, Math.max(0, Math.round((displayClaimed / displayTotal) * 100)))
-              : displayRemaining <= 0
-              ? 100
-              : 0;
-
-          const rawMaxPerUser = Number(currentCampaign.max_per_user);
-          const isUnlimitedUser = rawMaxPerUser === 0 || rawMaxPerUser >= 999999;
-          const effectiveMaxPerUser = isUnlimitedUser ? 999999 : (rawMaxPerUser > 0 ? rawMaxPerUser : 1);
-
-          const userCampaignClaims = uniqueClaimedList.filter((c) => c.campaign_id === currentCampaign.id);
-          const userClaimCount = userCampaignClaims.length;
-          const canClaimMore = (isAdmin || isUnlimitedUser || userClaimCount < effectiveMaxPerUser) && remaining > 0;
-          const isMaxReached = !canClaimMore && remaining > 0;
-
-          // Cooldown calculation
-          let cooldownRemainingMs = 0;
-          const cooldownHours = isAdmin ? 0 : (Number(currentCampaign.cooldown_hours) || 0);
-          if (cooldownHours > 0 && userCampaignClaims.length > 0) {
-            const latestClaim = userCampaignClaims[0];
-            if (latestClaim && latestClaim.claimed_at) {
-              const lastClaimTime = new Date(latestClaim.claimed_at).getTime();
-              const cooldownMs = cooldownHours * 3600 * 1000;
-              cooldownRemainingMs = Math.max(0, lastClaimTime + cooldownMs - Date.now());
-            }
+        <GiveawayDetailModal
+          campaign={
+            groupedCampaigns.find(
+              (g) => g.id === detailModalCampaign.id || (g.packages && g.packages.some((p) => p.id === detailModalCampaign.id))
+            ) || detailModalCampaign
           }
-          const isCooldownActive = cooldownRemainingMs > 0;
-          const remH = Math.floor(cooldownRemainingMs / (1000 * 3600));
-          const remM = Math.ceil((cooldownRemainingMs % (1000 * 3600)) / (1000 * 60));
-          const cooldownWaitText = remH > 0 ? `${remH} giờ ${remM} phút` : `${remM} phút`;
-
-          // Account age calculation
-          const minAccountAgeDays = isAdmin ? 0 : (Number(currentCampaign.min_account_age_days) || 0);
-          let userAgeDays = 0;
-          let isAgeEligible = true;
-          if (currentUser && minAccountAgeDays > 0) {
-            const userCreatedAt = currentUser.created_at || (currentUser as any).createdAt;
-            if (userCreatedAt) {
-              const userCreatedMs = new Date(userCreatedAt).getTime();
-              if (!isNaN(userCreatedMs)) {
-                userAgeDays = Math.floor((Date.now() - userCreatedMs) / (1000 * 60 * 60 * 24));
-                isAgeEligible = userAgeDays >= minAccountAgeDays;
-              }
-            }
-          }
-
-          // Time window calculation
-          const nowMs = Date.now();
-          const isNotStarted = currentCampaign.start_time
-            ? !isNaN(new Date(currentCampaign.start_time).getTime()) && nowMs < new Date(currentCampaign.start_time).getTime()
-            : false;
-          const isEnded =
-            (currentCampaign.end_time
-              ? !isNaN(new Date(currentCampaign.end_time).getTime()) && nowMs > new Date(currentCampaign.end_time).getTime()
-              : false) ||
-            currentCampaign.status === 'ENDED' ||
-            currentCampaign.is_active === false;
-
-          const isModalGlobalCooling = Boolean(
-            currentCampaign.global_cooldown_seconds &&
-            currentCampaign.global_cooldown_seconds > 0 &&
-            currentCampaign.last_global_claim_at &&
-            (new Date(currentCampaign.last_global_claim_at).getTime() + currentCampaign.global_cooldown_seconds * 1000) > Date.now()
-          );
-
-          // Xác định đạo hữu nhận thưởng lần trước (kèm che tên một phần)
-          const lastClaimerMasked = (() => {
-            const rawName = String(currentCampaign.last_claimer_name || '').trim();
-            if (rawName && rawName.toLowerCase() !== 'người chơi trước' && rawName.toLowerCase() !== 'đồng đạo trước') {
-              return marketingService.maskName(rawName);
-            }
-            // Deterministic Fallback theo ID của campaign từ kho tài khoản mẫu
-            const campId = String(currentCampaign.id || '');
-            let hash = 0;
-            for (let i = 0; i < campId.length; i++) {
-              hash = (hash << 5) - hash + campId.charCodeAt(i);
-              hash |= 0;
-            }
-            const fallbackRaw = PRESET_VIRTUAL_ACCOUNTS[Math.abs(hash) % PRESET_VIRTUAL_ACCOUNTS.length];
-            return marketingService.maskName(fallbackRaw);
-          })();
-
-          return (
-            <div
-              onClick={handleCloseDetailModal}
-              className="fixed inset-0 z-[105] flex items-end sm:items-center justify-center p-0 sm:p-4 bg-black/80 backdrop-blur-md overflow-hidden animate-fade-in"
-            >
-              <div
-                onClick={(e) => e.stopPropagation()}
-                className="relative w-full max-w-lg bg-card border-t sm:border border-border/90 rounded-t-[28px] sm:rounded-3xl overflow-hidden shadow-2xl p-4 sm:p-6 space-y-4 animate-scale-in h-[88dvh] sm:h-auto max-h-[88dvh] sm:max-h-[90vh] flex flex-col"
-              >
-                {/* Close button */}
-                <button
-                  onClick={handleCloseDetailModal}
-                  className="absolute top-4 right-4 p-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-white border border-slate-700 hover:border-slate-600 shadow-md cursor-pointer transition-all active:scale-90 flex items-center justify-center shrink-0 z-10"
-                  aria-label="Đóng"
-                  title="Đóng"
-                >
-                  <X className="w-5 h-5 text-white" />
-                </button>
-
-                {/* Modal Header: Game info */}
-                <div className="flex items-center gap-3.5 pr-10">
-                  <div
-                    onClick={() => {
-                      setDetailModalCampaign(null);
-                      onSelectGameSlug(currentCampaign.game_slug);
-                    }}
-                    className="w-14 h-14 rounded-2xl bg-muted overflow-hidden shrink-0 border border-border shadow-md cursor-pointer hover:opacity-90 transition-opacity"
-                  >
-                    <img
-                      src={currentCampaign.game_icon_url || `/game_icons/${currentCampaign.game_slug}.webp`}
-                      alt={currentCampaign.game_name}
-                      className="w-full h-full object-cover"
-                      onError={(e) => {
-                        const target = e.target as HTMLImageElement;
-                        target.onerror = null;
-                        target.src = '/vite.svg';
-                      }}
-                    />
-                  </div>
-                  <div className="min-w-0 flex-1">
-                    <div className="flex items-center gap-2 mb-0.5">
-                      <span className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-accent/15 text-accent border border-accent/30">
-                        Chính thức NPH
-                      </span>
-                      {isEnded ? (
-                        <span className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-rose-500/15 text-rose-400 border border-rose-500/30">
-                          Đã kết thúc
-                        </span>
-                      ) : isNotStarted ? (
-                        <span className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-amber-500/15 text-amber-400 border border-amber-500/30">
-                          Sắp mở
-                        </span>
-                      ) : remaining <= 0 ? (
-                        <span className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-slate-500/15 text-slate-400 border border-slate-500/30">
-                          Hết code
-                        </span>
-                      ) : (
-                        <span className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-emerald-500/15 text-emerald-400 border border-emerald-500/30">
-                          Đang phát mã
-                        </span>
-                      )}
-                    </div>
-                    <h3 className="font-heading font-black text-base sm:text-lg text-foreground line-clamp-1">
-                      {currentCampaign.game_name}
-                    </h3>
-                    <p className="text-xs text-primary-light font-bold truncate">
-                      {currentCampaign.title}
-                    </p>
-                  </div>
-                </div>
-
-                {/* Modal Scrollable Body */}
-                <div className="flex-1 min-h-0 overflow-y-auto touch-pan-y pr-1 space-y-3.5 custom-scrollbar text-xs">
-                  {/* Package Selector if multiple packages */}
-                  {packages.length > 1 && (
-                    <div className="p-3.5 rounded-2xl bg-card-hover/90 border border-border/80 space-y-2">
-                      <div className="flex items-center justify-between">
-                        <span className="text-[11px] font-extrabold text-foreground uppercase tracking-wider flex items-center gap-1.5">
-                          <Gift className="w-4 h-4 text-accent" />
-                          <span>Chọn Gói Quà Tặng Bạn Muốn Giật ({packages.length} gói):</span>
-                        </span>
-                        <span className="text-[10px] text-accent font-bold font-mono">
-                          {activePackage?.name || 'Mặc định'}
-                        </span>
-                      </div>
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                        {packages.map((pkg) => {
-                          const isSelected = activePackage?.id === pkg.id;
-                          const pkgStock = Array.isArray(pkg.codes_pool) ? pkg.codes_pool.length : (typeof pkg.remaining_codes === 'number' ? pkg.remaining_codes : 0);
-                          return (
-                            <button
-                              key={pkg.id}
-                              type="button"
-                              onClick={() => setSelectedRewardPackageId(pkg.id)}
-                              className={`p-2.5 rounded-xl border text-left transition-all cursor-pointer flex flex-col justify-between ${
-                                isSelected
-                                  ? 'bg-accent/15 border-accent text-accent shadow-sm ring-1 ring-accent'
-                                  : 'bg-muted/40 hover:bg-muted/70 border-border/70 text-foreground'
-                              }`}
-                            >
-                              <div className="flex items-center justify-between gap-1 mb-1">
-                                <span className="text-xs font-bold line-clamp-1">{pkg.name}</span>
-                                {pkg.badge && (
-                                  <span className="text-[9px] font-bold px-1.5 py-0.2 rounded bg-amber-500/20 text-amber-300 border border-amber-500/30 shrink-0">
-                                    {pkg.badge}
-                                  </span>
-                                )}
-                              </div>
-                              <p className="text-[10px] text-muted-foreground line-clamp-1">{pkg.rewards}</p>
-                              <div className="mt-1.5 flex items-center justify-between text-[10px] font-mono">
-                                <span className={pkgStock > 0 ? 'text-emerald-400 font-bold' : 'text-rose-400 font-bold'}>
-                                  {pkgStock > 0 ? `Còn ${pkgStock} mã` : 'Hết mã'}
-                                </span>
-                                {isSelected && <span className="text-[9px] text-accent font-bold">✓ Đang chọn</span>}
-                              </div>
-                            </button>
-                          );
-                        })}
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Rewards Box */}
-                  <div className="p-3.5 rounded-2xl bg-muted/60 border border-border/80 space-y-1.5">
-                    <div className="flex items-center gap-1.5 text-xs font-bold text-accent">
-                      <Gift className="w-4 h-4" />
-                      <span>Chi Tiết Phần Thưởng Code{packages.length > 1 ? ` (${activePackage?.name || currentCampaign.title})` : ''}:</span>
-                    </div>
-                    <p className="text-xs sm:text-sm text-foreground/90 font-medium leading-relaxed">
-                      {activePackage?.rewards || currentCampaign.rewards}
-                    </p>
-                    {currentCampaign.description && (
-                      <p className="text-[11px] text-muted-foreground pt-1 border-t border-border/40">
-                        {currentCampaign.description}
-                      </p>
-                    )}
-                  </div>
-
-                  {/* Đạo hữu nhận thưởng lần trước */}
-                  <div className="p-3 rounded-2xl bg-amber-500/10 border border-amber-500/25 flex items-center justify-between gap-2.5 shadow-sm">
-                    <div className="flex items-center gap-2 min-w-0">
-                      <div className="w-7 h-7 rounded-xl bg-amber-500/20 border border-amber-500/35 flex items-center justify-center shrink-0">
-                        <Sparkles className="w-3.5 h-3.5 text-amber-300 animate-pulse" />
-                      </div>
-                      <div className="min-w-0">
-                        <span className="text-xs text-foreground/90 font-medium truncate block">
-                          Đạo hữu nhận thưởng lần trước:{' '}
-                          <strong className="text-amber-300 font-bold font-mono tracking-wide">
-                            {lastClaimerMasked}
-                          </strong>
-                        </span>
-                      </div>
-                    </div>
-                    <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-500/15 text-emerald-400 border border-emerald-500/30 shrink-0">
-                      Đã trao quà
-                    </span>
-                  </div>
-
-                  {/* Time Window */}
-                  <div className="p-3 rounded-2xl bg-card-hover/80 border border-border/70 flex items-center justify-between gap-2">
-                    <div className="flex items-center gap-2">
-                      <Calendar className="w-4 h-4 text-primary-light shrink-0" />
-                      <div>
-                        <span className="text-[10px] font-bold text-muted-foreground uppercase block">
-                          Thời gian sự kiện:
-                        </span>
-                        <span className="text-xs font-mono text-foreground font-semibold">
-                          {currentCampaign.start_time ? formatRelativeDate(currentCampaign.start_time) : 'Đang mở'} →{' '}
-                          {currentCampaign.end_time ? formatFullDateTime(currentCampaign.end_time) : 'Đến khi hết mã'}
-                        </span>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Conditions & Eligibility Checklist */}
-                  <div className="p-3.5 rounded-2xl bg-card-hover/90 border border-border/80 space-y-2.5">
-                    <div className="flex items-center justify-between">
-                      <span className="text-[11px] font-extrabold text-foreground uppercase tracking-wider flex items-center gap-1.5">
-                        <ShieldCheck className="w-4 h-4 text-emerald-400" />
-                        <span>Điều kiện tham gia sự kiện:</span>
-                      </span>
-                      <span className="text-[10px] text-muted-foreground font-mono">
-                        {currentUser ? 'Đã kiểm tra tài khoản' : 'Cần đăng nhập'}
-                      </span>
-                    </div>
-
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-[11px]">
-                      {/* Rule 1: Max per user */}
-                      <div
-                        className={`p-2.5 rounded-xl border flex items-center justify-between gap-2 ${
-                          isMaxReached
-                            ? 'bg-amber-500/10 border-amber-500/30 text-amber-300'
-                            : 'bg-muted/50 border-border/70 text-foreground'
-                        }`}
-                      >
-                        <div className="flex items-center gap-2 min-w-0">
-                          <User className="w-3.5 h-3.5 text-primary-light shrink-0" />
-                          <span className="truncate">
-                            {isUnlimitedUser ? 'Không giới hạn mã/tài khoản' : `Tối đa ${rawMaxPerUser || 1} mã / TK`}
-                          </span>
-                        </div>
-                        <span className="text-[10px] font-bold shrink-0">
-                          ({userClaimCount}/{isUnlimitedUser ? '∞' : rawMaxPerUser || 1})
-                        </span>
-                      </div>
-
-                      {/* Rule 2: Max per IP */}
-                      <div className="p-2.5 rounded-xl bg-muted/50 border border-border/70 flex items-center justify-between gap-2 text-foreground">
-                        <div className="flex items-center gap-2 min-w-0">
-                          <Globe className="w-3.5 h-3.5 text-teal-400 shrink-0" />
-                          <span className="truncate">Tối đa {currentCampaign.max_per_ip || 1} mã / IP</span>
-                        </div>
-                        <span className="text-[10px] font-bold text-teal-400 shrink-0">Áp dụng</span>
-                      </div>
-
-                      {/* Rule 3: Cooldown */}
-                      {Boolean(currentCampaign.cooldown_hours && currentCampaign.cooldown_hours > 0) && (
-                        <div
-                          className={`p-2.5 rounded-xl border flex items-center justify-between gap-2 sm:col-span-2 ${
-                            isCooldownActive
-                              ? 'bg-amber-500/10 border-amber-500/30 text-amber-300'
-                              : 'bg-muted/50 border-border/70 text-foreground'
-                          }`}
-                        >
-                          <div className="flex items-center gap-2 min-w-0">
-                            <Clock className="w-3.5 h-3.5 text-amber-400 shrink-0" />
-                            <span className="truncate">Hồi chiêu: {currentCampaign.cooldown_hours}h giữa 2 lần nhận</span>
-                          </div>
-                          <span className="text-[10px] font-bold shrink-0">
-                            {isCooldownActive ? `Còn ${cooldownWaitText}` : 'Sẵn sàng'}
-                          </span>
-                        </div>
-                      )}
-
-                      {/* Rule 4: Min account age */}
-                      {Boolean(currentCampaign.min_account_age_days && currentCampaign.min_account_age_days > 0) && (
-                        <div
-                          className={`p-2.5 rounded-xl border flex items-center justify-between gap-2 sm:col-span-2 ${
-                            currentUser && !isAgeEligible
-                              ? 'bg-rose-500/10 border-rose-500/30 text-rose-300'
-                              : 'bg-muted/50 border-border/70 text-foreground'
-                          }`}
-                        >
-                          <div className="flex items-center gap-2 min-w-0">
-                            <ShieldCheck className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
-                            <span className="truncate">
-                              Tuổi nick yêu cầu: ≥ {currentCampaign.min_account_age_days} ngày
-                            </span>
-                          </div>
-                          <span className="text-[10px] font-bold shrink-0">
-                            {currentUser
-                              ? isAgeEligible
-                                ? `Đạt (${userAgeDays} ngày)`
-                                : `Chưa đạt (${userAgeDays}/${currentCampaign.min_account_age_days} ngày)`
-                              : `≥ ${currentCampaign.min_account_age_days} ngày`}
-                          </span>
-                        </div>
-                      )}
-
-                      {/* Rule 5: Global release interval */}
-                      {Boolean(currentCampaign.global_cooldown_seconds && currentCampaign.global_cooldown_seconds > 0) && (
-                        <div
-                          className={`p-2.5 rounded-xl border flex items-center justify-between gap-2 sm:col-span-2 ${
-                            isModalGlobalCooling
-                              ? 'bg-amber-500/10 border-amber-500/30 text-amber-300'
-                              : 'bg-muted/50 border-border/70 text-foreground'
-                          }`}
-                        >
-                          <div className="flex items-center gap-2 min-w-0">
-                            <Clock className="w-3.5 h-3.5 text-amber-400 shrink-0" />
-                            <span className="truncate">
-                              Giãn cách phát mã toàn sàn: {currentCampaign.global_cooldown_seconds >= 60 ? `${Math.floor(currentCampaign.global_cooldown_seconds / 60)} phút` : `${currentCampaign.global_cooldown_seconds}s`} / 1 mã
-                            </span>
-                          </div>
-                          <span className="text-[10px] font-bold shrink-0">
-                            {isModalGlobalCooling ? '⏳ Đang chờ đợt tiếp' : '🟢 Sẵn sàng'}
-                          </span>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-
-                  {/* Real-time Stock Progress */}
-                  <div className="p-3.5 rounded-2xl bg-muted/50 border border-border/70 space-y-2">
-                    <div className="flex items-center justify-between text-xs font-mono">
-                      {currentCampaign.show_claimed_count !== false ? (
-                        <span>
-                          Đã trao: <strong className="text-amber-400">{displayClaimed} mã</strong>
-                        </span>
-                      ) : (
-                        <span></span>
-                      )}
-                      {(currentCampaign as any).show_remaining_count !== false && (
-                        <span>
-                          Còn lại: <strong className="text-accent">{displayRemaining} mã</strong>
-                        </span>
-                      )}
-                    </div>
-                    <div className="w-full h-2.5 rounded-full bg-muted overflow-hidden border border-border/40">
-                      <div
-                        className="h-full bg-gradient-to-r from-primary to-accent transition-all duration-500 rounded-full"
-                        style={{ width: `${percentClaimed}%` }}
-                      />
-                    </div>
-                  </div>
-
-                  {/* Previously Claimed Codes for this campaign */}
-                  {userCampaignClaims.length > 0 && (
-                    <div className="p-3.5 rounded-2xl bg-emerald-500/10 border border-emerald-500/30 space-y-2">
-                      <div className="flex items-center justify-between">
-                        <span className="text-[11px] font-bold text-emerald-400 block">
-                          Mã bạn đã giật tại sự kiện này ({userCampaignClaims.length} mã):
-                        </span>
-                      </div>
-                      <div className="space-y-1.5 max-h-28 overflow-y-auto pr-1">
-                        {userCampaignClaims.map((c) => (
-                          <div
-                            key={c.id}
-                            className="p-2.5 rounded-xl bg-card border border-emerald-500/20 flex items-center justify-between gap-2"
-                          >
-                            <div className="min-w-0">
-                              <span className="font-mono font-bold text-xs text-foreground truncate block select-all">
-                                {c.code_value}
-                              </span>
-                              {c.claimed_at && (
-                                <span className="text-[10px] text-muted-foreground font-mono flex items-center gap-1 mt-0.5">
-                                  <Clock className="w-3 h-3 text-emerald-400 shrink-0" />
-                                  <span>Nhận lúc: {formatFullDateTime(c.claimed_at)}</span>
-                                </span>
-                              )}
-                            </div>
-                            <button
-                              onClick={() => handleCopy(c.code_value)}
-                              className="px-2.5 py-1.5 rounded-lg bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-400 text-[10px] font-bold flex items-center gap-1 transition-colors shrink-0 cursor-pointer"
-                            >
-                              {copiedCode === c.code_value ? <Check className="w-3 h-3" /> : <Copy className="w-3 h-3" />}
-                              <span>Sao chép</span>
-                            </button>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-                </div>
-
-                {/* Modal Sticky Footer CTA */}
-                <div className="pt-2 border-t border-border/60 space-y-2">
-                  {!currentUser ? (
-                    <button
-                      onClick={() => {
-                        setDetailModalCampaign(null);
-                        onOpenAuth();
-                        onShowToast('Cần đăng nhập', 'Vui lòng đăng nhập hoặc đăng ký tài khoản để giật mã quà tặng.', 'info');
-                      }}
-                      className="w-full py-3.5 rounded-2xl bg-gradient-to-r from-primary to-accent text-white font-display font-bold text-xs sm:text-sm shadow-glow-primary hover:scale-[1.01] active:scale-[0.99] transition-all cursor-pointer flex items-center justify-center gap-2"
-                    >
-                      <LogIn className="w-4 h-4" />
-                      <span>Đăng Nhập Ngay Để Giật Code</span>
-                    </button>
-                  ) : isNotStarted ? (
-                    <div className="space-y-3">
-                      <div className="p-3.5 sm:p-4 rounded-2xl bg-gradient-to-r from-red-950/60 via-orange-950/60 to-amber-950/60 border border-orange-500/30 text-center space-y-2">
-                        <div className="text-xs font-bold text-orange-300 uppercase tracking-wider flex items-center justify-center gap-1.5">
-                          <Flame className="w-4 h-4 text-orange-400 fill-orange-400 animate-pulse" />
-                          <span>Sự Kiện Sắp Diễn Ra — Đếm Ngược Đến Giờ G:</span>
-                        </div>
-                        <div className="flex justify-center">
-                          <EventCountdownBadge
-                            targetDate={currentCampaign.start_time}
-                            label="Mở sau:"
-                            theme="fire"
-                            variant="detailed"
-                            onExpire={() => {
-                              playClaimVictorySound();
-                              confetti({ particleCount: 60, spread: 70, origin: { y: 0.6 } });
-                              handleExpireRefresh();
-                            }}
-                          />
-                        </div>
-                      </div>
-                      <button
-                        disabled
-                        className="w-full py-3.5 rounded-2xl bg-muted/60 text-muted-foreground border border-border text-xs font-bold flex items-center justify-center gap-2 cursor-not-allowed"
-                      >
-                        <Clock className="w-4 h-4" />
-                        <span>Chờ Đến Giờ Mở Sự Kiện ({formatRelativeDate(currentCampaign.start_time)})</span>
-                      </button>
-                    </div>
-                  ) : isEnded ? (
-                    <button
-                      disabled
-                      className="w-full py-3.5 rounded-2xl bg-muted/60 text-muted-foreground border border-border text-xs font-bold flex items-center justify-center gap-2 cursor-not-allowed"
-                    >
-                      <span>Sự Kiện Đã Kết Thúc</span>
-                    </button>
-                  ) : remaining <= 0 ? (
-                    <div className="space-y-2">
-                      <button
-                        disabled
-                        className="w-full py-3.5 rounded-2xl bg-muted/60 text-muted-foreground border border-border text-xs font-bold flex items-center justify-center gap-2 cursor-not-allowed"
-                      >
-                        <span>Toàn Bộ Mã Quà Tặng Đã Trao Hết</span>
-                      </button>
-                      {userClaimCount > 0 && (
-                        <button
-                          onClick={() => {
-                            setDetailModalCampaign(null);
-                            const existing = uniqueClaimedList.find((c) => c.campaign_id === currentCampaign.id);
-                            if (existing?.code_value) {
-                              setClaimedRewardModal({
-                                campaign: currentCampaign,
-                                code: existing.code_value,
-                                isNew: false,
-                                isAdminBypass: isAdmin,
-                              });
-                            }
-                          }}
-                          className="w-full py-2.5 rounded-xl bg-emerald-500/15 hover:bg-emerald-500/25 text-emerald-400 border border-emerald-500/30 text-xs font-bold flex items-center justify-center gap-2 cursor-pointer transition-all"
-                        >
-                          <CheckCircle2 className="w-4 h-4" />
-                          <span>Xem lại mã bạn đã nhận ({userClaimCount})</span>
-                        </button>
-                      )}
-                    </div>
-                  ) : isMaxReached ? (
-                    <div className="space-y-1.5">
-                      <button
-                        onClick={() => {
-                          setDetailModalCampaign(null);
-                          const existing = uniqueClaimedList.find((c) => c.campaign_id === currentCampaign.id);
-                          if (existing?.code_value) {
-                            setClaimedRewardModal({
-                              campaign: currentCampaign,
-                              code: existing.code_value,
-                              isNew: false,
-                              isAdminBypass: isAdmin,
-                            });
-                          } else {
-                            handleOpenLimitNotice(currentCampaign);
-                          }
-                        }}
-                        className="w-full py-3.5 rounded-2xl bg-emerald-500/15 hover:bg-emerald-500/25 text-emerald-400 border border-emerald-500/30 text-xs font-bold flex items-center justify-center gap-2 cursor-pointer transition-all"
-                      >
-                        <CheckCircle2 className="w-4 h-4" />
-                        <span>Xem {userClaimCount} Mã Đã Nhận & Sao Chép</span>
-                      </button>
-                    </div>
-                  ) : isModalGlobalCooling ? (
-                    <div className="space-y-2">
-                      <ModalGlobalCooldownSection
-                        campaign={currentCampaign}
-                        onExpire={handleExpireRefresh}
-                      />
-                      {isAdmin && (
-                        <button
-                          onClick={() => handleClaim(currentCampaign, activePackage?.id)}
-                          disabled={claimingId === currentCampaign.id}
-                          className="w-full py-2.5 rounded-xl bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 border border-amber-500/40 text-xs font-bold flex items-center justify-center gap-1.5 cursor-pointer transition-all active:scale-95"
-                        >
-                          <Sparkles className="w-3.5 h-3.5" />
-                          <span>👑 [Admin] Bỏ qua chờ đợt — Giật thử nghiệm ngay</span>
-                        </button>
-                      )}
-                    </div>
-                  ) : isCooldownActive ? (
-                    <button
-                      onClick={() => {
-                        setDetailModalCampaign(null);
-                        handleOpenLimitNotice(
-                          currentCampaign,
-                          `Bạn đang trong thời gian hồi chiêu (${cooldownHours}h). Vui lòng quay lại sau ${cooldownWaitText} để giật mã tiếp theo.`
-                        );
-                      }}
-                      className="w-full py-3.5 rounded-2xl bg-amber-500/15 hover:bg-amber-500/25 text-amber-400 border border-amber-500/30 text-xs font-bold flex items-center justify-center gap-2 cursor-pointer transition-all"
-                    >
-                      <Clock className="w-4 h-4 animate-spin text-amber-400" />
-                      <span>Đang Hồi Chiêu (Còn {cooldownWaitText})</span>
-                    </button>
-                  ) : !isAgeEligible ? (
-                    <button
-                      onClick={() => {
-                        setDetailModalCampaign(null);
-                        handleOpenLimitNotice(
-                          currentCampaign,
-                          `Tài khoản của bạn mới được tạo ${Math.max(0, userAgeDays)} ngày. Sự kiện này yêu cầu tài khoản tối thiểu ${minAccountAgeDays} ngày tuổi mới đủ điều kiện giật code.`
-                        );
-                      }}
-                      className="w-full py-3.5 rounded-2xl bg-rose-500/15 hover:bg-rose-500/25 text-rose-400 border border-rose-500/30 text-xs font-bold flex items-center justify-center gap-2 cursor-pointer transition-all"
-                    >
-                      <ShieldCheck className="w-4 h-4 text-rose-400" />
-                      <span>Chưa Đủ Điều Kiện Tuổi Nick ({userAgeDays}/${minAccountAgeDays} ngày)</span>
-                    </button>
-                  ) : (
-                    <div className="space-y-2">
-                      {currentCampaign.enable_waiting_room !== false && (
-                        <LiveWaitingRoomBadge
-                          minUsers={currentCampaign.waiting_users_min}
-                          maxUsers={currentCampaign.waiting_users_max}
-                          variant="modal"
-                          className="mb-1"
-                        />
-                      )}
-                      <button
-                        onClick={() => handleClaim(currentCampaign, activePackage?.id)}
-                        disabled={claimingId === currentCampaign.id}
-                        className="w-full py-3.5 rounded-2xl bg-gradient-to-r from-accent via-rose-500 to-amber-500 hover:opacity-95 text-white font-display font-black text-xs sm:text-sm tracking-wide shadow-glow-accent hover:scale-[1.01] active:scale-[0.99] transition-all cursor-pointer flex items-center justify-center gap-2 disabled:opacity-75 disabled:cursor-not-allowed"
-                      >
-                        {claimingId === currentCampaign.id ? (
-                          <>
-                            <Loader2 className="w-5 h-5 animate-spin text-white" />
-                            <span>Đang Kết Nối Nhận Mã...</span>
-                          </>
-                        ) : (
-                          <>
-                            <Sparkles className="w-5 h-5 animate-bounce" />
-                            <span>
-                              {userClaimCount > 0
-                                ? isAdmin
-                                  ? `👑 [Admin] Giật Thêm Mã (Đã có ${userClaimCount} mã)`
-                                  : `⚡ Giật Thêm Mã Mới (${userClaimCount}/${isUnlimitedUser ? '∞' : rawMaxPerUser || 1})`
-                                : '⚡ GIẬT MÃ CODE NGAY (MIỄN PHÍ)'}
-                            </span>
-                          </>
-                        )}
-                      </button>
-                    </div>
-                  )}
-
-                  <button
-                    onClick={handleCloseDetailModal}
-                    className="w-full py-2.5 rounded-xl bg-muted hover:bg-card text-muted-foreground hover:text-foreground text-xs font-semibold transition-colors cursor-pointer text-center"
-                  >
-                    Đóng cửa sổ
-                  </button>
-                </div>
-              </div>
-            </div>
-          );
-        })(),
+          currentUser={currentUser}
+          isAdmin={isAdmin}
+          uniqueClaimedList={uniqueClaimedList}
+          claimingId={claimingId}
+          selectedRewardPackageId={selectedRewardPackageId}
+          setSelectedRewardPackageId={setSelectedRewardPackageId}
+          onClose={handleCloseDetailModal}
+          onOpenAuth={onOpenAuth}
+          onShowToast={onShowToast}
+          onSelectGameSlug={onSelectGameSlug}
+          handleClaim={handleClaim}
+          handleOpenLimitNotice={handleOpenLimitNotice}
+          setClaimedRewardModal={setClaimedRewardModal}
+          handleExpireRefresh={handleExpireRefresh}
+        />,
         document.body
       )}
     </div>

@@ -7,6 +7,40 @@ Mỗi mục sửa lỗi đều ghi nhận **Nguyên nhân gốc rễ (Root Cause
 
 ## [2026-10-26]
 
+### 216. Tinh Chỉnh Giao Diện Giveaway Web Khách & Tích Hợp Ô Banner Tùy Chỉnh Admin Kèm Đếm Ngược Giật Mã Phản Ứng Tức Thì
+- **Bối cảnh & Yêu cầu từ Người dùng**:
+  1. *Xóa chữ "Chính Thức NPH", Xóa chữ "Hết code"*: Loại bỏ huy hiệu "Chính thức NPH" và huy hiệu trạng thái "Hết code" trong phần đầu modal sự kiện giveaway.
+  2. *Người nhận thưởng lần trước*: Đảo tên người nhận thưởng lên trước, lời giới thiệu đi sau dạng `{lastClaimerMasked} (Đạo hữu nhận thưởng lần trước)`.
+  3. *Bỏ ô "Toàn bộ phần thưởng đã trao hết"*: Bỏ nút vô hiệu hóa hiển thị khi số lượng code còn lại <= 0.
+  4. *Chuyển vị trí ô "Thời Gian Sự Kiện"*: Di dời ô thời gian sự kiện xuống ngay dưới mục tiến trình kho mã *"Đã trao: xx mã"*.
+  5. *Thay thế vị trí cũ bằng ô Tùy Chỉnh Admin*:
+     - Cho phép Admin cấu hình toggle Bật/Tắt (mặc định TẮT / false).
+     - Mục 1: Nội dung hiển thị (mặc định: "Tham gia nhóm zalo của web tại đây").
+     - Mục 2: Đường dẫn link (URL Zalo/Fanpage, click vào thẻ mở tab mới an toàn target="_blank").
+  6. *Đếm ngược sự kiện có giãn cách toàn web (Global Cooldown)*:
+     - Khi người dùng ấn vào sự kiện đang trong thời gian chờ giãn cách toàn sàn, hiển thị đồng hồ đếm ngược trực quan từng giây.
+     - Khi đồng hồ về 00:00, tự động chuyển trạng thái ngay lập tức thành nút bấm "⚡ GIẬT MÃ CODE NGAY (MIỄN PHÍ)" để người dùng bấm giật mã ngay mà không cần mở lại modal hay F5.
+- **Giải pháp triển khai (Solution)**:
+  1. *Mở rộng Type Model GiveawayCampaign (src/types/game.ts)*: Bổ sung 3 trường tùy chọn custom_banner_enabled?: boolean, custom_banner_text?: string, custom_banner_link?: string.
+  2. *Nâng cấp Admin Module PrivateCodesModule.tsx*:
+     - Bổ sung state, default values (Mặc định: TẮT, nội dung mặc định "Tham gia nhóm zalo của web tại đây"), xử lý lưu/sửa và đồng bộ KV.
+     - Thiết kế khối UI cấu hình trực quan tại Section 4 với preview real-time.
+  3. *Tái cấu trúc Modal Chi Tiết Giveaway GiveawaysView.tsx*:
+     - Tách riêng component GiveawayDetailModal với React hooks độc lập (useEventCountdown), xử lý đếm ngược thời gian thực từng giây cho global_cooldown_seconds.
+     - Xóa bỏ huy hiệu "Chính thức NPH" và "Hết code".
+     - Chuẩn hóa định dạng hiển thị người nhận trước: `{lastClaimerMasked} (Đạo hữu nhận thưởng lần trước)`.
+     - Loại bỏ nút disabled "Toàn Bộ Mã Quà Tặng Đã Trao Hết".
+     - Hiển thị ô banner/link Zalo tùy chỉnh thay thế vị trí cũ khi Admin bật.
+     - Chuyển ô thời gian sự kiện xuống dưới thanh tiến trình đã trao mã.
+     - Phản ứng tức thì khi timer đếm ngược giãn cách về 00:00: chuyển mượt sang nút giật mã, tự động phát âm thanh chiến thắng nhẹ và cho phép click giật mã ngay.
+- **Kiểm thử & Nghiệm thu**:
+  - Biên dịch Vite Frontend & Edge Worker: Thành công 100%, 0 lỗi.
+  - Audit Zero Test Artifacts: Đạt 5/5 tiêu chí sạch 100%.
+
+---
+
+## [2026-10-26]
+
 ### 215. Khắc Phục Triệt Để Lỗi Icon Game Bảng Điều Khiển Tổng Quan (Dashboard) & Chuẩn Hóa Logo 100% Game Toàn Site
 - **Bối cảnh & Yêu cầu từ Người dùng**:
   - Tại trang Bảng Điều Khiển Tổng Quan Admin (`admin-code-game-shop.pages.dev/admin#/dashboard`), mục *"Game Nổi Bật Nhất"* xuất hiện các ô biểu tượng rỗng/tối màu bị vỡ hình ảnh (chẳng hạn `Phi Kiếm: Cửu Long Dẫn Quan`, `Command an Army`, `Grow a Chicken Fighter`, `Avatar Land`), trong khi chỉ có `Au Mobile VTC: BigUpdate` hiển thị được icon.

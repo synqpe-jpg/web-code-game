@@ -10,6 +10,22 @@
 
 ## 1. DANH MỤC LỖI & CÁC BẪY ĐÃ THẤT BẠI (DO NOT REPEAT)
 
+### ISSUE-139: Bẫy Đóng Băng Trạng Thái Chờ Giãn Cách Giveaway (Global Cooldown) Do Đóng Gói Modal Trong Closure IIFE Thay Vì Subcomponent Độc Lập
+- **Triệu chứng**:
+  - Khi người dùng bấm mở Modal sự kiện Giveaway có giãn cách phát mã toàn sàn (`global_cooldown_seconds > 0`), đồng hồ đếm ngược chờ đợt phát chạy về 0 nhưng giao diện không tự động chuyển sang nút *"⚡ GIẬT MÃ CODE NGAY (MIỄN PHÍ)"*, người dùng bị kẹt ở ô trống hoặc nút vô hiệu hóa.
+- **Nguyên nhân gốc rễ (Root Cause)**:
+  - Modal được bọc trong một hàm IIFE vô danh `createPortal((() => { ... })(), document.body)` bên trong thân component cha.
+  - Do IIFE nằm ngoài luồng hooks của React, component modal không thể khai báo các hooks chu kỳ sống (`useState`, `useMemo`, `useEffect`) độc lập để theo dõi thời gian thực (`useEventCountdown`).
+  - Khi countdown con kết thúc và gọi `onExpire`, component cha chưa re-render ngay hoặc `detailModalCampaign` trong state cha không đổi, khiến điều kiện `isModalGlobalCooling` bị giữ nguyên giá trị cũ.
+- **Giải pháp chuẩn đã kiểm chứng**:
+  - Tách toàn bộ Modal thành subcomponent React độc lập `GiveawayDetailModal`.
+  - Khai báo `useEventCountdown` trực tiếp bên trong `GiveawayDetailModal` với biến mục tiêu `targetGlobalCooldownDate`.
+  - Trạng thái `isModalGlobalCooling` được tính toán phản ứng theo thời gian thực (`!isCdExpired && cdRemainingMs > 0`).
+  - Khi `cdRemainingMs <= 0`, component tự động chuyển đổi sang nút *"⚡ GIẬT MÃ CODE NGAY (MIỄN PHÍ)"* kèm hiệu ứng arcade chime mà không cần người dùng tải lại trang.
+- ⛔ **CÁCH SỬA ĐÃ THẤT BẠI - TUYỆT ĐỐI KHÔNG LẶP LẠI**:
+  - ❌ *Không bọc modal có logic đếm ngược vào hàm IIFE tĩnh*: Phải luôn tách component con có hooks riêng để quản lý state reactive.
+  - ❌ *Không để component con trả về `null` khi hết hạn mà không cập nhật state cha*: Tránh để lại khoảng trống rỗng trong modal CTA.
+
 ### ISSUE-138: Bẫy Ô Biểu Tượng Game Rỗng/Vỡ Trong Bảng Điều Khiển Admin (Dashboard) Do Thiếu File, Chặn Hotlink & Fallback 404 Kép
 - **Triệu chứng**:
   - Tại trang Bảng Điều Khiển Tổng Quan Admin (`admin#/dashboard`), mục *"Game Nổi Bật Nhất"* xuất hiện các ô chữ nhật tối màu rỗng, không tải được logo game (`Phi Kiếm: Cửu Long Dẫn Quan`, `Command an Army`, `Grow a Chicken Fighter`, `Avatar Land`).

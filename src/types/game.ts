@@ -104,6 +104,9 @@ export interface GiveawayCampaign {
   enable_waiting_room?: boolean;
   waiting_users_min?: number;
   waiting_users_max?: number;
+  custom_banner_enabled?: boolean;
+  custom_banner_text?: string;
+  custom_banner_link?: string;
   show_claimed_count?: boolean;
   show_remaining_count?: boolean;
   virtual_claimed_offset?: number;
