@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Rocket, Clock, Bell, Check, ExternalLink, Gift, Sparkles, ChevronRight, Calendar } from 'lucide-react';
 import type { UpcomingGame } from '../types/game';
 import { getUpcomingGameIconUrl, handleUpcomingImageError } from '../utils/upcomingGameIconUtils';
+import { calculateEffectiveOrder, calculateEffectiveSubscribers } from '../utils/upcomingGameGrowthUtils';
 
 interface UpcomingGamesBannerProps {
   upcomingGames: UpcomingGame[];
@@ -90,6 +91,12 @@ export const UpcomingGamesBanner: React.FC<UpcomingGamesBannerProps> = ({
       if (isNaN(target)) return false;
       const elapsed = now - target;
       return elapsed <= ONE_DAY_MS;
+    })
+    .sort((a, b) => {
+      const timeA = a.releaseDate ? new Date(a.releaseDate).getTime() : NaN;
+      const timeB = b.releaseDate ? new Date(b.releaseDate).getTime() : NaN;
+      if (timeA !== timeB) return timeA - timeB;
+      return calculateEffectiveOrder(a, now) - calculateEffectiveOrder(b, now);
     })
     .slice(0, 6);
 
@@ -252,7 +259,7 @@ export const UpcomingGamesBanner: React.FC<UpcomingGamesBannerProps> = ({
                     <span>Dự kiến {expectedCount} code</span>
                   </span>
                   <span className="hidden sm:inline text-[9px] sm:text-[10px] text-muted-foreground shrink-0">
-                    {(game.subscribersCount || 1000).toLocaleString('vi-VN')} lưu
+                    {calculateEffectiveSubscribers(game, now).toLocaleString('vi-VN')} lưu
                   </span>
                 </div>
               </div>

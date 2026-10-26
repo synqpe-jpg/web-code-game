@@ -368,6 +368,15 @@ export interface UpcomingGame {
   source?: string;
   status: 'UPCOMING' | 'APPROVED' | 'PENDING' | 'LAUNCHED' | 'CANCELLED';
   displayOrder?: number; // 1..6: Top 6 hiển thị ngay trên banner web khách; 7+: Hiển thị khi bấm Xem Thêm
+  orderGrowthEnabled?: boolean;
+  orderGrowthRate?: number;
+  orderMinRange?: number;
+  orderMaxRange?: number;
+  subscribersGrowthEnabled?: boolean;
+  subscribersGrowthRatePerHour?: number;
+  subscribersMinRange?: number;
+  subscribersMaxRange?: number;
+  growthAnchorTime?: string;
   isPinned?: boolean;
   approvedAt?: string;
   approvedBy?: string;

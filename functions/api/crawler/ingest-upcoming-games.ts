@@ -1909,7 +1909,18 @@ export async function onRequestPost(context: { request: Request; env: Env }): Pr
       }
 
       if (typeof raw.displayOrder === 'number') existing.displayOrder = raw.displayOrder;
-      if (raw.subscribersCount) existing.subscribersCount = Number(raw.subscribersCount);
+      if (typeof raw.orderGrowthEnabled === 'boolean') existing.orderGrowthEnabled = raw.orderGrowthEnabled;
+      if (typeof raw.orderGrowthRate === 'number') existing.orderGrowthRate = raw.orderGrowthRate;
+      if (typeof raw.orderMinRange === 'number') existing.orderMinRange = raw.orderMinRange;
+      if (typeof raw.orderMaxRange === 'number') existing.orderMaxRange = raw.orderMaxRange;
+
+      if (raw.subscribersCount !== undefined) existing.subscribersCount = Number(raw.subscribersCount);
+      if (typeof raw.subscribersGrowthEnabled === 'boolean') existing.subscribersGrowthEnabled = raw.subscribersGrowthEnabled;
+      if (typeof raw.subscribersGrowthRatePerHour === 'number') existing.subscribersGrowthRatePerHour = raw.subscribersGrowthRatePerHour;
+      if (typeof raw.subscribersMinRange === 'number') existing.subscribersMinRange = raw.subscribersMinRange;
+      if (typeof raw.subscribersMaxRange === 'number') existing.subscribersMaxRange = raw.subscribersMaxRange;
+      if (raw.growthAnchorTime) existing.growthAnchorTime = String(raw.growthAnchorTime);
+
       existing.source = botName;
       existing.updatedAt = nowIso;
 
@@ -1949,6 +1960,15 @@ export async function onRequestPost(context: { request: Request; env: Env }): Pr
         preRegUrl: hasPreReg && rawPreReg ? rawPreReg : undefined,
         expectedCodes,
         subscribersCount: Number(raw.subscribersCount || 0),
+        orderGrowthEnabled: typeof raw.orderGrowthEnabled === 'boolean' ? raw.orderGrowthEnabled : false,
+        orderGrowthRate: typeof raw.orderGrowthRate === 'number' ? raw.orderGrowthRate : undefined,
+        orderMinRange: typeof raw.orderMinRange === 'number' ? raw.orderMinRange : undefined,
+        orderMaxRange: typeof raw.orderMaxRange === 'number' ? raw.orderMaxRange : undefined,
+        subscribersGrowthEnabled: typeof raw.subscribersGrowthEnabled === 'boolean' ? raw.subscribersGrowthEnabled : true,
+        subscribersGrowthRatePerHour: typeof raw.subscribersGrowthRatePerHour === 'number' ? raw.subscribersGrowthRatePerHour : 5,
+        subscribersMinRange: typeof raw.subscribersMinRange === 'number' ? raw.subscribersMinRange : undefined,
+        subscribersMaxRange: typeof raw.subscribersMaxRange === 'number' ? raw.subscribersMaxRange : undefined,
+        growthAnchorTime: raw.growthAnchorTime || nowIso,
         source: botName,
         status: initialStatus,
         approvedAt: (initialStatus === 'UPCOMING' || initialStatus === 'APPROVED') ? nowIso : undefined,

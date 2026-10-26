@@ -35,6 +35,12 @@ import {
   PauseCircle,
   Layers,
   ListOrdered,
+  Dices,
+  Users,
+  TrendingUp,
+  Shuffle,
+  SlidersHorizontal,
+  Hash,
 } from 'lucide-react';
 import { adminDataService } from '../services/adminDataService';
 import { UpcomingGameAdminRecord, UpcomingGameApiLogEntry } from '../types/adminTypes';
@@ -42,6 +48,7 @@ import { FormModal } from '../components/ui/FormModal';
 import { ConfirmModal } from '../components/ui/ConfirmModal';
 import { ImageUploadInput } from '../components/ui/ImageUploadInput';
 import { getUpcomingGameIconUrl, handleUpcomingImageError } from '../../utils/upcomingGameIconUtils';
+import { generateRandomInRange, calculateEffectiveOrder, calculateEffectiveSubscribers } from '../../utils/upcomingGameGrowthUtils';
 
 interface UpcomingGamesSectionProps {
   onShowToast: (title: string, desc?: string, type?: 'success' | 'error' | 'info') => void;
@@ -224,8 +231,10 @@ export const UpcomingGamesSection: React.FC<UpcomingGamesSectionProps> = ({ onSh
     const dateStr = now.toISOString().slice(0, 10);
     const defaultDatetime = `${dateStr}T10:00`;
 
-    // Next display order
-    const maxOrder = Math.max(0, ...upcomingGames.map((g) => g.displayOrder || 0));
+    // Next display order: Lọc bỏ các giá trị placeholder >= 900 để thứ tự tăng tự nhiên (1, 2, 3...)
+    const rankedGames = upcomingGames.filter((g) => (g.displayOrder || 0) < 900);
+    const maxOrder = rankedGames.length > 0 ? Math.max(0, ...rankedGames.map((g) => g.displayOrder || 0)) : 0;
+    const nextOrder = maxOrder + 1;
 
     setEditingGame({
       name: '',
@@ -239,7 +248,17 @@ export const UpcomingGamesSection: React.FC<UpcomingGamesSectionProps> = ({ onSh
       description: '',
       preRegUrl: '',
       status: 'UPCOMING',
-      displayOrder: maxOrder + 1,
+      displayOrder: nextOrder,
+      orderGrowthEnabled: false,
+      orderGrowthRate: 0,
+      orderMinRange: 1,
+      orderMaxRange: Math.max(20, nextOrder + 5),
+      subscribersCount: 1200,
+      subscribersGrowthEnabled: false,
+      subscribersGrowthRatePerHour: 5,
+      subscribersMinRange: 500,
+      subscribersMaxRange: 3500,
+      growthAnchorTime: new Date().toISOString(),
       source: 'Admin Console',
       expectedCodes: [],
     });
@@ -248,7 +267,20 @@ export const UpcomingGamesSection: React.FC<UpcomingGamesSectionProps> = ({ onSh
   };
 
   const handleOpenEditModal = (game: UpcomingGameAdminRecord) => {
-    setEditingGame({ ...game });
+    setEditingGame({
+      ...game,
+      displayOrder: typeof game.displayOrder === 'number' ? game.displayOrder : 1,
+      orderGrowthEnabled: !!game.orderGrowthEnabled,
+      orderGrowthRate: Number(game.orderGrowthRate) || 0,
+      orderMinRange: Number(game.orderMinRange) || 1,
+      orderMaxRange: Number(game.orderMaxRange) || Math.max(20, (game.displayOrder || 1) + 10),
+      subscribersCount: typeof game.subscribersCount === 'number' ? game.subscribersCount : 1200,
+      subscribersGrowthEnabled: !!game.subscribersGrowthEnabled,
+      subscribersGrowthRatePerHour: Number(game.subscribersGrowthRatePerHour) || 5,
+      subscribersMinRange: Number(game.subscribersMinRange) || 500,
+      subscribersMaxRange: Number(game.subscribersMaxRange) || 3500,
+      growthAnchorTime: game.growthAnchorTime || game.createdAt || new Date().toISOString(),
+    });
     setExpectedCodesInput(Array.isArray(game.expectedCodes) ? game.expectedCodes.join(', ') : '');
     setIsFormOpen(true);
   };
@@ -290,10 +322,19 @@ export const UpcomingGamesSection: React.FC<UpcomingGamesSectionProps> = ({ onSh
       description: editingGame.description?.trim() || undefined,
       preRegUrl: editingGame.preRegUrl?.trim() || undefined,
       expectedCodes: codes,
-      subscribersCount: typeof editingGame.subscribersCount === 'number' ? editingGame.subscribersCount : 1000,
+      subscribersCount: typeof editingGame.subscribersCount === 'number' ? editingGame.subscribersCount : 1200,
       source: editingGame.source || 'Admin Console',
       status: editingGame.status || 'UPCOMING',
-      displayOrder: typeof editingGame.displayOrder === 'number' ? editingGame.displayOrder : 999,
+      displayOrder: typeof editingGame.displayOrder === 'number' ? editingGame.displayOrder : 1,
+      orderGrowthEnabled: !!editingGame.orderGrowthEnabled,
+      orderGrowthRate: Number(editingGame.orderGrowthRate) || 0,
+      orderMinRange: Number(editingGame.orderMinRange) || 1,
+      orderMaxRange: Number(editingGame.orderMaxRange) || 50,
+      subscribersGrowthEnabled: !!editingGame.subscribersGrowthEnabled,
+      subscribersGrowthRatePerHour: Number(editingGame.subscribersGrowthRatePerHour) || 0,
+      subscribersMinRange: Number(editingGame.subscribersMinRange) || 500,
+      subscribersMaxRange: Number(editingGame.subscribersMaxRange) || 3500,
+      growthAnchorTime: editingGame.growthAnchorTime || new Date().toISOString(),
       createdAt: editingGame.createdAt || new Date().toISOString(),
       updatedAt: new Date().toISOString(),
     };
@@ -372,6 +413,28 @@ export const UpcomingGamesSection: React.FC<UpcomingGamesSectionProps> = ({ onSh
     await adminDataService.reorderUpcomingGames(orderedIds);
     loadData();
     onShowToast('Đã ghim Top 1', `Đã đưa "${targetGame.name}" lên vị trí đầu tiên của Web Khách!`, 'success');
+  };
+
+  const handleBulkRandomize = async () => {
+    if (!window.confirm('Bạn có chắc muốn sinh số ngẫu nhiên cho tất cả game theo khoảng dao động cài đặt của từng game?')) return;
+    const updatedList = upcomingGames.map((g) => {
+      const minOrder = g.orderMinRange ?? 1;
+      const maxOrder = g.orderMaxRange ?? 25;
+      const minSubs = g.subscribersMinRange ?? 500;
+      const maxSubs = g.subscribersMaxRange ?? 3500;
+      return {
+        ...g,
+        displayOrder: generateRandomInRange(minOrder, maxOrder, 1),
+        subscribersCount: generateRandomInRange(minSubs, maxSubs, 10),
+        growthAnchorTime: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      };
+    });
+    for (const g of updatedList) {
+      await adminDataService.saveUpcomingGame(g);
+    }
+    loadData();
+    onShowToast('Thành công', 'Đã sinh số ngẫu nhiên hàng loạt cho toàn bộ game theo khoảng cài đặt!', 'success');
   };
 
   // Moderation Queue Actions
@@ -728,9 +791,19 @@ export const UpcomingGamesSection: React.FC<UpcomingGamesSectionProps> = ({ onSh
                 <span className="font-bold text-white text-sm block mb-0.5">
                   Quy Tắc Trưng Bày Web Khách:
                 </span>
-                Mặc định <span className="text-amber-300 font-bold">6 tựa game đầu tiên (Top 1 - 6)</span> do Admin chỉnh sẽ hiển thị trực tiếp ngay trên Banner trang chủ Web Khách. Các tựa game từ vị trí thứ 7 trở đi sẽ xuất hiện cùng danh sách 6 game này khi khách bấm <span className="text-cyan-300 font-bold">"Xem tất cả"</span>. Sử dụng nút <span className="text-cyan-300 font-bold">▲ / ▼</span> hoặc <span className="text-amber-400 font-bold">"Ghim Top 1"</span> để tùy chỉnh thứ tự.
+                Mặc định <span className="text-amber-300 font-bold">6 tựa game đầu tiên (Top 1 - 6)</span> do Admin chỉnh sẽ hiển thị trực tiếp ngay trên Banner trang chủ Web Khách. Các tựa game từ vị trí thứ 7 trở đi sẽ xuất hiện cùng danh sách 6 game này khi khách bấm <span className="text-cyan-300 font-bold">"Xem tất cả"</span>. Sử dụng nút <span className="text-cyan-300 font-bold">▲ / ▼</span>, <span className="text-amber-400 font-bold">"Ghim Top 1"</span> hoặc cài đặt khoảng dao động & tăng trưởng theo thời gian.
               </div>
             </div>
+
+            <button
+              type="button"
+              onClick={handleBulkRandomize}
+              className="px-3.5 py-2 rounded-xl bg-gradient-to-r from-amber-600 to-orange-600 hover:from-amber-500 hover:to-orange-500 text-white text-xs font-bold flex items-center gap-1.5 shadow-md shadow-amber-600/20 active:scale-95 transition-all cursor-pointer shrink-0"
+              title="Sinh ngẫu nhiên thứ tự hiển thị và người canh cho tất cả game theo khoảng cài đặt"
+            >
+              <Dices className="w-4 h-4" />
+              <span>🎲 Sinh Random Hàng Loạt</span>
+            </button>
           </div>
 
           {/* Search & Sub-Filter Bar */}
@@ -932,6 +1005,32 @@ export const UpcomingGamesSection: React.FC<UpcomingGamesSectionProps> = ({ onSh
                           <span>{formattedDate}</span>
                         </div>
                         <div className={`text-xs font-bold ${countdown.color}`}>{countdown.text}</div>
+                      </div>
+
+                      {/* Cài đặt Thứ tự & Số người canh */}
+                      <div className="flex items-center justify-between text-[11px] p-2 rounded-xl bg-slate-950/70 border border-border/60">
+                        <div className="flex items-center gap-1.5 text-slate-300">
+                          <Users className="w-3.5 h-3.5 text-cyan-400" />
+                          <span className="font-semibold text-white">{calculateEffectiveSubscribers(game).toLocaleString('vi-VN')}</span>
+                          <span className="text-[10px] text-slate-400">người canh</span>
+                          {game.subscribersGrowthEnabled && (
+                            <span className="text-[10px] text-emerald-400 font-mono font-bold flex items-center gap-0.5 ml-1" title="Tăng trưởng theo giờ">
+                              <TrendingUp className="w-2.5 h-2.5" />
+                              +{game.subscribersGrowthRatePerHour || 5}/h
+                            </span>
+                          )}
+                        </div>
+                        <div className="text-slate-400 font-mono text-[10px] flex items-center gap-1">
+                          {game.orderGrowthEnabled ? (
+                            <span className="text-amber-300 font-bold flex items-center gap-1" title="Thứ tự tăng trưởng theo ngày">
+                              <TrendingUp className="w-2.5 h-2.5" />
+                              <span>Hiệu dụng: #{calculateEffectiveOrder(game)}</span>
+                              <span className="text-[9px] text-slate-400">({(game.orderGrowthRate || 0) > 0 ? `+${game.orderGrowthRate}` : (game.orderGrowthRate || 0)}/d)</span>
+                            </span>
+                          ) : (
+                            <span className="text-slate-300 font-bold">Thứ tự: #{game.displayOrder || 999}</span>
+                          )}
+                        </div>
                       </div>
 
                       {/* Description */}
@@ -1806,37 +1905,267 @@ curl -X POST "${apiEndpointUrl}" \\
             />
           </div>
 
-          {/* Phân loại danh sách & Thứ tự hiển thị */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 p-3 rounded-xl bg-slate-900/60 border border-border">
-            {/* Trạng thái danh sách */}
-            <div className="space-y-1">
-              <label className="text-xs font-semibold text-slate-300">Danh Sách Phân Loại</label>
-              <select
-                value={editingGame?.status || 'UPCOMING'}
-                onChange={(e) => setEditingGame((prev) => ({ ...prev, status: e.target.value as any }))}
-                className="w-full bg-slate-900 border border-border rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-cyan-500"
-              >
-                <option value="UPCOMING">🌐 Đưa Lên Web Ngay (Đã duyệt - Top 6 hoặc xem thêm)</option>
-                <option value="PENDING">⏳ Cho Vào Hàng Chờ Duyệt (Chưa hiện lên web khách)</option>
-                <option value="LAUNCHED">🟢 Đã Mở Server (Đã phát hành)</option>
-                <option value="CANCELLED">⚪ Tạm Hoãn / Hủy Lịch</option>
-              </select>
+          {/* Phân loại danh sách */}
+          <div className="p-3 rounded-xl bg-slate-900/60 border border-border">
+            <label className="text-xs font-semibold text-slate-300 block mb-1.5">
+              Danh Sách Phân Loại & Trạng Thái Web
+            </label>
+            <select
+              value={editingGame?.status || 'UPCOMING'}
+              onChange={(e) => setEditingGame((prev) => ({ ...prev, status: e.target.value as any }))}
+              className="w-full bg-slate-950 border border-border rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-cyan-500"
+            >
+              <option value="UPCOMING">🌐 Đưa Lên Web Ngay (Đã duyệt - Top 6 Banner hoặc Xem Thêm)</option>
+              <option value="PENDING">⏳ Cho Vào Hàng Chờ Duyệt (Chưa hiện lên web khách)</option>
+              <option value="LAUNCHED">🟢 Đã Mở Server (Đã phát hành)</option>
+              <option value="CANCELLED">⚪ Tạm Hoãn / Hủy Lịch</option>
+            </select>
+          </div>
+
+          {/* Cài Đặt Thứ Tự Hiển Thị & Số Người Canh (Sinh Ngẫu Nhiên + Khoảng Dao Động + Tăng Trưởng) */}
+          <div className="p-4 rounded-2xl bg-gradient-to-b from-slate-900/90 to-slate-950 border border-cyan-500/20 space-y-4">
+            <div className="flex items-center justify-between border-b border-border/50 pb-2.5">
+              <div className="flex items-center gap-2">
+                <SlidersHorizontal className="w-4 h-4 text-cyan-400" />
+                <span className="text-xs font-bold text-white uppercase tracking-wider">
+                  Cài Đặt Thứ Tự Hiển Thị & Người Canh
+                </span>
+              </div>
+              <span className="text-[10px] text-cyan-300 bg-cyan-950/60 border border-cyan-500/30 px-2 py-0.5 rounded-full font-mono">
+                Sinh Ngẫu Nhiên & Tăng Trưởng Realtime
+              </span>
             </div>
 
-            {/* Thứ tự hiển thị */}
-            <div className="space-y-1">
-              <label className="text-xs font-semibold text-slate-300 flex items-center justify-between">
-                <span>Thứ Tự Hiển Thị (Display Order)</span>
-                <span className="text-[10px] text-amber-300">1..6 là Top Banner Web</span>
-              </label>
-              <input
-                type="number"
-                min={1}
-                max={999}
-                value={editingGame?.displayOrder || 1}
-                onChange={(e) => setEditingGame((prev) => ({ ...prev, displayOrder: parseInt(e.target.value, 10) || 1 }))}
-                className="w-full bg-slate-900 border border-border rounded-xl px-3 py-2 text-xs text-white font-mono focus:outline-none focus:border-cyan-500"
-              />
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {/* CARD 1: THỨ TỰ HIỂN THỊ (DISPLAY ORDER) */}
+              <div className="p-3.5 rounded-xl bg-slate-900 border border-border/80 space-y-3">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-bold text-slate-200 flex items-center gap-1.5">
+                    <ListOrdered className="w-3.5 h-3.5 text-amber-400" />
+                    <span>Thứ Tự Hiển Thị (Display Order)</span>
+                  </span>
+                  <span className="text-[10px] text-amber-300 font-medium">1..6 = Banner Top</span>
+                </div>
+
+                {/* Current Value + Random Button */}
+                <div className="flex items-center gap-2">
+                  <div className="flex-1">
+                    <label className="text-[10px] text-slate-400 block mb-0.5">Giá trị hiện tại</label>
+                    <input
+                      type="number"
+                      min={1}
+                      max={999}
+                      value={editingGame?.displayOrder ?? 1}
+                      onChange={(e) => setEditingGame((prev) => ({ ...prev, displayOrder: Math.max(1, parseInt(e.target.value, 10) || 1) }))}
+                      className="w-full bg-slate-950 border border-border rounded-lg px-2.5 py-1.5 text-xs text-white font-mono font-bold focus:outline-none focus:border-cyan-500"
+                    />
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const min = editingGame?.orderMinRange ?? 1;
+                      const max = editingGame?.orderMaxRange ?? 20;
+                      const rand = generateRandomInRange(min, max, 1);
+                      setEditingGame((prev) => ({ ...prev, displayOrder: rand }));
+                      onShowToast('Đã sinh số ngẫu nhiên', `Thứ tự hiển thị: #${rand}`, 'info');
+                    }}
+                    className="self-end px-3 py-1.5 rounded-lg bg-gradient-to-r from-amber-600 to-orange-600 hover:from-amber-500 hover:to-orange-500 text-white text-xs font-bold flex items-center gap-1.5 shadow-sm active:scale-95 transition-all cursor-pointer"
+                    title="Sinh ngẫu nhiên số thứ tự trong khoảng dao động"
+                  >
+                    <Dices className="w-3.5 h-3.5" />
+                    <span>Sinh Random</span>
+                  </button>
+                </div>
+
+                {/* Khoảng Dao Động Cài Đặt (Min - Max) */}
+                <div className="p-2.5 rounded-lg bg-slate-950/60 border border-border/50 space-y-1.5">
+                  <div className="text-[10px] font-semibold text-slate-300 flex items-center justify-between">
+                    <span>Khoảng Dao Động Cài Đặt</span>
+                    <span className="text-slate-400 font-mono">[{editingGame?.orderMinRange ?? 1} - {editingGame?.orderMaxRange ?? 20}]</span>
+                  </div>
+                  <div className="grid grid-cols-2 gap-2">
+                    <div>
+                      <span className="text-[9px] text-slate-400 block">Min</span>
+                      <input
+                        type="number"
+                        min={1}
+                        value={editingGame?.orderMinRange ?? 1}
+                        onChange={(e) => setEditingGame((prev) => ({ ...prev, orderMinRange: Math.max(1, parseInt(e.target.value, 10) || 1) }))}
+                        className="w-full bg-slate-900 border border-border rounded px-2 py-1 text-xs text-white font-mono focus:outline-none focus:border-cyan-500"
+                      />
+                    </div>
+                    <div>
+                      <span className="text-[9px] text-slate-400 block">Max</span>
+                      <input
+                        type="number"
+                        min={1}
+                        value={editingGame?.orderMaxRange ?? 20}
+                        onChange={(e) => setEditingGame((prev) => ({ ...prev, orderMaxRange: Math.max(1, parseInt(e.target.value, 10) || 1) }))}
+                        className="w-full bg-slate-900 border border-border rounded px-2 py-1 text-xs text-white font-mono focus:outline-none focus:border-cyan-500"
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                {/* Tăng Trưởng Theo Thời Gian */}
+                <div className="p-2.5 rounded-lg bg-slate-950/60 border border-border/50 space-y-2">
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={!!editingGame?.orderGrowthEnabled}
+                      onChange={(e) => setEditingGame((prev) => ({
+                        ...prev,
+                        orderGrowthEnabled: e.target.checked,
+                        growthAnchorTime: prev?.growthAnchorTime || new Date().toISOString(),
+                      }))}
+                      className="rounded border-border bg-slate-900 text-cyan-500 focus:ring-0 cursor-pointer"
+                    />
+                    <span className="text-[11px] font-semibold text-slate-200">
+                      Tự Động Tăng Trưởng Thứ Tự Theo Ngày
+                    </span>
+                  </label>
+
+                  {editingGame?.orderGrowthEnabled && (
+                    <div className="space-y-2 pt-1 border-t border-border/40 text-[10px]">
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="text-slate-400">Tốc độ thay đổi / ngày:</span>
+                        <div className="flex items-center gap-1">
+                          <input
+                            type="number"
+                            step="0.5"
+                            value={editingGame?.orderGrowthRate ?? 0}
+                            onChange={(e) => setEditingGame((prev) => ({ ...prev, orderGrowthRate: parseFloat(e.target.value) || 0 }))}
+                            className="w-16 bg-slate-900 border border-border rounded px-1.5 py-0.5 text-xs text-white font-mono text-center focus:outline-none focus:border-cyan-500"
+                          />
+                          <span className="text-slate-400">/ ngày</span>
+                        </div>
+                      </div>
+                      <div className="text-[10px] text-cyan-300 bg-cyan-950/40 p-1.5 rounded border border-cyan-500/20 flex items-center justify-between">
+                        <span>Thứ tự hiệu dụng hiện tại:</span>
+                        <strong className="text-white font-mono font-bold">
+                          #{calculateEffectiveOrder(editingGame as any)}
+                        </strong>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* CARD 2: SỐ NGƯỜI CANH (SUBSCRIBERS COUNT) */}
+              <div className="p-3.5 rounded-xl bg-slate-900 border border-border/80 space-y-3">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-bold text-slate-200 flex items-center gap-1.5">
+                    <Users className="w-3.5 h-3.5 text-cyan-400" />
+                    <span>Số Người Canh (Subscribers)</span>
+                  </span>
+                  <span className="text-[10px] text-cyan-300 font-medium">Hiện trên Thẻ Web</span>
+                </div>
+
+                {/* Current Value + Random Button */}
+                <div className="flex items-center gap-2">
+                  <div className="flex-1">
+                    <label className="text-[10px] text-slate-400 block mb-0.5">Giá trị hiện tại</label>
+                    <input
+                      type="number"
+                      min={0}
+                      step={10}
+                      value={editingGame?.subscribersCount ?? 1200}
+                      onChange={(e) => setEditingGame((prev) => ({ ...prev, subscribersCount: Math.max(0, parseInt(e.target.value, 10) || 0) }))}
+                      className="w-full bg-slate-950 border border-border rounded-lg px-2.5 py-1.5 text-xs text-white font-mono font-bold focus:outline-none focus:border-cyan-500"
+                    />
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const min = editingGame?.subscribersMinRange ?? 500;
+                      const max = editingGame?.subscribersMaxRange ?? 3500;
+                      const rand = generateRandomInRange(min, max, 10);
+                      setEditingGame((prev) => ({ ...prev, subscribersCount: rand }));
+                      onShowToast('Đã sinh số ngẫu nhiên', `Số người canh: ${rand.toLocaleString('vi-VN')} người`, 'info');
+                    }}
+                    className="self-end px-3 py-1.5 rounded-lg bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-500 hover:to-blue-500 text-white text-xs font-bold flex items-center gap-1.5 shadow-sm active:scale-95 transition-all cursor-pointer"
+                    title="Sinh ngẫu nhiên số người canh trong khoảng dao động"
+                  >
+                    <Dices className="w-3.5 h-3.5" />
+                    <span>Sinh Random</span>
+                  </button>
+                </div>
+
+                {/* Khoảng Dao Động Cài Đặt (Min - Max) */}
+                <div className="p-2.5 rounded-lg bg-slate-950/60 border border-border/50 space-y-1.5">
+                  <div className="text-[10px] font-semibold text-slate-300 flex items-center justify-between">
+                    <span>Khoảng Dao Động Cài Đặt</span>
+                    <span className="text-slate-400 font-mono">[{editingGame?.subscribersMinRange ?? 500} - {editingGame?.subscribersMaxRange ?? 3500}]</span>
+                  </div>
+                  <div className="grid grid-cols-2 gap-2">
+                    <div>
+                      <span className="text-[9px] text-slate-400 block">Min</span>
+                      <input
+                        type="number"
+                        min={0}
+                        step={50}
+                        value={editingGame?.subscribersMinRange ?? 500}
+                        onChange={(e) => setEditingGame((prev) => ({ ...prev, subscribersMinRange: Math.max(0, parseInt(e.target.value, 10) || 0) }))}
+                        className="w-full bg-slate-900 border border-border rounded px-2 py-1 text-xs text-white font-mono focus:outline-none focus:border-cyan-500"
+                      />
+                    </div>
+                    <div>
+                      <span className="text-[9px] text-slate-400 block">Max</span>
+                      <input
+                        type="number"
+                        min={0}
+                        step={50}
+                        value={editingGame?.subscribersMaxRange ?? 3500}
+                        onChange={(e) => setEditingGame((prev) => ({ ...prev, subscribersMaxRange: Math.max(0, parseInt(e.target.value, 10) || 0) }))}
+                        className="w-full bg-slate-900 border border-border rounded px-2 py-1 text-xs text-white font-mono focus:outline-none focus:border-cyan-500"
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                {/* Tăng Trưởng Người Canh Theo Thời Gian */}
+                <div className="p-2.5 rounded-lg bg-slate-950/60 border border-border/50 space-y-2">
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={!!editingGame?.subscribersGrowthEnabled}
+                      onChange={(e) => setEditingGame((prev) => ({
+                        ...prev,
+                        subscribersGrowthEnabled: e.target.checked,
+                        growthAnchorTime: prev?.growthAnchorTime || new Date().toISOString(),
+                      }))}
+                      className="rounded border-border bg-slate-900 text-cyan-500 focus:ring-0 cursor-pointer"
+                    />
+                    <span className="text-[11px] font-semibold text-slate-200">
+                      Tự Động Tăng Người Canh Theo Giờ
+                    </span>
+                  </label>
+
+                  {editingGame?.subscribersGrowthEnabled && (
+                    <div className="space-y-2 pt-1 border-t border-border/40 text-[10px]">
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="text-slate-400">Tốc độ tăng mỗi giờ:</span>
+                        <div className="flex items-center gap-1">
+                          <input
+                            type="number"
+                            min={1}
+                            value={editingGame?.subscribersGrowthRatePerHour ?? 5}
+                            onChange={(e) => setEditingGame((prev) => ({ ...prev, subscribersGrowthRatePerHour: Math.max(0, parseInt(e.target.value, 10) || 0) }))}
+                            className="w-16 bg-slate-900 border border-border rounded px-1.5 py-0.5 text-xs text-white font-mono text-center focus:outline-none focus:border-cyan-500"
+                          />
+                          <span className="text-slate-400">người / giờ</span>
+                        </div>
+                      </div>
+                      <div className="text-[10px] text-cyan-300 bg-cyan-950/40 p-1.5 rounded border border-cyan-500/20 flex items-center justify-between">
+                        <span>Số người canh hiệu dụng hiện tại:</span>
+                        <strong className="text-white font-mono font-bold">
+                          {calculateEffectiveSubscribers(editingGame as any).toLocaleString('vi-VN')} người
+                        </strong>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
             </div>
           </div>
 

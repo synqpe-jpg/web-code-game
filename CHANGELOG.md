@@ -7,6 +7,36 @@ Mỗi mục sửa lỗi đều ghi nhận **Nguyên nhân gốc rễ (Root Cause
 
 ## [2026-10-26]
 
+### 210. Cài Đặt Sinh Số Ngẫu Nhiên, Khoảng Dao Động & Động Cơ Tăng Trưởng Realtime Cho Thứ Tự Hiển Thị & Số Người Canh Game Sắp Ra Mắt
+- **Bối cảnh & Yêu cầu người dùng**:
+  - Người dùng yêu cầu cho Thứ Tự Hiển Thị (Display Order): Cho sinh số ngẫu nhiên, cài đặt khoảng dao động, và bổ sung mục tăng trưởng Thứ Tự Hiển Thị theo thời gian có thể cài đặt.
+  - Đồng thời, ảnh chụp thực tế cho thấy Web Khách hiển thị "1.200 người canh" (subscribersCount), trong khi modal tạo/sửa game trước đây mặc định Display Order = 1000 (do game chưa gán vị trí có displayOrder = 999 làm maxOrder = 999) và thiếu toàn bộ trường cấu hình người canh.
+- **Nguyên nhân gốc rễ (Root Cause)**:
+  1. Thiếu các trường cấu hình trong schema: `orderGrowthEnabled`, `orderGrowthRate`, `orderMinRange`, `orderMaxRange`, `subscribersGrowthEnabled`, `subscribersGrowthRatePerHour`, `subscribersMinRange`, `subscribersMaxRange`, `growthAnchorTime`.
+  2. Modal tạo game tính `nextOrder = maxOrder + 1`, do các game không xếp hạng có order = 999 nên `nextOrder` thành 1000, gây hiểu lầm cho người dùng.
+  3. Cả Web Khách (`AllUpcomingGamesModal`, `UpcomingGamesBanner`) và Admin (`UpcomingGamesSection`) chỉ đọc giá trị tĩnh, không có bộ tính toán tăng trưởng theo thời gian thực (time-based growth engine).
+- **Giải pháp triển khai (Solution)**:
+  1. *Xây dựng Thư Viện Tiện Ích Động Cơ Tăng Trưởng (`src/utils/upcomingGameGrowthUtils.ts`)*:
+     - `generateRandomInRange(min, max, step)`: Sinh số ngẫu nhiên trong khoảng dao động với bước nhảy tùy chọn.
+     - `calculateEffectiveOrder(game, nowMs)`: Tính thứ tự hiệu dụng theo công thức: `baseOrder + Math.round(elapsedDays * orderGrowthRate)`.
+     - `calculateEffectiveSubscribers(game, nowMs)`: Tính số người canh hiệu dụng theo công thức: `baseSubs + Math.floor(elapsedMinutes * (ratePerHour / 60))`.
+  2. *Nâng cấp Giao diện Quản Trị (`src/admin/modules/UpcomingGamesSection.tsx`)*:
+     - Khắc phục giá trị 1000: Lọc bỏ các giá trị placeholder $\ge 900$ khi tính `nextOrder` để số thứ tự tăng tự nhiên từ 1, 2, 3...
+     - Cài đặt 2 thẻ chuyên biệt trong FormModal:
+       + Thẻ Thứ Tự Hiển Thị (Display Order): Giá trị hiện tại, nút "🎲 Sinh Random", cài đặt khoảng dao động `[Min, Max]`, checkbox tăng trưởng theo ngày (+X/ngày), và xem trước thứ tự hiệu dụng realtime.
+       + Thẻ Số Người Canh (Subscribers): Giá trị hiện tại, nút "🎲 Sinh Random" (bước nhảy 10), cài đặt khoảng dao động `[Min, Max]`, checkbox tăng trưởng theo giờ (+X người/giờ), và xem trước số người canh hiệu dụng realtime.
+     - Bổ sung nút "🎲 Sinh Random Hàng Loạt" trên thanh điều khiển Live của Admin giúp cập nhật nhanh toàn bộ game theo khoảng dao động cài đặt của từng game.
+     - Hiển thị badge người canh và thứ tự hiệu dụng kèm tốc độ tăng trưởng ngay trên từng thẻ game trong bảng quản trị.
+  3. *Đồng bộ Hiển Thị Web Khách & Banner (`AllUpcomingGamesModal.tsx`, `UpcomingGamesBanner.tsx`, `dataService.ts`)*:
+     - Tích hợp `calculateEffectiveOrder` vào logic sắp xếp hiển thị của trang chủ, banner và modal xem tất cả.
+     - Tích hợp `calculateEffectiveSubscribers` vào nhãn hiển thị "{...} người canh" và "{...} lưu".
+  4. *Cập nhật Backend & Crawler Ingest API (`functions/api/crawler/ingest-upcoming-games.ts`)*:
+     - Hỗ trợ lưu trữ và phản hồi đầy đủ các trường dao động và tăng trưởng.
+- **Kiểm thử & Xác minh**:
+  - `npm run build`: Kiểm thử Zero Test Artifacts đạt 100%, biên dịch Vite và Edge Worker thành công 100%.
+
+
+
 ### 209. Sửa Lỗi Toast Không Hiện (getLatestLedgerEvent), Điền 344 Link Store & Bản PC Where Winds Meet, Thanh Lọc 7 Mã Rác Gun X Mobile
 - **Mô tả & Bối cảnh kiểm toán**:
   - Người dùng kiểm toán vòng 3 ghi nhận:

@@ -147,6 +147,23 @@
 
 ---
 
+### 3.10. Quản Lý Game Chuẩn Bị Ra Mắt (Upcoming Games): Sinh Random, Khoảng Dao Động & Động Cơ Tăng Trưởng Realtime
+- **Thứ Tự Hiển Thị (Display Order)**:
+  - Cho phép Admin cài đặt giá trị hiển thị cụ thể (1..6 là Top Banner Web Khách; 7+ xem trong Modal).
+  - Cài đặt khoảng dao động tùy biến [orderMinRange, orderMaxRange] và nút "🎲 Sinh Random" để tạo số ngẫu nhiên tức thì.
+  - Hỗ trợ "Tự Động Tăng Trưởng Thứ Tự Theo Ngày": Toggle orderGrowthEnabled và tốc độ orderGrowthRate (+X/ngày), tự động tính toán thứ tự hiệu dụng realtime qua calculateEffectiveOrder(game, now) trên cả Web Khách và Admin.
+  - Tự động sinh nextOrder tự nhiên (bỏ qua các giá trị placeholder >= 900) để tránh tình trạng mặc định nhảy lên 1000.
+- **Số Người Canh / Quan Tâm (Subscribers Count)**:
+  - Hiển thị trên thẻ Web Khách (AllUpcomingGamesModal và UpcomingGamesBanner): 1.200 người canh, 1.950 người canh...
+  - Cho phép Admin nhập giá trị trực tiếp hoặc cài đặt khoảng dao động [subscribersMinRange, subscribersMaxRange], bấm "🎲 Sinh Random" (làm tròn đẹp đến hàng chục).
+  - Hỗ trợ "Tự Động Tăng Người Canh Theo Giờ": Toggle subscribersGrowthEnabled và tốc độ subscribersGrowthRatePerHour (+X người/giờ), tính toán realtime qua calculateEffectiveSubscribers(game, now).
+- **Công cụ Sinh Random Hàng Loạt (Bulk Randomize)**:
+  - Nút "🎲 Sinh Random Hàng Loạt" trên thanh điều khiển Live của Admin giúp cập nhật nhanh toàn bộ game theo đúng khoảng cài đặt riêng của từng game.
+- **Đồng bộ API Crawler/Ingest**:
+  - Endpoint Cloudflare Pages /api/crawler/ingest-upcoming-games lưu giữ trọn vẹn toàn bộ các trường cấu hình dao động và tăng trưởng vào D1.
+
+---
+
 ## 4. BẢN ĐỒ DỮ LIỆU & STATE MANAGEMENT
 
 ### 4.1. LocalStorage Keys Chính

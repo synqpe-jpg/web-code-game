@@ -15,6 +15,7 @@ import type {
 } from '../types/game';
 import { DEFAULT_UPCOMING_GAMES } from '../types/game';
 import { getUpcomingGameIconUrl } from '../utils/upcomingGameIconUtils';
+import { calculateEffectiveOrder } from '../utils/upcomingGameGrowthUtils';
 import { smartVietnameseMatch, calculateGameSearchScore, matchGameSearch } from '../utils/textUtils';
 import { isCodeExpired, parseExpirationDate } from '../utils/codeUtils';
 
@@ -1909,15 +1910,14 @@ class DataService {
           if (hasDateA && !hasDateB) return -1;
           if (!hasDateA && hasDateB) return 1;
 
+          const orderA = calculateEffectiveOrder(a, now);
+          const orderB = calculateEffectiveOrder(b, now);
+
           if (hasDateA && hasDateB) {
             if (timeA !== timeB) return timeA - timeB;
-            const orderA = typeof a.displayOrder === 'number' ? a.displayOrder : 999;
-            const orderB = typeof b.displayOrder === 'number' ? b.displayOrder : 999;
             return orderA - orderB;
           }
 
-          const orderA = typeof a.displayOrder === 'number' ? a.displayOrder : 999;
-          const orderB = typeof b.displayOrder === 'number' ? b.displayOrder : 999;
           if (orderA !== orderB) return orderA - orderB;
           return String(a.name || '').localeCompare(String(b.name || ''), 'vi');
         });
@@ -1981,15 +1981,14 @@ class DataService {
           if (hasDateA && !hasDateB) return -1;
           if (!hasDateA && hasDateB) return 1;
 
+          const orderA = calculateEffectiveOrder(a, now);
+          const orderB = calculateEffectiveOrder(b, now);
+
           if (hasDateA && hasDateB) {
             if (timeA !== timeB) return timeA - timeB;
-            const orderA = typeof a.displayOrder === 'number' ? a.displayOrder : 999;
-            const orderB = typeof b.displayOrder === 'number' ? b.displayOrder : 999;
             return orderA - orderB;
           }
 
-          const orderA = typeof a.displayOrder === 'number' ? a.displayOrder : 999;
-          const orderB = typeof b.displayOrder === 'number' ? b.displayOrder : 999;
           if (orderA !== orderB) return orderA - orderB;
           return String(a.name || '').localeCompare(String(b.name || ''), 'vi');
         });

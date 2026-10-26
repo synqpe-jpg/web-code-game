@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom';
 import { X, Rocket, Bell, Check, ExternalLink, Gift, Search, Calendar, Sparkles } from 'lucide-react';
 import type { UpcomingGame } from '../types/game';
 import { getUpcomingGameIconUrl, handleUpcomingImageError } from '../utils/upcomingGameIconUtils';
+import { calculateEffectiveOrder, calculateEffectiveSubscribers } from '../utils/upcomingGameGrowthUtils';
 
 interface AllUpcomingGamesModalProps {
   isOpen: boolean;
@@ -166,15 +167,14 @@ export const AllUpcomingGamesModal: React.FC<AllUpcomingGamesModalProps> = ({
     if (hasDateA && !hasDateB) return -1;
     if (!hasDateA && hasDateB) return 1;
 
+    const orderA = calculateEffectiveOrder(a, now);
+    const orderB = calculateEffectiveOrder(b, now);
+
     if (hasDateA && hasDateB) {
       if (timeA !== timeB) return timeA - timeB;
-      const orderA = typeof a.displayOrder === 'number' ? a.displayOrder : 999;
-      const orderB = typeof b.displayOrder === 'number' ? b.displayOrder : 999;
       return orderA - orderB;
     }
 
-    const orderA = typeof a.displayOrder === 'number' ? a.displayOrder : 999;
-    const orderB = typeof b.displayOrder === 'number' ? b.displayOrder : 999;
     if (orderA !== orderB) return orderA - orderB;
     return String(a.name || '').localeCompare(String(b.name || ''), 'vi');
   });
@@ -406,7 +406,7 @@ export const AllUpcomingGamesModal: React.FC<AllUpcomingGamesModalProps> = ({
                             <span>Quà dự kiến ({expectedCodes.length}):</span>
                           </span>
                           <span className="text-[9px] text-muted-foreground">
-                            {(game.subscribersCount || 1200).toLocaleString('vi-VN')} người canh
+                            {calculateEffectiveSubscribers(game, now).toLocaleString('vi-VN')} người canh
                           </span>
                         </div>
                         <div className="flex flex-wrap gap-1">
