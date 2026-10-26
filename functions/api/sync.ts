@@ -1721,6 +1721,313 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
       }
     }
 
+    // Action: Cập nhật metadata mã giftcode live (Status, Expiry, Rewards, Case)
+    if ((body.action === 'update_code_metadata' || body.action === 'update_code_status') && env.DB) {
+      try {
+        await ensureSchemaUpgrades(env.DB);
+        const targetSlug = String(body.gameSlug || body.slug || body.game_slug || body.gameName || '').trim().toLowerCase();
+        const targetCode = String(body.code || body.codeValue || '').trim();
+        if (!targetSlug || !targetCode) {
+          return new Response(
+            JSON.stringify({ success: false, error: 'Thiếu tham số gameSlug hoặc code.' }),
+            { status: 400, headers: CORS_HEADERS }
+          );
+        }
+
+        const rawStatus = body.status !== undefined ? String(body.status).toLowerCase().trim() : undefined;
+        const isExp = rawStatus === 'expired' || rawStatus === 'hết hạn' || rawStatus === 'het han';
+        const newStatus = rawStatus ? (isExp ? 'expired' : 'active') : undefined;
+
+        const rawExp = body.expiresAt !== undefined ? body.expiresAt : (body.expires_at !== undefined ? body.expires_at : undefined);
+        const newRewards = body.rewards !== undefined ? String(body.rewards).trim() : (body.description !== undefined ? String(body.description).trim() : undefined);
+
+        const updateRes: any = await env.DB.prepare(`
+          UPDATE codes SET
+            status = COALESCE(?, status),
+            expires_at = CASE WHEN ? IS NOT NULL THEN ? ELSE expires_at END,
+            rewards = COALESCE(?, rewards),
+            code = ?
+          WHERE (game_slug = ? OR game_slug = ? OR game_slug = ?) AND UPPER(code) = UPPER(?)
+        `).bind(
+          newStatus || null,
+          rawExp !== undefined ? rawExp : null,
+          rawExp !== undefined ? rawExp : null,
+          newRewards || null,
+          targetCode,
+          targetSlug,
+          targetSlug.replace(/-mobile$/i, ''),
+          `${targetSlug}-mobile`,
+          targetCode
+        ).run();
+
+        await env.DB.prepare(`
+          UPDATE games SET
+            total_codes_count = (SELECT COUNT(*) FROM codes WHERE codes.game_slug = games.slug),
+            active_codes_count = (SELECT COUNT(*) FROM codes WHERE codes.game_slug = games.slug AND (codes.status = 'active' OR codes.status = 'verified') AND (codes.expires_at IS NULL OR codes.expires_at = '' OR codes.expires_at >= date('now'))),
+            updated_at = datetime('now')
+          WHERE slug = ? OR slug = ? OR slug = ?
+        `).bind(targetSlug, targetSlug.replace(/-mobile$/i, ''), `${targetSlug}-mobile`).run().catch(() => {});
+
+        invalidateGamesCatalogCache();
+        await invalidateCatalogEdgeCache(context as any, request, env).catch(() => {});
+
+        return new Response(
+          JSON.stringify({
+            success: true,
+            action: 'update_code_metadata',
+            gameSlug: targetSlug,
+            code: targetCode,
+            status: newStatus,
+            expiresAt: rawExp,
+            rewards: newRewards,
+            changes: updateRes?.meta?.changes || 0,
+          }),
+          { headers: CORS_HEADERS }
+        );
+      } catch (err: any) {
+        return new Response(JSON.stringify({ success: false, error: String(err) }), { status: 500, headers: CORS_HEADERS });
+      }
+    }
+
+    // Action: Sửa chữa trực tiếp dữ liệu live A1, A2 và đồng bộ custom codes sang D1 (B1)
+    if (body.action === 'execute_repair_live_data_and_sync' && env.DB) {
+      try {
+        await ensureSchemaUpgrades(env.DB);
+        const results: any = {};
+
+        // 1. A1: Mã Sunbringer (Zenless Zone Zero) - chuẩn case, hạn 29/10/2026 23:59 UTC+8
+        await env.DB.prepare("DELETE FROM codes WHERE (game_slug = 'zenless-zone-zero' OR game_slug = 'zenless-zone-zero-mobile') AND UPPER(code) = 'SUNBRINGER'").run().catch(() => {});
+        const sunbringerRes: any = await env.DB.prepare(`
+          INSERT OR REPLACE INTO codes (id, game_slug, code, rewards, status, expires_at, source, added_at)
+          VALUES ('code_zenless-zone-zero_Sunbringer', 'zenless-zone-zero', 'Sunbringer', '30 Polychrome', 'active', '2026-10-29 23:59:59 UTC+8', 'Kênh YouTube chính thức HoYoverse', datetime('now'))
+        `).run().catch((e: any) => ({ error: String(e) }));
+        results.sunbringer = sunbringerRes;
+
+        // 2. A2.1: Genshin Impact 3 mã livestream 7.2 đã hết hạn
+        const genshinCodes = [
+          { upper: 'HOUROFRUIN', proper: 'HourOfRuin' },
+          { upper: 'EXPERTMITYA', proper: 'ExpertMitya' },
+          { upper: 'PHOTOTIME', proper: 'PhotoTime' }
+        ];
+        for (const gc of genshinCodes) {
+          await env.DB.prepare(`
+            UPDATE codes SET
+              status = 'expired',
+              expires_at = '2026-10-26 11:00:00 UTC+7',
+              code = ?
+            WHERE game_slug = 'genshin-impact' AND UPPER(code) = ?
+          `).bind(gc.proper, gc.upper).run().catch(() => {});
+        }
+        results.genshinExpired = true;
+
+        // 3. A2.2: Toilet Tower Defense - Chuyển toàn bộ 11 mã sang expired và ghi chú cảnh báo
+        const ttdRes: any = await env.DB.prepare(`
+          UPDATE codes SET status = 'expired'
+          WHERE game_slug = 'toilet-tower-defense'
+        `).run().catch((e: any) => ({ error: String(e) }));
+        const ttdNotice = "LƯU Ý QUAN TRỌNG: Tính năng nhập giftcode trong game Toilet Tower Defense đã chính thức bị gỡ bỏ từ bản cập nhật Update 59 (ngày 31/08/2023) và nhà phát triển hiện chưa mở lại. Toàn bộ mã code trước đây hiện không thể đổi thưởng trong game.";
+        await env.DB.prepare(`
+          UPDATE games SET
+            instructions = ?,
+            active_codes_count = 0,
+            updated_at = datetime('now')
+          WHERE slug = 'toilet-tower-defense'
+        `).bind(ttdNotice).run().catch(() => {});
+        results.ttdExpired = ttdRes;
+
+        // 4. A2.3 & A2.4: Where Winds Meet - Kích hoạt 6 mã còn hạn và đồng bộ 2 bản ghi song sinh
+        const wwmTargetActive = ['QINCHUAN0430', 'QINCHUANGOGO', 'MEETINHEXI', 'PALACE0528', 'HAPPY515', 'LIANGZHOUGO', 'XWCXEETKKE'];
+        for (const c of wwmTargetActive) {
+          await env.DB.prepare(`
+            UPDATE codes SET status = 'active', expires_at = NULL
+            WHERE (game_slug = 'where-winds-meet-mobile' OR game_slug = 'yen-van-thap-luc-thanh') AND UPPER(code) = ?
+          `).bind(c).run().catch(() => {});
+        }
+
+        const [wwmRes1, wwmRes2] = await Promise.all([
+          env.DB.prepare("SELECT * FROM codes WHERE game_slug = 'where-winds-meet-mobile'").all<any>().catch(() => ({ results: [] })),
+          env.DB.prepare("SELECT * FROM codes WHERE game_slug = 'yen-van-thap-luc-thanh'").all<any>().catch(() => ({ results: [] })),
+        ]);
+        const wwmMap = new Map<string, any>();
+        for (const c of (wwmRes1.results || [])) {
+          if (!c || !c.code) continue;
+          wwmMap.set(c.code.toUpperCase(), { ...c });
+        }
+        for (const c of (wwmRes2.results || [])) {
+          if (!c || !c.code) continue;
+          const upper = c.code.toUpperCase();
+          if (wwmMap.has(upper)) {
+            if (c.status === 'active' || c.status === 'verified') {
+              wwmMap.get(upper).status = 'active';
+            }
+          } else {
+            wwmMap.set(upper, { ...c });
+          }
+        }
+        for (const c of wwmTargetActive) {
+          if (wwmMap.has(c)) {
+            wwmMap.get(c).status = 'active';
+            wwmMap.get(c).expires_at = null;
+          }
+        }
+        const syncedCodesList = Array.from(wwmMap.values());
+        const wwmBatchStmts: any[] = [];
+        for (const sc of syncedCodesList) {
+          for (const targetSlug of ['where-winds-meet-mobile', 'yen-van-thap-luc-thanh']) {
+            wwmBatchStmts.push(
+              env.DB.prepare(`
+                INSERT OR REPLACE INTO codes (id, game_slug, code, rewards, status, expires_at, source, added_at)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+              `).bind(
+                `code_${targetSlug}_${encodeURIComponent(sc.code).replace(/[^a-zA-Z0-9_-]/g, '_')}`,
+                targetSlug,
+                sc.code,
+                sc.rewards || 'Quà tân thủ & vật phẩm ingame',
+                sc.status || 'active',
+                sc.expires_at || null,
+                sc.source || 'Sync Twin WWM',
+                sc.added_at || new Date().toISOString()
+              )
+            );
+          }
+        }
+        for (let i = 0; i < wwmBatchStmts.length; i += 50) {
+          await env.DB.batch(wwmBatchStmts.slice(i, i + 50)).catch(() => {});
+        }
+        results.wwmSyncedCount = syncedCodesList.length;
+
+        // 5. B1: Đồng bộ hóa toàn bộ danh sách custom codes trong KV wcg_admin_custom_free_codes_v1 vào D1 codes table
+        const customCodesRaw = await getSettingD1(env.DB, 'wcg_admin_custom_free_codes_v1', []);
+        let customBackfilledCount = 0;
+        if (Array.isArray(customCodesRaw) && customCodesRaw.length > 0) {
+          // Chuẩn hóa và làm sạch KV
+          const cleanCustom = customCodesRaw.filter((c: any) => {
+            if (!c) return false;
+            const s = String(c.gameSlug || c.slug || c.gameId || '').trim().toLowerCase();
+            const upper = String(c.code || c.codeValue || '').trim().toUpperCase();
+            if (s === 'zenless-zone-zero' && upper === 'SUNBRINGER') return false;
+            return true;
+          });
+          cleanCustom.unshift({
+            id: 'code_zenless-zone-zero_Sunbringer',
+            gameSlug: 'zenless-zone-zero',
+            slug: 'zenless-zone-zero',
+            gameId: 'zenless-zone-zero',
+            code: 'Sunbringer',
+            codeValue: 'Sunbringer',
+            rewards: '30 Polychrome',
+            status: 'ACTIVE',
+            is_active: true,
+            is_verified: true,
+            expiresAt: '2026-10-29 23:59:59 UTC+8',
+            expires_at: '2026-10-29 23:59:59 UTC+8',
+            source: 'Kênh YouTube chính thức HoYoverse',
+            added_at: new Date().toISOString(),
+          });
+
+          cleanCustom.forEach((c: any) => {
+            const s = String(c.gameSlug || c.slug || c.gameId || '').trim().toLowerCase();
+            const upper = String(c.code || c.codeValue || '').trim().toUpperCase();
+            if (s === 'genshin-impact' && ['HOUROFRUIN', 'EXPERTMITYA', 'PHOTOTIME'].includes(upper)) {
+              c.status = 'EXPIRED';
+              c.is_active = false;
+              c.expiresAt = '2026-10-26 11:00:00 UTC+7';
+              c.expires_at = '2026-10-26 11:00:00 UTC+7';
+              if (upper === 'HOUROFRUIN') c.code = 'HourOfRuin';
+              if (upper === 'EXPERTMITYA') c.code = 'ExpertMitya';
+              if (upper === 'PHOTOTIME') c.code = 'PhotoTime';
+            }
+            if (s === 'toilet-tower-defense') {
+              c.status = 'EXPIRED';
+              c.is_active = false;
+            }
+            if ((s === 'where-winds-meet-mobile' || s === 'yen-van-thap-luc-thanh') && wwmTargetActive.includes(upper)) {
+              c.status = 'ACTIVE';
+              c.is_active = true;
+              c.expiresAt = null;
+              c.expires_at = null;
+            }
+          });
+
+          await setSettingD1(env.DB, 'wcg_admin_custom_free_codes_v1', cleanCustom);
+
+          // Batch insert vào D1 codes table
+          const backfillStmts: any[] = [];
+          for (const c of cleanCustom) {
+            if (!c) continue;
+            const slug = String(c.gameSlug || c.slug || c.gameId || '').trim().toLowerCase();
+            const codeVal = String(c.code || c.codeValue || '').trim();
+            if (!slug || !codeVal) continue;
+            const id = c.id || `code_${slug}_${encodeURIComponent(codeVal).replace(/[^a-zA-Z0-9_-]/g, '_')}`;
+            const rewards = c.rewards || c.description || 'Quà tân thủ & vật phẩm ingame';
+            const isExp = isCodeExpired(c);
+            const status = c.status === 'EXPIRED' || c.status === 'expired' || isExp ? 'expired' : 'active';
+            const expiresAt = c.expires_at || c.expiresAt || c.expiry || null;
+            const source = c.source || 'custom_sync';
+            const addedAt = c.added_at || c.updated_at || c.created_at || new Date().toISOString();
+
+            backfillStmts.push(
+              env.DB.prepare(`
+                INSERT OR REPLACE INTO codes (id, game_slug, code, rewards, status, expires_at, source, added_at)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+              `).bind(id, slug, codeVal, rewards, status, expiresAt, source, addedAt)
+            );
+          }
+
+          for (let i = 0; i < backfillStmts.length; i += 50) {
+            await env.DB.batch(backfillStmts.slice(i, i + 50)).catch(() => {});
+          }
+          customBackfilledCount = backfillStmts.length;
+        }
+        results.customBackfilledCount = customBackfilledCount;
+
+        // Cập nhật lại số lượng codes trên toàn bộ D1 games
+        await env.DB.prepare(`
+          UPDATE games SET
+            total_codes_count = (SELECT COUNT(*) FROM codes WHERE codes.game_slug = games.slug),
+            active_codes_count = (SELECT COUNT(*) FROM codes WHERE codes.game_slug = games.slug AND (codes.status = 'active' OR codes.status = 'verified') AND (codes.expires_at IS NULL OR codes.expires_at = '' OR codes.expires_at >= date('now'))),
+            last_code_at = (SELECT MAX(added_at) FROM codes WHERE codes.game_slug = games.slug),
+            updated_at = datetime('now');
+        `).run().catch(() => {});
+
+        // Đảm bảo Toilet Tower Defense có active_codes_count = 0
+        await env.DB.prepare("UPDATE games SET active_codes_count = 0 WHERE slug = 'toilet-tower-defense'").run().catch(() => {});
+
+        // Cập nhật KV wcg_admin_games_v5
+        const currentGames = await getSettingD1(env.DB, 'wcg_admin_games_v5', []);
+        if (Array.isArray(currentGames)) {
+          const updatedG = currentGames.map((g: any) => {
+            if (g && g.slug === 'toilet-tower-defense') {
+              return {
+                ...g,
+                instructions: ttdNotice,
+                active_codes_count: 0,
+                codes_count: 0,
+                updated_at: new Date().toISOString()
+              };
+            }
+            return g;
+          });
+          await setSettingD1(env.DB, 'wcg_admin_games_v5', updatedG);
+        }
+
+        invalidateGamesCatalogCache();
+        await invalidateCatalogEdgeCache(context as any, request, env).catch(() => {});
+
+        return new Response(
+          JSON.stringify({
+            success: true,
+            action: 'execute_repair_live_data_and_sync',
+            results,
+            message: 'Đã hoàn tất 100% sửa chữa dữ liệu live A1, A2 và đồng bộ custom codes D1!'
+          }, null, 2),
+          { headers: CORS_HEADERS }
+        );
+      } catch (err: any) {
+        return new Response(JSON.stringify({ success: false, error: String(err) }), { status: 500, headers: CORS_HEADERS });
+      }
+    }
+
     // Action: Backfill games batch vào D1 table games
     if (body.action === 'backfill_d1_games' && env.DB && Array.isArray(body.games)) {
       try {
@@ -1833,9 +2140,9 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
         for (const c of codes) {
           if (!c) continue;
           const slug = String(c.game_slug || c.gameSlug || c.slug || c.gameId || '').trim().toLowerCase();
-          const codeVal = String(c.code || c.codeValue || c.code_value || c.gift_code || '').trim().toUpperCase();
+          const codeVal = String(c.code || c.codeValue || c.code_value || c.gift_code || '').trim();
           if (!slug || !codeVal) continue;
-          const id = c.id || `code_${slug}_${codeVal}`;
+          const id = c.id || `code_${slug}_${encodeURIComponent(codeVal).replace(/[^a-zA-Z0-9_-]/g, '_')}`;
           const rewards = c.rewards || c.description || 'Quà tân thủ & vật phẩm ingame';
           const isExp = isCodeExpired(c);
           const status = c.status === 'expired' || isExp ? 'expired' : 'active';

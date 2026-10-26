@@ -7,6 +7,58 @@ Mỗi mục sửa lỗi đều ghi nhận **Nguyên nhân gốc rễ (Root Cause
 
 ## [2026-10-26]
 
+### 212. Khắc Phục Dữ Liệu Live (A1, A2) & Đại Tu Hệ Thống Ingest Giftcode (B1 - B5)
+- **Bối cảnh & Yêu cầu từ Muse/Người dùng**:
+  1. *Phần A — Sửa trực tiếp dữ liệu live*:
+     - **A1. Mã `Sunbringer` (Zenless Zone Zero)**: Hết hạn 29/10/2026 23:59 UTC+8, thưởng 30 Polychrome, kênh YouTube HoYoverse. Phải đưa vào `zenless-zone-zero` đúng dạng `Sunbringer` (phân biệt hoa/thường, không đổi thành `SUNBRINGER`).
+     - **A2.1. Genshin Impact**: 3 mã livestream 7.2 (`HourOfRuin`, `ExpertMitya`, `PhotoTime`) hết hạn lúc 11:00 26/10/2026 $\rightarrow$ chuyển sang `expired`.
+     - **A2.2. Toilet Tower Defense**: Tính năng nhập code đã bị gỡ từ Update 59 (31/08/2023) $\rightarrow$ đổi tất cả 11 mã sang `expired`, ghi chú cảnh báo vào `instructions`, `active_codes_count = 0`.
+     - **A2.3 & A2.4. Where Winds Meet**: 6 mã (`QINCHUAN0430`, `QINCHUANGOGO`, `MEETINHEXI`, `PALACE0528`, `HAPPY515`, `LIANGZHOUGO`) chuyển sang `active`; đồng bộ 100% mã và trạng thái giữa 2 bản ghi song sinh `where-winds-meet-mobile` và `yen-van-thap-luc-thanh` (bao gồm `XWCXEETKKE`).
+     - **A3. Game test**: Xác nhận xóa sạch game test `test-audit-1792947779302` khỏi live catalog (đã xóa và kiểm chứng catalog = 563 game).
+  2. *Phần B — Sửa lỗi hệ thống Ingest*:
+     - **B1. Trùng ảo (Phantom duplicates)**: Ingest dedup phải đối chiếu dữ liệu thật (D1 `codes` + KV). Khi báo trùng, response trả về `duplicateDetails: [{ code, gameSlug, status, existingLocation, reason }]`. Backfill toàn bộ custom codes từ KV vào D1 `codes` table để triệt tiêu lệch kho.
+     - **B2. Bộ lọc ký tự đặc biệt**: Cho phép mã chứa khoảng trắng (`ACCESS GRANTED`), `!`, `?`, `.`, `-`, `_`, `#`. Không tự ý strip ký tự. Mã bị loại phải vào `droppedCodes: [{ code, reason, gameInput }]`.
+     - **B3. Giữ nguyên case phân biệt hoa/thường**: Lưu trữ và hiển thị đúng case gốc theo nguồn gửi (ví dụ `Sunbringer`, `ckwy32t1eeevs`, `HourOfRuin`).
+     - **B4. Đẩy trùng cập nhật metadata**: Khi đẩy lại mã đã tồn tại kèm thông tin hạn/thưởng mới (hoặc `updateMetadata: true`), tự động cập nhật D1 `codes` và KV. Thêm action `update_code_metadata`.
+     - **B5. `publish_game` không ghi đè metadata thật bằng placeholder**: Giữ nguyên `publisher`, `category`, `platform`, `instructions`, `redeem_url`, `description`, `icon_url` nếu đã có.
+- **Nguyên nhân gốc rễ (Root Cause)**:
+  1. *Lệch kho dữ liệu giữa KV và D1*: Có 2,791 mã quà tặng trong KV `wcg_admin_custom_free_codes_v1` nhưng chưa từng được đồng bộ sang bảng D1 `codes`. Khi ingest kiểm tra, nó nạp từ KV và thấy mã đã tồn tại, nhưng khi client/API công khai truy vấn D1 thì không thấy, tạo ra hiện tượng trùng ảo (phantom duplicates) trên 29 game (như Kiếm Đế Origin mã `DAITHANH96`, Da Hood, Type Soul, Blox Fruits).
+  2. *Ép hoa tự động thô bạo (`.toUpperCase()`)*: Toàn bộ pipeline ingest trong `functions/api/crawler/ingest-codes.ts` và `functions/api/sync.ts` đều gọi `.toUpperCase()` trên chuỗi mã, phá hủy chữ hoa/chữ thường gốc của các game phân biệt hoa/thường (như Zenless Zone Zero `Sunbringer`, Genshin Impact `HourOfRuin`).
+  3. *Tách chuỗi bằng khoảng trắng (`\s+`)*: Regex `rawText.split(/[\r\n,;\s]+/)` đã chém vụn các mã hợp lệ có chứa khoảng trắng (như `ACCESS GRANTED`, `THANK YOU`), khiến hệ thống nhận nhầm là nhiều mã rác ngắn và từ chối.
+  4. *Chỉ đọc mã mà không cập nhật*: Ingest cũ khi phát hiện mã trùng chỉ ghi nhận `duplicates++` và bỏ qua hoàn toàn, không có cơ chế ghi đè hạn dùng mới hoặc phần thưởng mới khi nhà phát hành gia hạn mã.
+  5. *Bảng D1 `codes` không có cột `updated_at`*: Các lệnh cập nhật mã nếu thêm `updated_at = ?` sẽ bị SQLite văng lỗi `no such column: updated_at`.
+- **Giải pháp triển khai (Solution)**:
+  1. *Đại tu Ingest Giftcode (`functions/api/crawler/ingest-codes.ts`)*:
+     - Giữ nguyên exact case: Bỏ `.toUpperCase()`, lưu và truy vấn theo case gốc (`Sunbringer`, `ckwy32t1eeevs`).
+     - Regex tách chuỗi an toàn: Tách bằng `[\r\n,;]+`, hỗ trợ khoảng trắng (`ACCESS GRANTED`), `!`, `?`, `.`, `#`, độ dài từ 1..80 ký tự.
+     - Dedup đối chiếu D1 SQL và KV đa tầng: Tra cứu đồng bộ cả `wcg_admin_custom_free_codes_v1` lẫn bảng `codes` của D1.
+     - Cập nhật metadata khi đẩy mã trùng: Tự động phát hiện thay đổi `expiry`, `rewards`, `source` và cập nhật trực tiếp vào KV + D1, trả về `updatedMetadataCodes` và `totalUpdatedMetadata`.
+     - Báo cáo trùng minh bạch: Trả về `duplicateDetails: [{ code, gameSlug, status, existingLocation, reason }]` và `droppedCodes: [{ code, reason, gameInput }]`.
+     - Thêm action `update_code_metadata`: Cho phép Muse và Admin cập nhật trạng thái (`active`/`expired`), hạn dùng và phần thưởng trực tiếp qua API.
+     - `publish_game` an toàn: Bảo toàn 100% metadata hiện có, không ghi đè placeholder rỗng.
+  2. *Thực thi khắc phục trực tiếp trên Live D1 & KV (`functions/api/sync.ts`)*:
+     - Thêm action `execute_repair_live_data_and_sync`:
+       - **A1**: Nạp mã `Sunbringer` vào `zenless-zone-zero` với status `active`, reward `30 Polychrome`, expiry `2026-10-29 23:59:59 UTC+8`, source `Kênh YouTube chính thức HoYoverse`. Xóa bản `SUNBRINGER` viết hoa.
+       - **A2.1**: Chuyển 3 mã Genshin Impact (`HourOfRuin`, `ExpertMitya`, `PhotoTime`) sang `expired`.
+       - **A2.2**: Chuyển 11 mã của Toilet Tower Defense sang `expired`, cập nhật `instructions` cảnh báo tính năng nhập code bị gỡ từ Update 59, đặt `active_codes_count = 0`.
+       - **A2.3 & A2.4**: Kích hoạt 6 mã của Where Winds Meet sang `active`, đồng bộ toàn bộ 615 mã giữa `where-winds-meet-mobile` và `yen-van-thap-luc-thanh` (bao gồm `XWCXEETKKE`).
+       - **B1**: Backfill toàn bộ 2,791 mã custom từ KV sang D1 `codes` table, giải quyết dứt điểm trùng ảo trên toàn bộ 29 tựa game.
+  3. *Tự động hóa Kiểm thử Hồi quy (`scripts/test_ingest_regression.cjs`)*:
+     - Kiểm thử 4 bài test độc lập: B2 (Ký tự đặc biệt), B3 (Case sensitivity), B4 (Update metadata), B1 (Dedup & duplicateDetails).
+     - Khối `finally` tuân thủ nghiêm ngặt Rule 7 (Zero Test Artifacts): Dọn sạch 100% mã test khỏi D1 và KV sau khi kiểm thử.
+- **Kiểm thử & Nghiệm thu**:
+  - `node scripts/test_ingest_regression.cjs`: 4/4 bài test đạt 100%, dọn dẹp sạch sẽ 100%.
+  - Kiểm chứng API công khai `https://codegame.shop/api/games?slug=...`:
+    - `zenless-zone-zero`: `Sunbringer` hiển thị đúng case, `active`, 30 Polychrome, hạn 29/10.
+    - `genshin-impact`: 3 mã livestream hiển thị `expired`.
+    - `toilet-tower-defense`: 11 mã `expired`, 0 mã active, hướng dẫn cảnh báo đầy đủ.
+    - `where-winds-meet-mobile` & `yen-van-thap-luc-thanh`: Đồng bộ 615 mã, 7 mã mục tiêu đều `active`.
+    - `kiem-de-origin`: `DAITHANH96` hiển thị `active` trên API công khai.
+
+---
+
+## [2026-10-26]
+
 ### 211. Xóa Vĩnh Viễn Game Test Khỏi D1 & Live Catalog, Chặn Tái Diễn Tự Động Publish Game Test
 - **Bối cảnh & Báo cáo sự cố**:
   - Người dùng phát hiện game test do harness kiểm chứng tạo ra bị lọt lên catalog live trên `codegame.shop`:

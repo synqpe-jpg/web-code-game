@@ -175,6 +175,18 @@
   2. *Pre-build Audit (`audit_zero_test_artifacts.cjs`)*: Quét 5 kho dữ liệu (`giveaways.json`, `storeProducts.json`, `utilities.json`, `crawled_codes_188.json`, `games188.json`), hủy build nếu phát hiện test artifact.
   3. *Audit Harness Gatekeeper (`verify_codes_integrity_audit.cjs`)*: Bước 7 quét trực tiếp Live Catalog, tự động tiêu diệt bất kỳ test game nào lọt lên production.
 
+### 3.12. Quy Tắc Ingest Giftcode & Bảo Tồn Case Sensitivity (Bảo Toàn Ký Tự & Đối Chiếu Dedup D1/KV)
+- **Bảo tồn Exact Case (Case Sensitivity)**:
+  - Tuyệt đối **KHÔNG** tự ý chuyển đổi `.toUpperCase()` mã quà tặng khi nhận từ API ingest hoặc cào dữ liệu. Nhiều tựa game lớn (HoYoverse, Zenless Zone Zero `Sunbringer`, Genshin Impact `HourOfRuin`, Honkai) phân biệt nghiêm ngặt chữ hoa và chữ thường.
+- **Hỗ trợ Ký Tự Đặc Biệt & Khoảng Trắng**:
+  - Mã quà tặng hợp lệ được phép chứa khoảng trắng (`ACCESS GRANTED`), dấu chấm than `!`, dấu hỏi `?`, dấu chấm `.`, dấu gạch ngang `-`, gạch dưới `_`, dấu thăng `#`, độ dài từ 1 đến 80 ký tự.
+  - Phân tách chuỗi danh sách mã bằng regex `[\r\n,;]+`, tuyệt đối không dùng `\s+` để không chém vỡ mã có dấu cách.
+- **Dedup Đa Tầng (D1 SQL + KV) Triệt Tiêu Trùng Ảo**:
+  - Mọi thao tác đối soát trùng lặp mã bắt buộc nạp và kiểm tra đồng thời cả bảng `codes` trên Cloudflare D1 và KV `wcg_admin_custom_free_codes_v1`.
+  - Phản hồi API khi phát hiện trùng phải trả về `duplicateDetails: [{ code, gameSlug, status, existingLocation, reason }]` minh bạch.
+- **Tự Động Cập Nhật Metadata Khi Đẩy Trùng**:
+  - Khi mã đã tồn tại nhưng đối tác/crawler gửi thông tin hạn dùng mới, phần thưởng mới hoặc trạng thái mới, hệ thống tự động cập nhật bản ghi trong CSDL và KV, trả về `updatedMetadataCodes`.
+
 ---
 
 ## 4. BẢN ĐỒ DỮ LIỆU & STATE MANAGEMENT

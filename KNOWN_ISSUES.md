@@ -10,6 +10,30 @@
 
 ## 1. DANH MỤC LỖI & CÁC BẪY ĐÃ THẤT BẠI (DO NOT REPEAT)
 
+### ISSUE-135: Bẫy Lệch Kho D1/KV Gây Trùng Ảo, Ép Chữ Hoa Phá Vỡ Case-Sensitivity & Thiếu Đồng Bộ Dữ Liệu Live Ingest
+- **Triệu chứng**:
+  - Khi đối tác/crawler đẩy giftcode vào API `/api/crawler/ingest-codes`, hệ thống báo trùng (`duplicate = 1, added = 0`), nhưng truy vấn công khai không thấy mã xuất hiện (như Zenless Zone Zero `Sunbringer`, Kiếm Đế Origin `DAITHANH96`).
+  - Mã quà tặng có phân biệt chữ hoa/thường (như HoYoverse `Sunbringer`, `HourOfRuin`) bị ép chuyển thành `SUNBRINGER`, `HOUROFRUIN`.
+  - Mã có ký tự đặc biệt như khoảng trắng (`ACCESS GRANTED`), `!`, `?`, `.`, `#` bị chém vụn hoặc loại bỏ âm thầm.
+  - Khi mã đã tồn tại có cập nhật hạn dùng/phần thưởng mới, API bỏ qua và không cập nhật lại metadata.
+  - Một số mã livestream hết hạn (Genshin Impact 7.2), game đã gỡ tính năng nhập code (Toilet Tower Defense) vẫn hiển thị active.
+- **Nguyên nhân gốc rễ (Root Cause)**:
+  1. *Lệch kho dữ liệu giữa KV và D1*: 2,791 mã quà tặng nằm trong KV `wcg_admin_custom_free_codes_v1` nhưng chưa từng được đồng bộ sang bảng D1 `codes`. Ingest kiểm tra trùng theo KV, trong khi API công khai đọc D1, tạo ra hiện tượng trùng ảo (phantom duplicates).
+  2. *Ép hoa tự động thô bạo (`.toUpperCase()`)*: Pipeline ingest gọi `.toUpperCase()` làm biến dạng các mã phân biệt chữ hoa/thường.
+  3. *Tách chuỗi bằng `\s+`*: Regex tách dòng và ký tự trắng vô tình chia nhỏ các mã hợp lệ có chứa khoảng trắng.
+  4. *Bảng D1 `codes` không có cột `updated_at`*: Khi gọi `UPDATE codes SET updated_at = ...` sẽ ném lỗi `no such column: updated_at`.
+- **Giải pháp chuẩn đã kiểm chứng**:
+  1. *Đồng bộ triệt để KV và D1*: Chạy backfill 2,791 mã từ KV vào bảng D1 `codes` và đối chiếu dedup trên cả 2 nguồn.
+  2. *Bảo tồn exact case*: Loại bỏ `.toUpperCase()` trong toàn bộ pipeline ingest và sync, giữ nguyên case gốc từ nguồn gửi.
+  3. *Tách chuỗi an toàn*: Sử dụng `[\r\n,;]+`, hỗ trợ khoảng trắng (`ACCESS GRANTED`), `!`, `?`, `.`, `#`, độ dài 1..80 ký tự.
+  4. *Tự động cập nhật metadata & thêm action `update_code_metadata`*: Cập nhật hạn dùng, phần thưởng và trạng thái trực tiếp trên cả D1 và KV.
+  5. *Báo cáo minh bạch*: Trả về `duplicateDetails: [{ code, gameSlug, status, existingLocation, reason }]` và `droppedCodes: [{ code, reason, gameInput }]`.
+  6. *Kiểm thử hồi quy tự động*: Tích hợp `scripts/test_ingest_regression.cjs` kiểm tra 4 bài test và tuân thủ Rule 7 dọn dẹp sạch sẽ.
+- ⛔ **CÁCH SỬA ĐÃ THẤT BẠI - TUYỆT ĐỐI KHÔNG LẶP LẠI**:
+  - ❌ *Không bao giờ gọi `.toUpperCase()` trên toàn bộ chuỗi mã quà tặng*: Nhiều tựa game lớn (HoYoverse, Genshin, ZZZ, Honkai) phân biệt nghiêm ngặt chữ hoa và chữ thường.
+  - ❌ *Không split chuỗi đầu vào bằng `\s+`*: Phải dùng `[\r\n,;]+` để không làm vỡ các mã chứa khoảng trắng hợp lệ.
+  - ❌ *Không thêm cột `updated_at` vào câu lệnh UPDATE bảng `codes` D1*: Bảng `codes` chỉ có `added_at` và `created_at`.
+
 ### ISSUE-134: Bẫy Lọt Game Test Lên Live Catalog Do Auto-Publish Trong Harness Kiểm Chứng
 - **Triệu chứng**:
   - Game test `Test Audit Pending Game 1792947779302` (slug `test-audit-1792947779302`) xuất hiện trên trang chủ `codegame.shop` ở mục "Mới ra mắt", làm tổng số game tăng từ 563 lên 564.

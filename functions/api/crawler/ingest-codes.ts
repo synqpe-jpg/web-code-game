@@ -555,17 +555,20 @@ function extractCodesFromPayload(item: any, droppedCodes?: Array<{ code: string;
     item.han_su_dung;
 
   const parseItemCode = (rawCode: any, rawReward?: any, rawExp?: any, rawStatus?: any, extra: any = {}) => {
-    const val = String(rawCode || '').trim().toUpperCase().replace(/^#/, '');
-    if (!val || val.length < 1 || val.length > 40) {
+    // B2 & B3: Giữ nguyên case phân biệt hoa/thường, không ép toUpperCase!
+    // Chấp nhận mọi ký tự đặc biệt của NPH (khoảng trắng, !, ?, ., -, _, #, @, :, /, v.v...)
+    const val = String(rawCode || '').trim();
+    if (!val || val.length < 1 || val.length > 80) {
       if (droppedCodes) {
-        droppedCodes.push({ code: String(rawCode || ''), reason: 'Độ dài mã không hợp lệ (yêu cầu từ 1 đến 40 ký tự)' });
+        droppedCodes.push({ code: String(rawCode || ''), reason: 'Độ dài mã không hợp lệ (yêu cầu từ 1 đến 80 ký tự)' });
       }
       return;
     }
 
-    if (!/^[A-Z0-9_\-]+$/.test(val)) {
+    // Chỉ chặn các ký tự điều khiển (control characters) gây lỗi hệ thống
+    if (/[\x00-\x1F\x7F]/.test(val)) {
       if (droppedCodes) {
-        droppedCodes.push({ code: val, reason: 'Chứa ký tự đặc biệt không hợp lệ' });
+        droppedCodes.push({ code: val, reason: 'Chứa ký tự điều khiển không hợp lệ' });
       }
       return;
     }
@@ -629,19 +632,20 @@ function extractCodesFromPayload(item: any, droppedCodes?: Array<{ code: string;
     parseItemCode(item.code, item.rewards, defaultRawExp, item.status, item);
   }
 
-  // Trường hợp 3: Khối văn bản thô (rawText) chứa nhiều code cách nhau bằng dấu phẩy hoặc xuống dòng
+  // Trường hợp 3: Khối văn bản thô (rawText) chứa nhiều code cách nhau bằng dấu phẩy, dấu chấm phẩy hoặc xuống dòng
+  // KHÔNG tách theo \s để bảo tồn các mã có khoảng trắng như "ACCESS GRANTED"
   if (typeof item.rawText === 'string' && item.rawText.trim()) {
-    const rawTokens = item.rawText.split(/[\r\n,;|\s]+/);
+    const rawTokens = item.rawText.split(/[\r\n,;]+/);
     for (const rawToken of rawTokens) {
-      const t = rawToken.trim().toUpperCase().replace(/^#/, '');
+      const t = rawToken.trim();
       if (!t) continue;
-      if (t.length < 1 || t.length > 40 || !/^[A-Z0-9_\-]+$/.test(t)) {
+      if (t.length < 1 || t.length > 80 || /[\x00-\x1F\x7F]/.test(t)) {
         if (droppedCodes) {
           droppedCodes.push({ code: t, reason: 'Ký tự hoặc độ dài không hợp lệ' });
         }
         continue;
       }
-      if (!result.some((r) => r.code === t)) {
+      if (!result.some((r) => r.code.toLowerCase() === t.toLowerCase())) {
         parseItemCode(t, item.rewards, defaultRawExp, item.status, item);
       }
     }
@@ -803,6 +807,7 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
     ],
     supportedActions: [
       { action: 'ingest_codes', description: 'Nạp mã giftcode mới vào game (mặc định nếu không chỉ định action)' },
+      { action: 'update_code_metadata', description: 'Cập nhật trạng thái (active/expired), hạn sử dụng (expiresAt), phần thưởng (rewards) hoặc case hoa/thường của mã đang live' },
       { action: 'queue_game', description: 'Đưa một hoặc nhiều game mới vào Hàng Chờ Duyệt (hỗ trợ kèm mã giftcode và hướng dẫn nhập code)' },
       { action: 'update_instructions', description: 'Cập nhật hướng dẫn nhập code và link redeem của game' },
       { action: 'list_pending_games', description: 'Lấy toàn bộ danh sách game chưa đăng lên web khách (hỗ trợ limit, offset)' },
@@ -995,7 +1000,7 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
   const writeActions = [
     'update_marketing_config', 'save_marketing_config', 'test_trigger',
     'ingest_codes', 'queue_game', 'publish_game', 'delete_game', 'delete_game_d1', 'approve_codes', 'reject_codes',
-    'update_instructions', 'cleanup_test_codes', 'delete_pending_game'
+    'update_instructions', 'cleanup_test_codes', 'delete_pending_game', 'update_code_metadata', 'update_code_status'
   ];
 
   if (auth.role === 'marketing_auditor') {
@@ -1360,15 +1365,15 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
       const finalSlug = String(gameToPublish.slug || gameToPublish.id || targetSlug).trim().toLowerCase();
       const finalName = String(gameToPublish.name || finalSlug).trim();
 
-      // ISSUE-107 & Fix: TUYỆT ĐỐI không điền placeholder generic giả mạo khi chưa có thông tin kiểm chứng
-      const rawDev = gameToPublish.developer || gameToPublish.publisher || '';
-      const finalDeveloper = (rawDev && rawDev !== 'NPH Chính Thức' && rawDev !== 'Chưa rõ') ? String(rawDev).trim() : '';
+      // B5: Giữ nguyên metadata thật nếu đã có, tuyệt đối không ghi đè bằng placeholder/rỗng
+      const rawDev = gameToPublish.publisher || gameToPublish.developer || body.publisher || body.developer || '';
+      const finalDeveloper = String(rawDev).trim();
 
-      const rawCat = gameToPublish.category || '';
-      const finalCategory = (rawCat && rawCat !== 'Nhập Vai' && rawCat !== 'Chưa rõ' && rawCat !== 'Game Mới') ? String(rawCat).trim() : '';
+      const rawCat = gameToPublish.category || body.category || '';
+      const finalCategory = String(rawCat).trim();
 
-      const rawPlat = gameToPublish.platform || '';
-      const finalPlatform = (rawPlat && rawPlat !== 'Android, iOS, PC' && rawPlat !== 'Chưa rõ') ? String(rawPlat).trim() : '';
+      const rawPlat = gameToPublish.platform || body.platform || '';
+      const finalPlatform = String(rawPlat).trim();
 
       const isCodeMoi = gameToPublish.sourceType === 'codemoi' || (gameToPublish.sourceUrl && gameToPublish.sourceUrl.includes('codemoi.net'));
       let targetIcon = '';
@@ -1378,16 +1383,16 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
         targetIcon = gameToPublish.localIconPath;
       }
 
-      // Đồng bộ toàn bộ mã của game này từ customCodes và d1Codes vào bảng codes trên D1
+      // Đồng bộ toàn bộ mã của game này từ customCodes và d1Codes vào bảng codes trên D1 (B3: Giữ nguyên case phân biệt hoa/thường)
       const codesToSync = [
         ...customCodes.filter((c: any) => c && (String(c.gameSlug || c.slug || c.gameId || '').toLowerCase() === finalSlug)),
         ...d1Codes.filter((c: any) => c && (String(c.gameSlug || c.slug || c.gameId || '').toLowerCase() === finalSlug)),
       ];
 
       for (const c of codesToSync) {
-        const cVal = String(c.code || c.codeValue || c.code_value || c.gift_code || '').trim().toUpperCase();
+        const cVal = String(c.code || c.codeValue || c.code_value || c.gift_code || '').trim();
         if (!cVal) continue;
-        const cId = c.id || `code_${finalSlug}_${cVal}`;
+        const cId = c.id || `code_${finalSlug}_${encodeURIComponent(cVal).replace(/[^a-zA-Z0-9_-]/g, '_')}`;
         const isExp = isCodeExpired(c);
         const expVal = c.expiresAt || c.expires_at || c.expiry || null;
         await env.DB.prepare(`
@@ -1460,18 +1465,18 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
           ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))
           ON CONFLICT(slug) DO UPDATE SET
             name = excluded.name,
-            publisher = excluded.publisher,
-            category = excluded.category,
+            publisher = CASE WHEN excluded.publisher IS NOT NULL AND excluded.publisher != '' THEN excluded.publisher ELSE games.publisher END,
+            category = CASE WHEN excluded.category IS NOT NULL AND excluded.category != '' THEN excluded.category ELSE games.category END,
             rating = excluded.rating,
-            icon_url = excluded.icon_url,
-            banner_url = excluded.banner_url,
-            description = excluded.description,
-            instructions = excluded.instructions,
-            redeem_url = excluded.redeem_url,
-            download_android = excluded.download_android,
-            google_play_url = excluded.google_play_url,
-            app_store_url = excluded.app_store_url,
-            android_package_name = excluded.android_package_name,
+            icon_url = CASE WHEN excluded.icon_url IS NOT NULL AND excluded.icon_url != '' THEN excluded.icon_url ELSE games.icon_url END,
+            banner_url = CASE WHEN excluded.banner_url IS NOT NULL AND excluded.banner_url != '' THEN excluded.banner_url ELSE games.banner_url END,
+            description = CASE WHEN excluded.description IS NOT NULL AND excluded.description != '' THEN excluded.description ELSE games.description END,
+            instructions = CASE WHEN excluded.instructions IS NOT NULL AND excluded.instructions != '' THEN excluded.instructions ELSE games.instructions END,
+            redeem_url = CASE WHEN excluded.redeem_url IS NOT NULL AND excluded.redeem_url != '' THEN excluded.redeem_url ELSE games.redeem_url END,
+            download_android = CASE WHEN excluded.download_android IS NOT NULL AND excluded.download_android != '' THEN excluded.download_android ELSE games.download_android END,
+            google_play_url = CASE WHEN excluded.google_play_url IS NOT NULL AND excluded.google_play_url != '' THEN excluded.google_play_url ELSE games.google_play_url END,
+            app_store_url = CASE WHEN excluded.app_store_url IS NOT NULL AND excluded.app_store_url != '' THEN excluded.app_store_url ELSE games.app_store_url END,
+            android_package_name = CASE WHEN excluded.android_package_name IS NOT NULL AND excluded.android_package_name != '' THEN excluded.android_package_name ELSE games.android_package_name END,
             is_active = 1,
             status = 'ACTIVE',
             active_codes_count = (SELECT COUNT(*) FROM codes WHERE codes.game_slug = games.slug AND (codes.status = 'active' OR codes.status = 'verified') AND (codes.expires_at IS NULL OR codes.expires_at = '' OR codes.expires_at >= date('now'))),
@@ -1897,6 +1902,119 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
           totalCodesAdded,
           totalPendingGames: pendingGames.length,
           results,
+        }),
+        { headers: CORS_HEADERS }
+      );
+    }
+
+    // =========================================================================
+    // ACTION: Cập nhật metadata của mã giftcode đang live (Status, Expiry, Rewards, Case)
+    // =========================================================================
+    if (body && (body.action === 'update_code_metadata' || body.action === 'update_code_status')) {
+      const targetSlug = String(body.gameSlug || body.slug || body.game_slug || body.gameName || '').trim().toLowerCase();
+      const targetCode = String(body.code || body.codeValue || '').trim();
+      if (!targetSlug || !targetCode) {
+        return new Response(
+          JSON.stringify({ success: false, error: 'Thiếu tham số gameSlug hoặc code.' }),
+          { status: 400, headers: CORS_HEADERS }
+        );
+      }
+
+      const rawStatus = body.status !== undefined ? String(body.status).toLowerCase().trim() : undefined;
+      const isExp = rawStatus === 'expired' || rawStatus === 'hết hạn' || rawStatus === 'het han';
+      const newStatus = rawStatus ? (isExp ? 'expired' : 'active') : undefined;
+
+      const rawExp = body.expiresAt !== undefined ? body.expiresAt : (body.expires_at !== undefined ? body.expires_at : undefined);
+      const parsedExp = rawExp !== undefined ? parseExpirationDate(rawExp) : undefined;
+      const formattedExp = parsedExp ? (parsedExp.formatted || (parsedExp.isExpired ? 'Hết hạn' : null)) : undefined;
+
+      const newRewards = body.rewards !== undefined ? String(body.rewards).trim() : (body.description !== undefined ? String(body.description).trim() : undefined);
+
+      let d1UpdatedCount = 0;
+      if (env.DB) {
+        // Cập nhật bảng codes trên D1 (hỗ trợ cả slug và slug-mobile, case-insensitive match)
+        const updateRes: any = await env.DB.prepare(`
+          UPDATE codes SET
+            status = COALESCE(?, status),
+            expires_at = CASE WHEN ? IS NOT NULL THEN ? ELSE expires_at END,
+            rewards = COALESCE(?, rewards),
+            code = ? -- Cập nhật case chuẩn nếu cần
+          WHERE (game_slug = ? OR game_slug = ? OR game_slug = ?) AND UPPER(code) = UPPER(?)
+        `).bind(
+          newStatus || null,
+          formattedExp !== undefined ? formattedExp : null,
+          formattedExp !== undefined ? formattedExp : null,
+          newRewards || null,
+          targetCode,
+          targetSlug,
+          targetSlug.replace(/-mobile$/i, ''),
+          `${targetSlug}-mobile`,
+          targetCode
+        ).run().catch((e: any) => {
+          console.warn('[update_code_metadata] D1 codes update warning:', e);
+          return null;
+        });
+        d1UpdatedCount = updateRes?.meta?.changes || 0;
+
+        // Cập nhật lại số lượng active_codes_count trên games
+        await env.DB.prepare(`
+          UPDATE games SET
+            total_codes_count = (SELECT COUNT(*) FROM codes WHERE codes.game_slug = games.slug),
+            active_codes_count = (SELECT COUNT(*) FROM codes WHERE codes.game_slug = games.slug AND (codes.status = 'active' OR codes.status = 'verified') AND (codes.expires_at IS NULL OR codes.expires_at = '' OR codes.expires_at >= date('now'))),
+            updated_at = datetime('now')
+          WHERE slug = ? OR slug = ? OR slug = ?
+        `).bind(targetSlug, targetSlug.replace(/-mobile$/i, ''), `${targetSlug}-mobile`).run().catch(() => {});
+      }
+
+      // Cập nhật trong KV wcg_admin_custom_free_codes_v1
+      const customCodes: any[] = (await getSettingD1(env.DB, 'wcg_admin_custom_free_codes_v1')) || [];
+      let kvModified = false;
+      const targetUpper = targetCode.toUpperCase();
+      const updatedCustom = customCodes.map((c: any) => {
+        if (!c) return c;
+        const s = String(c.gameSlug || c.slug || c.gameId || '').trim().toLowerCase();
+        const codeVal = String(c.code || c.codeValue || '').trim().toUpperCase();
+        if ((s === targetSlug || s === targetSlug.replace(/-mobile$/i, '') || s === `${targetSlug}-mobile`) && codeVal === targetUpper) {
+          kvModified = true;
+          return {
+            ...c,
+            code: targetCode, // Cập nhật case
+            codeValue: targetCode,
+            status: newStatus ? (newStatus === 'expired' ? 'EXPIRED' : 'ACTIVE') : c.status,
+            is_active: newStatus ? (newStatus !== 'expired') : c.is_active,
+            expiresAt: formattedExp !== undefined ? formattedExp : c.expiresAt,
+            expires_at: formattedExp !== undefined ? formattedExp : c.expires_at,
+            expiry: formattedExp !== undefined ? formattedExp : c.expiry,
+            rewards: newRewards !== undefined ? newRewards : c.rewards,
+            updatedAt: new Date().toISOString(),
+          };
+        }
+        return c;
+      });
+
+      if (kvModified) {
+        await setSettingD1(env.DB, 'wcg_admin_custom_free_codes_v1', updatedCustom);
+      }
+
+      // Xóa cache Edge
+      invalidateGamesCatalogCache();
+      await invalidateCatalogEdgeCache(context as any, request, env, [
+        `https://codegame.shop/api/games?slug=${targetSlug}`,
+        `https://codegame.shop/game/${targetSlug}`,
+      ]).catch(() => {});
+
+      return new Response(
+        JSON.stringify({
+          success: true,
+          action: 'update_code_metadata',
+          gameSlug: targetSlug,
+          code: targetCode,
+          status: newStatus,
+          expiresAt: formattedExp,
+          rewards: newRewards,
+          d1UpdatedCount,
+          kvUpdated: kvModified,
+          message: `Đã cập nhật metadata cho mã "${targetCode}" của game "${targetSlug}" thành công!`
         }),
         { headers: CORS_HEADERS }
       );
@@ -2683,13 +2801,15 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
     // Tạo tập hợp mã code hiện có theo gameSlug để chống trùng lặp (Deduplication) và chống hồi sinh mã hết hạn
     const existingCodeValuesBySlug = new Map<string, Set<string>>();
     const expiredCodeValuesBySlug = new Map<string, Set<string>>();
+    const existingCodeRecordsBySlugAndUpperCode = new Map<string, any>();
 
-    const registerExisting = (list: any[]) => {
+    const registerExisting = (list: any[], sourceLocation: string) => {
       for (const item of list) {
         if (!item) continue;
         const rawSlug = (item.gameSlug || item.game_slug || item.slug || item.gameId || '').toLowerCase().trim();
-        const val = String(item.code || item.codeValue || item.gift_code || '').trim().toUpperCase();
-        if (!rawSlug || !val) continue;
+        const rawCodeStr = String(item.code || item.codeValue || item.gift_code || '').trim();
+        const upperCode = rawCodeStr.toUpperCase();
+        if (!rawSlug || !upperCode) continue;
 
         const aliases = [
           rawSlug,
@@ -2704,19 +2824,41 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
           if (!existingCodeValuesBySlug.has(alias)) {
             existingCodeValuesBySlug.set(alias, new Set());
           }
-          existingCodeValuesBySlug.get(alias)!.add(val);
+          existingCodeValuesBySlug.get(alias)!.add(upperCode);
+
+          if (!existingCodeRecordsBySlugAndUpperCode.has(`${alias}_${upperCode}`)) {
+            existingCodeRecordsBySlugAndUpperCode.set(`${alias}_${upperCode}`, {
+              ...item,
+              code: rawCodeStr,
+              location: sourceLocation,
+            });
+          }
 
           if (isExp) {
             if (!expiredCodeValuesBySlug.has(alias)) {
               expiredCodeValuesBySlug.set(alias, new Set());
             }
-            expiredCodeValuesBySlug.get(alias)!.add(val);
+            expiredCodeValuesBySlug.get(alias)!.add(upperCode);
           }
         }
       }
     };
-    registerExisting(existingCustomCodes);
-    registerExisting(existingCatalogCodes);
+    registerExisting(existingCustomCodes, 'custom_kv');
+    registerExisting(existingCatalogCodes, 'catalog_kv');
+
+    // Nạp thêm từ D1 codes table để đảm bảo 100% khớp dữ liệu live
+    if (env.DB) {
+      try {
+        const d1CodesRes = await env.DB.prepare(
+          'SELECT game_slug, code, rewards, status, expires_at, source FROM codes LIMIT 10000'
+        ).all<any>().catch(() => ({ results: [] as any[] }));
+        if (Array.isArray(d1CodesRes?.results) && d1CodesRes.results.length > 0) {
+          registerExisting(d1CodesRes.results, 'live_catalog_d1');
+        }
+      } catch (d1Err) {
+        console.warn('[IngestCodes D1 preload warning]', d1Err);
+      }
+    }
 
     const newlyAddedCodes: any[] = [];
     const executionResults: any[] = [];
@@ -2986,46 +3128,99 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
       const addedForThisGame: string[] = [];
       const addedUsableForThisGame: string[] = [];
       const duplicateCodes: string[] = [];
+      const duplicateDetails: any[] = [];
+      const updatedMetadataCodes: string[] = [];
 
       // 4.3. LỌC TRÙNG & TẠO BẢN GHI MÃ CODE MỚI
       for (const c of codesToIngest) {
-        const wasKnownExpired = Boolean(expiredCodeValuesBySlug.get(gameSlug)?.has(c.code));
+        const upperCode = c.code.toUpperCase();
+        const wasKnownExpired = Boolean(expiredCodeValuesBySlug.get(gameSlug)?.has(upperCode));
         const isExp = c.isExpired || wasKnownExpired || (c.rawStatus && (String(c.rawStatus).toLowerCase() === 'expired' || String(c.rawStatus).toLowerCase() === 'hết hạn'));
         const codeStatus = isExp ? 'EXPIRED' : 'ACTIVE';
 
-        if (existingCodesSet.has(c.code)) {
+        if (existingCodesSet.has(upperCode)) {
           duplicateCodes.push(c.code);
-          // Nếu mã code đã tồn tại nhưng Muse/Bot gửi thông tin hạn dùng mới -> cập nhật hạn & trạng thái hết hạn tức thì!
+          const existingRec = existingCodeRecordsBySlugAndUpperCode.get(`${gameSlug}_${upperCode}`);
+          duplicateDetails.push({
+            code: c.code,
+            gameSlug,
+            status: existingRec?.status || (wasKnownExpired ? 'expired' : 'active'),
+            rewards: existingRec?.rewards || '',
+            existingLocation: existingRec?.location || 'live_catalog_d1',
+            reason: 'Mã đã tồn tại trên hệ thống'
+          });
+
+          // B4: Cập nhật metadata nếu có thông tin hạn/thưởng/trạng thái mới hoặc cờ updateMetadata
+          const hasNewMeta = Boolean(
+            (c.expiresAt && c.expiresAt !== existingRec?.expires_at) ||
+            (c.rewards && c.rewards !== existingRec?.rewards && c.rewards !== 'Thưởng của NPH') ||
+            (c.rawStatus !== undefined) ||
+            body.updateMetadata ||
+            rawItem.updateMetadata ||
+            (c as any).updateMetadata
+          );
+
+          if (env.DB) {
+            await env.DB.prepare(`
+              UPDATE codes SET
+                status = CASE WHEN ? IS NOT NULL THEN ? ELSE status END,
+                expires_at = CASE WHEN ? IS NOT NULL THEN ? ELSE expires_at END,
+                rewards = CASE WHEN ? IS NOT NULL AND ? != 'Thưởng của NPH' THEN ? ELSE rewards END,
+                code = ? -- B3: Luôn cập nhật lại case chuẩn xác nếu nguồn cung cấp case chuẩn
+              WHERE (game_slug = ? OR game_slug = ?) AND UPPER(code) = ?
+            `).bind(
+              c.rawStatus ? (isExp ? 'expired' : 'active') : null,
+              isExp ? 'expired' : 'active',
+              c.expiresAt ? c.expiresAt : null,
+              c.expiresAt || null,
+              c.rewards || null,
+              c.rewards || null,
+              c.rewards || null,
+              c.code,
+              gameSlug,
+              gameSlug.replace(/-mobile$/i, ''),
+              upperCode
+            ).run().catch(() => {});
+          }
+
+          // Cập nhật trong existingCustomCodes
           const existingIdx = existingCustomCodes.findIndex((ec) =>
             ec &&
             (ec.gameSlug === gameSlug || ec.slug === gameSlug || ec.gameId === gameSlug) &&
-            String(ec.code || ec.codeValue || '').toUpperCase() === c.code
+            String(ec.code || ec.codeValue || '').toUpperCase() === upperCode
           );
           if (existingIdx !== -1) {
             existingCustomCodes[existingIdx] = {
               ...existingCustomCodes[existingIdx],
-              expiresAt: c.expiresAt,
-              expires_at: c.expiresAt,
-              expiry: c.expiresAt,
+              code: c.code, // Cập nhật case
+              codeValue: c.code,
+              expiresAt: c.expiresAt || existingCustomCodes[existingIdx].expiresAt,
+              expires_at: c.expiresAt || existingCustomCodes[existingIdx].expires_at,
+              expiry: c.expiresAt || existingCustomCodes[existingIdx].expiry,
               status: codeStatus,
               is_active: !isExp,
-              rewards: c.rewards || existingCustomCodes[existingIdx].rewards,
+              rewards: (c.rewards && c.rewards !== 'Thưởng của NPH') ? c.rewards : existingCustomCodes[existingIdx].rewards,
               updatedAt: nowIso,
               updated_at: nowIso,
             };
+            stateModified = true;
+          }
+
+          if (hasNewMeta) {
+            updatedMetadataCodes.push(c.code);
             stateModified = true;
           }
           continue;
         }
 
         const newCodeRecord = {
-          id: `code_${gameSlug}_${c.code}`,
+          id: `code_${gameSlug}_${encodeURIComponent(c.code).replace(/[^a-zA-Z0-9_-]/g, '_')}`,
           gameId: gameSlug,
           gameSlug: gameSlug,
           game_slug: gameSlug,
           slug: gameSlug,
           gameName: gameName,
-          code: c.code,
+          code: c.code, // B3: Giữ nguyên case gốc phân biệt hoa/thường!
           codeValue: c.code,
           code_value: c.code,
           gift_code: c.code,
@@ -3053,11 +3248,11 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
           added_at: nowIso,
         };
 
-        existingCodesSet.add(c.code);
+        existingCodesSet.add(upperCode);
         existingCodeValuesBySlug.set(gameSlug, existingCodesSet);
         if (isExp) {
           const expSet = expiredCodeValuesBySlug.get(gameSlug) || new Set<string>();
-          expSet.add(c.code);
+          expSet.add(upperCode);
           expiredCodeValuesBySlug.set(gameSlug, expSet);
         } else {
           addedUsableForThisGame.push(c.code);
@@ -3169,9 +3364,12 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
         receivedCount: codesToIngest.length,
         addedCount: addedForThisGame.length,
         duplicateCount: duplicateCodes.length,
+        updatedMetadataCount: updatedMetadataCodes.length,
         droppedCount: itemDroppedCodes.length,
         addedCodes: addedForThisGame,
         duplicateCodes,
+        duplicateDetails,
+        updatedMetadataCodes,
         droppedCodes: itemDroppedCodes,
       });
     }
@@ -3304,9 +3502,9 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
         const codeStmts = [];
         for (const nc of newlyAddedCodes) {
           const s = String(nc.gameSlug || nc.slug || nc.gameId || '').trim().toLowerCase();
-          const c = String(nc.code || nc.codeValue || '').trim().toUpperCase();
+          const c = String(nc.code || nc.codeValue || '').trim(); // B3: Giữ nguyên case phân biệt hoa/thường!
           if (!s || !c) continue;
-          const id = nc.id || `code_${s}_${c}`;
+          const id = nc.id || `code_${s}_${encodeURIComponent(c).replace(/[^a-zA-Z0-9_-]/g, '_')}`;
           const rewards = nc.rewards || nc.description || 'Quà tân thủ & vật phẩm ingame';
           const isExp = isCodeExpired(nc);
           const status = nc.status === 'expired' || isExp ? 'expired' : 'active';
@@ -3458,6 +3656,7 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
           botName: auth.botName,
           totalAdded,
           totalDuplicates,
+          totalUpdatedMetadata: executionResults.reduce((acc, r) => acc + (r.updatedMetadataCount || 0), 0),
           totalDroppedCodes: allDroppedCodes.length,
           totalInstructionsUpdated,
           autoPublishedGamesCount: autoPublishedCount,
