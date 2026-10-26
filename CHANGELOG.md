@@ -7,6 +7,38 @@ Mỗi mục sửa lỗi đều ghi nhận **Nguyên nhân gốc rễ (Root Cause
 
 ## [2026-10-26]
 
+### 211. Xóa Vĩnh Viễn Game Test Khỏi D1 & Live Catalog, Chặn Tái Diễn Tự Động Publish Game Test
+- **Bối cảnh & Báo cáo sự cố**:
+  - Người dùng phát hiện game test do harness kiểm chứng tạo ra bị lọt lên catalog live trên `codegame.shop`:
+    - Tên: `Test Audit Pending Game 1792947779302`
+    - Slug: `test-audit-1792947779302`
+    - Nhà phát hành: `Test Studio Audit`
+    - Số mã: 1
+    - Vị trí: Hiển thị ngay trên trang chủ (thẻ đầu tiên khi chọn lọc "Mới ra mắt"), đẩy tổng số game từ 563 lên 564.
+- **Nguyên nhân gốc rễ (Root Cause)**:
+  1. *Harness kiểm chứng kích hoạt Auto-Publish*: Trong `scripts/verify_codes_integrity_audit.cjs` (bước 5.2–5.4 cũ), script tạo game test trong hàng chờ duyệt (`pending_games`), sau đó gọi endpoint `/api/crawler/ingest-codes` với mã test `TESTPUB...`. Do `ingest-codes.ts` có cơ chế tự động publish (`autoPublished = true`) khi có mã mới, game test đã bị chèn trực tiếp vào bảng `games` của D1 SQL và danh sách game hoạt động.
+  2. *Khối `finally` thiếu lệnh xóa trong D1 SQL*: Trong khối dọn dẹp `finally` của `verify_codes_integrity_audit.cjs`, script chỉ xóa game test trong KV settings (`wcg_admin_games_v5`) và gọi `cleanup_test_codes`. Không có câu lệnh SQL nào xóa bản ghi game trong bảng `games` của D1, dẫn đến game test nằm vĩnh viễn trong D1 và xuất hiện trên Live Catalog.
+  3. *Thiếu bộ lọc chặn test game ở API Publish & Ingest*: Backend chưa có điều kiện cấm auto-publish đối với các game có tiền tố test (`slug.startsWith('test-')`, `name.startsWith('Test ')`, `developer.startsWith('Test Studio')`).
+- **Giải pháp triển khai (Solution)**:
+  1. *Thêm Action Xóa Game Chuẩn Mực trong API Edge Worker (`functions/api/crawler/ingest-codes.ts` & `functions/api/sync.ts`)*:
+     - Thêm action `delete_game` và `delete_game_d1`: Thực thi SQL `DELETE FROM games WHERE slug = ?` và `DELETE FROM codes WHERE game_slug = ?`, đồng thời dọn dẹp KV và xóa Edge cache.
+     - Nâng cấp action `cleanup_test_codes` và `cleanup_test_artifacts`: Tự động quét và xóa sạch mọi bản ghi test trong cả 2 bảng D1 `games` và `codes`:
+       `DELETE FROM games WHERE slug LIKE 'test-%' OR name LIKE 'Test %' OR publisher LIKE 'Test Studio%'`
+     - Bổ sung chốt chặn an toàn trong `publish_game` và luồng `autoPublished`: Ngăn chặn 100% việc publish bất kỳ game test nào lên live catalog.
+  2. *Thực thi xóa trực tiếp trên Live Production*:
+     - Gọi `delete_game` và `cleanup_test_codes` trên `https://codegame.shop`.
+     - Xác nhận xóa thành công: `deletedGames: 1`, game `test-audit-1792947779302` đã bị xóa hoàn toàn khỏi D1 và Live Catalog.
+     - Kiểm chứng: Tìm kiếm "Test Audit" trả về `total: 0`, tổng số game trang chủ trở về chính xác 563 game.
+  3. *Tái cấu trúc Harness Kiểm Chứng Chống Tái Diễn (`scripts/verify_codes_integrity_audit.cjs`)*:
+     - Bước 5 chỉ thao tác trong Hàng Chờ Duyệt (`update_pending_game`), tuyệt đối không gọi publish hay nạp mã gây auto-publish lên live.
+     - Khối `finally` gọi đầy đủ: `cleanup_test_artifacts`, `cleanup_test_codes`, `delete_game`, và `delete_pending_game`.
+     - Thêm Bước `[7/7] Quét & Dọn Sạch Test Artifacts trên Live Catalog (Rule 7 Gatekeeper)`: Quét toàn bộ live catalog ở cuối đợt audit, nếu phát hiện bất kỳ test game nào sẽ tự động xóa sạch ngay lập tức và báo cáo.
+  4. *Cập nhật Pre-build Audit (`scripts/audit_zero_test_artifacts.cjs`)*:
+     - Thêm Bước `[5/5] Kiểm tra games188.json (Kho Tựa Game)`: Chặn build nếu phát hiện bất kỳ game test nào trong catalog tĩnh.
+- **Kiểm thử & Xác minh**:
+  - Chạy lại toàn bộ `scripts/verify_codes_integrity_audit.cjs`: Cả 7 bước kiểm toán đều đạt 100%, 0 game test xuất hiện trên live catalog.
+  - `npm.cmd run build`: 5/5 bài kiểm tra Zero Test Artifacts thành công, biên dịch Vite và Edge Worker thành công 100%.
+
 ### 210. Cài Đặt Sinh Số Ngẫu Nhiên, Khoảng Dao Động & Động Cơ Tăng Trưởng Realtime Cho Thứ Tự Hiển Thị & Số Người Canh Game Sắp Ra Mắt
 - **Bối cảnh & Yêu cầu người dùng**:
   - Người dùng yêu cầu cho Thứ Tự Hiển Thị (Display Order): Cho sinh số ngẫu nhiên, cài đặt khoảng dao động, và bổ sung mục tăng trưởng Thứ Tự Hiển Thị theo thời gian có thể cài đặt.

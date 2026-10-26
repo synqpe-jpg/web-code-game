@@ -10,6 +10,23 @@
 
 ## 1. DANH MỤC LỖI & CÁC BẪY ĐÃ THẤT BẠI (DO NOT REPEAT)
 
+### ISSUE-134: Bẫy Lọt Game Test Lên Live Catalog Do Auto-Publish Trong Harness Kiểm Chứng
+- **Triệu chứng**:
+  - Game test `Test Audit Pending Game 1792947779302` (slug `test-audit-1792947779302`) xuất hiện trên trang chủ `codegame.shop` ở mục "Mới ra mắt", làm tổng số game tăng từ 563 lên 564.
+  - Tìm kiếm công khai trả về game test.
+- **Nguyên nhân gốc rễ (Root Cause)**:
+  1. *Auto-Publish ngoài ý muốn*: Script test `verify_codes_integrity_audit.cjs` gọi API nạp mã cho game trong hàng chờ, kích hoạt cờ `autoPublished = true` trong `ingest-codes.ts`, đẩy bản ghi vào D1 `games`.
+  2. *Dọn dẹp thiếu tầng D1 SQL*: Khối `finally` của harness chỉ xóa trong bộ nhớ KV mà không gọi SQL `DELETE FROM games` trên D1.
+  3. *Thiếu bộ lọc Guard cấm publish game test*: Cả hàm `publish_game` lẫn khối `autoPublished` không kiểm tra xem game có phải là đối tượng test hay không.
+- **Giải pháp chuẩn đã kiểm chứng**:
+  1. *Cung cấp endpoint xóa SQL D1 có thẩm quyền*: Tích hợp action `delete_game` và `cleanup_test_artifacts` vào `ingest-codes.ts` và `sync.ts` để có thể xóa sạch game test trong D1 một cách nguyên tử.
+  2. *Thêm chốt chặn `!isTestGame`*: Bất kỳ slug bắt đầu bằng `test-` hoặc tên `Test ` đều bị từ chối publish lên live catalog.
+  3. *Harness kiểm chứng tuân thủ Rule 7*: Các bài test pending games không được nạp mã kích hoạt auto-publish; khối `finally` luôn xóa cả KV lẫn D1 SQL; bổ sung bước quét Gatekeeper ở cuối mỗi lần chạy kiểm chứng.
+  4. *Pre-build audit quét catalog tĩnh*: Tích hợp bước kiểm tra `games188.json` vào `audit_zero_test_artifacts.cjs`.
+- ⛔ **CÁCH SỬA ĐÃ THẤT BẠI - TUYỆT ĐỐI KHÔNG LẶP LẠI**:
+  - ❌ *Không bao giờ chạy harness test tạo thực thể trên Live mà chỉ dọn dẹp ở một tầng (chỉ dọn KV mà bỏ quên D1)*: Phải dọn dẹp đồng bộ ở cả KV và D1 SQL.
+  - ❌ *Không để logic auto-publish tự do publish các thực thể mang tiền tố `test-`*: Luôn kiểm tra `isTestGame` trước khi insert vào bảng `games`.
+
 ### ISSUE-133: Bẫy TypeError Khi Gọi Hàm Chưa Khai Báo Trong Toast Loop & Bẫy 0/563 Game Trống Link Store
 - **Triệu chứng**:
   - Không có bất kỳ toast nhỏ nào xuất hiện ở góc màn hình trong suốt 125 giây (kể cả sau khi đóng popup chào mừng giữa màn hình).

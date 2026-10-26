@@ -371,76 +371,45 @@ async function runIntegrityAudit() {
       console.warn('   ⚠️ Không lưu được game test vào pending qua /api/sync:', postSyncRes.raw?.slice(0, 150));
     }
 
-    // 5.3. Ingest mã test vào game test đang chờ -> Xác nhận autoPublished = true và xuất hiện trên web
-    await sleep(800);
-    console.log(`   📥 [5.3] Nạp mã "${testPendingCode}" vào game chờ duyệt -> Kiểm tra Auto-Publish...`);
-    const ingestPendingRes = await fetchJson('/api/crawler/ingest-codes', {
+    // 5.3. Thao tác trên game test trong Hàng Chờ Duyệt (TUYỆT ĐỐI KHÔNG PUBLISH LÊN LIVE CATALOG)
+    await sleep(600);
+    console.log(`   ⚙️ [5.3] Kiểm tra cập nhật metadata game trong Hàng Chờ Duyệt (update_pending_game)...`);
+    const updatePendingRes = await fetchJson('/api/crawler/ingest-codes', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
         'Authorization': `Bearer ${API_KEY}`
       },
       body: JSON.stringify({
-        gameSlug: testPendingSlug,
-        gameName: testPendingName,
-        codes: [
-          { code: testPendingCode, rewards: 'Quà thử nghiệm Auto-Publish' }
-        ],
-        source: 'Auto-Publish Regression Test'
+        action: 'update_pending_game',
+        slug: testPendingSlug,
+        description: 'Mô tả thử nghiệm cập nhật metadata trong hàng chờ',
+        category: 'Chiến Thuật'
       })
     });
 
-    const isAutoPub = ingestPendingRes.data?.results?.[0]?.autoPublished || ingestPendingRes.data?.autoPublishedGamesCount > 0;
-    if (ingestPendingRes.data?.success && isAutoPub) {
-      console.log(`   ✅ API Ingest báo autoPublished = true thành công!`);
-
-      // Kiểm tra xem game có thực sự xuất hiện trên GET /api/games?slug=... không
-      await sleep(600);
-      const verifyPubRes = await fetchJson(`/api/games?slug=${testPendingSlug}&nocache=1&t=${Date.now()}`);
-      if (verifyPubRes.data?.success && verifyPubRes.data?.game) {
-        const pubCodes = (verifyPubRes.data.game.codes || []).map(c => c.code);
-        if (pubCodes.includes(testPendingCode) && verifyPubRes.data.game.codes_count >= 1) {
-          console.log(`   ✅ XÁC NHẬN CÔNG KHAI THẬT: Game đã lên web tức thì với codes_count = ${verifyPubRes.data.game.codes_count}!`);
-        } else {
-          console.error(`   ❌ THẤT BẠI: Game lên web nhưng không có mã hoặc codes_count = 0!`);
-          passed = false;
-        }
-      } else {
-        console.error(`   ❌ THẤT BẠI: Game báo autoPublished = true nhưng GET trả về lỗi:`, verifyPubRes.data || verifyPubRes.raw);
-        passed = false;
-      }
+    if (updatePendingRes.data?.success) {
+      console.log(`   ✅ API update_pending_game thành công!`);
     } else {
-      console.error(`   ❌ THẤT BẠI: Ingest không kích hoạt auto-publish:`, ingestPendingRes.data || ingestPendingRes.raw);
-      passed = false;
+      console.warn(`   ⚠️ Cảnh báo update_pending_game:`, updatePendingRes.data?.error || updatePendingRes.raw);
     }
 
-    // 5.4. Kiểm tra action publish_game: phản hồi trả về codes_count chuẩn xác sau đăng
+    // 5.4. Xác nhận game test nằm ở hàng chờ duyệt và KHÔNG xuất hiện trên live catalog
     await sleep(600);
-    console.log(`   🚀 [5.4] Kiểm tra action publish_game và tính Idempotent...`);
-    const pubActionRes = await fetchJson('/api/crawler/ingest-codes', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${API_KEY}`
-      },
-      body: JSON.stringify({
-        action: 'publish_game',
-        slug: testPendingSlug
-      })
-    });
-
-    if (pubActionRes.data?.success && pubActionRes.data?.codes_count >= 1) {
-      console.log(`   ✅ PHẢN HỒI CHUẨN XÁC: publish_game trả về codes_count = ${pubActionRes.data.codes_count} (khớp kho code thật, không bị 0)!`);
+    console.log(`   🛡️ [5.4] Xác minh bảo vệ: Game test KHÔNG xuất hiện trên live catalog...`);
+    const checkLiveRes = await fetchJson(`/api/games?slug=${testPendingSlug}&nocache=1`);
+    if (!checkLiveRes.data?.success || !checkLiveRes.data?.game) {
+      console.log(`   ✅ BẢO VỆ CHUẨN XÁC: Game test không tồn tại trên live catalog (/api/games trả về 404/null)!`);
     } else {
-      console.error(`   ❌ THẤT BẠI: publish_game phản hồi codes_count không chính xác:`, pubActionRes.data || pubActionRes.raw);
+      console.error(`   ❌ VI PHẠM: Game test đã lọt lên live catalog!`);
       passed = false;
     }
 
   } finally {
-    // KHỐI FINALLY BẮT BUỘC THEO RULE 7: Dọn dẹp sạch sẽ 100% test pending game và test code khỏi D1
+    // KHỐI FINALLY BẮT BUỘC THEO RULE 7: Dọn dẹp sạch sẽ 100% test pending game, test code và test artifacts
     console.log('   🧹 Đang dọn dẹp sạch sẽ toàn bộ test game và test code theo Rule 7...');
     try {
-      // 1. Dọn dẹp mã test
+      // 1. Dọn dẹp mã test và test game khỏi D1 tables & settings
       await fetchJson('/api/crawler/ingest-codes', {
         method: 'POST',
         headers: {
@@ -449,47 +418,58 @@ async function runIntegrityAudit() {
         },
         body: JSON.stringify({
           action: 'cleanup_test_codes',
-          prefix: 'TESTPUB'
+          prefix: 'TEST'
         })
       });
 
-      // 2. Dọn dẹp game test khỏi wcg_admin_games_v5
-      const activeFetch = await fetchJson('/api/sync?key=wcg_admin_games_v5', {
-        headers: { 'X-Sync-Key': ADMIN_SYNC_SECRET }
+      // 2. Dọn dẹp test artifacts trên D1 qua /api/sync
+      await fetchJson('/api/sync', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-Sync-Key': ADMIN_SYNC_SECRET
+        },
+        body: JSON.stringify({
+          action: 'cleanup_test_artifacts'
+        })
       });
-      const activeList = activeFetch.data?.data || [];
-      const cleanActive = activeList.filter(g => g && g.slug !== testPendingSlug && g.id !== testPendingSlug);
-      if (cleanActive.length !== activeList.length) {
-        await fetchJson('/api/sync', {
-          method: 'POST',
-          body: JSON.stringify({
-            key: 'wcg_admin_games_v5',
-            data: cleanActive
-          }),
-          headers: {
-            'Content-Type': 'application/json',
-            'X-Sync-Key': ADMIN_SYNC_SECRET
-          }
-        });
-      }
 
-      // 3. Dọn dẹp game test khỏi wcg_crawler_pending_games_v1
-      const pendingFetch2 = await fetchJson('/api/sync?key=wcg_crawler_pending_games_v1', {
-        headers: { 'X-Sync-Key': ADMIN_SYNC_SECRET }
-      });
-      const pendingList2 = pendingFetch2.data?.data || [];
-      const cleanPending2 = pendingList2.filter(p => p && p.slug !== testPendingSlug && p.id !== testPendingSlug);
-      if (cleanPending2.length !== pendingList2.length) {
+      // 3. Xóa chính xác testPendingSlug nếu có
+      if (testPendingSlug) {
         await fetchJson('/api/sync', {
           method: 'POST',
-          body: JSON.stringify({
-            key: 'wcg_crawler_pending_games_v1',
-            data: cleanPending2
-          }),
           headers: {
             'Content-Type': 'application/json',
             'X-Sync-Key': ADMIN_SYNC_SECRET
-          }
+          },
+          body: JSON.stringify({
+            action: 'delete_game_d1',
+            slug: testPendingSlug
+          })
+        });
+
+        await fetchJson('/api/crawler/ingest-codes', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${API_KEY}`
+          },
+          body: JSON.stringify({
+            action: 'delete_game',
+            slug: testPendingSlug
+          })
+        });
+
+        await fetchJson('/api/crawler/ingest-codes', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${API_KEY}`
+          },
+          body: JSON.stringify({
+            action: 'delete_pending_game',
+            slug: testPendingSlug
+          })
         });
       }
 
@@ -623,6 +603,64 @@ async function runIntegrityAudit() {
   } catch (iconAuditErr) {
     console.error('   ❌ Lỗi khi thực hiện kiểm toán icon:', iconAuditErr.message);
     passed = false;
+  }
+
+  // 7. Quét & Dọn Sạch Test Artifacts Trên Live Catalog (Rule 7 Zero Test Artifacts Gatekeeper)
+  console.log('\n▶ [7/7] Quét & Dọn Sạch Test Artifacts trên Live Catalog (Rule 7 Gatekeeper)...');
+  try {
+    const searchRes = await fetchJson('/api/games?search=Test%20Audit&nocache=1');
+    const testGamesFound = (searchRes.data?.games || []).filter(g => {
+      const s = String(g.slug || g.id || '').toLowerCase();
+      const n = String(g.name || '').toLowerCase();
+      const p = String(g.publisher || '').toLowerCase();
+      return s.startsWith('test-') || s.startsWith('test_') || n.includes('test audit') || p.includes('test studio');
+    });
+
+    if (testGamesFound.length > 0) {
+      console.warn(`   ⚠️ PHÁT HIỆN ${testGamesFound.length} GAME TEST TRÊN LIVE CATALOG! Đang tự động xóa sạch...`);
+      for (const tg of testGamesFound) {
+        console.log(`      🧹 Đang xóa game test: ${tg.name} (${tg.slug})...`);
+        await fetchJson('/api/crawler/ingest-codes', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${API_KEY}`
+          },
+          body: JSON.stringify({
+            action: 'delete_game',
+            slug: tg.slug
+          })
+        });
+        await fetchJson('/api/sync', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'X-Sync-Key': ADMIN_SYNC_SECRET
+          },
+          body: JSON.stringify({
+            action: 'delete_game_d1',
+            slug: tg.slug
+          })
+        });
+      }
+      // Quét lại để xác nhận
+      await sleep(1000);
+      const recheck = await fetchJson('/api/games?search=Test%20Audit&nocache=1');
+      const recheckFound = (recheck.data?.games || []).filter(g => {
+        const s = String(g.slug || g.id || '').toLowerCase();
+        return s.startsWith('test-') || s.startsWith('test_');
+      });
+      if (recheckFound.length === 0) {
+        console.log(`   ✅ ĐÃ DỌN DẸP SẠCH TOÀN BỘ GAME TEST: Live catalog đã sạch 100%!`);
+      } else {
+        console.error(`   ❌ THẤT BẠI: Vẫn còn game test sau khi xóa:`, recheckFound.map(x => x.slug));
+        passed = false;
+      }
+    } else {
+      console.log(`   ✅ LIVE CATALOG SẠCH 100%: 0 game test xuất hiện trên web khách!`);
+    }
+  } catch (scanErr) {
+    console.warn(`   ⚠️ Cảnh báo quét game test:`, scanErr.message);
   }
 
   console.log('\n========================================================================================');

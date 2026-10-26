@@ -807,6 +807,7 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
       { action: 'update_instructions', description: 'Cập nhật hướng dẫn nhập code và link redeem của game' },
       { action: 'list_pending_games', description: 'Lấy toàn bộ danh sách game chưa đăng lên web khách (hỗ trợ limit, offset)' },
       { action: 'publish_game', description: 'Chuyển một game từ hàng chờ sang đã đăng công khai theo slug hoặc id (idempotent)' },
+      { action: 'delete_game', description: 'Xóa vĩnh viễn game và mã khỏi D1 tables và Live Catalog theo slug hoặc id' },
       { action: 'list_pending_codes', description: 'Lấy toàn bộ mã giftcode đang chờ duyệt (hỗ trợ limit, offset)' },
       { action: 'approve_codes', description: 'Duyệt mảng mã chờ duyệt (ids: string[]) và kích hoạt lên web khách' },
       { action: 'reject_codes', description: 'Từ chối và loại bỏ mảng mã khỏi hàng chờ duyệt (ids: string[])' },
@@ -993,7 +994,7 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
 
   const writeActions = [
     'update_marketing_config', 'save_marketing_config', 'test_trigger',
-    'ingest_codes', 'queue_game', 'publish_game', 'approve_codes', 'reject_codes',
+    'ingest_codes', 'queue_game', 'publish_game', 'delete_game', 'delete_game_d1', 'approve_codes', 'reject_codes',
     'update_instructions', 'cleanup_test_codes', 'delete_pending_game'
   ];
 
@@ -1308,6 +1309,21 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
         return new Response(
           JSON.stringify({ success: false, error: `Không tìm thấy game với slug hoặc id "${targetSlug}" trong hàng chờ duyệt.` }),
           { status: 404, headers: CORS_HEADERS }
+        );
+      }
+
+      // Chặn TUYỆT ĐỐI không bao giờ cho phép xuất bản game test/audit lên live catalog
+      const isTestSlug = targetSlug.startsWith('test-') ||
+                         targetSlug.startsWith('test_') ||
+                         String(gameToPublish.name || '').toLowerCase().startsWith('test ') ||
+                         String(gameToPublish.developer || gameToPublish.publisher || '').toLowerCase().includes('test studio');
+      if (isTestSlug) {
+        return new Response(
+          JSON.stringify({
+            success: false,
+            error: `CHẶN AN TOÀN: Game test "${gameToPublish.name || targetSlug}" không bao giờ được phép xuất bản lên live catalog!`,
+          }),
+          { status: 400, headers: CORS_HEADERS }
         );
       }
 
@@ -2203,24 +2219,41 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
       const removedCount = beforeCount - cleanCustomCodes.length;
 
       let dbDeletedCount = 0;
+      let dbDeletedGamesCount = 0;
       if (env.DB) {
         try {
-          const dbRes: any = await env.DB.prepare('DELETE FROM codes WHERE UPPER(code) LIKE ?').bind(`${prefix}%`).run();
-          dbDeletedCount = dbRes?.meta?.changes || 0;
+          const dbCodesRes: any = await env.DB.prepare("DELETE FROM codes WHERE UPPER(code) LIKE ? OR game_slug LIKE 'test-%' OR game_slug LIKE 'test_%'").bind(`${prefix}%`).run();
+          dbDeletedCount = dbCodesRes?.meta?.changes || 0;
+
+          const dbGamesRes: any = await env.DB.prepare("DELETE FROM games WHERE slug LIKE 'test-%' OR slug LIKE 'test_%' OR id LIKE 'test-%' OR id LIKE 'test_%' OR name LIKE 'Test %' OR publisher LIKE 'Test Studio%'").run();
+          dbDeletedGamesCount = dbGamesRes?.meta?.changes || 0;
+
           await env.DB.prepare(`
             UPDATE games 
             SET active_codes_count = (SELECT COUNT(*) FROM codes WHERE codes.game_slug = games.slug AND (codes.expires_at IS NULL OR codes.expires_at > datetime('now'))),
                 total_codes_count = (SELECT COUNT(*) FROM codes WHERE codes.game_slug = games.slug)
           `).run().catch(() => {});
         } catch (dbErr) {
-          console.warn('[Cleanup] Lỗi dọn dẹp codes table D1:', dbErr);
+          console.warn('[Cleanup] Lỗi dọn dẹp codes/games table D1:', dbErr);
         }
       }
 
-      if (removedCount > 0 || dbDeletedCount > 0) {
+      if (removedCount > 0 || dbDeletedCount > 0 || dbDeletedGamesCount > 0) {
         if (removedCount > 0) {
           await setSettingD1(env.DB, 'wcg_admin_custom_free_codes_v1', cleanCustomCodes);
         }
+        // Dọn dẹp active games settings nếu còn sót test game
+        const activeGamesRaw = Array.isArray(settings['wcg_admin_games_v5']) ? [...settings['wcg_admin_games_v5']] : [];
+        const cleanActiveGames = activeGamesRaw.filter((g: any) => {
+          const s = String(g.slug || g.id || '').toLowerCase();
+          const n = String(g.name || '').toLowerCase();
+          const p = String(g.publisher || '').toLowerCase();
+          return !s.startsWith('test-') && !s.startsWith('test_') && !n.startsWith('test ') && !p.startsWith('test studio');
+        });
+        if (cleanActiveGames.length !== activeGamesRaw.length) {
+          await setSettingD1(env.DB, 'wcg_admin_games_v5', cleanActiveGames);
+        }
+
         invalidateGamesCatalogCache();
         await invalidateCatalogEdgeCache(context as any, request, env).catch(() => {});
       }
@@ -2340,6 +2373,64 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
         removedGamesCount: pendingGamesRaw.length - filteredGames.length,
         removedCodesCount: pendingCodesRaw.length - filteredCodes.length,
       }), { headers: CORS_HEADERS });
+    }
+
+    // Xử lý action đặc biệt: Xóa game hoàn toàn khỏi catalog live (D1 games + codes + settings wcg_admin_games_v5)
+    if (body && (body.action === 'delete_game' || body.action === 'delete_game_d1')) {
+      const targetSlug = String(body.slug || body.id || '').trim().toLowerCase();
+      if (!targetSlug) {
+        return new Response(JSON.stringify({ success: false, error: 'Thiếu slug hoặc id game cần xóa' }), { status: 400, headers: CORS_HEADERS });
+      }
+
+      let deletedCodes = 0;
+      let deletedGames = 0;
+      if (env.DB) {
+        try {
+          const cRes: any = await env.DB.prepare('DELETE FROM codes WHERE game_slug = ? OR game_slug = ?').bind(targetSlug, targetSlug.replace(/-mobile$/, '')).run();
+          deletedCodes = cRes?.meta?.changes || 0;
+
+          const gRes: any = await env.DB.prepare('DELETE FROM games WHERE slug = ? OR id = ? OR slug = ?').bind(targetSlug, targetSlug, targetSlug.replace(/-mobile$/, '')).run();
+          deletedGames = gRes?.meta?.changes || 0;
+        } catch (err: any) {
+          console.warn('[DeleteGame] Lỗi SQL D1:', err);
+        }
+      }
+
+      // Xóa khỏi wcg_admin_games_v5
+      const freshActive = await getSettingD1(env.DB, 'wcg_admin_games_v5', []);
+      if (Array.isArray(freshActive)) {
+        const cleanActive = freshActive.filter((g: any) => g && g.slug !== targetSlug && g.id !== targetSlug);
+        if (cleanActive.length !== freshActive.length) {
+          await setSettingD1(env.DB, 'wcg_admin_games_v5', cleanActive);
+        }
+      }
+
+      // Xóa khỏi wcg_crawler_pending_games_v1
+      const freshPending = await getSettingD1(env.DB, 'wcg_crawler_pending_games_v1', []);
+      if (Array.isArray(freshPending)) {
+        const cleanPending = freshPending.filter((g: any) => g && g.slug !== targetSlug && g.id !== targetSlug);
+        if (cleanPending.length !== freshPending.length) {
+          await setSettingD1(env.DB, 'wcg_crawler_pending_games_v1', cleanPending);
+        }
+      }
+
+      invalidateGamesCatalogCache();
+      await invalidateCatalogEdgeCache(context as any, request, env, [
+        `https://codegame.shop/api/games?slug=${targetSlug}`,
+        `https://codegame.shop/api/games?id=${targetSlug}`,
+        new URL(`/api/games?slug=${targetSlug}`, request.url).toString(),
+        `https://codegame.shop/game/${targetSlug}`,
+      ]).catch(() => {});
+
+      return new Response(
+        JSON.stringify({
+          success: true,
+          message: `Đã xóa vĩnh viễn game "${targetSlug}" (${deletedGames} bản ghi game, ${deletedCodes} mã code) khỏi D1 và Live Catalog!`,
+          deletedGames,
+          deletedCodes
+        }),
+        { headers: CORS_HEADERS }
+      );
     }
 
     // Xử lý action đặc biệt: Đồng bộ toàn bộ hướng dẫn nhập code từ wcg_admin_games_v5 vào bảng games D1
@@ -2978,8 +3069,15 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
       }
 
       // 4.4. NẾU GAME NẰM TRONG HÀNG CHỜ DUYỆT (CHƯA CÓ CODE TRƯỚC ĐÓ) -> TỰ ĐỘNG XUẤT BẢN LÊN WEB KHÁCH!
+      // CHẶN TUYỆT ĐỐI KHÔNG AUTO-PUBLISH GAME TEST/AUDIT LÊN LIVE CATALOG
       let wasAutoPublished = false;
-      if (source === 'pending' && addedForThisGame.length > 0) {
+      const isTestGame = String(gameSlug).toLowerCase().startsWith('test-') ||
+                         String(gameSlug).toLowerCase().startsWith('test_') ||
+                         String(gameName).toLowerCase().startsWith('test ') ||
+                         String(gameName).toLowerCase().includes('test audit') ||
+                         String(rawItem.developer || '').toLowerCase().includes('test studio');
+
+      if (source === 'pending' && addedForThisGame.length > 0 && !isTestGame) {
         const pendingIdx = pendingGamesList.findIndex((p) => p && (p.slug === gameSlug || p.id === gameSlug));
         if (pendingIdx !== -1) {
           const pGame = pendingGamesList[pendingIdx];

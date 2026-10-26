@@ -77,14 +77,29 @@ assert(vip7d && vip7d.stock_quantity === 8, 'ut_vs_05_vip_7d must have stock_qua
 console.log('   ✅ utilities.json sạch 100% (18 tiện ích người dùng, ut_vs_05_vip_7d còn 8, 0 mục test).');
 
 // 4. Audit src/data/crawled_codes_188.json
-console.log('▶ [4/4] Kiểm tra crawled_codes_188.json (Kho Giftcode)...');
+console.log('▶ [4/5] Kiểm tra crawled_codes_188.json (Kho Giftcode)...');
 const codes = JSON.parse(fs.readFileSync(path.join(__dirname, '../src/data/crawled_codes_188.json'), 'utf8'));
 const badCodes = codes.filter(c => KNOWN_TEST_IDS.has(c.id) || (c.code && (c.code.includes('VAULTBRE') || c.code.includes('EXCL-2026'))));
 if (badCodes.length > 0) {
   console.error('❌ LỖI NGHIÊM TRỌNG: Phát hiện giftcode test trong crawled_codes_188.json:', badCodes.map(c => ({ id: c.id, code: c.code })));
   process.exit(1);
 }
-console.log(`   ✅ crawled_codes_188.json sạch 100% (${codes.length} giftcode thực tế, 0 mã test).\n`);
+console.log(`   ✅ crawled_codes_188.json sạch 100% (${codes.length} giftcode thực tế, 0 mã test).`);
+
+// 5. Audit src/data/games188.json
+console.log('▶ [5/5] Kiểm tra games188.json (Kho Tựa Game)...');
+const gamesCatalog = JSON.parse(fs.readFileSync(path.join(__dirname, '../src/data/games188.json'), 'utf8'));
+const badGames = gamesCatalog.filter(g => {
+  const s = String(g.slug || g.id || '').toLowerCase();
+  const n = String(g.name || '').toLowerCase();
+  const p = String(g.publisher || '').toLowerCase();
+  return s.startsWith('test-') || s.startsWith('test_') || n.includes('test audit') || p.includes('test studio');
+});
+if (badGames.length > 0) {
+  console.error('❌ LỖI NGHIÊM TRỌNG: Phát hiện game test trong games188.json:', badGames.map(g => ({ id: g.id, name: g.name })));
+  process.exit(1);
+}
+console.log(`   ✅ games188.json sạch 100% (${gamesCatalog.length} tựa game thực tế, 0 game test).\n`);
 
 console.log('================================================================');
 console.log('🎉 AUDIT THÀNH CÔNG: KHÔNG CÓ BẤT KỲ SẢN PHẨM HOẶC DỮ LIỆU TEST NÀO!');

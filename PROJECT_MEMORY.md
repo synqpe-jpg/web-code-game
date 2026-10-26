@@ -162,6 +162,19 @@
 - **Đồng bộ API Crawler/Ingest**:
   - Endpoint Cloudflare Pages /api/crawler/ingest-upcoming-games lưu giữ trọn vẹn toàn bộ các trường cấu hình dao động và tăng trưởng vào D1.
 
+### 3.11. Cơ Chế Chống Rò Rỉ Dữ Liệu Test (Zero Test Artifacts) & Quản Lý Xóa D1 Từ Xa
+- **Nguyên tắc cốt lõi (Rule 7)**:
+  - Mọi game test, giftcode test phát sinh từ các script kiểm thử hoặc audit bắt buộc phải được dọn sạch 100% trong khối `finally`.
+  - Nghiêm cấm auto-publish các thực thể mang tiền tố test (`slug.startsWith('test-')`, `name.startsWith('Test ')`, `developer.startsWith('Test Studio')`).
+- **Endpoint Quản Trị Xóa SQL Từ Xa (Remote D1 Deletion)**:
+  - `/api/crawler/ingest-codes` và `/api/sync` hỗ trợ các action:
+    + `delete_game` / `delete_game_d1`: Thực thi SQL xóa nguyên tử khỏi D1 `games`, D1 `codes`, xóa KV và purge cache Edge Worker.
+    + `cleanup_test_codes` / `cleanup_test_artifacts`: Quét và xóa sạch toàn bộ thực thể mang dấu hiệu test trong D1.
+- **Cơ Chế Bảo Vệ Nhiều Tầng (Multi-tier Gatekeeper)**:
+  1. *Backend Guard*: API `publish_game` và luồng `autoPublished` từ chối xử lý nếu phát hiện đối tượng test.
+  2. *Pre-build Audit (`audit_zero_test_artifacts.cjs`)*: Quét 5 kho dữ liệu (`giveaways.json`, `storeProducts.json`, `utilities.json`, `crawled_codes_188.json`, `games188.json`), hủy build nếu phát hiện test artifact.
+  3. *Audit Harness Gatekeeper (`verify_codes_integrity_audit.cjs`)*: Bước 7 quét trực tiếp Live Catalog, tự động tiêu diệt bất kỳ test game nào lọt lên production.
+
 ---
 
 ## 4. BẢN ĐỒ DỮ LIỆU & STATE MANAGEMENT

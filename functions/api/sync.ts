@@ -1628,6 +1628,99 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
       }
     }
 
+    // Action: Xóa vĩnh viễn game khỏi D1 table games, codes và settings (Hỗ trợ dọn dẹp game test theo Rule 7)
+    if ((body.action === 'delete_game_d1' || body.action === 'delete_game') && env.DB && (body.slug || body.id)) {
+      try {
+        const targetSlug = String(body.slug || body.id).trim().toLowerCase();
+        const cRes: any = await env.DB.prepare('DELETE FROM codes WHERE game_slug = ? OR game_slug = ?').bind(targetSlug, targetSlug.replace(/-mobile$/, '')).run();
+        const gRes: any = await env.DB.prepare('DELETE FROM games WHERE slug = ? OR id = ? OR slug = ?').bind(targetSlug, targetSlug, targetSlug.replace(/-mobile$/, '')).run();
+
+        const gamesRaw = await getSettingD1(env.DB, 'wcg_admin_games_v5', []);
+        if (Array.isArray(gamesRaw)) {
+          const cleanGames = gamesRaw.filter((g: any) => g && g.slug !== targetSlug && g.id !== targetSlug);
+          if (cleanGames.length !== gamesRaw.length) {
+            await setSettingD1(env.DB, 'wcg_admin_games_v5', cleanGames);
+          }
+        }
+
+        const pGamesRaw = await getSettingD1(env.DB, 'wcg_crawler_pending_games_v1', []);
+        if (Array.isArray(pGamesRaw)) {
+          const cleanPending = pGamesRaw.filter((g: any) => g && g.slug !== targetSlug && g.id !== targetSlug);
+          if (cleanPending.length !== pGamesRaw.length) {
+            await setSettingD1(env.DB, 'wcg_crawler_pending_games_v1', cleanPending);
+          }
+        }
+
+        invalidateGamesCatalogCache();
+        await invalidateCatalogEdgeCache(context as any, request, env, [
+          `https://codegame.shop/api/games?slug=${targetSlug}`,
+          `https://codegame.shop/api/games?id=${targetSlug}`,
+          new URL(`/api/games?slug=${targetSlug}`, request.url).toString(),
+          `https://codegame.shop/game/${targetSlug}`,
+        ]).catch(() => {});
+
+        return new Response(
+          JSON.stringify({
+            success: true,
+            message: `Đã xóa vĩnh viễn game "${targetSlug}" khỏi D1 table games, codes và settings!`,
+            deletedGames: gRes?.meta?.changes || 0,
+            deletedCodes: cRes?.meta?.changes || 0,
+          }),
+          { headers: CORS_HEADERS }
+        );
+      } catch (err: any) {
+        return new Response(JSON.stringify({ success: false, error: String(err) }), { status: 500, headers: CORS_HEADERS });
+      }
+    }
+
+    // Action: Quét và dọn sạch 100% test artifacts trên D1 production (Rule 7 Zero Test Artifacts)
+    if (body.action === 'cleanup_test_artifacts' && env.DB) {
+      try {
+        const cRes: any = await env.DB.prepare("DELETE FROM codes WHERE UPPER(code) LIKE 'TEST%' OR game_slug LIKE 'test-%' OR game_slug LIKE 'test_%'").run();
+        const gRes: any = await env.DB.prepare("DELETE FROM games WHERE slug LIKE 'test-%' OR slug LIKE 'test_%' OR id LIKE 'test-%' OR id LIKE 'test_%' OR name LIKE 'Test %' OR publisher LIKE 'Test Studio%'").run();
+
+        const gamesRaw = await getSettingD1(env.DB, 'wcg_admin_games_v5', []);
+        if (Array.isArray(gamesRaw)) {
+          const cleanGames = gamesRaw.filter((g: any) => {
+            const s = String(g.slug || g.id || '').toLowerCase();
+            const n = String(g.name || '').toLowerCase();
+            const p = String(g.publisher || '').toLowerCase();
+            return !s.startsWith('test-') && !s.startsWith('test_') && !n.startsWith('test ') && !p.startsWith('test studio');
+          });
+          if (cleanGames.length !== gamesRaw.length) {
+            await setSettingD1(env.DB, 'wcg_admin_games_v5', cleanGames);
+          }
+        }
+
+        const pGamesRaw = await getSettingD1(env.DB, 'wcg_crawler_pending_games_v1', []);
+        if (Array.isArray(pGamesRaw)) {
+          const cleanPending = pGamesRaw.filter((g: any) => {
+            const s = String(g.slug || g.id || '').toLowerCase();
+            const n = String(g.name || '').toLowerCase();
+            return !s.startsWith('test-') && !s.startsWith('test_') && !n.startsWith('test ');
+          });
+          if (cleanPending.length !== pGamesRaw.length) {
+            await setSettingD1(env.DB, 'wcg_crawler_pending_games_v1', cleanPending);
+          }
+        }
+
+        invalidateGamesCatalogCache();
+        await invalidateCatalogEdgeCache(context as any, request, env).catch(() => {});
+
+        return new Response(
+          JSON.stringify({
+            success: true,
+            message: 'Đã dọn dẹp sạch sẽ toàn bộ test games và test codes khỏi D1!',
+            deletedGames: gRes?.meta?.changes || 0,
+            deletedCodes: cRes?.meta?.changes || 0,
+          }),
+          { headers: CORS_HEADERS }
+        );
+      } catch (err: any) {
+        return new Response(JSON.stringify({ success: false, error: String(err) }), { status: 500, headers: CORS_HEADERS });
+      }
+    }
+
     // Action: Backfill games batch vào D1 table games
     if (body.action === 'backfill_d1_games' && env.DB && Array.isArray(body.games)) {
       try {
