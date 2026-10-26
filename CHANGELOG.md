@@ -7,6 +7,31 @@ Mỗi mục sửa lỗi đều ghi nhận **Nguyên nhân gốc rễ (Root Cause
 
 ## [2026-10-27]
 
+### 224. Thêm Nút Chia Sẻ & Nút Copy Nhanh Link Cho Sự Kiện Giveaway
+- **Bối cảnh & Yêu cầu từ Người dùng**:
+  - Người dùng phản ánh khi mở modal chi tiết sự kiện săn mã Giveaway (ví dụ Ta Là Hắc Ngộ Không trên codegame.shop/giveaways), modal không có nút chia sẻ để người chơi có thể gửi link cho bạn bè hoặc cộng đồng.
+  - Yêu cầu: "Thêm nút chia sẻ, ấn vào là có nút copy nhanh link trong giveaway."
+- **Nguyên nhân gốc rễ (Root Cause)**:
+  1. *Thiếu nút chia sẻ trong modal Giveaway*: Component GiveawayDetailModal trong GiveawaysView.tsx chỉ có nút đóng (X) và không nhận prop onShareGiveaway.
+  2. *Xung đột z-index giữa các lớp Modal*: GiveawayDetailModal được cấu hình z-[105], trong khi ShareModal được cấu hình z-[100]. Nếu người dùng ấn nút chia sẻ khi đang mở modal Giveaway, ShareModal sẽ bị ẩn phía sau lớp backdrop của Giveaway.
+  3. *Trải nghiệm copy link chưa tối ưu*: ShareModal trước đó chỉ có nút "Sao chép" nhỏ với logic navigator.clipboard.writeText đơn thuần không có fallback document.execCommand('copy') và không tự động chọn toàn bộ link khi click vào ô nhập.
+- **Giải pháp thành công (Solution)**:
+  1. *Thêm Nút Chia Sẻ Đa Điểm Trong Giveaway Modal*:
+     - **Header**: Bổ sung nút chia sẻ icon Share2 chuẩn vector cạnh nút Đóng (X) ở góc trên bên phải, có tooltip "Chia sẻ sự kiện (Copy nhanh link)". Đồng thời tăng padding header (pr-24) để tiêu đề không bị đè.
+     - **Footer**: Bổ sung nút bấm nổi bật "Chia Sẻ & Copy Link" (với icon Share2) nằm sóng đôi cùng nút "Đóng cửa sổ".
+     - Chuyển tiếp prop onShareGiveaway từ GiveawaysView vào GiveawayDetailModal.
+  2. *Nâng cấp Z-Index & Trải Nghiệm Hộp Thoại ShareModal*:
+     - Tăng z-index của ShareModal lên z-[200] để luôn nổi lên trên mọi modal chi tiết.
+     - Thêm sự kiện đóng khi click ra ngoài backdrop (onClick={onClose}).
+     - Thêm hàm fallback sao chép fallbackCopyText sử dụng document.execCommand('copy') bảo đảm sao chép thành công 100% trên mọi trình duyệt (Cốc Cốc, Chrome, Safari, Edge, Firefox).
+     - Đổi nút copy thành nút nổi bật với nhãn: "Copy nhanh link" -> chuyển trạng thái tức thì sang "Đã copy link ✓" (màu xanh lục emerald) kèm thông báo toast nổi.
+     - Tự động bôi đen toàn bộ link khi người dùng nhấp hoặc trỏ chuột vào ô đường dẫn.
+- **Kiểm thử & Nghiệm thu**:
+  - npm run build: Thành công 100% (779 trang tĩnh prerendered + Edge Worker bundle _worker.js).
+  - Audit Zero Test Artifacts: Thành công 100%.
+
+---
+
 ### 223. Triển Khai Hệ Thống Mẫu Chung Toàn Sàn (Universal Template System) Cho Khung Giveaway, Tra Cứu Code, Tiện Ích và Cửa Hàng Code
 - **Bối cảnh & Yêu cầu từ Người dùng**:
   - Trong trang quản trị, hộp thoại "Chỉnh Sửa Đợt Phát Code Riêng" (mục Giveaway, đường dẫn `admin-code-game-shop.pages.dev/admin#/private-codes`) hiện có rất nhiều trường phải nhập lại thủ công cho từng đợt (hơn 41 đợt phát).

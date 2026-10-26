@@ -167,6 +167,7 @@ interface GiveawayDetailModalProps {
   handleOpenLimitNotice: (campaign: GiveawayCampaign, customMsg?: string) => void;
   setClaimedRewardModal: (data: any) => void;
   handleExpireRefresh: () => void;
+  onShareGiveaway?: (campaign: GiveawayCampaign, e?: React.MouseEvent) => void;
 }
 
 const GiveawayDetailModal: React.FC<GiveawayDetailModalProps> = ({
@@ -185,6 +186,7 @@ const GiveawayDetailModal: React.FC<GiveawayDetailModalProps> = ({
   handleOpenLimitNotice,
   setClaimedRewardModal,
   handleExpireRefresh,
+  onShareGiveaway,
 }) => {
   const [copiedCode, setCopiedCode] = useState<string | null>(null);
 
@@ -324,18 +326,35 @@ const GiveawayDetailModal: React.FC<GiveawayDetailModalProps> = ({
         onClick={(e) => e.stopPropagation()}
         className="relative w-full max-w-lg bg-card border-t sm:border border-border/90 rounded-t-[28px] sm:rounded-3xl overflow-hidden shadow-2xl p-4 sm:p-6 space-y-4 animate-scale-in h-[88dvh] sm:h-auto max-h-[88dvh] sm:max-h-[90vh] flex flex-col"
       >
-        {/* Close button */}
-        <button
-          onClick={onClose}
-          className="absolute top-4 right-4 p-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-white border border-slate-700 hover:border-slate-600 shadow-md cursor-pointer transition-all active:scale-90 flex items-center justify-center shrink-0 z-10"
-          aria-label="Đóng"
-          title="Đóng"
-        >
-          <X className="w-5 h-5 text-white" />
-        </button>
+        {/* Header Action Buttons (Share & Close) */}
+        <div className="absolute top-4 right-4 flex items-center gap-2 z-10">
+          {onShareGiveaway && (
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                onShareGiveaway(campaign, e);
+              }}
+              className="p-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-accent hover:text-white border border-slate-700 hover:border-slate-600 shadow-md cursor-pointer transition-all active:scale-90 flex items-center justify-center shrink-0"
+              aria-label="Chia sẻ sự kiện"
+              title="Chia sẻ sự kiện (Copy nhanh link)"
+            >
+              <Share2 className="w-5 h-5" />
+            </button>
+          )}
+          <button
+            type="button"
+            onClick={onClose}
+            className="p-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-white border border-slate-700 hover:border-slate-600 shadow-md cursor-pointer transition-all active:scale-90 flex items-center justify-center shrink-0"
+            aria-label="Đóng"
+            title="Đóng"
+          >
+            <X className="w-5 h-5 text-white" />
+          </button>
+        </div>
 
         {/* Modal Header: Game info */}
-        <div className="flex items-center gap-3.5 pr-10">
+        <div className="flex items-center gap-3.5 pr-24">
           <div
             onClick={() => {
               onClose();
@@ -929,12 +948,29 @@ const GiveawayDetailModal: React.FC<GiveawayDetailModalProps> = ({
             </div>
           )}
 
-          <button
-            onClick={onClose}
-            className="w-full py-2.5 rounded-xl bg-muted hover:bg-card text-muted-foreground hover:text-foreground text-xs font-semibold transition-colors cursor-pointer text-center"
-          >
-            Đóng cửa sổ
-          </button>
+          <div className="flex items-center gap-2 pt-1">
+            {onShareGiveaway && (
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onShareGiveaway(campaign, e);
+                }}
+                className="flex-1 py-2.5 rounded-xl bg-accent/15 hover:bg-accent/25 text-accent border border-accent/30 text-xs font-bold transition-all cursor-pointer flex items-center justify-center gap-1.5 active:scale-95"
+                title="Chia sẻ sự kiện và copy nhanh liên kết"
+              >
+                <Share2 className="w-4 h-4" />
+                <span>Chia Sẻ & Copy Link</span>
+              </button>
+            )}
+            <button
+              type="button"
+              onClick={onClose}
+              className={`${onShareGiveaway ? 'flex-1' : 'w-full'} py-2.5 rounded-xl bg-muted hover:bg-card text-muted-foreground hover:text-foreground text-xs font-semibold transition-colors cursor-pointer text-center`}
+            >
+              Đóng cửa sổ
+            </button>
+          </div>
         </div>
       </div>
     </div>
@@ -2652,6 +2688,7 @@ export const GiveawaysView: React.FC<GiveawaysViewProps> = ({
           handleOpenLimitNotice={handleOpenLimitNotice}
           setClaimedRewardModal={setClaimedRewardModal}
           handleExpireRefresh={handleExpireRefresh}
+          onShareGiveaway={onShareGiveaway}
         />,
         document.body
       )}
