@@ -738,6 +738,47 @@ const GiveawayDetailModal: React.FC<GiveawayDetailModalProps> = ({
             >
               <span>Sự Kiện Đã Kết Thúc</span>
             </button>
+          ) : isModalGlobalCooling ? (
+            /* Requirement 6: Đếm ngược mục giật mã, khi về 0 chuyển thành nút giật mã ngay */
+            <div className="space-y-2">
+              <div className="p-4 rounded-2xl bg-gradient-to-r from-amber-950/70 via-orange-950/70 to-red-950/70 border border-amber-500/40 text-center space-y-2.5 shadow-lg">
+                <div className="text-xs font-bold text-amber-300 uppercase tracking-wider flex items-center justify-center gap-1.5">
+                  <Clock className="w-4 h-4 text-amber-400 animate-pulse" />
+                  <span>Mã Kế Tiếp Mở Cho Toàn Web Sau:</span>
+                </div>
+                <div className="text-3xl font-mono font-black text-amber-300 tracking-widest drop-shadow-md">
+                  {globalCooldownWaitText}
+                </div>
+                {campaign.enable_waiting_room !== false && (
+                  <div className="pt-1 flex justify-center">
+                    <LiveWaitingRoomBadge
+                      minUsers={campaign.waiting_users_min}
+                      maxUsers={campaign.waiting_users_max}
+                      variant="card"
+                    />
+                  </div>
+                )}
+                <p className="text-[11px] text-amber-200/80 leading-relaxed max-w-sm mx-auto">
+                  {(() => {
+                    const lastUser = campaign.last_claimer_name || 'người chơi trước';
+                    const template =
+                      campaign.custom_cooldown_msg ||
+                      'Đợt phát trước đạo hữu {last_user} đã nhanh tay đi trước, đạo hữu vui lòng đợi {time_left} rồi thử sức lại.';
+                    return template
+                      .replace(/\{last_user\}|\{claimer\}|\{last_claimer\}|\{last_claimer_name\}|\{user\}/gi, lastUser)
+                      .replace(/\{time_left\}|\{seconds\}|\{sec\}/gi, globalCooldownWaitText);
+                  })()}
+                </p>
+              </div>
+
+              <button
+                disabled
+                className="w-full py-3.5 rounded-2xl bg-amber-500/20 text-amber-300 border border-amber-500/40 text-xs font-bold flex items-center justify-center gap-2 cursor-not-allowed"
+              >
+                <Clock className="w-4 h-4 text-amber-400" />
+                <span>Đang Chờ Đợt Mã Tiếp Theo ({globalCooldownWaitText})</span>
+              </button>
+            </div>
           ) : remaining <= 0 ? (
             /* Requirement 3: Bỏ ô Toàn Bộ Phần Thưởng Đã Trao Hết */
             userClaimCount > 0 ? (
@@ -1028,7 +1069,10 @@ export const GiveawaysView: React.FC<GiveawaysViewProps> = ({
 
   useEffect(() => {
     loadData();
+    dataService.syncGiveaways().then(() => loadData());
     dataService.syncWithCloudflareKV();
+    const handleGwUpdated = () => loadData();
+    window.addEventListener('wcg_giveaways_updated', handleGwUpdated);
     const unsub = dataService.subscribe(() => {
       loadData();
     });
@@ -1060,6 +1104,7 @@ export const GiveawaysView: React.FC<GiveawaysViewProps> = ({
       window.removeEventListener('wcg_virtual_stock_updated', handleUpdate);
       window.removeEventListener('wcg_sold_count_updated', handleUpdate);
       window.removeEventListener('storage', handleUpdate);
+      window.removeEventListener('wcg_giveaways_updated', handleGwUpdated);
     };
   }, [loadData]);
 
@@ -1664,9 +1709,7 @@ export const GiveawaysView: React.FC<GiveawaysViewProps> = ({
                               <Share2 className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
                             </button>
                           )}
-                          <span className="text-[10px] font-semibold px-2 py-0.5 rounded-md bg-accent/15 text-accent border border-accent/30 shrink-0">
-                            Chính thức
-                          </span>
+
                         </div>
                       </div>
 
@@ -1867,10 +1910,14 @@ export const GiveawaysView: React.FC<GiveawaysViewProps> = ({
                             </button>
                           ) : remaining <= 0 ? (
                             <button
-                              disabled
-                              className="py-2.5 px-3 rounded-xl bg-muted/60 text-muted-foreground border border-border text-xs font-semibold flex items-center justify-center gap-1 cursor-not-allowed"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleOpenDetailModal(campaign);
+                              }}
+                              className="py-2.5 px-3 rounded-xl bg-muted/80 hover:bg-muted text-foreground border border-border text-xs font-bold flex items-center justify-center gap-1.5 cursor-pointer transition-all hover:border-primary/40"
                             >
-                              <span>Hết Code</span>
+                              <Clock className="w-3.5 h-3.5 text-amber-400" />
+                              <span>Chờ Đợt Mới</span>
                             </button>
                           ) : isMaxReached ? (
                             <button

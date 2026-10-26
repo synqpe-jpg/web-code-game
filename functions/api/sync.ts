@@ -228,7 +228,32 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
         try {
           if (specificKey === 'wcg_admin_store_products_v4') val = await loadAllStoreProductsD1(env.DB);
           else if (specificKey === 'wcg_admin_utilities_v4') val = await loadAllUtilitiesD1(env.DB);
-          else if (specificKey === 'wcg_admin_giveaways_v4') val = await loadAllGiveawaysD1(env.DB, authorized);
+          else if (specificKey === 'wcg_admin_giveaways_v4') {
+            const rawGws = await loadAllGiveawaysD1(env.DB, authorized);
+            const delGwRaw = await getSettingD1(env.DB, 'wcg_deleted_giveaways').catch(() => []);
+            const delGwSet = new Set(Array.isArray(delGwRaw) ? delGwRaw : []);
+            val = (rawGws || [])
+              .filter((g: any) => g && g.id && g.status !== 'ENDED' && !delGwSet.has(g.id) && g.id !== 'gw_gamerpower_rotwood' && g.id !== 'gw_alienware_vaultbreakers' && g.id !== 'gw_garena_delta_force')
+              .map((gw: any) => {
+                const { codes_pool, claim_history, ...rest } = gw;
+                return {
+                  ...rest,
+                  codes_pool: authorized ? codes_pool : undefined,
+                  claim_history: authorized ? claim_history : undefined,
+                };
+              })
+              .sort((a: any, b: any) => {
+                const inStockA = (Number(a.remaining_codes) || 0) > 0 ? 1 : 0;
+                const inStockB = (Number(b.remaining_codes) || 0) > 0 ? 1 : 0;
+                if (inStockA !== inStockB) return inStockB - inStockA;
+                if (inStockA > 0 && a.remaining_codes !== b.remaining_codes) {
+                  return (Number(b.remaining_codes) || 0) - (Number(a.remaining_codes) || 0);
+                }
+                const timeA = a.created_at ? new Date(a.created_at).getTime() : 0;
+                const timeB = b.created_at ? new Date(b.created_at).getTime() : 0;
+                return timeB - timeA;
+              });
+          }
           else if (specificKey === 'wcg_admin_members_v4') val = await loadAllMembersD1(env.DB, !authorized);
           else val = await getSettingD1(env.DB, specificKey);
         } catch {}

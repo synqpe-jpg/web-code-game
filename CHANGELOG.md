@@ -7,6 +7,37 @@ Mỗi mục sửa lỗi đều ghi nhận **Nguyên nhân gốc rễ (Root Cause
 
 ## [2026-10-26]
 
+### 221. Khắc Phục Lỗi Sự Kiện Giveaway Không Hiển Thị Trên Web Khách: Đồng Bộ Live D1 Cho Người Dùng Công Khai, Xóa Chữ "Chính Thức" & "Hết Code", Bật Đếm Ngược 45p
+- **Bối cảnh & Yêu cầu từ Người dùng**:
+  - Người dùng gửi 2 ảnh chụp đối chiếu:
+    1. Trang Admin (`admin-code-game-shop.pages.dev/admin#/private-codes`): Có 41 sự kiện, trong đó 2 sự kiện đầu còn hàng là *3Q Đảo Đào Đào* (còn 19 mã) và *Anh Hùng Tiến Lên* (còn 18 mã), và *Ta Là Hắc Ngộ Không* (hồi chiêu 45p).
+    2. Trang Khách (`codegame.shop/giveaways`): Chỉ hiện 37 sự kiện, hoàn toàn **không thấy** các sự kiện còn mã ở đầu danh sách, mà bắt đầu bằng các sự kiện hết mã; đồng thời vẫn còn chữ "Chính thức" và chữ "Hết Code".
+  - Người dùng thông báo: "Trên web tôi không thấy sự kiện nữa."
+- **Nguyên nhân gốc rễ (Root Cause)**:
+  1. *Khách vãng lai bị ngắt đồng bộ Giveaway*: Tại `src/services/dataService.ts:449`, hàm `syncWithCloudflareKV` kiểm tra `if (!isAdmin) { await this.syncBrandingAndContentOnly(); return; }`. Khách truy cập thông thường bị ngắt tiến trình ngay lập tức để tránh tải 559 game, nhưng vô tình **chặn đứng việc đồng bộ sự kiện Giveaway mới nhất từ server**! Khách chỉ thấy dữ liệu cache cũ lưu trong `localStorage` từ trước.
+  2. *Endpoint `/api/sync?key=wcg_admin_giveaways_v4` thiếu bộ lọc*: Tại `functions/api/sync.ts:231`, khi client truy vấn riêng key `wcg_admin_giveaways_v4`, server trả về danh sách thô từ D1 chưa lọc các sự kiện đã xóa và chưa sắp xếp ưu tiên sự kiện còn hàng lên đầu.
+  3. *Tồn đọng huy hiệu "Chính thức" và nút "Hết Code"*:
+     - Tại `src/components/GiveawaysView.tsx:1668`, thẻ badge `<span>Chính thức</span>` vẫn còn hiển thị.
+     - Tại dòng 1873, nút CTA vẫn hiển thị `<span>Hết Code</span>` bị vô hiệu hóa (disabled), không cho người dùng bấm vào xem chi tiết sự kiện hay theo dõi bộ đếm thời gian.
+     - Tại modal chi tiết sự kiện dòng 741, điều kiện `remaining <= 0` nằm trước `isModalGlobalCooling`, khiến sự kiện có hồi chiêu toàn web (như Ta Là Hắc Ngộ Không 45p) bị che mất đồng hồ đếm ngược.
+- **Giải pháp triển khai (Solution)**:
+  1. *Bổ sung `dataService.syncGiveaways()` siêu nhẹ*:
+     - Viết hàm `syncGiveaways()` tải chỉ 43 KB danh sách sự kiện Giveaway mới nhất từ `/api/sync?key=wcg_admin_giveaways_v4`.
+     - Gọi tự động trong `GiveawaysView.tsx` khi mở trang và tích hợp vào luồng `syncWithCloudflareKV` cho cả khách vãng lai.
+  2. *Chuẩn hóa Endpoint `/api/sync?key=wcg_admin_giveaways_v4`*:
+     - Lọc sạch sự kiện kết thúc / đã xóa, ẩn `codes_pool` với khách thường, tự động đưa các sự kiện còn mã trong kho (3Q Đảo Đào Đào còn 19, Anh Hùng Tiến Lên còn 18) lên vị trí đầu tiên.
+  3. *Giao diện Web Khách chuẩn theo yêu cầu*:
+     - Xóa hoàn toàn huy hiệu `Chính thức` trên thẻ sự kiện.
+     - Thay thế chữ `Hết Code` bằng nút `Chờ Đợt Mới` có thể nhấp chuột để mở modal chi tiết.
+     - Đưa khối đếm ngược `isModalGlobalCooling` lên trước điều kiện hết mã: Sự kiện 45p Ta Là Hắc Ngộ Không hiển thị đồng hồ đếm ngược thời gian mở mã tiếp theo sắc nét và trực quan.
+- **Kiểm thử & Nghiệm thu**:
+  - Build frontend, Edge Worker và prerender 100% thành công (0 lỗi, 0 cảnh báo).
+  - Web khách tự động nạp và hiển thị đầy đủ các sự kiện mới nhất từ Admin.
+
+---
+
+## [2026-10-26]
+
 ### 220. Chuẩn Hóa Toàn Diện Vòng Đời Ô Link Tùy Chỉnh (Zalo / Cộng Đồng) Trong Giveaway: Bảo Toàn Trạng Thái Tuyệt Đối & Đồng Bộ Hiển Thị
 - **Bối cảnh & Yêu cầu từ Người dùng**:
   - Người dùng yêu cầu điều tra chính xác tầng gây lỗi theo 6 câu hỏi kiểm toán vòng đời khi thao tác tại `admin-code-game-shop.pages.dev/admin#/private-codes` (hộp thoại Chỉnh Sửa Đợt Phát Code Riêng).

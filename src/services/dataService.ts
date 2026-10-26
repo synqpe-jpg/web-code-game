@@ -434,7 +434,31 @@ class DataService {
     } catch {}
   }
 
-  public async syncWithCloudflareKV(forceFresh: boolean = false): Promise<void> {
+    public async syncGiveaways(): Promise<GiveawayCampaign[]> {
+    try {
+      const res = await fetch(`/api/sync?key=wcg_admin_giveaways_v4&fresh=1&_t=${Date.now()}`, {
+        headers: { 'Cache-Control': 'no-cache, no-store' },
+      });
+      if (res.ok) {
+        const json = await res.json();
+        const incoming = json.data || json.giveaways;
+        if (incoming && Array.isArray(incoming) && incoming.length > 0) {
+          const currentGw = localStorage.getItem('wcg_admin_giveaways_v4');
+          const newGw = JSON.stringify(incoming);
+          if (currentGw !== newGw) {
+            localStorage.setItem('wcg_admin_giveaways_v4', newGw);
+            localStorage.setItem(this.GIVEAWAYS_KEY, newGw);
+            window.dispatchEvent(new CustomEvent('wcg_giveaways_updated', { detail: incoming }));
+            this.reload();
+          }
+          return incoming;
+        }
+      }
+    } catch {}
+    return this.getGiveaways();
+  }
+
+public async syncWithCloudflareKV(forceFresh: boolean = false): Promise<void> {
     if (this.activeSyncPromise) {
       return this.activeSyncPromise;
     }
@@ -447,8 +471,11 @@ class DataService {
           Boolean(localStorage.getItem('wcg_auth_token'))
         );
         if (!isAdmin) {
-          // Non-admin public visitors: strictly avoid downloading full 559-games blob over slow mobile network
-          await this.syncBrandingAndContentOnly();
+          // Non-admin public visitors: sync CMS branding, content, and active giveaways without 559-games blob
+          await Promise.allSettled([
+            this.syncBrandingAndContentOnly(),
+            this.syncGiveaways(),
+          ]);
           return;
         }
         const shouldBypass = forceFresh && isAdmin;
