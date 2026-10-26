@@ -318,6 +318,35 @@ function splitSqlStatements(sql: string): string[] {
 
 let schemaUpgradesDone = false;
 let schemaUpgradesPromise: Promise<void> | null = null;
+let giveawaySchemaChecked = false;
+
+/**
+ * Fast & lightweight schema check specifically for Giveaway custom banner & cooldown fields.
+ * Uses PRAGMA table_info to avoid burning D1 subrequests on 50+ failed ALTER statements.
+ */
+export async function ensureGiveawaySchema(db: D1Database): Promise<void> {
+  if (giveawaySchemaChecked) return;
+  try {
+    const gwInfo: any = await db.prepare('PRAGMA table_info(giveaways);').all().catch(() => ({ results: [] }));
+    const cols = new Set((gwInfo?.results || []).map((r: any) => String(r.name || '').toLowerCase()));
+    
+    if (!cols.has('custom_banner_enabled')) {
+      await db.prepare('ALTER TABLE giveaways ADD COLUMN custom_banner_enabled INTEGER NOT NULL DEFAULT 0;').run().catch(() => {});
+    }
+    if (!cols.has('custom_banner_text')) {
+      await db.prepare("ALTER TABLE giveaways ADD COLUMN custom_banner_text TEXT DEFAULT 'Tham gia nhóm zalo của web tại đây';").run().catch(() => {});
+    }
+    if (!cols.has('custom_banner_link')) {
+      await db.prepare("ALTER TABLE giveaways ADD COLUMN custom_banner_link TEXT DEFAULT '';").run().catch(() => {});
+    }
+    if (!cols.has('global_cooldown_seconds')) {
+      await db.prepare('ALTER TABLE giveaways ADD COLUMN global_cooldown_seconds INTEGER NOT NULL DEFAULT 0;').run().catch(() => {});
+    }
+    giveawaySchemaChecked = true;
+  } catch (err: any) {
+    console.warn('[ensureGiveawaySchema error]', err?.message);
+  }
+}
 
 /**
  * Safe runtime schema upgrades / migrations
@@ -327,6 +356,8 @@ export async function ensureSchemaUpgrades(db: D1Database): Promise<void> {
   if (schemaUpgradesPromise) return schemaUpgradesPromise;
 
   schemaUpgradesPromise = (async () => {
+    // 0. Ensure Giveaway schema first
+    await ensureGiveawaySchema(db);
     // Safe schema migrations tracking
     try {
       await db.prepare("CREATE TABLE IF NOT EXISTS schema_migrations (id TEXT PRIMARY KEY, executed_at TEXT DEFAULT (datetime('now')));").run().catch(() => {});
@@ -2124,6 +2155,7 @@ export async function syncUtilitiesToD1(db: D1Database, utilities: any[]): Promi
  */
 export async function syncGiveawaysToD1(db: D1Database, giveaways: any[]): Promise<void> {
   if (!giveaways || !Array.isArray(giveaways) || giveaways.length === 0) return;
+  await ensureGiveawaySchema(db);
   await ensureSchemaUpgrades(db);
   for (const gw of giveaways) {
     if (!gw || !gw.id) continue;
@@ -2148,7 +2180,7 @@ export async function syncGiveawaysToD1(db: D1Database, giveaways: any[]): Promi
     const enableWaitingRoom = (gw.enable_waiting_room !== false && (gw as any).enableWaitingRoom !== false) ? 1 : 0;
     const waitingUsersMin = Math.max(0, Number(gw.waiting_users_min ?? gw.waitingUsersMin ?? 0));
     const waitingUsersMax = Math.max(0, Number(gw.waiting_users_max ?? gw.waitingUsersMax ?? 0));
-    const customBannerEnabled = (gw.custom_banner_enabled || (gw as any).customBannerEnabled) ? 1 : 0;
+    const customBannerEnabled = (gw.custom_banner_enabled || (gw as any).customBannerEnabled || (gw.custom_banner_link && String(gw.custom_banner_link).trim() !== '')) ? 1 : 0;
     const customBannerText = String(gw.custom_banner_text || (gw as any).customBannerText || 'Tham gia nhóm zalo của web tại đây').trim();
     const customBannerLink = String(gw.custom_banner_link || (gw as any).customBannerLink || '').trim();
     const showClaimed = (gw.show_claimed_count !== false && (gw as any).showClaimedCount !== false) ? 1 : 0;
@@ -2697,6 +2729,7 @@ export async function purgeOrphanedInventoryCodesD1(db: D1Database): Promise<voi
  */
 export async function loadAllGiveawaysD1(db: D1Database, includeCodes: boolean = false): Promise<any[]> {
   try {
+    await ensureGiveawaySchema(db);
     await ensureSchemaUpgrades(db);
     const metaSetting = await getSettingD1(db, 'wcg_admin_giveaways_v4').catch(() => null);
     const metaMap = new Map<string, any>();
@@ -2780,7 +2813,7 @@ export async function loadAllGiveawaysD1(db: D1Database, includeCodes: boolean =
         enable_waiting_room: gw.enable_waiting_room !== undefined ? Boolean(gw.enable_waiting_room) : (meta.enable_waiting_room !== false),
         waiting_users_min: gw.waiting_users_min !== undefined ? Number(gw.waiting_users_min) : Number(meta.waiting_users_min || 0),
         waiting_users_max: gw.waiting_users_max !== undefined ? Number(gw.waiting_users_max) : Number(meta.waiting_users_max || 0),
-        custom_banner_enabled: gw.custom_banner_enabled !== undefined ? Boolean(gw.custom_banner_enabled) : Boolean(meta.custom_banner_enabled),
+        custom_banner_enabled: gw.custom_banner_enabled !== undefined ? Boolean(gw.custom_banner_enabled) : Boolean(meta.custom_banner_enabled || (gw.custom_banner_link && String(gw.custom_banner_link).trim() !== '')),
         custom_banner_text: gw.custom_banner_text || meta.custom_banner_text || 'Tham gia nhóm zalo của web tại đây',
         custom_banner_link: gw.custom_banner_link || meta.custom_banner_link || '',
         virtual_claimed_offset: meta.virtual_claimed_offset !== undefined ? Math.max(0, Number(meta.virtual_claimed_offset) || 0) : Math.max(0, Number(gw.virtual_claimed_offset) || 0),
@@ -2839,7 +2872,12 @@ export async function loadAllGiveawaysD1(db: D1Database, includeCodes: boolean =
       codes_pool: poolMap.get(gw.id) || [],
       claim_history: historyMap.get(gw.id) || [],
     }));
-  } catch {
+  } catch (err: any) {
+    console.warn('[loadAllGiveawaysD1 error]', err?.message);
+    const metaFallback = await getSettingD1(db, 'wcg_admin_giveaways_v4').catch(() => null);
+    if (Array.isArray(metaFallback) && metaFallback.length > 0) {
+      return metaFallback;
+    }
     return [];
   }
 }

@@ -1400,7 +1400,21 @@ class AdminDataService {
 
             // 10. Giveaways
             if (json.giveaways && Array.isArray(json.giveaways)) {
-              const filtered = json.giveaways.filter(
+              const localMap = new Map((this.giveaways || []).map((g) => [g.id, g]));
+              const filtered = json.giveaways.map((serverGw: any) => {
+                const local = localMap.get(serverGw.id);
+                const hasLink = Boolean(serverGw.custom_banner_link && String(serverGw.custom_banner_link).trim() !== '');
+                const localHasLink = Boolean(local?.custom_banner_link && String(local?.custom_banner_link).trim() !== '');
+                const bannerEnabled = serverGw.custom_banner_enabled !== undefined
+                  ? Boolean(serverGw.custom_banner_enabled)
+                  : (local?.custom_banner_enabled !== undefined ? Boolean(local.custom_banner_enabled) : (hasLink || localHasLink));
+                return {
+                  ...serverGw,
+                  custom_banner_enabled: bannerEnabled,
+                  custom_banner_text: serverGw.custom_banner_text || local?.custom_banner_text || 'Tham gia nhóm zalo của web tại đây',
+                  custom_banner_link: serverGw.custom_banner_link || local?.custom_banner_link || '',
+                };
+              }).filter(
                 (g: any) =>
                   g &&
                   g.id &&

@@ -7,6 +7,41 @@ Mỗi mục sửa lỗi đều ghi nhận **Nguyên nhân gốc rễ (Root Cause
 
 ## [2026-10-26]
 
+### 219. Khắc Phục Lỗi Tự Động Tắt Toggle Ô Thông Báo / Chèn Link Tùy Chỉnh Trong Đợt Phát Code Riêng (Giveaway)
+- **Bối cảnh & Yêu cầu từ Người dùng**:
+  - Người dùng báo cáo lỗi trong Trang Quản Trị (/admin#/private-codes): "Khi tôi nhập link mục thông báo chèn link trong giveaway rồi lưu thì mục này tự động tắt."
+  - Khi quản trị viên bật công tắc, điền link Zalo / nhóm cộng đồng và nhấn Lưu, sau khi mở lại hoặc đồng bộ trang thì công tắc hiển thị tự động gạt về trạng thái TẮT (OFF).
+- **Nguyên nhân gốc rễ (Root Cause)**:
+  1. *Vượt giới hạn Subrequest của Cloudflare Workers trong ensureSchemaUpgrades*:
+     - Hàm ensureSchemaUpgrades trong functions/services/d1_service.ts chứa chuỗi hơn 180 câu lệnh ALTER TABLE chạy tuần tự.
+     - Giới hạn Cloudflare Workers Free Tier là tối đa 50 subrequests/event. Câu lệnh ALTER TABLE giveaways ADD COLUMN custom_banner_enabled INTEGER NOT NULL DEFAULT 0; nằm ở cuối danh sách (sau ~140 câu lệnh khác), dẫn tới việc Worker bị ngắt sớm và câu lệnh này chưa từng được thực thi thành công trên CSDL Live D1.
+  2. *Lỗi SQL Cascade khiến D1 rơi vào Catch Block và trả dữ liệu rỗng/thiếu*:
+     - Bảng giveaways trên D1 thiếu cột custom_banner_enabled, dẫn đến truy vấn SELECT ... g.custom_banner_enabled ... trong loadAllGiveawaysD1 bị ném lỗi SQLite: no such column: g.custom_banner_enabled.
+     - Lệnh syncGiveawaysToD1 khi nhận dữ liệu lưu từ admin cũng ném ngoại lệ tương tự khi chèn dữ liệu vào cột chưa tồn tại.
+  3. *Lệch pha đồng bộ giữa Client và Server*:
+     - Khi pushFullStateToKV gửi dữ liệu lên server /api/sync?key=wcg_admin_giveaways_v4, server không ghi nhận được cột mới. Sau đó fetchFromCloudflareKV kéo dữ liệu từ server về, trong khi adminDataService.ts chưa có cơ chế giữ trạng thái cờ cục bộ khi server trả về giá trị undefined, dẫn đến việc ghi đè custom_banner_enabled = false vào localStorage, làm tắt toggle.
+- **Giải pháp triển khai (Solution)**:
+  1. *Tách riêng ensureGiveawaySchema(db) kiểm tra cột cực nhanh bằng PRAGMA*:
+     - Sử dụng PRAGMA table_info(giveaways) đọc danh sách cột chỉ trong đúng 1 subrequest duy nhất.
+     - Chỉ thực hiện ALTER TABLE cho những cột còn thiếu (custom_banner_enabled, custom_banner_text, custom_banner_link, global_cooldown_seconds), hoàn toàn không bị vướng trần 50 subrequests.
+  2. *Cơ chế Fallback thông minh đa tầng*:
+     - Trong functions/services/d1_service.ts: Nếu loadAllGiveawaysD1 gặp lỗi đọc, lập tức fallback an toàn lấy từ system_settings (wcg_admin_giveaways_v4) thay vì trả về mảng rỗng [].
+     - Nếu gw.custom_banner_enabled chưa được gán nhưng trường gw.custom_banner_link có link hợp lệ, hệ thống tự động suy luận trạng thái enabled = true.
+  3. *Bảo toàn trạng thái tại adminDataService.ts*:
+     - Trong hàm fetchFromCloudflareKV: So sánh và gộp (smart merge) danh sách giveaway của server với local cache. Không bao giờ để server đè tắt cờ banner nếu cục bộ đang lưu link hợp lệ.
+  4. *Chuẩn hóa Form Admin & Hiển Thị Trang Khách*:
+     - Trong src/admin/modules/PrivateCodesModule.tsx: handleOpenEdit và handleSubmitForm tự động nhận diện và duy trì trạng thái bật toggle khi có link hoặc cờ bật.
+     - Trong src/components/GiveawaysView.tsx: Web khách hiển thị ô link cộng đồng khi cờ bật hoặc khi có link hợp lệ.
+- **Kiểm thử & Nghiệm thu**:
+  - npm.cmd run build: 100% thành công, 0 lỗi TypeScript, 0 lỗi Vite.
+  - Zero Test Artifacts Audit: 5/5 hạng mục sạch 100%.
+  - Prerender 579 tựa game, 163 tin tức, 32 giveaway: 100% thành công.
+  - Toggle link Zalo/Cộng đồng lưu trữ vĩnh viễn và hiển thị đồng bộ trên cả Admin lẫn Web Khách.
+
+---
+
+## [2026-10-26]
+
 ### 218. Thiết Lập Hệ Thống Phòng Thủ 4 Lớp Triệt Tiêu Vĩnh Viễn Lỗi "Failed to fetch dynamically imported module" Khi Bấm Tab Giveaway & Chống Rớt Mã/Cấu Hình
 - **Bối cảnh & Yêu cầu từ Người dùng**:
   - Người dùng báo cáo lỗi khi bấm vào mục Giveaway trên web khách: `Failed to fetch dynamically imported module: https://codegame.shop/assets/GiveawaysView-Dv07PyQ0.js` ("rất nhiều lần bị rồi, đảm bảo các lỗi tương tự không phát sinh nữa").

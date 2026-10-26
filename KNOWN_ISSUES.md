@@ -10,6 +10,22 @@
 
 ## 1. DANH MỤC LỖI & CÁC BẪY ĐÃ THẤT BẠI (DO NOT REPEAT)
 
+### ISSUE-142: Bẫy Tràn Hạn Mức Subrequests Worker (50 Subrequests/Event) Khi Chạy DDL Schema & Lỗi Tự Động Tắt Toggle Cấu Hình Giveaway
+- **Triệu chứng**:
+  - Quản trị viên vào trang quản trị (/admin#/private-codes) bật công tắc "Ô Thông Báo / Link Tùy Chỉnh (Zalo / Cộng Đồng)", điền link và lưu lại. Sau khi tải lại trang, công tắc bị tự động gạt về trạng thái TẮT (OFF).
+- **Nguyên nhân gốc rễ (Root Cause)**:
+  1. *Tràn trần Subrequests (50/request)*: Hàm ensureSchemaUpgrades chứa hơn 180 lệnh ALTER TABLE tuần tự. Các câu lệnh sau câu thứ 50 bị Worker ngắt giữa chừng, khiến các cột mới (custom_banner_enabled, custom_banner_text, custom_banner_link, global_cooldown_seconds) không bao giờ được tạo trên D1.
+  2. *Lỗi SQL Cascade*: Do thiếu cột trên D1, truy vấn SELECT ném lỗi no such column, truy vấn UPDATE ném lỗi table has no column, dẫn đến load/save thất bại.
+  3. *Lệch pha đồng bộ*: Khi fetchFromCloudflareKV kéo dữ liệu từ server về mà thiếu cờ, client vô tình ghi đè localStorage làm tắt công tắc.
+- **Giải pháp chuẩn đã kiểm chứng**:
+  1. Dùng PRAGMA table_info(giveaways) kiểm tra trước toàn bộ danh sách cột chỉ bằng 1 câu truy vấn, chỉ chạy ALTER TABLE cho các cột thực sự thiếu.
+  2. Bổ sung fallback và smart merge ở cả Worker D1 service lẫn adminDataService.ts để bảo toàn cờ và link khi có dữ liệu hợp lệ.
+  3. Đồng bộ điều kiện hiển thị trên Web Khách: hiển thị khi bật hoặc khi có link hợp lệ.
+- ⛔ **CÁCH SỬA ĐÃ THẤT BẠI - TUYỆT ĐỐI KHÔNG LẶP LẠI**:
+  - ❌ *Không chạy hàng trăm câu ALTER TABLE tuần tự trong Worker request*: Cloudflare Free giới hạn 50 subrequests. Mọi thao tác DDL phải gom nhóm hoặc kiểm tra PRAGMA trước.
+
+---
+
 ### ISSUE-141: Bẫy Lỗi "Failed to fetch dynamically imported module" Do Cache HTML Chứa Hash Cũ Khi Triển Khai Bản Mới (Stale Chunk Hash Mismatch)
 - **Triệu chứng**:
   - Người dùng đang duyệt trang web khách, khi click sang tab Giveaways (hoặc mở các view/modal lazy-load như Cửa Hàng, Tiện Ích, Tin Tức, Nạp Ví), xuất hiện màn hình đỏ báo lỗi hoặc console văng lỗi:

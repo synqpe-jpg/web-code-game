@@ -469,7 +469,7 @@ const GiveawayDetailModal: React.FC<GiveawayDetailModalProps> = ({
           </div>
 
           {/* Requirement 5: Ô Tùy Chỉnh / Link Cộng Đồng (Admin Cấu Hình) - Thế vào vị trí cũ của Thời Gian Sự Kiện */}
-          {campaign.custom_banner_enabled && (
+          {(Boolean(campaign.custom_banner_enabled) || Boolean(campaign.custom_banner_link && campaign.custom_banner_link.trim() !== '')) && (
             <div
               onClick={() => {
                 if (campaign.custom_banner_link) {
