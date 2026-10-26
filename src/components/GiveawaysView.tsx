@@ -778,11 +778,19 @@ const GiveawayDetailModal: React.FC<GiveawayDetailModalProps> = ({
                 <Clock className="w-4 h-4 text-amber-400" />
                 <span>Đang Chờ Đợt Mã Tiếp Theo ({globalCooldownWaitText})</span>
               </button>
-            </div>
-          ) : remaining <= 0 ? (
-            /* Requirement 3: Bỏ ô Toàn Bộ Phần Thưởng Đã Trao Hết */
-            userClaimCount > 0 ? (
-              <div className="space-y-2">
+
+              {isAdmin && (
+                <button
+                  onClick={() => handleClaim(campaign, activePackage?.id)}
+                  disabled={claimingId === campaign.id}
+                  className="w-full py-2.5 rounded-xl bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 border border-amber-500/40 text-xs font-bold flex items-center justify-center gap-1.5 cursor-pointer transition-all active:scale-95"
+                >
+                  <Sparkles className="w-3.5 h-3.5" />
+                  <span>👑 [Admin] Bỏ qua chờ đợt — Giật thử nghiệm ngay</span>
+                </button>
+              )}
+
+              {userClaimCount > 0 && (
                 <button
                   onClick={() => {
                     onClose();
@@ -801,8 +809,38 @@ const GiveawayDetailModal: React.FC<GiveawayDetailModalProps> = ({
                   <CheckCircle2 className="w-4 h-4" />
                   <span>Xem lại mã bạn đã nhận ({userClaimCount})</span>
                 </button>
-              </div>
-            ) : null
+              )}
+            </div>
+          ) : remaining <= 0 ? (
+            <div className="space-y-2">
+              <button
+                disabled
+                className="w-full py-3.5 rounded-2xl bg-muted/60 text-muted-foreground border border-border text-xs font-bold flex items-center justify-center gap-2 cursor-not-allowed"
+              >
+                <Clock className="w-4 h-4 text-amber-400" />
+                <span>Chờ Đợt Mã Mới</span>
+              </button>
+              {userClaimCount > 0 && (
+                <button
+                  onClick={() => {
+                    onClose();
+                    const existing = uniqueClaimedList.find((c) => c.campaign_id === campaign.id);
+                    if (existing?.code_value) {
+                      setClaimedRewardModal({
+                        campaign,
+                        code: existing.code_value,
+                        isNew: false,
+                        isAdminBypass: isAdmin,
+                      });
+                    }
+                  }}
+                  className="w-full py-2.5 rounded-xl bg-emerald-500/15 hover:bg-emerald-500/25 text-emerald-400 border border-emerald-500/30 text-xs font-bold flex items-center justify-center gap-2 cursor-pointer transition-all"
+                >
+                  <CheckCircle2 className="w-4 h-4" />
+                  <span>Xem lại mã bạn đã nhận ({userClaimCount})</span>
+                </button>
+              )}
+            </div>
           ) : isMaxReached ? (
             <div className="space-y-1.5">
               <button
@@ -825,58 +863,6 @@ const GiveawayDetailModal: React.FC<GiveawayDetailModalProps> = ({
                 <CheckCircle2 className="w-4 h-4" />
                 <span>Xem {userClaimCount} Mã Đã Nhận & Sao Chép</span>
               </button>
-            </div>
-          ) : isModalGlobalCooling ? (
-            /* Requirement 6: Đếm ngược mục giật mã, khi về 0 chuyển thành nút giật mã ngay */
-            <div className="space-y-2">
-              <div className="p-4 rounded-2xl bg-gradient-to-r from-amber-950/70 via-orange-950/70 to-red-950/70 border border-amber-500/40 text-center space-y-2.5 shadow-lg">
-                <div className="text-xs font-bold text-amber-300 uppercase tracking-wider flex items-center justify-center gap-1.5">
-                  <Clock className="w-4 h-4 text-amber-400 animate-pulse" />
-                  <span>Mã Kế Tiếp Mở Cho Toàn Web Sau:</span>
-                </div>
-                <div className="text-3xl font-mono font-black text-amber-300 tracking-widest drop-shadow-md">
-                  {globalCooldownWaitText}
-                </div>
-                {campaign.enable_waiting_room !== false && (
-                  <div className="pt-1 flex justify-center">
-                    <LiveWaitingRoomBadge
-                      minUsers={campaign.waiting_users_min}
-                      maxUsers={campaign.waiting_users_max}
-                      variant="card"
-                    />
-                  </div>
-                )}
-                <p className="text-[11px] text-amber-200/80 leading-relaxed max-w-sm mx-auto">
-                  {(() => {
-                    const lastUser = campaign.last_claimer_name || 'người chơi trước';
-                    const template =
-                      campaign.custom_cooldown_msg ||
-                      'Đợt phát trước đạo hữu {last_user} đã nhanh tay đi trước, đạo hữu vui lòng đợi {time_left} rồi thử sức lại.';
-                    return template
-                      .replace(/\{last_user\}|\{claimer\}|\{last_claimer\}|\{last_claimer_name\}|\{user\}/gi, lastUser)
-                      .replace(/\{time_left\}|\{seconds\}|\{sec\}/gi, globalCooldownWaitText);
-                  })()}
-                </p>
-              </div>
-
-              <button
-                disabled
-                className="w-full py-3.5 rounded-2xl bg-amber-500/20 text-amber-300 border border-amber-500/40 text-xs font-bold flex items-center justify-center gap-2 cursor-not-allowed"
-              >
-                <Clock className="w-4 h-4 text-amber-400" />
-                <span>Đang Chờ Đợt Mã Tiếp Theo ({globalCooldownWaitText})</span>
-              </button>
-
-              {isAdmin && (
-                <button
-                  onClick={() => handleClaim(campaign, activePackage?.id)}
-                  disabled={claimingId === campaign.id}
-                  className="w-full py-2.5 rounded-xl bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 border border-amber-500/40 text-xs font-bold flex items-center justify-center gap-1.5 cursor-pointer transition-all active:scale-95"
-                >
-                  <Sparkles className="w-3.5 h-3.5" />
-                  <span>👑 [Admin] Bỏ qua chờ đợt — Giật thử nghiệm ngay</span>
-                </button>
-              )}
             </div>
           ) : isCooldownActive ? (
             <button

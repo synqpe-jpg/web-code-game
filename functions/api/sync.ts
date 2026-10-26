@@ -232,7 +232,15 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
             const rawGws = await loadAllGiveawaysD1(env.DB, authorized);
             const delGwRaw = await getSettingD1(env.DB, 'wcg_deleted_giveaways').catch(() => []);
             const delGwSet = new Set(Array.isArray(delGwRaw) ? delGwRaw : []);
-            val = (rawGws || [])
+            const fallbackGw = (fallbackGiveawaysData as any[]).filter((g: any) => g && g.id && !delGwSet.has(g.id) && g.id !== 'gw_gamerpower_rotwood' && g.id !== 'gw_alienware_vaultbreakers' && g.id !== 'gw_garena_delta_force');
+            const gwMap = new Map<string, any>();
+            fallbackGw.forEach((g: any) => gwMap.set(g.id, g));
+            (rawGws || []).forEach((g: any) => {
+              if (g && g.id && !delGwSet.has(g.id)) {
+                gwMap.set(g.id, { ...(gwMap.get(g.id) || {}), ...g });
+              }
+            });
+            val = Array.from(gwMap.values())
               .filter((g: any) => g && g.id && g.status !== 'ENDED' && !delGwSet.has(g.id) && g.id !== 'gw_gamerpower_rotwood' && g.id !== 'gw_alienware_vaultbreakers' && g.id !== 'gw_garena_delta_force')
               .map((gw: any) => {
                 const { codes_pool, claim_history, ...rest } = gw;
@@ -531,22 +539,27 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
           });
         }
 
+        const fallbackGwMap = new Map((fallbackGiveawaysData as any[]).map((f: any) => [f.id, f]));
         rawGiveaways = (gwList || []).filter((g: any) => g && g.id && g.status !== 'ENDED' && !deletedGwSet.has(g.id) && g.id !== 'gw_gamerpower_rotwood' && g.id !== 'gw_alienware_vaultbreakers' && g.id !== 'gw_garena_delta_force').map((g: any) => {
           const meta = gwMetaMap.get(g.id) || {};
+          const fallback = fallbackGwMap.get(g.id) || {};
           const poolFromD1 = Array.isArray(g.codes_pool) ? g.codes_pool : [];
           const poolFromMeta = Array.isArray(meta.codes_pool) ? meta.codes_pool : [];
-          const effectivePool = poolFromD1.length > 0 ? poolFromD1 : poolFromMeta;
+          const poolFromFallback = Array.isArray(fallback.codes_pool) ? fallback.codes_pool : [];
+          const effectivePool = poolFromD1.length > 0
+            ? poolFromD1
+            : (poolFromMeta.length > 0 ? poolFromMeta : poolFromFallback);
 
           const historyFromD1 = Array.isArray(g.claim_history) ? g.claim_history : [];
           const historyFromMeta = Array.isArray(meta.claim_history) ? meta.claim_history : [];
           const effectiveHistory = historyFromD1.length > 0 ? historyFromD1 : historyFromMeta;
 
-          const realRemaining = Array.isArray(effectivePool)
+          const realRemaining = Array.isArray(effectivePool) && effectivePool.length > 0
             ? effectivePool.length
-            : (Number(g.remaining_codes) || 0);
+            : Math.max(0, Number(g.remaining_codes) || Number(meta.remaining_codes) || Number(fallback.remaining_codes) || 0);
           const realTotal = Math.max(
-            Number(g.total_codes) || 0,
-            realRemaining + (Number(g.claimed_codes) || 0)
+            Number(g.total_codes) || Number(meta.total_codes) || Number(fallback.total_codes) || 0,
+            realRemaining + (Number(g.claimed_codes) || Number(meta.claimed_codes) || Number(fallback.claimed_codes) || 0)
           );
 
           return {

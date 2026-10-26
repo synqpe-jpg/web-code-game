@@ -1,3 +1,4 @@
+import fallbackGiveawaysData from '../../src/data/giveaways.json';
 /**
  * D1 Database Service for web-code-game
  * Implements atomic batch operations, strict constraint validations, and schema management.
@@ -2796,10 +2797,18 @@ export async function loadAllGiveawaysD1(db: D1Database, includeCodes: boolean =
       ORDER BY g.created_at DESC
     `).all();
     const rows = (res && res.results) || [];
+    const fallbackGwMap = new Map((fallbackGiveawaysData as any[]).map((f: any) => [f.id, f]));
     const list = rows.map((gw: any) => {
       const meta = metaMap.get(gw.id) || {};
-      const poolLen = Array.isArray(meta.codes_pool) ? meta.codes_pool.length : (Array.isArray(gw.codes_pool) ? gw.codes_pool.length : null);
-      const rem = poolLen !== null ? poolLen : Math.max(0, Number(gw.remaining_codes) || 0);
+      const fallback = fallbackGwMap.get(gw.id) || {};
+      const poolLen = Array.isArray(meta.codes_pool) && meta.codes_pool.length > 0
+        ? meta.codes_pool.length
+        : (Array.isArray(gw.codes_pool) && gw.codes_pool.length > 0
+            ? gw.codes_pool.length
+            : (Array.isArray(fallback.codes_pool) && fallback.codes_pool.length > 0 ? fallback.codes_pool.length : null));
+      const rem = poolLen !== null
+        ? poolLen
+        : Math.max(0, Number(gw.remaining_codes) || Number(meta.remaining_codes) || Number(fallback.remaining_codes) || 0);
       return {
         ...meta,
         ...gw,
@@ -2867,18 +2876,26 @@ export async function loadAllGiveawaysD1(db: D1Database, includeCodes: boolean =
       });
     }
 
-    return list.map((gw: any) => ({
-      ...gw,
-      codes_pool: poolMap.get(gw.id) || [],
-      claim_history: historyMap.get(gw.id) || [],
-    }));
+    return list.map((gw: any) => {
+      const fallback = fallbackGwMap.get(gw.id) || {};
+      const pool = poolMap.has(gw.id) && poolMap.get(gw.id)!.length > 0
+        ? poolMap.get(gw.id)!
+        : (Array.isArray(gw.codes_pool) && gw.codes_pool.length > 0
+            ? gw.codes_pool
+            : (Array.isArray(fallback.codes_pool) ? fallback.codes_pool : []));
+      return {
+        ...gw,
+        codes_pool: pool,
+        claim_history: historyMap.get(gw.id) || (Array.isArray(gw.claim_history) && gw.claim_history.length > 0 ? gw.claim_history : (fallback.claim_history || [])),
+      };
+    });
   } catch (err: any) {
     console.warn('[loadAllGiveawaysD1 error]', err?.message);
     const metaFallback = await getSettingD1(db, 'wcg_admin_giveaways_v4').catch(() => null);
     if (Array.isArray(metaFallback) && metaFallback.length > 0) {
       return metaFallback;
     }
-    return [];
+    return (fallbackGiveawaysData as any[]) || [];
   }
 }
 
