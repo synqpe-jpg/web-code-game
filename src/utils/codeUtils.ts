@@ -29,6 +29,15 @@ export function decodeHtmlEntities(raw: any): string {
     .replace(/&lt;/gi, '<')
     .replace(/&gt;/gi, '>')
     .replace(/https:\/\/codegame\.store\/?/g, 'https://codegame.shop/')
+    .replace(/v[\uFFFD\?]+t/gi, 'vật')
+    .replace(/ph[\uFFFD\?]+m/gi, 'phẩm')
+    .replace(/t[\uFFFD\?]+ng/gi, 'tặng')
+    .replace(/th[\uFFFD\?]+ng/gi, 'thưởng')
+    .replace(/ph[\uFFFD\?]+n/gi, 'phần')
+    .replace(/t[\uFFFD\?]+\s+nhà/gi, 'từ nhà')
+    .replace(/Qu[\uFFFD\?]+\s+tặng/gi, 'Quà tặng')
+    .replace(/tân\s+th[\uFFFD\?]+/gi, 'tân thủ')
+    .replace(/[\uFFFD]+/g, '')
     .replace(/\s+/g, ' ')
     .trim();
 }
