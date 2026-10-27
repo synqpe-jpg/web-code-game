@@ -7,6 +7,45 @@ Mỗi mục sửa lỗi đều ghi nhận **Nguyên nhân gốc rễ (Root Cause
 
 ## [2026-10-27]
 
+### 237. Khôi Phục Bảng Game Sắp Ra Mắt: Đủ 19 UPCOMING + 3 LAUNCHED, Khắc Phục Lỗi Bộ Lọc LAUNCHED Rò Rỉ Bản Ghi & Chốt Chặn Ghi Đè Âm Thầm
+- **Bối cảnh & Yêu cầu từ Người dùng**:
+  - Người dùng phản ánh: *"Khôi phục bảng game sắp ra mắt — API hiện chỉ còn 6 game với ngày sai, 13 bản ghi biến mất, bộ lọc LAUNCHED trả sai bản ghi. Bối cảnh: Sáng nay 27/10 bảng game sắp ra mắt còn 19 game UPCOMING + 3 game LAUNCHED. Kiểm chứng live lúc 19:04 cùng ngày cho thấy dữ liệu đã thay đổi nghiêm trọng... 6 game còn lại đều sai ngày so với hồ sơ đã chốt... Các bản ghi biến mất khỏi API: Tiên Giới (chỉ còn xuất hiện lạc trong bộ lọc LAUNCHED với status UPCOMING và ngày sai 25/10), Azur Promilia, Elancia Mobile, và toàn bộ 10 game chưa rõ ngày... bảng đang CHẬP CHỜN giữa dữ liệu cũ đã cache và dữ liệu mới live — con số 19 mà chủ web thấy chính là lần hiển thị dữ liệu cũ đã cache này."*
+- **Nguyên nhân gốc rễ (Root Cause)**:
+  1. *Nguyên nhân bộ lọc LAUNCHED trả sai bản ghi (lẫn Tiên Giới)*:
+     - Trong `functions/api/crawler/ingest-upcoming-games.ts`, nhánh `statusFilter === 'LAUNCHED' || statusFilter === 'ROLLED_OVER'` chứa điều kiện: `const target = new Date(g.releaseDate).getTime(); return !isNaN(target) && (now - target) > ONE_DAY_MS;`.
+     - Điều kiện này suy diễn dựa trên mốc thời gian quá 24h thay vì lọc theo thuộc tính `status`. Tiên Giới mang ngày cũ `2026-10-25`, `(now - target) > 24h` nên bị lọc thẳng vào `LAUNCHED` dù trường `status` vẫn là `"UPCOMING"`.
+  2. *Nguyên nhân Tiên Giới biến mất khỏi UPCOMING (chỉ còn 6 game)*:
+     - Nhánh `statusFilter === 'UPCOMING'` kiểm tra `elapsed <= ONE_DAY_MS`. Vì ngày 25/10 đã trôi qua quá 2 ngày (> 48h > 24h), Tiên Giới bị loại bỏ khỏi danh sách UPCOMING, khiến 7 game seed chỉ còn lại 6 game.
+  3. *Nguyên nhân 13 bản ghi biến mất và 6 game bị sai ngày*:
+     - Các file fallback trong mã nguồn (`functions/data/canonical_backup_state.json`, `DEFAULT_UPCOMING_GAMES_FALLBACK`, `DEFAULT_UPCOMING_GAMES`, `getDefaultUpcomingGames`) chỉ chứa 7 game hạt giống cũ từ ngày 23/10.
+     - Hàm `sanitizeAndSafeguardUpcomingGames` bị hardcode đè các giá trị cũ: Tiên Giới thành SohaGame, Monster Hunter Outlanders thành 00:00 TiMi Studio/Capcom, Hiệp Khách Hành thành VTC Mobile.
+     - Khi chạy sync hoặc khi fallback khởi tạo lại D1, dữ liệu 19 game thực tế bị ghi đè thành 7 game cũ, rồi bị loại còn 6 game.
+  4. *Nguyên nhân bảng chập chờn giữa 19 và 6*:
+     - Tại `src/services/dataService.ts`, hàm đồng bộ `getUpcomingGamesSync()` đọc từ `localStorage.getItem('wcg_cached_upcoming_games_v1')`. Lần mở đầu tiên, trình duyệt hiển thị cache 19 game cũ. Sau đó hàm bất đồng bộ `getUpcomingGames()` gọi `/api/crawler/ingest-upcoming-games?status=UPCOMING` trả về 6 game, ghi đè lại vào `localStorage`, khiến các lần tải sau co lại còn 6 game.
+- **Giải pháp thành công (Solution)**:
+  1. *Khôi phục đủ 19 game UPCOMING và 3 game LAUNCHED (tổng 22 game)*:
+     - 8 game có ngày: Tiên Giới (VGP, 28/10 10:00, order 1), Monster Hunter Outlanders (Garena, 29/10 10:00 mốc tạm, order 2), Đậu Nhỏ Nổi Giận (CMN Online, 30/10 10:00 mốc tạm App Store xác nhận, order 3), Hiệp Khách Hành (Joy Game, 01/11 10:00, order 4), Sword x Staff (Funtap, 04/11 10:00 mốc tạm, order 5), Azur Promilia (Manjuu, 26/11 10:00 mốc tạm, order 6), Elancia Mobile (GAMEDUO, 01/12 09:00, order 7), ANANTA (VNGGames, 15/01/2027 10:00 mốc tạm, order 8).
+     - 11 game chưa rõ ngày (`releaseDate: null`, UPCOMING): Mộng Cảnh Tam Quốc (SohaGame, order 9), BLEACH (Bandai Namco, order 10), Petit Planet (HoYoverse, order 11), Palworld (Garena, order 12), Tougen Anki (Com2uS, order 13), TEMPPAL (Nexon, order 14), Crownstone (Level Infinite, order 15), Overwatch Rush (Blizzard, order 16), Plants vs Zombies 3 (EA, order 17), Garena Free City (Garena, order 18), Arad Idle RPG (Nexon, order 19).
+     - 3 game LAUNCHED: Strinova VN (Gzone, 23/10 09:00, order 901), Where Winds Meet (NetEase, 09/10 10:00, order 902), Honkai: Star Rail (HoYoverse, 26/04 10:00, order 903).
+  2. *Sửa triệt để logic bộ lọc LAUNCHED*:
+     - Thay đổi điều kiện lọc: `statusFilter === 'LAUNCHED' || statusFilter === 'ROLLED_OVER'` chỉ lọc theo `g.status === 'LAUNCHED' || g.status === 'ROLLED_OVER'`. Loại bỏ điều kiện rò rỉ dựa trên thời gian.
+     - `launchedCount` được tính chuẩn xác: `upcomingGames.filter(g => g.status === 'LAUNCHED' || g.status === 'ROLLED_OVER').length` (kết quả 3).
+  3. *Tạo 100% icon WebP & JPG cho 9 game còn thiếu*:
+     - Sinh icon 512x512 chất lượng cao cho `azur-promilia`, `elancia-mobile`, `tougen-anki`, `temppal`, `crownstone`, `overwatch-rush`, `plants-vs-zombies-3`, `garena-free-city`, `arad-idle-rpg`. Đảm bảo 22/22 game có đủ icon chuẩn không bao giờ hiển thị fallback logo.
+  4. *Đồng bộ toàn bộ Fallback & Canonical State*:
+     - `functions/api/crawler/ingest-upcoming-games.ts`: Cập nhật `DEFAULT_UPCOMING_GAMES_FALLBACK` (19 game) & `DEFAULT_LAUNCHED_GAMES` (3 game).
+     - `src/types/game.ts`: Cập nhật `DEFAULT_UPCOMING_GAMES` (19 game).
+     - `src/admin/services/adminDataService.ts`: Cập nhật `getDefaultUpcomingGames()` (22 game).
+     - `functions/data/canonical_backup_state.json` và `src/data/canonical_backup_state.json`: Cập nhật 19 upcoming + 3 launched.
+  5. *Thiết lập Chốt Chặn Bảo Vệ (Safeguard Gate)*:
+     - Tại `ingest-upcoming-games.ts` và `functions/api/sync.ts`: Nếu payload gửi lên làm giảm số lượng game quá 50% (khi CSDL đang có >= 10 game) mà không có cờ `force_bulk_delete: true`, hệ thống tự động từ chối ghi và lưu bản sao lưu an toàn vào `wcg_upcoming_games_backup_v1`.
+  6. *Đồng bộ trực tiếp Cloudflare D1 Live*:
+     - Gửi payload 22 game chuẩn lên D1. Live API xác nhận: `UPCOMING: 19` (`liveCount: 19`), `LAUNCHED: 3` (`launchedCount: 3`), `ALL: 22`.
+
+---
+
+## [2026-10-27]
+
 ### 236. Bổ Sung & Chuẩn Hóa 100% Logo Cho Các Tựa Game Sắp Ra Mắt (Sword & Staff & Project Ananta)
 - **Bối cảnh & Yêu cầu từ Người dùng**:
   - Người dùng hỏi: *"Tại sao trên web lại có game không có logo?"* kèm ảnh chụp màn hình trang chủ mục "Game Sắp Ra Mắt (Lịch Mở Server)", trong đó có 2 game hiển thị logo placeholder mặc định của CodeGame thay vì logo thật (`Sword & Staff` và `Project Ananta`).

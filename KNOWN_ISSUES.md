@@ -10,6 +10,27 @@
 
 ## 1. DANH MỤC LỖI & CÁC BẪY ĐÃ THẤT BẠI (DO NOT REPEAT)
 
+### ISSUE-157: Bẫy Rò Rỉ Bản Ghi Game Sang Bộ Lọc LAUNCHED Theo Mốc Thời Gian & Mất Dữ Liệu Do Fallback Seed Cũ
+- **Triệu chứng**:
+  - API trả về bộ lọc `status=LAUNCHED` chứa 4 bản ghi, trong đó có `Tiên Giới` mang trường `status: "UPCOMING"` (bộ lọc trả sai bản ghi).
+  - Bảng game sắp ra mắt chỉ còn 6 game với ngày sai, 13 game bị biến mất khỏi API (`Azur Promilia`, `Elancia Mobile`, và 10 game chưa rõ ngày).
+  - Giao diện web chập chờn: lần đầu mở tab hiện 19 game (từ cache), sau đó vài giây co lại còn 6 game (sau khi API fetch trả về).
+- **Nguyên nhân gốc rễ (Root Cause)**:
+  1. *Lọc theo thời gian thay vì trường status*: Nhánh `statusFilter === 'LAUNCHED'` dùng điều kiện `(now - target) > ONE_DAY_MS`. Khi game mang ngày cũ (Tiên Giới mang ngày 25/10), nó bị rò rỉ vào LAUNCHED dù status là UPCOMING.
+  2. *Bộ lọc UPCOMING loại bỏ game quá 24h*: Tiên Giới mang ngày 25/10 bị loại bỏ khỏi danh sách UPCOMING vì `elapsed > 24h`, khiến 7 game seed chỉ còn 6 game.
+  3. *Mất đồng bộ giữa D1 và Seed Fallback*: Các file fallback trong repo (`canonical_backup_state.json`, `DEFAULT_UPCOMING_GAMES_FALLBACK`, `DEFAULT_UPCOMING_GAMES`, `getDefaultUpcomingGames`) chỉ chứa 7 game hạt giống cũ từ 23/10. Khi fallback kích hoạt hoặc chạy sync, nó ghi đè làm mất 13 game mới và sai ngày của 6 game.
+  4. *Ghi đè cache LocalStorage từ API lỗi*: `getUpcomingGamesSync()` đọc từ cache 19 game cũ, sau đó `getUpcomingGames()` gọi API lỗi trả về 6 game và ghi đè lại vào `localStorage`.
+- **Giải pháp chuẩn đã kiểm chứng**:
+  1. *Lọc nghiêm ngặt theo trường `status`*: Bộ lọc `LAUNCHED` chỉ lấy `g.status === 'LAUNCHED' || g.status === 'ROLLED_OVER'`. Không suy diễn dựa trên thời gian để tránh rò rỉ.
+  2. *Đồng bộ toàn bộ 19 game UPCOMING và 3 game LAUNCHED*: Đưa trọn vẹn 22 game vào tất cả các tầng: Cloudflare D1, `canonical_backup_state.json`, `DEFAULT_UPCOMING_GAMES_FALLBACK`, `DEFAULT_UPCOMING_GAMES`, `getDefaultUpcomingGames`.
+  3. *Thiết lập Chốt Chặn Bảo Vệ (Safeguard Gate)*: Nếu payload gửi lên làm giảm số lượng game quá 50% (khi CSDL đang có >= 10 game) mà không có cờ `force_bulk_delete: true`, hệ thống tự động từ chối và backup vào `wcg_upcoming_games_backup_v1`.
+- ⛔ **CÁCH SỬA ĐÃ THẤT BẠI - TUYỆT ĐỐI KHÔNG LẶP LẠI**:
+  - ❌ *Không lọc bản ghi vào danh mục LAUNCHED chỉ bằng việc so sánh ngày tháng*: Trạng thái nghiệp vụ phải tuân theo trường `status` và quy trình rollover có kiểm soát.
+  - ❌ *Không để file fallback và canonical backup chứa danh sách thiếu so với thực tế CSDL*: Mọi file fallback phải là bản sao chuẩn xác 100% của SSOT.
+  - ❌ *Không cho phép các thao tác bulk save/sync ghi đè làm giảm số lượng bản ghi đột ngột mà thiếu safeguard bảo vệ*.
+
+---
+
 ### ISSUE-156: Bẫy Thiếu Asset Logo Cho Game Sắp Ra Mắt Dẫn Đến Hiển Thị Logo Placeholder Mặc Định
 - **Triệu chứng**:
   - Tại trang chủ phần "Game Sắp Ra Mắt (Lịch Mở Server)", một số game như `Sword & Staff (Kiếm Vũ Tiên Phong)` và `Project Ananta` hiển thị logo mặc định của CodeGame thay vì logo thực tế của game.

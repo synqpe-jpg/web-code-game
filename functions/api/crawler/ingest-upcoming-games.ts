@@ -36,139 +36,405 @@ const CORS_HEADERS = {
 const DEFAULT_UPCOMING_GAMES_FALLBACK = [
   {
     id: 'ug_tien_gioi',
-    name: 'Tiên Giới: Kiếm Khách Vô Danh',
+    name: 'Tiên Giới',
     slug: 'tien-gioi',
-    publisher: 'VTC Mobile',
-    releaseDate: '2026-10-25T10:00:00+07:00',
-    category: 'Nhập Vai Tu Tiên',
+    publisher: 'VGP',
+    releaseDate: '2026-10-28T10:00:00+07:00',
+    category: 'Nhập Vai Tiên Hiệp',
     platform: 'Android, iOS',
     iconUrl: '/game_icons/tien-gioi.webp',
+    icon_url: '/game_icons/tien-gioi.webp',
+    proxyIconUrl: '/game_icons/tien-gioi.webp',
     bannerUrl: 'https://images.unsplash.com/photo-1534447677768-be436bb09401?auto=format&fit=crop&w=1200&q=80',
     description: 'Tuyệt phẩm kiếm hiệp tu tiên chân thực với đồ họa Unreal Engine tiên tiến.',
-    preRegUrl: 'https://tiengioi.vtcmobile.vn',
-    expectedCodes: ['TIENGIOI999', 'KIEMKHACH', 'VODANH'],
+    preRegUrl: 'https://tiengioi.vgp.vn',
+    expectedCodes: ['TIENGIOI2026', 'TIENGIOIVGP', 'VIP999', 'TANTHU'],
     subscribersCount: 2840,
     source: 'Trợ lý Pine & Muse Bot',
     status: 'UPCOMING',
     displayOrder: 1,
     createdAt: '2026-10-20T08:00:00Z',
-    updatedAt: '2026-10-24T18:00:00Z',
-  },
-  {
-    id: 'ug_hiep_khach_hanh',
-    name: 'Hiệp Khách Hành VNG',
-    slug: 'hiep-khach-hanh',
-    publisher: 'VNGGames',
-    releaseDate: '2026-10-28T09:00:00+07:00',
-    category: 'Võ Lâm MMORPG',
-    platform: 'Android, iOS, PC',
-    iconUrl: '/game_icons/hiep-khach-hanh.webp',
-    bannerUrl: 'https://images.unsplash.com/photo-1518709268805-4e9042af9f23?auto=format&fit=crop&w=1200&q=80',
-    description: 'Game kiếm hiệp chuyển thể từ danh tác Kim Dung với hệ thống môn phái kinh điển.',
-    preRegUrl: 'https://hiepkhachhanh.vnggames.com',
-    expectedCodes: ['HKHVNG', 'TANTHU888', 'GIFTCODEVNG'],
-    subscribersCount: 4120,
-    source: 'Trợ lý Pine & Muse Bot',
-    status: 'UPCOMING',
-    displayOrder: 2,
-    createdAt: '2026-10-21T09:00:00Z',
-    updatedAt: '2026-10-24T18:00:00Z',
+    updatedAt: '2026-10-27T10:00:00Z',
   },
   {
     id: 'ug_monster_hunter_outlanders',
     name: 'Monster Hunter Outlanders',
     slug: 'monster-hunter-outlanders',
-    publisher: 'TiMi Studio / Capcom',
-    releaseDate: '2026-10-29T00:00:00+07:00',
+    publisher: 'Garena',
+    releaseDate: '2026-10-29T10:00:00+07:00',
     category: 'Săn Quái Thế Giới Mở',
     platform: 'Android, iOS',
     iconUrl: '/game_icons/monster-hunter-outlanders.webp',
+    icon_url: '/game_icons/monster-hunter-outlanders.webp',
+    proxyIconUrl: '/game_icons/monster-hunter-outlanders.webp',
     bannerUrl: 'https://images.unsplash.com/photo-1542751371-adc38448a05e?auto=format&fit=crop&w=1200&q=80',
-    description: 'Siêu phẩm săn quái vật co-op thế giới mở đỉnh cao giữa Capcom và TiMi Studio Group trên di động.',
-    expectedCodes: ['MHO2026', 'HUNTBEGINS'],
+    description: 'Siêu phẩm săn quái vật co-op thế giới mở đỉnh cao giữa Capcom và TiMi Studio Group do Garena đồng phát hành trên di động.',
+    expectedCodes: ['MHO2026', 'HUNTBEGINS', 'VIP888'],
     subscribersCount: 3200,
     source: 'Trợ lý Pine & Muse Bot',
     status: 'UPCOMING',
-    displayOrder: 3,
+    displayOrder: 2,
     createdAt: '2026-10-22T10:00:00Z',
-    updatedAt: '2026-10-24T18:00:00Z',
+    updatedAt: '2026-10-27T10:00:00Z',
   },
   {
     id: 'ug_dau_nho_noi_gian',
     name: 'Đậu Nhỏ Nổi Giận',
     slug: 'dau-nho-noi-gian',
     publisher: 'CMN Online',
-    releaseDate: '2026-11-05T10:00:00+07:00',
+    releaseDate: '2026-10-30T10:00:00+07:00',
     category: 'Chiến Thuật Tháp Thủ',
     platform: 'Android, iOS',
     iconUrl: '/game_icons/dau-nho-noi-gian.webp',
+    icon_url: '/game_icons/dau-nho-noi-gian.webp',
+    proxyIconUrl: '/game_icons/dau-nho-noi-gian.webp',
     bannerUrl: 'https://images.unsplash.com/photo-1511512578047-dfb367046420?auto=format&fit=crop&w=1200&q=80',
-    description: 'Game thủ thành chiến thuật hài hước phong cách Plants vs Zombies độc đáo.',
+    description: 'Game thủ thành chiến thuật hài hước phong cách Plants vs Zombies độc đáo đã được App Store xác nhận.',
     expectedCodes: ['DAUNHO666', 'NOIGIAN888'],
     subscribersCount: 1850,
     source: 'Trợ lý Pine & Muse Bot',
     status: 'UPCOMING',
-    displayOrder: 4,
+    displayOrder: 3,
     createdAt: '2026-10-23T14:00:00Z',
-    updatedAt: '2026-10-24T18:00:00Z',
+    updatedAt: '2026-10-27T10:00:00Z',
+  },
+  {
+    id: 'ug_hiep_khach_hanh',
+    name: 'Hiệp Khách Hành',
+    slug: 'hiep-khach-hanh',
+    publisher: 'Joy Game',
+    releaseDate: '2026-11-01T10:00:00+07:00',
+    category: 'Võ Lâm MMORPG',
+    platform: 'Android, iOS, PC',
+    iconUrl: '/game_icons/hiep-khach-hanh.webp',
+    icon_url: '/game_icons/hiep-khach-hanh.webp',
+    proxyIconUrl: '/game_icons/hiep-khach-hanh.webp',
+    bannerUrl: 'https://images.unsplash.com/photo-1518709268805-4e9042af9f23?auto=format&fit=crop&w=1200&q=80',
+    description: 'Game kiếm hiệp chuyển thể từ danh tác Kim Dung với hệ thống môn phái kinh điển do Joy Game phát hành.',
+    preRegUrl: 'https://hiepkhachhanh.joygame.vn',
+    expectedCodes: ['HKHJOY', 'TANTHU888', 'GIFTCODE2026'],
+    subscribersCount: 4120,
+    source: 'Trợ lý Pine & Muse Bot',
+    status: 'UPCOMING',
+    displayOrder: 4,
+    createdAt: '2026-10-21T09:00:00Z',
+    updatedAt: '2026-10-27T10:00:00Z',
   },
   {
     id: 'ug_sword_x_staff',
-    name: 'Sword & Staff (Kiếm Vũ Tiên Phong)',
+    name: 'Sword x Staff',
     slug: 'sword-x-staff',
-    publisher: 'JoyGames',
-    releaseDate: '2026-11-12T10:00:00+07:00',
+    publisher: 'Funtap',
+    releaseDate: '2026-11-04T10:00:00+07:00',
     category: 'Hành Động Chặt Chém',
     platform: 'Android, iOS, PC',
     iconUrl: '/game_icons/sword-x-staff.webp',
+    icon_url: '/game_icons/sword-x-staff.webp',
+    proxyIconUrl: '/game_icons/sword-x-staff.webp',
     bannerUrl: 'https://images.unsplash.com/photo-1579783900882-c0d3dad7b119?auto=format&fit=crop&w=1200&q=80',
-    description: 'Trò chơi ARPG kết hợp phép thuật và đao kiếm nhịp độ cao.',
-    expectedCodes: ['SWORDSTAFF', 'JOYGAMES2026'],
+    description: 'Trò chơi ARPG kết hợp phép thuật và đao kiếm nhịp độ cao do Funtap phân phối.',
+    expectedCodes: ['SWORDSTAFF', 'FUNTAP2026'],
     subscribersCount: 1420,
     source: 'Trợ lý Pine & Muse Bot',
     status: 'UPCOMING',
     displayOrder: 5,
     createdAt: '2026-10-23T15:00:00Z',
-    updatedAt: '2026-10-24T18:00:00Z',
+    updatedAt: '2026-10-27T10:00:00Z',
+  },
+  {
+    id: 'ug_azur_promilia',
+    name: 'Azur Promilia',
+    slug: 'azur-promilia',
+    publisher: 'Manjuu Network Entertainment',
+    releaseDate: '2026-11-26T10:00:00+07:00',
+    category: 'Thế Giới Mở Kỳ Ảo',
+    platform: 'PC, Android, iOS, PS5',
+    iconUrl: '/game_icons/azur-promilia.webp',
+    icon_url: '/game_icons/azur-promilia.webp',
+    proxyIconUrl: '/game_icons/azur-promilia.webp',
+    bannerUrl: 'https://images.unsplash.com/photo-1518709268805-4e9042af9f23?auto=format&fit=crop&w=1200&q=80',
+    description: 'Siêu phẩm RPG sinh vật kỳ ảo thế giới mở từ nhà phát triển Azur Lane.',
+    expectedCodes: ['AZURPROMILIA', 'MANJUU2026'],
+    subscribersCount: 6500,
+    source: 'Trợ lý Pine & Muse Bot',
+    status: 'UPCOMING',
+    displayOrder: 6,
+    createdAt: '2026-10-23T16:00:00Z',
+    updatedAt: '2026-10-27T10:00:00Z',
+  },
+  {
+    id: 'ug_elancia_mobile',
+    name: 'Elancia Mobile',
+    slug: 'elancia-mobile',
+    publisher: 'GAMEDUO',
+    releaseDate: '2026-12-01T09:00:00+07:00',
+    category: 'MMORPG Cổ Điển',
+    platform: 'Android, iOS',
+    iconUrl: '/game_icons/elancia-mobile.webp',
+    icon_url: '/game_icons/elancia-mobile.webp',
+    proxyIconUrl: '/game_icons/elancia-mobile.webp',
+    bannerUrl: 'https://images.unsplash.com/photo-1563089145-599997674d42?auto=format&fit=crop&w=1200&q=80',
+    description: 'Huyền thoại MMORPG cổ điển tái xuất trên nền tảng di động.',
+    expectedCodes: ['ELANCIA2026', 'GAMEDUO'],
+    subscribersCount: 2100,
+    source: 'Trợ lý Pine & Muse Bot',
+    status: 'UPCOMING',
+    displayOrder: 7,
+    createdAt: '2026-10-23T16:30:00Z',
+    updatedAt: '2026-10-27T10:00:00Z',
+  },
+  {
+    id: 'ug_ananta',
+    name: 'ANANTA',
+    slug: 'ananta',
+    publisher: 'VNGGames',
+    releaseDate: '2027-01-15T10:00:00+07:00',
+    category: 'Thế Giới Mở Anime',
+    platform: 'PC, Android, iOS',
+    iconUrl: '/game_icons/ananta.webp',
+    icon_url: '/game_icons/ananta.webp',
+    proxyIconUrl: '/game_icons/ananta.webp',
+    bannerUrl: 'https://images.unsplash.com/photo-1518709268805-4e9042af9f23?auto=format&fit=crop&w=1200&q=80',
+    description: 'Dự án thế giới mở tương lai với cơ chế parkour đô thị và combat tự do do VNGGames phát hành tại VN.',
+    expectedCodes: ['ANANTA2026', 'FUTUREOPEN'],
+    subscribersCount: 5200,
+    source: 'Trợ lý Pine & Muse Bot',
+    status: 'UPCOMING',
+    displayOrder: 8,
+    createdAt: '2026-10-23T17:00:00Z',
+    updatedAt: '2026-10-27T10:00:00Z',
   },
   {
     id: 'ug_mong_canh_tam_quoc',
     name: 'Mộng Cảnh Tam Quốc',
     slug: 'mong-canh-tam-quoc',
     publisher: 'SohaGame',
-    releaseDate: '2026-11-20T10:00:00+07:00',
+    releaseDate: null,
     category: 'Chiến Thuật Thẻ Tướng',
     platform: 'Android, iOS',
     iconUrl: '/game_icons/mong-canh-tam-quoc.webp',
+    icon_url: '/game_icons/mong-canh-tam-quoc.webp',
+    proxyIconUrl: '/game_icons/mong-canh-tam-quoc.webp',
     bannerUrl: 'https://images.unsplash.com/photo-1563089145-599997674d42?auto=format&fit=crop&w=1200&q=80',
     description: 'Thế giới Tam Quốc huyễn tưởng kết hợp đồ họa anime tuyệt mỹ.',
     expectedCodes: ['MONGCANH3Q', 'TAMQUOCAFK'],
     subscribersCount: 2150,
     source: 'Trợ lý Pine & Muse Bot',
     status: 'UPCOMING',
-    displayOrder: 6,
-    createdAt: '2026-10-23T16:00:00Z',
-    updatedAt: '2026-10-24T18:00:00Z',
+    displayOrder: 9,
+    createdAt: '2026-10-23T17:30:00Z',
+    updatedAt: '2026-10-27T10:00:00Z',
   },
   {
-    id: 'ug_ananta',
-    name: 'Project Ananta',
-    slug: 'ananta',
-    publisher: 'NPH Quốc Tế',
-    releaseDate: '2026-12-01T10:00:00+07:00',
-    category: 'Thế Giới Mở Anime',
-    platform: 'PC, Android, iOS',
-    iconUrl: '/game_icons/ananta.webp',
-    bannerUrl: 'https://images.unsplash.com/photo-1518709268805-4e9042af9f23?auto=format&fit=crop&w=1200&q=80',
-    description: 'Dự án thế giới mở tương lai với cơ chế parkour đô thị và combat tự do.',
-    expectedCodes: ['ANANTA2026', 'FUTUREOPEN'],
-    subscribersCount: 5200,
+    id: 'ug_bleach',
+    name: 'BLEACH',
+    slug: 'bleach',
+    publisher: 'Bandai Namco Entertainment',
+    releaseDate: null,
+    category: 'Hành Động Anime',
+    platform: 'Android, iOS, PC',
+    iconUrl: '/game_icons/bleach.webp',
+    icon_url: '/game_icons/bleach.webp',
+    proxyIconUrl: '/game_icons/bleach.webp',
+    bannerUrl: 'https://images.unsplash.com/photo-1542751371-adc38448a05e?auto=format&fit=crop&w=1200&q=80',
+    description: 'Tác phẩm nhập vai hành động chuẩn nguyên tác anime Bleach chính thức.',
+    expectedCodes: ['BLEACH2026', 'BANKAI'],
+    subscribersCount: 3800,
     source: 'Trợ lý Pine & Muse Bot',
     status: 'UPCOMING',
-    displayOrder: 7,
-    createdAt: '2026-10-23T17:00:00Z',
-    updatedAt: '2026-10-24T18:00:00Z',
-  }
+    displayOrder: 10,
+    createdAt: '2026-10-23T18:00:00Z',
+    updatedAt: '2026-10-27T10:00:00Z',
+  },
+  {
+    id: 'ug_petit_planet',
+    name: 'Petit Planet',
+    slug: 'petit-planet',
+    publisher: 'HoYoverse',
+    releaseDate: null,
+    category: 'Mô Phỏng Cuộc Sống',
+    platform: 'PC, Mobile',
+    iconUrl: '/game_icons/petit-planet.webp',
+    icon_url: '/game_icons/petit-planet.webp',
+    proxyIconUrl: '/game_icons/petit-planet.webp',
+    bannerUrl: 'https://images.unsplash.com/photo-1579783900882-c0d3dad7b119?auto=format&fit=crop&w=1200&q=80',
+    description: 'Dự án game mô phỏng cuộc sống ấm áp từ HoYoverse.',
+    expectedCodes: ['PETIT2026', 'HOYOVERSE'],
+    subscribersCount: 4200,
+    source: 'Trợ lý Pine & Muse Bot',
+    status: 'UPCOMING',
+    displayOrder: 11,
+    createdAt: '2026-10-23T18:30:00Z',
+    updatedAt: '2026-10-27T10:00:00Z',
+  },
+  {
+    id: 'ug_palworld',
+    name: 'Palworld',
+    slug: 'palworld',
+    publisher: 'Garena',
+    releaseDate: null,
+    category: 'Sinh Tồn Thế Giới Mở',
+    platform: 'PC, Android, iOS',
+    iconUrl: '/game_icons/palworld.webp',
+    icon_url: '/game_icons/palworld.webp',
+    proxyIconUrl: '/game_icons/palworld.webp',
+    bannerUrl: 'https://images.unsplash.com/photo-1518709268805-4e9042af9f23?auto=format&fit=crop&w=1200&q=80',
+    description: 'Siêu phẩm sinh tồn thu phục sinh vật thế giới mở phiên bản di động.',
+    expectedCodes: ['PALWORLDVN', 'GARENA2026'],
+    subscribersCount: 9100,
+    source: 'Trợ lý Pine & Muse Bot',
+    status: 'UPCOMING',
+    displayOrder: 12,
+    createdAt: '2026-10-23T19:00:00Z',
+    updatedAt: '2026-10-27T10:00:00Z',
+  },
+  {
+    id: 'ug_tougen_anki',
+    name: 'Tougen Anki',
+    slug: 'tougen-anki',
+    publisher: 'Com2uS',
+    releaseDate: null,
+    category: 'Nhập Vai Hành Động',
+    platform: 'Android, iOS',
+    iconUrl: '/game_icons/tougen-anki.webp',
+    icon_url: '/game_icons/tougen-anki.webp',
+    proxyIconUrl: '/game_icons/tougen-anki.webp',
+    bannerUrl: 'https://images.unsplash.com/photo-1542751371-adc38448a05e?auto=format&fit=crop&w=1200&q=80',
+    description: 'Game nhập vai chuyển thể từ manga đình đám Tougen Anki Dark Demon.',
+    expectedCodes: ['TOUGENANKI', 'COM2US'],
+    subscribersCount: 1600,
+    source: 'Trợ lý Pine & Muse Bot',
+    status: 'UPCOMING',
+    displayOrder: 13,
+    createdAt: '2026-10-23T19:30:00Z',
+    updatedAt: '2026-10-27T10:00:00Z',
+  },
+  {
+    id: 'ug_temppal',
+    name: 'TEMPPAL',
+    slug: 'temppal',
+    publisher: 'Nexon',
+    releaseDate: null,
+    category: 'MMORPG Hành Động',
+    platform: 'PC, Mobile',
+    iconUrl: '/game_icons/temppal.webp',
+    icon_url: '/game_icons/temppal.webp',
+    proxyIconUrl: '/game_icons/temppal.webp',
+    bannerUrl: 'https://images.unsplash.com/photo-1579783900882-c0d3dad7b119?auto=format&fit=crop&w=1200&q=80',
+    description: 'MMORPG hành động đỉnh cao dựa trên bộ tiểu thuyết Overgeared đình đám.',
+    expectedCodes: ['TEMPPAL2026', 'NEXON'],
+    subscribersCount: 2400,
+    source: 'Trợ lý Pine & Muse Bot',
+    status: 'UPCOMING',
+    displayOrder: 14,
+    createdAt: '2026-10-23T20:00:00Z',
+    updatedAt: '2026-10-27T10:00:00Z',
+  },
+  {
+    id: 'ug_crownstone',
+    name: 'Crownstone',
+    slug: 'crownstone',
+    publisher: 'Level Infinite',
+    releaseDate: null,
+    category: 'Chiến Thuật Giả Tưởng',
+    platform: 'Android, iOS, PC',
+    iconUrl: '/game_icons/crownstone.webp',
+    icon_url: '/game_icons/crownstone.webp',
+    proxyIconUrl: '/game_icons/crownstone.webp',
+    bannerUrl: 'https://images.unsplash.com/photo-1563089145-599997674d42?auto=format&fit=crop&w=1200&q=80',
+    description: 'Game chiến thuật giả tưởng hoành tráng đến từ Level Infinite.',
+    expectedCodes: ['CROWNSTONE', 'LEVELINFINITE'],
+    subscribersCount: 3100,
+    source: 'Trợ lý Pine & Muse Bot',
+    status: 'UPCOMING',
+    displayOrder: 15,
+    createdAt: '2026-10-23T20:30:00Z',
+    updatedAt: '2026-10-27T10:00:00Z',
+  },
+  {
+    id: 'ug_overwatch_rush',
+    name: 'Overwatch Rush',
+    slug: 'overwatch-rush',
+    publisher: 'Blizzard',
+    releaseDate: null,
+    category: 'Bắn Súng Anh Hùng',
+    platform: 'Android, iOS',
+    iconUrl: '/game_icons/overwatch-rush.webp',
+    icon_url: '/game_icons/overwatch-rush.webp',
+    proxyIconUrl: '/game_icons/overwatch-rush.webp',
+    bannerUrl: 'https://images.unsplash.com/photo-1542751371-adc38448a05e?auto=format&fit=crop&w=1200&q=80',
+    description: 'Trải nghiệm bắn súng góc nhìn thứ nhất nhịp độ cao vũ trụ Overwatch trên mobile.',
+    expectedCodes: ['OVERWATCHRUSH', 'BLIZZARD'],
+    subscribersCount: 4700,
+    source: 'Trợ lý Pine & Muse Bot',
+    status: 'UPCOMING',
+    displayOrder: 16,
+    createdAt: '2026-10-23T21:00:00Z',
+    updatedAt: '2026-10-27T10:00:00Z',
+  },
+  {
+    id: 'ug_plants_vs_zombies_3',
+    name: 'Plants vs Zombies 3',
+    slug: 'plants-vs-zombies-3',
+    publisher: 'EA',
+    releaseDate: null,
+    category: 'Chiến Thuật Tháp Thủ',
+    platform: 'Android, iOS',
+    iconUrl: '/game_icons/plants-vs-zombies-3.webp',
+    icon_url: '/game_icons/plants-vs-zombies-3.webp',
+    proxyIconUrl: '/game_icons/plants-vs-zombies-3.webp',
+    bannerUrl: 'https://images.unsplash.com/photo-1511512578047-dfb367046420?auto=format&fit=crop&w=1200&q=80',
+    description: 'Phần ba chính thức của loạt game thủ thành hoa quả đại chiến kinh điển từ Electronic Arts.',
+    expectedCodes: ['PVZ32026', 'EAGAMES'],
+    subscribersCount: 5300,
+    source: 'Trợ lý Pine & Muse Bot',
+    status: 'UPCOMING',
+    displayOrder: 17,
+    createdAt: '2026-10-23T21:30:00Z',
+    updatedAt: '2026-10-27T10:00:00Z',
+  },
+  {
+    id: 'ug_garena_free_city',
+    name: 'Garena Free City',
+    slug: 'garena-free-city',
+    publisher: 'Garena',
+    releaseDate: null,
+    category: 'Thế Giới Mở Đô Thị',
+    platform: 'Android, iOS, PC',
+    iconUrl: '/game_icons/garena-free-city.webp',
+    icon_url: '/game_icons/garena-free-city.webp',
+    proxyIconUrl: '/game_icons/garena-free-city.webp',
+    bannerUrl: 'https://images.unsplash.com/photo-1518709268805-4e9042af9f23?auto=format&fit=crop&w=1200&q=80',
+    description: 'Thế giới mở mô phỏng đời sống đô thị tự do rộng lớn từ Garena.',
+    expectedCodes: ['FREECITY', 'GARENA'],
+    subscribersCount: 6800,
+    source: 'Trợ lý Pine & Muse Bot',
+    status: 'UPCOMING',
+    displayOrder: 18,
+    createdAt: '2026-10-23T22:00:00Z',
+    updatedAt: '2026-10-27T10:00:00Z',
+  },
+  {
+    id: 'ug_arad_idle_rpg',
+    name: 'Arad Idle RPG',
+    slug: 'arad-idle-rpg',
+    publisher: 'Nexon',
+    releaseDate: null,
+    category: 'Nhập Vai Rảnh Tay',
+    platform: 'Android, iOS',
+    iconUrl: '/game_icons/arad-idle-rpg.webp',
+    icon_url: '/game_icons/arad-idle-rpg.webp',
+    proxyIconUrl: '/game_icons/arad-idle-rpg.webp',
+    bannerUrl: 'https://images.unsplash.com/photo-1563089145-599997674d42?auto=format&fit=crop&w=1200&q=80',
+    description: 'Game nhập vai rảnh tay Dungeon & Fighter thế hệ mới từ Nexon.',
+    expectedCodes: ['ARADIDLE', 'NEXON2026'],
+    subscribersCount: 2900,
+    source: 'Trợ lý Pine & Muse Bot',
+    status: 'UPCOMING',
+    displayOrder: 19,
+    createdAt: '2026-10-23T22:30:00Z',
+    updatedAt: '2026-10-27T10:00:00Z',
+  },
 ];
 
 const DEFAULT_LAUNCHED_GAMES = [
@@ -177,7 +443,7 @@ const DEFAULT_LAUNCHED_GAMES = [
     name: 'Strinova VN',
     slug: 'strinova-vn',
     publisher: 'Gzone',
-    releaseDate: '2026-10-23T10:00:00+07:00',
+    releaseDate: '2026-10-23T09:00:00+07:00',
     category: 'Bắn Súng Anime 3D',
     platform: 'PC, Android, iOS',
     iconUrl: '/game_icons/strinova-vn.webp',
@@ -190,13 +456,13 @@ const DEFAULT_LAUNCHED_GAMES = [
     subscribersCount: 2840,
     source: 'Trợ lý Pine & Muse Bot',
     status: 'LAUNCHED',
-    displayOrder: 101,
+    displayOrder: 901,
     createdAt: '2026-10-20T08:00:00Z',
     updatedAt: '2026-10-23T10:00:00Z',
   },
   {
     id: 'ug_where_winds_meet',
-    name: 'Where Winds Meet VN',
+    name: 'Where Winds Meet',
     slug: 'where-winds-meet',
     publisher: 'NetEase Games',
     releaseDate: '2026-09-10T10:00:00+07:00',
@@ -211,13 +477,13 @@ const DEFAULT_LAUNCHED_GAMES = [
     subscribersCount: 5630,
     source: 'Trợ lý Pine & Muse Bot',
     status: 'LAUNCHED',
-    displayOrder: 102,
+    displayOrder: 902,
     createdAt: '2026-10-18T10:00:00Z',
     updatedAt: '2026-10-23T10:00:00Z',
   },
   {
     id: 'ug_hsr_ver30',
-    name: 'Honkai: Star Rail 3.0',
+    name: 'Honkai: Star Rail',
     slug: 'honkai-star-rail',
     publisher: 'HoYoverse',
     releaseDate: '2026-04-26T10:00:00+07:00',
@@ -232,7 +498,7 @@ const DEFAULT_LAUNCHED_GAMES = [
     subscribersCount: 8900,
     source: 'Trợ lý Pine & Muse Bot',
     status: 'LAUNCHED',
-    displayOrder: 103,
+    displayOrder: 903,
     createdAt: '2026-10-19T14:00:00Z',
     updatedAt: '2026-10-23T10:00:00Z',
   },
@@ -489,12 +755,12 @@ function sanitizeAndSafeguardUpcomingGames(list: any[]): { list: any[]; changed:
     const slugLower = String(g.slug || '').toLowerCase();
     const nameLower = String(g.name || '').toLowerCase();
 
-    // 1. Strinova VN: Phục hồi ngày 23/10 10:00, category Bắn Súng Anime 3D, platform PC, Android, iOS
+    // 1. Strinova VN: Phục hồi ngày 23/10 09:00, category Bắn Súng Anime 3D, platform PC, Android, iOS
     if (slugLower.includes('strinova') || nameLower.includes('strinova')) {
-      if (!g.releaseDate || !g.releaseDate.includes('10:00') || g.category === 'Game Mới' || g.publisher === 'Nhà phát hành') {
+      if (!g.releaseDate || !g.releaseDate.includes('09:00') || g.category === 'Game Mới' || g.publisher === 'Nhà phát hành' || g.publisher !== 'Gzone') {
         g.name = 'Strinova VN';
         g.publisher = 'Gzone';
-        g.releaseDate = '2026-10-23T10:00:00+07:00';
+        g.releaseDate = '2026-10-23T09:00:00+07:00';
         g.category = 'Bắn Súng Anime 3D';
         g.platform = 'PC, Android, iOS';
         if (!g.preRegUrl) g.preRegUrl = 'https://strinova.vplay.vn';
@@ -502,39 +768,88 @@ function sanitizeAndSafeguardUpcomingGames(list: any[]): { list: any[]; changed:
       }
     }
 
-    // 2. Hiệp Khách Hành: Phục hồi ngày 01/11 10:00, category Kiếm Hiệp Kim Dung, platform Android, iOS
+    // 2. Hiệp Khách Hành: Phục hồi ngày 01/11 10:00, NPH Joy Game, category Võ Lâm MMORPG, platform Android, iOS, PC
     if (slugLower.includes('hiep-khach-hanh') || nameLower.includes('hiep khach hanh') || nameLower.includes('hiệp khách hành')) {
-      if (!g.releaseDate || g.releaseDate.startsWith('2026-10-23') || g.category === 'Game Mới' || g.publisher === 'Nhà phát hành') {
+      if (!g.releaseDate || g.releaseDate.startsWith('2026-10-23') || g.releaseDate.startsWith('2026-10-28') || g.category === 'Game Mới' || g.publisher === 'Nhà phát hành' || g.publisher !== 'Joy Game') {
         g.name = 'Hiệp Khách Hành';
-        g.publisher = 'VTC Mobile';
+        g.publisher = 'Joy Game';
         g.releaseDate = '2026-11-01T10:00:00+07:00';
-        g.category = 'Kiếm Hiệp Kim Dung';
-        g.platform = 'Android, iOS';
-        if (!g.preRegUrl) g.preRegUrl = 'https://hiepkhachhanh.vtc.vn';
+        g.category = 'Võ Lâm MMORPG';
+        g.platform = 'Android, iOS, PC';
+        if (!g.preRegUrl) g.preRegUrl = 'https://hiepkhachhanh.joygame.vn';
         changed = true;
       }
     }
 
-    // 3. Tiên Giới: Ngày 28/10 10:00, category Nhập Vai Tiên Hiệp
+    // 3. Tiên Giới: Phục hồi ngày 28/10 10:00, NPH VGP, category Nhập Vai Tiên Hiệp, platform Android, iOS
     if (slugLower.includes('tien-gioi') || nameLower.includes('tien gioi') || nameLower.includes('tiên giới')) {
-      if (!g.releaseDate || g.category === 'Game Mới' || g.publisher === 'Nhà phát hành') {
+      if (!g.releaseDate || g.releaseDate.startsWith('2026-10-25') || g.category === 'Game Mới' || g.publisher === 'Nhà phát hành' || g.publisher !== 'VGP') {
         g.name = 'Tiên Giới';
-        g.publisher = 'SohaGame';
+        g.publisher = 'VGP';
         g.releaseDate = '2026-10-28T10:00:00+07:00';
         g.category = 'Nhập Vai Tiên Hiệp';
         g.platform = 'Android, iOS';
+        if (!g.preRegUrl) g.preRegUrl = 'https://tiengioi.vgp.vn';
         changed = true;
       }
     }
 
-    // 4. Monster Hunter Outlanders: Giờ mở server 00:00 ngày 29/10/2026
+    // 4. Monster Hunter Outlanders: Giờ mở server 10:00 ngày 29/10/2026, NPH Garena
     if (slugLower.includes('monster-hunter') || nameLower.includes('monster hunter')) {
-      if (!g.releaseDate || g.releaseDate.startsWith('2026-10-23') || g.category === 'Game Mới') {
+      if (!g.releaseDate || g.releaseDate.includes('00:00') || g.releaseDate.startsWith('2026-10-23') || g.category === 'Game Mới' || g.publisher !== 'Garena') {
         g.name = 'Monster Hunter Outlanders';
-        g.publisher = (g.publisher && g.publisher !== 'Nhà phát hành') ? g.publisher : 'TiMi Studio / Capcom';
-        g.releaseDate = '2026-10-29T00:00:00+07:00';
-        g.category = (g.category && g.category !== 'Game Mới') ? g.category : 'Săn Quái Thế Giới Mở';
+        g.publisher = 'Garena';
+        g.releaseDate = '2026-10-29T10:00:00+07:00';
+        g.category = 'Săn Quái Thế Giới Mở';
         g.platform = g.platform || 'Android, iOS';
+        changed = true;
+      }
+    }
+
+    // 5. Đậu Nhỏ Nổi Giận: Ngày 30/10 10:00, NPH CMN Online
+    if (slugLower.includes('dau-nho-noi-gian') || nameLower.includes('dau nho noi gian') || nameLower.includes('đậu nhỏ nổi giận')) {
+      if (!g.releaseDate || g.releaseDate.startsWith('2026-11-05') || g.category === 'Game Mới' || g.publisher !== 'CMN Online') {
+        g.name = 'Đậu Nhỏ Nổi Giận';
+        g.publisher = 'CMN Online';
+        g.releaseDate = '2026-10-30T10:00:00+07:00';
+        g.category = 'Chiến Thuật Tháp Thủ';
+        g.platform = 'Android, iOS';
+        changed = true;
+      }
+    }
+
+    // 6. Sword x Staff: Ngày 04/11 10:00, NPH Funtap
+    if (slugLower.includes('sword-x-staff') || nameLower.includes('sword x staff') || nameLower.includes('kiếm vũ tiên phong')) {
+      if (!g.releaseDate || g.releaseDate.startsWith('2026-11-12') || g.category === 'Game Mới' || g.publisher !== 'Funtap') {
+        g.name = 'Sword x Staff';
+        g.publisher = 'Funtap';
+        g.releaseDate = '2026-11-04T10:00:00+07:00';
+        g.category = 'Hành Động Chặt Chém';
+        g.platform = 'Android, iOS, PC';
+        changed = true;
+      }
+    }
+
+    // 7. ANANTA: Ngày 15/01/2027 10:00, NPH VNGGames
+    if (slugLower.includes('ananta') || nameLower.includes('ananta')) {
+      if (!g.releaseDate || g.releaseDate.startsWith('2026-12-01') || g.publisher !== 'VNGGames') {
+        g.name = 'ANANTA';
+        g.publisher = 'VNGGames';
+        g.releaseDate = '2027-01-15T10:00:00+07:00';
+        g.category = 'Thế Giới Mở Anime';
+        g.platform = 'PC, Android, iOS';
+        changed = true;
+      }
+    }
+
+    // 8. Mộng Cảnh Tam Quốc: Không có ngày cụ thể (null), NPH SohaGame
+    if (slugLower.includes('mong-canh-tam-quoc') || nameLower.includes('mong canh tam quoc') || nameLower.includes('mộng cảnh tam quốc')) {
+      if (g.releaseDate !== null && g.releaseDate !== undefined && String(g.releaseDate).trim() !== '') {
+        g.name = 'Mộng Cảnh Tam Quốc';
+        g.publisher = 'SohaGame';
+        g.releaseDate = null;
+        g.category = 'Chiến Thuật Thẻ Tướng';
+        g.platform = 'Android, iOS';
         changed = true;
       }
     }
@@ -642,13 +957,8 @@ export async function onRequestGet(context: { request: Request; env: Env }): Pro
     // Chỉ trả về hàng chờ duyệt
     filtered = upcomingGames.filter((g) => g.status === 'PENDING');
   } else if (statusFilter === 'LAUNCHED' || statusFilter === 'ROLLED_OVER') {
-    // Trả về các game đã mở server quá 24h hoặc đã chuyển xuống sàn
-    filtered = upcomingGames.filter((g) => {
-      if (g.status === 'LAUNCHED') return true;
-      if (!g.releaseDate) return false;
-      const target = new Date(g.releaseDate).getTime();
-      return !isNaN(target) && (now - target) > ONE_DAY_MS;
-    });
+    // Chỉ trả về các game ĐÃ LAUNCHED thực sự (ngăn tuyệt đối rò rỉ game UPCOMING sang bộ lọc này)
+    filtered = upcomingGames.filter((g) => g.status === 'LAUNCHED' || g.status === 'ROLLED_OVER');
   } else if (statusFilter !== 'ALL') {
     filtered = upcomingGames.filter((g) => g.status === statusFilter);
   }
@@ -727,12 +1037,7 @@ export async function onRequestGet(context: { request: Request; env: Env }): Pro
     return isNaN(target) || (now - target) <= ONE_DAY_MS;
   }).length;
   const pendingCount = upcomingGames.filter((g) => g.status === 'PENDING').length;
-  const launchedCount = upcomingGames.filter((g) => {
-    if (g.status === 'LAUNCHED') return true;
-    if (!g.releaseDate) return false;
-    const target = new Date(g.releaseDate).getTime();
-    return !isNaN(target) && (now - target) > ONE_DAY_MS;
-  }).length;
+  const launchedCount = upcomingGames.filter((g) => g.status === 'LAUNCHED' || g.status === 'ROLLED_OVER').length;
 
   return new Response(
     JSON.stringify({
@@ -839,6 +1144,20 @@ export async function onRequestPost(context: { request: Request; env: Env }): Pr
     if (!Array.isArray(incomingGames)) {
       return new Response(
         JSON.stringify({ success: false, error: 'Thiếu mảng "games" hợp lệ.' }),
+        { status: 400, headers: CORS_HEADERS }
+      );
+    }
+
+    // Safeguard Gate: Chống xóa/đè âm thầm làm giảm đột ngột số lượng bản ghi (>50% reduction)
+    if (currentUpcomingGames.length >= 10 && incomingGames.length < Math.floor(currentUpcomingGames.length * 0.5) && !payload.force_bulk_delete) {
+      if (env.DB) {
+        await setSettingD1(env.DB, 'wcg_upcoming_games_backup_v1', currentUpcomingGames);
+      }
+      return new Response(
+        JSON.stringify({
+          success: false,
+          error: `Safeguard từ chối: Danh sách gửi lên (${incomingGames.length} game) làm giảm hơn 50% số lượng game hiện có (${currentUpcomingGames.length} game). Bản sao lưu an toàn đã được lưu vào wcg_upcoming_games_backup_v1. Thêm cờ force_bulk_delete: true nếu đây là thao tác cố ý.`,
+        }),
         { status: 400, headers: CORS_HEADERS }
       );
     }

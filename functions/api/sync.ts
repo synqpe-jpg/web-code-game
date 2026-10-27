@@ -1413,14 +1413,32 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
           { headers: CORS_HEADERS }
         );
       }
-      if (
-        vKey === 'wcg_crawler_api_config_v1' ||
+            if (vKey === 'wcg_admin_upcoming_games_v1') {
+        const incoming = Array.isArray(body.data) ? body.data : [];
+        const existing = await getSettingD1(env.DB, 'wcg_admin_upcoming_games_v1');
+        if (Array.isArray(existing) && existing.length >= 10 && incoming.length < Math.floor(existing.length * 0.5) && !body.force_bulk_delete) {
+          await setSettingD1(env.DB, 'wcg_upcoming_games_backup_v1', existing);
+          return new Response(
+            JSON.stringify({
+              success: false,
+              error: `Safeguard từ chối: Danh sách gửi lên (${incoming.length} game) làm giảm hơn 50% số lượng game hiện có (${existing.length} game). Bản sao lưu an toàn đã được lưu vào wcg_upcoming_games_backup_v1. Thêm cờ force_bulk_delete: true nếu đây là thao tác cố ý.`,
+            }),
+            { status: 400, headers: CORS_HEADERS }
+          );
+        }
+        await setSettingD1(env.DB, vKey, body.data);
+        return new Response(
+          JSON.stringify({ success: true, message: `Đã cập nhật ${vKey} vào D1 thành công!` }),
+          { headers: CORS_HEADERS }
+        );
+      }
+
+      if (vKey === 'wcg_crawler_api_config_v1' ||
         vKey === 'wcg_marketing_config_v1' ||
         vKey === 'wcg_marketing_auditor_api_config_v1' ||
         vKey === 'wcg_crawler_sources_v1' ||
         vKey === 'wcg_crawler_pending_games_v1' ||
         vKey === 'wcg_crawler_pending_codes_v1' ||
-        vKey === 'wcg_admin_upcoming_games_v1' ||
         vKey === 'wcg_crawler_stats_v1' ||
         vKey === 'wcg_universal_templates_v1' ||
         vKey === 'wcg_template_snapshots_v1' ||
@@ -4995,8 +5013,14 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
         if (body.upcomingGames !== undefined || body.key === 'wcg_admin_upcoming_games_v1' || body.key === 'wcg_upcoming_games_v1') {
           const uGames = body.upcomingGames ?? body.data;
           if (Array.isArray(uGames)) {
-            currentMaster.upcomingGames = uGames;
-            await setSettingD1(env.DB, 'wcg_admin_upcoming_games_v1', uGames);
+            const existing = await getSettingD1(env.DB, 'wcg_admin_upcoming_games_v1');
+            if (Array.isArray(existing) && existing.length >= 10 && uGames.length < Math.floor(existing.length * 0.5) && !body.force_bulk_delete) {
+              await setSettingD1(env.DB, 'wcg_upcoming_games_backup_v1', existing);
+              console.warn('[Sync Safeguard] Rejected bulk reduction for upcomingGames, backup created in wcg_upcoming_games_backup_v1');
+            } else {
+              currentMaster.upcomingGames = uGames;
+              await setSettingD1(env.DB, 'wcg_admin_upcoming_games_v1', uGames);
+            }
           }
         }
         if (body.utilitiesGlobalShowSold !== undefined || body.key === 'wcg_utilities_global_show_sold') {
