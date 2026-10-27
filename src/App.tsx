@@ -2,7 +2,6 @@ import React, { useState, useEffect, useCallback, useTransition, useRef, Suspens
 import { lazyWithRetry } from './utils/lazyWithRetry';
 import { Header } from './components/Header';
 import { AnnouncementBar } from './components/AnnouncementBar';
-import { DomainMigrationBanner } from './components/DomainMigrationBanner';
 import { TopEventBanner } from './components/countdown/TopEventBanner';
 import { HeroBanner } from './components/HeroBanner';
 import { CategoryFilter } from './components/CategoryFilter';
@@ -1363,9 +1362,6 @@ export const App: React.FC = () => {
 
       {/* Main App Content (relative z-10) */}
       <div className="relative z-10 flex-1 flex flex-col w-full max-w-full">
-        {/* Domain Migration Announcement (codegame.store -> codegame.shop) */}
-        <DomainMigrationBanner />
-
         {/* Dynamic Announcement Banner from Admin CMS */}
         <AnnouncementBar />
 

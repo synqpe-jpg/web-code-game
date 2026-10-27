@@ -10,6 +10,23 @@
 
 ## 1. DANH MỤC LỖI & CÁC BẪY ĐÃ THẤT BẠI (DO NOT REPEAT)
 
+### ISSUE-150: Bẫy Sót Dữ Liệu Sổ Cái wallet_transactions Khi Xóa Tài Khoản Test & Banner Chuyển Đổi Domain Cần Gỡ Bỏ Triệt Để
+- **Triệu chứng**:
+  - Hai tài khoản test ví chuyển nhầm từ .store (`wal_usr_1789019060987` và `wal_usr_1789019035532`, mỗi tài khoản 125.000đ) nếu chỉ xóa ở bảng `members` sẽ để lại giao dịch sổ cái mồ côi trong `wallet_transactions`, khiến hàm `reconcile_member_balances` hoặc các đợt kiểm toán sổ cái bị lệch.
+  - Banner cam thông báo chuyển đổi domain cần gỡ bỏ hoàn toàn khỏi giao diện theo yêu cầu chủ web nhưng phải đảm bảo không ảnh hưởng đến AnnouncementBar hay các toast/popup khác.
+- **Nguyên nhân gốc rễ (Root Cause)**:
+  - Dữ liệu tài khoản ví có ràng buộc 2 tầng: tầng lưu trữ thành viên (`members` và `wcg_admin_members_v4`) và tầng sổ cái kế toán (`wallet_transactions`). Thao tác xóa bắt buộc phải đồng bộ cả 2 tầng sau khi đối soát kỹ 3 tiêu chí và ràng buộc 0 đơn hàng, 0 mã đã giao, 0 giao dịch SePay.
+- **Giải pháp chuẩn đã kiểm chứng**:
+  1. Tạo action `admin_purge_test_wallet_accounts` trong `functions/api/sync.ts` với cơ chế kiểm tra 3 tiêu chí (username, email, txId) và kiểm tra 0 orders, 0 sepay trước khi xóa.
+  2. Xóa đồng thời trong `members`, `wallet_transactions` và dọn sạch trong `wcg_admin_members_v4`.
+  3. Chạy `reconcile_member_balances` đối soát lại số dư toàn bộ thành viên.
+  4. Gỡ sạch component `DomainMigrationBanner.tsx` và import trong `src/App.tsx`.
+- ⛔ **CÁCH SỬA ĐÃ THẤT BẠI - TUYỆT ĐỐI KHÔNG LẶP LẠI**:
+  - ❌ *Không xóa đơn phương bảng members mà bỏ quên wallet_transactions*: Sẽ để lại bản ghi sổ cái mồ côi làm lệch kiểm toán tài chính.
+  - ❌ *Không dùng CSS display:none để ẩn banner*: Phải gỡ sạch khỏi JSX và xóa file component để DOM sạch sẽ và tối ưu hiệu năng.
+
+---
+
 ### ISSUE-149: Bẫy Lệch Tầng Giữa Master State Và File Fallback, Mã Rác Thumbnail WordPress & Lệch Nguồn Đếm Số Liệu Trang Chủ
 - **Triệu chứng**:
   - Tựa game Yến Vân Thập Lục Thanh có 5 mã mới quét trong Master State nhưng thiếu trong tệp JSON fallback, khiến API trả 615 trong khi trang đếm 620.

@@ -3834,6 +3834,116 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
       }
     }
 
+    // Action: Xóa chính xác 2 tài khoản test ví và các bản ghi sổ cái test tương ứng theo đúng 3 tiêu chí
+    if (body.action === 'admin_purge_test_wallet_accounts' && env.DB) {
+      if (!authorized) {
+        return new Response(JSON.stringify({ success: false, error: 'Unauthorized: Yêu cầu quyền Quản trị viên.' }), { status: 403, headers: CORS_HEADERS });
+      }
+      try {
+        const testTargets = [
+          {
+            id: '520289ae-b6f4-4835-a20d-0f2458a09ed8',
+            username: 'wal_usr_1789019060987',
+            email: 'wal_usr_1789019060987@example.com',
+            txId: 'TX-STORE-MIGRATE-520289ae',
+            expectedBal: 125000,
+          },
+          {
+            id: '4b0a1f15-317b-4876-92e8-dfe5b1066bab',
+            username: 'wal_usr_1789019035532',
+            email: 'wal_usr_1789019035532@example.com',
+            txId: 'TX-STORE-MIGRATE-4b0a1f15',
+            expectedBal: 125000,
+          }
+        ];
+
+        // 1. Kiểm tra đối soát 3 tiêu chí và các ràng buộc toàn vẹn
+        const verifications: any[] = [];
+        for (const t of testTargets) {
+          const mem = await env.DB.prepare("SELECT * FROM members WHERE id = ? AND username = ? AND email = ?").bind(t.id, t.username, t.email).first<any>();
+          const tx = await env.DB.prepare("SELECT * FROM wallet_transactions WHERE id = ? AND member_id = ?").bind(t.txId, t.id).first<any>();
+          const orders = await env.DB.prepare("SELECT count(*) as count FROM orders WHERE member_id = ?").bind(t.id).first<any>().catch(() => ({ count: 0 }));
+          const sepay = await env.DB.prepare("SELECT count(*) as count FROM sepay_transactions WHERE member_id = ?").bind(t.id).first<any>().catch(() => ({ count: 0 }));
+
+          if (!mem) {
+            return new Response(JSON.stringify({
+              success: false,
+              error: `Không tìm thấy thành viên khớp 3 dấu hiệu: ${t.username}`,
+            }), { status: 400, headers: CORS_HEADERS });
+          }
+
+          if (!tx) {
+            return new Response(JSON.stringify({
+              success: false,
+              error: `Không tìm thấy giao dịch sổ cái ${t.txId} cho thành viên ${t.username}`,
+            }), { status: 400, headers: CORS_HEADERS });
+          }
+
+          if ((orders?.count || 0) > 0 || (sepay?.count || 0) > 0) {
+            return new Response(JSON.stringify({
+              success: false,
+              error: `Tài khoản ${t.username} có đơn hàng hoặc giao dịch SePay! Hủy thao tác để đảm bảo an toàn.`,
+              orderCount: orders?.count || 0,
+              sepayCount: sepay?.count || 0
+            }), { status: 400, headers: CORS_HEADERS });
+          }
+
+          verifications.push({
+            id: t.id,
+            username: t.username,
+            email: t.email,
+            txId: t.txId,
+            balance: mem.balance,
+            orderCount: orders?.count || 0,
+            sepayCount: sepay?.count || 0
+          });
+        }
+
+        // 2. Xóa 2 bản ghi sổ cái test khỏi wallet_transactions
+        const dTxRes = await env.DB.prepare("DELETE FROM wallet_transactions WHERE id IN (?, ?)").bind(testTargets[0].txId, testTargets[1].txId).run();
+
+        // 3. Xóa 2 tài khoản khỏi bảng members trong D1
+        const dMemRes = await env.DB.prepare("DELETE FROM members WHERE id IN (?, ?)").bind(testTargets[0].id, testTargets[1].id).run();
+
+        // 4. Xóa khỏi wcg_admin_members_v4
+        const targetIds = new Set(testTargets.map(t => t.id));
+        const targetUsers = new Set(testTargets.map(t => t.username));
+        const membersRaw = await getSettingD1(env.DB, 'wcg_admin_members_v4', []);
+        let cleanedMembersCount = 0;
+        if (Array.isArray(membersRaw)) {
+          const cleanMembers = membersRaw.filter((m: any) => !targetIds.has(m.id) && !targetUsers.has(m.username));
+          if (cleanMembers.length !== membersRaw.length) {
+            cleanedMembersCount = membersRaw.length - cleanMembers.length;
+            await setSettingD1(env.DB, 'wcg_admin_members_v4', cleanMembers);
+          }
+        }
+
+        // 5. Xóa khỏi wcg_admin_transactions_v4 nếu có
+        const txRaw = await getSettingD1(env.DB, 'wcg_admin_transactions_v4', []);
+        let cleanedTxsCount = 0;
+        if (Array.isArray(txRaw)) {
+          const targetTxIds = new Set(testTargets.map(t => t.txId));
+          const cleanTxs = txRaw.filter((tx: any) => !targetTxIds.has(tx.id));
+          if (cleanTxs.length !== txRaw.length) {
+            cleanedTxsCount = txRaw.length - cleanTxs.length;
+            await setSettingD1(env.DB, 'wcg_admin_transactions_v4', cleanTxs);
+          }
+        }
+
+        return new Response(JSON.stringify({
+          success: true,
+          message: 'Đã xóa thành công 2 tài khoản test ví và 2 giao dịch sổ cái test trên D1',
+          deletedMembers: (dMemRes as any)?.meta?.changes || 0,
+          deletedTransactions: (dTxRes as any)?.meta?.changes || 0,
+          cleanedMembersCount,
+          cleanedTxsCount,
+          verifications
+        }), { headers: CORS_HEADERS });
+      } catch (err: any) {
+        return new Response(JSON.stringify({ success: false, error: String(err?.message || err) }), { status: 500, headers: CORS_HEADERS });
+      }
+    }
+
     // Action: Đối soát và đồng bộ chuẩn hóa số dư thành viên theo sổ cái wallet_transactions
     if (body.action === 'reconcile_member_balances' && env.DB) {
       try {

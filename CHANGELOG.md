@@ -7,6 +7,24 @@ Mỗi mục sửa lỗi đều ghi nhận **Nguyên nhân gốc rễ (Root Cause
 
 ## [2026-10-27]
 
+### 230. Xóa 2 Tài Khoản Test Ví (250.000đ), Dọn 2 Giao Dịch Sổ Cái Test Khỏi D1 & Gỡ Hoàn Toàn Banner Cam Chuyển Đổi Domain
+- **Bối cảnh & Yêu cầu từ Người dùng**:
+  - Xóa 2 tài khoản test ví đã chuyển nhầm lên production (`wal_usr_1789019060987` và `wal_usr_1789019035532`, mỗi tài khoản 125.000đ) sau khi kiểm tra đầy đủ 3 dấu hiệu (username, email, txId) và xác nhận 0 orders, 0 delivered codes, 0 sepay logs.
+  - Xóa 2 bản ghi sổ cái test `TX-STORE-MIGRATE-520289ae` và `TX-STORE-MIGRATE-4b0a1f15` khỏi `wallet_transactions` để sổ cái và số dư khớp 100%, bảo toàn đúng 44.800đ của 5 khách thật.
+  - Chạy đối soát `reconcile_member_balances` xác nhận 0 sai lệch.
+  - Gỡ bỏ hoàn toàn Banner cam thông báo chuyển đổi domain (`DomainMigrationBanner.tsx`) trên toàn bộ web (không dùng CSS `display:none`, không để lại khoảng trống), giữ nguyên ticker tím `AnnouncementBar` và các popup/toast khác.
+- **Giải pháp thành công (Solution)**:
+  1. *Backup CSDL an toàn*: Tạo bản sao lưu toàn vẹn `data/backups/backup_pre_delete_2_wal_usr_20261027.json` (12.09 MB) trước khi thực hiện bất kỳ thao tác ghi nào.
+  2. *Thực hiện Purge Test Accounts & Sổ Cái qua API /api/sync*: Bổ sung action `admin_purge_test_wallet_accounts` kiểm soát nghiêm ngặt 3 dấu hiệu và ràng buộc toàn vẹn, xóa sạch khỏi bảng `members`, `wallet_transactions`, và `wcg_admin_members_v4`.
+  3. *Đối soát số dư*: Tổng số dư tài khoản chuyển đổi từ .store giảm chính xác từ 294.800đ xuống còn đúng 44.800đ của 5 khách thật. Chạy đối soát `reconcile_member_balances` đạt 0 sai lệch.
+  4. *Gỡ sạch Banner Cam*: Gỡ import và thẻ gọi `<DomainMigrationBanner />` trong `src/App.tsx`, xóa file `src/components/DomainMigrationBanner.tsx`. Giao diện header liền mạch, không còn khoảng trống.
+- **Kiểm thử & Nghiệm thu**:
+  - `npm run build`: 100% thành công, 780 trang prerender hoàn tất.
+  - Đăng nhập 2 tài khoản test: Trả về HTTP 401 (không tồn tại).
+  - Banner cam biến mất 100% trên cả khách vãng lai và thành viên đăng nhập.
+
+---
+
 ### 229. Đồng Bộ Yến Vân 620 Mã, Dọn Rác Thumbnail REDEMPTION-SCREEN, Chuẩn Hóa Nhãn "Chưa Rõ Phần Thưởng", Thống Nhất Số Liệu 573 Game A-Z & Dọn Tài Khoản Test
 - **Bối cảnh & Yêu cầu từ Người dùng**:
   - Người dùng yêu cầu xử lý dứt điểm 6 việc: Yến Vân lệch tầng, dọn rác thumbnail, chuẩn hóa nhãn phần thưởng, đồng bộ số liệu mô tả 573 game A-Z, bảng map 1 nấc .store, dọn tài khoản test hachimi, và liệt kê 7 bản ghi ADMIN_ADJUST.
