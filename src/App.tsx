@@ -53,6 +53,8 @@ export interface SharePayload {
   subtitle?: string;
   shareUrl: string;
   itemType: 'game' | 'giveaway' | 'product' | 'utility';
+  imageUrl?: string;
+  badge?: string;
 }
 
 const ADMIN_HASH_PREFIXES = [
@@ -1183,44 +1185,77 @@ export const App: React.FC = () => {
   const handleOpenShareGame = (game: GameItem, e?: React.MouseEvent) => {
     if (e) e.stopPropagation();
     const origin = getShareOrigin();
+    const rawIcon = game.icon_url || (game.slug ? `/game_icons/${game.slug}.jpg` : '/og-image.jpg');
+    const jpgIcon = rawIcon.replace(/\.webp$/i, '.jpg');
+    const fullIcon = jpgIcon.startsWith('http') ? jpgIcon : `${origin}${jpgIcon.startsWith('/') ? jpgIcon : `/${jpgIcon}`}`;
+    const codeCount = game.codes_count || game.codes?.length || 0;
     setSharePayload({
       title: `Giftcode ${game.name}`,
       subtitle: game.publisher || 'Nhà phát hành chính thức',
       shareUrl: `${origin}/game/${game.slug}`,
       itemType: 'game',
+      imageUrl: fullIcon,
+      badge: codeCount > 0 ? `${codeCount} Mã Code` : 'Code Tân Thủ',
     });
   };
 
   const handleOpenShareGiveaway = (campaign: GiveawayCampaign, e?: React.MouseEvent) => {
     if (e) e.stopPropagation();
     const origin = getShareOrigin();
+    let rawIcon = campaign.cover_image_url || campaign.game_icon_url || '';
+    if (!rawIcon && campaign.game_slug) {
+      const g = allGames.find((x) => x && (x.slug?.toLowerCase() === campaign.game_slug?.toLowerCase() || x.id?.toLowerCase() === campaign.game_slug?.toLowerCase()));
+      if (g?.icon_url) rawIcon = g.icon_url;
+      else rawIcon = `/game_icons/${campaign.game_slug}.jpg`;
+    }
+    const jpgIcon = (rawIcon || '/og-image.jpg').replace(/\.webp$/i, '.jpg');
+    const fullIcon = jpgIcon.startsWith('http') ? jpgIcon : `${origin}${jpgIcon.startsWith('/') ? jpgIcon : `/${jpgIcon}`}`;
+
     setSharePayload({
       title: campaign.title,
       subtitle: `Sự kiện săn mã ${campaign.game_name}`,
       shareUrl: `${origin}/giveaways/${campaign.id}`,
       itemType: 'giveaway',
+      imageUrl: fullIcon,
+      badge: campaign.game_name,
     });
   };
 
   const handleOpenShareProduct = (product: StoreProduct, e?: React.MouseEvent) => {
     if (e) e.stopPropagation();
     const origin = getShareOrigin();
+    let rawIcon = product.image_url || '';
+    if (!rawIcon && product.game_slug) {
+      const g = allGames.find((x) => x && (x.slug?.toLowerCase() === product.game_slug?.toLowerCase() || x.id?.toLowerCase() === product.game_slug?.toLowerCase()));
+      if (g?.icon_url) rawIcon = g.icon_url;
+      else rawIcon = `/game_icons/${product.game_slug}.jpg`;
+    }
+    const jpgIcon = (rawIcon || '/og-image.jpg').replace(/\.webp$/i, '.jpg');
+    const fullIcon = jpgIcon.startsWith('http') ? jpgIcon : `${origin}${jpgIcon.startsWith('/') ? jpgIcon : `/${jpgIcon}`}`;
+
     setSharePayload({
       title: product.title,
       subtitle: `${product.game_name} • Giảm ${product.discount_percent}%`,
       shareUrl: `${origin}/store#product=${product.id}`,
       itemType: 'product',
+      imageUrl: fullIcon,
+      badge: `${product.game_name} -${product.discount_percent}%`,
     });
   };
 
   const handleOpenShareUtility = (utility: UtilityProduct, e?: React.MouseEvent) => {
     if (e) e.stopPropagation();
     const origin = getShareOrigin();
+    const rawIcon = utility.image_url || utility.icon || '/og-image.jpg';
+    const fullIcon = rawIcon.startsWith('http') ? rawIcon : `${origin}${rawIcon.startsWith('/') ? rawIcon : `/${rawIcon}`}`;
+
     setSharePayload({
       title: utility.title,
       subtitle: `${utility.category_label || utility.category} • Giảm ${utility.discount_percent}%`,
       shareUrl: `${origin}/utilities#utility=${utility.id}`,
       itemType: 'utility',
+      imageUrl: fullIcon,
+      badge: `${utility.category_label || utility.category}`,
     });
   };
 
@@ -1588,6 +1623,8 @@ export const App: React.FC = () => {
           subtitle={sharePayload?.subtitle}
           shareUrl={sharePayload?.shareUrl || ''}
           itemType={sharePayload?.itemType || 'game'}
+          imageUrl={sharePayload?.imageUrl}
+          badge={sharePayload?.badge}
           onShowToast={showToast}
         />
 

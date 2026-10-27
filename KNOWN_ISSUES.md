@@ -10,6 +10,25 @@
 
 ## 1. DANH MỤC LỖI & CÁC BẪY ĐÃ THẤT BẠI (DO NOT REPEAT)
 
+### ISSUE-146: Bẫy Trùng Lặp Thẻ Kích Thước Ảnh Open Graph (512 vs 1200), Thiếu Tuyến SSR Cho Giveaway & Thiếu Ảnh Game Trong Hộp Thoại Chia Sẻ
+- **Triệu chứng**:
+  - Khi người dùng gửi link game hoặc giveaway lên Facebook / Zalo, ảnh xem trước có nguy cơ bị biến dạng, không hiển thị hoặc rơi về ảnh mặc định `og-image.jpg` thay vì ảnh đại diện chính xác của game.
+  - Hộp thoại chia sẻ (`ShareModal`) không hiển thị ảnh đại diện game, người dùng không kiểm chứng được liên kết trước khi gửi.
+- **Nguyên nhân gốc rễ (Root Cause)**:
+  1. *Lỗi thay thế Regex một phần*: Thao tác ghi đè thẻ `og:image` trong Edge Worker không xóa các thẻ kích thước `og:image:width: 1200` từ template gốc, gây xung đột kích thước ảnh.
+  2. *Thiếu tuyến SEO SSR cho Giveaway*: Tuyến `/giveaways/:id` không được chuyển vào `renderSeoHtml`, crawler mạng xã hội nhận shell HTML tĩnh không có metadata động.
+  3. *Hạn chế của ShareModal*: Interface thiếu trường `imageUrl` và `badge`.
+- **Giải pháp chuẩn đã kiểm chứng**:
+  1. *Dọn sạch toàn bộ thẻ og:image cũ*: Regex `/<meta\s+property="og:image[^"]*\/?>\s*/gi` xóa triệt để trước khi chèn khối mới chuẩn mực kèm `og:image:secure_url`.
+  2. *Phục vụ Giveaway qua renderSeoHtml*: Cả bot mạng xã hội lẫn người dùng đều nhận đầy đủ thẻ Open Graph với ảnh đại diện chính xác của game.
+  3. *Thuật toán 4 tầng resolve ảnh*: `cover_image_url || game_icon_url || catalogGame?.icon_url || /game_icons/${gameSlug}.jpg`, tự động đổi `.webp` -> `.jpg`.
+  4. *Live Card Preview & Web Share API*: Hiển thị ảnh đại diện game chính xác ngay trong `ShareModal`, tích hợp `navigator.share` cho di động.
+- ⛔ **CÁCH SỬA ĐÃ THẤT BẠI - TUYỆT ĐỐI KHÔNG LẶP LẠI**:
+  - ❌ *Không chỉ thay thế riêng lẻ thẻ og:image*: Bắt buộc dọn sạch toàn bộ các thẻ liên quan (`og:image:width`, `og:image:height`) trước khi chèn.
+  - ❌ *Không bỏ quên tuyến /giveaways/:id*: Mọi tuyến có liên kết chia sẻ phải được SSR hoặc Prerender với ảnh chính xác.
+
+---
+
 ### ISSUE-145: Bẫy Lệch Mẫu Tiêu Đề Giữa Edge Worker SSR Và Prerender Tĩnh, Thừa Dấu Gạch Khi 0 Mã, Fake Schema Rating Và Trùng Lặp Alias Trong Sitemap
 - **Triệu chứng**:
   - Tiêu đề trên web live khác với tiêu đề trong báo cáo hoặc tài liệu: Edge Worker chạy mẫu `Nhận {X} Mã Code` trong khi file prerender tĩnh sinh mẫu `Hướng Dẫn Nhập & Nhận Quà`.

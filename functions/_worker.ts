@@ -553,7 +553,12 @@ async function handleWorkerRequest(request: Request, env: Env, ctx: ExecutionCon
       // Static assets fallback (SPA routing with Edge SEO & Social Meta Injection)
       const userAgent = request.headers.get('User-Agent') || '';
       const isCrawler = /facebookexternalhit|ZaloBot|TelegramBot|Twitterbot|LinkedInBot|Slackbot|WhatsApp|Viber/i.test(userAgent);
-      const isGiveawayShareQuery = (url.searchParams.has('gw') || url.searchParams.has('giveaway')) && (pathname === '/giveaways' || pathname === '/giveaway');
+      const isGiveawayShareQuery = (
+        url.searchParams.has('gw') ||
+        url.searchParams.has('giveaway') ||
+        url.searchParams.has('event') ||
+        url.searchParams.has('id')
+      ) && (pathname === '/giveaways' || pathname === '/giveaway');
 
       if (request.method === 'GET' && isCrawler && isGiveawayShareQuery) {
         return await renderSeoHtml(request, env, pathname);
@@ -561,6 +566,14 @@ async function handleWorkerRequest(request: Request, env: Env, ctx: ExecutionCon
 
       // Root Homepage HTML - Always fresh to guarantee chunk integrity
       if (request.method === 'GET' && (pathname === '/' || pathname === '/index.html')) {
+        // Tự động chuyển hướng 301 về URL canonical /game/:slug nếu người dùng hoặc bot truy cập qua ?game= hoặc ?g=
+        const gameQueryParam = url.searchParams.get('game') || url.searchParams.get('g');
+        if (gameQueryParam) {
+          const cleanSlug = gameQueryParam.trim().toLowerCase();
+          const primarySlug = GAME_CANONICAL_ALIASES[cleanSlug] || cleanSlug;
+          return Response.redirect(`${origin}/game/${primarySlug}`, 301);
+        }
+
         const pageParam = url.searchParams.get('page');
         const pageNum = pageParam ? parseInt(pageParam, 10) : 1;
         if (pageNum > 1) {
@@ -577,8 +590,13 @@ async function handleWorkerRequest(request: Request, env: Env, ctx: ExecutionCon
         return assetResponse;
       }
 
-      // Luôn phục vụ trang game qua renderSeoHtml để phản ánh tức thì hướng dẫn và mã code tươi mới nhất từ D1
-      if (request.method === 'GET' && (pathname.startsWith('/game/') || pathname.startsWith('/g/'))) {
+      // Luôn phục vụ trang game & sự kiện giveaway qua renderSeoHtml để phản ánh tức thì ảnh đại diện, tiêu đề và mã quà tặng
+      if (request.method === 'GET' && (
+        pathname.startsWith('/game/') ||
+        pathname.startsWith('/g/') ||
+        pathname.startsWith('/giveaways/') ||
+        pathname.startsWith('/giveaway/')
+      )) {
         return await renderSeoHtml(request, env, pathname);
       }
 
@@ -713,17 +731,31 @@ async function renderSeoHtml(
     // 3. Canonical
     html = html.replace(/<link\s+rel="canonical"\s+href=".*?"\s*\/?>/i, `<link rel="canonical" href="${fullCanonical}">`);
 
-    // 4. Open Graph tags
+    // 4. Clean up ALL existing Open Graph image & Twitter image tags first to prevent duplicate width/height conflicts
+    html = html.replace(/<meta\s+property="og:image[^>]*\/?>\s*/gi, '');
+    html = html.replace(/<meta\s+name="twitter:image[^>]*\/?>\s*/gi, '');
+
+    // 5. Open Graph tags
     html = html.replace(/<meta\s+property="og:title"\s+content=".*?"\s*\/?>/i, `<meta property="og:title" content="${title}">`);
     html = html.replace(/<meta\s+property="og:description"\s+content=".*?"\s*\/?>/i, `<meta property="og:description" content="${description}">`);
     html = html.replace(/<meta\s+property="og:url"\s+content=".*?"\s*\/?>/i, `<meta property="og:url" content="${fullCanonical}">`);
-    html = html.replace(/<meta\s+property="og:image"\s+content=".*?"\s*\/?>/i, `<meta property="og:image" content="${fullOgImage}">\n    <meta property="og:image:type" content="image/jpeg">\n    <meta property="og:image:width" content="512">\n    <meta property="og:image:height" content="512">`);
 
-    // 5. Twitter tags
+    const ogImageBlock = `<meta property="og:image" content="${fullOgImage}">\n` +
+      `    <meta property="og:image:secure_url" content="${fullOgImage}">\n` +
+      `    <meta property="og:image:type" content="image/jpeg">\n` +
+      `    <meta property="og:image:width" content="512">\n` +
+      `    <meta property="og:image:height" content="512">\n` +
+      `    <meta property="og:image:alt" content="${title}">`;
+    html = html.replace(/(<meta\s+property="og:url"[^>]*>)/i, `$1\n    ${ogImageBlock}`);
+
+    // 6. Twitter tags
     html = html.replace(/<meta\s+name="twitter:title"\s+content=".*?"\s*\/?>/i, `<meta name="twitter:title" content="${title}">`);
     html = html.replace(/<meta\s+name="twitter:description"\s+content=".*?"\s*\/?>/i, `<meta name="twitter:description" content="${description}">`);
     html = html.replace(/<meta\s+name="twitter:url"\s+content=".*?"\s*\/?>/i, `<meta name="twitter:url" content="${fullCanonical}">`);
-    html = html.replace(/<meta\s+name="twitter:image"\s+content=".*?"\s*\/?>/i, `<meta name="twitter:image" content="${fullOgImage}">`);
+
+    const twitterImageBlock = `<meta name="twitter:image" content="${fullOgImage}">\n` +
+      `    <meta name="twitter:image:alt" content="${title}">`;
+    html = html.replace(/(<meta\s+name="twitter:url"[^>]*>)/i, `$1\n    ${twitterImageBlock}`);
 
     // 6. Inject Schema.org JSON-LD
     if (extraLdJson) {
@@ -805,7 +837,7 @@ async function renderSeoHtml(
       const description = codeCount > 0
         ? `Tổng hợp ${codeCount} mã giftcode ${game.name} còn hạn mới nhất 2026. Hướng dẫn nhập code chi tiết và phần thưởng tân thủ bản quyền G1.`
         : `Hướng dẫn nhập code ${game.name} chi tiết và cập nhật các đợt phát quà tặng tân thủ mới nhất 2026 từ ${game.publisher || 'NPH'}.`;
-      const rawIcon = game.icon_url || '/og-image.jpg';
+      const rawIcon = game.icon_url || (game.slug ? `/game_icons/${game.slug}.jpg` : '/og-image.jpg');
       const jpgIcon = rawIcon.replace(/\.webp$/i, '.jpg');
       const iconUrl = jpgIcon.startsWith('http') ? jpgIcon : `${origin}${jpgIcon.startsWith('/') ? jpgIcon : `/${jpgIcon}`}`;
 
@@ -1065,7 +1097,10 @@ async function renderSeoHtml(
     const rawGwId =
       pathname.replace(/^\/(?:giveaways|giveaway)\/?/i, '').split('/')[0].trim() ||
       urlObj.searchParams.get('gw') ||
-      urlObj.searchParams.get('giveaway');
+      urlObj.searchParams.get('giveaway') ||
+      urlObj.searchParams.get('event') ||
+      urlObj.searchParams.get('id') ||
+      urlObj.searchParams.get('game');
 
     let campaign: any = null;
     if (rawGwId) {
@@ -1100,8 +1135,21 @@ async function renderSeoHtml(
         ? `${campaign.description} Nhận mã quà tặng độc quyền ${gameName} miễn phí tại CodeGame.shop.`
         : `Nhận ngay ${campaign.title} cho tựa game ${gameName}. Số lượng có hạn, kiểm tra điều kiện tài khoản và nhận mã tức thì!`;
 
-      // Ưu tiên JPG cho Zalo/Facebook preview
-      const iconUrl = gameSlug ? `${origin}/game_icons/${gameSlug}.jpg` : `${origin}/og-image.jpg`;
+      // Thuật toán xác định ảnh đại diện chính xác 100% cho Giveaway
+      let rawImage = campaign.cover_image_url || campaign.game_icon_url || '';
+      if (!rawImage && gameSlug) {
+        const matchedGame = (fallbackGamesData as any[]).find(
+          (g) => g && (g.slug?.toLowerCase() === gameSlug.toLowerCase() || g.id?.toLowerCase() === gameSlug.toLowerCase())
+        );
+        if (matchedGame?.icon_url) {
+          rawImage = matchedGame.icon_url;
+        } else {
+          rawImage = `/game_icons/${gameSlug}.jpg`;
+        }
+      }
+      if (!rawImage) rawImage = '/og-image.jpg';
+      const jpgImage = rawImage.replace(/\.webp$/i, '.jpg');
+      const iconUrl = jpgImage.startsWith('http') ? jpgImage : `${origin}${jpgImage.startsWith('/') ? jpgImage : `/${jpgImage}`}`;
 
       const giveawaySchema = [
         {
@@ -1251,6 +1299,15 @@ async function handleGameIconRequest(
     const assetRes = await env.ASSETS.fetch(request);
     if (assetRes && assetRes.status === 200) {
       return assetRes;
+    }
+    // Nếu yêu cầu .jpg mà không có trong assets, thử .webp trong assets trước khi rơi vào D1
+    if (filename.toLowerCase().endsWith('.jpg')) {
+      const webpUrl = new URL(request.url);
+      webpUrl.pathname = `/game_icons/${slug}.webp`;
+      const webpRes = await env.ASSETS.fetch(new Request(webpUrl, request));
+      if (webpRes && webpRes.status === 200) {
+        return webpRes;
+      }
     }
   } catch {}
 

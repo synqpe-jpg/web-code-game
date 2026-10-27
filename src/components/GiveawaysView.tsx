@@ -1141,6 +1141,11 @@ export const GiveawaysView: React.FC<GiveawaysViewProps> = ({
     setDetailModalCampaign(campaign);
     const pkgs = getGiveawayPackages(campaign);
     setSelectedRewardPackageId(pkgs[0]?.id || campaign.id);
+    try {
+      if (typeof window !== 'undefined' && campaign.id) {
+        window.history.replaceState(null, '', `/giveaways/${campaign.id}`);
+      }
+    } catch {}
   };
 
   const handleCloseDetailModal = () => {
@@ -1149,8 +1154,8 @@ export const GiveawaysView: React.FC<GiveawaysViewProps> = ({
     handledTargetIdRef.current = null;
     onClearInitialGiveawayId?.();
     try {
-      if (window.location.hash.includes('gw=') || window.location.hash.includes('giveaway=')) {
-        window.history.replaceState(null, '', window.location.pathname + '#giveaways');
+      if (typeof window !== 'undefined') {
+        window.history.replaceState(null, '', '/giveaways');
       }
     } catch {}
   };

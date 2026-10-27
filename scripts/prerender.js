@@ -109,6 +109,7 @@ async function runPrerender() {
     <meta property="og:description" content="${escapeHtml(description)}">
     <meta property="og:url" content="${escapeHtml(canonicalUrl)}">
     <meta property="og:image" content="${escapeHtml(fullOgImage)}">
+    <meta property="og:image:secure_url" content="${escapeHtml(fullOgImage)}">
     <meta property="og:image:type" content="image/jpeg">
     <meta property="og:image:width" content="512">
     <meta property="og:image:height" content="512">
@@ -120,6 +121,7 @@ async function runPrerender() {
     <meta name="twitter:title" content="${escapeHtml(title)}">
     <meta name="twitter:description" content="${escapeHtml(description)}">
     <meta name="twitter:image" content="${escapeHtml(fullOgImage)}">
+    <meta name="twitter:image:alt" content="${escapeHtml(title)}">
 
     <!-- JSON-LD Structured Data -->
     ${schemas.map((s) => `<script type="application/ld+json">\n${JSON.stringify(s, null, 2)}\n</script>`).join('\n')}
@@ -630,15 +632,19 @@ async function runPrerender() {
     const gameSlug = gw.game_slug || '';
     const gameName = gw.game_name || 'Game Mobile';
 
-    // Ưu tiên ảnh JPG chuẩn cho Zalo/Facebook preview
-    const rawJpg = path.resolve(__dirname, `../public/game_icons/${gameSlug}.jpg`);
-    const rawWebp = path.resolve(__dirname, `../public/game_icons/${gameSlug}.webp`);
-    let ogGameIcon = `${BASE_URL}/og-image.jpg`;
-    if (fs.existsSync(rawJpg)) {
-      ogGameIcon = `${BASE_URL}/game_icons/${gameSlug}.jpg`;
-    } else if (fs.existsSync(rawWebp)) {
-      ogGameIcon = `${BASE_URL}/game_icons/${gameSlug}.webp`;
+    // Thuật toán xác định ảnh đại diện chính xác 100% cho Giveaway
+    let rawImage = gw.cover_image_url || gw.game_icon_url || '';
+    if (!rawImage && gameSlug) {
+      const matched = games.find((g) => g && (g.slug?.toLowerCase() === gameSlug.toLowerCase() || g.id?.toLowerCase() === gameSlug.toLowerCase()));
+      if (matched?.icon_url) {
+        rawImage = matched.icon_url;
+      } else {
+        rawImage = `/game_icons/${gameSlug}.jpg`;
+      }
     }
+    if (!rawImage) rawImage = '/og-image.jpg';
+    const jpgImage = rawImage.replace(/\.webp$/i, '.jpg');
+    const ogGameIcon = jpgImage.startsWith('http') ? jpgImage : `${BASE_URL}${jpgImage.startsWith('/') ? jpgImage : `/${jpgImage}`}`;
 
     const gwTitle = `🎁 Nhận Code: ${gw.title} - ${gameName} | CodeGame.shop`;
     const gwDesc = gw.description

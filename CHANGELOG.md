@@ -7,6 +7,44 @@ Mỗi mục sửa lỗi đều ghi nhận **Nguyên nhân gốc rễ (Root Cause
 
 ## [2026-10-27]
 
+### 226. Đảm Bảo 100% Ảnh Đại Diện Chính Xác Khi Chia Sẻ Code Game & Sự Kiện Giveaway (Open Graph, Zalo/FB Card, Live Preview & Native Share)
+- **Bối cảnh & Yêu cầu từ Người dùng**:
+  - Người dùng yêu cầu: *"Khi tôi chia sẻ 1 tựa game cụ thể ví như code game nào đó, hay sự kiện game nào đó, đảm bảo luôn chứa ảnh đại diện chính xác của game đó."*
+  - Rà soát phát hiện các điểm nghẽn:
+    1. *Hộp thoại Chia sẻ (`ShareModal`)*: Trước đó không nhận `imageUrl`, chỉ hiển thị icon đồ họa chung chung (`Gift`, `Sparkles`), người dùng không xem trước được ảnh đại diện của game trước khi gửi.
+    2. *Xung đột thẻ Open Graph Image ở Edge Worker*: Thao tác replace meta cũ chỉ thay thẻ `og:image` nhưng bỏ sót `og:image:width: 1200` và `height: 630` của template gốc, khiến HTML chứa đồng thời 2 bộ kích thước (512 và 1200), gây lỗi hiển thị trên Facebook Debugger và Zalo bot. Thiếu thẻ `og:image:secure_url` bắt buộc cho HTTPS.
+    3. *Lệch ảnh ở đợt phát Giveaway*: Edge Worker SSR trước đó chỉ lấy cứng `game_slug.jpg`, không ưu tiên `cover_image_url`, `game_icon_url`, hoặc tra cứu trong catalog game, khiến các sự kiện giveaway có nguy cơ rơi về ảnh mặc định `/og-image.jpg` của web.
+    4. *Thiếu tuyến SEO SSR cho Giveaway detail*: Tuyến `/giveaways/:id` và `/giveaway/:id` chưa được Edge Worker định tuyến vào `renderSeoHtml`, khiến bot crawler chỉ nhận được file index rỗng hoặc phụ thuộc vào cache tĩnh.
+    5. *Trình duyệt chưa đồng bộ URL khi mở Modal Giveaway*: Khi người dùng bấm vào một sự kiện trên trang `/giveaways`, URL trên thanh địa chỉ không cập nhật sang `/giveaways/:id`, nếu copy trực tiếp từ thanh URL thì gửi nhầm link trang chủ giveaway (chứa `og-image.jpg` chung).
+- **Nguyên nhân gốc rễ (Root Cause)**:
+  1. *Thiếu truyền dẫn thuộc tính hình ảnh*: Interface `SharePayload` và `ShareModalProps` chỉ có `title`, `subtitle`, `shareUrl`, thiếu `imageUrl` và `badge`.
+  2. *Thao tác Regex thay thế meta chưa triệt để*: `replaceTitleAndMeta` không dọn sạch các thẻ `og:image:*` cũ trước khi chèn khối Open Graph mới.
+  3. *Thuật toán resolve ảnh Giveaway quá đơn giản*: Chỉ ghép chuỗi `/game_icons/${gameSlug}.jpg` mà không tra cứu 4 tầng (cover -> icon -> catalog icon -> slug jpg).
+- **Giải pháp thành công (Solution)**:
+  1. *Nâng cấp Edge Worker SSR (`functions/_worker.ts`)*:
+     - Dọn sạch 100% thẻ `og:image*` và `twitter:image*` cũ trước khi chèn, chống xung đột kích thước ảnh.
+     - Chèn chuẩn quốc tế: `og:image`, `og:image:secure_url`, `og:image:type="image/jpeg"`, `og:image:width="512"`, `og:image:height="512"`, `og:image:alt`, `twitter:image`, `twitter:image:alt`.
+     - Tuyến `/giveaways/:id` và `/giveaway/:id` được phục vụ qua `renderSeoHtml`.
+     - Hỗ trợ các query params chia sẻ: `?gw=`, `?event=`, `?id=`, `?game=`. Khi truy cập `/?game=:slug` hoặc `/?g=:slug`, tự động 301 chuyển hướng về canonical `/game/:slug`.
+     - Thuật toán resolve ảnh 4 tầng cho Giveaway: `cover_image_url || game_icon_url || catalogGame?.icon_url || /game_icons/${gameSlug}.jpg`, tự động chuyển `.webp` -> `.jpg`.
+     - Bổ sung fallback tự động trong `handleGameIconRequest` từ `.jpg` sang `.webp` trong static assets nếu thiếu file jpg.
+  2. *Đồng bộ Prerender Tĩnh (`scripts/prerender.js`)*:
+     - Bổ sung `og:image:secure_url`, `og:image:alt`, `twitter:image:alt` vào `buildPageHtml`.
+     - Áp dụng thuật toán 4 tầng resolve ảnh cho toàn bộ 32 trang chi tiết giveaway tĩnh.
+  3. *Nâng cấp Trải Nghiệm Khách Hàng (`ShareModal.tsx` & `App.tsx`)*:
+     - Mở rộng `SharePayload` và `ShareModalProps` bổ sung `imageUrl` và `badge`.
+     - Hiển thị Thẻ Xem Trước Trực Quan (Live Preview Card) với ảnh đại diện chính xác của tựa game, viền phát sáng, dấu kiểm chuẩn `✓ Ảnh đại diện chuẩn`.
+     - Bổ sung nút bấm Native Web Share API (`navigator.share`) cho thiết bị di động để chia sẻ 1 chạm thẳng vào Zalo, Messenger, v.v...
+  4. *Đồng bộ Thanh Địa Chỉ Trình Duyệt (`GiveawaysView.tsx`)*:
+     - Khi mở modal giveaway, tự động cập nhật URL sang `/giveaways/${campaign.id}` bằng `window.history.replaceState`.
+     - Khi đóng modal, hoàn trả về `/giveaways`.
+- **Kiểm thử & Nghiệm thu**:
+  - `npm run build`: Thành công 100% (580 trang game prerendered, 32 trang giveaway prerendered có ảnh JPG chính xác 100%, Edge Worker bundle 13.2MB).
+  - Kiểm tra thẻ `og:image` và `og:image:secure_url`: Khớp 100% với ảnh đại diện của game (ví dụ Kiếm Đế Origin ra `kiem-de-origin.jpg`, 3Q Đào Đào Đào ra `3q-dao-dao-dao.jpg`).
+  - Audit Zero Test Artifacts: Thành công 100%.
+
+---
+
 ### 225. Tối Ưu SEO Kỹ Thuật Toàn Diện Cho CodeGame.shop (SSOT Sitemap, Mẫu Tiêu Đề Đồng Bộ, Triệt Tiêu Soft 404 & Fake Schema)
 - **Bối cảnh & Yêu cầu từ Người dùng**:
   - Web chạy trên Cloudflare Pages + D1, trang chủ đã được index trên Google nhưng chưa có vị trí top cho các nhóm từ khóa (tên miền, từ khóa game, từ khóa ngách).

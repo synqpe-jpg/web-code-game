@@ -9,6 +9,8 @@ export interface ShareModalProps {
   subtitle?: string;
   shareUrl: string;
   itemType?: 'game' | 'giveaway' | 'product' | 'utility';
+  imageUrl?: string;
+  badge?: string;
   onShowToast: (title: string, message?: string, type?: 'success' | 'error' | 'info') => void;
 }
 
@@ -19,6 +21,8 @@ export const ShareModal: React.FC<ShareModalProps> = ({
   subtitle,
   shareUrl,
   itemType = 'game',
+  imageUrl,
+  badge,
   onShowToast,
 }) => {
   const [copied, setCopied] = useState(false);
@@ -110,6 +114,26 @@ export const ShareModal: React.FC<ShareModalProps> = ({
     window.open(`https://twitter.com/intent/tweet?url=${encodeURIComponent(shareUrl)}&text=${encodeURIComponent(shareTitle)}`, '_blank');
   };
 
+  const hasNativeShare = typeof navigator !== 'undefined' && typeof navigator.share === 'function';
+
+  const handleNativeShare = async () => {
+    if (typeof navigator !== 'undefined' && navigator.share) {
+      try {
+        await navigator.share({
+          title: shareTitle,
+          text: subtitle || shareTitle,
+          url: shareUrl,
+        });
+      } catch (err: any) {
+        if (err.name !== 'AbortError') {
+          handleCopyLink();
+        }
+      }
+    } else {
+      handleCopyLink();
+    }
+  };
+
   return createPortal(
     <div
       onClick={onClose}
@@ -144,6 +168,53 @@ export const ShareModal: React.FC<ShareModalProps> = ({
             <X className="w-5 h-5 text-white" />
           </button>
         </div>
+
+        {/* Live Preview Card with accurate game avatar */}
+        {imageUrl ? (
+          <div className="mt-3.5 p-3 rounded-2xl bg-muted/40 border border-border/80 flex items-center gap-3">
+            <div className="relative w-14 h-14 sm:w-16 sm:h-16 rounded-2xl overflow-hidden shrink-0 bg-background border border-primary/30 shadow-md">
+              <img
+                src={imageUrl}
+                alt={title}
+                className="w-full h-full object-cover"
+                onError={(e) => {
+                  (e.currentTarget as HTMLImageElement).src = '/og-image.jpg';
+                }}
+              />
+              <div
+                className="absolute top-1 right-1 w-2.5 h-2.5 rounded-full bg-emerald-500 ring-2 ring-background"
+                title="Đã gắn ảnh đại diện game chính xác"
+              />
+            </div>
+            <div className="min-w-0 flex-1">
+              <div className="flex items-center gap-1.5 mb-0.5">
+                <span className="text-[10px] font-bold uppercase tracking-wider text-primary bg-primary/10 px-1.5 py-0.5 rounded">
+                  {badge || (itemType === 'giveaway' ? 'Sự Kiện Hot' : 'Game Chuẩn')}
+                </span>
+                <span className="text-[10px] text-emerald-400 font-semibold flex items-center gap-0.5">
+                  <Check className="w-3 h-3" /> Ảnh đại diện chuẩn
+                </span>
+              </div>
+              <h4 className="font-heading font-bold text-xs sm:text-sm text-foreground truncate">
+                {title}
+              </h4>
+              <p className="text-[11px] text-muted-foreground truncate">
+                {subtitle || 'codegame.shop'}
+              </p>
+            </div>
+          </div>
+        ) : null}
+
+        {/* Native Web Share Button on mobile */}
+        {hasNativeShare && (
+          <button
+            onClick={handleNativeShare}
+            className="w-full mt-3 py-2.5 px-4 rounded-xl bg-gradient-to-r from-blue-600 via-indigo-600 to-purple-600 hover:opacity-95 text-white font-bold text-xs sm:text-sm flex items-center justify-center gap-2 shadow-md hover:shadow-lg transition-all cursor-pointer active:scale-95"
+          >
+            <Share2 className="w-4 h-4" />
+            <span>Chia Sẻ Lên Ứng Dụng (Zalo, Messenger...)</span>
+          </button>
+        )}
 
         {/* Social Share Grid */}
         <div className="grid grid-cols-5 gap-2 sm:gap-3 py-5 sm:py-6 text-center">
