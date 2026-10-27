@@ -10,6 +10,19 @@
 
 ## 1. DANH MỤC LỖI & CÁC BẪY ĐÃ THẤT BẠI (DO NOT REPEAT)
 
+### ISSUE-156: Bẫy Thiếu Asset Logo Cho Game Sắp Ra Mắt Dẫn Đến Hiển Thị Logo Placeholder Mặc Định
+- **Triệu chứng**:
+  - Tại trang chủ phần "Game Sắp Ra Mắt (Lịch Mở Server)", một số game như `Sword & Staff (Kiếm Vũ Tiên Phong)` và `Project Ananta` hiển thị logo mặc định của CodeGame thay vì logo thực tế của game.
+- **Nguyên nhân gốc rễ (Root Cause)**:
+  - Khi thêm tựa game mới vào danh sách theo dõi sắp ra mắt (upcoming games), cấu hình metadata trỏ đến `/game_icons/${slug}.webp` nhưng chưa qua bước cào/tải và nén asset vào thư mục `public/game_icons/`.
+  - Trình duyệt tải ảnh 404, kích hoạt sự kiện `onError` trong React component hiển thị fallback sang logo mặc định `/logo.png`.
+- **Giải pháp chuẩn đã kiểm chứng**:
+  - Khi bổ sung game sắp ra mắt vào seed/database, bắt buộc phải chạy bộ phân giải `resolveAndPersistGameLogo` từ Google Play / nguồn phân phối chính thức để tạo file `.webp` (256x256) và `.jpg` (512x512) trong `public/game_icons/`.
+- ⛔ **CÁCH SỬA ĐÃ THẤT BẠI - TUYỆT ĐỐI KHÔNG LẶP LẠI**:
+  - ❌ *Không thêm game vào upcoming_games với đường dẫn `/game_icons/${slug}.webp` mà chưa kiểm tra file có tồn tại trên đĩa hay không*.
+
+---
+
 ### ISSUE-155: Bẫy Empty Overwrite Khi Merge D1 Với Fallback, Cờ clear_pool Tồn Dư & Sự Kiện Tạm Hết Mã Bị Trôi Khỏi Tầm Nhìn
 - **Triệu chứng**:
   - Quản trị viên đã tạo sự kiện Giveaway cho game Tiên Nghịch Mobile, nhưng khi ra trang công khai `/giveaways` thì sự kiện lúc hiện lúc mất, thậm chí biến mất hoàn toàn. Trong khi đó bản ghi game Tiên Nghịch Mobile trên API công khai vẫn bình thường (54 mã / 46 mã hoạt động).

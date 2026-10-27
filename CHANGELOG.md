@@ -7,6 +7,25 @@ Mỗi mục sửa lỗi đều ghi nhận **Nguyên nhân gốc rễ (Root Cause
 
 ## [2026-10-27]
 
+### 236. Bổ Sung & Chuẩn Hóa 100% Logo Cho Các Tựa Game Sắp Ra Mắt (Sword & Staff & Project Ananta)
+- **Bối cảnh & Yêu cầu từ Người dùng**:
+  - Người dùng hỏi: *"Tại sao trên web lại có game không có logo?"* kèm ảnh chụp màn hình trang chủ mục "Game Sắp Ra Mắt (Lịch Mở Server)", trong đó có 2 game hiển thị logo placeholder mặc định của CodeGame thay vì logo thật (`Sword & Staff` và `Project Ananta`).
+- **Nguyên nhân gốc rễ (Root Cause)**:
+  - Toàn bộ 580 tựa game đã phát hành trong `games188.json` đều đã có logo chính xác 100% trong `public/game_icons/`.
+  - Tuy nhiên, trong danh sách 7 tựa game sắp ra mắt (Upcoming Games), có 2 game mới được bổ sung cấu hình đường dẫn (`/game_icons/sword-x-staff.webp` và `/game_icons/ananta.webp`) nhưng trước đó 2 file asset này chưa được cào và lưu vào thư mục `public/game_icons/`.
+  - Khi trình duyệt tải trang, thẻ `<img>` gặp lỗi 404 và sự kiện `onError` tự động kích hoạt hiển thị logo mặc định của CodeGame (`/logo.png`) để chống vỡ khung giao diện.
+- **Giải pháp thành công (Solution)**:
+  1. *Truy xuất và chuẩn hóa logo chính thức*:
+     - `Sword & Staff (Kiếm Vũ Tiên Phong)`: Đã tra cứu tự động qua Google Play Store (`com.zjcs.android.vn`), tải logo gốc chất lượng cao và chuyển đổi bằng sharp thành `public/game_icons/sword-x-staff.webp` (256x256) và `public/game_icons/sword-x-staff.jpg` (512x512).
+     - `Project Ananta` (trước đây là `Project Mugen` của NetEase Games): Đã tải logo chính thức từ hồ sơ TapTap/Uptodown và chuyển đổi thành `public/game_icons/ananta.webp` (256x256) và `public/game_icons/ananta.jpg` (512x512).
+  2. *Kiểm toán toàn diện (Comprehensive Audit)*:
+     - 7/7 game sắp ra mắt (Upcoming Games) đạt 100% có icon chuẩn.
+     - 580/580 game đã phát hành (Games188) đạt 100% có icon chuẩn.
+     - 32/32 sự kiện Giveaway đạt 100% có icon chuẩn.
+     - Toàn hệ thống có 762 file icon WebP + 762 file Open Graph JPG đồng bộ hoàn chỉnh.
+
+---
+
 ### 235. Khắc Phục Triệt Để Lỗi Sự Kiện Giveaway Tiên Nghịch Mobile Lúc Hiện Lúc Mất & Bảo Vệ Metadata Toàn Vẹn
 - **Bối cảnh & Yêu cầu từ Người dùng**:
   - Người dùng phản ánh: *"Trong trang admin trước đó tôi đã thêm sự kiện cho game Tiên Nghịch, nhưng giờ lại không thấy đâu, tôi đã nhờ antigravity sửa nhưng lỗi này vẫn chưa được khắc phục, sự kiện này lúc hiện lúc mất, hiện tại thì không thấy... Bối cảnh: Chủ web đã thêm 1 sự kiện giveaway cho game Tiên Nghịch Mobile trong trang admin trước đó. Hiện tại sự kiện này không thấy đâu trên trang công khai, và trước đó nó lúc hiện lúc mất (không ổn định). Antigravity đã sửa 1 lần nhưng lỗi vẫn còn — đợt này phải tìm đúng nguyên nhân gốc, không lặp lại cách sửa cũ."*
