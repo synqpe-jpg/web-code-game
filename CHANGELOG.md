@@ -7,6 +7,36 @@ Mỗi mục sửa lỗi đều ghi nhận **Nguyên nhân gốc rễ (Root Cause
 
 ## [2026-10-27]
 
+### 240. Thu Gọn Thông Báo Giãn Cách Toàn Sàn Thành Nút Bấm Nhỏ Gọn & Khôi Phục Đường Link Nhóm Zalo Trong Modal Giveaway
+- **Bối cảnh & Yêu cầu từ Người dùng**:
+  - Người dùng phản ánh khối thông báo đếm ngược giãn cách toàn sàn trong modal Giveaway (`GiveawayDetailModal`) quá to, choán hết nửa màn hình di động/laptop.
+  - Đường link dẫn tới nhóm Zalo chính thức của website (`https://zalo.me/g/qdtlmj2tebfa0baraedg`) bị biến mất khỏi modal chi tiết sự kiện.
+  - Yêu cầu: Thu gọn bảng thông báo đếm ngược thành nút bấm nhỏ gọn như cũ và hiển thị lại đường link dẫn tới Zalo trong modal.
+- **Nguyên nhân gốc rễ (Root Cause)**:
+  1. *Khối đếm ngược phóng đại quá mức*: Trong `src/components/GiveawaysView.tsx` (nhánh `isModalGlobalCooling`), code render thêm 1 thẻ card riêng biệt với padding lớn `p-4`, tiêu đề chữ to, số đếm ngược cỡ `text-3xl font-black`, badge phòng chờ, đoạn mô tả dài và thêm 1 nút bấm bên dưới. Chiều cao vượt quá 250px khiến người dùng cảm thấy bị chiếm dụng toàn bộ modal.
+  2. *Mất liên kết Zalo do D1 Schema DEFAULT 0 và sai lệch thừa kế*: Cột `custom_banner_enabled` trong D1 mặc định là `0` (INTEGER). Khi nạp lên frontend, `0 !== undefined` đánh giá thành falsy (`false`), dẫn tới điều kiện `{Boolean(campaign.custom_banner_enabled) && (` bị ẩn hoàn toàn. Kể cả khi Mẫu Chung có link Zalo và `custom_banner_enabled: true`, nhánh fallback không được kích hoạt do giá trị 0 của D1 ghi đè.
+- **Giải pháp chuẩn đã kiểm chứng (Solution Applied)**:
+  1. *Thu gọn thông báo đếm ngược thanh thoát như cũ (`src/components/GiveawaysView.tsx`)*:
+     - Loại bỏ hoàn toàn khối hộp card khổng lồ với số đếm ngược cỡ lớn và badge rườm rà.
+     - Thay thế bằng nút bấm trạng thái duy nhất nhỏ gọn chuẩn `py-3.5` với icon đồng hồ nhấp nháy: `<button disabled ...>Đang Chờ Đợt Mã Tiếp Theo (Còn {globalCooldownWaitText})</button>`.
+     - Kèm 1 dòng văn bản nhỏ nhẹ nhàng `text-[11px] text-amber-300/80 text-center` hiển thị đạo hữu đã nhận mã trước đó, không chiếm không gian modal.
+     - Vẫn duy trì cơ chế reactive countdown: tự động chuyển tức thì sang nút `⚡ GIẬT MÃ CODE NGAY (MIỄN PHÍ)` khi đồng hồ về `00:00`.
+  2. *Khôi phục và đảm bảo hiển thị 100% đường link nhóm Zalo*:
+     - Cập nhật logic render trong `GiveawaysView.tsx`: Thẻ banner Zalo luôn hiển thị link Zalo chính thức (`https://zalo.me/g/qdtlmj2tebfa0baraedg`) với text `"Tham gia nhóm zalo của web tại đây"` trừ khi người quản trị chủ động tắt bằng cờ `false`.
+     - Cập nhật `src/services/templateService.ts`: Cấu hình thừa kế tự động từ Mẫu Chung nếu campaign chưa gán link riêng.
+     - Cập nhật `functions/services/d1_service.ts`: Cả tầng sync và query mapping đều fallback chuẩn sang link Zalo chính thức của website.
+     - Cập nhật `src/admin/modules/PrivateCodesModule.tsx`: Form thêm mới/chỉnh sửa sự kiện mặc định bật sẵn link nhóm Zalo của website.
+     - Cập nhật `src/data/giveaways.json`: Bổ sung `custom_banner_enabled: true`, `custom_banner_link: "https://zalo.me/g/qdtlmj2tebfa0baraedg"` cho bản ghi `gw_1791639381997_w49`.
+  3. *Kiểm thử & Triển khai*:
+     - Kiểm thử mô phỏng `test_giveaway_simulation.cjs`: 11/11 pass (100%).
+     - Kiểm toán Zero Test Artifacts `audit_zero_test_artifacts.cjs`: 100% sạch sẽ.
+     - Kiểm thử hồi quy Ingest `test_ingest_regression.cjs`: 4/4 pass (100%).
+     - Build thành công toàn bộ hệ thống (`dist/_worker.js` 12.9MB).
+
+---
+
+## [2026-10-27]
+
 ### 239. Phát Triển Tính Năng Tự Động Mô Phỏng Lượt Giật Cho Giveaway Có Giãn Cách Toàn Sàn (Global Cooldown Simulation Engine)
 - **Bối cảnh & Yêu cầu từ Người dùng**:
   - Mục Giật Giveaway có những event bật "giãn cách toàn sàn" (global cooldown): sau một lượt giật, toàn sàn phải chờ hết thời gian giãn cách mới được giật tiếp.
@@ -46,6 +76,36 @@ Mỗi mục sửa lỗi đều ghi nhận **Nguyên nhân gốc rễ (Root Cause
 
 ## [2026-10-27]
 
+### 240. Thu Gọn Thông Báo Giãn Cách Toàn Sàn Thành Nút Bấm Nhỏ Gọn & Khôi Phục Đường Link Nhóm Zalo Trong Modal Giveaway
+- **Bối cảnh & Yêu cầu từ Người dùng**:
+  - Người dùng phản ánh khối thông báo đếm ngược giãn cách toàn sàn trong modal Giveaway (`GiveawayDetailModal`) quá to, choán hết nửa màn hình di động/laptop.
+  - Đường link dẫn tới nhóm Zalo chính thức của website (`https://zalo.me/g/qdtlmj2tebfa0baraedg`) bị biến mất khỏi modal chi tiết sự kiện.
+  - Yêu cầu: Thu gọn bảng thông báo đếm ngược thành nút bấm nhỏ gọn như cũ và hiển thị lại đường link dẫn tới Zalo trong modal.
+- **Nguyên nhân gốc rễ (Root Cause)**:
+  1. *Khối đếm ngược phóng đại quá mức*: Trong `src/components/GiveawaysView.tsx` (nhánh `isModalGlobalCooling`), code render thêm 1 thẻ card riêng biệt với padding lớn `p-4`, tiêu đề chữ to, số đếm ngược cỡ `text-3xl font-black`, badge phòng chờ, đoạn mô tả dài và thêm 1 nút bấm bên dưới. Chiều cao vượt quá 250px khiến người dùng cảm thấy bị chiếm dụng toàn bộ modal.
+  2. *Mất liên kết Zalo do D1 Schema DEFAULT 0 và sai lệch thừa kế*: Cột `custom_banner_enabled` trong D1 mặc định là `0` (INTEGER). Khi nạp lên frontend, `0 !== undefined` đánh giá thành falsy (`false`), dẫn tới điều kiện `{Boolean(campaign.custom_banner_enabled) && (` bị ẩn hoàn toàn. Kể cả khi Mẫu Chung có link Zalo và `custom_banner_enabled: true`, nhánh fallback không được kích hoạt do giá trị 0 của D1 ghi đè.
+- **Giải pháp chuẩn đã kiểm chứng (Solution Applied)**:
+  1. *Thu gọn thông báo đếm ngược thanh thoát như cũ (`src/components/GiveawaysView.tsx`)*:
+     - Loại bỏ hoàn toàn khối hộp card khổng lồ với số đếm ngược cỡ lớn và badge rườm rà.
+     - Thay thế bằng nút bấm trạng thái duy nhất nhỏ gọn chuẩn `py-3.5` với icon đồng hồ nhấp nháy: `<button disabled ...>Đang Chờ Đợt Mã Tiếp Theo (Còn {globalCooldownWaitText})</button>`.
+     - Kèm 1 dòng văn bản nhỏ nhẹ nhàng `text-[11px] text-amber-300/80 text-center` hiển thị đạo hữu đã nhận mã trước đó, không chiếm không gian modal.
+     - Vẫn duy trì cơ chế reactive countdown: tự động chuyển tức thì sang nút `⚡ GIẬT MÃ CODE NGAY (MIỄN PHÍ)` khi đồng hồ về `00:00`.
+  2. *Khôi phục và đảm bảo hiển thị 100% đường link nhóm Zalo*:
+     - Cập nhật logic render trong `GiveawaysView.tsx`: Thẻ banner Zalo luôn hiển thị link Zalo chính thức (`https://zalo.me/g/qdtlmj2tebfa0baraedg`) với text `"Tham gia nhóm zalo của web tại đây"` trừ khi người quản trị chủ động tắt bằng cờ `false`.
+     - Cập nhật `src/services/templateService.ts`: Cấu hình thừa kế tự động từ Mẫu Chung nếu campaign chưa gán link riêng.
+     - Cập nhật `functions/services/d1_service.ts`: Cả tầng sync và query mapping đều fallback chuẩn sang link Zalo chính thức của website.
+     - Cập nhật `src/admin/modules/PrivateCodesModule.tsx`: Form thêm mới/chỉnh sửa sự kiện mặc định bật sẵn link nhóm Zalo của website.
+     - Cập nhật `src/data/giveaways.json`: Bổ sung `custom_banner_enabled: true`, `custom_banner_link: "https://zalo.me/g/qdtlmj2tebfa0baraedg"` cho bản ghi `gw_1791639381997_w49`.
+  3. *Kiểm thử & Triển khai*:
+     - Kiểm thử mô phỏng `test_giveaway_simulation.cjs`: 11/11 pass (100%).
+     - Kiểm toán Zero Test Artifacts `audit_zero_test_artifacts.cjs`: 100% sạch sẽ.
+     - Kiểm thử hồi quy Ingest `test_ingest_regression.cjs`: 4/4 pass (100%).
+     - Build thành công toàn bộ hệ thống (`dist/_worker.js` 12.9MB).
+
+---
+
+## [2026-10-27]
+
 ### 238. Khôi Phục Kho 30 Mã Tiên Nghịch Mobile, Khắc Phục Bẫy Array.isArray Ép Về 0, Chốt Chặn Chống Xóa Mã Khi Đồng Bộ & Ổn Định Hiển Thị Top 1
 - **Bối cảnh & Yêu cầu từ Người dùng**:
   - Chủ web đã nạp mã vào sự kiện Tiên Nghịch Mobile từ trước. Sau bản sửa `3a585d7`, kho mã trống (còn 0 mã) và chủ web đã nạp thêm khoảng 30 mã vào trang admin. Nhưng sau đó kho công khai vẫn hiển thị 0 mã và sự kiện lúc hiện lúc mất, bị trôi mất tích.
@@ -75,6 +135,36 @@ Mỗi mục sửa lỗi đều ghi nhận **Nguyên nhân gốc rễ (Root Cause
      Kết quả: Tiên Nghịch Mobile (30 mã) vươn lên đứng vững chắc ở **TOP 1 / 41** trên cả API và Admin, không bao giờ bị bất kỳ đợt bulk sync nào đẩy trôi!
   6. *Kích hoạt và kiểm chứng trực tiếp trên Live D1*:
      Action `admin_repair_tien_nghich_giveaway` đã chạy thành công 200 trên production. Live API xác nhận: `id: gw_1791639381997_w49`, `remaining_codes: 30`, `claimed_codes: 22`, `total_codes: 52`, `rank: #1 / 41`.
+
+---
+
+## [2026-10-27]
+
+### 240. Thu Gọn Thông Báo Giãn Cách Toàn Sàn Thành Nút Bấm Nhỏ Gọn & Khôi Phục Đường Link Nhóm Zalo Trong Modal Giveaway
+- **Bối cảnh & Yêu cầu từ Người dùng**:
+  - Người dùng phản ánh khối thông báo đếm ngược giãn cách toàn sàn trong modal Giveaway (`GiveawayDetailModal`) quá to, choán hết nửa màn hình di động/laptop.
+  - Đường link dẫn tới nhóm Zalo chính thức của website (`https://zalo.me/g/qdtlmj2tebfa0baraedg`) bị biến mất khỏi modal chi tiết sự kiện.
+  - Yêu cầu: Thu gọn bảng thông báo đếm ngược thành nút bấm nhỏ gọn như cũ và hiển thị lại đường link dẫn tới Zalo trong modal.
+- **Nguyên nhân gốc rễ (Root Cause)**:
+  1. *Khối đếm ngược phóng đại quá mức*: Trong `src/components/GiveawaysView.tsx` (nhánh `isModalGlobalCooling`), code render thêm 1 thẻ card riêng biệt với padding lớn `p-4`, tiêu đề chữ to, số đếm ngược cỡ `text-3xl font-black`, badge phòng chờ, đoạn mô tả dài và thêm 1 nút bấm bên dưới. Chiều cao vượt quá 250px khiến người dùng cảm thấy bị chiếm dụng toàn bộ modal.
+  2. *Mất liên kết Zalo do D1 Schema DEFAULT 0 và sai lệch thừa kế*: Cột `custom_banner_enabled` trong D1 mặc định là `0` (INTEGER). Khi nạp lên frontend, `0 !== undefined` đánh giá thành falsy (`false`), dẫn tới điều kiện `{Boolean(campaign.custom_banner_enabled) && (` bị ẩn hoàn toàn. Kể cả khi Mẫu Chung có link Zalo và `custom_banner_enabled: true`, nhánh fallback không được kích hoạt do giá trị 0 của D1 ghi đè.
+- **Giải pháp chuẩn đã kiểm chứng (Solution Applied)**:
+  1. *Thu gọn thông báo đếm ngược thanh thoát như cũ (`src/components/GiveawaysView.tsx`)*:
+     - Loại bỏ hoàn toàn khối hộp card khổng lồ với số đếm ngược cỡ lớn và badge rườm rà.
+     - Thay thế bằng nút bấm trạng thái duy nhất nhỏ gọn chuẩn `py-3.5` với icon đồng hồ nhấp nháy: `<button disabled ...>Đang Chờ Đợt Mã Tiếp Theo (Còn {globalCooldownWaitText})</button>`.
+     - Kèm 1 dòng văn bản nhỏ nhẹ nhàng `text-[11px] text-amber-300/80 text-center` hiển thị đạo hữu đã nhận mã trước đó, không chiếm không gian modal.
+     - Vẫn duy trì cơ chế reactive countdown: tự động chuyển tức thì sang nút `⚡ GIẬT MÃ CODE NGAY (MIỄN PHÍ)` khi đồng hồ về `00:00`.
+  2. *Khôi phục và đảm bảo hiển thị 100% đường link nhóm Zalo*:
+     - Cập nhật logic render trong `GiveawaysView.tsx`: Thẻ banner Zalo luôn hiển thị link Zalo chính thức (`https://zalo.me/g/qdtlmj2tebfa0baraedg`) với text `"Tham gia nhóm zalo của web tại đây"` trừ khi người quản trị chủ động tắt bằng cờ `false`.
+     - Cập nhật `src/services/templateService.ts`: Cấu hình thừa kế tự động từ Mẫu Chung nếu campaign chưa gán link riêng.
+     - Cập nhật `functions/services/d1_service.ts`: Cả tầng sync và query mapping đều fallback chuẩn sang link Zalo chính thức của website.
+     - Cập nhật `src/admin/modules/PrivateCodesModule.tsx`: Form thêm mới/chỉnh sửa sự kiện mặc định bật sẵn link nhóm Zalo của website.
+     - Cập nhật `src/data/giveaways.json`: Bổ sung `custom_banner_enabled: true`, `custom_banner_link: "https://zalo.me/g/qdtlmj2tebfa0baraedg"` cho bản ghi `gw_1791639381997_w49`.
+  3. *Kiểm thử & Triển khai*:
+     - Kiểm thử mô phỏng `test_giveaway_simulation.cjs`: 11/11 pass (100%).
+     - Kiểm toán Zero Test Artifacts `audit_zero_test_artifacts.cjs`: 100% sạch sẽ.
+     - Kiểm thử hồi quy Ingest `test_ingest_regression.cjs`: 4/4 pass (100%).
+     - Build thành công toàn bộ hệ thống (`dist/_worker.js` 12.9MB).
 
 ---
 
@@ -114,6 +204,36 @@ Mỗi mục sửa lỗi đều ghi nhận **Nguyên nhân gốc rễ (Root Cause
      - Tại `ingest-upcoming-games.ts` và `functions/api/sync.ts`: Nếu payload gửi lên làm giảm số lượng game quá 50% (khi CSDL đang có >= 10 game) mà không có cờ `force_bulk_delete: true`, hệ thống tự động từ chối ghi và lưu bản sao lưu an toàn vào `wcg_upcoming_games_backup_v1`.
   6. *Đồng bộ trực tiếp Cloudflare D1 Live*:
      - Gửi payload 22 game chuẩn lên D1. Live API xác nhận: `UPCOMING: 19` (`liveCount: 19`), `LAUNCHED: 3` (`launchedCount: 3`), `ALL: 22`.
+
+---
+
+## [2026-10-27]
+
+### 240. Thu Gọn Thông Báo Giãn Cách Toàn Sàn Thành Nút Bấm Nhỏ Gọn & Khôi Phục Đường Link Nhóm Zalo Trong Modal Giveaway
+- **Bối cảnh & Yêu cầu từ Người dùng**:
+  - Người dùng phản ánh khối thông báo đếm ngược giãn cách toàn sàn trong modal Giveaway (`GiveawayDetailModal`) quá to, choán hết nửa màn hình di động/laptop.
+  - Đường link dẫn tới nhóm Zalo chính thức của website (`https://zalo.me/g/qdtlmj2tebfa0baraedg`) bị biến mất khỏi modal chi tiết sự kiện.
+  - Yêu cầu: Thu gọn bảng thông báo đếm ngược thành nút bấm nhỏ gọn như cũ và hiển thị lại đường link dẫn tới Zalo trong modal.
+- **Nguyên nhân gốc rễ (Root Cause)**:
+  1. *Khối đếm ngược phóng đại quá mức*: Trong `src/components/GiveawaysView.tsx` (nhánh `isModalGlobalCooling`), code render thêm 1 thẻ card riêng biệt với padding lớn `p-4`, tiêu đề chữ to, số đếm ngược cỡ `text-3xl font-black`, badge phòng chờ, đoạn mô tả dài và thêm 1 nút bấm bên dưới. Chiều cao vượt quá 250px khiến người dùng cảm thấy bị chiếm dụng toàn bộ modal.
+  2. *Mất liên kết Zalo do D1 Schema DEFAULT 0 và sai lệch thừa kế*: Cột `custom_banner_enabled` trong D1 mặc định là `0` (INTEGER). Khi nạp lên frontend, `0 !== undefined` đánh giá thành falsy (`false`), dẫn tới điều kiện `{Boolean(campaign.custom_banner_enabled) && (` bị ẩn hoàn toàn. Kể cả khi Mẫu Chung có link Zalo và `custom_banner_enabled: true`, nhánh fallback không được kích hoạt do giá trị 0 của D1 ghi đè.
+- **Giải pháp chuẩn đã kiểm chứng (Solution Applied)**:
+  1. *Thu gọn thông báo đếm ngược thanh thoát như cũ (`src/components/GiveawaysView.tsx`)*:
+     - Loại bỏ hoàn toàn khối hộp card khổng lồ với số đếm ngược cỡ lớn và badge rườm rà.
+     - Thay thế bằng nút bấm trạng thái duy nhất nhỏ gọn chuẩn `py-3.5` với icon đồng hồ nhấp nháy: `<button disabled ...>Đang Chờ Đợt Mã Tiếp Theo (Còn {globalCooldownWaitText})</button>`.
+     - Kèm 1 dòng văn bản nhỏ nhẹ nhàng `text-[11px] text-amber-300/80 text-center` hiển thị đạo hữu đã nhận mã trước đó, không chiếm không gian modal.
+     - Vẫn duy trì cơ chế reactive countdown: tự động chuyển tức thì sang nút `⚡ GIẬT MÃ CODE NGAY (MIỄN PHÍ)` khi đồng hồ về `00:00`.
+  2. *Khôi phục và đảm bảo hiển thị 100% đường link nhóm Zalo*:
+     - Cập nhật logic render trong `GiveawaysView.tsx`: Thẻ banner Zalo luôn hiển thị link Zalo chính thức (`https://zalo.me/g/qdtlmj2tebfa0baraedg`) với text `"Tham gia nhóm zalo của web tại đây"` trừ khi người quản trị chủ động tắt bằng cờ `false`.
+     - Cập nhật `src/services/templateService.ts`: Cấu hình thừa kế tự động từ Mẫu Chung nếu campaign chưa gán link riêng.
+     - Cập nhật `functions/services/d1_service.ts`: Cả tầng sync và query mapping đều fallback chuẩn sang link Zalo chính thức của website.
+     - Cập nhật `src/admin/modules/PrivateCodesModule.tsx`: Form thêm mới/chỉnh sửa sự kiện mặc định bật sẵn link nhóm Zalo của website.
+     - Cập nhật `src/data/giveaways.json`: Bổ sung `custom_banner_enabled: true`, `custom_banner_link: "https://zalo.me/g/qdtlmj2tebfa0baraedg"` cho bản ghi `gw_1791639381997_w49`.
+  3. *Kiểm thử & Triển khai*:
+     - Kiểm thử mô phỏng `test_giveaway_simulation.cjs`: 11/11 pass (100%).
+     - Kiểm toán Zero Test Artifacts `audit_zero_test_artifacts.cjs`: 100% sạch sẽ.
+     - Kiểm thử hồi quy Ingest `test_ingest_regression.cjs`: 4/4 pass (100%).
+     - Build thành công toàn bộ hệ thống (`dist/_worker.js` 12.9MB).
 
 ---
 

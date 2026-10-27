@@ -488,38 +488,40 @@ const GiveawayDetailModal: React.FC<GiveawayDetailModalProps> = ({
             </span>
           </div>
 
-          {/* Requirement 5: Ô Tùy Chỉnh / Link Cộng Đồng (Admin Cấu Hình) - Thế vào vị trí cũ của Thời Gian Sự Kiện */}
-          {Boolean(campaign.custom_banner_enabled) && (
-            <div
-              onClick={() => {
-                if (campaign.custom_banner_link) {
-                  const rawLink = campaign.custom_banner_link.trim();
-                  const targetUrl = rawLink.startsWith('http://') || rawLink.startsWith('https://') ? rawLink : `https://${rawLink}`;
+          {/* Requirement 5: Ô Tùy Chỉnh / Link Cộng Đồng (Admin Cấu Hình & Fallback Nhóm Zalo) */}
+          {(() => {
+            const rawBannerLink = campaign.custom_banner_link && campaign.custom_banner_link.trim();
+            const effectiveBannerLink = rawBannerLink || 'https://zalo.me/g/qdtlmj2tebfa0baraedg';
+            const effectiveBannerText = (campaign.custom_banner_text && campaign.custom_banner_text.trim()) || 'Tham gia nhóm zalo của web tại đây';
+            
+            // Chỉ ẩn khi người quản trị chủ động tắt tường minh bằng false
+            if (campaign.custom_banner_enabled === false) return null;
+
+            return (
+              <div
+                onClick={() => {
+                  const targetUrl = effectiveBannerLink.startsWith('http://') || effectiveBannerLink.startsWith('https://')
+                    ? effectiveBannerLink
+                    : `https://${effectiveBannerLink}`;
                   window.open(targetUrl, '_blank', 'noopener,noreferrer');
-                }
-              }}
-              className={`p-3 rounded-2xl bg-gradient-to-r from-blue-500/10 via-indigo-500/10 to-primary/10 border border-blue-500/30 flex items-center justify-between gap-2.5 transition-all shadow-sm ${
-                campaign.custom_banner_link
-                  ? 'cursor-pointer hover:bg-blue-500/20 hover:border-blue-500/50 hover:scale-[1.01] active:scale-[0.99]'
-                  : ''
-              }`}
-            >
-              <div className="flex items-center gap-2.5 min-w-0">
-                <div className="w-7 h-7 rounded-xl bg-blue-500/20 border border-blue-500/35 flex items-center justify-center shrink-0">
-                  <MessageCircle className="w-3.5 h-3.5 text-blue-400" />
+                }}
+                className="p-3 rounded-2xl bg-gradient-to-r from-blue-500/10 via-indigo-500/10 to-primary/10 border border-blue-500/30 flex items-center justify-between gap-2.5 transition-all shadow-sm cursor-pointer hover:bg-blue-500/20 hover:border-blue-500/50 hover:scale-[1.01] active:scale-[0.99]"
+              >
+                <div className="flex items-center gap-2.5 min-w-0">
+                  <div className="w-7 h-7 rounded-xl bg-blue-500/20 border border-blue-500/35 flex items-center justify-center shrink-0">
+                    <MessageCircle className="w-3.5 h-3.5 text-blue-400" />
+                  </div>
+                  <span className="text-xs font-semibold text-foreground truncate select-none">
+                    {effectiveBannerText}
+                  </span>
                 </div>
-                <span className="text-xs font-semibold text-foreground truncate select-none">
-                  {campaign.custom_banner_text || 'Tham gia nhóm zalo của web tại đây'}
-                </span>
-              </div>
-              {campaign.custom_banner_link && (
                 <div className="flex items-center gap-1 text-[10px] font-bold text-blue-400 shrink-0">
                   <span>Mở link</span>
                   <ExternalLink className="w-3.5 h-3.5" />
                 </div>
-              )}
-            </div>
-          )}
+              </div>
+            );
+          })()}
 
           {/* Conditions & Eligibility Checklist */}
           <div className="p-3.5 rounded-2xl bg-card-hover/90 border border-border/80 space-y-2.5">
@@ -759,51 +761,33 @@ const GiveawayDetailModal: React.FC<GiveawayDetailModalProps> = ({
               <span>Sự Kiện Đã Kết Thúc</span>
             </button>
           ) : isModalGlobalCooling ? (
-            /* Requirement 6: Đếm ngược mục giật mã, khi về 0 chuyển thành nút giật mã ngay */
-            <div className="space-y-2">
-              <div className="p-4 rounded-2xl bg-gradient-to-r from-amber-950/70 via-orange-950/70 to-red-950/70 border border-amber-500/40 text-center space-y-2.5 shadow-lg">
-                <div className="text-xs font-bold text-amber-300 uppercase tracking-wider flex items-center justify-center gap-1.5">
-                  <Clock className="w-4 h-4 text-amber-400 animate-pulse" />
-                  <span>Mã Kế Tiếp Mở Cho Toàn Web Sau:</span>
-                </div>
-                <div className="text-3xl font-mono font-black text-amber-300 tracking-widest drop-shadow-md">
-                  {globalCooldownWaitText}
-                </div>
-                {campaign.enable_waiting_room !== false && (
-                  <div className="pt-1 flex justify-center">
-                    <LiveWaitingRoomBadge
-                      minUsers={campaign.waiting_users_min}
-                      maxUsers={campaign.waiting_users_max}
-                      variant="card"
-                    />
-                  </div>
-                )}
-                <p className="text-[11px] text-amber-200/80 leading-relaxed max-w-sm mx-auto">
-                  {(() => {
-                    const lastUser = campaign.last_claimer_name || 'người chơi trước';
-                    const template =
-                      campaign.custom_cooldown_msg ||
-                      'Đợt phát trước đạo hữu {last_user} đã nhanh tay đi trước, đạo hữu vui lòng đợi {time_left} rồi thử sức lại.';
-                    return template
-                      .replace(/\{last_user\}|\{claimer\}|\{last_claimer\}|\{last_claimer_name\}|\{user\}/gi, lastUser)
-                      .replace(/\{time_left\}|\{seconds\}|\{sec\}/gi, globalCooldownWaitText);
-                  })()}
-                </p>
-              </div>
-
+            /* Requirement 6: Thu gọn thông báo đếm ngược thành nút bấm nhỏ gọn như cũ */
+            <div className="space-y-1.5">
               <button
                 disabled
-                className="w-full py-3.5 rounded-2xl bg-amber-500/20 text-amber-300 border border-amber-500/40 text-xs font-bold flex items-center justify-center gap-2 cursor-not-allowed"
+                className="w-full py-3.5 rounded-2xl bg-amber-500/15 text-amber-300 border border-amber-500/30 text-xs font-bold flex items-center justify-center gap-2 cursor-not-allowed shadow-sm"
               >
-                <Clock className="w-4 h-4 text-amber-400" />
-                <span>Đang Chờ Đợt Mã Tiếp Theo ({globalCooldownWaitText})</span>
+                <Clock className="w-4 h-4 text-amber-400 animate-pulse" />
+                <span>Đang Chờ Đợt Mã Tiếp Theo (Còn {globalCooldownWaitText})</span>
               </button>
+
+              <p className="text-[11px] text-amber-300/80 text-center leading-relaxed px-2">
+                {(() => {
+                  const lastUser = campaign.last_claimer_name || 'người chơi trước';
+                  const template =
+                    campaign.custom_cooldown_msg ||
+                    'Đợt phát trước đạo hữu {last_user} đã nhanh tay nhận mã, vui lòng đợi đợt tiếp theo sau {time_left}.';
+                  return template
+                    .replace(/\{last_user\}|\{claimer\}|\{last_claimer\}|\{last_claimer_name\}|\{user\}/gi, lastUser)
+                    .replace(/\{time_left\}|\{seconds\}|\{sec\}/gi, globalCooldownWaitText);
+                })()}
+              </p>
 
               {isAdmin && (
                 <button
                   onClick={() => handleClaim(campaign, activePackage?.id)}
                   disabled={claimingId === campaign.id}
-                  className="w-full py-2.5 rounded-xl bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 border border-amber-500/40 text-xs font-bold flex items-center justify-center gap-1.5 cursor-pointer transition-all active:scale-95"
+                  className="w-full py-2.5 rounded-xl bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 border border-amber-500/40 text-xs font-bold flex items-center justify-center gap-1.5 cursor-pointer transition-all active:scale-95 mt-1"
                 >
                   <Sparkles className="w-3.5 h-3.5" />
                   <span>👑 [Admin] Bỏ qua chờ đợt — Giật thử nghiệm ngay</span>

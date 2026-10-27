@@ -2227,9 +2227,9 @@ export async function syncGiveawaysToD1(db: D1Database, giveaways: any[]): Promi
     const enableWaitingRoom = (gw.enable_waiting_room !== false && (gw as any).enableWaitingRoom !== false) ? 1 : 0;
     const waitingUsersMin = Math.max(0, Number(gw.waiting_users_min ?? gw.waitingUsersMin ?? 0));
     const waitingUsersMax = Math.max(0, Number(gw.waiting_users_max ?? gw.waitingUsersMax ?? 0));
-    const customBannerEnabled = (gw.custom_banner_enabled || (gw as any).customBannerEnabled) ? 1 : 0;
+    const customBannerEnabled = (gw.custom_banner_enabled === false || (gw as any).customBannerEnabled === false) ? 0 : 1;
     const customBannerText = String(gw.custom_banner_text || (gw as any).customBannerText || 'Tham gia nhóm zalo của web tại đây').trim();
-    const customBannerLink = String(gw.custom_banner_link || (gw as any).customBannerLink || '').trim();
+    const customBannerLink = String(gw.custom_banner_link || (gw as any).customBannerLink || 'https://zalo.me/g/qdtlmj2tebfa0baraedg').trim();
     const showClaimed = (gw.show_claimed_count !== false && (gw as any).showClaimedCount !== false) ? 1 : 0;
     const virtualOffset = Number(gw.virtual_claimed_offset ?? gw.virtualClaimedOffset ?? 0);
     const isActive = (gw.is_active !== false && (gw as any).isActive !== false) ? 1 : 0;
@@ -2944,9 +2944,13 @@ export async function loadAllGiveawaysD1(db: D1Database, includeCodes: boolean =
         enable_waiting_room: meta.enable_waiting_room !== undefined ? Boolean(meta.enable_waiting_room) : (gw.enable_waiting_room !== undefined ? Boolean(gw.enable_waiting_room) : true),
         waiting_users_min: meta.waiting_users_min !== undefined ? Number(meta.waiting_users_min) : (gw.waiting_users_min !== undefined ? Number(gw.waiting_users_min) : 0),
         waiting_users_max: meta.waiting_users_max !== undefined ? Number(meta.waiting_users_max) : (gw.waiting_users_max !== undefined ? Number(gw.waiting_users_max) : 0),
-        custom_banner_enabled: meta.custom_banner_enabled !== undefined ? Boolean(meta.custom_banner_enabled) : (gw.custom_banner_enabled !== undefined ? Boolean(gw.custom_banner_enabled) : Boolean(meta.custom_banner_link || gw.custom_banner_link)),
+        custom_banner_enabled: meta.custom_banner_enabled !== undefined
+          ? Boolean(meta.custom_banner_enabled)
+          : (gw.custom_banner_enabled !== undefined && gw.custom_banner_enabled !== 0
+              ? Boolean(gw.custom_banner_enabled)
+              : (meta.custom_banner_enabled === false ? false : true)),
         custom_banner_text: meta.custom_banner_text || gw.custom_banner_text || 'Tham gia nhóm zalo của web tại đây',
-        custom_banner_link: meta.custom_banner_link || gw.custom_banner_link || '',
+        custom_banner_link: meta.custom_banner_link || gw.custom_banner_link || 'https://zalo.me/g/qdtlmj2tebfa0baraedg',
         virtual_claimed_offset: meta.virtual_claimed_offset !== undefined ? Math.max(0, Number(meta.virtual_claimed_offset) || 0) : Math.max(0, Number(gw.virtual_claimed_offset) || 0),
         enable_auto_simulation: meta.enable_auto_simulation !== undefined ? Boolean(meta.enable_auto_simulation) : (gw.enable_auto_simulation !== undefined ? Boolean(gw.enable_auto_simulation) : true),
         simulation_idle_threshold_minutes: meta.simulation_idle_threshold_minutes !== undefined ? Number(meta.simulation_idle_threshold_minutes) : (gw.simulation_idle_threshold_minutes !== undefined ? Number(gw.simulation_idle_threshold_minutes) : 0),

@@ -362,11 +362,11 @@ class TemplateService {
         ? Number(campaign.global_cooldown_seconds)
         : (tpl.global_cooldown_seconds || 0),
 
-      custom_banner_enabled: campaign.custom_banner_enabled !== undefined
-        ? Boolean(campaign.custom_banner_enabled)
-        : Boolean(tpl.custom_banner_enabled),
+      custom_banner_enabled: campaign.custom_banner_enabled === false
+        ? false
+        : (campaign.custom_banner_enabled ? true : (tpl.custom_banner_enabled !== false)),
       custom_banner_text: campaign.custom_banner_text || tpl.custom_banner_text || 'Tham gia nhóm zalo của web tại đây',
-      custom_banner_link: campaign.custom_banner_link || tpl.custom_banner_link || '',
+      custom_banner_link: campaign.custom_banner_link || tpl.custom_banner_link || 'https://zalo.me/g/qdtlmj2tebfa0baraedg',
 
       custom_success_msg: campaign.custom_success_msg || tpl.custom_success_msg || '',
       custom_cooldown_msg: campaign.custom_cooldown_msg || tpl.custom_cooldown_msg || '',

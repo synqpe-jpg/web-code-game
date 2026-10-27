@@ -10,6 +10,22 @@
 
 ## 1. DANH MỤC LỖI & CÁC BẪY ĐÃ THẤT BẠI (DO NOT REPEAT)
 
+### ISSUE-160: Bẫy Khối Thông Báo Cooldown Chiếm Dụng Modal & Ẩn Banner Link Zalo Do D1 DEFAULT 0
+- **Triệu chứng**:
+  - Modal sự kiện Giveaway (`GiveawayDetailModal`) khi đang giãn cách toàn sàn hiển thị một khối card đỏ sẫm to tướng, số đếm ngược cỡ `3xl`, badge phòng chờ và mô tả nhiều dòng làm choán hết nửa modal.
+  - Thẻ link nhóm Zalo chính thức của website bị biến mất hoàn toàn khỏi modal.
+- **Nguyên nhân gốc rễ & Các bẫy cần tránh**:
+  1. *Bẫy UI Over-design trong Modal*: Modal là không gian giới hạn trên thiết bị di động/laptop. Việc nhồi nhét cả 1 card to đùng với số đếm ngược khổng lồ bên trên 1 nút bấm bên dưới làm vỡ bố cục và gây khó chịu cho người dùng. Khối thông báo phải được thu gọn thành chính nút bấm hành động duy nhất (`Đang Chờ Đợt Mã Tiếp Theo (Còn MM:SS)`).
+  2. *Bẫy `custom_banner_enabled INTEGER DEFAULT 0` trong D1*: Khi một cột DB mang giá trị mặc định là 0 (hoặc false), phép kiểm tra `meta.custom_banner_enabled !== undefined` trên frontend sẽ nhận giá trị 0 này và ép `Boolean(0) === false`. Điều này ghi đè hoàn toàn giá trị `custom_banner_enabled: true` của Mẫu Chung, khiến link nhóm Zalo của web bị ẩn dù người dùng không hề cố ý tắt.
+- **Giải pháp chuẩn đã kiểm chứng**:
+  1. *Thu gọn nút bấm*: Loại bỏ card to, chỉ render nút `py-3.5` với icon đồng hồ nhấp nháy, kèm dòng chú thích nhỏ `text-[11px]` thanh thoát bên dưới. Khi hết giờ, nút chuyển tức thì sang `⚡ GIẬT MÃ CODE NGAY (MIỄN PHÍ)`.
+  2. *Chính sách hiển thị Link Zalo*: Luôn hiển thị link nhóm Zalo chính thức của website (`https://zalo.me/g/qdtlmj2tebfa0baraedg`) với text `"Tham gia nhóm zalo của web tại đây"` trừ khi admin cố ý tắt bằng giá trị `false` tường minh.
+- 🚫 **CÁCH SỬA ĐÃ THẤT BẠI - TUYỆT ĐỐI KHÔNG LẶP LẠI**:
+  - ❌ *Tuyệt đối KHÔNG render thêm card đếm ngược riêng biệt bên trên nút bấm trong modal*: Modal chỉ nên giữ 1 nút bấm hành động duy nhất.
+  - ❌ *Tuyệt đối KHÔNG ẩn banner link Zalo chỉ vì `campaign.custom_banner_enabled` chưa được set*: Phải luôn fallback về link nhóm Zalo chính thức của web.
+
+---
+
 ### ISSUE-159: Bẫy Mô Phỏng Lượt Giật Giveaway (Auto-Simulation Gating, Stock Isolation & Cooldown Handover)
 - **Triệu chứng**:
   - Event bật giãn cách toàn sàn (Global Cooldown) nhưng không có người giật thì thẻ nằm im, thiếu sôi động.
