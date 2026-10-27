@@ -193,11 +193,11 @@ const GiveawayDetailModal: React.FC<GiveawayDetailModalProps> = ({
   const packages = getGiveawayPackages(campaign);
   const activePackage = packages.find((p) => p.id === selectedRewardPackageId) || packages[0];
   const effectivePool = activePackage?.codes_pool || campaign.codes_pool;
-  const poolCount = Array.isArray(effectivePool)
+  const poolCount = Array.isArray(effectivePool) && effectivePool.length > 0
     ? effectivePool.length
-    : (typeof activePackage?.remaining_codes === 'number'
+    : (typeof activePackage?.remaining_codes === 'number' && activePackage.remaining_codes > 0
         ? activePackage.remaining_codes
-        : (typeof campaign.remaining_codes === 'number' ? campaign.remaining_codes : 0));
+        : (typeof campaign.remaining_codes === 'number' ? Math.max(0, campaign.remaining_codes) : 0));
   const displayRemaining = marketingService.getDisplayStock(campaign.id, poolCount);
   const displayClaimed =
     campaign.show_claimed_count !== false
@@ -416,7 +416,7 @@ const GiveawayDetailModal: React.FC<GiveawayDetailModalProps> = ({
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                 {packages.map((pkg) => {
                   const isSelected = activePackage?.id === pkg.id;
-                  const pkgStock = Array.isArray(pkg.codes_pool) ? pkg.codes_pool.length : (typeof pkg.remaining_codes === 'number' ? pkg.remaining_codes : 0);
+                  const pkgStock = Array.isArray(pkg.codes_pool) && pkg.codes_pool.length > 0 ? pkg.codes_pool.length : (typeof pkg.remaining_codes === 'number' ? Math.max(0, pkg.remaining_codes) : 0);
                   return (
                     <button
                       key={pkg.id}
@@ -1387,15 +1387,15 @@ export const GiveawaysView: React.FC<GiveawaysViewProps> = ({
   const getCampaignStock = (c: GiveawayCampaign) => {
     if (Array.isArray(c.packages) && c.packages.length > 0) {
       return c.packages.reduce((sum, p) => {
-        const pCount = Array.isArray(p.codes_pool)
+        const pCount = Array.isArray(p.codes_pool) && p.codes_pool.length > 0
           ? p.codes_pool.length
-          : (typeof p.remaining_codes === 'number' ? p.remaining_codes : 0);
+          : (typeof p.remaining_codes === 'number' ? Math.max(0, p.remaining_codes) : 0);
         return sum + pCount;
       }, 0);
     }
-    return Array.isArray(c.codes_pool)
+    return Array.isArray(c.codes_pool) && c.codes_pool.length > 0
       ? c.codes_pool.length
-      : (typeof c.remaining_codes === 'number' ? c.remaining_codes : 0);
+      : (typeof c.remaining_codes === 'number' ? Math.max(0, c.remaining_codes) : 0);
   };
 
   const activeGiveaways = groupedCampaigns
@@ -1613,7 +1613,7 @@ export const GiveawaysView: React.FC<GiveawaysViewProps> = ({
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3.5 sm:gap-4">
               {activeGiveaways.map((campaign) => {
-                const poolCount = Array.isArray(campaign.codes_pool) ? campaign.codes_pool.length : (typeof campaign.remaining_codes === 'number' ? campaign.remaining_codes : 0);
+                const poolCount = Array.isArray(campaign.codes_pool) && campaign.codes_pool.length > 0 ? campaign.codes_pool.length : (typeof campaign.remaining_codes === 'number' ? Math.max(0, campaign.remaining_codes) : 0);
 
                 const displayRemaining = marketingService.getDisplayStock(campaign.id, poolCount);
                 const displayClaimed =
@@ -2290,7 +2290,7 @@ export const GiveawaysView: React.FC<GiveawaysViewProps> = ({
         (() => {
           const targetCampaign = claimedRewardModal.campaign;
           const allMyCampaignCodes = uniqueClaimedList.filter((c) => c.campaign_id === targetCampaign.id);
-          const poolCount = Array.isArray(targetCampaign.codes_pool) ? targetCampaign.codes_pool.length : (typeof targetCampaign.remaining_codes === 'number' ? targetCampaign.remaining_codes : 0);
+          const poolCount = Array.isArray(targetCampaign.codes_pool) && targetCampaign.codes_pool.length > 0 ? targetCampaign.codes_pool.length : (typeof targetCampaign.remaining_codes === 'number' ? Math.max(0, targetCampaign.remaining_codes) : 0);
           const remaining = marketingService.getDisplayStock(targetCampaign.id, poolCount);
           const rawMaxPerUser = Number(targetCampaign.max_per_user);
           const isUnlimitedUser = rawMaxPerUser === 0 || rawMaxPerUser >= 999999;

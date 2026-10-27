@@ -121,21 +121,36 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
       );
     }
 
-    // Inherit from Universal Template if campaign uses template
+    // Inherit from Universal Template ONLY as fallback when campaign property is not explicitly configured
+    // Admin configuration is the Single Source of Truth (Chân lý duy nhất)
     try {
       const universalTemplatesRaw: any = await getSettingD1(env.DB, 'wcg_universal_templates_v1');
       if (universalTemplatesRaw && universalTemplatesRaw.giveaway) {
         const gwTpl = universalTemplatesRaw.giveaway;
         if (campaign.use_template !== 0 && campaign.use_template !== false) {
-          if (gwTpl.min_account_age_days !== undefined) campaign.min_account_age_days = gwTpl.min_account_age_days;
-          if (gwTpl.max_per_user !== undefined) campaign.max_per_user = gwTpl.max_per_user;
-          if (gwTpl.max_per_ip !== undefined) campaign.max_per_ip = gwTpl.max_per_ip;
-          if (gwTpl.cooldown_hours !== undefined) campaign.cooldown_hours = gwTpl.cooldown_hours;
-          if (gwTpl.custom_success_msg) campaign.custom_success_msg = gwTpl.custom_success_msg;
-          if (gwTpl.custom_cooldown_msg) campaign.custom_cooldown_msg = gwTpl.custom_cooldown_msg;
-          if (gwTpl.custom_out_of_stock_msg) campaign.custom_out_of_stock_msg = gwTpl.custom_out_of_stock_msg;
+          if ((campaign.min_account_age_days === undefined || campaign.min_account_age_days === null) && gwTpl.min_account_age_days !== undefined) {
+            campaign.min_account_age_days = gwTpl.min_account_age_days;
+          }
+          if ((campaign.max_per_user === undefined || campaign.max_per_user === null) && gwTpl.max_per_user !== undefined) {
+            campaign.max_per_user = gwTpl.max_per_user;
+          }
+          if ((campaign.max_per_ip === undefined || campaign.max_per_ip === null) && gwTpl.max_per_ip !== undefined) {
+            campaign.max_per_ip = gwTpl.max_per_ip;
+          }
+          if ((campaign.cooldown_hours === undefined || campaign.cooldown_hours === null) && gwTpl.cooldown_hours !== undefined) {
+            campaign.cooldown_hours = gwTpl.cooldown_hours;
+          }
+          if (!campaign.custom_success_msg && gwTpl.custom_success_msg) {
+            campaign.custom_success_msg = gwTpl.custom_success_msg;
+          }
+          if (!campaign.custom_cooldown_msg && gwTpl.custom_cooldown_msg) {
+            campaign.custom_cooldown_msg = gwTpl.custom_cooldown_msg;
+          }
+          if (!campaign.custom_out_of_stock_msg && gwTpl.custom_out_of_stock_msg) {
+            campaign.custom_out_of_stock_msg = gwTpl.custom_out_of_stock_msg;
+          }
         }
-        if (gwTpl.global_cooldown_seconds !== undefined) {
+        if ((campaign.global_cooldown_seconds === undefined || campaign.global_cooldown_seconds === null) && gwTpl.global_cooldown_seconds !== undefined) {
           campaign.global_cooldown_seconds = gwTpl.global_cooldown_seconds;
         }
       }

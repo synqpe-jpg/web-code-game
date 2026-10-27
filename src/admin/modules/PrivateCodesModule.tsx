@@ -250,7 +250,9 @@ export const PrivateCodesModule: React.FC<PrivateCodesModuleProps> = ({ onShowTo
     }
 
     const existingPool = editingItem?.codes_pool || [];
-    const poolLength = existingPool.length;
+    const poolLength = Array.isArray(existingPool) && existingPool.length > 0
+      ? existingPool.length
+      : Math.max(0, Number(editingItem?.remaining_codes || 0));
     const safeClaimed = editingItem ? Number(editingItem.claimed_codes || 0) : 0;
     const calculatedTotal = poolLength + safeClaimed;
 
@@ -441,7 +443,7 @@ export const PrivateCodesModule: React.FC<PrivateCodesModuleProps> = ({ onShowTo
     setIsResettingAllFomo(true);
     try {
       const giveawayItems = giveaways.map((gw) => {
-        const poolCount = Array.isArray(gw.codes_pool) ? gw.codes_pool.length : 0;
+        const poolCount = Array.isArray(gw.codes_pool) && gw.codes_pool.length > 0 ? gw.codes_pool.length : Math.max(0, Number(gw.remaining_codes || 0));
         return {
           id: gw.id,
           claimed_codes: gw.claimed_codes || 0,
@@ -785,7 +787,7 @@ export const PrivateCodesModule: React.FC<PrivateCodesModuleProps> = ({ onShowTo
             </thead>
             <tbody className="divide-y divide-slate-100 dark:divide-slate-800 font-medium">
               {filteredGiveaways.map((gw) => {
-                const poolCount = Array.isArray(gw.codes_pool) ? gw.codes_pool.length : 0;
+                const poolCount = Array.isArray(gw.codes_pool) && gw.codes_pool.length > 0 ? gw.codes_pool.length : Math.max(0, Number(gw.remaining_codes || 0));
                 const claimedCount = Number(gw.claimed_codes) || 0;
                 const remaining = poolCount;
                 const totalCount = poolCount + claimedCount;
@@ -1961,7 +1963,7 @@ export const PrivateCodesModule: React.FC<PrivateCodesModuleProps> = ({ onShowTo
           itemId={fomoAdjustCampaign.id}
           itemTitle={fomoAdjustCampaign.title}
           gameName={fomoAdjustCampaign.game_name}
-          realStock={Array.isArray(fomoAdjustCampaign.codes_pool) ? fomoAdjustCampaign.codes_pool.length : 0}
+          realStock={Array.isArray(fomoAdjustCampaign.codes_pool) && fomoAdjustCampaign.codes_pool.length > 0 ? fomoAdjustCampaign.codes_pool.length : Math.max(0, Number(fomoAdjustCampaign.remaining_codes || 0))}
           realSoldOrClaimed={fomoAdjustCampaign.claimed_codes || 0}
           onSuccess={() => loadData()}
           onShowToast={onShowToast}

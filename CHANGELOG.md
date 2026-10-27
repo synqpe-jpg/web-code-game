@@ -7,6 +7,37 @@ Mỗi mục sửa lỗi đều ghi nhận **Nguyên nhân gốc rễ (Root Cause
 
 ## [2026-10-27]
 
+### 231. Thiết Lập Cấu Hình Admin Là Chân Lý Duy Nhất (SSOT) — Khắc Phục Lệch Luật Hiển Thị Ngoài Web, Sửa Tiêu Đề Dấu Cộng & Khôi Phục Tồn Kho Giveaway
+- **Bối cảnh & Yêu cầu từ Người dùng**:
+  - Người dùng phản ánh: *"Tong admin tôi thiết kế luật khác, nhưng ngoài web lại hiển thị khác admin. đảm bảo thiết lập trong admin là chân lý duy nhất giúp tôi."*
+  - Bằng chứng thực tế (Đối chiếu giữa Web và Admin trên chiến dịch Tiên Nghịch Mobile `gw_1791639381997_w49`):
+    - Admin thiết lập: Tiêu đề `Code riêng Tiên Nghịch Mobile`, Kho `35 / 56`, User `3 mã`, IP `3 mã`, CD `1h`, Giãn cách `45p`, Trạng thái `Đang mở`.
+    - Web hiển thị sai lệch: Tiêu đề bị thêm dấu cộng rác `Code riêng + Tiên Nghịch Mobile`, User chỉ cho `1 mã / TK (0/1)`, IP chỉ cho `2 mã / IP`, Giãn cách 45p bị biến mất hoàn toàn, Kho hiển thị `0 / 482` và nút bấm bị xám chuyển sang `Chờ Đợt Mã Mới`.
+- **Nguyên nhân gốc rễ (Root Cause)**:
+  1. *SSOT Inversion Bug trong `templateService.resolveGiveaway`*: Hàm giải quyết mẫu chung kế thừa ghi đè thô bạo (unconditional override) các trường chính sách (`max_per_user`, `max_per_ip`, `cooldown_hours`, `global_cooldown_seconds`, v.v.) bằng giá trị mặc định của template, biến các thiết lập riêng của Admin thành vô nghĩa. Tiêu đề có tiền tố `Code riêng` bị regex ép về mẫu `Code riêng + {game_name}`, gây xuất hiện dấu cộng thừa.
+  2. *Ghi đè thô bạo trong API nhận quà (`functions/api/giveaways/claim.ts`)*: Backend cũng cưỡng chế gán đè các trường `gwTpl.*` lên campaign khi người dùng bấm nhận mã.
+  3. *Lệch thứ tự Merge CSDL D1 & Sync API*: Tại `functions/services/d1_service.ts` và `functions/api/sync.ts`, các cột SQL row mặc định (`giveaways` có default 1, 2) được merge đè lên JSON metadata `meta` từ `wcg_admin_giveaways_v4`.
+  4. *Bẫy mảng rỗng `Array.isArray([])`*: Để bảo mật mã bí mật, API và KV trả về `codes_pool: []` cho client. Biểu thức `Array.isArray(codes_pool) ? codes_pool.length : remaining_codes` trả về `0`, vô tình xóa sạch số tồn kho thực tế 35 mã và ép nút bấm thành "Chờ Đợt Mã Mới".
+- **Giải pháp thành công (Solution)**:
+  1. *Thiết lập Admin Configuration là Chân Lý Duy Nhất (Admin SSOT)*:
+     - Tại `src/services/templateService.ts`: Cấu hình của Admin luôn là ưu tiên cao nhất; Mẫu Chung (Template) chỉ đóng vai trò dự phòng (fallback) khi trường tương ứng chưa được thiết lập (`undefined` hoặc `null`).
+     - Bảo toàn 100% tiêu đề do Admin đặt (bỏ tiền tố dấu `+` trong template pattern).
+     - Bổ sung xác thực `X-Sync-Key` khi lưu Mẫu Chung từ Admin.
+  2. *Bảo toàn SSOT trong Backend Claim API*:
+     - Tại `functions/api/giveaways/claim.ts`: Chỉ fallback sang template khi thuộc tính trên chiến dịch thực sự chưa tồn tại.
+  3. *Đảo thứ tự Merge CSDL D1*:
+     - Tại `functions/services/d1_service.ts` & `functions/api/sync.ts`: Merge `{ ...gw, ...meta }`, ưu tiên rõ ràng `meta.max_per_user`, `meta.max_per_ip`, `meta.cooldown_hours`, `meta.global_cooldown_seconds`, và `meta.title`.
+  4. *Chuẩn hóa bộ đếm tồn kho toàn diện*:
+     - Thay thế toàn bộ pattern `Array.isArray(x) ? x.length : remaining_codes` thành `Array.isArray(x) && x.length > 0 ? x.length : Math.max(0, Number(remaining_codes || 0))` trên toàn bộ các file: `dataService.ts`, `GiveawaysView.tsx`, `marketingService.ts`, `PrivateCodesModule.tsx`, và `adminDataService.ts`.
+     - Thêm `https://codegame.shop/api/sync` vào danh sách endpoint đồng bộ của Admin.
+- **Kiểm thử & Nghiệm thu**:
+  - `npm run build`: 100% thành công, 780 trang prerender hoàn tất, Cloudflare Edge Worker bundle compile hoàn chỉnh.
+  - `npm run test:ingest`: 4/4 bài kiểm thử hồi quy đạt 100%.
+  - Zero Test Artifacts Audit: Đạt 100% sạch sẽ.
+  - Logic Unit Test: Đã kiểm chứng `resolveGiveaway` bảo toàn 100% tiêu đề, User: 3 mã, IP: 3 mã, CD: 1h, Giãn cách: 45p, và kho 35 mã.
+
+---
+
 ### 230. Xóa 2 Tài Khoản Test Ví (250.000đ), Dọn 2 Giao Dịch Sổ Cái Test Khỏi D1 & Gỡ Hoàn Toàn Banner Cam Chuyển Đổi Domain
 - **Bối cảnh & Yêu cầu từ Người dùng**:
   - Xóa 2 tài khoản test ví đã chuyển nhầm lên production (`wal_usr_1789019060987` và `wal_usr_1789019035532`, mỗi tài khoản 125.000đ) sau khi kiểm tra đầy đủ 3 dấu hiệu (username, email, txId) và xác nhận 0 orders, 0 delivered codes, 0 sepay logs.

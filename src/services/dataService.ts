@@ -2088,22 +2088,18 @@ public async syncWithCloudflareKV(forceFresh: boolean = false): Promise<void> {
 
     // Return giveaways with formatted attributes and prioritized in-stock first
     return list.map((gw) => {
-      const poolCount = Array.isArray(gw.codes_pool)
+      const poolCount = Array.isArray(gw.codes_pool) && gw.codes_pool.length > 0
         ? gw.codes_pool.length
-        : (typeof gw.remaining_codes === 'number' ? gw.remaining_codes : 0);
+        : (typeof gw.remaining_codes === 'number' ? Math.max(0, gw.remaining_codes) : 0);
       const claimed = Number(gw.claimed_codes) || 0;
       const accurateTotal = typeof gw.total_codes === 'number' && gw.total_codes >= (poolCount + claimed)
         ? gw.total_codes
         : (poolCount + claimed);
 
-      // Normalize legacy giveaways to formula: title = "Code riêng " + game_name, rewards = "Code ngẫu nhiên"
-      const normalizedTitle = gw.game_name && (
-        gw.title === '1 code ngẫu nhiên bất kỳ' ||
-        gw.title === '1 code riêng ngẫu nhiên' ||
-        gw.title === gw.game_name ||
-        !gw.title ||
-        !gw.title.startsWith('Code riêng')
-      ) ? `Code riêng ${gw.game_name.trim()}` : (gw.title || (gw.game_name ? `Code riêng ${gw.game_name.trim()}` : 'Code riêng'));
+      // Admin configured title is the Single Source of Truth
+      const normalizedTitle = gw.title && gw.title.trim() !== '' && gw.title !== '1 code ngẫu nhiên bất kỳ' && gw.title !== '1 code riêng ngẫu nhiên'
+        ? gw.title.trim()
+        : (gw.game_name ? `Code riêng ${gw.game_name.trim()}` : 'Code riêng');
 
       const normalizedRewards = (
         gw.rewards === 'code riêng ngẫu nhiên' ||
@@ -2121,6 +2117,7 @@ public async syncWithCloudflareKV(forceFresh: boolean = false): Promise<void> {
         max_per_user: Number(gw.max_per_user ?? (gw as any).maxPerUser ?? 1),
         max_per_ip: Number(gw.max_per_ip ?? (gw as any).maxPerIp ?? 1),
         cooldown_hours: Number(gw.cooldown_hours ?? (gw as any).cooldownHours ?? 0),
+        global_cooldown_seconds: Number(gw.global_cooldown_seconds ?? (gw as any).globalCooldownSeconds ?? 0),
         total_codes: accurateTotal,
         remaining_codes: poolCount,
       };

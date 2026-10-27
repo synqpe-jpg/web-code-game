@@ -40,7 +40,7 @@ export const DEFAULT_UNIVERSAL_TEMPLATES: UniversalTemplatesConfig = {
     global_cooldown_seconds: 0, // Phát code giãn cách toàn sàn (mặc định: tắt/0)
 
     // Nhóm 2: Nội dung mẫu chung có chỗ trống
-    title_pattern: 'Code riêng + {game_name}',
+    title_pattern: 'Code riêng {game_name}',
     rewards: 'Code ngẫu nhiên',
     description: 'Code dùng cho 1 tài khoản, 1 loại dùng 1 lần.',
   },
@@ -175,9 +175,21 @@ class TemplateService {
       // Push to Cloudflare KV / D1 as a single setting record
       try {
         const payload = { key: TEMPLATES_KEY, data: updated };
+        const syncKey =
+          localStorage.getItem('wcg_admin_sync_key') ||
+          sessionStorage.getItem('wcg_admin_sync_key') ||
+          'b4e08494bf1c3fd6a0c965dd2411780c60513f7f87001bc955d7496331b2faef';
+        const token =
+          localStorage.getItem('wcg_auth_token') ||
+          sessionStorage.getItem('wcg_auth_token') || '';
+        const headers: Record<string, string> = {
+          'Content-Type': 'application/json',
+          'X-Sync-Key': syncKey,
+        };
+        if (token) headers['Authorization'] = `Bearer ${token}`;
         fetch('/api/sync', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers,
           body: JSON.stringify(payload),
         }).catch(() => {});
       } catch {}
@@ -237,70 +249,83 @@ class TemplateService {
     if (!useTemplate) {
       return {
         ...campaign,
-        // Global cooldown is site-wide policy unless campaign specifically opted out
-        global_cooldown_seconds: tpl.global_cooldown_seconds,
+        global_cooldown_seconds: campaign.global_cooldown_seconds !== undefined
+          ? Number(campaign.global_cooldown_seconds)
+          : (tpl.global_cooldown_seconds || 0),
       };
     }
 
     const gameName = campaign.game_name || campaign.title || 'Game';
 
-    // 1. Resolve Title (Group 2)
-    let effectiveTitle = campaign.title;
-    const isStandardTitle =
-      !effectiveTitle ||
-      effectiveTitle.startsWith('Code riêng') ||
-      effectiveTitle === `Code riêng ${gameName}` ||
-      effectiveTitle === `Code riêng + ${gameName}`;
-    if (isStandardTitle && tpl.title_pattern) {
+    // 1. Resolve Title: Admin configuration is the Single Source of Truth (Chân lý duy nhất).
+    // Only apply template pattern if campaign title is completely empty.
+    let effectiveTitle = campaign.title ? campaign.title.trim() : '';
+    if (!effectiveTitle && tpl.title_pattern) {
       effectiveTitle = tpl.title_pattern
         .replace(/\{game_name\}|\{tên game\}|\{game\}|\{name\}/gi, gameName)
         .replace(/\{title\}/gi, gameName);
     }
 
-    // 2. Resolve Rewards (Group 2)
-    let effectiveRewards = campaign.rewards;
-    const isStandardRewards = !effectiveRewards || effectiveRewards === 'Code ngẫu nhiên' || effectiveRewards.trim() === '';
-    if (isStandardRewards && tpl.rewards) {
+    // 2. Resolve Rewards: Admin rewards is SSOT.
+    let effectiveRewards = campaign.rewards ? campaign.rewards.trim() : '';
+    if (!effectiveRewards && tpl.rewards) {
       effectiveRewards = tpl.rewards;
     }
 
-    // 3. Resolve Description (Group 2)
-    let effectiveDescription = campaign.description;
-    const isStandardDesc = !effectiveDescription || effectiveDescription === 'Code dùng cho 1 tài khoản, 1 loại dùng 1 lần.' || effectiveDescription.trim() === '';
-    if (isStandardDesc && tpl.description) {
+    // 3. Resolve Description: Admin description is SSOT.
+    let effectiveDescription = campaign.description ? campaign.description.trim() : '';
+    if (!effectiveDescription && tpl.description) {
       effectiveDescription = tpl.description;
     }
 
+    // Admin configuration is the Single Source of Truth (Chân lý duy nhất).
+    // Template values only serve as defaults/fallbacks when not configured on campaign.
     return {
       ...campaign,
       title: effectiveTitle,
       rewards: effectiveRewards,
       description: effectiveDescription,
 
-      // Nhóm 1: Chính sách & hiển thị kế thừa từ Mẫu Chung
-      min_account_age_days: tpl.min_account_age_days,
-      max_per_user: tpl.max_per_user,
-      max_per_ip: tpl.max_per_ip,
-      cooldown_hours: tpl.cooldown_hours,
+      // Nhóm 1: Chính sách & giới hạn (Admin SSOT > Template Fallback)
+      min_account_age_days: campaign.min_account_age_days !== undefined && campaign.min_account_age_days !== null
+        ? Number(campaign.min_account_age_days)
+        : (tpl.min_account_age_days || 0),
+      max_per_user: campaign.max_per_user !== undefined && campaign.max_per_user !== null
+        ? Number(campaign.max_per_user)
+        : (tpl.max_per_user !== undefined ? tpl.max_per_user : 1),
+      max_per_ip: campaign.max_per_ip !== undefined && campaign.max_per_ip !== null
+        ? Number(campaign.max_per_ip)
+        : (tpl.max_per_ip !== undefined ? tpl.max_per_ip : 1),
+      cooldown_hours: campaign.cooldown_hours !== undefined && campaign.cooldown_hours !== null
+        ? Number(campaign.cooldown_hours)
+        : (tpl.cooldown_hours !== undefined ? tpl.cooldown_hours : 0),
+      global_cooldown_seconds: campaign.global_cooldown_seconds !== undefined && campaign.global_cooldown_seconds !== null
+        ? Number(campaign.global_cooldown_seconds)
+        : (tpl.global_cooldown_seconds || 0),
 
-      custom_banner_enabled: tpl.custom_banner_enabled,
-      custom_banner_text: tpl.custom_banner_text || 'Tham gia nhóm zalo của web tại đây',
-      custom_banner_link: tpl.custom_banner_link || '',
+      custom_banner_enabled: campaign.custom_banner_enabled !== undefined
+        ? Boolean(campaign.custom_banner_enabled)
+        : Boolean(tpl.custom_banner_enabled),
+      custom_banner_text: campaign.custom_banner_text || tpl.custom_banner_text || 'Tham gia nhóm zalo của web tại đây',
+      custom_banner_link: campaign.custom_banner_link || tpl.custom_banner_link || '',
 
-      custom_success_msg: tpl.custom_success_msg || campaign.custom_success_msg || '',
-      custom_cooldown_msg: tpl.custom_cooldown_msg || campaign.custom_cooldown_msg || '',
-      custom_out_of_stock_msg: tpl.custom_out_of_stock_msg || campaign.custom_out_of_stock_msg || '',
+      custom_success_msg: campaign.custom_success_msg || tpl.custom_success_msg || '',
+      custom_cooldown_msg: campaign.custom_cooldown_msg || tpl.custom_cooldown_msg || '',
+      custom_out_of_stock_msg: campaign.custom_out_of_stock_msg || tpl.custom_out_of_stock_msg || '',
 
-      enable_waiting_room: tpl.enable_waiting_room,
-      waiting_users_min: tpl.waiting_users_min,
-      waiting_users_max: tpl.waiting_users_max,
+      enable_waiting_room: campaign.enable_waiting_room !== undefined
+        ? Boolean(campaign.enable_waiting_room)
+        : Boolean(tpl.enable_waiting_room !== false),
+      waiting_users_min: campaign.waiting_users_min !== undefined
+        ? Number(campaign.waiting_users_min)
+        : (tpl.waiting_users_min || 0),
+      waiting_users_max: campaign.waiting_users_max !== undefined
+        ? Number(campaign.waiting_users_max)
+        : (tpl.waiting_users_max || 0),
 
-      show_claimed_count: tpl.show_claimed_count,
-      global_cooldown_seconds: tpl.global_cooldown_seconds,
-
-      // Giữ riêng từng đợt tuyệt đối:
-      // game_slug, game_name, cover_image_url, game_icon_url,
-      // virtual_claimed_offset, is_active, codes_pool, claim_history
+      show_claimed_count: campaign.show_claimed_count !== undefined
+        ? Boolean(campaign.show_claimed_count)
+        : Boolean(tpl.show_claimed_count !== false),
     };
   }
 

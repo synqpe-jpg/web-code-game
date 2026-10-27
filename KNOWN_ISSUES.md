@@ -10,6 +10,25 @@
 
 ## 1. DANH MỤC LỖI & CÁC BẪY ĐÃ THẤT BẠI (DO NOT REPEAT)
 
+### ISSUE-151: Bẫy Mẫu Chung Ghi Đè Thiết Lập Riêng (SSOT Inversion) & Lỗi Rỗng Mảng Kho Mã codes_pool
+- **Triệu chứng**:
+  - Khi quản trị viên cấu hình luật riêng cho một đợt phát code Giveaway trong Admin (ví dụ: User: 3 mã, IP: 3 mã, CD: 1h, Giãn cách: 45p, Tiêu đề không có dấu '+', Kho còn 35 mã), ngoài giao diện web khách lại hiển thị lệch 100% theo Mẫu Chung (User: 1 mã, IP: 2 mã, mất giãn cách, tiêu đề bị nhét thêm '+' thành 'Code riêng + Tiên Nghịch Mobile', kho báo hết mã và nút bị vô hiệu hóa 'Chờ Đợt Mã Mới').
+- **Nguyên nhân gốc rễ (Root Cause)**:
+  1. *SSOT Inversion Bug trong `templateService.resolveGiveaway`*: Hàm runtime inheritance coi template là override thay vì fallback, ghi đè không điều kiện các thuộc tính `campaign.max_per_user`, `campaign.max_per_ip`, `campaign.cooldown_hours`, `campaign.global_cooldown_seconds` bằng giá trị của Mẫu Chung. Regex tiêu đề tự động đổi mọi tiêu đề có chữ "Code riêng" thành "Code riêng + {game_name}".
+  2. *Ghi đè trong Backend Claim API*: Tại `functions/api/giveaways/claim.ts`, logic kiểm tra nhận mã cũng ghi đè các trường `gwTpl.*` lên chiến dịch nếu `use_template !== false`.
+  3. *Lệch thứ tự Merge CSDL D1*: `...meta, ...gw` khiến các giá trị mặc định của bảng SQL ghi đè lên JSON metadata phong phú của Admin.
+  4. *Bẫy kiểm tra mảng rỗng `Array.isArray([])`*: Để bảo mật mã bí mật cho client, hệ thống trả về mảng rỗng `codes_pool: []`. Biểu thức `Array.isArray(codes_pool) ? codes_pool.length : remaining_codes` đánh giá là `true` và lấy độ dài 0, khiến tồn kho 35 mã bị ép về 0 ngoài web.
+- **Giải pháp chuẩn đã kiểm chứng**:
+  1. Cấu hình Admin là Chân Lý Duy Nhất (Single Source of Truth - SSOT): Template chỉ là giá trị fallback khi trường tương ứng là `undefined` hoặc `null`.
+  2. Giữ nguyên 100% tiêu đề do Admin đặt, chuẩn hóa pattern template thành `Code riêng {game_name}` không có dấu `+`.
+  3. Đảo thứ tự merge CSDL D1: `{ ...gw, ...meta }`, ưu tiên rõ ràng `meta.*` so với `gw.*`.
+  4. Chuẩn hóa toàn diện bộ đếm tồn kho: `Array.isArray(x) && x.length > 0 ? x.length : Math.max(0, Number(remaining_codes || 0))`.
+- ⛔ **CÁCH SỬA ĐÃ THẤT BẠI - TUYỆT ĐỐI KHÔNG LẶP LẠI**:
+  - ❌ *Không dùng template để ghi đè thuộc tính chiến dịch đã được cấu hình*: Template chỉ được dùng làm giá trị mặc định ban đầu hoặc fallback khi trường chưa có giá trị.
+  - ❌ *Không viết `Array.isArray(pool) ? pool.length : remaining` mà không kiểm tra `pool.length > 0`*: Sẽ bị bẫy mảng rỗng `[]` ép kho về 0.
+
+---
+
 ### ISSUE-150: Bẫy Sót Dữ Liệu Sổ Cái wallet_transactions Khi Xóa Tài Khoản Test & Banner Chuyển Đổi Domain Cần Gỡ Bỏ Triệt Để
 - **Triệu chứng**:
   - Hai tài khoản test ví chuyển nhầm từ .store (`wal_usr_1789019060987` và `wal_usr_1789019035532`, mỗi tài khoản 125.000đ) nếu chỉ xóa ở bảng `members` sẽ để lại giao dịch sổ cái mồ côi trong `wallet_transactions`, khiến hàm `reconcile_member_balances` hoặc các đợt kiểm toán sổ cái bị lệch.

@@ -1054,8 +1054,8 @@ class AdminDataService {
     const isLocalhost = currentHost === 'localhost' || currentHost === '127.0.0.1';
 
     const endpoints = isLocalhost
-      ? ['https://admin-code-game-shop.pages.dev/api/sync', 'https://web-code-game.pages.dev/api/sync', '/api/sync']
-      : ['/api/sync', 'https://admin-code-game-shop.pages.dev/api/sync', 'https://web-code-game.pages.dev/api/sync'];
+      ? ['https://admin-code-game-shop.pages.dev/api/sync', 'https://codegame.shop/api/sync', 'https://web-code-game.pages.dev/api/sync', '/api/sync']
+      : ['/api/sync', 'https://admin-code-game-shop.pages.dev/api/sync', 'https://codegame.shop/api/sync', 'https://web-code-game.pages.dev/api/sync'];
 
     try {
       const headers = this.getAuthHeaders();
@@ -1408,8 +1408,23 @@ class AdminDataService {
                 const bannerEnabled = serverGw.custom_banner_enabled !== undefined
                   ? Boolean(serverGw.custom_banner_enabled)
                   : (local?.custom_banner_enabled !== undefined ? Boolean(local.custom_banner_enabled) : (hasLink || localHasLink));
+                const pool = Array.isArray(serverGw.codes_pool) && serverGw.codes_pool.length > 0
+                  ? serverGw.codes_pool
+                  : (Array.isArray(local?.codes_pool) && local.codes_pool.length > 0 ? local.codes_pool : (serverGw.codes_pool || []));
+                const rem = Array.isArray(pool) && pool.length > 0
+                  ? pool.length
+                  : Math.max(0, Number(serverGw.remaining_codes ?? local?.remaining_codes ?? 0));
                 return {
+                  ...local,
                   ...serverGw,
+                  codes_pool: pool,
+                  remaining_codes: rem,
+                  title: serverGw.title || local?.title || '',
+                  min_account_age_days: serverGw.min_account_age_days !== undefined ? Number(serverGw.min_account_age_days) : (local?.min_account_age_days ?? 0),
+                  max_per_user: serverGw.max_per_user !== undefined ? Number(serverGw.max_per_user) : (local?.max_per_user ?? 1),
+                  max_per_ip: serverGw.max_per_ip !== undefined ? Number(serverGw.max_per_ip) : (local?.max_per_ip ?? 1),
+                  cooldown_hours: serverGw.cooldown_hours !== undefined ? Number(serverGw.cooldown_hours) : (local?.cooldown_hours ?? 0),
+                  global_cooldown_seconds: serverGw.global_cooldown_seconds !== undefined ? Number(serverGw.global_cooldown_seconds) : (local?.global_cooldown_seconds ?? 0),
                   custom_banner_enabled: bannerEnabled,
                   custom_banner_text: serverGw.custom_banner_text || local?.custom_banner_text || 'Tham gia nhóm zalo của web tại đây',
                   custom_banner_link: serverGw.custom_banner_link || local?.custom_banner_link || '',
@@ -3124,11 +3139,19 @@ class AdminDataService {
         ? Math.max(0, Number(item.claimed_codes) || 0)
         : (Number(existing.claimed_codes) || 0);
       const safeCreatedAt = existing.created_at || (existing as any).createdAt || item.created_at || (item as any).createdAt || new Date().toISOString();
-      const poolLen = Array.isArray(item.codes_pool) ? item.codes_pool.length : (Array.isArray(existing.codes_pool) ? existing.codes_pool.length : 0);
+      const poolLen = Array.isArray(item.codes_pool) && item.codes_pool.length > 0
+        ? item.codes_pool.length
+        : (Array.isArray(existing.codes_pool) && existing.codes_pool.length > 0
+            ? existing.codes_pool.length
+            : Math.max(0, Number(item.remaining_codes ?? existing.remaining_codes ?? 0)));
+      const effectivePool = Array.isArray(item.codes_pool) && item.codes_pool.length > 0
+        ? item.codes_pool
+        : (Array.isArray(existing.codes_pool) && existing.codes_pool.length > 0 ? existing.codes_pool : (item.codes_pool || []));
       const isVirtualClaimedChanged = item.virtual_claimed_offset !== undefined &&
         Number(item.virtual_claimed_offset) !== Number(existing.virtual_claimed_offset);
       const isClaimedChanged = isVirtualClaimedChanged || (item.claimed_codes !== undefined && Number(item.claimed_codes) !== Number(existing.claimed_codes));
       Object.assign(existing, item, {
+        codes_pool: effectivePool,
         claimed_codes: safeClaimed,
         remaining_codes: poolLen,
         total_codes: poolLen + safeClaimed,
@@ -3151,7 +3174,9 @@ class AdminDataService {
       return existing;
     }
     const createdAt = item.created_at || (item as any).createdAt || new Date().toISOString();
-    const poolLen = Array.isArray(item.codes_pool) ? item.codes_pool.length : 0;
+    const poolLen = Array.isArray(item.codes_pool) && item.codes_pool.length > 0
+      ? item.codes_pool.length
+      : Math.max(0, Number(item.remaining_codes || 0));
     const safeClaimed = Number(item.claimed_codes) || 0;
     const newItem: GiveawayCampaign = {
       ...item,
@@ -4233,8 +4258,8 @@ class AdminDataService {
       const isLocalhost = currentHost === 'localhost' || currentHost === '127.0.0.1';
 
       const endpoints = isLocalhost
-        ? ['https://admin-code-game-shop.pages.dev/api/sync', 'https://web-code-game.pages.dev/api/sync', '/api/sync']
-        : ['/api/sync', 'https://admin-code-game-shop.pages.dev/api/sync', 'https://web-code-game.pages.dev/api/sync'];
+        ? ['https://admin-code-game-shop.pages.dev/api/sync', 'https://codegame.shop/api/sync', 'https://web-code-game.pages.dev/api/sync', '/api/sync']
+        : ['/api/sync', 'https://admin-code-game-shop.pages.dev/api/sync', 'https://codegame.shop/api/sync', 'https://web-code-game.pages.dev/api/sync'];
 
       let success = false;
       const headers = this.getAuthHeaders();

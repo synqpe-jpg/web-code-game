@@ -1974,9 +1974,9 @@ class MarketingService {
           const gwList = JSON.parse(gwRaw);
           const found = Array.isArray(gwList) ? gwList.find((g: any) => g && g.id === id) : null;
           if (found) {
-            const count = Array.isArray(found.codes_pool)
+            const count = Array.isArray(found.codes_pool) && found.codes_pool.length > 0
               ? found.codes_pool.length
-              : (typeof found.remaining_codes === 'number' ? found.remaining_codes : 0);
+              : (typeof found.remaining_codes === 'number' ? Math.max(0, found.remaining_codes) : 0);
             const s = Math.max(0, Number(count) || 0);
             this.productRealStockMap.set(id, s);
             return s;
@@ -2014,9 +2014,9 @@ class MarketingService {
     }
     const defGw = DEFAULT_GIVEAWAYS.find((g) => g && g.id === id);
     if (defGw) {
-      const count = Array.isArray(defGw.codes_pool)
+      const count = Array.isArray(defGw.codes_pool) && defGw.codes_pool.length > 0
         ? defGw.codes_pool.length
-        : (typeof defGw.remaining_codes === 'number' ? defGw.remaining_codes : 0);
+        : (typeof defGw.remaining_codes === 'number' ? Math.max(0, defGw.remaining_codes) : 0);
       const s = Math.max(0, Number(count) || 0);
       this.productRealStockMap.set(id, s);
       return s;
@@ -4086,9 +4086,9 @@ class MarketingService {
         .filter((gw) => {
           if (!gw || gw.is_active === false) return false;
           if (deletedGwSet.has(gw.id)) return false;
-          const realStock = Array.isArray(gw.codes_pool)
+          const realStock = Array.isArray(gw.codes_pool) && gw.codes_pool.length > 0
             ? gw.codes_pool.length
-            : (typeof gw.remaining_codes === 'number' ? gw.remaining_codes : 0);
+            : (typeof gw.remaining_codes === 'number' ? Math.max(0, gw.remaining_codes) : 0);
           // CRITICAL ADMIN RULE: Hết hàng thật trong kho hoặc dưới minRealStock = Tắt hoàn toàn thông báo ảo
           if (realStock <= 0) return false;
           const pw = this.getProductConfig(gw.id);
@@ -4376,9 +4376,9 @@ class MarketingService {
       if (canGw) {
         (Array.isArray(giveaways) ? giveaways : []).forEach((g) => {
           if (g && g.is_active !== false && !deletedGwSet.has(g.id)) {
-            const realStock = Array.isArray(g.codes_pool)
+            const realStock = Array.isArray(g.codes_pool) && g.codes_pool.length > 0
               ? g.codes_pool.length
-              : (typeof g.remaining_codes === 'number' ? g.remaining_codes : 0);
+              : (typeof g.remaining_codes === 'number' ? Math.max(0, g.remaining_codes) : 0);
             if (realStock <= 0) return;
             const pw = this.getProductConfig(g.id);
             if (pw.priority === 'off') return;
