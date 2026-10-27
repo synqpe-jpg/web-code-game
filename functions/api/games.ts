@@ -607,30 +607,41 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
       );
 
       if (gameRow) {
-        const targetCodesSlug = (gameRow.slug === 'yen-van-thap-luc-thanh' || gameRow.slug === 'where-winds-meet-mobile')
-          ? 'where-winds-meet-mobile'
-          : gameRow.slug;
+        const isYenVan = gameRow.slug === 'yen-van-thap-luc-thanh' || gameRow.slug === 'where-winds-meet-mobile';
 
         // Lấy toàn bộ mã giftcode từ bảng codes trên D1 (đồng bộ 100% hai bản song sinh Where Winds Meet)
         const codesRes = await withD1Timeout(
-          env.DB.prepare(
-            `SELECT code, rewards, status, expires_at, source, added_at 
-             FROM codes 
-             WHERE game_slug = ? 
-             ORDER BY 
-               CASE WHEN status = 'active' OR status = 'verified' THEN 0 ELSE 1 END,
-               added_at DESC`
-          ).bind(targetCodesSlug).all<any>(),
+          isYenVan
+            ? env.DB.prepare(
+                `SELECT code, rewards, status, expires_at, source, added_at 
+                 FROM codes 
+                 WHERE game_slug = 'yen-van-thap-luc-thanh' OR game_slug = 'where-winds-meet-mobile' 
+                 ORDER BY 
+                   CASE WHEN status = 'active' OR status = 'verified' THEN 0 ELSE 1 END,
+                   added_at DESC`
+              ).all<any>()
+            : env.DB.prepare(
+                `SELECT code, rewards, status, expires_at, source, added_at 
+                 FROM codes 
+                 WHERE game_slug = ? 
+                 ORDER BY 
+                   CASE WHEN status = 'active' OR status = 'verified' THEN 0 ELSE 1 END,
+                   added_at DESC`
+              ).bind(gameRow.slug).all<any>(),
           1200,
           { results: [] as any[] }
         );
 
+        const seenCodesInDb = new Set<string>();
         let codesList: GiftCode[] = (codesRes?.results || [])
           .filter((c: any) => {
             const cd = String(c?.code || '').trim();
             if (!cd) return false;
             // Chặn mã rác kích thước ảnh WordPress
             if (JUNK_CODE_REGEX.test(cd)) return false;
+            const upper = cd.toUpperCase();
+            if (seenCodesInDb.has(upper)) return false;
+            seenCodesInDb.add(upper);
             return true;
           })
           .map((c: any) => {
