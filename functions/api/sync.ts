@@ -601,6 +601,8 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
             cover_image_url: g.cover_image_url || meta.cover_image_url || null,
             game_icon_url: g.game_icon_url || meta.game_icon_url || null,
             is_active: meta.is_active !== undefined ? Boolean(meta.is_active) : (g.is_active !== undefined ? Boolean(g.is_active) : true),
+            use_template: meta.use_template !== undefined ? Boolean(meta.use_template) : (g.use_template !== undefined ? Boolean(g.use_template) : true),
+            updated_at: meta.updated_at || g.updated_at || g.created_at || new Date().toISOString(),
             status: (meta.is_active === false || g.is_active === 0 || g.status === 'PAUSED') ? 'PAUSED' : (g.status || 'ACTIVE'),
           };
         });
@@ -685,6 +687,8 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
         : (typeof gw.remaining_codes === 'number' ? gw.remaining_codes : 0);
       return {
         ...rest,
+        use_template: gw.use_template !== false,
+        updated_at: gw.updated_at || gw.created_at || new Date().toISOString(),
         min_account_age_days: Number(gw.min_account_age_days ?? gw.minAccountAgeDays ?? 0),
         max_per_user: Number(gw.max_per_user ?? gw.maxPerUser ?? 1),
         max_per_ip: Number(gw.max_per_ip ?? gw.maxPerIp ?? 1),
@@ -4395,6 +4399,20 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
             await env.DB.prepare('DELETE FROM system_snapshots').run().catch(() => {});
             (globalThis as any).__wcg_metrics_snapshot = null;
           } catch {}
+
+          if (body.key === 'wcg_admin_store_products_v4') {
+            currentMaster.storeProducts = incomingProducts;
+            currentMaster.timestamp = timestamp;
+            await setSettingD1(env.DB, 'wcg_master_state_v4', currentMaster).catch(() => {});
+            return new Response(
+              JSON.stringify({
+                success: true,
+                message: 'Store products saved directly to D1 (Fast SSOT)',
+                timestamp,
+              }),
+              { headers: CORS_HEADERS }
+            );
+          }
         }
 
         // Utilities sync: support both key-specific sync and full snapshot sync
@@ -4434,6 +4452,20 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
             await env.DB.prepare('DELETE FROM system_snapshots').run().catch(() => {});
             (globalThis as any).__wcg_metrics_snapshot = null;
           } catch {}
+
+          if (body.key === 'wcg_admin_utilities_v4') {
+            currentMaster.utilities = incomingUtilities;
+            currentMaster.timestamp = timestamp;
+            await setSettingD1(env.DB, 'wcg_master_state_v4', currentMaster).catch(() => {});
+            return new Response(
+              JSON.stringify({
+                success: true,
+                message: 'Utilities saved directly to D1 (Fast SSOT)',
+                timestamp,
+              }),
+              { headers: CORS_HEADERS }
+            );
+          }
         }
 
         // Giveaways & Codes Pool sync: sync to D1 when key is explicitly 'wcg_admin_giveaways_v4' OR full state body.giveaways
@@ -4484,6 +4516,22 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
             await env.DB.prepare('DELETE FROM system_snapshots').run().catch(() => {});
             (globalThis as any).__wcg_metrics_snapshot = null;
           } catch {}
+
+          // FAST RETURN FOR TARGETED GIVEAWAYS SYNC
+          if (body.key === 'wcg_admin_giveaways_v4') {
+            currentMaster.giveaways = incomingGiveaways;
+            currentMaster.timestamp = timestamp;
+            await setSettingD1(env.DB, 'wcg_master_state_v4', currentMaster).catch(() => {});
+            return new Response(
+              JSON.stringify({
+                success: true,
+                message: 'Giveaways saved directly to D1 (Targeted Fast SSOT)',
+                timestamp,
+                giveawaysCount: incomingGiveaways.length,
+              }),
+              { headers: CORS_HEADERS }
+            );
+          }
         }
 
         // Inventory Codes sync

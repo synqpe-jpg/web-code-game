@@ -31,6 +31,7 @@ import { crossOriginSync } from '../../services/crossOriginSync';
 import canonicalBackup from '../../data/canonical_backup_state.json';
 import { marketingService, DEFAULT_PRODUCT_MARKETING_CONFIG } from '../../services/marketingService';
 import { FloatingNotificationConfig, DEFAULT_FLOATING_NOTIFICATION } from '../../types/floatingNotification';
+import { templateService } from '../../services/templateService';
 
 class AdminDataService {
   private games: GameAdminRecord[] = [];
@@ -1075,6 +1076,41 @@ class AdminDataService {
     } catch {}
   }
 
+  /**
+   * Fast targeted sync specifically for Giveaways and Code Pools
+   * Directly persists to Cloudflare D1 with ~300ms latency instead of running 16s monolithic snapshot
+   */
+  public async saveGiveawaysToServer(customList?: GiveawayCampaign[]): Promise<boolean> {
+    const listToSave = customList || this.giveaways;
+    const currentHost = typeof window !== 'undefined' ? window.location.hostname : '';
+    const isLocalhost = currentHost === 'localhost' || currentHost === '127.0.0.1';
+
+    const endpoints = isLocalhost
+      ? ['https://admin-code-game-shop.pages.dev/api/sync', 'https://codegame.shop/api/sync', 'https://web-code-game.pages.dev/api/sync', '/api/sync']
+      : ['/api/sync', 'https://admin-code-game-shop.pages.dev/api/sync', 'https://codegame.shop/api/sync', 'https://web-code-game.pages.dev/api/sync'];
+
+    try {
+      const headers = this.getAuthHeaders();
+      const body = JSON.stringify({ key: this.KEYS.GIVEAWAYS, data: listToSave });
+      for (const url of endpoints) {
+        try {
+          const res = await fetch(url, {
+            method: 'POST',
+            headers,
+            body,
+          });
+          if (res.ok) {
+            this.safeSetItem(this.KEYS.GIVEAWAYS, JSON.stringify(listToSave));
+            crossOriginSync.setItem(this.KEYS.GIVEAWAYS, listToSave);
+            this.broadcastSync('GIVEAWAYS_UPDATED');
+            return true;
+          }
+        } catch {}
+      }
+    } catch {}
+    return false;
+  }
+
   public async fetchFromCloudflareKV(): Promise<void> {
     const endpoints = [
       '/api/sync',
@@ -1398,38 +1434,60 @@ class AdminDataService {
               hasUpdates = true;
             }
 
-            // 10. Giveaways
+            // Universal Templates (System-wide defaults for Giveaways, Catalog, Utilities, Store)
+            if (json.universalTemplates && typeof json.universalTemplates === 'object') {
+              templateService.setTemplates(json.universalTemplates);
+            }
+
+            // 10. Giveaways (Smart Merge protecting local updates & pool codes)
             if (json.giveaways && Array.isArray(json.giveaways)) {
               const localMap = new Map((this.giveaways || []).map((g) => [g.id, g]));
-              const filtered = json.giveaways.map((serverGw: any) => {
+              const serverIdSet = new Set(json.giveaways.map((g: any) => g.id));
+
+              const mergedServerList = json.giveaways.map((serverGw: any) => {
                 const local = localMap.get(serverGw.id);
+                if (!local) return serverGw;
+
+                const localTime = local.updated_at ? Date.parse(local.updated_at) : (local.created_at ? Date.parse(local.created_at) : 0);
+                const serverTime = serverGw.updated_at ? Date.parse(serverGw.updated_at) : (serverGw.created_at ? Date.parse(serverGw.created_at) : 0);
+
+                const localIsNewer = !isNaN(localTime) && !isNaN(serverTime) && localTime > serverTime;
+
                 const hasLink = Boolean(serverGw.custom_banner_link && String(serverGw.custom_banner_link).trim() !== '');
                 const localHasLink = Boolean(local?.custom_banner_link && String(local?.custom_banner_link).trim() !== '');
                 const bannerEnabled = serverGw.custom_banner_enabled !== undefined
                   ? Boolean(serverGw.custom_banner_enabled)
                   : (local?.custom_banner_enabled !== undefined ? Boolean(local.custom_banner_enabled) : (hasLink || localHasLink));
-                const pool = Array.isArray(serverGw.codes_pool) && serverGw.codes_pool.length > 0
-                  ? serverGw.codes_pool
-                  : (Array.isArray(local?.codes_pool) && local.codes_pool.length > 0 ? local.codes_pool : (serverGw.codes_pool || []));
+
+                // Pool resolution: keep the pool with codes, preferring local if local is newer or server returned empty
+                const pool = (Array.isArray(local.codes_pool) && local.codes_pool.length > 0)
+                  ? (localIsNewer || !Array.isArray(serverGw.codes_pool) || serverGw.codes_pool.length === 0 ? local.codes_pool : serverGw.codes_pool)
+                  : (serverGw.codes_pool || []);
+
+                const base = localIsNewer ? { ...serverGw, ...local } : { ...local, ...serverGw };
                 const rem = Array.isArray(pool) && pool.length > 0
                   ? pool.length
-                  : Math.max(0, Number(serverGw.remaining_codes ?? local?.remaining_codes ?? 0));
+                  : Math.max(0, Number(base.remaining_codes ?? 0));
+
                 return {
-                  ...local,
-                  ...serverGw,
+                  ...base,
                   codes_pool: pool,
                   remaining_codes: rem,
-                  title: serverGw.title || local?.title || '',
-                  min_account_age_days: serverGw.min_account_age_days !== undefined ? Number(serverGw.min_account_age_days) : (local?.min_account_age_days ?? 0),
-                  max_per_user: serverGw.max_per_user !== undefined ? Number(serverGw.max_per_user) : (local?.max_per_user ?? 1),
-                  max_per_ip: serverGw.max_per_ip !== undefined ? Number(serverGw.max_per_ip) : (local?.max_per_ip ?? 1),
-                  cooldown_hours: serverGw.cooldown_hours !== undefined ? Number(serverGw.cooldown_hours) : (local?.cooldown_hours ?? 0),
-                  global_cooldown_seconds: serverGw.global_cooldown_seconds !== undefined ? Number(serverGw.global_cooldown_seconds) : (local?.global_cooldown_seconds ?? 0),
+                  title: base.title || serverGw.title || local?.title || '',
+                  use_template: serverGw.use_template !== undefined ? serverGw.use_template : (local.use_template !== undefined ? local.use_template : 1),
+                  updated_at: localIsNewer ? local.updated_at : (serverGw.updated_at || local.updated_at || new Date().toISOString()),
                   custom_banner_enabled: bannerEnabled,
-                  custom_banner_text: serverGw.custom_banner_text || local?.custom_banner_text || 'Tham gia nhóm zalo của web tại đây',
-                  custom_banner_link: serverGw.custom_banner_link || local?.custom_banner_link || '',
+                  custom_banner_text: base.custom_banner_text || 'Tham gia nhóm zalo của web tại đây',
+                  custom_banner_link: base.custom_banner_link || '',
                 };
-              }).filter(
+              });
+
+              // Also preserve local-only newly created campaigns that server might not have yet
+              const localOnly = (this.giveaways || []).filter(
+                (lg) => lg && lg.id && !serverIdSet.has(lg.id) && !this.deletedGiveawayIds.has(lg.id)
+              );
+
+              const filtered = [...mergedServerList, ...localOnly].filter(
                 (g: any) =>
                   g &&
                   g.id &&
@@ -3147,6 +3205,7 @@ class AdminDataService {
       const effectivePool = Array.isArray(item.codes_pool) && item.codes_pool.length > 0
         ? item.codes_pool
         : (Array.isArray(existing.codes_pool) && existing.codes_pool.length > 0 ? existing.codes_pool : (item.codes_pool || []));
+      const nowIso = new Date().toISOString();
       const isVirtualClaimedChanged = item.virtual_claimed_offset !== undefined &&
         Number(item.virtual_claimed_offset) !== Number(existing.virtual_claimed_offset);
       const isClaimedChanged = isVirtualClaimedChanged || (item.claimed_codes !== undefined && Number(item.claimed_codes) !== Number(existing.claimed_codes));
@@ -3157,9 +3216,10 @@ class AdminDataService {
         total_codes: poolLen + safeClaimed,
         created_at: safeCreatedAt,
         createdAt: safeCreatedAt,
+        updated_at: nowIso,
+        updatedAt: nowIso,
       });
       if (isClaimedChanged) {
-        const nowIso = new Date().toISOString();
         if (isVirtualClaimedChanged || !(existing as any).fomo_anchor_time) {
           (existing as any).fomo_anchor_time = nowIso;
           (existing as any).virtual_claimed_updated_at = nowIso;
@@ -3169,11 +3229,13 @@ class AdminDataService {
         marketingService.syncGiveawayVirtualClaimed(existing.id, Number(existing.virtual_claimed_offset) || 0, true, targetDisp, anchor);
       }
       this.saveGiveaways();
-      this.pushFullStateToKV(true);
+      this.saveGiveawaysToServer();
+      this.pushFullStateToKV(false);
       this.logAction('GIVEAWAY_UPDATED', existing.id, 'INFO');
       return existing;
     }
     const createdAt = item.created_at || (item as any).createdAt || new Date().toISOString();
+    const nowIso = new Date().toISOString();
     const poolLen = Array.isArray(item.codes_pool) && item.codes_pool.length > 0
       ? item.codes_pool.length
       : Math.max(0, Number(item.remaining_codes || 0));
@@ -3186,6 +3248,8 @@ class AdminDataService {
       claimed_codes: safeClaimed,
       created_at: createdAt,
       createdAt: createdAt,
+      updated_at: nowIso,
+      updatedAt: nowIso,
       fomo_anchor_time: (item as any).fomo_anchor_time || createdAt,
       virtual_claimed_updated_at: (item as any).virtual_claimed_updated_at || createdAt,
     };
@@ -3200,7 +3264,8 @@ class AdminDataService {
       marketingService.syncGiveawayVirtualClaimed(newItem.id, Number(newItem.virtual_claimed_offset) || 0, true, targetDisp, anchor);
     }
     this.saveGiveaways();
-    this.pushFullStateToKV(true);
+    this.saveGiveawaysToServer();
+    this.pushFullStateToKV(false);
     this.logAction('GIVEAWAY_CREATED', newItem.id, 'INFO');
     try {
       const cfg = marketingService.getConfig();
@@ -3219,7 +3284,8 @@ class AdminDataService {
     this.deletedGiveawayIds.add(id);
     this.saveDeletedGiveawayIds();
     this.saveGiveaways();
-    this.pushFullStateToKV(true);
+    this.saveGiveawaysToServer();
+    this.pushFullStateToKV(false);
     this.logAction('GIVEAWAY_DELETED', id, 'WARNING');
     return true;
   }
@@ -3233,7 +3299,8 @@ class AdminDataService {
     this.giveaways = this.giveaways.filter((g) => !idSet.has(g.id));
     const deletedCount = initialCount - this.giveaways.length;
     this.saveGiveaways();
-    this.pushFullStateToKV(true);
+    this.saveGiveawaysToServer();
+    this.pushFullStateToKV(false);
     this.logAction('GIVEAWAYS_BULK_DELETED', `COUNT_${deletedCount}`, 'WARNING', { count: deletedCount, ids });
     return deletedCount;
   }
@@ -3247,8 +3314,10 @@ class AdminDataService {
     if (gw.codes_pool.length !== initialLen) {
       gw.remaining_codes = gw.codes_pool.length;
       gw.total_codes = gw.codes_pool.length + (gw.claimed_codes || 0);
+      gw.updated_at = new Date().toISOString();
       this.saveGiveaways();
-      this.pushFullStateToKV();
+      this.saveGiveawaysToServer();
+      this.pushFullStateToKV(false);
       this.logAction('GIVEAWAY_POOL_CODE_DELETED', campaignId, 'INFO', { codeValue });
       return true;
     }
@@ -3266,8 +3335,10 @@ class AdminDataService {
     if (deletedCount > 0) {
       gw.remaining_codes = gw.codes_pool.length;
       gw.total_codes = gw.codes_pool.length + (gw.claimed_codes || 0);
+      gw.updated_at = new Date().toISOString();
       this.saveGiveaways();
-      this.pushFullStateToKV();
+      this.saveGiveawaysToServer();
+      this.pushFullStateToKV(false);
       this.logAction('GIVEAWAY_POOL_CODES_BULK_DELETED', campaignId, 'INFO', { count: deletedCount, codeValues });
     }
     return deletedCount;

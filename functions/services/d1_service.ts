@@ -343,6 +343,12 @@ export async function ensureGiveawaySchema(db: D1Database): Promise<void> {
     if (!cols.has('global_cooldown_seconds')) {
       await db.prepare('ALTER TABLE giveaways ADD COLUMN global_cooldown_seconds INTEGER NOT NULL DEFAULT 0;').run().catch(() => {});
     }
+    if (!cols.has('use_template')) {
+      await db.prepare('ALTER TABLE giveaways ADD COLUMN use_template INTEGER NOT NULL DEFAULT 1;').run().catch(() => {});
+    }
+    if (!cols.has('updated_at')) {
+      await db.prepare("ALTER TABLE giveaways ADD COLUMN updated_at TEXT DEFAULT '';").run().catch(() => {});
+    }
     giveawaySchemaChecked = true;
   } catch (err: any) {
     console.warn('[ensureGiveawaySchema error]', err?.message);
@@ -2194,6 +2200,8 @@ export async function syncGiveawaysToD1(db: D1Database, giveaways: any[]): Promi
     const endTime = gw.end_time || gw.endTime || null;
     const coverImageUrl = gw.cover_image_url || gw.coverImageUrl || null;
     const gameIconUrl = gw.game_icon_url || gw.gameIconUrl || null;
+    const useTemplate = (gw.use_template !== false && (gw as any).useTemplate !== false) ? 1 : 0;
+    const updatedAt = gw.updated_at || (gw as any).updatedAt || new Date().toISOString();
 
     await db.prepare(`
       INSERT INTO giveaways (
@@ -2206,9 +2214,10 @@ export async function syncGiveawaysToD1(db: D1Database, giveaways: any[]): Promi
         custom_banner_enabled, custom_banner_text, custom_banner_link,
         show_claimed_count, virtual_claimed_offset,
         start_time, end_time, is_active,
-        cover_image_url, game_icon_url, status, created_at
+        cover_image_url, game_icon_url, status, created_at,
+        use_template, updated_at
       )
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       ON CONFLICT(id) DO UPDATE SET
         title = excluded.title,
         game_slug = excluded.game_slug,
@@ -2242,6 +2251,8 @@ export async function syncGiveawaysToD1(db: D1Database, giveaways: any[]): Promi
         cover_image_url = excluded.cover_image_url,
         game_icon_url = excluded.game_icon_url,
         status = excluded.status,
+        use_template = excluded.use_template,
+        updated_at = excluded.updated_at,
         created_at = COALESCE(giveaways.created_at, excluded.created_at)
     `).bind(
       gw.id,
@@ -2277,7 +2288,9 @@ export async function syncGiveawaysToD1(db: D1Database, giveaways: any[]): Promi
       coverImageUrl,
       gameIconUrl,
       status,
-      gw.created_at || gw.createdAt || new Date().toISOString()
+      gw.created_at || gw.createdAt || new Date().toISOString(),
+      useTemplate,
+      updatedAt
     ).run().catch((e) => console.warn('[syncGiveawaysToD1 gw error]', e?.message));
 
     // Reconcile and batch insert codes_pool into giveaway_codes if present
@@ -2314,7 +2327,8 @@ export async function syncGiveawaysToD1(db: D1Database, giveaways: any[]): Promi
             total_codes = claimed_codes + ?
         WHERE id = ?
       `).bind(pool.length, pool.length, gw.id).run().catch(() => {});
-    } else if (Array.isArray(gw.codes_pool) && gw.codes_pool.length === 0) {
+    } else if (gw.clear_pool === true) {
+      // ONLY delete available codes if admin explicitly commanded clear_pool
       await db.prepare("DELETE FROM giveaway_codes WHERE giveaway_id = ? AND status = 'AVAILABLE'").bind(gw.id).run().catch(() => {});
       await db.prepare("UPDATE giveaways SET remaining_codes = 0 WHERE id = ?").bind(gw.id).run().catch(() => {});
     }
@@ -2780,6 +2794,8 @@ export async function loadAllGiveawaysD1(db: D1Database, includeCodes: boolean =
         g.start_time,
         g.end_time,
         CASE WHEN g.is_active = 0 THEN 0 ELSE 1 END AS is_active,
+        COALESCE(g.use_template, 1) AS use_template,
+        COALESCE(g.updated_at, g.created_at) AS updated_at,
         g.cover_image_url,
         g.game_icon_url,
         g.status, 
@@ -2833,6 +2849,8 @@ export async function loadAllGiveawaysD1(db: D1Database, includeCodes: boolean =
         virtual_claimed_offset: meta.virtual_claimed_offset !== undefined ? Math.max(0, Number(meta.virtual_claimed_offset) || 0) : Math.max(0, Number(gw.virtual_claimed_offset) || 0),
         fomo_anchor_time: meta.fomo_anchor_time || gw.fomo_anchor_time || null,
         show_claimed_count: meta.show_claimed_count !== undefined ? Boolean(meta.show_claimed_count) : (gw.show_claimed_count !== undefined ? Boolean(gw.show_claimed_count) : true),
+        use_template: meta.use_template !== undefined ? Boolean(meta.use_template) : (gw.use_template !== undefined ? Boolean(gw.use_template) : true),
+        updated_at: meta.updated_at || gw.updated_at || gw.created_at || new Date().toISOString(),
       };
     });
     if (!includeCodes || list.length === 0) return list;

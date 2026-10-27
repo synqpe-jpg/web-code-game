@@ -84,7 +84,7 @@ export const UniversalTemplateModal: React.FC<UniversalTemplateModalProps> = ({
   const handleSaveTemplates = async () => {
     setIsSaving(true);
     try {
-      templateService.saveTemplates(templates, currentAuthor);
+      await templateService.saveTemplatesToServer(templates, currentAuthor);
       setSnapshots(templateService.getSnapshots());
       setAuditLogs(templateService.getAuditLogs());
       onShowToast(
@@ -114,7 +114,7 @@ export const UniversalTemplateModal: React.FC<UniversalTemplateModalProps> = ({
     setIsApplying(true);
     try {
       // 1. First save the current template so runtime inherits the latest
-      templateService.saveTemplates(templates, currentAuthor);
+      await templateService.saveTemplatesToServer(templates, currentAuthor);
 
       // 2. Execute force apply with mandatory snapshot
       const res = templateService.executeForceApplyAll(

@@ -155,6 +155,28 @@ class TemplateService {
   }
 
   /**
+   * Set templates directly from server/KV state and notify listeners
+   */
+  public setTemplates(remote: UniversalTemplatesConfig): void {
+    if (!remote || typeof remote !== 'object') return;
+    this.templates = {
+      ...DEFAULT_UNIVERSAL_TEMPLATES,
+      ...remote,
+      giveaway: { ...DEFAULT_UNIVERSAL_TEMPLATES.giveaway, ...(remote.giveaway || {}) },
+      catalog: { ...DEFAULT_UNIVERSAL_TEMPLATES.catalog, ...(remote.catalog || {}) },
+      utility: { ...DEFAULT_UNIVERSAL_TEMPLATES.utility, ...(remote.utility || {}) },
+      store: { ...DEFAULT_UNIVERSAL_TEMPLATES.store, ...(remote.store || {}) },
+    };
+    if (typeof window !== 'undefined') {
+      try {
+        localStorage.setItem(TEMPLATES_KEY, JSON.stringify(this.templates));
+        window.dispatchEvent(new CustomEvent('wcg_universal_templates_updated', { detail: this.templates }));
+      } catch {}
+    }
+    this.notify();
+  }
+
+  /**
    * Save updated templates. Only 1 record is persisted to D1/KV.
    */
   public saveTemplates(newTemplates: UniversalTemplatesConfig, author = 'Admin'): void {
@@ -206,31 +228,68 @@ class TemplateService {
   }
 
   /**
+   * Directly await saving templates to Cloudflare D1 with multi-endpoint fallback
+   */
+  public async saveTemplatesToServer(newTemplates: UniversalTemplatesConfig, author = 'Admin'): Promise<boolean> {
+    this.saveTemplates(newTemplates, author);
+    if (typeof window === 'undefined') return true;
+
+    const payload = { key: TEMPLATES_KEY, data: this.templates };
+    const syncKey =
+      localStorage.getItem('wcg_admin_sync_key') ||
+      sessionStorage.getItem('wcg_admin_sync_key') ||
+      'b4e08494bf1c3fd6a0c965dd2411780c60513f7f87001bc955d7496331b2faef';
+    const token =
+      localStorage.getItem('wcg_auth_token') ||
+      sessionStorage.getItem('wcg_auth_token') || '';
+    const headers: Record<string, string> = {
+      'Content-Type': 'application/json',
+      'X-Sync-Key': syncKey,
+    };
+    if (token) headers['Authorization'] = `Bearer ${token}`;
+
+    const endpoints = [
+      '/api/sync',
+      'https://admin-code-game-shop.pages.dev/api/sync',
+      'https://codegame.shop/api/sync',
+      'https://web-code-game.pages.dev/api/sync',
+    ];
+
+    for (const url of endpoints) {
+      try {
+        const res = await fetch(url, {
+          method: 'POST',
+          headers,
+          body: JSON.stringify(payload),
+        });
+        if (res.ok) return true;
+      } catch {}
+    }
+    return false;
+  }
+
+  /**
    * Sync templates from Cloudflare KV/D1
    */
   public async syncTemplates(): Promise<UniversalTemplatesConfig> {
-    try {
-      const res = await fetch(`/api/sync?key=${TEMPLATES_KEY}`);
-      if (res.ok) {
-        const json = await res.json();
-        if (json && json.success && json.data) {
-          const remote = json.data as UniversalTemplatesConfig;
-          this.templates = {
-            ...DEFAULT_UNIVERSAL_TEMPLATES,
-            ...remote,
-            giveaway: { ...DEFAULT_UNIVERSAL_TEMPLATES.giveaway, ...(remote.giveaway || {}) },
-            catalog: { ...DEFAULT_UNIVERSAL_TEMPLATES.catalog, ...(remote.catalog || {}) },
-            utility: { ...DEFAULT_UNIVERSAL_TEMPLATES.utility, ...(remote.utility || {}) },
-            store: { ...DEFAULT_UNIVERSAL_TEMPLATES.store, ...(remote.store || {}) },
-          };
-          if (typeof window !== 'undefined') {
-            localStorage.setItem(TEMPLATES_KEY, JSON.stringify(this.templates));
+    const endpoints = [
+      `/api/sync?key=${TEMPLATES_KEY}`,
+      `https://admin-code-game-shop.pages.dev/api/sync?key=${TEMPLATES_KEY}`,
+      `https://codegame.shop/api/sync?key=${TEMPLATES_KEY}`,
+    ];
+
+    for (const url of endpoints) {
+      try {
+        const res = await fetch(url);
+        if (res.ok) {
+          const json = await res.json();
+          if (json && json.success && json.data) {
+            this.setTemplates(json.data as UniversalTemplatesConfig);
+            return this.templates;
           }
-          this.notify();
-          return this.templates;
         }
-      }
-    } catch {}
+      } catch {}
+    }
     return this.getTemplates();
   }
 

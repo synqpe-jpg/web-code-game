@@ -10,6 +10,25 @@
 
 ## 1. DANH MỤC LỖI & CÁC BẪY ĐÃ THẤT BẠI (DO NOT REPEAT)
 
+### ISSUE-153: Bẫy Mất Dữ Liệu Kho Mã & Luật Đợt Phát Khi Reset/F5 Admin (Async Race Condition & D1 Empty Pool Purge)
+- **Triệu chứng**:
+  - Quản trị viên vừa nhập hàng loạt mã code vào kho phát Giveaway hoặc điều chỉnh luật đợt phát, sau đó nhấn F5 hoặc reset lại trang Admin thì toàn bộ mã mới nhập bị biến mất và luật trở về như cũ.
+- **Nguyên nhân gốc rễ (Root Cause)**:
+  1. *Lỗi vô tình xóa trắng kho mã trong D1 (`d1_service.ts:2317`)*: Điều kiện `else if (Array.isArray(gw.codes_pool) && gw.codes_pool.length === 0)` đã thực thi lệnh SQL `DELETE FROM giveaway_codes WHERE giveaway_id = ? AND status = 'AVAILABLE'`, vô tình xóa sạch kho mã của chiến dịch trong D1 bất cứ khi nào client gửi sync payload mà không bung chi tiết pool mã.
+  2. *Bất đồng bộ không chờ (Async Race Condition & Monolithic Snapshot 16 giây)*: `handleSubmitForm` và `handleSavePoolCodes` trong `PrivateCodesModule.tsx` là hàm void không `await`. Chúng đóng modal và toast thành công ngay lập tức, trong khi hàm `pushFullStateToKV(true)` chạy ngầm mất hơn 16.000 ms để đẩy toàn bộ dữ liệu 492 thành viên, đơn hàng, giao dịch, kho hàng. Khi quản trị viên F5 hoặc reload trang trong lúc request ngầm đang bay, trình duyệt lập tức hủy bỏ kết nối HTTP ngầm, khiến máy chủ D1 không nhận được dữ liệu.
+  3. *Ghi đè dữ liệu cũ khi nạp từ máy chủ (`adminDataService.ts:1418`)*: `fetchFromCloudflareKV()` ghi đè `{ ...local, ...serverGw }`, dùng dữ liệu cũ trên server đè lên dữ liệu mới sửa cục bộ, đồng thời bỏ sót các chiến dịch mới tạo cục bộ nếu chưa có trong server.
+- **Giải pháp chuẩn đã kiểm chứng**:
+  1. *Bỏ hoàn toàn lệnh DELETE khi `codes_pool.length === 0` trong `d1_service.ts`*: Chỉ cho phép xóa khi có cờ tường minh `gw.clear_pool === true`. Bổ sung cột `use_template` và `updated_at` trong D1.
+  2. *Endpoint Fast Targeted Sync*: Tạo luồng xử lý riêng cho `wcg_admin_giveaways_v4`, `wcg_admin_store_products_v4`, `wcg_admin_utilities_v4`, `wcg_universal_templates_v1` trực tiếp ghi D1 và trả về trong ~300ms thay vì ép monolithic snapshot 16s.
+  3. *Awaiting Direct Persistence*: `saveGiveawaysToServer()` trả về Promise. Các handler `handleSubmitForm`, `handleSavePoolCodes`, `handleDeletePoolCode` trong `PrivateCodesModule.tsx` bắt buộc `await` máy chủ phản hồi thành công mới đóng form; hiển thị spinner `isSaving`, vô hiệu hóa nút bấm và đăng ký `beforeunload` chặn reload trang khi đang lưu.
+  4. *Smart Merge theo `updated_at`*: So sánh timestamp `updated_at` giữa local và server; nếu local mới hơn, local giữ nguyên; không bao giờ lấy mảng rỗng đè lên mảng có mã của local; giữ lại các chiến dịch mới tạo cục bộ (`localOnly`).
+- ⛔ **CÁCH SỬA ĐÃ THẤT BẠI - TUYỆT ĐỐI KHÔNG LẶP LẠI**:
+  - ❌ *Không dùng hàm void fire-and-forget khi lưu dữ liệu cốt lõi*: Bắt buộc biến hàm submit thành `async` và `await` máy chủ lưu thành công trước khi đóng modal.
+  - ❌ *Không ép mọi thao tác lưu nhỏ lẻ phải chạy qua snapshot monolithic 16 giây*: Phải cung cấp endpoint fast targeted sync để phản hồi trong 300ms.
+  - ❌ *Không bao giờ viết `DELETE FROM giveaway_codes` chỉ vì mảng `codes_pool` rỗng*: Client thường không gửi danh sách mã nhạy cảm trong mọi payload sync thường ngày.
+
+---
+
 ### ISSUE-152: Bẫy Đăng Ký Tên Chứa Thẻ Script & Rà Soát Chống XSS Toàn Diện
 - **Triệu chứng**:
   - Tồn tại tài khoản test với username là thẻ script `<script>alert(1)</script>` trong CSDL, gây nguy cơ tiềm ẩn nếu có bất kỳ nơi nào hiển thị bằng HTML thô.

@@ -7,6 +7,30 @@ Mỗi mục sửa lỗi đều ghi nhận **Nguyên nhân gốc rễ (Root Cause
 
 ## [2026-10-27]
 
+### 233. Khắc Phục Triệt Để Mất Dữ Liệu Kho Mã & Luật Đợt Phát Giveaway Khi Reset/F5 Trang Admin
+- **Bối cảnh & Yêu cầu từ Người dùng**:
+  - Người dùng phản ánh: *"Khi tôi reset lại ttrang admin thì mất luôn dữ liẹu code vừa nhập và sửa luật rồi. Nếu lỗi này chưa sửa trước đó thì sửa giúp tôi, đảm bảo từ nay về sau không tái diễn nữa."* (kèm ảnh chụp màn hình trang Quản trị Cấp Phát Code VIP & Sự Kiện Giveaway).
+- **Nguyên nhân gốc rễ (Root Cause)**:
+  1. *Lỗi vô tình xóa trắng kho mã trong D1 (`d1_service.ts:2317`)*: Điều kiện `else if (Array.isArray(gw.codes_pool) && gw.codes_pool.length === 0)` đã thực thi lệnh SQL `DELETE FROM giveaway_codes WHERE giveaway_id = ? AND status = 'AVAILABLE'`, vô tình xóa sạch toàn bộ kho mã của chiến dịch khi payload sync truyền mảng rỗng (vốn dùng để tiết kiệm băng thông).
+  2. *Bất đồng bộ không chờ (Async Race Condition & Nghẽn mạng 16 giây)*: `handleSubmitForm` và `handleSavePoolCodes` trong `PrivateCodesModule.tsx` là hàm void không `await`. Chúng đóng modal và toast thành công ngay lập tức, trong khi hàm `pushFullStateToKV(true)` chạy ngầm mất hơn 16.000 ms để đẩy monolithic state đồ sộ (492 thành viên, toàn bộ đơn hàng, giao dịch, inventory, store products, giveaways). Khi người dùng F5 hoặc reload trang trong khoảng thời gian này, trình duyệt lập tức hủy bỏ request HTTP ngầm và D1 không bao giờ nhận được dữ liệu mới.
+  3. *Ghi đè dữ liệu cũ khi nạp từ máy chủ (`adminDataService.ts:1418`)*: `fetchFromCloudflareKV()` ghi đè `{ ...local, ...serverGw }`, dùng dữ liệu cũ trên server đè lên dữ liệu mới sửa cục bộ, đồng thời bỏ sót các chiến dịch mới tạo cục bộ nếu chưa có trong server.
+  4. *Đứt gãy liên kết Mẫu Chung (Universal Templates)*: `UniversalTemplateModal.tsx` gọi `templateService.saveTemplates()` vốn chỉ lưu `localStorage` và không `await` đồng bộ lên D1; `adminDataService.fetchFromCloudflareKV()` nhận `json.universalTemplates` nhưng không gán vào `templateService`.
+- **Giải pháp thành công (Solution)**:
+  1. *Sao lưu CSDL toàn vẹn*: Đã tạo file sao lưu `data/backups/backup_pre_fix_admin_giveaway_reset_20261027.json` (13.09 MB).
+  2. *Loại bỏ tận gốc lỗi xóa kho mã D1*: Trong `functions/services/d1_service.ts`, bỏ hoàn toàn đoạn SQL DELETE khi `codes_pool.length === 0`; chỉ cho phép xóa kho mã khi có cờ tường minh `gw.clear_pool === true`. Thêm cột `use_template` và `updated_at` vào bảng `giveaways`.
+  3. *Endpoint Fast Targeted Sync*: Trong `functions/api/sync.ts`, bổ sung nhánh xử lý fast return cho `key: 'wcg_admin_giveaways_v4'`, `key: 'wcg_admin_store_products_v4'`, `key: 'wcg_admin_utilities_v4'`, và `key: 'wcg_universal_templates_v1'` trực tiếp commit D1 và phản hồi trong ~300ms thay vì ép snapshot toàn bộ hệ thống 16 giây.
+  4. *Hàm `saveGiveawaysToServer` & Async Await*:
+     - Trong `src/admin/services/adminDataService.ts`: Tạo hàm `saveGiveawaysToServer(customList?)` gọi endpoint targeted sync với multi-endpoint fallback.
+     - Trong `src/admin/modules/PrivateCodesModule.tsx`: Chuyển `handleSubmitForm`, `handleSavePoolCodes`, `handleDeletePoolCode`, `handleBulkDeletePoolCodes`, `handleToggleActive` thành hàm `async/await`, bắt buộc chờ máy chủ D1 phản hồi thành công mới đóng modal và hiển thị toast. Thêm loading state `isSaving`, `isSavingPool`, spinner và disabled cho nút bấm. Thêm listener `beforeunload` chặn reload trang khi đang lưu.
+  5. *Smart Merge thông minh theo `updated_at`*: Trong `adminDataService.fetchFromCloudflareKV()`, so sánh mốc thời gian `updated_at` để bảo vệ các thay đổi luật mới nhất của admin; bảo vệ mảng kho mã `codes_pool` không bị mảng rỗng đè; bảo tồn các chiến dịch mới tạo cục bộ (`localOnly`).
+  6. *Đồng bộ Mẫu Chung 2 chiều*: Trong `templateService.ts` bổ sung `setTemplates()` và `saveTemplatesToServer()`; trong `UniversalTemplateModal.tsx` `await templateService.saveTemplatesToServer(templates, currentAuthor)`; trong `adminDataService.ts` nạp `json.universalTemplates` vào `templateService.setTemplates()`.
+- **Kiểm thử & Nghiệm thu**:
+  - `npm run build`: 100% thành công, 780 trang prerender hoàn tất.
+  - `npm run test:ingest`: 4/4 bài kiểm thử hồi quy đạt 100%.
+  - Audit Zero Test Artifacts: Đạt 100% không có dữ liệu test trên production.
+
+---
+
 ### 232. Xóa 15 Tài Khoản Test (0đ), Rà Soát Chống XSS Hiển Thị Thành Viên Toàn Web & Khóa Chặn Đăng Ký Thẻ Script
 - **Bối cảnh & Yêu cầu từ Người dùng**:
   - Người dùng yêu cầu xóa chính xác 15 tài khoản test còn lại (đều 0đ) sau khi kiểm tra đầy đủ 3 điều kiện: username và email khớp danh sách, số dư đúng 0đ, và không có đơn hàng, mã đã giao hay giao dịch SePay.

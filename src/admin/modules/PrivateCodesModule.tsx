@@ -27,6 +27,7 @@ import {
   Dices,
   Link2,
   Sliders,
+  RefreshCw,
 } from 'lucide-react';
 import { LuckyWheelAdminManager } from '../components/LuckyWheelAdminManager';
 import { FormModal } from '../components/ui/FormModal';
@@ -125,6 +126,23 @@ export const PrivateCodesModule: React.FC<PrivateCodesModuleProps> = ({ onShowTo
 
   // Delete Confirm Modal
   const [deletingCampaign, setDeletingCampaign] = useState<GiveawayCampaign | null>(null);
+
+  // Persistence loading states
+  const [isSaving, setIsSaving] = useState(false);
+  const [isSavingPool, setIsSavingPool] = useState(false);
+
+  // Warn user before leaving if saving is currently in flight
+  useEffect(() => {
+    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+      if (isSaving || isSavingPool) {
+        e.preventDefault();
+        e.returnValue = 'Hệ thống đang lưu dữ liệu lên máy chủ, vui lòng đợi trong giây lát!';
+        return e.returnValue;
+      }
+    };
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    return () => window.removeEventListener('beforeunload', handleBeforeUnload);
+  }, [isSaving, isSavingPool]);
 
   useEffect(() => {
     setGames(adminDataService.getGames());
@@ -234,79 +252,87 @@ export const PrivateCodesModule: React.FC<PrivateCodesModuleProps> = ({ onShowTo
     setIsFormOpen(true);
   };
 
-  const handleResetGlobalCooldown = (gw: GiveawayCampaign) => {
+  const handleResetGlobalCooldown = async (gw: GiveawayCampaign) => {
     gw.last_global_claim_at = '';
     adminDataService.saveGiveawayItem(gw);
-    adminDataService.pushFullStateToKV(true);
+    await adminDataService.saveGiveawaysToServer();
     loadData();
     onShowToast('Đã mở đợt phát ngay', `Đã xóa thời gian chờ toàn sàn cho "${gw.title}". Khách có thể giật mã tiếp theo ngay lập tức.`, 'success');
   };
 
-  const handleSubmitForm = (e: React.FormEvent) => {
+  const handleSubmitForm = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!formData.title.trim() || !formData.game_name.trim()) {
       onShowToast('Lỗi', 'Vui lòng nhập tên đợt phát và chọn game.', 'error');
       return;
     }
 
-    const existingPool = editingItem?.codes_pool || [];
-    const poolLength = Array.isArray(existingPool) && existingPool.length > 0
-      ? existingPool.length
-      : Math.max(0, Number(editingItem?.remaining_codes || 0));
-    const safeClaimed = editingItem ? Number(editingItem.claimed_codes || 0) : 0;
-    const calculatedTotal = poolLength + safeClaimed;
+    setIsSaving(true);
+    try {
+      const existingPool = editingItem?.codes_pool || [];
+      const poolLength = Array.isArray(existingPool) && existingPool.length > 0
+        ? existingPool.length
+        : Math.max(0, Number(editingItem?.remaining_codes || 0));
+      const safeClaimed = editingItem ? Number(editingItem.claimed_codes || 0) : 0;
+      const calculatedTotal = poolLength + safeClaimed;
 
-    adminDataService.saveGiveawayItem({
-      id: editingItem?.id,
-      title: formData.title.trim(),
-      game_slug: formData.game_slug.trim().toLowerCase(),
-      game_name: formData.game_name.trim(),
-      description: formData.description.trim(),
-      rewards: formData.rewards.trim(),
-      use_template: formData.use_template !== false,
-      total_codes: calculatedTotal,
-      remaining_codes: poolLength,
-      claimed_codes: safeClaimed,
-      min_account_age_days: Number(formData.min_account_age_days),
-      max_per_user: Number(formData.max_per_user),
-      max_per_ip: Number(formData.max_per_ip),
-      cooldown_hours: Number(formData.cooldown_hours),
-      global_cooldown_seconds: Number(formData.global_cooldown_seconds) || 0,
-      last_global_claim_at: formData.last_global_claim_at,
-      last_claimer_name: editingItem?.last_claimer_name || '',
-      custom_success_msg: formData.custom_success_msg.trim(),
-      custom_cooldown_msg: formData.custom_cooldown_msg.trim(),
-      custom_out_of_stock_msg: formData.custom_out_of_stock_msg.trim(),
-      enable_waiting_room: formData.enable_waiting_room,
-      waiting_users_min: Number(formData.waiting_users_min) || 0,
-      waiting_users_max: Number(formData.waiting_users_max) || 0,
-      custom_banner_enabled: Boolean(formData.custom_banner_enabled),
-      custom_banner_text: formData.custom_banner_text ? formData.custom_banner_text.trim() : 'Tham gia nhóm zalo của web tại đây',
-      custom_banner_link: formData.custom_banner_link ? formData.custom_banner_link.trim() : '',
-      show_claimed_count: formData.show_claimed_count,
-      virtual_claimed_offset: Number(formData.virtual_claimed_offset) || 0,
-      start_time: formData.start_time,
-      end_time: formData.end_time,
-      created_at: editingItem?.created_at || (editingItem as any)?.createdAt || new Date().toISOString(),
-      is_active: formData.is_active,
-      packages: formData.packages || editingItem?.packages || [],
-      game_icon_url: formData.cover_image_url || `/game_icons/${formData.game_slug}.webp`,
-      cover_image_url: formData.cover_image_url,
-      codes_pool: existingPool,
-      claim_history: editingItem?.claim_history || [],
-    });
+      adminDataService.saveGiveawayItem({
+        id: editingItem?.id,
+        title: formData.title.trim(),
+        game_slug: formData.game_slug.trim().toLowerCase(),
+        game_name: formData.game_name.trim(),
+        description: formData.description.trim(),
+        rewards: formData.rewards.trim(),
+        use_template: formData.use_template !== false,
+        total_codes: calculatedTotal,
+        remaining_codes: poolLength,
+        claimed_codes: safeClaimed,
+        min_account_age_days: Number(formData.min_account_age_days),
+        max_per_user: Number(formData.max_per_user),
+        max_per_ip: Number(formData.max_per_ip),
+        cooldown_hours: Number(formData.cooldown_hours),
+        global_cooldown_seconds: Number(formData.global_cooldown_seconds) || 0,
+        last_global_claim_at: formData.last_global_claim_at,
+        last_claimer_name: editingItem?.last_claimer_name || '',
+        custom_success_msg: formData.custom_success_msg.trim(),
+        custom_cooldown_msg: formData.custom_cooldown_msg.trim(),
+        custom_out_of_stock_msg: formData.custom_out_of_stock_msg.trim(),
+        enable_waiting_room: formData.enable_waiting_room,
+        waiting_users_min: Number(formData.waiting_users_min) || 0,
+        waiting_users_max: Number(formData.waiting_users_max) || 0,
+        custom_banner_enabled: Boolean(formData.custom_banner_enabled),
+        custom_banner_text: formData.custom_banner_text ? formData.custom_banner_text.trim() : 'Tham gia nhóm zalo của web tại đây',
+        custom_banner_link: formData.custom_banner_link ? formData.custom_banner_link.trim() : '',
+        show_claimed_count: formData.show_claimed_count,
+        virtual_claimed_offset: Number(formData.virtual_claimed_offset) || 0,
+        start_time: formData.start_time,
+        end_time: formData.end_time,
+        created_at: editingItem?.created_at || (editingItem as any)?.createdAt || new Date().toISOString(),
+        is_active: formData.is_active,
+        packages: formData.packages || editingItem?.packages || [],
+        game_icon_url: formData.cover_image_url || `/game_icons/${formData.game_slug}.webp`,
+        cover_image_url: formData.cover_image_url,
+        codes_pool: existingPool,
+        claim_history: editingItem?.claim_history || [],
+      });
 
-    adminDataService.pushFullStateToKV(true);
+      // Await direct fast D1 persistence
+      await adminDataService.saveGiveawaysToServer();
 
-    onShowToast(
-      'Thành công',
-      editingItem
-        ? `Đã cập nhật đợt phát "${formData.title}".`
-        : `Đã tạo đợt phát code riêng "${formData.title}" mới.`,
-      'success'
-    );
-    setIsFormOpen(false);
-    loadData();
+      onShowToast(
+        'Thành công',
+        editingItem
+          ? `Đã cập nhật đợt phát "${formData.title}".`
+          : `Đã tạo đợt phát code riêng "${formData.title}" mới.`,
+        'success'
+      );
+      setIsFormOpen(false);
+      loadData();
+    } catch (err: any) {
+      onShowToast('Lỗi lưu đợt phát', err?.message || 'Có lỗi khi lưu lên máy chủ D1', 'error');
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   // --- KHO MÃ (CODE POOL) HANDLERS ---
@@ -318,7 +344,7 @@ export const PrivateCodesModule: React.FC<PrivateCodesModuleProps> = ({ onShowTo
     setIsPoolModalOpen(true);
   };
 
-  const handleSavePoolCodes = (e: React.FormEvent) => {
+  const handleSavePoolCodes = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!currentCampaignForPool) return;
 
@@ -332,29 +358,38 @@ export const PrivateCodesModule: React.FC<PrivateCodesModuleProps> = ({ onShowTo
       return;
     }
 
-    const currentPool = currentCampaignForPool.codes_pool || [];
-    const updatedPool = [...new Set([...currentPool, ...newCodes])];
+    setIsSavingPool(true);
+    try {
+      const currentPool = currentCampaignForPool.codes_pool || [];
+      const updatedPool = [...new Set([...currentPool, ...newCodes])];
 
-    currentCampaignForPool.codes_pool = updatedPool;
-    currentCampaignForPool.remaining_codes = updatedPool.length;
-    currentCampaignForPool.total_codes = updatedPool.length + (currentCampaignForPool.claimed_codes || 0);
-    adminDataService.saveGiveawayItem(currentCampaignForPool);
-    adminDataService.pushFullStateToKV(true);
+      currentCampaignForPool.codes_pool = updatedPool;
+      currentCampaignForPool.remaining_codes = updatedPool.length;
+      currentCampaignForPool.total_codes = updatedPool.length + (currentCampaignForPool.claimed_codes || 0);
+      currentCampaignForPool.updated_at = new Date().toISOString();
 
-    onShowToast(
-      'Đã nạp kho mã!',
-      `Đã thêm ${newCodes.length} mã vào kho phát riêng của "${currentCampaignForPool.title}".`,
-      'success'
-    );
-    setIsPoolModalOpen(false);
-    loadData();
+      adminDataService.saveGiveawayItem(currentCampaignForPool);
+      await adminDataService.saveGiveawaysToServer();
+
+      onShowToast(
+        'Đã nạp kho mã!',
+        `Đã thêm ${newCodes.length} mã vào kho phát riêng của "${currentCampaignForPool.title}". Dữ liệu đã lưu vĩnh viễn trên Cloudflare D1.`,
+        'success'
+      );
+      setIsPoolModalOpen(false);
+      loadData();
+    } catch (err: any) {
+      onShowToast('Lỗi lưu kho mã', err?.message || 'Có lỗi khi lưu kho mã lên máy chủ D1', 'error');
+    } finally {
+      setIsSavingPool(false);
+    }
   };
 
-  const handleDeletePoolCode = (code: string) => {
+  const handleDeletePoolCode = async (code: string) => {
     if (!currentCampaignForPool) return;
     const ok = adminDataService.deleteGiveawayPoolCode(currentCampaignForPool.id, code);
     if (ok) {
-      adminDataService.pushFullStateToKV(true);
+      await adminDataService.saveGiveawaysToServer();
       onShowToast('Đã xóa mã', `Đã xóa mã ${code} khỏi kho phát riêng.`, 'info');
       const updatedPool = (currentCampaignForPool.codes_pool || []).filter((c) => c !== code);
       setCurrentCampaignForPool({
@@ -367,10 +402,10 @@ export const PrivateCodesModule: React.FC<PrivateCodesModuleProps> = ({ onShowTo
     }
   };
 
-  const handleBulkDeletePoolCodes = () => {
+  const handleBulkDeletePoolCodes = async () => {
     if (!currentCampaignForPool || selectedPoolCodes.length === 0) return;
     const count = adminDataService.deleteGiveawayPoolCodesBulk(currentCampaignForPool.id, selectedPoolCodes);
-    adminDataService.pushFullStateToKV(true);
+    await adminDataService.saveGiveawaysToServer();
     onShowToast('Đã xóa', `Đã xóa ${count} mã khỏi kho phát riêng.`, 'success');
     const codeSet = new Set(selectedPoolCodes);
     const updatedPool = (currentCampaignForPool.codes_pool || []).filter((c) => !codeSet.has(c));
@@ -391,14 +426,14 @@ export const PrivateCodesModule: React.FC<PrivateCodesModuleProps> = ({ onShowTo
   };
 
   // --- TOGGLE STATUS (ĐÓNG / MỞ) ---
-  const handleToggleActive = (gw: GiveawayCampaign) => {
+  const handleToggleActive = async (gw: GiveawayCampaign) => {
     const newStatus = gw.is_active === false;
     const updatedGw: GiveawayCampaign = {
       ...gw,
       is_active: newStatus,
     };
     adminDataService.saveGiveawayItem(updatedGw);
-    adminDataService.pushFullStateToKV(true);
+    await adminDataService.saveGiveawaysToServer();
     loadData();
     onShowToast(
       newStatus ? 'Đã mở đợt phát!' : 'Đã đóng đợt phát!',
@@ -407,7 +442,7 @@ export const PrivateCodesModule: React.FC<PrivateCodesModuleProps> = ({ onShowTo
     );
   };
 
-  const handleBatchToggleAll = (enable: boolean) => {
+  const handleBatchToggleAll = async (enable: boolean) => {
     const actionText = enable ? 'mở tất cả' : 'đóng tất cả';
     if (!window.confirm(`Bạn có chắc chắn muốn ${actionText} các đợt phát Giveaway không?`)) {
       return;
@@ -417,7 +452,7 @@ export const PrivateCodesModule: React.FC<PrivateCodesModuleProps> = ({ onShowTo
       gw.is_active = enable;
       adminDataService.saveGiveawayItem(gw);
     });
-    adminDataService.pushFullStateToKV(true);
+    await adminDataService.saveGiveawaysToServer();
     loadData();
     onShowToast(
       enable ? 'Đã mở tất cả đợt phát!' : 'Đã đóng tất cả đợt phát!',
@@ -427,10 +462,10 @@ export const PrivateCodesModule: React.FC<PrivateCodesModuleProps> = ({ onShowTo
   };
 
   // --- DELETE CAMPAIGN ---
-  const handleDeleteConfirm = () => {
+  const handleDeleteConfirm = async () => {
     if (!deletingCampaign) return;
     adminDataService.deleteGiveaway(deletingCampaign.id);
-    adminDataService.pushFullStateToKV();
+    await adminDataService.saveGiveawaysToServer();
     onShowToast('Đã xóa', `Đã xóa đợt phát "${deletingCampaign.title}".`, 'info');
     setDeletingCampaign(null);
     loadData();
@@ -1672,10 +1707,20 @@ export const PrivateCodesModule: React.FC<PrivateCodesModuleProps> = ({ onShowTo
             </button>
             <button
               type="submit"
-              className="inline-flex items-center gap-1.5 rounded-xl bg-purple-600 px-5 py-2 text-xs font-bold text-white shadow-sm hover:bg-purple-700 cursor-pointer"
+              disabled={isSaving}
+              className={`inline-flex items-center gap-1.5 rounded-xl bg-purple-600 px-5 py-2 text-xs font-bold text-white shadow-sm hover:bg-purple-700 cursor-pointer ${isSaving ? 'opacity-70 cursor-not-allowed' : ''}`}
             >
-              <Check className="h-4 w-4" />
-              <span>{editingItem ? 'Cập Nhật Đợt Phát' : 'Tạo Đợt Phát'}</span>
+              {isSaving ? (
+                <>
+                  <RefreshCw className="h-4 w-4 animate-spin" />
+                  <span>Đang Lưu Lên Máy Chủ...</span>
+                </>
+              ) : (
+                <>
+                  <Check className="h-4 w-4" />
+                  <span>{editingItem ? 'Cập Nhật Đợt Phát' : 'Tạo Đợt Phát'}</span>
+                </>
+              )}
             </button>
           </div>
         </form>
@@ -1761,10 +1806,20 @@ export const PrivateCodesModule: React.FC<PrivateCodesModuleProps> = ({ onShowTo
                 </button>
                 <button
                   type="submit"
-                  className="inline-flex items-center gap-1.5 rounded-xl bg-purple-600 px-5 py-2 text-xs font-bold text-white shadow-sm hover:bg-purple-700 cursor-pointer"
+                  disabled={isSavingPool}
+                  className={`inline-flex items-center gap-1.5 rounded-xl bg-purple-600 px-5 py-2 text-xs font-bold text-white shadow-sm hover:bg-purple-700 cursor-pointer ${isSavingPool ? 'opacity-70 cursor-not-allowed' : ''}`}
                 >
-                  <Upload className="h-4 w-4" />
-                  <span>Nạp Vào Kho Phát</span>
+                  {isSavingPool ? (
+                    <>
+                      <RefreshCw className="h-4 w-4 animate-spin" />
+                      <span>Đang Nạp Lên Máy Chủ...</span>
+                    </>
+                  ) : (
+                    <>
+                      <Upload className="h-4 w-4" />
+                      <span>Nạp Vào Kho Phát</span>
+                    </>
+                  )}
                 </button>
               </div>
             </form>
