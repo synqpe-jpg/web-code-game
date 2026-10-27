@@ -1640,6 +1640,8 @@ public async syncWithCloudflareKV(forceFresh: boolean = false): Promise<void> {
       cleanName ? cleanName.replace(/[^a-z0-9]+/g, '_') : '',
       (cleanSlug === 'huyen-thoai-hai-tac' || cleanSlug === 'pirate-legends' || cleanId === 'huyen-thoai-hai-tac' || cleanId === 'pirate-legends') ? 'huyen-thoai-hai-tac' : '',
       (cleanSlug === 'huyen-thoai-hai-tac' || cleanSlug === 'pirate-legends' || cleanId === 'huyen-thoai-hai-tac' || cleanId === 'pirate-legends') ? 'pirate-legends' : '',
+      (cleanSlug === 'yen-van-thap-luc-thanh' || cleanSlug === 'where-winds-meet-mobile' || cleanId === 'yen-van-thap-luc-thanh' || cleanId === 'where-winds-meet-mobile') ? 'yen-van-thap-luc-thanh' : '',
+      (cleanSlug === 'yen-van-thap-luc-thanh' || cleanSlug === 'where-winds-meet-mobile' || cleanId === 'yen-van-thap-luc-thanh' || cleanId === 'where-winds-meet-mobile') ? 'where-winds-meet-mobile' : '',
     ].filter(Boolean) as string[];
 
     const mergedMap = new Map<string, GiftCode>();
@@ -1647,8 +1649,15 @@ public async syncWithCloudflareKV(forceFresh: boolean = false): Promise<void> {
       const list = this.codesMap.get(k);
       if (list) {
         list.forEach((c) => {
-          if (!mergedMap.has(c.code)) {
-            mergedMap.set(c.code, c);
+          const cd = String(c.code || '').trim();
+          if (!cd || /^(?:IN-.*-\d+X\d+|REDEMPTION(?:-SCREEN)?-\d+X\d+)$/i.test(cd)) return;
+          const upper = cd.toUpperCase();
+          if (!mergedMap.has(upper)) {
+            let rew = c.rewards || (c as any).description || '';
+            if (!rew || /^(?:quà (?:tặng )?tân thủ(?: & vật phẩm ingame)?|phần thưởng từ nhà phát hành|thưởng của nph|🎁 phần thưởng từ nhà phát hành|quà mừng game ra mắt)$/i.test(rew.trim())) {
+              rew = 'Chưa rõ phần thưởng';
+            }
+            mergedMap.set(upper, { ...c, code: cd, rewards: rew, description: rew });
           }
         });
       }

@@ -779,12 +779,24 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
         const customFc = d1Settings['wcg_admin_custom_free_codes_v1'] || masterState.customFreeCodes || [];
         const deletedFc = new Set<string>(d1Settings['wcg_deleted_free_codes'] || masterState.deletedFreeCodes || []);
         const mergedMap = new Map<string, any>();
+        const normalizeReward = (raw: string) => {
+          const s = String(raw || '').trim();
+          if (!s || /^(?:quà (?:tặng )?tân thủ(?: & vật phẩm ingame)?|phần thưởng từ nhà phát hành|thưởng của nph|🎁 phần thưởng từ nhà phát hành|quà mừng game ra mắt)$/i.test(s)) {
+            return 'Chưa rõ phần thưởng';
+          }
+          return s;
+        };
+        const isJunkCode = (cd: string) => /^(?:IN-.*-\d+X\d+|REDEMPTION(?:-SCREEN)?-\d+X\d+)$/i.test(cd);
+
         // 1. Custom codes (highest priority)
         if (Array.isArray(customFc)) {
           customFc.forEach((c: any) => {
             if (c && c.id && !deletedFc.has(c.id)) {
-              const key = `${(c.gameSlug || c.gameId || '').toLowerCase()}___${(c.codeValue || c.code || '').trim().toUpperCase()}`;
-              mergedMap.set(key, c);
+              const codeStr = String(c.codeValue || c.code || '').trim();
+              if (isJunkCode(codeStr)) return;
+              const key = `${(c.gameSlug || c.gameId || '').toLowerCase()}___${codeStr.toUpperCase()}`;
+              const cleanR = normalizeReward(c.rewards || c.description);
+              mergedMap.set(key, { ...c, rewards: cleanR, description: cleanR });
             }
           });
         }
@@ -792,8 +804,13 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
         if (Array.isArray(d1Fc)) {
           d1Fc.forEach((c: any) => {
             if (c && c.id && !deletedFc.has(c.id)) {
-              const key = `${(c.gameSlug || c.gameId || '').toLowerCase()}___${(c.codeValue || c.code || '').trim().toUpperCase()}`;
-              if (!mergedMap.has(key)) mergedMap.set(key, c);
+              const codeStr = String(c.codeValue || c.code || '').trim();
+              if (isJunkCode(codeStr)) return;
+              const key = `${(c.gameSlug || c.gameId || '').toLowerCase()}___${codeStr.toUpperCase()}`;
+              if (!mergedMap.has(key)) {
+                const cleanR = normalizeReward(c.rewards || c.description);
+                mergedMap.set(key, { ...c, rewards: cleanR, description: cleanR });
+              }
             }
           });
         }
@@ -801,8 +818,13 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
         if (Array.isArray(bundledFc)) {
           bundledFc.forEach((c: any) => {
             if (c && c.id && !deletedFc.has(c.id)) {
-              const key = `${(c.gameSlug || c.gameId || '').toLowerCase()}___${(c.codeValue || c.code || '').trim().toUpperCase()}`;
-              if (!mergedMap.has(key)) mergedMap.set(key, c);
+              const codeStr = String(c.codeValue || c.code || '').trim();
+              if (isJunkCode(codeStr)) return;
+              const key = `${(c.gameSlug || c.gameId || '').toLowerCase()}___${codeStr.toUpperCase()}`;
+              if (!mergedMap.has(key)) {
+                const cleanR = normalizeReward(c.rewards || c.description);
+                mergedMap.set(key, { ...c, rewards: cleanR, description: cleanR });
+              }
             }
           });
         }
@@ -1757,6 +1779,18 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
       try {
         const cRes: any = await env.DB.prepare("DELETE FROM codes WHERE UPPER(code) LIKE 'TEST%' OR game_slug LIKE 'test-%' OR game_slug LIKE 'test_%'").run();
         const gRes: any = await env.DB.prepare("DELETE FROM games WHERE slug LIKE 'test-%' OR slug LIKE 'test_%' OR id LIKE 'test-%' OR id LIKE 'test_%' OR name LIKE 'Test %' OR publisher LIKE 'Test Studio%'").run();
+        // Dọn tài khoản test hachimi
+        const mRes: any = await env.DB.prepare("DELETE FROM members WHERE username = 'hachimi' OR id = '2b4a171f-4628-47c8-9473-8e6d17c2220e'").run().catch(() => null);
+        // Dọn mã thumbnail rác WordPress
+        await env.DB.prepare("DELETE FROM codes WHERE UPPER(code) LIKE 'REDEMPTION-SCREEN-%' OR (game_slug = 'anime-defenders' AND UPPER(code) LIKE 'REDEMPTION-%')").run().catch(() => null);
+
+        const membersRaw = await getSettingD1(env.DB, 'wcg_admin_members_v4', []);
+        if (Array.isArray(membersRaw)) {
+          const cleanMembers = membersRaw.filter((m: any) => m.username !== 'hachimi' && m.id !== '2b4a171f-4628-47c8-9473-8e6d17c2220e');
+          if (cleanMembers.length !== membersRaw.length) {
+            await setSettingD1(env.DB, 'wcg_admin_members_v4', cleanMembers);
+          }
+        }
 
         const gamesRaw = await getSettingD1(env.DB, 'wcg_admin_games_v5', []);
         if (Array.isArray(gamesRaw)) {
@@ -3777,6 +3811,26 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
           JSON.stringify({ success: false, error: String(e) }),
           { status: 500, headers: CORS_HEADERS }
         );
+      }
+    }
+
+    // Action: Xóa vĩnh viễn tài khoản thành viên khỏi D1
+    if (body.action === 'admin_delete_member' && env.DB && (body.memberId || body.username)) {
+      try {
+        const targetId = body.memberId || '';
+        const targetUser = body.username || '';
+        const dRes = await env.DB.prepare("DELETE FROM members WHERE id = ? OR username = ?").bind(targetId, targetUser).run();
+        
+        const membersRaw = await getSettingD1(env.DB, 'wcg_admin_members_v4', []);
+        if (Array.isArray(membersRaw)) {
+          const cleanMembers = membersRaw.filter((m: any) => m.id !== targetId && m.username !== targetUser);
+          if (cleanMembers.length !== membersRaw.length) {
+            await setSettingD1(env.DB, 'wcg_admin_members_v4', cleanMembers);
+          }
+        }
+        return new Response(JSON.stringify({ success: true, message: `Đã xóa thành công thành viên ${targetUser || targetId}`, changes: (dRes as any)?.meta?.changes || 0 }), { headers: CORS_HEADERS });
+      } catch (err: any) {
+        return new Response(JSON.stringify({ success: false, error: String(err) }), { status: 500, headers: CORS_HEADERS });
       }
     }
 

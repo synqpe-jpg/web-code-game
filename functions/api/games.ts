@@ -3,6 +3,16 @@ import { isCodeExpired, parseExpirationDate, decodeHtmlEntities } from '../../sr
 import fallbackGamesData from '../../src/data/games188.json';
 import fallbackCodesData from '../../src/data/crawled_codes_188.json';
 
+export const JUNK_CODE_REGEX = /^(?:IN-.*-\d+X\d+|REDEMPTION(?:-SCREEN)?-\d+X\d+)$/i;
+
+export function cleanRewardText(raw: any): string {
+  const text = decodeHtmlEntities(String(raw || '').trim());
+  if (!text || /^(?:quà (?:tặng )?tân thủ(?: & vật phẩm ingame)?|phần thưởng từ nhà phát hành|thưởng của nph|🎁 phần thưởng từ nhà phát hành|quà mừng game ra mắt)$/i.test(text)) {
+    return 'Chưa rõ phần thưởng';
+  }
+  return text;
+}
+
 // Pre-index fallback codes by game slug for instant O(1) retrieval without array scanning
 const fallbackCodesBySlug = new Map<string, GiftCode[]>();
 if (Array.isArray(fallbackCodesData)) {
@@ -11,7 +21,7 @@ if (Array.isArray(fallbackCodesData)) {
     const rawSlug = String(c.gameSlug || c.slug || c.gameId || '').trim().toLowerCase();
     if (!rawSlug) continue;
     const cleanCode = String(c.code || c.codeValue || c.gift_code || '').trim();
-    if (!cleanCode || /^IN-.*-\d+X\d+$/i.test(cleanCode)) continue;
+    if (!cleanCode || JUNK_CODE_REGEX.test(cleanCode)) continue;
 
     let list = fallbackCodesBySlug.get(rawSlug);
     if (!list) {
@@ -21,7 +31,7 @@ if (Array.isArray(fallbackCodesData)) {
     const isExp = isCodeExpired(c);
     list.push({
       code: cleanCode,
-      rewards: decodeHtmlEntities(c.rewards || c.description || 'Quà tân thủ & vật phẩm ingame'),
+      rewards: cleanRewardText(c.rewards || c.description),
       status: isExp ? 'expired' : 'active',
       expiry: c.expiry || c.expires_at || '',
       source: c.source || 'Baseline Catalog',
@@ -182,13 +192,13 @@ export function resolveCodesForGame(g: any, codesMap: Map<string, GiftCode[]>): 
     if (found) {
       for (const c of found) {
         const cleanCode = String(c.code || '').trim();
-        if (!cleanCode || /^IN-.*-\d+X\d+$/i.test(cleanCode)) continue;
+        if (!cleanCode || JUNK_CODE_REGEX.test(cleanCode)) continue;
         const upper = cleanCode.toUpperCase();
         if (!mergedCodesMap.has(upper)) {
           mergedCodesMap.set(upper, {
             ...c,
             code: cleanCode,
-            rewards: decodeHtmlEntities(c.rewards),
+            rewards: cleanRewardText(c.rewards),
           });
         }
       }
@@ -200,13 +210,13 @@ export function resolveCodesForGame(g: any, codesMap: Map<string, GiftCode[]>): 
     for (const c of g.codes) {
       if (c && c.code) {
         const cleanCode = String(c.code).trim();
-        if (!cleanCode || /^IN-.*-\d+X\d+$/i.test(cleanCode)) continue;
+        if (!cleanCode || JUNK_CODE_REGEX.test(cleanCode)) continue;
         const upper = cleanCode.toUpperCase();
         if (!mergedCodesMap.has(upper)) {
           mergedCodesMap.set(upper, {
             ...c,
             code: cleanCode,
-            rewards: decodeHtmlEntities(c.rewards),
+            rewards: cleanRewardText(c.rewards),
           });
         }
       }
@@ -244,12 +254,12 @@ export function formatGameItem(g: any, allCodes: GiftCode[]): GameItem {
     .filter((c) => {
       const codeStr = String(c?.code || '').trim();
       if (!codeStr) return false;
-      if (/^IN-.*-\d+X\d+$/i.test(codeStr)) return false;
+      if (JUNK_CODE_REGEX.test(codeStr)) return false;
       return true;
     })
     .map((c) => ({
       ...c,
-      rewards: decodeHtmlEntities(c.rewards),
+      rewards: cleanRewardText(c.rewards),
     }));
 
   return {
@@ -417,7 +427,7 @@ export async function getLoadedCatalog(
     }
     list.push({
       code: codeStr,
-      rewards: decodeHtmlEntities(item.rewards || item.description || 'Quà tân thủ & vật phẩm ingame'),
+      rewards: cleanRewardText(item.rewards || item.description),
       status: isExp ? 'expired' : 'active',
       expiry: expVal,
       added_at: item.updatedAt || item.updated_at || item.createdAt || item.created_at || (source === 'custom' ? new Date().toISOString() : '2026-10-09T00:00:00Z'),
@@ -620,7 +630,7 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
             const cd = String(c?.code || '').trim();
             if (!cd) return false;
             // Chặn mã rác kích thước ảnh WordPress
-            if (/^IN-.*-\d+X\d+$/i.test(cd)) return false;
+            if (JUNK_CODE_REGEX.test(cd)) return false;
             return true;
           })
           .map((c: any) => {
@@ -628,7 +638,7 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
             const isFakeExp = rawExp === '2026-12-31' || rawExp === '2026-12-31T23:59:59Z' || rawExp === '31/12/2026';
             return {
               code: c.code,
-              rewards: decodeHtmlEntities(c.rewards || 'Quà tân thủ & vật phẩm ingame'),
+              rewards: cleanRewardText(c.rewards),
               status: isCodeExpired(c) ? 'expired' : (c.status || 'active'),
               expiry: isFakeExp ? '' : rawExp,
               source: c.source || '',
@@ -644,7 +654,7 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
           if (Array.isArray(fallbackList) && fallbackList.length > 0) {
             codesList = fallbackList.map((c: any) => ({
               code: c.code,
-              rewards: decodeHtmlEntities(c.rewards || 'Quà tân thủ & vật phẩm ingame'),
+              rewards: cleanRewardText(c.rewards),
               status: isCodeExpired(c) ? 'expired' : (c.status || 'active'),
               expiry: c.expiry || '',
               source: c.source || 'Fallback Catalog',
@@ -933,7 +943,7 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
       for (const item of (fallbackCodesData as any[])) {
         if (!item || !item.code) continue;
         const codeVal = String(item.code || '').trim();
-        if (!codeVal || /^IN-.*-\d+X\d+$/i.test(codeVal)) continue;
+        if (!codeVal || JUNK_CODE_REGEX.test(codeVal)) continue;
         const lowerCode = codeVal.toLowerCase();
         let codeScore = 0;
         if (lowerCode === cleanQ) codeScore = 10000;
@@ -955,7 +965,7 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
               },
               code: {
                 code: codeVal,
-                rewards: decodeHtmlEntities(item.rewards || item.description || 'Quà tân thủ & vật phẩm ingame'),
+                rewards: cleanRewardText(item.rewards || item.description),
                 status: isCodeExpired(item) ? 'expired' : (item.status || 'active'),
                 expiry: item.expiry || '',
               },

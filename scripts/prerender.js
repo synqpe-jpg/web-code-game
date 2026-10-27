@@ -263,9 +263,10 @@ async function runPrerender() {
 
   // 1. Prerender Homepage (dist/index.html)
   const homeTopGames = games.slice(0, 60);
-  const totalCodesFormatted = (crawledCodes.length || 12600).toLocaleString('vi-VN');
-  const totalGamesCount = games.length;
-  const homeDescription = `Kho tổng hợp hơn ${totalCodesFormatted}+ giftcode game mobile và webgame mới nhất 2026 của ${totalGamesCount}+ tựa game (trong đó gồm 188+ game có giấy phép G1 ABEI chính thức và game quốc tế). Cập nhật liên tục 24/7 từ các NPH VNG, Garena, VTC, SohaGame, Funtap.`;
+  const totalCodesFormatted = (crawledCodes.length || 11870).toLocaleString('vi-VN');
+  const canonicalGamesList = games.filter(g => !GAME_CANONICAL_ALIASES[g.slug || g.id]);
+  const canonicalGamesCount = canonicalGamesList.length; // 573
+  const homeDescription = `Kho tổng hợp hơn ${totalCodesFormatted}+ giftcode game mobile và webgame mới nhất 2026 của ${canonicalGamesCount} tựa game chuẩn (trong đó gồm 347 game có giấy phép G1 ABEI chính thức và game quốc tế). Cập nhật liên tục 24/7 từ các NPH VNG, Garena, VTC, SohaGame, Funtap.`;
 
   const homeHtml = buildPageHtml({
     title: 'CodeGame.shop - Săn Giftcode Miễn Phí & Giao Dịch Mã Game Uy Tín',
@@ -433,13 +434,13 @@ async function runPrerender() {
                 <span class="font-bold text-white text-sm">CodeGame.Shop</span>
               </div>
               <p class="text-gray-400 text-xs leading-relaxed">
-                Kho tổng hợp hơn ${totalCodesFormatted}+ giftcode game mobile và webgame mới nhất 2026 của ${totalGamesCount}+ tựa game (trong đó gồm 188+ game có giấy phép G1 ABEI chính thức và game quốc tế).
+                Kho tổng hợp hơn ${totalCodesFormatted}+ giftcode game mobile và webgame mới nhất 2026 của ${canonicalGamesCount} tựa game chuẩn (trong đó gồm 347 game có giấy phép G1 ABEI chính thức và game quốc tế).
               </p>
             </div>
             <div>
               <h4 class="font-bold text-white text-xs mb-2">Chuyên Mục Hot</h4>
               <ul class="space-y-1 text-[11px]">
-                <li><a href="/danh-sach-game-a-z" class="text-brand-400 hover:underline">📚 Danh Mục Game A-Z (580+)</a></li>
+                <li><a href="/danh-sach-game-a-z" class="text-brand-400 hover:underline">📚 Danh Mục Game A-Z (573 Game)</a></li>
                 <li><a href="/the-loai/kiem-hiep-tien-hiep" class="hover:text-white">⚔️ Kiếm Hiệp & Tiên Hiệp</a></li>
                 <li><a href="/the-loai/nhap-vai-gacha-anime" class="hover:text-white">✨ Nhập Vai Gacha & Anime</a></li>
                 <li><a href="/the-loai/ban-sung-sinh-ton" class="hover:text-white">🎯 Bắn Súng & Sinh Tồn</a></li>
@@ -958,6 +959,7 @@ async function runPrerender() {
       cleanId,
       cleanId.replace(/-mobile$/i, ''),
       ...(normSlug === 'huyen-thoai-hai-tac' || normSlug === 'pirate-legends' ? ['huyen-thoai-hai-tac', 'pirate-legends'] : []),
+      ...(normSlug === 'yen-van-thap-luc-thanh' || normSlug === 'where-winds-meet-mobile' ? ['yen-van-thap-luc-thanh', 'where-winds-meet-mobile'] : []),
     ]);
 
     const seenCodeVals = new Set();
@@ -1498,7 +1500,7 @@ async function runPrerender() {
   const azDir = path.join(distDir, 'danh-sach-game-a-z');
   if (!fs.existsSync(azDir)) fs.mkdirSync(azDir, { recursive: true });
 
-  const sortedGames = [...games].sort((a, b) => (a.name || '').localeCompare(b.name || '', 'vi'));
+  const sortedGames = [...games].filter(g => !GAME_CANONICAL_ALIASES[g.slug || g.id]).sort((a, b) => (a.name || '').localeCompare(b.name || '', 'vi'));
   const alphabetMap = new Map();
 
   for (const g of sortedGames) {
@@ -1512,7 +1514,7 @@ async function runPrerender() {
 
   const azHtml = buildPageHtml({
     title: 'Danh Sách Tựa Game A-Z & Tra Cứu Giftcode Toàn Diện | CodeGame.shop',
-    description: `Tra cứu danh bạ toàn bộ hơn ${games.length}+ tựa game mobile và webgame theo bảng chữ cái A-Z. Cập nhật giftcode còn hạn, hướng dẫn nhập và bản quyền G1.`,
+    description: `Tra cứu danh bạ toàn bộ ${sortedGames.length} tựa game mobile và webgame theo bảng chữ cái A-Z. Cập nhật giftcode còn hạn, hướng dẫn nhập và bản quyền G1.`,
     canonicalPath: '/danh-sach-game-a-z',
     ogImage: 'https://codegame.shop/og-image.jpg',
     ogType: 'website',
@@ -1521,7 +1523,7 @@ async function runPrerender() {
         '@context': 'https://schema.org',
         '@type': 'CollectionPage',
         name: 'Danh Sách Tựa Game A-Z - CodeGame.shop',
-        description: `Danh bạ ${games.length}+ tựa game cập nhật giftcode mới nhất 2026.`,
+        description: `Danh bạ ${sortedGames.length} tựa game cập nhật giftcode mới nhất 2026.`,
         url: `${BASE_URL}/danh-sach-game-a-z`,
       },
       {
@@ -1554,7 +1556,7 @@ async function runPrerender() {
               📚 Thư Viện Tra Cứu Game Toàn Diện
             </div>
             <h1 class="text-2xl sm:text-4xl font-black text-white">
-              Danh Mục ${games.length}+ Tựa Game Theo Bảng Chữ Cái (A - Z)
+              Danh Mục ${sortedGames.length} Tựa Game Theo Bảng Chữ Cái (A - Z)
             </h1>
             <p class="text-xs sm:text-sm text-gray-300 max-w-2xl mx-auto leading-relaxed">
               Dễ dàng tra cứu thông tin giftcode, hướng dẫn nhập quà và số giấy phép G1 ABEI của tất cả các tựa game đang phát hành tại Việt Nam và quốc tế.

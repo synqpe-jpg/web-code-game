@@ -134,7 +134,7 @@ export const Footer: React.FC<FooterProps> = ({ onSelectCategory, categories, on
                     className="text-primary-light font-bold hover:underline transition-colors text-left flex items-center gap-1.5"
                   >
                     <span>📚 Danh Sách Game A-Z</span>
-                    <span className="text-[10px] bg-primary/20 text-primary-light px-1.5 py-0.5 rounded font-mono">580+</span>
+                    <span className="text-[10px] bg-primary/20 text-primary-light px-1.5 py-0.5 rounded font-mono">573</span>
                   </a>
                 </li>
                 <li>

@@ -10,6 +10,19 @@
 
 ## 1. DANH MỤC LỖI & CÁC BẪY ĐÃ THẤT BẠI (DO NOT REPEAT)
 
+### ISSUE-149: Bẫy Lệch Tầng Giữa Master State Và File Fallback, Mã Rác Thumbnail WordPress & Lệch Nguồn Đếm Số Liệu Trang Chủ
+- **Triệu chứng**:
+  - Tựa game Yến Vân Thập Lục Thanh có 5 mã mới quét trong Master State nhưng thiếu trong tệp JSON fallback, khiến API trả 615 trong khi trang đếm 620.
+  - Các tựa game Genshin Impact và Anime Defenders chứa mã rác dạng REDEMPTION-SCREEN-<width>X<height> do crawler cào nhầm tên ảnh bài viết WordPress.
+  - Số liệu mô tả trang chủ (580+) không khớp số lượng 573 game canonical trong sitemap và A-Z.
+- **Giải pháp chuẩn đã kiểm chứng**:
+  1. Đồng bộ 5 mã quét mới vào cả src/data/crawled_codes_188.json và public/data/crawled_codes_188.json, nâng tổng số mã lên 620 (584 active, 36 expired) đồng nhất toàn sàn.
+  2. Xóa 18 mã thumbnail rác, bổ sung regex chặn JUNK_CODE_REGEX đa tầng.
+  3. Chuẩn hóa toàn bộ 6.206 chuỗi generic về "Chưa rõ phần thưởng".
+  4. Quy chuẩn số liệu mô tả trang chủ: 573 tựa game chuẩn (347 game G1 ABEI) và 11.882+ giftcode.
+
+---
+
 ### ISSUE-148: Bẫy Thin Content / Soft 404 Trên Trang 0 Mã, Chuỗi Boilerplate Rác Từ Domain Cũ & Xung Đột Thư Mục Tĩnh /g/
 - **Triệu chứng**:
   - Hơn 750 trang rơi vào trạng thái "Đã phát hiện thấy – hiện chưa được lập chỉ mục" trên Google Search Console.

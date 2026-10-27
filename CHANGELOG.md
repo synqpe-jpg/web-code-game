@@ -7,6 +7,17 @@ Mỗi mục sửa lỗi đều ghi nhận **Nguyên nhân gốc rễ (Root Cause
 
 ## [2026-10-27]
 
+### 229. Đồng Bộ Yến Vân 620 Mã, Dọn Rác Thumbnail REDEMPTION-SCREEN, Chuẩn Hóa Nhãn "Chưa Rõ Phần Thưởng", Thống Nhất Số Liệu 573 Game A-Z & Dọn Tài Khoản Test
+- **Bối cảnh & Yêu cầu từ Người dùng**:
+  - Người dùng yêu cầu xử lý dứt điểm 6 việc: Yến Vân lệch tầng, dọn rác thumbnail, chuẩn hóa nhãn phần thưởng, đồng bộ số liệu mô tả 573 game A-Z, bảng map 1 nấc .store, dọn tài khoản test hachimi, và liệt kê 7 bản ghi ADMIN_ADJUST.
+- **Giải pháp thành công (Solution)**:
+  1. Đồng bộ 5 mã Yến Vân vào cả src và public, đưa tổng số mã lên 620 mã (584 active, 36 expired) khớp 100% giữa trang và API.
+  2. Dọn sạch 18 mã thumbnail rác WordPress (11 REDEMPTION-SCREEN-* và 7 REDEMPTION-*). Chuẩn hóa 6.206 phần thưởng generic về "Chưa rõ phần thưởng" đa tầng.
+  3. Đồng bộ mô tả trang chủ và H1 trang A-Z theo số liệu chuẩn 573 game canonical, 347 game G1 ABEI, 11.882+ giftcode.
+  4. Xóa vĩnh viễn tài khoản test hachimi khỏi D1.
+
+---
+
 ### 228. Tối Ưu Hóa Kỹ Thuật SEO Toàn Diện, Topic Clusters, Danh Mục Game A-Z, Ngày Cập Nhật Xác Thực & Dọn Sạch Chuỗi Rác
 - **Bối cảnh & Yêu cầu từ Người dùng**:
   - Người dùng yêu cầu tối ưu hóa khả năng SEO cho codegame.shop: giải quyết tình trạng 756 trang "Đã phát hiện thấy – hiện chưa được lập chỉ mục", loại bỏ hoàn toàn các chuỗi boilerplate rác ("Giftcode độc quyền cập nhật từ https://codegame.store/"), đồng bộ mẫu tiêu đề, xử lý trang 0 mã (tránh thin content / soft 404), hiển thị ngày cập nhật thực tế `dd/mm/yyyy`, phân biệt rõ 188+ game có giấy phép G1 ABEI chính thức và game quốc tế, xây dựng cụm chủ đề Topic Clusters (`/the-loai/:slug`), mục lục A-Z (`/danh-sach-game-a-z`), làm sạch sitemap (loại bỏ aliases trùng lặp, giữ 100% URL chuẩn 200 OK), dọn dẹp thư mục tĩnh `/g/` để Edge Worker 301 hoạt động tuyệt đối.
