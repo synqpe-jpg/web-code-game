@@ -199,6 +199,24 @@ async function runRegressionSuite() {
         })
       });
 
+      await fetchJson('/api/crawler/ingest-codes', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${API_KEY}`
+        },
+        body: JSON.stringify({
+          action: 'cleanup_test_codes',
+          codes: [
+            'ACCESS GRANTED',
+            'MACRO!',
+            'MS.FAMILIAR',
+            'WHAT_NEXT?',
+            'ckwy32t1eeevs_lower'
+          ]
+        })
+      });
+
       await fetchJson('/api/sync', {
         method: 'POST',
         headers: {

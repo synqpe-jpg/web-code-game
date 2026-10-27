@@ -2335,6 +2335,7 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
     // Xử lý action đặc biệt: Dọn dẹp sạch mã test theo Rule 7 (Zero Test Artifacts on Production)
     if (body && body.action === 'cleanup_test_codes') {
       const prefix = String(body.prefix || 'TEST').toUpperCase();
+      const explicitCodes = Array.isArray(body.codes) ? new Set(body.codes.map((c: string) => String(c).trim().toUpperCase())) : new Set();
       const existingCustomCodes = Array.isArray(settings['wcg_admin_custom_free_codes_v1'])
         ? [...settings['wcg_admin_custom_free_codes_v1']]
         : [];
@@ -2342,7 +2343,7 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
       const beforeCount = existingCustomCodes.length;
       const cleanCustomCodes = existingCustomCodes.filter((c: any) => {
         const val = String(c.code || c.codeValue || c.gift_code || '').trim().toUpperCase();
-        return !val.startsWith(prefix);
+        return !val.startsWith(prefix) && !explicitCodes.has(val);
       });
       const removedCount = beforeCount - cleanCustomCodes.length;
 
@@ -2352,6 +2353,12 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
         try {
           const dbCodesRes: any = await env.DB.prepare("DELETE FROM codes WHERE UPPER(code) LIKE ? OR game_slug LIKE 'test-%' OR game_slug LIKE 'test_%'").bind(`${prefix}%`).run();
           dbDeletedCount = dbCodesRes?.meta?.changes || 0;
+
+          if (explicitCodes.size > 0) {
+            const codeArr = Array.from(explicitCodes);
+            const placeholders = codeArr.map(() => '?').join(', ');
+            await env.DB.prepare(`DELETE FROM codes WHERE UPPER(code) IN (${placeholders})`).bind(...codeArr).run().catch(() => {});
+          }
 
           const dbGamesRes: any = await env.DB.prepare("DELETE FROM games WHERE slug LIKE 'test-%' OR slug LIKE 'test_%' OR id LIKE 'test-%' OR id LIKE 'test_%' OR name LIKE 'Test %' OR publisher LIKE 'Test Studio%'").run();
           dbDeletedGamesCount = dbGamesRes?.meta?.changes || 0;

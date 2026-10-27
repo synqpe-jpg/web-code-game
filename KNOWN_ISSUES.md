@@ -10,6 +10,23 @@
 
 ## 1. DANH MỤC LỖI & CÁC BẪY ĐÃ THẤT BẠI (DO NOT REPEAT)
 
+### ISSUE-154: Bẫy Sót Mã Test Sau Khi Chạy Script Kiểm Thử & Lỗi Typo Cột CSDL code_content
+- **Triệu chứng**:
+  - Sau khi chạy bài kiểm thử tự động `npm run test:ingest`, trên CSDL production vẫn còn tồn tại các mã test (như `ACCESS GRANTED`, `MACRO!`, `MS.FAMILIAR`, `WHAT_NEXT?`, `ckwy32t1eeevs_lower`).
+  - Trong kho Giveaway, mã test `TESTCODE2` không bị xóa khi câu lệnh SQL DELETE chạy qua `WHERE UPPER(code) LIKE 'TEST%'`.
+- **Nguyên nhân gốc rễ (Root Cause)**:
+  1. *Khối cleanup của script test không bao phủ hết các ca kiểm thử*: Script test kiểm tra ký tự đặc biệt tạo ra các mã cố định không có tiền tố `SunbringerTest`, nhưng khối dọn dẹp chỉ xóa theo prefix đó, dẫn đến việc bỏ sót mã trong CSDL.
+  2. *Lỗi typo tên cột trong bảng `giveaway_codes`*: Bảng SQL lưu mã theo cột `code_content`, nhưng câu lệnh dọn dẹp lại viết `UPPER(code)`, gây lỗi truy vấn âm thầm và không xóa được mã.
+- **Giải pháp chuẩn đã kiểm chứng**:
+  1. *Tự động dọn dẹp 100% mã trong `finally`*: Mọi script kiểm thử bắt buộc phải truyền danh sách đầy đủ tất cả các mã phát sinh vào lệnh dọn dẹp `cleanup_test_codes` ngay trong khối `finally`.
+  2. *Đúng chuẩn schema SQL*: Bảng `giveaway_codes` dùng cột `code_content`. Mọi truy vấn xóa hoặc tìm kiếm mã kho đều phải dùng `code_content`.
+  3. *Cổng gác tự động (Gatekeeper Gate)*: `scripts/audit_zero_test_artifacts.cjs` tự động kiểm tra `codes_pool` của toàn bộ Giveaway và kho `customFreeCodes`; nếu có mã test, chặn đứng quá trình build ngay lập tức.
+- ⛔ **CÁCH SỬA ĐÃ THẤT BẠI - TUYỆT ĐỐI KHÔNG LẶP LẠI**:
+  - ❌ *Không bao giờ viết script test mà khối dọn dẹp chỉ dọn một nửa số mã đã tạo*: Bắt buộc dọn 100% mọi mã test.
+  - ❌ *Không dùng cột `code` khi thao tác bảng `giveaway_codes`*: Phải dùng `code_content`.
+
+---
+
 ### ISSUE-153: Bẫy Mất Dữ Liệu Kho Mã & Luật Đợt Phát Khi Reset/F5 Admin (Async Race Condition & D1 Empty Pool Purge)
 - **Triệu chứng**:
   - Quản trị viên vừa nhập hàng loạt mã code vào kho phát Giveaway hoặc điều chỉnh luật đợt phát, sau đó nhấn F5 hoặc reset lại trang Admin thì toàn bộ mã mới nhập bị biến mất và luật trở về như cũ.

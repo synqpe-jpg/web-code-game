@@ -50,6 +50,11 @@ if (badGw.length > 0) {
   console.error('❌ LỖI NGHIÊM TRỌNG: Phát hiện chiến dịch test trong giveaways.json:', badGw.map(g => ({ id: g.id, title: g.title })));
   process.exit(1);
 }
+const badGwPools = giveaways.filter(g => (g.codes_pool || []).some(c => String(c).toUpperCase().startsWith('TEST')));
+if (badGwPools.length > 0) {
+  console.error('❌ LỖI NGHIÊM TRỌNG: Phát hiện mã test trong kho Giveaway:', badGwPools.map(g => ({ id: g.id, title: g.title, pool: g.codes_pool })));
+  process.exit(1);
+}
 console.log(`   ✅ giveaways.json sạch 100% (${giveaways.length} chiến dịch thực tế, 0 mục test).`);
 
 // 2. Audit src/data/storeProducts.json

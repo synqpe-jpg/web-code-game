@@ -4042,6 +4042,132 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
       }
     }
 
+    // Action: Xóa sạch toàn bộ các mã test và tài khoản test còn sót lại (Rule 7 SSOT)
+    if (body.action === 'admin_purge_remaining_test_artifacts' && env.DB) {
+      if (!authorized) {
+        return new Response(JSON.stringify({ success: false, error: 'Unauthorized: Yêu cầu quyền Quản trị viên.' }), { status: 403, headers: CORS_HEADERS });
+      }
+      try {
+        const remainingTestUsernames = [
+          'test_acid_1791290210426',
+          'test_acid_1791290179321',
+          'admin_tester_1789097601093',
+          'gamer_2414',
+          'Test QA User',
+          'playertest1',
+          'Test Util',
+          'Test Buyer',
+          'admin_verify_1789117157058',
+          'forged_admin_1789098860079'
+        ];
+        const remainingTestIds = [
+          'usr_1791556272939_w9k8',
+          'usr_1791048539676_4yt4',
+          'usr_playertest1',
+          'usr_1791169589043_qy25',
+          'usr_1791169551615_sjx5',
+          '66a8bd1c-83e7-4c69-9188-9db7fa5cb4f2',
+          'attacker-forged-admin-1789098860079'
+        ];
+
+        // 1. Xóa các tài khoản test còn lại
+        const placeholders = remainingTestUsernames.map(() => '?').join(', ');
+        const idPlaceholders = remainingTestIds.map(() => '?').join(', ');
+        const delMemRes = await env.DB.prepare(`DELETE FROM members WHERE username IN (${placeholders}) OR id IN (${idPlaceholders})`).bind(...remainingTestUsernames, ...remainingTestIds).run();
+
+        const userSet = new Set([...remainingTestUsernames.map(u => u.toLowerCase()), ...remainingTestIds.map(i => i.toLowerCase())]);
+        const membersRaw = await getSettingD1(env.DB, 'wcg_admin_members_v4', []);
+        let cleanedMembersCount = 0;
+        if (Array.isArray(membersRaw)) {
+          const cleanMembers = membersRaw.filter((m: any) => !userSet.has((m.username || '').toLowerCase()) && !userSet.has((m.id || '').toLowerCase()));
+          if (cleanMembers.length !== membersRaw.length) {
+            cleanedMembersCount = membersRaw.length - cleanMembers.length;
+            await setSettingD1(env.DB, 'wcg_admin_members_v4', cleanMembers);
+          }
+        }
+
+        // 2. Xóa 5 mã test trong customFreeCodes và D1 table codes
+        const testCodeValues = [
+          'ACCESS GRANTED',
+          'MACRO!',
+          'MS.FAMILIAR',
+          'WHAT_NEXT?',
+          'ckwy32t1eeevs_lower'
+        ];
+        const codeUpperSet = new Set(testCodeValues.map(c => c.toUpperCase()));
+        const customCodesRaw = await getSettingD1(env.DB, 'wcg_admin_custom_free_codes_v1', []);
+        let cleanedCustomCodesCount = 0;
+        if (Array.isArray(customCodesRaw)) {
+          const cleanCustom = customCodesRaw.filter((c: any) => !codeUpperSet.has(String(c.code || c.codeValue || '').trim().toUpperCase()));
+          if (cleanCustom.length !== customCodesRaw.length) {
+            cleanedCustomCodesCount = customCodesRaw.length - cleanCustom.length;
+            await setSettingD1(env.DB, 'wcg_admin_custom_free_codes_v1', cleanCustom);
+          }
+        }
+        const codePlaceholders = testCodeValues.map(() => '?').join(', ');
+        const delCodesRes = await env.DB.prepare(`DELETE FROM codes WHERE UPPER(code) IN (${codePlaceholders})`).bind(...testCodeValues.map(c => c.toUpperCase())).run().catch(() => null);
+
+        // 3. Xóa mã TESTCODE2 khỏi kho Giveaway Tiên Nghịch Mobile (gw_1791639381997_w49)
+        const delGwCodesRes = await env.DB.prepare("DELETE FROM giveaway_codes WHERE giveaway_id = 'gw_1791639381997_w49' AND (UPPER(code_content) LIKE 'TEST%' OR code_content = 'TESTCODE2')").run().catch(() => null);
+
+        const giveawaysRaw = await getSettingD1(env.DB, 'wcg_admin_giveaways_v4', []);
+        let cleanedGwCount = 0;
+        if (Array.isArray(giveawaysRaw)) {
+          const updatedGiveaways = giveawaysRaw.map((gw: any) => {
+            if (gw.id === 'gw_1791639381997_w49') {
+              const cleanPool = (gw.codes_pool || []).filter((c: string) => !String(c).toUpperCase().startsWith('TEST'));
+              cleanedGwCount = (gw.codes_pool || []).length - cleanPool.length;
+              const rem = cleanPool.length;
+              return {
+                ...gw,
+                codes_pool: cleanPool,
+                remaining_codes: rem,
+                total_codes: (Number(gw.claimed_codes) || 0) + rem,
+                updated_at: new Date().toISOString()
+              };
+            }
+            return gw;
+          });
+          await setSettingD1(env.DB, 'wcg_admin_giveaways_v4', updatedGiveaways);
+          await env.DB.prepare("UPDATE giveaways SET remaining_codes = (SELECT COUNT(*) FROM giveaway_codes WHERE giveaway_id = 'gw_1791639381997_w49' AND status = 'AVAILABLE') WHERE id = 'gw_1791639381997_w49'").run().catch(() => null);
+        }
+
+        const masterRaw = await getSettingD1(env.DB, 'wcg_master_state_v4', {}).catch(() => ({}));
+        if (masterRaw && Array.isArray(masterRaw.giveaways)) {
+          masterRaw.giveaways = masterRaw.giveaways.map((gw: any) => {
+            if (gw.id === 'gw_1791639381997_w49') {
+              const cleanPool = (gw.codes_pool || []).filter((c: string) => !String(c).toUpperCase().startsWith('TEST'));
+              return {
+                ...gw,
+                codes_pool: cleanPool,
+                remaining_codes: cleanPool.length,
+                total_codes: (Number(gw.claimed_codes) || 0) + cleanPool.length,
+                updated_at: new Date().toISOString()
+              };
+            }
+            return gw;
+          });
+          await setSettingD1(env.DB, 'wcg_master_state_v4', masterRaw);
+        }
+
+        invalidateGamesCatalogCache();
+        await invalidateCatalogEdgeCache(context as any, request, env).catch(() => {});
+
+        return new Response(JSON.stringify({
+          success: true,
+          message: 'Đã dọn dẹp sạch sẽ toàn bộ mã test và tài khoản test còn lại trên D1 và KV!',
+          deletedMembersD1: (delMemRes as any)?.meta?.changes || 0,
+          cleanedMembersAdmin: cleanedMembersCount,
+          cleanedCustomCodes: cleanedCustomCodesCount,
+          deletedCodesD1: (delCodesRes as any)?.meta?.changes || 0,
+          deletedGiveawayTestCodes: (delGwCodesRes as any)?.meta?.changes || 0,
+          cleanedGwPoolCodes: cleanedGwCount
+        }), { headers: CORS_HEADERS });
+      } catch (err: any) {
+        return new Response(JSON.stringify({ success: false, error: String(err?.message || err) }), { status: 500, headers: CORS_HEADERS });
+      }
+    }
+
     // Action: Đối soát và đồng bộ chuẩn hóa số dư thành viên theo sổ cái wallet_transactions
     if (body.action === 'reconcile_member_balances' && env.DB) {
       try {

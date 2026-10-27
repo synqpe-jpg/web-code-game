@@ -7,6 +7,32 @@ Mỗi mục sửa lỗi đều ghi nhận **Nguyên nhân gốc rễ (Root Cause
 
 ## [2026-10-27]
 
+### 234. Quét Dọn Sạch Toàn Diện 100% Mã Test, Tài Khoản Test Còn Sót Lại & Khóa Chặn Tự Động Theo Rule 7 (Zero Test Artifacts)
+- **Bối cảnh & Yêu cầu từ Người dùng**:
+  - Người dùng yêu cầu: *"Ok xóa giúp tôi, lần sau không còn hiện tượng để mã test hay tào khoản sản phẩm test sau khi test xong nhé, ghi nhớ giúp tôi."*
+  - Rà soát toàn bộ CSDL và hệ thống sau khi kiểm tra:
+    1. 18 tài khoản test yêu cầu xóa trước đó (`wal_usr_...`, `hachimi`, 15 tài khoản 0đ) đã được xác nhận xóa sạch 100%.
+    2. Phát hiện còn 10 tài khoản test cũ 0đ chưa từng được lệnh xóa trước đây (`test_acid_...`, `admin_tester_...`, `Test QA User`, `Test Util`, `Test Buyer`, v.v.).
+    3. Phát hiện 1 mã `TESTCODE2` trong kho Giveaway Tiên Nghịch Mobile (từ lượt test tính năng lưu kho mã).
+    4. Phát hiện 5 mã test trong `customFreeCodes` do script `test:ingest` vừa tạo nhưng khối cleanup cũ chưa xóa.
+- **Nguyên nhân gốc rễ (Root Cause)**:
+  1. *Khối cleanup của script `scripts/test_ingest_regression.cjs` bị thiếu danh sách mã*: Script chỉ dọn dẹp các mã có prefix `SunbringerTest` và `FRESH_`, bỏ quên 5 mã test ký tự đặc biệt (`ACCESS GRANTED`, `MACRO!`, `MS.FAMILIAR`, `WHAT_NEXT?`, `ckwy32t1eeevs_lower`).
+  2. *Lỗi chính tả tên cột trong câu truy vấn SQL D1*: Bảng `giveaway_codes` sử dụng tên cột `code_content` thay vì `code`, khiến câu lệnh DELETE trước đó không xóa được `TESTCODE2`.
+  3. *Tồn dư các tài khoản test cũ từ các đợt kiểm thử QA và bảo mật*: Các tài khoản `test_acid_...`, `Test QA User`, `forged_admin_...` không có số dư và không có đơn hàng nhưng chưa được quét dọn tập trung.
+- **Giải pháp thành công (Solution)**:
+  1. *Sao lưu CSDL toàn vẹn*: Đã tạo file `data/backups/backup_pre_purge_remaining_test_artifacts_20261027.json` (13.10 MB).
+  2. *Thực thi xóa sạch triệt để trên D1 và KV*:
+     - Xóa toàn bộ 10 tài khoản test cũ khỏi bảng `members` và `wcg_admin_members_v4`. Số lượng thành viên giảm từ 493 xuống đúng 483 thành viên thực tế.
+     - Xóa mã `TESTCODE2` khỏi kho Giveaway `gw_1791639381997_w49` qua endpoint targeted sync. Kho Giveaway đạt trạng thái sạch sẽ 100% (0 mã test).
+     - Xóa 5 mã test Zenless Zone Zero khỏi `wcg_admin_custom_free_codes_v1` và bảng D1 `codes`.
+  3. *Khóa chặn triệt để — Không bao giờ để lại mã test sau khi test*:
+     - Tại `functions/api/crawler/ingest-codes.ts`: Mở rộng action `cleanup_test_codes` để hỗ trợ mảng `body.codes` chi tiết.
+     - Tại `scripts/test_ingest_regression.cjs`: Khối `finally` tự động gọi lệnh xóa sạch 100% tất cả các mã test mà bài kiểm thử sinh ra. Chạy lại test: Xác nhận sau test không còn bất kỳ mã nào sót lại.
+     - Tại `scripts/audit_zero_test_artifacts.cjs`: Bổ sung cổng gác (gatekeeper) kiểm tra nghiêm ngặt mảng `codes_pool` của toàn bộ Giveaway; nếu phát hiện bất kỳ mã test nào, quy trình build sẽ lập tức hủy bỏ (`exit 1`) và không cho phép deploy.
+  4. *Bảo toàn khách hàng thật*: 7 khách hàng thật có số dư với tổng số 52.068đ được bảo toàn 100%.
+
+---
+
 ### 233. Khắc Phục Triệt Để Mất Dữ Liệu Kho Mã & Luật Đợt Phát Giveaway Khi Reset/F5 Trang Admin
 - **Bối cảnh & Yêu cầu từ Người dùng**:
   - Người dùng phản ánh: *"Khi tôi reset lại ttrang admin thì mất luôn dữ liẹu code vừa nhập và sửa luật rồi. Nếu lỗi này chưa sửa trước đó thì sửa giúp tôi, đảm bảo từ nay về sau không tái diễn nữa."* (kèm ảnh chụp màn hình trang Quản trị Cấp Phát Code VIP & Sự Kiện Giveaway).
