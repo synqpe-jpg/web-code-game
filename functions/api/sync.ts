@@ -3833,6 +3833,129 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
       }
     }
 
+    // Action: Di chuyển tài khoản, mật khẩu (Bcrypt) và số dư từ codegame.store sang codegame.shop
+    if (body.action === 'migrate_store_accounts' && env.DB && Array.isArray(body.accounts)) {
+      if (!authorized) {
+        return new Response(
+          JSON.stringify({ success: false, error: 'Unauthorized: Bạn cần quyền Quản trị viên để thực hiện chuyển đổi dữ liệu.' }),
+          { status: 403, headers: CORS_HEADERS }
+        );
+      }
+
+      try {
+        await ensureSchemaUpgrades(env.DB);
+        const accounts = body.accounts;
+
+        // 1. Lấy danh sách ID, username, email hiện tại trong bảng members để chống va chạm
+        const existingMembers = await env.DB.prepare("SELECT id, LOWER(TRIM(username)) AS username, LOWER(TRIM(email)) AS email FROM members").all<any>();
+        const existingIdSet = new Set<string>();
+        const existingUsernameSet = new Set<string>();
+        const existingEmailSet = new Set<string>();
+
+        if (existingMembers?.results) {
+          for (const m of existingMembers.results) {
+            if (m.id) existingIdSet.add(String(m.id).trim());
+            if (m.username) existingUsernameSet.add(String(m.username).trim());
+            if (m.email) existingEmailSet.add(String(m.email).trim());
+          }
+        }
+
+        let totalInserted = 0;
+        let totalSkipped = 0;
+        let totalBalanceMigrated = 0;
+        const skippedList: any[] = [];
+        const insertedList: any[] = [];
+        const stmts: D1PreparedStatement[] = [];
+
+        for (const acc of accounts) {
+          if (!acc || !acc.id || !acc.username) {
+            totalSkipped++;
+            continue;
+          }
+
+          const rawId = String(acc.id).trim();
+          const rawUsername = String(acc.username).trim();
+          const lowerUsername = rawUsername.toLowerCase();
+          const rawEmail = String(acc.email || `${rawUsername}@codegame.store`).trim();
+          const lowerEmail = rawEmail.toLowerCase();
+          const balance = Math.max(0, Number(acc.balance) || 0);
+
+          // Kiểm tra va chạm: Bỏ qua nếu ID, Username hoặc Email đã tồn tại trên .shop
+          if (existingIdSet.has(rawId) || existingUsernameSet.has(lowerUsername) || existingEmailSet.has(lowerEmail)) {
+            totalSkipped++;
+            skippedList.push({
+              username: rawUsername,
+              email: rawEmail,
+              balance,
+              reason: existingIdSet.has(rawId) ? 'Trùng ID' : (existingUsernameSet.has(lowerUsername) ? 'Trùng Username' : 'Trùng Email'),
+            });
+            continue;
+          }
+
+          // Đánh dấu vào set để tránh trùng lặp trong chính danh sách import
+          existingIdSet.add(rawId);
+          existingUsernameSet.add(lowerUsername);
+          existingEmailSet.add(lowerEmail);
+
+          const role = 'MEMBER';
+          const status = acc.is_banned === 1 ? 'BANNED' : 'ACTIVE';
+          const salt = 'store_bcrypt';
+          const passwordHash = String(acc.password_hash || '').trim();
+          const createdAt = acc.created_at || new Date().toISOString();
+
+          // Thêm lệnh INSERT member
+          stmts.push(
+            env.DB.prepare(`
+              INSERT INTO members (id, username, display_name, email, phone, role, balance, total_spent, status, salt, password_hash, created_at, updated_at)
+              VALUES (?, ?, ?, ?, '', ?, ?, 0, ?, ?, ?, ?, datetime('now'))
+            `).bind(rawId, rawUsername, rawUsername, rawEmail, role, balance, status, salt, passwordHash, createdAt)
+          );
+
+          // Nếu có số dư ví > 0, thêm bản ghi giao dịch số dư vào wallet_transactions để kiểm toán sổ cái
+          if (balance > 0) {
+            const txId = `TX-STORE-MIGRATE-${rawId.slice(0, 8)}`;
+            const txTime = acc.wallet_updated_at || acc.created_at || new Date().toISOString();
+            stmts.push(
+              env.DB.prepare(`
+                INSERT INTO wallet_transactions (id, member_id, member_email, type, amount, balance_before, balance_after, description, status, created_at)
+                VALUES (?, ?, ?, 'ADMIN_ADJUST', ?, 0, ?, 'Đồng bộ số dư chuyển đổi từ codegame.store', 'COMPLETED', ?)
+              `).bind(txId, rawId, rawEmail, balance, balance, txTime)
+            );
+            totalBalanceMigrated += balance;
+          }
+
+          totalInserted++;
+          insertedList.push({ username: rawUsername, email: rawEmail, balance });
+        }
+
+        // Thực thi theo batch 50 statements một lần
+        const BATCH_SIZE = 50;
+        for (let i = 0; i < stmts.length; i += BATCH_SIZE) {
+          const batch = stmts.slice(i, i + BATCH_SIZE);
+          await env.DB.batch(batch);
+        }
+
+        return new Response(
+          JSON.stringify({
+            success: true,
+            message: `Chuyển đổi thành công ${totalInserted} tài khoản từ codegame.store sang codegame.shop (bỏ qua ${totalSkipped} tài khoản trùng/admin). Tổng số dư ví đã chuyển: ${totalBalanceMigrated.toLocaleString('vi-VN')} VNĐ.`,
+            totalProcessed: accounts.length,
+            totalInserted,
+            totalSkipped,
+            totalBalanceMigrated,
+            insertedList: insertedList.filter(u => u.balance > 0),
+            skippedList,
+          }),
+          { headers: CORS_HEADERS }
+        );
+      } catch (err: any) {
+        return new Response(
+          JSON.stringify({ success: false, error: err?.message || String(err) }),
+          { status: 500, headers: CORS_HEADERS }
+        );
+      }
+    }
+
     let currentMaster: any = {};
     if (env.DB) {
       try {

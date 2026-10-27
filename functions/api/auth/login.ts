@@ -1,5 +1,5 @@
 import { ensureSchemaUpgrades } from '../../services/d1_service';
-import { computeHash, createSignedToken, getSigningSecret } from '../../services/auth_service';
+import { computeHash, createSignedToken, getSigningSecret, isBcryptHash, verifyBcryptPassword } from '../../services/auth_service';
 
 interface Env {
   DB: D1Database;
@@ -201,26 +201,51 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
       );
     }
 
-    // 4. Verify Password securely
+    // 4. Verify Password securely (Hybrid Auth: PBKDF2/SHA-256 + Migrated Bcrypt)
     const pepper = env.PASSWORD_PEPPER || 'wcg_edge_sec_salt_2026';
     const salt = member.salt || 'wcg_admin_salt_seed_2026';
     const storedHash = member.password_hash || member.passwordHash;
     let isPasswordValid = false;
+    let isBcryptMatch = false;
 
-    if (storedHash && salt) {
-      const computedWithPepper = await computeHash(cleanPassword, salt, pepper);
-      if (computedWithPepper === storedHash) {
-        isPasswordValid = true;
-      } else {
-        const computedDefault = await computeHash(cleanPassword, salt, 'wcg_edge_sec_salt_2026');
-        if (computedDefault === storedHash) {
+    if (storedHash) {
+      if (isBcryptHash(storedHash)) {
+        // Tài khoản đồng bộ từ codegame.store dùng mã băm Bcrypt ($2a$, $2b$, $2y$)
+        if (await verifyBcryptPassword(cleanPassword, storedHash)) {
+          isPasswordValid = true;
+          isBcryptMatch = true;
+        }
+      } else if (salt) {
+        // Tài khoản chuẩn của codegame.shop dùng PBKDF2/SHA-256 kèm salt + pepper
+        const computedWithPepper = await computeHash(cleanPassword, salt, pepper);
+        if (computedWithPepper === storedHash) {
           isPasswordValid = true;
         } else {
-          const computedPlain = await computeHash(cleanPassword, salt, '');
-          if (computedPlain === storedHash) {
+          const computedDefault = await computeHash(cleanPassword, salt, 'wcg_edge_sec_salt_2026');
+          if (computedDefault === storedHash) {
             isPasswordValid = true;
+          } else {
+            const computedPlain = await computeHash(cleanPassword, salt, '');
+            if (computedPlain === storedHash) {
+              isPasswordValid = true;
+            }
           }
         }
+      }
+    }
+
+    // Tự động nâng cấp mã băm Bcrypt sang chuẩn mật mã mới của shop (Zero-friction auto upgrade)
+    if (isBcryptMatch && isPasswordValid) {
+      try {
+        const upgradedSalt = 'wcg_salt_' + Math.random().toString(36).slice(2, 10);
+        const upgradedHash = await computeHash(cleanPassword, upgradedSalt, pepper);
+        await env.DB.prepare("UPDATE members SET salt = ?, password_hash = ?, updated_at = datetime('now') WHERE id = ?")
+          .bind(upgradedSalt, upgradedHash, member.id)
+          .run();
+        member.salt = upgradedSalt;
+        member.password_hash = upgradedHash;
+      } catch (upgradeErr) {
+        console.warn('Lưu ý: Không thể tự động nâng cấp hash mật khẩu cho thành viên:', member.id, upgradeErr);
       }
     }
 

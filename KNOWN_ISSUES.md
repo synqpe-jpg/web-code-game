@@ -10,6 +10,26 @@
 
 ## 1. DANH MỤC LỖI & CÁC BẪY ĐÃ THẤT BẠI (DO NOT REPEAT)
 
+### ISSUE-147: Bẫy Lệch Thuật Toán Băm Mật Khẩu (Bcrypt vs PBKDF2/SHA-256) & Lệch Sổ Cái Số Dư Khi Hợp Nhất Domain codegame.store Về codegame.shop
+- **Triệu chứng**:
+  - Khi chuyển đổi tài khoản người dùng từ hệ thống cũ (codegame.store) sang hệ thống mới (codegame.shop), người dùng cũ không thể đăng nhập được vì mật khẩu ở store dùng Bcrypt ($), trong khi shop dùng SHA-256 kèm salt và pepper.
+  - Nếu chỉ cập nhật cột balance trong bảng members mà không tạo bản ghi đối ứng trong wallet_transactions, khi chạy cơ chế đối soát tự động (reconcile_member_balances) số dư của khách hàng sẽ bị xung đột hoặc hoàn tác về 0.
+  - Nguy cơ đè mất tài khoản trùng email/username giữa 2 hệ thống.
+- **Nguyên nhân gốc rễ (Root Cause)**:
+  1. Hai hệ thống CSDL được xây dựng độc lập với 2 kiến trúc mã băm mật khẩu khác nhau.
+  2. Bảng members có cơ chế tính toán số dư ưu tiên từ bản ghi mới nhất của bảng wallet_transactions.
+- **Giải pháp chuẩn đã kiểm chứng**:
+  1. *Xác thực lai (Hybrid Auth) & Nâng cấp tự động không ma sát*: Nhận diện hash Bcrypt ($, $, $). Dùng bcryptjs để xác thực. Ngay khi mật khẩu khớp, tự động sinh salt mới và băm lại bằng SHA-256/salt/pepper rồi cập nhật vào D1. Người dùng không cần bấm link reset password hay thao tác bất kỳ điều gì.
+  2. *Ghi nhận nguyên tử vào sổ cái ví*: Mỗi tài khoản có số dư được tạo kèm 1 giao dịch ADMIN_ADJUST trong wallet_transactions, đảm bảo sổ cái và bảng members đồng bộ tuyệt đối.
+  3. *Lưới chống va chạm 3 lớp*: Kiểm tra ID, username và email; an toàn bỏ qua các tài khoản trùng lặp đã tồn tại trên shop.
+  4. *Bản đồ 301 Permanent Redirect*: Khai báo chuyển hướng 301 qua Cloudflare Redirect Rules để Google chuyển giao toàn bộ tín hiệu SEO và lượng truy cập.
+- ⛔ **CÁCH SỬA ĐÃ THẤT BẠI - TUYỆT ĐỐI KHÔNG LẶP LẠI**:
+  - ❌ *Không ép khách hàng phải đổi lại mật khẩu thủ công*: Gây ức chế và làm mất lượng lớn khách hàng cũ.
+  - ❌ *Không chỉ cộng tiền vào cột members.balance mà bỏ qua wallet_transactions*: Sẽ bị lỗi đối soát ví.
+  - ❌ *Không dùng redirect tạm thời 302*: Google chỉ chuyển giao chỉ mục và PageRank khi dùng 301 Permanent Redirect.
+
+---
+
 ### ISSUE-146: Bẫy Trùng Lặp Thẻ Kích Thước Ảnh Open Graph (512 vs 1200), Thiếu Tuyến SSR Cho Giveaway & Thiếu Ảnh Game Trong Hộp Thoại Chia Sẻ
 - **Triệu chứng**:
   - Khi người dùng gửi link game hoặc giveaway lên Facebook / Zalo, ảnh xem trước có nguy cơ bị biến dạng, không hiển thị hoặc rơi về ảnh mặc định `og-image.jpg` thay vì ảnh đại diện chính xác của game.

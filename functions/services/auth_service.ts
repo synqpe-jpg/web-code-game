@@ -3,7 +3,30 @@
  * Centralizes SHA-256 hashing, HMAC-style signed tokens, and secret management.
  */
 
+import bcrypt from 'bcryptjs';
 import { getSettingD1 } from './d1_service';
+
+/**
+ * Kiểm tra xem chuỗi hash có phải định dạng Bcrypt ($2a$, $2b$, $2y$) hay không.
+ */
+export function isBcryptHash(hash: string | undefined | null): boolean {
+  if (!hash || typeof hash !== 'string') return false;
+  const clean = hash.trim();
+  return clean.startsWith('$2a$') || clean.startsWith('$2b$') || clean.startsWith('$2y$');
+}
+
+/**
+ * Xác thực mật khẩu đối với mã băm Bcrypt (dành cho người dùng đồng bộ từ codegame.store)
+ */
+export async function verifyBcryptPassword(password: string, hash: string): Promise<boolean> {
+  if (!password || !hash) return false;
+  try {
+    return await bcrypt.compare(password, hash);
+  } catch (err) {
+    console.error('Bcrypt comparison error:', err);
+    return false;
+  }
+}
 
 export async function computeHash(
   password: string,

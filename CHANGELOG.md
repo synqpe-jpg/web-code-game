@@ -7,6 +7,36 @@ Mỗi mục sửa lỗi đều ghi nhận **Nguyên nhân gốc rễ (Root Cause
 
 ## [2026-10-27]
 
+### 227. Đồng Bộ Tài Khoản, Mật Khẩu (Xác Thực Lai Hybrid Auth) & Số Dư Ví Từ codegame.store Về codegame.shop + Bản Đồ Chuyển Hướng 301 Toàn Diện
+- **Bối cảnh & Yêu cầu từ Người dùng**:
+  - Chủ sở hữu yêu cầu: Đồng bộ tài khoản, mật khẩu (khách giữ nguyên mật khẩu cũ), số dư ví từ codegame.store về codegame.shop, và chuyển hướng 301 toàn bộ domain codegame.store về codegame.shop kèm hướng dẫn Google Search Console Change of Address.
+  - Giữ nguyên phạm vi nghiêm ngặt: KHÔNG chuyển dữ liệu game, mã giftcode miễn phí, đơn hàng, gói cửa hàng hay sản phẩm.
+- **Nguyên nhân gốc rễ (Root Cause)**:
+  1. *Lệch thuật toán băm mật khẩu*: codegame.store dùng Bcrypt ($), trong khi codegame.shop dùng PBKDF2/SHA-256 kèm salt và pepper. Nếu nạp thô, 100% khách cũ sẽ không thể đăng nhập.
+  2. *Ràng buộc toàn vẹn sổ cái ví*: CSDL D1 codegame.shop tính toán số dư thực tế qua COALESCE từ bảng wallet_transactions. Nếu chỉ ghi nhận số dư vào bảng members, khi hệ thống đối soát chạy sẽ bị xung đột số dư.
+  3. *Nguy cơ va chạm tài khoản*: Cần phát hiện và phân loại các tài khoản trùng username hoặc email giữa 2 hệ thống trước khi nạp.
+- **Giải pháp thành công (Solution)**:
+  1. *Triển khai Xác Thực Lai (Hybrid Auth) & Tự Động Nâng Cấp (Zero-Friction Upgrade)*:
+     - Bổ sung isBcryptHash và verifyBcryptPassword trong auth_service.ts bằng thư viện thuần JS bcryptjs.
+     - Tại functions/api/auth/login.ts: Nhận diện mã băm Bcrypt ($, $, $). Khi khách nhập đúng mật khẩu cũ, hệ thống đăng nhập thành công và ngay lập tức tự động sinh salt mới, băm lại bằng SHA-256/salt/pepper và cập nhật vào D1. Từ lần đăng nhập thứ 2, tài khoản chạy 100% chuẩn mật mã mới của shop.
+  2. *Nạp An Toàn 273 Tài Khoản Vào Cloudflare D1 web-code-game-db*:
+     - Xây dựng action migrate_store_accounts bảo mật bằng X-Sync-Key.
+     - Bỏ qua an toàn 4 tài khoản va chạm (chinhthbmt trùng username, admin@codegame.store, fdd, Gameueush trùng email).
+     - Nạp thành công 273 tài khoản mới, nâng tổng số thành viên shop từ 233 lên 506.
+  3. *Bảo Toàn Tuyệt Đối & Ghi Nhận Sổ Cái Sổ Dư 44.800 VNĐ*:
+     - 10 khách hàng thực tế được bảo toàn nguyên vẹn 100%: Hau99999 (34.450đ), Nam2026 (5.950đ), Manh (1.900đ), zzztq2zzz (1.500đ), zazapana0409 (1.000đ), và 5 khách có số dư 0đ.
+     - Tự động tạo bản ghi giao dịch ADMIN_ADJUST tương ứng trong wallet_transactions cho từng tài khoản, đảm bảo lệnh đối soát reconcile_member_balances khớp 100% không lệch 1 xu.
+  4. *Bản Đồ Chuyển Hướng 301 & Hướng Dẫn GSC Change of Address*:
+     - Xây dựng bản đồ chuẩn 347 URL chuyển tiếp từ codegame.store sang codegame.shop (337 slug chuẩn, 5 alias chuyển tiếp canonical, 4 trang hệ thống).
+     - Cung cấp cấu hình Cloudflare Redirect Rule (Dynamic 301) và quy trình 6 bước Google Search Console Change of Address để chuyển toàn bộ PageRank và lưu lượng tìm kiếm sang codegame.shop.
+- **Kiểm thử & Nghiệm thu**:
+  - Đăng nhập live thử nghiệm với tài khoản migrated hachimi (pass 123456): Lần 1 khớp Bcrypt -> Thành công HTTP 200 -> Tự động chuyển đổi sang SHA-256 64 ký tự. Lần 2 đăng nhập bằng SHA-256 -> Thành công HTTP 200. Mật khẩu sai -> Chặn HTTP 401.
+  - Đối soát số dư 10 khách thực tế trên D1 live: Khớp 100% với 44.800 VNĐ.
+  - Audit Zero Test Artifacts: Đạt 100%.
+
+---
+
+
 ### 226. Đảm Bảo 100% Ảnh Đại Diện Chính Xác Khi Chia Sẻ Code Game & Sự Kiện Giveaway (Open Graph, Zalo/FB Card, Live Preview & Native Share)
 - **Bối cảnh & Yêu cầu từ Người dùng**:
   - Người dùng yêu cầu: *"Khi tôi chia sẻ 1 tựa game cụ thể ví như code game nào đó, hay sự kiện game nào đó, đảm bảo luôn chứa ảnh đại diện chính xác của game đó."*
