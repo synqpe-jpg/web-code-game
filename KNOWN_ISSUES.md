@@ -10,6 +10,30 @@
 
 ## 1. DANH MỤC LỖI & CÁC BẪY ĐÃ THẤT BẠI (DO NOT REPEAT)
 
+### ISSUE-145: Bẫy Lệch Mẫu Tiêu Đề Giữa Edge Worker SSR Và Prerender Tĩnh, Thừa Dấu Gạch Khi 0 Mã, Fake Schema Rating Và Trùng Lặp Alias Trong Sitemap
+- **Triệu chứng**:
+  - Tiêu đề trên web live khác với tiêu đề trong báo cáo hoặc tài liệu: Edge Worker chạy mẫu `Nhận {X} Mã Code` trong khi file prerender tĩnh sinh mẫu `Hướng Dẫn Nhập & Nhận Quà`.
+  - Các trang game có 0 mã (như E-Sports VTC) hiển thị tiêu đề bị lỗi cụt: `Giftcode E-Sports VTC Mới Nhất 2026 - | CodeGame.shop` do thừa dấu gạch ngang trống.
+  - Thẻ meta description của trang chủ hardcode con số cũ `3.400+` / `5.000+` làm giảm tính hấp dẫn và độ tin cậy trong mắt Googlebot.
+  - Schema `VideoGame` chứa thuộc tính `aggregateRating` giả lập (128 reviews) dễ bị Google phạt thủ công (Manual Action).
+  - Sitemap chứa cả URL chính và URL bí danh (`where-winds-meet-mobile`, `dau-truong-chan-ly-mobile`, `tam-quoc-huyen-tuong`...), khiến bot crawl trùng lặp và phân tán thứ hạng (Keyword Cannibalization).
+- **Nguyên nhân gốc rễ (Root Cause)**:
+  1. *Thiếu nguồn chân lý duy nhất (SSOT) giữa SSR và Prerender*: Thay đổi format tiêu đề ở Edge Worker nhưng quên đồng bộ vào `scripts/prerender.js`.
+  2. *Toán tử điều kiện lỏng lẻo*: Đặt dấu gạch `- ` ngoài biểu thức điều kiện thay vì bên trong chuỗi kết quả.
+  3. *Thiếu bảng Canonical Aliases*: Chưa có cơ chế phân loại URL chuẩn và bí danh trước khi sinh file sitemap.
+- **Giải pháp chuẩn đã kiểm chứng**:
+  1. *Đồng bộ triệt để Worker SSR & Prerender*: Dùng chung định dạng `Giftcode ${game.name} Mới Nhất 2026${countSuffix} | CodeGame.shop`.
+  2. *Dấu gạch nằm trọn trong điều kiện*: `const countSuffix = codeCount > 0 ? " - Nhận " + codeCount + " Mã Code" : " - Hướng Dẫn Nhập & Nhận Quà";`.
+  3. *Bảng GAME_CANONICAL_ALIASES*: Tự động 301 Permanent Redirect và canonical về slug chính; loại bỏ 100% slug bí danh khỏi `sitemap.xml`.
+  4. *Gỡ bỏ hoàn toàn Fake aggregateRating*: Chỉ hiển thị rating khi có dữ liệu đánh giá thật từ người dùng.
+  5. *Tính lastmod động theo từng trang*: Bóc tách ngày lớn nhất của game và giftcode thực tế (24 nhóm ngày khác nhau).
+- ⛔ **CÁCH SỬA ĐÃ THẤT BẠI - TUYỆT ĐỐI KHÔNG LẶP LẠI**:
+  - ❌ *Không sửa mẫu tiêu đề ở riêng một nơi (Worker hoặc Prerender)*: Bắt buộc sửa đồng thời cả 2 tệp `functions/_worker.ts` và `scripts/prerender.js`.
+  - ❌ *Không nhồi nhét AggregateRating giả (fake reviews) vào JSON-LD*: Vi phạm chính sách nguyên tắc quản trị trang web của Google.
+  - ❌ *Không đưa URL bí danh vào Sitemap*: Sitemap chỉ được phép chứa URL canonical sạch.
+
+---
+
 ### ISSUE-144: Bẫy Ghi Đè Hàng Loạt Khi Cập Nhật Chính Sách Chung Toàn Sàn (Tràn Hạn Mức D1 Writes & Mất Dữ Liệu Riêng Từng Đợt)
 - **Triệu chứng**:
   - Khi cần cập nhật chính sách nhận quà (tuổi nick, max/user, max/IP, cooldown), link Zalo nhóm, nội dung thông báo hoặc thời gian giãn cách toàn sàn, quản trị viên phải chỉnh sửa thủ công lặp lại cho hơn 41 đợt giveaway và hàng chục sản phẩm tiện ích / cửa hàng.

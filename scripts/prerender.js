@@ -7,6 +7,17 @@ const __dirname = path.dirname(__filename);
 
 const BASE_URL = 'https://codegame.shop';
 
+const GAME_CANONICAL_ALIASES = {
+  'dau-truong-chan-ly-mobile': 'dau-truong-chan-ly',
+  'ta-la-hac-ngo-khong-vplay': 'ta-la-hac-ngo-khong',
+  'tam-quoc-huyen-tuong': 'tam-quoc-huyen-tuong-vng',
+  'x-wukong-dai-chien-tam-gioi': 'x-wukong',
+  'huyen-thoai-hai-tac': 'pirate-legends',
+  'seven-deadly-sins-grand-cross': 'the-seven-deadly-sins-grand-cross',
+  'where-winds-meet-mobile': 'yen-van-thap-luc-thanh',
+  'loan-the-3q': 'loan-the-3q-than-ma-lenh-oeg',
+};
+
 function escapeHtml(unsafe = '') {
   return String(unsafe)
     .replace(/&/g, '&amp;')
@@ -152,9 +163,13 @@ async function runPrerender() {
 
   // 1. Prerender Homepage (dist/index.html)
   const homeTopGames = games.slice(0, 60);
+  const totalCodesFormatted = (crawledCodes.length || 12600).toLocaleString('vi-VN');
+  const totalGamesCount = games.length;
+  const homeDescription = `Kho tổng hợp hơn ${totalCodesFormatted}+ giftcode game mobile và webgame bản quyền G1/G234 mới nhất 2026 của ${totalGamesCount}+ tựa game. Cập nhật liên tục 24/7 từ các NPH VNG, Garena, VTC, SohaGame, Funtap.`;
+
   const homeHtml = buildPageHtml({
     title: 'CodeGame.shop - Săn Giftcode Miễn Phí & Giao Dịch Mã Game Uy Tín',
-    description: 'Kho tổng hợp hơn 3.400+ giftcode game mobile và webgame bản quyền G1 mới nhất 2026. Cập nhật liên tục 24/7 từ các NPH VNG, Garena, VTC, SohaGame, Funtap.',
+    description: homeDescription,
     canonicalPath: '/',
     ogType: 'website',
     jsonLd: [
@@ -177,13 +192,12 @@ async function runPrerender() {
         '@type': 'Organization',
         name: 'CodeGame.shop',
         url: 'https://codegame.shop',
-        logo: 'https://codegame.shop/game_icons/anh-hung-tien-len.webp',
-        description: 'Cổng thông tin chia sẻ giftcode game bản quyền G1 và giao dịch mã tự động.',
+        logo: 'https://codegame.shop/logo.png',
+        description: 'Cổng thông tin chia sẻ giftcode game bản quyền G1/G234 và giao dịch mã tự động.',
         sameAs: [
-          'https://www.facebook.com/codegame.shop',
-          'https://t.me/codegame_shop',
-          'https://www.tiktok.com/@codegame.shop',
-          'https://youtube.com/@codegame.shop',
+          'https://t.me/webcodegame_vn',
+          'https://zalo.me/g/qdtlmj2tebfa0baraedg',
+          'https://zalo.me/0386767888',
         ],
       },
       {
@@ -832,8 +846,16 @@ async function runPrerender() {
     const jpgImg = rawImg.replace(/\.webp$/i, '.jpg');
     const ogCoverImg = jpgImg.startsWith('http') ? jpgImg : `${BASE_URL}${jpgImg.startsWith('/') ? jpgImg : `/${jpgImg}`}`;
     const coverImg = game.cover_image_url || game.icon_url || `${BASE_URL}/game_icons/${slug}.webp`;
-    const title = `Giftcode ${game.name} Mới Nhất 2026 - Hướng Dẫn Nhập & Nhận Quà | CodeGame.shop`;
-    const description = `Tổng hợp trọn bộ giftcode ${game.name} còn hạn mới nhất 2026. Hướng dẫn chi tiết cách nhập code nhận Kim Cương, KNB và quà VIP từ ${game.publisher || 'Nhà phát hành'}.`;
+    const codeCount = displayCodes.length;
+    const countSuffix = codeCount > 0
+      ? ` - Nhận ${codeCount} Mã Code`
+      : ` - Hướng Dẫn Nhập & Nhận Quà`;
+    const title = `Giftcode ${game.name} Mới Nhất 2026${countSuffix} | CodeGame.shop`;
+    const description = codeCount > 0
+      ? `Tổng hợp ${codeCount} mã giftcode ${game.name} còn hạn mới nhất 2026. Hướng dẫn nhập code chi tiết và phần thưởng tân thủ bản quyền G1.`
+      : `Hướng dẫn nhập code ${game.name} chi tiết và cập nhật các đợt phát quà tặng tân thủ mới nhất 2026 từ ${game.publisher || 'NPH'}.`;
+
+    const canonicalSlug = GAME_CANONICAL_ALIASES[slug] || slug;
 
     // Compute related games for Internal Linking Spider Matrix
     const relatedGames = games
@@ -846,7 +868,7 @@ async function runPrerender() {
     const gameHtml = buildPageHtml({
       title,
       description,
-      canonicalPath: `/game/${encodeURIComponent(slug)}`,
+      canonicalPath: `/game/${encodeURIComponent(canonicalSlug)}`,
       ogImage: ogCoverImg,
       ogType: 'article',
       jsonLd: [
@@ -869,6 +891,39 @@ async function runPrerender() {
             availability: 'https://schema.org/InStock',
           },
         },
+        {
+          '@context': 'https://schema.org',
+          '@type': 'BreadcrumbList',
+          itemListElement: [
+            { '@type': 'ListItem', position: 1, name: 'Trang chủ', item: `${BASE_URL}/` },
+            { '@type': 'ListItem', position: 2, name: 'Tra Cứu Giftcode', item: `${BASE_URL}/` },
+            { '@type': 'ListItem', position: 3, name: game.name, item: `${BASE_URL}/game/${encodeURIComponent(canonicalSlug)}` },
+          ],
+        },
+        ...(codeCount > 0 ? [
+          {
+            '@context': 'https://schema.org',
+            '@type': 'FAQPage',
+            mainEntity: [
+              {
+                '@type': 'Question',
+                name: `Giftcode ${game.name} có hạn sử dụng không?`,
+                acceptedAnswer: {
+                  '@type': 'Answer',
+                  text: `Các mã giftcode ${game.name} có thời hạn tùy thuộc vào sự kiện của Nhà phát hành. Bạn nên nhập sớm để tránh hết hạn hoặc hết lượt nhận.`,
+                },
+              },
+              {
+                '@type': 'Question',
+                name: `Làm sao để nhận thêm mã code ${game.name} mới nhất?`,
+                acceptedAnswer: {
+                  '@type': 'Answer',
+                  text: `Theo dõi trang CodeGame.shop thường xuyên để cập nhật ngay khi NPH tung ra các đợt phát code sự kiện và bảo trì máy chủ mới.`,
+                },
+              },
+            ],
+          }
+        ] : []),
         {
           '@context': 'https://schema.org',
           '@type': 'HowTo',
@@ -900,15 +955,6 @@ async function runPrerender() {
               name: 'Nhận quà trong hộp thư',
               text: 'Mở hòm Thư trong game để kiểm tra và nhận các vật phẩm đính kèm ngay lập tức.',
             },
-          ],
-        },
-        {
-          '@context': 'https://schema.org',
-          '@type': 'BreadcrumbList',
-          itemListElement: [
-            { '@type': 'ListItem', position: 1, name: 'Trang chủ', item: `${BASE_URL}/` },
-            { '@type': 'ListItem', position: 2, name: 'Giftcode Miễn Phí', item: `${BASE_URL}/` },
-            { '@type': 'ListItem', position: 3, name: game.name, item: `${BASE_URL}/game/${slug}` },
           ],
         },
       ],
@@ -1104,34 +1150,97 @@ async function runPrerender() {
   fs.writeFileSync(path.join(distDir, '404.html'), notFoundHtml, 'utf8');
   console.log(`[Prerender] Đã xuất bản dist/404.html`);
 
-  // 5. Generate Dynamic Sitemap.xml with 100% Games and News Articles
+  // 5. Generate Dynamic Sitemap.xml with 100% Canonical Games, News, and Giveaways
   const todayStr = new Date().toISOString().slice(0, 10);
-  const sitemapUrls = [
-    { loc: `${BASE_URL}/`, priority: '1.0', changefreq: 'daily', lastmod: todayStr },
-    { loc: `${BASE_URL}/news`, priority: '0.9', changefreq: 'daily', lastmod: todayStr },
-    { loc: `${BASE_URL}/giveaways`, priority: '0.9', changefreq: 'daily', lastmod: todayStr },
-    { loc: `${BASE_URL}/store`, priority: '0.9', changefreq: 'daily', lastmod: todayStr },
-    { loc: `${BASE_URL}/utilities`, priority: '0.9', changefreq: 'daily', lastmod: todayStr },
-  ];
 
-  // Add all games
-  games.forEach((g) => {
-    const slug = g.slug || g.id;
-    if (slug) {
-      sitemapUrls.push({
-        loc: `${BASE_URL}/game/${encodeURIComponent(slug)}`,
-        priority: '0.8',
-        changefreq: 'weekly',
-        lastmod: todayStr,
-      });
+  // Pre-index max code timestamps for authentic O(1) lastmod calculation
+  const maxCodeTimeBySlug = new Map();
+  let latestGlobalCodeTime = 0;
+  for (const c of crawledCodes) {
+    if (!c) continue;
+    const cSlug = String(c.gameSlug || c.slug || c.gameId || '').toLowerCase().trim();
+    if (c.added_at) {
+      const t = new Date(c.added_at).getTime();
+      if (!isNaN(t)) {
+        if (t > latestGlobalCodeTime) latestGlobalCodeTime = t;
+        const cur = maxCodeTimeBySlug.get(cSlug) || 0;
+        if (t > cur) maxCodeTimeBySlug.set(cSlug, t);
+      }
     }
+  }
+
+  let latestNewsTime = 0;
+  newsArticles.forEach((a) => {
+    const t = new Date(a.updated_at || a.published_at || a.created_at || '2026-10-13').getTime();
+    if (!isNaN(t) && t > latestNewsTime) latestNewsTime = t;
   });
 
-  // Add all news articles
+  let latestGwTime = 0;
+  giveawaysList.forEach((gw) => {
+    const t = new Date(gw.updated_at || gw.start_time || gw.created_at || '2026-10-25').getTime();
+    if (!isNaN(t) && t > latestGwTime) latestGwTime = t;
+  });
+
+  const homeLastmod = latestGlobalCodeTime > 0 ? new Date(latestGlobalCodeTime).toISOString().slice(0, 10) : todayStr;
+  const newsLastmod = latestNewsTime > 0 ? new Date(latestNewsTime).toISOString().slice(0, 10) : todayStr;
+  const gwLastmod = latestGwTime > 0 ? new Date(latestGwTime).toISOString().slice(0, 10) : todayStr;
+
+  const sitemapUrls = [
+    { loc: `${BASE_URL}/`, priority: '1.0', changefreq: 'daily', lastmod: homeLastmod },
+    { loc: `${BASE_URL}/news`, priority: '0.9', changefreq: 'daily', lastmod: newsLastmod },
+    { loc: `${BASE_URL}/giveaways`, priority: '0.9', changefreq: 'daily', lastmod: gwLastmod },
+    { loc: `${BASE_URL}/store`, priority: '0.9', changefreq: 'daily', lastmod: '2026-10-27' },
+    { loc: `${BASE_URL}/utilities`, priority: '0.9', changefreq: 'daily', lastmod: '2026-10-27' },
+  ];
+
+  // Add all canonical games (Excluding alias duplicates, preserving 0-code genuine ABEI games)
+  games.forEach((g) => {
+    const slug = g.slug || g.id;
+    if (!slug || GAME_CANONICAL_ALIASES[slug]) {
+      // Bỏ qua các slug bí danh để chỉ giữ duy nhất URL chuẩn trong sitemap
+      return;
+    }
+
+    let maxTime = 0;
+    if (g.updated_at) {
+      const t = new Date(g.updated_at).getTime();
+      if (!isNaN(t)) maxTime = Math.max(maxTime, t);
+    }
+    if (g.created_at) {
+      const t = new Date(g.created_at).getTime();
+      if (!isNaN(t)) maxTime = Math.max(maxTime, t);
+    }
+
+    const normSlug = String(slug).toLowerCase().trim();
+    const cleanWithoutMobile = normSlug.replace(/-mobile$/i, '');
+    const cleanId = String(g.id || '').toLowerCase().trim();
+
+    const codeTime = Math.max(
+      maxCodeTimeBySlug.get(normSlug) || 0,
+      maxCodeTimeBySlug.get(cleanWithoutMobile) || 0,
+      maxCodeTimeBySlug.get(cleanId) || 0
+    );
+    if (codeTime > 0) maxTime = Math.max(maxTime, codeTime);
+
+    const lastmodDate = maxTime > 0
+      ? new Date(maxTime).toISOString().slice(0, 10)
+      : '2026-10-22';
+
+    sitemapUrls.push({
+      loc: `${BASE_URL}/game/${encodeURIComponent(slug)}`,
+      priority: '0.8',
+      changefreq: 'weekly',
+      lastmod: lastmodDate,
+    });
+  });
+
+  // Add all news articles with authentic lastmod
   newsArticles.forEach((a) => {
     const slug = a.slug || a.id;
     if (slug) {
-      const artDate = a.published_at ? new Date(a.published_at).toISOString().slice(0, 10) : todayStr;
+      const artDate = (a.updated_at || a.published_at || a.created_at)
+        ? new Date(a.updated_at || a.published_at || a.created_at).toISOString().slice(0, 10)
+        : '2026-10-13';
       sitemapUrls.push({
         loc: `${BASE_URL}/news/${encodeURIComponent(slug)}`,
         priority: '0.8',
@@ -1141,14 +1250,17 @@ async function runPrerender() {
     }
   });
 
-  // Add all giveaways
+  // Add all giveaways with authentic lastmod
   giveawaysList.forEach((gw) => {
     if (gw && gw.id) {
+      const gwDate = (gw.updated_at || gw.start_time || gw.created_at)
+        ? new Date(gw.updated_at || gw.start_time || gw.created_at).toISOString().slice(0, 10)
+        : '2026-10-25';
       sitemapUrls.push({
         loc: `${BASE_URL}/giveaways/${encodeURIComponent(gw.id)}`,
         priority: '0.8',
         changefreq: 'daily',
-        lastmod: todayStr,
+        lastmod: gwDate,
       });
     }
   });

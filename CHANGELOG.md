@@ -7,6 +7,47 @@ Mỗi mục sửa lỗi đều ghi nhận **Nguyên nhân gốc rễ (Root Cause
 
 ## [2026-10-27]
 
+### 225. Tối Ưu SEO Kỹ Thuật Toàn Diện Cho CodeGame.shop (SSOT Sitemap, Mẫu Tiêu Đề Đồng Bộ, Triệt Tiêu Soft 404 & Fake Schema)
+- **Bối cảnh & Yêu cầu từ Người dùng**:
+  - Web chạy trên Cloudflare Pages + D1, trang chủ đã được index trên Google nhưng chưa có vị trí top cho các nhóm từ khóa (tên miền, từ khóa game, từ khóa ngách).
+  - Rà soát kỹ thuật phát hiện:
+    1. Mẫu tiêu đề bị lệch giữa Edge Worker (`Nhận {X} Mã Code`) và Prerender tĩnh (`Hướng Dẫn Nhập & Nhận Quà`).
+    2. Trang 0 mã bị thừa dấu gạch ngang trống: `Giftcode E-Sports VTC Mới Nhất 2026 - | CodeGame.shop`.
+    3. Thẻ mô tả trang chủ còn hardcode con số cũ `3.400+` / `5.000+` trong khi web hiện có gần 12.000 mã trên 580 game.
+    4. Sitemap 779 URL chứa 17 slug lệch với API catalog (563 game), thiếu game live `Dig and Clean` (7 mã), và toàn bộ URL dùng chung 1 ngày build cho `lastmod`.
+    5. Các URL bí danh (`/g/:slug`, `where-winds-meet-mobile`, `tam-quoc-huyen-tuong`, `huyen-thoai-hai-tac`...) gây nguy cơ trùng lặp nội dung.
+    6. Schema `VideoGame` chứa dữ liệu `aggregateRating` giả lập cứng (`ratingValue: 4.8`, `ratingCount: 128`), có nguy cơ bị Google gắn cờ vi phạm thủ công (Manual Action).
+    7. Trang slug không tồn tại trả về HTTP 200 shell rỗng (Soft 404).
+- **Nguyên nhân gốc rễ (Root Cause)**:
+  1. *Lệch pha giữa Edge Worker SSR và Prerender generator*: File `functions/_worker.ts` và `scripts/prerender.js` sinh thẻ `<title>` và `<meta>` theo 2 mẫu khác nhau.
+  2. *Toán tử điều kiện lỏng lẻo*: `countSuffix` được nối phía sau dấu `- `, khiến khi `codeCount === 0` chuỗi kết thúc bằng `- | CodeGame.shop`.
+  3. *Thiếu bảng ánh xạ Canonical Alias*: Cả hai bản ghi alias và bản ghi gốc đều được đưa vào `sitemap.xml`, gây hiện tượng Google tự chọn URL index và tự ăn thịt từ khóa (Keyword Cannibalization).
+  4. *Lọc API khắt khe*: API catalog dùng `total_codes_count > 0` nên 11 game ABEI có 0 mã bị loại khỏi API nhưng vẫn là trang web 200 OK hợp pháp; trong khi `Dig and Clean` có trong D1 nhưng chưa được lưu vào `games188.json`.
+- **Giải pháp thành công (Solution)**:
+  1. *Đồng bộ 100% mẫu tiêu đề và mô tả giữa Worker SSR và Prerender*:
+     - Có mã: `Giftcode ${game.name} Mới Nhất 2026 - Nhận ${codeCount} Mã Code | CodeGame.shop`.
+     - 0 mã: `Giftcode ${game.name} Mới Nhất 2026 - Hướng Dẫn Nhập & Nhận Quà | CodeGame.shop` (dấu gạch nằm trọn trong điều kiện).
+     - Mô tả động trang chủ: Thống kê số lượng mã thực tế theo dữ liệu (`Kho tổng hợp hơn 11.890+ giftcode game mobile và webgame bản quyền G1/G234 mới nhất 2026 của 580+ tựa game...`).
+  2. *Thêm game live Dig and Clean*: Bổ sung bản ghi và 7 mã quà tặng vào `games188.json` và `crawled_codes_188.json`.
+  3. *Phân loại 17 slug lệch và thiết lập Canonical SSOT*:
+     - 6 bí danh (`dau-truong-chan-ly-mobile`, `ta-la-hac-ngo-khong-vplay`, `tam-quoc-huyen-tuong`, `x-wukong-dai-chien-tam-gioi`, `huyen-thoai-hai-tac`, `seven-deadly-sins-grand-cross`) cùng `where-winds-meet-mobile` và `loan-the-3q` được chuẩn hóa qua `GAME_CANONICAL_ALIASES`. Edge Worker tự động 301 Permanent Redirect và canonical về slug chuẩn.
+     - Loại bỏ toàn bộ các slug bí danh khỏi `sitemap.xml` (sitemap chỉ chứa duy nhất các URL chuẩn).
+     - Giữ nguyên 11 game ABEI 0 mã có nội dung trong sitemap với self-canonical.
+     - Tuyến `/g/:slug` tự động 301 Redirect về `/game/:slug`.
+  4. *Xử lý Soft 404*: Khi slug không tồn tại trong CSDL D1 và catalog, Edge Worker trả về HTTP 404 thực sự kèm giao diện `404.html`.
+  5. *Làm sạch & Bổ sung Schema.org JSON-LD*:
+     - Gỡ bỏ hoàn toàn `aggregateRating` giả lập (128 reviews) khỏi schema `VideoGame`.
+     - Bổ sung `NewsArticle` schema cho bài viết tin tức, `Store` schema cho `/store`, `BreadcrumbList` và `FAQPage` cho game.
+     - Làm sạch `Organization.sameAs` trên trang chủ: Chỉ giữ 3 kênh chính thức thật sự (`t.me/webcodegame_vn`, `zalo.me/g/qdtlmj2tebfa0baraedg`, `zalo.me/0386767888`).
+  6. *Tính ngày sửa lastmod thật theo từng URL*:
+     - Bóc tách ngày lớn nhất giữa ngày cập nhật game và ngày cập nhật của các giftcode thuộc game đó (24 nhóm ngày thực tế khác nhau thay vì 1 ngày build chung).
+  7. *Hỗ trợ Canonical phân trang*: Cấu hình `/?page=X` có canonical riêng `https://codegame.shop/?page=X`, chống sáp nhập về trang 1.
+- **Kiểm thử & Nghiệm thu**:
+  - `npm run build`: Thành công 100% (773 URL sitemap chuẩn SEO, 580 trang game prerendered, 163 bài tin tức, 32 giveaway, Edge Worker bundle 13.2MB).
+  - Audit Zero Test Artifacts: Thành công 100% (0 dữ liệu test).
+
+---
+
 ### 224. Thêm Nút Chia Sẻ & Nút Copy Nhanh Link Cho Sự Kiện Giveaway
 - **Bối cảnh & Yêu cầu từ Người dùng**:
   - Người dùng phản ánh khi mở modal chi tiết sự kiện săn mã Giveaway (ví dụ Ta Là Hắc Ngộ Không trên codegame.shop/giveaways), modal không có nút chia sẻ để người chơi có thể gửi link cho bạn bè hoặc cộng đồng.

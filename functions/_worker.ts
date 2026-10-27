@@ -641,6 +641,20 @@ export default {
 };
 
 /**
+ * Danh sách bí danh (aliases) chuẩn hóa về Slug chính để tránh Google index trùng lặp
+ */
+const GAME_CANONICAL_ALIASES: Record<string, string> = {
+  'dau-truong-chan-ly-mobile': 'dau-truong-chan-ly',
+  'ta-la-hac-ngo-khong-vplay': 'ta-la-hac-ngo-khong',
+  'tam-quoc-huyen-tuong': 'tam-quoc-huyen-tuong-vng',
+  'x-wukong-dai-chien-tam-gioi': 'x-wukong',
+  'huyen-thoai-hai-tac': 'pirate-legends',
+  'seven-deadly-sins-grand-cross': 'the-seven-deadly-sins-grand-cross',
+  'where-winds-meet-mobile': 'yen-van-thap-luc-thanh',
+  'loan-the-3q': 'loan-the-3q-than-ma-lenh-oeg',
+};
+
+/**
  * Cloudflare Edge SEO Engine: Injects dynamic Open Graph, Twitter Cards,
  * Page Titles, Canonical URLs, and Schema.org JSON-LD for individual game pages
  * and major sections before returning HTML to crawlers & users.
@@ -650,6 +664,23 @@ async function renderSeoHtml(
   env: Env,
   pathname: string
 ): Promise<Response> {
+  const origin = 'https://codegame.shop';
+
+  // 1. Chuyển hướng 301 chuẩn hóa cho /g/:slug -> /game/:slug hoặc slug chính
+  if (pathname.startsWith('/g/')) {
+    const rawSlug = pathname.replace(/^\/g\//i, '').replace(/\/$/, '').trim().toLowerCase();
+    const primarySlug = GAME_CANONICAL_ALIASES[rawSlug] || rawSlug;
+    return Response.redirect(`${origin}/game/${primarySlug}`, 301);
+  }
+
+  // 2. Chuyển hướng 301 chuẩn hóa cho các bí danh trùng lặp -> slug chính
+  if (pathname.startsWith('/game/')) {
+    const rawSlug = pathname.replace(/^\/game\//i, '').replace(/\/$/, '').trim().toLowerCase();
+    if (GAME_CANONICAL_ALIASES[rawSlug]) {
+      return Response.redirect(`${origin}/game/${GAME_CANONICAL_ALIASES[rawSlug]}`, 301);
+    }
+  }
+
   const indexUrl = new URL('/', request.url);
   const baseRes = await env.ASSETS.fetch(new Request(indexUrl, request));
   if (baseRes.status !== 200) {
@@ -657,7 +688,6 @@ async function renderSeoHtml(
   }
 
   let html = await baseRes.text();
-  const origin = 'https://codegame.shop';
 
   const replaceTitleAndMeta = (
     title: string,
@@ -666,8 +696,8 @@ async function renderSeoHtml(
     ogImage: string,
     extraLdJson?: any
   ) => {
-    const fullCanonical = `${origin}${canonicalPath}`;
-    const fullOgImage = ogImage.startsWith('http') ? ogImage : `${origin}${ogImage}`;
+    const fullCanonical = `${origin}${canonicalPath.startsWith('/') ? canonicalPath : `/${canonicalPath}`}`;
+    const fullOgImage = ogImage.startsWith('http') ? ogImage : `${origin}${ogImage.startsWith('/') ? ogImage : `/${ogImage}`}`;
 
     // 1. Title
     html = html.replace(/<title>.*?<\/title>/i, `<title>${title}</title>`);
@@ -692,7 +722,10 @@ async function renderSeoHtml(
 
     // 6. Inject Schema.org JSON-LD
     if (extraLdJson) {
-      const ldStr = `\n    <!-- Page-Specific Schema.org JSON-LD -->\n    <script type="application/ld+json">\n${JSON.stringify(extraLdJson, null, 2)}\n    </script>\n  </head>`;
+      const schemas = Array.isArray(extraLdJson) ? extraLdJson : [extraLdJson];
+      const ldStr = `\n    <!-- Page-Specific Schema.org JSON-LD -->\n` +
+        schemas.map(s => `    <script type="application/ld+json">\n${JSON.stringify(s, null, 2)}\n    </script>`).join('\n') +
+        `\n  </head>`;
       html = html.replace('</head>', ldStr);
     }
   };
@@ -760,41 +793,75 @@ async function renderSeoHtml(
 
     if (game) {
       const codeCount = game.codes_count || game.codes?.length || displayCodes.length || 0;
-      const countSuffix = codeCount > 0 ? `Nhận ${codeCount} Mã Code ` : '';
-      const title = `Giftcode ${game.name} Mới Nhất 2026 - ${countSuffix}| CodeGame.shop`;
-      const description = `Tổng hợp ${codeCount > 0 ? codeCount + ' ' : ''}mã giftcode ${game.name} còn hạn mới nhất 2026. Hướng dẫn nhập code chi tiết và phần thưởng tân thủ bản quyền G1.`;
+      const countSuffix = codeCount > 0
+        ? ` - Nhận ${codeCount} Mã Code`
+        : ` - Hướng Dẫn Nhập & Nhận Quà`;
+      const title = `Giftcode ${game.name} Mới Nhất 2026${countSuffix} | CodeGame.shop`;
+      const description = codeCount > 0
+        ? `Tổng hợp ${codeCount} mã giftcode ${game.name} còn hạn mới nhất 2026. Hướng dẫn nhập code chi tiết và phần thưởng tân thủ bản quyền G1.`
+        : `Hướng dẫn nhập code ${game.name} chi tiết và cập nhật các đợt phát quà tặng tân thủ mới nhất 2026 từ ${game.publisher || 'NPH'}.`;
       const rawIcon = game.icon_url || '/og-image.jpg';
       const jpgIcon = rawIcon.replace(/\.webp$/i, '.jpg');
       const iconUrl = jpgIcon.startsWith('http') ? jpgIcon : `${origin}${jpgIcon.startsWith('/') ? jpgIcon : `/${jpgIcon}`}`;
 
-      const gameSchema = {
-        "@context": "https://schema.org",
-        "@type": "VideoGame",
-        "name": game.name,
-        "url": `${origin}/game/${game.slug}`,
-        "image": iconUrl,
-        "description": game.description || description,
-        "gamePlatform": game.platform || "PC / Mobile",
-        "applicationCategory": "Game",
-        "publisher": {
-          "@type": "Organization",
-          "name": game.publisher || game.name
+      const schemas: any[] = [
+        {
+          "@context": "https://schema.org",
+          "@type": "VideoGame",
+          "name": game.name,
+          "url": `${origin}/game/${game.slug}`,
+          "image": iconUrl,
+          "description": game.description || description,
+          "gamePlatform": game.platform || "PC / Mobile",
+          "applicationCategory": "Game",
+          "publisher": {
+            "@type": "Organization",
+            "name": game.publisher || game.name
+          },
+          "offers": {
+            "@type": "Offer",
+            "price": "0",
+            "priceCurrency": "VND",
+            "availability": "https://schema.org/InStock"
+          }
         },
-        "aggregateRating": {
-          "@type": "AggregateRating",
-          "ratingValue": String(game.rating || 4.8),
-          "bestRating": "5",
-          "ratingCount": "128"
-        },
-        "offers": {
-          "@type": "Offer",
-          "price": "0",
-          "priceCurrency": "VND",
-          "availability": "https://schema.org/InStock"
+        {
+          "@context": "https://schema.org",
+          "@type": "BreadcrumbList",
+          "itemListElement": [
+            { "@type": "ListItem", "position": 1, "name": "Trang chủ", "item": `${origin}/` },
+            { "@type": "ListItem", "position": 2, "name": "Tra Cứu Giftcode", "item": `${origin}/` },
+            { "@type": "ListItem", "position": 3, "name": game.name, "item": `${origin}/game/${game.slug}` }
+          ]
         }
-      };
+      ];
 
-      replaceTitleAndMeta(title, description, `/game/${game.slug}`, iconUrl, gameSchema);
+      if (displayCodes.length > 0) {
+        schemas.push({
+          "@context": "https://schema.org",
+          "@type": "FAQPage",
+          "mainEntity": [
+            {
+              "@type": "Question",
+              "name": `Giftcode ${game.name} có hạn sử dụng không?`,
+              "acceptedAnswer": {
+                "@type": "Answer",
+                "text": `Các mã giftcode ${game.name} có thời hạn tùy thuộc vào sự kiện của Nhà phát hành. Bạn nên nhập sớm để tránh hết hạn hoặc hết lượt nhận.`
+              }
+            },
+            {
+              "@type": "Question",
+              "name": `Làm sao để nhận thêm mã code ${game.name} mới nhất?`,
+              "acceptedAnswer": {
+                "@type": "Answer",
+                "text": `Theo dõi trang CodeGame.shop thường xuyên để cập nhật ngay khi NPH tung ra các đợt phát code sự kiện và bảo trì máy chủ mới.`
+              }
+            }
+          ]
+        });
+      }
+
+      replaceTitleAndMeta(title, description, `/game/${game.slug}`, iconUrl, schemas);
 
       const playUrl = game.google_play_url || game.download_android || '';
       const iosUrl = game.app_store_url || game.download_ios || '';
@@ -888,6 +955,20 @@ async function renderSeoHtml(
       } else {
         html = html.replace(/<div\s+id="root">[\s\S]*?<\/div>\s*<\/div>\s*(<script)/i, `<div id="root">${ssrBodyHtml}</div>\n  $1`);
       }
+    } else {
+      // Slug không tồn tại -> Trả HTTP 404 thực sự (tránh soft 404)
+      const notFoundRes = await env.ASSETS.fetch(new Request(`${origin}/404.html`)).catch(() => null);
+      if (notFoundRes && notFoundRes.status === 200) {
+        const notFoundHtml = await notFoundRes.text();
+        return new Response(notFoundHtml, {
+          status: 404,
+          headers: {
+            'Content-Type': 'text/html; charset=utf-8',
+            'Cache-Control': 'no-cache, no-store, must-revalidate',
+          },
+        });
+      }
+      return new Response('404 Not Found', { status: 404 });
     }
   } else if (pathname === '/news' || pathname.startsWith('/news/')) {
     const newsSlug = pathname.replace(/^\/news\//i, '').replace(/\/$/, '').trim().toLowerCase();
@@ -914,11 +995,60 @@ async function renderSeoHtml(
       const title = `${article.title} | CodeGame.shop`;
       const description = article.summary || article.content?.slice(0, 160) || 'Tin tức game và sự kiện giftcode mới nhất.';
       const thumb = (article.cover_url && article.cover_url.trim()) || article.thumbnail_url || (article.game_slug ? `/game_icons/${article.game_slug}.webp` : '/og-image.jpg');
-      replaceTitleAndMeta(title, description, `/news/${article.slug}`, thumb);
+      const artCover = thumb.startsWith('http') ? thumb : `${origin}${thumb.startsWith('/') ? thumb : `/${thumb}`}`;
+
+      const newsSchema = [
+        {
+          "@context": "https://schema.org",
+          "@type": "NewsArticle",
+          "headline": article.title,
+          "description": description,
+          "image": [artCover],
+          "datePublished": article.published_at || article.created_at || "2026-10-13T00:00:00.000Z",
+          "dateModified": article.updated_at || article.published_at || article.created_at || "2026-10-13T00:00:00.000Z",
+          "author": {
+            "@type": "Person",
+            "name": article.author || "Ban Biên Tập CodeGame.shop"
+          },
+          "publisher": {
+            "@type": "Organization",
+            "name": "CodeGame.shop",
+            "logo": {
+              "@type": "ImageObject",
+              "url": `${origin}/logo.png`
+            }
+          },
+          "mainEntityOfPage": {
+            "@type": "WebPage",
+            "@id": `${origin}/news/${article.slug || article.id}`
+          }
+        },
+        {
+          "@context": "https://schema.org",
+          "@type": "BreadcrumbList",
+          "itemListElement": [
+            { "@type": "ListItem", "position": 1, "name": "Trang chủ", "item": `${origin}/` },
+            { "@type": "ListItem", "position": 2, "name": "Tin Tức Game", "item": `${origin}/news` },
+            { "@type": "ListItem", "position": 3, "name": article.title, "item": `${origin}/news/${article.slug || article.id}` }
+          ]
+        }
+      ];
+
+      replaceTitleAndMeta(title, description, `/news/${article.slug || article.id}`, thumb, newsSchema);
     } else {
       const title = 'Tin Tức Game & Sự Kiện Giftcode Mới Nhất 2026 | CodeGame.shop';
       const description = 'Cập nhật tin tức game mobile, giftcode tân thủ và sự kiện nhận quà hot nhất 2026 tại CodeGame.shop.';
-      replaceTitleAndMeta(title, description, '/news', '/og-image.jpg');
+      const newsListSchema = [
+        {
+          "@context": "https://schema.org",
+          "@type": "BreadcrumbList",
+          "itemListElement": [
+            { "@type": "ListItem", "position": 1, "name": "Trang chủ", "item": `${origin}/` },
+            { "@type": "ListItem", "position": 2, "name": "Tin Tức Game", "item": `${origin}/news` }
+          ]
+        }
+      ];
+      replaceTitleAndMeta(title, description, '/news', '/og-image.jpg', newsListSchema);
     }
   } else if (
     pathname === '/giveaways' ||
@@ -968,35 +1098,94 @@ async function renderSeoHtml(
       // Ưu tiên JPG cho Zalo/Facebook preview
       const iconUrl = gameSlug ? `${origin}/game_icons/${gameSlug}.jpg` : `${origin}/og-image.jpg`;
 
-      const giveawaySchema = {
-        "@context": "https://schema.org",
-        "@type": "Event",
-        "name": `Săn Mã: ${campaign.title} - ${gameName}`,
-        "description": description,
-        "image": iconUrl,
-        "startDate": campaign.start_time || "2026-01-01",
-        "endDate": campaign.end_time || "2026-12-31",
-        "eventStatus": "https://schema.org/EventScheduled",
-        "eventAttendanceMode": "https://schema.org/OnlineEventAttendanceMode",
-        "location": { "@type": "VirtualLocation", "url": `${origin}/giveaways/${campaign.id}` },
-        "organizer": { "@type": "Organization", "name": "CodeGame.shop", "url": origin },
-        "offers": { "@type": "Offer", "price": "0", "priceCurrency": "VND", "availability": "https://schema.org/InStock" }
-      };
+      const giveawaySchema = [
+        {
+          "@context": "https://schema.org",
+          "@type": "Event",
+          "name": `Săn Mã: ${campaign.title} - ${gameName}`,
+          "description": description,
+          "image": iconUrl,
+          "startDate": campaign.start_time || "2026-01-01",
+          "endDate": campaign.end_time || "2026-12-31",
+          "eventStatus": "https://schema.org/EventScheduled",
+          "eventAttendanceMode": "https://schema.org/OnlineEventAttendanceMode",
+          "location": { "@type": "VirtualLocation", "url": `${origin}/giveaways/${campaign.id}` },
+          "organizer": { "@type": "Organization", "name": "CodeGame.shop", "url": origin },
+          "offers": { "@type": "Offer", "price": "0", "priceCurrency": "VND", "availability": "https://schema.org/InStock" }
+        },
+        {
+          "@context": "https://schema.org",
+          "@type": "BreadcrumbList",
+          "itemListElement": [
+            { "@type": "ListItem", "position": 1, "name": "Trang chủ", "item": `${origin}/` },
+            { "@type": "ListItem", "position": 2, "name": "Đợt Phát Code", "item": `${origin}/giveaways` },
+            { "@type": "ListItem", "position": 3, "name": gameName, "item": `${origin}/giveaways/${campaign.id}` }
+          ]
+        }
+      ];
 
       replaceTitleAndMeta(title, description, `/giveaways/${campaign.id}`, iconUrl, giveawaySchema);
     } else {
       const title = 'Sự Kiện Giveaway Nhận Giftcode Game Miễn Phí 2026 | CodeGame.shop';
       const description = 'Tham gia sự kiện giveaway nhận quà tân thủ, giftcode VIP độc quyền và thẻ game miễn phí mỗi ngày tại CodeGame.shop.';
-      replaceTitleAndMeta(title, description, '/giveaways', '/og-image.jpg');
+      const giveawayListSchema = [
+        {
+          "@context": "https://schema.org",
+          "@type": "BreadcrumbList",
+          "itemListElement": [
+            { "@type": "ListItem", "position": 1, "name": "Trang chủ", "item": `${origin}/` },
+            { "@type": "ListItem", "position": 2, "name": "Đợt Phát Code", "item": `${origin}/giveaways` }
+          ]
+        }
+      ];
+      replaceTitleAndMeta(title, description, '/giveaways', '/og-image.jpg', giveawayListSchema);
     }
   } else if (pathname === '/store' || pathname.startsWith('/store/')) {
-    const title = 'Cửa Hàng Thẻ Game & Robux Giá Rẻ Uy Tín | CodeGame.shop';
-    const description = 'Mua thẻ game, Robux giá rẻ, key bản quyền và nạp game chiết khấu cao tự động 24/7 tại CodeGame.shop.';
-    replaceTitleAndMeta(title, description, '/store', '/og-image.jpg');
+    const title = 'Cửa Hàng Giftcode VIP & Giao Dịch Mã Game Tự Động 24/7 | CodeGame.shop';
+    const description = 'Mua bán giftcode VIP, gói nạp game bản quyền chiết khấu tới 40%. Giao dịch tự động 24/7 qua SePay, nhận mã ngay trên màn hình trong 30 giây.';
+    const storeSchema = [
+      {
+        "@context": "https://schema.org",
+        "@type": "Store",
+        "name": "Chợ Code VIP - CodeGame.shop",
+        "description": "Cửa hàng giao dịch mã game bản quyền và giftcode VIP tự động 24/7 qua SePay.",
+        "url": `${origin}/store`,
+        "priceRange": "10.000 VND - 500.000 VND",
+        "paymentAccepted": "Chuyển khoản Ngân hàng (SePay), Ví điện tử",
+        "currenciesAccepted": "VND"
+      },
+      {
+        "@context": "https://schema.org",
+        "@type": "BreadcrumbList",
+        "itemListElement": [
+          { "@type": "ListItem", "position": 1, "name": "Trang chủ", "item": `${origin}/` },
+          { "@type": "ListItem", "position": 2, "name": "Chợ Code VIP", "item": `${origin}/store` }
+        ]
+      }
+    ];
+    replaceTitleAndMeta(title, description, '/store', '/og-image.jpg', storeSchema);
   } else if (pathname === '/utilities' || pathname.startsWith('/utilities/')) {
-    const title = 'Tiện Ích Nạp Game, Tool Game & Key Bản Quyền | CodeGame.shop';
-    const description = 'Dịch vụ tiện ích game, hỗ trợ game thủ nạp game an toàn, tốc độ và bảo mật cao tại CodeGame.shop.';
-    replaceTitleAndMeta(title, description, '/utilities', '/og-image.jpg');
+    const title = 'Tiện Ích & Tool Hỗ Trợ Game Số 1 Việt Nam | CodeGame.shop';
+    const description = 'Dịch vụ tiện ích game, hỗ trợ game thủ tối ưu trải nghiệm chơi game an toàn, tốc độ và bảo mật cao tại CodeGame.shop.';
+    const utilSchema = [
+      {
+        "@context": "https://schema.org",
+        "@type": "BreadcrumbList",
+        "itemListElement": [
+          { "@type": "ListItem", "position": 1, "name": "Trang chủ", "item": `${origin}/` },
+          { "@type": "ListItem", "position": 2, "name": "Tiện Ích Game", "item": `${origin}/utilities` }
+        ]
+      }
+    ];
+    replaceTitleAndMeta(title, description, '/utilities', '/og-image.jpg', utilSchema);
+  } else if (pathname === '/' || pathname === '') {
+    const urlObj = new URL(request.url);
+    const pageParam = urlObj.searchParams.get('page');
+    const pageNum = pageParam ? parseInt(pageParam, 10) : 1;
+    const canonicalPath = pageNum > 1 ? `/?page=${pageNum}` : '/';
+    const title = 'CodeGame.shop - Săn Giftcode Miễn Phí & Giao Dịch Mã Game Uy Tín';
+    const description = 'Kho tổng hợp hơn 12.600+ giftcode game mobile và webgame bản quyền G1/G234 mới nhất 2026 của 563+ tựa game. Cập nhật liên tục 24/7 từ các NPH VNG, Garena, VTC, SohaGame, Funtap.';
+    replaceTitleAndMeta(title, description, canonicalPath, '/og-image.jpg');
   }
 
   return new Response(html, {
