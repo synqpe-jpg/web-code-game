@@ -10,6 +10,28 @@
 
 ## 1. DANH MỤC LỖI & CÁC BẪY ĐÃ THẤT BẠI (DO NOT REPEAT)
 
+### ISSUE-159: Bẫy Mô Phỏng Lượt Giật Giveaway (Auto-Simulation Gating, Stock Isolation & Cooldown Handover)
+- **Triệu chứng**:
+  - Event bật giãn cách toàn sàn (Global Cooldown) nhưng không có người giật thì thẻ nằm im, thiếu sôi động.
+  - Nguy cơ nếu thiết kế mô phỏng sai: mô phỏng làm hao hụt mã thật trong kho (`remaining_codes` hoặc `codes_pool` bị giảm), tạo đơn hàng ảo làm rối đối soát kế toán, hoặc CD mô phỏng không khóa người thật khiến người thật giật được liên tục không đúng luật giãn cách, hoặc danh sách tên mô phỏng bị thiếu/lọc nhầm do comment regex.
+- **Nguyên nhân gốc rễ & Các bẫy cần tránh**:
+  1. *Bẫy regex comment trong danh sách tên mô phỏng*: Khi lọc tên bằng regex `split(',')` rồi `.filter(s => !s.startsWith('//'))`, chuỗi comment đầu nhóm `// 1. Vietnamese...` nằm liền kề trước tên đầu tiên khiến tên đó bị nối vào chuỗi comment và bị lọc mất (thực tế mất 4 tên còn 86). Bắt buộc dùng `cleanCode = raw.replace(/\/\/.*$/gm, '')` trước khi split.
+  2. *Bẫy lẫn lộn giữa mã thật và mã ảo*: Lượt mô phỏng tuyệt đối không được gọi `giveaway_codes.pop()` hay ghi vào bảng đơn hàng thật `orders`. Số lượt "Đã giật" hiển thị cho khách phải tăng thông qua `virtual_claimed_offset += 1` đúng theo cơ chế FOMO của sàn.
+  3. *Bẫy Cooldown không đồng bộ*: Lượt mô phỏng bắt buộc phải cập nhật `last_global_claim_at` vào cả D1 `giveaways` để `/api/giveaways/claim` tự động kích hoạt mã lỗi `GLOBAL_COOLDOWN_ACTIVE` chặn người thật cho đến khi hết thời gian giãn cách.
+  4. *Bẫy ghi đè lượt thật*: Khi người thật giật sau khi hết CD, backend phải reset `is_last_claim_simulated: false`, cập nhật `last_real_claim_at: nowIso` và ghi nhận `is_simulated: false` để mốc idle được reset.
+- **Giải pháp chuẩn đã kiểm chứng**:
+  1. Xây dựng `giveaway_simulation_service.ts` với kho 90 tên chuẩn (`PRESET_SIMULATED_NAMES`), công thức idle threshold `Math.max(60, 3x Cooldown)`.
+  2. 5 cổng gating kiểm tra nghiêm ngặt: (1) Đang mở, (2) Còn mã kho thật, (3) Bật switch mô phỏng (`enable_auto_simulation !== false`), (4) Cooldown trước đã hết (chống trùng lặp), (5) Đã trôi qua ngưỡng idle kể từ lượt giật thật gần nhất.
+  3. Cập nhật D1 schema, PRAGMA checks, migration, sync và mapping cho các trường `enable_auto_simulation`, `simulation_idle_threshold_minutes`, `last_real_claim_at`, `last_simulated_claim_at`, `is_last_claim_simulated`.
+  4. Nâng cấp Admin Form, Switch, Threshold input, Nút "⚡ Quét Mô Phỏng" và Modal Claim History 3 Tabs (Tất cả / Người thật / Mô phỏng) kèm badge nhận diện.
+  5. Viết bộ kiểm thử 11 bài `test_giveaway_simulation.cjs` pass 100%.
+- 🚫 **CÁCH SỬA ĐÃ THẤT BẠI - TUYỆT ĐỐI KHÔNG LẶP LẠI**:
+  - ❌ *Tuyệt đối KHÔNG trừ kho thật hoặc tạo order thật cho lượt mô phỏng*: Toàn bộ mã thật phải bảo toàn 100%.
+  - ❌ *Tuyệt đối KHÔNG dùng tên người dùng thật trong CSDL để làm tên mô phỏng*: Chỉ dùng kho 90 tên preset FOMO độc lập.
+  - ❌ *Tuyệt đối KHÔNG để Cooldown mô phỏng trôi qua mà không khóa người thật*: `last_global_claim_at` phải khóa như lượt thật.
+
+---
+
 ### ISSUE-158: Bẫy Array.isArray Ép Kho Về 0 Khi codes_pool Rỗng, Bulk Sync Reset remaining_codes & Trôi Vị Trí Admin
 - **Triệu chứng**:
   - Chủ web đã nạp khoảng 30 mã vào sự kiện Tiên Nghịch Mobile trong trang admin. Nhưng sau bản sửa, kho công khai vẫn hiển thị 0 mã, tổng 52 (lệch $22 + 0 = 22 \neq 52$).

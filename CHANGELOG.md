@@ -7,6 +7,45 @@ Mỗi mục sửa lỗi đều ghi nhận **Nguyên nhân gốc rễ (Root Cause
 
 ## [2026-10-27]
 
+### 239. Phát Triển Tính Năng Tự Động Mô Phỏng Lượt Giật Cho Giveaway Có Giãn Cách Toàn Sàn (Global Cooldown Simulation Engine)
+- **Bối cảnh & Yêu cầu từ Người dùng**:
+  - Mục Giật Giveaway có những event bật "giãn cách toàn sàn" (global cooldown): sau một lượt giật, toàn sàn phải chờ hết thời gian giãn cách mới được giật tiếp.
+  - Khi event ế, không ai giật, thẻ event nằm im không có hoạt động. Cần tính năng tự động mô phỏng lượt giật để thẻ luôn trông sôi động và đang hoạt động liên tục.
+  - *Phạm vi*: Chỉ áp dụng cho event đang mở, còn mã trong kho thật, và có giãn cách toàn sàn > 0s. Mặc định BẬT cho mọi event thỏa điều kiện, có công tắc tắt riêng từng event trong trang quản trị.
+  - *Cơ chế hoạt động*: Job quét định kỳ 5 phút; kiểm tra không còn CD đang chạy và thời gian kể từ lượt giật THẬT gần nhất đã vượt ngưỡng chờ (mặc định = 3 lần thời gian giãn cách, tối thiểu 60 phút). Chọn ngẫu nhiên 1 tên từ kho 90 tên FOMO chuẩn (tránh trùng tên đang hiển thị); ghi nhận lượt mô phỏng, CD mô phỏng khóa người thật như lượt giật thật. Khi người thật giật thì thay thế hoàn toàn cờ mô phỏng.
+  - *Nguyên tắc an toàn (Bắt buộc)*: Tuyệt đối KHÔNG làm giảm mã thật, KHÔNG tạo đơn hàng thật, KHÔNG tăng `claimed_codes` thật; số đếm hiển thị tăng qua `virtual_claimed_offset += 1`; lượt mô phỏng mang cờ `is_simulated: true` để trang quản trị lọc và đối soát riêng biệt.
+- **Thiết kế Kiến trúc & Giải pháp Thành công (Solution Applied)**:
+  1. *Hệ Thống Mô Phỏng Cốt Lõi (`functions/services/giveaway_simulation_service.ts`)*:
+     - Tích hợp kho 90 tên FOMO chuẩn (`PRESET_SIMULATED_NAMES`) gồm: 30 tên tiếng Việt thật, 15 số điện thoại ẩn đuôi, 15 nick gamer và 30 tên custom/ẩm thực.
+     - Hàm tính ngưỡng chờ mặc định: `calculateDefaultIdleThresholdMinutes(cdSec) = Math.max(60, Math.ceil((cdSec * 3) / 60))`.
+     - Bộ lọc 5 cổng kiểm tra nghiêm ngặt: (1) Event đang mở (`is_active: true`, status không phải `ENDED`/`PAUSED`), (2) Kho thật còn mã (`codes_pool.length > 0` hoặc `remaining_codes > 0`), (3) Công tắc mô phỏng đang bật (`enable_auto_simulation !== false`), (4) Cooldown không bị trùng (hết thời gian giãn cách trước đó), (5) Đã trôi qua ngưỡng chờ idle kể từ lượt giật thật gần nhất.
+     - Khi kích hoạt: Chọn tên ngẫu nhiên khác `last_claimer_name` cũ, tăng `virtual_claimed_offset += 1`, cập nhật `last_global_claim_at = nowIso`, `last_simulated_claim_at = nowIso`, `is_last_claim_simulated = true`, ghi 1 bản ghi `claim_history` mang cờ `is_simulated: true`, đồng bộ D1 và bắn sự kiện toast vào `RealEventsHub`.
+  2. *Bảo Toàn Tuyệt Đối Kho Hàng Thật (Zero Stock Impact)*:
+     - `remaining_codes` và mảng `codes_pool` thật giữ nguyên 100%, `claimed_codes` thật không đổi. Bộ đếm web khách tăng đúng chuẩn qua `marketingService.getClaimedDisplay(campaign) = claimed_codes + virtual_claimed_offset`.
+  3. *Cơ Chế Khóa Cooldown & Chuyển Giao Cho Người Thật (`functions/api/giveaways/claim.ts`)*:
+     - Lượt mô phỏng cập nhật `last_global_claim_at` khiến endpoint `/api/giveaways/claim` tự động khóa người thật với mã lỗi `GLOBAL_COOLDOWN_ACTIVE` cho đến khi hết thời gian giãn cách.
+     - Khi người thật giật thành công sau khi hết CD: Backend cập nhật `last_real_claim_at = nowIso`, `is_last_claim_simulated = false`, ghi `is_simulated: false` vào `claim_history`, reset đồng hồ idle.
+  4. *Cơ Chế Quét Ngầm (Passive Tick & API Trigger)*:
+     - Trong `functions/_worker.ts`: Cơ chế Passive Tick chạy ngầm qua `ctx.waitUntil(runGiveawaySimulation(env.DB))` mỗi 5 phút một cách nhẹ nhàng, không tốn thêm cron worker độc lập.
+     - Endpoint `/api/giveaways/simulate` hỗ trợ cả `GET` và `POST` cho phép Admin quét mô phỏng thủ công bất cứ lúc nào.
+  5. *Đồng Bộ CSDL Cloudflare D1 (`functions/services/d1_service.ts`)*:
+     - Bổ sung migration an toàn `ensureGiveawaySchema` cho các cột: `enable_auto_simulation`, `simulation_idle_threshold_minutes`, `last_real_claim_at`, `last_simulated_claim_at`, `is_last_claim_simulated`.
+     - Cập nhật `syncGiveawaysToD1` và `loadAllGiveawaysD1` để lưu trữ và đọc đầy đủ các trường, đồng thời merge thông minh `claim_history` giữa CSDL SQL và các lượt mô phỏng mà không làm mất bản ghi nào.
+  6. *Giao Diện Quản Trị Admin Nâng Cấp (`src/admin/modules/PrivateCodesModule.tsx`)*:
+     - Bổ sung cấu hình trong Form Sửa/Tạo Giveaway: Switch Bật/Tắt mô phỏng (`enable_auto_simulation`) và Input Ngưỡng chờ (`simulation_idle_threshold_minutes`) kèm nhãn hiển thị số phút tính toán thực tế.
+     - Nút `"⚡ Quét Mô Phỏng"` trên thanh công cụ Admin giúp kích hoạt quét tức thì và xem kết quả trực quan.
+     - Modal Lịch Sử Nhận Mã (Claim History Modal): Bổ sung 3 Tabs lọc trực quan (`Tất cả`, `👤 Người thật`, `🤖 Mô phỏng`) kèm badge nhận diện `[🤖 Mô phỏng]` và `[👤 Người thật]`.
+     - Bảng quản trị Giveaway: Hiển thị icon `🤖` cạnh thời gian chờ nếu lượt giật gần nhất là mô phỏng.
+  7. *Kiểm Thử Toàn Diện & Quy Tắc 7*:
+     - Viết bộ kiểm thử `scripts/test_giveaway_simulation.cjs` gồm 11 bài kiểm tra: đạt tỷ lệ 100% (11/11 pass).
+     - Kiểm toán `scripts/audit_zero_test_artifacts.cjs`: 0 sản phẩm hay dữ liệu test trên toàn bộ hệ thống.
+- **Giải pháp thất bại đã thử (Failed Attempts - KHÔNG ĐƯỢC LẶP LẠI)**:
+  - *Thử nghiệm 1*: Lọc danh sách 90 tên mô phỏng bằng cách `split(',')` rồi `.filter(s => !s.startsWith('//'))` mà không xóa bỏ dòng comment trước $\rightarrow$ *Thất bại*: Vì comment dòng `// 1. Vietnamese...` nằm liền kề trước tên đầu tiên mà không có dấu phẩy, tên đầu tiên của mỗi nhóm bị nối vào chuỗi comment và bị lọc mất (thực tế chỉ còn 86 tên). Đã khắc phục: dùng `replace(/\/\/.*$/gm, '')` trước khi split để đảm bảo đủ chuẩn xác 90 tên.
+
+---
+
+## [2026-10-27]
+
 ### 238. Khôi Phục Kho 30 Mã Tiên Nghịch Mobile, Khắc Phục Bẫy Array.isArray Ép Về 0, Chốt Chặn Chống Xóa Mã Khi Đồng Bộ & Ổn Định Hiển Thị Top 1
 - **Bối cảnh & Yêu cầu từ Người dùng**:
   - Chủ web đã nạp mã vào sự kiện Tiên Nghịch Mobile từ trước. Sau bản sửa `3a585d7`, kho mã trống (còn 0 mã) và chủ web đã nạp thêm khoảng 30 mã vào trang admin. Nhưng sau đó kho công khai vẫn hiển thị 0 mã và sự kiện lúc hiện lúc mất, bị trôi mất tích.

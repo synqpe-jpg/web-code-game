@@ -8,6 +8,8 @@ import * as resetPasswordApi from './api/auth/reset-password';
 import * as ordersCreateApi from './api/orders/create';
 import * as sepayWebhookApi from './api/webhooks/sepay';
 import * as giveawaysClaimApi from './api/giveaways/claim';
+import * as giveawaysSimulateApi from './api/giveaways/simulate';
+import { runGiveawaySimulation } from './services/giveaway_simulation_service';
 import * as adminMigrateApi from './api/admin/migrate';
 import * as adminAuditCountersApi from './api/admin/audit-counters';
 import * as adminSepayCreditApi from './api/admin/sepay-credit';
@@ -64,6 +66,8 @@ interface Env {
   CLOUDFLARE_ZONE_ID?: string;
   CLOUDFLARE_API_TOKEN?: string;
 }
+
+let lastGiveawaySimulationTick = 0;
 
 async function handleWorkerRequest(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
     const url = new URL(request.url);
@@ -422,6 +426,27 @@ async function handleWorkerRequest(request: Request, env: Env, ctx: ExecutionCon
           }
           return res;
         }
+      }
+
+      // 7b. /api/giveaways/simulate (Tự động mô phỏng lượt giật cho giveaway có giãn cách toàn sàn)
+      if (pathname === '/api/giveaways/simulate') {
+        if (method === 'OPTIONS') return await giveawaysSimulateApi.onRequestOptions(context);
+        if (method === 'GET') return await giveawaysSimulateApi.onRequestGet(context);
+        if (method === 'POST') {
+          const simRes = await giveawaysSimulateApi.onRequestPost(context);
+          try {
+            ctx.waitUntil(invalidateCatalogEdgeCache(ctx, request, env));
+          } catch {}
+          return simRes;
+        }
+      }
+
+      // Passive Tick: Tự động chạy quét mô phỏng mỗi 5 phút một cách nhẹ nhàng
+      if (env.DB && (Date.now() - lastGiveawaySimulationTick > 300000)) {
+        lastGiveawaySimulationTick = Date.now();
+        ctx.waitUntil(
+          runGiveawaySimulation(env.DB).catch((e: any) => console.warn('[AutoSimTick error]', e?.message))
+        );
       }
 
       // 8. /api/admin/migrate (PERMANENTLY LOCKED & DISABLED)

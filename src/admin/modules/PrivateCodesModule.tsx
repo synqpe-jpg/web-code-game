@@ -28,6 +28,8 @@ import {
   Link2,
   Sliders,
   RefreshCw,
+  Bot,
+  User,
 } from 'lucide-react';
 import { LuckyWheelAdminManager } from '../components/LuckyWheelAdminManager';
 import { FormModal } from '../components/ui/FormModal';
@@ -95,6 +97,8 @@ export const PrivateCodesModule: React.FC<PrivateCodesModuleProps> = ({ onShowTo
     cooldown_hours: 1,
     global_cooldown_seconds: 0,
     last_global_claim_at: '',
+    enable_auto_simulation: true,
+    simulation_idle_threshold_minutes: 0,
     custom_success_msg: '',
     custom_cooldown_msg: '',
     custom_out_of_stock_msg: '',
@@ -123,6 +127,8 @@ export const PrivateCodesModule: React.FC<PrivateCodesModuleProps> = ({ onShowTo
   // --- CLAIM HISTORY MODAL STATE (LỊCH SỬ) ---
   const [isHistoryModalOpen, setIsHistoryModalOpen] = useState(false);
   const [currentCampaignForHistory, setCurrentCampaignForHistory] = useState<GiveawayCampaign | null>(null);
+  const [historyFilterTab, setHistoryFilterTab] = useState<'ALL' | 'REAL' | 'SIMULATED'>('ALL');
+  const [isSimulating, setIsSimulating] = useState(false);
 
   // Delete Confirm Modal
   const [deletingCampaign, setDeletingCampaign] = useState<GiveawayCampaign | null>(null);
@@ -193,6 +199,8 @@ export const PrivateCodesModule: React.FC<PrivateCodesModuleProps> = ({ onShowTo
       cooldown_hours: 1,
       global_cooldown_seconds: 0,
       last_global_claim_at: '',
+      enable_auto_simulation: true,
+      simulation_idle_threshold_minutes: 0,
       custom_success_msg: '',
       custom_cooldown_msg: 'Đợt phát trước đạo hữu {last_user} đã nhanh tay đi trước, đạo hữu vui lòng đợi {time_left} rồi thử sức lại.',
       custom_out_of_stock_msg: '',
@@ -232,6 +240,8 @@ export const PrivateCodesModule: React.FC<PrivateCodesModuleProps> = ({ onShowTo
       cooldown_hours: gw.cooldown_hours !== undefined ? Number(gw.cooldown_hours) : 0,
       global_cooldown_seconds: Number(gw.global_cooldown_seconds || 0),
       last_global_claim_at: gw.last_global_claim_at || '',
+      enable_auto_simulation: gw.enable_auto_simulation !== false,
+      simulation_idle_threshold_minutes: gw.simulation_idle_threshold_minutes !== undefined ? Number(gw.simulation_idle_threshold_minutes) : 0,
       custom_success_msg: gw.custom_success_msg || '',
       custom_cooldown_msg: gw.custom_cooldown_msg || '',
       custom_out_of_stock_msg: gw.custom_out_of_stock_msg || '',
@@ -258,6 +268,31 @@ export const PrivateCodesModule: React.FC<PrivateCodesModuleProps> = ({ onShowTo
     await adminDataService.saveGiveawaysToServer();
     loadData();
     onShowToast('Đã mở đợt phát ngay', `Đã xóa thời gian chờ toàn sàn cho "${gw.title}". Khách có thể giật mã tiếp theo ngay lập tức.`, 'success');
+  };
+
+  const handleRunSimulation = async () => {
+    setIsSimulating(true);
+    try {
+      const res = await fetch('/api/giveaways/simulate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+      });
+      const data = await res.json().catch(() => null);
+      if (res.ok && data?.success) {
+        onShowToast(
+          'Quét mô phỏng hoàn tất',
+          `Đã quét ${data.scannedCount} event, mô phỏng thành công ${data.simulatedCount} event.`,
+          'success'
+        );
+        loadData();
+      } else {
+        onShowToast('Lỗi quét mô phỏng', data?.error || 'Không thể quét mô phỏng', 'error');
+      }
+    } catch (err: any) {
+      onShowToast('Lỗi kết nối', err?.message || 'Lỗi khi gọi API mô phỏng', 'error');
+    } finally {
+      setIsSimulating(false);
+    }
   };
 
   const handleSubmitForm = async (e: React.FormEvent) => {
@@ -294,6 +329,11 @@ export const PrivateCodesModule: React.FC<PrivateCodesModuleProps> = ({ onShowTo
         global_cooldown_seconds: Number(formData.global_cooldown_seconds) || 0,
         last_global_claim_at: formData.last_global_claim_at,
         last_claimer_name: editingItem?.last_claimer_name || '',
+        enable_auto_simulation: formData.enable_auto_simulation !== false,
+        simulation_idle_threshold_minutes: Number(formData.simulation_idle_threshold_minutes) || 0,
+        last_real_claim_at: editingItem?.last_real_claim_at || '',
+        last_simulated_claim_at: editingItem?.last_simulated_claim_at || '',
+        is_last_claim_simulated: Boolean(editingItem?.is_last_claim_simulated),
         custom_success_msg: formData.custom_success_msg.trim(),
         custom_cooldown_msg: formData.custom_cooldown_msg.trim(),
         custom_out_of_stock_msg: formData.custom_out_of_stock_msg.trim(),
@@ -690,6 +730,18 @@ export const PrivateCodesModule: React.FC<PrivateCodesModuleProps> = ({ onShowTo
               </button>
             </div>
 
+            {/* Nút Quét Mô Phỏng Tự Động */}
+            <button
+              type="button"
+              disabled={isSimulating}
+              onClick={handleRunSimulation}
+              className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold bg-amber-500/10 hover:bg-amber-500/20 text-amber-600 dark:text-amber-400 border border-amber-500/30 transition-all cursor-pointer shadow-sm active:scale-95 disabled:opacity-50"
+              title="Chạy quét mô phỏng lượt giật cho các giveaway có giãn cách toàn sàn đang chờ"
+            >
+              <Zap className={`h-3.5 w-3.5 ${isSimulating ? 'animate-spin' : ''}`} />
+              <span>{isSimulating ? 'Đang quét...' : '⚡ Quét Mô Phỏng'}</span>
+            </button>
+
             {/* Nút Reset Toàn Bộ Số Ảo Về Thật */}
             <button
               type="button"
@@ -994,17 +1046,24 @@ export const PrivateCodesModule: React.FC<PrivateCodesModuleProps> = ({ onShowTo
                               const isCooling = gw.last_global_claim_at &&
                                 (new Date(gw.last_global_claim_at).getTime() + (gw.global_cooldown_seconds || 0) * 1000) > Date.now();
                               return isCooling ? (
-                                <button
-                                  type="button"
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    handleResetGlobalCooldown(gw);
-                                  }}
-                                  className="ml-1 text-[9px] px-1.5 py-0.2 rounded bg-amber-500/15 text-amber-600 dark:text-amber-400 border border-amber-500/30 hover:bg-amber-500/25 cursor-pointer font-bold transition-all"
-                                  title="Đang khóa chờ đợt mã tiếp theo. Nhấn để mở ngay lập tức!"
-                                >
-                                  ⏳ Đang chờ (Mở ngay)
-                                </button>
+                                <div className="inline-flex items-center gap-0.5">
+                                  {gw.is_last_claim_simulated ? (
+                                    <span className="text-[9px] px-1 py-0.2 rounded bg-amber-100 text-amber-700 dark:bg-amber-950/60 dark:text-amber-300 border border-amber-300 dark:border-amber-800 font-bold" title="Lượt giật vừa qua là mô phỏng tự động">
+                                      🤖
+                                    </span>
+                                  ) : null}
+                                  <button
+                                    type="button"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      handleResetGlobalCooldown(gw);
+                                    }}
+                                    className="ml-1 text-[9px] px-1.5 py-0.2 rounded bg-amber-500/15 text-amber-600 dark:text-amber-400 border border-amber-500/30 hover:bg-amber-500/25 cursor-pointer font-bold transition-all"
+                                    title="Đang khóa chờ đợt mã tiếp theo. Nhấn để mở ngay lập tức!"
+                                  >
+                                    ⏳ Đang chờ (Mở ngay)
+                                  </button>
+                                </div>
                               ) : null;
                             })()}
                           </div>
@@ -1491,6 +1550,11 @@ export const PrivateCodesModule: React.FC<PrivateCodesModuleProps> = ({ onShowTo
                   <div className="text-[11px] text-amber-900 dark:text-amber-200">
                     <span>Lượt giật gần nhất: </span>
                     <strong className="font-mono">{formatFullDateTime(editingItem.last_global_claim_at)}</strong>
+                    {editingItem.is_last_claim_simulated ? (
+                      <span className="ml-1.5 px-1.5 py-0.2 rounded text-[9px] font-bold bg-purple-500/20 text-purple-700 dark:text-purple-300 border border-purple-500/30">
+                        🤖 Mô phỏng
+                      </span>
+                    ) : null}
                   </div>
                   <button
                     type="button"
@@ -1502,6 +1566,63 @@ export const PrivateCodesModule: React.FC<PrivateCodesModuleProps> = ({ onShowTo
                   >
                     🔄 Mở đợt phát ngay (Reset chờ)
                   </button>
+                </div>
+              )}
+
+              {/* TỰ ĐỘNG MÔ PHỎNG LƯỢT GIẬT CHO SỰ KIỆN CÓ GIÃN CÁCH TOÀN SÀN */}
+              {formData.global_cooldown_seconds > 0 && (
+                <div className="mt-3 p-3 rounded-xl bg-white/80 dark:bg-slate-900/70 border border-amber-200/90 dark:border-amber-800/60 space-y-2.5">
+                  <div className="flex items-center justify-between">
+                    <label className="text-xs font-bold text-slate-800 dark:text-slate-200 flex items-center gap-1.5 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={formData.enable_auto_simulation !== false}
+                        onChange={(e) => setFormData((p) => ({ ...p, enable_auto_simulation: e.target.checked }))}
+                        className="rounded border-slate-300 text-amber-600 focus:ring-amber-500 h-4 w-4"
+                      />
+                      <span>🤖 Tự động mô phỏng lượt giật khi không ai giật (Chống ế)</span>
+                    </label>
+                    <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
+                      formData.enable_auto_simulation !== false
+                        ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-400 border border-emerald-300 dark:border-emerald-800'
+                        : 'bg-slate-100 text-slate-500 dark:bg-slate-800 dark:text-slate-400 border border-slate-300 dark:border-slate-700'
+                    }`}>
+                      {formData.enable_auto_simulation !== false ? 'Đang BẬT' : 'Đã TẮT'}
+                    </span>
+                  </div>
+
+                  <p className="text-[11px] text-slate-500 dark:text-slate-400 leading-relaxed">
+                    Khi quá thời gian chờ mà chưa có người thật giật, hệ thống tự động chọn tên từ kho 90 nick FOMO để giật mô phỏng, bắt đầu đếm giãn cách khóa người thật như thật. Tuyệt đối không hao hụt mã thật trong kho.
+                  </p>
+
+                  {formData.enable_auto_simulation !== false && (
+                    <div className="pt-1 border-t border-slate-100 dark:border-slate-800 space-y-1.5">
+                      <div className="flex items-center justify-between text-[11px]">
+                        <span className="font-semibold text-slate-700 dark:text-slate-300">
+                          Ngưỡng chờ không người giật thật:
+                        </span>
+                        <span className="font-bold text-amber-600 dark:text-amber-400 font-mono text-[10px]">
+                          Áp dụng: {formData.simulation_idle_threshold_minutes > 0
+                            ? `${formData.simulation_idle_threshold_minutes} phút`
+                            : `${Math.max(60, Math.ceil((formData.global_cooldown_seconds * 3) / 60))} phút (Mặc định 3x giãn cách)`}
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <input
+                          type="number"
+                          min={0}
+                          value={formData.simulation_idle_threshold_minutes}
+                          onChange={(e) => setFormData((p) => ({ ...p, simulation_idle_threshold_minutes: Math.max(0, parseInt(e.target.value, 10) || 0) }))}
+                          placeholder="0 = Tự động (gấp 3 lần giãn cách, tối thiểu 60p)"
+                          className="w-full font-mono rounded-xl border border-slate-200 bg-white p-2 text-xs text-slate-900 focus:border-amber-500 focus:outline-none dark:border-slate-700 dark:bg-slate-800 dark:text-white"
+                        />
+                        <span className="text-xs text-slate-500 whitespace-nowrap font-medium">phút</span>
+                      </div>
+                      <span className="text-[10px] text-slate-400 block italic">
+                        * Nhập 0 để hệ thống tự động tính (gấp 3 lần thời gian giãn cách, tối thiểu 60 phút).
+                      </span>
+                    </div>
+                  )}
                 </div>
               )}
             </div>
@@ -1982,43 +2103,123 @@ export const PrivateCodesModule: React.FC<PrivateCodesModuleProps> = ({ onShowTo
         maxWidth="xl"
       >
         <div className="space-y-4">
-          <div className="max-h-[60vh] overflow-y-auto space-y-2">
-            {currentCampaignForHistory?.claim_history && currentCampaignForHistory.claim_history.length > 0 ? (
-              currentCampaignForHistory.claim_history.map((item) => (
-                <div
-                  key={item.id}
-                  className="p-3 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/40 flex items-center justify-between text-xs"
-                >
-                  <div>
-                    <div className="flex items-center gap-2">
-                      <strong className="text-slate-900 dark:text-white font-bold">{item.user}</strong>
-                      <span className="text-slate-400 text-[11px]">({item.email || 'Khách'})</span>
-                    </div>
-                    <span className="text-[10px] text-slate-400 font-mono">
-                      IP: {item.ip || '—'} • Thời gian: {formatFullDateTime(item?.claimedAt)}
-                    </span>
-                  </div>
+          {(() => {
+            const allHistory = currentCampaignForHistory?.claim_history || [];
+            const realCount = allHistory.filter((c: any) => !c.is_simulated).length;
+            const simCount = allHistory.filter((c: any) => !!c.is_simulated).length;
 
-                  <div className="flex items-center gap-2">
-                    <span className="font-mono font-bold text-purple-600 dark:text-purple-400 bg-white dark:bg-slate-900 px-2.5 py-1 rounded border border-slate-200 dark:border-slate-700">
-                      {item.code}
-                    </span>
-                    <button
-                      onClick={() => handleCopy(item.code, item.id)}
-                      className="p-1 rounded text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 cursor-pointer"
-                      title="Sao chép"
-                    >
-                      {copiedId === item.id ? <Check className="h-3.5 w-3.5 text-emerald-500" /> : <Copy className="h-3.5 w-3.5" />}
-                    </button>
-                  </div>
+            const filteredHistory = allHistory.filter((item: any) => {
+              if (historyFilterTab === 'REAL') return !item.is_simulated;
+              if (historyFilterTab === 'SIMULATED') return !!item.is_simulated;
+              return true;
+            });
+
+            return (
+              <>
+                {/* 3 Tabs Lọc: Tất cả / Người thật / Mô phỏng */}
+                <div className="flex items-center gap-1.5 p-1 bg-slate-100 dark:bg-slate-800 rounded-xl">
+                  <button
+                    type="button"
+                    onClick={() => setHistoryFilterTab('ALL')}
+                    className={`flex-1 py-1.5 text-xs font-bold rounded-lg transition-all cursor-pointer ${
+                      historyFilterTab === 'ALL'
+                        ? 'bg-white dark:bg-slate-900 text-slate-900 dark:text-white shadow-xs'
+                        : 'text-slate-500 hover:text-slate-900 dark:hover:text-white'
+                    }`}
+                  >
+                    Tất cả ({allHistory.length})
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setHistoryFilterTab('REAL')}
+                    className={`flex-1 py-1.5 text-xs font-bold rounded-lg transition-all cursor-pointer flex items-center justify-center gap-1.5 ${
+                      historyFilterTab === 'REAL'
+                        ? 'bg-emerald-600 text-white shadow-xs'
+                        : 'text-slate-500 hover:text-emerald-600 dark:hover:text-emerald-400'
+                    }`}
+                  >
+                    <User className="w-3.5 h-3.5" />
+                    <span>Người thật ({realCount})</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setHistoryFilterTab('SIMULATED')}
+                    className={`flex-1 py-1.5 text-xs font-bold rounded-lg transition-all cursor-pointer flex items-center justify-center gap-1.5 ${
+                      historyFilterTab === 'SIMULATED'
+                        ? 'bg-amber-600 text-white shadow-xs'
+                        : 'text-slate-500 hover:text-amber-600 dark:hover:text-amber-400'
+                    }`}
+                  >
+                    <Bot className="w-3.5 h-3.5" />
+                    <span>Mô phỏng ({simCount})</span>
+                  </button>
                 </div>
-              ))
-            ) : (
-              <div className="p-8 text-center text-slate-400 text-xs">
-                Chưa có lượt nhận nào được ghi nhận cho chiến dịch này.
-              </div>
-            )}
-          </div>
+
+                <div className="max-h-[60vh] overflow-y-auto space-y-2">
+                  {filteredHistory.length > 0 ? (
+                    filteredHistory.map((item: any) => (
+                      <div
+                        key={item.id}
+                        className={`p-3 rounded-xl border flex items-center justify-between text-xs transition-colors ${
+                          item.is_simulated
+                            ? 'border-amber-200/80 dark:border-amber-900/40 bg-amber-50/40 dark:bg-amber-950/20'
+                            : 'border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/40'
+                        }`}
+                      >
+                        <div>
+                          <div className="flex items-center gap-2">
+                            <strong className="text-slate-900 dark:text-white font-bold">{item.user}</strong>
+                            <span className="text-slate-400 text-[11px]">
+                              ({item.email || (item.is_simulated ? 'Nick mô phỏng' : 'Khách')})
+                            </span>
+                            {item.is_simulated ? (
+                              <span className="inline-flex items-center gap-1 px-1.5 py-0.2 rounded text-[10px] font-bold bg-amber-100 text-amber-800 dark:bg-amber-950/60 dark:text-amber-300 border border-amber-300/60 dark:border-amber-800">
+                                <Bot className="w-3 h-3 text-amber-600 dark:text-amber-400" /> Mô phỏng
+                              </span>
+                            ) : (
+                              <span className="inline-flex items-center gap-1 px-1.5 py-0.2 rounded text-[10px] font-bold bg-emerald-100 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-300 border border-emerald-300/60 dark:border-emerald-800">
+                                <User className="w-3 h-3 text-emerald-600 dark:text-emerald-400" /> Người thật
+                              </span>
+                            )}
+                          </div>
+                          <span className="text-[10px] text-slate-400 font-mono">
+                            IP: {item.is_simulated ? 'Hệ thống mô phỏng' : (item.ip || '—')} • Thời gian: {formatFullDateTime(item?.claimedAt)}
+                          </span>
+                        </div>
+
+                        <div className="flex items-center gap-2">
+                          <span className={`font-mono font-bold px-2.5 py-1 rounded border ${
+                            item.is_simulated
+                              ? 'text-amber-700 dark:text-amber-300 bg-white dark:bg-slate-900 border-amber-200 dark:border-amber-800'
+                              : 'text-purple-600 dark:text-purple-400 bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-700'
+                          }`}>
+                            {item.code}
+                          </span>
+                          {!item.is_simulated && (
+                            <button
+                              onClick={() => handleCopy(item.code, item.id)}
+                              className="p-1 rounded text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 cursor-pointer"
+                              title="Sao chép"
+                            >
+                              {copiedId === item.id ? <Check className="h-3.5 w-3.5 text-emerald-500" /> : <Copy className="h-3.5 w-3.5" />}
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                    ))
+                  ) : (
+                    <div className="p-8 text-center text-slate-400 text-xs">
+                      {historyFilterTab === 'SIMULATED'
+                        ? 'Chưa có lượt mô phỏng nào cho chiến dịch này.'
+                        : historyFilterTab === 'REAL'
+                        ? 'Chưa có người thật nào nhận mã trong chiến dịch này.'
+                        : 'Chưa có lượt nhận nào được ghi nhận cho chiến dịch này.'}
+                    </div>
+                  )}
+                </div>
+              </>
+            );
+          })()}
 
           <div className="flex items-center justify-end pt-3 border-t border-slate-100 dark:border-slate-800">
             <button

@@ -500,8 +500,8 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
 
     // Immediate authoritative update of last_global_claim_at and last_claimer_name to lock subsequent concurrent claims immediately
     await env.DB.prepare(
-      'UPDATE giveaways SET last_global_claim_at = ?, last_claimer_name = ? WHERE id = ?'
-    ).bind(nowIso, claimerDisplayName, campaign.id).run().catch(() => {});
+      'UPDATE giveaways SET last_global_claim_at = ?, last_claimer_name = ?, last_real_claim_at = ?, is_last_claim_simulated = 0 WHERE id = ?'
+    ).bind(nowIso, claimerDisplayName, nowIso, campaign.id).run().catch(() => {});
 
     // 6 & 7. Asynchronously update counters, settings pool & real events hub in background
     const backgroundSync = async () => {
@@ -518,8 +518,8 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
 
         // Sync authoritative counters and last_global_claim_at & last_claimer_name to giveaways table
         await env.DB.prepare(
-          'UPDATE giveaways SET remaining_codes = ?, claimed_codes = ?, last_global_claim_at = ?, last_claimer_name = ? WHERE id = ?'
-        ).bind(remainingCnt, claimedCnt, nowIso, claimerDisplayName, campaign.id).run().catch(() => {});
+          'UPDATE giveaways SET remaining_codes = ?, claimed_codes = ?, last_global_claim_at = ?, last_claimer_name = ?, last_real_claim_at = ?, is_last_claim_simulated = 0 WHERE id = ?'
+        ).bind(remainingCnt, claimedCnt, nowIso, claimerDisplayName, nowIso, campaign.id).run().catch(() => {});
 
         // Sync codes_pool in wcg_admin_giveaways_v4
         try {
@@ -537,6 +537,8 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
               storedGiveaways[gwIdx].claimed_codes = claimedCnt;
               storedGiveaways[gwIdx].last_global_claim_at = nowIso;
               storedGiveaways[gwIdx].last_claimer_name = claimerDisplayName;
+              storedGiveaways[gwIdx].last_real_claim_at = nowIso;
+              storedGiveaways[gwIdx].is_last_claim_simulated = false;
 
               // Append claim record to claim_history for admin dashboard visibility
               const claimHistoryItem = {
@@ -545,6 +547,7 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
                 email: member.email || '',
                 code: codeValue,
                 claimedAt: nowIso,
+                is_simulated: false,
               };
               storedGiveaways[gwIdx].claim_history = [
                 claimHistoryItem,

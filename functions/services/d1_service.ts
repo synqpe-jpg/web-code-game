@@ -196,6 +196,11 @@ CREATE TABLE IF NOT EXISTS giveaways (
   cover_image_url TEXT,
   game_icon_url TEXT,
   status TEXT NOT NULL DEFAULT 'ACTIVE' CHECK (status IN ('ACTIVE', 'ENDED')),
+  enable_auto_simulation INTEGER NOT NULL DEFAULT 1,
+  simulation_idle_threshold_minutes INTEGER DEFAULT 0,
+  last_real_claim_at TEXT DEFAULT '',
+  last_simulated_claim_at TEXT DEFAULT '',
+  is_last_claim_simulated INTEGER NOT NULL DEFAULT 0,
   created_at TEXT NOT NULL DEFAULT (datetime('now'))
 );
 
@@ -348,6 +353,21 @@ export async function ensureGiveawaySchema(db: D1Database): Promise<void> {
     }
     if (!cols.has('updated_at')) {
       await db.prepare("ALTER TABLE giveaways ADD COLUMN updated_at TEXT DEFAULT '';").run().catch(() => {});
+    }
+    if (!cols.has('enable_auto_simulation')) {
+      await db.prepare('ALTER TABLE giveaways ADD COLUMN enable_auto_simulation INTEGER NOT NULL DEFAULT 1;').run().catch(() => {});
+    }
+    if (!cols.has('simulation_idle_threshold_minutes')) {
+      await db.prepare('ALTER TABLE giveaways ADD COLUMN simulation_idle_threshold_minutes INTEGER NOT NULL DEFAULT 0;').run().catch(() => {});
+    }
+    if (!cols.has('last_real_claim_at')) {
+      await db.prepare("ALTER TABLE giveaways ADD COLUMN last_real_claim_at TEXT DEFAULT '';").run().catch(() => {});
+    }
+    if (!cols.has('last_simulated_claim_at')) {
+      await db.prepare("ALTER TABLE giveaways ADD COLUMN last_simulated_claim_at TEXT DEFAULT '';").run().catch(() => {});
+    }
+    if (!cols.has('is_last_claim_simulated')) {
+      await db.prepare('ALTER TABLE giveaways ADD COLUMN is_last_claim_simulated INTEGER NOT NULL DEFAULT 0;').run().catch(() => {});
     }
     giveawaySchemaChecked = true;
   } catch (err: any) {
@@ -2222,6 +2242,11 @@ export async function syncGiveawaysToD1(db: D1Database, giveaways: any[]): Promi
     const gameIconUrl = gw.game_icon_url || gw.gameIconUrl || null;
     const useTemplate = (gw.use_template !== false && (gw as any).useTemplate !== false) ? 1 : 0;
     const updatedAt = gw.updated_at || (gw as any).updatedAt || new Date().toISOString();
+    const enableAutoSimulation = (gw.enable_auto_simulation !== false && (gw as any).enableAutoSimulation !== false) ? 1 : 0;
+    const simulationIdleThresholdMinutes = Math.max(0, Number(gw.simulation_idle_threshold_minutes ?? (gw as any).simulationIdleThresholdMinutes ?? 0));
+    const lastRealClaimAt = String(gw.last_real_claim_at || (gw as any).lastRealClaimAt || '').trim();
+    const lastSimulatedClaimAt = String(gw.last_simulated_claim_at || (gw as any).lastSimulatedClaimAt || '').trim();
+    const isLastClaimSimulated = (gw.is_last_claim_simulated || (gw as any).isLastClaimSimulated) ? 1 : 0;
 
     await db.prepare(`
       INSERT INTO giveaways (
@@ -2235,9 +2260,11 @@ export async function syncGiveawaysToD1(db: D1Database, giveaways: any[]): Promi
         show_claimed_count, virtual_claimed_offset,
         start_time, end_time, is_active,
         cover_image_url, game_icon_url, status, created_at,
-        use_template, updated_at
+        use_template, updated_at,
+        enable_auto_simulation, simulation_idle_threshold_minutes,
+        last_real_claim_at, last_simulated_claim_at, is_last_claim_simulated
       )
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       ON CONFLICT(id) DO UPDATE SET
         title = excluded.title,
         game_slug = excluded.game_slug,
@@ -2273,6 +2300,11 @@ export async function syncGiveawaysToD1(db: D1Database, giveaways: any[]): Promi
         status = excluded.status,
         use_template = excluded.use_template,
         updated_at = excluded.updated_at,
+        enable_auto_simulation = excluded.enable_auto_simulation,
+        simulation_idle_threshold_minutes = excluded.simulation_idle_threshold_minutes,
+        last_real_claim_at = CASE WHEN excluded.last_real_claim_at != '' THEN excluded.last_real_claim_at ELSE giveaways.last_real_claim_at END,
+        last_simulated_claim_at = CASE WHEN excluded.last_simulated_claim_at != '' THEN excluded.last_simulated_claim_at ELSE giveaways.last_simulated_claim_at END,
+        is_last_claim_simulated = excluded.is_last_claim_simulated,
         created_at = COALESCE(giveaways.created_at, excluded.created_at)
     `).bind(
       gw.id,
@@ -2310,7 +2342,12 @@ export async function syncGiveawaysToD1(db: D1Database, giveaways: any[]): Promi
       status,
       gw.created_at || gw.createdAt || new Date().toISOString(),
       useTemplate,
-      updatedAt
+      updatedAt,
+      enableAutoSimulation,
+      simulationIdleThresholdMinutes,
+      lastRealClaimAt,
+      lastSimulatedClaimAt,
+      isLastClaimSimulated
     ).run().catch((e) => console.warn('[syncGiveawaysToD1 gw error]', e?.message));
 
     // Reconcile and batch insert codes_pool into giveaway_codes if present
@@ -2838,6 +2875,11 @@ export async function loadAllGiveawaysD1(db: D1Database, includeCodes: boolean =
         g.start_time,
         g.end_time,
         CASE WHEN g.is_active = 0 THEN 0 ELSE 1 END AS is_active,
+        COALESCE(g.enable_auto_simulation, 1) AS enable_auto_simulation,
+        COALESCE(g.simulation_idle_threshold_minutes, 0) AS simulation_idle_threshold_minutes,
+        COALESCE(g.last_real_claim_at, '') AS last_real_claim_at,
+        COALESCE(g.last_simulated_claim_at, '') AS last_simulated_claim_at,
+        COALESCE(g.is_last_claim_simulated, 0) AS is_last_claim_simulated,
         COALESCE(g.use_template, 1) AS use_template,
         COALESCE(g.updated_at, g.created_at) AS updated_at,
         g.cover_image_url,
@@ -2906,6 +2948,11 @@ export async function loadAllGiveawaysD1(db: D1Database, includeCodes: boolean =
         custom_banner_text: meta.custom_banner_text || gw.custom_banner_text || 'Tham gia nhóm zalo của web tại đây',
         custom_banner_link: meta.custom_banner_link || gw.custom_banner_link || '',
         virtual_claimed_offset: meta.virtual_claimed_offset !== undefined ? Math.max(0, Number(meta.virtual_claimed_offset) || 0) : Math.max(0, Number(gw.virtual_claimed_offset) || 0),
+        enable_auto_simulation: meta.enable_auto_simulation !== undefined ? Boolean(meta.enable_auto_simulation) : (gw.enable_auto_simulation !== undefined ? Boolean(gw.enable_auto_simulation) : true),
+        simulation_idle_threshold_minutes: meta.simulation_idle_threshold_minutes !== undefined ? Number(meta.simulation_idle_threshold_minutes) : (gw.simulation_idle_threshold_minutes !== undefined ? Number(gw.simulation_idle_threshold_minutes) : 0),
+        last_real_claim_at: meta.last_real_claim_at || gw.last_real_claim_at || '',
+        last_simulated_claim_at: meta.last_simulated_claim_at || gw.last_simulated_claim_at || '',
+        is_last_claim_simulated: meta.is_last_claim_simulated !== undefined ? Boolean(meta.is_last_claim_simulated) : Boolean(gw.is_last_claim_simulated),
         fomo_anchor_time: meta.fomo_anchor_time || gw.fomo_anchor_time || null,
         show_claimed_count: meta.show_claimed_count !== undefined ? Boolean(meta.show_claimed_count) : (gw.show_claimed_count !== undefined ? Boolean(gw.show_claimed_count) : true),
         use_template: meta.use_template !== undefined ? Boolean(meta.use_template) : (gw.use_template !== undefined ? Boolean(gw.use_template) : true),
@@ -2965,10 +3012,19 @@ export async function loadAllGiveawaysD1(db: D1Database, includeCodes: boolean =
         : (Array.isArray(gw.codes_pool) && gw.codes_pool.length > 0
             ? gw.codes_pool
             : (Array.isArray(fallback.codes_pool) ? fallback.codes_pool : []));
+
+      const sqlClaims = (historyMap.get(gw.id) || []).map((c: any) => ({ ...c, is_simulated: false }));
+      const meta = metaMap.get(gw.id) || {};
+      const metaHistory = Array.isArray(meta.claim_history) ? meta.claim_history : (Array.isArray(gw.claim_history) ? gw.claim_history : (fallback.claim_history || []));
+      const simClaims = (metaHistory || []).filter((c: any) => c && c.is_simulated === true);
+      const mergedClaims = [...sqlClaims, ...simClaims].sort((a: any, b: any) => {
+        return new Date(b.claimedAt || 0).getTime() - new Date(a.claimedAt || 0).getTime();
+      }).slice(0, 100);
+
       return {
         ...gw,
         codes_pool: pool,
-        claim_history: historyMap.get(gw.id) || (Array.isArray(gw.claim_history) && gw.claim_history.length > 0 ? gw.claim_history : (fallback.claim_history || [])),
+        claim_history: mergedClaims.length > 0 ? mergedClaims : (fallback.claim_history || []),
       };
     });
   } catch (err: any) {
