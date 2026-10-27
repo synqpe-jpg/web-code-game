@@ -7,6 +7,32 @@ Mỗi mục sửa lỗi đều ghi nhận **Nguyên nhân gốc rễ (Root Cause
 
 ## [2026-10-27]
 
+### 232. Xóa 15 Tài Khoản Test (0đ), Rà Soát Chống XSS Hiển Thị Thành Viên Toàn Web & Khóa Chặn Đăng Ký Thẻ Script
+- **Bối cảnh & Yêu cầu từ Người dùng**:
+  - Người dùng yêu cầu xóa chính xác 15 tài khoản test còn lại (đều 0đ) sau khi kiểm tra đầy đủ 3 điều kiện: username và email khớp danh sách, số dư đúng 0đ, và không có đơn hàng, mã đã giao hay giao dịch SePay.
+  - Kiểm tra chống XSS ở mọi nơi hiển thị tên thành viên/tên hiển thị (admin, leaderboard, giveaway, bình luận, lịch sử ví), xác nhận tên được escape thành text thuần.
+  - Chạy đối soát `reconcile_member_balances` xác nhận 0 sai lệch.
+  - Bảo toàn tuyệt đối số dư 44.800đ của 5 khách thật chuyển đổi từ .store và giữ nguyên các tài khoản thật 0đ.
+- **Nguyên nhân gốc rễ (Root Cause)**:
+  1. *Tồn dư tài khoản test từ giai đoạn kiểm thử cũ*: 15 tài khoản test được tạo tự động trong các kịch bản kiểm thử API cũ, trong đó có 1 tài khoản mang username kiểm thử XSS `<script>alert(1)</script>`.
+  2. *Thiếu bước lọc ký tự đặc biệt ở tầng đăng ký API*: Endpoint `functions/api/auth/register.ts` trước đó không kiểm tra thẻ script `<` hoặc `>` trong `username`, cho phép lưu trữ chuỗi chứa thẻ HTML vào CSDL.
+- **Giải pháp thành công (Solution)**:
+  1. *Tạo bản sao lưu toàn vẹn*: Đã xuất bản file sao lưu CSDL `data/backups/backup_pre_delete_15_test_members_20261027.json` (11.94 MB) trước khi xóa.
+  2. *Xóa chuẩn xác 15 tài khoản test*: Xây dựng action `admin_purge_15_test_members` trong `functions/api/sync.ts`, kiểm tra chặt chẽ 3 tiêu chí và xóa sạch 15 tài khoản khỏi CSDL D1 `members` và `wcg_admin_members_v4`.
+  3. *Đối soát số dư*: Chạy `reconcile_member_balances` đạt kết quả 0 sai lệch (0 thành viên cần đối soát). Bảo toàn 100% số dư 44.800đ của 5 khách thật và 5 khách thật 0đ.
+  4. *Rà soát chống XSS toàn diện*:
+     - Toàn bộ frontend React 100% sử dụng JSX text binding (`{name}`, `{displayName}`), hoàn toàn không có `dangerouslySetInnerHTML` hay DOM mutation thô. Mọi chuỗi script đều được React escape thành text node an toàn tuyệt đối.
+     - Tại `functions/api/auth/register.ts`: Bổ sung kiểm tra chặn 100% username chứa `<` hoặc `>` hoặc thẻ script; tự động strip thẻ HTML trong `displayName`.
+     - Tại `functions/api/auth/me.ts`: Tự động strip thẻ HTML khi cập nhật `displayName`.
+- **Kiểm thử & Nghiệm thu**:
+  - `npm run build`: 100% thành công, 780 trang prerender hoàn tất.
+  - Thử đăng nhập 15 tài khoản đã xóa: 15/15 đều bị từ chối HTTP 400.
+  - Tổng số thành viên D1 giảm từ 507 xuống đúng 492 thành viên.
+  - 5 khách thật giữ nguyên 44.800đ (Hau99999 34.450đ, Nam2026 5.950đ, Manh 1.900đ, zzztq2zzz 1.500đ, zazapana0409 1.000đ).
+  - Quét liệt kê 10 tài khoản test tiềm năng còn lại trong CSDL để báo cáo người dùng.
+
+---
+
 ### 231. Thiết Lập Cấu Hình Admin Là Chân Lý Duy Nhất (SSOT) — Khắc Phục Lệch Luật Hiển Thị Ngoài Web, Sửa Tiêu Đề Dấu Cộng & Khôi Phục Tồn Kho Giveaway
 - **Bối cảnh & Yêu cầu từ Người dùng**:
   - Người dùng phản ánh: *"Tong admin tôi thiết kế luật khác, nhưng ngoài web lại hiển thị khác admin. đảm bảo thiết lập trong admin là chân lý duy nhất giúp tôi."*

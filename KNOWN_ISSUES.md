@@ -10,6 +10,22 @@
 
 ## 1. DANH MỤC LỖI & CÁC BẪY ĐÃ THẤT BẠI (DO NOT REPEAT)
 
+### ISSUE-152: Bẫy Đăng Ký Tên Chứa Thẻ Script & Rà Soát Chống XSS Toàn Diện
+- **Triệu chứng**:
+  - Tồn tại tài khoản test với username là thẻ script `<script>alert(1)</script>` trong CSDL, gây nguy cơ tiềm ẩn nếu có bất kỳ nơi nào hiển thị bằng HTML thô.
+- **Nguyên nhân gốc rễ (Root Cause)**:
+  - Endpoint đăng ký tài khoản `functions/api/auth/register.ts` chưa có bước validate ký tự đặc biệt đối với `username`, cho phép người dùng đăng ký tên chứa các ký tự `<` và `>`.
+- **Giải pháp chuẩn đã kiểm chứng**:
+  1. Xóa an toàn tài khoản test khỏi D1 `members` và `wcg_admin_members_v4` sau khi đối soát đầy đủ 3 điều kiện (username, email, 0đ balance).
+  2. Rà soát 100% frontend React: Khẳng định toàn bộ tên thành viên được bind qua JSX text node an toàn (`document.createTextNode`), không có bất kỳ `dangerouslySetInnerHTML` hay DOM mutation nào cho phép thực thi script.
+  3. Bổ sung validation ở backend `register.ts`: Chặn hoàn toàn username chứa `<` hoặc `>` hoặc thẻ script; tự động strip thẻ HTML trong `displayName`.
+  4. Bổ sung sanitization ở backend `me.ts`: Strip thẻ HTML trong `displayName` khi cập nhật hồ sơ cá nhân.
+- ⛔ **CÁCH SỬA ĐÃ THẤT BẠI - TUYỆT ĐỐI KHÔNG LẶP LẠI**:
+  - ❌ *Không chỉ xóa tài khoản ở frontend*: Bắt buộc xóa triệt để cả trong bảng D1 `members` và `wcg_admin_members_v4`.
+  - ❌ *Không cho phép đăng ký username chứa ký tự `<`, `>`*: Phải chặn ngay từ cổng validation API.
+
+---
+
 ### ISSUE-151: Bẫy Mẫu Chung Ghi Đè Thiết Lập Riêng (SSOT Inversion) & Lỗi Rỗng Mảng Kho Mã codes_pool
 - **Triệu chứng**:
   - Khi quản trị viên cấu hình luật riêng cho một đợt phát code Giveaway trong Admin (ví dụ: User: 3 mã, IP: 3 mã, CD: 1h, Giãn cách: 45p, Tiêu đề không có dấu '+', Kho còn 35 mã), ngoài giao diện web khách lại hiển thị lệch 100% theo Mẫu Chung (User: 1 mã, IP: 2 mã, mất giãn cách, tiêu đề bị nhét thêm '+' thành 'Code riêng + Tiên Nghịch Mobile', kho báo hết mã và nút bị vô hiệu hóa 'Chờ Đợt Mã Mới').

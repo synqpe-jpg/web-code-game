@@ -359,7 +359,7 @@ async function handleUpdateProfile(context: EventContext<Env, any, any>): Promis
 
     let targetDisplayName = member.display_name;
     if (typeof displayName === 'string' && displayName.trim().length > 0) {
-      targetDisplayName = displayName.trim().slice(0, 50);
+      targetDisplayName = displayName.replace(/<[^>]*>?/gm, '').trim().slice(0, 50);
     }
 
     let targetAvatarUrl = member.avatar_url;

@@ -3944,6 +3944,100 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
       }
     }
 
+    // Action: Xóa chính xác 15 tài khoản test (đều 0đ) theo đúng 3 tiêu chí
+    if (body.action === 'admin_purge_15_test_members' && env.DB) {
+      if (!authorized) {
+        return new Response(JSON.stringify({ success: false, error: 'Unauthorized: Yêu cầu quyền Quản trị viên.' }), { status: 403, headers: CORS_HEADERS });
+      }
+      try {
+        const testTargets = [
+          { id: 'de9c8d01-ec38-499e-a3a5-880655f67217', username: 'qa_user_1789098962259', email: 'qa_user_1789098962259@example.com' },
+          { id: '840fd751-c783-4f9a-9c19-13fcf79ee161', username: 'qa_user_1789098922585', email: 'qa_user_1789098922585@example.com' },
+          { id: '65817e4f-0a6e-49eb-a870-7b0a851fb011', username: 'admin_tester_7254', email: 'admin_tester_7254@example.com' },
+          { id: '407b608d-4019-4060-880b-30e31b802385', username: '<script>alert(1)</script>', email: 'xss_test_account@example.com' },
+          { id: 'f1dbed4a-6bea-4f2f-9ff5-5635b614210a', username: 'tester_1789097538353', email: 'tester_1789097538353@example.com' },
+          { id: 'dcfd3519-6469-42f9-93c6-9680a587bff3', username: 'user_1789043416558', email: 'user_1789043416558@example.com' },
+          { id: '363ef8e0-e33b-41cb-88bc-e0a3c449df82', username: 'check_user_1789043350651', email: 'check_user_1789043350651@example.com' },
+          { id: '8ae4bd9a-d656-40d8-bdc6-74193f6f6890', username: 'login_user_1789043345002', email: 'login_user_1789043345002@example.com' },
+          { id: '2b6d2d89-d591-42f7-807b-13de4fbbb7d2', username: 'prod_user_1789043338654', email: 'prod_1789043338654@example.com' },
+          { id: '2b0ff312-6690-4e75-b826-2a6fea35729c', username: 'user_1789043311830', email: 'user_1789043311830@example.com' },
+          { id: '21612796-abb8-4fe1-a328-2be39fce868a', username: 'user_1789043295032', email: 'user_1789043295032@example.com' },
+          { id: '6903f2f3-ee9d-41f1-b970-af217c1db4f8', username: 'user_1789043289708', email: 'user_1789043289708@example.com' },
+          { id: '1e4bcb02-02c1-4259-85a1-48d659f108c4', username: 'wal_usr_1789018981153', email: 'wal_usr_1789018981153@example.com' },
+          { id: 'd9b30d01-b069-4850-831f-2f85eaaf523b', username: 'user_mod_1788964207510', email: 'user_mod_1788964207510@example.com' },
+          { id: '0e828f55-d2c0-4da7-ab95-e57baac25703', username: 'user_mod_1788964123253', email: 'user_mod_1788964123253@example.com' }
+        ];
+
+        // 1. Kiểm tra đối soát 3 tiêu chí và các ràng buộc toàn vẹn cho từng tài khoản
+        const verifications: any[] = [];
+        for (const t of testTargets) {
+          const mem = await env.DB.prepare("SELECT * FROM members WHERE id = ? AND username = ? AND email = ?").bind(t.id, t.username, t.email).first<any>();
+          if (!mem) {
+            return new Response(JSON.stringify({
+              success: false,
+              error: `Không tìm thấy thành viên khớp 3 dấu hiệu: ${t.username} (${t.email})`,
+            }), { status: 400, headers: CORS_HEADERS });
+          }
+
+          if (Number(mem.balance) !== 0) {
+            return new Response(JSON.stringify({
+              success: false,
+              error: `Tài khoản ${t.username} có số dư khác 0đ (${mem.balance})! Hủy thao tác để đảm bảo an toàn.`,
+            }), { status: 400, headers: CORS_HEADERS });
+          }
+
+          const orders = await env.DB.prepare("SELECT count(*) as count FROM orders WHERE member_id = ?").bind(t.id).first<any>().catch(() => ({ count: 0 }));
+          const sepay = await env.DB.prepare("SELECT count(*) as count FROM sepay_transactions WHERE member_id = ?").bind(t.id).first<any>().catch(() => ({ count: 0 }));
+          const txs = await env.DB.prepare("SELECT count(*) as count FROM wallet_transactions WHERE member_id = ?").bind(t.id).first<any>().catch(() => ({ count: 0 }));
+
+          if ((orders?.count || 0) > 0 || (sepay?.count || 0) > 0 || (txs?.count || 0) > 0) {
+            return new Response(JSON.stringify({
+              success: false,
+              error: `Tài khoản ${t.username} có dữ liệu liên kết (Orders: ${orders?.count || 0}, SePay: ${sepay?.count || 0}, Txs: ${txs?.count || 0})! Hủy thao tác để đảm bảo an toàn.`,
+            }), { status: 400, headers: CORS_HEADERS });
+          }
+
+          verifications.push({
+            id: t.id,
+            username: t.username,
+            email: t.email,
+            balance: mem.balance,
+            orderCount: orders?.count || 0,
+            sepayCount: sepay?.count || 0,
+            txCount: txs?.count || 0
+          });
+        }
+
+        // 2. Xóa 15 tài khoản khỏi bảng members trong D1
+        const targetIds = testTargets.map(t => t.id);
+        const placeholders = targetIds.map(() => '?').join(', ');
+        const dMemRes = await env.DB.prepare(`DELETE FROM members WHERE id IN (${placeholders})`).bind(...targetIds).run();
+
+        // 3. Xóa khỏi wcg_admin_members_v4
+        const targetIdSet = new Set(targetIds);
+        const targetUserSet = new Set(testTargets.map(t => t.username));
+        const membersRaw = await getSettingD1(env.DB, 'wcg_admin_members_v4', []);
+        let cleanedMembersCount = 0;
+        if (Array.isArray(membersRaw)) {
+          const cleanMembers = membersRaw.filter((m: any) => !targetIdSet.has(m.id) && !targetUserSet.has(m.username));
+          if (cleanMembers.length !== membersRaw.length) {
+            cleanedMembersCount = membersRaw.length - cleanMembers.length;
+            await setSettingD1(env.DB, 'wcg_admin_members_v4', cleanMembers);
+          }
+        }
+
+        return new Response(JSON.stringify({
+          success: true,
+          message: 'Đã xóa thành công 15 tài khoản test 0đ trên D1 và wcg_admin_members_v4',
+          deletedMembers: (dMemRes as any)?.meta?.changes || 0,
+          cleanedMembersCount,
+          verifications
+        }), { headers: CORS_HEADERS });
+      } catch (err: any) {
+        return new Response(JSON.stringify({ success: false, error: String(err?.message || err) }), { status: 500, headers: CORS_HEADERS });
+      }
+    }
+
     // Action: Đối soát và đồng bộ chuẩn hóa số dư thành viên theo sổ cái wallet_transactions
     if (body.action === 'reconcile_member_balances' && env.DB) {
       try {

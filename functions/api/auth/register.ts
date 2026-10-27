@@ -50,6 +50,14 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
 
     const cleanUsername = String(username).trim().toLowerCase();
     const cleanEmail = String(email).trim().toLowerCase();
+
+    // XSS & Script Tag Injection Prevention
+    if (/<[^>]*>?/gm.test(cleanUsername) || cleanUsername.includes('<') || cleanUsername.includes('>')) {
+      return new Response(
+        JSON.stringify({ success: false, message: 'Tên đăng nhập không được chứa mã HTML hoặc thẻ script.' }),
+        { status: 400, headers: CORS_HEADERS }
+      );
+    }
     const clientIp = request.headers.get('cf-connecting-ip') || request.headers.get('x-forwarded-for') || '127.0.0.1';
     const country = request.headers.get('cf-ipcountry') || 'VN';
 
@@ -123,7 +131,7 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
     const signingSecret = getSigningSecret(env);
     const sessionToken = await createSignedToken(userId, signingSecret);
     const nowIso = new Date().toISOString();
-    const finalDisplayName = displayName?.trim() || cleanUsername;
+    const finalDisplayName = (displayName ? String(displayName).replace(/<[^>]*>?/gm, '').trim() : '') || cleanUsername;
     const avatarUrl = `https://api.dicebear.com/7.x/bottts/svg?seed=${encodeURIComponent(cleanUsername)}&backgroundColor=0b0d19,16192e,241a45`;
 
     const finalSalt = salt || ('wcg_salt_' + Math.random().toString(36).slice(2, 10));
