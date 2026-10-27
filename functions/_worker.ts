@@ -787,14 +787,16 @@ async function renderSeoHtml(
 
   // 1.5. Phục vụ trực tiếp các trang tĩnh chuyên mục thể loại và mục lục A-Z từ prerender
   if (pathname.startsWith('/the-loai') || pathname === '/danh-sach-game-a-z') {
-    const assetRes = await env.ASSETS.fetch(request);
+    const cleanPath = pathname.replace(/\/$/, '');
+    const assetUrl = new URL(`${cleanPath}.html`, request.url);
+    const assetRes = await env.ASSETS.fetch(new Request(assetUrl.toString()));
     if (assetRes.status === 200) {
       return assetRes;
     }
-    const subUrl = new URL(pathname.endsWith('/') ? `${pathname}index.html` : `${pathname}/index.html`, request.url);
-    const subRes = await env.ASSETS.fetch(new Request(subUrl.toString(), request));
-    if (subRes.status === 200) {
-      return subRes;
+    const idxUrl = new URL(`${cleanPath}/index.html`, request.url);
+    const idxRes = await env.ASSETS.fetch(new Request(idxUrl.toString()));
+    if (idxRes.status === 200) {
+      return idxRes;
     }
   }
 

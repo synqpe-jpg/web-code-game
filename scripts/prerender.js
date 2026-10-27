@@ -1490,6 +1490,7 @@ async function runPrerender() {
     });
 
     fs.writeFileSync(path.join(clusterDir, 'index.html'), clusterHtml, 'utf8');
+    fs.writeFileSync(path.join(theLoaiDir, `${cluster.slug}.html`), clusterHtml, 'utf8');
   }
   console.log(`[Prerender] Đã xuất bản hoàn tất ${TOPIC_CLUSTERS.length} trang chuyên mục thể loại (/the-loai/)!`);
 
@@ -1629,6 +1630,7 @@ async function runPrerender() {
   });
 
   fs.writeFileSync(path.join(azDir, 'index.html'), azHtml, 'utf8');
+  fs.writeFileSync(path.join(distDir, 'danh-sach-game-a-z.html'), azHtml, 'utf8');
   console.log(`[Prerender] Đã xuất bản trang Mục Lục Toàn Bộ Game A-Z (/danh-sach-game-a-z)!`);
 
   // 5. Generate Dynamic Sitemap.xml with 100% Canonical Games, News, and Giveaways
