@@ -128,16 +128,63 @@ export const Footer: React.FC<FooterProps> = ({ onSelectCategory, categories, on
                 {t.footer.quickLinks}
               </h4>
               <ul className="space-y-1.5">
-                {categories.slice(0, 6).map((cat) => (
-                  <li key={cat}>
-                    <button
-                      onClick={() => onSelectCategory(cat)}
-                      className="text-slate-300 hover:text-primary-light transition-colors text-left cursor-pointer"
-                    >
-                      {cat}
-                    </button>
-                  </li>
-                ))}
+                <li>
+                  <a
+                    href="/danh-sach-game-a-z"
+                    className="text-primary-light font-bold hover:underline transition-colors text-left flex items-center gap-1.5"
+                  >
+                    <span>📚 Danh Sách Game A-Z</span>
+                    <span className="text-[10px] bg-primary/20 text-primary-light px-1.5 py-0.5 rounded font-mono">580+</span>
+                  </a>
+                </li>
+                <li>
+                  <a
+                    href="/the-loai/kiem-hiep-tien-hiep"
+                    className="text-slate-300 hover:text-primary-light transition-colors text-left block"
+                  >
+                    Kiếm Hiệp & Tiên Hiệp
+                  </a>
+                </li>
+                <li>
+                  <a
+                    href="/the-loai/nhap-vai-gacha-anime"
+                    className="text-slate-300 hover:text-primary-light transition-colors text-left block"
+                  >
+                    Nhập Vai Gacha & Anime
+                  </a>
+                </li>
+                <li>
+                  <a
+                    href="/the-loai/ban-sung-sinh-ton"
+                    className="text-slate-300 hover:text-primary-light transition-colors text-left block"
+                  >
+                    Bắn Súng & Sinh Tồn
+                  </a>
+                </li>
+                <li>
+                  <a
+                    href="/the-loai/tam-quoc-chien-thuat"
+                    className="text-slate-300 hover:text-primary-light transition-colors text-left block"
+                  >
+                    Tam Quốc & Chiến Thuật
+                  </a>
+                </li>
+                <li>
+                  <a
+                    href="/the-loai/roblox-mini-game"
+                    className="text-slate-300 hover:text-primary-light transition-colors text-left block"
+                  >
+                    Roblox & Mini Game
+                  </a>
+                </li>
+                <li>
+                  <a
+                    href="/the-loai/nhap-vai-mmorpg"
+                    className="text-slate-300 hover:text-primary-light transition-colors text-left block"
+                  >
+                    Nhập Vai & MMORPG
+                  </a>
+                </li>
               </ul>
             </div>
 

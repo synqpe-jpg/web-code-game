@@ -7,6 +7,29 @@ Mỗi mục sửa lỗi đều ghi nhận **Nguyên nhân gốc rễ (Root Cause
 
 ## [2026-10-27]
 
+### 228. Tối Ưu Hóa Kỹ Thuật SEO Toàn Diện, Topic Clusters, Danh Mục Game A-Z, Ngày Cập Nhật Xác Thực & Dọn Sạch Chuỗi Rác
+- **Bối cảnh & Yêu cầu từ Người dùng**:
+  - Người dùng yêu cầu tối ưu hóa khả năng SEO cho codegame.shop: giải quyết tình trạng 756 trang "Đã phát hiện thấy – hiện chưa được lập chỉ mục", loại bỏ hoàn toàn các chuỗi boilerplate rác ("Giftcode độc quyền cập nhật từ https://codegame.store/"), đồng bộ mẫu tiêu đề, xử lý trang 0 mã (tránh thin content / soft 404), hiển thị ngày cập nhật thực tế `dd/mm/yyyy`, phân biệt rõ 188+ game có giấy phép G1 ABEI chính thức và game quốc tế, xây dựng cụm chủ đề Topic Clusters (`/the-loai/:slug`), mục lục A-Z (`/danh-sach-game-a-z`), làm sạch sitemap (loại bỏ aliases trùng lặp, giữ 100% URL chuẩn 200 OK), dọn dẹp thư mục tĩnh `/g/` để Edge Worker 301 hoạt động tuyệt đối.
+- **Nguyên nhân gốc rễ (Root Cause)**:
+  1. *Thin Content & Soft 404 trên các game 0 mã*: Các tựa game chưa có giftcode trước đó hiển thị bảng trống trơn, tiêu đề bị thừa dấu ` - | CodeGame.shop`, khiến bot Google đánh giá là trang chất lượng thấp và đưa vào hàng chờ không index.
+  2. *Thiếu liên kết nội bộ phân cấp & Topic Clusters*: 580 tựa game chưa có các trang cụm chuyên mục (`/the-loai/:slug`) và mục lục (`/danh-sach-game-a-z`) để dẫn dòng PageRank sâu đến từng trang con.
+  3. *Chuỗi rác và hạn dùng ảo*: Hơn 2.500 bản ghi mã chứa link rác `codegame.store` và 11.351 mã không có hạn dùng thật bị gán nhầm ngày giả `2026-12-31`.
+  4. *Xung đột thư mục tĩnh `/g/`*: Thao tác sinh file tĩnh `dist/g/` khiến Cloudflare Pages ưu tiên trả file 200 OK thay vì chuyển hướng 301 về `/game/`.
+- **Giải pháp thành công (Solution)**:
+  1. *Dọn Rác Triệt Để 2.591 Bản Ghi Trong crawled_codes_188.json*: Xóa sạch 100% link `https://codegame.store/` và các văn mẫu generic ("🎁 Phần thưởng từ nhà phát hành", "Quà tặng tân thủ"). Giữ nguyên 5.696 phần thưởng cụ thể thật. Format chuẩn "Chưa rõ hạn dùng" và "Chưa rõ phần thưởng".
+  2. *Banner Thông Báo Hợp Nhất Domain*: Bổ sung `DomainMigrationBanner.tsx` hiển thị thông báo "codegame.store đã chuyển về codegame.shop" có nút đóng lưu LocalStorage.
+  3. *Chuẩn Hóa Trang 0 Mã & Tiêu Đề Chuẩn Xác*: Tiêu đề có mã `- Nhận {X} Mã Code`, 0 mã `- Hướng Dẫn Nhập & Nhận Quà`. Trang 0 mã hiển thị hộp thông báo rõ ràng "Hiện chưa có mã mới - Hệ thống kiểm tra tự động 24/7" kèm ngày kiểm tra gần nhất và gợi ý các game cùng thể loại.
+  4. *Ngày Cập Nhật Xác Thực & Schema HowTo / FAQ Riêng Biệt*: Tính toán `maxTime` thực tế từ updated_at, created_at và code added_at, hiển thị `📅 Cập nhật: dd/mm/yyyy (Kiểm tra thực tế)` và chèn `dateModified` chuẩn ISO vào JSON-LD. Bóc tách từng bước nhập code thật từ instructions cho schema HowTo. Loại bỏ 3 câu hỏi chung chung, thay bằng 2 câu hỏi FAQ riêng biệt của từng game khớp 100% schema FAQPage.
+  5. *Xây Dựng 6 Trang Chuyên Mục Thể Loại (Topic Clusters)*: Sinh mã HTML tĩnh cho 6 chuyên mục lớn (`kiem-hiep-tien-hiep`, `nhap-vai-gacha-anime`, `ban-sung-sinh-ton`, `tam-quoc-chien-thuat`, `roblox-mini-game`, `nhap-vai-mmorpg`). Huy hiệu thể loại trên trang game chuyển thành link bấm được trỏ về chuyên mục tương ứng.
+  6. *Xây Dựng Mục Lục Game A-Z (`/danh-sach-game-a-z`)*: Phân loại toàn bộ 580 tựa game theo thứ tự bảng chữ cái kèm thanh nhảy neo A-Z, liên kết tại footer toàn trang và footer tĩnh.
+  7. *Xóa Bỏ dist/g/ & Chuẩn Hóa Sitemap.xml 780 URL*: Dọn dẹp hoàn toàn file tĩnh `dist/g/` để Edge Worker 301 chuyển hướng canonical về `/game/`. Sitemap chỉ chứa 780 URL canonical 200 OK, loại bỏ sạch bí danh alias.
+- **Kiểm thử & Nghiệm thu**:
+  - `npm run build`: 100% thành công, 780 trang prerender chuẩn SEO.
+  - Zero Test Artifacts Audit: 100% sạch (0 sản phẩm test).
+  - Regression Ingest test: 4/4 bài test vượt qua 100%.
+
+---
+
 ### 227. Đồng Bộ Tài Khoản, Mật Khẩu (Xác Thực Lai Hybrid Auth) & Số Dư Ví Từ codegame.store Về codegame.shop + Bản Đồ Chuyển Hướng 301 Toàn Diện
 - **Bối cảnh & Yêu cầu từ Người dùng**:
   - Chủ sở hữu yêu cầu: Đồng bộ tài khoản, mật khẩu (khách giữ nguyên mật khẩu cũ), số dư ví từ codegame.store về codegame.shop, và chuyển hướng 301 toàn bộ domain codegame.store về codegame.shop kèm hướng dẫn Google Search Console Change of Address.

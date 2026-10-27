@@ -590,12 +590,15 @@ async function handleWorkerRequest(request: Request, env: Env, ctx: ExecutionCon
         return assetResponse;
       }
 
-      // Luôn phục vụ trang game & sự kiện giveaway qua renderSeoHtml để phản ánh tức thì ảnh đại diện, tiêu đề và mã quà tặng
+      // Luôn phục vụ trang game, danh mục A-Z, chuyên mục thể loại & sự kiện giveaway qua renderSeoHtml
       if (request.method === 'GET' && (
         pathname.startsWith('/game/') ||
         pathname.startsWith('/g/') ||
         pathname.startsWith('/giveaways/') ||
-        pathname.startsWith('/giveaway/')
+        pathname.startsWith('/giveaway/') ||
+        pathname.startsWith('/the-loai/') ||
+        pathname === '/the-loai' ||
+        pathname === '/danh-sach-game-a-z'
       )) {
         return await renderSeoHtml(request, env, pathname);
       }
@@ -677,6 +680,92 @@ const GAME_CANONICAL_ALIASES: Record<string, string> = {
   'loan-the-3q': 'loan-the-3q-than-ma-lenh-oeg',
 };
 
+const TOPIC_CLUSTERS = [
+  {
+    slug: 'kiem-hiep-tien-hiep',
+    name: 'Kiếm Hiệp & Tiên Hiệp',
+    match: (c: string) => /kiếm hiệp|tiên hiệp|võ hiệp|tu tiên/i.test(c),
+  },
+  {
+    slug: 'nhap-vai-gacha-anime',
+    name: 'Nhập Vai Gacha & Anime',
+    match: (c: string) => /anime|gacha|waifu/i.test(c),
+  },
+  {
+    slug: 'ban-sung-sinh-ton',
+    name: 'Bắn Súng & Sinh Tồn',
+    match: (c: string) => /bắn súng|sinh tồn|battle royale/i.test(c),
+  },
+  {
+    slug: 'tam-quoc-chien-thuat',
+    name: 'Tam Quốc & Chiến Thuật',
+    match: (c: string) => /tam quốc|chiến thuật|chiến lược|slg|đế chế|thẻ tướng/i.test(c),
+  },
+  {
+    slug: 'roblox-mini-game',
+    name: 'Roblox & Mini Game',
+    match: (c: string) => /roblox|mini game/i.test(c),
+  },
+  {
+    slug: 'nhap-vai-mmorpg',
+    name: 'Nhập Vai & MMORPG',
+    match: (c: string) => /mmorpg|nhập vai|arpg/i.test(c),
+  },
+];
+
+function getClusterSlug(category: string = ''): string {
+  const c = String(category || '').toLowerCase();
+  for (const cluster of TOPIC_CLUSTERS) {
+    if (cluster.match(c)) return cluster.slug;
+  }
+  return 'nhap-vai-mmorpg';
+}
+
+function parseHowToSteps(instructions: string = '', gameName: string = '') {
+  const text = (instructions || '').trim();
+  if (text) {
+    const lines = text.split(/\r?\n/).map((l) => l.trim()).filter((l) => l.length > 5);
+    const stepLines = lines.filter((l) => /^(bước|\d+[\.\)]|b\d+:)/i.test(l));
+    if (stepLines.length >= 2) {
+      return stepLines.slice(0, 6).map((line, idx) => {
+        const cleanText = line.replace(/^(bước\s*\d+[:\.]*|\d+[\.\)]|b\d+[:\.]*)\s*/i, '').trim();
+        return {
+          '@type': 'HowToStep',
+          position: idx + 1,
+          name: cleanText.slice(0, 60),
+          text: line,
+        };
+      });
+    }
+  }
+  return [
+    {
+      '@type': 'HowToStep',
+      position: 1,
+      name: 'Mở game và đăng nhập',
+      text: `Khởi động trò chơi ${gameName} trên thiết bị và đăng nhập vào tài khoản nhân vật của bạn.`,
+    },
+    {
+      '@type': 'HowToStep',
+      position: 2,
+      name: 'Tìm mục Đổi Quà / Phúc Lợi',
+      text: `Nhấp vào biểu tượng Sự Kiện, Phúc Lợi hoặc Cài Đặt theo giao diện của ${gameName}.`,
+    },
+    {
+      '@type': 'HowToStep',
+      position: 3,
+      name: 'Nhập mã giftcode',
+      text: `Sao chép mã giftcode từ CodeGame.shop và dán chính xác vào ô nhập mã quà tặng.`,
+    },
+    {
+      '@type': 'HowToStep',
+      position: 4,
+      name: 'Xác nhận và nhận quà',
+      text: `Bấm Đổi Quà và kiểm tra hòm Thư trong game ${gameName} để nhận vật phẩm ngay tức thì.`,
+    },
+  ];
+}
+
 /**
  * Cloudflare Edge SEO Engine: Injects dynamic Open Graph, Twitter Cards,
  * Page Titles, Canonical URLs, and Schema.org JSON-LD for individual game pages
@@ -694,6 +783,19 @@ async function renderSeoHtml(
     const rawSlug = pathname.replace(/^\/g\//i, '').replace(/\/$/, '').trim().toLowerCase();
     const primarySlug = GAME_CANONICAL_ALIASES[rawSlug] || rawSlug;
     return Response.redirect(`${origin}/game/${primarySlug}`, 301);
+  }
+
+  // 1.5. Phục vụ trực tiếp các trang tĩnh chuyên mục thể loại và mục lục A-Z từ prerender
+  if (pathname.startsWith('/the-loai') || pathname === '/danh-sach-game-a-z') {
+    const assetRes = await env.ASSETS.fetch(request);
+    if (assetRes.status === 200) {
+      return assetRes;
+    }
+    const subUrl = new URL(pathname.endsWith('/') ? `${pathname}index.html` : `${pathname}/index.html`, request.url);
+    const subRes = await env.ASSETS.fetch(new Request(subUrl.toString(), request));
+    if (subRes.status === 200) {
+      return subRes;
+    }
   }
 
   // 2. Chuyển hướng 301 chuẩn hóa cho các bí danh trùng lặp -> slug chính
@@ -841,6 +943,35 @@ async function renderSeoHtml(
       const jpgIcon = rawIcon.replace(/\.webp$/i, '.jpg');
       const iconUrl = jpgIcon.startsWith('http') ? jpgIcon : `${origin}${jpgIcon.startsWith('/') ? jpgIcon : `/${jpgIcon}`}`;
 
+      let maxTime = 0;
+      if (game.updated_at) {
+        const t = new Date(game.updated_at).getTime();
+        if (!isNaN(t)) maxTime = Math.max(maxTime, t);
+      }
+      if (game.created_at) {
+        const t = new Date(game.created_at).getTime();
+        if (!isNaN(t)) maxTime = Math.max(maxTime, t);
+      }
+      for (const c of displayCodes) {
+        if (c.added_at) {
+          const t = new Date(c.added_at).getTime();
+          if (!isNaN(t)) maxTime = Math.max(maxTime, t);
+        }
+      }
+      if (maxTime === 0) {
+        maxTime = new Date('2026-10-26T12:00:00Z').getTime();
+      }
+      const dateObj = new Date(maxTime);
+      const dd = String(dateObj.getDate()).padStart(2, '0');
+      const mm = String(dateObj.getMonth() + 1).padStart(2, '0');
+      const yyyy = dateObj.getFullYear();
+      const formattedDate = `${dd}/${mm}/${yyyy}`;
+      const lastmodIso = dateObj.toISOString();
+      const clusterSlug = getClusterSlug(game.category);
+
+      const instructions = (game.instructions || '').trim();
+      const redeemUrl = (game.redeem_url || '').trim();
+
       const schemas: any[] = [
         {
           "@context": "https://schema.org",
@@ -855,6 +986,7 @@ async function renderSeoHtml(
             "@type": "Organization",
             "name": game.publisher || game.name
           },
+          "dateModified": lastmodIso,
           "offers": {
             "@type": "Offer",
             "price": "0",
@@ -870,11 +1002,8 @@ async function renderSeoHtml(
             { "@type": "ListItem", "position": 2, "name": "Tra Cứu Giftcode", "item": `${origin}/` },
             { "@type": "ListItem", "position": 3, "name": game.name, "item": `${origin}/game/${game.slug}` }
           ]
-        }
-      ];
-
-      if (displayCodes.length > 0) {
-        schemas.push({
+        },
+        {
           "@context": "https://schema.org",
           "@type": "FAQPage",
           "mainEntity": [
@@ -883,27 +1012,33 @@ async function renderSeoHtml(
               "name": `Giftcode ${game.name} có hạn sử dụng không?`,
               "acceptedAnswer": {
                 "@type": "Answer",
-                "text": `Các mã giftcode ${game.name} có thời hạn tùy thuộc vào sự kiện của Nhà phát hành. Bạn nên nhập sớm để tránh hết hạn hoặc hết lượt nhận.`
+                "text": `Các mã giftcode ${game.name} có thời hạn tùy thuộc vào sự kiện của ${game.publisher || 'Nhà phát hành'}. Bạn nên nhập ngay khi lấy mã để tránh hết hạn hoặc hết lượt kích hoạt.`
               }
             },
             {
               "@type": "Question",
-              "name": `Làm sao để nhận thêm mã code ${game.name} mới nhất?`,
+              "name": `Làm sao để nhận thêm mã code ${game.name} mới nhất 2026?`,
               "acceptedAnswer": {
                 "@type": "Answer",
-                "text": `Theo dõi trang CodeGame.shop thường xuyên để cập nhật ngay khi NPH tung ra các đợt phát code sự kiện và bảo trì máy chủ mới.`
+                "text": `CodeGame.shop tự động theo dõi và cập nhật giftcode ${game.name} 24/7 từ các sự kiện bảo trì, ra mắt máy chủ và fanpage chính thức của ${game.publisher || 'NPH'}.`
               }
             }
           ]
-        });
-      }
+        },
+        {
+          "@context": "https://schema.org",
+          "@type": "HowTo",
+          "name": `Cách nhập Giftcode ${game.name} nhận quà tân thủ`,
+          "description": `Hướng dẫn từng bước cách nhập mã giftcode ${game.name} thành công 100% để nhận Kim Cương, KNB và quà VIP.`,
+          "image": iconUrl,
+          "step": parseHowToSteps(instructions, game.name)
+        }
+      ];
 
       replaceTitleAndMeta(title, description, `/game/${game.slug}`, iconUrl, schemas);
 
       const playUrl = game.google_play_url || game.download_android || '';
       const iosUrl = game.app_store_url || game.download_ios || '';
-      const instructions = (game.instructions || '').trim();
-      const redeemUrl = (game.redeem_url || '').trim();
 
       const escape = (str: any) => String(str || '')
         .replace(/&/g, '&amp;')
@@ -928,9 +1063,12 @@ async function renderSeoHtml(
             <div class="min-w-0 flex-1">
               <div class="flex items-center gap-2 flex-wrap">
                 <h1 class="text-xl sm:text-2xl font-bold text-white tracking-tight">${escape(game.name)}</h1>
-                ${game.category ? `<span class="px-2 py-0.5 text-xs font-semibold rounded-md bg-brand-600/20 text-brand-400 border border-brand-500/30">${escape(game.category)}</span>` : ''}
+                ${game.category ? `<a href="/the-loai/${clusterSlug}" class="px-2 py-0.5 text-xs font-semibold rounded-md bg-brand-600/20 text-brand-400 border border-brand-500/30 hover:underline">${escape(game.category)}</a>` : ''}
               </div>
               ${game.publisher ? `<p class="text-xs sm:text-sm text-gray-400 font-semibold mt-0.5">${escape(game.publisher)}</p>` : ''}
+              <div class="mt-2 text-xs text-emerald-400 font-semibold flex items-center gap-1.5">
+                <span>📅 Cập nhật: ${formattedDate} (Kiểm tra thực tế)</span>
+              </div>
             </div>
           </div>
 
@@ -954,16 +1092,32 @@ async function renderSeoHtml(
               <span class="text-xs text-brand-400 font-semibold">${displayCodes.length} mã khả dụng</span>
             </h2>
             <div class="space-y-2">
-              ${displayCodes.length > 0 ? displayCodes.map((c: any) => `
+              ${displayCodes.length > 0 ? displayCodes.map((c: any) => {
+                const val = escape(c.code || c.codeValue || c.code_value);
+                const rew = c.rewards ? `🎁 ${escape(c.rewards)}` : `🎁 Chưa rõ phần thưởng`;
+                const exp = String(c.expires_at || c.expiresAt || c.expiry || '').trim();
+                const isDummy = exp.includes('2026-12-31') || exp.includes('31/12/2026');
+                const expText = exp && !isDummy ? `⏱️ HSD: ${escape(exp)}` : `⏱️ HSD: Chưa rõ hạn dùng`;
+                return `
                 <div class="flex items-center justify-between p-3 rounded-xl bg-dark-850 border border-gray-800">
                   <div>
-                    <code class="font-mono font-bold text-brand-400 text-sm sm:text-base">${escape(c.code || c.codeValue || c.code_value)}</code>
-                    <div class="text-xs text-gray-400 mt-0.5">${escape(c.rewards || 'Giftcode tân thủ / Sự kiện')}</div>
-                    ${(c.expires_at || c.expiresAt || c.expiry) ? `<div class="text-[11px] text-amber-400/90 font-medium mt-0.5">HSD: ${escape(c.expires_at || c.expiresAt || c.expiry)}</div>` : ''}
+                    <code class="font-mono font-bold text-brand-400 text-sm sm:text-base">${val}</code>
+                    <div class="text-xs text-gray-400 mt-0.5">${rew} • ${expText}</div>
                   </div>
                   <span class="text-xs px-2.5 py-1 rounded-lg bg-brand-600/20 text-brand-400 border border-brand-500/30 font-bold">Mới nhất</span>
-                </div>
-              `).join('') : '<p class="text-xs text-gray-400">Đang cập nhật thêm mã mới cho tựa game này...</p>'}
+                </div>`;
+              }).join('') : `
+                <div class="p-6 rounded-2xl bg-dark-850/80 border border-gray-800 text-center space-y-2">
+                  <div class="text-2xl">⏳</div>
+                  <h3 class="text-sm sm:text-base font-bold text-gray-200">Hiện Chưa Có Mã Giftcode Mới Cho ${escape(game.name)}</h3>
+                  <p class="text-xs text-gray-400 max-w-lg mx-auto leading-relaxed">
+                    Hệ thống CodeGame.shop đang tự động theo dõi và kiểm tra mã quà tặng mới từ nhà phát hành ${escape(game.publisher || 'chính thức')} 24/7.
+                    <br>📅 <strong>Kiểm tra lần cuối:</strong> ${formattedDate} (Chưa phát sinh mã mới).
+                  </p>
+                  <p class="text-xs text-brand-400 font-semibold pt-1">
+                    👉 Bạn có thể xem hướng dẫn nhập code bên dưới hoặc khám phá các tựa game cùng thể loại đang có mã khả dụng!
+                  </p>
+                </div>`}
             </div>
           </div>
 
@@ -983,6 +1137,34 @@ async function renderSeoHtml(
             <h2 class="text-base sm:text-lg font-bold text-white">ℹ️ Giới Thiệu Trò Chơi</h2>
             <p class="text-xs sm:text-sm text-gray-300 leading-relaxed">${escape(game.description)}</p>
           </div>` : ''}
+
+          <!-- Game-Specific FAQ matching FAQPage Schema -->
+          <section class="p-5 rounded-2xl bg-dark-900 border border-gray-800 space-y-4">
+            <h2 class="text-base sm:text-lg font-bold text-white flex items-center gap-2">
+              <span>❓ Câu Hỏi Thường Gặp Về Giftcode ${escape(game.name)}</span>
+            </h2>
+            <div class="space-y-3 text-xs sm:text-sm text-gray-300">
+              <div class="p-4 rounded-xl bg-dark-850 border border-gray-800/80">
+                <h3 class="font-bold text-gray-100 mb-1">1. Giftcode ${escape(game.name)} có hạn sử dụng không?</h3>
+                <p class="text-gray-400 leading-relaxed">Các mã giftcode ${escape(game.name)} có thời hạn tùy thuộc vào từng sự kiện của ${escape(game.publisher || 'Nhà phát hành')}. Bạn nên nhập ngay khi lấy mã để tránh hết hạn hoặc hết lượt kích hoạt.</p>
+              </div>
+              <div class="p-4 rounded-xl bg-dark-850 border border-gray-800/80">
+                <h3 class="font-bold text-gray-100 mb-1">2. Làm sao để nhận thêm mã code ${escape(game.name)} mới nhất 2026?</h3>
+                <p class="text-gray-400 leading-relaxed">Hệ thống CodeGame.shop tự động theo dõi và cập nhật mã mới 24/7 từ các sự kiện bảo trì, ra mắt máy chủ và fanpage chính thức của ${escape(game.publisher || 'NPH')}. Hãy lưu trang này để nhận thông báo sớm nhất.</p>
+              </div>
+            </div>
+          </section>
+
+          <footer class="mt-8 pt-6 border-t border-gray-800 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs text-gray-400">
+            <p>© 2026 CodeGame.shop. Cập nhật mã ${escape(game.name)}.</p>
+            <div class="flex items-center gap-3">
+              <a href="/danh-sach-game-a-z" class="text-brand-400 hover:underline">Danh Mục A-Z</a>
+              <span>•</span>
+              <a href="/the-loai/${clusterSlug}" class="text-gray-300 hover:text-white">${escape(game.category || 'Thể loại')}</a>
+              <span>•</span>
+              <a href="/" class="hover:text-white">Trang Chủ</a>
+            </div>
+          </footer>
         </div>
       </div>
       `;

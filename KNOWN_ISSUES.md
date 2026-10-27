@@ -10,6 +10,29 @@
 
 ## 1. DANH MỤC LỖI & CÁC BẪY ĐÃ THẤT BẠI (DO NOT REPEAT)
 
+### ISSUE-148: Bẫy Thin Content / Soft 404 Trên Trang 0 Mã, Chuỗi Boilerplate Rác Từ Domain Cũ & Xung Đột Thư Mục Tĩnh /g/
+- **Triệu chứng**:
+  - Hơn 750 trang rơi vào trạng thái "Đã phát hiện thấy – hiện chưa được lập chỉ mục" trên Google Search Console.
+  - Các tựa game 0 mã bị Google coi là thin content vì bảng code trống rỗng và tiêu đề thừa dấu gạch ngang (`Giftcode ... - | CodeGame.shop`).
+  - Hàng nghìn bản ghi giftcode chứa link rác của domain cũ `https://codegame.store/` và ngày hết hạn giả định `2026-12-31`.
+  - Thư mục tĩnh `dist/g/` khiến Cloudflare Pages phục vụ mã 200 thay vì để Edge Worker trả 301 chuyển hướng canonical về `/game/`.
+- **Nguyên nhân gốc rễ (Root Cause)**:
+  1. Thiếu xử lý giao diện chuyên biệt cho trang 0 mã và thiếu liên kết nội bộ cụm (Topic Clusters).
+  2. Dữ liệu crawler cũ còn lưu trữ các đoạn text tiếp thị mang domain cũ.
+  3. Quá trình prerender sinh đồng thời cả `/game/` và `/g/`.
+- **Giải pháp chuẩn đã kiểm chứng**:
+  1. Xóa bỏ hoàn toàn việc sinh file tĩnh `dist/g/`, dọn dẹp sạch thư mục `dist/g` để Edge Worker xử lý 301 chuẩn hóa.
+  2. Bổ sung giao diện và thông điệp kiểm tra 24/7 rõ ràng cho trang 0 mã kèm ngày kiểm tra thực tế và cụm game liên quan.
+  3. Dọn sạch 100% link `codegame.store` và văn mẫu generic trong `crawled_codes_188.json`.
+  4. Tạo 6 trang chuyên mục Topic Clusters (`/the-loai/:slug`) và mục lục A-Z (`/danh-sach-game-a-z`), liên kết chặt chẽ toàn trang.
+  5. Sitemap chỉ giữ 100% URL chuẩn 200 OK (780 URLs), không alias, không redirect.
+- ⛔ **CÁCH SỬA ĐÃ THẤT BẠI - TUYỆT ĐỐI KHÔNG LẶP LẠI**:
+  - ❌ *Không sinh thư mục tĩnh dist/g/*: Sẽ phá vỡ chuyển hướng 301 của Edge Worker.
+  - ❌ *Không gán hạn dùng giả 2026-12-31*: Phải hiển thị "Chưa rõ hạn dùng" để đảm bảo tính xác thực với Googlebot.
+  - ❌ *Không để tiêu đề trang 0 mã bị cụt dấu gạch*: Bắt buộc có điều kiện phân nhánh rõ ràng.
+
+---
+
 ### ISSUE-147: Bẫy Lệch Thuật Toán Băm Mật Khẩu (Bcrypt vs PBKDF2/SHA-256) & Lệch Sổ Cái Số Dư Khi Hợp Nhất Domain codegame.store Về codegame.shop
 - **Triệu chứng**:
   - Khi chuyển đổi tài khoản người dùng từ hệ thống cũ (codegame.store) sang hệ thống mới (codegame.shop), người dùng cũ không thể đăng nhập được vì mật khẩu ở store dùng Bcrypt ($), trong khi shop dùng SHA-256 kèm salt và pepper.
