@@ -561,6 +561,11 @@ async function handleWorkerRequest(request: Request, env: Env, ctx: ExecutionCon
 
       // Root Homepage HTML - Always fresh to guarantee chunk integrity
       if (request.method === 'GET' && (pathname === '/' || pathname === '/index.html')) {
+        const pageParam = url.searchParams.get('page');
+        const pageNum = pageParam ? parseInt(pageParam, 10) : 1;
+        if (pageNum > 1) {
+          return await renderSeoHtml(request, env, pathname);
+        }
         const assetResponse = await env.ASSETS.fetch(request);
         if (assetResponse.status === 200) {
           const headers = new Headers(assetResponse.headers);
