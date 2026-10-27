@@ -547,6 +547,25 @@ export const PrivateCodesModule: React.FC<PrivateCodesModuleProps> = ({ onShowTo
     return true;
   });
 
+  // Sort: Ưu tiên sự kiện đang bật (ACTIVE) và cập nhật gần nhất lên đầu bảng
+  const displayedGiveaways = React.useMemo(() => {
+    return [...filteredGiveaways].sort((a, b) => {
+      const actA = a.is_active !== false ? 1 : 0;
+      const actB = b.is_active !== false ? 1 : 0;
+      if (actA !== actB) return actB - actA;
+
+      const timeA = Math.max(
+        a.updated_at ? new Date(a.updated_at).getTime() : 0,
+        a.created_at ? new Date(a.created_at).getTime() : 0
+      );
+      const timeB = Math.max(
+        b.updated_at ? new Date(b.updated_at).getTime() : 0,
+        b.created_at ? new Date(b.created_at).getTime() : 0
+      );
+      return timeB - timeA;
+    });
+  }, [filteredGiveaways]);
+
   return (
     <div className="space-y-6 animate-in fade-in duration-200">
       {/* Subtab Switcher */}
@@ -821,7 +840,7 @@ export const PrivateCodesModule: React.FC<PrivateCodesModuleProps> = ({ onShowTo
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100 dark:divide-slate-800 font-medium">
-              {filteredGiveaways.map((gw) => {
+              {displayedGiveaways.map((gw) => {
                 const poolCount = Array.isArray(gw.codes_pool) && gw.codes_pool.length > 0 ? gw.codes_pool.length : Math.max(0, Number(gw.remaining_codes || 0));
                 const claimedCount = Number(gw.claimed_codes) || 0;
                 const remaining = poolCount;

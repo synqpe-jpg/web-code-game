@@ -7,6 +7,35 @@ Mỗi mục sửa lỗi đều ghi nhận **Nguyên nhân gốc rễ (Root Cause
 
 ## [2026-10-27]
 
+### 235. Khắc Phục Triệt Để Lỗi Sự Kiện Giveaway Tiên Nghịch Mobile Lúc Hiện Lúc Mất & Bảo Vệ Metadata Toàn Vẹn
+- **Bối cảnh & Yêu cầu từ Người dùng**:
+  - Người dùng phản ánh: *"Trong trang admin trước đó tôi đã thêm sự kiện cho game Tiên Nghịch, nhưng giờ lại không thấy đâu, tôi đã nhờ antigravity sửa nhưng lỗi này vẫn chưa được khắc phục, sự kiện này lúc hiện lúc mất, hiện tại thì không thấy... Bối cảnh: Chủ web đã thêm 1 sự kiện giveaway cho game Tiên Nghịch Mobile trong trang admin trước đó. Hiện tại sự kiện này không thấy đâu trên trang công khai, và trước đó nó lúc hiện lúc mất (không ổn định). Antigravity đã sửa 1 lần nhưng lỗi vẫn còn — đợt này phải tìm đúng nguyên nhân gốc, không lặp lại cách sửa cũ."*
+  - Yêu cầu kiểm tra chi tiết 8 nguyên nhân: cờ trạng thái, số mã còn lại, lệch tầng dữ liệu, bộ nhớ đệm biên, phân trang/danh sách xoay, liên kết game, bộ lọc client, phân biệt sự kiện kết thúc thật vs lỗi hiển thị chập chờn.
+- **Nguyên nhân gốc rễ (Root Cause)**:
+  1. *Lọc trạng thái mã kho (`remaining_codes: 0`) tại tab "Còn Mã Trong Kho"*: Sau khi mã test `TESTCODE2` được dọn dẹp theo Rule 7 (ở commit 234), kho khả dụng của sự kiện về 0 (`remaining_codes: 0, claimed_codes: 22`). Khi người dùng mở trang `/giveaways` ở tab mặc định hoặc bấm chọn "Còn Mã Trong Kho", bộ lọc client `(g.remaining_codes || 0) > 0` tự động ẩn chiến dịch khỏi giao diện.
+  2. *Sự kiện bị đẩy xuống vị trí đáy trang ở tab "Tất Cả"*: Thuật toán sắp xếp sự kiện trước đây chỉ xét `aHasStock && !bHasStock ? -1 : 1`, sau đó sắp xếp theo `new Date(b.created_at) - new Date(a.created_at)`. Vì sự kiện Tiên Nghịch Mobile được tạo từ ngày 10/10/2026, nó bị đẩy xuống tận vị trí #32/41, nằm ngoài tầm nhìn ban đầu khiến người dùng ngỡ là sự kiện biến mất.
+  3. *Bẫy Empty Overwrite đè mất Metadata trong API Sync*: Khi D1 lưu bảng `giveaways`, các cột `cover_image_url`, `game_icon_url`, `start_time`, `end_time` có giá trị `NULL`, còn `description` và `rewards` là chuỗi rỗng `''`. Khi endpoint `/api/sync` merge `{ ...fallback, ...g }`, các trường null/rỗng từ D1 ghi đè lên các giá trị hợp lệ của fallback, khiến sự kiện bị mất ảnh, mất mô tả và mất phần thưởng.
+  4. *Cờ `clear_pool: true` bị lưu cố định trên CSDL*: Cờ transient `clear_pool` sinh ra từ lượt dọn dẹp mã test không được tự động gỡ bỏ sau khi lưu D1, khiến mỗi lần sync sau đó tiếp tục ép kho về 0.
+  5. *Admin panel sắp xếp theo `created_at`*: Khiến sự kiện vừa cập nhật bị trôi xuống đáy danh sách quản trị thay vì nổi lên đầu bảng để admin theo dõi.
+- **Giải pháp thành công (Solution)**:
+  1. *Bảo vệ Fallback Metadata trong D1 & API Sync*:
+     - Tại `functions/services/d1_service.ts` (`loadAllGiveawaysD1`): Cung cấp fallback tự động cho `cover_image_url`, `game_icon_url`, `description`, `rewards`, `start_time`, `end_time` nếu D1 rỗng.
+     - Tại `functions/api/sync.ts` (cả nhánh `wcg_admin_giveaways_v4` và full GET): Khi merge D1 với fallback, các trường rỗng/null luôn được fallback bảo vệ (`cover_image_url || fallback.cover_image_url || /game_icons/${slug}.webp`).
+  2. *Gỡ bỏ triệt để cờ `clear_pool` khi lưu*:
+     - Tại `functions/services/d1_service.ts` (`syncGiveawaysToD1`): Tự động `delete gw.clear_pool` và vệ sinh mảng trước khi ghi vào `system_settings`.
+     - Tại `functions/api/sync.ts`: Tự động sanitize mảng `incomingGiveaways` để loại bỏ cờ `clear_pool`.
+  3. *Tối ưu hóa sắp xếp ưu tiên hiển thị theo `updated_at`*:
+     - Tại `src/components/GiveawaysView.tsx`: Cập nhật hàm sort để tính `Math.max(updated_at, created_at)`. Các sự kiện vừa được quản trị viên cập nhật sẽ lập tức nổi lên vị trí #3 trên toàn bộ 41 sự kiện (ngay sát các sự kiện đang còn mã trong kho).
+     - Tại `src/admin/modules/PrivateCodesModule.tsx`: Sắp xếp bảng quản trị ưu tiên các sự kiện đang bật (`is_active: true`, `status: ACTIVE`) và xếp theo `Math.max(updated_at, created_at) DESC`, đưa Tiên Nghịch Mobile lên thẳng vị trí #1 của bảng quản trị.
+  4. *Đồng bộ trực tiếp dữ liệu chuẩn lên Cloudflare D1 Live*:
+     - Đã đồng bộ thành công bản ghi chuẩn SSOT của Tiên Nghịch Mobile: `cover_image_url: '/game_icons/tien-nghich-mobile.webp'`, `game_icon_url: '/game_icons/tien-nghich-mobile.webp'`, `description: 'Code dùng cho 1 tài khoản, 1 loại dùng 1 lần.'`, `rewards: 'Code ngẫu nhiên'`, `start_time: '2026-10-10'`, `end_time: '2026-12-31'`, `is_active: true`, `status: 'ACTIVE'`, `remaining_codes: 0`, `claimed_codes: 22`, `total_codes: 22`.
+- **Bằng chứng kiểm chứng**:
+  - Live API `/api/sync?key=wcg_admin_giveaways_v4`: Trả về Tiên Nghịch Mobile đầy đủ 100% metadata chuẩn, không còn `clear_pool`.
+  - Khách vãng lai & Thành viên đăng nhập: Đều nhìn thấy sự kiện ở vị trí #3 tại tab "Tất Cả", đầy đủ ảnh bìa, avatar, mô tả, luật 3 code/user, badge "Tạm Hết Mã / Chờ Đợt Mới", lịch sử nhận 22 lượt thật.
+  - 3 sự kiện kiểm tra chéo (Anh Hùng Tiến Lên #1, 3Q Đào Đào Đào #2, Pirate Legends #5) hoàn toàn nguyên vẹn và hoạt động bình thường.
+
+---
+
 ### 234. Quét Dọn Sạch Toàn Diện 100% Mã Test, Tài Khoản Test Còn Sót Lại & Khóa Chặn Tự Động Theo Rule 7 (Zero Test Artifacts)
 - **Bối cảnh & Yêu cầu từ Người dùng**:
   - Người dùng yêu cầu: *"Ok xóa giúp tôi, lần sau không còn hiện tượng để mã test hay tào khoản sản phẩm test sau khi test xong nhé, ghi nhớ giúp tôi."*

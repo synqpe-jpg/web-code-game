@@ -240,7 +240,18 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
             fallbackGw.forEach((g: any) => gwMap.set(g.id, g));
             (rawGws || []).forEach((g: any) => {
               if (g && g.id && !delGwSet.has(g.id)) {
-                gwMap.set(g.id, { ...(gwMap.get(g.id) || {}), ...g });
+                const fb = gwMap.get(g.id) || {};
+                const slug = g.game_slug || fb.game_slug || '';
+                gwMap.set(g.id, {
+                  ...fb,
+                  ...g,
+                  description: g.description || fb.description || '',
+                  rewards: g.rewards || fb.rewards || 'Code ngẫu nhiên',
+                  start_time: g.start_time || fb.start_time || null,
+                  end_time: g.end_time || fb.end_time || null,
+                  cover_image_url: g.cover_image_url || fb.cover_image_url || (slug ? `/game_icons/${slug}.webp` : null),
+                  game_icon_url: g.game_icon_url || fb.game_icon_url || (slug ? `/game_icons/${slug}.webp` : null),
+                });
               }
             });
             val = Array.from(gwMap.values())
@@ -589,17 +600,17 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
             custom_banner_enabled: g.custom_banner_enabled !== undefined ? Boolean(g.custom_banner_enabled) : Boolean(meta.custom_banner_enabled || (g.custom_banner_link && String(g.custom_banner_link).trim() !== '')),
             custom_banner_text: g.custom_banner_text || meta.custom_banner_text || 'Tham gia nhóm zalo của web tại đây',
             custom_banner_link: g.custom_banner_link || meta.custom_banner_link || '',
-            rewards: g.rewards || meta.rewards || '',
-            description: g.description || meta.description || '',
-            virtual_claimed_offset: g.virtual_claimed_offset !== undefined ? Number(g.virtual_claimed_offset) : Number(meta.virtual_claimed_offset ?? 0),
-            show_claimed_count: g.show_claimed_count !== undefined ? Boolean(g.show_claimed_count) : (meta.show_claimed_count !== false),
-            show_remaining_count: meta.show_remaining_count !== undefined ? Boolean(meta.show_remaining_count) : ((g as any).show_remaining_count !== false),
-            fomo_anchor_time: meta.fomo_anchor_time || (g as any).fomo_anchor_time || null,
-            virtual_claimed_updated_at: meta.virtual_claimed_updated_at || (g as any).virtual_claimed_updated_at || null,
-            start_time: g.start_time || meta.start_time || null,
-            end_time: g.end_time || meta.end_time || null,
-            cover_image_url: g.cover_image_url || meta.cover_image_url || null,
-            game_icon_url: g.game_icon_url || meta.game_icon_url || null,
+            rewards: g.rewards || meta.rewards || fallback.rewards || 'Code ngẫu nhiên',
+            description: g.description || meta.description || fallback.description || '',
+            virtual_claimed_offset: g.virtual_claimed_offset !== undefined ? Number(g.virtual_claimed_offset) : Number(meta.virtual_claimed_offset ?? fallback.virtual_claimed_offset ?? 0),
+            show_claimed_count: g.show_claimed_count !== undefined ? Boolean(g.show_claimed_count) : (meta.show_claimed_count !== undefined ? Boolean(meta.show_claimed_count) : (fallback.show_claimed_count !== false)),
+            show_remaining_count: meta.show_remaining_count !== undefined ? Boolean(meta.show_remaining_count) : ((g as any).show_remaining_count !== undefined ? Boolean((g as any).show_remaining_count) : (fallback.show_remaining_count !== false)),
+            fomo_anchor_time: meta.fomo_anchor_time || (g as any).fomo_anchor_time || fallback.fomo_anchor_time || null,
+            virtual_claimed_updated_at: meta.virtual_claimed_updated_at || (g as any).virtual_claimed_updated_at || fallback.virtual_claimed_updated_at || null,
+            start_time: g.start_time || meta.start_time || fallback.start_time || null,
+            end_time: g.end_time || meta.end_time || fallback.end_time || null,
+            cover_image_url: g.cover_image_url || meta.cover_image_url || fallback.cover_image_url || `/game_icons/${g.game_slug || meta.game_slug || fallback.game_slug}.webp`,
+            game_icon_url: g.game_icon_url || meta.game_icon_url || fallback.game_icon_url || `/game_icons/${g.game_slug || meta.game_slug || fallback.game_slug}.webp`,
             is_active: meta.is_active !== undefined ? Boolean(meta.is_active) : (g.is_active !== undefined ? Boolean(g.is_active) : true),
             use_template: meta.use_template !== undefined ? Boolean(meta.use_template) : (g.use_template !== undefined ? Boolean(g.use_template) : true),
             updated_at: meta.updated_at || g.updated_at || g.created_at || new Date().toISOString(),
@@ -4168,6 +4179,112 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
       }
     }
 
+    // Action: Chuẩn hóa toàn vẹn metadata & trạng thái sự kiện Tiên Nghịch Mobile (D1 & KV SSOT)
+    if (body.action === 'admin_repair_tien_nghich_giveaway' && env.DB) {
+      if (!authorized) {
+        return new Response(JSON.stringify({ success: false, error: 'Unauthorized: Yêu cầu quyền Quản trị viên.' }), { status: 403, headers: CORS_HEADERS });
+      }
+      try {
+        const gwId = 'gw_1791639381997_w49';
+        const nowIso = new Date().toISOString();
+
+        // 1. Cập nhật bảng D1 giveaways với đầy đủ metadata chuẩn
+        await env.DB.prepare(`
+          UPDATE giveaways
+          SET title = 'Code riêng Tiên Nghịch Mobile',
+              game_slug = 'tien-nghich-mobile',
+              game_name = 'Tiên Nghịch Mobile',
+              description = 'Code dùng cho 1 tài khoản, 1 loại dùng 1 lần.',
+              rewards = 'Code ngẫu nhiên',
+              cover_image_url = '/game_icons/tien-nghich-mobile.webp',
+              game_icon_url = '/game_icons/tien-nghich-mobile.webp',
+              start_time = '2026-10-10',
+              end_time = '2026-12-31',
+              max_per_user = 3,
+              max_per_ip = 3,
+              cooldown_hours = 1,
+              global_cooldown_seconds = 2700,
+              is_active = 1,
+              status = 'ACTIVE',
+              updated_at = ?
+          WHERE id = ?
+        `).bind(nowIso, gwId).run();
+
+        // 2. Cập nhật wcg_admin_giveaways_v4 và gỡ sạch cờ clear_pool
+        const giveawaysRaw = await getSettingD1(env.DB, 'wcg_admin_giveaways_v4', []);
+        if (Array.isArray(giveawaysRaw)) {
+          const updatedGiveaways = giveawaysRaw.map((gw: any) => {
+            if (gw.id === gwId) {
+              const { clear_pool, ...cleanGw } = gw;
+              return {
+                ...cleanGw,
+                title: 'Code riêng Tiên Nghịch Mobile',
+                game_slug: 'tien-nghich-mobile',
+                game_name: 'Tiên Nghịch Mobile',
+                description: 'Code dùng cho 1 tài khoản, 1 loại dùng 1 lần.',
+                rewards: 'Code ngẫu nhiên',
+                cover_image_url: '/game_icons/tien-nghich-mobile.webp',
+                game_icon_url: '/game_icons/tien-nghich-mobile.webp',
+                start_time: '2026-10-10',
+                end_time: '2026-12-31',
+                max_per_user: 3,
+                max_per_ip: 3,
+                cooldown_hours: 1,
+                global_cooldown_seconds: 2700,
+                is_active: true,
+                status: 'ACTIVE',
+                updated_at: nowIso
+              };
+            }
+            return gw;
+          });
+          await setSettingD1(env.DB, 'wcg_admin_giveaways_v4', updatedGiveaways);
+        }
+
+        // 3. Cập nhật wcg_master_state_v4
+        const masterRaw = await getSettingD1(env.DB, 'wcg_master_state_v4', {}).catch(() => ({}));
+        if (masterRaw && Array.isArray(masterRaw.giveaways)) {
+          masterRaw.giveaways = masterRaw.giveaways.map((gw: any) => {
+            if (gw.id === gwId) {
+              const { clear_pool, ...cleanGw } = gw;
+              return {
+                ...cleanGw,
+                title: 'Code riêng Tiên Nghịch Mobile',
+                game_slug: 'tien-nghich-mobile',
+                game_name: 'Tiên Nghịch Mobile',
+                description: 'Code dùng cho 1 tài khoản, 1 loại dùng 1 lần.',
+                rewards: 'Code ngẫu nhiên',
+                cover_image_url: '/game_icons/tien-nghich-mobile.webp',
+                game_icon_url: '/game_icons/tien-nghich-mobile.webp',
+                start_time: '2026-10-10',
+                end_time: '2026-12-31',
+                max_per_user: 3,
+                max_per_ip: 3,
+                cooldown_hours: 1,
+                global_cooldown_seconds: 2700,
+                is_active: true,
+                status: 'ACTIVE',
+                updated_at: nowIso
+              };
+            }
+            return gw;
+          });
+          await setSettingD1(env.DB, 'wcg_master_state_v4', masterRaw);
+        }
+
+        invalidateGamesCatalogCache();
+        await invalidateCatalogEdgeCache(context as any, request, env).catch(() => {});
+
+        return new Response(JSON.stringify({
+          success: true,
+          message: 'Đã chuẩn hóa toàn vẹn metadata và trạng thái sự kiện Tiên Nghịch Mobile trên D1 và KV!',
+          updated_at: nowIso
+        }), { headers: CORS_HEADERS });
+      } catch (err: any) {
+        return new Response(JSON.stringify({ success: false, error: String(err?.message || err) }), { status: 500, headers: CORS_HEADERS });
+      }
+    }
+
     // Action: Đối soát và đồng bộ chuẩn hóa số dư thành viên theo sổ cái wallet_transactions
     if (body.action === 'reconcile_member_balances' && env.DB) {
       try {
@@ -4600,7 +4717,12 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
           : (Array.isArray(body.giveaways) ? body.giveaways : null);
         if (Array.isArray(incomingGiveaways) && incomingGiveaways.length > 0) {
           await syncGiveawaysToD1(env.DB, incomingGiveaways);
-          await setSettingD1(env.DB, 'wcg_admin_giveaways_v4', incomingGiveaways);
+          const sanitizedGiveaways = incomingGiveaways.map((g: any) => {
+            if (!g || !g.clear_pool) return g;
+            const { clear_pool, ...rest } = g;
+            return rest;
+          });
+          await setSettingD1(env.DB, 'wcg_admin_giveaways_v4', sanitizedGiveaways);
           // Also explicitly update is_active & status in giveaways table
           for (const gw of incomingGiveaways) {
             if (gw && gw.id) {

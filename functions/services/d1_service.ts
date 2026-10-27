@@ -2331,11 +2331,17 @@ export async function syncGiveawaysToD1(db: D1Database, giveaways: any[]): Promi
       // ONLY delete available codes if admin explicitly commanded clear_pool
       await db.prepare("DELETE FROM giveaway_codes WHERE giveaway_id = ? AND status = 'AVAILABLE'").bind(gw.id).run().catch(() => {});
       await db.prepare("UPDATE giveaways SET remaining_codes = 0 WHERE id = ?").bind(gw.id).run().catch(() => {});
+      delete gw.clear_pool;
     }
   }
 
-  // Double fail-safe: Also persist full giveaways payload in system_settings
-  await setSettingD1(db, 'wcg_admin_giveaways_v4', giveaways).catch(() => {});
+  // Double fail-safe: Also persist full giveaways payload in system_settings without transient action flags
+  const sanitized = giveaways.map((g: any) => {
+    if (!g || !g.clear_pool) return g;
+    const { clear_pool, ...rest } = g;
+    return rest;
+  });
+  await setSettingD1(db, 'wcg_admin_giveaways_v4', sanitized).catch(() => {});
 }
 
 /**
@@ -2825,10 +2831,25 @@ export async function loadAllGiveawaysD1(db: D1Database, includeCodes: boolean =
       const rem = poolLen !== null
         ? poolLen
         : Math.max(0, Number(gw.remaining_codes) || Number(meta.remaining_codes) || Number(fallback.remaining_codes) || 0);
+      const slug = meta.game_slug || gw.game_slug || fallback.game_slug || '';
+      const coverUrl = meta.cover_image_url || gw.cover_image_url || fallback.cover_image_url || (slug ? `/game_icons/${slug}.webp` : null);
+      const iconUrl = meta.game_icon_url || gw.game_icon_url || fallback.game_icon_url || coverUrl;
+      const desc = meta.description || gw.description || fallback.description || '';
+      const rew = meta.rewards || gw.rewards || fallback.rewards || 'Code ngẫu nhiên';
+      const startTime = meta.start_time || gw.start_time || fallback.start_time || null;
+      const endTime = meta.end_time || gw.end_time || fallback.end_time || null;
+
       return {
+        ...fallback,
         ...gw,
         ...meta,
         remaining_codes: rem,
+        cover_image_url: coverUrl,
+        game_icon_url: iconUrl,
+        description: desc,
+        rewards: rew,
+        start_time: startTime,
+        end_time: endTime,
         min_account_age_days: meta.min_account_age_days !== undefined ? Number(meta.min_account_age_days) : (gw.min_account_age_days !== undefined ? Number(gw.min_account_age_days) : 0),
         max_per_user: meta.max_per_user !== undefined ? Number(meta.max_per_user) : (gw.max_per_user !== undefined ? Number(gw.max_per_user) : 1),
         max_per_ip: meta.max_per_ip !== undefined ? Number(meta.max_per_ip) : (gw.max_per_ip !== undefined ? Number(gw.max_per_ip) : 1),

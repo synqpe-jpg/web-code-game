@@ -1439,9 +1439,15 @@ export const GiveawaysView: React.FC<GiveawaysViewProps> = ({
         return poolCountB - poolCountA;
       }
 
-      // 3. Giữ thứ tự tạo mới nhất
-      const timeA = a.created_at ? new Date(a.created_at).getTime() : 0;
-      const timeB = b.created_at ? new Date(b.created_at).getTime() : 0;
+      // 3. Giữ thứ tự cập nhật / tạo mới nhất
+      const timeA = Math.max(
+        a.updated_at ? new Date(a.updated_at).getTime() : 0,
+        a.created_at ? new Date(a.created_at).getTime() : 0
+      );
+      const timeB = Math.max(
+        b.updated_at ? new Date(b.updated_at).getTime() : 0,
+        b.created_at ? new Date(b.created_at).getTime() : 0
+      );
       return timeB - timeA;
     });
 

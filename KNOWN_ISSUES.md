@@ -10,6 +10,25 @@
 
 ## 1. DANH MỤC LỖI & CÁC BẪY ĐÃ THẤT BẠI (DO NOT REPEAT)
 
+### ISSUE-155: Bẫy Empty Overwrite Khi Merge D1 Với Fallback, Cờ clear_pool Tồn Dư & Sự Kiện Tạm Hết Mã Bị Trôi Khỏi Tầm Nhìn
+- **Triệu chứng**:
+  - Quản trị viên đã tạo sự kiện Giveaway cho game Tiên Nghịch Mobile, nhưng khi ra trang công khai `/giveaways` thì sự kiện lúc hiện lúc mất, thậm chí biến mất hoàn toàn. Trong khi đó bản ghi game Tiên Nghịch Mobile trên API công khai vẫn bình thường (54 mã / 46 mã hoạt động).
+- **Nguyên nhân gốc rễ (Root Cause)**:
+  1. *Lọc theo kho mã (`remaining_codes: 0`) tại tab "Còn Mã Trong Kho"*: Sau khi dọn sạch mã test `TESTCODE2`, sự kiện có `remaining_codes = 0`. Khi người dùng xem tab "Còn Mã Trong Kho", logic `poolCount > 0` tự động loại bỏ sự kiện.
+  2. *Sự kiện bị trôi xuống đáy danh sách ở tab "Tất Cả"*: Thuật toán sắp xếp cũ chỉ ưu tiên hàng còn mã lên đầu và xếp các sự kiện hết mã theo `created_at DESC`. Vì sự kiện tạo ngày 10/10/2026, nó bị đẩy xuống vị trí #32/41, ngoài màn hình quan sát đầu tiên.
+  3. *Bẫy Empty Overwrite đè mất Metadata trong API Sync*: Bảng D1 lưu các trường `cover_image_url`, `game_icon_url`, `start_time`, `end_time` là `NULL` và `description`, `rewards` là `''`. Khi API sync merge object `{ ...fallback, ...g }`, các trường null/rỗng từ D1 ghi đè đứt giá trị hợp lệ của fallback, khiến sự kiện mất ảnh, mất mô tả.
+  4. *Cờ `clear_pool: true` bị lưu cố định trên CSDL*: Cờ transient `clear_pool` không được gỡ bỏ sau khi thực thi dọn dẹp mã, khiến mỗi lần lưu lại ép kho về 0.
+- **Giải pháp chuẩn đã kiểm chứng**:
+  1. *Fallback Guard*: Bổ sung fallback guard trong cả D1 loader (`loadAllGiveawaysD1`) và API sync (`/api/sync`): Không bao giờ để trường null/chuỗi rỗng từ D1 ghi đè lên fallback (`rewards || fallback.rewards`, `cover_image_url || fallback.cover_image_url || /game_icons/${slug}.webp`).
+  2. *Sanitize gỡ sạch `clear_pool`*: Trong `syncGiveawaysToD1` và `onRequestPost`, xóa cờ `clear_pool` ngay khi xử lý xong để không bao giờ bị lưu cố định vào CSDL.
+  3. *Sort theo `Math.max(updated_at, created_at)`*: Ở cả web khách (`GiveawaysView.tsx`) và web admin (`PrivateCodesModule.tsx`), sắp xếp theo thời điểm cập nhật gần nhất giúp các sự kiện vừa điều chỉnh nổi ngay lên vị trí đầu (Client: #3/41, Admin: #1).
+- ⛔ **CÁCH SỬA ĐÃ THẤT BẠI - TUYỆT ĐỐI KHÔNG LẶP LẠI**:
+  - ❌ *Không merge `{ ...fallback, ...d1 }` khi các trường trong D1 có thể là null hoặc chuỗi rỗng*: Bắt buộc phải có fallback guard kiểm tra từng trường chuỗi và URL.
+  - ❌ *Không lưu cờ hành động tạm thời (transient action flags như `clear_pool`) vào CSDL lưu trữ vĩnh viễn*.
+  - ❌ *Không chỉ sort theo `created_at`*: Phải dùng `Math.max(updated_at, created_at)` để phản ánh đúng hoạt động của quản trị viên.
+
+---
+
 ### ISSUE-154: Bẫy Sót Mã Test Sau Khi Chạy Script Kiểm Thử & Lỗi Typo Cột CSDL code_content
 - **Triệu chứng**:
   - Sau khi chạy bài kiểm thử tự động `npm run test:ingest`, trên CSDL production vẫn còn tồn tại các mã test (như `ACCESS GRANTED`, `MACRO!`, `MS.FAMILIAR`, `WHAT_NEXT?`, `ckwy32t1eeevs_lower`).
