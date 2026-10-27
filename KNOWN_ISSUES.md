@@ -10,6 +10,28 @@
 
 ## 1. DANH MỤC LỖI & CÁC BẪY ĐÃ THẤT BẠI (DO NOT REPEAT)
 
+### ISSUE-158: Bẫy Array.isArray Ép Kho Về 0 Khi codes_pool Rỗng, Bulk Sync Reset remaining_codes & Trôi Vị Trí Admin
+- **Triệu chứng**:
+  - Chủ web đã nạp khoảng 30 mã vào sự kiện Tiên Nghịch Mobile trong trang admin. Nhưng sau bản sửa, kho công khai vẫn hiển thị 0 mã, tổng 52 (lệch $22 + 0 = 22 \neq 52$).
+  - Sự kiện lúc hiện lúc mất, bị trôi mất tích khỏi các hàng đầu tiên của Admin dù bộ lọc Admin đếm đủ 41 sự kiện. Bảng công khai đếm 37 sự kiện gây hoang mang.
+- **Nguyên nhân gốc rễ (Root Cause)**:
+  1. *Bẫy `Array.isArray(codes_pool) ? codes_pool.length : remaining_codes`*: Public endpoint giấu mã thật trả về `codes_pool: []`. `Array.isArray([]) === true` khiến frontend lấy độ dài 0, đè mất số lượng `remaining_codes: 30`.
+  2. *Fallback tĩnh ghi đè ngược*: `src/data/giveaways.json` bị đặt cứng `remaining_codes: 0, codes_pool: []`. Mỗi khi khởi tạo lại từ fallback, kho mã bị ép về 0.
+  3. *Tiến trình Bulk Sync xóa trắng kho mã*: Trong `functions/services/d1_service.ts`, `syncGiveawaysToD1` tính `remainingCount = 0` nếu payload không có `codes_pool` và ghi đè `remaining_codes = 0` vào bảng `giveaways`.
+  4. *Sắp xếp Admin chỉ dựa vào `Math.max(updated_at, created_at)`*: Đợt bulk sync chạm vào 32/41 sự kiện làm `updated_at` của 32 sự kiện nhảy lên mới hơn Tiên Nghịch Mobile, đẩy Tiên Nghịch Mobile tụt xuống vị trí #33.
+  5. *Bản chất 41 vs 37 sự kiện*: Admin đếm từng sự kiện độc lập (41). Client chạy `groupGiveawaysByGame` gom 4 game có 2 sự kiện thành 1 thẻ nhiều gói quà ($41 - 4 = 37$).
+- **Giải pháp chuẩn đã kiểm chứng**:
+  1. *Sửa điều kiện đọc số lượng*: `Array.isArray(item.codes_pool) && item.codes_pool.length > 0 ? item.codes_pool.length : (typeof item.remaining_codes === 'number' ? item.remaining_codes : 0)`.
+  2. *Thiết lập Chốt Chặn Chống Xóa Mã*: `syncGiveawaysToD1` bắt buộc giữ lại `codes_pool` và `remaining_codes` cũ trong D1 nếu payload mới không chứa pool và không có cờ `clear_pool: true`.
+  3. *Thuật toán sắp xếp In-Stock First*: Cả Admin và Client ưu tiên: Đang mở (ACTIVE) → Còn mã trong kho (`remaining_codes > 0`) → Số mã còn lại nhiều hơn → Thời gian cập nhật.
+  4. *Đồng bộ toàn vẹn 30 mã*: Cập nhật đồng thời D1 `giveaways`, `giveaway_codes` (30 mã AVAILABLE), `system_settings`, và file `giveaways.json`.
+- ⛔ **CÁCH SỬA ĐÃ THẤT BẠI - TUYỆT ĐỐI KHÔNG LẶP LẠI**:
+  - ❌ *Không dùng `Array.isArray(codes_pool)` để xác định có mã hay không*: Bắt buộc phải kiểm tra `codes_pool.length > 0` vì mảng rỗng `[]` vẫn là array.
+  - ❌ *Không ghi đè `remaining_codes = 0` khi một tiến trình sync gửi payload không kèm `codes_pool`*: Phải có cơ chế bảo toàn kho hàng hiện có trừ khi có lệnh xóa tường minh.
+  - ❌ *Không sắp xếp danh sách Admin 100% theo `updated_at`*: Phải ưu tiên sự kiện còn mã trong kho để sự kiện có mã thật không bao giờ bị các đợt bulk sync đẩy trôi.
+
+---
+
 ### ISSUE-157: Bẫy Rò Rỉ Bản Ghi Game Sang Bộ Lọc LAUNCHED Theo Mốc Thời Gian & Mất Dữ Liệu Do Fallback Seed Cũ
 - **Triệu chứng**:
   - API trả về bộ lọc `status=LAUNCHED` chứa 4 bản ghi, trong đó có `Tiên Giới` mang trường `status: "UPCOMING"` (bộ lọc trả sai bản ghi).

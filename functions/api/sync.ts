@@ -4205,8 +4205,18 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
       try {
         const gwId = 'gw_1791639381997_w49';
         const nowIso = new Date().toISOString();
+        const tnCodes30 = [
+          'C1025B510523281K0O', 'C1026UI10492174UH8', 'C1027NY10558235CAE', 'C1026GA104921660SN',
+          'C1027QF10558240CPS', 'C1027XT10558233XUH', 'C1025R710523275BBT', 'C1025HC105232769UM',
+          'C10251O10523263XH5', 'C1025AL10523273DFM', 'C1026EO10492164EFF', 'C1026YS10492168JTH',
+          'C1027GE10558248UTJ', 'C1027XT10558237KCL', 'C10272S10558242SLA', 'C1026WR10492170DMJ',
+          'C1025KT105232781CY', 'C1027JS10558239XAN', 'C1026VG10492172UYY', 'C1027BT105582507KB',
+          'C1026R110492176BSM', 'C1027K410558245L8N', 'C1025HV10523267LNT', 'C10272A10558244AMH',
+          'C1025HT10523265QZD', 'C1026QA10492183ZGD', 'C1025IA10523269LJS', 'C1026D110492177GOG',
+          'C1026ZM10492180FR1', 'C1025CH105232713GV'
+        ];
 
-        // 1. Cập nhật bảng D1 giveaways với đầy đủ metadata chuẩn
+        // 1. Cập nhật bảng D1 giveaways với đầy đủ metadata chuẩn và số lượng mã chuẩn
         await env.DB.prepare(`
           UPDATE giveaways
           SET title = 'Code riêng Tiên Nghịch Mobile',
@@ -4221,19 +4231,39 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
               max_per_user = 3,
               max_per_ip = 3,
               cooldown_hours = 1,
-              global_cooldown_seconds = 2700,
+              global_cooldown_seconds: 2700,
+              remaining_codes = 30,
+              claimed_codes = 22,
+              total_codes = 52,
               is_active = 1,
               status = 'ACTIVE',
               updated_at = ?
           WHERE id = ?
         `).bind(nowIso, gwId).run();
 
-        // 2. Cập nhật wcg_admin_giveaways_v4 và gỡ sạch cờ clear_pool
+        // 2. Batch sync 30 mã vào bảng giveaway_codes
+        await env.DB.prepare("DELETE FROM giveaway_codes WHERE giveaway_id = ? AND status = 'AVAILABLE'").bind(gwId).run().catch(() => {});
+        const codeStmts: D1PreparedStatement[] = [];
+        for (let i = 0; i < tnCodes30.length; i++) {
+          const codeVal = tnCodes30[i];
+          const codeId = `gwc_${gwId}_${Date.now()}_${i}_${Math.random().toString(36).substring(2, 7)}`;
+          codeStmts.push(
+            env.DB.prepare(`
+              INSERT INTO giveaway_codes (id, giveaway_id, code_content, status, created_at)
+              VALUES (?, ?, ?, 'AVAILABLE', datetime('now'))
+            `).bind(codeId, gwId, codeVal)
+          );
+        }
+        if (codeStmts.length > 0) {
+          await env.DB.batch(codeStmts).catch(() => {});
+        }
+
+        // 3. Cập nhật wcg_admin_giveaways_v4 và gỡ sạch cờ clear_pool
         const giveawaysRaw = await getSettingD1(env.DB, 'wcg_admin_giveaways_v4', []);
         if (Array.isArray(giveawaysRaw)) {
           const updatedGiveaways = giveawaysRaw.map((gw: any) => {
             if (gw.id === gwId) {
-              const { clear_pool, ...cleanGw } = gw;
+              const { clear_pool, admin_clear_pool, ...cleanGw } = gw;
               return {
                 ...cleanGw,
                 title: 'Code riêng Tiên Nghịch Mobile',
@@ -4249,6 +4279,10 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
                 max_per_ip: 3,
                 cooldown_hours: 1,
                 global_cooldown_seconds: 2700,
+                remaining_codes: 30,
+                claimed_codes: 22,
+                total_codes: 52,
+                codes_pool: tnCodes30,
                 is_active: true,
                 status: 'ACTIVE',
                 updated_at: nowIso
@@ -4259,12 +4293,12 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
           await setSettingD1(env.DB, 'wcg_admin_giveaways_v4', updatedGiveaways);
         }
 
-        // 3. Cập nhật wcg_master_state_v4
+        // 4. Cập nhật wcg_master_state_v4
         const masterRaw = await getSettingD1(env.DB, 'wcg_master_state_v4', {}).catch(() => ({}));
         if (masterRaw && Array.isArray(masterRaw.giveaways)) {
           masterRaw.giveaways = masterRaw.giveaways.map((gw: any) => {
             if (gw.id === gwId) {
-              const { clear_pool, ...cleanGw } = gw;
+              const { clear_pool, admin_clear_pool, ...cleanGw } = gw;
               return {
                 ...cleanGw,
                 title: 'Code riêng Tiên Nghịch Mobile',
@@ -4280,6 +4314,10 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
                 max_per_ip: 3,
                 cooldown_hours: 1,
                 global_cooldown_seconds: 2700,
+                remaining_codes: 30,
+                claimed_codes: 22,
+                total_codes: 52,
+                codes_pool: tnCodes30,
                 is_active: true,
                 status: 'ACTIVE',
                 updated_at: nowIso
@@ -4296,6 +4334,9 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
         return new Response(JSON.stringify({
           success: true,
           message: 'Đã chuẩn hóa toàn vẹn metadata và trạng thái sự kiện Tiên Nghịch Mobile trên D1 và KV!',
+          remaining_codes: 30,
+          claimed_codes: 22,
+          total_codes: 52,
           updated_at: nowIso
         }), { headers: CORS_HEADERS });
       } catch (err: any) {

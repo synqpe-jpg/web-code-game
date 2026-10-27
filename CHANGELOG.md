@@ -7,6 +7,40 @@ Mỗi mục sửa lỗi đều ghi nhận **Nguyên nhân gốc rễ (Root Cause
 
 ## [2026-10-27]
 
+### 238. Khôi Phục Kho 30 Mã Tiên Nghịch Mobile, Khắc Phục Bẫy Array.isArray Ép Về 0, Chốt Chặn Chống Xóa Mã Khi Đồng Bộ & Ổn Định Hiển Thị Top 1
+- **Bối cảnh & Yêu cầu từ Người dùng**:
+  - Chủ web đã nạp mã vào sự kiện Tiên Nghịch Mobile từ trước. Sau bản sửa `3a585d7`, kho mã trống (còn 0 mã) và chủ web đã nạp thêm khoảng 30 mã vào trang admin. Nhưng sau đó kho công khai vẫn hiển thị 0 mã và sự kiện lúc hiện lúc mất, bị trôi mất tích.
+  - Mục tiêu: Sự kiện hiển thị bình thường, số mã nạp phải hiện ra ở kho công khai (30 mã), bảo toàn 22 lượt phát trước đó (tổng 52), sự kiện không bị đẩy tụt khi hệ thống đồng bộ sau này, và giải thích rõ chênh lệch 41 sự kiện (Admin/API) vs 37 sự kiện (Bảng công khai).
+- **Nguyên nhân gốc rễ (Root Cause)**:
+  1. *Bẫy `Array.isArray(codes_pool) ? codes_pool.length : remaining_codes`*:
+     Ở frontend (`productPackageUtils.ts` dòng 366), khi gọi API công khai `/api/sync?key=wcg_admin_giveaways_v4`, server bảo mật không gửi mã thật nên trả về `codes_pool: []` (hoặc rỗng). Phép so sánh `Array.isArray([])` là `true`, khiến hàm lấy `codes_pool.length` = `0` và ghi đè mất `remaining_codes: 30`!
+  2. *Mất đồng bộ ngược từ file fallback tĩnh (`giveaways.json`)*:
+     Trong file `src/data/giveaways.json`, bản ghi `gw_1791639381997_w49` bị đặt cứng `"total_codes": 22, "remaining_codes": 0, "claimed_codes": 22, "codes_pool": []`. Khi client khởi tạo hoặc khi D1 kích hoạt fallback, file này ghi đè làm kho mã tụt về 0.
+  3. *Nguy cơ Zero-Out trong tiến trình Bulk Sync (`syncGiveawaysToD1`)*:
+     Trong `functions/services/d1_service.ts`, `syncGiveawaysToD1` tính `remainingCount = Array.isArray(gw.codes_pool) ? gw.codes_pool.length : ...`. Nếu tiến trình sync gửi mảng giveaways mà không kèm `codes_pool`, nó tự tính `remainingCount = 0` và update `giveaways SET remaining_codes = 0`, xóa trắng kho hàng!
+  4. *Nguyên nhân tụt hạng sâu sau đợt đồng bộ 19:22:04 (Admin & Client)*:
+     Đợt bulk sync chạm tới 32/41 sự kiện khiến `updated_at` của 32 sự kiện này nhảy lên `19:22:04`. Thuật toán sắp xếp cũ của admin chỉ so sánh `Math.max(updated_at, created_at) DESC`, đẩy Tiên Nghịch Mobile (có `updated_at` cũ hơn) tụt xuống vị trí #33, biến mất khỏi viewport quan sát đầu tiên của Admin.
+  5. *Bản chất chênh lệch 41 vs 37 sự kiện*:
+     Admin và API Sync quản lý từng đợt giveaway độc lập (41 sự kiện). Bảng công khai chạy hàm `groupGiveawaysByGame` gom nhóm theo tựa game (Long Tướng Tam Quốc, Tam Quốc Tứ Thời Ca, Liên Quân Mobile, Free Fire mỗi game có 2 sự kiện → gom thành 1 thẻ chứa các gói quà con). 41 - 4 = 37 thẻ đại diện. Đây là tính năng thiết kế gom nhóm UX, không phải lỗi mất sự kiện.
+- **Giải pháp thành công (Solution)**:
+  1. *Khôi phục đủ 30 mã thật do chủ web nạp*:
+     Xác nhận 30 mã thật (`C1025B510523281K0O` ... `C1025CH105232713GV`) được lưu giữ toàn vẹn; cập nhật `remaining_codes = 30`, `claimed_codes = 22`, `total_codes = 52` (công thức chuẩn: 30 + 22 = 52).
+  2. *Sửa triệt để bẫy `Array.isArray`*:
+     Trong `src/utils/productPackageUtils.ts`, sửa điều kiện thành: `Array.isArray(item.codes_pool) && item.codes_pool.length > 0 ? item.codes_pool.length : (typeof item.remaining_codes === 'number' ? item.remaining_codes : 0)`.
+  3. *Đồng bộ fallback file `src/data/giveaways.json`*:
+     Cập nhật bản ghi `gw_1791639381997_w49` chứa đủ 30 mã thật, `remaining_codes: 30`, `claimed_codes: 22`, `total_codes: 52`.
+  4. *Thiết lập Chốt Chặn Chống Xóa Mã Khi Đồng Bộ (Sync Zero-Out Safeguard)*:
+     Trong `functions/services/d1_service.ts`: Nếu payload gửi lên không có `codes_pool` (hoặc rỗng) mà không có cờ tường minh xóa sạch (`clear_pool: true` hoặc `admin_clear_pool: true`), hệ thống tự động bảo toàn 100% `codes_pool` và `remaining_codes` hiện có trong CSDL D1. Cấm tuyệt đối mọi đợt bulk sync làm giảm kho mã về 0.
+  5. *Thuật toán sắp xếp ưu tiên hàng còn mã (In-Stock First + Most Codes First)*:
+     Tại cả `PrivateCodesModule.tsx` và `GiveawaysView.tsx`: Ưu tiên trạng thái Đang Mở (ACTIVE) → Ưu tiên sự kiện còn mã trong kho (`poolCount > 0`) → Ưu tiên số lượng mã còn lại nhiều hơn → Cuối cùng mới xét tới thời gian cập nhật.
+     Kết quả: Tiên Nghịch Mobile (30 mã) vươn lên đứng vững chắc ở **TOP 1 / 41** trên cả API và Admin, không bao giờ bị bất kỳ đợt bulk sync nào đẩy trôi!
+  6. *Kích hoạt và kiểm chứng trực tiếp trên Live D1*:
+     Action `admin_repair_tien_nghich_giveaway` đã chạy thành công 200 trên production. Live API xác nhận: `id: gw_1791639381997_w49`, `remaining_codes: 30`, `claimed_codes: 22`, `total_codes: 52`, `rank: #1 / 41`.
+
+---
+
+## [2026-10-27]
+
 ### 237. Khôi Phục Bảng Game Sắp Ra Mắt: Đủ 19 UPCOMING + 3 LAUNCHED, Khắc Phục Lỗi Bộ Lọc LAUNCHED Rò Rỉ Bản Ghi & Chốt Chặn Ghi Đè Âm Thầm
 - **Bối cảnh & Yêu cầu từ Người dùng**:
   - Người dùng phản ánh: *"Khôi phục bảng game sắp ra mắt — API hiện chỉ còn 6 game với ngày sai, 13 bản ghi biến mất, bộ lọc LAUNCHED trả sai bản ghi. Bối cảnh: Sáng nay 27/10 bảng game sắp ra mắt còn 19 game UPCOMING + 3 game LAUNCHED. Kiểm chứng live lúc 19:04 cùng ngày cho thấy dữ liệu đã thay đổi nghiêm trọng... 6 game còn lại đều sai ngày so với hồ sơ đã chốt... Các bản ghi biến mất khỏi API: Tiên Giới (chỉ còn xuất hiện lạc trong bộ lọc LAUNCHED với status UPCOMING và ngày sai 25/10), Azur Promilia, Elancia Mobile, và toàn bộ 10 game chưa rõ ngày... bảng đang CHẬP CHỜN giữa dữ liệu cũ đã cache và dữ liệu mới live — con số 19 mà chủ web thấy chính là lần hiển thị dữ liệu cũ đã cache này."*

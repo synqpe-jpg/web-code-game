@@ -363,7 +363,7 @@ export function groupGiveawaysByGame(campaigns: GiveawayCampaign[]): GiveawayCam
         total_codes: item.total_codes || 0,
         claimed_codes: item.claimed_codes || 0,
         remaining_codes:
-          Array.isArray(item.codes_pool)
+          Array.isArray(item.codes_pool) && item.codes_pool.length > 0
             ? item.codes_pool.length
             : (typeof item.remaining_codes === 'number' ? item.remaining_codes : 0),
         codes_pool: item.codes_pool || [],

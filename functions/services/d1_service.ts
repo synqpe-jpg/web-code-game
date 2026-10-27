@@ -2164,14 +2164,34 @@ export async function syncGiveawaysToD1(db: D1Database, giveaways: any[]): Promi
   if (!giveaways || !Array.isArray(giveaways) || giveaways.length === 0) return;
   await ensureGiveawaySchema(db);
   await ensureSchemaUpgrades(db);
+
+  // Pre-load existing giveaways metadata from system_settings to prevent accidental zero-out of codes_pool
+  const existingMeta = await getSettingD1(db, 'wcg_admin_giveaways_v4').catch(() => []);
+  const existingMap = new Map<string, any>();
+  if (Array.isArray(existingMeta)) {
+    existingMeta.forEach((g: any) => {
+      if (g && g.id) existingMap.set(g.id, g);
+    });
+  }
+
   for (const gw of giveaways) {
     if (!gw || !gw.id) continue;
-    const pool = Array.isArray(gw.codes_pool) ? gw.codes_pool : [];
-    const remainingCount = Array.isArray(gw.codes_pool)
-      ? gw.codes_pool.length
-      : (typeof gw.remaining_codes === 'number' ? gw.remaining_codes : Math.max(0, (gw.total_codes || 0) - (gw.claimed_codes || 0)));
-    const claimedCount = Number(gw.claimed_codes) || 0;
-    const totalCount = Number(gw.total_codes) || (remainingCount + claimedCount);
+
+    const existing = existingMap.get(gw.id);
+    const existingPool = Array.isArray(existing?.codes_pool) ? existing.codes_pool : [];
+    const hasIncomingPool = Array.isArray(gw.codes_pool) && gw.codes_pool.length > 0;
+    const isExplicitClear = gw.clear_pool === true || (gw as any).admin_clear_pool === true;
+
+    // Zero-out safeguard: If incoming does not provide a pool and did not explicitly clear, preserve existing warehouse pool
+    const pool = hasIncomingPool
+      ? gw.codes_pool
+      : (isExplicitClear ? [] : existingPool);
+
+    const remainingCount = pool.length > 0
+      ? pool.length
+      : (isExplicitClear ? 0 : Math.max(0, Number(gw.remaining_codes) || Number(existing?.remaining_codes) || 0));
+    const claimedCount = Number(gw.claimed_codes ?? existing?.claimed_codes ?? 0);
+    const totalCount = Math.max(Number(gw.total_codes || 0), Number(existing?.total_codes || 0), remainingCount + claimedCount);
     const minAccountAge = Math.max(0, Number(gw.min_account_age_days ?? gw.minAccountAgeDays ?? 0));
     const rawMaxUser = Number(gw.max_per_user ?? gw.maxPerUser);
     const maxUser = (rawMaxUser === 0 || rawMaxUser >= 999999) ? 999999 : (rawMaxUser > 0 ? rawMaxUser : 1);
@@ -2327,19 +2347,37 @@ export async function syncGiveawaysToD1(db: D1Database, giveaways: any[]): Promi
             total_codes = claimed_codes + ?
         WHERE id = ?
       `).bind(pool.length, pool.length, gw.id).run().catch(() => {});
-    } else if (gw.clear_pool === true) {
+    } else if (isExplicitClear) {
       // ONLY delete available codes if admin explicitly commanded clear_pool
       await db.prepare("DELETE FROM giveaway_codes WHERE giveaway_id = ? AND status = 'AVAILABLE'").bind(gw.id).run().catch(() => {});
       await db.prepare("UPDATE giveaways SET remaining_codes = 0 WHERE id = ?").bind(gw.id).run().catch(() => {});
       delete gw.clear_pool;
+      delete (gw as any).admin_clear_pool;
     }
   }
 
-  // Double fail-safe: Also persist full giveaways payload in system_settings without transient action flags
+  // Double fail-safe: Also persist full giveaways payload in system_settings preserving warehouse pool and avoiding zero-out
   const sanitized = giveaways.map((g: any) => {
-    if (!g || !g.clear_pool) return g;
-    const { clear_pool, ...rest } = g;
-    return rest;
+    const ex = existingMap.get(g?.id);
+    const exPool = Array.isArray(ex?.codes_pool) ? ex.codes_pool : [];
+    const hasIncomingPool = Array.isArray(g?.codes_pool) && g.codes_pool.length > 0;
+    const isExplicitClear = g?.clear_pool === true || g?.admin_clear_pool === true;
+
+    const preservedPool = hasIncomingPool
+      ? g.codes_pool
+      : (isExplicitClear ? [] : exPool);
+    const preservedRemaining = preservedPool.length > 0
+      ? preservedPool.length
+      : (isExplicitClear ? 0 : Math.max(Number(ex?.remaining_codes) || 0, Number(g?.remaining_codes) || 0));
+    const claimed = Number(g?.claimed_codes ?? ex?.claimed_codes ?? 0);
+
+    const { clear_pool, admin_clear_pool, ...rest } = g || {};
+    return {
+      ...rest,
+      codes_pool: preservedPool,
+      remaining_codes: preservedRemaining,
+      total_codes: Math.max(Number(g?.total_codes || 0), preservedRemaining + claimed),
+    };
   });
   await setSettingD1(db, 'wcg_admin_giveaways_v4', sanitized).catch(() => {});
 }

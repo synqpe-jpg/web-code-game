@@ -550,10 +550,24 @@ export const PrivateCodesModule: React.FC<PrivateCodesModuleProps> = ({ onShowTo
   // Sort: Ưu tiên sự kiện đang bật (ACTIVE) và cập nhật gần nhất lên đầu bảng
   const displayedGiveaways = React.useMemo(() => {
     return [...filteredGiveaways].sort((a, b) => {
+      // 1. Ưu tiên trạng thái Đang Mở (ACTIVE)
       const actA = a.is_active !== false ? 1 : 0;
       const actB = b.is_active !== false ? 1 : 0;
       if (actA !== actB) return actB - actA;
 
+      // 2. Ưu tiên sự kiện còn mã trong kho (In-stock first)
+      const poolA = Array.isArray(a.codes_pool) && a.codes_pool.length > 0 ? a.codes_pool.length : Math.max(0, Number(a.remaining_codes || 0));
+      const poolB = Array.isArray(b.codes_pool) && b.codes_pool.length > 0 ? b.codes_pool.length : Math.max(0, Number(b.remaining_codes || 0));
+      const inStockA = poolA > 0 ? 1 : 0;
+      const inStockB = poolB > 0 ? 1 : 0;
+      if (inStockA !== inStockB) return inStockB - inStockA;
+
+      // 3. Nếu cùng còn mã, ưu tiên sự kiện còn nhiều mã hơn
+      if (inStockA > 0 && poolA !== poolB) {
+        return poolB - poolA;
+      }
+
+      // 4. Ưu tiên thời gian cập nhật / tạo mới nhất
       const timeA = Math.max(
         a.updated_at ? new Date(a.updated_at).getTime() : 0,
         a.created_at ? new Date(a.created_at).getTime() : 0
