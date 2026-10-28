@@ -209,13 +209,13 @@ export async function generateAndPersistSnapshot(env: any): Promise<GlobalMetric
       const gw = gwMap.get(gId);
       const baseTarget = Number(gw?.virtual_claimed_offset || 0);
       const realClaimed = Number(gw?.claimed_codes || 0);
-      // Trần an toàn bảo toàn tăng trưởng tự nhiên (+2000 đơn) mà không bị reset về mốc cơ sở
-      const maxAllowed = baseTarget > 0 ? (realClaimed + baseTarget + 2000) : Math.max(realClaimed, 2000);
+      const exactTarget = realClaimed + baseTarget;
+      // BẢNG ADMIN LÀ CHÂN LÝ: Xóa sạch mọi đỉnh phình to (> exactTarget + 5) do công thức cũ, đảm bảo đúng số Admin cài đặt
       if (isNaN(numVal) || numVal < 0 || numVal > 1000000) {
         delete hub.peakGiveawayClaimedCounts[gId];
         hubModified = true;
-      } else if (gw && (numVal > maxAllowed || numVal < (realClaimed + baseTarget))) {
-        hub.peakGiveawayClaimedCounts[gId] = realClaimed + baseTarget;
+      } else if (gw && (numVal > exactTarget + 5 || numVal < exactTarget)) {
+        hub.peakGiveawayClaimedCounts[gId] = exactTarget;
         hubModified = true;
       }
     }

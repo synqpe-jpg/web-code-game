@@ -239,173 +239,6 @@ export const CUMULATIVE_BASELINES_20261025: Record<string, ItemBaseline> = {
     virtualBuffer: 0,
     virtualRestockCount: 0,
   },
-  // Rotwood Giveaway (gw_gamerpower_rotwood): tại 15:33 là 86 đã săn (2 thật + 84 ảo), 31 còn lại (15 thật + 16 buffer), tổng pool 117
-  'gw_gamerpower_rotwood': {
-    virtualClaimed: 84,
-    virtualRemainingBuffer: 16,
-    virtualRestockCount: 0,
-  },
-  // 32 Chiến dịch Giveaway chuẩn SEO (bổ sung số ảo đã giật ngẫu nhiên 52-112)
-  'gw_1791639328657_df3': {
-    virtualClaimed: 87,
-    virtualRemainingBuffer: 0,
-    virtualRestockCount: 0,
-  },
-  'gw_1791639448099_4tb': {
-    virtualClaimed: 85,
-    virtualRemainingBuffer: 0,
-    virtualRestockCount: 0,
-  },
-  'gw_1791639381997_w49': {
-    virtualClaimed: 79,
-    virtualRemainingBuffer: 0,
-    virtualRestockCount: 0,
-  },
-  'gw_1791786741665_k5q': {
-    virtualClaimed: 77,
-    virtualRemainingBuffer: 0,
-    virtualRestockCount: 0,
-  },
-  'gw_khe_uoc_rong': {
-    virtualClaimed: 78,
-    virtualRemainingBuffer: 0,
-    virtualRestockCount: 0,
-  },
-  'gw_chien_thu_hon_chien': {
-    virtualClaimed: 99,
-    virtualRemainingBuffer: 0,
-    virtualRestockCount: 0,
-  },
-  'gw_tam_quoc_thu_hoa': {
-    virtualClaimed: 111,
-    virtualRemainingBuffer: 0,
-    virtualRestockCount: 0,
-  },
-  'gw_chinh_phuc_cuu_chau': {
-    virtualClaimed: 64,
-    virtualRemainingBuffer: 0,
-    virtualRestockCount: 0,
-  },
-  'gw_clash_of_critters': {
-    virtualClaimed: 84,
-    virtualRemainingBuffer: 0,
-    virtualRestockCount: 0,
-  },
-  'gw_long_tuong_tam_quoc': {
-    virtualClaimed: 97,
-    virtualRemainingBuffer: 0,
-    virtualRestockCount: 0,
-  },
-  'gw_tieu_cuong_3q': {
-    virtualClaimed: 97,
-    virtualRemainingBuffer: 0,
-    virtualRestockCount: 0,
-  },
-  'gw_tam_quoc_tranh_ba_thien_ha': {
-    virtualClaimed: 79,
-    virtualRemainingBuffer: 0,
-    virtualRestockCount: 0,
-  },
-  'gw_doi_tuong_nhi_nho': {
-    virtualClaimed: 66,
-    virtualRemainingBuffer: 0,
-    virtualRestockCount: 0,
-  },
-  'gw_quan_nhi_ca': {
-    virtualClaimed: 96,
-    virtualRemainingBuffer: 0,
-    virtualRestockCount: 0,
-  },
-  'gw_quan_anh_phong_hoa_luc': {
-    virtualClaimed: 81,
-    virtualRemainingBuffer: 0,
-    virtualRestockCount: 0,
-  },
-  'gw_3q_thanh_chu_tieu_dao': {
-    virtualClaimed: 63,
-    virtualRemainingBuffer: 0,
-    virtualRestockCount: 0,
-  },
-  'gw_dynasty_warriors_overlords': {
-    virtualClaimed: 107,
-    virtualRemainingBuffer: 0,
-    virtualRestockCount: 0,
-  },
-  'gw_giang_ho_ky_ngo': {
-    virtualClaimed: 82,
-    virtualRemainingBuffer: 0,
-    virtualRestockCount: 0,
-  },
-  'gw_samkok_tam_quoc': {
-    virtualClaimed: 106,
-    virtualRemainingBuffer: 0,
-    virtualRestockCount: 0,
-  },
-  'gw_bo_lac_3q': {
-    virtualClaimed: 102,
-    virtualRemainingBuffer: 0,
-    virtualRestockCount: 0,
-  },
-  'gw_thu_cung_bao_dan': {
-    virtualClaimed: 103,
-    virtualRemainingBuffer: 0,
-    virtualRestockCount: 0,
-  },
-  'gw_tam_quoc_tu_thoi_ca': {
-    virtualClaimed: 67,
-    virtualRemainingBuffer: 0,
-    virtualRestockCount: 0,
-  },
-  'gw_fc_mobile_vn': {
-    virtualClaimed: 83,
-    virtualRemainingBuffer: 0,
-    virtualRestockCount: 0,
-  },
-  'gw_lien_quan_mobile': {
-    virtualClaimed: 63,
-    virtualRemainingBuffer: 0,
-    virtualRestockCount: 0,
-  },
-  'gw_roblox': {
-    virtualClaimed: 65,
-    virtualRemainingBuffer: 0,
-    virtualRestockCount: 0,
-  },
-  'gw_pubg_mobile_vn': {
-    virtualClaimed: 63,
-    virtualRemainingBuffer: 0,
-    virtualRestockCount: 0,
-  },
-  'gw_play_together_vng': {
-    virtualClaimed: 108,
-    virtualRemainingBuffer: 0,
-    virtualRestockCount: 0,
-  },
-  'gw_mobile_legends_mlbb': {
-    virtualClaimed: 93,
-    virtualRemainingBuffer: 0,
-    virtualRestockCount: 0,
-  },
-  'gw_genshin_impact': {
-    virtualClaimed: 102,
-    virtualRemainingBuffer: 0,
-    virtualRestockCount: 0,
-  },
-  'gw_honkai_star_rail': {
-    virtualClaimed: 85,
-    virtualRemainingBuffer: 0,
-    virtualRestockCount: 0,
-  },
-  'gw_free_fire_max': {
-    virtualClaimed: 69,
-    virtualRemainingBuffer: 0,
-    virtualRestockCount: 0,
-  },
-  'gw_1792235539701_wee': {
-    virtualClaimed: 84,
-    virtualRemainingBuffer: 0,
-    virtualRestockCount: 0,
-  },
 };
 
 export function getVnDayAnchor(nowMs: number = Date.now()) {
@@ -597,29 +430,15 @@ export async function initializeVirtualLayer(env: any, forceRefresh: boolean = f
       const priority = pw.priority || 'normal';
 
       let virtualBuffer = realRemaining > 0 ? defaultBonus : 0;
-      let virtualClaimed = 0;
+      // BẢNG ADMIN LÀ CHÂN LÝ: Số ảo đã giật luôn lấy chính xác từ virtual_claimed_offset do Admin cấu hình
+      const virtualClaimed = gw.virtual_claimed_offset !== undefined && gw.virtual_claimed_offset !== null
+        ? Math.max(0, Number(gw.virtual_claimed_offset) || 0)
+        : 0;
       let restockCount = 0;
       let lastRestock = undefined;
 
-      const baseline = CUMULATIVE_BASELINES_20261025[id];
-      if (baseline && baseline.virtualClaimed !== undefined) {
-        virtualClaimed = baseline.virtualClaimed;
-        if (realRemaining > 0 && baseline.virtualRemainingBuffer !== undefined) {
-          virtualBuffer = baseline.virtualRemainingBuffer;
-        }
-        if (baseline.virtualRestockCount !== undefined) {
-          restockCount = baseline.virtualRestockCount;
-        }
-      } else if (gw.virtual_claimed_offset !== undefined && Number(gw.virtual_claimed_offset) > 0) {
-        virtualClaimed = Number(gw.virtual_claimed_offset);
-      } else {
-        // Tự nhiên ngẫu nhiên 52-112 cho bất kỳ chiến dịch giveaway nào chưa có offset (tránh kẹt 0/0)
-        const idSeed = id.split('').reduce((acc, char) => (acc * 31 + char.charCodeAt(0)) >>> 0, 0);
-        virtualClaimed = 52 + (idSeed % (112 - 52 + 1));
-      }
-
       if (memState && state.lastProcessedSlot >= 0) {
-        virtualClaimed = memState.virtualClaimed;
+        // virtualClaimed luôn tuân thủ virtual_claimed_offset từ D1 (Admin cấu hình), không lấy cache phình to cũ trong RAM
         virtualBuffer = memState.virtualRemainingBuffer;
         restockCount = memState.virtualRestockCount;
         lastRestock = memState.lastRestockAt;
@@ -686,8 +505,7 @@ export function processCurrentTimeSlot(state: VirtualLayerState, nowMs: number =
       p.virtualRestockCount = 0;
     });
     state.giveaways.forEach((g, id) => {
-      const b = CUMULATIVE_BASELINES_20261025[id];
-      g.virtualClaimed = b?.virtualClaimed !== undefined ? b.virtualClaimed : 0;
+      // BẢNG ADMIN LÀ CHÂN LÝ: Giữ nguyên g.virtualClaimed chuẩn xác từ virtual_claimed_offset do Admin cấu hình
       g.virtualRemainingBuffer = g.realRemaining > 0 ? (g.autoRestockAmount || 20) : 0;
       g.virtualRestockCount = 0;
     });
@@ -709,9 +527,6 @@ export function processCurrentTimeSlot(state: VirtualLayerState, nowMs: number =
   // VIP 7 Days: ~26 đơn/giờ toàn sàn -> 0.4333 đơn/phút
   const deltaSold = Math.floor(elapsedMinutes * 0.4333);
   const deltaRestocks = Math.floor(deltaSold / 20);
-
-  // Giveaways: ~7.75 mã/giờ cho mỗi giveaway active -> 0.1292 mã/phút
-  const deltaClaims = Math.floor(elapsedMinutes * 0.1292);
 
   // Master Copy: Natural virtual copy progression (~0.5 copy/min) since baseline migration anchor (16:00 28/10/2026 GMT+7)
   const MASTER_COPY_ANCHOR_MS = 1793181600000;
@@ -745,27 +560,17 @@ export function processCurrentTimeSlot(state: VirtualLayerState, nowMs: number =
   });
 
   // Cập nhật số liệu tích lũy cho Giveaways
+  // BẢNG ADMIN LÀ CHÂN LÝ: virtualClaimed tuyệt đối không cộng tăng trưởng ngoại tuyến để đảm bảo chính xác 100% số Admin cài
   state.giveaways.forEach((g, id) => {
     if (g.realRemaining <= 0) {
       // Quy tắc kho hàng: Hết mã thật thì tồn ảo = 0
       g.virtualRemainingBuffer = 0;
       g.virtualRestockCount = 0;
-      const b = CUMULATIVE_BASELINES_20261025[id];
-      if (b && b.virtualClaimed !== undefined) {
-        g.virtualClaimed = b.virtualClaimed;
-      }
       state.dirtyAggregateIds.add(id);
       return;
     }
 
-    const b = CUMULATIVE_BASELINES_20261025[id];
-    if (b) {
-      g.virtualClaimed = (b.virtualClaimed || 0) + deltaClaims;
-      g.virtualRemainingBuffer = Math.max(0, (b.virtualRemainingBuffer || 20) - deltaClaims);
-      g.virtualRestockCount = b.virtualRestockCount || 0;
-    } else {
-      g.virtualRemainingBuffer = Math.max(0, g.autoRestockAmount || 20);
-    }
+    g.virtualRemainingBuffer = Math.max(0, g.autoRestockAmount || 20);
     state.dirtyAggregateIds.add(id);
   });
 

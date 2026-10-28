@@ -7,6 +7,42 @@ Mỗi mục sửa lỗi đều ghi nhận **Nguyên nhân gốc rễ (Root Cause
 
 ## [2026-10-28]
 
+### 255. Khắc Phục Triệt Để Hiện Tượng Phình To Số Lượt Đã Giật Giveaway & Đảm Bảo Bảng Admin Là Chân Lý (SSOT)
+- **Bối cảnh & Yêu cầu từ Người dùng**:
+  - Người dùng phản ánh: "Các con số đã giật tôi cài khi mở sự kiện tự nhiên phình to, ban đầu tôi cài có mười mấy đơn vị mà ra ngoài web lên vài trăm, sửa giúp tôi. Đảm bảo khi cài đặt bảng admin là chân lý."
+  - Ví dụ thực tế kiểm chứng trên web khách (`codegame.shop/giveaways`): Các sự kiện Giveaway có số lượng đã giật bị phình to lên 697, 727, 749, 765 mã trong khi Admin cài đặt chỉ mười mấy mã.
+- **Nguyên nhân gốc rễ (Root Causes)**:
+  1. *Công thức tích lũy thời gian ảo phi thực tế (`deltaClaims`)*:
+     - Trong `functions/services/virtualLayerService.ts` (dòng 705–715): Hệ thống tính khoảng thời gian trôi qua kể từ mốc neo `BASELINE_ANCHOR_TIME_MS = 1792917180000` (15:33 25/10/2026, tức hơn 4.800 phút trước).
+     - Dòng 714: `deltaClaims = Math.floor(elapsedMinutes * 0.1292)` tính ra ~618 lượt giật ảo tự động.
+     - Dòng 763: `g.virtualClaimed = (b.virtualClaimed || 0) + deltaClaims` liên tục cộng dồn +618 vào mọi đợt phát code Giveaway qua từng khe thời gian!
+  2. *Mốc cơ sở tĩnh ghi cứng ghi đè cấu hình Admin (`CUMULATIVE_BASELINES_20261025`)*:
+     - Trong `functions/services/virtualLayerService.ts` (dòng 242–409): Tồn tại 33 mục cơ sở tĩnh `gw_*` với số ảo ~80–111.
+     - Dòng 605: Logic khởi tạo ưu tiên lấy từ mốc tĩnh này thay vì đọc giá trị `virtual_claimed_offset` do Admin cấu hình trong cơ sở dữ liệu D1.
+  3. *Tự động sinh số ngẫu nhiên 52–112 khi Admin đặt = 0*:
+     - Khi Admin đặt `virtual_claimed_offset = 0`, logic kiểm tra `Number(gw.virtual_claimed_offset) > 0` bị false, dẫn tới nhánh fallback tự sinh ngẫu nhiên số từ 52 đến 112 (dòng 617-619 và `marketingService.ts` dòng 2488–2492).
+  4. *Khóa đỉnh ma cũ trên Server Hub và Client Cache (`highWaterClaimedCountMap` / `peakGiveawayClaimedCounts`)*:
+     - `snapshotService.ts` và `marketingService.ts` giữ ngưỡng kẹp trần `+ 2000 đơn` và `Math.max(cur, target)`, khiến các con số phình to cũ (700+) không chịu hạ xuống khi Admin lưu lại số mới mười mấy đơn vị.
+  5. *Tăng trưởng thời gian giả lập `hourlyGrowth` trong `/api/stats`*:
+     - `functions/api/stats.ts` tính `growth = Math.floor(elapsedH * 0.5)` cho giveaway, khiến client mỗi lần đồng bộ giờ nạp thêm hàng trăm đơn tăng trưởng ảo.
+- **Giải pháp Thành công (Solution Applied)**:
+  1. *Xóa bỏ triệt để công thức tăng trưởng trôi thời gian (`deltaClaims`)*:
+     - Xóa bỏ `deltaClaims` và không cộng tăng trưởng thời gian giả lập vào Giveaway trong `virtualLayerService.ts` và `stats.ts`.
+  2. *Thanh lọc hoàn toàn các mốc tĩnh Giveaway khỏi `CUMULATIVE_BASELINES_20261025`*:
+     - Toàn bộ các entry `gw_*` bị xóa khỏi danh sách mốc cơ sở cứng. `CUMULATIVE_BASELINES_20261025` chỉ còn giữ lại các sản phẩm tiện ích (`ut_*`).
+  3. *Thiết lập Bảng Admin Là Chân Lý (Single Source of Truth)*:
+     - Trong `functions/services/virtualLayerService.ts`: `virtualClaimed` luôn lấy trực tiếp và chính xác từ `Math.max(0, Number(gw.virtual_claimed_offset) || 0)`.
+     - Tuyệt đối không tự động sinh số ngẫu nhiên 52–112 khi Admin đặt 0 hoặc không cài. Admin đặt bao nhiêu thì hiển thị bấy nhiêu.
+     - Số hiển thị đã giật = `realClaimed + virtual_claimed_offset`.
+  4. *Cơ chế Failsafe & Thanh lọc đỉnh cũ tức thì*:
+     - Trong `snapshotService.ts`: Nếu `numVal > exactTarget + 5 || numVal < exactTarget`, tự động thanh lọc và hạ ngay về đúng `exactTarget = realClaimed + baseTarget`.
+     - Trong `marketingService.ts`: Thêm cơ chế failsafe trong `getClaimedDisplay`: nếu server counter trả về giá trị phình to bất thường do isolate cũ (`> realClaimed + virtualBase + 5`), client lập tức từ chối và hiển thị theo công thức Admin SSOT.
+     - Trong sự kiện `wcg_giveaways_updated` và snapshot handler: Thanh lọc đỉnh cũ trên `highWaterClaimedCountMap`, gán chính xác theo cấu hình mới của Admin.
+- **Kiểm Thử & Xác Minh (Verification)**:
+  - Bộ kiểm thử tự động `scripts/test_giveaway_claimed_ssot.cjs`: Vượt qua 100% 5 tiêu chí kiểm thử nghiêm ngặt.
+  - Audit Zero Test Artifacts (`scripts/audit_zero_test_artifacts.cjs`): 100% SẠCH.
+  - Build hệ thống `npm run build`: Thành công 100% không lỗi.
+
 ### 254. Điều Chỉnh Hồi Chiêu (CD) Giveaway Theo Số Phút & Thêm Cấu Hình Hạn Phát Mã Sự Kiện
 - **Bối cảnh & Yêu cầu từ Người dùng**:
   - Trong mục Giveaway (Phát code riêng), người dùng yêu cầu:

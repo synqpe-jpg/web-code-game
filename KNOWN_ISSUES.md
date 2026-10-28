@@ -10,6 +10,26 @@
 
 ## 1. DANH MỤC LỖI & CÁC BẪY ĐÃ THẤT BẠI (DO NOT REPEAT)
 
+### ISSUE-172: Bẫy Tăng Trưởng Trôi Thời Gian deltaClaims & Mốc Cơ Sở Tĩnh Khiến Số Đã Giật Giveaway Phình To Bất Thường (Giveaway Claimed Count Runaway Inflation Pitfall)
+- **Triệu chứng**:
+  - Quản trị viên chỉ cấu hình số lượt giật ảo mười mấy đơn vị (e.g. 10–15) hoặc để 0 trong trang Admin (`PrivateCodesModule.tsx`).
+  - Nhưng ngoài trang web khách (`/giveaways`), số lượt đã giật ("Đã giật: X mã") bị phình to bất thường lên vài trăm mã (697, 727, 749, 765 mã).
+  - Khi Admin cập nhật lại số nhỏ hơn trong Admin panel, ngoài web vẫn trơ ra giữ nguyên các con số phình to vài trăm.
+- **Nguyên nhân gốc rễ**:
+  1. *Công thức trôi dạt thời gian tự do `deltaClaims`*: Trong `virtualLayerService.ts`, công thức `deltaClaims = Math.floor(elapsedMinutes * 0.1292)` tính từ mốc `BASELINE_ANCHOR_TIME_MS = 1792917180000` (25/10/2026) liên tục tích lũy +618 đơn vị ảo vào mọi giveaway qua từng khe thời gian.
+  2. *Mốc tĩnh `CUMULATIVE_BASELINES_20261025` ghi đè Admin*: Khởi tạo gán cứng 33 sự kiện `gw_*` mốc ~80–111 đơn, hoàn toàn bỏ qua `virtual_claimed_offset` trong D1.
+  3. *Tự động sinh ngẫu nhiên 52–112*: Khi Admin đặt số ảo = 0, hệ thống tự ý rơi vào fallback sinh ngẫu nhiên 52–112 đơn.
+  4. *Khóa trần bảo thủ `+ 2000 đơn`*: `snapshotService.ts` và `marketingService.ts` kẹp trần quá rộng, khiến đỉnh cũ 700+ không bao giờ được thanh lọc khi Admin đặt số nhỏ.
+- **Giải pháp chuẩn đã kiểm chứng**:
+  1. Xóa bỏ hoàn toàn công thức `deltaClaims` và không cộng tăng trưởng thời gian giả lập vào sự kiện Giveaway.
+  2. Xóa sạch mọi mục `gw_*` khỏi `CUMULATIVE_BASELINES_20261025`.
+  3. BẢNG ADMIN LÀ CHÂN LÝ: `virtualClaimed` lấy trực tiếp và duy nhất từ `Math.max(0, Number(gw.virtual_claimed_offset) || 0)`. Nếu Admin đặt 0, giữ nguyên 0; nếu đặt 15, giữ nguyên 15.
+  4. Thêm Failsafe thanh lọc đỉnh ma: Trong `snapshotService.ts`, nếu `numVal > exactTarget + 5`, tự động thanh lọc về đúng `exactTarget`. Phía client `marketingService.ts` từ chối các server counter phình to bất thường vượt quá `effectiveRealClaimed + virtualBase + 5`.
+- 🚫 **CÁCH SỬA ĐÃ THẤT BẠI - TUYỆT ĐỐI KHÔNG LẶP LẠI**:
+  - ❌ *Tuyệt đối KHÔNG áp dụng công thức tăng trưởng trôi dạt thời gian (time-anchored delta) cho Giveaway*: Giveaway là các đợt phát mã có hạn ngạch cụ thể, số ảo bổ sung phải do Admin chủ động kiểm soát 100%.
+  - ❌ *Tuyệt đối KHÔNG gán cứng mốc cơ sở tĩnh `gw_*` trong code*: Mọi thông số chiến dịch Giveaway phải đọc từ D1 / cấu hình Admin.
+  - ❌ *Tuyệt đối KHÔNG sinh ngẫu nhiên 52–112 khi Admin cấu hình = 0*: Nếu Admin đặt 0, số hiển thị phải là số thật 100%.
+
 ### ISSUE-171: Bẫy Sai Tên Hàm Lưu saveGlobalMasterCopyCount Khiến Crash Luồng Bấm Sao Chép & Lệch Pha Mốc Snapshot (Copy Counter Runtime Crash & Snapshot Drift Pitfall)
 - **Triệu chứng**:
   - Con số "Tổng lượt sao chép" hiển thị lên cao (~93.693 hoặc ~93.700), nhưng sau khi F5, mở tab mới hoặc chuyển tab thì lại tụt lùi về 93.551 hoặc 93.545.

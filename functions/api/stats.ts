@@ -130,30 +130,16 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
         giveaways.forEach((gw) => {
           if (!gw || !gw.id) return;
           const realClaimed = (Number(gw.claimed_codes) || 0) + (realGiveawayClaimedCounts[gw.id] || 0);
-          const virtualBase = Number(gw.virtual_claimed_offset !== undefined ? gw.virtual_claimed_offset : 20);
-
-          let idTimestamp: number | null = null;
-          const match = gw.id ? String(gw.id).match(/^gw_(\d{10,13})/i) : null;
-          if (match) {
-            const parsed = parseInt(match[1], 10);
-            if (!isNaN(parsed) && parsed > 1600000000000 && parsed <= nowMs) {
-              idTimestamp = parsed;
-            }
-          }
-
-          const gwStart = gw.created_at || gw.createdAt ? new Date(gw.created_at || gw.createdAt).getTime() : (idTimestamp || defaultAnchor);
-          const safeStart = isNaN(gwStart) || gwStart <= 0 ? defaultAnchor : Math.min(gwStart, nowMs);
-          const elapsedH = Math.max(0, Math.floor((nowMs - safeStart) / ONE_HOUR_MS));
-          const growth = Math.floor(elapsedH * 0.5);
-          const computedClaimed = realClaimed + virtualBase + growth;
-          const prevClaimed = Number(prevCachedStats?.giveaways?.[gw.id]?.totalClaimed) || 0;
-          const totalClaimed = Math.max(computedClaimed, prevClaimed);
+          // BẢNG ADMIN LÀ CHÂN LÝ: Số ảo theo đúng virtual_claimed_offset, không cộng hourlyGrowth ngoại tuyến
+          const virtualBase = Math.max(0, Number(gw.virtual_claimed_offset) || 0);
+          const computedClaimed = realClaimed + virtualBase;
+          const totalClaimed = computedClaimed;
 
           computedGiveaways[gw.id] = {
             totalClaimed,
             realClaimed,
             virtualBase,
-            hourlyGrowth: growth,
+            hourlyGrowth: 0,
           };
         });
 

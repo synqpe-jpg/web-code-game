@@ -355,7 +355,12 @@ class MarketingService {
               if (info) {
                 if (typeof info.claimed === 'number') {
                   const curClaimed = this.highWaterClaimedCountMap.get(gId) || 0;
-                  this.highWaterClaimedCountMap.set(gId, Math.max(curClaimed, info.claimed));
+                  // BẢNG ADMIN LÀ CHÂN LÝ: Nếu curClaimed đang bị phình to (> info.claimed + 5), lập tức hạ về info.claimed
+                  if (curClaimed > info.claimed + 5 || curClaimed === 0) {
+                    this.highWaterClaimedCountMap.set(gId, info.claimed);
+                  } else {
+                    this.highWaterClaimedCountMap.set(gId, Math.max(curClaimed, info.claimed));
+                  }
                 }
                 if (typeof info.real_remaining === 'number') {
                   this.productRealStockMap.set(gId, info.real_remaining);
@@ -573,21 +578,15 @@ class MarketingService {
                     : Math.max(realClaimed, info.claimed);
                   const effectiveClaimed = canonicalClaimed + localGwDelta;
 
-                  // RÀNG BUỘC ĐƠN ĐIỆU TUYỆT ĐỐI (Monotonically Non-Decreasing):
-                  // Số đã nhận cố định theo cấu hình; thanh lọc sạch các đỉnh rác cũ (> effectiveClaimed + 35) do lỗi lặp
+                  // BẢNG ADMIN LÀ CHÂN LÝ: Thanh lọc sạch các đỉnh rác cũ (> effectiveClaimed + 5) do công thức cũ làm phình to
                   const curHigh = this.highWaterClaimedCountMap.get(gId) || 0;
-                  const finalClaimed = isOverriddenClaimed
+                  const finalClaimed = (isOverriddenClaimed || curHigh > effectiveClaimed + 5)
                     ? effectiveClaimed
-                    : (curHigh > effectiveClaimed + 2000 ? effectiveClaimed : Math.max(curHigh, effectiveClaimed));
+                    : Math.max(curHigh, effectiveClaimed);
 
                   this.highWaterClaimedCountMap.set(gId, finalClaimed);
                   this.liveFomoClaimedCountMap.set(gId, Math.max(0, finalClaimed - realClaimed));
                   this.notifySoldCountChanged(gId, finalClaimed);
-
-                  // Nếu số cục bộ cao hơn server hoặc có quà tặng nhận thật: đồng bộ peak lên server để chia sẻ cho các máy khác
-                  if (curHigh > effectiveClaimed || localGwDelta > 0) {
-                    this.schedulePeakReport();
-                  }
                 }
                 if (typeof info.remaining === 'number') {
                   const realRemaining = typeof info.real_remaining === 'number'
@@ -1441,7 +1440,10 @@ class MarketingService {
           Object.entries(parsed.giveaways).forEach(([k, v]: [string, any]) => {
             if (v && typeof v.totalClaimed === 'number') {
               const cur = this.highWaterClaimedCountMap.get(k) || 0;
-              if (v.totalClaimed > cur) this.highWaterClaimedCountMap.set(k, v.totalClaimed);
+              // BẢNG ADMIN LÀ CHÂN LÝ: Hạ đỉnh nếu bị phình to
+              if (cur > v.totalClaimed + 5 || v.totalClaimed > cur) {
+                this.highWaterClaimedCountMap.set(k, v.totalClaimed);
+              }
             }
           });
         }
@@ -1494,8 +1496,11 @@ class MarketingService {
           Object.entries(hStats.giveaways).forEach(([gId, info]: [string, any]) => {
             if (info && typeof info.totalClaimed === 'number') {
               this.hourlyServerStatsMap.set(gId, info);
+              // BẢNG ADMIN LÀ CHÂN LÝ: Cập nhật chính xác số từ server, thanh lọc đỉnh rác cũ nếu bị phình to
               const cur = this.highWaterClaimedCountMap.get(gId) || 0;
-              if (info.totalClaimed > cur) this.highWaterClaimedCountMap.set(gId, info.totalClaimed);
+              if (cur > info.totalClaimed + 5 || info.totalClaimed > cur) {
+                this.highWaterClaimedCountMap.set(gId, info.totalClaimed);
+              }
             }
           });
         }
@@ -1559,7 +1564,8 @@ class MarketingService {
           }
           if (typeof v === 'number' && !isNaN(v) && v > 0) {
             const cur = this.highWaterClaimedCountMap.get(k) || 0;
-            if (v > cur) {
+            // BẢNG ADMIN LÀ CHÂN LÝ: Hạ đỉnh nếu đỉnh cũ đang bị phình to
+            if (cur > v + 5 || v > cur) {
               this.highWaterClaimedCountMap.set(k, v);
               gChanged = true;
             }
@@ -2473,24 +2479,24 @@ class MarketingService {
     }
 
     const id = campaign.id || '';
-    // 1. Authoritative Two-Layer Server Counter (SSOT)
-    if (id && this.serverGiveawayCounters.has(id)) {
-      return this.serverGiveawayCounters.get(id)!.claimed;
-    }
-
     const details = id && (campaign.claimed_codes === undefined || campaign.virtual_claimed_offset === undefined) ? this.findGiveawayDetails(id) : null;
     const realClaimed = Number(campaign.claimed_codes !== undefined ? campaign.claimed_codes : (details?.claimed_codes ?? 0)) || 0;
     const realFromHub = id ? (this.realGiveawayClaimedCountsMap.get(id) || 0) : 0;
     const effectiveRealClaimed = Math.max(realClaimed, realFromHub);
 
     const virtualBaseRaw = campaign.virtual_claimed_offset !== undefined ? campaign.virtual_claimed_offset : (details?.virtual_claimed_offset ?? 0);
-    let virtualBase = Number(virtualBaseRaw || 0);
-    if (virtualBase <= 0 && id) {
-      // Deterministic natural offset 52-112 to prevent any giveaway from displaying 0/0
-      const idSeed = id.split('').reduce((acc, char) => (acc * 31 + char.charCodeAt(0)) >>> 0, 0);
-      virtualBase = 52 + (idSeed % (112 - 52 + 1));
+    const virtualBase = Math.max(0, Number(virtualBaseRaw || 0));
+
+    // 1. Authoritative Two-Layer Server Counter (SSOT)
+    if (id && this.serverGiveawayCounters.has(id)) {
+      const serverClaimed = this.serverGiveawayCounters.get(id)!.claimed;
+      // BẢNG ADMIN LÀ CHÂN LÝ: Failsafe chặn mọi giá trị server counter bị phình to bất thường do công thức cũ
+      if (serverClaimed <= effectiveRealClaimed + virtualBase + 5) {
+        return serverClaimed;
+      }
     }
 
+    // Single Source of Truth: Bảng Admin là chân lý (Thật + Ảo admin cài đặt)
     return effectiveRealClaimed + virtualBase;
   }
 
@@ -2571,13 +2577,6 @@ class MarketingService {
     const realClaimed = Number(details?.claimed_codes) || 0;
     const realFromHub = this.realGiveawayClaimedCountsMap.get(campaignId) || 0;
     const effectiveRealClaimed = Math.max(realClaimed, realFromHub);
-    const createdAt = details?.created_at;
-    const anchor = anchorTime || details?.fomo_anchor_time || details?.virtual_claimed_updated_at;
-    const hourlyGrowth = this.getHourlyGrowth(campaignId, createdAt, undefined, anchor);
-    const inHourProg = this.getInHourProgression(campaignId, createdAt, undefined, anchor);
-
-    const calculatedBase = Math.max(0, effectiveRealClaimed + count + hourlyGrowth + inHourProg);
-    const currentHigh = this.highWaterClaimedCountMap.get(campaignId) || 0;
 
     let targetDisplay = 0;
     if (exactTargetDisplay !== undefined) {
@@ -2589,7 +2588,8 @@ class MarketingService {
         this.adminOverrideClaimedMap.delete(campaignId);
         this.saveAdminOverrides();
       }
-      targetDisplay = forceReset ? calculatedBase : Math.max(calculatedBase, currentHigh);
+      // BẢNG ADMIN LÀ CHÂN LÝ: Không cộng hourlyGrowth / inHourProg làm phình to số
+      targetDisplay = effectiveRealClaimed + count;
     }
 
     this.highWaterClaimedCountMap.set(campaignId, targetDisplay);
@@ -4689,7 +4689,7 @@ class MarketingService {
             Object.entries(parsed).forEach(([k, v]) => {
               if (typeof v === 'number' && !isNaN(v)) {
                 const cur = this.highWaterClaimedCountMap.get(k) || 0;
-                if (v > cur) {
+                if (cur !== v) {
                   this.highWaterClaimedCountMap.set(k, v);
                   changed = true;
                 }
@@ -4833,12 +4833,10 @@ class MarketingService {
         if (gw && gw.id && gw.virtual_claimed_offset !== undefined) {
           const realClaimed = Number(gw.claimed_codes) || 0;
           const target = realClaimed + Number(gw.virtual_claimed_offset || 0);
-          const cur = this.highWaterClaimedCountMap.get(gw.id) || 0;
-          // BẢO TOÀN ĐƠN ĐIỆU TUYỆT ĐỐI: Không bao giờ kéo giật lùi đỉnh quà đã nhận của chiến dịch
-          const nextVal = Math.max(cur, target);
-          this.highWaterClaimedCountMap.set(gw.id, nextVal);
+          // BẢNG ADMIN LÀ CHÂN LÝ: Gán chính xác theo cấu hình của Admin, thanh lọc đỉnh rác cũ
+          this.highWaterClaimedCountMap.set(gw.id, target);
           this.liveFomoClaimedCountMap.set(gw.id, Number(gw.virtual_claimed_offset || 0));
-          this.notifySoldCountChanged(gw.id, nextVal);
+          this.notifySoldCountChanged(gw.id, target);
           changed = true;
         }
       });
