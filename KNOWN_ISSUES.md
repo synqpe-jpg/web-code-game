@@ -10,6 +10,27 @@
 
 ## 1. DANH MỤC LỖI & CÁC BẪY ĐÃ THẤT BẠI (DO NOT REPEAT)
 
+### ISSUE-162: Bẫy Hệ Thống Nhiệm Vụ (Missions Multi-Accounting, Duplicate Proof Links & Atomic Reward Delivery)
+- **Triệu chứng**:
+  - Người dùng spam nhiều tài khoản để nộp chung 1 đường link bài đăng facebook, nộp link bài đăng rác hoặc link ngoài các mạng xã hội được cho phép.
+  - Nguy cơ nếu thiết kế sai: trả thưởng trùng lặp 2 lần cho cùng 1 bài nộp (double-spend), dùng chung bảng `giveaway_codes` làm lẫn lộn mã kho, hoặc xóa nhiệm vụ khi đang có hồ sơ bài nộp dẫn tới mồ côi dữ liệu trong `mission_submissions`.
+- **Nguyên nhân gốc rễ & Các bẫy cần tránh**:
+  1. *Bẫy dùng chung kho mã với Giveaway*: Tuyệt đối không lưu mã nhiệm vụ vào `giveaway_codes`. Bắt buộc dùng bảng riêng `mission_reward_pools` với quan hệ khóa ngoại `mission_id`.
+  2. *Bẫy gian lận nộp trùng link giữa nhiều tài khoản*: Phải có cơ chế kiểm tra `WHERE mission_id = ? AND proof_link = ? AND status != 'REJECTED'`. Nếu bài đăng đã nộp bởi người khác, lập tức từ chối.
+  3. *Bẫy spam hồ sơ PENDING*: Giới hạn 1 tài khoản chỉ được có tối đa 5 hồ sơ `PENDING` trên toàn sàn cùng lúc.
+  4. *Bẫy không kiểm soát tuổi tài khoản*: Hỗ trợ thiết lập `min_account_age_days` (mặc định 0), ngăn chặn việc tạo tài khoản clone hàng loạt để gian lận nhiệm vụ có thưởng lớn.
+  5. *Bẫy trả thưởng không nguyên tử*: Khi duyệt bài (`APPROVE`), việc claim mã từ kho `mission_reward_pools` hoặc cộng tiền ví `members.balance` phải thực hiện trong một khối giao dịch nguyên tử (`db.batch`), cập nhật đồng thời trạng thái `mission_submissions` và ghi `mission_audit_logs`.
+- **Giải pháp chuẩn đã kiểm chứng**:
+  1. Xây dựng dịch vụ `mission_service.ts` với đầy đủ bộ lọc URL, whitelist miền (`allowed_domains`), băm khóa AI SHA-256.
+  2. Khởi tạo 5 bảng D1 chuyên biệt: `missions`, `mission_submissions`, `mission_reward_pools`, `mission_ai_api_keys`, `mission_audit_logs`.
+  3. Quản trị phân quyền nghiêm ngặt, hỗ trợ 3 chế độ duyệt (`MANUAL`, `AI_AUTO`, `AI_ASSISTED`).
+  4. Bộ kiểm thử `test_missions_system.cjs` bảo đảm 100% các tiêu chí phòng chống gian lận và dọn dẹp sạch sẽ theo Quy tắc 7.
+- 🚫 **CÁCH SỬA ĐÃ THẤT BẠI - TUYỆT ĐỐI KHÔNG LẶP LẠI**:
+  - ❌ *Tuyệt đối KHÔNG gộp mã nhiệm vụ vào bảng `giveaway_codes`*: Phải dùng `mission_reward_pools`.
+  - ❌ *Tuyệt đối KHÔNG cho phép xóa nhiệm vụ khi đã có bài nộp trong hệ thống*: Phải giữ nguyên vẹn tính toàn vẹn dữ liệu và yêu cầu đổi trạng thái sang `PAUSED` hoặc `ENDED`.
+
+---
+
 ### ISSUE-161: Bẫy Số Mã Hiển Thị Chuyển Động Cho Giveaway (Virtual Stock Drift, Zero Real Stock Impact & Cycle Bounce)
 - **Triệu chứng**:
   - Event mô phỏng lượt giật nhưng con số mã còn lại hiển thị trên thẻ event đứng im không chuyển động, làm giảm tính chân thực của chiến dịch.

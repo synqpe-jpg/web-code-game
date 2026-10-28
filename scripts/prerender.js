@@ -943,6 +943,52 @@ async function runPrerender() {
   fs.writeFileSync(path.join(adminDir, 'index.html'), adminHtml, 'utf8');
   console.log(`[Prerender] Đã xuất bản dist/admin/index.html`);
 
+  // 3.6. Prerender Missions Page (dist/nhiem-vu/index.html & dist/missions/index.html)
+  const missionsDir = path.join(distDir, 'nhiem-vu');
+  if (!fs.existsSync(missionsDir)) fs.mkdirSync(missionsDir, { recursive: true });
+  const missionsEnDir = path.join(distDir, 'missions');
+  if (!fs.existsSync(missionsEnDir)) fs.mkdirSync(missionsEnDir, { recursive: true });
+
+  const missionsHtml = buildPageHtml({
+    title: 'Nhiệm Vụ Nhận Quà & Tiền Ví Miễn Phí 2026 | CodeGame.shop',
+    description: 'Tham gia làm nhiệm vụ chia sẻ bài viết, lan tỏa cộng đồng để nhận ngay Giftcode độc quyền và số dư ví mua sắm miễn phí trên sàn CodeGame.Shop.',
+    canonicalPath: '/nhiem-vu',
+    ogType: 'website',
+    bodyContent: `
+      <div class="min-h-screen flex flex-col bg-slate-900 text-white">
+        <header class="site-header sticky top-0 z-40 w-full border-b border-slate-800 bg-slate-900/90 backdrop-blur-md px-4 py-3 flex items-center justify-between">
+          <a href="/" class="header-logo flex items-center gap-2 text-primary font-bold text-lg">
+            <img src="/logo.png" alt="CodeGame.shop" width="32" height="32" class="w-8 h-8 rounded-lg object-cover" />
+            <span>CodeGame.Shop</span>
+          </a>
+          <nav class="hidden md:flex items-center space-x-6 text-sm font-semibold">
+            <a href="/" class="hover:text-primary transition-colors">Tra Code</a>
+            <a href="/news" class="hover:text-primary transition-colors">Tin Tức</a>
+            <a href="/giveaways" class="hover:text-primary transition-colors">Giveaway</a>
+            <a href="/store" class="hover:text-primary transition-colors">Cửa Hàng</a>
+            <a href="/utilities" class="hover:text-primary transition-colors">Tiện Ích</a>
+            <a href="/nhiem-vu" class="text-primary font-bold">Nhiệm Vụ</a>
+          </nav>
+        </header>
+        <main class="max-w-6xl mx-auto px-4 py-12 text-center space-y-4">
+          <div class="inline-block px-3 py-1 rounded-full bg-primary/20 text-primary-light text-xs font-bold uppercase">
+            Hệ Thống Nhiệm Vụ & Nhận Quà
+          </div>
+          <h1 class="text-3xl sm:text-5xl font-black text-white">
+            Làm Nhiệm Vụ — Nhận Mã Code & Tiền Ví Miễn Phí
+          </h1>
+          <p class="text-sm sm:text-base text-slate-400 max-w-xl mx-auto">
+            Chia sẻ bài viết, lan tỏa cộng đồng game thủ để nhận ngay những mã Giftcode độc quyền và số dư ví mua sắm không giới hạn trên sàn.
+          </p>
+        </main>
+      </div>
+    `,
+  });
+
+  fs.writeFileSync(path.join(missionsDir, 'index.html'), missionsHtml, 'utf8');
+  fs.writeFileSync(path.join(missionsEnDir, 'index.html'), missionsHtml, 'utf8');
+  console.log(`[Prerender] Đã xuất bản dist/nhiem-vu/index.html & dist/missions/index.html`);
+
   // 4. Prerender all 189 Game Detail Pages (dist/game/${slug}/index.html)
   for (const game of games) {
     const slug = game.slug || game.id;

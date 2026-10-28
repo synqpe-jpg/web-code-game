@@ -26,6 +26,7 @@ import { ProfileModule } from './modules/ProfileModule';
 import { MarketingModule } from './modules/MarketingModule';
 import { FloatingNotificationModule } from './modules/FloatingNotificationModule';
 import { GrowthModule } from './modules/GrowthModule';
+import { MissionsModule } from './modules/MissionsModule';
 import { CrawlerModule } from './modules/CrawlerModule';
 import { EventSchedulerModule } from './modules/EventSchedulerModule';
 import { EmailNotificationModule } from './modules/EmailNotificationModule';
@@ -55,6 +56,7 @@ export const AdminApp: React.FC<AdminAppProps> = ({ onBackToClient }) => {
       'private-codes',
       'code-inventory',
       'utilities',
+      'missions',
       'event-scheduler',
       'orders',
       'sepay',
@@ -327,6 +329,7 @@ export const AdminApp: React.FC<AdminAppProps> = ({ onBackToClient }) => {
         'private-codes',
         'code-inventory',
         'utilities',
+      'missions',
         'event-scheduler',
         'orders',
         'sepay',
@@ -580,6 +583,10 @@ export const AdminApp: React.FC<AdminAppProps> = ({ onBackToClient }) => {
 
         {currentTab === 'growth' && (
           <GrowthModule onShowToast={showToast} />
+        )}
+
+        {currentTab === 'missions' && (
+          <MissionsModule />
         )}
 
         {currentTab === 'security-logs' && (

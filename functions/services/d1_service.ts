@@ -327,6 +327,122 @@ function splitSqlStatements(sql: string): string[] {
 let schemaUpgradesDone = false;
 let schemaUpgradesPromise: Promise<void> | null = null;
 let giveawaySchemaChecked = false;
+let missionSchemaChecked = false;
+
+/**
+ * Fast & lightweight schema check specifically for Missions, Submissions, Reward Pools & AI Keys.
+ */
+export async function ensureMissionSchema(db: D1Database): Promise<void> {
+  if (missionSchemaChecked) return;
+  try {
+    await db.prepare(`
+      CREATE TABLE IF NOT EXISTS missions (
+        id TEXT PRIMARY KEY,
+        title TEXT NOT NULL,
+        description TEXT DEFAULT '',
+        task_type TEXT NOT NULL DEFAULT 'POST_SHARE_GROUP_PAGE',
+        target_channel_name TEXT DEFAULT '',
+        target_channel_url TEXT DEFAULT '',
+        guide_steps TEXT DEFAULT '[]',
+        content_requirements TEXT DEFAULT '',
+        reward_type TEXT NOT NULL DEFAULT 'CODE',
+        reward_value REAL NOT NULL DEFAULT 0,
+        reward_pool_id TEXT DEFAULT '',
+        quota INTEGER NOT NULL DEFAULT 10,
+        completed_count INTEGER NOT NULL DEFAULT 0,
+        min_account_age_days INTEGER NOT NULL DEFAULT 0,
+        max_resubmissions INTEGER NOT NULL DEFAULT 2,
+        review_mode TEXT NOT NULL DEFAULT 'AI_ASSISTED',
+        ai_prompt_guidelines TEXT DEFAULT '',
+        allowed_domains TEXT DEFAULT 'facebook.com,fb.com,fb.watch',
+        recurrence_type TEXT NOT NULL DEFAULT 'ONCE',
+        start_time TEXT DEFAULT '',
+        end_time TEXT DEFAULT '',
+        status TEXT NOT NULL DEFAULT 'ACTIVE',
+        sort_order INTEGER NOT NULL DEFAULT 0,
+        created_at TEXT NOT NULL DEFAULT (datetime('now')),
+        updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+      );
+    `).run().catch(() => {});
+
+    await db.prepare('CREATE INDEX IF NOT EXISTS idx_missions_status ON missions(status);').run().catch(() => {});
+
+    await db.prepare(`
+      CREATE TABLE IF NOT EXISTS mission_submissions (
+        id TEXT PRIMARY KEY,
+        mission_id TEXT NOT NULL,
+        user_id TEXT NOT NULL,
+        user_name TEXT DEFAULT '',
+        user_email TEXT DEFAULT '',
+        proof_link TEXT NOT NULL,
+        proof_note TEXT DEFAULT '',
+        status TEXT NOT NULL DEFAULT 'PENDING',
+        rejection_reason TEXT DEFAULT '',
+        resubmission_count INTEGER NOT NULL DEFAULT 0,
+        reward_delivered TEXT DEFAULT '',
+        reviewed_by TEXT DEFAULT '',
+        reviewed_at TEXT DEFAULT '',
+        ai_recommendation TEXT DEFAULT '',
+        ai_reason TEXT DEFAULT '',
+        ai_reviewed_at TEXT DEFAULT '',
+        created_at TEXT NOT NULL DEFAULT (datetime('now')),
+        updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+      );
+    `).run().catch(() => {});
+
+    await db.prepare('CREATE INDEX IF NOT EXISTS idx_sub_mission ON mission_submissions(mission_id, status);').run().catch(() => {});
+    await db.prepare('CREATE INDEX IF NOT EXISTS idx_sub_user ON mission_submissions(user_id, status);').run().catch(() => {});
+    await db.prepare('CREATE INDEX IF NOT EXISTS idx_sub_link ON mission_submissions(mission_id, proof_link);').run().catch(() => {});
+
+    await db.prepare(`
+      CREATE TABLE IF NOT EXISTS mission_reward_pools (
+        id TEXT PRIMARY KEY,
+        mission_id TEXT NOT NULL,
+        code_content TEXT NOT NULL,
+        status TEXT NOT NULL DEFAULT 'AVAILABLE',
+        claimed_by_user_id TEXT DEFAULT '',
+        claimed_at TEXT DEFAULT '',
+        submission_id TEXT DEFAULT '',
+        created_at TEXT NOT NULL DEFAULT (datetime('now'))
+      );
+    `).run().catch(() => {});
+
+    await db.prepare('CREATE INDEX IF NOT EXISTS idx_mr_pool_avail ON mission_reward_pools(mission_id, status);').run().catch(() => {});
+
+    await db.prepare(`
+      CREATE TABLE IF NOT EXISTS mission_ai_api_keys (
+        id TEXT PRIMARY KEY,
+        key_name TEXT NOT NULL,
+        api_key_hash TEXT NOT NULL UNIQUE,
+        key_prefix TEXT NOT NULL,
+        is_active INTEGER NOT NULL DEFAULT 1,
+        last_used_at TEXT DEFAULT '',
+        created_at TEXT NOT NULL DEFAULT (datetime('now'))
+      );
+    `).run().catch(() => {});
+
+    await db.prepare('CREATE INDEX IF NOT EXISTS idx_ai_keys_hash ON mission_ai_api_keys(api_key_hash);').run().catch(() => {});
+
+    await db.prepare(`
+      CREATE TABLE IF NOT EXISTS mission_audit_logs (
+        id TEXT PRIMARY KEY,
+        mission_id TEXT NOT NULL,
+        submission_id TEXT NOT NULL,
+        user_id TEXT NOT NULL,
+        action TEXT NOT NULL,
+        actor TEXT NOT NULL,
+        details TEXT DEFAULT '',
+        created_at TEXT NOT NULL DEFAULT (datetime('now'))
+      );
+    `).run().catch(() => {});
+
+    await db.prepare('CREATE INDEX IF NOT EXISTS idx_mission_audit ON mission_audit_logs(mission_id, created_at);').run().catch(() => {});
+
+    missionSchemaChecked = true;
+  } catch (err: any) {
+    console.warn('[ensureMissionSchema error]', err?.message);
+  }
+}
 
 /**
  * Fast & lightweight schema check specifically for Giveaway custom banner & cooldown fields.
@@ -391,8 +507,9 @@ export async function ensureSchemaUpgrades(db: D1Database): Promise<void> {
   if (schemaUpgradesPromise) return schemaUpgradesPromise;
 
   schemaUpgradesPromise = (async () => {
-    // 0. Ensure Giveaway schema first
+    // 0. Ensure Giveaway schema & Mission schema first
     await ensureGiveawaySchema(db);
+    await ensureMissionSchema(db);
     // Safe schema migrations tracking
     try {
       await db.prepare("CREATE TABLE IF NOT EXISTS schema_migrations (id TEXT PRIMARY KEY, executed_at TEXT DEFAULT (datetime('now')));").run().catch(() => {});

@@ -45,6 +45,7 @@ export type AdminModuleTab =
   | 'private-codes'
   | 'code-inventory'
   | 'utilities'
+  | 'missions'
   | 'event-scheduler'
   | 'email-notifications'
   | 'orders'
@@ -208,8 +209,13 @@ export const AdminSidebar: React.FC<AdminSidebarProps> = ({
       ],
     },
     {
-      title: 'TĂNG TRƯỞNG & VIRAL',
+      title: 'TĂNG TRƯỞNG & NHIỆM VỤ',
       items: [
+        {
+          id: 'missions',
+          label: 'Quản Lý Nhiệm Vụ',
+          icon: CheckSquare,
+        },
         {
           id: 'growth',
           label: 'Tăng Trưởng & Viral',

@@ -16,6 +16,7 @@ import {
   Newspaper,
   Smartphone,
   Bell,
+  Award,
 } from 'lucide-react';
 import type { GameItem, UserProfile } from '../types/game';
 import { formatCore } from '../utils/textUtils';
@@ -24,8 +25,8 @@ import { LanguageSelector } from './LanguageSelector';
 import { growthService } from '../services/growthService';
 
 interface HeaderProps {
-  currentTab: 'catalog' | 'news' | 'giveaways' | 'store' | 'utilities';
-  onSelectTab: (tab: 'catalog' | 'news' | 'giveaways' | 'store' | 'utilities') => void;
+  currentTab: 'catalog' | 'news' | 'giveaways' | 'store' | 'utilities' | 'missions';
+  onSelectTab: (tab: 'catalog' | 'news' | 'giveaways' | 'store' | 'utilities' | 'missions') => void;
   searchQuery?: string;
   onSearchChange?: (q: string) => void;
   bookmarkCount: number;
@@ -241,6 +242,19 @@ export const Header: React.FC<HeaderProps> = ({
             >
               <Wrench className="w-4 h-4 text-teal-400" />
               <span>{t.nav.utilities}</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => onSelectTab('missions')}
+              className={`flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+                currentTab === 'missions'
+                  ? 'bg-primary text-white shadow-glow-primary'
+                  : 'text-slate-300 hover:text-white hover:bg-card'
+              }`}
+            >
+              <Award className="w-4 h-4 text-primary-light" />
+              <span>{t.nav.missions || 'Nhiệm Vụ'}</span>
             </button>
           </nav>
 

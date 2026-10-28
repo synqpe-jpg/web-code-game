@@ -7,6 +7,53 @@ Mỗi mục sửa lỗi đều ghi nhận **Nguyên nhân gốc rễ (Root Cause
 
 ## [2026-10-28]
 
+### 242. Phát Triển & Ra Mắt Hệ Thống Nhiệm Vụ (Missions / Quests) Tự Động Cho CodeGame.shop
+- **Bối cảnh & Yêu cầu từ Người dùng**:
+  - Bổ sung mục mới tên "Nhiệm vụ" (Missions / Quests) cho website `codegame.shop`, đặt cạnh mục "Tiện ích" trong điều hướng cả trên Desktop và Mobile.
+  - Route công khai: `/nhiem-vu/` cho danh sách nhiệm vụ, `/nhiem-vu/<id>/` cho chi tiết nhiệm vụ (hỗ trợ alias `/missions`).
+  - Người dùng đăng nhập làm nhiệm vụ -> nộp link bằng chứng -> chờ duyệt -> nhận thưởng. Khách chưa đăng nhập chỉ xem danh sách và mô tả.
+  - *Phạm vi đợt đầu*:
+    1. 1 loại nhiệm vụ: Đăng bài lên nhóm hoặc trang (`POST_SHARE_GROUP_PAGE`), sau đó gửi lại link bài đăng để chờ duyệt. Thiết kế mở sẵn trường `task_type` để mở rộng sau này không đổi cấu trúc CSDL.
+    2. 2 loại phần thưởng: Mã Giftcode từ kho mã riêng của nhiệm vụ (`CODE`) hoặc Cộng số dư ví tài khoản thành viên (`WALLET_BALANCE`).
+    3. Hạn mức trả thưởng (Quota): Mỗi nhiệm vụ có tổng số lượt trả thưởng tối đa; duyệt thành công trừ 1 lượt. Hết quota tự động đóng với người mới.
+    4. 3 chế độ duyệt (Review Mode): Quản trị duyệt tay (`MANUAL`), AI tự động duyệt & trả thưởng (`AI_AUTO`), AI hỗ trợ thẩm định & quản trị chốt (`AI_ASSISTED` - khuyến nghị mặc định).
+    5. Trang quản trị: Tab riêng "Quản Lý Nhiệm Vụ", CRUD nhiệm vụ, hàng chờ duyệt, kho mã thưởng riêng, quản lý khóa API cho AI duyệt (scope hẹp, băm SHA-256) và nhật ký kiểm toán.
+    6. Cơ chế chống gian lận: 1 người chỉ nhận thưởng 1 lần (`recurrence_type: 'ONCE'`), 1 link bài đăng chỉ dùng 1 lần toàn hệ thống cho cùng nhiệm vụ, kiểm tra định dạng URL và miền cho phép (`allowed_domains`), giới hạn tối đa 5 hồ sơ chờ duyệt trên toàn sàn, kiểm tra tuổi tài khoản tối thiểu.
+- **Thiết kế Kiến trúc & Giải pháp Thành công (Solution Applied)**:
+  1. *Định nghĩa Mô hình Dữ liệu & Migration D1 (`src/types/mission.ts` & `functions/services/d1_service.ts`)*:
+     - Tạo 5 bảng D1: `missions`, `mission_submissions`, `mission_reward_pools`, `mission_ai_api_keys`, `mission_audit_logs`.
+     - Hàm migration an toàn `ensureMissionSchema(db)` tự động khởi tạo bảng và index với zero-downtime, tích hợp vào `ensureSchemaUpgrades`.
+  2. *Core Service Xử Lý Nghiệp Vụ (`functions/services/mission_service.ts`)*:
+     - `validateProofLink`: Chuẩn hóa URL, kiểm tra giao thức `http/https`, hỗ trợ wildcard subdomain (`facebook.com`, `m.facebook.com`, `fb.watch`).
+     - `verifyAiKeyAuth`: Xác thực khóa AI qua Bearer token băm SHA-256 an toàn, cập nhật `last_used_at`.
+     - `executeApproveReward`: Giao dịch nguyên tử (atomic batch) trao mã code hoặc cộng số dư ví + ghi sổ giao dịch `wallet_transactions` + tăng `completed_count` + ghi `mission_audit_logs`.
+     - `executeRejectSubmission`: Ghi nhận lý do từ chối, tăng `resubmission_count`, kiểm tra ngưỡng `max_resubmissions`.
+  3. *Endpoints Functions Serverless (`functions/api/missions/*`)*:
+     - `index.ts`: GET danh sách nhiệm vụ công khai kèm số mã tồn và trạng thái nộp bài của user; POST tạo nhiệm vụ (Admin).
+     - `[id].ts`: GET chi tiết; PUT cập nhật; DELETE xóa nhiệm vụ (chỉ cho phép xóa khi chưa có bài nộp).
+     - `submit.ts`: POST nộp bằng chứng của thành viên (xác thực tuổi tài khoản, quota, chặn trùng link, chặn spam 5 hồ sơ).
+     - `my-submissions.ts`: GET lịch sử bài nộp cá nhân.
+     - `submissions.ts`: GET hàng chờ duyệt; POST duyệt đơn lẻ, từ chối kèm lý do hoặc duyệt hàng loạt theo đề xuất của AI (`BATCH_APPROVE_AI`).
+     - `pools.ts`: GET/POST/DELETE quản lý kho mã code riêng của nhiệm vụ.
+     - `ai/pending.ts`: GET danh sách bài nộp chờ AI thẩm định (Bearer AI Key).
+     - `ai/review.ts`: POST AI gửi đề xuất hoặc tự động duyệt/từ chối theo `review_mode`.
+     - `ai-keys.ts`: Quản lý cấp phát khóa API cho AI.
+     - `audit-logs.ts`: Xem nhật ký kiểm toán.
+  4. *Giao Diện Web Khách (`src/components/MissionsView.tsx` & `MissionDetailModal.tsx`)*:
+     - Thiết kế giao diện hiện đại, tối ưu di động và máy tính, thanh tiến độ Quota mượt mà, badge trạng thái người dùng (Chưa làm / Chờ duyệt / Đã hoàn thành / Bị từ chối).
+     - Nút "Nhiệm vụ" đặt ngay cạnh "Tiện ích" trên Navbar Desktop (`Header.tsx`) và Mobile Bottom Dock (`MobileBottomNav.tsx`).
+     - Hỗ trợ Prerender HTML tĩnh chuẩn SEO tại `dist/nhiem-vu/index.html` và `dist/missions/index.html`.
+  5. *Giao Diện Quản Trị (`src/admin/modules/MissionsModule.tsx`)*:
+     - Tích hợp tab `missions` trong `AdminSidebar.tsx`, `AdminTopbar.tsx` và `AdminApp.tsx`.
+     - 4 tabs quản trị: Quản lý danh sách nhiệm vụ (Form CRUD đầy đủ cấu hình), Hàng chờ duyệt (Duyệt nhanh theo AI, mẫu từ chối nhanh), Kho mã thưởng (nhập mã hàng loạt, đối soát), Quản lý khóa API AI & Nhật ký kiểm toán.
+  6. *Kiểm Thử Toàn Diện & Quy Tắc 7*:
+     - Viết test suite `scripts/test_missions_system.cjs` kiểm chứng 15/15 kịch bản: URL/domain validation, AI SHA-256 key, chặn trùng link, chặn spam 5 pending, tuổi tài khoản, trả thưởng nguyên tử code/ví, quota auto-close, dọn dẹp sạch sẽ 100% database test.
+- **Giải pháp thất bại đã thử (Failed Attempts - KHÔNG ĐƯỢC LẶP LẠI)**:
+  - *Thất bại tiềm ẩn*: Dùng chung bảng `giveaway_codes` cho nhiệm vụ -> TUYỆT ĐỐI KHÔNG LÀM: Dẫn đến xung đột logic giật giveaway và xóa nhầm mã kho. Bắt buộc tách riêng bảng `mission_reward_pools`.
+  - *Thất bại tiềm ẩn*: Cho phép xóa nhiệm vụ khi đã có người nộp bài -> TUYỆT ĐỐI KHÔNG LÀM: Dẫn đến mồ côi dữ liệu trong `mission_submissions`. Phải chặn xóa nếu `submissions > 0` và yêu cầu chuyển trạng thái sang `PAUSED` hoặc `ENDED`.
+
+---
+
 ### 241. Phát Triển Cơ Chế Tự Động Cộng/Trừ Số Mã Hiển Thị Cho Giveaway (Không Tạo Mã Ảo) & Tách Bạch Dữ Liệu Bảng Quản Trị
 - **Bối cảnh & Yêu cầu từ Người dùng**:
   - Mục Giật Giveaway đã có engine tự động mô phỏng lượt giật cho event có giãn cách toàn sàn (Global Cooldown Simulation). Tuy nhiên, con số mã còn lại HIỂN THỊ trên thẻ event chưa chuyển động theo lượt giật.

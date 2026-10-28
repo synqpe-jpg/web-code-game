@@ -7,6 +7,7 @@ export interface TranslationSchema {
     giveaways: string;
     store: string;
     utilities: string;
+    missions: string;
   };
   header: {
     portalSubtitle: string;
@@ -171,6 +172,7 @@ export const translations: Record<Language, TranslationSchema> = {
       giveaways: 'Săn Giveaway',
       store: 'Cửa Hàng Code',
       utilities: 'Tiện Ích',
+      missions: 'Nhiệm Vụ',
     },
     header: {
       portalSubtitle: 'Cổng Tra Cứu Giftcode #1',
@@ -334,6 +336,7 @@ export const translations: Record<Language, TranslationSchema> = {
       giveaways: 'Giveaways',
       store: 'Code Store',
       utilities: 'Utilities',
+      missions: 'Missions',
     },
     header: {
       portalSubtitle: '#1 Gift Code Portal',
@@ -497,6 +500,7 @@ export const translations: Record<Language, TranslationSchema> = {
       giveaways: '免费抽奖',
       store: '游戏商城',
       utilities: '实用工具',
+      missions: '任务系统',
     },
     header: {
       portalSubtitle: '全网第一礼包码平台',
@@ -660,6 +664,7 @@ export const translations: Record<Language, TranslationSchema> = {
       giveaways: 'แจกโค้ดฟรี',
       store: 'ร้านค้าโค้ด',
       utilities: 'เครื่องมือ',
+      missions: 'ภารกิจ',
     },
     header: {
       portalSubtitle: 'ศูนย์รวมโค้ดเกมอันดับ 1',

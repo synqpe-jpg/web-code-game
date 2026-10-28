@@ -24,6 +24,7 @@ const NewsView = lazyWithRetry(() => import('./components/NewsView').then((m) =>
 const GiveawaysView = lazyWithRetry(() => import('./components/GiveawaysView').then((m) => ({ default: m.GiveawaysView })));
 const StoreView = lazyWithRetry(() => import('./components/StoreView').then((m) => ({ default: m.StoreView })));
 const UtilitiesView = lazyWithRetry(() => import('./components/UtilitiesView').then((m) => ({ default: m.UtilitiesView })));
+const MissionsView = lazyWithRetry(() => import('./components/MissionsView').then((m) => ({ default: m.MissionsView })));
 const GameDetailModal = lazyWithRetry(() => import('./components/GameDetailModal').then((m) => ({ default: m.GameDetailModal })));
 const SubmitCodeModal = lazyWithRetry(() => import('./components/SubmitCodeModal').then((m) => ({ default: m.SubmitCodeModal })));
 const BookmarkDrawer = lazyWithRetry(() => import('./components/BookmarkDrawer').then((m) => ({ default: m.BookmarkDrawer })));
@@ -84,7 +85,7 @@ export const App: React.FC = () => {
   const [, startTransition] = useTransition();
 
   // Navigation Tab State (Decoupled Frontends Domain Detection & Hash Routing)
-  const [currentTab, setCurrentTab] = useState<'catalog' | 'news' | 'giveaways' | 'store' | 'utilities' | 'admin'>(() => {
+  const [currentTab, setCurrentTab] = useState<'catalog' | 'news' | 'giveaways' | 'store' | 'utilities' | 'missions' | 'admin'>(() => {
     if (typeof window !== 'undefined') {
       const host = window.location.hostname.toLowerCase();
       const hash = window.location.hash.toLowerCase();
@@ -101,12 +102,24 @@ export const App: React.FC = () => {
       if (hash.includes('giveaways') || hash.includes('gw=') || path === '/giveaways' || path.startsWith('/giveaways/')) return 'giveaways';
       if (hash.includes('store') || hash.includes('product=') || hash.includes('prod=') || path === '/store' || path.startsWith('/store/')) return 'store';
       if (hash.includes('utilities') || hash.includes('utility=') || hash.includes('ut=') || path === '/utilities' || path.startsWith('/utilities/')) return 'utilities';
+      if (hash.includes('missions') || hash.includes('nhiem-vu') || path === '/missions' || path.startsWith('/missions/') || path === '/nhiem-vu' || path.startsWith('/nhiem-vu/')) return 'missions';
     }
     return 'catalog';
   });
 
   const [initialNewsSlug, setInitialNewsSlug] = useState<string | null>(null);
   const [initialGiveawayId, setInitialGiveawayId] = useState<string | null>(null);
+  const [initialMissionId, setInitialMissionId] = useState<string | null>(() => {
+    if (typeof window !== 'undefined') {
+      const path = window.location.pathname;
+      const hash = window.location.hash;
+      const matchPath = path.match(/\/(?:nhiem-vu|missions)\/([^/?#]+)/);
+      if (matchPath) return decodeURIComponent(matchPath[1]);
+      const matchHash = hash.match(/(?:#\/nhiem-vu\/|#\/missions\/|ms=)([^/?#&]+)/);
+      if (matchHash) return decodeURIComponent(matchHash[1]);
+    }
+    return null;
+  });
 
   // Search & Filter State
   const [searchQuery, setSearchQuery] = useState('');
@@ -591,13 +604,13 @@ export const App: React.FC = () => {
   }, []);
 
   // Unified Single-Click Tab Switcher (History pushState routing without hash conflicts)
-  const handleSelectTab = useCallback((tab: 'catalog' | 'news' | 'giveaways' | 'store' | 'utilities') => {
+  const handleSelectTab = useCallback((tab: 'catalog' | 'news' | 'giveaways' | 'store' | 'utilities' | 'missions') => {
     setSelectedGame(null);
     setSelectedProduct(null);
     setSelectedUtilityId(null);
     setCurrentTab(tab);
 
-    const targetPath = tab === 'catalog' ? '/' : `/${tab}`;
+    const targetPath = tab === 'catalog' ? '/' : tab === 'missions' ? '/nhiem-vu' : `/${tab}`;
     if (window.location.pathname !== targetPath || window.location.hash) {
       window.history.pushState(null, '', targetPath);
     }
@@ -641,6 +654,11 @@ export const App: React.FC = () => {
         document.title = 'Tiện Ích Nạp Game & Key Bản Quyền | CodeGame.shop';
         if (window.location.pathname !== '/utilities' || window.location.hash) {
           window.history.replaceState(null, '', '/utilities');
+        }
+      } else if (currentTab === 'missions') {
+        document.title = 'Nhiệm Vụ Nhận Quà & Tiền Ví Miễn Phí | CodeGame.shop';
+        if (window.location.pathname !== '/nhiem-vu' || window.location.hash) {
+          window.history.replaceState(null, '', '/nhiem-vu');
         }
       } else {
         document.title = 'CodeGame.shop - Cổng Tra Cứu Giftcode & Game Bản Quyền Hàng Đầu';
@@ -1565,6 +1583,15 @@ export const App: React.FC = () => {
                 onOpenWallet={() => setIsWalletModalOpen(true)}
                 selectedUtilityId={selectedUtilityId}
                 onClearSelectedUtility={() => setSelectedUtilityId(null)}
+              />
+            )}
+
+            {currentTab === 'missions' && (
+              <MissionsView
+                currentUser={currentUser}
+                onOpenAuth={() => setIsAuthModalOpen(true)}
+                onOpenWallet={() => setIsWalletModalOpen(true)}
+                initialMissionId={initialMissionId}
               />
             )}
           </Suspense>
