@@ -33,9 +33,13 @@ async function verifyAuth(request: Request, env: Env): Promise<boolean> {
       try {
         const hash = await computeSha256(candidateKey);
         const row: any = await env.DB.prepare(
-          'SELECT id, scope, is_active FROM mission_ai_api_keys WHERE api_key_hash = ? AND is_active = 1 LIMIT 1'
+          'SELECT id, scope, is_active, expires_at FROM mission_ai_api_keys WHERE api_key_hash = ? AND is_active = 1 LIMIT 1'
         ).bind(hash).first();
         if (row) {
+          if (row.expires_at) {
+            const expTime = new Date(row.expires_at).getTime();
+            if (!isNaN(expTime) && Date.now() > expTime) return false;
+          }
           const scope = String(row.scope || '').toUpperCase();
           if (['NEWS_FULL', 'ADMIN_FULL', 'FULL', 'ALL'].includes(scope)) {
             env.DB.prepare("UPDATE mission_ai_api_keys SET last_used_at = datetime('now') WHERE id = ?").bind(row.id).run().catch(() => {});

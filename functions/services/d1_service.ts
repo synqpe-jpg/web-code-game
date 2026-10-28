@@ -423,6 +423,9 @@ export async function ensureMissionSchema(db: D1Database): Promise<void> {
     `).run().catch(() => {});
 
     await db.prepare("ALTER TABLE mission_ai_api_keys ADD COLUMN scope TEXT NOT NULL DEFAULT 'FULL';").run().catch(() => {});
+    await db.prepare("ALTER TABLE mission_ai_api_keys ADD COLUMN description TEXT DEFAULT '';").run().catch(() => {});
+    await db.prepare("ALTER TABLE mission_ai_api_keys ADD COLUMN expires_at TEXT DEFAULT '';").run().catch(() => {});
+    await db.prepare("ALTER TABLE mission_ai_api_keys ADD COLUMN raw_key TEXT DEFAULT '';").run().catch(() => {});
 
     await db.prepare('CREATE INDEX IF NOT EXISTS idx_ai_keys_hash ON mission_ai_api_keys(api_key_hash);').run().catch(() => {});
 

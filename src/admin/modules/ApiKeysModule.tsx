@@ -25,6 +25,11 @@ import {
   Layers,
   Sparkles,
   X,
+  Calendar,
+  Hourglass,
+  Timer,
+  ChevronRight,
+  ExternalLink,
 } from 'lucide-react';
 
 export type ApiKeyScope = 'NEWS_FULL' | 'MISSIONS_FULL' | 'MISSIONS_REVIEW' | 'ADMIN_FULL';
@@ -33,13 +38,14 @@ export interface ManagedApiKey {
   id: string;
   key_name: string;
   key_prefix: string;
+  raw_key?: string;
   scope: ApiKeyScope | string;
   description?: string;
+  expires_at?: string;
   is_active: number;
   last_used_at?: string;
   created_at: string;
   is_master?: boolean;
-  raw_key?: string;
 }
 
 interface ApiKeysModuleProps {
@@ -52,6 +58,7 @@ export const ApiKeysModule: React.FC<ApiKeysModuleProps> = ({ onShowToast }) => 
   const [isLoading, setIsLoading] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [scopeFilter, setScopeFilter] = useState<string>('ALL');
+  const [statusFilter, setStatusFilter] = useState<string>('ALL');
 
   // Show/Hide state for keys (id -> boolean)
   const [visibleKeys, setVisibleKeys] = useState<Record<string, boolean>>({});
@@ -62,13 +69,21 @@ export const ApiKeysModule: React.FC<ApiKeysModuleProps> = ({ onShowToast }) => 
   const [newKeyName, setNewKeyName] = useState('');
   const [newKeyScope, setNewKeyScope] = useState<ApiKeyScope>('NEWS_FULL');
   const [newKeyDescription, setNewKeyDescription] = useState('');
+  const [validityType, setValidityType] = useState<'30' | '90' | '365' | 'permanent' | 'custom'>('30');
+  const [customExpiresAt, setCustomExpiresAt] = useState('');
   const [isCreating, setIsCreating] = useState(false);
+
+  // Modal Extend / Change Expiration
+  const [extendingKey, setExtendingKey] = useState<ManagedApiKey | null>(null);
+  const [extendDaysOption, setExtendDaysOption] = useState<number>(30);
+  const [isExtending, setIsExtending] = useState(false);
 
   // Modal Newly Generated Key Reveal (Only once)
   const [generatedKeyResult, setGeneratedKeyResult] = useState<{
     key_name: string;
     raw_key: string;
     scope: ApiKeyScope;
+    expires_at?: string;
   } | null>(null);
 
   // Active sub-tab
@@ -126,6 +141,10 @@ export const ApiKeysModule: React.FC<ApiKeysModuleProps> = ({ onShowToast }) => 
   }, []);
 
   const handleCopy = (text: string, id: string) => {
+    if (!text) {
+      showToast('Khóa không có giá trị để sao chép', 'error');
+      return;
+    }
     navigator.clipboard.writeText(text);
     setCopiedKeyId(id);
     showToast('Đã sao chép khóa API vào clipboard!', 'success');
@@ -141,12 +160,22 @@ export const ApiKeysModule: React.FC<ApiKeysModuleProps> = ({ onShowToast }) => 
     }));
   };
 
+  // Helper to compute expiration ISO
+  const computeExpirationIso = (): string => {
+    if (validityType === 'permanent') return '';
+    if (validityType === 'custom') return customExpiresAt;
+    const days = parseInt(validityType, 10) || 30;
+    return new Date(Date.now() + days * 86400000).toISOString();
+  };
+
   const handleCreateKey = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newKeyName.trim()) {
       showToast('Vui lòng nhập tên định danh cho khóa API', 'error');
       return;
     }
+
+    const expiresIso = computeExpirationIso();
 
     setIsCreating(true);
     try {
@@ -157,6 +186,7 @@ export const ApiKeysModule: React.FC<ApiKeysModuleProps> = ({ onShowToast }) => 
           key_name: newKeyName.trim(),
           scope: newKeyScope,
           description: newKeyDescription.trim(),
+          expires_at: expiresIso,
         }),
       });
 
@@ -167,10 +197,12 @@ export const ApiKeysModule: React.FC<ApiKeysModuleProps> = ({ onShowToast }) => 
           key_name: data.key.key_name,
           raw_key: data.key.raw_key,
           scope: data.key.scope,
+          expires_at: data.key.expires_at,
         });
         setIsCreateModalOpen(false);
         setNewKeyName('');
         setNewKeyDescription('');
+        setValidityType('30');
         loadApiKeys();
       } else {
         showToast(data.message || 'Lỗi khi tạo khóa API mới', 'error');
@@ -182,6 +214,15 @@ export const ApiKeysModule: React.FC<ApiKeysModuleProps> = ({ onShowToast }) => 
     }
   };
 
+  // Quick Preset Creators
+  const handleQuickCreate = (scope: ApiKeyScope, defaultName: string) => {
+    setNewKeyScope(scope);
+    setNewKeyName(defaultName);
+    setValidityType('90');
+    setIsCreateModalOpen(true);
+  };
+
+  // Toggle Active / Deactivate
   const handleToggleActive = async (keyItem: ManagedApiKey) => {
     const nextState = keyItem.is_active === 1 ? 0 : 1;
     try {
@@ -195,7 +236,12 @@ export const ApiKeysModule: React.FC<ApiKeysModuleProps> = ({ onShowToast }) => 
         setKeys((prev) =>
           prev.map((k) => (k.id === keyItem.id ? { ...k, is_active: nextState } : k))
         );
-        showToast(nextState === 1 ? 'Đã kích hoạt khóa API' : 'Đã tạm vô hiệu hóa khóa API', 'info');
+        showToast(
+          nextState === 1
+            ? `Đã kích hoạt khóa "${keyItem.key_name}"`
+            : `Đã vô hiệu hóa khóa "${keyItem.key_name}"`,
+          nextState === 1 ? 'success' : 'info'
+        );
       } else {
         showToast(data.message || 'Lỗi cập nhật trạng thái khóa API', 'error');
       }
@@ -204,8 +250,60 @@ export const ApiKeysModule: React.FC<ApiKeysModuleProps> = ({ onShowToast }) => 
     }
   };
 
+  // Extend validity (phân quyền theo thời gian)
+  const handleExtendKey = async () => {
+    if (!extendingKey) return;
+    setIsExtending(true);
+    try {
+      let nextExpiresAt = '';
+      if (extendDaysOption > 0) {
+        const base = extendingKey.expires_at
+          ? Math.max(Date.now(), new Date(extendingKey.expires_at).getTime())
+          : Date.now();
+        nextExpiresAt = new Date(base + extendDaysOption * 86400000).toISOString();
+      } else {
+        nextExpiresAt = ''; // Permanent
+      }
+
+      const res = await fetch(`/api/api-keys/${extendingKey.id}`, {
+        method: 'PATCH',
+        headers: getAuthHeaders(),
+        body: JSON.stringify({
+          expires_at: nextExpiresAt,
+          is_active: 1, // Auto re-activate if extended
+        }),
+      });
+
+      const data = await res.json();
+      if (data.success) {
+        setKeys((prev) =>
+          prev.map((k) =>
+            k.id === extendingKey.id ? { ...k, expires_at: nextExpiresAt, is_active: 1 } : k
+          )
+        );
+        showToast(
+          extendDaysOption > 0
+            ? `Đã gia hạn thêm ${extendDaysOption} ngày cho khóa "${extendingKey.key_name}"!`
+            : `Đã chuyển khóa "${extendingKey.key_name}" sang trạng thái Vĩnh viễn!`,
+          'success'
+        );
+        setExtendingKey(null);
+      } else {
+        showToast(data.message || 'Lỗi gia hạn khóa', 'error');
+      }
+    } catch (e) {
+      showToast('Lỗi kết nối khi gia hạn khóa', 'error');
+    } finally {
+      setIsExtending(false);
+    }
+  };
+
   const handleDeleteKey = async (keyItem: ManagedApiKey) => {
-    if (!window.confirm(`Bạn có chắc chắn muốn thu hồi và XÓA VĨNH VIỄN khóa API "${keyItem.key_name}"? Mọi ứng dụng đang dùng khóa này sẽ bị từ chối truy cập ngay lập tức!`)) {
+    if (
+      !window.confirm(
+        `Bạn có chắc chắn muốn thu hồi và XÓA VĨNH VIỄN khóa API "${keyItem.key_name}"? Mọi bot hoặc AI đang dùng khóa này sẽ bị từ chối truy cập ngay lập tức!`
+      )
+    ) {
       return;
     }
 
@@ -268,21 +366,99 @@ export const ApiKeysModule: React.FC<ApiKeysModuleProps> = ({ onShowToast }) => 
     }
   };
 
+  // Helper to format time-based permission status
+  const formatExpirationInfo = (expiresAt?: string) => {
+    if (!expiresAt) {
+      return {
+        badge: (
+          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-purple-500/10 text-purple-400 border border-purple-500/20">
+            <Sparkles className="w-3 h-3" />
+            Vĩnh Viễn
+          </span>
+        ),
+        text: 'Không giới hạn thời gian',
+        isExpired: false,
+      };
+    }
+
+    const expTime = new Date(expiresAt).getTime();
+    if (isNaN(expTime)) {
+      return {
+        badge: <span className="text-muted-foreground text-xs font-mono">Không xác định</span>,
+        text: '',
+        isExpired: false,
+      };
+    }
+
+    const diffMs = expTime - Date.now();
+    const isExpired = diffMs <= 0;
+
+    if (isExpired) {
+      return {
+        badge: (
+          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-rose-500/20 text-rose-500 border border-rose-500/30">
+            <AlertTriangle className="w-3 h-3" />
+            ĐÃ HẾT HẠN
+          </span>
+        ),
+        text: `Hết hạn: ${new Date(expTime).toLocaleDateString('vi-VN')}`,
+        isExpired: true,
+      };
+    }
+
+    const daysLeft = Math.ceil(diffMs / 86400000);
+    const hoursLeft = Math.ceil(diffMs / 3600000);
+
+    if (daysLeft <= 3) {
+      return {
+        badge: (
+          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-amber-500/20 text-amber-500 border border-amber-500/30 animate-pulse">
+            <Clock className="w-3 h-3" />
+            Còn {hoursLeft} giờ
+          </span>
+        ),
+        text: `Hết hạn: ${new Date(expTime).toLocaleDateString('vi-VN')}`,
+        isExpired: false,
+      };
+    }
+
+    return {
+      badge: (
+        <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-medium bg-emerald-500/10 text-emerald-500 border border-emerald-500/20">
+          <Clock className="w-3 h-3" />
+          Còn {daysLeft} ngày
+        </span>
+      ),
+      text: `Hạn: ${new Date(expTime).toLocaleDateString('vi-VN')}`,
+      isExpired: false,
+    };
+  };
+
   const filteredKeys = useMemo(() => {
     return keys.filter((k) => {
       const matchSearch =
         k.key_name.toLowerCase().includes(searchQuery.toLowerCase()) ||
         (k.description && k.description.toLowerCase().includes(searchQuery.toLowerCase())) ||
-        k.key_prefix.toLowerCase().includes(searchQuery.toLowerCase());
+        k.key_prefix.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        (k.raw_key && k.raw_key.toLowerCase().includes(searchQuery.toLowerCase()));
 
       const matchScope =
         scopeFilter === 'ALL' ||
         k.scope === scopeFilter ||
         (scopeFilter === 'MISSIONS_REVIEW' && (k.scope === 'REVIEW_ONLY' || k.scope === 'MISSIONS_REVIEW'));
 
-      return matchSearch && matchScope;
+      let matchStatus = true;
+      if (statusFilter === 'ACTIVE') matchStatus = k.is_active === 1;
+      else if (statusFilter === 'INACTIVE') matchStatus = k.is_active === 0;
+      else if (statusFilter === 'EXPIRED') {
+        matchStatus = Boolean(k.expires_at && new Date(k.expires_at).getTime() <= Date.now());
+      } else if (statusFilter === 'PERMANENT') {
+        matchStatus = !k.expires_at;
+      }
+
+      return matchSearch && matchScope && matchStatus;
     });
-  }, [keys, searchQuery, scopeFilter]);
+  }, [keys, searchQuery, scopeFilter, statusFilter]);
 
   return (
     <div className="space-y-6 max-w-7xl mx-auto pb-12">
@@ -295,19 +471,19 @@ export const ApiKeysModule: React.FC<ApiKeysModuleProps> = ({ onShowToast }) => 
             </div>
             <div>
               <h1 className="text-xl sm:text-2xl font-bold font-display text-foreground flex items-center gap-2">
-                Quản Lý Khóa API & Phân Quyền Hệ Thống
+                Quản Lý Khóa API & Phân Quyền Theo Thời Gian
                 <span className="text-xs px-2.5 py-0.5 rounded-full bg-indigo-500/10 text-indigo-400 border border-indigo-500/20 font-mono font-medium">
-                  v2.0 PRO
+                  v2.5 TIME-SCOPED
                 </span>
               </h1>
               <p className="text-xs sm:text-sm text-muted-foreground">
-                Cấp quyền chi tiết cho AI tự động (Pine AI), bot cào tin tức và đối tác tích hợp ngoài
+                Sao chép nhanh, tạo mới, vô hiệu hóa và cài đặt thời hạn hiệu lực cho từng khóa API
               </p>
             </div>
           </div>
         </div>
 
-        <div className="flex items-center gap-2.5">
+        <div className="flex items-center gap-2.5 flex-wrap">
           <button
             onClick={loadApiKeys}
             disabled={isLoading}
@@ -316,12 +492,44 @@ export const ApiKeysModule: React.FC<ApiKeysModuleProps> = ({ onShowToast }) => 
           >
             <RefreshCw className={`w-4 h-4 ${isLoading ? 'animate-spin' : ''}`} />
           </button>
+
           <button
             onClick={() => setIsCreateModalOpen(true)}
             className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-gradient-to-r from-indigo-500 to-purple-600 hover:from-indigo-600 hover:to-purple-700 text-white font-medium text-xs sm:text-sm shadow-md hover:shadow-lg transition-all duration-200"
           >
             <Plus className="w-4 h-4" />
             Tạo Khóa API Mới
+          </button>
+        </div>
+      </div>
+
+      {/* Quick Action Presets (Tạo Nhanh 1-Click) */}
+      <div className="p-4 rounded-2xl border border-border/80 bg-muted/20 flex flex-col md:flex-row items-start md:items-center justify-between gap-3">
+        <div className="flex items-center gap-2 text-xs font-semibold text-foreground">
+          <Sparkles className="w-4 h-4 text-amber-500 shrink-0" />
+          <span>Tạo nhanh theo phân quyền:</span>
+        </div>
+        <div className="flex items-center gap-2 flex-wrap">
+          <button
+            onClick={() => handleQuickCreate('NEWS_FULL', 'Bot Tin Tức 24/7')}
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold bg-emerald-500/10 text-emerald-500 hover:bg-emerald-500/20 border border-emerald-500/30 transition-all"
+          >
+            <Plus className="w-3 h-3" />
+            + Khóa Tin Tức (90 ngày)
+          </button>
+          <button
+            onClick={() => handleQuickCreate('MISSIONS_FULL', 'Admin Nhiệm Vụ')}
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold bg-indigo-500/10 text-indigo-500 hover:bg-indigo-500/20 border border-indigo-500/30 transition-all"
+          >
+            <Plus className="w-3 h-3" />
+            + Khóa Nhiệm Vụ (90 ngày)
+          </button>
+          <button
+            onClick={() => handleQuickCreate('MISSIONS_REVIEW', 'Pine AI Thẩm Định')}
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold bg-amber-500/10 text-amber-500 hover:bg-amber-500/20 border border-amber-500/30 transition-all"
+          >
+            <Plus className="w-3 h-3" />
+            + Khóa AI Pine (30 ngày)
           </button>
         </div>
       </div>
@@ -376,7 +584,7 @@ export const ApiKeysModule: React.FC<ApiKeysModuleProps> = ({ onShowToast }) => 
                       Khóa Quản Trị Hệ Thống (Master Key)
                     </span>
                     <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-emerald-500/10 text-emerald-500 border border-emerald-500/20">
-                      BẢO MẬT TUYỆT ĐỐI
+                      BẢO MẬT TUYỆT ĐỐI • VĨNH VIỄN
                     </span>
                   </div>
                   <h3 className="text-base sm:text-lg font-bold text-foreground">
@@ -391,9 +599,7 @@ export const ApiKeysModule: React.FC<ApiKeysModuleProps> = ({ onShowToast }) => 
                   <div className="flex items-center gap-2 bg-background/80 border border-border px-3.5 py-2 rounded-xl font-mono text-xs max-w-full overflow-hidden shadow-inner">
                     <span className="text-muted-foreground select-none shrink-0">KEY:</span>
                     <span className="text-foreground select-all font-semibold truncate max-w-[200px] sm:max-w-xs">
-                      {visibleKeys['master']
-                        ? masterKey.raw_key
-                        : masterKey.key_prefix}
+                      {visibleKeys['master'] ? masterKey.raw_key : masterKey.key_prefix}
                     </span>
                     <button
                       onClick={() => toggleVisibility('master')}
@@ -408,13 +614,19 @@ export const ApiKeysModule: React.FC<ApiKeysModuleProps> = ({ onShowToast }) => 
                     </button>
                     <button
                       onClick={() => handleCopy(masterKey.raw_key || '', 'master')}
-                      className="p-1 hover:bg-muted rounded text-muted-foreground hover:text-emerald-500 transition-colors shrink-0"
-                      title="Sao chép khóa đầy đủ"
+                      className="px-3 py-1 rounded-lg bg-amber-500/20 hover:bg-amber-500/30 text-amber-500 font-bold text-xs flex items-center gap-1.5 transition-all shrink-0 border border-amber-500/30"
+                      title="Sao chép nhanh khóa này"
                     >
                       {copiedKeyId === 'master' ? (
-                        <Check className="w-3.5 h-3.5 text-emerald-500" />
+                        <>
+                          <Check className="w-3.5 h-3.5 text-emerald-500" />
+                          <span className="text-emerald-500">Đã Copy!</span>
+                        </>
                       ) : (
-                        <Copy className="w-3.5 h-3.5" />
+                        <>
+                          <Copy className="w-3.5 h-3.5" />
+                          <span>Sao Chép Nhanh</span>
+                        </>
                       )}
                     </button>
                   </div>
@@ -424,39 +636,63 @@ export const ApiKeysModule: React.FC<ApiKeysModuleProps> = ({ onShowToast }) => 
           )}
 
           {/* Filters & Search */}
-          <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
+          <div className="flex flex-col lg:flex-row items-stretch lg:items-center justify-between gap-3">
             <div className="relative flex-1 max-w-md">
               <Search className="w-4 h-4 text-muted-foreground absolute left-3.5 top-1/2 -translate-y-1/2" />
               <input
                 type="text"
-                placeholder="Tìm theo tên khóa, mô tả hoặc tiền tố..."
+                placeholder="Tìm theo tên khóa, mô tả, phân quyền..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 className="w-full pl-9 pr-4 py-2 rounded-xl bg-card border border-border text-xs sm:text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/40"
               />
             </div>
 
-            <div className="flex items-center gap-2 overflow-x-auto scrollbar-none">
-              <span className="text-xs text-muted-foreground whitespace-nowrap">Lọc quyền:</span>
-              {[
-                { id: 'ALL', label: 'Tất Cả' },
-                { id: 'NEWS_FULL', label: 'Tin Tức' },
-                { id: 'MISSIONS_FULL', label: 'Nhiệm Vụ' },
-                { id: 'MISSIONS_REVIEW', label: 'AI Pine' },
-                { id: 'ADMIN_FULL', label: 'Toàn Quyền' },
-              ].map((filter) => (
-                <button
-                  key={filter.id}
-                  onClick={() => setScopeFilter(filter.id)}
-                  className={`px-3 py-1.5 rounded-lg text-xs font-medium whitespace-nowrap transition-colors ${
-                    scopeFilter === filter.id
-                      ? 'bg-foreground text-background font-semibold'
-                      : 'bg-card border border-border text-muted-foreground hover:text-foreground'
-                  }`}
-                >
-                  {filter.label}
-                </button>
-              ))}
+            <div className="flex items-center gap-3 flex-wrap">
+              <div className="flex items-center gap-1.5 overflow-x-auto scrollbar-none">
+                <span className="text-xs text-muted-foreground whitespace-nowrap">Quyền:</span>
+                {[
+                  { id: 'ALL', label: 'Tất Cả' },
+                  { id: 'NEWS_FULL', label: 'Tin Tức' },
+                  { id: 'MISSIONS_FULL', label: 'Nhiệm Vụ' },
+                  { id: 'MISSIONS_REVIEW', label: 'AI Pine' },
+                  { id: 'ADMIN_FULL', label: 'Toàn Quyền' },
+                ].map((filter) => (
+                  <button
+                    key={filter.id}
+                    onClick={() => setScopeFilter(filter.id)}
+                    className={`px-2.5 py-1 rounded-lg text-xs font-medium whitespace-nowrap transition-colors ${
+                      scopeFilter === filter.id
+                        ? 'bg-foreground text-background font-semibold'
+                        : 'bg-card border border-border text-muted-foreground hover:text-foreground'
+                    }`}
+                  >
+                    {filter.label}
+                  </button>
+                ))}
+              </div>
+
+              <div className="flex items-center gap-1.5 overflow-x-auto scrollbar-none border-l border-border pl-3">
+                <span className="text-xs text-muted-foreground whitespace-nowrap">Thời hạn:</span>
+                {[
+                  { id: 'ALL', label: 'Tất Cả' },
+                  { id: 'ACTIVE', label: 'Hoạt Động' },
+                  { id: 'INACTIVE', label: 'Đã Tắt' },
+                  { id: 'EXPIRED', label: 'Hết Hạn' },
+                ].map((filter) => (
+                  <button
+                    key={filter.id}
+                    onClick={() => setStatusFilter(filter.id)}
+                    className={`px-2.5 py-1 rounded-lg text-xs font-medium whitespace-nowrap transition-colors ${
+                      statusFilter === filter.id
+                        ? 'bg-primary text-primary-foreground font-semibold'
+                        : 'bg-card border border-border text-muted-foreground hover:text-foreground'
+                    }`}
+                  >
+                    {filter.label}
+                  </button>
+                ))}
+              </div>
             </div>
           </div>
 
@@ -467,111 +703,186 @@ export const ApiKeysModule: React.FC<ApiKeysModuleProps> = ({ onShowToast }) => 
                 <thead className="bg-muted/40 border-b border-border text-muted-foreground font-semibold">
                   <tr>
                     <th className="py-3 px-4">TÊN KHÓA & MÔ TẢ</th>
-                    <th className="py-3 px-4">MỤC & CẤP QUYỀN</th>
-                    <th className="py-3 px-4">KHÓA API (ẨN / HIỆN 1 PHẦN)</th>
+                    <th className="py-3 px-4">PHÂN QUYỀN</th>
+                    <th className="py-3 px-4">KHÓA API (SAO CHÉP / HIỆN 1 PHẦN)</th>
+                    <th className="py-3 px-4">HIỆU LỰC (THỜI HẠN)</th>
                     <th className="py-3 px-4 text-center">TRẠNG THÁI</th>
-                    <th className="py-3 px-4">LẦN DÙNG CUỐI</th>
+                    <th className="py-3 px-4">LẦN DÙNG</th>
                     <th className="py-3 px-4 text-right">THAO TÁC</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-border">
                   {filteredKeys.length === 0 ? (
                     <tr>
-                      <td colSpan={6} className="py-12 text-center text-muted-foreground">
+                      <td colSpan={7} className="py-12 text-center text-muted-foreground">
                         <Key className="w-8 h-8 mx-auto mb-2 opacity-30" />
-                        <p className="text-sm font-medium">Chưa có khóa API nào phù hợp.</p>
-                        <p className="text-xs text-muted-foreground mt-1">
-                          Bấm nút <strong>"+ Tạo Khóa API Mới"</strong> để cấp quyền cho Tin tức, Nhiệm vụ hoặc AI.
-                        </p>
+                        <p className="text-sm font-medium">Chưa có khóa API nào phù hợp với bộ lọc.</p>
                       </td>
                     </tr>
                   ) : (
-                    filteredKeys.map((item) => (
-                      <tr key={item.id} className="hover:bg-muted/20 transition-colors">
-                        <td className="py-3.5 px-4 font-medium">
-                          <div className="text-foreground font-semibold">{item.key_name}</div>
-                          {item.description ? (
-                            <div className="text-[11px] text-muted-foreground mt-0.5 line-clamp-1">
-                              {item.description}
-                            </div>
-                          ) : (
-                            <div className="text-[11px] text-muted-foreground/60 mt-0.5 font-mono">
-                              ID: {item.id}
-                            </div>
-                          )}
-                        </td>
-                        <td className="py-3.5 px-4 whitespace-nowrap">
-                          {getScopeBadge(item.scope)}
-                        </td>
-                        <td className="py-3.5 px-4">
-                          <div className="inline-flex items-center gap-1.5 bg-background border border-border/80 px-2.5 py-1.5 rounded-lg font-mono text-xs">
-                            <span className="text-foreground select-all">
-                              {item.key_prefix}
-                            </span>
-                            <button
-                              onClick={() => handleCopy(item.key_prefix.replace('••••••••••••••••••••', ''), item.id)}
-                              className="p-1 hover:bg-muted rounded text-muted-foreground hover:text-emerald-500 transition-colors ml-1"
-                              title="Sao chép tiền tố khóa"
-                            >
-                              {copiedKeyId === item.id ? (
-                                <Check className="w-3.5 h-3.5 text-emerald-500" />
-                              ) : (
-                                <Copy className="w-3.5 h-3.5" />
+                    filteredKeys.map((item) => {
+                      const expInfo = formatExpirationInfo(item.expires_at);
+                      const keyToCopy = item.raw_key || item.key_prefix.replace('••••••••••••••••••••', '');
+                      const isRevealed = visibleKeys[item.id] && item.raw_key;
+
+                      return (
+                        <tr
+                          key={item.id}
+                          className={`hover:bg-muted/20 transition-colors ${
+                            expInfo.isExpired || item.is_active === 0 ? 'opacity-70 bg-muted/5' : ''
+                          }`}
+                        >
+                          {/* Name & Desc */}
+                          <td className="py-3.5 px-4 font-medium max-w-[220px]">
+                            <div className="text-foreground font-semibold flex items-center gap-1.5">
+                              <span>{item.key_name}</span>
+                              {expInfo.isExpired && (
+                                <span className="text-[10px] text-rose-500 font-bold bg-rose-500/10 px-1.5 py-0.2 rounded">
+                                  Hết hạn
+                                </span>
                               )}
-                            </button>
-                          </div>
-                        </td>
-                        <td className="py-3.5 px-4 text-center whitespace-nowrap">
-                          <button
-                            onClick={() => handleToggleActive(item)}
-                            className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold transition-all ${
-                              item.is_active === 1
-                                ? 'bg-emerald-500/10 text-emerald-500 hover:bg-emerald-500/20'
-                                : 'bg-rose-500/10 text-rose-500 hover:bg-rose-500/20'
-                            }`}
-                            title="Bấm để bật / tắt hoạt động"
-                          >
-                            <span
-                              className={`w-1.5 h-1.5 rounded-full ${
-                                item.is_active === 1 ? 'bg-emerald-500 animate-pulse' : 'bg-rose-500'
-                              }`}
-                            />
-                            {item.is_active === 1 ? 'Hoạt Động' : 'Đã Tắt'}
-                          </button>
-                        </td>
-                        <td className="py-3.5 px-4 text-xs text-muted-foreground whitespace-nowrap font-mono">
-                          {item.last_used_at ? (
-                            <span title={item.last_used_at}>
-                              {new Date(item.last_used_at).toLocaleDateString('vi-VN')}
-                            </span>
-                          ) : (
-                            <span className="text-muted-foreground/60 italic">Chưa dùng</span>
-                          )}
-                        </td>
-                        <td className="py-3.5 px-4 text-right whitespace-nowrap">
-                          <div className="flex items-center justify-end gap-1.5">
+                            </div>
+                            {item.description ? (
+                              <div className="text-[11px] text-muted-foreground mt-0.5 line-clamp-1">
+                                {item.description}
+                              </div>
+                            ) : (
+                              <div className="text-[11px] text-muted-foreground/60 mt-0.5 font-mono">
+                                ID: {item.id}
+                              </div>
+                            )}
+                          </td>
+
+                          {/* Scope */}
+                          <td className="py-3.5 px-4 whitespace-nowrap">
+                            {getScopeBadge(item.scope)}
+                          </td>
+
+                          {/* Key Display & Quick Copy */}
+                          <td className="py-3.5 px-4">
+                            <div className="inline-flex items-center gap-2 bg-background border border-border/80 px-2.5 py-1.5 rounded-xl font-mono text-xs shadow-inner">
+                              <span className="text-foreground select-all font-semibold max-w-[150px] sm:max-w-[200px] truncate">
+                                {isRevealed ? item.raw_key : item.key_prefix}
+                              </span>
+
+                              {item.raw_key && (
+                                <button
+                                  onClick={() => toggleVisibility(item.id)}
+                                  className="p-1 hover:bg-muted rounded text-muted-foreground hover:text-foreground transition-colors"
+                                  title={isRevealed ? 'Ẩn mã' : 'Hiện đầy đủ mã'}
+                                >
+                                  {isRevealed ? (
+                                    <EyeOff className="w-3.5 h-3.5 text-amber-500" />
+                                  ) : (
+                                    <Eye className="w-3.5 h-3.5" />
+                                  )}
+                                </button>
+                              )}
+
+                              <button
+                                onClick={() => handleCopy(keyToCopy, item.id)}
+                                className="px-2.5 py-1 rounded-lg bg-primary/10 hover:bg-primary/20 text-primary font-bold text-xs flex items-center gap-1 transition-all shrink-0 border border-primary/20"
+                                title="Sao chép nhanh khóa này"
+                              >
+                                {copiedKeyId === item.id ? (
+                                  <>
+                                    <Check className="w-3 h-3 text-emerald-500" />
+                                    <span className="text-emerald-500">Đã Copy!</span>
+                                  </>
+                                ) : (
+                                  <>
+                                    <Copy className="w-3 h-3" />
+                                    <span>Copy</span>
+                                  </>
+                                )}
+                              </button>
+                            </div>
+                          </td>
+
+                          {/* Expiration (Time-based Permission) */}
+                          <td className="py-3.5 px-4 whitespace-nowrap">
+                            <div className="space-y-0.5">
+                              <div>{expInfo.badge}</div>
+                              {expInfo.text && (
+                                <div className="text-[10px] text-muted-foreground/80 font-mono">
+                                  {expInfo.text}
+                                </div>
+                              )}
+                            </div>
+                          </td>
+
+                          {/* Status */}
+                          <td className="py-3.5 px-4 text-center whitespace-nowrap">
                             <button
                               onClick={() => handleToggleActive(item)}
-                              className={`p-1.5 rounded-lg border transition-colors ${
-                                item.is_active === 1
-                                  ? 'border-amber-500/30 text-amber-500 hover:bg-amber-500/10'
-                                  : 'border-emerald-500/30 text-emerald-500 hover:bg-emerald-500/10'
+                              className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold transition-all ${
+                                item.is_active === 1 && !expInfo.isExpired
+                                  ? 'bg-emerald-500/10 text-emerald-500 hover:bg-emerald-500/20'
+                                  : 'bg-rose-500/10 text-rose-500 hover:bg-rose-500/20'
                               }`}
-                              title={item.is_active === 1 ? 'Tạm vô hiệu hóa' : 'Kích hoạt'}
+                              title={item.is_active === 1 ? 'Bấm để vô hiệu hóa' : 'Bấm để kích hoạt lại'}
                             >
-                              <Power className="w-3.5 h-3.5" />
+                              <span
+                                className={`w-1.5 h-1.5 rounded-full ${
+                                  item.is_active === 1 && !expInfo.isExpired
+                                    ? 'bg-emerald-500 animate-pulse'
+                                    : 'bg-rose-500'
+                                }`}
+                              />
+                              {item.is_active === 1 && !expInfo.isExpired ? 'Hoạt Động' : 'Đã Tắt'}
                             </button>
-                            <button
-                              onClick={() => handleDeleteKey(item)}
-                              className="p-1.5 rounded-lg border border-rose-500/30 text-rose-500 hover:bg-rose-500/10 transition-colors"
-                              title="Thu hồi & Xóa vĩnh viễn"
-                            >
-                              <Trash2 className="w-3.5 h-3.5" />
-                            </button>
-                          </div>
-                        </td>
-                      </tr>
-                    ))
+                          </td>
+
+                          {/* Last Used */}
+                          <td className="py-3.5 px-4 text-xs text-muted-foreground whitespace-nowrap font-mono">
+                            {item.last_used_at ? (
+                              <span title={item.last_used_at}>
+                                {new Date(item.last_used_at).toLocaleDateString('vi-VN')}
+                              </span>
+                            ) : (
+                              <span className="text-muted-foreground/60 italic">Chưa dùng</span>
+                            )}
+                          </td>
+
+                          {/* Actions */}
+                          <td className="py-3.5 px-4 text-right whitespace-nowrap">
+                            <div className="flex items-center justify-end gap-1.5">
+                              {/* Extend button (Phân quyền theo thời gian) */}
+                              <button
+                                onClick={() => setExtendingKey(item)}
+                                className="px-2 py-1.5 rounded-lg border border-indigo-500/30 text-indigo-400 hover:bg-indigo-500/10 text-xs font-medium flex items-center gap-1 transition-colors"
+                                title="Gia hạn hoặc điều chỉnh thời hạn hiệu lực"
+                              >
+                                <Hourglass className="w-3.5 h-3.5" />
+                                <span className="hidden sm:inline">Gia Hạn</span>
+                              </button>
+
+                              {/* Toggle Active / Deactivate */}
+                              <button
+                                onClick={() => handleToggleActive(item)}
+                                className={`p-1.5 rounded-lg border transition-colors ${
+                                  item.is_active === 1
+                                    ? 'border-amber-500/30 text-amber-500 hover:bg-amber-500/10'
+                                    : 'border-emerald-500/30 text-emerald-500 hover:bg-emerald-500/10'
+                                }`}
+                                title={item.is_active === 1 ? 'Vô hiệu hóa khóa này' : 'Kích hoạt lại'}
+                              >
+                                <Power className="w-3.5 h-3.5" />
+                              </button>
+
+                              {/* Delete */}
+                              <button
+                                onClick={() => handleDeleteKey(item)}
+                                className="p-1.5 rounded-lg border border-rose-500/30 text-rose-500 hover:bg-rose-500/10 transition-colors"
+                                title="Thu hồi & Xóa vĩnh viễn"
+                              >
+                                <Trash2 className="w-3.5 h-3.5" />
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      );
+                    })
                   )}
                 </tbody>
               </table>
@@ -667,7 +978,7 @@ export const ApiKeysModule: React.FC<ApiKeysModuleProps> = ({ onShowToast }) => 
               </div>
               <div className="flex items-center gap-2 text-foreground">
                 <Check className="w-3.5 h-3.5 text-amber-500 shrink-0" />
-                <span><strong>POST /api/missions/ai/review</strong>: Duyệt duyệt (APPROVED) hoặc Từ chối (REJECTED)</span>
+                <span><strong>POST /api/missions/ai/review</strong>: Duyệt (APPROVED) hoặc Từ chối (REJECTED)</span>
               </div>
               <div className="flex items-center gap-2 text-muted-foreground">
                 <X className="w-3.5 h-3.5 text-rose-500 shrink-0" />
@@ -843,18 +1154,18 @@ console.log(result);`}
         </div>
       )}
 
-      {/* Modal: Create API Key */}
+      {/* Modal: Create API Key with Time-based Expiration */}
       {isCreateModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
-          <div className="w-full max-w-lg bg-card rounded-2xl border border-border shadow-2xl overflow-hidden">
-            <div className="flex items-center justify-between p-5 border-b border-border bg-muted/20">
+          <div className="w-full max-w-lg bg-card rounded-2xl border border-border shadow-2xl overflow-hidden max-h-[90vh] flex flex-col">
+            <div className="flex items-center justify-between p-5 border-b border-border bg-muted/20 shrink-0">
               <div className="flex items-center gap-2">
                 <div className="p-2 rounded-xl bg-primary/10 text-primary">
                   <KeyRound className="w-5 h-5 text-indigo-500" />
                 </div>
                 <div>
-                  <h3 className="font-bold text-foreground">Tạo Khóa API Mới</h3>
-                  <p className="text-xs text-muted-foreground">Cấp quyền hạn chế an toàn cho từng ứng dụng</p>
+                  <h3 className="font-bold text-foreground">Tạo Khóa API & Phân Quyền Theo Thời Gian</h3>
+                  <p className="text-xs text-muted-foreground">Cấp quyền hạn chế an toàn và thời hạn tự động thu hồi</p>
                 </div>
               </div>
               <button
@@ -865,7 +1176,7 @@ console.log(result);`}
               </button>
             </div>
 
-            <form onSubmit={handleCreateKey} className="p-5 space-y-4">
+            <form onSubmit={handleCreateKey} className="p-5 space-y-4 overflow-y-auto">
               <div>
                 <label className="block text-xs font-semibold text-foreground mb-1.5">
                   Tên Định Danh Khóa <span className="text-rose-500">*</span>
@@ -884,7 +1195,7 @@ console.log(result);`}
                 <label className="block text-xs font-semibold text-foreground mb-1.5">
                   Cấp Quyền & Mục Áp Dụng <span className="text-rose-500">*</span>
                 </label>
-                <div className="grid grid-cols-1 gap-2.5">
+                <div className="grid grid-cols-1 gap-2">
                   {[
                     {
                       id: 'NEWS_FULL',
@@ -921,13 +1232,13 @@ console.log(result);`}
                       <div
                         key={s.id}
                         onClick={() => setNewKeyScope(s.id as ApiKeyScope)}
-                        className={`p-3 rounded-xl border cursor-pointer transition-all ${
+                        className={`p-2.5 rounded-xl border cursor-pointer transition-all ${
                           isSelected
                             ? `bg-primary/5 border-primary shadow-sm ${s.color}`
                             : 'bg-background/60 border-border hover:bg-muted/40'
                         }`}
                       >
-                        <div className="flex items-center gap-2.5">
+                        <div className="flex items-center gap-2">
                           <Icon className={`w-4 h-4 ${isSelected ? '' : 'text-muted-foreground'}`} />
                           <div className="flex-1">
                             <div className="text-xs font-bold text-foreground flex items-center justify-between">
@@ -941,6 +1252,51 @@ console.log(result);`}
                     );
                   })}
                 </div>
+              </div>
+
+              {/* Time-based Permission (Thời Hạn Hiệu Lực) */}
+              <div>
+                <label className="block text-xs font-semibold text-foreground mb-1.5 flex items-center gap-1.5">
+                  <Hourglass className="w-3.5 h-3.5 text-indigo-400" />
+                  Phân Quyền Theo Thời Gian (Thời Hạn Hiệu Lực)
+                </label>
+                <div className="grid grid-cols-3 sm:grid-cols-5 gap-1.5 mb-2">
+                  {[
+                    { id: '30', label: '30 Ngày' },
+                    { id: '90', label: '90 Ngày' },
+                    { id: '365', label: '1 Năm' },
+                    { id: 'permanent', label: 'Vĩnh Viễn' },
+                    { id: 'custom', label: 'Tự Chọn' },
+                  ].map((opt) => (
+                    <button
+                      key={opt.id}
+                      type="button"
+                      onClick={() => setValidityType(opt.id as any)}
+                      className={`py-2 px-2 rounded-xl text-xs font-medium border text-center transition-all ${
+                        validityType === opt.id
+                          ? 'bg-foreground text-background font-bold border-foreground shadow-sm'
+                          : 'bg-background border-border text-muted-foreground hover:text-foreground'
+                      }`}
+                    >
+                      {opt.label}
+                    </button>
+                  ))}
+                </div>
+
+                {validityType === 'custom' && (
+                  <div className="mt-2">
+                    <input
+                      type="datetime-local"
+                      value={customExpiresAt}
+                      onChange={(e) => setCustomExpiresAt(e.target.value)}
+                      className="w-full px-3.5 py-2 rounded-xl bg-background border border-border text-xs text-foreground focus:outline-none focus:ring-2 focus:ring-primary/40"
+                      required
+                    />
+                    <p className="text-[11px] text-muted-foreground mt-1">
+                      Khóa sẽ tự động ngắt quyền truy cập đúng vào thời điểm trên.
+                    </p>
+                  </div>
+                )}
               </div>
 
               <div>
@@ -987,7 +1343,98 @@ console.log(result);`}
         </div>
       )}
 
-      {/* Modal: Reveal Newly Generated Raw Key (One-time only!) */}
+      {/* Modal: Extend / Modify Expiration (Gia Hạn Khóa) */}
+      {extendingKey && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="w-full max-w-md bg-card rounded-2xl border border-border shadow-2xl overflow-hidden">
+            <div className="flex items-center justify-between p-5 border-b border-border bg-muted/20">
+              <div className="flex items-center gap-2">
+                <div className="p-2 rounded-xl bg-indigo-500/10 text-indigo-400">
+                  <Hourglass className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="font-bold text-foreground">Gia Hạn Hiệu Lực Khóa API</h3>
+                  <p className="text-xs text-muted-foreground">Phân quyền theo thời gian cho "{extendingKey.key_name}"</p>
+                </div>
+              </div>
+              <button
+                onClick={() => setExtendingKey(null)}
+                className="p-1.5 rounded-lg hover:bg-muted text-muted-foreground hover:text-foreground"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="p-5 space-y-4">
+              <div className="p-3 rounded-xl bg-muted/30 border border-border text-xs space-y-1">
+                <div className="text-muted-foreground">Thời hạn hiện tại:</div>
+                <div className="font-semibold text-foreground">
+                  {extendingKey.expires_at
+                    ? new Date(extendingKey.expires_at).toLocaleString('vi-VN')
+                    : 'Vĩnh viễn (Không thời hạn)'}
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-foreground mb-2">
+                  Chọn thời gian gia hạn thêm:
+                </label>
+                <div className="grid grid-cols-2 gap-2">
+                  {[
+                    { days: 7, label: '+7 Ngày' },
+                    { days: 30, label: '+30 Ngày (Khuyên dùng)' },
+                    { days: 90, label: '+90 Ngày' },
+                    { days: 0, label: 'Đặt Vĩnh Viễn' },
+                  ].map((opt) => (
+                    <button
+                      key={opt.days}
+                      type="button"
+                      onClick={() => setExtendDaysOption(opt.days)}
+                      className={`p-3 rounded-xl text-xs font-medium border text-center transition-all ${
+                        extendDaysOption === opt.days
+                          ? 'bg-primary text-primary-foreground font-bold border-primary shadow-sm'
+                          : 'bg-background border-border text-foreground hover:bg-muted'
+                      }`}
+                    >
+                      {opt.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div className="pt-2 flex items-center justify-end gap-2.5">
+                <button
+                  type="button"
+                  onClick={() => setExtendingKey(null)}
+                  className="px-4 py-2.5 rounded-xl border border-border hover:bg-muted text-xs font-medium"
+                >
+                  Hủy Bỏ
+                </button>
+                <button
+                  type="button"
+                  onClick={handleExtendKey}
+                  disabled={isExtending}
+                  className="px-5 py-2.5 rounded-xl bg-indigo-500 hover:bg-indigo-600 text-white font-medium text-xs shadow-md transition-all flex items-center gap-2"
+                >
+                  {isExtending ? (
+                    <>
+                      <RefreshCw className="w-4 h-4 animate-spin" />
+                      Đang Xử Lý...
+                    </>
+                  ) : (
+                    <>
+                      <Check className="w-4 h-4" />
+                      Lưu & Gia Hạn Ngay
+                    </>
+                  )}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal: Reveal Newly Generated Raw Key */}
       {generatedKeyResult && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-md animate-in fade-in duration-200">
           <div className="w-full max-w-lg bg-card rounded-2xl border-2 border-emerald-500/50 shadow-2xl overflow-hidden">
@@ -1006,10 +1453,10 @@ console.log(result);`}
                 </div>
               </div>
 
-              <div className="p-3.5 rounded-xl bg-amber-500/10 border border-amber-500/30 text-amber-500 text-xs flex items-start gap-2.5 leading-relaxed">
-                <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5" />
+              <div className="p-3.5 rounded-xl bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 text-xs flex items-start gap-2.5 leading-relaxed">
+                <CheckCircle2 className="w-4 h-4 shrink-0 mt-0.5 text-emerald-500" />
                 <span>
-                  <strong>CẢNH BÁO BẢO MẬT QUAN TRỌNG:</strong> Khóa đầy đủ bên dưới <strong>CHỈ HIỂN THỊ MỘT LẦN DUY NHẤT</strong>. Sau khi đóng cửa sổ này, bạn sẽ không thể xem lại mã bí mật này nữa!
+                  Khóa API đã sẵn sàng! Bạn có thể <strong>Sao chép nhanh</strong> ngay bên dưới. Khóa này cũng được lưu trực tiếp vào danh sách Quản lý để bạn có thể xem lại hoặc sao chép bất cứ lúc nào.
                 </span>
               </div>
 
@@ -1023,7 +1470,7 @@ console.log(result);`}
                   </code>
                   <button
                     onClick={() => handleCopy(generatedKeyResult.raw_key, 'newly_generated')}
-                    className="px-3 py-2 rounded-lg bg-emerald-500 hover:bg-emerald-600 text-slate-950 font-bold text-xs flex items-center gap-1.5 transition-all shrink-0"
+                    className="px-3.5 py-2 rounded-lg bg-emerald-500 hover:bg-emerald-600 text-slate-950 font-bold text-xs flex items-center gap-1.5 transition-all shrink-0 shadow-sm"
                   >
                     {copiedKeyId === 'newly_generated' ? (
                       <>
@@ -1045,7 +1492,7 @@ console.log(result);`}
                   onClick={() => setGeneratedKeyResult(null)}
                   className="px-5 py-2.5 rounded-xl bg-foreground text-background font-semibold text-xs sm:text-sm hover:opacity-90 transition-opacity"
                 >
-                  Tôi Đã Lưu Khóa Này
+                  Hoàn Tất & Xem Danh Sách
                 </button>
               </div>
             </div>

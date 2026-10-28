@@ -11,7 +11,7 @@ export const onRequestOptions: PagesFunction = async () => {
 
 /**
  * PATCH /api/api-keys/:id
- * Cập nhật trạng thái (Bật / Tắt hoạt động) hoặc thông tin khóa API
+ * Cập nhật trạng thái (Bật / Tắt hoạt động), gia hạn hoặc thay đổi thời hạn hiệu lực (phân quyền theo thời gian)
  */
 export const onRequestPatch: PagesFunction<Env> = async (context) => {
   const { request, params, env } = context;
@@ -48,12 +48,14 @@ export const onRequestPatch: PagesFunction<Env> = async (context) => {
     }
 
     await ensureMissionSchema(env.DB);
+    await env.DB.prepare("ALTER TABLE mission_ai_api_keys ADD COLUMN description TEXT DEFAULT '';").run().catch(() => {});
+    await env.DB.prepare("ALTER TABLE mission_ai_api_keys ADD COLUMN expires_at TEXT DEFAULT '';").run().catch(() => {});
 
     const body: any = await request.json().catch(() => ({}));
-    const { is_active, key_name, scope, description } = body;
+    const { is_active, key_name, scope, description, expires_at, extend_days } = body;
 
     const existing = await env.DB.prepare(
-      'SELECT id, is_active FROM mission_ai_api_keys WHERE id = ? LIMIT 1'
+      'SELECT id, is_active, expires_at FROM mission_ai_api_keys WHERE id = ? LIMIT 1'
     ).bind(keyId).first<any>();
 
     if (!existing) {
@@ -65,14 +67,30 @@ export const onRequestPatch: PagesFunction<Env> = async (context) => {
 
     const nextActive = is_active !== undefined ? (is_active ? 1 : 0) : existing.is_active;
 
+    let nextExpiresAt = existing.expires_at || '';
+    if (expires_at !== undefined) {
+      nextExpiresAt = String(expires_at).trim();
+    } else if (typeof extend_days === 'number' && extend_days > 0) {
+      const baseTime = existing.expires_at ? Math.max(Date.now(), new Date(existing.expires_at).getTime()) : Date.now();
+      nextExpiresAt = new Date(baseTime + extend_days * 86400000).toISOString();
+    }
+
     await env.DB.prepare(`
       UPDATE mission_ai_api_keys 
       SET is_active = ?,
+          expires_at = ?,
           key_name = COALESCE(?, key_name),
           scope = COALESCE(?, scope),
           description = COALESCE(?, description)
       WHERE id = ?
-    `).bind(nextActive, key_name || null, scope || null, description || null, keyId).run();
+    `).bind(
+      nextActive,
+      nextExpiresAt,
+      key_name || null,
+      scope || null,
+      description || null,
+      keyId
+    ).run();
 
     return new Response(
       JSON.stringify({
@@ -80,6 +98,7 @@ export const onRequestPatch: PagesFunction<Env> = async (context) => {
         message: nextActive === 1 ? 'Đã kích hoạt khóa API.' : 'Đã tạm vô hiệu hóa khóa API.',
         id: keyId,
         is_active: nextActive,
+        expires_at: nextExpiresAt,
       }),
       { status: 200, headers: CORS_HEADERS }
     );
@@ -131,7 +150,7 @@ export const onRequestDelete: PagesFunction<Env> = async (context) => {
 
     await ensureMissionSchema(env.DB);
 
-    const deleteResult = await env.DB.prepare(
+    await env.DB.prepare(
       'DELETE FROM mission_ai_api_keys WHERE id = ?'
     ).bind(keyId).run();
 

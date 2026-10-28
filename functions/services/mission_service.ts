@@ -130,6 +130,17 @@ export async function verifyAiKeyAuth(
     return { authorized: false, error: 'API Key không hợp lệ hoặc đã bị vô hiệu hóa.' };
   }
 
+  // Check expiration if time-based restriction is active
+  if (keyRecord.expires_at) {
+    const expTime = new Date(keyRecord.expires_at).getTime();
+    if (!isNaN(expTime) && Date.now() > expTime) {
+      return {
+        authorized: false,
+        error: `Khóa API đã hết hạn sử dụng vào lúc ${new Date(expTime).toLocaleString('vi-VN')}. Vui lòng liên hệ Quản trị viên để gia hạn.`,
+      };
+    }
+  }
+
   const scope = (keyRecord.scope || 'FULL').toUpperCase();
   if (scope === 'NEWS_FULL') {
     return { authorized: false, error: 'Khóa API này chỉ có quyền Quản lý Tin tức (NEWS_FULL). Không có quyền thẩm định bài nộp Nhiệm vụ.' };
@@ -197,6 +208,17 @@ export async function verifyAdminAuth(
       .first<any>();
 
     if (keyRecord) {
+      // Check expiration if time-based restriction is active
+      if (keyRecord.expires_at) {
+        const expTime = new Date(keyRecord.expires_at).getTime();
+        if (!isNaN(expTime) && Date.now() > expTime) {
+          return {
+            authorized: false,
+            error: `Khóa API đã hết hạn sử dụng vào lúc ${new Date(expTime).toLocaleString('vi-VN')}. Vui lòng liên hệ Quản trị viên để gia hạn.`,
+          };
+        }
+      }
+
       const scope = (keyRecord.scope || 'FULL').toUpperCase();
       // Update last used timestamp asynchronously
       env.DB.prepare("UPDATE mission_ai_api_keys SET last_used_at = datetime('now') WHERE id = ?")

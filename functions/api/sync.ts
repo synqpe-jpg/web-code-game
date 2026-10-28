@@ -102,9 +102,19 @@ async function isAuthorized(request: Request, env: Env): Promise<AuthResult> {
     try {
       const hash = await computeSha256(incomingAuthToken);
       const keyRow: any = await env.DB.prepare(
-        'SELECT id, scope FROM mission_ai_api_keys WHERE api_key_hash = ? AND is_active = 1 LIMIT 1'
+        'SELECT id, scope, expires_at FROM mission_ai_api_keys WHERE api_key_hash = ? AND is_active = 1 LIMIT 1'
       ).bind(hash).first();
       if (keyRow) {
+        if (keyRow.expires_at) {
+          const expTime = new Date(keyRow.expires_at).getTime();
+          if (!isNaN(expTime) && Date.now() > expTime) {
+            return {
+              authorized: false,
+              status: 401,
+              error: `Khóa API đã hết hạn sử dụng vào lúc ${new Date(expTime).toLocaleString('vi-VN')}.`,
+            };
+          }
+        }
         const s = String(keyRow.scope || '').toUpperCase();
         if (s === 'ADMIN_FULL' || s === 'FULL' || s === 'ALL') {
           env.DB.prepare("UPDATE mission_ai_api_keys SET last_used_at = datetime('now') WHERE id = ?").bind(keyRow.id).run().catch(() => {});
