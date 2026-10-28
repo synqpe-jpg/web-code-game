@@ -644,9 +644,11 @@ export async function initializeVirtualLayer(env: any, forceRefresh: boolean = f
       });
     }
 
-    // 5. Populate Master Copy
+    // 5. Populate Master Copy (Baseline migrated to 93545)
     if (realHub && typeof realHub.masterCopyClicks === 'number') {
-      state.masterCopy.realClicks = Math.max(state.masterCopy.realClicks, realHub.masterCopyClicks);
+      state.masterCopy.realClicks = Math.max(93545, state.masterCopy.realClicks, realHub.masterCopyClicks);
+    } else {
+      state.masterCopy.realClicks = Math.max(93545, state.masterCopy.realClicks);
     }
 
     state.initialized = true;
@@ -711,10 +713,11 @@ export function processCurrentTimeSlot(state: VirtualLayerState, nowMs: number =
   // Giveaways: ~7.75 mã/giờ cho mỗi giveaway active -> 0.1292 mã/phút
   const deltaClaims = Math.floor(elapsedMinutes * 0.1292);
 
-  // Master Copy: ~1 click sao chép/phút
-  const baseVirtualCopy = 930;
-  const deltaCopy = Math.floor(elapsedMinutes * 1.0);
-  state.masterCopy.virtualCopy = baseVirtualCopy + deltaCopy;
+  // Master Copy: Natural virtual copy progression (~0.5 copy/min) since baseline migration anchor (16:00 28/10/2026 GMT+7)
+  const MASTER_COPY_ANCHOR_MS = 1793181600000;
+  const elapsedSinceMigrationMs = Math.max(0, nowMs - MASTER_COPY_ANCHOR_MS);
+  const elapsedMigrationMinutes = elapsedSinceMigrationMs / 60000;
+  state.masterCopy.virtualCopy = Math.floor(elapsedMigrationMinutes * 0.5);
 
   // Cập nhật số liệu tích lũy cho Products / Utilities
   state.products.forEach((p, id) => {
@@ -870,7 +873,7 @@ export function processCurrentTimeSlot(state: VirtualLayerState, nowMs: number =
       state.pendingFlushEvents.push(depEv);
     } else {
       // 4% STATS_COPY
-      const totalCount = 1200 + state.masterCopy.realClicks + state.masterCopy.virtualCopy;
+      const totalCount = state.masterCopy.realClicks + state.masterCopy.virtualCopy;
       const statsEv: VirtualEventRow = {
         id: `sim_slot_${slot}_stats`,
         type: 'STATS_COPY',

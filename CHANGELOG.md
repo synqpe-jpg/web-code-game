@@ -7,6 +7,34 @@ Mỗi mục sửa lỗi đều ghi nhận **Nguyên nhân gốc rễ (Root Cause
 
 ## [2026-10-28]
 
+### 249. Chuẩn Hóa Bộ Đếm Sao Chép Thành Tổng Chung Toàn Web & Di Dời Mốc 93.545 (Unified Global Copy Counter & Baseline Migration)
+- **Bối cảnh & Yêu cầu từ Người dùng**:
+  - Trang web codegame.shop cần một con số duy nhất trên Header và Hero Banner: Tổng lượt sao chép toàn web (All-time global total).
+  - Không hiển thị số theo ngày, bỏ nhãn "Lượt sao chép hôm nay", chuyển thành "Tổng lượt sao chép".
+  - Mốc khởi điểm cố định là 93.545 (con số đang hiển thị), không lấy 5.240 làm tổng vì gây tụt số.
+  - Sửa lỗi nuốt lượt sao chép: khi khách bấm Sao chép, Math.max(5.240 + 1, 93.545) trước đây nuốt mất lượt tăng thật.
+  - Sửa lỗi thông báo COPY_CODE xuất hiện không tăng tổng số sao chép.
+  - Chống cộng trùng: Cặp "bấm sao chép + thông báo của chính lần bấm đó" chỉ tính là 1; thông báo ảo/người khác nổ tăng ngay +1; replayed notifId không cộng thêm; thông báo loại khác không cộng vào copy counter.
+  - Quy tắc 20 giây: chỉ giới hạn hiển thị thông báo, không chặn đếm (3 lần bấm trong 20s đếm đủ 3 lần).
+  - Đồng bộ hai nguồn /api/metrics/synced và /api/realtime-events về mốc 93.545, không lệch nhau hàng chục nghìn.
+- **Giải pháp Thành công (Solution Applied)**:
+  1. *Di dời mốc máy chủ và chuẩn hóa lưu trữ (Server-Side Baseline Migration)*:
+     - functions/services/realEventsHub.ts: Cung cấp GLOBAL_MASTER_COPY_BASELINE = 93545. Khởi tạo hub.masterCopyClicks và hub.peakCopyClicks bắt đầu từ 93.545. Loại bỏ việc reset về 0 lúc 0h hàng ngày (chuyển masterCopyClicks thành tổng tích lũy đơn điệu).
+     - functions/services/virtualLayerService.ts: Cố định state.masterCopy.realClicks >= 93545. Thiết lập mốc ảo MASTER_COPY_ANCHOR_MS = 1793181600000 (16:00 28/10/2026 GMT+7), loại bỏ baseVirtualCopy 930 cũ, giúp realtime-events trả về counters.master_copy khớp chuẩn xác với mốc 93.545 (+ tăng trưởng tự nhiên 0.5/phút).
+     - functions/api/sync.ts: Trong push_real_event, đảm bảo hub.masterCopyClicks >= 93545 và không bị xóa lúc 0h. Mỗi lần bấm thật tăng trực tiếp nguyên tử hub.masterCopyClicks += increment.
+     - src/shared/deterministicEngine.ts: calculateGlobalSnapshot neo trực tiếp master_copy.anchor_count = Math.max(93545, masterCopyClicks, peakCopy), loại bỏ đường cong nội suy giả lập ngày chồng lên 93.545.
+  2. *Bộ đếm tổng chung toàn web lạc quan ở Client (Client-Side Optimistic Global Counter)*:
+     - src/services/marketingService.ts: Xây dựng globalMasterCopyCount lưu trữ bền vững trong wcg_global_master_copy_count_v1 (migrated từ dailyMaxCopyCount). Bỏ cơ chế Math.max nuốt số cũ. Bấm Sao chép tăng ngay lập tức +1 trên giao diện (0s delay).
+     - Chống cộng trùng cặp tự bấm: recordRealCopy gán cờ isSelfClick = true, localOrigin = true và lưu lastSelfClickToastId, selfClickToastIds. Khi thông báo của chính mình nổ ra, MarketingNotificationToast.tsx nhận diện và không gọi incrementLiveCounter lần 2 (tổng tăng đúng 1).
+     - Thông báo ảo / người khác: MarketingNotificationToast.tsx gọi incrementLiveCounter(1, notif.id) tăng ngay 1 tại thời điểm nổ thông báo. Bộ nhớ processedCopyNotifIds bảo đảm mỗi notifId chỉ cộng 1 lần duy nhất.
+     - Đồng bộ đa tab: BroadcastChannel COPY_INCREMENT_BROADCAST lập tức cập nhật toàn bộ các tab đang mở.
+  3. *Giao diện chuẩn mực*:
+     - src/components/HeroBanner.tsx: Cập nhật nhãn thống kê từ "Lượt sao chép hôm nay" thành "Tổng lượt sao chép".
+- **Kiểm Thử & Xác Minh (Verification)**:
+  - Bộ kiểm thử tự động scripts/test_copy_counter_regression.cjs vượt qua 11/11 tiêu chí với kết quả 100% PASS.
+  - Zero test artifacts audit đạt 100% sạch.
+  - Vite build và Prerender 784 trang SEO thành công 100%. Cloudflare Pages Worker bundle compiled hoàn tất.
+
 ### 248. Nối Liền Kho Bài Viết /api/news Vào Kho Hiển Thị /api/sync & Tự Động Đồng Bộ Đa Kênh (Unified News Repositories & Realtime Sync Bridge)
 - **Bối cảnh & Yêu cầu từ Người dùng**:
   - Kho bài /api/news (dành cho bot crawler / API tự động) và kho đồng bộ /api/sync (phục vụ web khách và panel admin) bị phân tách.

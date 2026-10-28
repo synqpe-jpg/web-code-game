@@ -174,7 +174,7 @@ export const HeroBanner: React.FC<HeroBannerProps> = ({
                   {liveCopies.toLocaleString('vi-VN')}
                 </span>
               </div>
-              <span className="text-[11px] text-slate-300 font-medium">Lượt sao chép hôm nay</span>
+              <span className="text-[11px] text-slate-300 font-medium">Tổng lượt sao chép</span>
             </div>
 
             <div className="p-3 rounded-xl bg-card/70 border border-border text-center shadow-sm">

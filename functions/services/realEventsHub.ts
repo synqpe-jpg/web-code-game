@@ -8,6 +8,8 @@
 
 import { getSettingD1, setSettingD1 } from './d1_service';
 
+export const GLOBAL_MASTER_COPY_BASELINE = 93545;
+
 export interface RealEventHubData {
   date: string;
   masterCopyClicks: number;
@@ -29,13 +31,13 @@ const globalScope = globalThis as any;
 if (!globalScope.__wcg_hub) {
   globalScope.__wcg_hub = {
     date: '',
-    masterCopyClicks: 0,
+    masterCopyClicks: GLOBAL_MASTER_COPY_BASELINE,
     events: [],
     realProductSoldCounts: {},
     realGiveawayClaimedCounts: {},
     peakProductSoldCounts: {},
     peakGiveawayClaimedCounts: {},
-    peakCopyClicks: 0,
+    peakCopyClicks: GLOBAL_MASTER_COPY_BASELINE,
     lowestProductStock: {},
     lowestGiveawayRemaining: {},
     updatedAt: '',
@@ -136,13 +138,13 @@ export async function getRealEventsHub(env: any, force: boolean = false): Promis
   const vnToday = new Date(Date.now() + 7 * 3600 * 1000).toISOString().slice(0, 10);
   let hub: RealEventHubData = {
     date: vnToday,
-    masterCopyClicks: 0,
+    masterCopyClicks: GLOBAL_MASTER_COPY_BASELINE,
     events: [],
     realProductSoldCounts: {},
     realGiveawayClaimedCounts: {},
     peakProductSoldCounts: {},
     peakGiveawayClaimedCounts: {},
-    peakCopyClicks: 0,
+    peakCopyClicks: GLOBAL_MASTER_COPY_BASELINE,
     lowestProductStock: {},
     lowestGiveawayRemaining: {},
     updatedAt: new Date().toISOString(),
@@ -157,15 +159,19 @@ export async function getRealEventsHub(env: any, force: boolean = false): Promis
       if (d1Hub && typeof d1Hub === 'object') {
         hasD1Data = true;
         hub.date = d1Hub.date || hub.date;
-        if (d1Hub.date === vnToday && typeof d1Hub.masterCopyClicks === 'number') {
-          hub.masterCopyClicks = Math.max(hub.masterCopyClicks, d1Hub.masterCopyClicks);
+        if (typeof d1Hub.masterCopyClicks === 'number') {
+          hub.masterCopyClicks = Math.max(GLOBAL_MASTER_COPY_BASELINE, hub.masterCopyClicks, d1Hub.masterCopyClicks);
+        } else {
+          hub.masterCopyClicks = Math.max(GLOBAL_MASTER_COPY_BASELINE, hub.masterCopyClicks);
         }
         hub.realProductSoldCounts = mergeCountsMonotonic(hub.realProductSoldCounts, d1Hub.realProductSoldCounts);
         hub.realGiveawayClaimedCounts = mergeCountsMonotonic(hub.realGiveawayClaimedCounts, d1Hub.realGiveawayClaimedCounts);
         hub.peakProductSoldCounts = mergeCountsMonotonic(hub.peakProductSoldCounts || {}, d1Hub.peakProductSoldCounts);
         hub.peakGiveawayClaimedCounts = mergeCountsMonotonic(hub.peakGiveawayClaimedCounts || {}, d1Hub.peakGiveawayClaimedCounts);
         if (typeof d1Hub.peakCopyClicks === 'number') {
-          hub.peakCopyClicks = Math.max(hub.peakCopyClicks || 0, d1Hub.peakCopyClicks);
+          hub.peakCopyClicks = Math.max(GLOBAL_MASTER_COPY_BASELINE, hub.peakCopyClicks || 0, d1Hub.peakCopyClicks);
+        } else {
+          hub.peakCopyClicks = Math.max(GLOBAL_MASTER_COPY_BASELINE, hub.peakCopyClicks || 0);
         }
         hub.lowestProductStock = { ...(d1Hub.lowestProductStock || {}) };
         hub.lowestGiveawayRemaining = { ...(d1Hub.lowestGiveawayRemaining || {}) };
@@ -195,7 +201,7 @@ export async function getRealEventsHub(env: any, force: boolean = false): Promis
               }
             }
           }
-          if (cachedJson.date === vnToday && typeof cachedJson.masterCopyClicks === 'number') {
+          if (typeof cachedJson.masterCopyClicks === 'number') {
             hub.masterCopyClicks = Math.max(hub.masterCopyClicks, cachedJson.masterCopyClicks);
           }
           hub.realProductSoldCounts = mergeCountsMonotonic(hub.realProductSoldCounts, cachedJson.realProductSoldCounts);
@@ -246,7 +252,7 @@ export async function getRealEventsHub(env: any, force: boolean = false): Promis
   // 3. Merge with Edge Isolate In-Memory state (monotonic merge only)
   const memHub = globalScope.__wcg_hub;
   if (memHub) {
-    if (memHub.date === vnToday && typeof memHub.masterCopyClicks === 'number') {
+    if (typeof memHub.masterCopyClicks === 'number') {
       hub.masterCopyClicks = Math.max(hub.masterCopyClicks, memHub.masterCopyClicks);
     }
     if (Array.isArray(memHub.events)) {
@@ -334,8 +340,10 @@ export async function getRealEventsHub(env: any, force: boolean = false): Promis
 
   if (hub.date !== vnToday) {
     hub.date = vnToday;
-    hub.masterCopyClicks = 0;
+    // masterCopyClicks is all-time monotonic global copy total: do NOT reset!
   }
+  hub.masterCopyClicks = Math.max(GLOBAL_MASTER_COPY_BASELINE, hub.masterCopyClicks || 0);
+  hub.peakCopyClicks = Math.max(GLOBAL_MASTER_COPY_BASELINE, hub.peakCopyClicks || 0, hub.masterCopyClicks);
 
   // Refresh current isolate memory store with authoritative merged state
   globalScope.__wcg_hub = {
@@ -360,11 +368,13 @@ export async function saveRealEventsHub(env: any, hub: RealEventHubData, forceRe
   const vnToday = new Date(Date.now() + 7 * 3600 * 1000).toISOString().slice(0, 10);
   hub.date = vnToday;
   hub.updatedAt = new Date().toISOString();
+  hub.masterCopyClicks = Math.max(GLOBAL_MASTER_COPY_BASELINE, hub.masterCopyClicks || 0);
+  hub.peakCopyClicks = Math.max(GLOBAL_MASTER_COPY_BASELINE, hub.peakCopyClicks || 0, hub.masterCopyClicks);
 
   // Monotonic merge with memHub before saving (unless forceReset is requested)
   const memHub = globalScope.__wcg_hub;
   if (!forceReset && memHub) {
-    if (memHub.date === vnToday && typeof memHub.masterCopyClicks === 'number') {
+    if (typeof memHub.masterCopyClicks === 'number') {
       hub.masterCopyClicks = Math.max(hub.masterCopyClicks, memHub.masterCopyClicks);
     }
     hub.realProductSoldCounts = mergeCountsMonotonic(hub.realProductSoldCounts, memHub.realProductSoldCounts);

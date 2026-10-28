@@ -223,7 +223,16 @@ export const MarketingNotificationToast: React.FC<MarketingNotificationToastProp
       marketingService.notifySoldCountChanged(notif.giveawayId, marketingService.getClaimedDisplay({ id: notif.giveawayId }));
     }
     if (notif.type === 'COPY_CODE') {
-      marketingService.broadcastCurrentCount();
+      const isSelf = Boolean(
+        (notif as any).isSelfClick ||
+        (notif as any).localOrigin ||
+        (notif.id && marketingService.isSelfClickToast(notif.id))
+      );
+      if (!isSelf) {
+        marketingService.incrementLiveCounter(1, notif.id);
+      } else {
+        marketingService.broadcastCurrentCount();
+      }
     }
 
     const config = marketingService.getConfig();

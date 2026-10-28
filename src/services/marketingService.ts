@@ -236,6 +236,17 @@ class MarketingService {
   } = { sold: {}, claimed: {}, copy: 0, stock: {}, remaining: {} };
   private dailyMaxCopyCount: number = 0;
   private dailyMaxCopyDate: string = '';
+  private globalMasterCopyCount: number = 93545;
+  private processedCopyNotifIds: Set<string> = new Set();
+  private lastSelfClickToastId: string | null = null;
+  private selfClickToastIds: Set<string> = new Set();
+
+  public isSelfClickToast(notifId?: string): boolean {
+    if (!notifId) return false;
+    if (this.lastSelfClickToastId && this.lastSelfClickToastId === notifId) return true;
+    if (this.selfClickToastIds.has(notifId)) return true;
+    return false;
+  }
   private masterCopyAnchorTime: number = 0;
   private masterCopyAnchorCount: number = 0;
   private localSessionCopyClicks: number = 0;
@@ -315,7 +326,11 @@ class MarketingService {
           if (parsed.master_copy && typeof parsed.master_copy.anchor_count === 'number') {
             this.masterCopyAnchorCount = parsed.master_copy.anchor_count;
             this.masterCopyAnchorTime = parsed.master_copy.anchor_time || Date.now();
-            this.dailyMaxCopyCount = Math.max(this.dailyMaxCopyCount, parsed.master_copy.anchor_count);
+            if (parsed.master_copy.anchor_count > this.globalMasterCopyCount) {
+              this.globalMasterCopyCount = parsed.master_copy.anchor_count;
+              this.dailyMaxCopyCount = parsed.master_copy.anchor_count;
+              this.saveGlobalMasterCopyCount();
+            }
           }
           if (parsed.products && typeof parsed.products === 'object') {
             Object.entries(parsed.products).forEach(([pId, info]: [string, any]) => {
@@ -431,16 +446,21 @@ class MarketingService {
         if (snapToGrid) {
           // 1. Force Snap copy clicks and daily max copy count to authoritative server snapshot
           if (data.snapshot.master_copy && typeof data.snapshot.master_copy.anchor_count === 'number') {
-            this.masterCopyAnchorCount = data.snapshot.master_copy.anchor_count;
+            const anchorCount = data.snapshot.master_copy.anchor_count;
+            this.masterCopyAnchorCount = anchorCount;
             this.masterCopyAnchorTime = data.snapshot.master_copy.anchor_time || Date.now();
-            this.dailyMaxCopyCount = Math.max(this.dailyMaxCopyCount, data.snapshot.master_copy.anchor_count);
-            this.localSessionCopyClicks = 0; // reset local session clicks delta because server snapshot absorbed it
+            if (anchorCount > this.globalMasterCopyCount) {
+              this.globalMasterCopyCount = anchorCount;
+              this.dailyMaxCopyCount = anchorCount;
+              this.saveGlobalMasterCopyCount();
+              this.broadcastCurrentCount();
+            }
+            this.localSessionCopyClicks = 0;
             if (typeof data.snapshot.master_copy.real_clicks === 'number') {
               this.masterCopyClicks = data.snapshot.master_copy.real_clicks;
               this.realClicksOffset = this.masterCopyClicks;
               this.saveMasterCopyClicks();
             }
-            this.saveDailyMaxCopyCount();
           }
 
           // 2. Force Snap product sold counts & virtual stock
@@ -718,23 +738,34 @@ class MarketingService {
     try {
       const today = this.getTodayDateKey();
       this.dailyMaxCopyDate = today;
-      const saved = localStorage.getItem('wcg_marketing_daily_max_copy_v1');
-      if (saved) {
-        const parsed = JSON.parse(saved);
-        if (parsed && parsed.date === today && typeof parsed.count === 'number') {
-          this.dailyMaxCopyCount = Math.max(0, parsed.count);
+      let count = 0;
+      const savedGlobal = localStorage.getItem('wcg_global_master_copy_count_v1');
+      if (savedGlobal) {
+        const val = parseInt(savedGlobal, 10);
+        if (!isNaN(val)) count = val;
+      }
+      if (count < 93545) {
+        const savedDaily = localStorage.getItem('wcg_marketing_daily_max_copy_v1');
+        if (savedDaily) {
+          const parsed = JSON.parse(savedDaily);
+          if (parsed && typeof parsed.count === 'number') {
+            count = Math.max(count, parsed.count);
+          }
         }
       }
+      this.globalMasterCopyCount = Math.max(93545, count);
+      this.dailyMaxCopyCount = this.globalMasterCopyCount;
+      this.saveDailyMaxCopyCount();
     } catch {}
   }
 
   private saveDailyMaxCopyCount(): void {
     if (typeof window === 'undefined') return;
     try {
-      const today = this.dailyMaxCopyDate || this.getTodayDateKey();
+      localStorage.setItem('wcg_global_master_copy_count_v1', this.globalMasterCopyCount.toString());
       localStorage.setItem('wcg_marketing_daily_max_copy_v1', JSON.stringify({
-        date: today,
-        count: this.dailyMaxCopyCount,
+        date: this.dailyMaxCopyDate || this.getTodayDateKey(),
+        count: this.globalMasterCopyCount,
       }));
     } catch {}
   }
@@ -870,15 +901,12 @@ class MarketingService {
             }
           }
         } else if (type === 'COPY_INCREMENT_BROADCAST' && payload) {
-          const today = this.getTodayDateKey();
-          if (payload.date === today) {
-            const clicks = Number(payload.totalRealClicks) || 0;
-            if (clicks > this.masterCopyClicks) {
-              this.masterCopyClicks = clicks;
-              this.realClicksOffset = clicks;
-              this.saveMasterCopyClicks();
-              this.broadcastCurrentCount();
-            }
+          const total = Number(payload.totalCount) || Number(payload.totalRealClicks) || 0;
+          if (total > this.globalMasterCopyCount) {
+            this.globalMasterCopyCount = total;
+            this.dailyMaxCopyCount = total;
+            this.saveGlobalMasterCopyCount();
+            this.broadcastCurrentCount();
           }
         } else if (type === 'STATS_SYNC_BROADCAST' && payload) {
           if (payload.productId && typeof payload.totalSold === 'number') {
@@ -1746,69 +1774,16 @@ class MarketingService {
     return { remaining, claimed };
   }
 
-  // --- Deterministic Live Copy Counter (Reset về 0 lúc 0h hàng ngày) ---
+  // --- Unified Global Copy Counter (TỔNG CHUNG TOÀN WEB - Mốc khởi điểm 93.545, không reset 0h) ---
   public getLiveCopyCount(timestampMs: number = this.getCalibratedNow()): number {
-    const vnDate = new Date(timestampMs + 7 * 3600 * 1000);
-    const dateKey = vnDate.toISOString().slice(0, 10);
-
-    // Reset daily max copy count at midnight
-    if (this.dailyMaxCopyDate && this.dailyMaxCopyDate !== dateKey) {
-      this.dailyMaxCopyCount = 0;
-      this.masterCopyAnchorCount = 0;
-      this.masterCopyAnchorTime = 0;
-      this.localSessionCopyClicks = 0;
-      this.dailyMaxCopyDate = dateKey;
-      this.saveDailyMaxCopyCount();
-    } else if (!this.dailyMaxCopyDate) {
-      this.dailyMaxCopyDate = dateKey;
-    }
-
-    // Check if day has rolled over for real copy clicks
-    if (this.currentClickDate && this.currentClickDate !== dateKey) {
-      this.masterCopyClicks = 0;
-      this.currentClickDate = dateKey;
-      this.saveMasterCopyClicks();
-    }
-
-    // Authoritative Server Master Copy Counter (Two-Layer SSOT)
-    if (this.serverMasterCopy && this.serverMasterCopy.count > 0) {
-      const serverVal = this.serverMasterCopy.count + this.localSessionCopyClicks;
-      if (serverVal > this.dailyMaxCopyCount) {
-        this.dailyMaxCopyCount = serverVal;
-        this.saveDailyMaxCopyCount();
-      }
-      return Math.max(serverVal, this.dailyMaxCopyCount);
-    }
-
-    let calculated = 0;
-    if (this.masterCopyAnchorCount > 0 && this.masterCopyAnchorTime > 0) {
-      // Progression relative to authoritative server snapshot anchor
-      const growthSinceAnchor = Math.max(
-        0,
-        calculateDeterministicCopyCount(timestampMs, 0) -
-        calculateDeterministicCopyCount(this.masterCopyAnchorTime, 0)
-      );
-      calculated = this.masterCopyAnchorCount + growthSinceAnchor + this.localSessionCopyClicks;
-    } else {
-      // Fallback before first snapshot is retrieved
-      calculated = calculateDeterministicCopyCount(timestampMs, this.masterCopyClicks) + this.localSessionCopyClicks;
-    }
-
-    if (calculated > this.dailyMaxCopyCount) {
-      this.dailyMaxCopyCount = calculated;
-      this.saveDailyMaxCopyCount();
-    }
-    // RÀNG BUỘC ĐƠN ĐIỆU TUYỆT ĐỐI (Monotonically Non-Decreasing):
-    // Trong cùng một ngày, bộ đếm hiển thị chỉ được phép tăng hoặc giữ nguyên,
-    // tuyệt đối không bao giờ tụt lùi dù client có bị trễ mạng hay lệch xung nhịp.
-    return Math.max(calculated, this.dailyMaxCopyCount);
+    return Math.max(93545, this.globalMasterCopyCount);
   }
 
   public getLiveCounter(): number {
     return this.getLiveCopyCount();
   }
 
-  private broadcastCurrentCount(): void {
+  public broadcastCurrentCount(): void {
     const current = this.getLiveCopyCount();
     this.lastBroadcastCount = current;
     this.counterListeners.forEach((cb) => {
@@ -1819,25 +1794,14 @@ class MarketingService {
   public incrementLiveCounter(amount: number = 1, notifId?: string): void {
     if (notifId) {
       const copyKey = `copy_${notifId}`;
-      if (this.processedStockNotifIds.has(copyKey)) return;
-      this.processedStockNotifIds.add(copyKey);
-      if (this.serverMasterCopy && this.serverMasterCopy.count > 0) {
-        // Authoritative server master copy already incorporates this event
-        return;
-      }
-    }
-    const today = this.getTodayDateKey();
-    if (this.currentClickDate && this.currentClickDate !== today) {
-      this.masterCopyClicks = 0;
-      this.currentClickDate = today;
+      if (this.processedCopyNotifIds.has(copyKey)) return;
+      this.processedCopyNotifIds.add(copyKey);
     }
     const inc = Math.max(1, amount);
-    this.localSessionCopyClicks += inc;
-    this.masterCopyClicks += inc;
-    this.realClicksOffset = this.masterCopyClicks;
-    this.saveMasterCopyClicks();
+    this.globalMasterCopyCount += inc;
+    this.dailyMaxCopyCount = this.globalMasterCopyCount;
+    this.saveGlobalMasterCopyCount();
     this.broadcastCurrentCount();
-    this.schedulePeakReport();
   }
 
   public subscribeCounter(callback: (count: number) => void): () => void {
@@ -3523,8 +3487,11 @@ class MarketingService {
           real: Number(mc.real) || 0,
           virtual: Number(mc.virtual) || 0,
         };
-        if (this.serverMasterCopy.count > this.dailyMaxCopyCount) {
-          this.dailyMaxCopyCount = this.serverMasterCopy.count;
+        const serverCount = Number(mc.count) || 0;
+        if (serverCount > this.globalMasterCopyCount) {
+          this.globalMasterCopyCount = serverCount;
+          this.dailyMaxCopyCount = serverCount;
+          this.saveGlobalMasterCopyCount();
           this.broadcastCurrentCount();
         }
       }
@@ -3780,6 +3747,9 @@ class MarketingService {
         scheduledFireTime: now,
       };
       (event as any).localOrigin = true;
+      (event as any).isSelfClick = true;
+      this.lastSelfClickToastId = event.id;
+      this.selfClickToastIds.add(event.id);
 
       // Nổ luôn lập tức trên màn hình người bấm (0s delay!)
       this.pushRealEvent(event, true, true);
@@ -3789,7 +3759,7 @@ class MarketingService {
       try {
         this.broadcastChannel.postMessage({
           type: 'COPY_INCREMENT_BROADCAST',
-          payload: { date: this.getTodayDateKey(), totalRealClicks: this.masterCopyClicks },
+          payload: { totalCount: this.globalMasterCopyCount, date: this.getTodayDateKey() },
         });
       } catch {}
     }

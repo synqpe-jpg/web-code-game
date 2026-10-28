@@ -343,9 +343,10 @@ export function calculateGlobalSnapshot(
   },
   timestampMs: number = Date.now()
 ): GlobalMetricsSnapshot {
-  const realCopyClicks = Math.max(0, Number(data.masterCopyClicks) || 0);
-  const calculatedCopy = calculateDeterministicCopyCount(timestampMs, realCopyClicks);
-  const liveCopyCount = Math.max(calculatedCopy, Number(data.peakCopyClicks) || 0);
+  // Master Copy: Direct authoritative total anchored to 93545 (no extra diurnal curve on top of final total)
+  const realCopyClicks = Math.max(93545, Number(data.masterCopyClicks) || 0);
+  const peakCopy = Math.max(93545, Number(data.peakCopyClicks) || 0);
+  const liveCopyCount = Math.max(realCopyClicks, peakCopy);
 
   const productSnapshots: Record<string, {
     stock: number;

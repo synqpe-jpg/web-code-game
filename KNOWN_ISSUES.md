@@ -10,6 +10,26 @@
 
 ## 1. DANH MỤC LỖI & CÁC BẪY ĐÃ THẤT BẠI (DO NOT REPEAT)
 
+### ISSUE-168: Bẫy Nuốt Lượt Sao Chép Do Lệch Mốc Server/Client & Cộng Trùng Thông Báo (Copy Counter Split Baseline & Duplicate Increment Pitfall)
+- **Triệu chứng**:
+  - Khi khách bấm Sao chép ở bất kỳ giftcode nào, số lượt sao chép trên Header và Hero Banner không tăng, đứng yên ở 93.545.
+  - Khi thông báo COPY_CODE xuất hiện ở góc trái, bộ đếm không nhảy số.
+  - Endpoint /api/metrics/synced trả về mốc cao (92.595 nội suy thành 93.545), trong khi /api/realtime-events trả về mốc thấp 5.240, gây lệch nhau hơn 88.000.
+- **Nguyên nhân gốc rễ & Các bẫy cần tránh**:
+  1. *Bẫy nuốt số bằng Math.max giữa mốc thấp và mốc cao*: Phép tính `Math.max(serverVal, dailyMaxCopyCount)` với `serverVal = 5.240 + 1 = 5.241` và `dailyMaxCopyCount = 93.545` luôn trả về 93.545, khiến mọi lượt bấm thật của người dùng bị triệt tiêu hoàn toàn.
+  2. *Bẫy không tăng số khi nổ thông báo*: MarketingNotificationToast.tsx chỉ gọi `broadcastCurrentCount()` (chỉ đọc lại số cũ) thay vì gọi `incrementLiveCounter(1, notif.id)`. Đồng thời hàm tăng cũ có chốt chặn tự thoát nếu có `notifId` và `serverMasterCopy.count > 0`.
+  3. *Bẫy cộng trùng giữa lượt bấm và thông báo của chính mình*: Khi người dùng bấm Sao chép, hệ thống tự động sinh 1 thông báo sao chép của chính người đó. Nếu không có cơ chế gắn cờ nội bộ (`isSelfClick`, `lastSelfClickToastId`), cặp này sẽ bị tính thành 2 lần tăng (+1 lúc bấm và +1 lúc thông báo nổ).
+  4. *Bẫy reset bộ đếm về 0 lúc 0h*: Thiết kế cũ coi lượt sao chép là theo ngày nên đặt `masterCopyClicks = 0` khi sang ngày mới. Với yêu cầu Tổng lượt sao chép toàn web (All-time global total), bộ đếm phải là đơn điệu không giảm.
+- **Giải pháp chuẩn đã kiểm chứng**:
+  1. Di dời mốc toàn diện lên `93.545` tại realEventsHub.ts, virtualLayerService.ts, và deterministicEngine.ts.
+  2. Chuyển đổi sang `globalMasterCopyCount` đơn điệu không giảm, cộng lạc quan ngay lập tức khi bấm và khi thông báo nổ.
+  3. Gắn cờ `isSelfClick = true` và ghi nhận `selfClickToastIds` cho thông báo phát sinh từ thao tác người dùng, giúp Toast nhận diện và chỉ broadcast mà không cộng thêm lần 2.
+  4. Thông báo ảo / sự kiện từ người khác gọi `incrementLiveCounter(1, notif.id)` kèm kiểm tra `processedCopyNotifIds` chống cộng trùng.
+- 🚫 **CÁCH SỬA ĐÃ THẤT BẠI - TUYỆT ĐỐI KHÔNG LẶP LẠI**:
+  - ❌ *Tuyệt đối KHÔNG dùng Math.max giữa mốc server thấp và mốc hiển thị cao*: Phải đưa server lên cùng mốc với hiển thị.
+  - ❌ *Tuyệt đối KHÔNG cộng thêm nội suy ngày chồng lên 93.545*: 93.545 đã là mốc cuối cùng.
+  - ❌ *Tuyệt đối KHÔNG thêm nhãn hay đổi giao diện thông báo để phân biệt tự bấm*: Bắt buộc phân biệt bằng cờ nội bộ ngầm trong bộ nhớ.
+
 ### ISSUE-167: Bẫy Phân Tách Kho Bài Viết API Bot & Kho Hiển Thị Client (News API Repository Disconnect & Realtime Sync Bridge)
 - **Triệu chứng**:
   - Bài viết đăng qua bot / API ngoài (POST /api/news) thành công và xuất hiện trong /api/news (174 bài), nhưng trên web khách (/news) và panel admin chỉ hiển thị 163 bài.

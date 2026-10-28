@@ -1261,15 +1261,17 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
         const vnToday = new Date(Date.now() + 7 * 3600 * 1000).toISOString().slice(0, 10);
         if (hub.date !== vnToday) {
           hub.date = vnToday;
-          hub.masterCopyClicks = 0;
+          // masterCopyClicks is all-time monotonic global copy total: do NOT reset!
         }
-        if (typeof hub.masterCopyClicks !== 'number') hub.masterCopyClicks = 0;
+        if (typeof hub.masterCopyClicks !== 'number' || hub.masterCopyClicks < 93545) hub.masterCopyClicks = 93545;
+        if (typeof hub.peakCopyClicks !== 'number' || hub.peakCopyClicks < 93545) hub.peakCopyClicks = 93545;
         if (!hub.realProductSoldCounts || typeof hub.realProductSoldCounts !== 'object') hub.realProductSoldCounts = {};
         if (!hub.realGiveawayClaimedCounts || typeof hub.realGiveawayClaimedCounts !== 'object') hub.realGiveawayClaimedCounts = {};
 
         const increment = Math.max(0, Math.min(10, Number(body.copyIncrement) || 0));
         if (increment > 0) {
           hub.masterCopyClicks += increment;
+          hub.peakCopyClicks = Math.max(hub.peakCopyClicks, hub.masterCopyClicks);
         }
 
         // Anti-spoofing validation on incoming event
@@ -1508,7 +1510,8 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
         );
       }
 
-      if (vKey === 'wcg_crawler_api_config_v1' ||
+      if (vKey === 'wcg_real_events_hub' ||
+        vKey === 'wcg_crawler_api_config_v1' ||
         vKey === 'wcg_marketing_config_v1' ||
         vKey === 'wcg_marketing_auditor_api_config_v1' ||
         vKey === 'wcg_crawler_sources_v1' ||
