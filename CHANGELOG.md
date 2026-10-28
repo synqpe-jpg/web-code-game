@@ -7,6 +7,51 @@ Mỗi mục sửa lỗi đều ghi nhận **Nguyên nhân gốc rễ (Root Cause
 
 ## [2026-10-28]
 
+### 250. Nối Liền Đồng Bộ Ảnh Bìa Tin Tức & Chống Ghi Đè Khóa Bot NEWS_FULL (News Cover Auto-Sync Bridge & Downgrade Prevention)
+- **Bối cảnh & Yêu cầu từ Người dùng**:
+  - Web có hai kho tin tức: Kho API (`/api/news`) nơi bot ghi bài bằng khóa `NEWS_FULL` (POST/PUT), và kho đồng bộ (`/api/sync`, trường `newsArticles`) nơi trang `/news` và Admin Panel đọc dữ liệu. Bot không có và không được cấp khóa đồng bộ tối cao `ADMIN_SYNC_SECRET`, và bot cũng không gọi `/api/sync`.
+  - Kiểm chứng lúc 19:35–19:40 ngày 28/10/2026: Bot sửa ảnh bìa thành công qua `PUT /api/news/:id` (máy chủ trả 200), nhưng ngoài trang công khai ảnh vẫn là ảnh cũ:
+    - Bài VAMPIR: kho API là ảnh chính thức `https://sgimage.netmarble.com/images/netmarble/thered/20260812/sosz1786525938635.jpg`, nhưng kho đồng bộ vẫn là `/og-image.jpg`, thẻ ngoài trang `/news` vẽ ảnh mặc định chung (`thi-truong-game-viet-nam.webp`).
+    - Bài No Man's Sky: kho API là ảnh chính thức `https://www.nomanssky.com/media/rzyfmyzl/nms-key-art-2026.jpg`, nhưng kho đồng bộ vẫn là `/og-image.jpg`, thẻ ngoài trang vẽ ảnh mặc định chung.
+    - Bài Tiên Giới: giữ nguyên ảnh `/game_icons/tien-gioi.webp`.
+  - Yêu cầu:
+    1. Máy chủ tự động đồng bộ sang kho đồng bộ (newsArticles) khi ghi qua `/api/news` (POST/PUT/DELETE) bằng quyền máy chủ, bot chỉ dùng khóa `NEWS_FULL`.
+    2. PUT cập nhật bản ghi đã có, khớp theo id (fallback slug), đè các trường thay đổi (nhất là `cover_url`), không tạo bản ghi mới trùng lặp.
+    3. Ảnh mới sang kho đồng bộ ngay lập tức (0 trễ), không bắt bấm nút thủ công, không chờ cron.
+    4. Backfill: Cập nhật `cover_url` chính thức cho VAMPIR và No Man's Sky; đưa 9 bài viết bot mới trong API sang kho đồng bộ và `seedNews.ts` không trùng slug.
+    5. Trang công khai `/news` vẽ được ảnh mới cho cả khách mới và khách cũ (loại bỏ cache cũ).
+    6. An toàn dữ liệu, không ảnh hưởng các module khác.
+- **Nguyên nhân gốc rễ (Root Cause)**:
+  1. *Hàm `resolveArticleCover` chặn toàn bộ link ảnh ngoài*: Trong `src/utils/newsImageUtils.tsx`, điều kiện `!raw.startsWith('http')` vô tình loại bỏ tất cả các URL ảnh ngoài (`http://`, `https://`), khiến các ảnh bìa chính thức từ Netmarble và Hello Games bị từ chối và rơi vào fallback `/news_covers/thi-truong-game-viet-nam.webp` ("ảnh mặc định chung"). Đồng thời phân tích từ khóa chủ đề (topicCover) nằm trước kiểm tra `cover_url` thật.
+  2. *Bẫy ghi đè dữ liệu cũ từ Admin `POST /api/sync`*: Khi trình duyệt Admin hoặc tiến trình đồng bộ gọi `POST /api/sync`, nếu payload client mang danh sách bài viết cũ có `cover_url: "/og-image.jpg"`, máy chủ trước đây ghi đè trực tiếp mảng này vào `wcg_news_articles_v1`, xóa mất cập nhật `cover_url` chính thức mà bot vừa PUT.
+  3. *In-Memory Cache TTL 60s*: Worker cache `settingMemoryCache` giữ giá trị RAM 60s và không kiểm tra tham số `fresh=1`, dẫn đến các worker isolate khác nhau phục vụ dữ liệu lệch nhau.
+  4. *File tĩnh `seedNews.ts`*: Chứa giá trị `/og-image.jpg` cho bài VAMPIR và No Man's Sky, khiến client khởi tạo lần đầu và quá trình prerender HTML giữ ảnh mặc định cũ.
+- **Giải pháp Thành công (Solution Applied)**:
+  1. *Sửa triệt để hàm hiển thị ảnh bìa `resolveArticleCover` (`src/utils/newsImageUtils.tsx`)*:
+     - Cho phép trả về mọi `cover_url` hợp lệ (kể cả link CDN/ngoài `https://` và icon nội bộ, miễn là không nằm trong danh sách đen 403 hotlink và không phải `/og-image.jpg`).
+     - Đặt ưu tiên ảnh bìa thật của bài viết lên trước việc phân tích từ khóa chủ đề generic.
+  2. *Cơ chế Chống Hạ Cấp Dữ Liệu Phía Server (`functions/api/sync.ts`)*:
+     - Khi nhận `body.newsArticles` qua `POST /api/sync`, máy chủ thực hiện Intelligent Field-Level Merge: Nếu bản ghi trên máy chủ D1 đã có `cover_url` chính thức (không phải `/og-image.jpg`) trong khi client gửi lên `/og-image.jpg` hoặc rỗng, máy chủ bắt buộc BẢO LƯU ảnh bìa chính thức của máy chủ!
+     - Nếu bản ghi server có `updated_at` mới hơn bản ghi client gửi lên, giữ nguyên các trường mới nhất của server.
+     - Bảo toàn toàn bộ bài viết độc nhất của bot (`unapprovedMissing`).
+  3. *Tối ưu hóa Bỏ Qua Bộ Nhớ Đệm RAM (`functions/services/d1_service.ts` & `functions/api/sync.ts`)*:
+     - Bổ sung tham số `bypassCache` cho `getSettingD1` và `getMultipleSettingsD1`.
+     - Với key `wcg_news_articles_v1` hoặc khi có cờ `fresh=1` / `_t`, luôn đọc trực tiếp dữ liệu mới nhất từ D1, đảm bảo phản ánh tức thì trong 0 giây.
+  4. *Nâng cấp PUT Handler (`functions/api/news/[id].ts`)*:
+     - Tự động giải mã `decodeURIComponent`, tìm kiếm bài viết theo `id` (case-insensitive) hoặc `slug`, fallback theo `body.id` / `body.slug`, và fallback vào `fallbackNewsArticles`.
+     - Nhận diện linh hoạt `cover_url`, `coverUrl`, `cover`.
+     - Cập nhật đồng bộ cả `wcg_news_articles_v1` và `wcg_master_state_v4.newsArticles`, xóa ngay RAM cache.
+  5. *Nâng cấp Khởi Tạo Phía Client (`src/services/newsService.ts`)*:
+     - Khi `loadFromStorage()` chạy, tự động rà soát nếu localStorage cũ đang lưu bài viết với `/og-image.jpg` nhưng seed đã có link chính thức, nâng cấp ngay lập tức sang link chính thức.
+  6. *Backfill Dữ Liệu*:
+     - Cập nhật link chính thức cho VAMPIR và No Man's Sky trong `src/data/seedNews.ts` và Cloudflare D1 production.
+     - Đưa 9 bài viết bot cào mới vào `seedNews.ts` (tổng 176 bài, 100% unique slugs).
+- **Kiểm Thử & Xác Minh (Verification)**:
+  - `scripts/test_news_cover_sync.cjs`: Đạt 100% PASS cho cả 3 bài viết kiểm chứng: VAMPIR (ảnh chính thức Netmarble), No Man's Sky (ảnh chính thức Hello Games), Tiên Giới (`/game_icons/tien-gioi.webp`).
+  - Kiểm thử cơ chế chống ghi đè: Payload gửi `/og-image.jpg` không thể làm suy giảm ảnh chính thức trên server.
+  - Audit Zero Test Artifacts (`scripts/audit_zero_test_artifacts.cjs`): 100% SẠCH.
+  - Vite Frontend Build & Prerender 793 liên kết SEO: Thành công 100%.
+
 ### 249. Chuẩn Hóa Bộ Đếm Sao Chép Thành Tổng Chung Toàn Web & Di Dời Mốc 93.545 (Unified Global Copy Counter & Baseline Migration)
 - **Bối cảnh & Yêu cầu từ Người dùng**:
   - Trang web codegame.shop cần một con số duy nhất trên Header và Hero Banner: Tổng lượt sao chép toàn web (All-time global total).

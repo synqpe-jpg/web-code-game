@@ -93,20 +93,20 @@ export const resolveArticleCover = (article: NewsArticle): string => {
     raw.includes('st.download')
   );
 
-  // 3. Phân tích chủ đề theo từ khóa bài viết
-  const topicCover = resolveTopicCoverByKeywords(article.title, article.slug, article.game_name);
-  if (topicCover) {
-    return topicCover;
-  }
-
-  // 4. Nếu là ảnh nội bộ hợp lệ không phải og-image
-  if (!isBlockedExternal && raw && raw !== '/og-image.jpg' && !raw.startsWith('http')) {
+  // 3. Nếu bài viết có ảnh bìa hợp lệ (bao gồm link CDN/chính thức và icon nội bộ, không bị chặn 403, không phải /og-image.jpg)
+  if (!isBlockedExternal && raw && raw !== '/og-image.jpg') {
     return raw;
   }
 
-  // 5. Nếu là tựa game cụ thể có slug chuẩn (độ dài hợp lý, không phải slug tiêu đề bài viết dài)
+  // 4. Nếu là tựa game cụ thể có slug chuẩn -> Sử dụng icon game
   if (article.game_slug && article.game_slug.length < 32 && !article.game_slug.includes('sinh-vien') && !article.game_slug.includes('chuan-bi') && !article.game_slug.includes('suc-hut')) {
     return `/game_icons/${article.game_slug}.webp`;
+  }
+
+  // 5. Phân tích chủ đề theo từ khóa bài viết khi chưa có ảnh chuẩn
+  const topicCover = resolveTopicCoverByKeywords(article.title, article.slug, article.game_name);
+  if (topicCover) {
+    return topicCover;
   }
 
   // 6. Thư viện ảnh nếu có

@@ -1951,10 +1951,17 @@ export async function withD1Timeout<T>(
 /**
  * Read system setting / document from D1 with durable authoritative fallback and memory cache
  */
-export async function getSettingD1<T = any>(db: D1Database, key: string, defaultValue: T | null = null): Promise<T | null> {
-  const mem = settingMemoryCache.get(key);
-  if (mem && Date.now() - mem.cachedAt < SETTING_MEMORY_CACHE_TTL) {
-    return mem.val as T;
+export async function getSettingD1<T = any>(
+  db: D1Database,
+  key: string,
+  defaultValue: T | null = null,
+  bypassCache: boolean = false
+): Promise<T | null> {
+  if (!bypassCache) {
+    const mem = settingMemoryCache.get(key);
+    if (mem && Date.now() - mem.cachedAt < SETTING_MEMORY_CACHE_TTL) {
+      return mem.val as T;
+    }
   }
 
   const fallback = getCanonicalSettingFallback<T>(key);
@@ -2011,7 +2018,11 @@ export async function setSettingD1(db: D1Database, key: string, value: any): Pro
 /**
  * Read multiple system settings from D1 in one go with durable authoritative fallback and memory cache
  */
-export async function getMultipleSettingsD1(db: D1Database, keys: string[]): Promise<Record<string, any>> {
+export async function getMultipleSettingsD1(
+  db: D1Database,
+  keys: string[],
+  bypassCacheKeys: Set<string> = new Set()
+): Promise<Record<string, any>> {
   const result: Record<string, any> = {};
   if (!keys || keys.length === 0) return result;
 
@@ -2019,8 +2030,9 @@ export async function getMultipleSettingsD1(db: D1Database, keys: string[]): Pro
   const now = Date.now();
 
   for (const k of keys) {
+    const shouldBypass = bypassCacheKeys.has(k);
     const mem = settingMemoryCache.get(k);
-    if (mem && now - mem.cachedAt < SETTING_MEMORY_CACHE_TTL) {
+    if (!shouldBypass && mem && now - mem.cachedAt < SETTING_MEMORY_CACHE_TTL) {
       result[k] = mem.val;
     } else {
       missingKeys.push(k);

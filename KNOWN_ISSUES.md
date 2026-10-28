@@ -10,6 +10,25 @@
 
 ## 1. DANH MỤC LỖI & CÁC BẪY ĐÃ THẤT BẠI (DO NOT REPEAT)
 
+### ISSUE-169: Bẫy Chặn URL Ảnh Ngoài Trong resolveArticleCover & Client Sync Đè Mất Bản Ghi Bot (News Cover Resolution Blocking & Sync Overwrite Pitfall)
+- **Triệu chứng**:
+  - Bot gọi `PUT /api/news/:id` cập nhật `cover_url` thành link chính thức ngoài (`https://sgimage.netmarble.com/...`, `https://www.nomanssky.com/...`) trả về 200 OK.
+  - Tuy nhiên ngoài trang công khai `/news` và modal tin tức, thẻ bài viết vẫn vẽ ảnh mặc định chung (`thi-truong-game-viet-nam.webp`).
+  - Khi Admin mở web hoặc lưu cấu hình, payload client mang bài viết cũ với `cover_url: "/og-image.jpg"` gửi lên `POST /api/sync`, xóa sạch ảnh bìa chính thức mà bot vừa cập nhật trên D1.
+- **Nguyên nhân gốc rễ & Các bẫy cần tránh**:
+  1. *Bẫy chặn chuỗi http/https trong hàm hiển thị*: Trong `src/utils/newsImageUtils.tsx`, điều kiện `if (!isBlockedExternal && raw && raw !== '/og-image.jpg' && !raw.startsWith('http'))` sử dụng toán tử phủ định `!raw.startsWith('http')`, dẫn đến việc từ chối 100% tất cả các link ảnh ngoài hợp lệ (Netmarble, Hello Games, CDN), ép rơi xuống ảnh fallback generic.
+  2. *Bẫy ưu tiên từ khóa chủ đề (topicCover) trước ảnh bìa thật*: Khi bài viết có từ khóa "quà tặng", "thị trường", "esports", hàm topicCover tự động chặn trước và gán ảnh chuyên đề mặc định, bỏ qua ảnh bìa tùy biến của bài viết.
+  3. *Bẫy ghi đè mảng articles thô trong `POST /api/sync`*: Phía server nhận `body.newsArticles` từ client cũ và gán thẳng `currentMaster.newsArticles = incomingNews`, ghi đè D1 mà không so sánh từng trường.
+  4. *Bẫy in-memory cache RAM 60s*: Worker cache `settingMemoryCache` không cho phép bypass khi có tham số `fresh=1`.
+- **Giải pháp chuẩn đã kiểm chứng**:
+  1. Cho phép `resolveArticleCover` trả về mọi `cover_url` hợp lệ (kể cả http/https) không nằm trong danh sách đen 403 hotlink và không phải `/og-image.jpg`.
+  2. Đặt kiểm tra `cover_url` thật lên trước việc phân tích từ khóa chủ đề generic.
+  3. Xây dựng Intelligent Field-Level Merge trong `POST /api/sync`: Nếu bản ghi server có ảnh chính thức trong khi client gửi `/og-image.jpg` hoặc rỗng, bảo lưu 100% ảnh bìa của server.
+  4. Hỗ trợ `bypassCache` trong `getSettingD1` và `getMultipleSettingsD1` khi truy vấn `wcg_news_articles_v1` hoặc cờ `fresh=1`.
+- 🚫 **CÁCH SỬA ĐÃ THẤT BẠI - TUYỆT ĐỐI KHÔNG LẶP LẠI**:
+  - ❌ *Tuyệt đối KHÔNG chặn !raw.startsWith('http') trong resolveArticleCover*: Ảnh ngoài hợp lệ (không 403) phải được phép hiển thị.
+  - ❌ *Tuyệt đối KHÔNG ghi đè thô incomingNews trong POST /api/sync*: Luôn thực hiện merge cấp trường để bảo vệ dữ liệu bot.
+
 ### ISSUE-168: Bẫy Nuốt Lượt Sao Chép Do Lệch Mốc Server/Client & Cộng Trùng Thông Báo (Copy Counter Split Baseline & Duplicate Increment Pitfall)
 - **Triệu chứng**:
   - Khi khách bấm Sao chép ở bất kỳ giftcode nào, số lượt sao chép trên Header và Hero Banner không tăng, đứng yên ở 93.545.

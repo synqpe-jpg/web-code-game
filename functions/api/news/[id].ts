@@ -155,7 +155,11 @@ export const onRequestPut: PagesFunction<Env> = async (context) => {
     );
   }
 
-  const targetId = String(params.id || '').trim().toLowerCase();
+  const rawTarget = String(params.id || '').trim();
+  let targetId = rawTarget.toLowerCase();
+  try {
+    targetId = decodeURIComponent(targetId);
+  } catch {}
 
   let body: any;
   try {
@@ -169,9 +173,29 @@ export const onRequestPut: PagesFunction<Env> = async (context) => {
 
   const { articles } = await loadArticlesAndTombstones(env);
 
-  const targetIndex = articles.findIndex(
+  let targetIndex = articles.findIndex(
     (a) => a.id?.toLowerCase() === targetId || a.slug?.toLowerCase() === targetId
   );
+
+  if (targetIndex < 0 && body.id) {
+    const bId = String(body.id).toLowerCase().trim();
+    targetIndex = articles.findIndex((a) => a.id?.toLowerCase() === bId);
+  }
+  if (targetIndex < 0 && body.slug) {
+    const bSlug = String(body.slug).toLowerCase().trim();
+    targetIndex = articles.findIndex((a) => a.slug?.toLowerCase() === bSlug);
+  }
+
+  // If still not found in dynamic storage, check fallback seeds
+  if (targetIndex < 0) {
+    const fallbackIndex = fallbackNewsArticles.findIndex(
+      (a) => a.id?.toLowerCase() === targetId || a.slug?.toLowerCase() === targetId
+    );
+    if (fallbackIndex >= 0) {
+      articles.push({ ...fallbackNewsArticles[fallbackIndex] });
+      targetIndex = articles.length - 1;
+    }
+  }
 
   if (targetIndex < 0) {
     return new Response(
@@ -189,14 +213,24 @@ export const onRequestPut: PagesFunction<Env> = async (context) => {
     ? (body.scheduled_publish_at !== undefined ? body.scheduled_publish_at : existing.scheduled_publish_at)
     : undefined;
 
+  let newCoverUrl = existing.cover_url;
+  if (typeof body.cover_url === 'string' && body.cover_url.trim()) {
+    newCoverUrl = body.cover_url.trim();
+  } else if (typeof body.coverUrl === 'string' && body.coverUrl.trim()) {
+    newCoverUrl = body.coverUrl.trim();
+  } else if (typeof body.cover === 'string' && body.cover.trim()) {
+    newCoverUrl = body.cover.trim();
+  }
+
   const updatedArticle = {
     ...existing,
     ...body,
     id: existing.id,
     slug: newSlug,
-    title: body.title !== undefined ? body.title.trim() : existing.title,
+    title: body.title !== undefined ? String(body.title).trim() : existing.title,
     content: body.content !== undefined ? body.content : existing.content,
     excerpt: body.excerpt !== undefined ? body.excerpt : existing.excerpt,
+    cover_url: newCoverUrl,
     status: newStatus,
     scheduled_publish_at: scheduledPublishAt,
     published_at: body.published_at || existing.published_at || now,

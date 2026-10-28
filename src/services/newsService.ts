@@ -122,7 +122,26 @@ class NewsService {
       );
       this.saveToStorage();
     } else {
-      // Hợp nhất an toàn các bài viết mẫu mới nếu chưa có trong bộ nhớ và chưa bị xóa bởi Admin
+      // 1. Cập nhật ngay ảnh bìa chính thức nếu cache trình duyệt cũ đang giữ /og-image.jpg
+      const seedCoverMap = new Map<string, string>();
+      DEFAULT_NEWS_ARTICLES.forEach((s) => {
+        if (s.cover_url && s.cover_url !== '/og-image.jpg') {
+          if (s.id) seedCoverMap.set(s.id, s.cover_url);
+          if (s.slug) seedCoverMap.set(s.slug, s.cover_url);
+        }
+      });
+
+      let updatedStaleCover = false;
+      this.articles = this.articles.map((a) => {
+        const officialCover = seedCoverMap.get(a.id) || (a.slug ? seedCoverMap.get(a.slug) : null);
+        if (officialCover && (!a.cover_url || a.cover_url === '/og-image.jpg')) {
+          updatedStaleCover = true;
+          return { ...a, cover_url: officialCover };
+        }
+        return a;
+      });
+
+      // 2. Hợp nhất an toàn các bài viết mẫu mới nếu chưa có trong bộ nhớ và chưa bị xóa bởi Admin
       const existingIds = new Set(this.articles.map((a) => a.id));
       const existingSlugs = new Set(this.articles.map((a) => a.slug));
       const newSeeds = DEFAULT_NEWS_ARTICLES.filter(
@@ -132,7 +151,7 @@ class NewsService {
           !this.deletedArticleIds.has(s.id) &&
           !this.deletedArticleIds.has(s.slug)
       );
-      if (newSeeds.length > 0) {
+      if (newSeeds.length > 0 || updatedStaleCover) {
         this.articles = [...this.articles, ...newSeeds];
         this.saveToStorage();
       }

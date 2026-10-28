@@ -305,7 +305,10 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
               });
           }
           else if (specificKey === 'wcg_admin_members_v4') val = await loadAllMembersD1(env.DB, !authorized);
-          else val = await getSettingD1(env.DB, specificKey);
+          else {
+            const isFresh = url.searchParams.get('fresh') === '1' || url.searchParams.has('_t') || specificKey === 'wcg_news_articles_v1';
+            val = await getSettingD1(env.DB, specificKey, null, isFresh);
+          }
         } catch {}
       }
 
@@ -417,43 +420,47 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
           loadAllStoreProductsD1(env.DB),
           loadAllUtilitiesD1(env.DB),
           loadAllGiveawaysD1(env.DB, authorized),
-          getMultipleSettingsD1(env.DB, [
-            'wcg_master_state_v4',
-            'wcg_admin_games_v5',
-            'wcg_admin_games_v4',
-            'wcg_admin_free_codes_v5',
-            'wcg_admin_free_codes_v4',
-            'wcg_admin_custom_free_codes_v1',
-            'wcg_deleted_free_codes',
-            'wcg_admin_content_v4',
-            'wcg_marketing_config_v1',
-            'wcg_growth_config_v1',
-            'wcg_admin_sepay_v4',
-            'wcg_deleted_store_products',
-            'wcg_deleted_utilities',
-            'wcg_deleted_giveaways',
-            'wcg_admin_submissions_v4',
-            'wcg_admin_private_codes_v4',
-            'wcg_admin_security_logs_v4',
-            'wcg_admin_utility_categories_v1',
-            'wcg_admin_utilities_v4',
-            'wcg_admin_store_categories_v1',
-            'wcg_admin_store_products_v4',
-            'wcg_admin_giveaways_v4',
-            'wcg_crawler_pending_codes_v1',
-            'wcg_crawler_pending_games_v1',
-            'wcg_crawler_auto_publish_games_v1',
-            'wcg_crawler_sources_v1',
-            'wcg_crawler_logs_v1',
-            'wcg_crawler_api_config_v1',
-            'wcg_crawler_api_logs_v1',
-            'wcg_news_articles_v1',
-            'wcg_deleted_news_articles_v1',
-            'wcg_news_auto_sources_v1',
-            'wcg_news_schedule_config_v1',
-            'wcg_event_schedules_v1',
-            'wcg_universal_templates_v1',
-          ]),
+          getMultipleSettingsD1(
+            env.DB,
+            [
+              'wcg_master_state_v4',
+              'wcg_admin_games_v5',
+              'wcg_admin_games_v4',
+              'wcg_admin_free_codes_v5',
+              'wcg_admin_free_codes_v4',
+              'wcg_admin_custom_free_codes_v1',
+              'wcg_deleted_free_codes',
+              'wcg_admin_content_v4',
+              'wcg_marketing_config_v1',
+              'wcg_growth_config_v1',
+              'wcg_admin_sepay_v4',
+              'wcg_deleted_store_products',
+              'wcg_deleted_utilities',
+              'wcg_deleted_giveaways',
+              'wcg_admin_submissions_v4',
+              'wcg_admin_private_codes_v4',
+              'wcg_admin_security_logs_v4',
+              'wcg_admin_utility_categories_v1',
+              'wcg_admin_utilities_v4',
+              'wcg_admin_store_categories_v1',
+              'wcg_admin_store_products_v4',
+              'wcg_admin_giveaways_v4',
+              'wcg_crawler_pending_codes_v1',
+              'wcg_crawler_pending_games_v1',
+              'wcg_crawler_auto_publish_games_v1',
+              'wcg_crawler_sources_v1',
+              'wcg_crawler_logs_v1',
+              'wcg_crawler_api_config_v1',
+              'wcg_crawler_api_logs_v1',
+              'wcg_news_articles_v1',
+              'wcg_deleted_news_articles_v1',
+              'wcg_news_auto_sources_v1',
+              'wcg_news_schedule_config_v1',
+              'wcg_event_schedules_v1',
+              'wcg_universal_templates_v1',
+            ],
+            new Set(['wcg_news_articles_v1', 'wcg_deleted_news_articles_v1'])
+          ),
         ]);
 
         d1Settings = settingsMap || {};
@@ -5132,38 +5139,67 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
             const existingNews = Array.isArray(existingNewsRaw) ? existingNewsRaw : [];
             const delSet = new Set(Array.isArray(body.deletedNewsArticles) ? body.deletedNewsArticles.map(String) : []);
 
-            if (existingNews.length > 0 && incomingNews.length < existingNews.length && !body.force_bulk_delete) {
-              const incomingIdSet = new Set(incomingNews.map((a: any) => a.id));
-              const incomingSlugSet = new Set(incomingNews.map((a: any) => a.slug));
+            // 1. Intelligent field-level merge for each incoming article:
+            // Prevents an Admin client with stale localStorage or default seeds from reverting bot updates!
+            const existingMap = new Map<string, any>();
+            existingNews.forEach((ea: any) => {
+              if (ea && ea.id) existingMap.set(ea.id, ea);
+              if (ea && ea.slug) existingMap.set(ea.slug, ea);
+            });
 
-              const missingFromIncoming = existingNews.filter(
-                (ea: any) => ea && ea.id && !incomingIdSet.has(ea.id) && !incomingSlugSet.has(ea.slug)
-              );
+            const mergedIncoming = incomingNews.map((inc: any) => {
+              if (!inc || (!inc.id && !inc.slug)) return inc;
+              const serverVer = (inc.id ? existingMap.get(inc.id) : null) || (inc.slug ? existingMap.get(inc.slug) : null);
+              if (!serverVer) return inc;
 
-              const unapprovedMissing = missingFromIncoming.filter(
-                (ma: any) => !delSet.has(ma.id) && !delSet.has(ma.slug)
-              );
-
-              if (unapprovedMissing.length > 0) {
-                await setSettingD1(env.DB, 'wcg_news_articles_backup_v1', existingNews);
-                console.warn(`[News Safeguard] CHỐT CHẶN GHI ĐÈ: Nhận ${incomingNews.length} bài nhưng server có ${existingNews.length} bài. Tự động bảo toàn ${unapprovedMissing.length} bài viết không bị xóa nhầm.`);
-                const safeMerged = [...incomingNews, ...unapprovedMissing];
-                currentMaster.newsArticles = safeMerged;
-                await setSettingD1(env.DB, 'wcg_news_articles_v1', safeMerged);
-                invalidateSettingMemoryCache('wcg_news_articles_v1');
-                invalidateSettingMemoryCache('wcg_master_state_v4');
-              } else {
-                currentMaster.newsArticles = incomingNews;
-                await setSettingD1(env.DB, 'wcg_news_articles_v1', incomingNews);
-                invalidateSettingMemoryCache('wcg_news_articles_v1');
-                invalidateSettingMemoryCache('wcg_master_state_v4');
+              let mergedCover = inc.cover_url;
+              // If server has an official or non-default cover URL while incoming is empty or '/og-image.jpg', retain server's cover
+              if (
+                serverVer.cover_url &&
+                serverVer.cover_url !== '/og-image.jpg' &&
+                (!mergedCover || mergedCover === '/og-image.jpg')
+              ) {
+                mergedCover = serverVer.cover_url;
               }
-            } else {
-              currentMaster.newsArticles = incomingNews;
-              await setSettingD1(env.DB, 'wcg_news_articles_v1', incomingNews);
-                invalidateSettingMemoryCache('wcg_news_articles_v1');
-                invalidateSettingMemoryCache('wcg_master_state_v4');
+
+              // Also if server article was updated after client article, retain server's cover_url
+              const serverUpdated = serverVer.updated_at ? new Date(serverVer.updated_at).getTime() : 0;
+              const incUpdated = inc.updated_at ? new Date(inc.updated_at).getTime() : 0;
+              if (serverUpdated > incUpdated && serverVer.cover_url) {
+                mergedCover = serverVer.cover_url;
+              }
+
+              return {
+                ...inc,
+                cover_url: mergedCover,
+              };
+            });
+
+            // 2. Safeguard against dropping unapproved missing articles
+            const incomingIdSet = new Set(mergedIncoming.map((a: any) => a.id));
+            const incomingSlugSet = new Set(mergedIncoming.map((a: any) => a.slug));
+
+            const missingFromIncoming = existingNews.filter(
+              (ea: any) => ea && ea.id && !incomingIdSet.has(ea.id) && !incomingSlugSet.has(ea.slug)
+            );
+
+            const unapprovedMissing = missingFromIncoming.filter(
+              (ma: any) => !delSet.has(ma.id) && !delSet.has(ma.slug)
+            );
+
+            const finalArticles = (!body.force_bulk_delete && unapprovedMissing.length > 0)
+              ? [...mergedIncoming, ...unapprovedMissing]
+              : mergedIncoming;
+
+            if (unapprovedMissing.length > 0 && !body.force_bulk_delete) {
+              await setSettingD1(env.DB, 'wcg_news_articles_backup_v1', existingNews);
+              console.warn(`[News Safeguard] CHỐT CHẶN GHI ĐÈ: Nhận ${incomingNews.length} bài nhưng server có ${existingNews.length} bài. Tự động bảo toàn ${unapprovedMissing.length} bài viết không bị xóa nhầm.`);
             }
+
+            currentMaster.newsArticles = finalArticles;
+            await setSettingD1(env.DB, 'wcg_news_articles_v1', finalArticles);
+            invalidateSettingMemoryCache('wcg_news_articles_v1');
+            invalidateSettingMemoryCache('wcg_master_state_v4');
           }
         }
         if (body.newsAutoSources !== undefined) await setSettingD1(env.DB, 'wcg_news_auto_sources_v1', body.newsAutoSources);
