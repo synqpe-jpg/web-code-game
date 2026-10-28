@@ -37,7 +37,7 @@ interface HeaderProps {
   onOpenNotificationModal?: () => void;
   onOpenAuth: () => void;
   onOpenWallet: () => void;
-  onOpenReceivedCodes: () => void;
+  onOpenReceivedCodes: (initialTab?: 'giveaways' | 'orders' | 'privates' | 'missions') => void;
   onOpenProfile?: () => void;
   currentUser: UserProfile | null;
   onLogout: () => void;
@@ -437,10 +437,15 @@ export const Header: React.FC<HeaderProps> = ({
                           setIsUserMenuOpen(false);
                           onOpenReceivedCodes();
                         }}
-                        className="w-full flex items-center gap-2 p-2 rounded-xl hover:bg-muted text-foreground cursor-pointer text-left"
+                        className="w-full flex items-center justify-between p-2 rounded-xl hover:bg-muted text-foreground cursor-pointer text-left group"
                       >
-                        <Package className="w-4 h-4 text-emerald-400" />
-                        <span>{t.header.myCodes}</span>
+                        <span className="flex items-center gap-2">
+                          <Package className="w-4 h-4 text-emerald-400 group-hover:scale-110 transition-transform" />
+                          <span>{t.header.myCodes}</span>
+                        </span>
+                        <span className="text-[10px] text-primary-light font-bold">
+                          Mã quà & Nhiệm vụ ↗
+                        </span>
                       </button>
 
                       {/* 2.1 Tủ Game Thông Tin Đã Lưu */}

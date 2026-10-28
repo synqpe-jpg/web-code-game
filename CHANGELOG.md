@@ -7,6 +7,36 @@ Mỗi mục sửa lỗi đều ghi nhận **Nguyên nhân gốc rễ (Root Cause
 
 ## [2026-10-28]
 
+### 253. Tích Hợp Kho Mã Thưởng Nhiệm Vụ Vào "Kho Mã Của Tôi" & Liên Kết "Thông Tin Nhân Vật"
+- **Bối cảnh & Yêu cầu từ Người dùng**:
+  - Trong mục nhân vật và kho mã của tôi trên trang khách, người dùng yêu cầu thêm 1 mục nhiệm vụ, khi hoàn thành nhiệm vụ mã quà tặng sẽ tự động được gửi và lưu trữ trong mục này.
+  - Mục tiêu: Thành viên hoàn thành nhiệm vụ cộng đồng (được AI Hệ Thống duyệt tự động hoặc Ban Quản Trị duyệt) có thể xem lại toàn bộ giftcode đã nhận tại một nơi duy nhất ("Kho Mã Code Của Tôi" -> tab "Nhiệm Vụ"), sao chép nhanh 1 chạm và truy cập nhanh từ bảng "Thông Tin Nhân Vật".
+- **Nguyên nhân gốc rễ & Hiện trạng trước khi sửa**:
+  1. `MyReceivedCodesModal.tsx` trước đây chỉ có 3 tab: `giveaways` (Sự Kiện), `orders` (Đã Mua), và `privates` (VIP Phát Riêng). Thiếu hoàn toàn tab `missions` (Nhiệm Vụ).
+  2. Mã quà tặng từ nhiệm vụ khi hoàn thành trước đây chỉ hiển thị trong `MissionDetailModal` khi bấm vào chi tiết nhiệm vụ, chưa được tự động lưu trữ và đồng bộ tập trung vào kho mã cá nhân của khách.
+  3. Trong modal nhân vật (`UserProfileModal.tsx`), chưa có nút chuyển hướng nhanh sang kho mã nhiệm vụ.
+- **Giải pháp Thành công (Solution Applied)**:
+  1. *Tầng Dữ Liệu `dataService.ts`*:
+     - Bổ sung `MISSION_REWARDS_KEY = 'wcg_my_mission_rewards_v1'`.
+     - Cung cấp `getMissionRewards()`, `saveMissionRewards()`, và `addMissionReward()`. Tự động khử trùng lặp theo ID bài nộp hoặc mã quà tặng.
+     - Phát sự kiện `wcg_mission_rewards_updated` để đồng bộ đa component tức thời.
+  2. *Giao Diện "Kho Mã Của Tôi" (`MyReceivedCodesModal.tsx`)*:
+     - Bổ sung tab thứ 4: **"Nhiệm Vụ"** với biểu tượng Target / Award và badge số lượng mã đã nhận.
+     - Tự động tải từ cache tức thì (0s delay), đồng thời gọi `missionService.getMySubmissions()` đồng bộ danh sách bài nộp `status === 'APPROVED'` từ D1 máy chủ.
+     - Thiết kế thẻ mã nhiệm vụ chuẩn Gaming/Cyber: hiển thị tiêu đề nhiệm vụ, giftcode font mono nổi bật, nút sao chép 1-click, thời gian duyệt chi tiết và nhãn người duyệt ("AI Hệ Thống (Duyệt Tự Động)" hoặc "Ban Quản Trị").
+     - Hỗ trợ giao diện trống thân thiện kèm nút tắt "Khám Phá & Làm Nhiệm Vụ Ngay" chuyển hướng thẳng tới `/nhiem-vu`.
+  3. *Tích hợp Vào "Thông Tin Nhân Vật" (`UserProfileModal.tsx` & `Header.tsx`)*:
+     - Trong modal thông tin nhân vật (`UserProfileModal`), bổ sung nút bấm chuyển hướng tức thì: `Kho Mã Của Tôi` -> `Nhiệm Vụ ↗`.
+     - Trong Header User Menu, cập nhật mục "Kho mã của tôi" kèm nhãn phụ "Mã quà & Nhiệm vụ ↗".
+     - Hỗ trợ prop `initialTab` cho phép mở thẳng vào tab `'missions'`.
+  4. *Tự Động Lưu Mã Khi Hoàn Thành Nhiệm Vụ (`MissionDetailModal.tsx`)*:
+     - Ngay khi phát hiện bài nộp ở trạng thái `APPROVED`, tự động gọi `dataService.addMissionReward` để đưa mã vào kho ngay lập tức.
+     - Bổ sung dòng thông báo xác nhận: *"Mã này đã được tự động lưu vào Kho mã của tôi"*.
+- **Kiểm Thử & Xác Minh (Verification)**:
+  - Bộ kiểm thử tự động `scripts/test_mission_codes_inventory.cjs`: Vượt qua 100% 6 bài kiểm thử toàn diện.
+  - Audit Zero Test Artifacts (`scripts/audit_zero_test_artifacts.cjs`): 100% SẠCH.
+  - Vite Frontend Build & Prerender 793 liên kết SEO: Thành công 100% (exit code 0).
+
 ### 252. Khắc Phục Hiện Tượng Bộ Đếm Tổng Sao Chép Giật Lùi, Khai Thông Luồng Đẩy Máy Chủ & Chuẩn Hóa Lệch Mốc 0 Giữa Các Nguồn API
 - **Bối cảnh & Yêu cầu từ Người dùng**:
   - Con số "Tổng lượt sao chép" trên web bị nhảy giật lùi: có lúc hiển thị 93.693 hoặc 93.700, nhưng sau khi F5, mở tab mới hoặc chạy ngầm lại tụt về 93.551 hoặc 93.545. Khách bấm "Sao chép", số vừa nhảy lên thì tải lại trang là mất.

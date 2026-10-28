@@ -15,7 +15,7 @@ import { useLanguage } from '../context/LanguageContext';
 interface MobileBottomNavProps {
   currentTab: 'catalog' | 'news' | 'giveaways' | 'store' | 'utilities' | 'missions';
   onSelectTab: (tab: 'catalog' | 'news' | 'giveaways' | 'store' | 'utilities' | 'missions') => void;
-  onOpenReceivedCodes: () => void;
+  onOpenReceivedCodes: (initialTab?: 'giveaways' | 'orders' | 'privates' | 'missions') => void;
   onOpenAuth: () => void;
   onOpenWallet: () => void;
   onOpenProfile?: () => void;

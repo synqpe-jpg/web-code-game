@@ -21,6 +21,8 @@ import {
   Eye,
   EyeOff,
   Coins,
+  Package,
+  Target,
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
 import type { UserProfile } from '../types/game';
@@ -33,6 +35,7 @@ interface UserProfileModalProps {
   currentUser: UserProfile | null;
   onUpdateUser: (user: UserProfile) => void;
   onOpenWallet: () => void;
+  onOpenReceivedCodes?: (initialTab?: 'giveaways' | 'orders' | 'privates' | 'missions') => void;
   onLogout: () => void;
   onShowToast: (title: string, message?: string, type?: 'success' | 'error' | 'info') => void;
 }
@@ -59,6 +62,7 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
   currentUser,
   onUpdateUser,
   onOpenWallet,
+  onOpenReceivedCodes,
   onLogout,
   onShowToast,
 }) => {
@@ -313,6 +317,27 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
                       <span>Nạp Core ↗</span>
                     </button>
                   </div>
+
+                  {/* Quick Action: Kho mã & Nhiệm vụ */}
+                  {onOpenReceivedCodes && (
+                    <div className="flex items-center justify-center sm:justify-start gap-2 pt-2 border-t border-border/40">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          onClose();
+                          onOpenReceivedCodes('missions');
+                        }}
+                        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-gradient-to-r from-amber-500/20 to-emerald-500/20 hover:from-amber-500/30 hover:to-emerald-500/30 text-foreground border border-amber-500/30 text-xs font-bold transition-all cursor-pointer shadow-sm active:scale-95"
+                      >
+                        <Package className="w-3.5 h-3.5 text-amber-400" />
+                        <span>Kho Mã Của Tôi</span>
+                        <span className="text-[10px] text-emerald-400 bg-emerald-500/20 px-2 py-0.5 rounded-full border border-emerald-500/30 flex items-center gap-1">
+                          <Target className="w-2.5 h-2.5" />
+                          Nhiệm Vụ ↗
+                        </span>
+                      </button>
+                    </div>
+                  )}
                 </div>
               </div>
 

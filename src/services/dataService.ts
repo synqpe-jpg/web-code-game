@@ -100,6 +100,7 @@ class DataService {
   private readonly USER_KEY = 'wcg_user';
   private readonly CLAIMED_CODES_KEY = 'wcg_claimed_giveaways';
   private readonly ORDERS_KEY = 'wcg_orders';
+  private readonly MISSION_REWARDS_KEY = 'wcg_my_mission_rewards_v1';
   private readonly STORE_PRODUCTS_KEY = 'wcg_admin_store_products_v4';
   private readonly UTILITIES_KEY = 'wcg_admin_utilities_v4';
   private readonly GIVEAWAYS_KEY = 'wcg_admin_giveaways_v4';
@@ -2495,6 +2496,60 @@ public async syncWithCloudflareKV(forceFresh: boolean = false): Promise<void> {
     } catch {
       return [];
     }
+  }
+
+  // --- MISSION REWARDS SYSTEM ---
+  getMissionRewards(): any[] {
+    try {
+      const data = localStorage.getItem(this.MISSION_REWARDS_KEY);
+      const list = data ? JSON.parse(data) : [];
+      if (!Array.isArray(list)) return [];
+      const seen = new Set<string>();
+      return list.filter((item: any) => {
+        if (!item) return false;
+        const key = String(item.id || item.submission_id || item.code_content || item.reward_delivered || '').trim();
+        if (!key || seen.has(key)) return false;
+        seen.add(key);
+        return true;
+      });
+    } catch {
+      return [];
+    }
+  }
+
+  saveMissionRewards(submissions: any[]): void {
+    if (typeof window === 'undefined') return;
+    try {
+      const existing = this.getMissionRewards();
+      const combinedMap = new Map<string, any>();
+      (existing || []).forEach((item: any) => {
+        const k = String(item.id || item.submission_id || item.code_content || item.reward_delivered || '').trim();
+        if (k) combinedMap.set(k, item);
+      });
+      (submissions || []).forEach((item: any) => {
+        const k = String(item.id || item.submission_id || item.code_content || item.reward_delivered || '').trim();
+        if (k) combinedMap.set(k, { ...(combinedMap.get(k) || {}), ...item });
+      });
+      const finalList = Array.from(combinedMap.values());
+      localStorage.setItem(this.MISSION_REWARDS_KEY, JSON.stringify(finalList));
+      window.dispatchEvent(new CustomEvent('wcg_mission_rewards_updated'));
+    } catch {}
+  }
+
+  addMissionReward(submission: any): void {
+    if (!submission) return;
+    try {
+      const list = this.getMissionRewards();
+      const key = String(submission.id || submission.submission_id || submission.reward_delivered || '').trim();
+      const exists = list.some((item: any) => {
+        const k = String(item.id || item.submission_id || item.reward_delivered || '').trim();
+        return k === key;
+      });
+      if (!exists) {
+        list.unshift(submission);
+        this.saveMissionRewards(list);
+      }
+    } catch {}
   }
 
   // --- STORE & PAID CODES SYSTEM ---

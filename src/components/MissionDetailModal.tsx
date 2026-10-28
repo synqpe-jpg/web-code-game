@@ -17,6 +17,7 @@ import {
 import type { Mission, MissionSubmission } from '../types/mission';
 import type { UserProfile } from '../types/game';
 import { missionService } from '../services/missionService';
+import { dataService } from '../services/dataService';
 
 interface MissionDetailModalProps {
   mission: Mission;
@@ -48,6 +49,17 @@ export const MissionDetailModal: React.FC<MissionDetailModalProps> = ({
   const isApproved = submission?.status === 'APPROVED';
   const isRejected = submission?.status === 'REJECTED';
   const resubmissionsLeft = Math.max(0, (mission.max_resubmissions || 2) - (submission?.resubmission_count || 0));
+
+  useEffect(() => {
+    if (submission?.status === 'APPROVED') {
+      dataService.addMissionReward({
+        ...submission,
+        mission_title: mission.title,
+        reward_type: mission.reward_type,
+        reward_value: mission.reward_value,
+      });
+    }
+  }, [submission?.status, submission?.reward_delivered]);
 
   const handleCopyCode = async (code: string) => {
     try {
@@ -320,20 +332,26 @@ export const MissionDetailModal: React.FC<MissionDetailModalProps> = ({
               </div>
 
               {mission.reward_type === 'CODE' && submission?.reward_delivered && (
-                <div className="mt-3 p-3.5 rounded-xl bg-card border border-emerald-500/40 flex items-center justify-between gap-2 max-w-md mx-auto">
-                  <div className="text-left min-w-0">
-                    <span className="text-[10px] text-muted-foreground block">Mã Giftcode Của Bạn:</span>
-                    <span className="font-mono text-sm sm:text-base font-bold text-primary-light select-all truncate block">
-                      {submission.reward_delivered}
-                    </span>
+                <div className="space-y-2 max-w-md mx-auto">
+                  <div className="p-3.5 rounded-xl bg-card border border-emerald-500/40 flex items-center justify-between gap-2">
+                    <div className="text-left min-w-0">
+                      <span className="text-[10px] text-muted-foreground block">Mã Giftcode Của Bạn:</span>
+                      <span className="font-mono text-sm sm:text-base font-bold text-primary-light select-all truncate block">
+                        {submission.reward_delivered}
+                      </span>
+                    </div>
+                    <button
+                      onClick={() => handleCopyCode(submission.reward_delivered!)}
+                      className="cg-btn cg-btn--small shrink-0 flex items-center gap-1.5"
+                    >
+                      {isCopiedCode ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
+                      <span>{isCopiedCode ? 'Đã chép' : 'Sao chép'}</span>
+                    </button>
                   </div>
-                  <button
-                    onClick={() => handleCopyCode(submission.reward_delivered!)}
-                    className="cg-btn cg-btn--small shrink-0 flex items-center gap-1.5"
-                  >
-                    {isCopiedCode ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
-                    <span>{isCopiedCode ? 'Đã chép' : 'Sao chép'}</span>
-                  </button>
+                  <p className="text-[11px] text-emerald-400/90 font-medium flex items-center justify-center gap-1.5 text-center">
+                    <Check className="w-3.5 h-3.5 text-emerald-400" />
+                    <span>Mã này đã được tự động lưu vào <strong>Kho mã của tôi</strong></span>
+                  </p>
                 </div>
               )}
 

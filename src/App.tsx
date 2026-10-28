@@ -215,8 +215,14 @@ export const App: React.FC = () => {
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
   const [isWalletModalOpen, setIsWalletModalOpen] = useState(false);
   const [isReceivedCodesOpen, setIsReceivedCodesOpen] = useState(false);
+  const [receivedCodesInitialTab, setReceivedCodesInitialTab] = useState<'giveaways' | 'orders' | 'privates' | 'missions'>('giveaways');
   const [isProfileModalOpen, setIsProfileModalOpen] = useState(false);
   const [isEmailModalOpen, setIsEmailModalOpen] = useState(false);
+
+  const handleOpenReceivedCodes = (tab: 'giveaways' | 'orders' | 'privates' | 'missions' = 'giveaways') => {
+    setReceivedCodesInitialTab(tab);
+    setIsReceivedCodesOpen(true);
+  };
 
   // Capture referral tracking parameters (?ref=... or ?invite=...) on mount
   useEffect(() => {
@@ -1407,7 +1413,7 @@ export const App: React.FC = () => {
           onOpenNotificationModal={() => setIsEmailModalOpen(true)}
           onOpenAuth={() => setIsAuthModalOpen(true)}
           onOpenWallet={() => setIsWalletModalOpen(true)}
-          onOpenReceivedCodes={() => setIsReceivedCodesOpen(true)}
+          onOpenReceivedCodes={handleOpenReceivedCodes}
           onOpenProfile={() => setIsProfileModalOpen(true)}
           currentUser={currentUser}
           onLogout={handleLogout}
@@ -1613,7 +1619,7 @@ export const App: React.FC = () => {
         <MobileBottomNav
           currentTab={currentTab}
           onSelectTab={handleSelectTab}
-          onOpenReceivedCodes={() => setIsReceivedCodesOpen(true)}
+          onOpenReceivedCodes={handleOpenReceivedCodes}
           onOpenAuth={() => setIsAuthModalOpen(true)}
           onOpenWallet={() => setIsWalletModalOpen(true)}
           onOpenProfile={() => setIsProfileModalOpen(true)}
@@ -1759,8 +1765,17 @@ export const App: React.FC = () => {
 
         <MyReceivedCodesModal
           isOpen={isReceivedCodesOpen}
+          initialTab={receivedCodesInitialTab}
           onClose={() => setIsReceivedCodesOpen(false)}
           onShowToast={showToast}
+          onNavigateToMissions={() => {
+            setIsReceivedCodesOpen(false);
+            setCurrentTab('missions');
+          }}
+          onOpenAuth={() => {
+            setIsReceivedCodesOpen(false);
+            setIsAuthModalOpen(true);
+          }}
         />
 
         <UserProfileModal
@@ -1769,6 +1784,7 @@ export const App: React.FC = () => {
           currentUser={currentUser}
           onUpdateUser={handleUpdateUser}
           onOpenWallet={() => setIsWalletModalOpen(true)}
+          onOpenReceivedCodes={handleOpenReceivedCodes}
           onLogout={handleLogout}
           onShowToast={showToast}
         />

@@ -13,31 +13,50 @@ import {
   Check,
   BookOpen,
   ExternalLink,
+  Target,
+  Award,
+  CheckCircle2,
+  ArrowRight,
 } from 'lucide-react';
 import { dataService } from '../services/dataService';
+import { missionService } from '../services/missionService';
 import type { ClaimedCodeRecord, OrderRecord } from '../types/game';
 import { formatCore, formatRelativeDate, formatFullDateTime } from '../utils/textUtils';
 import { GuideLinksBanner } from './GuideLinksBanner';
 
 interface MyReceivedCodesModalProps {
   isOpen: boolean;
+  initialTab?: 'giveaways' | 'orders' | 'privates' | 'missions';
   onClose: () => void;
   onShowToast: (title: string, message?: string, type?: 'success' | 'error' | 'info') => void;
+  onNavigateToMissions?: () => void;
+  onOpenAuth?: () => void;
 }
 
 export const MyReceivedCodesModal: React.FC<MyReceivedCodesModalProps> = ({
   isOpen,
+  initialTab = 'giveaways',
   onClose,
   onShowToast,
+  onNavigateToMissions,
+  onOpenAuth,
 }) => {
-  const [tab, setTab] = useState<'giveaways' | 'orders' | 'privates'>('giveaways');
+  const [tab, setTab] = useState<'giveaways' | 'orders' | 'privates' | 'missions'>(initialTab);
   const [copied, setCopied] = useState<string | null>(null);
   
   // Real-time state
   const [claimedList, setClaimedList] = useState<ClaimedCodeRecord[]>([]);
   const [ordersList, setOrdersList] = useState<OrderRecord[]>([]);
   const [privateCodesList, setPrivateCodesList] = useState<any[]>([]);
+  const [missionRewardsList, setMissionRewardsList] = useState<any[]>(() => dataService.getMissionRewards());
+  const [isLoadingMissions, setIsLoadingMissions] = useState<boolean>(false);
   const [lookupEmail, setLookupEmail] = useState<string>('');
+
+  useEffect(() => {
+    if (isOpen && initialTab) {
+      setTab(initialTab);
+    }
+  }, [isOpen, initialTab]);
 
   const currentUser = dataService.getCurrentUser();
 
@@ -74,6 +93,27 @@ export const MyReceivedCodesModal: React.FC<MyReceivedCodesModalProps> = ({
     } else {
       setPrivateCodesList([]);
     }
+
+    // 1. Tải tức thì danh sách mã nhiệm vụ đã lưu từ bộ nhớ cache
+    setMissionRewardsList(dataService.getMissionRewards());
+
+    // 2. Nếu đã đăng nhập, tự động đồng bộ hồ sơ nhiệm vụ mới nhất từ máy chủ
+    const u = dataService.getCurrentUser();
+    if (u) {
+      setIsLoadingMissions(true);
+      missionService.getMySubmissions()
+        .then((res) => {
+          if (res.success && Array.isArray(res.submissions)) {
+            const approved = res.submissions.filter((s: any) => s && s.status === 'APPROVED');
+            setMissionRewardsList(approved);
+            dataService.saveMissionRewards(approved);
+          }
+        })
+        .catch(() => {})
+        .finally(() => {
+          setIsLoadingMissions(false);
+        });
+    }
   };
 
   useEffect(() => {
@@ -92,7 +132,15 @@ export const MyReceivedCodesModal: React.FC<MyReceivedCodesModalProps> = ({
       const unsub = dataService.subscribe(() => {
         loadAll();
       });
-      return () => unsub();
+      const handleMissionRewardsUpdated = () => {
+        setMissionRewardsList(dataService.getMissionRewards());
+      };
+      window.addEventListener('wcg_mission_rewards_updated', handleMissionRewardsUpdated);
+
+      return () => {
+        unsub();
+        window.removeEventListener('wcg_mission_rewards_updated', handleMissionRewardsUpdated);
+      };
     }
   }, [isOpen, lookupEmail]);
 
@@ -141,7 +189,7 @@ export const MyReceivedCodesModal: React.FC<MyReceivedCodesModalProps> = ({
                   Kho Mã Code Của Tôi
                 </h3>
                 <p className="text-xs text-muted-foreground truncate">
-                  Mã sự kiện, đơn hàng và mã VIP riêng
+                  Mã sự kiện, đơn hàng, nhiệm vụ và mã VIP riêng
                 </p>
               </div>
             </div>
@@ -181,6 +229,18 @@ export const MyReceivedCodesModal: React.FC<MyReceivedCodesModalProps> = ({
           >
             <ShoppingBag className="w-3.5 h-3.5" />
             <span>Đã Mua ({displayOrdersList.length})</span>
+          </button>
+
+          <button
+            onClick={() => setTab('missions')}
+            className={`flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+              tab === 'missions'
+                ? 'bg-gradient-to-r from-amber-500 to-emerald-600 text-white shadow-md'
+                : 'bg-muted/60 text-muted-foreground hover:text-foreground'
+            }`}
+          >
+            <Target className="w-3.5 h-3.5 text-amber-300" />
+            <span>Nhiệm Vụ ({missionRewardsList.length})</span>
           </button>
 
           <button
@@ -321,6 +381,115 @@ export const MyReceivedCodesModal: React.FC<MyReceivedCodesModalProps> = ({
                 </div>
               ))
             )
+          )}
+
+          {tab === 'missions' && (
+            <div className="space-y-3">
+              {!currentUser ? (
+                <div className="py-12 text-center text-muted-foreground p-6 rounded-2xl bg-muted/20 border border-border/80">
+                  <Target className="w-10 h-10 mx-auto mb-2 opacity-40 text-amber-400" />
+                  <p className="text-sm font-bold text-foreground">Bạn chưa đăng nhập tài khoản</p>
+                  <p className="text-xs text-muted-foreground mt-1 max-w-sm mx-auto">
+                    Vui lòng đăng nhập để xem danh sách giftcode và phần thưởng nhận được khi hoàn thành các nhiệm vụ.
+                  </p>
+                  {onOpenAuth && (
+                    <button
+                      type="button"
+                      onClick={onOpenAuth}
+                      className="mt-4 px-4 py-2 rounded-xl bg-primary hover:bg-primary-hover text-white text-xs font-bold transition-all shadow-glow-primary cursor-pointer inline-flex items-center gap-1.5"
+                    >
+                      <span>Đăng Nhập Ngay</span>
+                      <ArrowRight className="w-3.5 h-3.5" />
+                    </button>
+                  )}
+                </div>
+              ) : missionRewardsList.length === 0 ? (
+                <div className="py-12 text-center text-muted-foreground p-6 rounded-2xl bg-muted/20 border border-border/80">
+                  <Award className="w-10 h-10 mx-auto mb-2 opacity-40 text-amber-400" />
+                  <p className="text-sm font-bold text-foreground">Bạn chưa có mã quà tặng nào từ nhiệm vụ</p>
+                  <p className="text-xs text-muted-foreground mt-1 max-w-md mx-auto">
+                    Khi bạn hoàn thành các nhiệm vụ cộng đồng và được hệ thống (hoặc AI) xét duyệt thành công, mã giftcode độc quyền sẽ được tự động chuyển thẳng vào mục này!
+                  </p>
+                  {onNavigateToMissions && (
+                    <button
+                      type="button"
+                      onClick={onNavigateToMissions}
+                      className="mt-4 px-4 py-2 rounded-xl bg-gradient-to-r from-amber-500 to-emerald-600 hover:opacity-95 text-white text-xs font-bold transition-all shadow-md cursor-pointer inline-flex items-center gap-1.5"
+                    >
+                      <Target className="w-3.5 h-3.5" />
+                      <span>Khám Phá & Làm Nhiệm Vụ Ngay</span>
+                      <ArrowRight className="w-3.5 h-3.5" />
+                    </button>
+                  )}
+                </div>
+              ) : (
+                missionRewardsList.map((item: any) => {
+                  const isCode = item.reward_type === 'CODE' || (item.reward_delivered && !String(item.reward_delivered).startsWith('+'));
+                  const displayReward = item.reward_delivered || (item.reward_value ? `${item.reward_value}đ` : 'Phần thưởng nhiệm vụ');
+                  const approvalTime = item.reviewed_at || item.updated_at || item.created_at;
+                  const reviewerLabel = item.reviewed_by === 'AI' || item.reviewed_by === 'AI_ASSISTANT'
+                    ? 'AI Hệ Thống (Duyệt Tự Động)'
+                    : (item.reviewed_by || 'Ban Quản Trị');
+
+                  return (
+                    <div
+                      key={item.id}
+                      className="p-4 rounded-2xl bg-gradient-to-r from-amber-500/10 via-card to-emerald-500/10 border border-amber-500/30 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-md hover:border-amber-500/50 transition-all"
+                    >
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span className="px-2 py-0.5 rounded-md bg-gradient-to-r from-amber-500/20 to-emerald-500/20 text-amber-300 text-[10px] font-bold border border-amber-500/30 flex items-center gap-1">
+                            <CheckCircle2 className="w-3 h-3 text-emerald-400" />
+                            HOÀN THÀNH NHIỆM VỤ
+                          </span>
+                          <h4 className="font-heading font-bold text-sm text-foreground truncate">
+                            {item.mission_title || 'Nhiệm vụ cộng đồng'}
+                          </h4>
+                        </div>
+
+                        <p className="text-xs text-primary-light font-medium mt-1">
+                          🎁 {isCode ? 'Mã Giftcode Nhận Được' : 'Thưởng Số Dư Ví'}: <strong className="text-emerald-400 font-bold">{displayReward}</strong>
+                        </p>
+
+                        <div className="flex flex-wrap items-center gap-x-3 gap-y-1 mt-1.5 text-[11px] text-muted-foreground font-mono">
+                          {approvalTime && (
+                            <span className="flex items-center gap-1 text-emerald-400">
+                              <Clock className="w-3.5 h-3.5 shrink-0" />
+                              <span>Thời gian duyệt: <strong className="text-foreground">{formatFullDateTime(approvalTime)}</strong></span>
+                            </span>
+                          )}
+                          <span>Duyệt bởi: <strong className="text-foreground">{reviewerLabel}</strong></span>
+                        </div>
+                      </div>
+
+                      {isCode && item.reward_delivered && (
+                        <div className="flex items-center gap-2 shrink-0">
+                          <span className="px-3.5 py-1.5 rounded-xl bg-card border border-amber-500/50 font-mono font-bold text-amber-300 text-xs shadow-inner select-all">
+                            {item.reward_delivered}
+                          </span>
+                          <button
+                            onClick={() => handleCopy(item.reward_delivered)}
+                            className="px-3 py-1.5 rounded-xl bg-gradient-to-r from-amber-500 to-emerald-600 hover:opacity-95 text-white text-xs font-bold transition-all cursor-pointer shadow-md flex items-center gap-1"
+                          >
+                            {copied === item.reward_delivered ? (
+                              <>
+                                <Check className="w-3.5 h-3.5" />
+                                <span>Đã chép</span>
+                              </>
+                            ) : (
+                              <>
+                                <Copy className="w-3.5 h-3.5" />
+                                <span>Sao chép</span>
+                              </>
+                            )}
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })
+              )}
+            </div>
           )}
 
           {tab === 'privates' && (
