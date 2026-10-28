@@ -10,6 +10,16 @@
 
 ## 1. DANH MỤC LỖI & CÁC BẪY ĐÃ THẤT BẠI (DO NOT REPEAT)
 
+### ISSUE-173: Bẫy Khai Báo Hàm parseTimeMs Cục Bộ Bên Trong Modal Gây Crash Trang Cha (GiveawaysView parseTimeMs Scope Crash Pitfall)
+- **Triệu chứng**:
+  - Truy cập trang `/giveaways` trên web khách bị crash màn hình đỏ/đen: "Đã có sự cố hiển thị nhỏ xảy ra - parseTimeMs is not defined".
+- **Nguyên nhân gốc rễ**:
+  - Hàm `parseTimeMs` được khai báo bên trong scope của component con `GiveawayDetailModal`. Khi component cha `GiveawaysView` render thẻ card sự kiện và gọi `parseTimeMs`, runtime ném lỗi `ReferenceError: parseTimeMs is not defined`.
+- **Giải pháp chuẩn đã kiểm chứng**:
+  - Luôn đưa các hàm tiện ích phân tích ngày giờ (`parseTimeMs`, định dạng tiền tệ, xử lý chuỗi) lên phạm vi cấp module (top-level scope) hoặc module tiện ích dùng chung (`src/utils/`).
+- 🚫 **CÁCH SỬA ĐÃ THẤT BẠI - TUYỆT ĐỐI KHÔNG LẶP LẠI**:
+  - ❌ *Tuyệt đối KHÔNG khai báo hàm tiện ích bên trong component con nếu component cha hoặc các component anh em khác cũng cần dùng*: Luôn đặt ở top-level scope của file hoặc export ra file utils.
+
 ### ISSUE-172: Bẫy Tăng Trưởng Trôi Thời Gian deltaClaims & Mốc Cơ Sở Tĩnh Khiến Số Đã Giật Giveaway Phình To Bất Thường (Giveaway Claimed Count Runaway Inflation Pitfall)
 - **Triệu chứng**:
   - Quản trị viên chỉ cấu hình số lượt giật ảo mười mấy đơn vị (e.g. 10–15) hoặc để 0 trong trang Admin (`PrivateCodesModule.tsx`).

@@ -59,6 +59,16 @@ interface GiveawaysViewProps {
 }
 
 /**
+ * Phân tích thời gian an toàn cho sự kiện (hỗ trợ cả YYYY-MM-DD và ISO string)
+ */
+export const parseTimeMs = (str?: string, isEnd = false): number => {
+  if (!str) return NaN;
+  const s = String(str).trim();
+  if (s.length === 10) return new Date(`${s}T${isEnd ? '23:59:59' : '00:00:00'}+07:00`).getTime();
+  return new Date(s).getTime();
+};
+
+/**
  * Component hiển thị Phòng chờ & Bộ đếm người đang chờ trực tiếp
  */
 const LiveWaitingRoomBadge: React.FC<{
@@ -265,12 +275,6 @@ const GiveawayDetailModal: React.FC<GiveawayDetailModalProps> = ({
 
   // Time window calculation
   const nowMs = Date.now();
-  const parseTimeMs = (str?: string, isEnd = false) => {
-    if (!str) return NaN;
-    const s = String(str).trim();
-    if (s.length === 10) return new Date(`${s}T${isEnd ? '23:59:59' : '00:00:00'}+07:00`).getTime();
-    return new Date(s).getTime();
-  };
   const startMs = parseTimeMs(campaign.start_time, false);
   const endMs = parseTimeMs(campaign.end_time, true);
   const isNotStarted = !isNaN(startMs) && nowMs < startMs;

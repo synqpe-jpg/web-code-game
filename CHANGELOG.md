@@ -7,6 +7,19 @@ Mỗi mục sửa lỗi đều ghi nhận **Nguyên nhân gốc rễ (Root Cause
 
 ## [2026-10-28]
 
+### 256. Khắc Phục Lỗi "parseTimeMs is not defined" Khi Truy Cập Trang Giveaway (/giveaways)
+- **Bối cảnh & Triệu chứng**:
+  - Người dùng truy cập trang `/giveaways` trên web khách bị màn hình lỗi cảnh báo: "Đã có sự cố hiển thị nhỏ xảy ra - parseTimeMs is not defined".
+- **Nguyên nhân gốc rễ**:
+  - Trong `src/components/GiveawaysView.tsx`, hàm `parseTimeMs` trước đó được khai báo cục bộ bên trong component modal con `GiveawayDetailModal` (dòng 268).
+  - Khi render danh sách các thẻ sự kiện ở component cha `GiveawaysView` (dòng 1689–1690), code gọi `cardStartMs = parseTimeMs(...)` và `cardEndMs = parseTimeMs(...)` nằm ngoài phạm vi biến (scope), dẫn đến lỗi runtime `ReferenceError: parseTimeMs is not defined`.
+- **Giải pháp Thành công**:
+  - Chuyển `parseTimeMs` lên phạm vi module cấp tệp (top-level scope) và export để toàn bộ component cha và các modal con đều truy cập an toàn.
+  - Xóa bỏ khai báo trùng lặp bên trong `GiveawayDetailModal`.
+- **Kiểm Thử & Triển Khai**:
+  - Vượt qua 100% các bài test `scripts/test_giveaway_cooldown_and_expiry.cjs` và `scripts/test_giveaway_claimed_ssot.cjs`.
+  - Build `npm run build` thành công 100%.
+
 ### 255. Khắc Phục Triệt Để Hiện Tượng Phình To Số Lượt Đã Giật Giveaway & Đảm Bảo Bảng Admin Là Chân Lý (SSOT)
 - **Bối cảnh & Yêu cầu từ Người dùng**:
   - Người dùng phản ánh: "Các con số đã giật tôi cài khi mở sự kiện tự nhiên phình to, ban đầu tôi cài có mười mấy đơn vị mà ra ngoài web lên vài trăm, sửa giúp tôi. Đảm bảo khi cài đặt bảng admin là chân lý."
