@@ -31,18 +31,39 @@ export const MissionsView: React.FC<MissionsViewProps> = ({
   onOpenWallet,
   initialMissionId,
 }) => {
-  const [missions, setMissions] = useState<Mission[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
+  const [missions, setMissions] = useState<Mission[]>(() => {
+    if (typeof window === 'undefined') return [];
+    try {
+      const cached = localStorage.getItem('wcg_cached_missions_v1');
+      return cached ? JSON.parse(cached) : [];
+    } catch {
+      return [];
+    }
+  });
+  const [isLoading, setIsLoading] = useState<boolean>(() => {
+    if (typeof window === 'undefined') return true;
+    try {
+      const cached = localStorage.getItem('wcg_cached_missions_v1');
+      return cached ? false : true;
+    } catch {
+      return true;
+    }
+  });
   const [searchQuery, setSearchQuery] = useState('');
   const [activeFilter, setActiveFilter] = useState<'all' | 'active' | 'almost_full' | 'my'>('all');
   const [selectedMission, setSelectedMission] = useState<Mission | null>(null);
 
-  const fetchMissions = async () => {
-    setIsLoading(true);
+  const fetchMissions = async (forceSpinner = false) => {
+    if (forceSpinner || missions.length === 0) {
+      setIsLoading(true);
+    }
     try {
       const res = await missionService.getMissions(false);
       if (res.success) {
         setMissions(res.missions || []);
+        try {
+          localStorage.setItem('wcg_cached_missions_v1', JSON.stringify(res.missions || []));
+        } catch {}
         if (initialMissionId) {
           const match = (res.missions || []).find((m) => m.id === initialMissionId);
           if (match) setSelectedMission(match);
@@ -56,7 +77,7 @@ export const MissionsView: React.FC<MissionsViewProps> = ({
   };
 
   useEffect(() => {
-    fetchMissions();
+    fetchMissions(false);
   }, [currentUser]);
 
   // Select mission & track views
@@ -237,7 +258,7 @@ export const MissionsView: React.FC<MissionsViewProps> = ({
             </div>
 
             <button
-              onClick={fetchMissions}
+              onClick={() => fetchMissions(true)}
               disabled={isLoading}
               className="p-2 rounded-xl bg-card border border-border/80 hover:bg-muted/60 text-muted-foreground hover:text-foreground transition-colors shrink-0"
               title="Làm mới"

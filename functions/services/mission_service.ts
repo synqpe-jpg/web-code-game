@@ -352,8 +352,6 @@ export async function verifyMemberAuth(
     return { authorized: false, error: 'Cơ sở dữ liệu chưa sẵn sàng.' };
   }
 
-  await ensureSchemaUpgrades(env.DB);
-
   let member: any = null;
 
   if (token.startsWith('wcg_edge_tok_')) {

@@ -7,6 +7,25 @@ Mỗi mục sửa lỗi đều ghi nhận **Nguyên nhân gốc rễ (Root Cause
 
 ## [2026-10-28]
 
+### 257. Khắc Phục Lỗi "useEffect is not defined" Khi Bấm Vào Nhiệm Vụ & Tối Ưu Tốc Độ Tải Trang Nhiệm Vụ (/nhiem-vu)
+- **Bối cảnh & Triệu chứng**:
+  - Người dùng bấm vào thẻ nhiệm vụ trong trang `/nhiem-vu` bị màn hình cảnh báo lỗi: "Đã có sự cố hiển thị nhỏ xảy ra - useEffect is not defined".
+  - Trang `/nhiem-vu` trước đó tải chậm, hiển thị khung xương (skeleton shimmer) nhấp nháy 2–4 giây trước khi hiện nội dung.
+- **Nguyên nhân gốc rễ**:
+  1. *Lỗi thiếu import React Hook*: Trong `src/components/MissionDetailModal.tsx` (dòng 1), chỉ import `useState` mà quên import `useEffect` từ `'react'`, nhưng dòng 53 lại gọi hook `useEffect(() => { ... })` để tự động lưu mã thưởng nhiệm vụ vào kho cá nhân khi được duyệt, dẫn đến lỗi runtime `ReferenceError: useEffect is not defined`.
+  2. *Trang `/nhiem-vu` thiếu cơ chế SWR / Client Cache*: `MissionsView.tsx` khởi tạo `missions = []` và `isLoading = true`, buộc người dùng xem khung xương mỗi lần bấm vào tab Nhiệm vụ.
+  3. *Bẫy gọi `ensureSchemaUpgrades` trên endpoint đọc*: Trong `functions/services/mission_service.ts` (dòng 355), `verifyMemberAuth` gọi `await ensureSchemaUpgrades(env.DB)` trên mỗi request xác thực, gây nghẽn D1 và kéo dài thời gian phản hồi máy chủ lên tới 2.350 ms.
+  4. *Thiếu Edge Cache*: Endpoint `/api/missions` trả về `'cf-cache-status': 'DYNAMIC'` không có `Cache-Control`.
+- **Giải pháp Thành công**:
+  1. Bổ sung `useEffect` vào `import React, { useState, useEffect } from 'react'` trong `src/components/MissionDetailModal.tsx`.
+  2. Bổ sung cơ chế cache SWR cho `MissionsView.tsx`: Lưu và tái sử dụng dữ liệu từ `localStorage.getItem('wcg_cached_missions_v1')`, hiển thị tức thì trong 0 giây và âm thầm cập nhật ở hậu trường.
+  3. Loại bỏ lệnh `ensureSchemaUpgrades(env.DB)` khỏi luồng `verifyMemberAuth` trong `mission_service.ts`.
+  4. Bổ sung `Cache-Control: public, max-age=15, s-maxage=30, stale-while-revalidate=120` cho endpoint `/api/missions` đối với khách vãng lai.
+- **Kiểm Thử & Triển Khai**:
+  - Script quét toàn bộ codebase `src/` xác nhận 0 lỗi thiếu React hook.
+  - Vượt qua 100% các bài test `test_giveaway_claimed_ssot.cjs`, `test_giveaway_cooldown_and_expiry.cjs`, `audit_zero_test_artifacts.cjs`.
+  - Build `npm run build` thành công 100%.
+
 ### 256. Khắc Phục Lỗi "parseTimeMs is not defined" Khi Truy Cập Trang Giveaway (/giveaways)
 - **Bối cảnh & Triệu chứng**:
   - Người dùng truy cập trang `/giveaways` trên web khách bị màn hình lỗi cảnh báo: "Đã có sự cố hiển thị nhỏ xảy ra - parseTimeMs is not defined".

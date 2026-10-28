@@ -135,13 +135,20 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
       })
     );
 
+    const responseHeaders = (!isAdmin && !currentMember)
+      ? {
+          ...CORS_HEADERS,
+          'Cache-Control': 'public, max-age=15, s-maxage=30, stale-while-revalidate=120',
+        }
+      : CORS_HEADERS;
+
     return new Response(
       JSON.stringify({
         success: true,
         missions: augmentedMissions,
         total: augmentedMissions.length,
       }),
-      { status: 200, headers: CORS_HEADERS }
+      { status: 200, headers: responseHeaders }
     );
   } catch (error: any) {
     return new Response(

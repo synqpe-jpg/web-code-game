@@ -10,6 +10,16 @@
 
 ## 1. DANH MỤC LỖI & CÁC BẪY ĐÃ THẤT BẠI (DO NOT REPEAT)
 
+### ISSUE-174: Bẫy Quên Import Hook useEffect Trong MissionDetailModal Gây Crash Chi Tiết Nhiệm Vụ (MissionDetailModal Missing useEffect Hook Crash Pitfall)
+- **Triệu chứng**:
+  - Người dùng bấm vào bất kỳ nhiệm vụ nào trong trang `/nhiem-vu`, màn hình bị văng lỗi: "Đã có sự cố hiển thị nhỏ xảy ra - useEffect is not defined".
+- **Nguyên nhân gốc rễ**:
+  - Khi thêm tính năng tự động ghi nhận mã thưởng vào kho cá nhân khi bài nộp được duyệt, code gọi hook `useEffect(() => { ... })` nhưng ở đầu file `src/components/MissionDetailModal.tsx` lại chỉ có `import React, { useState } from 'react';`.
+- **Giải pháp chuẩn đã kiểm chứng**:
+  - Bổ sung `useEffect` vào danh sách named imports từ `'react'` trong `MissionDetailModal.tsx`.
+- 🚫 **CÁCH SỬA ĐÃ THẤT BẠI - TUYỆT ĐỐI KHÔNG LẶP LẠI**:
+  - ❌ *Tuyệt đối KHÔNG gọi React hook mà không kiểm tra dòng import đầu file*: Mọi hook (`useEffect`, `useMemo`, `useCallback`, `useRef`, `useState`) bắt buộc phải được khai báo tường minh trong import.
+
 ### ISSUE-173: Bẫy Khai Báo Hàm parseTimeMs Cục Bộ Bên Trong Modal Gây Crash Trang Cha (GiveawaysView parseTimeMs Scope Crash Pitfall)
 - **Triệu chứng**:
   - Truy cập trang `/giveaways` trên web khách bị crash màn hình đỏ/đen: "Đã có sự cố hiển thị nhỏ xảy ra - parseTimeMs is not defined".
