@@ -7,6 +7,41 @@ Mỗi mục sửa lỗi đều ghi nhận **Nguyên nhân gốc rễ (Root Cause
 
 ## [2026-10-28]
 
+### 252. Khắc Phục Hiện Tượng Bộ Đếm Tổng Sao Chép Giật Lùi, Khai Thông Luồng Đẩy Máy Chủ & Chuẩn Hóa Lệch Mốc 0 Giữa Các Nguồn API
+- **Bối cảnh & Yêu cầu từ Người dùng**:
+  - Con số "Tổng lượt sao chép" trên web bị nhảy giật lùi: có lúc hiển thị 93.693 hoặc 93.700, nhưng sau khi F5, mở tab mới hoặc chạy ngầm lại tụt về 93.551 hoặc 93.545. Khách bấm "Sao chép", số vừa nhảy lên thì tải lại trang là mất.
+  - Yêu cầu:
+    1. Sửa lỗi crash do sai tên hàm lưu `saveGlobalMasterCopyCount` trong `MarketingService`, đảm bảo cả 5 vị trí gọi hàm đều thực thi trơn tru không ném ngoại lệ uncaught `TypeError`.
+    2. Khai thông lượt bấm thật lên máy chủ: cô lập ngoại lệ trong `recordRealCopy`, bảo đảm gọi `schedulePushRealEvent`, bổ sung cơ chế thử lại (`pendingFailedCopyIncrement`) và `keepalive: true` khi đóng trang / đổi tab.
+    3. Đồng bộ mốc 0 sai lệch giữa 2 nguồn API: Bổ sung công thức tăng trưởng tự nhiên `virtualCopy = Math.floor(elapsedMigrationMinutes * 0.5)` vào `deterministicEngine.ts`, `snapshotService.ts`, `sync.ts` và `stats.ts`, xóa bỏ sai lệch giữa `/api/realtime-events` (`counters.master_copy.count`) và `/api/metrics/synced` (`snapshot.master_copy`).
+    4. Bảo đảm tính đơn điệu tuyệt đối (Monotonic Progression): Số chỉ tăng, không bao giờ giảm trên toàn bộ bộ nhớ client, localStorage, BroadcastChannel và endpoint máy chủ. Mọi điểm gán đều bọc `Math.max(this.globalMasterCopyCount, incomingValue, 93545)`.
+    5. Bảo toàn nguyên vẹn các quy tắc: Mốc khởi điểm 93.545, cặp tự bấm + toast của chính mình chỉ tính 1, quy tắc 20s chỉ chặn tần suất toast mà không chặn đếm số.
+- **Nguyên nhân gốc rễ (Root Cause)**:
+  1. *Lỗi `TypeError: this.saveGlobalMasterCopyCount is not a function`*: Tại các dòng 332, 455, 908, 1803, 3494 của `src/services/marketingService.ts`, mã nguồn gọi `this.saveGlobalMasterCopyCount()`, nhưng phương thức được khai báo tại dòng 762 lại có tên là `saveDailyMaxCopyCount()`. Khi người dùng bấm sao chép, hàm `incrementLiveCounter()` văng `TypeError` tại dòng 1803, khiến luồng `recordRealCopy()` bị crash ngay lập tức, không lưu localStorage, không bắn BroadcastChannel và không bao giờ gọi tới `schedulePushRealEvent()`.
+  2. *Lệch pha mốc số giữa Snapshot và Realtime*: `/api/realtime-events` (`virtualLayerService.ts`) tính toán `realClicks + virtualCopy` (trong đó `virtualCopy = Math.floor(elapsedMigrationMinutes * 0.5)` neo vào 16:00 28/10/2026 GMT+7), trả về ~93.700+. Trong khi đó `/api/metrics/synced` (`deterministicEngine.ts`) chỉ lấy `Math.max(realCopyClicks, peakCopy) = 93.545`. Khi F5 hoặc mở tab mới, client đọc snapshot cache 93.545 trước, dẫn tới số bị giật lùi về 93.545 hoặc mốc cũ.
+  3. *Nuốt lượt bấm thật khi mạng chập chờn*: Hàm `sendPushToEdge()` trước đây reset `this.pendingCopyIncrement = 0` ngay trước khi gọi fetch. Nếu mạng lỗi hoặc server trả về non-200, lượt bấm thật bị mất vĩnh viễn không có hàng đợi thử lại.
+  4. *Khởi tạo không đơn điệu*: Trong `initDailyMaxCopyCount()`, gán `this.globalMasterCopyCount = Math.max(93545, count)` mà không so sánh với giá trị đang có trong bộ nhớ `this.globalMasterCopyCount`.
+- **Giải pháp Thành công (Solution Applied)**:
+  1. *Triển khai `public saveGlobalMasterCopyCount(): void` & Giữ Alias `saveDailyMaxCopyCount()`*:
+     - Khắc phục triệt để lỗi runtime `TypeError` tại toàn bộ 5 vị trí gọi hàm.
+     - Lưu trữ bền vững đồng thời vào `wcg_global_master_copy_count_v1` và `wcg_marketing_daily_max_copy_v1`.
+  2. *Đồng bộ hóa Mốc Động Tuyệt Đối (0 Deviation Engine)*:
+     - Cập nhật `src/shared/deterministicEngine.ts`: Tích hợp chính xác công thức `virtualCopy = Math.floor(elapsedMigrationMinutes * 0.5)` vào `liveCopyCount`. Trả về `master_copy` chứa `anchor_count`, `count`, `real_clicks`, và `virtual`.
+     - Cập nhật `functions/services/snapshotService.ts`: Bổ sung hàm `calibrateSnapshotMasterCopy` tự động chuẩn hóa `cached.master_copy` theo timestamp hiện tại trước khi trả về.
+     - Cập nhật `functions/api/sync.ts` & `functions/api/stats.ts`: Trả về `masterCopyClicks` nhất quán theo tổng thực + ảo. Xóa bộ nhớ cache `__wcg_metrics_snapshot` ngay khi có `push_real_event` chứa `copyIncrement`.
+     - Tối ưu `Cache-Control` của `/api/metrics/synced` xuống `s-maxage=5` để phản ánh nhanh nhất.
+  3. *Khai thông và Bọc Vệ Hàng Đợi Gửi Lên Edge*:
+     - Bổ sung `pendingFailedCopyIncrement` lưu lại các lượt bấm bị lỗi mạng để gửi bù vào lần kế tiếp.
+     - Sử dụng `keepalive: true` trong `sendPushToEdge()` và kích hoạt `flushPendingCopyPush()` tại các sự kiện `beforeunload`, `pagehide` và `visibilitychange: hidden`.
+     - Bọc toàn bộ các bước trong `recordRealCopy()` và `incrementLiveCounter()` bằng khối `try/catch` độc lập, bảo đảm thao tác bấm sao chép luôn tăng số trên UI ngay lập tức trong 0 giây.
+  4. *Bảo toàn Đơn Điệu Tuyệt Đối (Strict Monotonic Protection)*:
+     - `this.globalMasterCopyCount = Math.max(this.globalMasterCopyCount || 93545, 93545, count);`
+     - Tất cả các luồng nhận snapshot, SSE hoặc BroadcastChannel đều so sánh điều kiện nghiêm ngặt `if (incoming > this.globalMasterCopyCount)` trước khi nâng giá trị.
+- **Kiểm Thử & Xác Minh (Verification)**:
+  - `scripts/test_copy_counter_regression.cjs`: Vượt qua 100% 8 bài kiểm thử chuyên sâu (phương thức an toàn không TypeError, mốc khởi điểm 93.545, sai lệch deviation = 0 giữa realtime và snapshot, 3 lần bấm F5 giữ nguyên, đa tab đồng bộ, chống cộng trùng tự bấm, toast ảo +1, quy tắc 20s không chặn đếm).
+  - `scripts/audit_zero_test_artifacts.cjs`: Đạt 100% SẠCH, không có bất kỳ sản phẩm hoặc dữ liệu test nào.
+  - Vite Frontend Build & Prerender 793 liên kết SEO thành công 100%. Cloudflare Pages Worker bundle compiled hoàn tất.
+
 ### 251. Khai Thông API Cập Nhật Giờ Ra Mắt Game Sắp Ra Mắt & Bổ Sung Action `set_release_date`
 - **Bối cảnh & Yêu cầu từ Người dùng**:
   - Bot cập nhật bảng game sắp ra mắt qua `POST /api/crawler/ingest-upcoming-games` bằng khóa API hiện tại (`wcg_muse_f7d252dd57426a7a`), gửi toàn bộ bản ghi kèm `directPublish: true`.

@@ -10,6 +10,25 @@
 
 ## 1. DANH MỤC LỖI & CÁC BẪY ĐÃ THẤT BẠI (DO NOT REPEAT)
 
+### ISSUE-171: Bẫy Sai Tên Hàm Lưu saveGlobalMasterCopyCount Khiến Crash Luồng Bấm Sao Chép & Lệch Pha Mốc Snapshot (Copy Counter Runtime Crash & Snapshot Drift Pitfall)
+- **Triệu chứng**:
+  - Con số "Tổng lượt sao chép" hiển thị lên cao (~93.693 hoặc ~93.700), nhưng sau khi F5, mở tab mới hoặc chuyển tab thì lại tụt lùi về 93.551 hoặc 93.545.
+  - Khi khách bấm "Sao chép" ở giftcode, số vừa nhảy lên thì tải lại trang là mất.
+  - Console văng lỗi đỏ `TypeError: this.saveGlobalMasterCopyCount is not a function`.
+- **Nguyên nhân gốc rễ & Các bẫy cần tránh**:
+  1. *Bẫy đặt tên hàm không khớp giữa nơi gọi và định nghĩa*: Trong `src/services/marketingService.ts`, 5 vị trí gọi hàm dùng tên `this.saveGlobalMasterCopyCount()`, nhưng phương thức lại được đặt tên là `private saveDailyMaxCopyCount()`. Khi `incrementLiveCounter()` gọi đến dòng này, runtime ném uncaught `TypeError`, cắt đứt toàn bộ luồng lưu storage và gửi lên server.
+  2. *Bẫy lệch pha giữa Snapshot và SSE*: `/api/realtime-events` tính cả `virtualCopy = Math.floor(elapsedMigrationMinutes * 0.5)` (~170+ số ảo), trong khi `/api/metrics/synced` (`deterministicEngine.ts`) chỉ lấy `realCopyClicks`. Khi tải lại trang, client đọc snapshot mốc thấp hơn, ghi đè làm số bị thụt lùi.
+  3. *Bẫy mất gói đẩy khi mạng chập chờn*: `sendPushToEdge()` xóa `pendingCopyIncrement` trước khi gửi; nếu fetch thất bại thì lượt tăng bị nuốt mất mà không thử lại.
+- **Giải pháp chuẩn đã kiểm chứng**:
+  1. Định nghĩa `public saveGlobalMasterCopyCount(): void` và giữ alias `saveDailyMaxCopyCount()` để bảo đảm 100% tương thích ngược và 0 lỗi runtime.
+  2. Đồng bộ công thức `virtualCopy = Math.floor(elapsedMigrationMinutes * 0.5)` vào `deterministicEngine.ts` và `snapshotService.ts`, xóa bỏ hoàn toàn sai lệch giữa realtime và snapshot (deviation = 0).
+  3. Thêm hàng đợi thử lại `pendingFailedCopyIncrement` và `keepalive: true` cho `sendPushToEdge()`, gọi `flushPendingCopyPush()` khi đóng trang hoặc ẩn tab.
+  4. Đảm bảo mọi điểm khởi tạo và cập nhật đều tuân thủ nguyên tắc đơn điệu không giảm `Math.max(this.globalMasterCopyCount, incomingValue, 93545)`.
+- 🚫 **CÁCH SỬA ĐÃ THẤT BẠI - TUYỆT ĐỐI KHÔNG LẶP LẠI**:
+  - ❌ *Tuyệt đối KHÔNG để lệch công thức tính giữa deterministicEngine và virtualLayerService*: Cả hai bắt buộc phải dùng cùng một mốc migration anchor (`1793181600000`) và cùng tốc độ `0.5/phút`.
+  - ❌ *Tuyệt đối KHÔNG gán đè bộ đếm mà không qua Math.max*: Mọi thao tác gán đều phải bảo toàn tính đơn điệu không giảm.
+  - ❌ *Tuyệt đối KHÔNG xóa bộ đếm copy lúc 0h*: Đây là Tổng lượt sao chép toàn web (All-time global total).
+
 ### ISSUE-170: Bẫy Hardcode Giờ Ra Mắt Trong sanitizeAndSafeguardUpcomingGames Khiến Không Thể Đổi Giờ Game (Upcoming Games Release Date Hardcoded Safeguard Pitfall)
 - **Triệu chứng**:
   - Bot gọi `POST /api/crawler/ingest-upcoming-games` gửi toàn bộ bản ghi để đổi `releaseDate` của một tựa game (ví dụ Monster Hunter Outlanders từ 10:00 sang 05:00: `2026-10-29T05:00:00+07:00`).

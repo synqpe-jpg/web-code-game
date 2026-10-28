@@ -367,17 +367,32 @@ export async function getOrRefreshSnapshot(
     }
   }
 
+  const calibrateSnapshotMasterCopy = (snap: GlobalMetricsSnapshot | null) => {
+    if (snap && snap.master_copy) {
+      const elapsedSinceMigrationMs = Math.max(0, now - 1793181600000);
+      const virtualCopy = Math.floor(elapsedSinceMigrationMs / 60000 * 0.5);
+      const realClicks = Math.max(93545, Number(snap.master_copy.real_clicks) || 93545);
+      const count = realClicks + virtualCopy;
+      snap.master_copy.anchor_time = now;
+      snap.master_copy.anchor_count = count;
+      snap.master_copy.count = count;
+      snap.master_copy.real_clicks = realClicks;
+      snap.master_copy.virtual = virtualCopy;
+    }
+    return snap;
+  };
+
   const hasValidProducts = Boolean(cached && cached.products && Object.keys(cached.products).length > 0);
 
   // 3. Check if cached snapshot is still fresh (under 10s old) and has valid products
   if (cached && hasValidProducts && !force && now - (cached.updated_at || 0) < SNAPSHOT_REFRESH_INTERVAL_MS) {
-    return cached;
+    return calibrateSnapshotMasterCopy(cached);
   }
 
   // 4. If stale, handle single-flight concurrency lock to prevent SQLITE_BUSY
   if (globalScope.__wcg_metrics_snapshot_syncing && !force) {
     // Another request in this isolate is already revalidating -> return cached copy if valid
-    if (cached && hasValidProducts) return cached;
+    if (cached && hasValidProducts) return calibrateSnapshotMasterCopy(cached);
   }
 
   // If we have a valid cached copy, not forced, and waitUntil is available: return stale copy now and revalidate in background!
@@ -391,7 +406,7 @@ export async function getOrRefreshSnapshot(
       }
     })();
     waitUntil(backgroundTask);
-    return cached;
+    return calibrateSnapshotMasterCopy(cached);
   }
 
   // Otherwise, synchronous revalidation (e.g. forced refresh, cold start, or empty cache)

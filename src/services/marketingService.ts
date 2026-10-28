@@ -212,6 +212,7 @@ class MarketingService {
   private lastCopyPushTime: number = 0;
   private initialSyncCompleted: boolean = false;
   private readonly COPY_PUSH_COOLDOWN_MS = 5000; // 5s debounce for copy clicks to batch & protect KV write quota
+  private pendingFailedCopyIncrement: number = 0;
   private lastRealCopyToastTime: number = 0;
   private readonly REAL_COPY_TOAST_COOLDOWN_MS = 20000; // 20s cooldown for real user copy notification toasts
   private userActionCooldownMap: Map<string, number> = new Map(); // Quản lý cooldown chống spam thông báo theo người dùng (20s)
@@ -323,12 +324,13 @@ class MarketingService {
         const parsed = JSON.parse(raw);
         if (parsed && typeof parsed === 'object') {
           this.activeSnapshot = parsed;
-          if (parsed.master_copy && typeof parsed.master_copy.anchor_count === 'number') {
-            this.masterCopyAnchorCount = parsed.master_copy.anchor_count;
+          if (parsed.master_copy && (typeof parsed.master_copy.anchor_count === 'number' || typeof parsed.master_copy.count === 'number')) {
+            const anchorCount = Number(parsed.master_copy.count || parsed.master_copy.anchor_count) || 0;
+            this.masterCopyAnchorCount = anchorCount;
             this.masterCopyAnchorTime = parsed.master_copy.anchor_time || Date.now();
-            if (parsed.master_copy.anchor_count > this.globalMasterCopyCount) {
-              this.globalMasterCopyCount = parsed.master_copy.anchor_count;
-              this.dailyMaxCopyCount = parsed.master_copy.anchor_count;
+            if (anchorCount > this.globalMasterCopyCount) {
+              this.globalMasterCopyCount = anchorCount;
+              this.dailyMaxCopyCount = anchorCount;
               this.saveGlobalMasterCopyCount();
             }
           }
@@ -445,8 +447,8 @@ class MarketingService {
 
         if (snapToGrid) {
           // 1. Force Snap copy clicks and daily max copy count to authoritative server snapshot
-          if (data.snapshot.master_copy && typeof data.snapshot.master_copy.anchor_count === 'number') {
-            const anchorCount = data.snapshot.master_copy.anchor_count;
+          if (data.snapshot.master_copy && (typeof data.snapshot.master_copy.anchor_count === 'number' || typeof data.snapshot.master_copy.count === 'number')) {
+            const anchorCount = Number(data.snapshot.master_copy.count || data.snapshot.master_copy.anchor_count) || 0;
             this.masterCopyAnchorCount = anchorCount;
             this.masterCopyAnchorTime = data.snapshot.master_copy.anchor_time || Date.now();
             if (anchorCount > this.globalMasterCopyCount) {
@@ -753,13 +755,13 @@ class MarketingService {
           }
         }
       }
-      this.globalMasterCopyCount = Math.max(93545, count);
+      this.globalMasterCopyCount = Math.max(this.globalMasterCopyCount || 93545, 93545, count);
       this.dailyMaxCopyCount = this.globalMasterCopyCount;
-      this.saveDailyMaxCopyCount();
+      this.saveGlobalMasterCopyCount();
     } catch {}
   }
 
-  private saveDailyMaxCopyCount(): void {
+  public saveGlobalMasterCopyCount(): void {
     if (typeof window === 'undefined') return;
     try {
       localStorage.setItem('wcg_global_master_copy_count_v1', this.globalMasterCopyCount.toString());
@@ -768,6 +770,11 @@ class MarketingService {
         count: this.globalMasterCopyCount,
       }));
     } catch {}
+  }
+
+  // Alias for backward compatibility
+  private saveDailyMaxCopyCount(): void {
+    this.saveGlobalMasterCopyCount();
   }
 
   private initProcessedNotifIds(): void {
@@ -1792,16 +1799,24 @@ class MarketingService {
   }
 
   public incrementLiveCounter(amount: number = 1, notifId?: string): void {
-    if (notifId) {
-      const copyKey = `copy_${notifId}`;
-      if (this.processedCopyNotifIds.has(copyKey)) return;
-      this.processedCopyNotifIds.add(copyKey);
+    try {
+      if (notifId) {
+        const copyKey = `copy_${notifId}`;
+        if (this.processedCopyNotifIds.has(copyKey)) return;
+        this.processedCopyNotifIds.add(copyKey);
+      }
+      const inc = Math.max(1, amount);
+      this.globalMasterCopyCount = Math.max(93545 + inc, (this.globalMasterCopyCount || 93545) + inc);
+      this.dailyMaxCopyCount = this.globalMasterCopyCount;
+      try {
+        this.saveGlobalMasterCopyCount();
+      } catch (saveErr) {
+        console.warn('[MarketingService] Failed to persist copy count:', saveErr);
+      }
+      this.broadcastCurrentCount();
+    } catch (e) {
+      console.error('[MarketingService] incrementLiveCounter error:', e);
     }
-    const inc = Math.max(1, amount);
-    this.globalMasterCopyCount += inc;
-    this.dailyMaxCopyCount = this.globalMasterCopyCount;
-    this.saveGlobalMasterCopyCount();
-    this.broadcastCurrentCount();
   }
 
   public subscribeCounter(callback: (count: number) => void): () => void {
@@ -3358,22 +3373,34 @@ class MarketingService {
   }
 
   private async sendPushToEdge(event: MarketingNotification | null, copyIncrement: number): Promise<void> {
+    const totalIncrementToSend = copyIncrement + this.pendingFailedCopyIncrement;
     try {
       const res = await fetch('/api/sync', {
         method: 'POST',
+        keepalive: true,
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           type: 'push_real_event',
           event: event || undefined,
-          copyIncrement: copyIncrement > 0 ? copyIncrement : undefined,
+          copyIncrement: totalIncrementToSend > 0 ? totalIncrementToSend : undefined,
           cooldownSec: Math.max(5, Number(this.config.realUserCooldownSec) || 20),
         }),
       });
       if (res.ok) {
+        this.pendingFailedCopyIncrement = 0; // Thành công: Xóa hàng đợi thử lại
         const data: any = await res.json().catch(() => null);
         if (data && data.success) {
           if (typeof data.server_time === 'number') {
             this.calibrateServerTime(data.server_time);
+          }
+          if (typeof data.masterCopyClicks === 'number') {
+            const serverTotal = Number(data.masterCopyClicks) || 0;
+            if (serverTotal > this.globalMasterCopyCount) {
+              this.globalMasterCopyCount = serverTotal;
+              this.dailyMaxCopyCount = serverTotal;
+              this.saveGlobalMasterCopyCount();
+              this.broadcastCurrentCount();
+            }
           }
           if (data.event && data.event.id && data.event.scheduledFireTime) {
             const match = this.recentRealEvents.find((e) => e && e.id === data.event.id);
@@ -3394,8 +3421,16 @@ class MarketingService {
             }
           }
         }
+      } else {
+        if (totalIncrementToSend > 0) {
+          this.pendingFailedCopyIncrement = totalIncrementToSend;
+        }
       }
-    } catch {}
+    } catch {
+      if (totalIncrementToSend > 0) {
+        this.pendingFailedCopyIncrement = totalIncrementToSend;
+      }
+    }
   }
 
   public syncFromHub(
@@ -3715,44 +3750,58 @@ class MarketingService {
     count: number = 1,
     userOrName?: UserProfile | string | null
   ): void {
-    const rawName = this.resolveUserName(userOrName);
-    const masked = this.maskName(rawName);
+    let rawName = '';
+    let masked = 'Khách';
+    try {
+      rawName = this.resolveUserName(userOrName);
+      masked = this.maskName(rawName);
+    } catch {
+      masked = 'Khách';
+    }
 
     // 1. Luôn tăng bộ đếm số lượt sao chép (đếm đủ mọi lần thao tác)
-    this.incrementLiveCounter(count);
+    try {
+      this.incrementLiveCounter(count);
+    } catch (err) {
+      console.warn('[MarketingService] recordRealCopy counter increment error:', err);
+    }
 
     const now = this.getCalibratedNow();
-    // 2. Chống spam thông báo: 20 giây tối đa 1 thông báo cho mỗi người dùng (khóa theo tên đã che)
-    const cdSec = Math.max(5, Number(this.config.realUserCooldownSec) || 20);
-    const cooldownMs = cdSec * 1000;
-    const shouldShowToast = this.canDisplayActionNotification(masked, 'COPY_CODE', cooldownMs);
-
     let event: MarketingNotification | null = null;
-    if (shouldShowToast) {
-      this.lastRealCopyToastTime = now;
-      event = {
-        id: `copy_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
-        type: 'COPY_CODE',
-        title: 'Sao chép mã Giftcode',
-        message: `${masked} vừa sao chép ${count > 1 ? `tất cả ${count}` : '1'} mã code cho ${gameName}`,
-        timeAgo: 'vừa xong',
-        userName: masked,
-        gameName,
-        gameSlug,
-        productId: null as any,
-        targetId: null as any,
-        isRealUser: true,
-        is_simulated: false, // Bắt buộc: boolean false cho sự kiện thật
-        timestamp: now,
-        scheduledFireTime: now,
-      };
-      (event as any).localOrigin = true;
-      (event as any).isSelfClick = true;
-      this.lastSelfClickToastId = event.id;
-      this.selfClickToastIds.add(event.id);
+    try {
+      // 2. Chống spam thông báo: 20 giây tối đa 1 thông báo cho mỗi người dùng (khóa theo tên đã che)
+      const cdSec = Math.max(5, Number(this.config.realUserCooldownSec) || 20);
+      const cooldownMs = cdSec * 1000;
+      const shouldShowToast = this.canDisplayActionNotification(masked, 'COPY_CODE', cooldownMs);
 
-      // Nổ luôn lập tức trên màn hình người bấm (0s delay!)
-      this.pushRealEvent(event, true, true);
+      if (shouldShowToast) {
+        this.lastRealCopyToastTime = now;
+        event = {
+          id: `copy_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
+          type: 'COPY_CODE',
+          title: 'Sao chép mã Giftcode',
+          message: `${masked} vừa sao chép ${count > 1 ? `tất cả ${count}` : '1'} mã code cho ${gameName}`,
+          timeAgo: 'vừa xong',
+          userName: masked,
+          gameName,
+          gameSlug,
+          productId: null as any,
+          targetId: null as any,
+          isRealUser: true,
+          is_simulated: false, // Bắt buộc: boolean false cho sự kiện thật
+          timestamp: now,
+          scheduledFireTime: now,
+        };
+        (event as any).localOrigin = true;
+        (event as any).isSelfClick = true;
+        this.lastSelfClickToastId = event.id;
+        this.selfClickToastIds.add(event.id);
+
+        // Nổ luôn lập tức trên màn hình người bấm (0s delay!)
+        this.pushRealEvent(event, true, true);
+      }
+    } catch (toastErr) {
+      console.warn('[MarketingService] recordRealCopy toast error:', toastErr);
     }
 
     if (this.broadcastChannel) {
@@ -3764,7 +3813,11 @@ class MarketingService {
       } catch {}
     }
 
-    this.schedulePushRealEvent(event, count);
+    try {
+      this.schedulePushRealEvent(event, count);
+    } catch (pushErr) {
+      console.warn('[MarketingService] recordRealCopy schedulePush error:', pushErr);
+    }
   }
 
   public recordRealOrder(
@@ -4691,9 +4744,11 @@ class MarketingService {
       window.addEventListener('wcg_admin_data_updated', handleInventoryReset);
       window.addEventListener('wcg_data_updated', handleInventoryReset);
       window.addEventListener('beforeunload', () => {
+        this.flushPendingCopyPush();
         this.flushSessionAnchor();
       });
       window.addEventListener('pagehide', () => {
+        this.flushPendingCopyPush();
         this.flushSessionAnchor();
       });
     }
@@ -4701,6 +4756,7 @@ class MarketingService {
     if (typeof document !== 'undefined') {
       document.addEventListener('visibilitychange', () => {
         if (document.visibilityState === 'hidden') {
+          this.flushPendingCopyPush();
           this.flushSessionAnchor();
         } else if (document.visibilityState === 'visible') {
           this.applyOfflineCatchUp();

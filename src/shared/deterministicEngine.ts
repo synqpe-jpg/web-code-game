@@ -37,7 +37,9 @@ export interface GlobalMetricsSnapshot {
   master_copy: {
     anchor_time: number;
     anchor_count: number;
+    count?: number;
     real_clicks: number;
+    virtual?: number;
   };
   products: Record<string, {
     stock: number;
@@ -343,10 +345,16 @@ export function calculateGlobalSnapshot(
   },
   timestampMs: number = Date.now()
 ): GlobalMetricsSnapshot {
-  // Master Copy: Direct authoritative total anchored to 93545 (no extra diurnal curve on top of final total)
+  // Master Copy: Natural virtual copy progression (~0.5 copy/min) since baseline migration anchor (16:00 28/10/2026 GMT+7)
+  const MASTER_COPY_ANCHOR_MS = 1793181600000;
+  const elapsedSinceMigrationMs = Math.max(0, timestampMs - MASTER_COPY_ANCHOR_MS);
+  const elapsedMigrationMinutes = elapsedSinceMigrationMs / 60000;
+  const virtualCopy = Math.floor(elapsedMigrationMinutes * 0.5);
+
   const realCopyClicks = Math.max(93545, Number(data.masterCopyClicks) || 0);
   const peakCopy = Math.max(93545, Number(data.peakCopyClicks) || 0);
-  const liveCopyCount = Math.max(realCopyClicks, peakCopy);
+  const effectiveRealClicks = Math.max(realCopyClicks, peakCopy);
+  const liveCopyCount = effectiveRealClicks + virtualCopy;
 
   const productSnapshots: Record<string, {
     stock: number;
@@ -568,7 +576,9 @@ export function calculateGlobalSnapshot(
     master_copy: {
       anchor_time: timestampMs,
       anchor_count: liveCopyCount,
-      real_clicks: realCopyClicks,
+      count: liveCopyCount,
+      real_clicks: effectiveRealClicks,
+      virtual: virtualCopy,
     },
     products: productSnapshots,
     giveaways: giveawaySnapshots,

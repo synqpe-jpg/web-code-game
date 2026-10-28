@@ -39,9 +39,11 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
   let realGiveawayClaimedCounts: Record<string, number> = {};
   try {
     hub = await getRealEventsHub(env);
-    if (hub.date === vnToday && typeof hub.masterCopyClicks === 'number') {
-      masterCopyClicks = hub.masterCopyClicks;
-    }
+    const rawClicks = (typeof hub.masterCopyClicks === 'number') ? hub.masterCopyClicks : 93545;
+    const realClicks = Math.max(93545, rawClicks);
+    const elapsedSinceMigrationMs = Math.max(0, now - 1793181600000);
+    const virtualCopy = Math.floor(elapsedSinceMigrationMs / 60000 * 0.5);
+    masterCopyClicks = realClicks + virtualCopy;
     if (hub.realProductSoldCounts && typeof hub.realProductSoldCounts === 'object') {
       realProductSoldCounts = hub.realProductSoldCounts;
     }

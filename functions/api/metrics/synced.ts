@@ -19,7 +19,7 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
       status: 200,
       headers: {
         'Content-Type': 'application/json',
-        'Cache-Control': force ? 'no-cache, no-store, must-revalidate' : 'public, max-age=10, s-maxage=15, stale-while-revalidate=30',
+        'Cache-Control': force ? 'no-cache, no-store, must-revalidate' : 'public, max-age=3, s-maxage=5, stale-while-revalidate=10',
         'Access-Control-Allow-Origin': '*',
         'Access-Control-Allow-Methods': 'GET, OPTIONS',
       },

@@ -929,10 +929,11 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
         ? (d1Settings['wcg_store_global_show_sold'] === true || d1Settings['wcg_store_global_show_sold'] === 'true')
         : (masterState?.storeGlobalShowSold !== undefined ? Boolean(masterState.storeGlobalShowSold) : true),
       masterCopyClicks: (() => {
-        const vnToday = new Date(Date.now() + 7 * 3600 * 1000).toISOString().slice(0, 10);
-        return (realEventsHub?.date === vnToday && typeof realEventsHub?.masterCopyClicks === 'number')
-          ? realEventsHub.masterCopyClicks
-          : 0;
+        const rawClicks = (typeof realEventsHub?.masterCopyClicks === 'number') ? realEventsHub.masterCopyClicks : 93545;
+        const realClicks = Math.max(93545, rawClicks);
+        const elapsedSinceMigrationMs = Math.max(0, Date.now() - 1793181600000);
+        const virtualCopy = Math.floor(elapsedSinceMigrationMs / 60000 * 0.5);
+        return realClicks + virtualCopy;
       })(),
       masterCopyClicksDate: new Date(Date.now() + 7 * 3600 * 1000).toISOString().slice(0, 10),
       realProductSoldCounts: realEventsHub?.realProductSoldCounts || {},
@@ -1279,6 +1280,7 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
         if (increment > 0) {
           hub.masterCopyClicks += increment;
           hub.peakCopyClicks = Math.max(hub.peakCopyClicks, hub.masterCopyClicks);
+          (globalThis as any).__wcg_metrics_snapshot = null;
         }
 
         // Anti-spoofing validation on incoming event
@@ -1411,10 +1413,15 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
         hub.updatedAt = new Date().toISOString();
         await saveRealEventsHub(env, hub);
 
+        const elapsedSinceMigrationMs = Math.max(0, Date.now() - 1793181600000);
+        const virtualCopy = Math.floor(elapsedSinceMigrationMs / 60000 * 0.5);
+        const masterCopyTotal = hub.masterCopyClicks + virtualCopy;
+
         return new Response(
           JSON.stringify({
             success: true,
-            masterCopyClicks: hub.masterCopyClicks,
+            masterCopyClicks: masterCopyTotal,
+            masterCopyRealClicks: hub.masterCopyClicks,
             masterCopyClicksDate: vnToday,
             realProductSoldCounts: hub.realProductSoldCounts,
             realGiveawayClaimedCounts: hub.realGiveawayClaimedCounts,
