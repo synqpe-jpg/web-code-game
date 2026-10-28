@@ -31,6 +31,8 @@ interface AdminTopbarProps {
 const tabTitles: Record<AdminModuleTab, { title: string; subtitle: string }> = {
   dashboard: { title: 'Bảng Điều Khiển Tổng Quan', subtitle: 'Theo dõi các chỉ số kinh doanh, kho code và hoạt động hệ thống' },
   games: { title: 'Quản Lý Danh Mục Game', subtitle: 'Thêm mới, cập nhật thông tin, banner, gói CH Play và giftcode game' },
+  news: { title: 'Quản Lý Tin Tức & Bài Viết', subtitle: 'Biên tập, hẹn giờ đăng bài, quản lý bài viết chuẩn SEO và mã code game' },
+  crawler: { title: 'Crawler & Auto Sync', subtitle: 'Quét và cào giftcode tự động từ nhiều nguồn, đồng bộ dữ liệu thông minh' },
   'free-codes': { title: 'Quản Lý Code Miễn Phí', subtitle: 'Kho giftcode công khai cho cộng đồng, theo dõi lượt sao chép' },
   giftcodes: { title: 'Kiểm Duyệt Giftcode', subtitle: 'Phê duyệt hoặc từ chối mã code do cộng đồng thành viên đóng góp' },
   members: { title: 'Quản Lý Thành Viên & Phân Quyền', subtitle: 'Danh sách người dùng, vai trò, số dư và trạng thái tài khoản' },
@@ -47,6 +49,7 @@ const tabTitles: Record<AdminModuleTab, { title: string; subtitle: string }> = {
   'floating-notification': { title: 'Cài Đặt Thông Báo Nổi (Client Widget)', subtitle: 'Tùy chỉnh thông báo popup, vị trí góc màn hình, khung giờ và nút CTA cho khách truy cập' },
   marketing: { title: 'Cấu Hình Marketing & FOMO', subtitle: 'Quản lý thông báo nổi mua hàng thật, popup sự kiện và hiệu ứng chốt sale' },
   growth: { title: 'Tăng Trưởng & Viral', subtitle: 'Chiến dịch giới thiệu bạn bè, vòng quay may mắn và nhiệm vụ nhận code' },
+  'api-keys': { title: 'Quản Lý Khóa API & Phân Quyền', subtitle: 'Cấp quyền chi tiết cho AI tự động (Pine AI), bot cào tin tức và đối tác tích hợp ngoài' },
   'security-logs': { title: 'Nhật Ký Bảo Mật & Audit Log', subtitle: 'Lưu vết không thể chỉnh sửa mọi hành vi quản trị trong hệ thống' },
   profile: { title: 'Thông Tin Tài Khoản & Bảo Mật', subtitle: 'Cập nhật hồ sơ cá nhân, đổi mật khẩu và xác thực 2 lớp (2FA)' },
 };
@@ -54,6 +57,8 @@ const tabTitles: Record<AdminModuleTab, { title: string; subtitle: string }> = {
 const shortTabTitles: Record<AdminModuleTab, string> = {
   dashboard: 'Tổng Quan',
   games: 'Quản Lý Game',
+  news: 'Tin Tức',
+  crawler: 'Crawler',
   'free-codes': 'Code Miễn Phí',
   giftcodes: 'Duyệt Giftcode',
   members: 'Thành Viên',
@@ -70,6 +75,7 @@ const shortTabTitles: Record<AdminModuleTab, string> = {
   'floating-notification': 'Thông Báo Nổi',
   marketing: 'Marketing FOMO',
   growth: 'Tăng Trưởng',
+  'api-keys': 'Khóa API',
   'security-logs': 'Nhật Ký Bảo Mật',
   profile: 'Hồ Sơ Admin',
 };

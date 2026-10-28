@@ -7,6 +7,34 @@ Mỗi mục sửa lỗi đều ghi nhận **Nguyên nhân gốc rễ (Root Cause
 
 ## [2026-10-28]
 
+### 245. Tạo Module Quản Lý Khóa API Riêng Biệt Trong Admin (Dedicated API Keys and Scopes Management)
+- **Bối cảnh & Yêu cầu từ Người dùng**:
+  - Tạo riêng một mục "Quản lý Khóa API" trong trang Admin.
+  - Ghi rõ cấp quyền mã nào mục nào, khóa API là gì.
+  - Hỗ trợ ẩn mã mặc định, hiện một phần tiền tố/hậu tố, bật/tắt hiển thị toàn bộ và nút sao chép 1-click.
+  - Cung cấp tính năng tạo mã API mới với các cấp quyền: Toàn quyền Tin tức (NEWS_FULL), Toàn quyền Nhiệm vụ (MISSIONS_FULL), Thẩm định Nhiệm vụ AI Pine (MISSIONS_REVIEW), và Toàn quyền Quản trị & Đồng bộ (ADMIN_FULL).
+- **Giải pháp Thành công (Solution Applied)**:
+  1. Xây dựng Module Quản Trị Khóa API (src/admin/modules/ApiKeysModule.tsx):
+     - Giao diện hiện đại chuẩn Dark/Light mode, tích hợp vào thanh điều hướng Sidebar (HỆ THỐNG & BẢO MẬT).
+     - Card VIP Khóa Master Hệ Thống (ADMIN_SYNC_SECRET): Bảo vệ tuyệt đối, hiển thị che mã b4e084••••••••2faef, nút con mắt bật/tắt, nút sao chép nhanh.
+     - Bảng Tra cứu Cấp quyền & Mục áp dụng trực quan: Giải thích chi tiết 4 nhóm quyền (NEWS_FULL, MISSIONS_FULL, MISSIONS_REVIEW, ADMIN_FULL), mục áp dụng, và header xác thực.
+     - Bảng quản lý khóa API động: Lọc theo quyền, tìm kiếm, hiển thị che mã wcg_ai_••••••••..., công tắc Bật/Tắt hoạt động (Active/Inactive), lần dùng cuối, và nút xóa/thu hồi khóa.
+     - Modal tạo khóa API mới & Modal bảo mật hiển thị mã 1 lần duy nhất (One-time Reveal) kèm nút copy và cảnh báo lưu trữ.
+     - Tab Tài liệu API Tích hợp (cURL / JS code samples) cho Tin tức, Nhiệm vụ và Đồng bộ.
+  2. Nâng Cấp Hệ Thống Backend API (functions/api/api-keys/*):
+     - GET /api/api-keys: Trả về danh sách khóa API cùng thông tin Khóa Master hệ thống.
+     - POST /api/api-keys: Tạo khóa API mới theo từng nhóm quyền được chỉ định, mã hóa SHA-256 lưu trữ an toàn trong bảng mission_ai_api_keys D1.
+     - PATCH /api/api-keys/:id: Kích hoạt hoặc tạm vô hiệu hóa khóa API.
+     - DELETE /api/api-keys/:id: Thu hồi và xóa vĩnh viễn khóa API.
+  3. Tích Hợp Xác Thực Đa Quyền Vào Bộ API Tin Tức & Đồng Bộ:
+     - functions/api/news/index.ts & functions/api/news/[id].ts: Nâng cấp hàm verifyAuth xác thực các khóa API mang quyền NEWS_FULL hoặc ADMIN_FULL từ D1.
+     - functions/api/sync.ts: Nâng cấp isAuthorized xác thực các khóa API mang quyền ADMIN_FULL từ D1.
+     - functions/services/mission_service.ts: Kiểm tra nghiêm ngặt phân lập quyền hạn, chặn khóa NEWS_FULL can thiệp vào module nhiệm vụ.
+- **Kiểm Thử & Xác Minh (Verification)**:
+  - Audit Zero Test Artifacts: Đạt 100%.
+  - Vite Frontend Build & Prerender 780 trang: Thành công 100%.
+  - Cloudflare Edge Worker bundle compile: Thành công 100%.
+
 ### 244. Cấp Toàn Quyền Quản Trị & Thực Thi Cho API Module Nhiệm Vụ (Full Access Missions API)
 - **Bối cảnh & Yêu cầu từ Người dùng**:
   - Yêu cầu cấp toàn quyền phần nhiệm vụ (Missions / Quests) cho API để bot, AI (ví dụ Pine), và các công cụ tự động hóa bên ngoài có thể toàn quyền quản lý hệ thống nhiệm vụ.

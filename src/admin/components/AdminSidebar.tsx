@@ -51,6 +51,7 @@ export type AdminModuleTab =
   | 'orders'
   | 'sepay'
   | 'content'
+  | 'api-keys'
   | 'security-logs'
   | 'profile';
 
@@ -226,6 +227,13 @@ export const AdminSidebar: React.FC<AdminSidebarProps> = ({
     {
       title: 'HỆ THỐNG & BẢO MẬT',
       items: [
+        {
+          id: 'api-keys',
+          label: 'Quản Lý Khóa API',
+          icon: KeyRound,
+          badge: 'MỚI',
+          badgeColor: 'bg-indigo-500 text-white font-bold',
+        },
         {
           id: 'security-logs',
           label: 'Nhật Ký Bảo Mật',

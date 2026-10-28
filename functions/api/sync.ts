@@ -31,6 +31,7 @@ import fallbackUtilitiesData from '../../src/data/utilities.json';
 import fallbackGiveawaysData from '../../src/data/giveaways.json';
 import fallbackStoreProductsData from '../../src/data/storeProducts.json';
 import { DEFAULT_NEWS_ARTICLES as fallbackNewsArticles } from '../../src/data/seedNews';
+import { computeSha256 } from '../services/mission_service';
 import canonicalBackupState from '../data/canonical_backup_state.json';
 
 interface Env {
@@ -94,6 +95,23 @@ async function isAuthorized(request: Request, env: Env): Promise<AuthResult> {
         error: auditCheck.error || 'Khóa kiểm toán tạm thời đã hết hạn sau 2 giờ.',
       };
     }
+  }
+
+  // 1.8. Dynamic Admin API Keys from D1 (Bảng mission_ai_api_keys có scope ADMIN_FULL hoặc FULL)
+  if (incomingAuthToken && env.DB) {
+    try {
+      const hash = await computeSha256(incomingAuthToken);
+      const keyRow: any = await env.DB.prepare(
+        'SELECT id, scope FROM mission_ai_api_keys WHERE api_key_hash = ? AND is_active = 1 LIMIT 1'
+      ).bind(hash).first();
+      if (keyRow) {
+        const s = String(keyRow.scope || '').toUpperCase();
+        if (s === 'ADMIN_FULL' || s === 'FULL' || s === 'ALL') {
+          env.DB.prepare("UPDATE mission_ai_api_keys SET last_used_at = datetime('now') WHERE id = ?").bind(keyRow.id).run().catch(() => {});
+          return { authorized: true, status: 200 };
+        }
+      }
+    } catch {}
   }
 
   // 2. Authenticated Admin role session token

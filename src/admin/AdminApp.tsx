@@ -30,6 +30,7 @@ import { MissionsModule } from './modules/MissionsModule';
 import { CrawlerModule } from './modules/CrawlerModule';
 import { EventSchedulerModule } from './modules/EventSchedulerModule';
 import { EmailNotificationModule } from './modules/EmailNotificationModule';
+import { ApiKeysModule } from './modules/ApiKeysModule';
 import { MarketingNotificationToast } from '../components/MarketingNotificationToast';
 
 interface AdminAppProps {
@@ -61,6 +62,7 @@ export const AdminApp: React.FC<AdminAppProps> = ({ onBackToClient }) => {
       'orders',
       'sepay',
       'content',
+      'api-keys',
       'security-logs',
       'profile',
     ];
@@ -334,7 +336,8 @@ export const AdminApp: React.FC<AdminAppProps> = ({ onBackToClient }) => {
         'orders',
         'sepay',
         'content',
-        'security-logs',
+        'api-keys',
+      'security-logs',
         'profile',
       ];
       if (validTabs.includes(hash as AdminModuleTab)) {
@@ -587,6 +590,10 @@ export const AdminApp: React.FC<AdminAppProps> = ({ onBackToClient }) => {
 
         {currentTab === 'missions' && (
           <MissionsModule />
+        )}
+
+        {currentTab === 'api-keys' && (
+          <ApiKeysModule onShowToast={showToast} />
         )}
 
         {currentTab === 'security-logs' && (

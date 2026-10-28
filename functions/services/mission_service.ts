@@ -130,6 +130,11 @@ export async function verifyAiKeyAuth(
     return { authorized: false, error: 'API Key không hợp lệ hoặc đã bị vô hiệu hóa.' };
   }
 
+  const scope = (keyRecord.scope || 'FULL').toUpperCase();
+  if (scope === 'NEWS_FULL') {
+    return { authorized: false, error: 'Khóa API này chỉ có quyền Quản lý Tin tức (NEWS_FULL). Không có quyền thẩm định bài nộp Nhiệm vụ.' };
+  }
+
   // Update last used timestamp asynchronously
   db.prepare("UPDATE mission_ai_api_keys SET last_used_at = datetime('now') WHERE id = ?")
     .bind(keyRecord.id)
@@ -199,10 +204,17 @@ export async function verifyAdminAuth(
         .run()
         .catch(() => {});
 
-      if (scope === 'REVIEW_ONLY') {
+      if (scope === 'REVIEW_ONLY' || scope === 'MISSIONS_REVIEW') {
         return {
           authorized: false,
           error: 'Khóa API này chỉ có quyền thẩm định bài nộp (REVIEW_ONLY). Yêu cầu khóa API Toàn Quyền (FULL) để thực hiện thao tác này.',
+        };
+      }
+
+      if (scope === 'NEWS_FULL') {
+        return {
+          authorized: false,
+          error: 'Khóa API này chỉ có quyền Quản lý Tin tức (NEWS_FULL). Không có quyền quản trị Nhiệm vụ.',
         };
       }
 
@@ -210,7 +222,7 @@ export async function verifyAdminAuth(
         authorized: true,
         adminId: keyRecord.id,
         adminName: keyRecord.key_name || 'API Client',
-        scope: 'FULL',
+        scope: scope === 'ADMIN_FULL' ? 'ADMIN_FULL' : 'FULL',
       };
     }
   }

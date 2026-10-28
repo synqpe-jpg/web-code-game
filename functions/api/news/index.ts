@@ -1,4 +1,5 @@
 import { DEFAULT_NEWS_ARTICLES as fallbackNewsArticles } from '../../../src/data/seedNews';
+import { computeSha256 } from '../../services/mission_service';
 
 interface Env {
   DB?: D1Database;
@@ -10,20 +11,39 @@ const CORS_HEADERS = {
   'Content-Type': 'application/json',
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Methods': 'GET, POST, PUT, PATCH, DELETE, OPTIONS',
-  'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-Sync-Key, X-Admin-Key',
+  'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-Sync-Key, X-Admin-Key, X-API-Key, x-api-key',
 };
 
-function verifyAuth(request: Request, env: Env): boolean {
+async function verifyAuth(request: Request, env: Env): Promise<boolean> {
   const secret = env.ADMIN_SYNC_SECRET || 'b4e08494bf1c3fd6a0c965dd2411780c60513f7f87001bc955d7496331b2faef';
   const syncKey = request.headers.get('X-Sync-Key') || request.headers.get('X-Admin-Key');
   if (syncKey && syncKey === secret) return true;
 
+  const apiKeyHeader = request.headers.get('X-API-Key') || request.headers.get('x-api-key');
   const authHeader = request.headers.get('Authorization') || '';
-  if (authHeader.startsWith('Bearer ')) {
-    const token = authHeader.slice(7).trim();
-    if (token === secret || (env.JWT_SECRET && token === env.JWT_SECRET)) return true;
-    // Basic JWT shape check if signed
-    if (token.split('.').length === 3) return true;
+  const bearerToken = authHeader.startsWith('Bearer ') ? authHeader.slice(7).trim() : '';
+
+  const candidateKey = (apiKeyHeader || bearerToken).trim();
+  if (candidateKey) {
+    if (candidateKey === secret || (env.JWT_SECRET && candidateKey === env.JWT_SECRET)) return true;
+    if (candidateKey.split('.').length === 3) return true;
+
+    // Check dynamic API keys from D1 table mission_ai_api_keys
+    if (env.DB) {
+      try {
+        const hash = await computeSha256(candidateKey);
+        const row: any = await env.DB.prepare(
+          'SELECT id, scope, is_active FROM mission_ai_api_keys WHERE api_key_hash = ? AND is_active = 1 LIMIT 1'
+        ).bind(hash).first();
+        if (row) {
+          const scope = String(row.scope || '').toUpperCase();
+          if (['NEWS_FULL', 'ADMIN_FULL', 'FULL', 'ALL'].includes(scope)) {
+            env.DB.prepare("UPDATE mission_ai_api_keys SET last_used_at = datetime('now') WHERE id = ?").bind(row.id).run().catch(() => {});
+            return true;
+          }
+        }
+      } catch {}
+    }
   }
   return false;
 }
@@ -173,9 +193,9 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
 export const onRequestPost: PagesFunction<Env> = async (context) => {
   const { request, env } = context;
 
-  if (!verifyAuth(request, env)) {
+  if (!(await verifyAuth(request, env))) {
     return new Response(
-      JSON.stringify({ success: false, error: 'Unauthorized. X-Sync-Key or Bearer token is required.' }),
+      JSON.stringify({ success: false, error: 'Unauthorized. X-API-Key, X-Sync-Key or Bearer token is required.' }),
       { status: 401, headers: CORS_HEADERS }
     );
   }
