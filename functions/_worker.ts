@@ -41,6 +41,8 @@ import * as missionsAiPendingApi from './api/missions/ai/pending';
 import * as missionsAiReviewApi from './api/missions/ai/review';
 import * as missionsAiKeysApi from './api/missions/ai-keys';
 import * as missionsAuditLogsApi from './api/missions/audit-logs';
+import * as apiKeysIndexApi from './api/api-keys/index';
+import * as apiKeysIdApi from './api/api-keys/[id]';
 import { invalidateCatalogEdgeCache } from './services/cache_service';
 import fallbackGiveawaysData from '../src/data/giveaways.json';
 import fallbackGamesData from '../src/data/games188.json';
@@ -649,6 +651,21 @@ async function handleWorkerRequest(request: Request, env: Env, ctx: ExecutionCon
         if (method === 'PUT' || method === 'PATCH') return await newsIdApi.onRequestPut(customContext);
         if (method === 'DELETE') return await newsIdApi.onRequestDelete(customContext);
         return await newsIdApi.onRequestGet(customContext);
+      }
+
+      // 15. System API Keys & Permissions Management
+      if (pathname === '/api/api-keys') {
+        if (method === 'OPTIONS') return await apiKeysIndexApi.onRequestOptions();
+        if (method === 'POST') return await apiKeysIndexApi.onRequestPost(context);
+        return await apiKeysIndexApi.onRequestGet(context);
+      }
+
+      if (pathname.startsWith('/api/api-keys/') && pathname !== '/api/api-keys') {
+        const keyId = pathname.replace('/api/api-keys/', '').trim();
+        const customContext = { ...context, params: { id: keyId } };
+        if (method === 'OPTIONS') return await apiKeysIdApi.onRequestOptions();
+        if (method === 'PATCH' || method === 'PUT') return await apiKeysIdApi.onRequestPatch(customContext);
+        if (method === 'DELETE') return await apiKeysIdApi.onRequestDelete(customContext);
       }
 
       // Fallback for any unknown /api route
