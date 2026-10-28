@@ -10,6 +10,23 @@
 
 ## 1. DANH MỤC LỖI & CÁC BẪY ĐÃ THẤT BẠI (DO NOT REPEAT)
 
+### ISSUE-175: Bẫy Chạy DDL Schema Và Truy Vấn N+1 Trên Luồng Đọc Khiến TTFB Kéo Dài 4–7 Giây (Schema DDL & N+1 Queries on Read Path TTFB Pitfall)
+- **Triệu chứng**:
+  - TTFB của API `GET /api/missions` bị kéo dài tới 4,5–7 giây dù payload rất nhẹ (~2,5 KB).
+  - Khách vào trang `/nhiem-vu` phải nhìn khung xương skeleton nhấp nháy 2–4 giây.
+- **Nguyên nhân gốc rễ**:
+  1. *Lệnh DDL chạy mỗi request đọc*: Gọi `ensureMissionSchema` hoặc `ensureSchemaUpgrades` trên mỗi request đọc hoặc auth check. Mỗi lần gọi thực thi hơn 20 câu lệnh `CREATE TABLE`, `CREATE INDEX`, `ALTER TABLE` khóa database SQLite/D1.
+  2. *Truy vấn N+1*: Lặp qua từng nhiệm vụ để chạy 4 câu truy vấn riêng lẻ thay vì gom nhóm `GROUP BY`.
+  3. *Áp Cache-Control sai quy cách*: Không phân biệt giữa khách vãng lai và người đã đăng nhập (chứa `user_submission` nhạy cảm).
+- **Giải pháp chuẩn đã kiểm chứng**:
+  1. Loại bỏ 100% lệnh DDL (`ensureMissionSchema`, `ensureSchemaUpgrades`, `PRAGMA`, `ALTER TABLE`) khỏi toàn bộ luồng request đọc và xác thực runtime. Chỉ thực hiện migrate schema lúc setup hoặc migration script.
+  2. Gom nhóm toàn bộ truy vấn thống kê và mã kho vào 2 truy vấn `GROUP BY mission_id` chạy song song với `Promise.all`.
+  3. Phân tách cache tuyệt đối: Khách vãng lai dùng `Cache-Control: public, max-age=30, s-maxage=60, stale-while-revalidate=300`, người đã đăng nhập dùng `Cache-Control: private, no-store, no-cache, must-revalidate`. Cả hai đều có `Vary: Authorization, Accept-Encoding`.
+  4. Phía giao diện hiển thị tức thì 0 giây từ `localStorage.getItem('wcg_cached_missions_v1')`, không hiện khung xương khi đã có dữ liệu lưu tạm (`{isLoading && missions.length === 0 ? ...}`).
+- 🚫 **CÁCH SỬA ĐÃ THẤT BẠI - TUYỆT ĐỐI KHÔNG LẶP LẠI**:
+  - ❌ *Tuyệt đối KHÔNG gọi DDL (CREATE/ALTER/INDEX) trong request HTTP đọc*: Mọi thao tác DDL phải chạy độc lập ngoài luồng phục vụ traffic.
+  - ❌ *Tuyệt đối KHÔNG áp Cache-Control: public cho endpoint chứa dữ liệu cá nhân (`user_submission`)* nếu không phân tách theo `Authorization` header và `Vary`.
+
 ### ISSUE-174: Bẫy Quên Import Hook useEffect Trong MissionDetailModal Gây Crash Chi Tiết Nhiệm Vụ (MissionDetailModal Missing useEffect Hook Crash Pitfall)
 - **Triệu chứng**:
   - Người dùng bấm vào bất kỳ nhiệm vụ nào trong trang `/nhiem-vu`, màn hình bị văng lỗi: "Đã có sự cố hiển thị nhỏ xảy ra - useEffect is not defined".

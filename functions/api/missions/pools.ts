@@ -2,8 +2,8 @@ import {
   CORS_HEADERS,
   Env,
   verifyAdminAuth,
+  invalidateMissionEdgeCache,
 } from '../../services/mission_service';
-import { ensureMissionSchema } from '../../services/d1_service';
 
 export const onRequestOptions: PagesFunction = async () => {
   return new Response(null, { status: 204, headers: CORS_HEADERS });
@@ -27,8 +27,6 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
         { status: 403, headers: CORS_HEADERS }
       );
     }
-
-    await ensureMissionSchema(env.DB);
 
     const url = new URL(request.url);
     const missionId = url.searchParams.get('mission_id');
@@ -89,8 +87,6 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
       );
     }
 
-    await ensureMissionSchema(env.DB);
-
     const body: any = await request.json().catch(() => ({}));
     const { mission_id, raw_codes, codes } = body;
 
@@ -129,6 +125,8 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
 
     await env.DB.batch(batchInserts);
 
+    await invalidateMissionEdgeCache(request);
+
     return new Response(
       JSON.stringify({
         success: true,
@@ -164,8 +162,6 @@ export const onRequestDelete: PagesFunction<Env> = async (context) => {
       );
     }
 
-    await ensureMissionSchema(env.DB);
-
     const url = new URL(request.url);
     const codeId = url.searchParams.get('id');
     const missionId = url.searchParams.get('mission_id');
@@ -174,6 +170,7 @@ export const onRequestDelete: PagesFunction<Env> = async (context) => {
       await env.DB.prepare("DELETE FROM mission_reward_pools WHERE id = ? AND status = 'AVAILABLE'")
         .bind(codeId)
         .run();
+      await invalidateMissionEdgeCache(request);
       return new Response(
         JSON.stringify({ success: true, message: 'Đã xóa mã khả dụng khỏi kho.' }),
         { status: 200, headers: CORS_HEADERS }
@@ -184,6 +181,7 @@ export const onRequestDelete: PagesFunction<Env> = async (context) => {
       await env.DB.prepare("DELETE FROM mission_reward_pools WHERE mission_id = ? AND status = 'AVAILABLE'")
         .bind(missionId)
         .run();
+      await invalidateMissionEdgeCache(request);
       return new Response(
         JSON.stringify({ success: true, message: 'Đã xóa toàn bộ mã chưa phát trong kho của nhiệm vụ.' }),
         { status: 200, headers: CORS_HEADERS }

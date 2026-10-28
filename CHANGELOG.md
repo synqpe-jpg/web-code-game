@@ -7,6 +7,45 @@ Mỗi mục sửa lỗi đều ghi nhận **Nguyên nhân gốc rễ (Root Cause
 
 ## [2026-10-28]
 
+### 258. Tối Ưu Triệt Để TTFB Trang Nhiệm Vụ (/nhiem-vu): Bỏ DDL Schema Trên Luồng Đọc, Gộp Truy Vấn N+1 & Tách Biệt Edge Cache An Toàn Tuyệt Đối
+- **Bối cảnh & Triệu chứng**:
+  - TTFB của API `GET /api/missions` đo thực tế lên tới 4,5–7 giây dù payload chỉ ~2,5–2,9 KB.
+  - Trang `/nhiem-vu` hiển thị 6 khối khung xương nhấp nháy kéo dài 2–4 giây (lâu hơn nếu đã đăng nhập tài khoản).
+  - Nhiệm vụ thực tế trên hệ thống: 1 nhiệm vụ ACTIVE duy nhất ("Hiệp Khách Hành", 12 mã trong kho).
+- **Nguyên nhân gốc rễ (Root Causes)**:
+  1. *Chi phí cố định DDL nặng nề trên mỗi request đọc*:
+     - `functions/api/missions/index.ts` (dòng 24) gọi `await ensureMissionSchema(env.DB)` trên mỗi request GET.
+     - Hàm `ensureMissionSchema` trong `d1_service.ts` thực thi hơn 20 câu lệnh DDL (`CREATE TABLE IF NOT EXISTS`, `CREATE INDEX IF NOT EXISTS`, `ALTER TABLE ADD COLUMN`), khóa database SQLite/D1 và làm mỗi isolate tốn 4–6 giây khởi tạo.
+     - Luồng xác thực `verifyAdminAuth` và `validateMissionApiKey` trong `mission_service.ts` cũng gọi `ensureMissionSchema` và `ensureSchemaUpgrades` trên mỗi request.
+     - Các endpoint đọc khác (`submissions.ts`, `pools.ts`, `my-submissions.ts`, `audit-logs.ts`, `[id].ts`, `ai-keys.ts`, `api-keys/index.ts`) đều chứa lệnh DDL tương tự.
+  2. *Vòng lặp truy vấn N+1*:
+     - Trong `functions/api/missions/index.ts`, với mỗi nhiệm vụ trong danh sách, code thực hiện 4 câu truy vấn riêng biệt (`countRow` kho mã, `userSubmission`, `statsRow` 5 chỉ số, `poolRow` 3 chỉ số).
+  3. *Thiếu Edge Caching có phân tách quyền*:
+     - Response có chứa trường `user_submission` của riêng người dùng. Nếu áp dụng cache public không cẩn thận có nguy cơ lộ dữ liệu cá nhân cho khách khác.
+  4. *Khung xương nhấp nháy khi vào tab*:
+     - `MissionsView.tsx` chưa tối ưu điều kiện hiển thị skeleton: khi có dữ liệu trong cache SWR vẫn bị nhấp nháy khung xương nếu `missions` chưa đồng bộ state.
+- **Giải pháp Thành công**:
+  1. *Loại bỏ 100% DDL schema khỏi luồng đọc*:
+     - Gỡ bỏ hoàn toàn `ensureMissionSchema` và `ensureSchemaUpgrades` khỏi toàn bộ các endpoint đọc (`/api/missions`, `/api/missions/submissions`, `/api/missions/pools`, `/api/missions/my-submissions`, `/api/missions/audit-logs`, `/api/missions/[id]`, `/api/missions/ai/*`, `/api/api-keys/*`) và các hàm xác thực (`verifyAdminAuth`, `verifyMemberAuth`, `validateMissionApiKey`).
+     - Lệnh schema migration chỉ nằm trong migration script hoặc deploy/setup, không bao giờ chạy trong request runtime.
+  2. *Gộp truy vấn N+1 thành 2 câu GROUP BY chạy song song*:
+     - Thay thế toàn bộ vòng lặp N+1 bằng 2 truy vấn tổng hợp `GROUP BY mission_id` (`mission_reward_pools` và `mission_submissions`) kết hợp với Map trong bộ nhớ JS.
+     - Số lượng truy vấn giảm từ $4N + 1$ xuống đúng 2 câu (hoặc 3 câu nếu có thành viên đăng nhập).
+  3. *Tách biệt Edge Cache an toàn tuyệt đối (Public Cache vs Private No-Store)*:
+     - Biến thể khách (không Authorization header): Trả về `Cache-Control: public, max-age=30, s-maxage=60, stale-while-revalidate=300`, `Vary: Authorization, Accept-Encoding`, lưu vào `caches.default` trả về trong 10–30ms.
+     - Biến thể đăng nhập / Admin: BẮT BUỘC `Cache-Control: private, no-store, no-cache, must-revalidate`, `Vary: Authorization, Accept-Encoding`, không bao giờ lưu hay đọc từ Edge Cache.
+     - Cơ chế tự động Invalidate Cache: Mọi thao tác nộp bài, duyệt bài, từ chối, tạo/sửa/xóa nhiệm vụ, nạp mã kho đều gọi `invalidateMissionEdgeCache(request)` để xóa ngay bản cache trên CDN.
+  4. *Tối ưu SWR trên giao diện `MissionsView.tsx`*:
+     - Khởi tạo trực tiếp từ `wcg_cached_missions_v1` trong `localStorage`.
+     - Điều kiện vẽ khung xương: `{isLoading && missions.length === 0 ? ...}` (tuyệt đối không hiển thị khung xương khi đã có dữ liệu lưu tạm).
+     - Khi người dùng nộp bài thành công, tự động gọi `fetchMissions(false)` ngầm để cập nhật số mã kho và bài nộp ngay lập tức.
+     - Các bộ đếm (Nhiệm vụ đang mở, Lượt quà đã phát, Tất cả) phản ánh chính xác 100% dữ liệu thực tế (1 nhiệm vụ ACTIVE).
+- **Kiểm Thử & Triển Khai**:
+  - Script kiểm thử chuyên dụng `scripts/test_missions_optimization.cjs`: Vượt qua 31/31 bài test (100% PASS).
+  - Bảo tồn nguyên vẹn nhiệm vụ Hiệp Khách Hành (12 mã trong kho).
+  - Vượt qua 100% kiểm thử `test_giveaway_claimed_ssot.cjs`, `test_giveaway_cooldown_and_expiry.cjs`, `audit_zero_test_artifacts.cjs`.
+  - Build `npm run build` thành công 100%.
+
 ### 257. Khắc Phục Lỗi "useEffect is not defined" Khi Bấm Vào Nhiệm Vụ & Tối Ưu Tốc Độ Tải Trang Nhiệm Vụ (/nhiem-vu)
 - **Bối cảnh & Triệu chứng**:
   - Người dùng bấm vào thẻ nhiệm vụ trong trang `/nhiem-vu` bị màn hình cảnh báo lỗi: "Đã có sự cố hiển thị nhỏ xảy ra - useEffect is not defined".

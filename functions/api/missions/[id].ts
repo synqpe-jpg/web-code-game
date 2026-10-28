@@ -3,8 +3,8 @@ import {
   Env,
   verifyAdminAuth,
   verifyMemberAuth,
+  invalidateMissionEdgeCache,
 } from '../../services/mission_service';
-import { ensureMissionSchema } from '../../services/d1_service';
 
 export const onRequestOptions: PagesFunction = async () => {
   return new Response(null, { status: 204, headers: CORS_HEADERS });
@@ -22,8 +22,6 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
       );
     }
 
-    await ensureMissionSchema(env.DB);
-
     const mission = await env.DB.prepare('SELECT * FROM missions WHERE id = ? LIMIT 1')
       .bind(missionId)
       .first<any>();
@@ -35,10 +33,24 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
       );
     }
 
-    // Increment views for client requests
-    const adminCheck = await verifyAdminAuth(request, env);
-    if (!adminCheck.authorized) {
-      await env.DB.prepare('UPDATE missions SET views = COALESCE(views, 0) + 1 WHERE id = ?')
+    const authHeader = request.headers.get('Authorization') || '';
+    const hasAuth = Boolean(authHeader.trim());
+
+    let isAdmin = false;
+    let currentMember: any = null;
+
+    if (hasAuth) {
+      const adminCheck = await verifyAdminAuth(request, env);
+      isAdmin = adminCheck.authorized;
+      if (!isAdmin) {
+        const memberCheck = await verifyMemberAuth(request, env);
+        currentMember = memberCheck.authorized ? memberCheck.member : null;
+      }
+    }
+
+    // Increment views for client requests asynchronously
+    if (!isAdmin) {
+      env.DB.prepare('UPDATE missions SET views = COALESCE(views, 0) + 1 WHERE id = ?')
         .bind(mission.id)
         .run()
         .catch(() => {});
@@ -52,36 +64,34 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
       guideSteps = [];
     }
 
-    let availableCodesCount = 0;
-    if (mission.reward_type === 'CODE') {
-      const countRow = await env.DB.prepare(
-        "SELECT COUNT(*) as cnt FROM mission_reward_pools WHERE mission_id = ? AND status = 'AVAILABLE'"
-      )
-        .bind(mission.id)
-        .first<any>();
-      availableCodesCount = Number(countRow?.cnt) || 0;
-    }
+    // Parallel aggregate queries
+    const [statsRow, poolRow, userSubmission] = await Promise.all([
+      env.DB.prepare(`
+        SELECT 
+          COUNT(*) as total_submissions,
+          COUNT(DISTINCT user_id) as participants_count,
+          SUM(CASE WHEN status = 'PENDING' THEN 1 ELSE 0 END) as pending_submissions,
+          SUM(CASE WHEN status = 'APPROVED' THEN 1 ELSE 0 END) as approved_submissions,
+          SUM(CASE WHEN status = 'REJECTED' THEN 1 ELSE 0 END) as rejected_submissions
+        FROM mission_submissions
+        WHERE mission_id = ?
+      `).bind(mission.id).first<any>(),
+      env.DB.prepare(`
+        SELECT 
+          COUNT(*) as total_codes,
+          SUM(CASE WHEN status = 'AVAILABLE' THEN 1 ELSE 0 END) as available_codes,
+          SUM(CASE WHEN status = 'CLAIMED' THEN 1 ELSE 0 END) as claimed_codes
+        FROM mission_reward_pools
+        WHERE mission_id = ?
+      `).bind(mission.id).first<any>(),
+      currentMember?.id
+        ? env.DB.prepare(
+            'SELECT * FROM mission_submissions WHERE mission_id = ? AND user_id = ? ORDER BY created_at DESC LIMIT 1'
+          ).bind(mission.id, currentMember.id).first<any>()
+        : Promise.resolve(null),
+    ]);
 
-    // Comprehensive 7-metrics stats
-    const statsRow = await env.DB.prepare(`
-      SELECT 
-        COUNT(*) as total_submissions,
-        COUNT(DISTINCT user_id) as participants_count,
-        SUM(CASE WHEN status = 'PENDING' THEN 1 ELSE 0 END) as pending_submissions,
-        SUM(CASE WHEN status = 'APPROVED' THEN 1 ELSE 0 END) as approved_submissions,
-        SUM(CASE WHEN status = 'REJECTED' THEN 1 ELSE 0 END) as rejected_submissions
-      FROM mission_submissions
-      WHERE mission_id = ?
-    `).bind(mission.id).first<any>();
-
-    const poolRow = await env.DB.prepare(`
-      SELECT 
-        COUNT(*) as total_codes,
-        SUM(CASE WHEN status = 'AVAILABLE' THEN 1 ELSE 0 END) as available_codes,
-        SUM(CASE WHEN status = 'CLAIMED' THEN 1 ELSE 0 END) as claimed_codes
-      FROM mission_reward_pools
-      WHERE mission_id = ?
-    `).bind(mission.id).first<any>();
+    const availableCodesCount = mission.reward_type === 'CODE' ? (Number(poolRow?.available_codes) || 0) : 0;
 
     const detailedStats = {
       views: Number(mission.views) || 0,
@@ -100,16 +110,21 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
       claimed_codes: Number(poolRow?.claimed_codes) || 0,
     };
 
-    // Check member submission
-    const memberCheck = await verifyMemberAuth(request, env);
-    let userSubmission = null;
-    if (memberCheck.authorized && memberCheck.member?.id) {
-      userSubmission = await env.DB.prepare(
-        'SELECT * FROM mission_submissions WHERE mission_id = ? AND user_id = ? ORDER BY created_at DESC LIMIT 1'
-      )
-        .bind(mission.id, memberCheck.member.id)
-        .first<any>();
-    }
+    const isGuest = !hasAuth && !isAdmin && !currentMember;
+    const responseHeaders: Record<string, string> = isGuest
+      ? {
+          ...CORS_HEADERS,
+          'Content-Type': 'application/json',
+          'Cache-Control': 'public, max-age=30, s-maxage=60, stale-while-revalidate=300',
+          'Vary': 'Authorization, Accept-Encoding',
+        }
+      : {
+          ...CORS_HEADERS,
+          'Content-Type': 'application/json',
+          'Cache-Control': 'private, no-store, no-cache, must-revalidate',
+          'Pragma': 'no-cache',
+          'Vary': 'Authorization, Accept-Encoding',
+        };
 
     return new Response(
       JSON.stringify({
@@ -124,7 +139,7 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
           stats: detailedStats,
         },
       }),
-      { status: 200, headers: CORS_HEADERS }
+      { status: 200, headers: responseHeaders }
     );
   } catch (error: any) {
     return new Response(
@@ -153,8 +168,6 @@ export const onRequestPut: PagesFunction<Env> = async (context) => {
         { status: 403, headers: CORS_HEADERS }
       );
     }
-
-    await ensureMissionSchema(env.DB);
 
     const existing = await env.DB.prepare('SELECT * FROM missions WHERE id = ? LIMIT 1')
       .bind(missionId)
@@ -248,6 +261,8 @@ export const onRequestPut: PagesFunction<Env> = async (context) => {
       missionId
     ).run();
 
+    await invalidateMissionEdgeCache(request);
+
     return new Response(
       JSON.stringify({ success: true, message: 'Cập nhật nhiệm vụ thành công!' }),
       { status: 200, headers: CORS_HEADERS }
@@ -279,8 +294,6 @@ export const onRequestDelete: PagesFunction<Env> = async (context) => {
         { status: 403, headers: CORS_HEADERS }
       );
     }
-
-    await ensureMissionSchema(env.DB);
 
     const existing = await env.DB.prepare('SELECT * FROM missions WHERE id = ? LIMIT 1')
       .bind(missionId)
@@ -342,6 +355,8 @@ export const onRequestDelete: PagesFunction<Env> = async (context) => {
       env.DB.prepare('DELETE FROM mission_submissions WHERE mission_id = ?').bind(missionId),
       env.DB.prepare('DELETE FROM missions WHERE id = ?').bind(missionId),
     ]);
+
+    await invalidateMissionEdgeCache(request);
 
     return new Response(
       JSON.stringify({

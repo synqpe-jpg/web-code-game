@@ -4,8 +4,8 @@ import {
   verifyAiKeyAuth,
   executeApproveReward,
   executeRejectSubmission,
+  invalidateMissionEdgeCache,
 } from '../../../services/mission_service';
-import { ensureMissionSchema } from '../../../services/d1_service';
 
 export const onRequestOptions: PagesFunction = async () => {
   return new Response(null, { status: 204, headers: CORS_HEADERS });
@@ -29,8 +29,6 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
         { status: 401, headers: CORS_HEADERS }
       );
     }
-
-    await ensureMissionSchema(env.DB);
 
     const body: any = await request.json().catch(() => ({}));
     const { submission_id, recommendation, reason = '' } = body;
@@ -106,6 +104,8 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
         WHERE id = ?
       `).bind(String(reason || '').trim(), nowIso, submission.id).run();
 
+      await invalidateMissionEdgeCache(request);
+
       return new Response(
         JSON.stringify({
           success: true,
@@ -135,6 +135,8 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
           ai_reviewed_at = ?
         WHERE id = ?
       `).bind(String(reason || '').trim(), nowIso, submission.id).run();
+
+      await invalidateMissionEdgeCache(request);
 
       return new Response(
         JSON.stringify({

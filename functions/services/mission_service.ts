@@ -1,4 +1,3 @@
-import { ensureMissionSchema, ensureSchemaUpgrades } from './d1_service';
 import { verifyToken } from './auth_service';
 
 export interface Env {
@@ -163,8 +162,6 @@ export async function verifyAiKeyAuth(
     };
   }
 
-  await ensureMissionSchema(db);
-
   const keyHash = await computeSha256(rawKey);
   const keyRecord = await db
     .prepare('SELECT * FROM mission_ai_api_keys WHERE api_key_hash = ? AND is_active = 1 LIMIT 1')
@@ -253,7 +250,6 @@ export async function verifyAdminAuth(
 
   // 2. Mission API Key Check từ bảng mission_ai_api_keys
   if (env.DB) {
-    await ensureMissionSchema(env.DB);
     const keyHash = await computeSha256(token);
     const keyRecord = await env.DB
       .prepare('SELECT * FROM mission_ai_api_keys WHERE api_key_hash = ? AND is_active = 1 LIMIT 1')
@@ -296,7 +292,6 @@ export async function verifyAdminAuth(
 
   // 3. Admin Member Token Session
   if (env.DB) {
-    await ensureSchemaUpgrades(env.DB);
     let member: any = null;
 
     if (token.startsWith('wcg_edge_tok_')) {
@@ -395,8 +390,6 @@ export async function executeApproveReward(
   submissionId: string,
   reviewerActor: string
 ): Promise<{ success: boolean; rewardDelivered?: string; error?: string }> {
-  await ensureMissionSchema(db);
-
   // 1. Fetch submission with lock check (status must be PENDING)
   const submission = await db
     .prepare('SELECT * FROM mission_submissions WHERE id = ? LIMIT 1')
@@ -544,8 +537,6 @@ export async function executeRejectSubmission(
   reviewerActor: string,
   rejectionReason: string
 ): Promise<{ success: boolean; error?: string }> {
-  await ensureMissionSchema(db);
-
   const submission = await db
     .prepare('SELECT * FROM mission_submissions WHERE id = ? LIMIT 1')
     .bind(submissionId)
@@ -585,4 +576,31 @@ export async function executeRejectSubmission(
 
   await db.batch(batchOps);
   return { success: true };
+}
+
+/**
+ * Invalidate Cloudflare Edge Cache for Missions API
+ */
+export async function invalidateMissionEdgeCache(requestOrUrl?: Request | string): Promise<void> {
+  if (typeof caches === 'undefined' || !(caches as any).default) return;
+  try {
+    const cache = (caches as any).default;
+    const baseUrls = [
+      'https://codegame.shop/api/missions',
+      'https://www.codegame.shop/api/missions',
+      'https://web-code-game.pages.dev/api/missions',
+      'https://admin-code-game-shop.pages.dev/api/missions',
+    ];
+    if (requestOrUrl) {
+      if (typeof requestOrUrl === 'string') {
+        baseUrls.push(requestOrUrl);
+      } else if ((requestOrUrl as any).url) {
+        baseUrls.push(new URL('/api/missions', (requestOrUrl as any).url).toString());
+      }
+    }
+    const uniqueUrls = Array.from(new Set(baseUrls));
+    await Promise.all(
+      uniqueUrls.map((u) => cache.delete(new Request(u)).catch(() => {}))
+    );
+  } catch {}
 }

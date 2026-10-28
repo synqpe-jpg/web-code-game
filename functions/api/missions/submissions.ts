@@ -4,8 +4,8 @@ import {
   verifyAdminAuth,
   executeApproveReward,
   executeRejectSubmission,
+  invalidateMissionEdgeCache,
 } from '../../services/mission_service';
-import { ensureMissionSchema } from '../../services/d1_service';
 
 export const onRequestOptions: PagesFunction = async () => {
   return new Response(null, { status: 204, headers: CORS_HEADERS });
@@ -29,8 +29,6 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
         { status: 403, headers: CORS_HEADERS }
       );
     }
-
-    await ensureMissionSchema(env.DB);
 
     const url = new URL(request.url);
     const missionId = url.searchParams.get('mission_id');
@@ -96,8 +94,6 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
       );
     }
 
-    await ensureMissionSchema(env.DB);
-
     const body: any = await request.json().catch(() => ({}));
     const { action, submission_id, rejection_reason = '', mission_id } = body;
     const adminActor = `ADMIN:${adminCheck.adminName || adminCheck.adminId || 'Admin'}`;
@@ -117,6 +113,8 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
           { status: 400, headers: CORS_HEADERS }
         );
       }
+
+      await invalidateMissionEdgeCache(request);
 
       return new Response(
         JSON.stringify({
@@ -143,6 +141,8 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
           { status: 400, headers: CORS_HEADERS }
         );
       }
+
+      await invalidateMissionEdgeCache(request);
 
       return new Response(
         JSON.stringify({ success: true, message: 'Đã từ chối hồ sơ nộp bài.' }),
@@ -187,6 +187,8 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
         }
       }
 
+      await invalidateMissionEdgeCache(request);
+
       return new Response(
         JSON.stringify({
           success: true,
@@ -219,6 +221,8 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
           errors.push(`ID ${id}: ${res.error}`);
         }
       }
+
+      await invalidateMissionEdgeCache(request);
 
       return new Response(
         JSON.stringify({

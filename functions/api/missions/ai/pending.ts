@@ -3,7 +3,6 @@ import {
   Env,
   verifyAiKeyAuth,
 } from '../../../services/mission_service';
-import { ensureMissionSchema } from '../../../services/d1_service';
 
 export const onRequestOptions: PagesFunction = async () => {
   return new Response(null, { status: 204, headers: CORS_HEADERS });
@@ -28,8 +27,6 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
         { status: 401, headers: CORS_HEADERS }
       );
     }
-
-    await ensureMissionSchema(env.DB);
 
     const url = new URL(request.url);
     const limit = Math.min(50, Math.max(1, Number(url.searchParams.get('limit')) || 20));

@@ -4,7 +4,6 @@ import {
   verifyAdminAuth,
   formatScopes,
 } from '../../services/mission_service';
-import { ensureMissionSchema } from '../../services/d1_service';
 
 export const onRequestOptions: PagesFunction = async () => {
   return new Response(null, { status: 204, headers: CORS_HEADERS });
@@ -47,10 +46,6 @@ export const onRequestPatch: PagesFunction<Env> = async (context) => {
         { status: 400, headers: CORS_HEADERS }
       );
     }
-
-    await ensureMissionSchema(env.DB);
-    await env.DB.prepare("ALTER TABLE mission_ai_api_keys ADD COLUMN description TEXT DEFAULT '';").run().catch(() => {});
-    await env.DB.prepare("ALTER TABLE mission_ai_api_keys ADD COLUMN expires_at TEXT DEFAULT '';").run().catch(() => {});
 
     const body: any = await request.json().catch(() => ({}));
     const { is_active, key_name, scope, scopes, description, expires_at, extend_days } = body;
@@ -155,8 +150,6 @@ export const onRequestDelete: PagesFunction<Env> = async (context) => {
         { status: 400, headers: CORS_HEADERS }
       );
     }
-
-    await ensureMissionSchema(env.DB);
 
     await env.DB.prepare(
       'DELETE FROM mission_ai_api_keys WHERE id = ?'

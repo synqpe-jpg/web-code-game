@@ -4,7 +4,6 @@ import {
   verifyAdminAuth,
   computeSha256,
 } from '../../services/mission_service';
-import { ensureMissionSchema } from '../../services/d1_service';
 
 export const onRequestOptions: PagesFunction = async () => {
   return new Response(null, { status: 204, headers: CORS_HEADERS });
@@ -28,8 +27,6 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
         { status: 403, headers: CORS_HEADERS }
       );
     }
-
-    await ensureMissionSchema(env.DB);
 
     const result = await env.DB.prepare(
       'SELECT id, key_name, key_prefix, scope, is_active, last_used_at, created_at FROM mission_ai_api_keys ORDER BY created_at DESC'
@@ -68,8 +65,6 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
         { status: 403, headers: CORS_HEADERS }
       );
     }
-
-    await ensureMissionSchema(env.DB);
 
     const body: any = await request.json().catch(() => ({}));
     const { key_name, scope = 'FULL' } = body;
@@ -143,8 +138,6 @@ export const onRequestPut: PagesFunction<Env> = async (context) => {
       );
     }
 
-    await ensureMissionSchema(env.DB);
-
     const body: any = await request.json().catch(() => ({}));
     const { id, is_active } = body;
 
@@ -189,8 +182,6 @@ export const onRequestDelete: PagesFunction<Env> = async (context) => {
         { status: 403, headers: CORS_HEADERS }
       );
     }
-
-    await ensureMissionSchema(env.DB);
 
     const url = new URL(request.url);
     const id = url.searchParams.get('id');

@@ -6,7 +6,6 @@ import {
   formatScopes,
   parseScopes,
 } from '../../services/mission_service';
-import { ensureMissionSchema } from '../../services/d1_service';
 
 export const onRequestOptions: PagesFunction = async () => {
   return new Response(null, { status: 204, headers: CORS_HEADERS });
@@ -119,11 +118,6 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
       );
     }
 
-    await ensureMissionSchema(env.DB);
-    await env.DB.prepare("ALTER TABLE mission_ai_api_keys ADD COLUMN description TEXT DEFAULT '';").run().catch(() => {});
-    await env.DB.prepare("ALTER TABLE mission_ai_api_keys ADD COLUMN expires_at TEXT DEFAULT '';").run().catch(() => {});
-    await env.DB.prepare("ALTER TABLE mission_ai_api_keys ADD COLUMN raw_key TEXT DEFAULT '';").run().catch(() => {});
-
     // Ensure preset keys exist so user sees all scopes ready to copy
     await ensureDefaultPresetKeys(env);
 
@@ -190,11 +184,6 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
         { status: 403, headers: CORS_HEADERS }
       );
     }
-
-    await ensureMissionSchema(env.DB);
-    await env.DB.prepare("ALTER TABLE mission_ai_api_keys ADD COLUMN description TEXT DEFAULT '';").run().catch(() => {});
-    await env.DB.prepare("ALTER TABLE mission_ai_api_keys ADD COLUMN expires_at TEXT DEFAULT '';").run().catch(() => {});
-    await env.DB.prepare("ALTER TABLE mission_ai_api_keys ADD COLUMN raw_key TEXT DEFAULT '';").run().catch(() => {});
 
     const body: any = await request.json().catch(() => ({}));
     const {

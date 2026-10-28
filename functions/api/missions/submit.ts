@@ -3,8 +3,8 @@ import {
   Env,
   verifyMemberAuth,
   validateProofLink,
+  invalidateMissionEdgeCache,
 } from '../../services/mission_service';
-import { ensureMissionSchema } from '../../services/d1_service';
 
 export const onRequestOptions: PagesFunction = async () => {
   return new Response(null, { status: 204, headers: CORS_HEADERS });
@@ -31,7 +31,6 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
     }
 
     const member = memberCheck.member;
-    await ensureMissionSchema(env.DB);
 
     const body: any = await request.json().catch(() => ({}));
     const { mission_id, proof_link, proof_note = '' } = body;
@@ -315,6 +314,8 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
         nowIso
       ),
     ]);
+
+    await invalidateMissionEdgeCache(request);
 
     return new Response(
       JSON.stringify({

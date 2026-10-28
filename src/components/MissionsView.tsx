@@ -35,26 +35,30 @@ export const MissionsView: React.FC<MissionsViewProps> = ({
     if (typeof window === 'undefined') return [];
     try {
       const cached = localStorage.getItem('wcg_cached_missions_v1');
-      return cached ? JSON.parse(cached) : [];
-    } catch {
-      return [];
-    }
+      if (cached) {
+        const parsed = JSON.parse(cached);
+        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      }
+    } catch {}
+    return [];
   });
   const [isLoading, setIsLoading] = useState<boolean>(() => {
     if (typeof window === 'undefined') return true;
     try {
       const cached = localStorage.getItem('wcg_cached_missions_v1');
-      return cached ? false : true;
-    } catch {
-      return true;
-    }
+      if (cached) {
+        const parsed = JSON.parse(cached);
+        if (Array.isArray(parsed) && parsed.length > 0) return false;
+      }
+    } catch {}
+    return true;
   });
   const [searchQuery, setSearchQuery] = useState('');
   const [activeFilter, setActiveFilter] = useState<'all' | 'active' | 'almost_full' | 'my'>('all');
   const [selectedMission, setSelectedMission] = useState<Mission | null>(null);
 
   const fetchMissions = async (forceSpinner = false) => {
-    if (forceSpinner || missions.length === 0) {
+    if (forceSpinner || (missions.length === 0 && !localStorage.getItem('wcg_cached_missions_v1'))) {
       setIsLoading(true);
     }
     try {
@@ -105,8 +109,8 @@ export const MissionsView: React.FC<MissionsViewProps> = ({
 
   // Update selected mission if mission list updates
   const handleSubmissionSuccess = (updatedSub: MissionSubmission) => {
-    setMissions((prev) =>
-      prev.map((m) => {
+    setMissions((prev) => {
+      const updated = prev.map((m) => {
         if (m.id === updatedSub.mission_id) {
           return {
             ...m,
@@ -114,12 +118,19 @@ export const MissionsView: React.FC<MissionsViewProps> = ({
           };
         }
         return m;
-      })
-    );
+      });
+      try {
+        localStorage.setItem('wcg_cached_missions_v1', JSON.stringify(updated));
+      } catch {}
+      return updated;
+    });
 
     if (selectedMission && selectedMission.id === updatedSub.mission_id) {
       setSelectedMission((prev) => (prev ? { ...prev, user_submission: updatedSub } : null));
     }
+
+    // Refresh immediately in background without blocking UI
+    fetchMissions(false);
   };
 
   // Filtered Missions
@@ -269,7 +280,7 @@ export const MissionsView: React.FC<MissionsViewProps> = ({
         </div>
 
         {/* 3. Missions Grid */}
-        {isLoading ? (
+        {isLoading && missions.length === 0 ? (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 pt-4">
             {[1, 2, 3, 4, 5, 6].map((i) => (
               <div

@@ -3,7 +3,6 @@ import {
   Env,
   verifyMemberAuth,
 } from '../../services/mission_service';
-import { ensureMissionSchema } from '../../services/d1_service';
 
 export const onRequestOptions: PagesFunction = async () => {
   return new Response(null, { status: 204, headers: CORS_HEADERS });
@@ -29,7 +28,6 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
     }
 
     const member = memberCheck.member;
-    await ensureMissionSchema(env.DB);
 
     const result = await env.DB.prepare(`
       SELECT s.*, m.title as mission_title, m.reward_type, m.reward_value, m.max_resubmissions
@@ -46,7 +44,16 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
         success: true,
         submissions: result?.results || [],
       }),
-      { status: 200, headers: CORS_HEADERS }
+      {
+        status: 200,
+        headers: {
+          ...CORS_HEADERS,
+          'Content-Type': 'application/json',
+          'Cache-Control': 'private, no-store, no-cache, must-revalidate',
+          'Pragma': 'no-cache',
+          'Vary': 'Authorization, Accept-Encoding',
+        },
+      }
     );
   } catch (error: any) {
     return new Response(

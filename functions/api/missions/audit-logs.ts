@@ -3,7 +3,6 @@ import {
   Env,
   verifyAdminAuth,
 } from '../../services/mission_service';
-import { ensureMissionSchema } from '../../services/d1_service';
 
 export const onRequestOptions: PagesFunction = async () => {
   return new Response(null, { status: 204, headers: CORS_HEADERS });
@@ -27,8 +26,6 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
         { status: 403, headers: CORS_HEADERS }
       );
     }
-
-    await ensureMissionSchema(env.DB);
 
     const url = new URL(request.url);
     const missionId = url.searchParams.get('mission_id');
