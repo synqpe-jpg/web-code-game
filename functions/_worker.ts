@@ -29,6 +29,16 @@ import * as notifSettingsApi from './api/notifications/settings';
 import * as notifSendApi from './api/notifications/send';
 import * as notifLogsApi from './api/notifications/logs';
 import * as trackDownloadApi from './api/track-download';
+import * as missionsIndexApi from './api/missions/index';
+import * as missionsIdApi from './api/missions/[id]';
+import * as missionsSubmitApi from './api/missions/submit';
+import * as missionsMySubmissionsApi from './api/missions/my-submissions';
+import * as missionsSubmissionsApi from './api/missions/submissions';
+import * as missionsPoolsApi from './api/missions/pools';
+import * as missionsAiPendingApi from './api/missions/ai/pending';
+import * as missionsAiReviewApi from './api/missions/ai/review';
+import * as missionsAiKeysApi from './api/missions/ai-keys';
+import * as missionsAuditLogsApi from './api/missions/audit-logs';
 import { invalidateCatalogEdgeCache } from './services/cache_service';
 import fallbackGiveawaysData from '../src/data/giveaways.json';
 import fallbackGamesData from '../src/data/games188.json';
@@ -559,6 +569,68 @@ async function handleWorkerRequest(request: Request, env: Env, ctx: ExecutionCon
         if (method === 'OPTIONS') return await trackDownloadApi.onRequestOptions();
         if (method === 'POST') return await trackDownloadApi.onRequestPost(context);
         if (method === 'GET') return await trackDownloadApi.onRequestGet(context);
+      }
+
+      // 13. Missions System APIs
+      if (pathname === '/api/missions') {
+        if (method === 'OPTIONS') return await missionsIndexApi.onRequestOptions();
+        if (method === 'POST') return await missionsIndexApi.onRequestPost(context);
+        return await missionsIndexApi.onRequestGet(context);
+      }
+
+      if (pathname.startsWith('/api/missions/') && !pathname.startsWith('/api/missions/ai') && !['submit', 'my-submissions', 'submissions', 'pools', 'ai-keys', 'audit-logs'].includes(pathname.replace('/api/missions/', ''))) {
+        const missionId = pathname.replace('/api/missions/', '');
+        const customContext = { ...context, params: { id: missionId } };
+        if (method === 'OPTIONS') return await missionsIdApi.onRequestOptions();
+        if (method === 'PUT') return await missionsIdApi.onRequestPut(customContext);
+        if (method === 'DELETE') return await missionsIdApi.onRequestDelete(customContext);
+        return await missionsIdApi.onRequestGet(customContext);
+      }
+
+      if (pathname === '/api/missions/submit') {
+        if (method === 'OPTIONS') return await missionsSubmitApi.onRequestOptions();
+        if (method === 'POST') return await missionsSubmitApi.onRequestPost(context);
+      }
+
+      if (pathname === '/api/missions/my-submissions') {
+        if (method === 'OPTIONS') return await missionsMySubmissionsApi.onRequestOptions();
+        return await missionsMySubmissionsApi.onRequestGet(context);
+      }
+
+      if (pathname === '/api/missions/submissions') {
+        if (method === 'OPTIONS') return await missionsSubmissionsApi.onRequestOptions();
+        if (method === 'POST') return await missionsSubmissionsApi.onRequestPost(context);
+        return await missionsSubmissionsApi.onRequestGet(context);
+      }
+
+      if (pathname === '/api/missions/pools') {
+        if (method === 'OPTIONS') return await missionsPoolsApi.onRequestOptions();
+        if (method === 'POST') return await missionsPoolsApi.onRequestPost(context);
+        if (method === 'DELETE') return await missionsPoolsApi.onRequestDelete(context);
+        return await missionsPoolsApi.onRequestGet(context);
+      }
+
+      if (pathname === '/api/missions/ai/pending') {
+        if (method === 'OPTIONS') return await missionsAiPendingApi.onRequestOptions();
+        return await missionsAiPendingApi.onRequestGet(context);
+      }
+
+      if (pathname === '/api/missions/ai/review') {
+        if (method === 'OPTIONS') return await missionsAiReviewApi.onRequestOptions();
+        if (method === 'POST') return await missionsAiReviewApi.onRequestPost(context);
+      }
+
+      if (pathname === '/api/missions/ai-keys') {
+        if (method === 'OPTIONS') return await missionsAiKeysApi.onRequestOptions();
+        if (method === 'POST') return await missionsAiKeysApi.onRequestPost(context);
+        if (method === 'PUT') return await missionsAiKeysApi.onRequestPut(context);
+        if (method === 'DELETE') return await missionsAiKeysApi.onRequestDelete(context);
+        return await missionsAiKeysApi.onRequestGet(context);
+      }
+
+      if (pathname === '/api/missions/audit-logs') {
+        if (method === 'OPTIONS') return await missionsAuditLogsApi.onRequestOptions();
+        return await missionsAuditLogsApi.onRequestGet(context);
       }
 
       // Fallback for any unknown /api route
