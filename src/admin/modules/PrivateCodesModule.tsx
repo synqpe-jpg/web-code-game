@@ -99,6 +99,8 @@ export const PrivateCodesModule: React.FC<PrivateCodesModuleProps> = ({ onShowTo
     last_global_claim_at: '',
     enable_auto_simulation: true,
     simulation_idle_threshold_minutes: 0,
+    virtual_remaining_addition: 20,
+    virtual_remaining_current: 20,
     custom_success_msg: '',
     custom_cooldown_msg: '',
     custom_out_of_stock_msg: '',
@@ -201,6 +203,8 @@ export const PrivateCodesModule: React.FC<PrivateCodesModuleProps> = ({ onShowTo
       last_global_claim_at: '',
       enable_auto_simulation: true,
       simulation_idle_threshold_minutes: 0,
+      virtual_remaining_addition: 20,
+      virtual_remaining_current: 20,
       custom_success_msg: '',
       custom_cooldown_msg: 'Đợt phát trước đạo hữu {last_user} đã nhanh tay đi trước, đạo hữu vui lòng đợi {time_left} rồi thử sức lại.',
       custom_out_of_stock_msg: '',
@@ -242,6 +246,8 @@ export const PrivateCodesModule: React.FC<PrivateCodesModuleProps> = ({ onShowTo
       last_global_claim_at: gw.last_global_claim_at || '',
       enable_auto_simulation: gw.enable_auto_simulation !== false,
       simulation_idle_threshold_minutes: gw.simulation_idle_threshold_minutes !== undefined ? Number(gw.simulation_idle_threshold_minutes) : 0,
+      virtual_remaining_addition: gw.virtual_remaining_addition !== undefined ? Number(gw.virtual_remaining_addition) : 20,
+      virtual_remaining_current: gw.virtual_remaining_current !== undefined ? Number(gw.virtual_remaining_current) : (gw.virtual_remaining_addition !== undefined ? Number(gw.virtual_remaining_addition) : 20),
       custom_success_msg: gw.custom_success_msg || '',
       custom_cooldown_msg: gw.custom_cooldown_msg || '',
       custom_out_of_stock_msg: gw.custom_out_of_stock_msg || '',
@@ -331,6 +337,8 @@ export const PrivateCodesModule: React.FC<PrivateCodesModuleProps> = ({ onShowTo
         last_claimer_name: editingItem?.last_claimer_name || '',
         enable_auto_simulation: formData.enable_auto_simulation !== false,
         simulation_idle_threshold_minutes: Number(formData.simulation_idle_threshold_minutes) || 0,
+        virtual_remaining_addition: Math.max(0, Number(formData.virtual_remaining_addition !== undefined ? formData.virtual_remaining_addition : 20)),
+        virtual_remaining_current: Math.max(0, Number(formData.virtual_remaining_current !== undefined ? formData.virtual_remaining_current : (formData.virtual_remaining_addition || 20))),
         last_real_claim_at: editingItem?.last_real_claim_at || '',
         last_simulated_claim_at: editingItem?.last_simulated_claim_at || '',
         is_last_claim_simulated: Boolean(editingItem?.is_last_claim_simulated),
@@ -954,72 +962,73 @@ export const PrivateCodesModule: React.FC<PrivateCodesModuleProps> = ({ onShowTo
                       </div>
                     </td>
 
-                    {/* Col 2: KHO MÃ & SỐ LIỆU WEB */}
+                    {/* Col 2: KHO MÃ & SỐ LIỆU HIỂN THỊ (TÁCH BẠCH THẬT / CỘNG THÊM / HIỂN THỊ) */}
                     <td className="px-3.5 py-3 whitespace-nowrap">
                       {(() => {
-                        const webStock = marketingService.getDisplayStock(gw.id, remaining);
+                        const isSimOn = gw.enable_auto_simulation !== false;
+                        const additionConfig = gw.virtual_remaining_addition !== undefined ? Number(gw.virtual_remaining_addition) : 20;
+                        let currentAddition = gw.virtual_remaining_current !== undefined ? Number(gw.virtual_remaining_current) : additionConfig;
+                        if (currentAddition <= 0 || currentAddition > additionConfig) currentAddition = additionConfig;
+
+                        const effectiveAddition = (isSimOn && remaining > 0) ? currentAddition : 0;
+                        const webDisplayRemaining = marketingService.getGiveawayDisplayRemaining(gw);
                         const webClaimed = marketingService.getClaimedDisplay(gw);
-                        const isStockFomoDiff = webStock !== remaining;
-                        const isClaimedFomoDiff = webClaimed !== claimedCount;
 
                         return (
                           <div className="space-y-1">
-                            {/* Tầng 1: Kho thật trong DB */}
+                            {/* Tầng 1: Kho Thật & Số Cộng Thêm (Tách Bạch 100%) */}
                             <div className="flex items-center gap-1 font-mono text-[11px]">
-                              {showAdminStock && (
-                                <>
-                                  <span className="text-slate-400 font-sans text-[10px] font-semibold">Kho:</span>
-                                  <span className={`font-bold ${remaining > 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-500 dark:text-rose-400'}`}>
-                                    {remaining}
-                                  </span>
-                                  <span className="text-slate-400">/{totalCount}</span>
-                                </>
+                              <span className="text-slate-400 font-sans text-[10px] font-semibold">Thật:</span>
+                              <span className={`font-bold ${remaining > 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-500 dark:text-rose-400'}`}>
+                                {remaining}
+                              </span>
+                              <span className="text-slate-400 text-[10px]">/{totalCount}</span>
+
+                              <span className="text-slate-300 dark:text-slate-600 mx-0.5">•</span>
+
+                              <span className="text-slate-400 font-sans text-[10px]">Cộng thêm:</span>
+                              {isSimOn && remaining > 0 ? (
+                                <span className="font-bold text-purple-600 dark:text-purple-400 bg-purple-50 dark:bg-purple-950/40 px-1 rounded text-[10px]" title={`Cộng thêm hiện tại: ${effectiveAddition} / Cấu hình: ${additionConfig}`}>
+                                  +{effectiveAddition}
+                                </span>
+                              ) : !isSimOn ? (
+                                <span className="text-[10px] text-slate-400 font-sans italic" title="Tính năng mô phỏng đang TẮT - Số hiển thị trở về số thật">
+                                  +0 (Tắt)
+                                </span>
+                              ) : (
+                                <span className="text-[10px] text-rose-400 font-sans italic">
+                                  +0 (Hết mã)
+                                </span>
                               )}
-                              {showAdminStock && showAdminClaimed && <span className="text-slate-300 dark:text-slate-600 mx-0.5">•</span>}
-                              {showAdminClaimed && (
-                                <>
-                                  <span className="text-slate-400 font-sans text-[10px]">Đã giật:</span>
-                                  <span className="font-bold text-slate-700 dark:text-slate-300">{claimedCount}</span>
-                                </>
-                              )}
-                              {!showAdminStock && !showAdminClaimed && (
-                                <span className="text-[10px] text-slate-400 italic">Đã ẩn kho & đã giật</span>
-                              )}
-                              {remaining === 0 && showAdminStock && (
+
+                              {remaining === 0 && (
                                 <span className="ml-1 inline-flex items-center px-1.5 py-0.2 rounded text-[9px] font-bold bg-rose-500/10 text-rose-500 border border-rose-500/20">
                                   Hết mã
                                 </span>
                               )}
                             </div>
 
-                            {/* Tầng 2: Web FOMO (Chỉ hiện khi bật công tắc Hiện Số Ảo) */}
-                            {showVirtualStats ? (
-                              <div className="flex items-center gap-1.5 font-mono text-[10px] bg-slate-50 dark:bg-slate-800/60 px-1.5 py-0.5 rounded-lg border border-slate-200/60 dark:border-slate-700/60">
-                                <span className="text-amber-500 dark:text-amber-400 font-sans text-[9px] font-bold flex items-center gap-0.5">
-                                  <Sparkles className="w-2.5 h-2.5" />
-                                  Web:
+                            {/* Tầng 2: Số Hiển Thị Cho Khách & Đã Giật */}
+                            <div className="flex items-center gap-1.5 font-mono text-[10px] bg-slate-50 dark:bg-slate-800/60 px-1.5 py-0.5 rounded-lg border border-slate-200/60 dark:border-slate-700/60">
+                              <span className="text-amber-500 dark:text-amber-400 font-sans text-[9px] font-bold flex items-center gap-0.5">
+                                <Sparkles className="w-2.5 h-2.5" />
+                                Hiển thị:
+                              </span>
+                              <span className={`font-bold ${webDisplayRemaining > 0 ? 'text-indigo-600 dark:text-indigo-400' : 'text-rose-500'}`}>
+                                Còn {webDisplayRemaining}
+                              </span>
+                              <span className="text-slate-300 dark:text-slate-600">|</span>
+                              <span className="text-slate-500 dark:text-slate-400 font-sans text-[9px]">Giật:</span>
+                              <span className="text-amber-600 dark:text-amber-400 font-bold">
+                                {webClaimed}
+                              </span>
+
+                              {isSimOn && remaining > 0 && effectiveAddition > 0 && (
+                                <span className="ml-auto inline-flex items-center px-1 rounded text-[8px] font-bold bg-purple-500/10 text-purple-600 dark:text-purple-400 border border-purple-500/20" title={`Số hiển thị = Thật (${remaining}) + Cộng thêm (${effectiveAddition}) = ${webDisplayRemaining}`}>
+                                  +{effectiveAddition}
                                 </span>
-                                {showAdminStock && (
-                                  <span className={`font-bold ${webStock > 0 ? 'text-indigo-600 dark:text-indigo-400' : 'text-rose-500'}`}>
-                                    Còn {webStock}
-                                  </span>
-                                )}
-                                {showAdminStock && showAdminClaimed && <span className="text-slate-300 dark:text-slate-600">|</span>}
-                                {showAdminClaimed && (
-                                  <span className="text-amber-600 dark:text-amber-400 font-bold">
-                                    Giật {webClaimed}
-                                  </span>
-                                )}
-                                {!showAdminStock && !showAdminClaimed && (
-                                  <span className="text-[10px] text-slate-400 italic">Ẩn chi tiết</span>
-                                )}
-                                {(isStockFomoDiff || isClaimedFomoDiff) && (
-                                  <span className="ml-auto inline-flex items-center px-1 rounded text-[8px] font-bold bg-purple-500/10 text-purple-600 dark:text-purple-400 border border-purple-500/20" title="Đang có cấu hình số ảo FOMO">
-                                    Ảo
-                                  </span>
-                                )}
-                              </div>
-                            ) : null}
+                              )}
+                            </div>
                           </div>
                         );
                       })()}
@@ -1621,6 +1630,33 @@ export const PrivateCodesModule: React.FC<PrivateCodesModuleProps> = ({ onShowTo
                       <span className="text-[10px] text-slate-400 block italic">
                         * Nhập 0 để hệ thống tự động tính (gấp 3 lần thời gian giãn cách, tối thiểu 60 phút).
                       </span>
+
+                      {/* SỐ MÃ CỘNG THÊM VÀO SỐ HIỂN THỊ (CƠ CHẾ CỘNG/TRỪ SỐ HIỂN THỊ) */}
+                      <div className="pt-2 border-t border-slate-100 dark:border-slate-800 space-y-1.5">
+                        <div className="flex items-center justify-between text-[11px]">
+                          <span className="font-semibold text-slate-700 dark:text-slate-300">
+                            Số mã cộng thêm vào số hiển thị:
+                          </span>
+                          <span className="font-bold text-indigo-600 dark:text-indigo-400 font-mono text-[10px]">
+                            {formData.virtual_remaining_addition !== undefined ? formData.virtual_remaining_addition : 20} mã (Cài đặt)
+                          </span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <input
+                            type="number"
+                            min={0}
+                            max={999}
+                            value={formData.virtual_remaining_addition !== undefined ? formData.virtual_remaining_addition : 20}
+                            onChange={(e) => setFormData((p) => ({ ...p, virtual_remaining_addition: Math.max(0, parseInt(e.target.value, 10) || 0) }))}
+                            placeholder="Mặc định: 20 mã"
+                            className="w-full font-mono rounded-xl border border-slate-200 bg-white p-2 text-xs text-slate-900 focus:border-indigo-500 focus:outline-none dark:border-slate-700 dark:bg-slate-800 dark:text-white"
+                          />
+                          <span className="text-xs text-slate-500 whitespace-nowrap font-medium">mã</span>
+                        </div>
+                        <span className="text-[10px] text-slate-400 block leading-relaxed">
+                          * Số hiển thị ban đầu = Kho thật + Số cộng thêm (vd: 30 + 20 = 50). Mỗi lượt giật (thật hoặc bot) trừ 1. Khi trừ hết số cộng thêm sẽ tự hồi lại {formData.virtual_remaining_addition !== undefined ? formData.virtual_remaining_addition : 20} mã. Tự động dừng hẳn khi kho thật về 0. Tuyệt đối không tạo mã ảo.
+                        </span>
+                      </div>
                     </div>
                   )}
                 </div>

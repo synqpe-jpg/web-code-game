@@ -198,6 +198,8 @@ CREATE TABLE IF NOT EXISTS giveaways (
   status TEXT NOT NULL DEFAULT 'ACTIVE' CHECK (status IN ('ACTIVE', 'ENDED')),
   enable_auto_simulation INTEGER NOT NULL DEFAULT 1,
   simulation_idle_threshold_minutes INTEGER DEFAULT 0,
+  virtual_remaining_addition INTEGER NOT NULL DEFAULT 20,
+  virtual_remaining_current INTEGER NOT NULL DEFAULT 20,
   last_real_claim_at TEXT DEFAULT '',
   last_simulated_claim_at TEXT DEFAULT '',
   is_last_claim_simulated INTEGER NOT NULL DEFAULT 0,
@@ -368,6 +370,12 @@ export async function ensureGiveawaySchema(db: D1Database): Promise<void> {
     }
     if (!cols.has('is_last_claim_simulated')) {
       await db.prepare('ALTER TABLE giveaways ADD COLUMN is_last_claim_simulated INTEGER NOT NULL DEFAULT 0;').run().catch(() => {});
+    }
+    if (!cols.has('virtual_remaining_addition')) {
+      await db.prepare('ALTER TABLE giveaways ADD COLUMN virtual_remaining_addition INTEGER NOT NULL DEFAULT 20;').run().catch(() => {});
+    }
+    if (!cols.has('virtual_remaining_current')) {
+      await db.prepare('ALTER TABLE giveaways ADD COLUMN virtual_remaining_current INTEGER NOT NULL DEFAULT 20;').run().catch(() => {});
     }
     giveawaySchemaChecked = true;
   } catch (err: any) {
@@ -2247,6 +2255,8 @@ export async function syncGiveawaysToD1(db: D1Database, giveaways: any[]): Promi
     const lastRealClaimAt = String(gw.last_real_claim_at || (gw as any).lastRealClaimAt || '').trim();
     const lastSimulatedClaimAt = String(gw.last_simulated_claim_at || (gw as any).lastSimulatedClaimAt || '').trim();
     const isLastClaimSimulated = (gw.is_last_claim_simulated || (gw as any).isLastClaimSimulated) ? 1 : 0;
+    const virtualRemainingAddition = Math.max(0, Number(gw.virtual_remaining_addition ?? (gw as any).virtualRemainingAddition ?? 20));
+    const virtualRemainingCurrent = Math.max(0, Number(gw.virtual_remaining_current ?? (gw as any).virtualRemainingCurrent ?? virtualRemainingAddition));
 
     await db.prepare(`
       INSERT INTO giveaways (
@@ -2262,9 +2272,10 @@ export async function syncGiveawaysToD1(db: D1Database, giveaways: any[]): Promi
         cover_image_url, game_icon_url, status, created_at,
         use_template, updated_at,
         enable_auto_simulation, simulation_idle_threshold_minutes,
-        last_real_claim_at, last_simulated_claim_at, is_last_claim_simulated
+        last_real_claim_at, last_simulated_claim_at, is_last_claim_simulated,
+        virtual_remaining_addition, virtual_remaining_current
       )
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       ON CONFLICT(id) DO UPDATE SET
         title = excluded.title,
         game_slug = excluded.game_slug,
@@ -2305,6 +2316,8 @@ export async function syncGiveawaysToD1(db: D1Database, giveaways: any[]): Promi
         last_real_claim_at = CASE WHEN excluded.last_real_claim_at != '' THEN excluded.last_real_claim_at ELSE giveaways.last_real_claim_at END,
         last_simulated_claim_at = CASE WHEN excluded.last_simulated_claim_at != '' THEN excluded.last_simulated_claim_at ELSE giveaways.last_simulated_claim_at END,
         is_last_claim_simulated = excluded.is_last_claim_simulated,
+        virtual_remaining_addition = excluded.virtual_remaining_addition,
+        virtual_remaining_current = excluded.virtual_remaining_current,
         created_at = COALESCE(giveaways.created_at, excluded.created_at)
     `).bind(
       gw.id,
@@ -2347,7 +2360,9 @@ export async function syncGiveawaysToD1(db: D1Database, giveaways: any[]): Promi
       simulationIdleThresholdMinutes,
       lastRealClaimAt,
       lastSimulatedClaimAt,
-      isLastClaimSimulated
+      isLastClaimSimulated,
+      virtualRemainingAddition,
+      virtualRemainingCurrent
     ).run().catch((e) => console.warn('[syncGiveawaysToD1 gw error]', e?.message));
 
     // Reconcile and batch insert codes_pool into giveaway_codes if present
@@ -2877,6 +2892,8 @@ export async function loadAllGiveawaysD1(db: D1Database, includeCodes: boolean =
         CASE WHEN g.is_active = 0 THEN 0 ELSE 1 END AS is_active,
         COALESCE(g.enable_auto_simulation, 1) AS enable_auto_simulation,
         COALESCE(g.simulation_idle_threshold_minutes, 0) AS simulation_idle_threshold_minutes,
+        COALESCE(g.virtual_remaining_addition, 20) AS virtual_remaining_addition,
+        COALESCE(g.virtual_remaining_current, 20) AS virtual_remaining_current,
         COALESCE(g.last_real_claim_at, '') AS last_real_claim_at,
         COALESCE(g.last_simulated_claim_at, '') AS last_simulated_claim_at,
         COALESCE(g.is_last_claim_simulated, 0) AS is_last_claim_simulated,
@@ -2954,6 +2971,8 @@ export async function loadAllGiveawaysD1(db: D1Database, includeCodes: boolean =
         virtual_claimed_offset: meta.virtual_claimed_offset !== undefined ? Math.max(0, Number(meta.virtual_claimed_offset) || 0) : Math.max(0, Number(gw.virtual_claimed_offset) || 0),
         enable_auto_simulation: meta.enable_auto_simulation !== undefined ? Boolean(meta.enable_auto_simulation) : (gw.enable_auto_simulation !== undefined ? Boolean(gw.enable_auto_simulation) : true),
         simulation_idle_threshold_minutes: meta.simulation_idle_threshold_minutes !== undefined ? Number(meta.simulation_idle_threshold_minutes) : (gw.simulation_idle_threshold_minutes !== undefined ? Number(gw.simulation_idle_threshold_minutes) : 0),
+        virtual_remaining_addition: meta.virtual_remaining_addition !== undefined ? Number(meta.virtual_remaining_addition) : (gw.virtual_remaining_addition !== undefined ? Number(gw.virtual_remaining_addition) : 20),
+        virtual_remaining_current: meta.virtual_remaining_current !== undefined ? Number(meta.virtual_remaining_current) : (gw.virtual_remaining_current !== undefined ? Number(gw.virtual_remaining_current) : 20),
         last_real_claim_at: meta.last_real_claim_at || gw.last_real_claim_at || '',
         last_simulated_claim_at: meta.last_simulated_claim_at || gw.last_simulated_claim_at || '',
         is_last_claim_simulated: meta.is_last_claim_simulated !== undefined ? Boolean(meta.is_last_claim_simulated) : Boolean(gw.is_last_claim_simulated),

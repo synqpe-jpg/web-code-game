@@ -5,6 +5,48 @@ Mỗi mục sửa lỗi đều ghi nhận **Nguyên nhân gốc rễ (Root Cause
 
 ---
 
+## [2026-10-28]
+
+### 241. Phát Triển Cơ Chế Tự Động Cộng/Trừ Số Mã Hiển Thị Cho Giveaway (Không Tạo Mã Ảo) & Tách Bạch Dữ Liệu Bảng Quản Trị
+- **Bối cảnh & Yêu cầu từ Người dùng**:
+  - Mục Giật Giveaway đã có engine tự động mô phỏng lượt giật cho event có giãn cách toàn sàn (Global Cooldown Simulation). Tuy nhiên, con số mã còn lại HIỂN THỊ trên thẻ event chưa chuyển động theo lượt giật.
+  - Cần thêm cơ chế chỉ điều chỉnh CON SỐ HIỂN THỊ, chạy song hành cùng engine mô phỏng (`giveaway_simulation_service.ts`), tuyệt đối KHÔNG tạo mã ảo, KHÔNG thêm mã nào vào kho, KHÔNG đụng vào logic giật thật và kho mã thật.
+  - *Phạm vi*: Áp dụng cho event đang bật mô phỏng; tắt mô phỏng thì số hiển thị trở về đúng số mã thật còn lại. Event hết mã thật, đã đóng hoặc tạm dừng thì dừng mô phỏng và không cộng thêm số hiển thị.
+  - *Cơ chế hoạt động*:
+    1. Cấu hình số cộng thêm theo từng event `virtual_remaining_addition` (mặc định lấy theo FOMO: 20 mã).
+    2. Số hiển thị ban đầu = Kho thật + Số cộng thêm (vd: 30 + 20 = 50).
+    3. Mỗi lượt giật (người thật hoặc bot mô phỏng) đều trừ số hiển thị đi 1. Lượt giật thật trừ kho thật đi 1; lượt mô phỏng không trừ kho thật.
+    4. Mỗi khi số hiển thị chạm đúng số mã thật còn lại trong kho (phần cộng thêm bị trừ hết <= 0), hệ thống ngay lập tức cộng lại đúng số đã cài (ví dụ: từ 50 trừ dần về 30 thì lập tức nhảy lên 50, rồi lại trừ dần theo lượt giật).
+    5. Vòng lặp dừng hẳn khi kho thật về 0: số hiển thị về 0, báo hết mã, engine ngừng mô phỏng.
+    6. Bảng Quản trị Admin hiển thị tách bạch 100%: Thật còn lại / Số cộng thêm / Số hiển thị.
+- **Thiết kế Kiến trúc & Giải pháp Thành công (Solution Applied)**:
+  1. *Định nghĩa Mô hình Dữ liệu (`src/types/game.ts` & `functions/services/d1_service.ts`)*:
+     - Bổ sung 2 trường cốt lõi: `virtual_remaining_addition` (số cộng thêm đã cài đặt, mặc định 20) và `virtual_remaining_current` (số cộng thêm hiện tại đang áp dụng, 1 .. addition).
+     - Bổ sung schema migration an toàn trong `ensureGiveawaySchema`, `syncGiveawaysToD1`, `loadAllGiveawaysD1` cho bảng D1 `giveaways`.
+  2. *Engine Tự Động Mô Phỏng & Cộng/Trừ (`functions/services/giveaway_simulation_service.ts`)*:
+     - Trong `runGiveawaySimulation`: Mỗi lượt mô phỏng thành công, trừ `virtual_remaining_current` đi 1.
+     - Khi `virtual_remaining_current <= 0`: Tức thì hồi lại `virtual_remaining_addition` (vd: 20), số hiển thị nhảy lại `realStock + addition`.
+     - Cập nhật đồng thời D1 `giveaways` và `wcg_admin_giveaways_v4`.
+  3. *Quy tắc Thép Bảo Toàn Kho Mã Thật (`functions/api/giveaways/claim.ts`)*:
+     - Khi người thật giật mã: Kho thật giảm 1 (`remaining_codes - 1`), `virtual_remaining_current` giữ nguyên không đổi. Kết quả: số hiển thị tự động giảm 1, số cộng thêm không đổi.
+     - Khi kho thật về 0: Số hiển thị ép về 0, người thật nhận thông báo hết mã, bot mô phỏng từ chối chạy.
+  4. *Hàm Tính Toán Chuẩn Xác (`src/services/marketingService.ts` & `src/components/GiveawaysView.tsx`)*:
+     - Xây dựng `marketingService.getGiveawayDisplayRemaining(campaign)` là SSOT:
+       * Nếu `realStock <= 0` => return 0.
+       * Nếu `enable_auto_simulation === false` => return `realStock`.
+       * Nếu bật mô phỏng => return `realStock + virtual_remaining_current`.
+     - Đồng bộ cả thẻ Card danh sách sự kiện và Modal chi tiết Giveaway.
+  5. *Giao Diện Quản Trị Tách Bạch Minh Bạch (`src/admin/modules/PrivateCodesModule.tsx`)*:
+     - Form Thêm/Sửa: Bổ sung ô cấu hình `Số mã cộng thêm vào số hiển thị` (mặc định 20 mã).
+     - Bảng Quản trị (Col 2): Hiển thị tách bạch 3 thông số: `Thật: {remaining}/{total}` • `Cộng thêm: +{addition}` • `Hiển thị: Còn {displayRemaining} | Giật {claimed}`.
+     - Khi tắt mô phỏng: Hiển thị `Cộng thêm: +0 (Tắt)`, số hiển thị trở về đúng số thật trong kho.
+  6. *Kiểm Thử Toàn Diện & Quy Tắc 7*:
+     - Viết test suite `scripts/test_giveaway_display_stock_simulation.cjs` kiểm chứng 100% 7 tiêu chí: khởi tạo 50 -> bot trừ 49 -> trừ về 30 nhảy lên 50 -> người thật giật còn 49 (kho 29) -> kho về 0 hiển thị 0 -> tắt mô phỏng về số thật -> dọn dẹp sạch sẽ 100%.
+- **Giải pháp thất bại đã thử (Failed Attempts - KHÔNG ĐƯỢC LẶP LẠI)**:
+  - *Thất bại tiềm ẩn*: Thay đổi số lượng `remaining_codes` trong D1 bằng cách cộng thêm 20 mã ảo vào kho $\rightarrow$ *TUYỆT ĐỐI KHÔNG LÀM*: Dẫn tới sai lệch kiểm toán kho hàng, người dùng nhận nhầm mã ảo hoặc mã hết hạn. Bắt buộc giữ nguyên `remaining_codes` và `codes_pool` thật 100%, chỉ tính toán ở lớp hiển thị `virtual_remaining_current`.
+
+---
+
 ## [2026-10-27]
 
 ### 240. Thu Gọn Thông Báo Giãn Cách Toàn Sàn Thành Nút Bấm Nhỏ Gọn & Khôi Phục Đường Link Nhóm Zalo Trong Modal Giveaway
@@ -32,6 +74,48 @@ Mỗi mục sửa lỗi đều ghi nhận **Nguyên nhân gốc rễ (Root Cause
      - Kiểm toán Zero Test Artifacts `audit_zero_test_artifacts.cjs`: 100% sạch sẽ.
      - Kiểm thử hồi quy Ingest `test_ingest_regression.cjs`: 4/4 pass (100%).
      - Build thành công toàn bộ hệ thống (`dist/_worker.js` 12.9MB).
+
+---
+
+## [2026-10-28]
+
+### 241. Phát Triển Cơ Chế Tự Động Cộng/Trừ Số Mã Hiển Thị Cho Giveaway (Không Tạo Mã Ảo) & Tách Bạch Dữ Liệu Bảng Quản Trị
+- **Bối cảnh & Yêu cầu từ Người dùng**:
+  - Mục Giật Giveaway đã có engine tự động mô phỏng lượt giật cho event có giãn cách toàn sàn (Global Cooldown Simulation). Tuy nhiên, con số mã còn lại HIỂN THỊ trên thẻ event chưa chuyển động theo lượt giật.
+  - Cần thêm cơ chế chỉ điều chỉnh CON SỐ HIỂN THỊ, chạy song hành cùng engine mô phỏng (`giveaway_simulation_service.ts`), tuyệt đối KHÔNG tạo mã ảo, KHÔNG thêm mã nào vào kho, KHÔNG đụng vào logic giật thật và kho mã thật.
+  - *Phạm vi*: Áp dụng cho event đang bật mô phỏng; tắt mô phỏng thì số hiển thị trở về đúng số mã thật còn lại. Event hết mã thật, đã đóng hoặc tạm dừng thì dừng mô phỏng và không cộng thêm số hiển thị.
+  - *Cơ chế hoạt động*:
+    1. Cấu hình số cộng thêm theo từng event `virtual_remaining_addition` (mặc định lấy theo FOMO: 20 mã).
+    2. Số hiển thị ban đầu = Kho thật + Số cộng thêm (vd: 30 + 20 = 50).
+    3. Mỗi lượt giật (người thật hoặc bot mô phỏng) đều trừ số hiển thị đi 1. Lượt giật thật trừ kho thật đi 1; lượt mô phỏng không trừ kho thật.
+    4. Mỗi khi số hiển thị chạm đúng số mã thật còn lại trong kho (phần cộng thêm bị trừ hết <= 0), hệ thống ngay lập tức cộng lại đúng số đã cài (ví dụ: từ 50 trừ dần về 30 thì lập tức nhảy lên 50, rồi lại trừ dần theo lượt giật).
+    5. Vòng lặp dừng hẳn khi kho thật về 0: số hiển thị về 0, báo hết mã, engine ngừng mô phỏng.
+    6. Bảng Quản trị Admin hiển thị tách bạch 100%: Thật còn lại / Số cộng thêm / Số hiển thị.
+- **Thiết kế Kiến trúc & Giải pháp Thành công (Solution Applied)**:
+  1. *Định nghĩa Mô hình Dữ liệu (`src/types/game.ts` & `functions/services/d1_service.ts`)*:
+     - Bổ sung 2 trường cốt lõi: `virtual_remaining_addition` (số cộng thêm đã cài đặt, mặc định 20) và `virtual_remaining_current` (số cộng thêm hiện tại đang áp dụng, 1 .. addition).
+     - Bổ sung schema migration an toàn trong `ensureGiveawaySchema`, `syncGiveawaysToD1`, `loadAllGiveawaysD1` cho bảng D1 `giveaways`.
+  2. *Engine Tự Động Mô Phỏng & Cộng/Trừ (`functions/services/giveaway_simulation_service.ts`)*:
+     - Trong `runGiveawaySimulation`: Mỗi lượt mô phỏng thành công, trừ `virtual_remaining_current` đi 1.
+     - Khi `virtual_remaining_current <= 0`: Tức thì hồi lại `virtual_remaining_addition` (vd: 20), số hiển thị nhảy lại `realStock + addition`.
+     - Cập nhật đồng thời D1 `giveaways` và `wcg_admin_giveaways_v4`.
+  3. *Quy tắc Thép Bảo Toàn Kho Mã Thật (`functions/api/giveaways/claim.ts`)*:
+     - Khi người thật giật mã: Kho thật giảm 1 (`remaining_codes - 1`), `virtual_remaining_current` giữ nguyên không đổi. Kết quả: số hiển thị tự động giảm 1, số cộng thêm không đổi.
+     - Khi kho thật về 0: Số hiển thị ép về 0, người thật nhận thông báo hết mã, bot mô phỏng từ chối chạy.
+  4. *Hàm Tính Toán Chuẩn Xác (`src/services/marketingService.ts` & `src/components/GiveawaysView.tsx`)*:
+     - Xây dựng `marketingService.getGiveawayDisplayRemaining(campaign)` là SSOT:
+       * Nếu `realStock <= 0` => return 0.
+       * Nếu `enable_auto_simulation === false` => return `realStock`.
+       * Nếu bật mô phỏng => return `realStock + virtual_remaining_current`.
+     - Đồng bộ cả thẻ Card danh sách sự kiện và Modal chi tiết Giveaway.
+  5. *Giao Diện Quản Trị Tách Bạch Minh Bạch (`src/admin/modules/PrivateCodesModule.tsx`)*:
+     - Form Thêm/Sửa: Bổ sung ô cấu hình `Số mã cộng thêm vào số hiển thị` (mặc định 20 mã).
+     - Bảng Quản trị (Col 2): Hiển thị tách bạch 3 thông số: `Thật: {remaining}/{total}` • `Cộng thêm: +{addition}` • `Hiển thị: Còn {displayRemaining} | Giật {claimed}`.
+     - Khi tắt mô phỏng: Hiển thị `Cộng thêm: +0 (Tắt)`, số hiển thị trở về đúng số thật trong kho.
+  6. *Kiểm Thử Toàn Diện & Quy Tắc 7*:
+     - Viết test suite `scripts/test_giveaway_display_stock_simulation.cjs` kiểm chứng 100% 7 tiêu chí: khởi tạo 50 -> bot trừ 49 -> trừ về 30 nhảy lên 50 -> người thật giật còn 49 (kho 29) -> kho về 0 hiển thị 0 -> tắt mô phỏng về số thật -> dọn dẹp sạch sẽ 100%.
+- **Giải pháp thất bại đã thử (Failed Attempts - KHÔNG ĐƯỢC LẶP LẠI)**:
+  - *Thất bại tiềm ẩn*: Thay đổi số lượng `remaining_codes` trong D1 bằng cách cộng thêm 20 mã ảo vào kho $\rightarrow$ *TUYỆT ĐỐI KHÔNG LÀM*: Dẫn tới sai lệch kiểm toán kho hàng, người dùng nhận nhầm mã ảo hoặc mã hết hạn. Bắt buộc giữ nguyên `remaining_codes` và `codes_pool` thật 100%, chỉ tính toán ở lớp hiển thị `virtual_remaining_current`.
 
 ---
 
@@ -74,6 +158,48 @@ Mỗi mục sửa lỗi đều ghi nhận **Nguyên nhân gốc rễ (Root Cause
 
 ---
 
+## [2026-10-28]
+
+### 241. Phát Triển Cơ Chế Tự Động Cộng/Trừ Số Mã Hiển Thị Cho Giveaway (Không Tạo Mã Ảo) & Tách Bạch Dữ Liệu Bảng Quản Trị
+- **Bối cảnh & Yêu cầu từ Người dùng**:
+  - Mục Giật Giveaway đã có engine tự động mô phỏng lượt giật cho event có giãn cách toàn sàn (Global Cooldown Simulation). Tuy nhiên, con số mã còn lại HIỂN THỊ trên thẻ event chưa chuyển động theo lượt giật.
+  - Cần thêm cơ chế chỉ điều chỉnh CON SỐ HIỂN THỊ, chạy song hành cùng engine mô phỏng (`giveaway_simulation_service.ts`), tuyệt đối KHÔNG tạo mã ảo, KHÔNG thêm mã nào vào kho, KHÔNG đụng vào logic giật thật và kho mã thật.
+  - *Phạm vi*: Áp dụng cho event đang bật mô phỏng; tắt mô phỏng thì số hiển thị trở về đúng số mã thật còn lại. Event hết mã thật, đã đóng hoặc tạm dừng thì dừng mô phỏng và không cộng thêm số hiển thị.
+  - *Cơ chế hoạt động*:
+    1. Cấu hình số cộng thêm theo từng event `virtual_remaining_addition` (mặc định lấy theo FOMO: 20 mã).
+    2. Số hiển thị ban đầu = Kho thật + Số cộng thêm (vd: 30 + 20 = 50).
+    3. Mỗi lượt giật (người thật hoặc bot mô phỏng) đều trừ số hiển thị đi 1. Lượt giật thật trừ kho thật đi 1; lượt mô phỏng không trừ kho thật.
+    4. Mỗi khi số hiển thị chạm đúng số mã thật còn lại trong kho (phần cộng thêm bị trừ hết <= 0), hệ thống ngay lập tức cộng lại đúng số đã cài (ví dụ: từ 50 trừ dần về 30 thì lập tức nhảy lên 50, rồi lại trừ dần theo lượt giật).
+    5. Vòng lặp dừng hẳn khi kho thật về 0: số hiển thị về 0, báo hết mã, engine ngừng mô phỏng.
+    6. Bảng Quản trị Admin hiển thị tách bạch 100%: Thật còn lại / Số cộng thêm / Số hiển thị.
+- **Thiết kế Kiến trúc & Giải pháp Thành công (Solution Applied)**:
+  1. *Định nghĩa Mô hình Dữ liệu (`src/types/game.ts` & `functions/services/d1_service.ts`)*:
+     - Bổ sung 2 trường cốt lõi: `virtual_remaining_addition` (số cộng thêm đã cài đặt, mặc định 20) và `virtual_remaining_current` (số cộng thêm hiện tại đang áp dụng, 1 .. addition).
+     - Bổ sung schema migration an toàn trong `ensureGiveawaySchema`, `syncGiveawaysToD1`, `loadAllGiveawaysD1` cho bảng D1 `giveaways`.
+  2. *Engine Tự Động Mô Phỏng & Cộng/Trừ (`functions/services/giveaway_simulation_service.ts`)*:
+     - Trong `runGiveawaySimulation`: Mỗi lượt mô phỏng thành công, trừ `virtual_remaining_current` đi 1.
+     - Khi `virtual_remaining_current <= 0`: Tức thì hồi lại `virtual_remaining_addition` (vd: 20), số hiển thị nhảy lại `realStock + addition`.
+     - Cập nhật đồng thời D1 `giveaways` và `wcg_admin_giveaways_v4`.
+  3. *Quy tắc Thép Bảo Toàn Kho Mã Thật (`functions/api/giveaways/claim.ts`)*:
+     - Khi người thật giật mã: Kho thật giảm 1 (`remaining_codes - 1`), `virtual_remaining_current` giữ nguyên không đổi. Kết quả: số hiển thị tự động giảm 1, số cộng thêm không đổi.
+     - Khi kho thật về 0: Số hiển thị ép về 0, người thật nhận thông báo hết mã, bot mô phỏng từ chối chạy.
+  4. *Hàm Tính Toán Chuẩn Xác (`src/services/marketingService.ts` & `src/components/GiveawaysView.tsx`)*:
+     - Xây dựng `marketingService.getGiveawayDisplayRemaining(campaign)` là SSOT:
+       * Nếu `realStock <= 0` => return 0.
+       * Nếu `enable_auto_simulation === false` => return `realStock`.
+       * Nếu bật mô phỏng => return `realStock + virtual_remaining_current`.
+     - Đồng bộ cả thẻ Card danh sách sự kiện và Modal chi tiết Giveaway.
+  5. *Giao Diện Quản Trị Tách Bạch Minh Bạch (`src/admin/modules/PrivateCodesModule.tsx`)*:
+     - Form Thêm/Sửa: Bổ sung ô cấu hình `Số mã cộng thêm vào số hiển thị` (mặc định 20 mã).
+     - Bảng Quản trị (Col 2): Hiển thị tách bạch 3 thông số: `Thật: {remaining}/{total}` • `Cộng thêm: +{addition}` • `Hiển thị: Còn {displayRemaining} | Giật {claimed}`.
+     - Khi tắt mô phỏng: Hiển thị `Cộng thêm: +0 (Tắt)`, số hiển thị trở về đúng số thật trong kho.
+  6. *Kiểm Thử Toàn Diện & Quy Tắc 7*:
+     - Viết test suite `scripts/test_giveaway_display_stock_simulation.cjs` kiểm chứng 100% 7 tiêu chí: khởi tạo 50 -> bot trừ 49 -> trừ về 30 nhảy lên 50 -> người thật giật còn 49 (kho 29) -> kho về 0 hiển thị 0 -> tắt mô phỏng về số thật -> dọn dẹp sạch sẽ 100%.
+- **Giải pháp thất bại đã thử (Failed Attempts - KHÔNG ĐƯỢC LẶP LẠI)**:
+  - *Thất bại tiềm ẩn*: Thay đổi số lượng `remaining_codes` trong D1 bằng cách cộng thêm 20 mã ảo vào kho $\rightarrow$ *TUYỆT ĐỐI KHÔNG LÀM*: Dẫn tới sai lệch kiểm toán kho hàng, người dùng nhận nhầm mã ảo hoặc mã hết hạn. Bắt buộc giữ nguyên `remaining_codes` và `codes_pool` thật 100%, chỉ tính toán ở lớp hiển thị `virtual_remaining_current`.
+
+---
+
 ## [2026-10-27]
 
 ### 240. Thu Gọn Thông Báo Giãn Cách Toàn Sàn Thành Nút Bấm Nhỏ Gọn & Khôi Phục Đường Link Nhóm Zalo Trong Modal Giveaway
@@ -101,6 +227,48 @@ Mỗi mục sửa lỗi đều ghi nhận **Nguyên nhân gốc rễ (Root Cause
      - Kiểm toán Zero Test Artifacts `audit_zero_test_artifacts.cjs`: 100% sạch sẽ.
      - Kiểm thử hồi quy Ingest `test_ingest_regression.cjs`: 4/4 pass (100%).
      - Build thành công toàn bộ hệ thống (`dist/_worker.js` 12.9MB).
+
+---
+
+## [2026-10-28]
+
+### 241. Phát Triển Cơ Chế Tự Động Cộng/Trừ Số Mã Hiển Thị Cho Giveaway (Không Tạo Mã Ảo) & Tách Bạch Dữ Liệu Bảng Quản Trị
+- **Bối cảnh & Yêu cầu từ Người dùng**:
+  - Mục Giật Giveaway đã có engine tự động mô phỏng lượt giật cho event có giãn cách toàn sàn (Global Cooldown Simulation). Tuy nhiên, con số mã còn lại HIỂN THỊ trên thẻ event chưa chuyển động theo lượt giật.
+  - Cần thêm cơ chế chỉ điều chỉnh CON SỐ HIỂN THỊ, chạy song hành cùng engine mô phỏng (`giveaway_simulation_service.ts`), tuyệt đối KHÔNG tạo mã ảo, KHÔNG thêm mã nào vào kho, KHÔNG đụng vào logic giật thật và kho mã thật.
+  - *Phạm vi*: Áp dụng cho event đang bật mô phỏng; tắt mô phỏng thì số hiển thị trở về đúng số mã thật còn lại. Event hết mã thật, đã đóng hoặc tạm dừng thì dừng mô phỏng và không cộng thêm số hiển thị.
+  - *Cơ chế hoạt động*:
+    1. Cấu hình số cộng thêm theo từng event `virtual_remaining_addition` (mặc định lấy theo FOMO: 20 mã).
+    2. Số hiển thị ban đầu = Kho thật + Số cộng thêm (vd: 30 + 20 = 50).
+    3. Mỗi lượt giật (người thật hoặc bot mô phỏng) đều trừ số hiển thị đi 1. Lượt giật thật trừ kho thật đi 1; lượt mô phỏng không trừ kho thật.
+    4. Mỗi khi số hiển thị chạm đúng số mã thật còn lại trong kho (phần cộng thêm bị trừ hết <= 0), hệ thống ngay lập tức cộng lại đúng số đã cài (ví dụ: từ 50 trừ dần về 30 thì lập tức nhảy lên 50, rồi lại trừ dần theo lượt giật).
+    5. Vòng lặp dừng hẳn khi kho thật về 0: số hiển thị về 0, báo hết mã, engine ngừng mô phỏng.
+    6. Bảng Quản trị Admin hiển thị tách bạch 100%: Thật còn lại / Số cộng thêm / Số hiển thị.
+- **Thiết kế Kiến trúc & Giải pháp Thành công (Solution Applied)**:
+  1. *Định nghĩa Mô hình Dữ liệu (`src/types/game.ts` & `functions/services/d1_service.ts`)*:
+     - Bổ sung 2 trường cốt lõi: `virtual_remaining_addition` (số cộng thêm đã cài đặt, mặc định 20) và `virtual_remaining_current` (số cộng thêm hiện tại đang áp dụng, 1 .. addition).
+     - Bổ sung schema migration an toàn trong `ensureGiveawaySchema`, `syncGiveawaysToD1`, `loadAllGiveawaysD1` cho bảng D1 `giveaways`.
+  2. *Engine Tự Động Mô Phỏng & Cộng/Trừ (`functions/services/giveaway_simulation_service.ts`)*:
+     - Trong `runGiveawaySimulation`: Mỗi lượt mô phỏng thành công, trừ `virtual_remaining_current` đi 1.
+     - Khi `virtual_remaining_current <= 0`: Tức thì hồi lại `virtual_remaining_addition` (vd: 20), số hiển thị nhảy lại `realStock + addition`.
+     - Cập nhật đồng thời D1 `giveaways` và `wcg_admin_giveaways_v4`.
+  3. *Quy tắc Thép Bảo Toàn Kho Mã Thật (`functions/api/giveaways/claim.ts`)*:
+     - Khi người thật giật mã: Kho thật giảm 1 (`remaining_codes - 1`), `virtual_remaining_current` giữ nguyên không đổi. Kết quả: số hiển thị tự động giảm 1, số cộng thêm không đổi.
+     - Khi kho thật về 0: Số hiển thị ép về 0, người thật nhận thông báo hết mã, bot mô phỏng từ chối chạy.
+  4. *Hàm Tính Toán Chuẩn Xác (`src/services/marketingService.ts` & `src/components/GiveawaysView.tsx`)*:
+     - Xây dựng `marketingService.getGiveawayDisplayRemaining(campaign)` là SSOT:
+       * Nếu `realStock <= 0` => return 0.
+       * Nếu `enable_auto_simulation === false` => return `realStock`.
+       * Nếu bật mô phỏng => return `realStock + virtual_remaining_current`.
+     - Đồng bộ cả thẻ Card danh sách sự kiện và Modal chi tiết Giveaway.
+  5. *Giao Diện Quản Trị Tách Bạch Minh Bạch (`src/admin/modules/PrivateCodesModule.tsx`)*:
+     - Form Thêm/Sửa: Bổ sung ô cấu hình `Số mã cộng thêm vào số hiển thị` (mặc định 20 mã).
+     - Bảng Quản trị (Col 2): Hiển thị tách bạch 3 thông số: `Thật: {remaining}/{total}` • `Cộng thêm: +{addition}` • `Hiển thị: Còn {displayRemaining} | Giật {claimed}`.
+     - Khi tắt mô phỏng: Hiển thị `Cộng thêm: +0 (Tắt)`, số hiển thị trở về đúng số thật trong kho.
+  6. *Kiểm Thử Toàn Diện & Quy Tắc 7*:
+     - Viết test suite `scripts/test_giveaway_display_stock_simulation.cjs` kiểm chứng 100% 7 tiêu chí: khởi tạo 50 -> bot trừ 49 -> trừ về 30 nhảy lên 50 -> người thật giật còn 49 (kho 29) -> kho về 0 hiển thị 0 -> tắt mô phỏng về số thật -> dọn dẹp sạch sẽ 100%.
+- **Giải pháp thất bại đã thử (Failed Attempts - KHÔNG ĐƯỢC LẶP LẠI)**:
+  - *Thất bại tiềm ẩn*: Thay đổi số lượng `remaining_codes` trong D1 bằng cách cộng thêm 20 mã ảo vào kho $\rightarrow$ *TUYỆT ĐỐI KHÔNG LÀM*: Dẫn tới sai lệch kiểm toán kho hàng, người dùng nhận nhầm mã ảo hoặc mã hết hạn. Bắt buộc giữ nguyên `remaining_codes` và `codes_pool` thật 100%, chỉ tính toán ở lớp hiển thị `virtual_remaining_current`.
 
 ---
 
@@ -138,6 +306,48 @@ Mỗi mục sửa lỗi đều ghi nhận **Nguyên nhân gốc rễ (Root Cause
 
 ---
 
+## [2026-10-28]
+
+### 241. Phát Triển Cơ Chế Tự Động Cộng/Trừ Số Mã Hiển Thị Cho Giveaway (Không Tạo Mã Ảo) & Tách Bạch Dữ Liệu Bảng Quản Trị
+- **Bối cảnh & Yêu cầu từ Người dùng**:
+  - Mục Giật Giveaway đã có engine tự động mô phỏng lượt giật cho event có giãn cách toàn sàn (Global Cooldown Simulation). Tuy nhiên, con số mã còn lại HIỂN THỊ trên thẻ event chưa chuyển động theo lượt giật.
+  - Cần thêm cơ chế chỉ điều chỉnh CON SỐ HIỂN THỊ, chạy song hành cùng engine mô phỏng (`giveaway_simulation_service.ts`), tuyệt đối KHÔNG tạo mã ảo, KHÔNG thêm mã nào vào kho, KHÔNG đụng vào logic giật thật và kho mã thật.
+  - *Phạm vi*: Áp dụng cho event đang bật mô phỏng; tắt mô phỏng thì số hiển thị trở về đúng số mã thật còn lại. Event hết mã thật, đã đóng hoặc tạm dừng thì dừng mô phỏng và không cộng thêm số hiển thị.
+  - *Cơ chế hoạt động*:
+    1. Cấu hình số cộng thêm theo từng event `virtual_remaining_addition` (mặc định lấy theo FOMO: 20 mã).
+    2. Số hiển thị ban đầu = Kho thật + Số cộng thêm (vd: 30 + 20 = 50).
+    3. Mỗi lượt giật (người thật hoặc bot mô phỏng) đều trừ số hiển thị đi 1. Lượt giật thật trừ kho thật đi 1; lượt mô phỏng không trừ kho thật.
+    4. Mỗi khi số hiển thị chạm đúng số mã thật còn lại trong kho (phần cộng thêm bị trừ hết <= 0), hệ thống ngay lập tức cộng lại đúng số đã cài (ví dụ: từ 50 trừ dần về 30 thì lập tức nhảy lên 50, rồi lại trừ dần theo lượt giật).
+    5. Vòng lặp dừng hẳn khi kho thật về 0: số hiển thị về 0, báo hết mã, engine ngừng mô phỏng.
+    6. Bảng Quản trị Admin hiển thị tách bạch 100%: Thật còn lại / Số cộng thêm / Số hiển thị.
+- **Thiết kế Kiến trúc & Giải pháp Thành công (Solution Applied)**:
+  1. *Định nghĩa Mô hình Dữ liệu (`src/types/game.ts` & `functions/services/d1_service.ts`)*:
+     - Bổ sung 2 trường cốt lõi: `virtual_remaining_addition` (số cộng thêm đã cài đặt, mặc định 20) và `virtual_remaining_current` (số cộng thêm hiện tại đang áp dụng, 1 .. addition).
+     - Bổ sung schema migration an toàn trong `ensureGiveawaySchema`, `syncGiveawaysToD1`, `loadAllGiveawaysD1` cho bảng D1 `giveaways`.
+  2. *Engine Tự Động Mô Phỏng & Cộng/Trừ (`functions/services/giveaway_simulation_service.ts`)*:
+     - Trong `runGiveawaySimulation`: Mỗi lượt mô phỏng thành công, trừ `virtual_remaining_current` đi 1.
+     - Khi `virtual_remaining_current <= 0`: Tức thì hồi lại `virtual_remaining_addition` (vd: 20), số hiển thị nhảy lại `realStock + addition`.
+     - Cập nhật đồng thời D1 `giveaways` và `wcg_admin_giveaways_v4`.
+  3. *Quy tắc Thép Bảo Toàn Kho Mã Thật (`functions/api/giveaways/claim.ts`)*:
+     - Khi người thật giật mã: Kho thật giảm 1 (`remaining_codes - 1`), `virtual_remaining_current` giữ nguyên không đổi. Kết quả: số hiển thị tự động giảm 1, số cộng thêm không đổi.
+     - Khi kho thật về 0: Số hiển thị ép về 0, người thật nhận thông báo hết mã, bot mô phỏng từ chối chạy.
+  4. *Hàm Tính Toán Chuẩn Xác (`src/services/marketingService.ts` & `src/components/GiveawaysView.tsx`)*:
+     - Xây dựng `marketingService.getGiveawayDisplayRemaining(campaign)` là SSOT:
+       * Nếu `realStock <= 0` => return 0.
+       * Nếu `enable_auto_simulation === false` => return `realStock`.
+       * Nếu bật mô phỏng => return `realStock + virtual_remaining_current`.
+     - Đồng bộ cả thẻ Card danh sách sự kiện và Modal chi tiết Giveaway.
+  5. *Giao Diện Quản Trị Tách Bạch Minh Bạch (`src/admin/modules/PrivateCodesModule.tsx`)*:
+     - Form Thêm/Sửa: Bổ sung ô cấu hình `Số mã cộng thêm vào số hiển thị` (mặc định 20 mã).
+     - Bảng Quản trị (Col 2): Hiển thị tách bạch 3 thông số: `Thật: {remaining}/{total}` • `Cộng thêm: +{addition}` • `Hiển thị: Còn {displayRemaining} | Giật {claimed}`.
+     - Khi tắt mô phỏng: Hiển thị `Cộng thêm: +0 (Tắt)`, số hiển thị trở về đúng số thật trong kho.
+  6. *Kiểm Thử Toàn Diện & Quy Tắc 7*:
+     - Viết test suite `scripts/test_giveaway_display_stock_simulation.cjs` kiểm chứng 100% 7 tiêu chí: khởi tạo 50 -> bot trừ 49 -> trừ về 30 nhảy lên 50 -> người thật giật còn 49 (kho 29) -> kho về 0 hiển thị 0 -> tắt mô phỏng về số thật -> dọn dẹp sạch sẽ 100%.
+- **Giải pháp thất bại đã thử (Failed Attempts - KHÔNG ĐƯỢC LẶP LẠI)**:
+  - *Thất bại tiềm ẩn*: Thay đổi số lượng `remaining_codes` trong D1 bằng cách cộng thêm 20 mã ảo vào kho $\rightarrow$ *TUYỆT ĐỐI KHÔNG LÀM*: Dẫn tới sai lệch kiểm toán kho hàng, người dùng nhận nhầm mã ảo hoặc mã hết hạn. Bắt buộc giữ nguyên `remaining_codes` và `codes_pool` thật 100%, chỉ tính toán ở lớp hiển thị `virtual_remaining_current`.
+
+---
+
 ## [2026-10-27]
 
 ### 240. Thu Gọn Thông Báo Giãn Cách Toàn Sàn Thành Nút Bấm Nhỏ Gọn & Khôi Phục Đường Link Nhóm Zalo Trong Modal Giveaway
@@ -165,6 +375,48 @@ Mỗi mục sửa lỗi đều ghi nhận **Nguyên nhân gốc rễ (Root Cause
      - Kiểm toán Zero Test Artifacts `audit_zero_test_artifacts.cjs`: 100% sạch sẽ.
      - Kiểm thử hồi quy Ingest `test_ingest_regression.cjs`: 4/4 pass (100%).
      - Build thành công toàn bộ hệ thống (`dist/_worker.js` 12.9MB).
+
+---
+
+## [2026-10-28]
+
+### 241. Phát Triển Cơ Chế Tự Động Cộng/Trừ Số Mã Hiển Thị Cho Giveaway (Không Tạo Mã Ảo) & Tách Bạch Dữ Liệu Bảng Quản Trị
+- **Bối cảnh & Yêu cầu từ Người dùng**:
+  - Mục Giật Giveaway đã có engine tự động mô phỏng lượt giật cho event có giãn cách toàn sàn (Global Cooldown Simulation). Tuy nhiên, con số mã còn lại HIỂN THỊ trên thẻ event chưa chuyển động theo lượt giật.
+  - Cần thêm cơ chế chỉ điều chỉnh CON SỐ HIỂN THỊ, chạy song hành cùng engine mô phỏng (`giveaway_simulation_service.ts`), tuyệt đối KHÔNG tạo mã ảo, KHÔNG thêm mã nào vào kho, KHÔNG đụng vào logic giật thật và kho mã thật.
+  - *Phạm vi*: Áp dụng cho event đang bật mô phỏng; tắt mô phỏng thì số hiển thị trở về đúng số mã thật còn lại. Event hết mã thật, đã đóng hoặc tạm dừng thì dừng mô phỏng và không cộng thêm số hiển thị.
+  - *Cơ chế hoạt động*:
+    1. Cấu hình số cộng thêm theo từng event `virtual_remaining_addition` (mặc định lấy theo FOMO: 20 mã).
+    2. Số hiển thị ban đầu = Kho thật + Số cộng thêm (vd: 30 + 20 = 50).
+    3. Mỗi lượt giật (người thật hoặc bot mô phỏng) đều trừ số hiển thị đi 1. Lượt giật thật trừ kho thật đi 1; lượt mô phỏng không trừ kho thật.
+    4. Mỗi khi số hiển thị chạm đúng số mã thật còn lại trong kho (phần cộng thêm bị trừ hết <= 0), hệ thống ngay lập tức cộng lại đúng số đã cài (ví dụ: từ 50 trừ dần về 30 thì lập tức nhảy lên 50, rồi lại trừ dần theo lượt giật).
+    5. Vòng lặp dừng hẳn khi kho thật về 0: số hiển thị về 0, báo hết mã, engine ngừng mô phỏng.
+    6. Bảng Quản trị Admin hiển thị tách bạch 100%: Thật còn lại / Số cộng thêm / Số hiển thị.
+- **Thiết kế Kiến trúc & Giải pháp Thành công (Solution Applied)**:
+  1. *Định nghĩa Mô hình Dữ liệu (`src/types/game.ts` & `functions/services/d1_service.ts`)*:
+     - Bổ sung 2 trường cốt lõi: `virtual_remaining_addition` (số cộng thêm đã cài đặt, mặc định 20) và `virtual_remaining_current` (số cộng thêm hiện tại đang áp dụng, 1 .. addition).
+     - Bổ sung schema migration an toàn trong `ensureGiveawaySchema`, `syncGiveawaysToD1`, `loadAllGiveawaysD1` cho bảng D1 `giveaways`.
+  2. *Engine Tự Động Mô Phỏng & Cộng/Trừ (`functions/services/giveaway_simulation_service.ts`)*:
+     - Trong `runGiveawaySimulation`: Mỗi lượt mô phỏng thành công, trừ `virtual_remaining_current` đi 1.
+     - Khi `virtual_remaining_current <= 0`: Tức thì hồi lại `virtual_remaining_addition` (vd: 20), số hiển thị nhảy lại `realStock + addition`.
+     - Cập nhật đồng thời D1 `giveaways` và `wcg_admin_giveaways_v4`.
+  3. *Quy tắc Thép Bảo Toàn Kho Mã Thật (`functions/api/giveaways/claim.ts`)*:
+     - Khi người thật giật mã: Kho thật giảm 1 (`remaining_codes - 1`), `virtual_remaining_current` giữ nguyên không đổi. Kết quả: số hiển thị tự động giảm 1, số cộng thêm không đổi.
+     - Khi kho thật về 0: Số hiển thị ép về 0, người thật nhận thông báo hết mã, bot mô phỏng từ chối chạy.
+  4. *Hàm Tính Toán Chuẩn Xác (`src/services/marketingService.ts` & `src/components/GiveawaysView.tsx`)*:
+     - Xây dựng `marketingService.getGiveawayDisplayRemaining(campaign)` là SSOT:
+       * Nếu `realStock <= 0` => return 0.
+       * Nếu `enable_auto_simulation === false` => return `realStock`.
+       * Nếu bật mô phỏng => return `realStock + virtual_remaining_current`.
+     - Đồng bộ cả thẻ Card danh sách sự kiện và Modal chi tiết Giveaway.
+  5. *Giao Diện Quản Trị Tách Bạch Minh Bạch (`src/admin/modules/PrivateCodesModule.tsx`)*:
+     - Form Thêm/Sửa: Bổ sung ô cấu hình `Số mã cộng thêm vào số hiển thị` (mặc định 20 mã).
+     - Bảng Quản trị (Col 2): Hiển thị tách bạch 3 thông số: `Thật: {remaining}/{total}` • `Cộng thêm: +{addition}` • `Hiển thị: Còn {displayRemaining} | Giật {claimed}`.
+     - Khi tắt mô phỏng: Hiển thị `Cộng thêm: +0 (Tắt)`, số hiển thị trở về đúng số thật trong kho.
+  6. *Kiểm Thử Toàn Diện & Quy Tắc 7*:
+     - Viết test suite `scripts/test_giveaway_display_stock_simulation.cjs` kiểm chứng 100% 7 tiêu chí: khởi tạo 50 -> bot trừ 49 -> trừ về 30 nhảy lên 50 -> người thật giật còn 49 (kho 29) -> kho về 0 hiển thị 0 -> tắt mô phỏng về số thật -> dọn dẹp sạch sẽ 100%.
+- **Giải pháp thất bại đã thử (Failed Attempts - KHÔNG ĐƯỢC LẶP LẠI)**:
+  - *Thất bại tiềm ẩn*: Thay đổi số lượng `remaining_codes` trong D1 bằng cách cộng thêm 20 mã ảo vào kho $\rightarrow$ *TUYỆT ĐỐI KHÔNG LÀM*: Dẫn tới sai lệch kiểm toán kho hàng, người dùng nhận nhầm mã ảo hoặc mã hết hạn. Bắt buộc giữ nguyên `remaining_codes` và `codes_pool` thật 100%, chỉ tính toán ở lớp hiển thị `virtual_remaining_current`.
 
 ---
 
@@ -207,6 +459,48 @@ Mỗi mục sửa lỗi đều ghi nhận **Nguyên nhân gốc rễ (Root Cause
 
 ---
 
+## [2026-10-28]
+
+### 241. Phát Triển Cơ Chế Tự Động Cộng/Trừ Số Mã Hiển Thị Cho Giveaway (Không Tạo Mã Ảo) & Tách Bạch Dữ Liệu Bảng Quản Trị
+- **Bối cảnh & Yêu cầu từ Người dùng**:
+  - Mục Giật Giveaway đã có engine tự động mô phỏng lượt giật cho event có giãn cách toàn sàn (Global Cooldown Simulation). Tuy nhiên, con số mã còn lại HIỂN THỊ trên thẻ event chưa chuyển động theo lượt giật.
+  - Cần thêm cơ chế chỉ điều chỉnh CON SỐ HIỂN THỊ, chạy song hành cùng engine mô phỏng (`giveaway_simulation_service.ts`), tuyệt đối KHÔNG tạo mã ảo, KHÔNG thêm mã nào vào kho, KHÔNG đụng vào logic giật thật và kho mã thật.
+  - *Phạm vi*: Áp dụng cho event đang bật mô phỏng; tắt mô phỏng thì số hiển thị trở về đúng số mã thật còn lại. Event hết mã thật, đã đóng hoặc tạm dừng thì dừng mô phỏng và không cộng thêm số hiển thị.
+  - *Cơ chế hoạt động*:
+    1. Cấu hình số cộng thêm theo từng event `virtual_remaining_addition` (mặc định lấy theo FOMO: 20 mã).
+    2. Số hiển thị ban đầu = Kho thật + Số cộng thêm (vd: 30 + 20 = 50).
+    3. Mỗi lượt giật (người thật hoặc bot mô phỏng) đều trừ số hiển thị đi 1. Lượt giật thật trừ kho thật đi 1; lượt mô phỏng không trừ kho thật.
+    4. Mỗi khi số hiển thị chạm đúng số mã thật còn lại trong kho (phần cộng thêm bị trừ hết <= 0), hệ thống ngay lập tức cộng lại đúng số đã cài (ví dụ: từ 50 trừ dần về 30 thì lập tức nhảy lên 50, rồi lại trừ dần theo lượt giật).
+    5. Vòng lặp dừng hẳn khi kho thật về 0: số hiển thị về 0, báo hết mã, engine ngừng mô phỏng.
+    6. Bảng Quản trị Admin hiển thị tách bạch 100%: Thật còn lại / Số cộng thêm / Số hiển thị.
+- **Thiết kế Kiến trúc & Giải pháp Thành công (Solution Applied)**:
+  1. *Định nghĩa Mô hình Dữ liệu (`src/types/game.ts` & `functions/services/d1_service.ts`)*:
+     - Bổ sung 2 trường cốt lõi: `virtual_remaining_addition` (số cộng thêm đã cài đặt, mặc định 20) và `virtual_remaining_current` (số cộng thêm hiện tại đang áp dụng, 1 .. addition).
+     - Bổ sung schema migration an toàn trong `ensureGiveawaySchema`, `syncGiveawaysToD1`, `loadAllGiveawaysD1` cho bảng D1 `giveaways`.
+  2. *Engine Tự Động Mô Phỏng & Cộng/Trừ (`functions/services/giveaway_simulation_service.ts`)*:
+     - Trong `runGiveawaySimulation`: Mỗi lượt mô phỏng thành công, trừ `virtual_remaining_current` đi 1.
+     - Khi `virtual_remaining_current <= 0`: Tức thì hồi lại `virtual_remaining_addition` (vd: 20), số hiển thị nhảy lại `realStock + addition`.
+     - Cập nhật đồng thời D1 `giveaways` và `wcg_admin_giveaways_v4`.
+  3. *Quy tắc Thép Bảo Toàn Kho Mã Thật (`functions/api/giveaways/claim.ts`)*:
+     - Khi người thật giật mã: Kho thật giảm 1 (`remaining_codes - 1`), `virtual_remaining_current` giữ nguyên không đổi. Kết quả: số hiển thị tự động giảm 1, số cộng thêm không đổi.
+     - Khi kho thật về 0: Số hiển thị ép về 0, người thật nhận thông báo hết mã, bot mô phỏng từ chối chạy.
+  4. *Hàm Tính Toán Chuẩn Xác (`src/services/marketingService.ts` & `src/components/GiveawaysView.tsx`)*:
+     - Xây dựng `marketingService.getGiveawayDisplayRemaining(campaign)` là SSOT:
+       * Nếu `realStock <= 0` => return 0.
+       * Nếu `enable_auto_simulation === false` => return `realStock`.
+       * Nếu bật mô phỏng => return `realStock + virtual_remaining_current`.
+     - Đồng bộ cả thẻ Card danh sách sự kiện và Modal chi tiết Giveaway.
+  5. *Giao Diện Quản Trị Tách Bạch Minh Bạch (`src/admin/modules/PrivateCodesModule.tsx`)*:
+     - Form Thêm/Sửa: Bổ sung ô cấu hình `Số mã cộng thêm vào số hiển thị` (mặc định 20 mã).
+     - Bảng Quản trị (Col 2): Hiển thị tách bạch 3 thông số: `Thật: {remaining}/{total}` • `Cộng thêm: +{addition}` • `Hiển thị: Còn {displayRemaining} | Giật {claimed}`.
+     - Khi tắt mô phỏng: Hiển thị `Cộng thêm: +0 (Tắt)`, số hiển thị trở về đúng số thật trong kho.
+  6. *Kiểm Thử Toàn Diện & Quy Tắc 7*:
+     - Viết test suite `scripts/test_giveaway_display_stock_simulation.cjs` kiểm chứng 100% 7 tiêu chí: khởi tạo 50 -> bot trừ 49 -> trừ về 30 nhảy lên 50 -> người thật giật còn 49 (kho 29) -> kho về 0 hiển thị 0 -> tắt mô phỏng về số thật -> dọn dẹp sạch sẽ 100%.
+- **Giải pháp thất bại đã thử (Failed Attempts - KHÔNG ĐƯỢC LẶP LẠI)**:
+  - *Thất bại tiềm ẩn*: Thay đổi số lượng `remaining_codes` trong D1 bằng cách cộng thêm 20 mã ảo vào kho $\rightarrow$ *TUYỆT ĐỐI KHÔNG LÀM*: Dẫn tới sai lệch kiểm toán kho hàng, người dùng nhận nhầm mã ảo hoặc mã hết hạn. Bắt buộc giữ nguyên `remaining_codes` và `codes_pool` thật 100%, chỉ tính toán ở lớp hiển thị `virtual_remaining_current`.
+
+---
+
 ## [2026-10-27]
 
 ### 240. Thu Gọn Thông Báo Giãn Cách Toàn Sàn Thành Nút Bấm Nhỏ Gọn & Khôi Phục Đường Link Nhóm Zalo Trong Modal Giveaway
@@ -234,6 +528,48 @@ Mỗi mục sửa lỗi đều ghi nhận **Nguyên nhân gốc rễ (Root Cause
      - Kiểm toán Zero Test Artifacts `audit_zero_test_artifacts.cjs`: 100% sạch sẽ.
      - Kiểm thử hồi quy Ingest `test_ingest_regression.cjs`: 4/4 pass (100%).
      - Build thành công toàn bộ hệ thống (`dist/_worker.js` 12.9MB).
+
+---
+
+## [2026-10-28]
+
+### 241. Phát Triển Cơ Chế Tự Động Cộng/Trừ Số Mã Hiển Thị Cho Giveaway (Không Tạo Mã Ảo) & Tách Bạch Dữ Liệu Bảng Quản Trị
+- **Bối cảnh & Yêu cầu từ Người dùng**:
+  - Mục Giật Giveaway đã có engine tự động mô phỏng lượt giật cho event có giãn cách toàn sàn (Global Cooldown Simulation). Tuy nhiên, con số mã còn lại HIỂN THỊ trên thẻ event chưa chuyển động theo lượt giật.
+  - Cần thêm cơ chế chỉ điều chỉnh CON SỐ HIỂN THỊ, chạy song hành cùng engine mô phỏng (`giveaway_simulation_service.ts`), tuyệt đối KHÔNG tạo mã ảo, KHÔNG thêm mã nào vào kho, KHÔNG đụng vào logic giật thật và kho mã thật.
+  - *Phạm vi*: Áp dụng cho event đang bật mô phỏng; tắt mô phỏng thì số hiển thị trở về đúng số mã thật còn lại. Event hết mã thật, đã đóng hoặc tạm dừng thì dừng mô phỏng và không cộng thêm số hiển thị.
+  - *Cơ chế hoạt động*:
+    1. Cấu hình số cộng thêm theo từng event `virtual_remaining_addition` (mặc định lấy theo FOMO: 20 mã).
+    2. Số hiển thị ban đầu = Kho thật + Số cộng thêm (vd: 30 + 20 = 50).
+    3. Mỗi lượt giật (người thật hoặc bot mô phỏng) đều trừ số hiển thị đi 1. Lượt giật thật trừ kho thật đi 1; lượt mô phỏng không trừ kho thật.
+    4. Mỗi khi số hiển thị chạm đúng số mã thật còn lại trong kho (phần cộng thêm bị trừ hết <= 0), hệ thống ngay lập tức cộng lại đúng số đã cài (ví dụ: từ 50 trừ dần về 30 thì lập tức nhảy lên 50, rồi lại trừ dần theo lượt giật).
+    5. Vòng lặp dừng hẳn khi kho thật về 0: số hiển thị về 0, báo hết mã, engine ngừng mô phỏng.
+    6. Bảng Quản trị Admin hiển thị tách bạch 100%: Thật còn lại / Số cộng thêm / Số hiển thị.
+- **Thiết kế Kiến trúc & Giải pháp Thành công (Solution Applied)**:
+  1. *Định nghĩa Mô hình Dữ liệu (`src/types/game.ts` & `functions/services/d1_service.ts`)*:
+     - Bổ sung 2 trường cốt lõi: `virtual_remaining_addition` (số cộng thêm đã cài đặt, mặc định 20) và `virtual_remaining_current` (số cộng thêm hiện tại đang áp dụng, 1 .. addition).
+     - Bổ sung schema migration an toàn trong `ensureGiveawaySchema`, `syncGiveawaysToD1`, `loadAllGiveawaysD1` cho bảng D1 `giveaways`.
+  2. *Engine Tự Động Mô Phỏng & Cộng/Trừ (`functions/services/giveaway_simulation_service.ts`)*:
+     - Trong `runGiveawaySimulation`: Mỗi lượt mô phỏng thành công, trừ `virtual_remaining_current` đi 1.
+     - Khi `virtual_remaining_current <= 0`: Tức thì hồi lại `virtual_remaining_addition` (vd: 20), số hiển thị nhảy lại `realStock + addition`.
+     - Cập nhật đồng thời D1 `giveaways` và `wcg_admin_giveaways_v4`.
+  3. *Quy tắc Thép Bảo Toàn Kho Mã Thật (`functions/api/giveaways/claim.ts`)*:
+     - Khi người thật giật mã: Kho thật giảm 1 (`remaining_codes - 1`), `virtual_remaining_current` giữ nguyên không đổi. Kết quả: số hiển thị tự động giảm 1, số cộng thêm không đổi.
+     - Khi kho thật về 0: Số hiển thị ép về 0, người thật nhận thông báo hết mã, bot mô phỏng từ chối chạy.
+  4. *Hàm Tính Toán Chuẩn Xác (`src/services/marketingService.ts` & `src/components/GiveawaysView.tsx`)*:
+     - Xây dựng `marketingService.getGiveawayDisplayRemaining(campaign)` là SSOT:
+       * Nếu `realStock <= 0` => return 0.
+       * Nếu `enable_auto_simulation === false` => return `realStock`.
+       * Nếu bật mô phỏng => return `realStock + virtual_remaining_current`.
+     - Đồng bộ cả thẻ Card danh sách sự kiện và Modal chi tiết Giveaway.
+  5. *Giao Diện Quản Trị Tách Bạch Minh Bạch (`src/admin/modules/PrivateCodesModule.tsx`)*:
+     - Form Thêm/Sửa: Bổ sung ô cấu hình `Số mã cộng thêm vào số hiển thị` (mặc định 20 mã).
+     - Bảng Quản trị (Col 2): Hiển thị tách bạch 3 thông số: `Thật: {remaining}/{total}` • `Cộng thêm: +{addition}` • `Hiển thị: Còn {displayRemaining} | Giật {claimed}`.
+     - Khi tắt mô phỏng: Hiển thị `Cộng thêm: +0 (Tắt)`, số hiển thị trở về đúng số thật trong kho.
+  6. *Kiểm Thử Toàn Diện & Quy Tắc 7*:
+     - Viết test suite `scripts/test_giveaway_display_stock_simulation.cjs` kiểm chứng 100% 7 tiêu chí: khởi tạo 50 -> bot trừ 49 -> trừ về 30 nhảy lên 50 -> người thật giật còn 49 (kho 29) -> kho về 0 hiển thị 0 -> tắt mô phỏng về số thật -> dọn dẹp sạch sẽ 100%.
+- **Giải pháp thất bại đã thử (Failed Attempts - KHÔNG ĐƯỢC LẶP LẠI)**:
+  - *Thất bại tiềm ẩn*: Thay đổi số lượng `remaining_codes` trong D1 bằng cách cộng thêm 20 mã ảo vào kho $\rightarrow$ *TUYỆT ĐỐI KHÔNG LÀM*: Dẫn tới sai lệch kiểm toán kho hàng, người dùng nhận nhầm mã ảo hoặc mã hết hạn. Bắt buộc giữ nguyên `remaining_codes` và `codes_pool` thật 100%, chỉ tính toán ở lớp hiển thị `virtual_remaining_current`.
 
 ---
 

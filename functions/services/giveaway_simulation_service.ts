@@ -43,6 +43,12 @@ export interface SimulationResultItem {
   thresholdMinutes: number;
   virtualOffsetBefore: number;
   virtualOffsetAfter: number;
+  realStock: number;
+  virtualAdditionConfig: number;
+  virtualCurrentBefore: number;
+  virtualCurrentAfter: number;
+  displayRemainingBefore: number;
+  displayRemainingAfter: number;
 }
 
 export interface SimulationRunReport {
@@ -199,15 +205,39 @@ export async function runGiveawaySimulation(
       const offsetBefore = Number(gw.virtual_claimed_offset) || 0;
       const offsetAfter = offsetBefore + 1;
 
-      // 6.2 Cập nhật trạng thái sự kiện
+      // 6.2 Tính toán số cộng thêm vào số hiển thị (FOMO Stock Addition)
+      // Cấu hình số cộng thêm (mặc định 20)
+      const additionConfig = gw.virtual_remaining_addition !== undefined && gw.virtual_remaining_addition !== null
+        ? Math.max(0, Number(gw.virtual_remaining_addition))
+        : 20;
+
+      let currentAdditionBefore = gw.virtual_remaining_current !== undefined && gw.virtual_remaining_current !== null
+        ? Number(gw.virtual_remaining_current)
+        : additionConfig;
+
+      // Mỗi lượt mô phỏng: trừ số hiển thị đi 1 (tức là trừ phần cộng thêm đi 1)
+      let currentAdditionAfter = currentAdditionBefore - 1;
+
+      // Mỗi khi số hiển thị chạm đúng số mã thật còn lại trong kho (tức phần cộng thêm đã bị trừ hết <= 0)
+      // thì hệ thống ngay lập tức cộng lại đúng số đã cài (additionConfig)
+      if (currentAdditionAfter <= 0) {
+        currentAdditionAfter = additionConfig;
+      }
+
+      const displayRemainingBefore = realStock + currentAdditionBefore;
+      const displayRemainingAfter = realStock + currentAdditionAfter;
+
+      // 6.3 Cập nhật trạng thái sự kiện
       gw.last_claimer_name = simulatedName;
       gw.last_global_claim_at = nowIso;
       gw.last_simulated_claim_at = nowIso;
       gw.is_last_claim_simulated = true;
       gw.virtual_claimed_offset = offsetAfter;
+      gw.virtual_remaining_addition = additionConfig;
+      gw.virtual_remaining_current = currentAdditionAfter;
       gw.updated_at = nowIso;
 
-      // 6.3 Ghi 1 bản ghi vào claim_history mang cờ is_simulated: true
+      // 6.4 Ghi 1 bản ghi vào claim_history mang cờ is_simulated: true
       const simClaimRecord = {
         id: `sim_cl_${gw.id}_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
         user: simulatedName,
@@ -220,17 +250,19 @@ export async function runGiveawaySimulation(
       const existingHistory = Array.isArray(gw.claim_history) ? gw.claim_history : [];
       gw.claim_history = [simClaimRecord, ...existingHistory].slice(0, 100);
 
-      // 6.4 Đồng bộ trực tiếp vào bảng D1 giveaways
+      // 6.5 Đồng bộ trực tiếp vào bảng D1 giveaways
       await db.prepare(`
         UPDATE giveaways
         SET last_global_claim_at = ?,
             last_claimer_name = ?,
             virtual_claimed_offset = virtual_claimed_offset + 1,
+            virtual_remaining_addition = ?,
+            virtual_remaining_current = ?,
             last_simulated_claim_at = ?,
             is_last_claim_simulated = 1,
             updated_at = ?
         WHERE id = ?
-      `).bind(nowIso, simulatedName, nowIso, nowIso, gw.id).run().catch((e) => {
+      `).bind(nowIso, simulatedName, additionConfig, currentAdditionAfter, nowIso, nowIso, gw.id).run().catch((e) => {
         console.warn(`[Simulation D1 Update Error: ${gw.id}]`, e?.message);
       });
 
@@ -274,6 +306,12 @@ export async function runGiveawaySimulation(
         thresholdMinutes,
         virtualOffsetBefore: offsetBefore,
         virtualOffsetAfter: offsetAfter,
+        realStock,
+        virtualAdditionConfig: additionConfig,
+        virtualCurrentBefore: currentAdditionBefore,
+        virtualCurrentAfter: currentAdditionAfter,
+        displayRemainingBefore,
+        displayRemainingAfter,
       });
 
       updatedAny = true;

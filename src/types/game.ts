@@ -120,6 +120,8 @@ export interface GiveawayCampaign {
   is_custom_description?: boolean;
   enable_auto_simulation?: boolean;
   simulation_idle_threshold_minutes?: number;
+  virtual_remaining_addition?: number;
+  virtual_remaining_current?: number;
   last_real_claim_at?: string;
   last_simulated_claim_at?: string;
   is_last_claim_simulated?: boolean;

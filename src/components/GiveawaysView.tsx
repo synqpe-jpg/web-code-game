@@ -198,7 +198,11 @@ const GiveawayDetailModal: React.FC<GiveawayDetailModalProps> = ({
     : (typeof activePackage?.remaining_codes === 'number' && activePackage.remaining_codes > 0
         ? activePackage.remaining_codes
         : (typeof campaign.remaining_codes === 'number' ? Math.max(0, campaign.remaining_codes) : 0));
-  const displayRemaining = marketingService.getDisplayStock(campaign.id, poolCount);
+  const displayRemaining = marketingService.getGiveawayDisplayRemaining({
+    ...campaign,
+    codes_pool: effectivePool,
+    remaining_codes: poolCount,
+  });
   const displayClaimed =
     campaign.show_claimed_count !== false
       ? marketingService.getClaimedDisplay(campaign)
@@ -1605,7 +1609,7 @@ export const GiveawaysView: React.FC<GiveawaysViewProps> = ({
               {activeGiveaways.map((campaign) => {
                 const poolCount = Array.isArray(campaign.codes_pool) && campaign.codes_pool.length > 0 ? campaign.codes_pool.length : (typeof campaign.remaining_codes === 'number' ? Math.max(0, campaign.remaining_codes) : 0);
 
-                const displayRemaining = marketingService.getDisplayStock(campaign.id, poolCount);
+                const displayRemaining = marketingService.getGiveawayDisplayRemaining(campaign);
                 const displayClaimed =
                   campaign.show_claimed_count !== false
                     ? marketingService.getClaimedDisplay(campaign)

@@ -10,6 +10,27 @@
 
 ## 1. DANH MỤC LỖI & CÁC BẪY ĐÃ THẤT BẠI (DO NOT REPEAT)
 
+### ISSUE-161: Bẫy Số Mã Hiển Thị Chuyển Động Cho Giveaway (Virtual Stock Drift, Zero Real Stock Impact & Cycle Bounce)
+- **Triệu chứng**:
+  - Event mô phỏng lượt giật nhưng con số mã còn lại hiển thị trên thẻ event đứng im không chuyển động, làm giảm tính chân thực của chiến dịch.
+  - Nguy cơ nếu thiết kế sai: chèn mã ảo vào kho thật, làm sai lệch số lượng mã trong bảng D1 `giveaway_codes` hoặc `codes_pool`, hoặc khi kho thật về 0 mà số hiển thị vẫn cộng thêm gây ra tình trạng người thật bấm giật bị lỗi không có mã.
+- **Nguyên nhân gốc rễ & Các bẫy cần tránh**:
+  1. *Bẫy can thiệp trực tiếp vào kho mã thật*: Tuyệt đối không được thay đổi `remaining_codes` hay `codes_pool` khi bot mô phỏng giật. Số thật chỉ giảm khi người thật giật thành công.
+  2. *Bẫy không hồi số cộng thêm khi chạm số thật*: Khi các lượt giật trừ số hiển thị về đúng số thật trong kho (phần cộng thêm về 0), nếu không hồi lại `virtual_remaining_addition` thì số hiển thị sẽ kẹt ở số thật và mất đi hiệu ứng FOMO. Bắt buộc: khi `currentAddition <= 0`, ngay lập tức hồi lại `additionConfig` (ví dụ 20).
+  3. *Bẫy cộng ảo khi kho thật đã hết*: Khi kho thật về 0 (`realStock <= 0`), số hiển thị BẮT BUỘC phải về 0, engine mô phỏng dừng hẳn, không được cộng thêm bất kỳ con số nào.
+  4. *Bẫy nhầm lẫn trong trang quản trị*: Bảng quản trị phải hiển thị tách bạch rõ ràng 3 giá trị: Thật còn lại / Số cộng thêm / Số hiển thị, không gộp chung gây hiểu lầm cho admin.
+- **Giải pháp chuẩn đã kiểm chứng**:
+  1. Cấu hình `virtual_remaining_addition` (mặc định 20) và `virtual_remaining_current` trong D1 `giveaways` và TypeScript types.
+  2. Engine mô phỏng trừ `virtual_remaining_current` đi 1 mỗi lượt; khi chạm 0 lập tức hồi lại `additionConfig`.
+  3. Khi người thật giật mã: kho thật giảm 1, `virtual_remaining_current` giữ nguyên $\to$ số hiển thị tự động giảm 1.
+  4. Hàm `getGiveawayDisplayRemaining(campaign)` đảm bảo: `realStock <= 0` $\to$ 0; `enable_auto_simulation === false` $\to$ `realStock`; bật mô phỏng $\to$ `realStock + currentAddition`.
+  5. Bảng admin hiển thị tách bạch 3 thông số kèm tooltip công thức toán học.
+- 🚫 **CÁCH SỬA ĐÃ THẤT BẠI - TUYỆT ĐỐI KHÔNG LẶP LẠI**:
+  - ❌ *Tuyệt đối KHÔNG cộng thêm mã vào `codes_pool` hay `giveaway_codes`*: Chỉ điều chỉnh con số hiển thị qua biến `virtual_remaining_current`.
+  - ❌ *Tuyệt đối KHÔNG hiển thị số cộng thêm khi event đã hết mã thật trong kho*: Kho thật = 0 thì Hiển thị = 0.
+
+---
+
 ### ISSUE-160: Bẫy Khối Thông Báo Cooldown Chiếm Dụng Modal & Ẩn Banner Link Zalo Do D1 DEFAULT 0
 - **Triệu chứng**:
   - Modal sự kiện Giveaway (`GiveawayDetailModal`) khi đang giãn cách toàn sàn hiển thị một khối card đỏ sẫm to tướng, số đếm ngược cỡ `3xl`, badge phòng chờ và mô tả nhiều dòng làm choán hết nửa modal.

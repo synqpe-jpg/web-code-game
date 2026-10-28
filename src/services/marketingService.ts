@@ -2285,6 +2285,55 @@ class MarketingService {
     return baseStock + (pw.priority !== 'off' && bonus > 0 ? bonus : 0);
   }
 
+  /**
+   * Tính toán số mã còn lại HIỂN THỊ cho đợt Giveaway:
+   * - Hết mã thật (realStock <= 0) => Hiển thị 0, dừng mô phỏng.
+   * - Tắt mô phỏng (enable_auto_simulation === false) => Hiển thị đúng số thật trong kho.
+   * - Bật mô phỏng: Hiển thị = realStock + virtual_remaining_current.
+   */
+  public getGiveawayDisplayRemaining(campaign: {
+    id?: string;
+    remaining_codes?: number;
+    codes_pool?: string[];
+    enable_auto_simulation?: boolean;
+    virtual_remaining_addition?: number;
+    virtual_remaining_current?: number;
+  } | null | undefined): number {
+    if (!campaign) return 0;
+
+    const realStock = Array.isArray(campaign.codes_pool) && campaign.codes_pool.length > 0
+      ? campaign.codes_pool.length
+      : Math.max(0, Number(campaign.remaining_codes || 0));
+
+    // 1. Hết hàng thật = Hết hàng hiển thị (0)
+    if (realStock <= 0) return 0;
+
+    // 2. Tắt mô phỏng => Trở về đúng số mã thật còn lại
+    if (campaign.enable_auto_simulation === false) {
+      return realStock;
+    }
+
+    // 3. Số cộng thêm cấu hình (mặc định 20)
+    const additionConfig = campaign.virtual_remaining_addition !== undefined && campaign.virtual_remaining_addition !== null
+      ? Math.max(0, Number(campaign.virtual_remaining_addition))
+      : 20;
+
+    if (additionConfig <= 0) {
+      return realStock;
+    }
+
+    // 4. Số cộng thêm hiện tại đang áp dụng (1 .. additionConfig)
+    let currentAddition = campaign.virtual_remaining_current !== undefined && campaign.virtual_remaining_current !== null
+      ? Number(campaign.virtual_remaining_current)
+      : additionConfig;
+
+    if (currentAddition <= 0 || currentAddition > additionConfig) {
+      currentAddition = additionConfig;
+    }
+
+    return realStock + currentAddition;
+  }
+
   public getHourlyGrowth(id: string, createdAt?: string, priority?: string, anchorTime?: string): number {
     return 0; // Pure server calculation in Two-Layer model (Zero client-side artificial drift)
   }
