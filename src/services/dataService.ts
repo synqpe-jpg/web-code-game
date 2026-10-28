@@ -2119,6 +2119,7 @@ public async syncWithCloudflareKV(forceFresh: boolean = false): Promise<void> {
         max_per_user: Number(gw.max_per_user ?? (gw as any).maxPerUser ?? 1),
         max_per_ip: Number(gw.max_per_ip ?? (gw as any).maxPerIp ?? 1),
         cooldown_hours: Number(gw.cooldown_hours ?? (gw as any).cooldownHours ?? 0),
+        cooldown_minutes: Number(gw.cooldown_minutes ?? (gw.cooldown_hours ? gw.cooldown_hours * 60 : ((gw as any).cooldownHours ? (gw as any).cooldownHours * 60 : 0))),
         global_cooldown_seconds: Number(gw.global_cooldown_seconds ?? (gw as any).globalCooldownSeconds ?? 0),
         total_codes: accurateTotal,
         remaining_codes: poolCount,
@@ -2232,21 +2233,28 @@ public async syncWithCloudflareKV(forceFresh: boolean = false): Promise<void> {
       };
     }
 
-    // 4. Pre-check Cooldown Hours (bypassed for Admin)
-    const cooldownHours = isAdmin ? 0 : (Number(campaign.cooldown_hours) || 0);
-    if (!isAdmin && cooldownHours > 0 && myClaims.length > 0) {
+    // 4. Pre-check Cooldown Minutes (bypassed for Admin)
+    const cooldownMinutes = isAdmin ? 0 : (
+      campaign.cooldown_minutes !== undefined && campaign.cooldown_minutes !== null
+        ? Number(campaign.cooldown_minutes)
+        : (Number(campaign.cooldown_hours) || 0) * 60
+    );
+    if (!isAdmin && cooldownMinutes > 0 && myClaims.length > 0) {
       const latestClaim = myClaims[0];
       if (latestClaim && latestClaim.claimed_at) {
         const lastClaimMs = new Date(latestClaim.claimed_at).getTime();
-        const cooldownMs = cooldownHours * 60 * 60 * 1000;
+        const cooldownMs = cooldownMinutes * 60 * 1000;
         const remainingCooldownMs = (lastClaimMs + cooldownMs) - nowMs;
         if (remainingCooldownMs > 0) {
           const remHours = Math.floor(remainingCooldownMs / (1000 * 60 * 60));
           const remMins = Math.ceil((remainingCooldownMs % (1000 * 60 * 60)) / (1000 * 60));
           const waitStr = remHours > 0 ? `${remHours} giờ ${remMins} phút` : `${remMins} phút`;
+          const cdDisplayStr = cooldownMinutes >= 60 && cooldownMinutes % 60 === 0
+            ? `${cooldownMinutes / 60}h`
+            : `${cooldownMinutes} phút`;
           return {
             success: false,
-            message: `Bạn đang trong thời gian hồi chiêu (${cooldownHours}h). Vui lòng quay lại sau ${waitStr} để giật mã tiếp theo.`,
+            message: `Bạn đang trong thời gian hồi chiêu (${cdDisplayStr}). Vui lòng quay lại sau ${waitStr} để giật mã tiếp theo.`,
           };
         }
       }

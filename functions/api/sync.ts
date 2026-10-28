@@ -658,6 +658,13 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
             max_per_user: meta.max_per_user !== undefined ? Number(meta.max_per_user) : (g.max_per_user !== undefined ? Number(g.max_per_user) : 1),
             max_per_ip: meta.max_per_ip !== undefined ? Number(meta.max_per_ip) : (g.max_per_ip !== undefined ? Number(g.max_per_ip) : 1),
             cooldown_hours: meta.cooldown_hours !== undefined ? Number(meta.cooldown_hours) : (g.cooldown_hours !== undefined ? Number(g.cooldown_hours) : 0),
+            cooldown_minutes: meta.cooldown_minutes !== undefined
+              ? Number(meta.cooldown_minutes)
+              : (g.cooldown_minutes !== undefined
+                  ? Number(g.cooldown_minutes)
+                  : (meta.cooldown_hours !== undefined
+                      ? Number(meta.cooldown_hours) * 60
+                      : (g.cooldown_hours !== undefined ? Number(g.cooldown_hours) * 60 : 0))),
             global_cooldown_seconds: meta.global_cooldown_seconds !== undefined ? Number(meta.global_cooldown_seconds) : (g.global_cooldown_seconds !== undefined ? Number(g.global_cooldown_seconds) : 0),
             enable_waiting_room: g.enable_waiting_room !== undefined ? Boolean(g.enable_waiting_room) : (meta.enable_waiting_room !== false),
             waiting_users_min: g.waiting_users_min !== undefined ? Number(g.waiting_users_min) : Number(meta.waiting_users_min || 0),
@@ -672,8 +679,8 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
             show_remaining_count: meta.show_remaining_count !== undefined ? Boolean(meta.show_remaining_count) : ((g as any).show_remaining_count !== undefined ? Boolean((g as any).show_remaining_count) : (fallback.show_remaining_count !== false)),
             fomo_anchor_time: meta.fomo_anchor_time || (g as any).fomo_anchor_time || fallback.fomo_anchor_time || null,
             virtual_claimed_updated_at: meta.virtual_claimed_updated_at || (g as any).virtual_claimed_updated_at || fallback.virtual_claimed_updated_at || null,
-            start_time: g.start_time || meta.start_time || fallback.start_time || null,
-            end_time: g.end_time || meta.end_time || fallback.end_time || null,
+            start_time: meta.start_time !== undefined ? meta.start_time : (g.start_time || fallback.start_time || null),
+            end_time: meta.end_time !== undefined ? meta.end_time : (g.end_time || fallback.end_time || null),
             cover_image_url: g.cover_image_url || meta.cover_image_url || fallback.cover_image_url || `/game_icons/${g.game_slug || meta.game_slug || fallback.game_slug}.webp`,
             game_icon_url: g.game_icon_url || meta.game_icon_url || fallback.game_icon_url || `/game_icons/${g.game_slug || meta.game_slug || fallback.game_slug}.webp`,
             is_active: meta.is_active !== undefined ? Boolean(meta.is_active) : (g.is_active !== undefined ? Boolean(g.is_active) : true),
@@ -769,6 +776,7 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
         max_per_user: Number(gw.max_per_user ?? gw.maxPerUser ?? 1),
         max_per_ip: Number(gw.max_per_ip ?? gw.maxPerIp ?? 1),
         cooldown_hours: Number(gw.cooldown_hours ?? gw.cooldownHours ?? 0),
+        cooldown_minutes: Number(gw.cooldown_minutes ?? (gw.cooldown_hours ? gw.cooldown_hours * 60 : (gw.cooldownHours ? gw.cooldownHours * 60 : 0))),
         global_cooldown_seconds: Number(gw.global_cooldown_seconds ?? gw.globalCooldownSeconds ?? 0),
         custom_banner_enabled: Boolean(gw.custom_banner_enabled || (gw.custom_banner_link && String(gw.custom_banner_link).trim() !== '')),
         custom_banner_text: gw.custom_banner_text || 'Tham gia nhóm zalo của web tại đây',

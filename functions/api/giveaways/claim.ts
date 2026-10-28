@@ -241,7 +241,11 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
     const isUnlimitedIp = rawMaxPerIp === 0 || rawMaxPerIp >= 999999 || isAdmin;
     const effectiveMaxPerIp = isUnlimitedIp ? 999999 : (rawMaxPerIp > 0 ? rawMaxPerIp : 1);
 
-    const cooldownHours = isAdmin ? 0 : (Number(campaign.cooldown_hours) || 0);
+    const cooldownMinutes = isAdmin ? 0 : (
+      campaign.cooldown_minutes !== undefined && campaign.cooldown_minutes !== null
+        ? Number(campaign.cooldown_minutes)
+        : (Number(campaign.cooldown_hours) || 0) * 60
+    );
 
     // 3. Run all pre-check queries IN PARALLEL (1 round trip instead of 4)
     const [userClaimsCountRow, ipClaimsCountRow, availCountRow0, lastClaimRow] = await Promise.all([
@@ -254,7 +258,7 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
       env.DB.prepare(
         "SELECT COUNT(*) as cnt FROM giveaway_codes WHERE giveaway_id = ? AND status = 'AVAILABLE'"
       ).bind(campaign.id).first<any>(),
-      cooldownHours > 0
+      cooldownMinutes > 0
         ? env.DB.prepare(`
             SELECT claimed_at FROM giveaway_claims
             WHERE giveaway_id = ? AND member_id = ?
@@ -303,20 +307,23 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
     }
 
     // 3.1 Pre-check Cooldown between claims (bypassed for Admin)
-    if (!isAdmin && cooldownHours > 0 && userClaimsCount > 0) {
+    if (!isAdmin && cooldownMinutes > 0 && userClaimsCount > 0) {
       if (lastClaimRow && lastClaimRow.claimed_at) {
         const lastClaimMs = new Date(lastClaimRow.claimed_at).getTime();
-        const cooldownMs = cooldownHours * 60 * 60 * 1000;
+        const cooldownMs = cooldownMinutes * 60 * 1000;
         const remainingCooldownMs = (lastClaimMs + cooldownMs) - nowMs;
         if (remainingCooldownMs > 0) {
           const remHours = Math.floor(remainingCooldownMs / (1000 * 60 * 60));
           const remMins = Math.ceil((remainingCooldownMs % (1000 * 60 * 60)) / (1000 * 60));
           const waitStr = remHours > 0 ? `${remHours} giờ ${remMins} phút` : `${remMins} phút`;
+          const cdDisplayStr = cooldownMinutes >= 60 && cooldownMinutes % 60 === 0
+            ? `${cooldownMinutes / 60}h`
+            : `${cooldownMinutes} phút`;
           return new Response(
             JSON.stringify({
               success: false,
               errorCode: 'COOLDOWN_ACTIVE',
-              message: `Bạn đang trong thời gian hồi chiêu (${cooldownHours}h). Vui lòng quay lại sau ${waitStr} để giật mã tiếp theo.`,
+              message: `Bạn đang trong thời gian hồi chiêu (${cdDisplayStr}). Vui lòng quay lại sau ${waitStr} để giật mã tiếp theo.`,
             }),
             { status: 400, headers: CORS_HEADERS }
           );

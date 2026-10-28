@@ -378,12 +378,28 @@ export const UniversalTemplateModal: React.FC<UniversalTemplateModalProps> = ({
                       />
                     </div>
                     <div>
-                      <span className="text-slate-500 text-[11px] block">Hồi chiêu Cooldown (giờ):</span>
+                      <div className="flex items-center justify-between">
+                        <span className="text-slate-500 text-[11px] block">Hồi chiêu CD (phút):</span>
+                        <span className="text-[10px] text-purple-600 dark:text-purple-400 font-mono">
+                          {(() => {
+                            const mins = templates.giveaway.cooldown_minutes !== undefined
+                              ? templates.giveaway.cooldown_minutes
+                              : (templates.giveaway.cooldown_hours || 0) * 60;
+                            return mins === 0 ? '0p' : (mins >= 60 && mins % 60 === 0 ? `${mins / 60}h` : `${mins}p`);
+                          })()}
+                        </span>
+                      </div>
                       <input
                         type="number"
                         min={0}
-                        value={templates.giveaway.cooldown_hours}
-                        onChange={(e) => updateGiveaway({ cooldown_hours: Math.max(0, parseInt(e.target.value, 10) || 0) })}
+                        value={templates.giveaway.cooldown_minutes !== undefined ? templates.giveaway.cooldown_minutes : (templates.giveaway.cooldown_hours || 0) * 60}
+                        onChange={(e) => {
+                          const mins = Math.max(0, parseInt(e.target.value, 10) || 0);
+                          updateGiveaway({
+                            cooldown_minutes: mins,
+                            cooldown_hours: Math.round(mins / 60) || (mins > 0 ? 1 : 0),
+                          });
+                        }}
                         className="mt-1 w-full font-mono rounded-xl border border-slate-200 bg-white p-2 text-slate-900 focus:border-purple-500 focus:outline-none dark:border-slate-700 dark:bg-slate-800 dark:text-white"
                       />
                     </div>

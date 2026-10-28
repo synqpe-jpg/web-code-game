@@ -7,6 +7,34 @@ Mỗi mục sửa lỗi đều ghi nhận **Nguyên nhân gốc rễ (Root Cause
 
 ## [2026-10-28]
 
+### 254. Điều Chỉnh Hồi Chiêu (CD) Giveaway Theo Số Phút & Thêm Cấu Hình Hạn Phát Mã Sự Kiện
+- **Bối cảnh & Yêu cầu từ Người dùng**:
+  - Trong mục Giveaway (Phát code riêng), người dùng yêu cầu:
+    1. Có thể điều chỉnh hồi chiêu (CD) thành số phút thay vì chỉ tính bằng giờ nguyên như trước.
+    2. Thêm trường thời gian hạn phát đến ngày bao nhiêu đó cho sự kiện giveaway.
+- **Nguyên nhân gốc rễ & Hiện trạng trước khi sửa**:
+  1. *Giới hạn đơn vị hồi chiêu chỉ theo giờ (`cooldown_hours`)*: Trước đây toàn bộ hệ thống từ bảng quản trị `PrivateCodesModule.tsx`, `UniversalTemplateModal.tsx`, các bảng D1 và API `functions/api/giveaways/claim.ts` chỉ có trường `cooldown_hours` (số nguyên giờ). Admin không thể cấu hình các khoảng hồi chiêu ngắn và linh hoạt hơn như 15 phút, 30 phút hay 45 phút.
+  2. *Thiếu ô nhập thời hạn kết thúc trong panel Admin*: Bảng D1 `giveaways` và API `claim.ts` đã có sẵn cột `end_time` và logic chặn khi quá hạn, tuy nhiên trong form tạo/sửa đợt phát code (`PrivateCodesModule.tsx`), giá trị `end_time` bị hardcode mặc định là `'2026-12-31'` và hoàn toàn không có trường input nào trên giao diện cho phép Admin xem, đặt ngày giờ hết hạn hoặc xóa hạn phát.
+- **Giải pháp Thành công (Solution Applied)**:
+  1. *Hỗ trợ Hồi chiêu theo Phút (`cooldown_minutes`) & Bảo toàn Tương thích Ngược*:
+     - Bổ sung `cooldown_minutes?: number` vào `GiveawayCampaign` (`src/types/game.ts`) và `GiveawayTemplateConfig` (`src/types/template.ts`).
+     - Tự động bổ sung cột `cooldown_minutes` vào bảng D1 `giveaways` trong `d1_service.ts`.
+     - Phía máy chủ (`claim.ts`), client (`GiveawaysView.tsx`), và dịch vụ dữ liệu (`dataService.ts`, `d1_service.ts`, `sync.ts`): Ưu tiên `cooldown_minutes` nếu có; nếu là bản ghi cũ chỉ có `cooldown_hours`, tự động suy luận `cooldown_minutes = cooldown_hours * 60`. Ngược lại khi lưu, tự động cập nhật cả `cooldown_hours = Number((mins / 60).toFixed(2))` để tương thích 100% với các truy vấn legacy.
+     - Hiển thị badge hồi chiêu thông minh: ví dụ `15p`, `30p`, `1h` (thay vì luôn ép `h`).
+  2. *Bổ sung Khối Cấu Hình "Thời Gian & Hạn Phát Mã Sự Kiện" Trong Quản Trị*:
+     - Trong modal "Chỉnh Sửa Đợt Phát Code Riêng" (`PrivateCodesModule.tsx`), tích hợp khối giao diện riêng:
+       - Trường "Giờ bắt đầu mở sự kiện" (`start_time`) với kiểu `datetime-local`.
+       - Trường "Thời gian hạn phát (Ngày hết hạn)" (`end_time`) với kiểu `datetime-local`.
+       - Nút xóa hạn phát nhanh "Xóa hạn (Vô hạn / Đến khi hết mã)".
+       - Bộ nút chọn nhanh tiện lợi: `Đến khi hết mã`, `+7 ngày`, `+30 ngày`, `Hết tháng này`.
+  3. *Hiển Thị Trực Quan Trong Danh Sách Quản Trị & Web Khách*:
+     - Cột điều kiện trong bảng danh sách giveaway của Quản trị viên hiển thị CD theo định dạng linh hoạt (`CD: 30p` hoặc `CD: 1h`) và hiển thị trực tiếp hạn phát: `Hạn: 15/11/2026` hoặc `Hạn: Đến khi hết mã`.
+     - Web khách hàng (`GiveawaysView.tsx`): Sử dụng hàm phân tích ngày an toàn `parseTimeMs` hỗ trợ cả định dạng `YYYY-MM-DD` (tính đến 23:59:59 VN) và ISO timestamp, tự động chuyển trạng thái nút sang "Sự Kiện Đã Kết Thúc" khi quá hạn.
+- **Kiểm Thử & Xác Minh (Verification)**:
+  - Bộ kiểm thử tự động `scripts/test_giveaway_cooldown_and_expiry.cjs`: Vượt qua 100% 6 bài kiểm thử toàn diện.
+  - Audit Zero Test Artifacts (`scripts/audit_zero_test_artifacts.cjs`): 100% SẠCH.
+  - Build hệ thống frontend & Cloudflare Edge Worker: Thành công không lỗi.
+
 ### 253. Tích Hợp Kho Mã Thưởng Nhiệm Vụ Vào "Kho Mã Của Tôi" & Liên Kết "Thông Tin Nhân Vật"
 - **Bối cảnh & Yêu cầu từ Người dùng**:
   - Trong mục nhân vật và kho mã của tôi trên trang khách, người dùng yêu cầu thêm 1 mục nhiệm vụ, khi hoàn thành nhiệm vụ mã quà tặng sẽ tự động được gửi và lưu trữ trong mục này.

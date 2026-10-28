@@ -30,6 +30,7 @@ import {
   RefreshCw,
   Bot,
   User,
+  Calendar,
 } from 'lucide-react';
 import { LuckyWheelAdminManager } from '../components/LuckyWheelAdminManager';
 import { FormModal } from '../components/ui/FormModal';
@@ -94,6 +95,7 @@ export const PrivateCodesModule: React.FC<PrivateCodesModuleProps> = ({ onShowTo
     min_account_age_days: 0,
     max_per_user: 1,
     max_per_ip: 1,
+    cooldown_minutes: 60,
     cooldown_hours: 1,
     global_cooldown_seconds: 0,
     last_global_claim_at: '',
@@ -112,8 +114,8 @@ export const PrivateCodesModule: React.FC<PrivateCodesModuleProps> = ({ onShowTo
     custom_banner_link: 'https://zalo.me/g/qdtlmj2tebfa0baraedg',
     show_claimed_count: true,
     virtual_claimed_offset: 0,
-    start_time: '2026-09-01',
-    end_time: '2026-12-31',
+    start_time: '',
+    end_time: '',
     is_active: true,
     cover_image_url: '/game_icons/genshin-impact.webp',
     packages: [] as any[],
@@ -198,6 +200,7 @@ export const PrivateCodesModule: React.FC<PrivateCodesModuleProps> = ({ onShowTo
       min_account_age_days: 0,
       max_per_user: 1,
       max_per_ip: 1,
+      cooldown_minutes: 60,
       cooldown_hours: 1,
       global_cooldown_seconds: 0,
       last_global_claim_at: '',
@@ -217,7 +220,7 @@ export const PrivateCodesModule: React.FC<PrivateCodesModuleProps> = ({ onShowTo
       show_claimed_count: true,
       virtual_claimed_offset: 0,
       start_time: new Date().toISOString().split('T')[0],
-      end_time: '2026-12-31',
+      end_time: '',
       is_active: true,
       cover_image_url: defaultGame?.icon_url || '/game_icons/genshin-impact.webp',
       packages: [],
@@ -241,7 +244,12 @@ export const PrivateCodesModule: React.FC<PrivateCodesModuleProps> = ({ onShowTo
       min_account_age_days: gw.min_account_age_days !== undefined ? Number(gw.min_account_age_days) : 0,
       max_per_user: gw.max_per_user !== undefined ? Number(gw.max_per_user) : 1,
       max_per_ip: gw.max_per_ip !== undefined ? Number(gw.max_per_ip) : 1,
-      cooldown_hours: gw.cooldown_hours !== undefined ? Number(gw.cooldown_hours) : 0,
+      cooldown_minutes: gw.cooldown_minutes !== undefined && gw.cooldown_minutes !== null
+        ? Number(gw.cooldown_minutes)
+        : (gw.cooldown_hours !== undefined ? Math.round(Number(gw.cooldown_hours) * 60) : 60),
+      cooldown_hours: gw.cooldown_hours !== undefined
+        ? Number(gw.cooldown_hours)
+        : (gw.cooldown_minutes !== undefined ? Number((Number(gw.cooldown_minutes) / 60).toFixed(2)) : 1),
       global_cooldown_seconds: Number(gw.global_cooldown_seconds || 0),
       last_global_claim_at: gw.last_global_claim_at || '',
       enable_auto_simulation: gw.enable_auto_simulation !== false,
@@ -259,8 +267,8 @@ export const PrivateCodesModule: React.FC<PrivateCodesModuleProps> = ({ onShowTo
       custom_banner_link: gw.custom_banner_link || 'https://zalo.me/g/qdtlmj2tebfa0baraedg',
       show_claimed_count: gw.show_claimed_count !== false,
       virtual_claimed_offset: gw.virtual_claimed_offset || 0,
-      start_time: gw.start_time ? gw.start_time.split('T')[0] : '2026-09-01',
-      end_time: gw.end_time ? gw.end_time.split('T')[0] : '2026-12-31',
+      start_time: gw.start_time ? (gw.start_time.includes('T') ? gw.start_time.substring(0, 16) : gw.start_time) : '',
+      end_time: gw.end_time ? (gw.end_time.includes('T') ? gw.end_time.substring(0, 16) : gw.end_time) : '',
       is_active: gw.is_active,
       cover_image_url: gw.cover_image_url || gw.game_icon_url || '',
       packages: gw.packages || [],
@@ -331,7 +339,8 @@ export const PrivateCodesModule: React.FC<PrivateCodesModuleProps> = ({ onShowTo
         min_account_age_days: Number(formData.min_account_age_days),
         max_per_user: Number(formData.max_per_user),
         max_per_ip: Number(formData.max_per_ip),
-        cooldown_hours: Number(formData.cooldown_hours),
+        cooldown_minutes: Number(formData.cooldown_minutes) || 0,
+        cooldown_hours: Number(formData.cooldown_hours) || Number(((Number(formData.cooldown_minutes) || 0) / 60).toFixed(2)),
         global_cooldown_seconds: Number(formData.global_cooldown_seconds) || 0,
         last_global_claim_at: formData.last_global_claim_at,
         last_claimer_name: editingItem?.last_claimer_name || '',
@@ -353,8 +362,8 @@ export const PrivateCodesModule: React.FC<PrivateCodesModuleProps> = ({ onShowTo
         custom_banner_link: formData.custom_banner_link ? formData.custom_banner_link.trim() : '',
         show_claimed_count: formData.show_claimed_count,
         virtual_claimed_offset: Number(formData.virtual_claimed_offset) || 0,
-        start_time: formData.start_time,
-        end_time: formData.end_time,
+        start_time: formData.start_time ? formData.start_time : null,
+        end_time: formData.end_time ? formData.end_time : null,
         created_at: editingItem?.created_at || (editingItem as any)?.createdAt || new Date().toISOString(),
         is_active: formData.is_active,
         packages: formData.packages || editingItem?.packages || [],
@@ -1045,7 +1054,20 @@ export const PrivateCodesModule: React.FC<PrivateCodesModuleProps> = ({ onShowTo
                         <div>
                           IP: <strong className="text-slate-800 dark:text-slate-200">{gw.max_per_ip || 1} mã</strong>
                           <span className="text-slate-300 dark:text-slate-600 mx-1">•</span>
-                          CD: <strong className="text-slate-800 dark:text-slate-200">{gw.cooldown_hours ? `${gw.cooldown_hours}h` : '0h'}</strong>
+                          CD: <strong className="text-slate-800 dark:text-slate-200">
+                            {(() => {
+                              const mins = gw.cooldown_minutes !== undefined && gw.cooldown_minutes !== null
+                                ? Number(gw.cooldown_minutes)
+                                : (Number(gw.cooldown_hours || 0) * 60);
+                              if (!mins || mins <= 0) return '0p';
+                              if (mins >= 60 && mins % 60 === 0) return `${mins / 60}h`;
+                              return `${mins}p`;
+                            })()}
+                          </strong>
+                        </div>
+                        <div className="flex items-center gap-1 text-[10px] text-slate-500 dark:text-slate-400 pt-0.5">
+                          <Calendar className="w-2.5 h-2.5 shrink-0 text-slate-400" />
+                          <span>Hạn: <strong className="text-slate-700 dark:text-slate-300">{gw.end_time ? (gw.end_time.includes('T') ? gw.end_time.substring(0, 10) : gw.end_time) : 'Đến khi hết mã'}</strong></span>
                         </div>
                         {Boolean(gw.global_cooldown_seconds && gw.global_cooldown_seconds > 0) && (
                           <div className="flex items-center gap-1 text-[10px] text-purple-600 dark:text-purple-400 font-semibold pt-0.5">
@@ -1426,16 +1448,161 @@ export const PrivateCodesModule: React.FC<PrivateCodesModuleProps> = ({ onShowTo
               </div>
 
               <div>
-                <label className="text-slate-600 dark:text-slate-400 block text-[11px] font-semibold">
-                  Cooldown (giờ):
-                </label>
+                <div className="flex items-center justify-between">
+                  <label className="text-slate-600 dark:text-slate-400 block text-[11px] font-semibold">
+                    Cooldown (phút):
+                  </label>
+                  <span className="text-[10px] text-amber-500 font-semibold font-mono">
+                    {formData.cooldown_minutes === 0 ? '0p' : (
+                      formData.cooldown_minutes >= 60 && formData.cooldown_minutes % 60 === 0
+                        ? `${formData.cooldown_minutes / 60}h`
+                        : `${formData.cooldown_minutes}p`
+                    )}
+                  </span>
+                </div>
                 <input
                   type="number"
                   min={0}
-                  value={formData.cooldown_hours}
-                  onChange={(e) => setFormData((p) => ({ ...p, cooldown_hours: Number(e.target.value) }))}
+                  value={formData.cooldown_minutes}
+                  onChange={(e) => {
+                    const mins = Math.max(0, parseInt(e.target.value, 10) || 0);
+                    setFormData((p) => ({
+                      ...p,
+                      cooldown_minutes: mins,
+                      cooldown_hours: Number((mins / 60).toFixed(2)),
+                    }));
+                  }}
+                  placeholder="0 = Không chờ"
                   className="mt-1 w-full font-mono rounded-xl border border-slate-200 bg-white p-2 text-slate-900 focus:border-indigo-500 focus:outline-none dark:border-slate-700 dark:bg-slate-800 dark:text-white"
                 />
+                <div className="flex items-center gap-1 mt-1">
+                  {[
+                    { label: '0p', val: 0 },
+                    { label: '15p', val: 15 },
+                    { label: '30p', val: 30 },
+                    { label: '1h', val: 60 },
+                  ].map((item) => (
+                    <button
+                      key={item.val}
+                      type="button"
+                      onClick={() => setFormData((p) => ({
+                        ...p,
+                        cooldown_minutes: item.val,
+                        cooldown_hours: Number((item.val / 60).toFixed(2)),
+                      }))}
+                      className={`px-1.5 py-0.5 rounded text-[10px] font-semibold cursor-pointer transition-colors ${
+                        formData.cooldown_minutes === item.val
+                          ? 'bg-amber-600 text-white'
+                          : 'bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-300'
+                      }`}
+                    >
+                      {item.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* THỜI GIAN & HẠN PHÁT MÃ (START & END TIME) */}
+          <div className="p-4 rounded-2xl bg-indigo-50/60 dark:bg-indigo-950/30 border border-indigo-100 dark:border-indigo-900/40 space-y-3">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-bold text-indigo-900 dark:text-indigo-300 flex items-center gap-1.5">
+                <Calendar className="w-4 h-4 text-indigo-600 dark:text-indigo-400" />
+                📅 Thời Gian & Hạn Phát Mã Sự Kiện:
+              </span>
+              <span className="text-[11px] font-semibold font-mono text-indigo-600 dark:text-indigo-400">
+                {formData.end_time ? `Hạn: ${formData.end_time.replace('T', ' ')}` : 'Vô hạn (Đến khi hết mã)'}
+              </span>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
+              <div>
+                <label className="text-slate-600 dark:text-slate-400 block text-[11px] font-semibold">
+                  Giờ bắt đầu mở sự kiện:
+                </label>
+                <input
+                  type="datetime-local"
+                  value={formData.start_time ? (formData.start_time.includes('T') ? formData.start_time.substring(0, 16) : `${formData.start_time}T00:00`) : ''}
+                  onChange={(e) => setFormData((p) => ({ ...p, start_time: e.target.value }))}
+                  className="mt-1 w-full font-mono rounded-xl border border-slate-200 bg-white p-2 text-slate-900 focus:border-indigo-500 focus:outline-none dark:border-slate-700 dark:bg-slate-800 dark:text-white text-xs"
+                />
+                <span className="text-[10px] text-slate-400 block pt-0.5">
+                  Để trống hoặc chọn ngày để mở ngay lập tức.
+                </span>
+              </div>
+
+              <div>
+                <div className="flex items-center justify-between">
+                  <label className="text-slate-600 dark:text-slate-400 block text-[11px] font-semibold">
+                    Thời gian hạn phát (Ngày hết hạn):
+                  </label>
+                  {formData.end_time && (
+                    <button
+                      type="button"
+                      onClick={() => setFormData((p) => ({ ...p, end_time: '' }))}
+                      className="text-[10px] text-rose-500 hover:underline cursor-pointer"
+                    >
+                      Xóa hạn (Vô hạn)
+                    </button>
+                  )}
+                </div>
+                <input
+                  type="datetime-local"
+                  value={formData.end_time ? (formData.end_time.includes('T') ? formData.end_time.substring(0, 16) : `${formData.end_time}T23:59`) : ''}
+                  onChange={(e) => setFormData((p) => ({ ...p, end_time: e.target.value }))}
+                  className="mt-1 w-full font-mono rounded-xl border border-slate-200 bg-white p-2 text-slate-900 focus:border-indigo-500 focus:outline-none dark:border-slate-700 dark:bg-slate-800 dark:text-white text-xs"
+                />
+                <div className="flex flex-wrap items-center gap-1.5 pt-1">
+                  <span className="text-[10px] text-slate-400 font-medium">Chọn nhanh:</span>
+                  {[
+                    {
+                      label: 'Đến khi hết mã',
+                      action: () => setFormData((p) => ({ ...p, end_time: '' })),
+                    },
+                    {
+                      label: '+7 ngày',
+                      action: () => {
+                        const d = new Date();
+                        d.setDate(d.getDate() + 7);
+                        d.setHours(23, 59, 0, 0);
+                        const localIso = new Date(d.getTime() - d.getTimezoneOffset() * 60000).toISOString().substring(0, 16);
+                        setFormData((p) => ({ ...p, end_time: localIso }));
+                      },
+                    },
+                    {
+                      label: '+30 ngày',
+                      action: () => {
+                        const d = new Date();
+                        d.setDate(d.getDate() + 30);
+                        d.setHours(23, 59, 0, 0);
+                        const localIso = new Date(d.getTime() - d.getTimezoneOffset() * 60000).toISOString().substring(0, 16);
+                        setFormData((p) => ({ ...p, end_time: localIso }));
+                      },
+                    },
+                    {
+                      label: 'Hết tháng này',
+                      action: () => {
+                        const d = new Date();
+                        const lastDay = new Date(d.getFullYear(), d.getMonth() + 1, 0, 23, 59, 0, 0);
+                        const localIso = new Date(lastDay.getTime() - lastDay.getTimezoneOffset() * 60000).toISOString().substring(0, 16);
+                        setFormData((p) => ({ ...p, end_time: localIso }));
+                      },
+                    },
+                  ].map((item, idx) => (
+                    <button
+                      key={idx}
+                      type="button"
+                      onClick={item.action}
+                      className="px-1.5 py-0.5 rounded text-[10px] font-semibold bg-indigo-100 hover:bg-indigo-200 dark:bg-indigo-900/50 dark:hover:bg-indigo-900 text-indigo-700 dark:text-indigo-300 cursor-pointer transition-colors"
+                    >
+                      {item.label}
+                    </button>
+                  ))}
+                </div>
+                <span className="text-[10px] text-slate-400 block pt-0.5">
+                  Quá thời điểm này, sự kiện tự động chuyển sang "Đã kết thúc".
+                </span>
               </div>
             </div>
           </div>

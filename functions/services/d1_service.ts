@@ -477,6 +477,9 @@ export async function ensureGiveawaySchema(db: D1Database): Promise<void> {
     if (!cols.has('global_cooldown_seconds')) {
       await db.prepare('ALTER TABLE giveaways ADD COLUMN global_cooldown_seconds INTEGER NOT NULL DEFAULT 0;').run().catch(() => {});
     }
+    if (!cols.has('cooldown_minutes')) {
+      await db.prepare('ALTER TABLE giveaways ADD COLUMN cooldown_minutes INTEGER DEFAULT NULL;').run().catch(() => {});
+    }
     if (!cols.has('use_template')) {
       await db.prepare('ALTER TABLE giveaways ADD COLUMN use_template INTEGER NOT NULL DEFAULT 1;').run().catch(() => {});
     }
@@ -2373,7 +2376,10 @@ export async function syncGiveawaysToD1(db: D1Database, giveaways: any[]): Promi
     const maxUser = (rawMaxUser === 0 || rawMaxUser >= 999999) ? 999999 : (rawMaxUser > 0 ? rawMaxUser : 1);
     const rawMaxIp = Number(gw.max_per_ip ?? gw.maxPerIp);
     const maxIp = (rawMaxIp === 0 || rawMaxIp >= 999999) ? 999999 : (rawMaxIp > 0 ? rawMaxIp : 1);
-    const cooldown = Math.max(0, Number(gw.cooldown_hours ?? gw.cooldownHours ?? 0));
+    const cooldownMinutes = gw.cooldown_minutes !== undefined && gw.cooldown_minutes !== null
+      ? Math.max(0, Number(gw.cooldown_minutes))
+      : Math.max(0, Number(gw.cooldown_hours ?? gw.cooldownHours ?? 0)) * 60;
+    const cooldown = Math.max(0, Number(gw.cooldown_hours ?? (cooldownMinutes / 60)));
     const globalCooldownSeconds = Math.max(0, Number(gw.global_cooldown_seconds ?? gw.globalCooldownSeconds ?? 0));
     const lastGlobalClaimAt = String(gw.last_global_claim_at ?? gw.lastGlobalClaimAt ?? '');
     const lastClaimerName = String(gw.last_claimer_name ?? gw.lastClaimerName ?? '');
@@ -3081,8 +3087,8 @@ export async function loadAllGiveawaysD1(db: D1Database, includeCodes: boolean =
       const iconUrl = meta.game_icon_url || gw.game_icon_url || fallback.game_icon_url || coverUrl;
       const desc = meta.description || gw.description || fallback.description || '';
       const rew = meta.rewards || gw.rewards || fallback.rewards || 'Code ngẫu nhiên';
-      const startTime = meta.start_time || gw.start_time || fallback.start_time || null;
-      const endTime = meta.end_time || gw.end_time || fallback.end_time || null;
+      const startTime = meta.start_time !== undefined ? meta.start_time : (gw.start_time || fallback.start_time || null);
+      const endTime = meta.end_time !== undefined ? meta.end_time : (gw.end_time || fallback.end_time || null);
 
       return {
         ...fallback,
@@ -3099,6 +3105,13 @@ export async function loadAllGiveawaysD1(db: D1Database, includeCodes: boolean =
         max_per_user: meta.max_per_user !== undefined ? Number(meta.max_per_user) : (gw.max_per_user !== undefined ? Number(gw.max_per_user) : 1),
         max_per_ip: meta.max_per_ip !== undefined ? Number(meta.max_per_ip) : (gw.max_per_ip !== undefined ? Number(gw.max_per_ip) : 1),
         cooldown_hours: meta.cooldown_hours !== undefined ? Number(meta.cooldown_hours) : (gw.cooldown_hours !== undefined ? Number(gw.cooldown_hours) : 0),
+        cooldown_minutes: meta.cooldown_minutes !== undefined
+          ? Number(meta.cooldown_minutes)
+          : (gw.cooldown_minutes !== undefined
+              ? Number(gw.cooldown_minutes)
+              : (meta.cooldown_hours !== undefined
+                  ? Number(meta.cooldown_hours) * 60
+                  : (gw.cooldown_hours !== undefined ? Number(gw.cooldown_hours) * 60 : 0))),
         global_cooldown_seconds: meta.global_cooldown_seconds !== undefined ? Number(meta.global_cooldown_seconds) : (gw.global_cooldown_seconds !== undefined ? Number(gw.global_cooldown_seconds) : 0),
         title: meta.title || gw.title || '',
         last_global_claim_at: meta.last_global_claim_at || gw.last_global_claim_at || '',

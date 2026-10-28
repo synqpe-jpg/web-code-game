@@ -10,6 +10,7 @@ export interface GiveawayTemplateConfig {
   max_per_user: number;               // Mặc định: 1
   max_per_ip: number;                 // Mặc định: 2
   cooldown_hours: number;             // Mặc định: 1
+  cooldown_minutes?: number;          // Hồi chiêu theo phút (mặc định: 60)
 
   custom_banner_enabled: boolean;     // Mặc định: true
   custom_banner_text: string;         // "Tham gia nhóm zalo của web tại đây"

@@ -23,6 +23,7 @@ export const DEFAULT_UNIVERSAL_TEMPLATES: UniversalTemplatesConfig = {
     max_per_user: 1,
     max_per_ip: 2,
     cooldown_hours: 1,
+    cooldown_minutes: 60,
 
     custom_banner_enabled: true,
     custom_banner_text: 'Tham gia nhóm zalo của web tại đây',
@@ -357,7 +358,10 @@ class TemplateService {
         : (tpl.max_per_ip !== undefined ? tpl.max_per_ip : 1),
       cooldown_hours: campaign.cooldown_hours !== undefined && campaign.cooldown_hours !== null
         ? Number(campaign.cooldown_hours)
-        : (tpl.cooldown_hours !== undefined ? tpl.cooldown_hours : 0),
+        : (campaign.cooldown_minutes !== undefined ? Number(campaign.cooldown_minutes) / 60 : (tpl.cooldown_hours !== undefined ? tpl.cooldown_hours : 0)),
+      cooldown_minutes: campaign.cooldown_minutes !== undefined && campaign.cooldown_minutes !== null
+        ? Number(campaign.cooldown_minutes)
+        : (campaign.cooldown_hours !== undefined ? Number(campaign.cooldown_hours) * 60 : (tpl.cooldown_minutes ?? (tpl.cooldown_hours || 0) * 60)),
       global_cooldown_seconds: campaign.global_cooldown_seconds !== undefined && campaign.global_cooldown_seconds !== null
         ? Number(campaign.global_cooldown_seconds)
         : (tpl.global_cooldown_seconds || 0),

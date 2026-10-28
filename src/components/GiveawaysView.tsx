@@ -227,12 +227,16 @@ const GiveawayDetailModal: React.FC<GiveawayDetailModalProps> = ({
 
   // Personal Cooldown calculation
   let cooldownRemainingMs = 0;
-  const cooldownHours = isAdmin ? 0 : (Number(campaign.cooldown_hours) || 0);
-  if (cooldownHours > 0 && userCampaignClaims.length > 0) {
+  const cooldownMinutes = isAdmin ? 0 : (
+    campaign.cooldown_minutes !== undefined && campaign.cooldown_minutes !== null
+      ? Number(campaign.cooldown_minutes)
+      : (Number(campaign.cooldown_hours) || 0) * 60
+  );
+  if (cooldownMinutes > 0 && userCampaignClaims.length > 0) {
     const latestClaim = userCampaignClaims[0];
     if (latestClaim && latestClaim.claimed_at) {
       const lastClaimTime = new Date(latestClaim.claimed_at).getTime();
-      const cooldownMs = cooldownHours * 3600 * 1000;
+      const cooldownMs = cooldownMinutes * 60 * 1000;
       cooldownRemainingMs = Math.max(0, lastClaimTime + cooldownMs - Date.now());
     }
   }
@@ -240,6 +244,9 @@ const GiveawayDetailModal: React.FC<GiveawayDetailModalProps> = ({
   const remH = Math.floor(cooldownRemainingMs / (1000 * 3600));
   const remM = Math.ceil((cooldownRemainingMs % (1000 * 3600)) / (1000 * 60));
   const cooldownWaitText = remH > 0 ? `${remH} giờ ${remM} phút` : `${remM} phút`;
+  const cdBadgeText = cooldownMinutes >= 60 && cooldownMinutes % 60 === 0
+    ? `${cooldownMinutes / 60}h`
+    : `${cooldownMinutes}p`;
 
   // Account age calculation
   const minAccountAgeDays = isAdmin ? 0 : (Number(campaign.min_account_age_days) || 0);
@@ -258,13 +265,17 @@ const GiveawayDetailModal: React.FC<GiveawayDetailModalProps> = ({
 
   // Time window calculation
   const nowMs = Date.now();
-  const isNotStarted = campaign.start_time
-    ? !isNaN(new Date(campaign.start_time).getTime()) && nowMs < new Date(campaign.start_time).getTime()
-    : false;
+  const parseTimeMs = (str?: string, isEnd = false) => {
+    if (!str) return NaN;
+    const s = String(str).trim();
+    if (s.length === 10) return new Date(`${s}T${isEnd ? '23:59:59' : '00:00:00'}+07:00`).getTime();
+    return new Date(s).getTime();
+  };
+  const startMs = parseTimeMs(campaign.start_time, false);
+  const endMs = parseTimeMs(campaign.end_time, true);
+  const isNotStarted = !isNaN(startMs) && nowMs < startMs;
   const isEnded =
-    (campaign.end_time
-      ? !isNaN(new Date(campaign.end_time).getTime()) && nowMs > new Date(campaign.end_time).getTime()
-      : false) ||
+    (!isNaN(endMs) && nowMs > endMs) ||
     campaign.status === 'ENDED' ||
     campaign.is_active === false;
 
@@ -569,7 +580,7 @@ const GiveawayDetailModal: React.FC<GiveawayDetailModalProps> = ({
               </div>
 
               {/* Rule 3: Cooldown */}
-              {Boolean(campaign.cooldown_hours && campaign.cooldown_hours > 0) && (
+              {Boolean(cooldownMinutes > 0) && (
                 <div
                   className={`p-2.5 rounded-xl border flex items-center justify-between gap-2 sm:col-span-2 ${
                     isCooldownActive
@@ -579,7 +590,7 @@ const GiveawayDetailModal: React.FC<GiveawayDetailModalProps> = ({
                 >
                   <div className="flex items-center gap-2 min-w-0">
                     <Clock className="w-3.5 h-3.5 text-amber-400 shrink-0" />
-                    <span className="truncate">Hồi chiêu: {campaign.cooldown_hours}h giữa 2 lần nhận</span>
+                    <span className="truncate">Hồi chiêu: {cdBadgeText} giữa 2 lần nhận</span>
                   </div>
                   <span className="text-[10px] font-bold shrink-0">
                     {isCooldownActive ? `Còn ${cooldownWaitText}` : 'Sẵn sàng'}
@@ -878,7 +889,7 @@ const GiveawayDetailModal: React.FC<GiveawayDetailModalProps> = ({
                 onClose();
                 handleOpenLimitNotice(
                   campaign,
-                  `Bạn đang trong thời gian hồi chiêu (${cooldownHours}h). Vui lòng quay lại sau ${cooldownWaitText} để giật mã tiếp theo.`
+                  `Bạn đang trong thời gian hồi chiêu (${cdBadgeText}). Vui lòng quay lại sau ${cooldownWaitText} để giật mã tiếp theo.`
                 );
               }}
               className="w-full py-3.5 rounded-2xl bg-amber-500/15 hover:bg-amber-500/25 text-amber-400 border border-amber-500/30 text-xs font-bold flex items-center justify-center gap-2 cursor-pointer transition-all"
@@ -1637,12 +1648,16 @@ export const GiveawaysView: React.FC<GiveawaysViewProps> = ({
 
                 // Cooldown calculation (bypassed for Admin)
                 let cooldownRemainingMs = 0;
-                const cooldownHours = isAdmin ? 0 : (Number(campaign.cooldown_hours) || 0);
-                if (cooldownHours > 0 && userCampaignClaims.length > 0) {
+                const cooldownMinutes = isAdmin ? 0 : (
+                  campaign.cooldown_minutes !== undefined && campaign.cooldown_minutes !== null
+                    ? Number(campaign.cooldown_minutes)
+                    : (Number(campaign.cooldown_hours) || 0) * 60
+                );
+                if (cooldownMinutes > 0 && userCampaignClaims.length > 0) {
                   const latestClaim = userCampaignClaims[0];
                   if (latestClaim && latestClaim.claimed_at) {
                     const lastClaimTime = new Date(latestClaim.claimed_at).getTime();
-                    const cooldownMs = cooldownHours * 3600 * 1000;
+                    const cooldownMs = cooldownMinutes * 60 * 1000;
                     cooldownRemainingMs = Math.max(0, lastClaimTime + cooldownMs - Date.now());
                   }
                 }
@@ -1650,6 +1665,9 @@ export const GiveawaysView: React.FC<GiveawaysViewProps> = ({
                 const remH = Math.floor(cooldownRemainingMs / (1000 * 3600));
                 const remM = Math.ceil((cooldownRemainingMs % (1000 * 3600)) / (1000 * 60));
                 const cooldownWaitText = remH > 0 ? `${remH}h ${remM}m` : `${remM} phút`;
+                const cdBadgeText = cooldownMinutes >= 60 && cooldownMinutes % 60 === 0
+                  ? `${cooldownMinutes / 60}h`
+                  : `${cooldownMinutes}p`;
 
                 // Account age calculation (bypassed for Admin)
                 const minAccountAgeDays = isAdmin ? 0 : (Number(campaign.min_account_age_days) || 0);
@@ -1668,13 +1686,11 @@ export const GiveawaysView: React.FC<GiveawaysViewProps> = ({
 
                 // Time window calculation
                 const nowMs = Date.now();
-                const isNotStarted = campaign.start_time
-                  ? !isNaN(new Date(campaign.start_time).getTime()) && nowMs < new Date(campaign.start_time).getTime()
-                  : false;
+                const cardStartMs = parseTimeMs(campaign.start_time, false);
+                const cardEndMs = parseTimeMs(campaign.end_time, true);
+                const isNotStarted = !isNaN(cardStartMs) && nowMs < cardStartMs;
                 const isEnded =
-                  (campaign.end_time
-                    ? !isNaN(new Date(campaign.end_time).getTime()) && nowMs > new Date(campaign.end_time).getTime()
-                    : false) ||
+                  (!isNaN(cardEndMs) && nowMs > cardEndMs) ||
                   campaign.status === 'ENDED' ||
                   campaign.is_active === false;
 
@@ -1819,7 +1835,7 @@ export const GiveawaysView: React.FC<GiveawaysViewProps> = ({
                             <Globe className="w-3 h-3" />
                             <span>Tối đa {campaign.max_per_ip || 1} lượt/IP</span>
                           </span>
-                          {Boolean(campaign.cooldown_hours && campaign.cooldown_hours > 0) && (
+                          {Boolean(cooldownMinutes > 0) && (
                             <span
                               className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-md border font-medium ${
                                 isCooldownActive
@@ -1829,7 +1845,7 @@ export const GiveawaysView: React.FC<GiveawaysViewProps> = ({
                             >
                               <Clock className="w-3 h-3" />
                               <span>
-                                Hồi chiêu {campaign.cooldown_hours}h{' '}
+                                Hồi chiêu {cdBadgeText}{' '}
                                 {isCooldownActive ? `(còn ${cooldownWaitText})` : ''}
                               </span>
                             </span>
@@ -1974,7 +1990,7 @@ export const GiveawaysView: React.FC<GiveawaysViewProps> = ({
                                 e.stopPropagation();
                                 handleOpenLimitNotice(
                                   campaign,
-                                  `Bạn đang trong thời gian hồi chiêu (${cooldownHours}h). Vui lòng quay lại sau ${remH > 0 ? `${remH} giờ ${remM} phút` : `${remM} phút`} để giật mã tiếp theo.`
+                                  `Bạn đang trong thời gian hồi chiêu (${cdBadgeText}). Vui lòng quay lại sau ${remH > 0 ? `${remH} giờ ${remM} phút` : `${remM} phút`} để giật mã tiếp theo.`
                                 );
                               }}
                               className="py-2.5 px-3 rounded-xl bg-amber-500/15 hover:bg-amber-500/25 text-amber-400 border border-amber-500/30 text-xs font-bold flex items-center justify-center gap-1.5 cursor-pointer transition-all"

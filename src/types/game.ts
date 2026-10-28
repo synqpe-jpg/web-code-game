@@ -95,6 +95,7 @@ export interface GiveawayCampaign {
   max_per_user?: number;
   max_per_ip?: number;
   cooldown_hours?: number;
+  cooldown_minutes?: number;
   global_cooldown_seconds?: number;
   last_global_claim_at?: string;
   last_claimer_name?: string;
