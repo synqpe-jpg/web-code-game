@@ -36,9 +36,28 @@ export interface Mission {
   end_time?: string;
   status: MissionStatus;
   sort_order: number;
+  views?: number;
+  participants_count?: number;
+  resubmission_cooldown_seconds?: number;
   available_codes_count?: number; // Real-time available codes in reward pool
   created_at: string;
   updated_at: string;
+  stats?: {
+    views?: number;
+    participants_count?: number;
+    submissions_count?: number;
+    total_submissions?: number;
+    pending_submissions?: number;
+    approved_count?: number;
+    approved_submissions?: number;
+    rejected_count?: number;
+    rejected_submissions?: number;
+    rewards_claimed?: number;
+    quota_remaining?: number;
+    total_codes?: number;
+    available_codes?: number;
+    claimed_codes?: number;
+  };
   // User contextual state (populated when user is logged in)
   user_submission?: MissionSubmission | null;
 }

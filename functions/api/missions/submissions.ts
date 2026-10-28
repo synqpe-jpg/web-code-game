@@ -150,47 +150,27 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
       );
     }
 
-    if (action === 'BATCH_APPROVE_AI') {
-      let query = "SELECT id FROM mission_submissions WHERE status = 'PENDING' AND ai_recommendation = 'APPROVE'";
-      const params: any[] = [];
-      if (mission_id && mission_id !== 'all') {
-        query += ' AND mission_id = ?';
-        params.push(mission_id);
-      }
-      query += ' LIMIT 50';
-
-      const candidateRows = await env.DB.prepare(query).bind(...params).all<any>();
-      const candidateIds = (candidateRows?.results || []).map((r: any) => r.id);
-
-      let successCount = 0;
-      const errors: string[] = [];
-
-      for (const id of candidateIds) {
-        const res = await executeApproveReward(env.DB, id, `${adminActor} (Batch AI)`);
-        if (res.success) {
-          successCount++;
-        } else if (res.error) {
-          errors.push(`ID ${id}: ${res.error}`);
-        }
-      }
-
-      return new Response(
-        JSON.stringify({
-          success: true,
-          message: `Đã duyệt thành công ${successCount} hồ sơ theo đề xuất của AI.`,
-          successCount,
-          totalCandidates: candidateIds.length,
-          errors: errors.length > 0 ? errors : undefined,
-        }),
-        { status: 200, headers: CORS_HEADERS }
-      );
-    }
-
-    if (action === 'BATCH_APPROVE') {
+    if (action === 'BATCH_APPROVE' || action === 'BATCH_APPROVE_AI') {
       const { submission_ids } = body;
-      if (!Array.isArray(submission_ids) || submission_ids.length === 0) {
+      let targetIds: string[] = [];
+
+      if (Array.isArray(submission_ids) && submission_ids.length > 0) {
+        targetIds = submission_ids;
+      } else {
+        let query = "SELECT id FROM mission_submissions WHERE status = 'PENDING'";
+        const params: any[] = [];
+        if (mission_id && mission_id !== 'all') {
+          query += ' AND mission_id = ?';
+          params.push(mission_id);
+        }
+        query += ' ORDER BY created_at ASC LIMIT 50';
+        const candidateRows = await env.DB.prepare(query).bind(...params).all<any>();
+        targetIds = (candidateRows?.results || []).map((r: any) => r.id);
+      }
+
+      if (targetIds.length === 0) {
         return new Response(
-          JSON.stringify({ success: false, message: 'Yêu cầu mảng submission_ids (danh sách ID hồ sơ cần duyệt).' }),
+          JSON.stringify({ success: false, message: 'Không có hồ sơ nào đang chờ duyệt để xử lý.' }),
           { status: 400, headers: CORS_HEADERS }
         );
       }
@@ -198,8 +178,8 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
       let successCount = 0;
       const errors: string[] = [];
 
-      for (const id of submission_ids) {
-        const res = await executeApproveReward(env.DB, id, `${adminActor} (Batch API)`);
+      for (const id of targetIds) {
+        const res = await executeApproveReward(env.DB, id, `${adminActor} (Batch Admin)`);
         if (res.success) {
           successCount++;
         } else if (res.error) {
@@ -210,9 +190,9 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
       return new Response(
         JSON.stringify({
           success: true,
-          message: `Đã duyệt thành công ${successCount}/${submission_ids.length} hồ sơ.`,
+          message: `Đã duyệt thành công ${successCount}/${targetIds.length} hồ sơ.`,
           successCount,
-          total: submission_ids.length,
+          total: targetIds.length,
           errors: errors.length > 0 ? errors : undefined,
         }),
         { status: 200, headers: CORS_HEADERS }

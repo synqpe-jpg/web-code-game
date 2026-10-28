@@ -35,6 +35,16 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
       );
     }
 
+    // Increment views for client requests
+    const adminCheck = await verifyAdminAuth(request, env);
+    if (!adminCheck.authorized) {
+      await env.DB.prepare('UPDATE missions SET views = COALESCE(views, 0) + 1 WHERE id = ?')
+        .bind(mission.id)
+        .run()
+        .catch(() => {});
+      mission.views = (Number(mission.views) || 0) + 1;
+    }
+
     let guideSteps: string[] = [];
     try {
       guideSteps = typeof mission.guide_steps === 'string' ? JSON.parse(mission.guide_steps) : mission.guide_steps || [];
@@ -52,39 +62,43 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
       availableCodesCount = Number(countRow?.cnt) || 0;
     }
 
-    // Check Admin / API Key authorization for operational stats
-    const adminCheck = await verifyAdminAuth(request, env);
-    let adminStats = undefined;
-    if (adminCheck.authorized) {
-      const statsRow = await env.DB.prepare(`
-        SELECT 
-          COUNT(*) as total_submissions,
-          SUM(CASE WHEN status = 'PENDING' THEN 1 ELSE 0 END) as pending_submissions,
-          SUM(CASE WHEN status = 'APPROVED' THEN 1 ELSE 0 END) as approved_submissions,
-          SUM(CASE WHEN status = 'REJECTED' THEN 1 ELSE 0 END) as rejected_submissions
-        FROM mission_submissions
-        WHERE mission_id = ?
-      `).bind(mission.id).first<any>();
+    // Comprehensive 7-metrics stats
+    const statsRow = await env.DB.prepare(`
+      SELECT 
+        COUNT(*) as total_submissions,
+        COUNT(DISTINCT user_id) as participants_count,
+        SUM(CASE WHEN status = 'PENDING' THEN 1 ELSE 0 END) as pending_submissions,
+        SUM(CASE WHEN status = 'APPROVED' THEN 1 ELSE 0 END) as approved_submissions,
+        SUM(CASE WHEN status = 'REJECTED' THEN 1 ELSE 0 END) as rejected_submissions
+      FROM mission_submissions
+      WHERE mission_id = ?
+    `).bind(mission.id).first<any>();
 
-      const poolRow = await env.DB.prepare(`
-        SELECT 
-          COUNT(*) as total_codes,
-          SUM(CASE WHEN status = 'AVAILABLE' THEN 1 ELSE 0 END) as available_codes,
-          SUM(CASE WHEN status = 'CLAIMED' THEN 1 ELSE 0 END) as claimed_codes
-        FROM mission_reward_pools
-        WHERE mission_id = ?
-      `).bind(mission.id).first<any>();
+    const poolRow = await env.DB.prepare(`
+      SELECT 
+        COUNT(*) as total_codes,
+        SUM(CASE WHEN status = 'AVAILABLE' THEN 1 ELSE 0 END) as available_codes,
+        SUM(CASE WHEN status = 'CLAIMED' THEN 1 ELSE 0 END) as claimed_codes
+      FROM mission_reward_pools
+      WHERE mission_id = ?
+    `).bind(mission.id).first<any>();
 
-      adminStats = {
-        total_submissions: Number(statsRow?.total_submissions) || 0,
-        pending_submissions: Number(statsRow?.pending_submissions) || 0,
-        approved_submissions: Number(statsRow?.approved_submissions) || 0,
-        rejected_submissions: Number(statsRow?.rejected_submissions) || 0,
-        total_codes: Number(poolRow?.total_codes) || 0,
-        available_codes: Number(poolRow?.available_codes) || 0,
-        claimed_codes: Number(poolRow?.claimed_codes) || 0,
-      };
-    }
+    const detailedStats = {
+      views: Number(mission.views) || 0,
+      participants_count: Number(statsRow?.participants_count) || 0,
+      submissions_count: Number(statsRow?.total_submissions) || 0,
+      total_submissions: Number(statsRow?.total_submissions) || 0,
+      pending_submissions: Number(statsRow?.pending_submissions) || 0,
+      approved_count: Number(statsRow?.approved_submissions) || 0,
+      approved_submissions: Number(statsRow?.approved_submissions) || 0,
+      rejected_count: Number(statsRow?.rejected_submissions) || 0,
+      rejected_submissions: Number(statsRow?.rejected_submissions) || 0,
+      rewards_claimed: Number(mission.completed_count) || 0,
+      quota_remaining: Math.max(0, (Number(mission.quota) || 0) - (Number(mission.completed_count) || 0)),
+      total_codes: Number(poolRow?.total_codes) || 0,
+      available_codes: Number(poolRow?.available_codes) || 0,
+      claimed_codes: Number(poolRow?.claimed_codes) || 0,
+    };
 
     // Check member submission
     const memberCheck = await verifyMemberAuth(request, env);
@@ -102,10 +116,12 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
         success: true,
         mission: {
           ...mission,
+          views: detailedStats.views,
+          participants_count: detailedStats.participants_count,
           guide_steps: guideSteps,
           available_codes_count: availableCodesCount,
           user_submission: userSubmission,
-          stats: adminStats,
+          stats: detailedStats,
         },
       }),
       { status: 200, headers: CORS_HEADERS }
@@ -165,6 +181,7 @@ export const onRequestPut: PagesFunction<Env> = async (context) => {
       quota = existing.quota,
       min_account_age_days = existing.min_account_age_days,
       max_resubmissions = existing.max_resubmissions,
+      resubmission_cooldown_seconds = existing.resubmission_cooldown_seconds,
       review_mode = existing.review_mode,
       ai_prompt_guidelines = existing.ai_prompt_guidelines,
       allowed_domains = existing.allowed_domains,
@@ -177,6 +194,8 @@ export const onRequestPut: PagesFunction<Env> = async (context) => {
 
     const guideStepsJson = typeof guide_steps === 'string' ? guide_steps : JSON.stringify(Array.isArray(guide_steps) ? guide_steps : []);
     const nowIso = new Date().toISOString();
+    const effectiveRewardValue = reward_type === 'CODE' ? 0 : Number(reward_value) || 0;
+    const effectiveCooldownSec = Math.max(0, Number(resubmission_cooldown_seconds ?? 60) || 60);
 
     await env.DB.prepare(`
       UPDATE missions SET
@@ -192,6 +211,7 @@ export const onRequestPut: PagesFunction<Env> = async (context) => {
         quota = ?,
         min_account_age_days = ?,
         max_resubmissions = ?,
+        resubmission_cooldown_seconds = ?,
         review_mode = ?,
         ai_prompt_guidelines = ?,
         allowed_domains = ?,
@@ -211,10 +231,11 @@ export const onRequestPut: PagesFunction<Env> = async (context) => {
       guideStepsJson,
       content_requirements.trim(),
       reward_type,
-      Number(reward_value) || 0,
+      effectiveRewardValue,
       Math.max(1, Number(quota) || 1),
       Math.max(0, Number(min_account_age_days) || 0),
       Math.max(0, Number(max_resubmissions) || 2),
+      effectiveCooldownSec,
       review_mode,
       ai_prompt_guidelines.trim(),
       allowed_domains.trim() || 'facebook.com,fb.com,fb.watch',
@@ -261,6 +282,17 @@ export const onRequestDelete: PagesFunction<Env> = async (context) => {
 
     await ensureMissionSchema(env.DB);
 
+    const existing = await env.DB.prepare('SELECT * FROM missions WHERE id = ? LIMIT 1')
+      .bind(missionId)
+      .first<any>();
+
+    if (!existing) {
+      return new Response(
+        JSON.stringify({ success: false, message: 'Nhiệm vụ không tồn tại.' }),
+        { status: 404, headers: CORS_HEADERS }
+      );
+    }
+
     const url = new URL(request.url);
     const isForce = url.searchParams.get('force') === 'true';
 
@@ -282,16 +314,40 @@ export const onRequestDelete: PagesFunction<Env> = async (context) => {
       );
     }
 
-    // Cascade delete reward pool codes, submissions, audit logs, and mission
+    const nowIso = new Date().toISOString();
+    const adminActor = `ADMIN:${adminCheck.adminName || adminCheck.adminId || 'Admin'}`;
+
+    // 1. Đồng bộ lưu mission_title vào toàn bộ nhật ký cũ của nhiệm vụ này trước khi xóa hàng missions
+    await env.DB.prepare(
+      "UPDATE mission_audit_logs SET mission_title = ? WHERE mission_id = ? AND (mission_title IS NULL OR mission_title = '')"
+    ).bind(existing.title || '', missionId).run().catch(() => {});
+
+    // 2. Ghi nhận hành động xóa vào nhật ký kiểm tra bất biến
+    await env.DB.prepare(`
+      INSERT INTO mission_audit_logs (id, mission_id, mission_title, submission_id, user_id, action, actor, details, created_at)
+      VALUES (?, ?, ?, '', '', 'MISSION_DELETED', ?, ?, ?)
+    `).bind(
+      `log_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
+      missionId,
+      existing.title || '',
+      adminActor,
+      `Xóa nhiệm vụ (isForce=${isForce}, subCount=${subCount})`,
+      nowIso
+    ).run().catch(() => {});
+
+    // 3. Xóa toàn diện chỉ xóa: kho mã (pools), bài nộp (submissions) và nhiệm vụ (missions).
+    // TUYỆT ĐỐI BẢO TỒN TOÀN BỘ NHẬT KÝ KIỂM TRA (mission_audit_logs) BẤT BIẾN!
     await env.DB.batch([
       env.DB.prepare('DELETE FROM mission_reward_pools WHERE mission_id = ?').bind(missionId),
       env.DB.prepare('DELETE FROM mission_submissions WHERE mission_id = ?').bind(missionId),
-      env.DB.prepare('DELETE FROM mission_audit_logs WHERE mission_id = ?').bind(missionId),
       env.DB.prepare('DELETE FROM missions WHERE id = ?').bind(missionId),
     ]);
 
     return new Response(
-      JSON.stringify({ success: true, message: 'Xóa nhiệm vụ thành công!' }),
+      JSON.stringify({
+        success: true,
+        message: 'Xóa nhiệm vụ thành công! Toàn bộ nhật ký kiểm tra đã được lưu trữ bất biến an toàn.',
+      }),
       { status: 200, headers: CORS_HEADERS }
     );
   } catch (error: any) {

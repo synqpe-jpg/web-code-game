@@ -145,9 +145,12 @@ class MissionService {
     }
   }
 
-  async deleteMission(id: string): Promise<{ success: boolean; message?: string }> {
+  async deleteMission(id: string, force: boolean = false): Promise<{ success: boolean; message?: string }> {
     try {
-      const res = await fetch(`/api/missions/${encodeURIComponent(id)}`, {
+      const url = force
+        ? `/api/missions/${encodeURIComponent(id)}?force=true`
+        : `/api/missions/${encodeURIComponent(id)}`;
+      const res = await fetch(url, {
         method: 'DELETE',
         headers: this.getAuthHeaders(true),
       });
@@ -217,7 +220,8 @@ class MissionService {
     }
   }
 
-  async batchApproveAi(
+  async batchApprove(
+    submissionIds?: string[],
     missionId?: string
   ): Promise<{ success: boolean; message?: string; successCount?: number }> {
     try {
@@ -225,7 +229,8 @@ class MissionService {
         method: 'POST',
         headers: this.getAuthHeaders(true),
         body: JSON.stringify({
-          action: 'BATCH_APPROVE_AI',
+          action: 'BATCH_APPROVE',
+          submission_ids: submissionIds,
           mission_id: missionId,
         }),
       });
@@ -238,10 +243,16 @@ class MissionService {
           successCount: data.successCount,
         };
       }
-      return { success: false, message: data.message || 'Không thể duyệt hàng loạt theo AI.' };
+      return { success: false, message: data.message || 'Không thể duyệt hàng loạt hồ sơ.' };
     } catch (e: any) {
       return { success: false, message: e?.message || 'Lỗi mạng.' };
     }
+  }
+
+  async batchApproveAi(
+    missionId?: string
+  ): Promise<{ success: boolean; message?: string; successCount?: number }> {
+    return this.batchApprove(undefined, missionId);
   }
 
   async getRewardPool(

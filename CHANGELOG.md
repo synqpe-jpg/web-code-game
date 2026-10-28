@@ -7,6 +7,42 @@ Mỗi mục sửa lỗi đều ghi nhận **Nguyên nhân gốc rễ (Root Cause
 
 ## [2026-10-28]
 
+### 246. Tinh Chỉnh & Hoàn Thiện Toàn Diện Hệ Thống Nhiệm Vụ Sau Lần Thử Đầu Tiên (Missions Module Production Refinements)
+- **Bối cảnh & Yêu cầu từ Người dùng**:
+  - Module Nhiệm vụ đã chạy thử đầu cuối thành công (tạo nhiệm vụ, nộp hồ sơ, duyệt, trả thưởng, xóa nhiệm vụ). Lần thử phát hiện một số điểm lệch thiết kế và thiếu sót cần tinh chỉnh:
+  - 1. Nhật ký kiểm tra (mission_audit_logs) phải bất biến thật sự: Xóa nhiệm vụ (kể cả xóa toàn diện ?force=true) CHỈ ĐƯỢC XÓA nhiệm vụ, hồ sơ nộp và mã trong kho; BẮT BUỘC GIỮ LẠI 100% nhật ký kiểm tra kèm mission_id và mission_title. Xóa thường khi có hồ sơ nộp vẫn bị chặn an toàn.
+  - 2. Lên lịch nhiệm vụ (start_time & end_time): Giữ mở ngay làm mặc định; Quản trị viên đặt được giờ bắt đầu và giờ kết thúc; Chưa tới giờ bắt đầu thì nhiệm vụ chưa mở với người dùng; Quá giờ kết thúc thì tự đóng với người mới, nhưng hồ sơ đang chờ vẫn xử lý được.
+  - 3. Thống kê đủ 7 chỉ số thiết kế: Lượt xem (views), Số người tham gia (participants_count - distinct user_id), Đã nộp (submissions_count), Đã duyệt (approved_count), Bị từ chối (rejected_count), Đã trả thưởng (rewards_claimed), Quota còn lại (quota_remaining).
+  - 4. Làm rõ trường giá trị thưởng cho loại thưởng mã code (CODE): Ép tự động reward_value = 0 vì kho mã (mission_reward_pools) là nguồn duy nhất phát mã; ẩn trường này trong form và thêm ghi chú giải thích rõ ràng.
+  - 5. Làm rõ cơ chế duyệt hàng loạt: Khẳng định cơ chế AI duyệt là chốt cuối và trả thưởng ngay. Hành động Duyệt hàng loạt trong Admin là công cụ xử lý tồn đọng cho Admin, không phải quy trình ép AI gửi đề xuất.
+  - 6. Kiểm chứng 6 hành vi cốt lõi: Khách chưa đăng nhập bị chặn (401), link bằng chứng chỉ dùng 1 lần cho cùng nhiệm vụ, mỗi người tối đa 5 hồ sơ chờ duyệt, giãn cách nộp lại (resubmission cooldown), hết quota tự đóng với người mới nhưng hồ sơ chờ vẫn xử lý được, link sai định dạng hoặc ngoài domain bị chặn.
+- **Giải pháp Thành công (Solution Applied)**:
+  1. *Nhật ký kiểm tra bất biến (Immutable Audit Logs)*:
+     - functions/api/missions/[id].ts: Loại bỏ hoàn toàn lệnh DELETE mission_audit_logs trong hàm xóa nhiệm vụ. Thêm migration tự động mission_audit_logs ADD COLUMN mission_title TEXT. Trước khi xóa nhiệm vụ, hệ thống backfill tên nhiệm vụ vào logs cũ và ghi log MISSION_DELETED với đầy đủ thông tin nhiệm vụ.
+     - functions/api/missions/audit-logs.ts: Sử dụng COALESCE(NULLIF(l.mission_title, ''), m.title, l.mission_id) để đảm bảo khi nhiệm vụ đã bị xóa, bảng nhật ký vẫn hiển thị chuẩn xác tên nhiệm vụ đã xóa.
+  2. *Lên lịch thời gian hiệu lực thực tế (Real Scheduling Enforcement)*:
+     - functions/api/missions/submit.ts: Kiểm tra nghiêm ngặt start_time (nếu nowMs < startMs -> chặn 400 kèm thông báo 'Nhiệm vụ chưa bắt đầu...') và end_time (nếu nowMs > endMs -> chặn 400 kèm thông báo 'Nhiệm vụ đã kết thúc...').
+     - src/components/MissionsView.tsx & MissionDetailModal.tsx: Hiển thị badge trực quan 'Sắp diễn ra' (kèm đếm ngược/ngày mở) và 'Đã kết thúc'; vô hiệu hóa form nộp khi chưa mở hoặc đã kết thúc.
+     - Cho phép Admin & AI duyệt tiếp các hồ sơ nộp cũ dù nhiệm vụ đã quá hạn kết thúc.
+  3. *Hệ thống thống kê 7 chỉ số toàn diện*:
+     - Bổ sung cột views trong bảng missions (tự động tăng khi khách truy cập chi tiết nhiệm vụ).
+     - Truy vấn động participants_count (COUNT(DISTINCT user_id)), submissions_count, approved_count, rejected_count, rewards_claimed, quota_remaining (quota - approved_count) tại cả API danh sách (GET /api/missions) và API chi tiết (GET /api/missions/:id).
+     - Hiển thị đầy đủ 7 chỉ số dưới dạng Stat Cards và bảng tổng hợp trong src/admin/modules/MissionsModule.tsx và hiển thị lượt xem/số người tham gia trên trang web người dùng.
+  4. *Chuẩn hóa loại thưởng Mã Code (CODE)*:
+     - functions/api/missions/index.ts & [id].ts: Tự động ép reward_value = 0 khi reward_type === 'CODE'.
+     - src/admin/modules/MissionsModule.tsx: Tự động ẩn ô nhập giá trị thưởng khi chọn loại CODE, hiển thị thông báo 'Phát trực tiếp từ Kho mã thưởng (mỗi người 1 mã duy nhất khi duyệt bài)'.
+  5. *Làm rõ cơ chế duyệt & BATCH_APPROVE*:
+     - Giữ nguyên luồng AI duyệt tự động: AI gửi APPROVE -> duyệt & phát thưởng ngay; AI gửi REJECT -> từ chối ngay; AI gửi NEEDS_HUMAN -> đưa vào hàng chờ Admin xử lý.
+     - Nút Duyệt hàng loạt trong Admin UI được gắn nhãn và chú thích rõ: là công cụ duyệt tay hàng loạt cho Quản trị viên xử lý hồ sơ PENDING theo từng nhiệm vụ.
+  6. *Chống gian lận & Giãn cách nộp lại*:
+     - Bổ sung resubmission_cooldown_seconds (mặc định 60 giây). Khi nộp lại hồ sơ bị từ chối, nếu chưa đủ thời gian giãn cách sẽ bị chặn 429.
+     - Khi nộp lại, tự động tăng resubmission_count = resubmission_count + 1 và ghi log kiểm toán.
+- **Kiểm Thử & Xác Minh (Verification)**:
+  - Bộ kiểm thử tự động 10/10 kịch bản cốt lõi đạt 100% PASS.
+  - Audit Zero Test Artifacts: Đạt 100% không để lại bất kỳ dữ liệu test nào.
+  - Vite Frontend Build & Prerender 780 trang: Thành công 100%.
+  - Cloudflare Edge Worker bundle compile: Thành công 100%.
+
 ### 245. Tạo Module Quản Lý Khóa API Riêng Biệt Trong Admin (Dedicated API Keys and Scopes Management)
 - **Bối cảnh & Yêu cầu từ Người dùng**:
   - Tạo riêng một mục "Quản lý Khóa API" trong trang Admin.

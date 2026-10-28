@@ -85,33 +85,52 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
             .first<any>();
         }
 
-        // Extended stats for Admin & API callers
-        let adminStats = undefined;
-        if (isAdmin) {
-          const statsRow = await env.DB.prepare(`
-            SELECT 
-              COUNT(*) as total_submissions,
-              SUM(CASE WHEN status = 'PENDING' THEN 1 ELSE 0 END) as pending_submissions,
-              SUM(CASE WHEN status = 'APPROVED' THEN 1 ELSE 0 END) as approved_submissions,
-              SUM(CASE WHEN status = 'REJECTED' THEN 1 ELSE 0 END) as rejected_submissions
-            FROM mission_submissions
-            WHERE mission_id = ?
-          `).bind(m.id).first<any>();
+        // Comprehensive 7-metrics stats
+        const statsRow = await env.DB.prepare(`
+          SELECT 
+            COUNT(*) as total_submissions,
+            COUNT(DISTINCT user_id) as participants_count,
+            SUM(CASE WHEN status = 'PENDING' THEN 1 ELSE 0 END) as pending_submissions,
+            SUM(CASE WHEN status = 'APPROVED' THEN 1 ELSE 0 END) as approved_submissions,
+            SUM(CASE WHEN status = 'REJECTED' THEN 1 ELSE 0 END) as rejected_submissions
+          FROM mission_submissions
+          WHERE mission_id = ?
+        `).bind(m.id).first<any>();
 
-          adminStats = {
-            total_submissions: Number(statsRow?.total_submissions) || 0,
-            pending_submissions: Number(statsRow?.pending_submissions) || 0,
-            approved_submissions: Number(statsRow?.approved_submissions) || 0,
-            rejected_submissions: Number(statsRow?.rejected_submissions) || 0,
-          };
-        }
+        const poolRow = await env.DB.prepare(`
+          SELECT 
+            COUNT(*) as total_codes,
+            SUM(CASE WHEN status = 'AVAILABLE' THEN 1 ELSE 0 END) as available_codes,
+            SUM(CASE WHEN status = 'CLAIMED' THEN 1 ELSE 0 END) as claimed_codes
+          FROM mission_reward_pools
+          WHERE mission_id = ?
+        `).bind(m.id).first<any>();
+
+        const detailedStats = {
+          views: Number(m.views) || 0,
+          participants_count: Number(statsRow?.participants_count) || 0,
+          submissions_count: Number(statsRow?.total_submissions) || 0,
+          total_submissions: Number(statsRow?.total_submissions) || 0,
+          pending_submissions: Number(statsRow?.pending_submissions) || 0,
+          approved_count: Number(statsRow?.approved_submissions) || 0,
+          approved_submissions: Number(statsRow?.approved_submissions) || 0,
+          rejected_count: Number(statsRow?.rejected_submissions) || 0,
+          rejected_submissions: Number(statsRow?.rejected_submissions) || 0,
+          rewards_claimed: Number(m.completed_count) || 0,
+          quota_remaining: Math.max(0, (Number(m.quota) || 0) - (Number(m.completed_count) || 0)),
+          total_codes: Number(poolRow?.total_codes) || 0,
+          available_codes: Number(poolRow?.available_codes) || 0,
+          claimed_codes: Number(poolRow?.claimed_codes) || 0,
+        };
 
         return {
           ...m,
+          views: detailedStats.views,
+          participants_count: detailedStats.participants_count,
           guide_steps: guideSteps,
           available_codes_count: availableCodesCount,
           user_submission: userSubmission,
-          stats: adminStats,
+          stats: detailedStats,
         };
       })
     );
@@ -167,7 +186,8 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
       quota = 10,
       min_account_age_days = 0,
       max_resubmissions = 2,
-      review_mode = 'AI_ASSISTED',
+      resubmission_cooldown_seconds = 60,
+      review_mode = 'AI_AUTO',
       ai_prompt_guidelines = '',
       allowed_domains = 'facebook.com,fb.com,fb.watch',
       recurrence_type = 'ONCE',
@@ -187,20 +207,22 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
     const missionId = `ms_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`;
     const nowIso = new Date().toISOString();
     const guideStepsJson = JSON.stringify(Array.isArray(guide_steps) ? guide_steps : []);
+    const effectiveRewardValue = reward_type === 'CODE' ? 0 : Number(reward_value) || 0;
+    const effectiveCooldownSec = Math.max(0, Number(resubmission_cooldown_seconds ?? 60) || 60);
 
     await env.DB.prepare(`
       INSERT INTO missions (
         id, title, description, task_type, target_channel_name, target_channel_url,
         guide_steps, content_requirements, reward_type, reward_value, quota, completed_count,
-        min_account_age_days, max_resubmissions, review_mode, ai_prompt_guidelines,
-        allowed_domains, recurrence_type, start_time, end_time, status, sort_order,
-        created_at, updated_at
+        min_account_age_days, max_resubmissions, resubmission_cooldown_seconds, views,
+        review_mode, ai_prompt_guidelines, allowed_domains, recurrence_type,
+        start_time, end_time, status, sort_order, created_at, updated_at
       ) VALUES (
         ?, ?, ?, ?, ?, ?,
         ?, ?, ?, ?, ?, 0,
+        ?, ?, ?, 0,
         ?, ?, ?, ?,
-        ?, ?, ?, ?, ?, ?,
-        ?, ?
+        ?, ?, ?, ?, ?, ?
       )
     `).bind(
       missionId,
@@ -212,10 +234,11 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
       guideStepsJson,
       content_requirements.trim(),
       reward_type,
-      Number(reward_value) || 0,
+      effectiveRewardValue,
       Math.max(1, Number(quota) || 10),
       Math.max(0, Number(min_account_age_days) || 0),
       Math.max(0, Number(max_resubmissions) || 2),
+      effectiveCooldownSec,
       review_mode,
       ai_prompt_guidelines.trim(),
       allowed_domains.trim() || 'facebook.com,fb.com,fb.watch',
@@ -227,6 +250,19 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
       nowIso,
       nowIso
     ).run();
+
+    // Audit log mission creation
+    await env.DB.prepare(`
+      INSERT INTO mission_audit_logs (id, mission_id, mission_title, submission_id, user_id, action, actor, details, created_at)
+      VALUES (?, ?, ?, '', '', 'MISSION_CREATED', ?, ?, ?)
+    `).bind(
+      `log_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
+      missionId,
+      title.trim(),
+      `ADMIN:${adminCheck.adminName || adminCheck.adminId || 'Admin'}`,
+      `Khởi tạo nhiệm vụ mới (Quota: ${quota}, Thưởng: ${reward_type})`,
+      nowIso
+    ).run().catch(() => {});
 
     return new Response(
       JSON.stringify({

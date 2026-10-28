@@ -411,10 +411,11 @@ export async function executeApproveReward(
         "UPDATE mission_submissions SET status = 'APPROVED', reward_delivered = ?, reviewed_by = ?, reviewed_at = ?, updated_at = ? WHERE id = ?"
       ).bind(rewardDelivered, reviewerActor, nowIso, nowIso, submission.id),
       db.prepare(
-        "INSERT INTO mission_audit_logs (id, mission_id, submission_id, user_id, action, actor, details, created_at) VALUES (?, ?, ?, ?, 'APPROVE', ?, ?, ?)"
+        "INSERT INTO mission_audit_logs (id, mission_id, mission_title, submission_id, user_id, action, actor, details, created_at) VALUES (?, ?, ?, ?, ?, 'APPROVE', ?, ?, ?)"
       ).bind(
         `log_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
         mission.id,
+        mission.title || '',
         submission.id,
         submission.user_id,
         reviewerActor,
@@ -470,10 +471,11 @@ export async function executeApproveReward(
         "UPDATE mission_submissions SET status = 'APPROVED', reward_delivered = ?, reviewed_by = ?, reviewed_at = ?, updated_at = ? WHERE id = ?"
       ).bind(rewardDelivered, reviewerActor, nowIso, nowIso, submission.id),
       db.prepare(
-        "INSERT INTO mission_audit_logs (id, mission_id, submission_id, user_id, action, actor, details, created_at) VALUES (?, ?, ?, ?, 'APPROVE', ?, ?, ?)"
+        "INSERT INTO mission_audit_logs (id, mission_id, mission_title, submission_id, user_id, action, actor, details, created_at) VALUES (?, ?, ?, ?, ?, 'APPROVE', ?, ?, ?)"
       ).bind(
         `log_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
         mission.id,
+        mission.title || '',
         submission.id,
         submission.user_id,
         reviewerActor,
@@ -510,6 +512,12 @@ export async function executeRejectSubmission(
     return { success: false, error: 'Không tìm thấy hồ sơ nộp bài.' };
   }
 
+  const mission = await db
+    .prepare('SELECT id, title FROM missions WHERE id = ? LIMIT 1')
+    .bind(submission.mission_id)
+    .first<any>();
+  const missionTitle = mission?.title || '';
+
   const nowIso = new Date().toISOString();
   const nextResubmissionCount = (Number(submission.resubmission_count) || 0) + 1;
   const reasonText = (rejectionReason || '').trim() || 'Link bài đăng không đáp ứng yêu cầu nhiệm vụ.';
@@ -519,10 +527,11 @@ export async function executeRejectSubmission(
       "UPDATE mission_submissions SET status = 'REJECTED', rejection_reason = ?, resubmission_count = ?, reviewed_by = ?, reviewed_at = ?, updated_at = ? WHERE id = ?"
     ).bind(reasonText, nextResubmissionCount, reviewerActor, nowIso, nowIso, submission.id),
     db.prepare(
-      "INSERT INTO mission_audit_logs (id, mission_id, submission_id, user_id, action, actor, details, created_at) VALUES (?, ?, ?, ?, 'REJECT', ?, ?, ?)"
+      "INSERT INTO mission_audit_logs (id, mission_id, mission_title, submission_id, user_id, action, actor, details, created_at) VALUES (?, ?, ?, ?, ?, 'REJECT', ?, ?, ?)"
     ).bind(
       `log_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
       submission.mission_id,
+      missionTitle,
       submission.id,
       submission.user_id,
       reviewerActor,

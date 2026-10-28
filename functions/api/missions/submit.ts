@@ -65,7 +65,37 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
       );
     }
 
-    // 3. Quota check
+    const nowMs = Date.now();
+
+    // 2.1. Check start_time: Chưa tới giờ bắt đầu thì không mở
+    if (mission.start_time) {
+      const startMs = new Date(mission.start_time).getTime();
+      if (!isNaN(startMs) && nowMs < startMs) {
+        return new Response(
+          JSON.stringify({
+            success: false,
+            message: `Nhiệm vụ chưa bắt đầu (Thời gian mở: ${mission.start_time}). Vui lòng quay lại sau!`,
+          }),
+          { status: 400, headers: CORS_HEADERS }
+        );
+      }
+    }
+
+    // 2.2. Check end_time: Quá giờ kết thúc thì tự đóng với người mới
+    if (mission.end_time) {
+      const endMs = new Date(mission.end_time).getTime();
+      if (!isNaN(endMs) && nowMs > endMs) {
+        return new Response(
+          JSON.stringify({
+            success: false,
+            message: `Nhiệm vụ đã kết thúc thời gian nhận bài nộp (Hạn chót: ${mission.end_time}).`,
+          }),
+          { status: 400, headers: CORS_HEADERS }
+        );
+      }
+    }
+
+    // 3. Quota check: Hết quota thì tự đóng với người mới
     if (mission.completed_count >= mission.quota) {
       return new Response(
         JSON.stringify({
@@ -119,32 +149,31 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
     }
     const cleanUrl = linkValidation.normalizedUrl;
 
-    // 7. Anti-Cheat: 1 link bài đăng chỉ dùng 1 lần cho cùng 1 nhiệm vụ trên toàn hệ thống
-    const duplicateLinkRow = await env.DB.prepare(
-      "SELECT id, user_id FROM mission_submissions WHERE mission_id = ? AND proof_link = ? AND status != 'REJECTED' LIMIT 1"
-    )
-      .bind(mission.id, cleanUrl)
-      .first<any>();
-
-    if (duplicateLinkRow) {
-      if (duplicateLinkRow.user_id !== member.id) {
-        return new Response(
-          JSON.stringify({
-            success: false,
-            message: 'Đường link bài đăng này đã được một thành viên khác nộp cho nhiệm vụ này. Vui lòng cung cấp bài đăng chính chủ của bạn.',
-          }),
-          { status: 400, headers: CORS_HEADERS }
-        );
-      }
-    }
-
-    // 8. Check Existing User Submission for this Mission
+    // Query existing submission by this user for this mission
     const existingUserSub = await env.DB.prepare(
       'SELECT * FROM mission_submissions WHERE mission_id = ? AND user_id = ? ORDER BY created_at DESC LIMIT 1'
     )
       .bind(mission.id, member.id)
       .first<any>();
 
+    // 7. Anti-Cheat: 1 link bài đăng chỉ dùng 1 lần cho cùng 1 nhiệm vụ trên toàn hệ thống
+    const duplicateLinkRow = await env.DB.prepare(
+      "SELECT id, user_id, status FROM mission_submissions WHERE mission_id = ? AND proof_link = ? AND id != ? AND status != 'REJECTED' LIMIT 1"
+    )
+      .bind(mission.id, cleanUrl, existingUserSub?.id || '')
+      .first<any>();
+
+    if (duplicateLinkRow) {
+      return new Response(
+        JSON.stringify({
+          success: false,
+          message: 'Đường link bằng chứng này đã được sử dụng trong hệ thống cho nhiệm vụ này. Vui lòng cung cấp bài đăng chính chủ và duy nhất của bạn.',
+        }),
+        { status: 400, headers: CORS_HEADERS }
+      );
+    }
+
+    // 8. Check Existing User Submission for this Mission
     if (existingUserSub) {
       if (existingUserSub.status === 'APPROVED' && mission.recurrence_type === 'ONCE') {
         return new Response(
@@ -179,13 +208,30 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
           );
         }
 
-        // Allow re-submission by resetting existing record to PENDING with updated link
+        // Cooldown check: Giãn cách thời gian giữa 2 lần nộp lại
+        const lastActionTime = existingUserSub.reviewed_at || existingUserSub.updated_at || existingUserSub.created_at;
+        const lastActionMs = new Date(lastActionTime).getTime();
+        const cooldownSec = Number(mission.resubmission_cooldown_seconds) || 60;
+        const elapsedSec = Math.floor((nowMs - lastActionMs) / 1000);
+        if (elapsedSec < cooldownSec) {
+          const waitSec = cooldownSec - elapsedSec;
+          return new Response(
+            JSON.stringify({
+              success: false,
+              message: `Vui lòng đợi ${waitSec} giây nữa trước khi nộp lại bằng chứng mới (Thời gian giãn cách nộp lại: ${cooldownSec} giây).`,
+            }),
+            { status: 429, headers: CORS_HEADERS }
+          );
+        }
+
+        // Allow re-submission by resetting existing record to PENDING with updated link & incrementing count
         const nowIso = new Date().toISOString();
         await env.DB.prepare(`
           UPDATE mission_submissions SET
             proof_link = ?,
             proof_note = ?,
             status = 'PENDING',
+            resubmission_count = resubmission_count + 1,
             rejection_reason = '',
             ai_recommendation = '',
             ai_reason = '',
@@ -203,11 +249,12 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
 
         // Audit log
         await env.DB.prepare(`
-          INSERT INTO mission_audit_logs (id, mission_id, submission_id, user_id, action, actor, details, created_at)
-          VALUES (?, ?, ?, ?, 'SUBMIT', ?, ?, ?)
+          INSERT INTO mission_audit_logs (id, mission_id, mission_title, submission_id, user_id, action, actor, details, created_at)
+          VALUES (?, ?, ?, ?, ?, 'SUBMIT', ?, ?, ?)
         `).bind(
           `log_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
           mission.id,
+          mission.title || '',
           existingUserSub.id,
           member.id,
           member.display_name || member.username || member.id,
@@ -255,11 +302,12 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
         nowIso
       ),
       env.DB.prepare(`
-        INSERT INTO mission_audit_logs (id, mission_id, submission_id, user_id, action, actor, details, created_at)
-        VALUES (?, ?, ?, ?, 'SUBMIT', ?, ?, ?)
+        INSERT INTO mission_audit_logs (id, mission_id, mission_title, submission_id, user_id, action, actor, details, created_at)
+        VALUES (?, ?, ?, ?, ?, 'SUBMIT', ?, ?, ?)
       `).bind(
         `log_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
         mission.id,
+        mission.title || '',
         submissionId,
         member.id,
         member.display_name || member.username || member.id,

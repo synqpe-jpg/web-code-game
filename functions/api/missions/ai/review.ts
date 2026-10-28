@@ -87,91 +87,91 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
     const aiActor = `AI:${aiAuth.keyRecord?.key_name || 'AI Reviewer'}`;
     const nowIso = new Date().toISOString();
 
-    // MODE 1: AI_AUTO (AI has authority to immediately approve or reject)
-    if (mission.review_mode === 'AI_AUTO') {
-      if (recommendation === 'APPROVE') {
-        const approveRes = await executeApproveReward(env.DB, submission.id, aiActor);
-        if (!approveRes.success) {
-          return new Response(
-            JSON.stringify({ success: false, message: approveRes.error || 'Lỗi khi AI thực thi duyệt tự động.' }),
-            { status: 400, headers: CORS_HEADERS }
-          );
-        }
-
-        // Also record AI reasoning
-        await env.DB.prepare(`
-          UPDATE mission_submissions SET
-            ai_recommendation = 'APPROVE',
-            ai_reason = ?,
-            ai_reviewed_at = ?
-          WHERE id = ?
-        `).bind(String(reason || '').trim(), nowIso, submission.id).run();
-
+    // 1. AI APPROVE: Chốt cuối và trả thưởng ngay lập tức
+    if (recommendation === 'APPROVE') {
+      const approveRes = await executeApproveReward(env.DB, submission.id, aiActor);
+      if (!approveRes.success) {
         return new Response(
-          JSON.stringify({
-            success: true,
-            actionTaken: 'AUTO_APPROVED',
-            message: 'AI đã tự động duyệt và trao thưởng thành công!',
-            rewardDelivered: approveRes.rewardDelivered,
-          }),
-          { status: 200, headers: CORS_HEADERS }
-        );
-      } else if (recommendation === 'REJECT') {
-        const rejectRes = await executeRejectSubmission(env.DB, submission.id, aiActor, reason);
-        if (!rejectRes.success) {
-          return new Response(
-            JSON.stringify({ success: false, message: rejectRes.error || 'Lỗi khi AI thực thi từ chối tự động.' }),
-            { status: 400, headers: CORS_HEADERS }
-          );
-        }
-
-        // Also record AI reasoning
-        await env.DB.prepare(`
-          UPDATE mission_submissions SET
-            ai_recommendation = 'REJECT',
-            ai_reason = ?,
-            ai_reviewed_at = ?
-          WHERE id = ?
-        `).bind(String(reason || '').trim(), nowIso, submission.id).run();
-
-        return new Response(
-          JSON.stringify({
-            success: true,
-            actionTaken: 'AUTO_REJECTED',
-            message: 'AI đã tự động từ chối hồ sơ bài nộp.',
-          }),
-          { status: 200, headers: CORS_HEADERS }
+          JSON.stringify({ success: false, message: approveRes.error || 'Lỗi khi AI thực thi duyệt và trả thưởng.' }),
+          { status: 400, headers: CORS_HEADERS }
         );
       }
+
+      // Also record AI reasoning
+      await env.DB.prepare(`
+        UPDATE mission_submissions SET
+          ai_recommendation = 'APPROVE',
+          ai_reason = ?,
+          ai_reviewed_at = ?
+        WHERE id = ?
+      `).bind(String(reason || '').trim(), nowIso, submission.id).run();
+
+      return new Response(
+        JSON.stringify({
+          success: true,
+          actionTaken: 'AUTO_APPROVED',
+          message: 'AI đã duyệt và trao thưởng thành công ngay lập tức!',
+          rewardDelivered: approveRes.rewardDelivered,
+        }),
+        { status: 200, headers: CORS_HEADERS }
+      );
     }
 
-    // MODE 2: AI_ASSISTED or recommendation === 'NEEDS_HUMAN'
-    // Record AI proposal for Admin to review in queue
+    // 2. AI REJECT: Chốt cuối từ chối hồ sơ ngay lập tức
+    if (recommendation === 'REJECT') {
+      const rejectRes = await executeRejectSubmission(env.DB, submission.id, aiActor, reason);
+      if (!rejectRes.success) {
+        return new Response(
+          JSON.stringify({ success: false, message: rejectRes.error || 'Lỗi khi AI thực thi từ chối.' }),
+          { status: 400, headers: CORS_HEADERS }
+        );
+      }
+
+      // Also record AI reasoning
+      await env.DB.prepare(`
+        UPDATE mission_submissions SET
+          ai_recommendation = 'REJECT',
+          ai_reason = ?,
+          ai_reviewed_at = ?
+        WHERE id = ?
+      `).bind(String(reason || '').trim(), nowIso, submission.id).run();
+
+      return new Response(
+        JSON.stringify({
+          success: true,
+          actionTaken: 'AUTO_REJECTED',
+          message: 'AI đã từ chối hồ sơ bài nộp thành công.',
+        }),
+        { status: 200, headers: CORS_HEADERS }
+      );
+    }
+
+    // 3. AI NEEDS_HUMAN: Đánh dấu hồ sơ cần Admin kiểm tra thủ công
     await env.DB.batch([
       env.DB.prepare(`
         UPDATE mission_submissions SET
-          ai_recommendation = ?,
+          ai_recommendation = 'NEEDS_HUMAN',
           ai_reason = ?,
           ai_reviewed_at = ?,
           updated_at = ?
         WHERE id = ?
       `).bind(
-        recommendation,
         String(reason || '').trim(),
         nowIso,
         nowIso,
         submission.id
       ),
       env.DB.prepare(`
-        INSERT INTO mission_audit_logs (id, mission_id, submission_id, user_id, action, actor, details, created_at)
-        VALUES (?, ?, ?, ?, 'AI_RECOMMEND', ?, ?, ?)
+        INSERT INTO mission_audit_logs (id, mission_id, mission_title, submission_id, user_id, action, actor, details, created_at)
+        VALUES (?, ?, ?, ?, ?, 'AI_RECOMMEND', ?, ?, ?)
       `).bind(
         `log_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
         mission.id,
+        mission.title || '',
         submission.id,
         submission.user_id,
         aiActor,
-        `AI gửi đề xuất ${recommendation}: ${String(reason || '').trim()}`,
+        `AI đánh dấu cần người kiểm tra (NEEDS_HUMAN): ${String(reason || '').trim()}`,
         nowIso
       ),
     ]);
@@ -180,8 +180,8 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
       JSON.stringify({
         success: true,
         actionTaken: 'RECOMMENDATION_RECORDED',
-        message: 'Đã ghi nhận đề xuất của AI vào hàng chờ duyệt.',
-        recommendation,
+        message: 'Đã ghi nhận yêu cầu kiểm tra thủ công của AI vào hàng chờ duyệt.',
+        recommendation: 'NEEDS_HUMAN',
       }),
       { status: 200, headers: CORS_HEADERS }
     );

@@ -34,7 +34,7 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
     const missionId = url.searchParams.get('mission_id');
 
     let query = `
-      SELECT l.*, m.title as mission_title
+      SELECT l.*, COALESCE(NULLIF(l.mission_title, ''), m.title, l.mission_id) as mission_title
       FROM mission_audit_logs l
       LEFT JOIN missions m ON l.mission_id = m.id
       WHERE 1=1

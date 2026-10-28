@@ -105,7 +105,11 @@ export const MissionDetailModal: React.FC<MissionDetailModalProps> = ({
     }
   };
 
+  const nowMs = Date.now();
+  const isUpcoming = Boolean(mission.start_time && nowMs < new Date(mission.start_time).getTime());
+  const isExpired = Boolean(mission.end_time && nowMs > new Date(mission.end_time).getTime());
   const isQuotaExhausted = (mission.completed_count || 0) >= (mission.quota || 1);
+  const isFormBlocked = isQuotaExhausted || isUpcoming || isExpired;
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/80 backdrop-blur-md animate-fade-in">
@@ -150,9 +154,9 @@ export const MissionDetailModal: React.FC<MissionDetailModalProps> = ({
 
         {/* Scrollable Body */}
         <div className="p-5 overflow-y-auto space-y-5 flex-1">
-          {/* Quota Progress */}
+          {/* Quota Progress & Schedule Notice */}
           <div className="p-3.5 rounded-xl bg-muted/40 border border-border/60 flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs">
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 flex-wrap">
               <span className="text-muted-foreground">Tiến độ trả thưởng:</span>
               <span className="font-bold text-foreground">
                 {mission.completed_count} / {mission.quota} lượt
@@ -162,16 +166,52 @@ export const MissionDetailModal: React.FC<MissionDetailModalProps> = ({
                   Đã hết lượt
                 </span>
               )}
+              {isUpcoming && (
+                <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-cyan-500/20 text-cyan-400 border border-cyan-500/30">
+                  Sắp diễn ra
+                </span>
+              )}
+              {isExpired && (
+                <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-muted text-muted-foreground border border-border/80">
+                  Đã kết thúc
+                </span>
+              )}
             </div>
-            <div className="w-full sm:w-36 h-2 rounded-full bg-muted overflow-hidden">
-              <div
-                className="h-full bg-gradient-to-r from-primary to-accent transition-all duration-300"
-                style={{
-                  width: `${Math.min(100, Math.round(((mission.completed_count || 0) / (mission.quota || 1)) * 100))}%`,
-                }}
-              />
+            <div className="flex items-center gap-3">
+              <span className="text-[11px] text-muted-foreground font-mono">
+                {mission.views || 0} xem • {mission.participants_count || 0} người tham gia
+              </span>
+              <div className="w-24 sm:w-28 h-2 rounded-full bg-muted overflow-hidden">
+                <div
+                  className="h-full bg-gradient-to-r from-primary to-accent transition-all duration-300"
+                  style={{
+                    width: `${Math.min(100, Math.round(((mission.completed_count || 0) / (mission.quota || 1)) * 100))}%`,
+                  }}
+                />
+              </div>
             </div>
           </div>
+
+          {/* Schedule Warnings if Upcoming or Expired */}
+          {isUpcoming && (
+            <div className="p-3.5 rounded-xl bg-cyan-500/10 border border-cyan-500/30 text-xs text-cyan-300 flex items-start gap-2">
+              <Clock className="w-4 h-4 shrink-0 mt-0.5 text-cyan-400" />
+              <div>
+                <strong className="block text-cyan-400">Nhiệm vụ chưa bắt đầu</strong>
+                <span>Thời gian mở: {new Date(mission.start_time!).toLocaleString('vi-VN')}. Hệ thống chưa nhận hồ sơ bài nộp.</span>
+              </div>
+            </div>
+          )}
+
+          {isExpired && (
+            <div className="p-3.5 rounded-xl bg-amber-500/10 border border-amber-500/30 text-xs text-amber-300 flex items-start gap-2">
+              <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5 text-amber-400" />
+              <div>
+                <strong className="block text-amber-400">Nhiệm vụ đã kết thúc thời gian nhận bài</strong>
+                <span>Hạn chót: {new Date(mission.end_time!).toLocaleString('vi-VN')}. Những hồ sơ đã gửi trước đó vẫn được xử lý xét duyệt và trả thưởng bình thường.</span>
+              </div>
+            </div>
+          )}
 
           {/* Description */}
           {mission.description && (
@@ -421,7 +461,7 @@ export const MissionDetailModal: React.FC<MissionDetailModalProps> = ({
                   placeholder="https://facebook.com/groups/..."
                   value={proofLink}
                   onChange={(e) => setProofLink(e.target.value)}
-                  disabled={isSubmitting || isQuotaExhausted}
+                  disabled={isSubmitting || isFormBlocked}
                   className="w-full px-3.5 py-2.5 rounded-xl bg-muted/40 border border-border/80 text-foreground text-xs sm:text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/50 transition-all font-mono"
                 />
                 <span className="text-[11px] text-muted-foreground mt-1 block">
@@ -438,14 +478,14 @@ export const MissionDetailModal: React.FC<MissionDetailModalProps> = ({
                   placeholder="Ví dụ: Nguyễn Văn A (FB)"
                   value={proofNote}
                   onChange={(e) => setProofNote(e.target.value)}
-                  disabled={isSubmitting || isQuotaExhausted}
+                  disabled={isSubmitting || isFormBlocked}
                   className="w-full px-3.5 py-2.5 rounded-xl bg-muted/40 border border-border/80 text-foreground text-xs sm:text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/50 transition-all"
                 />
               </div>
 
               <button
                 type="submit"
-                disabled={isSubmitting || isQuotaExhausted}
+                disabled={isSubmitting || isFormBlocked}
                 className="w-full py-3 rounded-xl bg-gradient-to-r from-primary to-accent hover:opacity-90 text-white font-bold text-xs sm:text-sm shadow-glow-primary transition-all flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
               >
                 {isSubmitting ? (
@@ -453,6 +493,12 @@ export const MissionDetailModal: React.FC<MissionDetailModalProps> = ({
                     <Clock className="w-4 h-4 animate-spin" />
                     <span>Đang gửi hồ sơ...</span>
                   </>
+                ) : isUpcoming ? (
+                  <span>Nhiệm Vụ Chưa Mở (Sắp Diễn Ra)</span>
+                ) : isExpired ? (
+                  <span>Nhiệm Vụ Đã Kết Thúc Nhận Bài</span>
+                ) : isQuotaExhausted ? (
+                  <span>Nhiệm Vụ Đã Hết Lượt (Hết Quota)</span>
                 ) : (
                   <>
                     <Send className="w-4 h-4" />

@@ -10,6 +10,24 @@
 
 ## 1. DANH MỤC LỖI & CÁC BẪY ĐÃ THẤT BẠI (DO NOT REPEAT)
 
+### ISSUE-165: Bẫy Xóa Nhầm Nhật Ký Kiểm Tra Nhiệm Vụ & Thiếu Đồng Bộ Giờ Mở/Đóng Thực Tế (Missions Audit Immutability & Scheduling Enforcement)
+- **Triệu chứng**:
+  - Khi thực hiện xóa toàn diện (?force=true), hệ thống xóa cả bảng mission_audit_logs, làm mất toàn bộ vết tích kiểm toán và bằng chứng lịch sử duyệt/phát thưởng.
+  - Trường start_time và end_time có lưu trong cơ sở dữ liệu nhưng phía API nộp bài (submit.ts) không kiểm tra, dẫn tới người dùng vẫn nộp được bài trước giờ mở hoặc sau giờ đóng.
+  - Thống kê nhiệm vụ thiếu các chỉ số: views (lượt xem), participants_count (số người tham gia thực tế).
+- **Nguyên nhân gốc rễ & Các bẫy cần tránh**:
+  1. *Bẫy xóa kèm audit log khi force delete*: Bảng nhật ký kiểm tra (mission_audit_logs) phải là append-only và bất biến (immutable). Khi xóa nhiệm vụ, tuyệt đối không gọi DELETE FROM mission_audit_logs; đồng thời phải lưu sẵn mission_title vào nhật ký để khi bản ghi nhiệm vụ bị xóa, trang nhật ký vẫn hiển thị đúng tên nhiệm vụ.
+  2. *Bẫy cấu hình giờ ảo (Virtual Time Gates)*: Nếu chỉ kiểm tra ở giao diện Client (React component) mà không chặn ở Backend API (submit.ts), kẻ gian có thể gọi API trực tiếp để nộp bài trước giờ mở hoặc sau giờ đóng.
+  3. *Bẫy giá trị thưởng ảo cho mã Code*: Loại thưởng CODE nhận mã từ kho mission_reward_pools, không có giá trị tiền mặt cố định. Để reward_value = 10000 gây hiểu lầm cho người dùng và quản trị viên. Bắt buộc ép reward_value = 0 và ẩn ô nhập tiền khi chọn CODE.
+- **Giải pháp chuẩn đã kiểm chứng**:
+  1. Xóa toàn diện (?force=true) CHỈ xóa missions, mission_submissions, mission_reward_pools; BẢO LƯU 100% mission_audit_logs.
+  2. submit.ts kiểm tra nghiêm ngặt start_time và end_time; chặn nộp mới nhưng hồ sơ nộp cũ trước hạn chót vẫn duyệt và trả thưởng được.
+  3. Tính toán và hiển thị đầy đủ 7 chỉ số: views, participants_count, submissions_count, approved_count, rejected_count, rewards_claimed, quota_remaining.
+  4. Duy trì AI duyệt chốt cuối & phát thưởng ngay; nút Duyệt hàng loạt là công cụ duyệt tay hàng loạt cho Admin khi xử lý hồ sơ tồn đọng.
+- 🚫 **CÁCH SỬA ĐÃ THẤT BẠI - TUYỆT ĐỐI KHÔNG LẶP LẠI**:
+  - ❌ *Tuyệt đối KHÔNG xóa bảng mission_audit_logs dưới bất kỳ hình thức nào*: Audit log là tài sản kiểm toán bất biến.
+  - ❌ *Tuyệt đối KHÔNG chuyển luồng AI duyệt sang đề xuất*: Quyết định của AI theo yêu cầu chủ sở hữu là chốt cuối và trả thưởng ngay.
+
 ### ISSUE-164: Bẫy Giới Hạn Scope Khóa API Nhiệm Vụ & Thiếu Đồng Bộ Xác Thực Đa Kênh (Missions API Scoping & Full Access Verification)
 - **Triệu chứng**:
   - Bot AI (ví dụ Pine) hoặc các script tự động hóa bên ngoài không thể CRUD nhiệm vụ hoặc nạp kho mã vì verifyAdminAuth chỉ chấp nhận phiên đăng nhập web hoặc Master Secret, trong khi khóa API AI sinh ra chỉ được phép gọi /api/missions/ai/pending.

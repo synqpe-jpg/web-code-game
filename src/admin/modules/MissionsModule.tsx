@@ -22,6 +22,8 @@ import {
   Shield,
   Layers,
   HelpCircle,
+  Eye,
+  Users,
 } from 'lucide-react';
 import type {
   Mission,
@@ -167,14 +169,17 @@ export const MissionsModule: React.FC = () => {
       ],
       content_requirements: 'Bài viết có ít nhất 15 từ, kèm hashtag #codegameshop #choigame và ảnh minh họa sàn.',
       reward_type: 'CODE',
-      reward_value: 10000,
+      reward_value: 0,
       quota: 50,
       min_account_age_days: 0,
       max_resubmissions: 2,
-      review_mode: 'AI_ASSISTED',
+      resubmission_cooldown_seconds: 60,
+      review_mode: 'AI_AUTO',
       ai_prompt_guidelines: 'Kiểm tra xem link có công khai không, nội dung có hashtag #codegameshop và ảnh game hay không.',
       allowed_domains: 'facebook.com,fb.com,fb.watch',
       recurrence_type: 'ONCE',
+      start_time: '',
+      end_time: '',
       status: 'ACTIVE',
       sort_order: 0,
     });
@@ -217,15 +222,31 @@ export const MissionsModule: React.FC = () => {
   };
 
   const handleDeleteMission = async (id: string) => {
-    if (!window.confirm('Bạn có chắc chắn muốn xóa nhiệm vụ này? (Chỉ xóa được khi chưa có bài nộp)')) return;
+    if (!window.confirm('Bạn có chắc chắn muốn xóa nhiệm vụ này? (Chỉ xóa thường được khi chưa có bài nộp)')) return;
     setIsLoading(true);
     try {
-      const res = await missionService.deleteMission(id);
+      const res = await missionService.deleteMission(id, false);
       if (res.success) {
         showNotification('success', 'Xóa nhiệm vụ thành công!');
         loadMissions();
       } else {
-        showNotification('error', res.message || 'Không thể xóa.');
+        if (res.message && res.message.includes('hồ sơ nộp bài')) {
+          if (
+            window.confirm(
+              `${res.message}\n\nBạn có muốn XÓA TOÀN DIỆN (?force=true) không?\n(Lưu ý: Toàn bộ Nhật ký kiểm tra Audit Logs sẽ được bảo lưu bất biến để đối soát!).`
+            )
+          ) {
+            const forceRes = await missionService.deleteMission(id, true);
+            if (forceRes.success) {
+              showNotification('success', 'Xóa toàn diện thành công! Nhật ký kiểm toán được bảo tồn.');
+              loadMissions();
+            } else {
+              showNotification('error', forceRes.message || 'Lỗi khi xóa toàn diện.');
+            }
+          }
+        } else {
+          showNotification('error', res.message || 'Không thể xóa.');
+        }
       }
     } catch (err: any) {
       showNotification('error', err?.message || 'Lỗi khi xóa.');
@@ -242,6 +263,7 @@ export const MissionsModule: React.FC = () => {
       if (res.success) {
         showNotification('success', `Duyệt thành công! Đã trao thưởng: ${res.rewardDelivered || ''}`);
         loadSubmissions();
+        loadMissions();
       } else {
         showNotification('error', res.message || 'Lỗi duyệt hồ sơ.');
       }
@@ -262,6 +284,7 @@ export const MissionsModule: React.FC = () => {
         setRejectingSubId(null);
         setRejectionReason('');
         loadSubmissions();
+        loadMissions();
       } else {
         showNotification('error', res.message || 'Lỗi khi từ chối.');
       }
@@ -272,14 +295,15 @@ export const MissionsModule: React.FC = () => {
     }
   };
 
-  const handleBatchApproveAi = async () => {
-    if (!window.confirm('Bạn có chắc chắn muốn duyệt nhanh TẤT CẢ các hồ sơ mà AI đã đề xuất "Nên Duyệt"?')) return;
+  const handleBatchApprove = async () => {
+    if (!window.confirm('Bạn có chắc chắn muốn duyệt nhanh TẤT CẢ các hồ sơ đang chờ trong danh sách và trao thưởng ngay lập tức?')) return;
     setIsLoading(true);
     try {
-      const res = await missionService.batchApproveAi(filterMissionId);
+      const res = await missionService.batchApprove(undefined, filterMissionId);
       if (res.success) {
-        showNotification('success', res.message || `Đã duyệt ${res.successCount} hồ sơ theo AI.`);
+        showNotification('success', res.message || `Đã duyệt ${res.successCount} hồ sơ.`);
         loadSubmissions();
+        loadMissions();
       } else {
         showNotification('error', res.message || 'Lỗi khi duyệt hàng loạt.');
       }
@@ -475,8 +499,8 @@ export const MissionsModule: React.FC = () => {
                   <th className="p-3.5">Tiêu đề / Loại</th>
                   <th className="p-3.5">Kênh đích</th>
                   <th className="p-3.5">Phần thưởng</th>
-                  <th className="p-3.5">Tiến độ Quota</th>
-                  <th className="p-3.5">Chế độ duyệt</th>
+                  <th className="p-3.5">Thống kê 7 chỉ số (Xem, Người, Nộp, Duyệt, Quota)</th>
+                  <th className="p-3.5">Lịch trình & Chế độ</th>
                   <th className="p-3.5">Trạng thái</th>
                   <th className="p-3.5 text-right">Thao tác</th>
                 </tr>
@@ -489,84 +513,142 @@ export const MissionsModule: React.FC = () => {
                     </td>
                   </tr>
                 ) : (
-                  missions.map((m) => (
-                    <tr key={m.id} className="hover:bg-muted/20 transition-colors">
-                      <td className="p-3.5 min-w-[200px]">
-                        <span className="font-bold text-foreground text-sm block">{m.title}</span>
-                        <span className="text-[10px] text-muted-foreground uppercase font-mono tracking-tight">
-                          {m.task_type}
-                        </span>
-                      </td>
+                  missions.map((m) => {
+                    const stats = m.stats;
+                    const viewsCount = stats?.views ?? m.views ?? 0;
+                    const participantsCount = stats?.participants_count ?? m.participants_count ?? 0;
+                    const totalSubmissions = stats?.submissions_count ?? stats?.total_submissions ?? 0;
+                    const approvedSubmissions = stats?.approved_count ?? stats?.approved_submissions ?? 0;
+                    const rejectedSubmissions = stats?.rejected_count ?? stats?.rejected_submissions ?? 0;
+                    const rewardsDelivered = m.completed_count || 0;
+                    const remainingQuota = stats?.quota_remaining ?? Math.max(0, (m.quota || 0) - rewardsDelivered);
 
-                      <td className="p-3.5">
-                        {m.target_channel_url ? (
-                          <a
-                            href={m.target_channel_url}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="text-primary hover:underline flex items-center gap-1 max-w-[150px] truncate"
+                    return (
+                      <tr key={m.id} className="hover:bg-muted/20 transition-colors">
+                        <td className="p-3.5 min-w-[180px]">
+                          <span className="font-bold text-foreground text-sm block">{m.title}</span>
+                          <span className="text-[10px] text-muted-foreground uppercase font-mono tracking-tight">
+                            {m.task_type}
+                          </span>
+                        </td>
+
+                        <td className="p-3.5">
+                          {m.target_channel_url ? (
+                            <a
+                              href={m.target_channel_url}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="text-primary hover:underline flex items-center gap-1 max-w-[150px] truncate"
+                            >
+                              <span className="truncate">{m.target_channel_name || 'Liên kết'}</span>
+                              <ExternalLink className="w-3 h-3 shrink-0" />
+                            </a>
+                          ) : (
+                            <span className="text-muted-foreground">—</span>
+                          )}
+                        </td>
+
+                        <td className="p-3.5 whitespace-nowrap">
+                          {m.reward_type === 'CODE' ? (
+                            <div>
+                              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-400 font-semibold text-[11px]">
+                                <Gift className="w-3 h-3" />
+                                Mã Code (Kho riêng)
+                              </span>
+                              <span className="text-[10px] text-muted-foreground block mt-0.5 font-mono">
+                                Kho còn: {m.available_codes_count ?? stats?.available_codes ?? 0} mã
+                              </span>
+                            </div>
+                          ) : (
+                            <div>
+                              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-400 font-semibold text-[11px]">
+                                <Wallet className="w-3 h-3" />
+                                +{(Number(m.reward_value) || 0).toLocaleString('vi-VN')}đ
+                              </span>
+                              <span className="text-[10px] text-muted-foreground block mt-0.5">Cộng số dư ví</span>
+                            </div>
+                          )}
+                        </td>
+
+                        <td className="p-3.5 min-w-[220px]">
+                          <div className="space-y-1 text-[11px]">
+                            <div className="flex items-center gap-3">
+                              <span className="inline-flex items-center gap-1 text-slate-300 font-medium" title="Lượt xem">
+                                <Eye className="w-3 h-3 text-cyan-400" />
+                                <strong>{viewsCount}</strong> xem
+                              </span>
+                              <span className="inline-flex items-center gap-1 text-slate-300 font-medium" title="Số người tham gia">
+                                <Users className="w-3 h-3 text-indigo-400" />
+                                <strong>{participantsCount}</strong> người
+                              </span>
+                              <span className="inline-flex items-center gap-1 text-slate-300 font-medium" title="Tổng hồ sơ đã nộp">
+                                <FileText className="w-3 h-3 text-amber-400" />
+                                <strong>{totalSubmissions}</strong> nộp
+                              </span>
+                            </div>
+
+                            <div className="flex items-center gap-2 text-[10px] text-muted-foreground">
+                              <span className="text-emerald-400 font-semibold">Duyệt: {approvedSubmissions}</span>
+                              <span>•</span>
+                              <span className="text-rose-400 font-semibold">Từ chối: {rejectedSubmissions}</span>
+                              <span>•</span>
+                              <span className="text-purple-300 font-semibold">Đã trao: {rewardsDelivered}</span>
+                            </div>
+
+                            <div className="flex items-center justify-between text-[10px] pt-0.5">
+                              <span className="text-muted-foreground">Quota: {rewardsDelivered}/{m.quota}</span>
+                              <span className="text-primary font-bold">Còn: {remainingQuota}</span>
+                            </div>
+                            <div className="w-full h-1.5 rounded-full bg-muted overflow-hidden">
+                              <div
+                                className="h-full bg-primary"
+                                style={{
+                                  width: `${Math.min(100, Math.round((rewardsDelivered / (m.quota || 1)) * 100))}%`,
+                                }}
+                              />
+                            </div>
+                          </div>
+                        </td>
+
+                        <td className="p-3.5 whitespace-nowrap">
+                          <span className="text-[11px] font-semibold text-slate-300 block">
+                            {m.review_mode === 'AI_AUTO'
+                              ? '⚡ AI Tự Duyệt'
+                              : m.review_mode === 'AI_ASSISTED'
+                              ? '🤖 AI Hỗ Trợ'
+                              : '👤 Duyệt Tay'}
+                          </span>
+                          {(m.start_time || m.end_time) && (
+                            <div className="text-[10px] text-muted-foreground mt-1 space-y-0.5">
+                              {m.start_time && (
+                                <span className="block text-cyan-400/90 font-mono">
+                                  Mở: {new Date(m.start_time).toLocaleDateString('vi-VN')} {new Date(m.start_time).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })}
+                                </span>
+                              )}
+                              {m.end_time && (
+                                <span className="block text-amber-400/90 font-mono">
+                                  Đóng: {new Date(m.end_time).toLocaleDateString('vi-VN')} {new Date(m.end_time).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })}
+                                </span>
+                              )}
+                            </div>
+                          )}
+                        </td>
+
+                        <td className="p-3.5 whitespace-nowrap">
+                          <span
+                            className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
+                              m.status === 'ACTIVE'
+                                ? 'bg-emerald-500/20 text-emerald-400'
+                                : m.status === 'PAUSED'
+                                ? 'bg-amber-500/20 text-amber-400'
+                                : 'bg-muted text-muted-foreground'
+                            }`}
                           >
-                            <span className="truncate">{m.target_channel_name || 'Liên kết'}</span>
-                            <ExternalLink className="w-3 h-3 shrink-0" />
-                          </a>
-                        ) : (
-                          <span className="text-muted-foreground">—</span>
-                        )}
-                      </td>
-
-                      <td className="p-3.5 whitespace-nowrap">
-                        {m.reward_type === 'CODE' ? (
-                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-400 font-semibold text-[11px]">
-                            <Gift className="w-3 h-3" />
-                            Mã Code (Còn {m.available_codes_count || 0})
+                            {m.status === 'ACTIVE' ? 'Đang Mở' : m.status === 'PAUSED' ? 'Tạm Dừng' : 'Đã Đóng'}
                           </span>
-                        ) : (
-                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-400 font-semibold text-[11px]">
-                            <Wallet className="w-3 h-3" />
-                            +{(Number(m.reward_value) || 0).toLocaleString('vi-VN')}đ
-                          </span>
-                        )}
-                      </td>
+                        </td>
 
-                      <td className="p-3.5 whitespace-nowrap">
-                        <span className="font-mono font-bold text-foreground">
-                          {m.completed_count} / {m.quota}
-                        </span>
-                        <div className="w-20 h-1.5 rounded-full bg-muted mt-1 overflow-hidden">
-                          <div
-                            className="h-full bg-primary"
-                            style={{
-                              width: `${Math.min(100, Math.round(((m.completed_count || 0) / (m.quota || 1)) * 100))}%`,
-                            }}
-                          />
-                        </div>
-                      </td>
-
-                      <td className="p-3.5 whitespace-nowrap">
-                        <span className="text-[11px] font-semibold text-slate-300">
-                          {m.review_mode === 'AI_AUTO'
-                            ? '⚡ AI Tự Duyệt'
-                            : m.review_mode === 'AI_ASSISTED'
-                            ? '🤖 AI Hỗ Trợ'
-                            : '👤 Duyệt Tay'}
-                        </span>
-                      </td>
-
-                      <td className="p-3.5 whitespace-nowrap">
-                        <span
-                          className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
-                            m.status === 'ACTIVE'
-                              ? 'bg-emerald-500/20 text-emerald-400'
-                              : m.status === 'PAUSED'
-                              ? 'bg-amber-500/20 text-amber-400'
-                              : 'bg-muted text-muted-foreground'
-                          }`}
-                        >
-                          {m.status === 'ACTIVE' ? 'Đang Mở' : m.status === 'PAUSED' ? 'Tạm Dừng' : 'Đã Đóng'}
-                        </span>
-                      </td>
-
-                      <td className="p-3.5 text-right whitespace-nowrap space-x-1">
+                        <td className="p-3.5 text-right whitespace-nowrap space-x-1">
                         <button
                           onClick={() => {
                             setEditingMission(m);
@@ -587,8 +669,9 @@ export const MissionsModule: React.FC = () => {
                         </button>
                       </td>
                     </tr>
-                  ))
-                )}
+                  );
+                })
+              )}
               </tbody>
             </table>
           </div>
@@ -638,11 +721,11 @@ export const MissionsModule: React.FC = () => {
             </div>
 
             <button
-              onClick={handleBatchApproveAi}
+              onClick={handleBatchApprove}
               className="cg-btn cg-btn--small bg-primary hover:bg-primary-hover text-white flex items-center gap-1.5 self-start sm:self-auto"
             >
               <Zap className="w-3.5 h-3.5" />
-              <span>Duyệt nhanh theo AI (Nên Duyệt)</span>
+              <span>Duyệt hàng loạt hồ sơ đang chờ (Admin)</span>
             </button>
           </div>
 
@@ -1243,12 +1326,41 @@ export const MissionsModule: React.FC = () => {
                   </div>
                 ) : (
                   <div>
-                    <label className="block font-semibold text-muted-foreground mb-1">Kho mã riêng</label>
-                    <span className="text-[11px] text-muted-foreground block pt-2">
-                      Sau khi lưu nhiệm vụ, bạn có thể nạp mã vào tab "Kho Mã Thưởng".
-                    </span>
+                    <label className="block font-semibold text-muted-foreground mb-1">Cơ chế phát thưởng Giftcode</label>
+                    <div className="p-2.5 rounded-xl bg-amber-500/10 border border-amber-500/20 text-xs text-amber-300">
+                      Kho mã quà tặng riêng là nguồn duy nhất phát thưởng cho thành viên khi duyệt bài. Không sử dụng giá trị tiền mặt.
+                    </div>
                   </div>
                 )}
+              </div>
+
+              {/* Lên lịch giờ bắt đầu & kết thúc */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 p-3.5 rounded-2xl bg-muted/30 border border-border/60">
+                <div>
+                  <label className="block font-semibold text-muted-foreground mb-1">Giờ bắt đầu (Mở nhiệm vụ)</label>
+                  <input
+                    type="datetime-local"
+                    value={editingMission.start_time ? editingMission.start_time.substring(0, 16) : ''}
+                    onChange={(e) => setEditingMission({ ...editingMission, start_time: e.target.value })}
+                    className="w-full px-3 py-2 rounded-xl bg-card border border-border/80 text-foreground focus:outline-none text-xs"
+                  />
+                  <span className="text-[11px] text-muted-foreground block pt-1">
+                    Để trống để mở ngay lập tức (Mặc định). Chưa tới giờ: chưa mở với người dùng.
+                  </span>
+                </div>
+
+                <div>
+                  <label className="block font-semibold text-muted-foreground mb-1">Giờ kết thúc (Đóng nhận bài)</label>
+                  <input
+                    type="datetime-local"
+                    value={editingMission.end_time ? editingMission.end_time.substring(0, 16) : ''}
+                    onChange={(e) => setEditingMission({ ...editingMission, end_time: e.target.value })}
+                    className="w-full px-3 py-2 rounded-xl bg-card border border-border/80 text-foreground focus:outline-none text-xs"
+                  />
+                  <span className="text-[11px] text-muted-foreground block pt-1">
+                    Để trống nếu không giới hạn. Quá giờ: tự đóng với người mới, hồ sơ đang chờ vẫn xử lý được.
+                  </span>
+                </div>
               </div>
 
               {/* Quota & Review Mode */}
@@ -1267,13 +1379,13 @@ export const MissionsModule: React.FC = () => {
                 <div>
                   <label className="block font-semibold text-muted-foreground mb-1">Chế độ duyệt</label>
                   <select
-                    value={editingMission.review_mode || 'AI_ASSISTED'}
+                    value={editingMission.review_mode || 'AI_AUTO'}
                     onChange={(e) => setEditingMission({ ...editingMission, review_mode: e.target.value as any })}
                     className="w-full px-3 py-2 rounded-xl bg-muted/40 border border-border/80 text-foreground focus:outline-none font-semibold"
                   >
-                    <option value="AI_ASSISTED">AI Hỗ Trợ (Khuyến nghị)</option>
-                    <option value="AI_AUTO">AI Tự Duyệt Tự Động</option>
-                    <option value="MANUAL">Quản Trị Duyệt Tay</option>
+                    <option value="AI_AUTO">AI Tự Duyệt & Phát Thưởng Ngay (Mặc định)</option>
+                    <option value="AI_ASSISTED">AI Hỗ Trợ Đánh Giá</option>
+                    <option value="MANUAL">Quản Trị Duyệt Thủ Công</option>
                   </select>
                 </div>
 
@@ -1318,7 +1430,7 @@ export const MissionsModule: React.FC = () => {
               </div>
 
               {/* Anti Cheat & Restrictions */}
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 p-3.5 rounded-2xl bg-muted/30 border border-border/60">
+              <div className="grid grid-cols-1 sm:grid-cols-4 gap-3 p-3.5 rounded-2xl bg-muted/30 border border-border/60">
                 <div>
                   <label className="block font-semibold text-muted-foreground mb-1">Miền link cho phép</label>
                   <input
@@ -1337,6 +1449,17 @@ export const MissionsModule: React.FC = () => {
                     max={10}
                     value={editingMission.max_resubmissions ?? 2}
                     onChange={(e) => setEditingMission({ ...editingMission, max_resubmissions: Number(e.target.value) })}
+                    className="w-full px-3 py-2 rounded-xl bg-card border border-border/80 text-foreground focus:outline-none"
+                  />
+                </div>
+
+                <div>
+                  <label className="block font-semibold text-muted-foreground mb-1">Giãn cách nộp lại (giây)</label>
+                  <input
+                    type="number"
+                    min={0}
+                    value={editingMission.resubmission_cooldown_seconds ?? 60}
+                    onChange={(e) => setEditingMission({ ...editingMission, resubmission_cooldown_seconds: Number(e.target.value) })}
                     className="w-full px-3 py-2 rounded-xl bg-card border border-border/80 text-foreground focus:outline-none"
                   />
                 </div>

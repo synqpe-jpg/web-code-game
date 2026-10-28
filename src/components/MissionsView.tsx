@@ -59,6 +59,29 @@ export const MissionsView: React.FC<MissionsViewProps> = ({
     fetchMissions();
   }, [currentUser]);
 
+  // Select mission & track views
+  const handleSelectMission = async (mission: Mission) => {
+    setSelectedMission(mission);
+    try {
+      const res = await missionService.getMission(mission.id);
+      if (res.success && res.mission) {
+        setSelectedMission(res.mission);
+        setMissions((prev) =>
+          prev.map((m) =>
+            m.id === mission.id
+              ? {
+                  ...m,
+                  views: res.mission?.views ?? (m.views || 0) + 1,
+                  participants_count: res.mission?.participants_count ?? m.participants_count,
+                  completed_count: res.mission?.completed_count ?? m.completed_count,
+                }
+              : m
+          )
+        );
+      }
+    } catch {}
+  };
+
   // Update selected mission if mission list updates
   const handleSubmissionSuccess = (updatedSub: MissionSubmission) => {
     setMissions((prev) =>
@@ -255,21 +278,38 @@ export const MissionsView: React.FC<MissionsViewProps> = ({
               const sub = mission.user_submission;
               const isFull = (mission.completed_count || 0) >= (mission.quota || 1);
               const remaining = Math.max(0, (mission.quota || 1) - (mission.completed_count || 0));
+              const nowMs = Date.now();
+              const isUpcoming = Boolean(mission.start_time && nowMs < new Date(mission.start_time).getTime());
+              const isExpired = Boolean(mission.end_time && nowMs > new Date(mission.end_time).getTime());
 
               return (
                 <div
                   key={mission.id}
-                  onClick={() => setSelectedMission(mission)}
+                  onClick={() => handleSelectMission(mission)}
                   className="group relative p-5 rounded-2xl sm:rounded-3xl bg-card border border-border/80 hover:border-primary/50 hover:shadow-xl transition-all duration-200 cursor-pointer flex flex-col justify-between overflow-hidden"
                 >
                   <div className="space-y-3">
                     {/* Top Row: Type & Reward Badges */}
                     <div className="flex items-center justify-between gap-2 flex-wrap">
-                      <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-primary/10 text-primary-light border border-primary/20">
-                        {mission.task_type === 'POST_SHARE_GROUP_PAGE'
-                          ? 'Đăng Bài MXH'
-                          : 'Nhiệm Vụ'}
-                      </span>
+                      <div className="flex items-center gap-1.5 flex-wrap">
+                        <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-primary/10 text-primary-light border border-primary/20">
+                          {mission.task_type === 'POST_SHARE_GROUP_PAGE'
+                            ? 'Đăng Bài MXH'
+                            : 'Nhiệm Vụ'}
+                        </span>
+                        {isUpcoming && (
+                          <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-cyan-500/15 text-cyan-400 border border-cyan-500/30 flex items-center gap-1">
+                            <Clock className="w-3 h-3" />
+                            Sắp diễn ra
+                          </span>
+                        )}
+                        {isExpired && (
+                          <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-muted text-muted-foreground border border-border/60 flex items-center gap-1">
+                            <Clock className="w-3 h-3" />
+                            Đã đóng
+                          </span>
+                        )}
+                      </div>
 
                       {mission.reward_type === 'CODE' ? (
                         <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-500/15 text-amber-400 border border-amber-500/25 flex items-center gap-1">
@@ -320,10 +360,17 @@ export const MissionsView: React.FC<MissionsViewProps> = ({
                         />
                       </div>
                     </div>
+
+                    {/* Views & Participants metric bar */}
+                    <div className="flex items-center gap-3 text-[10px] text-muted-foreground pt-0.5">
+                      <span>{mission.views || 0} lượt xem</span>
+                      <span>•</span>
+                      <span>{mission.participants_count || 0} người tham gia</span>
+                    </div>
                   </div>
 
                   {/* Bottom User Status Row */}
-                  <div className="pt-4 border-t border-border/50 mt-4 flex items-center justify-between gap-2">
+                  <div className="pt-3 border-t border-border/50 mt-3 flex items-center justify-between gap-2">
                     {sub ? (
                       sub.status === 'APPROVED' ? (
                         <span className="text-xs font-bold text-emerald-400 flex items-center gap-1">

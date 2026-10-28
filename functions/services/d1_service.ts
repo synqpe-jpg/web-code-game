@@ -433,6 +433,7 @@ export async function ensureMissionSchema(db: D1Database): Promise<void> {
       CREATE TABLE IF NOT EXISTS mission_audit_logs (
         id TEXT PRIMARY KEY,
         mission_id TEXT NOT NULL,
+        mission_title TEXT DEFAULT '',
         submission_id TEXT NOT NULL,
         user_id TEXT NOT NULL,
         action TEXT NOT NULL,
@@ -441,6 +442,10 @@ export async function ensureMissionSchema(db: D1Database): Promise<void> {
         created_at TEXT NOT NULL DEFAULT (datetime('now'))
       );
     `).run().catch(() => {});
+
+    await db.prepare("ALTER TABLE missions ADD COLUMN views INTEGER NOT NULL DEFAULT 0;").run().catch(() => {});
+    await db.prepare("ALTER TABLE missions ADD COLUMN resubmission_cooldown_seconds INTEGER NOT NULL DEFAULT 60;").run().catch(() => {});
+    await db.prepare("ALTER TABLE mission_audit_logs ADD COLUMN mission_title TEXT DEFAULT '';").run().catch(() => {});
 
     await db.prepare('CREATE INDEX IF NOT EXISTS idx_mission_audit ON mission_audit_logs(mission_id, created_at);').run().catch(() => {});
 
