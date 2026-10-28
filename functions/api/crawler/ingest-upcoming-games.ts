@@ -746,7 +746,8 @@ function validateAndInspectImageBytes(bytes: Uint8Array): ImageCheckResult {
 
 /**
  * Tự động bảo vệ & phục hồi dữ liệu gốc chuẩn xác (Self-Healing Safeguard)
- * Ngăn chặn tuyệt đối việc bot hoặc API gửi thiếu trường làm đè mất ngày giờ mở server hoặc thể loại chuẩn của game.
+ * Ngăn chặn việc bot hoặc API gửi thiếu trường làm đè mất thể loại, NPH hoặc URL chuẩn của game.
+ * TUYỆT ĐỐI KHÔNG ghi đè trường releaseDate của game để bot và admin toàn quyền cập nhật giờ ra mắt.
  */
 function sanitizeAndSafeguardUpcomingGames(list: any[]): { list: any[]; changed: boolean } {
   let changed = false;
@@ -755,12 +756,11 @@ function sanitizeAndSafeguardUpcomingGames(list: any[]): { list: any[]; changed:
     const slugLower = String(g.slug || '').toLowerCase();
     const nameLower = String(g.name || '').toLowerCase();
 
-    // 1. Strinova VN: Phục hồi ngày 23/10 09:00, category Bắn Súng Anime 3D, platform PC, Android, iOS
+    // 1. Strinova VN: Phục hồi category Bắn Súng Anime 3D, platform PC, Android, iOS nếu bị mất
     if (slugLower.includes('strinova') || nameLower.includes('strinova')) {
-      if (!g.releaseDate || !g.releaseDate.includes('09:00') || g.category === 'Game Mới' || g.publisher === 'Nhà phát hành' || g.publisher !== 'Gzone') {
+      if (g.category === 'Game Mới' || g.publisher === 'Nhà phát hành' || !g.publisher) {
         g.name = 'Strinova VN';
         g.publisher = 'Gzone';
-        g.releaseDate = '2026-10-23T09:00:00+07:00';
         g.category = 'Bắn Súng Anime 3D';
         g.platform = 'PC, Android, iOS';
         if (!g.preRegUrl) g.preRegUrl = 'https://strinova.vplay.vn';
@@ -768,12 +768,11 @@ function sanitizeAndSafeguardUpcomingGames(list: any[]): { list: any[]; changed:
       }
     }
 
-    // 2. Hiệp Khách Hành: Phục hồi ngày 01/11 10:00, NPH Joy Game, category Võ Lâm MMORPG, platform Android, iOS, PC
+    // 2. Hiệp Khách Hành: Phục hồi NPH Joy Game, category Võ Lâm MMORPG, platform Android, iOS, PC
     if (slugLower.includes('hiep-khach-hanh') || nameLower.includes('hiep khach hanh') || nameLower.includes('hiệp khách hành')) {
-      if (!g.releaseDate || g.releaseDate.startsWith('2026-10-23') || g.releaseDate.startsWith('2026-10-28') || g.category === 'Game Mới' || g.publisher === 'Nhà phát hành' || g.publisher !== 'Joy Game') {
+      if (g.category === 'Game Mới' || g.publisher === 'Nhà phát hành' || !g.publisher) {
         g.name = 'Hiệp Khách Hành';
         g.publisher = 'Joy Game';
-        g.releaseDate = '2026-11-01T10:00:00+07:00';
         g.category = 'Võ Lâm MMORPG';
         g.platform = 'Android, iOS, PC';
         if (!g.preRegUrl) g.preRegUrl = 'https://hiepkhachhanh.joygame.vn';
@@ -781,12 +780,11 @@ function sanitizeAndSafeguardUpcomingGames(list: any[]): { list: any[]; changed:
       }
     }
 
-    // 3. Tiên Giới: Phục hồi ngày 28/10 10:00, NPH VGP, category Nhập Vai Tiên Hiệp, platform Android, iOS
+    // 3. Tiên Giới: Phục hồi NPH VGP, category Nhập Vai Tiên Hiệp, platform Android, iOS
     if (slugLower.includes('tien-gioi') || nameLower.includes('tien gioi') || nameLower.includes('tiên giới')) {
-      if (!g.releaseDate || g.releaseDate.startsWith('2026-10-25') || g.category === 'Game Mới' || g.publisher === 'Nhà phát hành' || g.publisher !== 'VGP') {
+      if (g.category === 'Game Mới' || g.publisher === 'Nhà phát hành' || !g.publisher) {
         g.name = 'Tiên Giới';
         g.publisher = 'VGP';
-        g.releaseDate = '2026-10-28T10:00:00+07:00';
         g.category = 'Nhập Vai Tiên Hiệp';
         g.platform = 'Android, iOS';
         if (!g.preRegUrl) g.preRegUrl = 'https://tiengioi.vgp.vn';
@@ -794,60 +792,55 @@ function sanitizeAndSafeguardUpcomingGames(list: any[]): { list: any[]; changed:
       }
     }
 
-    // 4. Monster Hunter Outlanders: Giờ mở server 10:00 ngày 29/10/2026, NPH Garena
+    // 4. Monster Hunter Outlanders: Phục hồi NPH Garena, category Săn Quái Thế Giới Mở
     if (slugLower.includes('monster-hunter') || nameLower.includes('monster hunter')) {
-      if (!g.releaseDate || g.releaseDate.includes('00:00') || g.releaseDate.startsWith('2026-10-23') || g.category === 'Game Mới' || g.publisher !== 'Garena') {
+      if (g.category === 'Game Mới' || g.publisher === 'Nhà phát hành' || !g.publisher) {
         g.name = 'Monster Hunter Outlanders';
         g.publisher = 'Garena';
-        g.releaseDate = '2026-10-29T10:00:00+07:00';
         g.category = 'Săn Quái Thế Giới Mở';
         g.platform = g.platform || 'Android, iOS';
         changed = true;
       }
     }
 
-    // 5. Đậu Nhỏ Nổi Giận: Ngày 30/10 10:00, NPH CMN Online
+    // 5. Đậu Nhỏ Nổi Giận: NPH CMN Online, category Chiến Thuật Tháp Thủ
     if (slugLower.includes('dau-nho-noi-gian') || nameLower.includes('dau nho noi gian') || nameLower.includes('đậu nhỏ nổi giận')) {
-      if (!g.releaseDate || g.releaseDate.startsWith('2026-11-05') || g.category === 'Game Mới' || g.publisher !== 'CMN Online') {
+      if (g.category === 'Game Mới' || g.publisher === 'Nhà phát hành' || !g.publisher) {
         g.name = 'Đậu Nhỏ Nổi Giận';
         g.publisher = 'CMN Online';
-        g.releaseDate = '2026-10-30T10:00:00+07:00';
         g.category = 'Chiến Thuật Tháp Thủ';
         g.platform = 'Android, iOS';
         changed = true;
       }
     }
 
-    // 6. Sword x Staff: Ngày 04/11 10:00, NPH Funtap
+    // 6. Sword x Staff: NPH Funtap, category Hành Động Chặt Chém
     if (slugLower.includes('sword-x-staff') || nameLower.includes('sword x staff') || nameLower.includes('kiếm vũ tiên phong')) {
-      if (!g.releaseDate || g.releaseDate.startsWith('2026-11-12') || g.category === 'Game Mới' || g.publisher !== 'Funtap') {
+      if (g.category === 'Game Mới' || g.publisher === 'Nhà phát hành' || !g.publisher) {
         g.name = 'Sword x Staff';
         g.publisher = 'Funtap';
-        g.releaseDate = '2026-11-04T10:00:00+07:00';
         g.category = 'Hành Động Chặt Chém';
         g.platform = 'Android, iOS, PC';
         changed = true;
       }
     }
 
-    // 7. ANANTA: Ngày 15/01/2027 10:00, NPH VNGGames
+    // 7. ANANTA: NPH VNGGames, category Thế Giới Mở Anime
     if (slugLower.includes('ananta') || nameLower.includes('ananta')) {
-      if (!g.releaseDate || g.releaseDate.startsWith('2026-12-01') || g.publisher !== 'VNGGames') {
+      if (g.category === 'Game Mới' || g.publisher === 'Nhà phát hành' || !g.publisher) {
         g.name = 'ANANTA';
         g.publisher = 'VNGGames';
-        g.releaseDate = '2027-01-15T10:00:00+07:00';
         g.category = 'Thế Giới Mở Anime';
         g.platform = 'PC, Android, iOS';
         changed = true;
       }
     }
 
-    // 8. Mộng Cảnh Tam Quốc: Không có ngày cụ thể (null), NPH SohaGame
+    // 8. Mộng Cảnh Tam Quốc: NPH SohaGame, category Chiến Thuật Thẻ Tướng
     if (slugLower.includes('mong-canh-tam-quoc') || nameLower.includes('mong canh tam quoc') || nameLower.includes('mộng cảnh tam quốc')) {
-      if (g.releaseDate !== null && g.releaseDate !== undefined && String(g.releaseDate).trim() !== '') {
+      if (g.category === 'Game Mới' || g.publisher === 'Nhà phát hành' || !g.publisher) {
         g.name = 'Mộng Cảnh Tam Quốc';
         g.publisher = 'SohaGame';
-        g.releaseDate = null;
         g.category = 'Chiến Thuật Thẻ Tướng';
         g.platform = 'Android, iOS';
         changed = true;
@@ -1049,6 +1042,8 @@ export async function onRequestGet(context: { request: Request; env: Env }): Pro
       launchedCount,
       supportedActions: [
         'ingest',
+        'set_release_date',
+        'update_release_date',
         'upload_icon',
         'delete_icon',
         'update_icon',
@@ -1069,7 +1064,12 @@ export async function onRequestGet(context: { request: Request; env: Env }): Pro
       cache_note: isFallbackMode ? 'Dữ liệu được phục vụ từ bộ đệm an toàn lúc 18:00 do máy chủ D1 tạm thời gián đoạn' : undefined,
       timestamp: new Date().toISOString(),
     }),
-    { headers: CORS_HEADERS }
+    {
+      headers: {
+        ...CORS_HEADERS,
+        'Cache-Control': 'no-cache, no-store, must-revalidate',
+      },
+    }
   );
 }
 
@@ -1386,7 +1386,151 @@ export async function onRequestPost(context: { request: Request; env: Env }): Pr
     );
   }
 
-  // ACTION 1C: CLEAR_EXPECTED_CODES / CLEAR_CODES (Xóa sạch cột mã code dự kiến)
+  // ACTION 1C: SET_RELEASE_DATE / UPDATE_RELEASE_DATE (Cập nhật giờ / ngày ra mắt chính xác cho game)
+  if (action === 'set_release_date' || action === 'update_release_date' || action === 'change_release_date') {
+    const rawTarget = payload?.id || payload?.slug || payload?.name;
+    const hasExplicitRelDate = ('releaseDate' in payload) || ('release_date' in payload) || ('launchDate' in payload) || ('launch_date' in payload);
+    const rawRelVal = payload?.releaseDate !== undefined ? payload.releaseDate : (payload?.release_date !== undefined ? payload.release_date : (payload?.launchDate !== undefined ? payload.launchDate : payload?.launch_date));
+    const cleanRelDate = (rawRelVal !== null && rawRelVal !== undefined && String(rawRelVal).trim() !== '') ? String(rawRelVal).trim() : null;
+
+    // Hỗ trợ cập nhật hàng loạt nếu payload.games là mảng
+    if (Array.isArray(payload?.games) && payload.games.length > 0) {
+      let batchUpdatedCount = 0;
+      const batchDetails: any[] = [];
+
+      for (const item of payload.games) {
+        if (!item || typeof item !== 'object') continue;
+        const itemTarget = item.id || item.slug || item.name;
+        if (!itemTarget) continue;
+
+        const hasItemRelDate = ('releaseDate' in item) || ('release_date' in item) || ('launchDate' in item) || ('launch_date' in item);
+        if (!hasItemRelDate) continue;
+
+        const itemRelVal = item.releaseDate !== undefined ? item.releaseDate : (item.release_date !== undefined ? item.release_date : (item.launchDate !== undefined ? item.launchDate : item.launch_date));
+        const itemCleanRelDate = (itemRelVal !== null && itemRelVal !== undefined && String(itemRelVal).trim() !== '') ? String(itemRelVal).trim() : null;
+
+        const tKey = String(itemTarget).trim().toLowerCase();
+        const tSlug = slugify(tKey);
+
+        for (const g of currentUpcomingGames) {
+          const idL = String(g.id || '').toLowerCase();
+          const slugL = String(g.slug || '').toLowerCase();
+          const nameL = String(g.name || '').toLowerCase();
+          const gSlug = slugify(nameL);
+
+          if (idL === tKey || slugL === tKey || slugL === tSlug || nameL === tKey || gSlug === tSlug || nameL.includes(tKey)) {
+            g.releaseDate = itemCleanRelDate;
+            g.updatedAt = nowIso;
+            g.source = botName;
+            batchUpdatedCount++;
+            batchDetails.push({ name: g.name, slug: g.slug, releaseDate: g.releaseDate, status: g.status });
+            break;
+          }
+        }
+      }
+
+      if (batchUpdatedCount > 0 && env.DB) {
+        await setSettingD1(env.DB, 'wcg_admin_upcoming_games_v1', currentUpcomingGames);
+      }
+
+      return new Response(
+        JSON.stringify({
+          success: true,
+          message: `Đã cập nhật giờ ra mắt cho ${batchUpdatedCount} game thành công.`,
+          updatedCount: batchUpdatedCount,
+          details: batchDetails,
+          games: currentUpcomingGames,
+        }),
+        {
+          headers: {
+            ...CORS_HEADERS,
+            'Cache-Control': 'no-cache, no-store, must-revalidate',
+          },
+        }
+      );
+    }
+
+    // Cập nhật đơn lẻ cho 1 tựa game
+    if (!rawTarget) {
+      return new Response(
+        JSON.stringify({
+          success: false,
+          error: 'Thiếu trường "id", "slug" hoặc "name" để cập nhật ngày giờ ra mắt.',
+          sampleFormat: {
+            apiKey: 'YOUR_API_KEY',
+            action: 'set_release_date',
+            slug: 'monster-hunter-outlanders',
+            releaseDate: '2026-10-29T05:00:00+07:00', // Hoặc null nếu chưa rõ ngày
+          },
+        }),
+        { status: 400, headers: CORS_HEADERS }
+      );
+    }
+
+    if (!hasExplicitRelDate) {
+      return new Response(
+        JSON.stringify({
+          success: false,
+          error: 'Thiếu trường "releaseDate" trong payload (chấp nhận chuỗi ISO 8601 hoặc null).',
+        }),
+        { status: 400, headers: CORS_HEADERS }
+      );
+    }
+
+    const targetKey = String(rawTarget).trim().toLowerCase();
+    const targetSlug = slugify(targetKey);
+
+    let updatedGame: any = null;
+    for (const item of currentUpcomingGames) {
+      const idLower = String(item.id || '').toLowerCase();
+      const slugLower = String(item.slug || '').toLowerCase();
+      const nameLower = String(item.name || '').toLowerCase();
+      const itemSlug = slugify(nameLower);
+
+      if (
+        idLower === targetKey ||
+        slugLower === targetKey ||
+        slugLower === targetSlug ||
+        nameLower === targetKey ||
+        itemSlug === targetSlug ||
+        nameLower.includes(targetKey)
+      ) {
+        item.releaseDate = cleanRelDate;
+        item.updatedAt = nowIso;
+        item.source = botName;
+        updatedGame = item;
+        break;
+      }
+    }
+
+    if (!updatedGame) {
+      return new Response(
+        JSON.stringify({ success: false, error: `Không tìm thấy tựa game khớp với "${rawTarget}".` }),
+        { status: 404, headers: CORS_HEADERS }
+      );
+    }
+
+    if (env.DB) {
+      await setSettingD1(env.DB, 'wcg_admin_upcoming_games_v1', currentUpcomingGames);
+    }
+
+    return new Response(
+      JSON.stringify({
+        success: true,
+        message: `Đã cập nhật ngày giờ ra mắt của game "${updatedGame.name}" thành ${cleanRelDate ? `"${cleanRelDate}"` : 'null (Chưa rõ ngày)'}.`,
+        game: updatedGame,
+        games: currentUpcomingGames,
+      }),
+      {
+        headers: {
+          ...CORS_HEADERS,
+          'Cache-Control': 'no-cache, no-store, must-revalidate',
+        },
+      }
+    );
+  }
+
+  // ACTION 1D: CLEAR_EXPECTED_CODES / CLEAR_CODES (Xóa sạch cột mã code dự kiến)
   if (action === 'clear_expected_codes' || action === 'clear_codes' || action === 'reset_codes') {
     const rawTarget = payload?.id || payload?.slug || payload?.name;
     const targetIds: string[] = Array.isArray(payload?.ids)
@@ -2331,6 +2475,11 @@ export async function onRequestPost(context: { request: Request; env: Env }): Pr
       processedDetails,
       timestamp: nowIso,
     }),
-    { headers: CORS_HEADERS }
+    {
+      headers: {
+        ...CORS_HEADERS,
+        'Cache-Control': 'no-cache, no-store, must-revalidate',
+      },
+    }
   );
 }

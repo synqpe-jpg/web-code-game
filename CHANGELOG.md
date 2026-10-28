@@ -7,6 +7,39 @@ Mỗi mục sửa lỗi đều ghi nhận **Nguyên nhân gốc rễ (Root Cause
 
 ## [2026-10-28]
 
+### 251. Khai Thông API Cập Nhật Giờ Ra Mắt Game Sắp Ra Mắt & Bổ Sung Action `set_release_date`
+- **Bối cảnh & Yêu cầu từ Người dùng**:
+  - Bot cập nhật bảng game sắp ra mắt qua `POST /api/crawler/ingest-upcoming-games` bằng khóa API hiện tại (`wcg_muse_f7d252dd57426a7a`), gửi toàn bộ bản ghi kèm `directPublish: true`.
+  - Các trường khác (như `expectedCodes`) cập nhật thành công, nhưng riêng trường `releaseDate` không thể đổi được (ví dụ đổi Monster Hunter Outlanders sang `2026-10-29T05:00:00+07:00` thì máy chủ trả 200, nhưng đọc lại bằng GET vẫn là `2026-10-29T10:00:00+07:00`).
+  - Yêu cầu:
+    1. Sửa đường upsert để khi bot gửi bản ghi kèm `releaseDate` mới thì giờ mới được ghi đè, đúng định dạng ISO 8601 kèm múi giờ (+07:00), áp dụng cho cả UPCOMING và LAUNCHED.
+    2. Hỗ trợ thêm action riêng `set_release_date` (hoặc `update_release_date`) chuyên biệt để bot đổi giờ ra mắt nhanh và an toàn tuyệt đối.
+    3. Đổi giờ không được làm mất hay đặt lại các trường khác (category, platform, description, expectedCodes, subscribersCount, iconUrl, bannerUrl, publisher, status).
+    4. Giữ nguyên hành vi `releaseDate: null` để xóa ngày ("Chưa rõ ngày ra mắt"), không được gán fallback hay ngày hiện tại.
+    5. Không được chuẩn hóa giờ (không ép về 10:00 mặc định).
+    6. Không đổi trạng thái, không đổi tổng số game trên bảng.
+    7. Loại bỏ cache cũ: giờ mới phải là giờ bảng vẽ ra tức thì (`Cache-Control: no-cache, no-store, must-revalidate`).
+    8. Bảo toàn nguyên vẹn cơ chế chống xóa hàng loạt (>50%), directPublish và rollover.
+    9. Tuyệt đối không tự động đổi giờ thật của game Monster Hunter Outlanders trong lúc kiểm chứng (chỉ dùng bản ghi thử).
+- **Nguyên nhân gốc rễ (Root Cause)**:
+  - Hàm `sanitizeAndSafeguardUpcomingGames` trong `functions/api/crawler/ingest-upcoming-games.ts` có 8 khối quy tắc cũ hardcode giá trị `releaseDate` cho các game ban đầu:
+    - Cụ thể cho Monster Hunter: dòng lệnh `if (!g.releaseDate || g.releaseDate.includes('00:00') || ...) g.releaseDate = '2026-10-29T10:00:00+07:00';`
+    - Bất kỳ chuỗi ISO 8601 nào có phần giây `:00:00` (như `2026-10-29T05:00:00+07:00`) đều chứa chuỗi con `'00:00'`.
+    - Do đó, điều kiện `g.releaseDate.includes('00:00')` luôn `true`, khiến hàm này luôn cưỡng ép đè `releaseDate` về `'2026-10-29T10:00:00+07:00'`.
+    - Hơn nữa, hàm này được gọi cả ở cuối hàm POST (trước khi lưu D1) VÀ ở đầu hàm GET (khi khách / bot đọc dữ liệu). Vì vậy kể cả khi upsert đã ghi nhận ngày mới trong `processedDetails`, thì trước khi lưu và khi đọc dữ liệu, ngày đều bị đè ngược lại về 10:00.
+- **Giải pháp Thành công (Solution Applied)**:
+  1. *Thanh lọc hàm `sanitizeAndSafeguardUpcomingGames`*: Loại bỏ hoàn toàn mọi dòng lệnh đè `releaseDate` trong 8 khối game (Monster Hunter, Strinova, Tiên Giới, Hiệp Khách Hành, Đậu Nhỏ Nổi Giận, Sword x Staff, ANANTA, Mộng Cảnh Tam Quốc). Giữ lại các kiểm tra bảo vệ thể loại (`category`), nhà phát hành (`publisher`), đường dẫn icon/prereg khi bị gửi thiếu hoặc mang giá trị placeholder.
+  2. *Bổ sung Action chuyên biệt `set_release_date` / `update_release_date`*:
+     - Hỗ trợ đổi giờ đơn lẻ theo `slug`, `id`, hoặc `name`.
+     - Hỗ trợ đổi giờ hàng loạt qua mảng `games: [...]`.
+     - Chấp nhận chuỗi ISO 8601 hoặc `null` (xóa ngày).
+     - Bảo toàn 100% tất cả các trường khác và không thay đổi trạng thái game.
+  3. *Bổ sung Cache-Control*: Thêm header `'Cache-Control': 'no-cache, no-store, must-revalidate'` cho cả GET và POST để đảm bảo trình duyệt và Cloudflare CDN không bao giờ giữ cache cũ.
+  4. *Cập nhật `supportedActions`*: Thêm `set_release_date` và `update_release_date` vào danh mục action được hỗ trợ của API.
+- **Kiểm Thử & Xác Minh (Verification)**:
+  - `scripts/test_upcoming_release_date_update.cjs`: Vượt qua 100% 6 bài kiểm thử (upsert đổi giờ 05:00, action set_release_date, đổi thành null, giữ nguyên ngày khi cập nhật trường khác, giữ nguyên trạng thái LAUNCHED).
+  - Bản ghi thật của Monster Hunter Outlanders được giữ nguyên vẹn 100%, không bị can thiệp.
+
 ### 250. Nối Liền Đồng Bộ Ảnh Bìa Tin Tức & Chống Ghi Đè Khóa Bot NEWS_FULL (News Cover Auto-Sync Bridge & Downgrade Prevention)
 - **Bối cảnh & Yêu cầu từ Người dùng**:
   - Web có hai kho tin tức: Kho API (`/api/news`) nơi bot ghi bài bằng khóa `NEWS_FULL` (POST/PUT), và kho đồng bộ (`/api/sync`, trường `newsArticles`) nơi trang `/news` và Admin Panel đọc dữ liệu. Bot không có và không được cấp khóa đồng bộ tối cao `ADMIN_SYNC_SECRET`, và bot cũng không gọi `/api/sync`.

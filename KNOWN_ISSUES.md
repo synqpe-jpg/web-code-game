@@ -10,6 +10,24 @@
 
 ## 1. DANH MỤC LỖI & CÁC BẪY ĐÃ THẤT BẠI (DO NOT REPEAT)
 
+### ISSUE-170: Bẫy Hardcode Giờ Ra Mắt Trong sanitizeAndSafeguardUpcomingGames Khiến Không Thể Đổi Giờ Game (Upcoming Games Release Date Hardcoded Safeguard Pitfall)
+- **Triệu chứng**:
+  - Bot gọi `POST /api/crawler/ingest-upcoming-games` gửi toàn bộ bản ghi để đổi `releaseDate` của một tựa game (ví dụ Monster Hunter Outlanders từ 10:00 sang 05:00: `2026-10-29T05:00:00+07:00`).
+  - Máy chủ trả về 200 OK, `updatedCount: 1`, `processedDetails` ghi nhận ngày mới.
+  - Nhưng khi đọc lại bằng GET `?status=ALL` hoặc `?status=UPCOMING`, `releaseDate` vẫn trơ trơ là `2026-10-29T10:00:00+07:00`.
+- **Nguyên nhân gốc rễ & Các bẫy cần tránh**:
+  1. *Bẫy cưỡng ép gán ngày trong hàm sanitize cũ*: Trong `functions/api/crawler/ingest-upcoming-games.ts`, hàm `sanitizeAndSafeguardUpcomingGames` chứa 8 khối mã hardcode fallback ngày giờ cho 8 game ban đầu. Cụ thể dòng kiểm tra `if (!g.releaseDate || g.releaseDate.includes('00:00') || ...) g.releaseDate = '2026-10-29T10:00:00+07:00';`.
+  2. *Bẫy includes('00:00') khớp nhầm mọi định dạng ISO có giây*: Bất kỳ chuỗi ngày chuẩn ISO 8601 nào có phần giây `:00:00` (như `2026-10-29T05:00:00+07:00`) đều chứa chuỗi con `'00:00'`. Do đó điều kiện luôn trả về `true` và đè ngược lại về 10:00.
+  3. *Bẫy thực thi kép ở cả POST và GET*: Hàm này được gọi ở cuối hàm POST (trước khi lưu D1) và ở đầu hàm GET (khi đọc trả về cho client). Vì vậy mọi thay đổi giờ đều bị hủy hoại trước khi vào DB hoặc ngay khi đọc ra.
+- **Giải pháp chuẩn đã kiểm chứng**:
+  1. Loại bỏ toàn bộ các câu lệnh gán `g.releaseDate = ...` trong `sanitizeAndSafeguardUpcomingGames`. Hàm này chỉ được phép bảo vệ `category`, `publisher`, và các link cơ bản khi bị rỗng hoặc mang giá trị placeholder.
+  2. Thêm action chuyên biệt `set_release_date` / `update_release_date` để bot và admin cập nhật giờ ra mắt cực nhanh, bảo toàn 100% tất cả các trường khác.
+  3. Bổ sung `Cache-Control: no-cache, no-store, must-revalidate` để không lưu đệm cũ trên trình duyệt hay Cloudflare CDN.
+- 🚫 **CÁCH SỬA ĐÃ THẤT BẠI - TUYỆT ĐỐI KHÔNG LẶP LẠI**:
+  - ❌ *Tuyệt đối KHÔNG kiểm tra g.releaseDate.includes('00:00') để đoán giờ mặc định*: Chuỗi ISO luôn có giây `:00:00`.
+  - ❌ *Tuyệt đối KHÔNG chuẩn hóa giờ ra mắt về 10:00 ở phía máy chủ*: Giờ ra mắt do bot/admin toàn quyền quyết định.
+  - ❌ *Tuyệt đối KHÔNG can thiệp vào bản ghi game thật trong quá trình kiểm thử*: Chỉ dùng bản ghi thử và dọn dẹp sạch sẽ sau khi kiểm thử.
+
 ### ISSUE-169: Bẫy Chặn URL Ảnh Ngoài Trong resolveArticleCover & Client Sync Đè Mất Bản Ghi Bot (News Cover Resolution Blocking & Sync Overwrite Pitfall)
 - **Triệu chứng**:
   - Bot gọi `PUT /api/news/:id` cập nhật `cover_url` thành link chính thức ngoài (`https://sgimage.netmarble.com/...`, `https://www.nomanssky.com/...`) trả về 200 OK.
