@@ -80,6 +80,7 @@ export interface MissionAiApiKey {
   id: string;
   key_name: string;
   key_prefix: string;
+  scope?: 'FULL' | 'REVIEW_ONLY';
   is_active: number; // 1 or 0
   last_used_at?: string;
   created_at: string;

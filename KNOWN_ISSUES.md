@@ -10,6 +10,21 @@
 
 ## 1. DANH MỤC LỖI & CÁC BẪY ĐÃ THẤT BẠI (DO NOT REPEAT)
 
+### ISSUE-164: Bẫy Giới Hạn Scope Khóa API Nhiệm Vụ & Thiếu Đồng Bộ Xác Thực Đa Kênh (Missions API Scoping & Full Access Verification)
+- **Triệu chứng**:
+  - Bot AI (ví dụ Pine) hoặc các script tự động hóa bên ngoài không thể CRUD nhiệm vụ hoặc nạp kho mã vì verifyAdminAuth chỉ chấp nhận phiên đăng nhập web hoặc Master Secret, trong khi khóa API AI sinh ra chỉ được phép gọi /api/missions/ai/pending.
+  - Nguy cơ nếu không phân quyền rõ: cấp quyền admin toàn bộ website (bao gồm cấu hình hệ thống, rút tiền) cho một API key nhiệm vụ bên ngoài thay vì cô lập trong phạm vi nhiệm vụ.
+- **Nguyên nhân gốc rễ & Các bẫy cần tránh**:
+  1. *Bẫy trói chặt API vào session cookie web*: API không nên phụ thuộc vào session cookie hay token người dùng web. Bắt buộc hỗ trợ chuẩn Authorization: Bearer và X-Api-Key.
+  2. *Bẫy khóa API không phân biệt scope*: Cần hỗ trợ 2 cấp độ rõ ràng: FULL (toàn quyền quản trị module nhiệm vụ) và REVIEW_ONLY (chỉ đọc hồ sơ bài nộp và gửi kết quả thẩm định).
+  3. *Bẫy xóa vội vã (Accidental Deletion)*: Khi xóa nhiệm vụ qua DELETE /api/missions/:id, nếu đã có bài nộp, mặc định phải chặn lại và chỉ cho phép xóa khi có tham số xác nhận rõ ràng ?force=true.
+- **Giải pháp chuẩn đã kiểm chứng**:
+  1. verifyAdminAuth và verifyAiKeyAuth trong mission_service.ts hỗ trợ thống nhất cả Master Keys, API Keys từ bảng mission_ai_api_keys (với scope = "FULL"), và Admin Session Tokens.
+  2. Hỗ trợ mảng mã codes: string[] trực tiếp khi nạp kho qua POST /api/missions/pools.
+  3. Hỗ trợ BATCH_APPROVE và BATCH_REJECT trong POST /api/missions/submissions.
+- 🚫 **CÁCH SỬA ĐÃ THẤT BẠI - TUYỆT ĐỐI KHÔNG LẶP LẠI**:
+  - ❌ *Tuyệt đối KHÔNG hardcode secret trong mã nguồn*: Sử dụng cơ chế băm SHA-256 an toàn trong bảng mission_ai_api_keys và nạp biến môi trường.
+
 ### ISSUE-163: Bẫy Mất Bài Viết Tin Tức Do Lệch Sync & Ghi Đè Snapshot Rỗng (News Articles Disappearance & Overwrite Safeguard)
 - **Triệu chứng**:
   - Trang Quản trị (Admin) khi mở trên máy mới hoặc trình duyệt mới không hiển thị danh sách bài viết tin tức đầy đủ (171 bài), chỉ hiển thị danh sách hạt giống mặc định hoặc trống trơn.

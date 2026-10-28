@@ -415,11 +415,14 @@ export async function ensureMissionSchema(db: D1Database): Promise<void> {
         key_name TEXT NOT NULL,
         api_key_hash TEXT NOT NULL UNIQUE,
         key_prefix TEXT NOT NULL,
+        scope TEXT NOT NULL DEFAULT 'FULL',
         is_active INTEGER NOT NULL DEFAULT 1,
         last_used_at TEXT DEFAULT '',
         created_at TEXT NOT NULL DEFAULT (datetime('now'))
       );
     `).run().catch(() => {});
+
+    await db.prepare("ALTER TABLE mission_ai_api_keys ADD COLUMN scope TEXT NOT NULL DEFAULT 'FULL';").run().catch(() => {});
 
     await db.prepare('CREATE INDEX IF NOT EXISTS idx_ai_keys_hash ON mission_ai_api_keys(api_key_hash);').run().catch(() => {});
 

@@ -343,14 +343,73 @@ class MissionService {
     }
   }
 
+  async batchApproveSubmissions(
+    submissionIds: string[]
+  ): Promise<{ success: boolean; message?: string; successCount?: number; total?: number }> {
+    try {
+      const res = await fetch('/api/missions/submissions', {
+        method: 'POST',
+        headers: this.getAuthHeaders(true),
+        body: JSON.stringify({
+          action: 'BATCH_APPROVE',
+          submission_ids: submissionIds,
+        }),
+      });
+
+      const data = await res.json().catch(() => ({}));
+      if (res.ok && data.success) {
+        return {
+          success: true,
+          message: data.message,
+          successCount: data.successCount,
+          total: data.total,
+        };
+      }
+      return { success: false, message: data.message || 'Không thể duyệt hàng loạt hồ sơ.' };
+    } catch (e: any) {
+      return { success: false, message: e?.message || 'Lỗi mạng.' };
+    }
+  }
+
+  async batchRejectSubmissions(
+    submissionIds: string[],
+    rejectionReason?: string
+  ): Promise<{ success: boolean; message?: string; successCount?: number; total?: number }> {
+    try {
+      const res = await fetch('/api/missions/submissions', {
+        method: 'POST',
+        headers: this.getAuthHeaders(true),
+        body: JSON.stringify({
+          action: 'BATCH_REJECT',
+          submission_ids: submissionIds,
+          rejection_reason: rejectionReason,
+        }),
+      });
+
+      const data = await res.json().catch(() => ({}));
+      if (res.ok && data.success) {
+        return {
+          success: true,
+          message: data.message,
+          successCount: data.successCount,
+          total: data.total,
+        };
+      }
+      return { success: false, message: data.message || 'Không thể từ chối hàng loạt hồ sơ.' };
+    } catch (e: any) {
+      return { success: false, message: e?.message || 'Lỗi mạng.' };
+    }
+  }
+
   async createAiKey(
-    keyName: string
+    keyName: string,
+    scope: 'FULL' | 'REVIEW_ONLY' = 'FULL'
   ): Promise<{ success: boolean; message?: string; rawKey?: string; key?: MissionAiApiKey }> {
     try {
       const res = await fetch('/api/missions/ai-keys', {
         method: 'POST',
         headers: this.getAuthHeaders(true),
-        body: JSON.stringify({ key_name: keyName }),
+        body: JSON.stringify({ key_name: keyName, scope }),
       });
 
       const data = await res.json().catch(() => ({}));

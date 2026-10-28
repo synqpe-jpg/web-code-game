@@ -584,7 +584,7 @@ async function handleWorkerRequest(request: Request, env: Env, ctx: ExecutionCon
         const missionId = pathname.replace('/api/missions/', '');
         const customContext = { ...context, params: { id: missionId } };
         if (method === 'OPTIONS') return await missionsIdApi.onRequestOptions();
-        if (method === 'PUT') return await missionsIdApi.onRequestPut(customContext);
+        if (method === 'PUT' || method === 'PATCH') return await missionsIdApi.onRequestPut(customContext);
         if (method === 'DELETE') return await missionsIdApi.onRequestDelete(customContext);
         return await missionsIdApi.onRequestGet(customContext);
       }

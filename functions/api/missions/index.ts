@@ -24,27 +24,33 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
     await ensureMissionSchema(env.DB);
 
     const url = new URL(request.url);
-    const isAdminQuery = url.searchParams.get('admin') === 'true';
+    const statusParam = url.searchParams.get('status')?.trim().toUpperCase();
 
-    // Check if requester is Admin
-    let isAdmin = false;
-    if (isAdminQuery) {
-      const adminCheck = await verifyAdminAuth(request, env);
-      isAdmin = adminCheck.authorized;
-    }
+    // Check if requester is Admin or API Key Holder
+    const adminCheck = await verifyAdminAuth(request, env);
+    const isAdmin = adminCheck.authorized;
 
     // Check if requester is Member
     const memberCheck = await verifyMemberAuth(request, env);
     const currentMember = memberCheck.authorized ? memberCheck.member : null;
 
     let missionsQuery = 'SELECT * FROM missions';
-    if (!isAdmin) {
+    const queryParams: any[] = [];
+
+    if (isAdmin) {
+      if (statusParam && statusParam !== 'ALL') {
+        missionsQuery += ' WHERE status = ?';
+        queryParams.push(statusParam);
+      }
+    } else {
       // Clients only see ACTIVE or ENDED missions (not DRAFT)
       missionsQuery += " WHERE status IN ('ACTIVE', 'ENDED')";
     }
     missionsQuery += ' ORDER BY sort_order ASC, created_at DESC';
 
-    const missionsResult = await env.DB.prepare(missionsQuery).all<any>();
+    const missionsResult = queryParams.length > 0
+      ? await env.DB.prepare(missionsQuery).bind(...queryParams).all<any>()
+      : await env.DB.prepare(missionsQuery).all<any>();
     const missions = missionsResult?.results || [];
 
     // Augment missions with real-time available codes count and user_submission if logged in
@@ -79,11 +85,33 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
             .first<any>();
         }
 
+        // Extended stats for Admin & API callers
+        let adminStats = undefined;
+        if (isAdmin) {
+          const statsRow = await env.DB.prepare(`
+            SELECT 
+              COUNT(*) as total_submissions,
+              SUM(CASE WHEN status = 'PENDING' THEN 1 ELSE 0 END) as pending_submissions,
+              SUM(CASE WHEN status = 'APPROVED' THEN 1 ELSE 0 END) as approved_submissions,
+              SUM(CASE WHEN status = 'REJECTED' THEN 1 ELSE 0 END) as rejected_submissions
+            FROM mission_submissions
+            WHERE mission_id = ?
+          `).bind(m.id).first<any>();
+
+          adminStats = {
+            total_submissions: Number(statsRow?.total_submissions) || 0,
+            pending_submissions: Number(statsRow?.pending_submissions) || 0,
+            approved_submissions: Number(statsRow?.approved_submissions) || 0,
+            rejected_submissions: Number(statsRow?.rejected_submissions) || 0,
+          };
+        }
+
         return {
           ...m,
           guide_steps: guideSteps,
           available_codes_count: availableCodesCount,
           user_submission: userSubmission,
+          stats: adminStats,
         };
       })
     );

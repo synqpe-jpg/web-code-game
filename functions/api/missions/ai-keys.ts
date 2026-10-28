@@ -32,7 +32,7 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
     await ensureMissionSchema(env.DB);
 
     const result = await env.DB.prepare(
-      'SELECT id, key_name, key_prefix, is_active, last_used_at, created_at FROM mission_ai_api_keys ORDER BY created_at DESC'
+      'SELECT id, key_name, key_prefix, scope, is_active, last_used_at, created_at FROM mission_ai_api_keys ORDER BY created_at DESC'
     ).all<any>();
 
     return new Response(
@@ -72,7 +72,7 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
     await ensureMissionSchema(env.DB);
 
     const body: any = await request.json().catch(() => ({}));
-    const { key_name } = body;
+    const { key_name, scope = 'FULL' } = body;
 
     if (!key_name || typeof key_name !== 'string' || !key_name.trim()) {
       return new Response(
@@ -80,6 +80,8 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
         { status: 400, headers: CORS_HEADERS }
       );
     }
+
+    const validScope = scope === 'REVIEW_ONLY' ? 'REVIEW_ONLY' : 'FULL';
 
     // Generate random 32-hex string
     const randomBytes = new Uint8Array(24);
@@ -93,9 +95,9 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
     const nowIso = new Date().toISOString();
 
     await env.DB.prepare(`
-      INSERT INTO mission_ai_api_keys (id, key_name, api_key_hash, key_prefix, is_active, last_used_at, created_at)
-      VALUES (?, ?, ?, ?, 1, '', ?)
-    `).bind(id, key_name.trim(), keyHash, keyPrefix, nowIso).run();
+      INSERT INTO mission_ai_api_keys (id, key_name, api_key_hash, key_prefix, scope, is_active, last_used_at, created_at)
+      VALUES (?, ?, ?, ?, ?, 1, '', ?)
+    `).bind(id, key_name.trim(), keyHash, keyPrefix, validScope, nowIso).run();
 
     return new Response(
       JSON.stringify({
@@ -106,6 +108,7 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
           id,
           key_name: key_name.trim(),
           key_prefix: keyPrefix,
+          scope: validScope,
           is_active: 1,
           last_used_at: '',
           created_at: nowIso,

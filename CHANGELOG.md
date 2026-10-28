@@ -7,6 +7,33 @@ Mỗi mục sửa lỗi đều ghi nhận **Nguyên nhân gốc rễ (Root Cause
 
 ## [2026-10-28]
 
+### 244. Cấp Toàn Quyền Quản Trị & Thực Thi Cho API Module Nhiệm Vụ (Full Access Missions API)
+- **Bối cảnh & Yêu cầu từ Người dùng**:
+  - Yêu cầu cấp toàn quyền phần nhiệm vụ (Missions / Quests) cho API để bot, AI (ví dụ Pine), và các công cụ tự động hóa bên ngoài có thể toàn quyền quản lý hệ thống nhiệm vụ.
+- **Nguyên nhân & Thực trạng trước khi nâng cấp**:
+  - Trước đây khóa API tạo ra trong bảng mission_ai_api_keys chỉ có scope hạn hẹp, chỉ gọi được 2 endpoint GET /api/missions/ai/pending và POST /api/missions/ai/review.
+  - Toàn bộ các thao tác cốt lõi: tạo nhiệm vụ (POST /api/missions), chỉnh sửa/cập nhật (PUT/PATCH /api/missions/:id), xóa nhiệm vụ (DELETE /api/missions/:id), xem toàn bộ trạng thái (kể cả nháp/paused), nạp kho mã thưởng (POST /api/missions/pools), duyệt/từ chối bài nộp đơn lẻ hoặc hàng loạt (POST /api/missions/submissions) đều chỉ cho phép phiên đăng nhập Admin trên web duyệt tay.
+- **Giải pháp Thành công (Solution Applied)**:
+  1. Nâng cấp Hệ Thống Xác Thực Đa Tầng (functions/services/mission_service.ts):
+     - Hàm verifyAdminAuth hỗ trợ đầy đủ các header chuẩn: X-Api-Key, Authorization: Bearer, X-Admin-Key, X-Sync-Key, x-admin-sync-key.
+     - Tích hợp Master System Keys (ADMIN_SYNC_SECRET, PINE_API_KEY, MUSE_API_KEY, fallback master key) cấp toàn quyền tối cao.
+     - Hỗ trợ khóa API mission_ai_api_keys: tự động xác thực qua SHA-256 hash. Nếu khóa có scope = "FULL" (mặc định), hệ thống cấp toàn quyền quản trị như một Quản trị viên cấp cao.
+  2. Mở rộng Toàn Diện Bộ API Nhiệm Vụ (functions/api/missions/*):
+     - GET /api/missions: Cho phép API lấy toàn bộ nhiệm vụ (kể cả DRAFT, PAUSED) qua ?status=ALL, tự động tính toán thống kê chi tiết (tổng bài nộp, pending, approved, rejected, mã khả dụng).
+     - POST /api/missions: Tạo nhiệm vụ mới toàn quyền qua API.
+     - GET & PUT/PATCH /api/missions/:id: Xem chi tiết và cập nhật toàn phần hoặc từng phần (partial update) qua API.
+     - DELETE /api/missions/:id: Hỗ trợ xóa an toàn và xóa toàn diện theo tầng (?force=true).
+     - POST /api/missions/submissions: Bổ sung hành động BATCH_APPROVE (duyệt hàng loạt theo mảng submission_ids) và BATCH_REJECT (từ chối hàng loạt kèm lý do).
+     - POST /api/missions/pools: Hỗ trợ nạp mã qua chuỗi raw_codes hoặc mảng JSON codes: string[].
+     - POST /api/missions/ai-keys: Hỗ trợ cấp khóa với quyền FULL hoặc REVIEW_ONLY.
+  3. Nâng cấp Giao diện Quản trị (src/admin/modules/MissionsModule.tsx):
+     - Tab quản lý khóa API cho phép chọn cấp quyền Toàn Quyền Quản Lý (FULL) hoặc Chỉ Thẩm Định (REVIEW_ONLY).
+     - Hiển thị badge quyền hạn nổi bật và thẻ tài liệu hướng dẫn tích hợp API mẫu (cURL / RESTful) trực quan.
+- **Kiểm Thử & Xác Minh (Verification)**:
+  - Kiểm thử xác thực Master Key & API Key scope FULL: Đạt 100%.
+  - Kiểm thử Batch Approve / Reject: Đạt 100%.
+  - Build Vite Frontend & Compile Cloudflare Edge Worker: Thành công 100%.
+
 ### 243. Khắc Phục Đồng Bộ Tin Tức Admin, Chốt Chặn Chống Ghi Đè & Tính Năng Lịch Hẹn Đăng Bài Viết (Scheduled Publishing)
 - **Bối cảnh & Yêu cầu từ Người dùng**:
   1. Tiếp nhận và đồng bộ newsArticles từ Cloudflare KV/D1 vào adminDataService.ts để trang Admin luôn hiển thị đầy đủ 171 bài viết trên mọi thiết bị và trình duyệt.

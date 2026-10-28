@@ -52,6 +52,40 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
       availableCodesCount = Number(countRow?.cnt) || 0;
     }
 
+    // Check Admin / API Key authorization for operational stats
+    const adminCheck = await verifyAdminAuth(request, env);
+    let adminStats = undefined;
+    if (adminCheck.authorized) {
+      const statsRow = await env.DB.prepare(`
+        SELECT 
+          COUNT(*) as total_submissions,
+          SUM(CASE WHEN status = 'PENDING' THEN 1 ELSE 0 END) as pending_submissions,
+          SUM(CASE WHEN status = 'APPROVED' THEN 1 ELSE 0 END) as approved_submissions,
+          SUM(CASE WHEN status = 'REJECTED' THEN 1 ELSE 0 END) as rejected_submissions
+        FROM mission_submissions
+        WHERE mission_id = ?
+      `).bind(mission.id).first<any>();
+
+      const poolRow = await env.DB.prepare(`
+        SELECT 
+          COUNT(*) as total_codes,
+          SUM(CASE WHEN status = 'AVAILABLE' THEN 1 ELSE 0 END) as available_codes,
+          SUM(CASE WHEN status = 'CLAIMED' THEN 1 ELSE 0 END) as claimed_codes
+        FROM mission_reward_pools
+        WHERE mission_id = ?
+      `).bind(mission.id).first<any>();
+
+      adminStats = {
+        total_submissions: Number(statsRow?.total_submissions) || 0,
+        pending_submissions: Number(statsRow?.pending_submissions) || 0,
+        approved_submissions: Number(statsRow?.approved_submissions) || 0,
+        rejected_submissions: Number(statsRow?.rejected_submissions) || 0,
+        total_codes: Number(poolRow?.total_codes) || 0,
+        available_codes: Number(poolRow?.available_codes) || 0,
+        claimed_codes: Number(poolRow?.claimed_codes) || 0,
+      };
+    }
+
     // Check member submission
     const memberCheck = await verifyMemberAuth(request, env);
     let userSubmission = null;
@@ -71,6 +105,7 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
           guide_steps: guideSteps,
           available_codes_count: availableCodesCount,
           user_submission: userSubmission,
+          stats: adminStats,
         },
       }),
       { status: 200, headers: CORS_HEADERS }
@@ -226,7 +261,10 @@ export const onRequestDelete: PagesFunction<Env> = async (context) => {
 
     await ensureMissionSchema(env.DB);
 
-    // Rule: Chỉ xóa được khi chưa có ai nộp bài
+    const url = new URL(request.url);
+    const isForce = url.searchParams.get('force') === 'true';
+
+    // Rule: Chỉ xóa được khi chưa có ai nộp bài, trừ khi có cờ ?force=true
     const subCountRow = await env.DB.prepare(
       'SELECT COUNT(*) as cnt FROM mission_submissions WHERE mission_id = ?'
     )
@@ -234,19 +272,21 @@ export const onRequestDelete: PagesFunction<Env> = async (context) => {
       .first<any>();
 
     const subCount = Number(subCountRow?.cnt) || 0;
-    if (subCount > 0) {
+    if (subCount > 0 && !isForce) {
       return new Response(
         JSON.stringify({
           success: false,
-          message: `Không thể xóa nhiệm vụ này vì đã có ${subCount} hồ sơ nộp bài. Bạn có thể đổi trạng thái sang TẠM DỪNG hoặc ĐÃ KẾT THÚC.`,
+          message: `Không thể xóa nhiệm vụ này vì đã có ${subCount} hồ sơ nộp bài. Bạn có thể đổi trạng thái sang TẠM DỪNG / ĐÃ KẾT THÚC, hoặc gửi tham số ?force=true nếu muốn xóa toàn diện.`,
         }),
         { status: 400, headers: CORS_HEADERS }
       );
     }
 
-    // Delete related reward pool codes if any, then delete mission
+    // Cascade delete reward pool codes, submissions, audit logs, and mission
     await env.DB.batch([
       env.DB.prepare('DELETE FROM mission_reward_pools WHERE mission_id = ?').bind(missionId),
+      env.DB.prepare('DELETE FROM mission_submissions WHERE mission_id = ?').bind(missionId),
+      env.DB.prepare('DELETE FROM mission_audit_logs WHERE mission_id = ?').bind(missionId),
       env.DB.prepare('DELETE FROM missions WHERE id = ?').bind(missionId),
     ]);
 

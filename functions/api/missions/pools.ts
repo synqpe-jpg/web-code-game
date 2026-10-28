@@ -92,7 +92,7 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
     await ensureMissionSchema(env.DB);
 
     const body: any = await request.json().catch(() => ({}));
-    const { mission_id, raw_codes } = body;
+    const { mission_id, raw_codes, codes } = body;
 
     if (!mission_id) {
       return new Response(
@@ -101,21 +101,19 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
       );
     }
 
-    if (!raw_codes || typeof raw_codes !== 'string') {
-      return new Response(
-        JSON.stringify({ success: false, message: 'Vui lòng dán danh sách mã code (mỗi dòng 1 mã).' }),
-        { status: 400, headers: CORS_HEADERS }
-      );
+    let lines: string[] = [];
+    if (Array.isArray(codes)) {
+      lines = codes.map((c) => String(c).trim()).filter((c) => c.length > 0);
+    } else if (raw_codes && typeof raw_codes === 'string') {
+      lines = raw_codes
+        .split('\n')
+        .map((l) => l.trim())
+        .filter((l) => l.length > 0);
     }
-
-    const lines = raw_codes
-      .split('\n')
-      .map((l) => l.trim())
-      .filter((l) => l.length > 0);
 
     if (lines.length === 0) {
       return new Response(
-        JSON.stringify({ success: false, message: 'Không tìm thấy mã code hợp lệ để thêm vào kho.' }),
+        JSON.stringify({ success: false, message: 'Không tìm thấy mã code hợp lệ để thêm vào kho (truyền raw_codes hoặc mảng codes).' }),
         { status: 400, headers: CORS_HEADERS }
       );
     }

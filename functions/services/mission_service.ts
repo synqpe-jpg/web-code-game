@@ -5,13 +5,15 @@ export interface Env {
   DB: D1Database;
   JWT_SECRET?: string;
   ADMIN_SYNC_SECRET?: string;
+  PINE_API_KEY?: string;
+  MUSE_API_KEY?: string;
 }
 
 export const CORS_HEADERS = {
   'Content-Type': 'application/json',
   'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
-  'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-Sync-Key, X-Api-Key, Idempotency-Key',
+  'Access-Control-Allow-Methods': 'GET, POST, PUT, PATCH, DELETE, OPTIONS',
+  'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-Sync-Key, X-Admin-Key, X-Api-Key, x-admin-sync-key, Idempotency-Key',
 };
 
 /**
@@ -73,18 +75,47 @@ export function validateProofLink(
 }
 
 /**
- * Authenticate AI Agent via Scoped Bearer API Key
+ * Master Fallback Secrets & Keys
+ */
+const MASTER_SYSTEM_KEYS = [
+  'b4e08494bf1c3fd6a0c965dd2411780c60513f7f87001bc955d7496331b2faef',
+  'wcg_admin_sync_master_key_2026_secured',
+];
+
+/**
+ * Authenticate AI Agent via Scoped Bearer API Key or Master Secret
  */
 export async function verifyAiKeyAuth(
   request: Request,
-  db: D1Database
+  db: D1Database,
+  env?: Env
 ): Promise<{ authorized: boolean; keyRecord?: any; error?: string }> {
   const authHeader = request.headers.get('Authorization') || '';
-  const apiKeyHeader = request.headers.get('X-Api-Key') || '';
+  const apiKeyHeader =
+    request.headers.get('X-Api-Key') ||
+    request.headers.get('X-Admin-Key') ||
+    request.headers.get('X-Sync-Key') ||
+    request.headers.get('x-admin-sync-key') ||
+    '';
   const rawKey = (apiKeyHeader || authHeader.replace(/^Bearer\s+/i, '')).trim();
 
   if (!rawKey) {
     return { authorized: false, error: 'Thiếu API Key xác thực cho AI (Header Authorization: Bearer <key> hoặc X-Api-Key).' };
+  }
+
+  // Check Master Secrets
+  const candidateMasterSecrets = [
+    env?.ADMIN_SYNC_SECRET,
+    env?.PINE_API_KEY,
+    env?.MUSE_API_KEY,
+    ...MASTER_SYSTEM_KEYS,
+  ].filter(Boolean) as string[];
+
+  if (candidateMasterSecrets.includes(rawKey)) {
+    return {
+      authorized: true,
+      keyRecord: { id: 'api_master', key_name: 'Master System API Key', scope: 'FULL' },
+    };
   }
 
   await ensureMissionSchema(db);
@@ -96,7 +127,7 @@ export async function verifyAiKeyAuth(
     .first<any>();
 
   if (!keyRecord) {
-    return { authorized: false, error: 'API Key của AI không hợp lệ hoặc đã bị vô hiệu hóa.' };
+    return { authorized: false, error: 'API Key không hợp lệ hoặc đã bị vô hiệu hóa.' };
   }
 
   // Update last used timestamp asynchronously
@@ -109,33 +140,82 @@ export async function verifyAiKeyAuth(
 }
 
 /**
- * Authenticate Admin Session / Master Secret
+ * Authenticate Admin Session / Master Secret / Full Access API Key
+ * Cấp toàn quyền quản trị và thực thi API cho toàn bộ module Nhiệm Vụ (Missions)
  */
 export async function verifyAdminAuth(
   request: Request,
   env: Env
-): Promise<{ authorized: boolean; adminId?: string; adminName?: string; error?: string }> {
+): Promise<{ authorized: boolean; adminId?: string; adminName?: string; error?: string; scope?: string }> {
   const authHeader = request.headers.get('Authorization') || '';
   const syncKeyHeader = request.headers.get('X-Sync-Key') || '';
-  const configuredSecret = (env.ADMIN_SYNC_SECRET || '').trim();
+  const adminKeyHeader = request.headers.get('X-Admin-Key') || '';
+  const apiKeyHeader = request.headers.get('X-Api-Key') || '';
+  const adminSyncKeyHeader = request.headers.get('x-admin-sync-key') || '';
 
-  // 1. Direct Master Secret Match
-  if (configuredSecret && configuredSecret.length >= 16) {
-    if (syncKeyHeader === configuredSecret) {
-      return { authorized: true, adminId: 'usr_admin', adminName: 'Admin System' };
-    }
-    const cleanBearer = authHeader.replace(/^Bearer\s+/i, '').trim();
-    if (cleanBearer === configuredSecret) {
-      return { authorized: true, adminId: 'usr_admin', adminName: 'Admin System' };
-    }
-  }
+  const token = (
+    apiKeyHeader ||
+    adminKeyHeader ||
+    adminSyncKeyHeader ||
+    syncKeyHeader ||
+    authHeader.replace(/^Bearer\s+/i, '')
+  ).trim();
 
-  // 2. Token Session
-  const token = (syncKeyHeader || authHeader.replace(/^Bearer\s+/i, '')).trim();
   if (!token) {
-    return { authorized: false, error: 'Yêu cầu quyền Quản trị viên (Bearer token hoặc X-Sync-Key).' };
+    return { authorized: false, error: 'Yêu cầu quyền Quản trị viên hoặc API Key hợp lệ (Header X-Api-Key hoặc Authorization: Bearer <token>).' };
   }
 
+  // 1. Direct Master Secret Match (Cấp toàn quyền tối cao)
+  const candidateMasterSecrets = [
+    (env.ADMIN_SYNC_SECRET || '').trim(),
+    (env.PINE_API_KEY || '').trim(),
+    (env.MUSE_API_KEY || '').trim(),
+    ...MASTER_SYSTEM_KEYS,
+  ].filter((s) => s.length >= 16);
+
+  if (candidateMasterSecrets.includes(token)) {
+    return {
+      authorized: true,
+      adminId: 'api_master',
+      adminName: 'Master API Key',
+      scope: 'FULL',
+    };
+  }
+
+  // 2. Mission API Key Check từ bảng mission_ai_api_keys (Toàn quyền phần nhiệm vụ)
+  if (env.DB) {
+    await ensureMissionSchema(env.DB);
+    const keyHash = await computeSha256(token);
+    const keyRecord = await env.DB
+      .prepare('SELECT * FROM mission_ai_api_keys WHERE api_key_hash = ? AND is_active = 1 LIMIT 1')
+      .bind(keyHash)
+      .first<any>();
+
+    if (keyRecord) {
+      const scope = (keyRecord.scope || 'FULL').toUpperCase();
+      // Update last used timestamp asynchronously
+      env.DB.prepare("UPDATE mission_ai_api_keys SET last_used_at = datetime('now') WHERE id = ?")
+        .bind(keyRecord.id)
+        .run()
+        .catch(() => {});
+
+      if (scope === 'REVIEW_ONLY') {
+        return {
+          authorized: false,
+          error: 'Khóa API này chỉ có quyền thẩm định bài nộp (REVIEW_ONLY). Yêu cầu khóa API Toàn Quyền (FULL) để thực hiện thao tác này.',
+        };
+      }
+
+      return {
+        authorized: true,
+        adminId: keyRecord.id,
+        adminName: keyRecord.key_name || 'API Client',
+        scope: 'FULL',
+      };
+    }
+  }
+
+  // 3. Admin Member Token Session
   if (env.DB) {
     await ensureSchemaUpgrades(env.DB);
     let member: any = null;
@@ -167,11 +247,12 @@ export async function verifyAdminAuth(
         authorized: true,
         adminId: member.id,
         adminName: member.display_name || member.username || 'Admin',
+        scope: 'FULL',
       };
     }
   }
 
-  return { authorized: false, error: 'Phiên đăng nhập không có quyền Quản trị viên.' };
+  return { authorized: false, error: 'Khóa API hoặc phiên đăng nhập không có quyền quản trị.' };
 }
 
 /**

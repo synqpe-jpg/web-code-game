@@ -58,6 +58,8 @@ export const MissionsModule: React.FC = () => {
   // --- AI Keys & Logs State ---
   const [aiKeys, setAiKeys] = useState<MissionAiApiKey[]>([]);
   const [newKeyName, setNewKeyName] = useState<string>('');
+  const [newKeyScope, setNewKeyScope] = useState<'FULL' | 'REVIEW_ONLY'>('FULL');
+  const [copiedEndpoint, setCopiedEndpoint] = useState<string | null>(null);
   const [generatedRawKey, setGeneratedRawKey] = useState<string | null>(null);
   const [auditLogs, setAuditLogs] = useState<MissionAuditLog[]>([]);
   const [isCopiedKey, setIsCopiedKey] = useState(false);
@@ -319,12 +321,12 @@ export const MissionsModule: React.FC = () => {
   const handleCreateAiKey = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newKeyName.trim()) {
-      showNotification('error', 'Vui lòng nhập tên cho khóa AI.');
+      showNotification('error', 'Vui lòng nhập tên cho khóa API.');
       return;
     }
     setIsLoading(true);
     try {
-      const res = await missionService.createAiKey(newKeyName.trim());
+      const res = await missionService.createAiKey(newKeyName.trim(), newKeyScope);
       if (res.success && res.rawKey) {
         setGeneratedRawKey(res.rawKey);
         setNewKeyName('');
@@ -959,27 +961,37 @@ export const MissionsModule: React.FC = () => {
 
           {/* Create AI Key Card */}
           <div className="p-5 rounded-2xl bg-card border border-border/80 space-y-3">
-            <h3 className="text-sm font-bold text-foreground flex items-center gap-2">
-              <Bot className="w-4 h-4 text-primary" />
-              Tạo Khóa API Mới Cho AI Duyệt (Scope Hẹp)
-            </h3>
-            <p className="text-xs text-muted-foreground leading-relaxed">
-              Khóa API này chỉ có quyền đọc danh sách bài nộp chờ duyệt và gửi kết quả duyệt bài, không có quyền can thiệp vào các khu vực khác của hệ thống.
-            </p>
-            <form onSubmit={handleCreateAiKey} className="flex items-center gap-2 max-w-md">
+            <div>
+              <h3 className="text-sm font-bold text-foreground flex items-center gap-2">
+                <Key className="w-4 h-4 text-primary" />
+                <span>Cấp Khóa API Quản Trị & Tự Động Hóa Nhiệm Vụ</span>
+              </h3>
+              <p className="text-xs text-muted-foreground leading-relaxed mt-1">
+                Khóa API có thể được cấp <b>Toàn Quyền Quản Lý (FULL)</b> để bot/AI bên ngoài tự động CRUD nhiệm vụ, nạp kho code, duyệt bài nộp, hoặc <b>Chỉ Thẩm Định (REVIEW_ONLY)</b>.
+              </p>
+            </div>
+            <form onSubmit={handleCreateAiKey} className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 max-w-2xl">
               <input
                 type="text"
-                placeholder="Tên khóa (vd: Pine AI Agent)"
+                placeholder="Tên khóa (vd: Pine AI Manager, Script Auto-Reward...)"
                 value={newKeyName}
                 onChange={(e) => setNewKeyName(e.target.value)}
                 className="flex-1 px-3.5 py-2 rounded-xl bg-muted/40 border border-border/80 text-xs text-foreground placeholder:text-muted-foreground focus:outline-none"
               />
+              <select
+                value={newKeyScope}
+                onChange={(e) => setNewKeyScope(e.target.value as 'FULL' | 'REVIEW_ONLY')}
+                className="px-3 py-2 rounded-xl bg-muted/60 border border-border/80 text-xs font-semibold text-foreground focus:outline-none cursor-pointer"
+              >
+                <option value="FULL">🚀 Toàn Quyền Quản Lý (FULL)</option>
+                <option value="REVIEW_ONLY">🤖 Chỉ Thẩm Định (REVIEW_ONLY)</option>
+              </select>
               <button
                 type="submit"
                 disabled={isLoading || !newKeyName.trim()}
-                className="cg-btn cg-btn--primary text-xs font-bold shrink-0"
+                className="cg-btn cg-btn--primary text-xs font-bold shrink-0 cursor-pointer"
               >
-                Tạo Khóa
+                Tạo Khóa API
               </button>
             </form>
           </div>
@@ -991,6 +1003,7 @@ export const MissionsModule: React.FC = () => {
                 <tr>
                   <th className="p-3.5">Tên khóa</th>
                   <th className="p-3.5">Tiền tố nhận diện</th>
+                  <th className="p-3.5">Phạm vi quyền</th>
                   <th className="p-3.5">Trạng thái</th>
                   <th className="p-3.5">Lần gọi gần nhất</th>
                   <th className="p-3.5">Ngày tạo</th>
@@ -1000,7 +1013,7 @@ export const MissionsModule: React.FC = () => {
               <tbody className="divide-y divide-border/60">
                 {aiKeys.length === 0 ? (
                   <tr>
-                    <td colSpan={6} className="p-6 text-center text-muted-foreground">
+                    <td colSpan={7} className="p-6 text-center text-muted-foreground">
                       Chưa có khóa API nào. Hãy tạo khóa mới để cấp quyền cho AI!
                     </td>
                   </tr>
@@ -1009,6 +1022,17 @@ export const MissionsModule: React.FC = () => {
                     <tr key={k.id} className="hover:bg-muted/20">
                       <td className="p-3.5 font-bold text-foreground">{k.key_name}</td>
                       <td className="p-3.5 font-mono text-primary-light">{k.key_prefix}</td>
+                      <td className="p-3.5">
+                        <span
+                          className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
+                            k.scope === 'REVIEW_ONLY'
+                              ? 'bg-blue-500/20 text-blue-400 border border-blue-500/30'
+                              : 'bg-purple-500/20 text-purple-300 border border-purple-500/30'
+                          }`}
+                        >
+                          {k.scope === 'REVIEW_ONLY' ? 'Chỉ Thẩm Định' : 'Toàn Quyền (FULL)'}
+                        </span>
+                      </td>
                       <td className="p-3.5">
                         <button
                           onClick={() => handleToggleAiKey(k.id, k.is_active)}
@@ -1040,6 +1064,37 @@ export const MissionsModule: React.FC = () => {
                 )}
               </tbody>
             </table>
+          </div>
+
+          {/* API Reference Card */}
+          <div className="p-5 rounded-2xl bg-slate-900/80 border border-purple-500/30 space-y-3 text-slate-200">
+            <div className="flex items-center justify-between">
+              <h4 className="text-xs font-bold text-purple-300 uppercase tracking-wider flex items-center gap-2">
+                <Zap className="w-3.5 h-3.5 text-purple-400" />
+                <span>Tài Liệu Hướng Dẫn Tích Hợp API Toàn Quyền Cho Nhiệm Vụ</span>
+              </h4>
+              <span className="text-[10px] px-2 py-0.5 rounded bg-purple-500/20 text-purple-300 font-mono">
+                Base URL: /api/missions
+              </span>
+            </div>
+            <p className="text-xs text-slate-300 leading-relaxed">
+              Mọi request từ bot / hệ thống bên ngoài chỉ cần đính kèm header <code className="bg-black/40 px-1.5 py-0.5 rounded text-purple-300 font-mono">X-Api-Key: &lt;API_KEY&gt;</code> hoặc <code className="bg-black/40 px-1.5 py-0.5 rounded text-purple-300 font-mono">Authorization: Bearer &lt;API_KEY&gt;</code>.
+            </p>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3 pt-1">
+              <div className="p-3 rounded-xl bg-black/40 border border-slate-800 text-[11px] font-mono space-y-1">
+                <span className="text-emerald-400 font-bold block">1. Lấy danh sách nhiệm vụ (Toàn bộ trạng thái):</span>
+                <p className="text-slate-400">GET /api/missions?status=ALL</p>
+                <span className="text-emerald-400 font-bold block pt-1">2. Tạo nhiệm vụ mới:</span>
+                <p className="text-slate-400">POST /api/missions &#123; title, quota, reward_type... &#125;</p>
+              </div>
+              <div className="p-3 rounded-xl bg-black/40 border border-slate-800 text-[11px] font-mono space-y-1">
+                <span className="text-purple-400 font-bold block">3. Lấy hồ sơ bài nộp & Duyệt thưởng:</span>
+                <p className="text-slate-400">GET /api/missions/submissions?status=PENDING</p>
+                <p className="text-slate-400">POST /api/missions/submissions &#123; action: "APPROVE", submission_id &#125;</p>
+                <span className="text-purple-400 font-bold block pt-1">4. Nạp mã code vào kho:</span>
+                <p className="text-slate-400">POST /api/missions/pools &#123; mission_id, codes: [...] &#125;</p>
+              </div>
+            </div>
           </div>
 
           {/* Audit Logs */}

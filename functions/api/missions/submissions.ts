@@ -186,8 +186,74 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
       );
     }
 
+    if (action === 'BATCH_APPROVE') {
+      const { submission_ids } = body;
+      if (!Array.isArray(submission_ids) || submission_ids.length === 0) {
+        return new Response(
+          JSON.stringify({ success: false, message: 'Yêu cầu mảng submission_ids (danh sách ID hồ sơ cần duyệt).' }),
+          { status: 400, headers: CORS_HEADERS }
+        );
+      }
+
+      let successCount = 0;
+      const errors: string[] = [];
+
+      for (const id of submission_ids) {
+        const res = await executeApproveReward(env.DB, id, `${adminActor} (Batch API)`);
+        if (res.success) {
+          successCount++;
+        } else if (res.error) {
+          errors.push(`ID ${id}: ${res.error}`);
+        }
+      }
+
+      return new Response(
+        JSON.stringify({
+          success: true,
+          message: `Đã duyệt thành công ${successCount}/${submission_ids.length} hồ sơ.`,
+          successCount,
+          total: submission_ids.length,
+          errors: errors.length > 0 ? errors : undefined,
+        }),
+        { status: 200, headers: CORS_HEADERS }
+      );
+    }
+
+    if (action === 'BATCH_REJECT') {
+      const { submission_ids, rejection_reason = 'Không đạt yêu cầu qua kiểm tra tự động.' } = body;
+      if (!Array.isArray(submission_ids) || submission_ids.length === 0) {
+        return new Response(
+          JSON.stringify({ success: false, message: 'Yêu cầu mảng submission_ids (danh sách ID hồ sơ cần từ chối).' }),
+          { status: 400, headers: CORS_HEADERS }
+        );
+      }
+
+      let successCount = 0;
+      const errors: string[] = [];
+
+      for (const id of submission_ids) {
+        const res = await executeRejectSubmission(env.DB, id, `${adminActor} (Batch API)`, rejection_reason);
+        if (res.success) {
+          successCount++;
+        } else if (res.error) {
+          errors.push(`ID ${id}: ${res.error}`);
+        }
+      }
+
+      return new Response(
+        JSON.stringify({
+          success: true,
+          message: `Đã từ chối ${successCount}/${submission_ids.length} hồ sơ.`,
+          successCount,
+          total: submission_ids.length,
+          errors: errors.length > 0 ? errors : undefined,
+        }),
+        { status: 200, headers: CORS_HEADERS }
+      );
+    }
+
     return new Response(
-      JSON.stringify({ success: false, message: 'Hành động không hợp lệ (hỗ trợ APPROVE, REJECT, BATCH_APPROVE_AI).' }),
+      JSON.stringify({ success: false, message: 'Hành động không hợp lệ (hỗ trợ APPROVE, REJECT, BATCH_APPROVE, BATCH_REJECT, BATCH_APPROVE_AI).' }),
       { status: 400, headers: CORS_HEADERS }
     );
   } catch (error: any) {
