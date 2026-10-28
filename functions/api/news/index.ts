@@ -1,5 +1,6 @@
 import { DEFAULT_NEWS_ARTICLES as fallbackNewsArticles } from '../../../src/data/seedNews';
 import { computeSha256, hasScope } from '../../services/mission_service';
+import { getSettingD1, setSettingD1, invalidateSettingMemoryCache } from '../../services/d1_service';
 
 interface Env {
   DB?: D1Database;
@@ -289,18 +290,15 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
 
   if (env.DB) {
     try {
-      const jsonStr = JSON.stringify(updatedList);
-      await env.DB.prepare(
-        "INSERT INTO system_settings (key, value, updated_at) VALUES ('wcg_news_articles_v1', ?, CURRENT_TIMESTAMP) ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_at = CURRENT_TIMESTAMP"
-      ).bind(jsonStr).run();
+      await setSettingD1(env.DB, 'wcg_news_articles_v1', updatedList);
+      invalidateSettingMemoryCache('wcg_news_articles_v1');
 
       // Master state sync
-      const masterRow: any = await env.DB.prepare("SELECT value FROM system_settings WHERE key = 'wcg_master_state_v4' LIMIT 1").first();
-      let master = masterRow?.value ? JSON.parse(masterRow.value) : {};
+      const masterRow: any = await getSettingD1(env.DB, 'wcg_master_state_v4');
+      let master = masterRow && typeof masterRow === 'object' ? masterRow : {};
       master.newsArticles = updatedList;
-      await env.DB.prepare(
-        "INSERT INTO system_settings (key, value, updated_at) VALUES ('wcg_master_state_v4', ?, CURRENT_TIMESTAMP) ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_at = CURRENT_TIMESTAMP"
-      ).bind(JSON.stringify(master)).run();
+      await setSettingD1(env.DB, 'wcg_master_state_v4', master);
+      invalidateSettingMemoryCache('wcg_master_state_v4');
     } catch (e: any) {
       console.error('[News API] Error writing to D1:', e?.message);
       return new Response(

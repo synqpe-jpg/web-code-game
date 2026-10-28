@@ -72,10 +72,22 @@ export const NewsView: React.FC<NewsViewProps> = ({
 
   useEffect(() => {
     loadArticles();
-    // Tự động kéo dữ liệu mới nhất từ máy chủ để làm sạch hoàn toàn cache cũ trên client
+    // Tự động kéo dữ liệu tin tức mới nhất từ máy chủ để làm sạch hoàn toàn cache cũ trên client
+    newsService.syncFromServer().then((updated) => {
+      if (Array.isArray(updated) && updated.length > 0) {
+        setArticles(newsService.getPublishedArticles());
+        if (initialArticleSlug) {
+          const found = newsService.getArticleBySlug(initialArticleSlug);
+          if (found) {
+            setSelectedArticle(found);
+            newsService.recordView(found.id);
+          }
+        }
+      }
+    }).catch(() => {});
     dataService.syncWithCloudflareKV().catch(() => {});
 
-    // Listen to news updates (from admin sync)
+    // Listen to news updates (from server or admin sync)
     const handleNewsUpdate = () => loadArticles();
     window.addEventListener('wcg_news_updated', handleNewsUpdate);
     return () => window.removeEventListener('wcg_news_updated', handleNewsUpdate);

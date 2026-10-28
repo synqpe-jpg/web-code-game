@@ -21,6 +21,7 @@ import {
   syncProductStockCounter,
   ensureSchemaUpgrades,
   resetAllWalletsAndRevenueD1,
+  invalidateSettingMemoryCache,
 } from '../services/d1_service';
 import { verifyToken, computeHash, verifyTemporaryAuditToken } from '../services/auth_service';
 import { invalidateGamesCatalogCache } from './games';
@@ -314,8 +315,38 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
         val = fallbackStoreProductsData;
       } else if (specificKey === 'wcg_admin_giveaways_v4' && (!Array.isArray(val) || val.length === 0)) {
         val = (fallbackGiveawaysData as any[]).filter(g => g.id !== 'gw_alienware_vaultbreakers' && g.id !== 'gw_garena_delta_force' && g.id !== 'gw_gamerpower_rotwood');
-      } else if (specificKey === 'wcg_news_articles_v1' && (!Array.isArray(val) || val.length === 0)) {
-        val = fallbackNewsArticles;
+      } else if (specificKey === 'wcg_news_articles_v1') {
+        const candidate = Array.isArray(val) && val.length > 0 ? val : fallbackNewsArticles;
+        let delSet = new Set<string>();
+        if (env.DB) {
+          try {
+            const delRaw = await getSettingD1(env.DB, 'wcg_deleted_news_articles_v1');
+            if (Array.isArray(delRaw)) delRaw.forEach((id: string) => delSet.add(String(id)));
+          } catch {}
+        }
+        const nowMs = Date.now();
+        val = candidate.filter((a: any) => {
+          if (!a || !a.id || delSet.has(a.id) || (a.slug && delSet.has(a.slug))) return false;
+          if (!authorized && a.status === 'SCHEDULED' && a.scheduled_publish_at) {
+            const schedTime = new Date(a.scheduled_publish_at).getTime();
+            if (!isNaN(schedTime) && nowMs < schedTime) return false;
+          }
+          return true;
+        }).map((a: any) => {
+          let effectiveStatus = a.status || 'PUBLISHED';
+          if (effectiveStatus === 'SCHEDULED' && a.scheduled_publish_at) {
+            const schedTime = new Date(a.scheduled_publish_at).getTime();
+            if (!isNaN(schedTime) && nowMs >= schedTime) {
+              effectiveStatus = 'PUBLISHED';
+            }
+          }
+          return {
+            ...a,
+            status: effectiveStatus,
+            published_at: a.published_at || (effectiveStatus === 'PUBLISHED' && a.scheduled_publish_at ? a.scheduled_publish_at : null) || a.created_at || new Date().toISOString(),
+            created_at: a.created_at || a.published_at || new Date().toISOString(),
+          };
+        });
       } else if (specificKey === 'wcg_admin_sepay_v4' && (!val || val.accountNumber === '0987654321')) {
         val = {
           bankName: 'TPBank',
@@ -906,9 +937,15 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
         const raw = d1Settings['wcg_news_articles_v1'] || masterState.newsArticles;
         const candidate = Array.isArray(raw) && raw.length > 0 ? raw : fallbackNewsArticles;
         const nowMs = Date.now();
-        return candidate.filter(
-          (a: any) => !deletedNewsSet.has(a.id) && !deletedNewsSet.has(a.slug)
-        ).map((a: any) => {
+        return candidate.filter((a: any) => {
+          if (!a || !a.id) return false;
+          if (deletedNewsSet.has(a.id) || (a.slug && deletedNewsSet.has(a.slug))) return false;
+          if (!authorized && a.status === 'SCHEDULED' && a.scheduled_publish_at) {
+            const schedTime = new Date(a.scheduled_publish_at).getTime();
+            if (!isNaN(schedTime) && nowMs < schedTime) return false;
+          }
+          return true;
+        }).map((a: any) => {
           let effectiveStatus = a.status || 'PUBLISHED';
           if (effectiveStatus === 'SCHEDULED' && a.scheduled_publish_at) {
             const schedTime = new Date(a.scheduled_publish_at).getTime();
@@ -5110,13 +5147,19 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
                 const safeMerged = [...incomingNews, ...unapprovedMissing];
                 currentMaster.newsArticles = safeMerged;
                 await setSettingD1(env.DB, 'wcg_news_articles_v1', safeMerged);
+                invalidateSettingMemoryCache('wcg_news_articles_v1');
+                invalidateSettingMemoryCache('wcg_master_state_v4');
               } else {
                 currentMaster.newsArticles = incomingNews;
                 await setSettingD1(env.DB, 'wcg_news_articles_v1', incomingNews);
+                invalidateSettingMemoryCache('wcg_news_articles_v1');
+                invalidateSettingMemoryCache('wcg_master_state_v4');
               }
             } else {
               currentMaster.newsArticles = incomingNews;
               await setSettingD1(env.DB, 'wcg_news_articles_v1', incomingNews);
+                invalidateSettingMemoryCache('wcg_news_articles_v1');
+                invalidateSettingMemoryCache('wcg_master_state_v4');
             }
           }
         }

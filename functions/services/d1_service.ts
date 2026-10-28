@@ -1915,6 +1915,14 @@ interface SettingMemoryCacheEntry {
 const settingMemoryCache = new Map<string, SettingMemoryCacheEntry>();
 const SETTING_MEMORY_CACHE_TTL = 60 * 1000; // 60 seconds
 
+export function invalidateSettingMemoryCache(key?: string): void {
+  if (key) {
+    settingMemoryCache.delete(key);
+  } else {
+    settingMemoryCache.clear();
+  }
+}
+
 /**
  * Wraps a D1 database promise with strict timeout and fallback
  * Prevents Worker hangs or timeouts when D1 hits quota limits or is slow.

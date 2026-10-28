@@ -14,7 +14,7 @@
   </url>
   <url>
     <loc>https://codegame.shop/news</loc>
-    <lastmod>2026-10-22</lastmod>
+    <lastmod>2026-10-28</lastmod>
     <changefreq>daily</changefreq>
     <priority>0.9</priority>
   </url>
@@ -3507,6 +3507,30 @@
   <url>
     <loc>https://codegame.shop/game/dig-and-clean</loc>
     <lastmod>2026-10-25</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://codegame.shop/news/tien-gioi-nhan-kiem-hop-nhat-chinh-thuc-ra-mat-hom-nay-28-10-6-code-tan-thu-va-dua-top-toan-server</loc>
+    <lastmod>2026-10-28</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://codegame.shop/news/vampir-netmarble-ra-mat-toan-cau-hom-nay-mmorpg-ma-ca-rong-choi-cheo-pc-mobile</loc>
+    <lastmod>2026-10-28</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://codegame.shop/news/no-man-s-sky-do-bo-iphone-ipad-ngay-28-10-tron-10-nam-noi-dung-choi-thu-mien-phi</loc>
+    <lastmod>2026-10-28</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://codegame.shop/news/tong-hop-code-game-the-gioi-nuoc-sinh-ton-va-cach-nhap-2026-8o72</loc>
+    <lastmod>2026-10-28</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.8</priority>
   </url>

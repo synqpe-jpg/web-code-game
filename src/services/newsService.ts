@@ -290,6 +290,40 @@ class NewsService {
   }
 
   /**
+   * Đồng bộ dữ liệu bài viết mới nhất từ máy chủ (Cloudflare D1) về bộ nhớ và client storage
+   * Tự động nối kho bài viết /api/news và /api/sync ngay lập tức cho cả Web Khách và Admin
+   */
+  public async syncFromServer(): Promise<NewsArticle[]> {
+    if (typeof window === 'undefined') return this.articles;
+    try {
+      const res = await fetch(`/api/sync?key=wcg_news_articles_v1&fresh=1&_t=${Date.now()}`);
+      if (res.ok) {
+        const json = await res.json();
+        const incoming = json.data || json.articles || json.newsArticles;
+        if (Array.isArray(incoming) && incoming.length > 0) {
+          this.applyServerSnapshot(incoming);
+          return this.articles;
+        }
+      }
+    } catch (e) {
+      console.warn('[NewsService] syncFromServer failed on /api/sync, trying /api/news fallback:', e);
+    }
+
+    try {
+      const res = await fetch(`/api/news?limit=all&_t=${Date.now()}`);
+      if (res.ok) {
+        const json = await res.json();
+        if (Array.isArray(json.articles) && json.articles.length > 0) {
+          this.applyServerSnapshot(json.articles);
+          return this.articles;
+        }
+      }
+    } catch {}
+
+    return this.articles;
+  }
+
+  /**
    * Lấy danh sách tin tức đã xuất bản (cho Web Khách)
    * Tự động hiển thị các bài viết đến lịch hẹn đăng (SCHEDULED) khi chạm mốc thời gian
    */

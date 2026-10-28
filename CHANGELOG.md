@@ -7,6 +7,30 @@ Mỗi mục sửa lỗi đều ghi nhận **Nguyên nhân gốc rễ (Root Cause
 
 ## [2026-10-28]
 
+### 248. Nối Liền Kho Bài Viết /api/news Vào Kho Hiển Thị /api/sync & Tự Động Đồng Bộ Đa Kênh (Unified News Repositories & Realtime Sync Bridge)
+- **Bối cảnh & Yêu cầu từ Người dùng**:
+  - Kho bài /api/news (dành cho bot crawler / API tự động) và kho đồng bộ /api/sync (phục vụ web khách và panel admin) bị phân tách.
+  - Khi bot đăng bài qua POST /api/news (với khóa NEWS_FULL), máy chủ trả 201 Created và ghi nhận vào /api/news, nhưng trang công khai /news và Admin Panel không hiển thị các bài viết mới.
+  - Cần nối hai kho lại để: bất kỳ bài nào đăng qua POST /api/news (PUBLISHED) đều tự động hiện ngay lập tức trên web khách và trang admin; sửa bài (PUT) và xóa bài (DELETE kèm tombstone) phản ánh tức thì; bài hẹn giờ (SCHEDULED) chỉ hiện khi chạm mốc thời gian; backfill 3 bài ngày 28/10 và rà soát 13 slug trong /api/news; bảo toàn toàn bộ 163 bài kho đồng bộ và 174 bài trong /api/news; không làm chậm trang /news.
+- **Giải pháp Thành công (Solution Applied)**:
+  1. *Hợp nhất và Chuẩn hóa Lưu trữ Server-Side (SSOT Backend Bridge)*:
+     - functions/services/d1_service.ts: Cung cấp hàm invalidateSettingMemoryCache(key) để xóa in-memory cache ngay lập tức khi có thao tác ghi dữ liệu.
+     - functions/api/news/index.ts & functions/api/news/[id].ts: Sử dụng setSettingD1 và invalidateSettingMemoryCache đồng bộ trực tiếp cả wcg_news_articles_v1 và wcg_master_state_v4.newsArticles khi POST, PUT, DELETE.
+     - functions/api/sync.ts: Endpoint GET /api/sync?key=wcg_news_articles_v1 và payload newsArticles của GET /api/sync luôn trả về danh sách bài viết hợp nhất từ D1; tự động loại bỏ các bài đã bị xóa trong wcg_deleted_news_articles_v1 (tombstones); tự động ẩn bài hẹn giờ trong tương lai (SCHEDULED) đối với khách công khai (!authorized) và tự động chuyển thành PUBLISHED khi chạm giờ hẹn.
+  2. *Cơ chế Tự Động Kéo Dữ Liệu Phía Web Khách & Admin (Client-Side Auto-Sync)*:
+     - src/services/newsService.ts: Bổ sung phương thức syncFromServer() truy vấn /api/sync?key=wcg_news_articles_v1&fresh=1 (kèm fallback /api/news?limit=all), tự động cập nhật snapshot và kích hoạt event wcg_news_updated.
+     - src/services/dataService.ts: Bổ sung newsService.syncFromServer() vào luồng đồng bộ định kỳ cho khách công khai (!isAdmin).
+     - src/components/NewsView.tsx: Tự động gọi newsService.syncFromServer() khi mở trang /news; tự động mở modal bài viết nếu truy cập qua deep-link URL slug trực tiếp.
+     - src/admin/modules/NewsModule.tsx: Tự động gọi newsService.syncFromServer() khi mount module và khi quản trị viên bấm nút Làm mới.
+  3. *Backfill Dữ Liệu & Rà Soát 13 Slug*:
+     - Tích hợp 3 bài viết ngày 28/10 (tien-gioi-nhan-kiem-hop-nhat-..., vampir-netmarble-ra-mat-..., no-man-s-sky-do-bo-...) và 1 bài game mới (tong-hop-code-game-the-gioi-nuoc-sinh-ton-...) vào src/data/seedNews.ts (nâng tổng số lên 167 bài độc nhất trong bundle tĩnh).
+     - Rà soát toàn diện 13 slug: 4 bài độc nhất mới, 9 bài do bot crawler tạo trước đó trùng nội dung với bài cũ đã có trong kho được giữ nguyên slug/id chuẩn mực không làm đứt gãy dữ liệu.
+- **Kiểm Thử & Xác Minh (Verification)**:
+  - Integration test test_news_bridge_e2e.cjs xác nhận 100% PASS: cả 3 bài viết mới đều hiện diện đồng thời và nhất quán trên cả /api/news và /api/sync.
+  - Audit Zero Test Artifacts: Đạt 100%.
+  - Vite Frontend Build & Prerender 784 liên kết SEO: Thành công 100%.
+  - Cloudflare Pages Edge Worker bundle compile: Thành công 100%.
+
 ### 247. Xây Dựng Khóa API Đa Năng & Hệ Thống Phân Quyền Đa Chiều (Universal Versatile API & Custom Scope Engine)
 - **Bối cảnh & Yêu cầu từ Người dùng**:
   - Trong mục Quản lý API của trang Admin, tạo 1 API đa năng (Universal Versatile API).

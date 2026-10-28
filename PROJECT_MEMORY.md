@@ -294,3 +294,29 @@
   3. Cập nhật giao diện Modal "Set Quyền Cho Khóa API" và Modal "Tạo Khóa API Mới" để Quản trị viên có thể dùng 1 mã API chọn và gán quyền mới đó ngay lập tức.
   4. Cập nhật Bảng tra cứu cấp quyền và tab Tài liệu API mẫu (cURL / JavaScript).
 
+---
+
+## 7. KIẾN TRÚC ĐỒNG BỘ TIN TỨC & NỐI LIỀN KHO BÀI VIẾT /api/news VÀ /api/sync
+
+### 7.1. Nguyên Lý Nối Kho Bài Viết (Two-Way Unified News Repositories)
+- **Kho bài viết D1 duy nhất (Single Source of Truth - SSOT)**:
+  - Cả bộ API RESTful (`/api/news`, `/api/news/:id`) và endpoint đồng bộ toàn diện (`/api/sync`) đều đọc và ghi thống nhất vào bảng `system_settings` của Cloudflare D1 tại 2 khóa chính:
+    1. `wcg_news_articles_v1`: Mảng toàn bộ bài viết tin tức thực tế.
+    2. `wcg_deleted_news_articles_v1`: Mảng Tombstone các ID và slug bài viết đã xóa để ngăn chặn hồi sinh vĩnh viễn (Zero Resurrection).
+    3. Đồng bộ tương hỗ vào `wcg_master_state_v4.newsArticles`.
+- **Cơ chế Xóa Cache Nguyên Tử (Immediate Memory Cache Invalidation)**:
+  - Mọi thao tác `POST /api/news`, `PUT /api/news/:id`, `DELETE /api/news/:id` hoặc `POST /api/sync` đều gọi `setSettingD1` kèm `invalidateSettingMemoryCache('wcg_news_articles_v1')` và `invalidateSettingMemoryCache('wcg_master_state_v4')`, lập tức giải phóng cache trong Worker RAM.
+- **Xử Lý Bài Viết Hẹn Giờ (Scheduled Publishing Gatekeeper)**:
+  - Bài viết có `status === 'SCHEDULED'` kèm `scheduled_publish_at`:
+    - Với khách công khai (`!authorized`): Bị chặn ẩn hoàn toàn khỏi `/api/sync` và `/api/news` cho tới khi `nowMs >= schedTime`.
+    - Với quản trị viên (`authorized === true`): Hiển thị đầy đủ trong danh sách Admin để theo dõi và chỉnh sửa.
+    - Khi thời gian thực tế vượt qua mốc hẹn, server và client tự động kích hoạt trạng thái thành `PUBLISHED`.
+
+### 7.2. Luồng Đồng Bộ Phía Web Khách & Admin (Client-Side Realtime Bridge)
+- **Tự động kéo dữ liệu nền không gây giật lag (Zero-Stall Background Auto-Sync)**:
+  - Phương thức `newsService.syncFromServer()` truy vấn `/api/sync?key=wcg_news_articles_v1&fresh=1` (fallback `/api/news?limit=all`).
+  - Được kích hoạt tự động:
+    1. Khi người dùng mở trang `/news` (`NewsView.tsx` mount).
+    2. Khi người dùng vãng lai vào web (`dataService.syncWithCloudflareKV` khối `!isAdmin`).
+    3. Khi Quản trị viên mở Module Tin Tức (`NewsModule.tsx` mount) hoặc bấm "🔄 Làm mới".
+    4. Khi người dùng truy cập trực tiếp qua đường dẫn slug bài viết (`/news/:slug`), hệ thống tự động kiểm tra bài viết sau khi sync và mở modal xem bài ngay lập tức.

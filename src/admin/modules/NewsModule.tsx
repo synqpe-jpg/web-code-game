@@ -170,6 +170,9 @@ export const NewsModule: React.FC<NewsModuleProps> = ({ onShowToast }) => {
   useEffect(() => {
     loadData();
     // Tự động kéo dữ liệu tin tức mới nhất từ Cloudflare D1 về trang Admin
+    newsService.syncFromServer().then(() => {
+      loadData();
+    }).catch(() => {});
     adminDataService.fetchFromCloudflareKV().then(() => {
       loadData();
     }).catch(() => {});
@@ -641,6 +644,7 @@ export const NewsModule: React.FC<NewsModuleProps> = ({ onShowToast }) => {
   const handleManualSync = async () => {
     setIsSyncing(true);
     try {
+      await newsService.syncFromServer();
       await adminDataService.fetchFromCloudflareKV();
       const list = newsService.getAllArticles();
       setArticles(list);

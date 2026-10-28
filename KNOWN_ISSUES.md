@@ -10,6 +10,24 @@
 
 ## 1. DANH MỤC LỖI & CÁC BẪY ĐÃ THẤT BẠI (DO NOT REPEAT)
 
+### ISSUE-167: Bẫy Phân Tách Kho Bài Viết API Bot & Kho Hiển Thị Client (News API Repository Disconnect & Realtime Sync Bridge)
+- **Triệu chứng**:
+  - Bài viết đăng qua bot / API ngoài (POST /api/news) thành công và xuất hiện trong /api/news (174 bài), nhưng trên web khách (/news) và panel admin chỉ hiển thị 163 bài.
+  - Sửa bài (PUT) hoặc xóa bài (DELETE) qua API không lập tức phản ánh trên web khách do client bundle trang /news không có tham chiếu tự động kéo dữ liệu từ server khi là khách vãng lai (!isAdmin).
+- **Nguyên nhân gốc rễ & Các bẫy cần tránh**:
+  1. *Bẫy phân lập luồng đồng bộ khách/admin (Non-admin sync bypass)*: In dataService.ts, khối `if (!isAdmin)` trước đây chỉ kéo branding và giveaways mà bỏ qua bài viết tin tức, khiến khách truy cập không bao giờ kích hoạt sync dữ liệu tin tức mới.
+  2. *Bẫy không xóa in-memory cache khi cập nhật D1 trực tiếp*: In functions/api/news/*, các thao tác ghi dữ liệu gọi SQL thô thay vì gọi qua `setSettingD1` kèm `invalidateSettingMemoryCache`, dẫn tới Worker tiếp tục phục vụ dữ liệu cũ trong RAM cache.
+  3. *Bẫy bài đặt lịch (SCHEDULED) bị lộ sớm*: Cần chốt chặn phía server để bài hẹn giờ trong tương lai tuyệt đối không được trả về cho khách công khai (!authorized) trước khi chạm mốc `scheduled_publish_at`.
+- **Giải pháp chuẩn đã kiểm chứng**:
+  1. functions/services/d1_service.ts: Cung cấp `invalidateSettingMemoryCache(key)`.
+  2. functions/api/news/*: Luôn dùng `setSettingD1` và invalidate cache cho cả `wcg_news_articles_v1` và `wcg_master_state_v4`.
+  3. functions/api/sync.ts: Chặn bài SCHEDULED trong tương lai với khách công khai; tự động kích hoạt thành PUBLISHED khi chạm giờ hẹn.
+  4. src/services/newsService.ts & dataService.ts: Cung cấp `syncFromServer()` kéo `/api/sync?key=wcg_news_articles_v1&fresh=1` (fallback `/api/news?limit=all`) cho cả khách vãng lai và trang admin.
+  5. Backfill đầy đủ 4 bài viết mới vào seedNews.ts bảo đảm bundle tĩnh ban đầu luôn hoàn chỉnh 167 bài.
+- 🚫 **CÁCH SỬA ĐÃ THẤT BẠI - TUYỆT ĐỐI KHÔNG LẶP LẠI**:
+  - ❌ *Tuyệt đối KHÔNG bỏ qua đồng bộ tin tức ở client khi không phải admin*: Luôn cho phép `newsService.syncFromServer()` chạy nhẹ nhàng ở background.
+  - ❌ *Tuyệt đối KHÔNG hiển thị bài SCHEDULED ra ngoài web trước giờ hẹn*: Kiểm tra nghiêm ngặt `nowMs >= schedTime`.
+
 ### ISSUE-166: Bẫy Đơn Quyền Cứng Nhắc & Thiếu Khả Năng Cấu Hình Đa Quyền Linh Hoạt Cho API (Single-Scope Hardcoding & Versatile Key Scoping)
 - **Triệu chứng**:
   - Mỗi khóa API trước đây chỉ có 1 quyền duy nhất (ví dụ NEWS_FULL hoặc MISSIONS_FULL). Muốn dùng bot làm cả 2 tác vụ phải lưu trữ và chuyển đổi qua lại giữa 2 token khác nhau.

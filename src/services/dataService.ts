@@ -471,10 +471,11 @@ public async syncWithCloudflareKV(forceFresh: boolean = false): Promise<void> {
           Boolean(localStorage.getItem('wcg_auth_token'))
         );
         if (!isAdmin) {
-          // Non-admin public visitors: sync CMS branding, content, and active giveaways without 559-games blob
+          // Non-admin public visitors: sync CMS branding, content, active giveaways and news articles without 559-games blob
           await Promise.allSettled([
             this.syncBrandingAndContentOnly(),
             this.syncGiveaways(),
+            newsService.syncFromServer(),
           ]);
           return;
         }
