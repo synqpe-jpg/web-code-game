@@ -266,3 +266,31 @@
 - Trước mỗi thao tác "Áp Đặt Toàn Bộ", hệ thống bắt buộc mở Modal Xem Trước (Preview Diff) và tự động tạo Snapshot lưu lại toàn bộ dữ liệu trước đó.
 - Nút "Khôi phục từ bản sao lưu này" cho phép người dùng rollback về trạng thái trước đó chỉ bằng 1 cú nhấp chuột.
 - Mọi thao tác đều được lưu vết trong Nhật ký kiểm toán `TemplateAuditLog`.
+
+---
+
+## 6. HỆ THỐNG KHÓA API & ĐỘNG CƠ PHÂN QUYỀN ĐA CHIỀU (API MANAGEMENT & PERMISSIONS ENGINE)
+
+### 6.1. Kiến Trúc Khóa API Đa Năng (Universal Versatile API)
+- **Bảng CSDL D1**: `mission_ai_api_keys` lưu trữ `id`, `key_name`, `api_key_hash` (SHA-256), `key_prefix`, `scope`, `description`, `expires_at`, `raw_key`, `is_active`, `last_used_at`, `created_at`.
+- **Cơ chế Phân quyền Đa Quyền (Multi-Scope Engine)**:
+  - Cột `scope` lưu trữ chuỗi danh sách các quyền phân tách bằng dấu phẩy (hoặc mảng JSON), ví dụ: `NEWS_FULL,MISSIONS_FULL,GAMES_FULL,GIVEAWAYS_FULL,SYNC_FULL`.
+  - Bộ hàm chuẩn tại `functions/services/mission_service.ts`:
+    - `hasScope(scopeStr, requiredScope)`: Kiểm tra xem khóa có quyền `requiredScope` hay không. Tự động thừa hưởng toàn quyền nếu khóa có `ADMIN_FULL`, `FULL`, hoặc `*`.
+    - `parseScopes(scopeStr)`: Chuyển chuỗi hoặc JSON scope thành mảng `string[]`.
+    - `formatScopes(scopes)`: Chuẩn hóa mảng hoặc chuỗi thành danh sách phân tách bằng dấu phẩy chuẩn mực.
+- **Khóa Mẫu Đa Năng (`ak_preset_multi_versatile`)**:
+  - Mã: `wcg_multi_5a82ef419b027c4d18e3902f6a7d1b82c9e5041a`
+  - Đóng vai trò là khóa mẫu đa năng cho phép Admin hoặc AI sử dụng 1 mã duy nhất để gọi nhiều nhóm API khác nhau.
+- **Endpoint Set Quyền Từ Xa (`POST /api/api-keys/set-permissions`)**:
+  - Nhận `key_id` và mảng `scopes: string[]` để cập nhật quyền cho bất kỳ khóa API nào trong D1.
+  - Xác thực bằng Master Key hoặc bất kỳ khóa nào có quyền `API_KEYS_FULL` / `ADMIN_FULL`.
+
+### 6.2. Mệnh Lệnh Bắt Buộc: Tự Động Bổ Sung Quyền Mới Vào Mục Quản Lý API (MANDATORY RULE)
+- **MỆNH LỆNH TỪ CHỦ SỞ HỮU DỰ ÁN**:
+  - Bất cứ khi nào trong tương lai tác nhân phát triển, mở thêm hoặc cấu hình bất kỳ quyền/endpoint API mới nào trên website:
+  1. **BẮT BUỘC TỰ ĐỘNG** bổ sung định danh quyền đó vào mảng `ALL_API_SCOPES` trong `src/admin/modules/ApiKeysModule.tsx`.
+  2. Bổ sung quyền đó vào hàm kiểm tra trung tâm `hasScope` trong `functions/services/mission_service.ts` và các endpoint API tương ứng.
+  3. Cập nhật giao diện Modal "Set Quyền Cho Khóa API" và Modal "Tạo Khóa API Mới" để Quản trị viên có thể dùng 1 mã API chọn và gán quyền mới đó ngay lập tức.
+  4. Cập nhật Bảng tra cứu cấp quyền và tab Tài liệu API mẫu (cURL / JavaScript).
+

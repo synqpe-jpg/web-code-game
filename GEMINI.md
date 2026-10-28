@@ -33,3 +33,10 @@ Trước mỗi lần chỉnh sửa bất kỳ file nào trong dự án, AI Agent
 - Tuyệt đối không giữ lại hay để hiển thị bất kỳ sản phẩm test nào trên web thực tế.
 - Chỉ những sản phẩm thực tế do người dùng nhập vào kho mới được công nhận, lưu trữ và ghi nhận trạng thái còn hàng.
 
+### 🔑 8. NGUYÊN TẮC TỰ ĐỘNG ĐỒNG BỘ QUYỀN API MỚI VÀO MỤC QUẢN LÝ API (AUTO-REGISTER NEW API PERMISSIONS)
+- Bất cứ khi nào trong tương lai tác nhân phát triển, mở thêm hoặc cấu hình bất kỳ quyền/endpoint API mới nào trên website:
+  1. **BẮT BUỘC TỰ ĐỘNG** bổ sung quyền đó vào danh mục `ALL_API_SCOPES` trong `src/admin/modules/ApiKeysModule.tsx`.
+  2. Cập nhật hàm phân giải quyền `hasScope` trong `functions/services/mission_service.ts`.
+  3. Cập nhật Modal "Set Quyền Cho Khóa API" và Modal "Tạo Khóa API Mới" để Quản trị viên có thể dùng 1 mã API cấu hình và gán quyền mới đó ngay lập tức.
+  4. Cập nhật bảng tra cứu cấp quyền và tài liệu mẫu cURL/JS tương ứng.
+
