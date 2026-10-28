@@ -249,17 +249,24 @@ class NewsService {
     serverConfig?: NewsScheduleConfig
   ) {
     if (Array.isArray(serverArticles)) {
-      // Loại bỏ toàn bộ bài viết đã nằm trong danh sách đã xóa (tombstones)
-      const cleanServer = serverArticles.filter(
-        (a) =>
-          !this.deletedArticleIds.has(a.id) &&
-          !this.deletedArticleIds.has(a.slug)
-      ).map((a: any) => ({
-        ...a,
-        published_at: a.published_at || a.created_at || new Date().toISOString(),
-      }));
-      this.articles = cleanServer;
-      this.saveToStorage();
+      // Chốt chặn an toàn: Nếu máy chủ gửi danh sách rỗng trong khi kho cục bộ đang có dữ liệu thật, không ghi đè rỗng
+      if (serverArticles.length === 0 && this.articles.length > 0) {
+        console.warn('[NewsService Safeguard] Bỏ qua snapshot rỗng từ máy chủ để bảo vệ dữ liệu hiện có');
+      } else {
+        // Loại bỏ toàn bộ bài viết đã nằm trong danh sách đã xóa (tombstones)
+        const cleanServer = serverArticles.filter(
+          (a) =>
+            !this.deletedArticleIds.has(a.id) &&
+            !this.deletedArticleIds.has(a.slug)
+        ).map((a: any) => ({
+          ...a,
+          published_at: a.published_at || a.created_at || new Date().toISOString(),
+        }));
+        if (cleanServer.length > 0 || this.articles.length === 0) {
+          this.articles = cleanServer;
+          this.saveToStorage();
+        }
+      }
     }
     if (Array.isArray(serverSources) && serverSources.length > 0) {
       this.autoSources = this.mergeDefaultSources(serverSources);
@@ -284,13 +291,34 @@ class NewsService {
 
   /**
    * Lấy danh sách tin tức đã xuất bản (cho Web Khách)
+   * Tự động hiển thị các bài viết đến lịch hẹn đăng (SCHEDULED) khi chạm mốc thời gian
    */
   public getPublishedArticles(filter?: {
     search?: string;
     gameSlug?: string;
     tag?: string;
   }): NewsArticle[] {
-    let result = this.articles.filter((a) => a.status === 'PUBLISHED');
+    const nowMs = Date.now();
+    let result = this.articles.filter((a) => {
+      if (a.status === 'PUBLISHED') return true;
+      if (a.status === 'SCHEDULED' && a.scheduled_publish_at) {
+        const schedTime = new Date(a.scheduled_publish_at).getTime();
+        return !isNaN(schedTime) && nowMs >= schedTime;
+      }
+      return false;
+    }).map((a) => {
+      if (a.status === 'SCHEDULED' && a.scheduled_publish_at) {
+        const schedTime = new Date(a.scheduled_publish_at).getTime();
+        if (!isNaN(schedTime) && nowMs >= schedTime) {
+          return {
+            ...a,
+            status: 'PUBLISHED' as const,
+            published_at: a.scheduled_publish_at,
+          };
+        }
+      }
+      return a;
+    });
 
     if (filter?.gameSlug && filter.gameSlug !== 'all') {
       result = result.filter(
@@ -418,6 +446,7 @@ class NewsService {
         virtual_views: typeof articleData.virtual_views === 'number' ? articleData.virtual_views : this.articles[existingIndex].virtual_views || 0,
         views_growth_rate: typeof articleData.views_growth_rate === 'number' ? articleData.views_growth_rate : (this.articles[existingIndex].views_growth_rate !== undefined ? this.articles[existingIndex].views_growth_rate : 1.0),
         slug,
+        scheduled_publish_at: articleData.scheduled_publish_at !== undefined ? articleData.scheduled_publish_at : this.articles[existingIndex].scheduled_publish_at,
         updated_at: now,
       };
       this.articles[existingIndex] = savedItem;
@@ -452,6 +481,7 @@ class NewsService {
         is_hot: Boolean(articleData.is_hot),
         status: articleData.status || 'PUBLISHED',
         published_at: articleData.published_at || now,
+        scheduled_publish_at: articleData.scheduled_publish_at,
         updated_at: now,
       };
       this.articles.unshift(savedItem);
@@ -577,6 +607,13 @@ class NewsService {
 
   public async syncToCloudflareServer(): Promise<boolean> {
     if (typeof window === 'undefined') return false;
+
+    // Chốt chặn chống ghi đè: Tuyệt đối không gửi mảng rỗng hoặc suy giảm dữ liệu khi bộ nhớ chưa nạp
+    if (!this.isLoaded || !Array.isArray(this.articles) || (this.articles.length === 0 && DEFAULT_NEWS_ARTICLES.length > 0)) {
+      console.warn('[NewsService Safeguard] Chặn sync: Danh sách bài viết đang rỗng hoặc chưa nạp xong, hủy gửi đè lên máy chủ');
+      return false;
+    }
+
     try {
       const syncKey =
         localStorage.getItem('wcg_admin_sync_key') ||
@@ -601,6 +638,47 @@ class NewsService {
       console.warn('[NewsService] Không thể sync bài viết lên Cloudflare D1:', e);
       return false;
     }
+  }
+
+  /**
+   * Kích hoạt xuất bản ngay bài viết đang trong lịch hẹn đăng
+   */
+  public async publishScheduledArticleNow(articleId: string): Promise<NewsArticle | null> {
+    const found = this.articles.find((a) => a.id === articleId || a.slug === articleId);
+    if (!found) return null;
+    const now = new Date().toISOString();
+    return await this.saveArticle({
+      ...found,
+      status: 'PUBLISHED',
+      published_at: now,
+      scheduled_publish_at: undefined,
+    });
+  }
+
+  /**
+   * Lên lịch hoặc điều chỉnh thời gian hẹn đăng cho bài viết
+   */
+  public async rescheduleArticle(articleId: string, scheduledIso: string): Promise<NewsArticle | null> {
+    const found = this.articles.find((a) => a.id === articleId || a.slug === articleId);
+    if (!found) return null;
+    return await this.saveArticle({
+      ...found,
+      status: 'SCHEDULED',
+      scheduled_publish_at: scheduledIso,
+    });
+  }
+
+  /**
+   * Hủy lịch hẹn đăng và chuyển bài viết về dạng bản nháp
+   */
+  public async cancelScheduledPublish(articleId: string): Promise<NewsArticle | null> {
+    const found = this.articles.find((a) => a.id === articleId || a.slug === articleId);
+    if (!found) return null;
+    return await this.saveArticle({
+      ...found,
+      status: 'DRAFT',
+      scheduled_publish_at: undefined,
+    });
   }
 
   /**

@@ -313,8 +313,9 @@ export interface NewsArticle {
   read_time_minutes?: number;
   is_featured?: boolean;
   is_hot?: boolean;
-  status: 'PUBLISHED' | 'DRAFT';
+  status: 'PUBLISHED' | 'DRAFT' | 'SCHEDULED';
   published_at: string;
+  scheduled_publish_at?: string;
   updated_at?: string;
 }
 

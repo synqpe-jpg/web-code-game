@@ -66,7 +66,7 @@ export const NewsModule: React.FC<NewsModuleProps> = ({ onShowToast }) => {
   const [articles, setArticles] = useState<NewsArticle[]>([]);
   const [games, setGames] = useState<GameAdminRecord[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
-  const [statusFilter, setStatusFilter] = useState<'all' | 'PUBLISHED' | 'DRAFT'>('all');
+  const [statusFilter, setStatusFilter] = useState<'all' | 'PUBLISHED' | 'DRAFT' | 'SCHEDULED'>('all');
   const [isSyncing, setIsSyncing] = useState(false);
 
   // Edit / Create Modal state
@@ -169,6 +169,11 @@ export const NewsModule: React.FC<NewsModuleProps> = ({ onShowToast }) => {
 
   useEffect(() => {
     loadData();
+    // Tự động kéo dữ liệu tin tức mới nhất từ Cloudflare D1 về trang Admin
+    adminDataService.fetchFromCloudflareKV().then(() => {
+      loadData();
+    }).catch(() => {});
+
     const handleNewsUpdate = () => {
       setArticles(newsService.getAllArticles());
       setAutoSources(newsService.getAutoSources());
@@ -199,8 +204,10 @@ export const NewsModule: React.FC<NewsModuleProps> = ({ onShowToast }) => {
     const totalViews = articles.reduce((acc, a) => acc + (a.views || 0), 0);
     const totalCodes = articles.reduce((acc, a) => acc + (a.codes?.length || 0), 0);
     const publishedCount = articles.filter((a) => a.status === 'PUBLISHED').length;
+    const scheduledCount = articles.filter((a) => a.status === 'SCHEDULED').length;
+    const draftCount = articles.filter((a) => a.status === 'DRAFT').length;
     const featuredCount = articles.filter((a) => a.is_featured).length;
-    return { total: articles.length, totalViews, totalCodes, publishedCount, featuredCount };
+    return { total: articles.length, totalViews, totalCodes, publishedCount, scheduledCount, draftCount, featuredCount };
   }, [articles]);
 
   // Danh sách bài viết bị phát hiện là rác / phụ kiện / quảng cáo
@@ -293,6 +300,57 @@ export const NewsModule: React.FC<NewsModuleProps> = ({ onShowToast }) => {
       textarea.focus();
       textarea.setSelectionRange(start + textToInsert.length, start + textToInsert.length);
     }, 0);
+  };
+
+  // Format ISO date string for datetime-local input
+  const formatForDatetimeLocal = (isoString?: string) => {
+    if (!isoString) {
+      const d = new Date(Date.now() + 60 * 60 * 1000);
+      d.setMinutes(d.getMinutes() - d.getTimezoneOffset());
+      return d.toISOString().slice(0, 16);
+    }
+    const d = new Date(isoString);
+    if (isNaN(d.getTime())) return '';
+    d.setMinutes(d.getMinutes() - d.getTimezoneOffset());
+    return d.toISOString().slice(0, 16);
+  };
+
+  const setScheduledPresetHours = (hours: number) => {
+    const d = new Date(Date.now() + hours * 60 * 60 * 1000);
+    setEditingArticle((prev) => ({
+      ...prev,
+      scheduled_publish_at: d.toISOString(),
+    }));
+  };
+
+  const setScheduledPresetMorning = () => {
+    const d = new Date();
+    d.setDate(d.getDate() + 1);
+    d.setHours(9, 0, 0, 0);
+    setEditingArticle((prev) => ({
+      ...prev,
+      scheduled_publish_at: d.toISOString(),
+    }));
+  };
+
+  const setScheduledPresetEvening = () => {
+    const d = new Date();
+    d.setDate(d.getDate() + 1);
+    d.setHours(20, 0, 0, 0);
+    setEditingArticle((prev) => ({
+      ...prev,
+      scheduled_publish_at: d.toISOString(),
+    }));
+  };
+
+  // Kích hoạt xuất bản ngay lập tức một bài viết đang trong lịch hẹn đăng
+  const handlePublishScheduledNow = async (article: NewsArticle) => {
+    if (confirm(`Bạn có chắc muốn kích hoạt xuất bản ngay bài viết "${article.title}"?`)) {
+      await newsService.publishScheduledArticleNow(article.id);
+      setArticles(newsService.getAllArticles());
+      onShowToast('Đã xuất bản ngay! ⚡', `Bài viết "${article.title}" đã được xuất bản công khai.`, 'success');
+      newsService.syncArticlesToCloudflare();
+    }
   };
 
   // Tải & Nén ảnh bìa từ máy tính
@@ -489,6 +547,23 @@ export const NewsModule: React.FC<NewsModuleProps> = ({ onShowToast }) => {
       .map((t) => t.trim())
       .filter((t) => t.length > 0);
 
+    const status = editingArticle.status || 'PUBLISHED';
+    let scheduledPublishAt = editingArticle.scheduled_publish_at;
+
+    if (status === 'SCHEDULED') {
+      if (!scheduledPublishAt) {
+        onShowToast('Thiếu thời gian hẹn', 'Vui lòng chọn ngày và giờ hẹn đăng tự động!', 'error');
+        return;
+      }
+      const schedTime = new Date(scheduledPublishAt).getTime();
+      if (isNaN(schedTime)) {
+        onShowToast('Thời gian không hợp lệ', 'Vui lòng chọn lại thời gian hẹn đăng hợp lệ!', 'error');
+        return;
+      }
+    } else {
+      scheduledPublishAt = undefined;
+    }
+
     const articleToSave: NewsArticle = {
       id: editingArticle.id || `news_${Date.now()}`,
       slug,
@@ -513,14 +588,21 @@ export const NewsModule: React.FC<NewsModuleProps> = ({ onShowToast }) => {
       read_time_minutes: editingArticle.read_time_minutes || 3,
       is_featured: Boolean(editingArticle.is_featured),
       is_hot: Boolean(editingArticle.is_hot),
-      status: editingArticle.status || 'PUBLISHED',
-      published_at: editingArticle.published_at || new Date().toISOString(),
+      status,
+      published_at: editingArticle.published_at || (status === 'SCHEDULED' && scheduledPublishAt ? scheduledPublishAt : new Date().toISOString()),
+      scheduled_publish_at: scheduledPublishAt,
     };
 
     newsService.saveArticle(articleToSave);
     setArticles(newsService.getAllArticles());
     setIsEditorOpen(false);
-    onShowToast('Thành công', 'Đã lưu bài viết tin tức thành công!', 'success');
+    onShowToast(
+      status === 'SCHEDULED' ? 'Đã lên lịch hẹn đăng! ⏰' : 'Thành công',
+      status === 'SCHEDULED'
+        ? `Bài viết sẽ tự động xuất bản vào ${new Date(scheduledPublishAt!).toLocaleString('vi-VN')}`
+        : 'Đã lưu bài viết tin tức thành công!',
+      'success'
+    );
 
     // Trigger background cloud sync
     newsService.syncArticlesToCloudflare();
@@ -555,15 +637,18 @@ export const NewsModule: React.FC<NewsModuleProps> = ({ onShowToast }) => {
     onShowToast(updated.is_hot ? 'Đã bật HOT' : 'Đã tắt HOT', article.title, 'success');
   };
 
-  // Sync to Cloudflare D1
+  // Sync to Cloudflare D1 (2 chiều: kéo dữ liệu mới nhất từ máy chủ trước, sau đó đồng bộ an toàn)
   const handleManualSync = async () => {
     setIsSyncing(true);
     try {
+      await adminDataService.fetchFromCloudflareKV();
+      const list = newsService.getAllArticles();
+      setArticles(list);
       const ok = await newsService.syncArticlesToCloudflare();
       if (ok) {
-        onShowToast('Đã đồng bộ D1', 'Toàn bộ bài viết tin tức đã được lưu trên Cloudflare D1!', 'success');
+        onShowToast('Đã đồng bộ D1', `Đã đồng bộ đầy đủ ${list.length} bài viết tin tức với Cloudflare D1!`, 'success');
       } else {
-        onShowToast('Lỗi đồng bộ', 'Không thể đồng bộ bài viết lên D1.', 'error');
+        onShowToast('Đã làm mới dữ liệu', `Đã kéo ${list.length} bài viết tin tức mới nhất từ máy chủ D1!`, 'info');
       }
     } catch (e: any) {
       onShowToast('Lỗi đồng bộ', e?.message, 'error');
@@ -1583,6 +1668,18 @@ export const NewsModule: React.FC<NewsModuleProps> = ({ onShowToast }) => {
           </button>
           <button
             type="button"
+            onClick={() => setStatusFilter('SCHEDULED')}
+            className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
+              statusFilter === 'SCHEDULED'
+                ? 'bg-purple-600 text-white shadow-sm'
+                : 'bg-muted text-muted-foreground hover:text-foreground'
+            }`}
+          >
+            <Clock className="w-3.5 h-3.5" />
+            <span>Lịch hẹn đăng ({stats.scheduledCount})</span>
+          </button>
+          <button
+            type="button"
             onClick={() => setStatusFilter('DRAFT')}
             className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
               statusFilter === 'DRAFT'
@@ -1590,7 +1687,7 @@ export const NewsModule: React.FC<NewsModuleProps> = ({ onShowToast }) => {
                 : 'bg-muted text-muted-foreground hover:text-foreground'
             }`}
           >
-            Bản nháp ({articles.length - stats.publishedCount})
+            Bản nháp ({stats.draftCount})
           </button>
         </div>
       </div>
@@ -1756,9 +1853,17 @@ export const NewsModule: React.FC<NewsModuleProps> = ({ onShowToast }) => {
                           <CheckCircle2 className="w-3 h-3" />
                           Xuất bản
                         </span>
+                      ) : art.status === 'SCHEDULED' ? (
+                        <span
+                          className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-purple-500/15 text-purple-300 font-bold text-[11px] border border-purple-500/30"
+                          title={art.scheduled_publish_at ? `Hẹn lúc: ${new Date(art.scheduled_publish_at).toLocaleString('vi-VN')}` : 'Đang hẹn giờ'}
+                        >
+                          <Clock className="w-3 h-3 text-purple-400" />
+                          Hẹn đăng
+                        </span>
                       ) : (
                         <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-amber-500/15 text-amber-400 font-bold text-[11px]">
-                          <Clock className="w-3 h-3" />
+                          <FileText className="w-3 h-3" />
                           Bản nháp
                         </span>
                       )}
@@ -1766,12 +1871,29 @@ export const NewsModule: React.FC<NewsModuleProps> = ({ onShowToast }) => {
 
                     {/* Ngày Đăng */}
                     <td className="py-2 px-2 text-muted-foreground whitespace-nowrap text-center text-[11px]">
-                      {new Date(art.published_at).toLocaleDateString('vi-VN')}
+                      {art.status === 'SCHEDULED' && art.scheduled_publish_at ? (
+                        <span className="text-purple-300 font-mono" title={`Thời gian hẹn đăng: ${new Date(art.scheduled_publish_at).toLocaleString('vi-VN')}`}>
+                          {new Date(art.scheduled_publish_at).toLocaleDateString('vi-VN')} {new Date(art.scheduled_publish_at).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })}
+                        </span>
+                      ) : (
+                        new Date(art.published_at).toLocaleDateString('vi-VN')
+                      )}
                     </td>
 
                     {/* Thao Tác - Cố Định Luôn Trên Màn Hình */}
                     <td className="sticky right-0 z-10 bg-card group-hover:bg-card/95 backdrop-blur-md py-2 px-3 text-right whitespace-nowrap shadow-[-6px_0_12px_rgba(0,0,0,0.18)] border-l border-border/80">
                       <div className="inline-flex items-center gap-1.5 justify-end">
+                        {art.status === 'SCHEDULED' && (
+                          <button
+                            type="button"
+                            onClick={() => handlePublishScheduledNow(art)}
+                            className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-purple-500/20 hover:bg-purple-500/30 text-purple-200 font-bold text-xs cursor-pointer transition-all border border-purple-500/40 active:scale-95 shadow-xs"
+                            title="Kích hoạt xuất bản ngay lập tức bài viết này"
+                          >
+                            <Zap className="w-3.5 h-3.5 text-purple-300" />
+                            <span className="hidden sm:inline">Đăng ngay</span>
+                          </button>
+                        )}
                         <button
                           type="button"
                           onClick={() => handleOpenEdit(art)}
@@ -2905,19 +3027,99 @@ export const NewsModule: React.FC<NewsModuleProps> = ({ onShowToast }) => {
                     <div className="ml-auto flex items-center gap-2">
                       <select
                         value={editingArticle.status || 'PUBLISHED'}
-                        onChange={(e) =>
+                        onChange={(e) => {
+                          const newSt = e.target.value as 'PUBLISHED' | 'DRAFT' | 'SCHEDULED';
                           setEditingArticle({
                             ...editingArticle,
-                            status: e.target.value as 'PUBLISHED' | 'DRAFT',
-                          })
-                        }
-                        className="px-2.5 py-1 rounded-lg bg-slate-900 border border-slate-700 text-xs font-bold text-white outline-none cursor-pointer"
+                            status: newSt,
+                            scheduled_publish_at:
+                              newSt === 'SCHEDULED' && !editingArticle.scheduled_publish_at
+                                ? new Date(Date.now() + 60 * 60 * 1000).toISOString()
+                                : editingArticle.scheduled_publish_at,
+                          });
+                        }}
+                        className={`px-2.5 py-1 rounded-lg border text-xs font-bold outline-none cursor-pointer transition-colors ${
+                          editingArticle.status === 'SCHEDULED'
+                            ? 'bg-purple-950 border-purple-500 text-purple-200'
+                            : editingArticle.status === 'DRAFT'
+                            ? 'bg-amber-950 border-amber-500 text-amber-200'
+                            : 'bg-slate-900 border-slate-700 text-white'
+                        }`}
                       >
-                        <option value="PUBLISHED">Xuất bản</option>
-                        <option value="DRAFT">Bản nháp</option>
+                        <option value="PUBLISHED">🟢 Xuất bản ngay</option>
+                        <option value="SCHEDULED">🟣 Lịch hẹn đăng</option>
+                        <option value="DRAFT">⚪ Bản nháp</option>
                       </select>
                     </div>
                   </div>
+
+                  {/* Khung cấu hình Lịch Hẹn Đăng khi chọn status SCHEDULED */}
+                  {editingArticle.status === 'SCHEDULED' && (
+                    <div className="p-3 rounded-xl bg-purple-950/40 border border-purple-500/40 space-y-2 animate-fade-in">
+                      <div className="flex items-center justify-between text-xs font-bold text-purple-300">
+                        <span className="flex items-center gap-1.5">
+                          <Clock className="w-3.5 h-3.5 text-purple-400" />
+                          Hẹn giờ xuất bản tự động (GMT+7):
+                        </span>
+                        {editingArticle.scheduled_publish_at && (
+                          <span className="text-[10px] font-mono text-purple-200 font-semibold bg-purple-900/60 px-2 py-0.5 rounded">
+                            {new Date(editingArticle.scheduled_publish_at).toLocaleString('vi-VN')}
+                          </span>
+                        )}
+                      </div>
+                      <input
+                        type="datetime-local"
+                        value={formatForDatetimeLocal(editingArticle.scheduled_publish_at)}
+                        onChange={(e) => {
+                          const val = e.target.value;
+                          const iso = val ? new Date(val).toISOString() : '';
+                          setEditingArticle({
+                            ...editingArticle,
+                            scheduled_publish_at: iso,
+                          });
+                        }}
+                        className="w-full px-3 py-1.5 rounded-lg bg-slate-900 border border-purple-500/50 text-xs font-mono text-white outline-none focus:border-purple-400"
+                      />
+                      <div className="flex flex-wrap items-center gap-1.5 pt-1">
+                        <span className="text-[10px] text-slate-400 font-medium">Hẹn nhanh:</span>
+                        <button
+                          type="button"
+                          onClick={() => setScheduledPresetHours(1)}
+                          className="px-2 py-0.5 rounded-md bg-purple-900/60 hover:bg-purple-800 text-purple-200 text-[10px] font-bold border border-purple-500/30 transition-all cursor-pointer"
+                        >
+                          +1 Giờ
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setScheduledPresetHours(3)}
+                          className="px-2 py-0.5 rounded-md bg-purple-900/60 hover:bg-purple-800 text-purple-200 text-[10px] font-bold border border-purple-500/30 transition-all cursor-pointer"
+                        >
+                          +3 Giờ
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setScheduledPresetHours(6)}
+                          className="px-2 py-0.5 rounded-md bg-purple-900/60 hover:bg-purple-800 text-purple-200 text-[10px] font-bold border border-purple-500/30 transition-all cursor-pointer"
+                        >
+                          +6 Giờ
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setScheduledPresetMorning()}
+                          className="px-2 py-0.5 rounded-md bg-purple-900/60 hover:bg-purple-800 text-purple-200 text-[10px] font-bold border border-purple-500/30 transition-all cursor-pointer"
+                        >
+                          Sáng mai 09:00
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setScheduledPresetEvening()}
+                          className="px-2 py-0.5 rounded-md bg-purple-900/60 hover:bg-purple-800 text-purple-200 text-[10px] font-bold border border-purple-500/30 transition-all cursor-pointer"
+                        >
+                          Tối mai 20:00
+                        </button>
+                      </div>
+                    </div>
+                  )}
                 </div>
 
                 {/* CỘT PHẢI: Khung Soạn Thảo & Xem Trước Live Preview */}
@@ -3150,10 +3352,16 @@ export const NewsModule: React.FC<NewsModuleProps> = ({ onShowToast }) => {
                       className={
                         editingArticle.status === 'PUBLISHED'
                           ? 'text-emerald-400 font-bold'
+                          : editingArticle.status === 'SCHEDULED'
+                          ? 'text-purple-400 font-bold'
                           : 'text-amber-400 font-bold'
                       }
                     >
-                      {editingArticle.status === 'PUBLISHED' ? 'Xuất bản công khai' : 'Lưu bản nháp'}
+                      {editingArticle.status === 'PUBLISHED'
+                        ? 'Xuất bản công khai'
+                        : editingArticle.status === 'SCHEDULED'
+                        ? `Lịch hẹn đăng (${editingArticle.scheduled_publish_at ? new Date(editingArticle.scheduled_publish_at).toLocaleString('vi-VN') : 'chưa chọn giờ'})`
+                        : 'Lưu bản nháp'}
                     </span>
                   </div>
                 </div>

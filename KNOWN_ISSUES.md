@@ -10,6 +10,22 @@
 
 ## 1. DANH MỤC LỖI & CÁC BẪY ĐÃ THẤT BẠI (DO NOT REPEAT)
 
+### ISSUE-163: Bẫy Mất Bài Viết Tin Tức Do Lệch Sync & Ghi Đè Snapshot Rỗng (News Articles Disappearance & Overwrite Safeguard)
+- **Triệu chứng**:
+  - Trang Quản trị (Admin) khi mở trên máy mới hoặc trình duyệt mới không hiển thị danh sách bài viết tin tức đầy đủ (171 bài), chỉ hiển thị danh sách hạt giống mặc định hoặc trống trơn.
+  - Nguy cơ nếu không có chốt chặn: Client gửi dữ liệu từ localStorage chưa tải xong lên server qua /api/sync làm ghi đè và xóa mất toàn bộ 171 bài viết thực tế đã có trên D1.
+- **Nguyên nhân gốc rễ & Các bẫy cần tránh**:
+  1. *Bẫy bỏ sót trường trong syncWithCloudflareKV*: Khi đồng bộ ban đầu giữa server và adminDataService, trường json.newsArticles không được tiếp nhận, khiến adminDataService chỉ quản lý games, codes, giveaways mà bỏ qua bài viết tin tức.
+  2. *Bẫy ghi đè server-side vô điều kiện*: Server nhận mảng rỗng hoặc ít bài hơn từ một client lỗi thời và lưu đè trực tiếp mà không đối chiếu với danh sách xóa (wcg_deleted_news_articles_v1).
+  3. *Bẫy snapshot rỗng xóa sạch client storage*: newsService.applyServerSnapshot() nếu nhận mảng rỗng [] từ server hoặc lỗi mạng sẽ xóa sạch danh sách local hiện có.
+- **Giải pháp chuẩn đã kiểm chứng**:
+  1. Đồng bộ 2 chiều: adminDataService.syncWithCloudflareKV() tiếp nhận newsArticles từ D1, smart merge và kích hoạt wcg_news_updated.
+  2. Chốt chặn chống ghi đè 2 lớp: Client từ chối sync nếu dữ liệu rỗng bất thường. Server tự động phát hiện số lượng bài gửi lên ít hơn số lượng bài hiện có trên D1, đối chiếu với deletedNewsArticles tombstones, giữ lại các bài chưa được duyệt xóa và tự động sao lưu vào wcg_news_articles_backup_v1.
+  3. Mở rộng API RESTful độc lập (/api/news, /api/news/:id) và hỗ trợ Lịch hẹn đăng (SCHEDULED) tự động kích hoạt khi đến giờ hẹn.
+- 🚫 **CÁCH SỬA ĐÃ THẤT BẠI - TUYỆT ĐỐI KHÔNG LẶP LẠI**:
+  - ❌ *Tuyệt đối KHÔNG lưu đè mảng bài viết ít hơn mà không qua đối chiếu tombstones*: Bắt buộc phải bảo toàn các bài viết cũ trừ khi có ID trong danh sách xóa rõ ràng.
+  - ❌ *Tuyệt đối KHÔNG cho phép applyServerSnapshot([]) xóa bộ nhớ khi client đang có dữ liệu*: Luôn kiểm tra Array.isArray(serverArticles) && serverArticles.length > 0.
+
 ### ISSUE-162: Bẫy Hệ Thống Nhiệm Vụ (Missions Multi-Accounting, Duplicate Proof Links & Atomic Reward Delivery)
 - **Triệu chứng**:
   - Người dùng spam nhiều tài khoản để nộp chung 1 đường link bài đăng facebook, nộp link bài đăng rác hoặc link ngoài các mạng xã hội được cho phép.

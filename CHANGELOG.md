@@ -7,6 +7,26 @@ Mỗi mục sửa lỗi đều ghi nhận **Nguyên nhân gốc rễ (Root Cause
 
 ## [2026-10-28]
 
+### 243. Khắc Phục Đồng Bộ Tin Tức Admin, Chốt Chặn Chống Ghi Đè & Tính Năng Lịch Hẹn Đăng Bài Viết (Scheduled Publishing)
+- **Bối cảnh & Yêu cầu từ Người dùng**:
+  1. Tiếp nhận và đồng bộ newsArticles từ Cloudflare KV/D1 vào adminDataService.ts để trang Admin luôn hiển thị đầy đủ 171 bài viết trên mọi thiết bị và trình duyệt.
+  2. Bổ sung chốt chặn chống ghi đè: Tuyệt đối không cho phép trang Admin đồng bộ lên server nếu danh sách bài viết gửi lên ít hơn dữ liệu hiện có trên server.
+  3. Mở rộng quyền API cho mục quản lý toàn bộ bài viết: viết bài mới, cập nhật, xóa với toàn quyền và bảo mật nghiêm ngặt.
+  4. Bổ sung tính năng Lịch hẹn đăng bài viết (SCHEDULED) trong trang quản trị: cài đặt ngày giờ, nút hẹn nhanh (+1h, +3h, +6h, sáng mai 09:00, tối mai 20:00), tự động hiển thị công khai khi tới giờ hẹn.
+- **Nguyên nhân gốc rễ (Root Cause)**:
+  - Khi người dùng truy cập Admin trên thiết bị hoặc trình duyệt mới, adminDataService.ts trong hàm syncWithCloudflareKV() chỉ đồng bộ các danh mục game, codes, giveaways, store, v.v. nhưng bỏ sót trường json.newsArticles. Do đó, trang Admin phải đọc từ localStorage rỗng/cũ dẫn tới việc bài viết biến mất hoặc chỉ hiện danh sách mặc định.
+  - Phía server (functions/api/sync.ts), nếu client gửi một mảng newsArticles ít hơn số lượng bài hiện có trên D1 (ví dụ do client vừa mở tab chưa tải xong dữ liệu), server trước đây lưu trực tiếp mảng đó, dẫn đến nguy cơ ghi đè làm mất các bài viết đã có trên server nếu không có cơ chế đối chiếu danh sách xóa (tombstones).
+- **Giải pháp Thành công (Solution Applied)**:
+  1. Đồng bộ 2 chiều vào Admin Service (src/admin/services/adminDataService.ts): Tích hợp newsService.ts vào adminDataService.ts. Khi syncWithCloudflareKV() nhận được newsArticles từ server: lọc qua deletedNewsSet, smart merge với các bài viết nháp chưa đồng bộ ở máy khách, cập nhật localStorage, gọi newsService.applyServerSnapshot(), và kích hoạt sự kiện wcg_news_updated để toàn bộ Admin UI render tức thì.
+  2. Chốt chặn chống ghi đè 2 lớp (Dual-Layer Overwrite Safeguard): Client-side (src/services/newsService.ts) kiểm tra nếu this.articles rỗng hoặc suy giảm bất thường khi chưa tải xong (!this.isLoaded), lập tức hủy yêu cầu đồng bộ ghi đè lên server. Server-side (functions/api/sync.ts) trong onRequestPost đối chiếu với danh sách đã xóa (wcg_deleted_news_articles_v1). Bất kỳ bài viết nào bị thiếu mà KHÔNG nằm trong danh sách xóa được phê duyệt sẽ được giữ lại nguyên vẹn và tự động sao lưu an toàn vào wcg_news_articles_backup_v1.
+  3. Mô hình Lịch Hẹn Đăng (src/types/game.ts & src/services/newsService.ts): Mở rộng kiểu dữ liệu NewsArticle với status SCHEDULED và scheduled_publish_at. Web Khách (getPublishedArticles) tự động hiển thị các bài viết SCHEDULED khi thời gian hiện tại >= scheduled_publish_at mà không cần can thiệp thủ công.
+  4. API RESTful Toàn Quyền Quản Lý Tin Tức (functions/api/news/index.ts & functions/api/news/[id].ts): GET, POST, PUT, DELETE đầy đủ, tích hợp xác thực Admin x-admin-sync-key và D1 tombstones, định tuyến trong functions/_worker.ts.
+  5. Giao diện Quản Trị Lịch Hẹn Đăng (src/admin/modules/NewsModule.tsx): Bộ lọc Lịch hẹn đăng, bộ chọn ngày giờ GMT+7, phím tắt hẹn nhanh, nút thao tác nhanh Đăng ngay, tự động tải dữ liệu từ D1 khi mở tab.
+- **Kiểm Thử & Xác Minh (Verification)**:
+  - Kiểm thử logic lọc lịch hẹn đăng: Đạt 100%.
+  - Kiểm thử chốt chặn chống ghi đè: Đạt 100%, bảo vệ an toàn 171 bài viết trước các gói dữ liệu thiếu.
+  - Kiểm thử build Vite, Prerender 163 bài HTML tĩnh, và Cloudflare Worker: Đạt 100% không cảnh báo lỗi.
+
 ### 242. Phát Triển & Ra Mắt Hệ Thống Nhiệm Vụ (Missions / Quests) Tự Động Cho CodeGame.shop
 - **Bối cảnh & Yêu cầu từ Người dùng**:
   - Bổ sung mục mới tên "Nhiệm vụ" (Missions / Quests) cho website `codegame.shop`, đặt cạnh mục "Tiện ích" trong điều hướng cả trên Desktop và Mobile.

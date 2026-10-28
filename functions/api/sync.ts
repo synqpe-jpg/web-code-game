@@ -878,13 +878,24 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
       newsArticles: (() => {
         const raw = d1Settings['wcg_news_articles_v1'] || masterState.newsArticles;
         const candidate = Array.isArray(raw) && raw.length > 0 ? raw : fallbackNewsArticles;
+        const nowMs = Date.now();
         return candidate.filter(
           (a: any) => !deletedNewsSet.has(a.id) && !deletedNewsSet.has(a.slug)
-        ).map((a: any) => ({
-          ...a,
-          published_at: a.published_at || a.created_at || new Date().toISOString(),
-          created_at: a.created_at || a.published_at || new Date().toISOString(),
-        }));
+        ).map((a: any) => {
+          let effectiveStatus = a.status || 'PUBLISHED';
+          if (effectiveStatus === 'SCHEDULED' && a.scheduled_publish_at) {
+            const schedTime = new Date(a.scheduled_publish_at).getTime();
+            if (!isNaN(schedTime) && nowMs >= schedTime) {
+              effectiveStatus = 'PUBLISHED';
+            }
+          }
+          return {
+            ...a,
+            status: effectiveStatus,
+            published_at: a.published_at || (effectiveStatus === 'PUBLISHED' && a.scheduled_publish_at ? a.scheduled_publish_at : null) || a.created_at || new Date().toISOString(),
+            created_at: a.created_at || a.published_at || new Date().toISOString(),
+          };
+        });
       })(),
       deletedNewsArticles: Array.from(deletedNewsSet),
       newsAutoSources: d1Settings['wcg_news_auto_sources_v1'] || masterState.newsAutoSources || [],
@@ -5047,7 +5058,41 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
         if (body.crawlerApiConfig !== undefined || body.key === 'wcg_crawler_api_config_v1') await setSettingD1(env.DB, 'wcg_crawler_api_config_v1', body.crawlerApiConfig ?? body.data);
         if (body.crawlerApiLogs !== undefined || body.key === 'wcg_crawler_api_logs_v1') await setSettingD1(env.DB, 'wcg_crawler_api_logs_v1', body.crawlerApiLogs ?? body.data);
         if (body.deletedNewsArticles !== undefined) await setSettingD1(env.DB, 'wcg_deleted_news_articles_v1', body.deletedNewsArticles);
-        if (body.newsArticles !== undefined || body.key === 'wcg_news_articles_v1') await setSettingD1(env.DB, 'wcg_news_articles_v1', body.newsArticles ?? body.data);
+        if (body.newsArticles !== undefined || body.key === 'wcg_news_articles_v1') {
+          const incomingNews = body.newsArticles ?? body.data;
+          if (Array.isArray(incomingNews)) {
+            const existingNewsRaw = await getSettingD1(env.DB, 'wcg_news_articles_v1');
+            const existingNews = Array.isArray(existingNewsRaw) ? existingNewsRaw : [];
+            const delSet = new Set(Array.isArray(body.deletedNewsArticles) ? body.deletedNewsArticles.map(String) : []);
+
+            if (existingNews.length > 0 && incomingNews.length < existingNews.length && !body.force_bulk_delete) {
+              const incomingIdSet = new Set(incomingNews.map((a: any) => a.id));
+              const incomingSlugSet = new Set(incomingNews.map((a: any) => a.slug));
+
+              const missingFromIncoming = existingNews.filter(
+                (ea: any) => ea && ea.id && !incomingIdSet.has(ea.id) && !incomingSlugSet.has(ea.slug)
+              );
+
+              const unapprovedMissing = missingFromIncoming.filter(
+                (ma: any) => !delSet.has(ma.id) && !delSet.has(ma.slug)
+              );
+
+              if (unapprovedMissing.length > 0) {
+                await setSettingD1(env.DB, 'wcg_news_articles_backup_v1', existingNews);
+                console.warn(`[News Safeguard] CHỐT CHẶN GHI ĐÈ: Nhận ${incomingNews.length} bài nhưng server có ${existingNews.length} bài. Tự động bảo toàn ${unapprovedMissing.length} bài viết không bị xóa nhầm.`);
+                const safeMerged = [...incomingNews, ...unapprovedMissing];
+                currentMaster.newsArticles = safeMerged;
+                await setSettingD1(env.DB, 'wcg_news_articles_v1', safeMerged);
+              } else {
+                currentMaster.newsArticles = incomingNews;
+                await setSettingD1(env.DB, 'wcg_news_articles_v1', incomingNews);
+              }
+            } else {
+              currentMaster.newsArticles = incomingNews;
+              await setSettingD1(env.DB, 'wcg_news_articles_v1', incomingNews);
+            }
+          }
+        }
         if (body.newsAutoSources !== undefined) await setSettingD1(env.DB, 'wcg_news_auto_sources_v1', body.newsAutoSources);
         if (body.newsScheduleConfig !== undefined) await setSettingD1(env.DB, 'wcg_news_schedule_config_v1', body.newsScheduleConfig);
         if (body.eventSchedules !== undefined || body.key === 'wcg_event_schedules_v1') await setSettingD1(env.DB, 'wcg_event_schedules_v1', body.eventSchedules ?? body.data);

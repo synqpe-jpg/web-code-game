@@ -29,6 +29,8 @@ import * as notifSettingsApi from './api/notifications/settings';
 import * as notifSendApi from './api/notifications/send';
 import * as notifLogsApi from './api/notifications/logs';
 import * as trackDownloadApi from './api/track-download';
+import * as newsIndexApi from './api/news/index';
+import * as newsIdApi from './api/news/[id]';
 import * as missionsIndexApi from './api/missions/index';
 import * as missionsIdApi from './api/missions/[id]';
 import * as missionsSubmitApi from './api/missions/submit';
@@ -631,6 +633,22 @@ async function handleWorkerRequest(request: Request, env: Env, ctx: ExecutionCon
       if (pathname === '/api/missions/audit-logs') {
         if (method === 'OPTIONS') return await missionsAuditLogsApi.onRequestOptions();
         return await missionsAuditLogsApi.onRequestGet(context);
+      }
+
+      // 14. News Articles CRUD & Scheduling APIs
+      if (pathname === '/api/news') {
+        if (method === 'OPTIONS') return await newsIndexApi.onRequestOptions();
+        if (method === 'POST') return await newsIndexApi.onRequestPost(context);
+        return await newsIndexApi.onRequestGet(context);
+      }
+
+      if (pathname.startsWith('/api/news/') && pathname !== '/api/news') {
+        const newsId = pathname.replace('/api/news/', '').trim();
+        const customContext = { ...context, params: { id: newsId } };
+        if (method === 'OPTIONS') return await newsIdApi.onRequestOptions();
+        if (method === 'PUT' || method === 'PATCH') return await newsIdApi.onRequestPut(customContext);
+        if (method === 'DELETE') return await newsIdApi.onRequestDelete(customContext);
+        return await newsIdApi.onRequestGet(customContext);
       }
 
       // Fallback for any unknown /api route

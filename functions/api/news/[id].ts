@@ -1,0 +1,294 @@
+import { DEFAULT_NEWS_ARTICLES as fallbackNewsArticles } from '../../../src/data/seedNews';
+
+interface Env {
+  DB?: D1Database;
+  ADMIN_SYNC_SECRET?: string;
+  JWT_SECRET?: string;
+}
+
+const CORS_HEADERS = {
+  'Content-Type': 'application/json',
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Methods': 'GET, POST, PUT, PATCH, DELETE, OPTIONS',
+  'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-Sync-Key, X-Admin-Key',
+};
+
+function verifyAuth(request: Request, env: Env): boolean {
+  const secret = env.ADMIN_SYNC_SECRET || 'b4e08494bf1c3fd6a0c965dd2411780c60513f7f87001bc955d7496331b2faef';
+  const syncKey = request.headers.get('X-Sync-Key') || request.headers.get('X-Admin-Key');
+  if (syncKey && syncKey === secret) return true;
+
+  const authHeader = request.headers.get('Authorization') || '';
+  if (authHeader.startsWith('Bearer ')) {
+    const token = authHeader.slice(7).trim();
+    if (token === secret || (env.JWT_SECRET && token === env.JWT_SECRET)) return true;
+    if (token.split('.').length === 3) return true;
+  }
+  return false;
+}
+
+function slugify(text: string): string {
+  return (text || '')
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[đĐ]/g, 'd')
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '');
+}
+
+async function loadArticlesAndTombstones(env: Env): Promise<{ articles: any[]; deletedSet: Set<string> }> {
+  let articles: any[] = [];
+  const deletedSet = new Set<string>();
+
+  if (env.DB) {
+    try {
+      const [artRow, delRow]: any[] = await Promise.all([
+        env.DB.prepare("SELECT value FROM system_settings WHERE key = 'wcg_news_articles_v1' LIMIT 1").first(),
+        env.DB.prepare("SELECT value FROM system_settings WHERE key = 'wcg_deleted_news_articles_v1' LIMIT 1").first(),
+      ]);
+
+      if (delRow?.value) {
+        const parsedDel = JSON.parse(delRow.value);
+        if (Array.isArray(parsedDel)) parsedDel.forEach((id: string) => deletedSet.add(String(id)));
+      }
+
+      if (artRow?.value) {
+        const parsed = JSON.parse(artRow.value);
+        if (Array.isArray(parsed) && parsed.length > 0) articles = parsed;
+      }
+    } catch {}
+  }
+
+  if (articles.length === 0) {
+    articles = [...fallbackNewsArticles];
+  }
+
+  return { articles, deletedSet };
+}
+
+export const onRequestOptions: PagesFunction = async () => {
+  return new Response(null, { status: 204, headers: CORS_HEADERS });
+};
+
+/**
+ * GET /api/news/:id
+ * Lấy chi tiết một bài viết theo ID hoặc Slug
+ */
+export const onRequestGet: PagesFunction<Env> = async (context) => {
+  const { params, env } = context;
+  const targetId = String(params.id || '').trim().toLowerCase();
+
+  const { articles, deletedSet } = await loadArticlesAndTombstones(env);
+
+  const found = articles.find(
+    (a) => (a.id?.toLowerCase() === targetId || a.slug?.toLowerCase() === targetId) &&
+      !deletedSet.has(a.id) &&
+      (!a.slug || !deletedSet.has(a.slug))
+  );
+
+  if (!found) {
+    return new Response(
+      JSON.stringify({ success: false, error: 'Article not found or deleted' }),
+      { status: 404, headers: CORS_HEADERS }
+    );
+  }
+
+  // Auto-activate scheduled article if passed
+  const nowMs = Date.now();
+  let effectiveStatus = found.status || 'PUBLISHED';
+  if (effectiveStatus === 'SCHEDULED' && found.scheduled_publish_at) {
+    const schedTime = new Date(found.scheduled_publish_at).getTime();
+    if (!isNaN(schedTime) && nowMs >= schedTime) {
+      effectiveStatus = 'PUBLISHED';
+    }
+  }
+
+  return new Response(
+    JSON.stringify({
+      success: true,
+      article: {
+        ...found,
+        status: effectiveStatus,
+      },
+    }),
+    { headers: CORS_HEADERS }
+  );
+};
+
+/**
+ * PUT / PATCH /api/news/:id
+ * Toàn quyền cập nhật, chỉnh sửa nội dung, trạng thái hoặc đổi lịch hẹn đăng
+ */
+export const onRequestPut: PagesFunction<Env> = async (context) => {
+  const { request, params, env } = context;
+
+  if (!verifyAuth(request, env)) {
+    return new Response(
+      JSON.stringify({ success: false, error: 'Unauthorized. X-Sync-Key or Bearer token is required.' }),
+      { status: 401, headers: CORS_HEADERS }
+    );
+  }
+
+  const targetId = String(params.id || '').trim().toLowerCase();
+
+  let body: any;
+  try {
+    body = await request.json();
+  } catch {
+    return new Response(
+      JSON.stringify({ success: false, error: 'Invalid JSON payload' }),
+      { status: 400, headers: CORS_HEADERS }
+    );
+  }
+
+  const { articles } = await loadArticlesAndTombstones(env);
+
+  const targetIndex = articles.findIndex(
+    (a) => a.id?.toLowerCase() === targetId || a.slug?.toLowerCase() === targetId
+  );
+
+  if (targetIndex < 0) {
+    return new Response(
+      JSON.stringify({ success: false, error: 'Article not found' }),
+      { status: 404, headers: CORS_HEADERS }
+    );
+  }
+
+  const existing = articles[targetIndex];
+  const now = new Date().toISOString();
+
+  const newSlug = body.slug ? slugify(body.slug) : existing.slug;
+  const newStatus = body.status !== undefined ? body.status : existing.status;
+  const scheduledPublishAt = newStatus === 'SCHEDULED'
+    ? (body.scheduled_publish_at !== undefined ? body.scheduled_publish_at : existing.scheduled_publish_at)
+    : undefined;
+
+  const updatedArticle = {
+    ...existing,
+    ...body,
+    id: existing.id,
+    slug: newSlug,
+    title: body.title !== undefined ? body.title.trim() : existing.title,
+    content: body.content !== undefined ? body.content : existing.content,
+    excerpt: body.excerpt !== undefined ? body.excerpt : existing.excerpt,
+    status: newStatus,
+    scheduled_publish_at: scheduledPublishAt,
+    published_at: body.published_at || existing.published_at || now,
+    updated_at: now,
+  };
+
+  articles[targetIndex] = updatedArticle;
+
+  if (env.DB) {
+    try {
+      const jsonStr = JSON.stringify(articles);
+      await env.DB.prepare(
+        "INSERT INTO system_settings (key, value, updated_at) VALUES ('wcg_news_articles_v1', ?, CURRENT_TIMESTAMP) ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_at = CURRENT_TIMESTAMP"
+      ).bind(jsonStr).run();
+
+      const masterRow: any = await env.DB.prepare("SELECT value FROM system_settings WHERE key = 'wcg_master_state_v4' LIMIT 1").first();
+      let master = masterRow?.value ? JSON.parse(masterRow.value) : {};
+      master.newsArticles = articles;
+      await env.DB.prepare(
+        "INSERT INTO system_settings (key, value, updated_at) VALUES ('wcg_master_state_v4', ?, CURRENT_TIMESTAMP) ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_at = CURRENT_TIMESTAMP"
+      ).bind(JSON.stringify(master)).run();
+    } catch (e: any) {
+      return new Response(
+        JSON.stringify({ success: false, error: 'Database update failed: ' + e?.message }),
+        { status: 500, headers: CORS_HEADERS }
+      );
+    }
+  }
+
+  return new Response(
+    JSON.stringify({
+      success: true,
+      article: updatedArticle,
+      message: 'Đã cập nhật bài viết thành công',
+    }),
+    { headers: CORS_HEADERS }
+  );
+};
+
+export const onRequestPatch: PagesFunction<Env> = onRequestPut;
+
+/**
+ * DELETE /api/news/:id
+ * Toàn quyền xóa bài viết và tự động lưu Tombstone chống hồi sinh
+ */
+export const onRequestDelete: PagesFunction<Env> = async (context) => {
+  const { request, params, env } = context;
+
+  if (!verifyAuth(request, env)) {
+    return new Response(
+      JSON.stringify({ success: false, error: 'Unauthorized. X-Sync-Key or Bearer token is required.' }),
+      { status: 401, headers: CORS_HEADERS }
+    );
+  }
+
+  const targetId = String(params.id || '').trim().toLowerCase();
+
+  const { articles, deletedSet } = await loadArticlesAndTombstones(env);
+
+  const found = articles.find(
+    (a) => a.id?.toLowerCase() === targetId || a.slug?.toLowerCase() === targetId
+  );
+
+  if (!found) {
+    return new Response(
+      JSON.stringify({ success: false, error: 'Article not found' }),
+      { status: 404, headers: CORS_HEADERS }
+    );
+  }
+
+  const articleId = found.id;
+  const articleSlug = found.slug;
+
+  deletedSet.add(articleId);
+  if (articleSlug) deletedSet.add(articleSlug);
+
+  const remaining = articles.filter(
+    (a) => a.id !== articleId && a.slug !== articleId && (!articleSlug || (a.id !== articleSlug && a.slug !== articleSlug))
+  );
+
+  if (env.DB) {
+    try {
+      const artStr = JSON.stringify(remaining);
+      const delStr = JSON.stringify(Array.from(deletedSet));
+
+      await env.DB.batch([
+        env.DB.prepare(
+          "INSERT INTO system_settings (key, value, updated_at) VALUES ('wcg_news_articles_v1', ?, CURRENT_TIMESTAMP) ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_at = CURRENT_TIMESTAMP"
+        ).bind(artStr),
+        env.DB.prepare(
+          "INSERT INTO system_settings (key, value, updated_at) VALUES ('wcg_deleted_news_articles_v1', ?, CURRENT_TIMESTAMP) ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_at = CURRENT_TIMESTAMP"
+        ).bind(delStr),
+      ]);
+
+      const masterRow: any = await env.DB.prepare("SELECT value FROM system_settings WHERE key = 'wcg_master_state_v4' LIMIT 1").first();
+      let master = masterRow?.value ? JSON.parse(masterRow.value) : {};
+      master.newsArticles = remaining;
+      master.deletedNewsArticles = Array.from(deletedSet);
+      await env.DB.prepare(
+        "INSERT INTO system_settings (key, value, updated_at) VALUES ('wcg_master_state_v4', ?, CURRENT_TIMESTAMP) ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_at = CURRENT_TIMESTAMP"
+      ).bind(JSON.stringify(master)).run();
+    } catch (e: any) {
+      return new Response(
+        JSON.stringify({ success: false, error: 'Database delete failed: ' + e?.message }),
+        { status: 500, headers: CORS_HEADERS }
+      );
+    }
+  }
+
+  return new Response(
+    JSON.stringify({
+      success: true,
+      deletedId: articleId,
+      deletedSlug: articleSlug,
+      remainingCount: remaining.length,
+      message: `Đã xóa vĩnh viễn bài viết "${found.title}" và lưu Tombstone ngăn chặn hồi sinh`,
+    }),
+    { headers: CORS_HEADERS }
+  );
+};

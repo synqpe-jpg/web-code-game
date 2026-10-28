@@ -32,6 +32,7 @@ import canonicalBackup from '../../data/canonical_backup_state.json';
 import { marketingService, DEFAULT_PRODUCT_MARKETING_CONFIG } from '../../services/marketingService';
 import { FloatingNotificationConfig, DEFAULT_FLOATING_NOTIFICATION } from '../../types/floatingNotification';
 import { templateService } from '../../services/templateService';
+import { newsService } from '../../services/newsService';
 
 class AdminDataService {
   private games: GameAdminRecord[] = [];
@@ -1548,6 +1549,52 @@ class AdminDataService {
               this.crawlerSources = json.crawlerSources;
               this.safeSetItem('wcg_admin_crawler_sources_v1', JSON.stringify(this.crawlerSources));
               hasUpdates = true;
+            }
+
+            // 13.5 News Articles Sync from Cloudflare D1/KV (Hiển thị đầy đủ bài viết trên mọi trình duyệt Admin)
+            if (json.newsArticles && Array.isArray(json.newsArticles)) {
+              let deletedNewsSet = new Set<string>();
+              if (Array.isArray(json.deletedNewsArticles)) {
+                json.deletedNewsArticles.forEach((id: string) => deletedNewsSet.add(String(id)));
+              }
+              try {
+                const delRaw = localStorage.getItem('wcg_deleted_news_articles_v1');
+                if (delRaw) {
+                  const p = JSON.parse(delRaw);
+                  if (Array.isArray(p)) p.forEach((id: string) => deletedNewsSet.add(String(id)));
+                }
+              } catch {}
+
+              const cleanArticles = json.newsArticles.filter(
+                (a: any) => a && a.id && !deletedNewsSet.has(a.id) && !deletedNewsSet.has(a.slug)
+              );
+
+              const currentNewsRaw = localStorage.getItem('wcg_news_articles_v1');
+              let existingLocalArticles: any[] = [];
+              try {
+                if (currentNewsRaw) existingLocalArticles = JSON.parse(currentNewsRaw);
+              } catch {}
+
+              // Smart merge: bảo toàn các bài viết mới tạo cục bộ trong Admin chưa kịp sync lên máy chủ
+              const serverIdSet = new Set(cleanArticles.map((a: any) => a.id));
+              const serverSlugSet = new Set(cleanArticles.map((a: any) => a.slug));
+              const localUnsynced = Array.isArray(existingLocalArticles)
+                ? existingLocalArticles.filter(
+                    (la: any) => la && la.id && !serverIdSet.has(la.id) && !serverSlugSet.has(la.slug) && !deletedNewsSet.has(la.id) && !deletedNewsSet.has(la.slug)
+                  )
+                : [];
+
+              const mergedArticles = [...localUnsynced, ...cleanArticles];
+
+              if (mergedArticles.length > 0 || !Array.isArray(existingLocalArticles) || existingLocalArticles.length === 0) {
+                const newNewsStr = JSON.stringify(mergedArticles);
+                if (currentNewsRaw !== newNewsStr || json.newsAutoSources || json.newsScheduleConfig) {
+                  this.safeSetItem('wcg_news_articles_v1', newNewsStr);
+                  newsService.applyServerSnapshot(mergedArticles, json.newsAutoSources, json.newsScheduleConfig);
+                  window.dispatchEvent(new CustomEvent('wcg_news_updated', { detail: mergedArticles }));
+                  hasUpdates = true;
+                }
+              }
             }
 
             if (json.crawlerPendingGames && Array.isArray(json.crawlerPendingGames)) {
