@@ -10,6 +10,20 @@
 
 ## 1. DANH MỤC LỖI & CÁC BẪY ĐÃ THẤT BẠI (DO NOT REPEAT)
 
+### ISSUE-166: Bẫy Đơn Quyền Cứng Nhắc & Thiếu Khả Năng Cấu Hình Đa Quyền Linh Hoạt Cho API (Single-Scope Hardcoding & Versatile Key Scoping)
+- **Triệu chứng**:
+  - Mỗi khóa API trước đây chỉ có 1 quyền duy nhất (ví dụ NEWS_FULL hoặc MISSIONS_FULL). Muốn dùng bot làm cả 2 tác vụ phải lưu trữ và chuyển đổi qua lại giữa 2 token khác nhau.
+  - Các hàm kiểm tra quyền dùng toán tử so sánh bằng nghiêm ngặt (=== 'NEWS_FULL'), dẫn tới nếu lưu chuỗi đa quyền "NEWS_FULL,MISSIONS_FULL" thì cả 2 endpoint đều từ chối quyền truy cập.
+- **Nguyên nhân gốc rễ & Các bẫy cần tránh**:
+  1. *Bẫy so sánh chuỗi đơn lẻ*: Tuyệt đối không dùng `row.scope === 'NEWS_FULL'`. Bắt buộc dùng hàm kiểm tra trung tâm `hasScope(row.scope, 'NEWS_FULL')` có khả năng bóc tách danh sách phân tách bằng dấu phẩy và thừa hưởng từ `ADMIN_FULL`.
+  2. *Bẫy không hỗ trợ set quyền qua API*: Admin hoặc bot tự động cần có khả năng dùng 1 mã API có quyền `API_KEYS_FULL` để set quyền cho các mã khác qua endpoint `POST /api/api-keys/set-permissions` mà không phải thao tác tay trong database.
+- **Giải pháp chuẩn đã kiểm chứng**:
+  1. Cung cấp bộ hàm chuẩn `hasScope`, `parseScopes`, `formatScopes` trong `mission_service.ts` áp dụng cho toàn bộ codebase.
+  2. Xây dựng endpoint `POST /api/api-keys/set-permissions` và Modal "Set Quyền" trực quan trong Admin UI.
+  3. Cung cấp khóa API đa năng mẫu `wcg_multi_...` cho phép gán bất kỳ tổ hợp quyền nào trên website.
+- 🚫 **CÁCH SỬA ĐÃ THẤT BẠI - TUYỆT ĐỐI KHÔNG LẶP LẠI**:
+  - ❌ *Tuyệt đối KHÔNG gán cứng scope*: Luôn dùng `hasScope` để hỗ trợ cả khóa đơn quyền, khóa đa quyền và khóa Master.
+
 ### ISSUE-165: Bẫy Xóa Nhầm Nhật Ký Kiểm Tra Nhiệm Vụ & Thiếu Đồng Bộ Giờ Mở/Đóng Thực Tế (Missions Audit Immutability & Scheduling Enforcement)
 - **Triệu chứng**:
   - Khi thực hiện xóa toàn diện (?force=true), hệ thống xóa cả bảng mission_audit_logs, làm mất toàn bộ vết tích kiểm toán và bằng chứng lịch sử duyệt/phát thưởng.

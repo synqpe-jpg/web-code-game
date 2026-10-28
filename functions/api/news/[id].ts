@@ -1,5 +1,5 @@
 import { DEFAULT_NEWS_ARTICLES as fallbackNewsArticles } from '../../../src/data/seedNews';
-import { computeSha256 } from '../../services/mission_service';
+import { computeSha256, hasScope } from '../../services/mission_service';
 
 interface Env {
   DB?: D1Database;
@@ -40,8 +40,7 @@ async function verifyAuth(request: Request, env: Env): Promise<boolean> {
             const expTime = new Date(row.expires_at).getTime();
             if (!isNaN(expTime) && Date.now() > expTime) return false;
           }
-          const scope = String(row.scope || '').toUpperCase();
-          if (['NEWS_FULL', 'ADMIN_FULL', 'FULL', 'ALL'].includes(scope)) {
+          if (hasScope(row.scope, 'NEWS_FULL')) {
             env.DB.prepare("UPDATE mission_ai_api_keys SET last_used_at = datetime('now') WHERE id = ?").bind(row.id).run().catch(() => {});
             return true;
           }

@@ -2,6 +2,7 @@ import {
   CORS_HEADERS,
   Env,
   verifyAdminAuth,
+  formatScopes,
 } from '../../services/mission_service';
 import { ensureMissionSchema } from '../../services/d1_service';
 
@@ -52,10 +53,10 @@ export const onRequestPatch: PagesFunction<Env> = async (context) => {
     await env.DB.prepare("ALTER TABLE mission_ai_api_keys ADD COLUMN expires_at TEXT DEFAULT '';").run().catch(() => {});
 
     const body: any = await request.json().catch(() => ({}));
-    const { is_active, key_name, scope, description, expires_at, extend_days } = body;
+    const { is_active, key_name, scope, scopes, description, expires_at, extend_days } = body;
 
     const existing = await env.DB.prepare(
-      'SELECT id, is_active, expires_at FROM mission_ai_api_keys WHERE id = ? LIMIT 1'
+      'SELECT id, is_active, scope, expires_at FROM mission_ai_api_keys WHERE id = ? LIMIT 1'
     ).bind(keyId).first<any>();
 
     if (!existing) {
@@ -75,19 +76,26 @@ export const onRequestPatch: PagesFunction<Env> = async (context) => {
       nextExpiresAt = new Date(baseTime + extend_days * 86400000).toISOString();
     }
 
+    let nextScope = existing.scope;
+    if (scopes !== undefined && Array.isArray(scopes)) {
+      nextScope = formatScopes(scopes);
+    } else if (scope !== undefined) {
+      nextScope = formatScopes(scope);
+    }
+
     await env.DB.prepare(`
       UPDATE mission_ai_api_keys 
       SET is_active = ?,
           expires_at = ?,
           key_name = COALESCE(?, key_name),
-          scope = COALESCE(?, scope),
+          scope = ?,
           description = COALESCE(?, description)
       WHERE id = ?
     `).bind(
       nextActive,
       nextExpiresAt,
       key_name || null,
-      scope || null,
+      nextScope,
       description || null,
       keyId
     ).run();

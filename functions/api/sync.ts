@@ -31,7 +31,7 @@ import fallbackUtilitiesData from '../../src/data/utilities.json';
 import fallbackGiveawaysData from '../../src/data/giveaways.json';
 import fallbackStoreProductsData from '../../src/data/storeProducts.json';
 import { DEFAULT_NEWS_ARTICLES as fallbackNewsArticles } from '../../src/data/seedNews';
-import { computeSha256 } from '../services/mission_service';
+import { computeSha256, hasScope } from '../services/mission_service';
 import canonicalBackupState from '../data/canonical_backup_state.json';
 
 interface Env {
@@ -115,8 +115,7 @@ async function isAuthorized(request: Request, env: Env): Promise<AuthResult> {
             };
           }
         }
-        const s = String(keyRow.scope || '').toUpperCase();
-        if (s === 'ADMIN_FULL' || s === 'FULL' || s === 'ALL') {
+        if (hasScope(keyRow.scope, 'SYNC_FULL')) {
           env.DB.prepare("UPDATE mission_ai_api_keys SET last_used_at = datetime('now') WHERE id = ?").bind(keyRow.id).run().catch(() => {});
           return { authorized: true, status: 200 };
         }

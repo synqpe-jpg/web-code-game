@@ -30,9 +30,153 @@ import {
   Timer,
   ChevronRight,
   ExternalLink,
+  Gamepad2,
+  Gift,
+  ShoppingBag,
+  Users,
+  SlidersHorizontal,
+  Database,
+  Bot,
+  Settings,
 } from 'lucide-react';
 
-export type ApiKeyScope = 'NEWS_FULL' | 'MISSIONS_FULL' | 'MISSIONS_REVIEW' | 'ADMIN_FULL';
+export type ApiKeyScope =
+  | 'NEWS_FULL'
+  | 'MISSIONS_FULL'
+  | 'MISSIONS_REVIEW'
+  | 'GAMES_FULL'
+  | 'GIVEAWAYS_FULL'
+  | 'STORE_FULL'
+  | 'MEMBERS_FULL'
+  | 'SYNC_FULL'
+  | 'API_KEYS_FULL'
+  | 'ADMIN_FULL'
+  | string;
+
+export interface ScopeOption {
+  id: string;
+  name: string;
+  category: string;
+  description: string;
+  color: string;
+  badgeBg: string;
+  badgeText: string;
+  badgeBorder: string;
+  icon: any;
+}
+
+export const ALL_API_SCOPES: ScopeOption[] = [
+  {
+    id: 'NEWS_FULL',
+    name: 'Quản Lý Tin Tức (News API)',
+    category: 'Nội Dung',
+    description: 'Thêm mới, chỉnh sửa, xóa bài viết tin tức, thiết lập lịch hẹn đăng bài tự động chuẩn SEO.',
+    color: 'emerald',
+    badgeBg: 'bg-emerald-500/10',
+    badgeText: 'text-emerald-500',
+    badgeBorder: 'border-emerald-500/20',
+    icon: Newspaper,
+  },
+  {
+    id: 'MISSIONS_FULL',
+    name: 'Quản Lý Nhiệm Vụ (Missions API)',
+    category: 'Vận Hành',
+    description: 'Tạo chiến dịch, chỉnh sửa, xóa, nạp kho code thưởng, duyệt và từ chối bài nộp của người dùng.',
+    color: 'indigo',
+    badgeBg: 'bg-indigo-500/10',
+    badgeText: 'text-indigo-500',
+    badgeBorder: 'border-indigo-500/20',
+    icon: Layers,
+  },
+  {
+    id: 'MISSIONS_REVIEW',
+    name: 'Thẩm Định Nhiệm Vụ AI (Pine AI Reviewer)',
+    category: 'Tự Động Hóa AI',
+    description: 'Tra cứu danh sách hồ sơ PENDING, gửi kết quả phê duyệt và trả thưởng tự động tức thì.',
+    color: 'amber',
+    badgeBg: 'bg-amber-500/10',
+    badgeText: 'text-amber-500',
+    badgeBorder: 'border-amber-500/20',
+    icon: Bot,
+  },
+  {
+    id: 'GAMES_FULL',
+    name: 'Kho Giftcode & Tựa Game (Games & Codes API)',
+    category: 'Dữ Liệu',
+    description: 'Tra cứu, bổ sung giftcode mới, chỉnh sửa và đồng bộ danh mục game toàn sàn.',
+    color: 'teal',
+    badgeBg: 'bg-teal-500/10',
+    badgeText: 'text-teal-500',
+    badgeBorder: 'border-teal-500/20',
+    icon: Gamepad2,
+  },
+  {
+    id: 'GIVEAWAYS_FULL',
+    name: 'Sự Kiện Giật Code (Giveaways API)',
+    category: 'Vận Hành',
+    description: 'Cài đặt chiến dịch giật code, nạp mã kho, điều chỉnh thông số mô phỏng hiển thị.',
+    color: 'purple',
+    badgeBg: 'bg-purple-500/10',
+    badgeText: 'text-purple-500',
+    badgeBorder: 'border-purple-500/20',
+    icon: Gift,
+  },
+  {
+    id: 'STORE_FULL',
+    name: 'Cửa Hàng & Tiện Ích (Store & Utilities API)',
+    category: 'Thương Mại',
+    description: 'Quản trị sản phẩm nạp game, gói dịch vụ tiện ích, quản lý đơn hàng thanh toán.',
+    color: 'cyan',
+    badgeBg: 'bg-cyan-500/10',
+    badgeText: 'text-cyan-500',
+    badgeBorder: 'border-cyan-500/20',
+    icon: ShoppingBag,
+  },
+  {
+    id: 'MEMBERS_FULL',
+    name: 'Quản Lý Thành Viên & Ví (Members & Wallets API)',
+    category: 'Hệ Thống',
+    description: 'Tra cứu thông tin tài khoản, nạp/trừ số dư ví thành viên, xem lịch sử giao dịch.',
+    color: 'blue',
+    badgeBg: 'bg-blue-500/10',
+    badgeText: 'text-blue-500',
+    badgeBorder: 'border-blue-500/20',
+    icon: Users,
+  },
+  {
+    id: 'SYNC_FULL',
+    name: 'Đồng Bộ & Sao Lưu (Cloudflare KV/D1 Sync)',
+    category: 'Hệ Thống',
+    description: 'Đồng bộ hai chiều dữ liệu KV/D1, truy cập snapshot hệ thống và phục hồi sao lưu.',
+    color: 'violet',
+    badgeBg: 'bg-violet-500/10',
+    badgeText: 'text-violet-500',
+    badgeBorder: 'border-violet-500/20',
+    icon: RefreshCw,
+  },
+  {
+    id: 'API_KEYS_FULL',
+    name: 'Quản Lý Khóa API & Phân Quyền (API Keys Set Permissions)',
+    category: 'Bảo Mật',
+    description: 'Quyền dùng chính mã API này để tạo khóa mới, set quyền linh hoạt cho các mã API khác.',
+    color: 'orange',
+    badgeBg: 'bg-orange-500/10',
+    badgeText: 'text-orange-500',
+    badgeBorder: 'border-orange-500/20',
+    icon: KeyRound,
+  },
+  {
+    id: 'ADMIN_FULL',
+    name: 'Toàn Quyền Quản Trị Tối Cao (Master Admin Full)',
+    category: 'Tối Cao',
+    description: 'Sở hữu 100% tất cả các quyền trên website, có thể can thiệp vào mọi module quản trị.',
+    color: 'rose',
+    badgeBg: 'bg-rose-500/10',
+    badgeText: 'text-rose-500',
+    badgeBorder: 'border-rose-500/20',
+    icon: Shield,
+  },
+];
 
 export interface ManagedApiKey {
   id: string;
@@ -66,12 +210,25 @@ export const ApiKeysModule: React.FC<ApiKeysModuleProps> = ({ onShowToast }) => 
 
   // Modal Create state
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
+  const [createMode, setCreateMode] = useState<'SINGLE' | 'MULTI'>('MULTI');
   const [newKeyName, setNewKeyName] = useState('');
   const [newKeyScope, setNewKeyScope] = useState<ApiKeyScope>('NEWS_FULL');
+  const [newKeyScopes, setNewKeyScopes] = useState<string[]>([
+    'NEWS_FULL',
+    'MISSIONS_FULL',
+    'GAMES_FULL',
+    'GIVEAWAYS_FULL',
+    'SYNC_FULL',
+  ]);
   const [newKeyDescription, setNewKeyDescription] = useState('');
-  const [validityType, setValidityType] = useState<'30' | '90' | '365' | 'permanent' | 'custom'>('30');
+  const [validityType, setValidityType] = useState<'30' | '90' | '365' | 'permanent' | 'custom'>('90');
   const [customExpiresAt, setCustomExpiresAt] = useState('');
   const [isCreating, setIsCreating] = useState(false);
+
+  // Modal Set Permissions state (Cài Đặt Phân Quyền Đa Năng)
+  const [permissionModalKey, setPermissionModalKey] = useState<ManagedApiKey | null>(null);
+  const [selectedScopes, setSelectedScopes] = useState<string[]>([]);
+  const [isSavingPermissions, setIsSavingPermissions] = useState(false);
 
   // Modal Extend / Change Expiration
   const [extendingKey, setExtendingKey] = useState<ManagedApiKey | null>(null);
@@ -88,7 +245,7 @@ export const ApiKeysModule: React.FC<ApiKeysModuleProps> = ({ onShowToast }) => 
 
   // Active sub-tab
   const [activeTab, setActiveTab] = useState<'keys' | 'permissions' | 'docs'>('keys');
-  const [docCategory, setDocCategory] = useState<'news' | 'missions' | 'sync'>('news');
+  const [docCategory, setDocCategory] = useState<'universal' | 'news' | 'missions' | 'sync'>('universal');
 
   const showToast = (msg: string, type: 'success' | 'error' | 'info' = 'success') => {
     if (onShowToast) {
@@ -160,6 +317,19 @@ export const ApiKeysModule: React.FC<ApiKeysModuleProps> = ({ onShowToast }) => 
     }));
   };
 
+  // Helper to parse scopes list from string
+  const parseScopesList = (scopeStr?: string): string[] => {
+    if (!scopeStr) return [];
+    const upper = scopeStr.toUpperCase().trim();
+    if (['ADMIN_FULL', 'FULL', '*', 'SUPER_ADMIN'].includes(upper)) {
+      return ['ADMIN_FULL'];
+    }
+    return upper
+      .split(/[,\s]+/)
+      .map((s) => s.trim())
+      .filter(Boolean);
+  };
+
   // Helper to compute expiration ISO
   const computeExpirationIso = (): string => {
     if (validityType === 'permanent') return '';
@@ -168,6 +338,7 @@ export const ApiKeysModule: React.FC<ApiKeysModuleProps> = ({ onShowToast }) => 
     return new Date(Date.now() + days * 86400000).toISOString();
   };
 
+  // Handle Create API Key (Supports Single and Multi-Scope)
   const handleCreateKey = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newKeyName.trim()) {
@@ -177,17 +348,28 @@ export const ApiKeysModule: React.FC<ApiKeysModuleProps> = ({ onShowToast }) => 
 
     const expiresIso = computeExpirationIso();
 
+    let finalPayload: any = {
+      key_name: newKeyName.trim(),
+      description: newKeyDescription.trim(),
+      expires_at: expiresIso,
+    };
+
+    if (createMode === 'MULTI') {
+      if (newKeyScopes.length === 0) {
+        showToast('Vui lòng chọn ít nhất 1 quyền cho khóa API Đa Năng', 'error');
+        return;
+      }
+      finalPayload.scopes = newKeyScopes;
+    } else {
+      finalPayload.scope = newKeyScope;
+    }
+
     setIsCreating(true);
     try {
       const res = await fetch('/api/api-keys', {
         method: 'POST',
         headers: getAuthHeaders(),
-        body: JSON.stringify({
-          key_name: newKeyName.trim(),
-          scope: newKeyScope,
-          description: newKeyDescription.trim(),
-          expires_at: expiresIso,
-        }),
+        body: JSON.stringify(finalPayload),
       });
 
       const data = await res.json();
@@ -202,7 +384,7 @@ export const ApiKeysModule: React.FC<ApiKeysModuleProps> = ({ onShowToast }) => 
         setIsCreateModalOpen(false);
         setNewKeyName('');
         setNewKeyDescription('');
-        setValidityType('30');
+        setValidityType('90');
         loadApiKeys();
       } else {
         showToast(data.message || 'Lỗi khi tạo khóa API mới', 'error');
@@ -216,10 +398,75 @@ export const ApiKeysModule: React.FC<ApiKeysModuleProps> = ({ onShowToast }) => 
 
   // Quick Preset Creators
   const handleQuickCreate = (scope: ApiKeyScope, defaultName: string) => {
+    setCreateMode('SINGLE');
     setNewKeyScope(scope);
     setNewKeyName(defaultName);
     setValidityType('90');
     setIsCreateModalOpen(true);
+  };
+
+  const handleQuickCreateMulti = () => {
+    setCreateMode('MULTI');
+    setNewKeyName('Khóa API Đa Năng Tùy Chỉnh');
+    setNewKeyScopes(['NEWS_FULL', 'MISSIONS_FULL', 'GAMES_FULL', 'GIVEAWAYS_FULL', 'SYNC_FULL']);
+    setValidityType('90');
+    setIsCreateModalOpen(true);
+  };
+
+  // Open Permission Modal for a key
+  const handleOpenPermissionModal = (keyItem: ManagedApiKey) => {
+    setPermissionModalKey(keyItem);
+    const existing = parseScopesList(keyItem.scope);
+    if (existing.includes('ADMIN_FULL')) {
+      setSelectedScopes(ALL_API_SCOPES.filter((s) => s.id !== 'ADMIN_FULL').map((s) => s.id));
+    } else {
+      setSelectedScopes(existing);
+    }
+  };
+
+  // Save Permissions Modal
+  const handleSavePermissions = async () => {
+    if (!permissionModalKey) return;
+
+    if (selectedScopes.length === 0) {
+      showToast('Khóa API phải có ít nhất 1 quyền', 'error');
+      return;
+    }
+
+    setIsSavingPermissions(true);
+    try {
+      const isAllSelected = selectedScopes.length === ALL_API_SCOPES.filter((s) => s.id !== 'ADMIN_FULL').length;
+      const scopesToSend = isAllSelected ? ['ADMIN_FULL'] : selectedScopes;
+
+      const res = await fetch('/api/api-keys/set-permissions', {
+        method: 'POST',
+        headers: getAuthHeaders(),
+        body: JSON.stringify({
+          key_id: permissionModalKey.id,
+          scopes: scopesToSend,
+        }),
+      });
+
+      const data = await res.json();
+      if (data.success && data.key) {
+        setKeys((prev) =>
+          prev.map((k) =>
+            k.id === permissionModalKey.id ? { ...k, scope: data.key.scope } : k
+          )
+        );
+        showToast(
+          `Đã cập nhật phân quyền thành công cho khóa "${permissionModalKey.key_name}"!`,
+          'success'
+        );
+        setPermissionModalKey(null);
+      } else {
+        showToast(data.message || 'Lỗi khi lưu phân quyền', 'error');
+      }
+    } catch (e) {
+      showToast('Lỗi kết nối khi lưu phân quyền', 'error');
+    } finally {
+      setIsSavingPermissions(false);
+    }
   };
 
   // Toggle Active / Deactivate
@@ -324,46 +571,58 @@ export const ApiKeysModule: React.FC<ApiKeysModuleProps> = ({ onShowToast }) => 
     }
   };
 
-  const getScopeBadge = (scope: string) => {
-    const s = (scope || '').toUpperCase();
-    switch (s) {
-      case 'NEWS_FULL':
-        return (
-          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-emerald-500/10 text-emerald-500 border border-emerald-500/20">
-            <Newspaper className="w-3.5 h-3.5" />
-            Toàn Quyền Tin Tức
-          </span>
-        );
-      case 'MISSIONS_FULL':
-        return (
-          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-indigo-500/10 text-indigo-500 border border-indigo-500/20">
-            <Layers className="w-3.5 h-3.5" />
-            Toàn Quyền Nhiệm Vụ
-          </span>
-        );
-      case 'MISSIONS_REVIEW':
-      case 'REVIEW_ONLY':
-        return (
-          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-amber-500/10 text-amber-500 border border-amber-500/20">
-            <CheckCircle2 className="w-3.5 h-3.5" />
-            Thẩm Định Nhiệm Vụ (AI Pine)
-          </span>
-        );
-      case 'ADMIN_FULL':
-      case 'FULL':
-        return (
-          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-rose-500/10 text-rose-500 border border-rose-500/20">
-            <Shield className="w-3.5 h-3.5" />
-            Toàn Quyền Quản Trị & Đồng Bộ
-          </span>
-        );
-      default:
-        return (
-          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs bg-slate-500/10 text-slate-500">
-            {scope}
-          </span>
-        );
+  // Render scope badges for each key
+  const renderScopeBadges = (scopeStr?: string) => {
+    const scopes = parseScopesList(scopeStr);
+    if (scopes.includes('ADMIN_FULL')) {
+      return (
+        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold bg-rose-500/10 text-rose-500 border border-rose-500/20 shadow-sm">
+          <Shield className="w-3.5 h-3.5" />
+          Toàn Quyền Quản Trị (ADMIN_FULL)
+        </span>
+      );
     }
+
+    if (scopes.length === 0) {
+      return (
+        <span className="text-xs text-muted-foreground font-mono">Chưa gán quyền</span>
+      );
+    }
+
+    return (
+      <div className="flex items-center gap-1.5 flex-wrap max-w-sm">
+        {scopes.length >= 3 && (
+          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-bold bg-purple-500/15 text-purple-400 border border-purple-500/30">
+            <Sparkles className="w-3 h-3" />
+            Đa Năng ({scopes.length} quyền)
+          </span>
+        )}
+        {scopes.map((s) => {
+          const found = ALL_API_SCOPES.find((item) => item.id === s);
+          if (!found) {
+            return (
+              <span
+                key={s}
+                className="px-2 py-0.5 rounded-full text-[11px] bg-slate-500/10 text-slate-400 font-mono"
+              >
+                {s}
+              </span>
+            );
+          }
+          const Icon = found.icon;
+          return (
+            <span
+              key={s}
+              className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-medium ${found.badgeBg} ${found.badgeText} border ${found.badgeBorder}`}
+              title={found.description}
+            >
+              <Icon className="w-3 h-3" />
+              {found.name.split(' (')[0]}
+            </span>
+          );
+        })}
+      </div>
+    );
   };
 
   // Helper to format time-based permission status
@@ -434,6 +693,16 @@ export const ApiKeysModule: React.FC<ApiKeysModuleProps> = ({ onShowToast }) => 
     };
   };
 
+  // Find versatile key for spotlight card
+  const versatileKey = useMemo(() => {
+    return (
+      keys.find((k) => k.id === 'ak_preset_multi_versatile') ||
+      keys.find((k) => k.raw_key?.startsWith('wcg_multi_')) ||
+      keys.find((k) => String(k.scope).includes(',')) ||
+      null
+    );
+  }, [keys]);
+
   const filteredKeys = useMemo(() => {
     return keys.filter((k) => {
       const matchSearch =
@@ -442,10 +711,15 @@ export const ApiKeysModule: React.FC<ApiKeysModuleProps> = ({ onShowToast }) => 
         k.key_prefix.toLowerCase().includes(searchQuery.toLowerCase()) ||
         (k.raw_key && k.raw_key.toLowerCase().includes(searchQuery.toLowerCase()));
 
-      const matchScope =
-        scopeFilter === 'ALL' ||
-        k.scope === scopeFilter ||
-        (scopeFilter === 'MISSIONS_REVIEW' && (k.scope === 'REVIEW_ONLY' || k.scope === 'MISSIONS_REVIEW'));
+      let matchScope = true;
+      if (scopeFilter !== 'ALL') {
+        const scopes = parseScopesList(k.scope);
+        if (scopeFilter === 'MULTI') {
+          matchScope = scopes.length > 1;
+        } else {
+          matchScope = scopes.includes('ADMIN_FULL') || scopes.includes(scopeFilter);
+        }
+      }
 
       let matchStatus = true;
       if (statusFilter === 'ACTIVE') matchStatus = k.is_active === 1;
@@ -471,13 +745,13 @@ export const ApiKeysModule: React.FC<ApiKeysModuleProps> = ({ onShowToast }) => 
             </div>
             <div>
               <h1 className="text-xl sm:text-2xl font-bold font-display text-foreground flex items-center gap-2">
-                Quản Lý Khóa API & Phân Quyền Theo Thời Gian
-                <span className="text-xs px-2.5 py-0.5 rounded-full bg-indigo-500/10 text-indigo-400 border border-indigo-500/20 font-mono font-medium">
-                  v2.5 TIME-SCOPED
+                Quản Lý Khóa API & Phân Quyền Đa Năng
+                <span className="text-xs px-2.5 py-0.5 rounded-full bg-purple-500/10 text-purple-400 border border-purple-500/20 font-mono font-medium">
+                  v3.0 UNIVERSAL
                 </span>
               </h1>
               <p className="text-xs sm:text-sm text-muted-foreground">
-                Sao chép nhanh, tạo mới, vô hiệu hóa và cài đặt thời hạn hiệu lực cho từng khóa API
+                Tạo khóa API đa năng, dùng 1 mã duy nhất để cấu hình và set bất kỳ tổ hợp quyền nào trên website
               </p>
             </div>
           </div>
@@ -494,11 +768,22 @@ export const ApiKeysModule: React.FC<ApiKeysModuleProps> = ({ onShowToast }) => 
           </button>
 
           <button
-            onClick={() => setIsCreateModalOpen(true)}
-            className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-gradient-to-r from-indigo-500 to-purple-600 hover:from-indigo-600 hover:to-purple-700 text-white font-medium text-xs sm:text-sm shadow-md hover:shadow-lg transition-all duration-200"
+            onClick={handleQuickCreateMulti}
+            className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white font-semibold text-xs sm:text-sm shadow-md hover:shadow-lg transition-all duration-200"
+          >
+            <Sparkles className="w-4 h-4" />
+            + Tạo Khóa API Đa Năng
+          </button>
+
+          <button
+            onClick={() => {
+              setCreateMode('SINGLE');
+              setIsCreateModalOpen(true);
+            }}
+            className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-card border border-border hover:bg-muted text-foreground font-medium text-xs sm:text-sm shadow-sm transition-all duration-200"
           >
             <Plus className="w-4 h-4" />
-            Tạo Khóa API Mới
+            Tạo Khóa Đơn Quyền
           </button>
         </div>
       </div>
@@ -506,30 +791,37 @@ export const ApiKeysModule: React.FC<ApiKeysModuleProps> = ({ onShowToast }) => 
       {/* Quick Action Presets (Tạo Nhanh 1-Click) */}
       <div className="p-4 rounded-2xl border border-border/80 bg-muted/20 flex flex-col md:flex-row items-start md:items-center justify-between gap-3">
         <div className="flex items-center gap-2 text-xs font-semibold text-foreground">
-          <Sparkles className="w-4 h-4 text-amber-500 shrink-0" />
-          <span>Tạo nhanh theo phân quyền:</span>
+          <Sparkles className="w-4 h-4 text-purple-400 shrink-0" />
+          <span>Khởi tạo nhanh theo nhóm quyền:</span>
         </div>
         <div className="flex items-center gap-2 flex-wrap">
+          <button
+            onClick={handleQuickCreateMulti}
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold bg-purple-500/15 text-purple-400 hover:bg-purple-500/25 border border-purple-500/30 transition-all shadow-sm"
+          >
+            <Sparkles className="w-3.5 h-3.5" />
+            ⚡ Khóa API Đa Năng (Tuỳ biến mọi quyền)
+          </button>
           <button
             onClick={() => handleQuickCreate('NEWS_FULL', 'Bot Tin Tức 24/7')}
             className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold bg-emerald-500/10 text-emerald-500 hover:bg-emerald-500/20 border border-emerald-500/30 transition-all"
           >
             <Plus className="w-3 h-3" />
-            + Khóa Tin Tức (90 ngày)
+            Tin Tức (90 ngày)
           </button>
           <button
             onClick={() => handleQuickCreate('MISSIONS_FULL', 'Admin Nhiệm Vụ')}
             className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold bg-indigo-500/10 text-indigo-500 hover:bg-indigo-500/20 border border-indigo-500/30 transition-all"
           >
             <Plus className="w-3 h-3" />
-            + Khóa Nhiệm Vụ (90 ngày)
+            Nhiệm Vụ (90 ngày)
           </button>
           <button
             onClick={() => handleQuickCreate('MISSIONS_REVIEW', 'Pine AI Thẩm Định')}
             className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold bg-amber-500/10 text-amber-500 hover:bg-amber-500/20 border border-amber-500/30 transition-all"
           >
             <Plus className="w-3 h-3" />
-            + Khóa AI Pine (30 ngày)
+            AI Pine (30 ngày)
           </button>
         </div>
       </div>
@@ -556,7 +848,7 @@ export const ApiKeysModule: React.FC<ApiKeysModuleProps> = ({ onShowToast }) => 
           }`}
         >
           <ShieldCheck className="w-4 h-4" />
-          Bảng Chi Tiết Cấp Quyền & Mục Áp Dụng
+          Bảng 10 Cấp Quyền & Mục Áp Dụng
         </button>
         <button
           onClick={() => setActiveTab('docs')}
@@ -567,38 +859,39 @@ export const ApiKeysModule: React.FC<ApiKeysModuleProps> = ({ onShowToast }) => 
           }`}
         >
           <BookOpen className="w-4 h-4" />
-          Tài Liệu Tích Hợp & Code Mẫu (cURL / JS)
+          Tài Liệu API Đa Năng & Code Mẫu (cURL / JS)
         </button>
       </div>
 
       {activeTab === 'keys' && (
         <>
-          {/* Spotlight Master Key Card */}
-          {masterKey && (
-            <div className="relative overflow-hidden rounded-2xl border-2 border-amber-500/40 bg-gradient-to-br from-amber-500/5 via-card to-card p-5 sm:p-6 shadow-sm">
-              <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-                <div className="space-y-1.5">
-                  <div className="flex items-center gap-2 flex-wrap">
+          {/* Spotlight VIP Cards: Master Key & Versatile API Key */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+            {/* Spotlight 1: Master Key Card */}
+            {masterKey && (
+              <div className="relative overflow-hidden rounded-2xl border-2 border-amber-500/40 bg-gradient-to-br from-amber-500/5 via-card to-card p-5 sm:p-6 shadow-sm flex flex-col justify-between">
+                <div className="space-y-2">
+                  <div className="flex items-center gap-2 flex-wrap justify-between">
                     <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider bg-amber-500/20 text-amber-500 border border-amber-500/30">
                       <Lock className="w-3.5 h-3.5" />
-                      Khóa Quản Trị Hệ Thống (Master Key)
+                      Khóa Master Hệ Thống
                     </span>
                     <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-emerald-500/10 text-emerald-500 border border-emerald-500/20">
-                      BẢO MẬT TUYỆT ĐỐI • VĨNH VIỄN
+                      VĨNH VIỄN
                     </span>
                   </div>
-                  <h3 className="text-base sm:text-lg font-bold text-foreground">
-                    ADMIN_SYNC_SECRET (Khóa Đồng Bộ Tối Cao)
+                  <h3 className="text-base font-bold text-foreground">
+                    ADMIN_SYNC_SECRET (Toàn Quyền Quản Trị Tối Cao)
                   </h3>
-                  <p className="text-xs text-muted-foreground max-w-2xl">
-                    Cấp toàn quyền tối cao: Đồng bộ dữ liệu 2 chiều D1/KV, sao lưu Master State, toàn quyền tạo/sửa/xóa bài viết tin tức, nhiệm vụ và cấu hình toàn trang.
+                  <p className="text-xs text-muted-foreground line-clamp-2">
+                    Cấp quyền tối cao: Đồng bộ dữ liệu hai chiều KV/D1, can thiệp mọi module, bỏ qua mọi giới hạn kiểm tra.
                   </p>
                 </div>
 
-                <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3">
-                  <div className="flex items-center gap-2 bg-background/80 border border-border px-3.5 py-2 rounded-xl font-mono text-xs max-w-full overflow-hidden shadow-inner">
-                    <span className="text-muted-foreground select-none shrink-0">KEY:</span>
-                    <span className="text-foreground select-all font-semibold truncate max-w-[200px] sm:max-w-xs">
+                <div className="mt-4 pt-4 border-t border-border/60">
+                  <div className="flex items-center gap-2 bg-background/80 border border-border px-3 py-2 rounded-xl font-mono text-xs max-w-full overflow-hidden shadow-inner">
+                    <span className="text-muted-foreground select-none shrink-0 font-bold">KEY:</span>
+                    <span className="text-foreground select-all font-semibold truncate flex-1">
                       {visibleKeys['master'] ? masterKey.raw_key : masterKey.key_prefix}
                     </span>
                     <button
@@ -614,7 +907,7 @@ export const ApiKeysModule: React.FC<ApiKeysModuleProps> = ({ onShowToast }) => 
                     </button>
                     <button
                       onClick={() => handleCopy(masterKey.raw_key || '', 'master')}
-                      className="px-3 py-1 rounded-lg bg-amber-500/20 hover:bg-amber-500/30 text-amber-500 font-bold text-xs flex items-center gap-1.5 transition-all shrink-0 border border-amber-500/30"
+                      className="px-2.5 py-1 rounded-lg bg-amber-500/20 hover:bg-amber-500/30 text-amber-500 font-bold text-xs flex items-center gap-1.5 transition-all shrink-0 border border-amber-500/30"
                       title="Sao chép nhanh khóa này"
                     >
                       {copiedKeyId === 'master' ? (
@@ -625,15 +918,81 @@ export const ApiKeysModule: React.FC<ApiKeysModuleProps> = ({ onShowToast }) => 
                       ) : (
                         <>
                           <Copy className="w-3.5 h-3.5" />
-                          <span>Sao Chép Nhanh</span>
+                          <span>Copy</span>
                         </>
                       )}
                     </button>
                   </div>
                 </div>
               </div>
-            </div>
-          )}
+            )}
+
+            {/* Spotlight 2: Khóa API Đa Năng (Versatile Multi-Scope Key) */}
+            {versatileKey && (
+              <div className="relative overflow-hidden rounded-2xl border-2 border-purple-500/40 bg-gradient-to-br from-purple-500/10 via-indigo-500/5 to-card p-5 sm:p-6 shadow-sm flex flex-col justify-between">
+                <div className="space-y-2">
+                  <div className="flex items-center gap-2 flex-wrap justify-between">
+                    <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider bg-purple-500/20 text-purple-400 border border-purple-500/30">
+                      <Sparkles className="w-3.5 h-3.5 text-purple-400" />
+                      Khóa API Đa Năng Tùy Biến
+                    </span>
+                    <button
+                      onClick={() => handleOpenPermissionModal(versatileKey)}
+                      className="inline-flex items-center gap-1 px-3 py-1 rounded-lg text-xs font-bold bg-purple-600 hover:bg-purple-700 text-white shadow-sm transition-all"
+                    >
+                      <SlidersHorizontal className="w-3.5 h-3.5" />
+                      Set Quyền Cho Khóa Này
+                    </button>
+                  </div>
+                  <h3 className="text-base font-bold text-foreground">
+                    {versatileKey.key_name}
+                  </h3>
+                  <div className="text-xs text-muted-foreground">
+                    {renderScopeBadges(versatileKey.scope)}
+                  </div>
+                </div>
+
+                <div className="mt-4 pt-4 border-t border-border/60">
+                  <div className="flex items-center gap-2 bg-background/80 border border-border px-3 py-2 rounded-xl font-mono text-xs max-w-full overflow-hidden shadow-inner">
+                    <span className="text-purple-400 select-none shrink-0 font-bold">KEY:</span>
+                    <span className="text-foreground select-all font-semibold truncate flex-1">
+                      {visibleKeys[versatileKey.id] ? versatileKey.raw_key : versatileKey.key_prefix}
+                    </span>
+                    {versatileKey.raw_key && (
+                      <button
+                        onClick={() => toggleVisibility(versatileKey.id)}
+                        className="p-1 hover:bg-muted rounded text-muted-foreground hover:text-foreground transition-colors shrink-0"
+                        title={visibleKeys[versatileKey.id] ? 'Ẩn mã' : 'Hiện đầy đủ mã'}
+                      >
+                        {visibleKeys[versatileKey.id] ? (
+                          <EyeOff className="w-3.5 h-3.5 text-purple-400" />
+                        ) : (
+                          <Eye className="w-3.5 h-3.5" />
+                        )}
+                      </button>
+                    )}
+                    <button
+                      onClick={() => handleCopy(versatileKey.raw_key || versatileKey.key_prefix, versatileKey.id)}
+                      className="px-2.5 py-1 rounded-lg bg-purple-500/20 hover:bg-purple-500/30 text-purple-400 font-bold text-xs flex items-center gap-1.5 transition-all shrink-0 border border-purple-500/30"
+                      title="Sao chép nhanh khóa này"
+                    >
+                      {copiedKeyId === versatileKey.id ? (
+                        <>
+                          <Check className="w-3.5 h-3.5 text-emerald-500" />
+                          <span className="text-emerald-500">Đã Copy!</span>
+                        </>
+                      ) : (
+                        <>
+                          <Copy className="w-3.5 h-3.5" />
+                          <span>Copy</span>
+                        </>
+                      )}
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
 
           {/* Filters & Search */}
           <div className="flex flex-col lg:flex-row items-stretch lg:items-center justify-between gap-3">
@@ -641,7 +1000,7 @@ export const ApiKeysModule: React.FC<ApiKeysModuleProps> = ({ onShowToast }) => 
               <Search className="w-4 h-4 text-muted-foreground absolute left-3.5 top-1/2 -translate-y-1/2" />
               <input
                 type="text"
-                placeholder="Tìm theo tên khóa, mô tả, phân quyền..."
+                placeholder="Tìm theo tên khóa, mô tả, quyền hoặc prefix..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 className="w-full pl-9 pr-4 py-2 rounded-xl bg-card border border-border text-xs sm:text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/40"
@@ -653,6 +1012,7 @@ export const ApiKeysModule: React.FC<ApiKeysModuleProps> = ({ onShowToast }) => 
                 <span className="text-xs text-muted-foreground whitespace-nowrap">Quyền:</span>
                 {[
                   { id: 'ALL', label: 'Tất Cả' },
+                  { id: 'MULTI', label: '⚡ Đa Năng' },
                   { id: 'NEWS_FULL', label: 'Tin Tức' },
                   { id: 'MISSIONS_FULL', label: 'Nhiệm Vụ' },
                   { id: 'MISSIONS_REVIEW', label: 'AI Pine' },
@@ -703,7 +1063,7 @@ export const ApiKeysModule: React.FC<ApiKeysModuleProps> = ({ onShowToast }) => 
                 <thead className="bg-muted/40 border-b border-border text-muted-foreground font-semibold">
                   <tr>
                     <th className="py-3 px-4">TÊN KHÓA & MÔ TẢ</th>
-                    <th className="py-3 px-4">PHÂN QUYỀN</th>
+                    <th className="py-3 px-4">PHÂN QUYỀN (CÁC QUYỀN SỞ HỮU)</th>
                     <th className="py-3 px-4">KHÓA API (SAO CHÉP / HIỆN 1 PHẦN)</th>
                     <th className="py-3 px-4">HIỆU LỰC (THỜI HẠN)</th>
                     <th className="py-3 px-4 text-center">TRẠNG THÁI</th>
@@ -733,7 +1093,7 @@ export const ApiKeysModule: React.FC<ApiKeysModuleProps> = ({ onShowToast }) => 
                           }`}
                         >
                           {/* Name & Desc */}
-                          <td className="py-3.5 px-4 font-medium max-w-[220px]">
+                          <td className="py-3.5 px-4 font-medium max-w-[200px]">
                             <div className="text-foreground font-semibold flex items-center gap-1.5">
                               <span>{item.key_name}</span>
                               {expInfo.isExpired && (
@@ -753,15 +1113,15 @@ export const ApiKeysModule: React.FC<ApiKeysModuleProps> = ({ onShowToast }) => 
                             )}
                           </td>
 
-                          {/* Scope */}
-                          <td className="py-3.5 px-4 whitespace-nowrap">
-                            {getScopeBadge(item.scope)}
+                          {/* Scope Badges */}
+                          <td className="py-3.5 px-4">
+                            {renderScopeBadges(item.scope)}
                           </td>
 
                           {/* Key Display & Quick Copy */}
                           <td className="py-3.5 px-4">
                             <div className="inline-flex items-center gap-2 bg-background border border-border/80 px-2.5 py-1.5 rounded-xl font-mono text-xs shadow-inner">
-                              <span className="text-foreground select-all font-semibold max-w-[150px] sm:max-w-[200px] truncate">
+                              <span className="text-foreground select-all font-semibold max-w-[140px] sm:max-w-[180px] truncate">
                                 {isRevealed ? item.raw_key : item.key_prefix}
                               </span>
 
@@ -847,6 +1207,16 @@ export const ApiKeysModule: React.FC<ApiKeysModuleProps> = ({ onShowToast }) => 
                           {/* Actions */}
                           <td className="py-3.5 px-4 text-right whitespace-nowrap">
                             <div className="flex items-center justify-end gap-1.5">
+                              {/* Set Permissions Button (Phân Quyền Đa Năng) */}
+                              <button
+                                onClick={() => handleOpenPermissionModal(item)}
+                                className="px-2.5 py-1.5 rounded-lg border border-purple-500/40 text-purple-400 hover:bg-purple-500/10 text-xs font-semibold flex items-center gap-1 transition-colors"
+                                title="Set và tùy biến các quyền cho mã API này"
+                              >
+                                <SlidersHorizontal className="w-3.5 h-3.5" />
+                                <span>Set Quyền</span>
+                              </button>
+
                               {/* Extend button (Phân quyền theo thời gian) */}
                               <button
                                 onClick={() => setExtendingKey(item)}
@@ -891,161 +1261,150 @@ export const ApiKeysModule: React.FC<ApiKeysModuleProps> = ({ onShowToast }) => 
         </>
       )}
 
-      {/* Permissions Breakdown Tab */}
+      {/* Permissions Breakdown Tab (Bảng 10 Cấp Quyền) */}
       {activeTab === 'permissions' && (
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          {/* Card 1: News Full */}
-          <div className="p-5 rounded-2xl border border-emerald-500/30 bg-gradient-to-br from-emerald-500/5 to-card space-y-3">
-            <div className="flex items-center justify-between">
-              <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-emerald-500/20 text-emerald-500">
-                <Newspaper className="w-3.5 h-3.5" />
-                NEWS_FULL
-              </span>
-              <span className="text-xs text-muted-foreground font-mono">Mục: Tin Tức</span>
-            </div>
-            <h3 className="text-base font-bold text-foreground">Toàn Quyền Mục Tin Tức (News Full Access)</h3>
-            <p className="text-xs text-muted-foreground">
-              Dành riêng cho bot viết bài tự động, crawler tin game hoặc biên tập viên bên ngoài.
-            </p>
-            <div className="text-xs space-y-1.5 border-t border-border pt-3">
-              <div className="flex items-center gap-2 text-foreground">
-                <Check className="w-3.5 h-3.5 text-emerald-500 shrink-0" />
-                <span><strong>POST /api/news</strong>: Đăng bài mới hoặc đặt lịch hẹn giờ (SCHEDULED)</span>
+        <div className="space-y-4">
+          <div className="p-4 rounded-2xl border border-purple-500/30 bg-purple-500/5 flex items-center justify-between gap-4">
+            <div className="flex items-center gap-3">
+              <Sparkles className="w-6 h-6 text-purple-400 shrink-0" />
+              <div>
+                <h3 className="text-sm font-bold text-foreground">Cơ Chế Phân Quyền Đa Năng Linh Hoạt</h3>
+                <p className="text-xs text-muted-foreground">
+                  Một mã API có thể sở hữu 1 quyền riêng biệt hoặc sở hữu đồng thời nhiều quyền cùng lúc. Quản trị viên có thể bấm nút <strong>"Set Quyền"</strong> trên danh sách để điều chỉnh bất kỳ lúc nào.
+                </p>
               </div>
-              <div className="flex items-center gap-2 text-foreground">
-                <Check className="w-3.5 h-3.5 text-emerald-500 shrink-0" />
-                <span><strong>PUT /api/news/:id</strong>: Chỉnh sửa nội dung, tiêu đề, ảnh cover, thẻ tags</span>
-              </div>
-              <div className="flex items-center gap-2 text-foreground">
-                <Check className="w-3.5 h-3.5 text-emerald-500 shrink-0" />
-                <span><strong>DELETE /api/news/:id</strong>: Xóa vĩnh viễn và lưu Tombstone chống hồi sinh</span>
-              </div>
-            </div>
-            <div className="bg-background/80 p-2.5 rounded-xl border border-border text-[11px] font-mono text-muted-foreground">
-              Header: <span className="text-emerald-500 font-bold">X-API-Key: wcg_news_...</span> hoặc <span className="text-emerald-500 font-bold">Authorization: Bearer ...</span>
             </div>
           </div>
 
-          {/* Card 2: Missions Full */}
-          <div className="p-5 rounded-2xl border border-indigo-500/30 bg-gradient-to-br from-indigo-500/5 to-card space-y-3">
-            <div className="flex items-center justify-between">
-              <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-indigo-500/20 text-indigo-500">
-                <Layers className="w-3.5 h-3.5" />
-                MISSIONS_FULL
-              </span>
-              <span className="text-xs text-muted-foreground font-mono">Mục: Nhiệm Vụ</span>
-            </div>
-            <h3 className="text-base font-bold text-foreground">Toàn Quyền Quản Lý Nhiệm Vụ (Missions Full)</h3>
-            <p className="text-xs text-muted-foreground">
-              Dành cho quản lý cấp cao hoặc hệ thống tự động thiết lập chiến dịch nhiệm vụ và phát thưởng.
-            </p>
-            <div className="text-xs space-y-1.5 border-t border-border pt-3">
-              <div className="flex items-center gap-2 text-foreground">
-                <Check className="w-3.5 h-3.5 text-indigo-500 shrink-0" />
-                <span><strong>POST/PUT/DELETE /api/missions</strong>: Tạo, sửa, đóng nhiệm vụ</span>
-              </div>
-              <div className="flex items-center gap-2 text-foreground">
-                <Check className="w-3.5 h-3.5 text-indigo-500 shrink-0" />
-                <span><strong>POST /api/missions/pools</strong>: Nạp và quản lý kho giftcode trả thưởng</span>
-              </div>
-              <div className="flex items-center gap-2 text-foreground">
-                <Check className="w-3.5 h-3.5 text-indigo-500 shrink-0" />
-                <span><strong>POST /api/missions/ai/review</strong>: Toàn quyền duyệt và từ chối bài nộp</span>
-              </div>
-            </div>
-            <div className="bg-background/80 p-2.5 rounded-xl border border-border text-[11px] font-mono text-muted-foreground">
-              Header: <span className="text-indigo-500 font-bold">X-API-Key: wcg_mis_...</span>
-            </div>
-          </div>
-
-          {/* Card 3: Missions Review (Pine AI) */}
-          <div className="p-5 rounded-2xl border border-amber-500/30 bg-gradient-to-br from-amber-500/5 to-card space-y-3">
-            <div className="flex items-center justify-between">
-              <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-amber-500/20 text-amber-500">
-                <CheckCircle2 className="w-3.5 h-3.5" />
-                MISSIONS_REVIEW
-              </span>
-              <span className="text-xs text-muted-foreground font-mono">Mục: Thẩm Định AI</span>
-            </div>
-            <h3 className="text-base font-bold text-foreground">Thẩm Định Nhiệm Vụ Tự Động (AI Pine)</h3>
-            <p className="text-xs text-muted-foreground">
-              Phạm vi hẹp an toàn: Chỉ được tra cứu danh sách chờ duyệt và gửi kết quả duyệt. Tuyệt đối không can thiệp kho quà.
-            </p>
-            <div className="text-xs space-y-1.5 border-t border-border pt-3">
-              <div className="flex items-center gap-2 text-foreground">
-                <Check className="w-3.5 h-3.5 text-amber-500 shrink-0" />
-                <span><strong>GET /api/missions/ai/pending</strong>: Lấy danh sách bài nộp chờ duyệt</span>
-              </div>
-              <div className="flex items-center gap-2 text-foreground">
-                <Check className="w-3.5 h-3.5 text-amber-500 shrink-0" />
-                <span><strong>POST /api/missions/ai/review</strong>: Duyệt (APPROVED) hoặc Từ chối (REJECTED)</span>
-              </div>
-              <div className="flex items-center gap-2 text-muted-foreground">
-                <X className="w-3.5 h-3.5 text-rose-500 shrink-0" />
-                <span>Không có quyền sửa cấu trúc nhiệm vụ hay rút kho code</span>
-              </div>
-            </div>
-            <div className="bg-background/80 p-2.5 rounded-xl border border-border text-[11px] font-mono text-muted-foreground">
-              Header: <span className="text-amber-500 font-bold">X-API-Key: wcg_ai_...</span>
-            </div>
-          </div>
-
-          {/* Card 4: Master Full Admin */}
-          <div className="p-5 rounded-2xl border border-rose-500/30 bg-gradient-to-br from-rose-500/5 to-card space-y-3">
-            <div className="flex items-center justify-between">
-              <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-rose-500/20 text-rose-500">
-                <Shield className="w-3.5 h-3.5" />
-                ADMIN_FULL
-              </span>
-              <span className="text-xs text-muted-foreground font-mono">Mục: Toàn Sàn</span>
-            </div>
-            <h3 className="text-base font-bold text-foreground">Toàn Quyền Quản Trị & Đồng Bộ (Master Admin)</h3>
-            <p className="text-xs text-muted-foreground">
-              Quyền tối cao không giới hạn cho mọi phân hệ, đồng bộ cơ sở dữ liệu và sao lưu toàn hệ thống.
-            </p>
-            <div className="text-xs space-y-1.5 border-t border-border pt-3">
-              <div className="flex items-center gap-2 text-foreground">
-                <Check className="w-3.5 h-3.5 text-rose-500 shrink-0" />
-                <span><strong>POST /api/sync</strong>: Đồng bộ hàng loạt mọi danh mục, game, code, sản phẩm</span>
-              </div>
-              <div className="flex items-center gap-2 text-foreground">
-                <Check className="w-3.5 h-3.5 text-rose-500 shrink-0" />
-                <span>Bao quát 100% quyền của Tin tức và Nhiệm vụ</span>
-              </div>
-              <div className="flex items-center gap-2 text-foreground">
-                <Check className="w-3.5 h-3.5 text-rose-500 shrink-0" />
-                <span>Toàn quyền thêm, sửa, xóa mọi bảng trong D1 & KV</span>
-              </div>
-            </div>
-            <div className="bg-background/80 p-2.5 rounded-xl border border-border text-[11px] font-mono text-muted-foreground">
-              Header: <span className="text-rose-500 font-bold">X-Sync-Key: ...</span> hoặc <span className="text-rose-500 font-bold">X-API-Key: wcg_adm_...</span>
-            </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {ALL_API_SCOPES.map((scopeItem) => {
+              const Icon = scopeItem.icon;
+              return (
+                <div
+                  key={scopeItem.id}
+                  className={`p-4 rounded-2xl border ${scopeItem.badgeBorder} bg-gradient-to-br from-card to-card/60 space-y-2.5 shadow-sm`}
+                >
+                  <div className="flex items-center justify-between">
+                    <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold ${scopeItem.badgeBg} ${scopeItem.badgeText}`}>
+                      <Icon className="w-3.5 h-3.5" />
+                      {scopeItem.category}
+                    </span>
+                    <span className="text-[11px] font-mono text-muted-foreground font-semibold">
+                      {scopeItem.id}
+                    </span>
+                  </div>
+                  <h4 className="text-sm font-bold text-foreground">{scopeItem.name}</h4>
+                  <p className="text-xs text-muted-foreground leading-relaxed">{scopeItem.description}</p>
+                </div>
+              );
+            })}
           </div>
         </div>
       )}
 
-      {/* Docs & Code Examples Tab */}
+      {/* API Documentation Tab */}
       {activeTab === 'docs' && (
-        <div className="space-y-4">
-          <div className="flex items-center gap-2 border-b border-border pb-3">
-            {[
-              { id: 'news', label: '1. API Tin Tức (Đăng, Sửa, Xóa, Lịch Đăng)' },
-              { id: 'missions', label: '2. API Nhiệm Vụ (AI Pine Duyệt Bài)' },
-              { id: 'sync', label: '3. API Đồng Bộ Toàn Hệ Thống (/api/sync)' },
-            ].map((d) => (
-              <button
-                key={d.id}
-                onClick={() => setDocCategory(d.id as any)}
-                className={`px-3 py-1.5 rounded-xl text-xs font-semibold transition-all ${
-                  docCategory === d.id
-                    ? 'bg-primary text-primary-foreground shadow-sm'
-                    : 'bg-card border border-border text-muted-foreground hover:text-foreground'
-                }`}
-              >
-                {d.label}
-              </button>
-            ))}
+        <div className="space-y-5">
+          <div className="flex items-center gap-2 border-b border-border pb-2 overflow-x-auto scrollbar-none">
+            <button
+              onClick={() => setDocCategory('universal')}
+              className={`flex items-center gap-2 px-3.5 py-1.5 rounded-xl text-xs font-semibold transition-all ${
+                docCategory === 'universal'
+                  ? 'bg-purple-600 text-white shadow-sm'
+                  : 'bg-card border border-border text-muted-foreground hover:text-foreground'
+              }`}
+            >
+              <Sparkles className="w-3.5 h-3.5" />
+              ⚡ API Đa Năng (Set Quyền Bằng 1 Mã API)
+            </button>
+            <button
+              onClick={() => setDocCategory('news')}
+              className={`flex items-center gap-2 px-3.5 py-1.5 rounded-xl text-xs font-semibold transition-all ${
+                docCategory === 'news'
+                  ? 'bg-emerald-600 text-white shadow-sm'
+                  : 'bg-card border border-border text-muted-foreground hover:text-foreground'
+              }`}
+            >
+              <Newspaper className="w-3.5 h-3.5" />
+              API Tin Tức
+            </button>
+            <button
+              onClick={() => setDocCategory('missions')}
+              className={`flex items-center gap-2 px-3.5 py-1.5 rounded-xl text-xs font-semibold transition-all ${
+                docCategory === 'missions'
+                  ? 'bg-indigo-600 text-white shadow-sm'
+                  : 'bg-card border border-border text-muted-foreground hover:text-foreground'
+              }`}
+            >
+              <Layers className="w-3.5 h-3.5" />
+              API Nhiệm Vụ & AI Pine
+            </button>
+            <button
+              onClick={() => setDocCategory('sync')}
+              className={`flex items-center gap-2 px-3.5 py-1.5 rounded-xl text-xs font-semibold transition-all ${
+                docCategory === 'sync'
+                  ? 'bg-rose-600 text-white shadow-sm'
+                  : 'bg-card border border-border text-muted-foreground hover:text-foreground'
+              }`}
+            >
+              <Shield className="w-3.5 h-3.5" />
+              API Đồng Bộ Master
+            </button>
           </div>
+
+          {/* Docs: Universal Set Permissions API */}
+          {docCategory === 'universal' && (
+            <div className="space-y-4 bg-card border border-border p-5 rounded-2xl">
+              <div className="p-3.5 rounded-xl bg-purple-500/10 border border-purple-500/30 text-purple-300 text-xs leading-relaxed">
+                <span className="font-bold text-purple-400">⚡ API Đa Năng:</span> Sử dụng 1 mã API Quản trị (hoặc khóa Đa Năng có quyền <code>API_KEYS_FULL</code> / <code>ADMIN_FULL</code>) để gọi endpoint <code>POST /api/api-keys/set-permissions</code> nhằm cấu hình và set bất kỳ tổ hợp quyền nào cho các mã API trên hệ thống.
+              </div>
+
+              <div>
+                <h4 className="text-sm font-bold text-foreground flex items-center gap-2">
+                  <Terminal className="w-4 h-4 text-purple-400" />
+                  Mẫu 1: Dùng 1 Mã API Để Set Quyền Cho Mã Khác (cURL)
+                </h4>
+                <pre className="mt-2 p-4 rounded-xl bg-slate-950 text-slate-100 font-mono text-xs overflow-x-auto">
+{`curl -X POST https://codegame.shop/api/api-keys/set-permissions \\
+  -H "Content-Type: application/json" \\
+  -H "X-API-Key: YOUR_ADMIN_OR_VERSATILE_KEY" \\
+  -d '{
+    "key_id": "ak_preset_multi_versatile",
+    "scopes": [
+      "NEWS_FULL",
+      "MISSIONS_FULL",
+      "GAMES_FULL",
+      "GIVEAWAYS_FULL",
+      "SYNC_FULL"
+    ]
+  }'`}
+                </pre>
+              </div>
+
+              <div>
+                <h4 className="text-sm font-bold text-foreground flex items-center gap-2">
+                  <Code2 className="w-4 h-4 text-purple-400" />
+                  Mẫu 2: Set Quyền Bằng JavaScript (Node.js / Fetch API)
+                </h4>
+                <pre className="mt-2 p-4 rounded-xl bg-slate-950 text-slate-100 font-mono text-xs overflow-x-auto">
+{`const res = await fetch('https://codegame.shop/api/api-keys/set-permissions', {
+  method: 'POST',
+  headers: {
+    'Content-Type': 'application/json',
+    'X-API-Key': 'YOUR_ADMIN_OR_VERSATILE_KEY',
+  },
+  body: JSON.stringify({
+    key_id: 'ak_preset_multi_versatile',
+    scopes: ['NEWS_FULL', 'MISSIONS_FULL', 'SYNC_FULL'],
+    description: 'Khóa đa năng cập nhật qua API tự động'
+  })
+});
+const data = await res.json();
+console.log('Kết quả cập nhật:', data);`}
+                </pre>
+              </div>
+            </div>
+          )}
 
           {docCategory === 'news' && (
             <div className="space-y-4 bg-card border border-border p-5 rounded-2xl">
@@ -1097,7 +1456,7 @@ console.log(data);`}
             <div className="space-y-4 bg-card border border-border p-5 rounded-2xl">
               <div>
                 <h4 className="text-sm font-bold text-foreground flex items-center gap-2">
-                  <Terminal className="w-4 h-4 text-amber-500" />
+                  <Terminal className="w-4 h-4 text-indigo-400" />
                   Mẫu 1: AI Lấy danh sách bài nộp chờ duyệt (GET /api/missions/ai/pending)
                 </h4>
                 <pre className="mt-2 p-4 rounded-xl bg-slate-950 text-slate-100 font-mono text-xs overflow-x-auto">
@@ -1108,8 +1467,8 @@ console.log(data);`}
 
               <div>
                 <h4 className="text-sm font-bold text-foreground flex items-center gap-2">
-                  <Code2 className="w-4 h-4 text-amber-500" />
-                  Mẫu 2: AI Gửi kết quả duyệt bài (POST /api/missions/ai/review)
+                  <Code2 className="w-4 h-4 text-indigo-400" />
+                  Mẫu 2: AI Gửi kết quả duyệt bài và tự động trả thưởng (POST /api/missions/ai/review)
                 </h4>
                 <pre className="mt-2 p-4 rounded-xl bg-slate-950 text-slate-100 font-mono text-xs overflow-x-auto">
 {`const res = await fetch('https://codegame.shop/api/missions/ai/review', {
@@ -1154,18 +1513,222 @@ console.log(result);`}
         </div>
       )}
 
-      {/* Modal: Create API Key with Time-based Expiration */}
-      {isCreateModalOpen && (
+      {/* Modal: Set Permissions for API Key (Cài Đặt Phân Quyền Đa Năng) */}
+      {permissionModalKey && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
-          <div className="w-full max-w-lg bg-card rounded-2xl border border-border shadow-2xl overflow-hidden max-h-[90vh] flex flex-col">
+          <div className="w-full max-w-2xl bg-card rounded-2xl border border-border shadow-2xl overflow-hidden max-h-[92vh] flex flex-col">
+            {/* Modal Header */}
             <div className="flex items-center justify-between p-5 border-b border-border bg-muted/20 shrink-0">
-              <div className="flex items-center gap-2">
-                <div className="p-2 rounded-xl bg-primary/10 text-primary">
-                  <KeyRound className="w-5 h-5 text-indigo-500" />
+              <div className="flex items-center gap-3">
+                <div className="p-2.5 rounded-xl bg-purple-500/10 text-purple-400 border border-purple-500/20">
+                  <SlidersHorizontal className="w-5 h-5" />
                 </div>
                 <div>
-                  <h3 className="font-bold text-foreground">Tạo Khóa API & Phân Quyền Theo Thời Gian</h3>
-                  <p className="text-xs text-muted-foreground">Cấp quyền hạn chế an toàn và thời hạn tự động thu hồi</p>
+                  <h3 className="font-bold text-base text-foreground flex items-center gap-2">
+                    Cài Đặt Phân Quyền Cho Khóa API
+                    <span className="text-xs px-2 py-0.5 rounded-full bg-purple-500/10 text-purple-400 border border-purple-500/20 font-mono">
+                      {permissionModalKey.id}
+                    </span>
+                  </h3>
+                  <p className="text-xs text-muted-foreground">
+                    Chọn các quyền bạn muốn cấp cho khóa "{permissionModalKey.key_name}"
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => setPermissionModalKey(null)}
+                className="p-1.5 rounded-lg hover:bg-muted text-muted-foreground hover:text-foreground"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Modal Body */}
+            <div className="p-5 space-y-4 overflow-y-auto">
+              {/* Key Info Banner */}
+              <div className="p-3.5 rounded-xl bg-background border border-border flex items-center justify-between gap-3 text-xs">
+                <div className="flex items-center gap-2 min-w-0">
+                  <Key className="w-4 h-4 text-purple-400 shrink-0" />
+                  <span className="text-muted-foreground shrink-0 font-medium">Mã Khóa:</span>
+                  <span className="font-mono font-semibold text-foreground truncate">
+                    {permissionModalKey.raw_key || permissionModalKey.key_prefix}
+                  </span>
+                </div>
+                <button
+                  type="button"
+                  onClick={() =>
+                    handleCopy(
+                      permissionModalKey.raw_key || permissionModalKey.key_prefix,
+                      'modal_perm_copy'
+                    )
+                  }
+                  className="px-2.5 py-1 rounded-lg bg-primary/10 hover:bg-primary/20 text-primary font-bold text-xs shrink-0 flex items-center gap-1"
+                >
+                  {copiedKeyId === 'modal_perm_copy' ? (
+                    <>
+                      <Check className="w-3 h-3 text-emerald-500" />
+                      <span className="text-emerald-500">Đã Copy</span>
+                    </>
+                  ) : (
+                    <>
+                      <Copy className="w-3 h-3" />
+                      <span>Copy</span>
+                    </>
+                  )}
+                </button>
+              </div>
+
+              {/* Fast Presets Toolbar */}
+              <div className="flex items-center justify-between gap-2 flex-wrap">
+                <span className="text-xs font-semibold text-foreground flex items-center gap-1.5">
+                  <Sparkles className="w-3.5 h-3.5 text-purple-400" />
+                  Chọn nhanh:
+                </span>
+                <div className="flex items-center gap-1.5 flex-wrap">
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setSelectedScopes(ALL_API_SCOPES.filter((s) => s.id !== 'ADMIN_FULL').map((s) => s.id))
+                    }
+                    className="px-2.5 py-1 rounded-lg text-xs font-semibold bg-purple-500/10 text-purple-400 hover:bg-purple-500/20 border border-purple-500/30 transition-all"
+                  >
+                    ⚡ Chọn Tất Cả
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setSelectedScopes(['NEWS_FULL', 'MISSIONS_FULL', 'MISSIONS_REVIEW'])
+                    }
+                    className="px-2.5 py-1 rounded-lg text-xs font-medium bg-card border border-border text-muted-foreground hover:text-foreground transition-all"
+                  >
+                    📰 Gói Nội Dung
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setSelectedScopes(['GAMES_FULL', 'GIVEAWAYS_FULL', 'STORE_FULL', 'SYNC_FULL'])
+                    }
+                    className="px-2.5 py-1 rounded-lg text-xs font-medium bg-card border border-border text-muted-foreground hover:text-foreground transition-all"
+                  >
+                    🔄 Gói Vận Hành
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setSelectedScopes([])}
+                    className="px-2.5 py-1 rounded-lg text-xs font-medium bg-card border border-border text-rose-400 hover:bg-rose-500/10 transition-all"
+                  >
+                    🧹 Bỏ Chọn Hết
+                  </button>
+                </div>
+              </div>
+
+              {/* Permissions Checkbox Grid */}
+              <div className="space-y-2">
+                <div className="text-xs font-semibold text-foreground">
+                  Danh sách quyền có thể cấp ({selectedScopes.length}/
+                  {ALL_API_SCOPES.filter((s) => s.id !== 'ADMIN_FULL').length} quyền đã chọn):
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                  {ALL_API_SCOPES.filter((s) => s.id !== 'ADMIN_FULL').map((scopeItem) => {
+                    const Icon = scopeItem.icon;
+                    const isChecked = selectedScopes.includes(scopeItem.id);
+
+                    const toggleScope = () => {
+                      if (isChecked) {
+                        setSelectedScopes((prev) => prev.filter((id) => id !== scopeItem.id));
+                      } else {
+                        setSelectedScopes((prev) => [...prev, scopeItem.id]);
+                      }
+                    };
+
+                    return (
+                      <div
+                        key={scopeItem.id}
+                        onClick={toggleScope}
+                        className={`p-3 rounded-xl border cursor-pointer transition-all flex items-start gap-3 select-none ${
+                          isChecked
+                            ? 'bg-purple-500/10 border-purple-500/40 shadow-sm'
+                            : 'bg-background/60 border-border hover:bg-muted/30'
+                        }`}
+                      >
+                        <div
+                          className={`w-5 h-5 rounded-md border mt-0.5 flex items-center justify-center shrink-0 transition-colors ${
+                            isChecked
+                              ? 'bg-purple-600 border-purple-600 text-white'
+                              : 'border-muted-foreground/40 bg-card'
+                          }`}
+                        >
+                          {isChecked && <Check className="w-3.5 h-3.5 stroke-[3]" />}
+                        </div>
+
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center justify-between gap-1">
+                            <span className="text-xs font-bold text-foreground truncate flex items-center gap-1.5">
+                              <Icon className="w-3.5 h-3.5 text-purple-400 shrink-0" />
+                              {scopeItem.name}
+                            </span>
+                          </div>
+                          <p className="text-[11px] text-muted-foreground mt-0.5 leading-relaxed line-clamp-2">
+                            {scopeItem.description}
+                          </p>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            </div>
+
+            {/* Modal Footer */}
+            <div className="p-4 border-t border-border bg-muted/20 shrink-0 flex items-center justify-between gap-3">
+              <div className="text-xs text-muted-foreground">
+                Đã chọn <strong className="text-foreground">{selectedScopes.length}</strong> quyền.
+              </div>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => setPermissionModalKey(null)}
+                  className="px-4 py-2 rounded-xl border border-border hover:bg-muted text-xs font-medium"
+                >
+                  Hủy Bỏ
+                </button>
+                <button
+                  type="button"
+                  onClick={handleSavePermissions}
+                  disabled={isSavingPermissions}
+                  className="px-5 py-2 rounded-xl bg-purple-600 hover:bg-purple-700 text-white font-semibold text-xs shadow-md transition-all flex items-center gap-2"
+                >
+                  {isSavingPermissions ? (
+                    <>
+                      <RefreshCw className="w-4 h-4 animate-spin" />
+                      Đang Lưu...
+                    </>
+                  ) : (
+                    <>
+                      <Check className="w-4 h-4" />
+                      Lưu Cấu Hình Phân Quyền
+                    </>
+                  )}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal: Create API Key (Supports Single and Multi-Scope) */}
+      {isCreateModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="w-full max-w-lg bg-card rounded-2xl border border-border shadow-2xl overflow-hidden max-h-[92vh] flex flex-col">
+            <div className="flex items-center justify-between p-5 border-b border-border bg-muted/20 shrink-0">
+              <div className="flex items-center gap-2">
+                <div className="p-2 rounded-xl bg-purple-500/10 text-purple-400">
+                  <KeyRound className="w-5 h-5 text-purple-500" />
+                </div>
+                <div>
+                  <h3 className="font-bold text-foreground">Tạo Khóa API & Phân Quyền</h3>
+                  <p className="text-xs text-muted-foreground">Tạo khóa đơn quyền hoặc khóa đa năng tự chọn quyền</p>
                 </div>
               </div>
               <button
@@ -1183,7 +1746,7 @@ console.log(result);`}
                 </label>
                 <input
                   type="text"
-                  placeholder="Ví dụ: Pine AI Agent, Bot Cào Tin Tức, Auto Publisher..."
+                  placeholder="Ví dụ: Khóa Đa Năng Auto Bot, Pine AI Agent..."
                   value={newKeyName}
                   onChange={(e) => setNewKeyName(e.target.value)}
                   className="w-full px-3.5 py-2.5 rounded-xl bg-background border border-border text-xs sm:text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/40"
@@ -1191,74 +1754,157 @@ console.log(result);`}
                 />
               </div>
 
+              {/* Mode Selection */}
               <div>
                 <label className="block text-xs font-semibold text-foreground mb-1.5">
-                  Cấp Quyền & Mục Áp Dụng <span className="text-rose-500">*</span>
+                  Loại Khóa API <span className="text-rose-500">*</span>
                 </label>
-                <div className="grid grid-cols-1 gap-2">
-                  {[
-                    {
-                      id: 'NEWS_FULL',
-                      title: 'Toàn Quyền Tin Tức (NEWS_FULL)',
-                      desc: 'Đăng bài, sửa nội dung, xóa bài, đặt lịch hẹn đăng bài viết.',
-                      icon: Newspaper,
-                      color: 'text-emerald-500 border-emerald-500/30',
-                    },
-                    {
-                      id: 'MISSIONS_FULL',
-                      title: 'Toàn Quyền Nhiệm Vụ (MISSIONS_FULL)',
-                      desc: 'Quản lý nhiệm vụ, duyệt bài nộp, nạp kho mã code trả thưởng.',
-                      icon: Layers,
-                      color: 'text-indigo-500 border-indigo-500/30',
-                    },
-                    {
-                      id: 'MISSIONS_REVIEW',
-                      title: 'Thẩm Định Nhiệm Vụ (MISSIONS_REVIEW)',
-                      desc: 'Chỉ tra cứu danh sách chờ duyệt & gửi kết quả thẩm định (AI Pine).',
-                      icon: CheckCircle2,
-                      color: 'text-amber-500 border-amber-500/30',
-                    },
-                    {
-                      id: 'ADMIN_FULL',
-                      title: 'Toàn Quyền Quản Trị & Đồng Bộ (ADMIN_FULL)',
-                      desc: 'Toàn quyền tối cao, kiểm soát toàn diện mọi endpoint & sync.',
-                      icon: Shield,
-                      color: 'text-rose-500 border-rose-500/30',
-                    },
-                  ].map((s) => {
-                    const Icon = s.icon;
-                    const isSelected = newKeyScope === s.id;
-                    return (
-                      <div
-                        key={s.id}
-                        onClick={() => setNewKeyScope(s.id as ApiKeyScope)}
-                        className={`p-2.5 rounded-xl border cursor-pointer transition-all ${
-                          isSelected
-                            ? `bg-primary/5 border-primary shadow-sm ${s.color}`
-                            : 'bg-background/60 border-border hover:bg-muted/40'
-                        }`}
-                      >
-                        <div className="flex items-center gap-2">
-                          <Icon className={`w-4 h-4 ${isSelected ? '' : 'text-muted-foreground'}`} />
-                          <div className="flex-1">
-                            <div className="text-xs font-bold text-foreground flex items-center justify-between">
-                              <span>{s.title}</span>
-                              {isSelected && <Check className="w-3.5 h-3.5 text-primary" />}
-                            </div>
-                            <div className="text-[11px] text-muted-foreground mt-0.5">{s.desc}</div>
-                          </div>
-                        </div>
-                      </div>
-                    );
-                  })}
+                <div className="grid grid-cols-2 gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setCreateMode('MULTI')}
+                    className={`p-3 rounded-xl border text-left transition-all ${
+                      createMode === 'MULTI'
+                        ? 'bg-purple-500/10 border-purple-500/50 shadow-sm'
+                        : 'bg-background border-border hover:bg-muted/40'
+                    }`}
+                  >
+                    <div className="flex items-center justify-between mb-1">
+                      <span className="text-xs font-bold text-foreground flex items-center gap-1.5">
+                        <Sparkles className="w-3.5 h-3.5 text-purple-400" />
+                        Khóa API Đa Năng
+                      </span>
+                      {createMode === 'MULTI' && <Check className="w-3.5 h-3.5 text-purple-400" />}
+                    </div>
+                    <div className="text-[11px] text-muted-foreground">
+                      Tự chọn tổ hợp nhiều quyền cùng lúc
+                    </div>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setCreateMode('SINGLE')}
+                    className={`p-3 rounded-xl border text-left transition-all ${
+                      createMode === 'SINGLE'
+                        ? 'bg-primary/10 border-primary shadow-sm'
+                        : 'bg-background border-border hover:bg-muted/40'
+                    }`}
+                  >
+                    <div className="flex items-center justify-between mb-1">
+                      <span className="text-xs font-bold text-foreground flex items-center gap-1.5">
+                        <Key className="w-3.5 h-3.5 text-indigo-400" />
+                        Khóa Đơn Quyền
+                      </span>
+                      {createMode === 'SINGLE' && <Check className="w-3.5 h-3.5 text-primary" />}
+                    </div>
+                    <div className="text-[11px] text-muted-foreground">
+                      Gán 1 quyền cố định duy nhất
+                    </div>
+                  </button>
                 </div>
               </div>
+
+              {/* Multi-Scope Checkboxes */}
+              {createMode === 'MULTI' ? (
+                <div>
+                  <div className="flex items-center justify-between mb-1.5">
+                    <label className="text-xs font-semibold text-foreground">
+                      Tổ Hợp Các Quyền Cấp Cho Khóa Đa Năng:
+                    </label>
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setNewKeyScopes(
+                          newKeyScopes.length === ALL_API_SCOPES.filter((s) => s.id !== 'ADMIN_FULL').length
+                            ? []
+                            : ALL_API_SCOPES.filter((s) => s.id !== 'ADMIN_FULL').map((s) => s.id)
+                        )
+                      }
+                      className="text-[11px] text-purple-400 hover:underline font-semibold"
+                    >
+                      {newKeyScopes.length === ALL_API_SCOPES.filter((s) => s.id !== 'ADMIN_FULL').length
+                        ? 'Bỏ chọn hết'
+                        : 'Chọn tất cả'}
+                    </button>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-48 overflow-y-auto p-1 border border-border/60 rounded-xl bg-background/50">
+                    {ALL_API_SCOPES.filter((s) => s.id !== 'ADMIN_FULL').map((s) => {
+                      const isChecked = newKeyScopes.includes(s.id);
+                      return (
+                        <div
+                          key={s.id}
+                          onClick={() => {
+                            if (isChecked) {
+                              setNewKeyScopes((prev) => prev.filter((id) => id !== s.id));
+                            } else {
+                              setNewKeyScopes((prev) => [...prev, s.id]);
+                            }
+                          }}
+                          className={`p-2 rounded-lg border cursor-pointer text-xs flex items-center gap-2 select-none ${
+                            isChecked
+                              ? 'bg-purple-500/10 border-purple-500/40 text-foreground font-semibold'
+                              : 'bg-background border-border/80 text-muted-foreground'
+                          }`}
+                        >
+                          <div
+                            className={`w-4 h-4 rounded border flex items-center justify-center shrink-0 ${
+                              isChecked
+                                ? 'bg-purple-600 border-purple-600 text-white'
+                                : 'border-muted-foreground/40'
+                            }`}
+                          >
+                            {isChecked && <Check className="w-3 h-3 stroke-[3]" />}
+                          </div>
+                          <span className="truncate">{s.name.split(' (')[0]}</span>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              ) : (
+                <div>
+                  <label className="block text-xs font-semibold text-foreground mb-1.5">
+                    Chọn Mục Quyền Áp Dụng <span className="text-rose-500">*</span>
+                  </label>
+                  <div className="grid grid-cols-1 gap-2 max-h-48 overflow-y-auto">
+                    {ALL_API_SCOPES.map((s) => {
+                      const Icon = s.icon;
+                      const isSelected = newKeyScope === s.id;
+                      return (
+                        <div
+                          key={s.id}
+                          onClick={() => setNewKeyScope(s.id as ApiKeyScope)}
+                          className={`p-2.5 rounded-xl border cursor-pointer transition-all ${
+                            isSelected
+                              ? 'bg-primary/5 border-primary shadow-sm text-foreground'
+                              : 'bg-background/60 border-border hover:bg-muted/40'
+                          }`}
+                        >
+                          <div className="flex items-center gap-2">
+                            <Icon className={`w-4 h-4 ${isSelected ? 'text-primary' : 'text-muted-foreground'}`} />
+                            <div className="flex-1">
+                              <div className="text-xs font-bold flex items-center justify-between">
+                                <span>{s.name}</span>
+                                {isSelected && <Check className="w-3.5 h-3.5 text-primary" />}
+                              </div>
+                              <div className="text-[11px] text-muted-foreground mt-0.5 line-clamp-1">
+                                {s.description}
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
 
               {/* Time-based Permission (Thời Hạn Hiệu Lực) */}
               <div>
                 <label className="block text-xs font-semibold text-foreground mb-1.5 flex items-center gap-1.5">
-                  <Hourglass className="w-3.5 h-3.5 text-indigo-400" />
-                  Phân Quyền Theo Thời Gian (Thời Hạn Hiệu Lực)
+                  <Hourglass className="w-3.5 h-3.5 text-purple-400" />
+                  Thời Hạn Hiệu Lực Của Khóa
                 </label>
                 <div className="grid grid-cols-3 sm:grid-cols-5 gap-1.5 mb-2">
                   {[
@@ -1323,7 +1969,7 @@ console.log(result);`}
                 <button
                   type="submit"
                   disabled={isCreating}
-                  className="px-5 py-2.5 rounded-xl bg-gradient-to-r from-indigo-500 to-purple-600 hover:from-indigo-600 hover:to-purple-700 text-white font-medium text-xs sm:text-sm shadow-md transition-all flex items-center gap-2"
+                  className="px-5 py-2.5 rounded-xl bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white font-medium text-xs sm:text-sm shadow-md transition-all flex items-center gap-2"
                 >
                   {isCreating ? (
                     <>
@@ -1446,9 +2092,9 @@ console.log(result);`}
                 <div>
                   <h3 className="text-lg font-bold text-foreground">Khởi Tạo Khóa API Thành Công!</h3>
                   <div className="text-xs text-muted-foreground flex items-center gap-2 mt-0.5">
-                    <span>Khóa: <strong>{generatedKeyResult.key_name}</strong></span>
-                    <span>•</span>
-                    {getScopeBadge(generatedKeyResult.scope)}
+                    <span>
+                      Khóa: <strong>{generatedKeyResult.key_name}</strong>
+                    </span>
                   </div>
                 </div>
               </div>

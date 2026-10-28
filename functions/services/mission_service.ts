@@ -83,6 +83,51 @@ const MASTER_SYSTEM_KEYS = [
 ];
 
 /**
+ * Parse scopes string (comma-separated, whitespace, or JSON) into array of normalized strings
+ */
+export function parseScopes(scopeStr: string | undefined | null): string[] {
+  if (!scopeStr) return [];
+  const clean = String(scopeStr).trim();
+  if (clean.startsWith('[') && clean.endsWith(']')) {
+    try {
+      const parsed = JSON.parse(clean);
+      if (Array.isArray(parsed)) return parsed.map((s) => String(s).toUpperCase().trim()).filter(Boolean);
+    } catch {}
+  }
+  return clean
+    .toUpperCase()
+    .split(/[,\s]+/)
+    .map((s) => s.trim())
+    .filter(Boolean);
+}
+
+/**
+ * Format scopes array into clean comma-separated string
+ */
+export function formatScopes(scopes: string[] | string): string {
+  if (typeof scopes === 'string') {
+    return parseScopes(scopes).join(',');
+  }
+  if (Array.isArray(scopes)) {
+    return scopes.map((s) => String(s).toUpperCase().trim()).filter(Boolean).join(',');
+  }
+  return '';
+}
+
+/**
+ * Check if a scope string or record has a required permission
+ */
+export function hasScope(scopeStr: string | undefined | null, requiredScope: string): boolean {
+  if (!scopeStr) return false;
+  const scopes = parseScopes(scopeStr);
+  if (scopes.some((s) => ['ADMIN_FULL', 'FULL', '*', 'SUPER_ADMIN', 'ALL'].includes(s))) {
+    return true;
+  }
+  const target = requiredScope.toUpperCase().trim();
+  return scopes.includes(target);
+}
+
+/**
  * Authenticate AI Agent via Scoped Bearer API Key or Master Secret
  */
 export async function verifyAiKeyAuth(
@@ -141,9 +186,16 @@ export async function verifyAiKeyAuth(
     }
   }
 
-  const scope = (keyRecord.scope || 'FULL').toUpperCase();
-  if (scope === 'NEWS_FULL') {
-    return { authorized: false, error: 'Khóa API này chỉ có quyền Quản lý Tin tức (NEWS_FULL). Không có quyền thẩm định bài nộp Nhiệm vụ.' };
+  if (
+    !hasScope(keyRecord.scope, 'MISSIONS_REVIEW') &&
+    !hasScope(keyRecord.scope, 'REVIEW_ONLY') &&
+    !hasScope(keyRecord.scope, 'MISSIONS_FULL') &&
+    !hasScope(keyRecord.scope, 'ADMIN_FULL')
+  ) {
+    return {
+      authorized: false,
+      error: `Khóa API này không có quyền thẩm định bài nộp Nhiệm vụ. Quyền hiện tại: ${keyRecord.scope}`,
+    };
   }
 
   // Update last used timestamp asynchronously
@@ -161,7 +213,8 @@ export async function verifyAiKeyAuth(
  */
 export async function verifyAdminAuth(
   request: Request,
-  env: Env
+  env: Env,
+  requiredScope: string = 'MISSIONS_FULL'
 ): Promise<{ authorized: boolean; adminId?: string; adminName?: string; error?: string; scope?: string }> {
   const authHeader = request.headers.get('Authorization') || '';
   const syncKeyHeader = request.headers.get('X-Sync-Key') || '';
@@ -198,7 +251,7 @@ export async function verifyAdminAuth(
     };
   }
 
-  // 2. Mission API Key Check từ bảng mission_ai_api_keys (Toàn quyền phần nhiệm vụ)
+  // 2. Mission API Key Check từ bảng mission_ai_api_keys
   if (env.DB) {
     await ensureMissionSchema(env.DB);
     const keyHash = await computeSha256(token);
@@ -219,24 +272,16 @@ export async function verifyAdminAuth(
         }
       }
 
-      const scope = (keyRecord.scope || 'FULL').toUpperCase();
       // Update last used timestamp asynchronously
       env.DB.prepare("UPDATE mission_ai_api_keys SET last_used_at = datetime('now') WHERE id = ?")
         .bind(keyRecord.id)
         .run()
         .catch(() => {});
 
-      if (scope === 'REVIEW_ONLY' || scope === 'MISSIONS_REVIEW') {
+      if (!hasScope(keyRecord.scope, requiredScope) && !hasScope(keyRecord.scope, 'ADMIN_FULL')) {
         return {
           authorized: false,
-          error: 'Khóa API này chỉ có quyền thẩm định bài nộp (REVIEW_ONLY). Yêu cầu khóa API Toàn Quyền (FULL) để thực hiện thao tác này.',
-        };
-      }
-
-      if (scope === 'NEWS_FULL') {
-        return {
-          authorized: false,
-          error: 'Khóa API này chỉ có quyền Quản lý Tin tức (NEWS_FULL). Không có quyền quản trị Nhiệm vụ.',
+          error: `Khóa API này không có quyền thực hiện thao tác (${requiredScope}). Quyền hiện tại: ${keyRecord.scope}`,
         };
       }
 
@@ -244,7 +289,7 @@ export async function verifyAdminAuth(
         authorized: true,
         adminId: keyRecord.id,
         adminName: keyRecord.key_name || 'API Client',
-        scope: scope === 'ADMIN_FULL' ? 'ADMIN_FULL' : 'FULL',
+        scope: hasScope(keyRecord.scope, 'ADMIN_FULL') ? 'ADMIN_FULL' : keyRecord.scope,
       };
     }
   }

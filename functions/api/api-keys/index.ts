@@ -3,6 +3,8 @@ import {
   Env,
   verifyAdminAuth,
   computeSha256,
+  formatScopes,
+  parseScopes,
 } from '../../services/mission_service';
 import { ensureMissionSchema } from '../../services/d1_service';
 
@@ -68,6 +70,19 @@ async function ensureDefaultPresetKeys(env: Env) {
       INSERT INTO mission_ai_api_keys (id, key_name, api_key_hash, key_prefix, scope, description, expires_at, raw_key, is_active, last_used_at, created_at)
       VALUES ('ak_preset_admin_full', 'Toàn Quyền Quản Trị & Đồng Bộ (Master Admin Full)', ?, ?, 'ADMIN_FULL', 'Toàn quyền quản trị cấp cao, gọi được mọi API admin và đồng bộ dữ liệu hai chiều.', '', ?, 1, '', ?)
     `).bind(keyHash, keyPrefix, rawKey, nowIso).run().catch(() => {});
+  }
+
+  // 5. Preset Versatile Multi-Scope Key (Khóa API Đa Năng - 1 mã set mọi quyền)
+  const hasMulti = list.some((r) => r.id === 'ak_preset_multi_versatile');
+  if (!hasMulti) {
+    const rawKey = 'wcg_multi_5a82ef419b027c4d18e3902f6a7d1b82c9e5041a';
+    const keyHash = await computeSha256(rawKey);
+    const keyPrefix = 'wcg_multi_5a82••••••••••••••••••••041a';
+    const multiScope = 'NEWS_FULL,MISSIONS_FULL,GAMES_FULL,GIVEAWAYS_FULL,STORE_FULL,MEMBERS_FULL,SYNC_FULL,API_KEYS_FULL';
+    await env.DB.prepare(`
+      INSERT INTO mission_ai_api_keys (id, key_name, api_key_hash, key_prefix, scope, description, expires_at, raw_key, is_active, last_used_at, created_at)
+      VALUES ('ak_preset_multi_versatile', 'Khóa API Đa Năng (Universal Versatile Key)', ?, ?, ?, 'Khóa API Đa Năng cho phép Quản trị viên dùng 1 mã duy nhất để cấu hình và set linh hoạt mọi quyền trên web.', '', ?, 1, '', ?)
+    `).bind(keyHash, keyPrefix, multiScope, rawKey, nowIso).run().catch(() => {});
   }
 
   // Update existing key if missing raw_key for easy copy
@@ -184,7 +199,8 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
     const body: any = await request.json().catch(() => ({}));
     const {
       key_name,
-      scope = 'NEWS_FULL',
+      scope,
+      scopes,
       description = '',
       expires_at = '',
       validity_days = 0,
@@ -197,9 +213,13 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
       );
     }
 
-    // Validate scope
-    const allowedScopes = ['NEWS_FULL', 'MISSIONS_FULL', 'MISSIONS_REVIEW', 'REVIEW_ONLY', 'ADMIN_FULL', 'FULL'];
-    const validScope = allowedScopes.includes(scope) ? scope : 'NEWS_FULL';
+    // Validate and format scope
+    let validScope = 'NEWS_FULL';
+    if (scopes !== undefined && Array.isArray(scopes) && scopes.length > 0) {
+      validScope = formatScopes(scopes);
+    } else if (scope) {
+      validScope = formatScopes(scope);
+    }
 
     // Calculate expiration timestamp
     let finalExpiresAt = (expires_at || '').trim();
@@ -213,10 +233,12 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
     const randomHex = Array.from(randomBytes).map((b) => b.toString(16).padStart(2, '0')).join('');
 
     let prefixTag = 'wcg_sec_';
-    if (validScope === 'NEWS_FULL') prefixTag = 'wcg_news_';
+    if (validScope.includes(',')) prefixTag = 'wcg_multi_';
+    else if (validScope === 'NEWS_FULL') prefixTag = 'wcg_news_';
     else if (validScope === 'MISSIONS_FULL') prefixTag = 'wcg_mis_';
     else if (validScope === 'MISSIONS_REVIEW' || validScope === 'REVIEW_ONLY') prefixTag = 'wcg_ai_';
     else if (validScope === 'ADMIN_FULL' || validScope === 'FULL') prefixTag = 'wcg_adm_';
+    else prefixTag = 'wcg_multi_';
 
     const rawKey = `${prefixTag}${randomHex}`;
     const keyPrefix = `${rawKey.substring(0, 12)}••••••••••••••••••••${rawKey.slice(-4)}`;

@@ -7,6 +7,32 @@ Mỗi mục sửa lỗi đều ghi nhận **Nguyên nhân gốc rễ (Root Cause
 
 ## [2026-10-28]
 
+### 247. Xây Dựng Khóa API Đa Năng & Hệ Thống Phân Quyền Đa Chiều (Universal Versatile API & Custom Scope Engine)
+- **Bối cảnh & Yêu cầu từ Người dùng**:
+  - Trong mục Quản lý API của trang Admin, tạo 1 API đa năng (Universal Versatile API).
+  - API này cho phép Quản trị viên sử dụng 1 mã API duy nhất để cấu hình và set bất kỳ tổ hợp quyền nào trong số các quyền API đã có trên website hiện tại.
+- **Giải pháp Thành công (Solution Applied)**:
+  1. *Thiết Kế Động Cơ Phân Quyền Đa Quyền (Multi-Scope Engine)*:
+     - functions/services/mission_service.ts: Bổ sung các hàm trung tâm `hasScope`, `parseScopes`, `formatScopes`. Hỗ trợ lưu trữ đa quyền dạng chuỗi phân tách bằng dấu phẩy hoặc JSON array (ví dụ: `NEWS_FULL,MISSIONS_FULL,GAMES_FULL,GIVEAWAYS_FULL,SYNC_FULL`).
+     - Tích hợp `hasScope` vào toàn bộ hệ thống API: Tin tức (functions/api/news/*), Nhiệm vụ (functions/api/missions/*), Đồng bộ (functions/api/sync.ts), và Quản trị khóa (functions/api/api-keys/*).
+     - Khóa mang quyền `ADMIN_FULL` hoặc Master Key tự động sở hữu 100% tất cả các quyền.
+  2. *Endpoint API Đa Năng Cho Phép Set Quyền Bằng 1 Mã API (POST /api/api-keys/set-permissions)*:
+     - Cho phép caller (sở hữu quyền API_KEYS_FULL hoặc ADMIN_FULL) dùng 1 mã API gửi payload JSON để cấu hình lại danh sách quyền của bất kỳ mã API nào trong cơ sở dữ liệu D1.
+     - Đồng thời nâng cấp PATCH /api/api-keys/:id hỗ trợ mảng `scopes: string[]` hoặc `scope: string`.
+  3. *Khởi Tạo Khóa API Đa Năng Mặc Định (ak_preset_multi_versatile)*:
+     - Tự động nạp khóa mẫu `wcg_multi_5a82ef419b027c4d18e3902f6a7d1b82c9e5041a` với đầy đủ 8 nhóm quyền thông dụng, sẵn sàng sử dụng và tùy biến ngay.
+  4. *Giao Diện Quản Trị Trực Quan & Modal Set Quyền 1-Click (src/admin/modules/ApiKeysModule.tsx)*:
+     - Card VIP Spotlight "Khóa API Đa Năng": hiển thị mã che kèm nút copy nhanh và nút "Set Quyền Cho Khóa Này".
+     - Huy hiệu đa quyền (Multi-Badge): hiển thị chi tiết từng quyền mà khóa sở hữu (`[Tin Tức]`, `[Nhiệm Vụ]`, `[Giftcode]`, `[Giveaway]`, `[Cửa Hàng]`, `[Thành Viên]`, `[Đồng Bộ]`, v.v.).
+     - Nút "⚙️ Set Quyền" trên mỗi dòng khóa API: Mở Modal Cài Đặt Phân Quyền với bảng checkbox 9 quyền chi tiết và các phím tắt chọn nhanh ("Chọn Tất Cả", "Gói Nội Dung", "Gói Vận Hành", "Xóa Hết").
+     - Hỗ trợ tạo khóa đa năng tự chọn quyền ngay từ Modal Tạo Khóa Mới.
+     - Bổ sung tài liệu cURL và JavaScript Fetch hướng dẫn gọi POST /api/api-keys/set-permissions.
+- **Kiểm Thử & Xác Minh (Verification)**:
+  - Unit & Integration test 5/5 kịch bản phân quyền đạt 100% PASS.
+  - Audit Zero Test Artifacts: Đạt 100%.
+  - Vite Frontend Build & Prerender 780 trang: Thành công 100%.
+  - Cloudflare Edge Worker bundle compile: Thành công 100%.
+
 ### 246. Tinh Chỉnh & Hoàn Thiện Toàn Diện Hệ Thống Nhiệm Vụ Sau Lần Thử Đầu Tiên (Missions Module Production Refinements)
 - **Bối cảnh & Yêu cầu từ Người dùng**:
   - Module Nhiệm vụ đã chạy thử đầu cuối thành công (tạo nhiệm vụ, nộp hồ sơ, duyệt, trả thưởng, xóa nhiệm vụ). Lần thử phát hiện một số điểm lệch thiết kế và thiếu sót cần tinh chỉnh:
