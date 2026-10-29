@@ -27,19 +27,19 @@ assert.ok(marketingServiceCode.includes('pendingFailedCopyIncrement'), 'Retry qu
 console.log('   ✅ saveGlobalMasterCopyCount() và saveDailyMaxCopyCount() đã được triển khai đầy đủ và an toàn (0 lỗi TypeError)');
 
 // 2. Test Baseline Constant and Anchors
-console.log('\n▶ Test 2: Mốc khởi điểm ban đầu >= 93.545');
+console.log('\n▶ Test 2: Mốc khởi điểm ban đầu >= 93.910 (Tổng hiển thị >= 94.558)');
 const hubCode = fs.readFileSync('functions/services/realEventsHub.ts', 'utf8');
-assert.ok(hubCode.includes('GLOBAL_MASTER_COPY_BASELINE = 93545'), 'Baseline in realEventsHub must be 93545');
+assert.ok(hubCode.includes('GLOBAL_MASTER_COPY_BASELINE = 93910'), 'Baseline in realEventsHub must be 93910');
 
 const engineCode = fs.readFileSync('src/shared/deterministicEngine.ts', 'utf8');
-assert.ok(engineCode.includes('realCopyClicks = Math.max(93545'), 'deterministicEngine must anchor realCopyClicks to 93545');
-assert.ok(engineCode.includes('peakCopy = Math.max(93545'), 'deterministicEngine must anchor peakCopy to 93545');
+assert.ok(engineCode.includes('realCopyClicks = Math.max(93910'), 'deterministicEngine must anchor realCopyClicks to 93910');
+assert.ok(engineCode.includes('peakCopy = Math.max(93910'), 'deterministicEngine must anchor peakCopy to 93910');
 assert.ok(engineCode.includes('MASTER_COPY_ANCHOR_MS = 1793181600000'), 'deterministicEngine must include virtual copy formula matching virtualLayerService');
 
 const virtualLayerCode = fs.readFileSync('functions/services/virtualLayerService.ts', 'utf8');
-assert.ok(virtualLayerCode.includes('Math.max(93545'), 'virtualLayerService must anchor masterCopy to 93545');
+assert.ok(virtualLayerCode.includes('Math.max(93910'), 'virtualLayerService must anchor masterCopy to 93910');
 assert.ok(virtualLayerCode.includes('MASTER_COPY_ANCHOR_MS = 1793181600000'), 'virtualLayerService must use 28/10 migration anchor');
-console.log('   ✅ Mốc khởi điểm 93.545 và công thức nội suy ảo 0.5/phút đồng bộ tuyệt đối trên toàn bộ Backend & Shared Engine');
+console.log('   ✅ Mốc khởi điểm 93.910 và công thức nội suy ảo 0.5/phút đồng bộ tuyệt đối trên toàn bộ Backend & Shared Engine (Tổng >= 94.558)');
 
 // 3. Mathematical Verification: Zero Deviation between /api/realtime-events and /api/metrics/synced
 console.log('\n▶ Test 3: Đối soát sai lệch (Deviation = 0) giữa /api/realtime-events và /api/metrics/synced');

@@ -20,6 +20,7 @@ import {
 } from 'lucide-react';
 import { dataService } from '../services/dataService';
 import { missionService } from '../services/missionService';
+import { marketingService } from '../services/marketingService';
 import type { ClaimedCodeRecord, OrderRecord } from '../types/game';
 import { formatCore, formatRelativeDate, formatFullDateTime } from '../utils/textUtils';
 import { GuideLinksBanner } from './GuideLinksBanner';
@@ -163,6 +164,7 @@ export const MyReceivedCodesModal: React.FC<MyReceivedCodesModalProps> = ({
 
   const handleCopy = (code: string) => {
     navigator.clipboard.writeText(code);
+    marketingService.recordRealCopy('Mã đã nhận', '', 1);
     setCopied(code);
     onShowToast('Đã sao chép mã code!', code, 'success');
     setTimeout(() => setCopied(null), 2000);

@@ -8,7 +8,7 @@
 
 import { getSettingD1, setSettingD1 } from './d1_service';
 
-export const GLOBAL_MASTER_COPY_BASELINE = 93545;
+export const GLOBAL_MASTER_COPY_BASELINE = 93910;
 
 export interface RealEventHubData {
   date: string;

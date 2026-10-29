@@ -388,6 +388,7 @@ export const UtilitiesView: React.FC<UtilitiesViewProps> = ({
 
   const handleCopySingleCode = (code: string, idx: number) => {
     navigator.clipboard.writeText(code);
+    marketingService.recordRealCopy(checkoutUtility?.title || 'Mã tiện ích', '', 1, activeUser);
     setCopiedCodeIdx(idx);
     onShowToast('Đã sao chép thông tin!', code, 'success');
     setTimeout(() => setCopiedCodeIdx(null), 2000);
@@ -396,6 +397,7 @@ export const UtilitiesView: React.FC<UtilitiesViewProps> = ({
   const handleCopyAllCodes = () => {
     if (!completedOrder) return;
     navigator.clipboard.writeText(completedOrder.code_content);
+    marketingService.recordRealCopy(checkoutUtility?.title || 'Mã tiện ích', '', quantity, activeUser);
     setCopiedAll(true);
     onShowToast('Đã sao chép tất cả!', completedOrder.code_content, 'success');
     setTimeout(() => setCopiedAll(false), 2000);

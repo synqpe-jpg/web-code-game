@@ -463,11 +463,11 @@ export async function initializeVirtualLayer(env: any, forceRefresh: boolean = f
       });
     }
 
-    // 5. Populate Master Copy (Baseline migrated to 93545)
+    // 5. Populate Master Copy (Baseline migrated to 93910)
     if (realHub && typeof realHub.masterCopyClicks === 'number') {
-      state.masterCopy.realClicks = Math.max(93545, state.masterCopy.realClicks, realHub.masterCopyClicks);
+      state.masterCopy.realClicks = Math.max(93910, state.masterCopy.realClicks, realHub.masterCopyClicks);
     } else {
-      state.masterCopy.realClicks = Math.max(93545, state.masterCopy.realClicks);
+      state.masterCopy.realClicks = Math.max(93910, state.masterCopy.realClicks);
     }
 
     state.initialized = true;

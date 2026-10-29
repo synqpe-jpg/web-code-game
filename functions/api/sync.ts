@@ -938,8 +938,8 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
         ? (d1Settings['wcg_store_global_show_sold'] === true || d1Settings['wcg_store_global_show_sold'] === 'true')
         : (masterState?.storeGlobalShowSold !== undefined ? Boolean(masterState.storeGlobalShowSold) : true),
       masterCopyClicks: (() => {
-        const rawClicks = (typeof realEventsHub?.masterCopyClicks === 'number') ? realEventsHub.masterCopyClicks : 93545;
-        const realClicks = Math.max(93545, rawClicks);
+        const rawClicks = (typeof realEventsHub?.masterCopyClicks === 'number') ? realEventsHub.masterCopyClicks : 93910;
+        const realClicks = Math.max(93910, rawClicks);
         const elapsedSinceMigrationMs = Math.max(0, Date.now() - 1793181600000);
         const virtualCopy = Math.floor(elapsedSinceMigrationMs / 60000 * 0.5);
         return realClicks + virtualCopy;
@@ -1280,8 +1280,8 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
           hub.date = vnToday;
           // masterCopyClicks is all-time monotonic global copy total: do NOT reset!
         }
-        if (typeof hub.masterCopyClicks !== 'number' || hub.masterCopyClicks < 93545) hub.masterCopyClicks = 93545;
-        if (typeof hub.peakCopyClicks !== 'number' || hub.peakCopyClicks < 93545) hub.peakCopyClicks = 93545;
+        if (typeof hub.masterCopyClicks !== 'number' || hub.masterCopyClicks < 93910) hub.masterCopyClicks = 93910;
+        if (typeof hub.peakCopyClicks !== 'number' || hub.peakCopyClicks < 93910) hub.peakCopyClicks = 93910;
         if (!hub.realProductSoldCounts || typeof hub.realProductSoldCounts !== 'object') hub.realProductSoldCounts = {};
         if (!hub.realGiveawayClaimedCounts || typeof hub.realGiveawayClaimedCounts !== 'object') hub.realGiveawayClaimedCounts = {};
 

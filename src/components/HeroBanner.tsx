@@ -46,6 +46,14 @@ export const HeroBanner: React.FC<HeroBannerProps> = ({
     const unsubCounter = marketingService.subscribeCounter((count) => {
       setLiveCopies(count);
     });
+    const handleCopyCountUpdated = (e: any) => {
+      const c = e?.detail?.count || marketingService.getLiveCounter();
+      if (typeof c === 'number' && c > 0) {
+        setLiveCopies(c);
+      }
+    };
+    window.addEventListener('wcg_master_copy_count_updated', handleCopyCountUpdated);
+    window.addEventListener('wcg_global_copy_count_updated', handleCopyCountUpdated);
     const handleContentUpdated = () => {
       setCmsHero(dataService.getContentByKey('hero_banner'));
     };
@@ -54,6 +62,8 @@ export const HeroBanner: React.FC<HeroBannerProps> = ({
     return () => {
       unsub();
       unsubCounter();
+      window.removeEventListener('wcg_master_copy_count_updated', handleCopyCountUpdated);
+      window.removeEventListener('wcg_global_copy_count_updated', handleCopyCountUpdated);
       window.removeEventListener('wcg_admin_content_updated', handleContentUpdated);
     };
   }, []);

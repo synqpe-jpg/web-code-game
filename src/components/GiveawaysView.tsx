@@ -330,6 +330,7 @@ const GiveawayDetailModal: React.FC<GiveawayDetailModalProps> = ({
 
   const handleCopyCode = (code: string) => {
     navigator.clipboard.writeText(code);
+    marketingService.recordRealCopy(campaign.title || 'Giveaway Giftcode', campaign.id || '', 1);
     setCopiedCode(code);
     onShowToast('Đã sao chép mã!', code, 'success');
     setTimeout(() => setCopiedCode(null), 2000);
@@ -1364,6 +1365,7 @@ export const GiveawaysView: React.FC<GiveawaysViewProps> = ({
 
   const handleCopy = (code: string) => {
     navigator.clipboard.writeText(code);
+    marketingService.recordRealCopy('Giveaway Giftcode', '', 1);
     setCopiedCode(code);
     onShowToast('Đã sao chép mã!', code, 'success');
     setTimeout(() => setCopiedCode(null), 2000);
@@ -1379,6 +1381,7 @@ export const GiveawaysView: React.FC<GiveawaysViewProps> = ({
         )
         .join('\n') + '\n\n📌 Nguồn: CodeGame.shop - Săn Giftcode VIP Miễn Phí tại https://codegame.shop';
     navigator.clipboard.writeText(text);
+    marketingService.recordRealCopy('Giveaway Giftcode', '', uniqueClaimedList.length);
     onShowToast('Đã sao chép tất cả mã!', `Đã chép toàn bộ ${uniqueClaimedList.length} giftcode vào clipboard.`, 'success');
   };
 

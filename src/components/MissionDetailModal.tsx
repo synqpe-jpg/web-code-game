@@ -18,6 +18,7 @@ import type { Mission, MissionSubmission } from '../types/mission';
 import type { UserProfile } from '../types/game';
 import { missionService } from '../services/missionService';
 import { dataService } from '../services/dataService';
+import { marketingService } from '../services/marketingService';
 
 interface MissionDetailModalProps {
   mission: Mission;
@@ -64,6 +65,7 @@ export const MissionDetailModal: React.FC<MissionDetailModalProps> = ({
   const handleCopyCode = async (code: string) => {
     try {
       await navigator.clipboard.writeText(code);
+      marketingService.recordRealCopy(mission.title || 'Mã thưởng Nhiệm Vụ', '', 1);
       setIsCopiedCode(true);
       setTimeout(() => setIsCopiedCode(false), 2000);
     } catch {

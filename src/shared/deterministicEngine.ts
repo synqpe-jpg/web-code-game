@@ -351,8 +351,8 @@ export function calculateGlobalSnapshot(
   const elapsedMigrationMinutes = elapsedSinceMigrationMs / 60000;
   const virtualCopy = Math.floor(elapsedMigrationMinutes * 0.5);
 
-  const realCopyClicks = Math.max(93545, Number(data.masterCopyClicks) || 0);
-  const peakCopy = Math.max(93545, Number(data.peakCopyClicks) || 0);
+  const realCopyClicks = Math.max(93910, Number(data.masterCopyClicks) || 0);
+  const peakCopy = Math.max(93910, Number(data.peakCopyClicks) || 0);
   const effectiveRealClicks = Math.max(realCopyClicks, peakCopy);
   const liveCopyCount = effectiveRealClicks + virtualCopy;
 

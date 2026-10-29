@@ -17,6 +17,7 @@ import {
 } from 'lucide-react';
 import type { NewsArticle, GameItem } from '../types/game';
 import { newsService } from '../services/newsService';
+import { marketingService } from '../services/marketingService';
 import { optimizeImageUrl } from '../utils/imageCompressor';
 import { SafeNewsCover } from '../utils/newsImageUtils';
 
@@ -64,6 +65,7 @@ export const NewsDetailModal: React.FC<NewsDetailModalProps> = ({
 
   const handleCopyCode = (code: string) => {
     navigator.clipboard.writeText(code);
+    marketingService.recordRealCopy(article.title || 'Giftcode Tin Tức', article.slug || '', 1);
     setCopiedCode(code);
     onShowToast(`Đã sao chép mã code!`, code, 'success');
     setTimeout(() => {

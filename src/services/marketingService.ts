@@ -237,7 +237,7 @@ class MarketingService {
   } = { sold: {}, claimed: {}, copy: 0, stock: {}, remaining: {} };
   private dailyMaxCopyCount: number = 0;
   private dailyMaxCopyDate: string = '';
-  private globalMasterCopyCount: number = 93545;
+  private globalMasterCopyCount: number = 94558;
   private processedCopyNotifIds: Set<string> = new Set();
   private lastSelfClickToastId: string | null = null;
   private selfClickToastIds: Set<string> = new Set();
@@ -297,6 +297,7 @@ class MarketingService {
 
     this.config = this.loadConfig();
     this.initProcessedNotifIds();
+    this.initProcessedCopyNotifIds();
     this.initMasterCopyClicks();
     this.initDailyMaxCopyCount();
     this.initRealClicks();
@@ -677,6 +678,15 @@ class MarketingService {
       this.visibilityListenerAttached = true;
       document.addEventListener('visibilitychange', () => {
         if (document.visibilityState === 'visible') {
+          const savedGlobal = localStorage.getItem('wcg_global_master_copy_count_v1');
+          if (savedGlobal) {
+            const val = parseInt(savedGlobal, 10);
+            if (!isNaN(val) && val > this.globalMasterCopyCount) {
+              this.globalMasterCopyCount = val;
+              this.dailyMaxCopyCount = val;
+              this.broadcastCurrentCount();
+            }
+          }
           this.fetchMetricsSnapshot();
           this.applyOfflineCatchUp();
         }
@@ -745,7 +755,7 @@ class MarketingService {
         const val = parseInt(savedGlobal, 10);
         if (!isNaN(val)) count = val;
       }
-      if (count < 93545) {
+      if (count < 94558) {
         const savedDaily = localStorage.getItem('wcg_marketing_daily_max_copy_v1');
         if (savedDaily) {
           const parsed = JSON.parse(savedDaily);
@@ -754,7 +764,7 @@ class MarketingService {
           }
         }
       }
-      this.globalMasterCopyCount = Math.max(this.globalMasterCopyCount || 93545, 93545, count);
+      this.globalMasterCopyCount = Math.max(this.globalMasterCopyCount || 94558, 94558, count);
       this.dailyMaxCopyCount = this.globalMasterCopyCount;
       this.saveGlobalMasterCopyCount();
     } catch {}
@@ -785,6 +795,21 @@ class MarketingService {
         if (Array.isArray(parsed)) {
           parsed.forEach((id: string) => {
             if (typeof id === 'string' && id) this.processedNotifIds.add(id);
+          });
+        }
+      }
+    } catch {}
+  }
+
+  private initProcessedCopyNotifIds(): void {
+    if (typeof window === 'undefined') return;
+    try {
+      const saved = sessionStorage.getItem('wcg_processed_copy_ids_v1') || localStorage.getItem('wcg_processed_copy_ids_v1');
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed)) {
+          parsed.forEach((id: string) => {
+            if (typeof id === 'string' && id) this.processedCopyNotifIds.add(id);
           });
         }
       }
@@ -1525,6 +1550,11 @@ class MarketingService {
           this.masterCopyClicks = data.master_copy_clicks;
           this.realClicksOffset = data.master_copy_clicks;
           this.saveMasterCopyClicks();
+        }
+        if (data.master_copy_clicks > this.globalMasterCopyCount) {
+          this.globalMasterCopyCount = data.master_copy_clicks;
+          this.dailyMaxCopyCount = data.master_copy_clicks;
+          this.saveGlobalMasterCopyCount();
           this.broadcastCurrentCount();
         }
       }
@@ -1787,9 +1817,9 @@ class MarketingService {
     return { remaining, claimed };
   }
 
-  // --- Unified Global Copy Counter (TỔNG CHUNG TOÀN WEB - Mốc khởi điểm 93.545, không reset 0h) ---
+  // --- Unified Global Copy Counter (TỔNG CHUNG TOÀN WEB - Mốc khởi điểm 94.558, không reset 0h) ---
   public getLiveCopyCount(timestampMs: number = this.getCalibratedNow()): number {
-    return Math.max(93545, this.globalMasterCopyCount);
+    return Math.max(94558, this.globalMasterCopyCount);
   }
 
   public getLiveCounter(): number {
@@ -1802,6 +1832,20 @@ class MarketingService {
     this.counterListeners.forEach((cb) => {
       try { cb(current); } catch {}
     });
+    if (this.broadcastChannel) {
+      try {
+        this.broadcastChannel.postMessage({
+          type: 'COPY_INCREMENT_BROADCAST',
+          payload: { totalCount: current, date: this.getTodayDateKey() },
+        });
+      } catch {}
+    }
+    if (typeof window !== 'undefined') {
+      try {
+        window.dispatchEvent(new CustomEvent('wcg_master_copy_count_updated', { detail: { count: current } }));
+        window.dispatchEvent(new CustomEvent('wcg_global_copy_count_updated', { detail: { count: current } }));
+      } catch {}
+    }
   }
 
   public incrementLiveCounter(amount: number = 1, notifId?: string): void {
@@ -1810,9 +1854,20 @@ class MarketingService {
         const copyKey = `copy_${notifId}`;
         if (this.processedCopyNotifIds.has(copyKey)) return;
         this.processedCopyNotifIds.add(copyKey);
+        if (this.processedCopyNotifIds.size > 500) {
+          const arr = Array.from(this.processedCopyNotifIds);
+          this.processedCopyNotifIds = new Set(arr.slice(arr.length - 250));
+        }
+        try {
+          if (typeof window !== 'undefined') {
+            const arr = Array.from(this.processedCopyNotifIds);
+            sessionStorage.setItem('wcg_processed_copy_ids_v1', JSON.stringify(arr));
+            localStorage.setItem('wcg_processed_copy_ids_v1', JSON.stringify(arr));
+          }
+        } catch {}
       }
       const inc = Math.max(1, amount);
-      this.globalMasterCopyCount = Math.max(93545 + inc, (this.globalMasterCopyCount || 93545) + inc);
+      this.globalMasterCopyCount = Math.max(94558 + inc, (this.globalMasterCopyCount || 94558) + inc);
       this.dailyMaxCopyCount = this.globalMasterCopyCount;
       try {
         this.saveGlobalMasterCopyCount();
@@ -3458,6 +3513,11 @@ class MarketingService {
         this.masterCopyClicks = masterCopyClicks;
         this.realClicksOffset = masterCopyClicks;
         this.saveMasterCopyClicks();
+      }
+      if (masterCopyClicks > this.globalMasterCopyCount) {
+        this.globalMasterCopyCount = masterCopyClicks;
+        this.dailyMaxCopyCount = masterCopyClicks;
+        this.saveGlobalMasterCopyCount();
         this.broadcastCurrentCount();
       }
     }
@@ -4592,6 +4652,22 @@ class MarketingService {
   private setupStorageListener(): void {
     if (typeof window === 'undefined') return;
     window.addEventListener('storage', (e) => {
+      if ((e.key === 'wcg_global_master_copy_count_v1' || e.key === 'wcg_marketing_daily_max_copy_v1') && e.newValue) {
+        try {
+          let val = 0;
+          if (e.newValue.startsWith('{')) {
+            const p = JSON.parse(e.newValue);
+            if (p && typeof p.count === 'number') val = p.count;
+          } else {
+            val = parseInt(e.newValue, 10);
+          }
+          if (!isNaN(val) && val > this.globalMasterCopyCount) {
+            this.globalMasterCopyCount = val;
+            this.dailyMaxCopyCount = val;
+            this.broadcastCurrentCount();
+          }
+        } catch {}
+      }
       if (e.key === MARKETING_CONFIG_KEY && e.newValue) {
         try {
           const parsed = JSON.parse(e.newValue);

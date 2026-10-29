@@ -221,6 +221,7 @@ export const ProductCheckoutModal: React.FC<ProductCheckoutModalProps> = ({
 
   const handleCopySingleCode = (code: string, idx: number) => {
     navigator.clipboard.writeText(code);
+    marketingService.recordRealCopy(effectiveTitle || 'Mã sản phẩm', '', 1, activeUser);
     setCopiedCodeIdx(idx);
     onShowToast('Đã sao chép mã!', code, 'success');
     setTimeout(() => setCopiedCodeIdx(null), 2000);
@@ -229,6 +230,7 @@ export const ProductCheckoutModal: React.FC<ProductCheckoutModalProps> = ({
   const handleCopyAllCodes = () => {
     if (!completedOrder) return;
     navigator.clipboard.writeText(completedOrder.code_content);
+    marketingService.recordRealCopy(effectiveTitle || 'Mã sản phẩm', '', safeQty, activeUser);
     setCopiedAll(true);
     onShowToast('Đã sao chép tất cả mã!', completedOrder.code_content, 'success');
     setTimeout(() => setCopiedAll(false), 2000);

@@ -10,6 +10,25 @@
 
 ## 1. DANH MỤC LỖI & CÁC BẪY ĐÃ THẤT BẠI (DO NOT REPEAT)
 
+### ISSUE-178: Bẫy Nuốt Lỗi ReferenceError stats.ts & Phân Rã Biến Đếm Copy Khiến Số Không Tăng Theo Thông Báo & Người Thật Bấm (Copy Counter Silent Failure & Event Disconnect Pitfall)
+- **Triệu chứng**:
+  - Con số "Tổng lượt sao chép" và huy hiệu đầu trang chủ đứng yên tại chỗ (ví dụ `94.558`), không tăng khi thông báo nổ ra hoặc khi khách bấm sao chép ở các modal khác.
+  - Sau khi chuyển tab hoặc mở tab mới, số liệu không đồng bộ giữa các tab đang mở.
+- **Nguyên nhân gốc rễ**:
+  1. *Biến `now` chưa khai báo trong `functions/api/stats.ts`*: Dùng `now` thay vì `nowMs`, khối `catch` nuốt lỗi làm `/api/stats` trả về `master_copy_clicks: 0`.
+  2. *Phân rã giữa `masterCopyClicks` và `globalMasterCopyCount`*: `syncFromHub` và `fetchHourlyServerStats` chỉ gán giá trị vào `masterCopyClicks` nhưng không gán `globalMasterCopyCount`, trong khi UI chỉ đọc `globalMasterCopyCount`.
+  3. *`broadcastCurrentCount()` không phát sóng đa kênh*: Chỉ kích hoạt callback nội bộ tab mà không gửi `BroadcastChannel` và không kích hoạt CustomEvent.
+  4. *Bỏ sót các nút sao chép ngoài màn hình chính*: Các modal Giveaway, News, Mission, Received Codes sao chép clipboard trực tiếp mà không gọi `marketingService.recordRealCopy`.
+- **Giải pháp chuẩn đã kiểm chứng**:
+  1. Sửa `nowMs` trong `stats.ts`, nâng `GLOBAL_MASTER_COPY_BASELINE = 93910` để tổng số đạt `94.562+` trên cả server và client.
+  2. Đồng bộ `globalMasterCopyCount` mỗi khi nhận `masterCopyClicks` lớn hơn từ server.
+  3. Phát sóng đa kênh trong `broadcastCurrentCount()` (BroadcastChannel, Window CustomEvents, LocalStorage).
+  4. Liên kết `marketingService.recordRealCopy` vào 100% nút sao chép code trong ứng dụng.
+- 🚫 **CÁCH SỬA ĐÃ THẤT BẠI - TUYỆT ĐỐI KHÔNG LẶP LẠI**:
+  - ❌ *Tuyệt đối KHÔNG gán đè `masterCopyClicks` mà quên cập nhật `globalMasterCopyCount`*.
+  - ❌ *Tuyệt đối KHÔNG gọi `navigator.clipboard.writeText` mà không gọi `marketingService.recordRealCopy`*.
+
+
 ### ISSUE-177: Bẫy Mảng Rỗng hasPool Array.isArray & Member wcg_auth_token Khiến Tồn Kho Giveaway Bị Xóa Về 0 Khi Đăng Nhập (Giveaway Sanitized Stock Zeroing Pitfall)
 - **Triệu chứng**:
   - Trong Admin panel, sự kiện có mã đầy đủ (ví dụ "Giang Hồ Kỳ Ngộ" còn 53 mã, "Ta Là Hắc Ngộ Không" còn 23 mã).

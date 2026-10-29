@@ -7,6 +7,32 @@ Mỗi mục sửa lỗi đều ghi nhận **Nguyên nhân gốc rễ (Root Cause
 
 ## [2026-10-29]
 
+### 262. Sửa Bộ Đếm Tổng Lượt Sao Chép Không Tăng Theo Thông Báo & Người Thật Sao Chép (Copy Counter Synchronization & Real Actions Hookup)
+- **Bối cảnh & Yêu cầu người dùng**:
+  - Người dùng phản ánh: "Tổng số lượt sao chép chưa xử lý được, đảm bảo tăng theo thông báo và người thật sao chép giúp tôi."
+  - Ảnh chụp màn hình trang chủ `codegame.shop` hiển thị bộ đếm "Tổng lượt sao chép" và huy hiệu đầu trang đứng yên tại mốc `94.558`. Khi thông báo sao chép nổ ra hoặc người dùng bấm sao chép ở các modal khác, số liệu không tăng hoặc không đồng bộ giữa các tab.
+- **Nguyên nhân gốc rễ (Root Causes)**:
+  1. *Lỗi cú pháp ReferenceError trong `functions/api/stats.ts` dòng 44*: Gọi biến `now` trong khi biến đã khai báo là `nowMs`. Exception bị khối `try/catch` nuốt chửng, dẫn đến API `/api/stats` luôn trả về `master_copy_clicks: 0`.
+  2. *Sự phân tách giữa hai biến `masterCopyClicks` và `globalMasterCopyCount` trong `marketingService.ts`*: Khi API `/api/sync` hoặc `/api/stats` trả về số tổng, hàm `syncFromHub` chỉ gán vào `this.masterCopyClicks` mà không cập nhật `this.globalMasterCopyCount`, khiến bộ đếm giao diện đọc từ `getLiveCopyCount()` không phản ánh số mới.
+  3. *Thiếu phát sóng đa kênh trong `broadcastCurrentCount()`*: Chỉ gọi `counterListeners` cục bộ của tab hiện tại, không gửi qua `BroadcastChannel` và không kích hoạt CustomEvent `wcg_master_copy_count_updated`. Khi người dùng mở nhiều tab hoặc ở các trang con (`/giveaways`), tab chính không nhận được cập nhật.
+  4. *Thiếu lắng nghe `wcg_global_master_copy_count_v1` trong `setupStorageListener` và `visibilitychange`*: Khi một tab tăng số, các tab khác không cập nhật lại từ `localStorage`.
+  5. *Bỏ sót lệnh gọi `marketingService.recordRealCopy` ở nhiều nơi sao chép mã*: `NewsDetailModal`, `GiveawaysView`, `MyReceivedCodesModal`, `MissionDetailModal`, `ProductCheckoutModal`, `UtilitiesView` chỉ sao chép vào clipboard mà quên gọi `recordRealCopy`.
+  6. *Lệch mốc Server Baseline so với đỉnh thực tế của khách*: Server D1 `GLOBAL_MASTER_COPY_BASELINE = 93545` cho ra tổng 94.462 (thấp hơn mốc 94.558 trên máy khách). Nâng baseline lên `93910` để tổng số đạt `94.562+`, bảo toàn tính đơn điệu không giảm.
+- **Giải pháp xử lý triệt để**:
+  1. Sửa biến `nowMs` trong `functions/api/stats.ts`.
+  2. Đồng bộ `this.globalMasterCopyCount` trong `syncFromHub` và `fetchHourlyServerStats` khi số máy chủ lớn hơn.
+  3. Mở rộng `broadcastCurrentCount()` phát sóng đồng thời qua `BroadcastChannel` (`COPY_INCREMENT_BROADCAST`), `wcg_master_copy_count_updated`, `wcg_global_copy_count_updated`.
+  4. Bổ sung lắng nghe sự kiện `storage` và `visibilitychange` cho key `wcg_global_master_copy_count_v1`.
+  5. Liên kết `marketingService.recordRealCopy(...)` vào 100% các nút sao chép mã quà tặng trên toàn bộ ứng dụng (News, Giveaways, Missions, Received Codes, Checkout, Utilities).
+  6. Đảm bảo quy tắc nguyên tử 1 - 1: Khách tự bấm chỉ tính 1 (khử trùng toast của chính mình), thông báo ảo/khe nổ ra tính +1, lưu `processedCopyNotifIds` vào `sessionStorage` chống đếm đúp đa tab.
+- **Kiểm Thử & Triển Khai**:
+  - Chạy `test_copy_counter_regression.cjs`, `test_giveaway_claimed_ssot.cjs`, `test_giveaway_cooldown_and_expiry.cjs`, `audit_zero_test_artifacts.cjs` $\rightarrow$ 100% PASS.
+  - Build `npm run build` thành công 100%.
+
+---
+
+## [2026-10-29]
+
 ### 261. Sửa Lỗi Tồn Kho Giveaway Bị Xóa Về 0 Khi Khách Đăng Nhập & Chặn Sự Kiện Mở Ngoài Web (Bẫy hasPool Array.isArray & Member isAdmin)
 - **Bối cảnh & Yêu cầu người dùng**:
   - Người dùng phản ánh: Kho trong admin thì có mã ("Giang Hồ Kỳ Ngộ" có 53 mã, "Ta Là Hắc Ngộ Không" có 23 mã) nhưng ngoài trang web khách không thấy mở sự kiện (hiển thị hết mã hoặc "Chờ Đợt Mới").
@@ -27,6 +53,32 @@ Mỗi mục sửa lỗi đều ghi nhận **Nguyên nhân gốc rễ (Root Cause
      - Loại bỏ `Boolean(localStorage.getItem('wcg_auth_token'))` khỏi điều kiện `isAdmin`. Khách đăng nhập tài khoản thành viên chỉ đồng bộ qua `syncGiveaways()` độc lập và an toàn.
 - **Kiểm Thử & Triển Khai**:
   - Chạy `test_giveaway_claimed_ssot.cjs`, `test_giveaway_cooldown_and_expiry.cjs`, `audit_zero_test_artifacts.cjs` $\rightarrow$ 100% PASS.
+  - Build `npm run build` thành công 100%.
+
+---
+
+## [2026-10-29]
+
+### 262. Sửa Bộ Đếm Tổng Lượt Sao Chép Không Tăng Theo Thông Báo & Người Thật Sao Chép (Copy Counter Synchronization & Real Actions Hookup)
+- **Bối cảnh & Yêu cầu người dùng**:
+  - Người dùng phản ánh: "Tổng số lượt sao chép chưa xử lý được, đảm bảo tăng theo thông báo và người thật sao chép giúp tôi."
+  - Ảnh chụp màn hình trang chủ `codegame.shop` hiển thị bộ đếm "Tổng lượt sao chép" và huy hiệu đầu trang đứng yên tại mốc `94.558`. Khi thông báo sao chép nổ ra hoặc người dùng bấm sao chép ở các modal khác, số liệu không tăng hoặc không đồng bộ giữa các tab.
+- **Nguyên nhân gốc rễ (Root Causes)**:
+  1. *Lỗi cú pháp ReferenceError trong `functions/api/stats.ts` dòng 44*: Gọi biến `now` trong khi biến đã khai báo là `nowMs`. Exception bị khối `try/catch` nuốt chửng, dẫn đến API `/api/stats` luôn trả về `master_copy_clicks: 0`.
+  2. *Sự phân tách giữa hai biến `masterCopyClicks` và `globalMasterCopyCount` trong `marketingService.ts`*: Khi API `/api/sync` hoặc `/api/stats` trả về số tổng, hàm `syncFromHub` chỉ gán vào `this.masterCopyClicks` mà không cập nhật `this.globalMasterCopyCount`, khiến bộ đếm giao diện đọc từ `getLiveCopyCount()` không phản ánh số mới.
+  3. *Thiếu phát sóng đa kênh trong `broadcastCurrentCount()`*: Chỉ gọi `counterListeners` cục bộ của tab hiện tại, không gửi qua `BroadcastChannel` và không kích hoạt CustomEvent `wcg_master_copy_count_updated`. Khi người dùng mở nhiều tab hoặc ở các trang con (`/giveaways`), tab chính không nhận được cập nhật.
+  4. *Thiếu lắng nghe `wcg_global_master_copy_count_v1` trong `setupStorageListener` và `visibilitychange`*: Khi một tab tăng số, các tab khác không cập nhật lại từ `localStorage`.
+  5. *Bỏ sót lệnh gọi `marketingService.recordRealCopy` ở nhiều nơi sao chép mã*: `NewsDetailModal`, `GiveawaysView`, `MyReceivedCodesModal`, `MissionDetailModal`, `ProductCheckoutModal`, `UtilitiesView` chỉ sao chép vào clipboard mà quên gọi `recordRealCopy`.
+  6. *Lệch mốc Server Baseline so với đỉnh thực tế của khách*: Server D1 `GLOBAL_MASTER_COPY_BASELINE = 93545` cho ra tổng 94.462 (thấp hơn mốc 94.558 trên máy khách). Nâng baseline lên `93910` để tổng số đạt `94.562+`, bảo toàn tính đơn điệu không giảm.
+- **Giải pháp xử lý triệt để**:
+  1. Sửa biến `nowMs` trong `functions/api/stats.ts`.
+  2. Đồng bộ `this.globalMasterCopyCount` trong `syncFromHub` và `fetchHourlyServerStats` khi số máy chủ lớn hơn.
+  3. Mở rộng `broadcastCurrentCount()` phát sóng đồng thời qua `BroadcastChannel` (`COPY_INCREMENT_BROADCAST`), `wcg_master_copy_count_updated`, `wcg_global_copy_count_updated`.
+  4. Bổ sung lắng nghe sự kiện `storage` và `visibilitychange` cho key `wcg_global_master_copy_count_v1`.
+  5. Liên kết `marketingService.recordRealCopy(...)` vào 100% các nút sao chép mã quà tặng trên toàn bộ ứng dụng (News, Giveaways, Missions, Received Codes, Checkout, Utilities).
+  6. Đảm bảo quy tắc nguyên tử 1 - 1: Khách tự bấm chỉ tính 1 (khử trùng toast của chính mình), thông báo ảo/khe nổ ra tính +1, lưu `processedCopyNotifIds` vào `sessionStorage` chống đếm đúp đa tab.
+- **Kiểm Thử & Triển Khai**:
+  - Chạy `test_copy_counter_regression.cjs`, `test_giveaway_claimed_ssot.cjs`, `test_giveaway_cooldown_and_expiry.cjs`, `audit_zero_test_artifacts.cjs` $\rightarrow$ 100% PASS.
   - Build `npm run build` thành công 100%.
 
 ---
@@ -61,6 +113,32 @@ Mỗi mục sửa lỗi đều ghi nhận **Nguyên nhân gốc rễ (Root Cause
   - Chạy toàn bộ test suites: `test_giveaway_claimed_ssot.cjs`, `test_giveaway_cooldown_and_expiry.cjs`, `audit_zero_test_artifacts.cjs`, `test_missions_optimization.cjs` $\rightarrow$ 100% PASS.
   - Kiểm tra 11 điều kiện toàn vẹn SSOT $\rightarrow$ 100% PASS.
   - Build `npm run build` thành công 100%, 0 lỗi, 0 cảnh báo.
+
+---
+
+## [2026-10-29]
+
+### 262. Sửa Bộ Đếm Tổng Lượt Sao Chép Không Tăng Theo Thông Báo & Người Thật Sao Chép (Copy Counter Synchronization & Real Actions Hookup)
+- **Bối cảnh & Yêu cầu người dùng**:
+  - Người dùng phản ánh: "Tổng số lượt sao chép chưa xử lý được, đảm bảo tăng theo thông báo và người thật sao chép giúp tôi."
+  - Ảnh chụp màn hình trang chủ `codegame.shop` hiển thị bộ đếm "Tổng lượt sao chép" và huy hiệu đầu trang đứng yên tại mốc `94.558`. Khi thông báo sao chép nổ ra hoặc người dùng bấm sao chép ở các modal khác, số liệu không tăng hoặc không đồng bộ giữa các tab.
+- **Nguyên nhân gốc rễ (Root Causes)**:
+  1. *Lỗi cú pháp ReferenceError trong `functions/api/stats.ts` dòng 44*: Gọi biến `now` trong khi biến đã khai báo là `nowMs`. Exception bị khối `try/catch` nuốt chửng, dẫn đến API `/api/stats` luôn trả về `master_copy_clicks: 0`.
+  2. *Sự phân tách giữa hai biến `masterCopyClicks` và `globalMasterCopyCount` trong `marketingService.ts`*: Khi API `/api/sync` hoặc `/api/stats` trả về số tổng, hàm `syncFromHub` chỉ gán vào `this.masterCopyClicks` mà không cập nhật `this.globalMasterCopyCount`, khiến bộ đếm giao diện đọc từ `getLiveCopyCount()` không phản ánh số mới.
+  3. *Thiếu phát sóng đa kênh trong `broadcastCurrentCount()`*: Chỉ gọi `counterListeners` cục bộ của tab hiện tại, không gửi qua `BroadcastChannel` và không kích hoạt CustomEvent `wcg_master_copy_count_updated`. Khi người dùng mở nhiều tab hoặc ở các trang con (`/giveaways`), tab chính không nhận được cập nhật.
+  4. *Thiếu lắng nghe `wcg_global_master_copy_count_v1` trong `setupStorageListener` và `visibilitychange`*: Khi một tab tăng số, các tab khác không cập nhật lại từ `localStorage`.
+  5. *Bỏ sót lệnh gọi `marketingService.recordRealCopy` ở nhiều nơi sao chép mã*: `NewsDetailModal`, `GiveawaysView`, `MyReceivedCodesModal`, `MissionDetailModal`, `ProductCheckoutModal`, `UtilitiesView` chỉ sao chép vào clipboard mà quên gọi `recordRealCopy`.
+  6. *Lệch mốc Server Baseline so với đỉnh thực tế của khách*: Server D1 `GLOBAL_MASTER_COPY_BASELINE = 93545` cho ra tổng 94.462 (thấp hơn mốc 94.558 trên máy khách). Nâng baseline lên `93910` để tổng số đạt `94.562+`, bảo toàn tính đơn điệu không giảm.
+- **Giải pháp xử lý triệt để**:
+  1. Sửa biến `nowMs` trong `functions/api/stats.ts`.
+  2. Đồng bộ `this.globalMasterCopyCount` trong `syncFromHub` và `fetchHourlyServerStats` khi số máy chủ lớn hơn.
+  3. Mở rộng `broadcastCurrentCount()` phát sóng đồng thời qua `BroadcastChannel` (`COPY_INCREMENT_BROADCAST`), `wcg_master_copy_count_updated`, `wcg_global_copy_count_updated`.
+  4. Bổ sung lắng nghe sự kiện `storage` và `visibilitychange` cho key `wcg_global_master_copy_count_v1`.
+  5. Liên kết `marketingService.recordRealCopy(...)` vào 100% các nút sao chép mã quà tặng trên toàn bộ ứng dụng (News, Giveaways, Missions, Received Codes, Checkout, Utilities).
+  6. Đảm bảo quy tắc nguyên tử 1 - 1: Khách tự bấm chỉ tính 1 (khử trùng toast của chính mình), thông báo ảo/khe nổ ra tính +1, lưu `processedCopyNotifIds` vào `sessionStorage` chống đếm đúp đa tab.
+- **Kiểm Thử & Triển Khai**:
+  - Chạy `test_copy_counter_regression.cjs`, `test_giveaway_claimed_ssot.cjs`, `test_giveaway_cooldown_and_expiry.cjs`, `audit_zero_test_artifacts.cjs` $\rightarrow$ 100% PASS.
+  - Build `npm run build` thành công 100%.
 
 ---
 
