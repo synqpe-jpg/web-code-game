@@ -245,7 +245,7 @@ export const ApiKeysModule: React.FC<ApiKeysModuleProps> = ({ onShowToast }) => 
 
   // Active sub-tab
   const [activeTab, setActiveTab] = useState<'keys' | 'permissions' | 'docs'>('keys');
-  const [docCategory, setDocCategory] = useState<'universal' | 'news' | 'missions' | 'sync'>('universal');
+  const [docCategory, setDocCategory] = useState<'universal' | 'news' | 'missions' | 'giveaways' | 'sync'>('universal');
 
   const showToast = (msg: string, type: 'success' | 'error' | 'info' = 'success') => {
     if (onShowToast) {
@@ -1340,6 +1340,17 @@ export const ApiKeysModule: React.FC<ApiKeysModuleProps> = ({ onShowToast }) => 
               API Nhiệm Vụ & AI Pine
             </button>
             <button
+              onClick={() => setDocCategory('giveaways')}
+              className={`flex items-center gap-2 px-3.5 py-1.5 rounded-xl text-xs font-semibold transition-all ${
+                docCategory === 'giveaways'
+                  ? 'bg-purple-600 text-white shadow-sm'
+                  : 'bg-card border border-border text-muted-foreground hover:text-foreground'
+              }`}
+            >
+              <Gift className="w-3.5 h-3.5" />
+              API Giveaway (Mới)
+            </button>
+            <button
               onClick={() => setDocCategory('sync')}
               className={`flex items-center gap-2 px-3.5 py-1.5 rounded-xl text-xs font-semibold transition-all ${
                 docCategory === 'sync'
@@ -1506,6 +1517,110 @@ console.log(result);`}
     "newsArticles": [...],
     "missions": [...]
   }'`}
+                </pre>
+              </div>
+            </div>
+          )}
+
+          {/* Docs: Giveaways API (GIVEAWAYS_FULL) */}
+          {docCategory === 'giveaways' && (
+            <div className="space-y-4 bg-card border border-border p-5 rounded-2xl">
+              <div className="p-3.5 rounded-xl bg-purple-500/10 border border-purple-500/30 text-purple-300 text-xs leading-relaxed">
+                <span className="font-bold text-purple-400">🎁 Quyền Quản Trị GIVEAWAYS_FULL:</span> Cho phép bot và hệ thống bên ngoài toàn quyền tra cứu chiến dịch giveaway, lấy danh sách mã kho, nạp hàng loạt giftcode, bật/tắt đợt phát và reset hồi chiêu. Chấp nhận Header <code className="bg-black/40 px-1.5 py-0.5 rounded text-purple-200 font-mono">X-Api-Key: &lt;KEY&gt;</code> hoặc <code className="bg-black/40 px-1.5 py-0.5 rounded text-purple-200 font-mono">Authorization: Bearer &lt;KEY&gt;</code>.
+              </div>
+
+              <div>
+                <h4 className="text-sm font-bold text-foreground flex items-center gap-2">
+                  <Terminal className="w-4 h-4 text-purple-400" />
+                  Mẫu 1: Tra Cứu Toàn Bộ Đợt Phát & Tồn Kho Chi Tiết (cURL)
+                </h4>
+                <pre className="mt-2 p-4 rounded-xl bg-slate-950 text-slate-100 font-mono text-xs overflow-x-auto">
+{`curl -X GET "https://codegame.shop/api/giveaways/manage?status=ALL" \\
+  -H "X-Api-Key: YOUR_GIVEAWAY_OR_ADMIN_KEY"`}
+                </pre>
+              </div>
+
+              <div>
+                <h4 className="text-sm font-bold text-foreground flex items-center gap-2">
+                  <Terminal className="w-4 h-4 text-purple-400" />
+                  Mẫu 2: Nạp Thêm Hàng Loạt Mã Giftcode Vào Kho Đợt Phát (cURL)
+                </h4>
+                <pre className="mt-2 p-4 rounded-xl bg-slate-950 text-slate-100 font-mono text-xs overflow-x-auto">
+{`curl -X PUT https://codegame.shop/api/giveaways/manage \\
+  -H "Content-Type: application/json" \\
+  -H "X-Api-Key: YOUR_GIVEAWAY_OR_ADMIN_KEY" \\
+  -d '{
+    "action": "ADD_CODES",
+    "giveaway_id": "gw_genshin-impact",
+    "codes": [
+      "GENSHIN_VIP_001",
+      "GENSHIN_VIP_002",
+      "GENSHIN_VIP_003"
+    ]
+  }'`}
+                </pre>
+              </div>
+
+              <div>
+                <h4 className="text-sm font-bold text-foreground flex items-center gap-2">
+                  <Terminal className="w-4 h-4 text-purple-400" />
+                  Mẫu 3: Tạo Mới Chiến Dịch Giveaway Đầy Đủ Thông Số (cURL)
+                </h4>
+                <pre className="mt-2 p-4 rounded-xl bg-slate-950 text-slate-100 font-mono text-xs overflow-x-auto">
+{`curl -X POST https://codegame.shop/api/giveaways/manage \\
+  -H "Content-Type: application/json" \\
+  -H "X-Api-Key: YOUR_GIVEAWAY_OR_ADMIN_KEY" \\
+  -d '{
+    "title": "Code riêng Honkai Star Rail VIP",
+    "game_slug": "honkai-star-rail",
+    "game_name": "Honkai: Star Rail",
+    "description": "Code VIP độc quyền dành cho thành viên may mắn.",
+    "rewards": "300 Ngọc Ánh Sao + 50.000 Điểm Tín Dụng",
+    "max_per_user": 1,
+    "max_per_ip": 1,
+    "cooldown_minutes": 60,
+    "virtual_remaining_addition": 25,
+    "is_active": true,
+    "codes": [
+      "HSR_STAR_01",
+      "HSR_STAR_02"
+    ]
+  }'`}
+                </pre>
+              </div>
+
+              <div>
+                <h4 className="text-sm font-bold text-foreground flex items-center gap-2">
+                  <Code2 className="w-4 h-4 text-purple-400" />
+                  Mẫu 4: Bật/Tắt Đợt Phát Hoặc Mở Ngay Lập Tức (JavaScript / Fetch)
+                </h4>
+                <pre className="mt-2 p-4 rounded-xl bg-slate-950 text-slate-100 font-mono text-xs overflow-x-auto">
+{`// 1. Reset thời gian chờ toàn sàn (Khách có thể giật code tiếp theo ngay lập tức)
+await fetch('https://codegame.shop/api/giveaways/manage', {
+  method: 'PUT',
+  headers: {
+    'Content-Type': 'application/json',
+    'X-Api-Key': 'YOUR_GIVEAWAY_OR_ADMIN_KEY',
+  },
+  body: JSON.stringify({
+    action: 'RESET_COOLDOWN',
+    id: 'gw_genshin-impact',
+  }),
+});
+
+// 2. Tạm dừng / Kích hoạt lại đợt phát
+await fetch('https://codegame.shop/api/giveaways/manage', {
+  method: 'PUT',
+  headers: {
+    'Content-Type': 'application/json',
+    'X-Api-Key': 'YOUR_GIVEAWAY_OR_ADMIN_KEY',
+  },
+  body: JSON.stringify({
+    action: 'TOGGLE_ACTIVE',
+    id: 'gw_genshin-impact',
+    is_active: false, // hoặc true để mở lại
+  }),
+});`}
                 </pre>
               </div>
             </div>

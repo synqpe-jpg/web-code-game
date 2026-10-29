@@ -7,6 +7,42 @@ Mỗi mục sửa lỗi đều ghi nhận **Nguyên nhân gốc rễ (Root Cause
 
 ## [2026-10-29]
 
+### 264. Phát Triển API Kết Nối Toàn Quyền Quản Lý Giveaway, Subtab API & Danh Sách Endpoints Chi Tiết Ở Cuối Trang (Full Giveaway Management API, Dedicated Subtab & Endpoints Reference)
+- **Bối cảnh & Yêu cầu người dùng**:
+  - Người dùng yêu cầu: "Trong mục giveaway ở admin, bạn tạo cho tôi mục API kết nối toàn quyền quản lý mục này đi, nhớ thêm vào mục danh sách api ở cuối trang nhé."
+  - Nhu cầu kết nối và tự động hóa toàn diện các chiến dịch giật code (Giveaway) thông qua API REST không giao diện: phục vụ bot Discord/Telegram, tool nạp giftcode tự động, hoặc các hệ thống bên ngoài mà không cần truy cập web admin thủ công.
+  - Cần tài liệu danh sách các endpoints chi tiết và mẫu code cURL/JavaScript ở cuối trang để tra cứu và sao chép nhanh 1-click.
+- **Nguyên nhân & Nhu cầu kiến trúc**:
+  1. Chưa có endpoint REST API chuyên biệt cho Giveaway: Trước đây các thao tác quản lý Giveaway (tạo, cập nhật, nạp mã kho, bật/tắt) chủ yếu đi qua giao diện Admin và `adminDataService.ts`.
+  2. Quyền `GIVEAWAYS_FULL` chưa có bộ điều khiển và tài liệu cURL/JS mẫu: Mặc dù mã quyền đã được quy hoạch nhưng chưa có endpoint serverless edge xử lý đầy đủ các phương thức `GET`, `POST`, `PUT`, `DELETE`.
+  3. Cần khu vực quản lý và thử nghiệm trực tiếp ngay trong Admin: Giúp Admin dễ dàng tạo khóa API cho Giveaway, kiểm tra trạng thái các khóa đang hoạt động, và test trực tiếp các lệnh gọi API ngay trên giao diện mà không cần mở Postman hay terminal.
+- **Giải pháp xử lý triệt để**:
+  1. Xây dựng Serverless Edge REST API toàn quyền (`functions/api/giveaways/manage.ts` & `functions/api/giveaways/index.ts`):
+     - Xác thực đa tầng qua `authorizeGiveawayRequest`: Chấp nhận Admin Session hoặc API Key có scope `GIVEAWAYS_FULL`, `ADMIN_FULL`, `FULL` hoặc `*`.
+     - `GET`: Lấy danh sách toàn bộ chiến dịch hoặc chi tiết 1 chiến dịch (`?id=...`) kèm toàn bộ kho mã D1 chi tiết (`codes_pool`), số lượng tồn thật và thống kê.
+     - `POST`: Tạo mới hoặc cập nhật toàn diện đợt phát code kèm mảng mã khởi tạo (`codes: string[]`) được nạp tự động vào bảng D1 `giveaway_codes`.
+     - `PUT`: Thao tác nhanh với `action`: `ADD_CODES` (nạp thêm mã vào kho), `TOGGLE_ACTIVE` (bật/tắt sự kiện), `RESET_COOLDOWN` (xóa thời gian chờ giật mã), `ADJUST_METRICS`.
+     - `DELETE`: Xóa vĩnh viễn đợt phát giveaway với Tombstone Deletion Pattern chống hồi sinh dữ liệu trên cả KV và D1.
+  2. Bổ sung Preset API Key & Tiền tố định danh (`functions/api/api-keys/index.ts`):
+     - Tự động sinh preset key `ak_preset_giveaways_full` (`GIVEAWAYS_FULL` - `wcg_gw_7193ab4028cf51d9e27b140685e93c1482f04b2a`).
+     - Tự động gán tiền tố `wcg_gw_` khi tạo khóa API mới có quyền `GIVEAWAYS_FULL`.
+  3. Bổ sung Tài Liệu Giveaway API ở cuối trang Quản Lý API (`src/admin/modules/ApiKeysModule.tsx`):
+     - Thêm danh mục `docCategory === 'giveaways'` vào tài liệu mẫu code ở cuối trang với 4 mẫu lệnh chi tiết (tra cứu, nạp mã kho, tạo mới, bật tắt/reset).
+  4. Tích hợp Subtab "Kết Nối API Quản Lý" & Banner Cuối Trang trong Giveaway Admin (`src/admin/modules/PrivateCodesModule.tsx`):
+     - Mở rộng subtab: `subTab: 'campaigns' | 'wheel' | 'api'`. Thêm nút chuyển tab thứ 3 trên thanh điều hướng với icon `KeyRound` và badge `GIVEAWAYS_FULL`.
+     - **Thẻ 1: Tạo Khóa API GIVEAWAYS_FULL**: Cho phép nhập tên, hạn dùng (30d, 90d, 365d, vĩnh viễn), tự động sinh khóa và hiển thị khóa bí mật 1 lần duy nhất với nút copy 1-click.
+     - **Thẻ 2: Bảng Danh Sách Khóa API Đang Quản Trị**: Hiển thị toàn bộ khóa API có quyền quản trị Giveaway, cho phép Bật/Tắt trạng thái hoạt động, chọn thử nghiệm, và xóa khóa.
+     - **Thẻ 3: Trình Thử Nghiệm Gọi API Trực Tiếp (Interactive API Quick Tester)**: Cho phép chọn hành động (`GET_LIST`, `GET_DETAIL`, `ADD_CODES`, `TOGGLE_ACTIVE`, `RESET_COOLDOWN`), chọn campaign mục tiêu, điền API key, và bấm gửi request trực tiếp để xem response HTTP code, latency ms và JSON kết quả thời gian thực.
+     - **Thẻ 4 (Ở cuối trang): Bảng Tra Cứu Endpoints & Mẫu Lệnh Gọi API (cURL / JS Fetch)**: Tổng hợp bảng 4 endpoints (`GET`, `POST`, `PUT`, `DELETE /api/giveaways/manage`) và 4 tab mẫu mã lệnh copy được ngay.
+     - **Banner Cuối Trang ở tab Danh Sách Chiến Dịch**: Khối thẻ nổi bật ở cuối bảng giveaway giúp Admin 1-click chuyển ngay sang tab API.
+- **Kiểm Thử & Triển Khai**:
+  - `npm run build`: 100% PASS, 0 lỗi TypeScript, 0 lỗi bundle.
+  - Kiểm thử `audit_zero_test_artifacts.cjs`: 100% PASS.
+  - Kiểm thử hồi quy sao chép & kho hàng giveaway: 100% PASS.
+  - Script kiểm tra xác nhận `test_giveaway_api.cjs`: Toàn bộ 5 mục kiểm tra đều đạt 100%.
+
+---
+
 ### 263. Thu Gọn Thanh Ghim & Tích Hợp Cài Đặt Ngôn Ngữ, Chế Độ Sáng/Tối Vào Thông Tin Nhân Vật (Compact Sticky Header & Character Settings Integration)
 - **Bối cảnh & Yêu cầu người dùng**:
   - Người dùng phản ánh: "Thu gọn thanh ghim lại giúp tôi, chuyển ngôn ngữ và sáng tối vào thông tin nhân vật." Kèm ảnh chụp màn hình thanh công cụ trên web khách codegame.shop/giveaways.
@@ -39,6 +75,42 @@ Mỗi mục sửa lỗi đều ghi nhận **Nguyên nhân gốc rễ (Root Cause
 
 ## [2026-10-29]
 
+### 264. Phát Triển API Kết Nối Toàn Quyền Quản Lý Giveaway, Subtab API & Danh Sách Endpoints Chi Tiết Ở Cuối Trang (Full Giveaway Management API, Dedicated Subtab & Endpoints Reference)
+- **Bối cảnh & Yêu cầu người dùng**:
+  - Người dùng yêu cầu: "Trong mục giveaway ở admin, bạn tạo cho tôi mục API kết nối toàn quyền quản lý mục này đi, nhớ thêm vào mục danh sách api ở cuối trang nhé."
+  - Nhu cầu kết nối và tự động hóa toàn diện các chiến dịch giật code (Giveaway) thông qua API REST không giao diện: phục vụ bot Discord/Telegram, tool nạp giftcode tự động, hoặc các hệ thống bên ngoài mà không cần truy cập web admin thủ công.
+  - Cần tài liệu danh sách các endpoints chi tiết và mẫu code cURL/JavaScript ở cuối trang để tra cứu và sao chép nhanh 1-click.
+- **Nguyên nhân & Nhu cầu kiến trúc**:
+  1. Chưa có endpoint REST API chuyên biệt cho Giveaway: Trước đây các thao tác quản lý Giveaway (tạo, cập nhật, nạp mã kho, bật/tắt) chủ yếu đi qua giao diện Admin và `adminDataService.ts`.
+  2. Quyền `GIVEAWAYS_FULL` chưa có bộ điều khiển và tài liệu cURL/JS mẫu: Mặc dù mã quyền đã được quy hoạch nhưng chưa có endpoint serverless edge xử lý đầy đủ các phương thức `GET`, `POST`, `PUT`, `DELETE`.
+  3. Cần khu vực quản lý và thử nghiệm trực tiếp ngay trong Admin: Giúp Admin dễ dàng tạo khóa API cho Giveaway, kiểm tra trạng thái các khóa đang hoạt động, và test trực tiếp các lệnh gọi API ngay trên giao diện mà không cần mở Postman hay terminal.
+- **Giải pháp xử lý triệt để**:
+  1. Xây dựng Serverless Edge REST API toàn quyền (`functions/api/giveaways/manage.ts` & `functions/api/giveaways/index.ts`):
+     - Xác thực đa tầng qua `authorizeGiveawayRequest`: Chấp nhận Admin Session hoặc API Key có scope `GIVEAWAYS_FULL`, `ADMIN_FULL`, `FULL` hoặc `*`.
+     - `GET`: Lấy danh sách toàn bộ chiến dịch hoặc chi tiết 1 chiến dịch (`?id=...`) kèm toàn bộ kho mã D1 chi tiết (`codes_pool`), số lượng tồn thật và thống kê.
+     - `POST`: Tạo mới hoặc cập nhật toàn diện đợt phát code kèm mảng mã khởi tạo (`codes: string[]`) được nạp tự động vào bảng D1 `giveaway_codes`.
+     - `PUT`: Thao tác nhanh với `action`: `ADD_CODES` (nạp thêm mã vào kho), `TOGGLE_ACTIVE` (bật/tắt sự kiện), `RESET_COOLDOWN` (xóa thời gian chờ giật mã), `ADJUST_METRICS`.
+     - `DELETE`: Xóa vĩnh viễn đợt phát giveaway với Tombstone Deletion Pattern chống hồi sinh dữ liệu trên cả KV và D1.
+  2. Bổ sung Preset API Key & Tiền tố định danh (`functions/api/api-keys/index.ts`):
+     - Tự động sinh preset key `ak_preset_giveaways_full` (`GIVEAWAYS_FULL` - `wcg_gw_7193ab4028cf51d9e27b140685e93c1482f04b2a`).
+     - Tự động gán tiền tố `wcg_gw_` khi tạo khóa API mới có quyền `GIVEAWAYS_FULL`.
+  3. Bổ sung Tài Liệu Giveaway API ở cuối trang Quản Lý API (`src/admin/modules/ApiKeysModule.tsx`):
+     - Thêm danh mục `docCategory === 'giveaways'` vào tài liệu mẫu code ở cuối trang với 4 mẫu lệnh chi tiết (tra cứu, nạp mã kho, tạo mới, bật tắt/reset).
+  4. Tích hợp Subtab "Kết Nối API Quản Lý" & Banner Cuối Trang trong Giveaway Admin (`src/admin/modules/PrivateCodesModule.tsx`):
+     - Mở rộng subtab: `subTab: 'campaigns' | 'wheel' | 'api'`. Thêm nút chuyển tab thứ 3 trên thanh điều hướng với icon `KeyRound` và badge `GIVEAWAYS_FULL`.
+     - **Thẻ 1: Tạo Khóa API GIVEAWAYS_FULL**: Cho phép nhập tên, hạn dùng (30d, 90d, 365d, vĩnh viễn), tự động sinh khóa và hiển thị khóa bí mật 1 lần duy nhất với nút copy 1-click.
+     - **Thẻ 2: Bảng Danh Sách Khóa API Đang Quản Trị**: Hiển thị toàn bộ khóa API có quyền quản trị Giveaway, cho phép Bật/Tắt trạng thái hoạt động, chọn thử nghiệm, và xóa khóa.
+     - **Thẻ 3: Trình Thử Nghiệm Gọi API Trực Tiếp (Interactive API Quick Tester)**: Cho phép chọn hành động (`GET_LIST`, `GET_DETAIL`, `ADD_CODES`, `TOGGLE_ACTIVE`, `RESET_COOLDOWN`), chọn campaign mục tiêu, điền API key, và bấm gửi request trực tiếp để xem response HTTP code, latency ms và JSON kết quả thời gian thực.
+     - **Thẻ 4 (Ở cuối trang): Bảng Tra Cứu Endpoints & Mẫu Lệnh Gọi API (cURL / JS Fetch)**: Tổng hợp bảng 4 endpoints (`GET`, `POST`, `PUT`, `DELETE /api/giveaways/manage`) và 4 tab mẫu mã lệnh copy được ngay.
+     - **Banner Cuối Trang ở tab Danh Sách Chiến Dịch**: Khối thẻ nổi bật ở cuối bảng giveaway giúp Admin 1-click chuyển ngay sang tab API.
+- **Kiểm Thử & Triển Khai**:
+  - `npm run build`: 100% PASS, 0 lỗi TypeScript, 0 lỗi bundle.
+  - Kiểm thử `audit_zero_test_artifacts.cjs`: 100% PASS.
+  - Kiểm thử hồi quy sao chép & kho hàng giveaway: 100% PASS.
+  - Script kiểm tra xác nhận `test_giveaway_api.cjs`: Toàn bộ 5 mục kiểm tra đều đạt 100%.
+
+---
+
 ### 262. Sửa Bộ Đếm Tổng Lượt Sao Chép Không Tăng Theo Thông Báo & Người Thật Sao Chép (Copy Counter Synchronization & Real Actions Hookup)
 - **Bối cảnh & Yêu cầu người dùng**:
   - Người dùng phản ánh: "Tổng số lượt sao chép chưa xử lý được, đảm bảo tăng theo thông báo và người thật sao chép giúp tôi."
@@ -64,6 +136,42 @@ Mỗi mục sửa lỗi đều ghi nhận **Nguyên nhân gốc rễ (Root Cause
 ---
 
 ## [2026-10-29]
+
+### 264. Phát Triển API Kết Nối Toàn Quyền Quản Lý Giveaway, Subtab API & Danh Sách Endpoints Chi Tiết Ở Cuối Trang (Full Giveaway Management API, Dedicated Subtab & Endpoints Reference)
+- **Bối cảnh & Yêu cầu người dùng**:
+  - Người dùng yêu cầu: "Trong mục giveaway ở admin, bạn tạo cho tôi mục API kết nối toàn quyền quản lý mục này đi, nhớ thêm vào mục danh sách api ở cuối trang nhé."
+  - Nhu cầu kết nối và tự động hóa toàn diện các chiến dịch giật code (Giveaway) thông qua API REST không giao diện: phục vụ bot Discord/Telegram, tool nạp giftcode tự động, hoặc các hệ thống bên ngoài mà không cần truy cập web admin thủ công.
+  - Cần tài liệu danh sách các endpoints chi tiết và mẫu code cURL/JavaScript ở cuối trang để tra cứu và sao chép nhanh 1-click.
+- **Nguyên nhân & Nhu cầu kiến trúc**:
+  1. Chưa có endpoint REST API chuyên biệt cho Giveaway: Trước đây các thao tác quản lý Giveaway (tạo, cập nhật, nạp mã kho, bật/tắt) chủ yếu đi qua giao diện Admin và `adminDataService.ts`.
+  2. Quyền `GIVEAWAYS_FULL` chưa có bộ điều khiển và tài liệu cURL/JS mẫu: Mặc dù mã quyền đã được quy hoạch nhưng chưa có endpoint serverless edge xử lý đầy đủ các phương thức `GET`, `POST`, `PUT`, `DELETE`.
+  3. Cần khu vực quản lý và thử nghiệm trực tiếp ngay trong Admin: Giúp Admin dễ dàng tạo khóa API cho Giveaway, kiểm tra trạng thái các khóa đang hoạt động, và test trực tiếp các lệnh gọi API ngay trên giao diện mà không cần mở Postman hay terminal.
+- **Giải pháp xử lý triệt để**:
+  1. Xây dựng Serverless Edge REST API toàn quyền (`functions/api/giveaways/manage.ts` & `functions/api/giveaways/index.ts`):
+     - Xác thực đa tầng qua `authorizeGiveawayRequest`: Chấp nhận Admin Session hoặc API Key có scope `GIVEAWAYS_FULL`, `ADMIN_FULL`, `FULL` hoặc `*`.
+     - `GET`: Lấy danh sách toàn bộ chiến dịch hoặc chi tiết 1 chiến dịch (`?id=...`) kèm toàn bộ kho mã D1 chi tiết (`codes_pool`), số lượng tồn thật và thống kê.
+     - `POST`: Tạo mới hoặc cập nhật toàn diện đợt phát code kèm mảng mã khởi tạo (`codes: string[]`) được nạp tự động vào bảng D1 `giveaway_codes`.
+     - `PUT`: Thao tác nhanh với `action`: `ADD_CODES` (nạp thêm mã vào kho), `TOGGLE_ACTIVE` (bật/tắt sự kiện), `RESET_COOLDOWN` (xóa thời gian chờ giật mã), `ADJUST_METRICS`.
+     - `DELETE`: Xóa vĩnh viễn đợt phát giveaway với Tombstone Deletion Pattern chống hồi sinh dữ liệu trên cả KV và D1.
+  2. Bổ sung Preset API Key & Tiền tố định danh (`functions/api/api-keys/index.ts`):
+     - Tự động sinh preset key `ak_preset_giveaways_full` (`GIVEAWAYS_FULL` - `wcg_gw_7193ab4028cf51d9e27b140685e93c1482f04b2a`).
+     - Tự động gán tiền tố `wcg_gw_` khi tạo khóa API mới có quyền `GIVEAWAYS_FULL`.
+  3. Bổ sung Tài Liệu Giveaway API ở cuối trang Quản Lý API (`src/admin/modules/ApiKeysModule.tsx`):
+     - Thêm danh mục `docCategory === 'giveaways'` vào tài liệu mẫu code ở cuối trang với 4 mẫu lệnh chi tiết (tra cứu, nạp mã kho, tạo mới, bật tắt/reset).
+  4. Tích hợp Subtab "Kết Nối API Quản Lý" & Banner Cuối Trang trong Giveaway Admin (`src/admin/modules/PrivateCodesModule.tsx`):
+     - Mở rộng subtab: `subTab: 'campaigns' | 'wheel' | 'api'`. Thêm nút chuyển tab thứ 3 trên thanh điều hướng với icon `KeyRound` và badge `GIVEAWAYS_FULL`.
+     - **Thẻ 1: Tạo Khóa API GIVEAWAYS_FULL**: Cho phép nhập tên, hạn dùng (30d, 90d, 365d, vĩnh viễn), tự động sinh khóa và hiển thị khóa bí mật 1 lần duy nhất với nút copy 1-click.
+     - **Thẻ 2: Bảng Danh Sách Khóa API Đang Quản Trị**: Hiển thị toàn bộ khóa API có quyền quản trị Giveaway, cho phép Bật/Tắt trạng thái hoạt động, chọn thử nghiệm, và xóa khóa.
+     - **Thẻ 3: Trình Thử Nghiệm Gọi API Trực Tiếp (Interactive API Quick Tester)**: Cho phép chọn hành động (`GET_LIST`, `GET_DETAIL`, `ADD_CODES`, `TOGGLE_ACTIVE`, `RESET_COOLDOWN`), chọn campaign mục tiêu, điền API key, và bấm gửi request trực tiếp để xem response HTTP code, latency ms và JSON kết quả thời gian thực.
+     - **Thẻ 4 (Ở cuối trang): Bảng Tra Cứu Endpoints & Mẫu Lệnh Gọi API (cURL / JS Fetch)**: Tổng hợp bảng 4 endpoints (`GET`, `POST`, `PUT`, `DELETE /api/giveaways/manage`) và 4 tab mẫu mã lệnh copy được ngay.
+     - **Banner Cuối Trang ở tab Danh Sách Chiến Dịch**: Khối thẻ nổi bật ở cuối bảng giveaway giúp Admin 1-click chuyển ngay sang tab API.
+- **Kiểm Thử & Triển Khai**:
+  - `npm run build`: 100% PASS, 0 lỗi TypeScript, 0 lỗi bundle.
+  - Kiểm thử `audit_zero_test_artifacts.cjs`: 100% PASS.
+  - Kiểm thử hồi quy sao chép & kho hàng giveaway: 100% PASS.
+  - Script kiểm tra xác nhận `test_giveaway_api.cjs`: Toàn bộ 5 mục kiểm tra đều đạt 100%.
+
+---
 
 ### 261. Sửa Lỗi Tồn Kho Giveaway Bị Xóa Về 0 Khi Khách Đăng Nhập & Chặn Sự Kiện Mở Ngoài Web (Bẫy hasPool Array.isArray & Member isAdmin)
 - **Bối cảnh & Yêu cầu người dùng**:
@@ -91,6 +199,42 @@ Mỗi mục sửa lỗi đều ghi nhận **Nguyên nhân gốc rễ (Root Cause
 
 ## [2026-10-29]
 
+### 264. Phát Triển API Kết Nối Toàn Quyền Quản Lý Giveaway, Subtab API & Danh Sách Endpoints Chi Tiết Ở Cuối Trang (Full Giveaway Management API, Dedicated Subtab & Endpoints Reference)
+- **Bối cảnh & Yêu cầu người dùng**:
+  - Người dùng yêu cầu: "Trong mục giveaway ở admin, bạn tạo cho tôi mục API kết nối toàn quyền quản lý mục này đi, nhớ thêm vào mục danh sách api ở cuối trang nhé."
+  - Nhu cầu kết nối và tự động hóa toàn diện các chiến dịch giật code (Giveaway) thông qua API REST không giao diện: phục vụ bot Discord/Telegram, tool nạp giftcode tự động, hoặc các hệ thống bên ngoài mà không cần truy cập web admin thủ công.
+  - Cần tài liệu danh sách các endpoints chi tiết và mẫu code cURL/JavaScript ở cuối trang để tra cứu và sao chép nhanh 1-click.
+- **Nguyên nhân & Nhu cầu kiến trúc**:
+  1. Chưa có endpoint REST API chuyên biệt cho Giveaway: Trước đây các thao tác quản lý Giveaway (tạo, cập nhật, nạp mã kho, bật/tắt) chủ yếu đi qua giao diện Admin và `adminDataService.ts`.
+  2. Quyền `GIVEAWAYS_FULL` chưa có bộ điều khiển và tài liệu cURL/JS mẫu: Mặc dù mã quyền đã được quy hoạch nhưng chưa có endpoint serverless edge xử lý đầy đủ các phương thức `GET`, `POST`, `PUT`, `DELETE`.
+  3. Cần khu vực quản lý và thử nghiệm trực tiếp ngay trong Admin: Giúp Admin dễ dàng tạo khóa API cho Giveaway, kiểm tra trạng thái các khóa đang hoạt động, và test trực tiếp các lệnh gọi API ngay trên giao diện mà không cần mở Postman hay terminal.
+- **Giải pháp xử lý triệt để**:
+  1. Xây dựng Serverless Edge REST API toàn quyền (`functions/api/giveaways/manage.ts` & `functions/api/giveaways/index.ts`):
+     - Xác thực đa tầng qua `authorizeGiveawayRequest`: Chấp nhận Admin Session hoặc API Key có scope `GIVEAWAYS_FULL`, `ADMIN_FULL`, `FULL` hoặc `*`.
+     - `GET`: Lấy danh sách toàn bộ chiến dịch hoặc chi tiết 1 chiến dịch (`?id=...`) kèm toàn bộ kho mã D1 chi tiết (`codes_pool`), số lượng tồn thật và thống kê.
+     - `POST`: Tạo mới hoặc cập nhật toàn diện đợt phát code kèm mảng mã khởi tạo (`codes: string[]`) được nạp tự động vào bảng D1 `giveaway_codes`.
+     - `PUT`: Thao tác nhanh với `action`: `ADD_CODES` (nạp thêm mã vào kho), `TOGGLE_ACTIVE` (bật/tắt sự kiện), `RESET_COOLDOWN` (xóa thời gian chờ giật mã), `ADJUST_METRICS`.
+     - `DELETE`: Xóa vĩnh viễn đợt phát giveaway với Tombstone Deletion Pattern chống hồi sinh dữ liệu trên cả KV và D1.
+  2. Bổ sung Preset API Key & Tiền tố định danh (`functions/api/api-keys/index.ts`):
+     - Tự động sinh preset key `ak_preset_giveaways_full` (`GIVEAWAYS_FULL` - `wcg_gw_7193ab4028cf51d9e27b140685e93c1482f04b2a`).
+     - Tự động gán tiền tố `wcg_gw_` khi tạo khóa API mới có quyền `GIVEAWAYS_FULL`.
+  3. Bổ sung Tài Liệu Giveaway API ở cuối trang Quản Lý API (`src/admin/modules/ApiKeysModule.tsx`):
+     - Thêm danh mục `docCategory === 'giveaways'` vào tài liệu mẫu code ở cuối trang với 4 mẫu lệnh chi tiết (tra cứu, nạp mã kho, tạo mới, bật tắt/reset).
+  4. Tích hợp Subtab "Kết Nối API Quản Lý" & Banner Cuối Trang trong Giveaway Admin (`src/admin/modules/PrivateCodesModule.tsx`):
+     - Mở rộng subtab: `subTab: 'campaigns' | 'wheel' | 'api'`. Thêm nút chuyển tab thứ 3 trên thanh điều hướng với icon `KeyRound` và badge `GIVEAWAYS_FULL`.
+     - **Thẻ 1: Tạo Khóa API GIVEAWAYS_FULL**: Cho phép nhập tên, hạn dùng (30d, 90d, 365d, vĩnh viễn), tự động sinh khóa và hiển thị khóa bí mật 1 lần duy nhất với nút copy 1-click.
+     - **Thẻ 2: Bảng Danh Sách Khóa API Đang Quản Trị**: Hiển thị toàn bộ khóa API có quyền quản trị Giveaway, cho phép Bật/Tắt trạng thái hoạt động, chọn thử nghiệm, và xóa khóa.
+     - **Thẻ 3: Trình Thử Nghiệm Gọi API Trực Tiếp (Interactive API Quick Tester)**: Cho phép chọn hành động (`GET_LIST`, `GET_DETAIL`, `ADD_CODES`, `TOGGLE_ACTIVE`, `RESET_COOLDOWN`), chọn campaign mục tiêu, điền API key, và bấm gửi request trực tiếp để xem response HTTP code, latency ms và JSON kết quả thời gian thực.
+     - **Thẻ 4 (Ở cuối trang): Bảng Tra Cứu Endpoints & Mẫu Lệnh Gọi API (cURL / JS Fetch)**: Tổng hợp bảng 4 endpoints (`GET`, `POST`, `PUT`, `DELETE /api/giveaways/manage`) và 4 tab mẫu mã lệnh copy được ngay.
+     - **Banner Cuối Trang ở tab Danh Sách Chiến Dịch**: Khối thẻ nổi bật ở cuối bảng giveaway giúp Admin 1-click chuyển ngay sang tab API.
+- **Kiểm Thử & Triển Khai**:
+  - `npm run build`: 100% PASS, 0 lỗi TypeScript, 0 lỗi bundle.
+  - Kiểm thử `audit_zero_test_artifacts.cjs`: 100% PASS.
+  - Kiểm thử hồi quy sao chép & kho hàng giveaway: 100% PASS.
+  - Script kiểm tra xác nhận `test_giveaway_api.cjs`: Toàn bộ 5 mục kiểm tra đều đạt 100%.
+
+---
+
 ### 262. Sửa Bộ Đếm Tổng Lượt Sao Chép Không Tăng Theo Thông Báo & Người Thật Sao Chép (Copy Counter Synchronization & Real Actions Hookup)
 - **Bối cảnh & Yêu cầu người dùng**:
   - Người dùng phản ánh: "Tổng số lượt sao chép chưa xử lý được, đảm bảo tăng theo thông báo và người thật sao chép giúp tôi."
@@ -116,6 +260,42 @@ Mỗi mục sửa lỗi đều ghi nhận **Nguyên nhân gốc rễ (Root Cause
 ---
 
 ## [2026-10-29]
+
+### 264. Phát Triển API Kết Nối Toàn Quyền Quản Lý Giveaway, Subtab API & Danh Sách Endpoints Chi Tiết Ở Cuối Trang (Full Giveaway Management API, Dedicated Subtab & Endpoints Reference)
+- **Bối cảnh & Yêu cầu người dùng**:
+  - Người dùng yêu cầu: "Trong mục giveaway ở admin, bạn tạo cho tôi mục API kết nối toàn quyền quản lý mục này đi, nhớ thêm vào mục danh sách api ở cuối trang nhé."
+  - Nhu cầu kết nối và tự động hóa toàn diện các chiến dịch giật code (Giveaway) thông qua API REST không giao diện: phục vụ bot Discord/Telegram, tool nạp giftcode tự động, hoặc các hệ thống bên ngoài mà không cần truy cập web admin thủ công.
+  - Cần tài liệu danh sách các endpoints chi tiết và mẫu code cURL/JavaScript ở cuối trang để tra cứu và sao chép nhanh 1-click.
+- **Nguyên nhân & Nhu cầu kiến trúc**:
+  1. Chưa có endpoint REST API chuyên biệt cho Giveaway: Trước đây các thao tác quản lý Giveaway (tạo, cập nhật, nạp mã kho, bật/tắt) chủ yếu đi qua giao diện Admin và `adminDataService.ts`.
+  2. Quyền `GIVEAWAYS_FULL` chưa có bộ điều khiển và tài liệu cURL/JS mẫu: Mặc dù mã quyền đã được quy hoạch nhưng chưa có endpoint serverless edge xử lý đầy đủ các phương thức `GET`, `POST`, `PUT`, `DELETE`.
+  3. Cần khu vực quản lý và thử nghiệm trực tiếp ngay trong Admin: Giúp Admin dễ dàng tạo khóa API cho Giveaway, kiểm tra trạng thái các khóa đang hoạt động, và test trực tiếp các lệnh gọi API ngay trên giao diện mà không cần mở Postman hay terminal.
+- **Giải pháp xử lý triệt để**:
+  1. Xây dựng Serverless Edge REST API toàn quyền (`functions/api/giveaways/manage.ts` & `functions/api/giveaways/index.ts`):
+     - Xác thực đa tầng qua `authorizeGiveawayRequest`: Chấp nhận Admin Session hoặc API Key có scope `GIVEAWAYS_FULL`, `ADMIN_FULL`, `FULL` hoặc `*`.
+     - `GET`: Lấy danh sách toàn bộ chiến dịch hoặc chi tiết 1 chiến dịch (`?id=...`) kèm toàn bộ kho mã D1 chi tiết (`codes_pool`), số lượng tồn thật và thống kê.
+     - `POST`: Tạo mới hoặc cập nhật toàn diện đợt phát code kèm mảng mã khởi tạo (`codes: string[]`) được nạp tự động vào bảng D1 `giveaway_codes`.
+     - `PUT`: Thao tác nhanh với `action`: `ADD_CODES` (nạp thêm mã vào kho), `TOGGLE_ACTIVE` (bật/tắt sự kiện), `RESET_COOLDOWN` (xóa thời gian chờ giật mã), `ADJUST_METRICS`.
+     - `DELETE`: Xóa vĩnh viễn đợt phát giveaway với Tombstone Deletion Pattern chống hồi sinh dữ liệu trên cả KV và D1.
+  2. Bổ sung Preset API Key & Tiền tố định danh (`functions/api/api-keys/index.ts`):
+     - Tự động sinh preset key `ak_preset_giveaways_full` (`GIVEAWAYS_FULL` - `wcg_gw_7193ab4028cf51d9e27b140685e93c1482f04b2a`).
+     - Tự động gán tiền tố `wcg_gw_` khi tạo khóa API mới có quyền `GIVEAWAYS_FULL`.
+  3. Bổ sung Tài Liệu Giveaway API ở cuối trang Quản Lý API (`src/admin/modules/ApiKeysModule.tsx`):
+     - Thêm danh mục `docCategory === 'giveaways'` vào tài liệu mẫu code ở cuối trang với 4 mẫu lệnh chi tiết (tra cứu, nạp mã kho, tạo mới, bật tắt/reset).
+  4. Tích hợp Subtab "Kết Nối API Quản Lý" & Banner Cuối Trang trong Giveaway Admin (`src/admin/modules/PrivateCodesModule.tsx`):
+     - Mở rộng subtab: `subTab: 'campaigns' | 'wheel' | 'api'`. Thêm nút chuyển tab thứ 3 trên thanh điều hướng với icon `KeyRound` và badge `GIVEAWAYS_FULL`.
+     - **Thẻ 1: Tạo Khóa API GIVEAWAYS_FULL**: Cho phép nhập tên, hạn dùng (30d, 90d, 365d, vĩnh viễn), tự động sinh khóa và hiển thị khóa bí mật 1 lần duy nhất với nút copy 1-click.
+     - **Thẻ 2: Bảng Danh Sách Khóa API Đang Quản Trị**: Hiển thị toàn bộ khóa API có quyền quản trị Giveaway, cho phép Bật/Tắt trạng thái hoạt động, chọn thử nghiệm, và xóa khóa.
+     - **Thẻ 3: Trình Thử Nghiệm Gọi API Trực Tiếp (Interactive API Quick Tester)**: Cho phép chọn hành động (`GET_LIST`, `GET_DETAIL`, `ADD_CODES`, `TOGGLE_ACTIVE`, `RESET_COOLDOWN`), chọn campaign mục tiêu, điền API key, và bấm gửi request trực tiếp để xem response HTTP code, latency ms và JSON kết quả thời gian thực.
+     - **Thẻ 4 (Ở cuối trang): Bảng Tra Cứu Endpoints & Mẫu Lệnh Gọi API (cURL / JS Fetch)**: Tổng hợp bảng 4 endpoints (`GET`, `POST`, `PUT`, `DELETE /api/giveaways/manage`) và 4 tab mẫu mã lệnh copy được ngay.
+     - **Banner Cuối Trang ở tab Danh Sách Chiến Dịch**: Khối thẻ nổi bật ở cuối bảng giveaway giúp Admin 1-click chuyển ngay sang tab API.
+- **Kiểm Thử & Triển Khai**:
+  - `npm run build`: 100% PASS, 0 lỗi TypeScript, 0 lỗi bundle.
+  - Kiểm thử `audit_zero_test_artifacts.cjs`: 100% PASS.
+  - Kiểm thử hồi quy sao chép & kho hàng giveaway: 100% PASS.
+  - Script kiểm tra xác nhận `test_giveaway_api.cjs`: Toàn bộ 5 mục kiểm tra đều đạt 100%.
+
+---
 
 ### 260. Khắc Phục Triệt Để Hiện Tượng Cấu Hình Giveaway Bị Hồi Sinh/Giật Về Bản Cũ Sau ~30 Giây (Bảng Admin Là Chân Lý)
 - **Bối cảnh & Yêu cầu người dùng**:
@@ -150,6 +330,42 @@ Mỗi mục sửa lỗi đều ghi nhận **Nguyên nhân gốc rễ (Root Cause
 
 ## [2026-10-29]
 
+### 264. Phát Triển API Kết Nối Toàn Quyền Quản Lý Giveaway, Subtab API & Danh Sách Endpoints Chi Tiết Ở Cuối Trang (Full Giveaway Management API, Dedicated Subtab & Endpoints Reference)
+- **Bối cảnh & Yêu cầu người dùng**:
+  - Người dùng yêu cầu: "Trong mục giveaway ở admin, bạn tạo cho tôi mục API kết nối toàn quyền quản lý mục này đi, nhớ thêm vào mục danh sách api ở cuối trang nhé."
+  - Nhu cầu kết nối và tự động hóa toàn diện các chiến dịch giật code (Giveaway) thông qua API REST không giao diện: phục vụ bot Discord/Telegram, tool nạp giftcode tự động, hoặc các hệ thống bên ngoài mà không cần truy cập web admin thủ công.
+  - Cần tài liệu danh sách các endpoints chi tiết và mẫu code cURL/JavaScript ở cuối trang để tra cứu và sao chép nhanh 1-click.
+- **Nguyên nhân & Nhu cầu kiến trúc**:
+  1. Chưa có endpoint REST API chuyên biệt cho Giveaway: Trước đây các thao tác quản lý Giveaway (tạo, cập nhật, nạp mã kho, bật/tắt) chủ yếu đi qua giao diện Admin và `adminDataService.ts`.
+  2. Quyền `GIVEAWAYS_FULL` chưa có bộ điều khiển và tài liệu cURL/JS mẫu: Mặc dù mã quyền đã được quy hoạch nhưng chưa có endpoint serverless edge xử lý đầy đủ các phương thức `GET`, `POST`, `PUT`, `DELETE`.
+  3. Cần khu vực quản lý và thử nghiệm trực tiếp ngay trong Admin: Giúp Admin dễ dàng tạo khóa API cho Giveaway, kiểm tra trạng thái các khóa đang hoạt động, và test trực tiếp các lệnh gọi API ngay trên giao diện mà không cần mở Postman hay terminal.
+- **Giải pháp xử lý triệt để**:
+  1. Xây dựng Serverless Edge REST API toàn quyền (`functions/api/giveaways/manage.ts` & `functions/api/giveaways/index.ts`):
+     - Xác thực đa tầng qua `authorizeGiveawayRequest`: Chấp nhận Admin Session hoặc API Key có scope `GIVEAWAYS_FULL`, `ADMIN_FULL`, `FULL` hoặc `*`.
+     - `GET`: Lấy danh sách toàn bộ chiến dịch hoặc chi tiết 1 chiến dịch (`?id=...`) kèm toàn bộ kho mã D1 chi tiết (`codes_pool`), số lượng tồn thật và thống kê.
+     - `POST`: Tạo mới hoặc cập nhật toàn diện đợt phát code kèm mảng mã khởi tạo (`codes: string[]`) được nạp tự động vào bảng D1 `giveaway_codes`.
+     - `PUT`: Thao tác nhanh với `action`: `ADD_CODES` (nạp thêm mã vào kho), `TOGGLE_ACTIVE` (bật/tắt sự kiện), `RESET_COOLDOWN` (xóa thời gian chờ giật mã), `ADJUST_METRICS`.
+     - `DELETE`: Xóa vĩnh viễn đợt phát giveaway với Tombstone Deletion Pattern chống hồi sinh dữ liệu trên cả KV và D1.
+  2. Bổ sung Preset API Key & Tiền tố định danh (`functions/api/api-keys/index.ts`):
+     - Tự động sinh preset key `ak_preset_giveaways_full` (`GIVEAWAYS_FULL` - `wcg_gw_7193ab4028cf51d9e27b140685e93c1482f04b2a`).
+     - Tự động gán tiền tố `wcg_gw_` khi tạo khóa API mới có quyền `GIVEAWAYS_FULL`.
+  3. Bổ sung Tài Liệu Giveaway API ở cuối trang Quản Lý API (`src/admin/modules/ApiKeysModule.tsx`):
+     - Thêm danh mục `docCategory === 'giveaways'` vào tài liệu mẫu code ở cuối trang với 4 mẫu lệnh chi tiết (tra cứu, nạp mã kho, tạo mới, bật tắt/reset).
+  4. Tích hợp Subtab "Kết Nối API Quản Lý" & Banner Cuối Trang trong Giveaway Admin (`src/admin/modules/PrivateCodesModule.tsx`):
+     - Mở rộng subtab: `subTab: 'campaigns' | 'wheel' | 'api'`. Thêm nút chuyển tab thứ 3 trên thanh điều hướng với icon `KeyRound` và badge `GIVEAWAYS_FULL`.
+     - **Thẻ 1: Tạo Khóa API GIVEAWAYS_FULL**: Cho phép nhập tên, hạn dùng (30d, 90d, 365d, vĩnh viễn), tự động sinh khóa và hiển thị khóa bí mật 1 lần duy nhất với nút copy 1-click.
+     - **Thẻ 2: Bảng Danh Sách Khóa API Đang Quản Trị**: Hiển thị toàn bộ khóa API có quyền quản trị Giveaway, cho phép Bật/Tắt trạng thái hoạt động, chọn thử nghiệm, và xóa khóa.
+     - **Thẻ 3: Trình Thử Nghiệm Gọi API Trực Tiếp (Interactive API Quick Tester)**: Cho phép chọn hành động (`GET_LIST`, `GET_DETAIL`, `ADD_CODES`, `TOGGLE_ACTIVE`, `RESET_COOLDOWN`), chọn campaign mục tiêu, điền API key, và bấm gửi request trực tiếp để xem response HTTP code, latency ms và JSON kết quả thời gian thực.
+     - **Thẻ 4 (Ở cuối trang): Bảng Tra Cứu Endpoints & Mẫu Lệnh Gọi API (cURL / JS Fetch)**: Tổng hợp bảng 4 endpoints (`GET`, `POST`, `PUT`, `DELETE /api/giveaways/manage`) và 4 tab mẫu mã lệnh copy được ngay.
+     - **Banner Cuối Trang ở tab Danh Sách Chiến Dịch**: Khối thẻ nổi bật ở cuối bảng giveaway giúp Admin 1-click chuyển ngay sang tab API.
+- **Kiểm Thử & Triển Khai**:
+  - `npm run build`: 100% PASS, 0 lỗi TypeScript, 0 lỗi bundle.
+  - Kiểm thử `audit_zero_test_artifacts.cjs`: 100% PASS.
+  - Kiểm thử hồi quy sao chép & kho hàng giveaway: 100% PASS.
+  - Script kiểm tra xác nhận `test_giveaway_api.cjs`: Toàn bộ 5 mục kiểm tra đều đạt 100%.
+
+---
+
 ### 262. Sửa Bộ Đếm Tổng Lượt Sao Chép Không Tăng Theo Thông Báo & Người Thật Sao Chép (Copy Counter Synchronization & Real Actions Hookup)
 - **Bối cảnh & Yêu cầu người dùng**:
   - Người dùng phản ánh: "Tổng số lượt sao chép chưa xử lý được, đảm bảo tăng theo thông báo và người thật sao chép giúp tôi."
@@ -175,6 +391,42 @@ Mỗi mục sửa lỗi đều ghi nhận **Nguyên nhân gốc rễ (Root Cause
 ---
 
 ## [2026-10-29]
+
+### 264. Phát Triển API Kết Nối Toàn Quyền Quản Lý Giveaway, Subtab API & Danh Sách Endpoints Chi Tiết Ở Cuối Trang (Full Giveaway Management API, Dedicated Subtab & Endpoints Reference)
+- **Bối cảnh & Yêu cầu người dùng**:
+  - Người dùng yêu cầu: "Trong mục giveaway ở admin, bạn tạo cho tôi mục API kết nối toàn quyền quản lý mục này đi, nhớ thêm vào mục danh sách api ở cuối trang nhé."
+  - Nhu cầu kết nối và tự động hóa toàn diện các chiến dịch giật code (Giveaway) thông qua API REST không giao diện: phục vụ bot Discord/Telegram, tool nạp giftcode tự động, hoặc các hệ thống bên ngoài mà không cần truy cập web admin thủ công.
+  - Cần tài liệu danh sách các endpoints chi tiết và mẫu code cURL/JavaScript ở cuối trang để tra cứu và sao chép nhanh 1-click.
+- **Nguyên nhân & Nhu cầu kiến trúc**:
+  1. Chưa có endpoint REST API chuyên biệt cho Giveaway: Trước đây các thao tác quản lý Giveaway (tạo, cập nhật, nạp mã kho, bật/tắt) chủ yếu đi qua giao diện Admin và `adminDataService.ts`.
+  2. Quyền `GIVEAWAYS_FULL` chưa có bộ điều khiển và tài liệu cURL/JS mẫu: Mặc dù mã quyền đã được quy hoạch nhưng chưa có endpoint serverless edge xử lý đầy đủ các phương thức `GET`, `POST`, `PUT`, `DELETE`.
+  3. Cần khu vực quản lý và thử nghiệm trực tiếp ngay trong Admin: Giúp Admin dễ dàng tạo khóa API cho Giveaway, kiểm tra trạng thái các khóa đang hoạt động, và test trực tiếp các lệnh gọi API ngay trên giao diện mà không cần mở Postman hay terminal.
+- **Giải pháp xử lý triệt để**:
+  1. Xây dựng Serverless Edge REST API toàn quyền (`functions/api/giveaways/manage.ts` & `functions/api/giveaways/index.ts`):
+     - Xác thực đa tầng qua `authorizeGiveawayRequest`: Chấp nhận Admin Session hoặc API Key có scope `GIVEAWAYS_FULL`, `ADMIN_FULL`, `FULL` hoặc `*`.
+     - `GET`: Lấy danh sách toàn bộ chiến dịch hoặc chi tiết 1 chiến dịch (`?id=...`) kèm toàn bộ kho mã D1 chi tiết (`codes_pool`), số lượng tồn thật và thống kê.
+     - `POST`: Tạo mới hoặc cập nhật toàn diện đợt phát code kèm mảng mã khởi tạo (`codes: string[]`) được nạp tự động vào bảng D1 `giveaway_codes`.
+     - `PUT`: Thao tác nhanh với `action`: `ADD_CODES` (nạp thêm mã vào kho), `TOGGLE_ACTIVE` (bật/tắt sự kiện), `RESET_COOLDOWN` (xóa thời gian chờ giật mã), `ADJUST_METRICS`.
+     - `DELETE`: Xóa vĩnh viễn đợt phát giveaway với Tombstone Deletion Pattern chống hồi sinh dữ liệu trên cả KV và D1.
+  2. Bổ sung Preset API Key & Tiền tố định danh (`functions/api/api-keys/index.ts`):
+     - Tự động sinh preset key `ak_preset_giveaways_full` (`GIVEAWAYS_FULL` - `wcg_gw_7193ab4028cf51d9e27b140685e93c1482f04b2a`).
+     - Tự động gán tiền tố `wcg_gw_` khi tạo khóa API mới có quyền `GIVEAWAYS_FULL`.
+  3. Bổ sung Tài Liệu Giveaway API ở cuối trang Quản Lý API (`src/admin/modules/ApiKeysModule.tsx`):
+     - Thêm danh mục `docCategory === 'giveaways'` vào tài liệu mẫu code ở cuối trang với 4 mẫu lệnh chi tiết (tra cứu, nạp mã kho, tạo mới, bật tắt/reset).
+  4. Tích hợp Subtab "Kết Nối API Quản Lý" & Banner Cuối Trang trong Giveaway Admin (`src/admin/modules/PrivateCodesModule.tsx`):
+     - Mở rộng subtab: `subTab: 'campaigns' | 'wheel' | 'api'`. Thêm nút chuyển tab thứ 3 trên thanh điều hướng với icon `KeyRound` và badge `GIVEAWAYS_FULL`.
+     - **Thẻ 1: Tạo Khóa API GIVEAWAYS_FULL**: Cho phép nhập tên, hạn dùng (30d, 90d, 365d, vĩnh viễn), tự động sinh khóa và hiển thị khóa bí mật 1 lần duy nhất với nút copy 1-click.
+     - **Thẻ 2: Bảng Danh Sách Khóa API Đang Quản Trị**: Hiển thị toàn bộ khóa API có quyền quản trị Giveaway, cho phép Bật/Tắt trạng thái hoạt động, chọn thử nghiệm, và xóa khóa.
+     - **Thẻ 3: Trình Thử Nghiệm Gọi API Trực Tiếp (Interactive API Quick Tester)**: Cho phép chọn hành động (`GET_LIST`, `GET_DETAIL`, `ADD_CODES`, `TOGGLE_ACTIVE`, `RESET_COOLDOWN`), chọn campaign mục tiêu, điền API key, và bấm gửi request trực tiếp để xem response HTTP code, latency ms và JSON kết quả thời gian thực.
+     - **Thẻ 4 (Ở cuối trang): Bảng Tra Cứu Endpoints & Mẫu Lệnh Gọi API (cURL / JS Fetch)**: Tổng hợp bảng 4 endpoints (`GET`, `POST`, `PUT`, `DELETE /api/giveaways/manage`) và 4 tab mẫu mã lệnh copy được ngay.
+     - **Banner Cuối Trang ở tab Danh Sách Chiến Dịch**: Khối thẻ nổi bật ở cuối bảng giveaway giúp Admin 1-click chuyển ngay sang tab API.
+- **Kiểm Thử & Triển Khai**:
+  - `npm run build`: 100% PASS, 0 lỗi TypeScript, 0 lỗi bundle.
+  - Kiểm thử `audit_zero_test_artifacts.cjs`: 100% PASS.
+  - Kiểm thử hồi quy sao chép & kho hàng giveaway: 100% PASS.
+  - Script kiểm tra xác nhận `test_giveaway_api.cjs`: Toàn bộ 5 mục kiểm tra đều đạt 100%.
+
+---
 
 ### 259. Ẩn Hiển Thị Số Lượt/IP Tại Mục Săn Giveaway (/giveaways) Trên Giao Diện Web Khách
 - **Bối cảnh & Yêu cầu người dùng**:

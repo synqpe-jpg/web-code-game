@@ -10,6 +10,23 @@
 
 ## 1. DANH MỤC LỖI & CÁC BẪY ĐÃ THẤT BẠI (DO NOT REPEAT)
 
+### ISSUE-180: Bẫy Thiếu Endpoint Toàn Quyền Cho Giveaway & Quên Đăng Ký Tài Liệu cURL/JS Khi Mở Scope API Mới (Giveaway Management API & Documentation Missing Pitfall)
+- **Triệu chứng**:
+  - Không thể tự động hóa việc nạp giftcode hay quản lý đợt phát code giveaway từ bot bên ngoài (Discord, Telegram, cronjob) do thiếu endpoint REST API hỗ trợ phương thức PUT/POST/DELETE.
+  - Các khóa API được cấp quyền `GIVEAWAYS_FULL` không có endpoint để gọi hoặc gọi bị từ chối 403 do thiếu logic kiểm tra `hasScope(scope, 'GIVEAWAYS_FULL')`.
+  - Quản trị viên trong trang Admin không biết endpoint nào để gọi, không có mẫu lệnh cURL và JS fetch để tích hợp nhanh.
+- **Nguyên nhân gốc rễ**:
+  1. Chưa có router serverless edge chuyên biệt cho `/api/giveaways/manage` tiếp nhận và giải mã quyền `GIVEAWAYS_FULL`.
+  2. Vi phạm Nguyên Tắc Số 8 (`RULE[c:\4 Antigravity all\13 web code game\AGENTS.md]`): Khi mở quyền API mới thì bắt buộc phải đồng bộ vào `ALL_API_SCOPES`, sinh mẫu cURL/JS ở cuối trang và cung cấp giao diện quản lý / thử nghiệm.
+- **Giải pháp chuẩn đã kiểm chứng**:
+  1. Xây dựng Serverless Edge REST API tại `functions/api/giveaways/manage.ts` (và alias `functions/api/giveaways/index.ts`) hỗ trợ đầy đủ `GET`, `POST`, `PUT`, `DELETE` với xác thực đa tầng qua `authorizeGiveawayRequest`.
+  2. Tự động sinh preset key `ak_preset_giveaways_full` (`wcg_gw_7193ab4028cf51d9e27b140685e93c1482f04b2a`) trong `functions/api/api-keys/index.ts`.
+  3. Bổ sung `docCategory === 'giveaways'` vào tài liệu mẫu code cuối trang của `ApiKeysModule.tsx`.
+  4. Tích hợp subtab `subTab === 'api'` trong `PrivateCodesModule.tsx` gồm: Thẻ tạo khóa `GIVEAWAYS_FULL`, Bảng danh sách khóa đang hoạt động, Trình thử nghiệm gọi API trực tiếp (Quick Tester), và Bảng tra cứu endpoints & mẫu lệnh cURL/JS ở cuối trang.
+- 🚫 **CÁCH SỬA ĐÃ THẤT BẠI - TUYỆT ĐỐI KHÔNG LẶP LẠI**:
+  - ❌ *Tuyệt đối KHÔNG mở quyền API mới mà không bổ sung tài liệu endpoints và mẫu cURL/JS ở cuối trang*.
+  - ❌ *Tuyệt đối KHÔNG bỏ qua xác thực `authorizeGiveawayRequest` hoặc cho phép ghi vào kho D1 mà không qua kiểm tra scope*.
+
 ### ISSUE-179: Bẫy Phân Mảnh Thanh Ghim Khiến Nút Sáng/Tối Bị Đẩy Khuất & Trải Nghiệm Tùy Biến Cá Nhân Bị Phân Tán (Sticky Header Horizontal Overflow & Settings Fragmentation Pitfall)
 - **Triệu chứng**:
   - Thanh ghim điều hướng quá cao (h-18, 72px) và thanh công cụ bên phải chứa quá nhiều nút (Tải App, Language Selector header, Bookmark, Avatar, Nút Sáng/Tối).

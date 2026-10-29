@@ -84,6 +84,18 @@ async function ensureDefaultPresetKeys(env: Env) {
     `).bind(keyHash, keyPrefix, multiScope, rawKey, nowIso).run().catch(() => {});
   }
 
+  // 6. Preset Giveaways Full Key (Toàn Quyền Quản Lý Giveaway)
+  const hasGiveaways = list.some((r) => String(r.scope).toUpperCase() === 'GIVEAWAYS_FULL' || r.id === 'ak_preset_giveaways_full');
+  if (!hasGiveaways) {
+    const rawKey = 'wcg_gw_7193ab4028cf51d9e27b140685e93c1482f04b2a';
+    const keyHash = await computeSha256(rawKey);
+    const keyPrefix = 'wcg_gw_7193••••••••••••••••••••4b2a';
+    await env.DB.prepare(`
+      INSERT INTO mission_ai_api_keys (id, key_name, api_key_hash, key_prefix, scope, description, expires_at, raw_key, is_active, last_used_at, created_at)
+      VALUES ('ak_preset_giveaways_full', 'Toàn Quyền Giveaway (Giveaways Full Access)', ?, ?, 'GIVEAWAYS_FULL', 'Toàn quyền quản trị chiến dịch Giveaway, thêm/sửa/xóa đợt phát, nạp kho mã giftcode, bật tắt sự kiện và reset thời gian hồi chiêu.', ?, ?, 1, '', ?)
+    `).bind(keyHash, keyPrefix, expires90d, rawKey, nowIso).run().catch(() => {});
+  }
+
   // Update existing key if missing raw_key for easy copy
   const existingVjxp = list.find((r) => r.id === 'ak_1793169536801_vjxp');
   if (existingVjxp && !existingVjxp.raw_key) {
@@ -225,6 +237,7 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
     if (validScope.includes(',')) prefixTag = 'wcg_multi_';
     else if (validScope === 'NEWS_FULL') prefixTag = 'wcg_news_';
     else if (validScope === 'MISSIONS_FULL') prefixTag = 'wcg_mis_';
+    else if (validScope === 'GIVEAWAYS_FULL') prefixTag = 'wcg_gw_';
     else if (validScope === 'MISSIONS_REVIEW' || validScope === 'REVIEW_ONLY') prefixTag = 'wcg_ai_';
     else if (validScope === 'ADMIN_FULL' || validScope === 'FULL') prefixTag = 'wcg_adm_';
     else prefixTag = 'wcg_multi_';

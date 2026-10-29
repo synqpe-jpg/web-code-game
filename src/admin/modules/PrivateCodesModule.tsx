@@ -31,6 +31,16 @@ import {
   Bot,
   User,
   Calendar,
+  KeyRound,
+  Key,
+  Code2,
+  Terminal,
+  Shield,
+  CheckCheck,
+  Layers,
+  Lock,
+  AlertCircle,
+  Server,
 } from 'lucide-react';
 import { LuckyWheelAdminManager } from '../components/LuckyWheelAdminManager';
 import { FormModal } from '../components/ui/FormModal';
@@ -57,7 +67,33 @@ export const PrivateCodesModule: React.FC<PrivateCodesModuleProps> = ({ onShowTo
   const [statusFilter, setStatusFilter] = useState<'ALL' | 'ACTIVE' | 'INACTIVE'>('ALL');
   const [searchQuery, setSearchQuery] = useState('');
   const [copiedId, setCopiedId] = useState<string | null>(null);
-  const [subTab, setSubTab] = useState<'campaigns' | 'wheel'>('campaigns');
+  const [subTab, setSubTab] = useState<'campaigns' | 'wheel' | 'api'>('campaigns');
+
+  // --- GIVEAWAY API MANAGEMENT & QUICK TESTER STATE ---
+  const [giveawayApiKeys, setGiveawayApiKeys] = useState<any[]>([]);
+  const [isLoadingApiKeys, setIsLoadingApiKeys] = useState(false);
+  const [newKeyName, setNewKeyName] = useState('');
+  const [newKeyExpiry, setNewKeyExpiry] = useState<'30' | '90' | '365' | 'permanent'>('90');
+  const [isCreatingKey, setIsCreatingKey] = useState(false);
+  const [generatedKeyResult, setGeneratedKeyResult] = useState<{
+    key_name: string;
+    raw_key: string;
+    scope: string;
+    expires_at?: string;
+  } | null>(null);
+  const [copiedKeyText, setCopiedKeyText] = useState<string | null>(null);
+
+  // --- QUICK API TESTER ---
+  const [testAction, setTestAction] = useState<'GET_LIST' | 'GET_DETAIL' | 'ADD_CODES' | 'TOGGLE_ACTIVE' | 'RESET_COOLDOWN'>('GET_LIST');
+  const [testApiKey, setTestApiKey] = useState('wcg_gw_7193ab4028cf51d9e27b140685e93c1482f04b2a');
+  const [testSelectedGwId, setTestSelectedGwId] = useState('');
+  const [testCodesInput, setTestCodesInput] = useState('');
+  const [testActiveState, setTestActiveState] = useState(true);
+  const [isTestingApi, setIsTestingApi] = useState(false);
+  const [testApiResponse, setTestApiResponse] = useState<any | null>(null);
+  const [testApiLatency, setTestApiLatency] = useState<number | null>(null);
+  const [testApiStatus, setTestApiStatus] = useState<number | null>(null);
+  const [apiDocCategory, setApiDocCategory] = useState<'curl_get' | 'curl_add_codes' | 'curl_create' | 'js_client'>('curl_get');
 
   // --- SHOW / HIDE VIRTUAL METRICS TOGGLE ---
   const [showVirtualStats, setShowVirtualStats] = useState<boolean>(() => {
@@ -171,9 +207,264 @@ export const PrivateCodesModule: React.FC<PrivateCodesModuleProps> = ({ onShowTo
     };
   }, []);
 
+  const getAdminHeaders = (): Record<string, string> => {
+    const token =
+      localStorage.getItem('wcg_auth_token') ||
+      sessionStorage.getItem('wcg_auth_token') ||
+      '';
+    const syncKey =
+      sessionStorage.getItem('wcg_admin_sync_key') ||
+      localStorage.getItem('wcg_admin_sync_key') ||
+      'b4e08494bf1c3fd6a0c965dd2411780c60513f7f87001bc955d7496331b2faef';
+
+    const headers: Record<string, string> = {
+      'Content-Type': 'application/json',
+      'X-Sync-Key': syncKey,
+    };
+    if (token) headers['Authorization'] = `Bearer ${token}`;
+    return headers;
+  };
+
+  const loadGiveawayApiKeys = async () => {
+    setIsLoadingApiKeys(true);
+    try {
+      const res = await fetch('/api/api-keys', {
+        headers: getAdminHeaders(),
+      });
+      const data = await res.json().catch(() => null);
+      if (res.ok && data?.success && Array.isArray(data.keys)) {
+        const filtered = data.keys.filter((k: any) => {
+          const s = (k.scope || '').toUpperCase();
+          return s.includes('GIVEAWAYS_FULL') || s.includes('ADMIN_FULL') || s.includes('FULL') || s === '*';
+        });
+        setGiveawayApiKeys(filtered);
+      }
+    } catch (err: any) {
+      console.warn('Failed to load api keys:', err);
+    } finally {
+      setIsLoadingApiKeys(false);
+    }
+  };
+
+  const handleCreateGiveawayKey = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newKeyName.trim()) {
+      onShowToast('Thiếu thông tin', 'Vui lòng nhập tên cho khóa API', 'error');
+      return;
+    }
+
+    setIsCreatingKey(true);
+    try {
+      let expiresAt: string | null = null;
+      if (newKeyExpiry !== 'permanent') {
+        const days = parseInt(newKeyExpiry, 10) || 90;
+        const d = new Date();
+        d.setDate(d.getDate() + days);
+        expiresAt = d.toISOString();
+      }
+
+      const res = await fetch('/api/api-keys', {
+        method: 'POST',
+        headers: getAdminHeaders(),
+        body: JSON.stringify({
+          action: 'create',
+          key_name: newKeyName.trim(),
+          scope: 'GIVEAWAYS_FULL',
+          description: `Khóa API toàn quyền quản lý Giveaway: ${newKeyName.trim()}`,
+          expires_at: expiresAt,
+        }),
+      });
+
+      const data = await res.json().catch(() => null);
+      if (res.ok && data?.success && data?.raw_key) {
+        setGeneratedKeyResult({
+          key_name: data.key.key_name,
+          raw_key: data.raw_key,
+          scope: data.key.scope,
+          expires_at: data.key.expires_at,
+        });
+        setTestApiKey(data.raw_key);
+        setNewKeyName('');
+        onShowToast('Tạo Khóa API Thành Công!', `Đã tạo khóa quản lý Giveaway: ${data.key.key_name}`, 'success');
+        loadGiveawayApiKeys();
+      } else {
+        onShowToast('Không thể tạo khóa API', data?.message || data?.error || 'Lỗi không xác định', 'error');
+      }
+    } catch (err: any) {
+      onShowToast('Lỗi kết nối', err?.message || 'Không thể gửi yêu cầu tạo khóa', 'error');
+    } finally {
+      setIsCreatingKey(false);
+    }
+  };
+
+  const handleToggleApiKey = async (keyItem: any) => {
+    try {
+      const nextActive = keyItem.is_active === 1 ? 0 : 1;
+      const res = await fetch('/api/api-keys', {
+        method: 'POST',
+        headers: getAdminHeaders(),
+        body: JSON.stringify({
+          action: 'toggle',
+          key_id: keyItem.id,
+          is_active: nextActive,
+        }),
+      });
+      const data = await res.json().catch(() => null);
+      if (res.ok && data?.success) {
+        onShowToast('Đã đổi trạng thái', `Khóa ${keyItem.key_name} đã ${nextActive === 1 ? 'kích hoạt' : 'tạm ngưng'}.`, 'success');
+        loadGiveawayApiKeys();
+      } else {
+        onShowToast('Lỗi thao tác', data?.message || 'Không thể đổi trạng thái khóa', 'error');
+      }
+    } catch (err: any) {
+      onShowToast('Lỗi kết nối', err?.message || 'Không thể kết nối đến máy chủ', 'error');
+    }
+  };
+
+  const handleDeleteApiKey = async (keyItem: any) => {
+    if (!confirm(`Bạn có chắc chắn muốn xóa vĩnh viễn khóa API "${keyItem.key_name}"? Mọi tích hợp dùng khóa này sẽ ngừng hoạt động ngay lập tức.`)) {
+      return;
+    }
+    try {
+      const res = await fetch('/api/api-keys', {
+        method: 'POST',
+        headers: getAdminHeaders(),
+        body: JSON.stringify({
+          action: 'delete',
+          key_id: keyItem.id,
+        }),
+      });
+      const data = await res.json().catch(() => null);
+      if (res.ok && data?.success) {
+        onShowToast('Đã xóa khóa API', `Đã xóa vĩnh viễn khóa "${keyItem.key_name}".`, 'success');
+        loadGiveawayApiKeys();
+      } else {
+        onShowToast('Lỗi thao tác', data?.message || 'Không thể xóa khóa', 'error');
+      }
+    } catch (err: any) {
+      onShowToast('Lỗi kết nối', err?.message || 'Không thể kết nối đến máy chủ', 'error');
+    }
+  };
+
+  const handleRunTestApi = async () => {
+    setIsTestingApi(true);
+    setTestApiResponse(null);
+    setTestApiStatus(null);
+    const startTime = performance.now();
+
+    try {
+      let url = '/api/giveaways/manage';
+      let method = 'GET';
+      let body: any = null;
+
+      const headers: Record<string, string> = {
+        'Content-Type': 'application/json',
+      };
+      if (testApiKey.trim()) {
+        headers['X-Api-Key'] = testApiKey.trim();
+      }
+
+      if (testAction === 'GET_LIST') {
+        method = 'GET';
+      } else if (testAction === 'GET_DETAIL') {
+        if (!testSelectedGwId) {
+          onShowToast('Thiếu thông tin', 'Vui lòng chọn 1 đợt phát để tra cứu chi tiết', 'error');
+          setIsTestingApi(false);
+          return;
+        }
+        url += `?id=${encodeURIComponent(testSelectedGwId)}`;
+        method = 'GET';
+      } else if (testAction === 'ADD_CODES') {
+        if (!testSelectedGwId) {
+          onShowToast('Thiếu thông tin', 'Vui lòng chọn 1 đợt phát để nạp mã', 'error');
+          setIsTestingApi(false);
+          return;
+        }
+        const codes = testCodesInput.split(/[\r\n,]+/).map((c) => c.trim()).filter(Boolean);
+        if (codes.length === 0) {
+          onShowToast('Thiếu mã', 'Vui lòng nhập ít nhất 1 mã giftcode vào ô bên dưới', 'error');
+          setIsTestingApi(false);
+          return;
+        }
+        method = 'PUT';
+        body = JSON.stringify({
+          action: 'ADD_CODES',
+          id: testSelectedGwId,
+          codes: codes,
+        });
+      } else if (testAction === 'TOGGLE_ACTIVE') {
+        if (!testSelectedGwId) {
+          onShowToast('Thiếu thông tin', 'Vui lòng chọn 1 đợt phát để đổi trạng thái', 'error');
+          setIsTestingApi(false);
+          return;
+        }
+        method = 'PUT';
+        body = JSON.stringify({
+          action: 'TOGGLE_ACTIVE',
+          id: testSelectedGwId,
+          is_active: testActiveState,
+        });
+      } else if (testAction === 'RESET_COOLDOWN') {
+        if (!testSelectedGwId) {
+          onShowToast('Thiếu thông tin', 'Vui lòng chọn 1 đợt phát để reset cooldown', 'error');
+          setIsTestingApi(false);
+          return;
+        }
+        method = 'PUT';
+        body = JSON.stringify({
+          action: 'RESET_COOLDOWN',
+          id: testSelectedGwId,
+          target: 'GLOBAL',
+        });
+      }
+
+      const res = await fetch(url, {
+        method,
+        headers,
+        body,
+      });
+
+      const latency = Math.round(performance.now() - startTime);
+      setTestApiLatency(latency);
+      setTestApiStatus(res.status);
+
+      const json = await res.json().catch(() => ({ raw_text: 'Non-JSON response' }));
+      setTestApiResponse(json);
+
+      if (res.ok && json?.success) {
+        onShowToast('Gọi API Thành Công!', `HTTP ${res.status} (${latency}ms)`, 'success');
+        if (testAction === 'ADD_CODES' || testAction === 'TOGGLE_ACTIVE' || testAction === 'RESET_COOLDOWN') {
+          loadData();
+        }
+      } else {
+        onShowToast(`Lỗi HTTP ${res.status}`, json?.message || 'Yêu cầu API trả về lỗi', 'error');
+      }
+    } catch (err: any) {
+      const latency = Math.round(performance.now() - startTime);
+      setTestApiLatency(latency);
+      setTestApiStatus(0);
+      setTestApiResponse({ error: err?.message || 'Network request failed' });
+      onShowToast('Lỗi kết nối API', err?.message || 'Không thể gửi request', 'error');
+    } finally {
+      setIsTestingApi(false);
+    }
+  };
+
+  const handleCopyText = (text: string, label: string) => {
+    navigator.clipboard.writeText(text);
+    setCopiedKeyText(label);
+    onShowToast('Đã sao chép!', label, 'success');
+    setTimeout(() => {
+      setCopiedKeyText(null);
+    }, 2500);
+  };
+
   const loadData = () => {
     const gList = adminDataService.getGiveaways();
     setGiveaways(gList);
+    if (gList.length > 0 && !testSelectedGwId) {
+      setTestSelectedGwId(gList[0].id);
+    }
   };
 
   const handleCopy = (code: string, id: string) => {
@@ -667,10 +958,771 @@ export const PrivateCodesModule: React.FC<PrivateCodesModuleProps> = ({ onShowTo
           <Dices className="w-3.5 h-3.5 text-amber-400" />
           <span>🎡 Quản Lý Vòng Quay May Mắn</span>
         </button>
+        <button
+          type="button"
+          onClick={() => {
+            setSubTab('api');
+            loadGiveawayApiKeys();
+          }}
+          className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+            subTab === 'api'
+              ? 'bg-gradient-to-r from-purple-600 to-indigo-600 text-white shadow-sm'
+              : 'bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-700 hover:bg-slate-50'
+          }`}
+        >
+          <KeyRound className="w-3.5 h-3.5 text-purple-400" />
+          <span>🔑 Kết Nối API Quản Lý</span>
+          <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-purple-500/20 text-purple-300 font-mono">
+            GIVEAWAYS_FULL
+          </span>
+        </button>
       </div>
 
       {subTab === 'wheel' ? (
         <LuckyWheelAdminManager onShowToast={onShowToast} contextTitle="Phát Code & Giveaway" />
+      ) : subTab === 'api' ? (
+        <div className="space-y-6 animate-in fade-in duration-200">
+          {/* HEADER CARD: TỔNG QUAN API GIVEAWAY */}
+          <div className="rounded-2xl border border-slate-200 bg-white p-6 dark:border-slate-800 dark:bg-slate-900 shadow-sm">
+            <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 border-b border-slate-100 pb-5 dark:border-slate-800">
+              <div className="flex items-center gap-3">
+                <div className="w-12 h-12 rounded-2xl bg-gradient-to-tr from-purple-600 to-indigo-600 text-white flex items-center justify-center shadow-md shadow-purple-500/20">
+                  <KeyRound className="w-6 h-6 text-purple-100" />
+                </div>
+                <div>
+                  <div className="flex items-center gap-2">
+                    <h3 className="text-base font-bold text-slate-900 dark:text-white">
+                      Kết Nối & Quản Lý API Giveaway Tự Động Hóa 24/7
+                    </h3>
+                    <span className="text-[10px] px-2 py-0.5 rounded-full bg-purple-500/15 text-purple-600 dark:text-purple-300 border border-purple-500/30 font-mono font-bold">
+                      GIVEAWAYS_FULL
+                    </span>
+                  </div>
+                  <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+                    Hệ thống REST Edge API toàn quyền quản trị các đợt phát code: nạp mã kho D1, tạo chiến dịch, bật/tắt sự kiện, và xóa thời gian chờ.
+                  </p>
+                </div>
+              </div>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={loadGiveawayApiKeys}
+                  disabled={isLoadingApiKeys}
+                  className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl border border-slate-200 bg-white dark:border-slate-700 dark:bg-slate-800 text-xs font-bold text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700 transition-all cursor-pointer shadow-2xs"
+                >
+                  <RefreshCw className={`w-3.5 h-3.5 ${isLoadingApiKeys ? 'animate-spin text-purple-600' : ''}`} />
+                  <span>Làm Mới Khóa</span>
+                </button>
+              </div>
+            </div>
+
+            {/* Quick Metrics Bar */}
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 pt-5">
+              <div className="p-3 rounded-xl bg-purple-50/60 dark:bg-purple-950/20 border border-purple-100 dark:border-purple-900/40">
+                <span className="text-[11px] text-purple-700 dark:text-purple-300 font-semibold block">Quyền Hạn Cấp Phép</span>
+                <span className="text-xs font-bold text-purple-900 dark:text-purple-200 mt-1 font-mono block">GIVEAWAYS_FULL</span>
+              </div>
+              <div className="p-3 rounded-xl bg-indigo-50/60 dark:bg-indigo-950/20 border border-indigo-100 dark:border-indigo-900/40">
+                <span className="text-[11px] text-indigo-700 dark:text-indigo-300 font-semibold block">Kiến Trúc Backend</span>
+                <span className="text-xs font-bold text-indigo-900 dark:text-indigo-200 mt-1 block">Cloudflare Edge + D1</span>
+              </div>
+              <div className="p-3 rounded-xl bg-emerald-50/60 dark:bg-emerald-950/20 border border-emerald-100 dark:border-emerald-900/40">
+                <span className="text-[11px] text-emerald-700 dark:text-emerald-300 font-semibold block">Đồng Bộ Kho Mã</span>
+                <span className="text-xs font-bold text-emerald-900 dark:text-emerald-200 mt-1 block">Thời Gian Thực (0s)</span>
+              </div>
+              <div className="p-3 rounded-xl bg-amber-50/60 dark:bg-amber-950/20 border border-amber-100 dark:border-amber-900/40">
+                <span className="text-[11px] text-amber-700 dark:text-amber-300 font-semibold block">Định Dạng Xác Thực</span>
+                <span className="text-xs font-bold text-amber-900 dark:text-amber-200 mt-1 font-mono block">Header: X-Api-Key</span>
+              </div>
+            </div>
+          </div>
+
+          {/* CARD 1: TẠO KHÓA API MỚI */}
+          <div className="rounded-2xl border border-slate-200 bg-white p-6 dark:border-slate-800 dark:bg-slate-900 shadow-sm space-y-4">
+            <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-3">
+              <div className="flex items-center gap-2">
+                <Plus className="w-4 h-4 text-purple-600 dark:text-purple-400" />
+                <h4 className="text-sm font-bold text-slate-900 dark:text-white">
+                  Tạo Khóa API GIVEAWAYS_FULL Mới
+                </h4>
+              </div>
+              <span className="text-[11px] text-slate-400">
+                Cấp quyền quản trị đợt phát code cho bot, tool ngoài hoặc cronjob
+              </span>
+            </div>
+
+            <form onSubmit={handleCreateGiveawayKey} className="space-y-4">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                <div className="md:col-span-2">
+                  <label className="text-xs font-semibold text-slate-700 dark:text-slate-300 block mb-1.5">
+                    Tên Định Danh Khóa API <span className="text-rose-500">*</span>:
+                  </label>
+                  <input
+                    type="text"
+                    value={newKeyName}
+                    onChange={(e) => setNewKeyName(e.target.value)}
+                    placeholder="VD: Bot Nạp Mã Telegram, Cronjob Nạp Tự Động, Tool Săn Code"
+                    className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs text-slate-900 focus:border-purple-500 focus:outline-none dark:border-slate-700 dark:bg-slate-800 dark:text-white"
+                  />
+                </div>
+                <div>
+                  <label className="text-xs font-semibold text-slate-700 dark:text-slate-300 block mb-1.5">
+                    Thời Hạn Hiệu Lực:
+                  </label>
+                  <select
+                    value={newKeyExpiry}
+                    onChange={(e: any) => setNewKeyExpiry(e.target.value)}
+                    className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs text-slate-900 focus:border-purple-500 focus:outline-none dark:border-slate-700 dark:bg-slate-800 dark:text-white"
+                  >
+                    <option value="30">30 Ngày</option>
+                    <option value="90">90 Ngày (Khuyến Nghị)</option>
+                    <option value="365">1 Năm (365 Ngày)</option>
+                    <option value="permanent">Vĩnh Viễn (Không Hết Hạn)</option>
+                  </select>
+                </div>
+              </div>
+
+              <div className="flex items-center justify-between pt-1">
+                <div className="flex items-center gap-2 text-xs text-slate-500">
+                  <Shield className="w-3.5 h-3.5 text-purple-500" />
+                  <span>Quyền tự động gán: <strong className="text-purple-600 dark:text-purple-400 font-mono">GIVEAWAYS_FULL</strong></span>
+                </div>
+                <button
+                  type="submit"
+                  disabled={isCreatingKey || !newKeyName.trim()}
+                  className="inline-flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white shadow-sm transition-all disabled:opacity-50 cursor-pointer"
+                >
+                  {isCreatingKey ? (
+                    <>
+                      <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                      <span>Đang Tạo Khóa...</span>
+                    </>
+                  ) : (
+                    <>
+                      <Key className="w-3.5 h-3.5" />
+                      <span>Tạo Khóa API GIVEAWAYS_FULL</span>
+                    </>
+                  )}
+                </button>
+              </div>
+            </form>
+
+            {/* THÔNG BÁO KHÓA MỚI TẠO (HIỂN THỊ 1 LẦN DUY NHẤT) */}
+            {generatedKeyResult && (
+              <div className="p-4 rounded-xl bg-purple-50 dark:bg-purple-950/40 border border-purple-200 dark:border-purple-800 space-y-2.5 animate-in fade-in duration-200">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <CheckCircle2 className="w-4 h-4 text-emerald-500" />
+                    <span className="text-xs font-bold text-slate-900 dark:text-white">
+                      Đã Tạo Khóa API Thành Công: <span className="text-purple-600 dark:text-purple-300">{generatedKeyResult.key_name}</span>
+                    </span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setGeneratedKeyResult(null)}
+                    className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 text-xs"
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
+                </div>
+
+                <div className="p-3 bg-white dark:bg-slate-900 rounded-lg border border-purple-200 dark:border-purple-800 flex items-center justify-between gap-3 font-mono text-xs">
+                  <span className="text-purple-700 dark:text-purple-300 font-bold select-all break-all">
+                    {generatedKeyResult.raw_key}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => handleCopyText(generatedKeyResult.raw_key, 'Mã Khóa API')}
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-purple-600 text-white text-xs font-bold hover:bg-purple-700 transition-all shrink-0 cursor-pointer"
+                  >
+                    {copiedKeyText === 'Mã Khóa API' ? <Check className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />}
+                    <span>{copiedKeyText === 'Mã Khóa API' ? 'Đã Chép' : 'Sao Chép'}</span>
+                  </button>
+                </div>
+
+                <div className="flex items-center gap-2 text-[11px] text-amber-600 dark:text-amber-400">
+                  <AlertCircle className="w-3.5 h-3.5 shrink-0" />
+                  <span>
+                    <strong>Cảnh báo:</strong> Đây là lần duy nhất mã khóa bí mật này hiển thị đầy đủ. Hãy sao chép và lưu trữ an toàn trước khi đóng tab. Khóa này đã được điền sẵn vào Trình Thử Nghiệm bên dưới!
+                  </span>
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* CARD 2: DANH SÁCH KHÓA API GIVEAWAY ĐANG HOẠT ĐỘNG */}
+          <div className="rounded-2xl border border-slate-200 bg-white p-6 dark:border-slate-800 dark:bg-slate-900 shadow-sm space-y-4">
+            <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-3">
+              <div className="flex items-center gap-2">
+                <KeyRound className="w-4 h-4 text-purple-600 dark:text-purple-400" />
+                <h4 className="text-sm font-bold text-slate-900 dark:text-white">
+                  Danh Sách Khóa API Đang Quản Trị Giveaway ({giveawayApiKeys.length})
+                </h4>
+              </div>
+              <span className="text-xs text-slate-400">
+                Bao gồm các khóa có quyền GIVEAWAYS_FULL hoặc ADMIN_FULL
+              </span>
+            </div>
+
+            {isLoadingApiKeys ? (
+              <div className="py-8 text-center text-xs text-slate-500 flex items-center justify-center gap-2">
+                <RefreshCw className="w-4 h-4 animate-spin text-purple-600" />
+                <span>Đang tải danh sách khóa API...</span>
+              </div>
+            ) : giveawayApiKeys.length === 0 ? (
+              <div className="py-8 text-center space-y-2">
+                <p className="text-xs text-slate-400">Chưa có khóa API tùy chỉnh nào được tạo riêng cho Giveaway.</p>
+                <p className="text-[11px] text-purple-600 dark:text-purple-400 font-mono">
+                  Khóa mặc định toàn sàn: <strong>wcg_gw_7193ab4028cf51d9e27b140685e93c1482f04b2a</strong>
+                </p>
+              </div>
+            ) : (
+              <div className="overflow-x-auto rounded-xl border border-slate-100 dark:border-slate-800">
+                <table className="w-full text-left text-xs">
+                  <thead className="bg-slate-50 dark:bg-slate-800/60 text-slate-600 dark:text-slate-400 font-bold border-b border-slate-100 dark:border-slate-800">
+                    <tr>
+                      <th className="p-3">Tên Khóa API</th>
+                      <th className="p-3">Tiền Tố (Prefix)</th>
+                      <th className="p-3">Quyền Hạn</th>
+                      <th className="p-3">Hạn Dùng</th>
+                      <th className="p-3 text-center">Trạng Thái</th>
+                      <th className="p-3 text-right">Thao Tác</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
+                    {giveawayApiKeys.map((keyItem) => {
+                      const isActive = keyItem.is_active === 1;
+                      return (
+                        <tr key={keyItem.id} className="hover:bg-slate-50/50 dark:hover:bg-slate-800/30 transition-colors">
+                          <td className="p-3">
+                            <div className="font-bold text-slate-900 dark:text-white flex items-center gap-1.5">
+                              <span>{keyItem.key_name}</span>
+                              {keyItem.id === 'ak_preset_giveaways_full' && (
+                                <span className="text-[9px] px-1.5 py-0.2 rounded-md bg-purple-500/10 text-purple-600 font-mono">
+                                  PRESET
+                                </span>
+                              )}
+                            </div>
+                            <span className="text-[10px] text-slate-400 font-mono">{keyItem.id}</span>
+                          </td>
+                          <td className="p-3 font-mono text-[11px] text-purple-600 dark:text-purple-400">
+                            {keyItem.key_prefix || (keyItem.raw_key ? keyItem.raw_key.substring(0, 16) + '...' : 'wcg_gw_...')}
+                          </td>
+                          <td className="p-3">
+                            <span className="inline-block px-2 py-0.5 rounded-full text-[10px] font-mono font-bold bg-purple-500/10 text-purple-600 dark:text-purple-400 border border-purple-500/20">
+                              {keyItem.scope}
+                            </span>
+                          </td>
+                          <td className="p-3 text-slate-500 text-[11px]">
+                            {keyItem.expires_at ? formatFullDateTime(keyItem.expires_at) : 'Vĩnh viễn'}
+                          </td>
+                          <td className="p-3 text-center">
+                            <button
+                              type="button"
+                              onClick={() => handleToggleApiKey(keyItem)}
+                              className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold transition-all cursor-pointer ${
+                                isActive
+                                  ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20'
+                                  : 'bg-rose-500/10 text-rose-600 dark:text-rose-400 border border-rose-500/20'
+                              }`}
+                            >
+                              <span className={`w-1.5 h-1.5 rounded-full ${isActive ? 'bg-emerald-500' : 'bg-rose-500'}`} />
+                              <span>{isActive ? 'Hoạt Động' : 'Tạm Khóa'}</span>
+                            </button>
+                          </td>
+                          <td className="p-3 text-right">
+                            <div className="flex items-center justify-end gap-1.5">
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  if (keyItem.raw_key) {
+                                    setTestApiKey(keyItem.raw_key);
+                                  } else {
+                                    setTestApiKey(keyItem.key_prefix || 'wcg_gw_7193ab4028cf51d9e27b140685e93c1482f04b2a');
+                                  }
+                                  onShowToast('Đã chọn khóa này', `Đã điền khóa vào Trình Thử Nghiệm API`, 'info');
+                                }}
+                                className="inline-flex items-center gap-1 px-2 py-1 rounded-lg bg-purple-50 hover:bg-purple-100 text-purple-700 dark:bg-purple-950/40 dark:hover:bg-purple-900/40 dark:text-purple-300 text-[11px] font-bold cursor-pointer"
+                                title="Điền khóa này vào Trình Thử Nghiệm bên dưới"
+                              >
+                                <Play className="w-3 h-3 text-purple-500" />
+                                <span>Thử Nghiệm</span>
+                              </button>
+                              {keyItem.id !== 'ak_preset_giveaways_full' && (
+                                <button
+                                  type="button"
+                                  onClick={() => handleDeleteApiKey(keyItem)}
+                                  className="p-1 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/40 cursor-pointer"
+                                  title="Xóa khóa API vĩnh viễn"
+                                >
+                                  <Trash2 className="w-3.5 h-3.5" />
+                                </button>
+                              )}
+                            </div>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+
+          {/* CARD 3: TRÌNH THỬ NGHIỆM GỌI API TRỰC TIẾP (QUICK TESTER) */}
+          <div className="rounded-2xl border border-slate-200 bg-white p-6 dark:border-slate-800 dark:bg-slate-900 shadow-sm space-y-4">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 border-b border-slate-100 dark:border-slate-800 pb-3">
+              <div className="flex items-center gap-2">
+                <Terminal className="w-4 h-4 text-purple-600 dark:text-purple-400" />
+                <h4 className="text-sm font-bold text-slate-900 dark:text-white">
+                  Trình Thử Nghiệm Gọi API Trực Tiếp (Interactive API Quick Tester)
+                </h4>
+              </div>
+              <span className="text-[11px] text-slate-400">
+                Thực thi lệnh trực tiếp tới máy chủ Cloudflare Edge mà không cần mở Postman
+              </span>
+            </div>
+
+            {/* Action Selector Pills */}
+            <div className="flex flex-wrap items-center gap-1.5 p-1.5 bg-slate-100 dark:bg-slate-800 rounded-xl">
+              <button
+                type="button"
+                onClick={() => setTestAction('GET_LIST')}
+                className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                  testAction === 'GET_LIST'
+                    ? 'bg-purple-600 text-white shadow-xs'
+                    : 'text-slate-600 dark:text-slate-300 hover:bg-white/60 dark:hover:bg-slate-700/60'
+                }`}
+              >
+                GET: Tra Cứu Danh Sách
+              </button>
+              <button
+                type="button"
+                onClick={() => setTestAction('GET_DETAIL')}
+                className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                  testAction === 'GET_DETAIL'
+                    ? 'bg-purple-600 text-white shadow-xs'
+                    : 'text-slate-600 dark:text-slate-300 hover:bg-white/60 dark:hover:bg-slate-700/60'
+                }`}
+              >
+                GET: Chi Tiết Đợt Phát & Kho Mã
+              </button>
+              <button
+                type="button"
+                onClick={() => setTestAction('ADD_CODES')}
+                className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                  testAction === 'ADD_CODES'
+                    ? 'bg-emerald-600 text-white shadow-xs'
+                    : 'text-slate-600 dark:text-slate-300 hover:bg-white/60 dark:hover:bg-slate-700/60'
+                }`}
+              >
+                PUT: Nạp Mã Vào Kho D1 (ADD_CODES)
+              </button>
+              <button
+                type="button"
+                onClick={() => setTestAction('TOGGLE_ACTIVE')}
+                className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                  testAction === 'TOGGLE_ACTIVE'
+                    ? 'bg-amber-600 text-white shadow-xs'
+                    : 'text-slate-600 dark:text-slate-300 hover:bg-white/60 dark:hover:bg-slate-700/60'
+                }`}
+              >
+                PUT: Bật / Tắt Sự Kiện
+              </button>
+              <button
+                type="button"
+                onClick={() => setTestAction('RESET_COOLDOWN')}
+                className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                  testAction === 'RESET_COOLDOWN'
+                    ? 'bg-indigo-600 text-white shadow-xs'
+                    : 'text-slate-600 dark:text-slate-300 hover:bg-white/60 dark:hover:bg-slate-700/60'
+                }`}
+              >
+                PUT: Xóa Thời Gian Chờ (Reset Cooldown)
+              </button>
+            </div>
+
+            {/* Parameter Inputs */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3 pt-1">
+              <div>
+                <label className="text-xs font-semibold text-slate-700 dark:text-slate-300 block mb-1">
+                  Mã Khóa API Xác Thực (X-Api-Key) <span className="text-rose-500">*</span>:
+                </label>
+                <input
+                  type="text"
+                  value={testApiKey}
+                  onChange={(e) => setTestApiKey(e.target.value)}
+                  placeholder="wcg_gw_..."
+                  className="w-full font-mono rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs text-slate-900 focus:border-purple-500 focus:outline-none dark:border-slate-700 dark:bg-slate-800 dark:text-white"
+                />
+              </div>
+
+              {(testAction === 'GET_DETAIL' || testAction === 'ADD_CODES' || testAction === 'TOGGLE_ACTIVE' || testAction === 'RESET_COOLDOWN') && (
+                <div>
+                  <label className="text-xs font-semibold text-slate-700 dark:text-slate-300 block mb-1">
+                    Chiến Dịch Mục Tiêu:
+                  </label>
+                  <select
+                    value={testSelectedGwId}
+                    onChange={(e) => setTestSelectedGwId(e.target.value)}
+                    className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs text-slate-900 focus:border-purple-500 focus:outline-none dark:border-slate-700 dark:bg-slate-800 dark:text-white"
+                  >
+                    <option value="">-- Chọn chiến dịch cần thao tác --</option>
+                    {giveaways.map((gw) => (
+                      <option key={gw.id} value={gw.id}>
+                        {gw.title} ({gw.game_name}) - Kho: {Array.isArray(gw.codes_pool) ? gw.codes_pool.length : (gw.remaining_codes || 0)} mã
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              )}
+            </div>
+
+            {/* Input Codes for ADD_CODES */}
+            {testAction === 'ADD_CODES' && (
+              <div className="space-y-1.5">
+                <label className="text-xs font-semibold text-slate-700 dark:text-slate-300 block">
+                  Danh Sách Mã Cần Nạp Vào Kho (Mỗi mã 1 dòng hoặc cách nhau bởi dấu phẩy):
+                </label>
+                <textarea
+                  value={testCodesInput}
+                  onChange={(e) => setTestCodesInput(e.target.value)}
+                  rows={3}
+                  placeholder={`TEST_CODE_01\nTEST_CODE_02\nTEST_CODE_03`}
+                  className="w-full font-mono rounded-xl border border-slate-200 bg-white p-2.5 text-xs text-slate-900 focus:border-emerald-500 focus:outline-none dark:border-slate-700 dark:bg-slate-800 dark:text-white"
+                />
+              </div>
+            )}
+
+            {/* Toggle Switch for TOGGLE_ACTIVE */}
+            {testAction === 'TOGGLE_ACTIVE' && (
+              <div className="p-3 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 flex items-center justify-between">
+                <span className="text-xs font-semibold text-slate-700 dark:text-slate-300">
+                  Trạng Thái Sau Khi Đổi:
+                </span>
+                <button
+                  type="button"
+                  onClick={() => setTestActiveState(!testActiveState)}
+                  className={`px-3 py-1 rounded-full text-xs font-bold transition-all cursor-pointer ${
+                    testActiveState
+                      ? 'bg-emerald-600 text-white'
+                      : 'bg-rose-600 text-white'
+                  }`}
+                >
+                  {testActiveState ? '🟢 Mở Sự Kiện (ACTIVE)' : '🔴 Đóng Sự Kiện (INACTIVE)'}
+                </button>
+              </div>
+            )}
+
+            <div className="flex items-center justify-between pt-1">
+              <span className="text-xs text-slate-400">
+                Endpoint: <strong className="text-purple-600 dark:text-purple-400 font-mono">/api/giveaways/manage</strong>
+              </span>
+              <button
+                type="button"
+                onClick={handleRunTestApi}
+                disabled={isTestingApi || !testApiKey.trim()}
+                className="inline-flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold bg-purple-600 hover:bg-purple-700 text-white shadow-sm transition-all disabled:opacity-50 cursor-pointer"
+              >
+                {isTestingApi ? (
+                  <>
+                    <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                    <span>Đang Gửi Lệnh...</span>
+                  </>
+                ) : (
+                  <>
+                    <Play className="w-3.5 h-3.5" />
+                    <span>🚀 Thực Thi Gọi API Thử Nghiệm</span>
+                  </>
+                )}
+              </button>
+            </div>
+
+            {/* RESPONSE VIEWER */}
+            {testApiResponse && (
+              <div className="mt-3 p-4 rounded-xl bg-slate-950 text-slate-100 border border-slate-800 space-y-2 animate-in fade-in duration-200">
+                <div className="flex items-center justify-between border-b border-slate-800 pb-2">
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs font-bold text-slate-300">Kết Quả Phản Hồi Từ Edge API:</span>
+                    {testApiStatus !== null && (
+                      <span className={`text-[10px] px-2 py-0.5 rounded-full font-mono font-bold ${
+                        testApiStatus >= 200 && testApiStatus < 300
+                          ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30'
+                          : 'bg-rose-500/20 text-rose-400 border border-rose-500/30'
+                      }`}>
+                        HTTP {testApiStatus}
+                      </span>
+                    )}
+                    {testApiLatency !== null && (
+                      <span className="text-[10px] text-slate-400 font-mono">
+                        ⚡ {testApiLatency}ms
+                      </span>
+                    )}
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => handleCopyText(JSON.stringify(testApiResponse, null, 2), 'JSON Phản Hồi')}
+                    className="inline-flex items-center gap-1 text-[11px] text-slate-400 hover:text-white cursor-pointer"
+                  >
+                    <Copy className="w-3 h-3" />
+                    <span>Sao Chép JSON</span>
+                  </button>
+                </div>
+                <pre className="text-[11px] font-mono overflow-x-auto max-h-60 p-2 text-emerald-400 whitespace-pre">
+                  {JSON.stringify(testApiResponse, null, 2)}
+                </pre>
+              </div>
+            )}
+          </div>
+
+          {/* CARD 4 (CUỐI TRANG): BẢNG TRA CỨU ENDPOINTS & MẪU CODE GỌI API */}
+          <div className="rounded-2xl border border-slate-200 bg-white p-6 dark:border-slate-800 dark:bg-slate-900 shadow-sm space-y-5">
+            <div className="border-b border-slate-100 dark:border-slate-800 pb-3">
+              <div className="flex items-center gap-2">
+                <Code2 className="w-4 h-4 text-purple-600 dark:text-purple-400" />
+                <h4 className="text-sm font-bold text-slate-900 dark:text-white">
+                  Danh Mục Endpoints & Mẫu Lệnh Gọi API Quản Lý Toàn Quyền
+                </h4>
+              </div>
+              <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+                Tài liệu tích hợp chuẩn REST dành cho lập trình viên, bot tự động hoặc hệ thống bên ngoài.
+              </p>
+            </div>
+
+            {/* Endpoints Table */}
+            <div className="overflow-x-auto rounded-xl border border-slate-100 dark:border-slate-800">
+              <table className="w-full text-left text-xs">
+                <thead className="bg-slate-50 dark:bg-slate-800/60 text-slate-600 dark:text-slate-400 font-bold border-b border-slate-100 dark:border-slate-800">
+                  <tr>
+                    <th className="p-3">Phương Thức</th>
+                    <th className="p-3">Endpoint URL</th>
+                    <th className="p-3">Mô Tả Chức Năng</th>
+                    <th className="p-3">Quyền Yêu Cầu</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100 dark:divide-slate-800 font-mono text-[11px]">
+                  <tr className="hover:bg-slate-50/50 dark:hover:bg-slate-800/30">
+                    <td className="p-3">
+                      <span className="px-2 py-0.5 rounded-md bg-emerald-500/10 text-emerald-600 font-bold">GET</span>
+                    </td>
+                    <td className="p-3 text-slate-900 dark:text-white font-bold">/api/giveaways/manage</td>
+                    <td className="p-3 font-sans text-slate-600 dark:text-slate-400">
+                      Lấy danh sách toàn bộ chiến dịch hoặc 1 chiến dịch (?id=...) kèm kho mã D1 chi tiết
+                    </td>
+                    <td className="p-3 text-purple-600 dark:text-purple-400 font-bold">GIVEAWAYS_FULL</td>
+                  </tr>
+                  <tr className="hover:bg-slate-50/50 dark:hover:bg-slate-800/30">
+                    <td className="p-3">
+                      <span className="px-2 py-0.5 rounded-md bg-blue-500/10 text-blue-600 font-bold">POST</span>
+                    </td>
+                    <td className="p-3 text-slate-900 dark:text-white font-bold">/api/giveaways/manage</td>
+                    <td className="p-3 font-sans text-slate-600 dark:text-slate-400">
+                      Tạo mới hoặc cập nhật toàn diện đợt phát code kèm kho mã ban đầu (codes: string[])
+                    </td>
+                    <td className="p-3 text-purple-600 dark:text-purple-400 font-bold">GIVEAWAYS_FULL</td>
+                  </tr>
+                  <tr className="hover:bg-slate-50/50 dark:hover:bg-slate-800/30">
+                    <td className="p-3">
+                      <span className="px-2 py-0.5 rounded-md bg-amber-500/10 text-amber-600 font-bold">PUT</span>
+                    </td>
+                    <td className="p-3 text-slate-900 dark:text-white font-bold">/api/giveaways/manage</td>
+                    <td className="p-3 font-sans text-slate-600 dark:text-slate-400">
+                      Thao tác nhanh: action = ADD_CODES, TOGGLE_ACTIVE, RESET_COOLDOWN, ADJUST_METRICS
+                    </td>
+                    <td className="p-3 text-purple-600 dark:text-purple-400 font-bold">GIVEAWAYS_FULL</td>
+                  </tr>
+                  <tr className="hover:bg-slate-50/50 dark:hover:bg-slate-800/30">
+                    <td className="p-3">
+                      <span className="px-2 py-0.5 rounded-md bg-rose-500/10 text-rose-600 font-bold">DELETE</span>
+                    </td>
+                    <td className="p-3 text-slate-900 dark:text-white font-bold">/api/giveaways/manage</td>
+                    <td className="p-3 font-sans text-slate-600 dark:text-slate-400">
+                      Xóa vĩnh viễn đợt phát giveaway kèm tạo Tombstone đồng bộ triệt để trên KV và D1
+                    </td>
+                    <td className="p-3 text-purple-600 dark:text-purple-400 font-bold">GIVEAWAYS_FULL</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+
+            {/* Code Examples Tabs */}
+            <div className="space-y-3">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <div className="flex items-center gap-1.5 p-1 bg-slate-100 dark:bg-slate-800 rounded-xl text-xs font-bold">
+                  <button
+                    type="button"
+                    onClick={() => setApiDocCategory('curl_get')}
+                    className={`px-3 py-1.5 rounded-lg transition-all cursor-pointer ${
+                      apiDocCategory === 'curl_get'
+                        ? 'bg-purple-600 text-white shadow-xs'
+                        : 'text-slate-600 dark:text-slate-300'
+                    }`}
+                  >
+                    1. cURL: Tra Cứu Kho Mã
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setApiDocCategory('curl_add_codes')}
+                    className={`px-3 py-1.5 rounded-lg transition-all cursor-pointer ${
+                      apiDocCategory === 'curl_add_codes'
+                        ? 'bg-purple-600 text-white shadow-xs'
+                        : 'text-slate-600 dark:text-slate-300'
+                    }`}
+                  >
+                    2. cURL: Nạp Mã (ADD_CODES)
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setApiDocCategory('curl_create')}
+                    className={`px-3 py-1.5 rounded-lg transition-all cursor-pointer ${
+                      apiDocCategory === 'curl_create'
+                        ? 'bg-purple-600 text-white shadow-xs'
+                        : 'text-slate-600 dark:text-slate-300'
+                    }`}
+                  >
+                    3. cURL: Tạo Đợt Phát Mới
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setApiDocCategory('js_client')}
+                    className={`px-3 py-1.5 rounded-lg transition-all cursor-pointer ${
+                      apiDocCategory === 'js_client'
+                        ? 'bg-purple-600 text-white shadow-xs'
+                        : 'text-slate-600 dark:text-slate-300'
+                    }`}
+                  >
+                    4. JavaScript / Node.js
+                  </button>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    let snippet = '';
+                    if (apiDocCategory === 'curl_get') {
+                      snippet = `curl -X GET "https://codegame.shop/api/giveaways/manage"\n  -H "X-Api-Key: wcg_gw_7193ab4028cf51d9e27b140685e93c1482f04b2a"`;
+                    } else if (apiDocCategory === 'curl_add_codes') {
+                      snippet = `curl -X PUT "https://codegame.shop/api/giveaways/manage" \\\n  -H "Content-Type: application/json" \\\n  -H "X-Api-Key: wcg_gw_7193ab4028cf51d9e27b140685e93c1482f04b2a" \\\n  -d '{\n    "action": "ADD_CODES",\n    "id": "gw_genshin_impact",\n    "codes": ["GENSHIN_VIP_01", "GENSHIN_VIP_02", "GENSHIN_VIP_03"]\n  }'`;
+                    } else if (apiDocCategory === 'curl_create') {
+                      snippet = `curl -X POST "https://codegame.shop/api/giveaways/manage" \\\n  -H "Content-Type: application/json" \\\n  -H "X-Api-Key: wcg_gw_7193ab4028cf51d9e27b140685e93c1482f04b2a" \\\n  -d '{\n    "title": "Code riêng Honkai: Star Rail Mới Nhất",\n    "game_slug": "honkai-star-rail",\n    "game_name": "Honkai: Star Rail",\n    "description": "Code độc quyền dành cho tân thủ tham gia sự kiện.",\n    "rewards": "Vé Tinh Cầu Đặc Biệt x10 + 1600 Ngọc Ánh Sao",\n    "codes": ["HSR_NEWBIE_01", "HSR_NEWBIE_02"],\n    "max_per_user": 1,\n    "max_per_ip": 1,\n    "cooldown_hours": 1,\n    "is_active": true\n  }'`;
+                    } else {
+                      snippet = `// Thư viện mẫu gọi API Quản Lý Giveaway (Node.js / Browser)\nconst API_KEY = 'wcg_gw_7193ab4028cf51d9e27b140685e93c1482f04b2a';\nconst BASE_URL = 'https://codegame.shop';\n\n// 1. Lấy danh sách chiến dịch & kho mã D1\nasync function getGiveaways() {\n  const res = await fetch(\`\${BASE_URL}/api/giveaways/manage\`, {\n    headers: { 'X-Api-Key': API_KEY }\n  });\n  return await res.json();\n}\n\n// 2. Nạp thêm giftcode mới vào kho D1\nasync function addGiveawayCodes(giveawayId, codesArray) {\n  const res = await fetch(\`\${BASE_URL}/api/giveaways/manage\`, {\n    method: 'PUT',\n    headers: {\n      'Content-Type': 'application/json',\n      'X-Api-Key': API_KEY\n    },\n    body: JSON.stringify({\n      action: 'ADD_CODES',\n      id: giveawayId,\n      codes: codesArray\n    })\n  });\n  return await res.json();\n}`;
+                    }
+                    handleCopyText(snippet, 'Mẫu Lệnh');
+                  }}
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 text-xs font-bold cursor-pointer"
+                >
+                  {copiedKeyText === 'Mẫu Lệnh' ? <Check className="w-3.5 h-3.5 text-emerald-500" /> : <Copy className="w-3.5 h-3.5" />}
+                  <span>{copiedKeyText === 'Mẫu Lệnh' ? 'Đã Sao Chép' : 'Sao Chép Mẫu Lệnh'}</span>
+                </button>
+              </div>
+
+              {/* Snippet Block */}
+              <div className="p-4 rounded-xl bg-slate-950 text-slate-100 border border-slate-800 font-mono text-xs overflow-x-auto">
+                {apiDocCategory === 'curl_get' && (
+                  <pre className="text-emerald-400">
+{`# 1. Tra cứu danh sách toàn bộ chiến dịch kèm kho mã chi tiết
+curl -X GET "https://codegame.shop/api/giveaways/manage" \\
+  -H "X-Api-Key: wcg_gw_7193ab4028cf51d9e27b140685e93c1482f04b2a"
+
+# 2. Hoặc tra cứu 1 chiến dịch cụ thể theo ID
+curl -X GET "https://codegame.shop/api/giveaways/manage?id=gw_genshin_impact" \\
+  -H "X-Api-Key: wcg_gw_7193ab4028cf51d9e27b140685e93c1482f04b2a"`}
+                  </pre>
+                )}
+
+                {apiDocCategory === 'curl_add_codes' && (
+                  <pre className="text-emerald-400">
+{`# Nạp thêm danh sách giftcode mới vào kho D1 cho đợt phát
+curl -X PUT "https://codegame.shop/api/giveaways/manage" \\
+  -H "Content-Type: application/json" \\
+  -H "X-Api-Key: wcg_gw_7193ab4028cf51d9e27b140685e93c1482f04b2a" \\
+  -d '{
+    "action": "ADD_CODES",
+    "id": "gw_genshin_impact",
+    "codes": [
+      "GENSHIN_VIP_OCT29_01",
+      "GENSHIN_VIP_OCT29_02",
+      "GENSHIN_VIP_OCT29_03"
+    ]
+  }'`}
+                  </pre>
+                )}
+
+                {apiDocCategory === 'curl_create' && (
+                  <pre className="text-emerald-400">
+{`# Tạo mới một chiến dịch giveaway hoàn chỉnh kèm kho mã ban đầu
+curl -X POST "https://codegame.shop/api/giveaways/manage" \\
+  -H "Content-Type: application/json" \\
+  -H "X-Api-Key: wcg_gw_7193ab4028cf51d9e27b140685e93c1482f04b2a" \\
+  -d '{
+    "title": "Code riêng Honkai: Star Rail Mới Nhất",
+    "game_slug": "honkai-star-rail",
+    "game_name": "Honkai: Star Rail",
+    "description": "Code độc quyền dành cho tân thủ tham gia sự kiện.",
+    "rewards": "Vé Tinh Cầu Đặc Biệt x10 + 1600 Ngọc Ánh Sao",
+    "codes": ["HSR_NEWBIE_01", "HSR_NEWBIE_02"],
+    "max_per_user": 1,
+    "max_per_ip": 1,
+    "cooldown_hours": 1,
+    "is_active": true
+  }'`}
+                  </pre>
+                )}
+
+                {apiDocCategory === 'js_client' && (
+                  <pre className="text-emerald-400">
+{`// Thư viện mẫu gọi API Quản Lý Giveaway (Node.js / Browser)
+const API_KEY = 'wcg_gw_7193ab4028cf51d9e27b140685e93c1482f04b2a';
+const BASE_URL = 'https://codegame.shop';
+
+// 1. Lấy danh sách chiến dịch & kho mã D1
+async function getGiveaways() {
+  const res = await fetch(\`\${BASE_URL}/api/giveaways/manage\`, {
+    headers: { 'X-Api-Key': API_KEY }
+  });
+  return await res.json();
+}
+
+// 2. Nạp thêm giftcode mới vào kho D1
+async function addGiveawayCodes(giveawayId, codesArray) {
+  const res = await fetch(\`\${BASE_URL}/api/giveaways/manage\`, {
+    method: 'PUT',
+    headers: {
+      'Content-Type': 'application/json',
+      'X-Api-Key': API_KEY
+    },
+    body: JSON.stringify({
+      action: 'ADD_CODES',
+      id: giveawayId,
+      codes: codesArray
+    })
+  });
+  return await res.json();
+}
+
+// 3. Bật hoặc tắt trạng thái đợt phát
+async function toggleGiveaway(giveawayId, isActive) {
+  const res = await fetch(\`\${BASE_URL}/api/giveaways/manage\`, {
+    method: 'PUT',
+    headers: {
+      'Content-Type': 'application/json',
+      'X-Api-Key': API_KEY
+    },
+    body: JSON.stringify({
+      action: 'TOGGLE_ACTIVE',
+      id: giveawayId,
+      is_active: isActive
+    })
+  });
+  return await res.json();
+}`}
+                  </pre>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
       ) : (
         <>
           {/* Top Header Card */}
@@ -1196,6 +2248,39 @@ export const PrivateCodesModule: React.FC<PrivateCodesModuleProps> = ({ onShowTo
             </tbody>
           </table>
         </div>
+      </div>
+
+      {/* BANNER DANH SÁCH API Ở CUỐI TRANG */}
+      <div className="rounded-2xl border border-purple-200/80 bg-gradient-to-r from-purple-500/10 via-indigo-500/10 to-pink-500/10 p-5 dark:border-purple-800/50 dark:bg-purple-950/20 shadow-sm flex flex-col md:flex-row items-center justify-between gap-4">
+        <div className="flex items-center gap-3.5">
+          <div className="w-10 h-10 rounded-xl bg-purple-600 text-white flex items-center justify-center shadow-sm shrink-0">
+            <KeyRound className="w-5 h-5 text-purple-200" />
+          </div>
+          <div>
+            <div className="flex items-center gap-2">
+              <h4 className="text-sm font-bold text-slate-900 dark:text-white">
+                Tích Hợp API Quản Lý Đợt Phát Code (Giveaway REST Edge API)
+              </h4>
+              <span className="text-[10px] px-2 py-0.5 rounded-full bg-purple-500/20 text-purple-400 font-mono font-bold">
+                GIVEAWAYS_FULL
+              </span>
+            </div>
+            <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+              Cung cấp mã khóa API và endpoints chuẩn REST để nạp mã tự động, tra cứu kho D1 và kết nối bot Discord/Telegram.
+            </p>
+          </div>
+        </div>
+        <button
+          type="button"
+          onClick={() => {
+            setSubTab('api');
+            loadGiveawayApiKeys();
+          }}
+          className="shrink-0 flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold bg-purple-600 hover:bg-purple-700 text-white shadow-sm transition-all cursor-pointer"
+        >
+          <Terminal className="w-3.5 h-3.5" />
+          <span>Xem Danh Sách API & Khóa Kết Nối &rarr;</span>
+        </button>
       </div>
       </>
       )}
