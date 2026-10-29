@@ -9,6 +9,7 @@ import * as ordersCreateApi from './api/orders/create';
 import * as sepayWebhookApi from './api/webhooks/sepay';
 import * as giveawaysClaimApi from './api/giveaways/claim';
 import * as giveawaysSimulateApi from './api/giveaways/simulate';
+import * as giveawaysManageApi from './api/giveaways/manage';
 import { runGiveawaySimulation } from './services/giveaway_simulation_service';
 import * as adminMigrateApi from './api/admin/migrate';
 import * as adminAuditCountersApi from './api/admin/audit-counters';
@@ -453,6 +454,15 @@ async function handleWorkerRequest(request: Request, env: Env, ctx: ExecutionCon
           } catch {}
           return simRes;
         }
+      }
+
+      // 7c. /api/giveaways/manage & /api/giveaways (Giveaway Full Management Edge API)
+      if (pathname === '/api/giveaways/manage' || pathname === '/api/giveaways') {
+        if (method === 'OPTIONS') return await giveawaysManageApi.onRequestOptions();
+        if (method === 'POST') return await giveawaysManageApi.onRequestPost(context);
+        if (method === 'PUT') return await giveawaysManageApi.onRequestPut(context);
+        if (method === 'DELETE') return await giveawaysManageApi.onRequestDelete(context);
+        return await giveawaysManageApi.onRequestGet(context);
       }
 
       // Passive Tick: Tự động chạy quét mô phỏng mỗi 5 phút một cách nhẹ nhàng
