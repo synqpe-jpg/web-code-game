@@ -132,7 +132,8 @@ export function hasScope(scopeStr: string | undefined | null, requiredScope: str
 export async function verifyAiKeyAuth(
   request: Request,
   db: D1Database,
-  env?: Env
+  env?: Env,
+  requiredScope?: string
 ): Promise<{ authorized: boolean; keyRecord?: any; error?: string }> {
   const authHeader = request.headers.get('Authorization') || '';
   const apiKeyHeader =
@@ -183,16 +184,32 @@ export async function verifyAiKeyAuth(
     }
   }
 
-  if (
-    !hasScope(keyRecord.scope, 'MISSIONS_REVIEW') &&
-    !hasScope(keyRecord.scope, 'REVIEW_ONLY') &&
-    !hasScope(keyRecord.scope, 'MISSIONS_FULL') &&
-    !hasScope(keyRecord.scope, 'ADMIN_FULL')
-  ) {
-    return {
-      authorized: false,
-      error: `Khóa API này không có quyền thẩm định bài nộp Nhiệm vụ. Quyền hiện tại: ${keyRecord.scope}`,
-    };
+  if (requiredScope) {
+    if (
+      !hasScope(keyRecord.scope, requiredScope) &&
+      !hasScope(keyRecord.scope, 'ADMIN_FULL') &&
+      !hasScope(keyRecord.scope, 'FULL') &&
+      keyRecord.scope !== '*'
+    ) {
+      return {
+        authorized: false,
+        error: `Khóa API '${keyRecord.key_name}' không có quyền ${requiredScope}. Quyền hiện tại: ${keyRecord.scope || 'NONE'}`,
+      };
+    }
+  } else {
+    if (
+      !hasScope(keyRecord.scope, 'MISSIONS_REVIEW') &&
+      !hasScope(keyRecord.scope, 'REVIEW_ONLY') &&
+      !hasScope(keyRecord.scope, 'MISSIONS_FULL') &&
+      !hasScope(keyRecord.scope, 'ADMIN_FULL') &&
+      !hasScope(keyRecord.scope, 'FULL') &&
+      keyRecord.scope !== '*'
+    ) {
+      return {
+        authorized: false,
+        error: `Khóa API này không có quyền thẩm định bài nộp Nhiệm vụ. Quyền hiện tại: ${keyRecord.scope}`,
+      };
+    }
   }
 
   // Update last used timestamp asynchronously

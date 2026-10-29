@@ -35,7 +35,7 @@ async function authorizeGiveawayRequest(
 
   // 2. Kiểm tra API Key từ Header (X-Api-Key hoặc Authorization: Bearer <key>)
   if (env.DB) {
-    const aiKeyCheck = await verifyAiKeyAuth(request, env.DB, env);
+    const aiKeyCheck = await verifyAiKeyAuth(request, env.DB, env, 'GIVEAWAYS_FULL');
     if (aiKeyCheck.authorized && aiKeyCheck.keyRecord) {
       const scope = aiKeyCheck.keyRecord.scope;
       if (hasScope(scope, 'GIVEAWAYS_FULL')) {
