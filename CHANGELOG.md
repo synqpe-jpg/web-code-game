@@ -7,6 +7,43 @@ Mỗi mục sửa lỗi đều ghi nhận **Nguyên nhân gốc rễ (Root Cause
 
 ## [2026-10-29]
 
+### 266. Mở REST Edge API Toàn Quyền Lịch Sự Kiện Đếm Ngược (EVENT_SCHEDULER_FULL), Subtab Quản Lý API & Đồng Bộ Phân Quyền (Full Event Scheduler & Countdown API, Dedicated Subtab & Docs Reference)
+- **Bối cảnh & Yêu cầu người dùng**:
+  - Người dùng yêu cầu: "Bạn mởi cho tôi API tạo sự kiện đếm người cho API đi, toàn quyền." Kèm ảnh chụp màn hình trang Admin "Lịch Sự Kiện & Đồng Hồ Đếm Ngược" (/admin#/event-scheduler).
+  - Nhu cầu kết nối và tự động hóa toàn diện các sự kiện đếm ngược (Event Scheduler & Countdown): phục vụ bot Discord/Telegram tự động kích hoạt Giờ G, tạo lịch phát code hoặc flash sale giảm giá sản phẩm, gia hạn thời gian sự kiện, và đồng bộ ghim banner trang chủ mà không cần truy cập web admin thủ công.
+  - Cần tài liệu danh sách các endpoints chi tiết và mẫu code cURL/JavaScript ở cuối trang để tra cứu và sao chép nhanh 1-click (theo Rule 8 trong AGENTS.md & GEMINI.md).
+- **Kiến trúc & Giải pháp triển khai**:
+  1. *Backend Cloudflare Pages Edge API (`/api/event-scheduler` & `/api/events/schedule`)*:
+     - Xây dựng `functions/api/event-scheduler/index.ts` hỗ trợ đầy đủ các phương thức HTTP:
+       - `GET`: Tra cứu danh sách toàn bộ sự kiện hoặc 1 sự kiện chi tiết (`?id=...`), tính toán sẵn trạng thái thời gian thực (`UPCOMING`, `LIVE`, `ENDED`) và thời gian đếm ngược chính xác từng giây (`countdown.days`, `hours`, `minutes`, `seconds`).
+       - `POST`: Tạo mới hoặc cập nhật toàn diện sự kiện đếm ngược (`ScheduledEventRecord`) gồm tiêu đề, loại sự kiện (`GIVEAWAY`, `FLASH_SALE_PRODUCT`, `GLOBAL_ANNOUNCEMENT`), thời gian bắt đầu Giờ G, thời gian đóng, cấu hình banner đầu trang, vị trí hiển thị, tone màu và nhãn badge.
+       - `PUT`: Thao tác nhanh với các action:
+         - `TRIGGER_LIVE`: Đẩy sự kiện thành LIVE ngay lập tức với thời lượng tùy chọn.
+         - `EXTEND_TIME`: Gia hạn thời gian kết thúc sự kiện thêm số phút mong muốn.
+         - `TOGGLE_ACTIVE`: Bật/tắt kích hoạt sự kiện tức thì.
+       - `DELETE`: Xóa vĩnh viễn sự kiện đếm ngược khỏi hệ thống.
+     - Cơ chế xác thực: Xác thực Scoped Bearer API Key qua `verifyAiKeyAuth(request, env.DB, env, "EVENT_SCHEDULER_FULL")` kết hợp quyền tối cao `ADMIN_FULL` và Admin Session.
+  2. *Đăng ký tuyến đường router Edge Worker (`functions/_worker.ts`)*:
+     - Định tuyến `/api/event-scheduler` và alias `/api/events/schedule` vào bundle single-entrypoint của Cloudflare Worker.
+  3. *Tự động đồng bộ quyền API mới theo Rule 8*:
+     - Bổ sung `EVENT_SCHEDULER_FULL` vào `ALL_API_SCOPES` trong `src/admin/modules/ApiKeysModule.tsx` với màu amber, danh mục "Vận Hành".
+     - Thêm preset key `ak_preset_event_scheduler_full` (`wcg_ev_8392cd51a704ef12b94a61358c701d94ea602b8f`) và tiền tố định danh `wcg_ev_` trong `functions/api/api-keys/index.ts`.
+     - Thêm danh mục tài liệu `docCategory === "events"` ở cuối trang `ApiKeysModule.tsx` kèm mẫu code cURL và JavaScript Fetch chi tiết.
+  4. *Tích hợp Subtab "🔑 Kết Nối API Quản Lý" vào `EventSchedulerModule.tsx`*:
+     - Bổ sung thanh chuyển đổi subtab: Tab 1 "Lịch Đếm Ngược & Sự Kiện" và Tab 2 "🔑 Kết Nối API Quản Lý".
+     - Header overview card với 4 chỉ số: Quyền Hạn Scoped, Kiến Trúc Backend Edge D1, Tính Toán Countdown Realtime, Định Dạng Xác Thực `X-Api-Key`.
+     - Thẻ tạo khóa API `EVENT_SCHEDULER_FULL` mới với modal/alert hiển thị raw key 1 lần duy nhất kèm nút Copy.
+     - Bảng danh sách khóa API đang quản trị sự kiện với thao tác đổi trạng thái (Hoạt Động / Tạm Khóa), xóa và nút "Thử Nghiệm" nhanh.
+     - Trình thử nghiệm gọi API trực tiếp (Interactive API Quick Tester) tích hợp 6 presets (GET danh sách, GET chi tiết, PUT kích hoạt Giờ G LIVE, PUT gia hạn thời gian, PUT bật/tắt, DELETE) hiển thị kết quả JSON và HTTP status code.
+     - Bảng tra cứu toàn bộ Endpoints REST và banner kết nối API ở chân trang tab chính.
+- **Kiểm Thử & Xác Nhận**:
+  - `npm run build`: 100% PASS, 0 lỗi TypeScript, 0 lỗi Vite, 0 lỗi Worker bundle.
+  - Zero Test Artifacts: Sạch 100%.
+  - Regression Test Suite: 100% PASS (8/8 bài kiểm tra).
+  - Unit Test Logic API: 100% PASS (4/4 bài kiểm tra).
+
+---
+
 ### 265. Hỗ Trợ Nhập Số Lẻ & Số Thập Phân Tự Do Cho Thứ Tự Hiển Thị & Số Người Canh Game Sắp Ra Mắt (Decimal Display Order & Odd Subscribers Input Support)
 - **Bối cảnh & Yêu cầu người dùng**:
   - Người dùng yêu cầu: "Trong mục game sắp ra mắt, có thể điền số lẻ, không nhất thiết phải số tròn." Kèm ảnh chụp màn hình modal "Chỉnh Sửa Game Sắp Ra Mắt" tại mục "CÀI ĐẶT THỨ TỰ HIỂN THỊ & NGƯỜI CANH".

@@ -23,6 +23,16 @@ import {
   Save,
   X,
   ExternalLink,
+  KeyRound,
+  Key,
+  RefreshCw,
+  Terminal,
+  Code2,
+  Copy,
+  Shield,
+  ShieldCheck,
+  Power,
+  Play,
 } from 'lucide-react';
 import { eventSchedulerService } from '../../services/eventSchedulerService';
 import { adminDataService } from '../services/adminDataService';
@@ -359,6 +369,294 @@ export const EventSchedulerModule: React.FC<EventSchedulerModuleProps> = ({ onSh
     onShowToast('Đã xóa', 'Đã xóa lịch sự kiện thành công', 'success');
   };
 
+  // --- SUBTAB & API MANAGEMENT STATE ---
+  const [subTab, setSubTab] = useState<'scheduler' | 'api'>('scheduler');
+  const [schedulerApiKeys, setSchedulerApiKeys] = useState<any[]>([]);
+  const [isLoadingApiKeys, setIsLoadingApiKeys] = useState(false);
+  const [newKeyName, setNewKeyName] = useState('');
+  const [newKeyExpiry, setNewKeyExpiry] = useState<'30' | '90' | '365' | 'permanent'>('90');
+  const [isCreatingKey, setIsCreatingKey] = useState(false);
+  const [generatedKeyResult, setGeneratedKeyResult] = useState<{ raw_key: string; key_name: string } | null>(null);
+  const [copiedKeyText, setCopiedKeyText] = useState<string | null>(null);
+
+  // Quick API Tester State
+  const [testAction, setTestAction] = useState<'GET_LIST' | 'GET_DETAIL' | 'TRIGGER_LIVE' | 'EXTEND_TIME' | 'TOGGLE_ACTIVE' | 'DELETE'>('GET_LIST');
+  const [testApiKey, setTestApiKey] = useState('');
+  const [testSelectedEventId, setTestSelectedEventId] = useState('');
+  const [testDurationMinutes, setTestDurationMinutes] = useState(120);
+  const [testExtendMinutes, setTestExtendMinutes] = useState(60);
+  const [testActiveState, setTestActiveState] = useState(true);
+  const [isTestingApi, setIsTestingApi] = useState(false);
+  const [testApiResponse, setTestApiResponse] = useState<any>(null);
+  const [testApiStatus, setTestApiStatus] = useState<number | null>(null);
+
+  const getAdminHeaders = (): Record<string, string> => {
+    const token =
+      localStorage.getItem('wcg_auth_token') ||
+      sessionStorage.getItem('wcg_auth_token') ||
+      '';
+    const syncKey =
+      sessionStorage.getItem('wcg_admin_sync_key') ||
+      localStorage.getItem('wcg_admin_sync_key') ||
+      'b4e08494bf1c3fd6a0c965dd2411780c60513f7f87001bc955d7496331b2faef';
+
+    const headers: Record<string, string> = {
+      'Content-Type': 'application/json',
+      'X-Sync-Key': syncKey,
+      'x-admin-sync-key': syncKey,
+    };
+    if (token) {
+      headers['Authorization'] = `Bearer ${token}`;
+    }
+    return headers;
+  };
+
+  const formatFullDateTime = (iso: string) => {
+    if (!iso) return '';
+    try {
+      const d = new Date(iso);
+      if (isNaN(d.getTime())) return iso;
+      return `${d.getDate().toString().padStart(2, '0')}/${(d.getMonth() + 1).toString().padStart(2, '0')}/${d.getFullYear()} ${d.getHours().toString().padStart(2, '0')}:${d.getMinutes().toString().padStart(2, '0')}`;
+    } catch {
+      return iso;
+    }
+  };
+
+  const loadSchedulerApiKeys = async () => {
+    setIsLoadingApiKeys(true);
+    try {
+      const res = await fetch('/api/api-keys', {
+        headers: getAdminHeaders(),
+      });
+      const data = await res.json().catch(() => null);
+      if (res.ok && data?.success && Array.isArray(data.keys)) {
+        const filtered = data.keys.filter((k: any) => {
+          const s = (k.scope || '').toUpperCase();
+          return s.includes('EVENT_SCHEDULER_FULL') || s.includes('ADMIN_FULL') || s.includes('FULL') || s === '*';
+        });
+        setSchedulerApiKeys(filtered);
+        if (!testApiKey && filtered.length > 0) {
+          const firstWithRaw = filtered.find((k: any) => k.raw_key);
+          setTestApiKey(firstWithRaw?.raw_key || filtered[0].key_prefix || 'wcg_ev_8392cd51a704ef12b94a61358c701d94ea602b8f');
+        }
+      }
+    } catch (err: any) {
+      console.warn('Failed to load api keys:', err);
+    } finally {
+      setIsLoadingApiKeys(false);
+    }
+  };
+
+  const handleCopyText = (text: string, label: string) => {
+    if (!text) return;
+    navigator.clipboard.writeText(text);
+    setCopiedKeyText(label);
+    onShowToast('Đã sao chép', `Đã sao chép ${label} vào clipboard`, 'success');
+    setTimeout(() => setCopiedKeyText(null), 2500);
+  };
+
+  const handleCreateSchedulerKey = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newKeyName.trim()) {
+      onShowToast('Thiếu tên khóa', 'Vui lòng nhập tên định danh cho khóa API', 'error');
+      return;
+    }
+
+    setIsCreatingKey(true);
+    try {
+      let expiresAt: string | undefined = undefined;
+      if (newKeyExpiry !== 'permanent') {
+        const days = Number(newKeyExpiry) || 90;
+        expiresAt = new Date(Date.now() + days * 86400000).toISOString();
+      }
+
+      const res = await fetch('/api/api-keys', {
+        method: 'POST',
+        headers: getAdminHeaders(),
+        body: JSON.stringify({
+          action: 'create',
+          key_name: newKeyName.trim(),
+          scope: 'EVENT_SCHEDULER_FULL',
+          description: `Khóa API toàn quyền quản trị Lịch Sự Kiện & Đếm Ngược: ${newKeyName.trim()}`,
+          expires_at: expiresAt,
+        }),
+      });
+
+      const data = await res.json().catch(() => null);
+      if (res.ok && data?.success && data.key) {
+        onShowToast('Tạo khóa thành công', `Khóa API "${data.key.key_name}" đã sẵn sàng hoạt động.`, 'success');
+        if (data.raw_key) {
+          setGeneratedKeyResult({
+            key_name: data.key.key_name,
+            raw_key: data.raw_key,
+          });
+          setTestApiKey(data.raw_key);
+        }
+        setNewKeyName('');
+        loadSchedulerApiKeys();
+      } else {
+        onShowToast('Lỗi tạo khóa', data?.message || 'Không thể tạo khóa API', 'error');
+      }
+    } catch (err: any) {
+      onShowToast('Lỗi hệ thống', err?.message || 'Không thể kết nối máy chủ', 'error');
+    } finally {
+      setIsCreatingKey(false);
+    }
+  };
+
+  const handleToggleApiKey = async (keyItem: any) => {
+    try {
+      const nextActive = keyItem.is_active === 1 ? 0 : 1;
+      const res = await fetch('/api/api-keys', {
+        method: 'POST',
+        headers: getAdminHeaders(),
+        body: JSON.stringify({
+          action: 'toggle',
+          key_id: keyItem.id,
+          is_active: nextActive,
+        }),
+      });
+      const data = await res.json().catch(() => null);
+      if (res.ok && data?.success) {
+        onShowToast('Đã đổi trạng thái', `Khóa ${keyItem.key_name} đã ${nextActive === 1 ? 'kích hoạt' : 'tạm ngưng'}.`, 'success');
+        loadSchedulerApiKeys();
+      }
+    } catch {}
+  };
+
+  const handleDeleteApiKey = async (keyItem: any) => {
+    if (!confirm(`Bạn có chắc chắn muốn xóa vĩnh viễn khóa API "${keyItem.key_name}"?`)) {
+      return;
+    }
+    try {
+      const res = await fetch('/api/api-keys', {
+        method: 'POST',
+        headers: getAdminHeaders(),
+        body: JSON.stringify({
+          action: 'delete',
+          key_id: keyItem.id,
+        }),
+      });
+      const data = await res.json().catch(() => null);
+      if (res.ok && data?.success) {
+        onShowToast('Đã xóa khóa API', `Đã xóa vĩnh viễn khóa "${keyItem.key_name}".`, 'success');
+        loadSchedulerApiKeys();
+      } else {
+        onShowToast('Lỗi xóa khóa', data?.message || 'Không thể xóa khóa', 'error');
+      }
+    } catch {}
+  };
+
+  const handleRunTestApi = async () => {
+    if (!testApiKey.trim()) {
+      onShowToast('Thiếu API Key', 'Vui lòng nhập hoặc chọn mã API Key để thử nghiệm', 'error');
+      return;
+    }
+
+    setIsTestingApi(true);
+    setTestApiResponse(null);
+    setTestApiStatus(null);
+
+    try {
+      let url = '/api/event-scheduler';
+      let method = 'GET';
+      let reqBody: any = null;
+
+      if (testAction === 'GET_LIST') {
+        url = '/api/event-scheduler?status=ALL';
+        method = 'GET';
+      } else if (testAction === 'GET_DETAIL') {
+        if (!testSelectedEventId) {
+          onShowToast('Chưa chọn sự kiện', 'Vui lòng chọn sự kiện cần xem chi tiết', 'error');
+          setIsTestingApi(false);
+          return;
+        }
+        url = `/api/event-scheduler?id=${encodeURIComponent(testSelectedEventId)}`;
+        method = 'GET';
+      } else if (testAction === 'TRIGGER_LIVE') {
+        if (!testSelectedEventId) {
+          onShowToast('Chưa chọn sự kiện', 'Vui lòng chọn sự kiện cần kích hoạt LIVE', 'error');
+          setIsTestingApi(false);
+          return;
+        }
+        url = '/api/event-scheduler';
+        method = 'PUT';
+        reqBody = {
+          action: 'TRIGGER_LIVE',
+          id: testSelectedEventId,
+          duration_minutes: Number(testDurationMinutes) || 120,
+        };
+      } else if (testAction === 'EXTEND_TIME') {
+        if (!testSelectedEventId) {
+          onShowToast('Chưa chọn sự kiện', 'Vui lòng chọn sự kiện cần gia hạn thời gian', 'error');
+          setIsTestingApi(false);
+          return;
+        }
+        url = '/api/event-scheduler';
+        method = 'PUT';
+        reqBody = {
+          action: 'EXTEND_TIME',
+          id: testSelectedEventId,
+          extend_minutes: Number(testExtendMinutes) || 60,
+        };
+      } else if (testAction === 'TOGGLE_ACTIVE') {
+        if (!testSelectedEventId) {
+          onShowToast('Chưa chọn sự kiện', 'Vui lòng chọn sự kiện cần đổi trạng thái', 'error');
+          setIsTestingApi(false);
+          return;
+        }
+        url = '/api/event-scheduler';
+        method = 'PUT';
+        reqBody = {
+          action: 'TOGGLE_ACTIVE',
+          id: testSelectedEventId,
+          is_active: testActiveState,
+        };
+      } else if (testAction === 'DELETE') {
+        if (!testSelectedEventId) {
+          onShowToast('Chưa chọn sự kiện', 'Vui lòng chọn sự kiện cần xóa', 'error');
+          setIsTestingApi(false);
+          return;
+        }
+        url = `/api/event-scheduler?id=${encodeURIComponent(testSelectedEventId)}`;
+        method = 'DELETE';
+      }
+
+      const headers: Record<string, string> = {
+        'X-Api-Key': testApiKey.trim(),
+      };
+      if (reqBody) {
+        headers['Content-Type'] = 'application/json';
+      }
+
+      const res = await fetch(url, {
+        method,
+        headers,
+        body: reqBody ? JSON.stringify(reqBody) : undefined,
+      });
+
+      setTestApiStatus(res.status);
+      const data = await res.json().catch(() => null);
+      setTestApiResponse(data);
+
+      if (res.ok && data?.success) {
+        onShowToast('Gọi API Thành Công', `HTTP ${res.status}: ${data.message || 'Thao tác hoàn tất'}`, 'success');
+        if (['TRIGGER_LIVE', 'EXTEND_TIME', 'TOGGLE_ACTIVE', 'DELETE'].includes(testAction)) {
+          loadData();
+        }
+      } else {
+        onShowToast('API Báo Lỗi', `HTTP ${res.status}: ${data?.message || 'Thao tác không thành công'}`, 'error');
+      }
+    } catch (err: any) {
+      setTestApiStatus(0);
+      setTestApiResponse({ error: err?.message || 'Network request failed' });
+      onShowToast('Lỗi kết nối API', err?.message || 'Không thể gửi request', 'error');
+    } finally {
+      setIsTestingApi(false);
+    }
+  };
+
+
   return (
     <div className="space-y-6">
       {/* Top Header & Metrics */}
@@ -386,6 +684,623 @@ export const EventSchedulerModule: React.FC<EventSchedulerModuleProps> = ({ onSh
           <span>Tạo Lịch Sự Kiện Mới</span>
         </button>
       </div>
+
+      {/* NAVIGATION SUB-TABS: LỊCH SỰ KIỆN VS KẾT NỐI API */}
+      <div className="flex items-center gap-2 border-b border-neutral-800 pb-3">
+        <button
+          type="button"
+          onClick={() => setSubTab('scheduler')}
+          className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+            subTab === 'scheduler'
+              ? 'bg-amber-500 text-neutral-950 shadow-sm'
+              : 'bg-neutral-900 text-neutral-400 border border-neutral-800 hover:text-white'
+          }`}
+        >
+          <Calendar className="w-3.5 h-3.5" />
+          <span>Lịch Đếm Ngược & Sự Kiện</span>
+          <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-black/20 font-mono">
+            {schedules.length}
+          </span>
+        </button>
+        <button
+          type="button"
+          onClick={() => {
+            setSubTab('api');
+            loadSchedulerApiKeys();
+          }}
+          className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+            subTab === 'api'
+              ? 'bg-gradient-to-r from-amber-500 to-orange-500 text-neutral-950 shadow-sm'
+              : 'bg-neutral-900 text-neutral-400 border border-neutral-800 hover:text-white'
+          }`}
+        >
+          <KeyRound className="w-3.5 h-3.5 text-amber-500" />
+          <span>🔑 Kết Nối API Quản Lý</span>
+          <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-amber-500/20 text-amber-300 border border-amber-500/30 font-mono">
+            EVENT_SCHEDULER_FULL
+          </span>
+        </button>
+      </div>
+
+      {subTab === 'api' ? (
+        <div className="space-y-6 animate-in fade-in duration-200">
+          {/* HEADER CARD: TỔNG QUAN API LỊCH SỰ KIỆN */}
+          <div className="rounded-2xl border border-neutral-800 bg-neutral-900/90 p-6 shadow-sm">
+            <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 border-b border-neutral-800 pb-5">
+              <div className="flex items-center gap-3">
+                <div className="w-12 h-12 rounded-2xl bg-gradient-to-tr from-amber-500 to-orange-500 text-neutral-950 flex items-center justify-center shadow-md shadow-amber-500/20">
+                  <KeyRound className="w-6 h-6 stroke-[2.5]" />
+                </div>
+                <div>
+                  <div className="flex items-center gap-2">
+                    <h3 className="text-base font-bold text-white">
+                      Kết Nối & Quản Lý API Lịch Sự Kiện Đếm Ngược 24/7
+                    </h3>
+                    <span className="text-[10px] px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-300 border border-amber-500/30 font-mono font-bold">
+                      EVENT_SCHEDULER_FULL
+                    </span>
+                  </div>
+                  <p className="text-xs text-neutral-400 mt-0.5">
+                    Hệ thống REST Edge API toàn quyền lên lịch sự kiện: kích hoạt Giờ G ngay lập tức, gia hạn thời gian, bật/tắt đếm ngược và ghim banner.
+                  </p>
+                </div>
+              </div>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={loadSchedulerApiKeys}
+                  disabled={isLoadingApiKeys}
+                  className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl border border-neutral-800 bg-neutral-950 text-xs font-bold text-neutral-300 hover:bg-neutral-800 transition-all cursor-pointer"
+                >
+                  <RefreshCw className={`w-3.5 h-3.5 ${isLoadingApiKeys ? 'animate-spin text-amber-500' : ''}`} />
+                  <span>Làm Mới Khóa</span>
+                </button>
+              </div>
+            </div>
+
+            {/* Quick Metrics Bar */}
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 pt-5">
+              <div className="p-3 rounded-xl bg-neutral-950 border border-neutral-800">
+                <span className="text-[11px] text-amber-400 font-semibold block">Quyền Hạn Cấp Phép</span>
+                <span className="text-xs font-bold text-amber-200 mt-1 font-mono block">EVENT_SCHEDULER_FULL</span>
+              </div>
+              <div className="p-3 rounded-xl bg-neutral-950 border border-neutral-800">
+                <span className="text-[11px] text-neutral-400 font-semibold block">Kiến Trúc Backend</span>
+                <span className="text-xs font-bold text-white mt-1 block">Cloudflare Edge + D1</span>
+              </div>
+              <div className="p-3 rounded-xl bg-neutral-950 border border-neutral-800">
+                <span className="text-[11px] text-emerald-400 font-semibold block">Tính Toán Đếm Ngược</span>
+                <span className="text-xs font-bold text-emerald-300 mt-1 block">Realtime Chuẩn Từng Giây</span>
+              </div>
+              <div className="p-3 rounded-xl bg-neutral-950 border border-neutral-800">
+                <span className="text-[11px] text-neutral-400 font-semibold block">Định Dạng Xác Thực</span>
+                <span className="text-xs font-bold text-white mt-1 font-mono block">Header: X-Api-Key</span>
+              </div>
+            </div>
+          </div>
+
+          {/* CARD 1: TẠO KHÓA API MỚI */}
+          <div className="rounded-2xl border border-neutral-800 bg-neutral-900/90 p-6 shadow-sm space-y-4">
+            <div className="flex items-center justify-between border-b border-neutral-800 pb-3">
+              <div className="flex items-center gap-2">
+                <Plus className="w-4 h-4 text-amber-500" />
+                <h4 className="text-sm font-bold text-white">
+                  Tạo Khóa API EVENT_SCHEDULER_FULL Mới
+                </h4>
+              </div>
+              <span className="text-[11px] text-neutral-400">
+                Cấp quyền quản trị lịch sự kiện cho bot Telegram, Discord hoặc hệ thống bên ngoài
+              </span>
+            </div>
+
+            <form onSubmit={handleCreateSchedulerKey} className="space-y-4">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                <div className="md:col-span-2">
+                  <label className="text-xs font-semibold text-neutral-300 block mb-1.5">
+                    Tên Định Danh Khóa API <span className="text-rose-500">*</span>:
+                  </label>
+                  <input
+                    type="text"
+                    value={newKeyName}
+                    onChange={(e) => setNewKeyName(e.target.value)}
+                    placeholder="VD: Bot Kích Hoạt Giờ G Telegram, Cronjob Lên Lịch Tự Động, Tool Quản Trị Sự Kiện"
+                    className="w-full rounded-xl border border-neutral-800 bg-neutral-950 px-3 py-2 text-xs text-white focus:border-amber-500 focus:outline-none"
+                  />
+                </div>
+                <div>
+                  <label className="text-xs font-semibold text-neutral-300 block mb-1.5">
+                    Thời Hạn Hiệu Lực:
+                  </label>
+                  <select
+                    value={newKeyExpiry}
+                    onChange={(e: any) => setNewKeyExpiry(e.target.value)}
+                    className="w-full rounded-xl border border-neutral-800 bg-neutral-950 px-3 py-2 text-xs text-white focus:border-amber-500 focus:outline-none"
+                  >
+                    <option value="30">30 Ngày</option>
+                    <option value="90">90 Ngày (Khuyến Nghị)</option>
+                    <option value="365">1 Năm (365 Ngày)</option>
+                    <option value="permanent">Vĩnh Viễn (Không Hết Hạn)</option>
+                  </select>
+                </div>
+              </div>
+
+              <div className="flex items-center justify-between pt-1">
+                <div className="flex items-center gap-2 text-xs text-neutral-400">
+                  <Shield className="w-3.5 h-3.5 text-amber-500" />
+                  <span>Quyền tự động gán: <strong className="text-amber-400 font-mono">EVENT_SCHEDULER_FULL</strong></span>
+                </div>
+                <button
+                  type="submit"
+                  disabled={isCreatingKey || !newKeyName.trim()}
+                  className="inline-flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold bg-amber-500 hover:bg-amber-400 text-neutral-950 shadow-sm transition-all disabled:opacity-50 cursor-pointer"
+                >
+                  {isCreatingKey ? (
+                    <>
+                      <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                      <span>Đang Tạo Khóa...</span>
+                    </>
+                  ) : (
+                    <>
+                      <Key className="w-3.5 h-3.5" />
+                      <span>Tạo Khóa API EVENT_SCHEDULER_FULL</span>
+                    </>
+                  )}
+                </button>
+              </div>
+            </form>
+
+            {/* THÔNG BÁO KHÓA MỚI TẠO (HIỂN THỊ 1 LẦN DUY NHẤT) */}
+            {generatedKeyResult && (
+              <div className="p-4 rounded-xl bg-amber-950/30 border border-amber-800/60 space-y-2.5 animate-in fade-in duration-200">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <CheckCircle2 className="w-4 h-4 text-emerald-400" />
+                    <span className="text-xs font-bold text-white">
+                      Đã Tạo Khóa API Thành Công: <span className="text-amber-400">{generatedKeyResult.key_name}</span>
+                    </span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setGeneratedKeyResult(null)}
+                    className="text-neutral-400 hover:text-white text-xs cursor-pointer"
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
+                </div>
+
+                <div className="p-3 bg-neutral-950 rounded-lg border border-neutral-800 flex items-center justify-between gap-3 font-mono text-xs">
+                  <span className="text-amber-300 font-bold select-all break-all">
+                    {generatedKeyResult.raw_key}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => handleCopyText(generatedKeyResult.raw_key, 'Mã Khóa API')}
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-amber-500 text-neutral-950 text-xs font-bold hover:bg-amber-400 transition-all shrink-0 cursor-pointer"
+                  >
+                    {copiedKeyText === 'Mã Khóa API' ? <Check className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />}
+                    <span>{copiedKeyText === 'Mã Khóa API' ? 'Đã Chép' : 'Sao Chép'}</span>
+                  </button>
+                </div>
+
+                <div className="flex items-center gap-2 text-[11px] text-amber-400">
+                  <AlertCircle className="w-3.5 h-3.5 shrink-0" />
+                  <span>
+                    <strong>Cảnh báo:</strong> Đây là lần duy nhất mã khóa bí mật này hiển thị đầy đủ. Hãy sao chép và lưu trữ an toàn trước khi đóng tab. Khóa này đã được điền sẵn vào Trình Thử Nghiệm bên dưới!
+                  </span>
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* CARD 2: DANH SÁCH KHÓA API ĐANG HOẠT ĐỘNG */}
+          <div className="rounded-2xl border border-neutral-800 bg-neutral-900/90 p-6 shadow-sm space-y-4">
+            <div className="flex items-center justify-between border-b border-neutral-800 pb-3">
+              <div className="flex items-center gap-2">
+                <KeyRound className="w-4 h-4 text-amber-500" />
+                <h4 className="text-sm font-bold text-white">
+                  Danh Sách Khóa API Đang Quản Trị Sự Kiện ({schedulerApiKeys.length})
+                </h4>
+              </div>
+              <span className="text-xs text-neutral-400">
+                Bao gồm các khóa có quyền EVENT_SCHEDULER_FULL hoặc ADMIN_FULL
+              </span>
+            </div>
+
+            {isLoadingApiKeys ? (
+              <div className="py-8 text-center text-xs text-neutral-400 flex items-center justify-center gap-2">
+                <RefreshCw className="w-4 h-4 animate-spin text-amber-500" />
+                <span>Đang tải danh sách khóa API...</span>
+              </div>
+            ) : schedulerApiKeys.length === 0 ? (
+              <div className="py-8 text-center space-y-2">
+                <p className="text-xs text-neutral-400">Chưa có khóa API tùy chỉnh nào được tạo riêng cho Lịch Sự Kiện.</p>
+                <p className="text-[11px] text-amber-400 font-mono">
+                  Khóa mặc định toàn sàn: <strong>wcg_ev_8392cd51a704ef12b94a61358c701d94ea602b8f</strong>
+                </p>
+              </div>
+            ) : (
+              <div className="overflow-x-auto rounded-xl border border-neutral-800">
+                <table className="w-full text-left text-xs">
+                  <thead className="bg-neutral-950 text-neutral-400 font-bold border-b border-neutral-800">
+                    <tr>
+                      <th className="p-3">Tên Khóa API</th>
+                      <th className="p-3">Tiền Tố (Prefix)</th>
+                      <th className="p-3">Quyền Hạn</th>
+                      <th className="p-3">Hạn Dùng</th>
+                      <th className="p-3 text-center">Trạng Thái</th>
+                      <th className="p-3 text-right">Thao Tác</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-neutral-800">
+                    {schedulerApiKeys.map((keyItem) => {
+                      const isActive = keyItem.is_active === 1;
+                      return (
+                        <tr key={keyItem.id} className="hover:bg-neutral-800/40 transition-colors">
+                          <td className="p-3">
+                            <div className="font-bold text-white flex items-center gap-1.5">
+                              <span>{keyItem.key_name}</span>
+                              {keyItem.id === 'ak_preset_event_scheduler_full' && (
+                                <span className="text-[9px] px-1.5 py-0.2 rounded-md bg-amber-500/20 text-amber-300 font-mono">
+                                  PRESET
+                                </span>
+                              )}
+                            </div>
+                            <span className="text-[10px] text-neutral-500 font-mono">{keyItem.id}</span>
+                          </td>
+                          <td className="p-3 font-mono text-[11px] text-amber-400">
+                            {keyItem.key_prefix || (keyItem.raw_key ? keyItem.raw_key.substring(0, 16) + '...' : 'wcg_ev_...')}
+                          </td>
+                          <td className="p-3">
+                            <span className="inline-block px-2 py-0.5 rounded-full text-[10px] font-mono font-bold bg-amber-500/10 text-amber-300 border border-amber-500/20">
+                              {keyItem.scope}
+                            </span>
+                          </td>
+                          <td className="p-3 text-neutral-400 text-[11px]">
+                            {keyItem.expires_at ? formatFullDateTime(keyItem.expires_at) : 'Vĩnh viễn'}
+                          </td>
+                          <td className="p-3 text-center">
+                            <button
+                              type="button"
+                              onClick={() => handleToggleApiKey(keyItem)}
+                              className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold transition-all cursor-pointer ${
+                                isActive
+                                  ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20'
+                                  : 'bg-rose-500/10 text-rose-400 border border-rose-500/20'
+                              }`}
+                            >
+                              <span className={`w-1.5 h-1.5 rounded-full ${isActive ? 'bg-emerald-500' : 'bg-rose-500'}`} />
+                              <span>{isActive ? 'Hoạt Động' : 'Tạm Khóa'}</span>
+                            </button>
+                          </td>
+                          <td className="p-3 text-right">
+                            <div className="flex items-center justify-end gap-1.5">
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  if (keyItem.raw_key) {
+                                    setTestApiKey(keyItem.raw_key);
+                                  } else {
+                                    setTestApiKey(keyItem.key_prefix || 'wcg_ev_8392cd51a704ef12b94a61358c701d94ea602b8f');
+                                  }
+                                  onShowToast('Đã chọn khóa này', 'Đã điền khóa vào Trình Thử Nghiệm API', 'info');
+                                }}
+                                className="inline-flex items-center gap-1 px-2 py-1 rounded-lg bg-neutral-800 hover:bg-neutral-700 text-amber-400 text-[11px] font-bold cursor-pointer"
+                                title="Điền khóa này vào Trình Thử Nghiệm bên dưới"
+                              >
+                                <Play className="w-3 h-3 text-amber-400" />
+                                <span>Thử Nghiệm</span>
+                              </button>
+                              {keyItem.id !== 'ak_preset_event_scheduler_full' && (
+                                <button
+                                  type="button"
+                                  onClick={() => handleDeleteApiKey(keyItem)}
+                                  className="p-1 rounded-lg text-neutral-500 hover:text-rose-400 hover:bg-rose-950/40 cursor-pointer"
+                                  title="Xóa khóa API vĩnh viễn"
+                                >
+                                  <Trash2 className="w-3.5 h-3.5" />
+                                </button>
+                              )}
+                            </div>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+
+          {/* CARD 3: TRÌNH THỬ NGHIỆM GỌI API TRỰC TIẾP (QUICK TESTER) */}
+          <div className="rounded-2xl border border-neutral-800 bg-neutral-900/90 p-6 shadow-sm space-y-4">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 border-b border-neutral-800 pb-3">
+              <div className="flex items-center gap-2">
+                <Terminal className="w-4 h-4 text-amber-500" />
+                <h4 className="text-sm font-bold text-white">
+                  Trình Thử Nghiệm Gọi API Trực Tiếp (Interactive API Quick Tester)
+                </h4>
+              </div>
+              <span className="text-[11px] text-neutral-400">
+                Thực thi lệnh trực tiếp tới máy chủ Cloudflare Edge mà không cần mở Postman
+              </span>
+            </div>
+
+            {/* Action Selector Pills */}
+            <div className="flex flex-wrap items-center gap-1.5 p-1.5 bg-neutral-950 rounded-xl border border-neutral-800">
+              <button
+                type="button"
+                onClick={() => setTestAction('GET_LIST')}
+                className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                  testAction === 'GET_LIST'
+                    ? 'bg-amber-500 text-neutral-950 shadow-xs'
+                    : 'text-neutral-400 hover:text-white hover:bg-neutral-900'
+                }`}
+              >
+                GET: Tra Cứu Danh Sách Sự Kiện
+              </button>
+              <button
+                type="button"
+                onClick={() => setTestAction('GET_DETAIL')}
+                className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                  testAction === 'GET_DETAIL'
+                    ? 'bg-amber-500 text-neutral-950 shadow-xs'
+                    : 'text-neutral-400 hover:text-white hover:bg-neutral-900'
+                }`}
+              >
+                GET: Chi Tiết 1 Sự Kiện & Countdown
+              </button>
+              <button
+                type="button"
+                onClick={() => setTestAction('TRIGGER_LIVE')}
+                className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                  testAction === 'TRIGGER_LIVE'
+                    ? 'bg-emerald-500 text-neutral-950 shadow-xs'
+                    : 'text-neutral-400 hover:text-white hover:bg-neutral-900'
+                }`}
+              >
+                PUT: Kích Hoạt Giờ G (LIVE Ngay Lập Tức)
+              </button>
+              <button
+                type="button"
+                onClick={() => setTestAction('EXTEND_TIME')}
+                className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                  testAction === 'EXTEND_TIME'
+                    ? 'bg-blue-500 text-white shadow-xs'
+                    : 'text-neutral-400 hover:text-white hover:bg-neutral-900'
+                }`}
+              >
+                PUT: Gia Hạn Thời Gian Sự Kiện
+              </button>
+              <button
+                type="button"
+                onClick={() => setTestAction('TOGGLE_ACTIVE')}
+                className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                  testAction === 'TOGGLE_ACTIVE'
+                    ? 'bg-orange-500 text-neutral-950 shadow-xs'
+                    : 'text-neutral-400 hover:text-white hover:bg-neutral-900'
+                }`}
+              >
+                PUT: Bật / Tắt Sự Kiện
+              </button>
+              <button
+                type="button"
+                onClick={() => setTestAction('DELETE')}
+                className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                  testAction === 'DELETE'
+                    ? 'bg-rose-500 text-white shadow-xs'
+                    : 'text-neutral-400 hover:text-white hover:bg-neutral-900'
+                }`}
+              >
+                DELETE: Xóa Sự Kiện
+              </button>
+            </div>
+
+            {/* Parameter Inputs */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3 pt-1">
+              <div>
+                <label className="text-xs font-semibold text-neutral-300 block mb-1">
+                  Mã Khóa API Xác Thực (X-Api-Key) <span className="text-rose-500">*</span>:
+                </label>
+                <input
+                  type="text"
+                  value={testApiKey}
+                  onChange={(e) => setTestApiKey(e.target.value)}
+                  placeholder="wcg_ev_..."
+                  className="w-full font-mono rounded-xl border border-neutral-800 bg-neutral-950 px-3 py-2 text-xs text-white focus:border-amber-500 focus:outline-none"
+                />
+              </div>
+
+              {testAction !== 'GET_LIST' && (
+                <div>
+                  <label className="text-xs font-semibold text-neutral-300 block mb-1">
+                    Sự Kiện Mục Tiêu:
+                  </label>
+                  <select
+                    value={testSelectedEventId}
+                    onChange={(e) => setTestSelectedEventId(e.target.value)}
+                    className="w-full rounded-xl border border-neutral-800 bg-neutral-950 px-3 py-2 text-xs text-white focus:border-amber-500 focus:outline-none"
+                  >
+                    <option value="">-- Chọn sự kiện cần thao tác --</option>
+                    {schedules.map((ev) => (
+                      <option key={ev.id} value={ev.id}>
+                        {ev.title} ({ev.game_name || ev.type}) - ID: {ev.id}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              )}
+            </div>
+
+            {/* Duration inputs */}
+            {testAction === 'TRIGGER_LIVE' && (
+              <div className="p-3 rounded-xl bg-neutral-950 border border-neutral-800 flex items-center justify-between">
+                <div>
+                  <span className="text-xs font-semibold text-white block">Thời Lượng Sự Kiện LIVE:</span>
+                  <span className="text-[11px] text-neutral-400">Sự kiện sẽ bắt đầu ngay bây giờ và kết thúc sau số phút này</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <input
+                    type="number"
+                    min="5"
+                    max="1440"
+                    value={testDurationMinutes}
+                    onChange={(e) => setTestDurationMinutes(Number(e.target.value) || 120)}
+                    className="w-24 px-3 py-1.5 rounded-lg bg-neutral-900 border border-neutral-700 text-xs text-white font-mono text-center"
+                  />
+                  <span className="text-xs text-neutral-300">phút</span>
+                </div>
+              </div>
+            )}
+
+            {testAction === 'EXTEND_TIME' && (
+              <div className="p-3 rounded-xl bg-neutral-950 border border-neutral-800 flex items-center justify-between">
+                <div>
+                  <span className="text-xs font-semibold text-white block">Số Phút Gia Hạn Thêm:</span>
+                  <span className="text-[11px] text-neutral-400">Cộng thêm thời gian vào mốc kết thúc hiện tại</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <input
+                    type="number"
+                    min="5"
+                    max="1440"
+                    value={testExtendMinutes}
+                    onChange={(e) => setTestExtendMinutes(Number(e.target.value) || 60)}
+                    className="w-24 px-3 py-1.5 rounded-lg bg-neutral-900 border border-neutral-700 text-xs text-white font-mono text-center"
+                  />
+                  <span className="text-xs text-neutral-300">phút</span>
+                </div>
+              </div>
+            )}
+
+            {testAction === 'TOGGLE_ACTIVE' && (
+              <div className="p-3 rounded-xl bg-neutral-950 border border-neutral-800 flex items-center justify-between">
+                <span className="text-xs font-semibold text-neutral-300">
+                  Trạng Thái Sau Khi Đổi:
+                </span>
+                <button
+                  type="button"
+                  onClick={() => setTestActiveState(!testActiveState)}
+                  className={`px-3 py-1 rounded-full text-xs font-bold transition-all cursor-pointer ${
+                    testActiveState
+                      ? 'bg-emerald-500 text-neutral-950'
+                      : 'bg-rose-500 text-white'
+                  }`}
+                >
+                  {testActiveState ? '🟢 Kích Hoạt (ACTIVE)' : '🔴 Tạm Ngưng (INACTIVE)'}
+                </button>
+              </div>
+            )}
+
+            <div className="flex items-center justify-between pt-1">
+              <span className="text-xs text-neutral-400">
+                Endpoint: <strong className="text-amber-400 font-mono">/api/event-scheduler</strong>
+              </span>
+              <button
+                type="button"
+                onClick={handleRunTestApi}
+                disabled={isTestingApi || !testApiKey.trim()}
+                className="inline-flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold bg-amber-500 hover:bg-amber-400 text-neutral-950 shadow-sm transition-all disabled:opacity-50 cursor-pointer"
+              >
+                {isTestingApi ? (
+                  <>
+                    <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                    <span>Đang Gửi Lệnh...</span>
+                  </>
+                ) : (
+                  <>
+                    <Play className="w-3.5 h-3.5 fill-current" />
+                    <span>🚀 Thực Thi Gọi API Thử Nghiệm</span>
+                  </>
+                )}
+              </button>
+            </div>
+
+            {/* RESPONSE VIEWER */}
+            {testApiResponse && (
+              <div className="mt-3 p-4 rounded-xl bg-neutral-950 text-neutral-100 border border-neutral-800 space-y-2 animate-in fade-in duration-200">
+                <div className="flex items-center justify-between border-b border-neutral-800 pb-2">
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs font-bold text-neutral-300">Kết Quả Phản Hồi Từ Edge API:</span>
+                    {testApiStatus !== null && (
+                      <span className={`text-[10px] px-2 py-0.5 rounded-full font-mono font-bold ${
+                        testApiStatus >= 200 && testApiStatus < 300
+                          ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30'
+                          : 'bg-rose-500/20 text-rose-400 border border-rose-500/30'
+                      }`}>
+                        HTTP {testApiStatus}
+                      </span>
+                    )}
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => handleCopyText(JSON.stringify(testApiResponse, null, 2), 'JSON Response')}
+                    className="inline-flex items-center gap-1 text-[11px] text-neutral-400 hover:text-white cursor-pointer"
+                  >
+                    <Copy className="w-3 h-3" />
+                    <span>Sao Chép JSON</span>
+                  </button>
+                </div>
+                <pre className="text-[11px] font-mono leading-relaxed text-emerald-400 max-h-72 overflow-y-auto p-2 bg-black/60 rounded-lg select-all">
+                  {JSON.stringify(testApiResponse, null, 2)}
+                </pre>
+              </div>
+            )}
+          </div>
+
+          {/* CARD 4: BẢNG TRA CỨU ENDPOINTS */}
+          <div className="rounded-2xl border border-neutral-800 bg-neutral-900/90 p-6 shadow-sm space-y-4">
+            <div className="flex items-center justify-between border-b border-neutral-800 pb-3">
+              <div className="flex items-center gap-2">
+                <Code2 className="w-4 h-4 text-amber-500" />
+                <h4 className="text-sm font-bold text-white">
+                  Danh Mục Tra Cứu Endpoints Chuẩn REST
+                </h4>
+              </div>
+              <span className="text-xs text-neutral-400">Tương thích Postman, cURL, Python & Node.js</span>
+            </div>
+
+            <div className="overflow-x-auto rounded-xl border border-neutral-800">
+              <table className="w-full text-left text-xs font-mono">
+                <thead className="bg-neutral-950 text-neutral-400 font-bold border-b border-neutral-800">
+                  <tr>
+                    <th className="p-3">Phương Thức</th>
+                    <th className="p-3">Đường Dẫn Endpoint</th>
+                    <th className="p-3">Mô Tả Chức Năng</th>
+                    <th className="p-3">Yêu Cầu Quyền</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-neutral-800 text-neutral-300">
+                  <tr className="hover:bg-neutral-800/40">
+                    <td className="p-3"><span className="px-2 py-0.5 rounded-md bg-emerald-500/10 text-emerald-400 font-bold">GET</span></td>
+                    <td className="p-3 text-white">/api/event-scheduler?status=ALL</td>
+                    <td className="p-3 font-sans">Lấy danh sách toàn bộ sự kiện hoặc 1 sự kiện cụ thể (?id=...) kèm trạng thái countdown realtime</td>
+                    <td className="p-3 text-amber-400 font-bold">EVENT_SCHEDULER_FULL</td>
+                  </tr>
+                  <tr className="hover:bg-neutral-800/40">
+                    <td className="p-3"><span className="px-2 py-0.5 rounded-md bg-blue-500/10 text-blue-400 font-bold">POST</span></td>
+                    <td className="p-3 text-white">/api/event-scheduler</td>
+                    <td className="p-3 font-sans">Tạo mới hoặc cập nhật toàn diện sự kiện đếm ngược (title, type, start_time, end_time, banner...)</td>
+                    <td className="p-3 text-amber-400 font-bold">EVENT_SCHEDULER_FULL</td>
+                  </tr>
+                  <tr className="hover:bg-neutral-800/40">
+                    <td className="p-3"><span className="px-2 py-0.5 rounded-md bg-amber-500/10 text-amber-400 font-bold">PUT</span></td>
+                    <td className="p-3 text-white">/api/event-scheduler</td>
+                    <td className="p-3 font-sans">Thao tác nhanh: action = TRIGGER_LIVE, EXTEND_TIME, TOGGLE_ACTIVE</td>
+                    <td className="p-3 text-amber-400 font-bold">EVENT_SCHEDULER_FULL</td>
+                  </tr>
+                  <tr className="hover:bg-neutral-800/40">
+                    <td className="p-3"><span className="px-2 py-0.5 rounded-md bg-rose-500/10 text-rose-400 font-bold">DELETE</span></td>
+                    <td className="p-3 text-white">/api/event-scheduler?id=...</td>
+                    <td className="p-3 font-sans">Xóa vĩnh viễn sự kiện đếm ngược khỏi hệ thống</td>
+                    <td className="p-3 text-amber-400 font-bold">EVENT_SCHEDULER_FULL</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      ) : (
+        <>
 
       {/* KPI Cards */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
@@ -620,6 +1535,42 @@ export const EventSchedulerModule: React.FC<EventSchedulerModuleProps> = ({ onSh
           </div>
         )}
       </div>
+
+      
+        {/* BANNER KẾT NỐI API Ở CHÂN TRANG */}
+        <div className="rounded-2xl border border-neutral-800 bg-gradient-to-r from-neutral-900 via-neutral-900 to-amber-950/20 p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl bg-amber-500/20 text-amber-400 flex items-center justify-center shrink-0">
+              <KeyRound className="w-5 h-5" />
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <h4 className="text-sm font-bold text-white">
+                  Tự Động Hóa & Kết Nối Bot Với API Lịch Sự Kiện
+                </h4>
+                <span className="text-[10px] px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-400 font-mono font-bold">
+                  EVENT_SCHEDULER_FULL
+                </span>
+              </div>
+              <p className="text-xs text-neutral-400 mt-0.5">
+                Cung cấp mã khóa API và endpoints chuẩn REST để bot Discord/Telegram tự động mở Giờ G và thông báo người chơi.
+              </p>
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={() => {
+              setSubTab('api');
+              loadSchedulerApiKeys();
+            }}
+            className="inline-flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold bg-amber-500 hover:bg-amber-400 text-neutral-950 transition-all shrink-0 cursor-pointer shadow-md"
+          >
+            <Key className="w-3.5 h-3.5" />
+            <span>Mở Cổng API Ngay</span>
+          </button>
+        </div>
+        </>
+      )}
 
       {/* Add / Edit Form Modal */}
       <FormModal

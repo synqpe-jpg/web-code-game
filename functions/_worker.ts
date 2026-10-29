@@ -44,6 +44,7 @@ import * as missionsAiKeysApi from './api/missions/ai-keys';
 import * as missionsAuditLogsApi from './api/missions/audit-logs';
 import * as apiKeysIndexApi from './api/api-keys/index';
 import * as apiKeysIdApi from './api/api-keys/[id]';
+import * as eventSchedulerApi from './api/event-scheduler/index';
 import { invalidateCatalogEdgeCache } from './services/cache_service';
 import fallbackGiveawaysData from '../src/data/giveaways.json';
 import fallbackGamesData from '../src/data/games188.json';
@@ -463,6 +464,15 @@ async function handleWorkerRequest(request: Request, env: Env, ctx: ExecutionCon
         if (method === 'PUT') return await giveawaysManageApi.onRequestPut(context);
         if (method === 'DELETE') return await giveawaysManageApi.onRequestDelete(context);
         return await giveawaysManageApi.onRequestGet(context);
+      }
+
+      // 7d. /api/event-scheduler & /api/events/schedule (Event Scheduler & Countdown Full Management Edge API)
+      if (pathname === '/api/event-scheduler' || pathname === '/api/events/schedule') {
+        if (method === 'OPTIONS') return await eventSchedulerApi.onRequestOptions(context);
+        if (method === 'POST') return await eventSchedulerApi.onRequestPost(context);
+        if (method === 'PUT') return await eventSchedulerApi.onRequestPut(context);
+        if (method === 'DELETE') return await eventSchedulerApi.onRequestDelete(context);
+        return await eventSchedulerApi.onRequestGet(context);
       }
 
       // Passive Tick: Tự động chạy quét mô phỏng mỗi 5 phút một cách nhẹ nhàng

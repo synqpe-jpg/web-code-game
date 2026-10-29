@@ -46,6 +46,7 @@ export type ApiKeyScope =
   | 'MISSIONS_REVIEW'
   | 'GAMES_FULL'
   | 'GIVEAWAYS_FULL'
+  | 'EVENT_SCHEDULER_FULL'
   | 'STORE_FULL'
   | 'MEMBERS_FULL'
   | 'SYNC_FULL'
@@ -120,6 +121,17 @@ export const ALL_API_SCOPES: ScopeOption[] = [
     badgeText: 'text-purple-500',
     badgeBorder: 'border-purple-500/20',
     icon: Gift,
+  },
+  {
+    id: 'EVENT_SCHEDULER_FULL',
+    name: 'Lịch Sự Kiện & Đếm Ngược (Event Scheduler API)',
+    category: 'Vận Hành',
+    description: 'Toàn quyền tạo lịch đếm ngược tự động, lên lịch phát code/flash sale, bật tắt trạng thái và ghim banner.',
+    color: 'amber',
+    badgeBg: 'bg-amber-500/10',
+    badgeText: 'text-amber-500',
+    badgeBorder: 'border-amber-500/20',
+    icon: Clock,
   },
   {
     id: 'STORE_FULL',
@@ -245,7 +257,7 @@ export const ApiKeysModule: React.FC<ApiKeysModuleProps> = ({ onShowToast }) => 
 
   // Active sub-tab
   const [activeTab, setActiveTab] = useState<'keys' | 'permissions' | 'docs'>('keys');
-  const [docCategory, setDocCategory] = useState<'universal' | 'news' | 'missions' | 'giveaways' | 'sync'>('universal');
+  const [docCategory, setDocCategory] = useState<'universal' | 'news' | 'missions' | 'giveaways' | 'events' | 'sync'>('universal');
 
   const showToast = (msg: string, type: 'success' | 'error' | 'info' = 'success') => {
     if (onShowToast) {
@@ -1351,6 +1363,17 @@ export const ApiKeysModule: React.FC<ApiKeysModuleProps> = ({ onShowToast }) => 
               API Giveaway (Mới)
             </button>
             <button
+              onClick={() => setDocCategory('events')}
+              className={`flex items-center gap-2 px-3.5 py-1.5 rounded-xl text-xs font-semibold transition-all ${
+                docCategory === 'events'
+                  ? 'bg-amber-600 text-white shadow-sm'
+                  : 'bg-card border border-border text-muted-foreground hover:text-foreground'
+              }`}
+            >
+              <Clock className="w-3.5 h-3.5" />
+              API Lịch Đếm Ngược (Mới)
+            </button>
+            <button
               onClick={() => setDocCategory('sync')}
               className={`flex items-center gap-2 px-3.5 py-1.5 rounded-xl text-xs font-semibold transition-all ${
                 docCategory === 'sync'
@@ -1620,6 +1643,112 @@ await fetch('https://codegame.shop/api/giveaways/manage', {
     id: 'gw_genshin-impact',
     is_active: false, // hoặc true để mở lại
   }),
+});`}
+                </pre>
+              </div>
+            </div>
+          )}
+
+          {/* Docs: Event Scheduler API (EVENT_SCHEDULER_FULL) */}
+          {docCategory === 'events' && (
+            <div className="space-y-4 bg-card border border-border p-5 rounded-2xl">
+              <div className="p-3.5 rounded-xl bg-amber-500/10 border border-amber-500/30 text-amber-300 text-xs leading-relaxed">
+                <span className="font-bold text-amber-400">⏰ Quyền Quản Trị EVENT_SCHEDULER_FULL:</span> Toàn quyền quản trị lịch sự kiện, đồng hồ đếm ngược tự động, lên lịch phát code/flash sale sản phẩm, kích hoạt Giờ G ngay lập tức và ghim banner trang chủ. Chấp nhận Header <code className="bg-black/40 px-1.5 py-0.5 rounded text-amber-200 font-mono">X-Api-Key: &lt;KEY&gt;</code> hoặc <code className="bg-black/40 px-1.5 py-0.5 rounded text-amber-200 font-mono">Authorization: Bearer &lt;KEY&gt;</code>.
+              </div>
+
+              <div>
+                <h4 className="text-sm font-bold text-foreground flex items-center gap-2">
+                  <Terminal className="w-4 h-4 text-amber-400" />
+                  Mẫu 1: Lấy Danh Sách Lịch Sự Kiện Kèm Trạng Thái Đếm Ngược Realtime (cURL)
+                </h4>
+                <pre className="mt-2 p-4 rounded-xl bg-slate-950 text-slate-100 font-mono text-xs overflow-x-auto">
+{`curl -X GET "https://codegame.shop/api/event-scheduler?status=ALL" \\
+  -H "X-Api-Key: YOUR_EVENT_OR_ADMIN_KEY"`}
+                </pre>
+              </div>
+
+              <div>
+                <h4 className="text-sm font-bold text-foreground flex items-center gap-2">
+                  <Terminal className="w-4 h-4 text-amber-400" />
+                  Mẫu 2: Tạo Lịch Sự Kiện Đếm Ngược Mới (cURL)
+                </h4>
+                <pre className="mt-2 p-4 rounded-xl bg-slate-950 text-slate-100 font-mono text-xs overflow-x-auto">
+{`curl -X POST https://codegame.shop/api/event-scheduler \\
+  -H "Content-Type: application/json" \\
+  -H "X-Api-Key: YOUR_EVENT_OR_ADMIN_KEY" \\
+  -d '{
+    "title": "Đợt Phát Giftcode VIP Giang Hồ Kỳ Ngộ",
+    "subtitle": "Đếm ngược đến giờ mở kho mã đặc biệt dành riêng cho thành viên",
+    "type": "GIVEAWAY",
+    "target_id": "gw_giang-ho-ky-ngo",
+    "game_slug": "giang-ho-ky-ngo",
+    "game_name": "Giang Hồ Kỳ Ngộ",
+    "start_time": "2026-11-01T12:00:00.000Z",
+    "end_time": "2026-11-01T18:00:00.000Z",
+    "countdown_lead_hours": 72,
+    "show_top_banner": true,
+    "show_in_giveaways": true,
+    "theme": "fire",
+    "badge_label": "SẮP DIỄN RA",
+    "cta_text": "Săn Mã Ngay",
+    "is_active": true
+  }'`}
+                </pre>
+              </div>
+
+              <div>
+                <h4 className="text-sm font-bold text-foreground flex items-center gap-2">
+                  <Terminal className="w-4 h-4 text-amber-400" />
+                  Mẫu 3: Kích Hoạt Giờ G (LIVE Ngay Lập Tức) hoặc Gia Hạn Sự Kiện (cURL)
+                </h4>
+                <pre className="mt-2 p-4 rounded-xl bg-slate-950 text-slate-100 font-mono text-xs overflow-x-auto">
+{`# 1. Kích hoạt LIVE ngay lập tức trong 120 phút
+curl -X PUT https://codegame.shop/api/event-scheduler \\
+  -H "Content-Type: application/json" \\
+  -H "X-Api-Key: YOUR_EVENT_OR_ADMIN_KEY" \\
+  -d '{
+    "action": "TRIGGER_LIVE",
+    "id": "ev_1793290359485_abc",
+    "duration_minutes": 120
+  }'
+
+# 2. Gia hạn thêm 60 phút
+curl -X PUT https://codegame.shop/api/event-scheduler \\
+  -H "Content-Type: application/json" \\
+  -H "X-Api-Key: YOUR_EVENT_OR_ADMIN_KEY" \\
+  -d '{
+    "action": "EXTEND_TIME",
+    "id": "ev_1793290359485_abc",
+    "extend_minutes": 60
+  }'`}
+                </pre>
+              </div>
+
+              <div>
+                <h4 className="text-sm font-bold text-foreground flex items-center gap-2">
+                  <Code2 className="w-4 h-4 text-amber-400" />
+                  Mẫu 4: Xóa Sự Kiện Hoặc Bật/Tắt Trạng Thái (JavaScript / Fetch)
+                </h4>
+                <pre className="mt-2 p-4 rounded-xl bg-slate-950 text-slate-100 font-mono text-xs overflow-x-auto">
+{`// Bật/tắt sự kiện
+await fetch('https://codegame.shop/api/event-scheduler', {
+  method: 'PUT',
+  headers: {
+    'Content-Type': 'application/json',
+    'X-Api-Key': 'YOUR_EVENT_OR_ADMIN_KEY',
+  },
+  body: JSON.stringify({
+    action: 'TOGGLE_ACTIVE',
+    id: 'ev_1793290359485_abc',
+  }),
+});
+
+// Xóa sự kiện
+await fetch('https://codegame.shop/api/event-scheduler?id=ev_1793290359485_abc', {
+  method: 'DELETE',
+  headers: {
+    'X-Api-Key': 'YOUR_EVENT_OR_ADMIN_KEY',
+  },
 });`}
                 </pre>
               </div>

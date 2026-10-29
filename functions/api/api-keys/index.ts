@@ -77,7 +77,7 @@ async function ensureDefaultPresetKeys(env: Env) {
     const rawKey = 'wcg_multi_5a82ef419b027c4d18e3902f6a7d1b82c9e5041a';
     const keyHash = await computeSha256(rawKey);
     const keyPrefix = 'wcg_multi_5a82••••••••••••••••••••041a';
-    const multiScope = 'NEWS_FULL,MISSIONS_FULL,GAMES_FULL,GIVEAWAYS_FULL,STORE_FULL,MEMBERS_FULL,SYNC_FULL,API_KEYS_FULL';
+    const multiScope = 'NEWS_FULL,MISSIONS_FULL,GAMES_FULL,GIVEAWAYS_FULL,EVENT_SCHEDULER_FULL,STORE_FULL,MEMBERS_FULL,SYNC_FULL,API_KEYS_FULL';
     await env.DB.prepare(`
       INSERT INTO mission_ai_api_keys (id, key_name, api_key_hash, key_prefix, scope, description, expires_at, raw_key, is_active, last_used_at, created_at)
       VALUES ('ak_preset_multi_versatile', 'Khóa API Đa Năng (Universal Versatile Key)', ?, ?, ?, 'Khóa API Đa Năng cho phép Quản trị viên dùng 1 mã duy nhất để cấu hình và set linh hoạt mọi quyền trên web.', '', ?, 1, '', ?)
@@ -93,6 +93,18 @@ async function ensureDefaultPresetKeys(env: Env) {
     await env.DB.prepare(`
       INSERT INTO mission_ai_api_keys (id, key_name, api_key_hash, key_prefix, scope, description, expires_at, raw_key, is_active, last_used_at, created_at)
       VALUES ('ak_preset_giveaways_full', 'Toàn Quyền Giveaway (Giveaways Full Access)', ?, ?, 'GIVEAWAYS_FULL', 'Toàn quyền quản trị chiến dịch Giveaway, thêm/sửa/xóa đợt phát, nạp kho mã giftcode, bật tắt sự kiện và reset thời gian hồi chiêu.', ?, ?, 1, '', ?)
+    `).bind(keyHash, keyPrefix, expires90d, rawKey, nowIso).run().catch(() => {});
+  }
+
+  // 7. Preset Event Scheduler Full Key (Toàn Quyền Lịch Sự Kiện & Đếm Ngược)
+  const hasEventScheduler = list.some((r) => String(r.scope).toUpperCase() === 'EVENT_SCHEDULER_FULL' || r.id === 'ak_preset_event_scheduler_full');
+  if (!hasEventScheduler) {
+    const rawKey = 'wcg_ev_8392cd51a704ef12b94a61358c701d94ea602b8f';
+    const keyHash = await computeSha256(rawKey);
+    const keyPrefix = 'wcg_ev_8392••••••••••••••••••••2b8f';
+    await env.DB.prepare(`
+      INSERT INTO mission_ai_api_keys (id, key_name, api_key_hash, key_prefix, scope, description, expires_at, raw_key, is_active, last_used_at, created_at)
+      VALUES ('ak_preset_event_scheduler_full', 'Toàn Quyền Lịch Sự Kiện & Đếm Ngược (Event Scheduler Full)', ?, ?, 'EVENT_SCHEDULER_FULL', 'Toàn quyền tạo lịch đếm ngược tự động, lên lịch phát code/flash sale, bật tắt trạng thái và ghim banner.', ?, ?, 1, '', ?)
     `).bind(keyHash, keyPrefix, expires90d, rawKey, nowIso).run().catch(() => {});
   }
 
@@ -238,6 +250,7 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
     else if (validScope === 'NEWS_FULL') prefixTag = 'wcg_news_';
     else if (validScope === 'MISSIONS_FULL') prefixTag = 'wcg_mis_';
     else if (validScope === 'GIVEAWAYS_FULL') prefixTag = 'wcg_gw_';
+    else if (validScope === 'EVENT_SCHEDULER_FULL') prefixTag = 'wcg_ev_';
     else if (validScope === 'MISSIONS_REVIEW' || validScope === 'REVIEW_ONLY') prefixTag = 'wcg_ai_';
     else if (validScope === 'ADMIN_FULL' || validScope === 'FULL') prefixTag = 'wcg_adm_';
     else prefixTag = 'wcg_multi_';
