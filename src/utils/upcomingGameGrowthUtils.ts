@@ -21,11 +21,27 @@ export interface GrowthGameItem {
 }
 
 /**
- * Sinh số ngẫu nhiên nguyên trong khoảng [min, max] với bước nhảy step
+ * Sinh số ngẫu nhiên trong khoảng [min, max] với bước nhảy step
+ * Hỗ trợ cả số nguyên và số lẻ thập phân linh hoạt.
  */
 export function generateRandomInRange(min: number, max: number, step: number = 1): number {
-  const validMin = Math.min(Number(min) || 1, Number(max) || 1);
-  const validMax = Math.max(Number(min) || 1, Number(max) || 1);
+  const validMin = Math.min(Number(min) || 0, Number(max) || 0);
+  const validMax = Math.max(Number(min) || 0, Number(max) || 0);
+  if (validMin === validMax) return validMin;
+
+  // Nếu step < 1 (ví dụ 0.1, 0.5): hỗ trợ sinh số lẻ thập phân
+  if (step > 0 && step < 1) {
+    const stepsCount = Math.floor((validMax - validMin) / step);
+    const randomSteps = Math.floor(Math.random() * (stepsCount + 1));
+    return Number((validMin + randomSteps * step).toFixed(2));
+  }
+
+  // Nếu min hoặc max có phần lẻ thập phân mà step = 1: sinh số lẻ thập phân ngẫu nhiên 1 chữ số
+  if (validMin % 1 !== 0 || validMax % 1 !== 0) {
+    const randFloat = Math.random() * (validMax - validMin) + validMin;
+    return Number(randFloat.toFixed(1));
+  }
+
   const raw = Math.floor(Math.random() * (validMax - validMin + 1)) + validMin;
   if (step > 1) {
     return Math.max(validMin, Math.min(validMax, Math.round(raw / step) * step));
@@ -35,6 +51,7 @@ export function generateRandomInRange(min: number, max: number, step: number = 1
 
 /**
  * Tính toán Thứ Tự Hiển Thị (Display Order) hiệu dụng theo thời gian thực
+ * Hỗ trợ số lẻ thập phân (ví dụ 1.5, 2.5...) không bị làm tròn thành số nguyên.
  */
 export function calculateEffectiveOrder(game: GrowthGameItem, nowMs: number = Date.now()): number {
   const base = typeof game.displayOrder === 'number' ? game.displayOrder : 999;
@@ -47,8 +64,8 @@ export function calculateEffectiveOrder(game: GrowthGameItem, nowMs: number = Da
   if (isNaN(anchorMs) || nowMs <= anchorMs) return base;
 
   const elapsedDays = (nowMs - anchorMs) / (1000 * 60 * 60 * 24);
-  const delta = Math.round(elapsedDays * game.orderGrowthRate);
-  return Math.max(1, base + delta);
+  const delta = elapsedDays * game.orderGrowthRate;
+  return Math.max(0.1, Number((base + delta).toFixed(2)));
 }
 
 /**

@@ -10,6 +10,24 @@
 
 ## 1. DANH MỤC LỖI & CÁC BẪY ĐÃ THẤT BẠI (DO NOT REPEAT)
 
+### ISSUE-181: Bẫy Ràng Buộc Step={10} & parseInt Khiến Người Dùng Bị Chặn Nhập Số Lẻ Trong Game Sắp Ra Mắt (Upcoming Games Step Restriction & parseInt Decimals Stripping Pitfall)
+- **Triệu chứng**:
+  - Không thể nhập thứ tự hiển thị dạng số lẻ / thập phân (ví dụ `1.5`, `2.5`) để xếp game xen kẽ giữa các vị trí có sẵn: trình duyệt báo lỗi validation đỏ hoặc tự động ép tròn về số nguyên.
+  - Không thể nhập số người canh dạng số lẻ đơn vị (ví dụ `2843`, `1517`): trình duyệt hiển thị thông báo chặn submit "Vui lòng nhập giá trị hợp lệ. Hai giá trị gần nhất là 2840 và 2850".
+  - Nút "Sinh Random" luôn ra số tròn chục (2840, 1500) mà không sinh ra các số lẻ tự nhiên.
+- **Nguyên nhân gốc rễ**:
+  1. Input HTML5 được gắn `step={10}` và `step={50}` ép buộc giá trị phải là bội số của 10 hoặc 50.
+  2. Input thứ tự thiếu `step="any"` và gắn `parseInt(e.target.value, 10)` làm mất phần thập phân.
+  3. Hàm `generateRandomInRange` truyền tham số `step = 10` làm tròn số ngẫu nhiên về bội số 10.
+- **Giải pháp chuẩn đã kiểm chứng**:
+  1. Thêm `step="any"` vào tất cả các ô nhập số trong modal Game Sắp Ra Mắt, cho phép nhập số lẻ và số thập phân tự do.
+  2. Sử dụng cơ chế lưu chuỗi khi gõ và chuyển đổi `parseFloat` khi `onBlur` và khi `submit`.
+  3. Đổi bước nhảy mặc định của `generateRandomInRange` thành `1`, cho phép sinh ra số lẻ tự nhiên, và hỗ trợ sinh số lẻ thập phân khi Min/Max có phần lẻ.
+  4. Đảm bảo `calculateEffectiveOrder` bảo toàn số lẻ thập phân và thuật toán sắp xếp `orderA - orderB` hoạt động chính xác với float.
+- 🚫 **CÁCH SỬA ĐÃ THẤT BẠI - TUYỆT ĐỐI KHÔNG LẶP LẠI**:
+  - ❌ *Tuyệt đối KHÔNG gắn `step={10}` hay `step={50}` vào các ô nhập số người canh hoặc số thứ tự*.
+  - ❌ *Tuyệt đối KHÔNG dùng `parseInt(e.target.value, 10)` cho các trường thứ tự hiển thị cần hỗ trợ vị trí xen kẽ thập phân*.
+
 ### ISSUE-180: Bẫy Thiếu Endpoint Toàn Quyền Cho Giveaway & Quên Đăng Ký Tài Liệu cURL/JS Khi Mở Scope API Mới (Giveaway Management API & Documentation Missing Pitfall)
 - **Triệu chứng**:
   - Không thể tự động hóa việc nạp giftcode hay quản lý đợt phát code giveaway từ bot bên ngoài (Discord, Telegram, cronjob) do thiếu endpoint REST API hỗ trợ phương thức PUT/POST/DELETE.

@@ -7,6 +7,39 @@ Mỗi mục sửa lỗi đều ghi nhận **Nguyên nhân gốc rễ (Root Cause
 
 ## [2026-10-29]
 
+### 265. Hỗ Trợ Nhập Số Lẻ & Số Thập Phân Tự Do Cho Thứ Tự Hiển Thị & Số Người Canh Game Sắp Ra Mắt (Decimal Display Order & Odd Subscribers Input Support)
+- **Bối cảnh & Yêu cầu người dùng**:
+  - Người dùng yêu cầu: "Trong mục game sắp ra mắt, có thể điền số lẻ, không nhất thiết phải số tròn." Kèm ảnh chụp màn hình modal "Chỉnh Sửa Game Sắp Ra Mắt" tại mục "CÀI ĐẶT THỨ TỰ HIỂN THỊ & NGƯỜI CANH".
+  - Trước đây, khi quản trị viên muốn xếp thứ tự một tựa game nằm xen kẽ giữa hai game (ví dụ thứ tự `1.5` để chèn giữa game `#1` và game `#2`), hoặc muốn đặt số người canh tự nhiên chân thực (ví dụ `2843`, `2847` thay vì bị ép thành số tròn chục như `2840`), hệ thống bị chặn bởi ràng buộc bước nhảy và hàm ép kiểu số nguyên.
+- **Nguyên nhân gốc rễ (Root Causes)**:
+  1. *Ràng buộc bước nhảy HTML5 cứng nhắc*:
+     - Ô nhập "Số Người Canh (Subscribers)": có thuộc tính `step={10}`, khiến trình duyệt chặn người dùng nhập số lẻ không chia hết cho 10 (báo lỗi: "Vui lòng nhập giá trị hợp lệ. Hai giá trị gần nhất là 2840 và 2850").
+     - Ô nhập Khoảng Dao Động Min - Max người canh: có thuộc tính `step={50}`, chặn các số lẻ tùy ý.
+     - Ô nhập "Thứ Tự Hiển Thị (Display Order)" và Min - Max: thiếu thuộc tính `step="any"`, trình duyệt mặc định `step="1"` chỉ cho nhập số nguyên.
+  2. *Hàm xử lý sự kiện `onChange` dùng `parseInt(..., 10)`*:
+     - Toàn bộ 7 ô nhập trong modal đều ép kiểu qua `parseInt`, khiến các số thập phân (như `1.5`, `2.5`) bị cắt cụt phần thập phân và làm tròn thành số nguyên.
+  3. *Bộ sinh số ngẫu nhiên ép tròn bội số 10*:
+     - Nút "Sinh Random" người canh và hàm "Sinh Random Hàng Loạt" gọi `generateRandomInRange(min, max, 10)`, luôn sinh ra các số tròn chục (ví dụ 2840, 1500) thay vì số lẻ tự nhiên.
+  4. *Hàm `calculateEffectiveOrder` ép kiểu số nguyên*:
+     - Tính `delta = Math.round(...)` và `Math.max(1, base + delta)` khiến thứ tự hiệu dụng bị ép tròn về số nguyên.
+- **Giải pháp xử lý triệt để**:
+  1. Loại bỏ toàn bộ ràng buộc `step={10}` và `step={50}` trong `UpcomingGamesSection.tsx`:
+     - Thiết lập `step="any"` cho tất cả các trường: `displayOrder`, `orderMinRange`, `orderMaxRange`, `subscribersCount`, `subscribersMinRange`, `subscribersMaxRange`, và `subscribersGrowthRatePerHour`.
+  2. Chuyển đổi cơ chế `onChange` & `onBlur`:
+     - Cho phép giữ chuỗi ký tự tự do trong khi đang gõ (hỗ trợ gõ dấu chấm thập phân `.`), khi `onBlur` và `submit` chuyển đổi qua `parseFloat` với độ chính xác chuẩn float.
+  3. Nâng cấp bộ sinh số ngẫu nhiên `generateRandomInRange` (`upcomingGameGrowthUtils.ts`):
+     - Mặc định `step = 1`, sinh số tự nhiên ngẫu nhiên không còn bị ép tròn chục (cho ra các số lẻ chân thực như 2843, 1579).
+     - Tự động phát hiện nếu Min hoặc Max là số thập phân để sinh số lẻ thập phân ngẫu nhiên (ví dụ khoảng `[1.5, 5.5]`).
+  4. Cập nhật `calculateEffectiveOrder`:
+     - Giữ nguyên số lẻ thập phân với `Math.max(0.1, Number((base + delta).toFixed(2)))`, bảo toàn vị trí sắp xếp chính xác cho các game có thứ tự lẻ (`1.5`, `2.25`...).
+- **Kiểm Thử & Triển Khai**:
+  - `npm run build`: 100% PASS, 0 lỗi TypeScript, 0 lỗi bundle.
+  - Kiểm thử `audit_zero_test_artifacts.cjs`: 100% PASS.
+  - Kiểm thử đơn vị số lẻ & số thập phân: 100% PASS (xếp đúng vị trí `1` $\rightarrow$ `1.5` $\rightarrow$ `2`, sinh ngẫu nhiên số lẻ không chia hết cho 10).
+  - Kiểm thử hồi quy sao chép: 100% PASS (8/8 bài kiểm tra).
+
+---
+
 ### 264. Phát Triển API Kết Nối Toàn Quyền Quản Lý Giveaway, Subtab API & Danh Sách Endpoints Chi Tiết Ở Cuối Trang (Full Giveaway Management API, Dedicated Subtab & Endpoints Reference)
 - **Bối cảnh & Yêu cầu người dùng**:
   - Người dùng yêu cầu: "Trong mục giveaway ở admin, bạn tạo cho tôi mục API kết nối toàn quyền quản lý mục này đi, nhớ thêm vào mục danh sách api ở cuối trang nhé."
@@ -75,6 +108,39 @@ Mỗi mục sửa lỗi đều ghi nhận **Nguyên nhân gốc rễ (Root Cause
 
 ## [2026-10-29]
 
+### 265. Hỗ Trợ Nhập Số Lẻ & Số Thập Phân Tự Do Cho Thứ Tự Hiển Thị & Số Người Canh Game Sắp Ra Mắt (Decimal Display Order & Odd Subscribers Input Support)
+- **Bối cảnh & Yêu cầu người dùng**:
+  - Người dùng yêu cầu: "Trong mục game sắp ra mắt, có thể điền số lẻ, không nhất thiết phải số tròn." Kèm ảnh chụp màn hình modal "Chỉnh Sửa Game Sắp Ra Mắt" tại mục "CÀI ĐẶT THỨ TỰ HIỂN THỊ & NGƯỜI CANH".
+  - Trước đây, khi quản trị viên muốn xếp thứ tự một tựa game nằm xen kẽ giữa hai game (ví dụ thứ tự `1.5` để chèn giữa game `#1` và game `#2`), hoặc muốn đặt số người canh tự nhiên chân thực (ví dụ `2843`, `2847` thay vì bị ép thành số tròn chục như `2840`), hệ thống bị chặn bởi ràng buộc bước nhảy và hàm ép kiểu số nguyên.
+- **Nguyên nhân gốc rễ (Root Causes)**:
+  1. *Ràng buộc bước nhảy HTML5 cứng nhắc*:
+     - Ô nhập "Số Người Canh (Subscribers)": có thuộc tính `step={10}`, khiến trình duyệt chặn người dùng nhập số lẻ không chia hết cho 10 (báo lỗi: "Vui lòng nhập giá trị hợp lệ. Hai giá trị gần nhất là 2840 và 2850").
+     - Ô nhập Khoảng Dao Động Min - Max người canh: có thuộc tính `step={50}`, chặn các số lẻ tùy ý.
+     - Ô nhập "Thứ Tự Hiển Thị (Display Order)" và Min - Max: thiếu thuộc tính `step="any"`, trình duyệt mặc định `step="1"` chỉ cho nhập số nguyên.
+  2. *Hàm xử lý sự kiện `onChange` dùng `parseInt(..., 10)`*:
+     - Toàn bộ 7 ô nhập trong modal đều ép kiểu qua `parseInt`, khiến các số thập phân (như `1.5`, `2.5`) bị cắt cụt phần thập phân và làm tròn thành số nguyên.
+  3. *Bộ sinh số ngẫu nhiên ép tròn bội số 10*:
+     - Nút "Sinh Random" người canh và hàm "Sinh Random Hàng Loạt" gọi `generateRandomInRange(min, max, 10)`, luôn sinh ra các số tròn chục (ví dụ 2840, 1500) thay vì số lẻ tự nhiên.
+  4. *Hàm `calculateEffectiveOrder` ép kiểu số nguyên*:
+     - Tính `delta = Math.round(...)` và `Math.max(1, base + delta)` khiến thứ tự hiệu dụng bị ép tròn về số nguyên.
+- **Giải pháp xử lý triệt để**:
+  1. Loại bỏ toàn bộ ràng buộc `step={10}` và `step={50}` trong `UpcomingGamesSection.tsx`:
+     - Thiết lập `step="any"` cho tất cả các trường: `displayOrder`, `orderMinRange`, `orderMaxRange`, `subscribersCount`, `subscribersMinRange`, `subscribersMaxRange`, và `subscribersGrowthRatePerHour`.
+  2. Chuyển đổi cơ chế `onChange` & `onBlur`:
+     - Cho phép giữ chuỗi ký tự tự do trong khi đang gõ (hỗ trợ gõ dấu chấm thập phân `.`), khi `onBlur` và `submit` chuyển đổi qua `parseFloat` với độ chính xác chuẩn float.
+  3. Nâng cấp bộ sinh số ngẫu nhiên `generateRandomInRange` (`upcomingGameGrowthUtils.ts`):
+     - Mặc định `step = 1`, sinh số tự nhiên ngẫu nhiên không còn bị ép tròn chục (cho ra các số lẻ chân thực như 2843, 1579).
+     - Tự động phát hiện nếu Min hoặc Max là số thập phân để sinh số lẻ thập phân ngẫu nhiên (ví dụ khoảng `[1.5, 5.5]`).
+  4. Cập nhật `calculateEffectiveOrder`:
+     - Giữ nguyên số lẻ thập phân với `Math.max(0.1, Number((base + delta).toFixed(2)))`, bảo toàn vị trí sắp xếp chính xác cho các game có thứ tự lẻ (`1.5`, `2.25`...).
+- **Kiểm Thử & Triển Khai**:
+  - `npm run build`: 100% PASS, 0 lỗi TypeScript, 0 lỗi bundle.
+  - Kiểm thử `audit_zero_test_artifacts.cjs`: 100% PASS.
+  - Kiểm thử đơn vị số lẻ & số thập phân: 100% PASS (xếp đúng vị trí `1` $\rightarrow$ `1.5` $\rightarrow$ `2`, sinh ngẫu nhiên số lẻ không chia hết cho 10).
+  - Kiểm thử hồi quy sao chép: 100% PASS (8/8 bài kiểm tra).
+
+---
+
 ### 264. Phát Triển API Kết Nối Toàn Quyền Quản Lý Giveaway, Subtab API & Danh Sách Endpoints Chi Tiết Ở Cuối Trang (Full Giveaway Management API, Dedicated Subtab & Endpoints Reference)
 - **Bối cảnh & Yêu cầu người dùng**:
   - Người dùng yêu cầu: "Trong mục giveaway ở admin, bạn tạo cho tôi mục API kết nối toàn quyền quản lý mục này đi, nhớ thêm vào mục danh sách api ở cuối trang nhé."
@@ -136,6 +202,39 @@ Mỗi mục sửa lỗi đều ghi nhận **Nguyên nhân gốc rễ (Root Cause
 ---
 
 ## [2026-10-29]
+
+### 265. Hỗ Trợ Nhập Số Lẻ & Số Thập Phân Tự Do Cho Thứ Tự Hiển Thị & Số Người Canh Game Sắp Ra Mắt (Decimal Display Order & Odd Subscribers Input Support)
+- **Bối cảnh & Yêu cầu người dùng**:
+  - Người dùng yêu cầu: "Trong mục game sắp ra mắt, có thể điền số lẻ, không nhất thiết phải số tròn." Kèm ảnh chụp màn hình modal "Chỉnh Sửa Game Sắp Ra Mắt" tại mục "CÀI ĐẶT THỨ TỰ HIỂN THỊ & NGƯỜI CANH".
+  - Trước đây, khi quản trị viên muốn xếp thứ tự một tựa game nằm xen kẽ giữa hai game (ví dụ thứ tự `1.5` để chèn giữa game `#1` và game `#2`), hoặc muốn đặt số người canh tự nhiên chân thực (ví dụ `2843`, `2847` thay vì bị ép thành số tròn chục như `2840`), hệ thống bị chặn bởi ràng buộc bước nhảy và hàm ép kiểu số nguyên.
+- **Nguyên nhân gốc rễ (Root Causes)**:
+  1. *Ràng buộc bước nhảy HTML5 cứng nhắc*:
+     - Ô nhập "Số Người Canh (Subscribers)": có thuộc tính `step={10}`, khiến trình duyệt chặn người dùng nhập số lẻ không chia hết cho 10 (báo lỗi: "Vui lòng nhập giá trị hợp lệ. Hai giá trị gần nhất là 2840 và 2850").
+     - Ô nhập Khoảng Dao Động Min - Max người canh: có thuộc tính `step={50}`, chặn các số lẻ tùy ý.
+     - Ô nhập "Thứ Tự Hiển Thị (Display Order)" và Min - Max: thiếu thuộc tính `step="any"`, trình duyệt mặc định `step="1"` chỉ cho nhập số nguyên.
+  2. *Hàm xử lý sự kiện `onChange` dùng `parseInt(..., 10)`*:
+     - Toàn bộ 7 ô nhập trong modal đều ép kiểu qua `parseInt`, khiến các số thập phân (như `1.5`, `2.5`) bị cắt cụt phần thập phân và làm tròn thành số nguyên.
+  3. *Bộ sinh số ngẫu nhiên ép tròn bội số 10*:
+     - Nút "Sinh Random" người canh và hàm "Sinh Random Hàng Loạt" gọi `generateRandomInRange(min, max, 10)`, luôn sinh ra các số tròn chục (ví dụ 2840, 1500) thay vì số lẻ tự nhiên.
+  4. *Hàm `calculateEffectiveOrder` ép kiểu số nguyên*:
+     - Tính `delta = Math.round(...)` và `Math.max(1, base + delta)` khiến thứ tự hiệu dụng bị ép tròn về số nguyên.
+- **Giải pháp xử lý triệt để**:
+  1. Loại bỏ toàn bộ ràng buộc `step={10}` và `step={50}` trong `UpcomingGamesSection.tsx`:
+     - Thiết lập `step="any"` cho tất cả các trường: `displayOrder`, `orderMinRange`, `orderMaxRange`, `subscribersCount`, `subscribersMinRange`, `subscribersMaxRange`, và `subscribersGrowthRatePerHour`.
+  2. Chuyển đổi cơ chế `onChange` & `onBlur`:
+     - Cho phép giữ chuỗi ký tự tự do trong khi đang gõ (hỗ trợ gõ dấu chấm thập phân `.`), khi `onBlur` và `submit` chuyển đổi qua `parseFloat` với độ chính xác chuẩn float.
+  3. Nâng cấp bộ sinh số ngẫu nhiên `generateRandomInRange` (`upcomingGameGrowthUtils.ts`):
+     - Mặc định `step = 1`, sinh số tự nhiên ngẫu nhiên không còn bị ép tròn chục (cho ra các số lẻ chân thực như 2843, 1579).
+     - Tự động phát hiện nếu Min hoặc Max là số thập phân để sinh số lẻ thập phân ngẫu nhiên (ví dụ khoảng `[1.5, 5.5]`).
+  4. Cập nhật `calculateEffectiveOrder`:
+     - Giữ nguyên số lẻ thập phân với `Math.max(0.1, Number((base + delta).toFixed(2)))`, bảo toàn vị trí sắp xếp chính xác cho các game có thứ tự lẻ (`1.5`, `2.25`...).
+- **Kiểm Thử & Triển Khai**:
+  - `npm run build`: 100% PASS, 0 lỗi TypeScript, 0 lỗi bundle.
+  - Kiểm thử `audit_zero_test_artifacts.cjs`: 100% PASS.
+  - Kiểm thử đơn vị số lẻ & số thập phân: 100% PASS (xếp đúng vị trí `1` $\rightarrow$ `1.5` $\rightarrow$ `2`, sinh ngẫu nhiên số lẻ không chia hết cho 10).
+  - Kiểm thử hồi quy sao chép: 100% PASS (8/8 bài kiểm tra).
+
+---
 
 ### 264. Phát Triển API Kết Nối Toàn Quyền Quản Lý Giveaway, Subtab API & Danh Sách Endpoints Chi Tiết Ở Cuối Trang (Full Giveaway Management API, Dedicated Subtab & Endpoints Reference)
 - **Bối cảnh & Yêu cầu người dùng**:
@@ -199,6 +298,39 @@ Mỗi mục sửa lỗi đều ghi nhận **Nguyên nhân gốc rễ (Root Cause
 
 ## [2026-10-29]
 
+### 265. Hỗ Trợ Nhập Số Lẻ & Số Thập Phân Tự Do Cho Thứ Tự Hiển Thị & Số Người Canh Game Sắp Ra Mắt (Decimal Display Order & Odd Subscribers Input Support)
+- **Bối cảnh & Yêu cầu người dùng**:
+  - Người dùng yêu cầu: "Trong mục game sắp ra mắt, có thể điền số lẻ, không nhất thiết phải số tròn." Kèm ảnh chụp màn hình modal "Chỉnh Sửa Game Sắp Ra Mắt" tại mục "CÀI ĐẶT THỨ TỰ HIỂN THỊ & NGƯỜI CANH".
+  - Trước đây, khi quản trị viên muốn xếp thứ tự một tựa game nằm xen kẽ giữa hai game (ví dụ thứ tự `1.5` để chèn giữa game `#1` và game `#2`), hoặc muốn đặt số người canh tự nhiên chân thực (ví dụ `2843`, `2847` thay vì bị ép thành số tròn chục như `2840`), hệ thống bị chặn bởi ràng buộc bước nhảy và hàm ép kiểu số nguyên.
+- **Nguyên nhân gốc rễ (Root Causes)**:
+  1. *Ràng buộc bước nhảy HTML5 cứng nhắc*:
+     - Ô nhập "Số Người Canh (Subscribers)": có thuộc tính `step={10}`, khiến trình duyệt chặn người dùng nhập số lẻ không chia hết cho 10 (báo lỗi: "Vui lòng nhập giá trị hợp lệ. Hai giá trị gần nhất là 2840 và 2850").
+     - Ô nhập Khoảng Dao Động Min - Max người canh: có thuộc tính `step={50}`, chặn các số lẻ tùy ý.
+     - Ô nhập "Thứ Tự Hiển Thị (Display Order)" và Min - Max: thiếu thuộc tính `step="any"`, trình duyệt mặc định `step="1"` chỉ cho nhập số nguyên.
+  2. *Hàm xử lý sự kiện `onChange` dùng `parseInt(..., 10)`*:
+     - Toàn bộ 7 ô nhập trong modal đều ép kiểu qua `parseInt`, khiến các số thập phân (như `1.5`, `2.5`) bị cắt cụt phần thập phân và làm tròn thành số nguyên.
+  3. *Bộ sinh số ngẫu nhiên ép tròn bội số 10*:
+     - Nút "Sinh Random" người canh và hàm "Sinh Random Hàng Loạt" gọi `generateRandomInRange(min, max, 10)`, luôn sinh ra các số tròn chục (ví dụ 2840, 1500) thay vì số lẻ tự nhiên.
+  4. *Hàm `calculateEffectiveOrder` ép kiểu số nguyên*:
+     - Tính `delta = Math.round(...)` và `Math.max(1, base + delta)` khiến thứ tự hiệu dụng bị ép tròn về số nguyên.
+- **Giải pháp xử lý triệt để**:
+  1. Loại bỏ toàn bộ ràng buộc `step={10}` và `step={50}` trong `UpcomingGamesSection.tsx`:
+     - Thiết lập `step="any"` cho tất cả các trường: `displayOrder`, `orderMinRange`, `orderMaxRange`, `subscribersCount`, `subscribersMinRange`, `subscribersMaxRange`, và `subscribersGrowthRatePerHour`.
+  2. Chuyển đổi cơ chế `onChange` & `onBlur`:
+     - Cho phép giữ chuỗi ký tự tự do trong khi đang gõ (hỗ trợ gõ dấu chấm thập phân `.`), khi `onBlur` và `submit` chuyển đổi qua `parseFloat` với độ chính xác chuẩn float.
+  3. Nâng cấp bộ sinh số ngẫu nhiên `generateRandomInRange` (`upcomingGameGrowthUtils.ts`):
+     - Mặc định `step = 1`, sinh số tự nhiên ngẫu nhiên không còn bị ép tròn chục (cho ra các số lẻ chân thực như 2843, 1579).
+     - Tự động phát hiện nếu Min hoặc Max là số thập phân để sinh số lẻ thập phân ngẫu nhiên (ví dụ khoảng `[1.5, 5.5]`).
+  4. Cập nhật `calculateEffectiveOrder`:
+     - Giữ nguyên số lẻ thập phân với `Math.max(0.1, Number((base + delta).toFixed(2)))`, bảo toàn vị trí sắp xếp chính xác cho các game có thứ tự lẻ (`1.5`, `2.25`...).
+- **Kiểm Thử & Triển Khai**:
+  - `npm run build`: 100% PASS, 0 lỗi TypeScript, 0 lỗi bundle.
+  - Kiểm thử `audit_zero_test_artifacts.cjs`: 100% PASS.
+  - Kiểm thử đơn vị số lẻ & số thập phân: 100% PASS (xếp đúng vị trí `1` $\rightarrow$ `1.5` $\rightarrow$ `2`, sinh ngẫu nhiên số lẻ không chia hết cho 10).
+  - Kiểm thử hồi quy sao chép: 100% PASS (8/8 bài kiểm tra).
+
+---
+
 ### 264. Phát Triển API Kết Nối Toàn Quyền Quản Lý Giveaway, Subtab API & Danh Sách Endpoints Chi Tiết Ở Cuối Trang (Full Giveaway Management API, Dedicated Subtab & Endpoints Reference)
 - **Bối cảnh & Yêu cầu người dùng**:
   - Người dùng yêu cầu: "Trong mục giveaway ở admin, bạn tạo cho tôi mục API kết nối toàn quyền quản lý mục này đi, nhớ thêm vào mục danh sách api ở cuối trang nhé."
@@ -260,6 +392,39 @@ Mỗi mục sửa lỗi đều ghi nhận **Nguyên nhân gốc rễ (Root Cause
 ---
 
 ## [2026-10-29]
+
+### 265. Hỗ Trợ Nhập Số Lẻ & Số Thập Phân Tự Do Cho Thứ Tự Hiển Thị & Số Người Canh Game Sắp Ra Mắt (Decimal Display Order & Odd Subscribers Input Support)
+- **Bối cảnh & Yêu cầu người dùng**:
+  - Người dùng yêu cầu: "Trong mục game sắp ra mắt, có thể điền số lẻ, không nhất thiết phải số tròn." Kèm ảnh chụp màn hình modal "Chỉnh Sửa Game Sắp Ra Mắt" tại mục "CÀI ĐẶT THỨ TỰ HIỂN THỊ & NGƯỜI CANH".
+  - Trước đây, khi quản trị viên muốn xếp thứ tự một tựa game nằm xen kẽ giữa hai game (ví dụ thứ tự `1.5` để chèn giữa game `#1` và game `#2`), hoặc muốn đặt số người canh tự nhiên chân thực (ví dụ `2843`, `2847` thay vì bị ép thành số tròn chục như `2840`), hệ thống bị chặn bởi ràng buộc bước nhảy và hàm ép kiểu số nguyên.
+- **Nguyên nhân gốc rễ (Root Causes)**:
+  1. *Ràng buộc bước nhảy HTML5 cứng nhắc*:
+     - Ô nhập "Số Người Canh (Subscribers)": có thuộc tính `step={10}`, khiến trình duyệt chặn người dùng nhập số lẻ không chia hết cho 10 (báo lỗi: "Vui lòng nhập giá trị hợp lệ. Hai giá trị gần nhất là 2840 và 2850").
+     - Ô nhập Khoảng Dao Động Min - Max người canh: có thuộc tính `step={50}`, chặn các số lẻ tùy ý.
+     - Ô nhập "Thứ Tự Hiển Thị (Display Order)" và Min - Max: thiếu thuộc tính `step="any"`, trình duyệt mặc định `step="1"` chỉ cho nhập số nguyên.
+  2. *Hàm xử lý sự kiện `onChange` dùng `parseInt(..., 10)`*:
+     - Toàn bộ 7 ô nhập trong modal đều ép kiểu qua `parseInt`, khiến các số thập phân (như `1.5`, `2.5`) bị cắt cụt phần thập phân và làm tròn thành số nguyên.
+  3. *Bộ sinh số ngẫu nhiên ép tròn bội số 10*:
+     - Nút "Sinh Random" người canh và hàm "Sinh Random Hàng Loạt" gọi `generateRandomInRange(min, max, 10)`, luôn sinh ra các số tròn chục (ví dụ 2840, 1500) thay vì số lẻ tự nhiên.
+  4. *Hàm `calculateEffectiveOrder` ép kiểu số nguyên*:
+     - Tính `delta = Math.round(...)` và `Math.max(1, base + delta)` khiến thứ tự hiệu dụng bị ép tròn về số nguyên.
+- **Giải pháp xử lý triệt để**:
+  1. Loại bỏ toàn bộ ràng buộc `step={10}` và `step={50}` trong `UpcomingGamesSection.tsx`:
+     - Thiết lập `step="any"` cho tất cả các trường: `displayOrder`, `orderMinRange`, `orderMaxRange`, `subscribersCount`, `subscribersMinRange`, `subscribersMaxRange`, và `subscribersGrowthRatePerHour`.
+  2. Chuyển đổi cơ chế `onChange` & `onBlur`:
+     - Cho phép giữ chuỗi ký tự tự do trong khi đang gõ (hỗ trợ gõ dấu chấm thập phân `.`), khi `onBlur` và `submit` chuyển đổi qua `parseFloat` với độ chính xác chuẩn float.
+  3. Nâng cấp bộ sinh số ngẫu nhiên `generateRandomInRange` (`upcomingGameGrowthUtils.ts`):
+     - Mặc định `step = 1`, sinh số tự nhiên ngẫu nhiên không còn bị ép tròn chục (cho ra các số lẻ chân thực như 2843, 1579).
+     - Tự động phát hiện nếu Min hoặc Max là số thập phân để sinh số lẻ thập phân ngẫu nhiên (ví dụ khoảng `[1.5, 5.5]`).
+  4. Cập nhật `calculateEffectiveOrder`:
+     - Giữ nguyên số lẻ thập phân với `Math.max(0.1, Number((base + delta).toFixed(2)))`, bảo toàn vị trí sắp xếp chính xác cho các game có thứ tự lẻ (`1.5`, `2.25`...).
+- **Kiểm Thử & Triển Khai**:
+  - `npm run build`: 100% PASS, 0 lỗi TypeScript, 0 lỗi bundle.
+  - Kiểm thử `audit_zero_test_artifacts.cjs`: 100% PASS.
+  - Kiểm thử đơn vị số lẻ & số thập phân: 100% PASS (xếp đúng vị trí `1` $\rightarrow$ `1.5` $\rightarrow$ `2`, sinh ngẫu nhiên số lẻ không chia hết cho 10).
+  - Kiểm thử hồi quy sao chép: 100% PASS (8/8 bài kiểm tra).
+
+---
 
 ### 264. Phát Triển API Kết Nối Toàn Quyền Quản Lý Giveaway, Subtab API & Danh Sách Endpoints Chi Tiết Ở Cuối Trang (Full Giveaway Management API, Dedicated Subtab & Endpoints Reference)
 - **Bối cảnh & Yêu cầu người dùng**:
@@ -330,6 +495,39 @@ Mỗi mục sửa lỗi đều ghi nhận **Nguyên nhân gốc rễ (Root Cause
 
 ## [2026-10-29]
 
+### 265. Hỗ Trợ Nhập Số Lẻ & Số Thập Phân Tự Do Cho Thứ Tự Hiển Thị & Số Người Canh Game Sắp Ra Mắt (Decimal Display Order & Odd Subscribers Input Support)
+- **Bối cảnh & Yêu cầu người dùng**:
+  - Người dùng yêu cầu: "Trong mục game sắp ra mắt, có thể điền số lẻ, không nhất thiết phải số tròn." Kèm ảnh chụp màn hình modal "Chỉnh Sửa Game Sắp Ra Mắt" tại mục "CÀI ĐẶT THỨ TỰ HIỂN THỊ & NGƯỜI CANH".
+  - Trước đây, khi quản trị viên muốn xếp thứ tự một tựa game nằm xen kẽ giữa hai game (ví dụ thứ tự `1.5` để chèn giữa game `#1` và game `#2`), hoặc muốn đặt số người canh tự nhiên chân thực (ví dụ `2843`, `2847` thay vì bị ép thành số tròn chục như `2840`), hệ thống bị chặn bởi ràng buộc bước nhảy và hàm ép kiểu số nguyên.
+- **Nguyên nhân gốc rễ (Root Causes)**:
+  1. *Ràng buộc bước nhảy HTML5 cứng nhắc*:
+     - Ô nhập "Số Người Canh (Subscribers)": có thuộc tính `step={10}`, khiến trình duyệt chặn người dùng nhập số lẻ không chia hết cho 10 (báo lỗi: "Vui lòng nhập giá trị hợp lệ. Hai giá trị gần nhất là 2840 và 2850").
+     - Ô nhập Khoảng Dao Động Min - Max người canh: có thuộc tính `step={50}`, chặn các số lẻ tùy ý.
+     - Ô nhập "Thứ Tự Hiển Thị (Display Order)" và Min - Max: thiếu thuộc tính `step="any"`, trình duyệt mặc định `step="1"` chỉ cho nhập số nguyên.
+  2. *Hàm xử lý sự kiện `onChange` dùng `parseInt(..., 10)`*:
+     - Toàn bộ 7 ô nhập trong modal đều ép kiểu qua `parseInt`, khiến các số thập phân (như `1.5`, `2.5`) bị cắt cụt phần thập phân và làm tròn thành số nguyên.
+  3. *Bộ sinh số ngẫu nhiên ép tròn bội số 10*:
+     - Nút "Sinh Random" người canh và hàm "Sinh Random Hàng Loạt" gọi `generateRandomInRange(min, max, 10)`, luôn sinh ra các số tròn chục (ví dụ 2840, 1500) thay vì số lẻ tự nhiên.
+  4. *Hàm `calculateEffectiveOrder` ép kiểu số nguyên*:
+     - Tính `delta = Math.round(...)` và `Math.max(1, base + delta)` khiến thứ tự hiệu dụng bị ép tròn về số nguyên.
+- **Giải pháp xử lý triệt để**:
+  1. Loại bỏ toàn bộ ràng buộc `step={10}` và `step={50}` trong `UpcomingGamesSection.tsx`:
+     - Thiết lập `step="any"` cho tất cả các trường: `displayOrder`, `orderMinRange`, `orderMaxRange`, `subscribersCount`, `subscribersMinRange`, `subscribersMaxRange`, và `subscribersGrowthRatePerHour`.
+  2. Chuyển đổi cơ chế `onChange` & `onBlur`:
+     - Cho phép giữ chuỗi ký tự tự do trong khi đang gõ (hỗ trợ gõ dấu chấm thập phân `.`), khi `onBlur` và `submit` chuyển đổi qua `parseFloat` với độ chính xác chuẩn float.
+  3. Nâng cấp bộ sinh số ngẫu nhiên `generateRandomInRange` (`upcomingGameGrowthUtils.ts`):
+     - Mặc định `step = 1`, sinh số tự nhiên ngẫu nhiên không còn bị ép tròn chục (cho ra các số lẻ chân thực như 2843, 1579).
+     - Tự động phát hiện nếu Min hoặc Max là số thập phân để sinh số lẻ thập phân ngẫu nhiên (ví dụ khoảng `[1.5, 5.5]`).
+  4. Cập nhật `calculateEffectiveOrder`:
+     - Giữ nguyên số lẻ thập phân với `Math.max(0.1, Number((base + delta).toFixed(2)))`, bảo toàn vị trí sắp xếp chính xác cho các game có thứ tự lẻ (`1.5`, `2.25`...).
+- **Kiểm Thử & Triển Khai**:
+  - `npm run build`: 100% PASS, 0 lỗi TypeScript, 0 lỗi bundle.
+  - Kiểm thử `audit_zero_test_artifacts.cjs`: 100% PASS.
+  - Kiểm thử đơn vị số lẻ & số thập phân: 100% PASS (xếp đúng vị trí `1` $\rightarrow$ `1.5` $\rightarrow$ `2`, sinh ngẫu nhiên số lẻ không chia hết cho 10).
+  - Kiểm thử hồi quy sao chép: 100% PASS (8/8 bài kiểm tra).
+
+---
+
 ### 264. Phát Triển API Kết Nối Toàn Quyền Quản Lý Giveaway, Subtab API & Danh Sách Endpoints Chi Tiết Ở Cuối Trang (Full Giveaway Management API, Dedicated Subtab & Endpoints Reference)
 - **Bối cảnh & Yêu cầu người dùng**:
   - Người dùng yêu cầu: "Trong mục giveaway ở admin, bạn tạo cho tôi mục API kết nối toàn quyền quản lý mục này đi, nhớ thêm vào mục danh sách api ở cuối trang nhé."
@@ -391,6 +589,39 @@ Mỗi mục sửa lỗi đều ghi nhận **Nguyên nhân gốc rễ (Root Cause
 ---
 
 ## [2026-10-29]
+
+### 265. Hỗ Trợ Nhập Số Lẻ & Số Thập Phân Tự Do Cho Thứ Tự Hiển Thị & Số Người Canh Game Sắp Ra Mắt (Decimal Display Order & Odd Subscribers Input Support)
+- **Bối cảnh & Yêu cầu người dùng**:
+  - Người dùng yêu cầu: "Trong mục game sắp ra mắt, có thể điền số lẻ, không nhất thiết phải số tròn." Kèm ảnh chụp màn hình modal "Chỉnh Sửa Game Sắp Ra Mắt" tại mục "CÀI ĐẶT THỨ TỰ HIỂN THỊ & NGƯỜI CANH".
+  - Trước đây, khi quản trị viên muốn xếp thứ tự một tựa game nằm xen kẽ giữa hai game (ví dụ thứ tự `1.5` để chèn giữa game `#1` và game `#2`), hoặc muốn đặt số người canh tự nhiên chân thực (ví dụ `2843`, `2847` thay vì bị ép thành số tròn chục như `2840`), hệ thống bị chặn bởi ràng buộc bước nhảy và hàm ép kiểu số nguyên.
+- **Nguyên nhân gốc rễ (Root Causes)**:
+  1. *Ràng buộc bước nhảy HTML5 cứng nhắc*:
+     - Ô nhập "Số Người Canh (Subscribers)": có thuộc tính `step={10}`, khiến trình duyệt chặn người dùng nhập số lẻ không chia hết cho 10 (báo lỗi: "Vui lòng nhập giá trị hợp lệ. Hai giá trị gần nhất là 2840 và 2850").
+     - Ô nhập Khoảng Dao Động Min - Max người canh: có thuộc tính `step={50}`, chặn các số lẻ tùy ý.
+     - Ô nhập "Thứ Tự Hiển Thị (Display Order)" và Min - Max: thiếu thuộc tính `step="any"`, trình duyệt mặc định `step="1"` chỉ cho nhập số nguyên.
+  2. *Hàm xử lý sự kiện `onChange` dùng `parseInt(..., 10)`*:
+     - Toàn bộ 7 ô nhập trong modal đều ép kiểu qua `parseInt`, khiến các số thập phân (như `1.5`, `2.5`) bị cắt cụt phần thập phân và làm tròn thành số nguyên.
+  3. *Bộ sinh số ngẫu nhiên ép tròn bội số 10*:
+     - Nút "Sinh Random" người canh và hàm "Sinh Random Hàng Loạt" gọi `generateRandomInRange(min, max, 10)`, luôn sinh ra các số tròn chục (ví dụ 2840, 1500) thay vì số lẻ tự nhiên.
+  4. *Hàm `calculateEffectiveOrder` ép kiểu số nguyên*:
+     - Tính `delta = Math.round(...)` và `Math.max(1, base + delta)` khiến thứ tự hiệu dụng bị ép tròn về số nguyên.
+- **Giải pháp xử lý triệt để**:
+  1. Loại bỏ toàn bộ ràng buộc `step={10}` và `step={50}` trong `UpcomingGamesSection.tsx`:
+     - Thiết lập `step="any"` cho tất cả các trường: `displayOrder`, `orderMinRange`, `orderMaxRange`, `subscribersCount`, `subscribersMinRange`, `subscribersMaxRange`, và `subscribersGrowthRatePerHour`.
+  2. Chuyển đổi cơ chế `onChange` & `onBlur`:
+     - Cho phép giữ chuỗi ký tự tự do trong khi đang gõ (hỗ trợ gõ dấu chấm thập phân `.`), khi `onBlur` và `submit` chuyển đổi qua `parseFloat` với độ chính xác chuẩn float.
+  3. Nâng cấp bộ sinh số ngẫu nhiên `generateRandomInRange` (`upcomingGameGrowthUtils.ts`):
+     - Mặc định `step = 1`, sinh số tự nhiên ngẫu nhiên không còn bị ép tròn chục (cho ra các số lẻ chân thực như 2843, 1579).
+     - Tự động phát hiện nếu Min hoặc Max là số thập phân để sinh số lẻ thập phân ngẫu nhiên (ví dụ khoảng `[1.5, 5.5]`).
+  4. Cập nhật `calculateEffectiveOrder`:
+     - Giữ nguyên số lẻ thập phân với `Math.max(0.1, Number((base + delta).toFixed(2)))`, bảo toàn vị trí sắp xếp chính xác cho các game có thứ tự lẻ (`1.5`, `2.25`...).
+- **Kiểm Thử & Triển Khai**:
+  - `npm run build`: 100% PASS, 0 lỗi TypeScript, 0 lỗi bundle.
+  - Kiểm thử `audit_zero_test_artifacts.cjs`: 100% PASS.
+  - Kiểm thử đơn vị số lẻ & số thập phân: 100% PASS (xếp đúng vị trí `1` $\rightarrow$ `1.5` $\rightarrow$ `2`, sinh ngẫu nhiên số lẻ không chia hết cho 10).
+  - Kiểm thử hồi quy sao chép: 100% PASS (8/8 bài kiểm tra).
+
+---
 
 ### 264. Phát Triển API Kết Nối Toàn Quyền Quản Lý Giveaway, Subtab API & Danh Sách Endpoints Chi Tiết Ở Cuối Trang (Full Giveaway Management API, Dedicated Subtab & Endpoints Reference)
 - **Bối cảnh & Yêu cầu người dùng**:

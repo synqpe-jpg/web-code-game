@@ -322,17 +322,21 @@ export const UpcomingGamesSection: React.FC<UpcomingGamesSectionProps> = ({ onSh
       description: editingGame.description?.trim() || undefined,
       preRegUrl: editingGame.preRegUrl?.trim() || undefined,
       expectedCodes: codes,
-      subscribersCount: typeof editingGame.subscribersCount === 'number' ? editingGame.subscribersCount : 1200,
+      subscribersCount: typeof editingGame.subscribersCount === 'number'
+        ? editingGame.subscribersCount
+        : (parseFloat(String(editingGame.subscribersCount)) || 0),
       source: editingGame.source || 'Admin Console',
       status: editingGame.status || 'UPCOMING',
-      displayOrder: typeof editingGame.displayOrder === 'number' ? editingGame.displayOrder : 1,
+      displayOrder: typeof editingGame.displayOrder === 'number'
+        ? editingGame.displayOrder
+        : (parseFloat(String(editingGame.displayOrder)) || 1),
       orderGrowthEnabled: !!editingGame.orderGrowthEnabled,
       orderGrowthRate: Number(editingGame.orderGrowthRate) || 0,
-      orderMinRange: Number(editingGame.orderMinRange) || 1,
+      orderMinRange: Number(editingGame.orderMinRange) || 0.1,
       orderMaxRange: Number(editingGame.orderMaxRange) || 50,
       subscribersGrowthEnabled: !!editingGame.subscribersGrowthEnabled,
       subscribersGrowthRatePerHour: Number(editingGame.subscribersGrowthRatePerHour) || 0,
-      subscribersMinRange: Number(editingGame.subscribersMinRange) || 500,
+      subscribersMinRange: Number(editingGame.subscribersMinRange) || 0,
       subscribersMaxRange: Number(editingGame.subscribersMaxRange) || 3500,
       growthAnchorTime: editingGame.growthAnchorTime || new Date().toISOString(),
       createdAt: editingGame.createdAt || new Date().toISOString(),
@@ -425,7 +429,7 @@ export const UpcomingGamesSection: React.FC<UpcomingGamesSectionProps> = ({ onSh
       return {
         ...g,
         displayOrder: generateRandomInRange(minOrder, maxOrder, 1),
-        subscribersCount: generateRandomInRange(minSubs, maxSubs, 10),
+        subscribersCount: generateRandomInRange(minSubs, maxSubs, 1),
         growthAnchorTime: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
       };
@@ -1953,19 +1957,35 @@ curl -X POST "${apiEndpointUrl}" \\
                     <label className="text-[10px] text-slate-400 block mb-0.5">Giá trị hiện tại</label>
                     <input
                       type="number"
-                      min={1}
+                      step="any"
+                      min={0.1}
                       max={999}
                       value={editingGame?.displayOrder ?? 1}
-                      onChange={(e) => setEditingGame((prev) => ({ ...prev, displayOrder: Math.max(1, parseInt(e.target.value, 10) || 1) }))}
+                      onChange={(e) => {
+                        const val = e.target.value;
+                        setEditingGame((prev) => ({
+                          ...prev,
+                          displayOrder: val === '' ? ('' as any) : val,
+                        }));
+                      }}
+                      onBlur={(e) => {
+                        const parsed = parseFloat(e.target.value);
+                        setEditingGame((prev) => ({
+                          ...prev,
+                          displayOrder: isNaN(parsed) ? 1 : Math.max(0.1, Number(parsed.toFixed(2))),
+                        }));
+                      }}
+                      placeholder="VD: 1 hoặc 1.5, 2.5..."
                       className="w-full bg-slate-950 border border-border rounded-lg px-2.5 py-1.5 text-xs text-white font-mono font-bold focus:outline-none focus:border-cyan-500"
                     />
                   </div>
                   <button
                     type="button"
                     onClick={() => {
-                      const min = editingGame?.orderMinRange ?? 1;
-                      const max = editingGame?.orderMaxRange ?? 20;
-                      const rand = generateRandomInRange(min, max, 1);
+                      const min = Number(editingGame?.orderMinRange) || 1;
+                      const max = Number(editingGame?.orderMaxRange) || 20;
+                      const step = (min % 1 !== 0 || max % 1 !== 0) ? 0.5 : 1;
+                      const rand = generateRandomInRange(min, max, step);
                       setEditingGame((prev) => ({ ...prev, displayOrder: rand }));
                       onShowToast('Đã sinh số ngẫu nhiên', `Thứ tự hiển thị: #${rand}`, 'info');
                     }}
@@ -1988,9 +2008,23 @@ curl -X POST "${apiEndpointUrl}" \\
                       <span className="text-[9px] text-slate-400 block">Min</span>
                       <input
                         type="number"
-                        min={1}
+                        step="any"
+                        min={0.1}
                         value={editingGame?.orderMinRange ?? 1}
-                        onChange={(e) => setEditingGame((prev) => ({ ...prev, orderMinRange: Math.max(1, parseInt(e.target.value, 10) || 1) }))}
+                        onChange={(e) => {
+                          const val = e.target.value;
+                          setEditingGame((prev) => ({
+                            ...prev,
+                            orderMinRange: val === '' ? ('' as any) : val,
+                          }));
+                        }}
+                        onBlur={(e) => {
+                          const parsed = parseFloat(e.target.value);
+                          setEditingGame((prev) => ({
+                            ...prev,
+                            orderMinRange: isNaN(parsed) ? 1 : Math.max(0.1, Number(parsed.toFixed(2))),
+                          }));
+                        }}
                         className="w-full bg-slate-900 border border-border rounded px-2 py-1 text-xs text-white font-mono focus:outline-none focus:border-cyan-500"
                       />
                     </div>
@@ -1998,9 +2032,23 @@ curl -X POST "${apiEndpointUrl}" \\
                       <span className="text-[9px] text-slate-400 block">Max</span>
                       <input
                         type="number"
-                        min={1}
+                        step="any"
+                        min={0.1}
                         value={editingGame?.orderMaxRange ?? 20}
-                        onChange={(e) => setEditingGame((prev) => ({ ...prev, orderMaxRange: Math.max(1, parseInt(e.target.value, 10) || 1) }))}
+                        onChange={(e) => {
+                          const val = e.target.value;
+                          setEditingGame((prev) => ({
+                            ...prev,
+                            orderMaxRange: val === '' ? ('' as any) : val,
+                          }));
+                        }}
+                        onBlur={(e) => {
+                          const parsed = parseFloat(e.target.value);
+                          setEditingGame((prev) => ({
+                            ...prev,
+                            orderMaxRange: isNaN(parsed) ? 20 : Math.max(0.1, Number(parsed.toFixed(2))),
+                          }));
+                        }}
                         className="w-full bg-slate-900 border border-border rounded px-2 py-1 text-xs text-white font-mono focus:outline-none focus:border-cyan-500"
                       />
                     </div>
@@ -2067,19 +2115,33 @@ curl -X POST "${apiEndpointUrl}" \\
                     <label className="text-[10px] text-slate-400 block mb-0.5">Giá trị hiện tại</label>
                     <input
                       type="number"
+                      step="any"
                       min={0}
-                      step={10}
                       value={editingGame?.subscribersCount ?? 1200}
-                      onChange={(e) => setEditingGame((prev) => ({ ...prev, subscribersCount: Math.max(0, parseInt(e.target.value, 10) || 0) }))}
+                      onChange={(e) => {
+                        const val = e.target.value;
+                        setEditingGame((prev) => ({
+                          ...prev,
+                          subscribersCount: val === '' ? ('' as any) : val,
+                        }));
+                      }}
+                      onBlur={(e) => {
+                        const parsed = parseFloat(e.target.value);
+                        setEditingGame((prev) => ({
+                          ...prev,
+                          subscribersCount: isNaN(parsed) ? 0 : Math.max(0, Math.round(parsed)),
+                        }));
+                      }}
+                      placeholder="VD: 2843 (số lẻ tùy ý)"
                       className="w-full bg-slate-950 border border-border rounded-lg px-2.5 py-1.5 text-xs text-white font-mono font-bold focus:outline-none focus:border-cyan-500"
                     />
                   </div>
                   <button
                     type="button"
                     onClick={() => {
-                      const min = editingGame?.subscribersMinRange ?? 500;
-                      const max = editingGame?.subscribersMaxRange ?? 3500;
-                      const rand = generateRandomInRange(min, max, 10);
+                      const min = Number(editingGame?.subscribersMinRange) || 500;
+                      const max = Number(editingGame?.subscribersMaxRange) || 3500;
+                      const rand = generateRandomInRange(min, max, 1);
                       setEditingGame((prev) => ({ ...prev, subscribersCount: rand }));
                       onShowToast('Đã sinh số ngẫu nhiên', `Số người canh: ${rand.toLocaleString('vi-VN')} người`, 'info');
                     }}
@@ -2102,10 +2164,23 @@ curl -X POST "${apiEndpointUrl}" \\
                       <span className="text-[9px] text-slate-400 block">Min</span>
                       <input
                         type="number"
+                        step="any"
                         min={0}
-                        step={50}
                         value={editingGame?.subscribersMinRange ?? 500}
-                        onChange={(e) => setEditingGame((prev) => ({ ...prev, subscribersMinRange: Math.max(0, parseInt(e.target.value, 10) || 0) }))}
+                        onChange={(e) => {
+                          const val = e.target.value;
+                          setEditingGame((prev) => ({
+                            ...prev,
+                            subscribersMinRange: val === '' ? ('' as any) : val,
+                          }));
+                        }}
+                        onBlur={(e) => {
+                          const parsed = parseFloat(e.target.value);
+                          setEditingGame((prev) => ({
+                            ...prev,
+                            subscribersMinRange: isNaN(parsed) ? 0 : Math.max(0, Math.round(parsed)),
+                          }));
+                        }}
                         className="w-full bg-slate-900 border border-border rounded px-2 py-1 text-xs text-white font-mono focus:outline-none focus:border-cyan-500"
                       />
                     </div>
@@ -2113,10 +2188,23 @@ curl -X POST "${apiEndpointUrl}" \\
                       <span className="text-[9px] text-slate-400 block">Max</span>
                       <input
                         type="number"
+                        step="any"
                         min={0}
-                        step={50}
                         value={editingGame?.subscribersMaxRange ?? 3500}
-                        onChange={(e) => setEditingGame((prev) => ({ ...prev, subscribersMaxRange: Math.max(0, parseInt(e.target.value, 10) || 0) }))}
+                        onChange={(e) => {
+                          const val = e.target.value;
+                          setEditingGame((prev) => ({
+                            ...prev,
+                            subscribersMaxRange: val === '' ? ('' as any) : val,
+                          }));
+                        }}
+                        onBlur={(e) => {
+                          const parsed = parseFloat(e.target.value);
+                          setEditingGame((prev) => ({
+                            ...prev,
+                            subscribersMaxRange: isNaN(parsed) ? 3500 : Math.max(0, Math.round(parsed)),
+                          }));
+                        }}
                         className="w-full bg-slate-900 border border-border rounded px-2 py-1 text-xs text-white font-mono focus:outline-none focus:border-cyan-500"
                       />
                     </div>
@@ -2148,9 +2236,10 @@ curl -X POST "${apiEndpointUrl}" \\
                         <div className="flex items-center gap-1">
                           <input
                             type="number"
-                            min={1}
+                            step="any"
+                            min={0}
                             value={editingGame?.subscribersGrowthRatePerHour ?? 5}
-                            onChange={(e) => setEditingGame((prev) => ({ ...prev, subscribersGrowthRatePerHour: Math.max(0, parseInt(e.target.value, 10) || 0) }))}
+                            onChange={(e) => setEditingGame((prev) => ({ ...prev, subscribersGrowthRatePerHour: Math.max(0, parseFloat(e.target.value) || 0) }))}
                             className="w-16 bg-slate-900 border border-border rounded px-1.5 py-0.5 text-xs text-white font-mono text-center focus:outline-none focus:border-cyan-500"
                           />
                           <span className="text-slate-400">người / giờ</span>
