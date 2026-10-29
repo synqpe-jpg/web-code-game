@@ -260,7 +260,7 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
           if (specificKey === 'wcg_admin_store_products_v4') val = await loadAllStoreProductsD1(env.DB);
           else if (specificKey === 'wcg_admin_utilities_v4') val = await loadAllUtilitiesD1(env.DB);
           else if (specificKey === 'wcg_admin_giveaways_v4') {
-            const rawGws = await loadAllGiveawaysD1(env.DB, authorized);
+            const rawGws = await loadAllGiveawaysD1(env.DB, authorized, true);
             const delGwRaw = await getSettingD1(env.DB, 'wcg_deleted_giveaways').catch(() => []);
             const delGwSet = new Set(Array.isArray(delGwRaw) ? delGwRaw : []);
             const fallbackGw = (fallbackGiveawaysData as any[]).filter((g: any) => g && g.id && !delGwSet.has(g.id) && g.id !== 'gw_gamerpower_rotwood' && g.id !== 'gw_alienware_vaultbreakers' && g.id !== 'gw_garena_delta_force');
@@ -4924,6 +4924,11 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
             (globalThis as any).__wcg_metrics_snapshot = null;
           } catch {}
 
+          // Invalidate isolate in-memory caches so subsequent reads immediately reflect new giveaway state
+          (globalThis as any).__wcg_public_sync_cache = null;
+          invalidateSettingMemoryCache('wcg_admin_giveaways_v4');
+          invalidateSettingMemoryCache('wcg_master_state_v4');
+
           // FAST RETURN FOR TARGETED GIVEAWAYS SYNC
           if (body.key === 'wcg_admin_giveaways_v4') {
             currentMaster.giveaways = incomingGiveaways;
@@ -5138,7 +5143,12 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
         if (body.sepayLogs !== undefined) await setSettingD1(env.DB, 'wcg_admin_sepay_logs_v4', body.sepayLogs);
         if (body.utilityCategories !== undefined || body.key === 'wcg_admin_utility_categories_v1') await setSettingD1(env.DB, 'wcg_admin_utility_categories_v1', body.utilityCategories ?? body.data);
         if (body.storeCategories !== undefined || body.key === 'wcg_admin_store_categories_v1') await setSettingD1(env.DB, 'wcg_admin_store_categories_v1', body.storeCategories ?? body.data);
-        if (body.giveaways !== undefined) await setSettingD1(env.DB, 'wcg_admin_giveaways_v4', body.giveaways);
+        if (body.giveaways !== undefined) {
+          await setSettingD1(env.DB, 'wcg_admin_giveaways_v4', body.giveaways);
+          (globalThis as any).__wcg_public_sync_cache = null;
+          invalidateSettingMemoryCache('wcg_admin_giveaways_v4');
+          invalidateSettingMemoryCache('wcg_master_state_v4');
+        }
         if (body.crawlerPendingCodes !== undefined) await setSettingD1(env.DB, 'wcg_crawler_pending_codes_v1', body.crawlerPendingCodes);
         if (body.crawlerPendingGames !== undefined) await setSettingD1(env.DB, 'wcg_crawler_pending_games_v1', body.crawlerPendingGames);
         if (body.crawlerAutoPublishGamesConfig !== undefined) await setSettingD1(env.DB, 'wcg_crawler_auto_publish_games_v1', body.crawlerAutoPublishGamesConfig);

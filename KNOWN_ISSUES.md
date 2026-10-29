@@ -10,6 +10,29 @@
 
 ## 1. DANH MỤC LỖI & CÁC BẪY ĐÃ THẤT BẠI (DO NOT REPEAT)
 
+### ISSUE-176: Bẫy Hồi Sinh Cấu Hình Cũ Sau 30 Giây Do So Sánh Nông isIdentical & Ghi Đè use_template Ngược (Giveaway Config Reversion & Stale Cache Resurrect Pitfall)
+- **Triệu chứng**:
+  - Quản trị viên sửa cấu hình đợt phát code riêng trong Admin panel (`PrivateCodesModule.tsx`), lưu thành công.
+  - Sau khoảng 30–45 giây, toàn bộ thiết lập tự động tụt lùi về giá trị cũ trước khi chỉnh sửa.
+  - Ngoài web khách (`/giveaways`), giao diện không phản ánh thay đổi hoặc giật về bản mẫu ban đầu.
+- **Nguyên nhân gốc rễ**:
+  1. *So sánh nông `isIdentical`*: Phía client `GiveawaysView.tsx` chỉ kiểm tra tồn kho và trạng thái. Nếu số lượng mã không đổi, React `setGiveaways` trả về object cũ `prev`, hoàn toàn bỏ qua mọi thay đổi về thời gian hồi chiêu, mẫu chung, hay điều kiện nhận.
+  2. *Ghi đè `use_template` ngược*: Khi admin chọn tùy chỉnh riêng (`use_template: false`), hàm merge `fetchFromCloudflareKV` ưu tiên giá trị server cũ (`use_template: true`), khiến Universal Template lập tức ghi đè lại.
+  3. *Thiếu đồng bộ cột `cooldown_minutes`*: Bị bỏ sót khỏi câu lệnh `INSERT` và `UPDATE` trong D1, khiến số phút bị ép về 0 hoặc cắt cụt.
+  4. *SQLite từ chối xóa thời gian chờ*: `CASE WHEN != ''` không cho phép cập nhật `last_global_claim_at` về rỗng khi admin muốn mở đợt phát ngay.
+  5. *Edge isolate memory cache 60s*: `settingMemoryCache` và `__wcg_public_sync_cache` không bị invalidate khi có lệnh ghi mới.
+- **Giải pháp chuẩn đã kiểm chứng**:
+  1. Mở rộng `isIdentical` so sánh 100% tất cả thuộc tính của chiến dịch giveaway.
+  2. Trong `adminDataService.ts`, khi `localIsNewer` là true, bảo vệ tuyệt đối `local.use_template` và `local.cooldown_minutes`.
+  3. Bổ sung `cooldown_minutes` vào `INSERT INTO giveaways`, `VALUES`, `ON CONFLICT DO UPDATE SET` và `SELECT`.
+  4. Cập nhật `last_global_claim_at = excluded.last_global_claim_at` để cho phép xóa rỗng.
+  5. Xóa sạch `(globalThis as any).__wcg_public_sync_cache = null` và gọi `invalidateSettingMemoryCache` sau mỗi lần lưu.
+  6. Tự động bắn thông điệp làm mới edge cache sang domain web khách song song.
+- 🚫 **CÁCH SỬA ĐÃ THẤT BẠI - TUYỆT ĐỐI KHÔNG LẶP LẠI**:
+  - ❌ *Tuyệt đối KHÔNG so sánh nông các object chiến dịch bằng chỉ một vài trường số lượng*: Phải kiểm tra toàn diện các trường cấu hình.
+  - ❌ *Tuyệt đối KHÔNG gán đè `use_template` của server khi bản ghi local có thời gian cập nhật mới hơn (`localIsNewer`)*.
+  - ❌ *Tuyệt đối KHÔNG để sót cột khi migrate schema*: Đã có cột trong D1 thì mọi câu lệnh INSERT/UPDATE phải đồng bộ.
+
 ### ISSUE-175: Bẫy Chạy DDL Schema Và Truy Vấn N+1 Trên Luồng Đọc Khiến TTFB Kéo Dài 4–7 Giây (Schema DDL & N+1 Queries on Read Path TTFB Pitfall)
 - **Triệu chứng**:
   - TTFB của API `GET /api/missions` bị kéo dài tới 4,5–7 giây dù payload rất nhẹ (~2,5 KB).

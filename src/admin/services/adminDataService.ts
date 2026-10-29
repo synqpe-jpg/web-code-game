@@ -1104,6 +1104,12 @@ class AdminDataService {
             this.safeSetItem(this.KEYS.GIVEAWAYS, JSON.stringify(listToSave));
             crossOriginSync.setItem(this.KEYS.GIVEAWAYS, listToSave);
             this.broadcastSync('GIVEAWAYS_UPDATED');
+
+            // Asynchronously notify client domain to purge edge isolate caches
+            if (!currentHost.includes('codegame.shop')) {
+              fetch('https://codegame.shop/api/sync', { method: 'POST', headers, body }).catch(() => {});
+            }
+
             return true;
           }
         } catch {}
@@ -1475,7 +1481,12 @@ class AdminDataService {
                   codes_pool: pool,
                   remaining_codes: rem,
                   title: base.title || serverGw.title || local?.title || '',
-                  use_template: serverGw.use_template !== undefined ? serverGw.use_template : (local.use_template !== undefined ? local.use_template : 1),
+                  use_template: localIsNewer
+                    ? (local.use_template !== undefined ? local.use_template : (serverGw.use_template !== undefined ? serverGw.use_template : true))
+                    : (serverGw.use_template !== undefined ? serverGw.use_template : (local.use_template !== undefined ? local.use_template : true)),
+                  cooldown_minutes: localIsNewer
+                    ? (local.cooldown_minutes !== undefined ? local.cooldown_minutes : serverGw.cooldown_minutes)
+                    : (serverGw.cooldown_minutes !== undefined ? serverGw.cooldown_minutes : local.cooldown_minutes),
                   updated_at: localIsNewer ? local.updated_at : (serverGw.updated_at || local.updated_at || new Date().toISOString()),
                   custom_banner_enabled: bannerEnabled,
                   custom_banner_text: base.custom_banner_text || 'Tham gia nhóm zalo của web tại đây',

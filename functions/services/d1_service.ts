@@ -2416,7 +2416,7 @@ export async function syncGiveawaysToD1(db: D1Database, giveaways: any[]): Promi
       INSERT INTO giveaways (
         id, title, game_slug, game_name, description, rewards,
         total_codes, remaining_codes, claimed_codes,
-        min_account_age_days, max_per_user, max_per_ip, cooldown_hours,
+        min_account_age_days, max_per_user, max_per_ip, cooldown_hours, cooldown_minutes,
         global_cooldown_seconds, last_global_claim_at, last_claimer_name,
         custom_success_msg, custom_cooldown_msg, custom_out_of_stock_msg,
         enable_waiting_room, waiting_users_min, waiting_users_max,
@@ -2429,7 +2429,7 @@ export async function syncGiveawaysToD1(db: D1Database, giveaways: any[]): Promi
         last_real_claim_at, last_simulated_claim_at, is_last_claim_simulated,
         virtual_remaining_addition, virtual_remaining_current
       )
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       ON CONFLICT(id) DO UPDATE SET
         title = excluded.title,
         game_slug = excluded.game_slug,
@@ -2443,9 +2443,10 @@ export async function syncGiveawaysToD1(db: D1Database, giveaways: any[]): Promi
         max_per_user = excluded.max_per_user,
         max_per_ip = excluded.max_per_ip,
         cooldown_hours = excluded.cooldown_hours,
+        cooldown_minutes = excluded.cooldown_minutes,
         global_cooldown_seconds = excluded.global_cooldown_seconds,
-        last_global_claim_at = CASE WHEN excluded.last_global_claim_at != '' THEN excluded.last_global_claim_at ELSE giveaways.last_global_claim_at END,
-        last_claimer_name = CASE WHEN excluded.last_claimer_name != '' THEN excluded.last_claimer_name ELSE giveaways.last_claimer_name END,
+        last_global_claim_at = excluded.last_global_claim_at,
+        last_claimer_name = excluded.last_claimer_name,
         custom_success_msg = excluded.custom_success_msg,
         custom_cooldown_msg = excluded.custom_cooldown_msg,
         custom_out_of_stock_msg = excluded.custom_out_of_stock_msg,
@@ -2487,6 +2488,7 @@ export async function syncGiveawaysToD1(db: D1Database, giveaways: any[]): Promi
       maxUser,
       maxIp,
       cooldown,
+      cooldownMinutes,
       globalCooldownSeconds,
       lastGlobalClaimAt,
       lastClaimerName,
@@ -2586,6 +2588,8 @@ export async function syncGiveawaysToD1(db: D1Database, giveaways: any[]): Promi
     };
   });
   await setSettingD1(db, 'wcg_admin_giveaways_v4', sanitized).catch(() => {});
+  invalidateSettingMemoryCache('wcg_admin_giveaways_v4');
+  invalidateSettingMemoryCache('wcg_master_state_v4');
 }
 
 /**
@@ -2992,11 +2996,11 @@ export async function purgeOrphanedInventoryCodesD1(db: D1Database): Promise<voi
 /**
  * Load all Giveaways from D1 (optionally with codes_pool)
  */
-export async function loadAllGiveawaysD1(db: D1Database, includeCodes: boolean = false): Promise<any[]> {
+export async function loadAllGiveawaysD1(db: D1Database, includeCodes: boolean = false, forceFresh: boolean = true): Promise<any[]> {
   try {
     await ensureGiveawaySchema(db);
     await ensureSchemaUpgrades(db);
-    const metaSetting = await getSettingD1(db, 'wcg_admin_giveaways_v4').catch(() => null);
+    const metaSetting = await getSettingD1(db, 'wcg_admin_giveaways_v4', null, forceFresh).catch(() => null);
     const metaMap = new Map<string, any>();
     if (Array.isArray(metaSetting)) {
       metaSetting.forEach((m: any) => {
@@ -3027,6 +3031,7 @@ export async function loadAllGiveawaysD1(db: D1Database, includeCodes: boolean =
         COALESCE(g.max_per_user, 1) AS max_per_user, 
         COALESCE(g.max_per_ip, 1) AS max_per_ip, 
         COALESCE(g.cooldown_hours, 0) AS cooldown_hours, 
+        COALESCE(g.cooldown_minutes, g.cooldown_hours * 60, 0) AS cooldown_minutes,
         COALESCE(g.global_cooldown_seconds, 0) AS global_cooldown_seconds,
         COALESCE(g.last_global_claim_at, '') AS last_global_claim_at,
         COALESCE(g.last_claimer_name, '') AS last_claimer_name,
@@ -3113,9 +3118,10 @@ export async function loadAllGiveawaysD1(db: D1Database, includeCodes: boolean =
                   ? Number(meta.cooldown_hours) * 60
                   : (gw.cooldown_hours !== undefined ? Number(gw.cooldown_hours) * 60 : 0))),
         global_cooldown_seconds: meta.global_cooldown_seconds !== undefined ? Number(meta.global_cooldown_seconds) : (gw.global_cooldown_seconds !== undefined ? Number(gw.global_cooldown_seconds) : 0),
+        use_template: meta.use_template !== undefined ? Boolean(meta.use_template) : (gw.use_template !== undefined ? Boolean(gw.use_template) : true),
         title: meta.title || gw.title || '',
-        last_global_claim_at: meta.last_global_claim_at || gw.last_global_claim_at || '',
-        last_claimer_name: meta.last_claimer_name || gw.last_claimer_name || '',
+        last_global_claim_at: (meta.last_global_claim_at !== undefined) ? meta.last_global_claim_at : (gw.last_global_claim_at || ''),
+        last_claimer_name: (meta.last_claimer_name !== undefined) ? meta.last_claimer_name : (gw.last_claimer_name || ''),
         custom_cooldown_msg: meta.custom_cooldown_msg || gw.custom_cooldown_msg || '',
         custom_success_msg: meta.custom_success_msg || gw.custom_success_msg || '',
         custom_out_of_stock_msg: meta.custom_out_of_stock_msg || gw.custom_out_of_stock_msg || '',
@@ -3139,7 +3145,6 @@ export async function loadAllGiveawaysD1(db: D1Database, includeCodes: boolean =
         is_last_claim_simulated: meta.is_last_claim_simulated !== undefined ? Boolean(meta.is_last_claim_simulated) : Boolean(gw.is_last_claim_simulated),
         fomo_anchor_time: meta.fomo_anchor_time || gw.fomo_anchor_time || null,
         show_claimed_count: meta.show_claimed_count !== undefined ? Boolean(meta.show_claimed_count) : (gw.show_claimed_count !== undefined ? Boolean(gw.show_claimed_count) : true),
-        use_template: meta.use_template !== undefined ? Boolean(meta.use_template) : (gw.use_template !== undefined ? Boolean(gw.use_template) : true),
         updated_at: meta.updated_at || gw.updated_at || gw.created_at || new Date().toISOString(),
       };
     });

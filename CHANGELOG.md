@@ -7,6 +7,39 @@ Mỗi mục sửa lỗi đều ghi nhận **Nguyên nhân gốc rễ (Root Cause
 
 ## [2026-10-29]
 
+### 260. Khắc Phục Triệt Để Hiện Tượng Cấu Hình Giveaway Bị Hồi Sinh/Giật Về Bản Cũ Sau ~30 Giây (Bảng Admin Là Chân Lý)
+- **Bối cảnh & Yêu cầu người dùng**:
+  - Người dùng phản ánh: Khi sửa cài đặt phát code "Giang Hồ Kỳ Ngộ" trong Admin (`admin-code-game-shop.pages.dev`), chế độ cài đặt mới chỉ áp dụng được khoảng 30 giây, sau đó tự động chuyển về chế độ lúc chưa cài đặt. Đảm bảo khi cấu hình admin thì web khách lập tức chuyển theo, tuyệt đối không bị hồi sinh bản cũ ("Bảng Admin là chân lý").
+- **Nguyên nhân gốc rễ (Root Causes)**:
+  1. *Hàm so sánh nông `isIdentical` trong `GiveawaysView.tsx` (dòng 1056–1070)*: Chỉ so sánh `id`, `remaining_codes`, `claimed_codes`, `last_global_claim_at`, `status`, `is_active`. Bỏ sót hoàn toàn `use_template`, `cooldown_minutes`, `cooldown_hours`, `global_cooldown_seconds`, `max_per_user`, `max_per_ip`, `title`, `rewards`, `description`, `start_time`, `end_time`, `custom_banner_*`, v.v. Khi kho mã không đổi, component giữ nguyên state cũ `prev`, không chịu render lại giao diện.
+  2. *Cơ chế ghi đè `use_template` ngược trong `fetchFromCloudflareKV` (`adminDataService.ts` dòng 1478)*: Cưỡng ép `use_template = serverGw.use_template` ngay cả khi `localIsNewer` là true. Khi đó background sync mỗi 30s đọc bản ghi server (mặc định 1/true), biến cờ tùy chỉnh riêng của admin thành true, khiến `templateService.resolveGiveaway` xóa sổ mọi cấu hình riêng và kéo về mẫu chung.
+  3. *Thiếu cột `cooldown_minutes` trong lệnh SQL INSERT / UPDATE (`functions/services/d1_service.ts`)*: Schema D1 đã có cột `cooldown_minutes`, nhưng câu lệnh `INSERT INTO giveaways (...)` và `ON CONFLICT DO UPDATE SET` bị bỏ sót cột này, khiến số phút hồi chiêu bị cắt xén về 0 trong SQLite.
+  4. *SQLite từ chối xóa thời gian hồi chiêu `last_global_claim_at`*: Câu lệnh `CASE WHEN excluded.last_global_claim_at != '' THEN ... ELSE giveaways.last_global_claim_at END` khiến khi admin bấm "🔄 Mở đợt phát ngay" (gửi chuỗi rỗng `''`), SQLite giữ lại timestamp cũ, làm đợt chờ tiếp tục bị khóa.
+  5. *Bộ nhớ đệm Worker isolate 60s (`settingMemoryCache`) không được giải phóng*: `loadAllGiveawaysD1` đọc `wcg_admin_giveaways_v4` qua bộ nhớ đệm RAM 60s không gắn cờ bypass. Khi lưu thay đổi ở `POST /api/sync`, `__wcg_public_sync_cache` và `settingMemoryCache` không được invalidate, dẫn đến isolate phục vụ dữ liệu cũ cho các request kế tiếp.
+  6. *Thiếu đồng bộ đa domain tức thì*: Admin lưu trên domain `admin-code-game-shop.pages.dev` dừng ngay sau khi ghi nhận thành công đầu tiên, không gửi thông điệp làm mới edge cache tới domain web khách `https://codegame.shop/api/sync`.
+- **Giải pháp xử lý triệt để**:
+  1. *`functions/services/d1_service.ts`*:
+     - Bổ sung đầy đủ cột `cooldown_minutes` vào `INSERT INTO giveaways`, `VALUES`, `ON CONFLICT DO UPDATE SET` và `loadAllGiveawaysD1` `SELECT`.
+     - Cho phép xóa sạch `last_global_claim_at = excluded.last_global_claim_at` và `last_claimer_name = excluded.last_claimer_name`.
+     - Thêm tham số `forceFresh: boolean = true` vào `loadAllGiveawaysD1`, luôn đọc dữ liệu tươi mới từ D1.
+     - Gọi `invalidateSettingMemoryCache` xóa sạch bộ nhớ tạm sau mỗi lần lưu.
+  2. *`functions/api/sync.ts`*:
+     - Thêm cờ xóa bộ nhớ đệm toàn cục `(globalThis as any).__wcg_public_sync_cache = null` và `invalidateSettingMemoryCache` cho mọi luồng lưu giveaway (cả targeted key và full state).
+     - Luồng đọc `specificKey === 'wcg_admin_giveaways_v4'` gọi `loadAllGiveawaysD1(env.DB, authorized, true)` với `forceFresh: true`.
+  3. *`src/admin/services/adminDataService.ts`*:
+     - Sửa thuật toán smart merge: Khi `localIsNewer` là true, ưu tiên tuyệt đối `local.use_template` và `local.cooldown_minutes`, bảo vệ 100% cấu hình do admin chỉnh sửa.
+     - `saveGiveawaysToServer` tự động kích hoạt background ping đồng bộ tới `https://codegame.shop/api/sync` để làm mới cache edge của trang khách.
+  4. *`src/components/GiveawaysView.tsx`*:
+     - Nâng cấp `isIdentical` so sánh toàn diện 100% tất cả các thuộc tính chiến dịch giveaway (`cooldown_minutes`, `cooldown_hours`, `global_cooldown_seconds`, `use_template`, `min_account_age_days`, `max_per_user`, `max_per_ip`, `rewards`, `description`, `custom_banner_*`, v.v.). Đảm bảo giao diện web khách phản hồi lập tức trong 0 giây.
+- **Kiểm Thử & Xác Minh**:
+  - Chạy toàn bộ test suites: `test_giveaway_claimed_ssot.cjs`, `test_giveaway_cooldown_and_expiry.cjs`, `audit_zero_test_artifacts.cjs`, `test_missions_optimization.cjs` $\rightarrow$ 100% PASS.
+  - Kiểm tra 11 điều kiện toàn vẹn SSOT $\rightarrow$ 100% PASS.
+  - Build `npm run build` thành công 100%, 0 lỗi, 0 cảnh báo.
+
+---
+
+## [2026-10-29]
+
 ### 259. Ẩn Hiển Thị Số Lượt/IP Tại Mục Săn Giveaway (/giveaways) Trên Giao Diện Web Khách
 - **Bối cảnh & Yêu cầu người dùng**:
   - Người dùng yêu cầu ẩn hiển thị huy hiệu giới hạn "Tối đa X lượt/IP" (và "Tối đa X mã / IP") trên thẻ sự kiện và modal chi tiết của mục Giveaway (`/giveaways`) phía web khách để giao diện tinh gọn, không tạo cảm giác gò bó cho người dùng.

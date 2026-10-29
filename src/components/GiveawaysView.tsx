@@ -1063,7 +1063,32 @@ export const GiveawaysView: React.FC<GiveawaysViewProps> = ({
             p.claimed_codes === item.claimed_codes &&
             p.last_global_claim_at === item.last_global_claim_at &&
             p.status === item.status &&
-            p.is_active === item.is_active
+            p.is_active === item.is_active &&
+            p.cooldown_minutes === item.cooldown_minutes &&
+            p.cooldown_hours === item.cooldown_hours &&
+            p.global_cooldown_seconds === item.global_cooldown_seconds &&
+            p.min_account_age_days === item.min_account_age_days &&
+            p.max_per_user === item.max_per_user &&
+            p.max_per_ip === item.max_per_ip &&
+            p.title === item.title &&
+            p.rewards === item.rewards &&
+            p.description === item.description &&
+            p.use_template === item.use_template &&
+            p.start_time === item.start_time &&
+            p.end_time === item.end_time &&
+            p.custom_banner_enabled === item.custom_banner_enabled &&
+            p.custom_banner_text === item.custom_banner_text &&
+            p.custom_banner_link === item.custom_banner_link &&
+            p.enable_waiting_room === item.enable_waiting_room &&
+            p.waiting_users_min === item.waiting_users_min &&
+            p.waiting_users_max === item.waiting_users_max &&
+            p.show_claimed_count === item.show_claimed_count &&
+            p.virtual_claimed_offset === item.virtual_claimed_offset &&
+            p.enable_auto_simulation === item.enable_auto_simulation &&
+            p.simulation_idle_threshold_minutes === item.simulation_idle_threshold_minutes &&
+            p.virtual_remaining_addition === item.virtual_remaining_addition &&
+            p.virtual_remaining_current === item.virtual_remaining_current &&
+            p.updated_at === item.updated_at
           );
         });
         if (isIdentical) return prev;
