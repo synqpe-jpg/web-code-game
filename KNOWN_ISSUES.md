@@ -10,6 +10,20 @@
 
 ## 1. DANH MỤC LỖI & CÁC BẪY ĐÃ THẤT BẠI (DO NOT REPEAT)
 
+### ISSUE-177: Bẫy Mảng Rỗng hasPool Array.isArray & Member wcg_auth_token Khiến Tồn Kho Giveaway Bị Xóa Về 0 Khi Đăng Nhập (Giveaway Sanitized Stock Zeroing Pitfall)
+- **Triệu chứng**:
+  - Trong Admin panel, sự kiện có mã đầy đủ (ví dụ "Giang Hồ Kỳ Ngộ" còn 53 mã, "Ta Là Hắc Ngộ Không" còn 23 mã).
+  - Nhưng trên web khách (`/giveaways`), người dùng đăng nhập tài khoản vào thì thấy sự kiện biến mất hoặc hiển thị "Còn lại: 0 mã", nút chuyển thành "Chờ Đợt Mới", không cho giật mã.
+- **Nguyên nhân gốc rễ**:
+  1. *Bẫy `Array.isArray([])`*: Trong `functions/api/sync.ts`, câu lệnh `const hasPool = Array.isArray(codes_pool) || Array.isArray(gw.codes_pool);`. Vì luồng khách không gửi danh sách mã thật để bảo mật, `codes_pool` là `[]`. Tuy nhiên `Array.isArray([]) === true`, làm `remainingCount = poolArr.length` (bằng `0`), xóa sạch trường `remaining_codes` của D1 về `0` trong response `/api/sync`.
+  2. *Bẫy `isAdmin = Boolean(localStorage.getItem('wcg_auth_token'))`*: Thành viên đăng nhập bình thường có `wcg_auth_token`, bị coi nhầm là Admin và gọi full sync `/api/sync`, nhận về payload có tồn kho = 0 và ghi đè vào `localStorage`.
+- **Giải pháp chuẩn đã kiểm chứng**:
+  1. Chỉ gán `remainingCount = poolArr.length` khi `poolArr.length > 0`. Nếu mảng rỗng, bắt buộc giữ nguyên `Math.max(0, Number(gw.remaining_codes || 0))`.
+  2. Loại bỏ `wcg_auth_token` khỏi điều kiện xác định `isAdmin` trong `dataService.ts`. Khách vãng lai và thành viên luôn dùng `syncGiveaways()`.
+- 🚫 **CÁCH SỬA ĐÃ THẤT BẠI - TUYỆT ĐỐI KHÔNG LẶP LẠI**:
+  - ❌ *Tuyệt đối KHÔNG kiểm tra có kho bằng `Array.isArray(codes_pool)` mà không kèm điều kiện `length > 0`*: Mảng rỗng `[]` là truthy và là Array.
+  - ❌ *Tuyệt đối KHÔNG dùng token JWT của thành viên (`wcg_auth_token`) để gán quyền quản trị frontend*.
+
 ### ISSUE-176: Bẫy Hồi Sinh Cấu Hình Cũ Sau 30 Giây Do So Sánh Nông isIdentical & Ghi Đè use_template Ngược (Giveaway Config Reversion & Stale Cache Resurrect Pitfall)
 - **Triệu chứng**:
   - Quản trị viên sửa cấu hình đợt phát code riêng trong Admin panel (`PrivateCodesModule.tsx`), lưu thành công.

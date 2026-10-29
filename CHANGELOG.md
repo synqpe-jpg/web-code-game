@@ -7,6 +7,32 @@ Mỗi mục sửa lỗi đều ghi nhận **Nguyên nhân gốc rễ (Root Cause
 
 ## [2026-10-29]
 
+### 261. Sửa Lỗi Tồn Kho Giveaway Bị Xóa Về 0 Khi Khách Đăng Nhập & Chặn Sự Kiện Mở Ngoài Web (Bẫy hasPool Array.isArray & Member isAdmin)
+- **Bối cảnh & Yêu cầu người dùng**:
+  - Người dùng phản ánh: Kho trong admin thì có mã ("Giang Hồ Kỳ Ngộ" có 53 mã, "Ta Là Hắc Ngộ Không" có 23 mã) nhưng ngoài trang web khách không thấy mở sự kiện (hiển thị hết mã hoặc "Chờ Đợt Mới").
+- **Nguyên nhân gốc rễ (Root Causes)**:
+  1. *Bẫy kiểm tra mảng rỗng `hasPool` trong `functions/api/sync.ts` (dòng 767)*:
+     - Câu lệnh cũ: `const hasPool = Array.isArray(codes_pool) || Array.isArray(gw.codes_pool);`.
+     - Vì lý do bảo mật, luồng đọc của khách không gửi mảng mã chi tiết nên `codes_pool` trả về `[]` (mảng rỗng). Nhưng `Array.isArray([])` luôn là `true`!
+     - Hệ quả: `remainingCount = hasPool ? poolArr.length : gw.remaining_codes` tính `poolArr.length = 0`, ghi đè toàn bộ số lượng còn lại (`remaining_codes`) của tất cả các chiến dịch về `0` trong response full sync `GET /api/sync`.
+  2. *Bẫy nhận diện `isAdmin` theo token thành viên trong `src/services/dataService.ts` (dòng 469)*:
+     - `const isAdmin = ... || Boolean(localStorage.getItem('wcg_auth_token'))`. Mọi thành viên bình thường khi đăng nhập đều có `wcg_auth_token`, dẫn đến bị hệ thống coi nhầm là Admin và kích hoạt gọi full sync `/api/sync`.
+     - Payload `/api/sync` trả về `giveaways` bị ép số tồn về `0`, ghi đè vào `localStorage` của khách, làm sự kiện biến thành "Hết mã" / "Chờ đợt mới".
+- **Giải pháp xử lý triệt để**:
+  1. *`functions/api/sync.ts`*:
+     - Sửa logic tính kho: `const poolArr = Array.isArray(codes_pool) && codes_pool.length > 0 ? codes_pool : (Array.isArray(gw.codes_pool) && gw.codes_pool.length > 0 ? gw.codes_pool : []);`.
+     - Chỉ khi `poolArr.length > 0` mới lấy độ dài mảng mã; nếu mảng rỗng thì giữ nguyên 100% `Math.max(0, Number(gw.remaining_codes || 0))` từ cơ sở dữ liệu D1.
+     - Truyền `forceFresh: true` vào `loadAllGiveawaysD1(env.DB, authorized, true)` ở luồng D1 full sync.
+  2. *`src/services/dataService.ts`*:
+     - Loại bỏ `Boolean(localStorage.getItem('wcg_auth_token'))` khỏi điều kiện `isAdmin`. Khách đăng nhập tài khoản thành viên chỉ đồng bộ qua `syncGiveaways()` độc lập và an toàn.
+- **Kiểm Thử & Triển Khai**:
+  - Chạy `test_giveaway_claimed_ssot.cjs`, `test_giveaway_cooldown_and_expiry.cjs`, `audit_zero_test_artifacts.cjs` $\rightarrow$ 100% PASS.
+  - Build `npm run build` thành công 100%.
+
+---
+
+## [2026-10-29]
+
 ### 260. Khắc Phục Triệt Để Hiện Tượng Cấu Hình Giveaway Bị Hồi Sinh/Giật Về Bản Cũ Sau ~30 Giây (Bảng Admin Là Chân Lý)
 - **Bối cảnh & Yêu cầu người dùng**:
   - Người dùng phản ánh: Khi sửa cài đặt phát code "Giang Hồ Kỳ Ngộ" trong Admin (`admin-code-game-shop.pages.dev`), chế độ cài đặt mới chỉ áp dụng được khoảng 30 giây, sau đó tự động chuyển về chế độ lúc chưa cài đặt. Đảm bảo khi cấu hình admin thì web khách lập tức chuyển theo, tuyệt đối không bị hồi sinh bản cũ ("Bảng Admin là chân lý").

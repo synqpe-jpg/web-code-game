@@ -468,8 +468,10 @@ public async syncWithCloudflareKV(forceFresh: boolean = false): Promise<void> {
       try {
         const isAdmin = typeof window !== 'undefined' && (
           window.location.hash.includes('/admin') ||
+          window.location.pathname.startsWith('/admin') ||
+          window.location.hostname.includes('admin-code-game-shop') ||
           Boolean(sessionStorage.getItem('wcg_admin_session')) ||
-          Boolean(localStorage.getItem('wcg_auth_token'))
+          Boolean(localStorage.getItem('wcg_admin_authenticated') === 'true')
         );
         if (!isAdmin) {
           // Non-admin public visitors: sync CMS branding, content, active giveaways and news articles without 559-games blob

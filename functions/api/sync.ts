@@ -419,7 +419,7 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
         const [spList, utList, gwList, settingsMap] = await Promise.all([
           loadAllStoreProductsD1(env.DB),
           loadAllUtilitiesD1(env.DB),
-          loadAllGiveawaysD1(env.DB, authorized),
+          loadAllGiveawaysD1(env.DB, authorized, true),
           getMultipleSettingsD1(
             env.DB,
             [
@@ -763,11 +763,12 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
     const sanitizedGiveaways = rawGiveaways.map((gw: any) => {
       if (!gw || typeof gw !== 'object') return gw;
       const { codes_pool, claim_history, ...rest } = gw;
-      const poolArr = Array.isArray(codes_pool) ? codes_pool : (Array.isArray(gw.codes_pool) ? gw.codes_pool : []);
-      const hasPool = Array.isArray(codes_pool) || Array.isArray(gw.codes_pool);
-      const remainingCount = hasPool
+      const poolArr = Array.isArray(codes_pool) && codes_pool.length > 0
+        ? codes_pool
+        : (Array.isArray(gw.codes_pool) && gw.codes_pool.length > 0 ? gw.codes_pool : []);
+      const remainingCount = poolArr.length > 0
         ? poolArr.length
-        : (typeof gw.remaining_codes === 'number' ? gw.remaining_codes : 0);
+        : Math.max(0, Number(gw.remaining_codes || 0));
       return {
         ...rest,
         use_template: gw.use_template !== false,
