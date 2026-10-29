@@ -7,6 +7,38 @@ Mỗi mục sửa lỗi đều ghi nhận **Nguyên nhân gốc rễ (Root Cause
 
 ## [2026-10-29]
 
+### 263. Thu Gọn Thanh Ghim & Tích Hợp Cài Đặt Ngôn Ngữ, Chế Độ Sáng/Tối Vào Thông Tin Nhân Vật (Compact Sticky Header & Character Settings Integration)
+- **Bối cảnh & Yêu cầu người dùng**:
+  - Người dùng phản ánh: "Thu gọn thanh ghim lại giúp tôi, chuyển ngôn ngữ và sáng tối vào thông tin nhân vật." Kèm ảnh chụp màn hình thanh công cụ trên web khách codegame.shop/giveaways.
+  - Thanh ghim cũ có chiều cao quá khổ (h-14 sm:h-18 tương đương 56px/72px), thanh công cụ bên phải nhồi nhét quá nhiều nút khiến giao diện bị chật chội theo chiều ngang và nút Sáng/Tối bị đẩy khuất tầm nhìn.
+- **Nguyên nhân gốc rễ (Root Causes)**:
+  1. Kích thước thanh ghim chưa tối ưu: Chiều cao sm:h-18 (72px) cùng padding dày khiến thanh ghim chiếm diện tích hiển thị quá lớn.
+  2. Thanh công cụ bị phân mảnh & quá tải: Nút đổi ngôn ngữ (LanguageSelector variant="header") và nút đổi theme Sáng/Tối (Sun/Moon) nằm trực tiếp trên thanh ghim desktop chiếm hơn 100px chiều ngang.
+  3. Thông tin nhân vật (UserProfileModal & Dropdown) chưa có cài đặt giao diện: Người dùng mong muốn gom các tùy biến cá nhân (giao diện Sáng/Tối, ngôn ngữ) vào đúng mục "Thông Tin Nhân Vật".
+- **Giải pháp xử lý triệt để**:
+  1. Thu gọn thanh ghim (Header.tsx & App.tsx):
+     - Giảm chiều cao thanh ghim từ h-14 sm:h-18 xuống h-14 sm:h-16 (56px trên mobile, 64px trên tablet/desktop).
+     - Điều chỉnh logo kích thước chuẩn w-8 h-8 sm:w-10 sm:h-10, tiêu đề text-xs sm:text-base.
+     - Đồng bộ và thu gọn 6 tab điều hướng (p-1 sm:p-1.2 rounded-xl, nút tab py-1.5 px-2.5 sm:px-3 text-xs font-bold rounded-xl), chuẩn hóa độ cao bằng nhau.
+     - Cập nhật vị trí sticky search bar trong App.tsx thành top-14 sm:top-16 và ngưỡng cuộn headerHeight = 64.
+     - Gỡ bỏ hoàn toàn nút LanguageSelector và nút Sáng/Tối khỏi thanh ghim ngoài.
+  2. Tích hợp Ngôn ngữ và Sáng/Tối vào Menu Nhân Vật (Header.tsx):
+     - Bổ sung khối "Giao Diện & Ngôn Ngữ" chuyên dụng vào Dropdown nhân vật (khi bấm vào Avatar nhân vật đối với thành viên, hoặc nút Tài khoản đối với khách):
+       - Nút chuyển đổi Chế độ Sáng / Tối với icon Sun/Moon và nhãn trực quan.
+       - Bộ chọn ngôn ngữ hiển thị phân đoạn dạng viên thuốc (LanguageSelector variant="pill" - Tiếng Việt / English).
+     - Hỗ trợ cả khách vãng lai: Bấm "Tài khoản" mở menu nhanh gồm nút Đăng nhập / Đăng ký, Tủ game đã lưu và Bộ chuyển Giao diện/Ngôn ngữ.
+  3. Tích hợp Ngôn ngữ và Sáng/Tối vào Hồ Sơ & Thông Tin Nhân Vật (UserProfileModal.tsx & App.tsx):
+     - Truyền isDarkMode và onToggleTheme từ App.tsx vào UserProfileModal.
+     - Thêm thẻ "Cài Đặt Giao Diện & Ngôn Ngữ Hiển Thị" vào tab Thông Tin Nhân Vật: Thẻ card 2 cột gồm Chế độ Sáng/Tối (kèm nút Chuyển Sáng/Chuyển Tối) và Ngôn Ngữ (LanguageSelector variant="pill").
+- **Kiểm Thử & Triển Khai**:
+  - npm run build: 100% PASS, 0 lỗi TypeScript, 0 lỗi bundle.
+  - Kiểm thử audit_zero_test_artifacts.cjs: 100% PASS.
+  - Kiểm thử hồi quy sao chép & kho hàng giveaway: 100% PASS.
+
+---
+
+## [2026-10-29]
+
 ### 262. Sửa Bộ Đếm Tổng Lượt Sao Chép Không Tăng Theo Thông Báo & Người Thật Sao Chép (Copy Counter Synchronization & Real Actions Hookup)
 - **Bối cảnh & Yêu cầu người dùng**:
   - Người dùng phản ánh: "Tổng số lượt sao chép chưa xử lý được, đảm bảo tăng theo thông báo và người thật sao chép giúp tôi."

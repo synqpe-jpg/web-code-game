@@ -17,6 +17,7 @@ import {
   Smartphone,
   Bell,
   Award,
+  Globe,
 } from 'lucide-react';
 import type { GameItem, UserProfile } from '../types/game';
 import { formatCore } from '../utils/textUtils';
@@ -41,6 +42,7 @@ interface HeaderProps {
   onOpenProfile?: () => void;
   currentUser: UserProfile | null;
   onLogout: () => void;
+  isDarkMode?: boolean;
   onToggleTheme: () => void;
   allGames?: GameItem[];
   onSelectGame?: (game: GameItem) => void;
@@ -134,7 +136,7 @@ export const Header: React.FC<HeaderProps> = ({
       style={{ position: 'sticky', top: 0, zIndex: 50, overflow: 'visible' }}
     >
       <div className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8">
-        <div className="flex items-center justify-between h-14 sm:h-18 gap-2 sm:gap-4">
+        <div className="flex items-center justify-between h-14 sm:h-16 gap-2 sm:gap-3">
           {/* 1. Brand Logo */}
           <div
             role="button"
@@ -146,10 +148,10 @@ export const Header: React.FC<HeaderProps> = ({
                 onSelectTab('catalog');
               }
             }}
-            className="flex items-center gap-1.5 sm:gap-2.5 group shrink-0 cursor-pointer select-none"
+            className="flex items-center gap-1.5 sm:gap-2 group shrink-0 cursor-pointer select-none"
             aria-label="Về trang chủ tra cứu code"
           >
-            <div className="w-8 h-8 sm:w-11 sm:h-11 rounded-lg sm:rounded-xl bg-gradient-to-br from-primary via-primary-hover to-accent flex items-center justify-center shadow-glow-primary group-hover:scale-105 transition-transform overflow-hidden shrink-0">
+            <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-lg sm:rounded-xl bg-gradient-to-br from-primary via-primary-hover to-accent flex items-center justify-center shadow-glow-primary group-hover:scale-105 transition-transform overflow-hidden shrink-0">
               {branding?.logoUrl ? (
                 <img
                   src={branding.logoUrl}
@@ -172,7 +174,7 @@ export const Header: React.FC<HeaderProps> = ({
             </div>
             <div className="flex flex-col min-w-0">
               <div className="flex items-center gap-1">
-                <span className="font-display font-bold text-xs sm:text-lg tracking-normal sm:tracking-wider text-foreground group-hover:text-primary-light transition-colors whitespace-nowrap">
+                <span className="font-display font-bold text-xs sm:text-base tracking-normal sm:tracking-wider text-foreground group-hover:text-primary-light transition-colors whitespace-nowrap">
                   {branding?.siteTitle && branding.siteTitle.toUpperCase() !== 'WEB CODE GAME' && branding.siteTitle.toUpperCase() !== 'WEB CODE'
                     ? branding.siteTitle
                     : 'CodeGame.Shop'}
@@ -190,11 +192,13 @@ export const Header: React.FC<HeaderProps> = ({
           </div>
 
           {/* 2. Desktop Navigation Tabs - Always visible on PC / Tablet (md+) and pinned on scroll */}
-          <nav className="hidden md:flex items-center gap-1 bg-muted/60 p-1.5 rounded-2xl border border-border/80 flex-nowrap whitespace-nowrap shrink-0 shadow-sm">
+          <nav className="hidden md:flex items-center gap-1 bg-muted/60 p-1 sm:p-1.2 rounded-xl border border-border/80 flex-nowrap whitespace-nowrap shrink-0 shadow-sm">
             <button
               type="button"
               onClick={() => onSelectTab('catalog')}
-              className="cg-btn cg-btn--small"
+              className={`cg-btn cg-btn--small !text-xs !py-1.5 !px-2.5 sm:!px-3 !rounded-xl ${
+                currentTab === 'catalog' ? 'ring-2 ring-primary/80 shadow-glow-primary' : ''
+              }`}
             >
               <Gift className="w-4 h-4" />
               <span>{t.nav.catalog}</span>
@@ -203,7 +207,7 @@ export const Header: React.FC<HeaderProps> = ({
             <button
               type="button"
               onClick={() => onSelectTab('news')}
-              className={`flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+              className={`flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
                 currentTab === 'news'
                   ? 'bg-primary text-white shadow-glow-primary'
                   : 'text-slate-300 hover:text-white hover:bg-card'
@@ -216,7 +220,9 @@ export const Header: React.FC<HeaderProps> = ({
             <button
               type="button"
               onClick={() => onSelectTab('giveaways')}
-              className="cg-btn cg-btn--small"
+              className={`cg-btn cg-btn--small !text-xs !py-1.5 !px-2.5 sm:!px-3 !rounded-xl ${
+                currentTab === 'giveaways' ? 'ring-2 ring-amber-400/90 shadow-glow-accent' : ''
+              }`}
             >
               <Sparkles className="w-4 h-4 text-amber-400" />
               <span>{t.nav.giveaways}</span>
@@ -225,7 +231,7 @@ export const Header: React.FC<HeaderProps> = ({
             <button
               type="button"
               onClick={() => onSelectTab('store')}
-              className={`flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+              className={`flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
                 currentTab === 'store'
                   ? 'bg-secondary text-white shadow-sm'
                   : 'text-slate-300 hover:text-white hover:bg-card'
@@ -238,7 +244,9 @@ export const Header: React.FC<HeaderProps> = ({
             <button
               type="button"
               onClick={() => onSelectTab('utilities')}
-              className="cg-btn cg-btn--small"
+              className={`cg-btn cg-btn--small !text-xs !py-1.5 !px-2.5 sm:!px-3 !rounded-xl ${
+                currentTab === 'utilities' ? 'ring-2 ring-teal-400/90 shadow-sm' : ''
+              }`}
             >
               <Wrench className="w-4 h-4 text-teal-400" />
               <span>{t.nav.utilities}</span>
@@ -247,7 +255,7 @@ export const Header: React.FC<HeaderProps> = ({
             <button
               type="button"
               onClick={() => onSelectTab('missions')}
-              className={`flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+              className={`flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
                 currentTab === 'missions'
                   ? 'bg-primary text-white shadow-glow-primary'
                   : 'text-slate-300 hover:text-white hover:bg-card'
@@ -289,16 +297,11 @@ export const Header: React.FC<HeaderProps> = ({
               </span>
             </button>
 
-            {/* Language Selector Dropdown (Desktop / Tablet sm+) */}
-            <div className="hidden sm:inline-block shrink-0">
-              <LanguageSelector variant="header" />
-            </div>
-
             {/* Bookmark Button (Desktop & Mobile) - Chỉ hiển thị cho khách vãng lai chưa đăng nhập */}
             {!currentUser && (
               <button
                 onClick={onOpenBookmarks}
-                className="relative p-1.5 sm:p-2.5 min-w-[32px] min-h-[32px] sm:min-w-[42px] sm:min-h-[42px] flex items-center justify-center rounded-xl bg-card hover:bg-card-hover border border-border text-slate-300 hover:text-foreground transition-all cursor-pointer active:scale-95 shadow-sm shrink-0"
+                className="relative p-1.5 sm:p-2 min-w-[32px] min-h-[32px] sm:min-w-[38px] sm:min-h-[38px] flex items-center justify-center rounded-xl bg-card hover:bg-card-hover border border-border text-slate-300 hover:text-foreground transition-all cursor-pointer active:scale-95 shadow-sm shrink-0"
                 title={t.header.bookmarksTitle}
                 aria-label={t.header.bookmarksTitle}
               >
@@ -551,24 +554,42 @@ export const Header: React.FC<HeaderProps> = ({
                         </a>
                       )}
 
-                      {/* Mobile Quick Toggles: Sáng/Tối Theme */}
-                      <div className="sm:hidden pt-1.5 pb-1 border-t border-border/40">
+                      {/* Shared: Giao Diện & Ngôn Ngữ */}
+                      <div className="pt-2 pb-1 border-t border-border/60 space-y-2">
+                        <div className="px-2 flex items-center justify-between text-[10px] font-bold text-muted-foreground uppercase tracking-wider">
+                          <span>Giao Diện & Ngôn Ngữ</span>
+                        </div>
+
+                        {/* Sáng / Tối Theme Toggle */}
                         <button
                           type="button"
                           onClick={(e) => {
                             e.stopPropagation();
                             onToggleTheme();
                           }}
-                          className="w-full flex items-center justify-between p-2 rounded-xl hover:bg-muted text-foreground cursor-pointer text-left"
+                          className="w-full flex items-center justify-between p-2 rounded-xl hover:bg-muted text-foreground cursor-pointer text-left transition-colors"
                         >
                           <span className="flex items-center gap-2">
-                            {isDarkMode ? <Sun className="w-4 h-4 text-amber-400" /> : <Moon className="w-4 h-4 text-slate-400" />}
-                            <span>{isDarkMode ? 'Chế độ Sáng' : 'Chế độ Tối'}</span>
+                            {isDarkMode ? (
+                              <Sun className="w-4 h-4 text-amber-400 shrink-0" />
+                            ) : (
+                              <Moon className="w-4 h-4 text-slate-400 shrink-0" />
+                            )}
+                            <span className="font-medium">{isDarkMode ? 'Chế độ Sáng' : 'Chế độ Tối'}</span>
                           </span>
-                          <span className="text-[10px] text-slate-400 font-mono">
+                          <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded-md bg-muted border border-border/60 text-slate-300">
                             {isDarkMode ? 'Sáng' : 'Tối'}
                           </span>
                         </button>
+
+                        {/* Ngôn ngữ hệ thống */}
+                        <div className="p-1.5 rounded-xl bg-muted/40 border border-border/50 flex items-center justify-between gap-2">
+                          <span className="flex items-center gap-1.5 text-xs text-muted-foreground font-medium pl-1">
+                            <Globe className="w-3.5 h-3.5 text-primary-light shrink-0" />
+                            <span>Ngôn ngữ:</span>
+                          </span>
+                          <LanguageSelector variant="pill" />
+                        </div>
                       </div>
 
                       {/* 6. Đăng Xuất */}
@@ -588,14 +609,109 @@ export const Header: React.FC<HeaderProps> = ({
                   )}
                 </>
               ) : (
-                <button
-                  onClick={onOpenAuth}
-                  className="flex items-center gap-1 px-2 py-1.5 sm:px-3 sm:py-2 min-h-[32px] sm:min-h-[42px] rounded-xl text-xs font-bold bg-primary/20 hover:bg-primary/30 text-primary-light border border-primary/40 transition-all cursor-pointer active:scale-95 shrink-0"
-                  aria-label="Tài khoản"
-                >
-                  <User className="w-3.5 h-3.5 text-primary-light shrink-0" />
-                  <span>{t.header.account}</span>
-                </button>
+                <>
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setIsUserMenuOpen((prev) => !prev);
+                    }}
+                    className="flex items-center gap-1.5 px-2.5 py-1.5 sm:px-3 sm:py-2 min-h-[32px] sm:min-h-[38px] rounded-xl text-xs font-bold bg-primary/20 hover:bg-primary/30 text-primary-light border border-primary/40 transition-all cursor-pointer active:scale-95 shrink-0"
+                    aria-label="Tài khoản & Cài đặt"
+                  >
+                    <User className="w-3.5 h-3.5 text-primary-light shrink-0" />
+                    <span>{t.header.account}</span>
+                  </button>
+
+                  {isUserMenuOpen && (
+                    <div
+                      className="absolute right-0 mt-2 w-64 max-h-[calc(100vh-5rem)] max-w-[calc(100vw-1rem)] overflow-y-auto bg-card border border-border/90 rounded-2xl shadow-2xl p-2 z-[100] animate-scale-in text-xs space-y-1.5 scrollbar-thin"
+                    >
+                      <div className="p-1 space-y-2">
+                        <div className="p-3 rounded-xl bg-gradient-to-br from-primary/15 via-accent/10 to-muted/40 border border-primary/25 text-center space-y-2">
+                          <div className="w-9 h-9 mx-auto rounded-xl bg-primary/20 text-primary-light flex items-center justify-center border border-primary/30 shadow-sm">
+                            <User className="w-4 h-4" />
+                          </div>
+                          <div>
+                            <p className="font-bold text-foreground text-xs">Tài Khoản Khách</p>
+                            <p className="text-[10px] text-muted-foreground mt-0.5 leading-snug">
+                              Đăng nhập để nhận Giftcode riêng & tích lũy điểm Core
+                            </p>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setIsUserMenuOpen(false);
+                              onOpenAuth();
+                            }}
+                            className="w-full py-2 px-3 rounded-xl bg-primary hover:bg-primary-hover text-white font-extrabold text-xs shadow-glow-primary transition-all cursor-pointer active:scale-95"
+                          >
+                            Đăng Nhập / Đăng Ký
+                          </button>
+                        </div>
+
+                        {/* Guest Bookmarks shortcut */}
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setIsUserMenuOpen(false);
+                            onOpenBookmarks();
+                          }}
+                          className="w-full flex items-center justify-between p-2 rounded-xl hover:bg-muted text-foreground cursor-pointer text-left group"
+                        >
+                          <span className="flex items-center gap-2">
+                            <Bookmark className="w-4 h-4 text-amber-400 group-hover:scale-110 transition-transform" />
+                            <span className="font-medium">Tủ Game Đã Lưu</span>
+                          </span>
+                          {bookmarkCount > 0 && (
+                            <span className="text-[10px] text-amber-300 font-bold bg-amber-500/20 px-2 py-0.5 rounded-full border border-amber-500/30">
+                              {bookmarkCount}
+                            </span>
+                          )}
+                        </button>
+                      </div>
+
+                      {/* Shared: Giao Diện & Ngôn Ngữ */}
+                      <div className="pt-2 pb-1 border-t border-border/60 space-y-2">
+                        <div className="px-2 flex items-center justify-between text-[10px] font-bold text-muted-foreground uppercase tracking-wider">
+                          <span>Giao Diện & Ngôn Ngữ</span>
+                        </div>
+
+                        {/* Sáng / Tối Theme Toggle */}
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            onToggleTheme();
+                          }}
+                          className="w-full flex items-center justify-between p-2 rounded-xl hover:bg-muted text-foreground cursor-pointer text-left transition-colors"
+                        >
+                          <span className="flex items-center gap-2">
+                            {isDarkMode ? (
+                              <Sun className="w-4 h-4 text-amber-400 shrink-0" />
+                            ) : (
+                              <Moon className="w-4 h-4 text-slate-400 shrink-0" />
+                            )}
+                            <span className="font-medium">{isDarkMode ? 'Chế độ Sáng' : 'Chế độ Tối'}</span>
+                          </span>
+                          <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded-md bg-muted border border-border/60 text-slate-300">
+                            {isDarkMode ? 'Sáng' : 'Tối'}
+                          </span>
+                        </button>
+
+                        {/* Ngôn ngữ hệ thống */}
+                        <div className="p-1.5 rounded-xl bg-muted/40 border border-border/50 flex items-center justify-between gap-2">
+                          <span className="flex items-center gap-1.5 text-xs text-muted-foreground font-medium pl-1">
+                            <Globe className="w-3.5 h-3.5 text-primary-light shrink-0" />
+                            <span>Ngôn ngữ:</span>
+                          </span>
+                          <LanguageSelector variant="pill" />
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </>
               )}
             </div>
 
@@ -603,7 +719,7 @@ export const Header: React.FC<HeaderProps> = ({
             {onOpenNotificationModal && (
               <button
                 onClick={onOpenNotificationModal}
-                className="p-2 sm:p-2.5 min-w-[34px] min-h-[34px] sm:min-w-[42px] sm:min-h-[42px] flex items-center justify-center rounded-xl bg-card hover:bg-card-hover border border-border/80 hover:border-secondary/40 text-slate-300 hover:text-secondary transition-all cursor-pointer active:scale-95 shadow-sm shrink-0 relative group"
+                className="p-1.5 sm:p-2 min-w-[32px] min-h-[32px] sm:min-w-[38px] sm:min-h-[38px] flex items-center justify-center rounded-xl bg-card hover:bg-card-hover border border-border/80 hover:border-secondary/40 text-slate-300 hover:text-secondary transition-all cursor-pointer active:scale-95 shadow-sm shrink-0 relative group"
                 title="Đăng ký nhận mã code & sự kiện qua Email"
                 aria-label="Nhận thông báo email"
               >
@@ -611,16 +727,6 @@ export const Header: React.FC<HeaderProps> = ({
                 <span className="absolute -top-0.5 -right-0.5 w-2 h-2 bg-secondary rounded-full border border-card animate-pulse" />
               </button>
             )}
-
-            {/* Theme Toggle Button (Desktop / Tablet sm+) */}
-            <button
-              onClick={onToggleTheme}
-              className="hidden sm:flex p-2 sm:p-2.5 min-w-[38px] min-h-[38px] sm:min-w-[42px] sm:min-h-[42px] items-center justify-center rounded-xl bg-card hover:bg-card-hover border border-border text-slate-300 hover:text-foreground transition-all cursor-pointer active:scale-95 shadow-sm shrink-0"
-              title={t.header.themeToggle}
-              aria-label={t.header.themeToggle}
-            >
-              {isDarkMode ? <Sun className="w-4 h-4 text-amber-400" /> : <Moon className="w-4 h-4 text-slate-700" />}
-            </button>
           </div>
         </div>
       </div>

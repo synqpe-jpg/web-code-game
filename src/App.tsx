@@ -298,8 +298,8 @@ export const App: React.FC = () => {
       }
 
       const rect = heroSearchEl.getBoundingClientRect();
-      // Header height: 72px on sm/desktop (>=640px), 56px on mobile (<640px)
-      const headerHeight = window.innerWidth >= 640 ? 72 : 56;
+      // Header height: 64px on sm/desktop (>=640px), 56px on mobile (<640px)
+      const headerHeight = window.innerWidth >= 640 ? 64 : 56;
       // Show sticky floating search bar once the hero search bar has scrolled up under the header
       setIsStickySearchVisible(rect.bottom < headerHeight);
     };
@@ -1424,7 +1424,7 @@ export const App: React.FC = () => {
         {/* Sticky Floating Search Bar for Catalog on Scroll */}
         {currentTab === 'catalog' && (
           <div
-            className={`fixed top-14 sm:top-[72px] left-0 right-0 z-40 bg-background/95 backdrop-blur-xl border-b border-border shadow-xl shadow-black/25 py-2 sm:py-2.5 transition-all duration-300 ease-in-out ${
+            className={`fixed top-14 sm:top-16 left-0 right-0 z-40 bg-background/95 backdrop-blur-xl border-b border-border shadow-xl shadow-black/25 py-2 sm:py-2.5 transition-all duration-300 ease-in-out ${
               isStickySearchVisible && !isMobileSearchActive
                 ? 'translate-y-0 opacity-100 pointer-events-auto'
                 : '-translate-y-4 opacity-0 pointer-events-none'
@@ -1787,6 +1787,8 @@ export const App: React.FC = () => {
           onOpenReceivedCodes={handleOpenReceivedCodes}
           onLogout={handleLogout}
           onShowToast={showToast}
+          isDarkMode={isDarkMode}
+          onToggleTheme={handleToggleTheme}
         />
 
         <DownloadAppModal

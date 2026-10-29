@@ -10,6 +10,23 @@
 
 ## 1. DANH MỤC LỖI & CÁC BẪY ĐÃ THẤT BẠI (DO NOT REPEAT)
 
+### ISSUE-179: Bẫy Phân Mảnh Thanh Ghim Khiến Nút Sáng/Tối Bị Đẩy Khuất & Trải Nghiệm Tùy Biến Cá Nhân Bị Phân Tán (Sticky Header Horizontal Overflow & Settings Fragmentation Pitfall)
+- **Triệu chứng**:
+  - Thanh ghim điều hướng quá cao (h-18, 72px) và thanh công cụ bên phải chứa quá nhiều nút (Tải App, Language Selector header, Bookmark, Avatar, Nút Sáng/Tối).
+  - Ở độ phân giải ~1200px hoặc trên các màn hình máy tính thông thường, các nút bị dồn ép, nút Sáng/Tối bị đẩy khuất ra ngoài rìa màn hình.
+  - Người dùng khó tìm kiếm cài đặt giao diện (ngôn ngữ, sáng/tối) vì bị nằm rời rạc ngoài thanh điều hướng chính thay vì nằm trong hồ sơ nhân vật.
+- **Nguyên nhân gốc rễ**:
+  1. Chiều cao và padding thanh ghim chưa tối ưu, các nút tab có chiều cao và kích thước không đồng đều.
+  2. Nút Language dropdown và nút Sun/Moon đặt ngoài thanh ghim chiếm nhiều diện tích ngang không cần thiết.
+- **Giải pháp chuẩn đã kiểm chứng**:
+  1. Thu gọn thanh ghim: Giảm chiều cao từ 72px về 64px (sm:h-16), chuẩn hóa độ cao 6 tab điều hướng đồng bộ (py-1.5 px-2.5 sm:px-3 text-xs).
+  2. Gom cụm cài đặt Giao Diện (Sáng/Tối) và Ngôn Ngữ vào:
+     - Menu nhân vật nhanh (Dropdown khi bấm vào Avatar hoặc nút Tài khoản đối với khách).
+     - Thẻ "Cài Đặt Giao Diện & Ngôn Ngữ Hiển Thị" bên trong modal "Hồ Sơ & Thông Tin Nhân Vật" (UserProfileModal).
+- 🚫 **CÁCH SỬA ĐÃ THẤT BẠI - TUYỆT ĐỐI KHÔNG LẶP LẠI**:
+  - ❌ *Tuyệt đối KHÔNG nhồi nhét nút đổi theme và đổi ngôn ngữ trực tiếp ra thanh ghim ngoài khi thanh đã có 6 tab điều hướng và các tính năng chính*.
+  - ❌ *Tuyệt đối KHÔNG ẩn cài đặt theme/ngôn ngữ đối với khách vãng lai khi gom vào menu tài khoản*.
+
 ### ISSUE-178: Bẫy Nuốt Lỗi ReferenceError stats.ts & Phân Rã Biến Đếm Copy Khiến Số Không Tăng Theo Thông Báo & Người Thật Bấm (Copy Counter Silent Failure & Event Disconnect Pitfall)
 - **Triệu chứng**:
   - Con số "Tổng lượt sao chép" và huy hiệu đầu trang chủ đứng yên tại chỗ (ví dụ `94.558`), không tăng khi thông báo nổ ra hoặc khi khách bấm sao chép ở các modal khác.

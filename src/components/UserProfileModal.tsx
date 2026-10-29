@@ -23,11 +23,15 @@ import {
   Coins,
   Package,
   Target,
+  Globe,
+  Sun,
+  Moon,
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
 import type { UserProfile } from '../types/game';
 import { authService } from '../services/authService';
 import { formatCore, formatFullDateTime } from '../utils/textUtils';
+import { LanguageSelector } from './LanguageSelector';
 
 interface UserProfileModalProps {
   isOpen: boolean;
@@ -38,6 +42,8 @@ interface UserProfileModalProps {
   onOpenReceivedCodes?: (initialTab?: 'giveaways' | 'orders' | 'privates' | 'missions') => void;
   onLogout: () => void;
   onShowToast: (title: string, message?: string, type?: 'success' | 'error' | 'info') => void;
+  isDarkMode?: boolean;
+  onToggleTheme?: () => void;
 }
 
 // 12 Curated Gaming/Cyber Chibi Avatar Presets
@@ -65,6 +71,8 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
   onOpenReceivedCodes,
   onLogout,
   onShowToast,
+  isDarkMode,
+  onToggleTheme,
 }) => {
   const [activeTab, setActiveTab] = useState<'profile' | 'security'>('profile');
 
@@ -461,6 +469,61 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
                     placeholder="0987.xxx.xxx (để NPH gửi quà sự kiện hoặc CSKH)..."
                     className="w-full px-3.5 py-2.5 rounded-xl bg-card border border-border text-foreground placeholder-muted-foreground focus:outline-none focus:border-primary font-medium"
                   />
+                </div>
+              </div>
+
+              {/* 4. Cài Đặt Giao Diện & Ngôn Ngữ Hiển Thị */}
+              <div className="space-y-3 p-4 rounded-2xl bg-muted/30 border border-border/80">
+                <div className="flex items-center justify-between border-b border-border/60 pb-2">
+                  <div className="flex items-center gap-2">
+                    <Sparkles className="w-4 h-4 text-primary-light" />
+                    <h4 className="font-bold text-foreground text-xs sm:text-sm">
+                      Giao Diện & Ngôn Ngữ Hiển Thị
+                    </h4>
+                  </div>
+                  <span className="text-[10px] text-muted-foreground">Tùy biến trải nghiệm cá nhân</span>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
+                  {/* Chế độ Sáng / Tối */}
+                  <div className="flex items-center justify-between p-3 rounded-xl bg-card border border-border/60">
+                    <div className="flex items-center gap-2.5">
+                      <div className="w-8 h-8 rounded-lg bg-muted border border-border flex items-center justify-center text-primary-light shrink-0">
+                        {isDarkMode ? <Sun className="w-4 h-4 text-amber-400" /> : <Moon className="w-4 h-4 text-slate-400" />}
+                      </div>
+                      <div>
+                        <div className="font-bold text-foreground text-xs">
+                          {isDarkMode ? 'Chế Độ Sáng' : 'Chế Độ Tối'}
+                        </div>
+                        <div className="text-[10px] text-muted-foreground">
+                          {isDarkMode ? 'Giao diện nền sáng' : 'Giao diện nền tối Cyber'}
+                        </div>
+                      </div>
+                    </div>
+                    {onToggleTheme && (
+                      <button
+                        type="button"
+                        onClick={onToggleTheme}
+                        className="px-3 py-1.5 rounded-lg text-xs font-bold bg-primary/20 hover:bg-primary/30 text-primary-light border border-primary/40 transition-all cursor-pointer active:scale-95"
+                      >
+                        {isDarkMode ? 'Chuyển Tối' : 'Chuyển Sáng'}
+                      </button>
+                    )}
+                  </div>
+
+                  {/* Ngôn Ngữ Hệ Thống */}
+                  <div className="flex items-center justify-between p-3 rounded-xl bg-card border border-border/60">
+                    <div className="flex items-center gap-2.5">
+                      <div className="w-8 h-8 rounded-lg bg-muted border border-border flex items-center justify-center text-secondary shrink-0">
+                        <Globe className="w-4 h-4 text-secondary" />
+                      </div>
+                      <div>
+                        <div className="font-bold text-foreground text-xs">Ngôn Ngữ</div>
+                        <div className="text-[10px] text-muted-foreground">Tiếng Việt / English</div>
+                      </div>
+                    </div>
+                    <LanguageSelector variant="pill" />
+                  </div>
                 </div>
               </div>
 
