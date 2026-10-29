@@ -5,6 +5,27 @@ Mỗi mục sửa lỗi đều ghi nhận **Nguyên nhân gốc rễ (Root Cause
 
 ---
 
+## [2026-10-29]
+
+### 259. Ẩn Hiển Thị Số Lượt/IP Tại Mục Săn Giveaway (/giveaways) Trên Giao Diện Web Khách
+- **Bối cảnh & Yêu cầu người dùng**:
+  - Người dùng yêu cầu ẩn hiển thị huy hiệu giới hạn "Tối đa X lượt/IP" (và "Tối đa X mã / IP") trên thẻ sự kiện và modal chi tiết của mục Giveaway (`/giveaways`) phía web khách để giao diện tinh gọn, không tạo cảm giác gò bó cho người dùng.
+- **Nguyên nhân & Giải pháp thực hiện**:
+  1. *Ẩn hiển thị trên thẻ sự kiện Giveaway*:
+     - Trong [`src/components/GiveawaysView.tsx`](file:///c:/4%20Antigravity%20all/13%20web%20code%20game/src/components/GiveawaysView.tsx#L1828), gỡ bỏ huy hiệu `<span className="... text-teal-400 ...">Tối đa {campaign.max_per_ip || 1} lượt/IP</span>`.
+     - Thẻ sự kiện giờ chỉ hiển thị: Giới hạn theo tài khoản ("Tối đa X mã/tài khoản"), Thời gian hồi chiêu ("Hồi chiêu X"), Giãn cách và Tuổi nick (nếu có).
+  2. *Ẩn hiển thị trong modal chi tiết (`GiveawayDetailModal`)*:
+     - Gỡ bỏ khối quy định "Rule 2: Max per IP" (`Tối đa {campaign.max_per_ip || 1} mã / IP - Áp dụng`).
+     - Tinh chỉnh khối quy định theo tài khoản (`Rule 1`) thành `sm:col-span-2` để đảm bảo bố cục lưới luôn cân đối, thẩm mỹ.
+  3. *Bảo tồn cơ chế bảo mật phía Backend & Admin*:
+     - Phía máy chủ (`functions/api/giveaways/claim.ts`): Vẫn tiếp tục thực thi kiểm soát chống gian lận/spam theo IP một cách âm thầm, bảo vệ kho mã tối đa.
+     - Phía Admin Portal (`PrivateCodesModule.tsx`): Quản trị viên vẫn xem và tùy chỉnh cấu hình `max_per_ip` như bình thường.
+- **Kiểm Thử & Triển Khai**:
+  - Chạy toàn bộ test suites hồi quy: `test_giveaway_claimed_ssot.cjs`, `test_giveaway_cooldown_and_expiry.cjs`, `test_missions_optimization.cjs`, `audit_zero_test_artifacts.cjs` $\rightarrow$ 100% PASS.
+  - Build `npm run build` thành công 100%.
+
+---
+
 ## [2026-10-28]
 
 ### 258. Tối Ưu Triệt Để TTFB Trang Nhiệm Vụ (/nhiem-vu): Bỏ DDL Schema Trên Luồng Đọc, Gộp Truy Vấn N+1 & Tách Biệt Edge Cache An Toàn Tuyệt Đối

@@ -13,7 +13,6 @@ import {
   LogIn,
   Share2,
   User,
-  Globe,
   Clock,
   ShieldCheck,
   AlertCircle,
@@ -557,7 +556,7 @@ const GiveawayDetailModal: React.FC<GiveawayDetailModalProps> = ({
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-[11px]">
               {/* Rule 1: Max per user */}
               <div
-                className={`p-2.5 rounded-xl border flex items-center justify-between gap-2 ${
+                className={`p-2.5 rounded-xl border flex items-center justify-between gap-2 sm:col-span-2 ${
                   isMaxReached
                     ? 'bg-amber-500/10 border-amber-500/30 text-amber-300'
                     : 'bg-muted/50 border-border/70 text-foreground'
@@ -572,15 +571,6 @@ const GiveawayDetailModal: React.FC<GiveawayDetailModalProps> = ({
                 <span className="text-[10px] font-bold shrink-0">
                   ({userClaimCount}/{isUnlimitedUser ? '∞' : rawMaxPerUser || 1})
                 </span>
-              </div>
-
-              {/* Rule 2: Max per IP */}
-              <div className="p-2.5 rounded-xl bg-muted/50 border border-border/70 flex items-center justify-between gap-2 text-foreground">
-                <div className="flex items-center gap-2 min-w-0">
-                  <Globe className="w-3.5 h-3.5 text-teal-400 shrink-0" />
-                  <span className="truncate">Tối đa {campaign.max_per_ip || 1} mã / IP</span>
-                </div>
-                <span className="text-[10px] font-bold text-teal-400 shrink-0">Áp dụng</span>
               </div>
 
               {/* Rule 3: Cooldown */}
@@ -1834,10 +1824,6 @@ export const GiveawaysView: React.FC<GiveawaysViewProps> = ({
                             <span>
                               {isUnlimitedUser ? 'Không giới hạn mã/tài khoản' : `Tối đa ${rawMaxPerUser || 1} mã/tài khoản`}
                             </span>
-                          </span>
-                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-teal-500/10 text-teal-400 border border-teal-500/20 font-medium">
-                            <Globe className="w-3 h-3" />
-                            <span>Tối đa {campaign.max_per_ip || 1} lượt/IP</span>
                           </span>
                           {Boolean(cooldownMinutes > 0) && (
                             <span
