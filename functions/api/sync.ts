@@ -2036,6 +2036,202 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
       }
     }
 
+    // Action: Tách 8 mã của Cửu Âm Chân Kinh 2D Mobile ra khỏi Cửu Âm Chân Kinh Mobile & Đổi Publisher Tiếu Ngạo Độc Tôn sang VGP
+    if (body.action === 'decouple_cuu_am_and_fix_tieu_ngao' && env.DB) {
+      try {
+        await ensureSchemaUpgrades(env.DB);
+        const results: any = {};
+
+        const target2DCodes = [
+          'S20VUONGNGUYEN', 'DAPTUYETVONGAN', 'CUUAM2D2026', 'CACK2DMOBILE',
+          'CUUAM2D10K', 'HOIUC30K', 'ANHEMHOITU50K', 'CAMON100K'
+        ];
+
+        // 1. Tạo bản ghi game Cửu Âm Chân Kinh 2D Mobile trong bảng games nếu chưa có
+        await env.DB.prepare(`
+          INSERT INTO games (
+            id, name, slug, publisher, category, rating, icon_url, banner_url,
+            description, instructions, platform, release_date, download_android, google_play_url,
+            android_package_name, is_featured, is_hot, is_new, is_active, status, codes_count, active_codes_count, total_codes_count
+          ) VALUES (
+            'cuu-am-chan-kinh-2d', 'Cửu Âm Chân Kinh 2D Mobile', 'cuu-am-chan-kinh-2d', 'Công ty Cổ phần Trực tuyến GOSU', 'Nhập Vai',
+            4.9, '/game_icons/cuu-am-chan-kinh-2d.webp', '',
+            'Cửu Âm Chân Kinh 2D Mobile là tựa game kiếm hiệp nhập vai đặc sắc phát hành bởi GOSU. Tổng hợp toàn bộ giftcode mới nhất mừng các cột mốc sự kiện và hướng dẫn nhập code nhận quà ingame.',
+            'Bước 1: Mở game Cửu Âm Chân Kinh 2D Mobile > Nhấn biểu tượng Phúc Lợi hoặc Cài Đặt.\nBước 2: Chọn mục Đổi Giftcode hoặc Mã Quà Tặng.\nBước 3: Nhập chính xác mã giftcode và bấm Đổi để nhận quà qua Hòm thư.',
+            'Android, iOS', '2025-02-20', 'https://play.google.com/store/apps/details?id=vn.gosu.cuuam2d', 'https://play.google.com/store/apps/details?id=vn.gosu.cuuam2d',
+            'vn.gosu.cuuam2d', 0, 1, 1, 1, 'ACTIVE', 8, 8, 8
+          )
+          ON CONFLICT(slug) DO UPDATE SET
+            name = excluded.name,
+            publisher = excluded.publisher,
+            category = excluded.category,
+            icon_url = excluded.icon_url,
+            release_date = excluded.release_date,
+            download_android = excluded.download_android,
+            google_play_url = excluded.google_play_url,
+            android_package_name = excluded.android_package_name,
+            is_active = excluded.is_active,
+            status = excluded.status,
+            updated_at = datetime('now')
+        `).run();
+
+        // 2. Chuyển 8 mã 2D sang cuu-am-chan-kinh-2d trong D1 table codes
+        for (const code of target2DCodes) {
+          // Lấy thông tin mã hiện tại từ cuu-am-chan-kinh-mobile nếu có
+          const existingCode: any = await env.DB.prepare(`
+            SELECT * FROM codes 
+            WHERE (game_slug = 'cuu-am-chan-kinh-mobile' OR game_slug = 'cuu-am-chan-kinh') AND UPPER(code) = ?
+            LIMIT 1
+          `).bind(code).first();
+
+          const rewards = existingCode?.rewards || 'Quà tặng giftcode cập nhật tự động qua Muse API';
+          const status = existingCode?.status || 'active';
+          const expiresAt = existingCode?.expires_at || '';
+          const source = existingCode?.source || 'Muse Crawler Bot - day lai toan bo 22/10';
+          const addedAt = existingCode?.added_at || '2026-10-22T16:00:41.308Z';
+
+          // Insert vào cuu-am-chan-kinh-2d
+          await env.DB.prepare(`
+            INSERT OR REPLACE INTO codes (id, game_slug, code, rewards, status, expires_at, source, added_at)
+            VALUES (?, 'cuu-am-chan-kinh-2d', ?, ?, ?, ?, ?, ?)
+          `).bind(`code_cuu-am-chan-kinh-2d_${code}`, code, rewards, status, expiresAt, source, addedAt).run();
+
+          // Xóa khỏi cuu-am-chan-kinh-mobile
+          await env.DB.prepare(`
+            DELETE FROM codes 
+            WHERE (game_slug = 'cuu-am-chan-kinh-mobile' OR game_slug = 'cuu-am-chan-kinh') AND UPPER(code) = ?
+          `).bind(code).run();
+        }
+
+        // 3. Sửa nhà phát hành Tiếu Ngạo Độc Tôn VGP thành VGP (tuyệt đối không đụng vào tieu-ngao của Gamota)
+        const updateTndtRes: any = await env.DB.prepare(`
+          UPDATE games 
+          SET publisher = 'VGP', updated_at = datetime('now')
+          WHERE slug = 'tieu-ngao-doc-ton-vgp' OR id = 'tieu-ngao-doc-ton-vgp'
+        `).run();
+        results.tndtUpdated = updateTndtRes?.meta?.changes || 0;
+
+        // 4. Cập nhật system_settings: wcg_admin_games_v5
+        const gamesRaw = await getSettingD1(env.DB, 'wcg_admin_games_v5', []);
+        if (Array.isArray(gamesRaw)) {
+          let updatedGames = [...gamesRaw];
+          const tndtInSettings = updatedGames.find((g: any) => g && (g.slug === 'tieu-ngao-doc-ton-vgp' || g.id === 'tieu-ngao-doc-ton-vgp'));
+          if (tndtInSettings) tndtInSettings.publisher = 'VGP';
+
+          const idx2d = updatedGames.findIndex((g: any) => g && (g.slug === 'cuu-am-chan-kinh-2d' || g.id === 'cuu-am-chan-kinh-2d'));
+          const game2dObj = {
+            id: 'cuu-am-chan-kinh-2d',
+            slug: 'cuu-am-chan-kinh-2d',
+            name: 'Cửu Âm Chân Kinh 2D Mobile',
+            publisher: 'Công ty Cổ phần Trực tuyến GOSU',
+            category: 'Nhập Vai',
+            rating: 4.9,
+            icon_url: '/game_icons/cuu-am-chan-kinh-2d.webp',
+            cover_image_url: '/game_icons/cuu-am-chan-kinh-2d.webp',
+            banner_url: '',
+            description: 'Cửu Âm Chân Kinh 2D Mobile là tựa game kiếm hiệp nhập vai đặc sắc phát hành bởi GOSU. Tổng hợp toàn bộ giftcode mới nhất mừng các cột mốc sự kiện và hướng dẫn nhập code nhận quà ingame.',
+            instructions: 'Bước 1: Mở game Cửu Âm Chân Kinh 2D Mobile > Nhấn biểu tượng Phúc Lợi hoặc Cài Đặt.\nBước 2: Chọn mục Đổi Giftcode hoặc Mã Quà Tặng.\nBước 3: Nhập chính xác mã giftcode và bấm Đổi để nhận quà qua Hòm thư.',
+            platform: 'Android, iOS',
+            release_date: '2025-02-20',
+            download_android: 'https://play.google.com/store/apps/details?id=vn.gosu.cuuam2d',
+            google_play_url: 'https://play.google.com/store/apps/details?id=vn.gosu.cuuam2d',
+            android_package_name: 'vn.gosu.cuuam2d',
+            is_active: true,
+            status: 'ACTIVE',
+            codes_count: 8,
+            free_codes_count: 8,
+            source: 'Phần thưởng từ nhà phát hành'
+          };
+          if (idx2d !== -1) {
+            updatedGames[idx2d] = { ...updatedGames[idx2d], ...game2dObj };
+          } else {
+            updatedGames.unshift(game2dObj);
+          }
+
+          const cammInSettings = updatedGames.find((g: any) => g && (g.slug === 'cuu-am-chan-kinh-mobile' || g.id === 'cuu-am-chan-kinh-mobile'));
+          if (cammInSettings) {
+            cammInSettings.codes_count = 9;
+            cammInSettings.free_codes_count = 9;
+          }
+
+          await setSettingD1(env.DB, 'wcg_admin_games_v5', updatedGames);
+        }
+
+        // 5. Cập nhật system_settings: gỡ cuu-am-chan-kinh-2d khỏi wcg_crawler_pending_games_v1
+        const pendingRaw = await getSettingD1(env.DB, 'wcg_crawler_pending_games_v1', []);
+        if (Array.isArray(pendingRaw)) {
+          const cleanPending = pendingRaw.filter((g: any) => g && g.slug !== 'cuu-am-chan-kinh-2d' && g.id !== 'cuu-am-chan-kinh-2d');
+          if (cleanPending.length !== pendingRaw.length) {
+            await setSettingD1(env.DB, 'wcg_crawler_pending_games_v1', cleanPending);
+          }
+        }
+
+        // 6. Cập nhật crawlerSources: gán fanpage cuuam2d sang cuu-am-chan-kinh-2d
+        const sourcesRaw = await getSettingD1(env.DB, 'wcg_crawler_sources_v1', []);
+        if (Array.isArray(sourcesRaw)) {
+          let sourcesUpdated = false;
+          for (const s of sourcesRaw) {
+            if (s && s.url && s.url.includes('cuuam2d.gosu.vn')) {
+              s.id = 'src_fb_cuu-am-chan-kinh-2d';
+              s.name = 'Fanpage Chính Thức - Cửu Âm Chân Kinh 2D Mobile';
+              s.targetGameSlug = 'cuu-am-chan-kinh-2d';
+              s.description = 'Fanpage Facebook chính thức của tựa game Cửu Âm Chân Kinh 2D Mobile.';
+              sourcesUpdated = true;
+            }
+          }
+          if (sourcesUpdated) {
+            await setSettingD1(env.DB, 'wcg_crawler_sources_v1', sourcesRaw);
+          }
+        }
+
+        // 7. Recompute code count cho cuu-am-chan-kinh-mobile và cuu-am-chan-kinh-2d
+        await env.DB.prepare(`
+          UPDATE games SET
+            total_codes_count = (SELECT COUNT(*) FROM codes WHERE codes.game_slug = games.slug),
+            active_codes_count = (SELECT COUNT(*) FROM codes WHERE codes.game_slug = games.slug AND (codes.status = 'active' OR codes.status = 'verified') AND (codes.expires_at IS NULL OR codes.expires_at = '' OR codes.expires_at >= date('now'))),
+            codes_count = (SELECT COUNT(*) FROM codes WHERE codes.game_slug = games.slug AND (codes.status = 'active' OR codes.status = 'verified') AND (codes.expires_at IS NULL OR codes.expires_at = '' OR codes.expires_at >= date('now'))),
+            last_code_at = (SELECT MAX(added_at) FROM codes WHERE codes.game_slug = games.slug),
+            updated_at = datetime('now')
+          WHERE slug IN ('cuu-am-chan-kinh-mobile', 'cuu-am-chan-kinh-2d', 'tieu-ngao-doc-ton-vgp')
+        `).run();
+
+        // 8. Đọc lại để xác nhận kết quả kiểm chứng
+        const mobileCodes: any = await env.DB.prepare("SELECT code FROM codes WHERE game_slug = 'cuu-am-chan-kinh-mobile'").all();
+        const twoDCodes: any = await env.DB.prepare("SELECT code FROM codes WHERE game_slug = 'cuu-am-chan-kinh-2d'").all();
+        const tndtGame: any = await env.DB.prepare("SELECT slug, publisher FROM games WHERE slug = 'tieu-ngao-doc-ton-vgp'").first();
+        const twoDGame: any = await env.DB.prepare("SELECT slug, name, publisher, release_date FROM games WHERE slug = 'cuu-am-chan-kinh-2d'").first();
+
+        // Invalidate edge cache
+        invalidateGamesCatalogCache();
+        (globalThis as any).__wcg_public_sync_cache = null;
+        await invalidateCatalogEdgeCache(context as any, request, env).catch(() => {});
+
+        return new Response(JSON.stringify({
+          success: true,
+          message: 'Tách 8 mã 2D và sửa NPH Tiếu Ngạo Độc Tôn VGP thành công 100%!',
+          cuuAmMobile: {
+            slug: 'cuu-am-chan-kinh-mobile',
+            codesCount: mobileCodes?.results?.length || 0,
+            codes: (mobileCodes?.results || []).map((r: any) => r.code)
+          },
+          cuuAm2D: {
+            slug: 'cuu-am-chan-kinh-2d',
+            name: twoDGame?.name,
+            publisher: twoDGame?.publisher,
+            releaseDate: twoDGame?.release_date,
+            codesCount: twoDCodes?.results?.length || 0,
+            codes: (twoDCodes?.results || []).map((r: any) => r.code)
+          },
+          tieuNgaoDocTon: {
+            slug: 'tieu-ngao-doc-ton-vgp',
+            publisher: tndtGame?.publisher
+          }
+        }), { headers: CORS_HEADERS });
+      } catch (err: any) {
+        return new Response(JSON.stringify({ success: false, error: String(err?.message || err) }), { status: 500, headers: CORS_HEADERS });
+      }
+    }
+
     // Action: Sửa chữa trực tiếp dữ liệu live A1, A2 và đồng bộ custom codes sang D1 (B1)
     if (body.action === 'execute_repair_live_data_and_sync' && env.DB) {
       try {

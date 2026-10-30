@@ -10,6 +10,22 @@
 
 ## 1. DANH MỤC LỖI & CÁC BẪY ĐÃ THẤT BẠI (DO NOT REPEAT)
 
+### ISSUE-185: Bẫy Nhiễm Chéo Nhà Phát Hành Giữa Các Bản Game Đồng Tên & Bẫy Gom Mã Nhầm Khi Khớp Nguồn Fanpage/Gói Game Khác Nhau (Cross-Publisher Contamination & Crawler Fanpage Mis-association Multi-Version Pitfall)
+- **Triệu chứng**:
+  - Hai game có tên gần giống nhau nhưng là 2 bản độc lập (ví dụ "Cửu Âm Chân Kinh Mobile" và "Cửu Âm Chân Kinh 2D Mobile") bị gom chung mã giftcode vào bản live chính, khiến bản live có số lượng mã nhân đôi (17 mã) trong khi bản thứ hai bị treo ở hàng chờ với 0 mã và bị gắn cờ trùng.
+  - Game có slug chứa tên NPH (như `tieu-ngao-doc-ton-vgp`) bị gán sai NPH thành `GAMOTA` do nhiễm chéo từ game khác có cùng tiền tố "Tiếu Ngạo" (`tieu-ngao`).
+- **Nguyên nhân gốc rễ**:
+  1. Nguồn cào Fanpage Facebook (`cuuam2d.gosu.vn`) bị gán nhầm `targetGameSlug` sang `cuu-am-chan-kinh-mobile`.
+  2. Dữ liệu catalog ban đầu điền sai nhà phát hành cho `tieu-ngao-doc-ton-vgp`.
+  3. API quản lý bên ngoài thiếu lệnh di chuyển/xóa mã đơn lẻ và thiếu lệnh đổi NPH của game live trong D1 SQL table.
+- **Giải pháp chuẩn đã kiểm chứng**:
+  1. Luôn kiểm tra package name (`android_package_name` / `package_name`) và ngày ra mắt để phân biệt các phiên bản game khác biệt hoàn toàn (2D vs 3D/Mobile).
+  2. Bổ sung handler di chuyển mã nguyên tử trên Serverless Edge API (`decouple_cuu_am_and_fix_tieu_ngao`) thao tác trực tiếp với bảng `codes` và `games` trong Cloudflare D1.
+  3. Cập nhật đồng bộ các file catalog tĩnh (`games188.json`, `crawled_codes_188.json`, `crawler_sources.json`) và backup state.
+- 🚫 **CÁCH SỬA ĐÃ THẤT BẠI - TUYỆT ĐỐI KHÔNG LẶP LẠI**:
+  - ❌ *Tuyệt đối KHÔNG gộp các game có package name khác nhau hoặc phong cách đồ họa khác nhau (như bản 2D và bản Mobile thường) thành một game duy nhất*.
+  - ❌ *Tuyệt đối KHÔNG gán đè nhà phát hành của một game khác khi chưa xác thực hậu tố của slug và nguồn pháp lý chính thức*.
+
 ### ISSUE-184: Bẫy Lệch Tồn Kho Tĩnh/Động & Số Lượng Mua Vượt Quá Tồn Kho Thực Tế Trong Tiện Ích (Utilities Static/Live Inventory Desync & Over-Stock Purchase Quantity Selection Pitfall)
 - **Triệu chứng**:
   - Gói sản phẩm trong Admin chỉ còn 7 mã, nhưng khách hàng ngoài web vẫn có thể bấm tăng hoặc nhập số lượng lên 8 để thanh toán.

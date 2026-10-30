@@ -10816,13 +10816,13 @@
     "description": "Fanpage Facebook chính thức của tựa game Zombies Boom."
   },
   {
-    "id": "src_fb_cuu-am-chan-kinh-mobile_2",
-    "name": "Fanpage Chính Thức - Cửu Âm Chân Kinh Mobile",
+    "id": "src_fb_cuu-am-chan-kinh-2d",
+    "name": "Fanpage Chính Thức - Cửu Âm Chân Kinh 2D Mobile",
     "type": "official_fb",
     "url": "https://www.facebook.com/cuuam2d.gosu.vn",
-    "targetGameSlug": "cuu-am-chan-kinh-mobile",
+    "targetGameSlug": "cuu-am-chan-kinh-2d",
     "isEnabled": true,
-    "description": "Fanpage Facebook chính thức của tựa game Cửu Âm Chân Kinh Mobile."
+    "description": "Fanpage Facebook chính thức của tựa game Cửu Âm Chân Kinh 2D Mobile."
   },
   {
     "id": "src_fb_shadow-fight-4-arena-vtc-game",

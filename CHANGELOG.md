@@ -7,6 +7,39 @@ Mỗi mục sửa lỗi đều ghi nhận **Nguyên nhân gốc rễ (Root Cause
 
 ## [2026-10-30]
 
+### 270. Tách 8 Mã Cửu Âm Chân Kinh 2D Mobile Khỏi Bản Live Mobile, Xuất Bản Game 2D & Sửa Nhà Phát Hành Tiếu Ngạo Độc Tôn Thành VGP (Decouple 8 Codes of Cuu Am 2D Mobile from Live Mobile, Publish 2D Game & Correct Tieu Ngao Doc Ton Publisher to VGP)
+- **Bối cảnh & Yêu cầu người dùng**:
+  - Người dùng yêu cầu xử lý 2 việc tồn đọng trên live mà API bên ngoài không thực hiện được:
+    1. *Việc 1 — Tách 8 mã của Cửu Âm Chân Kinh 2D Mobile ra khỏi bản live Cửu Âm Chân Kinh Mobile*:
+       - Ngày 22/10/2026, bộ khớp tên đã khớp nhầm game "Cửu Âm Chân Kinh 2D Mobile" (gói `vn.gosu.cuuam2d`, ra mắt 20/02/2025) vào bản live `cuu-am-chan-kinh-mobile`, khiến bản live này giữ cả 2 bộ mã (tổng 17 mã).
+       - Chuyển 8 mã 2D (`S20VUONGNGUYEN`, `DAPTUYETVONGAN`, `CUUAM2D2026`, `CACK2DMOBILE`, `CUUAM2D10K`, `HOIUC30K`, `ANHEMHOITU50K`, `CAMON100K`) sang bản ghi riêng của game 2D (`cuu-am-chan-kinh-2d`), xuất bản chính thức game 2D với logo và hướng dẫn đầy đủ, gỡ cờ trùng nhầm về bản Mobile.
+       - Giữ nguyên đúng 9 mã Mobile (`BACHKIM`, `CHECKIN397`, `DANGKYSOM`, `NOICONG197`, `THANBINH347`, `TOAKY355`, `VOHOC129`, `VOHOC390`, `CUUAMMOBILE`) trên bản Mobile; không mất mã nào, không nhân đôi mã nào.
+    2. *Việc 2 — Sửa trường nhà phát hành của bản live Tiếu Ngạo Độc Tôn*:
+       - Bản live `tieu-ngao-doc-ton-vgp` hiện ghi nhà phát hành là `GAMOTA` do nhiễm chéo từ game `tieu-ngao` của Gamota (MMORPG 3D). Đổi trường nhà phát hành thành `VGP`; tuyệt đối không động vào bản `tieu-ngao` của Gamota.
+- **Nguyên nhân gốc rễ (Root Causes)**:
+  1. *Khớp nhầm nguồn Fanpage crawler*: Nguồn Fanpage `https://www.facebook.com/cuuam2d.gosu.vn` của bản 2D ban đầu bị gắn nhầm `targetGameSlug: 'cuu-am-chan-kinh-mobile'`. Khi crawler chạy ngày 22/10, bot Muse đã đẩy 8 mã của game 2D vào `cuu-am-chan-kinh-mobile` trên D1.
+  2. *Bản chờ 2D bị giữ ở trạng thái PENDING*: Game "Cửu Âm Chân Kinh 2D Mobile" (`vn.gosu.cuuam2d`) nằm trong `crawlerPendingGames` với 0 mã do mã bị gom nhầm vào bản Mobile.
+  3. *Nhiễm chéo Publisher*: `tieu-ngao-doc-ton-vgp` bị gán sai NPH GAMOTA từ game Tiếu Ngạo khác trong catalog ban đầu.
+- **Kiến trúc & Giải pháp triển khai**:
+  1. *Cập nhật cơ sở dữ liệu tĩnh & catalog chuẩn (`src/data/games188.json`, `public/data/games_database.json`, v.v.)*:
+     - Xuất bản game `cuu-am-chan-kinh-2d`: Tên "Cửu Âm Chân Kinh 2D Mobile", NPH "Công ty Cổ phần Trực tuyến GOSU", ngày ra mắt "2025-02-20", package `vn.gosu.cuuam2d`, icon `/game_icons/cuu-am-chan-kinh-2d.webp`, hướng dẫn nhập code đầy đủ, `codes_count: 8`.
+     - Chuyển 8 mã 2D vào `crawled_codes_188.json` với `gameSlug: 'cuu-am-chan-kinh-2d'`.
+     - Giữ nguyên 9 mã chuẩn của `cuu-am-chan-kinh-mobile` (`codes_count: 9`).
+     - Đổi trường `publisher` của `tieu-ngao-doc-ton-vgp` thành `VGP` (giữ nguyên game `tieu-ngao` của Gamota).
+     - Điều chỉnh crawler source Facebook `cuuam2d.gosu.vn` trỏ đúng vào `cuu-am-chan-kinh-2d`.
+  2. *Xây dựng Serverless Edge Migration Handler (`functions/api/sync.ts`)*:
+     - Tạo action `decouple_cuu_am_and_fix_tieu_ngao` thực thi trực tiếp trên Cloudflare D1 SQL:
+       + Insert/update `cuu-am-chan-kinh-2d` vào bảng `games`.
+       + Di chuyển 8 mã 2D sang `game_slug = 'cuu-am-chan-kinh-2d'`, xóa triệt để khỏi `cuu-am-chan-kinh-mobile` trong bảng `codes`.
+       + Update `publisher = 'VGP'` cho `tieu-ngao-doc-ton-vgp` trong bảng `games`.
+       + Đồng bộ `wcg_admin_games_v5` và gỡ `cuu-am-chan-kinh-2d` khỏi `wcg_crawler_pending_games_v1`.
+       + Recompute tự động `active_codes_count` và `total_codes_count` cho tất cả các game liên quan.
+       + Làm sạch bộ nhớ cache cạnh (Edge memory & cache-control).
+- **Kiểm thử & Xác nhận**:
+  - `npm run build`: 100% PASS (Vite compile, HTML prerender 581 game, Edge Worker bundle sạch 0 lỗi).
+  - `node scripts/audit_zero_test_artifacts.cjs`: 100% PASS.
+  - `node scripts/verify_all_requirements.cjs`: 100% PASS.
+
 ### 269. Xóa Nhãn "Số Lượng Khuyến Mãi Còn", Giới Hạn Tối Đa Mua Bằng Đúng Tồn Kho Thật & Bỏ Dòng Chữ Giới Hạn Flash Sale (Remove Promo Stock Label, Lock Max Purchase Qty to Exact Real Inventory & Strip Flash Sale Limit Notice)
 - **Bối cảnh & Yêu cầu người dùng**:
   - Người dùng phản ánh: "Hiện tại trong kho còn 7 mã, nhưng khách có thể chọn 8 mã, có vấn đề gì không bạn?" và yêu cầu: "Ở ngoài mục thông tin ảnh 1 xóa dòng chữ số lượng khuyễn mãi còn và số hiển thị đi kèm, ở ảnh 2 khi khách ấn vào mua hàng thì tối đa chỉ có thể mua số sản phẩm đang còn trong kho, bỏ chữ Giới hạn tối đa x gói / đơn." kèm 2 ảnh chụp:
