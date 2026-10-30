@@ -7,6 +7,32 @@ Mỗi mục sửa lỗi đều ghi nhận **Nguyên nhân gốc rễ (Root Cause
 
 ## [2026-10-30]
 
+### 276. Triển Khai Giai Đoạn 1 Hợp Nhất Kho D1 (SSOT Phase 1): Khắc Phục Triệt Để upcomingGames Rỗng (Đủ 35 Game), Chuẩn Hóa 20 Trường marketingConfig & Xuất Bản Sao Lưu Xác Minh An Toàn Tuyệt Đối
+- **Bối cảnh & Yêu cầu người dùng**:
+  - Thực hiện Giai đoạn 1 sau khi được chủ web phê duyệt:
+    1. Xử lý dứt điểm trường `upcomingGames` rỗng trong `/api/sync`: Chọn Phương án (A), nạp đủ 35 game (toàn bộ bản ghi, tương đương `?status=ALL`).
+    2. Chuẩn hóa danh sách khóa của `/api/sync`: `marketingConfig` luôn hiện diện ở cấp cao nhất với đầy đủ 20 trường cấu hình; `content` và `growthConfig` luôn được bảo toàn, không bị lược bỏ.
+    3. Bảo toàn 100% các API `/api/missions/*` và các API bot khác (`/api/crawler/*`, `/api/news`, `/api/codes`, `/api/giveaways/*`).
+    4. Làm rõ số lượng giveaway trong sync là 44 (gồm 39 chiến dịch hiển thị trên tab "Tất Cả (39)" cộng 5 chiến dịch kết thúc/ẩn).
+    5. Đóng băng 100% các mục Giveaway, Nhiệm vụ, Tin tức tới sau 23:59 ngày 08/11/2026.
+    6. Tạo bản sao lưu D1 hoàn chỉnh (`data/backups/phase1_pre_migration_backup_*.json` và `.sql`), xác minh 100% đạt tiêu chí trước khi chạm dữ liệu.
+- **Nguyên nhân gốc rễ (Root Cause)**:
+  - Xem chi tiết tại `ISSUE-190` trong `KNOWN_ISSUES.md`.
+- **Giải pháp kỹ thuật đã áp dụng**:
+  - `functions/api/sync.ts`:
+    - Bổ sung `'wcg_admin_upcoming_games_v1'` vào danh sách truy vấn `getMultipleSettingsD1` và `PUBLIC_ALLOWED_KEYS`.
+    - Gắn fallback `upcomingGames: Array.isArray(raw) && raw.length > 0 ? raw : fallbackUpcomingGames` đảm bảo trả về đúng 35 tựa game.
+    - Gắn chốt chặn `marketingConfig: (resolvedMarketingConfig && Object.keys(...).length >= 10) ? resolvedMarketingConfig : DEFAULT_MARKETING_CONFIG` (20 trường).
+    - Bảo toàn `content` (mảng) và `growthConfig` (object/null), không bao giờ bị `undefined`.
+  - Tạo script sao lưu và xác minh tự động `scripts/create_phase1_backup.cjs`.
+- **Kiểm thử & Xác nhận**:
+  - Bản sao lưu `phase1_pre_migration_backup_20261030_160106.json` (2714 KB) và SQL restore (1635 KB) đã vượt qua 100% bài kiểm tra số lượng và tính toàn vẹn.
+  - Bộ kiểm thử hồi quy `scripts/test_ingest_regression.cjs` đạt 4/4 (100%).
+  - Zero test artifacts trên production.
+  - Build frontend và Cloudflare Worker Edge bundle thành công 100%.
+
+---
+
 ### 275. Gộp Kho Tin Tức Có Chọn Lọc (Selective Merge 208 Bài, 0 U+FFFD), Đồng Bộ Số Liệu Tồn Kho Tiện Ích Thực Tế (Còn Hàng 7) & Xử Lý Triệt Để Danh Mục Lỗi UX/UI (C1 -> C13)
 - **Bối cảnh & Yêu cầu người dùng**:
   - Gộp kho tin tức có chọn lọc giữa API Store (`/api/news`) và Sync Store (`seedNews.ts` / `/api/sync`): Tuyệt đối không đồng bộ mù 1 chiều. Giữ trọn vẹn 2 bài Hiệp Khách Hành (ngày 09h00 05/11/2026, ảnh `/game_icons/hiep-khach-hanh.webp`, 5811 & 6157 ký tự) và sạch 100% ký tự lỗi `\uFFFD` (0 ký tự trên cả 2 kho). Tuyên bố rõ SSOT và chiều đồng bộ.
@@ -99,6 +125,32 @@ Mỗi mục sửa lỗi đều ghi nhận **Nguyên nhân gốc rễ (Root Cause
   - `npm run build`: 100% PASS, zero test artifacts.
 
 ## [2026-10-30]
+
+### 276. Triển Khai Giai Đoạn 1 Hợp Nhất Kho D1 (SSOT Phase 1): Khắc Phục Triệt Để upcomingGames Rỗng (Đủ 35 Game), Chuẩn Hóa 20 Trường marketingConfig & Xuất Bản Sao Lưu Xác Minh An Toàn Tuyệt Đối
+- **Bối cảnh & Yêu cầu người dùng**:
+  - Thực hiện Giai đoạn 1 sau khi được chủ web phê duyệt:
+    1. Xử lý dứt điểm trường `upcomingGames` rỗng trong `/api/sync`: Chọn Phương án (A), nạp đủ 35 game (toàn bộ bản ghi, tương đương `?status=ALL`).
+    2. Chuẩn hóa danh sách khóa của `/api/sync`: `marketingConfig` luôn hiện diện ở cấp cao nhất với đầy đủ 20 trường cấu hình; `content` và `growthConfig` luôn được bảo toàn, không bị lược bỏ.
+    3. Bảo toàn 100% các API `/api/missions/*` và các API bot khác (`/api/crawler/*`, `/api/news`, `/api/codes`, `/api/giveaways/*`).
+    4. Làm rõ số lượng giveaway trong sync là 44 (gồm 39 chiến dịch hiển thị trên tab "Tất Cả (39)" cộng 5 chiến dịch kết thúc/ẩn).
+    5. Đóng băng 100% các mục Giveaway, Nhiệm vụ, Tin tức tới sau 23:59 ngày 08/11/2026.
+    6. Tạo bản sao lưu D1 hoàn chỉnh (`data/backups/phase1_pre_migration_backup_*.json` và `.sql`), xác minh 100% đạt tiêu chí trước khi chạm dữ liệu.
+- **Nguyên nhân gốc rễ (Root Cause)**:
+  - Xem chi tiết tại `ISSUE-190` trong `KNOWN_ISSUES.md`.
+- **Giải pháp kỹ thuật đã áp dụng**:
+  - `functions/api/sync.ts`:
+    - Bổ sung `'wcg_admin_upcoming_games_v1'` vào danh sách truy vấn `getMultipleSettingsD1` và `PUBLIC_ALLOWED_KEYS`.
+    - Gắn fallback `upcomingGames: Array.isArray(raw) && raw.length > 0 ? raw : fallbackUpcomingGames` đảm bảo trả về đúng 35 tựa game.
+    - Gắn chốt chặn `marketingConfig: (resolvedMarketingConfig && Object.keys(...).length >= 10) ? resolvedMarketingConfig : DEFAULT_MARKETING_CONFIG` (20 trường).
+    - Bảo toàn `content` (mảng) và `growthConfig` (object/null), không bao giờ bị `undefined`.
+  - Tạo script sao lưu và xác minh tự động `scripts/create_phase1_backup.cjs`.
+- **Kiểm thử & Xác nhận**:
+  - Bản sao lưu `phase1_pre_migration_backup_20261030_160106.json` (2714 KB) và SQL restore (1635 KB) đã vượt qua 100% bài kiểm tra số lượng và tính toàn vẹn.
+  - Bộ kiểm thử hồi quy `scripts/test_ingest_regression.cjs` đạt 4/4 (100%).
+  - Zero test artifacts trên production.
+  - Build frontend và Cloudflare Worker Edge bundle thành công 100%.
+
+---
 
 ### 275. Gộp Kho Tin Tức Có Chọn Lọc (Selective Merge 208 Bài, 0 U+FFFD), Đồng Bộ Số Liệu Tồn Kho Tiện Ích Thực Tế (Còn Hàng 7) & Xử Lý Triệt Để Danh Mục Lỗi UX/UI (C1 -> C13)
 - **Bối cảnh & Yêu cầu người dùng**:

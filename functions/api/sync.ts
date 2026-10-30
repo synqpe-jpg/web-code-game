@@ -32,6 +32,8 @@ import fallbackUtilitiesData from '../../src/data/utilities.json';
 import fallbackGiveawaysData from '../../src/data/giveaways.json';
 import fallbackStoreProductsData from '../../src/data/storeProducts.json';
 import { DEFAULT_NEWS_ARTICLES as fallbackNewsArticles } from '../../src/data/seedNews';
+import { DEFAULT_UPCOMING_GAMES as fallbackUpcomingGames } from '../../src/types/game';
+import { DEFAULT_MARKETING_CONFIG } from '../../src/services/marketingService';
 import { computeSha256, hasScope } from '../services/mission_service';
 import canonicalBackupState from '../data/canonical_backup_state.json';
 
@@ -236,6 +238,7 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
       'wcg_news_auto_sources_v1',    // Public/admin auto crawler sources for news
       'wcg_news_schedule_config_v1', // Public/admin scheduler config for news
       'wcg_event_schedules_v1',      // Public event countdown & auto-schedule records
+      'wcg_admin_upcoming_games_v1', // Public upcoming games catalog
       'wcg_universal_templates_v1',  // Public universal template system configuration
       'wcg_template_snapshots_v1',   // Template system snapshots backup
       'wcg_template_audit_logs_v1',  // Template system audit logs
@@ -318,6 +321,8 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
         val = fallbackStoreProductsData;
       } else if (specificKey === 'wcg_admin_giveaways_v4' && (!Array.isArray(val) || val.length === 0)) {
         val = (fallbackGiveawaysData as any[]).filter(g => g.id !== 'gw_alienware_vaultbreakers' && g.id !== 'gw_garena_delta_force');
+      } else if (specificKey === 'wcg_admin_upcoming_games_v1' && (!Array.isArray(val) || val.length === 0)) {
+        val = fallbackUpcomingGames;
       } else if (specificKey === 'wcg_news_articles_v1') {
         const candidate = Array.isArray(val) && val.length > 0 ? val : fallbackNewsArticles;
         let delSet = new Set<string>();
@@ -457,6 +462,7 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
               'wcg_news_auto_sources_v1',
               'wcg_news_schedule_config_v1',
               'wcg_event_schedules_v1',
+              'wcg_admin_upcoming_games_v1',
               'wcg_universal_templates_v1',
             ],
             new Set(['wcg_news_articles_v1', 'wcg_deleted_news_articles_v1'])
@@ -921,7 +927,7 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
       })() : undefined,
       customFreeCodes: d1Settings['wcg_admin_custom_free_codes_v1'] || masterState.customFreeCodes || [],
       deletedFreeCodes: d1Settings['wcg_deleted_free_codes'] || masterState.deletedFreeCodes || [],
-      content: d1Settings['wcg_admin_content_v4'] || (Array.isArray(masterState.content) ? masterState.content : undefined),
+      content: d1Settings['wcg_admin_content_v4'] || (Array.isArray(masterState.content) ? masterState.content : (masterState.content ? masterState.content : [])),
       giveaways: sanitizedGiveaways,
       storeProducts: rawStoreProducts,
       utilities: rawUtilities,
@@ -929,8 +935,10 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
       deletedUtilities: Array.from(deletedUtilSet),
       deletedGiveaways: Array.from(deletedGwSet),
       publicPayment: sanitizedPayment,
-      marketingConfig: resolvedMarketingConfig,
-      growthConfig: resolvedGrowthConfig,
+      marketingConfig: (resolvedMarketingConfig && typeof resolvedMarketingConfig === 'object' && Object.keys(resolvedMarketingConfig).length >= 10)
+        ? resolvedMarketingConfig
+        : DEFAULT_MARKETING_CONFIG,
+      growthConfig: resolvedGrowthConfig || masterState.growthConfig || null,
       utilitiesGlobalShowSold: d1Settings['wcg_utilities_global_show_sold'] !== undefined
         ? (d1Settings['wcg_utilities_global_show_sold'] === true || d1Settings['wcg_utilities_global_show_sold'] === 'true')
         : (masterState?.utilitiesGlobalShowSold !== undefined ? Boolean(masterState.utilitiesGlobalShowSold) : true),
@@ -982,7 +990,11 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
       newsAutoSources: d1Settings['wcg_news_auto_sources_v1'] || masterState.newsAutoSources || [],
       newsScheduleConfig: d1Settings['wcg_news_schedule_config_v1'] || masterState.newsScheduleConfig || null,
       eventSchedules: d1Settings['wcg_event_schedules_v1'] || masterState.eventSchedules || [],
-      upcomingGames: d1Settings['wcg_admin_upcoming_games_v1'] || masterState.upcomingGames || [],
+      upcomingGames: (() => {
+        const raw = d1Settings['wcg_admin_upcoming_games_v1'] || masterState.upcomingGames;
+        if (Array.isArray(raw) && raw.length > 0) return raw;
+        return fallbackUpcomingGames;
+      })(),
       universalTemplates: d1Settings['wcg_universal_templates_v1'] || masterState.universalTemplates || null,
     };
 

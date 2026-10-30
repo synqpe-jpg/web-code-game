@@ -10,6 +10,22 @@
 
 ## 1. DANH MỤC LỖI & CÁC BẪY ĐÃ THẤT BẠI (DO NOT REPEAT)
 
+### ISSUE-190: Bẫy Bỏ Sót Khóa `wcg_admin_upcoming_games_v1` Trong Batch Query Của Composite Sync Endpoint & Nguy Cơ Lược Bỏ Khóa Cấp Cao Nhất Khi JSON Serialize (Phase 1 SSOT Migration)
+- **Triệu chứng**:
+  - Endpoint `/api/sync` trả về trường `upcomingGames: []` rỗng mặc dù bảng upcoming trên máy chủ D1 có đầy đủ 35 game (tương đương `?status=ALL`).
+  - Khóa `marketingConfig`, `content`, `growthConfig` có nguy cơ bị lược bỏ khỏi JSON công khai nếu D1 trả về `null` hoặc `undefined` do cơ chế `JSON.stringify` tự động omit các thuộc tính có giá trị `undefined`.
+- **Nguyên nhân gốc rễ**:
+  1. *Thiếu khóa trong batch query*: Trong `functions/api/sync.ts`, hàm `getMultipleSettingsD1` không bao gồm key `wcg_admin_upcoming_games_v1` trong danh sách truy vấn từ D1, khiến `d1Settings['wcg_admin_upcoming_games_v1']` luôn trả về `undefined`.
+  2. *Thiếu fallback cho upcomingGames*: Mã nguồn chỉ kiểm tra `masterState.upcomingGames || []`, mà không fallback sang `fallbackUpcomingGames` (35 game mặc định).
+  3. *Lược bỏ khóa khi serialize*: `content` và `growthConfig` trả về `undefined` khi không có dữ liệu thay vì fallback sang mảng rỗng `[]` hoặc `null`, khiến một số parser bên ngoài không thấy khóa.
+- **Giải pháp chuẩn đã kiểm chứng**:
+  1. *Bổ sung khóa vào batch query*: Thêm `'wcg_admin_upcoming_games_v1'` vào danh sách `getMultipleSettingsD1` và `PUBLIC_ALLOWED_KEYS` trong `sync.ts`.
+  2. *Bảo đảm 35 game*: Gắn fallback `upcomingGames: Array.isArray(raw) && raw.length > 0 ? raw : fallbackUpcomingGames` để đảm bảo luôn trả về đủ 35 game.
+  3. *Gắn chốt chặn fallback cho cấu hình*: Đảm bảo `marketingConfig` luôn đủ 20 trường thông qua `DEFAULT_MARKETING_CONFIG`, `content` luôn là mảng, và `growthConfig` không bị `undefined`.
+- 🚫 **CÁCH SỬA ĐÃ THẤT BẠI - TUYỆT ĐỐI KHÔNG LẶP LẠI**:
+  - ❌ *Tuyệt đối KHÔNG xóa bỏ trường `upcomingGames` khỏi `/api/sync` vì sẽ làm gãy hợp đồng dữ liệu với các client đang đọc*.
+  - ❌ *Tuyệt đối KHÔNG để giá trị thuộc tính là `undefined` trong đối tượng JSON trả về của Cloudflare Worker*.
+
 ### ISSUE-189: Bẫy Đồng Bộ Mù Một Chiều Khi Hai Kho Bị Lệch Hai Hướng Ngược Nhau & Bẫy Mâu Thuẫn Số Liệu Tồn Kho Tiện Ích (Selective News Merge, Utilities Stock Alignment & Multi-Surface UX Polish Pitfalls)
 - **Triệu chứng**:
   - Kho API (`/api/news`, 208 bài) có 7 bài cập nhật đúng (2 bài Hiệp Khách Hành dời ngày 09h00 05/11/2026, ảnh bìa chuẩn, nội dung đầy đủ 5811 & 6157 ký tự) nhưng lại tồn dư 53-62 ký tự lỗi UTF-8 (`U+FFFD`). Ngược lại, kho đồng bộ (`seedNews.ts` / `/api/sync`) sạch 100% lỗi UTF-8 nhưng lại giữ tiêu đề/ảnh bìa cũ và nội dung cẩm nang bị rút ngắn.
