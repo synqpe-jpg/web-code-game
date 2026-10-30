@@ -10,6 +10,23 @@
 
 ## 1. DANH MỤC LỖI & CÁC BẪY ĐÃ THẤT BẠI (DO NOT REPEAT)
 
+### ISSUE-182: Bẫy Dropdown Select Đơn Điệu Gây Khó Khăn Khi Tìm Kiếm Thành Viên & Nguy Cơ Nhầm Lẫn Số Dư Trong Điều Chỉnh Ví (Single Dropdown Select & Lack of Multi-Field Search in Wallet Adjustment Modal Pitfall)
+- **Triệu chứng**:
+  - Khi hệ thống có hàng trăm hoặc hàng nghìn thành viên, modal điều chỉnh số dư chỉ có một thẻ dropdown `<select>` duy nhất, khiến quản trị viên phải cuộn tìm kiếm thủ công rất mất thời gian.
+  - Không thể tìm kiếm linh hoạt theo tên tiếng Việt có dấu hoặc không dấu, tên viết tắt, username, email, số điện thoại hay ID thành viên.
+  - Không có thẻ xem trước thông tin và số dư hiện tại cũng như số dư dự kiến sau khi cộng/trừ tiền, dẫn tới nguy cơ cao thao tác nhầm số tiền hoặc nhầm tài khoản.
+- **Nguyên nhân gốc rễ**:
+  1. Sử dụng thẻ HTML `<select>` thô sơ thiếu ô input tìm kiếm phản hồi tức thì.
+  2. Chưa tích hợp bộ lọc tìm kiếm đa trường và thuật toán tìm kiếm thông minh tiếng Việt (`smartVietnameseMatch`).
+- **Giải pháp chuẩn đã kiểm chứng**:
+  1. Thêm ô input tìm kiếm thành viên phản hồi tức thì (`memberSearchQuery`) với nút xóa nhanh `X` và nhãn đếm kết quả khớp trực quan.
+  2. Tích hợp `smartVietnameseMatch` từ `src/utils/textUtils.ts` hỗ trợ tìm kiếm không phân biệt dấu tiếng Việt (accent-insensitive), tìm kiếm theo cụm từ, và tìm kiếm chữ cái đầu (initials matching) qua 6 trường thông tin: `displayName`, `username`, `email`, `phone`, `id`, `role`.
+  3. Cung cấp danh sách gợi ý bấm chọn nhanh (Quick Selection Cards) tối đa 5 thành viên khớp nhất và thẻ xem trước thành viên được chọn (Selected Member Preview Card) kèm avatar và thông tin liên hệ.
+  4. Hiển thị khối tính toán dự kiến số dư sau điều chỉnh theo thời gian thực (`Dự kiến số dư sau giao dịch`) dựa trên loại giao dịch Nạp (+) hoặc Khấu trừ (-), chống số âm.
+- 🚫 **CÁCH SỬA ĐÃ THẤT BẠI - TUYỆT ĐỐI KHÔNG LẶP LẠI**:
+  - ❌ *Tuyệt đối KHÔNG import hoặc gọi hàm `matchesQuery` không tồn tại; luôn dùng hàm `smartVietnameseMatch(targets, query)` chuẩn đã được tối ưu từ `src/utils/textUtils.ts`*.
+  - ❌ *Tuyệt đối KHÔNG dùng `indexOf` đơn thuần phân biệt hoa thường hoặc phân biệt dấu tiếng Việt*.
+
 ### ISSUE-181: Bẫy Ràng Buộc Step={10} & parseInt Khiến Người Dùng Bị Chặn Nhập Số Lẻ Trong Game Sắp Ra Mắt (Upcoming Games Step Restriction & parseInt Decimals Stripping Pitfall)
 - **Triệu chứng**:
   - Không thể nhập thứ tự hiển thị dạng số lẻ / thập phân (ví dụ `1.5`, `2.5`) để xếp game xen kẽ giữa các vị trí có sẵn: trình duyệt báo lỗi validation đỏ hoặc tự động ép tròn về số nguyên.

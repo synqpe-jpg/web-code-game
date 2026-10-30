@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import {
   ArrowDownLeft,
   ArrowUpRight,
@@ -7,6 +7,12 @@ import {
   CheckCircle2,
   Scale,
   RotateCcw,
+  Search,
+  X,
+  User,
+  Wallet,
+  AlertCircle,
+  Check,
 } from 'lucide-react';
 import { DataTable, Column } from '../components/ui/DataTable';
 import { StatusBadge } from '../components/ui/StatusBadge';
@@ -17,7 +23,7 @@ import { Step2VerificationModal } from '../components/ui/Step2VerificationModal'
 import { RecentBalanceChangesWidget } from '../components/RecentBalanceChangesWidget';
 import { adminDataService } from '../services/adminDataService';
 import { WalletTransaction, MemberRecord } from '../types/adminTypes';
-import { formatCore, formatFullDateTime, formatTimeAgo } from '../../utils/textUtils';
+import { formatCore, formatFullDateTime, formatTimeAgo, smartVietnameseMatch, normalizeVietnamese } from '../../utils/textUtils';
 
 interface WalletModuleProps {
   onShowToast: (title: string, desc?: string, type?: 'success' | 'error' | 'info') => void;
@@ -36,6 +42,67 @@ export const WalletModule: React.FC<WalletModuleProps> = ({ onShowToast }) => {
   const [adjAmount, setAdjAmount] = useState(100000);
   const [adjType, setAdjType] = useState<'ADD' | 'SUBTRACT'>('ADD');
   const [adjReason, setAdjReason] = useState('Điều chỉnh số dư ví thủ công');
+  const [memberSearchQuery, setMemberSearchQuery] = useState('');
+
+  // Map tra cứu nhanh thành viên theo ID và email
+  const memberMap = useMemo(() => {
+    const map = new Map<string, MemberRecord>();
+    members.forEach((m) => {
+      if (m?.id) map.set(m.id, m);
+      if (m?.email) map.set(m.email.toLowerCase(), m);
+    });
+    return map;
+  }, [members]);
+
+  // Làm giàu dữ liệu sổ cái để tìm kiếm theo tên thành viên
+  const enrichedTransactions = useMemo(() => {
+    return transactions.map((t) => {
+      const m = memberMap.get(t.memberId) || (t.memberEmail ? memberMap.get(t.memberEmail.toLowerCase()) : undefined);
+      return {
+        ...t,
+        memberName: m?.displayName || '',
+        memberUsername: m?.username || '',
+      };
+    });
+  }, [transactions, memberMap]);
+
+  // Bộ lọc mở rộng danh sách thành viên trong modal điều chỉnh ví (hỗ trợ tên, username, email, SĐT, ID)
+  const filteredMembers = useMemo(() => {
+    if (!memberSearchQuery.trim()) {
+      return members;
+    }
+    const q = memberSearchQuery.trim();
+    return members.filter((m) => {
+      const searchTargets = [
+        m.displayName,
+        m.username,
+        m.email,
+        m.phone,
+        m.id,
+        m.role,
+      ];
+      return smartVietnameseMatch(searchTargets, q);
+    });
+  }, [members, memberSearchQuery]);
+
+  // Thành viên đang được chọn hiện tại
+  const selectedMember = useMemo(() => {
+    if (selectedMemberId) {
+      const found = members.find((m) => m.id === selectedMemberId);
+      if (found) return found;
+    }
+    return filteredMembers.length > 0 ? filteredMembers[0] : (members.length > 0 ? members[0] : null);
+  }, [members, selectedMemberId, filteredMembers]);
+
+  const handleOpenAdjustModal = (memberId?: string) => {
+    setMemberSearchQuery('');
+    const targetId = memberId || (members.length > 0 ? members[0].id : '');
+    setSelectedMemberId(targetId);
+    setAdjAmount(100000);
+    setAdjType('ADD');
+    setAdjReason('Điều chỉnh số dư ví thủ công');
+    setIsAdjustModalOpen(true);
+  };
 
   // Step 2 Security Verification (2FA Confirmation)
   const [step2Action, setStep2Action] = useState<{
@@ -265,10 +332,19 @@ export const WalletModule: React.FC<WalletModuleProps> = ({ onShowToast }) => {
     {
       key: 'memberEmail',
       header: 'Thành Viên',
-      render: (item) => (
+      render: (item: any) => (
         <div className="text-xs">
           <p className="font-bold text-slate-800 dark:text-slate-200">
-            {item?.memberEmail || item?.memberId || 'Khách vãng lai'}
+            {item?.memberName ? (
+              <>
+                <span>{item.memberName}</span>{' '}
+                <span className="text-[11px] font-normal text-slate-400">
+                  ({item?.memberEmail || item?.memberId})
+                </span>
+              </>
+            ) : (
+              item?.memberEmail || item?.memberId || 'Khách vãng lai'
+            )}
           </p>
         </div>
       ),
@@ -387,21 +463,18 @@ export const WalletModule: React.FC<WalletModuleProps> = ({ onShowToast }) => {
         subtitle="Dòng tiền nạp rút SePay, mua code, hoàn tiền & biến động số dư thành viên theo thời gian thực"
         limit={8}
         compact={false}
-        onAdjustWallet={() => {
-          setSelectedMemberId(members[0]?.id || '');
-          setIsAdjustModalOpen(true);
-        }}
+        onAdjustWallet={() => handleOpenAdjustModal()}
         onRefresh={handleManualRefresh}
       />
 
       {/* Ledger DataTable */}
       <DataTable
-        data={transactions}
+        data={enrichedTransactions}
         columns={columns}
         keyExtractor={(item) => item?.id || `tx_${Math.random()}`}
         isLoading={isLoading}
-        searchPlaceholder="Tìm theo mã GD, email thành viên, ghi chú..."
-        searchKeys={['referenceId', 'memberEmail', 'note', 'type']}
+        searchPlaceholder="Tìm theo tên thành viên, mã GD, email, ghi chú..."
+        searchKeys={['referenceId', 'memberName', 'memberUsername', 'memberEmail', 'memberId', 'note', 'type']}
         onRefresh={handleManualRefresh}
         onExportCsv={handleExportCsv}
         filters={[
@@ -431,10 +504,7 @@ export const WalletModule: React.FC<WalletModuleProps> = ({ onShowToast }) => {
               <span>Reset Ví & Doanh Thu Về 0</span>
             </button>
             <button
-              onClick={() => {
-                setSelectedMemberId(members[0]?.id || '');
-                setIsAdjustModalOpen(true);
-              }}
+              onClick={() => handleOpenAdjustModal()}
               className="inline-flex items-center gap-1.5 rounded-xl bg-indigo-600 px-3.5 py-2 text-xs font-bold text-white shadow-sm hover:bg-indigo-700 cursor-pointer"
             >
               <PlusCircle className="h-4 w-4" />
@@ -453,22 +523,151 @@ export const WalletModule: React.FC<WalletModuleProps> = ({ onShowToast }) => {
         maxWidth="md"
       >
         <form onSubmit={handleAdjustSubmit} className="space-y-4">
-          <div>
-            <label className="text-xs font-bold text-slate-700 dark:text-slate-300">
-              Chọn Thành Viên <span className="text-rose-500">*</span>
-            </label>
-            <select
-              required
-              value={selectedMemberId || (members.length > 0 ? members[0].id : '')}
-              onChange={(e) => setSelectedMemberId(e.target.value)}
-              className="mt-1 w-full rounded-xl border border-slate-200 bg-white p-2.5 text-xs text-slate-900 focus:border-indigo-500 focus:outline-none dark:border-slate-700 dark:bg-slate-800 dark:text-white"
-            >
-              {members.map((m) => (
-                <option key={m.id} value={m.id}>
-                  {m.displayName} ({m.email}) - Số dư: {formatVnd(m.balance)}
-                </option>
-              ))}
-            </select>
+          {/* Ô TÌM KIẾM & CHỌN THÀNH VIÊN MỞ RỘNG */}
+          <div className="space-y-2">
+            <div className="flex items-center justify-between">
+              <label className="text-xs font-bold text-slate-700 dark:text-slate-300 flex items-center gap-1.5">
+                <User className="w-3.5 h-3.5 text-indigo-500" />
+                <span>Chọn Thành Viên Cần Điều Chỉnh</span>
+                <span className="text-rose-500">*</span>
+              </label>
+              <span className="text-[11px] font-semibold text-slate-400">
+                {memberSearchQuery.trim()
+                  ? `Khớp ${filteredMembers.length} / ${members.length} thành viên`
+                  : `Tổng ${members.length} thành viên`}
+              </span>
+            </div>
+
+            {/* Ô Tìm Kiếm Mở Rộng */}
+            <div className="relative">
+              <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+              <input
+                type="text"
+                value={memberSearchQuery}
+                onChange={(e) => {
+                  const val = e.target.value;
+                  setMemberSearchQuery(val);
+                }}
+                placeholder="🔍 Gõ tìm theo tên hiển thị, username, email, SĐT hoặc ID..."
+                className="w-full rounded-xl border border-slate-200 bg-white pl-9 pr-8 py-2 text-xs text-slate-900 placeholder:text-slate-400 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 focus:outline-none dark:border-slate-700 dark:bg-slate-800 dark:text-white dark:placeholder:text-slate-500 shadow-2xs"
+              />
+              {memberSearchQuery && (
+                <button
+                  type="button"
+                  onClick={() => setMemberSearchQuery('')}
+                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 p-0.5 rounded cursor-pointer"
+                  title="Xóa tìm kiếm"
+                >
+                  <X className="w-3.5 h-3.5" />
+                </button>
+              )}
+            </div>
+
+            {/* Dropdown Select Đã Được Lọc */}
+            {filteredMembers.length > 0 ? (
+              <div className="space-y-1.5">
+                <select
+                  required
+                  value={selectedMember?.id || (filteredMembers[0]?.id || '')}
+                  onChange={(e) => setSelectedMemberId(e.target.value)}
+                  className="w-full rounded-xl border border-slate-200 bg-white p-2.5 text-xs text-slate-900 focus:border-indigo-500 focus:outline-none dark:border-slate-700 dark:bg-slate-800 dark:text-white cursor-pointer"
+                >
+                  {filteredMembers.map((m) => (
+                    <option key={m.id} value={m.id}>
+                      {m.displayName} ({m.email}) - Số dư: {formatVnd(m.balance)}
+                    </option>
+                  ))}
+                </select>
+
+                {/* Danh Sách Gợi Ý Bấm Chọn Nhanh khi đang tìm kiếm */}
+                {memberSearchQuery.trim() && (
+                  <div className="max-h-44 overflow-y-auto space-y-1 rounded-xl border border-slate-200 bg-slate-50/60 p-1.5 dark:border-slate-700 dark:bg-slate-900/60 scrollbar-thin">
+                    <span className="text-[10px] uppercase font-bold text-slate-400 tracking-wider px-2 pt-0.5 block">
+                      Kết quả tìm kiếm ({filteredMembers.length}):
+                    </span>
+                    {filteredMembers.slice(0, 5).map((m) => {
+                      const isSelected = selectedMember?.id === m.id;
+                      return (
+                        <div
+                          key={m.id}
+                          onClick={() => setSelectedMemberId(m.id)}
+                          className={`flex items-center justify-between p-2 rounded-lg cursor-pointer transition-all text-xs ${
+                            isSelected
+                              ? 'bg-indigo-600 text-white shadow-xs font-semibold'
+                              : 'bg-white hover:bg-slate-100 text-slate-800 dark:bg-slate-800 dark:hover:bg-slate-700 dark:text-slate-200 border border-slate-200/60 dark:border-slate-700/60'
+                          }`}
+                        >
+                          <div className="flex items-center gap-2 min-w-0">
+                            <div
+                              className={`w-6 h-6 rounded-full flex items-center justify-center font-bold text-[10px] shrink-0 ${
+                                isSelected ? 'bg-white/20 text-white' : 'bg-indigo-100 text-indigo-700 dark:bg-indigo-950 dark:text-indigo-300'
+                              }`}
+                            >
+                              {(m.displayName || m.email || 'U').charAt(0).toUpperCase()}
+                            </div>
+                            <div className="min-w-0">
+                              <p className="truncate font-bold leading-tight">{m.displayName}</p>
+                              <p className={`text-[10px] truncate ${isSelected ? 'text-indigo-100' : 'text-slate-400'}`}>
+                                {m.email} {m.phone ? `• ${m.phone}` : ''}
+                              </p>
+                            </div>
+                          </div>
+                          <div className="text-right shrink-0 pl-2">
+                            <span className={`font-mono text-xs font-bold block ${isSelected ? 'text-white' : 'text-emerald-600 dark:text-emerald-400'}`}>
+                              {formatVnd(m.balance)}
+                            </span>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            ) : (
+              <div className="p-3 rounded-xl bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800/60 text-xs text-amber-800 dark:text-amber-300 flex items-center justify-between gap-2">
+                <div className="flex items-center gap-2">
+                  <AlertCircle className="w-4 h-4 text-amber-600 dark:text-amber-400 shrink-0" />
+                  <span>
+                    Không tìm thấy thành viên nào khớp với <strong>"{memberSearchQuery}"</strong>.
+                  </span>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setMemberSearchQuery('')}
+                  className="text-[11px] font-bold text-amber-700 dark:text-amber-400 underline hover:opacity-80 shrink-0 cursor-pointer"
+                >
+                  Xóa lọc
+                </button>
+              </div>
+            )}
+
+            {/* Thẻ Xem Trước Thành Viên Đang Được Chọn */}
+            {selectedMember && (
+              <div className="mt-2 p-3 rounded-xl border border-indigo-100 bg-indigo-50/50 dark:border-indigo-900/40 dark:bg-indigo-950/20 flex items-center justify-between gap-3">
+                <div className="flex items-center gap-2.5 min-w-0">
+                  <div className="w-9 h-9 rounded-full bg-gradient-to-tr from-indigo-600 to-purple-600 text-white font-bold text-xs flex items-center justify-center shrink-0 shadow-xs">
+                    {(selectedMember.displayName || selectedMember.email || 'U').charAt(0).toUpperCase()}
+                  </div>
+                  <div className="min-w-0">
+                    <div className="text-xs font-bold text-slate-900 dark:text-white truncate flex items-center gap-1.5">
+                      <span>{selectedMember.displayName}</span>
+                      {selectedMember.username && (
+                        <span className="text-[10px] text-slate-400 font-normal">(@{selectedMember.username})</span>
+                      )}
+                    </div>
+                    <p className="text-[11px] text-slate-500 dark:text-slate-400 truncate">
+                      {selectedMember.email} {selectedMember.phone ? `• SĐT: ${selectedMember.phone}` : ''}
+                    </p>
+                  </div>
+                </div>
+                <div className="text-right shrink-0">
+                  <span className="text-[10px] text-slate-400 block font-medium">Số dư hiện tại</span>
+                  <span className="text-xs font-bold font-mono text-emerald-600 dark:text-emerald-400">
+                    {formatVnd(selectedMember.balance || 0)}
+                  </span>
+                </div>
+              </div>
+            )}
           </div>
 
           <div className="grid grid-cols-2 gap-3">
@@ -524,6 +723,22 @@ export const WalletModule: React.FC<WalletModuleProps> = ({ onShowToast }) => {
               className="mt-1 w-full rounded-xl border border-slate-200 bg-white p-2.5 text-xs text-slate-900 focus:border-indigo-500 focus:outline-none dark:border-slate-700 dark:bg-slate-800 dark:text-white"
             />
           </div>
+
+          {/* DỰ KIẾN SỐ DƯ SAU ĐIỀU CHỈNH */}
+          {selectedMember && (
+            <div className="p-3 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200/80 dark:border-slate-700/80 text-xs flex items-center justify-between">
+              <span className="text-slate-500 dark:text-slate-400 font-medium">Dự kiến số dư sau giao dịch:</span>
+              <span className={`font-mono font-bold text-sm ${
+                adjType === 'ADD' ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-400'
+              }`}>
+                {formatVnd(
+                  adjType === 'ADD'
+                    ? (Number(selectedMember.balance) || 0) + Math.abs(adjAmount)
+                    : Math.max(0, (Number(selectedMember.balance) || 0) - Math.abs(adjAmount))
+                )}
+              </span>
+            </div>
+          )}
 
           <div className="flex items-center justify-end gap-3 pt-3 border-t border-slate-100 dark:border-slate-800">
             <button

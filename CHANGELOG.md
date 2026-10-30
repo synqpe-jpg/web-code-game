@@ -5,6 +5,35 @@ Mỗi mục sửa lỗi đều ghi nhận **Nguyên nhân gốc rễ (Root Cause
 
 ---
 
+## [2026-10-30]
+
+### 267. Thêm Ô Tìm Kiếm & Mở Rộng Khả Năng Tìm Kiếm Tên Thành Viên Trong Mục Điều Chỉnh Sổ Cái & Số Dư Ví (Enhanced Member Search with Accent-Insensitive, Multi-Field Matching & Realtime Balance Preview in Wallet Adjustment Modal)
+- **Bối cảnh & Yêu cầu người dùng**:
+  - Người dùng yêu cầu: "Trong mục điều chỉnh ví và số dư, thêm ô tìm kiếm, mở rộng kả năng tìm kiếm tên giúp tôi." kèm ảnh chụp màn hình modal "Điều Chỉnh Sổ Cái & Số Dư Ví" tại `admin-code-game-shop.pages.dev/admin#/wallet`.
+  - Trong modal điều chỉnh số dư, danh sách thành viên trước đây chỉ có một thẻ dropdown `<select>` đơn điệu. Khi số lượng thành viên tăng lên, quản trị viên gặp khó khăn trong việc tìm kiếm đúng người nhận, đặc biệt khi tìm theo tên tiếng Việt có dấu/không dấu, tên viết tắt, username, email, số điện thoại hoặc ID thành viên.
+- **Kiến trúc & Giải pháp triển khai**:
+  1. *Frontend Modal Form (`src/admin/modules/WalletModule.tsx`)*:
+     - Bổ sung ô input tìm kiếm thành viên (`memberSearchQuery`) với icon tìm kiếm `Search`, nút xóa nhanh `X`, và nhãn đếm kết quả khớp trực quan (`Khớp X / Y thành viên`).
+     - Ứng dụng thuật toán tìm kiếm thông minh `smartVietnameseMatch` từ `src/utils/textUtils.ts`:
+       + Tìm kiếm không phân biệt chữ hoa/thường, không phân biệt dấu tiếng Việt (accent-insensitive).
+       + Tìm kiếm đa trường: Tên hiển thị (`displayName`), Tên đăng nhập (`username`), Email, Số điện thoại (`phone`), ID thành viên (`id`), và vai trò (`role`).
+       + Hỗ trợ tìm kiếm theo từ viết tắt (Initials matching, ví dụ "nvh" -> "Nguyễn Văn Hùng", "h123" -> "hung123") và từ khóa ghép.
+     - Danh sách gợi ý bấm chọn nhanh (Quick-selection list) hiển thị tối đa 5 thành viên khớp nhất dạng card với avatar ký tự đầu, tên đầy đủ, email, số điện thoại và số dư hiện tại.
+     - Cảnh báo rõ ràng kèm nút "Xóa lọc" khi không có kết quả nào khớp với từ khóa tìm kiếm.
+     - Thẻ xem trước thành viên đang chọn (Selected Member Preview Card) hiển thị chi tiết tên, username `@...`, email, SĐT và số dư ví hiện tại.
+     - Khối dự kiến số dư sau giao dịch (Preview Balance After Adjustment): Tính toán theo thời gian thực số dư mới dựa trên lựa chọn `+ Nạp Tiền` hoặc `- Khấu Trừ`, chống số âm khi trừ tiền.
+  2. *Bảng Lịch Sử Giao Dịch Ví (`DataTable`)*:
+     - Làm giàu dữ liệu giao dịch `enrichedTransactions` kết hợp thông tin thành viên từ `memberMap` (`memberName`, `memberUsername`).
+     - Mở rộng `searchKeys` của DataTable cho phép quản trị viên tìm kiếm lịch sử giao dịch trực tiếp theo tên hiển thị của thành viên (`memberName`).
+     - Cập nhật cột "Thành Viên" để hiển thị cả tên hiển thị và email/id phụ trợ.
+- **Kiểm thử & Xác nhận**:
+  - Unit test `smartVietnameseMatch`: 100% PASS (hung, Hùng, Văn, nguyen, sdfpoi, 0987, mem_123, nvh).
+  - Regression Test Suite: 100% PASS (8/8 bài kiểm tra).
+  - Build Cloudflare Pages & Vite: 100% PASS (0 lỗi compile, hoàn tất trong 18.89s).
+  - Zero test artifacts: Sạch 100%.
+
+---
+
 ## [2026-10-29]
 
 ### 266. Mở REST Edge API Toàn Quyền Lịch Sự Kiện Đếm Ngược (EVENT_SCHEDULER_FULL), Subtab Quản Lý API & Đồng Bộ Phân Quyền (Full Event Scheduler & Countdown API, Dedicated Subtab & Docs Reference)
