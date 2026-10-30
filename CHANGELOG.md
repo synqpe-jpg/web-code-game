@@ -7,6 +7,34 @@ Mỗi mục sửa lỗi đều ghi nhận **Nguyên nhân gốc rễ (Root Cause
 
 ## [2026-10-30]
 
+### 274. Tích Hợp 9 Bài Học Kiểm Chứng Live Vào KNOWN_ISSUES (ISSUE-056 -> ISSUE-064), Khắc Phục Triệt Để Ký Tự UTF-8 Lỗi (U+FFFD) & Bẫy LIMIT 10000 Trong Ingest Codes
+- **Bối cảnh & Yêu cầu người dùng**:
+  - Đối chiếu 9 bài học từ bên ngoài kiểm chứng live của Pine AI (Muse) với mã nguồn repo, xác nhận nguyên nhân gốc rễ thật cho từng mục, đánh số kế tiếp và gộp vào `KNOWN_ISSUES.md`.
+  - Khắc phục các tồn dư mã nguồn phát hiện qua 9 bài học:
+    1. Xóa sạch 71 ký tự lỗi `\uFFFD` (Replacement Character) trong `src/data/seedNews.ts`.
+    2. Khắc phục giới hạn cứng `LIMIT 10000` khi nạp D1 codes trong `functions/api/crawler/ingest-codes.ts` khiến các mã cũ sau dòng 10,000 bị báo ảo `addedCount = 1`.
+- **Nguyên nhân gốc rễ (Root Cause)**:
+  - Cả 9 vấn đề quan sát từ bên ngoài đều có nguyên nhân kiến trúc xác thực trong mã nguồn:
+    1. *Xóa không bền*: Do thiếu bảng đen `wcg_crawler_rejected_games_v1` nên crawler nạp lại entity bị thiếu.
+    2. *Snapshot ghi đè & lỗi UTF-8*: Restore mù quáng thiếu so sánh `updated_at`, file `seedNews.ts` bị lỗi encoding lúc sao lưu tạo ra 71 ký tự `\uFFFD`.
+    3. *Hai kho dữ liệu*: API Store và Sync Store không tự động invalidate Edge Cache (`__wcg_public_sync_cache`) khi có mutation.
+    4. *Bộ đếm Ingest báo ảo*: D1 có >13,000 mã nhưng query nạp chống trùng lặp chỉ `LIMIT 10000`.
+    5. *Lệch case*: Tuyến trực tiếp giữ nguyên case, tuyến duyệt Admin ép `.toUpperCase()` và bộ lọc độ dài thô.
+    6. *Icon 404*: Gán đường dẫn tĩnh `/game_icons/<slug>.webp` khi chưa kiểm tra file có tồn tại hay không.
+    7. *Test artifact*: Script test dựa vào dọn thủ công ở cuối thay vì `try/finally` và thiếu scanner tự động.
+    8. *Tìm kiếm rỗng*: Truy vấn có điều kiện cứng `AND total_codes_count > 0` làm ẩn game 0 mã.
+    9. *Hạn dùng giả 31/12/2026*: Fallback tự động gán ngày cuối năm cho mã không rõ hạn dùng.
+- **Kiến trúc & Giải pháp triển khai**:
+  - Gộp đầy đủ 9 mục vào `KNOWN_ISSUES.md` dưới các mã lỗi `ISSUE-056` đến `ISSUE-064`, bao gồm triệu chứng, nguyên nhân gốc rễ, giải pháp đã kiểm chứng và danh mục cấm lặp lại (Do Not Repeat).
+  - Dùng script khôi phục toàn bộ 71 ký tự nguyên âm tiếng Việt bị lỗi `\uFFFD` trong `src/data/seedNews.ts`, xác nhận số lượng `U+FFFD = 0`.
+  - Tối ưu hóa D1 preloading trong `functions/api/crawler/ingest-codes.ts`: Chuyển sang truy vấn `WHERE LOWER(game_slug) IN (...)` theo slug của payload, nâng trần fallback lên 100,000 bản ghi.
+- **Kiểm thử & Xác nhận**:
+  - `seedNews.ts`: Không còn ký tự `\uFFFD` nào.
+  - `functions/api/crawler/ingest-codes.ts`: Khử trùng tuyệt đối với mọi mã trong D1.
+  - Zero test artifacts, build thành công 100%.
+
+---
+
 ### 273. Sửa Lệch Kho Catalog & Giveaway, Mở Rộng Phân Trang 100 Games/Trang, Đồng Bộ Crossfire: Legends & Rotwood, Gỡ Trùng Kho Mã Hiệp Khách Hành 214 -> 107 (Fix Catalog & Giveaway Sync Discrepancies, Allow limit=100 Pagination, Include Crossfire: Legends & Rotwood in Sync, Deduplicate Hiep Khach Hanh Pool to 107 Unique Codes)
 - **Bối cảnh & Yêu cầu người dùng**:
   1. *Vấn đề 1 — Phân trang catalog game kẹt ở trang 12 (`GET /api/games?limit=100&page=N`)*: Trang 1-11 trả 48 bản ghi/trang do hardcap limit=48. Trang 12 trả 39 bản ghi; trang 13 trùng lặp y hệt trang 12 (39/39 slug), lặp tới trang 30 vẫn không bao giờ trả về rỗng. Chỉ gom được 567 slug duy nhất qua phân trang trong khi sync có 581 mục. 15 slug bị che mất. Yêu cầu sửa phân trang để các trang tiếp theo khác nhau, hết thì trả về rỗng; không xóa, không đổi tên bất kỳ game nào.

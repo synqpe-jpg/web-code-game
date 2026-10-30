@@ -2863,14 +2863,35 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
     registerExisting(existingCustomCodes, 'custom_kv');
     registerExisting(existingCatalogCodes, 'catalog_kv');
 
-    // Nạp thêm từ D1 codes table để đảm bảo 100% khớp dữ liệu live
+    // Nạp thêm từ D1 codes table để đảm bảo 100% khớp dữ liệu live (khắc phục bẫy LIMIT 10000 - ISSUE-192)
     if (env.DB) {
       try {
-        const d1CodesRes = await env.DB.prepare(
-          'SELECT game_slug, code, rewards, status, expires_at, source FROM codes LIMIT 10000'
-        ).all<any>().catch(() => ({ results: [] as any[] }));
-        if (Array.isArray(d1CodesRes?.results) && d1CodesRes.results.length > 0) {
-          registerExisting(d1CodesRes.results, 'live_catalog_d1');
+        const payloadSlugs = Array.from(
+          new Set(
+            rawItems
+              .flatMap((it: any) => [
+                it.gameSlug || it.game_slug || it.slug || '',
+                it.gameId || ''
+              ])
+              .map((s: string) => s.toLowerCase().trim())
+              .filter(Boolean)
+          )
+        );
+        if (payloadSlugs.length > 0 && payloadSlugs.length <= 100) {
+          const placeholders = payloadSlugs.map(() => '?').join(',');
+          const d1CodesRes = await env.DB.prepare(
+            `SELECT game_slug, code, rewards, status, expires_at, source FROM codes WHERE LOWER(game_slug) IN (${placeholders})`
+          ).bind(...payloadSlugs).all<any>().catch(() => ({ results: [] as any[] }));
+          if (Array.isArray(d1CodesRes?.results) && d1CodesRes.results.length > 0) {
+            registerExisting(d1CodesRes.results, 'live_catalog_d1');
+          }
+        } else {
+          const d1CodesRes = await env.DB.prepare(
+            'SELECT game_slug, code, rewards, status, expires_at, source FROM codes LIMIT 100000'
+          ).all<any>().catch(() => ({ results: [] as any[] }));
+          if (Array.isArray(d1CodesRes?.results) && d1CodesRes.results.length > 0) {
+            registerExisting(d1CodesRes.results, 'live_catalog_d1');
+          }
         }
       } catch (d1Err) {
         console.warn('[IngestCodes D1 preload warning]', d1Err);

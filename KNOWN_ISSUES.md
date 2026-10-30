@@ -3735,6 +3735,142 @@
 
 ---
 
+### ISSUE-056: Bẫy Xóa Bản Chờ / Bản Live Không Bền Do Thiếu Danh Sách Đen (Tombstone Blacklist) Khi Crawler Quét Lại Định Kỳ
+- **Triệu chứng**:
+  - Gọi `delete_pending_game` hoặc `delete_game` trên API/Admin trả về thành công, bản ghi biến mất trong vài phút nhưng sau đó lại xuất hiện trở lại trong hàng chờ (tổng hàng chờ dao động 57–63 bản ghi giữa các lần đọc).
+- **Nguyên nhân gốc rễ**:
+  1. Thao tác từ chối hoặc xóa game crawler trước đây chỉ lọc mảng trong bộ nhớ hoặc cập nhật KV setting mà không lưu trữ định danh (slug, package name, canonical URL) vào danh sách đen vĩnh viễn (`wcg_crawler_rejected_games_v1`).
+  2. Các tác vụ crawler tự động chạy ngầm định kỳ (từ AFKMobi, CodeMoi, GameHub, Google Play) thấy tựa game trên nguồn ngoài mà trong kho chưa có nên tự động nạp lại vào hàng chờ phê duyệt.
+- **Giải pháp chuẩn đã kiểm chứng**:
+  1. Mọi thao tác xóa hoặc từ chối game phải tự động ghi nhận vào bảng/danh sách đen `wcg_crawler_rejected_games_v1` (Tombstone Blacklist).
+  2. Trước khi thêm game mới vào hàng chờ, crawler bắt buộc phải đối soát với danh sách đen này. Nếu đã nằm trong blacklist, lập tức bỏ qua.
+  3. Xác nhận kiểm chứng việc xóa bằng nhiều lần đọc cách nhau các mốc thời gian (2 phút, 5 phút, 15 phút) để đảm bảo không bị crawler phục hồi.
+- ⛔ **CÁCH SỬA ĐÃ THẤT BẠI - TUYỆT ĐỐI KHÔNG LẶP LẠI**:
+  - ❌ *Không gọi lệnh xóa lặp đi lặp lại trong vòng lặp để ép biến mất*: Nếu thiếu tombstone blacklist thì xóa bao nhiêu lần crawler cũng sẽ cào lại.
+  - ❌ *Không chứng nhận kết quả xóa chỉ từ một lần đọc duy nhất ngay sau khi gọi API*.
+
+
+---
+
+### ISSUE-057: Bẫy Ghi Đè Đồng Bộ Hàng Loạt Từ Snapshot Cũ Gây Lỗi Ký Tự UTF-8 (U+FFFD) & Mất Dữ Liệu Live Mới Nhất
+- **Triệu chứng**:
+  - Sau đợt backfill hoặc đồng bộ dữ liệu (như tin tức, catalog game) làm tổng số bản ghi khớp (ví dụ: 208 = 208) nhưng nội dung chi tiết bị thụt lùi: ảnh bìa đã cập nhật bị ghi đè thành ảnh cũ, nội dung văn bản xuất hiện ký tự `\uFFFD` (ký tự thay thế khi lỗi font/encoding tiếng Việt).
+- **Nguyên nhân gốc rễ**:
+  1. Cơ chế backfill nạp mù quáng từ file snapshot sao lưu cũ (`seedNews.ts` hoặc snapshot D1/KV cũ) mà không so sánh dấu thời gian cập nhật (`updated_at`), dẫn đến việc bản ghi mới trên live bị ghi đè bởi bản ghi cũ.
+  2. Quá trình xuất/nhập chuỗi ký tự qua các môi trường không chuẩn UTF-8 làm biến dạng các nguyên âm tiếng Việt đa byte thành mã lỗi `U+FFFD`.
+- **Giải pháp chuẩn đã kiểm chứng**:
+  1. Luôn áp dụng nguyên tắc `updated_at` trong mọi cơ chế đồng bộ và backfill: Chỉ cập nhật khi `incoming.updated_at > existing.updated_at`. Nếu là chèn bù bản ghi còn thiếu, chỉ dùng `INSERT OR IGNORE` mà không chạm vào các trường của bản ghi live đã có.
+  2. Thanh lọc và kiểm toán 100% file nguồn (`seedNews.ts`, `games188.json`) bằng script kiểm tra không còn bất kỳ ký tự `\uFFFD` nào trước khi build hoặc nạp vào CSDL.
+- ⛔ **CÁCH SỬA ĐÃ THẤT BẠI - TUYỆT ĐỐI KHÔNG LẶP LẠI**:
+  - ❌ *Không dùng snapshot cũ để ghi đè toàn bộ (bulk overwrite)* mà không đối soát thời gian cập nhật của từng bản ghi.
+  - ❌ *Không import dữ liệu từ file văn bản có chứa ký tự `\uFFFD`*.
+
+
+---
+
+### ISSUE-058: Bẫy Kiến Trúc Hai Kho Dữ Liệu (API Store vs Sync Store) & Yêu Cầu Tuyên Bố Rõ Chiều Đồng Bộ Của Nút Admin
+- **Triệu chứng**:
+  - Đăng bài viết qua `POST /api/news` vào kho tin tức D1/API thành công và trang Admin hiển thị đủ bài, nhưng ngoài Web công khai `/api/sync` (`newsArticles`) lại dừng ở số cũ và không nhận bài mới. Bấm nút "Đồng Bộ" trong Admin thì nút chạy ngược chiều hoặc không cập nhật bộ đệm.
+- **Nguyên nhân gốc rễ**:
+  1. Hệ thống tồn tại 2 lớp lưu trữ: Kho thao tác chi tiết (API Store trên Cloudflare D1/KV) và Kho dữ liệu đồng bộ gom cụm phục vụ Edge Caching (`/api/sync`).
+  2. Khi API ghi dữ liệu mới vào D1 nhưng không chủ động xóa Edge Cache (`__wcg_public_sync_cache`) và không cập nhật snapshot tổng, Web Khách tiếp tục nhận dữ liệu cũ từ bộ nhớ đệm biên.
+  3. Giao diện Admin có nút bấm "Đồng Bộ" nhưng không ghi rõ chiều tác vụ (Kéo từ CSDL về hay Đẩy từ Admin ra cache).
+- **Giải pháp chuẩn đã kiểm chứng**:
+  1. Đảm bảo Single Source of Truth: Bất kỳ thao tác POST/PUT/DELETE nào trên API Store phải tự động gọi `invalidatePublicSyncCache()` và cập nhật mảng tương ứng trong snapshot để Edge Cache làm mới ngay lập tức.
+  2. Minh bạch chiều đồng bộ trên UI Admin: Đổi tên nút bấm thành "Đẩy Dữ Liệu Ra Web Khách (Sync Push)" hoặc "Đồng Bộ Cache", có thông báo tooltip giải thích rõ luồng dữ liệu.
+- ⛔ **CÁCH SỬA ĐÃ THẤT BẠI - TUYỆT ĐỐI KHÔNG LẶP LẠI**:
+  - ❌ *Không để nút "Đồng bộ" mập mờ mà không ghi rõ chiều luồng dữ liệu*.
+  - ❌ *Không ghi dữ liệu vào CSDL mà quên xóa Edge Cache của `/api/sync`*.
+
+
+---
+
+### ISSUE-059: Bẫy Bộ Đếm Ingestion Báo Ảo (`addedCount = 1`) Khi Đẩy Lại Mã Cũ Do Giới Hạn `LIMIT 10000` Khi Nạp D1 Codes
+- **Triệu chứng**:
+  - Đẩy lại một mã giftcode đã tồn tại trên live thông qua API Ingestion nhưng API vẫn trả về `addedCount = 1`, khiến người điều hành và hệ thống tự động ngộ nhận là mã mới được bổ sung.
+- **Nguyên nhân gốc rễ**:
+  1. Trong `functions/api/crawler/ingest-codes.ts`, câu lệnh nạp mã có sẵn từ D1 bị giới hạn ngầm: `SELECT game_slug, code... FROM codes LIMIT 10000`.
+  2. Khi tổng số mã trên D1 vượt quá 10,000 (hiện tại đã vượt 13,000 mã), các mã nằm sau hàng 10,000 không được nạp vào tập hợp `existingCodeValuesBySlug`, khiến cơ chế deduplication bỏ lọt mã cũ.
+- **Giải pháp chuẩn đã kiểm chứng**:
+  1. Chuyển sang truy vấn D1 có chủ đích dựa trên danh sách game slug có trong payload: `WHERE LOWER(game_slug) IN (...)`. Nhờ đó truy vấn vừa cực nhanh vừa nạp đúng 100% mã của tựa game liên quan mà không bị giới hạn bởi tổng số hàng toàn bảng.
+  2. Trường hợp nạp hàng loạt không xác định trước, nâng trần an toàn lên 100,000 bản ghi.
+- ⛔ **CÁCH SỬA ĐÃ THẤT BẠI - TUYỆT ĐỐI KHÔNG LẶP LẠI**:
+  - ❌ *Không đặt hardcoded `LIMIT 10000` cho bảng dữ liệu tích lũy lâu dài*.
+
+
+---
+
+### ISSUE-060: Bẫy Lệch Chuẩn Hóa Mã Code Giữa Tuyến Đẩy Trực Tiếp (Preserve Case) và Tuyến Duyệt Hàng Chờ (`toUpperCase`)
+- **Triệu chứng**:
+  - Cùng một mã giftcode (ví dụ có chữ thường hoặc ký tự đặc biệt, hoặc mã ngắn 1 ký tự) khi nạp qua tuyến API trực tiếp thì được giữ nguyên định dạng, nhưng khi duyệt qua giao diện Admin hàng chờ thì bị tự động ép thành chữ hoa hoặc bị bộ lọc độ dài (`length < 2`) nuốt mất.
+- **Nguyên nhân gốc rễ**:
+  1. Hai luồng xử lý mã (tuyến Ingest trực tiếp và tuyến Approve hàng chờ Crawler) sử dụng hai hàm chuẩn hóa khác nhau. Tuyến Approve hàng chờ gọi `.toUpperCase()` cứng nhắc và có bộ lọc độ dài quá khắt khe.
+- **Giải pháp chuẩn đã kiểm chứng**:
+  1. Quy chuẩn cơ chế xử lý: Đối soát chống trùng lặp sử dụng Case-Insensitive (`upperCode` làm khóa so khớp trong `Set`), nhưng khi lưu vào cơ sở dữ liệu thì bảo toàn 100% nguyên trạng chuỗi mã gốc do NPH cung cấp.
+  2. Hỗ trợ mã code ngắn từ 1 ký tự (miễn là không rỗng sau khi `trim()`).
+- ⛔ **CÁCH SỬA ĐÃ THẤT BẠI - TUYỆT ĐỐI KHÔNG LẶP LẠI**:
+  - ❌ *Không tự ý ép `toUpperCase()` làm mất tính chính xác của giftcode case-sensitive của một số tựa game quốc tế*.
+
+
+---
+
+### ISSUE-061: Bẫy Tự Điền Đường Dẫn Icon `/game_icons/<slug>.webp` Mặc Định Khi File Ảnh Thật Sự Chưa Tồn Tại (HTTP 404)
+- **Triệu chứng**:
+  - Tựa game mới được cào về hoặc tạo mới hiển thị icon vỡ (trình duyệt trả về lỗi HTTP 404 cho đường dẫn `/game_icons/<slug>.webp`).
+- **Nguyên nhân gốc rễ**:
+  1. Logic backend tự động gán đường dẫn quy ước `/game_icons/${slug}.webp` vào thuộc tính icon của game mà không kiểm tra xem file vật lý đã được tải về thư mục `public/game_icons/` hay chưa.
+- **Giải pháp chuẩn đã kiểm chứng**:
+  1. Giữ nguyên URL icon gốc từ nguồn cào hoặc Play Store/App Store cho đến khi ảnh được tải về và nén thành webp thành công trên server.
+  2. Cung cấp fallback icon mặc định an toàn (`/game_icons/default_game_icon.webp`) hoặc ảnh placeholder SVG inline để chống vỡ giao diện trong mọi trường hợp.
+- ⛔ **CÁCH SỬA ĐÃ THẤT BẠI - TUYỆT ĐỐI KHÔNG LẶP LẠI**:
+  - ❌ *Không gán đường dẫn file tĩnh nội bộ `/game_icons/<slug>.webp` khi chưa xác nhận file tồn tại trên đĩa*.
+
+
+---
+
+### ISSUE-062: Bẫy Dữ Liệu Test Lọt Lên Production Do Phụ Thuộc Vào "Nhớ Dọn" Thay Vì Tự Động Quét Trong Post-Deploy Checklist
+- **Triệu chứng**:
+  - Các mã test (như `TESTREG...`, `DEMO...`) hoặc các bản ghi thử nghiệm vô tình xuất hiện trên website trực tiếp hoặc lọt vào cơ sở dữ liệu production.
+- **Nguyên nhân gốc rễ**:
+  1. Quá trình kiểm thử phụ thuộc vào thao tác dọn dẹp ở cuối script; khi script bị lỗi đột ngột hoặc ngoại lệ phát sinh trước bước dọn dẹp, dữ liệu test bị bỏ rơi trong CSDL.
+- **Giải pháp chuẩn đã kiểm chứng**:
+  1. Tuân thủ triệt để Quy tắc 7 (AGENTS.md / GEMINI.md): Toàn bộ code test bắt buộc phải nằm trong khối `try ... finally` để luôn tự động xóa bản ghi dù có lỗi xảy ra.
+  2. Bổ sung script kiểm toán độc lập `scripts/audit_zero_test_artifacts.cjs` chạy tự động sau mỗi lần kiểm thử và trước khi deploy để quét sạch mọi dấu vết test.
+- ⛔ **CÁCH SỬA ĐÃ THẤT BẠI - TUYỆT ĐỐI KHÔNG LẶP LẠI**:
+  - ❌ *Không dựa vào việc "sẽ nhớ xóa tay sau khi hoàn thành công việc"*.
+
+
+---
+
+### ISSUE-063: Bẫy Đánh Đồng "Tìm Kiếm Rỗng" Là "Không Tồn Tại" & Bẫy Ẩn Bản Ghi Có 0 Mã Khỏi Bộ Máy Tìm Kiếm
+- **Triệu chứng**:
+  - Người vận hành tìm kiếm một tựa game (ví dụ game chưa có mã code hoặc game đặc biệt) qua ô tìm kiếm thì thấy kết quả rỗng, dẫn đến ngộ nhận là game chưa có và tạo mới bản ghi gây trùng lặp.
+- **Nguyên nhân gốc rễ**:
+  1. Câu lệnh truy vấn danh mục trước đây bị cài cắm điều kiện ngầm `AND total_codes_count > 0`, tự động loại bỏ các game có 0 mã khỏi danh sách tìm kiếm thông thường.
+  2. Cơ chế tìm kiếm từ khóa có thể bị lệch do không khớp dấu hoặc định dạng slug.
+- **Giải pháp chuẩn đã kiểm chứng**:
+  1. Loại bỏ điều kiện `AND total_codes_count > 0` khỏi câu lệnh tìm kiếm cơ bản. Chỉ áp dụng khi người dùng chủ động chọn tab "Còn mã".
+  2. Khi kiểm tra sự tồn tại của một bản ghi, luôn truy vấn trực tiếp bằng slug chính xác (`/api/games/:slug`), không chỉ dựa vào tìm kiếm tương đối.
+- ⛔ **CÁCH SỬA ĐÃ THẤT BẠI - TUYỆT ĐỐI KHÔNG LẶP LẠI**:
+  - ❌ *Không kết luận bản ghi không tồn tại chỉ vì kết quả tìm kiếm rỗng*.
+
+
+---
+
+### ISSUE-064: Bẫy Tự Gán Hạn Dùng Mặc Định (31/12/2026) Cho Dữ Liệu Chưa Rõ Khiến Khách Hàng Hiểu Lầm Thông Tin NPH
+- **Triệu chứng**:
+  - Hàng nghìn mã giftcode trên website hiển thị ngày hết hạn cố định `31/12/2026`, khiến người chơi và các bên đối soát hiểu lầm đây là thông tin chính thức do nhà phát hành quy định.
+- **Nguyên nhân gốc rễ**:
+  1. Hệ thống crawler trước đây khi không tìm thấy thông tin hạn dùng đã tự động gán fallback `2026-12-31`.
+- **Giải pháp chuẩn đã kiểm chứng**:
+  1. Nếu không có ngày hết hạn chính thức từ NPH, để giá trị `expires_at = null` hoặc `""` (vô thời hạn / chưa xác định). Giao diện hiển thị nhãn "Vô thời hạn" thay vì tự gán ngày giả.
+  2. Đã chạy migration thanh lọc 10,883 mã có hạn giả `31/12/2026` về `expires_at = null` trên toàn hệ thống CSDL D1 và KV.
+- ⛔ **CÁCH SỬA ĐÃ THẤT BẠI - TUYỆT ĐỐI KHÔNG LẶP LẠI**:
+  - ❌ *Không tự ý gán giá trị ngày tháng cụ thể vào trường hạn sử dụng khi nguồn dữ liệu không cung cấp*.
+
+
+---
+
 ## 2. QUY TRÌNH BẮT BUỘC TRƯỚC KHI SỬA CODE (PRE-FLIGHT CHECKLIST)
 
 Mọi nhà phát triển hoặc AI Agent khi nhận yêu cầu sửa đổi mã nguồn **PHẢI** thực hiện đủ 4 bước sau:
