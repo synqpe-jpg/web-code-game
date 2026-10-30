@@ -2052,14 +2052,14 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
           INSERT INTO games (
             id, name, slug, publisher, category, rating, icon_url, banner_url,
             description, instructions, platform, release_date, download_android, google_play_url,
-            android_package_name, is_featured, is_hot, is_new, is_active, status, codes_count, active_codes_count, total_codes_count
+            android_package_name, is_featured, is_hot, is_new, is_active, status, active_codes_count, total_codes_count
           ) VALUES (
             'cuu-am-chan-kinh-2d', 'Cửu Âm Chân Kinh 2D Mobile', 'cuu-am-chan-kinh-2d', 'Công ty Cổ phần Trực tuyến GOSU', 'Nhập Vai',
             4.9, '/game_icons/cuu-am-chan-kinh-2d.webp', '',
             'Cửu Âm Chân Kinh 2D Mobile là tựa game kiếm hiệp nhập vai đặc sắc phát hành bởi GOSU. Tổng hợp toàn bộ giftcode mới nhất mừng các cột mốc sự kiện và hướng dẫn nhập code nhận quà ingame.',
             'Bước 1: Mở game Cửu Âm Chân Kinh 2D Mobile > Nhấn biểu tượng Phúc Lợi hoặc Cài Đặt.\nBước 2: Chọn mục Đổi Giftcode hoặc Mã Quà Tặng.\nBước 3: Nhập chính xác mã giftcode và bấm Đổi để nhận quà qua Hòm thư.',
             'Android, iOS', '2025-02-20', 'https://play.google.com/store/apps/details?id=vn.gosu.cuuam2d', 'https://play.google.com/store/apps/details?id=vn.gosu.cuuam2d',
-            'vn.gosu.cuuam2d', 0, 1, 1, 1, 'ACTIVE', 8, 8, 8
+            'vn.gosu.cuuam2d', 0, 1, 1, 1, 'ACTIVE', 8, 8
           )
           ON CONFLICT(slug) DO UPDATE SET
             name = excluded.name,
@@ -2189,7 +2189,6 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
           UPDATE games SET
             total_codes_count = (SELECT COUNT(*) FROM codes WHERE codes.game_slug = games.slug),
             active_codes_count = (SELECT COUNT(*) FROM codes WHERE codes.game_slug = games.slug AND (codes.status = 'active' OR codes.status = 'verified') AND (codes.expires_at IS NULL OR codes.expires_at = '' OR codes.expires_at >= date('now'))),
-            codes_count = (SELECT COUNT(*) FROM codes WHERE codes.game_slug = games.slug AND (codes.status = 'active' OR codes.status = 'verified') AND (codes.expires_at IS NULL OR codes.expires_at = '' OR codes.expires_at >= date('now'))),
             last_code_at = (SELECT MAX(added_at) FROM codes WHERE codes.game_slug = games.slug),
             updated_at = datetime('now')
           WHERE slug IN ('cuu-am-chan-kinh-mobile', 'cuu-am-chan-kinh-2d', 'tieu-ngao-doc-ton-vgp')
