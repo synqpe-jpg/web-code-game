@@ -561,7 +561,12 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
                 {/* Số lượng mua */}
                 {!isOutOfStock && (
                   <div className="pt-2 border-t border-border/70 flex items-center justify-between">
-                    <span className="text-xs font-bold text-foreground">Số lượng mua:</span>
+                    <div>
+                      <span className="text-xs font-bold text-foreground block">Số lượng mua:</span>
+                      <span className="text-[10px] text-muted-foreground font-mono block">
+                        (Tối đa {realStock} gói theo kho thực tế)
+                      </span>
+                    </div>
                     <div className="flex items-center gap-2">
                       <button
                         type="button"

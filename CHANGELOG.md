@@ -18,15 +18,16 @@ Mỗi mục sửa lỗi đều ghi nhận **Nguyên nhân gốc rễ (Root Cause
   3. *Không kẹp trần số lượng ban đầu (unclamped initial quantity)*: Hàm `handleStartCheckout` gán trực tiếp `setQuantity(initialQty || 1)` mà không kẹp trần với `actualRealStock`, khiến khách có thể mang số lượng lớn từ modal chi tiết sang modal thanh toán.
   4. *Giao diện thừa thông điệp giới hạn*: Dòng chữ "Số lượng khuyến mãi còn: X" và "Ưu đãi Flash Sale: Giới hạn tối đa X gói / đơn" gây hiểu lầm hoặc làm rối giao diện.
 - **Kiến trúc & Giải pháp triển khai**:
-  1. *Xóa nhãn "Số lượng khuyến mãi còn" (`ProductDetailModal.tsx`)*: Xóa hoàn toàn dòng chữ "Số lượng khuyến mãi còn: X" dưới giá từng gói; nếu gói hết hàng vẫn giữ nhãn báo đỏ "Hết hàng" chuẩn mực.
-  2. *Bỏ dòng chữ giới hạn Flash Sale (`UtilitiesView.tsx` & `ProductCheckoutModal.tsx`)*: Xóa sạch các dòng thông báo "Ưu đãi Flash Sale: Giới hạn tối đa {maxStock} gói / đơn (Tránh gom hàng)" và "Suất ưu đãi đặc biệt: Mỗi tài khoản tối đa 1 gói / đơn". Chỉ giữ cảnh báo đỏ "Sản phẩm hiện đang tạm hết hàng" khi `maxStock <= 0`.
+  1. *Xóa nhãn "Số lượng khuyến mãi còn" (`ProductDetailModal.tsx` & `UtilitiesView.tsx`)*: Xóa hoàn toàn dòng chữ "Số lượng khuyến mãi còn: X" dưới giá từng gói và trong header modal thanh toán (thay bằng "Sẵn sàng • Kích hoạt ngay"); nếu gói hết hàng vẫn giữ nhãn báo đỏ "Hết hàng" chuẩn mực.
+  2. *Bỏ dòng chữ giới hạn Flash Sale (`UtilitiesView.tsx` & `ProductCheckoutModal.tsx`)*: Xóa sạch các dòng thông báo "Ưu đãi Flash Sale: Giới hạn tối đa {maxStock} gói / đơn (Tránh gom hàng)" và "Suất ưu đãi đặc biệt: Mỗi tài khoản tối đa 1 gói / đơn". Bổ sung nhãn trực quan `(Tối đa {maxStock} gói theo kho thực tế)` ngay dưới "Số Lượng Mua:".
   3. *Kẹp trần tuyệt đối số lượng mua theo kho thực tế*:
      - Trong `handleStartCheckout`: Tính `actualRealStock` và ép `safeInitialQty = actualRealStock > 0 ? Math.max(1, Math.min(initialQty || 1, actualRealStock)) : 1`.
      - Thêm hook `useEffect` tự động hạ `quantity` về `realStock` nếu vượt quá `realStock`.
      - Chặn nút tăng `+` khi `safeQty >= maxStock` hoặc `quantity >= realStock`.
      - Hàm nhập `handleQtyInputChange` chặn không cho gõ số vượt quá `maxStock`.
-  4. *Đồng bộ kho tĩnh 7 mã và tự động lắng nghe sự kiện*:
+  4. *Đồng bộ kho tĩnh 7 mã, nâng phiên bản bộ nhớ cache & tự động lắng nghe sự kiện*:
      - Cập nhật `ut_vs_05_vip_7d.stock_quantity` thành 7 trong `utilities.json` và các script audit/test.
+     - Nâng `DATASET_VERSION = 'wcg_dataset_2026_10_30_v41'` trong `dataService.ts` để tự động làm sạch cache `localStorage` cũ trên mọi trình duyệt người dùng.
      - Bổ sung `window.addEventListener('wcg_utilities_updated', handleUpdate)` và cleanup chuẩn mực trong cả `UtilitiesView.tsx` và `ProductDetailModal.tsx`.
 - **Kiểm thử & Xác nhận**:
   - `npm run build`: 100% PASS (Vite compile, HTML prerender cho 580 tựa game và Cloudflare Edge Worker bundle sạch 0 lỗi).

@@ -1156,9 +1156,7 @@ export const UtilitiesView: React.FC<UtilitiesViewProps> = ({
                         {checkoutDisplayStock > 0 ? (
                           <>
                             <span className="w-1.5 h-1.5 rounded-full bg-teal-400 animate-pulse" />
-                            {(checkoutUtility as any).show_stock_count !== false
-                              ? `Số lượng khuyến mãi còn: ${checkoutDisplayStock} gói • Kích hoạt ngay`
-                              : 'Sẵn sàng • Kích hoạt ngay'}
+                            <span>Sẵn sàng • Kích hoạt ngay</span>
                           </>
                         ) : (
                           'Tạm hết hàng'
@@ -1171,9 +1169,13 @@ export const UtilitiesView: React.FC<UtilitiesViewProps> = ({
                   <div className="p-3.5 rounded-2xl bg-card border border-border flex items-center justify-between gap-3">
                     <div>
                       <span className="text-xs font-bold text-foreground block">Số Lượng Mua:</span>
-                      {maxStock <= 0 && (
+                      {maxStock <= 0 ? (
                         <span className="text-[10px] font-medium block text-rose-400 font-bold">
                           Sản phẩm hiện đang tạm hết hàng
+                        </span>
+                      ) : (
+                        <span className="text-[10px] font-medium block text-muted-foreground font-mono">
+                          (Tối đa {maxStock} gói theo kho thực tế)
                         </span>
                       )}
                     </div>
