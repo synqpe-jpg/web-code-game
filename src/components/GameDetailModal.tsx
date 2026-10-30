@@ -638,9 +638,12 @@ export const GameDetailModal: React.FC<GameDetailModalProps> = ({
                       )}
                     </button>
                   )}
-                  <span className="text-[11px] text-emerald-400 font-semibold hidden sm:flex items-center gap-1">
+                  <span
+                    className="text-[11px] text-emerald-400 font-semibold hidden sm:flex items-center gap-1 cursor-help"
+                    title="100% Khả Dụng • Tất cả mã quà tặng đều đã được kiểm tra tính khả dụng thực tế"
+                  >
                     <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
-                    100%
+                    100% Khả Dụng
                   </span>
                 </div>
               </div>
@@ -881,21 +884,12 @@ export const GameDetailModal: React.FC<GameDetailModalProps> = ({
                         </div>
 
                         <button
-                          onClick={() => handleCopy(codeItem.code, true)}
-                          className="flex items-center gap-1 px-2.5 py-1 rounded-xl text-xs text-muted-foreground hover:text-foreground hover:bg-muted border border-border/60 transition-colors cursor-pointer self-end sm:self-center"
-                          title={t.modal.copy}
+                          disabled
+                          className="flex items-center gap-1 px-2.5 py-1 rounded-xl text-xs text-rose-400/70 bg-rose-500/5 border border-rose-500/20 cursor-not-allowed self-end sm:self-center"
+                          title="Mã này đã hết hạn sử dụng"
                         >
-                          {isThisCopied ? (
-                            <>
-                              <Check className="w-3 h-3 text-emerald-400" />
-                              <span className="text-[11px]">{t.gameCard.copied}</span>
-                            </>
-                          ) : (
-                            <>
-                              <Copy className="w-3 h-3" />
-                              <span className="text-[11px]">{t.modal.copy}</span>
-                            </>
-                          )}
+                          <AlertCircle className="w-3 h-3 text-rose-400/70" />
+                          <span className="text-[11px]">Đã hết hạn</span>
                         </button>
                       </div>
                     );

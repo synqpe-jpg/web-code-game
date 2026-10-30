@@ -281,18 +281,11 @@ export const MissionsView: React.FC<MissionsViewProps> = ({
 
         {/* 3. Missions Grid */}
         {isLoading && missions.length === 0 ? (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 pt-4">
-            {[1, 2, 3, 4, 5, 6].map((i) => (
-              <div
-                key={i}
-                className="p-5 rounded-2xl bg-card border border-border/60 animate-pulse space-y-3 h-52"
-              >
-                <div className="h-4 bg-muted rounded w-1/3" />
-                <div className="h-6 bg-muted rounded w-3/4" />
-                <div className="h-12 bg-muted rounded w-full" />
-                <div className="h-4 bg-muted rounded w-1/2" />
-              </div>
-            ))}
+          <div className="py-16 flex flex-col items-center justify-center space-y-3.5">
+            <RefreshCw className="w-8 h-8 text-primary animate-spin" />
+            <p className="text-sm font-semibold text-muted-foreground animate-pulse">
+              Đang tải dữ liệu nhiệm vụ từ máy chủ...
+            </p>
           </div>
         ) : filteredMissions.length === 0 ? (
           <div className="p-12 text-center rounded-3xl bg-card border border-border/60 max-w-md mx-auto my-12 space-y-3">

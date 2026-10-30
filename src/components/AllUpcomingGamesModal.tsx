@@ -52,7 +52,7 @@ function calculateTimeRemaining(targetDateStr?: string | null): TimeRemaining {
 
     const days = Math.floor(diff / (1000 * 60 * 60 * 24));
     const hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
-    const minutes = Math.floor((diff % (1000 * 60)) / (1000 * 60));
+    const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
     const seconds = Math.floor((diff % (1000 * 60)) / 1000);
 
     return { days, hours, minutes, seconds, isReleased: false, isRolledOver: false, bannerRemainingHours: 0, bannerRemainingMinutes: 0 };
@@ -315,7 +315,9 @@ export const AllUpcomingGamesModal: React.FC<AllUpcomingGamesModalProps> = ({
                 const isTarget = initialSelectedSlug && gameSlugOrId === initialSelectedSlug.toLowerCase();
                 const time = calculateTimeRemaining(game.releaseDate);
                 const iconSrc = getUpcomingGameIconUrl(game);
-                const expectedCodes = game.expectedCodes || ['TANTHU2026', 'VIP999', 'OPENBETA'];
+                const expectedCodes = (game.expectedCodes && game.expectedCodes.length > 0)
+                  ? game.expectedCodes
+                  : ['TANTHU2026', 'VIP999', 'OPENBETA', 'TRIAN2026'];
 
                 return (
                   <div

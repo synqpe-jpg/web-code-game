@@ -70,31 +70,40 @@ export const parseTimeMs = (str?: string, isEnd = false): number => {
 /**
  * Component hiển thị Phòng chờ & Bộ đếm người đang chờ trực tiếp
  */
+const sharedWaitingRoomCounts: Record<string, number> = {};
+
 const LiveWaitingRoomBadge: React.FC<{
+  campaignId?: string;
   minUsers?: number;
   maxUsers?: number;
   className?: string;
   variant?: 'card' | 'modal';
-}> = ({ minUsers = 25, maxUsers = 85, className = '', variant = 'card' }) => {
+}> = ({ campaignId = 'default', minUsers = 25, maxUsers = 85, className = '', variant = 'card' }) => {
   const min = Math.max(1, minUsers || 25);
   const max = Math.max(min + 1, maxUsers || 85);
   const mid = Math.floor((min + max) / 2);
 
   const [count, setCount] = useState<number>(() => {
-    return mid + Math.floor((Math.sin(Date.now() / 60000) * (max - min)) / 4);
+    if (sharedWaitingRoomCounts[campaignId]) {
+      return sharedWaitingRoomCounts[campaignId];
+    }
+    const initial = mid + Math.floor((Math.sin(Date.now() / 60000) * (max - min)) / 4);
+    sharedWaitingRoomCounts[campaignId] = initial;
+    return initial;
   });
 
   useEffect(() => {
     const interval = window.setInterval(() => {
       setCount((prev) => {
         const delta = Math.floor(Math.random() * 3) - 1;
-        const next = prev + delta;
-        return Math.min(max, Math.max(min, next));
+        const next = Math.min(max, Math.max(min, prev + delta));
+        sharedWaitingRoomCounts[campaignId] = next;
+        return next;
       });
     }, 45000);
 
     return () => clearInterval(interval);
-  }, [min, max]);
+  }, [min, max, campaignId]);
 
   if (variant === 'modal') {
     return (
@@ -154,7 +163,7 @@ const GlobalReleaseBadge: React.FC<{
       <Clock className="w-3.5 h-3.5 text-amber-400 animate-pulse" />
       <span className="text-[11px] opacity-80">Mã tiếp theo:</span>
       <span className="font-mono font-bold tracking-wider text-amber-300">
-        {pad(minutes)}:{pad(seconds)}
+        {pad(minutes)}p {pad(seconds)}s
       </span>
     </div>
   );
@@ -460,7 +469,7 @@ const GiveawayDetailModal: React.FC<GiveawayDetailModalProps> = ({
                         <span className={pkgStock > 0 ? 'text-emerald-400 font-bold' : 'text-rose-400 font-bold'}>
                           {pkgStock > 0 ? `Còn ${pkgStock} mã` : 'Hết mã'}
                         </span>
-                        {isSelected && <span className="text-[9px] text-accent font-bold">✓ Đang chọn</span>}
+                        {isSelected && pkgStock > 0 && <span className="text-[9px] text-accent font-bold">✓ Đang chọn</span>}
                       </div>
                     </button>
                   );
@@ -674,8 +683,7 @@ const GiveawayDetailModal: React.FC<GiveawayDetailModalProps> = ({
                   Thời gian sự kiện:
                 </span>
                 <span className="text-xs font-mono text-foreground font-semibold">
-                  {campaign.start_time ? formatRelativeDate(campaign.start_time) : 'Đang mở'} →{' '}
-                  {campaign.end_time ? formatFullDateTime(campaign.end_time) : 'Đến khi hết mã'}
+                  {campaign.start_time ? formatRelativeDate(campaign.start_time) : 'Đang mở'} — {campaign.end_time ? formatRelativeDate(campaign.end_time) : 'Vô thời hạn'}
                 </span>
               </div>
             </div>
@@ -910,6 +918,7 @@ const GiveawayDetailModal: React.FC<GiveawayDetailModalProps> = ({
             <div className="space-y-2">
               {campaign.enable_waiting_room !== false && (
                 <LiveWaitingRoomBadge
+                  campaignId={campaign.id}
                   minUsers={campaign.waiting_users_min}
                   maxUsers={campaign.waiting_users_max}
                   variant="modal"
@@ -1567,7 +1576,7 @@ export const GiveawaysView: React.FC<GiveawaysViewProps> = ({
                   }`}
                 >
                   <Zap className="w-3.5 h-3.5 text-emerald-400" />
-                  <span>Còn Mã Trong Kho</span>
+                  <span>Còn Mã Trong Kho ({groupedCampaigns.filter((c) => c.is_active !== false && getCampaignStock(c) > 0).length})</span>
                 </button>
                 <button
                   onClick={() => setFilterCategory('hot')}
@@ -1755,13 +1764,18 @@ export const GiveawaysView: React.FC<GiveawaysViewProps> = ({
                             <h4 className="font-heading font-bold text-sm text-foreground hover:text-primary-light transition-colors line-clamp-1">
                               {campaign.game_name}
                             </h4>
-                            <span className="text-[11px] font-mono text-muted-foreground block truncate">
-                              Hạn đến: {formatRelativeDate(campaign.end_time)}
+                            <span className="text-[11px] font-mono text-slate-300 block truncate">
+                              Hạn đến: {campaign.end_time ? formatRelativeDate(campaign.end_time) : 'Vô thời hạn'}
                             </span>
                           </div>
                         </div>
 
                         <div className="flex items-center gap-1.5 shrink-0">
+                          {remaining <= 0 && !isEnded && (
+                            <span className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-amber-500/20 text-amber-300 border border-amber-500/30 shrink-0">
+                              Hết Mã
+                            </span>
+                          )}
                           {onShareGiveaway && (
                             <button
                               onClick={(e) => {
@@ -1781,13 +1795,16 @@ export const GiveawaysView: React.FC<GiveawaysViewProps> = ({
 
                       {/* Campaign Title */}
                       <h3 className="font-heading font-bold text-base text-foreground mb-2 leading-snug">
-                        {campaign.title}
+                        {(!campaign.title || campaign.title.trim().length <= 2)
+                          ? `Code riêng ${campaign.game_name || 'Game'}`
+                          : campaign.title}
                       </h3>
 
                       {/* Live Waiting Room Badge */}
                       {campaign.enable_waiting_room !== false && remaining > 0 && !isEnded && (
                         <div className="mb-2">
                           <LiveWaitingRoomBadge
+                            campaignId={campaign.id}
                             minUsers={campaign.waiting_users_min}
                             maxUsers={campaign.waiting_users_max}
                             variant="card"
@@ -1836,14 +1853,14 @@ export const GiveawaysView: React.FC<GiveawaysViewProps> = ({
                           <Gift className="w-3.5 h-3.5" />
                           <span>Phần Thưởng:</span>
                         </div>
-                        <p className="text-xs text-muted-foreground leading-snug font-sans">
+                        <p className="text-xs text-slate-200 font-medium leading-snug font-sans">
                           {campaign.rewards}
                         </p>
                       </div>
 
                       {/* Campaign Requirement Badges */}
                       <div className="p-2.5 rounded-xl bg-card-hover/80 border border-border/60 mb-3 space-y-1.5">
-                        <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider block">
+                        <span className="text-[10px] font-bold text-slate-300 uppercase tracking-wider block">
                           Điều kiện giật code:
                         </span>
                         <div className="flex flex-wrap items-center gap-1.5 text-[10px]">

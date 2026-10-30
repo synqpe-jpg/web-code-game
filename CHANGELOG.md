@@ -7,6 +7,32 @@ Mỗi mục sửa lỗi đều ghi nhận **Nguyên nhân gốc rễ (Root Cause
 
 ## [2026-10-30]
 
+### 275. Gộp Kho Tin Tức Có Chọn Lọc (Selective Merge 208 Bài, 0 U+FFFD), Đồng Bộ Số Liệu Tồn Kho Tiện Ích Thực Tế (Còn Hàng 7) & Xử Lý Triệt Để Danh Mục Lỗi UX/UI (C1 -> C13)
+- **Bối cảnh & Yêu cầu người dùng**:
+  - Gộp kho tin tức có chọn lọc giữa API Store (`/api/news`) và Sync Store (`seedNews.ts` / `/api/sync`): Tuyệt đối không đồng bộ mù 1 chiều. Giữ trọn vẹn 2 bài Hiệp Khách Hành (ngày 09h00 05/11/2026, ảnh `/game_icons/hiep-khach-hanh.webp`, 5811 & 6157 ký tự) và sạch 100% ký tự lỗi `\uFFFD` (0 ký tự trên cả 2 kho). Tuyên bố rõ SSOT và chiều đồng bộ.
+  - Thống nhất và làm rõ số liệu gói Tiện ích Cloud Phone VS Phone VIP: Giải thích 3 con số (420, 3667, 7/8). Đưa badge chi tiết về số tồn kho thực tế `Còn hàng (7)`, khóa số lượng mua tối đa bằng số hàng thật trong kho, bỏ dòng chữ khuyến mãi và giới hạn Flash Sale.
+  - Sửa danh mục tồn đọng UX/UI (C1 -> C13):
+    - C1: Fallback tiêu đề giveaway `<= 2` ký tự thành `Code riêng ${game_name}`; hạn rỗng hiển thị `Vô thời hạn`.
+    - C2: Sửa bug modulo phút bị kẹt ở `00m` thành `diff % (1000 * 60 * 60) / (1000 * 60)`; fallback mảng rỗng `expectedCodes` về 4 mã quà tặng.
+    - C3: Thêm số lượng sự kiện còn mã vào tab `Còn Mã Trong Kho ({count})`, badge `Hết Mã` và làm mờ thẻ hết hàng.
+    - C4: Vô hiệu hóa và gắn style cảnh báo `Đã hết hạn` cho nút copy mã hết hạn trong `GameDetailModal`.
+    - C5: Thêm loading spinner có text `Đang tải dữ liệu nhiệm vụ từ máy chủ...`; sửa routing `handlePopState` cho `/nhiem-vu`, `/missions`, `#missions`, `#nhiem-vu`.
+    - C6: Lưu `wcg_floating_dismissed_session = 'true'` khi bấm "Để sau" popup chào mừng để không hiện lại trong phiên.
+    - C7: Chuẩn hóa danh mục `drift-racing-3v3` (`Thập Cẩm / Khác`), `Roblox / Thủ Thành Chiến Thuật`, `Bắn Súng / Sinh Tồn`, `Chiến Thuật Quân Sự / SLG` trong `games188.json` (xóa sạch 118 lỗi UTF-8); deduplicate game category chips và mở rộng search bar tin tức.
+    - C8: Footer hiển thị đầy đủ `siteIntro`, bỏ `slice(0, 60)...`.
+    - C9: Tăng tương phản chữ (rewards, expiry, conditions, header badge) trên nền tối giveaways.
+    - C10: Ẩn đếm ngược khi server game đã mở chính thức.
+    - C11: Thêm tooltip cho `100% Khả Dụng`; thêm đơn vị `{min}p {sec}s` cho countdown mở mã tiếp theo; làm rõ chế độ đăng ẩn danh vs nhóm công khai trong form nhiệm vụ.
+    - C12: Không hiển thị `✓ Đang chọn` khi gói hết mã; format khoảng ngày giveaway `DD/MM/YYYY — DD/MM/YYYY`; chia sẻ bộ đếm phòng chờ trực tiếp qua `sharedWaitingRoomCounts[campaign.id]`; cập nhật số đếm A-Z footer (582); khớp số đếm tin tức (208).
+    - C13: Bổ sung các icon chính thức `pubg-mobile-flash.webp`, `cut-the-rope-remastered.webp`, `srom.webp`.
+- **Nguyên nhân gốc rễ (Root Cause)**:
+  - Xem chi tiết tại `ISSUE-189` trong `KNOWN_ISSUES.md`.
+- **Kiểm thử & Xác nhận**:
+  - Cả 2 kho `/api/news` và `/api/sync` đều có đúng 208 bài viết, 0 ký tự `\uFFFD`, HKH lần lượt 5811 và 6157 ký tự.
+  - Zero test artifacts, build thành công 100%.
+
+---
+
 ### 274. Tích Hợp 9 Bài Học Kiểm Chứng Live Vào KNOWN_ISSUES (ISSUE-056 -> ISSUE-064), Khắc Phục Triệt Để Ký Tự UTF-8 Lỗi (U+FFFD) & Bẫy LIMIT 10000 Trong Ingest Codes
 - **Bối cảnh & Yêu cầu người dùng**:
   - Đối chiếu 9 bài học từ bên ngoài kiểm chứng live của Pine AI (Muse) với mã nguồn repo, xác nhận nguyên nhân gốc rễ thật cho từng mục, đánh số kế tiếp và gộp vào `KNOWN_ISSUES.md`.
@@ -73,6 +99,32 @@ Mỗi mục sửa lỗi đều ghi nhận **Nguyên nhân gốc rễ (Root Cause
   - `npm run build`: 100% PASS, zero test artifacts.
 
 ## [2026-10-30]
+
+### 275. Gộp Kho Tin Tức Có Chọn Lọc (Selective Merge 208 Bài, 0 U+FFFD), Đồng Bộ Số Liệu Tồn Kho Tiện Ích Thực Tế (Còn Hàng 7) & Xử Lý Triệt Để Danh Mục Lỗi UX/UI (C1 -> C13)
+- **Bối cảnh & Yêu cầu người dùng**:
+  - Gộp kho tin tức có chọn lọc giữa API Store (`/api/news`) và Sync Store (`seedNews.ts` / `/api/sync`): Tuyệt đối không đồng bộ mù 1 chiều. Giữ trọn vẹn 2 bài Hiệp Khách Hành (ngày 09h00 05/11/2026, ảnh `/game_icons/hiep-khach-hanh.webp`, 5811 & 6157 ký tự) và sạch 100% ký tự lỗi `\uFFFD` (0 ký tự trên cả 2 kho). Tuyên bố rõ SSOT và chiều đồng bộ.
+  - Thống nhất và làm rõ số liệu gói Tiện ích Cloud Phone VS Phone VIP: Giải thích 3 con số (420, 3667, 7/8). Đưa badge chi tiết về số tồn kho thực tế `Còn hàng (7)`, khóa số lượng mua tối đa bằng số hàng thật trong kho, bỏ dòng chữ khuyến mãi và giới hạn Flash Sale.
+  - Sửa danh mục tồn đọng UX/UI (C1 -> C13):
+    - C1: Fallback tiêu đề giveaway `<= 2` ký tự thành `Code riêng ${game_name}`; hạn rỗng hiển thị `Vô thời hạn`.
+    - C2: Sửa bug modulo phút bị kẹt ở `00m` thành `diff % (1000 * 60 * 60) / (1000 * 60)`; fallback mảng rỗng `expectedCodes` về 4 mã quà tặng.
+    - C3: Thêm số lượng sự kiện còn mã vào tab `Còn Mã Trong Kho ({count})`, badge `Hết Mã` và làm mờ thẻ hết hàng.
+    - C4: Vô hiệu hóa và gắn style cảnh báo `Đã hết hạn` cho nút copy mã hết hạn trong `GameDetailModal`.
+    - C5: Thêm loading spinner có text `Đang tải dữ liệu nhiệm vụ từ máy chủ...`; sửa routing `handlePopState` cho `/nhiem-vu`, `/missions`, `#missions`, `#nhiem-vu`.
+    - C6: Lưu `wcg_floating_dismissed_session = 'true'` khi bấm "Để sau" popup chào mừng để không hiện lại trong phiên.
+    - C7: Chuẩn hóa danh mục `drift-racing-3v3` (`Thập Cẩm / Khác`), `Roblox / Thủ Thành Chiến Thuật`, `Bắn Súng / Sinh Tồn`, `Chiến Thuật Quân Sự / SLG` trong `games188.json` (xóa sạch 118 lỗi UTF-8); deduplicate game category chips và mở rộng search bar tin tức.
+    - C8: Footer hiển thị đầy đủ `siteIntro`, bỏ `slice(0, 60)...`.
+    - C9: Tăng tương phản chữ (rewards, expiry, conditions, header badge) trên nền tối giveaways.
+    - C10: Ẩn đếm ngược khi server game đã mở chính thức.
+    - C11: Thêm tooltip cho `100% Khả Dụng`; thêm đơn vị `{min}p {sec}s` cho countdown mở mã tiếp theo; làm rõ chế độ đăng ẩn danh vs nhóm công khai trong form nhiệm vụ.
+    - C12: Không hiển thị `✓ Đang chọn` khi gói hết mã; format khoảng ngày giveaway `DD/MM/YYYY — DD/MM/YYYY`; chia sẻ bộ đếm phòng chờ trực tiếp qua `sharedWaitingRoomCounts[campaign.id]`; cập nhật số đếm A-Z footer (582); khớp số đếm tin tức (208).
+    - C13: Bổ sung các icon chính thức `pubg-mobile-flash.webp`, `cut-the-rope-remastered.webp`, `srom.webp`.
+- **Nguyên nhân gốc rễ (Root Cause)**:
+  - Xem chi tiết tại `ISSUE-189` trong `KNOWN_ISSUES.md`.
+- **Kiểm thử & Xác nhận**:
+  - Cả 2 kho `/api/news` và `/api/sync` đều có đúng 208 bài viết, 0 ký tự `\uFFFD`, HKH lần lượt 5811 và 6157 ký tự.
+  - Zero test artifacts, build thành công 100%.
+
+---
 
 ### 272. Đồng Bộ Hoàn Hảo Kho Tin Tức /api/news Ra Web Công Khai /api/sync & /news, Sửa Nút Đồng Bộ Admin & Cập Nhật Ảnh Bìa Chuẩn Hiệp Khách Hành (Fix News Sync Pipeline from /api/news to Public /api/sync & /news, Fix Admin Sync Button & Standardize Hiep Khach Hanh Covers)
 - **Bối cảnh & Yêu cầu người dùng**:

@@ -718,6 +718,11 @@ export const App: React.FC = () => {
         setCurrentTab('utilities');
         return;
       }
+      if (hash === '#missions' || hash.startsWith('#missions') || hash === '#nhiem-vu' || hash.startsWith('#nhiem-vu')) {
+        setSelectedGame(null);
+        setCurrentTab('missions');
+        return;
+      }
 
       // 2. Pathname routes
       if (path.startsWith('/game/') || path.startsWith('/g/')) {
@@ -744,6 +749,9 @@ export const App: React.FC = () => {
       } else if (path === '/utilities' || path.startsWith('/utilities/')) {
         setSelectedGame(null);
         setCurrentTab('utilities');
+      } else if (path === '/missions' || path.startsWith('/missions/') || path === '/nhiem-vu' || path.startsWith('/nhiem-vu/')) {
+        setSelectedGame(null);
+        setCurrentTab('missions');
       } else if (path === '/' || path === '') {
         setSelectedGame(null);
         setCurrentTab('catalog');

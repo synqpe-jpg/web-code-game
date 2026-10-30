@@ -58,6 +58,11 @@ export const FloatingAnnouncement: React.FC<FloatingAnnouncementProps> = ({ onNa
   const checkSuppression = useCallback((cfg: FloatingNotificationConfig): boolean => {
     if (typeof window === 'undefined') return true;
 
+    // Direct session suppression: Once dismissed in this browser session, never show again in this session
+    if (sessionStorage.getItem('wcg_floating_dismissed_session') === 'true') {
+      return true;
+    }
+
     // Unique fingerprint for this specific announcement version
     const announcementFingerprint = `${cfg.updatedAt || ''}_${cfg.title}_${cfg.position}_${(cfg.message || '').slice(0, 30)}`;
     const dismissedFingerprint =
@@ -172,6 +177,7 @@ export const FloatingAnnouncement: React.FC<FloatingAnnouncementProps> = ({ onNa
       const todayStr = new Date().toDateString();
       const announcementFingerprint = `${config.updatedAt || ''}_${config.title}_${config.position}_${(config.message || '').slice(0, 30)}`;
 
+      sessionStorage.setItem('wcg_floating_dismissed_session', 'true');
       sessionStorage.setItem('wcg_floating_dismissed_version', announcementFingerprint);
       localStorage.setItem('wcg_floating_dismissed_version', announcementFingerprint);
 

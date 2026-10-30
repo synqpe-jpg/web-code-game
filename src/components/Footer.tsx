@@ -134,7 +134,7 @@ export const Footer: React.FC<FooterProps> = ({ onSelectCategory, categories, on
                     className="text-primary-light font-bold hover:underline transition-colors text-left flex items-center gap-1.5"
                   >
                     <span>📚 Danh Sách Game A-Z</span>
-                    <span className="text-[10px] bg-primary/20 text-primary-light px-1.5 py-0.5 rounded font-mono">573</span>
+                    <span className="text-[10px] bg-primary/20 text-primary-light px-1.5 py-0.5 rounded font-mono">582</span>
                   </a>
                 </li>
                 <li>
@@ -232,8 +232,8 @@ export const Footer: React.FC<FooterProps> = ({ onSelectCategory, categories, on
           {/* Bottom Bar */}
           <div className="pt-6 flex flex-col sm:flex-row items-center justify-between gap-3 text-[11px] text-slate-400">
             <p>© {new Date().getFullYear()} {brandTitle || 'CodeGame.Shop'}. {t.footer.rights}</p>
-            <p className="flex items-center gap-1 line-clamp-1">
-              {siteIntro.slice(0, 60)}...
+            <p className="flex items-center gap-1">
+              {siteIntro}
             </p>
           </div>
         </div>

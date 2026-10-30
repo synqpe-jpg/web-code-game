@@ -484,9 +484,18 @@ export const MissionDetailModal: React.FC<MissionDetailModalProps> = ({
                   disabled={isSubmitting || isFormBlocked}
                   className="w-full px-3.5 py-2.5 rounded-xl bg-muted/40 border border-border/80 text-foreground text-xs sm:text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/50 transition-all font-mono"
                 />
-                <span className="text-[11px] text-muted-foreground mt-1 block">
-                  Đảm bảo bài đăng để ở chế độ Công khai (Public) để Quản trị viên/AI có thể kiểm tra.
-                </span>
+                <div className="mt-2 p-2.5 rounded-xl bg-blue-500/10 border border-blue-500/20 text-[11px] text-blue-200 leading-relaxed space-y-1">
+                  <div className="font-bold flex items-center gap-1.5 text-blue-300">
+                    <HelpCircle className="w-3.5 h-3.5 shrink-0" />
+                    <span>Lưu ý về chế độ Đăng bài:</span>
+                  </div>
+                  <p>
+                    • <strong>Đăng ẩn danh:</strong> Hoàn toàn được chấp nhận nếu đăng dưới dạng Người tham gia ẩn danh (Anonymous Member) trong nhóm Facebook.
+                  </p>
+                  <p>
+                    • <strong>Yêu cầu bắt buộc:</strong> Nhóm hoặc bài viết phải ở chế độ <strong>Công khai (Public)</strong> để Quản trị viên / AI có thể mở link và kiểm duyệt nội dung.
+                  </p>
+                </div>
               </div>
 
               <div>

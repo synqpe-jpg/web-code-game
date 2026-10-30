@@ -96,9 +96,17 @@ export const NewsView: React.FC<NewsViewProps> = ({
   // Distinct game options for category filtering
   const gameFilterOptions = useMemo(() => {
     const map = new Map<string, string>();
+    const seenNames = new Set<string>();
     articles.forEach((a) => {
-      if (a.game_slug && a.game_name) {
-        map.set(a.game_slug, a.game_name);
+      const gSlug = (a.game_slug || '').trim();
+      const gName = (a.game_name || '').trim();
+      // Skip invalid or article-title-like game names (> 32 chars or containing colons)
+      if (gSlug && gSlug !== 'all' && gName && gName.length <= 32 && !gName.includes(':')) {
+        const normName = gName.toLowerCase();
+        if (!seenNames.has(normName) && !map.has(gSlug)) {
+          seenNames.add(normName);
+          map.set(gSlug, gName);
+        }
       }
     });
     return Array.from(map.entries()).map(([slug, name]) => ({ slug, name }));
@@ -134,7 +142,7 @@ export const NewsView: React.FC<NewsViewProps> = ({
     setCurrentPage(1);
   }, [searchQuery, selectedGameSlug, selectedTag, pageSize]);
 
-  const totalArticlesCount = gridArticles.length;
+  const totalArticlesCount = filteredArticles.length;
   const totalPages = Math.max(1, Math.ceil(totalArticlesCount / pageSize));
 
   // Auto-clamp if page exceeds total available pages
@@ -346,7 +354,7 @@ export const NewsView: React.FC<NewsViewProps> = ({
       <div className="mb-8 space-y-4">
         <div className="flex flex-col sm:flex-row gap-3 items-stretch sm:items-center justify-between">
           {/* Search input */}
-          <div className="relative flex-1 max-w-md">
+          <div className="relative flex-1 max-w-lg lg:max-w-xl">
             <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
             <input
               type="text"

@@ -10,6 +10,27 @@
 
 ## 1. DANH MỤC LỖI & CÁC BẪY ĐÃ THẤT BẠI (DO NOT REPEAT)
 
+### ISSUE-189: Bẫy Đồng Bộ Mù Một Chiều Khi Hai Kho Bị Lệch Hai Hướng Ngược Nhau & Bẫy Mâu Thuẫn Số Liệu Tồn Kho Tiện Ích (Selective News Merge, Utilities Stock Alignment & Multi-Surface UX Polish Pitfalls)
+- **Triệu chứng**:
+  - Kho API (`/api/news`, 208 bài) có 7 bài cập nhật đúng (2 bài Hiệp Khách Hành dời ngày 09h00 05/11/2026, ảnh bìa chuẩn, nội dung đầy đủ 5811 & 6157 ký tự) nhưng lại tồn dư 53-62 ký tự lỗi UTF-8 (`U+FFFD`). Ngược lại, kho đồng bộ (`seedNews.ts` / `/api/sync`) sạch 100% lỗi UTF-8 nhưng lại giữ tiêu đề/ảnh bìa cũ và nội dung cẩm nang bị rút ngắn.
+  - Đồng bộ mù 1 chiều: Nếu đẩy từ API sang sync sẽ làm nhiễm lỗi mã hóa sang kho sạch; nếu đẩy từ sync sang API sẽ làm mất tiêu đề mới và nội dung đầy đủ.
+  - Khách hàng xem gói tiện ích (như Cloud Phone VS Phone VIP) thấy badge "Còn hàng (422)" trong khi kho thật chỉ còn 7 và bị kẹp mua tối đa 7 gói, gây hoang mang về số lượng thực tế.
+  - Loạt lỗi UX/UI C1-C13: Tiêu đề giveaway thu về 1 ký tự, hạn rỗng hiện "Gần đây", countdown phút bị kẹt ở "00m" do chia dư sai, nhãn xung đột "ĐÃ MỞ SERVER" + đếm ngược, nút copy mã hết hạn không bị disabled, URL direct `/nhiem-vu` bị nhảy sang catalog.
+- **Nguyên nhân gốc rễ**:
+  1. *Hai kho lệch hai chiều ngược nhau*: Cần gộp có chọn lọc (selective merge) lấy metadata & content của 7 bài đúng ghép vào bộ dataset UTF-8 sạch 100%, sau đó đồng bộ atomic lên Cloudflare D1 và xóa cache biên.
+  2. *Lẫn lộn tồn kho ảo FOMO (`displayStock`) và tồn kho thực (`realStock`)*: Badge chi tiết gọi `getDisplayStock` cộng thêm virtual buffer trong khi khách chỉ mua được tối đa `realStock`.
+  3. *Lỗi toán học chia dư phút*: `Math.floor((diff % (1000 * 60)) / (1000 * 60))` trong `AllUpcomingGamesModal.tsx` khiến phút luôn bằng 0. Cần sửa thành `diff % (1000 * 60 * 60)`.
+  4. *Fallback mảng rỗng trong JS*: `game.expectedCodes || fallback` giữ mảng rỗng `[]` (truthy), khiến độ dài hiển thị bằng 0.
+  5. *Thiếu mapping route trong popstate*: `handlePopState` thiếu nhận diện `/missions`, `/nhiem-vu`, `#missions`, `#nhiem-vu`.
+- **Giải pháp chuẩn đã kiểm chứng**:
+  1. *Gộp có chọn lọc*: Nhập 7 bài đúng vào `seedNews.ts` (0 `\uFFFD`), đẩy lên D1 qua `/api/sync`, xác nhận cả 2 kho đều đạt 208 bài, 0 lỗi UTF-8, HKH đạt 5811 & 6157 ký tự. Tuyên bố SSOT rõ ràng.
+  2. *Đồng bộ số liệu Tiện ích*: Hiển thị trực tiếp `Còn hàng ({realStock})` cho gói có kho thực tế; xóa bỏ nhãn khuyến mãi và thông báo Flash Sale giới hạn tối đa; giải thích minh bạch cơ chế sinh số 420 (virtual stock buffer) và 3667 (hourly simulated sales).
+  3. *Sửa triệt để C1-C13*: Sửa modulo phút, fallback 4 mã quà tặng, fallback tiêu đề và ngày vô thời hạn, chia sẻ bộ đếm phòng chờ chung theo `campaign.id`, disable nút copy hết hạn, mở rộng thanh search tin tức và chuẩn hóa danh mục game.
+- 🚫 **CÁCH SỬA ĐÃ THẤT BẠI - TUYỆT ĐỐI KHÔNG LẶP LẠI**:
+  - ❌ *Tuyệt đối KHÔNG chạy đồng bộ mù 1 chiều khi 2 kho đang giữ các ưu điểm đối lập nhau*.
+  - ❌ *Tuyệt đối KHÔNG dùng `diff % (1000 * 60)` khi tính số phút còn lại của sự kiện*.
+  - ❌ *Tuyệt đối KHÔNG hiển thị `displayStock` ảo ở nơi khách quyết định số lượng mua thực tế*.
+
 ### ISSUE-188: Bẫy Kẹp Trần Phân Trang Lặp Vô Hạn (safePage Clamping Loop), Lọc Cứng Game 0 Mã, và Thiếu Deduplication Khi Nạp Kho Mã Giveaway
 - **Triệu chứng**:
   - Truy vấn `GET /api/games?limit=100&page=N`: trang 1..11 trả 48 bản ghi do hardcap trần `limit = 48`. Trang 12 trả 39 bản ghi; từ trang 13 trở đi trả y hệt trang 12 (lặp mãi 39 game giống nhau, không bao giờ kết thúc).

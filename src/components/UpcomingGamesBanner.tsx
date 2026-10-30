@@ -154,7 +154,7 @@ export const UpcomingGamesBanner: React.FC<UpcomingGamesBannerProps> = ({
           title="Xem toàn bộ lịch ra mắt game sắp tới"
         >
           <Calendar className="w-3 h-3 sm:w-3.5 sm:h-3.5 text-cyan-400" />
-          <span>Xem tất cả ({upcomingGames.length})</span>
+          <span>Xem tất cả ({upcomingGames.filter(g => g.status !== 'CANCELLED').length})</span>
           <ChevronRight className="w-3 h-3 sm:w-3.5 sm:h-3.5" />
         </button>
       </div>
@@ -221,8 +221,8 @@ export const UpcomingGamesBanner: React.FC<UpcomingGamesBannerProps> = ({
                         <Sparkles className="w-2.5 h-2.5 sm:w-3 sm:h-3 text-amber-400" />
                         <span>ĐÃ MỞ SERVER</span>
                       </div>
-                      <div className="text-[8px] sm:text-[10px] text-cyan-300/80 mt-0.5 font-medium truncate">
-                        ⏳ Còn {time.bannerRemainingHours}h {time.bannerRemainingMinutes}m
+                      <div className="text-[8px] sm:text-[10px] text-emerald-300/90 mt-0.5 font-medium truncate">
+                        ✓ Đang hoạt động chính thức
                       </div>
                     </div>
                   ) : (
