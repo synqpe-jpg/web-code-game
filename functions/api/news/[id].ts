@@ -249,6 +249,11 @@ export const onRequestPut: PagesFunction<Env> = async (context) => {
       master.newsArticles = articles;
       await setSettingD1(env.DB, 'wcg_master_state_v4', master);
       invalidateSettingMemoryCache('wcg_master_state_v4');
+
+      // Invalidate Edge sync cache and system_snapshots
+      (globalThis as any).__wcg_public_sync_cache = null;
+      (globalThis as any).__wcg_metrics_snapshot = null;
+      await env.DB.prepare('DELETE FROM system_snapshots').run().catch(() => {});
     } catch (e: any) {
       return new Response(
         JSON.stringify({ success: false, error: 'Database update failed: ' + e?.message }),
@@ -321,6 +326,11 @@ export const onRequestDelete: PagesFunction<Env> = async (context) => {
       master.deletedNewsArticles = Array.from(deletedSet);
       await setSettingD1(env.DB, 'wcg_master_state_v4', master);
       invalidateSettingMemoryCache('wcg_master_state_v4');
+
+      // Invalidate Edge sync cache and system_snapshots
+      (globalThis as any).__wcg_public_sync_cache = null;
+      (globalThis as any).__wcg_metrics_snapshot = null;
+      await env.DB.prepare('DELETE FROM system_snapshots').run().catch(() => {});
     } catch (e: any) {
       return new Response(
         JSON.stringify({ success: false, error: 'Database delete failed: ' + e?.message }),

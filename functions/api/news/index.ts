@@ -299,6 +299,11 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
       master.newsArticles = updatedList;
       await setSettingD1(env.DB, 'wcg_master_state_v4', master);
       invalidateSettingMemoryCache('wcg_master_state_v4');
+
+      // Invalidate Edge sync cache and system_snapshots so /api/sync immediately reflects the new article
+      (globalThis as any).__wcg_public_sync_cache = null;
+      (globalThis as any).__wcg_metrics_snapshot = null;
+      await env.DB.prepare('DELETE FROM system_snapshots').run().catch(() => {});
     } catch (e: any) {
       console.error('[News API] Error writing to D1:', e?.message);
       return new Response(

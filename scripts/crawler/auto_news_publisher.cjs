@@ -569,23 +569,45 @@ async function runAutoNewsPublisher() {
   console.log('🔗 Server Sync URL:', SYNC_URL);
   console.log('========================================================');
 
-  // 1. Fetch current state from Cloudflare D1
+  // 1. Fetch current state from Cloudflare D1 (ưu tiên SSOT chuyên biệt /api/news)
+  let existingArticles = [];
+  let deletedSet = new Set();
   let syncState = null;
+
   try {
-    const res = await fetch(SYNC_URL, {
+    const newsRes = await fetch(`https://codegame.shop/api/news?status=ALL&limit=all&_t=${Date.now()}`, {
+      headers: {
+        'X-Sync-Key': ADMIN_SYNC_SECRET,
+      },
+    });
+    if (newsRes.ok) {
+      const newsJson = await newsRes.json();
+      if (Array.isArray(newsJson.articles) && newsJson.articles.length > 0) {
+        existingArticles = newsJson.articles;
+      }
+    }
+  } catch (e) {
+    console.warn('[AutoNews] Cannot fetch from /api/news, trying /api/sync fallback:', e?.message);
+  }
+
+  try {
+    const res = await fetch(`${SYNC_URL}?fresh=1&_t=${Date.now()}`, {
       headers: {
         'X-Sync-Key': ADMIN_SYNC_SECRET,
       },
     });
     if (res.ok) {
       syncState = await res.json();
+      if (existingArticles.length === 0 && Array.isArray(syncState?.newsArticles)) {
+        existingArticles = syncState.newsArticles;
+      }
+      if (Array.isArray(syncState?.deletedNewsArticles)) {
+        deletedSet = new Set(syncState.deletedNewsArticles);
+      }
     }
   } catch (e) {
     console.warn('[AutoNews] Cannot fetch state from sync endpoint:', e?.message);
   }
-
-  const existingArticles = Array.isArray(syncState?.newsArticles) ? syncState.newsArticles : [];
-  const deletedSet = new Set(Array.isArray(syncState?.deletedNewsArticles) ? syncState.deletedNewsArticles : []);
 
   const DEFAULT_SOURCES = [
     {

@@ -281,8 +281,23 @@ class NewsService {
           ...a,
           published_at: a.published_at || a.created_at || new Date().toISOString(),
         }));
-        if (cleanServer.length > 0 || this.articles.length === 0) {
-          this.articles = cleanServer;
+
+        // Chống tụt giảm dữ liệu ngoài ý muốn (Safeguard merge):
+        // Nếu máy chủ trả về ít bài hơn bộ nhớ cục bộ, bảo toàn các bài viết chưa có trên máy chủ
+        let mergedList = cleanServer;
+        if (cleanServer.length < this.articles.length && this.articles.length > 0) {
+          const serverIdSet = new Set(cleanServer.map(a => a.id));
+          const serverSlugSet = new Set(cleanServer.map(a => a.slug));
+          const localOnly = this.articles.filter(
+            a => !serverIdSet.has(a.id) && !serverSlugSet.has(a.slug) && !this.deletedArticleIds.has(a.id) && !this.deletedArticleIds.has(a.slug)
+          );
+          if (localOnly.length > 0) {
+            mergedList = [...cleanServer, ...localOnly];
+          }
+        }
+
+        if (mergedList.length > 0 || this.articles.length === 0) {
+          this.articles = mergedList;
           this.saveToStorage();
         }
       }
@@ -314,6 +329,22 @@ class NewsService {
    */
   public async syncFromServer(): Promise<NewsArticle[]> {
     if (typeof window === 'undefined') return this.articles;
+
+    // 1. Thử lấy trực tiếp từ API chuyên biệt /api/news (SSOT chuẩn xác nhất từ Cloudflare D1)
+    try {
+      const res = await fetch(`/api/news?status=ALL&limit=all&_t=${Date.now()}`);
+      if (res.ok) {
+        const json = await res.json();
+        if (Array.isArray(json.articles) && json.articles.length > 0) {
+          this.applyServerSnapshot(json.articles);
+          return this.articles;
+        }
+      }
+    } catch (e) {
+      console.warn('[NewsService] syncFromServer failed on /api/news, trying /api/sync fallback:', e);
+    }
+
+    // 2. Fallback sang /api/sync nếu /api/news không khả dụng
     try {
       const res = await fetch(`/api/sync?key=wcg_news_articles_v1&fresh=1&_t=${Date.now()}`);
       if (res.ok) {
@@ -325,19 +356,8 @@ class NewsService {
         }
       }
     } catch (e) {
-      console.warn('[NewsService] syncFromServer failed on /api/sync, trying /api/news fallback:', e);
+      console.warn('[NewsService] syncFromServer failed on /api/sync fallback:', e);
     }
-
-    try {
-      const res = await fetch(`/api/news?limit=all&_t=${Date.now()}`);
-      if (res.ok) {
-        const json = await res.json();
-        if (Array.isArray(json.articles) && json.articles.length > 0) {
-          this.applyServerSnapshot(json.articles);
-          return this.articles;
-        }
-      }
-    } catch {}
 
     return this.articles;
   }

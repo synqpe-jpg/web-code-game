@@ -644,15 +644,20 @@ export const NewsModule: React.FC<NewsModuleProps> = ({ onShowToast }) => {
   const handleManualSync = async () => {
     setIsSyncing(true);
     try {
+      // 1. Kéo dữ liệu mới nhất trực tiếp từ SSOT /api/news trên Cloudflare D1
       await newsService.syncFromServer();
-      await adminDataService.fetchFromCloudflareKV();
       const list = newsService.getAllArticles();
       setArticles(list);
+
+      // 2. Đẩy danh mục bài viết đồng bộ lên /api/sync và D1 để Web Khách cập nhật tức thì
       const ok = await newsService.syncArticlesToCloudflare();
+      const finalList = newsService.getAllArticles();
+      setArticles(finalList);
+
       if (ok) {
-        onShowToast('Đã đồng bộ D1', `Đã đồng bộ đầy đủ ${list.length} bài viết tin tức với Cloudflare D1!`, 'success');
+        onShowToast('Đã đồng bộ D1', `Đã đồng bộ đầy đủ ${finalList.length} bài viết tin tức với Cloudflare D1 & Web Khách!`, 'success');
       } else {
-        onShowToast('Đã làm mới dữ liệu', `Đã kéo ${list.length} bài viết tin tức mới nhất từ máy chủ D1!`, 'info');
+        onShowToast('Đã làm mới dữ liệu', `Đã kéo ${finalList.length} bài viết tin tức mới nhất từ máy chủ D1!`, 'info');
       }
     } catch (e: any) {
       onShowToast('Lỗi đồng bộ', e?.message, 'error');

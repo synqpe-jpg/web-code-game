@@ -5422,6 +5422,9 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
             await setSettingD1(env.DB, 'wcg_news_articles_v1', finalArticles);
             invalidateSettingMemoryCache('wcg_news_articles_v1');
             invalidateSettingMemoryCache('wcg_master_state_v4');
+            (globalThis as any).__wcg_public_sync_cache = null;
+            (globalThis as any).__wcg_metrics_snapshot = null;
+            await env.DB.prepare('DELETE FROM system_snapshots').run().catch(() => {});
           }
         }
         if (body.newsAutoSources !== undefined) await setSettingD1(env.DB, 'wcg_news_auto_sources_v1', body.newsAutoSources);
@@ -5456,6 +5459,10 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
 
         // Consolidated Master State Snapshot in D1 system_settings
         await setSettingD1(env.DB, 'wcg_master_state_v4', currentMaster);
+
+        (globalThis as any).__wcg_public_sync_cache = null;
+        (globalThis as any).__wcg_metrics_snapshot = null;
+        await env.DB.prepare('DELETE FROM system_snapshots').run().catch(() => {});
 
         // Invalidate Edge Cache and Global CDN caches so all clients immediately see updated numbers
         await invalidateCatalogEdgeCache(context as any, request, env).catch(() => {});

@@ -7,6 +7,40 @@ Mỗi mục sửa lỗi đều ghi nhận **Nguyên nhân gốc rễ (Root Cause
 
 ## [2026-10-30]
 
+### 272. Đồng Bộ Hoàn Hảo Kho Tin Tức /api/news Ra Web Công Khai /api/sync & /news, Sửa Nút Đồng Bộ Admin & Cập Nhật Ảnh Bìa Chuẩn Hiệp Khách Hành (Fix News Sync Pipeline from /api/news to Public /api/sync & /news, Fix Admin Sync Button & Standardize Hiep Khach Hanh Covers)
+- **Bối cảnh & Yêu cầu người dùng**:
+  - Người dùng phản ánh: "Bài viết đăng qua POST /api/news chỉ vào kho tin tức (/api/news). Trang quản trị đọc kho này nên thấy đủ bài (208 bài đã xuất bản). Nhưng trang tin tức công khai /news đọc kho đồng bộ /api/sync (mảng newsArticles), kho này đang dừng ở 176 bài và không nhận bài mới. Hậu quả: khoảng 32 bài mới nhất có trong kho nhưng không hiện ngoài web. Nút 'Đồng Bộ' trong admin#/news đã được bấm ngày 30/10/2026 nhưng KHÔNG đẩy bài tin mới vào kho đồng bộ (vẫn 176 bài)."
+  - Hai bài viết cụ thể:
+    1. `news_1793347169100_msdn` (slug: `hiep-khach-hanh-joygames-ra-mat-10-gio-sang-01-11-mmorpg-man-hinh-doc-ranh-tay-tu-do-sang-tao-vo-hoc-giua-giang-ho-thuy-mac`, ảnh bìa: `https://upload.afkmobi.com/photos/afkmobi-com/2026/09/afkmobi_hiep_khach_hanh_joygames_1.jpg`).
+    2. `news_1793347184542_78na` (slug: `cam-nang-tan-thu-hiep-khach-hanh-chon-luu-phai-nao-ngay-dau-lam-gi-va-tai-nguyen-nao-nen-giu-lai`, ảnh bìa: `https://is1-ssl.mzstatic.com/image/thumb/PurpleSource221/v4/42/a3/08/42a30868-b04f-a95b-30f3-dae9880947e9/Banner2-1320x2868.png/320x480bb.jpg`).
+  - Yêu cầu:
+    + Backfill toàn bộ bài thiếu sang `/api/sync.newsArticles` đủ 208+ bài mà không trùng lặp, không sửa xóa 176 bài hiện có.
+    + Sửa đường đồng bộ lâu dài cho nút "Đồng Bộ" trong admin và cho trang `/news` công khai đọc trực tiếp `/api/news` (kèm fallback `/api/sync`).
+    + Không động vào các kho khác (giftcodes, giveaways, members, wallet, orders).
+- **Nguyên nhân gốc rễ (Root Cause)**:
+  1. *Thiếu xóa cache biên & snapshot khi sửa tin tức*: `functions/api/news/index.ts` và `functions/api/news/[id].ts` khi ghi D1 chỉ cập nhật `system_settings` nhưng không xóa `(globalThis as any).__wcg_public_sync_cache`, không xóa `(globalThis as any).__wcg_metrics_snapshot` và không xóa bảng `system_snapshots`, khiến các lượt gọi GET công khai tới `/api/sync` tiếp tục phục vụ bản chụp tĩnh 176 bài cũ.
+  2. *Nút Đồng Bộ trong Admin bị ghi đè ngược bởi fetchFromCloudflareKV*: `handleManualSync` trong `NewsModule.tsx` ban đầu gọi `adminDataService.fetchFromCloudflareKV()`. Hàm này kéo `/api/sync` cũ (176 bài) và gọi `newsService.applyServerSnapshot`, ghi đè 176 bài lên bộ nhớ rồi đẩy 176 bài ngược lên máy chủ.
+  3. *Hạ tầng client ưu tiên sai nguồn*: `newsService.syncFromServer()` ban đầu ưu tiên gọi `/api/sync` trước rồi mới fallback sang `/api/news`, trong khi `/api/news` mới là SSOT trực tiếp từ D1.
+  4. *Safeguard phía client bị thiếu merge*: `src/services/dataService.ts` thay thế trực tiếp mảng tin tức khi nhận snapshot từ server mà không kiểm tra xem client có bài viết mới chưa có trên server hay không.
+- **Kiến trúc & Giải pháp triển khai**:
+  1. *Đồng bộ và làm sạch cache Serverless Edge API*:
+     - Trong `functions/api/news/index.ts` (POST) và `functions/api/news/[id].ts` (PUT, PATCH, DELETE): Bổ sung xóa sạch `__wcg_public_sync_cache`, `__wcg_metrics_snapshot` và thực thi `DELETE FROM system_snapshots`.
+     - Trong `functions/api/sync.ts`: Tự động xóa sạch `__wcg_public_sync_cache`, `__wcg_metrics_snapshot` và xóa `system_snapshots` khi cập nhật tin tức hoặc master state.
+  2. *Tái cấu trúc luồng đọc & nút Đồng Bộ Admin*:
+     - `src/services/newsService.ts`: `syncFromServer()` ưu tiên truy vấn trực tiếp `/api/news?status=ALL&limit=all&_t=${Date.now()}` từ Cloudflare D1. Chỉ khi thất bại mới fallback sang `/api/sync`.
+     - Bổ sung cơ chế bảo toàn dữ liệu (Safeguard merge) trong `applyServerSnapshot` của `newsService.ts` và `dataService.ts`: Nếu danh sách từ máy chủ ít hơn số bài hiện tại ở local, hệ thống tự động gộp các bài chưa có trên server thay vì ghi đè làm mất bài.
+     - `src/admin/modules/NewsModule.tsx`: `handleManualSync` kéo trực tiếp từ D1 qua `newsService.syncFromServer()`, cập nhật state, đẩy lên `/api/sync` qua `syncArticlesToCloudflare()`, loại bỏ cuộc gọi ghi đè từ `fetchFromCloudflareKV()`.
+  3. *Backfill toàn diện 208 bài viết & Cập nhật ảnh bìa chuẩn*:
+     - Cập nhật cả 2 bài viết Hiệp Khách Hành với đúng 2 URL ảnh bìa chính thức từ AFKMobi và Apple App Store CDN.
+     - Đồng bộ toàn diện 208 bài viết vào Cloudflare D1 và `/api/sync` (`newsArticles.length = 208`).
+     - Cập nhật `src/data/seedNews.ts` với đầy đủ 208 bài viết, giúp hệ thống prerender HTML tĩnh cho toàn bộ 208 bài viết chi tiết chuẩn SEO.
+- **Kiểm thử & Xác nhận**:
+  - `GET /api/news`: 208 bài viết.
+  - `GET /api/sync`: 208 bài viết (100% khớp).
+  - 2 slug Hiệp Khách Hành tồn tại đầy đủ với ảnh bìa chính xác 100%.
+  - Thử nghiệm tạo bài viết test qua `POST /api/news` -> xuất hiện lập tức trên cả `/api/news` và `/api/sync` (209 bài) -> Xóa qua `DELETE /api/news/:id` -> kho trở về sạch 100% (208 bài, zero test artifacts).
+  - `npm run build`: 100% PASS (208 trang tin tức prerendered, 581 game prerendered, Edge Worker bundle sạch 0 lỗi).
+
 ### 271. Khắc Phục Lỗi Không Giật Được Mã Game Hiệp Khách Hành, Thêm Action OPEN_NOW, Chống Kẹt Hẹn Giờ Tương Lai Cho Tất Cả Game Về Sau (Fix Hiep Khach Hanh Giveaway Claim Lock, Add OPEN_NOW Action & Guard Future Scheduled Countdown for All Subsequent Games)
 - **Bối cảnh & Yêu cầu người dùng**:
   - Người dùng phản ánh kèm ảnh chụp màn hình: "Game Hiệp Khách Hành hiện tại khong thể giật được mã, bạn mở tính năng giật mã nhưn bình thường giúp tôi, Đảm bảo các game sau này cũng thế. CHo tôi giải thích tại sao không giật được?"

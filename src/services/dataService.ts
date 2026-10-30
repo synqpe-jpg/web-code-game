@@ -901,12 +901,23 @@ public async syncWithCloudflareKV(forceFresh: boolean = false): Promise<void> {
               try {
                 if (currentNews) existingLocalArticles = JSON.parse(currentNews);
               } catch {}
-              if (cleanArticles.length > 0 || !Array.isArray(existingLocalArticles) || existingLocalArticles.length === 0) {
-                const newNews = JSON.stringify(cleanArticles);
+
+              // Chống tụt giảm bài viết: Nếu kho máy chủ tạm thời có ít bài hơn kho cục bộ, bảo toàn bài viết chưa có trên máy chủ
+              const serverIdSet = new Set(cleanArticles.map((a: any) => a.id));
+              const serverSlugSet = new Set(cleanArticles.map((a: any) => a.slug));
+              const localUnsynced = Array.isArray(existingLocalArticles)
+                ? existingLocalArticles.filter(
+                    (la: any) => la && la.id && !serverIdSet.has(la.id) && !serverSlugSet.has(la.slug) && !deletedSet.has(la.id) && !deletedSet.has(la.slug)
+                  )
+                : [];
+              const finalArticles = [...localUnsynced, ...cleanArticles];
+
+              if (finalArticles.length > 0 || !Array.isArray(existingLocalArticles) || existingLocalArticles.length === 0) {
+                const newNews = JSON.stringify(finalArticles);
                 if (currentNews !== newNews || json.newsAutoSources || json.newsScheduleConfig) {
                   localStorage.setItem('wcg_news_articles_v1', newNews);
-                  newsService.applyServerSnapshot(cleanArticles, json.newsAutoSources, json.newsScheduleConfig);
-                  window.dispatchEvent(new CustomEvent('wcg_news_updated', { detail: cleanArticles }));
+                  newsService.applyServerSnapshot(finalArticles, json.newsAutoSources, json.newsScheduleConfig);
+                  window.dispatchEvent(new CustomEvent('wcg_news_updated', { detail: finalArticles }));
                 }
               }
             }

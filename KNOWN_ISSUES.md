@@ -10,6 +10,25 @@
 
 ## 1. DANH MỤC LỖI & CÁC BẪY ĐÃ THẤT BẠI (DO NOT REPEAT)
 
+### ISSUE-187: Bẫy Không Xóa Cache Biên Khi Đăng Tin Tức Mới & Bẫy Ghi Đè Ngược Từ Snapshot Khi Bấm Đồng Bộ Admin (News API Cache Invalidation & Admin Reverse Desync Overwrite Pitfall)
+- **Triệu chứng**:
+  - Bài viết mới đăng qua `POST /api/news` hiển thị đầy đủ trong trang Quản trị (`/api/news`), nhưng trang Khách công khai (`/news`) đọc từ kho `/api/sync` (`newsArticles`) lại không nhận được bài mới và dừng ở số lượng cũ.
+  - Khi bấm nút "Đồng Bộ" trong `admin#/news`, số lượng bài viết trên web công khai vẫn không tăng, thậm chí các bài viết mới có nguy cơ bị ghi đè ngược bởi snapshot cũ từ máy chủ.
+- **Nguyên nhân gốc rễ**:
+  1. `functions/api/news/index.ts` và `functions/api/news/[id].ts` chỉ lưu vào bảng `system_settings` nhưng không xóa biến bộ nhớ cạnh `__wcg_public_sync_cache`, `__wcg_metrics_snapshot` và bảng `system_snapshots`, khiến Cloudflare Worker tiếp tục phục vụ snapshot cũ cho `/api/sync`.
+  2. Nút "Đồng Bộ" trong `NewsModule.tsx` ban đầu gọi `adminDataService.fetchFromCloudflareKV()`, hàm này kéo dữ liệu từ `/api/sync` (đang giữ snapshot cũ) rồi gọi `newsService.applyServerSnapshot`, ghi đè dữ liệu cũ lên client và đẩy ngược lên máy chủ.
+  3. `newsService.syncFromServer()` ưu tiên gọi `/api/sync` thay vì gọi trực tiếp `/api/news` (SSOT chuẩn xác nhất từ D1).
+  4. Hàm xử lý `dataService.ts` thay thế trực tiếp mảng tin tức mà không có cơ chế giữ lại (merge) các bài viết mới ở client.
+- **Giải pháp chuẩn đã kiểm chứng**:
+  1. Trong `functions/api/news/index.ts` (POST) và `functions/api/news/[id].ts` (PUT, DELETE): Luôn xóa sạch `(globalThis as any).__wcg_public_sync_cache`, `__wcg_metrics_snapshot` và thực thi `DELETE FROM system_snapshots`.
+  2. Trong `functions/api/sync.ts`: Tự động xóa sạch `__wcg_public_sync_cache` và xóa `system_snapshots` khi cập nhật `newsArticles`.
+  3. `newsService.syncFromServer()` luôn ưu tiên truy vấn trực tiếp `/api/news?status=ALL&limit=all&_t=${Date.now()}` từ Cloudflare D1.
+  4. Bổ sung cơ chế Safeguard Merge trong cả `newsService.ts` và `dataService.ts`: Nếu dữ liệu máy chủ trả về ít hơn dữ liệu cục bộ, tự động bảo toàn các bài viết chưa có trên máy chủ thay vì xóa bỏ.
+  5. Trong `NewsModule.tsx`, nút "Đồng Bộ" chỉ gọi `newsService.syncFromServer()` và `newsService.syncArticlesToCloudflare()`, tuyệt đối không gọi `fetchFromCloudflareKV()`.
+- 🚫 **CÁCH SỬA ĐÃ THẤT BẠI - TUYỆT ĐỐI KHÔNG LẶP LẠI**:
+  - ❌ *Tuyệt đối KHÔNG gọi `adminDataService.fetchFromCloudflareKV()` trong hàm đồng bộ tin tức vì sẽ gây vòng lặp ghi đè ngược dữ liệu cũ từ snapshot lên tin mới*.
+  - ❌ *Tuyệt đối KHÔNG để `POST /api/news` và `PUT /api/news/:id` cập nhật cơ sở dữ liệu mà quên làm sạch cache biên và `system_snapshots`*.
+
 ### ISSUE-186: Bẫy Khóa Giờ G Đếm Ngược Do `start_time` Tương Lai Khiến Không Thể Giật Mã & Thiếu Nút Mở Ngay Lập Tức (Giveaway Future start_time Countdown Lock & Missing Instant OPEN_NOW Action Pitfall)
 - **Triệu chứng**:
   - Chiến dịch phát code quà tặng hiển thị trạng thái "Mở sau: ...", nút bị khóa thành `[🕒 Chờ Mở]`, khách bấm vào không thể giật mã và backend từ chối với lỗi `CAMPAIGN_NOT_STARTED` dù trong kho còn rất nhiều mã.
