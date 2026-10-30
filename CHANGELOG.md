@@ -5,6 +5,20 @@ Mỗi mục sửa lỗi đều ghi nhận **Nguyên nhân gốc rễ (Root Cause
 
 ---
 
+## [2026-10-31]
+
+### 278. Tạm Dừng Lịch Trình Cron Tự Động Xuất Bản Tin Tức Cho Đến Sau 23:59 Ngày 08/11/2026 Theo Quy Định Freeze Dữ Liệu
+- **Bối cảnh & Yêu cầu người dùng**:
+  - Tạm dừng lịch chạy của workflow `.github/workflows/auto-news-publisher.yml` (cron `'45 * * * *'`) từ 00:10 ngày 31/10/2026 tới sau 23:59 ngày 08/11/2026 theo yêu cầu của chủ web.
+  - Mục đích: Giữ số liệu tin tức đóng băng hoàn toàn trong thời gian freeze, tránh việc mỗi giờ tự động crawl và đăng thêm bài làm gia tăng độ lệch giữa các kho dữ liệu.
+  - Chỉ tạm tắt lịch trình cron, giữ nguyên workflow và `workflow_dispatch` để cho phép kích hoạt thủ công khi cần; không sửa đổi mã nguồn ứng dụng hay chạm vào nội dung tin tức, giveaway, nhiệm vụ, hay API bot.
+- **Giải pháp kỹ thuật**:
+  - `.github/workflows/auto-news-publisher.yml`: Chuyển lịch trình `schedule:` thành chú thích ghi rõ hướng dẫn mở lại sau ngày 08/11/2026.
+  - Đảm bảo lần chạy kế tiếp lúc 00:45 ngày 31/10/2026 và toàn bộ các chu kỳ tiếp theo bị bỏ qua tự động trên GitHub Actions.
+- **Kiểm thử & Xác nhận**:
+  - Cú pháp YAML hợp lệ 100%.
+  - Git commit và push trực tiếp lên nhánh `main` để GitHub Actions lập tức áp dụng trạng thái ngừng lịch trình cron.
+
 ## [2026-10-30]
 
 ### 277. Hoàn Thiện Nghiệm Thu Giai Đoạn 1 (SSOT Phase 1): Khắc Phục Triệt Để 22 vs 35 Upcoming Games, Khôi Phục Fallback Bền Vững content (11) & growthConfig (25), Khớp 100% Build ID Live
