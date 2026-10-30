@@ -7,6 +7,33 @@ Mỗi mục sửa lỗi đều ghi nhận **Nguyên nhân gốc rễ (Root Cause
 
 ## [2026-10-30]
 
+### 271. Khắc Phục Lỗi Không Giật Được Mã Game Hiệp Khách Hành, Thêm Action OPEN_NOW, Chống Kẹt Hẹn Giờ Tương Lai Cho Tất Cả Game Về Sau (Fix Hiep Khach Hanh Giveaway Claim Lock, Add OPEN_NOW Action & Guard Future Scheduled Countdown for All Subsequent Games)
+- **Bối cảnh & Yêu cầu người dùng**:
+  - Người dùng phản ánh kèm ảnh chụp màn hình: "Game Hiệp Khách Hành hiện tại khong thể giật được mã, bạn mở tính năng giật mã nhưn bình thường giúp tôi, Đảm bảo các game sau này cũng thế. CHo tôi giải thích tại sao không giật được?"
+  - Ảnh chụp hiển thị đợt phát "Hiệp Khách Hành" có nhãn "34 người đang chờ", badge đếm ngược đỏ "Mở sau: 1d 15:46:27", nút bị khóa thành `[🕒 Chờ Mở]`, và trong kho còn 225 mã.
+- **Nguyên nhân gốc rễ (Root Cause)**:
+  1. *Khóa Đếm Ngược Giờ G Kích Hoạt Bởi `start_time` Tương Lai*: Chiến dịch "Hiệp Khách Hành" (`gw_hiep-khach-hanh_mvuj5a5m`) khi tạo ban đầu nhận payload có `"start_time": "2026-11-01"`. Tại thời điểm gọi lệnh (`30/10/2026`), ngày 01/11/2026 nằm ở tương lai (còn 1 ngày 15 giờ).
+  2. *Cơ chế chặn ở Frontend*: `GiveawaysView.tsx` kiểm tra `const isNotStarted = !isNaN(cardStartMs) && nowMs < cardStartMs;`. Khi `isNotStarted === true`, card chuyển sang giao diện "Mở sau: ...", nút đổi thành `[🕒 Chờ Mở]` và khóa modal claim `disabled`.
+  3. *Cơ chế bảo vệ ở Edge Backend*: `functions/api/giveaways/claim.ts` kiểm tra `if (campaign.start_time && nowMs < startMs)` và trả về HTTP 400 kèm `errorCode: 'CAMPAIGN_NOT_STARTED'` ("Sự kiện chưa bắt đầu. Thời gian mở: ...").
+  4. *Giao diện Admin chưa phân biệt trực quan*: Trong bảng quản lý `PrivateCodesModule.tsx`, hệ thống chỉ kiểm tra `gw.is_active !== false` nên vẫn hiển thị nhãn xanh "Đang mở" (vì `is_active` là true), khiến Quản trị viên không nhận biết được chiến dịch đang bị khóa bởi `start_time` tương lai và không có nút 1-chạm để mở ngay lập tức.
+- **Kiến trúc & Giải pháp triển khai**:
+  1. *Mở giật mã lập tức cho Hiệp Khách Hành trên Live*:
+     - Cập nhật `start_time` của chiến dịch `gw_hiep-khach-hanh_mvuj5a5m` về `'2026-10-30'` (hôm nay), `status = 'ACTIVE'`, `is_active = true`.
+     - Đồng bộ nguyên tử vào D1 SQL, `wcg_admin_giveaways_v4`, `wcg_master_state_v4`, và làm sạch toàn bộ edge snapshot caches. Khách có thể giật mã ngay lập tức.
+  2. *Bổ sung Action `OPEN_NOW` (hoặc `OPEN_CAMPAIGN`) vào Serverless Edge API (`functions/api/giveaways/manage.ts`)*:
+     - Cho phép gọi PUT với `action: 'OPEN_NOW'` để tức thì chuyển `start_time = hôm nay`, `is_active = true`, `status = 'ACTIVE'`, xóa thời gian chờ `last_global_claim_at = ''`, và ghi audit log.
+     - Hỗ trợ cập nhật đầy đủ `start_time`, `end_time`, `is_active`, `status` trong `UPDATE_CONFIG` / `ADJUST_METRICS`.
+     - Trong POST: Mặc định `start_time = new Date().toISOString().split('T')[0]` nếu để trống hoặc không truyền, đảm bảo mọi game mới tạo ra đều sẵn sàng giật mã ngay lập tức.
+  3. *Cải tiến Bảng Quản trị & Form Cài Đặt (`src/admin/modules/PrivateCodesModule.tsx`)*:
+     - **Bảng quản lý (Cột 4 - Trạng thái)**: Phát hiện tự động nếu `start_time` ở tương lai (`isScheduledFuture`), lập tức hiển thị badge cảnh báo màu cam `⏳ Chờ mở (ngày)` kèm nút 1-chạm `⚡ Mở ngay` (`handleOpenNow`) để Quản trị viên hủy hẹn giờ và mở giật mã cho khách ngay tức thì.
+     - **Modal Tạo / Sửa đợt phát**: Bổ sung nút bấm `⚡ Mở ngay hôm nay` cạnh nhãn "Giờ bắt đầu mở sự kiện". Đồng thời hiển thị khung cảnh báo màu vàng giải thích rõ ràng nếu người dùng chọn ngày trong tương lai (khách sẽ thấy đồng hồ đếm ngược và không thể giật mã cho đến ngày đó).
+     - **Trình Thử Nghiệm API (Quick Tester)**: Bổ sung hành động `⚡ PUT: Mở Ngay Lập Tức (OPEN_NOW)` và tab tài liệu cURL/JS tương ứng.
+- **Kiểm thử & Xác nhận**:
+  - `npm run build`: 100% PASS (2115 modules, 581 game prerendered, 0 lỗi TypeScript).
+  - `node scripts/audit_zero_test_artifacts.cjs`: 100% PASS (Zero test artifacts).
+  - `node scripts/verify_all_requirements.cjs`: 100% PASS (6/6 core requirements).
+
+
 ### 270. Tách 8 Mã Cửu Âm Chân Kinh 2D Mobile Khỏi Bản Live Mobile, Xuất Bản Game 2D & Sửa Nhà Phát Hành Tiếu Ngạo Độc Tôn Thành VGP (Decouple 8 Codes of Cuu Am 2D Mobile from Live Mobile, Publish 2D Game & Correct Tieu Ngao Doc Ton Publisher to VGP)
 - **Bối cảnh & Yêu cầu người dùng**:
   - Người dùng yêu cầu xử lý 2 việc tồn đọng trên live mà API bên ngoài không thực hiện được:

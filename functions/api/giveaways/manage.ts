@@ -322,7 +322,7 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
       enable_waiting_room: enable_waiting_room !== false,
       waiting_users_min: Number(waiting_users_min) || 25,
       waiting_users_max: Number(waiting_users_max) || 85,
-      start_time: String(start_time || '').trim(),
+      start_time: String(start_time || '').trim() || new Date().toISOString().split('T')[0],
       end_time: String(end_time || '').trim(),
       is_active: is_active !== false && is_active !== 0,
       cover_image_url: String(cover_image_url || '').trim(),
@@ -595,7 +595,46 @@ export const onRequestPut: PagesFunction<Env> = async (context) => {
       );
     }
 
-    // 4. Cập nhật thông số mô phỏng hiển thị (action: ADJUST_METRICS)
+    // 4. Mở giật mã ngay lập tức (action: OPEN_NOW | OPEN_CAMPAIGN)
+    if (action === 'OPEN_NOW' || action === 'OPEN_CAMPAIGN') {
+      const todayDate = new Date().toISOString().split('T')[0];
+      currentGw.start_time = todayDate;
+      currentGw.is_active = true;
+      currentGw.status = 'ACTIVE';
+      currentGw.last_global_claim_at = '';
+      currentGw.updated_at = new Date().toISOString();
+
+      await env.DB.prepare(`
+        UPDATE giveaways
+        SET start_time = ?, is_active = 1, status = 'ACTIVE', last_global_claim_at = '', updated_at = datetime('now')
+        WHERE id = ?
+      `).bind(todayDate, targetId).run().catch(() => {});
+
+      existingList[targetIndex] = currentGw;
+      await setSettingD1(env.DB, 'wcg_admin_giveaways_v4', existingList);
+      invalidateSettingMemoryCache('wcg_admin_giveaways_v4');
+      await syncPublicGiveawayState(env, existingList);
+
+      await logGiveawayAudit(
+        env.DB,
+        targetId,
+        currentGw.title,
+        'OPEN_NOW',
+        actor,
+        `Đã mở giật mã ngay lập tức cho chiến dịch "${currentGw.title}" (start_time chuyển về ${todayDate}, trạng thái ACTIVE, xóa khóa hồi chiêu).`
+      );
+
+      return new Response(
+        JSON.stringify({
+          success: true,
+          message: `Đã mở giật mã ngay lập tức cho "${currentGw.title}"! Khách có thể giật mã ngay bây giờ.`,
+          giveaway: currentGw,
+        }),
+        { status: 200, headers: CORS_HEADERS }
+      );
+    }
+
+    // 5. Cập nhật thông số mô phỏng hiển thị & cấu hình (action: ADJUST_METRICS | UPDATE_CONFIG)
     if (action === 'ADJUST_METRICS' || action === 'UPDATE_CONFIG') {
       if (body.virtual_remaining_addition !== undefined) {
         currentGw.virtual_remaining_addition = Math.max(0, Number(body.virtual_remaining_addition));
@@ -608,6 +647,13 @@ export const onRequestPut: PagesFunction<Env> = async (context) => {
       if (body.max_per_ip !== undefined) currentGw.max_per_ip = Number(body.max_per_ip);
       if (body.cooldown_minutes !== undefined) currentGw.cooldown_minutes = Number(body.cooldown_minutes);
       if (body.global_cooldown_seconds !== undefined) currentGw.global_cooldown_seconds = Number(body.global_cooldown_seconds);
+      if (body.start_time !== undefined) currentGw.start_time = String(body.start_time || '').trim();
+      if (body.end_time !== undefined) currentGw.end_time = String(body.end_time || '').trim();
+      if (body.is_active !== undefined) {
+        currentGw.is_active = Boolean(body.is_active);
+        currentGw.status = currentGw.is_active ? 'ACTIVE' : 'PAUSED';
+      }
+      if (body.status !== undefined) currentGw.status = String(body.status).toUpperCase();
 
       currentGw.updated_at = new Date().toISOString();
       await syncGiveawaysToD1(env.DB, [currentGw]);
@@ -630,7 +676,7 @@ export const onRequestPut: PagesFunction<Env> = async (context) => {
     return new Response(
       JSON.stringify({
         success: false,
-        message: `Hành động không hợp lệ: "${action}". Các hành động được hỗ trợ: ADD_CODES, TOGGLE_ACTIVE, RESET_COOLDOWN, ADJUST_METRICS.`,
+        message: `Hành động không hợp lệ: "${action}". Các hành động được hỗ trợ: ADD_CODES, TOGGLE_ACTIVE, RESET_COOLDOWN, OPEN_NOW, ADJUST_METRICS, UPDATE_CONFIG.`,
       }),
       { status: 400, headers: CORS_HEADERS }
     );

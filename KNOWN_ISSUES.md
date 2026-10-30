@@ -10,6 +10,24 @@
 
 ## 1. DANH MỤC LỖI & CÁC BẪY ĐÃ THẤT BẠI (DO NOT REPEAT)
 
+### ISSUE-186: Bẫy Khóa Giờ G Đếm Ngược Do `start_time` Tương Lai Khiến Không Thể Giật Mã & Thiếu Nút Mở Ngay Lập Tức (Giveaway Future start_time Countdown Lock & Missing Instant OPEN_NOW Action Pitfall)
+- **Triệu chứng**:
+  - Chiến dịch phát code quà tặng hiển thị trạng thái "Mở sau: ...", nút bị khóa thành `[🕒 Chờ Mở]`, khách bấm vào không thể giật mã và backend từ chối với lỗi `CAMPAIGN_NOT_STARTED` dù trong kho còn rất nhiều mã.
+  - Trong Admin, bảng quản lý vẫn hiển thị trạng thái "Đang mở" (vì cờ `is_active === true`), gây hiểu lầm cho Quản trị viên rằng chiến dịch đang hoạt động bình thường mà không biết rằng `start_time` tương lai đang khóa toàn bộ lượt nhận code.
+- **Nguyên nhân gốc rễ**:
+  1. Khi tạo chiến dịch qua API hoặc form quản trị, trường `start_time` được điền ngày trong tương lai (ví dụ hôm nay ngày 30/10 nhưng điền `2026-11-01`).
+  2. Cả Frontend (`GiveawaysView.tsx`) và Backend (`claim.ts`) đều tuân thủ chặt chẽ Giờ G: `nowMs < startMs` -> Khóa đếm ngược.
+  3. Bảng Admin thiếu nhận diện `start_time > now` và Edge API thiếu action `OPEN_NOW` để 1-chạm đưa `start_time` về ngày hiện tại.
+- **Giải pháp chuẩn đã kiểm chứng**:
+  1. Trong API `POST /api/giveaways/manage`: Tự động mặc định `start_time = hôm nay` nếu trường này bị bỏ trống, đảm bảo mọi game mới tạo ra đều mở giật mã ngay lập tức.
+  2. Bổ sung action `OPEN_NOW` (hoặc `OPEN_CAMPAIGN`) vào `PUT /api/giveaways/manage`: Ngay lập tức đặt `start_time = hôm nay`, `is_active = true`, `status = 'ACTIVE'`, xóa thời gian chờ toàn sàn `last_global_claim_at = ''`.
+  3. Trong bảng Admin (`PrivateCodesModule.tsx`): Kiểm tra tự động nếu `start_time` ở tương lai thì hiển thị ngay badge cam `⏳ Chờ mở (ngày)` kèm nút 1-chạm `⚡ Mở ngay` (`handleOpenNow`).
+  4. Trong form tạo/sửa đợt phát: Thêm nút `⚡ Mở ngay hôm nay` và cảnh báo màu vàng khi người dùng chọn ngày tương lai.
+- 🚫 **CÁCH SỬA ĐÃ THẤT BẠI - TUYỆT ĐỐI KHÔNG LẶP LẠI**:
+  - ❌ *Tuyệt đối KHÔNG xóa bỏ hoàn toàn cơ chế kiểm tra `start_time` ở backend `claim.ts` vì điều này sẽ phá vỡ tính năng hẹn giờ cho các sự kiện đếm ngược thực sự*.
+  - ❌ *Tuyệt đối KHÔNG hiển thị nhãn "Đang mở" trong Admin khi `start_time` ở tương lai mà không có nhãn cảnh báo hẹn giờ và nút Mở ngay*.
+
+
 ### ISSUE-185: Bẫy Nhiễm Chéo Nhà Phát Hành Giữa Các Bản Game Đồng Tên & Bẫy Gom Mã Nhầm Khi Khớp Nguồn Fanpage/Gói Game Khác Nhau (Cross-Publisher Contamination & Crawler Fanpage Mis-association Multi-Version Pitfall)
 - **Triệu chứng**:
   - Hai game có tên gần giống nhau nhưng là 2 bản độc lập (ví dụ "Cửu Âm Chân Kinh Mobile" và "Cửu Âm Chân Kinh 2D Mobile") bị gom chung mã giftcode vào bản live chính, khiến bản live có số lượng mã nhân đôi (17 mã) trong khi bản thứ hai bị treo ở hàng chờ với 0 mã và bị gắn cờ trùng.

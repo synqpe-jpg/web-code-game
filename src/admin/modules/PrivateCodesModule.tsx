@@ -84,7 +84,7 @@ export const PrivateCodesModule: React.FC<PrivateCodesModuleProps> = ({ onShowTo
   const [copiedKeyText, setCopiedKeyText] = useState<string | null>(null);
 
   // --- QUICK API TESTER ---
-  const [testAction, setTestAction] = useState<'GET_LIST' | 'GET_DETAIL' | 'ADD_CODES' | 'TOGGLE_ACTIVE' | 'RESET_COOLDOWN'>('GET_LIST');
+  const [testAction, setTestAction] = useState<'GET_LIST' | 'GET_DETAIL' | 'ADD_CODES' | 'TOGGLE_ACTIVE' | 'RESET_COOLDOWN' | 'OPEN_NOW'>('GET_LIST');
   const [testApiKey, setTestApiKey] = useState('wcg_gw_7193ab4028cf51d9e27b140685e93c1482f04b2a');
   const [testSelectedGwId, setTestSelectedGwId] = useState('');
   const [testCodesInput, setTestCodesInput] = useState('');
@@ -93,7 +93,7 @@ export const PrivateCodesModule: React.FC<PrivateCodesModuleProps> = ({ onShowTo
   const [testApiResponse, setTestApiResponse] = useState<any | null>(null);
   const [testApiLatency, setTestApiLatency] = useState<number | null>(null);
   const [testApiStatus, setTestApiStatus] = useState<number | null>(null);
-  const [apiDocCategory, setApiDocCategory] = useState<'curl_get' | 'curl_add_codes' | 'curl_create' | 'js_client'>('curl_get');
+  const [apiDocCategory, setApiDocCategory] = useState<'curl_get' | 'curl_add_codes' | 'curl_create' | 'curl_open_now' | 'js_client'>('curl_get');
 
   // --- SHOW / HIDE VIRTUAL METRICS TOGGLE ---
   const [showVirtualStats, setShowVirtualStats] = useState<boolean>(() => {
@@ -416,6 +416,17 @@ export const PrivateCodesModule: React.FC<PrivateCodesModuleProps> = ({ onShowTo
           id: testSelectedGwId,
           target: 'GLOBAL',
         });
+      } else if (testAction === 'OPEN_NOW') {
+        if (!testSelectedGwId) {
+          onShowToast('Thiếu thông tin', 'Vui lòng chọn 1 đợt phát để mở ngay lập tức', 'error');
+          setIsTestingApi(false);
+          return;
+        }
+        method = 'PUT';
+        body = JSON.stringify({
+          action: 'OPEN_NOW',
+          id: testSelectedGwId,
+        });
       }
 
       const res = await fetch(url, {
@@ -433,7 +444,7 @@ export const PrivateCodesModule: React.FC<PrivateCodesModuleProps> = ({ onShowTo
 
       if (res.ok && json?.success) {
         onShowToast('Gọi API Thành Công!', `HTTP ${res.status} (${latency}ms)`, 'success');
-        if (testAction === 'ADD_CODES' || testAction === 'TOGGLE_ACTIVE' || testAction === 'RESET_COOLDOWN') {
+        if (testAction === 'ADD_CODES' || testAction === 'TOGGLE_ACTIVE' || testAction === 'RESET_COOLDOWN' || testAction === 'OPEN_NOW') {
           loadData();
         }
       } else {
@@ -787,6 +798,35 @@ export const PrivateCodesModule: React.FC<PrivateCodesModuleProps> = ({ onShowTo
       newStatus ? 'Đã mở đợt phát!' : 'Đã đóng đợt phát!',
       `Đợt phát "${gw.title}" hiện ${newStatus ? 'đang mở (khách có thể nhận quà)' : 'đã tạm đóng (khách không thể nhận)'}.`,
       newStatus ? 'success' : 'info'
+    );
+  };
+
+  // --- MỞ NGAY LẬP TỨC (OPEN NOW / FORCE ACTIVE & CLEAR FUTURE START TIME) ---
+  const handleOpenNow = async (gw: GiveawayCampaign) => {
+    const todayStr = new Date().toISOString().split('T')[0];
+    const updatedGw: GiveawayCampaign = {
+      ...gw,
+      start_time: todayStr,
+      is_active: true,
+      status: 'ACTIVE',
+      last_global_claim_at: '',
+    };
+    adminDataService.saveGiveawayItem(updatedGw);
+    await adminDataService.saveGiveawaysToServer();
+
+    try {
+      await fetch('/api/giveaways/manage', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'OPEN_NOW', id: gw.id }),
+      });
+    } catch {}
+
+    loadData();
+    onShowToast(
+      'Đã mở giật mã ngay lập tức!',
+      `Chiến dịch "${gw.title}" đã chuyển sang trạng thái LIVE (start_time: ${todayStr}). Khách có thể giật mã bình thường!`,
+      'success'
     );
   };
 
@@ -1340,6 +1380,17 @@ export const PrivateCodesModule: React.FC<PrivateCodesModuleProps> = ({ onShowTo
               >
                 PUT: Xóa Thời Gian Chờ (Reset Cooldown)
               </button>
+              <button
+                type="button"
+                onClick={() => setTestAction('OPEN_NOW')}
+                className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                  testAction === 'OPEN_NOW'
+                    ? 'bg-emerald-600 text-white shadow-xs'
+                    : 'text-slate-600 dark:text-slate-300 hover:bg-white/60 dark:hover:bg-slate-700/60'
+                }`}
+              >
+                ⚡ PUT: Mở Ngay Lập Tức (OPEN_NOW)
+              </button>
             </div>
 
             {/* Parameter Inputs */}
@@ -1357,7 +1408,7 @@ export const PrivateCodesModule: React.FC<PrivateCodesModuleProps> = ({ onShowTo
                 />
               </div>
 
-              {(testAction === 'GET_DETAIL' || testAction === 'ADD_CODES' || testAction === 'TOGGLE_ACTIVE' || testAction === 'RESET_COOLDOWN') && (
+              {(testAction === 'GET_DETAIL' || testAction === 'ADD_CODES' || testAction === 'TOGGLE_ACTIVE' || testAction === 'RESET_COOLDOWN' || testAction === 'OPEN_NOW') && (
                 <div>
                   <label className="text-xs font-semibold text-slate-700 dark:text-slate-300 block mb-1">
                     Chiến Dịch Mục Tiêu:
@@ -1527,7 +1578,7 @@ export const PrivateCodesModule: React.FC<PrivateCodesModuleProps> = ({ onShowTo
                     </td>
                     <td className="p-3 text-slate-900 dark:text-white font-bold">/api/giveaways/manage</td>
                     <td className="p-3 font-sans text-slate-600 dark:text-slate-400">
-                      Thao tác nhanh: action = ADD_CODES, TOGGLE_ACTIVE, RESET_COOLDOWN, ADJUST_METRICS
+                      Thao tác nhanh: action = ADD_CODES, TOGGLE_ACTIVE, RESET_COOLDOWN, OPEN_NOW, ADJUST_METRICS, UPDATE_CONFIG
                     </td>
                     <td className="p-3 text-purple-600 dark:text-purple-400 font-bold">GIVEAWAYS_FULL</td>
                   </tr>
@@ -1573,6 +1624,17 @@ export const PrivateCodesModule: React.FC<PrivateCodesModuleProps> = ({ onShowTo
                   </button>
                   <button
                     type="button"
+                    onClick={() => setApiDocCategory('curl_open_now')}
+                    className={`px-3 py-1.5 rounded-lg transition-all cursor-pointer ${
+                      apiDocCategory === 'curl_open_now'
+                        ? 'bg-purple-600 text-white shadow-xs'
+                        : 'text-slate-600 dark:text-slate-300'
+                    }`}
+                  >
+                    3. cURL: Mở Ngay (OPEN_NOW)
+                  </button>
+                  <button
+                    type="button"
                     onClick={() => setApiDocCategory('curl_create')}
                     className={`px-3 py-1.5 rounded-lg transition-all cursor-pointer ${
                       apiDocCategory === 'curl_create'
@@ -1580,7 +1642,7 @@ export const PrivateCodesModule: React.FC<PrivateCodesModuleProps> = ({ onShowTo
                         : 'text-slate-600 dark:text-slate-300'
                     }`}
                   >
-                    3. cURL: Tạo Đợt Phát Mới
+                    4. cURL: Tạo Đợt Phát Mới
                   </button>
                   <button
                     type="button"
@@ -1591,7 +1653,7 @@ export const PrivateCodesModule: React.FC<PrivateCodesModuleProps> = ({ onShowTo
                         : 'text-slate-600 dark:text-slate-300'
                     }`}
                   >
-                    4. JavaScript / Node.js
+                    5. JavaScript / Node.js
                   </button>
                 </div>
 
@@ -1603,10 +1665,12 @@ export const PrivateCodesModule: React.FC<PrivateCodesModuleProps> = ({ onShowTo
                       snippet = `curl -X GET "https://codegame.shop/api/giveaways/manage"\n  -H "X-Api-Key: wcg_gw_7193ab4028cf51d9e27b140685e93c1482f04b2a"`;
                     } else if (apiDocCategory === 'curl_add_codes') {
                       snippet = `curl -X PUT "https://codegame.shop/api/giveaways/manage" \\\n  -H "Content-Type: application/json" \\\n  -H "X-Api-Key: wcg_gw_7193ab4028cf51d9e27b140685e93c1482f04b2a" \\\n  -d '{\n    "action": "ADD_CODES",\n    "id": "gw_genshin_impact",\n    "codes": ["GENSHIN_VIP_01", "GENSHIN_VIP_02", "GENSHIN_VIP_03"]\n  }'`;
+                    } else if (apiDocCategory === 'curl_open_now') {
+                      snippet = `curl -X PUT "https://codegame.shop/api/giveaways/manage" \\\n  -H "Content-Type: application/json" \\\n  -H "X-Api-Key: wcg_gw_7193ab4028cf51d9e27b140685e93c1482f04b2a" \\\n  -d '{\n    "action": "OPEN_NOW",\n    "id": "gw_hiep-khach-hanh_mvuj5a5m"\n  }'`;
                     } else if (apiDocCategory === 'curl_create') {
                       snippet = `curl -X POST "https://codegame.shop/api/giveaways/manage" \\\n  -H "Content-Type: application/json" \\\n  -H "X-Api-Key: wcg_gw_7193ab4028cf51d9e27b140685e93c1482f04b2a" \\\n  -d '{\n    "title": "Code riêng Honkai: Star Rail Mới Nhất",\n    "game_slug": "honkai-star-rail",\n    "game_name": "Honkai: Star Rail",\n    "description": "Code độc quyền dành cho tân thủ tham gia sự kiện.",\n    "rewards": "Vé Tinh Cầu Đặc Biệt x10 + 1600 Ngọc Ánh Sao",\n    "codes": ["HSR_NEWBIE_01", "HSR_NEWBIE_02"],\n    "max_per_user": 1,\n    "max_per_ip": 1,\n    "cooldown_hours": 1,\n    "is_active": true\n  }'`;
                     } else {
-                      snippet = `// Thư viện mẫu gọi API Quản Lý Giveaway (Node.js / Browser)\nconst API_KEY = 'wcg_gw_7193ab4028cf51d9e27b140685e93c1482f04b2a';\nconst BASE_URL = 'https://codegame.shop';\n\n// 1. Lấy danh sách chiến dịch & kho mã D1\nasync function getGiveaways() {\n  const res = await fetch(\`\${BASE_URL}/api/giveaways/manage\`, {\n    headers: { 'X-Api-Key': API_KEY }\n  });\n  return await res.json();\n}\n\n// 2. Nạp thêm giftcode mới vào kho D1\nasync function addGiveawayCodes(giveawayId, codesArray) {\n  const res = await fetch(\`\${BASE_URL}/api/giveaways/manage\`, {\n    method: 'PUT',\n    headers: {\n      'Content-Type': 'application/json',\n      'X-Api-Key': API_KEY\n    },\n    body: JSON.stringify({\n      action: 'ADD_CODES',\n      id: giveawayId,\n      codes: codesArray\n    })\n  });\n  return await res.json();\n}`;
+                      snippet = `// Thư viện mẫu gọi API Quản Lý Giveaway (Node.js / Browser)\nconst API_KEY = 'wcg_gw_7193ab4028cf51d9e27b140685e93c1482f04b2a';\nconst BASE_URL = 'https://codegame.shop';\n\n// 1. Lấy danh sách chiến dịch & kho mã D1\nasync function getGiveaways() {\n  const res = await fetch(\`\${BASE_URL}/api/giveaways/manage\`, {\n    headers: { 'X-Api-Key': API_KEY }\n  });\n  return await res.json();\n}\n\n// 2. Nạp thêm giftcode mới vào kho D1\nasync function addGiveawayCodes(giveawayId, codesArray) {\n  const res = await fetch(\`\${BASE_URL}/api/giveaways/manage\`, {\n    method: 'PUT',\n    headers: {\n      'Content-Type': 'application/json',\n      'X-Api-Key': API_KEY\n    },\n    body: JSON.stringify({\n      action: 'ADD_CODES',\n      id: giveawayId,\n      codes: codesArray\n    })\n  });\n  return await res.json();\n}\n\n// 3. Mở giật mã ngay lập tức (Bỏ khóa hẹn giờ tương lai)\nasync function openGiveawayNow(giveawayId) {\n  const res = await fetch(\`\${BASE_URL}/api/giveaways/manage\`, {\n    method: 'PUT',\n    headers: {\n      'Content-Type': 'application/json',\n      'X-Api-Key': API_KEY\n    },\n    body: JSON.stringify({\n      action: 'OPEN_NOW',\n      id: giveawayId\n    })\n  });\n  return await res.json();\n}`;
                     }
                     handleCopyText(snippet, 'Mẫu Lệnh');
                   }}
@@ -1645,6 +1709,19 @@ curl -X PUT "https://codegame.shop/api/giveaways/manage" \\
       "GENSHIN_VIP_OCT29_02",
       "GENSHIN_VIP_OCT29_03"
     ]
+  }'`}
+                  </pre>
+                )}
+
+                {apiDocCategory === 'curl_open_now' && (
+                  <pre className="text-emerald-400">
+{`# Mở giật mã ngay lập tức (Bỏ khóa hẹn giờ tương lai, đặt start_time = hôm nay, ACTIVE)
+curl -X PUT "https://codegame.shop/api/giveaways/manage" \\
+  -H "Content-Type: application/json" \\
+  -H "X-Api-Key: wcg_gw_7193ab4028cf51d9e27b140685e93c1482f04b2a" \\
+  -d '{
+    "action": "OPEN_NOW",
+    "id": "gw_hiep-khach-hanh_mvuj5a5m"
   }'`}
                   </pre>
                 )}
@@ -2154,37 +2231,71 @@ async function toggleGiveaway(giveawayId, isActive) {
                       </div>
                     </td>
 
-                    {/* Col 4: TRẠNG THÁI (Nút Đóng / Mở trực quan) */}
+                    {/* Col 4: TRẠNG THÁI (Nút Đóng / Mở trực quan & Cảnh báo Chờ Mở) */}
                     <td className="px-3 py-3 whitespace-nowrap">
-                      <button
-                        type="button"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          handleToggleActive(gw);
-                        }}
-                        className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-bold border transition-all cursor-pointer select-none active:scale-95 shadow-2xs ${
-                          gw.is_active !== false
-                            ? 'bg-emerald-500/15 hover:bg-emerald-500/25 text-emerald-600 dark:text-emerald-400 border-emerald-500/30'
-                            : 'bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-500 dark:text-slate-400 border-slate-300 dark:border-slate-700'
-                        }`}
-                        title={gw.is_active !== false ? 'Nhấn để TẠM ĐÓNG đợt phát này' : 'Nhấn để MỞ LẠI đợt phát này'}
-                      >
-                        <span
-                          className={`w-2 h-2 rounded-full shrink-0 ${
-                            gw.is_active !== false ? 'bg-emerald-500 animate-pulse' : 'bg-slate-400'
-                          }`}
-                        />
-                        <span>{gw.is_active !== false ? 'Đang mở' : 'Đã đóng'}</span>
-                        <span
-                          className={`w-5 h-3 rounded-full flex items-center p-0.5 transition-colors ${
-                            gw.is_active !== false
-                              ? 'bg-emerald-500 justify-end'
-                              : 'bg-slate-300 dark:bg-slate-600 justify-start'
-                          }`}
-                        >
-                          <span className="w-2 h-2 rounded-full bg-white shadow-xs" />
-                        </span>
-                      </button>
+                      {(() => {
+                        const stStr = gw.start_time ? String(gw.start_time).trim() : '';
+                        const stMs = stStr ? (stStr.length === 10 ? new Date(`${stStr}T00:00:00+07:00`).getTime() : new Date(stStr).getTime()) : NaN;
+                        const isScheduledFuture = !isNaN(stMs) && stMs > Date.now();
+
+                        return (
+                          <div className="space-y-1.5">
+                            <div>
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleToggleActive(gw);
+                                }}
+                                className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-bold border transition-all cursor-pointer select-none active:scale-95 shadow-2xs ${
+                                  gw.is_active !== false
+                                    ? 'bg-emerald-500/15 hover:bg-emerald-500/25 text-emerald-600 dark:text-emerald-400 border-emerald-500/30'
+                                    : 'bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-500 dark:text-slate-400 border-slate-300 dark:border-slate-700'
+                                }`}
+                                title={gw.is_active !== false ? 'Nhấn để TẠM ĐÓNG đợt phát này' : 'Nhấn để MỞ LẠI đợt phát này'}
+                              >
+                                <span
+                                  className={`w-2 h-2 rounded-full shrink-0 ${
+                                    gw.is_active !== false ? 'bg-emerald-500 animate-pulse' : 'bg-slate-400'
+                                  }`}
+                                />
+                                <span>{gw.is_active !== false ? 'Đang mở' : 'Đã đóng'}</span>
+                                <span
+                                  className={`w-5 h-3 rounded-full flex items-center p-0.5 transition-colors ${
+                                    gw.is_active !== false
+                                      ? 'bg-emerald-500 justify-end'
+                                      : 'bg-slate-300 dark:bg-slate-600 justify-start'
+                                  }`}
+                                >
+                                  <span className="w-2 h-2 rounded-full bg-white shadow-xs" />
+                                </span>
+                              </button>
+                            </div>
+
+                            {/* Cảnh báo Chờ Mở nếu thời gian bắt đầu ở tương lai */}
+                            {isScheduledFuture && (
+                              <div className="flex items-center gap-1">
+                                <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md text-[10px] font-bold bg-amber-500/15 text-amber-600 dark:text-amber-400 border border-amber-500/30" title={`Đang khóa chờ giờ G: ${gw.start_time}`}>
+                                  <Clock className="w-2.5 h-2.5" />
+                                  Chờ mở ({stStr.includes('T') ? stStr.substring(0, 10) : stStr})
+                                </span>
+                                <button
+                                  type="button"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    handleOpenNow(gw);
+                                  }}
+                                  className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-md bg-emerald-600 hover:bg-emerald-500 text-white text-[10px] font-bold shadow-xs transition-all cursor-pointer"
+                                  title="Hủy hẹn giờ và mở giật mã ngay lập tức cho khách trên web"
+                                >
+                                  <Zap className="w-2.5 h-2.5" />
+                                  <span>Mở ngay</span>
+                                </button>
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })()}
                     </td>
 
                     {/* Col 5: THAO TÁC (Sticky Right để luôn hiển thị trọn vẹn trong tầm mắt) */}
@@ -2603,18 +2714,57 @@ async function toggleGiveaway(giveawayId, isActive) {
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
               <div>
-                <label className="text-slate-600 dark:text-slate-400 block text-[11px] font-semibold">
-                  Giờ bắt đầu mở sự kiện:
-                </label>
+                <div className="flex items-center justify-between">
+                  <label className="text-slate-600 dark:text-slate-400 block text-[11px] font-semibold">
+                    Giờ bắt đầu mở sự kiện:
+                  </label>
+                  <button
+                    type="button"
+                    onClick={() => setFormData((p) => ({ ...p, start_time: new Date().toISOString().split('T')[0] }))}
+                    className="inline-flex items-center gap-1 text-[10px] font-bold text-emerald-600 dark:text-emerald-400 hover:underline cursor-pointer"
+                    title="Đặt ngày mở là hôm nay để khách có thể giật mã ngay lập tức"
+                  >
+                    <Zap className="w-2.5 h-2.5" />
+                    Mở ngay hôm nay
+                  </button>
+                </div>
                 <input
                   type="datetime-local"
                   value={formData.start_time ? (formData.start_time.includes('T') ? formData.start_time.substring(0, 16) : `${formData.start_time}T00:00`) : ''}
                   onChange={(e) => setFormData((p) => ({ ...p, start_time: e.target.value }))}
                   className="mt-1 w-full font-mono rounded-xl border border-slate-200 bg-white p-2 text-slate-900 focus:border-indigo-500 focus:outline-none dark:border-slate-700 dark:bg-slate-800 dark:text-white text-xs"
                 />
-                <span className="text-[10px] text-slate-400 block pt-0.5">
-                  Để trống hoặc chọn ngày để mở ngay lập tức.
-                </span>
+                {(() => {
+                  if (!formData.start_time) {
+                    return (
+                      <span className="text-[10px] text-slate-400 block pt-0.5">
+                        Để trống hoặc chọn ngày để mở ngay lập tức.
+                      </span>
+                    );
+                  }
+                  const stStr = String(formData.start_time).trim();
+                  const stMs = stStr.length === 10 ? new Date(`${stStr}T00:00:00+07:00`).getTime() : new Date(stStr).getTime();
+                  const isFuture = !isNaN(stMs) && stMs > Date.now();
+                  if (isFuture) {
+                    return (
+                      <div className="mt-1 p-2 rounded-lg bg-amber-500/10 border border-amber-500/30 text-amber-700 dark:text-amber-300 text-[11px] space-y-1">
+                        <div className="font-bold flex items-center gap-1">
+                          <AlertCircle className="w-3.5 h-3.5 text-amber-500 shrink-0" />
+                          <span>Lưu ý: Bạn đang chọn thời gian trong tương lai!</span>
+                        </div>
+                        <p className="text-[10px] leading-relaxed text-amber-600 dark:text-amber-400">
+                          Khách truy cập sẽ thấy đồng hồ đếm ngược <strong>"Chờ Mở"</strong> và <strong>KHÔNG THỂ giật mã</strong> cho đến thời điểm này.
+                          Nếu muốn khách có thể giật mã ngay lập tức, hãy bấm nút <strong>"Mở ngay hôm nay"</strong> ở trên.
+                        </p>
+                      </div>
+                    );
+                  }
+                  return (
+                    <span className="text-[10px] text-emerald-600 dark:text-emerald-400 font-semibold block pt-0.5">
+                      ✓ Đang mở giật mã bình thường (Không khóa đếm ngược).
+                    </span>
+                  );
+                })()}
               </div>
 
               <div>
