@@ -7,7 +7,31 @@ Mỗi mục sửa lỗi đều ghi nhận **Nguyên nhân gốc rễ (Root Cause
 
 ## [2026-10-30]
 
-### 268. Sửa Lỗi POST /api/giveaways/manage Trả 201 Nhưng Không Lưu & Bật Cơ Chế Xác Thực Đọc Lại Bắt Buộc (Mandatory Read-Back Verification, DB Check Constraint Fix & Edge Cache Invalidation for Giveaways Management API)
+### 269. Xóa Nhãn "Số Lượng Khuyến Mãi Còn", Giới Hạn Tối Đa Mua Bằng Đúng Tồn Kho Thật & Bỏ Dòng Chữ Giới Hạn Flash Sale (Remove Promo Stock Label, Lock Max Purchase Qty to Exact Real Inventory & Strip Flash Sale Limit Notice)
+- **Bối cảnh & Yêu cầu người dùng**:
+  - Người dùng phản ánh: "Hiện tại trong kho còn 7 mã, nhưng khách có thể chọn 8 mã, có vấn đề gì không bạn?" và yêu cầu: "Ở ngoài mục thông tin ảnh 1 xóa dòng chữ số lượng khuyễn mãi còn và số hiển thị đi kèm, ở ảnh 2 khi khách ấn vào mua hàng thì tối đa chỉ có thể mua số sản phẩm đang còn trong kho, bỏ chữ Giới hạn tối đa x gói / đơn." kèm 2 ảnh chụp:
+    + Ảnh 1: Modal chi tiết tiện ích (`ProductDetailModal.tsx`) tại danh sách chọn gói con có dòng chữ "Số lượng khuyến mãi còn: 8".
+    + Ảnh 2: Modal thanh toán tiện ích (`UtilitiesView.tsx` / `ProductCheckoutModal.tsx`) cho phép chọn 8 gói và hiện dòng chữ "Ưu đãi Flash Sale: Giới hạn tối đa 8 gói / đơn (Tránh gom hàng)".
+- **Nguyên nhân gốc rễ**:
+  1. *Lệch tồn kho tĩnh và động*: File dữ liệu tĩnh `src/data/utilities.json` ban đầu lưu cứng `stock_quantity: 8` cho gói `ut_vs_05_vip_7d`, trong khi kho thật trong Admin D1 hiện có đúng 7 mã.
+  2. *Thiếu lắng nghe sự kiện đồng bộ*: `UtilitiesView.tsx` và `ProductDetailModal.tsx` thiếu lắng nghe sự kiện `wcg_utilities_updated`, dẫn đến khi nền tảng tải dữ liệu mới từ máy chủ biên `/api/sync`, giao diện không re-render lại số tồn kho thực tế.
+  3. *Không kẹp trần số lượng ban đầu (unclamped initial quantity)*: Hàm `handleStartCheckout` gán trực tiếp `setQuantity(initialQty || 1)` mà không kẹp trần với `actualRealStock`, khiến khách có thể mang số lượng lớn từ modal chi tiết sang modal thanh toán.
+  4. *Giao diện thừa thông điệp giới hạn*: Dòng chữ "Số lượng khuyến mãi còn: X" và "Ưu đãi Flash Sale: Giới hạn tối đa X gói / đơn" gây hiểu lầm hoặc làm rối giao diện.
+- **Kiến trúc & Giải pháp triển khai**:
+  1. *Xóa nhãn "Số lượng khuyến mãi còn" (`ProductDetailModal.tsx`)*: Xóa hoàn toàn dòng chữ "Số lượng khuyến mãi còn: X" dưới giá từng gói; nếu gói hết hàng vẫn giữ nhãn báo đỏ "Hết hàng" chuẩn mực.
+  2. *Bỏ dòng chữ giới hạn Flash Sale (`UtilitiesView.tsx` & `ProductCheckoutModal.tsx`)*: Xóa sạch các dòng thông báo "Ưu đãi Flash Sale: Giới hạn tối đa {maxStock} gói / đơn (Tránh gom hàng)" và "Suất ưu đãi đặc biệt: Mỗi tài khoản tối đa 1 gói / đơn". Chỉ giữ cảnh báo đỏ "Sản phẩm hiện đang tạm hết hàng" khi `maxStock <= 0`.
+  3. *Kẹp trần tuyệt đối số lượng mua theo kho thực tế*:
+     - Trong `handleStartCheckout`: Tính `actualRealStock` và ép `safeInitialQty = actualRealStock > 0 ? Math.max(1, Math.min(initialQty || 1, actualRealStock)) : 1`.
+     - Thêm hook `useEffect` tự động hạ `quantity` về `realStock` nếu vượt quá `realStock`.
+     - Chặn nút tăng `+` khi `safeQty >= maxStock` hoặc `quantity >= realStock`.
+     - Hàm nhập `handleQtyInputChange` chặn không cho gõ số vượt quá `maxStock`.
+  4. *Đồng bộ kho tĩnh 7 mã và tự động lắng nghe sự kiện*:
+     - Cập nhật `ut_vs_05_vip_7d.stock_quantity` thành 7 trong `utilities.json` và các script audit/test.
+     - Bổ sung `window.addEventListener('wcg_utilities_updated', handleUpdate)` và cleanup chuẩn mực trong cả `UtilitiesView.tsx` và `ProductDetailModal.tsx`.
+- **Kiểm thử & Xác nhận**:
+  - `npm run build`: 100% PASS (Vite compile, HTML prerender cho 580 tựa game và Cloudflare Edge Worker bundle sạch 0 lỗi).
+  - `node scripts/audit_zero_test_artifacts.cjs`: 100% PASS (Zero test artifacts).
+  - `node scripts/verify_all_requirements.cjs`: 100% PASS (Tất cả 6 yêu cầu đạt 100%).
 - **Bối cảnh & Yêu cầu người dùng**:
   - Người dùng báo lỗi: "POST /api/giveaways/manage trả 201 nhưng sự kiện không được lưu".
   - Khi gọi POST /api/giveaways/manage để tạo một sự kiện giveaway mới (ví dụ payload có `is_active: false` và `codes: []`), máy chủ trả về HTTP 201 thành công nhưng sau đó sự kiện không xuất hiện ở bất kỳ đường đọc nào: GET danh sách và GET theo ID đều trả về 404 hoặc không tìm thấy, kho đồng bộ công khai /api/sync cũng không có.

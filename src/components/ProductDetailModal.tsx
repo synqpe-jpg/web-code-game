@@ -83,12 +83,14 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
     const unsubSold = marketingService.subscribeSoldCountChange(handleUpdate);
     window.addEventListener('wcg_virtual_stock_updated', handleUpdate);
     window.addEventListener('wcg_sold_count_updated', handleUpdate);
+    window.addEventListener('wcg_utilities_updated', handleUpdate);
     return () => {
       unsub();
       unsubStock();
       unsubSold();
       window.removeEventListener('wcg_virtual_stock_updated', handleUpdate);
       window.removeEventListener('wcg_sold_count_updated', handleUpdate);
+      window.removeEventListener('wcg_utilities_updated', handleUpdate);
     };
   }, []);
 
@@ -179,6 +181,12 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
       }
     }
   };
+
+  useEffect(() => {
+    if (realStock > 0 && quantity > realStock) {
+      setQuantity(realStock);
+    }
+  }, [realStock, selectedPackage]);
 
   const handleDecreaseQty = () => {
     setQuantity((prev) => Math.max(1, prev - 1));
@@ -540,12 +548,8 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
                             <span className={`font-mono font-bold text-xs sm:text-sm block ${isSelected ? 'text-red-400' : 'text-emerald-400'}`}>
                               {formatCore(pkg.price)}
                             </span>
-                            {isPkgOut ? (
+                            {isPkgOut && (
                               <span className="text-[10px] text-rose-400 font-semibold block">Hết hàng</span>
-                            ) : (
-                              <span className="text-[10px] text-muted-foreground font-mono block whitespace-nowrap">
-                                Số lượng khuyến mãi còn: <strong className="text-emerald-400 font-bold">{typeof pkg.stock_quantity === 'number' ? pkg.stock_quantity : 'sẵn'}</strong>
-                              </span>
                             )}
                           </div>
                         </button>
@@ -603,7 +607,8 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
                       type="button"
                       disabled={isOutOfStock}
                       onClick={() => {
-                        onBuyNow(product, selectedPackage, quantity);
+                        const finalSafeQty = realStock > 0 ? Math.min(quantity, realStock) : quantity;
+                        onBuyNow(product, selectedPackage, finalSafeQty);
                       }}
                       className={`w-full py-3.5 px-4 rounded-xl font-display font-bold text-xs transition-all flex items-center justify-center gap-2 shadow-lg active:scale-95 cursor-pointer ${
                         !isOutOfStock

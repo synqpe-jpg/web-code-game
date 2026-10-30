@@ -78,8 +78,8 @@ if (badUt.length > 0) {
 }
 assert(utilities.length === 18, 'utilities.json must contain exactly 18 canonical user packages');
 const vip7d = utilities.find(u => u.id === 'ut_vs_05_vip_7d');
-assert(vip7d && vip7d.stock_quantity === 8, 'ut_vs_05_vip_7d must have stock_quantity: 8');
-console.log('   ✅ utilities.json sạch 100% (18 tiện ích người dùng, ut_vs_05_vip_7d còn 8, 0 mục test).');
+assert(vip7d && vip7d.stock_quantity === 7, 'ut_vs_05_vip_7d must have stock_quantity: 7');
+console.log('   ✅ utilities.json sạch 100% (18 tiện ích người dùng, ut_vs_05_vip_7d còn 7, 0 mục test).');
 
 // 4. Audit src/data/crawled_codes_188.json
 console.log('▶ [4/5] Kiểm tra crawled_codes_188.json (Kho Giftcode)...');

@@ -213,6 +213,7 @@ export const UtilitiesView: React.FC<UtilitiesViewProps> = ({
     window.addEventListener('wcg_sold_count_updated', handleUpdate);
     window.addEventListener('wcg_utilities_settings_updated', handleUpdate);
     window.addEventListener('wcg_universal_templates_updated', handleUpdate);
+    window.addEventListener('wcg_utilities_updated', handleUpdate);
     window.addEventListener('storage', handleUpdate);
     return () => {
       unsub();
@@ -224,6 +225,7 @@ export const UtilitiesView: React.FC<UtilitiesViewProps> = ({
       window.removeEventListener('wcg_sold_count_updated', handleUpdate);
       window.removeEventListener('wcg_utilities_settings_updated', handleUpdate);
       window.removeEventListener('wcg_universal_templates_updated', handleUpdate);
+      window.removeEventListener('wcg_utilities_updated', handleUpdate);
       window.removeEventListener('storage', handleUpdate);
     };
   }, []);
@@ -253,7 +255,9 @@ export const UtilitiesView: React.FC<UtilitiesViewProps> = ({
     }
     setCheckoutUtility(item);
     setSelectedPackage(selectedPkg || null);
-    setQuantity(initialQty || 1);
+    const actualRealStock = Math.max(0, Number(selectedPkg?.stock_quantity ?? item.stock_quantity ?? 0));
+    const safeInitialQty = actualRealStock > 0 ? Math.max(1, Math.min(initialQty || 1, actualRealStock)) : 1;
+    setQuantity(safeInitialQty);
     setCompletedOrder(null);
     setCopiedCodeIdx(null);
     setCopiedAll(false);
@@ -272,6 +276,12 @@ export const UtilitiesView: React.FC<UtilitiesViewProps> = ({
   const realStock = Math.max(0, Number(selectedPackage?.stock_quantity ?? checkoutUtility?.stock_quantity ?? 0));
   const maxStock = realStock;
   const safeQty = realStock > 0 ? Math.min(Math.max(1, quantity), maxStock) : 0;
+
+  useEffect(() => {
+    if (realStock > 0 && quantity > realStock) {
+      setQuantity(realStock);
+    }
+  }, [realStock, selectedPackage, checkoutUtility]);
   const userBalance = currentUser?.wallet_balance || 0;
   const totalPrice = effectivePrice * safeQty;
   const isBalanceEnough = Boolean(checkoutUtility && userBalance >= totalPrice);
@@ -1161,15 +1171,11 @@ export const UtilitiesView: React.FC<UtilitiesViewProps> = ({
                   <div className="p-3.5 rounded-2xl bg-card border border-border flex items-center justify-between gap-3">
                     <div>
                       <span className="text-xs font-bold text-foreground block">Số Lượng Mua:</span>
-                      <span className="text-[10px] font-medium block">
-                        {maxStock <= 0 ? (
-                          <span className="text-rose-400 font-bold">Sản phẩm hiện đang tạm hết hàng</span>
-                        ) : maxStock > 1 ? (
-                          <span className="text-amber-400/90 font-medium">Ưu đãi Flash Sale: Giới hạn tối đa {maxStock} gói / đơn (Tránh gom hàng)</span>
-                        ) : (
-                          <span className="text-amber-400/90 font-medium">Suất ưu đãi đặc biệt: Mỗi tài khoản tối đa 1 gói / đơn</span>
-                        )}
-                      </span>
+                      {maxStock <= 0 && (
+                        <span className="text-[10px] font-medium block text-rose-400 font-bold">
+                          Sản phẩm hiện đang tạm hết hàng
+                        </span>
+                      )}
                     </div>
 
                     <div className="flex items-center gap-2">

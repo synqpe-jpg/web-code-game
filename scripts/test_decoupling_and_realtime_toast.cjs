@@ -142,7 +142,7 @@ const oosUtils = utilities.filter(u => u.id !== 'ut_vs_05_vip_7d');
 oosUtils.forEach(u => {
   assert.strictEqual(Number(u.stock_quantity) || 0, 0, `Tiện ích ${u.id} phải có stock_quantity = 0`);
 });
-console.log('  ✅ [PASS] 18 utilities: 17 sản phẩm hết hàng thật giữ tồn = 0; duy nhất ut_vs_05_vip_7d có hàng thật = 8.');
+console.log('  ✅ [PASS] 18 utilities: 17 sản phẩm hết hàng thật giữ tồn = 0; duy nhất ut_vs_05_vip_7d có hàng thật = 7.');
 
 // --- PHẦN 3: LÀM RÕ 32 GIVEAWAYS PRERENDER VS 42 BỘ ĐẾM D1 ---
 console.log('\n▶ [PHẦN 3/3] Làm Rõ 32 Giveaways Prerender vs 42 Bộ Đếm Server...');

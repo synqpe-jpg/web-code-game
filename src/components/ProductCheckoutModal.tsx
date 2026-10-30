@@ -118,6 +118,12 @@ export const ProductCheckoutModal: React.FC<ProductCheckoutModalProps> = ({
   const isBalanceEnough = userBalance >= totalPrice;
   const checkoutDisplayStock = realStock <= 0 ? 0 : marketingService.getDisplayStock(effectiveTargetId, realStock);
 
+  useEffect(() => {
+    if (realStock > 0 && quantity > realStock) {
+      setQuantity(realStock);
+    }
+  }, [realStock, selectedPackage, product]);
+
   const handleDecreaseQty = () => {
     if (maxStock <= 0) return;
     setQuantity((prev) => Math.max(1, prev - 1));
@@ -504,15 +510,11 @@ export const ProductCheckoutModal: React.FC<ProductCheckoutModalProps> = ({
               <div className="p-3.5 rounded-2xl bg-card border border-border flex items-center justify-between gap-3">
                 <div>
                   <span className="text-xs font-bold text-foreground block">Số Lượng Mua:</span>
-                  <span className="text-[10px] font-medium block">
-                    {maxStock <= 0 ? (
-                      <span className="text-rose-400 font-bold">Sản phẩm hiện đang tạm hết hàng</span>
-                    ) : maxStock > 1 ? (
-                      <span className="text-amber-400/90 font-medium">Ưu đãi Flash Sale: Giới hạn tối đa {maxStock} mã / đơn (Tránh gom hàng)</span>
-                    ) : (
-                      <span className="text-amber-400/90 font-medium">Suất ưu đãi đặc biệt: Mỗi tài khoản tối đa 1 mã / đơn</span>
-                    )}
-                  </span>
+                  {maxStock <= 0 && (
+                    <span className="text-[10px] font-medium block text-rose-400 font-bold">
+                      Sản phẩm hiện đang tạm hết hàng
+                    </span>
+                  )}
                 </div>
 
                 <div className="flex items-center gap-2">

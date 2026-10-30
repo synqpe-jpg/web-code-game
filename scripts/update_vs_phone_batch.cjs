@@ -125,7 +125,7 @@ function generateUpdatedProducts() {
         original_price: pkg.original,
         discount_percent: discountPercent,
         current_price: currentPrice,
-        stock_quantity: pkg.id === 'ut_vs_05_vip_7d' ? 8 : 0, // Gói 7 ngày có 8 sản phẩm trong kho, các gói khác hết hàng
+        stock_quantity: pkg.id === 'ut_vs_05_vip_7d' ? 7 : 0, // Gói 7 ngày có 7 sản phẩm trong kho, các gói khác hết hàng
         sold_count: 0,
         virtual_sold_count: pkg.sold,
         show_sold_count: true,

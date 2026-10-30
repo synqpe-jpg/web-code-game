@@ -10,6 +10,24 @@
 
 ## 1. DANH MỤC LỖI & CÁC BẪY ĐÃ THẤT BẠI (DO NOT REPEAT)
 
+### ISSUE-184: Bẫy Lệch Tồn Kho Tĩnh/Động & Số Lượng Mua Vượt Quá Tồn Kho Thực Tế Trong Tiện Ích (Utilities Static/Live Inventory Desync & Over-Stock Purchase Quantity Selection Pitfall)
+- **Triệu chứng**:
+  - Gói sản phẩm trong Admin chỉ còn 7 mã, nhưng khách hàng ngoài web vẫn có thể bấm tăng hoặc nhập số lượng lên 8 để thanh toán.
+  - Modal chi tiết sản phẩm hiển thị dòng "Số lượng khuyến mãi còn: 8" gây hiểu lầm hoặc lộ cơ cấu kho.
+  - Modal thanh toán hiển thị dòng thông báo "Ưu đãi Flash Sale: Giới hạn tối đa X gói / đơn (Tránh gom hàng)" không mong muốn.
+- **Nguyên nhân gốc rễ**:
+  1. File tĩnh `utilities.json` được gán cứng `stock_quantity: 8`, trong khi kho động D1 thực tế đã xuất 1 mã còn 7.
+  2. Component `UtilitiesView.tsx` và `ProductDetailModal.tsx` không lắng nghe sự kiện `wcg_utilities_updated` khi dữ liệu server được đồng bộ về.
+  3. Hàm mở thanh toán `handleStartCheckout` truyền `initialQty` thẳng vào `setQuantity` mà không kẹp trần (`Math.min(initialQty, actualRealStock)`).
+- **Giải pháp chuẩn đã kiểm chứng**:
+  1. Luôn kẹp trần số lượng mua tối đa bằng đúng số tồn kho thực tế (`maxStock = realStock`), dùng hook `useEffect` tự động hạ số lượng nếu `quantity > realStock`.
+  2. Bổ sung `window.addEventListener('wcg_utilities_updated', handleUpdate)` trong các component hiển thị tiện ích để phản ứng tức thì khi server đồng bộ.
+  3. Xóa dòng chữ "Số lượng khuyến mãi còn: X" trong modal chi tiết (chỉ hiển thị nhãn "Hết hàng" màu đỏ khi `isPkgOut`).
+  4. Xóa dòng thông báo Flash Sale giới hạn tối đa trong modal thanh toán; chỉ hiển thị cảnh báo khi hết hàng (`maxStock <= 0`).
+- 🚫 **CÁCH SỬA ĐÃ THẤT BẠI - TUYỆT ĐỐI KHÔNG LẶP LẠI**:
+  - ❌ *Tuyệt đối KHÔNG cho phép khởi tạo `quantity` lớn hơn `actualRealStock` khi mở modal thanh toán*.
+  - ❌ *Tuyệt đối KHÔNG bỏ quên listener `wcg_utilities_updated` khiến UI bị kẹt ở dữ liệu bundle tĩnh*.
+
 ### ISSUE-183: Bẫy CHECK Constraint Cột Status Bảng Giveaways & Bẫy Nuốt Lỗi Khiến POST /api/giveaways/manage Trả 201 Giả (Giveaways Status CHECK Constraint & Silent Error Swallowing Returning False 201 Created Pitfall)
 - **Triệu chứng**:
   - Khi gọi POST /api/giveaways/manage để tạo chiến dịch mới với `is_active: false` và kho mã rỗng `codes: []`, máy chủ trả về HTTP 201 thông báo thành công, nhưng sau đó tra cứu danh sách GET và chi tiết ID đều trả về 404 hoặc không tìm thấy bản ghi.
