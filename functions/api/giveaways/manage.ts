@@ -268,9 +268,23 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
     // Tạo ID ổn định hoặc lấy ID truyền vào
     const id = body.id ? String(body.id).trim() : `gw_${cleanGameSlug}_${Date.now().toString(36)}`;
 
-    // Xử lý mảng mã giftcode đưa vào kho
+    // Xử lý và lọc trùng mảng mã giftcode đưa vào kho (Chuẩn hóa: trim(), toUpperCase())
     const rawCodes = Array.isArray(codes) && codes.length > 0 ? codes : (Array.isArray(codes_pool) ? codes_pool : []);
-    const incomingCodes = rawCodes.map((c: any) => String(c).trim()).filter(Boolean);
+    const incomingCodes: string[] = [];
+    const seenBatchSet = new Set<string>();
+    let rejectedDuplicatesCount = 0;
+
+    for (const c of rawCodes) {
+      const clean = String(c || '').trim();
+      if (!clean) continue;
+      const normalized = clean.toUpperCase();
+      if (seenBatchSet.has(normalized)) {
+        rejectedDuplicatesCount++;
+      } else {
+        seenBatchSet.add(normalized);
+        incomingCodes.push(clean);
+      }
+    }
 
     // Tính toán cooldown
     const cdMinutes = cooldown_minutes !== undefined && cooldown_minutes !== null
@@ -390,10 +404,16 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
       `${actionDesc} "${gwRecord.title}", kho mã còn lại: ${finalPool.length}, đã săn: ${safeClaimed}`
     );
 
+    const resultMessage = rejectedDuplicatesCount > 0
+      ? `${actionDesc} thành công! (Đã tự động loại bỏ ${rejectedDuplicatesCount} mã trùng lặp)`
+      : `${actionDesc} thành công!`;
+
     return new Response(
       JSON.stringify({
         success: true,
-        message: `${actionDesc} thành công!`,
+        message: resultMessage,
+        rejected_duplicates_count: rejectedDuplicatesCount,
+        total_unique_codes: finalPool.length,
         giveaway: verifiedItem,
       }),
       { status: existingItem ? 200 : 201, headers: CORS_HEADERS }
@@ -440,8 +460,13 @@ export const onRequestPut: PagesFunction<Env> = async (context) => {
       );
     }
 
-    const existingList: any[] = (await getSettingD1(env.DB, 'wcg_admin_giveaways_v4').catch(() => [])) || [];
-    const targetIndex = existingList.findIndex((g: any) => g && g.id === targetId);
+    let existingList: any[] = (await getSettingD1(env.DB, 'wcg_admin_giveaways_v4', [], true).catch(() => [])) || [];
+    let targetIndex = existingList.findIndex((g: any) => g && g.id === targetId);
+
+    if (targetIndex < 0) {
+      existingList = await loadAllGiveawaysD1(env.DB, true, true);
+      targetIndex = existingList.findIndex((g: any) => g && g.id === targetId);
+    }
 
     if (targetIndex < 0) {
       return new Response(
@@ -455,21 +480,45 @@ export const onRequestPut: PagesFunction<Env> = async (context) => {
 
     // 1. Nạp thêm danh sách mã code vào kho (action: ADD_CODES | RESTOCK)
     if (action === 'ADD_CODES' || action === 'RESTOCK' || Array.isArray(body.codes)) {
-      const incomingCodes: string[] = (Array.isArray(body.codes) ? body.codes : (Array.isArray(body.codes_pool) ? body.codes_pool : []))
-        .map((c: any) => String(c).trim())
-        .filter(Boolean);
+      const rawIncoming: any[] = (Array.isArray(body.codes) ? body.codes : (Array.isArray(body.codes_pool) ? body.codes_pool : []));
 
-      if (incomingCodes.length === 0) {
+      const oldPool = Array.isArray(currentGw.codes_pool) ? currentGw.codes_pool : [];
+      const existingSet = new Set(oldPool.map((c: any) => String(c).trim().toUpperCase()));
+
+      const uniqueToAdd: string[] = [];
+      const seenBatchSet = new Set<string>();
+      let rejectedDuplicatesCount = 0;
+
+      for (const item of rawIncoming) {
+        const clean = String(item || '').trim();
+        if (!clean) continue;
+        const normalized = clean.toUpperCase();
+        if (existingSet.has(normalized) || seenBatchSet.has(normalized)) {
+          rejectedDuplicatesCount++;
+        } else {
+          seenBatchSet.add(normalized);
+          uniqueToAdd.push(clean);
+        }
+      }
+
+      if (uniqueToAdd.length === 0) {
         return new Response(
-          JSON.stringify({ success: false, message: 'Vui lòng cung cấp mảng mã code cần nạp (codes: string[]).' }),
-          { status: 400, headers: CORS_HEADERS }
+          JSON.stringify({
+            success: true,
+            message: `Không có mã mới nào được nạp. Toàn bộ ${rejectedDuplicatesCount} mã đưa vào đều đã tồn tại trong kho hoặc bị trùng lặp nội bộ.`,
+            added_count: 0,
+            rejected_duplicates_count: rejectedDuplicatesCount,
+            total_remaining_codes: oldPool.length,
+            giveaway: currentGw,
+          }),
+          { status: 200, headers: CORS_HEADERS }
         );
       }
 
       // Nạp trực tiếp vào bảng giveaway_codes trong D1
       const BATCH_SIZE = 50;
-      for (let j = 0; j < incomingCodes.length; j += BATCH_SIZE) {
-        const slice = incomingCodes.slice(j, j + BATCH_SIZE);
+      for (let j = 0; j < uniqueToAdd.length; j += BATCH_SIZE) {
+        const slice = uniqueToAdd.slice(j, j + BATCH_SIZE);
         const stmts: D1PreparedStatement[] = slice.map((codeVal) => {
           const codeId = `gc_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`;
           return env.DB!.prepare(`
@@ -481,8 +530,7 @@ export const onRequestPut: PagesFunction<Env> = async (context) => {
       }
 
       // Cập nhật codes_pool trong metadata
-      const oldPool = Array.isArray(currentGw.codes_pool) ? currentGw.codes_pool : [];
-      const newPool = [...oldPool, ...incomingCodes];
+      const newPool = [...oldPool, ...uniqueToAdd];
       currentGw.codes_pool = newPool;
       currentGw.remaining_codes = newPool.length;
       currentGw.total_codes = newPool.length + Number(currentGw.claimed_codes || 0);
@@ -506,15 +554,95 @@ export const onRequestPut: PagesFunction<Env> = async (context) => {
         currentGw.title,
         'RESTOCK_CODES',
         actor,
-        `Đã nạp thêm ${incomingCodes.length} mã code mới vào kho. Tổng tồn kho hiện tại: ${newPool.length} mã.`
+        `Đã nạp thêm ${uniqueToAdd.length} mã code mới vào kho (loại bỏ ${rejectedDuplicatesCount} mã trùng). Tổng tồn kho hiện tại: ${newPool.length} mã.`
+      );
+
+      const msg = rejectedDuplicatesCount > 0
+        ? `Nạp thành công ${uniqueToAdd.length} mã code vào đợt phát "${currentGw.title}"! (Đã loại bỏ ${rejectedDuplicatesCount} mã trùng lặp)`
+        : `Nạp thành công ${uniqueToAdd.length} mã code vào đợt phát "${currentGw.title}"!`;
+
+      return new Response(
+        JSON.stringify({
+          success: true,
+          message: msg,
+          added_count: uniqueToAdd.length,
+          rejected_duplicates_count: rejectedDuplicatesCount,
+          total_remaining_codes: newPool.length,
+          giveaway: currentGw,
+        }),
+        { status: 200, headers: CORS_HEADERS }
+      );
+    }
+
+    // 1.1 Gỡ trùng lặp kho mã cho đợt phát (action: DEDUPLICATE_CODES)
+    if (action === 'DEDUPLICATE_CODES') {
+      const currentPool = Array.isArray(currentGw.codes_pool) ? currentGw.codes_pool : [];
+      const seenSet = new Set<string>();
+      const dedupedPool: string[] = [];
+      let removedCount = 0;
+
+      for (const item of currentPool) {
+        const clean = String(item || '').trim();
+        if (!clean) continue;
+        const norm = clean.toUpperCase();
+        if (seenSet.has(norm)) {
+          removedCount++;
+        } else {
+          seenSet.add(norm);
+          dedupedPool.push(clean);
+        }
+      }
+
+      currentGw.codes_pool = dedupedPool;
+      currentGw.remaining_codes = dedupedPool.length;
+      currentGw.total_codes = dedupedPool.length + Number(currentGw.claimed_codes || 0);
+      currentGw.updated_at = new Date().toISOString();
+
+      if (env.DB) {
+        await env.DB.prepare(`
+          UPDATE giveaways
+          SET remaining_codes = ?, total_codes = ?, updated_at = datetime('now')
+          WHERE id = ?
+        `).bind(dedupedPool.length, currentGw.total_codes, targetId).run().catch(() => {});
+
+        // Xóa các mã AVAILABLE cũ và nạp lại chính xác các mã đã gỡ trùng
+        await env.DB.prepare("DELETE FROM giveaway_codes WHERE giveaway_id = ? AND status = 'AVAILABLE'").bind(targetId).run().catch(() => {});
+
+        const BATCH_SIZE = 50;
+        for (let j = 0; j < dedupedPool.length; j += BATCH_SIZE) {
+          const slice = dedupedPool.slice(j, j + BATCH_SIZE);
+          const stmts: D1PreparedStatement[] = slice.map((codeVal) => {
+            const codeId = `gc_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`;
+            return env.DB!.prepare(`
+              INSERT INTO giveaway_codes (id, giveaway_id, code_content, status, created_at)
+              VALUES (?, ?, ?, 'AVAILABLE', datetime('now'))
+            `).bind(codeId, targetId, codeVal);
+          });
+          await env.DB.batch(stmts).catch(() => {});
+        }
+      }
+
+      existingList[targetIndex] = currentGw;
+      await setSettingD1(env.DB, 'wcg_admin_giveaways_v4', existingList);
+      invalidateSettingMemoryCache('wcg_admin_giveaways_v4');
+      await syncPublicGiveawayState(env, existingList);
+
+      await logGiveawayAudit(
+        env.DB,
+        targetId,
+        currentGw.title,
+        'DEDUPLICATE_CODES',
+        actor,
+        `Đã gỡ trùng kho mã: Giảm từ ${currentPool.length} xuống ${dedupedPool.length} mã (loại bỏ ${removedCount} mã trùng).`
       );
 
       return new Response(
         JSON.stringify({
           success: true,
-          message: `Nạp thành công ${incomingCodes.length} mã code vào đợt phát "${currentGw.title}"!`,
-          added_count: incomingCodes.length,
-          total_remaining_codes: newPool.length,
+          message: `Gỡ trùng kho mã thành công! Đã loại bỏ ${removedCount} mã trùng lặp. Kho hiện có ${dedupedPool.length} mã duy nhất.`,
+          original_count: currentPool.length,
+          removed_duplicates_count: removedCount,
+          total_remaining_codes: dedupedPool.length,
           giveaway: currentGw,
         }),
         { status: 200, headers: CORS_HEADERS }

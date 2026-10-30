@@ -720,7 +720,28 @@ export const PrivateCodesModule: React.FC<PrivateCodesModuleProps> = ({ onShowTo
     setIsSavingPool(true);
     try {
       const currentPool = currentCampaignForPool.codes_pool || [];
-      const updatedPool = [...new Set([...currentPool, ...newCodes])];
+      const currentSet = new Set(currentPool.map((c: any) => String(c).trim().toUpperCase()));
+
+      const uniqueToAdd: string[] = [];
+      const seenBatch = new Set<string>();
+      let rejectedDuplicatesCount = 0;
+
+      for (const code of newCodes) {
+        if (currentSet.has(code) || seenBatch.has(code)) {
+          rejectedDuplicatesCount++;
+        } else {
+          seenBatch.add(code);
+          uniqueToAdd.push(code);
+        }
+      }
+
+      if (uniqueToAdd.length === 0) {
+        onShowToast('Thông báo', `Không có mã mới nào được nạp. Toàn bộ ${rejectedDuplicatesCount} mã nhập vào đều đã tồn tại trong kho hoặc trùng lặp nội bộ.`, 'info');
+        setIsSavingPool(false);
+        return;
+      }
+
+      const updatedPool = [...currentPool, ...uniqueToAdd];
 
       currentCampaignForPool.codes_pool = updatedPool;
       currentCampaignForPool.remaining_codes = updatedPool.length;
@@ -730,15 +751,59 @@ export const PrivateCodesModule: React.FC<PrivateCodesModuleProps> = ({ onShowTo
       adminDataService.saveGiveawayItem(currentCampaignForPool);
       await adminDataService.saveGiveawaysToServer();
 
-      onShowToast(
-        'Đã nạp kho mã!',
-        `Đã thêm ${newCodes.length} mã vào kho phát riêng của "${currentCampaignForPool.title}". Dữ liệu đã lưu vĩnh viễn trên Cloudflare D1.`,
-        'success'
-      );
+      const successToastDesc = rejectedDuplicatesCount > 0
+        ? `Đã thêm ${uniqueToAdd.length} mã mới vào kho phát riêng của "${currentCampaignForPool.title}" (đã loại bỏ ${rejectedDuplicatesCount} mã trùng lặp).`
+        : `Đã thêm ${uniqueToAdd.length} mã vào kho phát riêng của "${currentCampaignForPool.title}". Dữ liệu đã lưu vĩnh viễn trên Cloudflare D1.`;
+
+      onShowToast('Đã nạp kho mã!', successToastDesc, 'success');
+      setBatchPoolLines('');
       setIsPoolModalOpen(false);
       loadData();
     } catch (err: any) {
       onShowToast('Lỗi lưu kho mã', err?.message || 'Có lỗi khi lưu kho mã lên máy chủ D1', 'error');
+    } finally {
+      setIsSavingPool(false);
+    }
+  };
+
+  const handleDeduplicateCurrentPool = async () => {
+    if (!currentCampaignForPool) return;
+    const pool = currentCampaignForPool.codes_pool || [];
+    const seen = new Set<string>();
+    const deduped: string[] = [];
+    let dCount = 0;
+
+    for (const c of pool) {
+      const clean = String(c || '').trim();
+      if (!clean) continue;
+      const norm = clean.toUpperCase();
+      if (seen.has(norm)) {
+        dCount++;
+      } else {
+        seen.add(norm);
+        deduped.push(clean);
+      }
+    }
+
+    if (dCount === 0) {
+      onShowToast('Thông báo', 'Kho mã không có mã trùng lặp nào.', 'info');
+      return;
+    }
+
+    setIsSavingPool(true);
+    try {
+      currentCampaignForPool.codes_pool = deduped;
+      currentCampaignForPool.remaining_codes = deduped.length;
+      currentCampaignForPool.total_codes = deduped.length + (currentCampaignForPool.claimed_codes || 0);
+      currentCampaignForPool.updated_at = new Date().toISOString();
+
+      adminDataService.saveGiveawayItem(currentCampaignForPool);
+      await adminDataService.saveGiveawaysToServer();
+
+      onShowToast('Đã gỡ trùng!', `Đã loại bỏ ${dCount} mã trùng lặp, giữ lại ${deduped.length} mã duy nhất.`, 'success');
+      loadData();
+    } catch (err: any) {
+      onShowToast('Lỗi gỡ trùng', err?.message || 'Có lỗi xảy ra', 'error');
     } finally {
       setIsSavingPool(false);
     }
@@ -2115,12 +2180,27 @@ async function toggleGiveaway(giveawayId, isActive) {
                         return (
                           <div className="space-y-1">
                             {/* Tầng 1: Kho Thật & Số Cộng Thêm (Tách Bạch 100%) */}
-                            <div className="flex items-center gap-1 font-mono text-[11px]">
+                            <div className="flex items-center gap-1 font-mono text-[11px] flex-wrap">
                               <span className="text-slate-400 font-sans text-[10px] font-semibold">Thật:</span>
                               <span className={`font-bold ${remaining > 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-500 dark:text-rose-400'}`}>
                                 {remaining}
                               </span>
                               <span className="text-slate-400 text-[10px]">/{totalCount}</span>
+
+                              {(() => {
+                                const rawPool = Array.isArray(gw.codes_pool) ? gw.codes_pool : [];
+                                if (rawPool.length === 0) return null;
+                                const uniqueCount = new Set(rawPool.map((c: any) => String(c).trim().toUpperCase())).size;
+                                const dupCount = rawPool.length - uniqueCount;
+                                if (dupCount > 0) {
+                                  return (
+                                    <span className="ml-1 inline-flex items-center px-1.5 py-0.5 rounded text-[9px] font-bold bg-amber-500/15 text-amber-600 dark:text-amber-400 border border-amber-500/30" title={`Kho mã có ${dupCount} mã trùng lặp (${uniqueCount} mã duy nhất)`}>
+                                      ⚠️ {uniqueCount} duy nhất ({dupCount} trùng)
+                                    </span>
+                                  );
+                                }
+                                return null;
+                              })()}
 
                               <span className="text-slate-300 dark:text-slate-600 mx-0.5">•</span>
 
@@ -3337,7 +3417,33 @@ async function toggleGiveaway(giveawayId, isActive) {
             </div>
             <div className="text-right font-mono">
               <span className="text-slate-400 block text-[11px]">Số mã hiện có trong kho:</span>
-              <strong className="text-emerald-600 font-bold">{currentCampaignForPool?.codes_pool?.length || 0} mã</strong>
+              <div className="flex items-center justify-end gap-2">
+                <strong className="text-emerald-600 font-bold">{currentCampaignForPool?.codes_pool?.length || 0} mã</strong>
+                {(() => {
+                  const pool = currentCampaignForPool?.codes_pool || [];
+                  const uCount = new Set(pool.map((c: any) => String(c).trim().toUpperCase())).size;
+                  const dCount = pool.length - uCount;
+                  if (dCount > 0) {
+                    return (
+                      <div className="flex items-center gap-1.5">
+                        <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold bg-amber-500/15 text-amber-600 dark:text-amber-400 border border-amber-500/30">
+                          ⚠️ {uCount} duy nhất ({dCount} trùng)
+                        </span>
+                        <button
+                          type="button"
+                          onClick={handleDeduplicateCurrentPool}
+                          disabled={isSavingPool}
+                          className="px-2 py-0.5 rounded text-[10px] font-bold bg-amber-600 hover:bg-amber-700 text-white transition-colors cursor-pointer"
+                          title="Tự động loại bỏ tất cả các mã trùng lặp trong kho"
+                        >
+                          ⚡ Gỡ Trùng Kho Mã
+                        </button>
+                      </div>
+                    );
+                  }
+                  return null;
+                })()}
+              </div>
             </div>
           </div>
 
@@ -3374,9 +3480,40 @@ async function toggleGiveaway(giveawayId, isActive) {
                   <label className="text-xs font-bold text-slate-700 dark:text-slate-300">
                     Dán Danh Sách Mã Code Mới (Mỗi dòng 1 mã) <span className="text-rose-500">*</span>
                   </label>
-                  <span className="text-[10px] font-mono text-purple-600 font-bold">
-                    {batchPoolLines.split('\n').filter((l) => l.trim()).length} mã phát hiện
-                  </span>
+                  {(() => {
+                    const rawLines = batchPoolLines.split('\n').map((l) => l.trim().toUpperCase()).filter(Boolean);
+                    if (rawLines.length === 0) {
+                      return <span className="text-[10px] font-mono text-slate-400">0 mã phát hiện</span>;
+                    }
+                    const curPool = currentCampaignForPool?.codes_pool || [];
+                    const curSet = new Set(curPool.map((c: any) => String(c).trim().toUpperCase()));
+                    const seen = new Set<string>();
+                    let intDups = 0;
+                    let extDups = 0;
+                    let validNew = 0;
+                    for (const l of rawLines) {
+                      if (curSet.has(l)) extDups++;
+                      else if (seen.has(l)) intDups++;
+                      else {
+                        seen.add(l);
+                        validNew++;
+                      }
+                    }
+                    const totalDups = intDups + extDups;
+                    return (
+                      <div className="flex items-center gap-1.5 font-mono text-[10px]">
+                        <span className="text-purple-600 font-bold">{rawLines.length} mã</span>
+                        <span className="text-slate-300">•</span>
+                        <span className="text-emerald-600 font-bold">+{validNew} mới</span>
+                        {totalDups > 0 && (
+                          <>
+                            <span className="text-slate-300">•</span>
+                            <span className="text-amber-500 font-bold">⚠️ Loại bỏ {totalDups} trùng ({intDups} nội bộ, {extDups} đã có)</span>
+                          </>
+                        )}
+                      </div>
+                    );
+                  })()}
                 </div>
                 <textarea
                   required

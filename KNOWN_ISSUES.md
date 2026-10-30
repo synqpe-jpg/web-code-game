@@ -10,6 +10,32 @@
 
 ## 1. DANH MỤC LỖI & CÁC BẪY ĐÃ THẤT BẠI (DO NOT REPEAT)
 
+### ISSUE-188: Bẫy Kẹp Trần Phân Trang Lặp Vô Hạn (safePage Clamping Loop), Lọc Cứng Game 0 Mã, và Thiếu Deduplication Khi Nạp Kho Mã Giveaway
+- **Triệu chứng**:
+  - Truy vấn `GET /api/games?limit=100&page=N`: trang 1..11 trả 48 bản ghi do hardcap trần `limit = 48`. Trang 12 trả 39 bản ghi; từ trang 13 trở đi trả y hệt trang 12 (lặp mãi 39 game giống nhau, không bao giờ kết thúc).
+  - Khách chỉ duyệt được 567 game duy nhất qua phân trang dù kho sync có 581 game. 14-15 game có 0 mã bị ẩn khỏi danh sách liệt kê.
+  - Tựa game `crossfire-legends` (21 mã) có trong D1 nhưng biến mất khỏi mảng `games` của `/api/sync`.
+  - Chiến dịch `gw_gamerpower_rotwood` có trong kho quản lý (44 chiến dịch) nhưng thiếu trong public sync (chỉ 43 chiến dịch).
+  - Kho mã giveaway Hiệp Khách Hành (`gw_hiep-khach-hanh_mvuj5a5m`) bị nạp trùng gấp đôi từ 107 mã thành 214 dòng do nối mảng mã thô trực tiếp mà không khử trùng.
+- **Nguyên nhân gốc rễ**:
+  1. *Kẹp trần an toàn sai lệch (Faulty safePage clamping)*: `safePage = Math.min(Math.max(1, page), totalPages)`. Khi `page > totalPages` (ví dụ page 13 khi totalPages = 12), `safePage` bị kẹp ngược về 12, khiến offset luôn là `(12-1)*limit`, trả về nội dung trang cuối vô tận.
+  2. *Lọc cứng `total_codes_count > 0`*: Câu query SQL cơ bản gắn `AND total_codes_count > 0` thay vì chỉ lọc khi có tham số `tag === 'has_codes'`.
+  3. *Lọc tĩnh theo ID*: Hardcoded filter `g.id !== 'gw_gamerpower_rotwood'` nằm rải rác trong `functions/api/sync.ts` và `src/services/dataService.ts`.
+  4. *Nối chuỗi nạp mã không khử trùng*: `POST /api/giveaways/manage` và `PUT (ADD_CODES / RESTOCK)` nhận mảng mã mà không lọc qua `Set` và không chuẩn hóa `toUpperCase()`, gây nhân bản mã khi nạp đè hoặc restock danh sách chứa mã cũ.
+- **Giải pháp chuẩn đã kiểm chứng**:
+  1. Khi `page > totalPages`: Lập tức trả về `games: []`, `hasMore: false` (không dùng `safePage` kẹp ngược về `totalPages`).
+  2. Cho phép `limit` tối đa 100 thay vì 48 (`Math.min(100, Math.max(1, rawLimit))`).
+  3. Loại bỏ `AND total_codes_count > 0` khỏi câu lệnh lọc chung, chỉ thêm vào khi `tag === 'has_codes'`.
+  4. Gỡ bỏ mọi bộ lọc tĩnh hardcoded `gw_gamerpower_rotwood` và cập nhật chiến dịch thành `ACTIVE`.
+  5. Luôn chuẩn hóa `trim().toUpperCase()` và khử trùng qua `Set` đối chiếu với kho hiện có trước khi chèn vào `giveaway_codes` hoặc cập nhật `codes_pool`.
+  6. Thêm cảnh báo trùng lặp và nút "Gỡ Trùng Kho Mã" trong giao diện quản trị `PrivateCodesModule.tsx`.
+- 🚫 **CÁCH SỬA ĐÃ THẤT BẠI - TUYỆT ĐỐI KHÔNG LẶP LẠI**:
+  - ❌ *Tuyệt đối KHÔNG dùng `safePage = Math.min(..., totalPages)` trong các API phân trang trả về JSON mảng vì client sẽ bị kẹt trong vòng lặp vô hạn đọc lại trang cuối*.
+  - ❌ *Tuyệt đối KHÔNG hardcode lọc mã hoặc game trực tiếp trong file mã nguồn bằng ID chuỗi tĩnh*.
+  - ❌ *Tuyệt đối KHÔNG append mảng mã mới vào `codes_pool` mà không khử trùng qua `Set`*.
+
+
+
 ### ISSUE-187: Bẫy Không Xóa Cache Biên Khi Đăng Tin Tức Mới & Bẫy Ghi Đè Ngược Từ Snapshot Khi Bấm Đồng Bộ Admin (News API Cache Invalidation & Admin Reverse Desync Overwrite Pitfall)
 - **Triệu chứng**:
   - Bài viết mới đăng qua `POST /api/news` hiển thị đầy đủ trong trang Quản trị (`/api/news`), nhưng trang Khách công khai (`/news`) đọc từ kho `/api/sync` (`newsArticles`) lại không nhận được bài mới và dừng ở số lượng cũ.

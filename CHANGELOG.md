@@ -7,6 +7,45 @@ Mỗi mục sửa lỗi đều ghi nhận **Nguyên nhân gốc rễ (Root Cause
 
 ## [2026-10-30]
 
+### 273. Sửa Lệch Kho Catalog & Giveaway, Mở Rộng Phân Trang 100 Games/Trang, Đồng Bộ Crossfire: Legends & Rotwood, Gỡ Trùng Kho Mã Hiệp Khách Hành 214 -> 107 (Fix Catalog & Giveaway Sync Discrepancies, Allow limit=100 Pagination, Include Crossfire: Legends & Rotwood in Sync, Deduplicate Hiep Khach Hanh Pool to 107 Unique Codes)
+- **Bối cảnh & Yêu cầu người dùng**:
+  1. *Vấn đề 1 — Phân trang catalog game kẹt ở trang 12 (`GET /api/games?limit=100&page=N`)*: Trang 1-11 trả 48 bản ghi/trang do hardcap limit=48. Trang 12 trả 39 bản ghi; trang 13 trùng lặp y hệt trang 12 (39/39 slug), lặp tới trang 30 vẫn không bao giờ trả về rỗng. Chỉ gom được 567 slug duy nhất qua phân trang trong khi sync có 581 mục. 15 slug bị che mất. Yêu cầu sửa phân trang để các trang tiếp theo khác nhau, hết thì trả về rỗng; không xóa, không đổi tên bất kỳ game nào.
+  2. *Vấn đề 2 — Game `crossfire-legends` vắng khỏi kho đồng bộ*: Bản ghi live `Crossfire: Legends` (slug `crossfire-legends`, 21 mã) có trong API nhưng thiếu trong mảng `games` của `/api/sync` (581 mục). Yêu cầu đưa vào sync đầy đủ metadata mà không động vào `crossfire-legends-mobile-vng`.
+  3. *Vấn đề 3 — Chiến dịch giveaway `gw_gamerpower_rotwood` chưa vào kho đồng bộ*: Kho quản lý có 44 chiến dịch, kho sync chỉ có 43 (thiếu `gw_gamerpower_rotwood`). Yêu cầu đưa vào sync để tổng số khớp đúng 44, nêu rõ nguyên nhân bị lọc.
+  4. *Vấn đề 4 — Kho mã giveaway Hiệp Khách Hành bị nạp trùng gấp đôi*: Chiến dịch `gw_hiep-khach-hanh_mvuj5a5m` (ACTIVE) có 214 mã nhưng chỉ có 107 mã duy nhất (mỗi mã bị lặp 2 lần). Đã giật = 0. Yêu cầu: (a) Gỡ trùng về đúng 107 mã duy nhất, giữ nguyên thứ tự xuất hiện đầu tiên, `total_codes = 107`, `remaining_codes = 107`, `claimed_codes = 0`, chiến dịch giữ ACTIVE; (b) Xây dựng cơ chế chống nạp trùng cho mọi chiến dịch tương lai trong POST/PUT (`ADD_CODES` / `RESTOCK`), chuẩn hóa `trim().toUpperCase()`, báo cáo số lượng mã trùng bị loại bỏ; (c) Bổ sung cảnh báo trùng lặp và số mã duy nhất trong giao diện quản trị `PrivateCodesModule.tsx`.
+- **Nguyên nhân gốc rễ (Root Cause)**:
+  1. *Phân trang bị kẹp trần & điều kiện lọc 0 mã*: Trong `functions/api/games.ts`, `rawLimit` bị ép tối đa 48 qua `Math.min(48, ...)`. Khi `page > totalPages`, code sử dụng `safePage = Math.min(Math.max(1, page), totalPages)` khiến page 13..30 bị kẹp về trang 12 và trả lại cùng offset `(12-1)*48`, lặp vô hạn. Ngoài ra, điều kiện `AND total_codes_count > 0` bị gắn cứng trong câu lệnh truy vấn catalog khiến 14-15 game có 0 mã bị ẩn khỏi danh sách phân trang.
+  2. *Thiếu `crossfire-legends` trong games188.json & `wcg_admin_games_v5`*: Bản ghi đã có trong bảng `games` và `codes` trên D1 nhưng chưa được thêm vào seed file `games188.json` và setting `wcg_admin_games_v5`.
+  3. *Lọc tĩnh `gw_gamerpower_rotwood`*: Tồn tại bộ lọc hardcoded `&& g.id !== 'gw_gamerpower_rotwood'` trong 5 vị trí tại `functions/api/sync.ts` và `src/services/dataService.ts`, đồng thời bản ghi trong D1 bị đánh dấu `status: 'ENDED'`.
+  4. *Thiếu deduplication khi nạp mã kho giveaway*: `POST /api/giveaways/manage` và `PUT (ADD_CODES / RESTOCK)` nhận mảng mã thô và nối trực tiếp (`[...oldPool, ...incomingCodes]`) hoặc insert thẳng vào `giveaway_codes` mà không có bước chuẩn hóa `toUpperCase()` và khử trùng qua `Set`.
+- **Kiến trúc & Giải pháp triển khai**:
+  1. *Nâng cấp Edge Pagination trong `functions/api/games.ts`*:
+     - Cho phép `limit` lên đến 100 (`Math.min(100, Math.max(1, rawLimit))`).
+     - Khi `page > totalPages`: Lập tức trả về `games: []`, `hasMore: false` (áp dụng cho cả nhánh D1 Pure SQL, nhánh Search scoring, và nhánh Fallback in-memory).
+     - Loại bỏ điều kiện `AND total_codes_count > 0` khỏi câu lệnh lọc danh mục cơ bản; chỉ lọc khi client yêu cầu `tag === 'has_codes'`.
+  2. *Đồng bộ `crossfire-legends` & Bổ sung game vào D1*:
+     - Bổ sung `crossfire-legends` (21 mã, NPH Chính Thức, icon `/game_icons/crossfire-legends.webp`, đầy đủ metadata) vào `src/data/games188.json` và `wcg_admin_games_v5`.
+     - Backfill 11 game còn thiếu vào bảng SQL `games` trên D1, nâng tổng số game trong D1 và sync lên 582 tựa game khớp 100%.
+  3. *Gỡ bỏ bộ lọc Rotwood & Kích hoạt ACTIVE*:
+     - Gỡ bỏ hoàn toàn `&& g.id !== 'gw_gamerpower_rotwood'` tại tất cả các điểm lọc trong `functions/api/sync.ts` và `src/services/dataService.ts`.
+     - Cập nhật trạng thái chiến dịch `gw_gamerpower_rotwood` thành `status: 'ACTIVE'`, `is_active: 1` với đầy đủ 15 mã trong kho.
+     - Đồng bộ tổng số chiến dịch giveaway giữa quản trị và public sync khớp 44 = 44.
+  4. *Khử trùng kho mã Hiệp Khách Hành & Cơ chế bảo vệ chống nạp trùng tương lai*:
+     - Gỡ trùng kho mã `gw_hiep-khach-hanh_mvuj5a5m` từ 214 về đúng 107 mã duy nhất, giữ nguyên thứ tự xuất hiện đầu tiên, `total_codes = 107`, `remaining_codes = 107`, `claimed_codes = 0`, trạng thái ACTIVE.
+     - Cập nhật `POST /api/giveaways/manage` và `PUT (ADD_CODES / RESTOCK)`: Tự động chuẩn hóa `trim().toUpperCase()`, lọc trùng nội bộ trong danh sách gửi lên và đối chiếu khử trùng với kho mã hiện có. Trả về `added_count` và `rejected_duplicates_count`.
+     - Bổ sung action `DEDUPLICATE_CODES` trong `PUT /api/giveaways/manage` để gỡ trùng an toàn bất kỳ lúc nào.
+     - Cập nhật giao diện quản trị `src/admin/modules/PrivateCodesModule.tsx`:
+       + Cột 2 bảng danh sách hiển thị số mã duy nhất kèm huy hiệu cảnh báo màu hổ phách: `⚠️ {uniqueCount} duy nhất ({dupCount} trùng)`.
+       + Modal chi tiết hiển thị cảnh báo trùng lặp và nút bấm `⚡ Gỡ Trùng Kho Mã`.
+       + Tab nhập thêm mã mới có bộ đếm thời gian thực: hiển thị rõ số mã nhập, số mã mới hợp lệ, và số mã trùng sẽ bị loại bỏ.
+- **Kiểm thử & Xác nhận**:
+  - `GET /api/games?limit=100&page=1..6`: Duyệt qua 582 tựa game duy nhất, trang 7 trả về `games: []`, `hasMore: false`.
+  - `GET /api/sync`: `games.length = 582` (có `crossfire-legends` 21 mã), `giveaways.length = 44` (có `gw_gamerpower_rotwood`).
+  - `GET /api/giveaways/manage`: Tổng 44 chiến dịch. `gw_hiep-khach-hanh_mvuj5a5m` có `total_codes = 107`, `remaining_codes = 107`, `claimed_codes = 0`.
+  - `npm run build`: 100% PASS, zero test artifacts.
+
+## [2026-10-30]
+
 ### 272. Đồng Bộ Hoàn Hảo Kho Tin Tức /api/news Ra Web Công Khai /api/sync & /news, Sửa Nút Đồng Bộ Admin & Cập Nhật Ảnh Bìa Chuẩn Hiệp Khách Hành (Fix News Sync Pipeline from /api/news to Public /api/sync & /news, Fix Admin Sync Button & Standardize Hiep Khach Hanh Covers)
 - **Bối cảnh & Yêu cầu người dùng**:
   - Người dùng phản ánh: "Bài viết đăng qua POST /api/news chỉ vào kho tin tức (/api/news). Trang quản trị đọc kho này nên thấy đủ bài (208 bài đã xuất bản). Nhưng trang tin tức công khai /news đọc kho đồng bộ /api/sync (mảng newsArticles), kho này đang dừng ở 176 bài và không nhận bài mới. Hậu quả: khoảng 32 bài mới nhất có trong kho nhưng không hiện ngoài web. Nút 'Đồng Bộ' trong admin#/news đã được bấm ngày 30/10/2026 nhưng KHÔNG đẩy bài tin mới vào kho đồng bộ (vẫn 176 bài)."

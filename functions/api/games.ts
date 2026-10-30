@@ -1081,9 +1081,9 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
 
     // 4. Server-Side Paginated Catalog Query (P0, P1, P2: 100% SQL on D1, No heavy fields, Precomputed codes_count)
     const page = Math.max(1, parseInt(url.searchParams.get('page') || '1', 10));
-    // Limit: mặc định 24, tối đa 48 theo đúng yêu cầu P0
+    // Limit: mặc định 24, tối đa 100 theo đúng yêu cầu API
     const rawLimit = parseInt(url.searchParams.get('limit') || '24', 10);
-    const limit = Math.min(48, Math.max(1, isNaN(rawLimit) ? 24 : rawLimit));
+    const limit = Math.min(100, Math.max(1, isNaN(rawLimit) ? 24 : rawLimit));
     const searchQuery = (url.searchParams.get('search') || url.searchParams.get('q') || '').trim();
     const category = (url.searchParams.get('category') || 'all').trim();
     const tag = (url.searchParams.get('tag') || 'all').trim();
@@ -1094,7 +1094,7 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
     if (d1GamesCount >= 10) {
       // When searchQuery is present: execute unified matchGameSearch & calculateGameSearchScore
       if (searchQuery) {
-        const whereConditions: string[] = ["is_active = 1 AND (status IS NULL OR UPPER(status) IN ('ACTIVE', 'PUBLISHED')) AND total_codes_count > 0"];
+        const whereConditions: string[] = ["is_active = 1 AND (status IS NULL OR UPPER(status) IN ('ACTIVE', 'PUBLISHED'))"];
         const bindParams: any[] = [];
 
         if (category && category !== 'all' && category !== 'Tất cả') {
@@ -1106,7 +1106,7 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
         } else if (tag === 'new') {
           whereConditions.push('is_new = 1');
         } else if (tag === 'has_codes') {
-          whereConditions.push('active_codes_count > 0');
+          whereConditions.push('total_codes_count > 0');
         }
 
         const whereClause = `WHERE ${whereConditions.join(' AND ')}`;
@@ -1151,8 +1151,35 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
 
         const total = scored.length;
         const totalPages = Math.max(1, Math.ceil(total / limit));
-        const safePage = Math.min(Math.max(1, page), totalPages);
-        const offset = (safePage - 1) * limit;
+
+        const catRes = await env.DB.prepare(
+          "SELECT DISTINCT category FROM games WHERE is_active = 1 AND (status IS NULL OR UPPER(status) IN ('ACTIVE', 'PUBLISHED')) AND category IS NOT NULL AND category != '' ORDER BY category ASC"
+        ).all<any>().catch(() => ({ results: [] as any[] }));
+        const categories = ['Tất cả', ...(catRes?.results || []).map((c: any) => c.category).filter(Boolean)];
+
+        if (page > totalPages) {
+          return new Response(
+            JSON.stringify({
+              success: true,
+              page,
+              limit,
+              total,
+              totalPages,
+              hasMore: false,
+              games: [],
+              categories,
+              timestamp: new Date().toISOString(),
+            }),
+            {
+              headers: {
+                ...CORS_HEADERS,
+                'Cache-Control': 'public, max-age=60, s-maxage=120, stale-while-revalidate=600',
+              },
+            }
+          );
+        }
+
+        const offset = (page - 1) * limit;
 
         const rows = scored.slice(offset, offset + limit).map((item) => {
           const r = item.game;
@@ -1175,19 +1202,14 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
           };
         });
 
-        const catRes = await env.DB.prepare(
-          "SELECT DISTINCT category FROM games WHERE is_active = 1 AND (status IS NULL OR UPPER(status) IN ('ACTIVE', 'PUBLISHED')) AND total_codes_count > 0 AND category IS NOT NULL AND category != '' ORDER BY category ASC"
-        ).all<any>().catch(() => ({ results: [] as any[] }));
-        const categories = ['Tất cả', ...(catRes?.results || []).map((c: any) => c.category).filter(Boolean)];
-
         return new Response(
           JSON.stringify({
             success: true,
-            page: safePage,
+            page,
             limit,
             total,
             totalPages,
-            hasMore: safePage < totalPages,
+            hasMore: page < totalPages,
             games: rows,
             categories,
             timestamp: new Date().toISOString(),
@@ -1202,7 +1224,7 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
       }
 
       // 100% PURE SQL ON D1 (when no search query)
-      const whereConditions: string[] = ["is_active = 1 AND (status IS NULL OR UPPER(status) IN ('ACTIVE', 'PUBLISHED')) AND total_codes_count > 0"];
+      const whereConditions: string[] = ["is_active = 1 AND (status IS NULL OR UPPER(status) IN ('ACTIVE', 'PUBLISHED'))"];
       const bindParams: any[] = [];
 
       // Category filter
@@ -1217,7 +1239,7 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
       } else if (tag === 'new') {
         whereConditions.push('is_new = 1');
       } else if (tag === 'has_codes') {
-        whereConditions.push('active_codes_count > 0');
+        whereConditions.push('total_codes_count > 0');
       }
 
       const whereClause = `WHERE ${whereConditions.join(' AND ')}`;
@@ -1249,8 +1271,41 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
 
       const total = Number(countRes?.total || 0);
       const totalPages = Math.max(1, Math.ceil(total / limit));
-      const safePage = Math.min(Math.max(1, page), totalPages);
-      const offset = (safePage - 1) * limit;
+
+      // Lấy danh mục distinct cho filter bar
+      const catRes = await withD1Timeout(
+        env.DB.prepare(
+          "SELECT DISTINCT category FROM games WHERE is_active = 1 AND (status IS NULL OR UPPER(status) IN ('ACTIVE', 'PUBLISHED')) AND category IS NOT NULL AND category != '' ORDER BY category ASC"
+        ).all<any>(),
+        1000,
+        { results: [] as any[] }
+      );
+      const categories = ['Tất cả', ...(catRes?.results || []).map((c: any) => c.category).filter(Boolean)];
+
+      // Nếu số trang vượt quá tổng số trang, trả về mảng rỗng để client dừng phân trang
+      if (page > totalPages) {
+        return new Response(
+          JSON.stringify({
+            success: true,
+            page,
+            limit,
+            total,
+            totalPages,
+            hasMore: false,
+            games: [],
+            categories,
+            timestamp: new Date().toISOString(),
+          }),
+          {
+            headers: {
+              ...CORS_HEADERS,
+              'Cache-Control': 'public, max-age=60, s-maxage=120, stale-while-revalidate=600',
+            },
+          }
+        );
+      }
+
+      const offset = (page - 1) * limit;
 
       const listQuery = `
         SELECT
@@ -1269,7 +1324,7 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
         null
       ) : null;
 
-      if (countRes && rowsRes && Array.isArray(rowsRes.results) && rowsRes.results.length > 0) {
+      if (countRes && rowsRes && Array.isArray(rowsRes.results)) {
 
         const rows = (rowsRes?.results || []).map((r: any) => {
           let totalCount = Number(r.total_codes_count || 0);
@@ -1303,24 +1358,14 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
           };
         });
 
-        // Lấy danh mục distinct cho filter bar
-        const catRes = await withD1Timeout(
-          env.DB.prepare(
-            "SELECT DISTINCT category FROM games WHERE is_active = 1 AND (status IS NULL OR UPPER(status) IN ('ACTIVE', 'PUBLISHED')) AND total_codes_count > 0 AND category IS NOT NULL AND category != '' ORDER BY category ASC"
-          ).all<any>(),
-          1000,
-          { results: [] as any[] }
-        );
-        const categories = ['Tất cả', ...(catRes?.results || []).map((c: any) => c.category).filter(Boolean)];
-
         return new Response(
           JSON.stringify({
             success: true,
-            page: safePage,
+            page,
             limit,
             total,
             totalPages,
-            hasMore: safePage < totalPages,
+            hasMore: page < totalPages,
             games: rows,
             categories,
             timestamp: new Date().toISOString(),
@@ -1431,8 +1476,30 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
 
     const total = filtered.length;
     const totalPages = Math.max(1, Math.ceil(total / limit));
-    const safePage = Math.min(Math.max(1, page), totalPages);
-    const startIdx = (safePage - 1) * limit;
+
+    if (page > totalPages) {
+      return new Response(
+        JSON.stringify({
+          success: true,
+          page,
+          limit,
+          total,
+          totalPages,
+          hasMore: false,
+          games: [],
+          categories: catalog.categories,
+          timestamp: new Date().toISOString(),
+        }),
+        {
+          headers: {
+            ...CORS_HEADERS,
+            'Cache-Control': 'public, max-age=10, s-maxage=15, stale-while-revalidate=30',
+          },
+        }
+      );
+    }
+
+    const startIdx = (page - 1) * limit;
 
     // Slice only the games for the requested page
     // Attach top 3 codes for card preview (1-click copy) without transferring huge arrays
@@ -1441,14 +1508,14 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
       codes: (g.codes || []).slice(0, 3),
     }));
 
-    const hasMore = safePage < totalPages;
+    const hasMore = page < totalPages;
 
     const isFiltered = Boolean(searchQuery || (category && category !== 'all' && category !== 'Tất cả') || tag !== 'all');
 
     return new Response(
       JSON.stringify({
         success: true,
-        page: safePage,
+        page,
         limit,
         total,
         totalPages,

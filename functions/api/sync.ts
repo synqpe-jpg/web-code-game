@@ -263,7 +263,7 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
             const rawGws = await loadAllGiveawaysD1(env.DB, authorized, true);
             const delGwRaw = await getSettingD1(env.DB, 'wcg_deleted_giveaways').catch(() => []);
             const delGwSet = new Set(Array.isArray(delGwRaw) ? delGwRaw : []);
-            const fallbackGw = (fallbackGiveawaysData as any[]).filter((g: any) => g && g.id && !delGwSet.has(g.id) && g.id !== 'gw_gamerpower_rotwood' && g.id !== 'gw_alienware_vaultbreakers' && g.id !== 'gw_garena_delta_force');
+            const fallbackGw = (fallbackGiveawaysData as any[]).filter((g: any) => g && g.id && !delGwSet.has(g.id) && g.id !== 'gw_alienware_vaultbreakers' && g.id !== 'gw_garena_delta_force');
             const gwMap = new Map<string, any>();
             fallbackGw.forEach((g: any) => gwMap.set(g.id, g));
             (rawGws || []).forEach((g: any) => {
@@ -283,7 +283,7 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
               }
             });
             val = Array.from(gwMap.values())
-              .filter((g: any) => g && g.id && g.status !== 'ENDED' && !delGwSet.has(g.id) && g.id !== 'gw_gamerpower_rotwood' && g.id !== 'gw_alienware_vaultbreakers' && g.id !== 'gw_garena_delta_force')
+              .filter((g: any) => g && g.id && (g.status !== 'ENDED' || g.id === 'gw_gamerpower_rotwood') && !delGwSet.has(g.id) && g.id !== 'gw_alienware_vaultbreakers' && g.id !== 'gw_garena_delta_force')
               .map((gw: any) => {
                 const { codes_pool, claim_history, ...rest } = gw;
                 return {
@@ -317,7 +317,7 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
       } else if (specificKey === 'wcg_admin_store_products_v4' && (!Array.isArray(val) || val.length === 0)) {
         val = fallbackStoreProductsData;
       } else if (specificKey === 'wcg_admin_giveaways_v4' && (!Array.isArray(val) || val.length === 0)) {
-        val = (fallbackGiveawaysData as any[]).filter(g => g.id !== 'gw_alienware_vaultbreakers' && g.id !== 'gw_garena_delta_force' && g.id !== 'gw_gamerpower_rotwood');
+        val = (fallbackGiveawaysData as any[]).filter(g => g.id !== 'gw_alienware_vaultbreakers' && g.id !== 'gw_garena_delta_force');
       } else if (specificKey === 'wcg_news_articles_v1') {
         const candidate = Array.isArray(val) && val.length > 0 ? val : fallbackNewsArticles;
         let delSet = new Set<string>();
@@ -620,7 +620,7 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
         }
 
         const fallbackGwMap = new Map((fallbackGiveawaysData as any[]).map((f: any) => [f.id, f]));
-        rawGiveaways = (gwList || []).filter((g: any) => g && g.id && g.status !== 'ENDED' && !deletedGwSet.has(g.id) && g.id !== 'gw_gamerpower_rotwood' && g.id !== 'gw_alienware_vaultbreakers' && g.id !== 'gw_garena_delta_force').map((g: any) => {
+        rawGiveaways = (gwList || []).filter((g: any) => g && g.id && (g.status !== 'ENDED' || g.id === 'gw_gamerpower_rotwood') && !deletedGwSet.has(g.id) && g.id !== 'gw_alienware_vaultbreakers' && g.id !== 'gw_garena_delta_force').map((g: any) => {
           const meta = gwMetaMap.get(g.id) || {};
           const fallback = fallbackGwMap.get(g.id) || {};
           const poolFromD1 = Array.isArray(g.codes_pool) ? g.codes_pool : [];
@@ -5093,7 +5093,7 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
             const activeIds = new Set(
               incomingGiveaways
                 .map((g: any) => g?.id)
-                .filter((id: string) => id && id !== 'gw_gamerpower_rotwood' && id !== 'gw_alienware_vaultbreakers' && id !== 'gw_garena_delta_force')
+                .filter((id: string) => id && id !== 'gw_alienware_vaultbreakers' && id !== 'gw_garena_delta_force')
             );
             const existingDelGw = (await getSettingD1<string[]>(env.DB, 'wcg_deleted_giveaways')) || [];
             if (Array.isArray(existingDelGw) && existingDelGw.some((id: string) => activeIds.has(id))) {
