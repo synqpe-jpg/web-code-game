@@ -1912,6 +1912,9 @@ export function getCanonicalSettingFallback<T = any>(key: string): T | null {
   if (key === 'wcg_growth_config_v1') {
     return ((canonicalBackupState as any).growthConfig || null) as unknown as T;
   }
+  if (key === 'wcg_news_articles_v1') {
+    return ((canonicalBackupState as any).newsArticles || null) as unknown as T;
+  }
   if (key === 'wcg_crawler_stats_v1') return (canonicalBackupState.crawlerStats || null) as unknown as T;
   return null;
 }

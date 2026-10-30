@@ -10,6 +10,24 @@
 
 ## 1. DANH MỤC LỖI & CÁC BẪY ĐÃ THẤT BẠI (DO NOT REPEAT)
 
+### ISSUE-192: Bẫy Đứt Gãy Lan Truyền Dữ Liệu Khi Module Con (News API) Không Gọi Invalidate Tầng Edge Cache & Lệch Fallback Hạt Giống 208 vs 218
+- **Triệu chứng**:
+  - Bài viết được tạo hoặc cập nhật qua `/api/news` (hoặc lô crawler tự động) đã được ghi vào D1 và hiển thị tại `/api/news`, nhưng người dùng đọc qua `/api/sync` (kể cả khi thêm tham số fresh) vẫn nhận con số cũ 208 bài thay vì 218.
+- **Nguy cơ tiềm ẩn**:
+  - Mất tính nhất quán dữ liệu giữa Web Khách đọc qua Sync và trang chi tiết đọc qua News API.
+  - Khi Worker gặp timeout truy vấn D1, Worker tự động fallback về `fallbackNewsArticles` trong `seedNews.ts` (chỉ có 208 bài), gây hiện tượng tụt số lượng bài viết.
+- **Nguyên nhân gốc rễ**:
+  1. *Thiếu lệnh vô hiệu hóa Edge Cache*: Trong `functions/api/news/index.ts` và `[id].ts`, sau khi ghi D1 chỉ xóa `__wcg_public_sync_cache` cục bộ trong isolate hiện tại mà không gọi `invalidateCatalogEdgeCache` để purge `caches.default` và Cloudflare Global Cache.
+  2. *Hàm `invalidateCatalogEdgeCache` thiếu dọn `__wcg_public_sync_cache`*: Khi các endpoint khác gọi `invalidateCatalogEdgeCache`, biến bộ nhớ `__wcg_public_sync_cache` không được gán về `null`.
+  3. *Lệch fallback hạt giống*: `src/data/seedNews.ts` chỉ chứa 208 bài cũ từ ngày 30/10, chưa bao gồm 10 bài mới được xuất bản.
+- **Giải pháp chuẩn đã kiểm chứng**:
+  1. *Đồng bộ hóa lệnh Invalidate Edge Cache*: Gọi `invalidateCatalogEdgeCache` trong toàn bộ các handler đột biến của News API (`POST`, `PUT`, `PATCH`, `DELETE`).
+  2. *Bổ sung xóa `__wcg_public_sync_cache` trong `cache_service.ts`* và thêm các URL `/api/news` vào danh sách purge.
+  3. *Đồng bộ hóa 218 bài vào hạt giống*: Cập nhật trọn vẹn 218 bài viết sạch (0 lỗi UTF-8) vào `seedNews.ts` và `canonical_backup_state.json`.
+- 🚫 **CÁCH SỬA ĐÃ THẤT BẠI - TUYỆT ĐỐI KHÔNG LẶP LẠI**:
+  - ❌ *Tuyệt đối KHÔNG chỉ xóa cache memory isolate cục bộ mà bỏ qua `invalidateCatalogEdgeCache`*.
+  - ❌ *Tuyệt đối KHÔNG giữ nguyên file seed cũ có số lượng bản ghi ít hơn CSDL thật*.
+
 ### ISSUE-191: Bẫy Lệch Tầng Fallback Cục Bộ Khi D1 Timeout (22 vs 35 Upcoming Games), Bẫy Omit Trường Cấu Hình Rỗng & Lệch Hash Giữa Quy Trình Build Trực Tiếp
 - **Triệu chứng**:
   - Khách vãng lai truy vấn `/api/sync` có lúc chỉ nhận được 22 upcomingGames thay vì 35 (thiếu đúng 13 game mới bổ sung) mặc dù truy vấn trực tiếp theo khóa `?key=wcg_admin_upcoming_games_v1` trả đủ 35.

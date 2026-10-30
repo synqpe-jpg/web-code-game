@@ -7,6 +7,22 @@ Mỗi mục sửa lỗi đều ghi nhận **Nguyên nhân gốc rễ (Root Cause
 
 ## [2026-10-31]
 
+### 279. Chuẩn Hóa Cơ Chế Lan Truyền Tin Tức Tức Thì Từ API Sang /api/sync & Vô Hiệu Hóa Đa Tầng Edge Cache Khi Có Ghi Mới
+- **Bối cảnh & Yêu cầu người dùng**:
+  - Đảm bảo mọi thao tác ghi/sửa/xóa bài viết tin tức qua API (`POST /api/news`, `PUT/PATCH/DELETE /api/news/:id`) ngay lập tức lan truyền sang `/api/sync` và được nhìn thấy trên request công khai thường trong vòng vài phút.
+  - Đồng bộ trọn vẹn 218 bài viết tin tức (bao gồm 10 bài crawler xuất bản 23:14–23:15 ngày 30/10) vào kho dự phòng hạt giống (`src/data/seedNews.ts` và cả 2 tệp `canonical_backup_state.json`), đảm bảo 0 ký tự lỗi UTF-8, 2 bài Hiệp Khách Hành giữ nguyên 5811 và 6157 ký tự.
+  - Tuyệt đối không chạm vào giveaway, nhiệm vụ, catalog, upcomingGames, cấu hình marketing.
+- **Nguyên nhân gốc rễ (Root Cause)**:
+  - Chi tiết tại `ISSUE-192` trong `KNOWN_ISSUES.md`.
+- **Giải pháp kỹ thuật đã áp dụng**:
+  - `functions/services/cache_service.ts`: Bổ sung `gScope.__wcg_public_sync_cache = null` vào hàm `invalidateCatalogEdgeCache`; đồng thời bổ sung các URL `/api/news` vào danh sách xóa cache PoP (`caches.default`) và danh sách Purge toàn cầu của Cloudflare REST API.
+  - `functions/api/news/index.ts` & `functions/api/news/[id].ts`: Gọi `invalidateCatalogEdgeCache` ngay sau khi lưu D1 cho mọi hành động tạo (`POST`), cập nhật (`PUT/PATCH`), và xóa (`DELETE`).
+  - `src/data/seedNews.ts` & `canonical_backup_state.json`: Đồng bộ đầy đủ 218 bài viết sạch vào fallback hạt giống và CSDL dự phòng, kèm fallback `getCanonicalSettingFallback('wcg_news_articles_v1')` trong `functions/services/d1_service.ts`.
+- **Kiểm thử & Xác nhận**:
+  - `GET /api/news?limit=all` và `GET /api/sync` đồng nhất 100%: 218 bài viết.
+  - 2 bài viết Hiệp Khách Hành bảo toàn nguyên vẹn độ dài (5811 và 6157 ký tự), toàn bộ 218 bài có 0 ký tự lỗi UTF-8.
+  - Catalog 582 game, Upcoming 35 game, Giveaway HKH 107/107/0 ACTIVE, Nhiệm vụ HKH 11/12 suất bảo toàn 100%.
+
 ### 278. Tạm Dừng Lịch Trình Cron Tự Động Xuất Bản Tin Tức Cho Đến Sau 23:59 Ngày 08/11/2026 Theo Quy Định Freeze Dữ Liệu
 - **Bối cảnh & Yêu cầu người dùng**:
   - Tạm dừng lịch chạy của workflow `.github/workflows/auto-news-publisher.yml` (cron `'45 * * * *'`) từ 00:10 ngày 31/10/2026 tới sau 23:59 ngày 08/11/2026 theo yêu cầu của chủ web.

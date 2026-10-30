@@ -1,6 +1,7 @@
 import { DEFAULT_NEWS_ARTICLES as fallbackNewsArticles } from '../../../src/data/seedNews';
 import { computeSha256, hasScope } from '../../services/mission_service';
 import { getSettingD1, setSettingD1, invalidateSettingMemoryCache } from '../../services/d1_service';
+import { invalidateCatalogEdgeCache } from '../../services/cache_service';
 
 interface Env {
   DB?: D1Database;
@@ -254,6 +255,7 @@ export const onRequestPut: PagesFunction<Env> = async (context) => {
       (globalThis as any).__wcg_public_sync_cache = null;
       (globalThis as any).__wcg_metrics_snapshot = null;
       await env.DB.prepare('DELETE FROM system_snapshots').run().catch(() => {});
+      await invalidateCatalogEdgeCache(context as any, request, env).catch(() => {});
     } catch (e: any) {
       return new Response(
         JSON.stringify({ success: false, error: 'Database update failed: ' + e?.message }),
@@ -331,6 +333,7 @@ export const onRequestDelete: PagesFunction<Env> = async (context) => {
       (globalThis as any).__wcg_public_sync_cache = null;
       (globalThis as any).__wcg_metrics_snapshot = null;
       await env.DB.prepare('DELETE FROM system_snapshots').run().catch(() => {});
+      await invalidateCatalogEdgeCache(context as any, request, env).catch(() => {});
     } catch (e: any) {
       return new Response(
         JSON.stringify({ success: false, error: 'Database delete failed: ' + e?.message }),
