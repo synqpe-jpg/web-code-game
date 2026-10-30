@@ -7,6 +7,27 @@ Mỗi mục sửa lỗi đều ghi nhận **Nguyên nhân gốc rễ (Root Cause
 
 ## [2026-10-30]
 
+### 277. Hoàn Thiện Nghiệm Thu Giai Đoạn 1 (SSOT Phase 1): Khắc Phục Triệt Để 22 vs 35 Upcoming Games, Khôi Phục Fallback Bền Vững content (11) & growthConfig (25), Khớp 100% Build ID Live
+- **Bối cảnh & Yêu cầu người dùng**:
+  - Đối chiếu kiểm chứng live sau triển khai Giai đoạn 1 và khắc phục 6 vấn đề tồn đọng:
+    1. Triệt để khắc phục hiện tượng `/api/sync` trả về 22 upcomingGames: đảm bảo luôn trả về trọn vẹn 35 games (0 ký tự lỗi UTF-8) trên tất cả các Edge PoPs / Cache levels.
+    2. Bảo đảm `content` luôn trả về đủ 11 banner/thông báo và `growthConfig` luôn đủ 25 trường cấu hình (kể cả khi D1 cold start / fallback), bổ sung `wcg_growth_config_v1` vào danh mục khóa công khai `PUBLIC_ALLOWED_KEYS`.
+    3. Làm rõ tiến trình tự động xuất bản tin tức `.github/workflows/auto-news-publisher.yml` chạy lúc 23:15 VN (10 bài mới, nâng tổng số lên 218 bài) và cơ chế Edge CDN cache của Cloudflare.
+    4. Làm rõ cấu trúc hiển thị Giveaway: 44 chiến dịch trong CSDL được gom nhóm UX qua `groupGiveawaysByGame` (4 game có 2 chiến dịch con gom thành 1 thẻ), hiển thị chính xác 40 thẻ đại diện đang mở ($44 - 4 = 40$), không có chiến dịch nào bị ẩn hay loại bỏ sai quy tắc.
+    5. Cung cấp tài liệu định tuyến chuẩn xác cho Nhiệm vụ (`/api/missions`) và Giftcode (`/api/sync?key=wcg_admin_free_codes_v5`), giải thích lý do `/api/missions/manage` và `/api/codes` trả về 404 (do không tồn tại endpoint dạng này).
+    6. Khớp hoàn toàn Build ID live trên Cloudflare Pages với Git commit hash trên GitHub.
+- **Nguyên nhân gốc rễ (Root Cause)**:
+  - Chi tiết tại `ISSUE-191` trong `KNOWN_ISSUES.md`.
+- **Giải pháp kỹ thuật đã áp dụng**:
+  - `src/types/game.ts`: Cập nhật `DEFAULT_UPCOMING_GAMES` từ 19 lên đủ 35 tựa game chuẩn.
+  - `src/data/canonical_backup_state.json` & `functions/data/canonical_backup_state.json`: Cập nhật trọn vẹn 35 `upcomingGames`, 11 mục `content`, và 25 trường `growthConfig`.
+  - `functions/services/d1_service.ts`: Cập nhật `getCanonicalSettingFallback` cho `wcg_admin_upcoming_games_v1` (35 game), `wcg_admin_content_v4` (11 mục), và `wcg_growth_config_v1` (25 trường).
+  - `functions/api/sync.ts`: Bổ sung `'wcg_growth_config_v1'` vào `PUBLIC_ALLOWED_KEYS`; thêm `'wcg_admin_upcoming_games_v1'` và `'wcg_marketing_config_v1'` vào `bypassCacheKeys` của `getMultipleSettingsD1`; gắn fallback an toàn tầng Worker cho `content` (11) và `growthConfig` (25).
+  - Khớp mã build: Thực hiện commit Git trước khi biên dịch bundle Cloudflare Pages Worker (`dist/_worker.js`), đảm bảo `git rev-parse --short HEAD` được nhúng đồng nhất 100%.
+- **Kiểm thử & Xác nhận**:
+  - `GET /api/sync`: `upcomingGames` trả về 35/35 game, `content` trả về 11/11 banner, `growthConfig` trả về 25/25 trường, `marketingConfig` trả về 20/20 trường, `giveaways` trả về 44/44 chiến dịch.
+  - Build frontend và Cloudflare Worker Edge bundle thành công 100%.
+
 ### 276. Triển Khai Giai Đoạn 1 Hợp Nhất Kho D1 (SSOT Phase 1): Khắc Phục Triệt Để upcomingGames Rỗng (Đủ 35 Game), Chuẩn Hóa 20 Trường marketingConfig & Xuất Bản Sao Lưu Xác Minh An Toàn Tuyệt Đối
 - **Bối cảnh & Yêu cầu người dùng**:
   - Thực hiện Giai đoạn 1 sau khi được chủ web phê duyệt:
@@ -125,6 +146,27 @@ Mỗi mục sửa lỗi đều ghi nhận **Nguyên nhân gốc rễ (Root Cause
   - `npm run build`: 100% PASS, zero test artifacts.
 
 ## [2026-10-30]
+
+### 277. Hoàn Thiện Nghiệm Thu Giai Đoạn 1 (SSOT Phase 1): Khắc Phục Triệt Để 22 vs 35 Upcoming Games, Khôi Phục Fallback Bền Vững content (11) & growthConfig (25), Khớp 100% Build ID Live
+- **Bối cảnh & Yêu cầu người dùng**:
+  - Đối chiếu kiểm chứng live sau triển khai Giai đoạn 1 và khắc phục 6 vấn đề tồn đọng:
+    1. Triệt để khắc phục hiện tượng `/api/sync` trả về 22 upcomingGames: đảm bảo luôn trả về trọn vẹn 35 games (0 ký tự lỗi UTF-8) trên tất cả các Edge PoPs / Cache levels.
+    2. Bảo đảm `content` luôn trả về đủ 11 banner/thông báo và `growthConfig` luôn đủ 25 trường cấu hình (kể cả khi D1 cold start / fallback), bổ sung `wcg_growth_config_v1` vào danh mục khóa công khai `PUBLIC_ALLOWED_KEYS`.
+    3. Làm rõ tiến trình tự động xuất bản tin tức `.github/workflows/auto-news-publisher.yml` chạy lúc 23:15 VN (10 bài mới, nâng tổng số lên 218 bài) và cơ chế Edge CDN cache của Cloudflare.
+    4. Làm rõ cấu trúc hiển thị Giveaway: 44 chiến dịch trong CSDL được gom nhóm UX qua `groupGiveawaysByGame` (4 game có 2 chiến dịch con gom thành 1 thẻ), hiển thị chính xác 40 thẻ đại diện đang mở ($44 - 4 = 40$), không có chiến dịch nào bị ẩn hay loại bỏ sai quy tắc.
+    5. Cung cấp tài liệu định tuyến chuẩn xác cho Nhiệm vụ (`/api/missions`) và Giftcode (`/api/sync?key=wcg_admin_free_codes_v5`), giải thích lý do `/api/missions/manage` và `/api/codes` trả về 404 (do không tồn tại endpoint dạng này).
+    6. Khớp hoàn toàn Build ID live trên Cloudflare Pages với Git commit hash trên GitHub.
+- **Nguyên nhân gốc rễ (Root Cause)**:
+  - Chi tiết tại `ISSUE-191` trong `KNOWN_ISSUES.md`.
+- **Giải pháp kỹ thuật đã áp dụng**:
+  - `src/types/game.ts`: Cập nhật `DEFAULT_UPCOMING_GAMES` từ 19 lên đủ 35 tựa game chuẩn.
+  - `src/data/canonical_backup_state.json` & `functions/data/canonical_backup_state.json`: Cập nhật trọn vẹn 35 `upcomingGames`, 11 mục `content`, và 25 trường `growthConfig`.
+  - `functions/services/d1_service.ts`: Cập nhật `getCanonicalSettingFallback` cho `wcg_admin_upcoming_games_v1` (35 game), `wcg_admin_content_v4` (11 mục), và `wcg_growth_config_v1` (25 trường).
+  - `functions/api/sync.ts`: Bổ sung `'wcg_growth_config_v1'` vào `PUBLIC_ALLOWED_KEYS`; thêm `'wcg_admin_upcoming_games_v1'` và `'wcg_marketing_config_v1'` vào `bypassCacheKeys` của `getMultipleSettingsD1`; gắn fallback an toàn tầng Worker cho `content` (11) và `growthConfig` (25).
+  - Khớp mã build: Thực hiện commit Git trước khi biên dịch bundle Cloudflare Pages Worker (`dist/_worker.js`), đảm bảo `git rev-parse --short HEAD` được nhúng đồng nhất 100%.
+- **Kiểm thử & Xác nhận**:
+  - `GET /api/sync`: `upcomingGames` trả về 35/35 game, `content` trả về 11/11 banner, `growthConfig` trả về 25/25 trường, `marketingConfig` trả về 20/20 trường, `giveaways` trả về 44/44 chiến dịch.
+  - Build frontend và Cloudflare Worker Edge bundle thành công 100%.
 
 ### 276. Triển Khai Giai Đoạn 1 Hợp Nhất Kho D1 (SSOT Phase 1): Khắc Phục Triệt Để upcomingGames Rỗng (Đủ 35 Game), Chuẩn Hóa 20 Trường marketingConfig & Xuất Bản Sao Lưu Xác Minh An Toàn Tuyệt Đối
 - **Bối cảnh & Yêu cầu người dùng**:

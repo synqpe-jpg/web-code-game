@@ -239,6 +239,7 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
       'wcg_news_schedule_config_v1', // Public/admin scheduler config for news
       'wcg_event_schedules_v1',      // Public event countdown & auto-schedule records
       'wcg_admin_upcoming_games_v1', // Public upcoming games catalog
+      'wcg_growth_config_v1',        // Public growth & engagement configuration
       'wcg_universal_templates_v1',  // Public universal template system configuration
       'wcg_template_snapshots_v1',   // Template system snapshots backup
       'wcg_template_audit_logs_v1',  // Template system audit logs
@@ -465,7 +466,7 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
               'wcg_admin_upcoming_games_v1',
               'wcg_universal_templates_v1',
             ],
-            new Set(['wcg_news_articles_v1', 'wcg_deleted_news_articles_v1'])
+            new Set(['wcg_news_articles_v1', 'wcg_deleted_news_articles_v1', 'wcg_admin_upcoming_games_v1', 'wcg_marketing_config_v1'])
           ),
         ]);
 
@@ -927,7 +928,12 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
       })() : undefined,
       customFreeCodes: d1Settings['wcg_admin_custom_free_codes_v1'] || masterState.customFreeCodes || [],
       deletedFreeCodes: d1Settings['wcg_deleted_free_codes'] || masterState.deletedFreeCodes || [],
-      content: d1Settings['wcg_admin_content_v4'] || (Array.isArray(masterState.content) ? masterState.content : (masterState.content ? masterState.content : [])),
+      content: (() => {
+        const d1Content = d1Settings['wcg_admin_content_v4'];
+        if (Array.isArray(d1Content) && d1Content.length > 0) return d1Content;
+        if (Array.isArray(masterState.content) && masterState.content.length > 0) return masterState.content;
+        return (canonicalBackupState as any).content || [];
+      })(),
       giveaways: sanitizedGiveaways,
       storeProducts: rawStoreProducts,
       utilities: rawUtilities,
@@ -938,7 +944,9 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
       marketingConfig: (resolvedMarketingConfig && typeof resolvedMarketingConfig === 'object' && Object.keys(resolvedMarketingConfig).length >= 10)
         ? resolvedMarketingConfig
         : DEFAULT_MARKETING_CONFIG,
-      growthConfig: resolvedGrowthConfig || masterState.growthConfig || null,
+      growthConfig: (resolvedGrowthConfig && typeof resolvedGrowthConfig === 'object' && Object.keys(resolvedGrowthConfig).length >= 10)
+        ? resolvedGrowthConfig
+        : ((canonicalBackupState as any).growthConfig || null),
       utilitiesGlobalShowSold: d1Settings['wcg_utilities_global_show_sold'] !== undefined
         ? (d1Settings['wcg_utilities_global_show_sold'] === true || d1Settings['wcg_utilities_global_show_sold'] === 'true')
         : (masterState?.utilitiesGlobalShowSold !== undefined ? Boolean(masterState.utilitiesGlobalShowSold) : true),

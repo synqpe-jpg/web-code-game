@@ -10,6 +10,29 @@
 
 ## 1. DANH MỤC LỖI & CÁC BẪY ĐÃ THẤT BẠI (DO NOT REPEAT)
 
+### ISSUE-191: Bẫy Lệch Tầng Fallback Cục Bộ Khi D1 Timeout (22 vs 35 Upcoming Games), Bẫy Omit Trường Cấu Hình Rỗng & Lệch Hash Giữa Quy Trình Build Trực Tiếp
+- **Triệu chứng**:
+  - Khách vãng lai truy vấn `/api/sync` có lúc chỉ nhận được 22 upcomingGames thay vì 35 (thiếu đúng 13 game mới bổ sung) mặc dù truy vấn trực tiếp theo khóa `?key=wcg_admin_upcoming_games_v1` trả đủ 35.
+  - Trường `content` có nguy cơ trả về mảng rỗng `[]` và `growthConfig` trả về object rỗng `{}` khi D1 gặp hiện tượng timeout / cold-start do thiếu định nghĩa trong kho fallback cục bộ `canonical_backup_state.json`. Truy vấn công khai `?key=wcg_growth_config_v1` bị chặn 401 Unauthorized do thiếu trong `PUBLIC_ALLOWED_KEYS`.
+  - Build ID trên môi trường live (`dist/_worker.js`) hiển thị hash commit cha (`a47be97`) thay vì commit hiện hành (`85fe79d`) do lệnh `npm run build` được kích hoạt trước khi hoàn tất lệnh `git commit`.
+  - Nhầm lẫn số lượng Giveaway 39 vs 44: thực tế CSDL có 44 chiến dịch (toàn bộ `is_active: true`, 0 ENDED, 40 tựa game độc lập). Giao diện gom 4 game có 2 chiến dịch con thành 1 thẻ (`groupGiveawaysByGame`), tạo ra đúng 40 thẻ hiển thị ($44 - 4 = 40$), hoàn toàn không có chiến dịch nào bị lọc bỏ hay mất mát.
+- **Nguy cơ tiềm ẩn**:
+  - Phá vỡ tính nhất quán của dữ liệu: khi Cloudflare Edge PoP gặp D1 timeout (1200ms), fallback cục bộ cũ kích hoạt sẽ trả về dữ liệu thiếu hụt khiến người dùng nhìn thấy số lượng game sắp ra mắt bị tụt từ 35 xuống 22.
+  - Đứt gãy đồng bộ giữa bot kiểm chứng bên ngoài và mã nguồn khi Build ID không phản ánh chính xác commit hash.
+- **Nguyên nhân gốc rễ**:
+  1. *Lệch fallback hạt giống*: `canonical_backup_state.json` và `DEFAULT_UPCOMING_GAMES` chỉ lưu 19 upcoming + 3 launched = 22 games cũ. Khi D1 timeout, hàm `getCanonicalSettingFallback` trả về mảng 22 items này.
+  2. *Thiếu key công khai*: `wcg_growth_config_v1` chưa được liệt kê trong `PUBLIC_ALLOWED_KEYS` tại `functions/api/sync.ts`.
+  3. *Thiếu fallback tầng Worker cho content & growthConfig*: `canonical_backup_state.json` ban đầu không lưu trữ giá trị bền vững cho 11 banners và 25 fields tăng trưởng.
+  4. *Thứ tự thực thi build*: Script `build.cjs` và `compile_worker.cjs` gọi `git rev-parse --short HEAD` tại thời điểm build; nếu file nguồn bị sửa đổi nhưng chưa commit, hash nhận được sẽ là của commit trước đó.
+- **Giải pháp chuẩn đã kiểm chứng**:
+  1. *Đồng bộ 35 game vào toàn bộ các tầng fallback*: Cập nhật trọn vẹn 35 game vào `src/types/game.ts` (`DEFAULT_UPCOMING_GAMES`), `src/data/canonical_backup_state.json`, và `functions/data/canonical_backup_state.json`.
+  2. *Bổ sung quyền truy cập công khai*: Thêm `'wcg_growth_config_v1'` vào `PUBLIC_ALLOWED_KEYS`.
+  3. *Dự phòng bền vững cho Content & GrowthConfig*: Cập nhật `canonical_backup_state.json` với 11 banner `content` và 25 trường `growthConfig`, đồng thời cấu hình fallback trong `getCanonicalSettingFallback` và `sync.ts`.
+  4. *Chuẩn hóa quy trình build & commit*: Luôn thực hiện `git commit` trước, sau đó recompile Worker qua `node scripts/compile_worker.cjs` để Build ID khớp 100% với commit hash.
+- 🚫 **CÁCH SỬA ĐÃ THẤT BẠI - TUYỆT ĐỐI KHÔNG LẶP LẠI**:
+  - ❌ *Tuyệt đối KHÔNG chạy `npm run build` khi chưa commit các thay đổi trong working directory nếu muốn Build ID phản ánh đúng commit mới*.
+  - ❌ *Tuyệt đối KHÔNG để mảng fallback của CSDL (`canonical_backup_state.json`) chứa dữ liệu cũ ít hơn dữ liệu thực tế trên D1*.
+
 ### ISSUE-190: Bẫy Bỏ Sót Khóa `wcg_admin_upcoming_games_v1` Trong Batch Query Của Composite Sync Endpoint & Nguy Cơ Lược Bỏ Khóa Cấp Cao Nhất Khi JSON Serialize (Phase 1 SSOT Migration)
 - **Triệu chứng**:
   - Endpoint `/api/sync` trả về trường `upcomingGames: []` rỗng mặc dù bảng upcoming trên máy chủ D1 có đầy đủ 35 game (tương đương `?status=ALL`).
