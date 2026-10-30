@@ -10,6 +10,24 @@
 
 ## 1. DANH MỤC LỖI & CÁC BẪY ĐÃ THẤT BẠI (DO NOT REPEAT)
 
+### ISSUE-183: Bẫy CHECK Constraint Cột Status Bảng Giveaways & Bẫy Nuốt Lỗi Khiến POST /api/giveaways/manage Trả 201 Giả (Giveaways Status CHECK Constraint & Silent Error Swallowing Returning False 201 Created Pitfall)
+- **Triệu chứng**:
+  - Khi gọi POST /api/giveaways/manage để tạo chiến dịch mới với `is_active: false` và kho mã rỗng `codes: []`, máy chủ trả về HTTP 201 thông báo thành công, nhưng sau đó tra cứu danh sách GET và chi tiết ID đều trả về 404 hoặc không tìm thấy bản ghi.
+  - Kho đồng bộ công khai /api/sync không ghi nhận chiến dịch mới.
+- **Nguyên nhân gốc rễ**:
+  1. Bảng `giveaways` trong SQLite D1 có ràng buộc `CHECK (status IN ('ACTIVE', 'ENDED'))`. Khi cờ `is_active: false`, code tự suy diễn `status = 'PAUSED'`, vi phạm CHECK constraint của SQLite khiến D1 từ chối ghi.
+  2. Câu lệnh SQL ghi bảng D1 có gắn `.catch((e) => console.warn(...))` nuốt sạch lỗi SQL, khiến API tưởng nhầm là ghi thành công và trả HTTP 201 giả.
+  3. Hàm đọc `loadAllGiveawaysD1` chỉ duyệt qua mảng kết quả của bảng SQL, nếu bảng SQL thiếu dòng thì dữ liệu trong `system_settings` cũng bị bỏ rơi.
+- **Giải pháp chuẩn đã kiểm chứng**:
+  1. Giá trị `status` ghi vào D1 luôn tuân thủ `CHECK (status IN ('ACTIVE', 'ENDED'))` (`(gw.status === 'ENDED') ? 'ENDED' : 'ACTIVE'`), trạng thái tạm dừng được kiểm soát chính xác qua cột số nguyên `is_active` (0 hoặc 1).
+  2. Tuyệt đối không nuốt lỗi SQL trong các hàm thao tác kho dữ liệu chính; để lỗi ném ra ngoại lệ thật để tầng API bắt được và trả HTTP 500 lỗi rõ ràng.
+  3. Triển khai cơ chế Xác Thực Đọc Lại Bắt Buộc (Mandatory Read-Back Verification): Sau khi ghi D1, bắt buộc gọi `loadAllGiveawaysD1` để kiểm chứng bản ghi đã tồn tại trong kho thật; nếu không tìm thấy, lập tức trả lỗi, tuyệt đối không trả 201 giả.
+  4. Tự phục hồi dữ liệu trong `loadAllGiveawaysD1`: Duyệt thêm các bản ghi có trong `metaSetting` mà chưa có trong bảng SQL để đảm bảo dữ liệu luôn nhất quán.
+  5. Đồng bộ vào `wcg_master_state_v4` và xóa `system_snapshots` để kho công khai cập nhật tức thì.
+- 🚫 **CÁCH SỬA ĐÃ THẤT BẠI - TUYỆT ĐỐI KHÔNG LẶP LẠI**:
+  - ❌ *Tuyệt đối KHÔNG gán `status = 'PAUSED'` vào câu lệnh INSERT/UPDATE bảng `giveaways` trong D1*.
+  - ❌ *Tuyệt đối KHÔNG trả HTTP 201 nếu bản ghi chưa được đối soát đọc lại thành công từ cơ sở dữ liệu*.
+
 ### ISSUE-182: Bẫy Dropdown Select Đơn Điệu Gây Khó Khăn Khi Tìm Kiếm Thành Viên & Nguy Cơ Nhầm Lẫn Số Dư Trong Điều Chỉnh Ví (Single Dropdown Select & Lack of Multi-Field Search in Wallet Adjustment Modal Pitfall)
 - **Triệu chứng**:
   - Khi hệ thống có hàng trăm hoặc hàng nghìn thành viên, modal điều chỉnh số dư chỉ có một thẻ dropdown `<select>` duy nhất, khiến quản trị viên phải cuộn tìm kiếm thủ công rất mất thời gian.

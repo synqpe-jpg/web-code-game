@@ -83,6 +83,23 @@ async function logGiveawayAudit(
 }
 
 /**
+ * Đồng bộ toàn diện vào wcg_master_state_v4 và làm sạch toàn bộ edge/snapshot caches
+ */
+async function syncPublicGiveawayState(env: Env, updatedList: any[]): Promise<void> {
+  if (!env.DB) return;
+  try {
+    const currentMaster: any = (await getSettingD1(env.DB, 'wcg_master_state_v4', null, true).catch(() => null)) || {};
+    currentMaster.giveaways = updatedList;
+    currentMaster.timestamp = Date.now();
+    await setSettingD1(env.DB, 'wcg_master_state_v4', currentMaster).catch(() => {});
+    invalidateSettingMemoryCache('wcg_master_state_v4');
+    (globalThis as any).__wcg_public_sync_cache = null;
+    (globalThis as any).__wcg_metrics_snapshot = null;
+    await env.DB.prepare('DELETE FROM system_snapshots').run().catch(() => {});
+  } catch {}
+}
+
+/**
  * GET /api/giveaways/manage
  * Lấy danh sách toàn bộ chiến dịch giveaway kèm kho mã chi tiết, số lượng tồn thật và cấu hình mô phỏng
  */
@@ -262,7 +279,7 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
     const cdHours = cooldown_hours !== undefined ? Number(cooldown_hours) : Number((cdMinutes / 60).toFixed(2));
 
     // Lấy thông tin đợt phát hiện có nếu đang chỉnh sửa
-    const existingList = await getSettingD1(env.DB, 'wcg_admin_giveaways_v4').catch(() => []);
+    const existingList = (await getSettingD1<any[]>(env.DB, 'wcg_admin_giveaways_v4', [], true).catch(() => [])) || [];
     const existingItem = Array.isArray(existingList) ? existingList.find((g: any) => g && g.id === id) : null;
     const existingPool = Array.isArray(existingItem?.codes_pool) ? existingItem.codes_pool : [];
 
@@ -313,10 +330,20 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
       updated_at: new Date().toISOString(),
     };
 
-    // Lưu vào D1 (Tự động nạp mã vào bảng giveaway_codes)
-    await syncGiveawaysToD1(env.DB, [gwRecord]);
+    // 1. Lưu vào D1 (Tự động nạp mã vào bảng giveaway_codes)
+    try {
+      await syncGiveawaysToD1(env.DB, [gwRecord]);
+    } catch (d1Err: any) {
+      return new Response(
+        JSON.stringify({
+          success: false,
+          message: `Lỗi ghi dữ liệu vào D1: ${d1Err?.message || 'Không thể lưu vào bảng giveaways'}`,
+        }),
+        { status: 500, headers: CORS_HEADERS }
+      );
+    }
 
-    // Cập nhật metadata trong system_settings
+    // 2. Cập nhật metadata trong system_settings (wcg_admin_giveaways_v4)
     const updatedList = Array.isArray(existingList) ? [...existingList] : [];
     const idx = updatedList.findIndex((g: any) => g && g.id === id);
     if (idx >= 0) {
@@ -327,15 +354,31 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
     await setSettingD1(env.DB, 'wcg_admin_giveaways_v4', updatedList);
     invalidateSettingMemoryCache('wcg_admin_giveaways_v4');
 
-    // Xóa khỏi danh sách tombstones xóa nếu có
-    const delList: any = await getSettingD1(env.DB, 'wcg_deleted_giveaways').catch(() => []);
+    // 3. Cập nhật wcg_master_state_v4 & làm sạch edge cache để kho đồng bộ công khai /api/sync luôn có ngay
+    await syncPublicGiveawayState(env, updatedList);
+
+    // 5. Xóa khỏi danh sách tombstones xóa nếu có
+    const delList: any = await getSettingD1(env.DB, 'wcg_deleted_giveaways', [], true).catch(() => []);
     if (Array.isArray(delList) && delList.includes(id)) {
       const filteredDel = delList.filter((item: string) => item !== id);
       await setSettingD1(env.DB, 'wcg_deleted_giveaways', filteredDel);
       invalidateSettingMemoryCache('wcg_deleted_giveaways');
     }
 
-    // Ghi nhật ký kiểm toán
+    // 6. KIỂM TRA ĐỐI SOÁT ĐỌC LẠI (VERIFICATION READ-BACK BẮT BUỘC)
+    const verifiedList = await loadAllGiveawaysD1(env.DB, true, true);
+    const verifiedItem = verifiedList.find((g: any) => g && g.id === id);
+    if (!verifiedItem) {
+      return new Response(
+        JSON.stringify({
+          success: false,
+          message: `Lỗi xác thực lưu trữ D1: Chiến dịch "${id}" không đọc lại được từ cơ sở dữ liệu sau lệnh ghi.`,
+        }),
+        { status: 500, headers: CORS_HEADERS }
+      );
+    }
+
+    // 7. Ghi nhật ký kiểm toán
     const actor = auth.keyRecord?.key_name || 'API Client';
     const actionDesc = existingItem ? 'Cập nhật chiến dịch Giveaway' : 'Tạo mới chiến dịch Giveaway';
     await logGiveawayAudit(
@@ -351,7 +394,7 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
       JSON.stringify({
         success: true,
         message: `${actionDesc} thành công!`,
-        giveaway: gwRecord,
+        giveaway: verifiedItem,
       }),
       { status: existingItem ? 200 : 201, headers: CORS_HEADERS }
     );
@@ -430,7 +473,7 @@ export const onRequestPut: PagesFunction<Env> = async (context) => {
         const stmts: D1PreparedStatement[] = slice.map((codeVal) => {
           const codeId = `gc_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`;
           return env.DB!.prepare(`
-            INSERT INTO giveaway_codes (id, giveaway_id, code_value, status, created_at)
+            INSERT INTO giveaway_codes (id, giveaway_id, code_content, status, created_at)
             VALUES (?, ?, ?, 'AVAILABLE', datetime('now'))
           `).bind(codeId, targetId, codeVal);
         });
@@ -455,6 +498,7 @@ export const onRequestPut: PagesFunction<Env> = async (context) => {
       existingList[targetIndex] = currentGw;
       await setSettingD1(env.DB, 'wcg_admin_giveaways_v4', existingList);
       invalidateSettingMemoryCache('wcg_admin_giveaways_v4');
+      await syncPublicGiveawayState(env, existingList);
 
       await logGiveawayAudit(
         env.DB,
@@ -484,15 +528,17 @@ export const onRequestPut: PagesFunction<Env> = async (context) => {
       currentGw.status = nextActive ? 'ACTIVE' : 'PAUSED';
       currentGw.updated_at = new Date().toISOString();
 
+      const dbStatus = (currentGw.status === 'ENDED' || String(currentGw.status).toUpperCase() === 'ENDED') ? 'ENDED' : 'ACTIVE';
       await env.DB.prepare(`
         UPDATE giveaways
         SET is_active = ?, status = ?, updated_at = datetime('now')
         WHERE id = ?
-      `).bind(nextActive ? 1 : 0, currentGw.status, targetId).run().catch(() => {});
+      `).bind(nextActive ? 1 : 0, dbStatus, targetId).run().catch(() => {});
 
       existingList[targetIndex] = currentGw;
       await setSettingD1(env.DB, 'wcg_admin_giveaways_v4', existingList);
       invalidateSettingMemoryCache('wcg_admin_giveaways_v4');
+      await syncPublicGiveawayState(env, existingList);
 
       await logGiveawayAudit(
         env.DB,
@@ -528,6 +574,7 @@ export const onRequestPut: PagesFunction<Env> = async (context) => {
       existingList[targetIndex] = currentGw;
       await setSettingD1(env.DB, 'wcg_admin_giveaways_v4', existingList);
       invalidateSettingMemoryCache('wcg_admin_giveaways_v4');
+      await syncPublicGiveawayState(env, existingList);
 
       await logGiveawayAudit(
         env.DB,
@@ -568,6 +615,7 @@ export const onRequestPut: PagesFunction<Env> = async (context) => {
       existingList[targetIndex] = currentGw;
       await setSettingD1(env.DB, 'wcg_admin_giveaways_v4', existingList);
       invalidateSettingMemoryCache('wcg_admin_giveaways_v4');
+      await syncPublicGiveawayState(env, existingList);
 
       return new Response(
         JSON.stringify({
@@ -640,11 +688,12 @@ export const onRequestDelete: PagesFunction<Env> = async (context) => {
     await setSettingD1(env.DB, 'wcg_deleted_giveaways', Array.from(delSet));
     invalidateSettingMemoryCache('wcg_deleted_giveaways');
 
-    // 3. Xóa khỏi metadata trong system_settings
-    const existingList: any[] = (await getSettingD1(env.DB, 'wcg_admin_giveaways_v4').catch(() => [])) || [];
+    // 3. Xóa khỏi metadata trong system_settings & đồng bộ toàn sàn
+    const existingList: any[] = (await getSettingD1(env.DB, 'wcg_admin_giveaways_v4', [], true).catch(() => [])) || [];
     const filteredList = existingList.filter((g: any) => g && g.id !== targetId);
     await setSettingD1(env.DB, 'wcg_admin_giveaways_v4', filteredList);
     invalidateSettingMemoryCache('wcg_admin_giveaways_v4');
+    await syncPublicGiveawayState(env, filteredList);
 
     // 4. Ghi nhật ký kiểm toán
     const actor = auth.keyRecord?.key_name || 'API Client';

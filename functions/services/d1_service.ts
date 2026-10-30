@@ -2395,7 +2395,7 @@ export async function syncGiveawaysToD1(db: D1Database, giveaways: any[]): Promi
     const showClaimed = (gw.show_claimed_count !== false && (gw as any).showClaimedCount !== false) ? 1 : 0;
     const virtualOffset = Number(gw.virtual_claimed_offset ?? gw.virtualClaimedOffset ?? 0);
     const isActive = (gw.is_active !== false && (gw as any).isActive !== false) ? 1 : 0;
-    const status = gw.status === 'ENDED' ? 'ENDED' : (isActive === 0 ? 'PAUSED' : 'ACTIVE');
+    const status = (gw.status === 'ENDED' || String(gw.status).toUpperCase() === 'ENDED') ? 'ENDED' : 'ACTIVE';
     const description = gw.description || '';
     const rewards = gw.rewards || '';
     const startTime = gw.start_time || gw.startTime || null;
@@ -2519,7 +2519,7 @@ export async function syncGiveawaysToD1(db: D1Database, giveaways: any[]): Promi
       isLastClaimSimulated,
       virtualRemainingAddition,
       virtualRemainingCurrent
-    ).run().catch((e) => console.warn('[syncGiveawaysToD1 gw error]', e?.message));
+    ).run();
 
     // Reconcile and batch insert codes_pool into giveaway_codes if present
     if (pool.length > 0) {
@@ -3075,6 +3075,64 @@ export async function loadAllGiveawaysD1(db: D1Database, includeCodes: boolean =
       ORDER BY g.created_at DESC
     `).all();
     const rows = (res && res.results) || [];
+    const rowIdSet = new Set(rows.map((r: any) => r.id));
+    const delListRaw: any = await getSettingD1(db, 'wcg_deleted_giveaways', [], forceFresh).catch(() => []);
+    const delSet = new Set(Array.isArray(delListRaw) ? delListRaw : []);
+
+    // Self-healing: if an active giveaway exists in metaSetting (system_settings) but is missing from rows, include it
+    if (Array.isArray(metaSetting)) {
+      for (const m of metaSetting) {
+        if (m && m.id && !rowIdSet.has(m.id) && !delSet.has(m.id)) {
+          rows.push({
+            id: m.id,
+            title: m.title || '',
+            game_slug: m.game_slug || '',
+            game_name: m.game_name || '',
+            description: m.description || '',
+            rewards: m.rewards || '',
+            total_codes: Number(m.total_codes || 0),
+            remaining_codes: Array.isArray(m.codes_pool) ? m.codes_pool.length : Number(m.remaining_codes || 0),
+            claimed_codes: Number(m.claimed_codes || 0),
+            min_account_age_days: Number(m.min_account_age_days || 0),
+            max_per_user: Number(m.max_per_user || 1),
+            max_per_ip: Number(m.max_per_ip || 1),
+            cooldown_hours: Number(m.cooldown_hours || 0),
+            cooldown_minutes: Number(m.cooldown_minutes || 0),
+            global_cooldown_seconds: Number(m.global_cooldown_seconds || 0),
+            last_global_claim_at: m.last_global_claim_at || '',
+            last_claimer_name: m.last_claimer_name || '',
+            custom_cooldown_msg: m.custom_cooldown_msg || '',
+            custom_success_msg: m.custom_success_msg || '',
+            custom_out_of_stock_msg: m.custom_out_of_stock_msg || '',
+            enable_waiting_room: m.enable_waiting_room !== false ? 1 : 0,
+            waiting_users_min: Number(m.waiting_users_min || 0),
+            waiting_users_max: Number(m.waiting_users_max || 0),
+            custom_banner_enabled: m.custom_banner_enabled !== false ? 1 : 0,
+            custom_banner_text: m.custom_banner_text || '',
+            custom_banner_link: m.custom_banner_link || '',
+            show_claimed_count: m.show_claimed_count !== false ? 1 : 0,
+            virtual_claimed_offset: Number(m.virtual_claimed_offset || 0),
+            start_time: m.start_time || null,
+            end_time: m.end_time || null,
+            is_active: (m.is_active !== false && m.is_active !== 0) ? 1 : 0,
+            enable_auto_simulation: m.enable_auto_simulation !== false ? 1 : 0,
+            simulation_idle_threshold_minutes: Number(m.simulation_idle_threshold_minutes || 0),
+            virtual_remaining_addition: Number(m.virtual_remaining_addition || 20),
+            virtual_remaining_current: Number(m.virtual_remaining_current || 20),
+            last_real_claim_at: m.last_real_claim_at || '',
+            last_simulated_claim_at: m.last_simulated_claim_at || '',
+            is_last_claim_simulated: m.is_last_claim_simulated ? 1 : 0,
+            use_template: m.use_template !== false ? 1 : 0,
+            updated_at: m.updated_at || new Date().toISOString(),
+            cover_image_url: m.cover_image_url || null,
+            game_icon_url: m.game_icon_url || null,
+            status: m.status === 'ENDED' ? 'ENDED' : 'ACTIVE',
+            created_at: m.created_at || new Date().toISOString(),
+          });
+        }
+      }
+    }
+
     const fallbackGwMap = new Map((fallbackGiveawaysData as any[]).map((f: any) => [f.id, f]));
     const list = rows.map((gw: any) => {
       const meta = metaMap.get(gw.id) || {};
@@ -3145,6 +3203,7 @@ export async function loadAllGiveawaysD1(db: D1Database, includeCodes: boolean =
         is_last_claim_simulated: meta.is_last_claim_simulated !== undefined ? Boolean(meta.is_last_claim_simulated) : Boolean(gw.is_last_claim_simulated),
         fomo_anchor_time: meta.fomo_anchor_time || gw.fomo_anchor_time || null,
         show_claimed_count: meta.show_claimed_count !== undefined ? Boolean(meta.show_claimed_count) : (gw.show_claimed_count !== undefined ? Boolean(gw.show_claimed_count) : true),
+        status: (gw.status === 'ENDED' || meta.status === 'ENDED') ? 'ENDED' : ((gw.is_active === 0 || meta.is_active === false) ? 'PAUSED' : 'ACTIVE'),
         updated_at: meta.updated_at || gw.updated_at || gw.created_at || new Date().toISOString(),
       };
     });

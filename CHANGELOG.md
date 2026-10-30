@@ -7,6 +7,29 @@ Mỗi mục sửa lỗi đều ghi nhận **Nguyên nhân gốc rễ (Root Cause
 
 ## [2026-10-30]
 
+### 268. Sửa Lỗi POST /api/giveaways/manage Trả 201 Nhưng Không Lưu & Bật Cơ Chế Xác Thực Đọc Lại Bắt Buộc (Mandatory Read-Back Verification, DB Check Constraint Fix & Edge Cache Invalidation for Giveaways Management API)
+- **Bối cảnh & Yêu cầu người dùng**:
+  - Người dùng báo lỗi: "POST /api/giveaways/manage trả 201 nhưng sự kiện không được lưu".
+  - Khi gọi POST /api/giveaways/manage để tạo một sự kiện giveaway mới (ví dụ payload có `is_active: false` và `codes: []`), máy chủ trả về HTTP 201 thành công nhưng sau đó sự kiện không xuất hiện ở bất kỳ đường đọc nào: GET danh sách và GET theo ID đều trả về 404 hoặc không tìm thấy, kho đồng bộ công khai /api/sync cũng không có.
+  - Người dùng yêu cầu: Sửa triệt để đường ghi, kiểm tra trường hợp kho mã rỗng và cờ `is_active: false`. Nguyên tắc bắt buộc: Lệnh tạo chỉ được trả 201 khi bản ghi đã lưu thật và đọc lại được ngay bằng GET danh sách và GET chi tiết. Tuyệt đối không trả 201 giả.
+- **Nguyên nhân gốc rễ**:
+  1. *Lỗi vi phạm ràng buộc CHECK constraint trong D1*: Bảng `giveaways` trong SQLite D1 được tạo với ràng buộc `CHECK (status IN ('ACTIVE', 'ENDED'))`. Khi payload gửi `is_active: false`, hàm `syncGiveawaysToD1` trong `d1_service.ts` đã tự động gán `status = 'PAUSED'`. Giá trị này không nằm trong danh mục hợp lệ `('ACTIVE', 'ENDED')`, khiến SQLite từ chối câu lệnh `INSERT INTO giveaways`.
+  2. *Bẫy nuốt lỗi thầm lặng (Silent Error Swallowing)*: Trong `syncGiveawaysToD1`, câu lệnh SQL có gắn `.catch((e) => console.warn('[syncGiveawaysToD1 gw error]', e?.message))` nuốt sạch lỗi SQL, khiến hàm không ném ngoại lệ. Phía `manage.ts` tưởng nhầm là đã lưu thành công nên trả về HTTP 201 giả.
+  3. *Lệch cấu trúc đọc trong `loadAllGiveawaysD1`*: `loadAllGiveawaysD1` chỉ duyệt qua mảng `rows` từ câu lệnh `SELECT ... FROM giveaways g`. Nếu bảng SQL không có bản ghi, toàn bộ dữ liệu trong `system_settings` (`wcg_admin_giveaways_v4`) cũng bị bỏ qua hoàn toàn.
+  4. *Sai tên cột trong PUT ADD_CODES*: `manage.ts` dùng `code_value` thay vì `code_content`.
+  5. *Thiếu xóa cache biên & cập nhật public state*: `manage.ts` trước đây không cập nhật `wcg_master_state_v4` và không xóa `system_snapshots`, khiến endpoint `/api/sync` vẫn phục vụ bản chụp cũ.
+- **Kiến trúc & Giải pháp triển khai**:
+  1. *Khắc phục ràng buộc trạng thái*: Gán `status` trong D1 luôn tuân thủ `('ACTIVE', 'ENDED')` (`(gw.status === 'ENDED') ? 'ENDED' : 'ACTIVE'`), trạng thái tạm dừng được lưu trữ chính xác qua cột số nguyên `is_active` (0 hoặc 1). Ở tầng đọc `loadAllGiveawaysD1`, tổng hợp `status: 'PAUSED'` nếu `is_active === 0` để đáp ứng đầy đủ nghiệp vụ UI và API.
+  2. *Loại bỏ nuốt lỗi SQL*: Gỡ bỏ `.catch(...)` trong `syncGiveawaysToD1`, cho phép ném ngoại lệ SQL thật nếu câu lệnh thất bại để phía API xử lý và trả HTTP 500 lỗi rõ ràng.
+  3. *Cơ chế Xác Thực Đọc Lại Bắt Buộc (Mandatory Read-Back Verification)*: Trong `POST /api/giveaways/manage`, sau khi thực thi ghi D1, bắt buộc gọi `loadAllGiveawaysD1(env.DB, true, true)` để đối soát đọc lại. Chỉ khi bản ghi đã tồn tại và đọc lại được 100% mới trả HTTP 201. Nếu không tìm thấy, lập tức trả HTTP 500 kèm thông báo lỗi lưu trữ, cam kết tuyệt đối không bao giờ trả 201 giả.
+  4. *Tự phục hồi dữ liệu trong `loadAllGiveawaysD1`*: Bổ sung cơ chế tự duyệt các bản ghi có trong `metaSetting` mà chưa có trong `rows` (loại trừ danh sách đã xóa `wcg_deleted_giveaways`) để đảm bảo không một sự kiện nào bị bỏ sót.
+  5. *Hàm đồng bộ `syncPublicGiveawayState`*: Tự động cập nhật `wcg_master_state_v4`, xóa `system_snapshots` và làm sạch cache bộ nhớ Edge Isolate sau mỗi thao tác POST, PUT, DELETE.
+  6. *Sửa cột `code_content`*: Thay thế `code_value` thành `code_content` trong câu lệnh nạp mã của PUT.
+- **Kiểm thử & Xác nhận**:
+  - Build Cloudflare Pages & Vite: 100% PASS (hoàn tất trong 8.42s).
+  - Regression Test Suite: 100% PASS (8/8 bài kiểm tra).
+  - Audit Zero Test Artifacts: Sạch 100%.
+
 ### 267. Thêm Ô Tìm Kiếm & Mở Rộng Khả Năng Tìm Kiếm Tên Thành Viên Trong Mục Điều Chỉnh Sổ Cái & Số Dư Ví (Enhanced Member Search with Accent-Insensitive, Multi-Field Matching & Realtime Balance Preview in Wallet Adjustment Modal)
 - **Bối cảnh & Yêu cầu người dùng**:
   - Người dùng yêu cầu: "Trong mục điều chỉnh ví và số dư, thêm ô tìm kiếm, mở rộng kả năng tìm kiếm tên giúp tôi." kèm ảnh chụp màn hình modal "Điều Chỉnh Sổ Cái & Số Dư Ví" tại `admin-code-game-shop.pages.dev/admin#/wallet`.
