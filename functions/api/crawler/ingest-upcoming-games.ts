@@ -2201,13 +2201,13 @@ export async function onRequestPost(context: { request: Request; env: Env }): Pr
   // ACTION 6: DEFAULT INGEST / ADD / UPDATE
   const incomingList: any[] = Array.isArray(payload)
     ? payload
-    : (Array.isArray(payload?.games) ? payload.games : (payload?.name ? [payload] : []));
+    : (Array.isArray(payload?.games) ? payload.games : (payload?.name || payload?.slug || payload?.id ? [payload] : []));
 
   if (incomingList.length === 0) {
     return new Response(
       JSON.stringify({
         success: false,
-        error: 'Payload cần chứa mảng "games" hoặc tối thiểu 1 game có trường "name".',
+        error: 'Payload cần chứa mảng "games" hoặc tối thiểu 1 game có trường "name" hoặc "slug".',
         sampleFormat: {
           apiKey: 'YOUR_API_KEY',
           botName: 'Trợ lý Pine',
@@ -2247,14 +2247,30 @@ export async function onRequestPost(context: { request: Request; env: Env }): Pr
 
   let addedCount = 0;
   let updatedCount = 0;
+  let totalClearedCodesCount = 0;
   const processedDetails: any[] = [];
 
   for (const raw of incomingList) {
-    if (!raw || typeof raw !== 'object' || !raw.name) continue;
+    if (!raw || typeof raw !== 'object') continue;
 
-    const name = String(raw.name).trim();
-    const slug = raw.slug ? slugify(String(raw.slug).trim()) : slugify(name);
+    const rawName = String(raw.name || raw.game_name || '').trim();
+    const rawSlug = String(raw.slug || raw.game_slug || raw.id || '').trim();
+    if (!rawName && !rawSlug) continue;
+
+    const slug = rawSlug ? slugify(rawSlug) : slugify(rawName);
     if (!slug) continue;
+
+    // Tìm record đã có qua slug, id hoặc tên game tương đồng
+    const existing =
+      existingMap.get(slug.toLowerCase()) ||
+      (raw.id ? existingMap.get(String(raw.id).toLowerCase()) : null) ||
+      currentUpcomingGames.find((g) => {
+        const gSlug = String(g.slug || '').toLowerCase();
+        const gName = String(g.name || '').toLowerCase();
+        return gSlug === slug || (rawName && (gName === rawName.toLowerCase() || slugify(gName) === slug));
+      });
+
+    const name = rawName || (existing ? existing.name : slug);
 
     // Tombstone check: Không hồi sinh game sắp ra mắt đã bị xóa mềm
     if (env.DB && await isRecordTombstoned(env.DB, 'upcoming_game', slug)) {
@@ -2363,19 +2379,11 @@ export async function onRequestPost(context: { request: Request; env: Env }): Pr
       initialStatus = 'PENDING';
     }
 
-    // Tìm record đã có qua slug, id hoặc tên game tương đồng
-    const existing =
-      existingMap.get(slug.toLowerCase()) ||
-      (raw.id ? existingMap.get(String(raw.id).toLowerCase()) : null) ||
-      currentUpcomingGames.find((g) => {
-        const gSlug = String(g.slug || '').toLowerCase();
-        const gName = String(g.name || '').toLowerCase();
-        return gSlug === slug || gName === name.toLowerCase() || slugify(gName) === slug;
-      });
-
     if (existing) {
-      // 1. Cập nhật tên game
-      existing.name = name;
+      // 1. Cập nhật tên game nếu có gửi tên mới
+      if (rawName) {
+        existing.name = rawName;
+      }
 
       // 2. CHỈ CẬP NHẬT các trường ngày giờ / thể loại / NPH khi payload CÓ GIÁ TRỊ HỢP LỆ HOẶC CÓ CHỈ ĐỊNH XÓA RÕ RÀNG
       // Nếu có gửi trường releaseDate:
@@ -2462,8 +2470,11 @@ export async function onRequestPost(context: { request: Request; env: Env }): Pr
 
       // 4. Xử lý cột mã code dự kiến (expectedCodes)
       // Cho phép bot/admin xóa sạch mã đoán cũ bằng danh sách rỗng hoặc clearCodes: true
+      let clearedExpectedCodes = 0;
       if (raw.clearCodes === true || (hasExplicitCodesField && expectedCodes.length === 0)) {
+        clearedExpectedCodes = Array.isArray(existing.expectedCodes) ? existing.expectedCodes.length : 0;
         existing.expectedCodes = [];
+        totalClearedCodesCount += clearedExpectedCodes;
       } else if (hasExplicitCodesField && expectedCodes.length > 0) {
         if (raw.mergeCodes === true || payload?.mergeCodes === true) {
           const mergedCodes = new Set<string>((existing.expectedCodes || []).map((c: string) => c.toUpperCase()));
@@ -2476,7 +2487,14 @@ export async function onRequestPost(context: { request: Request; env: Env }): Pr
       }
 
       updatedCount++;
-      processedDetails.push({ name, slug, action: 'UPDATED', status: existing.status, releaseDate: existing.releaseDate });
+      processedDetails.push({
+        name: existing.name,
+        slug,
+        action: 'UPDATED',
+        status: existing.status,
+        releaseDate: existing.releaseDate,
+        cleared_expected_codes: clearedExpectedCodes,
+      });
     } else {
       // Record hoàn toàn mới: áp dụng fallback hợp lệ
       const newRecord = {
@@ -2547,6 +2565,7 @@ export async function onRequestPost(context: { request: Request; env: Env }): Pr
       totalGames: currentUpcomingGames.length,
       addedCount,
       updatedCount,
+      totalClearedCodesCount,
       durationMs,
       processedDetails,
       timestamp: nowIso,

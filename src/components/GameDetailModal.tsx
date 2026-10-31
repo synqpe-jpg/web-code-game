@@ -920,6 +920,70 @@ export const GameDetailModal: React.FC<GameDetailModalProps> = ({
             );
           })()}
 
+          {/* Giấy Phép Phát Hành (Chỉ hiển thị khi có license_number) */}
+          {Boolean(currentGame.license_number && currentGame.license_number.trim() !== '') && (
+            <div className="p-4 sm:p-5 rounded-2xl bg-card border border-border/80 space-y-3">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2 text-foreground font-heading font-bold text-sm sm:text-base">
+                  <CheckCircle2 className="w-4 h-4 text-emerald-400" />
+                  <h4>Giấy Phép Phát Hành</h4>
+                </div>
+                {/* Badge trạng thái hiệu lực */}
+                {(() => {
+                  const st = (currentGame.license_status || 'Đang hoạt động').trim();
+                  const isRevoked = st === 'Ngừng hoạt động' || st === 'Bị thay thế';
+                  return (
+                    <span
+                      className={`inline-flex items-center gap-1 text-[11px] font-bold px-2.5 py-0.5 rounded-full border ${
+                        isRevoked
+                          ? 'bg-rose-500/15 text-rose-400 border-rose-500/30'
+                          : 'bg-emerald-500/15 text-emerald-400 border-emerald-500/30'
+                      }`}
+                    >
+                      {isRevoked ? (
+                        <XCircle className="w-3 h-3 text-rose-400" />
+                      ) : (
+                        <CheckCircle2 className="w-3 h-3 text-emerald-400" />
+                      )}
+                      <span>{st}</span>
+                    </span>
+                  );
+                })()}
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs bg-slate-950/50 p-3.5 rounded-xl border border-border/50">
+                <div>
+                  <span className="text-muted-foreground block text-[11px]">Số Giấy Phép G1:</span>
+                  <span className="font-mono font-bold text-foreground text-xs sm:text-sm">
+                    {currentGame.license_number}
+                  </span>
+                </div>
+                {currentGame.license_issued_date && (
+                  <div>
+                    <span className="text-muted-foreground block text-[11px]">Ngày cấp phép:</span>
+                    <span className="font-mono text-foreground text-xs sm:text-sm">
+                      {currentGame.license_issued_date}
+                    </span>
+                  </div>
+                )}
+                {currentGame.license_source_url && (
+                  <div className="sm:col-span-2 pt-1 border-t border-border/40 flex items-center justify-between">
+                    <span className="text-muted-foreground text-[11px]">Cơ quan cấp phép: Cục PTTH&TTĐT</span>
+                    <a
+                      href={currentGame.license_source_url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-1 text-primary-light hover:underline font-semibold text-[11px]"
+                    >
+                      <span>Tra cứu quyết định</span>
+                      <ExternalLink className="w-3 h-3" />
+                    </a>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
           {/* Description */}
           {currentGame.description && (
             <div className="space-y-2">

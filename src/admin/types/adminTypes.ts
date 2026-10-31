@@ -53,8 +53,19 @@ export interface GameAdminRecord {
   platform: string;
   so_giay_phep?: string;
   ngay_cap_phep?: string;
+  license_number?: string;
+  license_issued_date?: string;
+  license_status?: 'Đang hoạt động' | 'Ngừng hoạt động' | 'Bị thay thế' | string;
+  license_source_url?: string;
   release_date: string;
-  status: 'ACTIVE' | 'HOT' | 'INACTIVE';
+  status: 'ACTIVE' | 'HOT' | 'INACTIVE' | 'PENDING' | 'HIDDEN' | 'UNPUBLISHED' | 'DELETED' | string;
+  is_active?: boolean;
+  redeem_url?: string;
+  codes_count?: number;
+  active_codes_count?: number;
+  expired_codes_count?: number;
+  total_codes_count?: number;
+  free_codes_count?: number;
   google_play_url?: string;
   app_store_url?: string;
   android_package_name?: string;
@@ -63,6 +74,17 @@ export interface GameAdminRecord {
   download_pc?: string;
   created_at?: string;
   updated_at?: string;
+}
+
+export interface GameAuditLog {
+  id: string;
+  game_id: string;
+  game_slug: string;
+  game_name: string;
+  action: 'CREATE' | 'UPDATE' | 'UNPUBLISH' | 'PUBLISH' | 'DELETE' | 'RESTORE' | 'PERMANENT_DELETE';
+  actor: string;
+  changes?: Array<{ field: string; from: any; to: any }>;
+  created_at: string;
 }
 
 export interface FreeCodeRecord {

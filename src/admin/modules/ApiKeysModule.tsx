@@ -45,6 +45,7 @@ export type ApiKeyScope =
   | 'MISSIONS_FULL'
   | 'MISSIONS_REVIEW'
   | 'GAMES_FULL'
+  | 'GAMES_MANAGE'
   | 'GIVEAWAYS_FULL'
   | 'EVENT_SCHEDULER_FULL'
   | 'STORE_FULL'
@@ -110,6 +111,17 @@ export const ALL_API_SCOPES: ScopeOption[] = [
     badgeBg: 'bg-teal-500/10',
     badgeText: 'text-teal-500',
     badgeBorder: 'border-teal-500/20',
+    icon: Gamepad2,
+  },
+  {
+    id: 'GAMES_MANAGE',
+    name: 'Quản Trị Bản Ghi Game (Games Management API)',
+    category: 'Dữ Liệu',
+    description: 'Toàn quyền tra cứu chi tiết game (get_game), danh sách quản trị (list_games), cập nhật thông tin game live (update_game), ẩn/hiện và quản lý giấy phép.',
+    color: 'emerald',
+    badgeBg: 'bg-emerald-500/10',
+    badgeText: 'text-emerald-500',
+    badgeBorder: 'border-emerald-500/20',
     icon: Gamepad2,
   },
   {

@@ -123,6 +123,8 @@ export function hasScope(scopeStr: string | undefined | null, requiredScope: str
     return true;
   }
   const target = requiredScope.toUpperCase().trim();
+  if (target === 'GAMES_MANAGE' && scopes.includes('GAMES_FULL')) return true;
+  if (target === 'GAMES_FULL' && scopes.includes('GAMES_MANAGE')) return true;
   return scopes.includes(target);
 }
 

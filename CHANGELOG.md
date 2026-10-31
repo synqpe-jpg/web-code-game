@@ -7,6 +7,34 @@ Mỗi mục sửa lỗi đều ghi nhận **Nguyên nhân gốc rễ (Root Cause
 
 ## [2026-10-31]
 
+### 294. Xây Dựng Hệ Thống Quản Lý Bản Ghi Game Toàn Diện Trong Admin, Tích Hợp 4 Trường Giấy Phép Phát Hành (ABEI), Xóa Tuyên Bố Lỗi Thời "188+ Game", Nâng Cấp 5 Hành Động API Mới & Khắc Phục Triệt Để 5 Lỗi API Game Đã Biết
+- **Bối cảnh & Yêu cầu**:
+  - Người dùng yêu cầu xây dựng toàn diện hệ thống quản lý Game trong Admin (`src/admin/modules/GamesModule.tsx`) và nâng cấp API:
+    1. *4 trường giấy phép phát hành chính thức*: `license_number` (Số Giấy Phép G1/G2/G3/G4), `license_issued_date` (Ngày cấp phép), `license_status` ("Đang hoạt động", "Ngừng hoạt động", "Bị thay thế"), `license_source_url` (Link tra cứu ABEI).
+    2. *Hiển thị có điều kiện trên Web Khách*: Khối "Giấy Phép Phát Hành" trong `GameDetailModal.tsx` CHỈ hiển thị khi game có trường `license_number`. Các game chưa có giấy phép tuyệt đối không hiển thị khối này.
+    3. *Xóa bỏ tuyên bố lỗi thời*: Loại bỏ hoàn toàn tuyên bố cũ "Toàn bộ 188+ tựa game... đều có số Giấy phép..." trên toàn trang (`scripts/prerender.js`).
+    4. *Khắc phục 5 lỗi API game đã biết*:
+       - Lọc `?slug=` trên `/api/games` không trả về rỗng hay 404 cho game tồn tại; dùng `LOWER(TRIM(?))` và fallback game sắp ra mắt.
+       - API game sắp ra mắt (`ingest-upcoming-games.ts`) không reset các trường bị bỏ trống về mặc định; `expectedCodes: []` xóa sạch mã dự kiến và báo `cleared_expected_codes: count`.
+       - Fuzzy matcher trong `/api/crawler/ingest-codes` đếm cả chữ số để phân biệt phiên bản game (Kiếm Hiệp Tình 1 vs 2); nếu nhiều game khớp điểm tương đương (>= 0.8), báo `ambiguous: true` kèm danh sách candidates thay vì đoán bừa.
+       - API nạp mã giftcode query trực tiếp bảng `codes` của D1 cho `gameSlug`, tính toán chính xác 100% số lượng `added` và `duplicates`.
+       - Bổ sung action `remove_from_deleted_giveaways` để gỡ bỏ ID khỏi `wcg_deleted_giveaways` kèm nhật ký kiểm toán.
+    5. *5 hành động API mới trong `/api/crawler/ingest-codes`*: `get_game`, `list_games`, `update_game`, `unpublish_game`, `remove_from_deleted_giveaways`.
+    6. *Tuân thủ nghiêm ngặt Rule 8*: Tự động đăng ký quyền `GAMES_FULL` và `GAMES_MANAGE` vào `ALL_API_SCOPES` trong `ApiKeysModule.tsx` và `hasScope` trong `mission_service.ts`.
+    7. *Tuân thủ nghiêm ngặt Rule 7*: Zero test artifacts.
+- **Giải pháp kỹ thuật đã áp dụng**:
+  - `src/types/game.ts` & `src/admin/types/adminTypes.ts`: Bổ sung 4 trường giấy phép và interface `GameAuditLog`.
+  - `src/components/GameDetailModal.tsx`: Render có điều kiện khối "Giấy Phép Phát Hành" chỉ khi `currentGame.license_number` tồn tại.
+  - `scripts/prerender.js`: Bỏ toàn bộ các đoạn tuyên bố chung "188+ tựa game".
+  - `functions/api/games.ts`: Sửa truy vấn D1 sang không phân biệt chữ hoa thường `LOWER(TRIM(slug)) = LOWER(TRIM(?))`, tăng timeout, bổ sung fallback upcoming games và trả 404 chuẩn nếu không tìm thấy.
+  - `functions/api/crawler/ingest-upcoming-games.ts`: Giữ nguyên toàn bộ trường khi omitted, xử lý `cleared_expected_codes` và trả về `totalClearedCodesCount`.
+  - `functions/api/crawler/ingest-codes.ts`: Nâng cấp `findBestMatchingGame` với `extractDigits` và kiểm tra mâu thuẫn chữ số nghiêm ngặt, nhận diện `ambiguousCandidates`; bổ sung per-game D1 codes lookup; bổ sung 5 action `get_game`, `list_games`, `update_game`, `unpublish_game`, `remove_from_deleted_giveaways`.
+  - `src/admin/modules/GamesModule.tsx`: Bổ sung View Details Modal, Edit Modal với khóa slug cho game live và 4 trường giấy phép + icon preview, Toggle Publish/Unpublish (Ẩn/Hiện), Xóa với xác nhận nhập slug, và Tab Nhật Ký Kiểm Toán (Audit Logs).
+  - `src/admin/modules/ApiKeysModule.tsx` & `functions/services/mission_service.ts`: Đăng ký quyền `GAMES_MANAGE` theo đúng Rule 8.
+- **Kiểm thử & Xác nhận**:
+  - `npm run build`: PASS 100%, 0 lỗi, Audit 0 test artifacts sạch 100%, Audit News Covers 224 bài sạch 100%.
+  - Kho mã và nhiệm vụ Hiệp Khách Hành nguyên vẹn 100%.
+
 ### 293. Triển Khai Toàn Diện Code Sửa Lỗi Lên Môi Trường Trực Tiếp, Nâng Cấp Cổng Kiểm Tra 224 Bài Viết Live & Thu Thập Bộ Bằng Chứng Thực Nghiệm Chống Tái Phát
 - **Bối cảnh & Yêu cầu**:
   - Người dùng nghiệm thu 4 bài viết đổi ảnh đúng và tình trạng nguyên vẹn của Hiệp Khách Hành, nhưng yêu cầu xử lý triệt để 4 vấn đề:

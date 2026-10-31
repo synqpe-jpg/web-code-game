@@ -27,6 +27,9 @@ export interface GameItem {
   ngay_cap_phep?: string;
   license_number?: string;
   license_date?: string;
+  license_issued_date?: string;
+  license_status?: 'Đang hoạt động' | 'Ngừng hoạt động' | 'Bị thay thế' | string;
+  license_source_url?: string;
   trang_thai_gp?: string;
   release_date?: string;
   download_android?: string;
@@ -36,12 +39,28 @@ export interface GameItem {
   app_store_url?: string;
   android_package_name?: string;
   redeem_url?: string;
+  status?: string;
   is_featured?: boolean | number;
   is_hot?: boolean | number;
   is_new?: boolean | number;
   is_active?: boolean | number;
   codes_count?: number;
+  active_codes_count?: number;
+  expired_codes_count?: number;
+  total_codes_count?: number;
+  free_codes_count?: number;
   codes?: GiftCode[];
+}
+
+export interface GameAuditLog {
+  id: string;
+  game_id: string;
+  game_slug: string;
+  game_name: string;
+  action: 'CREATE' | 'UPDATE' | 'UNPUBLISH' | 'PUBLISH' | 'DELETE' | 'RESTORE' | 'PERMANENT_DELETE';
+  actor: string;
+  changes?: Array<{ field: string; from: any; to: any }>;
+  created_at: string;
 }
 
 export interface FilterState {

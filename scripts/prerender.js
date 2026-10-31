@@ -326,7 +326,7 @@ async function runPrerender() {
             name: 'Các tựa game trên CodeGame.shop có hợp pháp không?',
             acceptedAnswer: {
               '@type': 'Answer',
-              text: 'Toàn bộ 188+ tựa game trên hệ thống đều có số Giấy phép phê duyệt nội dung kịch bản trò chơi G1 được cấp bởi Cục PTTH&TTĐT (Bộ Thông tin & Truyền thông).',
+              text: 'Hệ thống cập nhật và đối soát thông tin pháp lý, Giấy phép phê duyệt nội dung kịch bản G1 từ Cục PTTH&TTĐT đối với từng tựa game phát hành tại Việt Nam.',
             },
           },
         ],
@@ -378,11 +378,11 @@ async function runPrerender() {
         <!-- Main Catalog Container -->
         <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
           <div class="p-4 rounded-2xl bg-emerald-900/10 border border-emerald-500/20 text-xs text-emerald-300 mb-8">
-            <strong>Thông Tin Pháp Lý & Giấy Phép G1:</strong> Toàn bộ 188+ trò chơi được đối chiếu minh bạch từ Cục Phát thanh, Truyền hình và Thông tin điện tử (giayphep.abei.gov.vn).
+            <strong>Thông Tin Pháp Lý & Giấy Phép:</strong> Tra cứu thông tin phát hành và Giấy phép phê duyệt nội dung kịch bản G1 đối chiếu từ Cục Phát thanh, Truyền hình và Thông tin điện tử (giayphep.abei.gov.vn).
           </div>
 
           <h2 class="text-lg sm:text-xl font-black text-white mb-5 flex items-center space-x-2">
-            <span>Danh Sách 188+ Tựa Game Bản Quyền Có Giftcode Hoạt Động</span>
+            <span>Danh Sách Tựa Game Bản Quyền Có Giftcode Hoạt Động</span>
           </h2>
 
           <div class="critical-cards-grid grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-2.5 sm:gap-4">
@@ -419,7 +419,7 @@ async function runPrerender() {
               </div>
               <div class="p-4 rounded-xl bg-dark-900 border border-gray-800">
                 <h3 class="font-bold text-gray-100 text-sm mb-2">3. Các tựa game trên CodeGame.shop có hợp pháp không?</h3>
-                <p>Toàn bộ 188+ tựa game trên hệ thống đều có số Giấy phép phê duyệt nội dung kịch bản trò chơi G1 được cấp bởi Cục PTTH&TTĐT.</p>
+                <p>Hệ thống cập nhật thông tin pháp lý và giấy phép phê duyệt nội dung kịch bản trò chơi G1 được cấp bởi Cục PTTH&TTĐT cho từng game theo dữ liệu công khai.</p>
               </div>
             </div>
           </section>

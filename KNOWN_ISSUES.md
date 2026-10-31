@@ -10,6 +10,32 @@
 
 ## 1. DANH MỤC LỖI & CÁC BẪY ĐÃ THẤT BẠI (DO NOT REPEAT)
 
+### ISSUE-202: Bẫy Lọc Bỏ Chữ Số Khi Tokenize Khiến Fuzzy Matcher Đoán Sai Phiên Bản Game (Kiếm Hiệp Tình 1 vs 2), Reset Trường Omitted Về Default Trong API Upcoming Games & Thiếu Query D1 Trực Tiếp Khi Ingest Codes
+- **Triệu chứng**:
+  - Khi crawler gửi tên game "Kiếm Hiệp Tình 1", thuật toán fuzzy matcher lại tự động ghép vào "Kiếm Hiệp Tình 2" (hoặc ngược lại).
+  - Khi nhiều tựa game có độ tương đồng rất cao (ví dụ >= 0.8), hệ thống tự ý chọn một game bất kỳ thay vì trả về `ambiguous: true` kèm danh sách candidates để bot/admin xác nhận.
+  - Khi gửi cập nhật từng phần (partial update) lên `/api/crawler/ingest-upcoming-games`, các trường không gửi (omitted) bị reset về giá trị mặc định hoặc xóa mất ngày ra mắt; gửi `expectedCodes: []` không xóa sạch được mã dự kiến.
+  - Số lượng `added` và `duplicates` trong kết quả nạp mã không khớp với thực tế D1 nếu crawler chỉ gửi `gameName` mà không có `gameSlug` (do mã của game chưa được tải trước vào `existingCodeValuesBySlug`).
+  - Lọc `?slug=` trên `/api/games` trả về rỗng hoặc 404 cho game tồn tại do so sánh nhạy chữ hoa/thường trong SQLite.
+- **Nguyên nhân gốc rễ**:
+  1. *Lọc bỏ chữ số đơn lẻ*: `inputWords = normCleanInput.split(/\s+/).filter(w => w.length >= 2)` đã loại bỏ các số có 1 chữ số (`1`, `2`, `3`), làm "Kiếm Hiệp Tình 1" và "Kiếm Hiệp Tình 2" đều biến thành `["kiem", "hiep", "tinh"]`.
+  2. *Thiếu kiểm tra bất đồng chữ số (Numeric Conflict)*: Thuật toán so khớp chuỗi không kiểm tra xem tập chữ số của query và candidate có mâu thuẫn hay không.
+  3. *Thiếu cơ chế Ambiguous Detection*: Khi có từ 2 candidate cùng đạt điểm cao (>= 0.8), hệ thống chỉ lấy candidate đầu tiên theo `highestScore`.
+  4. *Gán fallback mặc định vào record đã tồn tại*: Trong `ingest-upcoming-games.ts`, logic cập nhật thiếu kiểm tra `hasExplicitField` cho các trường `name`, `publisher`, `category`, `platform`, `expectedCodes`.
+  5. *Preload mã theo slug chỉ đọc `it.gameSlug || it.slug`*: Nếu crawler chỉ gửi `it.gameName`, danh sách `payloadSlugs` rỗng dẫn tới việc không nạp trước mã code từ bảng D1 `codes` cho game đó.
+- **Giải pháp chuẩn đã kiểm chứng**:
+  1. *Giữ lại chữ số khi tokenize*: `normCleanInput.split(/\s+/).filter((w) => w.length >= 2 || /^\d+$/.test(w))`.
+  2. *Kiểm tra mâu thuẫn chữ số nghiêm ngặt*: Trích xuất `extractDigits = (s) => s.match(/\b\d+\b/g) || []`. Nếu một trong hai bên có chữ số, tập chữ số bắt buộc phải khớp nhau 100%, nếu khác thì loại bỏ ngay.
+  3. *Báo Ambiguous khi có nhiều candidate tương đồng*: Nếu có từ 2 candidates đạt điểm >= 0.8 và cách biệt dưới 0.06, hàm trả về `{ ambiguous: true, candidates: [...] }` để bot/admin lựa chọn chính xác.
+  4. *Bảo toàn toàn bộ trường omitted trong API*: Trong `ingest-upcoming-games.ts`, chỉ cập nhật trường khi có gửi giá trị; nếu `expectedCodes: []` hoặc `clearCodes: true` thì xóa sạch mã và trả về `cleared_expected_codes: count`.
+  5. *Query trực tiếp D1 table `codes` per-game*: Trong luồng nạp mã giftcode của `ingest-codes.ts`, nếu `existingCodeValuesBySlug` chưa có dữ liệu cho `gameSlug`, lập tức truy vấn D1 `SELECT * FROM codes WHERE LOWER(game_slug) = ?` để đảm bảo 100% khớp dữ liệu live.
+  6. *Case-insensitive slug query*: Trong `/api/games`, dùng `WHERE LOWER(TRIM(slug)) = LOWER(TRIM(?))` kết hợp fallback upcoming games.
+- 🚫 **CÁCH SỬA ĐÃ THẤT BẠI - TUYỆT ĐỐI KHÔNG LẶP LẠI**:
+  - ❌ *Không filter bỏ ký tự số có độ dài 1 ký tự khi so khớp tên game*.
+  - ❌ *Không cho phép fuzzy match ghép hai tựa game có số thứ tự khác nhau (1 vs 2)*.
+  - ❌ *Không tự ý đoán bừa 1 game khi có nhiều tựa game tương đồng đạt điểm >= 0.8*.
+  - ❌ *Không gán fallback mặc định làm ghi đè dữ liệu của bản ghi đã tồn tại khi update*.
+
 ### ISSUE-201: Lỗi Khung Ảnh Bìa Bị Vỡ Ở Trang Chi Tiết Tin Tức, Thiếu Fallback Cho Bài Viết Liên Quan, Tự Bịa Đường Dẫn Icon Từ Tiêu Đề Bài Viết & Glitch Khởi Tạo Route Chi Tiết
 - **Triệu chứng**:
   - Mở bài viết tin tức Monster Hunter Outlanders, Free Fire MAX, Đấu La Đại Lục thì trang chi tiết bị hiện khung ảnh lỗi (404), trong khi ở danh sách tin tức thì ảnh vẫn hiện bình thường do được trang danh sách fallback về `/news_covers/thi-truong-game-viet-nam.webp`.

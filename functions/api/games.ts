@@ -332,7 +332,11 @@ export function formatGameItem(g: any, allCodes: GiftCode[]): GameItem {
     instructions: g.instructions || '',
     platform: g.platform || '',
     so_giay_phep: g.so_giay_phep || g.license_number || '',
-    ngay_cap_phep: g.ngay_cap_phep || g.license_date || '',
+    ngay_cap_phep: g.ngay_cap_phep || g.license_issued_date || g.license_date || '',
+    license_number: g.license_number || g.so_giay_phep || '',
+    license_issued_date: g.license_issued_date || g.ngay_cap_phep || g.license_date || '',
+    license_status: g.license_status || '',
+    license_source_url: g.license_source_url || '',
     release_date: g.release_date || g.gp_release_date || '',
     download_android: g.download_android || g.google_play_url || g.downloadLinks?.android || '',
     download_ios: g.download_ios || g.app_store_url || g.downloadLinks?.ios || '',
@@ -655,12 +659,12 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
         }
       }
 
-      // Tra cứu trực tiếp trong bảng games trên D1 (bọc timeout 1200ms chống treo khi D1 đầy quota)
+      // Tra cứu trực tiếp trong bảng games trên D1 (bọc timeout 3000ms chống treo khi D1 đầy quota)
       const gameRow = await withD1Timeout(
         env.DB.prepare(
-          'SELECT * FROM games WHERE slug = ? OR id = ? OR slug = ? LIMIT 1'
+          'SELECT * FROM games WHERE LOWER(TRIM(slug)) = LOWER(TRIM(?)) OR LOWER(TRIM(id)) = LOWER(TRIM(?)) OR LOWER(TRIM(slug)) = LOWER(TRIM(?)) LIMIT 1'
         ).bind(cleanSlug, cleanSlug, cleanWithoutMobile).first<any>(),
-        1200,
+        3000,
         null
       );
 
@@ -798,8 +802,12 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
           description: gameRow.description || fbGame?.description || '',
           instructions: currentInstructions || fbGame?.instructions || '',
           platform: finalPlatform,
-          so_giay_phep: gameRow.so_giay_phep || '',
-          ngay_cap_phep: gameRow.ngay_cap_phep || '',
+          so_giay_phep: gameRow.so_giay_phep || gameRow.license_number || '',
+          ngay_cap_phep: gameRow.ngay_cap_phep || gameRow.license_issued_date || '',
+          license_number: gameRow.license_number || gameRow.so_giay_phep || '',
+          license_issued_date: gameRow.license_issued_date || gameRow.ngay_cap_phep || '',
+          license_status: gameRow.license_status || '',
+          license_source_url: gameRow.license_source_url || '',
           release_date: gameRow.release_date || '',
           download_android: finalPlay,
           download_ios: finalIos,
@@ -828,6 +836,8 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
           JSON.stringify({
             success: true,
             game: authoritativeGame,
+            games: [authoritativeGame],
+            total: 1,
           }),
           {
             headers: {
@@ -857,6 +867,8 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
           JSON.stringify({
             success: true,
             game: finalGame,
+            games: [finalGame],
+            total: 1,
             note: 'Dữ liệu được bảo toàn từ bản sao lưu hợp lệ (In-Memory Fast Delivery)',
           }),
           {
@@ -869,12 +881,60 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
         );
       }
 
+      // Fallback kiểm tra trong game sắp ra mắt (Upcoming Games)
+      try {
+        const upcomingGamesList = await getSettingD1<any[]>(env.DB, 'wcg_admin_upcoming_games_v1').catch(() => []);
+        if (Array.isArray(upcomingGamesList)) {
+          const foundUg = upcomingGamesList.find(
+            (ug) => ug && (
+              String(ug.slug || '').toLowerCase() === cleanSlug ||
+              String(ug.id || '').toLowerCase() === cleanSlug ||
+              String(ug.slug || '').toLowerCase() === cleanWithoutMobile
+            )
+          );
+          if (foundUg) {
+            const ugCodes: GiftCode[] = (foundUg.expectedCodes || []).map((codeStr: string) => ({
+              code: String(codeStr).trim(),
+              rewards: 'Giftcode dự kiến mở server',
+              status: 'active' as const,
+              expiry: '',
+              source: 'Dự kiến ra mắt',
+              added_at: foundUg.createdAt || new Date().toISOString(),
+            }));
+            const formattedUg = formatGameItem(foundUg, ugCodes);
+            const finalUg = { ...formattedUg, codes_pool_complete: true };
+            return new Response(
+              JSON.stringify({
+                success: true,
+                game: finalUg,
+                games: [finalUg],
+                total: 1,
+                status: 'UPCOMING',
+              }),
+              {
+                headers: {
+                  ...CORS_HEADERS,
+                  'Cache-Control': 'no-cache, no-store, must-revalidate',
+                },
+              }
+            );
+          }
+        }
+      } catch (ugErr) {
+        console.warn('[GamesAPI] Lỗi tra cứu upcoming game cho slug:', cleanSlug, ugErr);
+      }
+
       // Fallback cuối cùng nếu không có trong static datasets
       const catalog = await getLoadedCatalog(env.DB, forceFresh, true);
       const rawFound = findMatchingGameInList(catalog.allRawGames, cleanSlug, cleanWithoutMobile);
       if (!rawFound) {
         return new Response(
-          JSON.stringify({ success: false, error: 'Không tìm thấy trò chơi.' }),
+          JSON.stringify({
+            success: false,
+            error: `Không tìm thấy trò chơi với slug: "${requestedSlug}".`,
+            games: [],
+            total: 0,
+          }),
           { status: 404, headers: CORS_HEADERS }
         );
       }
@@ -886,6 +946,8 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
         JSON.stringify({
           success: true,
           game: { ...matchedGame, codes_pool_complete: true },
+          games: [{ ...matchedGame, codes_pool_complete: true }],
+          total: 1,
         }),
         {
           headers: {

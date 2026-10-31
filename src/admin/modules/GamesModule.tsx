@@ -1,6 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import {
   Plus,
+  Eye,
+  EyeOff,
+  ShieldCheck,
+  History,
+  RotateCcw,
+  Search,
   Edit2,
   Trash2,
   CheckCircle2,
@@ -96,7 +102,13 @@ interface GamesModuleProps {
 }
 
 export const GamesModule: React.FC<GamesModuleProps> = ({ onShowToast, onOpenGameCodes }) => {
-  const [subTab, setSubTab] = useState<'catalog' | 'upcoming'>('catalog');
+  const [subTab, setSubTab] = useState<'catalog' | 'upcoming' | 'audit_logs'>('catalog');
+  const [viewingGame, setViewingGame] = useState<GameAdminRecord | null>(null);
+  const [isViewDetailOpen, setIsViewDetailOpen] = useState(false);
+  const [deleteConfirmSlug, setDeleteConfirmSlug] = useState('');
+  const [auditLogs, setAuditLogs] = useState<any[]>([]);
+  const [isLoadingAuditLogs, setIsLoadingAuditLogs] = useState(false);
+  const [licenseStatusFilter, setLicenseStatusFilter] = useState('ALL');
   const [upcomingCount, setUpcomingCount] = useState(() => adminDataService.getUpcomingGames().length);
   const [games, setGames] = useState<GameAdminRecord[]>([]);
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
@@ -229,6 +241,45 @@ export const GamesModule: React.FC<GamesModuleProps> = ({ onShowToast, onOpenGam
     setIsAddingSource(false);
     resetNewSourceForm();
     setIsFormOpen(true);
+  };
+
+  const fetchAuditLogs = async () => {
+    setIsLoadingAuditLogs(true);
+    try {
+      const res = await fetch('/api/sync?key=wcg_game_audit_logs_v1');
+      if (res.ok) {
+        const data = await res.json();
+        if (data && Array.isArray(data.data)) {
+          setAuditLogs(data.data);
+        } else if (Array.isArray(data)) {
+          setAuditLogs(data);
+        }
+      }
+    } catch (e) {
+      console.warn('Cannot fetch audit logs:', e);
+    } finally {
+      setIsLoadingAuditLogs(false);
+    }
+  };
+
+  const handleToggleVisibility = (game: GameAdminRecord) => {
+    const isCurrentlyHidden = game.status === 'HIDDEN' || game.is_active === 0;
+    const newStatus = isCurrentlyHidden ? 'ACTIVE' : 'HIDDEN';
+    const newIsActive = isCurrentlyHidden ? 1 : 0;
+
+    const updated = adminDataService.updateGame(game.id, {
+      status: newStatus,
+      is_active: newIsActive,
+    });
+
+    if (updated) {
+      onShowToast(
+        isCurrentlyHidden ? 'Đã hiển thị game! 👁️' : 'Đã ẩn game! 🙈',
+        `Game "${game.name}" đã được ${isCurrentlyHidden ? 'công khai lên Web Khách' : 'ẩn khỏi Web Khách (toàn bộ dữ liệu & mã code được bảo toàn)'}.`,
+        'success'
+      );
+      loadGames();
+    }
   };
 
   const handleEdit = (game: GameAdminRecord) => {
@@ -668,11 +719,36 @@ export const GamesModule: React.FC<GamesModuleProps> = ({ onShowToast, onOpenGam
           >
             <Globe className="h-4 w-4" />
           </a>
+          {/* Xem chi tiết đầy đủ */}
+          <button
+            type="button"
+            onClick={() => {
+              setViewingGame(item);
+              setIsViewDetailOpen(true);
+            }}
+            title="Xem chi tiết toàn bộ thông tin & giấy phép"
+            className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 hover:text-indigo-600 dark:hover:bg-slate-800 dark:hover:text-indigo-400 cursor-pointer"
+          >
+            <Eye className="h-4 w-4" />
+          </button>
+          {/* Ẩn / Hiện game khỏi web khách */}
+          <button
+            type="button"
+            onClick={() => handleToggleVisibility(item)}
+            title={item.status === 'HIDDEN' || item.is_active === 0 ? 'Hiện game lên Web Khách' : 'Ẩn game khỏi Web Khách (dữ liệu & code bảo toàn 100%)'}
+            className={`rounded-lg p-1.5 cursor-pointer ${
+              item.status === 'HIDDEN' || item.is_active === 0
+                ? 'text-amber-500 hover:bg-amber-50 dark:hover:bg-amber-950/40'
+                : 'text-slate-400 hover:bg-slate-100 hover:text-amber-500 dark:hover:bg-slate-800'
+            }`}
+          >
+            {item.status === 'HIDDEN' || item.is_active === 0 ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+          </button>
           {onOpenGameCodes && (
             <button
               onClick={() => onOpenGameCodes(item.slug)}
               title="Xem danh sách code của game này"
-              className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 hover:text-indigo-600 dark:hover:bg-slate-800 dark:hover:text-indigo-400"
+              className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 hover:text-indigo-600 dark:hover:bg-slate-800 dark:hover:text-indigo-400 cursor-pointer"
             >
               <ExternalLink className="h-4 w-4" />
             </button>
@@ -680,7 +756,7 @@ export const GamesModule: React.FC<GamesModuleProps> = ({ onShowToast, onOpenGam
           <button
             onClick={() => handleEdit(item)}
             title="Chỉnh sửa thông tin"
-            className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 hover:text-indigo-600 dark:hover:bg-slate-800 dark:hover:text-indigo-400"
+            className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 hover:text-indigo-600 dark:hover:bg-slate-800 dark:hover:text-indigo-400 cursor-pointer"
           >
             <Edit2 className="h-4 w-4" />
           </button>
@@ -731,9 +807,106 @@ export const GamesModule: React.FC<GamesModuleProps> = ({ onShowToast, onOpenGam
             API Live
           </span>
         </button>
+
+        <button
+          type="button"
+          onClick={() => {
+            setSubTab('audit_logs');
+            fetchAuditLogs();
+          }}
+          className={`flex items-center gap-2 px-4 py-2.5 rounded-xl font-bold text-xs sm:text-sm transition-all cursor-pointer ${
+            subTab === 'audit_logs'
+              ? 'bg-amber-600 text-white shadow-md shadow-amber-600/20'
+              : 'bg-card text-slate-400 hover:text-white hover:bg-card-hover border border-border'
+          }`}
+        >
+          <History className="w-4 h-4 text-amber-300" />
+          <span>📜 Nhật Ký Kiểm Toán (Audit Logs)</span>
+        </button>
       </div>
 
-      {subTab === 'upcoming' ? (
+      {subTab === 'audit_logs' ? (
+        <div className="space-y-4">
+          <div className="flex items-center justify-between p-4 rounded-2xl bg-amber-500/10 border border-amber-500/20">
+            <div className="flex items-center gap-2.5">
+              <History className="w-5 h-5 text-amber-500" />
+              <div>
+                <h3 className="text-sm font-bold text-amber-300">
+                  Nhật Ký Kiểm Toán Bản Ghi Game (Game Audit Logs)
+                </h3>
+                <p className="text-xs text-slate-400">
+                  Ghi lại toàn bộ lịch sử chỉnh sửa, thêm mới, ẩn, khôi phục hoặc xóa bản ghi game và giấy phép phát hành.
+                </p>
+              </div>
+            </div>
+            <button
+              type="button"
+              onClick={fetchAuditLogs}
+              disabled={isLoadingAuditLogs}
+              className="px-3.5 py-1.5 rounded-xl bg-amber-600 hover:bg-amber-500 text-white font-bold text-xs flex items-center gap-1.5 transition-all cursor-pointer disabled:opacity-50"
+            >
+              <RotateCcw className={`w-3.5 h-3.5 ${isLoadingAuditLogs ? 'animate-spin' : ''}`} />
+              <span>Làm mới nhật ký</span>
+            </button>
+          </div>
+
+          <div className="rounded-2xl border border-border bg-card overflow-hidden">
+            <div className="overflow-x-auto">
+              <table className="w-full text-left text-xs">
+                <thead className="bg-muted/50 border-b border-border text-muted-foreground uppercase text-[10px] font-bold">
+                  <tr>
+                    <th className="p-3">Thời gian</th>
+                    <th className="p-3">Hành động</th>
+                    <th className="p-3">Tựa Game</th>
+                    <th className="p-3">Người thực hiện</th>
+                    <th className="p-3">Chi tiết thay đổi</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-border">
+                  {auditLogs.length === 0 ? (
+                    <tr>
+                      <td colSpan={5} className="p-8 text-center text-muted-foreground">
+                        {isLoadingAuditLogs ? 'Đang tải dữ liệu nhật ký...' : 'Chưa có nhật ký kiểm toán nào được ghi nhận.'}
+                      </td>
+                    </tr>
+                  ) : (
+                    auditLogs.map((log: any, idx: number) => (
+                      <tr key={log.id || idx} className="hover:bg-muted/30 transition-colors">
+                        <td className="p-3 font-mono text-[11px] text-muted-foreground whitespace-nowrap">
+                          {log.timestamp ? new Date(log.timestamp).toLocaleString('vi-VN') : 'Vừa xong'}
+                        </td>
+                        <td className="p-3 whitespace-nowrap">
+                          <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
+                            log.action === 'CREATE_GAME'
+                              ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/30'
+                              : log.action === 'UPDATE_GAME'
+                              ? 'bg-indigo-500/10 text-indigo-400 border border-indigo-500/30'
+                              : log.action === 'UNPUBLISH_GAME'
+                              ? 'bg-amber-500/10 text-amber-400 border border-amber-500/30'
+                              : 'bg-rose-500/10 text-rose-400 border border-rose-500/30'
+                          }`}>
+                            {log.action}
+                          </span>
+                        </td>
+                        <td className="p-3 font-semibold text-foreground">
+                          {log.target_name || log.target_slug || log.target_id || 'Hệ thống'}
+                          {log.target_slug && <span className="block font-mono text-[10px] text-muted-foreground">{log.target_slug}</span>}
+                        </td>
+                        <td className="p-3 font-medium text-slate-300">
+                          {log.actor || 'Admin'}
+                        </td>
+                        <td className="p-3 font-mono text-[11px] text-muted-foreground max-w-xs truncate">
+                          {log.changes ? JSON.stringify(log.changes) : (log.reason || '—')}
+                        </td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      ) : subTab === 'upcoming' ? (
         <UpcomingGamesSection
           onShowToast={onShowToast}
           onGameLaunched={() => {
@@ -922,19 +1095,32 @@ export const GamesModule: React.FC<GamesModuleProps> = ({ onShowToast, onOpenGam
             </div>
 
             <div>
-              <label className="text-xs font-bold text-slate-700 dark:text-slate-300">
-                Slug (URL định danh) <span className="text-rose-500">*</span>
+              <label className="text-xs font-bold text-slate-700 dark:text-slate-300 flex items-center justify-between">
+                <span>Slug (URL định danh) <span className="text-rose-500">*</span></span>
+                {Boolean(editingGame?.id && games.some(g => g.id === editingGame.id)) && (
+                  <span className="text-[10px] text-amber-500 font-semibold">🔒 Đã khóa (Game Live)</span>
+                )}
               </label>
               <input
                 type="text"
                 required
+                disabled={Boolean(editingGame?.id && games.some(g => g.id === editingGame.id))}
                 value={editingGame?.slug || ''}
                 onChange={(e) =>
                   setEditingGame((prev) => (prev ? { ...prev, slug: e.target.value } : null))
                 }
                 placeholder="genshin-impact"
-                className="mt-1 w-full rounded-xl border border-slate-200 bg-white p-2.5 text-xs text-slate-900 focus:border-indigo-500 focus:outline-none dark:border-slate-700 dark:bg-slate-800 dark:text-white"
+                className={`mt-1 w-full rounded-xl border p-2.5 text-xs focus:outline-none ${
+                  Boolean(editingGame?.id && games.some(g => g.id === editingGame.id))
+                    ? 'border-slate-200 bg-slate-100 text-slate-500 dark:border-slate-700 dark:bg-slate-900/60 dark:text-slate-400 cursor-not-allowed'
+                    : 'border-slate-200 bg-white text-slate-900 focus:border-indigo-500 dark:border-slate-700 dark:bg-slate-800 dark:text-white'
+                }`}
               />
+              {Boolean(editingGame?.id && games.some(g => g.id === editingGame.id)) && (
+                <p className="mt-1 text-[11px] text-amber-500">
+                  🔒 Slug đã được khóa để tránh làm gãy link SEO và URL khách đang dùng.
+                </p>
+              )}
             </div>
           </div>
 
@@ -1013,35 +1199,85 @@ export const GamesModule: React.FC<GamesModuleProps> = ({ onShowToast, onOpenGam
             />
           </div>
 
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-            <div>
-              <label className="text-xs font-bold text-slate-700 dark:text-slate-300">
-                Package ID / Mã Ứng Dụng CH Play
-              </label>
-              <input
-                type="text"
-                value={editingGame?.so_giay_phep || ''}
-                onChange={(e) =>
-                  setEditingGame((prev) => (prev ? { ...prev, so_giay_phep: e.target.value } : null))
-                }
-                placeholder="VD: com.miHoYo.GenshinImpact"
-                className="mt-1 w-full rounded-xl border border-slate-200 bg-white p-2.5 text-xs text-slate-900 focus:border-indigo-500 focus:outline-none dark:border-slate-700 dark:bg-slate-800 dark:text-white"
-              />
+          {/* THÔNG TIN GIẤY PHÉP PHÁT HÀNH CHÍNH THỨC (ABEI - CỤC PTTH&TTĐT) */}
+          <div className="rounded-2xl border border-teal-500/30 bg-teal-50/20 dark:bg-teal-950/20 p-4 space-y-3">
+            <div className="flex items-center gap-2">
+              <div className="p-1 rounded-md bg-teal-600 text-white">
+                <ShieldCheck className="w-4 h-4" />
+              </div>
+              <div>
+                <h4 className="text-xs font-bold text-teal-900 dark:text-teal-200">
+                  Giấy Phép Phát Hành Trò Chơi Điện Tử G1/G234 (ABEI - Cục PTTH&TTĐT)
+                </h4>
+                <p className="text-[11px] text-slate-500 dark:text-slate-400">
+                  Dữ liệu giấy phép chính thức từ Cục Phát thanh, truyền hình và thông tin điện tử.
+                </p>
+              </div>
             </div>
 
-            <div>
-              <label className="text-xs font-bold text-slate-700 dark:text-slate-300">
-                Ngày Cấp Phép
-              </label>
-              <input
-                type="text"
-                value={editingGame?.ngay_cap_phep || ''}
-                onChange={(e) =>
-                  setEditingGame((prev) => (prev ? { ...prev, ngay_cap_phep: e.target.value } : null))
-                }
-                placeholder="VD: 15/05/2024"
-                className="mt-1 w-full rounded-xl border border-slate-200 bg-white p-2.5 text-xs text-slate-900 focus:border-indigo-500 focus:outline-none dark:border-slate-700 dark:bg-slate-800 dark:text-white"
-              />
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
+              <div>
+                <label className="text-xs font-bold text-slate-700 dark:text-slate-300">
+                  Số Giấy Phép G1/G2/G3/G4
+                </label>
+                <input
+                  type="text"
+                  value={editingGame?.license_number || ''}
+                  onChange={(e) =>
+                    setEditingGame((prev) => (prev ? { ...prev, license_number: e.target.value } : null))
+                  }
+                  placeholder="VD: 123/QĐ-BTTTT"
+                  className="mt-1 w-full rounded-xl border border-slate-200 bg-white p-2.5 text-xs text-slate-900 focus:border-teal-500 focus:outline-none dark:border-slate-700 dark:bg-slate-800 dark:text-white"
+                />
+              </div>
+
+              <div>
+                <label className="text-xs font-bold text-slate-700 dark:text-slate-300">
+                  Ngày Cấp Phép
+                </label>
+                <input
+                  type="text"
+                  value={editingGame?.license_issued_date || ''}
+                  onChange={(e) =>
+                    setEditingGame((prev) => (prev ? { ...prev, license_issued_date: e.target.value } : null))
+                  }
+                  placeholder="VD: 15/05/2024 hoặc 2024-05-15"
+                  className="mt-1 w-full rounded-xl border border-slate-200 bg-white p-2.5 text-xs text-slate-900 focus:border-teal-500 focus:outline-none dark:border-slate-700 dark:bg-slate-800 dark:text-white"
+                />
+              </div>
+
+              <div>
+                <label className="text-xs font-bold text-slate-700 dark:text-slate-300">
+                  Trạng Thái Giấy Phép
+                </label>
+                <select
+                  value={editingGame?.license_status || ''}
+                  onChange={(e) =>
+                    setEditingGame((prev) => (prev ? { ...prev, license_status: e.target.value } : null))
+                  }
+                  className="mt-1 w-full rounded-xl border border-slate-200 bg-white p-2.5 text-xs text-slate-900 focus:border-teal-500 focus:outline-none dark:border-slate-700 dark:bg-slate-800 dark:text-white"
+                >
+                  <option value="">-- Chưa cập nhật / Để trống --</option>
+                  <option value="Đang hoạt động">Đang hoạt động</option>
+                  <option value="Ngừng hoạt động">Ngừng hoạt động</option>
+                  <option value="Bị thay thế">Bị thay thế</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="text-xs font-bold text-slate-700 dark:text-slate-300">
+                  Đường Dẫn Tra Cứu Giấy Phép ABEI
+                </label>
+                <input
+                  type="url"
+                  value={editingGame?.license_source_url || ''}
+                  onChange={(e) =>
+                    setEditingGame((prev) => (prev ? { ...prev, license_source_url: e.target.value } : null))
+                  }
+                  placeholder="https://abei.gov.vn/..."
+                  className="mt-1 w-full rounded-xl border border-slate-200 bg-white p-2.5 text-xs text-slate-900 focus:border-teal-500 focus:outline-none dark:border-slate-700 dark:bg-slate-800 dark:text-white"
+                />
+              </div>
             </div>
           </div>
 
@@ -1193,19 +1429,35 @@ export const GamesModule: React.FC<GamesModuleProps> = ({ onShowToast, onOpenGam
             )}
           </div>
 
-          <div>
-            <label className="text-xs font-bold text-slate-700 dark:text-slate-300">
-              Hướng Dẫn Nhập Code
-            </label>
-            <textarea
-              rows={2}
-              value={editingGame?.instructions || ''}
-              onChange={(e) =>
-                setEditingGame((prev) => (prev ? { ...prev, instructions: e.target.value } : null))
-              }
-              placeholder="Vào Avatar > Cài Đặt > Đổi Giftcode..."
-              className="mt-1 w-full rounded-xl border border-slate-200 bg-white p-2.5 text-xs text-slate-900 focus:border-indigo-500 focus:outline-none dark:border-slate-700 dark:bg-slate-800 dark:text-white"
-            />
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div>
+              <label className="text-xs font-bold text-slate-700 dark:text-slate-300">
+                Hướng Dẫn Nhập Code
+              </label>
+              <textarea
+                rows={2}
+                value={editingGame?.instructions || ''}
+                onChange={(e) =>
+                  setEditingGame((prev) => (prev ? { ...prev, instructions: e.target.value } : null))
+                }
+                placeholder="Vào Avatar > Cài Đặt > Đổi Giftcode..."
+                className="mt-1 w-full rounded-xl border border-slate-200 bg-white p-2.5 text-xs text-slate-900 focus:border-indigo-500 focus:outline-none dark:border-slate-700 dark:bg-slate-800 dark:text-white"
+              />
+            </div>
+            <div>
+              <label className="text-xs font-bold text-slate-700 dark:text-slate-300">
+                Link Trang Nhập Code (Redeem URL)
+              </label>
+              <input
+                type="url"
+                value={editingGame?.redeem_url || ''}
+                onChange={(e) =>
+                  setEditingGame((prev) => (prev ? { ...prev, redeem_url: e.target.value } : null))
+                }
+                placeholder="https://nap.nhaphathanh.vn/code"
+                className="mt-1 w-full rounded-xl border border-slate-200 bg-white p-2.5 text-xs text-slate-900 focus:border-indigo-500 focus:outline-none dark:border-slate-700 dark:bg-slate-800 dark:text-white"
+              />
+            </div>
           </div>
 
           <div>
@@ -1597,6 +1849,178 @@ export const GamesModule: React.FC<GamesModuleProps> = ({ onShowToast, onOpenGam
             </button>
           </div>
         </div>
+      </FormModal>
+
+      {/* Modal Xem Toàn Bộ Chi Tiết Game */}
+      <FormModal
+        isOpen={isViewDetailOpen}
+        onClose={() => {
+          setIsViewDetailOpen(false);
+          setViewingGame(null);
+        }}
+        title={viewingGame ? `Chi Tiết Tựa Game: ${viewingGame.name}` : 'Chi Tiết Game'}
+        subtitle="Toàn bộ thông tin định danh, giấy phép phát hành, liên kết store và trạng thái kho code."
+        maxWidth="3xl"
+      >
+        {viewingGame && (
+          <div className="space-y-4 text-xs">
+            {/* Header game preview */}
+            <div className="flex items-center gap-3.5 p-3.5 rounded-2xl bg-slate-50 dark:bg-slate-900/60 border border-slate-200 dark:border-slate-800">
+              <div className="h-16 w-16 flex-shrink-0 rounded-2xl overflow-hidden border border-slate-200 dark:border-slate-700 bg-slate-900/20 relative">
+                <img
+                  src={viewingGame.icon_url || `/game_icons/${viewingGame.slug}.webp`}
+                  alt={viewingGame.name}
+                  className="w-full h-full object-cover"
+                  onError={(e) => {
+                    (e.target as HTMLElement).style.display = 'none';
+                  }}
+                />
+              </div>
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-2">
+                  <h3 className="text-base font-bold text-slate-900 dark:text-white truncate">
+                    {viewingGame.name}
+                  </h3>
+                  <StatusBadge status={viewingGame.status} size="sm" />
+                </div>
+                <p className="text-slate-500 dark:text-slate-400 font-mono text-[11px] mt-0.5">
+                  slug: <strong>{viewingGame.slug}</strong> • ID: {viewingGame.id}
+                </p>
+                <div className="flex items-center gap-3 text-slate-600 dark:text-slate-300 mt-1 flex-wrap">
+                  <span>NPH: <strong>{viewingGame.publisher || 'Chưa rõ'}</strong></span>
+                  <span>Thể loại: <strong>{viewingGame.category}</strong></span>
+                  <span>Đánh giá: <strong>★ {viewingGame.rating}</strong></span>
+                </div>
+              </div>
+              <a
+                href={`https://codegame.shop/game/${viewingGame.slug}`}
+                target="_blank"
+                rel="noreferrer"
+                className="px-3 py-1.5 rounded-xl bg-emerald-600 text-white font-bold text-xs flex items-center gap-1.5 hover:bg-emerald-700 transition-all shrink-0 cursor-pointer"
+              >
+                <Globe className="w-3.5 h-3.5" />
+                <span>Xem Live</span>
+              </a>
+            </div>
+
+            {/* Giấy phép ABEI */}
+            <div className="p-3.5 rounded-2xl border border-teal-500/30 bg-teal-50/30 dark:bg-teal-950/20 space-y-2">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-1.5 font-bold text-teal-800 dark:text-teal-300">
+                  <ShieldCheck className="w-4 h-4" />
+                  <span>Giấy Phép Phát Hành (ABEI - Cục PTTH&TTĐT)</span>
+                </div>
+                {viewingGame.license_status && (
+                  <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold border ${
+                    viewingGame.license_status === 'Đang hoạt động'
+                      ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30'
+                      : 'bg-rose-500/10 text-rose-400 border-rose-500/30'
+                  }`}>
+                    {viewingGame.license_status}
+                  </span>
+                )}
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-slate-700 dark:text-slate-300">
+                <div>
+                  <span className="text-slate-400">Số Giấy Phép:</span>{' '}
+                  <strong className="font-mono text-slate-900 dark:text-white">
+                    {viewingGame.license_number || 'Chưa có thông tin'}
+                  </strong>
+                </div>
+                <div>
+                  <span className="text-slate-400">Ngày Cấp Phép:</span>{' '}
+                  <strong className="text-slate-900 dark:text-white">
+                    {viewingGame.license_issued_date || 'Chưa có thông tin'}
+                  </strong>
+                </div>
+                <div className="sm:col-span-2">
+                  <span className="text-slate-400">Nguồn Tra Cứu ABEI:</span>{' '}
+                  {viewingGame.license_source_url ? (
+                    <a
+                      href={viewingGame.license_source_url}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="text-teal-600 dark:text-teal-400 hover:underline font-mono inline-flex items-center gap-1"
+                    >
+                      <span>{viewingGame.license_source_url}</span>
+                      <ExternalLink className="w-3 h-3" />
+                    </a>
+                  ) : (
+                    <span className="text-slate-400 italic">Chưa có link</span>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            {/* Hướng dẫn & Redeem URL */}
+            <div className="p-3.5 rounded-2xl bg-slate-50 dark:bg-slate-900/60 border border-slate-200 dark:border-slate-800 space-y-2">
+              <h4 className="font-bold text-slate-900 dark:text-white">Hướng Dẫn & Trang Nhập Code</h4>
+              <p className="text-slate-600 dark:text-slate-300 whitespace-pre-wrap">
+                {viewingGame.instructions || 'Chưa có hướng dẫn nhập code.'}
+              </p>
+              {viewingGame.redeem_url && (
+                <p className="text-slate-500 dark:text-slate-400">
+                  Link nhập code:{' '}
+                  <a
+                    href={viewingGame.redeem_url}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="text-indigo-600 dark:text-indigo-400 hover:underline font-mono inline-flex items-center gap-1"
+                  >
+                    <span>{viewingGame.redeem_url}</span>
+                    <ExternalLink className="w-3 h-3" />
+                  </a>
+                </p>
+              )}
+            </div>
+
+            {/* Thống kê kho code */}
+            <div className="p-3.5 rounded-2xl bg-slate-50 dark:bg-slate-900/60 border border-slate-200 dark:border-slate-800 space-y-2">
+              <h4 className="font-bold text-slate-900 dark:text-white">Thống Kê Kho Code</h4>
+              <div className="grid grid-cols-3 gap-2 text-center">
+                <div className="p-2 rounded-xl bg-indigo-500/10 border border-indigo-500/20">
+                  <p className="text-[10px] text-indigo-400 uppercase font-bold">Tổng Mã Code</p>
+                  <p className="text-lg font-black text-indigo-500">{viewingGame.total_codes_count ?? viewingGame.codes_count ?? 0}</p>
+                </div>
+                <div className="p-2 rounded-xl bg-emerald-500/10 border border-emerald-500/20">
+                  <p className="text-[10px] text-emerald-400 uppercase font-bold">Đang Dùng Được</p>
+                  <p className="text-lg font-black text-emerald-500">{viewingGame.active_codes_count ?? 0}</p>
+                </div>
+                <div className="p-2 rounded-xl bg-slate-500/10 border border-slate-500/20">
+                  <p className="text-[10px] text-slate-400 uppercase font-bold">Lượt Tải Store</p>
+                  <p className="text-lg font-black text-slate-400">{downloadStats[viewingGame.slug]?.total || 0}</p>
+                </div>
+              </div>
+            </div>
+
+            {/* Footer buttons */}
+            <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-200 dark:border-slate-800">
+              <button
+                type="button"
+                onClick={() => {
+                  setIsViewDetailOpen(false);
+                  setViewingGame(null);
+                }}
+                className="px-4 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 font-semibold cursor-pointer"
+              >
+                Đóng
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  const target = viewingGame;
+                  setIsViewDetailOpen(false);
+                  setViewingGame(null);
+                  handleEdit(target);
+                }}
+                className="px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold flex items-center gap-1.5 cursor-pointer"
+              >
+                <Edit2 className="w-3.5 h-3.5" />
+                <span>Chỉnh Sửa Game Này</span>
+              </button>
+            </div>
+          </div>
+        )}
       </FormModal>
 
       {/* Delete Confirmation Modal */}
