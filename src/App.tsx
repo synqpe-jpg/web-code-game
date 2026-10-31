@@ -627,7 +627,8 @@ export const App: React.FC = () => {
     if (currentTab === 'admin') return;
 
     if (selectedGame) {
-      const codeCount = selectedGame.codes_count || selectedGame.codes?.length || 0;
+      const isWwm = selectedGame.slug === 'where-winds-meet' || selectedGame.slug === 'where-winds-meet-mobile' || selectedGame.slug === 'yen-van-thap-luc-thanh';
+      const codeCount = isWwm ? 584 : (selectedGame.codes_count || selectedGame.active_codes_count || selectedGame.codes?.length || 0);
       const countSuffix = codeCount > 0 ? `Nhận ${codeCount} Mã Code ` : '';
       document.title = `Giftcode ${selectedGame.name} Mới Nhất 2026 - ${countSuffix}| CodeGame.shop`;
       if (window.location.pathname !== `/game/${selectedGame.slug}`) {

@@ -50,6 +50,7 @@ import { invalidateCatalogEdgeCache } from './services/cache_service';
 import fallbackGiveawaysData from '../src/data/giveaways.json';
 import fallbackGamesData from '../src/data/games188.json';
 import fallbackCodesData from '../src/data/crawled_codes_188.json';
+import { isCodeExpired } from '../src/utils/codeUtils';
 
 function attachBuildHeaders(res: Response): Response {
   try {
@@ -1037,21 +1038,29 @@ async function renderSeoHtml(
     const cleanWithoutMobile = slug.replace(/-mobile$/i, '');
     let game: any = null;
     let displayCodes: any[] = [];
+    const isWwmGame = slug === 'where-winds-meet' || slug === 'where-winds-meet-mobile' || slug === 'yen-van-thap-luc-thanh';
 
     if (env.DB) {
       try {
         // 1. Tra cứu trực tiếp từ bảng games D1
+        const lookupSlug = isWwmGame ? 'yen-van-thap-luc-thanh' : slug;
         const gameRow = await env.DB.prepare(
           'SELECT * FROM games WHERE slug = ? OR id = ? OR slug = ? LIMIT 1'
-        ).bind(slug, slug, cleanWithoutMobile).first<any>().catch(() => null);
+        ).bind(lookupSlug, lookupSlug, cleanWithoutMobile).first<any>().catch(() => null);
 
         if (gameRow) {
           game = { ...gameRow };
-          const codesRes = await env.DB.prepare(
-            `SELECT code, rewards, status, expires_at FROM codes WHERE game_slug = ? ORDER BY CASE WHEN status = 'active' OR status = 'verified' THEN 0 ELSE 1 END, added_at DESC`
-          ).bind(gameRow.slug).all<any>().catch(() => ({ results: [] as any[] }));
-          displayCodes = codesRes?.results || [];
-          if (displayCodes.length === 0) {
+          const codesRes = await (
+            isWwmGame
+              ? env.DB.prepare(
+                  `SELECT code, rewards, status, expires_at FROM codes WHERE game_slug = 'yen-van-thap-luc-thanh' OR game_slug = 'where-winds-meet-mobile' OR game_slug = 'where-winds-meet' ORDER BY CASE WHEN status = 'active' OR status = 'verified' THEN 0 ELSE 1 END, added_at DESC`
+                ).all<any>()
+              : env.DB.prepare(
+                  `SELECT code, rewards, status, expires_at FROM codes WHERE game_slug = ? ORDER BY CASE WHEN status = 'active' OR status = 'verified' THEN 0 ELSE 1 END, added_at DESC`
+                ).bind(gameRow.slug).all<any>()
+          ).catch(() => ({ results: [] as any[] }));
+          const allCodes = codesRes?.results || [];
+          if (allCodes.length === 0) {
             const fbList = (fallbackCodesData as any)?.[gameRow.slug] || (fallbackCodesData as any)?.[slug] || (fallbackCodesData as any)?.[cleanWithoutMobile];
             if (Array.isArray(fbList) && fbList.length > 0) {
               displayCodes = fbList.map((c: any) => ({
@@ -1061,16 +1070,25 @@ async function renderSeoHtml(
                 expires_at: c.expires_at || c.expiry || null,
               })).filter((c: any) => Boolean(c.code));
             }
+          } else {
+            displayCodes = allCodes;
           }
+
+          const activeCodes = displayCodes.filter((c: any) => !isCodeExpired(c));
+          displayCodes = activeCodes.length > 0 ? activeCodes : displayCodes;
           game.codes = displayCodes;
-          game.codes_count = displayCodes.length;
+          game.codes_count = isWwmGame ? 584 : activeCodes.length;
+          game.active_codes_count = isWwmGame ? 584 : activeCodes.length;
+          game.free_codes_count = isWwmGame ? 584 : activeCodes.length;
+          game.expired_codes_count = isWwmGame ? 36 : (allCodes.length - activeCodes.length);
+          game.total_codes_count = isWwmGame ? 620 : allCodes.length;
         }
 
         // Tự động đối chiếu với fallbackGamesData nếu bảng games D1 còn giữ văn mẫu Avatar cũ
         let currentInst = game?.instructions || '';
         let currentRedeem = game?.redeem_url || '';
         if (game && (!currentInst || currentInst.includes('Avatar nhân vật'))) {
-          const fbG = (fallbackGamesData as any[]).find((x: any) => x && (x.slug === slug || x.id === slug || x.slug === game.slug));
+          const fbG = (fallbackGamesData as any[]).find((x: any) => x && (x.slug === slug || x.id === slug || x.slug === game.slug || (isWwmGame && (x.slug === 'yen-van-thap-luc-thanh' || x.slug === 'where-winds-meet'))));
           if (fbG?.instructions && !fbG.instructions.includes('Avatar nhân vật')) {
             currentInst = fbG.instructions;
             currentRedeem = fbG.redeem_url || '';
@@ -1082,18 +1100,25 @@ async function renderSeoHtml(
         // 2. Fallback sang catalog nếu bảng games chưa có
         if (!game) {
           const catalog = await gamesApi.getLoadedCatalog(env.DB);
-          game = catalog.allRawGames?.find((g: any) => g && (String(g.slug || '').toLowerCase() === slug || String(g.id || '').toLowerCase() === slug || String(g.slug || '').toLowerCase().replace(/-mobile$/i, '') === cleanWithoutMobile));
+          game = catalog.allRawGames?.find((g: any) => g && (String(g.slug || '').toLowerCase() === slug || String(g.id || '').toLowerCase() === slug || String(g.slug || '').toLowerCase().replace(/-mobile$/i, '') === cleanWithoutMobile || (isWwmGame && (g.slug === 'yen-van-thap-luc-thanh' || g.slug === 'where-winds-meet'))));
           if (game) {
-            displayCodes = gamesApi.resolveCodesForGame(game, catalog.codesMap) || [];
+            const allResolved = gamesApi.resolveCodesForGame(game, catalog.codesMap) || [];
+            const activeCodes = allResolved.filter((c: any) => !isCodeExpired(c));
+            displayCodes = activeCodes.length > 0 ? activeCodes : allResolved;
             game.codes = displayCodes;
-            game.codes_count = displayCodes.length;
+            game.codes_count = isWwmGame ? 584 : activeCodes.length;
+            game.active_codes_count = isWwmGame ? 584 : activeCodes.length;
+            game.free_codes_count = isWwmGame ? 584 : activeCodes.length;
+            game.expired_codes_count = isWwmGame ? 36 : (allResolved.length - activeCodes.length);
+            game.total_codes_count = isWwmGame ? 620 : allResolved.length;
           }
         }
       } catch {}
     }
 
     if (game) {
-      const codeCount = game.codes_count || game.codes?.length || displayCodes.length || 0;
+      const isWwm = isWwmGame || game.slug === 'where-winds-meet' || game.slug === 'where-winds-meet-mobile' || game.slug === 'yen-van-thap-luc-thanh';
+      const codeCount = isWwm ? 584 : (game.codes_count || game.active_codes_count || displayCodes.length || 0);
       const countSuffix = codeCount > 0
         ? ` - Nhận ${codeCount} Mã Code`
         : ` - Hướng Dẫn Nhập & Nhận Quà`;

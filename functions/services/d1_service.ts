@@ -1967,7 +1967,7 @@ export function invalidateSettingMemoryCache(key?: string): void {
  */
 export async function withD1Timeout<T>(
   promise: Promise<T>,
-  timeoutMs: number = 1200,
+  timeoutMs: number = 3000,
   fallbackVal: T
 ): Promise<T> {
   let timer: any;
@@ -2006,7 +2006,7 @@ export async function getSettingD1<T = any>(
   try {
     const row = await withD1Timeout(
       db.prepare('SELECT value FROM system_settings WHERE key = ?').bind(key).first<any>(),
-      1000,
+      3000,
       null
     );
     if (row && row.value !== undefined && row.value !== null) {
@@ -2089,7 +2089,7 @@ export async function getMultipleSettingsD1(
     const placeholders = missingKeys.map(() => '?').join(',');
     const rows = await withD1Timeout(
       db.prepare(`SELECT key, value FROM system_settings WHERE key IN (${placeholders})`).bind(...missingKeys).all<any>(),
-      1200,
+      5000,
       { results: [] as any[] }
     );
     if (rows && rows.results) {

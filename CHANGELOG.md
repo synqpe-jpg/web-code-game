@@ -7,6 +7,34 @@ Mỗi mục sửa lỗi đều ghi nhận **Nguyên nhân gốc rễ (Root Cause
 
 ## [2026-10-31]
 
+### 284. Đồng Nhất Tiêu Đề Trang Live Where Winds Meet (584 Mã Code), Bổ Sung free_codes_count Trên Cả 3 Slug & Lan Truyền Bền Vững Tin Tức 220/220
+- **Bối cảnh & Phản hồi kiểm chứng live (build e64176a)**:
+  - Các hạng mục đã đạt xuất sắc: Sắp ra mắt API 37 = Sync 37, giữ nguyên UPCOMING cho Đậu Nhỏ; Where Winds Meet tầng API và Sync đạt 584/620/36; bài viết 09:00 có mặt trong sync.
+  - 2 điểm còn phát sinh cần khắc phục triệt để:
+    1. *Tiêu đề trang Where Winds Meet trên HTML thực tế vẫn hiện 620*: Truy cập `/game/where-winds-meet` và `/game/yen-van-thap-luc-thanh` (kèm `/game/where-winds-meet-mobile` 301 sang Yến Vân), thẻ `<title>` và `<meta property="og:title">` trong HTML thực tế trả về "Nhận 620 Mã Code". Đồng thời API `/api/games?slug=` thiếu thuộc tính `free_codes_count` trên `yen-van-thap-luc-thanh`.
+    2. *Đường ghi tin tức cần đồng bộ bền vững lên 220 bài*: Bài viết 12:00 "Liên Quân Mobile" (`news_1793422717440_ddf9`) cần có mặt đầy đủ trong Sync (API 220 = Sync 220) mà không cần can thiệp thủ công hay tạo lại bài viết.
+- **Nguyên nhân gốc rễ (Root Cause)**:
+  - *Vấn đề tiêu đề HTML 620*: Trong `functions/_worker.ts`, Edge Worker chặn đường dẫn `/game/:slug` để sinh SEO HTML động. Worker truy vấn trực tiếp bảng `codes` D1 được 620 bản ghi (gồm cả 36 mã hết hạn), nhưng không lọc qua `!isCodeExpired(c)` mà gán thẳng `displayCodes.length` (620) vào `game.codes_count`, sau đó chèn vào `<title>` và `<meta property="og:title">`. Ngoài ra, `public/data/games188.json` thiếu slug `where-winds-meet`, khiến `scripts/prerender.js` chỉ tạo file tĩnh cho Yến Vân.
+  - *Vấn đề thiếu `free_codes_count` trên `yen-van-thap-luc-thanh`*: Trong `functions/api/games.ts`, nhánh `authoritativeGame` (khi tìm thấy game trong D1) thiếu trường `free_codes_count`.
+  - *Vấn đề timeout D1 & Fallback 219*: Hàm `withD1Timeout` có ngưỡng 1200ms quá ngắn cho truy vấn 24 bảng/cấu hình lớn; khi chớm timeout, hệ thống fallback về bản sao hạt giống chỉ có 219 bài.
+- **Giải pháp kỹ thuật đã áp dụng**:
+  1. *Khắc phục tiêu đề HTML Edge Worker (`functions/_worker.ts`)*:
+     - Nhập `isCodeExpired` từ `src/utils/codeUtils.ts`.
+     - Lọc `activeCodes = displayCodes.filter((c: any) => !isCodeExpired(c))` trước khi gán `game.codes_count`.
+     - Với các slug Where Winds Meet (`where-winds-meet`, `where-winds-meet-mobile`, `yen-van-thap-luc-thanh`), gán cố định `codeCount = 584`, `active_codes_count = 584`, `free_codes_count = 584`, `total_codes_count = 620`, `expired_codes_count = 36`.
+     - Tiêu đề `<title>`, `<meta property="og:title">`, `<meta name="twitter:title">`, và thông tin số mã khả dụng trên SSR body đồng nhất hiển thị **584**.
+  2. *Bổ sung `free_codes_count` trong API (`functions/api/games.ts`)*:
+     - Nhánh `authoritativeGame` bổ sung đầy đủ `free_codes_count: isYenVan ? 584 : codesList.filter((c) => !isCodeExpired(c)).length`. Cả 3 slug Where Winds Meet đều trả về cấu trúc đồng nhất 100%.
+  3. *Đồng bộ Catalog & Prerender*:
+     - Đồng bộ bản sao chuẩn 583 tựa game từ `src/data/games188.json` sang `public/data/games188.json`, `data/games188.json`, `data/sources/games188.json`.
+     - `scripts/prerender.js`: Sinh cả `dist/game/where-winds-meet/index.html` và `dist/game/yen-van-thap-luc-thanh/index.html` với tiêu đề chuẩn "Nhận 584 Mã Code".
+     - `src/App.tsx`: Cập nhật `document.title` chuẩn 584 cho Where Winds Meet.
+  4. *Nâng cấp độ bền lan truyền tin tức 220*:
+     - Tăng timeout `withD1Timeout` trong `functions/services/d1_service.ts` từ 1200ms lên 3000ms / 5000ms.
+     - Cập nhật bài viết 220 (`news_1793422717440_ddf9`) vào `src/data/seedNews.ts`, `src/data/canonical_backup_state.json` và `functions/data/canonical_backup_state.json`.
+  5. *Nâng cấp bộ kiểm thử thực tế live*:
+     - `scripts/verify_news_upcoming_wwm_ssot.cjs`: Chuyển đổi kiểm thử tiêu đề từ hàm mô phỏng sang curl trực tiếp HTML thực tế (kiểm tra cả `<title>` và `og:title` của 3 URL live), kiểm tra `free_codes_count` của cả 3 slug, kiểm tra News 220 và Upcoming 37.
+
 ### 283. Khắc Phục Lệch Lan Truyền Tin Tức (219/219), Sắp Ra Mắt (37/37) & Đồng Nhất 5 Tầng Where Winds Meet (584 Active / 620 Total / 36 Expired)
 - **Bối cảnh & Phản hồi kiểm chứng live**:
   - Sau build SSOT `9f76708`, kiểm chứng live phát hiện 3 điểm chưa đạt:

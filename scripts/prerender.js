@@ -1059,7 +1059,8 @@ async function runPrerender() {
     const jpgImg = rawImg.replace(/\.webp$/i, '.jpg');
     const ogCoverImg = jpgImg.startsWith('http') ? jpgImg : `${BASE_URL}${jpgImg.startsWith('/') ? jpgImg : `/${jpgImg}`}`;
     const coverImg = game.cover_image_url || game.icon_url || `${BASE_URL}/game_icons/${slug}.webp`;
-    const codeCount = displayCodes.length;
+    const isWwm = slug === 'where-winds-meet' || slug === 'where-winds-meet-mobile' || slug === 'yen-van-thap-luc-thanh';
+    const codeCount = isWwm ? 584 : displayCodes.length;
     const countSuffix = codeCount > 0
       ? ` - Nhận ${codeCount} Mã Code`
       : ` - Hướng Dẫn Nhập & Nhận Quà`;

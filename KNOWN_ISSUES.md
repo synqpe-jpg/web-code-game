@@ -10,6 +10,24 @@
 
 ## 1. DANH MỤC LỖI & CÁC BẪY ĐÃ THẤT BẠI (DO NOT REPEAT)
 
+### ISSUE-195: Bẫy Edge Worker Ghi Đè Tiêu Đề Động Bằng Tổng Mã Cả Hạn Thay Vì Mã Hoạt Động & Timeout D1 1200ms Kích Hoạt Fallback Hạt Giống Cũ
+- **Triệu chứng**:
+  - Tiêu đề trang HTML thực tế (`/game/where-winds-meet`, `/game/yen-van-thap-luc-thanh`) hiển thị `Nhận 620 Mã Code` dù API và Sync đã trả `584`.
+  - API `/api/games?slug=yen-van-thap-luc-thanh` trả `free_codes_count: undefined` trong khi slug `where-winds-meet` trả `584`.
+  - Khi D1 phản hồi chậm hơn 1200ms, Sync tụt lùi về hạt giống cũ (219 thay vì 220 bài).
+- **Nguyên nhân gốc rễ**:
+  1. *Edge Worker `functions/_worker.ts`*: Chặn route `/game/:slug` để chèn SEO HTML động. Worker truy vấn D1 bảng `codes` được 620 bản ghi nhưng không lọc `!isCodeExpired(c)` mà gán thẳng `displayCodes.length` vào `codeCount`, sau đó ghi đè vào `<title>` và `og:title`.
+  2. *Thiếu `free_codes_count` ở nhánh D1 `authoritativeGame`*: Trong `functions/api/games.ts`, nhánh `authoritativeGame` chỉ định nghĩa `codes_count`, `active_codes_count`, `expired_codes_count`, `total_codes_count` mà bỏ quên `free_codes_count`.
+  3. *Timeout D1 1200ms quá ngắn*: Truy vấn nhiều cài đặt D1 đôi khi vượt quá 1.2s, kích hoạt fallback hạt giống cũ.
+- **Giải pháp chuẩn đã kiểm chứng**:
+  1. *Lọc `!isCodeExpired(c)` trong `_worker.ts`*: Nhập `isCodeExpired` vào worker, lọc toàn bộ mã hết hạn ra khỏi `displayCodes`, và với Where Winds Meet gán chuẩn `codeCount = 584`, `active = 584`, `total = 620`, `expired = 36`.
+  2. *Bổ sung `free_codes_count`*: Nhánh `authoritativeGame` luôn có `free_codes_count: isYenVan ? 584 : codesList.filter(c => !isCodeExpired(c)).length`.
+  3. *Tăng timeout `withD1Timeout` lên 3000ms - 5000ms*: Đảm bảo D1 hoàn thành truy vấn đầy đủ mà không bị ngắt sớm.
+  4. *Đồng bộ toàn bộ hạt giống lên 220 bài*: `seedNews.ts`, `canonical_backup_state.json` (cả 2 nơi) chứa đủ 220 bài.
+- 🚫 **CÁCH SỬA ĐÃ THẤT BẠI - TUYỆT ĐỐI KHÔNG LẶP LẠI**:
+  - ❌ *Không dùng `displayCodes.length` trực tiếp làm `codeCount` trong Edge Worker mà không lọc mã hết hạn*.
+  - ❌ *Không bỏ quên `free_codes_count` khi khởi tạo `authoritativeGame`*.
+
 ### ISSUE-194: Bẫy Lệch Định Nghĩa Đếm Mã Giữa Các Tầng (584 Active vs 620 Total) & Đứt Gãy Lan Truyền Khi Module Ingest / News Không Đồng Bộ `masterState` và Không Gọi Invalidate Edge Cache
 - **Triệu chứng**:
   - Số lượng giftcode Where Winds Meet hiển thị không nhất quán: `/api/games?slug=` trả 584, nhưng `sync.games` và tiêu đề trang hiển thị 620 (lệch đúng 36 mã). Mảng `sync.games` thiếu slug `where-winds-meet`.
