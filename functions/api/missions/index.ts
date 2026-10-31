@@ -5,6 +5,7 @@ import {
   verifyMemberAuth,
   invalidateMissionEdgeCache,
 } from '../../services/mission_service';
+import { recordSoftDelete } from '../../services/soft_delete_service';
 
 export const onRequestOptions: PagesFunction = async () => {
   return new Response(null, { status: 204, headers: CORS_HEADERS });
@@ -262,6 +263,108 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
     }
 
     const body: any = await request.json().catch(() => ({}));
+
+    // --- Batch Action 1: Batch Update Status (Open / Close Missions) ---
+    if (body.action === 'batch_update_status') {
+      const { ids, status } = body;
+      if (!Array.isArray(ids) || ids.length === 0) {
+        return new Response(
+          JSON.stringify({ success: false, message: 'Danh sách ID nhiệm vụ không được để trống.' }),
+          { status: 400, headers: CORS_HEADERS }
+        );
+      }
+      const newStatus = status === 'ACTIVE' ? 'ACTIVE' : status === 'PAUSED' ? 'PAUSED' : 'CLOSED';
+      const nowIso = new Date().toISOString();
+      const adminActor = `ADMIN:${adminCheck.adminName || adminCheck.adminId || 'Admin'}`;
+
+      const stmts = ids.map((id) =>
+        env.DB.prepare('UPDATE missions SET status = ?, updated_at = ? WHERE id = ?').bind(newStatus, nowIso, id)
+      );
+      await env.DB.batch(stmts);
+
+      // Audit log batch update
+      await env.DB.prepare(`
+        INSERT INTO mission_audit_logs (id, mission_id, mission_title, submission_id, user_id, action, actor, details, created_at)
+        VALUES (?, '', 'Batch Update Status', '', '', 'MISSION_UPDATED', ?, ?, ?)
+      `).bind(
+        `log_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
+        adminActor,
+        `Cập nhật trạng thái ${ids.length} nhiệm vụ sang ${newStatus} (${newStatus === 'ACTIVE' ? 'Mở - Hiện trên web khách' : 'Đóng - Ẩn khỏi web khách'})`,
+        nowIso
+      ).run().catch(() => {});
+
+      await invalidateMissionEdgeCache(request);
+
+      return new Response(
+        JSON.stringify({
+          success: true,
+          message: `Đã ${newStatus === 'ACTIVE' ? 'MỞ (Hiện trên web)' : 'ĐÓNG (Ẩn khỏi web)'} thành công ${ids.length} nhiệm vụ!`,
+        }),
+        { status: 200, headers: CORS_HEADERS }
+      );
+    }
+
+    // --- Batch Action 2: Batch Delete Missions ---
+    if (body.action === 'batch_delete') {
+      const { ids, force = false } = body;
+      if (!Array.isArray(ids) || ids.length === 0) {
+        return new Response(
+          JSON.stringify({ success: false, message: 'Danh sách ID nhiệm vụ không được để trống.' }),
+          { status: 400, headers: CORS_HEADERS }
+        );
+      }
+      const nowIso = new Date().toISOString();
+      const adminActor = `ADMIN:${adminCheck.adminName || adminCheck.adminId || 'Admin'}`;
+      let deletedCount = 0;
+      const skippedIds: string[] = [];
+
+      for (const id of ids) {
+        const subCountRow = await env.DB.prepare('SELECT COUNT(*) as cnt FROM mission_submissions WHERE mission_id = ?').bind(id).first<any>();
+        const subCount = Number(subCountRow?.cnt) || 0;
+        if (subCount > 0 && !force) {
+          skippedIds.push(id);
+          continue;
+        }
+
+        const mission = await env.DB.prepare('SELECT * FROM missions WHERE id = ? LIMIT 1').bind(id).first<any>();
+        if (!mission) continue;
+
+        // Record soft delete tombstone
+        await recordSoftDelete(env.DB, {
+          recordType: 'mission',
+          recordId: id,
+          recordSlug: mission.slug || id,
+          title: mission.title || '',
+          deletedBy: adminActor,
+          reason: `Xóa hàng loạt nhiệm vụ (isForce=${force}, subCount=${subCount})`,
+          originalPayload: mission,
+        }).catch(() => {});
+
+        // Delete mission
+        if (subCount > 0 && force) {
+          await env.DB.prepare('DELETE FROM mission_submissions WHERE mission_id = ?').bind(id).run().catch(() => {});
+        }
+        await env.DB.prepare('DELETE FROM mission_reward_pools WHERE mission_id = ?').bind(id).run().catch(() => {});
+        await env.DB.prepare('DELETE FROM missions WHERE id = ?').bind(id).run();
+        deletedCount++;
+      }
+
+      await invalidateMissionEdgeCache(request);
+
+      return new Response(
+        JSON.stringify({
+          success: true,
+          deletedCount,
+          skippedCount: skippedIds.length,
+          skippedIds,
+          message: skippedIds.length > 0
+            ? `Đã xóa ${deletedCount} nhiệm vụ. Bỏ qua ${skippedIds.length} nhiệm vụ vì đã có bài nộp (cần ?force=true).`
+            : `Đã xóa thành công ${deletedCount} nhiệm vụ!`,
+        }),
+        { status: 200, headers: CORS_HEADERS }
+      );
+    }
+
     const {
       title,
       description = '',

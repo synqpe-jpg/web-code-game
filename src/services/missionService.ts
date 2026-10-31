@@ -165,6 +165,61 @@ class MissionService {
     }
   }
 
+  async batchUpdateStatus(
+    ids: string[],
+    status: 'ACTIVE' | 'CLOSED' | 'PAUSED'
+  ): Promise<{ success: boolean; message?: string }> {
+    try {
+      const res = await fetch('/api/missions', {
+        method: 'POST',
+        headers: this.getAuthHeaders(true),
+        body: JSON.stringify({
+          action: 'batch_update_status',
+          ids,
+          status,
+        }),
+      });
+
+      const data = await res.json().catch(() => ({}));
+      if (res.ok && data.success) {
+        return { success: true, message: data.message };
+      }
+      return { success: false, message: data.message || 'Không thể cập nhật trạng thái hàng loạt.' };
+    } catch (e: any) {
+      return { success: false, message: e?.message || 'Lỗi mạng khi cập nhật trạng thái hàng loạt.' };
+    }
+  }
+
+  async batchDelete(
+    ids: string[],
+    force: boolean = false
+  ): Promise<{ success: boolean; message?: string; deletedCount?: number; skippedCount?: number }> {
+    try {
+      const res = await fetch('/api/missions', {
+        method: 'POST',
+        headers: this.getAuthHeaders(true),
+        body: JSON.stringify({
+          action: 'batch_delete',
+          ids,
+          force,
+        }),
+      });
+
+      const data = await res.json().catch(() => ({}));
+      if (res.ok && data.success) {
+        return {
+          success: true,
+          message: data.message,
+          deletedCount: data.deletedCount,
+          skippedCount: data.skippedCount,
+        };
+      }
+      return { success: false, message: data.message || 'Không thể xóa hàng loạt.' };
+    } catch (e: any) {
+      return { success: false, message: e?.message || 'Lỗi mạng khi xóa hàng loạt.' };
+    }
+  }
+
   async getAdminSubmissions(
     missionId?: string,
     status?: string

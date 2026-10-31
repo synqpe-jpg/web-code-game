@@ -23,6 +23,7 @@ import {
   Layers,
   HelpCircle,
   Eye,
+  EyeOff,
   Users,
 } from 'lucide-react';
 import type {
@@ -43,6 +44,13 @@ export const MissionsModule: React.FC = () => {
   const [missions, setMissions] = useState<Mission[]>([]);
   const [isMissionModalOpen, setIsMissionModalOpen] = useState(false);
   const [editingMission, setEditingMission] = useState<Partial<Mission> | null>(null);
+
+  // --- Missions Selection & Batch State ---
+  const [selectedMissionIds, setSelectedMissionIds] = useState<string[]>([]);
+  const [isBatchProcessing, setIsBatchProcessing] = useState(false);
+  const [togglingMissionId, setTogglingMissionId] = useState<string | null>(null);
+  const [missionSearch, setMissionSearch] = useState<string>('');
+  const [missionFilterStatus, setMissionFilterStatus] = useState<'ALL' | 'ACTIVE' | 'CLOSED'>('ALL');
 
   // --- Submissions State ---
   const [submissions, setSubmissions] = useState<MissionSubmission[]>([]);
@@ -255,6 +263,148 @@ export const MissionsModule: React.FC = () => {
     }
   };
 
+  // --- Handlers: Toggle Status (Mở / Đóng - Hiện / Ẩn trên web) ---
+  const handleToggleMissionStatus = async (m: Mission) => {
+    const isCurrentlyActive = m.status === 'ACTIVE';
+    const newStatus = isCurrentlyActive ? 'CLOSED' : 'ACTIVE';
+    const actionLabel = newStatus === 'ACTIVE' ? 'Mở (Hiện trên web)' : 'Đóng (Ẩn trên web)';
+
+    setTogglingMissionId(m.id);
+
+    // Optimistic UI update
+    setMissions((prev) =>
+      prev.map((item) => (item.id === m.id ? { ...item, status: newStatus } : item))
+    );
+
+    try {
+      const res = await missionService.updateMission(m.id, { ...m, status: newStatus });
+      if (res.success) {
+        showNotification('success', `Đã ${actionLabel} nhiệm vụ thành công!`);
+      } else {
+        // Revert on failure
+        setMissions((prev) =>
+          prev.map((item) => (item.id === m.id ? { ...item, status: m.status } : item))
+        );
+        showNotification('error', res.message || 'Lỗi khi cập nhật trạng thái.');
+      }
+    } catch (err: any) {
+      setMissions((prev) =>
+        prev.map((item) => (item.id === m.id ? { ...item, status: m.status } : item))
+      );
+      showNotification('error', err?.message || 'Lỗi khi cập nhật trạng thái.');
+    } finally {
+      setTogglingMissionId(null);
+    }
+  };
+
+  // --- Handlers: Multi-select & Batch Actions ---
+  const filteredMissions = missions.filter((m) => {
+    if (missionFilterStatus === 'ACTIVE' && m.status !== 'ACTIVE') return false;
+    if (missionFilterStatus === 'CLOSED' && m.status === 'ACTIVE') return false;
+    if (missionSearch.trim()) {
+      const q = missionSearch.toLowerCase();
+      return (
+        m.title.toLowerCase().includes(q) ||
+        (m.target_channel_name && m.target_channel_name.toLowerCase().includes(q)) ||
+        m.task_type.toLowerCase().includes(q)
+      );
+    }
+    return true;
+  });
+
+  const isAllMissionsSelected =
+    filteredMissions.length > 0 &&
+    filteredMissions.every((m) => selectedMissionIds.includes(m.id));
+  const isSomeMissionsSelected =
+    filteredMissions.some((m) => selectedMissionIds.includes(m.id)) && !isAllMissionsSelected;
+
+  const handleToggleSelectAllMissions = () => {
+    if (isAllMissionsSelected) {
+      setSelectedMissionIds((prev) => prev.filter((id) => !filteredMissions.some((m) => m.id === id)));
+    } else {
+      const newIds = new Set([...selectedMissionIds, ...filteredMissions.map((m) => m.id)]);
+      setSelectedMissionIds(Array.from(newIds));
+    }
+  };
+
+  const handleToggleSelectMission = (id: string) => {
+    setSelectedMissionIds((prev) =>
+      prev.includes(id) ? prev.filter((item) => item !== id) : [...prev, id]
+    );
+  };
+
+  const handleBatchUpdateStatus = async (status: 'ACTIVE' | 'CLOSED') => {
+    if (selectedMissionIds.length === 0) return;
+    const actionLabel = status === 'ACTIVE' ? 'Mở (Hiện trên web)' : 'Đóng (Ẩn trên web)';
+    setIsBatchProcessing(true);
+
+    // Optimistic UI update
+    setMissions((prev) =>
+      prev.map((m) => (selectedMissionIds.includes(m.id) ? { ...m, status } : m))
+    );
+
+    try {
+      const res = await missionService.batchUpdateStatus(selectedMissionIds, status);
+      if (res.success) {
+        showNotification('success', res.message || `Đã ${actionLabel} ${selectedMissionIds.length} nhiệm vụ thành công!`);
+        setSelectedMissionIds([]);
+        loadMissions();
+      } else {
+        showNotification('error', res.message || 'Lỗi khi cập nhật hàng loạt.');
+        loadMissions();
+      }
+    } catch (err: any) {
+      showNotification('error', err?.message || 'Lỗi khi cập nhật hàng loạt.');
+      loadMissions();
+    } finally {
+      setIsBatchProcessing(false);
+    }
+  };
+
+  const handleBatchDeleteMissions = async () => {
+    if (selectedMissionIds.length === 0) return;
+    if (
+      !window.confirm(
+        `Bạn có chắc chắn muốn XÓA ${selectedMissionIds.length} nhiệm vụ đã chọn không?\n(Những nhiệm vụ chưa có bài nộp sẽ được chuyển vào thùng rác/tombstone).`
+      )
+    ) {
+      return;
+    }
+
+    setIsBatchProcessing(true);
+    try {
+      const res = await missionService.batchDelete(selectedMissionIds, false);
+      if (res.success) {
+        showNotification('success', res.message || `Đã xóa ${selectedMissionIds.length} nhiệm vụ.`);
+        setSelectedMissionIds([]);
+        loadMissions();
+      } else {
+        if (res.message && res.message.includes('force=true')) {
+          if (
+            window.confirm(
+              `${res.message}\n\nBạn có muốn XÓA TOÀN DIỆN (?force=true) cho tất cả nhiệm vụ đã chọn không?\n(Toàn bộ hồ sơ nộp sẽ bị xóa, nhật ký kiểm tra Audit Log được bảo lưu bất biến).`
+            )
+          ) {
+            const forceRes = await missionService.batchDelete(selectedMissionIds, true);
+            if (forceRes.success) {
+              showNotification('success', forceRes.message || 'Đã xóa toàn diện thành công.');
+              setSelectedMissionIds([]);
+              loadMissions();
+            } else {
+              showNotification('error', forceRes.message || 'Lỗi khi xóa toàn diện.');
+            }
+          }
+        } else {
+          showNotification('error', res.message || 'Lỗi khi xóa hàng loạt.');
+        }
+      }
+    } catch (err: any) {
+      showNotification('error', err?.message || 'Lỗi mạng khi xóa hàng loạt.');
+    } finally {
+      setIsBatchProcessing(false);
+    }
+  };
+
   // --- Handlers: Submissions Review ---
   const handleApprove = async (subId: string) => {
     setIsLoading(true);
@@ -418,26 +568,26 @@ export const MissionsModule: React.FC = () => {
       )}
 
       {/* Header & Tabs */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-border/80 pb-4">
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 border-b border-border/80 pb-3">
         <div>
           <div className="flex items-center gap-2">
-            <span className="p-2 rounded-xl bg-primary/20 text-primary-light">
-              <Sparkles className="w-5 h-5" />
+            <span className="p-1.5 rounded-xl bg-primary/20 text-primary-light">
+              <Sparkles className="w-4 h-4" />
             </span>
-            <h1 className="text-xl sm:text-2xl font-bold font-display text-foreground">
+            <h1 className="text-lg sm:text-xl font-bold font-display text-foreground">
               Quản Lý Nhiệm Vụ & Duyệt Bài (Missions)
             </h1>
           </div>
-          <p className="text-xs text-muted-foreground mt-1">
-            Thiết lập nhiệm vụ làm bài nhận mã/tiền ví, hàng chờ duyệt quản trị và API cho AI tự duyệt.
+          <p className="text-[11px] text-muted-foreground mt-0.5">
+            Thiết lập nhiệm vụ, đóng/mở (ẩn/hiện trên web), duyệt bài tự động/thủ công và quản lý kho mã thưởng.
           </p>
         </div>
 
         {/* Tab Navigation */}
-        <div className="flex items-center gap-1 bg-muted/60 p-1.5 rounded-2xl border border-border/80 overflow-x-auto scrollbar-none">
+        <div className="flex items-center gap-1 bg-muted/60 p-1 rounded-xl border border-border/80 overflow-x-auto scrollbar-none">
           <button
             onClick={() => setActiveTab('missions')}
-            className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all whitespace-nowrap cursor-pointer ${
+            className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all whitespace-nowrap cursor-pointer ${
               activeTab === 'missions' ? 'bg-primary text-white shadow-sm' : 'text-muted-foreground hover:text-foreground'
             }`}
           >
@@ -446,7 +596,7 @@ export const MissionsModule: React.FC = () => {
 
           <button
             onClick={() => setActiveTab('submissions')}
-            className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all whitespace-nowrap cursor-pointer ${
+            className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all whitespace-nowrap cursor-pointer ${
               activeTab === 'submissions' ? 'bg-primary text-white shadow-sm' : 'text-muted-foreground hover:text-foreground'
             }`}
           >
@@ -455,7 +605,7 @@ export const MissionsModule: React.FC = () => {
 
           <button
             onClick={() => setActiveTab('pools')}
-            className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all whitespace-nowrap cursor-pointer ${
+            className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all whitespace-nowrap cursor-pointer ${
               activeTab === 'pools' ? 'bg-primary text-white shadow-sm' : 'text-muted-foreground hover:text-foreground'
             }`}
           >
@@ -464,7 +614,7 @@ export const MissionsModule: React.FC = () => {
 
           <button
             onClick={() => setActiveTab('ai_keys')}
-            className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all whitespace-nowrap cursor-pointer ${
+            className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all whitespace-nowrap cursor-pointer ${
               activeTab === 'ai_keys' ? 'bg-primary text-white shadow-sm' : 'text-muted-foreground hover:text-foreground'
             }`}
           >
@@ -474,206 +624,356 @@ export const MissionsModule: React.FC = () => {
       </div>
 
       {/* ========================================================= */}
-      {/* TAB 1: DANH SÁCH NHIỆM VỤ (CRUD)                          */}
+      {/* TAB 1: DANH SÁCH NHIỆM VỤ (CRUD & BATCH ACTIONS)         */}
       {/* ========================================================= */}
       {activeTab === 'missions' && (
-        <div className="space-y-4">
-          <div className="flex items-center justify-between">
-            <span className="text-xs text-muted-foreground">
-              Tổng cộng: <strong className="text-foreground">{missions.length}</strong> nhiệm vụ
-            </span>
+        <div className="space-y-3">
+          {/* Top Control Bar: Filters, Search, Actions */}
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
+            <div className="flex items-center gap-2 flex-wrap">
+              <span className="text-xs text-muted-foreground">
+                Tổng cộng: <strong className="text-foreground">{missions.length}</strong>
+              </span>
+              <span className="text-border">|</span>
+              <div className="flex items-center gap-1 bg-muted/50 p-0.5 rounded-lg border border-border/60 text-[11px]">
+                <button
+                  onClick={() => setMissionFilterStatus('ALL')}
+                  className={`px-2 py-0.5 rounded-md font-semibold transition-colors cursor-pointer ${
+                    missionFilterStatus === 'ALL' ? 'bg-background text-foreground shadow-xs' : 'text-muted-foreground hover:text-foreground'
+                  }`}
+                >
+                  Tất cả ({missions.length})
+                </button>
+                <button
+                  onClick={() => setMissionFilterStatus('ACTIVE')}
+                  className={`px-2 py-0.5 rounded-md font-semibold transition-colors flex items-center gap-1 cursor-pointer ${
+                    missionFilterStatus === 'ACTIVE' ? 'bg-emerald-500/20 text-emerald-400 shadow-xs' : 'text-muted-foreground hover:text-foreground'
+                  }`}
+                >
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
+                  Đang Mở ({missions.filter((m) => m.status === 'ACTIVE').length})
+                </button>
+                <button
+                  onClick={() => setMissionFilterStatus('CLOSED')}
+                  className={`px-2 py-0.5 rounded-md font-semibold transition-colors flex items-center gap-1 cursor-pointer ${
+                    missionFilterStatus === 'CLOSED' ? 'bg-slate-700/50 text-slate-300 shadow-xs' : 'text-muted-foreground hover:text-foreground'
+                  }`}
+                >
+                  <span className="w-1.5 h-1.5 rounded-full bg-slate-500" />
+                  Đã Đóng ({missions.filter((m) => m.status !== 'ACTIVE').length})
+                </button>
+              </div>
 
-            <button
-              onClick={handleOpenCreateMission}
-              className="cg-btn cg-btn--primary flex items-center gap-1.5 text-xs font-bold"
-            >
-              <Plus className="w-4 h-4" />
-              <span>Tạo Nhiệm Vụ Mới</span>
-            </button>
+              {/* Quick Search */}
+              <div className="relative">
+                <Search className="w-3.5 h-3.5 absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none" />
+                <input
+                  type="text"
+                  placeholder="Tìm nhiệm vụ..."
+                  value={missionSearch}
+                  onChange={(e) => setMissionSearch(e.target.value)}
+                  className="pl-8 pr-2.5 py-1 text-xs bg-muted/40 border border-border/80 rounded-lg text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary w-36 sm:w-44"
+                />
+              </div>
+            </div>
+
+            <div className="flex items-center gap-2">
+              <button
+                onClick={loadMissions}
+                disabled={isLoading}
+                className="p-1.5 rounded-lg border border-border/80 bg-card hover:bg-muted text-muted-foreground hover:text-foreground transition-colors cursor-pointer"
+                title="Tải lại danh sách"
+              >
+                <RefreshCw className={`w-3.5 h-3.5 ${isLoading ? 'animate-spin' : ''}`} />
+              </button>
+
+              <button
+                onClick={handleOpenCreateMission}
+                className="cg-btn cg-btn--primary flex items-center gap-1.5 text-xs font-bold px-3 py-1.5"
+              >
+                <Plus className="w-4 h-4" />
+                <span>Tạo Nhiệm Vụ Mới</span>
+              </button>
+            </div>
           </div>
 
-          <div className="overflow-x-auto rounded-2xl border border-border/80 bg-card">
-            <table className="w-full text-left text-xs">
-              <thead className="bg-muted/40 border-b border-border/80 text-muted-foreground font-semibold">
-                <tr>
-                  <th className="p-3.5">Tiêu đề / Loại</th>
-                  <th className="p-3.5">Kênh đích</th>
-                  <th className="p-3.5">Phần thưởng</th>
-                  <th className="p-3.5">Thống kê 7 chỉ số (Xem, Người, Nộp, Duyệt, Quota)</th>
-                  <th className="p-3.5">Lịch trình & Chế độ</th>
-                  <th className="p-3.5">Trạng thái</th>
-                  <th className="p-3.5 text-right">Thao tác</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-border/60">
-                {missions.length === 0 ? (
+          {/* Batch Actions Bar (Shown when 1 or more items selected) */}
+          {selectedMissionIds.length > 0 && (
+            <div className="flex flex-wrap items-center justify-between gap-2 p-2 px-3.5 bg-primary/10 border border-primary/30 rounded-xl animate-fade-in text-xs font-semibold">
+              <div className="flex items-center gap-2">
+                <span className="w-2 h-2 rounded-full bg-primary animate-pulse" />
+                <span>
+                  Đã chọn: <strong className="text-primary font-bold">{selectedMissionIds.length}</strong> / {filteredMissions.length} nhiệm vụ
+                </span>
+              </div>
+              <div className="flex items-center gap-1.5 flex-wrap">
+                <button
+                  onClick={() => handleBatchUpdateStatus('ACTIVE')}
+                  disabled={isBatchProcessing}
+                  className="px-2.5 py-1 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-bold flex items-center gap-1 transition-colors shadow-xs disabled:opacity-50 cursor-pointer"
+                  title="Mở tất cả nhiệm vụ đã chọn (hiển thị trên web khách)"
+                >
+                  <Eye className="w-3.5 h-3.5" />
+                  <span>Mở (Hiện web)</span>
+                </button>
+                <button
+                  onClick={() => handleBatchUpdateStatus('CLOSED')}
+                  disabled={isBatchProcessing}
+                  className="px-2.5 py-1 rounded-lg bg-slate-700 hover:bg-slate-600 text-slate-100 font-bold flex items-center gap-1 transition-colors shadow-xs disabled:opacity-50 cursor-pointer"
+                  title="Đóng tất cả nhiệm vụ đã chọn (ẩn khỏi web khách)"
+                >
+                  <EyeOff className="w-3.5 h-3.5" />
+                  <span>Đóng (Ẩn web)</span>
+                </button>
+                <button
+                  onClick={handleBatchDeleteMissions}
+                  disabled={isBatchProcessing}
+                  className="px-2.5 py-1 rounded-lg bg-rose-600 hover:bg-rose-500 text-white font-bold flex items-center gap-1 transition-colors shadow-xs disabled:opacity-50 cursor-pointer"
+                  title="Xóa tất cả nhiệm vụ đã chọn"
+                >
+                  <Trash2 className="w-3.5 h-3.5" />
+                  <span>Xóa ({selectedMissionIds.length})</span>
+                </button>
+                <button
+                  onClick={() => setSelectedMissionIds([])}
+                  disabled={isBatchProcessing}
+                  className="px-2 py-1 rounded-lg hover:bg-muted text-muted-foreground hover:text-foreground text-xs cursor-pointer"
+                >
+                  Bỏ chọn
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* Single-Viewport Compact Missions Table */}
+          <div className="overflow-hidden rounded-2xl border border-border/80 bg-card shadow-xs">
+            <div className="overflow-x-auto">
+              <table className="w-full text-left text-xs table-fixed">
+                <thead className="bg-muted/50 border-b border-border/80 text-muted-foreground font-semibold">
                   <tr>
-                    <td colSpan={7} className="p-8 text-center text-muted-foreground">
-                      Chưa có nhiệm vụ nào. Nhấn "Tạo Nhiệm Vụ Mới" để bắt đầu!
-                    </td>
+                    <th className="w-10 text-center py-2.5 px-2">
+                      <input
+                        type="checkbox"
+                        checked={isAllMissionsSelected}
+                        ref={(input) => {
+                          if (input) input.indeterminate = isSomeMissionsSelected;
+                        }}
+                        onChange={handleToggleSelectAllMissions}
+                        className="w-4 h-4 rounded border-border/80 text-primary focus:ring-primary/40 cursor-pointer accent-primary"
+                        title="Chọn tất cả"
+                      />
+                    </th>
+                    <th className="w-[36%] py-2.5 px-3">Nhiệm Vụ & Kênh Đích</th>
+                    <th className="w-[14%] py-2.5 px-3">Phần Thưởng</th>
+                    <th className="w-[22%] py-2.5 px-3">Tiến Độ & Quota</th>
+                    <th className="w-[18%] py-2.5 px-3 text-center">Đóng / Mở (Web)</th>
+                    <th className="w-[10%] py-2.5 pr-3 pl-1 text-right">Thao Tác</th>
                   </tr>
-                ) : (
-                  missions.map((m) => {
-                    const stats = m.stats;
-                    const viewsCount = stats?.views ?? m.views ?? 0;
-                    const participantsCount = stats?.participants_count ?? m.participants_count ?? 0;
-                    const totalSubmissions = stats?.submissions_count ?? stats?.total_submissions ?? 0;
-                    const approvedSubmissions = stats?.approved_count ?? stats?.approved_submissions ?? 0;
-                    const rejectedSubmissions = stats?.rejected_count ?? stats?.rejected_submissions ?? 0;
-                    const rewardsDelivered = m.completed_count || 0;
-                    const remainingQuota = stats?.quota_remaining ?? Math.max(0, (m.quota || 0) - rewardsDelivered);
-
-                    return (
-                      <tr key={m.id} className="hover:bg-muted/20 transition-colors">
-                        <td className="p-3.5 min-w-[180px]">
-                          <span className="font-bold text-foreground text-sm block">{m.title}</span>
-                          <span className="text-[10px] text-muted-foreground uppercase font-mono tracking-tight">
-                            {m.task_type}
-                          </span>
-                        </td>
-
-                        <td className="p-3.5">
-                          {m.target_channel_url ? (
-                            <a
-                              href={m.target_channel_url}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="text-primary hover:underline flex items-center gap-1 max-w-[150px] truncate"
-                            >
-                              <span className="truncate">{m.target_channel_name || 'Liên kết'}</span>
-                              <ExternalLink className="w-3 h-3 shrink-0" />
-                            </a>
-                          ) : (
-                            <span className="text-muted-foreground">—</span>
-                          )}
-                        </td>
-
-                        <td className="p-3.5 whitespace-nowrap">
-                          {m.reward_type === 'CODE' ? (
-                            <div>
-                              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-400 font-semibold text-[11px]">
-                                <Gift className="w-3 h-3" />
-                                Mã Code (Kho riêng)
-                              </span>
-                              <span className="text-[10px] text-muted-foreground block mt-0.5 font-mono">
-                                Kho còn: {m.available_codes_count ?? stats?.available_codes ?? 0} mã
-                              </span>
-                            </div>
-                          ) : (
-                            <div>
-                              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-400 font-semibold text-[11px]">
-                                <Wallet className="w-3 h-3" />
-                                +{(Number(m.reward_value) || 0).toLocaleString('vi-VN')}đ
-                              </span>
-                              <span className="text-[10px] text-muted-foreground block mt-0.5">Cộng số dư ví</span>
-                            </div>
-                          )}
-                        </td>
-
-                        <td className="p-3.5 min-w-[220px]">
-                          <div className="space-y-1 text-[11px]">
-                            <div className="flex items-center gap-3">
-                              <span className="inline-flex items-center gap-1 text-slate-300 font-medium" title="Lượt xem">
-                                <Eye className="w-3 h-3 text-cyan-400" />
-                                <strong>{viewsCount}</strong> xem
-                              </span>
-                              <span className="inline-flex items-center gap-1 text-slate-300 font-medium" title="Số người tham gia">
-                                <Users className="w-3 h-3 text-indigo-400" />
-                                <strong>{participantsCount}</strong> người
-                              </span>
-                              <span className="inline-flex items-center gap-1 text-slate-300 font-medium" title="Tổng hồ sơ đã nộp">
-                                <FileText className="w-3 h-3 text-amber-400" />
-                                <strong>{totalSubmissions}</strong> nộp
-                              </span>
-                            </div>
-
-                            <div className="flex items-center gap-2 text-[10px] text-muted-foreground">
-                              <span className="text-emerald-400 font-semibold">Duyệt: {approvedSubmissions}</span>
-                              <span>•</span>
-                              <span className="text-rose-400 font-semibold">Từ chối: {rejectedSubmissions}</span>
-                              <span>•</span>
-                              <span className="text-purple-300 font-semibold">Đã trao: {rewardsDelivered}</span>
-                            </div>
-
-                            <div className="flex items-center justify-between text-[10px] pt-0.5">
-                              <span className="text-muted-foreground">Quota: {rewardsDelivered}/{m.quota}</span>
-                              <span className="text-primary font-bold">Còn: {remainingQuota}</span>
-                            </div>
-                            <div className="w-full h-1.5 rounded-full bg-muted overflow-hidden">
-                              <div
-                                className="h-full bg-primary"
-                                style={{
-                                  width: `${Math.min(100, Math.round((rewardsDelivered / (m.quota || 1)) * 100))}%`,
-                                }}
-                              />
-                            </div>
-                          </div>
-                        </td>
-
-                        <td className="p-3.5 whitespace-nowrap">
-                          <span className="text-[11px] font-semibold text-slate-300 block">
-                            {m.review_mode === 'AI_AUTO'
-                              ? '⚡ AI Tự Duyệt'
-                              : m.review_mode === 'AI_ASSISTED'
-                              ? '🤖 AI Hỗ Trợ'
-                              : '👤 Duyệt Tay'}
-                          </span>
-                          {(m.start_time || m.end_time) && (
-                            <div className="text-[10px] text-muted-foreground mt-1 space-y-0.5">
-                              {m.start_time && (
-                                <span className="block text-cyan-400/90 font-mono">
-                                  Mở: {new Date(m.start_time).toLocaleDateString('vi-VN')} {new Date(m.start_time).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })}
-                                </span>
-                              )}
-                              {m.end_time && (
-                                <span className="block text-amber-400/90 font-mono">
-                                  Đóng: {new Date(m.end_time).toLocaleDateString('vi-VN')} {new Date(m.end_time).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })}
-                                </span>
-                              )}
-                            </div>
-                          )}
-                        </td>
-
-                        <td className="p-3.5 whitespace-nowrap">
-                          <span
-                            className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
-                              m.status === 'ACTIVE'
-                                ? 'bg-emerald-500/20 text-emerald-400'
-                                : m.status === 'PAUSED'
-                                ? 'bg-amber-500/20 text-amber-400'
-                                : 'bg-muted text-muted-foreground'
-                            }`}
-                          >
-                            {m.status === 'ACTIVE' ? 'Đang Mở' : m.status === 'PAUSED' ? 'Tạm Dừng' : 'Đã Đóng'}
-                          </span>
-                        </td>
-
-                        <td className="p-3.5 text-right whitespace-nowrap space-x-1">
-                        <button
-                          onClick={() => {
-                            setEditingMission(m);
-                            setIsMissionModalOpen(true);
-                          }}
-                          className="p-1.5 rounded-lg hover:bg-muted text-muted-foreground hover:text-foreground transition-colors"
-                          title="Sửa nhiệm vụ"
-                        >
-                          <Edit2 className="w-4 h-4" />
-                        </button>
-
-                        <button
-                          onClick={() => handleDeleteMission(m.id)}
-                          className="p-1.5 rounded-lg hover:bg-rose-500/20 text-muted-foreground hover:text-rose-400 transition-colors"
-                          title="Xóa nhiệm vụ"
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </button>
+                </thead>
+                <tbody className="divide-y divide-border/60">
+                  {filteredMissions.length === 0 ? (
+                    <tr>
+                      <td colSpan={6} className="p-8 text-center text-muted-foreground">
+                        {missions.length === 0
+                          ? 'Chưa có nhiệm vụ nào. Nhấn "Tạo Nhiệm Vụ Mới" để bắt đầu!'
+                          : 'Không tìm thấy nhiệm vụ phù hợp với bộ lọc.'}
                       </td>
                     </tr>
-                  );
-                })
-              )}
-              </tbody>
-            </table>
+                  ) : (
+                    filteredMissions.map((m) => {
+                      const stats = m.stats;
+                      const viewsCount = stats?.views ?? m.views ?? 0;
+                      const participantsCount = stats?.participants_count ?? m.participants_count ?? 0;
+                      const totalSubmissions = stats?.submissions_count ?? stats?.total_submissions ?? 0;
+                      const approvedSubmissions = stats?.approved_count ?? stats?.approved_submissions ?? 0;
+                      const rejectedSubmissions = stats?.rejected_count ?? stats?.rejected_submissions ?? 0;
+                      const rewardsDelivered = m.completed_count || 0;
+                      const remainingQuota = stats?.quota_remaining ?? Math.max(0, (m.quota || 0) - rewardsDelivered);
+                      const isSelected = selectedMissionIds.includes(m.id);
+                      const isToggling = togglingMissionId === m.id;
+
+                      return (
+                        <tr
+                          key={m.id}
+                          className={`hover:bg-muted/20 transition-colors ${
+                            isSelected ? 'bg-primary/5' : ''
+                          }`}
+                        >
+                          {/* 1. Checkbox */}
+                          <td className="w-10 text-center py-2.5 px-2">
+                            <input
+                              type="checkbox"
+                              checked={isSelected}
+                              onChange={() => handleToggleSelectMission(m.id)}
+                              className="w-4 h-4 rounded border-border/80 text-primary focus:ring-primary/40 cursor-pointer accent-primary"
+                            />
+                          </td>
+
+                          {/* 2. Nhiệm Vụ & Kênh Đích */}
+                          <td className="w-[36%] py-2.5 px-3 overflow-hidden">
+                            <div className="space-y-1">
+                              <span
+                                className="font-bold text-foreground text-xs sm:text-sm block truncate"
+                                title={m.title}
+                              >
+                                {m.title}
+                              </span>
+                              <div className="flex items-center gap-1.5 text-[10px] text-muted-foreground flex-wrap">
+                                <span className="px-1.5 py-0.5 rounded bg-muted/80 text-[9px] uppercase font-mono tracking-tight text-slate-300">
+                                  {m.task_type}
+                                </span>
+                                {m.target_channel_url && (
+                                  <a
+                                    href={m.target_channel_url}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="text-primary hover:underline inline-flex items-center gap-1 max-w-[160px] truncate font-medium"
+                                    title={m.target_channel_url}
+                                  >
+                                    <span className="truncate">{m.target_channel_name || 'Kênh đích'}</span>
+                                    <ExternalLink className="w-2.5 h-2.5 shrink-0" />
+                                  </a>
+                                )}
+                                <span className="text-slate-400 font-medium">
+                                  {m.review_mode === 'AI_AUTO'
+                                    ? '⚡ AI Tự Duyệt'
+                                    : m.review_mode === 'AI_ASSISTED'
+                                    ? '🤖 AI Hỗ Trợ'
+                                    : '👤 Duyệt Tay'}
+                                </span>
+                              </div>
+                            </div>
+                          </td>
+
+                          {/* 3. Phần Thưởng */}
+                          <td className="w-[14%] py-2.5 px-3 whitespace-nowrap overflow-hidden">
+                            {m.reward_type === 'CODE' ? (
+                              <div>
+                                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-amber-500/15 text-amber-400 font-semibold text-[10px]">
+                                  <Gift className="w-3 h-3 shrink-0" />
+                                  Mã Code
+                                </span>
+                                <span className="text-[10px] text-muted-foreground block mt-0.5 font-mono">
+                                  Kho: <strong className="text-amber-300 font-bold">{m.available_codes_count ?? stats?.available_codes ?? 0}</strong> mã
+                                </span>
+                              </div>
+                            ) : (
+                              <div>
+                                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-emerald-500/15 text-emerald-400 font-semibold text-[10px]">
+                                  <Wallet className="w-3 h-3 shrink-0" />
+                                  +{(Number(m.reward_value) || 0).toLocaleString('vi-VN')}đ
+                                </span>
+                                <span className="text-[10px] text-muted-foreground block mt-0.5">Số dư ví</span>
+                              </div>
+                            )}
+                          </td>
+
+                          {/* 4. Tiến Độ & Quota */}
+                          <td className="w-[22%] py-2.5 px-3 overflow-hidden">
+                            <div className="space-y-1 text-[11px]">
+                              <div className="flex items-center gap-1.5 text-[10px] text-slate-300 font-medium flex-wrap">
+                                <span className="inline-flex items-center gap-0.5" title="Lượt xem">
+                                  <Eye className="w-3 h-3 text-cyan-400" />
+                                  <strong>{viewsCount}</strong>
+                                </span>
+                                <span>•</span>
+                                <span className="inline-flex items-center gap-0.5" title="Người tham gia">
+                                  <Users className="w-3 h-3 text-indigo-400" />
+                                  <strong>{participantsCount}</strong>
+                                </span>
+                                <span>•</span>
+                                <span className="inline-flex items-center gap-0.5" title="Hồ sơ đã nộp">
+                                  <FileText className="w-3 h-3 text-amber-400" />
+                                  <strong>{totalSubmissions}</strong>
+                                </span>
+                                <span>•</span>
+                                <span className="text-emerald-400 font-semibold" title="Đã duyệt">✓{approvedSubmissions}</span>
+                                <span className="text-rose-400 font-semibold" title="Từ chối">✕{rejectedSubmissions}</span>
+                              </div>
+
+                              <div className="flex items-center justify-between text-[10px] font-mono">
+                                <span className="text-muted-foreground">Quota: {rewardsDelivered}/{m.quota}</span>
+                                <span className="text-primary font-bold">Còn: {remainingQuota}</span>
+                              </div>
+                              <div className="w-full h-1.5 rounded-full bg-muted/60 overflow-hidden">
+                                <div
+                                  className="h-full bg-primary transition-all duration-300"
+                                  style={{
+                                    width: `${Math.min(100, Math.round((rewardsDelivered / (m.quota || 1)) * 100))}%`,
+                                  }}
+                                />
+                              </div>
+                            </div>
+                          </td>
+
+                          {/* 5. Trạng Thái: Đóng / Mở (Hiển thị web) Toggle */}
+                          <td className="w-[18%] py-2.5 px-3 text-center whitespace-nowrap">
+                            <div className="flex flex-col items-center justify-center">
+                              <button
+                                onClick={() => handleToggleMissionStatus(m)}
+                                disabled={isToggling}
+                                className={`group inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-bold transition-all shadow-xs active:scale-95 cursor-pointer disabled:opacity-50 ${
+                                  m.status === 'ACTIVE'
+                                    ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/40 hover:bg-emerald-500/30'
+                                    : 'bg-slate-800 text-slate-400 border border-slate-700 hover:bg-slate-700 hover:text-slate-200'
+                                }`}
+                                title={
+                                  m.status === 'ACTIVE'
+                                    ? 'Nhiệm vụ đang HIỆN trên web khách. Bấm để ĐÓNG (ẨN khỏi web khách)'
+                                    : 'Nhiệm vụ đang ẨN khỏi web khách. Bấm để MỞ (HIỆN trên web khách)'
+                                }
+                              >
+                                {isToggling ? (
+                                  <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                                ) : m.status === 'ACTIVE' ? (
+                                  <>
+                                    <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+                                    <Eye className="w-3.5 h-3.5" />
+                                    <span>Đang Mở</span>
+                                  </>
+                                ) : (
+                                  <>
+                                    <span className="w-2 h-2 rounded-full bg-slate-500" />
+                                    <EyeOff className="w-3.5 h-3.5" />
+                                    <span>Đã Đóng</span>
+                                  </>
+                                )}
+                              </button>
+                              <span className="text-[10px] text-muted-foreground mt-0.5">
+                                {m.status === 'ACTIVE' ? 'Hiện trên web' : 'Ẩn khỏi web'}
+                              </span>
+                            </div>
+                          </td>
+
+                          {/* 6. Thao Tác */}
+                          <td className="w-[10%] py-2.5 pr-3 pl-1 text-right whitespace-nowrap">
+                            <div className="flex items-center justify-end gap-1">
+                              <button
+                                onClick={() => {
+                                  setEditingMission(m);
+                                  setIsMissionModalOpen(true);
+                                }}
+                                className="p-1.5 rounded-lg hover:bg-muted text-muted-foreground hover:text-foreground transition-colors cursor-pointer"
+                                title="Sửa nhiệm vụ"
+                              >
+                                <Edit2 className="w-3.5 h-3.5" />
+                              </button>
+                              <button
+                                onClick={() => handleDeleteMission(m.id)}
+                                className="p-1.5 rounded-lg hover:bg-rose-500/20 text-muted-foreground hover:text-rose-400 transition-colors cursor-pointer"
+                                title="Xóa nhiệm vụ"
+                              >
+                                <Trash2 className="w-3.5 h-3.5" />
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      );
+                    })
+                  )}
+                </tbody>
+              </table>
+            </div>
           </div>
         </div>
       )}
@@ -1396,8 +1696,9 @@ export const MissionsModule: React.FC = () => {
                     onChange={(e) => setEditingMission({ ...editingMission, status: e.target.value as any })}
                     className="w-full px-3 py-2 rounded-xl bg-muted/40 border border-border/80 text-foreground focus:outline-none font-semibold"
                   >
-                    <option value="ACTIVE">Đang Mở (ACTIVE)</option>
-                    <option value="PAUSED">Tạm Dừng (PAUSED)</option>
+                    <option value="ACTIVE">Đang Mở — Hiện trên web khách (ACTIVE)</option>
+                    <option value="CLOSED">Đã Đóng — Ẩn khỏi web khách (CLOSED)</option>
+                    <option value="PAUSED">Tạm Dừng — Ẩn khỏi web khách (PAUSED)</option>
                     <option value="ENDED">Đã Kết Thúc (ENDED)</option>
                     <option value="DRAFT">Bản Nháp (DRAFT)</option>
                   </select>
