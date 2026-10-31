@@ -7,6 +7,38 @@ Mỗi mục sửa lỗi đều ghi nhận **Nguyên nhân gốc rễ (Root Cause
 
 ## [2026-10-31]
 
+### 290. Hoàn Thành Khắc Phục Nhóm 1 Giveaways SSOT: Loại Bỏ Bẫy Remaining = 0, Đồng Bộ Total 111, Xóa Triệt Để Rotwood Khỏi Sync, Cập Nhật Bìa Esports & Kiểm Chứng Phép Thử 20 Vòng Bất Biến
+- **Bối cảnh & Yêu cầu**:
+  - Người dùng (Chủ web) đồng ý phê duyệt 4 nhiệm vụ thuộc Nhóm 1 cần sửa gấp:
+    1. *Sửa cách tính remaining ở sync*: Sync ghi nhận `remaining = 0` cho Hiệp Khách Hành (kho thật 104 mã, khách chỉ thấy 1) và SROM (kho thật 12 mã, khách chỉ thấy 6) dù quản trị còn nhiều mã.
+    2. *Xóa triệt để Rotwood khỏi sync*: Sự kiện `gw_gamerpower_rotwood` bị xóa khỏi quản trị (ENDED) nhưng vẫn còn trong sync đang hoạt động (44 mục) và không có trong `deletedGiveaways`.
+    3. *Sửa ảnh bìa bài Esports*: Bài `news_1792634023238_yuksw` đổi `cover_url` sang `/news_covers/cktg-2026-esports.webp`.
+    4. *Phép thử 20 vòng lưu/đồng bộ lặp lại*: Chạy trên sự kiện test riêng biệt (kho 3 mã), kiểm chứng tính bất biến chống phình kho mã và xóa sạch 100% sau thử nghiệm (Rule 7).
+- **Nguyên nhân gốc rễ (Root Cause)**:
+  - Xem chi tiết tại `ISSUE-199` trong `KNOWN_ISSUES.md`.
+  - Ở phía public sync (`/api/sync`), trường `codes_pool` bị ẩn khỏi khách vãng lai vì lý do bảo mật. Code xử lý rơi vào fallback `effectivePool = []`. Kiểm tra `Array.isArray(effectivePool)` trả về `true` nên lấy `effectivePool.length` ép `remaining` về 0.
+  - Trường `total_codes` bị gán 164 do cộng meta cũ trong `system_settings` (157 + 7 = 164) thay vì lấy `remaining_codes + claimed_codes` từ bảng D1 SQL `giveaways`.
+  - Ngoại lệ `gw_gamerpower_rotwood` bị hardcode trong `sync.ts` ở 3 vị trí, ngăn không cho đưa vào danh sách tombstone đã xóa.
+- **Giải pháp kỹ thuật đã áp dụng**:
+  - `functions/api/sync.ts` & `functions/services/d1_service.ts`:
+    1. Bỏ bẫy mảng rỗng: Chỉ lấy độ dài pool khi mảng có phần tử thật (`length > 0`), ngược lại đọc trực tiếp trường số nguyên `remaining_codes` từ bảng D1 SQL `giveaways`.
+    2. Đồng bộ công thức chuẩn: `total_codes = remaining_codes + claimed_codes` (104 + 7 = 111 cho Hiệp Khách Hành; 12 + 0 = 12 cho SROM).
+    3. Gỡ bỏ hoàn toàn ngoại lệ hardcode Rotwood khỏi `sync.ts`. Đưa `gw_gamerpower_rotwood` vào `wcg_deleted_giveaways` trên live D1. Số lượng sync active giảm từ 44 còn đúng 43 mục.
+  - Cập nhật ảnh bìa Esports:
+    - Đổi `cover_url = '/news_covers/cktg-2026-esports.webp'` cho bài `news_1792634023238_yuksw` trên live D1 `wcg_news_articles_v1`, `src/data/seedNews.ts`, `src/data/canonical_backup_state.json`, và `functions/data/canonical_backup_state.json`.
+  - Thực hiện phép thử 20 vòng lưu/đồng bộ:
+    - Tạo sự kiện test riêng biệt `gw_test_dedup_probe_20x` với 3 mã ban đầu.
+    - Chạy lặp 20 chu kỳ ghi đè/lưu liên tiếp qua API.
+    - Kết quả: 20/20 vòng số dòng pool giữ nguyên chính xác 3, số mã duy nhất giữ nguyên 3, không duplicate.
+    - Xóa sạch sự kiện test ngay sau khi chạy xong, xác nhận đọc lại trả về 404 và xóa khỏi tombstone (Zero test artifacts on production).
+- **Kiểm thử & Xác nhận**:
+  - `GET /api/sync`:
+    - Hiệp Khách Hành: `remaining = 104`, `total = 111`, `claimed = 7`.
+    - SROM: `remaining = 12`, `total = 12`, `claimed = 0`.
+    - Active giveaways: Giảm từ 44 còn 43 mục; `gw_gamerpower_rotwood` nằm trong `deletedGiveaways`.
+    - Bài yuksw: `cover_url = '/news_covers/cktg-2026-esports.webp'`.
+  - `npm run build`: PASS 100%, 0 lỗi, Audit 0 test artifacts.
+
 ### 289. Chuyển Đổi Trang Chi Tiết Tin Tức Thành Trang Đầy Đủ (Full Page Standalone) Chuẩn Trang Tổng Hợp Chuyên Sâu: Điều Hướng Mục Dính Đầu Trang, Hero 2 Cột Desktop & Lưới Thẻ 3 Cột
 - **Bối cảnh & Yêu cầu**:
   - Người dùng yêu cầu chuyển đổi hoàn toàn trang chi tiết tin tức (`/news/<slug>`) trên `codegame.shop` từ dạng cửa sổ nổi (modal overlay) phủ lên trang danh sách sang dạng **Trang Đầy Đủ (Full Page Standalone)** rộng rãi, thoáng đãng, cấu trúc đẹp chuẩn trang tổng hợp chuyên sâu.

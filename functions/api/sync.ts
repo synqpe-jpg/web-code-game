@@ -276,9 +276,9 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
               if (g && g.id && !delGwSet.has(g.id)) {
                 const fb = gwMap.get(g.id) || {};
                 const slug = g.game_slug || fb.game_slug || '';
-                const rem = g.remaining_codes !== undefined ? Number(g.remaining_codes) : Number(fb.remaining_codes || 0);
-                const clm = g.claimed_codes !== undefined ? Number(g.claimed_codes) : Number(fb.claimed_codes || 0);
-                const tot = Math.max(Number(g.total_codes || 0), rem + clm);
+                const rem = g.remaining_codes !== undefined && g.remaining_codes !== null ? Number(g.remaining_codes) : Number(fb.remaining_codes || 0);
+                const clm = g.claimed_codes !== undefined && g.claimed_codes !== null ? Number(g.claimed_codes) : Number(fb.claimed_codes || 0);
+                const tot = (g.total_codes !== undefined && g.total_codes !== null && Number(g.total_codes) > 0) ? Number(g.total_codes) : (rem + clm);
                 gwMap.set(g.id, {
                   ...fb,
                   ...g,
@@ -295,7 +295,7 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
               }
             });
             val = Array.from(gwMap.values())
-              .filter((g: any) => g && g.id && (g.status !== 'ENDED' || g.id === 'gw_gamerpower_rotwood') && !delGwSet.has(g.id) && g.id !== 'gw_alienware_vaultbreakers' && g.id !== 'gw_garena_delta_force')
+              .filter((g: any) => g && g.id && g.status !== 'ENDED' && !delGwSet.has(g.id) && g.id !== 'gw_alienware_vaultbreakers' && g.id !== 'gw_garena_delta_force')
               .map((gw: any) => {
                 const { codes_pool, claim_history, ...rest } = gw;
                 return {
@@ -509,11 +509,7 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
         const delUt = d1Settings['wcg_deleted_utilities'];
         if (Array.isArray(delUt)) delUt.forEach((id: string) => deletedUtilSet.add(id));
         const delGw = d1Settings['wcg_deleted_giveaways'];
-        if (Array.isArray(delGw)) {
-          delGw.forEach((id: string) => {
-            if (id !== 'gw_gamerpower_rotwood') deletedGwSet.add(id);
-          });
-        }
+        if (Array.isArray(delGw)) delGw.forEach((id: string) => deletedGwSet.add(id));
         const delNews = d1Settings['wcg_deleted_news_articles_v1'];
         if (Array.isArray(delNews)) delNews.forEach((id: string) => deletedNewsSet.add(id));
 
@@ -660,25 +656,28 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
         }
 
         const fallbackGwMap = new Map((fallbackGiveawaysData as any[]).map((f: any) => [f.id, f]));
-        rawGiveaways = (gwList || []).filter((g: any) => g && g.id && (g.status !== 'ENDED' || g.id === 'gw_gamerpower_rotwood') && !deletedGwSet.has(g.id) && g.id !== 'gw_alienware_vaultbreakers' && g.id !== 'gw_garena_delta_force').map((g: any) => {
+        rawGiveaways = (gwList || []).filter((g: any) => g && g.id && g.status !== 'ENDED' && !deletedGwSet.has(g.id) && g.id !== 'gw_alienware_vaultbreakers' && g.id !== 'gw_garena_delta_force').map((g: any) => {
           const meta = gwMetaMap.get(g.id) || {};
           const fallback = fallbackGwMap.get(g.id) || {};
-          const poolFromD1 = Array.isArray(g.codes_pool) ? g.codes_pool : null;
-          const poolFromMeta = Array.isArray(meta.codes_pool) ? meta.codes_pool : null;
-          const poolFromFallback = Array.isArray(fallback.codes_pool) ? fallback.codes_pool : null;
+          const poolFromD1 = (Array.isArray(g.codes_pool) && g.codes_pool.length > 0) ? g.codes_pool : null;
+          const poolFromMeta = (Array.isArray(meta.codes_pool) && meta.codes_pool.length > 0) ? meta.codes_pool : null;
+          const poolFromFallback = (Array.isArray(fallback.codes_pool) && fallback.codes_pool.length > 0) ? fallback.codes_pool : null;
           const effectivePool = poolFromD1 !== null
             ? poolFromD1
-            : (poolFromMeta !== null ? poolFromMeta : (poolFromFallback || []));
+            : (poolFromMeta !== null ? poolFromMeta : poolFromFallback);
 
           const historyFromD1 = Array.isArray(g.claim_history) ? g.claim_history : [];
           const historyFromMeta = Array.isArray(meta.claim_history) ? meta.claim_history : [];
           const effectiveHistory = historyFromD1.length > 0 ? historyFromD1 : historyFromMeta;
 
-          const realRemaining = Array.isArray(effectivePool)
+          // Bỏ bẫy mảng rỗng: nếu effectivePool có mảng thật (> 0) thì dùng, ngược lại lấy trực tiếp trường số nguyên remaining_codes từ bảng D1 SQL giveaways
+          const realRemaining = (Array.isArray(effectivePool) && effectivePool.length > 0)
             ? effectivePool.length
-            : Math.max(0, Number(g.remaining_codes ?? meta.remaining_codes ?? fallback.remaining_codes ?? 0));
-          const realClaimed = Number(g.claimed_codes ?? meta.claimed_codes ?? fallback.claimed_codes ?? 0);
-          const realTotal = Math.max(Number(g.total_codes ?? 0), realRemaining + realClaimed);
+            : Math.max(0, Number(g.remaining_codes !== undefined && g.remaining_codes !== null ? g.remaining_codes : (meta.remaining_codes ?? fallback.remaining_codes ?? 0)));
+          const realClaimed = Number(g.claimed_codes !== undefined && g.claimed_codes !== null ? g.claimed_codes : (meta.claimed_codes ?? fallback.claimed_codes ?? 0));
+          const realTotal = (g.total_codes !== undefined && g.total_codes !== null && Number(g.total_codes) > 0)
+            ? Number(g.total_codes)
+            : (realRemaining + realClaimed);
 
           return {
             ...g,
@@ -801,12 +800,17 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
     const sanitizedGiveaways = rawGiveaways.map((gw: any) => {
       if (!gw || typeof gw !== 'object') return gw;
       const { codes_pool, claim_history, ...rest } = gw;
-      const poolArr = Array.isArray(codes_pool) && codes_pool.length > 0
+      const poolArr = (Array.isArray(codes_pool) && codes_pool.length > 0)
         ? codes_pool
-        : (Array.isArray(gw.codes_pool) && gw.codes_pool.length > 0 ? gw.codes_pool : []);
-      const remainingCount = poolArr.length > 0
+        : ((Array.isArray(gw.codes_pool) && gw.codes_pool.length > 0) ? gw.codes_pool : null);
+      // Lấy trực tiếp trường số nguyên remaining_codes từ D1 SQL nếu poolArr bị ẩn/null với khách
+      const remainingCount = poolArr !== null
         ? poolArr.length
-        : Math.max(0, Number(gw.remaining_codes || 0));
+        : Math.max(0, Number(gw.remaining_codes !== undefined && gw.remaining_codes !== null ? gw.remaining_codes : 0));
+      const claimedCount = Number(gw.claimed_codes !== undefined && gw.claimed_codes !== null ? gw.claimed_codes : 0);
+      const totalCount = (gw.total_codes !== undefined && gw.total_codes !== null && Number(gw.total_codes) > 0)
+        ? Number(gw.total_codes)
+        : (remainingCount + claimedCount);
       return {
         ...rest,
         use_template: gw.use_template !== false,
@@ -821,6 +825,8 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
         custom_banner_text: gw.custom_banner_text || 'Tham gia nhóm zalo của web tại đây',
         custom_banner_link: gw.custom_banner_link || '',
         remaining_codes: remainingCount,
+        claimed_codes: claimedCount,
+        total_codes: totalCount,
         codes_pool: authorized ? codes_pool : undefined,
         claim_history: authorized ? claim_history : undefined,
       };

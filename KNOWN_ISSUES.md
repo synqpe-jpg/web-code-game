@@ -10,6 +10,23 @@
 
 ## 1. DANH MỤC LỖI & CÁC BẪY ĐÃ THẤT BẠI (DO NOT REPEAT)
 
+### ISSUE-199: Bẫy Mảng Rỗng Ép Remaining Về 0 Ở Public Sync & Ngoại Lệ Hardcode Đảo Ngược Trạng Thái Xóa Sự Kiện
+- **Triệu chứng**:
+  - Tại trang web khách `/api/sync`, Hiệp Khách Hành báo còn 1/164 hoặc 0 mã, SROM báo còn 0 mã dù phía quản trị kho thật còn rất nhiều (104 và 12 mã).
+  - Sự kiện giveaway Rotwood (`gw_gamerpower_rotwood`) đã bị xóa khỏi quản trị (ENDED) nhưng vẫn xuất hiện trong danh sách giveaway active công khai (44 mục) và không có trong `deletedGiveaways`.
+- **Nguyên nhân gốc rễ**:
+  1. *Bẫy mảng rỗng*: Do tính bảo mật, endpoint `/api/sync` công khai ẩn trường `codes_pool` với khách vãng lai (`codes_pool: authorized ? ... : undefined`). Khi xử lý `rawGiveaways`, code fallback về mảng rỗng `effectivePool = []`. Kiểm tra `Array.isArray(effectivePool)` luôn trả về `true` nên lấy `effectivePool.length` ép `remaining` về 0.
+  2. *Total 164*: Do meta cũ trong `system_settings` bị gán `remaining_codes: 157` trong giai đoạn kho mã bị nhân bản trước đó. Khi khách nhận 7 mã, code cũ cộng `157 + 7 = 164` thay vì đọc trực tiếp bản ghi chuẩn trong bảng D1 SQL `giveaways`.
+  3. *Hardcoded exception*: Code có điều kiện hardcode `|| g.id === 'gw_gamerpower_rotwood'` và `if (id !== 'gw_gamerpower_rotwood')` tại 3 vị trí trong `sync.ts`, làm vô hiệu hóa cơ chế xóa sự kiện này.
+- **Giải pháp chuẩn đã kiểm chứng**:
+  1. *Lấy trực tiếp từ bảng D1 SQL*: Chỉ lấy `effectivePool.length` khi `effectivePool` là mảng có phần tử thật (`length > 0`). Nếu pool bị ẩn hoặc rỗng, đọc trực tiếp trường số nguyên `remaining_codes` từ bảng D1 SQL `giveaways`.
+  2. *Đồng bộ Total*: `total_codes = remaining_codes + claimed_codes` (104 + 7 = 111 cho Hiệp Khách Hành, 12 + 0 = 12 cho SROM).
+  3. *Gỡ bỏ ngoại lệ hardcode*: Loại bỏ hoàn toàn ngoại lệ hardcode Rotwood khỏi `sync.ts` và đưa `gw_gamerpower_rotwood` vào `wcg_deleted_giveaways`.
+- 🚫 **CÁCH SỬA ĐÃ THẤT BẠI - TUYỆT ĐỐI KHÔNG LẶP LẠI**:
+  - ❌ *Không dùng fallback mảng rỗng `effectivePool = []` rồi kiểm tra `Array.isArray(effectivePool)` để tính `remaining_codes` cho public sync*.
+  - ❌ *Không hardcode ID sự kiện (như `gw_gamerpower_rotwood`) vào logic filter của sync API*.
+
+
 ### ISSUE-198: Bẫy Mở Bài Viết Tin Tức Dưới Dạng Cửa Sổ Nổi (Modal Overlay) Khiến Giao Diện Bị Thu Hẹp & Lỗi Điều Hướng URL
 - **Triệu chứng**:
   - Người dùng truy cập bài viết tin tức nhưng giao diện mở dạng popup cửa sổ nổi đè lên trang danh sách phía sau.

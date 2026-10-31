@@ -3192,16 +3192,18 @@ export async function loadAllGiveawaysD1(db: D1Database, includeCodes: boolean =
     const list = rows.map((gw: any) => {
       const meta = metaMap.get(gw.id) || {};
       const fallback = fallbackGwMap.get(gw.id) || {};
-      const poolLen = Array.isArray(meta.codes_pool)
+      const poolLen = (Array.isArray(meta.codes_pool) && meta.codes_pool.length > 0)
         ? meta.codes_pool.length
-        : (Array.isArray(gw.codes_pool)
+        : ((Array.isArray(gw.codes_pool) && gw.codes_pool.length > 0)
             ? gw.codes_pool.length
-            : (Array.isArray(fallback.codes_pool) ? fallback.codes_pool.length : null));
+            : ((Array.isArray(fallback.codes_pool) && fallback.codes_pool.length > 0) ? fallback.codes_pool.length : null));
       const rem = poolLen !== null
         ? poolLen
-        : Math.max(0, Number(gw.remaining_codes ?? 0));
+        : Math.max(0, Number(gw.remaining_codes !== undefined && gw.remaining_codes !== null ? gw.remaining_codes : 0));
       const clm = Number(gw.claimed_codes ?? meta.claimed_codes ?? fallback.claimed_codes ?? 0);
-      const tot = Math.max(Number(gw.total_codes ?? 0), rem + clm);
+      const tot = (gw.total_codes !== undefined && gw.total_codes !== null && Number(gw.total_codes) > 0)
+        ? Number(gw.total_codes)
+        : (rem + clm);
       const slug = meta.game_slug || gw.game_slug || fallback.game_slug || '';
       const coverUrl = meta.cover_image_url || gw.cover_image_url || fallback.cover_image_url || (slug ? `/game_icons/${slug}.webp` : null);
       const iconUrl = meta.game_icon_url || gw.game_icon_url || fallback.game_icon_url || coverUrl;
