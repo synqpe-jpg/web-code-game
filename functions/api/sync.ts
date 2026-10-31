@@ -502,7 +502,11 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
         const delUt = d1Settings['wcg_deleted_utilities'];
         if (Array.isArray(delUt)) delUt.forEach((id: string) => deletedUtilSet.add(id));
         const delGw = d1Settings['wcg_deleted_giveaways'];
-        if (Array.isArray(delGw)) delGw.forEach((id: string) => deletedGwSet.add(id));
+        if (Array.isArray(delGw)) {
+          delGw.forEach((id: string) => {
+            if (id !== 'gw_gamerpower_rotwood') deletedGwSet.add(id);
+          });
+        }
         const delNews = d1Settings['wcg_deleted_news_articles_v1'];
         if (Array.isArray(delNews)) delNews.forEach((id: string) => deletedNewsSet.add(id));
 

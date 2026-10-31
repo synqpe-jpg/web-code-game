@@ -95,6 +95,16 @@ async function syncPublicGiveawayState(env: Env, updatedList: any[]): Promise<vo
     currentMaster.timestamp = Date.now();
     await setSettingD1(env.DB, 'wcg_master_state_v4', currentMaster).catch(() => {});
     invalidateSettingMemoryCache('wcg_master_state_v4');
+
+    // Tự động gỡ bỏ ID của các chiến dịch hiện hữu khỏi danh sách đã xóa (un-tombstone)
+    const existingDelGw = (await getSettingD1<string[]>(env.DB, 'wcg_deleted_giveaways', [], true).catch(() => [])) || [];
+    const activeIds = new Set(updatedList.map((g: any) => g?.id).filter(Boolean));
+    if (Array.isArray(existingDelGw) && existingDelGw.some((id: string) => activeIds.has(id))) {
+      const cleanedDelGw = existingDelGw.filter((id: string) => !activeIds.has(id));
+      await setSettingD1(env.DB, 'wcg_deleted_giveaways', cleanedDelGw);
+      invalidateSettingMemoryCache('wcg_deleted_giveaways');
+    }
+
     (globalThis as any).__wcg_public_sync_cache = null;
     (globalThis as any).__wcg_metrics_snapshot = null;
     await env.DB.prepare('DELETE FROM system_snapshots').run().catch(() => {});
