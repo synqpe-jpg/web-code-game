@@ -7,6 +7,17 @@ Mỗi mục sửa lỗi đều ghi nhận **Nguyên nhân gốc rễ (Root Cause
 
 ## [2026-10-31]
 
+### 281. Loại Bỏ Dòng Chú Thích Giới Hạn Tồn Kho "(Tối đa X gói theo kho thực tế)" Trong Khung Chọn Số Lượng Mua Hàng
+- **Bối cảnh & Yêu cầu người dùng**:
+  - Người dùng yêu cầu xóa dòng chữ `(Tối đa 7 gói theo kho thực tế)` hiển thị bên dưới nhãn "Số lượng mua:" trong popup xem chi tiết và mua tiện ích/sản phẩm (Cloud Phone VS Phone VIP).
+- **Giải pháp kỹ thuật đã áp dụng**:
+  - `src/components/ProductDetailModal.tsx`: Loại bỏ thẻ `<span>(Tối đa {realStock} gói theo kho thực tế)</span>` tại khu vực chọn số lượng mua hàng. Huy hiệu tồn kho (`Còn hàng (X)`) và logic chặn vượt tồn kho của nút `[+]` và input số lượng vẫn hoạt động chuẩn xác 100%.
+  - `src/components/UtilitiesView.tsx` & `src/components/ProductCheckoutModal.tsx`: Đồng bộ loại bỏ dòng phụ tương ứng `(Tối đa {maxStock} gói theo kho thực tế)` / `(Tối đa {maxStock} mã theo kho thực tế)` nhằm đảm bảo giao diện mua hàng trên toàn hệ thống luôn gọn gàng, tinh tế và đồng nhất.
+- **Kiểm thử & Xác nhận**:
+  - Build Vite Frontend & Worker Cloudflare Pages thành công 100%.
+  - Kiểm tra giao diện mua hàng hiển thị nhãn "Số lượng mua:" gọn gàng, không còn dòng chữ phụ bên dưới.
+  - Tự động triển khai đồng thời lên cả Web Khách `codegame.store` và Web Quản trị `codegame.shop`.
+
 ### 280. Triển Khai Cơ Chế Xóa Mềm Bất Biến Kèm Tombstone Chống Hồi Sinh & Chuẩn Hóa Thống Nhất Dữ Liệu 3 Nơi (SSOT Full Engine)
 - **Bối cảnh & Yêu cầu người dùng**:
   - Giải quyết triệt để hiện tượng "số liệu lúc này lúc kia": hàng đợi game chờ duyệt dao động 57 vs 63; xóa game nhưng sau đó lại xuất hiện trở lại do crawler nạp lại hoặc fallback đè lại.
