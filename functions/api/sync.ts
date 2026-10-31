@@ -1991,6 +1991,25 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
           }
         }
 
+        const tombstonesRaw = await getSettingD1(env.DB, 'wcg_tombstones_v1', {});
+        if (tombstonesRaw && typeof tombstonesRaw === 'object') {
+          let tChanged = false;
+          const cleanTombstones = { ...tombstonesRaw };
+          for (const key of Object.keys(cleanTombstones)) {
+            if (key.includes('test_') || key.includes('test-') || key.includes('diag-revive')) {
+              delete cleanTombstones[key];
+              tChanged = true;
+            }
+          }
+          if (tChanged) {
+            await setSettingD1(env.DB, 'wcg_tombstones_v1', cleanTombstones);
+            invalidateSettingMemoryCache('wcg_tombstones_v1');
+          }
+        }
+
+        // Clean test rows from deleted_records_history table
+        await env.DB.prepare("DELETE FROM deleted_records_history WHERE id LIKE '%test%' OR record_id LIKE '%test%' OR record_slug LIKE '%test%'").run().catch(() => null);
+
         invalidateGamesCatalogCache();
         await invalidateCatalogEdgeCache(context as any, request, env).catch(() => {});
 

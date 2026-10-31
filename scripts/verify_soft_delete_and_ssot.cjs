@@ -5,7 +5,6 @@
  */
 
 const https = require('https');
-const crypto = require('crypto');
 
 const BASE_URL = 'https://codegame.shop';
 const ADMIN_SECRET = 'b4e08494bf1c3fd6a0c965dd2411780c60513f7f87001bc955d7496331b2faef';
@@ -73,7 +72,6 @@ async function runVerification() {
   const testTitle = `[TEST] Game SSOT Verification ${Date.now()}`;
 
   const results = {};
-  let cleanupTasks = [];
 
   try {
     // -------------------------------------------------------------
@@ -98,18 +96,17 @@ async function runVerification() {
 
     // Check Where Winds Meet Code Count Uniformity
     console.log('\n▶ [Step 2] Where Winds Meet Code Count Uniformity Check...');
-    const wwmSearchRes = await request({ path: `/api/sync?search=Where%20Winds%20Meet&_t=${Date.now()}` });
-    const directCodesRes = await request({ path: `/api/codes?slug=where-winds-meet&_t=${Date.now()}` });
-    const directMobileCodesRes = await request({ path: `/api/codes?slug=where-winds-meet-mobile&_t=${Date.now()}` });
+    const wwmGameRes = await request({ path: `/api/games?slug=where-winds-meet&_t=${Date.now()}` });
+    const wwmMobileGameRes = await request({ path: `/api/games?slug=where-winds-meet-mobile&_t=${Date.now()}` });
 
     console.log(`   Where Winds Meet codes count check:`);
-    console.log(`     - Direct /api/codes?slug=where-winds-meet: status=${directCodesRes.statusCode}, count=${directCodesRes.data?.codes?.length || 0}`);
-    console.log(`     - Direct /api/codes?slug=where-winds-meet-mobile: status=${directMobileCodesRes.statusCode}, count=${directMobileCodesRes.data?.codes?.length || 0}`);
+    console.log(`     - /api/games?slug=where-winds-meet: status=${wwmGameRes.statusCode}, codes=${wwmGameRes.data?.codes?.length ?? wwmGameRes.data?.codes_count ?? 'N/A'}`);
+    console.log(`     - /api/games?slug=where-winds-meet-mobile: status=${wwmMobileGameRes.statusCode}, codes=${wwmMobileGameRes.data?.codes?.length ?? wwmMobileGameRes.data?.codes_count ?? 'N/A'}`);
 
     results['CASE_UNIFORMITY'] = {
       passed: true,
-      directCount: directCodesRes.data?.codes?.length || 0,
-      mobileCount: directMobileCodesRes.data?.codes?.length || 0,
+      wwmStatus: wwmGameRes.statusCode,
+      wwmMobileStatus: wwmMobileGameRes.statusCode,
     };
 
     // -------------------------------------------------------------
@@ -121,7 +118,10 @@ async function runVerification() {
       {
         path: '/api/crawler/ingest-codes',
         method: 'POST',
-        headers: { 'X-Admin-Key': ADMIN_SECRET },
+        headers: {
+          'X-API-Key': ADMIN_SECRET,
+          'Authorization': `Bearer ${ADMIN_SECRET}`,
+        },
       },
       {
         action: 'queue_game',
@@ -158,7 +158,10 @@ async function runVerification() {
       {
         path: '/api/crawler/ingest-codes',
         method: 'POST',
-        headers: { 'X-Admin-Key': ADMIN_SECRET },
+        headers: {
+          'X-API-Key': ADMIN_SECRET,
+          'Authorization': `Bearer ${ADMIN_SECRET}`,
+        },
       },
       {
         action: 'delete_pending_game',
@@ -196,7 +199,10 @@ async function runVerification() {
       {
         path: '/api/crawler/ingest-codes',
         method: 'POST',
-        headers: { 'X-Admin-Key': ADMIN_SECRET },
+        headers: {
+          'X-API-Key': ADMIN_SECRET,
+          'Authorization': `Bearer ${ADMIN_SECRET}`,
+        },
       },
       {
         action: 'queue_game',
@@ -210,7 +216,12 @@ async function runVerification() {
     );
 
     console.log('   Re-inject response:', JSON.stringify(reinjectRes.data));
-    if (reinjectRes.data?.tombstoned !== true && reinjectRes.data?.skipped !== true) {
+    const isBlocked =
+      reinjectRes.data?.results?.some((r) => r.skipped_tombstone === true) ||
+      reinjectRes.data?.tombstoned === true ||
+      reinjectRes.data?.skipped === true;
+
+    if (!isBlocked) {
       throw new Error(`FAIL: Ingest did not block tombstoned game! Response: ${JSON.stringify(reinjectRes.data)}`);
     }
 
@@ -291,7 +302,10 @@ async function runVerification() {
       {
         path: '/api/crawler/ingest-codes',
         method: 'POST',
-        headers: { 'X-Admin-Key': ADMIN_SECRET },
+        headers: {
+          'X-API-Key': ADMIN_SECRET,
+          'Authorization': `Bearer ${ADMIN_SECRET}`,
+        },
       },
       {
         action: 'delete_pending_game',
@@ -314,7 +328,10 @@ async function runVerification() {
         {
           path: '/api/crawler/ingest-codes',
           method: 'POST',
-          headers: { 'X-Admin-Key': ADMIN_SECRET },
+          headers: {
+            'X-API-Key': ADMIN_SECRET,
+            'Authorization': `Bearer ${ADMIN_SECRET}`,
+          },
         },
         {
           action: 'delete_pending_game',

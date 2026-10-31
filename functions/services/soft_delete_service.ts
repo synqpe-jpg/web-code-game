@@ -50,6 +50,34 @@ export interface TombstoneItem {
 const TOMBSTONES_SETTING_KEY = 'wcg_tombstones_v1';
 const TOMBSTONE_CACHE_TTL_MS = 15000; // 15 seconds isolate cache
 
+let historyTableEnsured = false;
+export async function ensureHistoryTable(db: D1Database): Promise<void> {
+  if (historyTableEnsured || !db) return;
+  try {
+    await db.prepare(`
+      CREATE TABLE IF NOT EXISTS deleted_records_history (
+        id TEXT PRIMARY KEY,
+        record_type TEXT NOT NULL,
+        record_id TEXT NOT NULL,
+        record_slug TEXT,
+        title TEXT,
+        deleted_at TEXT NOT NULL DEFAULT (datetime('now')),
+        deleted_by TEXT NOT NULL DEFAULT 'admin',
+        delete_reason TEXT,
+        original_data TEXT NOT NULL,
+        restored_at TEXT,
+        restored_by TEXT
+      );
+    `).run().catch(() => {});
+    await db.prepare('CREATE INDEX IF NOT EXISTS idx_del_history_type_slug ON deleted_records_history(record_type, record_slug);').run().catch(() => {});
+    await db.prepare('CREATE INDEX IF NOT EXISTS idx_del_history_type_id ON deleted_records_history(record_type, record_id);').run().catch(() => {});
+    await db.prepare('CREATE INDEX IF NOT EXISTS idx_del_history_restored ON deleted_records_history(restored_at);').run().catch(() => {});
+    historyTableEnsured = true;
+  } catch (e: any) {
+    console.warn('[SoftDelete] ensureHistoryTable error:', e?.message);
+  }
+}
+
 /**
  * Normalizes a string key for case-insensitive tombstone lookups
  */
@@ -200,6 +228,9 @@ export async function recordSoftDelete(
   const id = `del_${recordType}_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
   const nowIso = new Date().toISOString();
 
+  // 0. Ensure table exists
+  await ensureHistoryTable(db);
+
   // 1. Insert into D1 deleted_records_history table
   try {
     await db
@@ -293,6 +324,7 @@ export async function listDeletedRecords(
   const includeRestored = options?.includeRestored === true;
 
   try {
+    await ensureHistoryTable(db);
     let whereClause = includeRestored ? '1=1' : 'restored_at IS NULL';
     const bindings: any[] = [];
 
@@ -365,6 +397,7 @@ export async function restoreSoftDeletedRecord(
   const { id, actor = 'admin', context, request, env } = params;
 
   try {
+    await ensureHistoryTable(db);
     // 1. Fetch record from history table
     const row = await db
       .prepare('SELECT * FROM deleted_records_history WHERE id = ?')
