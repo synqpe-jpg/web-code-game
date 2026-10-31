@@ -27,6 +27,7 @@ import {
   Unlock,
   LogIn,
   Sparkles,
+  AlertCircle,
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
 import type { GameItem, GiftCode, UserProfile } from '../types/game';

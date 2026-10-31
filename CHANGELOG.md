@@ -7,6 +7,30 @@ Mỗi mục sửa lỗi đều ghi nhận **Nguyên nhân gốc rễ (Root Cause
 
 ## [2026-10-31]
 
+### 291. Khắc Phục Triệt Để 4 Điểm Cốt Lõi: Crash Tab Mã Hết Hạn Tiên Nghịch, Định Tuyến Trực Tiếp `/nhiem-vu/`, Chuẩn Hóa Danh Mục & Bộ Lọc Trùng Lặp, Tái Cấu Trúc Thanh Tìm Kiếm Tin Tức & Giải Mã Tồn Kho Tiện Ích
+- **Bối cảnh & Yêu cầu**:
+  - Người dùng yêu cầu khắc phục các vấn đề sau kiểm chứng live:
+    1. *Crash tab Mã hết hạn*: Bấm vào tab "Mã hết hạn" ở trang chi tiết Tiên Nghịch Mobile (và các game khác) làm sập hiển thị do lỗi `AlertCircle is not defined`.
+    2. *Định tuyến `/nhiem-vu/`*: Mở trực tiếp `https://codegame.shop/nhiem-vu/` (có dấu gạch chéo cuối) hoặc F5 khi đang ở `/nhiem-vu` bị tự động chuyển hướng về trang chủ `/`.
+    3. *Chuẩn hóa thể loại & Bộ lọc*: Khắc phục lỗi font (`Thp Cẩm / Khác` trên `drift-racing-3v3`), hợp nhất các cặp danh mục gần trùng lặp (`Nhập Vai` / `Nhập Vai (MMORPG)`, `Tam Quốc / Chiến Thuật` / `Chiến Thuật Tam Quốc`, `Roblox / Thủ Thành Chiến Thuật` / `Roblox / Thủ Thành Chiến Lược`, `Thể Thao & Tốc Độ` / `Thể Thao Điện Tử`, `Kiếm Hiệp / Tiên Hiệp` / `Kiếm Hiệp 3D` / `Kiếm Hiệp Nhập Vai`).
+    4. *Giao diện tin tức*: Tách hàng ô tìm kiếm tin tức thành 1 hàng độc lập rộng rãi (`w-full max-w-2xl`), đặt thanh chip danh mục game xuống hàng riêng biệt phía dưới; khử trùng Blox Fruits (`Roblox (Blox Fruits)` vs `Roblox Blox Fruits`) và Board Game (`Board Game Văn Hóa Việt` vs `Board Game Văn Hóa`); loại bỏ hoàn toàn tiêu đề bài viết dài bị biến tướng thành tên game trong danh sách chip lọc.
+    5. *Báo cáo & Giác ngộ số liệu Tiện ích*: Làm rõ nguyên nhân số liệu `420` (Virtual stock bonus 413 + tồn thật 7 = 420) và `4435` vs `3667` (doanh số tích lũy sản phẩm cha VS Phone so với doanh số của gói đơn lẻ Gói 7 Ngày VIP), chuẩn hóa nhãn hiển thị rõ ràng `Còn hàng (7 gói)` thay cho `Còn: 420`.
+- **Nguyên nhân gốc rễ (Root Cause)**:
+  - Xem chi tiết tại `ISSUE-200` trong `KNOWN_ISSUES.md`.
+  - Crash tab mã hết hạn: `GameDetailModal.tsx` sử dụng biểu tượng `<AlertCircle />` ở dòng 891 nhưng quên import từ thư viện `lucide-react`.
+  - Định tuyến `/nhiem-vu/`: Hàm `parseHash` trong `App.tsx` chỉ xử lý các đường dẫn `/game/`, `/news`, `/giveaways`, `/store`, `/utilities` mà thiếu hoàn toàn `/nhiem-vu` và `/missions`. Khi truy cập trực tiếp hoặc tải lại, code fallback về `setCurrentTab('catalog')` và ghi đè `history.replaceState('/')`. Ngoài ra, Cloudflare Worker `_worker.ts` thiếu định tuyến cho `pathname === '/nhiem-vu/'` (có gạch chéo cuối).
+  - Lỗi danh mục & trùng lặp: Một số bản ghi game trong DB và JSON có ký tự lạ do font encoding (`drift-racing-3v3` mang `Thp Cẩm / Khác`) cùng các biến thể chưa được gom nhóm thống nhất khi sinh danh mục distinct từ SQL.
+  - Hẹp ô tìm kiếm tin tức: Cả ô input và thanh chips được xếp chung 1 hàng flex `flex-col sm:flex-row items-stretch sm:items-center justify-between` khiến ô input bị co dúm chỉ còn thấy icon kính lúp.
+- **Giải pháp kỹ thuật đã áp dụng**:
+  - `src/components/GameDetailModal.tsx`: Bổ sung `AlertCircle` vào import `lucide-react`.
+  - `src/App.tsx` & `functions/_worker.ts`: Hỗ trợ định tuyến đầy đủ cho `/nhiem-vu` và `/nhiem-vu/`, chuẩn hóa loại bỏ trailing slash khi sync URL.
+  - `functions/api/games.ts`, `src/services/dataService.ts`, `src/components/CategoryFilter.tsx`, `src/data/games188.json`: Chuẩn hóa, khử trùng toàn diện danh mục thể loại game ở cả D1 SQL, Client Service và UI Filter.
+  - `src/components/NewsView.tsx`, `src/data/seedNews.ts`, `src/data/canonical_backup_state.json`: Tách ô search thành hàng riêng biệt `w-full max-w-2xl`, đưa chips xuống hàng dưới, chuẩn hóa Blox Fruits và Board Game Văn Hóa Việt.
+  - `src/components/UtilitiesView.tsx` & `src/components/ProductDetailModal.tsx`: Hiển thị rõ ràng `Còn hàng (7 gói)` đồng nhất với tồn kho thực tế 7 và hạn mức mua tối đa 7.
+- **Kiểm thử & Xác nhận**:
+  - `npm run build`: PASS 100%, 0 lỗi, Audit 0 test artifacts, sinh đầy đủ prerender static HTML cho 583 game, 220 bài viết tin tức, 32 giveaway, `/nhiem-vu/`.
+  - Dữ liệu Hiệp Khách Hành (giveaway 103 mã còn lại, trạng thái hoạt động; nhiệm vụ đóng) giữ nguyên 100%.
+
 ### 290. Hoàn Thành Khắc Phục Nhóm 1 Giveaways SSOT: Loại Bỏ Bẫy Remaining = 0, Đồng Bộ Total 111, Xóa Triệt Để Rotwood Khỏi Sync, Cập Nhật Bìa Esports & Kiểm Chứng Phép Thử 20 Vòng Bất Biến
 - **Bối cảnh & Yêu cầu**:
   - Người dùng (Chủ web) đồng ý phê duyệt 4 nhiệm vụ thuộc Nhóm 1 cần sửa gấp:

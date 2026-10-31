@@ -729,8 +729,12 @@ export const UtilitiesView: React.FC<UtilitiesViewProps> = ({
                   </h3>
                   <div className="flex items-center gap-2 text-[10px] sm:text-[11px] text-muted-foreground mt-0.5">
                     {(item as any).show_stock_count !== false && (
-                      <span className={`font-mono ${displayStock <= 0 ? 'text-rose-400 font-bold' : 'text-slate-300'}`}>
-                        {displayStock <= 0 ? 'Hết hàng' : `Còn: ${displayStock}`}
+                      <span className={`font-mono ${item.stock_quantity <= 0 ? 'text-rose-400 font-bold' : 'text-slate-300'}`}>
+                        {item.stock_quantity <= 0
+                          ? 'Hết hàng'
+                          : (item.packages && item.packages.length > 0)
+                          ? `Còn hàng (${item.stock_quantity} gói)`
+                          : `Còn: ${item.stock_quantity}`}
                       </span>
                     )}
                     {isGlobalSoldEnabled && item.show_sold_count !== false && (
@@ -917,10 +921,14 @@ export const UtilitiesView: React.FC<UtilitiesViewProps> = ({
                           {(item as any).show_stock_count !== false && (
                             <span
                               className={`text-[9px] sm:text-[10px] font-mono ${
-                                displayStock <= 0 ? 'text-rose-400 font-bold' : 'text-slate-300'
+                                item.stock_quantity <= 0 ? 'text-rose-400 font-bold' : 'text-slate-300'
                               }`}
                             >
-                              {displayStock <= 0 ? 'Hết hàng' : `Còn: ${displayStock}`}
+                              {item.stock_quantity <= 0
+                                ? 'Hết hàng'
+                                : (item.packages && item.packages.length > 0)
+                                ? `Còn hàng (${item.stock_quantity} gói)`
+                                : `Còn: ${item.stock_quantity}`}
                             </span>
                           )}
                           {isGlobalSoldEnabled && item.show_sold_count !== false && (

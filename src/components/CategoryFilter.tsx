@@ -18,6 +18,40 @@ export const CategoryFilter: React.FC<CategoryFilterProps> = ({
 }) => {
   const { t } = useLanguage();
 
+  const cleanCategories = React.useMemo(() => {
+    const seen = new Set<string>();
+    const list: string[] = [];
+    for (const cat of categories) {
+      if (!cat) continue;
+      let trimmed = cat.trim();
+      if (trimmed.includes('\uFFFD') || /th[p|ậ|a-z]*\s*c[ẩ|a-z]*m/i.test(trimmed)) {
+        trimmed = 'Thể Thao & Tốc Độ';
+      }
+      if (trimmed === 'Nhập Vai (MMORPG)') trimmed = 'Nhập Vai';
+      if (trimmed === 'Chiến Thuật Tam Quốc') trimmed = 'Tam Quốc / Chiến Thuật';
+      if (trimmed === 'Roblox / Thủ Thành Chiến Lược') trimmed = 'Roblox / Thủ Thành Chiến Thuật';
+      if (trimmed === 'Thể Thao Điện Tử') trimmed = 'Thể Thao & Tốc Độ';
+      if (trimmed === 'Kiếm Hiệp 3D' || trimmed === 'Kiếm Hiệp Nhập Vai') trimmed = 'Kiếm Hiệp / Tiên Hiệp';
+      if (trimmed === 'Tất cả' || trimmed === 'all') continue;
+      if (!seen.has(trimmed)) {
+        seen.add(trimmed);
+        list.push(trimmed);
+      }
+    }
+    return list.sort((a, b) => a.localeCompare(b, 'vi'));
+  }, [categories]);
+
+  const activeCategory = React.useMemo(() => {
+    if (!filter.category || filter.category === 'all') return 'all';
+    let c = filter.category;
+    if (c === 'Nhập Vai (MMORPG)') return 'Nhập Vai';
+    if (c === 'Chiến Thuật Tam Quốc') return 'Tam Quốc / Chiến Thuật';
+    if (c === 'Roblox / Thủ Thành Chiến Lược') return 'Roblox / Thủ Thành Chiến Thuật';
+    if (c === 'Thể Thao Điện Tử') return 'Thể Thao & Tốc Độ';
+    if (c === 'Kiếm Hiệp 3D' || c === 'Kiếm Hiệp Nhập Vai') return 'Kiếm Hiệp / Tiên Hiệp';
+    return c;
+  }, [filter.category]);
+
   const mainTags: { id: FilterState['tag']; label: string; icon: React.ReactNode }[] = [
     { id: 'all', label: t.filter.all, icon: <Layers className="w-3.5 h-3.5" /> },
     { id: 'hot', label: t.filter.hot, icon: <Flame className="w-3.5 h-3.5 text-accent" /> },
@@ -78,19 +112,19 @@ export const CategoryFilter: React.FC<CategoryFilterProps> = ({
             <button
               type="button"
               className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold transition-all cursor-pointer ${
-                filter.category !== 'all'
+                activeCategory !== 'all'
                   ? 'bg-secondary/20 text-secondary border border-secondary/40 shadow-sm'
                   : 'bg-card hover:bg-card-hover border border-border text-slate-300'
               }`}
             >
               <Filter className="w-3.5 h-3.5 text-secondary shrink-0" />
               <span className="truncate max-w-[105px]">
-                {filter.category === 'all' ? t.filter.allCategories : filter.category}
+                {activeCategory === 'all' ? t.filter.allCategories : activeCategory}
               </span>
               <ChevronDown className="w-3 h-3 text-slate-400 shrink-0" />
             </button>
             <select
-              value={filter.category}
+              value={activeCategory}
               onChange={(e) => onFilterChange({ category: e.target.value })}
               className="absolute inset-0 opacity-0 w-full h-full cursor-pointer z-10"
               aria-label={t.filter.allCategories}
@@ -98,7 +132,7 @@ export const CategoryFilter: React.FC<CategoryFilterProps> = ({
               <option value="all" className="bg-card text-foreground">
                 {t.filter.allCategories}
               </option>
-              {categories.map((cat) => (
+              {cleanCategories.map((cat) => (
                 <option key={cat} value={cat} className="bg-card text-foreground">
                   {cat}
                 </option>
@@ -191,7 +225,7 @@ export const CategoryFilter: React.FC<CategoryFilterProps> = ({
           <div className="flex items-center gap-1.5 bg-card border border-border rounded-xl px-2.5 py-1.5 shadow-sm">
             <Filter className="w-3.5 h-3.5 text-secondary shrink-0" />
             <select
-              value={filter.category}
+              value={activeCategory}
               onChange={(e) => onFilterChange({ category: e.target.value })}
               className="bg-transparent text-xs text-foreground font-semibold focus:outline-none cursor-pointer"
               aria-label={t.filter.allCategories}
@@ -199,7 +233,7 @@ export const CategoryFilter: React.FC<CategoryFilterProps> = ({
               <option value="all" className="bg-card text-foreground">
                 {t.filter.allCategories}
               </option>
-              {categories.map((cat) => (
+              {cleanCategories.map((cat) => (
                 <option key={cat} value={cat} className="bg-card text-foreground">
                   {cat}
                 </option>

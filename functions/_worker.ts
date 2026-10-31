@@ -751,7 +751,7 @@ async function handleWorkerRequest(request: Request, env: Env, ctx: ExecutionCon
         return assetResponse;
       }
 
-      // Luôn phục vụ trang game, danh mục A-Z, chuyên mục thể loại & sự kiện giveaway qua renderSeoHtml
+      // Luôn phục vụ trang game, danh mục A-Z, chuyên mục thể loại, nhiệm vụ & sự kiện giveaway qua renderSeoHtml
       if (request.method === 'GET' && (
         pathname.startsWith('/game/') ||
         pathname.startsWith('/g/') ||
@@ -759,7 +759,11 @@ async function handleWorkerRequest(request: Request, env: Env, ctx: ExecutionCon
         pathname.startsWith('/giveaway/') ||
         pathname.startsWith('/the-loai/') ||
         pathname === '/the-loai' ||
-        pathname === '/danh-sach-game-a-z'
+        pathname === '/danh-sach-game-a-z' ||
+        pathname === '/nhiem-vu' ||
+        pathname.startsWith('/nhiem-vu/') ||
+        pathname === '/missions' ||
+        pathname.startsWith('/missions/')
       )) {
         return await renderSeoHtml(request, env, pathname);
       }
@@ -946,8 +950,15 @@ async function renderSeoHtml(
     return Response.redirect(`${origin}/game/${primarySlug}`, 301);
   }
 
-  // 1.5. Phục vụ trực tiếp các trang tĩnh chuyên mục thể loại và mục lục A-Z từ prerender
-  if (pathname.startsWith('/the-loai') || pathname === '/danh-sach-game-a-z') {
+  // 1.5. Phục vụ trực tiếp các trang tĩnh chuyên mục thể loại, nhiệm vụ và mục lục A-Z từ prerender
+  if (
+    pathname.startsWith('/the-loai') ||
+    pathname === '/danh-sach-game-a-z' ||
+    pathname === '/nhiem-vu' ||
+    pathname.startsWith('/nhiem-vu/') ||
+    pathname === '/missions' ||
+    pathname.startsWith('/missions/')
+  ) {
     const cleanPath = pathname.replace(/\/$/, '');
     const assetUrl = new URL(`${cleanPath}.html`, request.url);
     const assetRes = await env.ASSETS.fetch(new Request(assetUrl.toString()));

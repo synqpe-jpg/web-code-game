@@ -81,6 +81,36 @@ interface RawCodeItem {
   created_at?: string;
 }
 
+export function normalizeCategory(rawCategory?: string | null): string {
+  if (!rawCategory) return '';
+  const trimmed = String(rawCategory).trim();
+  if (trimmed.includes('\uFFFD') || /th[p|ậ|a-z]*\s*c[ẩ|a-z]*m/i.test(trimmed)) {
+    return 'Thể Thao & Tốc Độ';
+  }
+  if (trimmed === 'Nhập Vai (MMORPG)' || trimmed === 'Nhập Vai') return 'Nhập Vai';
+  if (trimmed === 'Chiến Thuật Tam Quốc' || trimmed === 'Tam Quốc / Chiến Thuật') return 'Tam Quốc / Chiến Thuật';
+  if (trimmed === 'Roblox / Thủ Thành Chiến Lược' || trimmed === 'Roblox / Thủ Thành Chiến Thuật') return 'Roblox / Thủ Thành Chiến Thuật';
+  if (trimmed === 'Thể Thao Điện Tử' || trimmed === 'Thể Thao & Tốc Độ') return 'Thể Thao & Tốc Độ';
+  if (trimmed === 'Kiếm Hiệp 3D' || trimmed === 'Kiếm Hiệp Nhập Vai' || trimmed === 'Kiếm Hiệp / Tiên Hiệp') return 'Kiếm Hiệp / Tiên Hiệp';
+  return trimmed;
+}
+
+export function normalizeAndDeduplicateCategories(categories: (string | null | undefined)[]): string[] {
+  const seen = new Set<string>();
+  const result: string[] = [];
+  for (const c of categories) {
+    if (!c) continue;
+    const norm = normalizeCategory(c);
+    if (!norm || norm === 'Tất cả' || norm === 'all') continue;
+    if (!seen.has(norm)) {
+      seen.add(norm);
+      result.push(norm);
+    }
+  }
+  result.sort((a, b) => a.localeCompare(b, 'vi'));
+  return ['Tất cả', ...result];
+}
+
 class DataService {
   private games: GameItem[] = [];
   private codesMap: Map<string, GiftCode[]> = new Map();
@@ -1199,7 +1229,7 @@ public async syncWithCloudflareKV(forceFresh: boolean = false): Promise<void> {
         }
       }
 
-      this.categories = Array.from(categorySet).filter(Boolean).sort();
+      this.categories = normalizeAndDeduplicateCategories(Array.from(categorySet));
 
       // 4. Initialize Fuse Search
       this.fuseInstance = new Fuse(this.games, {
@@ -1320,7 +1350,7 @@ public async syncWithCloudflareKV(forceFresh: boolean = false): Promise<void> {
 
   async getCategories(): Promise<string[]> {
     await this.init();
-    return this.categories;
+    return normalizeAndDeduplicateCategories(this.categories);
   }
 
   async getStats(): Promise<StatsOverview> {
@@ -1366,7 +1396,7 @@ public async syncWithCloudflareKV(forceFresh: boolean = false): Promise<void> {
         const json = await res.json();
         if (json && json.success && Array.isArray(json.games)) {
           if (Array.isArray(json.categories) && json.categories.length > 0) {
-            this.categories = json.categories;
+            this.categories = normalizeAndDeduplicateCategories(json.categories);
           }
           // Enrich and cache retrieved games into memory (P0/P1: High-speed, avoids slow getCodesForGame scan)
           const enrichedGames = json.games.map((g: any) => {

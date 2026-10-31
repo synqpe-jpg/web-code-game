@@ -97,28 +97,91 @@ export const NewsView: React.FC<NewsViewProps> = ({
   const gameFilterOptions = useMemo(() => {
     const map = new Map<string, string>();
     const seenNames = new Set<string>();
+
     articles.forEach((a) => {
-      const gSlug = (a.game_slug || '').trim();
-      const gName = (a.game_name || '').trim();
-      // Skip invalid or article-title-like game names (> 32 chars or containing colons)
-      if (gSlug && gSlug !== 'all' && gName && gName.length <= 32 && !gName.includes(':')) {
-        const normName = gName.toLowerCase();
-        if (!seenNames.has(normName) && !map.has(gSlug)) {
-          seenNames.add(normName);
-          map.set(gSlug, gName);
+      let gSlug = (a.game_slug || '').trim().toLowerCase();
+      let gName = (a.game_name || '').trim();
+      if (!gSlug || gSlug === 'all') return;
+
+      // Deduplicate Blox Fruits
+      if (gSlug.includes('blox-fruit') || gName.toLowerCase().includes('blox fruit')) {
+        gSlug = 'roblox-blox-fruits';
+        gName = 'Roblox (Blox Fruits)';
+      }
+      // Deduplicate Board Game Văn Hóa Việt
+      else if (gSlug.includes('board-game') || gName.toLowerCase().includes('board game')) {
+        gSlug = 'board-game-van-hoa-viet';
+        gName = 'Board Game Văn Hóa Việt';
+      } else {
+        // Filter out article titles masquerading as games
+        if (gSlug.length > 35 || gSlug.split('-').length > 5 || gName.length > 28 || gName.includes(':')) {
+          return;
+        }
+        const lowerName = gName.toLowerCase();
+        if (
+          lowerName.includes('tất tần tật') ||
+          lowerName.includes('hướng dẫn') ||
+          lowerName.includes('đánh giá') ||
+          lowerName.includes('tổng hợp') ||
+          lowerName.includes('giftcode mới') ||
+          lowerName.includes('chi tiết')
+        ) {
+          return;
         }
       }
+
+      const normNameLower = gName.toLowerCase();
+      if (!seenNames.has(normNameLower) && !map.has(gSlug)) {
+        seenNames.add(normNameLower);
+        map.set(gSlug, gName);
+      }
     });
-    return Array.from(map.entries()).map(([slug, name]) => ({ slug, name }));
+
+    return Array.from(map.entries())
+      .map(([slug, name]) => ({ slug, name }))
+      .sort((a, b) => a.name.localeCompare(b.name, 'vi'));
   }, [articles]);
 
   // Filtered articles
   const filteredArticles = useMemo(() => {
-    return newsService.getPublishedArticles({
-      search: searchQuery,
-      gameSlug: selectedGameSlug !== 'all' ? selectedGameSlug : undefined,
-      tag: selectedTag !== 'all' ? selectedTag : undefined,
-    });
+    let list = articles;
+
+    if (selectedGameSlug !== 'all') {
+      if (selectedGameSlug === 'roblox-blox-fruits') {
+        list = list.filter(
+          (a) =>
+            a.game_slug === 'roblox-blox-fruits' ||
+            a.game_slug?.includes('blox-fruit') ||
+            a.game_name?.toLowerCase().includes('blox fruit')
+        );
+      } else if (selectedGameSlug === 'board-game-van-hoa-viet') {
+        list = list.filter(
+          (a) =>
+            a.game_slug === 'board-game-van-hoa-viet' ||
+            a.game_slug?.includes('board-game') ||
+            a.game_name?.toLowerCase().includes('board game')
+        );
+      } else {
+        list = list.filter((a) => a.game_slug === selectedGameSlug);
+      }
+    }
+
+    if (searchQuery && searchQuery.trim()) {
+      const q = searchQuery.trim().toLowerCase();
+      list = list.filter(
+        (a) =>
+          a.title?.toLowerCase().includes(q) ||
+          a.excerpt?.toLowerCase().includes(q) ||
+          a.game_name?.toLowerCase().includes(q) ||
+          a.tags?.some((t) => t.toLowerCase().includes(q))
+      );
+    }
+
+    if (selectedTag !== 'all') {
+      list = list.filter((a) => a.tags?.includes(selectedTag));
+    }
+
+    return list;
   }, [articles, searchQuery, selectedGameSlug, selectedTag]);
 
   // Featured article (Hero banner): Luôn hiển thị bài viết mới nhất lên vị trí nổi bật nhất
@@ -401,62 +464,60 @@ export const NewsView: React.FC<NewsViewProps> = ({
         </section>
       )}
 
-      {/* 3. Search Bar & Filters */}
+      {/* 3. Search Bar & Category Filters (Two Distinct Rows) */}
       <div className="mb-8 space-y-4">
-        <div className="flex flex-col sm:flex-row gap-3 items-stretch sm:items-center justify-between">
-          {/* Search input */}
-          <div className="relative flex-1 max-w-lg lg:max-w-xl">
-            <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-            <input
-              type="text"
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Tìm kiếm tin tức, sự kiện, giftcode game..."
-              className="w-full pl-10 pr-9 py-2.5 rounded-2xl bg-card border border-border/80 focus:border-primary focus:ring-2 focus:ring-primary/20 text-base sm:text-sm placeholder:text-muted-foreground text-foreground transition-all outline-none"
-            />
-            {searchQuery && (
-              <button
-                type="button"
-                onClick={() => setSearchQuery('')}
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
-              >
-                <X className="w-4 h-4" />
-              </button>
-            )}
-          </div>
+        {/* Row 1: Prominent Full-Width Search Input */}
+        <div className="relative w-full max-w-2xl">
+          <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
+          <input
+            type="text"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            placeholder="Tìm kiếm tin tức, sự kiện, giftcode game..."
+            className="w-full pl-12 pr-10 py-3 rounded-2xl bg-card border border-border/80 focus:border-primary focus:ring-2 focus:ring-primary/20 text-sm sm:text-base placeholder:text-muted-foreground text-foreground shadow-sm transition-all outline-none"
+          />
+          {searchQuery && (
+            <button
+              type="button"
+              onClick={() => setSearchQuery('')}
+              className="absolute right-3.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground p-1 rounded-lg hover:bg-muted transition-colors cursor-pointer"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          )}
+        </div>
 
-          {/* Game filter dropdown/chips */}
-          {gameFilterOptions.length > 0 && (
-            <div className="flex items-center gap-2 overflow-x-auto pb-1 sm:pb-0 scrollbar-none">
+        {/* Row 2: Distinct Category Chips Bar */}
+        {gameFilterOptions.length > 0 && (
+          <div className="flex items-center gap-2 overflow-x-auto pb-2 scrollbar-none w-full">
+            <button
+              type="button"
+              onClick={() => setSelectedGameSlug('all')}
+              className={`px-3.5 py-1.5 rounded-xl text-xs font-bold whitespace-nowrap transition-all shrink-0 cursor-pointer ${
+                selectedGameSlug === 'all'
+                  ? 'bg-primary text-white shadow-sm ring-1 ring-primary-light/50'
+                  : 'bg-card border border-border/80 text-muted-foreground hover:text-foreground hover:bg-muted'
+              }`}
+            >
+              Tất cả Game
+            </button>
+            {gameFilterOptions.map((g) => (
               <button
+                key={g.slug}
                 type="button"
-                onClick={() => setSelectedGameSlug('all')}
-                className={`px-3 py-1.5 rounded-xl text-xs font-bold whitespace-nowrap transition-all cursor-pointer ${
-                  selectedGameSlug === 'all'
-                    ? 'bg-primary text-white shadow-sm'
+                onClick={() => setSelectedGameSlug(g.slug)}
+                className={`px-3.5 py-1.5 rounded-xl text-xs font-bold whitespace-nowrap transition-all shrink-0 cursor-pointer flex items-center gap-1.5 ${
+                  selectedGameSlug === g.slug
+                    ? 'bg-primary text-white shadow-sm ring-1 ring-primary-light/50'
                     : 'bg-card border border-border/80 text-muted-foreground hover:text-foreground hover:bg-muted'
                 }`}
               >
-                Tất cả Game
+                <Gamepad2 className="w-3.5 h-3.5 opacity-70 shrink-0" />
+                <span>{g.name}</span>
               </button>
-              {gameFilterOptions.map((g) => (
-                <button
-                  key={g.slug}
-                  type="button"
-                  onClick={() => setSelectedGameSlug(g.slug)}
-                  className={`px-3 py-1.5 rounded-xl text-xs font-bold whitespace-nowrap transition-all cursor-pointer flex items-center gap-1.5 ${
-                    selectedGameSlug === g.slug
-                      ? 'bg-primary text-white shadow-sm'
-                      : 'bg-card border border-border/80 text-muted-foreground hover:text-foreground hover:bg-muted'
-                  }`}
-                >
-                  <Gamepad2 className="w-3.5 h-3.5 opacity-70" />
-                  <span>{g.name}</span>
-                </button>
-              ))}
-            </div>
-          )}
-        </div>
+            ))}
+          </div>
+        )}
       </div>
 
       {/* Anchor for smooth scroll on page change */}

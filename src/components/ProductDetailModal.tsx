@@ -466,7 +466,7 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
                       {!isOutOfStock ? (
                         <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-emerald-500/15 border border-emerald-500/30 text-emerald-400 text-xs font-bold font-mono">
                           <CheckCircle2 className="w-3.5 h-3.5" />
-                          <span>Còn hàng ({realStock})</span>
+                          <span>Còn hàng ({realStock} gói)</span>
                         </span>
                       ) : (
                         <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-rose-500/15 border border-rose-500/30 text-rose-400 text-xs font-bold">

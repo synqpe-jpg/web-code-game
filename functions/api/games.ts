@@ -238,12 +238,69 @@ export function resolveCodesForGame(g: any, codesMap: Map<string, GiftCode[]>): 
 }
 
 /**
+ * Chuẩn hóa tên thể loại game, loại bỏ lỗi font và hợp nhất các cặp trùng lặp
+ */
+export function normalizeCategory(rawCategory?: string | null): string {
+  if (!rawCategory) return '';
+  const trimmed = String(rawCategory).trim();
+  // Khắc phục lỗi font encoding như "Thp C?m / Khc" hoặc "Thp Cẩm / Khác"
+  if (trimmed.includes('\uFFFD') || /th[p|ậ|a-z]*\s*c[ẩ|a-z]*m/i.test(trimmed)) {
+    return 'Thể Thao & Tốc Độ';
+  }
+  // Hợp nhất các biến thể thể loại trùng lặp:
+  // 1. Nhập Vai / Nhập Vai (MMORPG) -> Nhập Vai
+  if (trimmed === 'Nhập Vai (MMORPG)' || trimmed === 'Nhập Vai') return 'Nhập Vai';
+  // 2. Tam Quốc / Chiến Thuật / Chiến Thuật Tam Quốc -> Tam Quốc / Chiến Thuật
+  if (trimmed === 'Chiến Thuật Tam Quốc' || trimmed === 'Tam Quốc / Chiến Thuật') return 'Tam Quốc / Chiến Thuật';
+  // 3. Roblox / Thủ Thành Chiến Lược / Roblox / Thủ Thành Chiến Thuật -> Roblox / Thủ Thành Chiến Thuật
+  if (trimmed === 'Roblox / Thủ Thành Chiến Lược' || trimmed === 'Roblox / Thủ Thành Chiến Thuật') return 'Roblox / Thủ Thành Chiến Thuật';
+  // 4. Thể Thao Điện Tử / Thể Thao & Tốc Độ -> Thể Thao & Tốc Độ
+  if (trimmed === 'Thể Thao Điện Tử' || trimmed === 'Thể Thao & Tốc Độ') return 'Thể Thao & Tốc Độ';
+  // 5. Kiếm Hiệp / Tiên Hiệp / Kiếm Hiệp 3D / Kiếm Hiệp Nhập Vai -> Kiếm Hiệp / Tiên Hiệp
+  if (trimmed === 'Kiếm Hiệp 3D' || trimmed === 'Kiếm Hiệp Nhập Vai' || trimmed === 'Kiếm Hiệp / Tiên Hiệp') return 'Kiếm Hiệp / Tiên Hiệp';
+
+  return trimmed;
+}
+
+/**
+ * Lấy danh sách các thể loại tương đương trong DB cho 1 thể loại chuẩn hóa
+ */
+export function getEquivalentCategories(canonicalCategory: string): string[] {
+  const norm = normalizeCategory(canonicalCategory);
+  if (norm === 'Nhập Vai') return ['Nhập Vai', 'Nhập Vai (MMORPG)'];
+  if (norm === 'Tam Quốc / Chiến Thuật') return ['Tam Quốc / Chiến Thuật', 'Chiến Thuật Tam Quốc'];
+  if (norm === 'Roblox / Thủ Thành Chiến Thuật') return ['Roblox / Thủ Thành Chiến Thuật', 'Roblox / Thủ Thành Chiến Lược'];
+  if (norm === 'Thể Thao & Tốc Độ') return ['Thể Thao & Tốc Độ', 'Thể Thao Điện Tử', 'Thp Cẩm / Khác'];
+  if (norm === 'Kiếm Hiệp / Tiên Hiệp') return ['Kiếm Hiệp / Tiên Hiệp', 'Kiếm Hiệp 3D', 'Kiếm Hiệp Nhập Vai'];
+  return [norm || canonicalCategory];
+}
+
+/**
+ * Chuẩn hóa, lọc trùng và sắp xếp danh sách thể loại hiển thị
+ */
+export function normalizeAndDeduplicateCategories(categories: (string | null | undefined)[]): string[] {
+  const seen = new Set<string>();
+  const result: string[] = [];
+  for (const c of categories) {
+    if (!c) continue;
+    const norm = normalizeCategory(c);
+    if (!norm || norm === 'Tất cả') continue;
+    if (!seen.has(norm)) {
+      seen.add(norm);
+      result.push(norm);
+    }
+  }
+  result.sort((a, b) => a.localeCompare(b, 'vi'));
+  return ['Tất cả', ...result];
+}
+
+/**
  * Chuẩn hóa đối tượng GameItem với đầy đủ thông tin pháp lý, link store và danh sách mã
  */
 export function formatGameItem(g: any, allCodes: GiftCode[]): GameItem {
   const slug = String(g.slug || g.id || '').trim();
   const rawId = String(g.id || slug).trim();
-  const cat = g.category ? String(g.category).trim() : '';
+  const cat = normalizeCategory(g.category);
 
   let iconUrl = g.icon_url || g.iconUrl || g.cover_image_url || '';
   if (!iconUrl || iconUrl.includes('codemoi.net') || iconUrl.includes('googleusercontent.com') || iconUrl.startsWith('/game-icons') || iconUrl.startsWith('game-icons')) {
@@ -487,7 +544,7 @@ export async function getLoadedCatalog(
     games: gamesList.length > 0 ? gamesList : (catalogCache?.games || []),
     allRawGames: rawGames,
     codesMap,
-    categories: Array.from(categorySet),
+    categories: normalizeAndDeduplicateCategories(Array.from(categorySet)),
     lastFetchedAt: Date.now(),
   };
 
@@ -706,7 +763,7 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
           }
         }
         const finalPublisher = (gameRow.publisher && String(gameRow.publisher).trim()) ? gameRow.publisher : (fbGame?.publisher || '');
-        const finalCategory = (gameRow.category && String(gameRow.category).trim()) ? gameRow.category : (fbGame?.category || '');
+        const finalCategory = normalizeCategory((gameRow.category && String(gameRow.category).trim()) ? gameRow.category : (fbGame?.category || ''));
         const finalPlatform = (gameRow.platform && String(gameRow.platform).trim()) ? gameRow.platform : (fbGame?.platform || 'Android, iOS, PC');
         const finalIconUrl = iconUrl || fbGame?.icon_url || `/game_icons/${gameRow.slug}.webp`;
         const finalName = gameRow.name === 'Thực Thần Ký' ? 'Thức Thần Ký' : (gameRow.name || fbGame?.name || '');
@@ -1038,7 +1095,7 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
           name: String(r.name),
           slug: String(r.slug),
           publisher: r.publisher || '',
-          category: r.category || '',
+          category: normalizeCategory(r.category || ''),
           platform: r.platform || '',
           rating: typeof r.rating === 'number' ? r.rating : 4.8,
           icon_url: r.icon_url || '',
@@ -1105,8 +1162,14 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
         const bindParams: any[] = [];
 
         if (category && category !== 'all' && category !== 'Tất cả') {
-          whereConditions.push('category = ?');
-          bindParams.push(category);
+          const equivs = getEquivalentCategories(category);
+          if (equivs.length === 1) {
+            whereConditions.push('category = ?');
+            bindParams.push(equivs[0]);
+          } else {
+            whereConditions.push(`category IN (${equivs.map(() => '?').join(', ')})`);
+            bindParams.push(...equivs);
+          }
         }
         if (tag === 'hot') {
           whereConditions.push('is_hot = 1');
@@ -1162,7 +1225,8 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
         const catRes = await env.DB.prepare(
           "SELECT DISTINCT category FROM games WHERE is_active = 1 AND (status IS NULL OR UPPER(status) IN ('ACTIVE', 'PUBLISHED')) AND category IS NOT NULL AND category != '' ORDER BY category ASC"
         ).all<any>().catch(() => ({ results: [] as any[] }));
-        const categories = ['Tất cả', ...(catRes?.results || []).map((c: any) => c.category).filter(Boolean)];
+        const rawCategories = (catRes?.results || []).map((c: any) => c.category).filter(Boolean);
+        const categories = normalizeAndDeduplicateCategories(rawCategories);
 
         if (page > totalPages) {
           return new Response(
@@ -1195,7 +1259,7 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
             name: String(r.name),
             slug: String(r.slug),
             publisher: r.publisher || '',
-            category: r.category || '',
+            category: normalizeCategory(r.category || ''),
             platform: r.platform || '',
             rating: typeof r.rating === 'number' ? r.rating : 4.8,
             icon_url: r.icon_url || '',
@@ -1236,8 +1300,14 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
 
       // Category filter
       if (category && category !== 'all' && category !== 'Tất cả') {
-        whereConditions.push('category = ?');
-        bindParams.push(category);
+        const equivs = getEquivalentCategories(category);
+        if (equivs.length === 1) {
+          whereConditions.push('category = ?');
+          bindParams.push(equivs[0]);
+        } else {
+          whereConditions.push(`category IN (${equivs.map(() => '?').join(', ')})`);
+          bindParams.push(...equivs);
+        }
       }
 
       // Tag filter
@@ -1287,7 +1357,8 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
         1000,
         { results: [] as any[] }
       );
-      const categories = ['Tất cả', ...(catRes?.results || []).map((c: any) => c.category).filter(Boolean)];
+      const rawCategories = (catRes?.results || []).map((c: any) => c.category).filter(Boolean);
+      const categories = normalizeAndDeduplicateCategories(rawCategories);
 
       // Nếu số trang vượt quá tổng số trang, trả về mảng rỗng để client dừng phân trang
       if (page > totalPages) {
@@ -1351,7 +1422,7 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
             name: String(r.name),
             slug: String(r.slug),
             publisher: r.publisher || '',
-            category: r.category || '',
+            category: normalizeCategory(r.category || ''),
             platform: r.platform || '',
             rating: typeof r.rating === 'number' ? r.rating : 4.8,
             icon_url: r.icon_url || '',

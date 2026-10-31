@@ -584,6 +584,11 @@ export const App: React.FC = () => {
         } else if (pathname === '/utilities' || pathname.startsWith('/utilities/')) {
           setCurrentTab('utilities');
           return;
+        } else if (pathname === '/nhiem-vu' || pathname.startsWith('/nhiem-vu/') || pathname === '/missions' || pathname.startsWith('/missions/')) {
+          setCurrentTab('missions');
+          const mId = window.location.pathname.replace(/^\/(?:nhiem-vu|missions)\/?/i, '').split('/')[0].trim();
+          if (mId) setInitialMissionId(mId);
+          return;
         } else if (!hash || hash === '#' || hash === '#catalog') {
           setCurrentTab('catalog');
         }
@@ -669,7 +674,8 @@ export const App: React.FC = () => {
         }
       } else if (currentTab === 'missions') {
         document.title = 'Nhiệm Vụ Nhận Quà & Tiền Ví Miễn Phí | CodeGame.shop';
-        if (window.location.pathname !== '/nhiem-vu' || window.location.hash) {
+        const normPath = window.location.pathname.replace(/\/$/, '');
+        if (normPath !== '/nhiem-vu' || window.location.hash || window.location.pathname.endsWith('/')) {
           window.history.replaceState(null, '', '/nhiem-vu');
         }
       } else {

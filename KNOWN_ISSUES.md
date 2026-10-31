@@ -10,6 +10,29 @@
 
 ## 1. DANH MỤC LỖI & CÁC BẪY ĐÃ THẤT BẠI (DO NOT REPEAT)
 
+### ISSUE-200: Bẫy Thiếu Import Biểu Tượng Gây Sập Render React, Thiếu Định Tuyến Trailing Slash `/nhiem-vu/` & Co Hẹp Khung Tìm Kiếm Do Flex Row Trộn Lẫn Chips
+- **Triệu chứng**:
+  - Khi người dùng bấm sang tab "Mã hết hạn" trong modal chi tiết Tiên Nghịch Mobile, toàn bộ modal sập trắng hoặc báo lỗi console `AlertCircle is not defined`.
+  - Mở trực tiếp `https://codegame.shop/nhiem-vu/` (có gạch chéo cuối) bị redirect về trang chủ `/`. F5 khi đang ở `/nhiem-vu` cũng bị về `/`.
+  - Hộp chọn thể loại có các cặp trùng lặp (`Nhập Vai` vs `Nhập Vai (MMORPG)`, `Tam Quốc / Chiến Thuật` vs `Chiến Thuật Tam Quốc`) và lỗi font `Thp Cẩm / Khác`.
+  - Khung tìm kiếm bài viết tin tức bị bóp nghẹt thành nút thuốc nhỏ xíu chỉ thấy icon kính lúp do đặt chung hàng flex với 99 chip thể loại.
+  - Tồn kho sản phẩm VS Phone hiển thị `Còn: 420` trong khi quản trị chỉ còn 7 gói 7 Ngày VIP.
+- **Nguyên nhân gốc rễ**:
+  1. *Thiếu import Component*: `GameDetailModal.tsx` dùng `<AlertCircle />` ở dòng 891 nhưng danh sách import từ `lucide-react` không có biểu tượng này.
+  2. *Thiếu case trong `parseHash`*: `App.tsx` chỉ map các route `/game/`, `/news`, `/giveaways`, `/store`, `/utilities` mà bỏ quên `/nhiem-vu` và `/missions`. Cloudflare Worker handler `renderSeoHtml` cũng chỉ so sánh chuỗi bằng tuyệt đối mà không normalize dấu gạch chéo cuối (`/`).
+  3. *Trộn lẫn 2 hàng giao diện (Flex Collision)*: Trong `NewsView.tsx`, thẻ `input` tìm kiếm và container chứa danh sách chip phân loại game được đặt chung trong `<div className="flex flex-col sm:flex-row gap-3 items-stretch sm:items-center justify-between">`. Khi danh sách chip tràn ra, nó ép thẻ input co cụm lại.
+  4. *Cộng dồn Virtual Stock Bonus*: Sản phẩm cha VS Phone có thiết lập `virtual_stock_bonus = 413` cộng với tồn kho thực 7 dẫn tới số hiển thị 420.
+- **Giải pháp chuẩn đã kiểm chứng**:
+  1. *Import đầy đủ Lucide icons*: Thêm `AlertCircle` vào import của `GameDetailModal.tsx`.
+  2. *Chuẩn hóa Trailing Slash & Route*: Thêm `/nhiem-vu` và `/missions` vào `parseHash` trong `App.tsx`; dùng `normPath = pathname.replace(/\/$/, '')` để loại bỏ trailing slash khi kiểm tra và chuyển hướng.
+  3. *Tách riêng 2 hàng độc lập*: Hàng 1 dành trọn vẹn cho Search bar (`w-full max-w-2xl`); hàng 2 dành riêng cho Chips phân loại có thanh cuộn ngang mượt mà.
+  4. *Khử trùng & chuẩn hóa danh mục*: Hợp nhất các cặp trùng lặp ở cả SQL DB, Client Service và Component UI; sửa `drift-racing-3v3` về `Thể Thao & Tốc Độ`.
+  5. *Đồng bộ nhãn tồn kho*: Hiển thị `Còn hàng (7 gói)` đối với sản phẩm có gói đa dạng để phản ánh đúng số lượng thực tế có thể đặt hàng.
+- 🚫 **CÁCH SỬA ĐÃ THẤT BẠI - TUYỆT ĐỐI KHÔNG LẶP LẠI**:
+  - ❌ *Không dùng icon từ `lucide-react` trong JSX mà không kiểm tra danh sách import ở đầu file*.
+  - ❌ *Không đặt ô input tìm kiếm chung 1 hàng flex ngang với danh sách chips không giới hạn độ dài*.
+  - ❌ *Không so sánh cứng chuỗi `pathname === '/path'` mà quên trường hợp có gạch chéo cuối `pathname === '/path/'`*.
+
 ### ISSUE-199: Bẫy Mảng Rỗng Ép Remaining Về 0 Ở Public Sync & Ngoại Lệ Hardcode Đảo Ngược Trạng Thái Xóa Sự Kiện
 - **Triệu chứng**:
   - Tại trang web khách `/api/sync`, Hiệp Khách Hành báo còn 1/164 hoặc 0 mã, SROM báo còn 0 mã dù phía quản trị kho thật còn rất nhiều (104 và 12 mã).
