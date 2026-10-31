@@ -7,6 +7,34 @@ Mỗi mục sửa lỗi đều ghi nhận **Nguyên nhân gốc rễ (Root Cause
 
 ## [2026-10-31]
 
+### 280. Triển Khai Cơ Chế Xóa Mềm Bất Biến Kèm Tombstone Chống Hồi Sinh & Chuẩn Hóa Thống Nhất Dữ Liệu 3 Nơi (SSOT Full Engine)
+- **Bối cảnh & Yêu cầu người dùng**:
+  - Giải quyết triệt để hiện tượng "số liệu lúc này lúc kia": hàng đợi game chờ duyệt dao động 57 vs 63; xóa game nhưng sau đó lại xuất hiện trở lại do crawler nạp lại hoặc fallback đè lại.
+  - Xóa mềm có tombstone bất biến không bao giờ hồi sinh: mọi bản ghi bị xóa (Game chờ, Game live, Sắp ra mắt, Tin tức, Giveaway, Nhiệm vụ) đều được lưu vào bảng `deleted_records_history` và map `wcg_tombstones_v1`. Crawler hay bot nạp lại sẽ bị chặn 100%. Chỉ quản trị viên thực hiện khôi phục tường minh (Explicit Restore) mới được gỡ tombstone.
+  - Chuẩn hóa thống nhất dữ liệu 3 nơi: (1) CSDL D1, (2) Admin UI, (3) Web Khách (`/api/sync` và Direct API). Đồng nhất số lượng code của tựa game Where Winds Meet qua mọi đường dẫn tra cứu (`where-winds-meet`, `where-winds-meet-mobile`, `yen-van-thap-luc-thanh`).
+  - Tự động bổ sung quyền API `HISTORY_FULL` vào danh mục phân quyền và tài liệu cURL/JS (Rule 8).
+  - Tự động kiểm thử 100% các ca (A -> L) và triển khai toàn diện lên production (Rule 6) với 0 dữ liệu test tồn đọng (Rule 7).
+- **Nguyên nhân gốc rễ (Root Cause)**:
+  - Chi tiết tại `ISSUE-193` trong `KNOWN_ISSUES.md`.
+- **Giải pháp kỹ thuật đã áp dụng**:
+  - `functions/services/soft_delete_service.ts`: Xây dựng module quản lý xóa mềm tập trung gồm `recordSoftDelete`, `getActiveTombstonesMap`, `isRecordTombstoned`, `filterOutTombstones`, `listDeletedRecords`, và `restoreSoftDeletedRecord`.
+  - `functions/services/d1_service.ts`: Bổ sung Migration 13 và hàm tự phục hồi `ensureHistoryTable` tạo bảng `deleted_records_history` kèm index `(record_type, record_slug)`, `(record_type, record_id)`, `restored_at`.
+  - `functions/api/admin/history.ts`: Tạo endpoint `/api/admin/history` hỗ trợ tra cứu phân trang (`GET`) và hành động khôi phục tường minh / xóa mềm (`POST`).
+  - `functions/api/crawler/ingest-codes.ts` & `functions/api/crawler/ingest-upcoming-games.ts`: Tích hợp bộ lọc tombstone chặn đứng mọi crawler nạp lại game/mã đã bị xóa.
+  - `functions/api/sync.ts`: Tích hợp bộ lọc tombstone cho `games`, `crawlerPendingGames`, `upcomingGames`; cập nhật `reject_crawler_game` và `batch_reject_crawler_games` ghi nhận xóa mềm; bổ sung dọn dẹp test tombstones trong `cleanup_test_artifacts`.
+  - `functions/api/giveaways/manage.ts`, `functions/api/missions/[id].ts`, `functions/api/news/[id].ts`: Kết nối hành động xóa mềm vào `recordSoftDelete`.
+  - `src/admin/modules/CrawlerModule.tsx`: Bổ sung Tab 7 "Lịch Sử Xóa (Tombstone)" với giao diện quản trị, lọc theo loại, tra cứu và nút 1-click "Khôi phục"; sửa điều kiện fallback `Array.isArray(data.crawlerPendingGames)` không còn phụ thuộc `length > 0`.
+  - `src/admin/services/adminDataService.ts`: Xóa bỏ logic fallback trả về 63 game tĩnh khi `this.pendingGames.length === 0`.
+  - `src/services/dataService.ts`: Bổ sung alias `where-winds-meet` đồng bộ với `where-winds-meet-mobile` và `yen-van-thap-luc-thanh`.
+  - `src/admin/modules/ApiKeysModule.tsx`: Thêm quyền `HISTORY_FULL` vào `ApiKeyScope`, `ALL_API_SCOPES`, và tài liệu hướng dẫn mẫu cURL/Fetch.
+- **Kiểm thử & Xác nhận**:
+  - Suite kiểm thử trực tiếp trên live `https://codegame.shop` (`scripts/verify_soft_delete_and_ssot.cjs`):
+    - Case A: Xóa đơn lẻ bản ghi thử nghiệm thành công, biến mất tức thì trên `/api/sync`.
+    - Case B: Crawler cố tình nạp lại game vừa xóa bị chặn 100% với cờ `skipped_tombstone: true`, không hề hồi sinh.
+    - Case J: Tra cứu lịch sử D1 và khôi phục tường minh qua `POST /api/admin/history` thành công, bản ghi phục hồi trở lại hàng đợi.
+    - Uniformity: Đồng nhất tra cứu Where Winds Meet trên các endpoint.
+    - Rule 7: Dọn dẹp sạch sẽ 100% dữ liệu test trên production.
+
 ### 279. Chuẩn Hóa Cơ Chế Lan Truyền Tin Tức Tức Thì Từ API Sang /api/sync & Vô Hiệu Hóa Đa Tầng Edge Cache Khi Có Ghi Mới
 - **Bối cảnh & Yêu cầu người dùng**:
   - Đảm bảo mọi thao tác ghi/sửa/xóa bài viết tin tức qua API (`POST /api/news`, `PUT/PATCH/DELETE /api/news/:id`) ngay lập tức lan truyền sang `/api/sync` và được nhìn thấy trên request công khai thường trong vòng vài phút.

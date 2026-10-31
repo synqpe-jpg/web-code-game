@@ -10,6 +10,28 @@
 
 ## 1. DANH MỤC LỖI & CÁC BẪY ĐÃ THẤT BẠI (DO NOT REPEAT)
 
+### ISSUE-193: Bẫy Hồi Sinh Dữ Liệu Sau Khi Xóa (Resurrection Loop) Do Thiếu Bảng Tombstone & Fallback Trống Trải `Array.isArray && length > 0` Đè Lại Dữ Liệu Cũ
+- **Triệu chứng**:
+  - Khi quản trị viên xóa game chờ duyệt (pending games) hoặc game live, lệnh trả về thành công 200, nhưng sau đó số lượng hàng đợi lại dao động (lúc 57 lúc 63).
+  - Khi crawler bên ngoài (Google Play, CodeMoi) quét lại các game đã từng xóa, crawler coi như game mới và nạp lại vào hàng đợi.
+- **Nguy cơ tiềm ẩn**:
+  - Gây hiện tượng "số liệu lúc này lúc kia", mất độ tin cậy của toàn bộ hệ thống quản trị và đồng bộ dữ liệu 3 nơi.
+- **Nguyên nhân gốc rễ**:
+  1. *Thiếu bảng Tombstone bất biến*: Hành động xóa chỉ lọc mảng JSON trong `system_settings` mà không lưu lại dấu vết (tombstone). Khi crawler nạp lại hoặc bot bên ngoài gửi game, hệ thống không nhận diện được game này từng bị quản trị viên từ chối/xóa, nên tự động nạp lại.
+  2. *Bẫy kiểm tra `length > 0` trong frontend fallback*: Trong `CrawlerModule.tsx` và `adminDataService.ts`, logic fallback kiểm tra:
+     `if (Array.isArray(data.crawlerPendingGames) && data.crawlerPendingGames.length > 0)`
+     và `if (this.pendingGames.length === 0) return [...canonicalBackup.crawlerPendingGames]`.
+     Khi hàng đợi pending games rỗng (`length === 0`) hoặc số lượng giảm, điều kiện `length > 0` bị vi phạm, khiến frontend tự động coi server bị rỗng và hồi sinh 63 game tĩnh từ `canonicalBackup` vào `localStorage`, sau đó đồng bộ ngược trở lại D1!
+  3. *Thiếu Purge Cache Biên khi Xóa*: Endpoint xóa không vô hiệu hóa `caches.default` và RAM isolate (`__wcg_public_sync_cache`), khiến Edge PoP trả về snapshot cũ.
+- **Giải pháp chuẩn đã kiểm chứng**:
+  1. *Tạo bảng `deleted_records_history` và `wcg_tombstones_v1`*: Lưu đầy đủ payload gốc, lý do, người xóa, thời điểm xóa. Mọi ingest endpoint (`ingest-codes`, `ingest-upcoming-games`, `sync`, `giveaways`, `news`, `missions`) đều đối chiếu tombstone và từ chối nạp lại các bản ghi đã xóa.
+  2. *Sửa bẫy fallback*: Đổi `Array.isArray(data.crawlerPendingGames) && data.crawlerPendingGames.length > 0` thành `Array.isArray(data.crawlerPendingGames)`. Một mảng rỗng `[]` là trạng thái hoàn toàn hợp lệ, không bao giờ được kích hoạt fallback 63 game cũ.
+  3. *Xây dựng API Lịch Sử & Thùng Rác `/api/admin/history`*: Cho phép quản trị viên xem lại danh sách đã xóa và thực hiện khôi phục tường minh (Explicit Restore).
+  4. *Tự động cấp quyền `HISTORY_FULL`* (Rule 8) và giao diện tab "Lịch Sử Xóa (Tombstone)" trong `CrawlerModule`.
+- 🚫 **CÁCH SỬA ĐÃ THẤT BẠI - TUYỆT ĐỐI KHÔNG LẶP LẠI**:
+  - ❌ *Tuyệt đối KHÔNG xóa đơn thuần mảng trong bộ nhớ mà không ghi nhận Tombstone*.
+  - ❌ *Tuyệt đối KHÔNG dùng điều kiện `length > 0` để quyết định fallback cho danh sách chờ duyệt*.
+
 ### ISSUE-192: Bẫy Đứt Gãy Lan Truyền Dữ Liệu Khi Module Con (News API) Không Gọi Invalidate Tầng Edge Cache & Lệch Fallback Hạt Giống 208 vs 218
 - **Triệu chứng**:
   - Bài viết được tạo hoặc cập nhật qua `/api/news` (hoặc lô crawler tự động) đã được ghi vào D1 và hiển thị tại `/api/news`, nhưng người dùng đọc qua `/api/sync` (kể cả khi thêm tham số fresh) vẫn nhận con số cũ 208 bài thay vì 218.
