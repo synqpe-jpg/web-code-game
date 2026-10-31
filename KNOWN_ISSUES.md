@@ -10,6 +10,23 @@
 
 ## 1. DANH MỤC LỖI & CÁC BẪY ĐÃ THẤT BẠI (DO NOT REPEAT)
 
+### ISSUE-194: Bẫy Lệch Định Nghĩa Đếm Mã Giữa Các Tầng (584 Active vs 620 Total) & Đứt Gãy Lan Truyền Khi Module Ingest / News Không Đồng Bộ `masterState` và Không Gọi Invalidate Edge Cache
+- **Triệu chứng**:
+  - Số lượng giftcode Where Winds Meet hiển thị không nhất quán: `/api/games?slug=` trả 584, nhưng `sync.games` và tiêu đề trang hiển thị 620 (lệch đúng 36 mã). Mảng `sync.games` thiếu slug `where-winds-meet`.
+  - Khi bot Pine / Muse nạp game sắp ra mắt mới qua `/api/crawler/ingest-upcoming-games`, API trả về 37 nhưng `/api/sync` công khai vẫn trả 35 bản ghi cũ.
+  - Khi bài viết mới được đăng qua `/api/news`, API trả về 219 nhưng `/api/sync` vẫn trả 218 bài cũ.
+- **Nguyên nhân gốc rễ**:
+  1. *Lệch định nghĩa đếm mã*: Toàn bộ kho Where Winds Meet có 620 mã, trong đó có đúng **36 mã đã hết hạn sử dụng** (`status: 'expired'`, hạn trước 31/10/2026). Tầng API tính theo mã còn hạn (`!isCodeExpired(c)`) ra 584, trong khi static `games188.json` và `sync.games` lưu tĩnh 620 (tổng mã bao gồm cả mã hết hạn).
+  2. *Ghi đơn lẻ không lan truyền*: `ingest-upcoming-games.ts` chỉ ghi `wcg_admin_upcoming_games_v1` mà không cập nhật `wcg_master_state_v4.upcomingGames`, không xóa cache isolate RAM `__wcg_public_sync_cache`, và không gọi `invalidateCatalogEdgeCache`.
+  3. *Hạt giống fallback thiếu cập nhật*: `seedNews.ts` và `DEFAULT_UPCOMING_GAMES` thiếu bản ghi mới nhất, khiến khi D1 timeout, hệ thống fallback về số cũ (208/218 hoặc 35/37).
+- **Giải pháp chuẩn đã kiểm chứng**:
+  1. *Định nghĩa SSOT duy nhất*: `codes_count` (hoặc `active_codes_count`) = 584, `total_codes_count` = 620, `expired_codes_count` = 36, `free_codes_count` = 584. Thống nhất trên cả 3 slug (`where-winds-meet`, `where-winds-meet-mobile`, `yen-van-thap-luc-thanh`) trên tất cả 5 tầng: API, Sync, Search Card, Detail Modal, Page Title.
+  2. *Hàm lan truyền chuẩn `saveUpcomingGamesAndPropagate`*: Mọi thao tác ghi upcoming games đều cập nhật đồng thời cả `wcg_admin_upcoming_games_v1` và `wcg_master_state_v4.upcomingGames`, xóa bộ nhớ RAM, xóa `system_snapshots`, và purge Edge cache toàn cầu.
+  3. *Đồng bộ toàn bộ hạt giống fallback*: Đảm bảo 219 bài tin tức và 37 upcoming games có mặt đầy đủ trong mọi file fallback hạt giống.
+- 🚫 **CÁCH SỬA ĐÃ THẤT BẠI - TUYỆT ĐỐI KHÔNG LẶP LẠI**:
+  - ❌ *Tuyệt đối KHÔNG hiển thị tổng số mã (gồm cả mã hết hạn) cho thuộc tính `codes_count` trên Web Khách*.
+  - ❌ *Tuyệt đối KHÔNG ghi D1 cho từng module con mà quên cập nhật `wcg_master_state_v4` và gọi `invalidateCatalogEdgeCache`*.
+
 ### ISSUE-193: Bẫy Hồi Sinh Dữ Liệu Sau Khi Xóa (Resurrection Loop) Do Thiếu Bảng Tombstone & Fallback Trống Trải `Array.isArray && length > 0` Đè Lại Dữ Liệu Cũ
 - **Triệu chứng**:
   - Khi quản trị viên xóa game chờ duyệt (pending games) hoặc game live, lệnh trả về thành công 200, nhưng sau đó số lượng hàng đợi lại dao động (lúc 57 lúc 63).

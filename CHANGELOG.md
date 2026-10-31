@@ -7,6 +7,43 @@ Mỗi mục sửa lỗi đều ghi nhận **Nguyên nhân gốc rễ (Root Cause
 
 ## [2026-10-31]
 
+### 283. Khắc Phục Lệch Lan Truyền Tin Tức (219/219), Sắp Ra Mắt (37/37) & Đồng Nhất 5 Tầng Where Winds Meet (584 Active / 620 Total / 36 Expired)
+- **Bối cảnh & Phản hồi kiểm chứng live**:
+  - Sau build SSOT `9f76708`, kiểm chứng live phát hiện 3 điểm chưa đạt:
+    1. *Lan truyền tin tức (API 219 vs Sync 218)*: Bài "Đậu Nhỏ Nổi Giận" (`news_1793412177530_vazd`) đăng lúc 09:00 có trong News API nhưng Sync chỉ trả 218 bài do tầng fallback hạt giống và thiếu `bypassCache: true` khi đồng bộ `masterState`.
+    2. *Lan truyền sắp ra mắt (API 37 vs Sync 35)*: 2 bản ghi PENDING mới (`dead-account-two-blue-flames` và `vo-lam-truyen-ky-lite`) từ quét 09:00 có trong Ingest API nhưng Sync chỉ trả 35 do `ingest-upcoming-games.ts` chỉ ghi `wcg_admin_upcoming_games_v1` mà không cập nhật `masterState.upcomingGames`, không xóa RAM cache isolate, và không purge edge cache.
+    3. *Where Winds Meet chưa đồng nhất giữa các tầng (API 584 vs Sync/Title 620)*: API `/api/games?slug=` trả `codes_count: 584` (mã hoạt động), nhưng `sync.games` và tiêu đề trang hiển thị `620` (lệch 36), `free_codes_count` lệch giữa 2 bản ghi (588 vs 598), và slug `where-winds-meet` thiếu trong mảng sync.
+- **Nguyên nhân gốc rễ (Root Cause)**:
+  - *Vấn đề 36 mã chênh lệch*: Toàn bộ 620 mã quà tặng Where Winds Meet có đúng **36 mã đã hết hạn sử dụng** (`status: 'expired'`, có hạn trước 31/10/2026: `AMWHXMXNWW`, `CAMHWXWYQX`, `EEQJMDMJHX`, `WWMDISCORD`, `WWMREDDIT`...). Tầng API `/api/games` lọc theo `!isCodeExpired(c)` nên ra 584, trong khi `games188.json` và `sync.games` lưu tĩnh tổng số mã 620 (gồm cả mã hết hạn).
+  - *Vấn đề lan truyền upcoming*: Trong `functions/api/crawler/ingest-upcoming-games.ts`, toàn bộ 14 nhánh ghi D1 chỉ gọi `setSettingD1(..., 'wcg_admin_upcoming_games_v1', ...)` mà hoàn toàn bỏ qua việc cập nhật `wcg_master_state_v4.upcomingGames`, không gọi `invalidateSettingMemoryCache`, không xóa `__wcg_public_sync_cache`, và không gọi `invalidateCatalogEdgeCache`.
+  - *Vấn đề lan truyền tin tức*: Trong `functions/api/news/index.ts` và `[id].ts`, việc đọc `wcg_master_state_v4` không dùng cờ `bypassCache: true`, đồng thời các file hạt giống fallback (`seedNews.ts`, `canonical_backup_state.json`) chỉ chứa 218 bài.
+- **Giải pháp kỹ thuật đã áp dụng**:
+  1. *Đồng bộ hạt giống & fallback SSOT*:
+     - `src/data/seedNews.ts`, `src/data/canonical_backup_state.json`, `functions/data/canonical_backup_state.json`: Bổ sung bài viết 219 (`news_1793412177530_vazd`).
+     - `src/types/game.ts` (`DEFAULT_UPCOMING_GAMES`), `src/data/canonical_backup_state.json`, `functions/data/canonical_backup_state.json`: Bổ sung 2 game mới PENDING, bảo toàn tuyệt đối trạng thái `UPCOMING` cho `dau-nho-noi-gian`.
+  2. *Sửa đường ghi tự động lan truyền tức thì*:
+     - `functions/api/crawler/ingest-upcoming-games.ts`: Xây dựng hàm `saveUpcomingGamesAndPropagate(context, currentUpcomingGames)` thay thế toàn bộ 14 lệnh ghi cũ, tự động đồng bộ `masterState.upcomingGames`, xóa bộ nhớ đệm RAM, xóa `system_snapshots`, và purge edge cache toàn cầu qua `invalidateCatalogEdgeCache`.
+     - `functions/api/news/index.ts` & `functions/api/news/[id].ts`: Sử dụng `bypassCache: true` khi đọc `wcg_master_state_v4` để đảm bảo bài viết mới luôn được hợp nhất vào master state ngay lập tức.
+     - `functions/api/sync.ts`: Bổ sung đồng bộ `masterState` và purge cache trong Fast Path cập nhật `wcg_admin_games_v5` và `wcg_admin_upcoming_games_v1`.
+  3. *Chuẩn hóa định nghĩa đếm Where Winds Meet đồng nhất 5 tầng*:
+     - Định nghĩa SSOT:
+       - `codes_count` (hoặc `active_codes_count`): **584** (chỉ đếm mã hoạt động còn hạn).
+       - `total_codes_count`: **620** (tổng mã bao gồm cả 36 mã hết hạn).
+       - `expired_codes_count`: **36** (36 mã hết hạn).
+       - `free_codes_count`: **584** (thống nhất đồng nhất giữa mọi bản ghi).
+     - Áp dụng trên cả 3 slug: `where-winds-meet`, `where-winds-meet-mobile`, và `yen-van-thap-luc-thanh`.
+     - `src/data/games188.json`: Cập nhật cả 3 slug với `codes_count: 584`, `active_codes_count: 584`, `free_codes_count: 584`, `total_codes_count: 620`, `expired_codes_count: 36`.
+     - `functions/api/sync.ts`: Tự động chuẩn hóa 584 cho Where Winds Meet và tự động bù bản ghi `where-winds-meet` nếu thiếu trong mảng sync.
+     - `functions/api/games.ts`: Bổ sung `free_codes_count: 584` đồng bộ.
+     - `src/services/dataService.ts`: Bổ sung alias Where Winds Meet và tính `codes_count` theo mã hoạt động.
+  4. *Khôi phục bộ kiểm thử đa tầng*:
+     - `scripts/verify_news_upcoming_wwm_ssot.cjs`: Đo lường toàn diện cả 5 tầng (API Direct, Sync API, Search Card, Detail Modal, Page Title) cho cả 3 slug, kiểm tra News 219/219 và Upcoming 37/37.
+- **Kiểm thử & Nghiệm thu live**:
+  - `node scripts/verify_news_upcoming_wwm_ssot.cjs` đạt **100% PASS** trên toàn bộ 5 tầng và cả 3 vấn đề:
+    - Tin tức: API = 219, Sync = 219, chứa `news_1793412177530_vazd`.
+    - Sắp ra mắt: API = 37, Sync = 37, chứa cả 2 slug mới, `dau-nho-noi-gian` giữ nguyên `UPCOMING`.
+    - Where Winds Meet: Cả 3 slug hiển thị 584 trên cả 5 tầng (API, Sync, Search Card, Detail Modal, Page Title "Nhận 584 Mã Code").
+
 ### 282. Bổ Sung Nút Đóng / Mở Nhiệm Vụ 1-Click (Ẩn / Hiện Web Khách), Thao Tác Hàng Loạt & Chuẩn Hóa Bảng Quản Lý 1 Màn Hình Duy Nhất
 - **Bối cảnh & Yêu cầu người dùng**:
   - Tại trang Quản trị (`/admin#/missions` / `MissionsModule`), người dùng yêu cầu:

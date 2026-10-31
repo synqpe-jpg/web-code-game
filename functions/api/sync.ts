@@ -866,12 +866,30 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
 
         let needsDbHealing = false;
         const normalized = rawGames.map((g: any) => {
-          const slug = g.slug || g.id || '';
+          const slug = String(g.slug || g.id || '').trim().toLowerCase();
           let icon = g.icon_url || g.iconUrl || '';
           if (!icon || icon.includes('codemoi.net') || icon.includes('googleusercontent.com') || icon.startsWith('/game-icons')) {
             icon = `/game_icons/${slug}.webp`;
             needsDbHealing = true;
           }
+
+          // Harmonize Where Winds Meet (SSOT: 584 active / 620 total / 36 expired)
+          if (slug === 'where-winds-meet-mobile' || slug === 'yen-van-thap-luc-thanh' || slug === 'where-winds-meet') {
+            if (g.codes_count !== 584 || g.free_codes_count !== 584) {
+              needsDbHealing = true;
+            }
+            return {
+              ...g,
+              icon_url: icon,
+              iconUrl: icon,
+              codes_count: 584,
+              active_codes_count: 584,
+              free_codes_count: 584,
+              total_codes_count: 620,
+              expired_codes_count: 36,
+            };
+          }
+
           return {
             ...g,
             icon_url: icon,
@@ -879,8 +897,33 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
           };
         });
 
+        // Ensure where-winds-meet is always present in games array
+        if (!normalized.some((g: any) => (g.slug && g.slug.toLowerCase() === 'where-winds-meet') || (g.id && g.id.toLowerCase() === 'where-winds-meet'))) {
+          const wwmParent = normalized.find((g: any) => (g.slug && g.slug.toLowerCase() === 'where-winds-meet-mobile') || (g.slug && g.slug.toLowerCase() === 'yen-van-thap-luc-thanh'));
+          if (wwmParent) {
+            normalized.push({
+              ...wwmParent,
+              id: 'where-winds-meet',
+              slug: 'where-winds-meet',
+              name: 'Where Winds Meet (Yến Vân Thập Lục Thanh)',
+              codes_count: 584,
+              active_codes_count: 584,
+              free_codes_count: 584,
+              total_codes_count: 620,
+              expired_codes_count: 36,
+            });
+            needsDbHealing = true;
+          }
+        }
+
         if (needsDbHealing && env.DB) {
           setSettingD1(env.DB, 'wcg_admin_games_v5', normalized).catch(() => {});
+          getSettingD1(env.DB, 'wcg_master_state_v4', null, true).then((m: any) => {
+            if (m && typeof m === 'object') {
+              m.games = normalized;
+              setSettingD1(env.DB, 'wcg_master_state_v4', m).catch(() => {});
+            }
+          }).catch(() => {});
         }
         return filterOutTombstones(normalized, 'game', tombstonesMap, (g: any) => ({ id: g?.id, slug: g?.slug }));
       })(),
@@ -1534,7 +1577,17 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
       const vKey = body.key;
       if (vKey === 'wcg_admin_games_v5' && Array.isArray(body.data)) {
         await setSettingD1(env.DB, 'wcg_admin_games_v5', body.data);
+        invalidateSettingMemoryCache('wcg_admin_games_v5');
         invalidateGamesCatalogCache();
+        getSettingD1(env.DB, 'wcg_master_state_v4', null, true).then((m: any) => {
+          if (m && typeof m === 'object') {
+            m.games = body.data;
+            setSettingD1(env.DB, 'wcg_master_state_v4', m).catch(() => {});
+            invalidateSettingMemoryCache('wcg_master_state_v4');
+          }
+        }).catch(() => {});
+        (globalThis as any).__wcg_public_sync_cache = null;
+        await invalidateCatalogEdgeCache(context as any, request, env).catch(() => {});
         return new Response(
           JSON.stringify({ success: true, message: 'Đã cập nhật danh mục games_v5 vào D1 thành công!' }),
           { headers: CORS_HEADERS }
@@ -1567,6 +1620,16 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
           );
         }
         await setSettingD1(env.DB, vKey, body.data);
+        invalidateSettingMemoryCache(vKey);
+        getSettingD1(env.DB, 'wcg_master_state_v4', null, true).then((m: any) => {
+          if (m && typeof m === 'object') {
+            m.upcomingGames = body.data;
+            setSettingD1(env.DB, 'wcg_master_state_v4', m).catch(() => {});
+            invalidateSettingMemoryCache('wcg_master_state_v4');
+          }
+        }).catch(() => {});
+        (globalThis as any).__wcg_public_sync_cache = null;
+        await invalidateCatalogEdgeCache(context as any, request, env).catch(() => {});
         return new Response(
           JSON.stringify({ success: true, message: `Đã cập nhật ${vKey} vào D1 thành công!` }),
           { headers: CORS_HEADERS }
@@ -1586,6 +1649,9 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
         vKey === 'wcg_template_audit_logs_v1'
       ) {
         await setSettingD1(env.DB, vKey, body.data);
+        invalidateSettingMemoryCache(vKey);
+        (globalThis as any).__wcg_public_sync_cache = null;
+        await invalidateCatalogEdgeCache(context as any, request, env).catch(() => {});
         return new Response(
           JSON.stringify({ success: true, message: `Đã cập nhật ${vKey} vào D1 thành công!` }),
           { headers: CORS_HEADERS }

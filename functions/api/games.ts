@@ -292,6 +292,7 @@ export function formatGameItem(g: any, allCodes: GiftCode[]): GameItem {
     is_active: g.is_active !== undefined ? Boolean(g.is_active) : true,
     codes_count: cleanCodes.filter((c) => !isCodeExpired(c)).length,
     active_codes_count: cleanCodes.filter((c) => !isCodeExpired(c)).length,
+    free_codes_count: cleanCodes.filter((c) => !isCodeExpired(c)).length,
     expired_codes_count: cleanCodes.filter((c) => isCodeExpired(c)).length,
     total_codes_count: cleanCodes.length,
     codes: cleanCodes,

@@ -246,7 +246,7 @@ export const onRequestPut: PagesFunction<Env> = async (context) => {
       await setSettingD1(env.DB, 'wcg_news_articles_v1', articles);
       invalidateSettingMemoryCache('wcg_news_articles_v1');
 
-      const masterRow: any = await getSettingD1(env.DB, 'wcg_master_state_v4');
+      const masterRow: any = await getSettingD1(env.DB, 'wcg_master_state_v4', null, true);
       let master = masterRow && typeof masterRow === 'object' ? masterRow : {};
       master.newsArticles = articles;
       await setSettingD1(env.DB, 'wcg_master_state_v4', master);
@@ -333,7 +333,7 @@ export const onRequestDelete: PagesFunction<Env> = async (context) => {
       invalidateSettingMemoryCache('wcg_news_articles_v1');
       invalidateSettingMemoryCache('wcg_deleted_news_articles_v1');
 
-      const masterRow: any = await getSettingD1(env.DB, 'wcg_master_state_v4');
+      const masterRow: any = await getSettingD1(env.DB, 'wcg_master_state_v4', null, true);
       let master = masterRow && typeof masterRow === 'object' ? masterRow : {};
       master.newsArticles = remaining;
       master.deletedNewsArticles = Array.from(deletedSet);

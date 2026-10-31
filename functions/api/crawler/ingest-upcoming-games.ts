@@ -16,9 +16,38 @@
  *    - Move_To_Pending: Chuyển game từ web về lại hàng chờ.
  */
 
-import { getSettingD1, setSettingD1 } from '../../services/d1_service';
+import { getSettingD1, setSettingD1, invalidateSettingMemoryCache } from '../../services/d1_service';
 import { recordSoftDelete, isRecordTombstoned } from '../../services/soft_delete_service';
 import { invalidateCatalogEdgeCache } from '../../services/cache_service';
+
+async function saveUpcomingGamesAndPropagate(
+  context: { request: Request; env: Env; waitUntil?: (p: Promise<any>) => void },
+  currentUpcomingGames: any[]
+): Promise<void> {
+  const { request, env } = context;
+  if (!env?.DB) return;
+  await saveUpcomingGamesAndPropagate(context, currentUpcomingGames);
+  invalidateSettingMemoryCache('wcg_admin_upcoming_games_v1');
+
+  // Master state sync
+  try {
+    const master: any = await getSettingD1(env.DB, 'wcg_master_state_v4', null, true);
+    if (master && typeof master === 'object') {
+      master.upcomingGames = currentUpcomingGames;
+      await setSettingD1(env.DB, 'wcg_master_state_v4', master);
+      invalidateSettingMemoryCache('wcg_master_state_v4');
+    }
+  } catch (e: any) {
+    console.warn('[Ingest Upcoming] Error syncing master state:', e?.message);
+  }
+
+  // Clear isolate sync caches & purge snapshots
+  (globalThis as any).__wcg_public_sync_cache = null;
+  (globalThis as any).__wcg_metrics_snapshot = null;
+  await env.DB.prepare('DELETE FROM system_snapshots').run().catch(() => {});
+  await invalidateCatalogEdgeCache(context as any, request, env).catch(() => {});
+}
+
 
 export interface Env {
   DB?: D1Database;
@@ -1175,7 +1204,7 @@ export async function onRequestPost(context: { request: Request; env: Env }): Pr
 
     currentUpcomingGames = incomingGames;
     if (env.DB) {
-      await setSettingD1(env.DB, 'wcg_admin_upcoming_games_v1', currentUpcomingGames);
+      await saveUpcomingGamesAndPropagate(context, currentUpcomingGames);
     }
 
     return new Response(
@@ -1210,7 +1239,7 @@ export async function onRequestPost(context: { request: Request; env: Env }): Pr
     }
 
     if (rolledOverCount > 0 && env.DB) {
-      await setSettingD1(env.DB, 'wcg_admin_upcoming_games_v1', currentUpcomingGames);
+      await saveUpcomingGamesAndPropagate(context, currentUpcomingGames);
     }
 
     return new Response(
@@ -1286,7 +1315,7 @@ export async function onRequestPost(context: { request: Request; env: Env }): Pr
     }
 
     sanitizeAndSafeguardUpcomingGames(currentUpcomingGames);
-    if (env.DB) await setSettingD1(env.DB, 'wcg_admin_upcoming_games_v1', currentUpcomingGames);
+    if (env.DB) await saveUpcomingGamesAndPropagate(context, currentUpcomingGames);
 
     return new Response(
       JSON.stringify({
@@ -1375,7 +1404,7 @@ export async function onRequestPost(context: { request: Request; env: Env }): Pr
     }
 
     sanitizeAndSafeguardUpcomingGames(currentUpcomingGames);
-    if (env.DB) await setSettingD1(env.DB, 'wcg_admin_upcoming_games_v1', currentUpcomingGames);
+    if (env.DB) await saveUpcomingGamesAndPropagate(context, currentUpcomingGames);
 
     return new Response(
       JSON.stringify({
@@ -1432,7 +1461,7 @@ export async function onRequestPost(context: { request: Request; env: Env }): Pr
       }
 
       if (batchUpdatedCount > 0 && env.DB) {
-        await setSettingD1(env.DB, 'wcg_admin_upcoming_games_v1', currentUpcomingGames);
+        await saveUpcomingGamesAndPropagate(context, currentUpcomingGames);
       }
 
       return new Response(
@@ -1513,7 +1542,7 @@ export async function onRequestPost(context: { request: Request; env: Env }): Pr
     }
 
     if (env.DB) {
-      await setSettingD1(env.DB, 'wcg_admin_upcoming_games_v1', currentUpcomingGames);
+      await saveUpcomingGamesAndPropagate(context, currentUpcomingGames);
     }
 
     return new Response(
@@ -1570,7 +1599,7 @@ export async function onRequestPost(context: { request: Request; env: Env }): Pr
     }
 
     if (clearedCount > 0 && env.DB) {
-      await setSettingD1(env.DB, 'wcg_admin_upcoming_games_v1', currentUpcomingGames);
+      await saveUpcomingGamesAndPropagate(context, currentUpcomingGames);
     }
 
     return new Response(
@@ -1647,7 +1676,7 @@ export async function onRequestPost(context: { request: Request; env: Env }): Pr
 
     // Lưu vào cơ sở dữ liệu D1
     if (env.DB) {
-      await setSettingD1(env.DB, 'wcg_admin_upcoming_games_v1', currentUpcomingGames);
+      await saveUpcomingGamesAndPropagate(context, currentUpcomingGames);
     }
 
     return new Response(
@@ -1900,7 +1929,7 @@ export async function onRequestPost(context: { request: Request; env: Env }): Pr
       matchedGame.icon_url = iconPublicPath;
       matchedGame.updatedAt = nowIso;
       matchedGame.source = botName;
-      await setSettingD1(env.DB, 'wcg_admin_upcoming_games_v1', currentUpcomingGames);
+      await saveUpcomingGamesAndPropagate(context, currentUpcomingGames);
     } else if (targetType === 'CATALOG') {
       try {
         await env.DB.prepare('UPDATE games SET icon_url = ? WHERE slug = ?')
@@ -2030,7 +2059,7 @@ export async function onRequestPost(context: { request: Request; env: Env }): Pr
       }
     }
 
-    if (env.DB) await setSettingD1(env.DB, 'wcg_admin_upcoming_games_v1', currentUpcomingGames);
+    if (env.DB) await saveUpcomingGamesAndPropagate(context, currentUpcomingGames);
 
     return new Response(
       JSON.stringify({
@@ -2092,7 +2121,7 @@ export async function onRequestPost(context: { request: Request; env: Env }): Pr
     });
     const deletedCount = beforeLen - currentUpcomingGames.length;
 
-    if (env.DB) await setSettingD1(env.DB, 'wcg_admin_upcoming_games_v1', currentUpcomingGames);
+    if (env.DB) await saveUpcomingGamesAndPropagate(context, currentUpcomingGames);
 
     const gScope = globalThis as any;
     gScope.__wcg_public_sync_cache = null;
@@ -2140,7 +2169,7 @@ export async function onRequestPost(context: { request: Request; env: Env }): Pr
     // Sort by displayOrder
     currentUpcomingGames.sort((a, b) => (a.displayOrder || 999) - (b.displayOrder || 999));
 
-    if (env.DB) await setSettingD1(env.DB, 'wcg_admin_upcoming_games_v1', currentUpcomingGames);
+    if (env.DB) await saveUpcomingGamesAndPropagate(context, currentUpcomingGames);
 
     return new Response(
       JSON.stringify({
@@ -2161,7 +2190,7 @@ export async function onRequestPost(context: { request: Request; env: Env }): Pr
         item.updatedAt = nowIso;
       }
     }
-    if (env.DB) await setSettingD1(env.DB, 'wcg_admin_upcoming_games_v1', currentUpcomingGames);
+    if (env.DB) await saveUpcomingGamesAndPropagate(context, currentUpcomingGames);
 
     return new Response(
       JSON.stringify({ success: true, message: 'Đã chuyển game về hàng chờ duyệt.', games: currentUpcomingGames }),
@@ -2498,7 +2527,7 @@ export async function onRequestPost(context: { request: Request; env: Env }): Pr
   // 4. Lưu lại vào D1
   if (env.DB) {
     try {
-      await setSettingD1(env.DB, 'wcg_admin_upcoming_games_v1', currentUpcomingGames);
+      await saveUpcomingGamesAndPropagate(context, currentUpcomingGames);
     } catch (err) {
       console.error('[IngestUpcomingGames] Lỗi ghi D1:', err);
       return new Response(

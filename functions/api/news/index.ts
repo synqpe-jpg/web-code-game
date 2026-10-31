@@ -295,7 +295,7 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
       invalidateSettingMemoryCache('wcg_news_articles_v1');
 
       // Master state sync
-      const masterRow: any = await getSettingD1(env.DB, 'wcg_master_state_v4');
+      const masterRow: any = await getSettingD1(env.DB, 'wcg_master_state_v4', null, true);
       let master = masterRow && typeof masterRow === 'object' ? masterRow : {};
       master.newsArticles = updatedList;
       await setSettingD1(env.DB, 'wcg_master_state_v4', master);
