@@ -7,6 +7,31 @@ Mỗi mục sửa lỗi đều ghi nhận **Nguyên nhân gốc rễ (Root Cause
 
 ## [2026-10-31]
 
+### 288. Sắp Xếp Chuyên Mục Tin Tức Theo Thứ Tự Mới Nhất Lên Đầu (Strict Chronological Descending Sort)
+- **Bối cảnh & Yêu cầu**:
+  - Người dùng yêu cầu sắp xếp lại mục tin tức (`codegame.shop/news` và giao diện Web Khách): bài viết nào mới đăng phải luôn được hiển thị lên trước.
+- **Nguyên nhân gốc rễ (Root Cause)**:
+  - Trước đây, tại `newsService.getPublishedArticles()` và endpoint `GET /api/news`, hệ thống áp dụng điều kiện:
+    `if (a.is_featured && !b.is_featured) return -1;`
+    Khiến 7 bài viết được đánh dấu `is_featured: true` từ những ngày đầu (từ 10/10 và 13/10 như Genshin Impact, Ta Là Hắc Ngộ Không) bị ghim cố định ở các vị trí đầu tiên (vị trí 1 đến 7).
+  - Các bài viết mới xuất bản trong ngày (31/10) như Sword x Staff, Monster Hunter Outlanders, Hiệp Khách Hành, Liên Quân Mobile, Đậu Nhỏ Nổi Giận do không mang cờ `is_featured: true` nên bị đẩy lùi xuống trang 2 hoặc vị trí sau thứ 7, không thể xuất hiện ngay tại trang nhất mục tin tức.
+  - Tại `NewsView.tsx`, Hero Banner "Tin Nổi Bật Nhất" tìm `articles.find(a => a.is_featured)`, do đó luôn hiển thị bài viết tiêu điểm cũ từ ngày 30/10 thay vì bài viết mới nhất vừa xuất bản.
+- **Giải pháp kỹ thuật đã áp dụng**:
+  1. *Chuẩn hóa hàm so sánh thời gian (`compareArticlesByDateDesc`)*:
+     - Đặt tại `src/services/newsService.ts`: Sắp xếp giảm dần theo thời gian xuất bản thực tế (`published_at`, fallback `created_at` hoặc `updated_at`).
+     - Nếu trùng thời gian: Dùng ID bài viết (chuỗi timestamp ID giảm dần) làm tiêu chí phụ ổn định.
+  2. *Cập nhật `getPublishedArticles()` & `getAllArticlesForAdmin()`*:
+     - Thay thế toàn bộ logic ưu tiên `is_featured` bằng `compareArticlesByDateDesc`. Tin mới xuất bản luôn luôn đứng ở vị trí đầu tiên.
+  3. *Cập nhật Hero Banner tại `src/components/NewsView.tsx`*:
+     - Hero Banner "Tin Nổi Bật Nhất" luôn hiển thị bài viết mới nhất (`articles[0]`), và lưới bài viết hiển thị các bài viết kế tiếp theo đúng trình tự thời gian giảm dần.
+  4. *Đồng bộ phía Backend Serverless Edge (`functions/api/news/index.ts` & `functions/api/sync.ts`)*:
+     - `GET /api/news` và `GET /api/sync` (cả nhánh `wcg_news_articles_v1` lẫn `wcg_master_state_v4`) đều tự động sắp xếp danh sách bài viết theo thời gian mới nhất lên đầu trước khi phản hồi.
+  5. *Chuẩn hóa dữ liệu hạt giống `src/data/seedNews.ts`*:
+     - Toàn bộ 220 bài viết trong file hạt giống được sắp xếp giảm dần theo thời gian xuất bản (0 cặp lỗi thứ tự).
+- **Kiểm chứng**:
+  - `npm run build` thành công 100%, 0 lỗi.
+  - Các bài viết mới nhất ngày 31/10 ngay lập tức đứng ở vị trí đầu tiên trên cả giao diện Web Khách, API `/api/news` và trang Quản trị.
+
 ### 287. Nâng Cấp Toàn Diện Giao Diện Chi Tiết Tin Tức (/news/<slug>) — Chuẩn Hóa Bố Cục Trang Tổng Hợp Chuyên Sâu, Mục Lục Thông Minh & Thích Ứng Mọi Thiết Bị
 - **Bối cảnh & Mục tiêu**:
   - Người dùng yêu cầu làm lại giao diện trang chi tiết bài tin tức trên `codegame.shop`, hiển thị đẹp, dễ đọc, khoa học như một trang tổng hợp chuyên sâu thay vì chỉ là khối chữ dài đơn điệu.

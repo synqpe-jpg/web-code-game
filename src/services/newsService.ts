@@ -11,6 +11,24 @@ const STORAGE_SOURCES_KEY = 'wcg_news_auto_sources_v1';
 const STORAGE_CONFIG_KEY = 'wcg_news_schedule_config_v1';
 const STORAGE_LOGS_KEY = 'wcg_news_crawl_logs_v1';
 
+/**
+ * Hàm so sánh sắp xếp tin tức: Tin mới nhất luôn lên trước (published_at/created_at giảm dần)
+ */
+export const compareArticlesByDateDesc = (a: any, b: any): number => {
+  if (!a && !b) return 0;
+  if (!a) return 1;
+  if (!b) return -1;
+  const getTs = (art: any): number => {
+    const d = art.published_at || art.created_at || art.updated_at;
+    if (!d) return 0;
+    const t = new Date(d).getTime();
+    return isNaN(t) ? 0 : t;
+  };
+  const diff = getTs(b) - getTs(a);
+  if (diff !== 0) return diff;
+  return String(b.id || '').localeCompare(String(a.id || ''));
+};
+
 class NewsService {
   private articles: NewsArticle[] = [];
   private deletedArticleIds: Set<string> = new Set();
@@ -297,6 +315,7 @@ class NewsService {
         }
 
         if (mergedList.length > 0 || this.articles.length === 0) {
+          mergedList.sort(compareArticlesByDateDesc);
           this.articles = mergedList;
           this.saveToStorage();
         }
@@ -415,16 +434,10 @@ class NewsService {
       );
     }
 
-    // Sắp xếp: Tin tiêu điểm lên đầu, sau đó theo ngày phát hành mới nhất
+    // Sắp xếp: Tin mới nhất luôn lên trước
     return result
       .map((a) => ({ ...a, views: this.getDisplayViews(a) }))
-      .sort((a, b) => {
-        if (a.is_featured && !b.is_featured) return -1;
-        if (!a.is_featured && b.is_featured) return 1;
-        const dateA = new Date(a.published_at || (a as any).created_at || 0).getTime();
-        const dateB = new Date(b.published_at || (b as any).created_at || 0).getTime();
-        return dateB - dateA;
-      });
+      .sort(compareArticlesByDateDesc);
   }
 
   /**
@@ -455,11 +468,7 @@ class NewsService {
   public getAllArticlesForAdmin(): NewsArticle[] {
     return [...this.articles]
       .map((a) => ({ ...a, views: this.getDisplayViews(a) }))
-      .sort((a, b) => {
-        const dateA = new Date(a.published_at || a.updated_at || 0).getTime();
-        const dateB = new Date(b.published_at || b.updated_at || 0).getTime();
-        return dateB - dateA;
-      });
+      .sort(compareArticlesByDateDesc);
   }
 
   /**
@@ -560,6 +569,7 @@ class NewsService {
       this.articles.unshift(savedItem);
     }
 
+    this.articles.sort(compareArticlesByDateDesc);
     this.saveToStorage();
 
     if (typeof window !== 'undefined') {

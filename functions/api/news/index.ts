@@ -164,13 +164,13 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
     });
   }
 
-  // Sắp xếp: Tiêu điểm lên đầu, sau đó theo ngày phát hành mới nhất
+  // Sắp xếp: Tin mới nhất luôn lên trước
   clean.sort((a, b) => {
-    if (a.is_featured && !b.is_featured) return -1;
-    if (!a.is_featured && b.is_featured) return 1;
-    const dateA = new Date(a.published_at || a.created_at || 0).getTime();
-    const dateB = new Date(b.published_at || b.created_at || 0).getTime();
-    return dateB - dateA;
+    const dateA = new Date(a.published_at || a.created_at || a.updated_at || 0).getTime() || 0;
+    const dateB = new Date(b.published_at || b.created_at || b.updated_at || 0).getTime() || 0;
+    const diff = dateB - dateA;
+    if (diff !== 0) return diff;
+    return String(b.id || '').localeCompare(String(a.id || ''));
   });
 
   const total = clean.length;
@@ -287,7 +287,13 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
     updated_at: now,
   };
 
-  const updatedList = [newArticle, ...existingArticles];
+  const updatedList = [newArticle, ...existingArticles].sort((a, b) => {
+    const dateA = new Date(a.published_at || a.created_at || a.updated_at || 0).getTime() || 0;
+    const dateB = new Date(b.published_at || b.created_at || b.updated_at || 0).getTime() || 0;
+    const diff = dateB - dateA;
+    if (diff !== 0) return diff;
+    return String(b.id || '').localeCompare(String(a.id || ''));
+  });
 
   if (env.DB) {
     try {

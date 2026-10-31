@@ -121,9 +121,9 @@ export const NewsView: React.FC<NewsViewProps> = ({
     });
   }, [articles, searchQuery, selectedGameSlug, selectedTag]);
 
-  // Featured article (first featured article or first hot article)
+  // Featured article (Hero banner): Luôn hiển thị bài viết mới nhất lên vị trí nổi bật nhất
   const featuredArticle = useMemo(() => {
-    return articles.find((a) => a.is_featured) || articles[0] || null;
+    return articles[0] || null;
   }, [articles]);
 
   // Other articles excluding the hero banner if not searching

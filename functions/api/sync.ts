@@ -363,6 +363,12 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
             published_at: a.published_at || (effectiveStatus === 'PUBLISHED' && a.scheduled_publish_at ? a.scheduled_publish_at : null) || a.created_at || new Date().toISOString(),
             created_at: a.created_at || a.published_at || new Date().toISOString(),
           };
+        }).sort((a: any, b: any) => {
+          const dateA = new Date(a.published_at || a.created_at || a.updated_at || 0).getTime() || 0;
+          const dateB = new Date(b.published_at || b.created_at || b.updated_at || 0).getTime() || 0;
+          const diff = dateB - dateA;
+          if (diff !== 0) return diff;
+          return String(b.id || '').localeCompare(String(a.id || ''));
         });
       } else if (specificKey === 'wcg_admin_sepay_v4' && (!val || val.accountNumber === '0987654321')) {
         val = {
@@ -1063,6 +1069,12 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
             published_at: a.published_at || (effectiveStatus === 'PUBLISHED' && a.scheduled_publish_at ? a.scheduled_publish_at : null) || a.created_at || new Date().toISOString(),
             created_at: a.created_at || a.published_at || new Date().toISOString(),
           };
+        }).sort((a: any, b: any) => {
+          const dateA = new Date(a.published_at || a.created_at || a.updated_at || 0).getTime() || 0;
+          const dateB = new Date(b.published_at || b.created_at || b.updated_at || 0).getTime() || 0;
+          const diff = dateB - dateA;
+          if (diff !== 0) return diff;
+          return String(b.id || '').localeCompare(String(a.id || ''));
         });
       })(),
       deletedNewsArticles: Array.from(deletedNewsSet),
@@ -5616,6 +5628,14 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
               await setSettingD1(env.DB, 'wcg_news_articles_backup_v1', existingNews);
               console.warn(`[News Safeguard] CHỐT CHẶN GHI ĐÈ: Nhận ${incomingNews.length} bài nhưng server có ${existingNews.length} bài. Tự động bảo toàn ${unapprovedMissing.length} bài viết không bị xóa nhầm.`);
             }
+
+            finalArticles.sort((a: any, b: any) => {
+              const dateA = new Date(a.published_at || a.created_at || a.updated_at || 0).getTime() || 0;
+              const dateB = new Date(b.published_at || b.created_at || b.updated_at || 0).getTime() || 0;
+              const diff = dateB - dateA;
+              if (diff !== 0) return diff;
+              return String(b.id || '').localeCompare(String(a.id || ''));
+            });
 
             currentMaster.newsArticles = finalArticles;
             await setSettingD1(env.DB, 'wcg_news_articles_v1', finalArticles);
