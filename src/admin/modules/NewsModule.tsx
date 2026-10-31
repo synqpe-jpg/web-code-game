@@ -46,9 +46,11 @@ import {
   History,
   Bell,
   Sliders,
+  AlertTriangle,
 } from 'lucide-react';
 import { NewsArticle } from '../../types/game';
 import { newsService } from '../../services/newsService';
+import { NewsDetailModal } from '../../components/NewsDetailModal';
 import type { NewsAutoSource, NewsScheduleConfig, NewsCrawlLogItem } from '../../types/newsAutomation';
 import { adminDataService } from '../services/adminDataService';
 import { dataService } from '../../services/dataService';
@@ -78,9 +80,67 @@ export const NewsModule: React.FC<NewsModuleProps> = ({ onShowToast }) => {
   const [activeEditorTab, setActiveEditorTab] = useState<'edit' | 'preview'>('edit');
   const [isCompressingCover, setIsCompressingCover] = useState(false);
   const [isCompressingGallery, setIsCompressingGallery] = useState(false);
+  const [isPreviewOpen, setIsPreviewOpen] = useState(false);
+  const [coverValidation, setCoverValidation] = useState<{
+    status: 'idle' | 'validating' | 'valid' | 'invalid';
+    message?: string;
+  }>({ status: 'valid' });
   const contentTextareaRef = useRef<HTMLTextAreaElement>(null);
   const coverFileInputRef = useRef<HTMLInputElement>(null);
   const galleryFileInputRef = useRef<HTMLInputElement>(null);
+
+  // Live cover_url validation using Image() preload & anti-derivation regex
+  useEffect(() => {
+    const rawCover = (editingArticle.cover_url || '').trim();
+    if (!rawCover) {
+      setCoverValidation({ status: 'valid' });
+      return;
+    }
+
+    const BANNED_PATTERNS = [
+      /moi-va-huong-dan/i,
+      /huong-dan-cach-nhap/i,
+      /tong-hop-giftcode/i,
+      /cam-nang/i,
+      /tat-tan-tat/i,
+      /bang-xep-hang/i,
+      /danh-sach-code/i,
+    ];
+    for (const p of BANNED_PATTERNS) {
+      if (p.test(rawCover)) {
+        setCoverValidation({
+          status: 'invalid',
+          message: 'Ảnh bìa nghi ngờ tự sinh từ tiêu đề bài viết (không phải icon game thật). Vui lòng chọn ảnh chuyên đề chuẩn hoặc logo game!',
+        });
+        return;
+      }
+    }
+
+    if (rawCover.startsWith('data:') || rawCover.startsWith('blob:')) {
+      setCoverValidation({ status: 'valid' });
+      return;
+    }
+
+    setCoverValidation({ status: 'validating' });
+    let active = true;
+    const img = new window.Image();
+    img.onload = () => {
+      if (!active) return;
+      setCoverValidation({ status: 'valid' });
+    };
+    img.onerror = () => {
+      if (!active) return;
+      setCoverValidation({
+        status: 'invalid',
+        message: 'Ảnh bìa không tồn tại (404) hoặc không tải được — bài viết sẽ hiển thị khung lỗi trên web nếu xuất bản!',
+      });
+    };
+    img.src = rawCover;
+
+    return () => {
+      active = false;
+    };
+  }, [editingArticle.cover_url]);
 
   // AI Generator Modal state
   const [isAiModalOpen, setIsAiModalOpen] = useState(false);
@@ -535,6 +595,11 @@ export const NewsModule: React.FC<NewsModuleProps> = ({ onShowToast }) => {
       return;
     }
 
+    if (coverValidation.status === 'invalid') {
+      onShowToast('Ảnh bìa không hợp lệ', coverValidation.message || 'Vui lòng chọn ảnh bìa hợp lệ trước khi lưu!', 'error');
+      return;
+    }
+
     const slug =
       editingArticle.slug?.trim() ||
       editingArticle.title
@@ -575,7 +640,7 @@ export const NewsModule: React.FC<NewsModuleProps> = ({ onShowToast }) => {
       content: editingArticle.content,
       cover_url:
         editingArticle.cover_url ||
-        (editingArticle.game_slug ? `/game_icons/${editingArticle.game_slug}.webp` : '/news_covers/game-offline-hay.webp'),
+        (editingArticle.game_slug ? `/game_icons/${editingArticle.game_slug}.webp` : '/news_covers/thi-truong-game-viet-nam.webp'),
       gallery_urls: editingArticle.gallery_urls || [],
       virtual_views: Number(editingArticle.virtual_views) || 0,
       views_growth_rate: editingArticle.views_growth_rate !== undefined ? Number(editingArticle.views_growth_rate) : 1.0,
@@ -2718,7 +2783,11 @@ export const NewsModule: React.FC<NewsModuleProps> = ({ onShowToast }) => {
                           })
                         }
                         placeholder={editingArticle.game_slug ? `Mặc định: /game_icons/${editingArticle.game_slug}.webp (Logo game)` : 'https://... hoặc tải ảnh từ máy tính'}
-                        className="flex-1 px-3 py-2 rounded-xl bg-slate-900 border border-slate-700 text-xs text-white outline-none focus:border-indigo-500 font-mono"
+                        className={`flex-1 px-3 py-2 rounded-xl bg-slate-900 border text-xs text-white outline-none font-mono ${
+                          coverValidation.status === 'invalid'
+                            ? 'border-rose-500 focus:border-rose-400'
+                            : 'border-slate-700 focus:border-indigo-500'
+                        }`}
                       />
                       {editingArticle.cover_url && (
                         <div className="relative w-12 h-9 rounded-lg overflow-hidden border border-slate-600 shrink-0 bg-black/40">
@@ -2732,6 +2801,40 @@ export const NewsModule: React.FC<NewsModuleProps> = ({ onShowToast }) => {
                           />
                         </div>
                       )}
+                    </div>
+
+                    {/* Báo lỗi trực tiếp nếu ảnh 404 hoặc bị lỗi */}
+                    {coverValidation.status === 'invalid' && (
+                      <div className="p-3 rounded-xl bg-rose-500/15 border border-rose-500/40 text-rose-300 text-xs flex items-center gap-2">
+                        <AlertTriangle className="w-4 h-4 shrink-0 text-rose-400" />
+                        <span>{coverValidation.message}</span>
+                      </div>
+                    )}
+
+                    {/* Hộp chọn ảnh bìa chuyên đề có sẵn (Preset selector) */}
+                    <div className="flex flex-col sm:flex-row sm:items-center gap-2 pt-1 border-t border-slate-700/50">
+                      <span className="text-[11px] text-slate-400 font-medium shrink-0">Chọn nhanh ảnh chuyên đề:</span>
+                      <select
+                        onChange={(e) => {
+                          if (e.target.value) {
+                            setEditingArticle({ ...editingArticle, cover_url: e.target.value });
+                          }
+                        }}
+                        value={editingArticle.cover_url?.startsWith('/news_covers/') ? editingArticle.cover_url : ''}
+                        className="flex-1 px-2.5 py-1.5 rounded-lg bg-slate-900 border border-slate-700 text-slate-200 text-xs outline-none focus:border-indigo-500 cursor-pointer"
+                      >
+                        <option value="">-- Chọn ảnh chuyên đề có sẵn (/news_covers/) --</option>
+                        <option value="/news_covers/thi-truong-game-viet-nam.webp">📰 Thị trường Game Việt Nam (Mặc định chuẩn)</option>
+                        <option value="/news_covers/cktg-2026-esports.webp">🏆 Esports & CKTG 2026</option>
+                        <option value="/news_covers/apple-arcade-games.webp">🍎 Apple Arcade & Mobile Games</option>
+                        <option value="/news_covers/game-offline-hay.webp">🕹️ Game Offline & Độc Lập</option>
+                        <option value="/news_covers/qua-tang-giftcode-vip.webp">🎁 Sự Kiện & Giftcode VIP</option>
+                        <option value="/news_covers/xac-thuc-tai-khoan-game.webp">🛡️ Hướng Dẫn & Bảo Mật Tài Khoản</option>
+                        <option value="/news_covers/nhan-luc-nganh-game.webp">💼 Công Nghệ & Ngành Game</option>
+                        <option value="/news_covers/blv-esports-viet-nam.webp">🎙️ Cộng Đồng & Bình Luận Viên</option>
+                        <option value="/news_covers/board-game-van-hoa-viet.webp">🎲 Board Game Văn Hóa Việt</option>
+                        <option value="/news_covers/xbox-games-collection.webp">🎮 Xbox Games Collection</option>
+                      </select>
                     </div>
                   </div>
 
@@ -3385,14 +3488,71 @@ export const NewsModule: React.FC<NewsModuleProps> = ({ onShowToast }) => {
                   </button>
                   <button
                     type="button"
+                    onClick={() => setIsPreviewOpen(true)}
+                    className="flex items-center gap-1.5 px-4 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 border border-slate-600 text-sky-300 font-bold text-xs transition-all cursor-pointer shadow-sm active:scale-95"
+                    title="Xem trước bài viết đầy đủ như trên website khách"
+                  >
+                    <Eye className="w-4 h-4 text-sky-400" />
+                    <span>Xem Trước Đầy Đủ</span>
+                  </button>
+                  <button
+                    type="button"
                     onClick={handleSaveArticle}
-                    className="flex items-center gap-1.5 px-6 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-black text-xs transition-all shadow-md active:scale-95 cursor-pointer"
+                    disabled={coverValidation.status === 'invalid'}
+                    className={`flex items-center gap-1.5 px-6 py-2.5 rounded-xl font-black text-xs transition-all shadow-md active:scale-95 ${
+                      coverValidation.status === 'invalid'
+                        ? 'bg-slate-700 text-slate-400 cursor-not-allowed opacity-60'
+                        : 'bg-indigo-600 hover:bg-indigo-500 text-white cursor-pointer'
+                    }`}
                   >
                     <Save className="w-4 h-4" />
                     <span>Lưu & Xuất Bản</span>
                   </button>
                 </div>
               </div>
+            </div>
+          </div>,
+          document.body
+        )}
+
+      {/* Modal Xem Trước Đầy Đủ (NewsDetailModal) */}
+      {isPreviewOpen &&
+        createPortal(
+          <div className="fixed inset-0 z-[10000] overflow-y-auto bg-slate-950 p-2 sm:p-6 animate-fade-in">
+            <div className="max-w-5xl mx-auto">
+              <div className="mb-4 flex items-center justify-between p-3 rounded-2xl bg-slate-900 border border-slate-800 text-white shadow-xl">
+                <div className="flex items-center gap-2 text-xs font-bold text-amber-400">
+                  <Eye className="w-4 h-4" />
+                  <span>CHẾ ĐỘ XEM TRƯỚC BÀI VIẾT TIN TỨC (Dữ Liệu Thật Đang Chỉnh Sửa)</span>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setIsPreviewOpen(false)}
+                  className="px-4 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-xs font-bold text-white transition-all cursor-pointer"
+                >
+                  ✕ Đóng xem trước
+                </button>
+              </div>
+              <NewsDetailModal
+                article={
+                  {
+                    ...editingArticle,
+                    id: editingArticle.id || 'preview_id',
+                    slug: editingArticle.slug || 'preview-slug',
+                    title: editingArticle.title || 'Tiêu đề xem trước',
+                    content: editingArticle.content || 'Nội dung xem trước...',
+                    cover_url:
+                      editingArticle.cover_url ||
+                      (editingArticle.game_slug ? `/game_icons/${editingArticle.game_slug}.webp` : '/news_covers/thi-truong-game-viet-nam.webp'),
+                    status: editingArticle.status || 'PUBLISHED',
+                    published_at: editingArticle.published_at || new Date().toISOString(),
+                    author: editingArticle.author || 'CodeGame.Shop',
+                    source_name: editingArticle.source_name || 'CodeGame.Shop',
+                  } as NewsArticle
+                }
+                onClose={() => setIsPreviewOpen(false)}
+                onShowToast={onShowToast}
+              />
             </div>
           </div>,
           document.body

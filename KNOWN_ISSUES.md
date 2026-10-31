@@ -10,6 +10,31 @@
 
 ## 1. DANH MỤC LỖI & CÁC BẪY ĐÃ THẤT BẠI (DO NOT REPEAT)
 
+### ISSUE-201: Lỗi Khung Ảnh Bìa Bị Vỡ Ở Trang Chi Tiết Tin Tức, Thiếu Fallback Cho Bài Viết Liên Quan, Tự Bịa Đường Dẫn Icon Từ Tiêu Đề Bài Viết & Glitch Khởi Tạo Route Chi Tiết
+- **Triệu chứng**:
+  - Mở bài viết tin tức Monster Hunter Outlanders, Free Fire MAX, Đấu La Đại Lục thì trang chi tiết bị hiện khung ảnh lỗi (404), trong khi ở danh sách tin tức thì ảnh vẫn hiện bình thường do được trang danh sách fallback về `/news_covers/thi-truong-game-viet-nam.webp`.
+  - Bài viết liên quan (Related Articles) ở chân trang chi tiết cũng kéo theo các ảnh lỗi hiển thị lặp lại trên nhiều bài viết khác nhau (như Sword x Staff -> Đấu La -> Free Fire MAX).
+  - Truy cập trực tiếp đường dẫn bài viết `/news/apple-arcade-tuyen-chon-nhung-tua-game-dang-choi-nhat-tren-ios` bị hiện danh sách tin tức trước rồi phải F5/reload mới mở được trang chi tiết.
+- **Nguyên nhân gốc rễ**:
+  1. *Tự bịa đường dẫn từ tiêu đề*: Crawler / Ingest tự động ghép slug tiêu đề bài viết thành đường dẫn icon nội bộ (`/game_icons/monster-hunter-outlanders-moi-va-huong-dan-cach-nhap.webp` thay vì `/game_icons/monster-hunter-outlanders.webp`).
+  2. *Thiếu file ảnh trên đĩa*: File `public/game_icons/free-fire-max.webp` và `dau-la-dai-luc-hon-su-doi-quyet.webp` chưa có file thật trên đĩa.
+  3. *Thiếu onError fallback*: `NewsDetailModal.tsx` render thẳng `effectiveCoverUrl` và `relCover` mà không có hàm `onError` fallback như ở danh sách ngoài `NewsView.tsx`.
+  4. *Trễ khởi tạo router trong `App.tsx`*: `initialNewsSlug` được khởi tạo là `null` bằng `useState(null)`, chờ hàm async `loadInitialData()` chạy `queryGames()` xong hàng trăm ms sau mới gọi `parseHash()` và gán slug, khiến `NewsView` mount lần đầu tiên với `selectedArticle = null` và render ra trang danh sách.
+- **Giải pháp chuẩn đã kiểm chứng**:
+  1. *Tạo icon chính thức Free Fire MAX*: Tải icon chuẩn 512x512 Google Play cho Free Fire MAX và tạo `public/game_icons/free-fire-max.webp` (.jpg). Tạo alias an toàn cho 2 file cũ chống mọi cache cũ.
+  2. *Cập nhật 4 bài viết*: Sửa trong `seedNews.ts`, `canonical_backup_state.json` và cập nhật trực tiếp live D1 qua `PUT /api/news/:id`.
+  3. *Thêm Fallback & Log trong NewsDetailModal*: Thêm `coverSrc`, `handleHeroCoverError` và `onError` cho cả ảnh chính lẫn thumbnail bài viết liên quan. Fallback an toàn về `/news_covers/thi-truong-game-viet-nam.webp`. Ghi log fallback vào `localStorage` và console.
+  4. *Sửa crawler*: Chỉ lấy `matchedGame.icon_url` nếu file thật sự tồn tại trên đĩa `public/game_icons/`. Fallback chuẩn `/news_covers/thi-truong-game-viet-nam.webp`.
+  5. *Chặn đường API*: Tạo `functions/services/news_validation_service.ts`. Cấm tạo cover từ tiêu đề; kiểm tra định dạng ảnh và kiểm tra file tồn tại qua `env.ASSETS`; trả 400 Bad Request nếu không hợp lệ.
+  6. *Chặn đường Quản trị*: `NewsModule.tsx` kiểm tra trực tiếp live cover bằng `new Image()`; hiện banner cảnh báo đỏ và khóa nút Lưu nếu ảnh 404/bị lỗi; thêm dropdown chọn nhanh ảnh chuyên đề chuẩn `/news_covers/`; thêm nút "Xem Trước Đầy Đủ" để admin xem trang chi tiết hoàn chỉnh trước khi xuất bản.
+  7. *Pre-build Audit*: Thêm `scripts/audit_news_covers.cjs` vào `npm run build` để chặn triệt để mọi bài viết có ảnh bìa 404.
+  8. *Khởi tạo đồng bộ router*: Khởi tạo đồng bộ `initialNewsSlug` trong `App.tsx` và `selectedArticle` trong `NewsView.tsx` qua lazy initializer đọc `window.location.pathname`, đồng thời gọi `parseHash()` ngay đầu `loadInitialData()`. Khi mở trực tiếp đường dẫn `/news/:slug`, trang chi tiết hiển thị tức thì không còn bị chớp danh sách.
+- 🚫 **CÁCH SỬA ĐÃ THẤT BẠI - TUYỆT ĐỐI KHÔNG LẶP LẠI**:
+  - ❌ *Không dùng icon bản thường (`/game_icons/free-fire.webp`) cho Free Fire MAX*.
+  - ❌ *Không để crawler / API tự ghép đường dẫn icon nội bộ từ tiêu đề bài viết*.
+  - ❌ *Không render ảnh trong `NewsDetailModal` mà thiếu `onError` fallback*.
+  - ❌ *Không khởi tạo route slug bằng `useState(null)` rồi đợi hàm async load data xong mới map route*.
+
 ### ISSUE-200: Bẫy Thiếu Import Biểu Tượng Gây Sập Render React, Thiếu Định Tuyến Trailing Slash `/nhiem-vu/` & Co Hẹp Khung Tìm Kiếm Do Flex Row Trộn Lẫn Chips
 - **Triệu chứng**:
   - Khi người dùng bấm sang tab "Mã hết hạn" trong modal chi tiết Tiên Nghịch Mobile, toàn bộ modal sập trắng hoặc báo lỗi console `AlertCircle is not defined`.

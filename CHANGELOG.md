@@ -7,6 +7,29 @@ Mỗi mục sửa lỗi đều ghi nhận **Nguyên nhân gốc rễ (Root Cause
 
 ## [2026-10-31]
 
+### 292. Khắc Phục Triệt Để Lỗi Ảnh Bìa Bị Vỡ Ở Trang Chi Tiết Tin Tức, Thêm Cơ Chế Fallback Toàn Diện, Thiết Lập Hệ Thống Chống Tái Phát Tuyệt Đối Cho Cả Đường API Lẫn Quản Trị & Khắc Phục Lỗi Điều Hướng Trực Tiếp
+- **Bối cảnh & Yêu cầu**:
+  - Người dùng yêu cầu khắc phục triệt để lỗi ảnh bìa bị vỡ ở trang chi tiết tin tức:
+    1. *Sửa đúng 4 bài viết lỗi ảnh*: Monster Hunter Outlanders (2 bài), Free Fire MAX, Đấu La Đại Lục: Hồn Sư Đối Quyết; không làm ảnh hưởng ảnh bìa của bất kỳ bài viết nào khác.
+    2. *Thêm Fallback cho trang chi tiết*: Trong `NewsDetailModal.tsx`, nếu ảnh lỗi (404) thì tự động chuyển sang ảnh dự phòng `/news_covers/thi-truong-game-viet-nam.webp`, áp dụng cho cả ảnh bìa chính (Hero Banner) lẫn lưới bài viết liên quan (Related Articles) để ngăn ảnh lỗi lan rộng. Ghi log các bài kích hoạt fallback.
+    3. *Chống tái phát qua đường API*: Chặn tạo đường dẫn ảnh bịa từ tiêu đề bài viết; kiểm tra tính hợp lệ của ảnh nội bộ qua `env.ASSETS`; trả về 400 Bad Request nếu không hợp lệ. Sửa crawler `auto_news_publisher.cjs` chỉ lấy icon game thật tồn tại trên đĩa.
+    4. *Chống tái phát qua đường Quản trị*: `NewsModule.tsx` kiểm tra live cover qua `new Image()`; hiện cảnh báo đỏ và khóa nút Lưu nếu ảnh 404; thêm dropdown chọn nhanh ảnh chuyên đề chuẩn `/news_covers/`; thêm nút "Xem Trước Đầy Đủ" mở trang chi tiết trực tiếp cho admin kiểm tra.
+    5. *Cổng kiểm soát trước build (Pre-build Audit Gate)*: Thêm `scripts/audit_news_covers.cjs` quét toàn bộ bài viết, chặn build nếu có bất kỳ ảnh bìa nào bị 404.
+    6. *Khắc phục lỗi điều hướng trực tiếp*: Sửa lỗi mở trực tiếp `/news/apple-arcade-tuyen-chon-nhung-tua-game-dang-choi-nhat-tren-ios` bị hiện danh sách trước khi mở chi tiết.
+- **Nguyên nhân gốc rễ (Root Cause)**:
+  - Xem chi tiết tại `ISSUE-201` trong `KNOWN_ISSUES.md`.
+- **Giải pháp kỹ thuật đã áp dụng**:
+  - Tải icon Google Play 512x512 chính thức cho Free Fire MAX (`com.dts.freefiremax`), lưu vào `public/game_icons/free-fire-max.webp` và `.jpg`. Tạo alias an toàn cho các đường dẫn cũ.
+  - Cập nhật 4 bài viết trong `src/data/seedNews.ts`, `src/data/canonical_backup_state.json`, `functions/data/canonical_backup_state.json` và cập nhật trực tiếp live D1 qua `PUT /api/news/:id`.
+  - Cập nhật `src/components/NewsDetailModal.tsx` với fallback an toàn `coverSrc` + `handleHeroCoverError` và `onError` cho related articles, log fallback vào `localStorage` và `console.warn`.
+  - Cập nhật `src/App.tsx` và `src/components/NewsView.tsx`: Khởi tạo đồng bộ `initialNewsSlug` và `selectedArticle` qua lazy initializer, gọi `parseHash()` ngay đầu `loadInitialData()` loại bỏ hoàn toàn hiện tượng chớp danh sách.
+  - Tạo `functions/services/news_validation_service.ts`, cập nhật `functions/api/news/index.ts` và `functions/api/news/[id].ts` chặn cover tự sinh và ảnh 404, trả 400 Bad Request.
+  - Cập nhật `src/admin/modules/NewsModule.tsx`: Thêm live image test, banner cảnh báo đỏ, khóa nút lưu khi ảnh lỗi, preset dropdown ảnh chuyên đề `/news_covers/`, nút "Xem Trước Đầy Đủ" tích hợp `NewsDetailModal`.
+  - Tạo `scripts/audit_news_covers.cjs` và tích hợp vào `npm run build`.
+- **Kiểm thử & Xác nhận**:
+  - `npm run build`: PASS 100%, 0 lỗi, Audit 0 test artifacts, Audit News Covers kiểm tra 220 bài viết đều tồn tại ảnh trên đĩa 100%.
+  - Kho mã và nhiệm vụ Hiệp Khách Hành nguyên vẹn 100%.
+
 ### 291. Khắc Phục Triệt Để 4 Điểm Cốt Lõi: Crash Tab Mã Hết Hạn Tiên Nghịch, Định Tuyến Trực Tiếp `/nhiem-vu/`, Chuẩn Hóa Danh Mục & Bộ Lọc Trùng Lặp, Tái Cấu Trúc Thanh Tìm Kiếm Tin Tức & Giải Mã Tồn Kho Tiện Ích
 - **Bối cảnh & Yêu cầu**:
   - Người dùng yêu cầu khắc phục các vấn đề sau kiểm chứng live:

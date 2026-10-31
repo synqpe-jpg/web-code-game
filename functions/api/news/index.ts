@@ -2,6 +2,7 @@ import { DEFAULT_NEWS_ARTICLES as fallbackNewsArticles } from '../../../src/data
 import { computeSha256, hasScope } from '../../services/mission_service';
 import { getSettingD1, setSettingD1, invalidateSettingMemoryCache } from '../../services/d1_service';
 import { invalidateCatalogEdgeCache } from '../../services/cache_service';
+import { validateInternalCoverUrl } from '../../services/news_validation_service';
 
 interface Env {
   DB?: D1Database;
@@ -229,6 +230,17 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
     );
   }
 
+  // Validate cover_url: reject invalid extensions, 404s, or title-derived fake paths
+  if (body.cover_url) {
+    const val = await validateInternalCoverUrl(body.cover_url, request.url, (env as any).ASSETS);
+    if (!val.valid) {
+      return new Response(
+        JSON.stringify({ success: false, error: val.error }),
+        { status: 400, headers: CORS_HEADERS }
+      );
+    }
+  }
+
   const now = new Date().toISOString();
   let slug = (body.slug || slugify(body.title)).trim();
 
@@ -264,7 +276,7 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
     cover_url:
       (body.cover_url && body.cover_url.trim()) ||
       (body.game_slug ? `/game_icons/${body.game_slug}.webp` : '') ||
-      '/og-image.jpg',
+      '/news_covers/thi-truong-game-viet-nam.webp',
     gallery_urls: Array.isArray(body.gallery_urls) ? body.gallery_urls : [],
     game_id: body.game_id || null,
     game_slug: body.game_slug || null,

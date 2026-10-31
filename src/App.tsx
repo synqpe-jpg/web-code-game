@@ -107,8 +107,31 @@ export const App: React.FC = () => {
     return 'catalog';
   });
 
-  const [initialNewsSlug, setInitialNewsSlug] = useState<string | null>(null);
-  const [initialGiveawayId, setInitialGiveawayId] = useState<string | null>(null);
+  const [initialNewsSlug, setInitialNewsSlug] = useState<string | null>(() => {
+    if (typeof window !== 'undefined') {
+      const path = window.location.pathname;
+      const hash = window.location.hash;
+      const matchPath = path.match(/^\/news\/([^/?#]+)/i);
+      if (matchPath) return decodeURIComponent(matchPath[1]);
+      const matchHash = hash.match(/(?:#\/news\/|#news\/|news=)([^/?#&]+)/i);
+      if (matchHash) return decodeURIComponent(matchHash[1]);
+    }
+    return null;
+  });
+  const [initialGiveawayId, setInitialGiveawayId] = useState<string | null>(() => {
+    if (typeof window !== 'undefined') {
+      const path = window.location.pathname;
+      const hash = window.location.hash;
+      const urlParams = new URLSearchParams(window.location.search);
+      const gwParam = urlParams.get('gw') || urlParams.get('giveaway');
+      if (gwParam) return decodeURIComponent(gwParam);
+      const matchPath = path.match(/^\/(?:giveaways|giveaway)\/([^/?#]+)/i);
+      if (matchPath) return decodeURIComponent(matchPath[1]);
+      const matchHash = hash.match(/(?:#\/giveaways\/|#giveaways\/|gw=)([^/?#&]+)/i);
+      if (matchHash) return decodeURIComponent(matchHash[1]);
+    }
+    return null;
+  });
   const [initialMissionId, setInitialMissionId] = useState<string | null>(() => {
     if (typeof window !== 'undefined') {
       const path = window.location.pathname;
@@ -406,40 +429,6 @@ export const App: React.FC = () => {
   // Initial Load & Deep Link Router
   useEffect(() => {
     const loadInitialData = async () => {
-      setIsLoading(true);
-      const bmarks = dataService.getBookmarks();
-      setBookmarks(bmarks);
-      dataService.getBookmarkedGames(bmarks).then((bList) => setBookmarkedGamesList(bList));
-      dataService.getUpcomingGames().then((uList) => {
-        if (uList && uList.length > 0) setUpcomingGames(uList);
-      });
-      const pCfg = dataService.getPaginationConfig();
-      setPaginationConfig(pCfg);
-
-      // Lightweight CMS sync to reflect branding & CMS updates immediately (only 4 KB instead of full sync)
-      dataService.syncBrandingAndContentOnly().then(() => {
-        setBranding(dataService.getWebsiteBranding());
-      });
-
-      const res = await dataService.queryGames(
-        { search: '', category: 'all', tag: 'all', sortBy: 'release_date', sortOrder: 'desc' },
-        1,
-        pCfg.pageSize,
-        bmarks
-      );
-      setGames(res.items);
-      setAllGamesList(res.items);
-      setTotalPages(res.totalPages);
-      setTotalResults(res.total);
-      setHasMore(res.hasMore);
-      if (res.categories && res.categories.length > 0) {
-        setCategories(res.categories);
-      } else {
-        const cats = await dataService.getCategories();
-        setCategories(cats);
-      }
-      setIsLoading(false);
-
       // Check Hash / Search Params for Deep Linking (/g/:slug, /giveaways, /store, /admin, /#product=id, /#gw=id)
       const parseHash = async () => {
         const hash = window.location.hash;
@@ -594,8 +583,43 @@ export const App: React.FC = () => {
         }
       };
 
+      // Resolve deep link route first so UI reflects target page immediately
       await parseHash();
       setIsInitialLoadDone(true);
+
+      setIsLoading(true);
+      const bmarks = dataService.getBookmarks();
+      setBookmarks(bmarks);
+      dataService.getBookmarkedGames(bmarks).then((bList) => setBookmarkedGamesList(bList));
+      dataService.getUpcomingGames().then((uList) => {
+        if (uList && uList.length > 0) setUpcomingGames(uList);
+      });
+      const pCfg = dataService.getPaginationConfig();
+      setPaginationConfig(pCfg);
+
+      // Lightweight CMS sync to reflect branding & CMS updates immediately (only 4 KB instead of full sync)
+      dataService.syncBrandingAndContentOnly().then(() => {
+        setBranding(dataService.getWebsiteBranding());
+      });
+
+      const res = await dataService.queryGames(
+        { search: '', category: 'all', tag: 'all', sortBy: 'release_date', sortOrder: 'desc' },
+        1,
+        pCfg.pageSize,
+        bmarks
+      );
+      setGames(res.items);
+      setAllGamesList(res.items);
+      setTotalPages(res.totalPages);
+      setTotalResults(res.total);
+      setHasMore(res.hasMore);
+      if (res.categories && res.categories.length > 0) {
+        setCategories(res.categories);
+      } else {
+        const cats = await dataService.getCategories();
+        setCategories(cats);
+      }
+      setIsLoading(false);
     };
 
     loadInitialData();

@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "node scripts/audit_zero_test_artifacts.cjs && node scripts/build.cjs",
+    "build": "node scripts/audit_zero_test_artifacts.cjs && node scripts/audit_news_covers.cjs && node scripts/build.cjs",
     "test:ingest": "node scripts/test_ingest_regression.cjs",
     "preview": "vite preview",
     "crawl:all": "node scripts/crawl_codemoi_and_enrich_all.cjs",

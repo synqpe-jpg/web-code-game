@@ -371,14 +371,16 @@ async function generateAutonomousArticle(scraped, sourceUrl) {
       const gPlay = await gameLogoResolver.searchGooglePlayForLogo(extractedName);
       if (gPlay && gPlay.iconUrl) {
         const genSlug = normalizeVietnamese(extractedName).replace(/\s+/g, '-');
-        await gameLogoResolver.downloadAndSaveGameIcon(genSlug, gPlay.iconUrl);
-        matchedGame = {
-          name: gPlay.title || extractedName,
-          slug: genSlug,
-          icon_url: `/game_icons/${genSlug}.webp`,
-        };
-        gameSlug = genSlug;
-        console.log(`    🔍 [Google Play Auto-Resolved]: Đã tìm thấy Logo chính thức cho "${extractedName}" -> ${genSlug}.webp`);
+        const iconSaved = await gameLogoResolver.downloadAndSaveGameIcon(genSlug, gPlay.iconUrl);
+        if (iconSaved && fs.existsSync(path.join(GAME_ICONS_DIR, `${genSlug}.webp`))) {
+          matchedGame = {
+            name: gPlay.title || extractedName,
+            slug: genSlug,
+            icon_url: `/game_icons/${genSlug}.webp`,
+          };
+          gameSlug = genSlug;
+          console.log(`    🔍 [Google Play Auto-Resolved]: Đã tìm thấy Logo chính thức cho "${extractedName}" -> ${genSlug}.webp`);
+        }
       }
     } catch (e) {
       console.warn(`    ⚠️ [Google Play Lookup Error]:`, e?.message);
@@ -450,7 +452,10 @@ async function generateAutonomousArticle(scraped, sourceUrl) {
     if (gameSlug && fs.existsSync(path.join(GAME_ICONS_DIR, `${gameSlug}.webp`))) {
       cover_url = `/game_icons/${gameSlug}.webp`;
     } else if (matchedGame?.icon_url && !matchedGame.icon_url.includes('og-image')) {
-      cover_url = matchedGame.icon_url;
+      const iconPath = matchedGame.icon_url.startsWith('/') ? path.join(ROOT_DIR, 'public', matchedGame.icon_url) : '';
+      if (iconPath && fs.existsSync(iconPath)) {
+        cover_url = matchedGame.icon_url;
+      }
     } else if (scraped.cover_url && scraped.cover_url.trim() && !scraped.cover_url.includes('logo') && !scraped.cover_url.includes('favicon')) {
       // Tải ảnh bìa bài viết về lưu trữ nội bộ để chống 100% chặn hotlinking
       const localCoverSlug = gameSlug || slug;
@@ -469,7 +474,7 @@ async function generateAutonomousArticle(scraped, sourceUrl) {
 
   // Nếu vẫn chưa có ảnh bìa: Mặc định chọn ảnh phong cảnh gaming phù hợp
   if (!cover_url) {
-    cover_url = '/news_covers/game-offline-hay.webp';
+    cover_url = '/news_covers/thi-truong-game-viet-nam.webp';
   }
 
   const paragraphs = (scraped.content || '')

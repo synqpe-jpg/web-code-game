@@ -357,8 +357,50 @@ export const NewsDetailModal: React.FC<NewsDetailModalProps> = ({
     if (matchedGame?.icon_url && matchedGame.icon_url.trim()) return matchedGame.icon_url.trim();
     if ((matchedGame as any)?.iconUrl && (matchedGame as any).iconUrl.trim()) return (matchedGame as any).iconUrl.trim();
     if (article.game_slug) return `/game_icons/${article.game_slug}.webp`;
-    return '';
+    return '/news_covers/thi-truong-game-viet-nam.webp';
   }, [article, matchedGame]);
+
+  const [coverSrc, setCoverSrc] = useState<string>(() => {
+    return effectiveCoverUrl || '/news_covers/thi-truong-game-viet-nam.webp';
+  });
+  const [coverError, setCoverError] = useState<boolean>(false);
+
+  useEffect(() => {
+    setCoverSrc(effectiveCoverUrl || '/news_covers/thi-truong-game-viet-nam.webp');
+    setCoverError(false);
+  }, [effectiveCoverUrl]);
+
+  const handleHeroCoverError = () => {
+    if (coverError) return;
+    setCoverError(true);
+    const fallbackUrl = '/news_covers/thi-truong-game-viet-nam.webp';
+    setCoverSrc(fallbackUrl);
+
+    // Ghi nhận log bài viết kích hoạt ảnh dự phòng để Quản trị viên dễ dàng phát hiện và sửa gốc
+    try {
+      console.warn('[News Detail Image Fallback Activated]:', {
+        articleId: article.id,
+        slug: article.slug,
+        brokenCover: effectiveCoverUrl,
+        fallbackUrl,
+      });
+      if (typeof window !== 'undefined') {
+        const key = 'wcg_news_fallback_log_v1';
+        const existing = JSON.parse(localStorage.getItem(key) || '[]');
+        if (!existing.some((item: any) => item.articleId === article.id)) {
+          existing.push({
+            articleId: article.id,
+            slug: article.slug,
+            title: article.title,
+            brokenCover: effectiveCoverUrl,
+            timestamp: new Date().toISOString(),
+          });
+          localStorage.setItem(key, JSON.stringify(existing.slice(-100)));
+          window.dispatchEvent(new CustomEvent('wcg_news_fallback_logged'));
+        }
+      }
+    } catch {}
+  };
 
   if (!article) return null;
 
@@ -497,15 +539,16 @@ export const NewsDetailModal: React.FC<NewsDetailModalProps> = ({
             </div>
 
             {/* Cột phải (Desktop) / Phần 2 (Mobile): Cover Image Banner */}
-            {effectiveCoverUrl && (
+            {coverSrc && (
               <div className="lg:col-span-5 lg:row-span-2 order-2">
                 <div className="relative w-full aspect-video lg:aspect-[4/3] rounded-3xl overflow-hidden border border-border/80 shadow-xl bg-slate-900 group">
                   <img
-                    src={optimizeImageUrl(effectiveCoverUrl, 1000)}
+                    src={optimizeImageUrl(coverSrc, 1000)}
                     alt={article.title}
                     className="w-full h-full object-cover group-hover:scale-102 transition-transform duration-500"
                     loading="eager"
                     decoding="async"
+                    onError={handleHeroCoverError}
                   />
                   {/* Official Watermark Badge */}
                   <div className="absolute top-3 right-3 z-10 flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-slate-950/85 backdrop-blur-md border border-white/20 shadow-lg text-[11px] font-bold text-white select-none">
@@ -517,7 +560,7 @@ export const NewsDetailModal: React.FC<NewsDetailModalProps> = ({
             )}
 
             {/* Cột trái 2 (Desktop) / Phần 3 (Mobile): Excerpt & Điểm cần đọc trước */}
-            <div className={`order-3 space-y-4 ${effectiveCoverUrl ? 'lg:col-span-7' : 'lg:col-span-12'}`}>
+            <div className={`order-3 space-y-4 ${coverSrc ? 'lg:col-span-7' : 'lg:col-span-12'}`}>
               {article.excerpt && (
                 <p className="text-sm sm:text-base font-medium text-muted-foreground leading-relaxed italic border-l-2 border-primary/60 pl-3">
                   {article.excerpt}
@@ -836,16 +879,20 @@ export const NewsDetailModal: React.FC<NewsDetailModalProps> = ({
                     className="group p-3.5 rounded-2xl bg-card/70 hover:bg-card border border-border/70 hover:border-primary/50 transition-all cursor-pointer flex flex-col justify-between shadow-xs hover:shadow-md"
                   >
                     <div className="space-y-2.5">
-                      {relCover ? (
-                        <div className="relative aspect-video rounded-xl overflow-hidden bg-slate-950 border border-border/60">
-                          <img
-                            src={optimizeImageUrl(relCover, 400)}
-                            alt={rel.title}
-                            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-                            loading="lazy"
-                          />
-                        </div>
-                      ) : null}
+                      <div className="relative aspect-video rounded-xl overflow-hidden bg-slate-950 border border-border/60">
+                        <img
+                          src={optimizeImageUrl(relCover || '/news_covers/thi-truong-game-viet-nam.webp', 400)}
+                          alt={rel.title}
+                          className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                          loading="lazy"
+                          onError={(e) => {
+                            const target = e.currentTarget as HTMLImageElement;
+                            if (!target.src.includes('thi-truong-game-viet-nam.webp')) {
+                              target.src = '/news_covers/thi-truong-game-viet-nam.webp';
+                            }
+                          }}
+                        />
+                      </div>
                       <h4 className="text-xs sm:text-sm font-bold text-foreground line-clamp-2 group-hover:text-primary transition-colors leading-snug">
                         {rel.title}
                       </h4>

@@ -38,12 +38,35 @@ export const NewsView: React.FC<NewsViewProps> = ({
   initialArticleSlug,
 }) => {
   const { t } = useLanguage();
-  const [articles, setArticles] = useState<NewsArticle[]>([]);
+  const [articles, setArticles] = useState<NewsArticle[]>(() => {
+    try {
+      return newsService.getPublishedArticles();
+    } catch {
+      return [];
+    }
+  });
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedTag, setSelectedTag] = useState<string>('all');
   const [selectedGameSlug, setSelectedGameSlug] = useState<string>('all');
-  const [selectedArticle, setSelectedArticle] = useState<NewsArticle | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
+  const [selectedArticle, setSelectedArticle] = useState<NewsArticle | null>(() => {
+    try {
+      if (initialArticleSlug) {
+        const found = newsService.getArticleBySlug(initialArticleSlug);
+        if (found) return found;
+      }
+      if (typeof window !== 'undefined') {
+        const path = window.location.pathname;
+        if (path.startsWith('/news/') && path.length > 6) {
+          const slug = decodeURIComponent(path.replace(/^\/news\//i, '').replace(/\/$/, '').trim());
+          if (slug) return newsService.getArticleBySlug(slug);
+        }
+      }
+    } catch {
+      // ignore
+    }
+    return null;
+  });
+  const [isLoading, setIsLoading] = useState(false);
   const [currentPage, setCurrentPage] = useState<number>(1);
   const [pageSize, setPageSize] = useState<number>(6);
   const articlesSectionRef = useRef<HTMLDivElement>(null);

@@ -3,6 +3,7 @@ import { computeSha256, hasScope } from '../../services/mission_service';
 import { getSettingD1, setSettingD1, invalidateSettingMemoryCache } from '../../services/d1_service';
 import { invalidateCatalogEdgeCache } from '../../services/cache_service';
 import { recordSoftDelete } from '../../services/soft_delete_service';
+import { validateInternalCoverUrl } from '../../services/news_validation_service';
 
 interface Env {
   DB?: D1Database;
@@ -208,6 +209,18 @@ export const onRequestPut: PagesFunction<Env> = async (context) => {
 
   const existing = articles[targetIndex];
   const now = new Date().toISOString();
+
+  // Validate candidate cover_url if provided in payload
+  const candidateCover = body.cover_url || body.coverUrl || body.cover;
+  if (typeof candidateCover === 'string' && candidateCover.trim()) {
+    const val = await validateInternalCoverUrl(candidateCover, request.url, (env as any).ASSETS);
+    if (!val.valid) {
+      return new Response(
+        JSON.stringify({ success: false, error: val.error }),
+        { status: 400, headers: CORS_HEADERS }
+      );
+    }
+  }
 
   const newSlug = body.slug ? slugify(body.slug) : existing.slug;
   const newStatus = body.status !== undefined ? body.status : existing.status;

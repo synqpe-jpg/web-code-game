@@ -1088,7 +1088,7 @@ export const DEFAULT_NEWS_ARTICLES: NewsArticle[] = [
     "title": "Code game Monster Hunter Outlanders mới và hướng dẫn cách nhập (2026)",
     "excerpt": "Monster Hunter Outlanders là tựa game nhập vai hành động sinh tồn thế giới mở trên di động. Việc sử dụng code game Monster Hunter Outlanders giúp bạn nhận được nhiều",
     "content": "## 1. Tổng Quan Sự Kiện & Quà Tặng Monster Hunter\n\nCode game Monster Hunter Outlanders mới và hướng dẫn cách nhập\n\nDownload.com.vn - Phần mềm, game miễn phí cho Windows, Mac, iOS, Android\n\nMonster Hunter Outlanders  là tựa game nhập vai hành động sinh tồn thế giới mở trên di động, được Capcom cấp phép và phát triển bởi TiMi Studio Group, vừa được Level Infinite chính thức phát hành vào 29/10/2026.\n\nMonster Hunter Outlanders cho Android\n\n## 2. Bảng Danh Sách Giftcode Monster Hunter Mới Nhất (2026)\n\nDưới đây là các mã quà tặng đã được kiểm duyệt tính hợp lệ. Độc giả có thể bấm sao chép trực tiếp từng mã hiển thị trên website:\n\n- Mã quà tặng chi tiết được hiển thị ở bảng thống kê bên dưới.\n\n> 💡 **Lưu ý quan trọng:** Mỗi mã quà tặng đều có thời hạn sử dụng và số lượng kích hoạt nhất định. Bạn nên nhập code ngay khi nhận được!\n\n## 3. Hướng Dẫn Từng Bước Cách Nhập Giftcode Trong Monster Hunter\n\n1. Đăng nhập vào trò chơi **Monster Hunter** trên thiết bị của bạn.\n2. Bấm vào biểu tượng **Avatar nhân vật** hoặc mục **Cài Đặt / Phúc Lợi**.\n3. Chọn tính năng **Đổi Mã Quà Tặng (Giftcode)**.\n4. Dán mã code ở trên và nhấn **Xác Nhận**. Quà tặng sẽ được gửi trực tiếp vào Hòm Thư nhân vật.\n\n## 4. Mẹo Nhận Thêm Code Mới & Cẩm Nang Game Thủ\n\n- Theo dõi Fanpage và Group cộng đồng chính thức của Monster Hunter để tham gia các sự kiện săn code độc quyền.\n- Xem toàn bộ thông tin, mẹo chơi và hướng dẫn nạp game tại chuyên trang [Monster Hunter](https://codegame.shop/game/monster-hunter-outlanders-moi-va-huong-dan-cach-nhap) trên **CodeGame.shop**.\n- Thường xuyên ghé thăm **CodeGame.shop** để cập nhật nhanh nhất các mã giftcode máy chủ mới.\n\n---\n\n> 🛡️ **Nguồn tin tức:** Bản tin được tổng hợp, biên tập và xuất bản độc quyền bởi **CodeGame.Shop** (https://codegame.shop). Mọi thông tin giftcode đã được xác thực trước khi công bố.",
-    "cover_url": "/game_icons/monster-hunter-outlanders-moi-va-huong-dan-cach-nhap.webp",
+    "cover_url": "/game_icons/monster-hunter-outlanders.webp",
     "gallery_urls": [
       "https://st.download.com.vn/data/image/2020/10/02/windows.svg",
       "https://st.download.com.vn/data/image/Icon/2015/joystick.png",
@@ -1099,8 +1099,8 @@ export const DEFAULT_NEWS_ARTICLES: NewsArticle[] = [
     ],
     "virtual_views": 187,
     "views_growth_rate": 1,
-    "game_slug": "monster-hunter-outlanders-moi-va-huong-dan-cach-nhap",
-    "game_name": "Monster Hunter",
+    "game_slug": "monster-hunter-outlanders",
+    "game_name": "Monster Hunter Outlanders",
     "tags": [
       "Giftcode Mới",
       "Monster Hunter",
@@ -1536,7 +1536,7 @@ export const DEFAULT_NEWS_ARTICLES: NewsArticle[] = [
     "title": "Code game Monster Hunter Outlanders mới và hướng dẫn cách nhập (2026)",
     "excerpt": "Monster Hunter Outlanders là tựa game nhập vai hành động sinh tồn thế giới mở trên di động. Việc sử dụng code game Monster Hunter Outlanders giúp bạn nhận được nhiều",
     "content": "## 1. Tổng Quan Sự Kiện & Quà Tặng Monster Hunter\n\nCode game Monster Hunter Outlanders mới và hướng dẫn cách nhập\n\nDownload.com.vn - Phần mềm, game miễn phí cho Windows, Mac, iOS, Android\n\nMonster Hunter Outlanders  là tựa game nhập vai hành động sinh tồn thế giới mở trên di động, được Capcom cấp phép và phát triển bởi TiMi Studio Group, vừa được Level Infinite chính thức phát hành vào 29/10/2026.\n\nMonster Hunter Outlanders cho Android\n\n## 2. Bảng Danh Sách Giftcode Monster Hunter Mới Nhất (2026)\n\nDưới đây là các mã quà tặng đã được kiểm duyệt tính hợp lệ. Độc giả có thể bấm sao chép trực tiếp từng mã hiển thị trên website:\n\n- Mã quà tặng chi tiết được hiển thị ở bảng thống kê bên dưới.\n\n> 💡 **Lưu ý quan trọng:** Mỗi mã quà tặng đều có thời hạn sử dụng và số lượng kích hoạt nhất định. Bạn nên nhập code ngay khi nhận được!\n\n## 3. Hướng Dẫn Từng Bước Cách Nhập Giftcode Trong Monster Hunter\n\n1. Đăng nhập vào trò chơi **Monster Hunter** trên thiết bị của bạn.\n2. Bấm vào biểu tượng **Avatar nhân vật** hoặc mục **Cài Đặt / Phúc Lợi**.\n3. Chọn tính năng **Đổi Mã Quà Tặng (Giftcode)**.\n4. Dán mã code ở trên và nhấn **Xác Nhận**. Quà tặng sẽ được gửi trực tiếp vào Hòm Thư nhân vật.\n\n## 4. Mẹo Nhận Thêm Code Mới & Cẩm Nang Game Thủ\n\n- Theo dõi Fanpage và Group cộng đồng chính thức của Monster Hunter để tham gia các sự kiện săn code độc quyền.\n- Xem toàn bộ thông tin, mẹo chơi và hướng dẫn nạp game tại chuyên trang [Monster Hunter](https://codegame.shop/game/monster-hunter-outlanders-moi-va-huong-dan-cach-nhap) trên **CodeGame.shop**.\n- Thường xuyên ghé thăm **CodeGame.shop** để cập nhật nhanh nhất các mã giftcode máy chủ mới.\n\n---\n\n> 🛡️ **Nguồn tin tức:** Bản tin được tổng hợp, biên tập và xuất bản độc quyền bởi **CodeGame.Shop** (https://codegame.shop). Mọi thông tin giftcode đã được xác thực trước khi công bố.",
-    "cover_url": "/game_icons/monster-hunter-outlanders-moi-va-huong-dan-cach-nhap.webp",
+    "cover_url": "/game_icons/monster-hunter-outlanders.webp",
     "gallery_urls": [
       "https://st.download.com.vn/data/image/2020/10/02/windows.svg",
       "https://st.download.com.vn/data/image/Icon/2015/joystick.png",
@@ -1547,8 +1547,8 @@ export const DEFAULT_NEWS_ARTICLES: NewsArticle[] = [
     ],
     "virtual_views": 339,
     "views_growth_rate": 1,
-    "game_slug": "monster-hunter-outlanders-moi-va-huong-dan-cach-nhap",
-    "game_name": "Monster Hunter",
+    "game_slug": "monster-hunter-outlanders",
+    "game_name": "Monster Hunter Outlanders",
     "tags": [
       "Giftcode Mới",
       "Monster Hunter",
@@ -1981,10 +1981,10 @@ export const DEFAULT_NEWS_ARTICLES: NewsArticle[] = [
     "title": "Đấu La Đại Lục: Hồn Sư Đối Quyết - Tổng Hợp Giftcode Và Cẩm Nang Phối Hồn Hoàn 10 Vạn Năm",
     "excerpt": "Trọn bộ mã code Đấu La Đại Lục mới nhất: nhận Kim Cương, Vé Chiêu Mộ Giác Tỉnh và cẩm nang phối hợp đội hình Đường Tam, Tiểu Vũ chuẩn meta.",
     "content": "## Đại lục Đấu La thức tỉnh Võ Hồn\nHành trình thu thập Hồn Hoàn và săn bắt Hồn Thú tại Tinh Đấu Đại Sâm Lâm mang lại nguồn sức mạnh vô tận cho các Hồn Sư xuất sắc.\n\n## Giftcode Đấu La Đại Lục mới nhất\n- **DAULA2026VIP**: 10 Vé Giác Tỉnh, 1000 Kim cương\n- **HONSU9999**: Rương Hồn Cốt ngẫu nhiên, 50.000 Hồn Lực\n- **TIEUVU2026**: Hồn Hoàn vạn năm tùy chọn, 20 Lọ thể lực\n\n## Cách thức nhận thưởng\nVào game, bấm vào hình đại diện nhân vật góc trên bên trái, chọn Cài Đặt -> Đổi Mã Quà Tặng và nhập code để nhận quà ngay tức thì.",
-    "cover_url": "/game_icons/dau-la-dai-luc-hon-su-doi-quyet.webp",
+    "cover_url": "/game_icons/dau-la-dai-luc.webp",
     "gallery_urls": [],
     "game_id": null,
-    "game_slug": "dau-la-dai-luc-hon-su-doi-quyet",
+    "game_slug": "dau-la-dai-luc",
     "game_name": "Đấu La Đại Lục: Hồn Sư Đối Quyết",
     "tags": [
       "Đấu La Đại Lục",
