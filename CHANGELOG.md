@@ -7,6 +7,21 @@ Mỗi mục sửa lỗi đều ghi nhận **Nguyên nhân gốc rễ (Root Cause
 
 ## [2026-10-31]
 
+### 293. Triển Khai Toàn Diện Code Sửa Lỗi Lên Môi Trường Trực Tiếp, Nâng Cấp Cổng Kiểm Tra 224 Bài Viết Live & Thu Thập Bộ Bằng Chứng Thực Nghiệm Chống Tái Phát
+- **Bối cảnh & Yêu cầu**:
+  - Người dùng nghiệm thu 4 bài viết đổi ảnh đúng và tình trạng nguyên vẹn của Hiệp Khách Hành, nhưng yêu cầu xử lý triệt để 4 vấn đề:
+    1. *Code mới chưa lên production*: Production vẫn chạy build `714c594` do lệnh deploy trước đó không build lại `dist` sau khi commit. Cần khắc phục quy trình build/deploy, triển khai thật sự code mới với Commit ID mới và ghi rõ mã build cùng timestamp.
+    2. *Cổng kiểm tra quét thiếu bài*: Cổng kiểm tra cũ chỉ quét seed 220 bài trong khi dữ liệu live có 224 bài. Cần sửa cổng kiểm tra quét trực tiếp từ nguồn API / D1 live, đảm bảo số bài quét đúng bằng 224 và số lỗi bằng 0.
+    3. *Bổ sung 3 bằng chứng chống tái phát*: (a) API từ chối bài test với cover sai bằng 400 Bad Request; (b) Admin hiện cảnh báo đỏ, khóa nút Lưu, có dropdown preset và nút Xem Trước; (c) Cơ chế fallback ở trang chi tiết tự động chuyển ảnh hỏng sang ảnh dự phòng và ghi log `wcg_news_fallback_log_v1`.
+    4. *Bằng chứng điều hướng Apple Arcade*: Mở trực tiếp bài Apple Arcade trong phiên mới chứng minh hiển thị chi tiết ngay lần tải đầu tiên.
+- **Giải pháp kỹ thuật đã áp dụng**:
+  - `package.json`: Tích hợp `npm run build` trực tiếp vào `deploy`, `deploy:admin`, `deploy:all` để đảm bảo `dist` luôn được biên dịch với mã Commit ID mới nhất từ `git rev-parse --short HEAD` trước khi đẩy lên Cloudflare Pages.
+  - `scripts/audit_news_covers.cjs`: Viết lại logic để nạp 100% bài viết từ `https://codegame.shop/api/news?limit=all` và D1, kết hợp sao lưu dự phòng; xác nhận quét đủ 224 bài viết thực tế với 0 lỗi.
+  - `src/data/canonical_backup_state.json`, `functions/data/canonical_backup_state.json` và `src/data/seedNews.ts`: Đồng bộ đầy đủ 224 bài viết mới nhất từ D1.
+  - `functions/services/news_validation_service.ts`: Nâng cấp kiểm tra mã lỗi `res.status >= 400` để từ chối dứt khoát mọi ảnh không tồn tại trên edge.
+- **Kiểm thử & Xác nhận**:
+  - Chạy toàn bộ bộ test thực nghiệm độc lập (CDP headless Edge), chụp ảnh màn hình bằng chứng, xác nhận xóa sạch 100% dữ liệu test sau kiểm tra theo Rule 7.
+
 ### 292. Khắc Phục Triệt Để Lỗi Ảnh Bìa Bị Vỡ Ở Trang Chi Tiết Tin Tức, Thêm Cơ Chế Fallback Toàn Diện, Thiết Lập Hệ Thống Chống Tái Phát Tuyệt Đối Cho Cả Đường API Lẫn Quản Trị & Khắc Phục Lỗi Điều Hướng Trực Tiếp
 - **Bối cảnh & Yêu cầu**:
   - Người dùng yêu cầu khắc phục triệt để lỗi ảnh bìa bị vỡ ở trang chi tiết tin tức:

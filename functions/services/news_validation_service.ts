@@ -91,10 +91,10 @@ export async function validateInternalCoverUrl(
       const cleanPath = clean.split('?')[0];
       const checkReq = new Request(`${origin}${cleanPath}`, { method: 'HEAD' });
       const res = await assets.fetch(checkReq);
-      if (res && res.status === 404) {
+      if (res && res.status >= 400) {
         return {
           valid: false,
-          error: `Ảnh nội bộ không tồn tại trên hệ thống (404 Not Found): ${clean}. Vui lòng chọn ảnh có sẵn hoặc dùng /news_covers/thi-truong-game-viet-nam.webp.`,
+          error: `Ảnh nội bộ không tồn tại trên hệ thống (${res.status} Not Found): ${clean}. Vui lòng chọn ảnh có sẵn hoặc dùng /news_covers/thi-truong-game-viet-nam.webp.`,
         };
       }
     } catch {
