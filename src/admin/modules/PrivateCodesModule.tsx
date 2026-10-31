@@ -813,9 +813,20 @@ export const PrivateCodesModule: React.FC<PrivateCodesModuleProps> = ({ onShowTo
     if (!currentCampaignForPool) return;
     const ok = adminDataService.deleteGiveawayPoolCode(currentCampaignForPool.id, code);
     if (ok) {
+      const updatedPool = (currentCampaignForPool.codes_pool || []).filter((c) => c !== code);
+      try {
+        await fetch('/api/giveaways/manage', {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json', ...getAdminHeaders() },
+          body: JSON.stringify(
+            updatedPool.length === 0
+              ? { action: 'CLEAR_POOL', id: currentCampaignForPool.id }
+              : { action: 'DELETE_POOL_CODES', id: currentCampaignForPool.id, codes: [code] }
+          ),
+        });
+      } catch {}
       await adminDataService.saveGiveawaysToServer();
       onShowToast('Đã xóa mã', `Đã xóa mã ${code} khỏi kho phát riêng.`, 'info');
-      const updatedPool = (currentCampaignForPool.codes_pool || []).filter((c) => c !== code);
       setCurrentCampaignForPool({
         ...currentCampaignForPool,
         codes_pool: updatedPool,
@@ -829,10 +840,21 @@ export const PrivateCodesModule: React.FC<PrivateCodesModuleProps> = ({ onShowTo
   const handleBulkDeletePoolCodes = async () => {
     if (!currentCampaignForPool || selectedPoolCodes.length === 0) return;
     const count = adminDataService.deleteGiveawayPoolCodesBulk(currentCampaignForPool.id, selectedPoolCodes);
-    await adminDataService.saveGiveawaysToServer();
-    onShowToast('Đã xóa', `Đã xóa ${count} mã khỏi kho phát riêng.`, 'success');
     const codeSet = new Set(selectedPoolCodes);
     const updatedPool = (currentCampaignForPool.codes_pool || []).filter((c) => !codeSet.has(c));
+    try {
+      await fetch('/api/giveaways/manage', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json', ...getAdminHeaders() },
+        body: JSON.stringify(
+          updatedPool.length === 0
+            ? { action: 'CLEAR_POOL', id: currentCampaignForPool.id }
+            : { action: 'DELETE_POOL_CODES', id: currentCampaignForPool.id, codes: selectedPoolCodes }
+        ),
+      });
+    } catch {}
+    await adminDataService.saveGiveawaysToServer();
+    onShowToast('Đã xóa', `Đã xóa ${count} mã khỏi kho phát riêng.`, 'success');
     setCurrentCampaignForPool({
       ...currentCampaignForPool,
       codes_pool: updatedPool,

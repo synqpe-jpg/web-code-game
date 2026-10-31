@@ -1466,20 +1466,22 @@ class AdminDataService {
                   ? Boolean(serverGw.custom_banner_enabled)
                   : (local?.custom_banner_enabled !== undefined ? Boolean(local.custom_banner_enabled) : (hasLink || localHasLink));
 
-                // Pool resolution: keep the pool with codes, preferring local if local is newer or server returned empty
-                const pool = (Array.isArray(local.codes_pool) && local.codes_pool.length > 0)
-                  ? (localIsNewer || !Array.isArray(serverGw.codes_pool) || serverGw.codes_pool.length === 0 ? local.codes_pool : serverGw.codes_pool)
+                // Pool resolution: strictly honor local if local was updated newer (even if emptied to [])
+                const pool = Array.isArray(local.codes_pool)
+                  ? (localIsNewer ? local.codes_pool : (Array.isArray(serverGw.codes_pool) ? serverGw.codes_pool : local.codes_pool))
                   : (serverGw.codes_pool || []);
 
                 const base = localIsNewer ? { ...serverGw, ...local } : { ...local, ...serverGw };
-                const rem = Array.isArray(pool) && pool.length > 0
+                const rem = Array.isArray(pool)
                   ? pool.length
                   : Math.max(0, Number(base.remaining_codes ?? 0));
+                const tot = rem + (Number(base.claimed_codes) || 0);
 
                 return {
                   ...base,
                   codes_pool: pool,
                   remaining_codes: rem,
+                  total_codes: tot,
                   title: base.title || serverGw.title || local?.title || '',
                   use_template: localIsNewer
                     ? (local.use_template !== undefined ? local.use_template : (serverGw.use_template !== undefined ? serverGw.use_template : true))
@@ -3373,6 +3375,9 @@ class AdminDataService {
       gw.remaining_codes = gw.codes_pool.length;
       gw.total_codes = gw.codes_pool.length + (gw.claimed_codes || 0);
       gw.updated_at = new Date().toISOString();
+      if (gw.codes_pool.length === 0) {
+        gw.clear_pool = true;
+      }
       this.saveGiveaways();
       this.saveGiveawaysToServer();
       this.pushFullStateToKV(false);
@@ -3394,6 +3399,9 @@ class AdminDataService {
       gw.remaining_codes = gw.codes_pool.length;
       gw.total_codes = gw.codes_pool.length + (gw.claimed_codes || 0);
       gw.updated_at = new Date().toISOString();
+      if (gw.codes_pool.length === 0) {
+        gw.clear_pool = true;
+      }
       this.saveGiveaways();
       this.saveGiveawaysToServer();
       this.pushFullStateToKV(false);

@@ -7,6 +7,39 @@ Mỗi mục sửa lỗi đều ghi nhận **Nguyên nhân gốc rễ (Root Cause
 
 ## [2026-10-31]
 
+### 285. Khắc Phục Triệt Để Lỗi Hồi Sinh Mã Pool Giveaway (Zero Code Resurrection), Định Nghĩa SSOT Bộ Đếm (Total = Remaining + Claimed) & Đồng Bộ Slug Rotwood
+- **Bối cảnh & Phản hồi kiểm chứng live**:
+  - Tại chiến dịch `gw_gamerpower_rotwood` ("GamerPower × Rotwood Drakin Armoury Steam Loot"), sau khi Quản trị viên xóa 30 mã khỏi kho phát riêng (`codes_pool`), quản trị hiện Thật 0/1, Còn 0, Hết mã. Nhưng khoảng vài phút sau (lúc 12:34 - 12:40), mã tự hồi sinh trở lại D1 (`total: 31, pool: 30, remaining: 30, claimed: 1, updated_at: 2026-10-31T05:35:00Z`).
+  - Số liệu giveaway dao động giữa các lần đọc: 3Q từ 87/68 thành 40/21, Anh Hùng Tiến Lên từ 38/20 thành 25/7, Hiệp Khách Hành từ 214/214 thành 642/642, trong khi `updated_at` không đổi.
+  - Sự kiện `gw_gamerpower_rotwood` bị gắn nhầm slug `yen-van-thap-luc-thanh` thay vì `rotwood`.
+- **Xác định chính xác Writer lúc 12:35:00 +07 (05:35:00 UTC)**:
+  - *Writer*: `runGiveawaySimulation(env.DB)` trong `functions/services/giveaway_simulation_service.ts`.
+  - *Kích hoạt*: Cơ chế Passive Tick ngầm tại `functions/_worker.ts` lines 480-486 (`Date.now() - lastGiveawaySimulationTick > 300000` - mỗi 5 phút).
+  - *Đường ghi*:
+    1. Line 254: Ghi trực tiếp `UPDATE giveaways SET last_global_claim_at = ?, virtual_claimed_offset = virtual_claimed_offset + 1, updated_at = '2026-10-31T05:35:00Z' WHERE id = 'gw_gamerpower_rotwood'`.
+    2. Line 321: `setSettingD1(db, 'wcg_admin_giveaways_v4', rawGiveaways)` ghi đè mảng giveaway chứa kho mã cũ từ isolate cache vào D1 `system_settings`.
+  - *Vector thứ cấp (Admin Local Sync)*: `src/admin/services/adminDataService.ts` line 1470 kiểm tra `Array.isArray(local.codes_pool) && local.codes_pool.length > 0`. Khi admin xóa sạch kho (`length === 0`), điều kiện `> 0` thành `false`, khiến Admin coi local bị thiếu và kéo 30 mã từ server về ghi đè lại vào `localStorage`, rồi tiếp tục đẩy ngược lên D1.
+- **Nguyên nhân gốc rễ (Root Cause)**:
+  1. *Bẫy `length > 0` trong `syncGiveawaysToD1`*: Tại `functions/services/d1_service.ts` line 2396 và line 2606, điều kiện `hasIncomingPool = Array.isArray(gw.codes_pool) && gw.codes_pool.length > 0`. Khi admin xóa hết mã (`codes_pool: []`), `hasIncomingPool` thành `false` và không có cờ `clear_pool`, dẫn đến fallback về `existingPool` (30 mã cũ) và tự động insert lại vào bảng `giveaway_codes`.
+  2. *Bẫy `length > 0` trong `POST /api/giveaways/manage`*: Line 302 kiểm tra `const finalPool = incomingCodes.length > 0 ? incomingCodes : existingPool`. Khi truyền `codes_pool: []`, hệ thống tự lấy lại `existingPool`.
+  3. *Lệch nguồn đếm (3Q 87/68 vs 40/21, Anh Hùng 38/20 vs 25/7)*: Có 3 nguồn dữ liệu không đồng nhất: bảng SQL D1 `giveaways`, cài đặt `system_settings`, và tệp tĩnh hạt giống `giveaways.json`. Khi D1 timeout hoặc khi đọc các nhánh khác nhau, số liệu rơi về fallback cũ (`giveaways.json` lưu 40/21 và 25/7), gây hiện tượng số liệu "tụt lùi" mà `updated_at` không đổi.
+  4. *Hiện tượng mã trùng trong pool*: Xảy ra do quá trình import lặp hoặc re-seed trước đây tạo nhiều dòng mang cùng một chuỗi mã quà. Vì lệnh claim giật theo dòng ID (`ORDER BY rowid ASC LIMIT 1`), nếu pool có 2 dòng giống nhau thì 2 người dùng khác nhau sẽ giật phải cùng một mã code.
+- **Giải pháp kỹ thuật đã áp dụng**:
+  1. *Triệt tiêu bẫy fallback `length > 0`*:
+     - `functions/services/d1_service.ts`: Đổi `hasIncomingPool = Array.isArray(gw.codes_pool)`. Khi mảng rỗng `[]` hoặc có cờ `clear_pool`, xóa sạch bảng `giveaway_codes` (`status = 'AVAILABLE'`), đặt `remaining_codes = 0`, `total_codes = claimed_codes`, và lưu `codes_pool: []` vào `system_settings`.
+     - `functions/api/giveaways/manage.ts`: Nhận diện `isExplicitClear = body.clear_pool === true || (Array.isArray(body.codes_pool) && body.codes_pool.length === 0)` để gán `finalPool = []`. Bổ sung action chuyên dụng `DELETE_POOL_CODES` và `CLEAR_POOL`, hỗ trợ cập nhật `game_slug`, `game_name`, `cover_image_url`, `game_icon_url` qua `UPDATE_CONFIG`.
+     - `src/admin/services/adminDataService.ts`: Đổi logic merge pool sang `Array.isArray(local.codes_pool) ? (localIsNewer ? local.codes_pool : ...)` để bảo toàn 100% quyết định xóa của admin. Tự động gắn cờ `clear_pool: true` khi pool về 0.
+     - `src/admin/modules/PrivateCodesModule.tsx`: Gọi trực tiếp action `DELETE_POOL_CODES` / `CLEAR_POOL` lên server khi admin xóa mã trong modal.
+  2. *Thống nhất Single Source of Truth (SSOT) cho bộ đếm*:
+     - `remaining_codes`: Đúng bằng số mã khả dụng trong `giveaway_codes` (`status = 'AVAILABLE'`) hoặc `codes_pool.length`. Khi kho rỗng, luôn bằng 0.
+     - `claimed_codes`: Đúng bằng số mã đã nhận trong `giveaway_claims` / `giveaway_codes` (`status = 'CLAIMED'`).
+     - `total_codes`: `remaining_codes + claimed_codes`.
+     - Đồng bộ số liệu chuẩn vào `src/data/giveaways.json` (3Q: 87/68, Anh Hùng: 74/20, Tiên Nghịch: 123/38).
+  3. *Ngăn chặn simulation ghi đè kho rỗng*:
+     - `functions/services/giveaway_simulation_service.ts`: Thêm `bypassCache: true`, kiểm tra `realStock <= 0` thì bỏ qua ngay lập tức, và xóa RAM cache sau khi cập nhật.
+  4. *Chuẩn hóa sự kiện `gw_gamerpower_rotwood`*:
+     - Đổi `game_slug` thành `rotwood`, `game_name` thành `Rotwood`, gắn ảnh chính thức Steam header tại `/game_icons/rotwood.webp`.
+
 ### 284. Đồng Nhất Tiêu Đề Trang Live Where Winds Meet (584 Mã Code), Bổ Sung free_codes_count Trên Cả 3 Slug & Lan Truyền Bền Vững Tin Tức 220/220
 - **Bối cảnh & Phản hồi kiểm chứng live (build e64176a)**:
   - Các hạng mục đã đạt xuất sắc: Sắp ra mắt API 37 = Sync 37, giữ nguyên UPCOMING cho Đậu Nhỏ; Where Winds Meet tầng API và Sync đạt 584/620/36; bài viết 09:00 có mặt trong sync.

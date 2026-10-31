@@ -2393,17 +2393,17 @@ export async function syncGiveawaysToD1(db: D1Database, giveaways: any[]): Promi
 
     const existing = existingMap.get(gw.id);
     const existingPool = Array.isArray(existing?.codes_pool) ? existing.codes_pool : [];
-    const hasIncomingPool = Array.isArray(gw.codes_pool) && gw.codes_pool.length > 0;
-    const isExplicitClear = gw.clear_pool === true || (gw as any).admin_clear_pool === true;
+    const hasIncomingPool = Array.isArray(gw.codes_pool);
+    const isExplicitClear = gw.clear_pool === true || (gw as any).admin_clear_pool === true || (hasIncomingPool && gw.codes_pool.length === 0);
 
-    // Zero-out safeguard: If incoming does not provide a pool and did not explicitly clear, preserve existing warehouse pool
+    // Zero-out safeguard: If incoming does not provide a pool (undefined) and did not explicitly clear, preserve existing warehouse pool. If incoming explicitly provided a pool array (even empty [] or clear_pool: true), respect it strictly!
     const pool = hasIncomingPool
       ? gw.codes_pool
       : (isExplicitClear ? [] : existingPool);
 
     const remainingCount = pool.length > 0
       ? pool.length
-      : (isExplicitClear ? 0 : Math.max(0, Number(gw.remaining_codes) || Number(existing?.remaining_codes) || 0));
+      : (isExplicitClear || hasIncomingPool ? 0 : Math.max(0, Number(gw.remaining_codes) || Number(existing?.remaining_codes) || 0));
     const claimedCount = Number(gw.claimed_codes ?? existing?.claimed_codes ?? 0);
     const totalCount = Math.max(Number(gw.total_codes || 0), Number(existing?.total_codes || 0), remainingCount + claimedCount);
     const minAccountAge = Math.max(0, Number(gw.min_account_age_days ?? gw.minAccountAgeDays ?? 0));
@@ -2590,10 +2590,10 @@ export async function syncGiveawaysToD1(db: D1Database, giveaways: any[]): Promi
             total_codes = claimed_codes + ?
         WHERE id = ?
       `).bind(pool.length, pool.length, gw.id).run().catch(() => {});
-    } else if (isExplicitClear) {
-      // ONLY delete available codes if admin explicitly commanded clear_pool
+    } else if (isExplicitClear || (hasIncomingPool && pool.length === 0)) {
+      // Delete available codes when pool is empty or explicit clear
       await db.prepare("DELETE FROM giveaway_codes WHERE giveaway_id = ? AND status = 'AVAILABLE'").bind(gw.id).run().catch(() => {});
-      await db.prepare("UPDATE giveaways SET remaining_codes = 0 WHERE id = ?").bind(gw.id).run().catch(() => {});
+      await db.prepare("UPDATE giveaways SET remaining_codes = 0, total_codes = claimed_codes WHERE id = ?").bind(gw.id).run().catch(() => {});
       delete gw.clear_pool;
       delete (gw as any).admin_clear_pool;
     }
@@ -2603,15 +2603,15 @@ export async function syncGiveawaysToD1(db: D1Database, giveaways: any[]): Promi
   const sanitized = giveaways.map((g: any) => {
     const ex = existingMap.get(g?.id);
     const exPool = Array.isArray(ex?.codes_pool) ? ex.codes_pool : [];
-    const hasIncomingPool = Array.isArray(g?.codes_pool) && g.codes_pool.length > 0;
-    const isExplicitClear = g?.clear_pool === true || g?.admin_clear_pool === true;
+    const hasIncomingPool = Array.isArray(g?.codes_pool);
+    const isExplicitClear = g?.clear_pool === true || g?.admin_clear_pool === true || (hasIncomingPool && g.codes_pool.length === 0);
 
     const preservedPool = hasIncomingPool
       ? g.codes_pool
       : (isExplicitClear ? [] : exPool);
-    const preservedRemaining = preservedPool.length > 0
+    const preservedRemaining = Array.isArray(preservedPool)
       ? preservedPool.length
-      : (isExplicitClear ? 0 : Math.max(Number(ex?.remaining_codes) || 0, Number(g?.remaining_codes) || 0));
+      : (isExplicitClear || hasIncomingPool ? 0 : Math.max(Number(ex?.remaining_codes) || 0, Number(g?.remaining_codes) || 0));
     const claimed = Number(g?.claimed_codes ?? ex?.claimed_codes ?? 0);
 
     const { clear_pool, admin_clear_pool, ...rest } = g || {};
@@ -3172,14 +3172,16 @@ export async function loadAllGiveawaysD1(db: D1Database, includeCodes: boolean =
     const list = rows.map((gw: any) => {
       const meta = metaMap.get(gw.id) || {};
       const fallback = fallbackGwMap.get(gw.id) || {};
-      const poolLen = Array.isArray(meta.codes_pool) && meta.codes_pool.length > 0
+      const poolLen = Array.isArray(meta.codes_pool)
         ? meta.codes_pool.length
-        : (Array.isArray(gw.codes_pool) && gw.codes_pool.length > 0
+        : (Array.isArray(gw.codes_pool)
             ? gw.codes_pool.length
-            : (Array.isArray(fallback.codes_pool) && fallback.codes_pool.length > 0 ? fallback.codes_pool.length : null));
+            : (Array.isArray(fallback.codes_pool) ? fallback.codes_pool.length : null));
       const rem = poolLen !== null
         ? poolLen
-        : Math.max(0, Number(gw.remaining_codes) || Number(meta.remaining_codes) || Number(fallback.remaining_codes) || 0);
+        : Math.max(0, Number(gw.remaining_codes ?? 0));
+      const clm = Number(gw.claimed_codes ?? meta.claimed_codes ?? fallback.claimed_codes ?? 0);
+      const tot = Math.max(Number(gw.total_codes ?? 0), rem + clm);
       const slug = meta.game_slug || gw.game_slug || fallback.game_slug || '';
       const coverUrl = meta.cover_image_url || gw.cover_image_url || fallback.cover_image_url || (slug ? `/game_icons/${slug}.webp` : null);
       const iconUrl = meta.game_icon_url || gw.game_icon_url || fallback.game_icon_url || coverUrl;
@@ -3190,9 +3192,11 @@ export async function loadAllGiveawaysD1(db: D1Database, includeCodes: boolean =
 
       return {
         ...fallback,
-        ...gw,
         ...meta,
+        ...gw,
         remaining_codes: rem,
+        claimed_codes: clm,
+        total_codes: tot,
         cover_image_url: coverUrl,
         game_icon_url: iconUrl,
         description: desc,
@@ -3290,11 +3294,16 @@ export async function loadAllGiveawaysD1(db: D1Database, includeCodes: boolean =
 
     return list.map((gw: any) => {
       const fallback = fallbackGwMap.get(gw.id) || {};
-      const pool = poolMap.has(gw.id) && poolMap.get(gw.id)!.length > 0
-        ? poolMap.get(gw.id)!
-        : (Array.isArray(gw.codes_pool) && gw.codes_pool.length > 0
-            ? gw.codes_pool
-            : (Array.isArray(fallback.codes_pool) ? fallback.codes_pool : []));
+      let pool: string[] = [];
+      if (poolMap.has(gw.id)) {
+        pool = poolMap.get(gw.id)!;
+      } else if (Array.isArray(meta.codes_pool)) {
+        pool = meta.codes_pool;
+      } else if (Array.isArray(gw.codes_pool)) {
+        pool = gw.codes_pool;
+      } else if (Array.isArray(fallback.codes_pool)) {
+        pool = fallback.codes_pool;
+      }
 
       const sqlClaims = (historyMap.get(gw.id) || []).map((c: any) => ({ ...c, is_simulated: false }));
       const meta = metaMap.get(gw.id) || {};

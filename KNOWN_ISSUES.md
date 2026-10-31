@@ -10,6 +10,25 @@
 
 ## 1. DANH MỤC LỖI & CÁC BẪY ĐÃ THẤT BẠI (DO NOT REPEAT)
 
+### ISSUE-196: Bẫy Hồi Sinh Mã Trong Pool Giveaway Do Điều Kiện `length > 0` Khiến Xóa Kho Rỗng Rơi Vào Fallback Cũ & Passive Simulation Writer Ghi Đè Sau Mỗi 5 Phút
+- **Triệu chứng**:
+  - Quản trị viên xóa toàn bộ mã trong kho riêng của sự kiện giveaway (ví dụ `gw_gamerpower_rotwood`), giao diện hiện "Còn 0, Hết mã", nhưng sau khoảng 5-10 phút mã tự động hồi sinh trở lại D1 (`remaining_codes` và `codes_pool` nhảy lại 30).
+  - Số liệu giveaway nhảy lung tung giữa các lần đọc (3Q 87/68 vs 40/21, Anh Hùng 38/20 vs 25/7) dù `updated_at` không hề thay đổi.
+- **Nguyên nhân gốc rễ**:
+  1. *Bẫy `Array.isArray && length > 0` trong `d1_service.ts`*: Khi xóa sạch mã, `codes_pool.length` bằng 0 khiến `hasIncomingPool` bị `false`, hệ thống tự động rơi về `existingPool` và nạp lại 30 mã cũ vào D1 table `giveaway_codes`.
+  2. *Passive Simulation Tick trong `functions/_worker.ts`*: Mỗi 5 phút (`Date.now() - lastGiveawaySimulationTick > 300000`), hàm `runGiveawaySimulation` tự động kích hoạt. Nó đọc D1 không dùng `forceFresh: true`, lấy bản ghi cũ còn mã rồi thực hiện lệnh `UPDATE giveaways ... updated_at = 2026-10-31T05:35:00Z` và `setSettingD1('wcg_admin_giveaways_v4', rawGiveaways)`.
+  3. *Admin Smart Merge Vector*: Trong `adminDataService.ts`, khi thấy server cập nhật lúc 12:35 (mới hơn local 12:28), client coi server mới hơn, nhưng vì `local.codes_pool.length === 0` nên merge lại lấy `serverGw.codes_pool`, ghi đè ngược lại 30 mã vào `localStorage` và đẩy lại lên D1.
+  4. *Lệch 3 nguồn dữ liệu*: `giveaways` SQL table, `system_settings`, và `giveaways.json` lưu số liệu không đồng nhất. Khi D1 timeout, hệ thống trả về hạt giống cũ (40/21 thay vì 87/68).
+- **Giải pháp chuẩn đã kiểm chứng**:
+  1. *Đổi điều kiện sang `Array.isArray(codes_pool)`*: Khi mảng rỗng `[]`, đó là lệnh xóa kho tường minh. Lập tức chạy `DELETE FROM giveaway_codes WHERE giveaway_id = ? AND status = 'AVAILABLE'`, cập nhật `remaining_codes = 0`, `total_codes = claimed_codes`, và lưu `codes_pool: []`.
+  2. *Bổ sung API actions `DELETE_POOL_CODES` và `CLEAR_POOL`*: Cho phép xóa trực tiếp từ server Edge mà không phụ thuộc vào chu kỳ merge state.
+  3. *Simulation Gatekeeper*: Thêm `bypassCache: true`, nếu `realStock <= 0` thì ngắt ngay lập tức, không sinh claim mô phỏng và không cập nhật.
+  4. *Thống nhất SSOT bộ đếm*: `remaining = available_cnt`, `claimed = claimed_cnt`, `total = remaining + claimed`. Đồng bộ hạt giống `src/data/giveaways.json` khớp 100% với D1 thực tế.
+- 🚫 **CÁCH SỬA ĐÃ THẤT BẠI - TUYỆT ĐỐI KHÔNG LẶP LẠI**:
+  - ❌ *Không dùng `length > 0` để kiểm tra sự tồn tại của `codes_pool`*.
+  - ❌ *Không để simulation chạy trên các sự kiện đã có tồn kho thật bằng 0*.
+  - ❌ *Không merge số liệu tổng bằng `Math.max` lẫn lộn giữa D1 SQL, system_settings và fallback static*.
+
 ### ISSUE-195: Bẫy Edge Worker Ghi Đè Tiêu Đề Động Bằng Tổng Mã Cả Hạn Thay Vì Mã Hoạt Động & Timeout D1 1200ms Kích Hoạt Fallback Hạt Giống Cũ
 - **Triệu chứng**:
   - Tiêu đề trang HTML thực tế (`/game/where-winds-meet`, `/game/yen-van-thap-luc-thanh`) hiển thị `Nhận 620 Mã Code` dù API và Sync đã trả `584`.

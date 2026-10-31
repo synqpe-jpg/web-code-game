@@ -299,7 +299,8 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
     const existingItem = Array.isArray(existingList) ? existingList.find((g: any) => g && g.id === id) : null;
     const existingPool = Array.isArray(existingItem?.codes_pool) ? existingItem.codes_pool : [];
 
-    const finalPool = incomingCodes.length > 0 ? incomingCodes : existingPool;
+    const isExplicitClear = body.clear_pool === true || (Array.isArray(body.codes) && body.codes.length === 0) || (Array.isArray(body.codes_pool) && body.codes_pool.length === 0);
+    const finalPool = isExplicitClear ? [] : (incomingCodes.length > 0 ? incomingCodes : existingPool);
     const safeClaimed = Number(existingItem?.claimed_codes || body.claimed_codes || 0);
     const totalCount = finalPool.length + safeClaimed;
 
@@ -651,6 +652,117 @@ export const onRequestPut: PagesFunction<Env> = async (context) => {
       );
     }
 
+    // 1.2 Xóa danh sách mã cụ thể khỏi kho (action: DELETE_POOL_CODES)
+    if (action === 'DELETE_POOL_CODES') {
+      const codesToDelete = Array.isArray(body.codes) ? body.codes.map((c: any) => String(c).trim().toUpperCase()) : [];
+      if (codesToDelete.length === 0) {
+        return new Response(JSON.stringify({ success: false, message: 'Danh sách mã cần xóa không hợp lệ.' }), { status: 400, headers: CORS_HEADERS });
+      }
+      const toDeleteSet = new Set(codesToDelete);
+      const currentPool = Array.isArray(currentGw.codes_pool) ? currentGw.codes_pool : [];
+      const updatedPool = currentPool.filter((c: any) => !toDeleteSet.has(String(c).trim().toUpperCase()));
+      const deletedCount = currentPool.length - updatedPool.length;
+
+      currentGw.codes_pool = updatedPool;
+      currentGw.remaining_codes = updatedPool.length;
+      currentGw.total_codes = updatedPool.length + Number(currentGw.claimed_codes || 0);
+      currentGw.updated_at = new Date().toISOString();
+
+      if (env.DB) {
+        await env.DB.prepare("DELETE FROM giveaway_codes WHERE giveaway_id = ? AND status = 'AVAILABLE'").bind(targetId).run().catch(() => {});
+        if (updatedPool.length > 0) {
+          const BATCH_SIZE = 50;
+          for (let j = 0; j < updatedPool.length; j += BATCH_SIZE) {
+            const slice = updatedPool.slice(j, j + BATCH_SIZE);
+            const stmts = slice.map((codeVal: string) => {
+              const codeId = `gc_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`;
+              return env.DB!.prepare(`
+                INSERT INTO giveaway_codes (id, giveaway_id, code_content, status, created_at)
+                VALUES (?, ?, ?, 'AVAILABLE', datetime('now'))
+              `).bind(codeId, targetId, codeVal);
+            });
+            await env.DB.batch(stmts).catch(() => {});
+          }
+        }
+        await env.DB.prepare(`
+          UPDATE giveaways
+          SET remaining_codes = ?, total_codes = ?, updated_at = datetime('now')
+          WHERE id = ?
+        `).bind(updatedPool.length, currentGw.total_codes, targetId).run().catch(() => {});
+      }
+
+      existingList[targetIndex] = currentGw;
+      await setSettingD1(env.DB, 'wcg_admin_giveaways_v4', existingList);
+      invalidateSettingMemoryCache('wcg_admin_giveaways_v4');
+      await syncPublicGiveawayState(env, existingList);
+
+      await logGiveawayAudit(
+        env.DB,
+        targetId,
+        currentGw.title,
+        'DELETE_POOL_CODES',
+        actor,
+        `Đã xóa ${deletedCount} mã khỏi kho phát. Còn lại: ${updatedPool.length} mã.`
+      );
+
+      return new Response(
+        JSON.stringify({
+          success: true,
+          message: `Đã xóa thành công ${deletedCount} mã khỏi kho phát "${currentGw.title}".`,
+          deleted_count: deletedCount,
+          total_remaining_codes: updatedPool.length,
+          giveaway: currentGw,
+        }),
+        { status: 200, headers: CORS_HEADERS }
+      );
+    }
+
+    // 1.3 Xóa sạch toàn bộ mã trong kho (action: CLEAR_POOL)
+    if (action === 'CLEAR_POOL') {
+      const currentPool = Array.isArray(currentGw.codes_pool) ? currentGw.codes_pool : [];
+      const deletedCount = currentPool.length;
+
+      currentGw.codes_pool = [];
+      currentGw.remaining_codes = 0;
+      currentGw.total_codes = Number(currentGw.claimed_codes || 0);
+      currentGw.clear_pool = true;
+      currentGw.updated_at = new Date().toISOString();
+
+      if (env.DB) {
+        await env.DB.prepare("DELETE FROM giveaway_codes WHERE giveaway_id = ? AND status = 'AVAILABLE'").bind(targetId).run().catch(() => {});
+        await env.DB.prepare(`
+          UPDATE giveaways
+          SET remaining_codes = 0, total_codes = claimed_codes, updated_at = datetime('now')
+          WHERE id = ?
+        `).bind(targetId).run().catch(() => {});
+      }
+
+      existingList[targetIndex] = currentGw;
+      await setSettingD1(env.DB, 'wcg_admin_giveaways_v4', existingList);
+      invalidateSettingMemoryCache('wcg_admin_giveaways_v4');
+      await syncPublicGiveawayState(env, existingList);
+
+      await logGiveawayAudit(
+        env.DB,
+        targetId,
+        currentGw.title,
+        'CLEAR_POOL',
+        actor,
+        `Đã xóa sạch toàn bộ ${deletedCount} mã khỏi kho phát.`
+      );
+
+      return new Response(
+        JSON.stringify({
+          success: true,
+          message: `Đã xóa sạch toàn bộ mã trong kho của "${currentGw.title}".`,
+          deleted_count: deletedCount,
+          total_remaining_codes: 0,
+          giveaway: currentGw,
+        }),
+        { status: 200, headers: CORS_HEADERS }
+      );
+    }
+
     // 2. Bật / Tắt hoạt động (action: TOGGLE_ACTIVE)
     if (action === 'TOGGLE_ACTIVE') {
       const nextActive = body.is_active !== undefined ? Boolean(body.is_active) : !currentGw.is_active;
@@ -784,6 +896,23 @@ export const onRequestPut: PagesFunction<Env> = async (context) => {
         currentGw.status = currentGw.is_active ? 'ACTIVE' : 'PAUSED';
       }
       if (body.status !== undefined) currentGw.status = String(body.status).toUpperCase();
+      if (body.game_slug !== undefined) currentGw.game_slug = String(body.game_slug || '').trim();
+      if (body.game_name !== undefined) currentGw.game_name = String(body.game_name || '').trim();
+      if (body.cover_image_url !== undefined) currentGw.cover_image_url = String(body.cover_image_url || '').trim();
+      if (body.game_icon_url !== undefined) currentGw.game_icon_url = String(body.game_icon_url || '').trim();
+      if (body.title !== undefined) currentGw.title = String(body.title || '').trim();
+      if (body.description !== undefined) currentGw.description = String(body.description || '').trim();
+      if (body.rewards !== undefined) currentGw.rewards = String(body.rewards || '').trim();
+      if (body.clear_pool === true || (Array.isArray(body.codes_pool) && body.codes_pool.length === 0)) {
+        currentGw.codes_pool = [];
+        currentGw.remaining_codes = 0;
+        currentGw.total_codes = Number(currentGw.claimed_codes || 0);
+        currentGw.clear_pool = true;
+      } else if (Array.isArray(body.codes_pool)) {
+        currentGw.codes_pool = body.codes_pool;
+        currentGw.remaining_codes = body.codes_pool.length;
+        currentGw.total_codes = body.codes_pool.length + Number(currentGw.claimed_codes || 0);
+      }
 
       currentGw.updated_at = new Date().toISOString();
       await syncGiveawaysToD1(env.DB, [currentGw]);
@@ -806,7 +935,7 @@ export const onRequestPut: PagesFunction<Env> = async (context) => {
     return new Response(
       JSON.stringify({
         success: false,
-        message: `Hành động không hợp lệ: "${action}". Các hành động được hỗ trợ: ADD_CODES, TOGGLE_ACTIVE, RESET_COOLDOWN, OPEN_NOW, ADJUST_METRICS, UPDATE_CONFIG.`,
+        message: `Hành động không hợp lệ: "${action}". Các hành động được hỗ trợ: ADD_CODES, DEDUPLICATE_CODES, DELETE_POOL_CODES, CLEAR_POOL, TOGGLE_ACTIVE, RESET_COOLDOWN, OPEN_NOW, ADJUST_METRICS, UPDATE_CONFIG.`,
       }),
       { status: 400, headers: CORS_HEADERS }
     );

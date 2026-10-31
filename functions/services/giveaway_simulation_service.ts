@@ -1,5 +1,5 @@
 import { D1Database } from '@cloudflare/workers-types';
-import { getSettingD1, setSettingD1 } from './d1_service';
+import { getSettingD1, setSettingD1, invalidateSettingMemoryCache } from './d1_service';
 import { getRealEventsHub, saveRealEventsHub } from './realEventsHub';
 
 /**
@@ -95,7 +95,7 @@ export async function runGiveawaySimulation(
   };
 
   try {
-    const rawGiveaways = await getSettingD1<any[]>(db, 'wcg_admin_giveaways_v4', []);
+    const rawGiveaways = await getSettingD1<any[]>(db, 'wcg_admin_giveaways_v4', [], true);
     if (!Array.isArray(rawGiveaways) || rawGiveaways.length === 0) {
       return report;
     }
@@ -127,7 +127,7 @@ export async function runGiveawaySimulation(
       }
 
       // 2. Kiểm tra kho: còn mã
-      const realStock = Array.isArray(gw.codes_pool) && gw.codes_pool.length > 0
+      const realStock = Array.isArray(gw.codes_pool)
         ? gw.codes_pool.length
         : Math.max(0, Number(gw.remaining_codes || 0));
       if (realStock <= 0) {
@@ -319,6 +319,8 @@ export async function runGiveawaySimulation(
 
     if (updatedAny) {
       await setSettingD1(db, 'wcg_admin_giveaways_v4', rawGiveaways).catch(() => {});
+      invalidateSettingMemoryCache('wcg_admin_giveaways_v4');
+      invalidateSettingMemoryCache('wcg_master_state_v4');
       await setSettingD1(db, 'wcg_last_giveaway_simulation_run', nowIso).catch(() => {});
     }
 
