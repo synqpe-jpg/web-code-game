@@ -26,7 +26,7 @@ async function saveUpcomingGamesAndPropagate(
 ): Promise<void> {
   const { request, env } = context;
   if (!env?.DB) return;
-  await saveUpcomingGamesAndPropagate(context, currentUpcomingGames);
+  await setSettingD1(env.DB, 'wcg_upcoming_games_v1', currentUpcomingGames);
   invalidateSettingMemoryCache('wcg_admin_upcoming_games_v1');
 
   // Master state sync
