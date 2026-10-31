@@ -3294,6 +3294,7 @@ export async function loadAllGiveawaysD1(db: D1Database, includeCodes: boolean =
 
     return list.map((gw: any) => {
       const fallback = fallbackGwMap.get(gw.id) || {};
+      const meta = metaMap.get(gw.id) || {};
       let pool: string[] = [];
       if (poolMap.has(gw.id)) {
         pool = poolMap.get(gw.id)!;
@@ -3306,7 +3307,6 @@ export async function loadAllGiveawaysD1(db: D1Database, includeCodes: boolean =
       }
 
       const sqlClaims = (historyMap.get(gw.id) || []).map((c: any) => ({ ...c, is_simulated: false }));
-      const meta = metaMap.get(gw.id) || {};
       const metaHistory = Array.isArray(meta.claim_history) ? meta.claim_history : (Array.isArray(gw.claim_history) ? gw.claim_history : (fallback.claim_history || []));
       const simClaims = (metaHistory || []).filter((c: any) => c && c.is_simulated === true);
       const mergedClaims = [...sqlClaims, ...simClaims].sort((a: any, b: any) => {
