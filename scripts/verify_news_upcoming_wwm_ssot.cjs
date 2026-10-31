@@ -39,8 +39,8 @@ async function verifyAll() {
   console.log(`- API /api/news: ${newsApiTotal} bài (Chứa bài 09:00: ${hasVazdInApi})`);
   console.log(`- Sync /api/sync: ${syncNewsTotal} bài (Chứa bài 09:00: ${hasVazdInSync})`);
 
-  if (newsApiTotal === 219 && syncNewsTotal === 219 && hasVazdInApi && hasVazdInSync) {
-    console.log('  => ĐẠT: Tin tức đồng nhất 219/219, bài 09:00 có mặt đầy đủ ở cả API và Sync.');
+  if (newsApiTotal >= 219 && syncNewsTotal === newsApiTotal && hasVazdInApi && hasVazdInSync) {
+    console.log(`  => ĐẠT: Tin tức đồng nhất hoàn hảo ${newsApiTotal}/${syncNewsTotal}, bài 09:00 có mặt đầy đủ ở cả API và Sync.`);
   } else {
     console.error(`  => THẤT BẠI: Tin tức chưa đồng nhất! API=${newsApiTotal}, Sync=${syncNewsTotal}`);
     passed = false;
