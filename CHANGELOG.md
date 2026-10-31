@@ -7,6 +7,51 @@ Mỗi mục sửa lỗi đều ghi nhận **Nguyên nhân gốc rễ (Root Cause
 
 ## [2026-10-31]
 
+### 289. Chuyển Đổi Trang Chi Tiết Tin Tức Thành Trang Đầy Đủ (Full Page Standalone) Chuẩn Trang Tổng Hợp Chuyên Sâu: Điều Hướng Mục Dính Đầu Trang, Hero 2 Cột Desktop & Lưới Thẻ 3 Cột
+- **Bối cảnh & Yêu cầu**:
+  - Người dùng yêu cầu chuyển đổi hoàn toàn trang chi tiết tin tức (`/news/<slug>`) trên `codegame.shop` từ dạng cửa sổ nổi (modal overlay) phủ lên trang danh sách sang dạng **Trang Đầy Đủ (Full Page Standalone)** rộng rãi, thoáng đãng, cấu trúc đẹp chuẩn trang tổng hợp chuyên sâu.
+  - Bài mẫu kiểm chứng: Hiệp Khách Hành (Sword of Reborn) — `news_1793426572474_2lvo` (ảnh bìa `/game_icons/hiep-khach-hanh.webp`, ra mắt 05/11/2026).
+  - Áp dụng hoàn toàn tự động, tương thích với tất cả 220 bài viết trong kho, tuyệt đối không hardcode nội dung bài mẫu.
+- **Nguyên nhân gốc rễ của bố cục cũ**:
+  1. *Cửa sổ nổi (Modal overlay)*: Trước đây `NewsDetailModal.tsx` dùng `createPortal` và bọc trong khung `fixed inset-0 z-[100] bg-slate-950/85` phủ lên danh sách tin tức. Khi mở trực tiếp qua URL hoặc bấm từ danh sách, trang nền phía sau vẫn render, tạo cảm giác chật chội và không phải một trang độc lập.
+  2. *Mục lục đặt ở thanh bên phải (Sidebar)*: Thay vì thanh điều hướng bám dính ở đầu trang, mục lục cũ đặt ở cột phải `lg:col-span-4`, chiếm 1/3 diện tích chiều ngang khiến khung chữ bị ép hẹp.
+  3. *Bố cục Hero đầu bài xếp dọc 1 cột*: Ảnh bìa phủ toàn bộ chiều rộng ở trên, tiêu đề và tóm tắt nằm ở dưới, chưa khai thác được ưu thế 2 cột trên màn hình máy tính.
+  4. *Danh sách gạch đầu dòng phẳng*: Các mục cập nhật, lối chơi, kênh hot hiển thị dạng gạch đầu dòng văn bản thường, chưa chia dạng lưới thẻ (card grid).
+  5. *URL bị ghi đè*: Tại `App.tsx`, khi chuyển tab sang `news`, lệnh `replaceState('/news')` ghi đè URL nếu người dùng truy cập trực tiếp bài viết.
+- **Giải pháp kỹ thuật đã áp dụng**:
+  1. *Định tuyến & Giữ nguyên URL (`src/App.tsx` & `src/components/NewsView.tsx`)*:
+     - Bảo toàn đường dẫn `/news/<slug>` trên thanh địa chỉ, không chuyển hướng về `/news`.
+     - Nút "← Quay lại danh sách tin tức" cập nhật URL về `/news` và đưa người dùng về danh sách.
+     - Hỗ trợ đầy đủ phím Back / Forward của trình duyệt qua sự kiện `popstate`.
+     - Khi bài viết được chọn (`selectedArticle !== null`), `NewsView.tsx` render trực tiếp trang đầy đủ mà không render trang danh sách ở nền.
+  2. *Thanh Điều Hướng Theo Mục Bám Dính Đầu Trang (Sticky Section Navbar)*:
+     - Tự động trích xuất các tiêu đề `## ` trong bài (11 mục lớn đối với bài Hiệp Khách Hành).
+     - Bám dính ở đầu trang ngay dưới thanh công cụ trên cùng (`sticky top-0 z-40 bg-slate-950/95`).
+     - Nút dạng pill có số thứ tự (`01`, `02`, ...), tô sáng mục đang đọc theo vị trí cuộn thực tế (`activeHeadingId`).
+     - Bấm vào mục nào cuộn êm (`behavior: 'smooth'`) tới đúng vị trí đó với offset bù trừ thanh dính (`scroll-mt-36`), tiêu đề không bị che mất.
+     - Trên điện thoại: Tự động thu gọn thành thanh cuộn ngang mượt mà (`overflow-x-auto scrollbar-none`), không tràn màn hình.
+  3. *Phần Mở Đầu Dạng 2 Cột Trên Máy Tính (Hero Header)*:
+     - Màn hình máy tính (`lg:grid lg:grid-cols-12`):
+       - Cột trái (`lg:col-span-7`): Nhãn ngày nghiên cứu/cập nhật, Tiêu đề cực lớn (`font-black text-4xl lg:text-5xl`), đoạn tóm tắt mở đầu (lead excerpt) và hộp "⚡ Điểm cần đọc trước" (Key Takeaways) nổi bật với viền hổ phách phát sáng nhẹ.
+       - Cột phải (`lg:col-span-5`): Ảnh bìa lớn (`effectiveCoverUrl`), có huy hiệu xác thực đóng dấu góc trên phải: `CodeGame.Shop • Tổng Hợp`.
+       - Hàng thông tin Meta Row trải dài bên dưới 2 cột: Ngày đăng, thời gian đọc ước tính, lượt xem, huy hiệu tựa game (bấm xem trang game), tags và nhãn `Tin Hot` (chỉ khi `is_hot === true`).
+     - Màn hình điện thoại: Tự động xếp chồng thứ tự hoàn hảo (Tiêu đề $\rightarrow$ Ảnh bìa $\rightarrow$ Tóm tắt & Điểm cần đọc trước $\rightarrow$ Hàng thông tin).
+  4. *Thân Bài Dạng Thẻ Mục Độc Lập & Lưới Thẻ 3 Cột (Responsive Card Grids)*:
+     - Từng mục lớn (`## `) được đóng khung thành một thẻ riêng biệt (`bg-card/70 border border-border/80 rounded-3xl p-6 sm:p-10 mb-8`), có số thứ tự nổi bật.
+     - Danh sách gạch đầu dòng có cấu trúc (như mục 3 Cập nhật mốc thời gian, mục 6 Lối chơi/Xếp hạng, mục 9 Kênh theo dõi): Tự động render thành **lưới 3 thẻ ngang trên máy tính (`grid-cols-1 md:grid-cols-2 lg:grid-cols-3`)**, 1 thẻ một hàng trên điện thoại, mỗi thẻ có nhãn danh mục, tiêu đề đậm và tóm tắt ngắn.
+     - Bảng Markdown: Hiển thị bảng dạng desktop và tự động chuyển thành thẻ xếp chồng trên điện thoại (zero horizontal overflow ở màn hình 360px).
+     - Hộp cảnh báo (Lưu ý, Chú ý, Cảnh báo): Thiết kế khung vàng hổ phách nổi bật.
+  5. *Bảo Toàn Toàn Bộ Tính Năng Hiện Có*:
+     - Thanh tiến độ đọc (Reading Progress Bar 2.5px) ở đầu trang.
+     - Khối mã quà tặng (Giftcodes Widget) với nút sao chép 1 chạm và phản hồi "Đã chép" trong 2 giây (tự ẩn nếu không có mã quà).
+     - Khối đếm ngược ra mắt thật (05/11/2026 đối với Hiệp Khách Hành, tự ẩn nếu không có ngày thật, hiển thị "Đã ra mắt chính thức" khi qua ngày).
+     - Thẻ Game liên quan cuối bài (nếu khớp game trong danh mục) kèm ảnh biểu tượng chuẩn và nút xem chi tiết.
+     - Khối bài viết liên quan (tối đa 4 bài).
+     - Dòng nguồn chuẩn mực ở cuối bài: **Nguồn: CodeGame.Shop** (chữ in đậm).
+- **Phạm vi bảo toàn (Zero Impact Scope)**:
+  - Giữ nguyên 100% dữ liệu bài viết, API tin tức, kho đồng bộ, trang chủ, mục game, giveaway, nhiệm vụ và quản trị.
+  - Tổng số 220 bài viết trong kho được bảo toàn nguyên vẹn, không bài nào bị đổi tiêu đề, nội dung hay ảnh bìa.
+
 ### 288. Sắp Xếp Chuyên Mục Tin Tức Theo Thứ Tự Mới Nhất Lên Đầu (Strict Chronological Descending Sort)
 - **Bối cảnh & Yêu cầu**:
   - Người dùng yêu cầu sắp xếp lại mục tin tức (`codegame.shop/news` và giao diện Web Khách): bài viết nào mới đăng phải luôn được hiển thị lên trước.

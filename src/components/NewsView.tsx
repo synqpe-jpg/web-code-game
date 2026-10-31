@@ -193,11 +193,62 @@ export const NewsView: React.FC<NewsViewProps> = ({
     setArticles((prev) =>
       prev.map((a) => (a.id === art.id ? { ...a, views: (a.views || 0) + 1 } : a))
     );
+    if (typeof window !== 'undefined') {
+      const targetPath = `/news/${art.slug}`;
+      if (window.location.pathname !== targetPath) {
+        window.history.pushState({ articleSlug: art.slug }, '', targetPath);
+      }
+      document.title = `${art.title} | CodeGame.shop`;
+      window.scrollTo({ top: 0, behavior: 'instant' });
+    }
   };
 
   const handleCloseArticle = () => {
     setSelectedArticle(null);
+    if (typeof window !== 'undefined') {
+      if (window.location.pathname !== '/news') {
+        window.history.pushState(null, '', '/news');
+      }
+      document.title = 'Tin Tức Game & Sự Kiện Giftcode Mới Nhất 2026 | CodeGame.shop';
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
   };
+
+  // Sync with browser back/forward buttons (popstate)
+  useEffect(() => {
+    const handlePopState = () => {
+      const path = window.location.pathname;
+      if (path.startsWith('/news/') && path.length > 6) {
+        const slug = path.replace(/^\/news\//i, '').replace(/\/$/, '').trim();
+        const found = newsService.getArticleBySlug(slug);
+        if (found) {
+          setSelectedArticle(found);
+          document.title = `${found.title} | CodeGame.shop`;
+          window.scrollTo({ top: 0, behavior: 'instant' });
+          return;
+        }
+      }
+      setSelectedArticle(null);
+      document.title = 'Tin Tức Game & Sự Kiện Giftcode Mới Nhất 2026 | CodeGame.shop';
+    };
+
+    window.addEventListener('popstate', handlePopState);
+    return () => window.removeEventListener('popstate', handlePopState);
+  }, [articles]);
+
+  // When viewing an article, render full-page detail view directly (not a modal overlay!)
+  if (selectedArticle) {
+    return (
+      <NewsDetailModal
+        article={selectedArticle}
+        onClose={handleCloseArticle}
+        onShowToast={onShowToast}
+        onSelectGameSlug={onSelectGameSlug}
+        onSelectArticle={(art) => handleOpenArticle(art)}
+        allArticles={articles}
+      />
+    );
+  }
 
   return (
     <div className="w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-10 animate-fade-in">
@@ -657,17 +708,7 @@ export const NewsView: React.FC<NewsViewProps> = ({
         </>
       )}
 
-      {/* 5. Article Detail Modal */}
-      {selectedArticle && (
-        <NewsDetailModal
-          article={selectedArticle}
-          onClose={handleCloseArticle}
-          onShowToast={onShowToast}
-          onSelectGameSlug={onSelectGameSlug}
-          onSelectArticle={(art) => handleOpenArticle(art)}
-          allArticles={articles}
-        />
-      )}
+      {/* 5. Article Detail Modal (Handled early as full-page view above) */}
     </div>
   );
 };

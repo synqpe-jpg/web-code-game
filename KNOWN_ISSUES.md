@@ -10,6 +10,24 @@
 
 ## 1. DANH MỤC LỖI & CÁC BẪY ĐÃ THẤT BẠI (DO NOT REPEAT)
 
+### ISSUE-198: Bẫy Mở Bài Viết Tin Tức Dưới Dạng Cửa Sổ Nổi (Modal Overlay) Khiến Giao Diện Bị Thu Hẹp & Lỗi Điều Hướng URL
+- **Triệu chứng**:
+  - Người dùng truy cập bài viết tin tức nhưng giao diện mở dạng popup cửa sổ nổi đè lên trang danh sách phía sau.
+  - Mục lục nằm ở cột bên phải chiếm 1/3 diện tích chiều ngang, ép hẹp khung đọc nội dung.
+  - Khi người dùng mở trực tiếp liên kết bài viết dạng `codegame.shop/news/<slug>`, `App.tsx` lại xóa slug và chuyển về `/news`.
+- **Nguyên nhân gốc rễ**:
+  1. *Modal wrapper*: `NewsDetailModal` dùng `createPortal` và bọc trong khung `fixed inset-0 z-[100]` cùng `document.body.style.overflow = 'hidden'`, làm mất trải nghiệm cuộn tự nhiên của trình duyệt.
+  2. *Lỗi ghi đè URL*: `App.tsx` tự động gọi `history.replaceState('/news')` bất kể người dùng đang đọc bài viết nào.
+  3. *Mục lục sai vị trí*: Mục lục đặt ở cột phụ bên phải (`lg:col-span-4`) thay vì thanh điều hướng bám dính ở đầu trang.
+- **Giải pháp chuẩn đã kiểm chứng**:
+  1. *Trang Đầy Đủ Độc Lập*: Khi `selectedArticle !== null`, `NewsView.tsx` render trực tiếp `NewsDetailModal` dưới dạng Full Page (container `w-full min-h-screen bg-slate-950 pb-20`), không render danh sách nền.
+  2. *Bảo toàn đường dẫn*: Giữ nguyên `/news/<slug>` khi tải trực tiếp; cập nhật URL khi bấm mở bài hoặc bấm nút quay lại; đồng bộ với nút Back/Forward của trình duyệt qua `popstate`.
+  3. *Thanh Điều Hướng Bám Dính Đầu Trang*: Tự sinh từ các tiêu đề `## `, bám dính đầu trang (`sticky top-0 z-40`), cuộn êm (`scroll-mt-36`) với highlight mục đang đọc.
+  4. *Hero 2 Cột Desktop & Lưới Thẻ 3 Cột*: Hero bên trái gồm Tiêu đề + Excerpt + Hộp "Điểm cần đọc trước", bên phải là ảnh bìa lớn; thân bài render các danh sách mốc thời gian, xếp hạng, kênh hot thành lưới 3 thẻ ngang.
+- 🚫 **CÁCH SỬA ĐÃ THẤT BẠI - TUYỆT ĐỐI KHÔNG LẶP LẠI**:
+  - ❌ *Không dùng `createPortal` hoặc fixed overlay backdrop cho trang chi tiết tin tức*.
+  - ❌ *Không xóa slug bài viết khỏi address bar trong `App.tsx` khi người dùng đang ở tab news*.
+
 ### ISSUE-197: Bẫy Nhân Bản Mã Pool Giveaway Do Thiếu Khử Trùng Đa Tầng Khi Ghi Dữ Liệu
 - **Triệu chứng**:
   - Kho mã quà tặng (`codes_pool`) phình lên hàng trăm/nghìn dòng theo bội số của số mã duy nhất (SROM 526 dòng cho 12 mã, Hiệp Khách Hành 1575 dòng cho 107 mã).

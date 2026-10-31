@@ -643,9 +643,14 @@ export const App: React.FC = () => {
       }
 
       if (currentTab === 'news') {
-        document.title = 'Tin Tức Game & Sự Kiện Giftcode Mới Nhất 2026 | CodeGame.shop';
-        if (window.location.pathname !== '/news' || window.location.hash) {
-          window.history.replaceState(null, '', '/news');
+        const path = window.location.pathname;
+        if (path.startsWith('/news/') && path.length > 6) {
+          // Viewing a specific news article full page: preserve /news/<slug> in address bar!
+        } else {
+          document.title = 'Tin Tức Game & Sự Kiện Giftcode Mới Nhất 2026 | CodeGame.shop';
+          if (path !== '/news' || window.location.hash) {
+            window.history.replaceState(null, '', '/news');
+          }
         }
       } else if (currentTab === 'giveaways') {
         document.title = 'Sự Kiện Giveaway Game Miễn Phí 2026 | CodeGame.shop';
@@ -739,6 +744,8 @@ export const App: React.FC = () => {
       } else if (path === '/news' || path.startsWith('/news/')) {
         setSelectedGame(null);
         setCurrentTab('news');
+        const nSlug = path.replace(/^\/news\//i, '').replace(/\/$/, '').trim();
+        setInitialNewsSlug(nSlug || null);
       } else if (path === '/giveaways' || path.startsWith('/giveaways/') || path === '/giveaway' || path.startsWith('/giveaway/')) {
         setSelectedGame(null);
         setCurrentTab('giveaways');
