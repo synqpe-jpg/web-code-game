@@ -11,6 +11,7 @@ import {
   getSettingD1,
   setSettingD1,
   invalidateSettingMemoryCache,
+  deduplicatePoolCodes,
 } from '../../services/d1_service';
 import { recordSoftDelete } from '../../services/soft_delete_service';
 import { invalidateCatalogEdgeCache } from '../../services/cache_service';
@@ -310,7 +311,7 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
     const existingPool = Array.isArray(existingItem?.codes_pool) ? existingItem.codes_pool : [];
 
     const isExplicitClear = body.clear_pool === true || (Array.isArray(body.codes) && body.codes.length === 0) || (Array.isArray(body.codes_pool) && body.codes_pool.length === 0);
-    const finalPool = isExplicitClear ? [] : (incomingCodes.length > 0 ? incomingCodes : existingPool);
+    const finalPool = isExplicitClear ? [] : deduplicatePoolCodes(incomingCodes.length > 0 ? incomingCodes : existingPool);
     const safeClaimed = Number(existingItem?.claimed_codes || body.claimed_codes || 0);
     const totalCount = finalPool.length + safeClaimed;
 
@@ -919,9 +920,10 @@ export const onRequestPut: PagesFunction<Env> = async (context) => {
         currentGw.total_codes = Number(currentGw.claimed_codes || 0);
         currentGw.clear_pool = true;
       } else if (Array.isArray(body.codes_pool)) {
-        currentGw.codes_pool = body.codes_pool;
-        currentGw.remaining_codes = body.codes_pool.length;
-        currentGw.total_codes = body.codes_pool.length + Number(currentGw.claimed_codes || 0);
+        const cleanPool = deduplicatePoolCodes(body.codes_pool);
+        currentGw.codes_pool = cleanPool;
+        currentGw.remaining_codes = cleanPool.length;
+        currentGw.total_codes = cleanPool.length + Number(currentGw.claimed_codes || 0);
       }
 
       currentGw.updated_at = new Date().toISOString();

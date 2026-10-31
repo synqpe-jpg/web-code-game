@@ -1466,10 +1466,11 @@ class AdminDataService {
                   ? Boolean(serverGw.custom_banner_enabled)
                   : (local?.custom_banner_enabled !== undefined ? Boolean(local.custom_banner_enabled) : (hasLink || localHasLink));
 
-                // Pool resolution: strictly honor local if local was updated newer (even if emptied to [])
-                const pool = Array.isArray(local.codes_pool)
+                // Pool resolution: strictly honor local if local was updated newer, and always deduplicate to eliminate multiplication
+                const rawPool = Array.isArray(local.codes_pool)
                   ? (localIsNewer ? local.codes_pool : (Array.isArray(serverGw.codes_pool) ? serverGw.codes_pool : local.codes_pool))
                   : (serverGw.codes_pool || []);
+                const pool = this.deduplicatePoolCodes(rawPool);
 
                 const base = localIsNewer ? { ...serverGw, ...local } : { ...local, ...serverGw };
                 const rem = Array.isArray(pool)
@@ -3233,6 +3234,22 @@ class AdminDataService {
   }
 
   // --- MODULE 13: GIVEAWAY CAMPAIGNS ---
+  public deduplicatePoolCodes(codes: any[]): string[] {
+    if (!Array.isArray(codes)) return [];
+    const seen = new Set<string>();
+    const deduped: string[] = [];
+    for (const c of codes) {
+      const clean = String(c || '').trim();
+      if (!clean) continue;
+      const upper = clean.toUpperCase();
+      if (!seen.has(upper)) {
+        seen.add(upper);
+        deduped.push(clean);
+      }
+    }
+    return deduped;
+  }
+
   public getGiveaways(): GiveawayCampaign[] {
     if (this.giveaways.length === 0 && Array.isArray(DEFAULT_GIVEAWAYS) && DEFAULT_GIVEAWAYS.length > 0) {
       this.giveaways = DEFAULT_GIVEAWAYS.filter((g) => g && g.id && !this.deletedGiveawayIds.has(g.id));
@@ -3257,14 +3274,11 @@ class AdminDataService {
         ? Math.max(0, Number(item.claimed_codes) || 0)
         : (Number(existing.claimed_codes) || 0);
       const safeCreatedAt = existing.created_at || (existing as any).createdAt || item.created_at || (item as any).createdAt || new Date().toISOString();
-      const poolLen = Array.isArray(item.codes_pool) && item.codes_pool.length > 0
-        ? item.codes_pool.length
-        : (Array.isArray(existing.codes_pool) && existing.codes_pool.length > 0
-            ? existing.codes_pool.length
-            : Math.max(0, Number(item.remaining_codes ?? existing.remaining_codes ?? 0)));
-      const effectivePool = Array.isArray(item.codes_pool) && item.codes_pool.length > 0
+      const rawEffectivePool = Array.isArray(item.codes_pool) && item.codes_pool.length > 0
         ? item.codes_pool
         : (Array.isArray(existing.codes_pool) && existing.codes_pool.length > 0 ? existing.codes_pool : (item.codes_pool || []));
+      const effectivePool = this.deduplicatePoolCodes(rawEffectivePool);
+      const poolLen = effectivePool.length;
       const nowIso = new Date().toISOString();
       const isVirtualClaimedChanged = item.virtual_claimed_offset !== undefined &&
         Number(item.virtual_claimed_offset) !== Number(existing.virtual_claimed_offset);

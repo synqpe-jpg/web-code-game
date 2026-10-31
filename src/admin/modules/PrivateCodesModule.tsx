@@ -741,7 +741,7 @@ export const PrivateCodesModule: React.FC<PrivateCodesModuleProps> = ({ onShowTo
         return;
       }
 
-      const updatedPool = [...currentPool, ...uniqueToAdd];
+      const updatedPool = adminDataService.deduplicatePoolCodes([...currentPool, ...uniqueToAdd]);
 
       currentCampaignForPool.codes_pool = updatedPool;
       currentCampaignForPool.remaining_codes = updatedPool.length;

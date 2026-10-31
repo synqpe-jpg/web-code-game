@@ -2372,6 +2372,26 @@ export async function syncUtilitiesToD1(db: D1Database, utilities: any[]): Promi
 }
 
 /**
+ * Hàm khử trùng lặp giftcode trong kho (Pool Deduplication)
+ * Đảm bảo 100% kho mã luôn chỉ chứa các chuỗi mã duy nhất, không bao giờ bị nhân bản.
+ */
+export function deduplicatePoolCodes(codes: any[]): string[] {
+  if (!Array.isArray(codes)) return [];
+  const seen = new Set<string>();
+  const deduped: string[] = [];
+  for (const c of codes) {
+    const clean = String(c || '').trim();
+    if (!clean) continue;
+    const upper = clean.toUpperCase();
+    if (!seen.has(upper)) {
+      seen.add(upper);
+      deduped.push(clean);
+    }
+  }
+  return deduped;
+}
+
+/**
  * Batch Upsert Giveaways & codes_pool to D1
  */
 export async function syncGiveawaysToD1(db: D1Database, giveaways: any[]): Promise<void> {
@@ -2396,10 +2416,11 @@ export async function syncGiveawaysToD1(db: D1Database, giveaways: any[]): Promi
     const hasIncomingPool = Array.isArray(gw.codes_pool);
     const isExplicitClear = gw.clear_pool === true || (gw as any).admin_clear_pool === true || (hasIncomingPool && gw.codes_pool.length === 0);
 
-    // Zero-out safeguard: If incoming does not provide a pool (undefined) and did not explicitly clear, preserve existing warehouse pool. If incoming explicitly provided a pool array (even empty [] or clear_pool: true), respect it strictly!
-    const pool = hasIncomingPool
+    // Zero-out safeguard & Strict Deduplication: Always deduplicate pool codes to prevent any code multiplication
+    const rawPool = hasIncomingPool
       ? gw.codes_pool
       : (isExplicitClear ? [] : existingPool);
+    const pool = deduplicatePoolCodes(rawPool);
 
     const remainingCount = pool.length > 0
       ? pool.length
@@ -2606,12 +2627,11 @@ export async function syncGiveawaysToD1(db: D1Database, giveaways: any[]): Promi
     const hasIncomingPool = Array.isArray(g?.codes_pool);
     const isExplicitClear = g?.clear_pool === true || g?.admin_clear_pool === true || (hasIncomingPool && g.codes_pool.length === 0);
 
-    const preservedPool = hasIncomingPool
+    const rawPreservedPool = hasIncomingPool
       ? g.codes_pool
       : (isExplicitClear ? [] : exPool);
-    const preservedRemaining = Array.isArray(preservedPool)
-      ? preservedPool.length
-      : (isExplicitClear || hasIncomingPool ? 0 : Math.max(Number(ex?.remaining_codes) || 0, Number(g?.remaining_codes) || 0));
+    const preservedPool = deduplicatePoolCodes(rawPreservedPool);
+    const preservedRemaining = preservedPool.length;
     const claimed = Number(g?.claimed_codes ?? ex?.claimed_codes ?? 0);
 
     const { clear_pool, admin_clear_pool, ...rest } = g || {};
@@ -2619,7 +2639,7 @@ export async function syncGiveawaysToD1(db: D1Database, giveaways: any[]): Promi
       ...rest,
       codes_pool: preservedPool,
       remaining_codes: preservedRemaining,
-      total_codes: Math.max(Number(g?.total_codes || 0), preservedRemaining + claimed),
+      total_codes: preservedRemaining + claimed,
     };
   });
   await setSettingD1(db, 'wcg_admin_giveaways_v4', sanitized).catch(() => {});
@@ -3297,13 +3317,13 @@ export async function loadAllGiveawaysD1(db: D1Database, includeCodes: boolean =
       const meta = metaMap.get(gw.id) || {};
       let pool: string[] = [];
       if (poolMap.has(gw.id)) {
-        pool = poolMap.get(gw.id)!;
+        pool = deduplicatePoolCodes(poolMap.get(gw.id)!);
       } else if (Array.isArray(meta.codes_pool)) {
-        pool = meta.codes_pool;
+        pool = deduplicatePoolCodes(meta.codes_pool);
       } else if (Array.isArray(gw.codes_pool)) {
-        pool = gw.codes_pool;
+        pool = deduplicatePoolCodes(gw.codes_pool);
       } else if (Array.isArray(fallback.codes_pool)) {
-        pool = fallback.codes_pool;
+        pool = deduplicatePoolCodes(fallback.codes_pool);
       }
 
       const sqlClaims = (historyMap.get(gw.id) || []).map((c: any) => ({ ...c, is_simulated: false }));
@@ -3313,9 +3333,14 @@ export async function loadAllGiveawaysD1(db: D1Database, includeCodes: boolean =
         return new Date(b.claimedAt || 0).getTime() - new Date(a.claimedAt || 0).getTime();
       }).slice(0, 100);
 
+      const realRemaining = pool.length;
+      const realClaimed = Number(gw.claimed_codes || 0);
+
       return {
         ...gw,
         codes_pool: pool,
+        remaining_codes: realRemaining,
+        total_codes: realRemaining + realClaimed,
         claim_history: mergedClaims.length > 0 ? mergedClaims : (fallback.claim_history || []),
       };
     });

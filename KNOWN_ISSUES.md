@@ -10,6 +10,25 @@
 
 ## 1. DANH MỤC LỖI & CÁC BẪY ĐÃ THẤT BẠI (DO NOT REPEAT)
 
+### ISSUE-197: Bẫy Nhân Bản Mã Pool Giveaway Do Thiếu Khử Trùng Đa Tầng Khi Ghi Dữ Liệu
+- **Triệu chứng**:
+  - Kho mã quà tặng (`codes_pool`) phình lên hàng trăm/nghìn dòng theo bội số của số mã duy nhất (SROM 526 dòng cho 12 mã, Hiệp Khách Hành 1575 dòng cho 107 mã).
+  - Người dùng có thể giật trùng chuỗi mã với người khác nếu mã xuất hiện nhiều dòng trong bảng `giveaway_codes`.
+- **Nguyên nhân gốc rễ**:
+  1. *Lệnh ghi nạp không qua bộ lọc trùng*: Các đường ghi nạp (Admin save, API update, sync payload) cho phép truyền mảng chứa chuỗi mã trùng lặp.
+  2. *Bảng `giveaway_codes` dùng UUID tự sinh*: Khi insert, câu lệnh gán ID duy nhất cho mỗi dòng nên SQLite không kích hoạt ràng buộc UNIQUE trên `code_content`, dẫn đến việc cùng một mã có thể được chèn nhiều lần.
+- **Giải pháp chuẩn đã kiểm chứng**:
+  1. *Khử trùng đa tầng 4 lớp*: Áp dụng hàm `deduplicatePoolCodes` tại:
+     - `AdminDataService.smartMerge` và `saveGiveawayItem`.
+     - `PrivateCodesModule.handleSavePoolCodes`.
+     - `functions/api/giveaways/manage.ts` (`POST` & `PUT UPDATE_CONFIG`).
+     - `functions/api/sync.ts` (`POST /api/sync`).
+     - `functions/services/d1_service.ts` (`syncGiveawaysToD1` & `loadAllGiveawaysD1`).
+  2. *Đảm bảo bất biến*: Mọi mảng `codes_pool` khi nạp vào hoặc đọc ra đều có `length === Set(codes).size` (100% không trùng).
+- 🚫 **CÁCH SỬA ĐÃ THẤT BẠI - TUYỆT ĐỐI KHÔNG LẶP LẠI**:
+  - ❌ *Không bao giờ chèn mã vào `giveaway_codes` hoặc `codes_pool` mà không chạy qua `deduplicatePoolCodes`*.
+  - ❌ *Không để client local state lưu kho mã trùng lặp ghi đè lên server*.
+
 ### ISSUE-196: Bẫy Hồi Sinh Mã Trong Pool Giveaway Do Điều Kiện `length > 0` Khiến Xóa Kho Rỗng Rơi Vào Fallback Cũ & Passive Simulation Writer Ghi Đè Sau Mỗi 5 Phút
 - **Triệu chứng**:
   - Quản trị viên xóa toàn bộ mã trong kho riêng của sự kiện giveaway (ví dụ `gw_gamerpower_rotwood`), giao diện hiện "Còn 0, Hết mã", nhưng sau khoảng 5-10 phút mã tự động hồi sinh trở lại D1 (`remaining_codes` và `codes_pool` nhảy lại 30).

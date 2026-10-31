@@ -22,6 +22,7 @@ import {
   ensureSchemaUpgrades,
   resetAllWalletsAndRevenueD1,
   invalidateSettingMemoryCache,
+  deduplicatePoolCodes,
 } from '../services/d1_service';
 import { verifyToken, computeHash, verifyTemporaryAuditToken } from '../services/auth_service';
 import { invalidateGamesCatalogCache } from './games';
@@ -5261,6 +5262,14 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
           ? (Array.isArray(body.data) ? body.data : (Array.isArray(body.giveaways) ? body.giveaways : null))
           : (Array.isArray(body.giveaways) ? body.giveaways : null);
         if (Array.isArray(incomingGiveaways) && incomingGiveaways.length > 0) {
+          // Pre-deduplicate incoming codes_pool strictly to prevent any duplicate code resurrection
+          for (const gw of incomingGiveaways) {
+            if (gw && Array.isArray(gw.codes_pool)) {
+              gw.codes_pool = deduplicatePoolCodes(gw.codes_pool);
+              gw.remaining_codes = gw.codes_pool.length;
+              gw.total_codes = gw.codes_pool.length + Number(gw.claimed_codes || 0);
+            }
+          }
           await syncGiveawaysToD1(env.DB, incomingGiveaways);
           const sanitizedGiveaways = incomingGiveaways.map((g: any) => {
             if (!g || !g.clear_pool) return g;

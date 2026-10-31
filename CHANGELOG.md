@@ -7,6 +7,27 @@ Mỗi mục sửa lỗi đều ghi nhận **Nguyên nhân gốc rễ (Root Cause
 
 ## [2026-10-31]
 
+### 286. Chặn Đứng Hoàn Toàn Lỗi Nhân Bản Mã Pool Giveaway, Bổ Sung Cơ Chế Khử Trùng Lặp 4 Tầng (Strict Pool Deduplication) & Khôi Phục Tính Nhất Quán 100% Giữa Quản Trị, Manage API và Sync
+- **Bối cảnh & Phản hồi kiểm chứng live**:
+  - Tại bảng quản trị, số dòng trong pool giveaway phình lên theo bội số của số mã duy nhất: SROM từ 12 mã biến thành 526 dòng, Hiệp Khách Hành từng phình 107 -> 214 -> 642 -> 1575 dòng do vòng lặp merge client-server mang kho mã cũ.
+  - Ba nơi bị lệch: Quản lý thấy mất 12 sự kiện (32 thay vì 44), trong khi Sync công khai vẫn còn 43/44 sự kiện.
+  - Đặt ra nghi vấn: Có migration hay dọn dẹp nào đang chạy ngầm không? Tình trạng thực tế kho mã Ta Là Hắc Ngộ Không (`gw_1792235539701_wee`) còn mã hay không?
+- **Nguyên nhân gốc rễ (Root Cause)**:
+  1. *Lỗi mất 12 sự kiện tạm thời ở API Quản lý*: Tại build `6996b8d`, hàm `loadAllGiveawaysD1` bị lỗi cú pháp `ReferenceError: Cannot access 'meta' before initialization` (TDZ) do biến `meta` được khai báo sau khi tham chiếu `meta.codes_pool`. Khối `catch` đã kích hoạt fallback về tệp hạt giống cũ `giveaways.json` (chỉ có 32 sự kiện baseline thay vì 44 sự kiện D1). Lỗi này đã được sửa tại commit `e4549e7` và `da4bedb`, đưa toàn bộ 44 sự kiện trở lại đầy đủ trên Manage API và Sync.
+  2. *Cơ chế nhân bản pool (Pool Duplication Vector)*: Khi Admin UI đồng bộ hoặc nạp mã, nếu local state lưu pool trùng lặp hoặc khi lệnh ghi nạp danh sách, hệ thống trước đây không tự động loại bỏ trùng chuỗi mã mà cho phép lưu nguyên trạng. Khi đọc ngược từ SQL `giveaway_codes` về `poolMap`, số dòng tăng dần theo cấp số cộng mỗi chu kỳ nạp.
+  3. *Tình trạng thực tế Ta Là Hắc Ngộ Không*: Toàn bộ 54 mã thật của chiến dịch đã được người dùng giật hết từ ngày 29/10/2026 (`claimed_codes: 54, remaining_codes: 0`). Con số "Còn 500" Admin từng thấy là do số mô phỏng hiển thị ảo `virtual_remaining_addition = 500`, hoàn toàn không phải mã thật trong kho.
+- **Giải pháp kỹ thuật đã áp dụng**:
+  1. *Khử trùng lặp đa tầng nghiêm ngặt (Strict Pool Deduplication)*:
+     - Tạo hàm chuẩn hóa `deduplicatePoolCodes` loại bỏ trùng chuỗi mã (không phân biệt hoa thường, tự động `trim()`).
+     - Tích hợp hàm vào cả 4 tầng trọng yếu:
+       - Tầng 1 (Client Smart Merge): `src/admin/services/adminDataService.ts` luôn dedup `codes_pool` khi nhận dữ liệu từ server hoặc từ local.
+       - Tầng 2 (Admin Item Save): `saveGiveawayItem` và `handleSavePoolCodes` tự động gỡ trùng trước khi ghi nhớ và trước khi gửi lên máy chủ.
+       - Tầng 3 (Manage & Sync APIs): `POST/PUT /api/giveaways/manage` và `POST /api/sync` bắt buộc chạy qua `deduplicatePoolCodes` trước khi chuyển giao vào database.
+       - Tầng 4 (D1 Engine): `syncGiveawaysToD1` và `loadAllGiveawaysD1` trong `functions/services/d1_service.ts` đảm bảo bảng `giveaway_codes` và `system_settings` chỉ lưu trữ và trả về các mã duy nhất (`total rows = distinct codes`).
+  2. *Quy ba nơi về một nguồn sự thật duy nhất (SSOT)*:
+     - Toàn bộ 44 sự kiện có mặt đầy đủ trên cả ba nơi: Quản trị, API Quản lý (`/api/giveaways/manage`), và Sync công khai (`/api/sync`).
+     - Không có bất kỳ migration hay background cleaner nào đang chạy ngầm trên hệ thống.
+
 ### 285. Khắc Phục Triệt Để Lỗi Hồi Sinh Mã Pool Giveaway (Zero Code Resurrection), Định Nghĩa SSOT Bộ Đếm (Total = Remaining + Claimed) & Đồng Bộ Slug Rotwood
 - **Bối cảnh & Phản hồi kiểm chứng live**:
   - Tại chiến dịch `gw_gamerpower_rotwood` ("GamerPower × Rotwood Drakin Armoury Steam Loot"), sau khi Quản trị viên xóa 30 mã khỏi kho phát riêng (`codes_pool`), quản trị hiện Thật 0/1, Còn 0, Hết mã. Nhưng khoảng vài phút sau (lúc 12:34 - 12:40), mã tự hồi sinh trở lại D1 (`total: 31, pool: 30, remaining: 30, claimed: 1, updated_at: 2026-10-31T05:35:00Z`).
