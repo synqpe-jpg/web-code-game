@@ -12,6 +12,8 @@ import {
   setSettingD1,
   invalidateSettingMemoryCache,
 } from '../../services/d1_service';
+import { recordSoftDelete } from '../../services/soft_delete_service';
+import { invalidateCatalogEdgeCache } from '../../services/cache_service';
 
 export const onRequestOptions: PagesFunction = async () => {
   return new Response(null, { status: 204, headers: CORS_HEADERS });
@@ -864,13 +866,34 @@ export const onRequestDelete: PagesFunction<Env> = async (context) => {
 
     // 3. Xóa khỏi metadata trong system_settings & đồng bộ toàn sàn
     const existingList: any[] = (await getSettingD1(env.DB, 'wcg_admin_giveaways_v4', [], true).catch(() => [])) || [];
+    const targetGw = existingList.find((g: any) => g && g.id === targetId);
     const filteredList = existingList.filter((g: any) => g && g.id !== targetId);
     await setSettingD1(env.DB, 'wcg_admin_giveaways_v4', filteredList);
     invalidateSettingMemoryCache('wcg_admin_giveaways_v4');
     await syncPublicGiveawayState(env, filteredList);
 
-    // 4. Ghi nhật ký kiểm toán
+    // 4. Ghi nhật ký kiểm toán & Soft-Delete History
     const actor = auth.keyRecord?.key_name || 'API Client';
+    if (env.DB) {
+      await recordSoftDelete(env.DB, {
+        recordType: 'giveaway',
+        recordId: targetId,
+        recordSlug: targetGw?.game_slug || targetId,
+        title: targetGw?.title || targetId,
+        actor,
+        deleteReason: 'Xóa chiến dịch giveaway qua DELETE /api/giveaways/manage',
+        originalData: targetGw || { id: targetId },
+        context,
+        request,
+        env,
+        additionalPurgeUrls: [
+          'https://codegame.shop/api/giveaways',
+          'https://codegame.shop/api/giveaways/manage',
+          'https://codegame.shop/api/sync',
+        ],
+      });
+    }
+
     await logGiveawayAudit(
       env.DB,
       targetId,
@@ -879,6 +902,13 @@ export const onRequestDelete: PagesFunction<Env> = async (context) => {
       actor,
       `Đã xóa vĩnh viễn chiến dịch giveaway "${targetId}" và đưa vào danh sách Tombstones.`
     );
+
+    (globalThis as any).__wcg_public_sync_cache = null;
+    await invalidateCatalogEdgeCache(context as any, request, env, [
+      'https://codegame.shop/api/giveaways',
+      'https://codegame.shop/api/giveaways/manage',
+      'https://codegame.shop/api/sync',
+    ]).catch(() => {});
 
     return new Response(
       JSON.stringify({

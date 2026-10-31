@@ -1653,8 +1653,9 @@ public async syncWithCloudflareKV(forceFresh: boolean = false): Promise<void> {
       cleanName ? cleanName.replace(/[^a-z0-9]+/g, '_') : '',
       (cleanSlug === 'huyen-thoai-hai-tac' || cleanSlug === 'pirate-legends' || cleanId === 'huyen-thoai-hai-tac' || cleanId === 'pirate-legends') ? 'huyen-thoai-hai-tac' : '',
       (cleanSlug === 'huyen-thoai-hai-tac' || cleanSlug === 'pirate-legends' || cleanId === 'huyen-thoai-hai-tac' || cleanId === 'pirate-legends') ? 'pirate-legends' : '',
-      (cleanSlug === 'yen-van-thap-luc-thanh' || cleanSlug === 'where-winds-meet-mobile' || cleanId === 'yen-van-thap-luc-thanh' || cleanId === 'where-winds-meet-mobile') ? 'yen-van-thap-luc-thanh' : '',
-      (cleanSlug === 'yen-van-thap-luc-thanh' || cleanSlug === 'where-winds-meet-mobile' || cleanId === 'yen-van-thap-luc-thanh' || cleanId === 'where-winds-meet-mobile') ? 'where-winds-meet-mobile' : '',
+      (cleanSlug === 'yen-van-thap-luc-thanh' || cleanSlug === 'where-winds-meet' || cleanSlug === 'where-winds-meet-mobile' || cleanId === 'yen-van-thap-luc-thanh' || cleanId === 'where-winds-meet' || cleanId === 'where-winds-meet-mobile') ? 'yen-van-thap-luc-thanh' : '',
+      (cleanSlug === 'yen-van-thap-luc-thanh' || cleanSlug === 'where-winds-meet' || cleanSlug === 'where-winds-meet-mobile' || cleanId === 'yen-van-thap-luc-thanh' || cleanId === 'where-winds-meet' || cleanId === 'where-winds-meet-mobile') ? 'where-winds-meet-mobile' : '',
+      (cleanSlug === 'yen-van-thap-luc-thanh' || cleanSlug === 'where-winds-meet' || cleanSlug === 'where-winds-meet-mobile' || cleanId === 'yen-van-thap-luc-thanh' || cleanId === 'where-winds-meet' || cleanId === 'where-winds-meet-mobile') ? 'where-winds-meet' : '',
     ].filter(Boolean) as string[];
 
     const mergedMap = new Map<string, GiftCode>();

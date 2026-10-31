@@ -2,6 +2,7 @@ import { DEFAULT_NEWS_ARTICLES as fallbackNewsArticles } from '../../../src/data
 import { computeSha256, hasScope } from '../../services/mission_service';
 import { getSettingD1, setSettingD1, invalidateSettingMemoryCache } from '../../services/d1_service';
 import { invalidateCatalogEdgeCache } from '../../services/cache_service';
+import { recordSoftDelete } from '../../services/soft_delete_service';
 
 interface Env {
   DB?: D1Database;
@@ -317,6 +318,16 @@ export const onRequestDelete: PagesFunction<Env> = async (context) => {
 
   if (env.DB) {
     try {
+      await recordSoftDelete(env.DB, {
+        recordType: 'news',
+        recordId: articleId,
+        recordSlug: articleSlug || articleId,
+        title: found.title || '',
+        deletedBy: 'ADMIN:NewsManage',
+        reason: 'Xóa bài viết tin tức',
+        originalPayload: found,
+      }).catch(() => {});
+
       await setSettingD1(env.DB, 'wcg_news_articles_v1', remaining);
       await setSettingD1(env.DB, 'wcg_deleted_news_articles_v1', Array.from(deletedSet));
       invalidateSettingMemoryCache('wcg_news_articles_v1');

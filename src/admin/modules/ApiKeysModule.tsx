@@ -51,6 +51,7 @@ export type ApiKeyScope =
   | 'MEMBERS_FULL'
   | 'SYNC_FULL'
   | 'API_KEYS_FULL'
+  | 'HISTORY_FULL'
   | 'ADMIN_FULL'
   | string;
 
@@ -167,6 +168,17 @@ export const ALL_API_SCOPES: ScopeOption[] = [
     icon: RefreshCw,
   },
   {
+    id: 'HISTORY_FULL',
+    name: 'Lịch Sử Xóa & Khôi Phục (History API)',
+    category: 'Vận Hành',
+    description: 'Tra cứu danh sách bản ghi đã xóa mềm (game, mã, bài viết, giveaway), thực hiện khôi phục tường minh vào hệ thống.',
+    color: 'rose',
+    badgeBg: 'bg-rose-500/10',
+    badgeText: 'text-rose-500',
+    badgeBorder: 'border-rose-500/20',
+    icon: Trash2,
+  },
+  {
     id: 'API_KEYS_FULL',
     name: 'Quản Lý Khóa API & Phân Quyền (API Keys Set Permissions)',
     category: 'Bảo Mật',
@@ -257,7 +269,7 @@ export const ApiKeysModule: React.FC<ApiKeysModuleProps> = ({ onShowToast }) => 
 
   // Active sub-tab
   const [activeTab, setActiveTab] = useState<'keys' | 'permissions' | 'docs'>('keys');
-  const [docCategory, setDocCategory] = useState<'universal' | 'news' | 'missions' | 'giveaways' | 'events' | 'sync'>('universal');
+  const [docCategory, setDocCategory] = useState<'universal' | 'news' | 'missions' | 'giveaways' | 'events' | 'sync' | 'history'>('universal');
 
   const showToast = (msg: string, type: 'success' | 'error' | 'info' = 'success') => {
     if (onShowToast) {
@@ -1386,6 +1398,18 @@ export const ApiKeysModule: React.FC<ApiKeysModuleProps> = ({ onShowToast }) => 
             </button>
           </div>
 
+
+            <button
+              onClick={() => setDocCategory('history')}
+              className={`flex items-center gap-2 px-3.5 py-1.5 rounded-xl text-xs font-semibold transition-all ${
+                docCategory === 'history'
+                  ? 'bg-rose-600 text-white shadow-sm'
+                  : 'bg-card border border-border text-muted-foreground hover:text-foreground'
+              }`}
+            >
+              <Trash2 className="w-3.5 h-3.5" />
+              API Lịch Sử & Xóa Mềm (Mới)
+            </button>
           {/* Docs: Universal Set Permissions API */}
           {docCategory === 'universal' && (
             <div className="space-y-4 bg-card border border-border p-5 rounded-2xl">

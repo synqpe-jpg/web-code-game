@@ -3972,9 +3972,6 @@ class AdminDataService {
   }
 
   public getPendingGames(): PendingCrawlerGame[] {
-    if (this.pendingGames.length === 0 && Array.isArray((canonicalBackup as any)?.crawlerPendingGames)) {
-      return [...(canonicalBackup as any).crawlerPendingGames];
-    }
     return [...this.pendingGames];
   }
 

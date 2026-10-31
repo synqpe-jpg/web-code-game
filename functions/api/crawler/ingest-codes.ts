@@ -11,6 +11,7 @@
  */
 
 import { getSettingD1, setSettingD1, getMultipleSettingsD1 } from '../../services/d1_service';
+import { recordSoftDelete, isRecordTombstoned, getActiveTombstonesMap, filterOutTombstones } from '../../services/soft_delete_service';
 import { normalizeVietnamese, stripAccents, GAME_ACRONYM_MAP, invalidateGamesCatalogCache } from '../games';
 import { invalidateCatalogEdgeCache } from '../../services/cache_service';
 import { parseExpirationDate, isCodeExpired, decodeHtmlEntities } from '../../../src/utils/codeUtils';
@@ -1195,8 +1196,12 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
         });
       };
 
-      pendingGamesRaw.forEach(addGame);
-      unpublishedInCatalog.forEach(addGame);
+      const tombstones = env.DB ? await getActiveTombstonesMap(env.DB) : new Map();
+      const nonTombstonedPending = filterOutTombstones(pendingGamesRaw, 'pending_game', tombstones, (g: any) => ({ id: g?.id, slug: g?.slug }));
+      const nonTombstonedCatalog = filterOutTombstones(unpublishedInCatalog, 'game', tombstones, (g: any) => ({ id: g?.id, slug: g?.slug }));
+
+      nonTombstonedPending.forEach(addGame);
+      nonTombstonedCatalog.forEach(addGame);
 
       const duplicatesCount = combinedList.filter((g) => g.duplicate_of !== null).length;
 
@@ -1601,6 +1606,20 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
         }
         if (!rawSlug) {
           rawSlug = `game-${Date.now()}`;
+        }
+
+        // Tombstone Guard: Tuyệt đối ngăn chặn hồi sinh game đã bị xóa mềm
+        if (env.DB) {
+          const isTombstonedPending = await isRecordTombstoned(env.DB, 'pending_game', rawSlug);
+          const isTombstonedGame = await isRecordTombstoned(env.DB, 'game', rawSlug);
+          if (isTombstonedPending || isTombstonedGame) {
+            results.push({
+              success: false,
+              skipped_tombstone: true,
+              error: `Game "${rawName}" (${rawSlug}) đã bị xóa bởi Quản trị viên (Tombstone active). Hệ thống từ chối tự động hồi sinh. Hãy dùng màn hình Lịch Sử để Khôi Phục tường minh nếu muốn sử dụng lại.`,
+            });
+            continue;
+          }
         }
 
         const isRoblox = isConfirmedRobloxGame(item);
@@ -2482,7 +2501,7 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
       }), { headers: CORS_HEADERS });
     }
 
-    // Xử lý action đặc biệt: Xóa game và mã test trong Hàng Chờ Duyệt (Rule 7 Zero Test Artifacts)
+    // Xử lý action đặc biệt: Xóa game và mã test trong Hàng Chờ Duyệt (Rule 7 Zero Test Artifacts & Soft-Delete Tombstone)
     if (body && (body.action === 'delete_pending_game' || body.action === 'remove_pending_game')) {
       const targetSlug = String(body.slug || body.id || '').trim().toLowerCase();
       if (!targetSlug) {
@@ -2496,21 +2515,48 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
         ? [...settings['wcg_crawler_pending_codes_v1']]
         : [];
 
+      const targetGame = pendingGamesRaw.find((g: any) => g && (String(g.slug).toLowerCase() === targetSlug || String(g.id).toLowerCase() === targetSlug));
+
+      if (env.DB) {
+        await recordSoftDelete(env.DB, {
+          recordType: 'pending_game',
+          recordId: targetGame?.id || targetSlug,
+          recordSlug: targetGame?.slug || targetSlug,
+          title: targetGame?.name || targetSlug,
+          actor: auth.botName || 'crawler_api',
+          deleteReason: body.reason || 'Xóa qua delete_pending_game',
+          originalData: targetGame || { slug: targetSlug },
+          context,
+          request,
+          env,
+          additionalPurgeUrls: [
+            'https://codegame.shop/api/crawler/ingest-codes',
+            'https://codegame.shop/api/sync',
+          ],
+        });
+      }
+
       const filteredGames = pendingGamesRaw.filter((g: any) => g && String(g.slug).toLowerCase() !== targetSlug && String(g.id).toLowerCase() !== targetSlug);
       const filteredCodes = pendingCodesRaw.filter((c: any) => c && String(c.gameSlug || c.game_slug || '').toLowerCase() !== targetSlug);
 
       await setSettingD1(env.DB, 'wcg_crawler_pending_games_v1', filteredGames);
       await setSettingD1(env.DB, 'wcg_crawler_pending_codes_v1', filteredCodes);
 
+      (globalThis as any).__wcg_public_sync_cache = null;
+      await invalidateCatalogEdgeCache(context as any, request, env, [
+        'https://codegame.shop/api/crawler/ingest-codes',
+        'https://codegame.shop/api/sync',
+      ]).catch(() => {});
+
       return new Response(JSON.stringify({
         success: true,
-        message: `Đã xóa game "${targetSlug}" khỏi hàng chờ duyệt thành công!`,
+        message: `Đã xóa mềm game "${targetSlug}" khỏi hàng chờ duyệt và lưu vào lịch sử thành công!`,
         removedGamesCount: pendingGamesRaw.length - filteredGames.length,
         removedCodesCount: pendingCodesRaw.length - filteredCodes.length,
       }), { headers: CORS_HEADERS });
     }
 
-    // Xử lý action đặc biệt: Xóa game hoàn toàn khỏi catalog live (D1 games + codes + settings wcg_admin_games_v5)
+    // Xử lý action đặc biệt: Xóa game hoàn toàn khỏi catalog live (Soft-Delete Tombstone + D1 games + codes + settings wcg_admin_games_v5)
     if (body && (body.action === 'delete_game' || body.action === 'delete_game_d1')) {
       const targetSlug = String(body.slug || body.id || '').trim().toLowerCase();
       if (!targetSlug) {
@@ -2533,7 +2579,9 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
 
       // Xóa khỏi wcg_admin_games_v5
       const freshActive = await getSettingD1(env.DB, 'wcg_admin_games_v5', []);
+      let targetGameSnapshot: any = null;
       if (Array.isArray(freshActive)) {
+        targetGameSnapshot = freshActive.find((g: any) => g && (g.slug === targetSlug || g.id === targetSlug));
         const cleanActive = freshActive.filter((g: any) => g && g.slug !== targetSlug && g.id !== targetSlug);
         if (cleanActive.length !== freshActive.length) {
           await setSettingD1(env.DB, 'wcg_admin_games_v5', cleanActive);
@@ -2543,24 +2591,51 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
       // Xóa khỏi wcg_crawler_pending_games_v1
       const freshPending = await getSettingD1(env.DB, 'wcg_crawler_pending_games_v1', []);
       if (Array.isArray(freshPending)) {
+        if (!targetGameSnapshot) {
+          targetGameSnapshot = freshPending.find((g: any) => g && (g.slug === targetSlug || g.id === targetSlug));
+        }
         const cleanPending = freshPending.filter((g: any) => g && g.slug !== targetSlug && g.id !== targetSlug);
         if (cleanPending.length !== freshPending.length) {
           await setSettingD1(env.DB, 'wcg_crawler_pending_games_v1', cleanPending);
         }
       }
 
+      if (env.DB) {
+        await recordSoftDelete(env.DB, {
+          recordType: 'game',
+          recordId: targetGameSnapshot?.id || targetSlug,
+          recordSlug: targetSlug,
+          title: targetGameSnapshot?.name || targetSlug,
+          actor: auth.botName || 'crawler_api',
+          deleteReason: body.reason || 'Xóa qua delete_game',
+          originalData: targetGameSnapshot || { slug: targetSlug, deletedCodes, deletedGames },
+          context,
+          request,
+          env,
+          additionalPurgeUrls: [
+            `https://codegame.shop/api/games?slug=${targetSlug}`,
+            `https://codegame.shop/api/games?id=${targetSlug}`,
+            new URL(`/api/games?slug=${targetSlug}`, request.url).toString(),
+            `https://codegame.shop/game/${targetSlug}`,
+            'https://codegame.shop/api/sync',
+          ],
+        });
+      }
+
       invalidateGamesCatalogCache();
+      (globalThis as any).__wcg_public_sync_cache = null;
       await invalidateCatalogEdgeCache(context as any, request, env, [
         `https://codegame.shop/api/games?slug=${targetSlug}`,
         `https://codegame.shop/api/games?id=${targetSlug}`,
         new URL(`/api/games?slug=${targetSlug}`, request.url).toString(),
         `https://codegame.shop/game/${targetSlug}`,
+        'https://codegame.shop/api/sync',
       ]).catch(() => {});
 
       return new Response(
         JSON.stringify({
           success: true,
-          message: `Đã xóa vĩnh viễn game "${targetSlug}" (${deletedGames} bản ghi game, ${deletedCodes} mã code) khỏi D1 và Live Catalog!`,
+          message: `Đã xóa mềm game "${targetSlug}" (${deletedGames} bản ghi game, ${deletedCodes} mã code) khỏi D1 và Live Catalog!`,
           deletedGames,
           deletedCodes
         }),

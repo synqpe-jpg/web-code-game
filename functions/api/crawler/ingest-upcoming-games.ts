@@ -17,6 +17,8 @@
  */
 
 import { getSettingD1, setSettingD1 } from '../../services/d1_service';
+import { recordSoftDelete, isRecordTombstoned } from '../../services/soft_delete_service';
+import { invalidateCatalogEdgeCache } from '../../services/cache_service';
 
 export interface Env {
   DB?: D1Database;
@@ -2056,6 +2058,33 @@ export async function onRequestPost(context: { request: Request; env: Env }): Pr
     }
 
     const beforeLen = currentUpcomingGames.length;
+    const deletedItems = currentUpcomingGames.filter((g) => {
+      const idLower = (g.id || '').toLowerCase();
+      const slugLower = (g.slug || '').toLowerCase();
+      return targetIds.includes(idLower) || targetIds.includes(slugLower);
+    });
+
+    if (env.DB) {
+      for (const item of deletedItems) {
+        await recordSoftDelete(env.DB, {
+          recordType: 'upcoming_game',
+          recordId: item.id || item.slug,
+          recordSlug: item.slug,
+          title: item.name || item.slug,
+          actor: 'upcoming_admin',
+          deleteReason: 'Xóa qua ingest-upcoming-games (reject/delete)',
+          originalData: item,
+          context,
+          request,
+          env,
+          additionalPurgeUrls: [
+            'https://codegame.shop/api/crawler/ingest-upcoming-games',
+            'https://codegame.shop/api/sync',
+          ],
+        });
+      }
+    }
+
     currentUpcomingGames = currentUpcomingGames.filter((g) => {
       const idLower = (g.id || '').toLowerCase();
       const slugLower = (g.slug || '').toLowerCase();
@@ -2065,10 +2094,17 @@ export async function onRequestPost(context: { request: Request; env: Env }): Pr
 
     if (env.DB) await setSettingD1(env.DB, 'wcg_admin_upcoming_games_v1', currentUpcomingGames);
 
+    const gScope = globalThis as any;
+    gScope.__wcg_public_sync_cache = null;
+    await invalidateCatalogEdgeCache(context as any, request, env, [
+      'https://codegame.shop/api/crawler/ingest-upcoming-games',
+      'https://codegame.shop/api/sync',
+    ]).catch(() => {});
+
     return new Response(
       JSON.stringify({
         success: true,
-        message: `Đã xóa/từ chối ${deletedCount} game.`,
+        message: `Đã xóa mềm và lưu lịch sử ${deletedCount} game.`,
         deletedCount,
         games: currentUpcomingGames,
       }),
@@ -2190,6 +2226,17 @@ export async function onRequestPost(context: { request: Request; env: Env }): Pr
     const name = String(raw.name).trim();
     const slug = raw.slug ? slugify(String(raw.slug).trim()) : slugify(name);
     if (!slug) continue;
+
+    // Tombstone check: Không hồi sinh game sắp ra mắt đã bị xóa mềm
+    if (env.DB && await isRecordTombstoned(env.DB, 'upcoming_game', slug)) {
+      processedDetails.push({
+        name,
+        slug,
+        status: 'SKIPPED_TOMBSTONE',
+        message: 'Game này đã bị xóa bởi Quản trị viên (Tombstone active). Từ chối tự động nạp lại.'
+      });
+      continue;
+    }
 
     // Kiểm tra chính xác xem các trường có được cung cấp trong payload không
     const hasExplicitRelDateField = ('releaseDate' in raw) || ('release_date' in raw) || ('launchDate' in raw) || ('launch_date' in raw);

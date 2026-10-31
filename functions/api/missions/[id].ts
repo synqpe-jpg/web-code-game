@@ -5,6 +5,7 @@ import {
   verifyMemberAuth,
   invalidateMissionEdgeCache,
 } from '../../services/mission_service';
+import { recordSoftDelete } from '../../services/soft_delete_service';
 
 export const onRequestOptions: PagesFunction = async () => {
   return new Response(null, { status: 204, headers: CORS_HEADERS });
@@ -347,6 +348,17 @@ export const onRequestDelete: PagesFunction<Env> = async (context) => {
       `Xóa nhiệm vụ (isForce=${isForce}, subCount=${subCount})`,
       nowIso
     ).run().catch(() => {});
+
+    // 2.1 Ghi nhận vào Tombstone & Deleted Records History chống hồi sinh
+    await recordSoftDelete(env.DB, {
+      recordType: 'mission',
+      recordId: missionId,
+      recordSlug: existing.slug || missionId,
+      title: existing.title || '',
+      deletedBy: adminActor,
+      reason: `Xóa nhiệm vụ (isForce=${isForce}, subCount=${subCount})`,
+      originalPayload: existing,
+    }).catch(() => {});
 
     // 3. Xóa toàn diện chỉ xóa: kho mã (pools), bài nộp (submissions) và nhiệm vụ (missions).
     // TUYỆT ĐỐI BẢO TỒN TOÀN BỘ NHẬT KÝ KIỂM TRA (mission_audit_logs) BẤT BIẾN!

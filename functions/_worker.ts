@@ -15,6 +15,7 @@ import * as adminMigrateApi from './api/admin/migrate';
 import * as adminAuditCountersApi from './api/admin/audit-counters';
 import * as adminSepayCreditApi from './api/admin/sepay-credit';
 import * as adminTemporaryTokenApi from './api/admin/temporary-token';
+import * as adminHistoryApi from './api/admin/history';
 import * as realtimeEventsApi from './api/realtime-events';
 import * as metricsSyncedApi from './api/metrics/synced';
 import * as gamesApi from './api/games';
@@ -519,6 +520,13 @@ async function handleWorkerRequest(request: Request, env: Env, ctx: ExecutionCon
         if (method === 'GET') return await adminTemporaryTokenApi.onRequestGet(context);
         if (method === 'POST') return await adminTemporaryTokenApi.onRequestPost(context);
         if (method === 'OPTIONS') return await adminTemporaryTokenApi.onRequestOptions(context);
+      }
+
+      // 8c-3. /api/admin/history (Soft-Delete History & Recovery API)
+      if (pathname === '/api/admin/history') {
+        if (method === 'GET') return await adminHistoryApi.onRequestGet(context);
+        if (method === 'POST') return await adminHistoryApi.onRequestPost(context);
+        if (method === 'OPTIONS') return await adminHistoryApi.onRequestOptions(context);
       }
 
       // 8d. /api/crawl-article (AI Article Crawler & Extractor)

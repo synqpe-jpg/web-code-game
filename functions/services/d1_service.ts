@@ -1299,6 +1299,33 @@ export async function ensureSchemaUpgrades(db: D1Database): Promise<void> {
     console.warn('[Migration wcg_virtual_layer_tables_v1 error]', err?.message);
   }
 
+  // 13. Create Deleted Records History Table (Soft Delete & Tombstone Engine)
+  try {
+    await db.prepare(`
+      CREATE TABLE IF NOT EXISTS deleted_records_history (
+        id TEXT PRIMARY KEY,
+        record_type TEXT NOT NULL,
+        record_id TEXT NOT NULL,
+        record_slug TEXT,
+        title TEXT,
+        deleted_at TEXT NOT NULL DEFAULT (datetime('now')),
+        deleted_by TEXT NOT NULL DEFAULT 'admin',
+        delete_reason TEXT,
+        original_data TEXT NOT NULL,
+        restored_at TEXT,
+        restored_by TEXT
+      );
+    `).run().catch(() => {});
+
+    await db.prepare('CREATE INDEX IF NOT EXISTS idx_del_rec_type_slug ON deleted_records_history(record_type, record_slug);').run().catch(() => {});
+    await db.prepare('CREATE INDEX IF NOT EXISTS idx_del_rec_type_id ON deleted_records_history(record_type, record_id);').run().catch(() => {});
+    await db.prepare('CREATE INDEX IF NOT EXISTS idx_del_rec_restored ON deleted_records_history(restored_at);').run().catch(() => {});
+
+    await db.prepare("INSERT OR IGNORE INTO schema_migrations (id) VALUES ('deleted_records_history_v1');").run().catch(() => {});
+  } catch (err: any) {
+    console.warn('[Migration deleted_records_history_v1 error]', err?.message);
+  }
+
   schemaUpgradesDone = true;
   })();
 

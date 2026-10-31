@@ -13,6 +13,7 @@ import {
   ExternalLink,
   Plus,
   Trash2,
+  RotateCcw,
   Edit,
   ShieldCheck,
   AlertTriangle,
@@ -278,7 +279,7 @@ export const formatReleaseDateDisplay = (game: PendingCrawlerGame) => {
 };
 
 export const CrawlerModule: React.FC<CrawlerModuleProps> = ({ onShowToast }) => {
-  const [activeTab, setActiveTab] = useState<'pending' | 'games_pending' | 'sources' | 'logs' | 'scoring' | 'api'>('pending');
+  const [activeTab, setActiveTab] = useState<'pending' | 'games_pending' | 'sources' | 'logs' | 'scoring' | 'api' | 'trash'>('pending');
   const [isLoading, setIsLoading] = useState(false);
   const [pendingCodes, setPendingCodes] = useState<PendingCrawlerCode[]>([]);
   const [pendingGames, setPendingGames] = useState<PendingCrawlerGame[]>([]);
@@ -304,6 +305,75 @@ export const CrawlerModule: React.FC<CrawlerModuleProps> = ({ onShowToast }) => 
   const [newGameInstructions, setNewGameInstructions] = useState('');
   const [newGameCodes, setNewGameCodes] = useState('');
   const [isSubmittingGame, setIsSubmittingGame] = useState(false);
+  // Trash / History State
+  const [deletedRecords, setDeletedRecords] = useState<any[]>([]);
+  const [deletedTotal, setDeletedTotal] = useState(0);
+  const [tombstonesCount, setTombstonesCount] = useState(0);
+  const [deletedTypeFilter, setDeletedTypeFilter] = useState<'ALL' | 'pending_game' | 'game' | 'upcoming_game' | 'news' | 'giveaway' | 'mission'>('ALL');
+  const [deletedSearch, setDeletedSearch] = useState('');
+  const [isLoadingHistory, setIsLoadingHistory] = useState(false);
+  const [isRestoringId, setIsRestoringId] = useState<string | null>(null);
+
+  const fetchDeletedHistory = async () => {
+    setIsLoadingHistory(true);
+    try {
+      const typeParam = deletedTypeFilter === 'ALL' ? '' : '&type=' + deletedTypeFilter;
+      const res = await fetch('/api/admin/history?limit=100&include_restored=true' + typeParam, {
+        headers: getSyncHeaders(),
+      });
+      if (res.ok) {
+        const json = await res.json();
+        if (json.success) {
+          setDeletedRecords(json.records || []);
+          setDeletedTotal(json.total || 0);
+          setTombstonesCount(json.tombstonesCount || 0);
+        }
+      }
+    } catch (e: any) {
+      console.warn('Lỗi tải lịch sử xóa:', e);
+    } finally {
+      setIsLoadingHistory(false);
+    }
+  };
+
+  useEffect(() => {
+    if (activeTab === 'trash') {
+      fetchDeletedHistory();
+    }
+  }, [activeTab, deletedTypeFilter]);
+
+  const handleRestoreRecord = async (record: any) => {
+    if (!window.confirm('Bạn có chắc chắn muốn khôi phục bản ghi "' + (record.title || record.record_slug || record.record_id) + '" không?')) {
+      return;
+    }
+    setIsRestoringId(record.id);
+    try {
+      const res = await fetch('/api/admin/history', {
+        method: 'POST',
+        headers: {
+          ...getSyncHeaders(),
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          action: 'restore',
+          id: record.id,
+        }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        onShowToast('Khôi phục thành công! ♻️', data.message || ('Đã khôi phục "' + (record.title || record.record_id) + '".'), 'success');
+        fetchDeletedHistory();
+        fetchD1Data();
+      } else {
+        onShowToast('Khôi phục thất bại', data.error || data.message || 'Không thể khôi phục.', 'error');
+      }
+    } catch (e: any) {
+      onShowToast('Lỗi kết nối', e?.message || 'Không thể kết nối đến máy chủ.', 'error');
+    } finally {
+      setIsRestoringId(null);
+    }
+  };
+
   const [autoPublishConfig, setAutoPublishConfig] = useState<CrawlerAutoPublishConfig>({
     enabled: true,
     autoPublishWhenHasCodes: true,
@@ -634,22 +704,20 @@ export const CrawlerModule: React.FC<CrawlerModuleProps> = ({ onShowToast }) => 
           if (Array.isArray(data.games) && data.games.length > 0) {
             setGames(data.games);
           }
-          if (Array.isArray(data.crawlerPendingCodes) && data.crawlerPendingCodes.length > 0) {
+          if (Array.isArray(data.crawlerPendingCodes)) {
             setPendingCodes(data.crawlerPendingCodes);
           } else if (canonicalBackup.crawlerPendingCodes) {
             setPendingCodes(canonicalBackup.crawlerPendingCodes as PendingCrawlerCode[]);
             fallbackTriggered = true;
           }
 
-          if (Array.isArray(data.crawlerPendingGames) && data.crawlerPendingGames.length > 0) {
+          if (Array.isArray(data.crawlerPendingGames)) {
             setPendingGames(data.crawlerPendingGames);
+            adminDataService.setPendingGames(data.crawlerPendingGames);
           } else {
             const adminPending = adminDataService.getPendingGames();
-            if (adminPending && adminPending.length > 0) {
+            if (Array.isArray(adminPending)) {
               setPendingGames(adminPending);
-            } else if (canonicalBackup.crawlerPendingGames) {
-              setPendingGames(canonicalBackup.crawlerPendingGames as PendingCrawlerGame[]);
-              fallbackTriggered = true;
             }
           }
 
@@ -2541,6 +2609,24 @@ export const CrawlerModule: React.FC<CrawlerModuleProps> = ({ onShowToast }) => 
         >
           <HelpCircle className="w-4 h-4" />
           Quy Chuẩn 4 Cấp Bậc
+        </button>
+
+
+        <button
+          onClick={() => setActiveTab('trash')}
+          className={'px-4 py-2.5 rounded-xl font-medium text-sm flex items-center gap-2 transition-all cursor-pointer ' + (
+            activeTab === 'trash'
+              ? 'bg-gradient-to-r from-rose-600 to-red-600 text-white shadow-md shadow-rose-600/25 font-semibold'
+              : 'text-slate-400 hover:text-white hover:bg-slate-800/60'
+          )}
+        >
+          <Trash2 className="w-4 h-4 text-rose-400" />
+          <span>Lịch Sử Xóa (Tombstone)</span>
+          {tombstonesCount > 0 && (
+            <span className="px-1.5 py-0.5 rounded-full text-[10px] font-bold bg-rose-500/20 text-rose-300 border border-rose-500/30">
+              {tombstonesCount}
+            </span>
+          )}
         </button>
 
         <button
@@ -5150,6 +5236,188 @@ console.log(data);`}
                         </td>
                       </tr>
                     ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+
+      {/* TAB 7: TOMBSTONE & DELETED RECORDS HISTORY */}
+      {activeTab === 'trash' && (
+        <div className="space-y-4">
+          {/* Header Card */}
+          <div className="bg-slate-900 border border-slate-800 rounded-xl p-4 sm:p-5 flex flex-col md:flex-row md:items-center justify-between gap-4">
+            <div>
+              <h3 className="text-base font-bold text-white flex items-center gap-2">
+                <Trash2 className="w-5 h-5 text-rose-400" />
+                Lịch Sử Xóa Mềm & Tombstone Chống Hồi Sinh
+              </h3>
+              <p className="text-xs text-slate-400 mt-1">
+                Toàn bộ bản ghi đã xóa (Game chờ, Game live, Sắp ra mắt, Tin tức, Giveaway, Nhiệm vụ) được lưu trữ bất biến. Mọi crawler và cơ chế fallback bị chặn nạp lại cho đến khi được quản trị viên khôi phục chủ động.
+              </p>
+            </div>
+            <div className="flex items-center gap-3 shrink-0">
+              <div className="px-3 py-1.5 rounded-xl bg-rose-500/10 border border-rose-500/20 text-rose-300 text-xs font-semibold">
+                Tombstones: <span className="font-bold text-rose-400">{tombstonesCount}</span>
+              </div>
+              <button
+                onClick={fetchDeletedHistory}
+                disabled={isLoadingHistory}
+                className="px-3.5 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-semibold transition-all flex items-center gap-1.5 cursor-pointer"
+              >
+                <RefreshCw className={`w-3.5 h-3.5 ${isLoadingHistory ? 'animate-spin' : ''}`} />
+                <span>Làm mới</span>
+              </button>
+            </div>
+          </div>
+
+          {/* Filter Bar */}
+          <div className="bg-slate-900/60 border border-slate-800/80 rounded-xl p-3 flex flex-wrap items-center justify-between gap-3">
+            <div className="flex flex-wrap items-center gap-2">
+              {(
+                [
+                  { key: 'ALL', label: 'Tất Cả' },
+                  { key: 'pending_game', label: 'Game Chờ Duyệt' },
+                  { key: 'game', label: 'Game Live' },
+                  { key: 'upcoming_game', label: 'Sắp Ra Mắt' },
+                  { key: 'news', label: 'Tin Tức' },
+                  { key: 'giveaway', label: 'Giveaway' },
+                  { key: 'mission', label: 'Nhiệm Vụ' },
+                ] as const
+              ).map((tab) => (
+                <button
+                  key={tab.key}
+                  onClick={() => setDeletedTypeFilter(tab.key)}
+                  className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all cursor-pointer ${
+                    deletedTypeFilter === tab.key
+                      ? 'bg-rose-600 text-white shadow-sm'
+                      : 'bg-slate-800/80 text-slate-400 hover:text-slate-200 hover:bg-slate-800'
+                  }`}
+                >
+                  {tab.label}
+                </button>
+              ))}
+            </div>
+
+            <div className="relative w-full sm:w-64">
+              <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" />
+              <input
+                type="text"
+                placeholder="Tìm tên, slug, ID..."
+                value={deletedSearch}
+                onChange={(e) => setDeletedSearch(e.target.value)}
+                className="w-full pl-9 pr-3 py-1.5 bg-slate-950 border border-slate-800 rounded-lg text-xs text-slate-200 placeholder-slate-500 focus:outline-none focus:border-rose-500/50"
+              />
+            </div>
+          </div>
+
+          {/* Table */}
+          <div className="bg-slate-900 border border-slate-800 rounded-xl overflow-hidden shadow-sm">
+            {isLoadingHistory ? (
+              <div className="py-16 text-center text-slate-400 flex flex-col items-center justify-center gap-2">
+                <RefreshCw className="w-6 h-6 animate-spin text-rose-500" />
+                <span className="text-xs">Đang tải lịch sử xóa và danh sách tombstones...</span>
+              </div>
+            ) : deletedRecords.length === 0 ? (
+              <div className="py-16 text-center text-slate-500 flex flex-col items-center justify-center gap-2">
+                <ShieldCheck className="w-8 h-8 text-slate-600" />
+                <span className="text-sm font-medium">Chưa có bản ghi nào bị xóa mềm</span>
+                <span className="text-xs text-slate-600">Khi một bản ghi bị xóa, nó sẽ xuất hiện tại đây cùng Tombstone chống hồi sinh.</span>
+              </div>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full text-left text-xs text-slate-300">
+                  <thead className="bg-slate-950/80 text-[11px] uppercase tracking-wider text-slate-400 border-b border-slate-800">
+                    <tr>
+                      <th className="py-3 px-4">Loại Bản Ghi</th>
+                      <th className="py-3 px-4">Tiêu Đề / Slug</th>
+                      <th className="py-3 px-4">Thời Điểm Xóa</th>
+                      <th className="py-3 px-4">Người Thực Hiện</th>
+                      <th className="py-3 px-4">Lý Do Xóa</th>
+                      <th className="py-3 px-4">Trạng Thái</th>
+                      <th className="py-3 px-4 text-right">Hành Động</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-800/60 font-sans">
+                    {deletedRecords
+                      .filter((r) => {
+                        if (!deletedSearch.trim()) return true;
+                        const q = deletedSearch.toLowerCase();
+                        return (
+                          (r.title && r.title.toLowerCase().includes(q)) ||
+                          (r.record_slug && r.record_slug.toLowerCase().includes(q)) ||
+                          (r.record_id && r.record_id.toLowerCase().includes(q))
+                        );
+                      })
+                      .map((record) => {
+                        const isRestored = Boolean(record.restored_at);
+                        const typeBadgeMap: Record<string, { label: string; color: string }> = {
+                          pending_game: { label: 'Game Chờ', color: 'bg-amber-500/10 text-amber-400 border-amber-500/20' },
+                          game: { label: 'Game Live', color: 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20' },
+                          upcoming_game: { label: 'Sắp Ra Mắt', color: 'bg-cyan-500/10 text-cyan-400 border-cyan-500/20' },
+                          news: { label: 'Tin Tức', color: 'bg-indigo-500/10 text-indigo-400 border-indigo-500/20' },
+                          giveaway: { label: 'Giveaway', color: 'bg-purple-500/10 text-purple-400 border-purple-500/20' },
+                          mission: { label: 'Nhiệm Vụ', color: 'bg-blue-500/10 text-blue-400 border-blue-500/20' },
+                        };
+                        const badgeInfo = typeBadgeMap[record.record_type] || { label: record.record_type, color: 'bg-slate-800 text-slate-400 border-slate-700' };
+
+                        return (
+                          <tr key={record.id} className="hover:bg-slate-800/30 transition-colors">
+                            <td className="py-3 px-4">
+                              <span className={`inline-block px-2 py-0.5 rounded-full text-[10px] font-semibold border ${badgeInfo.color}`}>
+                                {badgeInfo.label}
+                              </span>
+                            </td>
+                            <td className="py-3 px-4">
+                              <div className="font-semibold text-white max-w-xs truncate" title={record.title || record.record_slug}>
+                                {record.title || record.record_slug || record.record_id}
+                              </div>
+                              <div className="text-[11px] text-slate-400 font-mono truncate">
+                                {record.record_slug || record.record_id}
+                              </div>
+                            </td>
+                            <td className="py-3 px-4 text-slate-400 whitespace-nowrap">
+                              {record.deleted_at ? new Date(record.deleted_at).toLocaleString('vi-VN') : '—'}
+                            </td>
+                            <td className="py-3 px-4 font-mono text-[11px] text-slate-300">
+                              {record.deleted_by || 'admin'}
+                            </td>
+                            <td className="py-3 px-4 text-slate-400 max-w-xs truncate" title={record.delete_reason || ''}>
+                              {record.delete_reason || '—'}
+                            </td>
+                            <td className="py-3 px-4 whitespace-nowrap">
+                              {isRestored ? (
+                                <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-emerald-400">
+                                  <Check className="w-3.5 h-3.5" />
+                                  Đã khôi phục
+                                </span>
+                              ) : (
+                                <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-rose-400">
+                                  <ShieldCheck className="w-3.5 h-3.5" />
+                                  Tombstone Hoạt Động
+                                </span>
+                              )}
+                            </td>
+                            <td className="py-3 px-4 text-right whitespace-nowrap">
+                              {isRestored ? (
+                                <span className="text-[11px] text-slate-500 italic">Đã phục hồi</span>
+                              ) : (
+                                <button
+                                  onClick={() => handleRestoreRecord(record)}
+                                  disabled={isRestoringId === record.id}
+                                  className="px-2.5 py-1 rounded-lg bg-emerald-600/20 hover:bg-emerald-600/30 border border-emerald-500/30 text-emerald-300 hover:text-emerald-200 text-xs font-semibold transition-all inline-flex items-center gap-1 cursor-pointer active:scale-95"
+                                >
+                                  <RotateCcw className={`w-3.5 h-3.5 ${isRestoringId === record.id ? 'animate-spin' : ''}`} />
+                                  <span>{isRestoringId === record.id ? 'Đang khôi phục...' : 'Khôi phục'}</span>
+                                </button>
+                              )}
+                            </td>
+                          </tr>
+                        );
+                      })}
                   </tbody>
                 </table>
               </div>

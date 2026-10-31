@@ -26,6 +26,7 @@ import {
 import { verifyToken, computeHash, verifyTemporaryAuditToken } from '../services/auth_service';
 import { invalidateGamesCatalogCache } from './games';
 import { invalidateCatalogEdgeCache } from '../services/cache_service';
+import { recordSoftDelete, isRecordTombstoned, getActiveTombstonesMap, filterOutTombstones } from '../services/soft_delete_service';
 import fallbackGamesData from '../../src/data/games188.json';
 import fallbackCodesData from '../../src/data/crawled_codes_188.json';
 import fallbackUtilitiesData from '../../src/data/utilities.json';
@@ -365,6 +366,21 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
           autoCreditCoreRatio: 1,
           isConnected: true,
         };
+      } else if (specificKey === 'wcg_admin_free_codes_v5' || specificKey === 'wcg_admin_free_codes_v4') {
+        const isFallbackActive = !Array.isArray(val) || val.length === 0;
+        const candidate = isFallbackActive ? fallbackCodesData : val;
+        return new Response(
+          JSON.stringify({
+            success: true,
+            key: specificKey,
+            data: candidate,
+            count: Array.isArray(candidate) ? candidate.length : 0,
+            is_fallback: isFallbackActive,
+            is_stale: isFallbackActive,
+            timestamp: new Date().toISOString(),
+          }),
+          { headers: { ...CORS_HEADERS, 'Cache-Control': 'no-cache, no-store, must-revalidate' } }
+        );
       }
 
       return new Response(
@@ -832,6 +848,9 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
     const resolvedMarketingConfig = d1Settings['wcg_marketing_config_v1'] || masterState.marketingConfig;
     const resolvedGrowthConfig = d1Settings['wcg_growth_config_v1'] || masterState.growthConfig;
 
+    // Load Active Tombstones for Soft-Delete Enforcement
+    const tombstonesMap = env.DB ? await getActiveTombstonesMap(env.DB) : new Map();
+
     const responsePayload: any = {
       success: true,
       timestamp: masterState.timestamp || new Date().toISOString(),
@@ -863,7 +882,7 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
         if (needsDbHealing && env.DB) {
           setSettingD1(env.DB, 'wcg_admin_games_v5', normalized).catch(() => {});
         }
-        return normalized;
+        return filterOutTombstones(normalized, 'game', tombstonesMap, (g: any) => ({ id: g?.id, slug: g?.slug }));
       })(),
       freeCodes: authorized ? (() => {
         const d1Fc = (Array.isArray(d1Settings['wcg_admin_free_codes_v5']) && d1Settings['wcg_admin_free_codes_v5'].length > 0)
@@ -1000,15 +1019,16 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
       eventSchedules: d1Settings['wcg_event_schedules_v1'] || masterState.eventSchedules || [],
       upcomingGames: (() => {
         const raw = d1Settings['wcg_admin_upcoming_games_v1'] || masterState.upcomingGames;
-        if (Array.isArray(raw) && raw.length > 0) return raw;
-        return fallbackUpcomingGames;
+        const list = (Array.isArray(raw) && raw.length > 0) ? raw : fallbackUpcomingGames;
+        return filterOutTombstones(list, 'upcoming_game', tombstonesMap, (g: any) => ({ id: g?.id, slug: g?.slug }));
       })(),
       universalTemplates: d1Settings['wcg_universal_templates_v1'] || masterState.universalTemplates || null,
     };
 
     if (authorized) {
       responsePayload.crawlerPendingCodes = d1Settings['wcg_crawler_pending_codes_v1'] || masterState.crawlerPendingCodes || [];
-      responsePayload.crawlerPendingGames = d1Settings['wcg_crawler_pending_games_v1'] || masterState.crawlerPendingGames || [];
+      const rawPending = d1Settings['wcg_crawler_pending_games_v1'] || masterState.crawlerPendingGames || [];
+      responsePayload.crawlerPendingGames = filterOutTombstones(rawPending, 'pending_game', tombstonesMap, (g: any) => ({ id: g?.id, slug: g?.slug }));
       responsePayload.crawlerAutoPublishGamesConfig = d1Settings['wcg_crawler_auto_publish_games_v1'] || masterState.crawlerAutoPublishGamesConfig || {
         enabled: true,
         whitelistPublishers: ['VNG', 'Garena', 'SohaGame', 'Funtap', 'Gamota', 'Gosu', 'VTC', 'Dzogame', 'Appota', 'VGP', 'Kplay', 'AceGame'],
@@ -3223,18 +3243,43 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
       }
     }
 
-    // Action: Từ chối / Xóa game trong hàng chờ duyệt
+    // Action: Từ chối / Xóa game trong hàng chờ duyệt (Soft-Delete Tombstone)
     if (body.action === 'reject_crawler_game' && env.DB) {
       try {
         const pendingId = String(body.pendingId || body.id || '').trim();
         const pendingListRaw = await getSettingD1(env.DB, 'wcg_crawler_pending_games_v1') || [];
         const pendingList: any[] = Array.isArray(pendingListRaw) ? pendingListRaw : [];
+        const targetGame = pendingList.find((p: any) => p && (p.id === pendingId || p.slug === pendingId));
         const nextList = pendingList.filter((p: any) => p && p.id !== pendingId && p.slug !== pendingId);
+
+        await recordSoftDelete(env.DB, {
+          recordType: 'pending_game',
+          recordId: targetGame?.id || pendingId,
+          recordSlug: targetGame?.slug || pendingId,
+          title: targetGame?.name || pendingId,
+          actor: 'admin_sync',
+          deleteReason: body.reason || 'Từ chối duyệt game (reject_crawler_game)',
+          originalData: targetGame || { id: pendingId },
+          context,
+          request,
+          env,
+          additionalPurgeUrls: [
+            'https://codegame.shop/api/crawler/ingest-codes',
+            'https://codegame.shop/api/sync',
+          ],
+        });
+
         await setSettingD1(env.DB, 'wcg_crawler_pending_games_v1', nextList);
+
+        (globalThis as any).__wcg_public_sync_cache = null;
+        await invalidateCatalogEdgeCache(context as any, request, env, [
+          'https://codegame.shop/api/crawler/ingest-codes',
+          'https://codegame.shop/api/sync',
+        ]).catch(() => {});
 
         return new Response(JSON.stringify({
           success: true,
-          message: 'Đã loại bỏ game khỏi hàng chờ duyệt.',
+          message: 'Đã loại bỏ game khỏi hàng chờ duyệt và lưu vào lịch sử.',
           remainingPendingCount: nextList.length
         }), { headers: CORS_HEADERS });
       } catch (e: any) {
@@ -3461,18 +3506,40 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
       }
     }
 
-    // Action: Từ chối / Xóa hàng loạt game trong hàng chờ duyệt
+    // Action: Từ chối / Xóa hàng loạt game trong hàng chờ duyệt (Soft-Delete Tombstone)
     if (body.action === 'batch_reject_crawler_games' && env.DB && Array.isArray(body.pendingIds)) {
       try {
         const targetIds = new Set(body.pendingIds.map(String));
         const pendingListRaw = await getSettingD1(env.DB, 'wcg_crawler_pending_games_v1') || [];
         const pendingList: any[] = Array.isArray(pendingListRaw) ? pendingListRaw : [];
+        for (const p of pendingList) {
+          if (p && (targetIds.has(String(p.id)) || targetIds.has(String(p.slug)))) {
+            await recordSoftDelete(env.DB, {
+              recordType: 'pending_game',
+              recordId: String(p.id || p.slug),
+              recordSlug: p.slug ? String(p.slug) : null,
+              title: p.name || p.slug,
+              actor: 'admin_sync',
+              deleteReason: 'Từ chối hàng loạt (batch_reject_crawler_games)',
+              originalData: p,
+              context,
+              request,
+              env,
+            });
+          }
+        }
         const nextList = pendingList.filter((p: any) => p && !targetIds.has(String(p.id)) && !targetIds.has(String(p.slug)));
         await setSettingD1(env.DB, 'wcg_crawler_pending_games_v1', nextList);
 
+        (globalThis as any).__wcg_public_sync_cache = null;
+        await invalidateCatalogEdgeCache(context as any, request, env, [
+          'https://codegame.shop/api/crawler/ingest-codes',
+          'https://codegame.shop/api/sync',
+        ]).catch(() => {});
+
         return new Response(JSON.stringify({
           success: true,
-          message: `Đã loại bỏ ${targetIds.size} game khỏi hàng chờ duyệt.`,
+          message: `Đã loại bỏ ${targetIds.size} game khỏi hàng chờ duyệt và lưu vào lịch sử.`,
           remainingPendingCount: nextList.length
         }), { headers: CORS_HEADERS });
       } catch (e: any) {
@@ -3569,6 +3636,16 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
           if (existingSlugs.has(item.slug) || baseSlugSet.has(bSlug) || baseSlugSet.has(bName)) {
             continue;
           }
+
+          // Tombstone check: Không hồi sinh game đã bị xóa mềm bởi Quản trị viên
+          if (env.DB) {
+            const isTombstonedPending = await isRecordTombstoned(env.DB, 'pending_game', item.slug);
+            const isTombstonedGame = await isRecordTombstoned(env.DB, 'game', item.slug);
+            if (isTombstonedPending || isTombstonedGame) {
+              continue;
+            }
+          }
+
           existingSlugs.add(item.slug);
           baseSlugSet.add(bSlug);
           baseSlugSet.add(bName);
