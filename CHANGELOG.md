@@ -7,6 +7,37 @@ Mỗi mục sửa lỗi đều ghi nhận **Nguyên nhân gốc rễ (Root Cause
 
 ## [2026-10-31]
 
+### 287. Nâng Cấp Toàn Diện Giao Diện Chi Tiết Tin Tức (/news/<slug>) — Chuẩn Hóa Bố Cục Trang Tổng Hợp Chuyên Sâu, Mục Lục Thông Minh & Thích Ứng Mọi Thiết Bị
+- **Bối cảnh & Mục tiêu**:
+  - Người dùng yêu cầu làm lại giao diện trang chi tiết bài tin tức trên `codegame.shop`, hiển thị đẹp, dễ đọc, khoa học như một trang tổng hợp chuyên sâu thay vì chỉ là khối chữ dài đơn điệu.
+  - Áp dụng động cho tất cả 220 bài viết trong kho, tuyệt đối không hardcode bài mẫu (`news_1793426572474_2lvo` - Hiệp Khách Hành).
+  - Bảo toàn 100% dữ liệu bài viết, API tin tức, trang chủ, mục game, giveaway, nhiệm vụ và quản trị.
+- **Giải pháp kỹ thuật đã áp dụng tại [`src/components/NewsDetailModal.tsx`](file:///c:/4%20Antigravity%20all/13%20web%20code%20game/src/components/NewsDetailModal.tsx)**:
+  1. *Phần đầu bài chuẩn mực*:
+     - Ảnh bìa hero ưu tiên `cover_url`, sau đó đến icon game, và tự động ẩn hoàn toàn nếu không có ảnh (không dùng ảnh tạm/mặc định).
+     - Tiêu đề lớn, đoạn tóm tắt mở đầu nổi bật dạng lead card viền accent, thanh thông tin (ngày đăng, tên game, tags, thời gian đọc, lượt xem và nhãn `HOT` chỉ khi `is_hot === true`).
+     - Thanh chỉ báo tiến độ đọc (Reading Progress Bar 2px) mượt mà ở chân thanh tiêu đề dính.
+  2. *Mục lục tự động (Smart TOC) & Bố cục 2 cột*:
+     - Tự động trích xuất các tiêu đề cấp 2 (`## `) thành danh mục có số thứ tự.
+     - Trên máy tính (`lg:`): Mục lục hiển thị ở cột bên, bám dính khi cuộn (`sticky`), tô sáng mục đang đọc theo thời gian thực, bấm vào cuộn êm (`scroll-mt-24`) không bị thanh tiêu đề che khuất.
+     - Trên điện thoại (`< lg`): Mục lục thu gọn ở đầu bài, bấm mở/đóng tiện lợi, không chiếm dụng không gian khi chưa mở.
+  3. *Thân bài dạng thẻ mục (Section Cards) & Bảng thích ứng*:
+     - Tách từng mục lớn thành thẻ độc lập, thoáng đãng, dễ đọc, kiểu chữ chuẩn Inter/Tailwind.
+     - Bảng markdown: Giữ dạng bảng có viền/tiêu đề trên máy tính; tự động chuyển thành **thẻ xếp chồng (stacked cards)** trên điện thoại, loại bỏ hoàn toàn hiện tượng tràn ngang màn hình hẹp (360px).
+     - Đoạn cảnh báo/chú ý (`Lưu ý:`, `Chú ý:`, `Cảnh báo:`, `> `) tự động đóng khung hộp cảnh báo (Alert Box) với icon nổi bật, không thêm thắt nội dung tác giả.
+  4. *Khối Giftcode & Nút Sao Chép Tức Thì*:
+     - Tự động tổng hợp mã quà từ `article.codes` và từ bảng markdown trong bài, hiển thị thẻ riêng kèm nút Sao Chép, trạng thái "Đã chép" trong 2s và liên kết tracking `marketingService.recordRealCopy`. Ẩn hoàn toàn nếu bài không có mã.
+  5. *Khối đếm ngược Giờ G Ra Mắt (Chỉ khi có ngày thật)*:
+     - Tự động tra cứu ngày ra mắt thật từ danh mục game / game sắp ra mắt (ví dụ: Hiệp Khách Hành ra mắt `2026-11-05T09:00:00+07:00`). Ẩn hoàn toàn nếu không có ngày thật; tự động chuyển sang "✓ Đã Ra Mắt Chính Thức" khi hết giờ (không bao giờ hiện số âm).
+  6. *Thẻ Game & Bài Liên Quan*:
+     - Thẻ game cuối bài chỉ hiển thị khi khớp đúng game trong danh mục (hiện logo, nhà phát hành, đánh giá, số mã và nút xem game).
+     - Khối bài liên quan hiển thị tối đa 4 bài cùng game/chủ đề kèm thumbnail và link mở bài.
+     - Dòng nguồn chính thức: `Nguồn: CodeGame.Shop` ở chân bài.
+- **Kiểm chứng**:
+  - Bài mẫu `news_1793426572474_2lvo` hiển thị trọn vẹn 11 mục lục, ảnh `/game_icons/hiep-khach-hanh.webp`, bảng mã quà 10+ mã, đếm ngược 05/11/2026.
+  - Các bài khác (như Liên Quân Mobile `news_1793422717440_ddf9`): hiển thị giao diện mới động, không có mã quà thì ẩn khối mã, không có ngày ra mắt thì ẩn khối đếm ngược.
+  - Tổng số bài viết 220/220 giữ nguyên 100%, không đổi tiêu đề, nội dung hay đường dẫn.
+
 ### 286. Chặn Đứng Hoàn Toàn Lỗi Nhân Bản Mã Pool Giveaway, Bổ Sung Cơ Chế Khử Trùng Lặp 4 Tầng (Strict Pool Deduplication) & Khôi Phục Tính Nhất Quán 100% Giữa Quản Trị, Manage API và Sync
 - **Bối cảnh & Phản hồi kiểm chứng live**:
   - Tại bảng quản trị, số dòng trong pool giveaway phình lên theo bội số của số mã duy nhất: SROM từ 12 mã biến thành 526 dòng, Hiệp Khách Hành từng phình 107 -> 214 -> 642 -> 1575 dòng do vòng lặp merge client-server mang kho mã cũ.
