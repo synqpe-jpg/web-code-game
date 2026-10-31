@@ -7,6 +7,33 @@ Mỗi mục sửa lỗi đều ghi nhận **Nguyên nhân gốc rễ (Root Cause
 
 ## [2026-10-31]
 
+### 282. Bổ Sung Nút Đóng / Mở Nhiệm Vụ 1-Click (Ẩn / Hiện Web Khách), Thao Tác Hàng Loạt & Chuẩn Hóa Bảng Quản Lý 1 Màn Hình Duy Nhất
+- **Bối cảnh & Yêu cầu người dùng**:
+  - Tại trang Quản trị (`/admin#/missions` / `MissionsModule`), người dùng yêu cầu:
+    1. Mỗi nhiệm vụ thêm mục Đóng / Mở nhiệm vụ trực tiếp, tương đương với việc Ẩn / Hiện nhiệm vụ trên web khách (`codegame.shop`).
+    2. Hỗ trợ chọn nhiều nhiệm vụ cùng lúc (multi-select checkbox) và thực hiện thao tác hàng loạt (Mở hàng loạt, Đóng hàng loạt, Xóa hàng loạt).
+    3. Hiển thị toàn bộ bảng quản lý nhiệm vụ vừa vặn trong 1 màn hình duy nhất, không bị tràn ngang, không xuất hiện thanh cuộn ngang, và không bị cắt cụt chữ ("ăng bài Hiệp Khách ành...").
+- **Nguyên nhân gốc rễ (Root Cause)**:
+  - Bảng quản lý nhiệm vụ cũ có 7 cột với độ rộng tối thiểu cố định (`min-w-[180px]`, `min-w-[220px]`, v.v.), tổng chiều rộng vượt quá khung hiển thị máy tính chuẩn khi mở cùng thanh sidebar, dẫn đến tràn ngang (horizontal scrollbar) và cắt xén chữ. Cột "Trạng thái" cũ chỉ là huy hiệu tĩnh, bắt buộc người dùng phải mở modal form chỉnh sửa mới đổi được trạng thái.
+- **Giải pháp kỹ thuật đã áp dụng**:
+  - `functions/api/missions/index.ts`:
+    - Bổ sung xử lý `body.action === 'batch_update_status'` trong `onRequestPost` với D1 `batch` cập nhật trạng thái đồng loạt, ghi nhận audit log và gọi `invalidateMissionEdgeCache(request)` để xóa cache biên tức thời.
+    - Bổ sung xử lý `body.action === 'batch_delete'` tích hợp cơ chế Soft-Delete Tombstone (`recordSoftDelete`) chống hồi sinh dữ liệu.
+  - `src/services/missionService.ts`:
+    - Thêm hai phương thức `batchUpdateStatus(ids, status)` và `batchDelete(ids, force)` gọi API backend.
+  - `src/admin/modules/MissionsModule.tsx`:
+    - Thêm nút chuyển đổi trạng thái 1-Click trực tiếp trên mỗi dòng: nút bấm trực quan có đèn tín hiệu (Xanh lá "Đang Mở — Hiện trên web" / Xám đen "Đã Đóng — Ẩn khỏi web") kèm hiệu ứng phản hồi tức thời (Optimistic UI Update) và thông báo Toast.
+    - Thêm cơ chế chọn nhiều với Checkbox đầu bảng ("Chọn tất cả") và Checkbox từng dòng.
+    - Bổ sung thanh công cụ thao tác hàng loạt (Batch Action Bar): hiển thị số lượng nhiệm vụ đã chọn, các nút bấm "Mở (Hiện web)", "Đóng (Ẩn web)", "Xóa", và "Bỏ chọn".
+    - Thiết kế lại bố cục bảng theo nguyên tắc Single Viewport:
+      - Tinh gọn thành 6 cột chuẩn tỷ lệ (`table-fixed w-full`), triệt tiêu 100% thanh cuộn ngang trên mọi độ phân giải máy tính và laptop.
+      - Gộp cột Tiêu đề & Kênh đích & Phương thức duyệt giúp hiển thị trọn vẹn tiêu đề nhiệm vụ không bị che khuất bất kỳ ký tự nào.
+      - Tinh gọn hiển thị Quota & 7 chỉ số tiến độ và khoảng cách đệm (padding) để toàn bộ bảng hiển thị vừa vặn trong một màn hình làm việc duy nhất.
+    - Cập nhật các nhãn trạng thái trong modal thêm/sửa nhiệm vụ ghi rõ "(Hiện trên web khách)" và "(Ẩn khỏi web khách)".
+- **Kiểm thử & Xác nhận**:
+  - Build Vite Frontend & Cloudflare Pages Edge Worker thành công 100%.
+  - Tự động triển khai lên cả Web Khách `codegame.shop` (`web-code-game`) và Web Quản trị `admin-code-game-shop` (Rule 6).
+
 ### 281. Loại Bỏ Dòng Chú Thích Giới Hạn Tồn Kho "(Tối đa X gói theo kho thực tế)" Trong Khung Chọn Số Lượng Mua Hàng
 - **Bối cảnh & Yêu cầu người dùng**:
   - Người dùng yêu cầu xóa dòng chữ `(Tối đa 7 gói theo kho thực tế)` hiển thị bên dưới nhãn "Số lượng mua:" trong popup xem chi tiết và mua tiện ích/sản phẩm (Cloud Phone VS Phone VIP).
