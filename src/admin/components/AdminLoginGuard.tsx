@@ -74,7 +74,7 @@ export const AdminLoginGuard: React.FC<AdminLoginGuardProps> = ({
           const adminUser: AdminUser = {
             id: res.user.id || 'usr_admin',
             displayName: res.user.displayName || res.user.username || identifier.trim() || 'Admin',
-            email: res.user.email || 'admin@codegame.store',
+            email: res.user.email || 'admin@codegame.shop',
             role: 'SUPER_ADMIN',
             avatar: res.user.avatar_url || '/logo.png',
             permissions: [

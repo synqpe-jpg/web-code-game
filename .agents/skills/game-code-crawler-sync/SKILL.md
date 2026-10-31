@@ -1,12 +1,12 @@
 ---
 name: game-code-crawler-sync
 description: >-
-  Quét và cập nhật toàn bộ game có giấy phép G1/G234 (ABEI - Cục PTTH&TTĐT), tự động lọc bỏ các game và mã giftcode trùng lặp, đồng bộ icon chính xác, thu thập giftcode mới nhất, và đồng bộ dữ liệu vào web codegame.store. Kích hoạt skill này khi người dùng yêu cầu: quét/cập nhật giấy phép game, lọc game trùng lặp, cập nhật icon chuẩn, quét giftcode mới hoặc đồng bộ dữ liệu web.
+  Quét và cập nhật toàn bộ game có giấy phép G1/G234 (ABEI - Cục PTTH&TTĐT), tự động lọc bỏ các game và mã giftcode trùng lặp, đồng bộ icon chính xác, thu thập giftcode mới nhất, và đồng bộ dữ liệu vào web codegame.shop. Kích hoạt skill này khi người dùng yêu cầu: quét/cập nhật giấy phép game, lọc game trùng lặp, cập nhật icon chuẩn, quét giftcode mới hoặc đồng bộ dữ liệu web.
 ---
 
-# Game, Giftcode & License Crawler & Sync Engine (codegame.store)
+# Game, Giftcode & License Crawler & Sync Engine (codegame.shop)
 
-Skill chuyên dụng cho nền tảng **CodeGame Store (`codegame.store`)** giúp tự động hóa các nhiệm vụ cốt lõi:
+Skill chuyên dụng cho nền tảng **CodeGame Shop (`codegame.shop`)** giúp tự động hóa các nhiệm vụ cốt lõi:
 1. **Lọc trùng lặp game & Giftcode**: Tự động phát hiện các tựa game bị nhân bản hoặc có slug trùng, chỉ giữ lại 1 bản ghi chuẩn duy nhất và gộp toàn bộ giftcode không trùng lặp sang slug chuẩn.
 2. **Quét & Đối soát giấy phép G1/G234 từ ABEI**: Tra cứu trực tiếp từ Cổng thông tin Cục Phát thanh, Truyền hình và Thông tin điện tử (`https://giayphep.abei.gov.vn/g1` và `https://giayphep.abei.gov.vn/g`), cập nhật số quyết định phê duyệt (`QĐ-PTTH&TTĐT`, `QĐ-BTTTT`, `GXN-PTTH&TTĐT`), ngày cấp phép, nhà phát hành, độ tuổi.
 3. **Đồng bộ icon game chuẩn**: Kiểm tra và gắn đường dẫn ảnh icon chuẩn định dạng WebP từ `/game_icons/<slug>.webp` hoặc nguồn ảnh quét.

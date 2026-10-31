@@ -178,7 +178,7 @@ export const AdminApp: React.FC<AdminAppProps> = ({ onBackToClient }) => {
               const adminUser: AdminUser = {
                 id: data.user.id || 'usr_admin',
                 displayName: data.user.displayName || data.user.username || 'Admin',
-                email: data.user.email || 'admin@codegame.store',
+                email: data.user.email || 'admin@codegame.shop',
                 role: 'SUPER_ADMIN',
                 avatar: data.user.avatar_url || '/logo.png',
                 permissions: [
