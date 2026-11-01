@@ -2344,7 +2344,7 @@ class MarketingService {
     if (!campaign) return 0;
 
     // 0. Khi sự kiện đóng: Ngoài web báo hết mã (0)
-    if (campaign.is_active === false || campaign.status === 'PAUSED' || campaign.status === 'ENDED' || campaign.status === 'CLOSED') {
+    if (campaign.is_active === false || campaign.is_active === 0 || campaign.is_active === '0' || campaign.status === 'PAUSED' || campaign.status === 'ENDED' || campaign.status === 'CLOSED') {
       return 0;
     }
 
@@ -4514,7 +4514,8 @@ class MarketingService {
 
       if (canGw) {
         (Array.isArray(giveaways) ? giveaways : []).forEach((g) => {
-          if (g && g.is_active !== false && !deletedGwSet.has(g.id)) {
+          const isAct = g && g.is_active !== 0 && g.is_active !== false && g.is_active !== '0' && g.status !== 'PAUSED' && g.status !== 'CLOSED' && g.status !== 'ENDED';
+          if (isAct && !deletedGwSet.has(g.id)) {
             const realStock = Array.isArray(g.codes_pool) && g.codes_pool.length > 0
               ? g.codes_pool.length
               : (typeof g.remaining_codes === 'number' ? Math.max(0, g.remaining_codes) : 0);

@@ -2450,8 +2450,11 @@ export async function syncGiveawaysToD1(db: D1Database, giveaways: any[]): Promi
     const customBannerLink = String(gw.custom_banner_link || (gw as any).customBannerLink || 'https://zalo.me/g/qdtlmj2tebfa0baraedg').trim();
     const showClaimed = (gw.show_claimed_count !== false && (gw as any).showClaimedCount !== false) ? 1 : 0;
     const virtualOffset = Number(gw.virtual_claimed_offset ?? gw.virtualClaimedOffset ?? 0);
-    const isActive = (gw.is_active !== false && (gw as any).isActive !== false) ? 1 : 0;
-    const status = (gw.status === 'ENDED' || String(gw.status).toUpperCase() === 'ENDED') ? 'ENDED' : 'ACTIVE';
+    const isGwClosed = gw.is_active === false || gw.is_active === 0 || gw.is_active === '0' || (gw as any).isActive === false || (gw as any).isActive === 0 || gw.status === 'PAUSED' || gw.status === 'CLOSED';
+    const isActive = isGwClosed ? 0 : 1;
+    const status = (gw.status === 'ENDED' || String(gw.status).toUpperCase() === 'ENDED')
+      ? 'ENDED'
+      : (isActive === 0 ? 'PAUSED' : 'ACTIVE');
     const description = gw.description || '';
     const rewards = gw.rewards || '';
     const startTime = gw.start_time || gw.startTime || null;

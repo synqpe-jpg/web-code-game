@@ -7,6 +7,41 @@ Mỗi mục sửa lỗi đều ghi nhận **Nguyên nhân gốc rễ (Root Cause
 
 ## [2026-11-01]
 
+### 297. Khắc Phục Triệt Để Lỗi "Tự Hồi Sinh" Trạng Thái Đóng/Mở Giveaway Do Lệch Kiểu Dữ Liệu SQLite Integer (0/1 vs Boolean) & Xác Minh Tính Toàn Vẹn Trạng Thái Kho Mã Hắc Ngộ Không
+- **Bối cảnh & Hiện tượng người dùng gặp phải**:
+  - Người dùng bấm đóng sự kiện Tiên Nghịch Mobile, nhưng khi tải lại trang Admin thấy sự kiện "tự hồi sinh", vẫn hiển thị đang mở.
+  - Sau khi thao tác đóng lại, người dùng nhận thấy cả Tiên Nghịch và Ta Là Hắc Ngộ Không đều hiển thị trạng thái "Hết Mã" ngoài Web Khách.
+- **Nguyên nhân gốc rễ (Root Causes)**:
+  1. *Lỗi so sánh nghiêm ngặt kiểu dữ liệu SQLite D1 (`0 !== false` luôn bằng `true`)*:
+     - SQLite trong Cloudflare D1 lưu trữ boolean dưới dạng số nguyên `1` (true) và `0` (false).
+     - Phía giao diện Admin (`PrivateCodesModule.tsx`) và Web Khách (`GiveawaysView.tsx`), nhiều vị trí dùng toán tử so sánh nghiêm ngặt:
+       - `gw.is_active !== false`: Khi D1 trả về `0`, JavaScript tính toán `0 !== false` ra `true`!
+       - `gw.is_active === false`: Khi D1 trả về `0`, JavaScript tính toán `0 === false` ra `false`!
+     - Hệ quả: Dù server D1 đã lưu `is_active = 0` và `status = 'PAUSED'`, khi Admin tải lại dữ liệu từ server, Admin vẫn tính Tiên Nghịch là "Đang mở", đếm `Đang mở (45) | Đã đóng (0)` và vẽ badge xanh "Đang mở" kèm nút đỏ "Đóng".
+  2. *Hàm `handleToggleActive` bị đảo ngược logic và thiếu Header quyền Admin*:
+     - Trong `handleToggleActive`: `const newStatus = gw.is_active === false;` khi `gw.is_active` là `0` thì `newStatus` ra `false` (không thể lật trạng thái).
+     - Lời gọi `fetch('/api/giveaways/manage')` thiếu `...getAdminHeaders()`, dẫn tới yêu cầu bị Cloudflare chặn 403 Forbidden.
+  3. *Hàm đồng bộ nền `sync.ts` và `d1_service.ts` ép cứng `status = 'ACTIVE'`*:
+     - `const dbStatus = ... ? 'ENDED' : 'ACTIVE';` tự động đè status về `'ACTIVE'` mỗi khi lưu danh sách tổng thể.
+  4. *Làm rõ hiện trạng sự kiện Ta Là Hắc Ngộ Không*:
+     - Kiểm chứng trực tiếp cơ sở dữ liệu D1 production: `gw_1792235539701_wee` (Ta Là Hắc Ngộ Không) có `is_active: 1` và `status: "ACTIVE"`. Sự kiện **hoàn toàn KHÔNG bị đóng** bởi lệnh đóng Tiên Nghịch.
+     - Sở dĩ ngoài Web Khách báo "Hết Mã" / "Chờ Đợt Mới" là vì **toàn bộ 54/54 mã thật trong kho của Hắc Ngộ Không đã được người chơi săn hết sạch (remaining = 0, claimed = 54)**.
+- **Giải pháp kỹ thuật đã áp dụng**:
+  1. Xây dựng bộ helper chuẩn mực `isGwActive(gw)` nhận diện đa kiểu dữ liệu:
+     - Trả về `false` nếu `is_active` là `false`, `0`, `'0'` hoặc `status` là `'PAUSED'`, `'CLOSED'`, `'ENDED'`.
+     - Áp dụng đồng bộ xuyên suốt từ bộ đếm đầu trang, bộ lọc danh mục, bộ chọn hàng loạt, render badge cho tới nút thao tác.
+  2. `src/admin/services/adminDataService.ts`:
+     - Tự động chuẩn hóa `is_active` thành boolean thuần (`true` / `false`) và `status` thành `'PAUSED'` / `'ACTIVE'` khi merge dữ liệu từ Cloudflare D1/KV.
+  3. `functions/api/sync.ts`, `functions/services/d1_service.ts` & `functions/api/giveaways/manage.ts`:
+     - Đồng bộ lưu `is_active = 0` và `status = 'PAUSED'` khi đóng sự kiện, tuyệt đối không ép về `'ACTIVE'`.
+  4. Bổ sung `...getAdminHeaders()` cho mọi lời gọi PUT `/api/giveaways/manage` (`handleToggleActive`, `handleBatchToggleSelected`, `handleOpenNow`).
+  5. Tinh gọn cột TRẠNG THÁI thành huy hiệu hiển thị trạng thái trực quan, nhường quyền điều khiển duy nhất cho nhóm 6 nút trong cột THAO TÁC, loại bỏ xung đột và chồng lấn.
+- **Kiểm thử & Xác nhận**:
+  - `npm run build`: PASS 100%, 0 lỗi TypeScript, 0 lỗi cú pháp.
+  - Prerender SEO 583 tựa game & 224 bài viết tin tức: PASS 100%.
+  - Audit Zero Test Artifacts: PASS 100%.
+  - Audit News Covers: PASS 100%.
+
 ### 296. Tái Cấu Trúc Nhóm Nút Thao Tác Giveaway Thành 2 Cột Nhỏ x 3 Hàng Tinh Gọn, Giải Phóng 300px Bề Ngang Giúp Bảng Quản Trị Hiển Thị Đầy Đủ Thông Tin
 - **Bối cảnh & Yêu cầu**:
   - Khi cột THAO TÁC xếp 6 nút thành 1 hàng ngang, độ rộng cột lên tới ~460px và chiếm hết không gian của cột "3 ĐIỀU KIỆN NHẬN" cũng như che khuất hoàn toàn cột "TRẠNG THÁI".

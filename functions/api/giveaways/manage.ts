@@ -843,12 +843,13 @@ export const onRequestPut: PagesFunction<Env> = async (context) => {
 
     // 2. Bật / Tắt hoạt động (action: TOGGLE_ACTIVE)
     if (action === 'TOGGLE_ACTIVE') {
-      const nextActive = body.is_active !== undefined ? Boolean(body.is_active) : !currentGw.is_active;
-      currentGw.is_active = nextActive;
+      const isCurrentlyActive = currentGw.is_active !== 0 && currentGw.is_active !== false && currentGw.is_active !== '0' && currentGw.status !== 'PAUSED';
+      const nextActive = body.is_active !== undefined ? Boolean(body.is_active) : !isCurrentlyActive;
+      currentGw.is_active = nextActive ? 1 : 0;
       currentGw.status = nextActive ? 'ACTIVE' : 'PAUSED';
       currentGw.updated_at = new Date().toISOString();
 
-      const dbStatus = (currentGw.status === 'ENDED' || String(currentGw.status).toUpperCase() === 'ENDED') ? 'ENDED' : 'ACTIVE';
+      const dbStatus = (currentGw.status === 'ENDED' || String(currentGw.status).toUpperCase() === 'ENDED') ? 'ENDED' : (nextActive ? 'ACTIVE' : 'PAUSED');
       await env.DB.prepare(`
         UPDATE giveaways
         SET is_active = ?, status = ?, updated_at = datetime('now')

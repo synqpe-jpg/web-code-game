@@ -10,6 +10,44 @@
 
 ## 1. DANH MỤC LỖI & CÁC BẪY ĐÃ THẤT BẠI (DO NOT REPEAT)
 
+### ISSUE-204: Bẫy Sai Lệch Kiểu Dữ Liệu SQLite Integer (1/0 vs Boolean) Trong Phép So Sánh Nghiêm Ngặt (`0 !== false`), Khiến Sự Kiện Đã Đóng Bị Admin Hiểu Nhầm Là Đang Mở Và "Tự Hồi Sinh" Sau Khi Tải Lại Trang
+- **Triệu chứng**:
+  - Quản trị viên bấm đóng một sự kiện Giveaway (ví dụ Tiên Nghịch Mobile), thao tác thành công. Nhưng khi tải lại trang Admin, sự kiện lại hiển thị nhãn "Đang mở", nút thao tác là "Đóng", và bộ lọc đầu trang ghi "Đã đóng (0)".
+  - Khi xem ngoài Web Khách, người dùng thấy sự kiện đã đóng và một sự kiện khác (ví dụ Hắc Ngộ Không) đều hiện "Hết Mã" / "Chờ Đợt Mới", gây hiểu lầm là bấm đóng Tiên Nghịch làm đóng luôn cả Hắc Ngộ Không.
+- **Nguyên nhân gốc rễ**:
+  1. *SQLite D1 lưu boolean dưới dạng số nguyên (`1` và `0`)*:
+     - Trong JavaScript: `0 !== false` trả về `true` vì `0` (number) khác kiểu với `false` (boolean).
+     - Tương tự: `0 === false` trả về `false`.
+     - Code Admin kiểm tra `gw.is_active !== false` $\rightarrow$ với giá trị `0` từ D1, kết quả luôn là `true`. Do đó Admin luôn nhận định sự kiện là "Đang mở".
+  2. *Hàm `handleToggleActive` bị sai logic lật trạng thái và thiếu Admin Auth Headers*:
+     - `const newStatus = gw.is_active === false;` khi `gw.is_active === 0` tính ra `newStatus = false`.
+     - `fetch('/api/giveaways/manage')` thiếu `...getAdminHeaders()` bị Cloudflare chặn 403.
+  3. *Sync nền ép cứng status về `'ACTIVE'`*:
+     - `sync.ts` và `d1_service.ts` có dòng `const dbStatus = ... ? 'ENDED' : 'ACTIVE';` tự ghi đè `status = 'ACTIVE'` vào D1.
+  4. *Hiện tượng Hắc Ngộ Không*:
+     - Hắc Ngộ Không thực tế có `is_active: 1`, `status: "ACTIVE"`. Nó hiển thị "Hết Mã" ngoài web chỉ vì kho mã thật trong D1 đã được người chơi săn hết sạch (54/54 mã).
+- **Giải pháp chuẩn đã kiểm chứng**:
+  1. *Dùng hàm helper chuẩn hóa `isGwActive(gw)`*:
+     ```ts
+     export const isGwActive = (g: any): boolean => {
+       if (!g) return false;
+       if (g.is_active === false || g.is_active === 0 || g.is_active === '0' || g.isActive === false || g.isActive === 0) return false;
+       const st = String(g.status || '').toUpperCase();
+       if (st === 'PAUSED' || st === 'CLOSED' || st === 'ENDED') return false;
+       return true;
+     };
+     ```
+  2. *Chuẩn hóa boolean trong `adminDataService.ts`*:
+     - Khi merge dữ liệu từ Cloudflare D1/KV, ép `is_active` về boolean sạch (`true` / `false`).
+  3. *Bổ sung đầy đủ Admin Auth Headers cho các request PUT*:
+     - Thêm `...getAdminHeaders()` cho `handleToggleActive`, `handleBatchToggleSelected`, `handleOpenNow`.
+  4. *Lưu đúng `status = 'PAUSED'` khi đóng*:
+     - Trong `sync.ts`, `d1_service.ts`, `giveaways/manage.ts`, gán đúng `status = 'PAUSED'` và `is_active = 0`.
+- 🚫 **CÁCH SỬA ĐÃ THẤT BẠI - TUYỆT ĐỐI KHÔNG LẶP LẠI**:
+  - ❌ *Không dùng `gw.is_active !== false` hoặc `gw.is_active === false` trực tiếp khi làm việc với dữ liệu từ D1 SQLite*.
+  - ❌ *Không gọi endpoint `/api/giveaways/manage` mà quên truyền `getAdminHeaders()`*.
+  - ❌ *Không ép cứng `status = 'ACTIVE'` trong các hàm đồng bộ D1*.
+
 ### ISSUE-203: Bẫy Ẩn Mất Sự Kiện Khỏi Giao Diện Web Khách Khi Đóng Hoặc Báo "Đã Hết Hạn" Thay Vì "Hết Mã", Gây Hiểu Nhầm Xóa Sự Kiện Hoặc Mất Mã Trong Kho
 - **Triệu chứng**:
   - Khi quản trị viên đóng một sự kiện phát quà riêng (Giveaway) trong Admin, sự kiện biến mất hoàn toàn khỏi danh sách ngoài web thay vì báo "Hết Mã" để người chơi biết và chờ đợt mới.

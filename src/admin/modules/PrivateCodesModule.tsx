@@ -62,6 +62,22 @@ interface PrivateCodesModuleProps {
   onShowToast: (title: string, desc?: string, type?: 'success' | 'error' | 'info') => void;
 }
 
+/**
+ * Helper xác định trạng thái ĐANG MỞ (ACTIVE) của chiến dịch Giveaway.
+ * Tương thích 100% với kiểu số nguyên SQLite D1 (1/0), boolean (true/false) và enum status (ACTIVE/PAUSED/ENDED).
+ */
+export const isGwActive = (g: any): boolean => {
+  if (!g) return false;
+  if (g.is_active === false || g.is_active === 0 || g.is_active === '0' || g.isActive === false || g.isActive === 0) {
+    return false;
+  }
+  const st = String(g.status || '').toUpperCase();
+  if (st === 'PAUSED' || st === 'CLOSED' || st === 'ENDED') {
+    return false;
+  }
+  return true;
+};
+
 export const PrivateCodesModule: React.FC<PrivateCodesModuleProps> = ({ onShowToast }) => {
   const [giveaways, setGiveaways] = useState<GiveawayCampaign[]>([]);
   const [games, setGames] = useState<GameAdminRecord[]>([]);
@@ -77,17 +93,18 @@ export const PrivateCodesModule: React.FC<PrivateCodesModuleProps> = ({ onShowTo
     const map = new Map<string, { slug: string; name: string; icon: string; count: number; activeCount: number }>();
     giveaways.forEach((gw) => {
       const slug = gw.game_slug || 'other';
+      const isAct = isGwActive(gw);
       const existing = map.get(slug);
       if (existing) {
         existing.count++;
-        if (gw.is_active !== false) existing.activeCount++;
+        if (isAct) existing.activeCount++;
       } else {
         map.set(slug, {
           slug,
           name: gw.game_name || slug,
           icon: gw.game_icon_url || gw.cover_image_url || `/game_icons/${slug}.webp`,
           count: 1,
-          activeCount: gw.is_active !== false ? 1 : 0,
+          activeCount: isAct ? 1 : 0,
         });
       }
     });
@@ -898,7 +915,8 @@ export const PrivateCodesModule: React.FC<PrivateCodesModuleProps> = ({ onShowTo
 
   // --- TOGGLE STATUS (ĐÓNG / MỞ SỰ KIỆN RIÊNG LẺ) ---
   const handleToggleActive = async (gw: GiveawayCampaign) => {
-    const newStatus = gw.is_active === false;
+    const currentlyActive = isGwActive(gw);
+    const newStatus = !currentlyActive;
     const poolCount = Array.isArray(gw.codes_pool) && gw.codes_pool.length > 0 ? gw.codes_pool.length : Math.max(0, Number(gw.remaining_codes || 0));
     const updatedGw: GiveawayCampaign = {
       ...gw,
@@ -911,7 +929,7 @@ export const PrivateCodesModule: React.FC<PrivateCodesModuleProps> = ({ onShowTo
     try {
       await fetch('/api/giveaways/manage', {
         method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', ...getAdminHeaders() },
         body: JSON.stringify({ action: 'TOGGLE_ACTIVE', id: gw.id, is_active: newStatus }),
       });
     } catch {}
@@ -949,7 +967,7 @@ export const PrivateCodesModule: React.FC<PrivateCodesModuleProps> = ({ onShowTo
     try {
       await fetch('/api/giveaways/manage', {
         method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', ...getAdminHeaders() },
         body: JSON.stringify({ action: 'BATCH_TOGGLE_ACTIVE', ids: targetIdsArray, is_active: enable }),
       });
     } catch {}
@@ -978,7 +996,7 @@ export const PrivateCodesModule: React.FC<PrivateCodesModuleProps> = ({ onShowTo
     try {
       await fetch('/api/giveaways/manage', {
         method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', ...getAdminHeaders() },
         body: JSON.stringify({ action: 'OPEN_NOW', id: gw.id }),
       });
     } catch {}
@@ -1079,14 +1097,14 @@ export const PrivateCodesModule: React.FC<PrivateCodesModuleProps> = ({ onShowTo
     );
   };
 
-  const activeCount = giveaways.filter((g) => g.is_active !== false).length;
-  const inactiveCount = giveaways.filter((g) => g.is_active === false).length;
+  const activeCount = giveaways.filter(isGwActive).length;
+  const inactiveCount = giveaways.filter((g) => !isGwActive(g)).length;
 
   // Filter & Search
   const filteredGiveaways = giveaways.filter((g) => {
     if (selectedGameFilter !== 'ALL' && g.game_slug !== selectedGameFilter) return false;
-    if (statusFilter === 'ACTIVE' && g.is_active === false) return false;
-    if (statusFilter === 'INACTIVE' && g.is_active !== false) return false;
+    if (statusFilter === 'ACTIVE' && !isGwActive(g)) return false;
+    if (statusFilter === 'INACTIVE' && isGwActive(g)) return false;
     if (searchQuery.trim()) {
       return smartVietnameseMatch(
         [g.title, g.game_name, g.game_slug, g.description, g.rewards],
@@ -1100,8 +1118,8 @@ export const PrivateCodesModule: React.FC<PrivateCodesModuleProps> = ({ onShowTo
   const displayedGiveaways = React.useMemo(() => {
     return [...filteredGiveaways].sort((a, b) => {
       // 1. Ưu tiên trạng thái Đang Mở (ACTIVE)
-      const actA = a.is_active !== false ? 1 : 0;
-      const actB = b.is_active !== false ? 1 : 0;
+      const actA = isGwActive(a) ? 1 : 0;
+      const actB = isGwActive(b) ? 1 : 0;
       if (actA !== actB) return actB - actA;
 
       // 2. Ưu tiên sự kiện còn mã trong kho (In-stock first)
@@ -2267,22 +2285,22 @@ async function toggleGiveaway(giveawayId, isActive) {
             <button
               type="button"
               onClick={() => {
-                const activeIds = new Set(displayedGiveaways.filter((g) => g.is_active !== false).map((g) => g.id));
+                const activeIds = new Set(displayedGiveaways.filter(isGwActive).map((g) => g.id));
                 setSelectedCampaignIds(activeIds);
               }}
               className="px-2.5 py-1 rounded-lg bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 font-semibold transition-all cursor-pointer text-[11px] border border-emerald-500/20"
             >
-              Chọn đang mở ({displayedGiveaways.filter((g) => g.is_active !== false).length})
+              Chọn đang mở ({displayedGiveaways.filter(isGwActive).length})
             </button>
             <button
               type="button"
               onClick={() => {
-                const inactiveIds = new Set(displayedGiveaways.filter((g) => g.is_active === false).map((g) => g.id));
+                const inactiveIds = new Set(displayedGiveaways.filter((g) => !isGwActive(g)).map((g) => g.id));
                 setSelectedCampaignIds(inactiveIds);
               }}
               className="px-2.5 py-1 rounded-lg bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-400 font-semibold transition-all cursor-pointer text-[11px]"
             >
-              Chọn đã đóng ({displayedGiveaways.filter((g) => g.is_active === false).length})
+              Chọn đã đóng ({displayedGiveaways.filter((g) => !isGwActive(g)).length})
             </button>
             {selectedCampaignIds.size > 0 && (
               <button
@@ -2568,47 +2586,33 @@ async function toggleGiveaway(giveawayId, isActive) {
                       </div>
                     </td>
 
-                    {/* Col 4: TRẠNG THÁI (Nút Đóng / Mở trực quan & Cảnh báo Chờ Mở) */}
-                    <td className="px-3 py-3 whitespace-nowrap">
+                    {/* Col 4: TRẠNG THÁI (Trạng thái trực quan & Cảnh báo Chờ Mở) */}
+                    <td className="px-3 py-3 whitespace-nowrap min-w-[120px]">
                       {(() => {
+                        const active = isGwActive(gw);
                         const stStr = gw.start_time ? String(gw.start_time).trim() : '';
                         const stMs = stStr ? (stStr.length === 10 ? new Date(`${stStr}T00:00:00+07:00`).getTime() : new Date(stStr).getTime()) : NaN;
                         const isScheduledFuture = !isNaN(stMs) && stMs > Date.now();
 
                         return (
-                          <div className="space-y-1.5">
+                          <div className="space-y-1">
                             <div>
-                              <button
-                                type="button"
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  handleToggleActive(gw);
-                                }}
-                                className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-bold border transition-all cursor-pointer select-none active:scale-95 shadow-2xs ${
-                                  gw.is_active !== false
-                                    ? 'bg-emerald-500/15 hover:bg-emerald-500/25 text-emerald-600 dark:text-emerald-400 border-emerald-500/30'
-                                    : 'bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-500 dark:text-slate-400 border-slate-300 dark:border-slate-700'
+                              <span
+                                className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-bold border select-none ${
+                                  active
+                                    ? 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border-emerald-500/30'
+                                    : 'bg-rose-500/10 text-rose-600 dark:text-rose-400 border-rose-500/25'
                                 }`}
-                                title={gw.is_active !== false ? 'Nhấn để TẠM ĐÓNG đợt phát này' : 'Nhấn để MỞ LẠI đợt phát này'}
                               >
                                 <span
                                   className={`w-2 h-2 rounded-full shrink-0 ${
-                                    gw.is_active !== false ? 'bg-emerald-500 animate-pulse' : 'bg-slate-400'
+                                    active ? 'bg-emerald-500 animate-pulse' : 'bg-rose-500'
                                   }`}
                                 />
-                                <span>{gw.is_active !== false ? 'Đang mở' : 'Đã đóng (Báo hết mã)'}</span>
-                                <span
-                                  className={`w-5 h-3 rounded-full flex items-center p-0.5 transition-colors ${
-                                    gw.is_active !== false
-                                      ? 'bg-emerald-500 justify-end'
-                                      : 'bg-slate-300 dark:bg-slate-600 justify-start'
-                                  }`}
-                                >
-                                  <span className="w-2 h-2 rounded-full bg-white shadow-xs" />
-                                </span>
-                              </button>
-                              {gw.is_active === false && (
-                                <span className="text-[10px] text-amber-600 dark:text-amber-400 font-medium block">
+                                <span>{active ? 'Đang mở' : 'Đã đóng'}</span>
+                              </span>
+                              {!active && (
+                                <span className="text-[10px] text-amber-600 dark:text-amber-400 font-medium block mt-0.5">
                                   (Kho còn {poolCount} mã thật)
                                 </span>
                               )}
@@ -2616,10 +2620,10 @@ async function toggleGiveaway(giveawayId, isActive) {
 
                             {/* Cảnh báo Chờ Mở nếu thời gian bắt đầu ở tương lai */}
                             {isScheduledFuture && (
-                              <div className="flex items-center gap-1">
+                              <div className="flex items-center gap-1 mt-0.5">
                                 <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md text-[10px] font-bold bg-amber-500/15 text-amber-600 dark:text-amber-400 border border-amber-500/30" title={`Đang khóa chờ giờ G: ${gw.start_time}`}>
                                   <Clock className="w-2.5 h-2.5" />
-                                  Chờ mở ({stStr.includes('T') ? stStr.substring(0, 10) : stStr})
+                                  Chờ mở
                                 </span>
                                 <button
                                   type="button"
@@ -2631,7 +2635,7 @@ async function toggleGiveaway(giveawayId, isActive) {
                                   title="Hủy hẹn giờ và mở giật mã ngay lập tức cho khách trên web"
                                 >
                                   <Zap className="w-2.5 h-2.5" />
-                                  <span>Mở ngay</span>
+                                  <span>Mở</span>
                                 </button>
                               </div>
                             )}
@@ -2646,7 +2650,7 @@ async function toggleGiveaway(giveawayId, isActive) {
                         {/* Cột nhỏ 1 (3 hàng): Đóng/Mở lại, Số ảo, Kho mã */}
                         <div className="flex flex-col gap-1 w-[74px]">
                           {/* NÚT ĐÓNG / MỞ SỰ KIỆN RIÊNG LẺ */}
-                          {gw.is_active !== false ? (
+                          {isGwActive(gw) ? (
                             <button
                               type="button"
                               onClick={() => handleToggleActive(gw)}

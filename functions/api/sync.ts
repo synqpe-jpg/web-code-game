@@ -5306,8 +5306,11 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
           // Also explicitly update is_active & status in giveaways table
           for (const gw of incomingGiveaways) {
             if (gw && gw.id) {
-              const act = gw.is_active !== false ? 1 : 0;
-              const dbStatus = (gw.status === 'ENDED' || String(gw.status).toUpperCase() === 'ENDED') ? 'ENDED' : 'ACTIVE';
+              const isClosed = gw.is_active === false || gw.is_active === 0 || gw.is_active === '0' || gw.status === 'PAUSED' || gw.status === 'CLOSED';
+              const act = isClosed ? 0 : 1;
+              const dbStatus = (gw.status === 'ENDED' || String(gw.status).toUpperCase() === 'ENDED')
+                ? 'ENDED'
+                : (act === 0 ? 'PAUSED' : 'ACTIVE');
               await env.DB.prepare('UPDATE giveaways SET is_active = ?, status = ? WHERE id = ?')
                 .bind(act, dbStatus, gw.id)
                 .run().catch(() => {});

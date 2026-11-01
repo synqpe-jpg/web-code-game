@@ -1478,8 +1478,16 @@ class AdminDataService {
                   : Math.max(0, Number(base.remaining_codes ?? 0));
                 const tot = rem + (Number(base.claimed_codes) || 0);
 
+                const rawActive = localIsNewer ? (local.is_active ?? serverGw.is_active) : (serverGw.is_active ?? local.is_active);
+                const resolvedActive = rawActive !== 0 && rawActive !== false && rawActive !== '0';
+                const resolvedStatus = (base.status === 'ENDED' || String(base.status).toUpperCase() === 'ENDED')
+                  ? 'ENDED'
+                  : (!resolvedActive ? 'PAUSED' : 'ACTIVE');
+
                 return {
                   ...base,
+                  is_active: resolvedActive,
+                  status: resolvedStatus,
                   codes_pool: pool,
                   remaining_codes: rem,
                   total_codes: tot,
