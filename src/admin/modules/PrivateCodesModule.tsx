@@ -2351,11 +2351,11 @@ async function toggleGiveaway(giveawayId, isActive) {
                     title="Chọn tất cả các mục trên bảng"
                   />
                 </th>
-                <th className="px-4 py-3">ĐỢT PHÁT & TỰA GAME</th>
-                <th className="px-3.5 py-3">KHO MÃ (CÒN / TỔNG)</th>
-                <th className="px-3 py-3">3 ĐIỀU KIỆN NHẬN</th>
-                <th className="px-3 py-3">TRẠNG THÁI</th>
-                <th className="px-4 py-3 text-right sticky right-0 bg-slate-50/95 dark:bg-slate-800/95 backdrop-blur-xs shadow-[-6px_0_12px_rgba(0,0,0,0.06)] z-10">THAO TÁC</th>
+                <th className="px-4 py-3 min-w-[200px]">ĐỢT PHÁT & TỰA GAME</th>
+                <th className="px-3.5 py-3 min-w-[160px]">KHO MÃ (CÒN / TỔNG)</th>
+                <th className="px-3 py-3 min-w-[140px]">3 ĐIỀU KIỆN NHẬN</th>
+                <th className="px-3 py-3 min-w-[130px]">TRẠNG THÁI</th>
+                <th className="w-[172px] min-w-[172px] px-3 py-3 text-center sticky right-0 bg-slate-50/95 dark:bg-slate-800/95 backdrop-blur-xs shadow-[-6px_0_12px_rgba(0,0,0,0.06)] z-10">THAO TÁC</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100 dark:divide-slate-800 font-medium">
@@ -2640,82 +2640,92 @@ async function toggleGiveaway(giveawayId, isActive) {
                       })()}
                     </td>
 
-                    {/* Col 5: THAO TÁC (Sticky Right để luôn hiển thị trọn vẹn trong tầm mắt) */}
-                    <td className="px-3.5 py-3 text-right whitespace-nowrap sticky right-0 bg-white/95 dark:bg-slate-900/95 backdrop-blur-xs shadow-[-6px_0_12px_rgba(0,0,0,0.06)] z-10">
-                      <div className="flex items-center justify-end gap-1" onClick={(e) => e.stopPropagation()}>
-                        {/* NÚT ĐÓNG / MỞ SỰ KIỆN RIÊNG LẺ */}
-                        {gw.is_active !== false ? (
+                    {/* Col 5: THAO TÁC (Sticky Right, thu gọn thành 2 cột nhỏ x 3 hàng sang góc phải) */}
+                    <td className="w-[172px] min-w-[172px] px-2.5 py-2 text-right whitespace-nowrap sticky right-0 bg-white/95 dark:bg-slate-900/95 backdrop-blur-xs shadow-[-6px_0_12px_rgba(0,0,0,0.06)] z-10">
+                      <div className="flex items-center justify-end gap-1.5" onClick={(e) => e.stopPropagation()}>
+                        {/* Cột nhỏ 1 (3 hàng): Đóng/Mở lại, Số ảo, Kho mã */}
+                        <div className="flex flex-col gap-1 w-[74px]">
+                          {/* NÚT ĐÓNG / MỞ SỰ KIỆN RIÊNG LẺ */}
+                          {gw.is_active !== false ? (
+                            <button
+                              type="button"
+                              onClick={() => handleToggleActive(gw)}
+                              className="inline-flex items-center justify-center gap-1 w-full px-1.5 py-1 rounded-lg bg-rose-500/10 hover:bg-rose-500/20 text-rose-600 dark:text-rose-400 text-[10.5px] font-bold transition-all cursor-pointer border border-rose-500/25 shadow-2xs hover:scale-[1.02] active:scale-95"
+                              title="Đóng sự kiện riêng lẻ này: Ngoài web sẽ báo Hết Mã, mã thật trong kho vẫn giữ nguyên 100%"
+                            >
+                              <PowerOff className="h-3 w-3 text-rose-500 shrink-0" />
+                              <span>Đóng</span>
+                            </button>
+                          ) : (
+                            <button
+                              type="button"
+                              onClick={() => handleToggleActive(gw)}
+                              className="inline-flex items-center justify-center gap-1 w-full px-1.5 py-1 rounded-lg bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 text-[10.5px] font-bold transition-all cursor-pointer border border-emerald-500/25 shadow-2xs hover:scale-[1.02] active:scale-95"
+                              title="Mở lại sự kiện này: Ngoài web sẽ hiển thị số lượng và cho phép nhận quà"
+                            >
+                              <Play className="h-3 w-3 text-emerald-500 shrink-0" />
+                              <span>Mở lại</span>
+                            </button>
+                          )}
+
+                          {/* NÚT CHỈNH SỐ ẢO */}
                           <button
                             type="button"
-                            onClick={() => handleToggleActive(gw)}
-                            className="inline-flex items-center gap-1 px-2 py-1 rounded-lg bg-rose-500/10 hover:bg-rose-500/20 text-rose-600 dark:text-rose-400 text-[11px] font-bold transition-all cursor-pointer border border-rose-500/25 shadow-2xs hover:scale-105 active:scale-95"
-                            title="Đóng sự kiện riêng lẻ này: Ngoài web sẽ báo Hết Mã, mã thật trong kho vẫn giữ nguyên 100%"
+                            onClick={() => setFomoAdjustCampaign(gw)}
+                            className="inline-flex items-center justify-center gap-1 w-full px-1.5 py-1 rounded-lg bg-amber-500/10 hover:bg-amber-500/20 text-amber-600 dark:text-amber-400 text-[10.5px] font-bold transition-colors cursor-pointer border border-amber-500/25 shadow-2xs"
+                            title="Điều chỉnh số ảo & FOMO hiển thị ngoài web cho đợt phát này"
                           >
-                            <PowerOff className="h-3 w-3 text-rose-500" />
-                            <span>Đóng</span>
+                            <Sparkles className="h-3 w-3 text-amber-500 shrink-0" />
+                            <span>Số ảo</span>
                           </button>
-                        ) : (
+
+                          {/* KHO MÃ */}
                           <button
                             type="button"
-                            onClick={() => handleToggleActive(gw)}
-                            className="inline-flex items-center gap-1 px-2 py-1 rounded-lg bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 text-[11px] font-bold transition-all cursor-pointer border border-emerald-500/25 shadow-2xs hover:scale-105 active:scale-95"
-                            title="Mở lại sự kiện này: Ngoài web sẽ hiển thị số lượng và cho phép nhận quà"
+                            onClick={() => handleOpenPoolModal(gw)}
+                            className="inline-flex items-center justify-center gap-1 w-full px-1.5 py-1 rounded-lg bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 text-[10.5px] font-bold transition-colors cursor-pointer border border-slate-200 dark:border-slate-700 shadow-2xs"
+                            title="Quản lý kho mã code phát riêng"
                           >
-                            <Play className="h-3 w-3 text-emerald-500" />
-                            <span>Mở lại</span>
+                            <Boxes className="h-3 w-3 text-indigo-500 shrink-0" />
+                            <span>Kho mã</span>
                           </button>
-                        )}
+                        </div>
 
-                        {/* NÚT CHỈNH SỐ ẢO */}
-                        <button
-                          type="button"
-                          onClick={() => setFomoAdjustCampaign(gw)}
-                          className="inline-flex items-center gap-1 px-2 py-1 rounded-lg bg-amber-500/10 hover:bg-amber-500/20 text-amber-600 dark:text-amber-400 text-[11px] font-bold transition-colors cursor-pointer border border-amber-500/25 shadow-2xs"
-                          title="Điều chỉnh số ảo & FOMO hiển thị ngoài web cho đợt phát này"
-                        >
-                          <Sparkles className="h-3 w-3 text-amber-500" />
-                          <span>Số ảo</span>
-                        </button>
+                        {/* Cột nhỏ 2 (3 hàng): Lịch sử, Sửa, Xóa */}
+                        <div className="flex flex-col gap-1 w-[74px]">
+                          {/* LỊCH SỬ */}
+                          <button
+                            type="button"
+                            onClick={() => handleOpenHistoryModal(gw)}
+                            className="inline-flex items-center justify-center gap-1 w-full px-1.5 py-1 rounded-lg bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 text-[10.5px] font-bold transition-colors cursor-pointer border border-slate-200 dark:border-slate-700 shadow-2xs"
+                            title="Lịch sử người chơi đã nhận mã"
+                          >
+                            <History className="h-3 w-3 text-teal-500 shrink-0" />
+                            <span>Lịch sử</span>
+                          </button>
 
-                        {/* KHO MÃ */}
-                        <button
-                          onClick={() => handleOpenPoolModal(gw)}
-                          className="inline-flex items-center gap-1 px-2 py-1 rounded-lg bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 text-[11px] font-bold transition-colors cursor-pointer border border-slate-200 dark:border-slate-700"
-                          title="Quản lý kho mã code phát riêng"
-                        >
-                          <Boxes className="h-3 w-3 text-indigo-500" />
-                          <span>Kho mã</span>
-                        </button>
+                          {/* NÚT SỬA */}
+                          <button
+                            type="button"
+                            onClick={() => handleOpenEdit(gw)}
+                            className="inline-flex items-center justify-center gap-1 w-full px-1.5 py-1 rounded-lg bg-indigo-50 hover:bg-indigo-100 text-indigo-600 dark:bg-indigo-950/50 dark:hover:bg-indigo-900/50 dark:text-indigo-400 border border-indigo-200 dark:border-indigo-800 text-[10.5px] font-bold transition-all cursor-pointer shadow-2xs"
+                            title="Sửa đợt phát giveaway"
+                          >
+                            <Edit2 className="h-3 w-3 shrink-0" />
+                            <span>Sửa</span>
+                          </button>
 
-                        {/* LỊCH SỬ */}
-                        <button
-                          onClick={() => handleOpenHistoryModal(gw)}
-                          className="inline-flex items-center gap-1 px-2 py-1 rounded-lg bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 text-[11px] font-bold transition-colors cursor-pointer border border-slate-200 dark:border-slate-700"
-                          title="Lịch sử người chơi đã nhận mã"
-                        >
-                          <History className="h-3 w-3 text-teal-500" />
-                          <span>Lịch sử</span>
-                        </button>
-
-                        {/* NÚT SỬA */}
-                        <button
-                          onClick={() => handleOpenEdit(gw)}
-                          className="inline-flex items-center gap-1 px-2 py-1 rounded-lg bg-indigo-50 hover:bg-indigo-100 text-indigo-600 dark:bg-indigo-950/50 dark:hover:bg-indigo-900/50 dark:text-indigo-400 border border-indigo-200 dark:border-indigo-800 text-[11px] font-bold transition-all cursor-pointer shadow-2xs"
-                          title="Sửa đợt phát giveaway"
-                        >
-                          <Edit2 className="h-3 w-3" />
-                          <span>Sửa</span>
-                        </button>
-
-                        {/* NÚT XÓA */}
-                        <button
-                          onClick={() => setDeletingCampaign(gw)}
-                          className="inline-flex items-center gap-1 px-2 py-1 rounded-lg bg-rose-50 hover:bg-rose-100 text-rose-600 dark:bg-rose-950/50 dark:hover:bg-rose-900/50 dark:text-rose-400 border border-rose-200 dark:border-rose-800 text-[11px] font-bold transition-all cursor-pointer shadow-2xs"
-                          title="Xóa đợt phát giveaway"
-                        >
-                          <Trash2 className="h-3 w-3" />
-                          <span>Xóa</span>
-                        </button>
+                          {/* NÚT XÓA */}
+                          <button
+                            type="button"
+                            onClick={() => setDeletingCampaign(gw)}
+                            className="inline-flex items-center justify-center gap-1 w-full px-1.5 py-1 rounded-lg bg-rose-50 hover:bg-rose-100 text-rose-600 dark:bg-rose-950/50 dark:hover:bg-rose-900/50 dark:text-rose-400 border border-rose-200 dark:border-rose-800 text-[10.5px] font-bold transition-all cursor-pointer shadow-2xs"
+                            title="Xóa đợt phát giveaway"
+                          >
+                            <Trash2 className="h-3 w-3 shrink-0" />
+                            <span>Xóa</span>
+                          </button>
+                        </div>
                       </div>
                     </td>
                   </tr>

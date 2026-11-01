@@ -7,6 +7,22 @@ Mỗi mục sửa lỗi đều ghi nhận **Nguyên nhân gốc rễ (Root Cause
 
 ## [2026-11-01]
 
+### 296. Tái Cấu Trúc Nhóm Nút Thao Tác Giveaway Thành 2 Cột Nhỏ x 3 Hàng Tinh Gọn, Giải Phóng 300px Bề Ngang Giúp Bảng Quản Trị Hiển Thị Đầy Đủ Thông Tin
+- **Bối cảnh & Yêu cầu**:
+  - Khi cột THAO TÁC xếp 6 nút thành 1 hàng ngang, độ rộng cột lên tới ~460px và chiếm hết không gian của cột "3 ĐIỀU KIỆN NHẬN" cũng như che khuất hoàn toàn cột "TRẠNG THÁI".
+  - Người dùng yêu cầu thu gọn 6 nút thành 2 cột nhỏ sang góc phải, mỗi cột gồm 3 hàng:
+    - Cột 1: Đóng (hoặc Mở lại), Số ảo, Kho mã.
+    - Cột 2: Lịch sử, Sửa, Xóa.
+- **Giải pháp kỹ thuật đã áp dụng**:
+  - `src/admin/modules/PrivateCodesModule.tsx`:
+    - Cấu trúc lại ô THAO TÁC (`Col 5`) thành layout flex gồm 2 cột nhỏ (`w-[74px]`, mỗi cột 3 nút xếp dọc `gap-1`), tổng bề rộng chỉ còn `w-[172px]`.
+    - Giảm padding và căn giữa text/icon `justify-center`, giúp các nút vừa vặn, đồng đều và không làm phình chiều cao dòng của bảng.
+    - Đặt kích thước min-width rõ ràng cho các cột phía trước (`ĐỢT PHÁT`: 200px, `KHO MÃ`: 160px, `3 ĐIỀU KIỆN NHẬN`: 140px, `TRẠNG THÁI`: 130px), giúp bảng hiển thị thoáng đãng và không bị chồng lấn.
+- **Kiểm thử & Xác nhận**:
+  - `npm run build`: PASS 100%, 0 lỗi TypeScript, 0 lỗi cú pháp.
+  - Audit Zero Test Artifacts: PASS 100%.
+  - Audit News Covers: PASS 100%.
+
 ### 295. Bổ Sung Bộ Lọc Chọn Nhanh Tựa Game, Thao Tác Hàng Loạt & Nút Đóng Sự Kiện Riêng Lẻ Trong Quản Trị Giveaway; Bảo Tồn 100% Mã Thật Trong Kho Khi Báo Hết Mã Ngoài Web
 - **Bối cảnh & Yêu cầu**:
   - Người dùng yêu cầu nâng cấp giao diện và tính năng trong mục Quản trị Sự kiện Giveaway (`src/admin/modules/PrivateCodesModule.tsx`):
