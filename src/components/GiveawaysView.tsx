@@ -288,8 +288,7 @@ const GiveawayDetailModal: React.FC<GiveawayDetailModalProps> = ({
   const isNotStarted = !isNaN(startMs) && nowMs < startMs;
   const isEnded =
     (!isNaN(endMs) && nowMs > endMs) ||
-    campaign.status === 'ENDED' ||
-    campaign.is_active === false;
+    campaign.status === 'ENDED';
 
   // Global Cooldown real-time countdown (Requirement 6)
   const globalSec = Number(campaign.global_cooldown_seconds || 0);
@@ -840,7 +839,7 @@ const GiveawayDetailModal: React.FC<GiveawayDetailModalProps> = ({
                 className="w-full py-3.5 rounded-2xl bg-muted/60 text-muted-foreground border border-border text-xs font-bold flex items-center justify-center gap-2 cursor-not-allowed"
               >
                 <Clock className="w-4 h-4 text-amber-400" />
-                <span>Chờ Đợt Mã Mới</span>
+                <span>{campaign.is_active === false ? 'Sự Kiện Tạm Đóng — Chờ Đợt Mã Mới' : 'Chờ Đợt Mã Mới'}</span>
               </button>
               {userClaimCount > 0 && (
                 <button
@@ -1415,6 +1414,8 @@ export const GiveawaysView: React.FC<GiveawaysViewProps> = ({
 
   // Filter & sort campaigns (Mặc định ưu tiên hàng còn lên trên đầu)
   const getCampaignStock = (c: GiveawayCampaign) => {
+    // Khi sự kiện đóng: ngoài web báo hết mã (0), mã thật vẫn để trong kho
+    if (c.is_active === false) return 0;
     if (Array.isArray(c.packages) && c.packages.length > 0) {
       return c.packages.reduce((sum, p) => {
         const pCount = Array.isArray(p.codes_pool) && p.codes_pool.length > 0
@@ -1430,7 +1431,7 @@ export const GiveawaysView: React.FC<GiveawaysViewProps> = ({
 
   const activeGiveaways = groupedCampaigns
     .filter((c) => {
-      if (c.is_active === false) return false;
+      // Giữ sự kiện hiển thị trên Web ngay cả khi đóng để báo "Hết Mã" cho khách theo yêu cầu
       // Search query filter
       if (searchQuery.trim()) {
         const q = searchQuery.toLowerCase().trim();
@@ -1442,7 +1443,11 @@ export const GiveawaysView: React.FC<GiveawaysViewProps> = ({
       // Category filter
       if (filterCategory === 'available') {
         const poolCount = getCampaignStock(c);
-        return poolCount > 0;
+        return poolCount > 0 && c.is_active !== false;
+      }
+      if (filterCategory === 'out_of_stock') {
+        const poolCount = getCampaignStock(c);
+        return poolCount <= 0 || c.is_active === false;
       }
       if (filterCategory === 'hot') {
         return (c.claimed_codes || 0) >= 5 || (c.show_claimed_count !== false);
@@ -1519,7 +1524,7 @@ export const GiveawaysView: React.FC<GiveawaysViewProps> = ({
               }`}
             >
               <Layers className="w-3.5 h-3.5" />
-              <span>Đang Mở ({groupedCampaigns.filter((c) => c.is_active !== false).length})</span>
+              <span>Sự Kiện ({groupedCampaigns.length})</span>
             </button>
             <button
               onClick={() => setActiveTab('wheel')}
@@ -1565,7 +1570,7 @@ export const GiveawaysView: React.FC<GiveawaysViewProps> = ({
                       : 'bg-muted/70 text-muted-foreground hover:text-foreground border border-border'
                   }`}
                 >
-                  Tất Cả ({groupedCampaigns.filter((c) => c.is_active !== false).length})
+                  Tất Cả ({groupedCampaigns.length})
                 </button>
                 <button
                   onClick={() => setFilterCategory('available')}
@@ -1576,7 +1581,18 @@ export const GiveawaysView: React.FC<GiveawaysViewProps> = ({
                   }`}
                 >
                   <Zap className="w-3.5 h-3.5 text-emerald-400" />
-                  <span>Còn Mã Trong Kho ({groupedCampaigns.filter((c) => c.is_active !== false && getCampaignStock(c) > 0).length})</span>
+                  <span>Còn Mã ({groupedCampaigns.filter((c) => c.is_active !== false && getCampaignStock(c) > 0).length})</span>
+                </button>
+                <button
+                  onClick={() => setFilterCategory('out_of_stock')}
+                  className={`px-3 py-1.5 sm:px-3.5 sm:py-2 rounded-lg sm:rounded-xl text-xs font-bold transition-all cursor-pointer shrink-0 flex items-center gap-1.5 ${
+                    filterCategory === 'out_of_stock'
+                      ? 'bg-rose-600 text-white shadow-sm'
+                      : 'bg-muted/70 text-muted-foreground hover:text-foreground border border-border'
+                  }`}
+                >
+                  <Clock className="w-3.5 h-3.5 text-rose-300" />
+                  <span>Đã Hết Mã ({groupedCampaigns.filter((c) => c.is_active === false || getCampaignStock(c) <= 0).length})</span>
                 </button>
                 <button
                   onClick={() => setFilterCategory('hot')}
@@ -1722,8 +1738,7 @@ export const GiveawaysView: React.FC<GiveawaysViewProps> = ({
                 const isNotStarted = !isNaN(cardStartMs) && nowMs < cardStartMs;
                 const isEnded =
                   (!isNaN(cardEndMs) && nowMs > cardEndMs) ||
-                  campaign.status === 'ENDED' ||
-                  campaign.is_active === false;
+                  campaign.status === 'ENDED';
 
                 const isCardGlobalCooling = Boolean(
                   campaign.global_cooldown_seconds &&

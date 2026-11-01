@@ -298,8 +298,12 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
               .filter((g: any) => g && g.id && g.status !== 'ENDED' && !delGwSet.has(g.id) && g.id !== 'gw_alienware_vaultbreakers' && g.id !== 'gw_garena_delta_force')
               .map((gw: any) => {
                 const { codes_pool, claim_history, ...rest } = gw;
+                const isClosed = gw.is_active === false || gw.is_active === 0 || gw.status === 'PAUSED' || gw.status === 'CLOSED';
+                const rem = gw.remaining_codes !== undefined && gw.remaining_codes !== null ? Number(gw.remaining_codes) : Number(gw.codes_pool?.length || 0);
+                const publicRem = (!authorized && isClosed) ? 0 : rem;
                 return {
                   ...rest,
+                  remaining_codes: publicRem,
                   codes_pool: authorized ? codes_pool : undefined,
                   claim_history: authorized ? claim_history : undefined,
                 };
@@ -800,17 +804,21 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
     const sanitizedGiveaways = rawGiveaways.map((gw: any) => {
       if (!gw || typeof gw !== 'object') return gw;
       const { codes_pool, claim_history, ...rest } = gw;
+      const isClosed = gw.is_active === false || gw.is_active === 0 || gw.status === 'PAUSED' || gw.status === 'CLOSED';
       const poolArr = (Array.isArray(codes_pool) && codes_pool.length > 0)
         ? codes_pool
         : ((Array.isArray(gw.codes_pool) && gw.codes_pool.length > 0) ? gw.codes_pool : null);
       // Lấy trực tiếp trường số nguyên remaining_codes từ D1 SQL nếu poolArr bị ẩn/null với khách
-      const remainingCount = poolArr !== null
+      const rawRemaining = poolArr !== null
         ? poolArr.length
         : Math.max(0, Number(gw.remaining_codes !== undefined && gw.remaining_codes !== null ? gw.remaining_codes : 0));
+      // Khi sự kiện đóng: Khách vãng lai (!authorized) nhận remaining_codes = 0 ("ngoài web báo hết mã")
+      // Còn quản trị viên (authorized) vẫn nhận đủ số lượng mã thật trong kho
+      const remainingCount = (!authorized && isClosed) ? 0 : rawRemaining;
       const claimedCount = Number(gw.claimed_codes !== undefined && gw.claimed_codes !== null ? gw.claimed_codes : 0);
       const totalCount = (gw.total_codes !== undefined && gw.total_codes !== null && Number(gw.total_codes) > 0)
         ? Number(gw.total_codes)
-        : (remainingCount + claimedCount);
+        : (rawRemaining + claimedCount);
       return {
         ...rest,
         use_template: gw.use_template !== false,

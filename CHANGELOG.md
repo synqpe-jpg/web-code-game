@@ -5,6 +5,54 @@ Mỗi mục sửa lỗi đều ghi nhận **Nguyên nhân gốc rễ (Root Cause
 
 ---
 
+## [2026-11-01]
+
+### 295. Bổ Sung Bộ Lọc Chọn Nhanh Tựa Game, Thao Tác Hàng Loạt & Nút Đóng Sự Kiện Riêng Lẻ Trong Quản Trị Giveaway; Bảo Tồn 100% Mã Thật Trong Kho Khi Báo Hết Mã Ngoài Web
+- **Bối cảnh & Yêu cầu**:
+  - Người dùng yêu cầu nâng cấp giao diện và tính năng trong mục Quản trị Sự kiện Giveaway (`src/admin/modules/PrivateCodesModule.tsx`):
+    1. *Chọn nhanh các mục game (Quick Game & Item Selection)*:
+       - Bổ sung thanh cuộn ngang chứa các thẻ Chip tựa game (icon + tên + số đợt phát) để lọc nhanh 1 chạm theo từng game cụ thể.
+       - Bổ sung các nút nhóm thao tác nhanh: "Chọn tất cả", "Chọn đang mở", "Chọn đã đóng", "Bỏ chọn".
+       - Thêm cột hộp kiểm (Checkbox) ở tiêu đề bảng và từng dòng sự kiện.
+       - Khi có từ 1 mục được chọn, tự động hiển thị thanh tác vụ hàng loạt (Bulk Action Bar) với hai hành động: "Đóng mục đã chọn" và "Mở lại mục đã chọn".
+    2. *Nút đóng sự kiện riêng lẻ (Single-item Close/Reopen Button)*:
+       - Tại cột THAO TÁC của từng dòng: Bổ sung nút "Đóng" (icon PowerOff màu hồng/đỏ) khi sự kiện đang mở, và nút "Mở lại" (icon Play màu xanh emerald) khi sự kiện đang đóng.
+       - Tại cột TRẠNG THÁI: Hiển thị trực quan trạng thái "Đang mở" hoặc "Đã đóng (Báo hết mã)" kèm số lượng `(Kho còn X mã thật)`.
+    3. *Bảo toàn 100% mã thật trong kho nhưng ngoài web báo hết mã*:
+       - Toàn bộ mã thật trong cơ sở dữ liệu D1 (`giveaway_codes`, `codes_pool`, `remaining_codes`) được giữ nguyên vẹn 100%, tuyệt đối không bị xóa hay giảm trừ.
+       - Phía Web Khách (`GiveawaysView.tsx`, `marketingService.ts`, `dataService.ts`, `functions/api/sync.ts`):
+         - Sự kiện đã đóng vẫn được giữ nguyên trong danh sách để khách theo dõi (không bị biến mất như trước).
+         - Số lượng còn lại hiển thị ép về 0 ("Còn lại: 0 mã").
+         - Thẻ sự kiện gắn nhãn "Hết Mã", nút nhận mã chuyển sang "Chờ Đợt Mới" / "Tạm Hết".
+         - Nút nhận mã trong Modal chi tiết bị vô hiệu hóa với thông báo: "Sự Kiện Tạm Đóng — Chờ Đợt Mã Mới".
+         - Cổng nhận mã (`/api/giveaways/claim`) chặn triệt để các yêu cầu nhận mã từ sự kiện đã đóng kèm thông báo thân thiện.
+    4. *Hỗ trợ API thao tác hàng loạt*:
+       - Bổ sung hành động `BATCH_TOGGLE_ACTIVE` trong `/api/giveaways/manage` thực thi cập nhật atomic batch trên D1 Cloudflare SQL.
+- **Giải pháp kỹ thuật đã áp dụng**:
+  - `src/admin/modules/PrivateCodesModule.tsx`:
+    - Tạo `uniqueGamesWithGiveaways` trích xuất danh sách game kèm icon và số đợt phát thực tế.
+    - Render thanh chip chọn game nhanh và thanh công cụ chọn nhanh 4 chế độ.
+    - Bổ sung checkbox column vào `<thead>` và `<tbody>`.
+    - Thêm `handleToggleActive` gọi PUT `/api/giveaways/manage` với `action: 'TOGGLE_ACTIVE'`.
+    - Thêm `handleBatchToggleSelected` gọi PUT `/api/giveaways/manage` với `action: 'BATCH_TOGGLE_ACTIVE'` cập nhật đồng thời nhiều sự kiện.
+    - Thêm nút "Đóng" / "Mở lại" vào cột sticky THAO TÁC.
+  - `functions/api/giveaways/manage.ts`:
+    - Bổ sung nhánh xử lý `action === 'BATCH_TOGGLE_ACTIVE'` dùng `db.batch()` cập nhật hàng loạt `is_active` và `status` mà không chạm vào `remaining_codes` hay kho mã.
+  - `functions/api/giveaways/claim.ts` & `src/services/dataService.ts`:
+    - Bổ sung kiểm tra `campaign.is_active === 0 || campaign.is_active === false || campaign.status === 'PAUSED' || campaign.status === 'CLOSED'`, từ chối giật mã với thông báo "Đợt phát code này hiện đã tạm hết mã hoặc đang tạm đóng. Vui lòng quay lại vào đợt sau!".
+  - `functions/api/sync.ts`:
+    - Khi visitor là khách công cộng (`!authorized`) và sự kiện bị đóng (`is_active === false`), trả về `remaining_codes = 0` trên API đồng bộ công khai. Khi truy cập từ Admin có phân quyền, trả về đầy đủ số lượng mã thật trong kho.
+  - `src/services/marketingService.ts`:
+    - `getGiveawayDisplayRemaining()` trả về 0 nếu `campaign.is_active === false || campaign.status === 'PAUSED' || campaign.status === 'ENDED' || campaign.status === 'CLOSED'`.
+  - `src/components/GiveawaysView.tsx`:
+    - Loại bỏ bộ lọc ẩn sự kiện đóng `if (c.is_active === false) return false;` để sự kiện vẫn hiển thị ngoài web.
+    - Tách biệt `is_active === false` khỏi `isEnded` để hiển thị nhãn "Hết Mã" thay vì "Đã Hết Hạn".
+    - Vô hiệu hóa nút nhận mã trong Modal chi tiết với nhãn "Sự Kiện Tạm Đóng — Chờ Đợt Mã Mới".
+- **Kiểm thử & Xác nhận**:
+  - `npm run build`: PASS 100%, 0 lỗi TypeScript, 0 lỗi cú pháp.
+  - Audit Zero Test Artifacts: PASS 100% (32 giveaways, 12510 giftcodes, 583 games, 0 mục test).
+  - Kho mã thật của Hiệp Khách Hành (102 mã thật trong kho D1) và các sự kiện khác được bảo tồn nguyên vẹn 100%.
+
 ## [2026-10-31]
 
 ### 294. Xây Dựng Hệ Thống Quản Lý Bản Ghi Game Toàn Diện Trong Admin, Tích Hợp 4 Trường Giấy Phép Phát Hành (ABEI), Xóa Tuyên Bố Lỗi Thời "188+ Game", Nâng Cấp 5 Hành Động API Mới & Khắc Phục Triệt Để 5 Lỗi API Game Đã Biết

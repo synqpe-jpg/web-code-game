@@ -465,6 +465,73 @@ export const onRequestPut: PagesFunction<Env> = async (context) => {
 
     const body: any = await request.json().catch(() => ({}));
     const action = String(body.action || '').toUpperCase().trim();
+
+    // HỖ TRỢ THAO TÁC HÀNG LOẠT: ĐÓNG / MỞ CÁC SỰ KIỆN ĐƯỢC CHỌN (BATCH_TOGGLE_ACTIVE)
+    if (action === 'BATCH_TOGGLE_ACTIVE') {
+      const ids: string[] = Array.isArray(body.ids) ? body.ids.filter(Boolean) : [];
+      if (ids.length === 0) {
+        return new Response(
+          JSON.stringify({ success: false, message: 'Danh sách ID chiến dịch không hợp lệ.' }),
+          { status: 400, headers: CORS_HEADERS }
+        );
+      }
+      const nextActive = body.is_active !== undefined ? Boolean(body.is_active) : false;
+      const targetIdSet = new Set(ids);
+      const actor = auth.user || 'Admin';
+
+      let existingList: any[] = (await getSettingD1(env.DB, 'wcg_admin_giveaways_v4', [], true).catch(() => [])) || [];
+      if (existingList.length === 0) {
+        existingList = await loadAllGiveawaysD1(env.DB, true, true);
+      }
+
+      let updatedCount = 0;
+      const nowIso = new Date().toISOString();
+      const stmts: D1PreparedStatement[] = [];
+
+      existingList.forEach((gw: any) => {
+        if (gw && targetIdSet.has(gw.id)) {
+          gw.is_active = nextActive;
+          gw.status = nextActive ? 'ACTIVE' : 'PAUSED';
+          gw.updated_at = nowIso;
+          updatedCount++;
+          stmts.push(
+            env.DB!.prepare(`
+              UPDATE giveaways
+              SET is_active = ?, status = ?, updated_at = datetime('now')
+              WHERE id = ?
+            `).bind(nextActive ? 1 : 0, gw.status, gw.id)
+          );
+        }
+      });
+
+      if (stmts.length > 0) {
+        await env.DB.batch(stmts).catch((e) => console.warn('[Batch toggle D1 error]', e?.message));
+      }
+
+      await setSettingD1(env.DB, 'wcg_admin_giveaways_v4', existingList);
+      invalidateSettingMemoryCache('wcg_admin_giveaways_v4');
+      await syncPublicGiveawayState(env, existingList);
+
+      await logGiveawayAudit(
+        env.DB,
+        'batch',
+        `Hàng loạt (${updatedCount} sự kiện)`,
+        'BATCH_TOGGLE_ACTIVE',
+        actor,
+        `Đã ${nextActive ? 'mở lại' : 'tạm đóng'} ${updatedCount} chiến dịch. ${nextActive ? 'Khách có thể nhận mã.' : 'Mã thật vẫn trong kho, ngoài web báo Hết Mã.'}`
+      );
+
+      return new Response(
+        JSON.stringify({
+          success: true,
+          message: `Đã ${nextActive ? 'mở lại' : 'đóng'} ${updatedCount} chiến dịch thành công.`,
+          updated_count: updatedCount,
+          is_active: nextActive,
+        }),
+        { status: 200, headers: CORS_HEADERS }
+      );
+    }
+
     const targetId = String(body.id || body.giveaway_id || '').trim();
 
     if (!targetId) {

@@ -41,6 +41,8 @@ import {
   Lock,
   AlertCircle,
   Server,
+  CheckSquare,
+  Square,
 } from 'lucide-react';
 import { LuckyWheelAdminManager } from '../components/LuckyWheelAdminManager';
 import { FormModal } from '../components/ui/FormModal';
@@ -68,6 +70,29 @@ export const PrivateCodesModule: React.FC<PrivateCodesModuleProps> = ({ onShowTo
   const [searchQuery, setSearchQuery] = useState('');
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const [subTab, setSubTab] = useState<'campaigns' | 'wheel' | 'api'>('campaigns');
+  const [selectedCampaignIds, setSelectedCampaignIds] = useState<Set<string>>(new Set());
+
+  // --- TÍNH NĂNG CHỌN NHANH GAME: Danh sách các game có sự kiện giveaway ---
+  const uniqueGamesWithGiveaways = React.useMemo(() => {
+    const map = new Map<string, { slug: string; name: string; icon: string; count: number; activeCount: number }>();
+    giveaways.forEach((gw) => {
+      const slug = gw.game_slug || 'other';
+      const existing = map.get(slug);
+      if (existing) {
+        existing.count++;
+        if (gw.is_active !== false) existing.activeCount++;
+      } else {
+        map.set(slug, {
+          slug,
+          name: gw.game_name || slug,
+          icon: gw.game_icon_url || gw.cover_image_url || `/game_icons/${slug}.webp`,
+          count: 1,
+          activeCount: gw.is_active !== false ? 1 : 0,
+        });
+      }
+    });
+    return Array.from(map.values()).sort((a, b) => b.count - a.count);
+  }, [giveaways]);
 
   // --- GIVEAWAY API MANAGEMENT & QUICK TESTER STATE ---
   const [giveawayApiKeys, setGiveawayApiKeys] = useState<any[]>([]);
@@ -871,20 +896,69 @@ export const PrivateCodesModule: React.FC<PrivateCodesModuleProps> = ({ onShowTo
     setIsHistoryModalOpen(true);
   };
 
-  // --- TOGGLE STATUS (ĐÓNG / MỞ) ---
+  // --- TOGGLE STATUS (ĐÓNG / MỞ SỰ KIỆN RIÊNG LẺ) ---
   const handleToggleActive = async (gw: GiveawayCampaign) => {
     const newStatus = gw.is_active === false;
+    const poolCount = Array.isArray(gw.codes_pool) && gw.codes_pool.length > 0 ? gw.codes_pool.length : Math.max(0, Number(gw.remaining_codes || 0));
     const updatedGw: GiveawayCampaign = {
       ...gw,
       is_active: newStatus,
+      status: newStatus ? 'ACTIVE' : 'PAUSED',
     };
     adminDataService.saveGiveawayItem(updatedGw);
     await adminDataService.saveGiveawaysToServer();
+
+    try {
+      await fetch('/api/giveaways/manage', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'TOGGLE_ACTIVE', id: gw.id, is_active: newStatus }),
+      });
+    } catch {}
+
     loadData();
     onShowToast(
-      newStatus ? 'Đã mở đợt phát!' : 'Đã đóng đợt phát!',
-      `Đợt phát "${gw.title}" hiện ${newStatus ? 'đang mở (khách có thể nhận quà)' : 'đã tạm đóng (khách không thể nhận)'}.`,
+      newStatus ? 'Đã mở sự kiện!' : 'Đã đóng sự kiện!',
+      newStatus
+        ? `Sự kiện "${gw.title}" đã mở lại. Ngoài Web hiển thị số lượng và cho phép nhận quà.`
+        : `Sự kiện "${gw.title}" đã đóng riêng lẻ. Mã thật (${poolCount} mã) vẫn để trong kho, ngoài Web báo HẾT MÃ.`,
       newStatus ? 'success' : 'info'
+    );
+  };
+
+  // --- THAO TÁC HÀNG LOẠT VỚI CÁC MỤC ĐÃ CHỌN (BATCH TOGGLE SELECTED) ---
+  const handleBatchToggleSelected = async (enable: boolean) => {
+    if (selectedCampaignIds.size === 0) return;
+    const count = selectedCampaignIds.size;
+    const actionText = enable ? 'mở lại' : 'đóng';
+    if (!window.confirm(`Bạn có chắc muốn ${actionText} ${count} sự kiện Giveaway đã chọn không?\n${enable ? 'Sau khi mở: Ngoài web sẽ hiển thị số lượng và cho phép nhận mã.' : 'Sau khi đóng: Mã thật vẫn để trong kho 100%, ngoài web sẽ báo HẾT MÃ.'}`)) {
+      return;
+    }
+
+    const currentList = adminDataService.getGiveaways();
+    const targetIdsArray = Array.from(selectedCampaignIds);
+    currentList.forEach((gw) => {
+      if (selectedCampaignIds.has(gw.id)) {
+        gw.is_active = enable;
+        gw.status = enable ? 'ACTIVE' : 'PAUSED';
+        adminDataService.saveGiveawayItem(gw);
+      }
+    });
+    await adminDataService.saveGiveawaysToServer();
+
+    try {
+      await fetch('/api/giveaways/manage', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'BATCH_TOGGLE_ACTIVE', ids: targetIdsArray, is_active: enable }),
+      });
+    } catch {}
+
+    loadData();
+    onShowToast(
+      enable ? 'Đã mở các sự kiện đã chọn!' : 'Đã đóng các sự kiện đã chọn!',
+      `Đã cập nhật trạng thái cho ${count} sự kiện. ${enable ? 'Khách có thể nhận mã.' : 'Mã thật vẫn để trong kho, ngoài web báo Hết Mã.'}`,
+      enable ? 'success' : 'info'
     );
   };
 
@@ -2123,6 +2197,133 @@ async function toggleGiveaway(giveawayId, isActive) {
             </div>
           </div>
         </div>
+
+        {/* THANH CHỌN NHANH TỰA GAME (QUICK GAME SELECTION CHIPS) */}
+        {uniqueGamesWithGiveaways.length > 0 && (
+          <div className="mt-3.5 pt-3 border-t border-slate-100 dark:border-slate-800/80 flex items-center gap-2 overflow-x-auto pb-1 scrollbar-none">
+            <span className="text-[11px] font-bold text-slate-500 dark:text-slate-400 shrink-0 uppercase tracking-wider flex items-center gap-1">
+              <Sparkles className="w-3.5 h-3.5 text-purple-500" /> Chọn nhanh game:
+            </span>
+            <button
+              type="button"
+              onClick={() => setSelectedGameFilter('ALL')}
+              className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold transition-all cursor-pointer whitespace-nowrap shrink-0 ${
+                selectedGameFilter === 'ALL'
+                  ? 'bg-purple-600 text-white shadow-xs'
+                  : 'bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300'
+              }`}
+            >
+              <span>🎮 Tất cả ({giveaways.length})</span>
+            </button>
+            {uniqueGamesWithGiveaways.map((g) => {
+              const isSelected = selectedGameFilter === g.slug;
+              return (
+                <button
+                  key={g.slug}
+                  type="button"
+                  onClick={() => setSelectedGameFilter(isSelected ? 'ALL' : g.slug)}
+                  className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold transition-all cursor-pointer whitespace-nowrap border shrink-0 ${
+                    isSelected
+                      ? 'bg-purple-600 text-white border-purple-500 shadow-xs ring-2 ring-purple-400/30'
+                      : 'bg-white hover:bg-slate-50 dark:bg-slate-800/90 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-200 border-slate-200 dark:border-slate-700'
+                  }`}
+                  title={`Lọc nhanh đợt phát của game ${g.name} (${g.count} đợt phát)`}
+                >
+                  <img
+                    src={g.icon}
+                    alt={g.name}
+                    className="w-4 h-4 rounded-full object-cover shrink-0"
+                    onError={(e) => { (e.target as HTMLElement).style.display = 'none'; }}
+                  />
+                  <span>{g.name}</span>
+                  <span className={`text-[10px] px-1.5 py-0.2 rounded-full font-mono ${
+                    isSelected ? 'bg-white/25 text-white' : 'bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-400'
+                  }`}>
+                    {g.count}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+        )}
+
+        {/* THANH THAO TÁC CHỌN NHANH & HÀNG LOẠT (SELECTION CONTROLS) */}
+        <div className="mt-3 pt-3 border-t border-slate-100 dark:border-slate-800/80 flex flex-wrap items-center justify-between gap-2.5">
+          {/* Nhóm nút chọn nhanh */}
+          <div className="flex flex-wrap items-center gap-1.5 text-xs">
+            <span className="text-[11px] font-bold text-slate-500 dark:text-slate-400 mr-1 flex items-center gap-1">
+              <CheckSquare className="w-3.5 h-3.5 text-indigo-500" /> Chọn nhanh:
+            </span>
+            <button
+              type="button"
+              onClick={() => {
+                const allIds = new Set(displayedGiveaways.map((g) => g.id));
+                setSelectedCampaignIds(allIds);
+              }}
+              className="px-2.5 py-1 rounded-lg bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 font-semibold transition-all cursor-pointer text-[11px]"
+            >
+              Chọn tất cả ({displayedGiveaways.length})
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                const activeIds = new Set(displayedGiveaways.filter((g) => g.is_active !== false).map((g) => g.id));
+                setSelectedCampaignIds(activeIds);
+              }}
+              className="px-2.5 py-1 rounded-lg bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 font-semibold transition-all cursor-pointer text-[11px] border border-emerald-500/20"
+            >
+              Chọn đang mở ({displayedGiveaways.filter((g) => g.is_active !== false).length})
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                const inactiveIds = new Set(displayedGiveaways.filter((g) => g.is_active === false).map((g) => g.id));
+                setSelectedCampaignIds(inactiveIds);
+              }}
+              className="px-2.5 py-1 rounded-lg bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-400 font-semibold transition-all cursor-pointer text-[11px]"
+            >
+              Chọn đã đóng ({displayedGiveaways.filter((g) => g.is_active === false).length})
+            </button>
+            {selectedCampaignIds.size > 0 && (
+              <button
+                type="button"
+                onClick={() => setSelectedCampaignIds(new Set())}
+                className="px-2 py-1 rounded-lg text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200 font-medium transition-all cursor-pointer text-[11px]"
+              >
+                Bỏ chọn
+              </button>
+            )}
+          </div>
+
+          {/* Thanh tác vụ hàng loạt khi có mục được chọn */}
+          {selectedCampaignIds.size > 0 && (
+            <div className="flex items-center gap-2 bg-purple-500/10 dark:bg-purple-950/40 border border-purple-500/30 px-3 py-1.5 rounded-xl shadow-xs animate-in fade-in duration-150">
+              <span className="text-xs font-bold text-purple-700 dark:text-purple-300 flex items-center gap-1.5">
+                <CheckSquare className="w-3.5 h-3.5 text-purple-500" />
+                Đã chọn: <strong>{selectedCampaignIds.size}</strong> mục
+              </span>
+              <div className="h-3.5 w-px bg-purple-300 dark:bg-purple-700 mx-1" />
+              <button
+                type="button"
+                onClick={() => handleBatchToggleSelected(false)}
+                className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-rose-600 hover:bg-rose-500 text-white font-bold text-[11px] shadow-xs transition-all cursor-pointer active:scale-95"
+                title="Đóng các mục đã chọn: Mã thật vẫn để trong kho 100%, ngoài web báo Hết Mã"
+              >
+                <PowerOff className="w-3 h-3" />
+                <span>Đóng mục đã chọn ({selectedCampaignIds.size})</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => handleBatchToggleSelected(true)}
+                className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-[11px] shadow-xs transition-all cursor-pointer active:scale-95"
+                title="Mở lại các mục đã chọn: Ngoài web hiển thị số lượng và cho phép nhận mã"
+              >
+                <Play className="w-3 h-3" />
+                <span>Mở lại mục đã chọn ({selectedCampaignIds.size})</span>
+              </button>
+            </div>
+          )}
+        </div>
       </div>
 
       {/* Giveaways Table (Matching Screenshot 5) */}
@@ -2131,6 +2332,25 @@ async function toggleGiveaway(giveawayId, isActive) {
           <table className="w-full text-left text-xs text-slate-600 dark:text-slate-300">
             <thead className="bg-slate-50 text-[11px] font-bold text-slate-500 uppercase tracking-wider dark:bg-slate-800/60 dark:text-slate-400 border-b border-slate-200 dark:border-slate-800">
               <tr>
+                <th className="w-10 px-3 py-3 text-center">
+                  <input
+                    type="checkbox"
+                    checked={displayedGiveaways.length > 0 && displayedGiveaways.every((g) => selectedCampaignIds.has(g.id))}
+                    onChange={(e) => {
+                      if (e.target.checked) {
+                        const next = new Set(selectedCampaignIds);
+                        displayedGiveaways.forEach((g) => next.add(g.id));
+                        setSelectedCampaignIds(next);
+                      } else {
+                        const next = new Set(selectedCampaignIds);
+                        displayedGiveaways.forEach((g) => next.delete(g.id));
+                        setSelectedCampaignIds(next);
+                      }
+                    }}
+                    className="w-4 h-4 rounded text-purple-600 focus:ring-purple-500 cursor-pointer accent-purple-600"
+                    title="Chọn tất cả các mục trên bảng"
+                  />
+                </th>
                 <th className="px-4 py-3">ĐỢT PHÁT & TỰA GAME</th>
                 <th className="px-3.5 py-3">KHO MÃ (CÒN / TỔNG)</th>
                 <th className="px-3 py-3">3 ĐIỀU KIỆN NHẬN</th>
@@ -2146,7 +2366,22 @@ async function toggleGiveaway(giveawayId, isActive) {
                 const totalCount = poolCount + claimedCount;
 
                 return (
-                  <tr key={gw.id} className="hover:bg-slate-50/70 dark:hover:bg-slate-800/40 transition-colors">
+                  <tr key={gw.id} className={`hover:bg-slate-50/70 dark:hover:bg-slate-800/40 transition-colors ${selectedCampaignIds.has(gw.id) ? 'bg-purple-50/60 dark:bg-purple-950/20' : ''}`}>
+                    {/* Checkbox chọn mục */}
+                    <td className="w-10 px-3 py-3 text-center" onClick={(e) => e.stopPropagation()}>
+                      <input
+                        type="checkbox"
+                        checked={selectedCampaignIds.has(gw.id)}
+                        onChange={(e) => {
+                          const next = new Set(selectedCampaignIds);
+                          if (e.target.checked) next.add(gw.id);
+                          else next.delete(gw.id);
+                          setSelectedCampaignIds(next);
+                        }}
+                        className="w-4 h-4 rounded text-purple-600 focus:ring-purple-500 cursor-pointer accent-purple-600"
+                      />
+                    </td>
+
                     {/* Col 1: ĐỢT PHÁT & TỰA GAME */}
                     <td className="px-4 py-3">
                       <div className="flex items-center gap-2.5">
@@ -2361,7 +2596,7 @@ async function toggleGiveaway(giveawayId, isActive) {
                                     gw.is_active !== false ? 'bg-emerald-500 animate-pulse' : 'bg-slate-400'
                                   }`}
                                 />
-                                <span>{gw.is_active !== false ? 'Đang mở' : 'Đã đóng'}</span>
+                                <span>{gw.is_active !== false ? 'Đang mở' : 'Đã đóng (Báo hết mã)'}</span>
                                 <span
                                   className={`w-5 h-3 rounded-full flex items-center p-0.5 transition-colors ${
                                     gw.is_active !== false
@@ -2372,6 +2607,11 @@ async function toggleGiveaway(giveawayId, isActive) {
                                   <span className="w-2 h-2 rounded-full bg-white shadow-xs" />
                                 </span>
                               </button>
+                              {gw.is_active === false && (
+                                <span className="text-[10px] text-amber-600 dark:text-amber-400 font-medium block">
+                                  (Kho còn {poolCount} mã thật)
+                                </span>
+                              )}
                             </div>
 
                             {/* Cảnh báo Chờ Mở nếu thời gian bắt đầu ở tương lai */}
@@ -2403,6 +2643,29 @@ async function toggleGiveaway(giveawayId, isActive) {
                     {/* Col 5: THAO TÁC (Sticky Right để luôn hiển thị trọn vẹn trong tầm mắt) */}
                     <td className="px-3.5 py-3 text-right whitespace-nowrap sticky right-0 bg-white/95 dark:bg-slate-900/95 backdrop-blur-xs shadow-[-6px_0_12px_rgba(0,0,0,0.06)] z-10">
                       <div className="flex items-center justify-end gap-1" onClick={(e) => e.stopPropagation()}>
+                        {/* NÚT ĐÓNG / MỞ SỰ KIỆN RIÊNG LẺ */}
+                        {gw.is_active !== false ? (
+                          <button
+                            type="button"
+                            onClick={() => handleToggleActive(gw)}
+                            className="inline-flex items-center gap-1 px-2 py-1 rounded-lg bg-rose-500/10 hover:bg-rose-500/20 text-rose-600 dark:text-rose-400 text-[11px] font-bold transition-all cursor-pointer border border-rose-500/25 shadow-2xs hover:scale-105 active:scale-95"
+                            title="Đóng sự kiện riêng lẻ này: Ngoài web sẽ báo Hết Mã, mã thật trong kho vẫn giữ nguyên 100%"
+                          >
+                            <PowerOff className="h-3 w-3 text-rose-500" />
+                            <span>Đóng</span>
+                          </button>
+                        ) : (
+                          <button
+                            type="button"
+                            onClick={() => handleToggleActive(gw)}
+                            className="inline-flex items-center gap-1 px-2 py-1 rounded-lg bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 text-[11px] font-bold transition-all cursor-pointer border border-emerald-500/25 shadow-2xs hover:scale-105 active:scale-95"
+                            title="Mở lại sự kiện này: Ngoài web sẽ hiển thị số lượng và cho phép nhận quà"
+                          >
+                            <Play className="h-3 w-3 text-emerald-500" />
+                            <span>Mở lại</span>
+                          </button>
+                        )}
+
                         {/* NÚT CHỈNH SỐ ẢO */}
                         <button
                           type="button"

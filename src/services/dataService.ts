@@ -2236,8 +2236,8 @@ public async syncWithCloudflareKV(forceFresh: boolean = false): Promise<void> {
     const campaign = giveaways.find((c) => c.id === campaignId);
     if (!campaign) return { success: false, message: 'Chiến dịch không tồn tại.' };
 
-    if (campaign.is_active === false || campaign.status === 'ENDED') {
-      return { success: false, message: 'Đợt phát code này hiện đã kết thúc hoặc đang tạm đóng.' };
+    if (campaign.is_active === false || campaign.status === 'ENDED' || campaign.status === 'PAUSED' || campaign.status === 'CLOSED') {
+      return { success: false, message: 'Đợt phát code này hiện đã tạm hết mã hoặc đang tạm đóng. Vui lòng quay lại vào đợt sau!' };
     }
 
     const user = this.getCurrentUser();

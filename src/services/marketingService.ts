@@ -2333,6 +2333,8 @@ class MarketingService {
    */
   public getGiveawayDisplayRemaining(campaign: {
     id?: string;
+    is_active?: boolean;
+    status?: string;
     remaining_codes?: number;
     codes_pool?: string[];
     enable_auto_simulation?: boolean;
@@ -2340,6 +2342,11 @@ class MarketingService {
     virtual_remaining_current?: number;
   } | null | undefined): number {
     if (!campaign) return 0;
+
+    // 0. Khi sự kiện đóng: Ngoài web báo hết mã (0)
+    if (campaign.is_active === false || campaign.status === 'PAUSED' || campaign.status === 'ENDED' || campaign.status === 'CLOSED') {
+      return 0;
+    }
 
     const realStock = Array.isArray(campaign.codes_pool) && campaign.codes_pool.length > 0
       ? campaign.codes_pool.length

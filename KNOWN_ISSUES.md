@@ -10,6 +10,25 @@
 
 ## 1. DANH MỤC LỖI & CÁC BẪY ĐÃ THẤT BẠI (DO NOT REPEAT)
 
+### ISSUE-203: Bẫy Ẩn Mất Sự Kiện Khỏi Giao Diện Web Khách Khi Đóng Hoặc Báo "Đã Hết Hạn" Thay Vì "Hết Mã", Gây Hiểu Nhầm Xóa Sự Kiện Hoặc Mất Mã Trong Kho
+- **Triệu chứng**:
+  - Khi quản trị viên đóng một sự kiện phát quà riêng (Giveaway) trong Admin, sự kiện biến mất hoàn toàn khỏi danh sách ngoài web thay vì báo "Hết Mã" để người chơi biết và chờ đợt mới.
+  - Một số nơi hiển thị chữ "Đã Hết Hạn" gây hiểu nhầm sự kiện đã kết thúc vĩnh viễn dù mã trong kho vẫn còn nguyên.
+  - Quản trị viên không có nút đóng sự kiện riêng lẻ trên từng dòng và thiếu công cụ chọn nhanh tựa game hoặc thao tác hàng loạt.
+- **Nguyên nhân gốc rễ**:
+  1. *Lọc bỏ sự kiện đóng trong giao diện khách*: `GiveawaysView.tsx` có dòng `if (c.is_active === false) return false;` khiến mọi sự kiện có `is_active === false` bị lọc mất khỏi danh sách khách.
+  2. *Gộp chung `is_active === false` vào trạng thái hết hạn `isEnded`*: `const isEnded = ... || campaign.is_active === false;` dẫn đến việc sự kiện bị dán nhãn "Đã Hết Hạn" thay vì "Hết Mã".
+  3. *Thiếu API batch toggle*: Trước đây chỉ có API toggle từng sự kiện đơn lẻ, không hỗ trợ thao tác hàng loạt trên D1.
+- **Giải pháp chuẩn đã kiểm chứng**:
+  1. *Giữ sự kiện đóng hiển thị trên web*: Bỏ điều kiện lọc `if (c.is_active === false) return false;` trong `GiveawaysView.tsx`, đồng thời bổ sung tab lọc `out_of_stock` ("Đã Hết Mã").
+  2. *Ép remaining về 0 và dán nhãn Hết Mã*: Trong `marketingService.getGiveawayDisplayRemaining()`, nếu `is_active === false` thì trả về 0. Thẻ sự kiện tự động nhận nhãn "Hết Mã" và nút CTA hiển thị "Chờ Đợt Mới" / "Tạm Hết".
+  3. *Giữ nguyên 100% kho mã thật*: Toàn bộ `giveaway_codes` / `codes_pool` / `remaining_codes` trong D1 được bảo tồn nguyên vẹn. Trong Admin hiển thị rõ ràng: `Đã đóng (Báo hết mã) - (Kho còn X mã thật)`.
+  4. *API BATCH_TOGGLE_ACTIVE*: Hỗ trợ đóng / mở hàng loạt qua một lệnh D1 batch nguyên tử duy nhất.
+- 🚫 **CÁCH SỬA ĐÃ THẤT BẠI - TUYỆT ĐỐI KHÔNG LẶP LẠI**:
+  - ❌ *Không xóa mã hoặc set `remaining_codes = 0` trong database D1 khi đóng sự kiện*.
+  - ❌ *Không filter bỏ sự kiện có `is_active === false` khỏi danh sách `GiveawaysView.tsx`*.
+  - ❌ *Không dán nhãn "Đã Hết Hạn" cho sự kiện tạm đóng có mã trong kho*.
+
 ### ISSUE-202: Bẫy Lọc Bỏ Chữ Số Khi Tokenize Khiến Fuzzy Matcher Đoán Sai Phiên Bản Game (Kiếm Hiệp Tình 1 vs 2), Reset Trường Omitted Về Default Trong API Upcoming Games & Thiếu Query D1 Trực Tiếp Khi Ingest Codes
 - **Triệu chứng**:
   - Khi crawler gửi tên game "Kiếm Hiệp Tình 1", thuật toán fuzzy matcher lại tự động ghép vào "Kiếm Hiệp Tình 2" (hoặc ngược lại).

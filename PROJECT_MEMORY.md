@@ -214,6 +214,22 @@
 
 ---
 
+### 3.15. Quy Tắc Quản Trị Giveaway & Bảo Tồn Kho Mã Thật (Giveaway Management & Stock Masking Rule)
+- **Đóng / Mở Sự Kiện Riêng Lẻ & Hàng Loạt (Granular & Bulk Event Control)**:
+  - Quản trị viên có toàn quyền đóng hoặc mở lại từng sự kiện riêng lẻ qua nút "Đóng" (PowerOff) / "Mở lại" (Play) hoặc thao tác hàng loạt qua thanh tác vụ với `BATCH_TOGGLE_ACTIVE`.
+  - Bộ lọc Chọn Nhanh Tựa Game (Game Quick Chips) cho phép tra cứu và thao tác nhanh chóng theo từng tựa game cụ thể.
+- **Bảo Tồn 100% Kho Mã Thật Khi Đóng (Zero Real Code Loss)**:
+  - Khi một sự kiện bị đóng (`is_active: false`, `status: 'PAUSED'`), toàn bộ mã thật trong bảng D1 `giveaway_codes`, trường `codes_pool` và `remaining_codes` **BẢO TỒN NGUYÊN VẸN 100%**, không bị xóa hay giảm trừ.
+  - Phía Web Khách:
+    - Sự kiện vẫn hiển thị trong danh sách (không bị ẩn mất khỏi tầm mắt của người dùng).
+    - Số lượng còn lại hiển thị bị ép về 0 (`remaining = 0`).
+    - Thẻ sự kiện dán nhãn "Hết Mã" và nút nhận mã báo "Chờ Đợt Mới" / "Tạm Hết".
+    - Modal chi tiết hiển thị nút bị vô hiệu hóa với thông báo "Sự Kiện Tạm Đóng — Chờ Đợt Mã Mới".
+    - Cổng nhận mã `/api/giveaways/claim` và `dataService.ts` chặn toàn bộ yêu cầu nhận mã từ sự kiện đã đóng.
+  - Phía Admin: Hiển thị đầy đủ số lượng mã thật trong kho kèm nhãn `Đã đóng (Báo hết mã) - (Kho còn X mã thật)`.
+
+---
+
 ## 4. BẢN ĐỒ DỮ LIỆU & STATE MANAGEMENT
 
 ### 4.1. LocalStorage Keys Chính

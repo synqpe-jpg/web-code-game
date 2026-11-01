@@ -114,9 +114,9 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
       );
     }
 
-    if (campaign.status === 'ENDED' || campaign.is_active === 0) {
+    if (campaign.status === 'ENDED' || campaign.status === 'PAUSED' || campaign.status === 'CLOSED' || campaign.is_active === 0 || campaign.is_active === false) {
       return new Response(
-        JSON.stringify({ success: false, message: 'Đợt phát code này hiện đã kết thúc hoặc đang tạm đóng.' }),
+        JSON.stringify({ success: false, message: 'Đợt phát code này hiện đã tạm hết mã hoặc đang tạm đóng. Vui lòng quay lại vào đợt sau!' }),
         { status: 400, headers: CORS_HEADERS }
       );
     }
