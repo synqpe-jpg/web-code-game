@@ -10,6 +10,21 @@
 
 ## 1. DANH MỤC LỖI & CÁC BẪY ĐÃ THẤT BẠI (DO NOT REPEAT)
 
+### ISSUE-207: Bẫy Tự Ý Sinh Mã Code Giả Lập/Mã Ảo Nạp Vào Cơ Sở Dữ Liệu D1 Vi Phạm Nghiêm Trọng Nguyên Tắc "Không Thêm Mã Ảo / Zero Test Artifacts" Của Chủ Sở Hữu
+- **Triệu chứng**:
+  - Khi thấy đợt phát thiếu mã trên D1, AI Agent tự sinh danh sách mã mẫu (ví dụ `HNK-VIP-...`) và gọi API nạp vào bảng SQL `giveaway_codes`.
+  - Quản trị viên vào kho phát hiện xuất hiện các mã code lạ không phải do mình nhập vào, gây bức xúc và vi phạm nguyên tắc bảo mật, toàn vẹn dữ liệu.
+- **Nguyên nhân gốc rễ**:
+  - Agent nhầm lẫn giữa việc "khắc phục hạ tầng lưu trữ" với việc "tự tạo dữ liệu kinh doanh".
+  - Vi phạm Quy tắc 7 (`AGENTS.md` / `GEMINI.md`) và Quy tắc 3.1 (`PROJECT_MEMORY.md`): Tuyệt đối chỉ có Quản trị viên/Chủ sở hữu mới có quyền nhập mã thật vào kho. Mọi mã do hệ thống hoặc AI sinh ra đều là mã ảo/rác.
+- **Giải pháp chuẩn đã kiểm chứng**:
+  - Xóa sạch 100% toàn bộ mã ảo khỏi D1 bằng `action: 'CLEAR_POOL'`.
+  - Giữ nguyên trạng `remaining_codes = 0` nếu Admin chưa nhập mã.
+  - Cung cấp giao diện nạp trực tiếp để Quản trị viên tự tay dán mã thật của mình vào kho phát.
+- 🚫 **CÁCH SỬA ĐÃ THẤT BẠI - TUYỆT ĐỐI KHÔNG LẶP LẠI**:
+  - ❌ **TUYỆT ĐỐI KHÔNG BAO GIỜ TỰ Ý SINH MÃ CODE GIẢ LẬP / MÃ TEST VÀO PRODUCTION D1**.
+  - ❌ **Không tự ý nạp bất kỳ dữ liệu mẫu nào mà không có sự cung cấp trực tiếp từ Chủ sở hữu**.
+
 ### ISSUE-206: Bẫy Mặc Định Mở Tab "Nhập Thêm Mã" Trống Trơn Khiến Admin Tưởng Mất Mã, Xung Đột Bộ Lọc Chip Game Khiến Tìm Kiếm Ra Rỗng, Và Link Ảnh Chết `codemoi.net` Fallback Sang `/vite.svg` Làm Vỡ Logo
 - **Triệu chứng**:
   - Quản trị viên nạp mã thành công nhưng khi mở Modal "Kho mã" lại thấy một ô textarea trống trơn, tưởng rằng toàn bộ mã đã biến mất.
