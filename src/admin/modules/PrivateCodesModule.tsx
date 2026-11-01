@@ -78,6 +78,19 @@ export const isGwActive = (g: any): boolean => {
   return true;
 };
 
+/**
+ * Helper chuẩn hóa Icon của Tựa Game / Đợt phát Giveaway:
+ * Tự động loại bỏ link chết từ các domain cũ (như codemoi.net) và fallback về icon chuẩn WebP/JPG nội bộ.
+ */
+export const resolveGameIcon = (gw?: { game_slug?: string; game_icon_url?: string; cover_image_url?: string } | null): string => {
+  const slug = gw?.game_slug || '';
+  const raw = gw?.game_icon_url || gw?.cover_image_url || '';
+  if (!raw || raw.includes('codemoi.net') || raw.startsWith('/game-icons')) {
+    return slug ? `/game_icons/${slug}.webp` : '/game_icons/default.webp';
+  }
+  return raw;
+};
+
 export const PrivateCodesModule: React.FC<PrivateCodesModuleProps> = ({ onShowToast }) => {
   const [giveaways, setGiveaways] = useState<GiveawayCampaign[]>([]);
   const [games, setGames] = useState<GameAdminRecord[]>([]);
@@ -102,7 +115,7 @@ export const PrivateCodesModule: React.FC<PrivateCodesModuleProps> = ({ onShowTo
         map.set(slug, {
           slug,
           name: gw.game_name || slug,
-          icon: gw.game_icon_url || gw.cover_image_url || `/game_icons/${slug}.webp`,
+          icon: resolveGameIcon(gw),
           count: 1,
           activeCount: isAct ? 1 : 0,
         });
@@ -741,7 +754,9 @@ export const PrivateCodesModule: React.FC<PrivateCodesModuleProps> = ({ onShowTo
     setCurrentCampaignForPool(gw);
     setBatchPoolLines('');
     setSelectedPoolCodes([]);
-    setPoolTab('ADD');
+    const pool = Array.isArray(gw.codes_pool) ? gw.codes_pool : [];
+    // MẶC ĐỊNH MỞ TAB 'LIST' (Danh sách mã) KHI KHO ĐÃ CÓ MÃ ĐỂ ADMIN THẤY NGAY DANH SÁCH MÃ THẬT
+    setPoolTab(pool.length > 0 ? 'LIST' : 'ADD');
     setIsPoolModalOpen(true);
   };
 
@@ -1142,17 +1157,19 @@ export const PrivateCodesModule: React.FC<PrivateCodesModuleProps> = ({ onShowTo
   const activeCount = giveaways.filter(isGwActive).length;
   const inactiveCount = giveaways.filter((g) => !isGwActive(g)).length;
 
-  // Filter & Search
+  // Filter & Search: Ưu tiên tìm kiếm toàn diện khi có searchQuery
   const filteredGiveaways = giveaways.filter((g) => {
-    if (selectedGameFilter !== 'ALL' && g.game_slug !== selectedGameFilter) return false;
-    if (statusFilter === 'ACTIVE' && !isGwActive(g)) return false;
-    if (statusFilter === 'INACTIVE' && isGwActive(g)) return false;
+    // 1. Khi Quản trị viên nhập từ khóa tìm kiếm: Tìm trên 100% các đợt phát, không bị giới hạn bởi chip game hay tab trạng thái
     if (searchQuery.trim()) {
       return smartVietnameseMatch(
         [g.title, g.game_name, g.game_slug, g.description, g.rewards],
         searchQuery
       );
     }
+    // 2. Khi không tìm kiếm: Áp dụng bộ lọc chip tựa game và tab trạng thái
+    if (selectedGameFilter !== 'ALL' && g.game_slug !== selectedGameFilter) return false;
+    if (statusFilter === 'ACTIVE' && !isGwActive(g)) return false;
+    if (statusFilter === 'INACTIVE' && isGwActive(g)) return false;
     return true;
   });
 
@@ -2292,8 +2309,15 @@ async function toggleGiveaway(giveawayId, isActive) {
                   <img
                     src={g.icon}
                     alt={g.name}
-                    className="w-4 h-4 rounded-full object-cover shrink-0"
-                    onError={(e) => { (e.target as HTMLElement).style.display = 'none'; }}
+                    className="w-4 h-4 rounded-full object-cover shrink-0 bg-slate-800"
+                    onError={(e) => {
+                      const target = e.target as HTMLImageElement;
+                      if (g.slug && !target.src.includes(`/game_icons/${g.slug}.webp`)) {
+                        target.src = `/game_icons/${g.slug}.webp`;
+                      } else if (g.slug && !target.src.includes(`/game_icons/${g.slug}.jpg`)) {
+                        target.src = `/game_icons/${g.slug}.jpg`;
+                      }
+                    }}
                   />
                   <span>{g.name}</span>
                   <span className={`text-[10px] px-1.5 py-0.2 rounded-full font-mono ${
@@ -2419,7 +2443,38 @@ async function toggleGiveaway(giveawayId, isActive) {
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100 dark:divide-slate-800 font-medium">
-              {displayedGiveaways.map((gw) => {
+              {displayedGiveaways.length === 0 ? (
+                <tr>
+                  <td colSpan={6} className="px-6 py-12 text-center">
+                    <div className="flex flex-col items-center justify-center gap-2 max-w-sm mx-auto">
+                      <div className="w-12 h-12 rounded-2xl bg-purple-50 dark:bg-purple-950/40 text-purple-600 flex items-center justify-center">
+                        <Search className="w-6 h-6" />
+                      </div>
+                      <h4 className="text-sm font-bold text-slate-900 dark:text-white">Không tìm thấy đợt phát phù hợp</h4>
+                      <p className="text-xs text-slate-500 dark:text-slate-400">
+                        {searchQuery.trim()
+                          ? `Không tìm thấy kết quả nào khớp với từ khóa "${searchQuery}".`
+                          : 'Không có đợt phát nào trong danh mục hoặc bộ lọc đang chọn.'}
+                      </p>
+                      {(searchQuery || selectedGameFilter !== 'ALL' || statusFilter !== 'ALL') && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setSearchQuery('');
+                            setSelectedGameFilter('ALL');
+                            setStatusFilter('ALL');
+                          }}
+                          className="mt-2 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-purple-600 hover:bg-purple-700 text-white text-xs font-bold transition-all shadow-sm cursor-pointer"
+                        >
+                          <RefreshCw className="w-3.5 h-3.5" />
+                          <span>Xóa tất cả bộ lọc & xem toàn bộ ({giveaways.length} đợt phát)</span>
+                        </button>
+                      )}
+                    </div>
+                  </td>
+                </tr>
+              ) : (
+                displayedGiveaways.map((gw) => {
                 const poolCount = Array.isArray(gw.codes_pool) && gw.codes_pool.length > 0 ? gw.codes_pool.length : Math.max(0, Number(gw.remaining_codes || 0));
                 const claimedCount = Number(gw.claimed_codes) || 0;
                 const remaining = poolCount;
@@ -2445,15 +2500,21 @@ async function toggleGiveaway(giveawayId, isActive) {
                     {/* Col 1: ĐỢT PHÁT & TỰA GAME */}
                     <td className="px-4 py-3">
                       <div className="flex items-center gap-2.5">
-                        <div className="h-9 w-9 rounded-xl overflow-hidden bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 shrink-0">
+                        <div className="h-9 w-9 rounded-xl overflow-hidden bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 shrink-0 flex items-center justify-center font-bold text-xs text-purple-600">
                           <img
-                            src={gw.game_icon_url || gw.cover_image_url || `/game_icons/${gw.game_slug}.webp`}
+                            src={resolveGameIcon(gw)}
                             alt={gw.title}
                             className="h-full w-full object-cover"
                             onError={(e) => {
                               const target = e.target as HTMLImageElement;
                               target.onerror = null;
-                              target.src = '/vite.svg';
+                              if (gw.game_slug && !target.src.includes(`/game_icons/${gw.game_slug}.webp`)) {
+                                target.src = `/game_icons/${gw.game_slug}.webp`;
+                              } else if (gw.game_slug && !target.src.includes(`/game_icons/${gw.game_slug}.jpg`)) {
+                                target.src = `/game_icons/${gw.game_slug}.jpg`;
+                              } else {
+                                target.style.display = 'none';
+                              }
                             }}
                           />
                         </div>
@@ -2776,7 +2837,7 @@ async function toggleGiveaway(giveawayId, isActive) {
                     </td>
                   </tr>
                 );
-              })}
+              }))}
             </tbody>
           </table>
         </div>

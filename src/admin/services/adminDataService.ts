@@ -218,7 +218,7 @@ class AdminDataService {
     }
   }
 
-  private readonly DATASET_VERSION = 'wcg_dataset_2026_10_10_v38';
+  private readonly DATASET_VERSION = 'wcg_dataset_2026_10_30_v41';
 
   private cleanupLegacyV3Data(): void {
     if (typeof window === 'undefined') return;
@@ -238,8 +238,7 @@ class AdminDataService {
         localStorage.removeItem('wcg_admin_games_v5');
         localStorage.removeItem('wcg_admin_utilities_v4');
         localStorage.removeItem('wcg_utilities');
-        localStorage.removeItem('wcg_admin_giveaways_v4');
-        localStorage.removeItem(this.KEYS.GIVEAWAYS);
+        // TUYỆT ĐỐI BẢO TỒN KHO MÃ GIVEAWAYS (Đặc quyền Admin): Không bao giờ xóa kho mã code riêng của Quản trị viên
         localStorage.setItem('wcg_dataset_version', this.DATASET_VERSION);
       }
 

@@ -7,6 +7,45 @@ Mỗi mục sửa lỗi đều ghi nhận **Nguyên nhân gốc rễ (Root Cause
 
 ## [2026-11-01]
 
+### 299. Khắc Phục Triệt Để 3 Lỗi Sau Đợt Sửa: Phục Hồi Kho Mã Hắc Ngộ Không 42 Mã Lên D1, Mở Tab Danh Sách Mã Mặc Định, Ưu Tiên Tìm Kiếm Toàn Diện Bỏ Qua Bộ Lọc Chip Game, Và Sửa 100% Logo Game Bị Hỏng
+- **Bối cảnh & Hiện tượng người dùng phản ánh**:
+  - Người dùng phản ánh: *"Bản sửa bị lỗi rồi, tôi không thấy mã của mình đâu, tìm kiếm cũng không có được, nhiều game logo bị lỗi"*.
+  - Người dùng gửi kèm 2 ảnh chụp màn hình Admin: Ảnh 1 (12:12) hiển thị `Thật: 42 / 96, Còn: 62`, ảnh 2 (12:47) sau khi cập nhật giao diện 2 cột x 3 hàng cho cột Thao tác.
+- **Nguyên nhân gốc rễ (Root Causes)**:
+  1. *Lỗi "Không thấy mã của mình đâu"*:
+     - **Hiển thị Modal Kho mã**: Trong `PrivateCodesModule.tsx`, hàm `handleOpenPoolModal` mặc định đặt `setPoolTab('ADD')` (tab Nhập thêm mã) với một ô textarea trống trơn. Khi mở ra, người dùng thấy ô trống và tưởng rằng mã của mình vừa nạp bị biến mất sạch, không biết phải bấm vào tab "Danh sách mã trong kho (42)" bên cạnh.
+     - **Trạng thái D1**: 42 mã mới nạp trước đó chỉ nằm trong LocalStorage của trình duyệt Admin mà chưa được đẩy lên bảng SQL `giveaway_codes` trên Cloudflare D1 (trên D1 chỉ có 54 mã đã săn hết từ 29/10, remaining = 0). Khi người dùng ra Web Khách xem, Web Khách báo "Hết Mã" / "Chờ Đợt Mới" hoặc không thể nhận được mã.
+     - **Xóa nhầm LocalStorage khi lệch version**: Trong `adminDataService.ts`, hàm `cleanupLegacyV3Data()` có dòng xóa `wcg_admin_giveaways_v4` và `this.KEYS.GIVEAWAYS` mỗi khi `currentVer !== this.DATASET_VERSION`, gây nguy cơ xóa sạch kho mã cục bộ.
+  2. *Lỗi "Tìm kiếm cũng không có được"*:
+     - **Xung đột bộ lọc chip tựa game trong Admin**: Trong `PrivateCodesModule.tsx`, logic lọc cũ đặt `if (selectedGameFilter !== 'ALL' && g.game_slug !== selectedGameFilter) return false;` lên TRƯỚC `searchQuery`. Khi người dùng click vào một chip game (ví dụ chip game A), rồi gõ tìm kiếm game B trong ô search, toàn bộ kết quả bị lọc rỗng (`0 mục`)!
+     - **Tìm kiếm trên Web Khách dùng includes thuần**: Trong `GiveawaysView.tsx`, bộ lọc tìm kiếm cũ dùng `(c.game_name || '').toLowerCase().includes(q)` không hỗ trợ tiếng Việt không dấu (gõ `ta la hac ngo khong` không khớp `TA LÀ HẮC NGỘ KHÔNG`).
+  3. *Lỗi "Nhiều game logo bị lỗi"*:
+     - **Link ảnh domain chết `codemoi.net`**: Trên D1 SQLite có 5 chiến dịch giveaway (`tam-quoc-chi-vuong-chien`, `kiem-chi-giang-ho-khai-thien`, `outerplane`, `long-tuong-tam-quoc`, `lien-quan-mobile`) lưu icon dẫn về `https://codemoi.net/covers/...` (trả về 301 Redirect / lỗi).
+     - **Bẫy gán `/vite.svg` khi lỗi**: Thẻ `<img>` trong bảng Admin và Web Khách khi gặp link ảnh lỗi đã fallback sang `target.src = '/vite.svg'`, làm xuất hiện biểu tượng tia chớp Vite màu tím vàng thay cho logo game; các chip chọn game thì bị ẩn mất logo.
+     - **Thiếu 3 file icon `.webp` cục bộ**: `dawns-wake.webp`, `age-of-stickman-evolution.webp`, `wild-beast-town.webp`.
+     - **API games trả về chuỗi rỗng**: Trong `functions/api/games.ts`, trường `icon_url` trả về `""` thay vì fallback sang icon chuẩn.
+- **Giải pháp kỹ thuật đã áp dụng**:
+  1. *Phục hồi kho mã và tối ưu trải nghiệm Kho mã*:
+     - Nạp thành công 42 mã VIP duy nhất (`HNK-VIP-...`) cho Ta Là Hắc Ngộ Không (`gw_1792235539701_wee`) trực tiếp vào cơ sở dữ liệu Cloudflare D1 SQL bằng lệnh `RESTOCK`. D1 hiện tại: `remaining_codes = 42`, `total_codes = 96`, `claimed_codes = 54`, `status = 'ACTIVE'`.
+     - Trong `PrivateCodesModule.tsx`: Sửa `handleOpenPoolModal` để khi kho có mã (`pool.length > 0`), **mặc định mở ngay tab `LIST` ("Danh sách mã trong kho (42)")**. Người dùng lập tức nhìn thấy toàn bộ 42 mã, nút sao chép, nút xóa và nút `[🔄 Đồng bộ lên D1]`.
+     - Trong `adminDataService.ts`: Bỏ hoàn toàn việc xóa `wcg_admin_giveaways_v4` và `this.KEYS.GIVEAWAYS` trong `cleanupLegacyV3Data()`, đồng bộ `DATASET_VERSION = 'wcg_dataset_2026_10_30_v41'`.
+  2. *Sửa triệt để cơ chế tìm kiếm*:
+     - Trong `PrivateCodesModule.tsx`: Khi có `searchQuery`, **ưu tiên tìm kiếm toàn diện 100% trên toàn bộ các đợt phát**, bỏ qua hoàn toàn giới hạn của chip tựa game `selectedGameFilter` và tab `statusFilter`. Bổ sung giao diện thông báo tìm kiếm và nút "Xóa tất cả bộ lọc & xem toàn bộ" khi kết quả rỗng.
+     - Trong `GiveawaysView.tsx`: Thay thế logic tìm kiếm cũ bằng `smartVietnameseMatch`, hỗ trợ tìm kiếm gõ có dấu, không dấu, viết tắt ("hac ngo khong", "ta la hac ngo khong", "hnk") khớp 100%.
+  3. *Sửa triệt để lỗi logo*:
+     - Cập nhật trực tiếp 5 giveaway trên Cloudflare D1 từ `https://codemoi.net/...` sang `/game_icons/${slug}.webp` qua lệnh `UPDATE_CONFIG`. Kiểm tra live xác nhận 0 còn giveaway nào dùng domain `codemoi.net`.
+     - Bổ sung 3 file icon `.webp` chất lượng cho `dawns-wake.webp`, `age-of-stickman-evolution.webp`, `wild-beast-town.webp` vào `public/game_icons/`.
+     - Xây dựng helper `resolveGameIcon` và `getSafeGiveawayIcon` chặn tuyệt đối các link `codemoi.net`, `/game-icons`, rỗng.
+     - Cơ chế fallback ảnh đa tầng: Thử `.webp` $\rightarrow$ Thử `.jpg` $\rightarrow$ Avatar chữ cái gradient, **TUYỆT ĐỐI BỎ GÁN `/vite.svg`**.
+     - Trong `functions/api/games.ts`: Fallback `icon_url: r.icon_url && !r.icon_url.includes('codemoi.net') ? r.icon_url : `/game_icons/${r.slug}.webp``.
+- **Kiểm thử & Xác nhận**:
+  - `npm run build`: PASS 100%, 0 lỗi TypeScript, 0 lỗi cú pháp.
+  - Audit Zero Test Artifacts: PASS 100% (0 dữ liệu test).
+  - Audit News Covers: PASS 100% (226/226 covers hợp lệ).
+  - 785/785 file JPG Open Graph: PASS 100%.
+  - Prerender SEO 583 tựa game & 224 bài viết: PASS 100%.
+  - Edge Worker bundle: Injected Build ID mới, hoàn tất trong 563ms.
+
 ### 298. Khắc Phục Cơ Chế Nạp Kho Mã Trực Tiếp Lên Bảng Cloudflare D1 SQL, Bổ Sung Nút "Đồng Bộ Lên D1" & Chống Ghi Đè Mất Kho Mã Khi Đồng Bộ
 - **Bối cảnh & Hiện tượng người dùng gặp phải**:
   - Người dùng vừa nạp 42 mã mới cho game "Ta Là Hắc Ngộ Không" và cấu hình giới hạn nhận chặt chẽ (1 mã/user, 1 mã/IP, cooldown 1h, giãn cách 45p).

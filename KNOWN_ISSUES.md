@@ -10,6 +10,30 @@
 
 ## 1. DANH MỤC LỖI & CÁC BẪY ĐÃ THẤT BẠI (DO NOT REPEAT)
 
+### ISSUE-206: Bẫy Mặc Định Mở Tab "Nhập Thêm Mã" Trống Trơn Khiến Admin Tưởng Mất Mã, Xung Đột Bộ Lọc Chip Game Khiến Tìm Kiếm Ra Rỗng, Và Link Ảnh Chết `codemoi.net` Fallback Sang `/vite.svg` Làm Vỡ Logo
+- **Triệu chứng**:
+  - Quản trị viên nạp mã thành công nhưng khi mở Modal "Kho mã" lại thấy một ô textarea trống trơn, tưởng rằng toàn bộ mã đã biến mất.
+  - Khi gõ từ khóa vào ô tìm kiếm Giveaway hoặc trên Web Khách, kết quả hiển thị rỗng `0 mục` dù game và đợt phát tồn tại sờ sờ.
+  - Nhiều tựa game trên Web Khách và Quản trị bị lỗi logo: hiển thị icon tia chớp Vite màu tím vàng (`/vite.svg`) hoặc biến mất icon trên thanh chip chọn nhanh game.
+- **Nguyên nhân gốc rễ**:
+  1. *Modal Kho mã mặc định tab ADD*: `handleOpenPoolModal` đặt `setPoolTab('ADD')` khiến người dùng luôn thấy textarea trống rỗng thay vì xem danh sách các mã đang có trong kho (tab LIST).
+  2. *Bộ lọc chip game chặn trước ô tìm kiếm*: Logic `if (selectedGameFilter !== 'ALL' && g.game_slug !== selectedGameFilter) return false;` được đặt trước kiểm tra `searchQuery`. Khi đã chọn chip game A, gõ tìm kiếm game B sẽ luôn ra 0 kết quả.
+  3. *Web Khách dùng includes thuần*: `GiveawaysView.tsx` dùng `toLowerCase().includes(q)` không hỗ trợ tiếng Việt không dấu (gõ `ta la hac ngo khong` không khớp `TA LÀ HẮC NGỘ KHÔNG`).
+  4. *Link ảnh domain chết `codemoi.net` và fallback `/vite.svg`*: Database D1 lưu URL từ domain cũ `https://codemoi.net/covers/...` (trả về 301/lỗi). Khi thẻ `<img>` gặp lỗi, code cũ gán `target.src = '/vite.svg'`, biến logo game thành logo của Vite; trên chip chọn game thì `display = 'none'` làm mất logo.
+  5. *Lệch version xóa kho mã*: `adminDataService.ts` xóa `wcg_admin_giveaways_v4` và `this.KEYS.GIVEAWAYS` trong `cleanupLegacyV3Data()` khi khác version.
+- **Giải pháp chuẩn đã kiểm chứng**:
+  1. *Mở tab LIST khi kho có mã*: Nếu `pool.length > 0`, `handleOpenPoolModal` mặc định mở tab `LIST` ("Danh sách mã trong kho (X)"). Admin lập tức thấy toàn bộ mã code, nút sao chép, nút xóa và nút `[🔄 Đồng bộ lên D1]`.
+  2. *Ưu tiên tìm kiếm toàn diện*: Khi `searchQuery` có nội dung, bỏ qua mọi ràng buộc của chip game `selectedGameFilter` và tab `statusFilter`, tìm kiếm trên toàn bộ 100% các chiến dịch.
+  3. *Chuẩn hóa tiếng Việt với `smartVietnameseMatch`*: Áp dụng cho cả Web Khách và Quản trị, hỗ trợ tìm kiếm gõ có dấu, không dấu, viết tắt ("hac ngo khong", "ta la hac ngo khong", "hnk").
+  4. *Loại bỏ vĩnh viễn `/vite.svg` và cập nhật D1*: Đổi toàn bộ 5 giveaway trên D1 sang `/game_icons/${slug}.webp`. Helper `resolveGameIcon` và `getSafeGiveawayIcon` tự động chuyển link `codemoi.net` về icon chuẩn. Fallback đa tầng (.webp $\rightarrow$ .jpg $\rightarrow$ gradient avatar), tuyệt đối không dùng `/vite.svg`.
+  5. *Bảo tồn vĩnh viễn kho mã Admin*: Gỡ bỏ lệnh xóa giveaways trong `cleanupLegacyV3Data()`, đồng bộ `DATASET_VERSION = 'wcg_dataset_2026_10_30_v41'`.
+- 🚫 **CÁCH SỬA ĐÃ THẤT BẠI - TUYỆT ĐỐI KHÔNG LẶP LẠI**:
+  - ❌ *Không mặc định mở tab ADD khi kho mã đã có mã*.
+  - ❌ *Không để bộ lọc chip game `selectedGameFilter` chặn kết quả tìm kiếm toàn cục của `searchQuery`*.
+  - ❌ *Không dùng `includes` thuần túy để so sánh tìm kiếm tiếng Việt trên Web Khách*.
+  - ❌ *Không dùng `/vite.svg` làm ảnh fallback cho logo game*.
+  - ❌ *Không xóa kho mã giveaway trong LocalStorage khi nâng cấp `DATASET_VERSION`*.
+
 ### ISSUE-205: Bẫy Nạp Mã Code Riêng Chỉ Lưu JSON Cục Bộ Mà Thiếu Đồng Bộ Trực Tiếp Vào Bảng SQL `giveaway_codes` Trên Cloudflare D1, Dẫn Đến Web Báo "Hết Mã" Dù Admin Đã Nhập Mã
 - **Triệu chứng**:
   - Quản trị viên nạp mã mới vào Modal "Kho mã" của một sự kiện Giveaway (ví dụ Ta Là Hắc Ngộ Không).

@@ -41,7 +41,7 @@ import { dataService } from '../services/dataService';
 import { marketingService, PRESET_VIRTUAL_ACCOUNTS } from '../services/marketingService';
 import type { GiveawayCampaign, ClaimedCodeRecord, UserProfile, GiveawayRewardPackage } from '../types/game';
 import { groupGiveawaysByGame, getGiveawayPackages } from '../utils/productPackageUtils';
-import { formatRelativeDate, formatFullDateTime } from '../utils/textUtils';
+import { formatRelativeDate, formatFullDateTime, smartVietnameseMatch } from '../utils/textUtils';
 import { EventCountdownBadge } from './countdown/EventCountdownBadge';
 import { useEventCountdown } from '../hooks/useEventCountdown';
 import { eventSchedulerService } from '../services/eventSchedulerService';
@@ -77,6 +77,19 @@ export const isGwActive = (c: any): boolean => {
   const st = String(c.status || '').toUpperCase();
   if (st === 'PAUSED' || st === 'CLOSED' || st === 'ENDED') return false;
   return true;
+};
+
+/**
+ * Helper chuẩn hóa Icon của Giveaway:
+ * Loại bỏ URL codemoi.net hoặc URL hỏng, đảm bảo luôn trả về icon WebP/JPG chuẩn xác.
+ */
+export const getSafeGiveawayIcon = (item?: { game_slug?: string; game_icon_url?: string } | null): string => {
+  const slug = item?.game_slug || '';
+  const raw = item?.game_icon_url || '';
+  if (!raw || raw.includes('codemoi.net') || raw.startsWith('/game-icons')) {
+    return slug ? `/game_icons/${slug}.webp` : '/game_icons/default.webp';
+  }
+  return raw;
 };
 
 /**
@@ -402,13 +415,17 @@ const GiveawayDetailModal: React.FC<GiveawayDetailModalProps> = ({
             className="w-14 h-14 rounded-2xl bg-muted overflow-hidden shrink-0 border border-border shadow-md cursor-pointer hover:opacity-90 transition-opacity"
           >
             <img
-              src={campaign.game_icon_url || `/game_icons/${campaign.game_slug}.webp`}
+              src={getSafeGiveawayIcon(campaign)}
               alt={campaign.game_name}
               className="w-full h-full object-cover"
               onError={(e) => {
                 const target = e.target as HTMLImageElement;
                 target.onerror = null;
-                target.src = '/vite.svg';
+                if (campaign.game_slug && !target.src.includes(`/game_icons/${campaign.game_slug}.webp`)) {
+                  target.src = `/game_icons/${campaign.game_slug}.webp`;
+                } else if (campaign.game_slug && !target.src.includes(`/game_icons/${campaign.game_slug}.jpg`)) {
+                  target.src = `/game_icons/${campaign.game_slug}.jpg`;
+                }
               }}
             />
           </div>
@@ -1444,13 +1461,12 @@ export const GiveawaysView: React.FC<GiveawaysViewProps> = ({
   const activeGiveaways = groupedCampaigns
     .filter((c) => {
       // Giữ sự kiện hiển thị trên Web ngay cả khi đóng để báo "Hết Mã" cho khách theo yêu cầu
-      // Search query filter
+      // Search query filter: Sử dụng smartVietnameseMatch hỗ trợ gõ không dấu, có dấu, viết tắt, tìm toàn diện
       if (searchQuery.trim()) {
-        const q = searchQuery.toLowerCase().trim();
-        const matchName = (c.game_name || '').toLowerCase().includes(q);
-        const matchTitle = (c.title || '').toLowerCase().includes(q);
-        const matchReward = (c.rewards || '').toLowerCase().includes(q);
-        if (!matchName && !matchTitle && !matchReward) return false;
+        return smartVietnameseMatch(
+          [c.game_name, c.title, c.game_slug, c.description, c.rewards],
+          searchQuery
+        );
       }
       // Category filter
       if (filterCategory === 'available') {
@@ -1777,13 +1793,17 @@ export const GiveawaysView: React.FC<GiveawaysViewProps> = ({
                         >
                           <div className="w-11 h-11 rounded-xl bg-muted overflow-hidden shrink-0 border border-border shadow-sm">
                             <img
-                              src={campaign.game_icon_url || `/game_icons/${campaign.game_slug}.webp`}
+                              src={getSafeGiveawayIcon(campaign)}
                               alt={campaign.game_name}
                               className="w-full h-full object-cover"
                               onError={(e) => {
                                 const target = e.target as HTMLImageElement;
                                 target.onerror = null;
-                                target.src = '/vite.svg';
+                                if (campaign.game_slug && !target.src.includes(`/game_icons/${campaign.game_slug}.webp`)) {
+                                  target.src = `/game_icons/${campaign.game_slug}.webp`;
+                                } else if (campaign.game_slug && !target.src.includes(`/game_icons/${campaign.game_slug}.jpg`)) {
+                                  target.src = `/game_icons/${campaign.game_slug}.jpg`;
+                                }
                               }}
                             />
                           </div>
@@ -2292,13 +2312,17 @@ export const GiveawaysView: React.FC<GiveawaysViewProps> = ({
                     <div className="flex items-center gap-3 min-w-0">
                       <div className="w-12 h-12 rounded-xl bg-muted overflow-hidden shrink-0 border border-border">
                         <img
-                          src={item.game_icon_url || `/game_icons/${item.game_slug}.webp`}
+                          src={getSafeGiveawayIcon(item)}
                           alt={item.game_name}
                           className="w-full h-full object-cover"
                           onError={(e) => {
                             const target = e.target as HTMLImageElement;
                             target.onerror = null;
-                            target.src = '/vite.svg';
+                            if (item.game_slug && !target.src.includes(`/game_icons/${item.game_slug}.webp`)) {
+                              target.src = `/game_icons/${item.game_slug}.webp`;
+                            } else if (item.game_slug && !target.src.includes(`/game_icons/${item.game_slug}.jpg`)) {
+                              target.src = `/game_icons/${item.game_slug}.jpg`;
+                            }
                           }}
                         />
                       </div>
@@ -2655,16 +2679,18 @@ export const GiveawaysView: React.FC<GiveawaysViewProps> = ({
             <div className="p-3 rounded-2xl bg-muted/40 border border-border/70 flex items-center gap-3">
               <div className="w-10 h-10 rounded-xl bg-muted overflow-hidden shrink-0 border border-border">
                 <img
-                  src={
-                    limitNoticeModal.campaign.game_icon_url ||
-                    `/game_icons/${limitNoticeModal.campaign.game_slug}.webp`
-                  }
+                  src={getSafeGiveawayIcon(limitNoticeModal.campaign)}
                   alt={limitNoticeModal.campaign.game_name}
                   className="w-full h-full object-cover"
                   onError={(e) => {
                     const target = e.target as HTMLImageElement;
                     target.onerror = null;
-                    target.src = '/vite.svg';
+                    const slug = limitNoticeModal.campaign?.game_slug;
+                    if (slug && !target.src.includes(`/game_icons/${slug}.webp`)) {
+                      target.src = `/game_icons/${slug}.webp`;
+                    } else if (slug && !target.src.includes(`/game_icons/${slug}.jpg`)) {
+                      target.src = `/game_icons/${slug}.jpg`;
+                    }
                   }}
                 />
               </div>
