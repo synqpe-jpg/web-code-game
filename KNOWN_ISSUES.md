@@ -10,6 +10,30 @@
 
 ## 1. DANH MỤC LỖI & CÁC BẪY ĐÃ THẤT BẠI (DO NOT REPEAT)
 
+### ISSUE-205: Bẫy Nạp Mã Code Riêng Chỉ Lưu JSON Cục Bộ Mà Thiếu Đồng Bộ Trực Tiếp Vào Bảng SQL `giveaway_codes` Trên Cloudflare D1, Dẫn Đến Web Báo "Hết Mã" Dù Admin Đã Nhập Mã
+- **Triệu chứng**:
+  - Quản trị viên nạp mã mới vào Modal "Kho mã" của một sự kiện Giveaway (ví dụ Ta Là Hắc Ngộ Không).
+  - Bảng Admin hiển thị kho mã tăng lên (ví dụ: `Thật: 42 / 96`), nhưng ngoài Web Khách (`/giveaways`) vẫn báo "Hết Mã / Chờ Đợt Mới".
+  - Người dùng nghi ngờ mã vừa nạp bị bot hoặc người chơi săn hết ngay lập tức.
+- **Nguyên nhân gốc rễ**:
+  1. *Lưu trữ không đồng bộ giữa JSON State và Bảng SQL D1*:
+     - Modal "Kho mã" trước đây chỉ gọi `saveGiveawaysToServer()`, lưu mảng `codes_pool` vào JSON tổng thể mà thiếu gọi API nguyên tử `PUT /api/giveaways/manage` (`action: 'ADD_CODES'`).
+     - Cơ sở dữ liệu Cloudflare D1 lưu trữ từng mã riêng lẻ trong bảng SQL `giveaway_codes`. Câu lệnh đếm mã còn lại của D1 là:
+       `SELECT COUNT(*) FROM giveaway_codes WHERE giveaway_id = ? AND status = 'AVAILABLE'`
+     - Vì chưa có bản ghi mới trong bảng `giveaway_codes`, câu lệnh đếm trả về 0. API public và Web Khách đọc số 0 từ D1 và hiển thị "Hết Mã".
+  2. *Race-condition ghi đè kho mã cục bộ trong `adminDataService.ts`*:
+     - Khi background simulation cập nhật timestamp trên server, Admin tải về thấy `serverGw.updated_at` mới hơn và chọn `serverGw.codes_pool` (vốn là `[]`), có nguy cơ đè mất kho mã cục bộ của Admin.
+- **Giải pháp chuẩn đã kiểm chứng**:
+  1. *Thêm gọi trực tiếp D1 `action: 'ADD_CODES'` trong `handleSavePoolCodes`*:
+     - Mỗi khi Quản trị viên nhập mã và bấm "Lưu mã", code tự động gửi mảng mã lên `PUT /api/giveaways/manage` kèm `getAdminHeaders()`.
+  2. *Bổ sung nút `[🔄 Đồng bộ lên D1]` trong Modal Kho mã*:
+     - Quản trị viên có thể bấm nút này để đẩy toàn bộ `codes_pool` hiện có lên D1 qua lệnh `action: 'RESTOCK'`.
+  3. *Bảo vệ kho mã trong `adminDataService.ts`*:
+     - Nếu `serverPool.length === 0` và `localPool.length > 0`, tuyệt đối không ghi đè kho cục bộ bằng mảng rỗng từ máy chủ.
+- 🚫 **CÁCH SỬA ĐÃ THẤT BẠI - TUYỆT ĐỐI KHÔNG LẶP LẠI**:
+  - ❌ *Không chỉ lưu `codes_pool` vào JSON mà bỏ qua việc nạp vào bảng SQL `giveaway_codes` trên D1*.
+  - ❌ *Không để mảng rỗng `codes_pool: []` từ server đè mất mã thật trong LocalStorage của Admin*.
+
 ### ISSUE-204: Bẫy Sai Lệch Kiểu Dữ Liệu SQLite Integer (1/0 vs Boolean) Trong Phép So Sánh Nghiêm Ngặt (`0 !== false`), Khiến Sự Kiện Đã Đóng Bị Admin Hiểu Nhầm Là Đang Mở Và "Tự Hồi Sinh" Sau Khi Tải Lại Trang
 - **Triệu chứng**:
   - Quản trị viên bấm đóng một sự kiện Giveaway (ví dụ Tiên Nghịch Mobile), thao tác thành công. Nhưng khi tải lại trang Admin, sự kiện lại hiển thị nhãn "Đang mở", nút thao tác là "Đóng", và bộ lọc đầu trang ghi "Đã đóng (0)".

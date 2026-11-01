@@ -1466,10 +1466,12 @@ class AdminDataService {
                   ? Boolean(serverGw.custom_banner_enabled)
                   : (local?.custom_banner_enabled !== undefined ? Boolean(local.custom_banner_enabled) : (hasLink || localHasLink));
 
-                // Pool resolution: strictly honor local if local was updated newer, and always deduplicate to eliminate multiplication
-                const rawPool = Array.isArray(local.codes_pool)
-                  ? (localIsNewer ? local.codes_pool : (Array.isArray(serverGw.codes_pool) ? serverGw.codes_pool : local.codes_pool))
-                  : (serverGw.codes_pool || []);
+                // Pool resolution: strictly honor local if local was updated newer, and always protect local codes from empty server pool wipeouts
+                const localPool = Array.isArray(local?.codes_pool) ? local.codes_pool : [];
+                const serverPool = Array.isArray(serverGw?.codes_pool) ? serverGw.codes_pool : [];
+                const rawPool = serverPool.length > 0
+                  ? (localIsNewer && localPool.length > 0 ? localPool : serverPool)
+                  : (localPool.length > 0 ? localPool : []);
                 const pool = this.deduplicatePoolCodes(rawPool);
 
                 const base = localIsNewer ? { ...serverGw, ...local } : { ...local, ...serverGw };

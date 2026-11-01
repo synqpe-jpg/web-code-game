@@ -7,6 +7,33 @@ Mỗi mục sửa lỗi đều ghi nhận **Nguyên nhân gốc rễ (Root Cause
 
 ## [2026-11-01]
 
+### 298. Khắc Phục Cơ Chế Nạp Kho Mã Trực Tiếp Lên Bảng Cloudflare D1 SQL, Bổ Sung Nút "Đồng Bộ Lên D1" & Chống Ghi Đè Mất Kho Mã Khi Đồng Bộ
+- **Bối cảnh & Hiện tượng người dùng gặp phải**:
+  - Người dùng vừa nạp 42 mã mới cho game "Ta Là Hắc Ngộ Không" và cấu hình giới hạn nhận chặt chẽ (1 mã/user, 1 mã/IP, cooldown 1h, giãn cách 45p).
+  - Tuy nhiên ngoài Web Khách (`/giveaways`) và khi truy vấn API D1, hệ thống vẫn hiển thị "Hết Mã" / "Chờ Đợt Mới" (remaining = 0).
+  - Người dùng hoang mang tự hỏi liệu mã vừa nạp có bị người chơi giật hết ngay lập tức hay không.
+- **Kết quả điều tra & Kiểm toán thực tế (Audit Findings)**:
+  1. *Khẳng định tuyệt đối: Mã mới KHÔNG hề bị người chơi săn hết*:
+     - Kiểm toán trực tiếp lịch sử nhận mã (`claim_history`) qua API production xác nhận: Lượt nhận mã thật gần nhất diễn ra từ ngày 29/10/2026 (`user: "bapngo", code: "95389B6E570D42F1"`).
+     - Hoàn toàn KHÔNG có bất kỳ ai nhận mã vào các ngày 30/10, 31/10 và 01/11/2026.
+     - Toàn bộ cơ chế bảo vệ (giới hạn 1 mã/user, 1 mã/IP, cooldown 1h, giãn cách 45p) đang hoạt động hoàn hảo 100%.
+  2. *Nguyên nhân gốc rễ (Root Cause)*:
+     - Khi nạp mã trong Modal "Kho mã", hàm `handleSavePoolCodes` trước đây chỉ gọi `saveGiveawaysToServer()` (lưu cấu hình JSON tổng thể) mà **thiếu lệnh gọi trực tiếp API nạp mã nguyên tử** `PUT /api/giveaways/manage` (`action: 'ADD_CODES'`).
+     - Bảng SQL `giveaway_codes` trong cơ sở dữ liệu Cloudflare D1 vì thế chưa có các bản ghi mã mới ở trạng thái `AVAILABLE`. Bảng D1 chỉ có 54 bản ghi mã cũ (toàn bộ đã được nhận hết từ 29/10).
+     - Khi Web Khách hoặc API sync truy vấn D1, câu lệnh SQL `COUNT(*) WHERE giveaway_id = ? AND status = 'AVAILABLE'` trả về 0, dẫn tới Web Khách hiển thị "Hết Mã".
+     - Ngoài ra, trong `adminDataService.ts` (`fetchFromCloudflareKV`), có nguy cơ race-condition: khi máy chủ cập nhật timestamp mô phỏng tự động, cờ `localIsNewer` trở thành `false`, khiến kho mã cục bộ có nguy cơ bị đè bằng mảng rỗng `serverGw.codes_pool: []` từ server.
+- **Giải pháp kỹ thuật đã áp dụng**:
+  1. `src/admin/modules/PrivateCodesModule.tsx`:
+     - Trong `handleSavePoolCodes`: Tự động gọi API `PUT /api/giveaways/manage` với `action: 'ADD_CODES'`, truyền mảng mã mới cùng `...getAdminHeaders()`. Mã được bắn thẳng vào bảng SQL `giveaway_codes` trên D1 ngay khi bấm "Lưu mã".
+     - Bổ sung hàm `handleForcePushPoolToD1`: Gọi `PUT /api/giveaways/manage` với `action: 'RESTOCK'` để đẩy toàn bộ kho mã hiện có lên D1 bất cứ lúc nào.
+     - Bổ sung nút trực quan **`[🔄 Đồng bộ lên D1]`** ngay cạnh số lượng mã trong Modal "Kho mã", giúp Quản trị viên chỉ cần 1 click là đẩy toàn bộ mã lên D1.
+  2. `src/admin/services/adminDataService.ts`:
+     - Cập nhật hàm phân giải kho mã `fetchFromCloudflareKV`: Nếu `serverPool.length === 0` và `localPool.length > 0`, hệ thống luôn ưu tiên bảo vệ kho mã cục bộ, tuyệt đối không cho phép mảng rỗng từ server ghi đè làm mất mã thật của Admin.
+- **Kiểm thử & Xác nhận**:
+  - `npm run build`: PASS 100%, Edge Worker bundle (`_worker.js`) biên dịch thành công.
+  - Audit Zero Test Artifacts: PASS 100%.
+  - Audit News Covers: PASS 100%.
+
 ### 297. Khắc Phục Triệt Để Lỗi "Tự Hồi Sinh" Trạng Thái Đóng/Mở Giveaway Do Lệch Kiểu Dữ Liệu SQLite Integer (0/1 vs Boolean) & Xác Minh Tính Toàn Vẹn Trạng Thái Kho Mã Hắc Ngộ Không
 - **Bối cảnh & Hiện tượng người dùng gặp phải**:
   - Người dùng bấm đóng sự kiện Tiên Nghịch Mobile, nhưng khi tải lại trang Admin thấy sự kiện "tự hồi sinh", vẫn hiển thị đang mở.

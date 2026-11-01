@@ -793,6 +793,21 @@ export const PrivateCodesModule: React.FC<PrivateCodesModuleProps> = ({ onShowTo
       adminDataService.saveGiveawayItem(currentCampaignForPool);
       await adminDataService.saveGiveawaysToServer();
 
+      // Direct immediate persistence to D1 giveaway_codes table (Zero latency bypass)
+      try {
+        await fetch('/api/giveaways/manage', {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json', ...getAdminHeaders() },
+          body: JSON.stringify({
+            action: 'ADD_CODES',
+            id: currentCampaignForPool.id,
+            codes: uniqueToAdd,
+          }),
+        });
+      } catch (d1Err) {
+        console.warn('[Direct D1 ADD_CODES error]', d1Err);
+      }
+
       const successToastDesc = rejectedDuplicatesCount > 0
         ? `Đã thêm ${uniqueToAdd.length} mã mới vào kho phát riêng của "${currentCampaignForPool.title}" (đã loại bỏ ${rejectedDuplicatesCount} mã trùng lặp).`
         : `Đã thêm ${uniqueToAdd.length} mã vào kho phát riêng của "${currentCampaignForPool.title}". Dữ liệu đã lưu vĩnh viễn trên Cloudflare D1.`;
@@ -846,6 +861,33 @@ export const PrivateCodesModule: React.FC<PrivateCodesModuleProps> = ({ onShowTo
       loadData();
     } catch (err: any) {
       onShowToast('Lỗi gỡ trùng', err?.message || 'Có lỗi xảy ra', 'error');
+    } finally {
+      setIsSavingPool(false);
+    }
+  };
+
+  const handleForcePushPoolToD1 = async (gw: GiveawayCampaign) => {
+    if (!gw || !Array.isArray(gw.codes_pool) || gw.codes_pool.length === 0) return;
+    setIsSavingPool(true);
+    try {
+      const res = await fetch('/api/giveaways/manage', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json', ...getAdminHeaders() },
+        body: JSON.stringify({
+          action: 'RESTOCK',
+          id: gw.id,
+          codes: gw.codes_pool,
+        }),
+      });
+      await adminDataService.saveGiveawaysToServer();
+      loadData();
+      onShowToast(
+        'Đồng bộ kho mã thành công!',
+        `Toàn bộ ${gw.codes_pool.length} mã đã được lưu trực tiếp vào cơ sở dữ liệu Cloudflare D1. Ngoài Web lập tức hiển thị còn mã!`,
+        'success'
+      );
+    } catch (err: any) {
+      onShowToast('Lỗi đồng bộ', err?.message || 'Không thể đồng bộ kho mã lên D1', 'error');
     } finally {
       setIsSavingPool(false);
     }
@@ -3718,6 +3760,18 @@ async function toggleGiveaway(giveawayId, isActive) {
               <span className="text-slate-400 block text-[11px]">Số mã hiện có trong kho:</span>
               <div className="flex items-center justify-end gap-2">
                 <strong className="text-emerald-600 font-bold">{currentCampaignForPool?.codes_pool?.length || 0} mã</strong>
+                {(currentCampaignForPool?.codes_pool?.length || 0) > 0 && (
+                  <button
+                    type="button"
+                    onClick={() => currentCampaignForPool && handleForcePushPoolToD1(currentCampaignForPool)}
+                    disabled={isSavingPool}
+                    className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-bold bg-indigo-600 hover:bg-indigo-500 text-white transition-all cursor-pointer shadow-2xs active:scale-95"
+                    title="Bắn đồng bộ toàn bộ mã hiện có trong kho này lên máy chủ Cloudflare D1 ngay lập tức"
+                  >
+                    <RefreshCw className="w-2.5 h-2.5" />
+                    <span>Đồng bộ lên D1</span>
+                  </button>
+                )}
                 {(() => {
                   const pool = currentCampaignForPool?.codes_pool || [];
                   const uCount = new Set(pool.map((c: any) => String(c).trim().toUpperCase())).size;
