@@ -7,6 +7,28 @@ Mỗi mục sửa lỗi đều ghi nhận **Nguyên nhân gốc rễ (Root Cause
 
 ## [2026-11-02]
 
+### 306. Khắc Phục Lỗi Chuyển Hướng /su-kien và /events Về Trang Chủ, Tích Hợp Menu Con Sự Kiện Trong Admin Sidebar & Đồng Bộ Chuẩn API Key Scope Cho Muse
+- **Bối cảnh & Phản ánh từ Chủ sở hữu (02/11/2026)**:
+  1. Giữ nguyên quyền API cho Muse: Khóa tin tức dùng chung cho `/api/events`, toàn quyền đăng, sửa, xóa sự kiện.
+  2. Sửa đường dẫn sự kiện: `/su-kien` và `/events` bị tự chuyển về trang chủ (`/`), cần sửa để mở thẳng tab "Sự Kiện Game" và giữ nguyên đường dẫn.
+  3. Giao diện quản lý sự kiện trong admin: Nằm dưới mục Tin tức trong Admin Sidebar, hỗ trợ đăng tay đầy đủ trường, sửa, xóa, duyệt hàng chờ.
+  4. Hướng dẫn kênh cấp quyền chính thức cho Muse nếu người dùng muốn Muse chỉnh sửa code và deploy trực tiếp mà không lộ token qua chat.
+  5. Đồng bộ live data 3 sự kiện mẫu (Hắc Tây Du và Hiệp Khách Hành).
+- **Nguyên nhân gốc rễ (Root Causes)**:
+  1. *Lỗi chuyển hướng về trang chủ*: Trong `src/App.tsx`, hàm `parseHash()` phân giải deep link không có nhánh kiểm tra `pathname === '/su-kien'` hoặc `'/events'`. Khi người dùng truy cập trực tiếp các URL này, mã rơi vào nhánh mặc định `setCurrentTab('catalog')`. Tiếp đó `useEffect` đồng bộ URL nhận thấy `currentTab === 'catalog'` nên đã chạy `window.history.replaceState(null, '', '/')`, xóa sạch đường dẫn sự kiện và đẩy về trang chủ. Đồng thời `handlePopState` và `functions/_worker.ts` thiếu nhánh phục vụ trang tĩnh và gắn thẻ SEO meta cho `/su-kien` và `/events`.
+  2. *Thiếu liên kết mục con trên Admin Sidebar*: `src/admin/components/AdminSidebar.tsx` chỉ hiển thị 1 mục phẳng "Tin Tức Game & Code", không có các nút mở rộng mục con "Tin Tức Chuẩn SEO", "Sự Kiện Game", "Hàng Chờ Duyệt" khiến quản trị viên khó nhận biết và truy cập trực tiếp.
+  3. *Trôi hash trên Admin*: `src/admin/AdminApp.tsx` khi đồng bộ hash đã ghi đè toàn bộ tham số truy vấn (`window.location.hash = '#/' + currentTab`), làm mất query parameter `?tab=events`.
+- **Giải pháp triệt để**:
+  1. *Khắc phục URL routing*: Bổ sung kiểm tra `/su-kien` và `/events` trong `parseHash()`, `handlePopState`, và `useEffect` đồng bộ URL của `src/App.tsx` (gán `currentTab = 'news'` và `initialNewsSubTab = 'events'`). Bổ sung `useEffect` cập nhật `subTab` trong `NewsView.tsx`.
+  2. *Cloudflare Edge Worker & SEO*: Cập nhật `functions/_worker.ts` phục vụ trực tiếp prerendered HTML tĩnh và gắn thẻ OpenGraph/JSON-LD Breadcrumb chuẩn mực cho `/su-kien` và `/events`.
+  3. *Mục con trực quan trong Admin Sidebar*: Mở rộng menu Tin Tức trong `AdminSidebar.tsx` với 3 mục con thụt lề rõ ràng: 📰 Tin Tức Chuẩn SEO, ⚡ Sự Kiện Game, ⏳ Hàng Chờ Duyệt; tích hợp phát custom event và cập nhật hash `#/news?tab=events` / `#/news?tab=pending`.
+  4. *Đồng bộ Rule 8 API Scopes*: Cập nhật `ALL_API_SCOPES` trong `ApiKeysModule.tsx` bổ sung `EVENTS_FULL`, mở rộng hàm phân giải `hasScope` trong `functions/services/mission_service.ts` để `NEWS_FULL` và `EVENTS_FULL` tương thích 2 chiều.
+  5. *Bảo toàn dữ liệu Muse đã chỉnh sửa*: Đồng bộ `src/data/seedGameEvents.ts` khớp 100% với dữ liệu Muse đã ghi lên Cloudflare D1 (`hactaydufuntap`, `hiepkhachhanh.joygame.vn`).
+- **Kết quả kiểm thử**:
+  - `npm run build` thành công 100%, 0 test artifacts, sinh 845 link SEO tĩnh.
+  - `/su-kien` và `/events` hiển thị danh sách sự kiện đầy đủ, không chuyển về trang chủ.
+  - Admin hiển thị 3 mục con dưới Tin Tức, quản lý đăng tay/sửa/xóa và duyệt hàng chờ hoạt động mượt mà.
+
 ### 305. Khắc Phục Lỗi Error Boundary "B.syncFromServer is not a function" Khi Ấn Vào Mục Sự Kiện Game
 - **Bối cảnh & Triệu chứng**:
   - Khi người dùng truy cập mục "Sự Kiện Game" trên web (`codegame.shop/su-kien`), giao diện kích hoạt Error Boundary với thông báo lỗi: `B.syncFromServer is not a function`.

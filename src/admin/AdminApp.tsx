@@ -40,7 +40,9 @@ interface AdminAppProps {
 export const AdminApp: React.FC<AdminAppProps> = ({ onBackToClient }) => {
   // Navigation State
   const [currentTab, setCurrentTab] = useState<AdminModuleTab>(() => {
-    const hash = window.location.hash.replace('#/', '');
+    const raw = window.location.hash.replace(/^#\/?/, '');
+    const hash = raw.split('?')[0].split('/')[0];
+      if (hash === 'events' || hash === 'su-kien') return 'news';
     const validTabs: AdminModuleTab[] = [
       'dashboard',
       'games',
@@ -306,7 +308,8 @@ export const AdminApp: React.FC<AdminAppProps> = ({ onBackToClient }) => {
 
   useEffect(() => {
     // Sync URL hash
-    if (window.location.hash !== `#/${currentTab}`) {
+    const currentBase = window.location.hash.replace(/^#\/?/, '').split('?')[0].split('/')[0];
+    if (currentBase !== currentTab) {
       window.location.hash = `#/${currentTab}`;
     }
     refreshPendingCounts();
@@ -314,7 +317,9 @@ export const AdminApp: React.FC<AdminAppProps> = ({ onBackToClient }) => {
 
   useEffect(() => {
     const handleHashChange = () => {
-      const hash = window.location.hash.replace('#/', '');
+      const raw = window.location.hash.replace(/^#\/?/, '');
+    const hash = raw.split('?')[0].split('/')[0];
+    if (hash === 'events' || hash === 'su-kien') { setCurrentTab('news'); return; }
       const validTabs: AdminModuleTab[] = [
         'dashboard',
         'games',

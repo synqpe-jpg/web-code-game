@@ -347,39 +347,102 @@ export const AdminSidebar: React.FC<AdminSidebarProps> = ({
                 const isActive = currentTab === item.id;
 
                 return (
-                  <button
-                    key={item.id}
-                    onClick={() => onSelectTab(item.id)}
-                    title={collapsed ? item.label : undefined}
-                    className={`group relative flex w-full items-center rounded-xl px-3 py-2.5 text-xs font-semibold transition-all duration-150 ${
-                      isActive
-                        ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/25'
-                        : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900 dark:text-slate-400 dark:hover:bg-slate-800 dark:hover:text-white'
-                    } ${collapsed ? 'justify-center' : 'justify-between'}`}
-                  >
-                    <div className="flex items-center gap-3">
-                      <Icon
-                        className={`h-4 w-4 flex-shrink-0 transition-transform group-hover:scale-110 ${
-                          isActive ? 'text-white' : 'text-slate-400 group-hover:text-indigo-500'
-                        }`}
-                      />
-                      {!collapsed && <span>{item.label}</span>}
-                    </div>
+                  <React.Fragment key={item.id}>
+                    <button
+                      onClick={() => {
+                        onSelectTab(item.id);
+                        if (item.id === 'news' && currentTab !== 'news') {
+                          window.location.hash = '#/news';
+                          window.dispatchEvent(new CustomEvent('wcg_admin_news_subtab', { detail: 'news' }));
+                        }
+                      }}
+                      title={collapsed ? item.label : undefined}
+                      className={`group relative flex w-full items-center rounded-xl px-3 py-2.5 text-xs font-semibold transition-all duration-150 ${
+                        isActive
+                          ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/25'
+                          : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900 dark:text-slate-400 dark:hover:bg-slate-800 dark:hover:text-white'
+                      } ${collapsed ? 'justify-center' : 'justify-between'}`}
+                    >
+                      <div className="flex items-center gap-3">
+                        <Icon
+                          className={`h-4 w-4 flex-shrink-0 transition-transform group-hover:scale-110 ${
+                            isActive ? 'text-white' : 'text-slate-400 group-hover:text-indigo-500'
+                          }`}
+                        />
+                        {!collapsed && <span>{item.label}</span>}
+                      </div>
 
-                    {item.badge && item.badge > 0 ? (
-                      collapsed ? (
-                        <span className="absolute top-1 right-1 h-2 w-2 rounded-full bg-rose-500 ring-2 ring-white dark:ring-slate-900" />
-                      ) : (
-                        <span
-                          className={`rounded-full px-1.5 py-0.5 text-[10px] font-bold ${
-                            item.badgeColor || 'bg-indigo-500 text-white'
+                      {item.badge && item.badge > 0 ? (
+                        collapsed ? (
+                          <span className="absolute top-1 right-1 h-2 w-2 rounded-full bg-rose-500 ring-2 ring-white dark:ring-slate-900" />
+                        ) : (
+                          <span
+                            className={`rounded-full px-1.5 py-0.5 text-[10px] font-bold ${
+                              item.badgeColor || 'bg-indigo-500 text-white'
+                            }`}
+                          >
+                            {item.badge}
+                          </span>
+                        )
+                      ) : null}
+                    </button>
+
+                    {item.id === 'news' && !collapsed && (
+                      <div className="ml-5 pl-2 border-l-2 border-indigo-200 dark:border-indigo-900/60 space-y-1 my-1">
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            onSelectTab('news');
+                            window.location.hash = '#/news';
+                            window.dispatchEvent(new CustomEvent('wcg_admin_news_subtab', { detail: 'news' }));
+                          }}
+                          className={`w-full flex items-center gap-2 text-left px-2.5 py-1.5 rounded-lg text-[11px] font-medium transition-colors ${
+                            currentTab === 'news' && (typeof window !== 'undefined' && !window.location.hash.includes('tab=events') && !window.location.hash.includes('tab=pending'))
+                              ? 'bg-indigo-50 dark:bg-indigo-950/50 text-indigo-600 dark:text-indigo-400 font-bold'
+                              : 'text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-200'
                           }`}
                         >
-                          {item.badge}
-                        </span>
-                      )
-                    ) : null}
-                  </button>
+                          <Newspaper className="w-3 h-3 shrink-0" />
+                          <span>Tin Tức Chuẩn SEO</span>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            onSelectTab('news');
+                            window.location.hash = '#/news?tab=events';
+                            window.dispatchEvent(new CustomEvent('wcg_admin_news_subtab', { detail: 'events' }));
+                          }}
+                          className={`w-full flex items-center gap-2 text-left px-2.5 py-1.5 rounded-lg text-[11px] font-medium transition-colors ${
+                            currentTab === 'news' && (typeof window !== 'undefined' && window.location.hash.includes('tab=events'))
+                              ? 'bg-amber-50 dark:bg-amber-950/50 text-amber-600 dark:text-amber-400 font-bold'
+                              : 'text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-200'
+                          }`}
+                        >
+                          <Zap className="w-3 h-3 text-amber-500 shrink-0" />
+                          <span>Sự Kiện Game</span>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            onSelectTab('news');
+                            window.location.hash = '#/news?tab=pending';
+                            window.dispatchEvent(new CustomEvent('wcg_admin_news_subtab', { detail: 'pending' }));
+                          }}
+                          className={`w-full flex items-center gap-2 text-left px-2.5 py-1.5 rounded-lg text-[11px] font-medium transition-colors ${
+                            currentTab === 'news' && (typeof window !== 'undefined' && window.location.hash.includes('tab=pending'))
+                              ? 'bg-purple-50 dark:bg-purple-950/50 text-purple-600 dark:text-purple-400 font-bold'
+                              : 'text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-200'
+                          }`}
+                        >
+                          <Clock className="w-3 h-3 text-purple-500 shrink-0" />
+                          <span>Hàng Chờ Duyệt</span>
+                        </button>
+                      </div>
+                    )}
+                  </React.Fragment>
                 );
               })}
             </div>

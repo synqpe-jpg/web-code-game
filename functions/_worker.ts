@@ -975,7 +975,11 @@ async function renderSeoHtml(
     pathname === '/nhiem-vu' ||
     pathname.startsWith('/nhiem-vu/') ||
     pathname === '/missions' ||
-    pathname.startsWith('/missions/')
+    pathname.startsWith('/missions/') ||
+    pathname === '/su-kien' ||
+    pathname.startsWith('/su-kien/') ||
+    pathname === '/events' ||
+    pathname.startsWith('/events/')
   ) {
     const cleanPath = pathname.replace(/\/$/, '');
     const assetUrl = new URL(`${cleanPath}.html`, request.url);
@@ -1485,6 +1489,25 @@ async function renderSeoHtml(
       ];
       replaceTitleAndMeta(title, description, '/news', '/og-image.jpg', newsListSchema);
     }
+  } else if (
+    pathname === '/su-kien' ||
+    pathname.startsWith('/su-kien/') ||
+    pathname === '/events' ||
+    pathname.startsWith('/events/')
+  ) {
+    const title = 'Sự Kiện Game & Lịch Khởi Tranh Mới Nhất 2026 | CodeGame.shop';
+    const description = 'Tổng hợp sự kiện game mobile, giải đấu, lịch khởi tranh và quà tặng chính thức từ Fanpage, Group, Web game 2026.';
+    const eventsListSchema = [
+      {
+        "@context": "https://schema.org",
+        "@type": "BreadcrumbList",
+        "itemListElement": [
+          { "@type": "ListItem", "position": 1, "name": "Trang chủ", "item": `${origin}/` },
+          { "@type": "ListItem", "position": 2, "name": "Sự Kiện Game", "item": `${origin}/su-kien` }
+        ]
+      }
+    ];
+    replaceTitleAndMeta(title, description, '/su-kien', '/og-image.jpg', eventsListSchema);
   } else if (
     pathname === '/giveaways' ||
     pathname.startsWith('/giveaways/') ||

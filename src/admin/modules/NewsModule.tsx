@@ -67,7 +67,14 @@ interface NewsModuleProps {
 }
 
 export const NewsModule: React.FC<NewsModuleProps> = ({ onShowToast }) => {
-  const [mainSubTab, setMainSubTab] = useState<'news' | 'events' | 'pending'>('news');
+  const [mainSubTab, setMainSubTab] = useState<'news' | 'events' | 'pending'>(() => {
+    if (typeof window !== 'undefined') {
+      const hash = window.location.hash.toLowerCase();
+      if (hash.includes('tab=events') || hash.includes('/events') || hash === '#/events' || hash === '#events' || hash.includes('su-kien')) return 'events';
+      if (hash.includes('tab=pending') || hash.includes('/pending')) return 'pending';
+    }
+    return 'news';
+  });
   const [gameEventsCount, setGameEventsCount] = useState(() => ({
     published: gameEventService.getPublishedEvents().length,
     pending: gameEventService.getPendingEvents().length,
@@ -95,6 +102,44 @@ export const NewsModule: React.FC<NewsModuleProps> = ({ onShowToast }) => {
   const contentTextareaRef = useRef<HTMLTextAreaElement>(null);
   const coverFileInputRef = useRef<HTMLInputElement>(null);
   const galleryFileInputRef = useRef<HTMLInputElement>(null);
+
+    // Listen to subtab changes from AdminSidebar or URL hash
+  useEffect(() => {
+    const handleSubTabChange = (e: any) => {
+      if (e?.detail && ['news', 'events', 'pending'].includes(e.detail)) {
+        setMainSubTab(e.detail);
+      }
+    };
+    const handleHash = () => {
+      const hash = window.location.hash.toLowerCase();
+      if (hash.includes('tab=events') || hash.includes('/events') || hash === '#/events' || hash === '#events' || hash.includes('su-kien')) {
+        setMainSubTab('events');
+      } else if (hash.includes('tab=pending') || hash.includes('/pending')) {
+        setMainSubTab('pending');
+      } else if (hash.includes('news') && !hash.includes('tab=')) {
+        setMainSubTab('news');
+      }
+    };
+    window.addEventListener('wcg_admin_news_subtab', handleSubTabChange);
+    window.addEventListener('hashchange', handleHash);
+    return () => {
+      window.removeEventListener('wcg_admin_news_subtab', handleSubTabChange);
+      window.removeEventListener('hashchange', handleHash);
+    };
+  }, []);
+
+  const handleSelectSubTab = (tab: 'news' | 'events' | 'pending') => {
+    setMainSubTab(tab);
+    if (typeof window !== 'undefined') {
+      if (tab === 'events') {
+        window.location.hash = '#/news?tab=events';
+      } else if (tab === 'pending') {
+        window.location.hash = '#/news?tab=pending';
+      } else {
+        window.location.hash = '#/news';
+      }
+    }
+  };
 
   // Live cover_url validation using Image() preload & anti-derivation regex
   useEffect(() => {
@@ -1673,7 +1718,7 @@ export const NewsModule: React.FC<NewsModuleProps> = ({ onShowToast }) => {
       <div className="flex items-center gap-2 p-1.5 bg-card/60 border border-border/80 rounded-2xl backdrop-blur-md overflow-x-auto">
         <button
           type="button"
-          onClick={() => setMainSubTab('news')}
+          onClick={() => handleSelectSubTab('news')}
           className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-black whitespace-nowrap transition-all cursor-pointer ${
             mainSubTab === 'news'
               ? 'bg-primary text-white shadow-md'
@@ -1686,7 +1731,7 @@ export const NewsModule: React.FC<NewsModuleProps> = ({ onShowToast }) => {
 
         <button
           type="button"
-          onClick={() => setMainSubTab('events')}
+          onClick={() => handleSelectSubTab('events')}
           className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-black whitespace-nowrap transition-all cursor-pointer ${
             mainSubTab === 'events'
               ? 'bg-gradient-to-r from-amber-500 to-rose-500 text-white shadow-md'
@@ -1699,7 +1744,7 @@ export const NewsModule: React.FC<NewsModuleProps> = ({ onShowToast }) => {
 
         <button
           type="button"
-          onClick={() => setMainSubTab('pending')}
+          onClick={() => handleSelectSubTab('pending')}
           className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-black whitespace-nowrap transition-all cursor-pointer ${
             mainSubTab === 'pending'
               ? 'bg-gradient-to-r from-purple-600 to-indigo-600 text-white shadow-md'
@@ -1719,7 +1764,7 @@ export const NewsModule: React.FC<NewsModuleProps> = ({ onShowToast }) => {
           games={games}
           onShowToast={onShowToast}
           subTab={mainSubTab}
-          onSwitchSubTab={setMainSubTab}
+          onSwitchSubTab={handleSelectSubTab}
         />
       ) : (
         <>

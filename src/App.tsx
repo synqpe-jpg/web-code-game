@@ -549,9 +549,19 @@ export const App: React.FC = () => {
           }
         }
 
-        // 4. Pathname Routes (/game/:slug, /g/:slug, /news, /giveaways, /store, /utilities) from Google or Shared Links
+        // 4. Pathname Routes (/su-kien, /events, /game/:slug, /g/:slug, /news, /giveaways, /store, /utilities) from Google or Shared Links
         const pathname = window.location.pathname.toLowerCase();
-        if (pathname.startsWith('/game/') || pathname.startsWith('/g/')) {
+        if (
+          pathname === '/su-kien' ||
+          pathname.startsWith('/su-kien/') ||
+          pathname === '/events' ||
+          pathname.startsWith('/events/')
+        ) {
+          setSelectedGame(null);
+          setCurrentTab('news');
+          setInitialNewsSubTab('events');
+          return;
+        } else if (pathname.startsWith('/game/') || pathname.startsWith('/g/')) {
           const pathSlug = window.location.pathname.replace(/^\/(?:game|g)\//i, '').replace(/\/$/, '').trim();
           if (pathSlug) {
             setCurrentTab('catalog');
@@ -570,6 +580,7 @@ export const App: React.FC = () => {
           }
         } else if (pathname === '/news' || pathname.startsWith('/news/')) {
           setCurrentTab('news');
+          setInitialNewsSubTab('news');
           const nSlug = window.location.pathname.replace(/^\/news\//i, '').replace(/\/$/, '').trim();
           if (nSlug) setInitialNewsSlug(nSlug);
           return;
@@ -683,12 +694,24 @@ export const App: React.FC = () => {
       }
 
       if (currentTab === 'news') {
-        const path = window.location.pathname;
-        if (path.startsWith('/news/') && path.length > 6) {
+        const path = window.location.pathname.toLowerCase();
+        const isEventsPath =
+          path === '/su-kien' ||
+          path.startsWith('/su-kien/') ||
+          path === '/events' ||
+          path.startsWith('/events/') ||
+          initialNewsSubTab === 'events';
+
+        if (window.location.pathname.startsWith('/news/') && window.location.pathname.length > 6) {
           // Viewing a specific news article full page: preserve /news/<slug> in address bar!
+        } else if (isEventsPath) {
+          document.title = 'Sự Kiện Game & Lịch Khởi Tranh Mới Nhất 2026 | CodeGame.shop';
+          if (path !== '/su-kien' && path !== '/events') {
+            window.history.replaceState(null, '', '/su-kien');
+          }
         } else {
           document.title = 'Tin Tức Game & Sự Kiện Giftcode Mới Nhất 2026 | CodeGame.shop';
-          if (path !== '/news' || window.location.hash) {
+          if (window.location.pathname !== '/news' || window.location.hash) {
             window.history.replaceState(null, '', '/news');
           }
         }
@@ -739,9 +762,16 @@ export const App: React.FC = () => {
       }
 
       // 1. Explicit hash deep links precedence
+      if (hash === '#su-kien' || hash.startsWith('#su-kien') || hash === '#events' || hash.startsWith('#events')) {
+        setSelectedGame(null);
+        setCurrentTab('news');
+        setInitialNewsSubTab('events');
+        return;
+      }
       if (hash === '#news' || hash.startsWith('#news')) {
         setSelectedGame(null);
         setCurrentTab('news');
+        setInitialNewsSubTab('news');
         return;
       }
       if (hash === '#giveaways' || hash.startsWith('#giveaways') || hash.includes('gw=') || hash.includes('giveaway=')) {
@@ -772,7 +802,11 @@ export const App: React.FC = () => {
       }
 
       // 2. Pathname routes
-      if (path.startsWith('/game/') || path.startsWith('/g/')) {
+      if (path === '/su-kien' || path.startsWith('/su-kien/') || path === '/events' || path.startsWith('/events/')) {
+        setSelectedGame(null);
+        setCurrentTab('news');
+        setInitialNewsSubTab('events');
+      } else if (path.startsWith('/game/') || path.startsWith('/g/')) {
         const pathSlug = window.location.pathname.replace(/^\/(?:game|g)\//i, '').replace(/\/$/, '').trim();
         if (pathSlug) {
           dataService.getGameBySlug(pathSlug).then((g) => {
@@ -785,6 +819,7 @@ export const App: React.FC = () => {
       } else if (path === '/news' || path.startsWith('/news/')) {
         setSelectedGame(null);
         setCurrentTab('news');
+        setInitialNewsSubTab('news');
         const nSlug = path.replace(/^\/news\//i, '').replace(/\/$/, '').trim();
         setInitialNewsSlug(nSlug || null);
       } else if (path === '/giveaways' || path.startsWith('/giveaways/') || path === '/giveaway' || path.startsWith('/giveaway/')) {

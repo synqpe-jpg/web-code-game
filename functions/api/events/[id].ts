@@ -41,7 +41,7 @@ async function verifyAuth(request: Request, env: Env): Promise<boolean> {
             const expTime = new Date(row.expires_at).getTime();
             if (!isNaN(expTime) && Date.now() > expTime) return false;
           }
-          if (hasScope(row.scope, 'NEWS_FULL') || hasScope(row.scope, 'ADMIN_FULL')) {
+          if (hasScope(row.scope, 'NEWS_FULL') || hasScope(row.scope, 'EVENTS_FULL') || hasScope(row.scope, 'ADMIN_FULL')) {
             env.DB.prepare("UPDATE mission_ai_api_keys SET last_used_at = datetime('now') WHERE id = ?").bind(row.id).run().catch(() => {});
             return true;
           }

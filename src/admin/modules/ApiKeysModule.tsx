@@ -71,14 +71,25 @@ export interface ScopeOption {
 export const ALL_API_SCOPES: ScopeOption[] = [
   {
     id: 'NEWS_FULL',
-    name: 'Quản Lý Tin Tức (News API)',
+    name: 'Quản Lý Tin Tức & Sự Kiện (News & Events API)',
     category: 'Nội Dung',
-    description: 'Thêm mới, chỉnh sửa, xóa bài viết tin tức, thiết lập lịch hẹn đăng bài tự động chuẩn SEO.',
+    description: 'Thêm mới, chỉnh sửa, xóa bài viết tin tức và toàn quyền đăng, sửa link nguồn, duyệt hàng chờ sự kiện game (/api/events).',
     color: 'emerald',
     badgeBg: 'bg-emerald-500/10',
     badgeText: 'text-emerald-500',
     badgeBorder: 'border-emerald-500/20',
     icon: Newspaper,
+  },
+  {
+    id: 'EVENTS_FULL',
+    name: 'Quản Lý Sự Kiện Game (Game Events API)',
+    category: 'Nội Dung',
+    description: 'Toàn quyền đăng, sửa link nguồn, cập nhật cách tham gia, duyệt và xóa sự kiện (/api/events). Dùng chung hoặc kế thừa từ NEWS_FULL.',
+    color: 'amber',
+    badgeBg: 'bg-amber-500/10',
+    badgeText: 'text-amber-500',
+    badgeBorder: 'border-amber-500/20',
+    icon: Zap,
   },
   {
     id: 'MISSIONS_FULL',

@@ -10,6 +10,20 @@
 
 ## 1. DANH MỤC LỖI & CÁC BẪY ĐÃ THẤT BẠI (DO NOT REPEAT)
 
+### ISSUE-212: Bẫy Phân Giải Pathname Thiếu Nhánh /su-kien Khiến Web Khách Bị useEffect History Sync Đẩy Về Trang Chủ
+- **Triệu chứng**:
+  - Người dùng truy cập trực tiếp đường link `https://codegame.shop/su-kien` hoặc `https://codegame.shop/events`, trang web tự động bị chuyển hướng về trang chủ `https://codegame.shop/`.
+- **Nguyên nhân gốc rễ**:
+  1. `parseHash()` trong `src/App.tsx` không có điều kiện xử lý `pathname === '/su-kien'` hoặc `'/events'`.
+  2. Khi không khớp bất kỳ điều kiện nào, hàm rơi vào fallback `setCurrentTab('catalog')`.
+  3. Hook `useEffect` đồng bộ document title và history kiểm tra `currentTab === 'catalog'` và tự động thực thi `window.history.replaceState(null, '', '/')`, ngay lập tức xóa sạch URL `/su-kien` và đưa người dùng về trang chủ.
+- **Giải pháp chuẩn đã kiểm chứng**:
+  1. Thêm nhánh kiểm tra `pathname === '/su-kien' || pathname === '/events'` trong `parseHash()` và gán `currentTab = 'news'`, `initialNewsSubTab = 'events'`.
+  2. Bổ sung `isEventsPath` trong hook history sync để giữ nguyên URL `/su-kien` hoặc `/events` và cập nhật tiêu đề phù hợp.
+  3. Cập nhật `handlePopState` và `functions/_worker.ts` phục vụ trang tĩnh và OpenGraph meta tương ứng.
+- 🚫 **CÁCH SỬA ĐÃ THẤT BẠI - TUYỆT ĐỐI KHÔNG LẶP LẠI**:
+  - ❌ *Không cấu hình định tuyến pathname chỉ ở mức client mà quên cập nhật Cloudflare Worker static asset resolver và parseHash initial deep link router*.
+
 ### ISSUE-211: Bẫy Sai Tên Phương Thức `syncFromServer` Trong `GameEventsList` Khiến Web Khách Kích Hoạt Error Boundary ("B.syncFromServer is not a function")
 - **Triệu chứng**:
   - Khi người dùng ấn vào mục "Sự Kiện Game" trên Web Khách (`codegame.shop/su-kien`), trang web hiển thị Error Boundary: *"Đã có sự cố hiển thị nhỏ xảy ra... B.syncFromServer is not a function"*.

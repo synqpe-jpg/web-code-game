@@ -131,6 +131,12 @@ export const NewsView: React.FC<NewsViewProps> = ({
     return () => window.removeEventListener('wcg_news_updated', handleNewsUpdate);
   }, [initialArticleSlug]);
 
+  useEffect(() => {
+    if (initialSubTab) {
+      setSubTab(initialSubTab);
+    }
+  }, [initialSubTab]);
+
   // Distinct game options for category filtering
   const gameFilterOptions = useMemo(() => {
     const map = new Map<string, string>();
