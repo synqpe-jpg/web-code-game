@@ -50,11 +50,14 @@ export const GameEventsList: React.FC<GameEventsListProps> = ({
     loadData();
 
     // Pull latest published events from Cloudflare D1 / server
-    gameEventService.syncFromServer().then((updated) => {
-      if (Array.isArray(updated) && updated.length > 0) {
-        setEvents(gameEventService.getPublishedEvents());
-      }
-    }).catch(() => {});
+    const syncFn = gameEventService.syncFromServer || gameEventService.fetchFreshEventsFromServer;
+    if (typeof syncFn === 'function') {
+      syncFn.call(gameEventService).then((updated) => {
+        if (Array.isArray(updated) && updated.length > 0) {
+          setEvents(gameEventService.getPublishedEvents());
+        }
+      }).catch(() => {});
+    }
 
     window.addEventListener('wcg_game_events_updated', loadData);
     return () => window.removeEventListener('wcg_game_events_updated', loadData);

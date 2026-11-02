@@ -10,6 +10,19 @@
 
 ## 1. DANH MỤC LỖI & CÁC BẪY ĐÃ THẤT BẠI (DO NOT REPEAT)
 
+### ISSUE-211: Bẫy Sai Tên Phương Thức `syncFromServer` Trong `GameEventsList` Khiến Web Khách Kích Hoạt Error Boundary ("B.syncFromServer is not a function")
+- **Triệu chứng**:
+  - Khi người dùng ấn vào mục "Sự Kiện Game" trên Web Khách (`codegame.shop/su-kien`), trang web hiển thị Error Boundary: *"Đã có sự cố hiển thị nhỏ xảy ra... B.syncFromServer is not a function"*.
+- **Nguyên nhân gốc rễ**:
+  - `GameEventsList.tsx` gọi `gameEventService.syncFromServer()`, nhưng trong `src/services/gameEventService.ts` phương thức lại được đặt tên là `fetchFreshEventsFromServer()`.
+  - Thiếu các phương thức bổ trợ đồng bộ Cloudflare và duyệt sự kiện: `syncFromCloudflare`, `approvePendingEvent`, `rejectPendingEvent`.
+- **Giải pháp chuẩn đã kiểm chứng**:
+  1. Thêm phương thức `syncFromServer(): Promise<GameEventItem[]>` vào `gameEventService.ts` trỏ về `fetchFreshEventsFromServer()`.
+  2. Bổ sung đầy đủ các phương thức `syncFromCloudflare`, `approvePendingEvent`, `rejectPendingEvent`.
+  3. Bọc kiểm tra an toàn trong `GameEventsList.tsx` (`const syncFn = gameEventService.syncFromServer || gameEventService.fetchFreshEventsFromServer`).
+- 🚫 **CÁCH SỬA ĐÃ THẤT BẠI - TUYỆT ĐỐI KHÔNG LẶP LẠI**:
+  - ❌ *Không gọi trực tiếp các phương thức dịch vụ mà không kiểm tra chữ ký hoặc đối chiếu khớp 100% giữa interface và implementation*.
+
 ### ISSUE-210: Bẫy Đóng Giveaway Nhưng F5 Hồi Sinh Do Thứ Tự Ghi Local Trước Server, Merge Logic Tự Suy Ra Active & Thiếu Read-Back Verification Trên D1
 - **Triệu chứng**:
   - Quản trị viên ấn nút Đóng trên bảng Giveaway Admin. Giao diện báo thành công, nhưng sau khi F5 thì sự kiện hiện lại "Đang mở", ngoài Web Khách sự kiện không biến mất.

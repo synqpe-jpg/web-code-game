@@ -7,6 +7,19 @@ Mỗi mục sửa lỗi đều ghi nhận **Nguyên nhân gốc rễ (Root Cause
 
 ## [2026-11-02]
 
+### 305. Khắc Phục Lỗi Error Boundary "B.syncFromServer is not a function" Khi Ấn Vào Mục Sự Kiện Game
+- **Bối cảnh & Triệu chứng**:
+  - Khi người dùng truy cập mục "Sự Kiện Game" trên web (`codegame.shop/su-kien`), giao diện kích hoạt Error Boundary với thông báo lỗi: `B.syncFromServer is not a function`.
+- **Nguyên nhân gốc rễ (Root Cause)**:
+  - `GameEventsList.tsx` gọi `gameEventService.syncFromServer()`, nhưng trong `src/services/gameEventService.ts` phương thức lấy sự kiện mới từ máy chủ chỉ được định nghĩa là `fetchFreshEventsFromServer()`.
+  - Đồng thời thiếu các phương thức `syncFromCloudflare`, `approvePendingEvent`, `rejectPendingEvent` trong class `GameEventService`.
+- **Giải pháp triệt để**:
+  1. Thêm phương thức `syncFromServer(): Promise<GameEventItem[]>` vào `gameEventService.ts` làm alias chuẩn cho `fetchFreshEventsFromServer()`.
+  2. Bổ sung các phương thức: `syncFromCloudflare`, `approvePendingEvent`, `rejectPendingEvent`.
+  3. Bọc kiểm tra an toàn `typeof syncFn === 'function'` trong `GameEventsList.tsx`.
+- **Kết quả kiểm thử**:
+  - Build thành công mã 0, truy cập `/su-kien` hiển thị danh sách thẻ sự kiện mượt mà không còn kích hoạt Error Boundary.
+
 ### 304. Triển Khai Tính Năng "Sự Kiện Game" (Tách Độc Lập Khỏi Tin Tức & Không Trộn Săn Giveaway): 3 Đường Đăng, Quản Trị Mục Con Trong Tin Tức, API CRUD, Lọc & Sắp Xếp Tự Động Theo Thời Gian Thực
 - **Bối cảnh & Yêu cầu từ Chủ sở hữu (Yêu cầu làm mục Sự kiện game trên codegame.shop - 02/11/2026)**:
   1. *Tách Tin tức thành 2 phần độc lập*: "Tin tức" (kể chuyện, cập nhật, đánh giá) và "Sự kiện" (tổng hợp sự kiện có thời hạn từ Fanpage, Group, Website chính thức).

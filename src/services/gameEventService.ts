@@ -112,6 +112,10 @@ class GameEventService {
     return true;
   }
 
+  public approvePendingEvent(id: string): boolean {
+    return this.approveEvent(id);
+  }
+
   public rejectEvent(id: string): boolean {
     const ev = this.events.find((e) => e.id === id);
     if (!ev) return false;
@@ -120,6 +124,31 @@ class GameEventService {
     this.saveToStorage();
     this.broadcast();
     return true;
+  }
+
+  public rejectPendingEvent(id: string): boolean {
+    return this.rejectEvent(id);
+  }
+
+  public syncFromCloudflare(events: GameEventItem[], deletedIds?: string[]): void {
+    if (Array.isArray(deletedIds)) {
+      deletedIds.forEach((id) => this.deletedIds.add(id));
+    }
+    if (Array.isArray(events)) {
+      const mergedMap = new Map<string, GameEventItem>();
+      events.forEach((e) => {
+        if (e && e.id && !this.deletedIds.has(e.id)) {
+          mergedMap.set(e.id, e);
+        }
+      });
+      this.events = Array.from(mergedMap.values());
+      this.saveToStorage();
+      this.broadcast();
+    }
+  }
+
+  public async syncFromServer(): Promise<GameEventItem[]> {
+    return this.fetchFreshEventsFromServer();
   }
 
   public async fetchFreshEventsFromServer(): Promise<GameEventItem[]> {
