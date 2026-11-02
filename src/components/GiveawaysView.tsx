@@ -341,7 +341,7 @@ const GiveawayDetailModal: React.FC<GiveawayDetailModalProps> = ({
     }
   );
 
-  const isModalGlobalCooling = globalSec > 0 && !!targetGlobalCooldownDate && !isCdExpired && cdRemainingMs > 0;
+  const isModalGlobalCooling = isGwActive(campaign) && globalSec > 0 && !!targetGlobalCooldownDate && !isCdExpired && cdRemainingMs > 0;
   const pad = (n: number) => String(n).padStart(2, '0');
   const globalCooldownWaitText = `${pad(cdMinutes)}:${pad(cdSeconds)}`;
 
@@ -1769,6 +1769,7 @@ export const GiveawaysView: React.FC<GiveawaysViewProps> = ({
                   campaign.status === 'ENDED';
 
                 const isCardGlobalCooling = Boolean(
+                  isGwActive(campaign) &&
                   campaign.global_cooldown_seconds &&
                   campaign.global_cooldown_seconds > 0 &&
                   campaign.last_global_claim_at &&
@@ -1818,7 +1819,7 @@ export const GiveawaysView: React.FC<GiveawaysViewProps> = ({
                         </div>
 
                         <div className="flex items-center gap-1.5 shrink-0">
-                          {remaining <= 0 && !isEnded && (
+                          {(!isGwActive(campaign) || remaining <= 0) && !isEnded && (
                             <span className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-amber-500/20 text-amber-300 border border-amber-500/30 shrink-0">
                               Hết Mã
                             </span>
@@ -1848,7 +1849,7 @@ export const GiveawaysView: React.FC<GiveawaysViewProps> = ({
                       </h3>
 
                       {/* Live Waiting Room Badge */}
-                      {campaign.enable_waiting_room !== false && remaining > 0 && !isEnded && (
+                      {campaign.enable_waiting_room !== false && remaining > 0 && !isEnded && isGwActive(campaign) && (
                         <div className="mb-2">
                           <LiveWaitingRoomBadge
                             campaignId={campaign.id}

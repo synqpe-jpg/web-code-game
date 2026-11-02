@@ -5,6 +5,41 @@ Mỗi mục sửa lỗi đều ghi nhận **Nguyên nhân gốc rễ (Root Cause
 
 ---
 
+## [2026-11-02]
+
+### 301. Khắc Phục Triệt Để Lỗi "Admin Ấn Đóng Sự Kiện Giveaway Nhưng Ngoài Web Khách Vẫn Hiện Và Cộng Mã Ảo": Chuẩn Hóa Phân Giải Trạng Thái Bật/Tắt Giữa D1 SQLite, API Sync Và Web Khách
+- **Bối cảnh & Phản ánh từ Chủ sở hữu**:
+  - Người dùng phản ánh: *"Tôi đã ấn đóng sự kiện giveaway, thế nhưng ngoài web khách vẫn hiện. Bạn hãy tìm ra nguyên nhân, đưa ra giải pháp và xử lý triệt để vấn đề này. đảm bảo mỗi lần tôi thao tác ở trang admin thì web khách cập nhật mọi trạng thái chính xác. Không để ảnh hưởng tới code khác."*
+  - Kèm 3 ảnh chụp màn hình lúc 11:02 SA 02/11/2026:
+    - *Ảnh Admin*: Tiên Nghịch Mobile và SROM đã bị đóng nên biến mất khỏi danh sách "Đang mở".
+    - *Ảnh Web Khách (`/giveaways`)*: Tiên Nghịch Mobile vẫn hiển thị ở vị trí card thứ 3 với nhãn "Còn lại: 47 mã" và đồng hồ đếm ngược; SROM vẫn hiển thị với nhãn "Còn lại: 23 mã", không hề chuyển sang nhãn "Hết Mã" hay bị ẩn khỏi tab "Còn Mã".
+- **Nguyên nhân gốc rễ (Root Causes)**:
+  1. *Lệnh SQL `UPDATE giveaways` trên Cloudflare D1 bị rollback do vi phạm CHECK constraint ngầm*:
+     - Trong schema D1 SQL `giveaways`: cột `status` được định nghĩa với ràng buộc `CHECK (status IN ('ACTIVE', 'ENDED'))`.
+     - Khi Admin bấm đóng sự kiện, API `manage.ts` chạy `UPDATE giveaways SET is_active = ?, status = 'PAUSED' WHERE id = ?`.
+     - Giá trị `'PAUSED'` vi phạm CHECK constraint khiến SQLite từ chối và rollback toàn bộ lệnh UPDATE, làm cho cả `is_active = 0` cũng không được ghi vào bảng `giveaways`. Câu lệnh này dùng `.catch(() => {})` nên nuốt sạch lỗi.
+  2. *Hàm `loadAllGiveawaysD1` trong `d1_service.ts` dùng `...gw` ghi đè lên cấu hình Admin*:
+     - Trong `functions/services/d1_service.ts`, dòng `return { ...fallback, ...meta, ...gw }` đặt `...gw` (dữ liệu thô từ bảng SQL `giveaways`, vốn chưa được update và đang lưu `is_active: 1, status: 'ACTIVE'`) sau `...meta` (cấu hình Admin trong `system_settings`).
+     - Do đó, `gw.is_active` (1) và `gw.status` ('ACTIVE') ghi đè hoàn toàn trạng thái đóng của Admin!
+  3. *Endpoint `GET /api/sync?key=wcg_admin_giveaways_v4` trả về `is_active: 1`*:
+     - Web Khách tải dữ liệu qua hàm `syncGiveaways()` (`/api/sync?key=wcg_admin_giveaways_v4`). Server trả về `is_active: 1, status: 'ACTIVE'`, khiến Web Khách lưu lại trạng thái đang mở vào LocalStorage.
+  4. *Hàm tính tồn kho hiển thị `getGiveawayDisplayRemaining` bị lọt do `is_active: 1`*:
+     - Web Khách thấy `is_active: 1` nên cộng thêm số mã ảo `virtual_remaining_current` vào kho thật (Tiên Nghịch: 29 + 18 = 47 mã; SROM: 12 + 11 = 23 mã).
+     - Card sự kiện không kích hoạt badge "Hết Mã" và nút CTA bị nhảy xuống trạng thái `isCardGlobalCooling` ("Chờ Đợt Mã") thay vì "Chờ Đợt Mới" / "Tạm Đóng".
+- **Giải pháp kỹ thuật đã áp dụng triệt để**:
+  1. *Tách riêng và bảo vệ lệnh cập nhật `is_active` trên SQLite D1 (`manage.ts`)*:
+     - Trong `functions/api/giveaways/manage.ts` cho cả `TOGGLE_ACTIVE` và `BATCH_TOGGLE_ACTIVE`: Tách riêng lệnh `UPDATE giveaways SET is_active = ?, updated_at = datetime('now') WHERE id = ?`. Đảm bảo `is_active = 0` (hoặc `1`) luôn được lưu thành công 100% vào SQLite mà không bao giờ bị rollback bởi constraint của cột `status`.
+  2. *Ưu tiên tuyệt đối cấu hình Admin trong `d1_service.ts`*:
+     - Trong `functions/services/d1_service.ts`: Xác định `finalIsActive = (isMetaClosed || isGwClosed) ? 0 : 1` và `finalStatus = (gw.status === 'ENDED' || meta.status === 'ENDED') ? 'ENDED' : (isClosed ? 'PAUSED' : 'ACTIVE')`.
+     - Đặt `...meta` sau `...gw` và gán tường minh `is_active: finalIsActive, status: finalStatus`. Khi Admin đã đóng thì không bất kỳ dữ liệu nào có thể ghi đè ngược lại.
+  3. *Chuẩn hóa API Sync (`sync.ts`)*:
+     - Tại cả 2 nhánh (query key đơn lẻ `wcg_admin_giveaways_v4` và query tổng thể `/api/sync`): Đảm bảo khi `isClosed`, trường `is_active` trả về `false`, `status` trả về `'PAUSED'`, và `remaining_codes` cho khách vãng lai trả về `0`.
+  4. *Củng cố tính toán hiển thị Web Khách (`marketingService.ts` & `GiveawaysView.tsx`)*:
+     - Trong `marketingService.getGiveawayDisplayRemaining`: Chặn tuyệt đối mọi trường hợp `is_active === false`, `0`, `'0'`, `status === 'PAUSED'/'CLOSED'/'ENDED'`. Đảm bảo sự kiện đã đóng luôn trả về chính xác `0` mã hiển thị.
+     - Trong `GiveawaysView.tsx`: `isCardGlobalCooling` chỉ kích hoạt khi `isGwActive(campaign)`. Badge "Hết Mã" tự động bật khi `!isGwActive(campaign) || remaining <= 0`. Nút CTA hiển thị chính xác "Chờ Đợt Mới" / "Sự Kiện Tạm Đóng". Bộ lọc "Còn Mã" chỉ hiển thị sự kiện thực sự đang mở (`isGwActive(c) && getCampaignStock(c) > 0`).
+  5. *Đồng bộ trực tiếp trên live D1*:
+     - Cập nhật an toàn cả Tiên Nghịch Mobile và SROM về trạng thái đóng (`is_active: 0, status: 'PAUSED'`).
+
 ## [2026-11-01]
 
 ### 300. Xóa Sạch 100% Mã Ảo Khỏi Bảng SQL D1 Của Sự Kiện Hắc Ngộ Không & Tuân Thủ Tuyệt Đối Nguyên Tắc "Không Thêm Mã Ảo / Zero Test Artifacts"

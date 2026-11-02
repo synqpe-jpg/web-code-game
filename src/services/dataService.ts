@@ -2168,6 +2168,16 @@ public async syncWithCloudflareKV(forceFresh: boolean = false): Promise<void> {
 
     // Return giveaways with formatted attributes and prioritized in-stock first
     return list.map((gw) => {
+      const active = !(
+        gw.is_active === false ||
+        gw.is_active === 0 ||
+        gw.is_active === '0' ||
+        (gw as any).isActive === false ||
+        (gw as any).isActive === 0 ||
+        gw.status === 'PAUSED' ||
+        gw.status === 'CLOSED' ||
+        gw.status === 'ENDED'
+      );
       const poolCount = Array.isArray(gw.codes_pool) && gw.codes_pool.length > 0
         ? gw.codes_pool.length
         : (typeof gw.remaining_codes === 'number' ? Math.max(0, gw.remaining_codes) : 0);
@@ -2193,6 +2203,8 @@ public async syncWithCloudflareKV(forceFresh: boolean = false): Promise<void> {
         ...gw,
         title: normalizedTitle,
         rewards: normalizedRewards,
+        is_active: active,
+        status: (gw.status === 'ENDED' || String(gw.status).toUpperCase() === 'ENDED') ? 'ENDED' : (active ? 'ACTIVE' : 'PAUSED'),
         min_account_age_days: Number(gw.min_account_age_days ?? (gw as any).minAccountAgeDays ?? 0),
         max_per_user: Number(gw.max_per_user ?? (gw as any).maxPerUser ?? 1),
         max_per_ip: Number(gw.max_per_ip ?? (gw as any).maxPerIp ?? 1),
@@ -2200,11 +2212,11 @@ public async syncWithCloudflareKV(forceFresh: boolean = false): Promise<void> {
         cooldown_minutes: Number(gw.cooldown_minutes ?? (gw.cooldown_hours ? gw.cooldown_hours * 60 : ((gw as any).cooldownHours ? (gw as any).cooldownHours * 60 : 0))),
         global_cooldown_seconds: Number(gw.global_cooldown_seconds ?? (gw as any).globalCooldownSeconds ?? 0),
         total_codes: accurateTotal,
-        remaining_codes: poolCount,
+        remaining_codes: active ? poolCount : 0,
       };
     }).sort((a, b) => {
-      const inStockA = (a.remaining_codes || 0) > 0 ? 1 : 0;
-      const inStockB = (b.remaining_codes || 0) > 0 ? 1 : 0;
+      const inStockA = (a.is_active !== false && (a.remaining_codes || 0) > 0) ? 1 : 0;
+      const inStockB = (b.is_active !== false && (b.remaining_codes || 0) > 0) ? 1 : 0;
       if (inStockA !== inStockB) return inStockB - inStockA;
       if (inStockA > 0 && a.remaining_codes !== b.remaining_codes) {
         return (b.remaining_codes || 0) - (a.remaining_codes || 0);

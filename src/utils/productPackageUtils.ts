@@ -103,7 +103,7 @@ export function getGiveawayPackages(campaign: GiveawayCampaign): GiveawayRewardP
       claimed_codes: campaign.claimed_codes || 0,
       remaining_codes: poolCount,
       codes_pool: campaign.codes_pool || [],
-      is_active: campaign.is_active !== false,
+      is_active: !(campaign.is_active === false || campaign.is_active === 0 || campaign.is_active === '0' || campaign.status === 'PAUSED'),
       note: 'Dành cho tất cả thành viên',
     },
   ];
@@ -367,19 +367,24 @@ export function groupGiveawaysByGame(campaigns: GiveawayCampaign[]): GiveawayCam
             ? item.codes_pool.length
             : (typeof item.remaining_codes === 'number' ? item.remaining_codes : 0),
         codes_pool: item.codes_pool || [],
-        is_active: item.is_active !== false,
+        is_active: !(item.is_active === false || item.is_active === 0 || item.is_active === '0' || item.status === 'PAUSED'),
         note: 'Dành cho thành viên',
       }));
 
       const totalPool = packages.reduce((sum, p) => sum + (Number(p.remaining_codes) || 0), 0);
       const totalClaimed = packages.reduce((sum, p) => sum + (Number(p.claimed_codes) || 0), 0);
       const totalVirtualClaimed = list.reduce((sum, p) => sum + (Number(p.virtual_claimed_offset) || 0), 0);
+      const isLeadActive = !(lead.is_active === false || lead.is_active === 0 || lead.is_active === '0' || lead.status === 'PAUSED');
+      const anyPkgActive = packages.some((p) => p.is_active);
+      const isGroupActive = isLeadActive && anyPkgActive;
 
       const parentCampaign: GiveawayCampaign = {
         ...lead,
         id: lead.id,
         title: `Code riêng ${lead.game_name}`,
-        remaining_codes: totalPool,
+        is_active: isGroupActive,
+        status: isGroupActive ? 'ACTIVE' : 'PAUSED',
+        remaining_codes: isGroupActive ? totalPool : 0,
         claimed_codes: totalClaimed,
         virtual_claimed_offset: totalVirtualClaimed,
         total_codes: totalPool + totalClaimed,

@@ -2344,7 +2344,17 @@ class MarketingService {
     if (!campaign) return 0;
 
     // 0. Khi sự kiện đóng: Ngoài web báo hết mã (0)
-    if (campaign.is_active === false || campaign.is_active === 0 || campaign.is_active === '0' || campaign.status === 'PAUSED' || campaign.status === 'ENDED' || campaign.status === 'CLOSED') {
+    const st = String(campaign.status || '').toUpperCase();
+    const isClosed =
+      campaign.is_active === false ||
+      campaign.is_active === 0 ||
+      campaign.is_active === '0' ||
+      (campaign as any).isActive === false ||
+      (campaign as any).isActive === 0 ||
+      st === 'PAUSED' ||
+      st === 'ENDED' ||
+      st === 'CLOSED';
+    if (isClosed) {
       return 0;
     }
 

@@ -490,16 +490,16 @@ export const onRequestPut: PagesFunction<Env> = async (context) => {
 
       existingList.forEach((gw: any) => {
         if (gw && targetIdSet.has(gw.id)) {
-          gw.is_active = nextActive;
+          gw.is_active = nextActive ? 1 : 0;
           gw.status = nextActive ? 'ACTIVE' : 'PAUSED';
           gw.updated_at = nowIso;
           updatedCount++;
           stmts.push(
             env.DB!.prepare(`
               UPDATE giveaways
-              SET is_active = ?, status = ?, updated_at = datetime('now')
+              SET is_active = ?, updated_at = datetime('now')
               WHERE id = ?
-            `).bind(nextActive ? 1 : 0, gw.status, gw.id)
+            `).bind(nextActive ? 1 : 0, gw.id)
           );
         }
       });
@@ -849,12 +849,20 @@ export const onRequestPut: PagesFunction<Env> = async (context) => {
       currentGw.status = nextActive ? 'ACTIVE' : 'PAUSED';
       currentGw.updated_at = new Date().toISOString();
 
+      // Update is_active in SQLite giveaways table safely
+      // SQLite schema might have CHECK (status IN ('ACTIVE', 'ENDED')), so we update is_active guaranteed first
+      await env.DB.prepare(`
+        UPDATE giveaways
+        SET is_active = ?, updated_at = datetime('now')
+        WHERE id = ?
+      `).bind(nextActive ? 1 : 0, targetId).run().catch((e) => console.warn('[TOGGLE_ACTIVE D1 is_active error]', e?.message));
+
       const dbStatus = (currentGw.status === 'ENDED' || String(currentGw.status).toUpperCase() === 'ENDED') ? 'ENDED' : (nextActive ? 'ACTIVE' : 'PAUSED');
       await env.DB.prepare(`
         UPDATE giveaways
-        SET is_active = ?, status = ?, updated_at = datetime('now')
+        SET status = ?
         WHERE id = ?
-      `).bind(nextActive ? 1 : 0, dbStatus, targetId).run().catch(() => {});
+      `).bind(dbStatus, targetId).run().catch(() => {});
 
       existingList[targetIndex] = currentGw;
       await setSettingD1(env.DB, 'wcg_admin_giveaways_v4', existingList);

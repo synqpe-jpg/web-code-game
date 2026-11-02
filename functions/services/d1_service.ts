@@ -3172,7 +3172,7 @@ export async function loadAllGiveawaysD1(db: D1Database, includeCodes: boolean =
             virtual_claimed_offset: Number(m.virtual_claimed_offset || 0),
             start_time: m.start_time || null,
             end_time: m.end_time || null,
-            is_active: (m.is_active !== false && m.is_active !== 0) ? 1 : 0,
+            is_active: (m.is_active === false || m.is_active === 0 || m.is_active === '0' || m.status === 'PAUSED' || m.status === 'CLOSED') ? 0 : 1,
             enable_auto_simulation: m.enable_auto_simulation !== false ? 1 : 0,
             simulation_idle_threshold_minutes: Number(m.simulation_idle_threshold_minutes || 0),
             virtual_remaining_addition: Number(m.virtual_remaining_addition || 20),
@@ -3184,7 +3184,7 @@ export async function loadAllGiveawaysD1(db: D1Database, includeCodes: boolean =
             updated_at: m.updated_at || new Date().toISOString(),
             cover_image_url: m.cover_image_url || null,
             game_icon_url: m.game_icon_url || null,
-            status: m.status === 'ENDED' ? 'ENDED' : 'ACTIVE',
+            status: m.status === 'ENDED' ? 'ENDED' : ((m.is_active === false || m.is_active === 0 || m.is_active === '0' || m.status === 'PAUSED' || m.status === 'CLOSED') ? 'PAUSED' : 'ACTIVE'),
             created_at: m.created_at || new Date().toISOString(),
           });
         }
@@ -3215,10 +3215,16 @@ export async function loadAllGiveawaysD1(db: D1Database, includeCodes: boolean =
       const startTime = meta.start_time !== undefined ? meta.start_time : (gw.start_time || fallback.start_time || null);
       const endTime = meta.end_time !== undefined ? meta.end_time : (gw.end_time || fallback.end_time || null);
 
+      const isMetaClosed = meta.is_active === false || meta.is_active === 0 || meta.is_active === '0' || meta.status === 'PAUSED' || meta.status === 'CLOSED';
+      const isGwClosed = gw.is_active === 0 || gw.is_active === false || gw.is_active === '0' || gw.status === 'PAUSED' || gw.status === 'CLOSED';
+      const isClosed = isMetaClosed || isGwClosed;
+      const finalIsActive = isClosed ? 0 : 1;
+      const finalStatus = (gw.status === 'ENDED' || meta.status === 'ENDED') ? 'ENDED' : (isClosed ? 'PAUSED' : 'ACTIVE');
+
       return {
         ...fallback,
-        ...meta,
         ...gw,
+        ...meta,
         remaining_codes: rem,
         claimed_codes: clm,
         total_codes: tot,
@@ -3267,7 +3273,8 @@ export async function loadAllGiveawaysD1(db: D1Database, includeCodes: boolean =
         is_last_claim_simulated: meta.is_last_claim_simulated !== undefined ? Boolean(meta.is_last_claim_simulated) : Boolean(gw.is_last_claim_simulated),
         fomo_anchor_time: meta.fomo_anchor_time || gw.fomo_anchor_time || null,
         show_claimed_count: meta.show_claimed_count !== undefined ? Boolean(meta.show_claimed_count) : (gw.show_claimed_count !== undefined ? Boolean(gw.show_claimed_count) : true),
-        status: (gw.status === 'ENDED' || meta.status === 'ENDED') ? 'ENDED' : ((gw.is_active === 0 || meta.is_active === false) ? 'PAUSED' : 'ACTIVE'),
+        is_active: finalIsActive,
+        status: finalStatus,
         updated_at: meta.updated_at || gw.updated_at || gw.created_at || new Date().toISOString(),
       };
     });

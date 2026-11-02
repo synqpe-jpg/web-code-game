@@ -298,11 +298,13 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
               .filter((g: any) => g && g.id && g.status !== 'ENDED' && !delGwSet.has(g.id) && g.id !== 'gw_alienware_vaultbreakers' && g.id !== 'gw_garena_delta_force')
               .map((gw: any) => {
                 const { codes_pool, claim_history, ...rest } = gw;
-                const isClosed = gw.is_active === false || gw.is_active === 0 || gw.status === 'PAUSED' || gw.status === 'CLOSED';
+                const isClosed = gw.is_active === false || gw.is_active === 0 || gw.is_active === '0' || gw.status === 'PAUSED' || gw.status === 'CLOSED';
                 const rem = gw.remaining_codes !== undefined && gw.remaining_codes !== null ? Number(gw.remaining_codes) : Number(gw.codes_pool?.length || 0);
                 const publicRem = (!authorized && isClosed) ? 0 : rem;
                 return {
                   ...rest,
+                  is_active: isClosed ? false : (gw.is_active !== false && gw.is_active !== 0),
+                  status: gw.status === 'ENDED' ? 'ENDED' : (isClosed ? 'PAUSED' : 'ACTIVE'),
                   remaining_codes: publicRem,
                   codes_pool: authorized ? codes_pool : undefined,
                   claim_history: authorized ? claim_history : undefined,
@@ -821,6 +823,8 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
         : (rawRemaining + claimedCount);
       return {
         ...rest,
+        is_active: isClosed ? false : (gw.is_active !== false && gw.is_active !== 0),
+        status: gw.status === 'ENDED' ? 'ENDED' : (isClosed ? 'PAUSED' : 'ACTIVE'),
         use_template: gw.use_template !== false,
         updated_at: gw.updated_at || gw.created_at || new Date().toISOString(),
         min_account_age_days: Number(gw.min_account_age_days ?? gw.minAccountAgeDays ?? 0),

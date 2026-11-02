@@ -10,6 +10,24 @@
 
 ## 1. DANH MỤC LỖI & CÁC BẪY ĐÃ THẤT BẠI (DO NOT REPEAT)
 
+### ISSUE-208: Bẫy Lệnh SQL UPDATE Bị Rollback Do CHECK Constraint Status Của SQLite Khiến Đóng Sự Kiện Thất Bại & Thứ Tự Spread Ngược Trong `loadAllGiveawaysD1` Làm Trạng Thái Đóng Bị Ghi Đè Hồi Sinh
+- **Triệu chứng**:
+  - Quản trị viên bấm "Đóng" một chiến dịch Giveaway (ví dụ Tiên Nghịch Mobile, SROM) trong Admin. Bảng Admin đã ẩn đợt phát khỏi tab "Đang mở".
+  - Tuy nhiên ngoài Web Khách (`/giveaways`), sự kiện vẫn hiển thị bình thường ở tab "Tất Cả" và "Còn Mã", số lượng còn lại vẫn hiển thị số lớn (ví dụ: Tiên Nghịch còn 47 mã, SROM còn 23 mã) và đồng hồ đếm ngược vẫn chạy.
+- **Nguyên nhân gốc rễ**:
+  1. *SQLite CHECK constraint rollback*: Bảng SQL `giveaways` trong D1 có ràng buộc `CHECK (status IN ('ACTIVE', 'ENDED'))`. Khi `manage.ts` chạy `UPDATE giveaways SET is_active = 0, status = 'PAUSED'`, SQLite ném lỗi và rollback toàn bộ lệnh update.
+  2. *Thứ tự spread ngược trong `d1_service.ts`*: Hàm `loadAllGiveawaysD1` có dòng `return { ...fallback, ...meta, ...gw }` đặt `...gw` (dữ liệu SQLite chưa được update, đang lưu `is_active: 1, status: 'ACTIVE'`) sau `...meta`. `gw` ghi đè hoàn toàn cấu hình `is_active: 0` của Admin.
+  3. *Hàm `getGiveawayDisplayRemaining` nhận `is_active: 1`*: Web Khách tải về thấy `is_active: 1` nên cộng dồn `virtual_remaining_current` vào kho thật, không kích hoạt badge "Hết Mã" và nút CTA bị nhảy sang `isCardGlobalCooling` ("Chờ Đợt Mã").
+- **Giải pháp chuẩn đã kiểm chứng**:
+  1. *Tách riêng cập nhật `is_active` trên SQLite D1*: Đảm bảo lệnh `UPDATE giveaways SET is_active = ?, updated_at = datetime('now')` luôn thực thi độc lập và thành công 100%.
+  2. *Đưa cấu hình Admin `meta` làm nguồn chân lý duy nhất*: Đặt `...meta` sau `...gw` trong `loadAllGiveawaysD1`, gán tường minh `is_active: finalIsActive, status: finalStatus`.
+  3. *Chuẩn hóa API Sync*: Đảm bảo cả hai endpoint `/api/sync?key=...` và `/api/sync` đều trả về `is_active: false, status: 'PAUSED', remaining_codes: 0` cho khách vãng lai khi sự kiện đóng.
+  4. *Đồng bộ chặt chẽ Web Khách*: Bổ sung kiểm tra `isGwActive(campaign)` trong `marketingService.getGiveawayDisplayRemaining`, `isCardGlobalCooling`, và badge "Hết Mã".
+- 🚫 **CÁCH SỬA ĐÃ THẤT BẠI - TUYỆT ĐỐI KHÔNG LẶP LẠI**:
+  - ❌ *Không gộp chung `status = 'PAUSED'` vào câu lệnh UPDATE của SQLite nếu chưa kiểm tra CHECK constraint*.
+  - ❌ *Không để dữ liệu thô `...gw` từ SQLite ghi đè lên cấu hình `...meta` của Quản trị viên*.
+  - ❌ *Không cho phép hàm tính số lượng hiển thị `getGiveawayDisplayRemaining` cộng mã ảo khi sự kiện đã đóng*.
+
 ### ISSUE-207: Bẫy Tự Ý Sinh Mã Code Giả Lập/Mã Ảo Nạp Vào Cơ Sở Dữ Liệu D1 Vi Phạm Nghiêm Trọng Nguyên Tắc "Không Thêm Mã Ảo / Zero Test Artifacts" Của Chủ Sở Hữu
 - **Triệu chứng**:
   - Khi thấy đợt phát thiếu mã trên D1, AI Agent tự sinh danh sách mã mẫu (ví dụ `HNK-VIP-...`) và gọi API nạp vào bảng SQL `giveaway_codes`.
