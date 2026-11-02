@@ -497,9 +497,9 @@ export const onRequestPut: PagesFunction<Env> = async (context) => {
           stmts.push(
             env.DB!.prepare(`
               UPDATE giveaways
-              SET is_active = ?, updated_at = datetime('now')
+              SET is_active = ?, status = ?, updated_at = datetime('now')
               WHERE id = ?
-            `).bind(nextActive ? 1 : 0, gw.id)
+            `).bind(nextActive ? 1 : 0, nextActive ? 'ACTIVE' : 'ENDED', gw.id)
           );
         }
       });
@@ -857,7 +857,7 @@ export const onRequestPut: PagesFunction<Env> = async (context) => {
         WHERE id = ?
       `).bind(nextActive ? 1 : 0, targetId).run().catch((e) => console.warn('[TOGGLE_ACTIVE D1 is_active error]', e?.message));
 
-      const dbStatus = (currentGw.status === 'ENDED' || String(currentGw.status).toUpperCase() === 'ENDED') ? 'ENDED' : (nextActive ? 'ACTIVE' : 'PAUSED');
+      const dbStatus = (currentGw.status === 'ENDED' || String(currentGw.status).toUpperCase() === 'ENDED' || !nextActive) ? 'ENDED' : 'ACTIVE';
       await env.DB.prepare(`
         UPDATE giveaways
         SET status = ?

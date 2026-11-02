@@ -2452,9 +2452,11 @@ export async function syncGiveawaysToD1(db: D1Database, giveaways: any[]): Promi
     const virtualOffset = Number(gw.virtual_claimed_offset ?? gw.virtualClaimedOffset ?? 0);
     const isGwClosed = gw.is_active === false || gw.is_active === 0 || gw.is_active === '0' || (gw as any).isActive === false || (gw as any).isActive === 0 || gw.status === 'PAUSED' || gw.status === 'CLOSED';
     const isActive = isGwClosed ? 0 : 1;
-    const status = (gw.status === 'ENDED' || String(gw.status).toUpperCase() === 'ENDED')
+    // Cloudflare D1 giveaways table has CHECK (status IN ('ACTIVE', 'ENDED')).
+    // When paused/closed, store 'ENDED' in SQLite status column so the check constraint never rolls back.
+    const status = (gw.status === 'ENDED' || String(gw.status).toUpperCase() === 'ENDED' || isActive === 0)
       ? 'ENDED'
-      : (isActive === 0 ? 'PAUSED' : 'ACTIVE');
+      : 'ACTIVE';
     const description = gw.description || '';
     const rewards = gw.rewards || '';
     const startTime = gw.start_time || gw.startTime || null;
@@ -3200,26 +3202,14 @@ export async function loadAllGiveawaysD1(db: D1Database, includeCodes: boolean =
         : ((Array.isArray(gw.codes_pool) && gw.codes_pool.length > 0)
             ? gw.codes_pool.length
             : ((Array.isArray(fallback.codes_pool) && fallback.codes_pool.length > 0) ? fallback.codes_pool.length : null));
-      const rem = poolLen !== null
-        ? poolLen
-        : Math.max(0, Number(gw.remaining_codes !== undefined && gw.remaining_codes !== null ? gw.remaining_codes : 0));
-      const clm = Number(gw.claimed_codes ?? meta.claimed_codes ?? fallback.claimed_codes ?? 0);
-      const tot = (gw.total_codes !== undefined && gw.total_codes !== null && Number(gw.total_codes) > 0)
-        ? Number(gw.total_codes)
-        : (rem + clm);
-      const slug = meta.game_slug || gw.game_slug || fallback.game_slug || '';
-      const coverUrl = meta.cover_image_url || gw.cover_image_url || fallback.cover_image_url || (slug ? `/game_icons/${slug}.webp` : null);
-      const iconUrl = meta.game_icon_url || gw.game_icon_url || fallback.game_icon_url || coverUrl;
-      const desc = meta.description || gw.description || fallback.description || '';
-      const rew = meta.rewards || gw.rewards || fallback.rewards || 'Code ngẫu nhiên';
-      const startTime = meta.start_time !== undefined ? meta.start_time : (gw.start_time || fallback.start_time || null);
-      const endTime = meta.end_time !== undefined ? meta.end_time : (gw.end_time || fallback.end_time || null);
-
       const isMetaClosed = meta.is_active === false || meta.is_active === 0 || meta.is_active === '0' || meta.status === 'PAUSED' || meta.status === 'CLOSED';
       const isGwClosed = gw.is_active === 0 || gw.is_active === false || gw.is_active === '0' || gw.status === 'PAUSED' || gw.status === 'CLOSED';
       const isClosed = isMetaClosed || isGwClosed;
       const finalIsActive = isClosed ? 0 : 1;
       const finalStatus = (gw.status === 'ENDED' || meta.status === 'ENDED') ? 'ENDED' : (isClosed ? 'PAUSED' : 'ACTIVE');
+      const rem = isClosed ? 0 : (poolLen !== null
+        ? poolLen
+        : Math.max(0, Number(gw.remaining_codes !== undefined && gw.remaining_codes !== null ? gw.remaining_codes : 0)));
 
       return {
         ...fallback,

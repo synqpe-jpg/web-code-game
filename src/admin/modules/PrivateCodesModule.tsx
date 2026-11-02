@@ -1072,11 +1072,22 @@ export const PrivateCodesModule: React.FC<PrivateCodesModuleProps> = ({ onShowTo
       return;
     }
     const currentList = adminDataService.getGiveaways();
+    const targetIdsArray = currentList.map((gw) => gw.id);
     currentList.forEach((gw) => {
       gw.is_active = enable;
+      gw.status = enable ? 'ACTIVE' : 'PAUSED';
       adminDataService.saveGiveawayItem(gw);
     });
     await adminDataService.saveGiveawaysToServer();
+
+    try {
+      await fetch('/api/giveaways/manage', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json', ...getAdminHeaders() },
+        body: JSON.stringify({ action: 'BATCH_TOGGLE_ACTIVE', ids: targetIdsArray, is_active: enable }),
+      });
+    } catch {}
+
     loadData();
     onShowToast(
       enable ? 'Đã mở tất cả đợt phát!' : 'Đã đóng tất cả đợt phát!',

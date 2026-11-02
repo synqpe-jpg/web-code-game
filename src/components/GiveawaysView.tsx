@@ -863,13 +863,23 @@ const GiveawayDetailModal: React.FC<GiveawayDetailModalProps> = ({
             </div>
           ) : remaining <= 0 ? (
             <div className="space-y-2">
-              <button
-                disabled
-                className="w-full py-3.5 rounded-2xl bg-muted/60 text-muted-foreground border border-border text-xs font-bold flex items-center justify-center gap-2 cursor-not-allowed"
-              >
-                <Clock className="w-4 h-4 text-amber-400" />
-                <span>{!isGwActive(campaign) ? 'Sự Kiện Tạm Đóng — Chờ Đợt Mã Mới' : 'Chờ Đợt Mã Mới'}</span>
-              </button>
+              {!isGwActive(campaign) ? (
+                <button
+                  disabled
+                  className="w-full py-3.5 rounded-2xl bg-rose-500/15 text-rose-400 border border-rose-500/30 text-xs sm:text-sm font-bold flex items-center justify-center gap-2 cursor-not-allowed"
+                >
+                  <PowerOff className="w-4 h-4 text-rose-400" />
+                  <span>Sự Kiện Đã Đóng (Tạm Dừng Phát Mã)</span>
+                </button>
+              ) : (
+                <button
+                  disabled
+                  className="w-full py-3.5 rounded-2xl bg-muted/60 text-muted-foreground border border-border text-xs font-bold flex items-center justify-center gap-2 cursor-not-allowed"
+                >
+                  <Clock className="w-4 h-4 text-amber-400" />
+                  <span>Chờ Đợt Mã Mới</span>
+                </button>
+              )}
               {userClaimCount > 0 && (
                 <button
                   onClick={() => {
@@ -1478,12 +1488,15 @@ export const GiveawaysView: React.FC<GiveawaysViewProps> = ({
         return poolCount <= 0 || !isGwActive(c);
       }
       if (filterCategory === 'hot') {
-        return (c.claimed_codes || 0) >= 5 || (c.show_claimed_count !== false);
+        return isGwActive(c) && ((c.claimed_codes || 0) >= 5 || (c.show_claimed_count !== false));
       }
       if (filterCategory === 'mine') {
         return uniqueClaimedList.some((my) => my.campaign_id === c.id || (c.packages && c.packages.some((p) => p.id === my.campaign_id)));
       }
-      return true;
+      // Tab 'all' (Tất Cả):
+      // Khi Admin đã ĐÓNG sự kiện: ẩn khỏi danh sách mở ngoài Web Khách theo đúng yêu cầu người dùng
+      // (Khách chỉ xem các sự kiện đã đóng/hết mã khi chủ động vào tab 'Đã Hết / Đã Đóng')
+      return isGwActive(c);
     })
     .sort((a, b) => {
       const poolCountA = getCampaignStock(a);
@@ -1598,7 +1611,7 @@ export const GiveawaysView: React.FC<GiveawaysViewProps> = ({
                       : 'bg-muted/70 text-muted-foreground hover:text-foreground border border-border'
                   }`}
                 >
-                  Tất Cả ({groupedCampaigns.length})
+                  Tất Cả ({groupedCampaigns.filter((c) => isGwActive(c)).length})
                 </button>
                 <button
                   onClick={() => setFilterCategory('available')}
@@ -1620,7 +1633,7 @@ export const GiveawaysView: React.FC<GiveawaysViewProps> = ({
                   }`}
                 >
                   <Clock className="w-3.5 h-3.5 text-rose-300" />
-                  <span>Đã Hết Mã ({groupedCampaigns.filter((c) => !isGwActive(c) || getCampaignStock(c) <= 0).length})</span>
+                  <span>Đã Hết / Đã Đóng ({groupedCampaigns.filter((c) => !isGwActive(c) || getCampaignStock(c) <= 0).length})</span>
                 </button>
                 <button
                   onClick={() => setFilterCategory('hot')}
@@ -1819,11 +1832,15 @@ export const GiveawaysView: React.FC<GiveawaysViewProps> = ({
                         </div>
 
                         <div className="flex items-center gap-1.5 shrink-0">
-                          {(!isGwActive(campaign) || remaining <= 0) && !isEnded && (
+                          {!isGwActive(campaign) ? (
+                            <span className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-rose-500/20 text-rose-300 border border-rose-500/30 shrink-0">
+                              ⛔ Đã Đóng
+                            </span>
+                          ) : remaining <= 0 && !isEnded ? (
                             <span className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-amber-500/20 text-amber-300 border border-amber-500/30 shrink-0">
                               Hết Mã
                             </span>
-                          )}
+                          ) : null}
                           {onShareGiveaway && (
                             <button
                               onClick={(e) => {
@@ -2034,6 +2051,14 @@ export const GiveawaysView: React.FC<GiveawaysViewProps> = ({
                               className="py-2.5 px-3 rounded-xl bg-muted/60 text-muted-foreground border border-border text-xs font-semibold flex items-center justify-center gap-1 cursor-not-allowed"
                             >
                               <span>Đã Hết Hạn</span>
+                            </button>
+                          ) : !isGwActive(campaign) ? (
+                            <button
+                              disabled
+                              className="py-2.5 px-3 rounded-xl bg-rose-500/10 text-rose-400 border border-rose-500/25 text-xs font-bold flex items-center justify-center gap-1.5 cursor-not-allowed opacity-80"
+                            >
+                              <PowerOff className="w-3.5 h-3.5 text-rose-400" />
+                              <span>Sự Kiện Đã Đóng</span>
                             </button>
                           ) : remaining <= 0 ? (
                             <button

@@ -5312,9 +5312,11 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
             if (gw && gw.id) {
               const isClosed = gw.is_active === false || gw.is_active === 0 || gw.is_active === '0' || gw.status === 'PAUSED' || gw.status === 'CLOSED';
               const act = isClosed ? 0 : 1;
-              const dbStatus = (gw.status === 'ENDED' || String(gw.status).toUpperCase() === 'ENDED')
+              // Cloudflare D1 giveaways table has CHECK (status IN ('ACTIVE', 'ENDED')).
+              // Use 'ENDED' when closed to guarantee zero SQLite check constraint failures.
+              const dbStatus = (gw.status === 'ENDED' || String(gw.status).toUpperCase() === 'ENDED' || act === 0)
                 ? 'ENDED'
-                : (act === 0 ? 'PAUSED' : 'ACTIVE');
+                : 'ACTIVE';
               await env.DB.prepare('UPDATE giveaways SET is_active = ?, status = ? WHERE id = ?')
                 .bind(act, dbStatus, gw.id)
                 .run().catch(() => {});

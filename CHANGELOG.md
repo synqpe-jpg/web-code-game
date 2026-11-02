@@ -7,6 +7,28 @@ Mỗi mục sửa lỗi đều ghi nhận **Nguyên nhân gốc rễ (Root Cause
 
 ## [2026-11-02]
 
+### 302. Khắc Phục Triệt Để Lỗi "Trang Admin Đóng Nhưng Web Khách Vẫn Mở": Đồng Bộ Hóa Toàn Diện D1 Check Constraint, Batch Toggle Và Ẩn Sự Kiện Đã Đóng Trên Web Khách
+- **Bối cảnh & Phản ánh từ Chủ sở hữu**:
+  - Người dùng phản ánh tiếp: *"Hiện tại trang admin của tôi đóng nhhuwng web khách vẫn mở?"*
+- **Nguyên nhân gốc rễ (Root Causes)**:
+  1. *Lệnh `syncGiveawaysToD1` trong `d1_service.ts` và lệnh `UPDATE` trong `sync.ts` vẫn truyền `status = 'PAUSED'`*:
+     - Mặc dù `manage.ts` đã được sửa ở commit trước, nhưng khi Admin thực hiện lưu (`adminDataService.saveGiveawaysToServer()` -> `POST /api/sync`), hàm `syncGiveawaysToD1` và dòng 5318 của `functions/api/sync.ts` vẫn cố gắng ghi `status: 'PAUSED'` vào bảng `giveaways`.
+     - Bảng `giveaways` trong SQLite có ràng buộc `CHECK (status IN ('ACTIVE', 'ENDED'))`, nên mọi lệnh upsert/update đối với sự kiện đã đóng đều bị SQLite từ chối và rollback, khiến cột `is_active` trên D1 SQLite giữ nguyên giá trị `1` (MỞ)!
+  2. *Hàm `handleBatchToggleAll` trong Admin chưa gọi API `BATCH_TOGGLE_ACTIVE`*:
+     - Khi Admin bấm "Đóng tất cả", code chỉ lưu cục bộ và gọi `POST /api/sync`, không gọi endpoint `/api/giveaways/manage` chuyên dụng.
+  3. *Logic hiển thị tab mặc định "Tất Cả" trên Web Khách (`GiveawaysView.tsx`) không lọc `isGwActive(c)`*:
+     - Trước đây code giữ sự kiện hiển thị trên Web ngay cả khi đóng để hiện "Hết Mã" (theo comment cũ), dẫn đến việc người dùng nhìn thấy sự kiện vẫn nằm trong danh sách "Tất Cả" ở Web Khách và lầm tưởng sự kiện "vẫn mở".
+- **Giải pháp triệt để đã triển khai**:
+  1. *Chuẩn hóa trạng thái D1 SQLite*: Trong `d1_service.ts` (`syncGiveawaysToD1`), `sync.ts` và `manage.ts`, khi sự kiện đóng (`isActive === 0`), `status` lưu vào D1 được chuẩn hóa thành `'ENDED'`. Điều này thỏa mãn 100% ràng buộc `CHECK (status IN ('ACTIVE', 'ENDED'))`, loại bỏ hoàn toàn lỗi rollback SQLite.
+  2. *Cập nhật Web Khách (`GiveawaysView.tsx`)*:
+     - Tab mặc định **"Tất Cả"**: Chỉ hiển thị các sự kiện đang MỞ (`isGwActive(c)`). Khi Admin ấn đóng, sự kiện sẽ lập tức biến mất khỏi "Tất Cả" và "Còn Mã", không còn gây hiểu nhầm "vẫn mở".
+     - Tab **"Đã Hết / Đã Đóng"**: Hiển thị rõ nhãn màu đỏ `⛔ Đã Đóng`, số lượng `Còn lại: 0 mã`, nút CTA bị vô hiệu hóa `Sự Kiện Đã Đóng`.
+     - Modal Chi Tiết: Nút CTA vô hiệu hóa với thông báo `⛔ Sự Kiện Đã Đóng (Tạm Dừng Phát Mã)`.
+  3. *Đồng bộ Admin `PrivateCodesModule.tsx`*:
+     - `handleBatchToggleAll` gọi trực tiếp cả `BATCH_TOGGLE_ACTIVE` đến `/api/giveaways/manage` và `saveGiveawaysToServer` để đồng bộ kép tức thì.
+- **Kết quả kiểm thử**:
+  - Build frontend và Cloudflare Worker thành công 100%.
+
 ### 301. Khắc Phục Triệt Để Lỗi "Admin Ấn Đóng Sự Kiện Giveaway Nhưng Ngoài Web Khách Vẫn Hiện Và Cộng Mã Ảo": Chuẩn Hóa Phân Giải Trạng Thái Bật/Tắt Giữa D1 SQLite, API Sync Và Web Khách
 - **Bối cảnh & Phản ánh từ Chủ sở hữu**:
   - Người dùng phản ánh: *"Tôi đã ấn đóng sự kiện giveaway, thế nhưng ngoài web khách vẫn hiện. Bạn hãy tìm ra nguyên nhân, đưa ra giải pháp và xử lý triệt để vấn đề này. đảm bảo mỗi lần tôi thao tác ở trang admin thì web khách cập nhật mọi trạng thái chính xác. Không để ảnh hưởng tới code khác."*

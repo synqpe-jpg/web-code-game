@@ -10,6 +10,23 @@
 
 ## 1. DANH MỤC LỖI & CÁC BẪY ĐÃ THẤT BẠI (DO NOT REPEAT)
 
+### ISSUE-209: Bẫy Lệnh `syncGiveawaysToD1` và `sync.ts` Ghi Status 'PAUSED' Bị SQLite CHECK Constraint Rollback & Web Khách 'Tất Cả' Hiển Thị Sự Kiện Đã Đóng
+- **Triệu chứng**:
+  - Quản trị viên đóng sự kiện Giveaway trên Admin (cả riêng lẻ và hàng loạt), Admin hiển thị "Đã đóng", nhưng ngoài Web Khách sự kiện vẫn hiển thị và mở nhận mã.
+- **Nguyên nhân gốc rễ**:
+  1. *Lệnh `syncGiveawaysToD1` (d1_service.ts) và `sync.ts` (dòng 5318) vẫn ghi `status = 'PAUSED'` vào bảng `giveaways`*:
+     - Bảng `giveaways` trong SQLite D1 có ràng buộc `CHECK (status IN ('ACTIVE', 'ENDED'))`. Khi sự kiện đóng, giá trị `'PAUSED'` vi phạm ràng buộc này khiến SQLite ném lỗi và rollback toàn bộ, cột `is_active` không được chuyển thành `0`.
+  2. *Tab mặc định 'Tất Cả' trên Web Khách (`GiveawaysView.tsx`) không lọc `isGwActive(c)`*:
+     - Trước đây code giữ sự kiện hiển thị trên Web ngay cả khi đóng để hiện "Hết Mã" (theo comment cũ), dẫn đến việc người dùng nhìn thấy sự kiện vẫn nằm trong danh sách "Tất Cả" ở Web Khách và lầm tưởng sự kiện "vẫn mở".
+- **Giải pháp chuẩn đã kiểm chứng**:
+  1. *Chuẩn hóa trạng thái D1 SQLite*: Trong `d1_service.ts` (`syncGiveawaysToD1`), `sync.ts` và `manage.ts`, khi sự kiện đóng (`isActive === 0`), `status` lưu vào D1 được chuẩn hóa thành `'ENDED'`. Điều này thỏa mãn 100% ràng buộc `CHECK (status IN ('ACTIVE', 'ENDED'))`, loại bỏ hoàn toàn lỗi rollback SQLite.
+  2. *Cập nhật Web Khách (`GiveawaysView.tsx`)*:
+     - Tab mặc định **"Tất Cả"**: Chỉ hiển thị các sự kiện đang MỞ (`isGwActive(c)`). Khi Admin ấn đóng, sự kiện sẽ lập tức biến mất khỏi "Tất Cả" và "Còn Mã", không còn gây hiểu nhầm "vẫn mở".
+     - Tab **"Đã Hết / Đã Đóng"**: Hiển thị rõ nhãn màu đỏ `⛔ Đã Đóng`, số lượng `Còn lại: 0 mã`, nút CTA bị vô hiệu hóa `Sự Kiện Đã Đóng`.
+     - Modal Chi Tiết: Nút CTA vô hiệu hóa với thông báo `⛔ Sự Kiện Đã Đóng (Tạm Dừng Phát Mã)`.
+  3. *Đồng bộ Admin `PrivateCodesModule.tsx`*:
+     - `handleBatchToggleAll` gọi trực tiếp cả `BATCH_TOGGLE_ACTIVE` đến `/api/giveaways/manage` và `saveGiveawaysToServer` để đồng bộ kép tức thì.
+
 ### ISSUE-208: Bẫy Lệnh SQL UPDATE Bị Rollback Do CHECK Constraint Status Của SQLite Khiến Đóng Sự Kiện Thất Bại & Thứ Tự Spread Ngược Trong `loadAllGiveawaysD1` Làm Trạng Thái Đóng Bị Ghi Đè Hồi Sinh
 - **Triệu chứng**:
   - Quản trị viên bấm "Đóng" một chiến dịch Giveaway (ví dụ Tiên Nghịch Mobile, SROM) trong Admin. Bảng Admin đã ẩn đợt phát khỏi tab "Đang mở".
