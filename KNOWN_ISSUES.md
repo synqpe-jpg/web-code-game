@@ -10,6 +10,23 @@
 
 ## 1. DANH MỤC LỖI & CÁC BẪY ĐÃ THẤT BẠI (DO NOT REPEAT)
 
+### ISSUE-210: Bẫy Đóng Giveaway Nhưng F5 Hồi Sinh Do Thứ Tự Ghi Local Trước Server, Merge Logic Tự Suy Ra Active & Thiếu Read-Back Verification Trên D1
+- **Triệu chứng**:
+  - Quản trị viên ấn nút Đóng trên bảng Giveaway Admin. Giao diện báo thành công, nhưng sau khi F5 thì sự kiện hiện lại "Đang mở", ngoài Web Khách sự kiện không biến mất.
+- **Nguyên nhân gốc rễ**:
+  1. *Thứ tự ghi ngược và nuốt lỗi*: Client lưu LocalStorage trước khi gửi D1. Gặp lỗi mạng hoặc D1 thì lỗi bị catch nuốt chửng, dẫn đến tình trạng "thành công giả".
+  2. *Merge logic trong `pullFromCloudflareKV` lật ngược trạng thái*: Thuật toán so sánh timestamp cũ khiến dữ liệu server hoặc logic suy đoán lật `status = 'ACTIVE'` nếu `is_active` không phải false tuyệt đối.
+  3. *Thiếu read-back verification trên backend*: Endpoint `manage.ts` chạy SQL nhưng không đọc lại xác nhận giá trị trước khi trả kết quả 200.
+- **Giải pháp chuẩn đã kiểm chứng**:
+  1. *Quy tắc D1 SSOT-First*: Luôn gọi `/api/giveaways/manage` trước. Chỉ khi server trả về 200 kèm `success: true`, client mới cập nhật bộ nhớ cục bộ.
+  2. *Read-Back Verification trên D1*: Backend thực hiện `SELECT` xác minh `is_active` thực tế trong SQLite ngay sau lệnh `UPDATE`.
+  3. *Quy tắc chống hồi sinh Anti-Resurrection*: Khi merge dữ liệu, nếu Server D1 đã ghi nhận sự kiện đóng (`is_active = 0` hoặc `status = 'PAUSED'/'ENDED'`), frontend chấp nhận 100% trạng thái đóng, cấm mọi cơ chế tự suy luận lật lại `ACTIVE`.
+- 🚫 **CÁCH SỬA ĐÃ THẤT BẠI - TUYỆT ĐỐI KHÔNG LẶP LẠI**:
+  - ❌ *Không cập nhật LocalStorage trước khi nhận được phản hồi 200 từ API máy chủ*.
+  - ❌ *Không bọc các lệnh gọi API quản trị trong khối `try { ... } catch {}` rỗng mà không báo lỗi*.
+  - ❌ *Không cho phép merge logic cục bộ ghi đè trạng thái đóng của Server D1*.
+
+
 ### ISSUE-209: Bẫy Lệnh `syncGiveawaysToD1` và `sync.ts` Ghi Status 'PAUSED' Bị SQLite CHECK Constraint Rollback & Web Khách 'Tất Cả' Hiển Thị Sự Kiện Đã Đóng
 - **Triệu chứng**:
   - Quản trị viên đóng sự kiện Giveaway trên Admin (cả riêng lẻ và hàng loạt), Admin hiển thị "Đã đóng", nhưng ngoài Web Khách sự kiện vẫn hiển thị và mở nhận mã.

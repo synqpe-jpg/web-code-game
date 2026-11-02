@@ -476,13 +476,12 @@ export const onRequestPut: PagesFunction<Env> = async (context) => {
         );
       }
       const nextActive = body.is_active !== undefined ? Boolean(body.is_active) : false;
+      const nextActiveInt = nextActive ? 1 : 0;
+      const dbStatus = nextActive ? 'ACTIVE' : 'ENDED';
       const targetIdSet = new Set(ids);
-      const actor = auth.user || 'Admin';
+      const actor = auth.keyRecord?.key_name || 'Admin';
 
-      let existingList: any[] = (await getSettingD1(env.DB, 'wcg_admin_giveaways_v4', [], true).catch(() => [])) || [];
-      if (existingList.length === 0) {
-        existingList = await loadAllGiveawaysD1(env.DB, true, true);
-      }
+      let existingList: any[] = await loadAllGiveawaysD1(env.DB, true, true);
 
       let updatedCount = 0;
       const nowIso = new Date().toISOString();
@@ -490,22 +489,26 @@ export const onRequestPut: PagesFunction<Env> = async (context) => {
 
       existingList.forEach((gw: any) => {
         if (gw && targetIdSet.has(gw.id)) {
-          gw.is_active = nextActive ? 1 : 0;
+          gw.is_active = nextActiveInt;
           gw.status = nextActive ? 'ACTIVE' : 'PAUSED';
           gw.updated_at = nowIso;
           updatedCount++;
           stmts.push(
             env.DB!.prepare(`
               UPDATE giveaways
-              SET is_active = ?, status = ?, updated_at = datetime('now')
+              SET is_active = ?, status = ?, updated_at = ?
               WHERE id = ?
-            `).bind(nextActive ? 1 : 0, nextActive ? 'ACTIVE' : 'ENDED', gw.id)
+            `).bind(nextActiveInt, dbStatus, nowIso, gw.id)
           );
         }
       });
 
       if (stmts.length > 0) {
-        await env.DB.batch(stmts).catch((e) => console.warn('[Batch toggle D1 error]', e?.message));
+        const batchResults = await env.DB.batch(stmts);
+        const allOk = batchResults.every((r) => r.success);
+        if (!allOk) {
+          throw new Error('Lỗi cập nhật hàng loạt trên D1 SQLite');
+        }
       }
 
       await setSettingD1(env.DB, 'wcg_admin_giveaways_v4', existingList);
@@ -544,7 +547,7 @@ export const onRequestPut: PagesFunction<Env> = async (context) => {
     let existingList: any[] = (await getSettingD1(env.DB, 'wcg_admin_giveaways_v4', [], true).catch(() => [])) || [];
     let targetIndex = existingList.findIndex((g: any) => g && g.id === targetId);
 
-    if (targetIndex < 0) {
+    if (targetIndex < 0 || existingList.length < 10) {
       existingList = await loadAllGiveawaysD1(env.DB, true, true);
       targetIndex = existingList.findIndex((g: any) => g && g.id === targetId);
     }
@@ -843,27 +846,37 @@ export const onRequestPut: PagesFunction<Env> = async (context) => {
 
     // 2. Bật / Tắt hoạt động (action: TOGGLE_ACTIVE)
     if (action === 'TOGGLE_ACTIVE') {
-      const isCurrentlyActive = currentGw.is_active !== 0 && currentGw.is_active !== false && currentGw.is_active !== '0' && currentGw.status !== 'PAUSED';
+      const isCurrentlyActive = currentGw.is_active !== 0 && currentGw.is_active !== false && currentGw.is_active !== '0' && currentGw.status !== 'PAUSED' && currentGw.status !== 'ENDED';
       const nextActive = body.is_active !== undefined ? Boolean(body.is_active) : !isCurrentlyActive;
-      currentGw.is_active = nextActive ? 1 : 0;
+      const nextActiveInt = nextActive ? 1 : 0;
+      const dbStatus = nextActive ? 'ACTIVE' : 'ENDED';
+      const nowIso = new Date().toISOString();
+
+      currentGw.is_active = nextActiveInt;
       currentGw.status = nextActive ? 'ACTIVE' : 'PAUSED';
-      currentGw.updated_at = new Date().toISOString();
+      currentGw.updated_at = nowIso;
 
-      // Update is_active in SQLite giveaways table safely
-      // SQLite schema might have CHECK (status IN ('ACTIVE', 'ENDED')), so we update is_active guaranteed first
-      await env.DB.prepare(`
+      // 1. Cập nhật D1 SQLite bằng một lệnh duy nhất, thỏa mãn CHECK (status IN ('ACTIVE', 'ENDED'))
+      const updateResult = await env.DB.prepare(`
         UPDATE giveaways
-        SET is_active = ?, updated_at = datetime('now')
+        SET is_active = ?, status = ?, updated_at = ?
         WHERE id = ?
-      `).bind(nextActive ? 1 : 0, targetId).run().catch((e) => console.warn('[TOGGLE_ACTIVE D1 is_active error]', e?.message));
+      `).bind(nextActiveInt, dbStatus, nowIso, targetId).run();
 
-      const dbStatus = (currentGw.status === 'ENDED' || String(currentGw.status).toUpperCase() === 'ENDED' || !nextActive) ? 'ENDED' : 'ACTIVE';
-      await env.DB.prepare(`
-        UPDATE giveaways
-        SET status = ?
-        WHERE id = ?
-      `).bind(dbStatus, targetId).run().catch(() => {});
+      if (!updateResult.success) {
+        throw new Error(`Lỗi cập nhật D1 SQLite cho sự kiện ${targetId}`);
+      }
 
+      // 2. Đọc lại và xác nhận giá trị thực tế đã lưu trong D1 trước khi trả kết quả thành công (Anti False-Positive)
+      const verified = await env.DB.prepare(`
+        SELECT id, is_active, status FROM giveaways WHERE id = ?
+      `).bind(targetId).first<{ id: string; is_active: number; status: string }>();
+
+      if (!verified || verified.is_active !== nextActiveInt) {
+        throw new Error(`Xác minh ghi D1 thất bại: Mong đợi is_active=${nextActiveInt}, nhưng DB trả về ${verified?.is_active}`);
+      }
+
+      // 3. Cập nhật wcg_admin_giveaways_v4 và wcg_master_state_v4
       existingList[targetIndex] = currentGw;
       await setSettingD1(env.DB, 'wcg_admin_giveaways_v4', existingList);
       invalidateSettingMemoryCache('wcg_admin_giveaways_v4');
@@ -883,6 +896,8 @@ export const onRequestPut: PagesFunction<Env> = async (context) => {
           success: true,
           message: `Đã ${nextActive ? 'kích hoạt' : 'tạm dừng'} chiến dịch "${currentGw.title}".`,
           is_active: nextActive,
+          status: currentGw.status,
+          updated_at: nowIso,
           giveaway: currentGw,
         }),
         { status: 200, headers: CORS_HEADERS }

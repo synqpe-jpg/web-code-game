@@ -2559,16 +2559,7 @@ class MarketingService {
     const virtualBaseRaw = campaign.virtual_claimed_offset !== undefined ? campaign.virtual_claimed_offset : (details?.virtual_claimed_offset ?? 0);
     const virtualBase = Math.max(0, Number(virtualBaseRaw || 0));
 
-    // 1. Authoritative Two-Layer Server Counter (SSOT)
-    if (id && this.serverGiveawayCounters.has(id)) {
-      const serverClaimed = this.serverGiveawayCounters.get(id)!.claimed;
-      // BẢNG ADMIN LÀ CHÂN LÝ: Failsafe chặn mọi giá trị server counter bị phình to bất thường do công thức cũ
-      if (serverClaimed <= effectiveRealClaimed + virtualBase + 5) {
-        return serverClaimed;
-      }
-    }
-
-    // Single Source of Truth: Bảng Admin là chân lý (Thật + Ảo admin cài đặt)
+    // Single Source of Truth: Thống nhất tuyệt đối giữa Quản trị và Khách (Thật + Ảo cài đặt/mô phỏng)
     return effectiveRealClaimed + virtualBase;
   }
 

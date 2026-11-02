@@ -7,6 +7,33 @@ Mỗi mục sửa lỗi đều ghi nhận **Nguyên nhân gốc rễ (Root Cause
 
 ## [2026-11-02]
 
+### 303. Khắc Phục Triệt Để Hiện Tượng "Ấn Đóng Sự Kiện Nhưng F5 Lại Hồi Sinh & Web Khách Không Biến Mất": D1 SSOT-First, Server Read-Back Verification, Chống Hồi Sinh Khi Merge Cục Bộ & Thống Nhất Chỉ Số
+- **Bối cảnh & Phản ánh từ Chủ sở hữu**:
+  - Người dùng phản ánh chi tiết kèm bằng chứng: Ấn nút Đóng trên sự kiện giveaway ở trang quản trị (`admin-code-game-shop.pages.dev/admin#/private-codes`), sau đó F5 thì sự kiện hiện lại trạng thái đang mở, ngoài web khách `codegame.shop/giveaways` không biến mất.
+  - Phân tích 2 lệch phụ: Khách hiện 38-39 sự kiện trong khi Quản trị có 43 mục; số lượt giật hiển thị của Hiệp Khách Hành lệch nhau giữa quản trị (166) và trang khách (164).
+- **Nguyên nhân gốc rễ (Root Causes)**:
+  1. *Thứ tự thực thi Admin lưu LocalStorage trước khi gọi Server*: `handleToggleActive`, `handleBatchToggleSelected`, và `handleBatchToggleAll` cập nhật LocalStorage và gọi `POST /api/sync` trước khi gọi `/api/giveaways/manage`, đồng thời bọc trong `try { ... } catch {}` nuốt lỗi. Khi server D1 chưa kịp hoàn tất hoặc gặp lỗi, F5 sẽ tải lại dữ liệu cũ từ server ghi đè lên state cục bộ.
+  2. *Bộ hợp nhất `pullFromCloudflareKV` trong `adminDataService.ts` tự suy ra trạng thái & hồi sinh*: Khi server có timestamp mới hơn (từ background simulation tick), `localIsNewer` là false nên `serverGw.is_active` ghi đè local. Đồng thời logic cũ nếu `is_active` không phải false tuyệt đối thì tự lật `status = 'ACTIVE'` dù `serverGw.status` là `PAUSED`.
+  3. *Thiếu bước đọc lại xác minh (Read-back verification) trên D1*: API `manage.ts` thực thi UPDATE trên SQLite nhưng không SELECT lại để xác minh giá trị thực tế trước khi trả về 200 cho client.
+  4. *Giải thích lệch 43 so với 38*: Hàm `groupGiveawaysByGame` trên Web Khách gom các gói quà tặng cùng tựa game (`game_slug`) thành 1 thẻ card đại diện (4 game có 2 chiến dịch: `long-tuong-tam-quoc`, `tam-quoc-tu-thoi-ca`, `lien-quan-mobile`, `free-fire`), làm giảm 4 thẻ đại diện (43 - 4 = 39 thẻ, trừ 1-2 thẻ đóng thành 38).
+  5. *Giải thích lệch số giật 166 so với 164*: Do `marketingService.getClaimedDisplay` sử dụng thêm cache `serverGiveawayCounters` chưa đồng bộ với offset mô phỏng đang tăng dần theo thời gian thực (9 thật + 155 mô phỏng = 164; 9 thật + 157 mô phỏng = 166).
+- **Giải pháp kỹ thuật đã áp dụng triệt để**:
+  1. *Kiến trúc D1 SSOT-First*:
+     - Trong `PrivateCodesModule.tsx`: `handleToggleActive`, `handleBatchToggleSelected`, `handleBatchToggleAll`, `handleOpenNow` luôn gọi trực tiếp `PUT /api/giveaways/manage` trước tiên.
+     - Kiểm tra nghiêm ngặt `res.ok && data.success`. Nếu máy chủ không xác nhận, lập tức thông báo lỗi và không thay đổi state cục bộ.
+  2. *Xác minh đọc lại bền vững trên D1 (`manage.ts`)*:
+     - Ghi đồng thời và nhất quán `is_active` (0/1) và `status` ('ENDED'/'ACTIVE') bằng một lệnh UPDATE duy nhất thỏa mãn CHECK constraint SQLite.
+     - Thực hiện `SELECT is_active, status FROM giveaways WHERE id = ?` để xác minh 100% dữ liệu đã lưu bền vững trước khi trả về 200.
+  3. *Nguyên tắc chống hồi sinh (Anti-Resurrection Rule) trong `adminDataService.ts`*:
+     - Khi merge dữ liệu từ `/api/sync`: Nếu server D1 báo `isServerClosed` (is_active = false/0 hoặc status = PAUSED/ENDED/CLOSED), giá trị giải quyết BẮT BUỘC là ĐÓNG (`resolvedActive = false`, `resolvedStatus = 'PAUSED'`). Tuyệt đối không cho phép bất kỳ dữ liệu cục bộ hay suy đoán nào lật ngược về ACTIVE.
+  4. *Bảo vệ tuyệt đối vòng quét mô phỏng (`giveaway_simulation_service.ts`)*:
+     - Kiểm tra chặt chẽ `isClosed`. Sự kiện đã đóng bị bỏ qua 100%, tuyệt đối không cập nhật timestamp và không bao giờ chạm vào `is_active` hay `status`.
+  5. *Thống nhất định nghĩa số lượt giật (`marketingService.ts`)*:
+     - Loại bỏ phân nhánh gây lệch cache; `getClaimedDisplay` tính toán đồng nhất 100% theo công thức SSOT: `effectiveRealClaimed + virtualBase`.
+- **Kết quả kiểm thử**:
+  - Build frontend và Cloudflare Worker thành công 100%. Prerender 844 trang chuẩn SEO.
+
+
 ### 302. Khắc Phục Triệt Để Lỗi "Trang Admin Đóng Nhưng Web Khách Vẫn Mở": Đồng Bộ Hóa Toàn Diện D1 Check Constraint, Batch Toggle Và Ẩn Sự Kiện Đã Đóng Trên Web Khách
 - **Bối cảnh & Phản ánh từ Chủ sở hữu**:
   - Người dùng phản ánh tiếp: *"Hiện tại trang admin của tôi đóng nhhuwng web khách vẫn mở?"*

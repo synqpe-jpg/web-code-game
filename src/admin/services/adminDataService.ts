@@ -1479,11 +1479,13 @@ class AdminDataService {
                   : Math.max(0, Number(base.remaining_codes ?? 0));
                 const tot = rem + (Number(base.claimed_codes) || 0);
 
-                const rawActive = localIsNewer ? (local.is_active ?? serverGw.is_active) : (serverGw.is_active ?? local.is_active);
-                const resolvedActive = rawActive !== 0 && rawActive !== false && rawActive !== '0';
-                const resolvedStatus = (base.status === 'ENDED' || String(base.status).toUpperCase() === 'ENDED')
-                  ? 'ENDED'
-                  : (!resolvedActive ? 'PAUSED' : 'ACTIVE');
+                // D1 & Server is the Single Source of Truth for giveaway state (Anti-Resurrection Rule)
+                const isServerClosed = serverGw.is_active === false || serverGw.is_active === 0 || serverGw.is_active === '0' || serverGw.status === 'PAUSED' || serverGw.status === 'ENDED' || serverGw.status === 'CLOSED';
+                const isLocalClosed = local?.is_active === false || local?.is_active === 0 || local?.is_active === '0' || local?.status === 'PAUSED' || local?.status === 'ENDED' || local?.status === 'CLOSED';
+                // If the server says closed, it is 100% closed, never resurrect from local.
+                // If local was closed more recently than server update, honor local close.
+                const resolvedActive = isServerClosed ? false : (localIsNewer ? !isLocalClosed : !isServerClosed);
+                const resolvedStatus = !resolvedActive ? 'PAUSED' : 'ACTIVE';
 
                 return {
                   ...base,

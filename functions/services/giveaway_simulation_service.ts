@@ -118,9 +118,9 @@ export async function runGiveawaySimulation(
       const cdSec = Number(gw.global_cooldown_seconds || 0);
       if (cdSec <= 0) continue;
 
-      // 1. Kiểm tra trạng thái: đang mở
-      const isActive = gw.is_active !== false && gw.status !== 'ENDED' && gw.status !== 'PAUSED';
-      if (!isActive) {
+      // 1. Kiểm tra trạng thái: đang mở (Chống chạm/mô phỏng trên sự kiện đã đóng)
+      const isClosed = gw.is_active === false || gw.is_active === 0 || gw.is_active === '0' || gw.status === 'ENDED' || gw.status === 'PAUSED' || gw.status === 'CLOSED';
+      if (isClosed) {
         report.skippedCount++;
         report.reasons.push({ id: gw.id, reason: 'Event đã đóng hoặc tạm dừng' });
         continue;

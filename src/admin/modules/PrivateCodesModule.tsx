@@ -970,35 +970,46 @@ export const PrivateCodesModule: React.FC<PrivateCodesModuleProps> = ({ onShowTo
     setIsHistoryModalOpen(true);
   };
 
-  // --- TOGGLE STATUS (ĐÓNG / MỞ SỰ KIỆN RIÊNG LẺ) ---
+  // --- TOGGLE STATUS (ĐÓNG / MỞ SỰ KIỆN RIÊNG LẺ - SSOT D1 FIRST) ---
   const handleToggleActive = async (gw: GiveawayCampaign) => {
     const currentlyActive = isGwActive(gw);
     const newStatus = !currentlyActive;
     const poolCount = Array.isArray(gw.codes_pool) && gw.codes_pool.length > 0 ? gw.codes_pool.length : Math.max(0, Number(gw.remaining_codes || 0));
-    const updatedGw: GiveawayCampaign = {
-      ...gw,
-      is_active: newStatus,
-      status: newStatus ? 'ACTIVE' : 'PAUSED',
-    };
-    adminDataService.saveGiveawayItem(updatedGw);
-    await adminDataService.saveGiveawaysToServer();
 
     try {
-      await fetch('/api/giveaways/manage', {
+      // 1. Ghi trực tiếp và xác thực bền vững trên Cloudflare D1 trước tiên
+      const res = await fetch('/api/giveaways/manage', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json', ...getAdminHeaders() },
         body: JSON.stringify({ action: 'TOGGLE_ACTIVE', id: gw.id, is_active: newStatus }),
       });
-    } catch {}
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok || !data.success) {
+        alert(`Lỗi máy chủ khi ${newStatus ? 'mở lại' : 'đóng'} sự kiện: ${data.message || res.statusText}`);
+        return;
+      }
 
-    loadData();
-    onShowToast(
-      newStatus ? 'Đã mở sự kiện!' : 'Đã đóng sự kiện!',
-      newStatus
-        ? `Sự kiện "${gw.title}" đã mở lại. Ngoài Web hiển thị số lượng và cho phép nhận quà.`
-        : `Sự kiện "${gw.title}" đã đóng riêng lẻ. Mã thật (${poolCount} mã) vẫn để trong kho, ngoài Web báo HẾT MÃ.`,
-      newStatus ? 'success' : 'info'
-    );
+      // 2. Máy chủ D1 đã xác nhận thành công: cập nhật bộ nhớ cục bộ & đồng bộ thứ cấp
+      const updatedGw: GiveawayCampaign = {
+        ...gw,
+        is_active: newStatus,
+        status: newStatus ? 'ACTIVE' : 'PAUSED',
+        updated_at: data.updated_at || new Date().toISOString(),
+      };
+      adminDataService.saveGiveawayItem(updatedGw);
+      await adminDataService.saveGiveawaysToServer();
+
+      loadData();
+      onShowToast(
+        newStatus ? 'Đã mở sự kiện!' : 'Đã đóng sự kiện!',
+        newStatus
+          ? `Sự kiện "${gw.title}" đã mở lại. Ngoài Web hiển thị số lượng và cho phép nhận quà.`
+          : `Sự kiện "${gw.title}" đã đóng riêng lẻ. Mã thật (${poolCount} mã) vẫn để trong kho, ngoài Web báo HẾT MÃ.`,
+        newStatus ? 'success' : 'info'
+      );
+    } catch (err: any) {
+      alert(`Không thể kết nối máy chủ để cập nhật sự kiện: ${err?.message || 'Lỗi mạng'}`);
+    }
   };
 
   // --- THAO TÁC HÀNG LOẠT VỚI CÁC MỤC ĐÃ CHỌN (BATCH TOGGLE SELECTED) ---
@@ -1010,60 +1021,80 @@ export const PrivateCodesModule: React.FC<PrivateCodesModuleProps> = ({ onShowTo
       return;
     }
 
-    const currentList = adminDataService.getGiveaways();
     const targetIdsArray = Array.from(selectedCampaignIds);
-    currentList.forEach((gw) => {
-      if (selectedCampaignIds.has(gw.id)) {
-        gw.is_active = enable;
-        gw.status = enable ? 'ACTIVE' : 'PAUSED';
-        adminDataService.saveGiveawayItem(gw);
-      }
-    });
-    await adminDataService.saveGiveawaysToServer();
 
     try {
-      await fetch('/api/giveaways/manage', {
+      // 1. Ghi trực tiếp D1 trước
+      const res = await fetch('/api/giveaways/manage', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json', ...getAdminHeaders() },
         body: JSON.stringify({ action: 'BATCH_TOGGLE_ACTIVE', ids: targetIdsArray, is_active: enable }),
       });
-    } catch {}
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok || !data.success) {
+        alert(`Lỗi máy chủ khi cập nhật hàng loạt: ${data.message || res.statusText}`);
+        return;
+      }
 
-    loadData();
-    onShowToast(
-      enable ? 'Đã mở các sự kiện đã chọn!' : 'Đã đóng các sự kiện đã chọn!',
-      `Đã cập nhật trạng thái cho ${count} sự kiện. ${enable ? 'Khách có thể nhận mã.' : 'Mã thật vẫn để trong kho, ngoài web báo Hết Mã.'}`,
-      enable ? 'success' : 'info'
-    );
+      // 2. Cập nhật state cục bộ
+      const currentList = adminDataService.getGiveaways();
+      currentList.forEach((gw) => {
+        if (selectedCampaignIds.has(gw.id)) {
+          gw.is_active = enable;
+          gw.status = enable ? 'ACTIVE' : 'PAUSED';
+          gw.updated_at = new Date().toISOString();
+          adminDataService.saveGiveawayItem(gw);
+        }
+      });
+      await adminDataService.saveGiveawaysToServer();
+
+      loadData();
+      onShowToast(
+        enable ? 'Đã mở các sự kiện đã chọn!' : 'Đã đóng các sự kiện đã chọn!',
+        `Đã cập nhật trạng thái cho ${count} sự kiện. ${enable ? 'Khách có thể nhận mã.' : 'Mã thật vẫn để trong kho, ngoài web báo Hết Mã.'}`,
+        enable ? 'success' : 'info'
+      );
+    } catch (err: any) {
+      alert(`Không thể kết nối máy chủ để cập nhật: ${err?.message || 'Lỗi mạng'}`);
+    }
   };
 
   // --- MỞ NGAY LẬP TỨC (OPEN NOW / FORCE ACTIVE & CLEAR FUTURE START TIME) ---
   const handleOpenNow = async (gw: GiveawayCampaign) => {
     const todayStr = new Date().toISOString().split('T')[0];
-    const updatedGw: GiveawayCampaign = {
-      ...gw,
-      start_time: todayStr,
-      is_active: true,
-      status: 'ACTIVE',
-      last_global_claim_at: '',
-    };
-    adminDataService.saveGiveawayItem(updatedGw);
-    await adminDataService.saveGiveawaysToServer();
 
     try {
-      await fetch('/api/giveaways/manage', {
+      const res = await fetch('/api/giveaways/manage', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json', ...getAdminHeaders() },
         body: JSON.stringify({ action: 'OPEN_NOW', id: gw.id }),
       });
-    } catch {}
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok || !data.success) {
+        alert(`Lỗi máy chủ khi mở sự kiện: ${data.message || res.statusText}`);
+        return;
+      }
 
-    loadData();
-    onShowToast(
-      'Đã mở giật mã ngay lập tức!',
-      `Chiến dịch "${gw.title}" đã chuyển sang trạng thái LIVE (start_time: ${todayStr}). Khách có thể giật mã bình thường!`,
-      'success'
-    );
+      const updatedGw: GiveawayCampaign = {
+        ...gw,
+        start_time: todayStr,
+        is_active: true,
+        status: 'ACTIVE',
+        last_global_claim_at: '',
+        updated_at: new Date().toISOString(),
+      };
+      adminDataService.saveGiveawayItem(updatedGw);
+      await adminDataService.saveGiveawaysToServer();
+
+      loadData();
+      onShowToast(
+        'Đã mở giật mã ngay lập tức!',
+        `Chiến dịch "${gw.title}" đã chuyển sang trạng thái LIVE (start_time: ${todayStr}). Khách có thể giật mã bình thường!`,
+        'success'
+      );
+    } catch (err: any) {
+      alert(`Không thể kết nối máy chủ: ${err?.message || 'Lỗi mạng'}`);
+    }
   };
 
   const handleBatchToggleAll = async (enable: boolean) => {
@@ -1073,27 +1104,37 @@ export const PrivateCodesModule: React.FC<PrivateCodesModuleProps> = ({ onShowTo
     }
     const currentList = adminDataService.getGiveaways();
     const targetIdsArray = currentList.map((gw) => gw.id);
-    currentList.forEach((gw) => {
-      gw.is_active = enable;
-      gw.status = enable ? 'ACTIVE' : 'PAUSED';
-      adminDataService.saveGiveawayItem(gw);
-    });
-    await adminDataService.saveGiveawaysToServer();
 
     try {
-      await fetch('/api/giveaways/manage', {
+      // 1. Ghi trực tiếp D1 trước
+      const res = await fetch('/api/giveaways/manage', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json', ...getAdminHeaders() },
         body: JSON.stringify({ action: 'BATCH_TOGGLE_ACTIVE', ids: targetIdsArray, is_active: enable }),
       });
-    } catch {}
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok || !data.success) {
+        alert(`Lỗi máy chủ khi cập nhật: ${data.message || res.statusText}`);
+        return;
+      }
 
-    loadData();
-    onShowToast(
-      enable ? 'Đã mở tất cả đợt phát!' : 'Đã đóng tất cả đợt phát!',
-      `Đã cập nhật trạng thái cho ${currentList.length} đợt phát giveaway.`,
-      enable ? 'success' : 'info'
-    );
+      currentList.forEach((gw) => {
+        gw.is_active = enable;
+        gw.status = enable ? 'ACTIVE' : 'PAUSED';
+        gw.updated_at = new Date().toISOString();
+        adminDataService.saveGiveawayItem(gw);
+      });
+      await adminDataService.saveGiveawaysToServer();
+
+      loadData();
+      onShowToast(
+        enable ? 'Đã mở tất cả đợt phát!' : 'Đã đóng tất cả đợt phát!',
+        `Đã cập nhật trạng thái cho ${currentList.length} đợt phát giveaway.`,
+        enable ? 'success' : 'info'
+      );
+    } catch (err: any) {
+      alert(`Không thể kết nối máy chủ: ${err?.message || 'Lỗi mạng'}`);
+    }
   };
 
   // --- DELETE CAMPAIGN ---
