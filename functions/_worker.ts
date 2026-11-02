@@ -33,6 +33,8 @@ import * as notifLogsApi from './api/notifications/logs';
 import * as trackDownloadApi from './api/track-download';
 import * as newsIndexApi from './api/news/index';
 import * as newsIdApi from './api/news/[id]';
+import * as eventsIndexApi from './api/events/index';
+import * as eventsIdApi from './api/events/[id]';
 import * as missionsIndexApi from './api/missions/index';
 import * as missionsIdApi from './api/missions/[id]';
 import * as missionsSubmitApi from './api/missions/submit';
@@ -680,6 +682,22 @@ async function handleWorkerRequest(request: Request, env: Env, ctx: ExecutionCon
         if (method === 'PUT' || method === 'PATCH') return await newsIdApi.onRequestPut(customContext);
         if (method === 'DELETE') return await newsIdApi.onRequestDelete(customContext);
         return await newsIdApi.onRequestGet(customContext);
+      }
+
+      // 14.1. Game Events CRUD & Review APIs (Sự Kiện Game)
+      if (pathname === '/api/events') {
+        if (method === 'OPTIONS') return await eventsIndexApi.onRequestOptions();
+        if (method === 'POST') return await eventsIndexApi.onRequestPost(context);
+        return await eventsIndexApi.onRequestGet(context);
+      }
+
+      if (pathname.startsWith('/api/events/') && pathname !== '/api/events') {
+        const eventId = pathname.replace('/api/events/', '').trim();
+        const customContext = { ...context, params: { id: eventId } };
+        if (method === 'OPTIONS') return await eventsIdApi.onRequestOptions();
+        if (method === 'PUT' || method === 'PATCH') return await eventsIdApi.onRequestPut(customContext);
+        if (method === 'DELETE') return await eventsIdApi.onRequestDelete(customContext);
+        return await eventsIdApi.onRequestGet(customContext);
       }
 
       // 15. System API Keys & Permissions Management
