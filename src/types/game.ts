@@ -310,6 +310,7 @@ export interface UserProfile {
 }
 
 // News Article Model (Tin Tức Cập Nhật Game)
+export * from './gameEvent';
 export interface NewsArticle {
   id: string;
   slug: string;

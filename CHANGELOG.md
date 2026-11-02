@@ -7,6 +7,51 @@ Mỗi mục sửa lỗi đều ghi nhận **Nguyên nhân gốc rễ (Root Cause
 
 ## [2026-11-02]
 
+### 304. Triển Khai Tính Năng "Sự Kiện Game" (Tách Độc Lập Khỏi Tin Tức & Không Trộn Săn Giveaway): 3 Đường Đăng, Quản Trị Mục Con Trong Tin Tức, API CRUD, Lọc & Sắp Xếp Tự Động Theo Thời Gian Thực
+- **Bối cảnh & Yêu cầu từ Chủ sở hữu (Yêu cầu làm mục Sự kiện game trên codegame.shop - 02/11/2026)**:
+  1. *Tách Tin tức thành 2 phần độc lập*: "Tin tức" (kể chuyện, cập nhật, đánh giá) và "Sự kiện" (tổng hợp sự kiện có thời hạn từ Fanpage, Group, Website chính thức).
+  2. *Phân định rõ ràng*: Săn Giveaway (nhận mã trực tiếp trên web) vs Sự kiện (tóm tắt sự kiện ngoài game, dẫn về mã trên web và link chính thức). Hai mục đứng riêng, không trộn.
+  3. *Cấu trúc thẻ sự kiện chuẩn mực*:
+     - Tựa game (tên, slug, icon chính thức `/game_icons/${slug}.webp`, không dùng ảnh tạm).
+     - Tên sự kiện.
+     - Nguồn: Fanpage / Group / Web kèm link nguồn hợp lệ.
+     - Thời gian: Bắt đầu + Kết thúc (giờ VN). Nếu không rõ hạn -> nhãn "Chưa rõ hạn" và duyệt tay.
+     - Cách tham gia: 1-2 dòng diễn đạt lại bằng lời của mình, không chép nguyên văn.
+     - Mã liên quan: Chỉ ghi mã công khai chính thức. Mã quà riêng tư/livestream để trống.
+     - Nút 1: "Xem code trên web" -> trỏ về trang mã của đúng game đó.
+     - Nút 2: "Sự kiện chính thức" -> mở link nguồn gốc.
+  4. *Bộ lọc & sắp xếp tự động*:
+     - Trạng thái: Tất cả, Đang diễn ra, Sắp tới, Đã kết thúc. Trạng thái tự động tính toán từ thời gian thực `Date.now()`, không nhập tay. Sự kiện hết hạn tự động chuyển sang Đã kết thúc, không xóa.
+     - Sắp xếp mặc định: Đang diễn ra (hạn gần nhất trước) -> Sắp tới (bắt đầu gần nhất) -> Đã kết thúc.
+  5. *Vị trí Quản trị & 3 cơ chế đăng*:
+     - Vị trí: Sự kiện là mục con nằm trong `NewsModule.tsx`, chia sẻ khung quản trị tin tức.
+     - Đường 1 (Đăng tay): Quản trị nhập đầy đủ các trường bắt buộc rồi xuất bản.
+     - Đường 2 (Tự quét): Quét Fanpage/Web đưa vào hàng chờ duyệt tay `PENDING`.
+     - Đường 3 (API tự động): Endpoint `POST /api/events` dùng chung quyền với tin tức (`NEWS_FULL` / `ADMIN_FULL`).
+- **Giải pháp kỹ thuật đã triển khai toàn diện**:
+  1. *Kiến trúc Dữ liệu & Types*:
+     - `src/types/gameEvent.ts`: Định nghĩa kiểu `GameEventItem`, `GameEventStatus`, `GameEventTimeStatus`, hàm `getGameEventTimeStatus()` và hàm `sortGameEvents()`. Export qua `src/types/game.ts`.
+     - `src/data/seedGameEvents.ts`: Khởi tạo 3 sự kiện mẫu theo đúng yêu cầu kiểm thử của Chủ sở hữu (Hắc Tây Du kết thúc 02/11 `CUOITUANVUIVE` - Đang diễn ra, Hiệp Khách Hành 05/11 - Sắp tới, Hắc Tây Du livestream 01/11 - Đã kết thúc).
+     - `src/services/gameEventService.ts`: Lớp dịch vụ client quản lý lưu trữ, phát sự kiện tùy biến `wcg_game_events_updated`, đồng bộ 2 chiều với Cloudflare KV/D1.
+  2. *Hạ tầng Cloudflare Serverless API*:
+     - `functions/api/events/index.ts`: Endpoint `GET /api/events` hỗ trợ bộ lọc đa chiều (`status`, `time_status`, `game_slug`, tìm kiếm, phân trang); `POST /api/events` xác thực quyền `NEWS_FULL`/`ADMIN_FULL`/sync key và lưu bền vững vào D1 `wcg_game_events_v1`.
+     - `functions/api/events/[id].ts`: Endpoint `GET`, `PUT`/`PATCH` (sửa trường, duyệt `action: 'APPROVE'`, từ chối `action: 'REJECT'`), `DELETE` (xóa mềm qua `wcg_deleted_game_events_v1`).
+     - `functions/api/sync.ts`: Bổ sung `wcg_game_events_v1` và `wcg_deleted_game_events_v1` vào danh mục `PUBLIC_ALLOWED_KEYS`, `getMultipleSettingsD1`, và payload đồng bộ toàn sàn.
+  3. *Giao diện Quản trị Viên (`NewsModule.tsx` & `AdminGameEventsSubModule.tsx`)*:
+     - Thêm thanh chuyển tab con ngay dưới tiêu đề: `📰 Tin Tức Chuẩn SEO`, `⚡ Sự Kiện Game`, `⏳ Hàng Chờ Duyệt Sự Kiện`.
+     - Bảng quản lý sự kiện kèm bộ lọc thời gian, tìm kiếm, nút xóa, nút sửa.
+     - Modal tạo/sửa sự kiện với `SearchableGameSelect`, tự động điền icon chuẩn WebP, kiểm tra trường bắt buộc, nút mở link kiểm tra nguồn và preview trực tiếp.
+     - Hàng chờ duyệt cho phép Quản trị viên 1-click Duyệt Đăng hoặc Từ Chối.
+  4. *Giao diện Khách Hàng (`NewsView.tsx` & `GameEventsList.tsx`)*:
+     - Thêm bộ chọn phân đoạn `[ 📰 Tin Tức Game ]` | `[ ⚡ Sự Kiện Game ]` nổi bật trên đầu trang.
+     - Hiển thị danh sách thẻ sự kiện: Icon game chính thức, huy hiệu nguồn (Fanpage/Group/Web), huy hiệu trạng thái thời gian thực, thời gian diễn ra theo giờ VN, cách tham gia, hộp sao chép mã liên quan, nút "Xem code trên web" và nút "Sự kiện chính thức".
+     - Hỗ trợ routing URL trực tiếp: `/su-kien` và `/events` tự động kích hoạt tab Sự Kiện Game và cập nhật title trang.
+  5. *SEO & Prerender*:
+     - Cập nhật `scripts/prerender.js` xuất bản tĩnh `dist/su-kien/index.html` và `dist/events/index.html`, bổ sung `/su-kien` vào `sitemap.xml` (tổng 845 link).
+- **Kết quả kiểm thử**:
+  - `npm run build` hoàn thành mã thoát 0, kiểm tra 0 test artifacts, 845 link SEO tĩnh sinh thành công.
+  - Kiểm thử 3 sự kiện mẫu khớp 100% logic: Hắc Tây Du (HAPPENING), Hiệp Khách Hành (UPCOMING), Livestream Hắc Tây Du (ENDED).
+
 ### 303. Khắc Phục Triệt Để Hiện Tượng "Ấn Đóng Sự Kiện Nhưng F5 Lại Hồi Sinh & Web Khách Không Biến Mất": D1 SSOT-First, Server Read-Back Verification, Chống Hồi Sinh Khi Merge Cục Bộ & Thống Nhất Chỉ Số
 - **Bối cảnh & Phản ánh từ Chủ sở hữu**:
   - Người dùng phản ánh chi tiết kèm bằng chứng: Ấn nút Đóng trên sự kiện giveaway ở trang quản trị (`admin-code-game-shop.pages.dev/admin#/private-codes`), sau đó F5 thì sự kiện hiện lại trạng thái đang mở, ngoài web khách `codegame.shop/giveaways` không biến mất.

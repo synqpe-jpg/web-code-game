@@ -18,26 +18,41 @@ import {
   ChevronsLeft,
   ChevronsRight,
   ShieldCheck,
+  Zap,
 } from 'lucide-react';
 import { NewsArticle } from '../types/game';
 import { newsService } from '../services/newsService';
 import { dataService } from '../services/dataService';
 import { SafeNewsCover } from '../utils/newsImageUtils';
 import { NewsDetailModal } from './NewsDetailModal';
+import { GameEventsList } from './GameEventsList';
 import { useLanguage } from '../context/LanguageContext';
 
 interface NewsViewProps {
   onShowToast: (title: string, message?: string, type?: 'success' | 'error' | 'info') => void;
   onSelectGameSlug?: (slug: string) => void;
   initialArticleSlug?: string | null;
+  initialSubTab?: 'news' | 'events';
 }
 
 export const NewsView: React.FC<NewsViewProps> = ({
   onShowToast,
   onSelectGameSlug,
   initialArticleSlug,
+  initialSubTab,
 }) => {
   const { t } = useLanguage();
+  const [subTab, setSubTab] = useState<'news' | 'events'>(() => {
+    if (initialSubTab) return initialSubTab;
+    if (typeof window !== 'undefined') {
+      const path = window.location.pathname.toLowerCase();
+      const hash = window.location.hash.toLowerCase();
+      if (path === '/su-kien' || path.startsWith('/su-kien/') || path === '/events' || path.startsWith('/events/') || hash.includes('su-kien') || hash.includes('events')) {
+        return 'events';
+      }
+    }
+    return 'news';
+  });
   const [articles, setArticles] = useState<NewsArticle[]>(() => {
     try {
       return newsService.getPublishedArticles();
@@ -338,7 +353,51 @@ export const NewsView: React.FC<NewsViewProps> = ({
 
   return (
     <div className="w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-10 animate-fade-in">
-      {/* 1. Header Banner Title */}
+      {/* Sub-tab Navigation (Tách Tin Tức & Sự Kiện Game độc lập) */}
+      <div className="flex items-center justify-center mb-6">
+        <div className="inline-flex p-1.5 rounded-2xl bg-card/90 border border-border/80 shadow-md backdrop-blur-md max-w-md w-full">
+          <button
+            type="button"
+            onClick={() => {
+              setSubTab('news');
+              if (typeof window !== 'undefined' && window.history?.pushState) {
+                window.history.pushState(null, '', '/news');
+              }
+            }}
+            className={`flex-1 flex items-center justify-center gap-2 py-2.5 px-4 rounded-xl text-xs sm:text-sm font-black transition-all cursor-pointer ${
+              subTab === 'news'
+                ? 'bg-primary text-white shadow-md'
+                : 'text-muted-foreground hover:text-foreground hover:bg-muted/50'
+            }`}
+          >
+            <Newspaper className="w-4 h-4" />
+            <span>Tin Tức Game</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              setSubTab('events');
+              if (typeof window !== 'undefined' && window.history?.pushState) {
+                window.history.pushState(null, '', '/su-kien');
+              }
+            }}
+            className={`flex-1 flex items-center justify-center gap-2 py-2.5 px-4 rounded-xl text-xs sm:text-sm font-black transition-all cursor-pointer ${
+              subTab === 'events'
+                ? 'bg-gradient-to-r from-amber-500 via-rose-500 to-purple-600 text-white shadow-md'
+                : 'text-muted-foreground hover:text-foreground hover:bg-muted/50'
+            }`}
+          >
+            <Zap className="w-4 h-4 text-amber-300" />
+            <span>Sự Kiện Game</span>
+          </button>
+        </div>
+      </div>
+
+      {subTab === 'events' ? (
+        <GameEventsList onShowToast={onShowToast} onSelectGameSlug={onSelectGameSlug} />
+      ) : (
+        <>
+          {/* 1. Header Banner Title */}
       <div className="relative mb-6 overflow-hidden rounded-3xl bg-gradient-to-br from-card via-card/90 to-primary/10 border border-border/80 p-5 sm:p-7 shadow-lg backdrop-blur-xl">
         <div className="absolute top-0 right-0 w-96 h-96 bg-primary/10 rounded-full blur-3xl pointer-events-none -mr-20 -mt-20" />
         <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-5">
@@ -791,8 +850,10 @@ export const NewsView: React.FC<NewsViewProps> = ({
           )}
         </>
       )}
+    </>
+  )}
 
-      {/* 5. Article Detail Modal (Handled early as full-page view above) */}
+  {/* 5. Article Detail Modal (Handled early as full-page view above) */}
     </div>
   );
 };

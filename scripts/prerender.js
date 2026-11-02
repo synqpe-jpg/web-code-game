@@ -529,6 +529,59 @@ async function runPrerender() {
   fs.writeFileSync(path.join(newsDir, 'index.html'), newsHtml, 'utf8');
   console.log(`[Prerender] Đã xuất bản dist/news/index.html`);
 
+  // 2.0.1. Prerender Game Events Page (dist/su-kien/index.html & dist/events/index.html)
+  const eventsHtml = buildPageHtml({
+    title: 'Sự Kiện Game Mới Nhất 2026 & Lịch Khuyến Mãi | CodeGame.shop',
+    description: 'Tổng hợp sự kiện có thời hạn từ Fanpage, Group cộng đồng và Website chính thức của game. Tóm tắt nhanh cách tham gia, hạn nhận quà và link tham gia trực tiếp.',
+    canonicalPath: '/su-kien',
+    ogType: 'website',
+    jsonLd: [
+      {
+        '@context': 'https://schema.org',
+        '@type': 'CollectionPage',
+        name: 'Sự Kiện Game Mới Nhất 2026',
+        description: 'Tổng hợp sự kiện game chính thức có thời hạn tại Việt Nam.',
+        url: `${BASE_URL}/su-kien`,
+      },
+    ],
+    bodyContent: `
+      <div class="min-h-screen flex flex-col bg-slate-950 text-slate-100 font-sans">
+        <header class="site-header sticky top-0 z-40 w-full border-b border-slate-800 bg-slate-950/85 backdrop-blur-md px-4 py-3 flex items-center justify-between">
+          <a href="/" class="flex items-center gap-2 text-primary font-bold">
+            <img src="/logo.png" alt="CodeGame.shop" width="32" height="32" class="w-8 h-8 rounded-lg" />
+            <span class="text-white">CodeGame.Shop</span>
+          </a>
+          <nav class="flex items-center gap-4 text-xs font-bold text-slate-300">
+            <a href="/" class="hover:text-white">Trang Chủ</a>
+            <a href="/news" class="hover:text-white">Tin Tức</a>
+            <a href="/su-kien" class="text-amber-400 font-black">Sự Kiện Game</a>
+            <a href="/giveaways" class="hover:text-white">Săn Giveaway</a>
+          </nav>
+        </header>
+        <main class="max-w-7xl mx-auto px-4 py-8 space-y-6">
+          <div class="rounded-3xl border border-amber-500/30 p-6 sm:p-10 bg-slate-900 text-center">
+            <div class="inline-block px-3.5 py-1 rounded-full bg-amber-500/10 text-amber-400 text-xs font-bold border border-amber-500/30 mb-3">
+              ⚡ SỰ KIỆN GAME & KHUYẾN MÃI NGOÀI GAME
+            </div>
+            <h1 class="text-2xl sm:text-4xl font-black text-white">Sự Kiện Game Mới Nhất 2026</h1>
+            <p class="text-xs sm:text-sm text-slate-400 mt-2 max-w-2xl mx-auto">
+              Tổng hợp sự kiện có thời hạn từ Fanpage, Group cộng đồng và Website chính thức của game.
+            </p>
+          </div>
+        </main>
+      </div>
+    `,
+  });
+
+  const suKienDir = path.join(distDir, 'su-kien');
+  if (!fs.existsSync(suKienDir)) fs.mkdirSync(suKienDir, { recursive: true });
+  fs.writeFileSync(path.join(suKienDir, 'index.html'), eventsHtml, 'utf8');
+
+  const eventsDir = path.join(distDir, 'events');
+  if (!fs.existsSync(eventsDir)) fs.mkdirSync(eventsDir, { recursive: true });
+  fs.writeFileSync(path.join(eventsDir, 'index.html'), eventsHtml, 'utf8');
+  console.log(`[Prerender] Đã xuất bản dist/su-kien/index.html & dist/events/index.html`);
+
   // 2.1. Prerender Individual News Articles
   let newsArticles = [];
   try {
@@ -1721,6 +1774,7 @@ async function runPrerender() {
     { loc: `${BASE_URL}/`, priority: '1.0', changefreq: 'daily', lastmod: homeLastmod },
     { loc: `${BASE_URL}/danh-sach-game-a-z`, priority: '0.9', changefreq: 'daily', lastmod: todayStr },
     { loc: `${BASE_URL}/news`, priority: '0.9', changefreq: 'daily', lastmod: newsLastmod },
+    { loc: `${BASE_URL}/su-kien`, priority: '0.9', changefreq: 'daily', lastmod: todayStr },
     { loc: `${BASE_URL}/giveaways`, priority: '0.9', changefreq: 'daily', lastmod: gwLastmod },
     { loc: `${BASE_URL}/store`, priority: '0.9', changefreq: 'daily', lastmod: '2026-10-27' },
     { loc: `${BASE_URL}/utilities`, priority: '0.9', changefreq: 'daily', lastmod: '2026-10-27' },

@@ -34,6 +34,7 @@ import fallbackUtilitiesData from '../../src/data/utilities.json';
 import fallbackGiveawaysData from '../../src/data/giveaways.json';
 import fallbackStoreProductsData from '../../src/data/storeProducts.json';
 import { DEFAULT_NEWS_ARTICLES as fallbackNewsArticles } from '../../src/data/seedNews';
+import { SEED_GAME_EVENTS } from '../../src/data/seedGameEvents';
 import { DEFAULT_UPCOMING_GAMES as fallbackUpcomingGames } from '../../src/types/game';
 import { DEFAULT_MARKETING_CONFIG } from '../../src/services/marketingService';
 import { computeSha256, hasScope } from '../services/mission_service';
@@ -243,6 +244,8 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
       'wcg_admin_upcoming_games_v1', // Public upcoming games catalog
       'wcg_growth_config_v1',        // Public growth & engagement configuration
       'wcg_universal_templates_v1',  // Public universal template system configuration
+      'wcg_game_events_v1',          // Public game events catalog
+      'wcg_deleted_game_events_v1',  // Public game events deleted tombstones
       'wcg_template_snapshots_v1',   // Template system snapshots backup
       'wcg_template_audit_logs_v1',  // Template system audit logs
     ]);
@@ -500,8 +503,10 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
               'wcg_event_schedules_v1',
               'wcg_admin_upcoming_games_v1',
               'wcg_universal_templates_v1',
+              'wcg_game_events_v1',
+              'wcg_deleted_game_events_v1',
             ],
-            new Set(['wcg_news_articles_v1', 'wcg_deleted_news_articles_v1', 'wcg_admin_upcoming_games_v1', 'wcg_marketing_config_v1'])
+            new Set(['wcg_news_articles_v1', 'wcg_deleted_news_articles_v1', 'wcg_admin_upcoming_games_v1', 'wcg_marketing_config_v1', 'wcg_game_events_v1', 'wcg_deleted_game_events_v1'])
           ),
         ]);
 
@@ -1105,6 +1110,13 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
         return filterOutTombstones(list, 'upcoming_game', tombstonesMap, (g: any) => ({ id: g?.id, slug: g?.slug }));
       })(),
       universalTemplates: d1Settings['wcg_universal_templates_v1'] || masterState.universalTemplates || null,
+      gameEvents: (() => {
+        const raw = d1Settings['wcg_game_events_v1'] || masterState.gameEvents;
+        const list = (Array.isArray(raw) && raw.length > 0) ? raw : SEED_GAME_EVENTS;
+        const delEventsSet = new Set(Array.isArray(d1Settings['wcg_deleted_game_events_v1']) ? d1Settings['wcg_deleted_game_events_v1'] : []);
+        return list.filter((e: any) => e && e.id && !delEventsSet.has(e.id));
+      })(),
+      deletedGameEvents: d1Settings['wcg_deleted_game_events_v1'] || masterState.deletedGameEvents || [],
     };
 
     if (authorized) {
@@ -5672,6 +5684,21 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
         if (body.newsAutoSources !== undefined) await setSettingD1(env.DB, 'wcg_news_auto_sources_v1', body.newsAutoSources);
         if (body.newsScheduleConfig !== undefined) await setSettingD1(env.DB, 'wcg_news_schedule_config_v1', body.newsScheduleConfig);
         if (body.eventSchedules !== undefined || body.key === 'wcg_event_schedules_v1') await setSettingD1(env.DB, 'wcg_event_schedules_v1', body.eventSchedules ?? body.data);
+        if (body.gameEvents !== undefined || body.key === 'wcg_game_events_v1') {
+          const eventsToSave = body.gameEvents ?? body.data;
+          if (Array.isArray(eventsToSave)) {
+            currentMaster.gameEvents = eventsToSave;
+            await setSettingD1(env.DB, 'wcg_game_events_v1', eventsToSave);
+            invalidateSettingMemoryCache('wcg_game_events_v1');
+          }
+        }
+        if (body.deletedGameEvents !== undefined || body.key === 'wcg_deleted_game_events_v1') {
+          const delEventsToSave = body.deletedGameEvents ?? body.data;
+          if (Array.isArray(delEventsToSave)) {
+            await setSettingD1(env.DB, 'wcg_deleted_game_events_v1', delEventsToSave);
+            invalidateSettingMemoryCache('wcg_deleted_game_events_v1');
+          }
+        }
         if (body.upcomingGames !== undefined || body.key === 'wcg_admin_upcoming_games_v1' || body.key === 'wcg_upcoming_games_v1') {
           const uGames = body.upcomingGames ?? body.data;
           if (Array.isArray(uGames)) {

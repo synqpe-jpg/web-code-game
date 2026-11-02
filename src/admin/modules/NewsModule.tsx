@@ -59,12 +59,19 @@ import { GameAdminRecord } from '../types/adminTypes';
 import { smartVietnameseMatch, normalizeVietnamese } from '../../utils/textUtils';
 import { compressImageFile, optimizeImageUrl, formatBytes } from '../../utils/imageCompressor';
 import { isSpamOrAdArticle } from '../../utils/newsFilterUtils';
+import { AdminGameEventsSubModule } from './AdminGameEventsSubModule';
+import { gameEventService } from '../../services/gameEventService';
 
 interface NewsModuleProps {
   onShowToast: (title: string, message?: string, type?: 'success' | 'error' | 'info') => void;
 }
 
 export const NewsModule: React.FC<NewsModuleProps> = ({ onShowToast }) => {
+  const [mainSubTab, setMainSubTab] = useState<'news' | 'events' | 'pending'>('news');
+  const [gameEventsCount, setGameEventsCount] = useState(() => ({
+    published: gameEventService.getPublishedEvents().length,
+    pending: gameEventService.getPendingEvents().length,
+  }));
   const [articles, setArticles] = useState<NewsArticle[]>([]);
   const [games, setGames] = useState<GameAdminRecord[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
@@ -243,8 +250,18 @@ export const NewsModule: React.FC<NewsModuleProps> = ({ onShowToast }) => {
       setScheduleConfig(newsService.getScheduleConfig());
       setCrawlLogs(newsService.getCrawlLogs());
     };
+    const handleEventsUpdate = () => {
+      setGameEventsCount({
+        published: gameEventService.getPublishedEvents().length,
+        pending: gameEventService.getPendingEvents().length,
+      });
+    };
     window.addEventListener('wcg_news_updated', handleNewsUpdate);
-    return () => window.removeEventListener('wcg_news_updated', handleNewsUpdate);
+    window.addEventListener('wcg_game_events_updated', handleEventsUpdate);
+    return () => {
+      window.removeEventListener('wcg_news_updated', handleNewsUpdate);
+      window.removeEventListener('wcg_game_events_updated', handleEventsUpdate);
+    };
   }, []);
 
   // Filtered articles
@@ -1652,7 +1669,61 @@ export const NewsModule: React.FC<NewsModuleProps> = ({ onShowToast }) => {
         </div>
       </div>
 
-      {/* 2. Stats Overview */}
+      {/* Sub-Tab Navigation: Tin tức vs Sự kiện Game vs Hàng chờ duyệt */}
+      <div className="flex items-center gap-2 p-1.5 bg-card/60 border border-border/80 rounded-2xl backdrop-blur-md overflow-x-auto">
+        <button
+          type="button"
+          onClick={() => setMainSubTab('news')}
+          className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-black whitespace-nowrap transition-all cursor-pointer ${
+            mainSubTab === 'news'
+              ? 'bg-primary text-white shadow-md'
+              : 'text-muted-foreground hover:text-foreground hover:bg-muted/50'
+          }`}
+        >
+          <Newspaper className="w-4 h-4" />
+          <span>📰 Tin Tức Chuẩn SEO ({articles.length})</span>
+        </button>
+
+        <button
+          type="button"
+          onClick={() => setMainSubTab('events')}
+          className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-black whitespace-nowrap transition-all cursor-pointer ${
+            mainSubTab === 'events'
+              ? 'bg-gradient-to-r from-amber-500 to-rose-500 text-white shadow-md'
+              : 'text-muted-foreground hover:text-foreground hover:bg-muted/50'
+          }`}
+        >
+          <Zap className="w-4 h-4 text-amber-300" />
+          <span>⚡ Sự Kiện Game ({gameEventsCount.published})</span>
+        </button>
+
+        <button
+          type="button"
+          onClick={() => setMainSubTab('pending')}
+          className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-black whitespace-nowrap transition-all cursor-pointer ${
+            mainSubTab === 'pending'
+              ? 'bg-gradient-to-r from-purple-600 to-indigo-600 text-white shadow-md'
+              : 'text-muted-foreground hover:text-foreground hover:bg-muted/50'
+          }`}
+        >
+          <Clock className="w-4 h-4 text-purple-300" />
+          <span>⏳ Hàng Chờ Duyệt Sự Kiện ({gameEventsCount.pending})</span>
+          {gameEventsCount.pending > 0 && (
+            <span className="w-2 h-2 rounded-full bg-rose-500 animate-ping" />
+          )}
+        </button>
+      </div>
+
+      {mainSubTab !== 'news' ? (
+        <AdminGameEventsSubModule
+          games={games}
+          onShowToast={onShowToast}
+          subTab={mainSubTab}
+          onSwitchSubTab={setMainSubTab}
+        />
+      ) : (
+        <>
+          {/* 2. Stats Overview */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
         <div className="p-4 rounded-2xl bg-card border border-border/80 space-y-1">
           <div className="text-xs text-muted-foreground font-medium flex items-center justify-between">
@@ -1995,8 +2066,10 @@ export const NewsModule: React.FC<NewsModuleProps> = ({ onShowToast }) => {
           </table>
         </div>
       </div>
+    </>
+  )}
 
-      {/* 5. Modal: AI Tự Động Viết Bài & Viết Lại Từ Link */}
+  {/* 5. Modal: AI Tự Động Viết Bài & Viết Lại Từ Link */}
       {isAiModalOpen &&
         createPortal(
           <div className="fixed inset-0 z-[9999] flex items-center justify-center p-3 sm:p-5 bg-black/85 backdrop-blur-md animate-fade-in">

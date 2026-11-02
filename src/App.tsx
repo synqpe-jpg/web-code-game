@@ -98,13 +98,24 @@ export const App: React.FC = () => {
         return 'admin';
       }
 
-      if (hash.includes('news') || hash.includes('tintuc') || path === '/news' || path.startsWith('/news/')) return 'news';
+      if (hash.includes('news') || hash.includes('tintuc') || path === '/news' || path.startsWith('/news/') || hash.includes('su-kien') || hash.includes('events') || path === '/su-kien' || path.startsWith('/su-kien/') || path === '/events' || path.startsWith('/events/')) return 'news';
       if (hash.includes('giveaways') || hash.includes('gw=') || path === '/giveaways' || path.startsWith('/giveaways/')) return 'giveaways';
       if (hash.includes('store') || hash.includes('product=') || hash.includes('prod=') || path === '/store' || path.startsWith('/store/')) return 'store';
       if (hash.includes('utilities') || hash.includes('utility=') || hash.includes('ut=') || path === '/utilities' || path.startsWith('/utilities/')) return 'utilities';
       if (hash.includes('missions') || hash.includes('nhiem-vu') || path === '/missions' || path.startsWith('/missions/') || path === '/nhiem-vu' || path.startsWith('/nhiem-vu/')) return 'missions';
     }
     return 'catalog';
+  });
+
+  const [initialNewsSubTab, setInitialNewsSubTab] = useState<'news' | 'events'>(() => {
+    if (typeof window !== 'undefined') {
+      const path = window.location.pathname.toLowerCase();
+      const hash = window.location.hash.toLowerCase();
+      if (path === '/su-kien' || path.startsWith('/su-kien/') || path === '/events' || path.startsWith('/events/') || hash.includes('su-kien') || hash.includes('events')) {
+        return 'events';
+      }
+    }
+    return 'news';
   });
 
   const [initialNewsSlug, setInitialNewsSlug] = useState<string | null>(() => {
@@ -1600,6 +1611,7 @@ export const App: React.FC = () => {
                 onShowToast={showToast}
                 onSelectGameSlug={handleSelectGameSlug}
                 initialArticleSlug={initialNewsSlug}
+                initialSubTab={initialNewsSubTab}
               />
             )}
 
