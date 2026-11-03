@@ -21,6 +21,7 @@ import * as metricsSyncedApi from './api/metrics/synced';
 import * as gamesApi from './api/games';
 import * as crawlArticleApi from './api/crawl-article';
 import * as gameIconApi from './api/game-icon';
+import * as uploadIconApi from './api/games/upload-icon';
 import * as ingestCodesApi from './api/crawler/ingest-codes';
 import * as ingestUpcomingGamesApi from './api/crawler/ingest-upcoming-games';
 import * as marketingApi from './api/crawler/marketing';
@@ -541,6 +542,13 @@ async function handleWorkerRequest(request: Request, env: Env, ctx: ExecutionCon
       if (pathname === '/api/game-icon') {
         if (method === 'OPTIONS') return await gameIconApi.onRequestOptions();
         return await gameIconApi.onRequestGet(context);
+      }
+
+      // 8e.1. /api/games/upload-icon (Official Game Icon Binary Upload & Store Verifier)
+      if (pathname === '/api/games/upload-icon') {
+        if (method === 'OPTIONS') return await uploadIconApi.onRequestOptions();
+        if (method === 'POST') return await uploadIconApi.onRequestPost(context);
+        return await uploadIconApi.onRequestGet(context);
       }
 
       // 8f. /api/crawler/ingest-codes (Muse Bot & External Giftcode Ingestion API)
