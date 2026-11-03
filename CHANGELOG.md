@@ -5,6 +5,23 @@ Mỗi mục sửa lỗi đều ghi nhận **Nguyên nhân gốc rễ (Root Cause
 
 ---
 
+## [2026-11-03]
+
+### 307. Ẩn Hoàn Toàn Chữ "Còn Hàng (7 Gói)" Trên Thẻ Tiện Ích Và Popup Chi Tiết Theo Yêu Cầu Của Chủ Sở Hữu
+- **Bối cảnh & Yêu cầu từ Chủ sở hữu (03/11/2026)**:
+  - Người dùng yêu cầu: *"Bạn xóa chữ còn hàng 7 gói giúp tôi. Không động đến code khác không liên quan."*
+  - Xác nhận lựa chọn: Ẩn hoàn toàn chữ "Còn hàng (7 gói)" ở cả thẻ ngoài web và trong popup chi tiết, khách vẫn có thể bấm mua bình thường.
+- **Nguyên nhân gốc rễ (Root Cause)**:
+  - Trong `src/components/UtilitiesView.tsx` (cả grid view và list view), khi `item.stock_quantity > 0` và có cấu hình biến thể gói con, mã nguồn tự động hiển thị chuỗi `Còn hàng (${item.stock_quantity} gói)`.
+  - Trong `src/components/ProductDetailModal.tsx`, khi gói đang chọn còn hàng (`!isOutOfStock`), giao diện hiển thị huy hiệu `<span>Còn hàng (${realStock} gói)</span>`.
+- **Giải pháp chính xác (Phạm vi hẹp, không động đến code khác)**:
+  1. *Trong `ProductDetailModal.tsx`*: Khi `!isOutOfStock` (sản phẩm còn hàng), ẩn hoàn toàn nhãn `Còn hàng (${realStock} gói)`. Chỉ hiển thị `Tạm hết hàng` khi `isOutOfStock`.
+  2. *Trong `UtilitiesView.tsx`*: Chỉ hiển thị nhãn `Hết hàng` khi `item.stock_quantity <= 0`. Khi sản phẩm còn hàng, không hiển thị dòng `Còn hàng (${item.stock_quantity} gói)`, chỉ hiển thị số lượng đã bán `Đã bán: ...`.
+  3. *Bảo toàn kho hàng & thanh toán*: Giữ nguyên `stock_quantity`, quy trình thanh toán và đặt hàng vẫn hoạt động 100% trơn tru.
+- **Kết quả kiểm thử**:
+  - `npm run build` thành công mã 0, 0 test artifacts.
+  - Thẻ tiện ích và popup chi tiết không còn chữ "Còn hàng (7 gói)", giao diện sạch sẽ đúng yêu cầu.
+
 ## [2026-11-02]
 
 ### 306. Khắc Phục Lỗi Chuyển Hướng /su-kien và /events Về Trang Chủ, Tích Hợp Menu Con Sự Kiện Trong Admin Sidebar & Đồng Bộ Chuẩn API Key Scope Cho Muse
