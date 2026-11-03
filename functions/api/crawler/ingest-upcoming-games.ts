@@ -900,7 +900,7 @@ function sanitizeAndSafeguardUpcomingGames(list: any[]): { list: any[]; changed:
       'arad-idle-rpg'
     ]);
     if (SAMPLE_ICON_SLUGS.has(slugLower)) {
-      if (g.icon_verified === true) {
+      if (g.icon_verified !== false) {
         g.icon_verified = false;
         changed = true;
       }
@@ -978,6 +978,10 @@ export async function onRequestGet(context: { request: Request; env: Env }): Pro
     if (!g.icon_url) g.icon_url = ic;
     if (g.iconUrl && (g.iconUrl.startsWith('http://') || g.iconUrl.startsWith('https://'))) {
       (g as any).proxyIconUrl = `/api/game-icon?slug=${encodeURIComponent(g.slug)}&url=${encodeURIComponent(g.iconUrl)}`;
+    }
+    g.icon_verified = Boolean(g.icon_verified);
+    if (!g.icon_source) {
+      g.icon_source = g.icon_verified ? 'store chính thức' : 'chưa xác minh';
     }
   });
 
