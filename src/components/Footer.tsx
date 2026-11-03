@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Zap, Server, Globe2, FileText, Lock, X, Mail, MessageSquare, PhoneCall, Send, Smartphone } from 'lucide-react';
 import { dataService } from '../services/dataService';
+import { telegramService } from '../services/telegramService';
 import { useLanguage } from '../context/LanguageContext';
 import { LanguageSelector } from './LanguageSelector';
 
@@ -16,6 +17,13 @@ export const Footer: React.FC<FooterProps> = ({ onSelectCategory, categories, on
   const [footerData, setFooterData] = useState(() => dataService.getContentByKey('footer_support'));
   const [termsData, setTermsData] = useState(() => dataService.getContentByKey('terms_of_service'));
   const [privacyData, setPrivacyData] = useState(() => dataService.getContentByKey('privacy_policy'));
+  const [telegramGroupLink, setTelegramGroupLink] = useState<string>('/telegram');
+
+  useEffect(() => {
+    telegramService.getConfig().then((cfg) => {
+      if (cfg?.group_link) setTelegramGroupLink(cfg.group_link);
+    }).catch(() => {});
+  }, []);
 
   useEffect(() => {
     const unsub = dataService.subscribe(() => {
@@ -185,6 +193,15 @@ export const Footer: React.FC<FooterProps> = ({ onSelectCategory, categories, on
                     Nhập Vai & MMORPG
                   </a>
                 </li>
+                <li>
+                  <a
+                    href="/telegram"
+                    className="text-[#229ED9] hover:underline transition-colors text-left flex items-center gap-1.5 font-bold"
+                  >
+                    <Send className="w-3.5 h-3.5" />
+                    <span>Cộng Đồng Telegram</span>
+                  </a>
+                </li>
               </ul>
             </div>
 
@@ -286,7 +303,7 @@ export const Footer: React.FC<FooterProps> = ({ onSelectCategory, categories, on
                     </div>
                     <div className="flex items-center gap-2 text-foreground font-semibold">
                       <Send className="w-4 h-4 text-sky-400 shrink-0" />
-                      <span>Cộng Đồng Telegram: <a href={supportTelegram} target="_blank" rel="noreferrer" className="text-sky-400 font-mono underline hover:text-sky-300 ml-1">{supportTelegram}</a></span>
+                      <span>Cộng Đồng Telegram: <a href={telegramGroupLink || supportTelegram} target="_blank" rel="noreferrer" className="text-sky-400 font-mono underline hover:text-sky-300 ml-1">{telegramGroupLink || supportTelegram}</a></span>
                     </div>
                     <div className="flex items-center gap-2 text-foreground font-semibold">
                       <MessageSquare className="w-4 h-4 text-blue-400 shrink-0" />

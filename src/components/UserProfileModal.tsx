@@ -26,10 +26,16 @@ import {
   Globe,
   Sun,
   Moon,
+  Send,
+  Bell,
+  ExternalLink,
+  Unlink,
+  Trash2,
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
 import type { UserProfile } from '../types/game';
 import { authService } from '../services/authService';
+import { telegramService, type TelegramUserStatus } from '../services/telegramService';
 import { formatCore, formatFullDateTime } from '../utils/textUtils';
 import { LanguageSelector } from './LanguageSelector';
 
@@ -74,7 +80,7 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
   isDarkMode,
   onToggleTheme,
 }) => {
-  const [activeTab, setActiveTab] = useState<'profile' | 'security'>('profile');
+  const [activeTab, setActiveTab] = useState<'profile' | 'security' | 'telegram'>('profile');
 
   // Form states
   const [displayName, setDisplayName] = useState('');
@@ -92,6 +98,126 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
   const [isSaving, setIsSaving] = useState(false);
   const [isCopiedUid, setIsCopiedUid] = useState(false);
   const [customAvatarInput, setCustomAvatarInput] = useState('');
+
+  // Telegram states
+  const [telegramStatus, setTelegramStatus] = useState<TelegramUserStatus | null>(null);
+  const [isLoadingTelegram, setIsLoadingTelegram] = useState(false);
+  const [isLinkingTelegram, setIsLinkingTelegram] = useState(false);
+  const [isUnlinkingTelegram, setIsUnlinkingTelegram] = useState(false);
+  const [linkTokenData, setLinkTokenData] = useState<{ token: string; bot_username: string; expires_in: number; deep_link: string } | null>(null);
+  const [prefNewCode, setPrefNewCode] = useState(true);
+  const [prefExpiring, setPrefExpiring] = useState(true);
+  const [prefEvent, setPrefEvent] = useState(true);
+  const [isSavingPrefs, setIsSavingPrefs] = useState(false);
+
+  const loadTelegramStatus = async () => {
+    const token = authService.getToken();
+    if (!token) return;
+    setIsLoadingTelegram(true);
+    try {
+      const res = await telegramService.getUserStatus(token);
+      if (res.success && res.data) {
+        setTelegramStatus(res.data);
+        const types = res.data.subscriptions?.[0]?.notify_types?.split(',') || ['new_code', 'expiring', 'event'];
+        setPrefNewCode(types.includes('new_code'));
+        setPrefExpiring(types.includes('expiring'));
+        setPrefEvent(types.includes('event'));
+      }
+    } catch (err) {
+      console.error('Failed to load telegram status', err);
+    } finally {
+      setIsLoadingTelegram(false);
+    }
+  };
+
+  useEffect(() => {
+    if (activeTab === 'telegram' && isOpen) {
+      loadTelegramStatus();
+    }
+  }, [activeTab, isOpen]);
+
+  const handleGenerateTelegramLink = async () => {
+    const token = authService.getToken();
+    if (!token) {
+      onShowToast('Chưa đăng nhập', 'Vui lòng đăng nhập lại để liên kết Telegram.', 'error');
+      return;
+    }
+    setIsLinkingTelegram(true);
+    try {
+      const res = await telegramService.generateLinkToken(token);
+      if (res.success && res.data) {
+        setLinkTokenData(res.data);
+        onShowToast('Đã tạo liên kết', 'Hãy mở Telegram và ấn BẮT ĐẦU (START) để hoàn tất.', 'success');
+        window.open(res.data.deep_link, '_blank');
+      } else {
+        onShowToast('Lỗi tạo liên kết', res.error || 'Không thể tạo mã liên kết.', 'error');
+      }
+    } catch (err: any) {
+      onShowToast('Lỗi kết nối', err.message || 'Không thể kết nối đến máy chủ.', 'error');
+    } finally {
+      setIsLinkingTelegram(false);
+    }
+  };
+
+  const handleUnlinkTelegram = async () => {
+    if (!window.confirm('Bạn có chắc chắn muốn hủy liên kết Telegram với tài khoản này không?')) return;
+    const token = authService.getToken();
+    if (!token) return;
+    setIsUnlinkingTelegram(true);
+    try {
+      const res = await telegramService.unlink(token);
+      if (res.success) {
+        onShowToast('Đã hủy liên kết', 'Tài khoản của bạn đã được gỡ khỏi Telegram Bot.', 'info');
+        setLinkTokenData(null);
+        await loadTelegramStatus();
+      } else {
+        onShowToast('Lỗi hủy liên kết', res.error || 'Thao tác không thành công.', 'error');
+      }
+    } catch (err: any) {
+      onShowToast('Lỗi kết nối', err.message, 'error');
+    } finally {
+      setIsUnlinkingTelegram(false);
+    }
+  };
+
+  const handleSaveTelegramPrefs = async () => {
+    const token = authService.getToken();
+    if (!token) return;
+    setIsSavingPrefs(true);
+    try {
+      const types: string[] = [];
+      if (prefNewCode) types.push('new_code');
+      if (prefExpiring) types.push('expiring');
+      if (prefEvent) types.push('event');
+      const res = await telegramService.updatePreferences(token, types);
+      if (res.success) {
+        onShowToast('Thành công', 'Đã lưu tùy chọn thông báo Telegram!', 'success');
+        await loadTelegramStatus();
+      } else {
+        onShowToast('Lỗi', res.error || 'Không thể lưu tùy chọn.', 'error');
+      }
+    } catch (err: any) {
+      onShowToast('Lỗi kết nối', err.message, 'error');
+    } finally {
+      setIsSavingPrefs(false);
+    }
+  };
+
+  const handleUnfollowTelegramGame = async (slug: string) => {
+    const token = authService.getToken();
+    if (!token) return;
+    try {
+      const res = await telegramService.toggleFollowGame(token, slug, 'unfollow');
+      if (res.success) {
+        onShowToast('Đã hủy theo dõi', 'Bạn sẽ không nhận thông báo mã riêng của game này nữa.', 'info');
+        await loadTelegramStatus();
+      } else {
+        onShowToast('Lỗi', res.error || 'Không thể hủy theo dõi.', 'error');
+      }
+    } catch (err: any) {
+      onShowToast('Lỗi kết nối', err.message, 'error');
+    }
+  };
 
   useEffect(() => {
     if (currentUser) {
@@ -247,6 +373,17 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
           >
             <KeyRound className="w-4 h-4" />
             <span>Bảo Mật & Mật Khẩu</span>
+          </button>
+          <button
+            onClick={() => setActiveTab('telegram')}
+            className={`py-3 px-4 text-xs sm:text-sm font-bold border-b-2 transition-all flex items-center gap-2 cursor-pointer ${
+              activeTab === 'telegram'
+                ? 'border-[#229ED9] text-[#229ED9] bg-[#229ED9]/5'
+                : 'border-transparent text-muted-foreground hover:text-foreground'
+            }`}
+          >
+            <Send className="w-4 h-4 text-[#229ED9]" />
+            <span>Liên Kết Telegram</span>
           </button>
         </div>
 
@@ -569,7 +706,7 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
                 </div>
               </div>
             </form>
-          ) : (
+          ) : activeTab === 'security' ? (
             /* SECURITY TAB: Password Change */
             <form onSubmit={handleSaveProfile} className="space-y-5">
               <div className="p-4 rounded-2xl bg-amber-500/10 border border-amber-500/20 text-amber-300 text-xs flex items-start gap-3">
@@ -673,6 +810,229 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
                 </button>
               </div>
             </form>
+          ) : (
+            /* TELEGRAM TAB: Link Account & Notification Preferences */
+            <div className="space-y-5">
+              {isLoadingTelegram ? (
+                <div className="p-8 text-center space-y-3">
+                  <div className="w-8 h-8 mx-auto border-3 border-[#229ED9]/30 border-t-[#229ED9] rounded-full animate-spin" />
+                  <p className="text-xs text-muted-foreground">Đang tải trạng thái liên kết Telegram...</p>
+                </div>
+              ) : telegramStatus?.is_linked ? (
+                <>
+                  {/* Status Banner */}
+                  <div className="p-4 sm:p-5 rounded-2xl bg-[#229ED9]/10 border border-[#229ED9]/30 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+                    <div className="flex items-center gap-3">
+                      <div className="w-12 h-12 rounded-2xl bg-[#229ED9]/20 text-[#229ED9] flex items-center justify-center border border-[#229ED9]/40 shadow-sm shrink-0">
+                        <Send className="w-6 h-6" />
+                      </div>
+                      <div>
+                        <div className="flex items-center gap-2">
+                          <span className="font-extrabold text-foreground text-sm">
+                            {telegramStatus.telegram_username ? `@${telegramStatus.telegram_username}` : 'Đã liên kết Telegram'}
+                          </span>
+                          <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
+                            Đang Hoạt Động
+                          </span>
+                        </div>
+                        <p className="text-[11px] text-muted-foreground mt-0.5">
+                          Liên kết từ: {telegramStatus.telegram_linked_at ? formatFullDateTime(telegramStatus.telegram_linked_at) : 'Gần đây'}
+                        </p>
+                      </div>
+                    </div>
+
+                    <button
+                      type="button"
+                      onClick={handleUnlinkTelegram}
+                      disabled={isUnlinkingTelegram}
+                      className="px-3.5 py-2 rounded-xl bg-rose-500/15 hover:bg-rose-500/25 border border-rose-500/40 text-rose-400 text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 active:scale-95 disabled:opacity-50"
+                    >
+                      <Unlink className="w-3.5 h-3.5" />
+                      <span>{isUnlinkingTelegram ? 'Đang hủy...' : 'Hủy liên kết'}</span>
+                    </button>
+                  </div>
+
+                  {/* Notification Preferences */}
+                  <div className="p-4 sm:p-5 rounded-2xl bg-card border border-border space-y-4">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <Bell className="w-4 h-4 text-[#229ED9]" />
+                        <h4 className="font-bold text-foreground text-xs sm:text-sm">Tùy Chọn Thông Báo Riêng (DM Bot)</h4>
+                      </div>
+                      <span className="text-[10px] text-muted-foreground">Khung giờ 09:00 - 22:00</span>
+                    </div>
+
+                    <div className="space-y-2.5">
+                      <label className="flex items-center gap-3 p-2.5 rounded-xl bg-muted/40 hover:bg-muted cursor-pointer transition-colors">
+                        <input
+                          type="checkbox"
+                          checked={prefNewCode}
+                          onChange={(e) => setPrefNewCode(e.target.checked)}
+                          className="w-4 h-4 rounded text-[#229ED9] focus:ring-[#229ED9]"
+                        />
+                        <div className="flex-1 text-xs">
+                          <p className="font-bold text-foreground">Mã Giftcode Mới</p>
+                          <p className="text-[11px] text-muted-foreground">Nhận thông báo khi có mã code mới cho game bạn theo dõi</p>
+                        </div>
+                      </label>
+
+                      <label className="flex items-center gap-3 p-2.5 rounded-xl bg-muted/40 hover:bg-muted cursor-pointer transition-colors">
+                        <input
+                          type="checkbox"
+                          checked={prefExpiring}
+                          onChange={(e) => setPrefExpiring(e.target.checked)}
+                          className="w-4 h-4 rounded text-[#229ED9] focus:ring-[#229ED9]"
+                        />
+                        <div className="flex-1 text-xs">
+                          <p className="font-bold text-foreground">Mã Sắp Hết Hạn</p>
+                          <p className="text-[11px] text-muted-foreground">Cảnh báo trước 24 giờ để không bỏ lỡ mã quà tặng quý</p>
+                        </div>
+                      </label>
+
+                      <label className="flex items-center gap-3 p-2.5 rounded-xl bg-muted/40 hover:bg-muted cursor-pointer transition-colors">
+                        <input
+                          type="checkbox"
+                          checked={prefEvent}
+                          onChange={(e) => setPrefEvent(e.target.checked)}
+                          className="w-4 h-4 rounded text-[#229ED9] focus:ring-[#229ED9]"
+                        />
+                        <div className="flex-1 text-xs">
+                          <p className="font-bold text-foreground">Sự Kiện & Giveaway Đặc Biệt</p>
+                          <p className="text-[11px] text-muted-foreground">Nhận tin sự kiện lớn, phát mã giới hạn từ NPH</p>
+                        </div>
+                      </label>
+                    </div>
+
+                    <div className="flex justify-end pt-2 border-t border-border/60">
+                      <button
+                        type="button"
+                        onClick={handleSaveTelegramPrefs}
+                        disabled={isSavingPrefs}
+                        className="px-4 py-2 rounded-xl bg-[#229ED9] hover:bg-[#1f8ec4] text-white text-xs font-bold transition-all cursor-pointer shadow-sm disabled:opacity-50"
+                      >
+                        {isSavingPrefs ? 'Đang lưu...' : 'Lưu Tùy Chọn'}
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Subscriptions List */}
+                  <div className="p-4 sm:p-5 rounded-2xl bg-card border border-border space-y-3">
+                    <h4 className="font-bold text-foreground text-xs sm:text-sm flex items-center justify-between">
+                      <span>Game Bạn Đang Theo Dõi</span>
+                      <span className="text-[11px] font-mono font-bold text-muted-foreground">
+                        {telegramStatus.subscriptions?.length || 0} game
+                      </span>
+                    </h4>
+
+                    {telegramStatus.subscriptions && telegramStatus.subscriptions.length > 0 ? (
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-48 overflow-y-auto">
+                        {telegramStatus.subscriptions.map((sub) => (
+                          <div
+                            key={sub.game_slug}
+                            className="flex items-center justify-between p-2 rounded-xl bg-muted/40 border border-border/60 text-xs"
+                          >
+                            <span className="font-mono font-bold text-foreground truncate max-w-[150px]">
+                              {sub.game_slug}
+                            </span>
+                            <button
+                              type="button"
+                              onClick={() => handleUnfollowTelegramGame(sub.game_slug)}
+                              className="p-1 rounded-lg hover:bg-rose-500/20 text-rose-400 transition-colors cursor-pointer"
+                              title="Hủy theo dõi game này"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <p className="text-xs text-muted-foreground py-2 text-center">
+                        Bạn chưa theo dõi game nào. Hãy mở chi tiết game trên website và ấn &quot;Theo dõi qua Telegram&quot; hoặc gõ <code>/theodoi &lt;slug&gt;</code> với Bot.
+                      </p>
+                    )}
+                  </div>
+                </>
+              ) : (
+                /* Not Linked State */
+                <div className="space-y-4">
+                  <div className="p-5 rounded-2xl bg-gradient-to-br from-[#229ED9]/15 via-accent/5 to-muted/40 border border-[#229ED9]/30 text-center space-y-3">
+                    <div className="w-12 h-12 mx-auto rounded-2xl bg-[#229ED9]/20 text-[#229ED9] flex items-center justify-center border border-[#229ED9]/30 shadow-sm">
+                      <Send className="w-6 h-6" />
+                    </div>
+                    <div>
+                      <h4 className="font-extrabold text-foreground text-sm sm:text-base">
+                        Liên Kết Telegram Nhận Mã Tức Thì
+                      </h4>
+                      <p className="text-xs text-muted-foreground mt-1 max-w-md mx-auto leading-relaxed">
+                        Kết nối tài khoản của bạn với Bot Telegram CodeGame để nhận mã giftcode riêng tự động, cảnh báo mã sắp hết hạn và quản lý game yêu thích 24/7.
+                      </p>
+                    </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 text-left pt-2">
+                      <div className="p-2.5 rounded-xl bg-card border border-border text-[11px] space-y-1">
+                        <p className="font-bold text-foreground">⚡ Nhận Mã Tức Thì</p>
+                        <p className="text-muted-foreground">Bot gửi trực tiếp vào Telegram ngay khi có mã mới.</p>
+                      </div>
+                      <div className="p-2.5 rounded-xl bg-card border border-border text-[11px] space-y-1">
+                        <p className="font-bold text-foreground">⏰ Báo Hạn Chính Xác</p>
+                        <p className="text-muted-foreground">Nhắc nhở trước khi giftcode hết hạn 24 giờ.</p>
+                      </div>
+                      <div className="p-2.5 rounded-xl bg-card border border-border text-[11px] space-y-1">
+                        <p className="font-bold text-foreground">🎯 Tùy Chọn Linh Hoạt</p>
+                        <p className="text-muted-foreground">Chỉ nhận mã của game bạn quan tâm, không spam.</p>
+                      </div>
+                    </div>
+
+                    <div className="pt-2">
+                      <button
+                        type="button"
+                        onClick={handleGenerateTelegramLink}
+                        disabled={isLinkingTelegram}
+                        className="w-full sm:w-auto px-6 py-2.5 rounded-xl bg-[#229ED9] hover:bg-[#1f8ec4] text-white font-extrabold text-xs sm:text-sm shadow-md transition-all cursor-pointer active:scale-95 flex items-center justify-center gap-2 mx-auto disabled:opacity-50"
+                      >
+                        <Send className="w-4 h-4" />
+                        <span>{isLinkingTelegram ? 'Đang tạo liên kết...' : 'Liên Kết Với Telegram Ngay'}</span>
+                      </button>
+                    </div>
+                  </div>
+
+                  {linkTokenData && (
+                    <div className="p-4 rounded-2xl bg-card border border-[#229ED9]/50 space-y-3 animate-fade-in">
+                      <div className="flex items-center justify-between">
+                        <span className="font-bold text-foreground text-xs">Mã liên kết 1 lần (15 phút)</span>
+                        <span className="text-[10px] font-mono text-amber-400">Hết hạn sau 15 phút</span>
+                      </div>
+
+                      <div className="flex flex-col sm:flex-row items-center gap-2">
+                        <a
+                          href={linkTokenData.deep_link}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="w-full sm:flex-1 py-2.5 px-4 rounded-xl bg-[#229ED9] hover:bg-[#1f8ec4] text-white font-extrabold text-xs text-center flex items-center justify-center gap-2 shadow-sm transition-all"
+                        >
+                          <ExternalLink className="w-4 h-4" />
+                          <span>Mở Bot Telegram & Ấn START</span>
+                        </a>
+                        <button
+                          type="button"
+                          onClick={() => loadTelegramStatus()}
+                          className="w-full sm:w-auto py-2.5 px-4 rounded-xl bg-muted hover:bg-muted/80 text-foreground font-bold text-xs border border-border cursor-pointer transition-all"
+                        >
+                          Tôi Đã Bấm START Xong
+                        </button>
+                      </div>
+
+                      <p className="text-[11px] text-muted-foreground text-center">
+                        Hoặc gửi tin nhắn sau cho Bot <strong className="text-foreground">@{linkTokenData.bot_username}</strong>:
+                        <code className="block mt-1 font-mono text-xs bg-muted p-1.5 rounded-lg text-[#229ED9] select-all">
+                          /start link_{linkTokenData.token}
+                        </code>
+                      </p>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
           )}
         </div>
       </div>

@@ -582,6 +582,56 @@ async function runPrerender() {
   fs.writeFileSync(path.join(eventsDir, 'index.html'), eventsHtml, 'utf8');
   console.log(`[Prerender] Đã xuất bản dist/su-kien/index.html & dist/events/index.html`);
 
+  // 2.0.2. Prerender Telegram Community Page (dist/telegram/index.html)
+  const tgHtml = buildPageHtml({
+    title: 'Cộng Đồng Telegram & Nhận Giftcode Tự Động | CodeGame.shop',
+    description: 'Tham gia nhóm Telegram CodeGame.Shop để nhận Giftcode mới nhất, thông báo sự kiện hot và theo dõi mã quà tặng riêng tư tự động.',
+    canonicalPath: '/telegram',
+    ogType: 'website',
+    jsonLd: [
+      {
+        '@context': 'https://schema.org',
+        '@type': 'BreadcrumbList',
+        itemListElement: [
+          { '@type': 'ListItem', position: 1, name: 'Trang chủ', item: 'https://codegame.shop/' },
+          { '@type': 'ListItem', position: 2, name: 'Cộng Đồng Telegram', item: 'https://codegame.shop/telegram' },
+        ],
+      },
+    ],
+    bodyContent: `
+      <div class="min-h-screen flex flex-col bg-slate-950 text-slate-100">
+        <header class="site-header sticky top-0 z-40 w-full border-b border-slate-800 bg-slate-900/90 backdrop-blur-md px-4 py-3 flex items-center justify-between">
+          <a href="/" class="flex items-center gap-2 text-primary font-bold">
+            <img src="/logo.png" alt="CodeGame.shop" width="32" height="32" class="w-8 h-8 rounded-lg" />
+            <span class="text-white">CodeGame.Shop</span>
+          </a>
+          <nav class="flex items-center gap-4 text-xs font-bold text-slate-300">
+            <a href="/" class="hover:text-white">Trang Chủ</a>
+            <a href="/news" class="hover:text-white">Tin Tức</a>
+            <a href="/su-kien" class="hover:text-white">Sự Kiện Game</a>
+            <a href="/telegram" class="text-blue-400 font-black">Telegram</a>
+          </nav>
+        </header>
+        <main class="max-w-4xl mx-auto px-4 py-12 text-center space-y-6">
+          <div class="inline-block px-4 py-1.5 rounded-full bg-blue-500/10 text-blue-400 text-xs font-bold border border-blue-500/30">
+            ✈️ KÊNH THÔNG BÁO & NHÓM THẢO LUẬN TELEGRAM
+          </div>
+          <h1 class="text-3xl sm:text-5xl font-black text-white tracking-tight">
+            Cộng Đồng CodeGame.Shop Trên Telegram
+          </h1>
+          <p class="text-sm sm:text-base text-slate-300 max-w-xl mx-auto leading-relaxed">
+            Nhận thông báo Giftcode mới nhất, theo dõi sự kiện game hot và trao đổi kinh nghiệm cùng hàng nghìn game thủ.
+          </p>
+        </main>
+      </div>
+    `,
+  });
+
+  const tgDir = path.join(distDir, 'telegram');
+  if (!fs.existsSync(tgDir)) fs.mkdirSync(tgDir, { recursive: true });
+  fs.writeFileSync(path.join(tgDir, 'index.html'), tgHtml, 'utf8');
+  console.log(`[Prerender] Đã xuất bản dist/telegram/index.html`);
+
   // 2.1. Prerender Individual News Articles
   let newsArticles = [];
   try {

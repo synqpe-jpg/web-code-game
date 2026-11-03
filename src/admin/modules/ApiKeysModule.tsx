@@ -38,9 +38,12 @@ import {
   Database,
   Bot,
   Settings,
+  Send,
 } from 'lucide-react';
 
 export type ApiKeyScope =
+  | 'TELEGRAM_NOTIFY'
+  | 'TELEGRAM_FULL'
   | 'NEWS_FULL'
   | 'EVENTS_FULL'
   | 'GAME_ICONS_FULL'
@@ -71,6 +74,28 @@ export interface ScopeOption {
 }
 
 export const ALL_API_SCOPES: ScopeOption[] = [
+  {
+    id: 'TELEGRAM_NOTIFY',
+    name: 'Đăng Thông Báo Telegram (Telegram Notify API)',
+    category: 'Kết Nối',
+    description: 'Đăng bài viết, giftcode mới, thông báo sự kiện lên Nhóm Telegram qua /api/telegram/notify kèm kiểm tra chống trùng ref_key.',
+    color: 'blue',
+    badgeBg: 'bg-blue-500/10',
+    badgeText: 'text-blue-500',
+    badgeBorder: 'border-blue-500/20',
+    icon: Send,
+  },
+  {
+    id: 'TELEGRAM_FULL',
+    name: 'Toàn Quyền Telegram (Telegram Full API)',
+    category: 'Kết Nối',
+    description: 'Toàn quyền đăng tin lên nhóm, gửi tin nhắn DM cho người theo dõi, kiểm tra cấu hình và webhook (/api/telegram/*).',
+    color: 'cyan',
+    badgeBg: 'bg-cyan-500/10',
+    badgeText: 'text-cyan-500',
+    badgeBorder: 'border-cyan-500/20',
+    icon: Send,
+  },
   {
     id: 'NEWS_FULL',
     name: 'Quản Lý Tin Tức & Sự Kiện (News & Events API)',

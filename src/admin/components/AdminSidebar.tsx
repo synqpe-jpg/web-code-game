@@ -26,6 +26,7 @@ import {
   Newspaper,
   Clock,
   Mail,
+  Send,
 } from 'lucide-react';
 import { AdminUser } from '../types/adminTypes';
 import { normalizeVietnamese } from '../../utils/textUtils';
@@ -48,6 +49,7 @@ export type AdminModuleTab =
   | 'missions'
   | 'event-scheduler'
   | 'email-notifications'
+  | 'telegram'
   | 'orders'
   | 'sepay'
   | 'content'
@@ -152,6 +154,13 @@ export const AdminSidebar: React.FC<AdminSidebarProps> = ({
           icon: Mail,
           badge: 'MỚI',
           badgeColor: 'bg-emerald-500 text-neutral-950 font-bold',
+        },
+        {
+          id: 'telegram',
+          label: 'Tích Hợp Telegram',
+          icon: Send,
+          badge: 'BOT',
+          badgeColor: 'bg-[#229ED9] text-white font-bold',
         },
       ],
     },

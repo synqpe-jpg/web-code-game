@@ -8,6 +8,7 @@ import { CategoryFilter } from './components/CategoryFilter';
 import { GameGrid } from './components/GameGrid';
 import { PinnedGamesBar } from './components/PinnedGamesBar';
 import { UpcomingGamesBanner } from './components/UpcomingGamesBanner';
+import { TelegramHomeBanner } from './components/TelegramHomeBanner';
 import { MobileBottomNav } from './components/MobileBottomNav';
 import { CyberLoader } from './components/CyberLoader';
 import { SearchAutocomplete } from './components/SearchAutocomplete';
@@ -25,6 +26,7 @@ const GiveawaysView = lazyWithRetry(() => import('./components/GiveawaysView').t
 const StoreView = lazyWithRetry(() => import('./components/StoreView').then((m) => ({ default: m.StoreView })));
 const UtilitiesView = lazyWithRetry(() => import('./components/UtilitiesView').then((m) => ({ default: m.UtilitiesView })));
 const MissionsView = lazyWithRetry(() => import('./components/MissionsView').then((m) => ({ default: m.MissionsView })));
+const TelegramView = lazyWithRetry(() => import('./components/TelegramView').then((m) => ({ default: m.TelegramView })));
 const GameDetailModal = lazyWithRetry(() => import('./components/GameDetailModal').then((m) => ({ default: m.GameDetailModal })));
 const SubmitCodeModal = lazyWithRetry(() => import('./components/SubmitCodeModal').then((m) => ({ default: m.SubmitCodeModal })));
 const BookmarkDrawer = lazyWithRetry(() => import('./components/BookmarkDrawer').then((m) => ({ default: m.BookmarkDrawer })));
@@ -85,7 +87,7 @@ export const App: React.FC = () => {
   const [, startTransition] = useTransition();
 
   // Navigation Tab State (Decoupled Frontends Domain Detection & Hash Routing)
-  const [currentTab, setCurrentTab] = useState<'catalog' | 'news' | 'giveaways' | 'store' | 'utilities' | 'missions' | 'admin'>(() => {
+  const [currentTab, setCurrentTab] = useState<'catalog' | 'news' | 'giveaways' | 'store' | 'utilities' | 'missions' | 'telegram' | 'admin'>(() => {
     if (typeof window !== 'undefined') {
       const host = window.location.hostname.toLowerCase();
       const hash = window.location.hash.toLowerCase();
@@ -103,6 +105,7 @@ export const App: React.FC = () => {
       if (hash.includes('store') || hash.includes('product=') || hash.includes('prod=') || path === '/store' || path.startsWith('/store/')) return 'store';
       if (hash.includes('utilities') || hash.includes('utility=') || hash.includes('ut=') || path === '/utilities' || path.startsWith('/utilities/')) return 'utilities';
       if (hash.includes('missions') || hash.includes('nhiem-vu') || path === '/missions' || path.startsWith('/missions/') || path === '/nhiem-vu' || path.startsWith('/nhiem-vu/')) return 'missions';
+      if (hash.includes('telegram') || path === '/telegram' || path.startsWith('/telegram/')) return 'telegram';
     }
     return 'catalog';
   });
@@ -736,6 +739,11 @@ export const App: React.FC = () => {
         if (normPath !== '/nhiem-vu' || window.location.hash || window.location.pathname.endsWith('/')) {
           window.history.replaceState(null, '', '/nhiem-vu');
         }
+      } else if (currentTab === 'telegram') {
+        document.title = 'Cộng Đồng Telegram & Nhận Giftcode Tự Động | CodeGame.shop';
+        if (window.location.pathname !== '/telegram' || window.location.hash) {
+          window.history.replaceState(null, '', '/telegram');
+        }
       } else {
         document.title = 'CodeGame.shop - Cổng Tra Cứu Giftcode & Game Bản Quyền Hàng Đầu';
         if (window.location.pathname !== '/' || window.location.hash) {
@@ -798,6 +806,11 @@ export const App: React.FC = () => {
       if (hash === '#missions' || hash.startsWith('#missions') || hash === '#nhiem-vu' || hash.startsWith('#nhiem-vu')) {
         setSelectedGame(null);
         setCurrentTab('missions');
+        return;
+      }
+      if (hash === '#telegram' || hash.startsWith('#telegram') || path === '/telegram' || path.startsWith('/telegram/')) {
+        setSelectedGame(null);
+        setCurrentTab('telegram');
         return;
       }
 
@@ -1605,6 +1618,11 @@ export const App: React.FC = () => {
                   />
                 </div>
 
+                {/* 3. Khối Cộng Đồng & Bot Telegram */}
+                <div className="mb-4">
+                  <TelegramHomeBanner onOpenTelegramView={() => handleSelectTab('telegram')} />
+                </div>
+
                 <CategoryFilter
                   filter={filter}
                   onFilterChange={handleFilterChange}
@@ -1691,6 +1709,14 @@ export const App: React.FC = () => {
                 onOpenAuth={() => setIsAuthModalOpen(true)}
                 onOpenWallet={() => setIsWalletModalOpen(true)}
                 initialMissionId={initialMissionId}
+              />
+            )}
+
+            {currentTab === 'telegram' && (
+              <TelegramView
+                onOpenAuth={() => setIsAuthModalOpen(true)}
+                onOpenProfile={() => setIsProfileModalOpen(true)}
+                onShowToast={showToast}
               />
             )}
           </Suspense>

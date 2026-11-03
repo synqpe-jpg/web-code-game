@@ -31,6 +31,7 @@ import { CrawlerModule } from './modules/CrawlerModule';
 import { EventSchedulerModule } from './modules/EventSchedulerModule';
 import { EmailNotificationModule } from './modules/EmailNotificationModule';
 import { ApiKeysModule } from './modules/ApiKeysModule';
+import { TelegramModule } from './modules/TelegramModule';
 import { MarketingNotificationToast } from '../components/MarketingNotificationToast';
 
 interface AdminAppProps {
@@ -54,6 +55,7 @@ export const AdminApp: React.FC<AdminAppProps> = ({ onBackToClient }) => {
       'floating-notification',
       'growth',
       'email-notifications',
+      'telegram',
       'members',
       'wallet',
       'private-codes',
@@ -331,6 +333,7 @@ export const AdminApp: React.FC<AdminAppProps> = ({ onBackToClient }) => {
         'floating-notification',
         'growth',
         'email-notifications',
+      'telegram',
         'members',
         'wallet',
         'private-codes',
@@ -567,6 +570,10 @@ export const AdminApp: React.FC<AdminAppProps> = ({ onBackToClient }) => {
 
         {currentTab === 'email-notifications' && (
           <EmailNotificationModule onShowToast={showToast} />
+        )}
+
+        {currentTab === 'telegram' && (
+          <TelegramModule />
         )}
 
         {currentTab === 'orders' && (

@@ -18,16 +18,18 @@ import {
   Bell,
   Award,
   Globe,
+  Send,
 } from 'lucide-react';
 import type { GameItem, UserProfile } from '../types/game';
 import { formatCore } from '../utils/textUtils';
 import { useLanguage } from '../context/LanguageContext';
 import { LanguageSelector } from './LanguageSelector';
 import { growthService } from '../services/growthService';
+import { telegramService } from '../services/telegramService';
 
 interface HeaderProps {
-  currentTab: 'catalog' | 'news' | 'giveaways' | 'store' | 'utilities' | 'missions';
-  onSelectTab: (tab: 'catalog' | 'news' | 'giveaways' | 'store' | 'utilities' | 'missions') => void;
+  currentTab: 'catalog' | 'news' | 'giveaways' | 'store' | 'utilities' | 'missions' | 'telegram';
+  onSelectTab: (tab: 'catalog' | 'news' | 'giveaways' | 'store' | 'utilities' | 'missions' | 'telegram') => void;
   searchQuery?: string;
   onSearchChange?: (q: string) => void;
   bookmarkCount: number;
@@ -263,6 +265,19 @@ export const Header: React.FC<HeaderProps> = ({
             >
               <Award className="w-4 h-4 text-primary-light" />
               <span>{t.nav.missions || 'Nhiệm Vụ'}</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => onSelectTab('telegram')}
+              className={`flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+                currentTab === 'telegram'
+                  ? 'bg-[#229ED9] text-white shadow-sm'
+                  : 'text-slate-300 hover:text-white hover:bg-card'
+              }`}
+            >
+              <Send className="w-4 h-4 text-[#229ED9]" />
+              <span>Telegram</span>
             </button>
           </nav>
 
@@ -554,6 +569,25 @@ export const Header: React.FC<HeaderProps> = ({
                         </a>
                       )}
 
+                      {/* Cộng Đồng & Bot Telegram */}
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setIsUserMenuOpen(false);
+                          onSelectTab('telegram');
+                        }}
+                        className="w-full flex items-center justify-between p-2 rounded-xl hover:bg-[#229ED9]/15 text-[#229ED9] cursor-pointer text-left group"
+                      >
+                        <span className="flex items-center gap-2">
+                          <Send className="w-4 h-4 text-[#229ED9] group-hover:scale-110 transition-transform" />
+                          <span className="font-bold text-foreground">Cộng Đồng & Bot Telegram</span>
+                        </span>
+                        <span className="text-[10px] text-[#229ED9] font-bold bg-[#229ED9]/20 px-2 py-0.5 rounded-full border border-[#229ED9]/40">
+                          BOT
+                        </span>
+                      </button>
+
                       {/* Shared: Giao Diện & Ngôn Ngữ */}
                       <div className="pt-2 pb-1 border-t border-border/60 space-y-2">
                         <div className="px-2 flex items-center justify-between text-[10px] font-bold text-muted-foreground uppercase tracking-wider">
@@ -656,19 +690,17 @@ export const Header: React.FC<HeaderProps> = ({
                           onClick={(e) => {
                             e.stopPropagation();
                             setIsUserMenuOpen(false);
-                            onOpenBookmarks();
+                            onSelectTab('telegram');
                           }}
-                          className="w-full flex items-center justify-between p-2 rounded-xl hover:bg-muted text-foreground cursor-pointer text-left group"
+                          className="w-full flex items-center justify-between p-2 rounded-xl hover:bg-[#229ED9]/15 text-[#229ED9] cursor-pointer text-left group"
                         >
                           <span className="flex items-center gap-2">
-                            <Bookmark className="w-4 h-4 text-amber-400 group-hover:scale-110 transition-transform" />
-                            <span className="font-medium">Tủ Game Đã Lưu</span>
+                            <Send className="w-4 h-4 text-[#229ED9] group-hover:scale-110 transition-transform" />
+                            <span className="font-bold text-foreground">Cộng Đồng & Bot Telegram</span>
                           </span>
-                          {bookmarkCount > 0 && (
-                            <span className="text-[10px] text-amber-300 font-bold bg-amber-500/20 px-2 py-0.5 rounded-full border border-amber-500/30">
-                              {bookmarkCount}
-                            </span>
-                          )}
+                          <span className="text-[10px] text-[#229ED9] font-bold bg-[#229ED9]/20 px-2 py-0.5 rounded-full border border-[#229ED9]/40">
+                            BOT
+                          </span>
                         </button>
                       </div>
 
@@ -714,6 +746,21 @@ export const Header: React.FC<HeaderProps> = ({
                 </>
               )}
             </div>
+
+            {/* Telegram Community Button */}
+            <button
+              type="button"
+              onClick={() => onSelectTab('telegram')}
+              className={`p-1.5 sm:p-2 min-w-[32px] min-h-[32px] sm:min-w-[38px] sm:min-h-[38px] flex items-center justify-center rounded-xl transition-all cursor-pointer active:scale-95 shadow-sm shrink-0 relative group ${
+                currentTab === 'telegram'
+                  ? 'bg-[#229ED9] text-white shadow-glow-primary'
+                  : 'bg-card hover:bg-[#229ED9]/15 border border-border/80 hover:border-[#229ED9]/40 text-slate-300 hover:text-[#229ED9]'
+              }`}
+              title="Cộng đồng Telegram & Bot nhận code riêng"
+              aria-label="Cộng đồng Telegram"
+            >
+              <Send className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-[#229ED9] group-hover:scale-110 transition-transform" />
+            </button>
 
             {/* Email Notifications Subscription Button */}
             {onOpenNotificationModal && (

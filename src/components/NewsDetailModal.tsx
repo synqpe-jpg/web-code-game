@@ -16,6 +16,7 @@ import {
   Flame,
   ExternalLink,
   ChevronUp,
+  Send,
 } from 'lucide-react';
 import type { NewsArticle, GameItem, UpcomingGame } from '../types/game';
 import { newsService } from '../services/newsService';
@@ -478,6 +479,18 @@ export const NewsDetailModal: React.FC<NewsDetailModalProps> = ({
               <Share2 className="w-3.5 h-3.5 text-primary" />
               <span className="hidden sm:inline">Chia sẻ</span>
             </button>
+
+            {/* Nút Chia Sẻ Qua Telegram (Mục 3.1) */}
+            <a
+              href={`https://t.me/share/url?url=${encodeURIComponent(`https://codegame.shop/news/${article.slug}`)}&text=${encodeURIComponent(article.title)}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="p-2 sm:px-3 sm:py-1.5 rounded-xl bg-sky-500/10 hover:bg-sky-500/20 text-sky-400 hover:text-sky-300 border border-sky-500/30 transition-all cursor-pointer flex items-center gap-1.5 text-xs font-semibold shrink-0 active:scale-95 shadow-xs"
+              title="Chia sẻ bài viết này qua Telegram"
+            >
+              <Send className="w-3.5 h-3.5 text-sky-400" />
+              <span className="hidden sm:inline">Telegram</span>
+            </a>
           </div>
         </div>
 

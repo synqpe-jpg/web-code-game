@@ -28,12 +28,14 @@ import {
   LogIn,
   Sparkles,
   AlertCircle,
+  Send,
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
 import type { GameItem, GiftCode, UserProfile } from '../types/game';
 import { dataService } from '../services/dataService';
 import { marketingService } from '../services/marketingService';
 import { notificationService } from '../services/notificationService';
+import { telegramService } from '../services/telegramService';
 import { EmailSubscriptionModal } from './notification/EmailSubscriptionModal';
 import { useLanguage } from '../context/LanguageContext';
 import { useLockBodyScroll } from '../hooks/useLockBodyScroll';
@@ -446,6 +448,36 @@ export const GameDetailModal: React.FC<GameDetailModalProps> = ({
                   {isGameFollowed ? 'Đang theo dõi' : 'Báo code mới'}
                 </span>
               </button>
+
+              {/* Nút Theo Dõi Game Này Qua Telegram (Mục 3.1) */}
+              <button
+                type="button"
+                onClick={async () => {
+                  const slug = currentGame.slug || currentGame.id;
+                  const cfg = await telegramService.getConfig();
+                  const botUser = cfg.bot_username || 'CodeGameShopBot';
+                  window.open(`https://t.me/${botUser}?start=theodoi_${slug}`, '_blank', 'noopener,noreferrer');
+                }}
+                className="p-1.5 sm:p-2 rounded-xl bg-sky-500/10 hover:bg-sky-500/20 border border-sky-500/30 text-sky-400 hover:text-sky-300 transition-all cursor-pointer active:scale-90 flex items-center gap-1.5"
+                title="Theo dõi game này qua Telegram (Nhận thông báo riêng khi có code mới)"
+              >
+                <Send className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+                <span className="hidden sm:inline text-[11px] font-bold">Báo Telegram</span>
+              </button>
+
+              {/* Nút Chia Sẻ Qua Telegram (Mục 3.1) */}
+              <a
+                href={telegramService.getShareUrl(
+                  `https://codegame.shop/game/${currentGame.slug || currentGame.id}`,
+                  `Nhận trọn bộ Giftcode ${currentGame.name} mới nhất 2026 tại CodeGame.Shop`
+                )}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="p-1.5 sm:p-2.5 rounded-xl bg-sky-500/10 hover:bg-sky-500/20 border border-sky-500/30 text-sky-400 hover:text-sky-300 transition-all cursor-pointer active:scale-90 flex items-center justify-center"
+                title="Chia sẻ qua Telegram"
+              >
+                <Send className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+              </a>
 
               <button
                 onClick={() => onOpenShare(currentGame)}

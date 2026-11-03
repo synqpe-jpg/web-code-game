@@ -7,6 +7,50 @@ Mỗi mục sửa lỗi đều ghi nhận **Nguyên nhân gốc rễ (Root Cause
 
 ## [2026-11-03]
 
+### 309. Triển Khai Toàn Diện Tích Hợp Telegram Cho CodeGame.Shop: Bot Tự Động, Single Webhook Gateway, D1 Subscriptions, Quản Trị Admin, Trang /telegram Chuẩn SEO & Giao Diện Người Dùng
+- **Bối cảnh & Yêu cầu từ Chủ sở hữu (03/11/2026)**:
+  - Triển khai toàn bộ giải pháp Telegram theo đặc tả chi tiết 9 phần (Bản cập nhật 03/11/2026):
+  - Phân tách trách nhiệm triệt để: Website chỉ cung cấp endpoint đăng bài (`/api/telegram/notify`), giao diện liên kết, webhook nhận lệnh bot và kho đăng ký theo dõi; không chạy cron quét mã hay tự sinh nội dung.
+  - Sử dụng một đầu mối Webhook duy nhất tại `https://codegame.shop/api/telegram/webhook` (bảo vệ bằng `X-Telegram-Bot-Api-Secret-Token`), tuyệt đối không dùng polling `getUpdates`.
+  - Quản lý bí mật tuyệt đối: toàn bộ credential đọc từ biến môi trường Cloudflare Pages (`TELEGRAM_BOT_TOKEN`, `TELEGRAM_GROUP_ID`, `TELEGRAM_BOT_USERNAME`, `TELEGRAM_GROUP_LINK`, `TELEGRAM_WEBHOOK_SECRET`, `TELEGRAM_ADMIN_CHAT_ID`, `TELEGRAM_NOTIFY_KEY`), không bao giờ log hay commit ra ngoài.
+  - Bổ sung scope hệ thống `TELEGRAM_NOTIFY` và `TELEGRAM_FULL` tuân thủ Rule 8.
+  - Xử lý tin nhắn mẫu (Admin Test): chỉ gửi đến `TELEGRAM_ADMIN_CHAT_ID`, cấm gửi lên nhóm chung.
+  - Khung giờ gửi DM thông báo riêng cho thành viên: 09:00 - 22:00 giờ Việt Nam (UTC+7).
+- **Chi tiết các thành phần đã triển khai**:
+  1. *Cơ sở dữ liệu D1 & Service (`functions/services/telegram_service.ts`)*:
+     - Tạo 3 bảng mới: `telegram_subscriptions`, `telegram_posted_log` (lưu ref_key, chống trùng lặp 7 ngày), `telegram_link_tokens` (token 1 lần, hết hạn sau 15 phút).
+     - Bổ sung cột cho bảng `members`: `telegram_chat_id`, `telegram_username`, `telegram_linked_at`.
+     - Bộ định dạng bài đăng chuẩn mực cho `new_code`, `expiring_code`, `game_event`, `weekly_digest` kèm hỗ trợ `thread_id`.
+     - Tự động cắt tin nhắn nếu vượt quá 4000 ký tự và cơ chế retry 1 lần khi gặp lỗi tạm thời.
+     - Bảo toàn các hàm gửi cảnh báo tồn kho và đơn hàng cũ (`sendOutOfStockAlert`, `sendNewOrderAlert`).
+  2. *Hệ thống Endpoints Backend*:
+     - `GET /api/telegram/config`: Cung cấp thông tin công khai an toàn `{ enabled, bot_username, group_link }`.
+     - `POST /api/telegram/notify`: Đăng bài lên nhóm và phát DM riêng. Hỗ trợ xác thực bằng API key scope `TELEGRAM_NOTIFY`, static key, hoặc Master Secret. Kiểm tra trùng lặp 7 ngày qua `ref_key`.
+     - `POST /api/telegram/webhook`: Nhận lệnh Bot (`/start link_<token>`, `/theodoi <slug>`, `/huytheodoi <slug>`, `/danhsach`, `/dung`).
+     - `GET/POST /api/telegram/admin`: Báo cáo thống kê, kích hoạt/kiểm tra Webhook, gửi tin thử nghiệm tới admin chat.
+     - `GET/POST /api/telegram/user`: Tạo mã liên kết, hủy liên kết, tùy chọn thông báo, theo dõi/hủy theo dõi game.
+  3. *Tự động đăng ký quyền API (Rule 8)*:
+     - Đăng ký `TELEGRAM_NOTIFY` và `TELEGRAM_FULL` trong `hasScope` (`functions/services/mission_service.ts`).
+     - Thêm vào danh mục `ALL_API_SCOPES` và mẫu code trong `src/admin/modules/ApiKeysModule.tsx`.
+  4. *Trang & Giao diện Khách hàng (Client)*:
+     - Dịch vụ client `src/services/telegramService.ts`.
+     - Trang tĩnh chuẩn SEO `/telegram` (`src/components/TelegramView.tsx`) kèm metadata, OpenGraph, JSON-LD Schema và prerender.
+     - Banner cộng đồng Telegram trên trang chủ (`src/components/TelegramHomeBanner.tsx`).
+     - Nút Telegram và link trên Header (Desktop nav + Toolbar + Menu người dùng).
+     - Nút chia sẻ và theo dõi qua Telegram trong `GameDetailModal.tsx` và `NewsDetailModal.tsx`.
+     - Mục "Liên Kết Telegram" trong Modal Hồ sơ cá nhân (`UserProfileModal.tsx`) với đầy đủ chức năng tạo token, mở bot, bật/tắt nhận tin, quản lý game theo dõi.
+     - Cập nhật link nhóm Telegram động trong `Footer.tsx`.
+  5. *Mục Quản trị Telegram (`src/admin/modules/TelegramModule.tsx`)*:
+     - Thống kê người dùng liên kết, top game được theo dõi.
+     - Giám sát trạng thái biến môi trường và Webhook live.
+     - Nút "Gửi Tin Thử Nghiệm" (chỉ gửi tới Admin Chat ID).
+     - Nút "Kích Hoạt / Cập Nhật Webhook".
+     - Nhật ký 20 bài đăng gần nhất kèm ref_key và trạng thái.
+- **Kết quả triển khai & Kiểm thử (Rule 6)**:
+  - `npm run build` vượt qua 100%, 0 lỗi, 0 test artifacts, 583 game và trang `/telegram` prerender thành công.
+  - Triển khai Cloudflare Pages tự động (`npm run deploy:all`): Web khách `web-code-game` và Web quản trị `admin-code-game-shop` live thành công.
+  - Kiểm chứng live: `GET /api/telegram/config` trả về 200 OK an toàn, `POST /api/telegram/notify` từ chối không có khóa hợp lệ (401), trang `/telegram/` trả về 200 OK.
+
 ### 308. Nâng Cấp Toàn Diện Pipeline Logo Game: Thêm Endpoint Tải File Thật `/api/games/upload-icon`, Đối Chiếu Tự Động CH Play / App Store, Cache-Busting Versioning & Chấm Dứt Gán Đường Dẫn 404
 - **Bối cảnh & Yêu cầu từ Chủ sở hữu (03/11/2026)**:
   - 11 game đang chờ duyệt trên bảng sắp ra mắt đều trỏ về `/game_icons/<slug>.webp` giả định nhưng file thực tế 404.

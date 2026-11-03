@@ -49,6 +49,11 @@ import * as missionsAuditLogsApi from './api/missions/audit-logs';
 import * as apiKeysIndexApi from './api/api-keys/index';
 import * as apiKeysIdApi from './api/api-keys/[id]';
 import * as eventSchedulerApi from './api/event-scheduler/index';
+import * as telegramConfigApi from './api/telegram/config';
+import * as telegramNotifyApi from './api/telegram/notify';
+import * as telegramWebhookApi from './api/telegram/webhook';
+import * as telegramAdminApi from './api/telegram/admin';
+import * as telegramUserApi from './api/telegram/user';
 import { invalidateCatalogEdgeCache } from './services/cache_service';
 import fallbackGiveawaysData from '../src/data/giveaways.json';
 import fallbackGamesData from '../src/data/games188.json';
@@ -86,6 +91,13 @@ interface Env {
   ENVIRONMENT?: string;
   CLOUDFLARE_ZONE_ID?: string;
   CLOUDFLARE_API_TOKEN?: string;
+  TELEGRAM_BOT_TOKEN?: string;
+  TELEGRAM_GROUP_ID?: string;
+  TELEGRAM_BOT_USERNAME?: string;
+  TELEGRAM_GROUP_LINK?: string;
+  TELEGRAM_WEBHOOK_SECRET?: string;
+  TELEGRAM_ADMIN_CHAT_ID?: string;
+  TELEGRAM_NOTIFY_KEY?: string;
 }
 
 let lastGiveawaySimulationTick = 0;
@@ -723,6 +735,38 @@ async function handleWorkerRequest(request: Request, env: Env, ctx: ExecutionCon
         if (method === 'DELETE') return await apiKeysIdApi.onRequestDelete(customContext);
       }
 
+      // 16. Telegram Bot Integration APIs
+      if (pathname === '/api/telegram/config') {
+        if (method === 'OPTIONS') return await telegramConfigApi.onRequestOptions();
+        return await telegramConfigApi.onRequestGet(context);
+      }
+
+      if (pathname === '/api/telegram/notify') {
+        if (method === 'OPTIONS') return await telegramNotifyApi.onRequestOptions();
+        if (method === 'POST') return await telegramNotifyApi.onRequestPost(context);
+        return new Response('Method Not Allowed', { status: 405 });
+      }
+
+      if (pathname === '/api/telegram/webhook') {
+        if (method === 'OPTIONS') return await telegramWebhookApi.onRequestOptions();
+        if (method === 'POST') return await telegramWebhookApi.onRequestPost(context);
+        return await telegramWebhookApi.onRequestGet();
+      }
+
+      if (pathname === '/api/telegram/admin') {
+        if (method === 'OPTIONS') return await telegramAdminApi.onRequestOptions();
+        if (method === 'GET') return await telegramAdminApi.onRequestGet(context);
+        if (method === 'POST') return await telegramAdminApi.onRequestPost(context);
+        return new Response('Method Not Allowed', { status: 405 });
+      }
+
+      if (pathname === '/api/telegram/user') {
+        if (method === 'OPTIONS') return await telegramUserApi.onRequestOptions();
+        if (method === 'GET') return await telegramUserApi.onRequestGet(context);
+        if (method === 'POST') return await telegramUserApi.onRequestPost(context);
+        return new Response('Method Not Allowed', { status: 405 });
+      }
+
       // Fallback for any unknown /api route
       if (pathname.startsWith('/api')) {
         return new Response(
@@ -987,7 +1031,9 @@ async function renderSeoHtml(
     pathname === '/su-kien' ||
     pathname.startsWith('/su-kien/') ||
     pathname === '/events' ||
-    pathname.startsWith('/events/')
+    pathname.startsWith('/events/') ||
+    pathname === '/telegram' ||
+    pathname.startsWith('/telegram/')
   ) {
     const cleanPath = pathname.replace(/\/$/, '');
     const assetUrl = new URL(`${cleanPath}.html`, request.url);
@@ -1516,6 +1562,23 @@ async function renderSeoHtml(
       }
     ];
     replaceTitleAndMeta(title, description, '/su-kien', '/og-image.jpg', eventsListSchema);
+  } else if (
+    pathname === '/telegram' ||
+    pathname.startsWith('/telegram/')
+  ) {
+    const title = 'Cộng Đồng Telegram & Nhận Giftcode Tự Động | CodeGame.shop';
+    const description = 'Tham gia nhóm Telegram CodeGame.Shop để nhận Giftcode mới nhất, sự kiện hot và theo dõi mã quà tặng tự động.';
+    const telegramSchema = [
+      {
+        "@context": "https://schema.org",
+        "@type": "BreadcrumbList",
+        "itemListElement": [
+          { "@type": "ListItem", "position": 1, "name": "Trang chủ", "item": `${origin}/` },
+          { "@type": "ListItem", "position": 2, "name": "Cộng Đồng Telegram", "item": `${origin}/telegram` }
+        ]
+      }
+    ];
+    replaceTitleAndMeta(title, description, '/telegram', '/og-image.jpg', telegramSchema);
   } else if (
     pathname === '/giveaways' ||
     pathname.startsWith('/giveaways/') ||

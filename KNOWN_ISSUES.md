@@ -10,6 +10,26 @@
 
 ## 1. DANH MỤC LỖI & CÁC BẪY ĐÃ THẤT BẠI (DO NOT REPEAT)
 
+### ISSUE-214: Bẫy Trùng Lặp Webhook/Polling Telegram, Rò Rỉ Secret Token Và Gửi Tin Thử Nghiệm Vào Nhóm Chung
+- **Triệu chứng & Rủi ro**:
+  1. Telegram Bot API xung đột và trả về lỗi 409 Conflict nếu vừa cài đặt Webhook vừa chạy polling `getUpdates`.
+  2. Rò rỉ Bot Token hoặc Webhook Secret qua client bundles, logs hoặc source control.
+  3. Tin nhắn thử nghiệm gửi thẳng vào nhóm chat cộng đồng làm phiền thành viên và phát tán dữ liệu rác.
+  4. Thiếu sót các hàm gửi cảnh báo cũ (`sendOutOfStockAlert`, `sendNewOrderAlert`) khi tái cấu trúc service Telegram.
+- **Nguyên nhân gốc rễ**:
+  1. Telegram chỉ cho phép một cơ chế nhận update duy nhất tại một thời điểm.
+  2. Gửi test không phân định rõ ràng đích đến của chat.
+- **Giải pháp chuẩn đã kiểm chứng**:
+  1. *Một đầu mối Webhook duy nhất*: Chỉ sử dụng Webhook tại `https://codegame.shop/api/telegram/webhook`, xác thực an toàn qua header `X-Telegram-Bot-Api-Secret-Token`. Tuyệt đối không bật polling.
+  2. *Bảo mật bí mật*: Toàn bộ credentials đọc từ biến môi trường Cloudflare Pages (`TELEGRAM_BOT_TOKEN`, `TELEGRAM_GROUP_ID`, `TELEGRAM_BOT_USERNAME`, `TELEGRAM_GROUP_LINK`, `TELEGRAM_WEBHOOK_SECRET`, `TELEGRAM_ADMIN_CHAT_ID`, `TELEGRAM_NOTIFY_KEY`). Endpoint `/api/telegram/config` chỉ trả về `{ enabled, bot_username, group_link }`.
+  3. *Cách ly tin nhắn thử*: Nút test trong Admin (`action: 'send_test'`) chỉ gửi tới `TELEGRAM_ADMIN_CHAT_ID`, tuyệt đối cấm gửi vào nhóm chung.
+  4. *Khung giờ gửi DM*: Áp dụng bộ lọc `isWithinVietnamNotificationWindow()` (09:00 - 22:00 UTC+7) cho toàn bộ tin nhắn DM riêng của thành viên.
+  5. *Bảo toàn tương thích ngược*: Giữ nguyên các hàm `sendOutOfStockAlert`, `sendNewOrderAlert` trong `telegram_service.ts`.
+- 🚫 **CÁCH SỬA ĐÃ THẤT BẠI - TUYỆT ĐỐI KHÔNG LẶP LẠI**:
+  - ❌ *Không chạy đồng thời getUpdates khi đã setWebhook.*
+  - ❌ *Không log hoặc trả về Bot Token hay Webhook Secret trong bất kỳ API response nào.*
+  - ❌ *Không gửi tin test vào nhóm chat chính.*
+
 ### ISSUE-213: Bẫy Tự Gán Icon Giả `/game_icons/<slug>.webp` Khi File Chưa Tồn Tại & Nút Thắt Cập Nhật URL Chuỗi Không Ghi File Nhị Phân Lên Máy Chủ
 - **Triệu chứng**:
   - 11 game trên hàng chờ duyệt đều có `iconUrl` trỏ về `/game_icons/<slug>.webp` nhưng tất cả đều trả về 404 Not Found.
