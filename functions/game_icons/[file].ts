@@ -91,12 +91,18 @@ export const onRequestGet = async (context: {
           bytes[i] = binaryStr.charCodeAt(i);
         }
 
+        const urlObj = new URL(request.url);
+        const hasVersion = urlObj.searchParams.has('v');
+        const cacheControl = hasVersion
+          ? 'public, max-age=31536000, immutable'
+          : 'public, max-age=60, s-maxage=3600, stale-while-revalidate=86400';
+
         const contentType = row.content_type || 'image/webp';
         const headers = new Headers({
           ...CORS_HEADERS,
           'Content-Type': contentType,
           'Content-Length': len.toString(),
-          'Cache-Control': 'public, max-age=604800, s-maxage=2592000, stale-while-revalidate=86400',
+          'Cache-Control': cacheControl,
           'X-Icon-Source': 'd1-uploaded',
         });
 

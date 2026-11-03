@@ -10,6 +10,27 @@
 
 ## 1. DANH MỤC LỖI & CÁC BẪY ĐÃ THẤT BẠI (DO NOT REPEAT)
 
+### ISSUE-213: Bẫy Tự Gán Icon Giả `/game_icons/<slug>.webp` Khi File Chưa Tồn Tại & Nút Thắt Cập Nhật URL Chuỗi Không Ghi File Nhị Phân Lên Máy Chủ
+- **Triệu chứng**:
+  - 11 game trên hàng chờ duyệt đều có `iconUrl` trỏ về `/game_icons/<slug>.webp` nhưng tất cả đều trả về 404 Not Found.
+  - Vòng tự động đăng game bị kẹt vì API `update_icon` cũ chỉ đổi chuỗi URL trong cơ sở dữ liệu, không đẩy file ảnh thật lên máy chủ khiến bắt buộc phải có người tải file qua giao diện quản trị.
+  - 8 game trên bảng sắp ra mắt hiển thị icon mẫu không rõ nguồn gốc do không có trường phân biệt logo chính thức đã xác minh.
+  - Thay logo mới không hiển thị ngay do CDN Cloudflare cache dài hạn, phải purge thủ công trên Dashboard.
+- **Nguyên nhân gốc rễ**:
+  1. Hàm `extractIconUrl` và các form admin tự động sinh chuỗi fallback `/game_icons/${slug}.webp` dù file vật lý chưa hề tồn tại trong kho lưu trữ.
+  2. Hệ thống thiếu endpoint nhận multipart hoặc tải ảnh từ URL chính thức để lưu trữ nhị phân trực tiếp vào backend (D1 `uploaded_game_icons`).
+  3. Thiếu cổng kiểm soát chất lượng (`icon_verified`) cho phép game không có logo hoặc logo mẫu lọt vào danh mục duyệt tự động.
+  4. Đường dẫn ảnh tĩnh không có versioning timestamp dẫn đến cache vô hạn trên trình duyệt và Cloudflare Edge.
+- **Giải pháp chuẩn đã kiểm chứng**:
+  1. *Chấm dứt fallback 404*: `extractIconUrl` và form admin trả về `''` khi không có ảnh; giao diện hiển thị khung placeholder trang nhã nét đứt "Chờ Logo", cấm tuyệt đối dùng logo mẫu hoặc og-image giả mạo.
+  2. *Thêm endpoint `/api/games/upload-icon`*: Hỗ trợ multipart và JSON `{slug, image_url}`, kiểm tra magic bytes nhị phân (WebP, PNG, JPEG), lưu vào D1 và thực hiện read-back verification trước khi trả về 200 OK.
+  3. *Cổng duyệt tự động & đối chiếu cửa hàng*: Bổ sung `icon_verified`, `icon_source`, `icon_verified_at`. Cổng `approve` và `approve_all` từ chối xuất bản game có `icon_verified: false` (trừ khi có xác nhận của admin). Tự động đối chiếu CH Play & App Store qua `icon_verifier_service.ts`.
+  4. *Versioning & Auto Cache Purge*: Gắn `?v=<timestamp>` vào URL icon; Worker cấu hình cache immutable khi có version; tự động kích hoạt Cloudflare Purge Cache khi cập nhật logo mới.
+- 🚫 **CÁCH SỬA ĐÃ THẤT BẠI - TUYỆT ĐỐI KHÔNG LẶP LẠI**:
+  - ❌ *Không tự gán đường dẫn giả định `/game_icons/<slug>.webp` hay `/og-image.jpg` khi file chưa được lưu trữ thực tế trên máy chủ.*
+  - ❌ *Không chỉ cập nhật chuỗi URL trong database mà bỏ qua bước lưu trữ file nhị phân bền vững.*
+  - ❌ *Không bỏ qua tham số versioning `?v=` khi cập nhật tài nguyên ảnh tĩnh trên Cloudflare Pages.*
+
 ### ISSUE-212: Bẫy Phân Giải Pathname Thiếu Nhánh /su-kien Khiến Web Khách Bị useEffect History Sync Đẩy Về Trang Chủ
 - **Triệu chứng**:
   - Người dùng truy cập trực tiếp đường link `https://codegame.shop/su-kien` hoặc `https://codegame.shop/events`, trang web tự động bị chuyển hướng về trang chủ `https://codegame.shop/`.

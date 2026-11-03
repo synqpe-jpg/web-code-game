@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
-import { X, Rocket, Bell, Check, ExternalLink, Gift, Search, Calendar, Sparkles } from 'lucide-react';
+import { X, Rocket, Bell, Check, ExternalLink, Gift, Search, Calendar, Sparkles, Gamepad2 } from 'lucide-react';
 import type { UpcomingGame } from '../types/game';
 import { getUpcomingGameIconUrl, handleUpcomingImageError } from '../utils/upcomingGameIconUtils';
 import { calculateEffectiveOrder, calculateEffectiveSubscribers } from '../utils/upcomingGameGrowthUtils';
@@ -331,15 +331,22 @@ export const AllUpcomingGamesModal: React.FC<AllUpcomingGamesModalProps> = ({
                     <div>
                       {/* Header game: Icon + Tên + Thể loại & NPH */}
                       <div className="flex items-start gap-2.5 mb-2">
-                        <div className="w-10 h-10 sm:w-11 sm:h-11 rounded-lg sm:rounded-xl overflow-hidden bg-slate-800 border border-cyan-500/30 shrink-0 shadow-sm">
-                          <img
-                            src={iconSrc}
-                            alt={game.name}
-                            className="w-full h-full object-cover"
-                            loading="lazy"
-                            referrerPolicy="no-referrer"
-                            onError={(e) => handleUpcomingImageError(e, game)}
-                          />
+                        <div className="w-10 h-10 sm:w-11 sm:h-11 rounded-lg sm:rounded-xl overflow-hidden bg-slate-800 border border-cyan-500/30 shrink-0 shadow-sm flex items-center justify-center">
+                          {iconSrc ? (
+                            <img
+                              src={iconSrc}
+                              alt={game.name}
+                              className="w-full h-full object-cover"
+                              loading="lazy"
+                              referrerPolicy="no-referrer"
+                              onError={(e) => handleUpcomingImageError(e, game)}
+                            />
+                          ) : (
+                            <div className="w-full h-full flex flex-col items-center justify-center bg-slate-800/90 text-slate-500 border border-dashed border-cyan-500/30 p-1">
+                              <Gamepad2 className="w-4 h-4 text-cyan-400/70" />
+                              <span className="text-[8px] font-bold text-cyan-300/80 leading-none mt-0.5">Chờ Logo</span>
+                            </div>
+                          )}
                         </div>
                         <div className="min-w-0 flex-1">
                           <div className="flex items-center justify-between gap-1">

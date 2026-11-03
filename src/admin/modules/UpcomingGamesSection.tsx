@@ -317,7 +317,10 @@ export const UpcomingGamesSection: React.FC<UpcomingGamesSectionProps> = ({ onSh
       releaseDate: editingGame.releaseDate?.trim() ? editingGame.releaseDate.trim() : null,
       category: editingGame.category?.trim() || 'Game Mới',
       platform: editingGame.platform?.trim() || 'Android, iOS',
-      iconUrl: editingGame.iconUrl?.trim() || `/game_icons/${slug}.webp`,
+      iconUrl: editingGame.iconUrl?.trim() || '',
+      icon_verified: editingGame.icon_verified ?? (editingGame.iconUrl?.trim() ? true : false),
+      icon_source: editingGame.icon_source || (editingGame.iconUrl?.trim() ? 'admin tay' : ''),
+      icon_verified_at: editingGame.icon_verified_at || (editingGame.iconUrl?.trim() ? new Date().toISOString() : null),
       bannerUrl: editingGame.bannerUrl?.trim() || undefined,
       description: editingGame.description?.trim() || undefined,
       preRegUrl: editingGame.preRegUrl?.trim() || undefined,
@@ -443,22 +446,44 @@ export const UpcomingGamesSection: React.FC<UpcomingGamesSectionProps> = ({ onSh
 
   // Moderation Queue Actions
   const handleApproveGame = async (gameId: string, pinToTop = false) => {
-    await adminDataService.approveUpcomingGame(gameId, pinToTop);
-    loadData();
     const g = upcomingGames.find((x) => x.id === gameId);
-    onShowToast(
-      'Đã duyệt đưa lên Web Khách!',
-      `Tựa game "${g?.name || gameId}" đã xuất bản ra sàn${pinToTop ? ' và ghim lên Top đầu' : ''}.`,
-      'success'
-    );
+    let adminOverride = false;
+    if (g && !g.icon_verified) {
+      const confirmManual = window.confirm(
+        `Tựa game "${g.name}" chưa được đối chiếu logo chính thức từ Store (Google Play / App Store).\n\nBạn có chắc chắn muốn duyệt tay (admin tay) đưa tựa game này lên Web Khách không?`
+      );
+      if (!confirmManual) return;
+      adminOverride = true;
+    }
+
+    const res = await adminDataService.approveUpcomingGame(gameId, pinToTop, adminOverride);
+    if (res.success) {
+      loadData();
+      onShowToast(
+        'Đã duyệt đưa lên Web Khách!',
+        `Tựa game "${g?.name || gameId}" đã xuất bản ra sàn${pinToTop ? ' và ghim lên Top đầu' : ''}.`,
+        'success'
+      );
+    } else {
+      onShowToast('Chưa thể duyệt', res.error || 'Vui lòng kiểm tra logo trước khi duyệt.', 'warning');
+    }
   };
 
   const handleApproveAllPending = async () => {
-    const count = await adminDataService.approveAllUpcomingGames();
+    const unverifiedList = upcomingGames.filter((x) => x.status === 'PENDING' && !x.icon_verified);
+    let adminOverride = false;
+    if (unverifiedList.length > 0) {
+      const confirmOverride = window.confirm(
+        `Có ${unverifiedList.length} game trong hàng chờ chưa được đối chiếu logo chính thức.\n\nBấm [OK] để duyệt TẤT CẢ (bao gồm cả các game chưa xác minh logo theo quyền admin tay).\nBấm [Cancel] để CHỈ duyệt các game đã xác minh logo hợp lệ.`
+      );
+      adminOverride = confirmOverride;
+    }
+
+    const res = await adminDataService.approveAllUpcomingGames(adminOverride);
     loadData();
     onShowToast(
       'Duyệt hàng loạt thành công!',
-      `Đã duyệt và xuất bản toàn bộ ${count} tựa game trong hàng chờ lên Web Khách.`,
+      `Đã duyệt ${res.approvedCount} tựa game lên Web Khách.${res.unverifiedCount > 0 ? ` Giữ lại ${res.unverifiedCount} game chưa xác minh logo.` : ''}`,
       'success'
     );
   };
@@ -1258,9 +1283,24 @@ export const UpcomingGamesSection: React.FC<UpcomingGamesSectionProps> = ({ onSh
                           </div>
 
                           <div className="min-w-0">
-                            <h4 className="font-bold text-sm text-white group-hover:text-amber-400 transition-colors truncate">
-                              {game.name}
-                            </h4>
+                            <div className="flex items-center gap-1.5 flex-wrap">
+                              <h4 className="font-bold text-sm text-white group-hover:text-amber-400 transition-colors truncate">
+                                {game.name}
+                              </h4>
+                              {game.icon_verified ? (
+                                <span className="px-1.5 py-0.5 rounded text-[10px] font-semibold bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 flex items-center gap-1" title={game.icon_source || 'Store chính thức'}>
+                                  ✓ Logo Đã Xác Minh
+                                </span>
+                              ) : (game.iconUrl || (game as any).icon_url) ? (
+                                <span className="px-1.5 py-0.5 rounded text-[10px] font-semibold bg-amber-500/20 text-amber-300 border border-amber-500/30">
+                                  Chờ Xác Minh Logo
+                                </span>
+                              ) : (
+                                <span className="px-1.5 py-0.5 rounded text-[10px] font-semibold bg-rose-500/20 text-rose-300 border border-rose-500/30">
+                                  Chưa Có Logo
+                                </span>
+                              )}
+                            </div>
                             <div className="text-[11px] text-slate-400 flex items-center gap-2 mt-0.5">
                               <span className="truncate">{game.publisher}</span>
                               <span>•</span>

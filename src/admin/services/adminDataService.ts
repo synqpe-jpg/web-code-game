@@ -5155,11 +5155,21 @@ class AdminDataService {
   /**
    * Duyệt game từ hàng chờ đưa lên Web Khách
    */
-  public async approveUpcomingGame(id: string, pinToTop = false): Promise<void> {
+  public async approveUpcomingGame(id: string, pinToTop = false, adminOverride = false): Promise<{ success: boolean; error?: string }> {
     const ug = this.upcomingGames.find((g) => g.id === id || g.slug === id);
-    if (!ug) return;
+    if (!ug) return { success: false, error: 'Không tìm thấy game' };
+
+    if (!ug.icon_verified && !adminOverride) {
+      return { success: false, error: `Game "${ug.name}" chưa có icon_verified = true. Vui lòng xác minh logo trước hoặc xác nhận duyệt tay.` };
+    }
 
     const now = new Date().toISOString();
+    if (!ug.icon_verified && adminOverride) {
+      ug.icon_verified = true;
+      ug.icon_source = ug.icon_source || 'admin tay';
+      ug.icon_verified_at = now;
+    }
+
     ug.status = 'UPCOMING';
     ug.approvedAt = now;
     ug.approvedBy = 'Admin Quản Trị';
@@ -5185,24 +5195,35 @@ class AdminDataService {
       this.syncToCloudflareKV(this.KEYS.UPCOMING_GAMES, this.upcomingGames),
       this.syncUpcomingGamesToServer(),
     ]);
+    return { success: true };
   }
 
   /**
-   * Duyệt toàn bộ game trong hàng chờ
+   * Duyệt toàn bộ game trong hàng chờ (chỉ duyệt các game đã xác minh logo trừ khi adminOverride = true)
    */
-  public async approveAllUpcomingGames(): Promise<number> {
+  public async approveAllUpcomingGames(adminOverride = false): Promise<{ approvedCount: number; unverifiedCount: number }> {
     const now = new Date().toISOString();
     let count = 0;
+    let unverifiedCount = 0;
     let maxOrder = Math.max(0, ...this.upcomingGames.filter((g) => g.status === 'UPCOMING' || g.status === 'APPROVED').map((g) => g.displayOrder || 0));
 
     for (const ug of this.upcomingGames) {
       if (ug.status === 'PENDING') {
-        ug.status = 'UPCOMING';
-        ug.approvedAt = now;
-        ug.approvedBy = 'Admin Quản Trị';
-        ug.updatedAt = now;
-        ug.displayOrder = ++maxOrder;
-        count++;
+        if (ug.icon_verified === true || adminOverride) {
+          if (!ug.icon_verified && adminOverride) {
+            ug.icon_verified = true;
+            ug.icon_source = ug.icon_source || 'admin tay';
+            ug.icon_verified_at = now;
+          }
+          ug.status = 'UPCOMING';
+          ug.approvedAt = now;
+          ug.approvedBy = 'Admin Quản Trị';
+          ug.updatedAt = now;
+          ug.displayOrder = ++maxOrder;
+          count++;
+        } else {
+          unverifiedCount++;
+        }
       }
     }
 
@@ -5213,7 +5234,7 @@ class AdminDataService {
       this.syncToCloudflareKV(this.KEYS.UPCOMING_GAMES, this.upcomingGames),
       this.syncUpcomingGamesToServer(),
     ]);
-    return count;
+    return { approvedCount: count, unverifiedCount };
   }
 
   /**

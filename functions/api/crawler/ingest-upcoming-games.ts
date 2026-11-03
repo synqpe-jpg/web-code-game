@@ -599,7 +599,7 @@ function slugify(text: string): string {
  */
 function extractIconUrl(item: any, fallbackSlug?: string): string {
   if (!item || typeof item !== 'object') {
-    return fallbackSlug ? `/game_icons/${fallbackSlug}.webp` : '';
+    return '';
   }
 
   const candidate =
@@ -646,7 +646,7 @@ function extractIconUrl(item: any, fallbackSlug?: string): string {
     }
   }
 
-  return fallbackSlug ? `/game_icons/${fallbackSlug}.webp` : '';
+  return '';
 }
 
 interface ImageCheckResult {
@@ -876,6 +876,36 @@ function sanitizeAndSafeguardUpcomingGames(list: any[]): { list: any[]; changed:
         g.publisher = 'SohaGame';
         g.category = 'Chiến Thuật Thẻ Tướng';
         g.platform = 'Android, iOS';
+        changed = true;
+      }
+    }
+
+    // 9. Dọn dẹp các game PENDING có iconUrl trỏ tới file 404 (chưa xác minh)
+    if (g.status === 'PENDING' && !g.icon_verified && g.iconUrl && g.iconUrl.startsWith('/game_icons/')) {
+      g.iconUrl = '';
+      g.icon_url = '';
+      g.icon_verified = false;
+      changed = true;
+    }
+
+    // 10. Đảm bảo 8 icon mẫu trên bảng sắp ra mắt KHÔNG được tự đánh icon_verified = true
+    const SAMPLE_ICON_SLUGS = new Set([
+      'azur-promilia',
+      'elancia-mobile',
+      'temppal',
+      'crownstone',
+      'overwatch-rush',
+      'plants-vs-zombies-3',
+      'garena-free-city',
+      'arad-idle-rpg'
+    ]);
+    if (SAMPLE_ICON_SLUGS.has(slugLower)) {
+      if (g.icon_verified === true) {
+        g.icon_verified = false;
+        changed = true;
+      }
+      if (!g.icon_source || g.icon_source === 'store chính thức') {
+        g.icon_source = 'icon mẫu (chờ xác minh)';
         changed = true;
       }
     }
@@ -1293,6 +1323,22 @@ export async function onRequestPost(context: { request: Request; env: Env }): Pr
       );
 
       if (isMatched) {
+        if (!item.icon_verified && !payload?.admin_override && !payload?.force_approve) {
+          return new Response(
+            JSON.stringify({
+              success: false,
+              error: `Game "${item.name}" (${item.slug}) chưa có icon_verified = true. Logo chưa được đối chiếu xác minh với cửa hàng chính thức. Vui lòng xác minh logo trước khi duyệt hoặc sử dụng quyền quản trị duyệt tay (admin_override: true).`,
+              requires_verification: true,
+              game: { id: item.id, name: item.name, slug: item.slug, iconUrl: item.iconUrl },
+            }),
+            { status: 400, headers: CORS_HEADERS }
+          );
+        }
+        if (payload?.admin_override && !item.icon_verified) {
+          item.icon_verified = true;
+          item.icon_source = item.icon_source || 'admin tay';
+          item.icon_verified_at = nowIso;
+        }
         item.status = 'UPCOMING';
         item.approvedAt = nowIso;
         item.approvedBy = botName;
@@ -1805,13 +1851,40 @@ export async function onRequestPost(context: { request: Request; env: Env }): Pr
       );
     }
 
-    // 4. Kiểm tra dữ liệu ảnh Base64
-    const rawBase64 = payload?.imageBase64 || payload?.image_base64 || payload?.image || payload?.data;
+    // 4. Kiểm tra dữ liệu ảnh Base64 hoặc URL ảnh
+    let rawBase64 = payload?.imageBase64 || payload?.image_base64 || payload?.image || payload?.data;
+    const incomingUrl = payload?.image_url || payload?.imageUrl || payload?.url;
+    if (!rawBase64 && incomingUrl && typeof incomingUrl === 'string') {
+      try {
+        const dlRes = await fetch(incomingUrl, {
+          headers: {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko)',
+            'Accept': 'image/webp,image/png,image/jpeg,*/*',
+          },
+        });
+        if (dlRes.ok) {
+          const ab = await dlRes.arrayBuffer();
+          const u8 = new Uint8Array(ab);
+          let b64Str = '';
+          const chunkSz = 8192;
+          for (let i = 0; i < u8.length; i += chunkSz) {
+            b64Str += String.fromCharCode.apply(null, u8.subarray(i, i + chunkSz) as any);
+          }
+          rawBase64 = btoa(b64Str);
+        }
+      } catch (dlErr: any) {
+        return new Response(
+          JSON.stringify({ success: false, error: 'Không thể tải ảnh từ URL: ' + dlErr?.message }),
+          { status: 400, headers: CORS_HEADERS }
+        );
+      }
+    }
+
     if (!rawBase64 || typeof rawBase64 !== 'string' || !rawBase64.trim()) {
       return new Response(
         JSON.stringify({
           success: false,
-          error: 'Thiếu dữ liệu ảnh "imageBase64" (chuỗi base64).',
+          error: 'Thiếu dữ liệu ảnh "imageBase64" hoặc "image_url".',
         }),
         { status: 400, headers: CORS_HEADERS }
       );
@@ -1924,11 +1997,30 @@ export async function onRequestPost(context: { request: Request; env: Env }): Pr
       );
     }
 
-    // 10. Tự động đồng bộ bản ghi game (cả hai trường iconUrl và icon_url thành /game_icons/<slug>.webp)
-    const iconPublicPath = `/game_icons/${trimmedSlug}.webp`;
+    // 9b. Read-Back Verification (Bắt buộc theo yêu cầu)
+    try {
+      const rbRow: any = await env.DB.prepare('SELECT slug, size_bytes FROM uploaded_game_icons WHERE slug = ? LIMIT 1').bind(trimmedSlug).first();
+      if (!rbRow || !rbRow.size_bytes) {
+        return new Response(
+          JSON.stringify({ success: false, error: 'Kiểm chứng sau ghi thất bại (Read-back verification failed). File chưa được lưu bền vững trên D1.' }),
+          { status: 500, headers: CORS_HEADERS }
+        );
+      }
+    } catch (rbErr: any) {
+      console.error('[IngestUpcomingGames] Lỗi read-back:', rbErr);
+    }
+
+    // 10. Tự động đồng bộ bản ghi game (cả hai trường iconUrl và icon_url thành /game_icons/<slug>.webp?v=<version>)
+    const version = Date.now();
+    const iconPublicPath = `/game_icons/${trimmedSlug}.webp?v=${version}`;
     if (targetType === 'UPCOMING' && matchedGame) {
       matchedGame.iconUrl = iconPublicPath;
       matchedGame.icon_url = iconPublicPath;
+      matchedGame.icon_verified = typeof payload?.icon_verified === 'boolean' ? payload.icon_verified : true;
+      matchedGame.icon_source = payload?.icon_source || (botName.includes('Admin') ? 'admin tay' : 'crawler');
+      matchedGame.icon_verified_at = nowIso;
+      matchedGame.icon_version = version;
+      matchedGame.icon_updated_by = botName;
       matchedGame.updatedAt = nowIso;
       matchedGame.source = botName;
       await saveUpcomingGamesAndPropagate(context, currentUpcomingGames);
@@ -2040,9 +2132,10 @@ export async function onRequestPost(context: { request: Request; env: Env }): Pr
     }
   }
 
-  // ACTION 2: APPROVE_ALL (Duyệt toàn bộ hàng chờ)
+  // ACTION 2: APPROVE_ALL (Duyệt toàn bộ hàng chờ có logo đã xác minh)
   if (action === 'approve_all') {
     let approvedCount = 0;
+    let unverifiedCount = 0;
     let maxOrder = 0;
     currentUpcomingGames.forEach((g) => {
       if (typeof g.displayOrder === 'number' && g.displayOrder > maxOrder) {
@@ -2052,12 +2145,22 @@ export async function onRequestPost(context: { request: Request; env: Env }): Pr
 
     for (const item of currentUpcomingGames) {
       if (item.status === 'PENDING') {
-        item.status = 'UPCOMING';
-        item.approvedAt = nowIso;
-        item.approvedBy = botName;
-        item.updatedAt = nowIso;
-        item.displayOrder = ++maxOrder;
-        approvedCount++;
+        const canApprove = item.icon_verified === true || payload?.admin_override === true;
+        if (canApprove) {
+          if (payload?.admin_override && !item.icon_verified) {
+            item.icon_verified = true;
+            item.icon_source = item.icon_source || 'admin tay';
+            item.icon_verified_at = nowIso;
+          }
+          item.status = 'UPCOMING';
+          item.approvedAt = nowIso;
+          item.approvedBy = botName;
+          item.updatedAt = nowIso;
+          item.displayOrder = ++maxOrder;
+          approvedCount++;
+        } else {
+          unverifiedCount++;
+        }
       }
     }
 
@@ -2066,8 +2169,9 @@ export async function onRequestPost(context: { request: Request; env: Env }): Pr
     return new Response(
       JSON.stringify({
         success: true,
-        message: `Đã duyệt toàn bộ ${approvedCount} tựa game trong hàng chờ lên Web Khách.`,
+        message: `Đã duyệt ${approvedCount} tựa game đủ điều kiện (logo đã xác minh) lên Web Khách.${unverifiedCount > 0 ? ` Giữ lại ${unverifiedCount} game chưa xác minh logo trong hàng chờ.` : ''}`,
         approvedCount,
+        unverifiedCount,
         games: currentUpcomingGames,
       }),
       { headers: CORS_HEADERS }
@@ -2415,8 +2519,9 @@ export async function onRequestPost(context: { request: Request; env: Env }): Pr
         if (!existing.iconUrl && existing.icon_url) existing.iconUrl = existing.icon_url;
         if (!existing.icon_url && existing.iconUrl) existing.icon_url = existing.iconUrl;
         if (!existing.iconUrl && !existing.icon_url) {
-          existing.iconUrl = `/game_icons/${slug}.webp`;
-          existing.icon_url = `/game_icons/${slug}.webp`;
+          existing.iconUrl = '';
+          existing.icon_url = '';
+          existing.icon_verified = false;
         }
       }
       if (hasBanner && rawBanner) {
@@ -2507,8 +2612,11 @@ export async function onRequestPost(context: { request: Request; env: Env }): Pr
         releaseDate: cleanRelDate, // Lưu null nếu không gửi hoặc null/rỗng. TUYỆT ĐỐI KHÔNG tự gán nowIso!
         category: hasCategory && rawCategory ? rawCategory : 'Game Mới',
         platform: hasPlatform && rawPlatform ? rawPlatform : 'Android, iOS, PC',
-        iconUrl: rawIcon || `/game_icons/${slug}.webp`,
-        icon_url: rawIcon || `/game_icons/${slug}.webp`,
+        iconUrl: rawIcon || '',
+        icon_url: rawIcon || '',
+        icon_verified: typeof raw.icon_verified === 'boolean' ? raw.icon_verified : false,
+        icon_source: raw.icon_source || (rawIcon ? 'crawler' : ''),
+        icon_verified_at: raw.icon_verified ? nowIso : null,
         bannerUrl: hasBanner && rawBanner ? rawBanner : undefined,
         description: hasDescription && rawDescription ? rawDescription : `Thông tin ngày mở server và giftcode tân thủ tựa game ${name}.`,
         instructions: hasInstructions && rawInstructions ? String(rawInstructions).trim() : undefined,

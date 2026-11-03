@@ -7,6 +7,46 @@ Mỗi mục sửa lỗi đều ghi nhận **Nguyên nhân gốc rễ (Root Cause
 
 ## [2026-11-03]
 
+### 308. Nâng Cấp Toàn Diện Pipeline Logo Game: Thêm Endpoint Tải File Thật `/api/games/upload-icon`, Đối Chiếu Tự Động CH Play / App Store, Cache-Busting Versioning & Chấm Dứt Gán Đường Dẫn 404
+- **Bối cảnh & Yêu cầu từ Chủ sở hữu (03/11/2026)**:
+  - 11 game đang chờ duyệt trên bảng sắp ra mắt đều trỏ về `/game_icons/<slug>.webp` giả định nhưng file thực tế 404.
+  - API `update_icon` cũ chỉ đổi chuỗi URL trong cơ sở dữ liệu, không đẩy file ảnh thật lên máy chủ khiến luồng tự động bị kẹt tại bước người dùng phải tải file qua giao diện quản trị.
+  - Thiếu cờ xác minh logo chính thức khiến 8 tựa game dùng icon mẫu không rõ nguồn gốc.
+  - Logo bị cache dài hạn trên Cloudflare Edge, thay logo mới phải purge cache thủ công trên Dashboard.
+  - Yêu cầu xử lý 6 điểm: (1) Thêm API tải file thật; (2) Chấm dứt tự gán icon 404; (3) Bổ sung 3 trường `icon_verified`, `icon_source`, `icon_verified_at` và dựng cổng duyệt chặn logo chưa xác minh; (4) Tự động đối chiếu logo với Google Play Store và Apple App Store; (5) Versioning `?v=<timestamp>` và auto edge purge cache; (6) Hiển thị khung chờ "Chờ Logo" trang nhã, không dùng logo mẫu hay og-image giả.
+- **Nguyên nhân gốc rễ (Root Cause)**:
+  - Hàm `extractIconUrl` và các trình xử lý admin tự động gán fallback `/game_icons/${slug}.webp` khi dữ liệu icon rỗng hoặc không tìm thấy file.
+  - Không có endpoint chuyên biệt nhận tải file nhị phân ảnh hoặc kéo ảnh từ URL chính thức lưu vào lưu trữ nhị phân bền vững (D1 `uploaded_game_icons`).
+  - Thiếu cơ chế versioning tham số URL khiến trình duyệt và CDN Cloudflare giữ lại bản cache vĩnh viễn.
+- **Giải pháp triệt để đã triển khai**:
+  1. *Thêm endpoint `/api/games/upload-icon` (`functions/api/games/upload-icon.ts`)*:
+     - Nhận cả 3 dạng: `multipart/form-data`, JSON `{slug, image_url}`, hoặc JSON `{slug, image_base64}`.
+     - Hỗ trợ đầy đủ phân quyền theo Rule 8: Dynamic API Key (`GAME_ICONS_FULL`, `NEWS_FULL`, `EVENTS_FULL`, `GAMES_FULL`, `GAMES_MANAGE`, `ADMIN_FULL`), Bearer JWT hoặc Master Secret.
+     - Kiểm tra kích thước (< 500KB) và magic bytes nhị phân (WebP, PNG, JPEG) chống mã độc / SVG XSS.
+     - Thực hiện kiểm tra đọc ngược (Read-back verification) tức thì qua D1 trước khi trả về phản hồi 200 OK.
+  2. *Chấm dứt gán icon 404*:
+     - Cập nhật `extractIconUrl` trong `ingest-upcoming-games.ts` trả về chuỗi rỗng `''` khi không có file icon hợp lệ.
+     - Khử bỏ logic tự gán `/game_icons/${slug}.webp` trong form sửa admin (`UpcomingGamesSection.tsx` & `adminDataService.ts`).
+  3. *Bổ sung 3 trường metadata & Cổng duyệt chất lượng*:
+     - Bổ sung `icon_verified` (boolean), `icon_source` (string), `icon_verified_at` (ISO timestamp), `icon_version` vào schema type `UpcomingGame` và `Game`.
+     - Cổng duyệt `approve` và `approve_all` trong API `ingest-upcoming-games.ts` từ chối tự động xuất bản game chưa có logo xác minh (`icon_verified === false`), trừ khi có cờ `admin_override: true`.
+     - Giao diện Admin hiển thị huy hiệu trực quan: 🟢 "Logo Đã Xác Minh", 🟡 "Chờ Xác Minh Logo", 🔴 "Chưa Có Logo".
+  4. *Tự động đối chiếu với CH Play & App Store (`functions/services/icon_verifier_service.ts`)*:
+     - Tự động bóc tách ID ứng dụng (`package_name` / `apple_id`), truy vấn Google Play và iTunes Search API.
+     - Đối chiếu CDN hostname (`play-lh.googleusercontent.com`, `is1-ssl.mzstatic.com`), kích thước hoặc độ tương đồng byte để tự động xác minh `icon_verified: true`.
+  5. *Versioning và Cache-Busting*:
+     - URL icon được tự động gắn tham số `?v=<timestamp>`.
+     - Worker `functions/game_icons/[file].ts` và `_worker.ts` cấu hình `Cache-Control: public, max-age=31536000, immutable` khi có tham số version, và cache ngắn (60s) khi không có version.
+     - Tự động phát lệnh Cloudflare Edge Cache Purge khi có logo mới.
+  6. *Placeholder trang nhã*:
+     - Khi game chưa có logo hoặc logo 404, hiển thị khung viền nét đứt kèm biểu tượng `Gamepad2` và dòng chữ "Chờ Logo", tuyệt đối không dùng logo mẫu hay og-image giả.
+  7. *Bảo toàn 100% chức năng*:
+     - Admin tải ảnh thủ công qua UI vẫn hoạt động nguyên vẹn.
+     - Hàng chờ duyệt bán tự động duy trì đầy đủ tính năng.
+- **Kết quả kiểm thử**:
+  - `npm run build` thành công 100%, 0 lỗi TypeScript, 0 test artifacts.
+  - Phân quyền Rule 8 tự động cập nhật trong `ALL_API_SCOPES` và `hasScope`.
+
 ### 307. Ẩn Hoàn Toàn Chữ "Còn Hàng (7 Gói)" Trên Thẻ Tiện Ích Và Popup Chi Tiết Theo Yêu Cầu Của Chủ Sở Hữu
 - **Bối cảnh & Yêu cầu từ Chủ sở hữu (03/11/2026)**:
   - Người dùng yêu cầu: *"Bạn xóa chữ còn hàng 7 gói giúp tôi. Không động đến code khác không liên quan."*

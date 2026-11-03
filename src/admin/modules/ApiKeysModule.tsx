@@ -42,6 +42,8 @@ import {
 
 export type ApiKeyScope =
   | 'NEWS_FULL'
+  | 'EVENTS_FULL'
+  | 'GAME_ICONS_FULL'
   | 'MISSIONS_FULL'
   | 'MISSIONS_REVIEW'
   | 'GAMES_FULL'
@@ -90,6 +92,17 @@ export const ALL_API_SCOPES: ScopeOption[] = [
     badgeText: 'text-amber-500',
     badgeBorder: 'border-amber-500/20',
     icon: Zap,
+  },
+  {
+    id: 'GAME_ICONS_FULL',
+    name: 'Pipeline Logo & Icon Game (Game Icons API)',
+    category: 'Dữ Liệu',
+    description: 'Tải file logo thật, tự động đối chiếu Store (CH Play / App Store), xác minh cờ icon_verified và cập nhật bản ghi game (/api/games/upload-icon). Kế thừa từ NEWS_FULL, EVENTS_FULL, GAMES_FULL.',
+    color: 'sky',
+    badgeBg: 'bg-sky-500/10',
+    badgeText: 'text-sky-500',
+    badgeBorder: 'border-sky-500/20',
+    icon: Sparkles,
   },
   {
     id: 'MISSIONS_FULL',
@@ -292,7 +305,7 @@ export const ApiKeysModule: React.FC<ApiKeysModuleProps> = ({ onShowToast }) => 
 
   // Active sub-tab
   const [activeTab, setActiveTab] = useState<'keys' | 'permissions' | 'docs'>('keys');
-  const [docCategory, setDocCategory] = useState<'universal' | 'news' | 'missions' | 'giveaways' | 'events' | 'sync' | 'history'>('universal');
+  const [docCategory, setDocCategory] = useState<'universal' | 'news' | 'icons' | 'missions' | 'giveaways' | 'events' | 'sync' | 'history'>('universal');
 
   const showToast = (msg: string, type: 'success' | 'error' | 'info' = 'success') => {
     if (onShowToast) {
@@ -1376,6 +1389,17 @@ export const ApiKeysModule: React.FC<ApiKeysModuleProps> = ({ onShowToast }) => 
               API Tin Tức
             </button>
             <button
+              onClick={() => setDocCategory('icons')}
+              className={`flex items-center gap-2 px-3.5 py-1.5 rounded-xl text-xs font-semibold transition-all ${
+                docCategory === 'icons'
+                  ? 'bg-sky-600 text-white shadow-sm'
+                  : 'bg-card border border-border text-muted-foreground hover:text-foreground'
+              }`}
+            >
+              <Sparkles className="w-3.5 h-3.5" />
+              API Logo & Icon Game (Mới)
+            </button>
+            <button
               onClick={() => setDocCategory('missions')}
               className={`flex items-center gap-2 px-3.5 py-1.5 rounded-xl text-xs font-semibold transition-all ${
                 docCategory === 'missions'
@@ -1528,6 +1552,66 @@ console.log('Kết quả cập nhật:', data);`}
 });
 const data = await res.json();
 console.log(data);`}
+                </pre>
+              </div>
+            </div>
+          )}
+
+          {docCategory === 'icons' && (
+            <div className="space-y-4 bg-card border border-border p-5 rounded-2xl">
+              <div>
+                <h4 className="text-sm font-bold text-foreground flex items-center gap-2">
+                  <Terminal className="w-4 h-4 text-sky-400" />
+                  Mẫu 1: Tải logo thật và tự động đối chiếu Store (JSON Payload)
+                </h4>
+                <pre className="mt-2 p-4 rounded-xl bg-slate-950 text-slate-100 font-mono text-xs overflow-x-auto">
+{`curl -X POST https://codegame.shop/api/games/upload-icon \\
+  -H "Content-Type: application/json" \\
+  -H "X-API-Key: YOUR_API_KEY_HERE" \\
+  -d '{
+    "slug": "kof-legend",
+    "image_url": "https://play-lh.googleusercontent.com/F3o9a5E96MFcfrjlp526Goj6EMQtnCsp1t9Bwp_Kzg1kUsIKttc3VRVqxxP-NrbyZwKwx7fv8cE4n-Pk99A86g=s0-br30",
+    "store_url": "https://play.google.com/store/apps/details?id=com.huanle.kof.sea",
+    "verify": true
+  }'`}
+                </pre>
+              </div>
+
+              <div>
+                <h4 className="text-sm font-bold text-foreground flex items-center gap-2">
+                  <Terminal className="w-4 h-4 text-sky-400" />
+                  Mẫu 2: Tải file ảnh trực tiếp từ máy (Multipart Form-Data)
+                </h4>
+                <pre className="mt-2 p-4 rounded-xl bg-slate-950 text-slate-100 font-mono text-xs overflow-x-auto">
+{`curl -X POST https://codegame.shop/api/games/upload-icon \\
+  -H "X-API-Key: YOUR_API_KEY_HERE" \\
+  -F "slug=kof-legend" \\
+  -F "file=@icon_kyo_512.webp;type=image/webp" \\
+  -F "store_url=https://play.google.com/store/apps/details?id=com.huanle.kof.sea"`}
+                </pre>
+              </div>
+
+              <div>
+                <h4 className="text-sm font-bold text-foreground flex items-center gap-2">
+                  <Code2 className="w-4 h-4 text-sky-400" />
+                  Mẫu 3: Tải và xác minh logo tự động (JavaScript Fetch)
+                </h4>
+                <pre className="mt-2 p-4 rounded-xl bg-slate-950 text-slate-100 font-mono text-xs overflow-x-auto">
+{`const res = await fetch('https://codegame.shop/api/games/upload-icon', {
+  method: 'POST',
+  headers: {
+    'Content-Type': 'application/json',
+    'X-API-Key': 'YOUR_API_KEY_HERE',
+  },
+  body: JSON.stringify({
+    slug: 'kof-legend',
+    image_url: 'https://play-lh.googleusercontent.com/...',
+    store_url: 'https://play.google.com/store/apps/details?id=com.huanle.kof.sea',
+    verify: true,
+  }),
+});
+const data = await res.json();
+console.log(data); // { success: true, iconUrl: '/game_icons/kof-legend.webp?v=...', verified: true }`}
                 </pre>
               </div>
             </div>

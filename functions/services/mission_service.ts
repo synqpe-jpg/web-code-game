@@ -127,6 +127,7 @@ export function hasScope(scopeStr: string | undefined | null, requiredScope: str
   if (target === 'GAMES_FULL' && scopes.includes('GAMES_MANAGE')) return true;
   if ((target === 'EVENTS_FULL' || target === 'EVENTS_MANAGE') && (scopes.includes('NEWS_FULL') || scopes.includes('ADMIN_FULL'))) return true;
   if (target === 'NEWS_FULL' && scopes.includes('EVENTS_FULL')) return true;
+  if (target === 'GAME_ICONS_FULL' && (scopes.includes('NEWS_FULL') || scopes.includes('EVENTS_FULL') || scopes.includes('GAMES_FULL') || scopes.includes('GAMES_MANAGE') || scopes.includes('ADMIN_FULL'))) return true;
   return scopes.includes(target);
 }
 

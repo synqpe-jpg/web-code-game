@@ -11,12 +11,12 @@ import React from 'react';
 export function getUpcomingGameIconUrl(
   game: { slug?: string; id?: string; iconUrl?: string; icon_url?: string } | null | undefined
 ): string {
-  if (!game) return '/logo.png';
+  if (!game) return '';
   const raw = (game.iconUrl || game.icon_url || '').trim();
   const slug = (game.slug || game.id || '').trim();
 
   if (!raw) {
-    return slug ? `/game_icons/${slug}.webp` : '/logo.png';
+    return '';
   }
 
   // Nếu là URL ngoài (Apple mzstatic, Google Play, CDN...), định tuyến qua Edge Proxy để an toàn 100%
@@ -39,10 +39,8 @@ export function getUpcomingGameIconUrl(
 
 /**
  * Bộ xử lý lỗi ảnh phân tầng (Multi-Stage Image Error Fallback Handler):
- * Stage 0 -> Stage 1: Thử link gốc trực tiếp (bỏ qua proxy) với referrerPolicy="no-referrer"
- * Stage 1 -> Stage 2: Thử file ảnh local .webp (/game_icons/${slug}.webp)
- * Stage 2 -> Stage 3: Thử file ảnh local .jpg (/game_icons/${slug}.jpg)
- * Stage 3 -> Stage 4: Logo thương hiệu mặc định (/logo.png)
+ * Tuyệt đối không tự gán logo chung /og-image.jpg hay logo giả lập làm đại diện game.
+ * Nếu ảnh không tải được, chuyển sang ẩn ảnh để lộ khung placeholder chuẩn mực.
  */
 export function handleUpcomingImageError(
   e: React.SyntheticEvent<HTMLImageElement, Event>,
@@ -65,16 +63,9 @@ export function handleUpcomingImageError(
       target.src = `/api/game-icon?slug=${encodeURIComponent(slug)}&url=${encodeURIComponent(raw)}`;
       return;
     }
-    // Ngược lại thử file local webp
-    target.src = slug ? `/game_icons/${slug}.webp` : '/logo.png';
-  } else if (stage === 1) {
-    target.setAttribute('data-error-stage', '2');
-    target.src = slug ? `/game_icons/${slug}.webp` : '/logo.png';
-  } else if (stage === 2) {
-    target.setAttribute('data-error-stage', '3');
-    target.src = slug ? `/game_icons/${slug}.jpg` : '/logo.png';
+    // Nếu là file local mà lỗi (404), ẩn ảnh
+    target.style.display = 'none';
   } else {
-    target.setAttribute('data-error-stage', '4');
-    target.src = '/logo.png';
+    target.style.display = 'none';
   }
 }

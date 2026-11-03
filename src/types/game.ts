@@ -396,6 +396,11 @@ export interface UpcomingGame {
   platform?: string;
   iconUrl?: string;
   icon_url?: string;
+  icon_verified?: boolean;
+  icon_source?: string;
+  icon_verified_at?: string | null;
+  icon_version?: string | number;
+  icon_updated_by?: string;
   proxyIconUrl?: string;
   bannerUrl?: string;
   description?: string;
