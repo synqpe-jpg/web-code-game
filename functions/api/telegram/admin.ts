@@ -10,6 +10,8 @@ import {
   getTelegramWebhookInfo,
   setTelegramWebhook,
   recordPostedLog,
+  getEffectiveTelegramConfig,
+  saveTelegramConfigToDb,
 } from '../../services/telegram_service';
 import { verifyAdminAuth } from '../../services/mission_service';
 
@@ -83,8 +85,10 @@ export async function onRequestGet(context: { request: Request; env: Env }): Pro
     `).all();
     const recentPosts = logsRes.results || [];
 
-    // 4. Lấy thông tin webhook live từ Telegram
-    const botToken = (env.TELEGRAM_BOT_TOKEN || '').trim();
+    // 4. Lấy cấu hình kết nối Telegram (hợp nhất từ Cloudflare Env và D1 system_settings)
+    const effectiveConfig = await getEffectiveTelegramConfig(env);
+    const botToken = effectiveConfig.bot_token;
+
     let webhookInfo: any = null;
     if (botToken) {
       webhookInfo = await getTelegramWebhookInfo(botToken);
@@ -92,13 +96,28 @@ export async function onRequestGet(context: { request: Request; env: Env }): Pro
 
     const configStatus = {
       has_token: Boolean(botToken),
-      has_group_id: Boolean(env.TELEGRAM_GROUP_ID),
-      has_admin_chat_id: Boolean(env.TELEGRAM_ADMIN_CHAT_ID),
-      has_webhook_secret: Boolean(env.TELEGRAM_WEBHOOK_SECRET),
-      has_notify_key: Boolean(env.TELEGRAM_NOTIFY_KEY),
-      bot_username: env.TELEGRAM_BOT_USERNAME || null,
-      group_link: env.TELEGRAM_GROUP_LINK || null,
-      admin_chat_id_configured: env.TELEGRAM_ADMIN_CHAT_ID ? `Đã cấu hình (${env.TELEGRAM_ADMIN_CHAT_ID.slice(0, 4)}***)` : 'Chưa cấu hình',
+      has_group_id: Boolean(effectiveConfig.group_id),
+      has_admin_chat_id: Boolean(effectiveConfig.admin_chat_id),
+      has_webhook_secret: Boolean(effectiveConfig.webhook_secret),
+      has_notify_key: Boolean(effectiveConfig.notify_key),
+      bot_username: effectiveConfig.bot_username || null,
+      group_link: effectiveConfig.group_link || null,
+      admin_chat_id_configured: effectiveConfig.admin_chat_id
+        ? `Đã cấu hình (${effectiveConfig.admin_chat_id.slice(0, 4)}***)`
+        : 'Chưa cấu hình',
+    };
+
+    const rawConfig = {
+      bot_token: effectiveConfig.bot_token
+        ? `${effectiveConfig.bot_token.slice(0, 6)}***${effectiveConfig.bot_token.slice(-4)}`
+        : '',
+      has_bot_token: Boolean(effectiveConfig.bot_token),
+      group_id: effectiveConfig.group_id,
+      bot_username: effectiveConfig.bot_username,
+      group_link: effectiveConfig.group_link,
+      admin_chat_id: effectiveConfig.admin_chat_id,
+      webhook_secret: effectiveConfig.webhook_secret,
+      notify_key: effectiveConfig.notify_key,
     };
 
     return new Response(
@@ -111,6 +130,7 @@ export async function onRequestGet(context: { request: Request; env: Env }): Pro
         },
         webhook_info: webhookInfo,
         config: configStatus,
+        raw_config: rawConfig,
       }),
       { status: 200, headers: CORS_HEADERS }
     );
@@ -148,17 +168,49 @@ export async function onRequestPost(context: { request: Request; env: Env }): Pr
   } catch {}
 
   const action = (body.action || '').trim();
-  const botToken = (env.TELEGRAM_BOT_TOKEN || '').trim();
+  const effectiveConfig = await getEffectiveTelegramConfig(env);
+  const botToken = effectiveConfig.bot_token;
+
+  // ACTION 0: Lưu Cấu Hình Kết Nối Vào D1 Database (system_settings)
+  if (action === 'save_config') {
+    const cfg = body.config || {};
+    const ok = await saveTelegramConfigToDb(env, cfg);
+    if (!ok) {
+      return new Response(
+        JSON.stringify({ success: false, error: 'Không thể lưu cấu hình vào cơ sở dữ liệu D1.' }),
+        { status: 500, headers: CORS_HEADERS }
+      );
+    }
+
+    const refreshed = await getEffectiveTelegramConfig(env);
+    let webhookResult: any = null;
+    if (body.auto_set_webhook && refreshed.bot_token) {
+      webhookResult = await setTelegramWebhook(
+        refreshed.bot_token,
+        'https://codegame.shop/api/telegram/webhook',
+        refreshed.webhook_secret || undefined
+      );
+    }
+
+    return new Response(
+      JSON.stringify({
+        success: true,
+        message: 'Đã lưu cấu hình kết nối Telegram thành công!',
+        webhook_result: webhookResult,
+      }),
+      { status: 200, headers: CORS_HEADERS }
+    );
+  }
 
   // ACTION 1: Gửi tin thử tới TELEGRAM_ADMIN_CHAT_ID (Tuyệt đối không gửi lên nhóm thật theo Mục 3.5)
   if (action === 'send_test') {
-    const adminChatId = (env.TELEGRAM_ADMIN_CHAT_ID || '').trim();
+    const adminChatId = effectiveConfig.admin_chat_id;
     if (!adminChatId) {
       return new Response(
         JSON.stringify({
           success: false,
           error: 'admin_chat_id_missing',
-          message: 'Chưa cấu hình biến môi trường TELEGRAM_ADMIN_CHAT_ID trên Cloudflare Pages. Nút gửi thử chỉ cho phép gửi tới chat ID cá nhân của quản trị viên.',
+          message: 'Chưa cấu hình Chat ID cá nhân của quản trị viên (Admin Chat ID). Nút gửi thử chỉ cho phép gửi tới chat ID cá nhân.',
         }),
         { status: 400, headers: CORS_HEADERS }
       );
@@ -169,7 +221,7 @@ export async function onRequestPost(context: { request: Request; env: Env }): Pr
         JSON.stringify({
           success: false,
           error: 'bot_token_missing',
-          message: 'Chưa cấu hình TELEGRAM_BOT_TOKEN.',
+          message: 'Chưa cấu hình Telegram Bot Token.',
         }),
         { status: 400, headers: CORS_HEADERS }
       );
@@ -229,7 +281,7 @@ export async function onRequestPost(context: { request: Request; env: Env }): Pr
     }
 
     const customUrl = (body.webhook_url || 'https://codegame.shop/api/telegram/webhook').trim();
-    const secret = (env.TELEGRAM_WEBHOOK_SECRET || '').trim();
+    const secret = (effectiveConfig.webhook_secret || env.TELEGRAM_WEBHOOK_SECRET || '').trim();
 
     const res = await setTelegramWebhook(botToken, customUrl, secret || undefined);
     return new Response(JSON.stringify({ success: res.ok, result: res }), {

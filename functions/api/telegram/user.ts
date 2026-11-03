@@ -7,7 +7,7 @@
  * - POST /api/telegram/user (action: update_preferences): Update notify types for followed games
  */
 
-import { ensureTelegramSchema } from '../../services/telegram_service';
+import { ensureTelegramSchema, getEffectiveTelegramConfig } from '../../services/telegram_service';
 import { verifyToken, extractUserIdFromToken } from '../../services/auth_service';
 
 interface Env {
@@ -140,7 +140,8 @@ export async function onRequestPost(context: { request: Request; env: Env }): Pr
 
   // ACTION 1: Sinh mã liên kết 1 lần hết hạn sau 15 phút (Mục 3.3)
   if (action === 'generate_link') {
-    const botUsername = (env.TELEGRAM_BOT_USERNAME || '').replace(/^@/, '').trim();
+    const effectiveConfig = await getEffectiveTelegramConfig(env);
+    const botUsername = (effectiveConfig.bot_username || env.TELEGRAM_BOT_USERNAME || '').replace(/^@/, '').trim();
     if (!botUsername) {
       return new Response(
         JSON.stringify({

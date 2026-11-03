@@ -18,6 +18,7 @@ import {
   sendTelegramApiMessage,
   isWithinVietnamNotificationWindow,
   NotifyPayload,
+  getEffectiveTelegramConfig,
 } from '../../services/telegram_service';
 import { verifyAiKeyAuth } from '../../services/mission_service';
 
@@ -53,6 +54,9 @@ export async function onRequestPost(context: { request: Request; env: Env }): Pr
   await ensureTelegramSchema(env.DB);
 
   // 1. Xác thực quyền gọi:
+  const effectiveConfig = await getEffectiveTelegramConfig(env);
+  const notifyKey = effectiveConfig.notify_key;
+
   // Ưu tiên 1: Khóa tĩnh TELEGRAM_NOTIFY_KEY
   const notifyHeader = request.headers.get('X-Telegram-Notify-Key') || '';
   const authHeader = request.headers.get('Authorization') || '';
@@ -62,7 +66,7 @@ export async function onRequestPost(context: { request: Request; env: Env }): Pr
   let isAuthorized = false;
   let callerIdentity = 'unknown';
 
-  if (env.TELEGRAM_NOTIFY_KEY && rawKey === env.TELEGRAM_NOTIFY_KEY.trim()) {
+  if (notifyKey && rawKey === notifyKey.trim()) {
     isAuthorized = true;
     callerIdentity = 'Static TELEGRAM_NOTIFY_KEY';
   } else if (env.ADMIN_SYNC_SECRET && rawKey === env.ADMIN_SYNC_SECRET.trim()) {
@@ -89,8 +93,8 @@ export async function onRequestPost(context: { request: Request; env: Env }): Pr
   }
 
   // 2. Kiểm tra cấu hình Telegram
-  const botToken = (env.TELEGRAM_BOT_TOKEN || '').trim();
-  const groupId = (env.TELEGRAM_GROUP_ID || '').trim();
+  const botToken = effectiveConfig.bot_token;
+  const groupId = effectiveConfig.group_id;
 
   if (!botToken || !groupId) {
     return new Response(

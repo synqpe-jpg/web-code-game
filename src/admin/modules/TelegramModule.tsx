@@ -17,6 +17,15 @@ import {
   Sliders,
   Check,
   AlertTriangle,
+  Eye,
+  EyeOff,
+  Save,
+  KeyRound,
+  Hash,
+  Link,
+  Bot,
+  UserCheck,
+  Dices,
 } from 'lucide-react';
 
 interface TelegramStats {
@@ -26,15 +35,19 @@ interface TelegramStats {
 
 interface TelegramRecentPost {
   id: string;
-  type: string;
+  kind?: string;
+  type?: string;
   ref_key?: string;
-  title: string;
-  chat_id: string;
+  title?: string;
+  target?: string;
+  chat_id?: string;
   thread_id?: number | null;
   message_id?: number | null;
-  status: string;
+  status?: string;
   error_message?: string;
-  created_at: string;
+  posted_at?: string;
+  created_at?: string;
+  content_snippet?: string;
 }
 
 interface WebhookInfoResult {
@@ -48,13 +61,14 @@ interface WebhookInfoResult {
 }
 
 interface ConfigStatus {
-  has_bot_token: boolean;
+  has_token: boolean;
   has_group_id: boolean;
-  has_bot_username: boolean;
-  has_group_link: boolean;
-  has_webhook_secret: boolean;
   has_admin_chat_id: boolean;
+  has_webhook_secret: boolean;
   has_notify_key: boolean;
+  bot_username: string | null;
+  group_link: string | null;
+  admin_chat_id_configured?: string;
 }
 
 export const TelegramModule: React.FC = () => {
@@ -62,16 +76,29 @@ export const TelegramModule: React.FC = () => {
   const [recentPosts, setRecentPosts] = useState<TelegramRecentPost[]>([]);
   const [webhookInfo, setWebhookInfo] = useState<WebhookInfoResult | null>(null);
   const [configStatus, setConfigStatus] = useState<ConfigStatus>({
-    has_bot_token: false,
+    has_token: false,
     has_group_id: false,
-    has_bot_username: false,
-    has_group_link: false,
-    has_webhook_secret: false,
     has_admin_chat_id: false,
+    has_webhook_secret: false,
     has_notify_key: false,
+    bot_username: null,
+    group_link: null,
+    admin_chat_id_configured: 'Chưa cấu hình',
   });
 
+  // Connection Configuration Inputs
+  const [botToken, setBotToken] = useState('');
+  const [showBotToken, setShowBotToken] = useState(false);
+  const [groupId, setGroupId] = useState('');
+  const [botUsername, setBotUsername] = useState('');
+  const [groupLink, setGroupLink] = useState('');
+  const [adminChatId, setAdminChatId] = useState('');
+  const [webhookSecret, setWebhookSecret] = useState('');
+  const [notifyKey, setNotifyKey] = useState('');
+  const [hasExistingToken, setHasExistingToken] = useState(false);
+
   const [isLoading, setIsLoading] = useState(false);
+  const [isSavingConfig, setIsSavingConfig] = useState(false);
   const [isSendingTest, setIsSendingTest] = useState(false);
   const [isUpdatingWebhook, setIsUpdatingWebhook] = useState(false);
   const [testMessage, setTestMessage] = useState('🔔 [CodeGame Admin Test] Bot Telegram hoạt động hoàn hảo!');
@@ -96,6 +123,15 @@ export const TelegramModule: React.FC = () => {
     return headers;
   };
 
+  const generateRandomHex = (length = 32): string => {
+    const chars = '0123456789abcdef';
+    let res = '';
+    for (let i = 0; i < length; i++) {
+      res += chars[Math.floor(Math.random() * chars.length)];
+    }
+    return res;
+  };
+
   const loadTelegramData = async () => {
     setIsLoading(true);
     setActionNotice(null);
@@ -104,11 +140,46 @@ export const TelegramModule: React.FC = () => {
         headers: getAuthHeaders(),
       });
       const data: any = await res.json();
-      if (data.success && data.data) {
-        setStats(data.data.stats || { total_linked_users: 0, subscriptions_by_game: [] });
-        setRecentPosts(data.data.recent_posts || []);
-        setWebhookInfo(data.data.webhook_info?.result || null);
-        setConfigStatus(data.data.config_status || {});
+      if (data.success) {
+        // Robust handling for both nested data.data and root level data
+        const statsData = data.stats || data.data?.stats;
+        const recentPostsData = statsData?.recent_posts || data.recent_posts || data.data?.recent_posts || [];
+        const webhookData = data.webhook_info?.result || data.webhook_info || data.data?.webhook_info?.result || null;
+        const configData = data.config || data.data?.config;
+        const rawConfig = data.raw_config || data.data?.raw_config;
+
+        if (statsData) {
+          setStats({
+            total_linked_users: statsData.total_linked_users ?? 0,
+            subscriptions_by_game: statsData.subscriptions_by_game ?? [],
+          });
+        }
+        setRecentPosts(recentPostsData);
+        setWebhookInfo(webhookData);
+        if (configData) {
+          setConfigStatus({
+            has_token: Boolean(configData.has_token),
+            has_group_id: Boolean(configData.has_group_id),
+            has_admin_chat_id: Boolean(configData.has_admin_chat_id),
+            has_webhook_secret: Boolean(configData.has_webhook_secret),
+            has_notify_key: Boolean(configData.has_notify_key),
+            bot_username: configData.bot_username || null,
+            group_link: configData.group_link || null,
+            admin_chat_id_configured: configData.admin_chat_id_configured || 'Chưa cấu hình',
+          });
+        }
+
+        // Fill form fields from saved raw config
+        if (rawConfig) {
+          setBotToken(rawConfig.bot_token || '');
+          setHasExistingToken(Boolean(rawConfig.has_bot_token));
+          setGroupId(rawConfig.group_id || '');
+          setBotUsername(rawConfig.bot_username || '');
+          setGroupLink(rawConfig.group_link || '');
+          setAdminChatId(rawConfig.admin_chat_id || '');
+          setWebhookSecret(rawConfig.webhook_secret || '');
+          setNotifyKey(rawConfig.notify_key || '');
+        }
       } else {
         setActionNotice({ type: 'error', message: data.error || 'Không thể tải dữ liệu Telegram admin.' });
       }
@@ -122,6 +193,58 @@ export const TelegramModule: React.FC = () => {
   useEffect(() => {
     loadTelegramData();
   }, []);
+
+  const handleSaveConfig = async (autoSetWebhook = false) => {
+    if (!botToken.trim() && !hasExistingToken) {
+      setActionNotice({ type: 'error', message: 'Vui lòng nhập Bot Token từ @BotFather.' });
+      return;
+    }
+    if (!groupId.trim()) {
+      setActionNotice({ type: 'error', message: 'Vui lòng nhập Group ID (ID nhóm chat Telegram).' });
+      return;
+    }
+
+    setIsSavingConfig(true);
+    setActionNotice(null);
+    try {
+      const res = await fetch('/api/telegram/admin', {
+        method: 'POST',
+        headers: getAuthHeaders(),
+        body: JSON.stringify({
+          action: 'save_config',
+          config: {
+            bot_token: botToken,
+            group_id: groupId,
+            bot_username: botUsername,
+            group_link: groupLink,
+            admin_chat_id: adminChatId,
+            webhook_secret: webhookSecret,
+            notify_key: notifyKey,
+          },
+          auto_set_webhook: autoSetWebhook,
+        }),
+      });
+      const data: any = await res.json();
+      if (data.success) {
+        setActionNotice({
+          type: 'success',
+          message: autoSetWebhook
+            ? 'Đã lưu cấu hình và kích hoạt Webhook Telegram thành công!'
+            : 'Đã lưu cấu hình kết nối Telegram trực tiếp vào hệ thống thành công!',
+        });
+        await loadTelegramData();
+      } else {
+        setActionNotice({
+          type: 'error',
+          message: data.message || data.error || 'Lỗi khi lưu cấu hình.',
+        });
+      }
+    } catch (err: any) {
+      setActionNotice({ type: 'error', message: err.message || 'Lỗi kết nối máy chủ.' });
+    } finally {
+      setIsSavingConfig(false);
+    }
+  };
 
   const handleSendTest = async () => {
     if (!testMessage.trim()) return;
@@ -140,7 +263,7 @@ export const TelegramModule: React.FC = () => {
       if (data.success) {
         setTestResult({
           success: true,
-          message: `Gửi tin thử nghiệm thành công! (Message ID: ${data.data?.message_id || 'N/A'}) - Chỉ gửi tới Admin Chat ID: ${data.data?.target_chat_id}.`,
+          message: `Gửi tin thử nghiệm thành công! (Message ID: ${data.message_id || 'N/A'}) - Đã gửi tới Admin Chat ID: ${data.target_chat_id}.`,
         });
         loadTelegramData();
       } else {
@@ -201,7 +324,7 @@ export const TelegramModule: React.FC = () => {
               </span>
             </h2>
             <p className="text-xs text-muted-foreground mt-0.5">
-              Giám sát Webhook, trạng thái kết nối Cloudflare Pages &amp; Telegram Bot API, phát thông báo tự động.
+              Cài đặt token kết nối bot, nhóm chat, giám sát Webhook và gửi thông báo giftcode tự động.
             </p>
           </div>
         </div>
@@ -232,9 +355,224 @@ export const TelegramModule: React.FC = () => {
           ) : (
             <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
           )}
-          <span>{actionNotice.message}</span>
+          <span className="font-medium">{actionNotice.message}</span>
         </div>
       )}
+
+      {/* 1. KHỐI CÀI ĐẶT THÔNG TIN KẾT NỐI (ĐIỀN TOKEN BOT & NHÓM CHAT TRỰC TIẾP TẠI ĐÂY) */}
+      <div className="p-5 sm:p-6 rounded-3xl bg-card border-2 border-[#229ED9]/40 shadow-xl space-y-5">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between pb-4 border-b border-border/80 gap-2">
+          <div className="flex items-center gap-2.5">
+            <div className="p-2 rounded-xl bg-[#229ED9]/20 text-[#229ED9]">
+              <Bot className="w-5 h-5" />
+            </div>
+            <div>
+              <h3 className="font-heading font-bold text-base text-foreground flex items-center gap-2">
+                <span>Cấu Hình Kết Nối Bot &amp; Nhóm Telegram</span>
+                <span className="text-[10px] px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 font-mono font-bold">
+                  LƯU TRỰC TIẾP D1
+                </span>
+              </h3>
+              <p className="text-xs text-muted-foreground mt-0.5">
+                Điền trực tiếp thông tin bot và nhóm chat tại đây mà không cần truy cập Cloudflare Dashboard.
+              </p>
+            </div>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs">
+          {/* 1. Bot Token */}
+          <div className="space-y-1.5 md:col-span-2">
+            <label className="font-bold text-foreground flex items-center justify-between">
+              <span className="flex items-center gap-1.5">
+                <KeyRound className="w-4 h-4 text-[#229ED9]" />
+                <span>Telegram Bot Token (Từ @BotFather)</span>
+                <span className="text-rose-400">*</span>
+              </span>
+              {hasExistingToken && (
+                <span className="text-[10px] text-emerald-400 font-mono font-bold">
+                  ✓ Hệ thống đã lưu token bí mật
+                </span>
+              )}
+            </label>
+            <div className="relative">
+              <input
+                type={showBotToken ? 'text' : 'password'}
+                value={botToken}
+                onChange={(e) => setBotToken(e.target.value)}
+                placeholder={hasExistingToken ? 'Đang lưu trữ token an toàn (Nhập mới nếu muốn thay đổi)...' : 'Ví dụ: 7891234567:AAHjK9qWXYZ_abc123...'}
+                className="w-full px-3.5 py-2.5 pr-10 rounded-xl bg-muted/40 border border-border text-foreground font-mono text-xs focus:outline-none focus:border-[#229ED9]"
+              />
+              <button
+                type="button"
+                onClick={() => setShowBotToken(!showBotToken)}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground cursor-pointer p-1"
+                title={showBotToken ? 'Ẩn token' : 'Hiện token'}
+              >
+                {showBotToken ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+              </button>
+            </div>
+            <p className="text-[11px] text-muted-foreground">
+              Mở Telegram nhắn tin cho <strong>@BotFather</strong>, chọn lệnh <code>/newbot</code> để nhận mã Token API.
+            </p>
+          </div>
+
+          {/* 2. Group ID */}
+          <div className="space-y-1.5">
+            <label className="font-bold text-foreground flex items-center gap-1.5">
+              <Hash className="w-4 h-4 text-amber-400" />
+              <span>Group ID (ID Nhóm Chat)</span>
+              <span className="text-rose-400">*</span>
+            </label>
+            <input
+              type="text"
+              value={groupId}
+              onChange={(e) => setGroupId(e.target.value)}
+              placeholder="Ví dụ: -1002345678901"
+              className="w-full px-3.5 py-2.5 rounded-xl bg-muted/40 border border-border text-foreground font-mono text-xs focus:outline-none focus:border-[#229ED9]"
+            />
+            <p className="text-[11px] text-muted-foreground">
+              ID nhóm dạng số âm (thường bắt đầu bằng <code>-100...</code>). Nhớ thêm Bot làm <strong>Quản trị viên (Admin)</strong> của nhóm.
+            </p>
+          </div>
+
+          {/* 3. Bot Username */}
+          <div className="space-y-1.5">
+            <label className="font-bold text-foreground flex items-center gap-1.5">
+              <Bot className="w-4 h-4 text-primary-light" />
+              <span>Bot Username (Tên người dùng của Bot)</span>
+            </label>
+            <div className="relative">
+              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground font-mono">@</span>
+              <input
+                type="text"
+                value={botUsername.replace(/^@/, '')}
+                onChange={(e) => setBotUsername(e.target.value.replace(/^@/, ''))}
+                placeholder="Ví dụ: CodeGameShopBot"
+                className="w-full pl-8 pr-3.5 py-2.5 rounded-xl bg-muted/40 border border-border text-foreground font-mono text-xs focus:outline-none focus:border-[#229ED9]"
+              />
+            </div>
+            <p className="text-[11px] text-muted-foreground">
+              Tên username của bot dùng để sinh đường link liên kết tài khoản cho người dùng.
+            </p>
+          </div>
+
+          {/* 4. Group Link */}
+          <div className="space-y-1.5">
+            <label className="font-bold text-foreground flex items-center gap-1.5">
+              <Link className="w-4 h-4 text-sky-400" />
+              <span>Link Mời Nhóm Chat (Group Link)</span>
+            </label>
+            <input
+              type="text"
+              value={groupLink}
+              onChange={(e) => setGroupLink(e.target.value)}
+              placeholder="Ví dụ: https://t.me/codegame_chat"
+              className="w-full px-3.5 py-2.5 rounded-xl bg-muted/40 border border-border text-foreground text-xs focus:outline-none focus:border-[#229ED9]"
+            />
+            <p className="text-[11px] text-muted-foreground">
+              Đường dẫn mời người dùng website bấm tham gia vào nhóm chat cộng đồng.
+            </p>
+          </div>
+
+          {/* 5. Admin Chat ID */}
+          <div className="space-y-1.5">
+            <label className="font-bold text-foreground flex items-center gap-1.5">
+              <UserCheck className="w-4 h-4 text-emerald-400" />
+              <span>Admin Chat ID (Chat ID Cá Nhân Của Bạn)</span>
+            </label>
+            <input
+              type="text"
+              value={adminChatId}
+              onChange={(e) => setAdminChatId(e.target.value)}
+              placeholder="Ví dụ: 7791142901"
+              className="w-full px-3.5 py-2.5 rounded-xl bg-muted/40 border border-border text-foreground font-mono text-xs focus:outline-none focus:border-[#229ED9]"
+            />
+            <p className="text-[11px] text-muted-foreground">
+              Chat ID của bạn (nhắn tin cho <strong>@userinfobot</strong> để lấy). Bot chỉ gửi tin thử nghiệm tới ID này.
+            </p>
+          </div>
+
+          {/* 6. Webhook Secret Token */}
+          <div className="space-y-1.5">
+            <label className="font-bold text-foreground flex items-center justify-between">
+              <span className="flex items-center gap-1.5">
+                <ShieldCheck className="w-4 h-4 text-purple-400" />
+                <span>Webhook Secret Token</span>
+              </span>
+              <button
+                type="button"
+                onClick={() => setWebhookSecret(generateRandomHex(32))}
+                className="text-[10px] text-[#229ED9] hover:underline flex items-center gap-1 cursor-pointer"
+              >
+                <Dices className="w-3 h-3" />
+                <span>Tạo ngẫu nhiên</span>
+              </button>
+            </label>
+            <input
+              type="text"
+              value={webhookSecret}
+              onChange={(e) => setWebhookSecret(e.target.value)}
+              placeholder="Khóa bí mật xác thực webhook từ Telegram..."
+              className="w-full px-3.5 py-2.5 rounded-xl bg-muted/40 border border-border text-foreground font-mono text-xs focus:outline-none focus:border-[#229ED9]"
+            />
+            <p className="text-[11px] text-muted-foreground">
+              Chuỗi bảo mật chống giả mạo Webhook. Có thể bấm &quot;Tạo ngẫu nhiên&quot;.
+            </p>
+          </div>
+
+          {/* 7. Notify Key */}
+          <div className="space-y-1.5">
+            <label className="font-bold text-foreground flex items-center justify-between">
+              <span className="flex items-center gap-1.5">
+                <Zap className="w-4 h-4 text-amber-400" />
+                <span>Khóa Đăng Bài Tự Động (Notify Key)</span>
+              </span>
+              <button
+                type="button"
+                onClick={() => setNotifyKey(`wcg_tg_${generateRandomHex(24)}`)}
+                className="text-[10px] text-[#229ED9] hover:underline flex items-center gap-1 cursor-pointer"
+              >
+                <Dices className="w-3 h-3" />
+                <span>Tạo ngẫu nhiên</span>
+              </button>
+            </label>
+            <input
+              type="text"
+              value={notifyKey}
+              onChange={(e) => setNotifyKey(e.target.value)}
+              placeholder="Khóa cấp quyền cho Muse / bot tự động..."
+              className="w-full px-3.5 py-2.5 rounded-xl bg-muted/40 border border-border text-foreground font-mono text-xs focus:outline-none focus:border-[#229ED9]"
+            />
+            <p className="text-[11px] text-muted-foreground">
+              Khóa bí mật dùng cho Muse hoặc dịch vụ crawler gọi endpoint <code>/api/telegram/notify</code>.
+            </p>
+          </div>
+        </div>
+
+        {/* Action Buttons for Configuration Form */}
+        <div className="flex flex-col sm:flex-row items-center justify-end gap-3 pt-4 border-t border-border/80">
+          <button
+            type="button"
+            onClick={() => handleSaveConfig(false)}
+            disabled={isSavingConfig}
+            className="w-full sm:w-auto px-6 py-2.5 rounded-xl bg-muted hover:bg-muted/80 text-foreground font-bold text-xs flex items-center justify-center gap-2 transition-all cursor-pointer border border-border disabled:opacity-50"
+          >
+            <Save className="w-4 h-4 text-primary-light" />
+            <span>{isSavingConfig ? 'Đang Lưu...' : 'Lưu Cấu Hình'}</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => handleSaveConfig(true)}
+            disabled={isSavingConfig}
+            className="w-full sm:w-auto px-6 py-2.5 rounded-xl bg-gradient-to-r from-[#229ED9] to-emerald-500 hover:from-[#1e8ec3] hover:to-emerald-600 text-white font-extrabold text-xs flex items-center justify-center gap-2 shadow-md transition-all cursor-pointer active:scale-95 disabled:opacity-50"
+          >
+            <Zap className="w-4 h-4" />
+            <span>{isSavingConfig ? 'Đang Xử Lý...' : 'Lưu & Kích Hoạt Webhook Ngay'}</span>
+          </button>
+        </div>
+      </div>
 
       {/* Stats Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
@@ -278,7 +616,7 @@ export const TelegramModule: React.FC = () => {
               {webhookInfo?.url ? 'Đang Lắng Nghe' : 'Chưa Kích Hoạt'}
             </span>
           </div>
-          <p className="text-[11px] text-muted-foreground truncate">
+          <p className="text-[11px] text-muted-foreground truncate" title={webhookInfo?.url || 'Chưa thiết lập URL'}>
             {webhookInfo?.url || 'Chưa thiết lập URL'}
           </p>
         </div>
@@ -302,23 +640,23 @@ export const TelegramModule: React.FC = () => {
           <div className="flex items-center gap-2">
             <ShieldCheck className="w-4 h-4 text-emerald-400" />
             <h3 className="font-heading font-bold text-sm text-foreground">
-              Kiểm Tra Biến Môi Trường (Cloudflare Pages Secrets)
+              Trạng Thái Thiết Lập Các Tham Số
             </h3>
           </div>
           <span className="text-[10px] text-muted-foreground">
-            Bảo mật tuyệt đối: Không bao giờ hiển thị chuỗi secret
+            Hợp nhất tự động giữa biến môi trường và cơ sở dữ liệu D1
           </span>
         </div>
 
         <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-2 text-xs">
           {[
-            { key: 'TELEGRAM_BOT_TOKEN', active: configStatus.has_bot_token, label: 'Bot Token' },
-            { key: 'TELEGRAM_GROUP_ID', active: configStatus.has_group_id, label: 'Group ID' },
-            { key: 'TELEGRAM_BOT_USERNAME', active: configStatus.has_bot_username, label: 'Bot Username' },
-            { key: 'TELEGRAM_GROUP_LINK', active: configStatus.has_group_link, label: 'Group Link' },
-            { key: 'TELEGRAM_WEBHOOK_SECRET', active: configStatus.has_webhook_secret, label: 'Webhook Secret' },
-            { key: 'TELEGRAM_ADMIN_CHAT_ID', active: configStatus.has_admin_chat_id, label: 'Admin Chat ID' },
-            { key: 'TELEGRAM_NOTIFY_KEY', active: configStatus.has_notify_key, label: 'Notify Key' },
+            { key: 'bot_token', active: configStatus.has_token, label: 'Bot Token' },
+            { key: 'group_id', active: configStatus.has_group_id, label: 'Group ID' },
+            { key: 'bot_username', active: Boolean(configStatus.bot_username), label: 'Bot Username' },
+            { key: 'group_link', active: Boolean(configStatus.group_link), label: 'Group Link' },
+            { key: 'webhook_secret', active: configStatus.has_webhook_secret, label: 'Webhook Secret' },
+            { key: 'admin_chat_id', active: configStatus.has_admin_chat_id, label: 'Admin Chat ID' },
+            { key: 'notify_key', active: configStatus.has_notify_key, label: 'Notify Key' },
           ].map((item) => (
             <div
               key={item.key}
@@ -335,7 +673,7 @@ export const TelegramModule: React.FC = () => {
                 {item.active ? (
                   <>
                     <Check className="w-3.5 h-3.5 text-emerald-400" />
-                    <span className="text-[10px] font-bold">Đã Cấu Hình</span>
+                    <span className="text-[10px] font-bold">Đã Có</span>
                   </>
                 ) : (
                   <>
@@ -366,7 +704,7 @@ export const TelegramModule: React.FC = () => {
           </div>
 
           <p className="text-xs text-muted-foreground leading-relaxed">
-            Hệ thống chỉ gửi tin nhắn thử nghiệm tới <strong>TELEGRAM_ADMIN_CHAT_ID</strong> cá nhân của quản trị viên.
+            Hệ thống chỉ gửi tin nhắn thử nghiệm tới <strong>Chat ID cá nhân</strong> của quản trị viên ({configStatus.admin_chat_id_configured}).
             Tuyệt đối <strong>KHÔNG</strong> gửi vào nhóm chat chung để đảm bảo không làm phiền thành viên.
           </p>
 
@@ -527,9 +865,8 @@ export const TelegramModule: React.FC = () => {
                 <tr className="border-b border-border/80 text-muted-foreground">
                   <th className="py-2 px-3">Thời Gian</th>
                   <th className="py-2 px-3">Loại Bài</th>
-                  <th className="py-2 px-3">Tiêu Đề</th>
+                  <th className="py-2 px-3">Tiêu Đề / Nội Dung</th>
                   <th className="py-2 px-3">Đích Đến</th>
-                  <th className="py-2 px-3">Trạng Thái</th>
                   <th className="py-2 px-3">Ref Key</th>
                 </tr>
               </thead>
@@ -537,29 +874,18 @@ export const TelegramModule: React.FC = () => {
                 {recentPosts.map((post) => (
                   <tr key={post.id} className="hover:bg-muted/30">
                     <td className="py-2 px-3 text-muted-foreground font-mono whitespace-nowrap">
-                      {new Date(post.created_at).toLocaleString('vi-VN')}
+                      {post.posted_at || post.created_at ? new Date(post.posted_at || post.created_at!).toLocaleString('vi-VN') : '—'}
                     </td>
                     <td className="py-2 px-3 whitespace-nowrap">
                       <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-muted border border-border text-foreground">
-                        {post.type}
+                        {post.kind || post.type || 'post'}
                       </span>
                     </td>
-                    <td className="py-2 px-3 font-semibold text-foreground max-w-[250px] truncate" title={post.title}>
-                      {post.title}
+                    <td className="py-2 px-3 font-semibold text-foreground max-w-[250px] truncate" title={post.content_snippet || post.title}>
+                      {post.content_snippet || post.title || `Tin nhắn ID #${post.message_id || post.id}`}
                     </td>
                     <td className="py-2 px-3 font-mono text-[11px] text-muted-foreground whitespace-nowrap">
-                      {post.chat_id}
-                    </td>
-                    <td className="py-2 px-3 whitespace-nowrap">
-                      {post.status === 'success' ? (
-                        <span className="inline-flex items-center gap-1 text-emerald-400 font-bold">
-                          <CheckCircle2 className="w-3.5 h-3.5" /> Thành công
-                        </span>
-                      ) : (
-                        <span className="inline-flex items-center gap-1 text-rose-400 font-bold" title={post.error_message}>
-                          <AlertCircle className="w-3.5 h-3.5" /> Thất bại
-                        </span>
-                      )}
+                      {post.target || post.chat_id || 'Group'}
                     </td>
                     <td className="py-2 px-3 font-mono text-[10px] text-muted-foreground truncate max-w-[120px]" title={post.ref_key}>
                       {post.ref_key || '—'}

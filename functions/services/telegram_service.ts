@@ -437,6 +437,72 @@ export function isWithinVietnamNotificationWindow(): boolean {
 }
 
 /**
+ * Quản lý Cấu hình Kết nối Telegram (Hợp nhất giữa biến môi trường và D1 system_settings)
+ */
+export interface TelegramConfig {
+  bot_token: string;
+  group_id: string;
+  bot_username: string;
+  group_link: string;
+  webhook_secret: string;
+  admin_chat_id: string;
+  notify_key: string;
+}
+
+export async function getEffectiveTelegramConfig(env: any): Promise<TelegramConfig> {
+  let dbConfig: Partial<TelegramConfig> = {};
+  if (env?.DB) {
+    try {
+      const row: any = await env.DB.prepare(
+        "SELECT value FROM system_settings WHERE key = 'wcg_telegram_config_v1' LIMIT 1"
+      ).first();
+      if (row?.value) {
+        dbConfig = typeof row.value === 'string' ? JSON.parse(row.value) : row.value;
+      }
+    } catch (e) {
+      console.warn('[TelegramService] Error reading wcg_telegram_config_v1 from D1:', e);
+    }
+  }
+
+  return {
+    bot_token: (env?.TELEGRAM_BOT_TOKEN || dbConfig.bot_token || '').trim(),
+    group_id: (env?.TELEGRAM_GROUP_ID || dbConfig.group_id || '').trim(),
+    bot_username: (env?.TELEGRAM_BOT_USERNAME || dbConfig.bot_username || '').trim().replace(/^@/, ''),
+    group_link: (env?.TELEGRAM_GROUP_LINK || dbConfig.group_link || '').trim(),
+    webhook_secret: (env?.TELEGRAM_WEBHOOK_SECRET || dbConfig.webhook_secret || '').trim(),
+    admin_chat_id: (env?.TELEGRAM_ADMIN_CHAT_ID || dbConfig.admin_chat_id || '').trim(),
+    notify_key: (env?.TELEGRAM_NOTIFY_KEY || dbConfig.notify_key || '').trim(),
+  };
+}
+
+export async function saveTelegramConfigToDb(env: any, config: Partial<TelegramConfig>): Promise<boolean> {
+  if (!env?.DB) return false;
+  try {
+    const existing = await getEffectiveTelegramConfig(env);
+    const updated: TelegramConfig = {
+      bot_token: config.bot_token !== undefined && !config.bot_token.includes('***') ? config.bot_token.trim() : existing.bot_token,
+      group_id: config.group_id !== undefined ? config.group_id.trim() : existing.group_id,
+      bot_username: config.bot_username !== undefined ? config.bot_username.trim().replace(/^@/, '') : existing.bot_username,
+      group_link: config.group_link !== undefined ? config.group_link.trim() : existing.group_link,
+      webhook_secret: config.webhook_secret !== undefined ? config.webhook_secret.trim() : existing.webhook_secret,
+      admin_chat_id: config.admin_chat_id !== undefined ? config.admin_chat_id.trim() : existing.admin_chat_id,
+      notify_key: config.notify_key !== undefined ? config.notify_key.trim() : existing.notify_key,
+    };
+
+    await env.DB.prepare(`
+      INSERT INTO system_settings (key, value, updated_at) 
+      VALUES ('wcg_telegram_config_v1', ?, datetime('now'))
+      ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_at = excluded.updated_at
+    `).bind(JSON.stringify(updated)).run();
+
+    return true;
+  } catch (e) {
+    console.error('[TelegramService] Failed to save config to D1:', e);
+    return false;
+  }
+}
+
+/**
  * Legacy Store & Order Notification Compatibility
  */
 export interface TelegramEnv {

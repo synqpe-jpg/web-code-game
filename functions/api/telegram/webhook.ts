@@ -10,6 +10,7 @@ import {
   ensureTelegramSchema,
   sendTelegramApiMessage,
   escapeHtml,
+  getEffectiveTelegramConfig,
 } from '../../services/telegram_service';
 
 interface Env {
@@ -39,9 +40,12 @@ export async function onRequestGet(): Promise<Response> {
 export async function onRequestPost(context: { request: Request; env: Env }): Promise<Response> {
   const { request, env } = context;
 
+  const effectiveConfig = await getEffectiveTelegramConfig(env);
+  const webhookSecret = effectiveConfig.webhook_secret;
+
   // 1. Xác thực Secret Token từ Telegram
   const secretHeader = request.headers.get('X-Telegram-Bot-Api-Secret-Token') || '';
-  if (env.TELEGRAM_WEBHOOK_SECRET && secretHeader !== env.TELEGRAM_WEBHOOK_SECRET.trim()) {
+  if (webhookSecret && secretHeader !== webhookSecret.trim()) {
     return new Response(JSON.stringify({ success: false, error: 'Forbidden: Invalid secret token' }), {
       status: 403,
       headers: CORS_HEADERS,
@@ -76,7 +80,7 @@ export async function onRequestPost(context: { request: Request; env: Env }): Pr
   const chatId = message.chat?.id;
   const fromUser = message.from;
   const username = fromUser?.username || '';
-  const botToken = (env.TELEGRAM_BOT_TOKEN || '').trim();
+  const botToken = effectiveConfig.bot_token;
 
   if (!chatId || !botToken) {
     return new Response(JSON.stringify({ ok: true, ignored: true }), { status: 200, headers: CORS_HEADERS });

@@ -7,7 +7,10 @@
  * NEVER returns token, keys, group ID, or user chat IDs.
  */
 
+import { getEffectiveTelegramConfig } from '../../services/telegram_service';
+
 interface Env {
+  DB?: D1Database;
   TELEGRAM_BOT_TOKEN?: string;
   TELEGRAM_GROUP_ID?: string;
   TELEGRAM_BOT_USERNAME?: string;
@@ -28,19 +31,15 @@ export async function onRequestOptions(): Promise<Response> {
 export async function onRequestGet(context: { request: Request; env: Env }): Promise<Response> {
   const { env } = context;
 
-  const botToken = (env.TELEGRAM_BOT_TOKEN || '').trim();
-  const groupId = (env.TELEGRAM_GROUP_ID || '').trim();
-  const botUsername = (env.TELEGRAM_BOT_USERNAME || '').replace(/^@/, '').trim();
-  const groupLink = (env.TELEGRAM_GROUP_LINK || '').trim();
-
-  const enabled = Boolean(botToken && groupId);
+  const cfg = await getEffectiveTelegramConfig(env);
+  const enabled = Boolean(cfg.bot_token && cfg.group_id);
 
   return new Response(
     JSON.stringify({
       success: true,
       enabled,
-      bot_username: botUsername || null,
-      group_link: groupLink || null,
+      bot_username: cfg.bot_username || null,
+      group_link: cfg.group_link || null,
     }),
     {
       status: 200,
