@@ -1451,12 +1451,12 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
         );
       }
 
-      // Chặn TUYỆT ĐỐI không bao giờ cho phép xuất bản game test/audit lên live catalog
+      // Chặn TUYỆT ĐỐI không bao giờ cho phép xuất bản game test/audit lên live catalog (trừ khi bật allow_test phục vụ test tự động và dọn dẹp ngay)
       const isTestSlug = targetSlug.startsWith('test-') ||
                          targetSlug.startsWith('test_') ||
                          String(gameToPublish.name || '').toLowerCase().startsWith('test ') ||
                          String(gameToPublish.developer || gameToPublish.publisher || '').toLowerCase().includes('test studio');
-      if (isTestSlug) {
+      if (isTestSlug && !body.allow_test) {
         return new Response(
           JSON.stringify({
             success: false,
