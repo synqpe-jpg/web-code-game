@@ -27,6 +27,7 @@
   - ❌ *Không xóa mã mà không ràng buộc chặt chẽ game_slug.*
   - ❌ *Không lưu iconUrl khi chưa kiểm chứng file có thật và đọc được.*
   - ❌ *Không cho phép danh sách codes trống trong delete_codes.*
+  - ❌ *Không truyền các cột không tồn tại trong schema D1 SQL `games` (như `developer`, `installs`, `icon_verified`) vào câu lệnh `UPDATE games`; phải dùng đúng schema: `so_giay_phep`, `ngay_cap_phep`, `trang_thai_gp`, `website_g1`, và lưu metadata mở rộng vào `wcg_admin_games_v5`.*
 
 ### ISSUE-215: Bẫy Khung Gợi Ý Autocomplete Quét Mô Tả (False Positives) Và Endpoint Server Không Đồng Bộ Game Mới Từ D1
 - **Triệu chứng & Rủi ro**:

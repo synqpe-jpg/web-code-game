@@ -2963,30 +2963,26 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
             UPDATE games SET
               name = ?,
               publisher = ?,
-              developer = ?,
               category = ?,
               platform = ?,
               rating = ?,
-              installs = ?,
               icon_url = ?,
               banner_url = ?,
               description = ?,
               instructions = ?,
               redeem_url = ?,
-              license_number = ?,
-              license_issued_date = ?,
-              license_status = ?,
-              license_source_url = ?,
+              so_giay_phep = ?,
+              ngay_cap_phep = ?,
+              trang_thai_gp = ?,
+              website_g1 = ?,
               updated_at = datetime('now')
             WHERE LOWER(TRIM(slug)) = ? OR LOWER(TRIM(id)) = ?
           `).bind(
             updatedName,
             updatedPublisher,
-            updatedDeveloper,
             updatedCategory,
             updatedPlatform,
             updatedRating,
-            updatedInstalls,
             updatedIconUrl,
             updatedBannerUrl,
             updatedDescription,
@@ -3481,7 +3477,6 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
           await env.DB.prepare(`
             UPDATE games SET
               icon_url = ?,
-              icon_verified = 1,
               updated_at = datetime('now')
             WHERE LOWER(TRIM(slug)) = ? OR LOWER(TRIM(id)) = ?
           `).bind(cleanIconUrl, matchedSlug, matchedSlug).run();

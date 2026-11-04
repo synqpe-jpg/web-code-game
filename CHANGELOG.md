@@ -24,6 +24,8 @@ Mỗi mục sửa lỗi đều ghi nhận **Nguyên nhân gốc rễ (Root Cause
   3. *Thêm mới update_icon_live*: Kiểm tra tính hợp lệ của đường dẫn `/game_icons/`, xác minh file tồn tại trong D1 `uploaded_game_icons` hoặc static assets qua magic bytes (`inspectImageBytes`), cập nhật `icon_url` và `icon_verified = 1`.
   4. *Tuân thủ Rule 8*: Cập nhật mô tả `GAMES_FULL` và `GAMES_MANAGE` trong `ALL_API_SCOPES` (`ApiKeysModule.tsx`), bổ sung alias trong `hasScope` (`mission_service.ts`), cập nhật tab tài liệu và mẫu cURL/JS trong Quản trị API.
   5. *Bảo mật & Tương thích ngược*: Dùng chung cơ chế Bearer Token / X-API-Key hiện tại, tích hợp tra cứu `mission_ai_api_keys`, cập nhật `GET /api/crawler/ingest-codes` tự mô tả.
+  6. *Đồng bộ D1 SQLite Schema Chuẩn Xác*: Chuẩn hóa câu lệnh `UPDATE games` theo đúng cấu trúc D1 SQL (loại bỏ các cột ảo `developer`, `installs`, map `license_*` sang `so_giay_phep`, `ngay_cap_phep`, `trang_thai_gp`, `website_g1`, và lưu `icon_verified` trên JSON state `wcg_admin_games_v5`), đảm bảo D1 direct query cập nhật tức thì.
+  7. *Kiểm thử & Triển khai*: Vượt qua 100% cả 7/7 bài kiểm thử nghiệm thu trực tiếp trên môi trường live production; dọn dẹp sạch sẽ 100% test artifacts theo Rule 7 (Zero Test Artifacts); tự động build và deploy toàn diện lên Cloudflare Pages theo Rule 6.
 
 ### 310. Nâng Cấp Khung Gợi Ý Tìm Kiếm Trực Tiếp Khi Đang Gõ: Thuật Toán Chấm Điểm 3 Tầng Chuẩn Xác, Giới Hạn 3 Game Hàng Đầu, Khắc Phục Lỗi Bỏ Sót Sword x Staff & Sửa Lỗi Telegram Admin
 - **Bối cảnh & Yêu cầu từ Chủ sở hữu (04/11/2026)**:
