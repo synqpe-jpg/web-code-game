@@ -155,7 +155,7 @@ export const ALL_API_SCOPES: ScopeOption[] = [
     id: 'GAMES_FULL',
     name: 'Kho Giftcode & Tựa Game (Games & Codes API)',
     category: 'Dữ Liệu',
-    description: 'Tra cứu, bổ sung giftcode mới, chỉnh sửa và đồng bộ danh mục game toàn sàn.',
+    description: 'Tra cứu, bổ sung giftcode mới, chỉnh sửa thông tin game live (update_game), xóa lẻ mã (delete_codes), đặt icon live (update_icon_live) và đồng bộ danh mục game toàn sàn.',
     color: 'teal',
     badgeBg: 'bg-teal-500/10',
     badgeText: 'text-teal-500',
@@ -166,7 +166,7 @@ export const ALL_API_SCOPES: ScopeOption[] = [
     id: 'GAMES_MANAGE',
     name: 'Quản Trị Bản Ghi Game (Games Management API)',
     category: 'Dữ Liệu',
-    description: 'Toàn quyền tra cứu chi tiết game (get_game), danh sách quản trị (list_games), cập nhật thông tin game live (update_game), ẩn/hiện và quản lý giấy phép.',
+    description: 'Toàn quyền tra cứu chi tiết game (get_game), danh sách quản trị (list_games), cập nhật thông tin game live (update_game), xóa lẻ từng mã (delete_codes), đặt icon live (update_icon_live), ẩn/hiện và quản lý giấy phép.',
     color: 'emerald',
     badgeBg: 'bg-emerald-500/10',
     badgeText: 'text-emerald-500',
@@ -330,7 +330,7 @@ export const ApiKeysModule: React.FC<ApiKeysModuleProps> = ({ onShowToast }) => 
 
   // Active sub-tab
   const [activeTab, setActiveTab] = useState<'keys' | 'permissions' | 'docs'>('keys');
-  const [docCategory, setDocCategory] = useState<'universal' | 'news' | 'icons' | 'missions' | 'giveaways' | 'events' | 'sync' | 'history'>('universal');
+  const [docCategory, setDocCategory] = useState<'universal' | 'news' | 'icons' | 'missions' | 'giveaways' | 'events' | 'games' | 'sync' | 'history'>('universal');
 
   const showToast = (msg: string, type: 'success' | 'error' | 'info' = 'success') => {
     if (onShowToast) {
@@ -1458,6 +1458,17 @@ export const ApiKeysModule: React.FC<ApiKeysModuleProps> = ({ onShowToast }) => 
               API Lịch Đếm Ngược (Mới)
             </button>
             <button
+              onClick={() => setDocCategory('games')}
+              className={`flex items-center gap-2 px-3.5 py-1.5 rounded-xl text-xs font-semibold transition-all ${
+                docCategory === 'games'
+                  ? 'bg-teal-600 text-white shadow-sm'
+                  : 'bg-card border border-border text-muted-foreground hover:text-foreground'
+              }`}
+            >
+              <Gamepad2 className="w-3.5 h-3.5" />
+              API Quản Lý Game & Mã (Mới)
+            </button>
+            <button
               onClick={() => setDocCategory('sync')}
               className={`flex items-center gap-2 px-3.5 py-1.5 rounded-xl text-xs font-semibold transition-all ${
                 docCategory === 'sync'
@@ -1637,6 +1648,66 @@ console.log(data);`}
 });
 const data = await res.json();
 console.log(data); // { success: true, iconUrl: '/game_icons/kof-legend.webp?v=...', verified: true }`}
+                </pre>
+              </div>
+            </div>
+          )}
+
+          {/* Docs: Games & Codes API (GAMES_MANAGE & GAMES_FULL) */}
+          {docCategory === 'games' && (
+            <div className="space-y-4 bg-card border border-border p-5 rounded-2xl">
+              <div className="p-3.5 rounded-xl bg-teal-500/10 border border-teal-500/30 text-teal-300 text-xs leading-relaxed">
+                <span className="font-bold text-teal-400">🎮 Quyền Quản Trị GAMES_MANAGE & GAMES_FULL:</span> Toàn quyền sửa thông tin game live (<code className="bg-black/40 px-1.5 py-0.5 rounded text-teal-200 font-mono">update_game</code>: chỉ đổi trường được gửi, giữ nguyên mã), xóa lẻ từng mã khỏi game live (<code className="bg-black/40 px-1.5 py-0.5 rounded text-teal-200 font-mono">delete_codes</code>: đúng phạm vi slug, phân biệt hoa/thường, không ảnh hưởng game khác), và đặt icon live (<code className="bg-black/40 px-1.5 py-0.5 rounded text-teal-200 font-mono">update_icon_live</code>: xác minh file tồn tại và là ảnh thật). Chấp nhận Header <code className="bg-black/40 px-1.5 py-0.5 rounded text-teal-200 font-mono">Authorization: Bearer &lt;KEY&gt;</code> hoặc <code className="bg-black/40 px-1.5 py-0.5 rounded text-teal-200 font-mono">X-Api-Key: &lt;KEY&gt;</code>.
+              </div>
+
+              <div>
+                <h4 className="text-sm font-bold text-foreground flex items-center gap-2">
+                  <Terminal className="w-4 h-4 text-teal-400" />
+                  Mẫu 1: Sửa Thông Tin Game Live (Action: update_game - cURL)
+                </h4>
+                <pre className="mt-2 p-4 rounded-xl bg-slate-950 text-slate-100 font-mono text-xs overflow-x-auto">
+{`curl -X POST https://codegame.shop/api/crawler/ingest-codes \\
+  -H "Content-Type: application/json" \\
+  -H "Authorization: Bearer YOUR_API_KEY" \\
+  -d '{
+    "action": "update_game",
+    "slug": "sword-x-staff",
+    "publisher": "Boltray Games"
+  }'`}
+                </pre>
+              </div>
+
+              <div>
+                <h4 className="text-sm font-bold text-foreground flex items-center gap-2">
+                  <Terminal className="w-4 h-4 text-rose-400" />
+                  Mẫu 2: Xóa Lẻ Từng Mã Khỏi Game Live (Action: delete_codes - cURL)
+                </h4>
+                <pre className="mt-2 p-4 rounded-xl bg-slate-950 text-slate-100 font-mono text-xs overflow-x-auto">
+{`curl -X POST https://codegame.shop/api/crawler/ingest-codes \\
+  -H "Content-Type: application/json" \\
+  -H "Authorization: Bearer YOUR_API_KEY" \\
+  -d '{
+    "action": "delete_codes",
+    "slug": "sword-x-staff",
+    "codes": ["LEVELUPNOW", "SXSWITHYOU", "LUCKYGACHA", "SXSFACEBOOK"]
+  }'`}
+                </pre>
+              </div>
+
+              <div>
+                <h4 className="text-sm font-bold text-foreground flex items-center gap-2">
+                  <Terminal className="w-4 h-4 text-sky-400" />
+                  Mẫu 3: Đặt Icon Live Về Tập Tin Có Sẵn (Action: update_icon_live - cURL)
+                </h4>
+                <pre className="mt-2 p-4 rounded-xl bg-slate-950 text-slate-100 font-mono text-xs overflow-x-auto">
+{`curl -X POST https://codegame.shop/api/crawler/ingest-codes \\
+  -H "Content-Type: application/json" \\
+  -H "Authorization: Bearer YOUR_API_KEY" \\
+  -d '{
+    "action": "update_icon_live",
+    "slug": "sword-x-staff-funtap",
+    "iconUrl": "/game_icons/sword-x-staff.webp"
+  }'`}
                 </pre>
               </div>
             </div>

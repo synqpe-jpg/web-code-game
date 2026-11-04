@@ -10,6 +10,24 @@
 
 ## 1. DANH MỤC LỖI & CÁC BẪY ĐÃ THẤT BẠI (DO NOT REPEAT)
 
+### ISSUE-216: Bẫy Sửa Game Live Làm Mất Mã / Đặt Icon Chết (404) & Xóa Lẻ Mã Gây Ảnh Hưởng Sang Game Khác
+- **Triệu chứng & Rủi ro**:
+  1. Khi cập nhật thông tin game live (NPH, tên, thể loại), API không kiểm soát làm reset các trường khác hoặc làm thay đổi/mất danh sách mã code đang có.
+  2. Xóa lẻ giftcode bằng câu lệnh không kiểm soát chặt slug dẫn đến xóa nhầm mã của game khác có cùng chuỗi code (ví dụ cùng mã LEVELUPNOW ở 2 bản game quốc tế và Funtap).
+  3. Cập nhật iconURL cho game live trỏ tới file không tồn tại hoặc file lỗi gây icon 404 / broken image trên web công khai.
+- **Nguyên nhân gốc rễ**:
+  1. API update không thực hiện partial merge chuẩn và không có bước xác thực read-back tổng số mã trước và sau cập nhật.
+  2. Câu lệnh DELETE SQL thiếu điều kiện cô lập theo `game_slug`.
+  3. Thiếu bước kiểm tra file tồn tại trên máy chủ (D1 / static assets) kèm kiểm tra định dạng ảnh (magic bytes) trước khi lưu.
+- **Giải pháp chuẩn đã kiểm chứng**:
+  1. *update_game*: Yêu cầu ít nhất 1 trường hợp lệ, chỉ đổi đúng trường gửi lên, giữ nguyên 100% các trường còn lại; kiểm tra tổng số mã trước và sau cập nhật phải bằng nhau, trả về `codes_intact: true`.
+  2. *delete_codes*: Phân tách theo `game_slug` cụ thể, kiểm tra case-sensitive, xóa lẻ mã đúng game trong D1 `codes`, ghi tombstone soft-delete, cập nhật `codes_count` và xóa cache biên.
+  3. *update_icon_live*: Bắt buộc tiền tố `/game_icons/` với đuôi ảnh hợp lệ, kiểm tra file tồn tại trong D1 `uploaded_game_icons` hoặc static asset qua `inspectImageBytes`, cập nhật `icon_verified = 1`.
+- 🚫 **CÁCH SỬA ĐÃ THẤT BẠI - TUYỆT ĐỐI KHÔNG LẶP LẠI**:
+  - ❌ *Không xóa mã mà không ràng buộc chặt chẽ game_slug.*
+  - ❌ *Không lưu iconUrl khi chưa kiểm chứng file có thật và đọc được.*
+  - ❌ *Không cho phép danh sách codes trống trong delete_codes.*
+
 ### ISSUE-215: Bẫy Khung Gợi Ý Autocomplete Quét Mô Tả (False Positives) Và Endpoint Server Không Đồng Bộ Game Mới Từ D1
 - **Triệu chứng & Rủi ro**:
   1. Khi người dùng gõ "Sword x", khung gợi ý chỉ hiện "Sword of Reborn" mà bỏ sót "Sword x Staff" dù game đã live với 19 giftcode.

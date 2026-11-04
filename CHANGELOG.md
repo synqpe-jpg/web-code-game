@@ -7,6 +7,24 @@ Mỗi mục sửa lỗi đều ghi nhận **Nguyên nhân gốc rễ (Root Cause
 
 ## [2026-11-04]
 
+### 311. Mở Rộng Quyền API Quản Lý Game Cho Muse: update_game (Partial Update), delete_codes (Xóa Lẻ Đúng Slug) & update_icon_live (Xác Minh File Tồn Tại)
+- **Bối cảnh & Yêu cầu từ Chủ sở hữu (04/11/2026)**:
+  - Muse đã có quyền nạp mã, tạo bản ghi hàng chờ, đăng game, sửa hướng dẫn nhập code và sửa bản sắp ra mắt.
+  - Cần bổ sung 3 quyền quản lý game live mà không làm gián đoạn hay sửa đổi các game live đang chạy:
+    1. `update_game`: Sửa thông tin game live (publisher, name, category, platform, description). Chỉ đổi trường được gửi, các trường khác giữ nguyên tuyệt đối, tổng số mã trước và sau bằng nhau.
+    2. `delete_codes`: Xóa lẻ từng mã khỏi game live theo slug và danh sách codes (phân biệt hoa thường, phạm vi gắn chặt theo slug, không ảnh hưởng game khác, partial batch handling, cập nhật bộ đếm codes_count và xóa cache biên).
+    3. `update_icon_live`: Đặt icon cho game live về tập tin icon đã có sẵn trên máy chủ (/game_icons/...). Tự động kiểm tra file tồn tại và magic bytes hợp lệ trước khi lưu.
+- **Nguyên nhân gốc rễ**:
+  - API cũ thiếu endpoint xóa lẻ từng mã quà tặng (chỉ hỗ trợ đổi status active/expired hoặc xóa cả game).
+  - API update_icon cũ chỉ dành cho game sắp ra mắt và chưa kiểm tra read-back file ảnh thật trên máy chủ.
+  - Endpoint update_game chưa có kiểm tra ràng buộc trường gửi và chưa có xác thực tổng số mã nguyên vẹn trong kết quả trả về.
+- **Giải pháp triệt để đã triển khai**:
+  1. *Nâng cấp update_game*: Yêu cầu ít nhất 1 trường hợp lệ, cập nhật partial giữ nguyên 100% các trường còn lại, trả về `changes`, `codes_count_before`, `codes_count_after`, và xác nhận `codes_intact: true`.
+  2. *Thêm mới delete_codes*: Nhận `slug` và `codes`, kiểm tra case-sensitive, xóa lẻ mã đúng game trong D1 `codes` table, ghi tombstone soft-delete, cập nhật `total_codes_count` & `active_codes_count`, trả về danh sách `deleted` và `notFound`.
+  3. *Thêm mới update_icon_live*: Kiểm tra tính hợp lệ của đường dẫn `/game_icons/`, xác minh file tồn tại trong D1 `uploaded_game_icons` hoặc static assets qua magic bytes (`inspectImageBytes`), cập nhật `icon_url` và `icon_verified = 1`.
+  4. *Tuân thủ Rule 8*: Cập nhật mô tả `GAMES_FULL` và `GAMES_MANAGE` trong `ALL_API_SCOPES` (`ApiKeysModule.tsx`), bổ sung alias trong `hasScope` (`mission_service.ts`), cập nhật tab tài liệu và mẫu cURL/JS trong Quản trị API.
+  5. *Bảo mật & Tương thích ngược*: Dùng chung cơ chế Bearer Token / X-API-Key hiện tại, tích hợp tra cứu `mission_ai_api_keys`, cập nhật `GET /api/crawler/ingest-codes` tự mô tả.
+
 ### 310. Nâng Cấp Khung Gợi Ý Tìm Kiếm Trực Tiếp Khi Đang Gõ: Thuật Toán Chấm Điểm 3 Tầng Chuẩn Xác, Giới Hạn 3 Game Hàng Đầu, Khắc Phục Lỗi Bỏ Sót Sword x Staff & Sửa Lỗi Telegram Admin
 - **Bối cảnh & Yêu cầu từ Chủ sở hữu (04/11/2026)**:
   - Khi gõ "Sword x", khung gợi ý chỉ hiện "Sword of Reborn" mà bỏ sót "Sword x Staff" dù game đã live với 19 giftcode.

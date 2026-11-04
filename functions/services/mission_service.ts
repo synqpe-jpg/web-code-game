@@ -125,6 +125,7 @@ export function hasScope(scopeStr: string | undefined | null, requiredScope: str
   const target = requiredScope.toUpperCase().trim();
   if (target === 'GAMES_MANAGE' && scopes.includes('GAMES_FULL')) return true;
   if (target === 'GAMES_FULL' && scopes.includes('GAMES_MANAGE')) return true;
+  if ((target === 'GAMES_UPDATE' || target === 'CODES_DELETE' || target === 'CRAWLER_WRITE') && (scopes.includes('GAMES_FULL') || scopes.includes('GAMES_MANAGE') || scopes.includes('ADMIN_FULL'))) return true;
   if ((target === 'EVENTS_FULL' || target === 'EVENTS_MANAGE') && (scopes.includes('NEWS_FULL') || scopes.includes('ADMIN_FULL'))) return true;
   if (target === 'NEWS_FULL' && scopes.includes('EVENTS_FULL')) return true;
   if (target === 'GAME_ICONS_FULL' && (scopes.includes('NEWS_FULL') || scopes.includes('EVENTS_FULL') || scopes.includes('GAMES_FULL') || scopes.includes('GAMES_MANAGE') || scopes.includes('ADMIN_FULL'))) return true;
