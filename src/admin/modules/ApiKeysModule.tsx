@@ -87,9 +87,9 @@ export const ALL_API_SCOPES: ScopeOption[] = [
   },
   {
     id: 'TELEGRAM_FULL',
-    name: 'Toàn Quyền Telegram (Telegram Full API)',
+    name: 'Toàn Quyền Telegram (Telegram Full & Management API)',
     category: 'Kết Nối',
-    description: 'Toàn quyền đăng tin lên nhóm, gửi tin nhắn DM cho người theo dõi, kiểm tra cấu hình và webhook (/api/telegram/*).',
+    description: 'Toàn quyền điều hành và quản lý nhóm Telegram qua POST /api/telegram/manage (trạng thái nhóm, admin, tin nhắn webhook, xóa/ghim tin, quản lý thành viên, đổi tên/mô tả, link mời) và đăng bài qua /api/telegram/notify.',
     color: 'cyan',
     badgeBg: 'bg-cyan-500/10',
     badgeText: 'text-cyan-500',
@@ -330,7 +330,7 @@ export const ApiKeysModule: React.FC<ApiKeysModuleProps> = ({ onShowToast }) => 
 
   // Active sub-tab
   const [activeTab, setActiveTab] = useState<'keys' | 'permissions' | 'docs'>('keys');
-  const [docCategory, setDocCategory] = useState<'universal' | 'news' | 'icons' | 'missions' | 'giveaways' | 'events' | 'games' | 'sync' | 'history'>('universal');
+  const [docCategory, setDocCategory] = useState<'universal' | 'news' | 'icons' | 'missions' | 'giveaways' | 'events' | 'games' | 'telegram' | 'sync' | 'history'>('universal');
 
   const showToast = (msg: string, type: 'success' | 'error' | 'info' = 'success') => {
     if (onShowToast) {
@@ -1493,6 +1493,131 @@ export const ApiKeysModule: React.FC<ApiKeysModuleProps> = ({ onShowToast }) => 
               <Trash2 className="w-3.5 h-3.5" />
               API Lịch Sử & Xóa Mềm (Mới)
             </button>
+          {docCategory === 'telegram' && (
+            <div className="space-y-4 bg-card border border-border p-5 rounded-2xl">
+              <div className="p-3.5 rounded-xl bg-cyan-500/10 border border-cyan-500/30 text-cyan-300 text-xs leading-relaxed">
+                <span className="font-bold text-cyan-400">🤖 Cổng Điều Hành Nhóm Telegram Cho AI Agent (Muse) & Quản Trị Viên:</span> Endpoint <code>POST /api/telegram/manage</code> cho phép quản lý toàn bộ nhóm chat Telegram (đọc trạng thái nhóm/admin, phân trang tin nhắn webhook, xóa/ghim tin nhắn, cấm/hạn chế thành viên, sửa tên/mô tả nhóm, tạo/thu hồi link mời) bằng Khóa API mang scope <code>TELEGRAM_FULL</code> mà <b>không cần cầm Bot Token</b>.
+              </div>
+
+              <div>
+                <h4 className="text-sm font-bold text-foreground flex items-center gap-2">
+                  <Terminal className="w-4 h-4 text-cyan-400" />
+                  Mẫu 1: Đọc Thông Tin Nhóm & Danh Sách Admin (Action: get_chat / get_administrators)
+                </h4>
+                <pre className="mt-2 p-4 rounded-xl bg-slate-950 text-slate-100 font-mono text-xs overflow-x-auto">
+{`# Lấy thông tin nhóm (Tên, mô tả, số lượng thành viên, permissions)
+curl -X POST https://codegame.shop/api/telegram/manage \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer YOUR_API_KEY_WITH_TELEGRAM_FULL" \
+  -d '{ "action": "get_chat" }'
+
+# Lấy danh sách quản trị viên của nhóm
+curl -X POST https://codegame.shop/api/telegram/manage \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer YOUR_API_KEY_WITH_TELEGRAM_FULL" \
+  -d '{ "action": "get_administrators" }'`}
+                </pre>
+              </div>
+
+              <div>
+                <h4 className="text-sm font-bold text-foreground flex items-center gap-2">
+                  <Terminal className="w-4 h-4 text-cyan-400" />
+                  Mẫu 2: Phân Trang Lịch Sử Tin Nhắn Nhận Từ Webhook (Action: get_recent_messages)
+                </h4>
+                <pre className="mt-2 p-4 rounded-xl bg-slate-950 text-slate-100 font-mono text-xs overflow-x-auto">
+{`curl -X POST https://codegame.shop/api/telegram/manage \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer YOUR_API_KEY_WITH_TELEGRAM_FULL" \
+  -d '{
+    "action": "get_recent_messages",
+    "limit": 30,
+    "offset": 0
+  }'`}
+                </pre>
+              </div>
+
+              <div>
+                <h4 className="text-sm font-bold text-foreground flex items-center gap-2">
+                  <Terminal className="w-4 h-4 text-cyan-400" />
+                  Mẫu 3: Xóa & Ghim Tin Nhắn Trong Nhóm (Action: delete_message / pin_message / unpin_message)
+                </h4>
+                <pre className="mt-2 p-4 rounded-xl bg-slate-950 text-slate-100 font-mono text-xs overflow-x-auto">
+{`# 1. Ghim tin nhắn thông báo quan trọng
+curl -X POST https://codegame.shop/api/telegram/manage \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer YOUR_API_KEY_WITH_TELEGRAM_FULL" \
+  -d '{
+    "action": "pin_message",
+    "message_id": 12345,
+    "disable_notification": false
+  }'
+
+# 2. Xóa tin nhắn rác hoặc vi phạm quy tắc
+curl -X POST https://codegame.shop/api/telegram/manage \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer YOUR_API_KEY_WITH_TELEGRAM_FULL" \
+  -d '{
+    "action": "delete_message",
+    "message_id": 12345
+  }'`}
+                </pre>
+              </div>
+
+              <div>
+                <h4 className="text-sm font-bold text-foreground flex items-center gap-2">
+                  <Terminal className="w-4 h-4 text-cyan-400" />
+                  Mẫu 4: Cấm & Hạn Chế Thành Viên (Action: ban_member / restrict_member)
+                </h4>
+                <pre className="mt-2 p-4 rounded-xl bg-slate-950 text-slate-100 font-mono text-xs overflow-x-auto">
+{`# Cấm thành viên vi phạm và thu hồi mọi tin nhắn cũ
+curl -X POST https://codegame.shop/api/telegram/manage \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer YOUR_API_KEY_WITH_TELEGRAM_FULL" \
+  -d '{
+    "action": "ban_member",
+    "user_id": 987654321,
+    "revoke_messages": true
+  }'
+
+# Hạn chế quyền gửi tin nhắn trong 24 giờ
+curl -X POST https://codegame.shop/api/telegram/manage \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer YOUR_API_KEY_WITH_TELEGRAM_FULL" \
+  -d '{
+    "action": "restrict_member",
+    "user_id": 987654321,
+    "duration_hours": 24,
+    "permissions": {
+      "can_send_messages": false,
+      "can_send_media_messages": false
+    }
+  }'`}
+                </pre>
+              </div>
+
+              <div>
+                <h4 className="text-sm font-bold text-foreground flex items-center gap-2">
+                  <Terminal className="w-4 h-4 text-cyan-400" />
+                  Mẫu 5: Đăng Tin Tức / Mã Code / Thông Báo Lên Nhóm (POST /api/telegram/notify)
+                </h4>
+                <pre className="mt-2 p-4 rounded-xl bg-slate-950 text-slate-100 font-mono text-xs overflow-x-auto">
+{`curl -X POST https://codegame.shop/api/telegram/notify \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer YOUR_API_KEY_WITH_TELEGRAM_NOTIFY" \
+  -d '{
+    "kind": "new_code",
+    "game_slug": "genshin-impact",
+    "game_name": "Genshin Impact",
+    "codes": ["GENSHINGIFT", "NATLAN2026"],
+    "title": "Mã mới khám phá Natlan",
+    "source_name": "CodeGame.shop",
+    "source_url": "https://codegame.shop/code/genshin-impact"
+  }'`}
+                </pre>
+              </div>
+            </div>
+          )}
+
           {/* Docs: Universal Set Permissions API */}
           {docCategory === 'universal' && (
             <div className="space-y-4 bg-card border border-border p-5 rounded-2xl">

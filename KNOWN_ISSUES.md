@@ -10,6 +10,22 @@
 
 ## 1. DANH MỤC LỖI & CÁC BẪY ĐÃ THẤT BẠI (DO NOT REPEAT)
 
+### ISSUE-218: Bẫy Ưu Tiên Header Cứng Gây Lỗi 401 Admin Dù Session Hợp Lệ & Lỗi Undefined .trim() Khi Nhận Mảng Chuỗi Mã Giftcode
+- **Triệu chứng & Rủi ro**:
+  1. Trang Quản trị báo lỗi đỏ "Không thể tải dữ liệu Telegram admin" (HTTP 401 Unauthorized) dù người dùng đang đăng nhập với tài khoản SUPER_ADMIN có token hợp lệ.
+  2. Toàn bộ ô trạng thái biến môi trường hiển thị "Chưa Có" do request tải cấu hình ban đầu bị từ chối xác thực.
+  3. Cổng đăng bài `POST /api/telegram/notify` trả về lỗi HTTP 500 `Cannot read properties of undefined (reading 'trim')` khi caller truyền danh sách mã giftcode dạng mảng chuỗi `codes: ["MÃ_CODE"]` thay vì mảng object `[{ code: "MÃ_CODE" }]`.
+- **Nguyên nhân gốc rễ**:
+  1. Trong hàm xác thực `verifyAdminAuth` và `verifyAiKeyAuth`, logic trích xuất token chọn biến đầu tiên xuất hiện qua biểu thức `const token = (apiKey || adminKey || syncKey || authHeader).trim()`. Nếu trình duyệt có lưu `wcg_admin_sync_key` trong `localStorage` với giá trị rác hoặc không hợp lệ, biến `token` sẽ nhận giá trị đó và kiểm tra thất bại, hoàn toàn bỏ qua token phiên đăng nhập chính thức `Authorization: Bearer <wcg_auth_token>` của Quản trị viên.
+  2. Trong hàm `generateRefKey` và `formatTelegramPost`, code truy cập trực tiếp `c.code.trim()` mà không kiểm tra kiểu dữ liệu của phần tử `c`. Khi phần tử là chuỗi thông thường, `c.code` là `undefined`, dẫn đến ngoại lệ `TypeError`.
+- **Giải pháp chuẩn đã kiểm chứng**:
+  1. *Cơ chế Multi-Credential Auth*: Thu thập toàn bộ các token gửi lên trong request (`Authorization`, `X-Api-Key`, `X-Admin-Key`, `X-Sync-Key`) vào một mảng `allTokens`. Duyệt qua từng token; chỉ cần một trong các token khớp với Master Secret, AI Scoped Key hoặc phiên đăng nhập của Admin hợp lệ thì ngay lập tức cấp quyền truy cập. Một header phụ mang giá trị cũ sẽ không thể chặn quyền của phiên đăng nhập hợp lệ.
+  2. *Hàm Chuẩn Hóa `normalizeCodes`*: Viết helper `normalizeCodes(codes)` chuyển đổi linh hoạt cả hai định dạng (mảng chuỗi `['CODE1']` và mảng object `[{ code: 'CODE1', rewards: '...' }]`) thành danh sách chuẩn trước khi xử lý hoặc tính mã băm `ref_key`.
+- 🚫 **CÁCH SỬA ĐÃ THẤT BẠI - TUYỆT ĐỐI KHÔNG LẶP LẠI**:
+  - ❌ *Không dùng chuỗi toán tử `||` để chọn duy nhất 1 token khi request gửi nhiều loại credential cùng lúc.*
+  - ❌ *Không truy cập trực tiếp thuộc tính `c.code` mà không kiểm tra `typeof c === 'string'`.*
+  - ❌ *Không bỏ qua `Authorization: Bearer` khi `X-Admin-Key` không hợp lệ.*
+
 ### ISSUE-217: Bẫy Tải Dữ Liệu Đồng Bộ Nặng Nề (/api/sync 4.2MB), Vô Hiệu Hóa HTML Edge Cache & Bỏ Sót Đăng Ký Route Trong _worker.ts
 - **Triệu chứng & Rủi ro**:
   1. Trang chủ tải rất chậm (TTFB 8 - 10 giây) do gọi API `/api/sync` chứa 4.2MB dữ liệu không cần thiết (2,901 mã nội bộ, 1,226 link crawler, toàn bộ markdown tin tức).

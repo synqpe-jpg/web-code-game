@@ -11,6 +11,7 @@ import {
   sendTelegramApiMessage,
   escapeHtml,
   getEffectiveTelegramConfig,
+  saveTelegramWebhookMessage,
 } from '../../services/telegram_service';
 
 interface Env {
@@ -71,19 +72,26 @@ export async function onRequestPost(context: { request: Request; env: Env }): Pr
     });
   }
 
-  const message = update?.message;
-  if (!message || !message.text) {
+  const message = update?.message || update?.channel_post || update?.edited_message;
+  if (!message) {
     return new Response(JSON.stringify({ ok: true, ignored: true }), { status: 200, headers: CORS_HEADERS });
   }
 
-  const text = (message.text || '').trim();
+  // Luôn lưu mọi tin nhắn nhận được vào bảng telegram_messages để API get_recent_messages phục vụ Muse
+  await saveTelegramWebhookMessage(env.DB, message);
+
+  const text = (message.text || message.caption || '').trim();
+  if (!text) {
+    return new Response(JSON.stringify({ ok: true, saved: true }), { status: 200, headers: CORS_HEADERS });
+  }
+
   const chatId = message.chat?.id;
   const fromUser = message.from;
   const username = fromUser?.username || '';
   const botToken = effectiveConfig.bot_token;
 
   if (!chatId || !botToken) {
-    return new Response(JSON.stringify({ ok: true, ignored: true }), { status: 200, headers: CORS_HEADERS });
+    return new Response(JSON.stringify({ ok: true, saved: true }), { status: 200, headers: CORS_HEADERS });
   }
 
   // 2. Xử lý lệnh /start link_<token> (Liên kết tài khoản 1 lần, hết hạn 15 phút)

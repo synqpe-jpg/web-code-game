@@ -54,6 +54,7 @@ import * as telegramConfigApi from './api/telegram/config';
 import * as telegramNotifyApi from './api/telegram/notify';
 import * as telegramWebhookApi from './api/telegram/webhook';
 import * as telegramAdminApi from './api/telegram/admin';
+import * as telegramManageApi from './api/telegram/manage';
 import * as telegramUserApi from './api/telegram/user';
 import { invalidateCatalogEdgeCache } from './services/cache_service';
 import fallbackGiveawaysData from '../src/data/giveaways.json';
@@ -768,6 +769,12 @@ async function handleWorkerRequest(request: Request, env: Env, ctx: ExecutionCon
         if (method === 'OPTIONS') return await telegramAdminApi.onRequestOptions();
         if (method === 'GET') return await telegramAdminApi.onRequestGet(context);
         if (method === 'POST') return await telegramAdminApi.onRequestPost(context);
+        return new Response('Method Not Allowed', { status: 405 });
+      }
+
+      if (pathname === '/api/telegram/manage') {
+        if (method === 'OPTIONS') return await telegramManageApi.onRequestOptions();
+        if (method === 'POST') return await telegramManageApi.onRequestPost(context);
         return new Response('Method Not Allowed', { status: 405 });
       }
 

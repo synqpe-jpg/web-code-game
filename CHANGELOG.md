@@ -7,6 +7,51 @@ Mỗi mục sửa lỗi đều ghi nhận **Nguyên nhân gốc rễ (Root Cause
 
 ## [2026-11-04]
 
+### 313. Xây Dựng Cổng API Quản Lý Nhóm Telegram /api/telegram/manage Cho Muse (15 Actions), Bảng D1 telegram_messages & telegram_admin_log, Cơ Chế Multi-Credential Cho Admin
+- **Bối cảnh & Yêu cầu từ Chủ sở hữu (04/11/2026)**:
+  - Cổng đăng bài `POST /api/telegram/notify` đã hoàn thành và Muse đã kết nối thành công.
+  - Cần cổng API bảo mật `POST /api/telegram/manage` để Muse điều hành toàn bộ nhóm Telegram (đọc trạng thái nhóm/admin, phân trang tin nhắn webhook, xóa/ghim tin nhắn, quản lý cấm/hạn chế thành viên, sửa tên/mô tả nhóm, tạo/thu hồi link mời) mà **không cần cầm Bot Token**.
+  - Token bot và Group ID lấy từ biến môi trường Cloudflare và D1 `system_settings` (SSOT), không hardcode, không trả về qua API.
+  - Webhook là đầu mối duy nhất nhận cập nhật từ bot và lưu vào bảng D1 `telegram_messages`.
+  - Mọi hành động quản lý bắt buộc ghi log vào D1 `telegram_admin_log`.
+  - Khắc phục lỗi hiển thị thông báo "Không thể tải dữ liệu Telegram admin" trên trang Admin do cơ chế ưu tiên header cứng làm lọt mất session của admin.
+- **Nguyên nhân gốc rễ (Root Cause)**:
+  - Trước đây chưa có endpoint điều hành nhóm; Muse muốn điều hành nhóm phải có bot token (vi phạm nguyên tắc bảo mật và cách ly quyền).
+  - Webhook chỉ xử lý lệnh văn bản riêng lẻ mà chưa lưu trữ toàn diện mọi cập nhật thảo luận vào cơ sở dữ liệu để Muse truy vấn lịch sử qua API.
+  - Hàm `verifyAdminAuth` và `verifyAiKeyAuth` cũ chỉ lấy giá trị đầu tiên trong chuỗi `apiKey || adminKey || syncKey || authHeader`. Nếu localStorage của trình duyệt chứa một key đồng bộ cũ hoặc không khớp, request bị trả về 401 ngay lập tức dù header `Authorization: Bearer <valid_admin_token>` hoàn toàn hợp lệ.
+  - Hàm `generateRefKey` và `formatTelegramPost` giả định `payload.codes` luôn là mảng đối tượng `{ code, rewards }`, dẫn đến lỗi `Cannot read properties of undefined (reading 'trim')` khi caller truyền mảng chuỗi mã `['CODE']`.
+- **Giải pháp triệt để đã triển khai**:
+  1. *Cổng API Quản Lý `POST /api/telegram/manage` (`functions/api/telegram/manage.ts`)*:
+     - Xác thực bắt buộc bằng scope `TELEGRAM_FULL` (hoặc `ADMIN_FULL` / Master Secret).
+     - Cách ly group id an toàn: Thao tác mặc định chỉ gắn chặt với `TELEGRAM_GROUP_ID` từ cấu hình hệ thống; hỗ trợ `target: 'admin'` khi gửi/ghim/xóa tin test để kiểm chứng an toàn trên chat cá nhân của admin.
+     - Thực thi 15 actions chuẩn mực:
+       - Đọc trạng thái: `get_chat`, `get_administrators`, `get_recent_messages` (phân trang limit/offset/user_id).
+       - Xóa & Ghim: `delete_message` (đơn lẻ hoặc mảng), `pin_message` (kèm disable_notification), `unpin_message` (theo message_id hoặc `unpin_all`).
+       - Quản lý thành viên: `ban_member` (kèm until_date, revoke_messages), `unban_member` (only_if_banned: true), `restrict_member` (permissions, duration_seconds/hours).
+       - Quyền & Thông tin nhóm: `set_chat_permissions` (kèm `slow_mode_delay`), `set_chat_title`, `set_chat_description`, `create_invite_link`, `revoke_invite_link`.
+       - Gửi tin nhắn: `send_message` (HTML formatting, disable_preview, thread_id).
+     - Tuyệt đối khóa các thao tác nguy hiểm: Không mở `promoteChatMember`, không mở xóa nhóm, không cho phép đổi/đọc token bot.
+  2. *Bổ sung 2 Bảng D1 Mới & Tự Động Lưu Webhook (`functions/services/telegram_service.ts`)*:
+     - `telegram_messages`: Lưu mọi tin nhắn nhận được qua webhook (`message_id`, `chat_id`, `user_id`, `username`, `first_name`, `last_name`, `text`, `reply_to_message_id`, `message_thread_id`, `raw_json`, `created_at`) kèm 3 index tối ưu.
+     - `telegram_admin_log`: Ghi nhận nhật ký audit bất biến cho mọi thao tác điều hành (`action`, `target_type`, `target_id`, `caller_identity`, `payload_summary`, `success`, `result_json`, `error_message`, `created_at`). Không cung cấp API xóa bảng này.
+  3. *Cơ Chế Xác Thực Đa Chứng Chỉ Multi-Credential Admin (`functions/services/mission_service.ts`)*:
+     - Cải tiến `verifyAdminAuth` và `verifyAiKeyAuth` để quét và kiểm tra tất cả các token được gửi trong request (`Authorization`, `X-Api-Key`, `X-Admin-Key`, `X-Sync-Key`).
+     - Đảm bảo phiên đăng nhập của Quản trị viên không bao giờ bị 401 khi một header phụ mang giá trị cũ.
+  4. *Chuẩn Hóa Danh Sách Mã Linh Hoạt (`normalizeCodes`)*:
+     - Cho phép `codes` nhận cả mảng chuỗi `['CODE1', 'CODE2']` lẫn mảng object `[{ code: 'CODE1', rewards: '...' }]`, loại bỏ triệt để lỗi runtime `Cannot read properties of undefined (reading 'trim')`.
+  5. *Đồng Bộ Toàn Diện Theo Rule 8*:
+     - Bổ sung tài liệu API, hướng dẫn gọi cURL mẫu cho cả 15 action quản lý và nút chuyển tab "API Quản Lý Telegram (Mới)" trong `src/admin/modules/ApiKeysModule.tsx`.
+  6. *Kiểm Chứng Live 100%*:
+     - Gọi không khóa: 401 Unauthorized.
+     - Gọi sai khóa / sai scope: 401 Unauthorized.
+     - `get_chat`: Trả về nhóm "CodeGame" (ID: -1004454371261, supergroup, 2 thành viên).
+     - `get_administrators`: Trả về 2 admin thật.
+     - `get_recent_messages`: Đọc thành công lịch sử tin nhắn từ D1.
+     - Chu trình an toàn trên Admin Chat ID: Gửi tin $\to$ Ghim tin $\to$ Bỏ ghim $\to$ Xóa tin đạt 100% thành công.
+     - Cổng cũ `POST /api/telegram/notify`: Hoạt động ổn định bình thường.
+     - Endpoint quản trị `GET /api/telegram/admin`: Phản hồi 200 OK trên production.
+     - Dọn dẹp sạch sẽ 100% script và dữ liệu test theo Rule 7.
+
 ### 312. Tối Ưu Hóa Tốc Độ Tải Trang CodeGame.Shop Toàn Diện: Endpoint Dữ Liệu Tinh Gọn /api/sync-lite (~49KB), Edge Caching Toàn Hệ Thống, Giảm TTFB Xuống < 200ms & Tải Lười Ảnh (Lazy Loading)
 - **Bối cảnh & Yêu cầu từ Chủ sở hữu (04/11/2026)**:
   - Hiện trạng ban đầu: Website mở chậm, `GET /api/sync` dung lượng 4.2MB (nén 466KB) với TTFB lên đến 7.6s - 9.5s do máy chủ tạo lại từ đầu mỗi request (`cf-cache-status: DYNAMIC`, thiếu Cache-Control). Trang chủ `GET /` TTFB 1.26s do header `no-cache, no-store, must-revalidate, max-age=0`. Các API tin tức và sự kiện cũng phản hồi chậm.

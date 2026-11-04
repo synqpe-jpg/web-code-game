@@ -110,15 +110,19 @@ export const TelegramModule: React.FC = () => {
       localStorage.getItem('wcg_auth_token') ||
       sessionStorage.getItem('wcg_auth_token') ||
       '';
-    const syncKey =
-      sessionStorage.getItem('wcg_admin_sync_key') ||
+    const rawSyncKey =
+      (sessionStorage.getItem('wcg_admin_sync_key') ||
       localStorage.getItem('wcg_admin_sync_key') ||
-      'b4e08494bf1c3fd6a0c965dd2411780c60513f7f87001bc955d7496331b2faef';
+      '').trim();
+    const syncKey = (rawSyncKey && rawSyncKey.length >= 16)
+      ? rawSyncKey
+      : 'b4e08494bf1c3fd6a0c965dd2411780c60513f7f87001bc955d7496331b2faef';
 
     const headers: Record<string, string> = {
       'Content-Type': 'application/json',
       'X-Sync-Key': syncKey,
       'X-Admin-Key': syncKey,
+      'X-Api-Key': syncKey,
     };
     if (token) headers['Authorization'] = `Bearer ${token}`;
     return headers;

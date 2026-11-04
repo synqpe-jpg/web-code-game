@@ -144,15 +144,21 @@ export async function verifyAiKeyAuth(
   requiredScope?: string
 ): Promise<{ authorized: boolean; keyRecord?: any; error?: string }> {
   const authHeader = request.headers.get('Authorization') || '';
-  const apiKeyHeader =
-    request.headers.get('X-Api-Key') ||
-    request.headers.get('X-Admin-Key') ||
-    request.headers.get('X-Sync-Key') ||
-    request.headers.get('x-admin-sync-key') ||
-    '';
-  const rawKey = (apiKeyHeader || authHeader.replace(/^Bearer\s+/i, '')).trim();
+  const apiKeyHeader = request.headers.get('X-Api-Key') || '';
+  const adminKeyHeader = request.headers.get('X-Admin-Key') || '';
+  const syncKeyHeader = request.headers.get('X-Sync-Key') || '';
+  const adminSyncKeyHeader = request.headers.get('x-admin-sync-key') || '';
 
-  if (!rawKey) {
+  const bearerToken = authHeader.replace(/^Bearer\s+/i, '').trim();
+  const allTokens = [
+    apiKeyHeader.trim(),
+    bearerToken,
+    adminKeyHeader.trim(),
+    syncKeyHeader.trim(),
+    adminSyncKeyHeader.trim(),
+  ].filter(Boolean);
+
+  if (allTokens.length === 0) {
     return { authorized: false, error: 'Thiếu API Key xác thực cho AI (Header Authorization: Bearer <key> hoặc X-Api-Key).' };
   }
 
@@ -164,69 +170,66 @@ export async function verifyAiKeyAuth(
     ...MASTER_SYSTEM_KEYS,
   ].filter(Boolean) as string[];
 
-  if (candidateMasterSecrets.includes(rawKey)) {
-    return {
-      authorized: true,
-      keyRecord: { id: 'api_master', key_name: 'Master System API Key', scope: 'FULL' },
-    };
-  }
-
-  const keyHash = await computeSha256(rawKey);
-  const keyRecord = await db
-    .prepare('SELECT * FROM mission_ai_api_keys WHERE api_key_hash = ? AND is_active = 1 LIMIT 1')
-    .bind(keyHash)
-    .first<any>();
-
-  if (!keyRecord) {
-    return { authorized: false, error: 'API Key không hợp lệ hoặc đã bị vô hiệu hóa.' };
-  }
-
-  // Check expiration if time-based restriction is active
-  if (keyRecord.expires_at) {
-    const expTime = new Date(keyRecord.expires_at).getTime();
-    if (!isNaN(expTime) && Date.now() > expTime) {
+  for (const token of allTokens) {
+    if (candidateMasterSecrets.includes(token)) {
       return {
-        authorized: false,
-        error: `Khóa API đã hết hạn sử dụng vào lúc ${new Date(expTime).toLocaleString('vi-VN')}. Vui lòng liên hệ Quản trị viên để gia hạn.`,
+        authorized: true,
+        keyRecord: { id: 'api_master', key_name: 'Master System API Key', scope: 'FULL' },
       };
     }
   }
 
-  if (requiredScope) {
-    if (
-      !hasScope(keyRecord.scope, requiredScope) &&
-      !hasScope(keyRecord.scope, 'ADMIN_FULL') &&
-      !hasScope(keyRecord.scope, 'FULL') &&
-      keyRecord.scope !== '*'
-    ) {
-      return {
-        authorized: false,
-        error: `Khóa API '${keyRecord.key_name}' không có quyền ${requiredScope}. Quyền hiện tại: ${keyRecord.scope || 'NONE'}`,
-      };
+  for (const token of allTokens) {
+    const keyHash = await computeSha256(token);
+    const keyRecord = await db
+      .prepare('SELECT * FROM mission_ai_api_keys WHERE api_key_hash = ? AND is_active = 1 LIMIT 1')
+      .bind(keyHash)
+      .first<any>();
+
+    if (!keyRecord) {
+      continue;
     }
-  } else {
-    if (
-      !hasScope(keyRecord.scope, 'MISSIONS_REVIEW') &&
-      !hasScope(keyRecord.scope, 'REVIEW_ONLY') &&
-      !hasScope(keyRecord.scope, 'MISSIONS_FULL') &&
-      !hasScope(keyRecord.scope, 'ADMIN_FULL') &&
-      !hasScope(keyRecord.scope, 'FULL') &&
-      keyRecord.scope !== '*'
-    ) {
-      return {
-        authorized: false,
-        error: `Khóa API này không có quyền thẩm định bài nộp Nhiệm vụ. Quyền hiện tại: ${keyRecord.scope}`,
-      };
+
+    // Check expiration if time-based restriction is active
+    if (keyRecord.expires_at) {
+      const expTime = new Date(keyRecord.expires_at).getTime();
+      if (!isNaN(expTime) && Date.now() > expTime) {
+        continue;
+      }
     }
+
+    if (requiredScope) {
+      if (
+        !hasScope(keyRecord.scope, requiredScope) &&
+        !hasScope(keyRecord.scope, 'ADMIN_FULL') &&
+        !hasScope(keyRecord.scope, 'FULL') &&
+        keyRecord.scope !== '*'
+      ) {
+        continue;
+      }
+    } else {
+      if (
+        !hasScope(keyRecord.scope, 'MISSIONS_REVIEW') &&
+        !hasScope(keyRecord.scope, 'REVIEW_ONLY') &&
+        !hasScope(keyRecord.scope, 'MISSIONS_FULL') &&
+        !hasScope(keyRecord.scope, 'ADMIN_FULL') &&
+        !hasScope(keyRecord.scope, 'FULL') &&
+        keyRecord.scope !== '*'
+      ) {
+        continue;
+      }
+    }
+
+    // Update last used timestamp asynchronously
+    db.prepare("UPDATE mission_ai_api_keys SET last_used_at = datetime('now') WHERE id = ?")
+      .bind(keyRecord.id)
+      .run()
+      .catch(() => {});
+
+    return { authorized: true, keyRecord };
   }
 
-  // Update last used timestamp asynchronously
-  db.prepare("UPDATE mission_ai_api_keys SET last_used_at = datetime('now') WHERE id = ?")
-    .bind(keyRecord.id)
-    .run()
-    .catch(() => {});
-
-  return { authorized: true, keyRecord };
+  return { authorized: false, error: 'API Key không hợp lệ hoặc thiếu quyền hạn cần thiết.' };
 }
 
 /**
@@ -244,15 +247,16 @@ export async function verifyAdminAuth(
   const apiKeyHeader = request.headers.get('X-Api-Key') || '';
   const adminSyncKeyHeader = request.headers.get('x-admin-sync-key') || '';
 
-  const token = (
-    apiKeyHeader ||
-    adminKeyHeader ||
-    adminSyncKeyHeader ||
-    syncKeyHeader ||
-    authHeader.replace(/^Bearer\s+/i, '')
-  ).trim();
+  const bearerToken = authHeader.replace(/^Bearer\s+/i, '').trim();
+  const allTokens = [
+    bearerToken,
+    apiKeyHeader.trim(),
+    adminKeyHeader.trim(),
+    syncKeyHeader.trim(),
+    adminSyncKeyHeader.trim(),
+  ].filter(Boolean);
 
-  if (!token) {
+  if (allTokens.length === 0) {
     return { authorized: false, error: 'Yêu cầu quyền Quản trị viên hoặc API Key hợp lệ (Header X-Api-Key hoặc Authorization: Bearer <token>).' };
   }
 
@@ -264,90 +268,90 @@ export async function verifyAdminAuth(
     ...MASTER_SYSTEM_KEYS,
   ].filter((s) => s.length >= 16);
 
-  if (candidateMasterSecrets.includes(token)) {
-    return {
-      authorized: true,
-      adminId: 'api_master',
-      adminName: 'Master API Key',
-      scope: 'FULL',
-    };
+  for (const token of allTokens) {
+    if (candidateMasterSecrets.includes(token)) {
+      return {
+        authorized: true,
+        adminId: 'api_master',
+        adminName: 'Master API Key',
+        scope: 'FULL',
+      };
+    }
   }
 
   // 2. Mission API Key Check từ bảng mission_ai_api_keys
   if (env.DB) {
-    const keyHash = await computeSha256(token);
-    const keyRecord = await env.DB
-      .prepare('SELECT * FROM mission_ai_api_keys WHERE api_key_hash = ? AND is_active = 1 LIMIT 1')
-      .bind(keyHash)
-      .first<any>();
+    for (const token of allTokens) {
+      const keyHash = await computeSha256(token);
+      const keyRecord = await env.DB
+        .prepare('SELECT * FROM mission_ai_api_keys WHERE api_key_hash = ? AND is_active = 1 LIMIT 1')
+        .bind(keyHash)
+        .first<any>();
 
-    if (keyRecord) {
-      // Check expiration if time-based restriction is active
-      if (keyRecord.expires_at) {
-        const expTime = new Date(keyRecord.expires_at).getTime();
-        if (!isNaN(expTime) && Date.now() > expTime) {
-          return {
-            authorized: false,
-            error: `Khóa API đã hết hạn sử dụng vào lúc ${new Date(expTime).toLocaleString('vi-VN')}. Vui lòng liên hệ Quản trị viên để gia hạn.`,
-          };
+      if (keyRecord) {
+        // Check expiration if time-based restriction is active
+        if (keyRecord.expires_at) {
+          const expTime = new Date(keyRecord.expires_at).getTime();
+          if (!isNaN(expTime) && Date.now() > expTime) {
+            continue;
+          }
         }
-      }
 
-      // Update last used timestamp asynchronously
-      env.DB.prepare("UPDATE mission_ai_api_keys SET last_used_at = datetime('now') WHERE id = ?")
-        .bind(keyRecord.id)
-        .run()
-        .catch(() => {});
+        // Update last used timestamp asynchronously
+        env.DB.prepare("UPDATE mission_ai_api_keys SET last_used_at = datetime('now') WHERE id = ?")
+          .bind(keyRecord.id)
+          .run()
+          .catch(() => {});
 
-      if (!hasScope(keyRecord.scope, requiredScope) && !hasScope(keyRecord.scope, 'ADMIN_FULL')) {
+        if (!hasScope(keyRecord.scope, requiredScope) && !hasScope(keyRecord.scope, 'ADMIN_FULL')) {
+          continue;
+        }
+
         return {
-          authorized: false,
-          error: `Khóa API này không có quyền thực hiện thao tác (${requiredScope}). Quyền hiện tại: ${keyRecord.scope}`,
+          authorized: true,
+          adminId: keyRecord.id,
+          adminName: keyRecord.key_name || 'API Client',
+          scope: hasScope(keyRecord.scope, 'ADMIN_FULL') ? 'ADMIN_FULL' : keyRecord.scope,
         };
       }
-
-      return {
-        authorized: true,
-        adminId: keyRecord.id,
-        adminName: keyRecord.key_name || 'API Client',
-        scope: hasScope(keyRecord.scope, 'ADMIN_FULL') ? 'ADMIN_FULL' : keyRecord.scope,
-      };
     }
   }
 
   // 3. Admin Member Token Session
   if (env.DB) {
-    let member: any = null;
+    for (const token of allTokens) {
+      let member: any = null;
 
-    if (token.startsWith('wcg_edge_tok_')) {
-      const candidateSecrets = [env.JWT_SECRET, env.ADMIN_SYNC_SECRET];
-      const { valid, userId } = await verifyToken(token, candidateSecrets);
-      if (valid && userId) {
-        member = await env.DB.prepare(
-          'SELECT id, username, display_name, role, status FROM members WHERE id = ? OR username = ? OR email = ? LIMIT 1'
-        ).bind(userId, userId, userId).first<any>();
+      if (token.startsWith('wcg_edge_tok_')) {
+        const candidateSecrets = [env.JWT_SECRET, env.ADMIN_SYNC_SECRET];
+        const { valid, userId } = await verifyToken(token, candidateSecrets);
+        if (valid && userId) {
+          member = await env.DB.prepare(
+            'SELECT id, username, display_name, role, status FROM members WHERE id = ? OR username = ? OR email = ? LIMIT 1'
+          ).bind(userId, userId, userId).first<any>();
+        }
       }
-    }
 
-    if (!member) {
-      member = await env.DB.prepare(
-        'SELECT id, username, display_name, role, status FROM members WHERE session_token = ? LIMIT 1'
-      ).bind(token).first<any>();
-    }
+      if (!member) {
+        member = await env.DB.prepare(
+          'SELECT id, username, display_name, role, status FROM members WHERE session_token = ? LIMIT 1'
+        ).bind(token).first<any>();
+      }
 
-    if (!member && (token.startsWith('wcg_tok_usr_admin_') || token.includes('usr_admin') || token.includes('admin290200'))) {
-      member = await env.DB.prepare(
-        "SELECT id, username, display_name, role, status FROM members WHERE id = 'usr_admin' OR username = 'admin290200' OR email = 'admin@codegame.store' OR role IN ('ADMIN', 'SUPER_ADMIN') LIMIT 1"
-      ).first<any>();
-    }
+      if (!member && (token.startsWith('wcg_tok_usr_admin_') || token.includes('usr_admin') || token.includes('admin290200'))) {
+        member = await env.DB.prepare(
+          "SELECT id, username, display_name, role, status FROM members WHERE id = 'usr_admin' OR username = 'admin290200' OR email = 'admin@codegame.store' OR role IN ('ADMIN', 'SUPER_ADMIN') LIMIT 1"
+        ).first<any>();
+      }
 
-    if (member && (member.role === 'ADMIN' || member.role === 'SUPER_ADMIN') && member.status !== 'BANNED') {
-      return {
-        authorized: true,
-        adminId: member.id,
-        adminName: member.display_name || member.username || 'Admin',
-        scope: 'FULL',
-      };
+      if (member && (member.role === 'ADMIN' || member.role === 'SUPER_ADMIN') && member.status !== 'BANNED') {
+        return {
+          authorized: true,
+          adminId: member.id,
+          adminName: member.display_name || member.username || 'Admin',
+          scope: 'FULL',
+        };
+      }
     }
   }
 

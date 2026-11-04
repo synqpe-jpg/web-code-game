@@ -93,6 +93,47 @@ export async function ensureTelegramSchema(db: D1Database): Promise<void> {
     await db.prepare('CREATE INDEX IF NOT EXISTS idx_tg_tokens_user ON telegram_link_tokens(user_id);').run().catch(() => {});
     await db.prepare('CREATE INDEX IF NOT EXISTS idx_tg_tokens_expires ON telegram_link_tokens(expires_at);').run().catch(() => {});
 
+    // 4. telegram_messages (Lưu mọi tin nhắn webhook nhận được từ nhóm & người dùng)
+    await db.prepare(`
+      CREATE TABLE IF NOT EXISTS telegram_messages (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        message_id INTEGER NOT NULL,
+        chat_id TEXT NOT NULL,
+        user_id TEXT,
+        username TEXT,
+        first_name TEXT,
+        last_name TEXT,
+        text TEXT,
+        reply_to_message_id INTEGER,
+        message_thread_id INTEGER,
+        raw_json TEXT,
+        created_at TEXT NOT NULL DEFAULT (datetime('now'))
+      );
+    `).run().catch(() => {});
+
+    await db.prepare('CREATE INDEX IF NOT EXISTS idx_tg_msg_created_at ON telegram_messages(created_at);').run().catch(() => {});
+    await db.prepare('CREATE INDEX IF NOT EXISTS idx_tg_msg_chat_user ON telegram_messages(chat_id, user_id);').run().catch(() => {});
+    await db.prepare('CREATE INDEX IF NOT EXISTS idx_tg_msg_msg_id ON telegram_messages(chat_id, message_id);').run().catch(() => {});
+
+    // 5. telegram_admin_log (Lưu mọi hành động điều hành nhóm của quản trị viên và AI Agent)
+    await db.prepare(`
+      CREATE TABLE IF NOT EXISTS telegram_admin_log (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        action TEXT NOT NULL,
+        target_type TEXT NOT NULL,
+        target_id TEXT,
+        caller_identity TEXT,
+        payload_summary TEXT,
+        success INTEGER NOT NULL DEFAULT 1,
+        result_json TEXT,
+        error_message TEXT,
+        created_at TEXT NOT NULL DEFAULT (datetime('now'))
+      );
+    `).run().catch(() => {});
+
+    await db.prepare('CREATE INDEX IF NOT EXISTS idx_tg_admin_log_created_at ON telegram_admin_log(created_at);').run().catch(() => {});
+    await db.prepare('CREATE INDEX IF NOT EXISTS idx_tg_admin_log_action ON telegram_admin_log(action);').run().catch(() => {});
+
     // Bổ sung các cột liên kết Telegram vào bảng members nếu chưa có
     try {
       const colsQuery: any = await db.prepare("PRAGMA table_info('members');").all();
@@ -128,12 +169,31 @@ export function escapeHtml(str: string): string {
 }
 
 /**
+ * Chuẩn hóa danh sách mã: Hỗ trợ cả mảng chuỗi ['CODE1'] và mảng object [{ code: 'CODE1' }]
+ */
+export function normalizeCodes(codes: any[] | undefined): NotifyCodeItem[] {
+  if (!Array.isArray(codes)) return [];
+  return codes
+    .map((c) => {
+      if (typeof c === 'string') return { code: c.trim() };
+      if (c && typeof c === 'object') {
+        const codeStr = String(c.code || '').trim();
+        const rewards = c.rewards ? String(c.rewards).trim() : undefined;
+        return { code: codeStr, rewards };
+      }
+      return { code: '' };
+    })
+    .filter((c) => c.code.length > 0);
+}
+
+/**
  * Định dạng bài đăng Telegram theo quy chuẩn bắt buộc của Mục 4
  */
 export function formatTelegramPost(payload: NotifyPayload): string {
   const { kind, game_name, title, codes, expiry, how_to, game_url, source_name, source_url } = payload;
   const escapedGame = escapeHtml(game_name || 'Game');
   const safeGameUrl = game_url || `https://codegame.shop/${payload.game_slug ? `code/${payload.game_slug}` : ''}`;
+  const normCodes = normalizeCodes(codes);
 
   if (kind === 'event') {
     // Mẫu bài Sự Kiện lên nhóm:
@@ -165,7 +225,7 @@ export function formatTelegramPost(payload: NotifyPayload): string {
   if (kind === 'digest') {
     // Mẫu Digest:
     // • <Tên game> — <MÃ> (hạn <ngày>): <link trang mã>
-    const codeList = (codes || []).map((c) => `<code>${escapeHtml(c.code)}</code>`).join(', ');
+    const codeList = normCodes.map((c) => `<code>${escapeHtml(c.code)}</code>`).join(', ');
     const expiryStr = expiry ? ` (hạn ${escapeHtml(expiry)})` : '';
     return `• <b>${escapedGame}</b> — ${codeList || 'Có Giftcode mới'}${expiryStr}: <a href="${safeGameUrl}">${safeGameUrl}</a>`;
   }
@@ -181,10 +241,10 @@ export function formatTelegramPost(payload: NotifyPayload): string {
   const subTitle = title && title.trim() ? ` — ${escapeHtml(title.trim())}` : '';
   const lines: string[] = [`🎮 <b>${escapedGame}${subTitle}</b>`];
 
-  if (codes && codes.length > 0) {
-    for (const c of codes) {
+  if (normCodes.length > 0) {
+    for (const c of normCodes) {
       if (!c.code) continue;
-      const codeHtml = `<code>${escapeHtml(c.code.trim())}</code>`;
+      const codeHtml = `<code>${escapeHtml(c.code)}</code>`;
       const rewardHtml = c.rewards && c.rewards.trim() ? ` — ${escapeHtml(c.rewards.trim())}` : '';
       lines.push(`${codeHtml}${rewardHtml}`);
     }
@@ -211,15 +271,16 @@ export function formatTelegramDm(payload: NotifyPayload): string {
   const { game_name, title, codes, expiry, game_url } = payload;
   const escapedGame = escapeHtml(game_name || 'Game');
   const safeGameUrl = game_url || `https://codegame.shop/${payload.game_slug ? `code/${payload.game_slug}` : ''}`;
+  const normCodes = normalizeCodes(codes);
 
   const lines: string[] = [`🔔 <b>Thông báo từ CodeGame.Shop</b>`, `🎮 <b>${escapedGame}</b>`];
   if (title && title.trim()) {
     lines.push(`⚡ ${escapeHtml(title.trim())}`);
   }
-  if (codes && codes.length > 0) {
-    for (const c of codes) {
+  if (normCodes.length > 0) {
+    for (const c of normCodes) {
       if (c.code) {
-        lines.push(`Mã mới: <code>${escapeHtml(c.code.trim())}</code>`);
+        lines.push(`Mã mới: <code>${escapeHtml(c.code)}</code>`);
       }
     }
   }
@@ -239,8 +300,9 @@ export function generateRefKey(payload: NotifyPayload): string {
     const today = new Date().toISOString().slice(0, 10);
     return `${slug}|digest|${today}`;
   }
-  if (payload.codes && payload.codes.length > 0) {
-    const codeList = payload.codes.map((c) => c.code.trim().toUpperCase()).sort().join(',');
+  const normCodes = normalizeCodes(payload.codes);
+  if (normCodes.length > 0) {
+    const codeList = normCodes.map((c) => c.code.toUpperCase()).sort().join(',');
     return `${slug}|${codeList}|${payload.title ? payload.title.trim().toLowerCase() : ''}`;
   }
   return `${slug}|event|${payload.title ? payload.title.trim().toLowerCase() : ''}`;
@@ -499,6 +561,117 @@ export async function saveTelegramConfigToDb(env: any, config: Partial<TelegramC
   } catch (e) {
     console.error('[TelegramService] Failed to save config to D1:', e);
     return false;
+  }
+}
+
+/**
+ * -------------------------------------------------------------
+ * NHÓM HELPER QUẢN TRỊ TELEGRAM CHO MUSE & QUẢN TRỊ VIÊN (API MANAGE)
+ * -------------------------------------------------------------
+ */
+
+export interface TelegramAdminLogEntry {
+  action: string;
+  target_type: string;
+  target_id?: string;
+  caller_identity?: string;
+  payload_summary?: string;
+  success: boolean;
+  result_json?: string;
+  error_message?: string;
+}
+
+export async function recordTelegramAdminLog(db: D1Database, entry: TelegramAdminLogEntry): Promise<void> {
+  if (!db) return;
+  try {
+    await db.prepare(`
+      INSERT INTO telegram_admin_log (action, target_type, target_id, caller_identity, payload_summary, success, result_json, error_message, created_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))
+    `).bind(
+      entry.action,
+      entry.target_type,
+      entry.target_id || null,
+      entry.caller_identity || 'unknown',
+      entry.payload_summary || null,
+      entry.success ? 1 : 0,
+      entry.result_json || null,
+      entry.error_message || null
+    ).run();
+  } catch (err: any) {
+    console.error('[recordTelegramAdminLog error]', err?.message);
+  }
+}
+
+export async function saveTelegramWebhookMessage(db: D1Database, msg: any): Promise<boolean> {
+  if (!db || !msg || !msg.message_id) return false;
+  try {
+    const messageId = Number(msg.message_id);
+    const chatId = String(msg.chat?.id || '');
+    const userId = msg.from?.id ? String(msg.from.id) : null;
+    const username = msg.from?.username || null;
+    const firstName = msg.from?.first_name || null;
+    const lastName = msg.from?.last_name || null;
+    const text = msg.text || msg.caption || '';
+    const replyToId = msg.reply_to_message?.message_id ? Number(msg.reply_to_message.message_id) : null;
+    const threadId = msg.message_thread_id ? Number(msg.message_thread_id) : null;
+    let rawJson: string | null = null;
+    try {
+      rawJson = JSON.stringify(msg);
+    } catch {}
+
+    await db.prepare(`
+      INSERT INTO telegram_messages (message_id, chat_id, user_id, username, first_name, last_name, text, reply_to_message_id, message_thread_id, raw_json, created_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))
+    `).bind(
+      messageId,
+      chatId,
+      userId,
+      username,
+      firstName,
+      lastName,
+      text,
+      replyToId,
+      threadId,
+      rawJson
+    ).run();
+    return true;
+  } catch (err: any) {
+    console.error('[saveTelegramWebhookMessage error]', err?.message);
+    return false;
+  }
+}
+
+export async function callTelegramBotApi(
+  botToken: string,
+  method: string,
+  payload?: any
+): Promise<{ ok: boolean; result?: any; error?: string; error_code?: number; description?: string }> {
+  if (!botToken) return { ok: false, error: 'Thiếu Bot Token' };
+  try {
+    const url = `https://api.telegram.org/bot${botToken}/${method}`;
+    const options: RequestInit = {
+      method: payload !== undefined ? 'POST' : 'GET',
+      headers: { 'Content-Type': 'application/json' },
+    };
+    if (payload !== undefined) {
+      options.body = JSON.stringify(payload);
+    }
+    const res = await fetch(url, options);
+    const data: any = await res.json().catch(() => null);
+    if (!data) {
+      return { ok: false, error: `Lỗi phân tích JSON từ Telegram API (${res.status})` };
+    }
+    if (!data.ok) {
+      return {
+        ok: false,
+        error: data.description || 'Lỗi Telegram Bot API',
+        error_code: data.error_code,
+        description: data.description,
+      };
+    }
+    return { ok: true, result: data.result };
+  } catch (err: any) {
+    return { ok: false, error: err?.message || 'Lỗi kết nối tới Telegram API' };
   }
 }
 
