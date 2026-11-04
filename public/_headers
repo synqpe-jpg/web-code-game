@@ -33,13 +33,13 @@
   Access-Control-Allow-Origin: *
 
 /index.html
-  Cache-Control: no-cache, no-store, must-revalidate, max-age=0
+  Cache-Control: public, max-age=0, s-maxage=60, stale-while-revalidate=300
 
 /*.html
-  Cache-Control: no-cache, no-store, must-revalidate, max-age=0
+  Cache-Control: public, max-age=0, s-maxage=60, stale-while-revalidate=300
 
 /sw.js
   Cache-Control: no-cache, no-store, must-revalidate, max-age=0
 
 /
-  Cache-Control: no-cache, no-store, must-revalidate, max-age=0
+  Cache-Control: public, max-age=0, s-maxage=60, stale-while-revalidate=300

@@ -66,7 +66,21 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
   const { request, env } = context;
   const url = new URL(request.url);
 
+  const isNoCache = request.headers.get('Cache-Control')?.includes('no-cache') ||
+                    request.headers.get('Pragma')?.includes('no-cache') ||
+                    url.searchParams.has('nocache') ||
+                    url.searchParams.has('fresh');
+
   const isAuth = await verifyAuth(request, env);
+  const cfCache = typeof caches !== 'undefined' ? (caches as any).default : null;
+  const cacheKey = new Request(url.toString(), { method: 'GET' });
+
+  if (!isAuth && !isNoCache && cfCache) {
+    try {
+      const cached = await cfCache.match(cacheKey);
+      if (cached) return cached;
+    } catch {}
+  }
   const statusParam = (url.searchParams.get('status') || (isAuth ? 'ALL' : 'PUBLISHED')).toUpperCase();
   const timeStatusParam = (url.searchParams.get('time_status') || 'ALL').toUpperCase() as GameEventTimeStatus | 'ALL';
   const gameSlugParam = url.searchParams.get('game_slug') || url.searchParams.get('game');
@@ -141,7 +155,8 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
   const startIndex = isAll ? 0 : (page - 1) * limit;
   const paginated = isAll ? sorted : sorted.slice(startIndex, startIndex + limit);
 
-  return new Response(
+  const isPublicCacheable = !isAuth && !isNoCache;
+  const finalResponse = new Response(
     JSON.stringify({
       success: true,
       total,
@@ -150,8 +165,23 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
       totalPages,
       events: paginated,
     }),
-    { headers: CORS_HEADERS }
+    {
+      headers: {
+        ...CORS_HEADERS,
+        'Cache-Control': isPublicCacheable
+          ? 'public, max-age=60, s-maxage=60, stale-while-revalidate=120'
+          : 'no-cache, no-store, must-revalidate',
+      },
+    }
   );
+
+  if (isPublicCacheable && cfCache && context.waitUntil) {
+    try {
+      context.waitUntil(cfCache.put(cacheKey, finalResponse.clone()));
+    } catch {}
+  }
+
+  return finalResponse;
 };
 
 /**

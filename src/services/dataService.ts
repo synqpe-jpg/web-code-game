@@ -21,6 +21,8 @@ import { isCodeExpired, parseExpirationDate } from '../utils/codeUtils';
 
 import { DEFAULT_STORE_PRODUCTS, DEFAULT_UTILITY_PRODUCTS, DEFAULT_GIVEAWAYS } from '../data/seedData';
 import { marketingService } from './marketingService';
+import { newsService } from './newsService';
+import { gameEventService } from './gameEventService';
 import {
   FloatingNotificationConfig,
   DEFAULT_FLOATING_NOTIFICATION,
@@ -502,7 +504,116 @@ public async syncWithCloudflareKV(forceFresh: boolean = false): Promise<void> {
           Boolean(localStorage.getItem('wcg_admin_authenticated') === 'true')
         );
         if (!isAdmin) {
-          // Non-admin public visitors: sync CMS branding, content, active giveaways and news articles without 559-games blob
+          // Public visitor fast path: Call /api/sync-lite to get essential data in 1 compressed request (~49KB, TTFB < 100ms)
+          try {
+            const resLite = await fetch('/api/sync-lite');
+            if (resLite.ok) {
+              const json = await resLite.json();
+              if (json && json.success) {
+                // Calibrate deterministic marketing clock
+                const dateHeader = resLite.headers.get('date');
+                const xServerTime = resLite.headers.get('X-Server-Time');
+                const serverTimeStr = xServerTime || dateHeader || json.serverTime || json.timestamp;
+                if (serverTimeStr) {
+                  const serverTimeMs = Date.parse(serverTimeStr);
+                  if (!isNaN(serverTimeMs)) {
+                    marketingService.calibrateServerTime(serverTimeMs);
+                  }
+                }
+
+                // Marketing click counters
+                if (typeof json.masterCopyClicks === 'number') {
+                  marketingService.syncFromHub(undefined, json.masterCopyClicks);
+                }
+
+                // Apply Growth config
+                if (json.growthConfig && typeof json.growthConfig === 'object') {
+                  try {
+                    const { growthService } = await import('./growthService');
+                    growthService.applyServerConfig(json.growthConfig);
+                  } catch {}
+                }
+
+                // Apply Marketing config
+                if (json.marketingConfig && typeof json.marketingConfig === 'object') {
+                  try {
+                    localStorage.setItem('wcg_marketing_config_v1', JSON.stringify(json.marketingConfig));
+                    window.dispatchEvent(new CustomEvent('wcg_marketing_config_updated', { detail: json.marketingConfig }));
+                  } catch {}
+                }
+
+                // Apply CMS Branding & Content
+                if (json.content && Array.isArray(json.content) && json.content.length > 0) {
+                  const currentContent = localStorage.getItem('wcg_admin_content_v4');
+                  const newContent = JSON.stringify(json.content);
+                  if (currentContent !== newContent) {
+                    try {
+                      localStorage.setItem('wcg_admin_content_v4', newContent);
+                    } catch {}
+                    window.dispatchEvent(new CustomEvent('wcg_admin_content_updated', { detail: json.content }));
+                  }
+                  const floatingItem = json.content.find((i: any) => i && i.key === 'floating_notification');
+                  if (floatingItem) {
+                    const extra = floatingItem.extraData && typeof floatingItem.extraData === 'object' ? floatingItem.extraData : {};
+                    const cfg: FloatingNotificationConfig = {
+                      ...DEFAULT_FLOATING_NOTIFICATION,
+                      ...extra,
+                      enabled: floatingItem.isActive !== false,
+                      title: floatingItem.title || DEFAULT_FLOATING_NOTIFICATION.title,
+                      message: floatingItem.content || DEFAULT_FLOATING_NOTIFICATION.message,
+                      updatedAt: extra.updatedAt || floatingItem.updatedAt || new Date().toISOString(),
+                    };
+                    try {
+                      localStorage.setItem('wcg_admin_floating_notification_v1', JSON.stringify(cfg));
+                    } catch {}
+                    window.dispatchEvent(new CustomEvent('wcg_floating_notification_updated', { detail: cfg }));
+                  }
+                }
+
+                // Apply Active Giveaways
+                if (json.giveaways && Array.isArray(json.giveaways) && json.giveaways.length > 0) {
+                  const currentGw = localStorage.getItem('wcg_admin_giveaways_v4');
+                  const newGw = JSON.stringify(json.giveaways);
+                  if (currentGw !== newGw) {
+                    try {
+                      localStorage.setItem('wcg_admin_giveaways_v4', newGw);
+                      localStorage.setItem(this.GIVEAWAYS_KEY, newGw);
+                    } catch {}
+                    window.dispatchEvent(new CustomEvent('wcg_giveaways_updated', { detail: json.giveaways }));
+                  }
+                }
+
+                // Apply Upcoming Games
+                if (json.upcomingGames && Array.isArray(json.upcomingGames) && json.upcomingGames.length > 0) {
+                  try {
+                    localStorage.setItem('wcg_cached_upcoming_games_v1', JSON.stringify(json.upcomingGames));
+                    localStorage.setItem('wcg_admin_upcoming_games_v1', JSON.stringify(json.upcomingGames));
+                  } catch {}
+                  window.dispatchEvent(new CustomEvent('wcg_upcoming_games_updated', { detail: json.upcomingGames }));
+                }
+
+                // Apply Game Events
+                if (json.gameEvents && Array.isArray(json.gameEvents) && json.gameEvents.length > 0) {
+                  try {
+                    gameEventService.syncFromCloudflare(json.gameEvents);
+                  } catch {}
+                }
+
+                // Apply News Articles
+                if (json.newsArticles && Array.isArray(json.newsArticles) && json.newsArticles.length > 0) {
+                  try {
+                    newsService.applyServerSnapshot(json.newsArticles);
+                  } catch {}
+                }
+
+                return;
+              }
+            }
+          } catch (e) {
+            console.warn('[dataService] sync-lite fetch failed, falling back:', e);
+          }
+
+          // Fallback if /api/sync-lite fails
           await Promise.allSettled([
             this.syncBrandingAndContentOnly(),
             this.syncGiveaways(),

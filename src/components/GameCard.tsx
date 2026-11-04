@@ -26,6 +26,7 @@ export interface GameCardProps {
   onShareGame?: (game: GameItem, e: React.MouseEvent) => void;
   onShowToast?: (title: string, message?: string, type?: 'success' | 'error' | 'info') => void;
   viewMode?: 'grid' | 'compact' | 'list';
+  isAboveFold?: boolean;
 }
 
 // Generate letter initials from game name
@@ -68,6 +69,7 @@ export const GameCard: React.FC<GameCardProps> = ({
   onShareGame,
   onShowToast,
   viewMode = 'grid',
+  isAboveFold = false,
 }) => {
   const { t } = useLanguage();
   const [copiedCode, setCopiedCode] = useState(false);
@@ -211,7 +213,7 @@ export const GameCard: React.FC<GameCardProps> = ({
           width={48}
           height={48}
           referrerPolicy="no-referrer"
-          loading="lazy"
+          loading={isAboveFold ? 'eager' : 'lazy'}
           decoding="async"
           onLoad={() => setImageLoaded(true)}
           onError={handleImageError}

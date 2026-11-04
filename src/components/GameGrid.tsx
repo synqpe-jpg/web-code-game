@@ -236,11 +236,12 @@ export const GameGrid: React.FC<GameGridProps> = ({
       {/* Game Content Container according to View Mode */}
       {viewMode === 'compact' && (
         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-2 sm:gap-3 w-full max-w-full box-border">
-          {games.map((game) => (
+          {games.map((game, idx) => (
             <GameCard
               key={game.id}
               game={game}
               viewMode="compact"
+              isAboveFold={idx < 6}
               isBookmarked={bookmarks.includes(game.id) || bookmarks.includes(game.slug)}
               onToggleBookmark={onToggleBookmark}
               onSelectGame={onSelectGame}
@@ -254,11 +255,12 @@ export const GameGrid: React.FC<GameGridProps> = ({
 
       {viewMode === 'list' && (
         <div className="flex flex-col gap-2 sm:gap-2.5 w-full max-w-full box-border">
-          {games.map((game) => (
+          {games.map((game, idx) => (
             <GameCard
               key={game.id}
               game={game}
               viewMode="list"
+              isAboveFold={idx < 6}
               isBookmarked={bookmarks.includes(game.id) || bookmarks.includes(game.slug)}
               onToggleBookmark={onToggleBookmark}
               onSelectGame={onSelectGame}
@@ -272,11 +274,12 @@ export const GameGrid: React.FC<GameGridProps> = ({
 
       {viewMode === 'grid' && (
         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-4 gap-3 sm:gap-4 w-full max-w-full box-border">
-          {games.map((game) => (
+          {games.map((game, idx) => (
             <GameCard
               key={game.id}
               game={game}
               viewMode="grid"
+              isAboveFold={idx < 6}
               isBookmarked={bookmarks.includes(game.id) || bookmarks.includes(game.slug)}
               onToggleBookmark={onToggleBookmark}
               onSelectGame={onSelectGame}

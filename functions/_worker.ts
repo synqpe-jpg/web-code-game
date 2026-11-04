@@ -1,4 +1,5 @@
 import * as syncApi from './api/sync';
+import * as syncLiteApi from './api/sync-lite';
 import * as statsApi from './api/stats';
 import * as voteApi from './api/vote';
 import * as loginApi from './api/auth/login';
@@ -256,6 +257,16 @@ async function handleWorkerRequest(request: Request, env: Env, ctx: ExecutionCon
           // Purge Edge Cache toàn cầu (Global REST API + PoP cục bộ)
           await invalidateCatalogEdgeCache(ctx, request, env);
           return postRes;
+        }
+      }
+
+      // 1b. /api/sync-lite (Lightweight Homepage Data Sync - ~49KB, TTFB < 100ms)
+      if (pathname === '/api/sync-lite') {
+        if (method === 'OPTIONS') {
+          return await syncLiteApi.onRequestOptions(context);
+        }
+        if (method === 'GET') {
+          return await syncLiteApi.onRequestGet(context);
         }
       }
 
@@ -802,7 +813,7 @@ async function handleWorkerRequest(request: Request, env: Env, ctx: ExecutionCon
         if (gameQueryParam) {
           const cleanSlug = gameQueryParam.trim().toLowerCase();
           const primarySlug = GAME_CANONICAL_ALIASES[cleanSlug] || cleanSlug;
-          return Response.redirect(`${origin}/game/${primarySlug}`, 301);
+          return Response.redirect(`${url.origin}/game/${primarySlug}`, 301);
         }
 
         const pageParam = url.searchParams.get('page');
@@ -810,13 +821,32 @@ async function handleWorkerRequest(request: Request, env: Env, ctx: ExecutionCon
         if (pageNum > 1) {
           return await renderSeoHtml(request, env, pathname);
         }
+        const cfCache = typeof caches !== 'undefined' ? (caches as any).default : null;
+        const cacheKey = new Request(`${url.origin}/`, { method: 'GET' });
+        if (cfCache) {
+          try {
+            const cached = await cfCache.match(cacheKey);
+            if (cached) {
+              const res = new Response(cached.body, cached);
+              res.headers.set('cf-cache-status', 'HIT');
+              return res;
+            }
+          } catch {}
+        }
+
         const assetResponse = await env.ASSETS.fetch(request);
         if (assetResponse.status === 200) {
           const headers = new Headers(assetResponse.headers);
-          headers.set('Cache-Control', 'no-cache, no-store, must-revalidate, max-age=0');
-          headers.set('Pragma', 'no-cache');
-          headers.set('Expires', '0');
-          return new Response(assetResponse.body, { status: 200, headers });
+          headers.set('Cache-Control', 'public, max-age=0, s-maxage=60, stale-while-revalidate=300');
+          headers.delete('Pragma');
+          headers.delete('Expires');
+          const finalRes = new Response(assetResponse.body, { status: 200, headers });
+          if (cfCache && ctx.waitUntil) {
+            try {
+              ctx.waitUntil(cfCache.put(cacheKey, finalRes.clone()));
+            } catch {}
+          }
+          return finalRes;
         }
         return assetResponse;
       }

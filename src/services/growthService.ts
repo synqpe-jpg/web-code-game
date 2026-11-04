@@ -254,11 +254,12 @@ class GrowthService {
   public async fetchFreshConfigFromServer(): Promise<GrowthConfig> {
     if (typeof window === 'undefined') return this.getConfig();
     try {
-      const res = await fetch('/api/sync');
+      const res = await fetch('/api/sync?key=wcg_growth_config_v1');
       if (res.ok) {
         const json = await res.json();
-        if (json?.growthConfig && typeof json.growthConfig === 'object') {
-          this.applyServerConfig(json.growthConfig);
+        const cfg = json?.data || json?.growthConfig;
+        if (cfg && typeof cfg === 'object') {
+          this.applyServerConfig(cfg);
         }
       }
     } catch {}

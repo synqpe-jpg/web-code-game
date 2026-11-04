@@ -10,6 +10,27 @@
 
 ## 1. DANH MỤC LỖI & CÁC BẪY ĐÃ THẤT BẠI (DO NOT REPEAT)
 
+### ISSUE-217: Bẫy Tải Dữ Liệu Đồng Bộ Nặng Nề (/api/sync 4.2MB), Vô Hiệu Hóa HTML Edge Cache & Bỏ Sót Đăng Ký Route Trong _worker.ts
+- **Triệu chứng & Rủi ro**:
+  1. Trang chủ tải rất chậm (TTFB 8 - 10 giây) do gọi API `/api/sync` chứa 4.2MB dữ liệu không cần thiết (2,901 mã nội bộ, 1,226 link crawler, toàn bộ markdown tin tức).
+  2. Mở web hoặc header component kích hoạt request tải trọn gói 4.2MB chỉ để đọc 1 khóa cấu hình nhỏ (`growthConfig`).
+  3. Header `Cache-Control: no-cache, no-store, must-revalidate, max-age=0` được gán cứng trên `GET /` trong Worker router khiến CDN Edge không thể đệm vỏ trang, làm TTFB HTML luôn > 1 - 2 giây.
+  4. Tạo endpoint mới (`functions/api/sync-lite.ts`) nhưng quên đăng ký route trong `functions/_worker.ts`, dẫn đến lỗi `404 Endpoint not found` khi bundle worker thực thi.
+  5. Dùng biến không khai báo (`origin` thay vì `url.origin`) gây lỗi `500 Invalid URL: null/`.
+- **Nguyên nhân gốc rễ**:
+  1. API sync ban đầu được thiết kế phục vụ toàn bộ Admin + Muse + Client chung một payload đồ sộ mà không phân tầng dữ liệu cho Web Khách.
+  2. Kiến trúc Cloudflare Pages sử dụng `functions/_worker.ts` làm single-entry bundle; mọi route API phải được export và điều hướng rõ ràng trong `_worker.ts`.
+- **Giải pháp chuẩn đã kiểm chứng**:
+  1. *Phân tách dữ liệu tinh gọn `/api/sync-lite`*: Chỉ nén ~49.8KB cho Web Khách, TTFB < 200ms với 2 tầng cache (Cloudflare Edge Cache + Isolate In-memory Cache TTL 60s).
+  2. *Cấu hình Edge Cache cho vỏ HTML*: Dùng `Cache-Control: public, max-age=0, s-maxage=60, stale-while-revalidate=300` và đệm qua `caches.default` trong `_worker.ts`, TTFB đạt 100ms - 200ms.
+  3. *Luôn dùng `url.origin`*: Không sử dụng biến tự do `origin` trong các handler worker; luôn trích xuất từ `url.origin` của request hiện tại.
+  4. *Đồng bộ đầy đủ router `functions/_worker.ts`*: Khi thêm bất kỳ file API mới nào trong `functions/api/`, phải import và thêm block `pathname === '/api/...'` tương ứng trong `_worker.ts`.
+- 🚫 **CÁCH SỬA ĐÃ THẤT BẠI - TUYỆT ĐỐI KHÔNG LẶP LẠI**:
+  - ❌ *Không tải /api/sync 4.2MB trên các component giao diện công khai (như Header/Homepage).*
+  - ❌ *Không gán `no-cache, no-store` cho trang chủ tĩnh `GET /` khi không cần thiết.*
+  - ❌ *Không tạo file API trong `functions/api/` mà quên đăng ký router trong `functions/_worker.ts`.*
+  - ❌ *Không dùng `origin` chưa định nghĩa làm URL prefix.*
+
 ### ISSUE-216: Bẫy Sửa Game Live Làm Mất Mã / Đặt Icon Chết (404) & Xóa Lẻ Mã Gây Ảnh Hưởng Sang Game Khác
 - **Triệu chứng & Rủi ro**:
   1. Khi cập nhật thông tin game live (NPH, tên, thể loại), API không kiểm soát làm reset các trường khác hoặc làm thay đổi/mất danh sách mã code đang có.

@@ -412,7 +412,7 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
           data: val,
           timestamp: new Date().toISOString(),
         }),
-        { headers: { ...CORS_HEADERS, 'Cache-Control': 'no-cache, no-store, must-revalidate' } }
+        { headers: { ...CORS_HEADERS, 'Cache-Control': (authorized || isNoCache) ? 'no-cache, no-store, must-revalidate' : 'public, max-age=60, s-maxage=60, stale-while-revalidate=120' } }
       );
     }
 
@@ -424,18 +424,33 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
 
     const globalScope = globalThis as any;
     const nowMs = Date.now();
-    const PUBLIC_CACHE_TTL_MS = 15000; // 15s in-memory isolate cache for public GET /api/sync
+    const PUBLIC_CACHE_TTL_MS = 60000; // 60s in-memory isolate cache for public GET /api/sync
+    const isPublicCacheable = !authorized && !isNoCache;
+    const cfCache = typeof caches !== 'undefined' ? (caches as any).default : null;
+    const cacheKey = new Request(url.toString(), { method: 'GET' });
 
-    if (!authorized && !isNoCache && globalScope.__wcg_public_sync_cache) {
-      if (nowMs - globalScope.__wcg_public_sync_cache.cachedAt < PUBLIC_CACHE_TTL_MS) {
+    if (isPublicCacheable) {
+      // 1. Isolate in-memory cache (< 5ms)
+      if (globalScope.__wcg_public_sync_cache && (nowMs - globalScope.__wcg_public_sync_cache.cachedAt < PUBLIC_CACHE_TTL_MS)) {
         return new Response(globalScope.__wcg_public_sync_cache.bodyStr, {
           headers: {
             ...CORS_HEADERS,
-            'Cache-Control': 'public, max-age=15, s-maxage=30, stale-while-revalidate=60',
+            'Cache-Control': 'public, max-age=60, s-maxage=60, stale-while-revalidate=300',
             'X-Server-Time': new Date().toISOString(),
             'X-Cache-Status': 'HIT-ISOLATE',
+            'cf-cache-status': 'HIT',
           },
         });
+      }
+
+      // 2. Cloudflare Edge Cache API (< 50ms)
+      if (cfCache) {
+        try {
+          const cached = await cfCache.match(cacheKey);
+          if (cached) {
+            return cached;
+          }
+        } catch {}
       }
     }
 
@@ -459,7 +474,11 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
 
     if (env.DB) {
       try {
-        await ensureSchemaUpgrades(env.DB);
+        if (context.waitUntil) {
+          context.waitUntil(ensureSchemaUpgrades(env.DB));
+        } else {
+          await ensureSchemaUpgrades(env.DB);
+        }
         const [spList, utList, gwList, settingsMap] = await Promise.all([
           loadAllStoreProductsD1(env.DB),
           loadAllUtilitiesD1(env.DB),
@@ -1313,15 +1332,24 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
       };
     }
 
-    return new Response(bodyStr, {
+    const finalResponse = new Response(bodyStr, {
       headers: {
         ...CORS_HEADERS,
-        'Cache-Control': (authorized || isNoCache)
-          ? 'no-cache, no-store, must-revalidate'
-          : 'public, max-age=15, s-maxage=30, stale-while-revalidate=60',
+        'Cache-Control': isPublicCacheable
+          ? 'public, max-age=60, s-maxage=60, stale-while-revalidate=300'
+          : 'no-cache, no-store, must-revalidate',
         'X-Server-Time': new Date().toISOString(),
+        'X-Cache-Status': isPublicCacheable ? 'MISS' : 'BYPASS',
       },
     });
+
+    if (isPublicCacheable && cfCache && context.waitUntil) {
+      try {
+        context.waitUntil(cfCache.put(cacheKey, finalResponse.clone()));
+      } catch {}
+    }
+
+    return finalResponse;
   } catch (err: any) {
     console.error('[API /api/sync] Error:', err);
     return new Response(

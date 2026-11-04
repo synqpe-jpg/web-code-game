@@ -161,7 +161,7 @@ export const UpcomingGamesBanner: React.FC<UpcomingGamesBannerProps> = ({
 
       {/* Cards Layout: Mobile compact 145px (gọn nhẹ, không choáng màn hình), Desktop 6 cols */}
       <div className="flex lg:grid lg:grid-cols-6 gap-2 sm:gap-3.5 overflow-x-auto pb-1 sm:pb-1.5 lg:pb-0 scrollbar-none snap-x snap-mandatory relative z-10">
-        {activeUpcoming.map((game) => {
+        {activeUpcoming.map((game, index) => {
           const isSaved = bookmarkedSet.has((game.slug || game.id).toLowerCase());
           const time = calculateTimeRemaining(game.releaseDate);
           const iconSrc = getUpcomingGameIconUrl(game);
@@ -192,7 +192,8 @@ export const UpcomingGamesBanner: React.FC<UpcomingGamesBannerProps> = ({
                         src={iconSrc}
                         alt={game.name}
                         className="w-full h-full object-cover"
-                        loading="lazy"
+                        loading={index < 3 ? 'eager' : 'lazy'}
+                        decoding="async"
                         referrerPolicy="no-referrer"
                         onError={(e) => handleUpcomingImageError(e, game)}
                       />
