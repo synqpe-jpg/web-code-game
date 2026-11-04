@@ -1589,11 +1589,37 @@ public async syncWithCloudflareKV(forceFresh: boolean = false): Promise<void> {
     const matchedCodes: Array<{ game: GameItem; code: GiftCode; score: number }> = [];
     const seenCodeKeys = new Set<string>();
 
-    // 1. Score all games by relevance
-    for (const game of this.games) {
+    // 1. Score all games by relevance (including candidates from upcoming pool)
+    const candidateGames = [...this.games];
+    const existingSlugs = new Set(this.games.map((g) => (g.slug || '').toLowerCase()));
+    try {
+      const upcoming = this.getUpcomingGamesSync();
+      if (Array.isArray(upcoming)) {
+        for (const ug of upcoming) {
+          const uSlug = (ug.slug || '').toLowerCase();
+          if (uSlug && !existingSlugs.has(uSlug)) {
+            existingSlugs.add(uSlug);
+            candidateGames.push({
+              id: ug.slug,
+              slug: ug.slug,
+              name: ug.name,
+              publisher: ug.publisher || 'Nhà Phát Hành',
+              category: ug.category || 'Game Mới',
+              rating: 5,
+              icon_url: ug.iconUrl || ug.icon_url || `/game_icons/${ug.slug}.webp`,
+              codes_count: (ug.expectedCodes || []).length,
+              is_hot: Boolean((ug as any).is_hot),
+              is_new: true,
+              is_featured: false,
+            } as GameItem);
+          }
+        }
+      }
+    } catch {}
+
+    for (const game of candidateGames) {
       const scoreRes = calculateGameSearchScore(game, q);
-      const isMatch = scoreRes.score > 0 || matchGameSearch(game, q);
-      const score = isMatch ? (scoreRes.score > 0 ? scoreRes.score : 5000) : 0;
+      const score = scoreRes.score;
       if (score > 0) {
         scoredGames.push({ game, score });
       }

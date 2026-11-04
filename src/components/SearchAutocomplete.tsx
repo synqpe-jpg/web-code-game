@@ -301,6 +301,8 @@ export const SearchAutocomplete: React.FC<SearchAutocompleteProps> = ({
     totalMatches: number;
   }>({ games: [], codes: [], totalMatches: 0 });
 
+  const searchRequestIdRef = useRef(0);
+
   useEffect(() => {
     const q = (searchQuery || '').trim();
     if (!q) {
@@ -308,53 +310,78 @@ export const SearchAutocomplete: React.FC<SearchAutocompleteProps> = ({
       return;
     }
 
+    const currentReqId = ++searchRequestIdRef.current;
+
     // 1. Instant synchronous local results for 0ms typing response
     try {
       const local = dataService.searchAllGamesAndCodes(q, 6);
-      if (local && Array.isArray(local.games)) {
+      if (local && Array.isArray(local.games) && currentReqId === searchRequestIdRef.current) {
         setSearchResults(local);
       }
     } catch {}
 
-    // 2. Debounced server fetch across entire 450+ games and 9000+ codes catalog
+    // 2. Debounced server fetch across entire 580+ games catalog (< 200ms debounce, cancel outdated queries)
     const timer = setTimeout(async () => {
       try {
         const serverRes = await dataService.searchAllGamesAndCodesServer(q, 6);
-        if (serverRes && serverRes.totalMatches > 0 && Array.isArray(serverRes.games)) {
+        if (currentReqId === searchRequestIdRef.current && serverRes && Array.isArray(serverRes.games)) {
           setSearchResults(serverRes);
         }
       } catch {}
-    }, 150);
+    }, 180);
 
-    return () => clearTimeout(timer);
+    return () => {
+      clearTimeout(timer);
+    };
   }, [searchQuery]);
 
-  // Sort matching games by relevance score so the closest title match is always at index 0 (Top #1)
+  // Sort matching games strictly by the required 3-tier hierarchy:
+  // Tier 1: Tên game bắt đầu bằng đúng cụm từ đang gõ (Prefix Match)
+  // Tier 2: Tên game chứa tất cả các từ đang gõ
+  // Tier 3: Tên game chứa ít nhất một từ đang gõ
+  // Phụ: Số lượng giftcode nhiều hơn xếp trước, cờ HOT xếp trước
   const sortedGames = useMemo(() => {
     const q = (searchQuery || '').trim();
     const gamesList = Array.isArray(searchResults?.games) ? searchResults.games : [];
-    if (!q || gamesList.length <= 1) return gamesList;
-    return [...gamesList].sort((a, b) => {
-      if (!a && !b) return 0;
-      if (!a) return 1;
-      if (!b) return -1;
-      const scoreA = calculateGameSearchScore(a, q).score;
-      const scoreB = calculateGameSearchScore(b, q).score;
-      if (scoreB !== scoreA) return scoreB - scoreA;
-      const cntA = a.codes_count || 0;
-      const cntB = b.codes_count || 0;
-      if (cntB !== cntA) return cntB - cntA;
-      return (a.name || '').localeCompare(b.name || '');
+    if (!q) return [];
+
+    const seenSlugs = new Set<string>();
+    const uniqueGames = gamesList.filter((g) => {
+      if (!g || !g.slug) return false;
+      const lowerSlug = g.slug.toLowerCase();
+      if (seenSlugs.has(lowerSlug)) return false;
+      seenSlugs.add(lowerSlug);
+      return true;
     });
+
+    return uniqueGames
+      .map((g) => ({ game: g, score: calculateGameSearchScore(g, q).score }))
+      .filter((item) => item.score > 0)
+      .sort((a, b) => {
+        if (b.score !== a.score) return b.score - a.score;
+        const cntA = Number(a.game.codes_count || a.game.total_codes_count || 0);
+        const cntB = Number(b.game.codes_count || b.game.total_codes_count || 0);
+        if (cntB !== cntA) return cntB - cntA;
+        if (Boolean(b.game.is_hot) !== Boolean(a.game.is_hot)) {
+          return b.game.is_hot ? 1 : -1;
+        }
+        return (a.game.name || '').localeCompare(b.game.name || '');
+      })
+      .map((item) => item.game);
   }, [searchResults?.games, searchQuery]);
 
-  const hasResults = (searchResults?.totalMatches || 0) > 0;
+  // YÊU CẦU BẮT BUỘC: Luôn hiển thị tối đa 3 game liên quan
+  const topSuggestedGames = useMemo(() => {
+    return sortedGames.slice(0, 3);
+  }, [sortedGames]);
 
-  // Flattened items for keyboard navigation: games first, then codes
+  const hasResults = topSuggestedGames.length > 0 || (Array.isArray(searchResults?.codes) && searchResults.codes.length > 0);
+
+  // Flattened items for keyboard navigation: games first (max 3), then codes
   const allNavItems = useMemo(() => {
     const items: Array<{ type: 'game'; data: GameItem } | { type: 'code'; data: { game: GameItem; code: GiftCode } }> = [];
-    if (Array.isArray(sortedGames)) {
-      sortedGames.forEach((g) => {
+    if (Array.isArray(topSuggestedGames)) {
+      topSuggestedGames.forEach((g) => {
         if (g) items.push({ type: 'game', data: g });
       });
     }
@@ -364,7 +391,7 @@ export const SearchAutocomplete: React.FC<SearchAutocompleteProps> = ({
       });
     }
     return items;
-  }, [sortedGames, searchResults?.codes]);
+  }, [topSuggestedGames, searchResults?.codes]);
 
   // Global key listener to press '/' to focus search
   useEffect(() => {
@@ -731,19 +758,19 @@ export const SearchAutocomplete: React.FC<SearchAutocompleteProps> = ({
             </div>
           ) : hasResults ? (
             <div className="overflow-y-auto flex-1 scrollbar-thin p-2 space-y-3">
-              {/* 1. MATCHING GAMES */}
-              {sortedGames.length > 0 && (
+              {/* 1. MATCHING GAMES (TỐI ĐA 3 GAME LIÊN QUAN THEO YÊU CẦU BẮT BUỘC) */}
+              {topSuggestedGames.length > 0 && (
                 <div>
                   <div className="flex items-center justify-between px-2.5 py-1.5 text-[11px] font-bold uppercase tracking-wider text-slate-400">
                     <span className="flex items-center gap-1.5 text-primary-light">
                       <Gift className="w-3.5 h-3.5 text-primary-light" />
-                      {t.search.matchingGames} ({sortedGames.length})
+                      Gợi ý game ({topSuggestedGames.length})
                     </span>
-                    <span className="text-[10px] lowercase text-slate-500">nhấn để xem chi tiết</span>
+                    <span className="text-[10px] lowercase text-slate-500">nhấn để mở ngay</span>
                   </div>
 
                   <div className="space-y-1.5 px-0.5">
-                    {sortedGames.map((game, idx) => {
+                    {topSuggestedGames.map((game, idx) => {
                       const isHighlighted = selectedIndex === idx;
                       const totalCodes = game.codes_count || (game.codes ? game.codes.length : 0);
 
@@ -900,8 +927,8 @@ export const SearchAutocomplete: React.FC<SearchAutocompleteProps> = ({
             </div>
           ) : (
             <div className="p-6 text-center text-muted-foreground space-y-1">
-              <p className="text-xs sm:text-sm font-medium">{t.search.noResults}</p>
-              <p className="text-[11px] text-slate-500">{t.search.hint}</p>
+              <p className="text-xs sm:text-sm font-medium text-foreground">Không tìm thấy game phù hợp</p>
+              <p className="text-[11px] text-slate-400">Thử tìm kiếm với tên không dấu hoặc từ khóa ngắn hơn.</p>
             </div>
           )}
 
@@ -1155,17 +1182,17 @@ export const SearchAutocomplete: React.FC<SearchAutocompleteProps> = ({
             ) : hasResults ? (
               /* Results State: Matching Games & Codes */
               <>
-                {sortedGames.length > 0 && (
+                {topSuggestedGames.length > 0 && (
                   <div className="space-y-2">
                     <div className="flex items-center justify-between px-1 text-[11px] font-bold uppercase tracking-wider text-slate-400">
                       <span className="flex items-center gap-1.5 text-primary-light">
                         <Gift className="w-3.5 h-3.5 text-primary-light" />
-                        Game tìm thấy ({sortedGames.length})
+                        Gợi ý game ({topSuggestedGames.length})
                       </span>
                       <span className="text-[10px] text-slate-500 font-normal">Chạm để mở</span>
                     </div>
                     <div className="space-y-2">
-                      {sortedGames.map((game, idx) => {
+                      {topSuggestedGames.map((game, idx) => {
                         const totalCodes = game.codes_count || (game.codes ? game.codes.length : 0);
                         return (
                           <div
@@ -1293,37 +1320,18 @@ export const SearchAutocomplete: React.FC<SearchAutocompleteProps> = ({
               </>
             ) : (
               /* No results */
-              <div className="rounded-2xl bg-[#0b1728] border border-blue-500/35 p-6 text-center space-y-3 shadow-md">
+              <div className="rounded-2xl bg-[#0b1728] border border-blue-500/35 p-6 text-center space-y-2 shadow-md">
                 <div className="w-12 h-12 rounded-2xl bg-[#102344] border border-blue-500/30 flex items-center justify-center mx-auto text-blue-300">
                   <Search className="w-6 h-6 text-blue-400" />
                 </div>
                 <div>
                   <p className="text-sm font-bold text-white">
-                    Không tìm thấy game hoặc code khớp với "{searchQuery}"
+                    Không tìm thấy game phù hợp
                   </p>
                   <p className="text-xs text-blue-200/70 mt-1">
                     Thử tìm kiếm với tên không dấu hoặc từ khóa ngắn hơn.
                   </p>
                 </div>
-                {hotGames.length > 0 && (
-                  <div className="pt-2 text-left">
-                    <p className="text-xs font-bold text-blue-300 uppercase tracking-wider mb-2">
-                      Gợi ý các game HOT:
-                    </p>
-                    <div className="space-y-1.5">
-                      {hotGames.slice(0, 3).map((g) => (
-                        <div
-                          key={g.id || g.slug}
-                          onClick={() => handleSelectGameItem(g)}
-                          className="flex items-center justify-between p-2.5 rounded-xl bg-[#102344] hover:bg-[#16305c] border border-blue-500/35 text-white cursor-pointer active:scale-98 shadow-sm"
-                        >
-                          <span className="text-xs font-bold text-foreground truncate">{g.name}</span>
-                          <span className="text-[11px] font-mono text-emerald-400">{g.codes_count || 0} code</span>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
               </div>
             )}
           </div>

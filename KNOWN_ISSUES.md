@@ -10,6 +10,27 @@
 
 ## 1. DANH MỤC LỖI & CÁC BẪY ĐÃ THẤT BẠI (DO NOT REPEAT)
 
+### ISSUE-215: Bẫy Khung Gợi Ý Autocomplete Quét Mô Tả (False Positives) Và Endpoint Server Không Đồng Bộ Game Mới Từ D1
+- **Triệu chứng & Rủi ro**:
+  1. Khi người dùng gõ "Sword x", khung gợi ý chỉ hiện "Sword of Reborn" mà bỏ sót "Sword x Staff" dù game đã live với 19 giftcode.
+  2. Các game không liên quan lọt vào danh sách gợi ý do mô tả ngẫu nhiên chứa từ/chữ cái khớp (ví dụ từ "xuyên không" trong mô tả game chứa chữ "x").
+  3. Khung gợi ý hiện quá nhiều game làm tràn màn hình hoặc che khuất giao diện.
+- **Nguyên nhân gốc rễ**:
+  1. `calculateGameSearchScore` cũ có bước quét `description` (score 800 - 1200) khi không có token nào khớp với tên game.
+  2. Endpoint `/api/games?autocomplete=1` chỉ duyệt mảng tĩnh `fallbackGamesData` (chỉ 188 game cũ), không đồng bộ các game mới từ Cloudflare D1.
+- **Giải pháp chuẩn đã kiểm chứng**:
+  1. *Phân tầng 3 bậc ưu tiên tuyệt đối*:
+     - Ưu tiên 1: Tên game hoặc slug bắt đầu bằng đúng cụm từ đang gõ (`startsWith`).
+     - Ưu tiên 2: Tên game chứa tất cả các từ trong cụm từ đang gõ (từ cuối tính prefix).
+     - Ưu tiên 3: Tên game chứa ít nhất một từ trong cụm từ đang gõ.
+     - Tie-breaker: Nhiều giftcode hơn xếp trước, cờ HOT xếp trước, xếp chữ cái A-Z.
+     - Tuyệt đối không quét mô tả trong khung gợi ý autocomplete để tránh đưa game không liên quan vào.
+  2. *Giới hạn tối đa 3 game*: Khung gợi ý chỉ hiển thị đúng 3 tựa game có điểm phù hợp cao nhất (`sortedGames.slice(0, 3)`).
+  3. *Đồng bộ D1 với Worker in-memory cache*: `/api/games?autocomplete=1` ưu tiên đọc danh mục game từ D1 qua bộ nhớ đệm Worker 60s, bảo đảm game mới thêm vào D1 được tìm thấy tức thì trong < 1ms.
+- 🚫 **CÁCH SỬA ĐÃ THẤT BẠI - TUYỆT ĐỐI KHÔNG LẶP LẠI**:
+  - ❌ *Không quét field description để sinh điểm gợi ý cho autocomplete dropdown.*
+  - ❌ *Không hardcode danh mục game tĩnh trong server endpoint mà không đồng bộ với D1.*
+
 ### ISSUE-214: Bẫy Trùng Lặp Webhook/Polling Telegram, Rò Rỉ Secret Token Và Gửi Tin Thử Nghiệm Vào Nhóm Chung
 - **Triệu chứng & Rủi ro**:
   1. Telegram Bot API xung đột và trả về lỗi 409 Conflict nếu vừa cài đặt Webhook vừa chạy polling `getUpdates`.

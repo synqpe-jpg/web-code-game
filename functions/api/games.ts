@@ -138,9 +138,15 @@ const CACHE_TTL_MS = 120 * 1000; // 120 seconds fast in-worker cache to protect 
 // Single-game in-memory cache to eliminate repeated D1 queries on game detail pages
 const singleGameCache = new Map<string, { game: GameItem; expiresAt: number }>();
 
+// In-Memory cache for live autocomplete games catalog (< 1ms search response, zero redundant D1 queries)
+let cachedAutocompleteGamesList: any[] | null = null;
+let lastAutocompleteGamesCacheTime = 0;
+
 export function invalidateGamesCatalogCache(): void {
   catalogCache = null;
   singleGameCache.clear();
+  cachedAutocompleteGamesList = null;
+  lastAutocompleteGamesCacheTime = 0;
 }
 
 /**
@@ -1037,15 +1043,33 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
         );
       }
 
-      // Match games using in-memory fallbackGamesData
+      // Match games using in-memory cached D1 catalog (fresh every 60s) or fallbackGamesData
+      let activeGamesPool: any[] = fallbackGamesData as any[];
+      if (env.DB) {
+        const now = Date.now();
+        if (!cachedAutocompleteGamesList || now - lastAutocompleteGamesCacheTime > 60000) {
+          try {
+            const d1Res = await env.DB.prepare(
+              "SELECT id, name, slug, publisher, category, platform, rating, icon_url, total_codes_count as codes_count, active_codes_count, is_hot, is_new, is_featured FROM games WHERE is_active = 1 AND (status IS NULL OR UPPER(status) IN ('ACTIVE', 'PUBLISHED'))"
+            ).all<any>();
+            if (d1Res && Array.isArray(d1Res.results) && d1Res.results.length > 0) {
+              cachedAutocompleteGamesList = d1Res.results;
+              lastAutocompleteGamesCacheTime = now;
+            }
+          } catch {}
+        }
+        if (cachedAutocompleteGamesList && cachedAutocompleteGamesList.length > 0) {
+          activeGamesPool = cachedAutocompleteGamesList;
+        }
+      }
+
       const scoredGames: Array<{ game: any; score: number }> = [];
       const cleanQ = q.toLowerCase();
 
-      for (const game of (fallbackGamesData as any[])) {
+      for (const game of activeGamesPool) {
         if (!game || !game.slug) continue;
         const scoreRes = calculateGameSearchScore(game, q);
-        const isMatch = scoreRes.score > 0 || matchGameSearch(game, q);
-        const finalScore = isMatch ? (scoreRes.score > 0 ? scoreRes.score : 5000) : 0;
+        const finalScore = scoreRes.score;
         if (finalScore > 0) {
           scoredGames.push({
             game: {
@@ -1057,7 +1081,7 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
               platform: game.platform || '',
               rating: typeof game.rating === 'number' ? game.rating : 4.8,
               icon_url: game.icon_url || `/game_icons/${game.slug}.webp`,
-              codes_count: Number(game.active_codes_count || game.codes_count || 0),
+              codes_count: Number(game.active_codes_count || game.codes_count || game.total_codes_count || 0),
               is_hot: Boolean(game.is_hot),
               is_new: Boolean(game.is_new),
               is_featured: Boolean(game.is_featured),
@@ -1070,7 +1094,10 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
 
       scoredGames.sort((a, b) => {
         if (b.score !== a.score) return b.score - a.score;
-        return (b.game.codes_count || 0) - (a.game.codes_count || 0);
+        const cntA = a.game.codes_count || 0;
+        const cntB = b.game.codes_count || 0;
+        if (cntB !== cntA) return cntB - cntA;
+        return (a.game.name || '').localeCompare(b.game.name || '');
       });
 
       // Match giftcodes using in-memory fallbackCodesData (Zero D1 scan)

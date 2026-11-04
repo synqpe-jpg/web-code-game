@@ -301,34 +301,52 @@ export function calculateGameSearchScore(
   let matchType: GameSearchScoreResult['matchType'] = 'none';
   let matchDetail = '';
 
-  // 1. Exact match with game name (Raw or Normalized)
-  if (nameRaw === rawQuery || nameNorm === queryNorm || nameCompact === queryCompact) {
-    score = 10000;
-    matchType = 'exact_name';
+  const qTokens = queryNorm.split(/\s+/).filter(Boolean);
+  const wordsInName = nameNorm.split(/[\s\-:_]+/).filter(Boolean);
+  const wordsInSlug = slugNorm.split(/[\s\-:_]+/).filter(Boolean);
+  const allGameWords = Array.from(new Set([...wordsInName, ...wordsInSlug]));
+
+  // Check how many query tokens match words or word prefixes in game name/slug
+  let matchedTokensCount = 0;
+  for (const tok of qTokens) {
+    if (allGameWords.some((w) => w === tok || w.startsWith(tok))) {
+      matchedTokensCount++;
+    }
   }
-  // 2. Exact match with slug
-  else if (slugRaw === rawQuery || slugNorm === queryNorm || slugCompact === queryCompact) {
-    score = 9500;
+
+  // 1. Exact match with game name or slug (Highest Tier 0)
+  if (nameRaw === rawQuery || nameNorm === queryNorm || nameCompact === queryCompact) {
+    score = 120000;
+    matchType = 'exact_name';
+  } else if (slugRaw === rawQuery || slugNorm === queryNorm || slugCompact === queryCompact) {
+    score = 115000;
     matchType = 'exact_slug';
   }
-  // 3. Name starts with query (Prefix)
-  else if (nameNorm.startsWith(queryNorm) || nameRaw.startsWith(rawQuery) || nameCompact.startsWith(queryCompact)) {
-    score = 8500;
+  // 2. ƯU TIÊN 1: Tên game hoặc slug bắt đầu bằng đúng cụm từ đang gõ (Prefix Match)
+  // Ví dụ gõ "Sword x" -> "Sword x Staff" bắt đầu bằng "Sword x"
+  else if (
+    nameNorm.startsWith(queryNorm) ||
+    nameRaw.startsWith(rawQuery) ||
+    slugNorm.startsWith(queryNorm) ||
+    (queryCompact.length >= 3 && (nameCompact.startsWith(queryCompact) || slugCompact.startsWith(queryCompact)))
+  ) {
+    score = 100000;
     matchType = 'name_prefix';
   }
-  // 4. Slug starts with query
-  else if (slugNorm.startsWith(queryNorm) || slugRaw.startsWith(rawQuery) || slugCompact.startsWith(queryCompact)) {
-    score = 8000;
-    matchType = 'slug_match';
+  // 3. ƯU TIÊN 2: Tên game chứa TẤT CẢ các từ đang gõ (không cần đúng thứ tự, từ cuối tính prefix)
+  // Ví dụ gõ "Sword x" -> game có cả từ "Sword" và một từ bắt đầu bằng "x" (như "Staff" hoặc "x")
+  else if (qTokens.length > 0 && matchedTokensCount === qTokens.length) {
+    score = 50000 + (nameNorm.includes(queryNorm) ? 5000 : 0);
+    matchType = 'name_word';
   }
-  // 5. Gaming Acronym / Abbreviation Match (e.g. "lq", "vltk", "bf", "dldl", "ff", "hsr", "htd")
+  // 4. Gaming Acronym / Abbreviation Match (e.g. "lq", "vltk", "bf", "dldl", "ff", "hsr", "htd")
   else if (queryCompact.length >= 2 && queryCompact.length <= 6) {
     const mapped = GAME_ACRONYM_MAP[queryCompact];
     if (mapped) {
       for (const phrase of mapped) {
         const normPhrase = normalizeVietnamese(phrase);
         if (nameNorm.includes(normPhrase) || slugNorm.includes(normPhrase)) {
-          score = 7800;
+          score = 38000;
           matchType = 'acronym';
           break;
         }
@@ -337,125 +355,51 @@ export function calculateGameSearchScore(
     if (score === 0) {
       const initials = nameNorm.split(/[\s\-:_]+/).filter(Boolean).map((w) => w[0]).join('');
       if (initials === queryCompact) {
-        score = 7500;
+        score = 35000;
         matchType = 'acronym';
       } else if (initials.startsWith(queryCompact)) {
-        score = 7000;
+        score = 30000;
         matchType = 'acronym';
       }
     }
   }
-
-  // 6. Name contains query phrase (require word boundary or length >= 3 to prevent short noise like "ff" in "Offline")
-  if (score === 0) {
-    const isWordBounded =
-      nameNorm.startsWith(queryNorm + ' ') ||
-      nameNorm.includes(' ' + queryNorm + ' ') ||
-      nameNorm.endsWith(' ' + queryNorm) ||
-      nameRaw.startsWith(rawQuery + ' ') ||
-      nameRaw.includes(' ' + rawQuery + ' ') ||
-      nameRaw.endsWith(' ' + rawQuery);
-
-    if (queryNorm.length >= 3 && (nameNorm.includes(queryNorm) || nameRaw.includes(rawQuery) || nameCompact.includes(queryCompact))) {
-      score = 6800;
-      matchType = 'name_sub';
-    } else if (queryNorm.length < 3 && isWordBounded) {
-      score = 6800;
-      matchType = 'name_sub';
-    } else if (slugNorm.includes(queryNorm) || slugRaw.includes(rawQuery)) {
-      if (queryNorm.length >= 3 || slugRaw.startsWith(rawQuery + '-') || slugRaw.includes('-' + rawQuery + '-') || slugRaw.endsWith('-' + rawQuery)) {
-        score = 6500;
-        matchType = 'slug_match';
-      }
-    }
+  // 5. ƯU TIÊN 3: Tên game chứa ÍT NHẤT MỘT TỪ đang gõ
+  else if (matchedTokensCount > 0) {
+    score = 10000 + (matchedTokensCount * 1000);
+    matchType = 'name_word';
+  }
+  // 6. Name contains full query substring (if not already caught above)
+  else if (queryNorm.length >= 3 && (nameNorm.includes(queryNorm) || slugNorm.includes(queryNorm))) {
+    score = 8000;
+    matchType = 'name_sub';
+  }
+  // 7. Publisher match (Secondary fallback)
+  else if (publisherNorm && (publisherRaw === rawQuery || publisherNorm === queryNorm || publisherNorm.startsWith(queryNorm) || publisherNorm.includes(queryNorm))) {
+    score = 3000;
+    matchType = 'publisher';
+    matchDetail = `NPH: ${game.publisher}`;
+  }
+  // 8. Category match
+  else if (categoryNorm && (categoryRaw === rawQuery || categoryNorm === queryNorm || categoryNorm.includes(queryNorm))) {
+    score = 1500;
+    matchType = 'category';
+    matchDetail = `Thể loại: ${game.category}`;
   }
 
-  // 7. Word boundary match in name (all query tokens exist as words/prefixes in name)
-  if (score === 0) {
-    const wordsInName = nameNorm.split(/[\s\-:_]+/).filter(Boolean);
-    const nameWordSet = new Set(wordsInName);
-    const qTokens = queryNorm.split(' ').filter(Boolean);
-    if (qTokens.length > 1 && qTokens.every((tok) => nameWordSet.has(tok) || wordsInName.some((w) => w.startsWith(tok)))) {
-      score = 6200;
-      matchType = 'name_word';
-    } else if (wordsInName.some((w) => w === queryNorm)) {
-      score = 5500;
-      matchType = 'name_word';
-    } else if (wordsInName.some((w) => w.startsWith(queryNorm))) {
-      score = 5000;
-      matchType = 'name_word';
-    }
-  }
-
-  // 8. Initials of words in name contain query (secondary initials)
-  if (score === 0 && queryCompact.length >= 2 && queryCompact.length <= 6) {
-    const initials = nameNorm.split(/[\s\-:_]+/).filter(Boolean).map((w) => w[0]).join('');
-    if (initials.includes(queryCompact)) {
-      score = 4000;
-      matchType = 'acronym';
-    }
-  }
-
-  // 9. Publisher match
-  if (score === 0) {
-    if (publisherRaw === rawQuery || publisherNorm === queryNorm) {
-      score = 2500;
-      matchType = 'publisher';
-      matchDetail = `NPH: ${game.publisher}`;
-    } else if (publisherNorm.startsWith(queryNorm) || publisherRaw.startsWith(rawQuery)) {
-      score = 2000;
-      matchType = 'publisher';
-      matchDetail = `NPH: ${game.publisher}`;
-    } else if (publisherNorm.includes(queryNorm) || publisherRaw.includes(rawQuery)) {
-      score = 1500;
-      matchType = 'publisher';
-      matchDetail = `NPH: ${game.publisher}`;
-    }
-  }
-
-  // 10. Category match (e.g. "Roblox / Mini Game")
-  if (score === 0) {
-    if (categoryRaw === rawQuery || categoryNorm === queryNorm) {
-      score = 1000;
-      matchType = 'category';
-      matchDetail = `Thể loại: ${game.category}`;
-    } else if (categoryNorm.includes(queryNorm) || categoryRaw.includes(rawQuery)) {
-      score = 800;
-      matchType = 'category';
-      matchDetail = `Thể loại: ${game.category}`;
-    }
-  }
-
-  // 11. Description match (strict whole-word matching to avoid false positives)
-  if (score === 0 && game.description) {
-    const descNorm = normalizeVietnamese(game.description);
-    if (descNorm.includes(queryNorm)) {
-      score = 1200;
-      matchType = 'description';
-      matchDetail = 'Khớp trong mô tả';
-    } else {
-      const qTokens = queryNorm.split(' ').filter(Boolean);
-      const descWords = descNorm.split(/[\s\-:_]+/).filter(Boolean);
-      const descWordSet = new Set(descWords);
-      if (qTokens.length > 1 && qTokens.every((tok) => descWordSet.has(tok) || descWords.some((w) => w.startsWith(tok)))) {
-        score = 800;
-        matchType = 'description';
-        matchDetail = 'Khớp trong mô tả';
-      }
-    }
-  }
-
-  // Quality bonuses & tie-breaking penalties
+  // Quality bonuses & tie-breaking:
+  // Cùng mức ưu tiên: game có nhiều mã giftcode hơn xếp trước; nếu bằng mã thì game có cờ HOT xếp trước.
   if (score > 0) {
-    // Reward names that are tighter matches to the query length
-    if (score >= 6000 && nameNorm) {
-      const lengthDiff = Math.max(0, nameNorm.length - queryNorm.length);
-      score -= Math.min(300, lengthDiff * 2);
-    }
-    if (game.is_hot) score += 30;
-    if (game.is_featured) score += 20;
-    if ((game.codes_count || 0) > 0) score += 50;
+    const codesCount = Number(
+      game.codes_count ||
+      (game as any).total_codes_count ||
+      (game as any).active_codes_count ||
+      0
+    );
+    const isHot = Boolean(game.is_hot);
+    score += (codesCount * 10) + (isHot ? 5 : 0);
   }
+
+  return { score, matchType, matchDetail };
 
   return { score, matchType, matchDetail };
 }

@@ -5,6 +5,32 @@ Mỗi mục sửa lỗi đều ghi nhận **Nguyên nhân gốc rễ (Root Cause
 
 ---
 
+## [2026-11-04]
+
+### 310. Nâng Cấp Khung Gợi Ý Tìm Kiếm Trực Tiếp Khi Đang Gõ: Thuật Toán Chấm Điểm 3 Tầng Chuẩn Xác, Giới Hạn 3 Game Hàng Đầu, Khắc Phục Lỗi Bỏ Sót Sword x Staff & Sửa Lỗi Telegram Admin
+- **Bối cảnh & Yêu cầu từ Chủ sở hữu (04/11/2026)**:
+  - Khi gõ "Sword x", khung gợi ý chỉ hiện "Sword of Reborn" mà bỏ sót "Sword x Staff" dù game đã live với 19 giftcode.
+  - Sửa lỗi khung gợi ý trực tiếp khi gõ theo 3 mức ưu tiên tuyệt đối:
+    - Ưu tiên 1: Tên game bắt đầu bằng đúng cụm từ đang gõ (Prefix Match).
+    - Ưu tiên 2: Tên game chứa tất cả các từ đang gõ (không phân biệt thứ tự, từ cuối tính prefix).
+    - Ưu tiên 3: Tên game chứa ít nhất một từ đang gõ.
+    - Tie-breaker: Số mã nhiều hơn xếp trước, có cờ HOT xếp trước.
+  - Luôn hiện tối đa 3 game liên quan ngay dưới ô tìm kiếm (chiều rộng bằng thanh input, không tràn lề).
+  - Khắc phục lỗi tải dữ liệu Telegram admin và bổ sung header CORS X-Sync-Key.
+- **Nguyên nhân gốc rễ (Root Cause)**:
+  - Endpoint /api/games?autocomplete=1 trên Cloudflare Worker chỉ quét mảng tĩnh fallbackGamesData (chỉ có 188 game cũ), không đồng bộ các game mới từ D1 SQL.
+  - Hàm calculateGameSearchScore cũ có bước quét description khiến game "Sword of Reborn" bị khớp sai do từ "xuyên không" trong mô tả chứa ký tự "x".
+  - Frontend Autocomplete hiển thị toàn bộ danh sách game thay vì giới hạn đúng 3 tựa game liên quan nhất.
+  - Phiên bản triển khai cũ b59150d trên admin-code-game-shop chưa cập nhật khối cấu hình D1 và thiếu X-Sync-Key trong Access-Control-Allow-Headers.
+- **Giải pháp triệt để đã triển khai**:
+  1. Đồng bộ kho game: Bổ sung "Sword x Staff" kèm đầy đủ 19 mã giftcode vào games188.json, crawled_codes_188.json và cơ chế nạp D1 tự động trong worker in-memory cache (TTL 60s).
+  2. Tái cấu trúc thuật toán chấm điểm 3 tầng: Viết lại calculateGameSearchScore trong src/utils/textUtils.ts tuân thủ đúng 3 tầng ưu tiên, loại bỏ false-positive do quét mô tả, chấm dứt việc game không liên quan lọt vào dropdown.
+  3. Cập nhật SearchAutocomplete: Giới hạn topSuggestedGames.slice(0, 3), hủy request cũ (Abort/ReqId), hiển thị đầy đủ icon, tên đậm, NPH, số mã và cờ HOT; chuyển thẳng đến /game/<slug>.
+  4. Sửa lỗi Telegram Admin: Bổ sung X-Sync-Key, X-Api-Key, x-admin-sync-key vào CORS headers của /api/telegram/admin, gửi kèm X-Admin-Key và hiển thị thông báo lỗi thân thiện.
+  5. Prerender tĩnh 584 game: Prerender thành công dist/game/sword-x-staff/index.html trả về 200 OK.
+
+---
+
 ## [2026-11-03]
 
 ### 309. Triển Khai Toàn Diện Tích Hợp Telegram Cho CodeGame.Shop: Bot Tự Động, Single Webhook Gateway, D1 Subscriptions, Quản Trị Admin, Trang /telegram Chuẩn SEO & Giao Diện Người Dùng

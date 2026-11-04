@@ -118,6 +118,7 @@ export const TelegramModule: React.FC = () => {
     const headers: Record<string, string> = {
       'Content-Type': 'application/json',
       'X-Sync-Key': syncKey,
+      'X-Admin-Key': syncKey,
     };
     if (token) headers['Authorization'] = `Bearer ${token}`;
     return headers;
@@ -139,8 +140,8 @@ export const TelegramModule: React.FC = () => {
       const res = await fetch('/api/telegram/admin', {
         headers: getAuthHeaders(),
       });
-      const data: any = await res.json();
-      if (data.success) {
+      const data: any = await res.json().catch(() => null);
+      if (res.ok && data && data.success) {
         // Robust handling for both nested data.data and root level data
         const statsData = data.stats || data.data?.stats;
         const recentPostsData = statsData?.recent_posts || data.recent_posts || data.data?.recent_posts || [];
@@ -181,7 +182,8 @@ export const TelegramModule: React.FC = () => {
           setNotifyKey(rawConfig.notify_key || '');
         }
       } else {
-        setActionNotice({ type: 'error', message: data.error || 'Không thể tải dữ liệu Telegram admin.' });
+        const errorMsg = data?.error || data?.message || (res.status === 401 ? 'Phiên đăng nhập quản trị viên hết hạn. Vui lòng đăng nhập lại.' : 'Không thể tải dữ liệu Telegram admin.');
+        setActionNotice({ type: 'error', message: errorMsg });
       }
     } catch (err: any) {
       setActionNotice({ type: 'error', message: err.message || 'Lỗi kết nối máy chủ.' });
