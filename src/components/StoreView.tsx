@@ -293,6 +293,10 @@ export const StoreView: React.FC<StoreViewProps> = ({
             const effectivePrice = isFlashSaleLive && flashSale.event.sale_price ? flashSale.event.sale_price : product.current_price;
             const effectiveDiscount = isFlashSaleLive && flashSale.event.discount_percent ? flashSale.event.discount_percent : product.discount_percent;
 
+            const packages = getProductPackages(product);
+            const hasMultiplePackages = Array.isArray(packages) && packages.length > 1;
+            const displayPrice = hasMultiplePackages ? getProductMinPrice(product) : effectivePrice;
+
             const displayStock =
               product.stock_quantity <= 0
                 ? 0
@@ -447,6 +451,10 @@ export const StoreView: React.FC<StoreViewProps> = ({
             const isFlashSaleUpcoming = flashSale?.status === 'UPCOMING';
             const effectivePrice = isFlashSaleLive && flashSale.event.sale_price ? flashSale.event.sale_price : product.current_price;
             const effectiveDiscount = isFlashSaleLive && flashSale.event.discount_percent ? flashSale.event.discount_percent : product.discount_percent;
+
+            const packages = getProductPackages(product);
+            const hasMultiplePackages = Array.isArray(packages) && packages.length > 1;
+            const displayPrice = hasMultiplePackages ? getProductMinPrice(product) : effectivePrice;
 
             return (
               <div

@@ -7,6 +7,26 @@ Mỗi mục sửa lỗi đều ghi nhận **Nguyên nhân gốc rễ (Root Cause
 
 ## [2026-11-05]
 
+### 318. Khắc Phục Lỗi ReferenceError hasMultiplePackages & this.notifySubscribers Gây Sập Trang /store
+- **Bối cảnh & Triệu chứng (05/11/2026, 20:20)**:
+  - Sau khi đưa `storeProducts` vào `/api/sync-lite`, dữ liệu đã về đến trình duyệt thành công, nhưng khi mở trang `/store` ở chế độ khách thì component sập và hiện Error Boundary "Đã có sự cố hiển thị nhỏ xảy ra" kèm lỗi `hasMultiplePackages is not defined`.
+- **Nguyên nhân gốc rễ (Root Cause)**:
+  1. *Lỗi ReferenceError hasMultiplePackages*: Trước đây khi cửa hàng trống (`filtered = []`), vòng lặp `.map((product) => ...)` không chạy qua JSX thẻ sản phẩm nên lỗi nằm tiềm ẩn. Khi có sản phẩm `test`, JSX render chạy và gặp `hasMultiplePackages`, `packages` và `displayPrice` chưa được định nghĩa trong phạm vi vòng lặp `filtered.map` ở cả 2 chế độ List View và Grid View.
+  2. *Lỗi TypeError this.notifySubscribers*: Trong callback nhận `sync-lite` của `dataService.ts`, lệnh gọi `this.notifySubscribers()` bị sai tên hàm (tên hàm đúng là `this.notifyListeners()`), khiến khối catch bắt lỗi và không phát event cập nhật DOM kịp thời.
+- **Giải pháp triệt để đã triển khai (Solution Applied)**:
+  1. *StoreView.tsx*: Định nghĩa rõ ràng 3 biến ở đầu vòng lặp `filtered.map`:
+     - `const packages = getProductPackages(product);`
+     - `const hasMultiplePackages = Array.isArray(packages) && packages.length > 1;`
+     - `const displayPrice = hasMultiplePackages ? getProductMinPrice(product) : effectivePrice;`
+     Quét AST TypeScript toàn bộ file xác nhận 0 lỗi biến chưa khai báo.
+  2. *dataService.ts*: Sửa `this.notifySubscribers()` thành `this.notifyListeners()`.
+- **Kết quả nghiệm thu trực tiếp bằng Microsoft Edge Chromium headless (5/5 bước đạt 100%)**:
+  - Bước 1: Mở `/store` với hồ sơ khách sạch, Error Boundary hoàn toàn biến mất. Thẻ sản phẩm `test` (Idle Cat Gunner, 1 Core, còn 27, HOT BÁN CHẠY) xuất hiện sắc nét.
+  - Bước 2: Bấm qua 5 tab thực tế: "📦 Tất cả gói" (1 sản phẩm), "🎁 Code VIP" (1 sản phẩm), "📦 Gói nạp" (0 sản phẩm), "🎫 Thẻ tháng / Pass" (0 sản phẩm), "🎮 Tài khoản" (0 sản phẩm).
+  - Bước 3: F5 tải lại trang lần 2: Sản phẩm xuất hiện ngay tức thì từ localStorage, không chớp màn hình trống.
+  - Bước 4: Nút "Mua" và icon chia sẻ/chi tiết hiện diện đầy đủ trên thẻ.
+  - Bước 5: Console trình duyệt sạch 100%, 0 lỗi ReferenceError, 0 lỗi Console Error.
+
 ### 317. Sửa Triệt Để Lỗi Cửa Hàng Trống Với Khách Vãng Lai: Đưa storeProducts vào /api/sync-lite và Tối Ưu Tải Siêu Tốc
 - **Bối cảnh & Yêu cầu từ Chủ sở hữu (05/11/2026)**:
   - Người dùng thêm gói sản phẩm `sp_1793880807412_g75` (tên `test`, game `Idle Cat Gunner`, giá 1đ, tồn kho 7, `is_active: 1`, danh mục `gift` - Code VIP, badge `HOT BÁN CHẠY`).

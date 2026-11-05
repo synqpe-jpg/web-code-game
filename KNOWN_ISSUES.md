@@ -10,6 +10,19 @@
 
 ## 1. DANH MỤC LỖI & CÁC BẪY ĐÃ THẤT BẠI (DO NOT REPEAT)
 
+### ISSUE-223: Bẫy Biến Chưa Khai Báo Trong Vòng Lặp Render Thẻ Sản Phẩm Chỉ Bị Lộ Khi Kho Có Sản Phẩm
+- **Triệu chứng & Rủi ro**:
+  1. Khi kho chưa có sản phẩm (`products = []`), vòng lặp `filtered.map` không chạy qua phần body JSX, lỗi không bao giờ xuất hiện lúc test kho trống.
+  2. Ngay khi có sản phẩm đầu tiên xuất hiện trên sàn, JSX render được thực thi và vấp phải ReferenceError biến chưa được khai báo (`hasMultiplePackages`, `displayPrice`, `packages`), kích hoạt Error Boundary khiến toàn bộ trang sập.
+- **Nguyên nhân gốc rễ**:
+  1. Thiếu các dòng tính toán `getProductPackages(product)`, `hasMultiplePackages` và `displayPrice` ở đầu vòng lặp render của các chế độ Grid View và List View.
+  2. Gọi nhầm tên phương thức `this.notifySubscribers()` thay vì `this.notifyListeners()` trong service singleton.
+- **Giải pháp chuẩn đã kiểm chứng**:
+  1. *Khai báo đầy đủ 3 biến*: `const packages = getProductPackages(product);`, `const hasMultiplePackages = Array.isArray(packages) && packages.length > 1;`, `const displayPrice = hasMultiplePackages ? getProductMinPrice(product) : effectivePrice;`.
+  2. *Quét chẩn đoán AST TypeScript*: Luôn chạy kiểm tra TypeScript AST trên file view trước khi kết luận hoàn thành để đảm bảo không còn bất kỳ biến chưa định nghĩa nào.
+- 🚫 **CÁCH SỬA ĐÃ THẤT BẠI - TUYỆT ĐỐI KHÔNG LẶP LẠI**:
+  - ❌ *Không xóa hoặc bỏ qua các tính năng hiển thị gói con mà không giải quyết tận gốc ReferenceError.*
+
 ### ISSUE-222: Bẫy /api/sync-lite Thiếu storeProducts & dataService Bỏ Qua Nạp Kho Khiến Cửa Hàng Trống Với Khách Vãng Lai
 - **Triệu chứng & Rủi ro**:
   1. Admin nạp sản phẩm vào kho (`sp_...`), D1 có đầy đủ và trang quản trị thấy bình thường.

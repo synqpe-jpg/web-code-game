@@ -633,7 +633,7 @@ public async syncWithCloudflareKV(forceFresh: boolean = false): Promise<void> {
                     window.dispatchEvent(new CustomEvent('wcg_store_products_updated', { detail: filtered }));
                     window.dispatchEvent(new CustomEvent('wcg_store_settings_updated', { detail: { products: filtered, categories: json.storeCategories } }));
                     window.dispatchEvent(new CustomEvent('wcg_admin_data_updated'));
-                    this.notifySubscribers();
+                    this.notifyListeners();
                   } catch (err) {
                     console.warn('[dataService] Failed to cache store products from sync-lite:', err);
                   }
