@@ -96,8 +96,19 @@ export const ProductCheckoutModal: React.FC<ProductCheckoutModalProps> = ({
 
   useLockBodyScroll(Boolean(product));
 
-  if (!product) return null;
-  const liveProduct = dataService.getStoreProducts().find((p) => p.id === product.id) || product;
+  const liveProduct = product ? (dataService.getStoreProducts().find((p) => p.id === product.id) || product) : null;
+  const rawStock = typeof selectedPackage?.stock_quantity === 'number'
+    ? selectedPackage.stock_quantity
+    : liveProduct?.stock_quantity;
+  const realStock = Math.max(0, Number(rawStock ?? 0));
+
+  useEffect(() => {
+    if (realStock > 0 && quantity > realStock) {
+      setQuantity(realStock);
+    }
+  }, [realStock, selectedPackage, product]);
+
+  if (!product || !liveProduct) return null;
 
   const effectivePrice = selectedPackage?.price ?? liveProduct.current_price;
   const effectiveOriginalPrice = selectedPackage?.original_price ?? liveProduct.original_price;
@@ -108,21 +119,11 @@ export const ProductCheckoutModal: React.FC<ProductCheckoutModalProps> = ({
 
   const user = currentUser || dataService.getCurrentUser();
   const userBalance = user?.wallet_balance || 0;
-  const rawStock = typeof selectedPackage?.stock_quantity === 'number'
-    ? selectedPackage.stock_quantity
-    : liveProduct.stock_quantity;
-  const realStock = Math.max(0, Number(rawStock ?? 0));
   const maxStock = realStock;
   const safeQty = realStock > 0 ? Math.min(Math.max(1, quantity), maxStock) : 0;
   const totalPrice = effectivePrice * safeQty;
   const isBalanceEnough = userBalance >= totalPrice;
   const checkoutDisplayStock = realStock <= 0 ? 0 : marketingService.getDisplayStock(effectiveTargetId, realStock);
-
-  useEffect(() => {
-    if (realStock > 0 && quantity > realStock) {
-      setQuantity(realStock);
-    }
-  }, [realStock, selectedPackage, product]);
 
   const handleDecreaseQty = () => {
     if (maxStock <= 0) return;

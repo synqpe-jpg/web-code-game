@@ -1780,39 +1780,43 @@ export const App: React.FC = () => {
           onShowToast={showToast}
         />
 
-        <ProductDetailModal
-          product={selectedProduct}
-          currentUser={currentUser}
-          onOpenAuth={() => setIsAuthModalOpen(true)}
-          onOpenShare={handleOpenShareProduct}
-          onClose={() => setSelectedProduct(null)}
-          onShowToast={showToast}
-          onBuyNow={(prod, pkg, qty) => {
-            setSelectedProduct(null);
-            if (!currentUser) {
-              setIsAuthModalOpen(true);
-            } else {
-              setCheckoutProduct(prod);
-              setCheckoutPackage(pkg || null);
-              setCheckoutQuantity(qty || 1);
-            }
-          }}
-        />
+        {selectedProduct && (
+          <ProductDetailModal
+            product={selectedProduct}
+            currentUser={currentUser}
+            onOpenAuth={() => setIsAuthModalOpen(true)}
+            onOpenShare={handleOpenShareProduct}
+            onClose={() => setSelectedProduct(null)}
+            onShowToast={showToast}
+            onBuyNow={(prod, pkg, qty) => {
+              setSelectedProduct(null);
+              if (!currentUser) {
+                setIsAuthModalOpen(true);
+              } else {
+                setCheckoutProduct(prod);
+                setCheckoutPackage(pkg || null);
+                setCheckoutQuantity(qty || 1);
+              }
+            }}
+          />
+        )}
 
-        <ProductCheckoutModal
-          product={checkoutProduct}
-          selectedPackage={checkoutPackage}
-          initialQuantity={checkoutQuantity}
-          currentUser={currentUser}
-          onUpdateUser={handleUpdateUser}
-          onOpenAuth={() => setIsAuthModalOpen(true)}
-          onOpenWallet={() => setIsWalletModalOpen(true)}
-          onClose={() => {
-            setCheckoutProduct(null);
-            setCheckoutPackage(null);
-          }}
-          onShowToast={showToast}
-        />
+        {checkoutProduct && (
+          <ProductCheckoutModal
+            product={checkoutProduct}
+            selectedPackage={checkoutPackage}
+            initialQuantity={checkoutQuantity}
+            currentUser={currentUser}
+            onUpdateUser={handleUpdateUser}
+            onOpenAuth={() => setIsAuthModalOpen(true)}
+            onOpenWallet={() => setIsWalletModalOpen(true)}
+            onClose={() => {
+              setCheckoutProduct(null);
+              setCheckoutPackage(null);
+            }}
+            onShowToast={showToast}
+          />
+        )}
 
         <SubmitCodeModal
           isOpen={isSubmitModalOpen}

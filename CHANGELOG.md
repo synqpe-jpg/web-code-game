@@ -7,6 +7,33 @@ Mỗi mục sửa lỗi đều ghi nhận **Nguyên nhân gốc rễ (Root Cause
 
 ## [2026-11-05]
 
+### 320. Sửa Triệt Để Lỗi Crash Component Khi Bấm Vào Sản Phẩm Ở Cửa Hàng ("Minified React error #310")
+- **Bối cảnh & Triệu chứng (05/11/2026, 21:56)**:
+  - Trên trang `/store`, sản phẩm hiển thị bình thường. Tuy nhiên, khi khách hàng click vào thẻ sản phẩm hoặc nút "Mua Ngay", toàn bộ trang sập thành hộp thoại Error Boundary: *"Đã có sự cố hiển thị nhỏ xảy ra — Hệ thống đã tự động ngăn ngừa màn hình đen và bảo vệ trạng thái an toàn cho bạn"* kèm mã lỗi `Minified React error #310`.
+- **Nguyên nhân gốc rễ (Root Cause)**:
+  - **Vi phạm nghiêm trọng quy tắc React Rules of Hooks (Conditional Hooks / Hook Order Mismatch)**:
+    1. Trong `src/components/ProductDetailModal.tsx`:
+       - Component được mount vô điều kiện tại `src/App.tsx` (`<ProductDetailModal product={selectedProduct} ... />`).
+       - Khi trang vừa tải (`selectedProduct === null`), component chạy các hook ban đầu rồi chạm vào lệnh dừng sớm: `if (!product) return null;` (dòng 97 cũ).
+       - Các hook phía sau lệnh `return null` này — đặc biệt là `useEffect` điều chỉnh số lượng tồn kho (dòng 185 cũ: `useEffect(() => { if (realStock > 0 && quantity > realStock) setQuantity(realStock); }, [realStock, selectedPackage]);`) — **HOÀN TOÀN KHÔNG ĐƯỢC GỌI** trong lần render đầu tiên.
+       - Khi người dùng click vào sản phẩm, `selectedProduct` có dữ liệu $\rightarrow$ `ProductDetailModal` render lại $\rightarrow$ vượt qua `if (!product) return null;` $\rightarrow$ gọi tiếp hook `useEffect` dòng 185 $\rightarrow$ React phát hiện số lượng hook tăng lên so với render trước $\rightarrow$ văng exception **Minified React error #310 ("Rendered more hooks than during the previous render")**, kích hoạt sập Error Boundary.
+    2. Tình trạng tương tự cũng xảy ra tại `src/components/ProductCheckoutModal.tsx`: Hook `useEffect` dòng 121 cũ nằm phía sau `if (!product) return null;`.
+- **Giải pháp triệt để đã triển khai (Solution Applied)**:
+  1. *Chuyển toàn bộ React Hooks lên trước mọi câu lệnh early return*:
+     - Tại [`src/components/ProductDetailModal.tsx`](file:///c:/4%20Antigravity%20all/13%20web%20code%20game/src/components/ProductDetailModal.tsx):
+       - Chuyển `selectedPackage = useMemo(...)`, `realStock`, và `useEffect` lên đầu component trước `if (!product || !selectedPackage) return null;`.
+       - Xóa bỏ việc khai báo trùng lặp biến `realStock`.
+     - Tại [`src/components/ProductCheckoutModal.tsx`](file:///c:/4%20Antigravity%20all/13%20web%20code%20game/src/components/ProductCheckoutModal.tsx):
+       - Chuyển `rawStock`, `realStock`, và `useEffect` lên trước dòng `if (!product || !liveProduct) return null;`.
+  2. *Bảo vệ 2 lớp tại App Component (`src/App.tsx`)*:
+     - Chuyển modal render thành lazy-conditional: `{selectedProduct && <ProductDetailModal ... />}` và `{checkoutProduct && <ProductCheckoutModal ... />}`.
+     - Đảm bảo modal chỉ mount vào DOM khi người dùng chủ động click chọn sản phẩm, và unmount sạch sẽ khi đóng, loại bỏ hoàn toàn khả năng render rác khi state là `null`.
+  3. *Tối ưu script audit build (`scripts/audit_news_covers.cjs`)*:
+     - Bổ sung `signal: AbortSignal.timeout(3000)` khi kiểm tra tin tức live, ngăn chặn hiện tượng hang vô hạn trong môi trường mạng cục bộ theo đúng Rule user_global.
+- **Kết quả nghiệm thu**:
+  - Biên dịch Vite & Cloudflare Edge Worker bundle thành công 100% (2124 modules, 0 lỗi TypeScript, 0 lỗi esbuild).
+  - Kiểm tra tương thích AST trên toàn bộ các modal cửa hàng: 0 vi phạm Rules of Hooks.
+
 ### 319. Sửa Triệt Để Lỗi Thẻ Sản Phẩm Hiển Thị Sai Tồn Kho ("Còn: 27" Trong Khi Tồn Thật Là 7)
 - **Bối cảnh & Triệu chứng (05/11/2026, 20:55)**:
   - Trang `/store` mở bình thường ở chế độ khách vãng lai, sản phẩm `test` (`sp_1793880807412_g75`, game `Idle Cat Gunner`) hiển thị đúng các thuộc tính, 5 tab hoạt động chính xác.

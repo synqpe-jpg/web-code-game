@@ -36,6 +36,7 @@ async function runAudit() {
   try {
     const res = await fetch('https://codegame.shop/api/news?limit=all&_t=' + Date.now(), {
       headers: { 'Accept': 'application/json' },
+      signal: AbortSignal.timeout(3000),
     });
     if (res.ok) {
       const json = await res.json();

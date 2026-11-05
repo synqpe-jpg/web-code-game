@@ -94,19 +94,33 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
     };
   }, []);
 
-  if (!product) return null;
+  // Lấy gói đang chọn (Hook bắt buộc chạy trước mọi early return)
+  const selectedPackage: ProductPackageVariant | undefined = useMemo(() => {
+    if (!product) return undefined;
+    return (
+      packages.find((p) => p.id === selectedPackageId) ||
+      packages[0] || {
+        id: product.id,
+        name: product.title,
+        price: product.current_price,
+        original_price: product.original_price,
+        stock_quantity: product.stock_quantity,
+        note: 'Xử lý tiêu chuẩn',
+      }
+    );
+  }, [packages, selectedPackageId, product]);
 
-  // Lấy gói đang chọn
-  const selectedPackage: ProductPackageVariant =
-    packages.find((p) => p.id === selectedPackageId) ||
-    packages[0] || {
-      id: product.id,
-      name: product.title,
-      price: product.current_price,
-      original_price: product.original_price,
-      stock_quantity: product.stock_quantity,
-      note: 'Xử lý tiêu chuẩn',
-    };
+  const realStock = typeof selectedPackage?.stock_quantity === 'number'
+    ? selectedPackage.stock_quantity
+    : (product?.stock_quantity ?? 0);
+
+  useEffect(() => {
+    if (realStock > 0 && quantity > realStock) {
+      setQuantity(realStock);
+    }
+  }, [realStock, selectedPackage]);
+
+  if (!product || !selectedPackage) return null;
 
   const isStoreProduct = 'game_slug' in product;
   const gameSlug = isStoreProduct ? (product as StoreProduct).game_slug : '';
@@ -125,9 +139,6 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
       : [defaultImg].filter(Boolean) as string[];
 
   // Tồn kho & Đã bán của gói được chọn
-  const realStock = typeof selectedPackage.stock_quantity === 'number'
-    ? selectedPackage.stock_quantity
-    : product.stock_quantity;
   const displayStock = realStock <= 0 ? 0 : marketingService.getDisplayStock(selectedPackage.id || product.id, realStock);
   const displaySold = marketingService.getSoldDisplay({
     ...selectedPackage,
@@ -181,12 +192,6 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
       }
     }
   };
-
-  useEffect(() => {
-    if (realStock > 0 && quantity > realStock) {
-      setQuantity(realStock);
-    }
-  }, [realStock, selectedPackage]);
 
   const handleDecreaseQty = () => {
     setQuantity((prev) => Math.max(1, prev - 1));

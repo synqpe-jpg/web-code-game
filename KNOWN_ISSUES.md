@@ -10,6 +10,21 @@
 
 ## 1. DANH MỤC LỖI & CÁC BẪY ĐÃ THẤT BẠI (DO NOT REPEAT)
 
+### ISSUE-225: Bẫy Minified React error #310 Do Đặt Hook Phía Sau Lệnh Return Sớm Trong Modal (Conditional Hooks Trap)
+- **Triệu chứng & Rủi ro**:
+  1. Trang `/store` mở bình thường, nhưng khi khách bấm vào bất kỳ sản phẩm nào hoặc nút "Mua", Error Boundary sập ngay lập tức: *"Đã có sự cố hiển thị nhỏ xảy ra... Minified React error #310"*.
+  2. Lỗi chỉ phát sinh khi người dùng tương tác thay đổi state (từ `selectedProduct === null` sang `selectedProduct !== null`).
+- **Nguyên nhân gốc rễ**:
+  1. *Vi phạm React Rules of Hooks*: Trong `ProductDetailModal.tsx` và `ProductCheckoutModal.tsx`, có các hook (như `useEffect` đồng bộ số lượng tồn kho) được đặt **phía sau** câu lệnh dừng sớm `if (!product) return null;`.
+  2. Khi modal được mount thường trực với prop `product={null}`, các hook sau câu lệnh `if (!product) return null;` không được chạy.
+  3. Khi người dùng click sản phẩm, `product` trở thành đối tượng hợp lệ $\rightarrow$ component chạy tiếp xuống dưới câu lệnh return và gọi thêm hook $\rightarrow$ React phát hiện số lượng hook tăng lên và tung ra invariant #310 ("Rendered more hooks than during the previous render").
+- **Giải pháp chuẩn đã kiểm chứng**:
+  1. *Đưa 100% Hooks lên trước mọi early return*: Mọi hook (`useState`, `useEffect`, `useMemo`, `useCallback`, `useRef`, custom hooks) bắt buộc phải nằm ở khối đầu component trước bất kỳ câu lệnh `if (...) return` nào.
+  2. *Lazy Mount Modal tại Parent Component*: Tại component cha (`App.tsx`), chỉ mount modal khi có dữ liệu: `{selectedProduct && <ProductDetailModal ... />}` và `{checkoutProduct && <ProductCheckoutModal ... />}`. Điều này vừa tối ưu hiệu năng (không tạo DOM và effect ngầm), vừa đảm bảo an toàn vòng đời render.
+- 🚫 **CÁCH SỬA ĐÃ THẤT BẠI - TUYỆT ĐỐI KHÔNG LẶP LẠI**:
+  - ❌ *Không bọc hook bên trong câu lệnh `if (product) { useEffect(...) }` (đây là lỗi syntax cấm kỵ của React).*
+  - ❌ *Không bỏ qua hook hoặc hardcode state quantity mà không xử lý nguyên tắc Rules of Hooks.*
+
 ### ISSUE-224: Bẫy Tồn Kho Ảo Tự Động Gán Fallback +20 Khiến Thẻ Sản Phẩm Mới Bị Độn Số Lượng Lên 27 Thay Vì Tồn Thật Là 7
 - **Triệu chứng & Rủi ro**:
   1. Sản phẩm mới tạo đưa vào kho (`sp_...`) có số tồn thật `stock_quantity = 7`, cả hai API `/api/sync-lite` và `/api/store/manage` đều trả về `7`.
