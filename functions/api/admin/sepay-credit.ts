@@ -186,7 +186,7 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
       : env.DB.prepare(`
           INSERT INTO sepay_transactions (
             transaction_id, gateway, account_number, amount_in, transaction_content, member_id, status, created_at
-          ) VALUES (?, ?, 'MANUAL_OVERRIDE', ?, ?, ?, 'SUCCESS', datetime('now'))
+          ) VALUES (?, ?, 'MANUAL_OVERRIDE', ?, ?, ?, 'SUCCESS', strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
         `).bind(transactionId, gateway, amount, note, member.id);
 
     const stmt2 = env.DB.prepare(`
@@ -211,7 +211,7 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
         ?,
         'COMPLETED',
         NULL,
-        datetime('now')
+        strftime('%Y-%m-%dT%H:%M:%fZ', 'now')
       FROM members m
       WHERE m.id = ?
     `).bind(txId, amount, amount, note, member.id);

@@ -10,6 +10,28 @@
 
 ## 1. DANH MỤC LỖI & CÁC BẪY ĐÃ THẤT BẠI (DO NOT REPEAT)
 
+### ISSUE-227: Bẫy Ô Nhiễm Dữ Liệu Cá Nhân Từ Admin Sync & Bộ Lọc Cứng Ẩn Sản Phẩm
+- **Triệu chứng & Rủi ro**:
+  1. Khách hàng/người dùng thấy danh sách "Đã Mua" trong modal `MyReceivedCodesModal` hiển thị nhiều đơn hàng lạ (ví dụ 14 mục) trên máy này nhưng sang máy khác hoặc trình duyệt mới chỉ thấy đúng 4 mục.
+  2. Bất kỳ sản phẩm nào trong kho có tiêu đề chứa chữ "test" hoặc ID cụ thể bị biến mất bí ẩn khỏi cửa hàng dù admin đã bật bán.
+- **Nguyên nhân gốc rễ**:
+  1. *Ô nhiễm dữ liệu cá nhân (`this.ORDERS_KEY`)*:
+     - Khi chạy Admin Sync, máy chủ trả về mảng `snapshot.orders` chứa toàn bộ đơn hàng của tất cả khách hàng trên toàn shop.
+     - Hàm sync phía client trước đây đã ghi đè toàn bộ `snapshot.orders` vào `localStorage.setItem(this.ORDERS_KEY, ...)`.
+     - `MyReceivedCodesModal` đọc trực tiếp `dataService.getOrders()` mà không lọc theo thành viên đăng nhập, dẫn đến việc trình duyệt của admin/tester tích lũy cả đơn của người khác và đơn test cũ.
+  2. *Bộ lọc cứng `test` trong `getStoreProducts`*: Lọc cứng `p.title?.toLowerCase() !== 'test'` và `p.id !== 'sp_1793880807412_g75'` chặn hiển thị sản phẩm test thực sự của người dùng.
+  3. *Nguy cơ tự động ghi đè số dư*: Code tự động đối soát trong `/api/auth/me` tự chạy `UPDATE members SET balance = ...` khi có chênh lệch giả lập giữa transaction ledger và balance.
+- **Giải pháp chuẩn đã kiểm chứng**:
+  1. *Tách biệt hoàn toàn kho đơn cá nhân và toàn shop*:
+     - `this.ORDERS_KEY` (`wcg_orders`) CHỈ lưu các đơn hàng thuộc về chính tài khoản hiện tại (lấy từ `/api/auth/me` trên D1).
+     - `snapshot.orders` toàn shop CHỈ được lưu vào `wcg_admin_orders_v4` phục vụ Admin Portal.
+  2. *Xóa bỏ toàn bộ bộ lọc cứng*: Trả về mọi sản phẩm trong kho ngoại trừ những sản phẩm nằm trong `deletedSet`.
+  3. *Loại bỏ code ghi đè số dư trong `/api/auth/me`*: `members.balance` là SSOT duy nhất, chỉ cập nhật qua ACID transactions.
+- 🚫 **CÁCH SỬA ĐÃ THẤT BẠI - TUYỆT ĐỐI KHÔNG LẶP LẠI**:
+  - ❌ *Không dùng bộ lọc cứng theo tên sản phẩm (`title === 'test'`) trong core service.*
+  - ❌ *Không lưu toàn bộ đơn hàng của hệ thống vào khóa `wcg_orders` của người dùng cá nhân.*
+  - ❌ *Không thực hiện ghi đè số dư (`UPDATE members SET balance`) trong các endpoint GET như `/api/auth/me`.*
+
 ### ISSUE-226: Bẫy Lệch Định Dạng Timestamp SQLite (' ') vs ISO 8601 ('T') Gây Đảo Ngược Thứ Tự Giao Dịch & Tự Động Hoàn Lại Số Dư Cũ
 - **Triệu chứng & Rủi ro**:
   1. Người dùng mua hàng thành công, mã trong kho đã xuất (`status = 'SOLD'`), tồn kho giảm, `total_spent` tăng.

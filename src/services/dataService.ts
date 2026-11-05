@@ -2838,15 +2838,15 @@ public async syncWithCloudflareKV(forceFresh: boolean = false): Promise<void> {
       if (adminSp !== null) {
         const parsed = JSON.parse(adminSp);
         if (Array.isArray(parsed)) {
-          prods = parsed.filter((p) => p && p.id && !deletedSet.has(p.id) && p.id !== 'sp_1793880807412_g75' && p.title?.toLowerCase() !== 'test');
+          prods = parsed.filter((p) => p && p.id && !deletedSet.has(p.id));
         }
       }
     } catch {}
 
     if (!prods || prods.length === 0) {
-      prods = (this.defaultStoreProducts || []).filter((p) => p && p.id && !deletedSet.has(p.id) && p.id !== 'sp_1793880807412_g75' && p.title?.toLowerCase() !== 'test');
+      prods = (this.defaultStoreProducts || []).filter((p) => p && p.id && !deletedSet.has(p.id));
     } else {
-      prods = prods.filter((p) => p && p.id && !p.id.startsWith('ut_') && !deletedSet.has(p.id) && p.id !== 'sp_1793880807412_g75' && p.title?.toLowerCase() !== 'test');
+      prods = prods.filter((p) => p && p.id && !p.id.startsWith('ut_') && !deletedSet.has(p.id));
     }
 
     return prods.map((p) => {
@@ -4140,13 +4140,14 @@ public async syncWithCloudflareKV(forceFresh: boolean = false): Promise<void> {
               } catch {}
             }
 
-            // Sync User's Orders from Cloudflare KV
-            if (Array.isArray(data.orders) && data.orders.length > 0) {
+            // Sync User's Orders from Cloudflare D1 (Authoritative SSOT)
+            if (Array.isArray(data.orders)) {
               try {
                 const ordRaw = localStorage.getItem(this.ORDERS_KEY);
                 let existingOrd: any[] = ordRaw ? JSON.parse(ordRaw) : [];
                 const ordMap = new Map<string, any>();
-                existingOrd.forEach((o) => (o?.id || o?.orderCode) && ordMap.set(o.id || o.orderCode, o));
+                
+                // First insert authoritative server orders
                 data.orders.forEach((o: any) => {
                   const oKey = o?.orderCode || o?.id;
                   if (oKey) {
@@ -4166,7 +4167,19 @@ public async syncWithCloudflareKV(forceFresh: boolean = false): Promise<void> {
                     });
                   }
                 });
-                localStorage.setItem(this.ORDERS_KEY, JSON.stringify(Array.from(ordMap.values())));
+
+                // Then keep any fresh local orders placed in this session not yet in server list
+                existingOrd.forEach((o) => {
+                  const oKey = o?.id || o?.orderCode;
+                  if (oKey && !ordMap.has(oKey)) {
+                    ordMap.set(oKey, o);
+                  }
+                });
+
+                const finalOrders = Array.from(ordMap.values()).sort(
+                  (a, b) => new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime()
+                );
+                localStorage.setItem(this.ORDERS_KEY, JSON.stringify(finalOrders));
                 changed = true;
               } catch {}
             }
@@ -4316,8 +4329,18 @@ public async syncWithCloudflareKV(forceFresh: boolean = false): Promise<void> {
         localStorage.setItem('wcg_admin_sepay_v4', JSON.stringify(snapshot.sepay));
       }
       if (Array.isArray(snapshot.orders)) {
-        localStorage.setItem(this.ORDERS_KEY, JSON.stringify(snapshot.orders));
         localStorage.setItem('wcg_admin_orders_v4', JSON.stringify(snapshot.orders));
+        const currentUser = this.getCurrentUser();
+        if (currentUser) {
+          const myOrders = snapshot.orders.filter(
+            (o: any) =>
+              (o.memberId && o.memberId === currentUser.id) ||
+              (o.buyerEmail && currentUser.email && o.buyerEmail.toLowerCase() === currentUser.email.toLowerCase())
+          );
+          if (myOrders.length > 0) {
+            localStorage.setItem(this.ORDERS_KEY, JSON.stringify(myOrders));
+          }
+        }
       }
       if (Array.isArray(snapshot.transactions)) {
         localStorage.setItem('wcg_admin_transactions_v4', JSON.stringify(snapshot.transactions));

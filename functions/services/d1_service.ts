@@ -1837,7 +1837,7 @@ export async function depositSepayD1(db: D1Database, params: D1SepayDepositParam
         'Nạp tiền tự động SePay #' || ?,
         'COMPLETED',
         NULL,
-        datetime('now')
+        strftime('%Y-%m-%dT%H:%M:%fZ', 'now')
       FROM members m
       WHERE m.id = ?
     `).bind(`tx_dep_${transactionId}`, amount, amount, transactionId, memberId);
@@ -1882,7 +1882,7 @@ export async function claimGiveawayD1(db: D1Database, params: D1ClaimGiveawayPar
       UPDATE giveaway_codes
       SET status = 'CLAIMED',
           claim_id = ?,
-          claimed_at = datetime('now')
+          claimed_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now')
       WHERE id = (
         SELECT id FROM giveaway_codes
         WHERE giveaway_id = ? AND status = 'AVAILABLE'
@@ -1899,7 +1899,7 @@ export async function claimGiveawayD1(db: D1Database, params: D1ClaimGiveawayPar
         ?,
         ?,
         gc.id,
-        datetime('now')
+        strftime('%Y-%m-%dT%H:%M:%fZ', 'now')
       FROM giveaway_codes gc
       WHERE gc.claim_id = ?
     `).bind(claimId, giveawayId, memberId, clientIp, claimId);
@@ -2053,7 +2053,7 @@ export async function setSettingD1(db: D1Database, key: string, value: any): Pro
     const strVal = typeof value === 'string' ? value : JSON.stringify(value);
     await db.prepare(`
       INSERT INTO system_settings (key, value, updated_at)
-      VALUES (?, ?, datetime('now'))
+      VALUES (?, ?, strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
       ON CONFLICT(key) DO UPDATE SET
         value = excluded.value,
         updated_at = excluded.updated_at
@@ -2610,7 +2610,7 @@ export async function syncGiveawaysToD1(db: D1Database, giveaways: any[]): Promi
           codeStmts.push(
             db.prepare(`
               INSERT INTO giveaway_codes (id, giveaway_id, code_content, status, created_at)
-              VALUES (?, ?, ?, 'AVAILABLE', datetime('now'))
+              VALUES (?, ?, ?, 'AVAILABLE', strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
             `).bind(codeId, gw.id, codeVal)
           );
         }
@@ -3479,7 +3479,7 @@ export async function recordDownloadClick(
   try {
     await db.prepare(`
       INSERT INTO download_clicks (game_slug, store, platform_detected, via, created_at)
-      VALUES (?, ?, ?, ?, datetime('now'))
+      VALUES (?, ?, ?, ?, strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
     `).bind(
       params.gameSlug,
       params.store,

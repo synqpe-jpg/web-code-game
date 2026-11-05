@@ -288,7 +288,7 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
         const autoInvId = `inv_${Date.now()}_${i}_${randId}`;
         insertStmts.push(
           env.DB.prepare(
-            "INSERT INTO inventory_codes (id, product_id, code_content, status, created_at) VALUES (?, ?, ?, 'AVAILABLE', datetime('now'))"
+            "INSERT INTO inventory_codes (id, product_id, code_content, status, created_at) VALUES (?, ?, ?, 'AVAILABLE', strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))"
           ).bind(autoInvId, product.id, autoCode)
         );
       }

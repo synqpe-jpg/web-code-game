@@ -1058,6 +1058,27 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
         ).bind(Number(body.tx_balance_before), Number(body.tx_balance_after), String(body.update_tx_id)));
       }
 
+      // Ghi log kiểm toán bất biến (Audit Log) vào bảng security_logs trên D1
+      const secLogId = `sec_rec_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
+      const logDetails = JSON.stringify({
+        member_id: member.id,
+        email: member.email,
+        previous_balance: member.balance,
+        new_balance: newBal,
+        total_spent: totalSpent !== undefined ? totalSpent : member.total_spent,
+        reason: body.reason || 'Reconcile balance via Store Manage API'
+      });
+      stmts.push(env.DB.prepare(
+        'INSERT INTO security_logs (id, actor_name, actor_email, action, details, ip_address, created_at) VALUES (?, ?, ?, ?, ?, ?, strftime(\'%Y-%m-%dT%H:%M:%fZ\', \'now\'))'
+      ).bind(
+        secLogId,
+        'Admin Reconcile',
+        adminAuth.email || 'admin@codegame.shop',
+        'RECONCILE_MEMBER_BALANCE',
+        logDetails,
+        clientIp
+      ));
+
       await env.DB.batch(stmts);
 
       return new Response(

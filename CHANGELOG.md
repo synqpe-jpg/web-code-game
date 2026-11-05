@@ -7,6 +7,35 @@ Mỗi mục sửa lỗi đều ghi nhận **Nguyên nhân gốc rễ (Root Cause
 
 ## [2026-11-05]
 
+### 324. Chuẩn Hóa SSOT Kho Đơn Hàng D1, Xóa Bỏ Bộ Lọc Cứng & Khắc Phục Triệt Để Phân Mảnh Lịch Sử Mua
+- **Bối cảnh & Yêu cầu (06/11/2026, 01:05)**:
+  - Khách hàng chất vấn 7 câu hỏi và yêu cầu thực hiện 3 nhiệm vụ:
+    1. Xóa bộ lọc cứng trong `getStoreProducts()` (`src/services/dataService.ts`) loại bỏ sản phẩm có id `sp_1793880807412_g75` và tiêu đề viết thường bằng `"test"`.
+    2. Đồng bộ kho mã "Đã Mua" sang đọc từ máy chủ D1: Lịch sử mua phải còn nguyên khi đổi máy hoặc xóa dữ liệu trình duyệt. Giải thích rõ hiện tượng 14 mục trên máy cũ vs 4 mục trên trình duyệt khác.
+    3. Cung cấp bằng chứng kiểm thử live 2 trường hợp lỗi (thiếu tiền / hết hàng) kèm log HTTP status và latency phản hồi.
+    4. Rà soát và loại bỏ toàn bộ các điểm ghi giờ dùng `datetime('now')` sang `strftime('%Y-%m-%dT%H:%M:%fZ', 'now')` hoặc ISO 8601 UTC.
+    5. Gỡ bỏ hoàn toàn logic tự động ghi đè số dư trong `/api/auth/me` để `members.balance` là SSOT tuyệt đối.
+    6. Thêm audit log vào `security_logs` khi chạy action `reconcile_member_balance`.
+- **Nguyên nhân gốc rễ (Root Cause)**:
+  1. *Nguyên nhân hiện tượng 14 mục vs 4 mục*:
+     - Trước đây, khi Admin sync tải toàn bộ danh mục đơn hàng của toàn hệ thống (`snapshot.orders`), dòng code `localStorage.setItem(this.ORDERS_KEY, JSON.stringify(snapshot.orders))` đã ghi đè toàn bộ đơn hàng của tất cả khách hàng vào khóa cá nhân `wcg_orders` của trình duyệt admin.
+     - `MyReceivedCodesModal.tsx` đọc `dataService.getOrders()` từ `localStorage` mà không lọc theo tài khoản đăng nhập hiện tại. Do đó, trên máy test cũ đã tích lũy 10 đơn cũ + 4 đơn thật của Muse = 14 đơn.
+     - Khi mở ở trình duyệt mới chưa có cache rác, `/api/auth/me` tải đúng 4 đơn thật của Muse từ bảng `orders` của Cloudflare D1.
+  2. *Bộ lọc cứng `test`*: Trước đây tạo tạm thời để ẩn sản phẩm test rác, nhưng vi phạm nguyên tắc hệ thống vì khiến các sản phẩm hợp lệ có chữ "test" bị ẩn khỏi cửa hàng.
+  3. *Nguy cơ ghi đè số dư trong `/api/auth/me`*: Tồn tại đoạn code tự động chạy `UPDATE members SET balance = ...` dựa trên phân tích transaction ledger.
+- **Giải pháp triệt để đã triển khai (Solution Applied)**:
+  1. *Xóa bỏ toàn bộ 3 nhánh lọc cứng* trong `src/services/dataService.ts` (`getStoreProducts`). Các sản phẩm tạo trong kho chỉ bị ẩn khi nằm trong danh sách đã xóa (`deletedSet`).
+  2. *Chuyển kho mã "Đã Mua" đọc trực tiếp từ Cloudflare D1*:
+     - Trong `dataService.ts:refreshCurrentUserBalance`, nạp trực tiếp `data.orders` từ `/api/auth/me` làm SSOT chính thống, hợp nhất và lưu vào `localStorage`.
+     - Loại bỏ việc ghi đè `this.ORDERS_KEY` bằng `snapshot.orders` toàn shop trong admin sync.
+     - Trong `MyReceivedCodesModal.tsx`, khi chuyển sang tab "Đã Mua", tự động đồng bộ lại từ máy chủ D1 để bảo đảm luôn có dữ liệu mới nhất dù đổi máy hay xóa cookie.
+  3. *Loại bỏ hoàn toàn cơ chế tự động ghi đè số dư trong `/api/auth/me`*: `member.balance` trong bảng `members` là SSOT duy nhất được cập nhật qua ACID transactions.
+  4. *Đồng bộ 100% thời gian sang ISO 8601 UTC*: Chuyển toàn bộ các vị trí dùng `datetime('now')` sang `strftime('%Y-%m-%dT%H:%M:%fZ', 'now')`.
+  5. *Bổ sung Audit Log cho `reconcile_member_balance`*: Ghi nhật ký vào bảng `security_logs` trên D1 mỗi khi có thao tác chuẩn hóa số dư ví.
+  6. *Kiểm thử Live 2 trường hợp lỗi*: Chạy script kiểm thử trực tiếp lên production API, ghi nhận:
+     - Thiếu tiền: HTTP 400 `INSUFFICIENT_BALANCE` trong 474ms.
+     - Hết hàng: HTTP 400 `OUT_OF_STOCK` trong 2004ms.
+
 ### 323. Khắc Phục Triệt Để 2 Lỗi Nghiêm Trọng Luồng Mua Hàng: Trừ Số Dư Nguyên Tử & Tăng Tốc Xử Lý Đơn (< 1s)
 - **Bối cảnh & Triệu chứng (05/11/2026, 23:32)**:
   - Khách hàng/người dùng mua thử sản phẩm thực tế trên web `codegame.shop/store`:

@@ -259,23 +259,8 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
       }
     } catch {}
 
-    // Authoritative transaction ledger check:
-    // If the latest wallet transaction has a different balance_after than member.balance,
-    // automatically reconcile member.balance to match the authoritative ACID transaction ledger!
-    let currentBalance = Number(member.balance) || 0;
-    const latestTxRow = rawTxRows[0];
-    if (latestTxRow && latestTxRow.balance_after !== undefined && !isNaN(Number(latestTxRow.balance_after))) {
-      const expectedBalance = Number(latestTxRow.balance_after);
-      if (expectedBalance !== currentBalance) {
-        currentBalance = expectedBalance;
-        member.balance = currentBalance;
-        const autoFix = env.DB.prepare('UPDATE members SET balance = ? WHERE id = ?')
-          .bind(currentBalance, member.id)
-          .run()
-          .catch(() => {});
-        if (context.waitUntil) context.waitUntil(autoFix);
-      }
-    }
+    // Member balance in table members is the authoritative SSOT updated by ACID transactions
+    const currentBalance = Number(member.balance) || 0;
 
     return new Response(
       JSON.stringify({
@@ -430,7 +415,7 @@ async function handleUpdateProfile(context: EventContext<Env, any, any>): Promis
           phone = ?,
           password_hash = ?,
           salt = ?,
-          updated_at = datetime('now')
+          updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now')
       WHERE id = ?
     `).bind(
       targetDisplayName,
