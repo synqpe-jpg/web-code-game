@@ -10,6 +10,22 @@
 
 ## 1. DANH MỤC LỖI & CÁC BẪY ĐÃ THẤT BẠI (DO NOT REPEAT)
 
+### ISSUE-222: Bẫy /api/sync-lite Thiếu storeProducts & dataService Bỏ Qua Nạp Kho Khiến Cửa Hàng Trống Với Khách Vãng Lai
+- **Triệu chứng & Rủi ro**:
+  1. Admin nạp sản phẩm vào kho (`sp_...`), D1 có đầy đủ và trang quản trị thấy bình thường.
+  2. Khách vãng lai (không đăng nhập) truy cập `/store` thấy sàn trống 100% ở cả 6 tab ("Không tìm thấy sản phẩm nào").
+- **Nguyên nhân gốc rễ**:
+  1. Khách thường đi qua fast-path `GET /api/sync-lite`, nhận dữ liệu rồi `return;` luôn mà không gọi `/api/sync`.
+  2. Endpoint `/api/sync-lite` trước đó thiếu `storeProducts`, `storeCategories`, và `deletedStoreProducts`.
+  3. Client `dataService.ts` trong nhánh `!isAdmin` không lưu `storeProducts` vào `localStorage`, trong khi fallback `storeProducts.json` là `[]`.
+- **Giải pháp chuẩn đã kiểm chứng**:
+  1. *Backend `/api/sync-lite`*: Chạy song song `Promise.all` với `loadAllStoreProductsD1(env.DB)` và `getMultipleSettingsD1`. Trả về `storeProducts` (chỉ các trường cần thiết để vẽ sàn Store), `storeCategories` và `deletedStoreProducts`.
+  2. *Client `dataService.ts`*: Trong handler `sync-lite`, lưu `storeProducts` vào `wcg_admin_store_products_v4`, cập nhật `deletedStoreProducts` và `storeCategories`, phát sự kiện `wcg_store_products_updated`, `wcg_store_settings_updated` và gọi `this.notifySubscribers()`.
+  3. *StoreView*: Gọi `syncWithCloudflareKV()` khi mount và lắng nghe `wcg_store_products_updated` để đảm bảo dữ liệu luôn tươi mới.
+- 🚫 **CÁCH SỬA ĐÃ THẤT BẠI - TUYỆT ĐỐI KHÔNG LẶP LẠI**:
+  - ❌ *Không xóa hoặc bỏ qua `sync-lite` để bắt khách thường gọi `/api/sync` nặng 4.2MB làm sập tốc độ tải trang chủ.*
+  - ❌ *Không trả toàn bộ nội dung markdown guide dài dòng trong `sync-lite` làm phình to kích thước gói dữ liệu.*
+
 ### ISSUE-221: Bẫy Thiếu Cổng API Quản Trị Kho Code Bán Khiến Phải Thao Tác Thủ Công & Nguy Cơ Sai Lệch Tồn Kho Giữa inventory_codes và store_products
 - **Triệu chứng & Rủi ro**:
   1. Không có API endpoint để tự động nạp code bán, tạo gói sản phẩm hoặc điều chỉnh giá ngoài sàn Cửa Hàng, buộc admin phải đăng nhập web để nhập tay.

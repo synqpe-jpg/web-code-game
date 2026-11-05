@@ -606,6 +606,39 @@ public async syncWithCloudflareKV(forceFresh: boolean = false): Promise<void> {
                   } catch {}
                 }
 
+                // Apply Store Products & Categories
+                if (json.storeProducts && Array.isArray(json.storeProducts)) {
+                  try {
+                    let delList: string[] = [];
+                    if (json.deletedStoreProducts && Array.isArray(json.deletedStoreProducts)) {
+                      delList = json.deletedStoreProducts;
+                      localStorage.setItem('wcg_deleted_store_products', JSON.stringify(delList));
+                    } else {
+                      try {
+                        const delRaw = localStorage.getItem('wcg_deleted_store_products');
+                        if (delRaw) delList = JSON.parse(delRaw);
+                      } catch {}
+                    }
+                    const delSet = new Set(delList);
+                    const filtered = json.storeProducts.filter((p: any) => p && p.id && !delSet.has(p.id));
+                    const currentSp = localStorage.getItem('wcg_admin_store_products_v4');
+                    const newSp = JSON.stringify(filtered);
+                    if (currentSp !== newSp) {
+                      localStorage.setItem('wcg_admin_store_products_v4', newSp);
+                      localStorage.setItem(this.STORE_PRODUCTS_KEY, newSp);
+                    }
+                    if (json.storeCategories && Array.isArray(json.storeCategories)) {
+                      localStorage.setItem('wcg_admin_store_categories_v1', JSON.stringify(json.storeCategories));
+                    }
+                    window.dispatchEvent(new CustomEvent('wcg_store_products_updated', { detail: filtered }));
+                    window.dispatchEvent(new CustomEvent('wcg_store_settings_updated', { detail: { products: filtered, categories: json.storeCategories } }));
+                    window.dispatchEvent(new CustomEvent('wcg_admin_data_updated'));
+                    this.notifySubscribers();
+                  } catch (err) {
+                    console.warn('[dataService] Failed to cache store products from sync-lite:', err);
+                  }
+                }
+
                 return;
               }
             }

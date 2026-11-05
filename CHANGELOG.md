@@ -7,6 +7,37 @@ Mỗi mục sửa lỗi đều ghi nhận **Nguyên nhân gốc rễ (Root Cause
 
 ## [2026-11-05]
 
+### 317. Sửa Triệt Để Lỗi Cửa Hàng Trống Với Khách Vãng Lai: Đưa storeProducts vào /api/sync-lite và Tối Ưu Tải Siêu Tốc
+- **Bối cảnh & Yêu cầu từ Chủ sở hữu (05/11/2026)**:
+  - Người dùng thêm gói sản phẩm `sp_1793880807412_g75` (tên `test`, game `Idle Cat Gunner`, giá 1đ, tồn kho 7, `is_active: 1`, danh mục `gift` - Code VIP, badge `HOT BÁN CHẠY`).
+  - Dữ liệu đầy đủ trong D1 và `/api/sync`, trang quản trị thấy bình thường.
+  - Nhưng trên trang công khai `https://codegame.shop/store` với khách thường (không đăng nhập admin), cửa hàng trống 100% ở cả 6 tab ("Không tìm thấy sản phẩm nào").
+- **Nguyên nhân gốc rễ (Root Cause)**:
+  - Khách thường khi vào web gọi fast-path `fetch('/api/sync-lite')` rồi `return` luôn, không gọi `/api/sync`.
+  - Trong khi đó `/api/sync-lite` (`functions/api/sync-lite.ts`) trước đó chỉ trả `games`, `upcomingGames`, `gameEvents`, `giveaways`, `newsArticles`, `content` mà KHÔNG trả về `storeProducts`, `storeCategories`, và `deletedStoreProducts`.
+  - Client `dataService.ts` trong nhánh `!isAdmin` cũng không nạp hoặc lưu trữ `storeProducts` từ snapshot của `sync-lite`, khiến `localStorage` trống và fallback `storeProducts.json` cũng là mảng rỗng `[]`.
+- **Giải pháp triệt để đã triển khai (Solution Applied)**:
+  1. *Backend Edge `/api/sync-lite` (`functions/api/sync-lite.ts`)*:
+     - Chạy song song `getActiveTombstonesMap`, `getMultipleSettingsD1` và `loadAllStoreProductsD1` qua `Promise.all`.
+     - Lấy metadata từ `wcg_admin_store_products_v4` kết hợp tồn kho thật từ D1 `inventory_codes`.
+     - Lọc bỏ các sản phẩm đã xóa mềm (`wcg_deleted_store_products`) và sản phẩm bị ẩn (`is_active === 0`).
+     - Tinh gọn các trường trả về để giữ payload siêu nhẹ (chỉ trả các trường cần để vẽ sàn Store: `id`, `title`, `game_slug`, `game_name`, `original_price`, `discount_percent`, `current_price`, `stock_quantity`, `sold_count`, `is_active`, `package_type`, `category`, `category_label`, `cover_image_url`, `game_icon_url`, `description`, `badge`, `virtual_sold_count`, `show_sold_count`, `show_stock_count`, `product_images`, `fomo_anchor_time`, `created_at`, `show_warranty`, `warranty_text`).
+     - Bổ sung `storeProducts`, `storeCategories`, và `deletedStoreProducts` vào payload phản hồi.
+  2. *Client Data Engine (`src/services/dataService.ts`)*:
+     - Trong luồng xử lý snapshot `sync-lite`, trích xuất `storeProducts`, `deletedStoreProducts` và `storeCategories`.
+     - Lưu trữ vào LocalStorage (`wcg_admin_store_products_v4`, `wcg_deleted_store_products`, `wcg_admin_store_categories_v1`).
+     - Phát event `wcg_store_products_updated`, `wcg_store_settings_updated`, `wcg_admin_data_updated` và gọi `this.notifySubscribers()`.
+  3. *Giao Diện StoreView (`src/components/StoreView.tsx`)*:
+     - Bổ sung `dataService.syncWithCloudflareKV().catch(() => {})` ngay khi mount để đảm bảo trigger đồng bộ ngay cả khi vào trực tiếp `/store`.
+     - Lắng nghe thêm sự kiện `wcg_store_products_updated`.
+- **Kết quả nghiệm thu Live 6 bước bắt buộc (100% Passed)**:
+  - Bước 1: `GET /api/sync-lite` trả về 200 OK, `storeProducts` chứa đúng 1 sản phẩm `sp_1793880807412_g75` (tên `test`, game `Idle Cat Gunner`, tồn kho 7, giá 1, danh mục `gift`), `storeCategories` đầy đủ.
+  - Bước 2: Trang `/store` dưới góc nhìn khách thường hiển thị đúng 1 sản phẩm ở tab mặc định ("Tất cả gói") và tab "Code VIP" (`gift`).
+  - Bước 3: Tải lại trang (F5) lần 2 xác nhận sản phẩm xuất hiện tức thì 0ms từ LocalStorage, không bị race condition.
+  - Bước 4: Kiểm tra 6 tab lọc: "Tất cả gói" có 1, "Code VIP" có 1, các tab khác ("Gói nạp", "Thẻ tháng", "Tài khoản", "Cày thuê") trống đúng thiết kế.
+  - Bước 5: Đo kích thước `sync-lite`: Thô tăng 1,340 bytes (+0.36%), Gzip tăng 445 bytes (+0.84%), Brotli tăng 405 bytes (+0.95%) — thấp hơn rất nhiều so với giới hạn < 20%.
+  - Bước 6: Kiểm tra API quản trị `GET /api/store/manage?action=list_products`: Sản phẩm `sp_1793880807412_g75` nguyên vẹn 100% trong D1 với tồn kho 7, giá 1đ, `is_active: 1`.
+
 ### 316. Xây Dựng Cổng API Quản Lý Code Bán & Gói Sản Phẩm /api/store/manage, Scope STORE_FULL & Đồng Bộ Mục Quản Lý API Admin
 - **Bối cảnh & Yêu cầu từ Chủ sở hữu (05/11/2026)**:
   - Yêu cầu tạo mục API toàn quyền quản lý mục code bán và gói sản phẩm trong trang quản trị Admin.

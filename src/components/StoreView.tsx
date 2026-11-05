@@ -70,10 +70,12 @@ export const StoreView: React.FC<StoreViewProps> = ({
         localStorage.getItem('wcg_store_global_show_sold') !== 'false' && localStorage.getItem('wcg_admin_show_sold_store') !== 'false'
       );
     };
+    dataService.syncWithCloudflareKV().catch(() => {});
     const unsub = dataService.subscribe(handleUpdate);
     const unsubTpl = templateService.subscribe(handleUpdate);
     const unsubStock = marketingService.subscribeStockChange(handleUpdate);
     const unsubSold = marketingService.subscribeSoldCountChange(handleUpdate);
+    window.addEventListener('wcg_store_products_updated', handleUpdate);
     window.addEventListener('wcg_admin_data_updated', handleUpdate);
     window.addEventListener('wcg_virtual_stock_updated', handleUpdate);
     window.addEventListener('wcg_sold_count_updated', handleUpdate);
@@ -85,6 +87,7 @@ export const StoreView: React.FC<StoreViewProps> = ({
       unsubTpl();
       unsubStock();
       unsubSold();
+      window.removeEventListener('wcg_store_products_updated', handleUpdate);
       window.removeEventListener('wcg_admin_data_updated', handleUpdate);
       window.removeEventListener('wcg_virtual_stock_updated', handleUpdate);
       window.removeEventListener('wcg_sold_count_updated', handleUpdate);
